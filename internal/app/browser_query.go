@@ -11,7 +11,7 @@ import (
 	"os/signal"
 	"time"
 
-	"github.com/webong/ctx/browser"
+	"github.com/webong/ctx/res/browser"
 	"github.com/webong/ctx/internal/config"
 )
 

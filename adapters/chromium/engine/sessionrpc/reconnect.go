@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/webong/ctx/internal/app/browser/management"
+	management "github.com/webong/ctx/res/browser/contract"
 )
 
 // ErrTargetClosed identifies a page lifecycle event, not a transport outage.

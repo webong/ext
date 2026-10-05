@@ -4,7 +4,7 @@ import (
 	"os"
 
 	"github.com/webong/ctx/adapters/credman/store"
-	"github.com/webong/ctx/credential/adapterkit"
+	"github.com/webong/ctx/res/credential/adapterkit"
 )
 
 func main() {

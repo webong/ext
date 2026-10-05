@@ -11,9 +11,9 @@ import (
 	"runtime"
 
 	"github.com/webong/ctx/adapters/chromium/engine/webextension"
-	"github.com/webong/ctx/browser/extension"
-	kit "github.com/webong/ctx/internal/app/browser/adapterkit"
-	browsershare "github.com/webong/ctx/internal/app/browser/share"
+	browsershare "github.com/webong/ctx/res/browser/contract"
+	"github.com/webong/ctx/res/browser/extension"
+	kit "github.com/webong/ctx/res/browser/guest"
 )
 
 // Config identifies the browser's profile registry. Cookie and NSS handling

@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/webong/ctx/browser/extension"
-	"github.com/webong/ctx/browser/userscript"
+	"github.com/webong/ctx/res/browser/extension"
+	"github.com/webong/ctx/res/browser/userscript"
 	"github.com/webong/ctx/internal/app/browser/management"
 )
 

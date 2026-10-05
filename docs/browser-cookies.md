@@ -2,7 +2,7 @@
 
 Cookie storage, profile discovery, credentials, and native scope mapping belong
 to browser adapters. CTX supplies portable validation, source selection, and the
-bridge between files, processes, and profiles. The public `browser.Get` API uses
+bridge between files, processes, and profiles. The public `res/browser` package's `browser.Get` API uses
 the same trusted adapters as `ctx share:browser cookie query`.
 
 ## Accepted input

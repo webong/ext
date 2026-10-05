@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/webong/ctx/browser/extension"
+	"github.com/webong/ctx/res/browser/extension"
 	"github.com/webong/ctx/internal/app/browser/management"
 )
 

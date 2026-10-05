@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/webong/ctx/internal/app/browser/share"
+	share "github.com/webong/ctx/res/browser/contract"
 )
 
 func TestChromiumCookieEncryptedImportAndQuery(t *testing.T) {

@@ -11,7 +11,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	adapterbrowser "github.com/webong/ctx/adapter/browser"
+	browsercontract "github.com/webong/ctx/res/browser/contract"
 )
 
 const MaxCookieInputBytes = 8 << 20
@@ -52,7 +52,7 @@ func ParseCookies(data []byte) ([]Cookie, error) {
 		switch {
 		case object["cookie"] != nil:
 			var version int
-			if err := json.Unmarshal(object["version"], &version); err != nil || version != adapterbrowser.Version {
+			if err := json.Unmarshal(object["version"], &version); err != nil || version != browsercontract.Version {
 				return nil, errors.New("unsupported cookie bundle version")
 			}
 			rows = []json.RawMessage{object["cookie"]}
@@ -180,7 +180,7 @@ func parseJSONCookie(data []byte) (Cookie, error) {
 	if cookie.SameSitePolicy == "no_restriction" {
 		cookie.SameSitePolicy = "none"
 	}
-	if err := adapterbrowser.ValidateCookie(cookie.Cookie); err != nil {
+	if err := browsercontract.ValidateCookie(cookie.Cookie); err != nil {
 		return Cookie{}, err
 	}
 	return cookie, nil
@@ -213,8 +213,8 @@ func parseNetscapeCookies(data []byte) ([]Cookie, error) {
 		if subdomains {
 			domain = "." + domain
 		}
-		cookie := Cookie{Cookie: adapterbrowser.Cookie{Name: fields[5], Value: fields[6], Domain: domain, Path: fields[2], Expiry: expiry, Secure: secure, HTTPOnly: httpOnly}}
-		if err := adapterbrowser.ValidateCookie(cookie.Cookie); err != nil {
+		cookie := Cookie{Cookie: browsercontract.Cookie{Name: fields[5], Value: fields[6], Domain: domain, Path: fields[2], Expiry: expiry, Secure: secure, HTTPOnly: httpOnly}}
+		if err := browsercontract.ValidateCookie(cookie.Cookie); err != nil {
 			return nil, fmt.Errorf("Netscape cookie line %d: %w", line, err)
 		}
 		cookies = append(cookies, cookie)
@@ -227,10 +227,10 @@ func parseNetscapeCookies(data []byte) ([]Cookie, error) {
 
 // BundleCookie creates a validated single-cookie import bundle from a query
 // or authorized export. The caller must choose the cookie and request site.
-func BundleCookie(cookie Cookie, site string) (adapterbrowser.CookieBundle, error) {
-	parsed, err := adapterbrowser.ParseSite(site)
+func BundleCookie(cookie Cookie, site string) (browsercontract.CookieBundle, error) {
+	parsed, err := browsercontract.ParseSite(site)
 	if err != nil {
-		return adapterbrowser.CookieBundle{}, err
+		return browsercontract.CookieBundle{}, err
 	}
 	parsed.RawQuery, parsed.Fragment = "", ""
 	parsed.ForceQuery = false
@@ -238,6 +238,6 @@ func BundleCookie(cookie Cookie, site string) (adapterbrowser.CookieBundle, erro
 	if source == "" {
 		source = "inline"
 	}
-	bundle := adapterbrowser.CookieBundle{Version: adapterbrowser.Version, Source: source, Site: parsed.String(), Cookie: cookie.Cookie}
-	return bundle, adapterbrowser.ValidateCookieBundle(bundle)
+	bundle := browsercontract.CookieBundle{Version: browsercontract.Version, Source: source, Site: parsed.String(), Cookie: cookie.Cookie}
+	return bundle, browsercontract.ValidateCookieBundle(bundle)
 }

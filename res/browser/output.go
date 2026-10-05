@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	adapterbrowser "github.com/webong/ctx/adapter/browser"
+	browsercontract "github.com/webong/ctx/res/browser/contract"
 )
 
 // CookieHeader builds the value of an HTTP Cookie header for one request URL.
@@ -15,16 +15,16 @@ import (
 // different paths, and orders longer paths first. Native isolation cannot be
 // represented in a header and is rejected rather than silently removed.
 func CookieHeader(cookies []Cookie, site string) (string, error) {
-	parsed, err := adapterbrowser.ParseSite(site)
+	parsed, err := browsercontract.ParseSite(site)
 	if err != nil {
 		return "", err
 	}
 	selected := make([]Cookie, 0, len(cookies))
 	for index, cookie := range cookies {
-		if err := adapterbrowser.ValidateCookie(cookie.Cookie); err != nil {
+		if err := browsercontract.ValidateCookie(cookie.Cookie); err != nil {
 			return "", fmt.Errorf("cookie %d: %w", index+1, err)
 		}
-		if !adapterbrowser.CookieMatchesSite(parsed, cookie.Cookie) {
+		if !browsercontract.CookieMatchesSite(parsed, cookie.Cookie) {
 			continue
 		}
 		if err := portableCookieScope(cookie); err != nil {
@@ -56,7 +56,7 @@ func NetscapeCookies(cookies []Cookie) (string, error) {
 	var output strings.Builder
 	output.WriteString("# Netscape HTTP Cookie File\n# Exported by CTX; SameSite and source metadata are not represented.\n")
 	for index, cookie := range cookies {
-		if err := adapterbrowser.ValidateCookie(cookie.Cookie); err != nil {
+		if err := browsercontract.ValidateCookie(cookie.Cookie); err != nil {
 			return "", fmt.Errorf("cookie %d: %w", index+1, err)
 		}
 		if err := portableCookieScope(cookie); err != nil {

@@ -5,7 +5,7 @@ import (
 	"os"
 
 	firefox "github.com/webong/ctx/adapters/firefox/engine"
-	"github.com/webong/ctx/browser/extension"
+	"github.com/webong/ctx/res/browser/extension"
 )
 
 func main() { os.Exit(run(os.Args[1:], os.Stdin, os.Stdout, os.Stderr)) }

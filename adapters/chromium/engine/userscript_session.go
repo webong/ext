@@ -6,8 +6,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/webong/ctx/browser/extension"
-	"github.com/webong/ctx/browser/userscript"
+	"github.com/webong/ctx/res/browser/extension"
+	"github.com/webong/ctx/res/browser/userscript"
 )
 
 func activateUserscript(ctx context.Context, target DevToolsTarget, record userscript.Record, progress func(extension.InstallResult) error) (map[string]any, error) {

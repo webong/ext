@@ -11,7 +11,7 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/webong/ctx/browser/extension"
+	"github.com/webong/ctx/res/browser/extension"
 )
 
 // ManageExtensionPolicy changes an administrator-owned Chrome or Edge policy.

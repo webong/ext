@@ -9,8 +9,8 @@ import (
 	"runtime"
 
 	"github.com/webong/ctx/adapters/chromium/engine/webextension"
-	kit "github.com/webong/ctx/internal/app/browser/adapterkit"
-	browsershare "github.com/webong/ctx/internal/app/browser/share"
+	browsershare "github.com/webong/ctx/res/browser/contract"
+	kit "github.com/webong/ctx/res/browser/guest"
 )
 
 func main() { os.Exit(run(os.Args[1:], os.Stdin, os.Stdout, os.Stderr)) }

@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/webong/ctx/browser/extension"
+	"github.com/webong/ctx/res/browser/extension"
 )
 
 // SignFirefoxXPI uses the caller's web-ext and AMO API credentials. Mozilla

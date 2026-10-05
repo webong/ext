@@ -11,10 +11,10 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/webong/ctx/browser/extension"
-	"github.com/webong/ctx/browser/userscript"
-	kit "github.com/webong/ctx/internal/app/browser/adapterkit"
-	"github.com/webong/ctx/internal/app/browser/management"
+	management "github.com/webong/ctx/res/browser/contract"
+	"github.com/webong/ctx/res/browser/extension"
+	kit "github.com/webong/ctx/res/browser/guest"
+	"github.com/webong/ctx/res/browser/userscript"
 )
 
 // ExtensionManagementConfig contains product conventions supplied by an adapter.

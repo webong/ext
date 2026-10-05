@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	adapterbrowser "github.com/webong/ctx/adapter/browser"
+	browsercontract "github.com/webong/ctx/res/browser/contract"
 	"github.com/webong/ctx/internal/mod"
 )
 
@@ -47,7 +47,7 @@ func installQueryFixture(t *testing.T, store *mod.Store, name string, priority i
 }
 
 func cookieResponse(value string) string {
-	data, _ := json.Marshal(adapterbrowser.CookieQueryResult{Cookies: []adapterbrowser.Cookie{{Name: "session", Value: value, Domain: "example.test", Path: "/"}}, StorePath: "/fixture/Cookies"})
+	data, _ := json.Marshal(browsercontract.CookieQueryResult{Cookies: []browsercontract.Cookie{{Name: "session", Value: value, Domain: "example.test", Path: "/"}}, StorePath: "/fixture/Cookies"})
 	return "printf '%s' '" + string(data) + "'"
 }
 

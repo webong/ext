@@ -18,7 +18,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/webong/ctx/adapter/browser"
+	"github.com/webong/ctx/res/browser/contract"
 	"github.com/webong/ctx/internal/mod"
 	"github.com/webong/ctx/internal/platform"
 )
@@ -72,7 +72,7 @@ type Options struct {
 
 // Cookie includes its portable browser fields and the endpoint that supplied it.
 type Cookie struct {
-	browser.Cookie
+	contract.Cookie
 	Source     string     `json:"source"`
 	SourceInfo SourceInfo `json:"source_info"`
 }
@@ -187,7 +187,7 @@ func Get(ctx context.Context, options Options) (Result, error) {
 	return result, nil
 }
 
-func appendInlineCookies(result *Result, seen map[string]bool, cookies []browser.Cookie, sites []*url.URL, options Options, label string) {
+func appendInlineCookies(result *Result, seen map[string]bool, cookies []contract.Cookie, sites []*url.URL, options Options, label string) {
 	for _, cookie := range cookies {
 		if matchesQuery(cookie, sites, options) {
 			appendCookie(result, seen, Cookie{Cookie: cookie, Source: label,
@@ -221,7 +221,7 @@ func querySites(options Options) ([]*url.URL, error) {
 	}
 	sites := make([]*url.URL, 0, len(raw))
 	for _, value := range raw {
-		site, err := browser.ParseSite(value)
+		site, err := contract.ParseSite(value)
 		if err != nil {
 			return nil, err
 		}
@@ -230,7 +230,7 @@ func querySites(options Options) ([]*url.URL, error) {
 	return sites, nil
 }
 
-func parseInline(input InlineCookies) ([]browser.Cookie, error) {
+func parseInline(input InlineCookies) ([]contract.Cookie, error) {
 	count := 0
 	for _, set := range []bool{input.Data != nil, input.JSON != nil, input.Base64 != "", input.File != ""} {
 		if set {
@@ -279,18 +279,18 @@ func parseInline(input InlineCookies) ([]browser.Cookie, error) {
 	if err != nil {
 		return nil, err
 	}
-	cookies := make([]browser.Cookie, 0, len(parsed))
+	cookies := make([]contract.Cookie, 0, len(parsed))
 	for _, cookie := range parsed {
 		cookies = append(cookies, cookie.Cookie)
 	}
 	return cookies, nil
 }
 
-func matchesQuery(cookie browser.Cookie, sites []*url.URL, options Options) bool {
+func matchesQuery(cookie contract.Cookie, sites []*url.URL, options Options) bool {
 	if cookie.Name == "" || cookie.Domain == "" || !strings.HasPrefix(cookie.Path, "/") {
 		return false
 	}
-	if !options.IncludeExpired && !browser.CookieActive(cookie) {
+	if !options.IncludeExpired && !contract.CookieActive(cookie) {
 		return false
 	}
 	if len(options.Names) > 0 {
@@ -312,8 +312,8 @@ func matchesQuery(cookie browser.Cookie, sites []*url.URL, options Options) bool
 		if site == nil {
 			return options.AllowAllHosts
 		}
-		if browser.CookieDomainMatches(site.Hostname(), cookie.Domain) &&
-			(site.Path == "" || browser.CookiePathMatches(site.EscapedPath(), cookie.Path)) &&
+		if contract.CookieDomainMatches(site.Hostname(), cookie.Domain) &&
+			(site.Path == "" || contract.CookiePathMatches(site.EscapedPath(), cookie.Path)) &&
 			(!cookie.Secure || site.Scheme == "https") {
 			return true
 		}
@@ -464,9 +464,9 @@ func supportsCookieQuery(adapter *mod.Adapter) bool {
 		(adapter.HasBrowserShare("cookie.list") && adapter.HasBrowserShare("cookie.export")))
 }
 
-func sourceCookies(ctx context.Context, source selectedSource, site *url.URL, options Options) ([]browser.Cookie, []string, string, error) {
+func sourceCookies(ctx context.Context, source selectedSource, site *url.URL, options Options) ([]contract.Cookie, []string, string, error) {
 	if source.adapter.HasBrowserShare("cookie.query") {
-		request := browser.CookieRequest{Version: browser.Version, Names: options.Names,
+		request := contract.CookieRequest{Version: contract.Version, Names: options.Names,
 			IncludeExpired: options.IncludeExpired, AllowAllHosts: site == nil}
 		if site != nil {
 			request.Site = site.String()
@@ -487,7 +487,7 @@ func sourceCookies(ctx context.Context, source selectedSource, site *url.URL, op
 		if result.Cookies == nil {
 			return nil, nil, "", errors.New("cookie query response needs a cookies array")
 		}
-		cookies := make([]browser.Cookie, 0, len(result.Cookies))
+		cookies := make([]contract.Cookie, 0, len(result.Cookies))
 		for index, row := range result.Cookies {
 			cookie, err := parseJSONCookie(row)
 			if err != nil {
@@ -501,16 +501,16 @@ func sourceCookies(ctx context.Context, source selectedSource, site *url.URL, op
 	if site == nil || options.IncludeExpired {
 		return nil, nil, "", errors.New("adapter does not support all-host or expired-cookie queries")
 	}
-	request, _ := json.Marshal(browser.CookieRequest{Version: browser.Version, Site: site.String()})
+	request, _ := json.Marshal(contract.CookieRequest{Version: contract.Version, Site: site.String()})
 	output, err := invoke(ctx, source.adapter, "share", source.profile, []string{"cookie", "list"}, request)
 	if err != nil {
 		return nil, nil, "", err
 	}
-	var listed []browser.Cookie
+	var listed []contract.Cookie
 	if err := json.Unmarshal(output, &listed); err != nil {
 		return nil, nil, "", errors.New("invalid cookie list response")
 	}
-	var cookies []browser.Cookie
+	var cookies []contract.Cookie
 	var warnings []string
 	for _, cookie := range listed {
 		if len(options.Names) > 0 {
@@ -525,10 +525,10 @@ func sourceCookies(ctx context.Context, source selectedSource, site *url.URL, op
 				continue
 			}
 		}
-		if !browser.CookieMatchesSite(site, cookie) {
+		if !contract.CookieMatchesSite(site, cookie) {
 			continue
 		}
-		request, _ := json.Marshal(browser.CookieRequest{Version: browser.Version, Site: site.String(), Cookie: cookie})
+		request, _ := json.Marshal(contract.CookieRequest{Version: contract.Version, Site: site.String(), Cookie: cookie})
 		output, err := invoke(ctx, source.adapter, "share", source.profile, []string{"cookie", "export"}, request)
 		if err != nil {
 			if ctx.Err() != nil {
@@ -538,7 +538,7 @@ func sourceCookies(ctx context.Context, source selectedSource, site *url.URL, op
 			continue
 		}
 		exported, err := parseJSONCookie(output)
-		if err != nil || !browser.SameListedCookie(cookie, exported.Cookie) {
+		if err != nil || !contract.SameListedCookie(cookie, exported.Cookie) {
 			warnings = append(warnings, fmt.Sprintf("export %s returned an invalid or different cookie", cookie.Name))
 			continue
 		}

@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/webong/ctx/adapter/browser"
+	browser "github.com/webong/ctx/res/browser/contract"
 )
 
 func TestNativeNormalizeNeedsNoDiskProfileOrCredentials(t *testing.T) {

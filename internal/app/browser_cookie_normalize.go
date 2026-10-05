@@ -11,7 +11,7 @@ import (
 	"os/signal"
 	"time"
 
-	"github.com/webong/ctx/browser"
+	"github.com/webong/ctx/res/browser"
 )
 
 func shareBrowserCookieNormalize(args []string, stdout, stderr io.Writer) int {

@@ -6,11 +6,11 @@ import (
 	"testing"
 	"time"
 
-	adapterbrowser "github.com/webong/ctx/adapter/browser"
+	browsercontract "github.com/webong/ctx/res/browser/contract"
 )
 
 func outputCookie(name, value, domain, path string) Cookie {
-	return Cookie{Cookie: adapterbrowser.Cookie{Name: name, Value: value, Domain: domain, Path: path}}
+	return Cookie{Cookie: browsercontract.Cookie{Name: name, Value: value, Domain: domain, Path: path}}
 }
 
 func TestCookieHeaderRequestScopeAndOrder(t *testing.T) {

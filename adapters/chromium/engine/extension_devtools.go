@@ -15,7 +15,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/webong/ctx/browser/extension"
+	"github.com/webong/ctx/res/browser/extension"
 )
 
 // DevToolsTarget is a browser and user data directory selected by the caller.

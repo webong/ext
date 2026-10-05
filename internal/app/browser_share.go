@@ -11,7 +11,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/webong/ctx/browser"
+	"github.com/webong/ctx/res/browser"
 	browsershare "github.com/webong/ctx/internal/app/browser/share"
 	"github.com/webong/ctx/internal/config"
 	modpkg "github.com/webong/ctx/internal/mod"

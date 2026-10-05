@@ -14,7 +14,7 @@ import (
 	"time"
 	"unicode/utf16"
 
-	"github.com/webong/ctx/browser/extension"
+	"github.com/webong/ctx/res/browser/extension"
 )
 
 var chromiumExtensionID = regexp.MustCompile(`^[a-p]{32}$`)

@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/webong/ctx/browser/extension"
+	"github.com/webong/ctx/res/browser/extension"
 )
 
 // InstallWithNativeUI guides a persistent Load unpacked installation in the

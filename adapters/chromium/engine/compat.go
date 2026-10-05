@@ -5,8 +5,8 @@ import (
 	"os/exec"
 	"runtime"
 
-	kit "github.com/webong/ctx/internal/app/browser/adapterkit"
-	"github.com/webong/ctx/internal/app/browser/share"
+	share "github.com/webong/ctx/res/browser/contract"
+	kit "github.com/webong/ctx/res/browser/guest"
 )
 
 // Config contains browser identity and storage conventions supplied by its adapter.
@@ -68,7 +68,7 @@ func Import(config Config, profile string, cookie Cookie, replace bool) error {
 func Probe(config Config, profile string) map[string]string {
 	result := map[string]string{
 		"cookie.normalize": "ready",
-		"cookie.list": "blocked", "cookie.export": "blocked", "cookie.query": "blocked", "cookie.import": "blocked",
+		"cookie.list":      "blocked", "cookie.export": "blocked", "cookie.query": "blocked", "cookie.import": "blocked",
 		"policy.export": "ready",
 	}
 	if _, err := chromiumCookieDatabase(config, profile); err != nil {

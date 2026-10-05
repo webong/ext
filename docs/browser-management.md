@@ -63,8 +63,9 @@ boundary validated by CTX.
 
 ## Go adapter API
 
-`github.com/webong/ctx/adapter/browser` exposes the request and response types,
-operation catalog, validators, `ManagementBackend`, and `RunManagement`.
+`github.com/webong/ctx/res/browser/contract` exposes the request and response
+types, operation catalog, and validators. The sibling `res/browser/guest`
+package provides `ManagementBackend` and `RunManagement`.
 Implement `ManageBrowser` to connect the protocol to browser-specific logic:
 
 ~~~go
@@ -73,12 +74,12 @@ type managementBackend struct{}
 func (managementBackend) ManageBrowser(
     ctx context.Context,
     profile string,
-    request browser.ManagementRequest,
-) (browser.ManagementResponse, error) {
+    request contract.ManagementRequest,
+) (contract.ManagementResponse, error) {
     // Dispatch an operation to the browser provider and its page/session runtime.
-    result := browser.ManagementResult(map[string]string{"profile": profile})
-    return browser.ManagementResponse{
-        Version: browser.ManagementVersion,
+    result := contract.ManagementResult(map[string]string{"profile": profile})
+    return contract.ManagementResponse{
+        Version: contract.ManagementVersion,
         Kind: request.Kind,
         Action: request.Action,
         Status: "prepared",
@@ -90,12 +91,12 @@ func main() {
     invocation, err := adapter.Parse(os.Args[1:])
     if err != nil { os.Exit(2) }
     if invocation.Operation == "manage" {
-        os.Exit(browser.RunManagement(context.Background(), invocation.Selection, os.Stdin, os.Stdout, os.Stderr, managementBackend{}))
+        os.Exit(guest.RunManagement(context.Background(), invocation.Selection, os.Stdin, os.Stdout, os.Stderr, managementBackend{}))
     }
 }
 ~~~
 
-The same package exposes `PageSessionRuntime` and `PageSession` for explicit
+The contract package exposes `PageSessionRuntime` and `PageSession` for explicit
 target discovery, page navigation, script injection, and userscript replay.
 The provider can call its page/session runtime through this interface while
 keeping CDP, WebDriver BiDi, and replay behavior behind that implementation.
@@ -155,15 +156,15 @@ web install interfaces, request removal, and capability discovery.
 
 Adapters can use CTX's reusable local logic directly:
 
-- `github.com/webong/ctx/browser/extension` inspects extension directories,
+- `github.com/webong/ctx/res/browser/extension` inspects extension directories,
   ZIPs, and XPIs; creates deterministic ZIPs; stages validated files; and
   exposes portable artifact, capability, and target types and helpers. It
   contains no native browser driver or product discovery tables. Browser
   signing, installation, and activation live in the owning adapter packages.
-- `github.com/webong/ctx/browser/userscript` validates metadata and source,
+- `github.com/webong/ctx/res/browser/userscript` validates metadata and source,
   computes review revisions, and stores enabled state in the caller's CTX
   configuration directory. Activation remains session-scoped.
-- `github.com/webong/ctx/browser/bookmarklet` encodes and decodes bookmarklet
+- `github.com/webong/ctx/res/browser/bookmarklet` encodes and decodes bookmarklet
   URLs and creates a reviewable install page. It never executes source or
   edits browser bookmarks.
 

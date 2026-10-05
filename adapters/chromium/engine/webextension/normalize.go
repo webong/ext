@@ -12,7 +12,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	browser "github.com/webong/ctx/adapter/browser"
+	browser "github.com/webong/ctx/res/browser/contract"
 )
 
 type Policy struct {

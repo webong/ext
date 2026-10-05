@@ -3,8 +3,8 @@ package firefox
 import (
 	"io"
 
-	kit "github.com/webong/ctx/internal/app/browser/adapterkit"
-	"github.com/webong/ctx/internal/app/browser/share"
+	share "github.com/webong/ctx/res/browser/contract"
+	kit "github.com/webong/ctx/res/browser/guest"
 )
 
 type browserCookie = share.Cookie

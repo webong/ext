@@ -17,8 +17,8 @@ import (
 	"time"
 
 	"github.com/webong/ctx/adapters/chromium/engine/sessionrpc"
-	"github.com/webong/ctx/browser/userscript"
-	"github.com/webong/ctx/internal/app/browser/management"
+	management "github.com/webong/ctx/res/browser/contract"
+	"github.com/webong/ctx/res/browser/userscript"
 )
 
 // NewPageSessionRuntime creates a CDP attachment backend. An explicit endpoint

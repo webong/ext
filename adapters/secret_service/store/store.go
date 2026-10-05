@@ -12,7 +12,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/webong/ctx/credential/adapterkit"
+	"github.com/webong/ctx/res/credential/adapterkit"
 )
 
 type SecretService struct{}

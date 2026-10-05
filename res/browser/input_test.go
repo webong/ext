@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	adapterbrowser "github.com/webong/ctx/adapter/browser"
+	browsercontract "github.com/webong/ctx/res/browser/contract"
 )
 
 func TestParseCookieExports(t *testing.T) {
@@ -85,7 +85,7 @@ func TestCookieInputRejectsLossyAndMalformedExports(t *testing.T) {
 }
 
 func TestBundleCookieValidatesSiteAndPreservesScope(t *testing.T) {
-	cookie := Cookie{Cookie: adapterbrowser.Cookie{Name: "session", Value: "secret", Domain: ".example.test", Path: "/account", Secure: true, Attributes: map[string]string{"custom.scope": "work"}}, Source: "custom:work"}
+	cookie := Cookie{Cookie: browsercontract.Cookie{Name: "session", Value: "secret", Domain: ".example.test", Path: "/account", Secure: true, Attributes: map[string]string{"custom.scope": "work"}}, Source: "custom:work"}
 	bundle, err := BundleCookie(cookie, "https://example.test/account?token=sensitive#fragment")
 	if err != nil || bundle.Site != "https://example.test/account" || bundle.Source != "custom:work" || bundle.Cookie.Attributes["custom.scope"] != "work" {
 		t.Fatalf("unexpected bundle: %v", err)

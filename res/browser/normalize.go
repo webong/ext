@@ -8,7 +8,7 @@ import (
 	"time"
 	"unicode/utf8"
 
-	adapterbrowser "github.com/webong/ctx/adapter/browser"
+	browsercontract "github.com/webong/ctx/res/browser/contract"
 	"github.com/webong/ctx/internal/mod"
 )
 
@@ -56,7 +56,7 @@ func Normalize(ctx context.Context, options NormalizeOptions) (Result, error) {
 	if err := store.AssertTrusted(adapter); err != nil {
 		return Result{}, err
 	}
-	request, err := json.Marshal(adapterbrowser.CookieRequest{Version: adapterbrowser.Version, NativeExport: options.Export, StoreID: options.StoreID})
+	request, err := json.Marshal(browsercontract.CookieRequest{Version: browsercontract.Version, NativeExport: options.Export, StoreID: options.StoreID})
 	if err != nil || len(request) > MaxCookieInputBytes {
 		return Result{}, errors.New("native cookie normalization request exceeds the input limit")
 	}

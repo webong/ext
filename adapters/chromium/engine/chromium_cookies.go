@@ -23,8 +23,8 @@ import (
 	"time"
 	"unicode/utf8"
 
-	credentialclient "github.com/webong/ctx/credential/client"
-	"github.com/webong/ctx/internal/app/browser/share"
+	share "github.com/webong/ctx/res/browser/contract"
+	credentialclient "github.com/webong/ctx/res/credential/client"
 )
 
 const chromiumEpochOffsetMicros = int64(11644473600000000)

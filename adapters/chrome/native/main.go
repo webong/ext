@@ -7,9 +7,9 @@ import (
 	"runtime"
 
 	chromiumengine "github.com/webong/ctx/adapters/chromium/engine"
-	"github.com/webong/ctx/browser/extension"
-	kit "github.com/webong/ctx/internal/app/browser/adapterkit"
-	"github.com/webong/ctx/internal/app/browser/share"
+	share "github.com/webong/ctx/res/browser/contract"
+	"github.com/webong/ctx/res/browser/extension"
+	kit "github.com/webong/ctx/res/browser/guest"
 )
 
 func chromeConfig() chromiumengine.Config {

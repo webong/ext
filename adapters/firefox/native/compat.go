@@ -1,8 +1,8 @@
 package main
 
 import (
-	kit "github.com/webong/ctx/internal/app/browser/adapterkit"
-	"github.com/webong/ctx/internal/app/browser/share"
+	share "github.com/webong/ctx/res/browser/contract"
+	kit "github.com/webong/ctx/res/browser/guest"
 )
 
 // These helpers keep the native package's existing fixture access while the

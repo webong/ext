@@ -55,12 +55,14 @@ test ! -e "$CTX_HOME/catalog/adapters/podman"
 cmp "$TEST_ROOT/config.before.toml" "$CTX_HOME/config.toml"
 grep -Fxq 'profile = "client-a"' "$TEST_ROOT/project/.ctx"
 
-"$ROOT/install.sh" --adapters docker >/dev/null
+"$ROOT/install.sh" --adapters docker,git >/dev/null
 for engine in docker podman nerdctl; do
   test -d "$CTX_HOME/adapters/$engine"
   CTX_HOME="$CTX_HOME" "$CTX_BIN_DIR/ctx" adapter ls manager | grep -Eq "^${engine}[[:space:]]+trusted"
 done
 test -d "$CTX_HOME/catalog/adapters/podman"
+test -x "$CTX_HOME/adapters/git/ctx-git"
+test ! -e "$CTX_BIN_DIR/git"
 CTX_HOME="$CTX_HOME" "$CTX_BIN_DIR/ctx" adapter available | grep -Eq '^podman[[:space:]]+manager[[:space:]]+installed'
 "$ROOT/install.sh" --minimal >/dev/null
 test -d "$CTX_HOME/adapters/docker"
@@ -91,9 +93,10 @@ case "$arch" in x86_64|amd64) arch=amd64;; arm64|aarch64) arch=arm64;; *) exit 1
 asset="ctx-$os-$arch.tar.gz"
 tar -C "$bundle_stage" -czf "$release_dir/$asset" ctx
 mkdir -p "$bundle_stage/ctx/adapters"
-for adapter in docker podman nerdctl apple rancher_desktop orbstack docker_desktop firefox zen floorp waterfox librewolf chrome chromium edge brave safari vivaldi opera whale arc comet dia atlas helium kube aws gcloud postgres mysql php claude_code codex; do
+for adapter in docker podman nerdctl apple rancher_desktop orbstack docker_desktop firefox zen floorp waterfox librewolf chrome chromium edge brave safari vivaldi opera whale arc comet dia atlas helium kube aws gcloud postgres mysql php claude_code codex git; do
   cp -R "$ROOT/adapters/$adapter" "$bundle_stage/ctx/adapters/$adapter"
 done
+go build -o "$bundle_stage/ctx/adapters/git/ctx-git" "$ROOT/adapters/git/native"
 case "$os" in
   darwin) cp -R "$ROOT/adapters/keychain" "$bundle_stage/ctx/adapters/keychain" ;;
   linux) cp -R "$ROOT/adapters/secret_service" "$bundle_stage/ctx/adapters/secret_service" ;;

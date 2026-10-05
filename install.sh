@@ -4,7 +4,7 @@ set -eu
 DST_BIN=${CTX_BIN_DIR:-$HOME/.local/bin}
 CONFIG_DIR=${CTX_HOME:-$HOME/.config/ctx}
 VERSION=${CTX_VERSION:-latest}
-CATALOG_ADAPTERS='docker podman nerdctl apple rancher_desktop orbstack docker_desktop firefox zen floorp waterfox librewolf chrome chromium edge brave safari vivaldi opera whale arc comet dia atlas helium kube aws gcloud postgres mysql php claude_code codex'
+CATALOG_ADAPTERS='docker podman nerdctl apple rancher_desktop orbstack docker_desktop firefox zen floorp waterfox librewolf chrome chromium edge brave safari vivaldi opera whale arc comet dia atlas helium kube aws gcloud postgres mysql php claude_code codex git'
 case "$(uname -s)" in
   Darwin) CREDENTIAL_ADAPTER=keychain ;;
   Linux) CREDENTIAL_ADAPTER=secret_service ;;
@@ -75,6 +75,8 @@ if [ "$SETUP_MODE" != minimal ]; then
   if [ -n "$ROOT" ]; then
     mkdir -p "$bundle/adapters"
     for adapter in $CATALOG_ADAPTERS; do cp -R "$ROOT/adapters/$adapter" "$bundle/adapters/$adapter"; done
+    (cd "$ROOT" && go build -o "$bundle/adapters/git/ctx-git" ./adapters/git/native)
+    rm -rf "$bundle/adapters/git/native"
     for adapter in firefox zen floorp waterfox librewolf chrome chromium edge brave safari vivaldi opera whale arc comet dia atlas helium; do
       (cd "$ROOT" && go build -o "$bundle/adapters/$adapter/ctx-$adapter-share" "./adapters/$adapter/native")
       rm -rf "$bundle/adapters/$adapter/native"

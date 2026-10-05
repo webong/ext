@@ -27,7 +27,7 @@ non-secret profile values; credentials remain with the native tools.
 | Project contexts | Select contexts per project, group them into profiles, inspect resolution, and apply profile environment values to a command or child shell. |
 | Container engines | Route Docker, Podman, nerdctl/containerd, and Apple Container. Use named engine connections, registry-backed build caches, and point-in-time image or volume transfers. |
 | Desktop managers | Inspect and explicitly start or stop Rancher Desktop, OrbStack, and Docker Desktop through separate app adapters. Rancher diagnostics distinguish VM, k3s, and Docker-plugin issues. |
-| Computer tools | Route Kubernetes, AWS, gcloud, PostgreSQL, MySQL, and PHP. Claude Code and Codex adapters add CLI shims and project hooks. |
+| Computer tools | Route Kubernetes, AWS, gcloud, PostgreSQL, MySQL, and PHP. The optional Git adapter manages project hooks; Claude Code and Codex adapters add CLI shims and project hooks. |
 | Browsers | Open a selected profile; query and share supported cookies and other browser resources; prepare extensions and userscripts; and attach to supported live pages. Capabilities vary by browser and OS. |
 | Extensibility | Install trusted adapters on demand. The core provides selection, validation, trust, dispatch, and a graph of discovered contexts and capabilities. |
 
@@ -233,6 +233,10 @@ ctx graph resolve filesystem --path ./export.json --writable --min-free 1048576
 ctx graph resolve webview --engine webkit --api WKWebView
 ctx graph resolve browser --share cookie.list
 ```
+
+The optional Git adapter adds `ctx run git hooks` for inspecting, installing,
+and removing project-local hooks without changing Git's hook path or installing
+a `git` shim. See [Git hooks](docs/git-hooks.md), including Husky coexistence.
 
 The graph discovers host shells, mounted filesystems, and shared webview
 runtimes directly, even with no adapters installed. `graph shells` reports

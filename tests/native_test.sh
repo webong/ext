@@ -35,9 +35,11 @@ GOCACHE=${GOCACHE:-/tmp/ctx-go-build-cache} GOMODCACHE=${GOMODCACHE:-/tmp/ctx-go
   go build -o "$CTX_BIN_DIR/ctx" "$ROOT/cmd/ctx"
 
 mkdir -p "$CTX_HOME/catalog/adapters"
-for adapter in docker podman nerdctl apple rancher_desktop orbstack docker_desktop firefox chrome kube aws gcloud postgres mysql; do
+for adapter in docker podman nerdctl apple rancher_desktop orbstack docker_desktop firefox chrome kube aws gcloud postgres mysql git; do
   cp -R "$ROOT/adapters/$adapter" "$CTX_HOME/catalog/adapters/$adapter"
 done
+GOCACHE=${GOCACHE:-/tmp/ctx-go-build-cache} GOMODCACHE=${GOMODCACHE:-/tmp/ctx-go-mod-cache} \
+  go build -o "$CTX_HOME/catalog/adapters/git/ctx-git" "$ROOT/adapters/git/native"
 case "$(uname -s)" in
   Darwin) credential_adapter=keychain; credential_executable=ctx-keychain ;;
   Linux) credential_adapter=secret_service; credential_executable=ctx-secret-service ;;
@@ -49,8 +51,8 @@ if [ -n "$credential_adapter" ]; then
     go build -o "$CTX_HOME/catalog/adapters/$credential_adapter/$credential_executable" "$ROOT/adapters/$credential_adapter/native"
 fi
 ctx adapter available | grep -Eq '^docker[[:space:]]+manager[[:space:]]+available'
-ctx setup --adapters docker,podman,nerdctl,apple,rancher_desktop,orbstack,docker_desktop,firefox,chrome,kube,aws,gcloud,postgres,mysql >/dev/null
-for adapter in docker podman nerdctl apple rancher_desktop orbstack docker_desktop firefox chrome kube aws gcloud postgres mysql; do
+ctx setup --adapters docker,podman,nerdctl,apple,rancher_desktop,orbstack,docker_desktop,firefox,chrome,kube,aws,gcloud,postgres,mysql,git >/dev/null
+for adapter in docker podman nerdctl apple rancher_desktop orbstack docker_desktop firefox chrome kube aws gcloud postgres mysql git; do
   ctx adapter ls | grep -Eq "^${adapter}[[:space:]]+trusted"
 done
 if [ -n "$credential_adapter" ]; then
@@ -79,6 +81,11 @@ printf '%s\n' '[Profile0]' 'Name=client-a' > "$HOME/Library/Application Support/
 
 git init -q "$TEST_ROOT/project"
 cd "$TEST_ROOT/project"
+ctx run git hooks install pre-commit -- true >/dev/null
+ctx run git hooks status pre-commit | grep -Fq 'pre-commit: ctx-managed'
+test -x .git/hooks/pre-commit
+ctx run git hooks remove pre-commit >/dev/null
+test ! -e .git/hooks/pre-commit
 ctx set docker alpha >/dev/null
 ctx set podman red >/dev/null
 ctx set nerdctl k8s.io >/dev/null

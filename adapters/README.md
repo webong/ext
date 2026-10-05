@@ -77,6 +77,11 @@ browser-specific identities without importing store implementation packages.
 observes installed Homebrew PHP formulae as graph contexts, and runs the selected
 version for the current project without relinking the host's global `php` command.
 
+`git` is an optional computer-runtime adapter for Git commands and repository
+hooks. It adds no Git shim. Its hook subcommand writes marked blocks to shell
+hooks without changing `core.hooksPath`; an explicit directory can target an
+editable hook source managed by another tool. See [Git hooks](../docs/git-hooks.md).
+
 Shell-launched AI CLIs use the `computer` runtime and declare
 `computer_commands` and optional `computer_capabilities` in their manifest.
 Computer integrations can install command shims and provide native hook and

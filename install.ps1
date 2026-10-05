@@ -12,7 +12,7 @@ param(
 $ErrorActionPreference = 'Stop'
 $repositoryRoot = $PSScriptRoot
 $localSource = Test-Path (Join-Path $repositoryRoot 'cmd\ctx\main.go')
-$catalogAdapters = @('docker', 'podman', 'nerdctl', 'apple', 'rancher_desktop', 'orbstack', 'docker_desktop', 'firefox', 'zen', 'floorp', 'waterfox', 'librewolf', 'chrome', 'chromium', 'edge', 'brave', 'safari', 'vivaldi', 'opera', 'whale', 'arc', 'comet', 'dia', 'atlas', 'helium', 'kube', 'aws', 'gcloud', 'postgres', 'mysql', 'php', 'claude_code', 'codex', 'credman')
+$catalogAdapters = @('docker', 'podman', 'nerdctl', 'apple', 'rancher_desktop', 'orbstack', 'docker_desktop', 'firefox', 'zen', 'floorp', 'waterfox', 'librewolf', 'chrome', 'chromium', 'edge', 'brave', 'safari', 'vivaldi', 'opera', 'whale', 'arc', 'comet', 'dia', 'atlas', 'helium', 'kube', 'aws', 'gcloud', 'postgres', 'mysql', 'php', 'claude_code', 'codex', 'git', 'credman')
 $needCatalog = $AllAdapters.IsPresent -or $Interactive.IsPresent -or [bool]$Adapters
 $bundleRoot = $null
 $downloadRoot = $null
@@ -96,6 +96,16 @@ if ($needCatalog) {
         }
         $adapterSource = if ($bundleRoot) { Join-Path $bundleRoot "adapters\$adapter" } else { Join-Path $repositoryRoot "adapters\$adapter" }
         Copy-Item -Recurse -Path $adapterSource -Destination $target
+        if ($localSource -and $adapter -eq 'git') {
+            $gitBinary = [System.IO.Path]::GetFullPath((Join-Path $target 'ctx-git.exe'))
+            Push-Location $repositoryRoot
+            try {
+                & go build -o $gitBinary './adapters/git/native'
+                if ($LASTEXITCODE -ne 0) { throw 'Failed to build Git adapter.' }
+            }
+            finally { Pop-Location }
+            Remove-Item -Recurse -Force (Join-Path $target 'native')
+        }
         if ($localSource -and $adapter -in @('firefox', 'zen', 'floorp', 'waterfox', 'librewolf', 'chrome', 'chromium', 'edge', 'brave', 'safari', 'vivaldi', 'opera', 'whale', 'arc', 'comet', 'dia', 'atlas', 'helium')) {
             $shareBinary = [System.IO.Path]::GetFullPath((Join-Path $target "ctx-$adapter-share.exe"))
             Push-Location $repositoryRoot

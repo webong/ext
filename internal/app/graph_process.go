@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/webong/ctx/graph/system"
+	"github.com/webong/ctx/pkg/graph/system"
 )
 
 func graphProcessCommand(ctx context.Context, system *systemgraph.Graph, command string, args []string, stdout, stderr io.Writer) int {

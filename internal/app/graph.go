@@ -9,9 +9,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/webong/ctx/graph"
-	"github.com/webong/ctx/graph/system"
 	"github.com/webong/ctx/internal/config"
+	"github.com/webong/ctx/pkg/graph"
+	"github.com/webong/ctx/pkg/graph/system"
 )
 
 func graphCommand(args []string, stdout, stderr io.Writer) int {

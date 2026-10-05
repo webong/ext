@@ -6,9 +6,10 @@ import (
 	"os"
 	"runtime"
 
+	"github.com/webong/ctx/adapters/browserdiscovery"
+	"github.com/webong/ctx/adapters/browserpolicy"
 	chromiumengine "github.com/webong/ctx/adapters/chromium/engine"
 	share "github.com/webong/ctx/res/browser/contract"
-	"github.com/webong/ctx/res/browser/extension"
 	kit "github.com/webong/ctx/res/browser/guest"
 )
 
@@ -18,7 +19,7 @@ func chromiumConfig() chromiumengine.Config {
 		KeychainService: "Chromium Safe Storage", KeychainAccount: "Chromium", SecretApplication: "chromium",
 		WalletFolder: "Chromium Keys", WalletKey: "Chromium Safe Storage",
 		Extensions: chromiumengine.ExtensionManagementConfig{
-			Executables: extension.ExecutableLocations{
+			Executables: browserdiscovery.ExecutableLocations{
 				Darwin:  []string{"Chromium.app/Contents/MacOS/Chromium"},
 				Linux:   []string{"chromium", "chromium-browser"},
 				Windows: []string{"Chromium/Application/chrome.exe"},
@@ -49,25 +50,25 @@ func run(args []string, input io.Reader, stdout, stderr io.Writer) int {
 		return kit.RunCookie(profile, operation, input, stdout, stderr, chromiumengine.NewCookieBackend(chromium))
 	case "policy":
 		if operation == "export" {
-			return kit.RunPolicyExport(input, stdout, stderr, chromiumPolicies())
+			return browserpolicy.RunPolicyExport(input, stdout, stderr, chromiumPolicies())
 		}
 	}
 	fmt.Fprintln(stderr, "ctx: unsupported Chromium share resource or operation")
 	return 2
 }
 
-func chromiumPolicies() kit.PolicySources {
+func chromiumPolicies() browserpolicy.PolicySources {
 	switch runtime.GOOS {
 	case "linux":
-		return kit.PolicySources{Roots: []kit.PolicyRoot{
+		return browserpolicy.PolicySources{Roots: []browserpolicy.PolicyRoot{
 			{Path: "/etc/chromium/policies/managed", Level: "managed"}, {Path: "/etc/chromium/policies/recommended", Level: "recommended"},
 			{Path: "/etc/chromium-browser/policies/managed", Level: "managed"}, {Path: "/etc/chromium-browser/policies/recommended", Level: "recommended"},
 		}}
 	case "darwin":
-		return kit.PolicySources{Files: kit.ManagedPreferenceFiles("org.chromium.Chromium")}
+		return browserpolicy.PolicySources{Files: chromiumengine.ManagedPreferenceFiles("org.chromium.Chromium")}
 	case "windows":
-		return kit.PolicySources{RegistryKey: `Software\Policies\Chromium`}
+		return browserpolicy.PolicySources{RegistryKey: `Software\Policies\Chromium`}
 	default:
-		return kit.PolicySources{}
+		return browserpolicy.PolicySources{}
 	}
 }

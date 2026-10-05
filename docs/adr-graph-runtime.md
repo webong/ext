@@ -4,8 +4,8 @@ Status: accepted for the CTX library.
 
 ## Ownership boundary
 
-CTX supplies reusable mechanics through the public `github.com/webong/ctx/graph`
-and `github.com/webong/ctx/supervisor` packages. CTX graph records are generic
+CTX supplies reusable mechanics through the public `github.com/webong/ctx/pkg/graph`
+and `github.com/webong/ctx/pkg/supervisor` packages. CTX graph records are generic
 vertices and directed edges. A consumer registers a namespace and schema version,
 supplies an optional validation callback, and owns its kind and relationship
 vocabulary. Namespace-qualified names use the form `<namespace>/<name>`.
@@ -80,7 +80,7 @@ use a backend with indexed persistence behind the same interface.
 
 ## CTX system context
 
-The public `github.com/webong/ctx/graph/system` package owns the `ctx.system`
+The public `github.com/webong/ctx/pkg/graph/system` package owns the `ctx.system`
 namespace. Short-lived CTX
 commands record the invoking shell session, current directory, detected project,
 active profile, and selected adapter context IDs. Optional Bash, Zsh, and
@@ -93,13 +93,13 @@ independently of adapters.
 `ctx graph shells`, `ctx graph filesystems`, and `ctx graph webviews` refresh and
 expose those host inventories, including executable paths, mounted filesystem
 space, and evidence of shared web rendering runtimes. Native
-host discovery stays in `graph/system`; product-specific provider discovery
+host discovery stays in `pkg/graph/system`; product-specific provider discovery
 stays in adapters. `ctx graph scan` records all host inventories and installed
 adapters, their declared capabilities and surfaces, and versioned observations
 from trusted adapters.
 `ctx graph processes` enumerates caller-visible processes; `ctx graph process <pid>`
 collects targeted file, mapping, socket, IPC, and usage evidence. The native
-collectors live in `graph/system`, and operate without adapters. Process IDs
+collectors live in `pkg/graph/system`, and operate without adapters. Process IDs
 include boot and start identity; coverage and observation timestamps distinguish
 missing resources from denied, partial, or unsupported inspection. Product
 protocols and capabilities remain adapter-owned. See [host discovery](host-discovery.md)

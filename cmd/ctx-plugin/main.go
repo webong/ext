@@ -10,11 +10,11 @@ import (
 	"os"
 	"runtime"
 
-	"github.com/webong/ctx/plugin"
-	"github.com/webong/ctx/plugin/hashicorp"
-	"github.com/webong/ctx/plugin/inprocess"
-	"github.com/webong/ctx/plugin/jsonline"
-	"github.com/webong/ctx/plugin/packagekit"
+	"github.com/webong/ctx/pkg/plugin"
+	"github.com/webong/ctx/pkg/plugin/hashicorp"
+	"github.com/webong/ctx/pkg/plugin/inprocess"
+	"github.com/webong/ctx/pkg/plugin/jsonline"
+	"github.com/webong/ctx/pkg/plugin/packagekit"
 )
 
 func main() {

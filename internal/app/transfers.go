@@ -8,9 +8,9 @@ import (
 	"strings"
 	"time"
 
-	systemgraph "github.com/webong/ctx/graph/system"
 	"github.com/webong/ctx/internal/config"
 	modpkg "github.com/webong/ctx/internal/mod"
+	systemgraph "github.com/webong/ctx/pkg/graph/system"
 )
 
 type endpoint struct {

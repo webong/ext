@@ -1,8 +1,8 @@
 package mod
 
 import (
-	"github.com/webong/ctx/adapter"
-	"github.com/webong/ctx/plugin"
+	"github.com/webong/ctx/pkg/adapter"
+	"github.com/webong/ctx/pkg/plugin"
 )
 
 // PluginDescriptor gives CTX adapters the same immutable selection contract

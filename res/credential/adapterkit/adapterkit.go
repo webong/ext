@@ -9,8 +9,6 @@ import (
 	"io"
 	"strings"
 	"time"
-
-	"github.com/webong/ctx/adapter"
 )
 
 const maxValueBytes = 1024 * 1024
@@ -22,14 +20,17 @@ type Store interface {
 	Put(context.Context, string, []byte, bool) error
 }
 
+// Invocation is the minimal, host-independent operation delivered to a
+// credential store. The adapter executable parses its own process envelope.
+type Invocation struct {
+	Operation string
+	Selection string
+	Arguments []string
+}
+
 // Run executes one CTX adapter protocol request. Values flow only through
 // stdin/stdout, never through command arguments or environment variables.
-func Run(args []string, input io.Reader, output, diagnostics io.Writer, store Store) int {
-	request, err := adapter.Parse(args)
-	if err != nil {
-		fmt.Fprintf(diagnostics, "ctx: %v\n", err)
-		return 2
-	}
+func Run(request Invocation, input io.Reader, output, diagnostics io.Writer, store Store) int {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 	switch request.Operation {

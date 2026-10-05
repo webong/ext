@@ -20,13 +20,98 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: go test -race ./plugin/... ./cmd/ctx-plugin
-      - run: node --test plugin/typescript/test.mjs
+      - name: Test plugin library modules
+        run: |
+          for module in pkg/plugin pkg/plugin/hashicorp pkg/plugin/wasm pkg/go; do
+            (cd "$module" && go test -race ./...) || exit 1
+          done
+      - run: go test -race ./cmd/ctx-plugin
+      - run: node --test pkg/typescript/test.mjs
       - name: Check TypeScript declarations
-        run: npx --yes --package typescript@5.8.3 tsc --noEmit --strict --module NodeNext --moduleResolution NodeNext --target ES2022 plugin/typescript/typecheck.mts
+        run: npx --yes --package typescript@5.8.3 tsc --noEmit --strict --module NodeNext --moduleResolution NodeNext --target ES2022 pkg/typescript/typecheck.mts
       - run: go run ./examples/plugin-sdk --backend jsonline
       - run: go run ./examples/plugin-sdk --backend inprocess
       - run: go run ./examples/plugin-typescript
       - run: go build -o /tmp/ctx-plugin-example ./examples/plugin-typescript
       - run: node examples/plugin-typescript/host.mjs /tmp/ctx-plugin-example
       - run: go run ./cmd/ctx-plugin inspect --root examples/plugin-package --entry main examples/plugin-package/plugin.json
+
+  foreign-sdks:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-14]
+        linkage: [static, shared]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.x'
+          cache: true
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.98.1'
+          targets: wasm32-wasip1
+          components: rustfmt, clippy
+      - name: Install Zig 0.17.0 with verified checksum
+        shell: bash
+        run: |
+          if [[ "$(uname -s)-$(uname -m)" == Darwin-arm64 ]]; then
+            archive=zig-aarch64-macos-0.17.0
+            digest=b607e9b9234790a008116ae5bdb71c6243b84b9fb42a53a9e70fde41c06c536a
+          elif [[ "$(uname -s)" == Darwin ]]; then
+            archive=zig-x86_64-macos-0.17.0
+            digest=4f9a1c5269aa17ebda5e6d3c2b89d6cbf36f7d2b22a0306e9ab98f25f95529c6
+          else
+            archive=zig-x86_64-linux-0.17.0
+            digest=1cbe9df9f27e6b78d14ccbca43b6703a404ef79ef1c463de901d7f088d4e2026
+          fi
+          curl -fsSL "https://ziglang.org/download/0.17.0/$archive.tar.xz" -o "$RUNNER_TEMP/zig.tar.xz"
+          actual=$(shasum -a 256 "$RUNNER_TEMP/zig.tar.xz" | cut -d ' ' -f 1)
+          test "$actual" = "$digest"
+          tar -xf "$RUNNER_TEMP/zig.tar.xz" -C "$RUNNER_TEMP"
+          echo "ZIG_BIN=$RUNNER_TEMP/$archive/zig" >> "$GITHUB_ENV"
+      - name: Rust and Zig host/guest conformance
+        run: scripts/plugin-crosslang.sh
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Shared C engine conformance
+        env:
+          CTX_CENGINE_BUILD_DIR: ${{ runner.temp }}/ctx-cengine-proof
+          CTX_CENGINE_LINKAGE: ${{ matrix.linkage }}
+          CC: clang
+        run: scripts/plugin-cengine.sh
+      - name: Portable guest core in WASI
+        env:
+          CTX_WASI_CORE_BUILD_DIR: ${{ runner.temp }}/ctx-wasi-core
+        run: scripts/plugin-wasi-core.sh
+      - name: Foreign runtime conformance through the C session
+        env:
+          CTX_CROSSLANG_ENGINE: c
+          CTX_CENGINE_LINKAGE: ${{ matrix.linkage }}
+          CTX_CENGINE_BUILD_DIR: ${{ runner.temp }}/ctx-cengine-proof
+        run: scripts/plugin-crosslang.sh
+      - name: Preserve prototype measurements
+        uses: actions/upload-artifact@v4
+        with:
+          name: cengine-measurements-${{ matrix.os }}-${{ matrix.linkage }}
+          path: |
+            ${{ runner.temp }}/ctx-cengine-proof/benchmarks.jsonl
+            ${{ runner.temp }}/ctx-cengine-proof/benchmark-report.md
+
+      - name: Cross-runtime interoperability
+        env:
+          CTX_INTEROP_BUILD_DIR: ${{ runner.temp }}/ctx-interop-proof
+          CTX_CENGINE_BUILD_DIR: ${{ runner.temp }}/ctx-cengine-proof
+          CTX_INTEROP_REUSE_CENGINE: '1'
+        run: scripts/plugin-interop.sh
+      - name: Bidirectional bridge with C-owned sessions
+        env:
+          CTX_INTEROP_ENGINE: c
+          CTX_CENGINE_LINKAGE: ${{ matrix.linkage }}
+          CTX_INTEROP_BUILD_DIR: ${{ runner.temp }}/ctx-interop-c
+          CTX_CENGINE_BUILD_DIR: ${{ runner.temp }}/ctx-cengine-proof
+          CTX_INTEROP_REUSE_CENGINE: '1'
+        run: scripts/plugin-interop.sh

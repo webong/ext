@@ -6,8 +6,10 @@ import (
 	"io"
 	"net/url"
 	"os"
+	"path/filepath"
 	"runtime"
 
+	"github.com/webong/ctx/adapters/browserpolicy"
 	"github.com/webong/ctx/adapters/chromium/engine/webextension"
 	browsershare "github.com/webong/ctx/res/browser/contract"
 	kit "github.com/webong/ctx/res/browser/guest"
@@ -43,7 +45,10 @@ func run(args []string, input io.Reader, stdout, stderr io.Writer) int {
 		}
 	case "policy":
 		if args[2] == "export" {
-			return kit.RunPolicyExport(input, stdout, stderr, kit.PolicySources{Files: kit.ManagedPreferenceFiles("com.apple.Safari")})
+			return browserpolicy.RunPolicyExport(input, stdout, stderr, browserpolicy.PolicySources{Files: []browserpolicy.PolicyFile{
+				{Path: filepath.Join("/Library/Managed Preferences", "com.apple.Safari.plist"), Level: "managed", Format: "plist"},
+				{Path: filepath.Join("/Library/Managed Preferences", os.Getenv("USER"), "com.apple.Safari.plist"), Level: "managed", Format: "plist"},
+			}})
 		}
 	}
 	fmt.Fprintln(stderr, "ctx: unsupported Safari share resource or operation")

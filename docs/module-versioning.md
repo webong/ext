@@ -1,0 +1,85 @@
+# Module versioning
+
+Every module in this repository is published independently and versions on its
+own `MAJOR.MINOR.PATCH`. Go's semantic import versioning means a module path is
+only retrievable at a `vN` prefix matching its major version, so the path
+`github.com/webong/ctx/pkg/plugin` is served from tags named
+`pkg/plugin/v1.2.3`.
+
+## Shared major version
+
+All modules share one `MAJOR` version. The repository is a single product with a
+single compatibility promise, and adapters, Xallet, Cymonkey, and other
+consumers depend on several modules at once.
+
+Bumping the major version in any module bumps it everywhere. `v1` to `v2`
+means every module path changes, every `require` line changes, and every
+consumer must update together. That is deliberate: a breaking change to the
+shared contract cannot leave `pkg/plugin` at `v2` while `pkg/adapter` stays at
+`v1`.
+
+A major bump is a repository-wide, coordinated release.
+
+## Independent minor and patch versions
+
+`MINOR` and `PATCH` move independently per module. Only the modules that
+actually changed get a new version, and a consumer resolves each module at
+whatever version it needs.
+
+Bump `PATCH` for a fix that keeps the existing API. Bump `MINOR` when a module
+grows in a backward-compatible way, such as a new backend or a new exported
+function. Bump `MAJOR` for a breaking API change, which bumps every module.
+
+## Tagging
+
+Tag each module separately at its own version. Never tag a module you did not
+change.
+
+```bash
+# fix in one module only
+git tag pkg/graph/v1.0.1
+
+# additive change in one module
+git tag pkg/plugin/v1.1.0
+
+# coordinated breaking change across every module
+git tag res/browser/v2.0.0 pkg/adapter/v2.0.0 pkg/go/v2.0.0 \
+        pkg/graph/v2.0.0 pkg/plugin/v2.0.0 pkg/plugin/hashicorp/v2.0.0 \
+        pkg/plugin/wasm/v2.0.0 pkg/supervisor/v2.0.0 v2.0.0
+```
+
+For a major bump, update the `/vN` path suffix in each affected `go.mod`, in
+every `require` across the repository, and in documentation, then tag. Bumping
+one path and not the others breaks resolution for every consumer.
+
+## Local development
+
+The root `go.work` lists every module, so in-repository work resolves local
+edits without tagging anything. Library modules carry no `replace` directives.
+
+That is deliberate. Go ignores `replace` in any module other than the main one,
+so a `replace` in a published library does nothing for consumers: they resolve
+the dependency from the proxy at the required version. Keeping them out avoids
+the false impression that a published module can redirect consumers to a local
+path, and it means each `go.mod` describes exactly what a consumer will get.
+
+The root module keeps `replace` directives because it is the module developers
+build and run. Those are what let `go build ./...` use local module code.
+
+Because of this, `GOWORK=off go build ./...` inside a library module fails until
+that dependency is published at the required version. That failure is the
+correct signal: it means the module is not yet independently consumable.
+
+## Verifying a release
+
+Before tagging, confirm each module builds and tests on its own with the
+workspace active, and that the root module resolves the intended versions:
+
+```bash
+go build ./...
+for module in pkg/adapter pkg/go pkg/graph pkg/plugin \
+              pkg/plugin/hashicorp pkg/plugin/wasm pkg/supervisor \
+              res/browser res/credential; do
+  (cd "$module" && go build ./... && go test ./...) || exit 1
+done
+```

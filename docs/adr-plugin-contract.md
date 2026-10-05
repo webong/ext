@@ -6,9 +6,9 @@ wire protocols do not become compatible merely by importing this package.
 
 ## Ownership
 
-CTX supplies `github.com/webong/ctx/plugin`, alongside `graph` and `supervisor`.
-Its implementations include `plugin/inprocess`, `plugin/jsonline`,
-`plugin/hashicorp`, `plugin/nativego`, `plugin/wasm`, and `plugin/cshared`, with
+CTX supplies `github.com/webong/ctx/pkg/plugin`, alongside `graph` and `supervisor`.
+Its implementations include `pkg/plugin/inprocess`, `pkg/plugin/jsonline`,
+`pkg/plugin/hashicorp`, `pkg/plugin/nativego`, `pkg/plugin/wasm`, and `pkg/plugin/cshared`, with
 additional backends able to implement the same public interface. HashiCorp
 go-plugin is a dependency of the plugin library, not a CTX product adapter.
 CTX adapters and ecosystem applications are consumers of these libraries.
@@ -161,7 +161,7 @@ methods and use separately declared channels for streams.
 
 ## HashiCorp backend
 
-`github.com/webong/ctx/plugin/hashicorp` implements HashiCorp go-plugin's
+`github.com/webong/ctx/pkg/plugin/hashicorp` implements HashiCorp go-plugin's
 `Plugin` and `GRPCPlugin` interfaces, supporting both net/rpc and gRPC for hosts
 and guests. It is a library implementation alongside JSON-line transport.
 The shared plugin core has no HashiCorp imports; importing the HashiCorp backend
@@ -184,7 +184,7 @@ translation to `plugin.Backend`. Their existing method signatures and payloads
 must be mapped explicitly; a runtime framework cannot infer domain semantics.
 The translation must provide a verified descriptor and honor cancellation.
 
-The gRPC service schema is `plugin/hashicorp/runtime.proto`. It uses standard
+The gRPC service schema is `pkg/plugin/hashicorp/runtime.proto`. It uses standard
 protobuf `Empty` and `BytesValue` messages carrying CTX JSON envelopes, so other
 languages can generate service stubs without a custom codec. Use the supplied
 `hashicorp.GRPCServer` factory for transport message limits. net/rpc checks the
@@ -196,7 +196,7 @@ retries a call automatically.
 Native broker callbacks, streaming interfaces, and reattachment remain explicit
 upstream features that consumer bindings can use. This backend's standard CTX
 interface currently exposes unary handshake/invocation. See
-[`plugin/hashicorp/README.md`](../plugin/hashicorp/README.md) for host and guest
+[`pkg/plugin/hashicorp/README.md`](../pkg/plugin/hashicorp/README.md) for host and guest
 usage and process examples.
 
 ## CTX adapter adoption
@@ -252,8 +252,8 @@ versioned domain contracts may coexist in a descriptor.
 
 Run the end-to-end example with `go run ./examples/plugin`. Contract, admission,
 drain, integrity, malformed-frame, cancellation, concurrency, and CTX compatibility
-tests live under `plugin/`, `plugin/jsonline/`, and `internal/mod/plugin_test.go`.
-HashiCorp tests under `plugin/hashicorp/` launch real subprocesses over both
+tests live under `pkg/plugin/`, `pkg/plugin/jsonline/`, and `internal/mod/plugin_test.go`.
+HashiCorp tests under `pkg/plugin/hashicorp/` launch real subprocesses over both
 RPC protocols with checksum verification and automatic TLS. They cover host
 admission, concurrent requests, structured errors, mismatch, cancellation, and
 cleanup. These tests require permission to bind local IPC sockets.

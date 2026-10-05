@@ -1,10 +1,9 @@
-// Package browser reads site cookies through installed, trusted ctx browser
-// adapters. Storage formats and operating-system credentials remain owned by
-// the adapters; this package only selects sources and combines their results.
+// Package browser provides portable cookie parsing, queries, and normalization.
+// Hosts supply authorized sources through Backend; adapters own native storage
+// formats and operating-system credentials.
 package browser
 
 import (
-	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/json"
@@ -13,14 +12,10 @@ import (
 	"io"
 	"net/url"
 	"os"
-	"path/filepath"
-	"sort"
 	"strings"
 	"time"
 
 	"github.com/webong/ctx/res/browser/contract"
-	"github.com/webong/ctx/internal/mod"
-	"github.com/webong/ctx/internal/platform"
 )
 
 // Mode controls how results from ordered sources are combined.
@@ -46,9 +41,8 @@ type InlineCookies struct {
 // Options selects sites, adapters, and profiles. Sources contains explicit
 // browser:profile endpoints in priority order. Browsers may contain adapter
 // names and uses Profiles to select one profile per adapter; otherwise all
-// discoverable profiles are used. With neither field, trusted installed browser
-// adapters that permit automatic queries are discovered. A URL or Origins entry is required unless
-// AllowAllHosts is explicitly set.
+// discoverable profiles are used. The backend owns source discovery and trust.
+// A URL or Origins entry is required unless AllowAllHosts is explicitly set.
 type Options struct {
 	URL      string
 	Origins  []string
@@ -67,7 +61,26 @@ type Options struct {
 	IncludeExpired bool
 	AllowAllHosts  bool
 	Timeout        time.Duration
-	AdapterHome    string
+	// Backend supplies trusted sources. CTX provides one; other hosts can
+	// implement the same boundary without importing CTX internals.
+	Backend Backend
+}
+
+// Source is a browser endpoint selected and authorized by a host. The
+// resource workflow handles portable cookie requests and result merging.
+type Source struct {
+	Adapter       string
+	Profile       string
+	Label         string
+	SupportsQuery bool
+	Invoke        func(context.Context, string, []string, []byte) ([]byte, error)
+}
+
+// Backend owns adapter discovery, trust, capability checks, and dispatch.
+// Resources deliberately do not import CTX's adapter store.
+type Backend interface {
+	Sources(context.Context, Options) ([]Source, []string, error)
+	Normalize(context.Context, string, string, []byte) ([]byte, error)
 }
 
 // Cookie includes its portable browser fields and the endpoint that supplied it.
@@ -94,8 +107,8 @@ type Result struct {
 	Warnings []string `json:"warnings,omitempty"`
 }
 
-// Get retrieves cookies from installed adapters without importing browser
-// implementations into the caller. Each adapter is checked against ctx trust.
+// Get retrieves and combines cookies from sources authorized by the supplied
+// backend. Inline-only queries do not need a backend.
 func Get(ctx context.Context, options Options) (Result, error) {
 	if ctx == nil {
 		return Result{}, errors.New("browser query needs a context")
@@ -144,8 +157,10 @@ func Get(ctx context.Context, options Options) (Result, error) {
 		}
 		return result, nil
 	}
-	store := mod.NewStore(adapterHome(options.AdapterHome))
-	sources, warnings, err := selectSources(ctx, store, options)
+	if options.Backend == nil {
+		return Result{}, errors.New("browser query needs a source backend")
+	}
+	sources, warnings, err := options.Backend.Sources(ctx, options)
 	if err != nil {
 		return Result{}, err
 	}
@@ -157,6 +172,9 @@ func Get(ctx context.Context, options Options) (Result, error) {
 		sites = []*url.URL{nil}
 	}
 	for _, source := range sources {
+		if source.Adapter == "" || source.Profile == "" || source.Label == "" || source.Invoke == nil {
+			return result, errors.New("browser backend returned an invalid source")
+		}
 		before := len(result.Cookies)
 		for _, site := range sites {
 			cookies, warnings, storePath, err := sourceCookies(ctx, source, site, options)
@@ -165,15 +183,15 @@ func Get(ctx context.Context, options Options) (Result, error) {
 			}
 			for _, cookie := range cookies {
 				if matchesQuery(cookie, sites, options) {
-					appendCookie(&result, seen, Cookie{Cookie: cookie, Source: source.label,
-						SourceInfo: SourceInfo{Adapter: source.adapter.Manifest.Name, Profile: source.profile, StorePath: storePath}})
+					appendCookie(&result, seen, Cookie{Cookie: cookie, Source: source.Label,
+						SourceInfo: SourceInfo{Adapter: source.Adapter, Profile: source.Profile, StorePath: storePath}})
 				}
 			}
 			for _, warning := range warnings {
-				result.Warnings = append(result.Warnings, source.label+": "+warning)
+				result.Warnings = append(result.Warnings, source.Label+": "+warning)
 			}
 			if err != nil {
-				result.Warnings = append(result.Warnings, fmt.Sprintf("%s: %v", source.label, err))
+				result.Warnings = append(result.Warnings, fmt.Sprintf("%s: %v", source.Label, err))
 				continue
 			}
 		}
@@ -194,20 +212,6 @@ func appendInlineCookies(result *Result, seen map[string]bool, cookies []contrac
 				SourceInfo: SourceInfo{Inline: true, Fallback: label == "inline:fallback"}})
 		}
 	}
-}
-
-func adapterHome(override string) string {
-	if override != "" {
-		return override
-	}
-	if value := os.Getenv("CTX_ADAPTER_HOME"); value != "" {
-		return value
-	}
-	home := os.Getenv("CTX_HOME")
-	if home == "" {
-		home = platform.DefaultConfigHome()
-	}
-	return filepath.Join(home, "adapters")
 }
 
 func querySites(options Options) ([]*url.URL, error) {
@@ -338,141 +342,15 @@ func appendCookie(result *Result, seen map[string]bool, cookie Cookie) {
 	result.Cookies = append(result.Cookies, cookie)
 }
 
-type selectedSource struct {
-	adapter *mod.Adapter
-	profile string
-	label   string
-}
-
-func selectSources(ctx context.Context, store *mod.Store, options Options) ([]selectedSource, []string, error) {
-	if len(options.Sources) > 0 {
-		sources := make([]selectedSource, 0, len(options.Sources))
-		for _, endpoint := range options.Sources {
-			name, profile, ok := strings.Cut(endpoint, ":")
-			if !ok || name == "" || profile == "" || strings.ContainsAny(profile, "\r\n") {
-				return nil, nil, fmt.Errorf("invalid browser endpoint %q", endpoint)
-			}
-			adapter, err := store.Load(name)
-			if err != nil {
-				return nil, nil, err
-			}
-			if err := checkSource(store, adapter); err != nil {
-				return nil, nil, err
-			}
-			sources = append(sources, selectedSource{adapter, profile, endpoint})
-		}
-		return sources, nil, nil
-	}
-	var adapters []*mod.Adapter
-	if len(options.Browsers) > 0 {
-		for _, name := range options.Browsers {
-			adapter, err := store.Load(name)
-			if err != nil {
-				return nil, nil, err
-			}
-			if err := checkSource(store, adapter); err != nil {
-				return nil, nil, err
-			}
-			adapters = append(adapters, adapter)
-		}
-	} else {
-		installed, err := store.List()
-		if err != nil {
-			return nil, nil, err
-		}
-		for _, adapter := range installed {
-			if adapter.Manifest.BrowserQueryAuto && supportsCookieQuery(adapter) {
-				if trusted, _ := store.IsTrusted(adapter); trusted {
-					adapters = append(adapters, adapter)
-				}
-			}
-		}
-		sort.Slice(adapters, func(i, j int) bool {
-			left, right := adapters[i].Manifest, adapters[j].Manifest
-			if left.BrowserQueryPriority != right.BrowserQueryPriority {
-				return left.BrowserQueryPriority < right.BrowserQueryPriority
-			}
-			return left.Name < right.Name
-		})
-	}
-	var sources []selectedSource
-	var warnings []string
-	for _, adapter := range adapters {
-		if err := ctx.Err(); err != nil {
-			return nil, warnings, err
-		}
-		name := adapter.Manifest.Name
-		if profile := options.Profiles[name]; profile != "" {
-			if strings.ContainsAny(profile, "\r\n") {
-				return nil, nil, fmt.Errorf("invalid profile for %s", name)
-			}
-			sources = append(sources, selectedSource{adapter, profile, name + ":" + profile})
-			continue
-		}
-		if !adapter.HasCapability("list") {
-			warnings = append(warnings, name+": profile discovery unavailable")
-			continue
-		}
-		output, err := invoke(ctx, adapter, "list", "", nil, nil)
-		if err != nil {
-			warnings = append(warnings, fmt.Sprintf("%s: %v", name, err))
-			continue
-		}
-		for _, line := range strings.Split(strings.TrimSpace(string(output)), "\n") {
-			profile, ok := strings.CutPrefix(strings.TrimSuffix(line, "\r"), name+":")
-			if ok && profile != "" && !strings.ContainsAny(profile, "\r\n") {
-				sources = append(sources, selectedSource{adapter, profile, name + ":" + profile})
-			}
-		}
-	}
-	if len(options.Browsers) == 0 && options.PreferredSource != "" {
-		preferred, profile, ok := strings.Cut(options.PreferredSource, ":")
-		if !ok || preferred == "" || profile == "" || strings.ContainsAny(profile, "\r\n") {
-			return nil, nil, fmt.Errorf("invalid preferred browser endpoint %q", options.PreferredSource)
-		}
-		for index, source := range sources {
-			if source.label == options.PreferredSource {
-				ordered := make([]selectedSource, 0, len(sources))
-				ordered = append(ordered, source)
-				ordered = append(ordered, sources[:index]...)
-				ordered = append(ordered, sources[index+1:]...)
-				return ordered, warnings, nil
-			}
-		}
-		adapter, err := store.Load(preferred)
-		if err == nil {
-			err = checkSource(store, adapter)
-		}
-		if err != nil {
-			warnings = append(warnings, fmt.Sprintf("preferred browser %s: %v", preferred, err))
-		} else {
-			sources = append([]selectedSource{{adapter: adapter, profile: profile, label: options.PreferredSource}}, sources...)
-		}
-	}
-	return sources, warnings, nil
-}
-
-func checkSource(store *mod.Store, adapter *mod.Adapter) error {
-	if !supportsCookieQuery(adapter) {
-		return fmt.Errorf("adapter %s does not support cookie queries", adapter.Manifest.Name)
-	}
-	return store.AssertTrusted(adapter)
-}
-
-func supportsCookieQuery(adapter *mod.Adapter) bool {
-	return adapter.IsRuntime("browser") && (adapter.HasBrowserShare("cookie.query") ||
-		(adapter.HasBrowserShare("cookie.list") && adapter.HasBrowserShare("cookie.export")))
-}
-
-func sourceCookies(ctx context.Context, source selectedSource, site *url.URL, options Options) ([]contract.Cookie, []string, string, error) {
-	if source.adapter.HasBrowserShare("cookie.query") {
+func sourceCookies(ctx context.Context, source Source, site *url.URL, options Options) ([]contract.Cookie, []string, string, error) {
+	if source.SupportsQuery {
 		request := contract.CookieRequest{Version: contract.Version, Names: options.Names,
 			IncludeExpired: options.IncludeExpired, AllowAllHosts: site == nil}
 		if site != nil {
 			request.Site = site.String()
 		}
 		payload, _ := json.Marshal(request)
-		output, err := invoke(ctx, source.adapter, "share", source.profile, []string{"cookie", "query"}, payload)
+		output, err := source.Invoke(ctx, "share", []string{"cookie", "query"}, payload)
 		if err != nil {
 			return nil, nil, "", err
 		}
@@ -502,7 +380,7 @@ func sourceCookies(ctx context.Context, source selectedSource, site *url.URL, op
 		return nil, nil, "", errors.New("adapter does not support all-host or expired-cookie queries")
 	}
 	request, _ := json.Marshal(contract.CookieRequest{Version: contract.Version, Site: site.String()})
-	output, err := invoke(ctx, source.adapter, "share", source.profile, []string{"cookie", "list"}, request)
+	output, err := source.Invoke(ctx, "share", []string{"cookie", "list"}, request)
 	if err != nil {
 		return nil, nil, "", err
 	}
@@ -529,7 +407,7 @@ func sourceCookies(ctx context.Context, source selectedSource, site *url.URL, op
 			continue
 		}
 		request, _ := json.Marshal(contract.CookieRequest{Version: contract.Version, Site: site.String(), Cookie: cookie})
-		output, err := invoke(ctx, source.adapter, "share", source.profile, []string{"cookie", "export"}, request)
+		output, err := source.Invoke(ctx, "share", []string{"cookie", "export"}, request)
 		if err != nil {
 			if ctx.Err() != nil {
 				return cookies, warnings, "", ctx.Err()
@@ -545,45 +423,4 @@ func sourceCookies(ctx context.Context, source selectedSource, site *url.URL, op
 		cookies = append(cookies, exported.Cookie)
 	}
 	return cookies, warnings, "", nil
-}
-
-func invoke(ctx context.Context, adapter *mod.Adapter, operation, profile string, args []string, input []byte) ([]byte, error) {
-	command, err := adapter.CommandContext(ctx, mod.Invocation{Operation: operation, Selection: profile, Arguments: args})
-	if err != nil {
-		return nil, err
-	}
-	command.Stdin = bytes.NewReader(input)
-	stdout := &boundedBuffer{limit: 8 << 20}
-	stderr := &boundedBuffer{limit: 4 << 10}
-	command.Stdout = stdout
-	command.Stderr = stderr
-	err = command.Run()
-	if stdout.exceeded || stderr.exceeded {
-		return nil, errors.New("browser adapter output exceeds limit")
-	}
-	if err != nil {
-		if ctx.Err() != nil {
-			return nil, ctx.Err()
-		}
-		message := strings.TrimSpace(stderr.String())
-		if message == "" {
-			return nil, err
-		}
-		return nil, errors.New(message)
-	}
-	return stdout.Bytes(), nil
-}
-
-type boundedBuffer struct {
-	bytes.Buffer
-	limit    int
-	exceeded bool
-}
-
-func (buffer *boundedBuffer) Write(data []byte) (int, error) {
-	if buffer.Len()+len(data) > buffer.limit {
-		buffer.exceeded = true
-		return 0, errors.New("browser adapter output exceeds limit")
-	}
-	return buffer.Buffer.Write(data)
 }

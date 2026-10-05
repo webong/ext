@@ -11,6 +11,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/webong/ctx/adapters/browserdiscovery"
 	management "github.com/webong/ctx/res/browser/contract"
 	"github.com/webong/ctx/res/browser/extension"
 )
@@ -105,7 +106,7 @@ func (backend extensionBackend) resolveExtensionTarget(profile string, input ext
 	}
 	executable := input.Executable
 	if executable == "" {
-		found, err := extension.FindExecutables(backend.config.ExtensionExecutables)
+		found, err := browserdiscovery.FindExecutables(backend.config.ExtensionExecutables)
 		if err != nil {
 			return extension.BrowserTarget{}, err
 		}
@@ -141,7 +142,7 @@ func extensionCapability(config Config) extension.InstallCapability {
 }
 
 func discoverExtensionTargets(config Config) ([]extension.BrowserTarget, error) {
-	executables, err := extension.FindExecutables(config.ExtensionExecutables)
+	executables, err := browserdiscovery.FindExecutables(config.ExtensionExecutables)
 	if err != nil {
 		return nil, err
 	}

@@ -11,14 +11,14 @@ import (
 	"os"
 	"time"
 
-	"github.com/webong/ctx/plugin"
-	"github.com/webong/ctx/plugin/author"
-	"github.com/webong/ctx/plugin/capability"
-	"github.com/webong/ctx/plugin/inprocess"
-	"github.com/webong/ctx/plugin/instance"
-	"github.com/webong/ctx/plugin/jsonline"
-	"github.com/webong/ctx/plugin/schema"
-	"github.com/webong/ctx/plugin/stream"
+	"github.com/webong/ctx/pkg/plugin"
+	"github.com/webong/ctx/pkg/plugin/author"
+	"github.com/webong/ctx/pkg/plugin/capability"
+	"github.com/webong/ctx/pkg/plugin/inprocess"
+	"github.com/webong/ctx/pkg/plugin/instance"
+	"github.com/webong/ctx/pkg/plugin/jsonline"
+	"github.com/webong/ctx/pkg/plugin/schema"
+	"github.com/webong/ctx/pkg/plugin/stream"
 )
 
 type Message struct {

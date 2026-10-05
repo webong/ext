@@ -13,11 +13,11 @@ import (
 	"time"
 
 	"github.com/webong/ctx/examples/plugin-runtimes/echo"
-	"github.com/webong/ctx/plugin"
-	"github.com/webong/ctx/plugin/author"
-	"github.com/webong/ctx/plugin/cshared"
-	"github.com/webong/ctx/plugin/nativego"
-	"github.com/webong/ctx/plugin/wasm"
+	"github.com/webong/ctx/pkg/plugin"
+	"github.com/webong/ctx/pkg/plugin/author"
+	"github.com/webong/ctx/pkg/plugin/cshared"
+	"github.com/webong/ctx/pkg/plugin/nativego"
+	"github.com/webong/ctx/pkg/plugin/wasm"
 )
 
 func main() {

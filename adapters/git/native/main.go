@@ -7,7 +7,7 @@ import (
 	"os"
 	"os/exec"
 
-	"github.com/webong/ctx/adapter"
+	"github.com/webong/ctx/pkg/adapter"
 )
 
 func main() {

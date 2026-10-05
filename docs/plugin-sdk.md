@@ -1,10 +1,11 @@
 # CTX plugin SDK
 
-CTX owns the reusable plugin library alongside `graph` and `supervisor`.
+CTX owns the reusable plugin library alongside `pkg/graph`, `pkg/supervisor`,
+and `pkg/adapter`.
 Hosts and guests share one protocol and can select a supported transport.
 Adapters and applications own their domain contracts, grants, native behavior,
 distribution and activation. HashiCorp go-plugin remains a dependency of
-`plugin/hashicorp` inside the library.
+`pkg/plugin/hashicorp` inside the library.
 
 This change is entirely within CTX. Xallet and Cymonkey migration is deferred.
 Their existing native protocols are not automatically compatible with CTX.
@@ -14,21 +15,25 @@ Their existing native protocols are not automatically compatible with CTX.
 | Package | Responsibility |
 | --- | --- |
 | `plugin` | Immutable descriptors, exact selection, verification, per-call admission, lifecycle, compatibility preflight and metadata observation |
-| `plugin/author` | Typed methods, runtime validation, descriptor generation and frozen guest dispatch |
-| `plugin/schema` | Bounded `ctx.schema/v1` payload/configuration schemas |
-| `plugin/inprocess` | Trusted endpoints with connection lifetime cancellation |
-| `plugin/jsonline` | Bounded JSON-line transport on a supplied duplex connection |
-| `plugin/hashicorp` | Native go-plugin startup and net/rpc or gRPC bindings |
-| `plugin/nativego` | Dynamic Go `.so` loading through a standard guest factory |
-| `plugin/wasm` | Embedded wazero execution of WASI Preview 1 command guests |
-| `plugin/cshared` | Dynamic C ABI loading with separate guest handles and owned buffers |
-| `plugin/cshared/guest` | Go guest lifecycle and cgo export bridge for C shared libraries |
-| `plugin/instance` | Configuration revisions, resource leases, replacement and disposal |
-| `plugin/capability` | Optional health and configuration contracts |
-| `plugin/stream` | Optional, scoped, bounded pull streams |
-| `plugin/packagekit` | Portable manifests, artifact verification, preflight and graph projection |
-| `plugin/plugintest` | Reusable backend conformance tests |
-| `plugin/typescript` | Portable JavaScript runtime and TypeScript declarations for hosts and guests |
+| `pkg/plugin/author` | Typed methods, runtime validation, descriptor generation and frozen guest dispatch |
+| `pkg/plugin/schema` | Bounded `ctx.schema/v1` payload/configuration schemas |
+| `pkg/plugin/inprocess` | Trusted endpoints with connection lifetime cancellation |
+| `pkg/plugin/jsonline` | Bounded JSON-line transport on a supplied duplex connection |
+| `pkg/plugin/hashicorp` | Native go-plugin startup and net/rpc or gRPC bindings |
+| `pkg/plugin/nativego` | Dynamic Go `.so` loading through a standard guest factory |
+| `pkg/plugin/wasm` | Embedded wazero execution of WASI Preview 1 command guests |
+| `pkg/plugin/cshared` | Dynamic C ABI loading with separate guest handles and owned buffers |
+| `pkg/go/cshared/guest` | Go guest lifecycle and cgo export bridge for C shared libraries |
+| `pkg/plugin/instance` | Configuration revisions, resource leases, replacement and disposal |
+| `pkg/plugin/capability` | Optional health and configuration contracts |
+| `pkg/plugin/stream` | Optional, scoped, bounded pull streams |
+| `pkg/plugin/packagekit` | Portable manifests, artifact verification, preflight and graph projection |
+| `pkg/plugin/plugintest` | Reusable backend conformance tests |
+| `pkg/go` | Go binding to the C engine; static by default, shared optional |
+| `pkg/typescript` | Portable JavaScript runtime and TypeScript declarations for hosts and guests |
+| `pkg/rust` | Rust typed registry, host sessions, JSON-line/WASI guests and C ABI host/guest bindings |
+| `pkg/zig` | Zig typed registry, host sessions, JSON-line/WASI guests and C ABI host/guest bindings |
+| `pkg/plugin/wasm/crosslang` | Real Rust/Zig/Go host and guest interoperability tests |
 | `cmd/ctx-plugin` | Read-only package inspection and dependency resolution |
 
 ## Compatibility policy
@@ -236,7 +241,7 @@ fixtures and domain/schema tests complement the behavioral backend suite.
 
 ```sh
 go test -race ./plugin/... ./cmd/ctx-plugin
-node --test plugin/typescript/test.mjs
+node --test pkg/typescript/test.mjs
 go run ./examples/plugin-typescript
 ```
 
@@ -248,6 +253,32 @@ backend conformance suite.
 
 ## Scope and remaining ecosystem work
 
+### Rust and Zig SDKs
+
+The [Rust SDK](../pkg/rust/README.md) and [Zig SDK](../pkg/zig/README.md)
+provide typed method registration, immutable guest snapshots, explicit policy
+callbacks, envelope validation, host sessions and C ABI export helpers. Their
+command guests also compile to WASI Preview 1. Both use the existing wire/ABI
+versions, so Go hosts do not need language-specific dispatch.
+
+`scripts/plugin-crosslang.sh` builds real artifacts, runs SDK unit tests, applies
+the Go conformance suite to both languages over JSON lines, C shared libraries
+and WASI, and exercises Rust/Zig hosts against Go guests. It also checks the
+shared malformed-JSON fixtures against both command guests. The dedicated CI
+job is configured to run this on Linux and macOS; Go-only test runs skip foreign-artifact tests
+unless the artifact environment variables are provided.
+
+The new language SDKs cover v1 authoring and transport sessions. Portable schema
+interpretation, instance managers, package graphs and high-level wrappers for
+optional capabilities remain in the existing Go/TypeScript packages as
+documented there. Foreign peers can call those declared capabilities through
+the raw contract APIs. Native host cancellation mechanics are documented per
+SDK; a synchronous Zig C call requires the guest to cooperate with deadlines.
+The Rust crate and Zig package are local development packages, not published
+registry releases. Current examples/CI pin Rust 1.98.1 and Zig 0.17.0.
+
+### Ecosystem adoption
+
 This is the first implemented SDK layer covering the six planned areas. CTX
 adapters retain their existing shared descriptor/integrity integration and native
 argv/stream behavior. Xallet and Cymonkey are reference consumers for future
@@ -258,3 +289,24 @@ native multiplexed streaming, richer schema tooling and publisher-specific distr
 the same boundaries. A Grafana plugin or arbitrary HashiCorp interface still
 needs an explicit domain translation. Source release/tagging and npm publication
 are separate steps; the TypeScript package remains private during development.
+
+### C host embedding prototype
+
+`pkg/plugin/cengine` is an opt-in experiment in sharing one native host engine
+between Go, Rust, Zig and Node.js. It implements the JSON-line subprocess
+backend and preserves the existing guest wire contract. It does not replace
+the Go plugin library or port its other runtimes/capabilities. See the
+[prototype guide](../pkg/plugin/cengine/README.md) and
+[evaluation](../pkg/plugin/cengine/evaluation.md) for ownership, scope and measured
+tradeoffs. Ordinary Go builds do not depend on this C engine.
+
+
+### Interoperability across implementations
+
+Go, C and language-native SDK hosts can coexist behind the same contract.
+`pkg/plugin/interop` plans explicit direct/bridged routes; `pkg/plugin/bridge` exposes a
+verified backend as an Endpoint. `cmd/ctx-plugin-bridge` connects JSON-line hosts
+to HashiCorp gRPC/net/rpc guests, while HashiCorp servers can expose relay
+Endpoints in the reverse direction. See [interoperability](plugin-interoperability.md)
+for configuration, ownership and the tested host/guest matrix. This extends
+compatibility without replacing the existing Go engine.

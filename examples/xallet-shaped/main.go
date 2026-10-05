@@ -6,7 +6,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/webong/ctx/graph"
+	"github.com/webong/ctx/pkg/graph"
 )
 
 func main() {

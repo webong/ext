@@ -15,8 +15,8 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/webong/ctx/plugin"
-	"github.com/webong/ctx/plugin/jsonline"
+	"github.com/webong/ctx/pkg/plugin"
+	"github.com/webong/ctx/pkg/plugin/jsonline"
 )
 
 type pipes struct {
@@ -48,7 +48,7 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	sdk, err := filepath.Abs("plugin/typescript")
+	sdk, err := filepath.Abs("pkg/typescript")
 	if err != nil {
 		return err
 	}

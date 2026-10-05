@@ -17,8 +17,8 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"github.com/webong/ctx/adapter"
-	"github.com/webong/ctx/plugin"
+	"github.com/webong/ctx/pkg/adapter"
+	"github.com/webong/ctx/pkg/plugin"
 )
 
 const APIVersion = "2.0"

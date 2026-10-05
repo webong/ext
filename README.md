@@ -277,19 +277,30 @@ and [the graph design](docs/adr-graph-runtime.md).
 
 CTX and its ecosystem share public Go libraries:
 
-- `github.com/webong/ctx/graph` supplies generic graph storage and transactions.
-- `github.com/webong/ctx/plugin` supplies the shared host/guest contract,
+- `github.com/webong/ctx/pkg/graph` supplies generic graph storage and transactions.
+- `github.com/webong/ctx/pkg/plugin` supplies the shared host/guest contract,
   validation, selection, admission, and session lifecycle. Its implementations
-  include `plugin/inprocess`, `plugin/jsonline`, `plugin/hashicorp` (net/rpc and
-  gRPC), `plugin/nativego`, `plugin/wasm` (WASI Preview 1), and `plugin/cshared`
+  include `pkg/plugin/inprocess`, `pkg/plugin/jsonline`, `pkg/plugin/hashicorp` (net/rpc and
+  gRPC), `pkg/plugin/nativego`, `pkg/plugin/wasm` (WASI Preview 1), and `pkg/plugin/cshared`
   (versioned C ABI). All use the same typed authoring and host session APIs.
-- `github.com/webong/ctx/supervisor` supplies local process supervision when
+- `github.com/webong/ctx/pkg/supervisor` supplies local process supervision when
   the selected plugin backend does not already own its process lifecycle.
+- `github.com/webong/ctx/pkg/adapter` supplies the public adapter process protocol.
+- `github.com/webong/ctx/res/browser` supplies portable browser contracts,
+  workflows, extension and userscript handling.
+- `github.com/webong/ctx/res/credential` supplies portable credential serving and
+  the CTX credential client.
+
+Both `res` modules and `pkg/plugin` depend only on the Go standard library, so
+consumers that do not need a runtime backend never download the HashiCorp or
+WASI stacks.
 
 CTX adapters, Xallet, Cymonkey, and other applications can build on these
-libraries. Domain behavior and authorization remain with each consumer.
+libraries. Each is published as its own Go module under a shared major version;
+see [module versioning](docs/module-versioning.md). Domain behavior and
+authorization remain with each consumer.
 See the [plugin contract](docs/adr-plugin-contract.md) and the
-[HashiCorp backend guide](plugin/hashicorp/README.md). The
+[HashiCorp backend guide](pkg/plugin/hashicorp/README.md). The
 [runtime authoring guide](docs/plugin-runtimes.md) shows one implementation built
 as a Go plugin, a WASI command, or a C shared library.
 

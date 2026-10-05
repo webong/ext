@@ -9,20 +9,19 @@ import (
 	"unicode/utf8"
 
 	browsercontract "github.com/webong/ctx/res/browser/contract"
-	"github.com/webong/ctx/internal/mod"
 )
 
 // NormalizeOptions binds an authorized native export to one adapter endpoint.
 type NormalizeOptions struct {
-	Source      string // explicit browser:profile, bound by the exporting application
-	StoreID     string // explicit native store selected by the exporting application
-	Export      json.RawMessage
-	Timeout     time.Duration
-	AdapterHome string
+	Source  string // explicit browser:profile, bound by the exporting application
+	StoreID string // explicit native store selected by the exporting application
+	Export  json.RawMessage
+	Timeout time.Duration
+	Backend Backend
 }
 
-// Normalize delegates native cookie export interpretation to an installed,
-// trusted adapter. Its Result can be serialized for Inline or FallbackInline.
+// Normalize delegates native cookie export interpretation to the supplied
+// backend. Its Result can be serialized for Inline or FallbackInline.
 // It does not obtain browser permissions or verify a file's runtime provenance.
 func Normalize(ctx context.Context, options NormalizeOptions) (Result, error) {
 	if ctx == nil {
@@ -45,22 +44,14 @@ func Normalize(ctx context.Context, options NormalizeOptions) (Result, error) {
 		ctx, cancel = context.WithTimeout(ctx, options.Timeout)
 		defer cancel()
 	}
-	store := mod.NewStore(adapterHome(options.AdapterHome))
-	adapter, err := store.Load(name)
-	if err != nil {
-		return Result{}, err
-	}
-	if !adapter.IsRuntime("browser") || !adapter.HasBrowserShare("cookie.normalize") || !adapter.HasCapability("share") {
-		return Result{}, errors.New("selected adapter does not support cookie.normalize")
-	}
-	if err := store.AssertTrusted(adapter); err != nil {
-		return Result{}, err
+	if options.Backend == nil {
+		return Result{}, errors.New("cookie normalization needs a source backend")
 	}
 	request, err := json.Marshal(browsercontract.CookieRequest{Version: browsercontract.Version, NativeExport: options.Export, StoreID: options.StoreID})
 	if err != nil || len(request) > MaxCookieInputBytes {
 		return Result{}, errors.New("native cookie normalization request exceeds the input limit")
 	}
-	output, err := invoke(ctx, adapter, "share", profile, []string{"cookie", "normalize"}, request)
+	output, err := options.Backend.Normalize(ctx, name, profile, request)
 	if err != nil {
 		return Result{}, err
 	}

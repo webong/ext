@@ -1,6 +1,6 @@
 // Run by the Go host below; protocol stdout is reserved for JSON-line frames.
-import { Registry, schemaCodec, serveGuest } from '../../plugin/typescript/index.mjs';
-import { nodeIO } from '../../plugin/typescript/node.mjs';
+import { Registry, schemaCodec, serveGuest } from '../../pkg/typescript/index.mjs';
+import { nodeIO } from '../../pkg/typescript/node.mjs';
 const codec = schemaCodec({ type: 'object', properties: { message: { type: 'string', maxLength: 256 } }, required: ['message'] });
 const method = { contract: { name: 'example.echo', version: 'v1' }, operation: { name: 'echo', surface: 'observation' }, input: codec, output: codec };
 const registry = new Registry({ id: 'example/typescript', revision: 'compiled-1' }).register(method, input => input);

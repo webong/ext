@@ -5,7 +5,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/webong/ctx/adapter"
+	"github.com/webong/ctx/pkg/adapter"
 )
 
 func main() {

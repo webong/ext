@@ -44,8 +44,11 @@ profile discovery, validation, launching, and declared browser share operations.
 versioned JSON protocol in [the adapter API](../docs/adapter-api.md).
 The optional release catalog and explicit source-installer selection provide a
 separate share executable built from each browser adapter's `native` directory.
-Shared request handling, policy reading, and SQLite access live in
-`internal/app/browser/adapterkit`. The browser-specific engines live in
+Portable request handling lives in `res/browser/guest`, with shared types and
+validation in `res/browser/contract`. Native support packages
+`adapters/browserpolicy`, `adapters/browserdiscovery`, and `adapters/sqlite`
+handle policy tools, executable discovery, and SQLite access. They are Go
+libraries used by adapters, not installable catalog entries. The browser-specific engines live in
 `adapters/chromium/engine` and `adapters/firefox/engine`; their respective
 families configure and reuse them.
 The executable is part

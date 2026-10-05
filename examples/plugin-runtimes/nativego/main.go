@@ -4,7 +4,7 @@ package main
 import (
 	"context"
 	"github.com/webong/ctx/examples/plugin-runtimes/echo"
-	"github.com/webong/ctx/plugin"
+	"github.com/webong/ctx/pkg/plugin"
 )
 
 func CTXPlugin(ctx context.Context) (plugin.Backend, error) { return echo.New(ctx) }

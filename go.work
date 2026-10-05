@@ -1,0 +1,14 @@
+go 1.23.0
+
+use (
+	.
+	./pkg/adapter
+	./pkg/go
+	./pkg/graph
+	./pkg/plugin
+	./pkg/plugin/hashicorp
+	./pkg/plugin/wasm
+	./pkg/supervisor
+	./res/browser
+	./res/credential
+)

@@ -10,10 +10,10 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/webong/ctx/graph/system"
 	"github.com/webong/ctx/internal/config"
 	"github.com/webong/ctx/internal/launch"
 	"github.com/webong/ctx/internal/platform"
+	"github.com/webong/ctx/pkg/graph/system"
 )
 
 var Version = "0.8.0-dev"

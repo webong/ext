@@ -8,6 +8,7 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/webong/ctx/adapters/browserdiscovery"
 	"github.com/webong/ctx/res/browser/extension"
 )
 
@@ -40,7 +41,7 @@ func (safariExtensionBackend) ManageExtension(ctx context.Context, profile, acti
 	}
 	switch action {
 	case "targets":
-		executables, err := extension.FindExecutables(extension.ExecutableLocations{Darwin: []string{"Safari.app/Contents/MacOS/Safari"}})
+		executables, err := browserdiscovery.FindExecutables(browserdiscovery.ExecutableLocations{Darwin: []string{"Safari.app/Contents/MacOS/Safari"}})
 		if err != nil {
 			return nil, "", err
 		}

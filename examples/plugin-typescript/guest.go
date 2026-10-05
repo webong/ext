@@ -4,10 +4,10 @@ import (
 	"context"
 	"os"
 
-	"github.com/webong/ctx/plugin"
-	"github.com/webong/ctx/plugin/author"
-	"github.com/webong/ctx/plugin/jsonline"
-	"github.com/webong/ctx/plugin/schema"
+	"github.com/webong/ctx/pkg/plugin"
+	"github.com/webong/ctx/pkg/plugin/author"
+	"github.com/webong/ctx/pkg/plugin/jsonline"
+	"github.com/webong/ctx/pkg/plugin/schema"
 )
 
 func serveGoGuest() error {

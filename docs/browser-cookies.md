@@ -2,8 +2,9 @@
 
 Cookie storage, profile discovery, credentials, and native scope mapping belong
 to browser adapters. CTX supplies portable validation, source selection, and the
-bridge between files, processes, and profiles. The public `res/browser` package's `browser.Get` API uses
-the same trusted adapters as `ctx share:browser cookie query`.
+bridge between files, processes, and profiles. The public `res/browser` package
+implements portable query and normalization workflows through an injected
+`browser.Backend`; CTX supplies the trusted-adapter backend for its CLI.
 
 ## Accepted input
 
@@ -36,7 +37,8 @@ supply input. `FallbackInline` uses the same formats.
 ## Normalize an authorized browser export
 
 `browser.Normalize(ctx, browser.NormalizeOptions{Source: "chrome:Default",
-StoreID: "0", Export: payload})` delegates interpretation to an installed,
+StoreID: "0", Export: payload, Backend: hostBackend})` delegates
+interpretation to the selected backend. CTX's backend requires an installed,
 trusted adapter declaring `cookie.normalize`. The CLI uses the same route:
 
 ```sh

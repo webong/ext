@@ -5,8 +5,8 @@ import (
 	"os/exec"
 	"runtime"
 
+	"github.com/webong/ctx/adapters/sqlite"
 	share "github.com/webong/ctx/res/browser/contract"
-	kit "github.com/webong/ctx/res/browser/guest"
 )
 
 // Config contains browser identity and storage conventions supplied by its adapter.
@@ -35,14 +35,14 @@ type Cookie = share.Cookie
 type browserCookie = Cookie
 
 var (
-	cookieDatabaseColumns  = kit.CookieDatabaseColumns
-	readableCookieDatabase = kit.ReadableCookieDatabase
-	hasSQLiteColumn        = kit.HasSQLiteColumn
-	runSQLite              = kit.RunSQLite
-	sqlString              = kit.SQLString
-	sqlIdentifier          = kit.SQLIdentifier
-	sqlBool                = kit.SQLBool
-	cookieHostSQL          = kit.CookieHostSQL
+	cookieDatabaseColumns  = sqlite.CookieDatabaseColumns
+	readableCookieDatabase = sqlite.ReadableCookieDatabase
+	hasSQLiteColumn        = sqlite.HasSQLiteColumn
+	runSQLite              = sqlite.RunSQLite
+	sqlString              = sqlite.SQLString
+	sqlIdentifier          = sqlite.SQLIdentifier
+	sqlBool                = sqlite.SQLBool
+	cookieHostSQL          = sqlite.CookieHostSQL
 )
 
 func cookieActive(cookie browserCookie) bool { return share.CookieActive(cookie) }

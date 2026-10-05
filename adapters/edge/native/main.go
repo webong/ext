@@ -6,9 +6,10 @@ import (
 	"os"
 	"runtime"
 
+	"github.com/webong/ctx/adapters/browserdiscovery"
+	"github.com/webong/ctx/adapters/browserpolicy"
 	chromiumengine "github.com/webong/ctx/adapters/chromium/engine"
 	share "github.com/webong/ctx/res/browser/contract"
-	"github.com/webong/ctx/res/browser/extension"
 	kit "github.com/webong/ctx/res/browser/guest"
 )
 
@@ -18,7 +19,7 @@ func edgeConfig() chromiumengine.Config {
 		KeychainService: "Microsoft Edge Safe Storage", KeychainAccount: "Microsoft Edge", SecretApplication: "microsoft-edge",
 		WalletFolder: "Microsoft Edge Keys", WalletKey: "Microsoft Edge Safe Storage",
 		Extensions: chromiumengine.ExtensionManagementConfig{
-			Executables: extension.ExecutableLocations{
+			Executables: browserdiscovery.ExecutableLocations{
 				Darwin:  []string{"Microsoft Edge.app/Contents/MacOS/Microsoft Edge"},
 				Linux:   []string{"microsoft-edge", "microsoft-edge-stable"},
 				Windows: []string{"Microsoft/Edge/Application/msedge.exe"},
@@ -61,22 +62,22 @@ func run(args []string, input io.Reader, stdout, stderr io.Writer) int {
 		return kit.RunCookie(profile, operation, input, stdout, stderr, chromiumengine.NewCookieBackend(edge))
 	case "policy":
 		if operation == "export" {
-			return kit.RunPolicyExport(input, stdout, stderr, edgePolicies())
+			return browserpolicy.RunPolicyExport(input, stdout, stderr, edgePolicies())
 		}
 	}
 	fmt.Fprintln(stderr, "ctx: unsupported Edge share resource or operation")
 	return 2
 }
 
-func edgePolicies() kit.PolicySources {
+func edgePolicies() browserpolicy.PolicySources {
 	switch runtime.GOOS {
 	case "linux":
-		return kit.PolicySources{Roots: []kit.PolicyRoot{{Path: "/etc/opt/edge/policies/managed", Level: "managed"}, {Path: "/etc/opt/edge/policies/recommended", Level: "recommended"}}}
+		return browserpolicy.PolicySources{Roots: []browserpolicy.PolicyRoot{{Path: "/etc/opt/edge/policies/managed", Level: "managed"}, {Path: "/etc/opt/edge/policies/recommended", Level: "recommended"}}}
 	case "darwin":
-		return kit.PolicySources{Files: kit.ManagedPreferenceFiles("com.microsoft.Edge")}
+		return browserpolicy.PolicySources{Files: chromiumengine.ManagedPreferenceFiles("com.microsoft.Edge")}
 	case "windows":
-		return kit.PolicySources{RegistryKey: `Software\Policies\Microsoft\Edge`}
+		return browserpolicy.PolicySources{RegistryKey: `Software\Policies\Microsoft\Edge`}
 	default:
-		return kit.PolicySources{}
+		return browserpolicy.PolicySources{}
 	}
 }

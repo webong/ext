@@ -10,9 +10,10 @@ import (
 	"path/filepath"
 	"runtime"
 
+	"github.com/webong/ctx/adapters/browserdiscovery"
+	"github.com/webong/ctx/adapters/browserpolicy"
 	"github.com/webong/ctx/adapters/chromium/engine/webextension"
 	browsershare "github.com/webong/ctx/res/browser/contract"
-	"github.com/webong/ctx/res/browser/extension"
 	kit "github.com/webong/ctx/res/browser/guest"
 )
 
@@ -24,7 +25,7 @@ type Config struct {
 	WindowsProfileRoot       string
 	LinuxProfileRoot         string
 	LinuxFallbackProfileRoot string
-	ExtensionExecutables     extension.ExecutableLocations
+	ExtensionExecutables     browserdiscovery.ExecutableLocations
 	NativeExtensions         bool
 }
 
@@ -66,7 +67,7 @@ func Run(config Config, args []string, input io.Reader, stdout, stderr io.Writer
 			break
 		}
 		if config.Name == "firefox" {
-			return kit.RunPolicyExport(input, stdout, stderr, firefoxPolicySources())
+			return browserpolicy.RunPolicyExport(input, stdout, stderr, firefoxPolicySources())
 		}
 	}
 	fmt.Fprintln(stderr, "ctx: unsupported Firefox share resource or operation")
@@ -108,23 +109,26 @@ func firefoxShareStatus(config Config, profile string) browsershare.Availability
 	return browsershare.AvailabilityReport{Version: browsershare.AvailabilityVersion, Operations: operations}
 }
 
-func firefoxPolicySources() kit.PolicySources {
+func firefoxPolicySources() browserpolicy.PolicySources {
 	switch runtime.GOOS {
 	case "linux":
-		return kit.PolicySources{Files: []kit.PolicyFile{
+		return browserpolicy.PolicySources{Files: []browserpolicy.PolicyFile{
 			{Path: "/etc/firefox/policies/policies.json", Level: "managed", Format: "json"},
 			{Path: "/usr/lib/firefox/distribution/policies.json", Level: "managed", Format: "json"},
 			{Path: "/usr/lib64/firefox/distribution/policies.json", Level: "managed", Format: "json"},
 		}}
 	case "darwin":
-		sources := kit.PolicySources{Files: kit.ManagedPreferenceFiles("org.mozilla.firefox")}
+		sources := browserpolicy.PolicySources{Files: []browserpolicy.PolicyFile{
+			{Path: filepath.Join("/Library/Managed Preferences", "org.mozilla.firefox.plist"), Level: "managed", Format: "plist"},
+			{Path: filepath.Join("/Library/Managed Preferences", os.Getenv("USER"), "org.mozilla.firefox.plist"), Level: "managed", Format: "plist"},
+		}}
 		for _, path := range []string{"/Applications/Firefox.app/Contents/Resources/distribution/policies.json", filepath.Join(os.Getenv("HOME"), "Applications/Firefox.app/Contents/Resources/distribution/policies.json")} {
-			sources.Files = append(sources.Files, kit.PolicyFile{Path: path, Level: "managed", Format: "json"})
+			sources.Files = append(sources.Files, browserpolicy.PolicyFile{Path: path, Level: "managed", Format: "json"})
 		}
 		return sources
 	case "windows":
-		return kit.PolicySources{RegistryKey: `Software\Policies\Mozilla\Firefox`}
+		return browserpolicy.PolicySources{RegistryKey: `Software\Policies\Mozilla\Firefox`}
 	default:
-		return kit.PolicySources{}
+		return browserpolicy.PolicySources{}
 	}
 }

@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/webong/ctx/adapter"
-	"github.com/webong/ctx/plugin"
+	"github.com/webong/ctx/pkg/adapter"
+	"github.com/webong/ctx/pkg/plugin"
 )
 
 func TestAdapterUsesSharedPluginSelection(t *testing.T) {

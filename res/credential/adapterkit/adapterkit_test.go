@@ -33,13 +33,13 @@ func (store *testStore) Put(_ context.Context, item string, value []byte, replac
 func TestCredentialProtocolRoundTrip(t *testing.T) {
 	store := &testStore{}
 	var out, errout bytes.Buffer
-	if code := Run([]string{"share", "", "--", "credential", "put", "service=ctx&account=work"}, strings.NewReader("private-value"), &out, &errout, store); code != 0 {
+	if code := Run(Invocation{Operation: "share", Arguments: []string{"credential", "put", "service=ctx&account=work"}}, strings.NewReader("private-value"), &out, &errout, store); code != 0 {
 		t.Fatalf("put code=%d diagnostics=%q", code, errout.String())
 	}
 	if out.Len() != 0 || store.item != "service=ctx&account=work" {
 		t.Fatalf("put emitted data or changed item: output=%q item=%q", out.String(), store.item)
 	}
-	if code := Run([]string{"share", "", "--", "credential", "put", store.item}, strings.NewReader("second-value"), &out, &errout, store); code == 0 {
+	if code := Run(Invocation{Operation: "share", Arguments: []string{"credential", "put", store.item}}, strings.NewReader("second-value"), &out, &errout, store); code == 0 {
 		t.Fatal("put replaced an item without --replace")
 	}
 	if strings.Contains(errout.String(), "private-value") || strings.Contains(errout.String(), "second-value") {
@@ -47,7 +47,7 @@ func TestCredentialProtocolRoundTrip(t *testing.T) {
 	}
 	out.Reset()
 	errout.Reset()
-	if code := Run([]string{"share", "", "--", "credential", "get", store.item}, bytes.NewReader(nil), &out, &errout, store); code != 0 {
+	if code := Run(Invocation{Operation: "share", Arguments: []string{"credential", "get", store.item}}, bytes.NewReader(nil), &out, &errout, store); code != 0 {
 		t.Fatalf("get code=%d diagnostics=%q", code, errout.String())
 	}
 	if out.String() != "private-value" {
@@ -58,12 +58,12 @@ func TestCredentialProtocolRoundTrip(t *testing.T) {
 func TestCredentialProtocolRejectsInvalidInput(t *testing.T) {
 	store := &testStore{}
 	for _, args := range [][]string{
-		{"share", "", "--", "credential", "put", "item", "--unknown"},
-		{"share", "", "--", "credential", "get", "item", "extra"},
-		{"share", "", "--", "credential", "put", "line\nbreak"},
+		{"credential", "put", "item", "--unknown"},
+		{"credential", "get", "item", "extra"},
+		{"credential", "put", "line\nbreak"},
 	} {
 		var out, errout bytes.Buffer
-		if code := Run(args, strings.NewReader("secret"), &out, &errout, store); code != 2 || out.Len() != 0 {
+		if code := Run(Invocation{Operation: "share", Arguments: args}, strings.NewReader("secret"), &out, &errout, store); code != 2 || out.Len() != 0 {
 			t.Fatalf("args=%q code=%d output=%q", args, code, out.String())
 		}
 	}

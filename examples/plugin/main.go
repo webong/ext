@@ -10,8 +10,8 @@ import (
 	"net"
 	"os"
 
-	"github.com/webong/ctx/plugin"
-	"github.com/webong/ctx/plugin/jsonline"
+	"github.com/webong/ctx/pkg/plugin"
+	"github.com/webong/ctx/pkg/plugin/jsonline"
 )
 
 func main() {

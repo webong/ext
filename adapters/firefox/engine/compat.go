@@ -3,6 +3,7 @@ package firefox
 import (
 	"io"
 
+	"github.com/webong/ctx/adapters/sqlite"
 	share "github.com/webong/ctx/res/browser/contract"
 	kit "github.com/webong/ctx/res/browser/guest"
 )
@@ -12,16 +13,16 @@ type browserResourceRequest = share.ResourceRequest
 type browserResourceBundle = share.ResourceBundle
 
 var (
-	cookieDatabaseColumns  = kit.CookieDatabaseColumns
-	readableCookieDatabase = kit.ReadableCookieDatabase
-	snapshotCookieDatabase = kit.SnapshotCookieDatabase
-	copyPrivateFile        = kit.CopyPrivateFile
-	hasSQLiteColumn        = kit.HasSQLiteColumn
-	runSQLite              = kit.RunSQLite
-	sqlString              = kit.SQLString
-	sqlIdentifier          = kit.SQLIdentifier
-	sqlBool                = kit.SQLBool
-	cookieHostSQL          = kit.CookieHostSQL
+	cookieDatabaseColumns  = sqlite.CookieDatabaseColumns
+	readableCookieDatabase = sqlite.ReadableCookieDatabase
+	snapshotCookieDatabase = sqlite.SnapshotCookieDatabase
+	copyPrivateFile        = sqlite.CopyPrivateFile
+	hasSQLiteColumn        = sqlite.HasSQLiteColumn
+	runSQLite              = sqlite.RunSQLite
+	sqlString              = sqlite.SQLString
+	sqlIdentifier          = sqlite.SQLIdentifier
+	sqlBool                = sqlite.SQLBool
+	cookieHostSQL          = sqlite.CookieHostSQL
 )
 
 func cookieActive(cookie browserCookie) bool { return share.CookieActive(cookie) }

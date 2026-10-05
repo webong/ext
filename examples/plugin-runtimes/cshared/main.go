@@ -10,8 +10,8 @@ import "C"
 
 import (
 	"github.com/webong/ctx/examples/plugin-runtimes/echo"
-	"github.com/webong/ctx/plugin/cshared/abi"
-	"github.com/webong/ctx/plugin/cshared/guest"
+	"github.com/webong/ctx/pkg/go/cshared/guest"
+	"github.com/webong/ctx/pkg/plugin/cshared/abi"
 	"unsafe"
 )
 

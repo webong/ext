@@ -6,6 +6,7 @@ import (
 	"os"
 	"runtime"
 
+	"github.com/webong/ctx/adapters/browserpolicy"
 	chromiumengine "github.com/webong/ctx/adapters/chromium/engine"
 	share "github.com/webong/ctx/res/browser/contract"
 	kit "github.com/webong/ctx/res/browser/guest"
@@ -37,22 +38,22 @@ func run(args []string, input io.Reader, stdout, stderr io.Writer) int {
 		return kit.RunCookie(profile, operation, input, stdout, stderr, chromiumengine.NewCookieBackend(brave))
 	case "policy":
 		if operation == "export" {
-			return kit.RunPolicyExport(input, stdout, stderr, bravePolicies())
+			return browserpolicy.RunPolicyExport(input, stdout, stderr, bravePolicies())
 		}
 	}
 	fmt.Fprintln(stderr, "ctx: unsupported Brave share resource or operation")
 	return 2
 }
 
-func bravePolicies() kit.PolicySources {
+func bravePolicies() browserpolicy.PolicySources {
 	switch runtime.GOOS {
 	case "linux":
-		return kit.PolicySources{Roots: []kit.PolicyRoot{{Path: "/etc/brave/policies/managed", Level: "managed"}, {Path: "/etc/brave/policies/recommended", Level: "recommended"}}}
+		return browserpolicy.PolicySources{Roots: []browserpolicy.PolicyRoot{{Path: "/etc/brave/policies/managed", Level: "managed"}, {Path: "/etc/brave/policies/recommended", Level: "recommended"}}}
 	case "darwin":
-		return kit.PolicySources{Files: kit.ManagedPreferenceFiles("com.brave.Browser")}
+		return browserpolicy.PolicySources{Files: chromiumengine.ManagedPreferenceFiles("com.brave.Browser")}
 	case "windows":
-		return kit.PolicySources{RegistryKey: `Software\Policies\BraveSoftware\Brave`}
+		return browserpolicy.PolicySources{RegistryKey: `Software\Policies\BraveSoftware\Brave`}
 	default:
-		return kit.PolicySources{}
+		return browserpolicy.PolicySources{}
 	}
 }

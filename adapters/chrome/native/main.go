@@ -6,9 +6,10 @@ import (
 	"os"
 	"runtime"
 
+	"github.com/webong/ctx/adapters/browserdiscovery"
+	"github.com/webong/ctx/adapters/browserpolicy"
 	chromiumengine "github.com/webong/ctx/adapters/chromium/engine"
 	share "github.com/webong/ctx/res/browser/contract"
-	"github.com/webong/ctx/res/browser/extension"
 	kit "github.com/webong/ctx/res/browser/guest"
 )
 
@@ -18,7 +19,7 @@ func chromeConfig() chromiumengine.Config {
 		KeychainService: "Chrome Safe Storage", KeychainAccount: "Chrome", SecretApplication: "chrome",
 		WalletFolder: "Chrome Keys", WalletKey: "Chrome Safe Storage",
 		Extensions: chromiumengine.ExtensionManagementConfig{
-			Executables: extension.ExecutableLocations{
+			Executables: browserdiscovery.ExecutableLocations{
 				Darwin:  []string{"Google Chrome.app/Contents/MacOS/Google Chrome", "Chrome.app/Contents/MacOS/Google Chrome"},
 				Linux:   []string{"google-chrome", "google-chrome-stable"},
 				Windows: []string{"Google/Chrome/Application/chrome.exe"},
@@ -62,22 +63,22 @@ func run(args []string, input io.Reader, stdout, stderr io.Writer) int {
 		return kit.RunCookie(profile, operation, input, stdout, stderr, chromiumengine.NewCookieBackend(chrome))
 	case "policy":
 		if operation == "export" {
-			return kit.RunPolicyExport(input, stdout, stderr, chromePolicies())
+			return browserpolicy.RunPolicyExport(input, stdout, stderr, chromePolicies())
 		}
 	}
 	fmt.Fprintln(stderr, "ctx: unsupported Chrome share resource or operation")
 	return 2
 }
 
-func chromePolicies() kit.PolicySources {
+func chromePolicies() browserpolicy.PolicySources {
 	switch runtime.GOOS {
 	case "linux":
-		return kit.PolicySources{Roots: []kit.PolicyRoot{{Path: "/etc/opt/chrome/policies/managed", Level: "managed"}, {Path: "/etc/opt/chrome/policies/recommended", Level: "recommended"}}}
+		return browserpolicy.PolicySources{Roots: []browserpolicy.PolicyRoot{{Path: "/etc/opt/chrome/policies/managed", Level: "managed"}, {Path: "/etc/opt/chrome/policies/recommended", Level: "recommended"}}}
 	case "darwin":
-		return kit.PolicySources{Files: kit.ManagedPreferenceFiles("com.google.Chrome")}
+		return browserpolicy.PolicySources{Files: chromiumengine.ManagedPreferenceFiles("com.google.Chrome")}
 	case "windows":
-		return kit.PolicySources{RegistryKey: `Software\Policies\Google\Chrome`}
+		return browserpolicy.PolicySources{RegistryKey: `Software\Policies\Google\Chrome`}
 	default:
-		return kit.PolicySources{}
+		return browserpolicy.PolicySources{}
 	}
 }

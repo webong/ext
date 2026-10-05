@@ -9,7 +9,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/webong/ctx/graph/system"
+	"github.com/webong/ctx/pkg/graph/system"
 )
 
 func prepareHostOperation(requirements systemgraph.OperationRequirements) (systemgraph.PreparedHost, error) {

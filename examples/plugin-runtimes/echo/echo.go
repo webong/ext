@@ -5,10 +5,10 @@ package echo
 import (
 	"context"
 
-	"github.com/webong/ctx/plugin"
-	"github.com/webong/ctx/plugin/author"
-	"github.com/webong/ctx/plugin/inprocess"
-	"github.com/webong/ctx/plugin/schema"
+	"github.com/webong/ctx/pkg/plugin"
+	"github.com/webong/ctx/pkg/plugin/author"
+	"github.com/webong/ctx/pkg/plugin/inprocess"
+	"github.com/webong/ctx/pkg/plugin/schema"
 )
 
 type Message struct {

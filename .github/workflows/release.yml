@@ -27,7 +27,9 @@ jobs:
         with:
           go-version: '1.23.x'
           cache: true
-      - run: go test ./adapters/keychain/store ./credential/adapterkit
+      - run: go test ./adapters/keychain/store
+      - run: go test ./...
+        working-directory: res/credential
       - run: mkdir -p keychain && go build -trimpath -ldflags '-s -w' -o keychain/ctx-keychain ./adapters/keychain/native
       - uses: actions/upload-artifact@v4
         with:
@@ -53,6 +55,11 @@ jobs:
           go-version: '1.23.x'
           cache: true
       - run: go test ./...
+      - name: Test library modules
+        run: |
+          for module in pkg/adapter pkg/go pkg/graph pkg/plugin pkg/plugin/hashicorp pkg/plugin/wasm pkg/supervisor res/browser res/credential; do
+            (cd "$module" && go test ./...) || exit 1
+          done
       - run: ./tests/native_test.sh
       - run: ./tests/native_installer_test.sh
       - run: sh ./scripts/build-release.sh "$GITHUB_REF_NAME" dist

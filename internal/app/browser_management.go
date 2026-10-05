@@ -9,8 +9,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/webong/ctx/internal/app/browser/management"
 	"github.com/webong/ctx/internal/config"
+	"github.com/webong/ctx/res/browser/contract"
 )
 
 func browserCommand(resolver *config.Resolver, args []string, stdout, stderr io.Writer) int {
@@ -58,8 +58,8 @@ func browserCommand(resolver *config.Resolver, args []string, stdout, stderr io.
 	} else {
 		raw = json.RawMessage(*input)
 	}
-	request := management.Request{Version: management.Version, Kind: kind, Action: action, Input: raw}
-	if err := management.ValidateRequest(request); err != nil {
+	request := contract.Request{Version: contract.ManagementVersion, Kind: kind, Action: action, Input: raw}
+	if err := contract.ValidateRequest(request); err != nil {
 		return reportErrorCode(stderr, err, 2)
 	}
 	endpoint, err := resolveBrowserSource(resolver, strings.TrimSpace(*target))
@@ -80,11 +80,11 @@ func browserCommand(resolver *config.Resolver, args []string, stdout, stderr io.
 	if code != 0 {
 		return code
 	}
-	var response management.Response
+	var response contract.Response
 	if err := json.Unmarshal([]byte(output.String()), &response); err != nil {
 		return reportError(stderr, fmt.Errorf("browser adapter returned invalid management response: %w", err))
 	}
-	if err := management.ValidateResponse(response, request); err != nil {
+	if err := contract.ValidateResponse(response, request); err != nil {
 		return reportError(stderr, err)
 	}
 	if _, err := io.WriteString(stdout, output.String()); err != nil {

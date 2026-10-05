@@ -26,6 +26,9 @@ test-native-installer:
 
 test-go:
 	GOCACHE=$(GO_CACHE) GOMODCACHE=$(GO_MOD_CACHE) go test ./...
+	for module in pkg/adapter pkg/go pkg/graph pkg/plugin pkg/plugin/hashicorp pkg/plugin/wasm pkg/supervisor res/browser res/credential; do \
+		(cd $$module && GOCACHE=$(GO_CACHE) GOMODCACHE=$(GO_MOD_CACHE) go test ./...) || exit; \
+	done
 
 test-cross:
 	GOOS=windows GOARCH=amd64 GOCACHE=$(GO_CACHE) GOMODCACHE=$(GO_MOD_CACHE) go build -o /tmp/ctx-windows-amd64.exe ./cmd/ctx

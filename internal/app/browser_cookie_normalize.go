@@ -11,6 +11,7 @@ import (
 	"os/signal"
 	"time"
 
+	"github.com/webong/ctx/internal/app/browserhost"
 	"github.com/webong/ctx/res/browser"
 )
 
@@ -64,7 +65,7 @@ func shareBrowserCookieNormalize(args []string, stdout, stderr io.Writer) int {
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
-	result, err := browser.Normalize(ctx, browser.NormalizeOptions{Source: *from, StoreID: *storeID, Export: data, Timeout: *timeout})
+	result, err := browser.Normalize(ctx, browser.NormalizeOptions{Source: *from, StoreID: *storeID, Export: data, Timeout: *timeout, Backend: browserhost.Provider{}})
 	if err != nil {
 		return reportErrorCode(stderr, err, 2)
 	}

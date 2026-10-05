@@ -1,6 +1,6 @@
 # Host discovery
 
-Host inventory belongs to the public `github.com/webong/ctx/graph/system`
+Host inventory belongs to the public `github.com/webong/ctx/pkg/graph/system`
 package. It works in a standalone CTX installation without adapter packages.
 Adapter inventory describes provider capabilities and contexts separately.
 
@@ -131,7 +131,7 @@ independently.
 of the existing inventory, while a non-nil empty slice removes its old entries.
 The schema uses `shell`, `filesystem`, `webview`, and `host-inventory` vertices
 linked to `machine/local`. The generic graph store owns persistence and transactions;
-`graph/system` owns host discovery and its vocabulary.
+`pkg/graph/system` owns host discovery and its vocabulary.
 
 ## Operation requirements and preparation
 
@@ -391,7 +391,7 @@ Enable native fixtures explicitly (the shell must permit subprocess inspection
 and binding temporary loopback sockets):
 
 ```sh
-CTX_GRAPH_PROCESS_NATIVE_TESTS=1 go test -race -v ./graph/system \
+CTX_GRAPH_PROCESS_NATIVE_TESTS=1 go test -race -v ./pkg/graph/system \
   -run '^(TestNativeProcess|TestProcess)' -count=3 -timeout=5m
 ```
 

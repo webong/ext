@@ -1,0 +1,12 @@
+[package]
+name = "ctx-plugin-engine"
+version = "0.0.0"
+edition = "2021"
+license = "MIT"
+publish = false
+links = "ctx_host"
+
+[features]
+default = []
+shared = []
+guest-only = []

@@ -3,8 +3,8 @@ package app
 import (
 	"bytes"
 	"context"
-	"github.com/webong/ctx/graph"
-	systemgraph "github.com/webong/ctx/graph/system"
+	"github.com/webong/ctx/pkg/graph"
+	systemgraph "github.com/webong/ctx/pkg/graph/system"
 	"testing"
 )
 

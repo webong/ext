@@ -10,10 +10,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/webong/ctx/graph/system"
-	browsershare "github.com/webong/ctx/internal/app/browser/share"
 	"github.com/webong/ctx/internal/config"
 	modpkg "github.com/webong/ctx/internal/mod"
+	"github.com/webong/ctx/pkg/graph/system"
+	browsershare "github.com/webong/ctx/res/browser/contract"
 )
 
 // scanMachineInventory asks installed adapters for their declared capabilities

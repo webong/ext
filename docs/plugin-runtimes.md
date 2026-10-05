@@ -28,8 +28,8 @@ explicit binding and authorization; loaders do not automatically inject them.
 | --- | --- | --- | --- |
 | Native Go | Export `CTXPlugin(context.Context) (plugin.Backend, error)` | `nativego.Open(ctx, absolutePath)` | Linux, macOS, FreeBSD; cgo and Go plugin build support required |
 | WASI Preview 1 command | `jsonline.ServeStdio(ctx, guest)` | `wasm.Open(ctx, verifiedBytes, options)` | wazero-supported host targets, no cgo required |
-| C shared library | Four C exports backed by `cshared/guest.Server` or a foreign implementation | `cshared.Open(ctx, absolutePath)` | Linux, macOS, FreeBSD, Windows; cgo and a matching native C toolchain required |
-| HashiCorp | `hashicorp.Plugin` and go-plugin serving | `hashicorp.Connect` | Existing gRPC and net/rpc bindings; see its [guide](../plugin/hashicorp/README.md) |
+| C shared library | Four C exports backed by `pkg/go/cshared/guest.Server` or a foreign implementation | `cshared.Open(ctx, absolutePath)` | Linux, macOS, FreeBSD, Windows; cgo and a matching native C toolchain required |
+| HashiCorp | `hashicorp.Plugin` and go-plugin serving | `hashicorp.Connect` | Existing gRPC and net/rpc bindings; see its [guide](../pkg/plugin/hashicorp/README.md) |
 
 `nativego.Supported()` and `cshared.Supported()` report whether the loader is
 compiled into the current build. Unsupported builds return
@@ -140,7 +140,7 @@ documents linear memory limits and execution cancellation.
 
 ## C ABI guests and foreign hosts
 
-The portable contract is [ctx_plugin.h](../plugin/cshared/ctx_plugin.h).
+The portable contract is [ctx_plugin.h](../pkg/plugin/cshared/ctx_plugin.h).
 ABI version `1` is independent of `ctx.plugin/v1` and domain contract versions.
 Every library must export these C calling-convention symbols:
 
@@ -175,9 +175,18 @@ implementations can use the portable header directly. Both have the same ABI.
 A foreign host can load the Go-built library and use these four exports too;
 that host must implement CTX selection, validation and admission policy itself.
 
-For C, C++ or Rust guests, implement the four exports in the header and the CTX
-JSON envelopes. A library with unrelated C symbols does not become a CTX guest
-just because the host can load its file.
+Rust authors can use `ctx_plugin::export_guest!(factory)` from the
+[Rust SDK](../pkg/rust/README.md). Zig authors can use
+`comptime { sdk.cabi.exportGuest(factory); }` from the
+[Zig SDK](../pkg/zig/README.md). These helpers implement serialization,
+validation, dispatch and handle/buffer ownership around typed guest methods.
+Both SDKs also serve command guests over JSON lines and compile them to WASI.
+They include host Sessions for consuming CTX guests from those languages.
+
+For other languages, implement the four exports in the header and the CTX JSON
+envelopes. A library with unrelated C symbols does not become a CTX guest just
+because the host can load its file. Run `scripts/plugin-crosslang.sh` for the
+Rust/Zig/Go interoperability suite; see each SDK's guide for toolchain setup.
 
 Native code has full host-process access. The host can stop waiting on a canceled
 call, but it cannot forcibly stop that code. Cancellation closes admission;

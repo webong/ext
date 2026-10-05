@@ -11,8 +11,9 @@ import (
 	"os/signal"
 	"time"
 
-	"github.com/webong/ctx/res/browser"
+	"github.com/webong/ctx/internal/app/browserhost"
 	"github.com/webong/ctx/internal/config"
+	"github.com/webong/ctx/res/browser"
 )
 
 type browserQueryList []string
@@ -74,6 +75,7 @@ func shareBrowserCookieQuery(resolver *config.Resolver, args []string, stdout, s
 		Names: append([]string(nil), names...), Mode: browser.Mode(*mode),
 		InlineOnly: *inlineOnly, IncludeExpired: *includeExpired, AllowAllHosts: *allHosts,
 		Timeout: *timeout,
+		Backend: browserhost.Provider{},
 	}
 	if len(sites) > 0 {
 		options.URL = sites[0]

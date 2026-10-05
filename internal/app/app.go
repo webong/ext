@@ -227,11 +227,13 @@ usage:
   ctx graph shells
   ctx graph filesystems
   ctx graph webviews
+  ctx graph processes [--limit 4096] [--timeout 10s]
+  ctx graph process <pid> [--resource-limit 1024] [--timeout 10s]
   ctx graph resolve [runtime|all] [capability...] [--supports <kind>] [--share <resource.operation>]
   ctx graph resolve shell [--name <name>] [--select <executable>]
   ctx graph resolve filesystem [--path <path>] [--type <type>] [--writable] [--min-free <bytes>] [--select <mount>]
   ctx graph resolve webview [--engine <engine>] [--api <api>] [--abi <generation>] [--version <version>] [--arch <architecture>] [--select <location>]
-  ctx graph <scan|shells|filesystems|webviews|status|vertices|edges|snapshot|changes> [arguments...]
+  ctx graph <scan|shells|filesystems|webviews|processes|process|status|vertices|edges|snapshot|changes> [arguments...]
   ctx version`)
 }
 

@@ -226,6 +226,8 @@ ctx graph scan
 ctx graph shells
 ctx graph filesystems
 ctx graph webviews
+ctx graph processes
+ctx graph process <pid>
 ctx graph resolve shell --name zsh
 ctx graph resolve filesystem --path ./export.json --writable --min-free 1048576
 ctx graph resolve webview --engine webkit --api WKWebView
@@ -240,7 +242,10 @@ reports mount points, filesystem types, sources, read-only status, and space in
 bytes where available. `graph webviews` reports detected embedding runtimes and
 their rendering engines, API/ABI generations, versions where available, and
 discovery evidence. These commands emit JSON and refresh their graph records;
-`graph scan` refreshes all host inventories alongside adapter inventory. Inspect
+`graph processes` inventories running processes; `graph process <pid>` inspects
+one process’s files, mappings, sockets, and usage where supported. Both report
+collection coverage and work without adapters. `graph scan` refreshes host and
+process inventories alongside adapter inventory. Inspect
 stored records with `ctx graph vertices shell`, `ctx graph vertices filesystem`,
 or `ctx graph vertices webview`.
 Host resolution matches operation requirements and refreshes stale observations.

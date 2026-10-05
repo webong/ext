@@ -234,3 +234,185 @@ underlying errors for `errors.Is` and `errors.As`. Preparation is a point-in-tim
 check, not a lock or capacity reservation. The eventual executable launch and
 exclusive output open still enforce native errors, permissions, and overwrite
 protection. Direct `ctx shell -- <command>` execution retains its command mode.
+
+## Running processes and resources
+
+Process discovery is another capability of the graph library itself. It works
+without adapters and does not contain product-name dispatch or a browser list.
+These commands take one snapshot and exit:
+
+```sh
+ctx graph processes
+ctx graph processes --limit 2048 --timeout 15s
+ctx graph process <pid> --resource-limit 512 --timeout 10s
+ctx graph vertices process
+ctx graph vertices application
+ctx graph vertices executable
+ctx graph vertices process-resource
+ctx graph edges parent-of
+ctx graph edges uses-resource
+```
+
+`processes` collects caller-visible process identities, parents, executable
+paths, and owners. `process <pid>` additionally collects resource evidence and
+usage. Process names are supplied by the OS; arbitrary applications can be
+identified without installing their CTX adapters. On macOS, an executable's
+outer `.app` bundle is also recorded as its owning application, including nested
+helpers. On Linux and Windows the executable identity is reported; desktop-file,
+package, and installer ownership are not inferred from executable basenames.
+
+`graph scan` now includes process enumeration. Resource inspection stays targeted
+so an ordinary inventory does not traverse every process's descriptors. The CLI
+also refreshes graph records when emitting its JSON result. A collector error or
+expired deadline prevents that process observation from being persisted.
+
+| Platform | Identity | Detailed resources |
+| --- | --- | --- |
+| macOS | Native `kern.proc` and executable-path metadata | Structured, bounded system `lsof` output for files, mappings, sockets and descriptor-based IPC; system `ps` for memory and cumulative CPU time |
+| Linux | `/proc/<pid>` within the caller's namespaces | File descriptors, file-backed mappings, TCP/UDP IPv4/IPv6 and Unix sockets, pipe/anonymous-inode evidence; memory, threads and CPU counters |
+| Windows | Tool Help, process creation time, executable path and owner SID | Process Snapshotting for named handles/kernel objects and file-backed mappings; module enumeration fallback; IP Helper TCP/UDP IPv4/IPv6 tables; working set and CPU time |
+
+Windows Process Snapshotting requires Windows 8.1 / Server 2012 R2 or later and
+sufficient process-query rights. Handle collection and mapping collection have
+separate permission requirements; one can succeed when the other fails. Paths
+from snapshots may use the NT device namespace. TCP/UDP collection does not cover
+Windows Unix-domain sockets. A module fallback is marked partial because it does
+not enumerate all mapped files. Kernel-object handle evidence does not imply an
+IPC protocol or reveal message contents. macOS descriptor inspection does not
+enumerate every Mach port. Other operating systems currently return an explicit
+unsupported error; additional collectors can use the same contracts.
+
+Every collected category has `coverage` with a state: `complete`, `partial`,
+`permission-denied`, `unsupported`, `exited`, or `unavailable`, plus a diagnostic
+when useful and an observation timestamp. Complete means the documented category
+was collected within the caller's visibility. Processes hidden by a sandbox,
+namespace, or OS access policy cannot be counted as missing accessible records.
+An empty successful collection is distinct from failed collection. Usage fields
+are optional; zero and unavailable are different. CPU values are cumulative
+seconds, not an instantaneous percentage; consumers can calculate a rate from
+successive observations of the same process instance.
+
+The defaults are 4096 processes, 1024 resources **per category**, and a ten-second
+collection deadline. Record limits are capped at 65536. A limit produces partial
+coverage; native APIs may enumerate a larger internal table before CTX filters
+it. Proc-file and utility output reads are bounded. Context cancellation is
+checked between native calls and during loops; an in-progress OS call cannot
+always be interrupted immediately. No monitor, daemon, privilege escalation, or
+application extension is installed.
+
+Only metadata is collected. File contents, application memory contents, command
+arguments, environment values, cookies, and IPC payloads are not returned or
+persisted. macOS executable lookup reads the native process-arguments record but
+uses only its executable-path prefix. An endpoint observation does not establish
+HTTP, a browser debugging protocol, or permission to control the application.
+Product-specific interpretation belongs to the corresponding adapter.
+
+### Process library API and reconciliation
+
+```go
+options := systemgraph.ProcessOptions{
+    MaxProcesses: 4096,
+    MaxResources: 1024,
+    Timeout: 10 * time.Second,
+}
+
+inventory, err := systemgraph.DiscoverProcesses(ctx, options)
+inspection, err := systemgraph.InspectProcess(ctx, pid, options)
+
+// Discovery does not require a store. Persist either result explicitly:
+err = system.ObserveProcesses(ctx, inventory)
+err = system.ObserveProcesses(ctx, inspection)
+
+// Convenience operation for enumeration plus persistence:
+inventory, err = system.ScanProcesses(ctx, options)
+```
+
+`DiscoverHost` / `ScanHost` retain their existing shell/filesystem/webview API;
+`ScanProcesses` is separate for consumers that do not need process inventory.
+The CLI `graph scan` calls both, then scans adapters. Those inventories are
+separate graph transactions.
+
+Process node IDs combine host/boot/visibility identity, PID, and native start
+identity. Inspection checks that identity and executable again after resource
+collection; exit, PID reuse, or an executable change rejects the observation.
+Entries whose start identity cannot be established are returned with their
+coverage and retained in the inventory marker’s `unidentified_processes` field,
+but are not projected as stable process nodes.
+
+The projection creates `process`, `executable`, `application`, and
+`process-resource` vertices, and `runs`, `parent-of`, `executes`,
+`belongs-to-application`, and `uses-resource` relationships. Resource vertices
+are scoped to a process instance. Their `kind` attribute is `file`, `mapping`,
+`socket`, or `ipc`; sockets retain protocol, addresses and state where available.
+
+A complete enumeration removes absent process instances and their resources.
+A limited or otherwise partial enumeration preserves unseen records. A targeted
+inspection replaces only that PID's instance and the resource categories it
+inspected, even when that category reports partial or denied coverage; old
+resources are not silently presented as a successful new inspection. Later
+identity-only scans retain resource evidence and coverage with their original
+timestamps. Parent edges come from a shared enumeration; a targeted refresh may
+retain an older parent edge if the parent PID still agrees, without changing the
+edge's timestamp. All observations are point-in-time evidence, not atomic views
+or guarantees that a resource remains available. Older observations are rejected
+when they would overwrite newer inventory or process evidence.
+
+Consumers such as Xallet can schedule these library calls, inspect graph changes,
+and add their own interpretations. CTX's graph command itself remains short-lived.
+
+Native references: [Linux proc](https://docs.kernel.org/filesystems/proc.html),
+[Apple process APIs](https://github.com/apple-oss-distributions/xnu/blob/main/libsyscall/wrappers/libproc/libproc.h),
+[Windows process snapshot flags](https://learn.microsoft.com/en-us/windows/win32/api/processsnapshot/ne-processsnapshot-pss_capture_flags),
+and [Windows socket ownership](https://learn.microsoft.com/en-us/windows/win32/api/tcpmib/ns-tcpmib-mib_tcptable_owner_pid).
+
+### Validation
+
+The process tests use a disposable subprocess, not an installed application. The
+fixture opens a uniquely named file and file mapping, TCP and UDP loopback
+sockets, and a pipe. Its parent checks identities, resource ownership, listener
+state, usage, metadata privacy, limits, resource closure, and process exit. A
+macOS fixture also launches from a temporary `.app` path to check generic bundle
+attribution. Linux additionally checks permission-denied results against a
+non-dumpable child, under a non-root user without ptrace bypass privileges.
+
+Portable tests cover projection, stale observations, simulated PID reuse,
+partial/denied inventories, orphan cleanup, coverage timestamps, preservation of
+other host inventory, and invalid CLI arguments. Platform tests cover native
+resource parsing, output bounds, address formats, and Windows snapshot ABI
+layout. Real PID reuse is not forced, and a passing build is not a native test.
+
+Run ordinary contract/parser tests with:
+
+```sh
+go test ./graph/... ./internal/app
+```
+
+Enable native fixtures explicitly (the shell must permit subprocess inspection
+and binding temporary loopback sockets):
+
+```sh
+CTX_GRAPH_PROCESS_NATIVE_TESTS=1 go test -race -v ./graph/system \
+  -run '^(TestNativeProcess|TestProcess)' -count=3 -timeout=5m
+```
+
+On PowerShell, set `$env:CTX_GRAPH_PROCESS_NATIVE_TESTS = '1'` before the same
+`go test` command. The native GitHub Actions workflow now runs this step on
+macOS, Linux, and Windows. It fails when expected fixture resources are missing;
+partial coverage is not used to excuse a missing expected file or socket.
+The Linux permission test explicitly skips root execution because that would
+not establish the unprivileged denial behavior.
+
+Validation recorded on 2026-10-04:
+
+| Environment | Evidence |
+| --- | --- |
+| macOS 15.7.8 / arm64 | Native process lifecycle, generic app bundle attribution, graph tests with race detection, parser/limit regressions, and the existing repository suite |
+| Linux / arm64, OrbStack Alpine container | Native fixture, resource lifecycle, real permission denial, parser and projection tests; run three times with an unprivileged UID, all capabilities dropped, no external networking, and a read-only root filesystem |
+| Windows / amd64 | Test executable cross-compiled; native execution pending on the Windows CI runner |
+
+These results cover the named environments. Release-level claims for additional
+OS versions and architectures need passing runs on those targets. Windows and
+macOS protected-process scenarios beyond ordinary fixture permissions, and
+extended resource-churn/exit-during-inspection stress, still need separate native
+coverage. CI configuration in the working tree is not evidence that a remote
+CI run has passed.

@@ -35,6 +35,8 @@ func graphCommand(args []string, stdout, stderr io.Writer) int {
 	encoder := json.NewEncoder(stdout)
 	encoder.SetIndent("", "  ")
 	switch args[0] {
+	case "processes", "process":
+		return graphProcessCommand(ctx, system, args[0], args[1:], stdout, stderr)
 	case "shells", "filesystems", "webviews":
 		if len(args) != 1 {
 			fmt.Fprintf(stderr, "ctx: graph %s takes no arguments\n", args[0])
@@ -72,6 +74,10 @@ func graphCommand(args []string, stdout, stderr io.Writer) int {
 		if err != nil {
 			return reportError(stderr, err)
 		}
+		processes, err := system.ScanProcesses(ctx, systemgraph.ProcessOptions{})
+		if err != nil {
+			return reportError(stderr, err)
+		}
 		if resolveErr != nil {
 			return reportError(stderr, resolveErr)
 		}
@@ -89,6 +95,7 @@ func graphCommand(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stdout, "observed %d adapters and %d contexts\n", len(adapters), count)
 		fmt.Fprintf(stdout, "observed %d shells and %d mounted filesystems\n", len(host.Shells), len(host.Filesystems))
 		fmt.Fprintf(stdout, "observed %d shared webview runtimes\n", len(host.Webviews))
+		fmt.Fprintf(stdout, "observed %d processes (%s)\n", len(processes.Processes), processes.Enumeration.State)
 		return 0
 	case "resolve":
 		if len(args) > 1 && (args[1] == "shell" || args[1] == "filesystem" || args[1] == "webview") {
@@ -249,7 +256,7 @@ func graphCommand(args []string, stdout, stderr io.Writer) int {
 		return 0
 	default:
 		fmt.Fprintf(stderr, "ctx: unknown graph command %s\n", args[0])
-		fmt.Fprintln(stderr, "ctx: use graph scan, shells, filesystems, webviews, resolve [runtime|all] [capability...] [--supports kind] [--share resource.operation], status, vertices, edges, snapshot, or changes [cursor]")
+		fmt.Fprintln(stderr, "ctx: use graph scan, shells, filesystems, webviews, processes, process <pid>, resolve [runtime|all] [capability...] [--supports kind] [--share resource.operation], status, vertices, edges, snapshot, or changes [cursor]")
 		return 2
 	}
 }

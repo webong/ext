@@ -46,30 +46,35 @@ func New(store graph.Store) (*Graph, error) {
 
 func validateSchema(view graph.View, tx graph.Transaction) error {
 	allowedKinds := map[string]bool{Namespace + "/machine": true, Namespace + "/shell-session": true, Namespace + "/directory": true, Namespace + "/project": true, Namespace + "/profile": true, Namespace + "/selection": true, Namespace + "/browser-context": true, Namespace + "/inventory": true, Namespace + "/adapter": true, Namespace + "/capability": true, Namespace + "/support": true, Namespace + "/context": true, Namespace + "/resource": true, Namespace + "/alias": true,
-		Namespace + "/host-inventory": true, Namespace + "/shell": true, Namespace + "/filesystem": true, Namespace + "/webview": true}
+		Namespace + "/host-inventory": true, Namespace + "/shell": true, Namespace + "/filesystem": true, Namespace + "/webview": true, Namespace + "/process": true, Namespace + "/executable": true, Namespace + "/application": true, Namespace + "/process-resource": true}
 	for _, vertex := range tx.Vertices {
 		if !allowedKinds[vertex.Kind] {
 			return fmt.Errorf("unsupported ctx.system kind %q", vertex.Kind)
 		}
 	}
 	allowedRelations := map[string]struct{ from, to string }{
-		Namespace + "/hosts":              {Namespace + "/machine", Namespace + "/shell-session"},
-		Namespace + "/has-shell":          {Namespace + "/machine", Namespace + "/shell"},
-		Namespace + "/has-filesystem":     {Namespace + "/machine", Namespace + "/filesystem"},
-		Namespace + "/has-webview":        {Namespace + "/machine", Namespace + "/webview"},
-		Namespace + "/has-host-inventory": {Namespace + "/machine", Namespace + "/host-inventory"},
-		Namespace + "/working-in":         {Namespace + "/shell-session", Namespace + "/directory"},
-		Namespace + "/within":             {Namespace + "/directory", Namespace + "/project"},
-		Namespace + "/uses-profile":       {Namespace + "/shell-session", Namespace + "/profile"},
-		Namespace + "/selects":            {Namespace + "/shell-session", Namespace + "/selection"},
-		Namespace + "/opened":             {Namespace + "/shell-session", Namespace + "/browser-context"},
-		Namespace + "/has-adapter":        {Namespace + "/machine", Namespace + "/adapter"},
-		Namespace + "/supports":           {Namespace + "/adapter", Namespace + "/capability"},
-		Namespace + "/supports-kind":      {Namespace + "/adapter", Namespace + "/support"},
-		Namespace + "/offers":             {Namespace + "/adapter", Namespace + "/context"},
-		Namespace + "/contains":           {Namespace + "/context", Namespace + "/resource"},
-		Namespace + "/relates":            {Namespace + "/resource", Namespace + "/resource"},
-		Namespace + "/resolves-to":        {Namespace + "/alias", Namespace + "/context"},
+		Namespace + "/runs":                   {Namespace + "/machine", Namespace + "/process"},
+		Namespace + "/parent-of":              {Namespace + "/process", Namespace + "/process"},
+		Namespace + "/executes":               {Namespace + "/process", Namespace + "/executable"},
+		Namespace + "/belongs-to-application": {Namespace + "/process", Namespace + "/application"},
+		Namespace + "/uses-resource":          {Namespace + "/process", Namespace + "/process-resource"},
+		Namespace + "/hosts":                  {Namespace + "/machine", Namespace + "/shell-session"},
+		Namespace + "/has-shell":              {Namespace + "/machine", Namespace + "/shell"},
+		Namespace + "/has-filesystem":         {Namespace + "/machine", Namespace + "/filesystem"},
+		Namespace + "/has-webview":            {Namespace + "/machine", Namespace + "/webview"},
+		Namespace + "/has-host-inventory":     {Namespace + "/machine", Namespace + "/host-inventory"},
+		Namespace + "/working-in":             {Namespace + "/shell-session", Namespace + "/directory"},
+		Namespace + "/within":                 {Namespace + "/directory", Namespace + "/project"},
+		Namespace + "/uses-profile":           {Namespace + "/shell-session", Namespace + "/profile"},
+		Namespace + "/selects":                {Namespace + "/shell-session", Namespace + "/selection"},
+		Namespace + "/opened":                 {Namespace + "/shell-session", Namespace + "/browser-context"},
+		Namespace + "/has-adapter":            {Namespace + "/machine", Namespace + "/adapter"},
+		Namespace + "/supports":               {Namespace + "/adapter", Namespace + "/capability"},
+		Namespace + "/supports-kind":          {Namespace + "/adapter", Namespace + "/support"},
+		Namespace + "/offers":                 {Namespace + "/adapter", Namespace + "/context"},
+		Namespace + "/contains":               {Namespace + "/context", Namespace + "/resource"},
+		Namespace + "/relates":                {Namespace + "/resource", Namespace + "/resource"},
+		Namespace + "/resolves-to":            {Namespace + "/alias", Namespace + "/context"},
 	}
 	for _, edge := range tx.Edges {
 		expected, ok := allowedRelations[edge.Type]

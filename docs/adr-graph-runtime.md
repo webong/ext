@@ -97,6 +97,13 @@ host discovery stays in `graph/system`; product-specific provider discovery
 stays in adapters. `ctx graph scan` records all host inventories and installed
 adapters, their declared capabilities and surfaces, and versioned observations
 from trusted adapters.
+`ctx graph processes` enumerates caller-visible processes; `ctx graph process <pid>`
+collects targeted file, mapping, socket, IPC, and usage evidence. The native
+collectors live in `graph/system`, and operate without adapters. Process IDs
+include boot and start identity; coverage and observation timestamps distinguish
+missing resources from denied, partial, or unsupported inspection. Product
+protocols and capabilities remain adapter-owned. See [host discovery](host-discovery.md)
+for platform coverage, limits, and reconciliation semantics.
 Host consumers declare operation requirements through `ResolveHost` and
 `PrepareHost`. Queries refresh stale required categories; preparation performs
 current discovery and live validation, preserves explicit selections, and

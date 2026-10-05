@@ -60,7 +60,7 @@ Register-ArgumentCompleter -Native -CommandName ctx -ScriptBlock {
         'clear' { if ($words.Count -le 2) { Emit-CtxCompletion ((Get-CtxSelectors) + 'profile'); return } }
         'completion' { if ($words.Count -le 2) { Emit-CtxCompletion @('powershell'); return } }
         'graph' {
-            if ($words.Count -le 2) { Emit-CtxCompletion @('scan', 'shells', 'filesystems', 'webviews', 'resolve', 'status', 'vertices', 'edges', 'snapshot', 'changes'); return }
+            if ($words.Count -le 2) { Emit-CtxCompletion @('scan', 'shells', 'filesystems', 'webviews', 'processes', 'process', 'resolve', 'status', 'vertices', 'edges', 'snapshot', 'changes'); return }
             if ($words[2] -eq 'resolve') {
                 if ($words.Count -le 3) { Emit-CtxCompletion @('all', 'browser', 'computer', 'manager', 'shell', 'filesystem', 'webview'); return }
                 if ($words[3] -eq 'shell') { Emit-CtxCompletion @('--name', '--select', '--max-age'); return }

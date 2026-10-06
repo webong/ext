@@ -6,7 +6,7 @@ build_dir="${CTX_INTEROP_BUILD_DIR:-}"
 if [[ -z "$build_dir" ]]; then build_dir="$(mktemp -d "${TMPDIR:-/tmp}/ctx-interop.XXXXXX")"; fi
 mkdir -p "$build_dir"
 build_dir="$(cd "$build_dir" && pwd -P)"
-export CTX_CENGINE_BUILD_DIR="${CTX_CENGINE_BUILD_DIR:-$build_dir/cengine}"
+export CTX_CENGINE_BUILD_DIR="${CTX_CENGINE_BUILD_DIR:-$build_dir/pkg/plugin-engine}"
 if [[ "${CTX_INTEROP_REUSE_CENGINE:-0}" != 1 ]]; then
   CTX_CENGINE_SKIP_BENCH=1 scripts/plugin-cengine.sh
 fi
@@ -23,7 +23,7 @@ export CTX_BRIDGE_JSONLINE_GUEST="$CTX_CENGINE_BUILD_DIR/go-guest"
 go build "${go_tags[@]}" -o "$CTX_BRIDGE_EXECUTABLE" ./cmd/ctx-plugin-bridge
 go build -o "$CTX_BRIDGE_GUEST" ./pkg/plugin/bridge/testdata/hashicorp-guest
 go test "${go_tags[@]}" -race -count=1 -timeout=120s ./pkg/plugin/bridge ./pkg/plugin/interop ./cmd/ctx-plugin-bridge
-(cd pkg/plugin/hashicorp && go test "${go_tags[@]}" -race -count=1 -timeout=120s ./...)
+(cd pkg/plugin-hashicorp && go test "${go_tags[@]}" -race -count=1 -timeout=120s ./...)
 python3 - "$build_dir" "$CTX_CENGINE_BUILD_DIR" <<'PY'
 import datetime,hashlib,json,pathlib,shutil,sys
 p=pathlib.Path(sys.argv[1]); fixtures=pathlib.Path(sys.argv[2]); descriptor=json.loads((fixtures/'descriptor.json').read_text())
@@ -41,10 +41,10 @@ for protocol in grpc netrpc; do
   executable="$build_dir/bridge-$protocol"
   inputs=("$executable" "$build_dir/descriptor.json" "$build_dir/echo.json" "$build_dir/public-error.json")
   "$CTX_CENGINE_BUILD_DIR/go-host" "${inputs[@]}" > "$build_dir/go-$protocol.jsonl"
-  rust_host="${CARGO_TARGET_DIR:-$CTX_CENGINE_BUILD_DIR/cargo}/debug/ctx-cengine-example"
+  rust_host="${CARGO_TARGET_DIR:-$CTX_CENGINE_BUILD_DIR/cargo}/debug/ctx-pkg/plugin-engine-example"
   "$rust_host" "${inputs[@]}" > "$build_dir/rust-$protocol.jsonl"
   "$CTX_CENGINE_BUILD_DIR/zig-host" "${inputs[@]}" > "$build_dir/zig-$protocol.jsonl"
-  node pkg/typescript/examples/cengine/host.cjs "$CTX_CENGINE_BUILD_DIR/ctx_host.node" "${inputs[@]}" > "$build_dir/node-$protocol.jsonl"
+  node pkg/plugin-ts/examples/cengine/host.cjs "$CTX_CENGINE_BUILD_DIR/ctx_host.node" "${inputs[@]}" > "$build_dir/node-$protocol.jsonl"
   node pkg/plugin/bridge/testdata/ts-host.mjs "$executable" "$build_dir/descriptor.json"
   if [[ -n "${CTX_INTEROP_RUST_HOST:-}" ]]; then "$CTX_INTEROP_RUST_HOST" process "$executable"; fi
   if [[ -n "${CTX_INTEROP_ZIG_HOST:-}" ]]; then python3 pkg/plugin/bridge/testdata/zig_host.py "$CTX_INTEROP_ZIG_HOST" "$executable"; fi

@@ -48,7 +48,7 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	sdk, err := filepath.Abs("pkg/typescript")
+	sdk, err := filepath.Abs("pkg/plugin-ts")
 	if err != nil {
 		return err
 	}

@@ -3,8 +3,8 @@ import {spawn} from 'node:child_process';
 import {once} from 'node:events';
 import {readFile} from 'node:fs/promises';
 import assert from 'node:assert/strict';
-import {Session,JSONLineBackend} from '../../../pkg/typescript/index.mjs';
-import {nodeIO} from '../../../pkg/typescript/node.mjs';
+import {Session,JSONLineBackend} from '../../../pkg/plugin-ts/index.mjs';
+import {nodeIO} from '../../../pkg/plugin-ts/node.mjs';
 const [executable,descriptorPath]=process.argv.slice(2);
 const descriptor=JSON.parse(await readFile(descriptorPath,'utf8'));
 const session=await Session.open(descriptor,{

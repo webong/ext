@@ -19,7 +19,7 @@ import (
 	"github.com/hashicorp/go-hclog"
 	goplugin "github.com/hashicorp/go-plugin"
 	"github.com/webong/ctx/pkg/plugin"
-	"github.com/webong/ctx/pkg/plugin/hashicorp"
+	"github.com/webong/ctx/pkg/plugin-hashicorp"
 )
 
 func main() {

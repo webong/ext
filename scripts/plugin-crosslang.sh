@@ -41,8 +41,8 @@ case "$(uname -s)" in
   Linux) extension=so ;;
   *) echo 'The cross-language native runner currently supports Linux and macOS.' >&2; exit 1 ;;
 esac
-go build -o "$build_dir/go-guest" ./pkg/plugin/wasm/crosslang/testdata/go-guest
-go build -buildmode=c-shared -o "$build_dir/go-shared.$extension" ./pkg/plugin/wasm/crosslang/testdata/go-shared
+go build -o "$build_dir/go-guest" ./pkg/plugin-wasm/crosslang/testdata/go-guest
+go build -buildmode=c-shared -o "$build_dir/go-shared.$extension" ./pkg/plugin-wasm/crosslang/testdata/go-shared
 export CTX_GO_GUEST="$build_dir/go-guest" CTX_GO_SHARED="$build_dir/go-shared.$extension"
 export CTX_RUST_GUEST="$CARGO_TARGET_DIR/debug/examples/guest" CTX_RUST_HOST="$CARGO_TARGET_DIR/debug/examples/host"
 export CTX_RUST_SHARED="$CARGO_TARGET_DIR/debug/examples/libshared.$extension"
@@ -51,6 +51,6 @@ export CTX_ZIG_GUEST="$build_dir/zig/bin/ctx-zig-guest" CTX_ZIG_HOST="$build_dir
 export CTX_ZIG_SHARED="$build_dir/zig/lib/libctx-zig-guest.$extension"
 export CTX_ZIG_WASM="$build_dir/wasi/bin/ctx-zig-guest.wasm"
 export CTX_CROSSLANG_REQUIRED=1
-go build -race -buildmode=plugin -o "$build_dir/go-native.so" ./pkg/plugin/wasm/crosslang/testdata/go-native
+go build -race -buildmode=plugin -o "$build_dir/go-native.so" ./pkg/plugin-wasm/crosslang/testdata/go-native
 export CTX_GO_NATIVE="$build_dir/go-native.so"
-go test "${go_tags[@]}" -race -count=1 -timeout=180s -v ./pkg/plugin/wasm/crosslang
+go test "${go_tags[@]}" -race -count=1 -timeout=180s -v ./pkg/plugin-wasm/crosslang

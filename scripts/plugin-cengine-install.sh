@@ -19,7 +19,7 @@ foreach(binding IN ITEMS guest guest_shared host host_shared)
 endforeach()
 CMAKE
 cmake -S "$build_dir/consumer" -B "$build_dir/consumer-build" \
-  -DCMAKE_PREFIX_PATH="$build_dir/install" -DCTX_GUEST_CHECK="$PWD/pkg/plugin/cengine/tests/guest_core.c"
+  -DCMAKE_PREFIX_PATH="$build_dir/install" -DCTX_GUEST_CHECK="$PWD/pkg/plugin-engine/tests/guest_core.c"
 cmake --build "$build_dir/consumer-build" -j 4
 for binding in guest guest_shared host host_shared; do
   if [[ -x "$build_dir/consumer-build/check_$binding" ]]; then "$build_dir/consumer-build/check_$binding"; fi

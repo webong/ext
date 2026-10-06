@@ -2,12 +2,34 @@ go 1.23.0
 
 use (
 	.
-	./pkg/adapter
-	./pkg/go
+	./adapters/chromium
+	./adapters/secret_service
+	./adapters/credman
+	./adapters/keychain
+	./adapters/git
+	./adapters/zen
+	./adapters/waterfox
+	./adapters/librewolf
+	./adapters/floorp
+	./adapters/whale
+	./adapters/vivaldi
+	./adapters/opera
+	./adapters/helium
+	./adapters/dia
+	./adapters/comet
+	./adapters/atlas
+	./adapters/arc
+	./adapters/brave
+	./adapters/edge
+	./adapters/chrome
+	./adapters/firefox
+	./adapters/safari
 	./pkg/graph
 	./pkg/plugin
-	./pkg/plugin/hashicorp
-	./pkg/plugin/wasm
+	./pkg/plugin-cshared
+	./pkg/plugin-go
+	./pkg/plugin-hashicorp
+	./pkg/plugin-wasm
 	./pkg/supervisor
 	./res/browser
 	./res/credential

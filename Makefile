@@ -26,7 +26,7 @@ test-native-installer:
 
 test-go:
 	GOCACHE=$(GO_CACHE) GOMODCACHE=$(GO_MOD_CACHE) go test ./...
-	for module in pkg/adapter pkg/go pkg/graph pkg/plugin pkg/plugin/hashicorp pkg/plugin/wasm pkg/supervisor res/browser res/credential; do \
+	for module in pkg/plugin-go pkg/graph pkg/plugin pkg/plugin-hashicorp pkg/plugin-wasm pkg/supervisor res/browser res/credential; do \
 		(cd $$module && GOCACHE=$(GO_CACHE) GOMODCACHE=$(GO_MOD_CACHE) go test ./...) || exit; \
 	done
 

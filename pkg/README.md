@@ -1,7 +1,7 @@
 # Public packages
 
 Reusable libraries live here so CTX and its ecosystem share one public surface.
-`internal/` stays private to CTX, and [`res/`](../res/README.md) is a separate
+CTX implementation packages stay private to CTX, and [`res/`](../res/README.md) is a separate
 container for the browser and credential modules. Every library in both
 containers is its own Go module.
 
@@ -11,7 +11,7 @@ builds and tests as a single workspace, while each module stays independently
 buildable and publishable.
 
 Keep dependencies pointing inward so a library never depends back on its
-consumers; `internal/arch` enforces that direction.
+consumers.
 
 | Module | Depends on | Third-party dependencies |
 | --- | --- | --- |
@@ -20,11 +20,11 @@ consumers; `internal/arch` enforces that direction.
 | [`graph`](graph/README.md) | none | `golang.org/x/sys` |
 | [`plugin`](plugin/README.md) | `pkg/graph` | none |
 | [`go`](go/README.md) | `pkg/plugin` | none |
-| [`plugin/hashicorp`](plugin/hashicorp/README.md) | `pkg/plugin` | `go-plugin`, `grpc`, `protobuf` |
-| [`plugin/wasm`](plugin/wasm/README.md) | `pkg/plugin`, `pkg/go` | `wazero` |
+| [`plugin-hashicorp`](../plugin-hashicorp/README.md) | `pkg/plugin` | `go-plugin`, `grpc`, `protobuf` |
+| [`plugin-wasm`](../plugin-wasm/README.md) | `pkg/plugin`, `pkg/plugin-go` | `wazero` |
 
 Six of the eight modules carry no third-party dependencies at all. A consumer
-that only needs `pkg/plugin`, `pkg/adapter`, or `pkg/graph` never downloads the
+that only needs `pkg/plugin` or `pkg/graph` never downloads the
 HashiCorp or WASI runtime stacks, and each runtime backend is opt-in.
 
 | Library | Contents |
@@ -46,8 +46,8 @@ runtime backends and shared conformance fixtures.
 | [`zig`](zig/README.md) | Zig SDK and header-generated C engine binding |
 | [`typescript`](typescript/README.md) | JavaScript SDK, TypeScript declarations and async Node C engine binding |
 
-The Go host binding import is `github.com/webong/ctx/pkg/go`; its package name
-is `goengine`. Go guest C exports use `github.com/webong/ctx/pkg/go/cshared/guest`.
+The Go host binding import is `github.com/webong/ctx/pkg/plugin-go`; its package name
+is `goengine`. Go guest C exports use `github.com/webong/ctx/pkg/plugin-go/cshared/guest`.
 Rust crate and npm package names are unchanged; their repository locations moved.
 
 C embedding examples live in each language's `examples/` directory. The C engine

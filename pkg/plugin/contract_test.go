@@ -140,3 +140,20 @@ func TestRejectInvalidUTF8(t *testing.T) {
 		t.Fatal("invalid UTF-8 accepted")
 	}
 }
+
+func TestDecodeRejectsUnpairedSurrogates(t *testing.T) {
+	for _, tc := range []struct {
+		text string
+		ok   bool
+	}{
+		{`"🙂"`, true}, {`"🙂"`, true}, {`"é"`, true}, {`"\\ud83d"`, true}, {`"\\\\ud83d"`, true}, {`"\"🙂"`, true},
+		{`"\ud83d"`, false}, {`"\ude42"`, false}, {`"\ud83dx"`, false}, {`"\ud83dA"`, false}, {`"\ude42\ud83d"`, false}, {`"\ud83d🙂"`, false},
+		{`{"k\ud83d":1}`, false}, {`["ok","\udc00"]`, false},
+	} {
+		var v any
+		err := Decode([]byte(tc.text), &v)
+		if (err == nil) != tc.ok {
+			t.Errorf("%s: err=%v, want ok=%v", tc.text, err, tc.ok)
+		}
+	}
+}

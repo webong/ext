@@ -48,21 +48,14 @@ func matrixValues() []string {
 		`{"é":"x"}`, `{"é":"x","🙂":null}`, `{"é":"x","other":[1]}`, `{"n":{"x":[1,2.5]}}`, `{"n":{"x":["no"]}}`, `{"n":{"y":1}}`, `{"n":null}`,
 		" 1 ", "\n[ ]\n", "", " ", "nul", "tru", "01", "+1", "1.", ".5", "0x10", "NaN", "Infinity", "-", "1,2", "[1,]", "{,}", `{"a":}`, `{a:1}`, `'a'`, `"unterminated`,
 		"\x00", "[1]garbage", "{} {}",
+		// Surrogate and invalid UTF-8 handling must agree between engines.
+		"\"\\ude42\"", "\"\\ud83dx\"", "\"\\ud83d\\u0041\"", "\"\\ude42\\ud83d\"", "\"\\\\ud83d\"", "\"\\\\\\ud83d\"", "\"\\ud83d\\ud83d\\ude42\"", "\"\xff\"", "\"\xed\xa0\x80\"", "\"\\uD83D\\uDE42\"",
 	}
-}
-
-// knownDivergences lists values on which the engines intentionally differ.
-// Go's decoder silently replaces an unpaired surrogate escape with U+FFFD; the C
-// parser rejects it, which avoids silent data corruption. The test requires the
-// difference to persist, so resolving it (in either direction) must update this
-// table and docs/plugin-engine-parity.md together.
-var knownDivergences = map[string]string{
-	`"\ud83d"`: "unpaired high surrogate escape: Go accepts as U+FFFD, C rejects",
 }
 
 func TestSchemaMatrixDifferential(t *testing.T) {
 	schemas, values := matrixSchemas(), matrixValues()
-	checked, diverged := 0, 0
+	checked := 0
 	for i, s := range schemas {
 		goInvalid := s.Validate()
 		raw, _ := json.Marshal(s)
@@ -77,24 +70,12 @@ func TestSchemaMatrixDifferential(t *testing.T) {
 			want := s.Check(json.RawMessage(v))
 			got := CheckSchema(s, json.RawMessage(v))
 			checked++
-			if reason, known := knownDivergences[v]; known {
-				if got == nil {
-					t.Errorf("schema[%d] value %q: C now accepts it (%s): update knownDivergences", i, v, reason)
-				}
-				if want == nil {
-					diverged++
-				}
-				continue
-			}
 			if (want == nil) != (got == nil) {
 				t.Errorf("schema[%d] %s value %q: Go=%v C=%v", i, raw, v, want, got)
 			}
 		}
 	}
-	t.Logf("compared %d schema/value pairs; %d known divergences", checked, diverged)
-	if diverged == 0 {
-		t.Error("known divergence no longer observed: update knownDivergences and the parity doc")
-	}
+	t.Logf("compared %d schema/value pairs", checked)
 	if checked < 1000 {
 		t.Fatal(fmt.Sprintf("matrix too small: %d", checked))
 	}

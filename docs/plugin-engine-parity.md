@@ -33,7 +33,7 @@ full parity achieved.
 | Observability (`plugin/observe.go`) | C metadata-only events with Go/Rust/Zig hooks and bounded asynchronous Node observation | Match all stage/error semantics; document Node delivery limits |
 | Guest engine (`plugin/guest.go`) | C immutable dispatcher, deadlines, owned buffers and error sanitization; Go/Rust/Zig/Node bindings | Complete cancellation/default/invalid-input differential coverage |
 | Typed authoring (`pkg/plugin/author`) | Go registry construction, guest snapshots and typed host calls can use C schema evaluation; Rust/Zig/Node accept native handlers | Typed foreign conveniences and final default SDK integration |
-| Schema (`pkg/plugin/schema`) | Shared bounded schema validation and checks; a generated matrix of 30 schemas by about 90 raw values (1,827 pairs, including numbers, nulls, Unicode and malformed JSON) agrees with Go except one tracked divergence | Decide the unpaired-surrogate divergence below |
+| Schema (`pkg/plugin/schema`) | Shared bounded schema validation and checks; a generated matrix of 30 schemas by about 90 raw values (2,037 pairs, including numbers, nulls, Unicode, surrogate escapes and malformed JSON) agrees with Go | Multi-keyword generated schemas |
 | Streams and capabilities (`pkg/plugin/stream`, `pkg/plugin/capability`) | C scoped pull-stream lifecycle, capacity, sequence, bounded batches, expiry, close/release; Go integration; Node bindings | Remaining race/error differential cases; capability helpers |
 | Instances (`pkg/plugin/instance`) | C revisions, configuration digests, capacity, leases, replacement, factory lifetime and draining cleanup; Go integration | Remaining disposal error-cause fidelity |
 | Packages and trust (`pkg/plugin/packagekit`, `plugin/integrity.go`) | Shared manifest/entrypoint/dependency services, SHA-256, POSIX artifact verification and directory digest | Windows filesystem implementation; Unicode-version compatibility; graph binding coverage |
@@ -60,15 +60,6 @@ Do not remove working Go paths or claim the C engine is the default SDK before
 these requirements are met. Static linkage is already the default *distribution
 choice for consumers of the C engine*; it is not a completed SDK migration.
 
-## Known divergences
-
-- **Unpaired surrogate escapes.** `"\ud83d"` is accepted by Go, whose decoder
-  silently replaces it with U+FFFD, and rejected by the C parser. The C behavior
-  avoids silent data corruption, but it is not parity. The choice is to make Go
-  reject it at every decode point or to make C accept and replace it. It is
-  tracked in `knownDivergences` in `pkg/plugin-go/schema_matrix_test.go`, which
-  fails if the divergence changes without this section being updated.
-
 ## Evidence for the current increment
 
 The C-backed Go session runs the reference session tests. Contract/schema,
@@ -83,7 +74,7 @@ The same engine has been called from Go, Rust, Zig and Node. New binding checks
 cover Rust services/cancellation/guests and resource leases, Zig generated host/guest
 and resource APIs, and Node async handlers, policy, cancellation, late promises,
 integrity, observation and cleanup. A deadline-rounding regression has repeated
-Go race checks. Raw optional-null and numeric schema cases compare against Go, as do the generated schema and contract mutation matrices (`schema_matrix_test.go`, `contract_matrix_test.go`). Node instance and stream managers pass their lifecycle suite; each scenario also ran clean under AddressSanitizer and UndefinedBehaviorSanitizer when run individually.
+Go race checks. Go's decoder now rejects unpaired surrogate escapes, as the C parser does, instead of silently substituting U+FFFD. Raw optional-null and numeric schema cases compare against Go, as do the generated schema and contract mutation matrices (`schema_matrix_test.go`, `contract_matrix_test.go`). Node instance and stream managers pass their lifecycle suite; each scenario also ran clean under AddressSanitizer and UndefinedBehaviorSanitizer when run individually.
 
 The production bridge passed both directions with gRPC and net/rpc under Go and
 C-backed sessions. The C-session runtime matrix passed Rust/Zig JSON-line, native

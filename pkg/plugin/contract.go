@@ -296,6 +296,9 @@ func Decode(data []byte, target any) error {
 	if len(data) > MaxFrameBytes {
 		return fmt.Errorf("%w: frame too large", ErrInvalid)
 	}
+	if err := rejectUnpairedSurrogates(data); err != nil {
+		return err
+	}
 	check := json.NewDecoder(bytes.NewReader(data))
 	check.UseNumber()
 	if err := uniqueValue(check, 0); err != nil {
@@ -308,6 +311,57 @@ func Decode(data []byte, target any) error {
 	d.DisallowUnknownFields()
 	if err := d.Decode(target); err != nil {
 		return fmt.Errorf("%w: %v", ErrInvalid, err)
+	}
+	return nil
+}
+
+// rejectUnpairedSurrogates refuses a \uD800-\uDFFF escape that is not part of a
+// high/low pair. encoding/json would silently replace it with U+FFFD, changing
+// the text a peer sent; the shared C engine rejects it, so both engines must.
+func rejectUnpairedSurrogates(data []byte) error {
+	hex := func(i int) (rune, bool) {
+		if i+6 > len(data) || data[i] != '\\' || data[i+1] != 'u' {
+			return 0, false
+		}
+		var r rune
+		for _, c := range data[i+2 : i+6] {
+			switch {
+			case c >= '0' && c <= '9':
+				r = r<<4 | rune(c-'0')
+			case c >= 'a' && c <= 'f':
+				r = r<<4 | rune(c-'a'+10)
+			case c >= 'A' && c <= 'F':
+				r = r<<4 | rune(c-'A'+10)
+			default:
+				return 0, false
+			}
+		}
+		return r, true
+	}
+	inString := false
+	for i := 0; i < len(data); i++ {
+		switch c := data[i]; {
+		case !inString:
+			inString = c == '"'
+		case c == '"':
+			inString = false
+		case c == '\\':
+			if r, ok := hex(i); ok {
+				switch {
+				case r >= 0xd800 && r <= 0xdbff:
+					if low, ok := hex(i + 6); !ok || low < 0xdc00 || low > 0xdfff {
+						return fmt.Errorf("%w: unpaired surrogate escape", ErrInvalid)
+					}
+					i += 11
+					continue
+				case r >= 0xdc00 && r <= 0xdfff:
+					return fmt.Errorf("%w: unpaired surrogate escape", ErrInvalid)
+				}
+				i += 5
+				continue
+			}
+			i++ // skip the escaped character, including \\ and \"
+		}
 	}
 	return nil
 }

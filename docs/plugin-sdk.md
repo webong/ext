@@ -1,11 +1,10 @@
 # CTX plugin SDK
 
-CTX owns the reusable plugin library alongside `pkg/graph`, `pkg/supervisor`,
-and `pkg/adapter`.
+CTX owns the reusable plugin library alongside `pkg/graph` and `pkg/supervisor`.
 Hosts and guests share one protocol and can select a supported transport.
 Adapters and applications own their domain contracts, grants, native behavior,
 distribution and activation. HashiCorp go-plugin remains a dependency of
-`pkg/plugin/hashicorp` inside the library.
+`pkg/plugin-hashicorp` inside the library.
 
 This change is entirely within CTX. Xallet and Cymonkey migration is deferred.
 Their existing native protocols are not automatically compatible with CTX.
@@ -19,22 +18,22 @@ Their existing native protocols are not automatically compatible with CTX.
 | `pkg/plugin/schema` | Bounded `ctx.schema/v1` payload/configuration schemas |
 | `pkg/plugin/inprocess` | Trusted endpoints with connection lifetime cancellation |
 | `pkg/plugin/jsonline` | Bounded JSON-line transport on a supplied duplex connection |
-| `pkg/plugin/hashicorp` | Native go-plugin startup and net/rpc or gRPC bindings |
+| `pkg/plugin-hashicorp` | Native go-plugin startup and net/rpc or gRPC bindings |
 | `pkg/plugin/nativego` | Dynamic Go `.so` loading through a standard guest factory |
-| `pkg/plugin/wasm` | Embedded wazero execution of WASI Preview 1 command guests |
-| `pkg/plugin/cshared` | Dynamic C ABI loading with separate guest handles and owned buffers |
-| `pkg/go/cshared/guest` | Go guest lifecycle and cgo export bridge for C shared libraries |
+| `pkg/plugin-wasm` | Embedded wazero execution of WASI Preview 1 command guests |
+| `pkg/plugin-cshared` | Dynamic C ABI loading with separate guest handles and owned buffers |
+| `pkg/plugin-go/cshared/guest` | Go guest lifecycle and cgo export bridge for C shared libraries |
 | `pkg/plugin/instance` | Configuration revisions, resource leases, replacement and disposal |
 | `pkg/plugin/capability` | Optional health and configuration contracts |
 | `pkg/plugin/stream` | Optional, scoped, bounded pull streams |
 | `pkg/plugin/packagekit` | Portable manifests, artifact verification, preflight and graph projection |
 | `pkg/plugin/plugintest` | Reusable backend conformance tests |
-| `pkg/go` | Go binding to the C engine; static by default, shared optional |
-| `pkg/typescript` | Portable JavaScript runtime and TypeScript declarations for hosts and guests |
-| `pkg/rust` | Rust typed registry, host sessions, JSON-line/WASI guests and C ABI host/guest bindings |
-| `pkg/zig` | Zig typed registry, host sessions, JSON-line/WASI guests and C ABI host/guest bindings |
-| `pkg/plugin/wasm/crosslang` | Real Rust/Zig/Go host and guest interoperability tests |
-| `cmd/ctx-plugin` | Read-only package inspection and dependency resolution |
+| `pkg/plugin-go` | Go binding to the C engine; static by default, shared optional |
+| `pkg/plugin-ts` | Portable JavaScript runtime and TypeScript declarations for hosts and guests |
+| `pkg/plugin-rust` | Rust typed registry, host sessions, JSON-line/WASI guests and C ABI host/guest bindings |
+| `pkg/plugin-zig` | Zig typed registry, host sessions, JSON-line/WASI guests and C ABI host/guest bindings |
+| `pkg/plugin-wasm/crosslang` | Real Rust/Zig/Go host and guest interoperability tests |
+| `pkg/plugin-hashicorp/cmd/ctx-plugin` | Read-only package inspection and dependency resolution |
 
 ## Compatibility policy
 
@@ -214,8 +213,8 @@ remain host-owned. Graph records do not grant permissions; restart generations,
 transactional activation and rollback remain part of the host's composition.
 
 ```sh
-go run ./cmd/ctx-plugin inspect --entry main examples/plugin-package/plugin.json
-go run ./cmd/ctx-plugin resolve examples/plugin-package/plugin.json
+go run ./pkg/plugin-hashicorp/cmd/ctx-plugin inspect --entry main examples/plugin-package/plugin.json
+go run ./pkg/plugin-hashicorp/cmd/ctx-plugin resolve examples/plugin-package/plugin.json
 ```
 
 Add `--root DIR` to verify artifact contents. `inspect` reports `trusted: false`
@@ -240,8 +239,8 @@ specific process cleanup remains covered by each runtime's own tests. Parser
 fixtures and domain/schema tests complement the behavioral backend suite.
 
 ```sh
-go test -race ./plugin/... ./cmd/ctx-plugin
-node --test pkg/typescript/test.mjs
+go test -race ./pkg/plugin-hashicorp/... ./pkg/plugin-hashicorp/cmd/ctx-plugin
+node --test pkg/plugin-ts/test.mjs
 go run ./examples/plugin-typescript
 ```
 
@@ -255,7 +254,7 @@ backend conformance suite.
 
 ### Rust and Zig SDKs
 
-The [Rust SDK](../pkg/rust/README.md) and [Zig SDK](../pkg/zig/README.md)
+The [Rust SDK](../pkg/plugin-rust/README.md) and [Zig SDK](../pkg/plugin-zig/README.md)
 provide typed method registration, immutable guest snapshots, explicit policy
 callbacks, envelope validation, host sessions and C ABI export helpers. Their
 command guests also compile to WASI Preview 1. Both use the existing wire/ABI
@@ -292,12 +291,12 @@ are separate steps; the TypeScript package remains private during development.
 
 ### C host embedding prototype
 
-`pkg/plugin/cengine` is an opt-in experiment in sharing one native host engine
+`pkg/plugin-engine` is an opt-in experiment in sharing one native host engine
 between Go, Rust, Zig and Node.js. It implements the JSON-line subprocess
 backend and preserves the existing guest wire contract. It does not replace
 the Go plugin library or port its other runtimes/capabilities. See the
-[prototype guide](../pkg/plugin/cengine/README.md) and
-[evaluation](../pkg/plugin/cengine/evaluation.md) for ownership, scope and measured
+[prototype guide](../pkg/plugin-engine/README.md) and
+[evaluation](../pkg/plugin-engine/evaluation.md) for ownership, scope and measured
 tradeoffs. Ordinary Go builds do not depend on this C engine.
 
 
@@ -305,7 +304,7 @@ tradeoffs. Ordinary Go builds do not depend on this C engine.
 
 Go, C and language-native SDK hosts can coexist behind the same contract.
 `pkg/plugin/interop` plans explicit direct/bridged routes; `pkg/plugin/bridge` exposes a
-verified backend as an Endpoint. `cmd/ctx-plugin-bridge` connects JSON-line hosts
+verified backend as an Endpoint. `pkg/plugin-hashicorp/cmd/ctx-plugin-bridge` connects JSON-line hosts
 to HashiCorp gRPC/net/rpc guests, while HashiCorp servers can expose relay
 Endpoints in the reverse direction. See [interoperability](plugin-interoperability.md)
 for configuration, ownership and the tested host/guest matrix. This extends

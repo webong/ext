@@ -118,12 +118,12 @@ the adapter do not change CTX's parent shell.
 Go adapters can parse invocations with:
 
 ```go
-request, err := adapter.Parse(os.Args[1:])
+request, err := plugin.ParseAdapterInvocation(os.Args[1:])
 // Handle the error, then dispatch request.Operation.
 // request.Selection and request.Arguments preserve the invocation fields.
 ```
 
-Import `github.com/webong/ctx/adapter`. The complete
+Import `github.com/webong/ctx/pkg/plugin`. The complete
 [Go echo example](../examples/adapters/go_echo/main.go) implements the basic
 handlers; the [shell echo example](../examples/adapters/echo/ctx-echo) shows the
 same contract without the Go SDK. These examples echo arguments; replace that

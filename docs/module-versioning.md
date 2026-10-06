@@ -15,8 +15,7 @@ consumers depend on several modules at once.
 Bumping the major version in any module bumps it everywhere. `v1` to `v2`
 means every module path changes, every `require` line changes, and every
 consumer must update together. That is deliberate: a breaking change to the
-shared contract cannot leave `pkg/plugin` at `v2` while `pkg/adapter` stays at
-`v1`.
+contract cannot leave one CTX module at `v2` while another stays at `v1`.
 
 A major bump is a repository-wide, coordinated release.
 
@@ -43,9 +42,9 @@ git tag pkg/graph/v1.0.1
 git tag pkg/plugin/v1.1.0
 
 # coordinated breaking change across every module
-git tag res/browser/v2.0.0 pkg/adapter/v2.0.0 pkg/go/v2.0.0 \
-        pkg/graph/v2.0.0 pkg/plugin/v2.0.0 pkg/plugin/hashicorp/v2.0.0 \
-        pkg/plugin/wasm/v2.0.0 pkg/supervisor/v2.0.0 v2.0.0
+git tag res/browser/v2.0.0 pkg/plugin-go/v2.0.0 \
+        pkg/graph/v2.0.0 pkg/plugin/v2.0.0 pkg/plugin-hashicorp/v2.0.0 \
+        pkg/plugin-wasm/v2.0.0 pkg/supervisor/v2.0.0 v2.0.0
 ```
 
 For a major bump, update the `/vN` path suffix in each affected `go.mod`, in
@@ -70,6 +69,19 @@ Because of this, `GOWORK=off go build ./...` inside a library module fails until
 that dependency is published at the required version. That failure is the
 correct signal: it means the module is not yet independently consumable.
 
+## The v0.1.0 baseline
+
+Every module is tagged `v0.1.0` on the commit that introduced the split. That
+release was verified by resolving the tagged modules into a scratch module
+outside this repository: a consumer requiring only `pkg/plugin-go` and
+`res/browser` resolved `pkg/plugin` transitively and pulled in no HashiCorp or
+WASI runtime, confirming the dependency isolation holds for real consumers.
+
+Local tags are not yet reachable through the public module proxy. Pushing them
+is a separate, deliberate publication step, and `GOWORK=off` builds inside a
+library module keep failing until it happens. That is the expected signal, not
+a defect.
+
 ## Verifying a release
 
 Before tagging, confirm each module builds and tests on its own with the
@@ -77,8 +89,8 @@ workspace active, and that the root module resolves the intended versions:
 
 ```bash
 go build ./...
-for module in pkg/adapter pkg/go pkg/graph pkg/plugin \
-              pkg/plugin/hashicorp pkg/plugin/wasm pkg/supervisor \
+for module in pkg/plugin-go pkg/graph pkg/plugin \
+              pkg/plugin-hashicorp pkg/plugin-wasm pkg/supervisor \
               res/browser res/credential; do
   (cd "$module" && go build ./... && go test ./...) || exit 1
 done

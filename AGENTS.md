@@ -36,7 +36,7 @@ library's dependencies pointing inward so it never depends back on its consumers
 `internal/arch` enforces that direction.
 
 Runtime backends that own a heavy runtime are separate modules:
-`pkg/plugin/hashicorp` (go-plugin, grpc) and `pkg/plugin/wasm` (wazero). Keep a
+`pkg/plugin-hashicorp` (go-plugin, grpc) and `pkg/plugin-wasm` (wazero). Keep a
 backend's non-test code dependent only on `pkg/plugin` and `pkg/plugin/jsonline`.
 Tests that need a backend belong in that backend's module, not in the core
 contract module, so the core stays free of the backend's runtime.
@@ -59,20 +59,29 @@ The reusable libraries are:
 - `pkg/graph` for host, system, and process discovery.
 - `pkg/plugin` for the shared host/guest contract and runtime backends.
 - `pkg/supervisor` for process supervision and recovery.
-- `pkg/adapter` for the public adapter process protocol.
 
 Plugin runtime backends, including HashiCorp go-plugin, belong inside the
-plugin library (for example `pkg/plugin/hashicorp`), together with their
+plugin library (for example `pkg/plugin-hashicorp`), together with their
 dependencies. They are not CTX product adapters. Keep the shared host/guest
 contract independent of backend choice so existing and future plugin
 implementations can use it.
+
+Product adapter engines and stores that are reused across adapters
+(`adapters/chromium` module, engine code in `adapters/chromium/engine`, `adapters/firefox/engine`, `adapters/safari/native`,
+`adapters/keychain/store`, `adapters/credman/store`, and
+`adapters/secret_service/store`) are their own Go modules, listed in `go.work`
+and resolved by the root `go.mod` while unpublished. Product adapter
+executables use the same plugin library. `pkg/plugin` owns the
+adapter process protocol and adapter descriptor helpers. Adapters import
+`pkg/plugin` directly to build guests, while CTX `internal/` imports it to
+build hosts.
 
 Language SDKs and bindings belong under `pkg/<language>/` (Go, Rust, Zig and
 TypeScript), with language-specific embedding examples alongside them. Keep
 `pkg/plugin` focused on engine contracts, runtime backends and shared
 conformance fixtures. The Go-to-C guest binding belongs in
-`pkg/go/cshared/guest`; the language-neutral C ABI header and runtime loader
-remain in `pkg/plugin/cshared`.
+`pkg/plugin-go/cshared/guest`; the language-neutral C ABI header and runtime loader
+remain in `pkg/plugin-cshared`.
 
 Moving a library into or out of `pkg/` changes public import paths. Update
 `AGENTS.md`, the docs, and the language SDKs together, and verify with

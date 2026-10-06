@@ -88,7 +88,7 @@ func (managementBackend) ManageBrowser(
 }
 
 func main() {
-    invocation, err := adapter.Parse(os.Args[1:])
+    invocation, err := plugin.ParseAdapterInvocation(os.Args[1:])
     if err != nil { os.Exit(2) }
     if invocation.Operation == "manage" {
         os.Exit(guest.RunManagement(context.Background(), invocation.Selection, os.Stdin, os.Stdout, os.Stderr, managementBackend{}))

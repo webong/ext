@@ -84,31 +84,31 @@ External CMake consumers load the installed static/shared host and guest targets
 
 ## Building the C engine locally
 
-The `ctx_cengine` build tag links `pkg/go` against the C engine, so those tests
-need the CMake library built first. `go test -tags ctx_cengine ./pkg/go` fails to
+The `ctx_cengine` build tag links `pkg/plugin-go` against the C engine, so those tests
+need the CMake library built first. `go test -tags ctx_cengine ./pkg/plugin-go` fails to
 link with `ld: library 'ctx_host_static' not found` until you do. Note that
 `go build` of a library package does not link, so it appears to succeed; the
 failure surfaces when `go test` builds the test binary.
 
-The cgo directives in `pkg/go/engine.go` use a bare `-lctx_host_static` with no
+The cgo directives in `pkg/plugin-go/engine.go` use a bare `-lctx_host_static` with no
 library search path, so point the linker at your build directory:
 
 ```bash
-cmake -S pkg/plugin/cengine -B /tmp/cengine-build \
+cmake -S pkg/plugin-engine -B /tmp/pkg/plugin-engine-build \
   -DCMAKE_BUILD_TYPE=Release -DCTX_BUILD_SHARED=ON
-cmake --build /tmp/cengine-build -j 4
+cmake --build /tmp/pkg/plugin-engine-build -j 4
 
-export CGO_LDFLAGS="-L/tmp/cengine-build -Wl,-rpath,/tmp/cengine-build"
+export CGO_LDFLAGS="-L/tmp/pkg/plugin-engine-build -Wl,-rpath,/tmp/pkg/plugin-engine-build"
 export CTX_CENGINE_GUEST=/tmp/go-guest
 export CTX_CENGINE_FAULT_GUEST=/tmp/fault-guest
 
 go build -tags ctx_cengine -o "$CTX_CENGINE_GUEST" \
-  ./pkg/plugin/wasm/crosslang/testdata/go-guest
+  ./pkg/plugin-wasm/crosslang/testdata/go-guest
 go build -tags ctx_cengine -o "$CTX_CENGINE_FAULT_GUEST" \
-  ./pkg/plugin/cengine/tests/faultguest
+  ./pkg/plugin-engine/tests/faultguest
 
-go test -tags ctx_cengine -race ./pkg/go
-go test -tags ctx_cengine,ctx_cengine_shared -race ./pkg/go   # shared linkage
+go test -tags ctx_cengine -race ./pkg/plugin-go
+go test -tags ctx_cengine,ctx_cengine_shared -race ./pkg/plugin-go   # shared linkage
 ```
 
 The two guest binaries are required: without `CTX_CENGINE_GUEST` and

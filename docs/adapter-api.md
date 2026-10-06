@@ -343,7 +343,7 @@ and [Neura Local settings](https://www.neurarelay.com/operators#neura-local-sett
 ## Process protocol
 
 CTX adapters also expose a shared library descriptor through
-`github.com/webong/ctx/pkg/adapter.PluginDescriptor`, using the `ctx.adapter`
+`github.com/webong/ctx/pkg/plugin.AdapterDescriptor`, using the `ctx.adapter`
 contract and their native API version. CTX uses the public `plugin` package
 for capability lookup and package integrity checking. The argv and stream
 binding below remains the adapter transport; it does not require a JSON-line
@@ -438,7 +438,11 @@ source and target can be different browser providers. The maintained browser
 adapters package their own `ctx-<adapter>-share` executable, built from that
 adapter's `native` directory; it is included in the adapter checksum and runs
 as a separate process. External adapters implement the same protocol in their own
-executable. CTX core has no browser-specific storage code or provider dispatch.
+executable. The helper receives the same invocation as every adapter,
+`share <profile> -- <resource> <operation>` (or `-- management <kind> <action>`),
+and parses it with `plugin.ParseAdapterInvocation` from `pkg/plugin`; the
+adapter's shell or PowerShell entry point passes its argv through unchanged.
+CTX core has no browser-specific storage code or provider dispatch.
 Maintained adapters use `res/browser/contract` for versioned request, cookie,
 policy, and generic resource envelope types. External adapters implement the
 documented JSON contract directly. Cookie fields
@@ -473,8 +477,8 @@ tool execution are owned under `adapters/`.
 External Go adapters import the shared types from
 `github.com/webong/ctx/res/browser/contract` and serving helpers from
 `github.com/webong/ctx/res/browser/guest`. A Go browser adapter can handle
-`share <profile> -- <resource> <operation>` in its main executable and use
-`guest.RunCookie`; it does not need a separate
+`share <profile> -- <resource> <operation>` in its main executable, parse it with
+`plugin.ParseAdapterInvocation`, and use `guest.RunCookie`; it does not need a separate
 helper executable. The bare Chromium adapter owns the reusable native engine at
 `github.com/webong/ctx/adapters/chromium/engine`; Chrome and other
 Chromium-based Go adapters can configure and import it through its exported
@@ -590,7 +594,7 @@ platform, unsafe paths, links, oversized contents, and checksum mismatches.
 It installs the package untrusted; review it and run `ctx adapter trust <name>`
 before using it.
 
-Go authors can use the public `github.com/webong/ctx/pkg/adapter` package to parse
+Go authors can use the public `github.com/webong/ctx/pkg/plugin` package to parse
 the versioned process invocation. Browser authors can also import
 `github.com/webong/ctx/res/browser/contract` for the cookie and policy bridge
 types, and `github.com/webong/ctx/res/browser/guest` for serving helpers, while

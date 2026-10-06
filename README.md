@@ -280,12 +280,11 @@ CTX and its ecosystem share public Go libraries:
 - `github.com/webong/ctx/pkg/graph` supplies generic graph storage and transactions.
 - `github.com/webong/ctx/pkg/plugin` supplies the shared host/guest contract,
   validation, selection, admission, and session lifecycle. Its implementations
-  include `pkg/plugin/inprocess`, `pkg/plugin/jsonline`, `pkg/plugin/hashicorp` (net/rpc and
-  gRPC), `pkg/plugin/nativego`, `pkg/plugin/wasm` (WASI Preview 1), and `pkg/plugin/cshared`
+  include `pkg/plugin/inprocess`, `pkg/plugin/jsonline`, `pkg/plugin-hashicorp` (net/rpc and
+  gRPC), `pkg/plugin/nativego`, `pkg/plugin-wasm` (WASI Preview 1), and `pkg/plugin-cshared`
   (versioned C ABI). All use the same typed authoring and host session APIs.
 - `github.com/webong/ctx/pkg/supervisor` supplies local process supervision when
   the selected plugin backend does not already own its process lifecycle.
-- `github.com/webong/ctx/pkg/adapter` supplies the public adapter process protocol.
 - `github.com/webong/ctx/res/browser` supplies portable browser contracts,
   workflows, extension and userscript handling.
 - `github.com/webong/ctx/res/credential` supplies portable credential serving and
@@ -300,7 +299,7 @@ libraries. Each is published as its own Go module under a shared major version;
 see [module versioning](docs/module-versioning.md). Domain behavior and
 authorization remain with each consumer.
 See the [plugin contract](docs/adr-plugin-contract.md) and the
-[HashiCorp backend guide](pkg/plugin/hashicorp/README.md). The
+[HashiCorp backend guide](pkg/plugin-hashicorp/README.md). The
 [runtime authoring guide](docs/plugin-runtimes.md) shows one implementation built
 as a Go plugin, a WASI command, or a C shared library.
 
@@ -330,7 +329,7 @@ remain inside the reusable plugin library, including HashiCorp go-plugin.
 ```sh
 go run ./examples/plugin-sdk --backend jsonline
 go run ./examples/plugin-typescript
-go run ./cmd/ctx-plugin inspect --root examples/plugin-package --entry main examples/plugin-package/plugin.json
+go run ./pkg/plugin-hashicorp/cmd/ctx-plugin inspect --root examples/plugin-package --entry main examples/plugin-package/plugin.json
 ```
 
 Inspection validates metadata and content without starting plugins. CTX adapters

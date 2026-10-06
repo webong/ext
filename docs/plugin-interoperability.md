@@ -80,7 +80,7 @@ where callers have different authority.
 
 ## HashiCorp bridge executable
 
-`cmd/ctx-plugin-bridge` exposes a reviewed CTX guest through a JSON-line or
+`pkg/plugin-hashicorp/cmd/ctx-plugin-bridge` exposes a reviewed CTX guest through a JSON-line or
 HashiCorp frontend. Its default exposes a HashiCorp CTX guest as a JSON-line command. A Rust, Zig, JS, C or Go host uses its normal CTX JSON-line binding.
 The bridge contains Go and runs in its own process; the host does not need to
 embed the Go runtime. Both HashiCorp gRPC and net/rpc are supported explicitly.
@@ -96,7 +96,7 @@ Host in any language
 Build and invoke:
 
 ```sh
-go build -o /tmp/ctx-plugin-bridge ./cmd/ctx-plugin-bridge
+go build -o /tmp/ctx-plugin-bridge ./pkg/plugin-hashicorp/cmd/ctx-plugin-bridge
 /tmp/ctx-plugin-bridge --config /absolute/path/bridge.json
 ```
 
@@ -228,5 +228,5 @@ The C ABI separates host selection/policy from backend configuration. Its curren
 built-in backend remains JSON-line subprocess. Runtime extensions may supply
 additional mechanics through a versioned vtable; unknown kinds are unsupported.
 Native Go consumers can continue using the Go implementation without cgo. A
-central engine service is deferred. See the [C embedding guide](../pkg/plugin/cengine/README.md)
+central engine service is deferred. See the [C embedding guide](../pkg/plugin-engine/README.md)
 for packaging, ABI migration and ownership rules.

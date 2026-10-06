@@ -1,4 +1,4 @@
-package browserpolicy
+package policy
 
 import (
 	"bytes"

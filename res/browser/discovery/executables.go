@@ -1,4 +1,4 @@
-package browserdiscovery
+package discovery
 
 import (
 	"os"

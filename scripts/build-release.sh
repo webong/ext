@@ -2,8 +2,8 @@
 set -eu
 
 VERSION=${1:-0.8.0-dev}
-OUTPUT=${2:-dist}
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+OUTPUT=${2:-$ROOT/dist/release/$VERSION}
 CATALOG_ADAPTERS='docker podman nerdctl apple rancher_desktop orbstack docker_desktop firefox zen floorp waterfox librewolf chrome chromium edge brave safari vivaldi opera whale arc comet dia atlas helium kube aws gcloud postgres mysql php claude_code codex git'
 
 case "$OUTPUT" in ''|/|.) printf 'ctx: unsafe release output directory: %s\n' "$OUTPUT" >&2; exit 2;; esac

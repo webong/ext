@@ -2,3 +2,6 @@
 /ctx
 /ctx.exe
 /ctx-native
+
+# Build output owned by the repository: Makefile builds and releases.
+/dist/

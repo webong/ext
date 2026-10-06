@@ -73,13 +73,20 @@ func (g *Guest) Handshake(ctx context.Context) (plugin.Descriptor, error) {
 	err := plugin.Decode(C.GoBytes(unsafe.Pointer(out.data), C.int(out.len)), &d)
 	return d, err
 }
+
+// invalidRequest reports an unusable request the way plugin.Guest does: as a
+// public response error, not a failed call, so hosts see one behavior.
+func invalidRequest(r plugin.Request) (plugin.Response, error) {
+	response := plugin.Response{APIVersion: plugin.APIVersion, ID: r.ID, Error: &plugin.RemoteError{Code: "invalid_request", Message: "request does not match selected contract"}}
+	return response, response.Validate(r.ID)
+}
 func (g *Guest) Invoke(ctx context.Context, r plugin.Request) (plugin.Response, error) {
 	var result plugin.Response
 	// Preserve Guest's public operation_failed response for an already canceled
 	// valid invocation: the handler adapter observes the context before dispatch.
 	data, err := json.Marshal(r)
 	if err != nil {
-		return result, err
+		return invalidRequest(r)
 	}
 	g.mu.RLock()
 	defer g.mu.RUnlock()
@@ -92,6 +99,9 @@ func (g *Guest) Invoke(ctx context.Context, r plugin.Request) (plugin.Response, 
 	s := C.ctx_go_guest_invoke(g.ptr, (*C.uint8_t)(unsafe.Pointer(&data[0])), C.size_t(len(data)), C.uint32_t(math.MaxUint32), C.uintptr_t(call), &out)
 	defer C.ctx_buffer_free(&out)
 	if err = status(s); err != nil {
+		if errors.Is(err, plugin.ErrInvalid) {
+			return invalidRequest(r)
+		}
 		return result, err
 	}
 	err = plugin.Decode(C.GoBytes(unsafe.Pointer(out.data), C.int(out.len)), &result)

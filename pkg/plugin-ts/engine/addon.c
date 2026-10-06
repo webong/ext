@@ -1,12 +1,16 @@
 #define _POSIX_C_SOURCE 200809L
 #include "ctx_guest.h"
 #include "ctx_host.h"
+#include "ctx_instance.h"
+#include "ctx_stream.h"
 #include <node_api.h>
 #include <pthread.h>
 #include <stdatomic.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <unistd.h>
 
 static const napi_type_tag binding_tag = {0xd709f6b1ec467f01ULL,
                                           0xbac017ce5969d93fULL};
@@ -161,7 +165,8 @@ static void callback_js(napi_env env, napi_value function, void *context,
 }
 static ctx_status invoke_js(napi_threadsafe_function fn, const uint8_t *input,
                             size_t len, const ctx_call_options *o,
-                            uint32_t *kind, ctx_buffer *out) {
+                            const ctx_cancel *life, uint32_t *kind,
+                            ctx_buffer *out) {
   callback *r = calloc(1, sizeof(*r));
   if (!r)
     return CTX_NOMEM;
@@ -192,10 +197,13 @@ static ctx_status invoke_js(napi_threadsafe_function fn, const uint8_t *input,
   int64_t end = now() + o->timeout_ms;
   pthread_mutex_lock(&r->mu);
   while (!r->done) {
-    if (ctx_cancel_is_signaled(o->cancel) || now() >= end) {
+    if (ctx_cancel_is_signaled(o->cancel) || ctx_cancel_is_signaled(life) ||
+        now() >= end) {
       r->done = 1;
-      r->status =
-          ctx_cancel_is_signaled(o->cancel) ? CTX_CANCELED : CTX_TIMEOUT;
+      r->status = ctx_cancel_is_signaled(o->cancel) ||
+                          ctx_cancel_is_signaled(life)
+                      ? CTX_CANCELED
+                      : CTX_TIMEOUT;
       break;
     }
     struct timespec t;
@@ -227,7 +235,7 @@ static int32_t policy(binding *b, int verify, const ctx_call_options *o,
   ctx_buffer out = {0};
   uint32_t kind;
   ctx_status s =
-      invoke_js(verify ? b->verify : b->authorize, p, n, o, &kind, &out);
+      invoke_js(verify ? b->verify : b->authorize, p, n, o, NULL, &kind, &out);
   ctx_buffer_free(&out);
   return s == CTX_OK ? 0 : 1;
 }
@@ -246,7 +254,7 @@ static ctx_status handle(void *u, void *call, const uint8_t *p, size_t n,
   o.timeout_ms = ms;
   ctx_buffer out = {0};
   uint32_t kind = 0;
-  ctx_status s = invoke_js(b->handle, p, n, &o, &kind, &out);
+  ctx_status s = invoke_js(b->handle, p, n, &o, NULL, &kind, &out);
   if (!s)
     s = emit(sink, kind, out.data, out.len);
   ctx_buffer_free(&out);
@@ -695,6 +703,449 @@ invalid:
   free_job(env, j);
   return failure(env, "invalid integrity arguments or allocation failure");
 }
+
+/* Instance and stream managers. Their C callbacks run on engine threads and
+ * block on one JS function per manager. Fields are NUL separated after the
+ * operation name; keys and configuration therefore cannot contain NUL. Native
+ * calls run on libuv workers so a callback can never wait on the JS thread. */
+static const napi_type_tag manager_tag = {0x4e3f1a8c52d70b19ULL,
+                                          0x91c0e5b7a6d24f38ULL};
+static const napi_type_tag lease_tag = {0x7a21c4d90be35f68ULL,
+                                        0x2bd8f6e1479a0c53ULL};
+typedef struct {
+  ctx_instances *instances;
+  ctx_streams *streams;
+  napi_threadsafe_function fn;
+  napi_env env;
+  int cleanup_hook, disposed;
+  size_t jobs;
+} manager;
+typedef struct {
+  ctx_lease *lease;
+} lease_box;
+typedef struct {
+  const uint8_t *p;
+  size_t n;
+} field;
+static ctx_status manager_call(manager *m, const ctx_call_options *call,
+                               const ctx_cancel *life, ctx_buffer *out,
+                               const char *op, const field *fields,
+                               size_t count) {
+  ctx_call_options fallback = {sizeof(fallback), 30000, NULL, NULL};
+  if (!call)
+    call = &fallback;
+  size_t total = strlen(op) + 1;
+  for (size_t i = 0; i < count; i++) {
+    if (memchr(fields[i].p, 0, fields[i].n))
+      return CTX_INVALID;
+    total += fields[i].n + (i + 1 < count ? 1 : 0);
+  }
+  uint8_t *frame = malloc(total ? total : 1), *at = frame;
+  if (!frame)
+    return CTX_NOMEM;
+  size_t n = strlen(op);
+  memcpy(at, op, n);
+  at += n;
+  for (size_t i = 0; i < count; i++) {
+    *at++ = 0;
+    if (fields[i].n)
+      memcpy(at, fields[i].p, fields[i].n);
+    at += fields[i].n;
+  }
+  uint32_t kind = 0;
+  ctx_buffer scratch = {0};
+  ctx_status s = invoke_js(m->fn, frame, (size_t)(at - frame), call, life,
+                           &kind, out ? out : &scratch);
+  free(frame);
+  ctx_buffer_free(&scratch);
+  return s;
+}
+static void *handle_id(ctx_buffer *out, ctx_status *status) {
+  char *end = NULL;
+  unsigned long long id = 0;
+  if (*status || !out->data || !out->len)
+    goto bad;
+  char *text = malloc(out->len + 1);
+  if (!text)
+    goto bad;
+  memcpy(text, out->data, out->len);
+  text[out->len] = 0;
+  id = strtoull(text, &end, 10);
+  int valid = id && end && !*end;
+  free(text);
+  if (valid)
+    return (void *)(uintptr_t)id;
+bad:
+  if (!*status)
+    *status = CTX_INVALID;
+  return NULL;
+}
+static ctx_status instance_validate(void *u, const uint8_t *p, size_t n) {
+  field f[] = {{p, n}};
+  return manager_call(u, NULL, NULL, NULL, "validate", f, 1);
+}
+static ctx_status instance_create(void *u, const ctx_call_options *call,
+                                  const ctx_cancel *life, const uint8_t *key,
+                                  size_t kn, const uint8_t *config, size_t cn,
+                                  void **value) {
+  ctx_buffer out = {0};
+  field f[] = {{key, kn}, {config, cn}};
+  ctx_status s = manager_call(u, call, life, &out, "create", f, 2);
+  *value = handle_id(&out, &s);
+  ctx_buffer_free(&out);
+  return s;
+}
+static ctx_status instance_dispose(void *u, void *value) {
+  char id[32];
+  snprintf(id, sizeof(id), "%llu", (unsigned long long)(uintptr_t)value);
+  field f[] = {{(uint8_t *)id, strlen(id)}};
+  return manager_call(u, NULL, NULL, NULL, "dispose", f, 1);
+}
+static ctx_status stream_open(void *u, const ctx_call_options *call,
+                              const ctx_cancel *life, const uint8_t *p,
+                              size_t n, void **value) {
+  ctx_buffer out = {0};
+  field f[] = {{p, n}};
+  ctx_status s = manager_call(u, call, life, &out, "open", f, 1);
+  *value = handle_id(&out, &s);
+  ctx_buffer_free(&out);
+  return s;
+}
+static ctx_status stream_read(void *u, void *value, const ctx_call_options *call,
+                              const ctx_cancel *life, uint32_t limit,
+                              ctx_emit emit, void *sink) {
+  char id[32], count[16];
+  snprintf(id, sizeof(id), "%llu", (unsigned long long)(uintptr_t)value);
+  snprintf(count, sizeof(count), "%u", limit);
+  field f[] = {{(uint8_t *)id, strlen(id)}, {(uint8_t *)count, strlen(count)}};
+  ctx_buffer out = {0};
+  ctx_status s = manager_call(u, call, life, &out, "read", f, 2);
+  if (!s)
+    s = emit(sink, out.data, out.len);
+  ctx_buffer_free(&out);
+  return s;
+}
+static ctx_status stream_close(void *u, void *value) {
+  char id[32];
+  snprintf(id, sizeof(id), "%llu", (unsigned long long)(uintptr_t)value);
+  field f[] = {{(uint8_t *)id, strlen(id)}};
+  return manager_call(u, NULL, NULL, NULL, "close", f, 1);
+}
+static void stream_release(void *u, void *value) {
+  char id[32];
+  snprintf(id, sizeof(id), "%llu", (unsigned long long)(uintptr_t)value);
+  field f[] = {{(uint8_t *)id, strlen(id)}};
+  (void)manager_call(u, NULL, NULL, NULL, "release", f, 1);
+}
+static void release_manager_function(manager *m) {
+  if (m->fn) {
+    napi_release_threadsafe_function(m->fn, napi_tsfn_abort);
+    m->fn = NULL;
+  }
+}
+static void cleanup_manager(void *data) {
+  manager *m = data;
+  m->cleanup_hook = 0;
+  /* Environment teardown cannot wait for JS. The C manager is left for process
+   * exit unless the application closed it explicitly. */
+  release_manager_function(m);
+}
+static void finish_manager(manager *m) {
+  if (m->cleanup_hook)
+    napi_remove_env_cleanup_hook(m->env, cleanup_manager, m);
+  m->cleanup_hook = 0;
+  release_manager_function(m);
+  m->disposed = 1;
+}
+static void destroy_manager_external(napi_env env, void *data, void *hint) {
+  (void)env;
+  (void)hint;
+  manager *m = data;
+  if (m->cleanup_hook)
+    napi_remove_env_cleanup_hook(m->env, cleanup_manager, m);
+  release_manager_function(m);
+  /* Leak a still-live C manager rather than block the JS finalizer. */
+  if (!m->instances && !m->streams && !m->jobs)
+    free(m);
+}
+static napi_value wrap_manager(napi_env env, manager *m, ctx_status status) {
+  napi_value out;
+  m->env = env;
+  if (status || napi_add_env_cleanup_hook(env, cleanup_manager, m) != napi_ok)
+    goto fail;
+  m->cleanup_hook = 1;
+  if (napi_create_external(env, m, destroy_manager_external, NULL, &out) !=
+          napi_ok ||
+      napi_type_tag_object(env, out, &manager_tag) != napi_ok)
+    goto fail;
+  return out;
+fail:
+  release_manager_function(m);
+  if (m->instances)
+    ctx_instances_destroy(m->instances);
+  if (m->streams)
+    ctx_streams_destroy(m->streams);
+  if (m->cleanup_hook)
+    napi_remove_env_cleanup_hook(env, cleanup_manager, m);
+  free(m);
+  return failure(env, ctx_host_status_string(status ? status : CTX_IO));
+}
+static napi_value create_instances(napi_env env, napi_callback_info info) {
+  size_t count = 2;
+  napi_value args[2];
+  uint32_t capacity = 0;
+  manager *m = calloc(1, sizeof(*m));
+  if (!m || napi_get_cb_info(env, info, &count, args, NULL, NULL) != napi_ok ||
+      count != 2 || napi_get_value_uint32(env, args[0], &capacity) != napi_ok ||
+      !tsfn(env, args[1], &m->fn)) {
+    if (m) {
+      release_manager_function(m);
+      free(m);
+    }
+    return failure(env, "invalid instance manager arguments");
+  }
+  ctx_instance_options options = {sizeof(options),    capacity,
+                                  m,                  instance_validate,
+                                  instance_create,    instance_dispose,
+                                  NULL};
+  ctx_status status = ctx_instances_create(&options, &m->instances);
+  return wrap_manager(env, m, status);
+}
+static napi_value create_streams(napi_env env, napi_callback_info info) {
+  size_t count = 3;
+  napi_value args[3];
+  uint32_t capacity = 0, max_age = 0;
+  manager *m = calloc(1, sizeof(*m));
+  if (!m || napi_get_cb_info(env, info, &count, args, NULL, NULL) != napi_ok ||
+      count != 3 || napi_get_value_uint32(env, args[0], &capacity) != napi_ok ||
+      napi_get_value_uint32(env, args[1], &max_age) != napi_ok ||
+      !tsfn(env, args[2], &m->fn)) {
+    if (m) {
+      release_manager_function(m);
+      free(m);
+    }
+    return failure(env, "invalid stream manager arguments");
+  }
+  ctx_stream_options options = {sizeof(options), capacity,      max_age, m,
+                                stream_open,     stream_read,   stream_close,
+                                stream_release};
+  ctx_status status = ctx_streams_create(&options, &m->streams);
+  return wrap_manager(env, m, status);
+}
+typedef struct {
+  napi_async_work work;
+  napi_deferred deferred;
+  napi_ref owner, signal, lease_ref;
+  manager *manager;
+  lease_box *box;
+  ctx_lease *lease;
+  ctx_call_options options;
+  char *operation;
+  char *field[3];
+  size_t length[3];
+  ctx_buffer output;
+  ctx_status status;
+} manager_job;
+static int is_op(const manager_job *j, const char *name) {
+  return !strcmp(j->operation, name);
+}
+static void manager_execute(napi_env env, void *data) {
+  (void)env;
+  manager_job *j = data;
+  manager *m = j->manager;
+  const uint8_t *a = (uint8_t *)j->field[0], *b = (uint8_t *)j->field[1],
+                *c = (uint8_t *)j->field[2];
+  size_t an = j->length[0], bn = j->length[1], cn = j->length[2];
+  if (m->instances) {
+    if (is_op(j, "configure"))
+      j->status =
+          ctx_instances_configure(m->instances, a, an, b, bn, c, cn, &j->options);
+    else if (is_op(j, "acquire"))
+      j->status = ctx_instances_acquire(m->instances, a, an, &j->lease);
+    else if (is_op(j, "release"))
+      j->status = ctx_lease_release(j->lease);
+    else if (is_op(j, "remove"))
+      j->status = ctx_instances_remove(m->instances, a, an);
+    else if (is_op(j, "close"))
+      j->status = ctx_instances_close(m->instances, &j->options);
+    else if (is_op(j, "destroy")) {
+      int64_t end = now() + j->options.timeout_ms;
+      do {
+        j->status = ctx_instances_destroy(m->instances);
+        if (j->status == CTX_DRAINING)
+          usleep(10000);
+      } while (j->status == CTX_DRAINING &&
+               !ctx_cancel_is_signaled(j->options.cancel) && now() < end);
+    } else
+      j->status = CTX_INVALID;
+  } else if (m->streams) {
+    if (is_op(j, "open"))
+      j->status =
+          ctx_streams_open(m->streams, a, an, b, bn, &j->options, &j->output);
+    else if (is_op(j, "read")) {
+      char *end = NULL, *limit_end = NULL;
+      unsigned long long sequence = strtoull(j->field[2], &end, 10);
+      unsigned long limit = end && *end == ' ' ? strtoul(end + 1, &limit_end, 10)
+                                              : 0;
+      if (!limit_end || *limit_end || !limit || limit > 0xffffffffUL)
+        j->status = CTX_INVALID;
+      else
+        j->status = ctx_streams_read(m->streams, a, an, j->field[1], sequence,
+                                     (uint32_t)limit, &j->options, &j->output);
+    } else if (is_op(j, "remove"))
+      j->status = ctx_streams_remove(m->streams, a, an, j->field[1]);
+    else if (is_op(j, "close"))
+      j->status = ctx_streams_close(m->streams);
+    else if (is_op(j, "destroy")) {
+      int64_t end = now() + j->options.timeout_ms;
+      do {
+        j->status = ctx_streams_destroy(m->streams);
+        if (j->status == CTX_DRAINING)
+          usleep(10000);
+      } while (j->status == CTX_DRAINING &&
+               !ctx_cancel_is_signaled(j->options.cancel) && now() < end);
+    } else
+      j->status = CTX_INVALID;
+  } else
+    j->status = CTX_CLOSED;
+}
+static void free_manager_job(napi_env env, manager_job *j) {
+  if (j->owner)
+    napi_delete_reference(env, j->owner);
+  if (j->signal)
+    napi_delete_reference(env, j->signal);
+  if (j->lease_ref)
+    napi_delete_reference(env, j->lease_ref);
+  if (j->work)
+    napi_delete_async_work(env, j->work);
+  free(j->operation);
+  for (int i = 0; i < 3; i++)
+    free(j->field[i]);
+  ctx_buffer_free(&j->output);
+  free(j);
+}
+static void free_lease_box(napi_env env, void *data, void *hint) {
+  (void)env;
+  (void)hint;
+  /* An unreleased lease is intentionally leaked: releasing here could run a
+   * disposer on the JS thread and wait on JS. Applications must release. */
+  free(data);
+}
+static void manager_complete(napi_env env, napi_status code, void *data) {
+  manager_job *j = data;
+  manager *m = j->manager;
+  napi_value value;
+  if (code != napi_ok && !j->status)
+    j->status = CTX_IO;
+  if (j->status) {
+    napi_value message, status;
+    napi_create_string_utf8(env, ctx_host_status_string(j->status),
+                            NAPI_AUTO_LENGTH, &message);
+    napi_create_error(env, NULL, message, &value);
+    napi_create_int32(env, j->status, &status);
+    napi_set_named_property(env, value, "status", status);
+    napi_reject_deferred(env, j->deferred, value);
+  } else if (is_op(j, "acquire") && j->lease) {
+    lease_box *box = malloc(sizeof(*box));
+    if (box && napi_create_external(env, box, free_lease_box, NULL, &value) == napi_ok &&
+        napi_type_tag_object(env, value, &lease_tag) == napi_ok) {
+      box->lease = j->lease;
+      napi_resolve_deferred(env, j->deferred, value);
+    } else {
+      free(box);
+      ctx_lease_release(j->lease);
+      napi_value message;
+      napi_create_string_utf8(env, "allocation failed", NAPI_AUTO_LENGTH,
+                              &message);
+      napi_create_error(env, NULL, message, &value);
+      napi_reject_deferred(env, j->deferred, value);
+    }
+  } else {
+    napi_create_string_utf8(env,
+                            j->output.data ? (char *)j->output.data : "null",
+                            j->output.data ? j->output.len : 4, &value);
+    napi_resolve_deferred(env, j->deferred, value);
+  }
+  if (!j->status && is_op(j, "destroy")) {
+    m->instances = NULL;
+    m->streams = NULL;
+    finish_manager(m);
+  }
+  m->jobs--;
+  free_manager_job(env, j);
+}
+/* request(manager, operation, a, b, c, timeout, cancel[, lease]) */
+static napi_value manager_request(napi_env env, napi_callback_info info) {
+  size_t count = 8;
+  napi_value args[8], promise, name;
+  if (napi_get_cb_info(env, info, &count, args, NULL, NULL) != napi_ok ||
+      count < 7)
+    return failure(env, "invalid manager call arguments");
+  manager_job *j = calloc(1, sizeof(*j));
+  if (!j)
+    return failure(env, "allocation failed");
+  size_t on = 0;
+  void *cancel = NULL;
+  j->options.struct_size = sizeof(j->options);
+  if (!external(env, args[0], &manager_tag, (void **)&j->manager) ||
+      !external(env, args[6], &cancel_tag, &cancel) ||
+      napi_get_value_uint32(env, args[5], &j->options.timeout_ms) != napi_ok ||
+      !j->options.timeout_ms || !(j->operation = string(env, args[1], &on)) ||
+      strlen(j->operation) != on)
+    goto invalid;
+  for (int i = 0; i < 3; i++)
+    if (!(j->field[i] = string(env, args[2 + i], &j->length[i])))
+      goto invalid;
+  if (j->manager->disposed)
+    goto invalid;
+  if (count == 8) {
+    lease_box *box = NULL;
+    if (!external(env, args[7], &lease_tag, (void **)&box) || !box->lease)
+      goto invalid;
+    j->box = box;
+    j->lease = box->lease;
+    box->lease = NULL; /* exactly one release per lease */
+    if (napi_create_reference(env, args[7], 1, &j->lease_ref) != napi_ok)
+      goto invalid;
+  }
+  j->options.cancel = cancel;
+  if (napi_create_reference(env, args[0], 1, &j->owner) != napi_ok ||
+      napi_create_reference(env, args[6], 1, &j->signal) != napi_ok ||
+      napi_create_promise(env, &j->deferred, &promise) != napi_ok)
+    goto invalid;
+  napi_create_string_utf8(env, "ctx-engine-manager", NAPI_AUTO_LENGTH, &name);
+  if (napi_create_async_work(env, NULL, name, manager_execute,
+                             manager_complete, j, &j->work) != napi_ok ||
+      napi_queue_async_work(env, j->work) != napi_ok)
+    goto invalid;
+  j->manager->jobs++;
+  return promise;
+invalid:
+  if (j->box && !j->box->lease)
+    j->box->lease = j->lease;
+  free_manager_job(env, j);
+  return failure(env, "invalid manager call or allocation failure");
+}
+static napi_value lease_info(napi_env env, napi_callback_info info) {
+  size_t count = 1;
+  napi_value arg, out, revision, id;
+  lease_box *box = NULL;
+  if (napi_get_cb_info(env, info, &count, &arg, NULL, NULL) != napi_ok ||
+      count != 1 || !external(env, arg, &lease_tag, (void **)&box) ||
+      !box->lease)
+    return failure(env, "invalid lease");
+  size_t n = 0;
+  const uint8_t *rev = ctx_lease_revision(box->lease, &n);
+  if (napi_create_object(env, &out) != napi_ok ||
+      napi_create_string_utf8(env, (const char *)rev, n, &revision) !=
+          napi_ok ||
+      napi_create_double(env, (double)(uintptr_t)ctx_lease_value(box->lease),
+                         &id) != napi_ok)
+    return failure(env, "allocation failed");
+  napi_set_named_property(env, out, "revision", revision);
+  napi_set_named_property(env, out, "id", id);
+  return out;
+}
 static napi_value init(napi_env env, napi_value exports) {
   const napi_property_descriptor properties[] = {
       {"createHost", NULL, create_host, NULL, NULL, NULL, napi_default, NULL},
@@ -704,7 +1155,14 @@ static napi_value init(napi_env env, napi_value exports) {
       {"closeHost", NULL, close_host, NULL, NULL, NULL, napi_default, NULL},
       {"request", NULL, request, NULL, NULL, NULL, napi_default, NULL},
       {"service", NULL, service, NULL, NULL, NULL, napi_default, NULL},
-      {"integrity", NULL, integrity, NULL, NULL, NULL, napi_default, NULL}};
+      {"integrity", NULL, integrity, NULL, NULL, NULL, napi_default, NULL},
+      {"createInstances", NULL, create_instances, NULL, NULL, NULL,
+       napi_default, NULL},
+      {"createStreams", NULL, create_streams, NULL, NULL, NULL, napi_default,
+       NULL},
+      {"managerRequest", NULL, manager_request, NULL, NULL, NULL, napi_default,
+       NULL},
+      {"leaseInfo", NULL, lease_info, NULL, NULL, NULL, napi_default, NULL}};
   napi_define_properties(
       env, exports, sizeof(properties) / sizeof(properties[0]), properties);
   return exports;

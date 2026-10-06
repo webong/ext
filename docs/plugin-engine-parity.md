@@ -34,14 +34,14 @@ full parity achieved.
 | Guest engine (`plugin/guest.go`) | C immutable dispatcher, deadlines, owned buffers and error sanitization; Go/Rust/Zig/Node bindings | Complete cancellation/default/invalid-input differential coverage |
 | Typed authoring (`pkg/plugin/author`) | Go registry construction, guest snapshots and typed host calls can use C schema evaluation; Rust/Zig/Node accept native handlers | Typed foreign conveniences and final default SDK integration |
 | Schema (`pkg/plugin/schema`) | Shared bounded schema validation and checks; Go differential fixtures | Exhaustive raw JSON null/number edge cases |
-| Streams and capabilities (`pkg/plugin/stream`, `pkg/plugin/capability`) | C scoped pull-stream lifecycle, capacity, sequence, bounded batches, expiry, close/release; Go integration | Node resource bindings and remaining race/error differential cases; capability helpers |
-| Instances (`pkg/plugin/instance`) | C revisions, configuration digests, capacity, leases, replacement, factory lifetime and draining cleanup; Go integration | Remaining disposal error-cause fidelity; Node wrappers |
+| Streams and capabilities (`pkg/plugin/stream`, `pkg/plugin/capability`) | C scoped pull-stream lifecycle, capacity, sequence, bounded batches, expiry, close/release; Go integration; Node bindings | Remaining race/error differential cases; capability helpers |
+| Instances (`pkg/plugin/instance`) | C revisions, configuration digests, capacity, leases, replacement, factory lifetime and draining cleanup; Go integration | Remaining disposal error-cause fidelity |
 | Packages and trust (`pkg/plugin/packagekit`, `plugin/integrity.go`) | Shared manifest/entrypoint/dependency services, SHA-256, POSIX artifact verification and directory digest | Windows filesystem implementation; Unicode-version compatibility; graph binding coverage |
 | Interoperability (`pkg/plugin/interop`, `pkg/plugin/bridge`) | C route resolver and production JSON-line/HashiCorp frontends in both directions, tested with C-owned sessions | Windows bridge supervisor and release packaging |
 | JSON-line process | C absolute-path launch, copied argument/environment configuration, direct-child cleanup | Windows process implementation and platform launch tests |
 | In-process, HashiCorp, WASI, native Go, C ABI | C-session conformance with Rust/Zig C ABI and WASI guests, native Go guest, and both HashiCorp transports; direct process engine | Remaining platform combinations; portable runtime modules |
 | Static/shared distribution | Static/shared host and guest libraries, exact CMake package version, external install-consumer checks and macOS sanitizers | Execute CI on all platforms; reproducible release packages |
-| Go/Rust/Zig/JS bindings | Go session/resources; Rust host/guest/lease/stream ownership; Zig resource wrappers and generated FFI; async Node host/guest/integrity/observation | Node resources, remaining typed conveniences, replace independent SDK implementations |
+| Go/Rust/Zig/JS bindings | Go session/resources; Rust host/guest/lease/stream ownership; Zig resource wrappers and generated FFI; async Node host/guest/integrity/observation and instance/stream managers | Remaining typed conveniences; replace independent SDK implementations |
 | Platforms | Native C host remains POSIX/Linux/macOS; portable C and Rust guest-only builds execute in WASI | Windows implementation and all supported Go-backend/platform combinations |
 
 ## Implementation order
@@ -119,7 +119,7 @@ Rust and Zig guests, and the Node addon, then uploads benchmarks. It also
 requires Zig 0.17.0, which the C-only path above does not.
 
 These are scenario-level results, not proof of full parity. Linux CI is configured;
-Windows is not implemented. Node resource APIs, remaining error and observer semantics,
+Windows is not implemented. Remaining error and observer semantics,
 release packaging, and the final switch
 from independent SDK implementations are still required. Keep working reference
 paths until these acceptance requirements are met.

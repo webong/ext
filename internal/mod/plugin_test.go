@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/webong/ctx/pkg/adapter"
 	"github.com/webong/ctx/pkg/plugin"
 )
 
@@ -20,7 +19,7 @@ func TestAdapterUsesSharedPluginSelection(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ref := plugin.ContractRef{Name: adapter.PluginContractName, Version: adapter.APIVersion}
+	ref := plugin.ContractRef{Name: plugin.AdapterContractName, Version: plugin.AdapterAPIVersion}
 	if _, err := plugin.Select([]plugin.Descriptor{d}, plugin.Requirement{Contract: ref, Operation: "run"}); err != nil {
 		t.Fatal(err)
 	}

@@ -1,9 +1,6 @@
 package mod
 
-import (
-	"github.com/webong/ctx/pkg/adapter"
-	"github.com/webong/ctx/pkg/plugin"
-)
+import "github.com/webong/ctx/pkg/plugin"
 
 // PluginDescriptor gives CTX adapters the same immutable selection contract
 // used by library consumers. The directory digest covers all adapter assets.
@@ -12,7 +9,7 @@ func (a *Adapter) PluginDescriptor() (plugin.Descriptor, error) {
 	if err != nil {
 		return plugin.Descriptor{}, err
 	}
-	d := adapter.PluginDescriptor(plugin.Identity{ID: "ctx.adapter/" + a.Manifest.Name, Revision: "sha256:" + digest}, a.pluginOperations())
+	d := plugin.AdapterDescriptor(plugin.Identity{ID: "ctx.adapter/" + a.Manifest.Name, Revision: "sha256:" + digest}, a.pluginOperations())
 	// Legacy argv bindings keep their declared native API version.
 	d.Contracts[0].Version = a.Manifest.APIVersion
 	if err := d.Validate(); err != nil {

@@ -17,7 +17,6 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"github.com/webong/ctx/pkg/adapter"
 	"github.com/webong/ctx/pkg/plugin"
 )
 
@@ -270,8 +269,8 @@ func (s *Store) List() ([]*Adapter, error) {
 }
 
 func (a *Adapter) HasCapability(capability string) bool {
-	d := adapter.PluginDescriptor(plugin.Identity{}, a.pluginOperations())
-	_, err := d.Lookup(plugin.ContractRef{Name: adapter.PluginContractName, Version: adapter.APIVersion}, capability)
+	d := plugin.AdapterDescriptor(plugin.Identity{}, a.pluginOperations())
+	_, err := d.Lookup(plugin.ContractRef{Name: plugin.AdapterContractName, Version: plugin.AdapterAPIVersion}, capability)
 	return err == nil
 }
 

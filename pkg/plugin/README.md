@@ -10,11 +10,11 @@ backends that carry it.
 | `pkg/plugin/inprocess` | Trusted endpoints with connection lifetime cancellation |
 | `pkg/plugin/jsonline` | Bounded JSON-line transport over a supplied duplex connection |
 | `pkg/plugin/nativego` | Native Go plugin loading |
-| `pkg/plugin/cshared` | Versioned C ABI header and runtime loader |
+| `pkg/plugin-cshared` | Versioned C ABI header and runtime loader |
 | `pkg/plugin/author`, `schema`, `stream`, `instance`, `capability`, `packagekit` | Typed authoring, bounded schemas, streams, instances, capabilities and packaging |
 | `pkg/plugin/plugintest` | Shared conformance fixtures |
 | `pkg/plugin/bridge`, `interop` | Route resolution and bridges between backends |
-| `pkg/plugin/cengine` | Portable C engine and its public headers |
+| `pkg/plugin-engine` | Portable C engine and its public headers |
 
 Runtime backends that own a heavy runtime are separate modules:
 

@@ -104,3 +104,21 @@ test('C stream manager scopes, sequences and cleans up',async()=>{
  await streams.close();
  assert.ok(events.includes('close'));
 });
+test('malformed requests are public invalid_request responses',async()=>{
+ const g=new engine.Guest({descriptor,handle:async r=>({payload:r.payload})});
+ try{
+  const mutations={
+   'empty id':r=>{r.id='';},'oversized id':r=>{r.id='i'.repeat(4096);},'wrong api':r=>{r.apiVersion='ctx.plugin/v2';},
+   'unknown operation':r=>{r.operation='nope';},'unknown contract':r=>{r.contract={name:'unknown',version:'v1'};},
+   'other plugin':r=>{r.plugin={...r.plugin,id:'other'};},'no deadline':r=>{delete r.deadline;},
+  };
+  for(const [name,mutate] of Object.entries(mutations)){
+   const r=envelope();mutate(r);const reply=await g.invoke(r);
+   assert.equal(reply.error?.code,'invalid_request',name);assert.equal(reply.payload,undefined,name);
+  }
+  const expired=envelope();expired.deadline='2000-01-01T00:00:00Z';
+  assert.equal((await g.invoke(expired)).error?.code,'operation_failed','an expired deadline is a failed operation, as in Go');
+  const missing=envelope();delete missing.payload;
+  assert.equal((await g.invoke(missing)).payload,null,'a missing payload is null, as in Go');
+ }finally{g.close();}
+});

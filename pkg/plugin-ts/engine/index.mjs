@@ -128,7 +128,18 @@ export function loadEngine(addonPath){
    #handle;#closed=false;
    constructor(options){this.#handle=native.createGuest(json(options.descriptor),timeout(options.maxCallDuration),callback(options.handle,false));}
    descriptor(){if(this.#closed)return Promise.reject(new Error('guest closed'));return request(this.#handle,'descriptor',null);}
-   invoke(envelope,options){if(this.#closed)return Promise.reject(new Error('guest closed'));return request(this.#handle,'guest.invoke',envelope,options);}
+   // A request the engine cannot even parse (for example an unusable ID) is
+   // answered like every other malformed request: as a public invalid_request
+   // response, matching the Go guest, not as a failed call.
+   async invoke(envelope,options){
+     if(this.#closed)throw new Error('guest closed');
+     try{return await request(this.#handle,'guest.invoke',envelope,options);}
+     catch(error){
+       if(error?.status!==1)throw error;
+       const id=typeof envelope?.id==='string'?envelope.id:'';
+       return {apiVersion:'ctx.plugin/v1',id,error:{code:'invalid_request',message:'request does not match selected contract'}};
+     }
+   }
    close(){if(!this.#closed){this.#closed=true;native.closeHost(this.#handle);this.#handle=null;}}
  }
  return {Host,Guest,Instances,Streams,service:(operation,input)=>JSON.parse(native.service(operation,json(input))),

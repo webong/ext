@@ -34,7 +34,7 @@ switch ($Operation) {
     'share' {
         if ($Arguments.Count -gt 0 -and $Arguments[0] -eq '--') { $Arguments = @($Arguments | Select-Object -Skip 1) }
         $helper = Join-Path $PSScriptRoot 'ctx-firefox-share.exe'
-        & $helper $Selection @Arguments
+        & $helper 'share' $Selection '--' @Arguments
         exit $LASTEXITCODE
     }
     'list' { if ($firefox) { Get-Profiles | ForEach-Object { "firefox:$_" } }; exit 0 }
@@ -42,8 +42,7 @@ switch ($Operation) {
     'doctor' { if (-not $firefox -or ($Selection -and -not (Test-Profile $Selection))) { exit 1 } }
     'open' {
         if (-not $firefox -or -not (Test-Profile $Selection)) { [Console]::Error.WriteLine("firefox: profile $Selection is unavailable"); exit 1 }
-        if ($Arguments.Count -gt 0 -and $Arguments[0] -eq '--') { $Arguments = @($Arguments | Select-Object -Skip 1) }
-        & $firefox -P $Selection @Arguments
+        & $firefox -P 'share' $Selection '--' @Arguments
         exit $LASTEXITCODE
     }
     default { exit 2 }

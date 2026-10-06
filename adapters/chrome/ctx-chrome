@@ -41,9 +41,8 @@ operation=${1:-}
 selection=${2:-}
 case "$operation" in
   share)
-    shift 2; [ "${1:-}" = -- ] && shift
     helper=$(dirname "$0")/ctx-chrome-share
-    exec "$helper" "$selection" "$@"
+    exec "$helper" "$@"
     ;;
   list) find_chrome || exit 0; list_profiles ;;
   validate) find_chrome && profile_exists "$selection" ;;

@@ -22,7 +22,7 @@ func TestNativeNormalizeNeedsNoDiskProfileOrCredentials(t *testing.T) {
 				t.Fatal(err)
 			}
 			var out, diagnostics bytes.Buffer
-			if code := Run(Config{Name: name}, []string{"export-only", "cookie", "normalize"}, bytes.NewReader(request), &out, &diagnostics); code != 0 {
+			if code := Run(Config{Name: name}, []string{"share", "export-only", "--", "cookie", "normalize"}, bytes.NewReader(request), &out, &diagnostics); code != 0 {
 				t.Fatalf("native normalization: %d %s", code, diagnostics.String())
 			}
 			var response browser.CookieQueryResult
@@ -34,7 +34,7 @@ func TestNativeNormalizeNeedsNoDiskProfileOrCredentials(t *testing.T) {
 			}
 			out.Reset()
 			diagnostics.Reset()
-			if code := Run(Config{Name: "different"}, []string{"export-only", "cookie", "normalize"}, strings.NewReader(string(request)), &out, &diagnostics); code == 0 || out.Len() != 0 {
+			if code := Run(Config{Name: "different"}, []string{"share", "export-only", "--", "cookie", "normalize"}, strings.NewReader(string(request)), &out, &diagnostics); code == 0 || out.Len() != 0 {
 				t.Fatal("cross-browser binding accepted")
 			}
 		})

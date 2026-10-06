@@ -29,8 +29,7 @@ operation=${1:-}
 selection=${2:-}
 case "$operation" in
   share)
-    shift 2; [ "${1:-}" = -- ] && shift
-    exec "$(dirname "$0")/ctx-opera-share" "$selection" "$@" ;;
+        exec "$(dirname "$0")/ctx-opera-share" "$@" ;;
   list) list_profiles ;;
   validate) profile_exists "$selection" ;;
   doctor) if [ -z "$selection" ]; then profiles_root >/dev/null; else profile_exists "$selection"; fi ;;

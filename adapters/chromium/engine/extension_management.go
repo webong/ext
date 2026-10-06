@@ -11,8 +11,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/webong/ctx/adapters/browserdiscovery"
 	management "github.com/webong/ctx/res/browser/contract"
+	"github.com/webong/ctx/res/browser/discovery"
 	"github.com/webong/ctx/res/browser/extension"
 	kit "github.com/webong/ctx/res/browser/guest"
 	"github.com/webong/ctx/res/browser/userscript"
@@ -21,7 +21,7 @@ import (
 // ExtensionManagementConfig contains product conventions supplied by an adapter.
 // An empty ExtensionPage leaves native installation and activation unavailable.
 type ExtensionManagementConfig struct {
-	Executables                    browserdiscovery.ExecutableLocations
+	Executables                    discovery.ExecutableLocations
 	ExtensionPage                  string
 	DebuggingRequiresCustomProfile bool
 	LinuxConfigHomeEnv             string
@@ -188,7 +188,7 @@ func (backend extensionBackend) resolveTargetInput(profile string, input extensi
 	}
 	executable := input.Executable
 	if executable == "" {
-		found, err := browserdiscovery.FindExecutables(backend.config.Extensions.Executables)
+		found, err := discovery.FindExecutables(backend.config.Extensions.Executables)
 		if err != nil {
 			return DevToolsTarget{}, err
 		}
@@ -294,7 +294,7 @@ func extensionProfileRoot(config Config) (string, error) {
 }
 
 func discoverExtensionTargets(config Config) ([]extension.BrowserTarget, error) {
-	executables, err := browserdiscovery.FindExecutables(config.Extensions.Executables)
+	executables, err := discovery.FindExecutables(config.Extensions.Executables)
 	if err != nil {
 		return nil, err
 	}

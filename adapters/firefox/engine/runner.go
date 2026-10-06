@@ -10,11 +10,13 @@ import (
 	"path/filepath"
 	"runtime"
 
-	"github.com/webong/ctx/adapters/browserdiscovery"
-	"github.com/webong/ctx/adapters/browserpolicy"
+	"github.com/webong/ctx/pkg/plugin"
+
 	"github.com/webong/ctx/adapters/chromium/engine/webextension"
 	browsershare "github.com/webong/ctx/res/browser/contract"
+	"github.com/webong/ctx/res/browser/discovery"
 	kit "github.com/webong/ctx/res/browser/guest"
+	"github.com/webong/ctx/res/browser/policy"
 )
 
 // Config identifies the browser's profile registry. Cookie and NSS handling
@@ -25,19 +27,25 @@ type Config struct {
 	WindowsProfileRoot       string
 	LinuxProfileRoot         string
 	LinuxFallbackProfileRoot string
-	ExtensionExecutables     browserdiscovery.ExecutableLocations
+	ExtensionExecutables     discovery.ExecutableLocations
 	NativeExtensions         bool
 }
 
 func Run(config Config, args []string, input io.Reader, stdout, stderr io.Writer) int {
-	if len(args) == 4 && args[1] == "management" {
-		return kit.RunLocalManagement(nil, config.Name, args[0], input, stdout, stderr, extensionBackend{config: config})
-	}
-	if len(args) != 3 {
+	request, err := plugin.ParseAdapterInvocation(args)
+	if err != nil || request.Operation != "share" {
 		fmt.Fprintln(stderr, "ctx: Firefox sharing needs profile resource operation")
 		return 2
 	}
-	profile, resource, operation := args[0], args[1], args[2]
+	profile, words := request.Selection, request.Arguments
+	if len(words) == 3 && words[0] == "management" {
+		return kit.RunLocalManagement(nil, config.Name, profile, input, stdout, stderr, extensionBackend{config: config})
+	}
+	if len(words) != 2 {
+		fmt.Fprintln(stderr, "ctx: Firefox sharing needs profile resource operation")
+		return 2
+	}
+	resource, operation := words[0], words[1]
 	switch resource {
 	case "status":
 		if operation == "probe" {
@@ -67,7 +75,7 @@ func Run(config Config, args []string, input io.Reader, stdout, stderr io.Writer
 			break
 		}
 		if config.Name == "firefox" {
-			return browserpolicy.RunPolicyExport(input, stdout, stderr, firefoxPolicySources())
+			return policy.RunPolicyExport(input, stdout, stderr, firefoxPolicySources())
 		}
 	}
 	fmt.Fprintln(stderr, "ctx: unsupported Firefox share resource or operation")
@@ -109,26 +117,26 @@ func firefoxShareStatus(config Config, profile string) browsershare.Availability
 	return browsershare.AvailabilityReport{Version: browsershare.AvailabilityVersion, Operations: operations}
 }
 
-func firefoxPolicySources() browserpolicy.PolicySources {
+func firefoxPolicySources() policy.PolicySources {
 	switch runtime.GOOS {
 	case "linux":
-		return browserpolicy.PolicySources{Files: []browserpolicy.PolicyFile{
+		return policy.PolicySources{Files: []policy.PolicyFile{
 			{Path: "/etc/firefox/policies/policies.json", Level: "managed", Format: "json"},
 			{Path: "/usr/lib/firefox/distribution/policies.json", Level: "managed", Format: "json"},
 			{Path: "/usr/lib64/firefox/distribution/policies.json", Level: "managed", Format: "json"},
 		}}
 	case "darwin":
-		sources := browserpolicy.PolicySources{Files: []browserpolicy.PolicyFile{
+		sources := policy.PolicySources{Files: []policy.PolicyFile{
 			{Path: filepath.Join("/Library/Managed Preferences", "org.mozilla.firefox.plist"), Level: "managed", Format: "plist"},
 			{Path: filepath.Join("/Library/Managed Preferences", os.Getenv("USER"), "org.mozilla.firefox.plist"), Level: "managed", Format: "plist"},
 		}}
 		for _, path := range []string{"/Applications/Firefox.app/Contents/Resources/distribution/policies.json", filepath.Join(os.Getenv("HOME"), "Applications/Firefox.app/Contents/Resources/distribution/policies.json")} {
-			sources.Files = append(sources.Files, browserpolicy.PolicyFile{Path: path, Level: "managed", Format: "json"})
+			sources.Files = append(sources.Files, policy.PolicyFile{Path: path, Level: "managed", Format: "json"})
 		}
 		return sources
 	case "windows":
-		return browserpolicy.PolicySources{RegistryKey: `Software\Policies\Mozilla\Firefox`}
+		return policy.PolicySources{RegistryKey: `Software\Policies\Mozilla\Firefox`}
 	default:
-		return browserpolicy.PolicySources{}
+		return policy.PolicySources{}
 	}
 }

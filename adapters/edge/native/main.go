@@ -6,11 +6,13 @@ import (
 	"os"
 	"runtime"
 
-	"github.com/webong/ctx/adapters/browserdiscovery"
-	"github.com/webong/ctx/adapters/browserpolicy"
+	"github.com/webong/ctx/pkg/plugin"
+
 	chromiumengine "github.com/webong/ctx/adapters/chromium/engine"
 	share "github.com/webong/ctx/res/browser/contract"
+	"github.com/webong/ctx/res/browser/discovery"
 	kit "github.com/webong/ctx/res/browser/guest"
+	"github.com/webong/ctx/res/browser/policy"
 )
 
 func edgeConfig() chromiumengine.Config {
@@ -19,7 +21,7 @@ func edgeConfig() chromiumengine.Config {
 		KeychainService: "Microsoft Edge Safe Storage", KeychainAccount: "Microsoft Edge", SecretApplication: "microsoft-edge",
 		WalletFolder: "Microsoft Edge Keys", WalletKey: "Microsoft Edge Safe Storage",
 		Extensions: chromiumengine.ExtensionManagementConfig{
-			Executables: browserdiscovery.ExecutableLocations{
+			Executables: discovery.ExecutableLocations{
 				Darwin:  []string{"Microsoft Edge.app/Contents/MacOS/Microsoft Edge"},
 				Linux:   []string{"microsoft-edge", "microsoft-edge-stable"},
 				Windows: []string{"Microsoft/Edge/Application/msedge.exe"},
@@ -44,14 +46,20 @@ func edgeConfig() chromiumengine.Config {
 func main() { os.Exit(run(os.Args[1:], os.Stdin, os.Stdout, os.Stderr)) }
 
 func run(args []string, input io.Reader, stdout, stderr io.Writer) int {
-	if len(args) == 4 && args[1] == "management" {
-		return chromiumengine.RunManagement(edgeConfig(), args[0], input, stdout, stderr)
-	}
-	if len(args) != 3 {
+	request, err := plugin.ParseAdapterInvocation(args)
+	if err != nil || request.Operation != "share" {
 		fmt.Fprintln(stderr, "ctx: Edge sharing needs profile resource operation")
 		return 2
 	}
-	profile, resource, operation := args[0], args[1], args[2]
+	profile, words := request.Selection, request.Arguments
+	if len(words) == 3 && words[0] == "management" {
+		return chromiumengine.RunManagement(edgeConfig(), profile, input, stdout, stderr)
+	}
+	if len(words) != 2 {
+		fmt.Fprintln(stderr, "ctx: Edge sharing needs profile resource operation")
+		return 2
+	}
+	resource, operation := words[0], words[1]
 	edge := edgeConfig()
 	switch resource {
 	case "status":
@@ -62,22 +70,22 @@ func run(args []string, input io.Reader, stdout, stderr io.Writer) int {
 		return kit.RunCookie(profile, operation, input, stdout, stderr, chromiumengine.NewCookieBackend(edge))
 	case "policy":
 		if operation == "export" {
-			return browserpolicy.RunPolicyExport(input, stdout, stderr, edgePolicies())
+			return policy.RunPolicyExport(input, stdout, stderr, edgePolicies())
 		}
 	}
 	fmt.Fprintln(stderr, "ctx: unsupported Edge share resource or operation")
 	return 2
 }
 
-func edgePolicies() browserpolicy.PolicySources {
+func edgePolicies() policy.PolicySources {
 	switch runtime.GOOS {
 	case "linux":
-		return browserpolicy.PolicySources{Roots: []browserpolicy.PolicyRoot{{Path: "/etc/opt/edge/policies/managed", Level: "managed"}, {Path: "/etc/opt/edge/policies/recommended", Level: "recommended"}}}
+		return policy.PolicySources{Roots: []policy.PolicyRoot{{Path: "/etc/opt/edge/policies/managed", Level: "managed"}, {Path: "/etc/opt/edge/policies/recommended", Level: "recommended"}}}
 	case "darwin":
-		return browserpolicy.PolicySources{Files: chromiumengine.ManagedPreferenceFiles("com.microsoft.Edge")}
+		return policy.PolicySources{Files: chromiumengine.ManagedPreferenceFiles("com.microsoft.Edge")}
 	case "windows":
-		return browserpolicy.PolicySources{RegistryKey: `Software\Policies\Microsoft\Edge`}
+		return policy.PolicySources{RegistryKey: `Software\Policies\Microsoft\Edge`}
 	default:
-		return browserpolicy.PolicySources{}
+		return policy.PolicySources{}
 	}
 }

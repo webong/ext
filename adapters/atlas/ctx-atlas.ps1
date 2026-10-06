@@ -31,7 +31,7 @@ function Get-Profiles {
 switch ($Operation) {
     'share' {
         if ($Arguments.Count -gt 0 -and $Arguments[0] -eq '--') { $Arguments = @($Arguments | Select-Object -Skip 1) }
-        & (Join-Path $PSScriptRoot 'ctx-atlas-share.exe') $Selection @Arguments
+        & (Join-Path $PSScriptRoot 'ctx-atlas-share.exe') 'share' $Selection '--' @Arguments
         exit $LASTEXITCODE
     }
     'list' { Get-Profiles; exit 0 }

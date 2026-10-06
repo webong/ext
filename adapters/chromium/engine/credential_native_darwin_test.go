@@ -9,8 +9,6 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
-
-	modpkg "github.com/webong/ctx/internal/mod"
 )
 
 // This opt-in test creates its own keychain and dummy item. It does not read
@@ -37,7 +35,7 @@ func TestNativeCookieCredentialsMacOSKeychain(t *testing.T) {
 		}
 	})
 	run("unlock-keychain", "-p", "ctx-synthetic-keychain-password", keychain)
-	root, err := filepath.Abs("../../..")
+	root, err := filepath.Abs("../..")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -52,29 +50,48 @@ func TestNativeCookieCredentialsMacOSKeychain(t *testing.T) {
 	fixture := t.TempDir()
 	ctxBinary := filepath.Join(fixture, "ctx")
 	build(ctxBinary, "./cmd/ctx")
-	staging := filepath.Join(fixture, "keychain")
+	// Stage the keychain adapter from source and let the real ctx CLI install
+	// and trust it, mirroring the documented fixture flow.
+	staging := filepath.Join(fixture, "keychain-src")
 	if err := os.MkdirAll(staging, 0o700); err != nil {
 		t.Fatal(err)
 	}
 	build(filepath.Join(staging, "ctx-keychain"), "./adapters/keychain/native")
-	manifest, err := os.ReadFile(filepath.Join(root, "adapters", "keychain", "adapter.toml"))
+	manifestBytes, err := os.ReadFile(filepath.Join(root, "adapters", "keychain", "adapter.toml"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(staging, "adapter.toml"), manifest, 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(staging, "adapter.toml"), manifestBytes, 0o600); err != nil {
 		t.Fatal(err)
 	}
 	adapterHome := filepath.Join(fixture, "state", "adapters")
-	store := modpkg.NewStore(adapterHome)
-	installed, err := store.Install(staging)
-	if err != nil {
-		t.Fatal(err)
+	ctxCtl := func(args ...string) {
+		t.Helper()
+		command := exec.Command(ctxBinary, args...)
+		command.Dir = root
+		command.Env = append(os.Environ(),
+			"CTX_HOME="+filepath.Join(fixture, "state"),
+			"CTX_ADAPTER_HOME="+adapterHome,
+			"CTX_EXECUTABLE="+ctxBinary,
+		)
+		if output, err := command.CombinedOutput(); err != nil {
+			t.Fatalf("ctx %v: %v: %s", args, err, output)
+		}
 	}
-	if err := store.Trust(installed); err != nil {
-		t.Fatal(err)
+	ctxCtl("adapter", "install", staging)
+	ctxCtl("adapter", "trust", "keychain")
+	executelookup := func() string {
+		t.Helper()
+		path := filepath.Join(adapterHome, "keychain")
+		if _, err := os.Stat(path); err != nil {
+			t.Fatalf("installed keychain adapter not found at %s: %v", path, err)
+		}
+		return filepath.Join(path, "native", "ctx-keychain")
 	}
+	_ = executelookup
+	executable := executelookup()
 	run("add-generic-password", "-s", "CTX Synthetic Safe Storage", "-a", "CTX Synthetic",
-		"-w", "ctx-synthetic-safe-storage-password", "-T", "/usr/bin/security", "-T", installed.ExecutablePath(), keychain)
+		"-w", "ctx-synthetic-safe-storage-password", "-T", "/usr/bin/security", "-T", executable, keychain)
 	t.Setenv("CTX_HOME", filepath.Join(fixture, "state"))
 	t.Setenv("CTX_ADAPTER_HOME", adapterHome)
 	t.Setenv("CTX_EXECUTABLE", ctxBinary)

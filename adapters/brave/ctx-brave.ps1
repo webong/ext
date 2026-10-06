@@ -31,7 +31,7 @@ switch ($Operation) {
     'share' {
         if ($Arguments.Count -gt 0 -and $Arguments[0] -eq '--') { $Arguments = @($Arguments | Select-Object -Skip 1) }
         $helper = Join-Path $PSScriptRoot 'ctx-brave-share.exe'
-        & $helper $Selection @Arguments
+        & $helper 'share' $Selection '--' @Arguments
         exit $LASTEXITCODE
     }
     'list' { if ($brave) { Get-Profiles }; exit 0 }

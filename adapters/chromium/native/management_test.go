@@ -12,7 +12,7 @@ import (
 func TestManagementRequestReachesAdapterBackend(t *testing.T) {
 	var stdout, stderr strings.Builder
 	input := `{"version":"1.0","kind":"extension","action":"capabilities"}`
-	code := run([]string{"Default", "management", "extension", "capabilities"}, strings.NewReader(input), &stdout, &stderr)
+	code := run([]string{"share", "Default", "--", "management", "extension", "capabilities"}, strings.NewReader(input), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("code=%d stderr=%s", code, stderr.String())
 	}

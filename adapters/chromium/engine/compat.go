@@ -5,8 +5,8 @@ import (
 	"os/exec"
 	"runtime"
 
-	"github.com/webong/ctx/adapters/sqlite"
 	share "github.com/webong/ctx/res/browser/contract"
+	"github.com/webong/ctx/res/browser/sqlite"
 )
 
 // Config contains browser identity and storage conventions supplied by its adapter.

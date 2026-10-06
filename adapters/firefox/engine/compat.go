@@ -3,9 +3,9 @@ package firefox
 import (
 	"io"
 
-	"github.com/webong/ctx/adapters/sqlite"
 	share "github.com/webong/ctx/res/browser/contract"
 	kit "github.com/webong/ctx/res/browser/guest"
+	"github.com/webong/ctx/res/browser/sqlite"
 )
 
 type browserCookie = share.Cookie

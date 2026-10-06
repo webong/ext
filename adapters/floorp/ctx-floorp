@@ -27,8 +27,7 @@ operation=${1:-}
 selection=${2:-}
 case "$operation" in
   share)
-    shift 2; [ "${1:-}" = -- ] && shift
-    exec "$(dirname "$0")/ctx-floorp-share" "$selection" "$@" ;;
+        exec "$(dirname "$0")/ctx-floorp-share" "$@" ;;
   list) profile_names | while IFS= read -r name; do printf 'floorp:%s\n' "$name"; done ;;
   validate) profile_exists "$selection" ;;
   doctor) if [ -z "$selection" ]; then [ -f "$(profiles_ini)" ]; else profile_exists "$selection"; fi ;;

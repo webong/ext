@@ -27,8 +27,7 @@ operation=${1:-}
 selection=${2:-}
 case "$operation" in
   share)
-    shift 2; [ "${1:-}" = -- ] && shift
-    exec "$(dirname "$0")/ctx-zen-share" "$selection" "$@" ;;
+        exec "$(dirname "$0")/ctx-zen-share" "$@" ;;
   list) profile_names | while IFS= read -r name; do printf 'zen:%s\n' "$name"; done ;;
   validate) profile_exists "$selection" ;;
   doctor) if [ -z "$selection" ]; then [ -f "$(profiles_ini)" ]; else profile_exists "$selection"; fi ;;

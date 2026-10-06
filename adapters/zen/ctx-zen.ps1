@@ -27,7 +27,7 @@ function Test-Profile([string]$Name) {
 switch ($Operation) {
     'share' {
         if ($Arguments.Count -gt 0 -and $Arguments[0] -eq '--') { $Arguments = @($Arguments | Select-Object -Skip 1) }
-        & (Join-Path $PSScriptRoot 'ctx-zen-share.exe') $Selection @Arguments
+        & (Join-Path $PSScriptRoot 'ctx-zen-share.exe') 'share' $Selection '--' @Arguments
         exit $LASTEXITCODE
     }
     'list' { Get-Profiles | ForEach-Object { "zen:$_" }; exit 0 }

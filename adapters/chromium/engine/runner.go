@@ -6,6 +6,8 @@ import (
 	"io"
 	"net/url"
 
+	"github.com/webong/ctx/pkg/plugin"
+
 	"github.com/webong/ctx/adapters/chromium/engine/webextension"
 	share "github.com/webong/ctx/res/browser/contract"
 	kit "github.com/webong/ctx/res/browser/guest"
@@ -14,14 +16,20 @@ import (
 // Run serves the versioned cookie protocol for a Chromium-family adapter.
 // Each adapter supplies its own storage paths and credential identity.
 func Run(config Config, args []string, input io.Reader, stdout, stderr io.Writer) int {
-	if len(args) == 4 && args[1] == "management" {
-		return RunManagement(config, args[0], input, stdout, stderr)
-	}
-	if len(args) != 3 {
+	request, err := plugin.ParseAdapterInvocation(args)
+	if err != nil || request.Operation != "share" {
 		fmt.Fprintln(stderr, "ctx: browser sharing needs profile resource operation")
 		return 2
 	}
-	profile, resource, operation := args[0], args[1], args[2]
+	profile, words := request.Selection, request.Arguments
+	if len(words) == 3 && words[0] == "management" {
+		return RunManagement(config, profile, input, stdout, stderr)
+	}
+	if len(words) != 2 {
+		fmt.Fprintln(stderr, "ctx: browser sharing needs profile resource operation")
+		return 2
+	}
+	resource, operation := words[0], words[1]
 	switch resource {
 	case "status":
 		if operation == "probe" {

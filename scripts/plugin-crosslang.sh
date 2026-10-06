@@ -26,15 +26,15 @@ case "${CTX_CROSSLANG_ENGINE:-go}" in
   *) echo 'CTX_CROSSLANG_ENGINE must be go or c' >&2; exit 1 ;;
 esac
 
-cargo fmt --manifest-path pkg/rust/Cargo.toml -- --check
-cargo clippy --locked --manifest-path pkg/rust/Cargo.toml --all-targets -- -D warnings
-cargo test --locked --manifest-path pkg/rust/Cargo.toml
-cargo build --locked --manifest-path pkg/rust/Cargo.toml --examples
+cargo fmt --manifest-path pkg/plugin-rust/Cargo.toml -- --check
+cargo clippy --locked --manifest-path pkg/plugin-rust/Cargo.toml --all-targets -- -D warnings
+cargo test --locked --manifest-path pkg/plugin-rust/Cargo.toml
+cargo build --locked --manifest-path pkg/plugin-rust/Cargo.toml --examples
 # Keep DWARF stack-trace decoding out of bounded WASI cancellation checks.
-cargo build --release --locked --manifest-path pkg/rust/Cargo.toml --target wasm32-wasip1 --example guest
-"$ZIG_BIN" build test --build-file pkg/zig/build.zig --prefix "$build_dir/zig"
-"$ZIG_BIN" build --build-file pkg/zig/build.zig --prefix "$build_dir/zig"
-"$ZIG_BIN" build --build-file pkg/zig/build.zig -Dtarget=wasm32-wasi --prefix "$build_dir/wasi"
+cargo build --release --locked --manifest-path pkg/plugin-rust/Cargo.toml --target wasm32-wasip1 --example guest
+"$ZIG_BIN" build test --build-file pkg/plugin-zig/build.zig --prefix "$build_dir/zig"
+"$ZIG_BIN" build --build-file pkg/plugin-zig/build.zig --prefix "$build_dir/zig"
+"$ZIG_BIN" build --build-file pkg/plugin-zig/build.zig -Dtarget=wasm32-wasi --prefix "$build_dir/wasi"
 
 case "$(uname -s)" in
   Darwin) extension=dylib ;;

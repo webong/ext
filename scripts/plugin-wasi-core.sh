@@ -15,7 +15,7 @@ cmake -S pkg/plugin-engine -B "$build_dir/core" -DCTX_BUILD_HOST=OFF \
 cmake --build "$build_dir/core" -j 4
 go run ./pkg/plugin-wasm/cmd/wasirun "$build_dir/core/ctx_guest_core_test"
 CTX_ENGINE_LIB_DIR="$build_dir/core" CARGO_TARGET_DIR="$build_dir/cargo" \
-  cargo build --locked --manifest-path pkg/rust/engine/Cargo.toml \
+  cargo build --locked --manifest-path pkg/plugin-rust/engine/Cargo.toml \
   --target wasm32-wasip1 --features guest-only --example guest
 go run ./pkg/plugin-wasm/cmd/wasirun "$build_dir/cargo/wasm32-wasip1/debug/examples/guest.wasm"
 echo "Portable guest artifacts: $build_dir"

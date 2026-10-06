@@ -34,7 +34,7 @@ export CGO_LDFLAGS="${CGO_LDFLAGS:-} -L$build_dir/release -Wl,-rpath,$build_dir/
 export CTX_CENGINE_GUEST="$build_dir/go-guest" CTX_CENGINE_FAULT_GUEST="$build_dir/fault-guest"
 go build -o "$CTX_CENGINE_GUEST" ./pkg/plugin-wasm/crosslang/testdata/go-guest
 go build -o "$CTX_CENGINE_FAULT_GUEST" ./pkg/plugin-engine/tests/faultguest
-go test -tags "$go_tags" -race -count=1 -timeout=90s ./pkg/go
+go test -tags "$go_tags" -race -count=1 -timeout=90s ./pkg/plugin-go
 python3 - "$build_dir" <<'PY'
 import json, pathlib, sys, datetime
 p=pathlib.Path(sys.argv[1]);d=json.loads(pathlib.Path('pkg/plugin/testdata/v1/descriptor.json').read_text())
@@ -55,7 +55,7 @@ cmake --build "$build_dir/thread-sanitize" -j 4
 "$build_dir/thread-sanitize/ctx_host_native_test" "$CTX_CENGINE_GUEST" "$build_dir/descriptor.json" "$build_dir/echo.json" "$build_dir/wait.json"
 for foreign in "${CTX_CENGINE_RUST_GUEST:-}" "${CTX_CENGINE_ZIG_GUEST:-}"; do
   if [[ -n "$foreign" ]]; then
-    CTX_CENGINE_GUEST="$foreign" go test -tags "$go_tags" -race -count=1 -run '^TestConformance$' ./pkg/go
+    CTX_CENGINE_GUEST="$foreign" go test -tags "$go_tags" -race -count=1 -run '^TestConformance$' ./pkg/plugin-go
   fi
 done
 cargo fmt --manifest-path pkg/plugin-rust/engine/Cargo.toml -- --check
@@ -71,7 +71,7 @@ if [[ "$(uname -s)" == Darwin ]]; then node_link=(-undefined dynamic_lookup); fi
 "${CC:-cc}" -std=c11 -Wall -Wextra -Werror -O2 -shared -fPIC "${node_link[@]}" -I "$node_include" -I pkg/plugin-engine/include pkg/plugin-ts/examples/cengine/addon.c -L "$build_dir/release" "${engine_link[@]}" "${engine_cflags[@]}" -Wl,-rpath,"$build_dir/release" -o "$build_dir/ctx_host.node"
 "${CC:-cc}" -std=c11 -Wall -Wextra -Werror -O2 -shared -fPIC "${node_link[@]}" -I "$node_include" -I pkg/plugin-engine/include pkg/plugin-ts/engine/addon.c -L "$build_dir/release" "${engine_link[@]}" "${engine_cflags[@]}" -Wl,-rpath,"$build_dir/release" -o "$build_dir/ctx_engine.node"
 CTX_ENGINE_ADDON="$build_dir/ctx_engine.node" node --test pkg/plugin-ts/engine/test.mjs
-go build -tags "$go_tags" -o "$build_dir/go-host" ./pkg/go/examples/host
+go build -tags "$go_tags" -o "$build_dir/go-host" ./pkg/plugin-go/examples/host
 "$build_dir/go-host" "$CTX_CENGINE_GUEST" "$build_dir/descriptor.json" "$build_dir/echo.json" "$build_dir/public-error.json" > "$build_dir/go.jsonl"
 "$CARGO_TARGET_DIR/debug/ctx-pkg/plugin-engine-example" "$CTX_CENGINE_GUEST" "$build_dir/descriptor.json" "$build_dir/echo.json" "$build_dir/public-error.json" > "$build_dir/rust.jsonl"
 "$build_dir/zig-host" "$CTX_CENGINE_GUEST" "$build_dir/descriptor.json" "$build_dir/echo.json" "$build_dir/public-error.json" > "$build_dir/zig.jsonl"

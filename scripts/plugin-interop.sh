@@ -20,9 +20,9 @@ export CTX_BRIDGE_REQUIRED=1
 export CTX_BRIDGE_EXECUTABLE="$build_dir/ctx-plugin-bridge"
 export CTX_BRIDGE_GUEST="$build_dir/hashicorp-guest"
 export CTX_BRIDGE_JSONLINE_GUEST="$CTX_CENGINE_BUILD_DIR/go-guest"
-go build "${go_tags[@]}" -o "$CTX_BRIDGE_EXECUTABLE" ./cmd/ctx-plugin-bridge
+go build "${go_tags[@]}" -o "$CTX_BRIDGE_EXECUTABLE" ./pkg/plugin-hashicorp/cmd/ctx-plugin-bridge
 go build -o "$CTX_BRIDGE_GUEST" ./pkg/plugin/bridge/testdata/hashicorp-guest
-go test "${go_tags[@]}" -race -count=1 -timeout=120s ./pkg/plugin/bridge ./pkg/plugin/interop ./cmd/ctx-plugin-bridge
+go test "${go_tags[@]}" -race -count=1 -timeout=120s ./pkg/plugin/bridge ./pkg/plugin-hashicorp/interoptest ./pkg/plugin-hashicorp/cmd/ctx-plugin-bridge
 (cd pkg/plugin-hashicorp && go test "${go_tags[@]}" -race -count=1 -timeout=120s ./...)
 python3 - "$build_dir" "$CTX_CENGINE_BUILD_DIR" <<'PY'
 import datetime,hashlib,json,pathlib,shutil,sys
@@ -61,6 +61,6 @@ print('Four host bindings reached both HashiCorp transports through the common C
 PY
 # Reverse direction: a HashiCorp frontend relays to independently authored guests.
 for guest in "${CTX_CENGINE_RUST_GUEST:-}" "${CTX_CENGINE_ZIG_GUEST:-}"; do
-  if [[ -n "$guest" ]]; then CTX_BRIDGE_JSONLINE_GUEST="$guest" go test "${go_tags[@]}" -race -count=1 -timeout=90s -run '^TestReverseHashicorpFrontend$' ./cmd/ctx-plugin-bridge; fi
+  if [[ -n "$guest" ]]; then CTX_BRIDGE_JSONLINE_GUEST="$guest" go test "${go_tags[@]}" -race -count=1 -timeout=90s -run '^TestReverseHashicorpFrontend$' ./pkg/plugin-hashicorp/cmd/ctx-plugin-bridge; fi
 done
 echo "Interoperability artifacts: $build_dir"

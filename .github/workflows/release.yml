@@ -57,7 +57,7 @@ jobs:
       - run: go test ./...
       - name: Test library modules
         run: |
-          for module in pkg/adapter pkg/go pkg/graph pkg/plugin pkg/plugin/hashicorp pkg/plugin/wasm pkg/supervisor res/browser res/credential; do
+          for module in pkg/graph pkg/plugin pkg/plugin-cshared pkg/plugin-go pkg/plugin-hashicorp pkg/plugin-wasm pkg/supervisor res/browser res/credential; do
             (cd "$module" && go test ./...) || exit 1
           done
       - run: ./tests/native_test.sh

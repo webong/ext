@@ -22,19 +22,19 @@ jobs:
           node-version: '22'
       - name: Test plugin library modules
         run: |
-          for module in pkg/plugin pkg/plugin/hashicorp pkg/plugin/wasm pkg/go; do
+          for module in pkg/plugin pkg/plugin-hashicorp pkg/plugin-wasm pkg/plugin-go; do
             (cd "$module" && go test -race ./...) || exit 1
           done
-      - run: go test -race ./cmd/ctx-plugin
-      - run: node --test pkg/typescript/test.mjs
+      - run: go test -race ./pkg/plugin-hashicorp/cmd/ctx-plugin
+      - run: node --test pkg/plugin-ts/test.mjs
       - name: Check TypeScript declarations
-        run: npx --yes --package typescript@5.8.3 tsc --noEmit --strict --module NodeNext --moduleResolution NodeNext --target ES2022 pkg/typescript/typecheck.mts
+        run: npx --yes --package typescript@5.8.3 tsc --noEmit --strict --module NodeNext --moduleResolution NodeNext --target ES2022 pkg/plugin-ts/typecheck.mts
       - run: go run ./examples/plugin-sdk --backend jsonline
       - run: go run ./examples/plugin-sdk --backend inprocess
       - run: go run ./examples/plugin-typescript
       - run: go build -o /tmp/ctx-plugin-example ./examples/plugin-typescript
       - run: node examples/plugin-typescript/host.mjs /tmp/ctx-plugin-example
-      - run: go run ./cmd/ctx-plugin inspect --root examples/plugin-package --entry main examples/plugin-package/plugin.json
+      - run: go run ./pkg/plugin-hashicorp/cmd/ctx-plugin inspect --root examples/plugin-package --entry main examples/plugin-package/plugin.json
 
   foreign-sdks:
     strategy:

@@ -19,10 +19,10 @@ import (
 
 	"github.com/webong/ctx/pkg/plugin"
 	"github.com/webong/ctx/pkg/plugin-cshared"
+	"github.com/webong/ctx/pkg/plugin-wasm"
 	"github.com/webong/ctx/pkg/plugin/jsonline"
 	"github.com/webong/ctx/pkg/plugin/nativego"
 	"github.com/webong/ctx/pkg/plugin/plugintest"
-	"github.com/webong/ctx/pkg/plugin-wasm"
 )
 
 func TestForeignMalformedFrames(t *testing.T) {

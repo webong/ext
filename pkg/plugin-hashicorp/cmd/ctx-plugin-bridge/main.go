@@ -17,8 +17,8 @@ import (
 	"github.com/hashicorp/go-hclog"
 	hc "github.com/hashicorp/go-plugin"
 	"github.com/webong/ctx/pkg/plugin"
-	"github.com/webong/ctx/pkg/plugin/bridge"
 	"github.com/webong/ctx/pkg/plugin-hashicorp"
+	"github.com/webong/ctx/pkg/plugin/bridge"
 	"github.com/webong/ctx/pkg/plugin/jsonline"
 )
 

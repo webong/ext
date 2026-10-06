@@ -18,8 +18,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/webong/ctx/pkg/plugin-go"
 	"github.com/webong/ctx/pkg/plugin"
+	"github.com/webong/ctx/pkg/plugin-go"
 	"github.com/webong/ctx/pkg/plugin/jsonline"
 	"github.com/webong/ctx/pkg/plugin/plugintest"
 )

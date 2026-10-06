@@ -44,7 +44,7 @@ git tag pkg/plugin/v1.1.0
 # coordinated breaking change across every module
 git tag res/browser/v2.0.0 pkg/plugin-go/v2.0.0 \
         pkg/graph/v2.0.0 pkg/plugin/v2.0.0 pkg/plugin-hashicorp/v2.0.0 \
-        pkg/plugin-wasm/v2.0.0 pkg/supervisor/v2.0.0 v2.0.0
+        pkg/plugin-wasm/v2.0.0 v2.0.0
 ```
 
 For a major bump, update the `/vN` path suffix in each affected `go.mod`, in
@@ -90,7 +90,7 @@ workspace active, and that the root module resolves the intended versions:
 ```bash
 go build ./...
 for module in pkg/plugin-go pkg/graph pkg/plugin \
-              pkg/plugin-hashicorp pkg/plugin-wasm pkg/supervisor \
+              pkg/plugin-hashicorp pkg/plugin-wasm \
               res/browser res/credential; do
   (cd "$module" && go build ./... && go test ./...) || exit 1
 done

@@ -27,7 +27,6 @@ var forbiddenPrefixes = []string{
 var libraryRoots = []string{
 	"res",
 	"pkg/graph",
-	"pkg/supervisor",
 	"pkg/plugin",
 	"pkg/plugin-go",
 }

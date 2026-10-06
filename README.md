@@ -283,7 +283,7 @@ CTX and its ecosystem share public Go libraries:
   include `pkg/plugin/inprocess`, `pkg/plugin/jsonline`, `pkg/plugin-hashicorp` (net/rpc and
   gRPC), `pkg/plugin/nativego`, `pkg/plugin-wasm` (WASI Preview 1), and `pkg/plugin-cshared`
   (versioned C ABI). All use the same typed authoring and host session APIs.
-- `github.com/webong/ctx/pkg/supervisor` supplies local process supervision when
+- `github.com/webong/ctx/pkg/graph/supervisor` supplies local process supervision when
   the selected plugin backend does not already own its process lifecycle.
 - `github.com/webong/ctx/res/browser` supplies portable browser contracts,
   workflows, extension and userscript handling.

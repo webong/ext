@@ -30,7 +30,6 @@ use (
 	./pkg/plugin-go
 	./pkg/plugin-hashicorp
 	./pkg/plugin-wasm
-	./pkg/supervisor
 	./res/browser
 	./res/credential
 )

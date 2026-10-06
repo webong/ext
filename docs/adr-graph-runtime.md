@@ -5,7 +5,7 @@ Status: accepted for the CTX library.
 ## Ownership boundary
 
 CTX supplies reusable mechanics through the public `github.com/webong/ctx/pkg/graph`
-and `github.com/webong/ctx/pkg/supervisor` packages. CTX graph records are generic
+and `github.com/webong/ctx/pkg/graph/supervisor` packages. CTX graph records are generic
 vertices and directed edges. A consumer registers a namespace and schema version,
 supplies an optional validation callback, and owns its kind and relationship
 vocabulary. Namespace-qualified names use the form `<namespace>/<name>`.

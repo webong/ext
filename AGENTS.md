@@ -58,7 +58,7 @@ The reusable libraries are:
 - `res/credential` for portable credential serving and client code.
 - `pkg/graph` for host, system, and process discovery.
 - `pkg/plugin` for the shared host/guest contract and runtime backends.
-- `pkg/supervisor` for process supervision and recovery.
+- `pkg/graph/supervisor` (inside the graph module) for process supervision and recovery.
 
 Plugin runtime backends, including HashiCorp go-plugin, belong inside the
 plugin library (for example `pkg/plugin-hashicorp`), together with their

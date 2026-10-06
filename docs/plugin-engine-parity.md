@@ -74,7 +74,7 @@ The same engine has been called from Go, Rust, Zig and Node. New binding checks
 cover Rust services/cancellation/guests and resource leases, Zig generated host/guest
 and resource APIs, and Node async handlers, policy, cancellation, late promises,
 integrity, observation and cleanup. A deadline-rounding regression has repeated
-Go race checks. Go's decoder now rejects unpaired surrogate escapes, as the C parser does, instead of silently substituting U+FFFD. Raw optional-null and numeric schema cases compare against Go, as do the generated schema and contract mutation matrices (`schema_matrix_test.go`, `contract_matrix_test.go`). Node instance and stream managers pass their lifecycle suite; each scenario also ran clean under AddressSanitizer and UndefinedBehaviorSanitizer when run individually.
+Go race checks. Go's decoder now rejects unpaired surrogate escapes, as the C parser does, instead of silently substituting U+FFFD. Raw optional-null and numeric schema cases compare against Go, as do the generated schema and contract mutation matrices (`schema_matrix_test.go`, `contract_matrix_test.go`). Node instance and stream managers pass their lifecycle suite; the full Node suite (11 tests, three runs) also ran clean under AddressSanitizer and UndefinedBehaviorSanitizer on macOS. Preload the sanitizer runtime into a re-signed copy of `node` and run it directly: wrapping it in `timeout` makes the runtime abort with an interceptor error, which is a harness artifact, not an engine defect.
 
 The production bridge passed both directions with gRPC and net/rpc under Go and
 C-backed sessions. The C-session runtime matrix passed Rust/Zig JSON-line, native

@@ -7,7 +7,7 @@ import (
 	"os"
 	"os/exec"
 
-	"github.com/webong/ctx/pkg/adapter"
+	"github.com/webong/ctx/pkg/plugin"
 )
 
 func main() {
@@ -15,7 +15,7 @@ func main() {
 }
 
 func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
-	request, err := adapter.Parse(args)
+	request, err := plugin.ParseAdapterInvocation(args)
 	if err != nil {
 		fmt.Fprintf(stderr, "git: %v\n", err)
 		return 2

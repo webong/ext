@@ -80,3 +80,14 @@ on macOS and in Mobile Safari in the iOS Simulator, with identical results. The
 Android recipe is the standard one, but it was **not** run: the emulator would not
 start for lack of disk space. Closing a real tab was not exercised either, only
 simulated.
+
+## Related
+
+Running web content on a phone or simulator, as above, is separate from authoring
+plugins for mobile apps. iOS and Android apps cannot launch other programs, so they
+embed libraries rather than run adapters: see
+[`pkg/plugin-swift`](../pkg/plugin-swift/README.md) (macOS and iOS, tested in the iOS
+Simulator) and [`pkg/plugin-java`](../pkg/plugin-java/README.md) (the JVM, with an
+untested Android build), both bindings over the shared plugin engine. The
+[engine adapter contract](engine-adapters.md) explains how the two uses of "engine"
+differ.

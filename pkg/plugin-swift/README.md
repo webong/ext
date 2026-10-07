@@ -84,3 +84,16 @@ binary target points at it. That release step is not automated yet.
 
 Objective-C reaches the same C headers directly. A Swift-free Objective-C
 authoring API is not provided yet.
+
+## Related
+
+- [Engine adapters](../../docs/engine-adapters.md) are adapters that run programs
+  (`jvm`, `wasm`, `evm`). They are a different thing from this SDK, which binds the
+  shared plugin engine, `pkg/plugin-engine`; the page explains the two senses of
+  "engine".
+- [The web engine](../../docs/web-engine.md) runs web content in a browser the host
+  chooses, including the iOS Simulator and Android devices. It does not author plugins.
+- A WASM interpreter reachable from the C engine does not exist yet. Until it does,
+  a mobile app that hosts third-party plugins after release has no route that
+  satisfies the no-downloaded-code rules. That is open work shared with
+  `pkg/plugin-wasm`, which is Go and wazero.

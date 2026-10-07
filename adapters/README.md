@@ -102,6 +102,20 @@ first missing import. A webview engine for such modules is not installed or buil
 yet. `--inspect` reports what a module imports and whether it can run, without
 running it.
 
+`evm` is the built-in EVM engine. It executes EVM bytecode in memory with no
+blockchain, node or network, so it is deterministic and sandboxed. The selection is
+the rule set: `ctx set evm cancun` (`paris`, `shanghai`, `cancun` and `prague` are
+offered; the default is `prague`). `ctx run evm [flags] BYTECODE|@file` prints one
+JSON result with the status (`success`, `revert`, `error` or `timeout`), gas used
+and return data, and exits non-zero unless it succeeded. `--input` supplies
+calldata, `--deploy` treats the code as creation code and then calls the new
+contract in the same run, and `--gas`, `--timeout`, `--value`, `--number`,
+`--timestamp`, `--chain-id`, `--origin` and `--coinbase` set the limits and block
+context. The block context is fixed by default so runs are repeatable. State lives
+only for one run. The executable links go-ethereum, which is LGPL-3.0; see the
+`NOTICE.md` shipped with the adapter. Write flags directly after `evm`, without a
+separate `--`.
+
 `git` is an optional computer-runtime adapter for Git commands and repository
 hooks. It adds no Git shim. Its hook subcommand writes marked blocks to shell
 hooks without changing `core.hooksPath`; an explicit directory can target an

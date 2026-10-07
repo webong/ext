@@ -37,6 +37,8 @@ replace github.com/webong/ext/adapters/zen => ../adapters/zen
 
 replace github.com/webong/ext/adapters/wasm => ../adapters/wasm
 
+replace github.com/webong/ext/adapters/evm => ../adapters/evm
+
 replace github.com/webong/ext/adapters/waterfox => ../adapters/waterfox
 
 replace github.com/webong/ext/adapters/librewolf => ../adapters/librewolf

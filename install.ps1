@@ -12,7 +12,7 @@ param(
 $ErrorActionPreference = 'Stop'
 $repositoryRoot = $PSScriptRoot
 $localSource = Test-Path (Join-Path $repositoryRoot 'cmd\ctx\main.go')
-$catalogAdapters = @('docker', 'podman', 'nerdctl', 'apple', 'rancher_desktop', 'orbstack', 'docker_desktop', 'firefox', 'zen', 'floorp', 'waterfox', 'librewolf', 'chrome', 'chromium', 'edge', 'brave', 'safari', 'vivaldi', 'opera', 'whale', 'arc', 'comet', 'dia', 'atlas', 'helium', 'kube', 'aws', 'gcloud', 'postgres', 'mysql', 'php', 'jvm', 'wasm', 'claude_code', 'codex', 'git', 'credman')
+$catalogAdapters = @('docker', 'podman', 'nerdctl', 'apple', 'rancher_desktop', 'orbstack', 'docker_desktop', 'firefox', 'zen', 'floorp', 'waterfox', 'librewolf', 'chrome', 'chromium', 'edge', 'brave', 'safari', 'vivaldi', 'opera', 'whale', 'arc', 'comet', 'dia', 'atlas', 'helium', 'kube', 'aws', 'gcloud', 'postgres', 'mysql', 'php', 'jvm', 'wasm', 'evm', 'claude_code', 'codex', 'git', 'credman')
 $needCatalog = $AllAdapters.IsPresent -or $Interactive.IsPresent -or [bool]$Adapters
 $bundleRoot = $null
 $downloadRoot = $null
@@ -104,7 +104,7 @@ if ($needCatalog) {
         }
         $adapterSource = if ($bundleRoot) { Join-Path $bundleRoot "adapters\$adapter" } else { Join-Path $repositoryRoot "adapters\$adapter" }
         Copy-Item -Recurse -Path $adapterSource -Destination $target
-        $nativeBinaries = @{ git = 'ctx-git.exe'; wasm = 'ctx-wasm.exe' }
+        $nativeBinaries = @{ git = 'ctx-git.exe'; wasm = 'ctx-wasm.exe'; evm = 'ctx-evm.exe' }
         if ($localSource -and $nativeBinaries.ContainsKey($adapter)) {
             $nativeBinary = [System.IO.Path]::GetFullPath((Join-Path $target $nativeBinaries[$adapter]))
             Push-Location $repositoryRoot

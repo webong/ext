@@ -102,6 +102,39 @@ func process(path string) (plugin.Backend, error) {
 	}
 	return jsonline.NewClient(&processConn{Reader: out, Writer: in, read: out, write: in, cmd: cmd}), nil
 }
+
+// sharedBackend opens a dynamic library through the cshared ABI and closes it
+// with the test.
+func sharedBackend(t *testing.T, path string) func(context.Context) (plugin.Backend, error) {
+	return func(ctx context.Context) (plugin.Backend, error) {
+		b, err := cshared.Open(ctx, path)
+		if err != nil {
+			return nil, err
+		}
+		t.Cleanup(func() {
+			_ = b.Close()
+			ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
+			defer cancel()
+			if err := b.WaitClosed(ctx); err != nil {
+				t.Error(err)
+			}
+		})
+		return b, nil
+	}
+}
+
+// TestSwiftSharedGuest runs the conformance suite against the fixture that
+// pkg/plugin-swift builds, through the same cshared ABI the other languages use.
+//
+// Swift builds only on Apple platforms, so the artifact is optional elsewhere:
+// scripts/plugin-crosslang.sh sets EXT_SWIFT_REQUIRED=1 on macOS.
+func TestSwiftSharedGuest(t *testing.T) {
+	if os.Getenv("EXT_SWIFT_SHARED") == "" && os.Getenv("EXT_SWIFT_REQUIRED") != "1" {
+		t.Skip("set EXT_SWIFT_SHARED to the library built by pkg/plugin-swift")
+	}
+	runGuestConformance(t, sharedBackend(t, artifact(t, "SWIFT_SHARED")))
+}
+
 func TestForeignGuests(t *testing.T) {
 	for _, language := range []string{"RUST", "ZIG"} {
 		t.Run(language, func(t *testing.T) {
@@ -110,22 +143,7 @@ func TestForeignGuests(t *testing.T) {
 				runGuestConformance(t, func(context.Context) (plugin.Backend, error) { return process(p) })
 			})
 			t.Run("cshared", func(t *testing.T) {
-				p := artifact(t, language+"_SHARED")
-				runGuestConformance(t, func(ctx context.Context) (plugin.Backend, error) {
-					b, err := cshared.Open(ctx, p)
-					if err != nil {
-						return nil, err
-					}
-					t.Cleanup(func() {
-						_ = b.Close()
-						ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
-						defer cancel()
-						if err := b.WaitClosed(ctx); err != nil {
-							t.Error(err)
-						}
-					})
-					return b, nil
-				})
+				runGuestConformance(t, sharedBackend(t, artifact(t, language+"_SHARED")))
 			})
 			t.Run("wasi", func(t *testing.T) {
 				data, err := os.ReadFile(artifact(t, language+"_WASM"))

@@ -12,9 +12,9 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/webong/ctx/res/browser"
-	"github.com/webong/ctx/src/ctx/internal/mod"
-	"github.com/webong/ctx/src/ctx/internal/platform"
+	"github.com/webong/ext/res/browser"
+	"github.com/webong/ext/src/ctx/internal/mod"
+	"github.com/webong/ext/src/ctx/internal/platform"
 )
 
 type Provider struct{ AdapterHome string }

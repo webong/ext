@@ -4,8 +4,8 @@ Status: accepted for the CTX library.
 
 ## Ownership boundary
 
-CTX supplies reusable mechanics through the public `github.com/webong/ctx/pkg/graph`
-and `github.com/webong/ctx/pkg/graph/supervisor` packages. CTX graph records are generic
+CTX supplies reusable mechanics through the public `github.com/webong/ext/pkg/graph`
+and `github.com/webong/ext/pkg/graph/supervisor` packages. CTX graph records are generic
 vertices and directed edges. A consumer registers a namespace and schema version,
 supplies an optional validation callback, and owns its kind and relationship
 vocabulary. Namespace-qualified names use the form `<namespace>/<name>`.
@@ -80,7 +80,7 @@ use a backend with indexed persistence behind the same interface.
 
 ## CTX system context
 
-The public `github.com/webong/ctx/pkg/graph/system` package owns the `ctx.system`
+The public `github.com/webong/ext/pkg/graph/system` package owns the `ctx.system`
 namespace. Short-lived CTX
 commands record the invoking shell session, current directory, detected project,
 active profile, and selected adapter context IDs. Optional Bash, Zsh, and

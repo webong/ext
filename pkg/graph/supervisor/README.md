@@ -1,6 +1,6 @@
 # supervisor
 
-`github.com/webong/ctx/pkg/graph/supervisor` runs generic local component processes and
+`github.com/webong/ext/pkg/graph/supervisor` runs generic local component processes and
 projects their state, with recovery for unexpected exits.
 
 CTX uses it when a selected backend does not already own its process lifecycle,

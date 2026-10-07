@@ -10,7 +10,7 @@ ctx_status ctx_go_create_process(const char *,const char *const *,size_t,const c
 import "C"
 import (
 	"encoding/json"
-	"github.com/webong/ctx/pkg/plugin"
+	"github.com/webong/ext/pkg/plugin"
 	"runtime/cgo"
 	"strings"
 	"unsafe"

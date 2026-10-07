@@ -10,7 +10,7 @@ import "C"
 import (
 	"context"
 	"encoding/json"
-	"github.com/webong/ctx/pkg/plugin"
+	"github.com/webong/ext/pkg/plugin"
 	"math"
 	"runtime/cgo"
 	"time"

@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/webong/ctx/res/credential/adapterkit"
+	"github.com/webong/ext/res/credential/adapterkit"
 )
 
 func TestNativeKeychainCredentialRoundTrip(t *testing.T) {

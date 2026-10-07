@@ -46,8 +46,8 @@ runtime backends and shared conformance fixtures.
 | [`zig`](zig/README.md) | Zig SDK and header-generated C engine binding |
 | [`typescript`](typescript/README.md) | JavaScript SDK, TypeScript declarations and async Node C engine binding |
 
-The Go host binding import is `github.com/webong/ctx/pkg/plugin-go`; its package name
-is `goengine`. Go guest C exports use `github.com/webong/ctx/pkg/plugin-go/cshared/guest`.
+The Go host binding import is `github.com/webong/ext/pkg/plugin-go`; its package name
+is `goengine`. Go guest C exports use `github.com/webong/ext/pkg/plugin-go/cshared/guest`.
 Rust crate and npm package names are unchanged; their repository locations moved.
 
 C embedding examples live in each language's `examples/` directory. The C engine

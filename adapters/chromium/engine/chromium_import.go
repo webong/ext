@@ -18,7 +18,7 @@ import (
 	"strings"
 	"time"
 
-	share "github.com/webong/ctx/res/browser/contract"
+	share "github.com/webong/ext/res/browser/contract"
 )
 
 func importChromiumCookie(provider Config, profile string, cookie browserCookie, replace bool) error {

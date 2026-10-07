@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/webong/ctx/examples/plugin-runtimes/echo"
-	"github.com/webong/ctx/pkg/plugin/jsonline"
+	"github.com/webong/ext/examples/plugin-runtimes/echo"
+	"github.com/webong/ext/pkg/plugin/jsonline"
 )
 
 func main() {

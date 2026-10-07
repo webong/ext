@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	management "github.com/webong/ctx/res/browser/contract"
-	"github.com/webong/ctx/res/browser/extension"
+	management "github.com/webong/ext/res/browser/contract"
+	"github.com/webong/ext/res/browser/extension"
 )
 
 func TestManagementRequestReachesAdapterBackend(t *testing.T) {

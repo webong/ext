@@ -8,9 +8,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/webong/ctx/pkg/plugin"
-	"github.com/webong/ctx/pkg/plugin/jsonline"
-	"github.com/webong/ctx/pkg/plugin/packagekit"
+	"github.com/webong/ext/pkg/plugin"
+	"github.com/webong/ext/pkg/plugin/jsonline"
+	"github.com/webong/ext/pkg/plugin/packagekit"
 )
 
 func manifest(id string) packagekit.Manifest {

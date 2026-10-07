@@ -6,12 +6,12 @@ import (
 	"os"
 	"runtime"
 
-	"github.com/webong/ctx/pkg/plugin"
+	"github.com/webong/ext/pkg/plugin"
 
-	chromiumengine "github.com/webong/ctx/adapters/chromium/engine"
-	share "github.com/webong/ctx/res/browser/contract"
-	kit "github.com/webong/ctx/res/browser/guest"
-	"github.com/webong/ctx/res/browser/policy"
+	chromiumengine "github.com/webong/ext/adapters/chromium/engine"
+	share "github.com/webong/ext/res/browser/contract"
+	kit "github.com/webong/ext/res/browser/guest"
+	"github.com/webong/ext/res/browser/policy"
 )
 
 func braveConfig() chromiumengine.Config {

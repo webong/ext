@@ -7,10 +7,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/webong/ctx/pkg/plugin"
-	"github.com/webong/ctx/pkg/plugin/author"
-	"github.com/webong/ctx/pkg/plugin/inprocess"
-	"github.com/webong/ctx/pkg/plugin/stream"
+	"github.com/webong/ext/pkg/plugin"
+	"github.com/webong/ext/pkg/plugin/author"
+	"github.com/webong/ext/pkg/plugin/inprocess"
+	"github.com/webong/ext/pkg/plugin/stream"
 )
 
 type reader struct{ closed atomic.Int32 }

@@ -1,6 +1,6 @@
 # HashiCorp plugin backend
 
-`github.com/webong/ctx/pkg/plugin-hashicorp` is the HashiCorp go-plugin backend
+`github.com/webong/ext/pkg/plugin-hashicorp` is the HashiCorp go-plugin backend
 of the shared plugin library. It owns the native go-plugin launch handshake and
 the net/rpc or gRPC client/server bridge.
 

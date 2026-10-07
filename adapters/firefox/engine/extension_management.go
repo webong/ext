@@ -11,9 +11,9 @@ import (
 	"sort"
 	"strings"
 
-	management "github.com/webong/ctx/res/browser/contract"
-	"github.com/webong/ctx/res/browser/discovery"
-	"github.com/webong/ctx/res/browser/extension"
+	management "github.com/webong/ext/res/browser/contract"
+	"github.com/webong/ext/res/browser/discovery"
+	"github.com/webong/ext/res/browser/extension"
 )
 
 type extensionBackend struct{ config Config }

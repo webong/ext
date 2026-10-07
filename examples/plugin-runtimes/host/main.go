@@ -12,12 +12,12 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/webong/ctx/examples/plugin-runtimes/echo"
-	"github.com/webong/ctx/pkg/plugin"
-	"github.com/webong/ctx/pkg/plugin-cshared"
-	"github.com/webong/ctx/pkg/plugin-wasm"
-	"github.com/webong/ctx/pkg/plugin/author"
-	"github.com/webong/ctx/pkg/plugin/nativego"
+	"github.com/webong/ext/examples/plugin-runtimes/echo"
+	"github.com/webong/ext/pkg/plugin"
+	"github.com/webong/ext/pkg/plugin-cshared"
+	"github.com/webong/ext/pkg/plugin-wasm"
+	"github.com/webong/ext/pkg/plugin/author"
+	"github.com/webong/ext/pkg/plugin/nativego"
 )
 
 func main() {

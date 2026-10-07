@@ -14,7 +14,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/webong/ctx/pkg/plugin"
+	"github.com/webong/ext/pkg/plugin"
 )
 
 func descriptor() plugin.Descriptor {

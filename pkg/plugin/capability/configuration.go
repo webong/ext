@@ -4,10 +4,10 @@ import (
 	"context"
 	"encoding/json"
 
-	"github.com/webong/ctx/pkg/plugin"
-	"github.com/webong/ctx/pkg/plugin/author"
-	"github.com/webong/ctx/pkg/plugin/instance"
-	"github.com/webong/ctx/pkg/plugin/schema"
+	"github.com/webong/ext/pkg/plugin"
+	"github.com/webong/ext/pkg/plugin/author"
+	"github.com/webong/ext/pkg/plugin/instance"
+	"github.com/webong/ext/pkg/plugin/schema"
 )
 
 type Configuration struct {

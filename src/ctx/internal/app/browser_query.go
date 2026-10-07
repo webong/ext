@@ -11,9 +11,9 @@ import (
 	"os/signal"
 	"time"
 
-	"github.com/webong/ctx/res/browser"
-	"github.com/webong/ctx/src/ctx/internal/app/browserhost"
-	"github.com/webong/ctx/src/ctx/internal/config"
+	"github.com/webong/ext/res/browser"
+	"github.com/webong/ext/src/ctx/internal/app/browserhost"
+	"github.com/webong/ext/src/ctx/internal/config"
 )
 
 type browserQueryList []string

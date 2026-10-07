@@ -10,10 +10,10 @@ import (
 	"os/signal"
 	"path/filepath"
 
-	"github.com/webong/ctx/res/browser/bookmarklet"
-	"github.com/webong/ctx/res/browser/contract"
-	"github.com/webong/ctx/res/browser/extension"
-	"github.com/webong/ctx/res/browser/userscript"
+	"github.com/webong/ext/res/browser/bookmarklet"
+	"github.com/webong/ext/res/browser/contract"
+	"github.com/webong/ext/res/browser/extension"
+	"github.com/webong/ext/res/browser/userscript"
 )
 
 // NativeExtensionBackend is implemented by the selected adapter. The shared

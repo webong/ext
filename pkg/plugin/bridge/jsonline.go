@@ -5,7 +5,7 @@ import (
 	"errors"
 	"io"
 
-	"github.com/webong/ctx/pkg/plugin/jsonline"
+	"github.com/webong/ext/pkg/plugin/jsonline"
 )
 
 // ServeJSONLine owns relay and conn. It monitors connection EOF while an

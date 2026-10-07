@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/webong/ctx/pkg/plugin"
-	"github.com/webong/ctx/pkg/plugin/instance"
-	"github.com/webong/ctx/pkg/plugin/stream"
+	"github.com/webong/ext/pkg/plugin"
+	"github.com/webong/ext/pkg/plugin/instance"
+	"github.com/webong/ext/pkg/plugin/stream"
 )
 
 func TestCallbackErrorCauses(t *testing.T) {

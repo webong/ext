@@ -56,7 +56,7 @@ else
   else
     release=latest/download
     [ "$VERSION" = latest ] || release="download/$VERSION"
-    release_base="https://github.com/webong/ctx/releases/$release"
+    release_base="https://github.com/webong/ext/releases/$release"
   fi
   archive="$temporary/$asset"
   curl -fsSL "$release_base/$asset" -o "$archive"

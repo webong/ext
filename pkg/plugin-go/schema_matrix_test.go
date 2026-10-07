@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/webong/ctx/pkg/plugin/schema"
+	"github.com/webong/ext/pkg/plugin/schema"
 )
 
 func ptr(v float64) *float64 { return &v }

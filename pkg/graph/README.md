@@ -1,6 +1,6 @@
 # graph
 
-`github.com/webong/ctx/pkg/graph` provides a generic, namespaced, directed graph
+`github.com/webong/ext/pkg/graph` provides a generic, namespaced, directed graph
 store with transactions, plus `graph/system` for host, shell, filesystem and
 webview discovery and process-graph inspection.
 

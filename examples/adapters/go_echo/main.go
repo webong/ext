@@ -5,7 +5,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/webong/ctx/pkg/plugin"
+	"github.com/webong/ext/pkg/plugin"
 )
 
 func main() {

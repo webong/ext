@@ -8,7 +8,7 @@ import (
 	"time"
 	"unicode/utf8"
 
-	browsercontract "github.com/webong/ctx/res/browser/contract"
+	browsercontract "github.com/webong/ext/res/browser/contract"
 )
 
 // NormalizeOptions binds an authorized native export to one adapter endpoint.

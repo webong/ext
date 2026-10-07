@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/webong/ctx/pkg/plugin"
-	"github.com/webong/ctx/pkg/plugin/plugintest"
+	"github.com/webong/ext/pkg/plugin"
+	"github.com/webong/ext/pkg/plugin/plugintest"
 )
 
 // outcome reduces a guest invocation to what a host can observe: whether the

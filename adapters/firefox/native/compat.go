@@ -1,8 +1,8 @@
 package main
 
 import (
-	share "github.com/webong/ctx/res/browser/contract"
-	"github.com/webong/ctx/res/browser/sqlite"
+	share "github.com/webong/ext/res/browser/contract"
+	"github.com/webong/ext/res/browser/sqlite"
 )
 
 // These helpers keep the native package's existing fixture access while the

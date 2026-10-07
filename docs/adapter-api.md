@@ -131,7 +131,7 @@ next successful graph scan. `observe` works for any runtime; no provider name
 is built into the graph collector. Adapters without `observe` retain the
 line-oriented `list` behavior documented below.
 
-The public `github.com/webong/ctx/pkg/graph/system` package exposes
+The public `github.com/webong/ext/pkg/graph/system` package exposes
 `ObserveInventory`, `ResolveInventory`, and `Inventory.Find` for other Go
 consumers. `ctx graph resolve [runtime|all] [capability...] [--supports <kind>] [--share <resource.operation>]`
 shows the same candidate view as JSON. `ctx graph vertices support` and
@@ -343,7 +343,7 @@ and [Neura Local settings](https://www.neurarelay.com/operators#neura-local-sett
 ## Process protocol
 
 CTX adapters also expose a shared library descriptor through
-`github.com/webong/ctx/pkg/plugin.AdapterDescriptor`, using the `ctx.adapter`
+`github.com/webong/ext/pkg/plugin.AdapterDescriptor`, using the `ctx.adapter`
 contract and their native API version. CTX uses the public `plugin` package
 for capability lookup and package integrity checking. The argv and stream
 binding below remains the adapter transport; it does not require a JSON-line
@@ -475,12 +475,12 @@ observation JSON.
 browser protocol. Native policy sources, executable discovery, and SQLite
 tool execution are owned under `adapters/`.
 External Go adapters import the shared types from
-`github.com/webong/ctx/res/browser/contract` and serving helpers from
-`github.com/webong/ctx/res/browser/guest`. A Go browser adapter can handle
+`github.com/webong/ext/res/browser/contract` and serving helpers from
+`github.com/webong/ext/res/browser/guest`. A Go browser adapter can handle
 `share <profile> -- <resource> <operation>` in its main executable, parse it with
 `plugin.ParseAdapterInvocation`, and use `guest.RunCookie`; it does not need a separate
 helper executable. The bare Chromium adapter owns the reusable native engine at
-`github.com/webong/ctx/adapters/chromium/engine`; Chrome and other
+`github.com/webong/ext/adapters/chromium/engine`; Chrome and other
 Chromium-based Go adapters can configure and import it through its exported
 `Config`, `Cookie`, `List`, `Query`, `ReadValue`, `Import`, `Probe`, and
 `RunManagement` API. The same engine owns CDP installation and activation, CRX
@@ -491,7 +491,7 @@ profile discovery, and Mozilla signing. Safari owns app inspection, building,
 and its native installation handoff. The versioned JSON
 contract remains the interface for external adapters.
 
-Other Go services can import `github.com/webong/ctx/res/browser` and call
+Other Go services can import `github.com/webong/ext/res/browser` and call
 `browser.Get` with a `browser.Backend` supplied by their host. The backend
 selects authorized sources and invokes them; CTX's host backend also checks
 installed-adapter trust. The resource combines scoped cookies and returns
@@ -594,10 +594,10 @@ platform, unsafe paths, links, oversized contents, and checksum mismatches.
 It installs the package untrusted; review it and run `ctx adapter trust <name>`
 before using it.
 
-Go authors can use the public `github.com/webong/ctx/pkg/plugin` package to parse
+Go authors can use the public `github.com/webong/ext/pkg/plugin` package to parse
 the versioned process invocation. Browser authors can also import
-`github.com/webong/ctx/res/browser/contract` for the cookie and policy bridge
-types, and `github.com/webong/ctx/res/browser/guest` for serving helpers, while
+`github.com/webong/ext/res/browser/contract` for the cookie and policy bridge
+types, and `github.com/webong/ext/res/browser/guest` for serving helpers, while
 keeping their own browser-specific storage code. A source
 directory needs `adapter.toml` and
 a Go `main` package. `go_entry` names that package (default `.`), and optional

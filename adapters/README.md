@@ -3,7 +3,7 @@
 This directory contains every tool-specific integration maintained in the ctx
 repository.
 
-External Go adapters can use the public `github.com/webong/ctx/adapter` process
+External Go adapters can use the public `github.com/webong/ext/adapter` process
 parser and ship a platform-specific `.ctxadapter` archive. A bare ctx binary
 installs that archive without Go; source builds use `ctx adapter build`.
 

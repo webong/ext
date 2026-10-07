@@ -1,4 +1,4 @@
-module github.com/webong/ctx/pkg/graph
+module github.com/webong/ext/pkg/graph
 
 go 1.23.0
 

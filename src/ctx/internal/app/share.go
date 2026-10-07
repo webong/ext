@@ -5,8 +5,8 @@ import (
 	"io"
 	"os"
 
-	"github.com/webong/ctx/src/ctx/internal/config"
-	modpkg "github.com/webong/ctx/src/ctx/internal/mod"
+	"github.com/webong/ext/src/ctx/internal/config"
+	modpkg "github.com/webong/ext/src/ctx/internal/mod"
 )
 
 func shareSpaceCommand(resolver *config.Resolver, space string, args []string, stdout, stderr io.Writer) int {

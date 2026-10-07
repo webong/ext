@@ -10,8 +10,8 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/webong/ctx/src/ctx/internal/config"
-	modpkg "github.com/webong/ctx/src/ctx/internal/mod"
+	"github.com/webong/ext/src/ctx/internal/config"
+	modpkg "github.com/webong/ext/src/ctx/internal/mod"
 )
 
 const maxCredentialBytes = 1024 * 1024

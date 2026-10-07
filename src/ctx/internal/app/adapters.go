@@ -13,9 +13,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/webong/ctx/src/ctx/internal/config"
-	"github.com/webong/ctx/src/ctx/internal/launch"
-	modpkg "github.com/webong/ctx/src/ctx/internal/mod"
+	"github.com/webong/ext/src/ctx/internal/config"
+	"github.com/webong/ext/src/ctx/internal/launch"
+	modpkg "github.com/webong/ext/src/ctx/internal/mod"
 )
 
 func adapterStore() *modpkg.Store {

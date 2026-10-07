@@ -11,7 +11,7 @@ import (
 	"sync"
 
 	hc "github.com/hashicorp/go-plugin"
-	"github.com/webong/ctx/pkg/plugin"
+	"github.com/webong/ext/pkg/plugin"
 	"google.golang.org/grpc"
 )
 

@@ -8,5 +8,5 @@ if [ -f "$0" ]; then
 fi
 
 command -v curl >/dev/null 2>&1 || { printf 'ctx: curl is required for remote installation\n' >&2; exit 1; }
-INSTALL_URL=${CTX_INSTALL_URL:-https://raw.githubusercontent.com/webong/ctx/main/install.sh}
+INSTALL_URL=${CTX_INSTALL_URL:-https://raw.githubusercontent.com/webong/ext/main/install.sh}
 curl -fsSL "$INSTALL_URL" | sh -s -- "$@"

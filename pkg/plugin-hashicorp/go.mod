@@ -1,12 +1,12 @@
-module github.com/webong/ctx/pkg/plugin-hashicorp
+module github.com/webong/ext/pkg/plugin-hashicorp
 
 go 1.23.0
 
 require (
 	github.com/hashicorp/go-hclog v0.14.1
 	github.com/hashicorp/go-plugin v1.6.3
-	github.com/webong/ctx/pkg/plugin v0.1.0
-	github.com/webong/ctx/pkg/plugin-go v0.1.0
+	github.com/webong/ext/pkg/plugin v0.1.0
+	github.com/webong/ext/pkg/plugin-go v0.1.0
 	google.golang.org/grpc v1.83.1
 	google.golang.org/protobuf v1.36.11
 )
@@ -18,7 +18,7 @@ require (
 	github.com/mattn/go-colorable v0.1.4 // indirect
 	github.com/mattn/go-isatty v0.0.17 // indirect
 	github.com/oklog/run v1.0.0 // indirect
-	github.com/webong/ctx/pkg/graph v0.1.0 // indirect
+	github.com/webong/ext/pkg/graph v0.1.0 // indirect
 	golang.org/x/net v0.59.0 // indirect
 	golang.org/x/sys v0.48.0 // indirect
 	golang.org/x/text v0.42.0 // indirect

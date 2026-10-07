@@ -16,9 +16,9 @@ import (
 )
 
 var forbiddenPrefixes = []string{
-	"github.com/webong/ctx/src/",
-	"github.com/webong/ctx/adapters/",
-	"github.com/webong/ctx/examples/",
+	"github.com/webong/ext/src/",
+	"github.com/webong/ext/adapters/",
+	"github.com/webong/ext/examples/",
 }
 
 // libraryRoots are the reusable trees that consumers may depend on. Each is

@@ -10,7 +10,7 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/webong/ctx/res/browser/extension"
+	"github.com/webong/ext/res/browser/extension"
 )
 
 // BuildSafariApp builds and signs a caller-owned Xcode project for local

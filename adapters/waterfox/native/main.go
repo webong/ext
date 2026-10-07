@@ -1,7 +1,7 @@
 package main
 
 import (
-	firefox "github.com/webong/ctx/adapters/firefox/engine"
+	firefox "github.com/webong/ext/adapters/firefox/engine"
 	"os"
 )
 

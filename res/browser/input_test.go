@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	browsercontract "github.com/webong/ctx/res/browser/contract"
+	browsercontract "github.com/webong/ext/res/browser/contract"
 )
 
 func TestParseCookieExports(t *testing.T) {

@@ -7,10 +7,10 @@ import (
 	"os"
 	"testing"
 
-	"github.com/webong/ctx/pkg/plugin"
-	"github.com/webong/ctx/pkg/plugin/inprocess"
-	"github.com/webong/ctx/pkg/plugin/jsonline"
-	"github.com/webong/ctx/pkg/plugin/plugintest"
+	"github.com/webong/ext/pkg/plugin"
+	"github.com/webong/ext/pkg/plugin/inprocess"
+	"github.com/webong/ext/pkg/plugin/jsonline"
+	"github.com/webong/ext/pkg/plugin/plugintest"
 )
 
 func TestBindings(t *testing.T) {

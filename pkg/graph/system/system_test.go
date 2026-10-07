@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/webong/ctx/pkg/graph"
+	"github.com/webong/ext/pkg/graph"
 )
 
 func TestSchemaRejectsUnknownCTXKindsAndInvalidRelationshipMeaning(t *testing.T) {

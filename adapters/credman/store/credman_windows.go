@@ -10,7 +10,7 @@ import (
 	"syscall"
 	"unsafe"
 
-	"github.com/webong/ctx/res/credential/adapterkit"
+	"github.com/webong/ext/res/credential/adapterkit"
 )
 
 const genericCredential = 1

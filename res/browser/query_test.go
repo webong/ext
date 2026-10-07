@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	browsercontract "github.com/webong/ctx/res/browser/contract"
+	browsercontract "github.com/webong/ext/res/browser/contract"
 )
 
 type queryBackend struct{ sources []Source }

@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/webong/ctx/adapters/keychain/store"
-	"github.com/webong/ctx/pkg/plugin"
-	"github.com/webong/ctx/res/credential/adapterkit"
+	"github.com/webong/ext/adapters/keychain/store"
+	"github.com/webong/ext/pkg/plugin"
+	"github.com/webong/ext/res/credential/adapterkit"
 )
 
 func main() {

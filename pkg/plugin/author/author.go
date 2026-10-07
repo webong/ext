@@ -10,8 +10,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/webong/ctx/pkg/plugin"
-	"github.com/webong/ctx/pkg/plugin/schema"
+	"github.com/webong/ext/pkg/plugin"
+	"github.com/webong/ext/pkg/plugin/schema"
 )
 
 // Method is a shared typed contract. Schemas are optional, but recommended for

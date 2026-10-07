@@ -15,7 +15,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/webong/ctx/res/browser/contract"
+	"github.com/webong/ext/res/browser/contract"
 )
 
 // Mode controls how results from ordered sources are combined.

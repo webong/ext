@@ -8,8 +8,8 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/webong/ctx/res/browser/discovery"
-	"github.com/webong/ctx/res/browser/extension"
+	"github.com/webong/ext/res/browser/discovery"
+	"github.com/webong/ext/res/browser/extension"
 )
 
 type safariExtensionBackend struct{}

@@ -12,8 +12,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/webong/ctx/res/browser"
-	"github.com/webong/ctx/src/ctx/internal/mod"
+	"github.com/webong/ext/res/browser"
+	"github.com/webong/ext/src/ctx/internal/mod"
 )
 
 func normalizeFixture(t *testing.T, operation, response string) (string, *mod.Store) {

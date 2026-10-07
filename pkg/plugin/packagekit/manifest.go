@@ -16,9 +16,9 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/webong/ctx/pkg/graph"
-	"github.com/webong/ctx/pkg/plugin"
-	"github.com/webong/ctx/pkg/plugin/schema"
+	"github.com/webong/ext/pkg/graph"
+	"github.com/webong/ext/pkg/plugin"
+	"github.com/webong/ext/pkg/plugin/schema"
 )
 
 const Version = "ctx.package/v1"

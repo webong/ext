@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/webong/ctx/src/ctx/internal/config"
+	"github.com/webong/ext/src/ctx/internal/config"
 )
 
 var managerInstanceName = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]*$`)

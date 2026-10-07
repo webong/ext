@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/webong/ctx/res/browser/contract"
+	"github.com/webong/ext/res/browser/contract"
 )
 
 type PolicyFile struct{ Path, Level, Format string }

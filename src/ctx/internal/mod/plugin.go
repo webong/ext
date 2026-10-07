@@ -1,6 +1,6 @@
 package mod
 
-import "github.com/webong/ctx/pkg/plugin"
+import "github.com/webong/ext/pkg/plugin"
 
 // PluginDescriptor gives CTX adapters the same immutable selection contract
 // used by library consumers. The directory digest covers all adapter assets.

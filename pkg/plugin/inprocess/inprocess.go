@@ -4,7 +4,7 @@ package inprocess
 
 import (
 	"context"
-	"github.com/webong/ctx/pkg/plugin"
+	"github.com/webong/ext/pkg/plugin"
 )
 
 type Backend struct {

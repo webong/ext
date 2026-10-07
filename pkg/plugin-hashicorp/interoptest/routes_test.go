@@ -2,10 +2,10 @@ package hashicorp_test
 
 import (
 	"errors"
-	"github.com/webong/ctx/pkg/plugin"
-	hashicorp "github.com/webong/ctx/pkg/plugin-hashicorp"
-	"github.com/webong/ctx/pkg/plugin/interop"
-	"github.com/webong/ctx/pkg/plugin/jsonline"
+	"github.com/webong/ext/pkg/plugin"
+	hashicorp "github.com/webong/ext/pkg/plugin-hashicorp"
+	"github.com/webong/ext/pkg/plugin/interop"
+	"github.com/webong/ext/pkg/plugin/jsonline"
 	"testing"
 )
 

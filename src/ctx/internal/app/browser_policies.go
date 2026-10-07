@@ -9,8 +9,8 @@ import (
 	"os"
 	"path/filepath"
 
-	browsershare "github.com/webong/ctx/res/browser/contract"
-	"github.com/webong/ctx/src/ctx/internal/config"
+	browsershare "github.com/webong/ext/res/browser/contract"
+	"github.com/webong/ext/src/ctx/internal/config"
 )
 
 type browserPolicyBundle = browsershare.PolicyBundle

@@ -16,10 +16,10 @@ import (
 
 	"github.com/hashicorp/go-hclog"
 	hc "github.com/hashicorp/go-plugin"
-	"github.com/webong/ctx/pkg/plugin"
-	"github.com/webong/ctx/pkg/plugin-hashicorp"
-	"github.com/webong/ctx/pkg/plugin/bridge"
-	"github.com/webong/ctx/pkg/plugin/jsonline"
+	"github.com/webong/ext/pkg/plugin"
+	"github.com/webong/ext/pkg/plugin-hashicorp"
+	"github.com/webong/ext/pkg/plugin/bridge"
+	"github.com/webong/ext/pkg/plugin/jsonline"
 )
 
 type permission struct {

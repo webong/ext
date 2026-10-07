@@ -5,7 +5,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/webong/ctx/pkg/plugin/schema"
+	"github.com/webong/ext/pkg/plugin/schema"
 )
 
 func TestSchema(t *testing.T) {

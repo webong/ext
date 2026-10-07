@@ -1,6 +1,6 @@
 # plugin
 
-`github.com/webong/ctx/pkg/plugin` defines the portable contract for
+`github.com/webong/ext/pkg/plugin` defines the portable contract for
 independently provided host and guest implementations, and supplies the runtime
 backends that carry it.
 

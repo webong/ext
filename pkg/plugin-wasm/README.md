@@ -1,6 +1,6 @@
 # WASI plugin backend
 
-`github.com/webong/ctx/pkg/plugin-wasm` runs guests compiled to WASI Preview 1
+`github.com/webong/ext/pkg/plugin-wasm` runs guests compiled to WASI Preview 1
 through wazero. A guest is a command that speaks the CTX JSON-line protocol on
 its standard input and output; an arbitrary `.wasm` file is not automatically a
 CTX plugin.

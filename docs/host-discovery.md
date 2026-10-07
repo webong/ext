@@ -1,6 +1,6 @@
 # Host discovery
 
-Host inventory belongs to the public `github.com/webong/ctx/pkg/graph/system`
+Host inventory belongs to the public `github.com/webong/ext/pkg/graph/system`
 package. It works in a standalone CTX installation without adapter packages.
 Adapter inventory describes provider capabilities and contexts separately.
 

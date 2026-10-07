@@ -6,8 +6,8 @@ policy. Both modules depend only on the standard library.
 
 | Module | Import path | Contents |
 | --- | --- | --- |
-| [`browser`](browser/README.md) | `github.com/webong/ctx/res/browser` | Portable browser contracts, workflows, extension and userscript handling, cookie parsing |
-| [`credential`](credential/README.md) | `github.com/webong/ctx/res/credential` | Portable credential serving (`adapterkit`) and CTX credential client |
+| [`browser`](browser/README.md) | `github.com/webong/ext/res/browser` | Portable browser contracts, workflows, extension and userscript handling, cookie parsing |
+| [`credential`](credential/README.md) | `github.com/webong/ext/res/credential` | Portable credential serving (`adapterkit`) and CTX credential client |
 
 Both are listed in the root `go.work`, so the repository still builds as one
 workspace while each module stays independently consumable.

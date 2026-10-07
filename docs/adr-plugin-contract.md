@@ -6,7 +6,7 @@ wire protocols do not become compatible merely by importing this package.
 
 ## Ownership
 
-CTX supplies `github.com/webong/ctx/pkg/plugin`, alongside `graph` and `supervisor`.
+CTX supplies `github.com/webong/ext/pkg/plugin`, alongside `graph` and `supervisor`.
 Its implementations include `pkg/plugin/inprocess`, `pkg/plugin/jsonline`,
 `pkg/plugin-hashicorp`, `pkg/plugin/nativego`, `pkg/plugin-wasm`, and `pkg/plugin-cshared`, with
 additional backends able to implement the same public interface. HashiCorp
@@ -161,7 +161,7 @@ methods and use separately declared channels for streams.
 
 ## HashiCorp backend
 
-`github.com/webong/ctx/pkg/plugin-hashicorp` implements HashiCorp go-plugin's
+`github.com/webong/ext/pkg/plugin-hashicorp` implements HashiCorp go-plugin's
 `Plugin` and `GRPCPlugin` interfaces, supporting both net/rpc and gRPC for hosts
 and guests. It is a library implementation alongside JSON-line transport.
 The shared plugin core has no HashiCorp imports; importing the HashiCorp backend

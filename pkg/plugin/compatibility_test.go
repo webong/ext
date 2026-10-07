@@ -4,9 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"github.com/webong/ctx/pkg/plugin"
-	"github.com/webong/ctx/pkg/plugin/inprocess"
-	"github.com/webong/ctx/pkg/plugin/plugintest"
+	"github.com/webong/ext/pkg/plugin"
+	"github.com/webong/ext/pkg/plugin/inprocess"
+	"github.com/webong/ext/pkg/plugin/plugintest"
 	"testing"
 )
 

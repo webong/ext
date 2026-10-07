@@ -1,6 +1,6 @@
 //go:build ctx_cengine && cgo && (darwin || linux)
 
-// Package goengine (github.com/webong/ctx/pkg/plugin-go) binds Go to the C host engine.
+// Package goengine (github.com/webong/ext/pkg/plugin-go) binds Go to the C host engine.
 // Build with -tags ctx_cengine and link libctx_host_static. Add the
 // ctx_cengine_shared tag to link the optional libctx_host shared library.
 package goengine
@@ -28,7 +28,7 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/webong/ctx/pkg/plugin"
+	"github.com/webong/ext/pkg/plugin"
 )
 
 type Policy func([]byte) error

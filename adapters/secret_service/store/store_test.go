@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/webong/ctx/res/credential/adapterkit"
+	"github.com/webong/ext/res/credential/adapterkit"
 )
 
 func TestSecretToolCredentialRoundTrip(t *testing.T) {

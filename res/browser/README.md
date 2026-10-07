@@ -1,6 +1,6 @@
 # res/browser
 
-`github.com/webong/ctx/res/browser` holds CTX's portable browser contracts and
+`github.com/webong/ext/res/browser` holds CTX's portable browser contracts and
 workflows. It depends only on the Go standard library, so a host can consume it
 without pulling an adapter, a browser engine, or any CTX application code.
 

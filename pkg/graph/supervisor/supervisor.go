@@ -20,7 +20,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/webong/ctx/pkg/graph"
+	"github.com/webong/ext/pkg/graph"
 )
 
 const RuntimeNamespace = "ctx.runtime"

@@ -53,7 +53,7 @@ else {
         default { throw "Unsupported Windows architecture: $_" }
     }
     $release = if ($Version -eq 'latest') { 'latest/download' } else { "download/$Version" }
-    $releaseBase = "https://github.com/webong/ctx/releases/$release"
+    $releaseBase = "https://github.com/webong/ext/releases/$release"
     $asset = "ctx-windows-$architecture.zip"
     $downloadRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("ctx-install-" + [guid]::NewGuid().ToString('N'))
     New-Item -ItemType Directory -Force -Path $downloadRoot | Out-Null

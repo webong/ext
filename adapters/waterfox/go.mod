@@ -1,9 +1,9 @@
-module github.com/webong/ctx/adapters/waterfox
+module github.com/webong/ext/adapters/waterfox
 
 go 1.23.0
 
 require (
-	github.com/webong/ctx/adapters/firefox v0.1.0
-	github.com/webong/ctx/pkg/plugin v0.1.0 // indirect
-	github.com/webong/ctx/res/browser v0.1.0
+	github.com/webong/ext/adapters/firefox v0.1.0
+	github.com/webong/ext/pkg/plugin v0.1.0 // indirect
+	github.com/webong/ext/res/browser v0.1.0
 )

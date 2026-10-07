@@ -9,7 +9,7 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/webong/ctx/pkg/graph"
+	"github.com/webong/ext/pkg/graph"
 )
 
 // ScanProcesses discovers and reconciles the caller-visible process inventory.

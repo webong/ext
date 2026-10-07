@@ -4,9 +4,9 @@ package crosslang_test
 
 import (
 	"context"
-	"github.com/webong/ctx/pkg/plugin"
-	goengine "github.com/webong/ctx/pkg/plugin-go"
-	"github.com/webong/ctx/pkg/plugin/plugintest"
+	"github.com/webong/ext/pkg/plugin"
+	goengine "github.com/webong/ext/pkg/plugin-go"
+	"github.com/webong/ext/pkg/plugin/plugintest"
 	"testing"
 )
 

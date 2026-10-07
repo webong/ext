@@ -9,7 +9,7 @@ import (
 	"errors"
 	"sync"
 
-	"github.com/webong/ctx/pkg/plugin"
+	"github.com/webong/ext/pkg/plugin"
 )
 
 var ErrUpdating = errors.New("plugin instance update in progress")

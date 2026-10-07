@@ -2,6 +2,6 @@
 
 package main
 
-import "github.com/webong/ctx/pkg/plugin"
+import "github.com/webong/ext/pkg/plugin"
 
 func watchParent(config) error { return plugin.ErrUnsupported }

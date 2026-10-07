@@ -6,11 +6,11 @@ import (
 	"io"
 	"net/url"
 
-	"github.com/webong/ctx/pkg/plugin"
+	"github.com/webong/ext/pkg/plugin"
 
-	"github.com/webong/ctx/adapters/chromium/engine/webextension"
-	share "github.com/webong/ctx/res/browser/contract"
-	kit "github.com/webong/ctx/res/browser/guest"
+	"github.com/webong/ext/adapters/chromium/engine/webextension"
+	share "github.com/webong/ext/res/browser/contract"
+	kit "github.com/webong/ext/res/browser/guest"
 )
 
 // Run serves the versioned cookie protocol for a Chromium-family adapter.

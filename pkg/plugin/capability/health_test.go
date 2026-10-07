@@ -5,12 +5,12 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/webong/ctx/pkg/plugin"
-	"github.com/webong/ctx/pkg/plugin/author"
-	"github.com/webong/ctx/pkg/plugin/capability"
-	"github.com/webong/ctx/pkg/plugin/inprocess"
-	"github.com/webong/ctx/pkg/plugin/instance"
-	"github.com/webong/ctx/pkg/plugin/schema"
+	"github.com/webong/ext/pkg/plugin"
+	"github.com/webong/ext/pkg/plugin/author"
+	"github.com/webong/ext/pkg/plugin/capability"
+	"github.com/webong/ext/pkg/plugin/inprocess"
+	"github.com/webong/ext/pkg/plugin/instance"
+	"github.com/webong/ext/pkg/plugin/schema"
 )
 
 func TestConfigurationAndHealth(t *testing.T) {

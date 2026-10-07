@@ -11,8 +11,8 @@ import (
 	"sync"
 	"unicode/utf8"
 
-	"github.com/webong/ctx/pkg/plugin"
-	"github.com/webong/ctx/pkg/plugin-cshared/abi"
+	"github.com/webong/ext/pkg/plugin"
+	"github.com/webong/ext/pkg/plugin-cshared/abi"
 )
 
 type nativeSession interface {

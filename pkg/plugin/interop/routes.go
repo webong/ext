@@ -4,7 +4,7 @@ package interop
 
 import (
 	"fmt"
-	"github.com/webong/ctx/pkg/plugin"
+	"github.com/webong/ext/pkg/plugin"
 )
 
 // Bridge declares an installed, reviewed translator. Frontend faces the host;

@@ -9,9 +9,9 @@ package main
 import "C"
 
 import (
-	"github.com/webong/ctx/examples/plugin-runtimes/echo"
-	"github.com/webong/ctx/pkg/plugin-cshared/abi"
-	"github.com/webong/ctx/pkg/plugin-go/cshared/guest"
+	"github.com/webong/ext/examples/plugin-runtimes/echo"
+	"github.com/webong/ext/pkg/plugin-cshared/abi"
+	"github.com/webong/ext/pkg/plugin-go/cshared/guest"
 	"unsafe"
 )
 

@@ -1,6 +1,6 @@
 # Go plugin bindings
 
-Import `github.com/webong/ctx/pkg/plugin-go` as `goengine` to embed the CTX C host engine.
+Import `github.com/webong/ext/pkg/plugin-go` as `goengine` to embed the CTX C host engine.
 It is opt-in: build with `-tags ctx_cengine` and cgo enabled on Linux/macOS.
 
 ```sh

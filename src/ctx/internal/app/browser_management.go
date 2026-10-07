@@ -9,8 +9,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/webong/ctx/res/browser/contract"
-	"github.com/webong/ctx/src/ctx/internal/config"
+	"github.com/webong/ext/res/browser/contract"
+	"github.com/webong/ext/src/ctx/internal/config"
 )
 
 func browserCommand(resolver *config.Resolver, args []string, stdout, stderr io.Writer) int {

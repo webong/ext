@@ -41,7 +41,7 @@ The default installer installs only the ctx core. Run it from a source checkout
 with Go 1.23 or newer:
 
 ```sh
-git clone https://github.com/webong/ctx.git
+git clone https://github.com/webong/ext.git
 cd ctx
 ./install.sh
 export PATH="$HOME/.local/bin:$PATH"
@@ -58,7 +58,7 @@ Choose adapters explicitly when you need them:
 On Windows, use PowerShell:
 
 ```powershell
-git clone https://github.com/webong/ctx.git
+git clone https://github.com/webong/ext.git
 Set-Location ctx
 .\install.ps1 -Adapters docker,kube,aws,firefox
 ```
@@ -70,13 +70,13 @@ Omit `-Adapters` for a core-only install, or use `-Interactive` or
 When a release is published, the remote installers do not require Go:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/webong/ctx/main/install.sh | sh
-curl -fsSL https://raw.githubusercontent.com/webong/ctx/main/install.sh |
+curl -fsSL https://raw.githubusercontent.com/webong/ext/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/webong/ext/main/install.sh |
   sh -s -- --adapters docker,kube,aws,firefox
 ```
 
 For Windows, download and run
-[install.ps1](https://github.com/webong/ctx/blob/main/install.ps1) with the same
+[install.ps1](https://github.com/webong/ext/blob/main/install.ps1) with the same
 `-Adapters` selection. Release downloads are checksum-verified. The adapter
 catalog is a separate, optional download; a core-only update preserves
 previously installed adapters. If no release is published, install from source.
@@ -277,17 +277,17 @@ and [the graph design](docs/adr-graph-runtime.md).
 
 CTX and its ecosystem share public Go libraries:
 
-- `github.com/webong/ctx/pkg/graph` supplies generic graph storage and transactions.
-- `github.com/webong/ctx/pkg/plugin` supplies the shared host/guest contract,
+- `github.com/webong/ext/pkg/graph` supplies generic graph storage and transactions.
+- `github.com/webong/ext/pkg/plugin` supplies the shared host/guest contract,
   validation, selection, admission, and session lifecycle. Its implementations
   include `pkg/plugin/inprocess`, `pkg/plugin/jsonline`, `pkg/plugin-hashicorp` (net/rpc and
   gRPC), `pkg/plugin/nativego`, `pkg/plugin-wasm` (WASI Preview 1), and `pkg/plugin-cshared`
   (versioned C ABI). All use the same typed authoring and host session APIs.
-- `github.com/webong/ctx/pkg/graph/supervisor` supplies local process supervision when
+- `github.com/webong/ext/pkg/graph/supervisor` supplies local process supervision when
   the selected plugin backend does not already own its process lifecycle.
-- `github.com/webong/ctx/res/browser` supplies portable browser contracts,
+- `github.com/webong/ext/res/browser` supplies portable browser contracts,
   workflows, extension and userscript handling.
-- `github.com/webong/ctx/res/credential` supplies portable credential serving and
+- `github.com/webong/ext/res/credential` supplies portable credential serving and
   the CTX credential client.
 
 Both `res` modules and `pkg/plugin` depend only on the Go standard library, so

@@ -5,7 +5,7 @@ import (
 	"errors"
 	"os"
 
-	"github.com/webong/ctx/pkg/plugin"
+	"github.com/webong/ext/pkg/plugin"
 )
 
 // ServeStdio serves a standalone guest on stdin/stdout, including Go WASI

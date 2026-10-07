@@ -1,6 +1,6 @@
 # res/credential
 
-`github.com/webong/ctx/res/credential` holds CTX's portable credential code. It
+`github.com/webong/ext/res/credential` holds CTX's portable credential code. It
 depends only on the Go standard library, so a host can consume it without a
 native store implementation.
 

@@ -123,7 +123,7 @@ request, err := plugin.ParseAdapterInvocation(os.Args[1:])
 // request.Selection and request.Arguments preserve the invocation fields.
 ```
 
-Import `github.com/webong/ctx/pkg/plugin`. The complete
+Import `github.com/webong/ext/pkg/plugin`. The complete
 [Go echo example](../examples/adapters/go_echo/main.go) implements the basic
 handlers; the [shell echo example](../examples/adapters/echo/ctx-echo) shows the
 same contract without the Go SDK. These examples echo arguments; replace that
@@ -146,8 +146,8 @@ inside your adapter source directory. Replace the absolute checkout path:
 
 ```sh
 go mod init example.com/my-adapter
-go mod edit -require=github.com/webong/ctx@v0.0.0
-go mod edit -replace=github.com/webong/ctx=/absolute/path/to/ctx
+go mod edit -require=github.com/webong/ext@v0.0.0
+go mod edit -replace=github.com/webong/ext=/absolute/path/to/ctx
 go mod tidy
 ```
 

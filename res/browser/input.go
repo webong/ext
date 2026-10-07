@@ -11,7 +11,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	browsercontract "github.com/webong/ctx/res/browser/contract"
+	browsercontract "github.com/webong/ext/res/browser/contract"
 )
 
 const MaxCookieInputBytes = 8 << 20

@@ -63,7 +63,7 @@ boundary validated by CTX.
 
 ## Go adapter API
 
-`github.com/webong/ctx/res/browser/contract` exposes the request and response
+`github.com/webong/ext/res/browser/contract` exposes the request and response
 types, operation catalog, and validators. The sibling `res/browser/guest`
 package provides `ManagementBackend` and `RunManagement`.
 Implement `ManageBrowser` to connect the protocol to browser-specific logic:
@@ -156,15 +156,15 @@ web install interfaces, request removal, and capability discovery.
 
 Adapters can use CTX's reusable local logic directly:
 
-- `github.com/webong/ctx/res/browser/extension` inspects extension directories,
+- `github.com/webong/ext/res/browser/extension` inspects extension directories,
   ZIPs, and XPIs; creates deterministic ZIPs; stages validated files; and
   exposes portable artifact, capability, and target types and helpers. It
   contains no native browser driver or product discovery tables. Browser
   signing, installation, and activation live in the owning adapter packages.
-- `github.com/webong/ctx/res/browser/userscript` validates metadata and source,
+- `github.com/webong/ext/res/browser/userscript` validates metadata and source,
   computes review revisions, and stores enabled state in the caller's CTX
   configuration directory. Activation remains session-scoped.
-- `github.com/webong/ctx/res/browser/bookmarklet` encodes and decodes bookmarklet
+- `github.com/webong/ext/res/browser/bookmarklet` encodes and decodes bookmarklet
   URLs and creates a reviewable install page. It never executes source or
   edits browser bookmarks.
 

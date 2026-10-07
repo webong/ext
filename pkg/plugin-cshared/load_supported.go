@@ -16,8 +16,8 @@ import (
 	"sync"
 	"unsafe"
 
-	"github.com/webong/ctx/pkg/plugin"
-	"github.com/webong/ctx/pkg/plugin-cshared/abi"
+	"github.com/webong/ext/pkg/plugin"
+	"github.com/webong/ext/pkg/plugin-cshared/abi"
 )
 
 func Supported() bool { return true }

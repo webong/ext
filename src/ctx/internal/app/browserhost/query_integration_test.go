@@ -12,9 +12,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/webong/ctx/res/browser"
-	browsercontract "github.com/webong/ctx/res/browser/contract"
-	"github.com/webong/ctx/src/ctx/internal/mod"
+	"github.com/webong/ext/res/browser"
+	browsercontract "github.com/webong/ext/res/browser/contract"
+	"github.com/webong/ext/src/ctx/internal/mod"
 )
 
 func installQueryFixture(t *testing.T, store *mod.Store, name string, priority int, auto bool, query string, legacy bool) {

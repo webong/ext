@@ -27,7 +27,7 @@ The repository root is only the workspace: it holds `go.work` and no Go module o
 package. Bare `vX.Y.Z` tags name CLI binary releases, not Go module versions.
 `src/` is a container like `res/`; the CLI is the module
 `src/ctx` (`src/ctx/cmd/ctx`, with its private code in `src/ctx/internal`).
-`examples/` is its own module. Nothing may import `github.com/webong/ctx/src/`.
+`examples/` is its own module. Nothing may import `github.com/webong/ext/src/`.
 
 `res/` is a container for reusable modules rather than a package. Each
 subdirectory is its own Go module, and nothing lives at that level: no Go package

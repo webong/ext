@@ -3,7 +3,7 @@
 Every module in this repository is published independently and versions on its
 own `MAJOR.MINOR.PATCH`. Go's semantic import versioning means a module path is
 only retrievable at a `vN` prefix matching its major version, so the path
-`github.com/webong/ctx/pkg/plugin` is served from tags named
+`github.com/webong/ext/pkg/plugin` is served from tags named
 `pkg/plugin/v1.2.3`.
 
 ## Shared major version
@@ -93,6 +93,11 @@ Because nothing was published, the `pkg/graph`, `pkg/plugin` and `res/browser`
 carries the `pkg/plugin-*` tags, so every library's `v0.1.0` resolves to one
 coherent tree that includes the supervisor. Once any tag is pushed, tags are immutable:
 never move one again, and release changes under a new version.
+
+The repository is now `github.com/webong/ext`, and every module path moved with
+it. Tags are named for the module's directory, so their names did not change,
+but the unpublished `v0.1.0` tags were moved again to the commit with the new
+paths so each one resolves to a `go.mod` that matches its own module path.
 
 Local tags are not yet reachable through the public module proxy. Pushing them
 is a separate, deliberate publication step, and `GOWORK=off` builds inside a

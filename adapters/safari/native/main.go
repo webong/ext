@@ -3,17 +3,17 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/webong/ctx/pkg/plugin"
+	"github.com/webong/ext/pkg/plugin"
 	"io"
 	"net/url"
 	"os"
 	"path/filepath"
 	"runtime"
 
-	"github.com/webong/ctx/adapters/chromium/engine/webextension"
-	browsershare "github.com/webong/ctx/res/browser/contract"
-	kit "github.com/webong/ctx/res/browser/guest"
-	"github.com/webong/ctx/res/browser/policy"
+	"github.com/webong/ext/adapters/chromium/engine/webextension"
+	browsershare "github.com/webong/ext/res/browser/contract"
+	kit "github.com/webong/ext/res/browser/guest"
+	"github.com/webong/ext/res/browser/policy"
 )
 
 func main() { os.Exit(run(os.Args[1:], os.Stdin, os.Stdout, os.Stderr)) }

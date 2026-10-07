@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/webong/ctx/res/browser/contract"
-	"github.com/webong/ctx/res/browser/extension"
+	"github.com/webong/ext/res/browser/contract"
+	"github.com/webong/ext/res/browser/extension"
 )
 
 type nativeExtensionFunc func(context.Context, string, string, json.RawMessage, func(extension.InstallResult) error) (any, string, error)

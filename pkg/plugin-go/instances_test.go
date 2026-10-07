@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/webong/ctx/pkg/plugin"
-	"github.com/webong/ctx/pkg/plugin/instance"
+	"github.com/webong/ext/pkg/plugin"
+	"github.com/webong/ext/pkg/plugin/instance"
 )
 
 func TestCInstanceReplacementLeasesAndDrain(t *testing.T) {

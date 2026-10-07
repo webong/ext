@@ -12,7 +12,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/webong/ctx/pkg/plugin"
+	"github.com/webong/ext/pkg/plugin"
 )
 
 // Connections must allow Close concurrently with Read/Write and unblock both.

@@ -110,7 +110,7 @@ Before tagging, confirm each module builds and tests on its own with the
 workspace active, and that `src/ctx` resolves the intended versions:
 
 ```bash
-for module in src/ctx examples pkg/plugin-go pkg/graph pkg/plugin \
+for module in src/ctx src/ctn examples pkg/plugin-go pkg/graph pkg/plugin \
               pkg/plugin-hashicorp pkg/plugin-wasm \
               res/browser res/credential; do
   (cd "$module" && go build ./... && go test ./...) || exit 1

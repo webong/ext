@@ -56,7 +56,7 @@ jobs:
           cache: true
       - name: Test library modules
         run: |
-          for module in src/ctx examples pkg/graph pkg/plugin pkg/plugin-cshared pkg/plugin-go pkg/plugin-hashicorp pkg/plugin-wasm res/browser res/credential; do
+          for module in src/ctx src/ctn examples pkg/graph pkg/plugin pkg/plugin-cshared pkg/plugin-go pkg/plugin-hashicorp pkg/plugin-wasm res/browser res/credential; do
             (cd "$module" && go test ./...) || exit 1
           done
       - run: ./tests/native_test.sh

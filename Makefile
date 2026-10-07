@@ -26,7 +26,7 @@ test-native-installer:
 	./tests/native_installer_test.sh
 
 test-go:
-	for module in src/ctx examples pkg/plugin-go pkg/plugin-cshared pkg/graph pkg/plugin pkg/plugin-hashicorp pkg/plugin-wasm res/browser res/credential; do \
+	for module in src/ctx src/ctn examples pkg/plugin-go pkg/plugin-cshared pkg/graph pkg/plugin pkg/plugin-hashicorp pkg/plugin-wasm res/browser res/credential; do \
 		(cd $$module && GOCACHE=$(GO_CACHE) GOMODCACHE=$(GO_MOD_CACHE) go test ./...) || exit; \
 	done
 

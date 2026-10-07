@@ -24,9 +24,12 @@ other ecosystem consumers build on them; `internal/` stays private to CTX and
 must not be imported by consumers.
 
 The repository root is only the workspace: it holds `go.work` and no Go module or
-package. Bare `vX.Y.Z` tags name CLI binary releases, not Go module versions.
-`src/` is a container like `res/`; the CLI is the module
-`src/ctx` (`src/ctx/cmd/ctx`, with its private code in `src/ctx/internal`).
+package. Bare `vX.Y.Z` tags currently name ctx binary releases, not Go module versions.
+`src/` is a container like `res/`; the context manager is the module
+`src/ctx` (`src/ctx/cmd/ctx`, with its private code in `src/ctx/internal`) and
+the content manager is `src/ctn`. This repository is ext: it provides libraries
+and binaries, and ctx and ctn are binaries built on those libraries. A product
+never imports another product; shared code goes in `pkg/` or `res/`.
 `examples/` is its own module. Nothing may import `github.com/webong/ext/src/`.
 
 `res/` is a container for reusable modules rather than a package. Each

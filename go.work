@@ -2,6 +2,7 @@ go 1.23.0
 
 use (
 	./examples
+	./src/ctn
 	./src/ctx
 	./adapters/chromium
 	./adapters/secret_service

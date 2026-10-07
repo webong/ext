@@ -77,11 +77,15 @@ outside this repository: a consumer requiring only `pkg/plugin-go` and
 `res/browser` resolved `pkg/plugin` transitively and pulled in no HashiCorp or
 WASI runtime, confirming the dependency isolation holds for real consumers.
 
-`pkg/graph/supervisor` was a module of its own at this baseline and is now a
-package of the `pkg/graph` module. The unpublished `pkg/supervisor/v0.1.0` tag
-was deleted and no `pkg/supervisor` tag is cut again. `pkg/graph/v0.1.0` does not
-contain the supervisor, so the first `pkg/graph` tag that includes it is an
-additive `v0.2.0`.
+`pkg/graph/supervisor` was a module of its own at the original split and is now
+a package of the `pkg/graph` module. The unpublished `pkg/supervisor/v0.1.0` tag
+was deleted and no `pkg/supervisor` tag is cut again.
+
+Because nothing was published, the `pkg/graph`, `pkg/plugin` and `res/browser`
+`v0.1.0` tags were moved from the original split commit to the commit that
+tagged the `pkg/plugin-*` modules, so every `v0.1.0` resolves to one coherent
+tree that includes the supervisor. Once any tag is pushed, tags are immutable:
+never move one again, and release changes under a new version.
 
 Local tags are not yet reachable through the public module proxy. Pushing them
 is a separate, deliberate publication step, and `GOWORK=off` builds inside a

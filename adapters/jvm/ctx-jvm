@@ -68,6 +68,8 @@ find_record() {
   inventory | awk -F '\t' -v wanted="$1" '$1 == wanted { print; exit }'
 }
 
+installed_list() { inventory | awk -F '\t' '!seen[$1]++ { printf "%s%s", sep, $1; sep=" " }'; }
+
 json_escape() { printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'; }
 
 case "$operation" in
@@ -80,7 +82,7 @@ case "$operation" in
     printf '{"version":1,"contexts":['
     inventory | awk -F '\t' '!seen[$1]++' | while IFS="$tab" read -r selection home version source; do
       [ -n "$selection" ] || continue
-      printf '%s{"selection":"%s","attributes":{"version":"%s","home":"%s","source":"%s"}}' \
+      printf '%s{"selection":"%s","attributes":{"kind":"jvm","isolation":"host","version":"%s","home":"%s","source":"%s"}}' \
         "$separator" "$selection" "$(json_escape "$version")" "$(json_escape "$home")" "$source"
       separator=,
     done
@@ -88,13 +90,13 @@ case "$operation" in
     ;;
   validate)
     selection=${1:-}
-    [ -n "$selection" ] && [ -n "$(find_record "$selection")" ] || { printf 'jvm: Java %s is not installed\n' "${selection:-<empty>}" >&2; exit 1; }
+    [ -n "$selection" ] && [ -n "$(find_record "$selection")" ] || { printf 'jvm: Java %s is not installed (installed: %s)\n' "${selection:-<empty>}" "$(installed_list)" >&2; exit 1; }
     ;;
   doctor)
     selection=${1:-}
     if [ -n "$selection" ]; then
       record=$(find_record "$selection")
-      [ -n "$record" ] || { printf 'jvm: Java %s is not installed\n' "$selection" >&2; exit 1; }
+      [ -n "$record" ] || { printf 'jvm: Java %s is not installed (installed: %s)\n' "$selection" "$(installed_list)" >&2; exit 1; }
       home=$(printf '%s\n' "$record" | awk -F '\t' '{print $2}')
     else
       home=$(home_dirs | head -n 1)
@@ -108,7 +110,7 @@ case "$operation" in
     [ "${1:-}" = "--" ] && shift
     if [ -n "$selection" ]; then
       record=$(find_record "$selection")
-      [ -n "$record" ] || { printf 'jvm: Java %s is not installed\n' "$selection" >&2; exit 1; }
+      [ -n "$record" ] || { printf 'jvm: Java %s is not installed (installed: %s)\n' "$selection" "$(installed_list)" >&2; exit 1; }
       home=$(printf '%s\n' "$record" | awk -F '\t' '{print $2}')
     else
       home=$(home_dirs | head -n 1)

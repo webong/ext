@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"runtime/debug"
 	"strings"
 
 	"github.com/webong/ext/pkg/plugin"
@@ -40,7 +41,7 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	case "list":
 		fmt.Fprintln(stdout, engine)
 	case "observe":
-		fmt.Fprintf(stdout, `{"version":1,"contexts":[{"selection":%q,"attributes":{"engine":"wazero","wasi":"preview1","sandbox":"no host access unless granted"}}]}`+"\n", engine)
+		return observe(stdout)
 	case "validate":
 		return validate(request.Selection, stderr)
 	case "doctor":
@@ -61,6 +62,34 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "wasm: unsupported adapter operation %s\n", request.Operation)
 		return 2
 	}
+	return 0
+}
+
+func engineVersion() string {
+	if info, ok := debug.ReadBuildInfo(); ok {
+		for _, dependency := range info.Deps {
+			if dependency.Path == "github.com/tetratelabs/wazero" {
+				return dependency.Version
+			}
+		}
+	}
+	return "unknown"
+}
+
+// observe reports the attributes every engine adapter provides (kind, version
+// and isolation) plus what is specific to this engine.
+func observe(stdout io.Writer) int {
+	data, err := json.Marshal(map[string]any{"version": 1, "contexts": []any{map[string]any{
+		"selection": engine,
+		"attributes": map[string]string{
+			"kind": "wasm", "version": engineVersion(), "isolation": "sandboxed",
+			"engine": "wazero", "wasi": "preview1", "sandbox": "no host access unless granted",
+		},
+	}}})
+	if err != nil {
+		return 1
+	}
+	fmt.Fprintln(stdout, string(data))
 	return 0
 }
 

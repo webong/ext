@@ -173,6 +173,9 @@ version, location and source as attributes, and `run` executes the requested
 command with the selected engine. Discovery conventions such as `JAVA_HOME`
 belong to the adapter, not to the host.
 
+Engine adapters follow a shared contract for selections, flags, exit statuses and
+isolation: see [Engine adapters](engine-adapters.md).
+
 A browser adapter normally uses `selector_key = "browser"`. Its `list` output
 uses `name:profile` values, while `validate`, `doctor`, and `open` receive only
 the profile portion as their selection. `ctx set name:profile` uses the

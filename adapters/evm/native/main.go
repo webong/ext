@@ -124,7 +124,8 @@ func observe(stdout io.Writer) int {
 	contexts := make([]context, 0, len(forks))
 	for _, f := range forks {
 		contexts = append(contexts, context{f.name, map[string]string{
-			"introduces": f.introduces, "engine": "go-ethereum", "version": engineVersion(), "state": "in-memory, one invocation",
+			"kind": "evm", "isolation": "sandboxed", "introduces": f.introduces, "engine": "go-ethereum", "version": engineVersion(),
+			"state": "in-memory, one invocation",
 		}})
 	}
 	data, err := json.Marshal(map[string]any{"version": 1, "contexts": contexts})

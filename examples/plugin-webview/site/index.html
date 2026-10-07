@@ -1,0 +1,50 @@
+<!doctype html><html><head><meta charset="utf-8"><title>webview plugin host spike</title></head><body><pre id="o">starting</pre>
+<script>
+(async () => {
+  const log = (m) => { console.log(m); document.getElementById("o").textContent += "\n" + m; };
+  log("crossOriginIsolated=" + self.crossOriginIsolated + " SharedArrayBuffer=" + (typeof SharedArrayBuffer));
+  if (!self.crossOriginIsolated || typeof SharedArrayBuffer === "undefined") { log("FAIL: no shared memory"); return window.ext.exit(3); }
+  const t0 = performance.now();
+  const module = new Uint8Array(await (await fetch("guest.wasm")).arrayBuffer());
+  const sab = new SharedArrayBuffer(16 + 65536);
+  const ctrl = new Int32Array(sab, 0, 4), ring = new Uint8Array(sab, 16);
+  const worker = new Worker("worker.js");
+  const lines = [], waiting = [];
+  worker.onmessage = (e) => {
+    const m = e.data;
+    if (m.line !== undefined) { const w = waiting.shift(); if (w) w(m.line); else lines.push(m.line); }
+    if (m.stderr) log("guest stderr: " + m.stderr.trim());
+    if (m.failure) { log("worker failure: " + m.failure); window.ext.exit(4); }
+    if (m.ready) log("guest instantiated in " + Math.round(performance.now() - t0) + " ms (" + (module.length / 1e6).toFixed(1) + " MB)");
+    if (m.exit !== undefined) log("guest exited " + m.exit);
+  };
+  const next = () => new Promise((resolve) => lines.length ? resolve(lines.shift()) : waiting.push(resolve));
+  const send = (obj) => {
+    const data = new TextEncoder().encode(JSON.stringify(obj) + "\n");
+    let w = Atomics.load(ctrl, 2);
+    for (const b of data) ring[w++ % ring.length] = b;
+    Atomics.store(ctrl, 2, w);
+    Atomics.add(ctrl, 0, 1);
+    Atomics.notify(ctrl, 0);
+  };
+  worker.postMessage({ module, sab });
+  const deadline = () => new Date(Date.now() + 20000).toISOString();
+  const t1 = performance.now();
+  send({ apiVersion: "ext.plugin/v1", id: "hello", operation: "plugin.hello", deadline: deadline() });
+  const hello = JSON.parse(await next());
+  const descriptor = hello.payload;
+  log("handshake in " + Math.round(performance.now() - t1) + " ms: plugin " + descriptor.identity.id + " contracts=" + descriptor.contracts.map(c => c.name).join(","));
+  const contract = descriptor.contracts[0];
+  const t2 = performance.now();
+  send({ apiVersion: "ext.plugin/v1", id: "1", plugin: descriptor.identity, contract: { name: contract.name, version: contract.version }, operation: "echo", payload: { value: 7, text: "héllo 🙂" }, deadline: deadline() });
+  const echo = JSON.parse(await next());
+  log("echo in " + Math.round(performance.now() - t2) + " ms: " + JSON.stringify(echo.payload));
+  send({ apiVersion: "ext.plugin/v1", id: "2", plugin: descriptor.identity, contract: { name: contract.name, version: contract.version }, operation: "nope", payload: null, deadline: deadline() });
+  const refused = JSON.parse(await next());
+  log("unknown operation -> " + (refused.error ? refused.error.code : "NO ERROR"));
+  const ok = echo.payload && echo.payload.value === 7 && echo.payload.text === "héllo 🙂" && refused.error;
+  log(ok ? "RESULT: a WASI plugin guest spoke ext.plugin/v1 inside this browser" : "RESULT: FAILED");
+  Atomics.store(ctrl, 3, 1); Atomics.add(ctrl, 0, 1); Atomics.notify(ctrl, 0);
+  window.ext.exit(ok ? 0 : 1);
+})().catch((e) => { console.error("spike error: " + (e && e.stack || e)); window.ext.exit(5); });
+</script></body></html>

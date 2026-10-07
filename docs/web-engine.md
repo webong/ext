@@ -42,6 +42,17 @@ uncaught errors to `Options.Console`, and reports that the page is alive. A
 JavaScript entry gets a generated page around it. Nothing in the bundle has to know
 about ext.
 
+## Cross-origin isolation
+
+`Options.CrossOriginIsolation` serves every response with
+`Cross-Origin-Opener-Policy: same-origin`, `Cross-Origin-Embedder-Policy:
+require-corp` and `Cross-Origin-Resource-Policy: same-origin`. Browsers allow
+`SharedArrayBuffer`, and so WebAssembly threads or a worker blocking on a shared
+queue, only on pages that are cross-origin isolated. It is off by default because it
+also refuses cross-origin resources that do not opt in, which suits a bundle served
+from one origin but not every page. [`examples/plugin-webview`](../examples/plugin-webview)
+uses it to host a WASI plugin guest in a browser.
+
 ## What it protects, and what it does not
 
 - **No network by default.** Every response carries a content security policy that

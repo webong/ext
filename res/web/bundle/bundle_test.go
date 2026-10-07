@@ -384,3 +384,25 @@ func TestPolicyRendersTheContentSecurityPolicy(t *testing.T) {
 		t.Errorf("origins must be filtered to plain http(s) origins: %s", specific)
 	}
 }
+
+func TestCrossOriginIsolationIsOptIn(t *testing.T) {
+	root := writeBundle(t, map[string]string{"index.html": indexHTML})
+	for _, enabled := range []bool{false, true} {
+		var got http.Header
+		_, err := run(t, Options{Root: root, CrossOriginIsolation: enabled}, func(base string) {
+			p := load(t, base)
+			got = p.header
+			p.post("exit", `{}`)
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		opener, embedder := got.Get("Cross-Origin-Opener-Policy"), got.Get("Cross-Origin-Embedder-Policy")
+		if enabled && (opener != "same-origin" || embedder != "require-corp" || got.Get("Cross-Origin-Resource-Policy") != "same-origin") {
+			t.Errorf("isolation on: opener=%q embedder=%q", opener, embedder)
+		}
+		if !enabled && (opener != "" || embedder != "") {
+			t.Errorf("isolation must be off by default: opener=%q embedder=%q", opener, embedder)
+		}
+	}
+}

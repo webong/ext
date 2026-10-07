@@ -53,6 +53,12 @@ type Options struct {
 	Entry string
 	// Policy limits what the page can reach. The zero value is the strict one.
 	Policy Policy
+	// CrossOriginIsolation makes the page cross-origin isolated, which browsers
+	// require before they allow SharedArrayBuffer, and so before a page can run
+	// WebAssembly threads or block a worker on a shared queue. It is off by
+	// default because it also forbids loading cross-origin resources that do not
+	// opt in, which suits a bundle served from one origin but not every page.
+	CrossOriginIsolation bool
 	// Open shows url in a browser. It is required and should return once the
 	// page has been requested, not when it closes.
 	Open func(ctx context.Context, url string) error
@@ -118,7 +124,7 @@ func Run(ctx context.Context, options Options) (Result, error) {
 		return Result{}, err
 	}
 	s := &session{
-		root: root, entry: entry, policy: options.Policy.ContentSecurityPolicy(),
+		root: root, entry: entry, policy: options.Policy.ContentSecurityPolicy(), isolated: options.CrossOriginIsolation,
 		token: hex.EncodeToString(token), host: listener.Addr().String(), console: options.Console,
 		finished: make(chan Result, 1),
 	}
@@ -179,6 +185,7 @@ type session struct {
 	root     confinedRoot
 	entry    string
 	policy   string
+	isolated bool
 	token    string
 	host     string
 	console  func(Event)

@@ -23,6 +23,11 @@ func (s *session) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	header.Set("Cache-Control", "no-store")
 	header.Set("X-Content-Type-Options", "nosniff")
 	header.Set("Referrer-Policy", "no-referrer")
+	if s.isolated {
+		header.Set("Cross-Origin-Opener-Policy", "same-origin")
+		header.Set("Cross-Origin-Embedder-Policy", "require-corp")
+		header.Set("Cross-Origin-Resource-Policy", "same-origin")
+	}
 	// A page on another site must not be able to talk to this server through a
 	// rebound DNS name, so only the exact loopback address is answered.
 	if r.Host != s.host {

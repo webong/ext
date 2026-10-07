@@ -26,6 +26,17 @@ import (
 )
 
 func TestForeignMalformedFrames(t *testing.T) {
+	for _, language := range []string{"RUST", "ZIG"} {
+		t.Run(language, func(t *testing.T) {
+			rejectMalformedFrames(t, artifact(t, language+"_GUEST"))
+		})
+	}
+}
+
+// rejectMalformedFrames checks that a guest process fails, writing nothing, on
+// every malformed first frame.
+func rejectMalformedFrames(t *testing.T, path string) {
+	t.Helper()
 	data, err := os.ReadFile("../../plugin/testdata/v1/invalid.json")
 	if err != nil {
 		t.Fatal(err)
@@ -35,20 +46,15 @@ func TestForeignMalformedFrames(t *testing.T) {
 		t.Fatal(err)
 	}
 	invalid = append(invalid, string([]byte{0xff}), strings.Repeat("[", 66)+"0"+strings.Repeat("]", 66))
-	for _, language := range []string{"RUST", "ZIG"} {
-		t.Run(language, func(t *testing.T) {
-			path := artifact(t, language+"_GUEST")
-			for _, raw := range invalid {
-				ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-				cmd := exec.CommandContext(ctx, path)
-				cmd.Stdin = bytes.NewBufferString(raw + "\n")
-				out, err := cmd.Output()
-				cancel()
-				if err == nil || len(out) != 0 {
-					t.Fatalf("malformed input accepted: %q, output %q, error %v", raw, out, err)
-				}
-			}
-		})
+	for _, raw := range invalid {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		cmd := exec.CommandContext(ctx, path)
+		cmd.Stdin = bytes.NewBufferString(raw + "\n")
+		out, err := cmd.Output()
+		cancel()
+		if err == nil || len(out) != 0 {
+			t.Fatalf("malformed input accepted: %q, output %q, error %v", raw, out, err)
+		}
 	}
 }
 
@@ -121,6 +127,27 @@ func sharedBackend(t *testing.T, path string) func(context.Context) (plugin.Back
 		})
 		return b, nil
 	}
+}
+
+// javaGuest returns the launcher scripts/plugin-java.sh builds, or skips. Java is
+// optional so ordinary runs need no JDK; the script sets EXT_JAVA_REQUIRED=1.
+func javaGuest(t *testing.T) string {
+	t.Helper()
+	if os.Getenv("EXT_JAVA_GUEST") == "" && os.Getenv("EXT_JAVA_REQUIRED") != "1" {
+		t.Skip("set EXT_JAVA_GUEST to the launcher built by scripts/plugin-java.sh")
+	}
+	return artifact(t, "JAVA_GUEST")
+}
+
+// TestJavaJSONLineGuest runs the conformance suite against the Java guest
+// process from pkg/plugin-java, over the JSON-line transport.
+func TestJavaJSONLineGuest(t *testing.T) {
+	p := javaGuest(t)
+	runGuestConformance(t, func(context.Context) (plugin.Backend, error) { return process(p) })
+}
+
+func TestJavaMalformedFrames(t *testing.T) {
+	rejectMalformedFrames(t, javaGuest(t))
 }
 
 // TestSwiftSharedGuest runs the conformance suite against the fixture that

@@ -58,6 +58,11 @@ if [[ "$(uname -s)" == Darwin ]]; then
   swift build --package-path pkg/plugin-swift --scratch-path "$build_dir/swift" --product ExtConformancePlugin
   export EXT_SWIFT_SHARED="$build_dir/swift/debug/libExtConformancePlugin.dylib" EXT_SWIFT_REQUIRED=1
 fi
+# Java runs over JNI on any host with a JDK. Its guest is a JSON-line process.
+if command -v javac >/dev/null 2>&1; then
+  scripts/plugin-java.sh "$build_dir/java"
+  export EXT_JAVA_GUEST="$build_dir/java/ext-java-guest" EXT_JAVA_REQUIRED=1
+fi
 export EXT_CROSSLANG_REQUIRED=1
 go build -race -buildmode=plugin -o "$build_dir/go-native.so" ./pkg/plugin-wasm/crosslang/testdata/go-native
 export EXT_GO_NATIVE="$build_dir/go-native.so"

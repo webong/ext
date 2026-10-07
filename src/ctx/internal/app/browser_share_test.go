@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/webong/ext/res/browser"
+	browser "github.com/webong/ext/res/web"
 )
 
 func TestFirefoxCookieSharingDestinations(t *testing.T) {

@@ -9,10 +9,10 @@ import (
 	"github.com/webong/ext/pkg/plugin"
 
 	chromiumengine "github.com/webong/ext/adapters/chromium/engine"
-	share "github.com/webong/ext/res/browser/contract"
-	"github.com/webong/ext/res/browser/discovery"
-	kit "github.com/webong/ext/res/browser/guest"
-	"github.com/webong/ext/res/browser/policy"
+	share "github.com/webong/ext/res/web/contract"
+	"github.com/webong/ext/res/web/discovery"
+	kit "github.com/webong/ext/res/web/guest"
+	"github.com/webong/ext/res/web/policy"
 )
 
 func chromiumConfig() chromiumengine.Config {

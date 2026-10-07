@@ -468,7 +468,7 @@ executable. The helper receives the same invocation as every adapter,
 and parses it with `plugin.ParseAdapterInvocation` from `pkg/plugin`; the
 adapter's shell or PowerShell entry point passes its argv through unchanged.
 CTX core has no browser-specific storage code or provider dispatch.
-Maintained adapters use `res/browser/contract` for versioned request, cookie,
+Maintained adapters use `res/web/contract` for versioned request, cookie,
 policy, and generic resource envelope types. External adapters implement the
 documented JSON contract directly. Cookie fields
 shared across browsers are portable; optional browser-specific fields go in
@@ -496,12 +496,12 @@ browser --share cookie.list` selects profiles reporting `ready`. Adapters using
 `observe` may provide the same `browser_share` map per context in their
 observation JSON.
 
-`res/browser/guest` contains the portable implementation for serving the
+`res/web/guest` contains the portable implementation for serving the
 browser protocol. Native policy sources, executable discovery, and SQLite
 tool execution are owned under `adapters/`.
 External Go adapters import the shared types from
-`github.com/webong/ext/res/browser/contract` and serving helpers from
-`github.com/webong/ext/res/browser/guest`. A Go browser adapter can handle
+`github.com/webong/ext/res/web/contract` and serving helpers from
+`github.com/webong/ext/res/web/guest`. A Go browser adapter can handle
 `share <profile> -- <resource> <operation>` in its main executable, parse it with
 `plugin.ParseAdapterInvocation`, and use `guest.RunCookie`; it does not need a separate
 helper executable. The bare Chromium adapter owns the reusable native engine at
@@ -516,7 +516,7 @@ profile discovery, and Mozilla signing. Safari owns app inspection, building,
 and its native installation handoff. The versioned JSON
 contract remains the interface for external adapters.
 
-Other Go services can import `github.com/webong/ext/res/browser` and call
+Other Go services can import `github.com/webong/ext/res/web` and call
 `browser.Get` with a `browser.Backend` supplied by their host. The backend
 selects authorized sources and invokes them; CTX's host backend also checks
 installed-adapter trust. The resource combines scoped cookies and returns
@@ -621,8 +621,8 @@ before using it.
 
 Go authors can use the public `github.com/webong/ext/pkg/plugin` package to parse
 the versioned process invocation. Browser authors can also import
-`github.com/webong/ext/res/browser/contract` for the cookie and policy bridge
-types, and `github.com/webong/ext/res/browser/guest` for serving helpers, while
+`github.com/webong/ext/res/web/contract` for the cookie and policy bridge
+types, and `github.com/webong/ext/res/web/guest` for serving helpers, while
 keeping their own browser-specific storage code. A source
 directory needs `adapter.toml` and
 a Go `main` package. `go_entry` names that package (default `.`), and optional

@@ -1,7 +1,7 @@
 // Package browser provides portable cookie parsing, queries, and normalization.
 // Hosts supply authorized sources through Backend; adapters own native storage
 // formats and operating-system credentials.
-package browser
+package web
 
 import (
 	"context"
@@ -15,7 +15,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/webong/ext/res/browser/contract"
+	"github.com/webong/ext/res/web/contract"
 )
 
 // Mode controls how results from ordered sources are combined.

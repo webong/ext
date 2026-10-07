@@ -1,4 +1,4 @@
-package browser
+package web
 
 import (
 	"reflect"
@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	browsercontract "github.com/webong/ext/res/browser/contract"
+	browsercontract "github.com/webong/ext/res/web/contract"
 )
 
 func outputCookie(name, value, domain, path string) Cookie {

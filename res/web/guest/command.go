@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"unicode/utf8"
 
-	"github.com/webong/ext/res/browser/contract"
+	"github.com/webong/ext/res/web/contract"
 )
 
 // CookieBackend is supplied by one browser adapter. The command never chooses

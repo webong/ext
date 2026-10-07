@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/webong/ext/res/browser/extension"
+	"github.com/webong/ext/res/web/extension"
 )
 
 // SignChromiumCRX asks the caller's Chrome-family executable to pack a CRX.

@@ -5,7 +5,7 @@ go 1.23.0
 require (
 	github.com/webong/ext/pkg/graph v0.1.0
 	github.com/webong/ext/pkg/plugin v0.1.0
-	github.com/webong/ext/res/browser v0.1.0
+	github.com/webong/ext/res/web v0.1.0
 )
 
 require golang.org/x/sys v0.48.0 // indirect
@@ -70,6 +70,6 @@ replace github.com/webong/ext/pkg/plugin-hashicorp => ../../pkg/plugin-hashicorp
 
 replace github.com/webong/ext/pkg/plugin-wasm => ../../pkg/plugin-wasm
 
-replace github.com/webong/ext/res/browser => ../../res/browser
+replace github.com/webong/ext/res/web => ../../res/web
 
 replace github.com/webong/ext/res/credential => ../../res/credential

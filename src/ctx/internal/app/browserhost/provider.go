@@ -11,7 +11,7 @@ import (
 	"strings"
 
 	modpkg "github.com/webong/ext/pkg/plugin/adapter"
-	"github.com/webong/ext/res/browser"
+	browser "github.com/webong/ext/res/web"
 )
 
 type Provider struct{ AdapterHome string }

@@ -13,10 +13,10 @@ import (
 	"github.com/webong/ext/pkg/plugin"
 
 	"github.com/webong/ext/adapters/chromium/engine/webextension"
-	browsershare "github.com/webong/ext/res/browser/contract"
-	"github.com/webong/ext/res/browser/discovery"
-	kit "github.com/webong/ext/res/browser/guest"
-	"github.com/webong/ext/res/browser/policy"
+	browsershare "github.com/webong/ext/res/web/contract"
+	"github.com/webong/ext/res/web/discovery"
+	kit "github.com/webong/ext/res/web/guest"
+	"github.com/webong/ext/res/web/policy"
 )
 
 // Config identifies the browser's profile registry. Cookie and NSS handling

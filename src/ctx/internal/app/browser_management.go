@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	"github.com/webong/ext/ctx/internal/config"
-	"github.com/webong/ext/res/browser/contract"
+	"github.com/webong/ext/res/web/contract"
 )
 
 func browserCommand(resolver *config.Resolver, args []string, stdout, stderr io.Writer) int {

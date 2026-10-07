@@ -1,4 +1,4 @@
-package browser
+package web
 
 import (
 	"context"
@@ -8,7 +8,7 @@ import (
 	"time"
 	"unicode/utf8"
 
-	browsercontract "github.com/webong/ext/res/browser/contract"
+	browsercontract "github.com/webong/ext/res/web/contract"
 )
 
 // NormalizeOptions binds an authorized native export to one adapter endpoint.

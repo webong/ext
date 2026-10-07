@@ -13,7 +13,7 @@ import (
 	"time"
 
 	modpkg "github.com/webong/ext/pkg/plugin/adapter"
-	"github.com/webong/ext/res/browser"
+	browser "github.com/webong/ext/res/web"
 )
 
 func normalizeFixture(t *testing.T, operation, response string) (string, *modpkg.Store) {

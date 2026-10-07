@@ -13,8 +13,8 @@ import (
 	"time"
 
 	modpkg "github.com/webong/ext/pkg/plugin/adapter"
-	"github.com/webong/ext/res/browser"
-	browsercontract "github.com/webong/ext/res/browser/contract"
+	browser "github.com/webong/ext/res/web"
+	browsercontract "github.com/webong/ext/res/web/contract"
 )
 
 func installQueryFixture(t *testing.T, store *modpkg.Store, name string, priority int, auto bool, query string, legacy bool) {

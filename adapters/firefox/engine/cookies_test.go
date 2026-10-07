@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	share "github.com/webong/ext/res/browser/contract"
+	share "github.com/webong/ext/res/web/contract"
 )
 
 func TestFirefoxCookieSchemaExpiryAndNativeScope(t *testing.T) {

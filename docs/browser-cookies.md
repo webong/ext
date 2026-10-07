@@ -2,7 +2,7 @@
 
 Cookie storage, profile discovery, credentials, and native scope mapping belong
 to browser adapters. CTX supplies portable validation, source selection, and the
-bridge between files, processes, and profiles. The public `res/browser` package
+bridge between files, processes, and profiles. The public `res/web` package
 implements portable query and normalization workflows through an injected
 `browser.Backend`; CTX supplies the trusted-adapter backend for its CLI.
 

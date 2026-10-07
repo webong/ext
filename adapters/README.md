@@ -44,10 +44,10 @@ profile discovery, validation, launching, and declared browser share operations.
 versioned JSON protocol in [the adapter API](../docs/adapter-api.md).
 The optional release catalog and explicit source-installer selection provide a
 separate share executable built from each browser adapter's `native` directory.
-Portable request handling lives in `res/browser/guest`, with shared types and
-validation in `res/browser/contract`. Shared policy export and executable
-discovery helpers live in `res/browser/policy` and `res/browser/discovery`.
-adapters provide SQLite access via `res/browser/sqlite`. They are Go libraries used by
+Portable request handling lives in `res/web/guest`, with shared types and
+validation in `res/web/contract`. Shared policy export and executable
+discovery helpers live in `res/web/policy` and `res/web/discovery`.
+adapters provide SQLite access via `res/web/sqlite`. They are Go libraries used by
 adapters, not installable catalog entries. The browser-specific engines live in
 `adapters/chromium/engine` and `adapters/firefox/engine`; their respective
 families configure and reuse them.

@@ -13,8 +13,8 @@ import (
 
 	"github.com/webong/ext/ctx/internal/config"
 	modpkg "github.com/webong/ext/pkg/plugin/adapter"
-	"github.com/webong/ext/res/browser"
-	browsershare "github.com/webong/ext/res/browser/contract"
+	browser "github.com/webong/ext/res/web"
+	browsershare "github.com/webong/ext/res/web/contract"
 )
 
 type browserEndpoint struct {

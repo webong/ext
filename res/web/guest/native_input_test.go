@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/webong/ext/res/browser/extension"
+	"github.com/webong/ext/res/web/extension"
 )
 
 func TestNativeInputRemainsOpaqueUntilAdapterReadsIt(t *testing.T) {

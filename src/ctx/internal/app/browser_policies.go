@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 
 	"github.com/webong/ext/ctx/internal/config"
-	browsershare "github.com/webong/ext/res/browser/contract"
+	browsershare "github.com/webong/ext/res/web/contract"
 )
 
 type browserPolicyBundle = browsershare.PolicyBundle

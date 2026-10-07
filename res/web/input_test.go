@@ -1,4 +1,4 @@
-package browser
+package web
 
 import (
 	"context"
@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	browsercontract "github.com/webong/ext/res/browser/contract"
+	browsercontract "github.com/webong/ext/res/web/contract"
 )
 
 func TestParseCookieExports(t *testing.T) {

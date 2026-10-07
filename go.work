@@ -34,6 +34,6 @@ use (
 	./pkg/plugin-go
 	./pkg/plugin-hashicorp
 	./pkg/plugin-wasm
-	./res/browser
+	./res/web
 	./res/credential
 )

@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/webong/ext/res/browser/contract"
+	"github.com/webong/ext/res/web/contract"
 )
 
 func TestCookieProtocolFiltersAndIsolatesReadFailures(t *testing.T) {

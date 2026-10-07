@@ -1,7 +1,8 @@
-# res/browser
+# res/web
 
-`github.com/webong/ext/res/browser` holds CTX's portable browser contracts and
-workflows. It depends only on the Go standard library, so a host can consume it
+`github.com/webong/ext/res/web` holds ext's portable web contracts and workflows:
+browsers (cookies, extensions, userscripts, sessions) today, and the web engine
+that runs web content through them. Any ext product or other program can use it. It depends only on the Go standard library, so a host can consume it
 without pulling an adapter, a browser engine, or any CTX application code.
 
 | Package | Contents |

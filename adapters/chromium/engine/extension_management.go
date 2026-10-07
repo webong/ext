@@ -11,11 +11,11 @@ import (
 	"sort"
 	"strings"
 
-	management "github.com/webong/ext/res/browser/contract"
-	"github.com/webong/ext/res/browser/discovery"
-	"github.com/webong/ext/res/browser/extension"
-	kit "github.com/webong/ext/res/browser/guest"
-	"github.com/webong/ext/res/browser/userscript"
+	management "github.com/webong/ext/res/web/contract"
+	"github.com/webong/ext/res/web/discovery"
+	"github.com/webong/ext/res/web/extension"
+	kit "github.com/webong/ext/res/web/guest"
+	"github.com/webong/ext/res/web/userscript"
 )
 
 // ExtensionManagementConfig contains product conventions supplied by an adapter.

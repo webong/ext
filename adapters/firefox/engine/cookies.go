@@ -16,7 +16,7 @@ import (
 	"strings"
 	"time"
 
-	browsershare "github.com/webong/ext/res/browser/contract"
+	browsershare "github.com/webong/ext/res/web/contract"
 )
 
 type firefoxCookieRow struct {

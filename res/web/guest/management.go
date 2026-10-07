@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/webong/ext/res/browser/contract"
+	"github.com/webong/ext/res/web/contract"
 )
 
 // ManagementBackend owns browser-specific extension, userscript, and

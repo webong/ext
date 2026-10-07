@@ -1,11 +1,11 @@
-package browser
+package web
 
 import (
 	"context"
 	"errors"
 	"testing"
 
-	browsercontract "github.com/webong/ext/res/browser/contract"
+	browsercontract "github.com/webong/ext/res/web/contract"
 )
 
 type queryBackend struct{ sources []Source }

@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/webong/ext/res/browser/contract"
-	"github.com/webong/ext/res/browser/extension"
-	"github.com/webong/ext/res/browser/userscript"
+	"github.com/webong/ext/res/web/contract"
+	"github.com/webong/ext/res/web/extension"
+	"github.com/webong/ext/res/web/userscript"
 )
 
 // PageSessionBackend supplies native page transport without a core provider

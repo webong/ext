@@ -4,7 +4,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/webong/ext/res/browser/policy"
+	"github.com/webong/ext/res/web/policy"
 )
 
 // ManagedPreferenceFiles supplies the macOS policy locations for a

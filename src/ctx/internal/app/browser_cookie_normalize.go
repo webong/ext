@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/webong/ext/ctx/internal/app/browserhost"
-	"github.com/webong/ext/res/browser"
+	browser "github.com/webong/ext/res/web"
 )
 
 func shareBrowserCookieNormalize(args []string, stdout, stderr io.Writer) int {

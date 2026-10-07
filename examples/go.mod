@@ -89,6 +89,6 @@ replace github.com/webong/ext/pkg/plugin-hashicorp => ../pkg/plugin-hashicorp
 
 replace github.com/webong/ext/pkg/plugin-wasm => ../pkg/plugin-wasm
 
-replace github.com/webong/ext/res/browser => ../res/browser
+replace github.com/webong/ext/res/web => ../res/web
 
 replace github.com/webong/ext/res/credential => ../res/credential

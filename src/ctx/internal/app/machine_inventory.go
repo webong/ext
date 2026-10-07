@@ -13,7 +13,7 @@ import (
 	"github.com/webong/ext/ctx/internal/config"
 	"github.com/webong/ext/pkg/graph/system"
 	modpkg "github.com/webong/ext/pkg/plugin/adapter"
-	browsershare "github.com/webong/ext/res/browser/contract"
+	browsershare "github.com/webong/ext/res/web/contract"
 )
 
 // scanMachineInventory asks installed adapters for their declared capabilities

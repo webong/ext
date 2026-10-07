@@ -1,4 +1,4 @@
-package browser
+package web
 
 import (
 	"bufio"
@@ -11,7 +11,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	browsercontract "github.com/webong/ext/res/browser/contract"
+	browsercontract "github.com/webong/ext/res/web/contract"
 )
 
 const MaxCookieInputBytes = 8 << 20

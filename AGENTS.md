@@ -39,7 +39,7 @@ paths and directories match; they are built from source and released as binaries
 `res/` is a container for reusable modules rather than a package. Each
 subdirectory is its own Go module, and nothing lives at that level: no Go package
 and no repository-wide policy. Keep container directories free of shared logic
-and keep repo-wide tests in `src/ctx/internal/arch`. `res/browser` and `res/credential`
+and keep repo-wide tests in `src/ctx/internal/arch`. `res/web` and `res/credential`
 depend only on the standard library.
 
 Each reusable library under `pkg/` is its own Go module, not a package inside
@@ -68,7 +68,7 @@ named for each module path.
 
 The reusable libraries are:
 
-- `res/browser` for portable browser contracts and workflows.
+- `res/web` for portable web contracts and workflows: browsers, and the web engine that runs web content through them.
 - `res/credential` for portable credential serving and client code.
 - `pkg/graph` for host, system, and process discovery.
 - `pkg/plugin` for the shared host/guest contract and runtime backends.

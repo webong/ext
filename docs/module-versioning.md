@@ -42,7 +42,7 @@ git tag pkg/graph/v1.0.1
 git tag pkg/plugin/v1.1.0
 
 # coordinated breaking change across every module
-git tag res/browser/v2.0.0 pkg/plugin-go/v2.0.0 \
+git tag res/web/v2.0.0 pkg/plugin-go/v2.0.0 \
         pkg/graph/v2.0.0 pkg/plugin/v2.0.0 pkg/plugin-hashicorp/v2.0.0 \
         pkg/plugin-wasm/v2.0.0 v2.0.0
 ```
@@ -88,14 +88,14 @@ correct signal: it means the module is not yet independently consumable.
 Every module is tagged `v0.1.0`. The original modules were tagged on the commit that introduced the split; `pkg/plugin-go`, `pkg/plugin-cshared`, `pkg/plugin-hashicorp` and `pkg/plugin-wasm` were tagged later, after they were renamed out of `pkg/go` and `pkg/plugin/*`. That
 release was verified by resolving the tagged modules into a scratch module
 outside this repository: a consumer requiring only `pkg/plugin-go` and
-`res/browser` resolved `pkg/plugin` transitively and pulled in no HashiCorp or
+`res/web` resolved `pkg/plugin` transitively and pulled in no HashiCorp or
 WASI runtime, confirming the dependency isolation holds for real consumers.
 
 `pkg/graph/supervisor` was a module of its own at the original split and is now
 a package of the `pkg/graph` module. The unpublished `pkg/supervisor/v0.1.0` tag
 was deleted and no `pkg/supervisor` tag is cut again.
 
-Because nothing was published, the `pkg/graph`, `pkg/plugin` and `res/browser`
+Because nothing was published, the `pkg/graph`, `pkg/plugin` and `res/web`
 `v0.1.0` tags were moved from the original split commit to the tree that also
 carries the `pkg/plugin-*` tags, so every library's `v0.1.0` resolves to one
 coherent tree that includes the supervisor. Once any tag is pushed, tags are immutable:
@@ -119,7 +119,7 @@ workspace active, and that `src/ctx` resolves the intended versions:
 ```bash
 for module in src/ctx src/ctn examples pkg/plugin-go pkg/graph pkg/plugin \
               pkg/plugin-hashicorp pkg/plugin-wasm \
-              res/browser res/credential; do
+              res/web res/credential; do
   (cd "$module" && go build ./... && go test ./...) || exit 1
 done
 ```

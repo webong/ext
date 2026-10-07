@@ -1,4 +1,4 @@
-package browser
+package web
 
 import (
 	"errors"
@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	browsercontract "github.com/webong/ext/res/browser/contract"
+	browsercontract "github.com/webong/ext/res/web/contract"
 )
 
 // CookieHeader builds the value of an HTTP Cookie header for one request URL.

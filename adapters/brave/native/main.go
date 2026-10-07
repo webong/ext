@@ -9,9 +9,9 @@ import (
 	"github.com/webong/ext/pkg/plugin"
 
 	chromiumengine "github.com/webong/ext/adapters/chromium/engine"
-	share "github.com/webong/ext/res/browser/contract"
-	kit "github.com/webong/ext/res/browser/guest"
-	"github.com/webong/ext/res/browser/policy"
+	share "github.com/webong/ext/res/web/contract"
+	kit "github.com/webong/ext/res/web/guest"
+	"github.com/webong/ext/res/web/policy"
 )
 
 func braveConfig() chromiumengine.Config {

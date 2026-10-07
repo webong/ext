@@ -78,7 +78,7 @@ func (*Plugin) GRPCClient(ctx context.Context, _ *hc.GRPCBroker, conn *grpc.Clie
 // Connect starts/connects a dedicated go-plugin client and dispenses the CTX
 // interface. Call it inside plugin.Options.Connect, after trust verification.
 // Ownership transfers here: failures kill the client, and the returned backend
-// kills it on Close. Never also supervise that child with CTX supervisor.
+// kills it on Close. Never also supervise that child with pkg/graph/supervisor.
 // Configure ClientConfig.StartTimeout: cancellation returns promptly, but
 // cleanup of a pending native startup waits for go-plugin's startup to return.
 func Connect(ctx context.Context, client *hc.Client) (plugin.Backend, error) {

@@ -47,7 +47,7 @@ const (
 )
 
 // Session owns invocation admission and draining. The chosen backend or host
-// owns process lifecycle, using supervisor or the backend's runtime (such as
+// owns process lifecycle, using pkg/graph/supervisor or the backend's runtime (such as
 // go-plugin). A process restart requires a fresh Session and handshake.
 type Session struct {
 	descriptor Descriptor

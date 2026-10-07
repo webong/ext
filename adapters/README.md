@@ -98,8 +98,8 @@ The engine is chosen by what the module needs, not by what the machine has. A WA
 or pure module runs here, always. A web module (one that imports JavaScript glue
 such as wasm-bindgen's `wbg`, Go's `gojs` or Emscripten's web runtime) cannot, and
 `ctx run wasm` stops with exit status 126 and says so, instead of failing on the
-first missing import. A webview engine for such modules is not installed or built
-yet. `--inspect` reports what a module imports and whether it can run, without
+first missing import. Web modules run in a browser through the ext web engine
+(`res/web/bundle`), not through an adapter. `--inspect` reports what a module imports and whether it can run, without
 running it.
 A WebAssembly component (WASI Preview 2) is also refused with exit status 126, naming
 the component model, until a runtime that supports it is offered.

@@ -10,6 +10,7 @@ without pulling an adapter, a browser engine, or any CTX application code.
 | `contract` | Request, response, cookie, policy and session types with their validation |
 | `guest` | Portable browser workflows served through adapter-provided backends |
 | `extension` | Extension artifact discovery, packaging and install targets |
+| `bundle` | The web engine: serves a web bundle from loopback under a content security policy and runs it in a browser the host opens, reporting console output and the exit code |
 | `userscript` | Userscript metadata, storage and replay |
 | `bookmarklet` | Bookmarklet generation |
 

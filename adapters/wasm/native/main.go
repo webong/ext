@@ -220,8 +220,8 @@ func refusal(path string, inspection wasm.Inspection) string {
 	}
 	modules := strings.Join(inspection.Unsupported, ", ")
 	if inspection.Web {
-		return fmt.Sprintf("%s is a web module: it imports JavaScript glue (%s). The built-in engine runs WASI and pure modules only, "+
-			"and running web modules needs a webview engine, which is not installed.", path, modules)
+		return fmt.Sprintf("%s is a web module: it imports JavaScript glue (%s). The built-in engine runs WASI and pure modules only; "+
+			"web modules run in a browser through the ext web engine (res/web/bundle).", path, modules)
 	}
 	return fmt.Sprintf("%s imports host functions the built-in engine does not provide (%s). "+
 		"It runs WASI Preview 1 and pure modules only.", path, modules)

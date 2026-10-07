@@ -190,7 +190,7 @@ func TestWebModulesGetAPreciseRefusal(t *testing.T) {
 	if code != 126 || stdout != "" {
 		t.Fatalf("a web module must not run: %d %q", code, stdout)
 	}
-	for _, want := range []string{"web module", "wbg", "webview engine", "not installed"} {
+	for _, want := range []string{"web module", "wbg", "web engine", "res/web/bundle"} {
 		if !strings.Contains(stderr, want) {
 			t.Errorf("message %q does not mention %q", stderr, want)
 		}

@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # Build the guest core of the shared C engine as an Apple xcframework for
-# pkg/plugin-swift: macOS (arm64, x86_64), iOS (arm64) and iOS Simulator
+# pkg/plugin-ios: macOS (arm64, x86_64), iOS (arm64) and iOS Simulator
 # (arm64, x86_64). The host half (posix_spawn, pthreads) is not built, because
-# iOS cannot spawn processes. Output: pkg/plugin-swift/Frameworks/CExtEngine.xcframework
+# iOS cannot spawn processes. Output: pkg/plugin-ios/Frameworks/CExtEngine.xcframework
 set -euo pipefail
 cd "$(dirname "$0")/.."
-[[ "$(uname -s)" == Darwin ]] || { echo "plugin-swift-xcframework.sh needs macOS and Xcode" >&2; exit 1; }
+[[ "$(uname -s)" == Darwin ]] || { echo "plugin-ios-xcframework.sh needs macOS and Xcode" >&2; exit 1; }
 engine=pkg/plugin-engine
-out="${EXT_SWIFT_FRAMEWORKS:-pkg/plugin-swift/Frameworks}"
+out="${EXT_SWIFT_FRAMEWORKS:-pkg/plugin-ios/Frameworks}"
 work="$(mktemp -d "${TMPDIR:-/tmp}/ext-swift-xcframework.XXXXXX")"
 trap 'rm -rf "$work"' EXIT
 

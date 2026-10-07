@@ -1,7 +1,7 @@
-# Swift plugin SDK (guest)
+# iOS plugin SDK (guest)
 
-`pkg/plugin-swift` lets Swift code, on macOS and iOS, author an `ext.plugin/v1`
-plugin. It binds the guest half of the shared [C engine](../plugin-engine/README.md),
+`pkg/plugin-ios` is the plugin SDK for Apple platforms. It lets Swift code, and
+Objective-C through the C headers, author an `ext.plugin/v1` plugin on iOS and macOS. It binds the guest half of the shared [C engine](../plugin-engine/README.md),
 which does the strict JSON parsing, request validation against the descriptor,
 deadlines and error sanitizing. A Swift author supplies a descriptor and a handler.
 
@@ -54,13 +54,13 @@ that has its own transport.
 ## Building and testing
 
 ```sh
-scripts/plugin-swift-xcframework.sh     # macOS, iOS and iOS Simulator slices
-swift test --package-path pkg/plugin-swift
+scripts/plugin-ios-xcframework.sh     # macOS, iOS and iOS Simulator slices
+swift test --package-path pkg/plugin-ios
 xcodebuild test -scheme ExtPlugin-Package \
-  -destination 'platform=iOS Simulator,name=iPhone 16 Pro'   # in pkg/plugin-swift
+  -destination 'platform=iOS Simulator,name=iPhone 16 Pro'   # in pkg/plugin-ios
 ```
 
-`scripts/plugin-swift-xcframework.sh` compiles the engine's guest core (no
+`scripts/plugin-ios-xcframework.sh` compiles the engine's guest core (no
 pthreads, no `posix_spawn`) with the repository's strict flags and writes
 `Frameworks/CExtEngine.xcframework`, which is not committed. `ExtConformancePlugin`
 is the shared `ext.conformance/v1` fixture. `scripts/plugin-crosslang.sh` loads

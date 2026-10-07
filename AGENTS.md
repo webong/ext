@@ -92,8 +92,11 @@ adapter process protocol and adapter descriptor helpers. Adapters import
 store, trust and invocation; a product keeps only its own selection and
 commands.
 
-Language SDKs and bindings belong under `pkg/<language>/` (Go, Rust, Zig,
-TypeScript, Swift and Java), with language-specific embedding examples alongside them. Keep
+Language SDKs and bindings belong under `pkg/<language>/` (Go, Rust, Zig and
+TypeScript), with language-specific embedding examples alongside them. The
+mobile SDKs are named for their platforms because they are native to them:
+`pkg/plugin-ios` (Swift, with Objective-C through the C headers) and
+`pkg/plugin-android` (Java, with Kotlin through the same API). Keep
 `pkg/plugin` focused on engine contracts, runtime backends and shared
 conformance fixtures. The Go-to-C guest binding belongs in
 `pkg/plugin-go/cshared/guest`; the language-neutral C ABI header and runtime loader

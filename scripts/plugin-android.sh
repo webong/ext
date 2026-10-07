@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
 # Build and test the Java plugin SDK: the JNI library over the guest core of the
 # shared C engine, the Java classes, and the conformance guest launcher.
-# Usage: scripts/plugin-java.sh [build-dir]
+# Usage: scripts/plugin-android.sh [build-dir]
 # Leaves <build-dir>/ext-java-guest, a launcher the Go cross-language suite runs.
 set -euo pipefail
 cd "$(dirname "$0")/.."
-command -v javac >/dev/null 2>&1 || { echo 'plugin-java.sh needs a JDK (javac)' >&2; exit 1; }
+command -v javac >/dev/null 2>&1 || { echo 'plugin-android.sh needs a JDK (javac)' >&2; exit 1; }
 build_dir="${1:-$(mktemp -d "${TMPDIR:-/tmp}/ext-java.XXXXXX")}"
 mkdir -p "$build_dir"
 build_dir="$(cd "$build_dir" && pwd -P)"
-sdk=pkg/plugin-java
+sdk=pkg/plugin-android
 
 cmake -S "$sdk" -B "$build_dir/native" -DCMAKE_BUILD_TYPE=Release >/dev/null
 cmake --build "$build_dir/native" --target extjni >/dev/null

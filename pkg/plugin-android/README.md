@@ -1,7 +1,10 @@
-# Java plugin SDK (guest)
+# Android plugin SDK (guest)
 
-`pkg/plugin-java` lets Java code, and Kotlin through the same API, author an
-`ext.plugin/v1` guest on the JVM. A small JNI library binds the guest half of the
+`pkg/plugin-android` is the plugin SDK for Android. It lets Java code, and Kotlin
+through the same API, author an `ext.plugin/v1` guest on the JVM.
+
+**Status:** the code is plain JVM and JNI, and its tests run on a desktop JDK 17. An
+Android build (NDK, AAR) has not been compiled or run; see Kotlin and Android below. A small JNI library binds the guest half of the
 shared [C engine](../plugin-engine/README.md), which does the strict JSON parsing,
 request validation against the descriptor, deadlines and error sanitizing. The
 application supplies a descriptor and a `Handler`.
@@ -49,7 +52,7 @@ ABI; it is not attempted here.
 ## Building and testing
 
 ```sh
-scripts/plugin-java.sh          # needs a JDK and CMake
+scripts/plugin-android.sh          # needs a JDK and CMake
 ```
 
 The script builds the JNI library with CMake, compiles the classes with

@@ -53,14 +53,14 @@ export EXT_ZIG_WASM="$build_dir/wasi/bin/ext-zig-guest.wasm"
 # Swift builds on Apple platforms only. Its package tests run on the host, then
 # the dynamic fixture is checked through the same Go cshared suite as the others.
 if [[ "$(uname -s)" == Darwin ]]; then
-  scripts/plugin-swift-xcframework.sh
-  swift test --package-path pkg/plugin-swift --scratch-path "$build_dir/swift"
-  swift build --package-path pkg/plugin-swift --scratch-path "$build_dir/swift" --product ExtConformancePlugin
+  scripts/plugin-ios-xcframework.sh
+  swift test --package-path pkg/plugin-ios --scratch-path "$build_dir/swift"
+  swift build --package-path pkg/plugin-ios --scratch-path "$build_dir/swift" --product ExtConformancePlugin
   export EXT_SWIFT_SHARED="$build_dir/swift/debug/libExtConformancePlugin.dylib" EXT_SWIFT_REQUIRED=1
 fi
 # Java runs over JNI on any host with a JDK. Its guest is a JSON-line process.
 if command -v javac >/dev/null 2>&1; then
-  scripts/plugin-java.sh "$build_dir/java"
+  scripts/plugin-android.sh "$build_dir/java"
   export EXT_JAVA_GUEST="$build_dir/java/ext-java-guest" EXT_JAVA_REQUIRED=1
 fi
 export EXT_CROSSLANG_REQUIRED=1

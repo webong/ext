@@ -10,8 +10,8 @@ The word is used in two senses in this repository. An **engine adapter** is on t
 page: an adapter that runs a program. The **plugin engine**, `pkg/plugin-engine`,
 is the shared C library that the language SDKs bind to host or author
 `ext.plugin/v1` plugins; it is not an adapter. Mobile support belongs to the second:
-see [`pkg/plugin-swift`](../pkg/plugin-swift/README.md) and
-[`pkg/plugin-java`](../pkg/plugin-java/README.md).
+see [`pkg/plugin-ios`](../pkg/plugin-ios/README.md) and
+[`pkg/plugin-android`](../pkg/plugin-android/README.md).
 
 ## Declaration
 

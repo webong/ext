@@ -159,5 +159,5 @@ host can choose either without changing its plugins.
   webview can load and message a guest the way the browser spike did (including
   cross-origin isolation, which a reactor guest avoids needing).
 
-The Swift and Java bindings belong to the mobile SDK work (`pkg/plugin-swift`,
-`pkg/plugin-java`). This record covers only how a mobile host runs WebAssembly.
+The Swift and Java bindings belong to the mobile SDK work (`pkg/plugin-ios`,
+`pkg/plugin-android`). This record covers only how a mobile host runs WebAssembly.

@@ -2,7 +2,7 @@
 import PackageDescription
 
 // Development manifest. It builds against the xcframework produced by
-// scripts/plugin-swift-xcframework.sh; a release manifest points the binary
+// scripts/plugin-ios-xcframework.sh; a release manifest points the binary
 // target at a published archive with a checksum instead.
 let package = Package(
     name: "ExtPlugin",

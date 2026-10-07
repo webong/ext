@@ -163,6 +163,16 @@ such as `virtualizer`, `container`, and `interpreter`. A tool may declare both r
 its runtime. Support declarations aid discovery; they do not add transfer or
 invocation operations. API v2.0 does not accept `kind`.
 
+An **engine** is a runtime that executes programs, such as a Java virtual machine,
+a WebAssembly runtime, or an EVM node. An adapter that provides one declares
+`supports = "engine,<kind>"`, for example `engine,jvm`, so
+`ctx graph resolve all --supports engine` lists every engine and
+`--supports jvm` narrows to one kind. The adapter's `list` output names the
+installed engines (a major version for the JVM), `observe` reports their
+version, location and source as attributes, and `run` executes the requested
+command with the selected engine. Discovery conventions such as `JAVA_HOME`
+belong to the adapter, not to the host.
+
 A browser adapter normally uses `selector_key = "browser"`. Its `list` output
 uses `name:profile` values, while `validate`, `doctor`, and `open` receive only
 the profile portion as their selection. `ctx set name:profile` uses the

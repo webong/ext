@@ -1,0 +1,129 @@
+#!/bin/sh
+set -eu
+
+# Selects one installed JDK or JRE by major version ("21", "17", "8") and runs
+# java, javac or jar from it with JAVA_HOME set. Discovery covers JAVA_HOME,
+# macOS and Linux system locations, SDKMAN, IntelliJ's ~/.jdks and Homebrew.
+
+operation=${1:-}
+[ "$#" -gt 0 ] && shift
+
+home_dirs() {
+  [ -n "${JAVA_HOME:-}" ] && printf '%s\n' "$JAVA_HOME"
+  # User-level installs come before system ones, so a developer's own choice
+  # wins over the machine default for the same major version.
+  for root in \
+    "${SDKMAN_DIR:-${HOME:-}/.sdkman}/candidates/java" \
+    "${HOME:-}/.jdks" "${HOME:-}/.asdf/installs/java" \
+    "${HOME:-}/Library/Java/JavaVirtualMachines" \
+    /Library/Java/JavaVirtualMachines \
+    /usr/lib/jvm /usr/java /opt/java; do
+    [ -d "$root" ] || continue
+    for entry in "$root"/*; do
+      [ -d "$entry" ] || continue
+      if [ -x "$entry/Contents/Home/bin/java" ]; then printf '%s\n' "$entry/Contents/Home"
+      elif [ -x "$entry/bin/java" ]; then printf '%s\n' "$entry"
+      fi
+    done
+  done
+  for brew_home in /opt/homebrew/opt/openjdk* /usr/local/opt/openjdk*; do
+    [ -d "$brew_home" ] || continue
+    if [ -x "$brew_home/libexec/openjdk.jdk/Contents/Home/bin/java" ]; then printf '%s\n' "$brew_home/libexec/openjdk.jdk/Contents/Home"
+    elif [ -x "$brew_home/bin/java" ]; then printf '%s\n' "$brew_home"
+    fi
+  done
+  path_java=$(command -v java 2>/dev/null || true)
+  if [ -n "$path_java" ]; then
+    resolved=$(cd "$(dirname "$path_java")/.." 2>/dev/null && pwd -P || true)
+    [ -n "$resolved" ] && [ -x "$resolved/bin/java" ] && printf '%s\n' "$resolved"
+  fi
+}
+
+# Prints "selection<TAB>home<TAB>version<TAB>source" for each distinct JDK home.
+inventory() {
+  home_dirs | awk '!seen[$0]++' | while IFS= read -r home; do
+    [ -x "$home/bin/java" ] || continue
+    version=$("$home/bin/java" -version 2>&1 | sed -n 's/.*version "\([^"]*\)".*/\1/p' | head -n 1)
+    [ -n "$version" ] || continue
+    case "$version" in
+      1.*) major=$(printf '%s\n' "$version" | cut -d. -f2) ;;
+      *) major=$(printf '%s\n' "$version" | cut -d. -f1 | cut -d- -f1 | cut -d+ -f1) ;;
+    esac
+    case "$home" in
+      "${JAVA_HOME:-/nonexistent}") source=java_home ;;
+      */.sdkman/*) source=sdkman ;;
+      */.jdks/*) source=jdks ;;
+      */Library/Java/*) source=macos ;;
+      /opt/homebrew/*|/usr/local/opt/*) source=homebrew ;;
+      /usr/lib/jvm/*|/usr/java/*|/opt/java/*) source=system ;;
+      *) source=path ;;
+    esac
+    printf '%s\t%s\t%s\t%s\n' "$major" "$home" "$version" "$source"
+  done
+}
+
+# The first home wins when several installs share a major version, so
+# JAVA_HOME takes precedence and the choice is stable between invocations.
+find_record() {
+  inventory | awk -F '\t' -v wanted="$1" '$1 == wanted { print; exit }'
+}
+
+json_escape() { printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'; }
+
+case "$operation" in
+  list)
+    inventory | awk -F '\t' 'NF >= 4 && !seen[$1]++ { print $1 }'
+    ;;
+  observe)
+    tab=$(printf '\t')
+    separator=
+    printf '{"version":1,"contexts":['
+    inventory | awk -F '\t' '!seen[$1]++' | while IFS="$tab" read -r selection home version source; do
+      [ -n "$selection" ] || continue
+      printf '%s{"selection":"%s","attributes":{"version":"%s","home":"%s","source":"%s"}}' \
+        "$separator" "$selection" "$(json_escape "$version")" "$(json_escape "$home")" "$source"
+      separator=,
+    done
+    printf ']}\n'
+    ;;
+  validate)
+    selection=${1:-}
+    [ -n "$selection" ] && [ -n "$(find_record "$selection")" ] || { printf 'jvm: Java %s is not installed\n' "${selection:-<empty>}" >&2; exit 1; }
+    ;;
+  doctor)
+    selection=${1:-}
+    if [ -n "$selection" ]; then
+      record=$(find_record "$selection")
+      [ -n "$record" ] || { printf 'jvm: Java %s is not installed\n' "$selection" >&2; exit 1; }
+      home=$(printf '%s\n' "$record" | awk -F '\t' '{print $2}')
+    else
+      home=$(home_dirs | head -n 1)
+    fi
+    [ -n "$home" ] && [ -x "$home/bin/java" ] || { printf 'jvm: no Java installation found\n' >&2; exit 127; }
+    "$home/bin/java" -version
+    ;;
+  run)
+    selection=
+    if [ "$#" -gt 0 ] && [ "$1" != "--" ]; then selection=$1; shift; fi
+    [ "${1:-}" = "--" ] && shift
+    if [ -n "$selection" ]; then
+      record=$(find_record "$selection")
+      [ -n "$record" ] || { printf 'jvm: Java %s is not installed\n' "$selection" >&2; exit 1; }
+      home=$(printf '%s\n' "$record" | awk -F '\t' '{print $2}')
+    else
+      home=$(home_dirs | head -n 1)
+    fi
+    [ -n "$home" ] && [ -x "$home/bin/java" ] || { printf 'jvm: no Java installation found\n' >&2; exit 127; }
+    # The requested command decides which tool of the selected JDK runs.
+    case "${CTX_ADAPTER_COMMAND:-java}" in
+      javac|jar) tool=$CTX_ADAPTER_COMMAND ;;
+      *) tool=java ;;
+    esac
+    [ -x "$home/bin/$tool" ] || { printf 'jvm: %s is not part of the selected installation\n' "$tool" >&2; exit 127; }
+    JAVA_HOME=$home
+    PATH=$home/bin:$PATH
+    export JAVA_HOME PATH
+    exec "$home/bin/$tool" "$@"
+    ;;
+  *) exit 2 ;;
+esac

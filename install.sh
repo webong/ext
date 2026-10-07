@@ -10,7 +10,7 @@ elif [ -d "$HOME/.config/ext" ] || [ ! -d "$HOME/.config/ctx" ]; then CONFIG_DIR
 else CONFIG_DIR=$HOME/.config/ctx
 fi
 VERSION=${CTX_VERSION:-latest}
-CATALOG_ADAPTERS='docker podman nerdctl apple rancher_desktop orbstack docker_desktop firefox zen floorp waterfox librewolf chrome chromium edge brave safari vivaldi opera whale arc comet dia atlas helium kube aws gcloud postgres mysql php claude_code codex git'
+CATALOG_ADAPTERS='docker podman nerdctl apple rancher_desktop orbstack docker_desktop firefox zen floorp waterfox librewolf chrome chromium edge brave safari vivaldi opera whale arc comet dia atlas helium kube aws gcloud postgres mysql php jvm claude_code codex git'
 case "$(uname -s)" in
   Darwin) CREDENTIAL_ADAPTER=keychain ;;
   Linux) CREDENTIAL_ADAPTER=secret_service ;;

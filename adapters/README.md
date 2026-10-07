@@ -80,6 +80,12 @@ browser-specific identities without importing store implementation packages.
 observes installed Homebrew PHP formulae as graph contexts, and runs the selected
 version for the current project without relinking the host's global `php` command.
 
+`jvm` is the Java engine adapter. It declares `supports = "engine,jvm"`, finds JDKs
+from `JAVA_HOME`, SDKMAN, `~/.jdks`, asdf, Homebrew and the system locations
+(user-level installs before system ones), and selects one by major version
+(`ctx set jvm 21`). It runs `java`, `javac` or `jar` from the selected
+installation with `JAVA_HOME` set, without changing the host's default Java.
+
 `git` is an optional computer-runtime adapter for Git commands and repository
 hooks. It adds no Git shim. Its hook subcommand writes marked blocks to shell
 hooks without changing `core.hooksPath`; an explicit directory can target an

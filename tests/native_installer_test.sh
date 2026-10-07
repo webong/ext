@@ -93,7 +93,7 @@ case "$arch" in x86_64|amd64) arch=amd64;; arm64|aarch64) arch=arm64;; *) exit 1
 asset="ctx-$os-$arch.tar.gz"
 tar -C "$bundle_stage" -czf "$release_dir/$asset" ctx
 mkdir -p "$bundle_stage/ctx/adapters"
-for adapter in docker podman nerdctl apple rancher_desktop orbstack docker_desktop firefox zen floorp waterfox librewolf chrome chromium edge brave safari vivaldi opera whale arc comet dia atlas helium kube aws gcloud postgres mysql php claude_code codex git; do
+for adapter in docker podman nerdctl apple rancher_desktop orbstack docker_desktop firefox zen floorp waterfox librewolf chrome chromium edge brave safari vivaldi opera whale arc comet dia atlas helium kube aws gcloud postgres mysql php jvm claude_code codex git; do
   cp -R "$ROOT/adapters/$adapter" "$bundle_stage/ctx/adapters/$adapter"
 done
 go build -o "$bundle_stage/ctx/adapters/git/ctx-git" "$ROOT/adapters/git/native"

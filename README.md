@@ -1,3 +1,19 @@
+# ext
+
+ext is a toolkit for building local developer tools, plus the products built on
+it. It provides portable libraries (a plugin contract with several runtimes, a
+graph store with host and process discovery, and browser and credential
+resources) and two binaries:
+
+| Binary | Module | Purpose |
+| --- | --- | --- |
+| [`ctx`](#ctx) | `src/ctx` | Project-local contexts for the tools you already use |
+| `ctn` | `src/ctn` | Content management (a stub: `help` and `version` only) |
+
+Reusable libraries live in [`pkg/`](pkg/README.md) and [`res/`](res/README.md);
+product-specific behavior lives in [`adapters/`](adapters/README.md). A product
+never imports another product. The rest of this file describes `ctx`.
+
 # ctx
 
 Project-local contexts for the tools you already use. Choose a Docker engine,
@@ -42,7 +58,7 @@ with Go 1.23 or newer:
 
 ```sh
 git clone https://github.com/webong/ext.git
-cd ctx
+cd ext
 ./install.sh
 export PATH="$HOME/.local/bin:$PATH"
 ```
@@ -59,7 +75,7 @@ On Windows, use PowerShell:
 
 ```powershell
 git clone https://github.com/webong/ext.git
-Set-Location ctx
+Set-Location ext
 .\install.ps1 -Adapters docker,kube,aws,firefox
 ```
 

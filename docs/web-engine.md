@@ -75,19 +75,25 @@ about ext.
 ## Verified
 
 The same bundle (a WebAssembly module, DOM updates, console output, an uncaught
-error, a blocked outside fetch, and an exit code) ran in Safari, Chrome and Firefox
-on macOS and in Mobile Safari in the iOS Simulator, with identical results. The
-Android recipe is the standard one, but it was **not** run: the emulator would not
-start for lack of disk space. Closing a real tab was not exercised either, only
-simulated.
+error, a blocked outside fetch, and an exit code) ran with identical results in
+Safari, Chrome and Firefox on macOS, in Mobile Safari in the iOS Simulator, and in
+Chrome on an Android 14 emulator through `adb reverse`. Closing a real Chrome tab
+ended the run as `closed`.
 
-## Related
+What running it on real browsers taught:
 
-Running web content on a phone or simulator, as above, is separate from authoring
-plugins for mobile apps. iOS and Android apps cannot launch other programs, so they
-embed libraries rather than run adapters: see
-[`pkg/plugin-swift`](../pkg/plugin-swift/README.md) (macOS and iOS, tested in the iOS
-Simulator) and [`pkg/plugin-java`](../pkg/plugin-java/README.md) (the JVM, with an
-untested Android build), both bindings over the shared plugin engine. The
-[engine adapter contract](engine-adapters.md) explains how the two uses of "engine"
-differ.
+- **A fresh browser may be waiting for the user.** Chrome on a new Android emulator
+  showed its first-run and notification screens, and the page loaded behind them
+  only once they were dismissed. Until then the run fails with "the page did not
+  load" and says why that can happen. A host that drives a device should clear those
+  screens first.
+- **The browser's own extensions run on the page.** A userscript extension in the
+  desktop Chrome profile logged a line to the page's console, and the engine
+  reported it like any other. Console output is not only the bundle's. Use a
+  dedicated profile for content you do not control, and expect noise otherwise.
+- **Background tabs.** Browsers slow timers in hidden tabs, so the heartbeat backstop
+  is generous (15 seconds); a closed tab is normally noticed at once through the
+  page's own report.
+
+Not exercised: Windows and Linux browsers, and real iOS and Android devices as
+opposed to a simulator and an emulator.

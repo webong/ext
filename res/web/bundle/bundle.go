@@ -165,7 +165,8 @@ func Run(ctx context.Context, options Options) (Result, error) {
 			seen, last := s.lastSeen()
 			switch {
 			case !seen && time.Since(started) > startup:
-				return Result{Status: StatusFailed, Reason: "the page did not load within " + startup.String(), URL: url}, nil
+				return Result{Status: StatusFailed, Reason: "the page did not load within " + startup.String() +
+					" (the browser may be waiting on a first-run, sign-in or permission screen)", URL: url}, nil
 			case seen && time.Since(last) > heartbeat:
 				return Result{Status: StatusClosed, Reason: "the page stopped reporting", URL: url}, nil
 			}

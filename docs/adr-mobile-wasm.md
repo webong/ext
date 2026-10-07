@@ -1,6 +1,7 @@
 # Hosting WebAssembly plugins on iOS and Android
 
-Status: proposed. Evidence below is marked **run** (executed here), **read** (taken
+Status: decided. The system web engine is the primary route for mobile hosts and WAMR
+is the fallback (see Decision). Evidence below is marked **run** (executed here), **read** (taken
 from a project's own README on 2026-10-08) or **unverified**.
 
 ## The question
@@ -118,22 +119,35 @@ or any interpreter, just calls the exports. This is a design direction: **no rea
 guest was built or run**, and the ABI needs a buffer-allocation convention for
 WebAssembly memory, which it does not define.
 
-## Recommendation
+## Decision
 
-1. Define a WebAssembly reactor guest: the existing `ext_plugin_*` exports plus an
-   allocation export. It is the common denominator, because every option can host it.
-2. Use the system web engine as the zero-dependency baseline for app hosts. It ships
-   nothing, and the spike shows the hard part works. Its isolation is `restricted`.
-3. If an in-process `sandboxed` host is wanted in the C engine, prototype it with
-   **WAMR first**: it is C built with CMake like the engine, a C embedder worked end
-   to end, its limits are proven (with the build options above), and its source tree
-   already has iOS and Android platform directories. Keep **wasmi** as the
-   alternative if startup time (55 ms against 123 ms), memory (33 MB against 56 MB)
-   or deterministic fuel matter more than avoiding a Rust build step. Do not pick
-   wasm3 alone because of its maintenance notice. Whichever is chosen, pin its
-   version and build options in `pkg/plugin-engine`.
-4. Keep the command-style stdio guest as a desktop and server format. It works in
-   browsers only with the isolation machinery above.
+**The phone's own web engine is the first route. WAMR is the fallback.** This was
+decided by the project owner after the evidence above.
+
+1. **Primary: the system web engine** (WKWebView on iOS, the System WebView on
+   Android). It ships nothing extra, and the spike shows the hard part works. A
+   host loads the guest into a hidden webview and passes `ext.plugin/v1` messages
+   across the page boundary. Its isolation is `restricted`.
+2. **Fallback: WAMR** as an in-process interpreter in `pkg/plugin-engine`, for hosts
+   where the webview is unsuitable: no usable webview, a need for the stricter
+   `sandboxed` guarantee, or behaviour that must not depend on the platform's
+   browser. Prototype it with the build options noted above (instruction metering
+   and the thread manager), pin its version, and keep wasmi as the alternative if
+   startup time, memory or deterministic fuel matter more than avoiding a Rust
+   build. Do not pick wasm3 alone because of its maintenance notice.
+3. **One guest format for both: a WebAssembly reactor.** The guest exports the
+   existing `ext_plugin_*` functions plus an allocation export, so the same module
+   runs in a webview and in an interpreter, and neither needs a blocking input
+   queue, a Worker, a `SharedArrayBuffer` or cross-origin isolation. The
+   allocation convention is not defined yet and is the first thing to design.
+4. **Keep the command-style stdio guest** as a desktop and server format. It works in
+   browsers only with the isolation machinery in the spike, so it is not the mobile
+   format.
+
+What this means in practice: the first mobile deliverable is a Swift webview host
+and a Kotlin webview host that implement the plugin backend over the web engine's
+message channel. The WAMR backend comes after, behind the same plugin contract, so a
+host can choose either without changing its plugins.
 
 ## Not verified
 
@@ -141,7 +155,9 @@ WebAssembly memory, which it does not define.
   custom-scheme loader.
 - Android's System WebView as distinct from Chrome.
 - wasmi and WAMR built for iOS and Android, and either running on a device.
-- A reactor guest, and the allocation convention it needs.
+- A reactor guest, and the allocation convention it needs; and whether an embedded
+  webview can load and message a guest the way the browser spike did (including
+  cross-origin isolation, which a reactor guest avoids needing).
 
 The Swift and Java bindings belong to the mobile SDK work (`pkg/plugin-swift`,
 `pkg/plugin-java`). This record covers only how a mobile host runs WebAssembly.

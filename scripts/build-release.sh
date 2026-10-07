@@ -30,7 +30,7 @@ build_bundle() {
 
   binary="$bundle/bin/ctx$extension"
   (cd "$ROOT" && CGO_ENABLED=0 GOOS="$os" GOARCH="$arch" \
-    go build -trimpath -ldflags "-s -w -X github.com/webong/ext/src/ctx/internal/app.Version=${VERSION#v}" \
+    go build -trimpath -ldflags "-s -w -X github.com/webong/ext/ctx/internal/app.Version=${VERSION#v}" \
     -o "$binary" ./src/ctx/cmd/ctx)
   cp "$ROOT/LICENSE" "$ROOT/README.md" "$bundle/"
 

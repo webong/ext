@@ -12,7 +12,7 @@ import (
 	"strconv"
 	"strings"
 
-	modpkg "github.com/webong/ext/src/ctx/internal/mod"
+	modpkg "github.com/webong/ext/ctx/internal/mod"
 )
 
 func catalogStore() *modpkg.Store {

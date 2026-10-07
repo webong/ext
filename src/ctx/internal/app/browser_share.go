@@ -11,10 +11,10 @@ import (
 	"os"
 	"strings"
 
+	"github.com/webong/ext/ctx/internal/config"
+	modpkg "github.com/webong/ext/ctx/internal/mod"
 	"github.com/webong/ext/res/browser"
 	browsershare "github.com/webong/ext/res/browser/contract"
-	"github.com/webong/ext/src/ctx/internal/config"
-	modpkg "github.com/webong/ext/src/ctx/internal/mod"
 )
 
 type browserEndpoint struct {

@@ -8,7 +8,7 @@ import (
 	"runtime"
 	"testing"
 
-	modpkg "github.com/webong/ext/src/ctx/internal/mod"
+	modpkg "github.com/webong/ext/ctx/internal/mod"
 )
 
 func TestParseAdapterSelectionNamesAndNumbers(t *testing.T) {

@@ -12,7 +12,7 @@ import (
 
 func TestPluginAdapterProtocolDoesNotImportConsumerTrees(t *testing.T) {
 	root := repoRoot(t)
-	prefixes := []string{"github.com/webong/ext/src/ctx/internal/", "github.com/webong/ext/adapters/"}
+	prefixes := []string{"github.com/webong/ext/ctx/internal/", "github.com/webong/ext/adapters/"}
 	err := filepath.WalkDir(filepath.Join(root, "pkg/plugin"), func(path string, entry fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr

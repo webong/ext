@@ -6,7 +6,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/webong/ext/src/ctx/internal/config"
+	"github.com/webong/ext/ctx/internal/config"
 )
 
 // computerHook bridges a computer-side native hook to the adapter that owns

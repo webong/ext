@@ -1,3 +1,3 @@
-module github.com/webong/ext/src/ctn
+module github.com/webong/ext/ctn
 
 go 1.23.0

@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"github.com/webong/ext/src/ctn/internal/app"
+	"github.com/webong/ext/ctn/internal/app"
 )
 
 func main() {

@@ -30,7 +30,10 @@ package. Bare `vX.Y.Z` tags currently name ctx binary releases, not Go module ve
 the content manager is `src/ctn`. This repository is ext: it provides libraries
 and binaries, and ctx and ctn are binaries built on those libraries. A product
 never imports another product; shared code goes in `pkg/` or `res/`.
-`examples/` is its own module. Nothing may import `github.com/webong/ext/src/`.
+`examples/` is its own module. Nothing may import the product modules `github.com/webong/ext/ctx` or
+`github.com/webong/ext/ctn`; their directories are `src/ctx` and `src/ctn`. The module paths deliberately omit
+`src/`, so the products are not `go get`-resolvable from the repository until their
+paths and directories match; they are built from source and released as binaries.
 
 `res/` is a container for reusable modules rather than a package. Each
 subdirectory is its own Go module, and nothing lives at that level: no Go package

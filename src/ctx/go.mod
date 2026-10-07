@@ -1,4 +1,4 @@
-module github.com/webong/ext/src/ctx
+module github.com/webong/ext/ctx
 
 go 1.23.0
 

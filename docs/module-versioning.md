@@ -62,7 +62,8 @@ the dependency from the proxy at the required version. Keeping them out avoids
 the false impression that a published module can redirect consumers to a local
 path, and it means each `go.mod` describes exactly what a consumer will get.
 
-The CLI module `src/ctx` and the `examples` module keep `replace` directives
+The CLI module `src/ctx` (module path `github.com/webong/ext/ctx`) and the
+`examples` module keep `replace` directives
 because they are the modules developers build and run. Those are what let
 `go build ./...` use local module code. The repository root is not a module: it
 holds `go.work` only, so it has no `go.mod` and Go resolves no module there.

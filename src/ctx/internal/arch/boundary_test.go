@@ -16,7 +16,8 @@ import (
 )
 
 var forbiddenPrefixes = []string{
-	"github.com/webong/ext/src/",
+	"github.com/webong/ext/ctx/",
+	"github.com/webong/ext/ctn/",
 	"github.com/webong/ext/adapters/",
 	"github.com/webong/ext/examples/",
 }
@@ -53,9 +54,9 @@ func repoRoot(t *testing.T) string {
 
 // productRoots are the binaries under src. Each is its own module and must not
 // depend on another product; shared code belongs in pkg or res.
-var productRoots = []string{
-	"src/ctx",
-	"src/ctn",
+var productRoots = []struct{ dir, module string }{
+	{"src/ctx", "github.com/webong/ext/ctx"},
+	{"src/ctn", "github.com/webong/ext/ctn"},
 }
 
 func TestProductsDoNotImportEachOther(t *testing.T) {
@@ -64,10 +65,10 @@ func TestProductsDoNotImportEachOther(t *testing.T) {
 		var forbidden []string
 		for _, other := range productRoots {
 			if other != product {
-				forbidden = append(forbidden, "github.com/webong/ext/"+other)
+				forbidden = append(forbidden, other.module)
 			}
 		}
-		err := filepath.WalkDir(filepath.Join(root, product), func(path string, entry fs.DirEntry, walkErr error) error {
+		err := filepath.WalkDir(filepath.Join(root, product.dir), func(path string, entry fs.DirEntry, walkErr error) error {
 			if walkErr != nil {
 				return walkErr
 			}

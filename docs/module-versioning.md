@@ -71,7 +71,7 @@ correct signal: it means the module is not yet independently consumable.
 
 ## The v0.1.0 baseline
 
-Every module is tagged `v0.1.0` on the commit that introduced the split. That
+Every module is tagged `v0.1.0`. The original modules were tagged on the commit that introduced the split; `pkg/plugin-go`, `pkg/plugin-cshared`, `pkg/plugin-hashicorp` and `pkg/plugin-wasm` were tagged later, after they were renamed out of `pkg/go` and `pkg/plugin/*`. That
 release was verified by resolving the tagged modules into a scratch module
 outside this repository: a consumer requiring only `pkg/plugin-go` and
 `res/browser` resolved `pkg/plugin` transitively and pulled in no HashiCorp or

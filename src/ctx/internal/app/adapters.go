@@ -19,11 +19,7 @@ import (
 )
 
 func adapterStore() *modpkg.Store {
-	home := os.Getenv("CTX_ADAPTER_HOME")
-	if home == "" {
-		home = filepath.Join(configHomePath(), "adapters")
-	}
-	return modpkg.NewStore(home)
+	return modpkg.NewStore(modpkg.Home())
 }
 
 func sortedDependencySpaces(dependencies map[string]modpkg.Dependency) []string {

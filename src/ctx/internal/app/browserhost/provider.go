@@ -7,12 +7,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
-	"path/filepath"
 	"sort"
 	"strings"
 
-	"github.com/webong/ext/ctx/internal/platform"
 	modpkg "github.com/webong/ext/pkg/plugin/adapter"
 	"github.com/webong/ext/res/browser"
 )
@@ -58,14 +55,7 @@ func adapterHome(override string) string {
 	if override != "" {
 		return override
 	}
-	if value := os.Getenv("CTX_ADAPTER_HOME"); value != "" {
-		return value
-	}
-	home := os.Getenv("CTX_HOME")
-	if home == "" {
-		home = platform.DefaultConfigHome()
-	}
-	return filepath.Join(home, "adapters")
+	return modpkg.Home()
 }
 
 type selectedSource struct {

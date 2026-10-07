@@ -15,6 +15,10 @@ func TestMain(m *testing.M) {
 		fmt.Fprintln(os.Stderr, "create test config home:", err)
 		os.Exit(1)
 	}
+	// EXT_HOME and EXT_ADAPTER_HOME take precedence over the CTX names the tests
+	// set, so a developer's own values must not reach them.
+	os.Unsetenv("EXT_HOME")
+	os.Unsetenv("EXT_ADAPTER_HOME")
 	if err := os.Setenv("CTX_HOME", home); err != nil {
 		fmt.Fprintln(os.Stderr, "set CTX_HOME:", err)
 		os.Exit(1)

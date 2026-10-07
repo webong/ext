@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
     [string]$BinDir = $(if ($env:CTX_BIN_DIR) { $env:CTX_BIN_DIR } else { Join-Path $env:LOCALAPPDATA 'Programs\ctx\bin' }),
-    [string]$ConfigDir = $(if ($env:CTX_HOME) { $env:CTX_HOME } else { Join-Path $env:APPDATA 'ctx' }),
+    [string]$ConfigDir = $(if ($env:EXT_HOME) { $env:EXT_HOME } elseif ($env:CTX_HOME) { $env:CTX_HOME } elseif ((Test-Path (Join-Path $env:APPDATA 'ext')) -or -not (Test-Path (Join-Path $env:APPDATA 'ctx'))) { Join-Path $env:APPDATA 'ext' } else { Join-Path $env:APPDATA 'ctx' }),
     [string]$Version = 'latest',
     [string]$Adapters,
     [switch]$AllAdapters,
@@ -144,10 +144,10 @@ if ($needCatalog) {
     }
 }
 
-$previousCtxHome = $env:CTX_HOME
+$previousExtHome = $env:EXT_HOME
 $previousBinDir = $env:CTX_BIN_DIR
 try {
-    $env:CTX_HOME = $ConfigDir
+    $env:EXT_HOME = $ConfigDir
     $env:CTX_BIN_DIR = $BinDir
     if ($needCatalog) {
         & $ctxTarget adapter refresh | Out-Null
@@ -163,7 +163,7 @@ try {
     }
 }
 finally {
-    $env:CTX_HOME = $previousCtxHome
+    $env:EXT_HOME = $previousExtHome
     $env:CTX_BIN_DIR = $previousBinDir
 }
 

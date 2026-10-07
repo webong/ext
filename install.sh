@@ -2,7 +2,13 @@
 set -eu
 
 DST_BIN=${CTX_BIN_DIR:-$HOME/.local/bin}
-CONFIG_DIR=${CTX_HOME:-$HOME/.config/ctx}
+# One home for every ext product. CTX_HOME is still honored, and an existing
+# ~/.config/ctx installation keeps being used until ~/.config/ext exists.
+if [ -n "${EXT_HOME:-}" ]; then CONFIG_DIR=$EXT_HOME
+elif [ -n "${CTX_HOME:-}" ]; then CONFIG_DIR=$CTX_HOME
+elif [ -d "$HOME/.config/ext" ] || [ ! -d "$HOME/.config/ctx" ]; then CONFIG_DIR=$HOME/.config/ext
+else CONFIG_DIR=$HOME/.config/ctx
+fi
 VERSION=${CTX_VERSION:-latest}
 CATALOG_ADAPTERS='docker podman nerdctl apple rancher_desktop orbstack docker_desktop firefox zen floorp waterfox librewolf chrome chromium edge brave safari vivaldi opera whale arc comet dia atlas helium kube aws gcloud postgres mysql php claude_code codex git'
 case "$(uname -s)" in
@@ -132,21 +138,21 @@ if [ "$SETUP_MODE" != minimal ]; then
     if [ -e "$target_adapter" ]; then rm -rf "$target_adapter"; fi
     cp -R "$source_adapter" "$target_adapter"
   done
-  CTX_HOME="$CONFIG_DIR" CTX_BIN_DIR="$DST_BIN" "$DST_BIN/ctx" adapter refresh >/dev/null
+  EXT_HOME="$CONFIG_DIR" CTX_BIN_DIR="$DST_BIN" "$DST_BIN/ctx" adapter refresh >/dev/null
   for adapter in $MIGRATE_ADAPTERS; do
     rm -f "$DST_BIN/$adapter"
-    CTX_HOME="$CONFIG_DIR" CTX_BIN_DIR="$DST_BIN" "$DST_BIN/ctx" adapter add "$adapter" >/dev/null
+    EXT_HOME="$CONFIG_DIR" CTX_BIN_DIR="$DST_BIN" "$DST_BIN/ctx" adapter add "$adapter" >/dev/null
   done
 elif [ -n "$MIGRATE_ADAPTERS" ]; then
   printf 'Legacy shims were preserved; rerun with --adapters to migrate them.\n'
 fi
 
 case "$SETUP_MODE" in
-  all) CTX_HOME="$CONFIG_DIR" CTX_BIN_DIR="$DST_BIN" "$DST_BIN/ctx" setup --all ;;
+  all) EXT_HOME="$CONFIG_DIR" CTX_BIN_DIR="$DST_BIN" "$DST_BIN/ctx" setup --all ;;
   minimal) : ;;
-  selected) CTX_HOME="$CONFIG_DIR" CTX_BIN_DIR="$DST_BIN" "$DST_BIN/ctx" setup --adapters "$SETUP_ADAPTERS" ;;
+  selected) EXT_HOME="$CONFIG_DIR" CTX_BIN_DIR="$DST_BIN" "$DST_BIN/ctx" setup --adapters "$SETUP_ADAPTERS" ;;
   interactive)
-    CTX_HOME="$CONFIG_DIR" CTX_BIN_DIR="$DST_BIN" "$DST_BIN/ctx" setup </dev/tty >/dev/tty
+    EXT_HOME="$CONFIG_DIR" CTX_BIN_DIR="$DST_BIN" "$DST_BIN/ctx" setup </dev/tty >/dev/tty
     ;;
 esac
 

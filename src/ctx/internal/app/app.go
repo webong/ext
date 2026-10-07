@@ -14,6 +14,7 @@ import (
 	"github.com/webong/ext/ctx/internal/launch"
 	"github.com/webong/ext/ctx/internal/platform"
 	"github.com/webong/ext/pkg/graph/system"
+	modpkg "github.com/webong/ext/pkg/plugin/adapter"
 )
 
 var Version = "0.8.0-dev"
@@ -249,12 +250,7 @@ func newResolver() (*config.Resolver, error) {
 	return config.NewResolver(workingDir, homeDir, filepath.Join(configHomePath(), "config.toml"))
 }
 
-func configHomePath() string {
-	if home := os.Getenv("CTX_HOME"); home != "" {
-		return home
-	}
-	return platform.DefaultConfigHome()
-}
+func configHomePath() string { return modpkg.ConfigHome() }
 
 func status(resolver *config.Resolver, selectors []string, stdout, stderr io.Writer) int {
 	showAll := len(selectors) == 0

@@ -3,8 +3,16 @@
 An external adapter is a directory containing `adapter.toml` and an executable
 for the current operating system. It can be distributed as a platform-specific
 `.ctxadapter` archive or through a platform index.
-ctx installs adapters under `$CTX_HOME/adapters`; it never discovers or sources
+ctx installs adapters under `$EXT_HOME/adapters`; it never discovers or sources
 code from the current directory or arbitrary `PATH` entries.
+
+The home is shared by every ext product, so an adapter installed and trusted
+once is available to ctx and ctn alike; trust is global to the user, not per
+product. `EXT_HOME` sets the home and `EXT_ADAPTER_HOME` sets just the adapter
+directory. `CTX_HOME` and `CTX_ADAPTER_HOME` are still honored for existing
+installations, and an existing `~/.config/ctx` directory keeps being used until
+`~/.config/ext` is created. A product that does not understand an adapter's
+runtime ignores it.
 
 Start with [Build a CTX adapter](adapter-authoring.md) for required files,
 operation handlers, source builds, packaging, and installation. This page is
@@ -196,7 +204,7 @@ dynamically, so additional providers need no core changes.
 Users may register named manager instances with `ctx manager add`. Each
 instance records an adapter provider and native selection, plus optional
 declared virtualizer product and machine labels. Share and build commands accept `@instance`
-endpoints. The instance registry is stored in `$CTX_HOME/managers.json` (or
+endpoints. The instance registry is stored in `$EXT_HOME/managers.json` (or
 the default ctx configuration home), with owner-only permissions. Registration
 validates the native selection through the trusted adapter unless the user
 explicitly passes `--offline` to register an unavailable engine. ctx displays the
@@ -655,7 +663,7 @@ ctx adapter install https://example.com/example.ctxadapter.json --sha256 "$INDEX
 ctx adapter trust example
 ~~~
 
-The optional installer-provided catalog lives under `$CTX_HOME/catalog/adapters`
+The optional installer-provided catalog lives under `$EXT_HOME/catalog/adapters`
 (or `CTX_CATALOG_HOME`). A default core-only installation has no catalog.
 Request adapter selection with the installer to obtain it; `ctx setup` and
 `ctx adapter add` then copy selected catalog packages into the active adapter

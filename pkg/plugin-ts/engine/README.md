@@ -2,7 +2,7 @@
 
 `loadEngine(absoluteAddonPath)` loads an application-selected Node-API addon.
 Build `addon.c` against the installed engine headers, Node headers and
-`libctx_host_static` (default) or `libctx_host`. The repository's
+`libext_host_static` (default) or `libext_host`. The repository's
 `scripts/plugin-cengine.sh` builds and exercises both choices. No prebuilt npm
 binaries are published yet.
 

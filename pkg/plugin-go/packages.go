@@ -1,9 +1,9 @@
-//go:build ctx_cengine && cgo && (darwin || linux)
+//go:build ext_cengine && cgo && (darwin || linux)
 
 package goengine
 
 /*
-#include "ctx_host.h"
+#include "ext_host.h"
 #include <stdlib.h>
 */
 import "C"
@@ -25,7 +25,7 @@ func SHA256(input []byte) [32]byte {
 	if len(input) > 0 {
 		p = (*C.uint8_t)(unsafe.Pointer(&input[0]))
 	}
-	C.ctx_engine_sha256(p, C.size_t(len(input)), (*C.uint8_t)(unsafe.Pointer(&out[0])))
+	C.ext_engine_sha256(p, C.size_t(len(input)), (*C.uint8_t)(unsafe.Pointer(&out[0])))
 	return out
 }
 func engineValue(operation string, input any, output any) error {
@@ -81,7 +81,7 @@ func VerifyArtifacts(m packagekit.Manifest, root string) error {
 	}
 	path := C.CString(root)
 	defer C.free(unsafe.Pointer(path))
-	return status(C.ctx_package_verify((*C.uint8_t)(unsafe.Pointer(&data[0])), C.size_t(len(data)), path))
+	return status(C.ext_package_verify((*C.uint8_t)(unsafe.Pointer(&data[0])), C.size_t(len(data)), path))
 }
 func DirectoryDigest(root string) (string, error) {
 	if strings.IndexByte(root, 0) >= 0 {
@@ -90,7 +90,7 @@ func DirectoryDigest(root string) (string, error) {
 	path := C.CString(root)
 	defer C.free(unsafe.Pointer(path))
 	var out [32]byte
-	if err := status(C.ctx_directory_digest(path, (*C.uint8_t)(unsafe.Pointer(&out[0])))); err != nil {
+	if err := status(C.ext_directory_digest(path, (*C.uint8_t)(unsafe.Pointer(&out[0])))); err != nil {
 		return "", err
 	}
 	return hex.EncodeToString(out[:]), nil

@@ -1,10 +1,10 @@
 #include "sha256.h"
-#include "ctx_host.h"
+#include "ext_host.h"
 #include <string.h>
 static uint32_t rotr(uint32_t x, unsigned n) {
   return (x >> n) | (x << (32 - n));
 }
-static void block(ctx_hash *s, const uint8_t *p) {
+static void block(ext_hash *s, const uint8_t *p) {
   static const uint32_t k[64] = {
       0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1,
       0x923f82a4, 0xab1c5ed5, 0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3,
@@ -51,11 +51,11 @@ static void block(ctx_hash *s, const uint8_t *p) {
   s->h[6] += g;
   s->h[7] += h;
 }
-void ctx_hash_init(ctx_hash *s) {
-  *s = (ctx_hash){.h = {0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,
+void ext_hash_init(ext_hash *s) {
+  *s = (ext_hash){.h = {0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,
                         0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19}};
 }
-void ctx_hash_update(ctx_hash *s, const uint8_t *p, size_t n) {
+void ext_hash_update(ext_hash *s, const uint8_t *p, size_t n) {
   s->total += n;
   while (n) {
     size_t take = 64 - s->used;
@@ -71,7 +71,7 @@ void ctx_hash_update(ctx_hash *s, const uint8_t *p, size_t n) {
     }
   }
 }
-void ctx_hash_finish(ctx_hash *s, uint8_t out[32]) {
+void ext_hash_finish(ext_hash *s, uint8_t out[32]) {
   uint64_t bits = s->total * 8;
   s->block[s->used++] = 0x80;
   if (s->used > 56) {
@@ -87,7 +87,7 @@ void ctx_hash_finish(ctx_hash *s, uint8_t out[32]) {
     out[i] = (uint8_t)(s->h[i / 4] >> (24 - 8 * (i % 4)));
   memset(s, 0, sizeof(*s));
 }
-void ctx_hash_hex(const uint8_t in[32], char out[65]) {
+void ext_hash_hex(const uint8_t in[32], char out[65]) {
   const char *hex = "0123456789abcdef";
   for (unsigned i = 0; i < 32; i++) {
     out[2 * i] = hex[in[i] >> 4];
@@ -95,13 +95,13 @@ void ctx_hash_hex(const uint8_t in[32], char out[65]) {
   }
   out[64] = 0;
 }
-ctx_status ctx_engine_sha256(const uint8_t *input, size_t len,
+ext_status ext_engine_sha256(const uint8_t *input, size_t len,
                              uint8_t out[32]) {
   if (!out || (!input && len))
-    return CTX_INVALID;
-  ctx_hash s;
-  ctx_hash_init(&s);
-  ctx_hash_update(&s, input, len);
-  ctx_hash_finish(&s, out);
-  return CTX_OK;
+    return EXT_INVALID;
+  ext_hash s;
+  ext_hash_init(&s);
+  ext_hash_update(&s, input, len);
+  ext_hash_finish(&s, out);
+  return EXT_OK;
 }

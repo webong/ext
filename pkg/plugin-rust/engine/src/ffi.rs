@@ -1,5 +1,5 @@
 //! Raw embedding ABI v2. Pointers, callbacks, threads and ownership follow the
-//! installed ctx_host.h, ctx_guest.h, ctx_instance.h and ctx_stream.h headers.
+//! installed ext_host.h, ext_guest.h, ext_instance.h and ext_stream.h headers.
 #![allow(non_camel_case_types)]
 use std::ffi::{c_char, c_void};
 pub type Status = i32;
@@ -137,46 +137,46 @@ pub struct StreamOptions {
     pub release: unsafe extern "C" fn(*mut c_void, *mut c_void),
 }
 extern "C" {
-    pub fn ctx_host_abi_version() -> u32;
-    pub fn ctx_host_create(
+    pub fn ext_host_abi_version() -> u32;
+    pub fn ext_host_create(
         o: *const HostOptions,
         b: *const Backend,
         out: *mut *mut c_void,
     ) -> Status;
-    pub fn ctx_host_set_hooks(h: *mut c_void, o: *const Hooks) -> Status;
-    pub fn ctx_host_start_with_options(h: *mut c_void, o: *const Call) -> Status;
-    pub fn ctx_host_invoke_with_options(
+    pub fn ext_host_set_hooks(h: *mut c_void, o: *const Hooks) -> Status;
+    pub fn ext_host_start_with_options(h: *mut c_void, o: *const Call) -> Status;
+    pub fn ext_host_invoke_with_options(
         h: *mut c_void,
         p: *const u8,
         n: usize,
         o: *const Call,
         out: *mut Buffer,
     ) -> Status;
-    pub fn ctx_host_call(
+    pub fn ext_host_call(
         h: *mut c_void,
         p: *const u8,
         n: usize,
         o: *const Call,
         out: *mut Buffer,
     ) -> Status;
-    pub fn ctx_host_drain_with_options(h: *mut c_void, o: *const Call) -> Status;
-    pub fn ctx_host_get_state(h: *mut c_void) -> i32;
-    pub fn ctx_host_close(h: *mut c_void);
-    pub fn ctx_host_destroy(h: *mut c_void);
-    pub fn ctx_host_status_string(s: Status) -> *const c_char;
-    pub fn ctx_host_validate_json(p: *const u8, n: usize) -> Status;
-    pub fn ctx_buffer_free(b: *mut Buffer);
-    pub fn ctx_cancel_create(out: *mut *mut c_void) -> Status;
-    pub fn ctx_cancel_signal(c: *mut c_void);
-    pub fn ctx_cancel_is_signaled(c: *const c_void) -> i32;
-    pub fn ctx_cancel_destroy(c: *mut c_void);
-    pub fn ctx_engine_call(op: *const c_char, p: *const u8, n: usize, out: *mut Buffer) -> Status;
-    pub fn ctx_engine_sha256(p: *const u8, n: usize, out: *mut u8) -> Status;
-    pub fn ctx_package_verify(p: *const u8, n: usize, root: *const c_char) -> Status;
-    pub fn ctx_directory_digest(root: *const c_char, out: *mut u8) -> Status;
-    pub fn ctx_guest_create(o: *const GuestOptions, out: *mut *mut c_void) -> Status;
-    pub fn ctx_guest_descriptor(g: *mut c_void, out: *mut Buffer) -> Status;
-    pub fn ctx_guest_invoke(
+    pub fn ext_host_drain_with_options(h: *mut c_void, o: *const Call) -> Status;
+    pub fn ext_host_get_state(h: *mut c_void) -> i32;
+    pub fn ext_host_close(h: *mut c_void);
+    pub fn ext_host_destroy(h: *mut c_void);
+    pub fn ext_host_status_string(s: Status) -> *const c_char;
+    pub fn ext_host_validate_json(p: *const u8, n: usize) -> Status;
+    pub fn ext_buffer_free(b: *mut Buffer);
+    pub fn ext_cancel_create(out: *mut *mut c_void) -> Status;
+    pub fn ext_cancel_signal(c: *mut c_void);
+    pub fn ext_cancel_is_signaled(c: *const c_void) -> i32;
+    pub fn ext_cancel_destroy(c: *mut c_void);
+    pub fn ext_engine_call(op: *const c_char, p: *const u8, n: usize, out: *mut Buffer) -> Status;
+    pub fn ext_engine_sha256(p: *const u8, n: usize, out: *mut u8) -> Status;
+    pub fn ext_package_verify(p: *const u8, n: usize, root: *const c_char) -> Status;
+    pub fn ext_directory_digest(root: *const c_char, out: *mut u8) -> Status;
+    pub fn ext_guest_create(o: *const GuestOptions, out: *mut *mut c_void) -> Status;
+    pub fn ext_guest_descriptor(g: *mut c_void, out: *mut Buffer) -> Status;
+    pub fn ext_guest_invoke(
         g: *mut c_void,
         p: *const u8,
         n: usize,
@@ -184,9 +184,9 @@ extern "C" {
         user: *mut c_void,
         out: *mut Buffer,
     ) -> Status;
-    pub fn ctx_guest_destroy(g: *mut c_void);
-    pub fn ctx_instances_create(o: *const InstanceOptions, out: *mut *mut c_void) -> Status;
-    pub fn ctx_instances_configure(
+    pub fn ext_guest_destroy(g: *mut c_void);
+    pub fn ext_instances_create(o: *const InstanceOptions, out: *mut *mut c_void) -> Status;
+    pub fn ext_instances_configure(
         m: *mut c_void,
         key: *const u8,
         kn: usize,
@@ -196,20 +196,20 @@ extern "C" {
         cn: usize,
         o: *const Call,
     ) -> Status;
-    pub fn ctx_instances_acquire(
+    pub fn ext_instances_acquire(
         m: *mut c_void,
         key: *const u8,
         n: usize,
         out: *mut *mut c_void,
     ) -> Status;
-    pub fn ctx_lease_value(l: *const c_void) -> *mut c_void;
-    pub fn ctx_lease_revision(l: *const c_void, n: *mut usize) -> *const u8;
-    pub fn ctx_lease_release(l: *mut c_void) -> Status;
-    pub fn ctx_instances_remove(m: *mut c_void, key: *const u8, n: usize) -> Status;
-    pub fn ctx_instances_close(m: *mut c_void, o: *const Call) -> Status;
-    pub fn ctx_instances_destroy(m: *mut c_void) -> Status;
-    pub fn ctx_streams_create(o: *const StreamOptions, out: *mut *mut c_void) -> Status;
-    pub fn ctx_streams_open(
+    pub fn ext_lease_value(l: *const c_void) -> *mut c_void;
+    pub fn ext_lease_revision(l: *const c_void, n: *mut usize) -> *const u8;
+    pub fn ext_lease_release(l: *mut c_void) -> Status;
+    pub fn ext_instances_remove(m: *mut c_void, key: *const u8, n: usize) -> Status;
+    pub fn ext_instances_close(m: *mut c_void, o: *const Call) -> Status;
+    pub fn ext_instances_destroy(m: *mut c_void) -> Status;
+    pub fn ext_streams_create(o: *const StreamOptions, out: *mut *mut c_void) -> Status;
+    pub fn ext_streams_open(
         s: *mut c_void,
         scope: *const u8,
         sn: usize,
@@ -218,7 +218,7 @@ extern "C" {
         o: *const Call,
         out: *mut Buffer,
     ) -> Status;
-    pub fn ctx_streams_read(
+    pub fn ext_streams_read(
         s: *mut c_void,
         scope: *const u8,
         sn: usize,
@@ -228,12 +228,12 @@ extern "C" {
         o: *const Call,
         out: *mut Buffer,
     ) -> Status;
-    pub fn ctx_streams_remove(
+    pub fn ext_streams_remove(
         s: *mut c_void,
         scope: *const u8,
         sn: usize,
         id: *const c_char,
     ) -> Status;
-    pub fn ctx_streams_close(s: *mut c_void) -> Status;
-    pub fn ctx_streams_destroy(s: *mut c_void) -> Status;
+    pub fn ext_streams_close(s: *mut c_void) -> Status;
+    pub fn ext_streams_destroy(s: *mut c_void) -> Status;
 }

@@ -1,4 +1,4 @@
-// ctx-plugin-bridge exposes a reviewed HashiCorp-backed endpoint over CTX JSON
+// ext-plugin-bridge exposes a reviewed HashiCorp-backed endpoint over CTX JSON
 // lines. Configuration is supplied by the embedding application's trust policy.
 package main
 
@@ -90,7 +90,7 @@ func (c config) authorize(_ context.Context, r plugin.Request) error {
 func main() {
 	if err := run(os.Args[1:]); err != nil {
 		// Errors can originate in native runtimes; don't dump guest payloads or config.
-		fmt.Fprintln(os.Stderr, "ctx-plugin-bridge: stopped:", safeError(err))
+		fmt.Fprintln(os.Stderr, "ext-plugin-bridge: stopped:", safeError(err))
 		os.Exit(1)
 	}
 }
@@ -107,7 +107,7 @@ func run(args []string) error {
 	if err != nil {
 		return err
 	}
-	flags := flag.NewFlagSet("ctx-plugin-bridge", flag.ContinueOnError)
+	flags := flag.NewFlagSet("ext-plugin-bridge", flag.ContinueOnError)
 	flags.SetOutput(os.Stderr)
 	file := flags.String("config", self+".json", "reviewed bridge configuration (defaults to executable.json)")
 	watch := flags.Bool("watch-parent", false, "internal parent-liveness supervisor (fd 3)")
@@ -122,7 +122,7 @@ func run(args []string) error {
 		return err
 	}
 	if *watch {
-		snapshot := os.NewFile(4, "ctx-bridge-selection")
+		snapshot := os.NewFile(4, "ext-bridge-selection")
 		if snapshot == nil {
 			return plugin.ErrInvalid
 		}

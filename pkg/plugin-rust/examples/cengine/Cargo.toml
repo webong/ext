@@ -1,10 +1,10 @@
 [package]
-name = "ctx-cengine-example"
+name = "ext-cengine-example"
 version = "0.0.0"
 edition = "2021"
 publish = false
 [dependencies]
-ctx-plugin-engine = { path = "../../engine" }
+ext-plugin-engine = { path = "../../engine" }
 
 [features]
-shared = ["ctx-plugin-engine/shared"]
+shared = ["ext-plugin-engine/shared"]

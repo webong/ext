@@ -7,11 +7,11 @@ pub fn build(b: *std.Build) void {
     const shared = b.option(bool, "shared", "Link the optional shared engine") orelse false;
     const translated = b.addTranslateC(.{ .root_source_file = b.path("src/bindings.h"), .target = target, .optimize = optimize });
     translated.addIncludePath(.{ .cwd_relative = include });
-    const module = b.addModule("ctx_plugin_engine", .{ .root_source_file = b.path("src/root.zig"), .target = target, .optimize = optimize, .link_libc = true });
+    const module = b.addModule("ext_plugin_engine", .{ .root_source_file = b.path("src/root.zig"), .target = target, .optimize = optimize, .link_libc = true });
     module.addImport("ffi", translated.createModule());
     module.addLibraryPath(.{ .cwd_relative = lib });
     module.addRPath(.{ .cwd_relative = lib });
-    module.linkSystemLibrary(if (shared) "ctx_host" else "ctx_host_static", .{});
+    module.linkSystemLibrary(if (shared) "ext_host" else "ext_host_static", .{});
     module.linkSystemLibrary("pthread", .{});
     module.linkSystemLibrary("m", .{});
     const tests = b.addTest(.{ .root_module = module });

@@ -1,19 +1,19 @@
-//go:build ctx_cengine && cgo && (darwin || linux)
+//go:build ext_cengine && cgo && (darwin || linux)
 
 // Package goengine (github.com/webong/ext/pkg/plugin-go) binds Go to the C host engine.
-// Build with -tags ctx_cengine and link libctx_host_static. Add the
-// ctx_cengine_shared tag to link the optional libctx_host shared library.
+// Build with -tags ext_cengine and link libext_host_static. Add the
+// ext_cengine_shared tag to link the optional libext_host shared library.
 package goengine
 
 /*
 #cgo CFLAGS: -I${SRCDIR}/../../pkg/plugin-engine/include
-#cgo !ctx_cengine_shared CFLAGS: -DCTX_HOST_STATIC
-#cgo !ctx_cengine_shared LDFLAGS: -lctx_host_static -lpthread -lm
-#cgo ctx_cengine_shared LDFLAGS: -lctx_host
-#include "ctx_host.h"
+#cgo !ext_cengine_shared CFLAGS: -DEXT_HOST_STATIC
+#cgo !ext_cengine_shared LDFLAGS: -lext_host_static -lpthread -lm
+#cgo ext_cengine_shared LDFLAGS: -lext_host
+#include "ext_host.h"
 #include <stdlib.h>
-void ctx_go_call_init(ctx_call_options *,uint32_t,const ctx_cancel *,uintptr_t);
-ctx_status ctx_go_create(const char *, const unsigned char *, size_t, uintptr_t, ctx_host **);
+void ext_go_call_init(ext_call_options *,uint32_t,const ext_cancel *,uintptr_t);
+ext_status ext_go_create(const char *, const unsigned char *, size_t, uintptr_t, ext_host **);
 */
 import "C"
 
@@ -42,7 +42,7 @@ type policies struct {
 // releases memory. Policy callbacks must not reenter the host.
 type Host struct {
 	mu          sync.RWMutex
-	ptr         *C.ctx_host
+	ptr         *C.ext_host
 	policy      cgo.Handle
 	descriptor  plugin.Descriptor
 	callTimeout time.Duration
@@ -69,39 +69,39 @@ func New(path string, d plugin.Descriptor, verify, authorize Policy) (*Host, err
 		}
 	}
 	h := &Host{policy: cgo.NewHandle(&policies{verify: verify, authorize: authorize}), descriptor: d.Clone()}
-	s := C.ctx_go_create(p, (*C.uchar)(unsafe.Pointer(&data[0])), C.size_t(len(data)), C.uintptr_t(h.policy), &h.ptr)
+	s := C.ext_go_create(p, (*C.uchar)(unsafe.Pointer(&data[0])), C.size_t(len(data)), C.uintptr_t(h.policy), &h.ptr)
 	if s != 0 {
 		h.policy.Delete()
 		return nil, status(s)
 	}
 	return h, nil
 }
-func status(s C.ctx_status) error {
+func status(s C.ext_status) error {
 	switch s {
-	case C.CTX_OK:
+	case C.EXT_OK:
 		return nil
-	case C.CTX_INVALID:
+	case C.EXT_INVALID:
 		return plugin.ErrInvalid
-	case C.CTX_DENIED:
+	case C.EXT_DENIED:
 		return plugin.ErrDenied
-	case C.CTX_MISMATCH:
+	case C.EXT_MISMATCH:
 		return plugin.ErrMismatch
-	case C.CTX_UNSUPPORTED:
+	case C.EXT_UNSUPPORTED:
 		return plugin.ErrUnsupported
-	case C.CTX_NOT_FOUND:
+	case C.EXT_NOT_FOUND:
 		return plugin.ErrNotFound
-	case C.CTX_AMBIGUOUS:
+	case C.EXT_AMBIGUOUS:
 		return plugin.ErrAmbiguous
-	case C.CTX_DRAINING:
+	case C.EXT_DRAINING:
 		return plugin.ErrDraining
-	case C.CTX_CLOSED:
+	case C.EXT_CLOSED:
 		return plugin.ErrClosed
-	case C.CTX_CANCELED:
+	case C.EXT_CANCELED:
 		return context.Canceled
-	case C.CTX_TIMEOUT:
+	case C.EXT_TIMEOUT:
 		return context.DeadlineExceeded
 	}
-	return fmt.Errorf("C host: %s", C.GoString(C.ctx_host_status_string(s)))
+	return fmt.Errorf("C host: %s", C.GoString(C.ext_host_status_string(s)))
 }
 func timeout(ctx context.Context) C.uint32_t {
 	d := 30 * time.Second
@@ -121,8 +121,8 @@ func timeout(ctx context.Context) C.uint32_t {
 // Joining the signal callback before freeing prevents C pointer lifetime races.
 type callScope struct {
 	ctx     context.Context
-	options C.ctx_call_options
-	cancel  *C.ctx_cancel
+	options C.ext_call_options
+	cancel  *C.ext_cancel
 	value   cgo.Handle
 	finish  func()
 }
@@ -144,20 +144,20 @@ func (h *Host) scope(ctx context.Context) (*callScope, error) {
 	ctx, cancelContext := context.WithTimeout(ctx, duration)
 	ctx = errorContext(ctx)
 	scope := &callScope{ctx: ctx}
-	if err := status(C.ctx_cancel_create(&scope.cancel)); err != nil {
+	if err := status(C.ext_cancel_create(&scope.cancel)); err != nil {
 		cancelContext()
 		h.mu.RUnlock()
 		return nil, err
 	}
 	scope.value = cgo.NewHandle(ctx)
-	C.ctx_go_call_init(&scope.options, timeout(ctx), scope.cancel, C.uintptr_t(scope.value))
+	C.ext_go_call_init(&scope.options, timeout(ctx), scope.cancel, C.uintptr_t(scope.value))
 	done := make(chan struct{})
-	stop := context.AfterFunc(ctx, func() { C.ctx_cancel_signal(scope.cancel); close(done) })
+	stop := context.AfterFunc(ctx, func() { C.ext_cancel_signal(scope.cancel); close(done) })
 	scope.finish = func() {
 		if !stop() {
 			<-done
 		}
-		C.ctx_cancel_destroy(scope.cancel)
+		C.ext_cancel_destroy(scope.cancel)
 		scope.value.Delete()
 		cancelContext()
 		h.mu.RUnlock()
@@ -170,7 +170,7 @@ func (h *Host) Start(ctx context.Context) error {
 		return err
 	}
 	defer scope.finish()
-	err = scope.result(status(C.ctx_host_start_with_options(h.ptr, &scope.options)))
+	err = scope.result(status(C.ext_host_start_with_options(h.ptr, &scope.options)))
 	if scope.ctx.Err() != nil {
 		return scope.ctx.Err()
 	}
@@ -185,9 +185,9 @@ func (h *Host) CallRaw(ctx context.Context, request []byte) ([]byte, error) {
 		return nil, err
 	}
 	defer scope.finish()
-	var out C.ctx_buffer
-	s := C.ctx_host_invoke_with_options(h.ptr, (*C.uint8_t)(unsafe.Pointer(&request[0])), C.size_t(len(request)), &scope.options, &out)
-	defer C.ctx_buffer_free(&out)
+	var out C.ext_buffer
+	s := C.ext_host_invoke_with_options(h.ptr, (*C.uint8_t)(unsafe.Pointer(&request[0])), C.size_t(len(request)), &scope.options, &out)
+	defer C.ext_buffer_free(&out)
 	if scope.ctx.Err() != nil {
 		return nil, scope.ctx.Err()
 	}
@@ -218,7 +218,7 @@ func (h *Host) Close() error {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 	if h.ptr != nil {
-		C.ctx_host_close(h.ptr)
+		C.ext_host_close(h.ptr)
 	}
 	if h.backend != nil {
 		<-h.backend.closeDone
@@ -233,7 +233,7 @@ func (h *Host) Destroy() {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	if h.ptr != nil {
-		C.ctx_host_destroy(h.ptr)
+		C.ext_host_destroy(h.ptr)
 		h.ptr = nil
 		h.policy.Delete()
 	}
@@ -242,7 +242,7 @@ func ValidateJSON(data []byte) error {
 	if len(data) == 0 {
 		return plugin.ErrInvalid
 	}
-	return status(C.ctx_host_validate_json((*C.uint8_t)(unsafe.Pointer(&data[0])), C.size_t(len(data))))
+	return status(C.ext_host_validate_json((*C.uint8_t)(unsafe.Pointer(&data[0])), C.size_t(len(data))))
 }
 
 //export ctxGoPolicy
@@ -274,9 +274,9 @@ func EngineCall(operation string, input json.RawMessage) (json.RawMessage, error
 	}
 	name := C.CString(operation)
 	defer C.free(unsafe.Pointer(name))
-	var out C.ctx_buffer
-	s := C.ctx_engine_call(name, (*C.uint8_t)(unsafe.Pointer(&input[0])), C.size_t(len(input)), &out)
-	defer C.ctx_buffer_free(&out)
+	var out C.ext_buffer
+	s := C.ext_engine_call(name, (*C.uint8_t)(unsafe.Pointer(&input[0])), C.size_t(len(input)), &out)
+	defer C.ext_buffer_free(&out)
 	if err := status(s); err != nil {
 		return nil, err
 	}
@@ -302,9 +302,9 @@ func (h *Host) Call(ctx context.Context, contract plugin.ContractRef, operation 
 		return nil, err
 	}
 	defer scope.finish()
-	var out C.ctx_buffer
-	s := C.ctx_host_call(h.ptr, (*C.uint8_t)(unsafe.Pointer(&data[0])), C.size_t(len(data)), &scope.options, &out)
-	defer C.ctx_buffer_free(&out)
+	var out C.ext_buffer
+	s := C.ext_host_call(h.ptr, (*C.uint8_t)(unsafe.Pointer(&data[0])), C.size_t(len(data)), &scope.options, &out)
+	defer C.ext_buffer_free(&out)
 	if scope.ctx.Err() != nil {
 		return nil, scope.ctx.Err()
 	}

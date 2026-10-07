@@ -11,7 +11,7 @@ await call(session,method,{value:123});
 void output;
 
 import {loadEngine} from './engine/index.mjs';
-const engine=loadEngine('/absolute/path/ctx_engine.node');
+const engine=loadEngine('/absolute/path/ext_engine.node');
 const nativeHost=await engine.Host.open({executable:'/absolute/path/guest',descriptor:{},verify:()=>true,authorize:async()=>true,observe:event=>{void event.stage;}});
 await nativeHost.call({name:'example.echo',version:'v1'},'echo',{value:'ok'},{timeout:1000});
 await engine.directoryDigest('/absolute/path/package');

@@ -1,11 +1,11 @@
-//go:build ctx_cengine && cgo && (darwin || linux)
+//go:build ext_cengine && cgo && (darwin || linux)
 
 package goengine
 
 /*
-#include "ctx_host.h"
+#include "ext_host.h"
 #include <stdlib.h>
-ctx_status ctx_go_create_process(const char *,const char *const *,size_t,const char *const *,size_t,const uint8_t *,size_t,uintptr_t,ctx_host **);
+ext_status ext_go_create_process(const char *,const char *const *,size_t,const char *const *,size_t,const uint8_t *,size_t,uintptr_t,ext_host **);
 */
 import "C"
 import (
@@ -29,7 +29,7 @@ func cStrings(values []string) (**C.char, func(), error) {
 	}
 	ptr := C.calloc(C.size_t(len(values)), C.size_t(unsafe.Sizeof(uintptr(0))))
 	if ptr == nil {
-		return nil, nil, status(C.CTX_NOMEM)
+		return nil, nil, status(C.EXT_NOMEM)
 	}
 	array := unsafe.Slice((**C.char)(ptr), len(values))
 	cleanup := func() {
@@ -46,7 +46,7 @@ func cStrings(values []string) (**C.char, func(), error) {
 		array[i] = C.CString(v)
 		if array[i] == nil {
 			cleanup()
-			return nil, nil, status(C.CTX_NOMEM)
+			return nil, nil, status(C.EXT_NOMEM)
 		}
 	}
 	return (**C.char)(ptr), cleanup, nil
@@ -72,7 +72,7 @@ func NewProcess(options ProcessOptions, d plugin.Descriptor, verify, authorize P
 	}
 	defer freeEnv()
 	h := &Host{policy: cgo.NewHandle(&policies{verify: verify, authorize: authorize}), descriptor: d.Clone()}
-	code := C.ctx_go_create_process(path, args, C.size_t(len(options.Arguments)), env, C.size_t(len(options.Environment)), bytesPointer(data), C.size_t(len(data)), C.uintptr_t(h.policy), &h.ptr)
+	code := C.ext_go_create_process(path, args, C.size_t(len(options.Arguments)), env, C.size_t(len(options.Environment)), bytesPointer(data), C.size_t(len(data)), C.uintptr_t(h.policy), &h.ptr)
 	if err = status(code); err != nil {
 		h.policy.Delete()
 		return nil, err

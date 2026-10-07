@@ -1,8 +1,8 @@
 #define _POSIX_C_SOURCE 200809L
-#include "ctx_guest.h"
-#include "ctx_host.h"
-#include "ctx_instance.h"
-#include "ctx_stream.h"
+#include "ext_guest.h"
+#include "ext_host.h"
+#include "ext_instance.h"
+#include "ext_stream.h"
 #include <node_api.h>
 #include <pthread.h>
 #include <stdatomic.h>
@@ -23,8 +23,8 @@ static int external(napi_env env, napi_value value, const napi_type_tag *tag,
          tagged && napi_get_value_external(env, value, out) == napi_ok;
 }
 typedef struct {
-  ctx_host *host;
-  ctx_guest *guest;
+  ext_host *host;
+  ext_guest *guest;
   napi_threadsafe_function verify, authorize, handle, observe;
   napi_env env;
   int cleanup_hook;
@@ -36,7 +36,7 @@ typedef struct {
   pthread_cond_t changed;
   atomic_int refs;
   int done;
-  ctx_status status;
+  ext_status status;
   uint32_t kind, timeout;
   uint8_t *input, *output;
   size_t input_len, output_len;
@@ -52,7 +52,7 @@ static void release_callback(callback *r) {
 }
 static char *string(napi_env env, napi_value v, size_t *len) {
   if (napi_get_value_string_utf8(env, v, NULL, 0, len) != napi_ok ||
-      *len > CTX_HOST_MAX_FRAME)
+      *len > EXT_HOST_MAX_FRAME)
     return NULL;
   char *s = malloc(*len + 1);
   if (!s)
@@ -77,7 +77,7 @@ static int64_t now(void) {
   clock_gettime(CLOCK_MONOTONIC, &t);
   return (int64_t)t.tv_sec * 1000 + t.tv_nsec / 1000000;
 }
-static void finish(callback *r, ctx_status status, uint32_t kind,
+static void finish(callback *r, ext_status status, uint32_t kind,
                    uint8_t *output, size_t len) {
   pthread_mutex_lock(&r->mu);
   if (!r->done) {
@@ -104,17 +104,17 @@ static napi_value reply(napi_env env, napi_callback_info info) {
   if (napi_get_cb_info(env, info, &count, args, NULL, &data) != napi_ok)
     return NULL;
   callback *r = data;
-  int32_t status = CTX_IO;
+  int32_t status = EXT_IO;
   uint32_t kind = 0;
   size_t len = 0;
   uint8_t *bytes = NULL;
   if (count != 3 || napi_get_value_int32(env, args[0], &status) != napi_ok ||
       napi_get_value_uint32(env, args[1], &kind) != napi_ok)
-    status = CTX_IO;
-  else if (status == CTX_OK) {
+    status = EXT_IO;
+  else if (status == EXT_OK) {
     bytes = (uint8_t *)string(env, args[2], &len);
     if (!bytes)
-      status = CTX_INVALID;
+      status = EXT_INVALID;
   }
   finish(r, status, kind, bytes, len);
   return undefined(env);
@@ -124,7 +124,7 @@ static void callback_js(napi_env env, napi_value function, void *context,
   (void)context;
   callback *r = data;
   if (!env || !function) {
-    finish(r, CTX_CLOSED, 0, NULL, 0);
+    finish(r, EXT_CLOSED, 0, NULL, 0);
     release_callback(r);
     return;
   }
@@ -141,7 +141,7 @@ static void callback_js(napi_env env, napi_value function, void *context,
       napi_create_uint32(env, r->timeout, &args[1]) != napi_ok ||
       napi_create_function(env, "reply", NAPI_AUTO_LENGTH, reply, r,
                            &args[2]) != napi_ok) {
-    finish(r, CTX_IO, 0, NULL, 0);
+    finish(r, EXT_IO, 0, NULL, 0);
     release_callback(r);
     return;
   }
@@ -149,7 +149,7 @@ static void callback_js(napi_env env, napi_value function, void *context,
    * a timed-out native call. No stack or engine handle is retained in r. */
   if (napi_add_finalizer(env, args[2], r, reply_finalizer, NULL, NULL) !=
       napi_ok) {
-    finish(r, CTX_IO, 0, NULL, 0);
+    finish(r, EXT_IO, 0, NULL, 0);
     release_callback(r);
     return;
   }
@@ -160,31 +160,31 @@ static void callback_js(napi_env env, napi_value function, void *context,
     napi_is_exception_pending(env, &pending);
     if (pending)
       napi_get_and_clear_last_exception(env, &result);
-    finish(r, CTX_IO, 0, NULL, 0);
+    finish(r, EXT_IO, 0, NULL, 0);
   }
 }
-static ctx_status invoke_js(napi_threadsafe_function fn, const uint8_t *input,
-                            size_t len, const ctx_call_options *o,
-                            const ctx_cancel *life, uint32_t *kind,
-                            ctx_buffer *out) {
+static ext_status invoke_js(napi_threadsafe_function fn, const uint8_t *input,
+                            size_t len, const ext_call_options *o,
+                            const ext_cancel *life, uint32_t *kind,
+                            ext_buffer *out) {
   callback *r = calloc(1, sizeof(*r));
   if (!r)
-    return CTX_NOMEM;
+    return EXT_NOMEM;
   if (pthread_mutex_init(&r->mu, NULL)) {
     free(r);
-    return CTX_IO;
+    return EXT_IO;
   }
   if (pthread_cond_init(&r->changed, NULL)) {
     pthread_mutex_destroy(&r->mu);
     free(r);
-    return CTX_IO;
+    return EXT_IO;
   }
   atomic_init(&r->refs, 2);
   r->input = malloc(len ? len : 1);
   if (!r->input) {
     release_callback(r);
     release_callback(r);
-    return CTX_NOMEM;
+    return EXT_NOMEM;
   }
   memcpy(r->input, input, len);
   r->input_len = len;
@@ -192,18 +192,18 @@ static ctx_status invoke_js(napi_threadsafe_function fn, const uint8_t *input,
   if (napi_call_threadsafe_function(fn, r, napi_tsfn_nonblocking) != napi_ok) {
     release_callback(r);
     release_callback(r);
-    return CTX_CLOSED;
+    return EXT_CLOSED;
   }
   int64_t end = now() + o->timeout_ms;
   pthread_mutex_lock(&r->mu);
   while (!r->done) {
-    if (ctx_cancel_is_signaled(o->cancel) || ctx_cancel_is_signaled(life) ||
+    if (ext_cancel_is_signaled(o->cancel) || ext_cancel_is_signaled(life) ||
         now() >= end) {
       r->done = 1;
-      r->status = ctx_cancel_is_signaled(o->cancel) ||
-                          ctx_cancel_is_signaled(life)
-                      ? CTX_CANCELED
-                      : CTX_TIMEOUT;
+      r->status = ext_cancel_is_signaled(o->cancel) ||
+                          ext_cancel_is_signaled(life)
+                      ? EXT_CANCELED
+                      : EXT_TIMEOUT;
       break;
     }
     struct timespec t;
@@ -215,7 +215,7 @@ static ctx_status invoke_js(napi_threadsafe_function fn, const uint8_t *input,
     }
     pthread_cond_timedwait(&r->changed, &r->mu, &t);
   }
-  ctx_status status = r->status;
+  ext_status status = r->status;
   *kind = r->kind;
   out->data = r->output;
   out->len = r->output_len;
@@ -230,34 +230,34 @@ static int32_t allow_placeholder(void *u, const uint8_t *p, size_t n) {
   (void)n;
   return 1;
 }
-static int32_t policy(binding *b, int verify, const ctx_call_options *o,
+static int32_t policy(binding *b, int verify, const ext_call_options *o,
                       const uint8_t *p, size_t n) {
-  ctx_buffer out = {0};
+  ext_buffer out = {0};
   uint32_t kind;
-  ctx_status s =
+  ext_status s =
       invoke_js(verify ? b->verify : b->authorize, p, n, o, NULL, &kind, &out);
-  ctx_buffer_free(&out);
-  return s == CTX_OK ? 0 : 1;
+  ext_buffer_free(&out);
+  return s == EXT_OK ? 0 : 1;
 }
-static int32_t verify(void *u, const ctx_call_options *o, const uint8_t *p,
+static int32_t verify(void *u, const ext_call_options *o, const uint8_t *p,
                       size_t n) {
   return policy(u, 1, o, p, n);
 }
-static int32_t authorize(void *u, const ctx_call_options *o, const uint8_t *p,
+static int32_t authorize(void *u, const ext_call_options *o, const uint8_t *p,
                          size_t n) {
   return policy(u, 0, o, p, n);
 }
-static ctx_status handle(void *u, void *call, const uint8_t *p, size_t n,
-                         uint32_t ms, ctx_guest_emit emit, void *sink) {
+static ext_status handle(void *u, void *call, const uint8_t *p, size_t n,
+                         uint32_t ms, ext_guest_emit emit, void *sink) {
   binding *b = u;
-  ctx_call_options o = *(ctx_call_options *)call;
+  ext_call_options o = *(ext_call_options *)call;
   o.timeout_ms = ms;
-  ctx_buffer out = {0};
+  ext_buffer out = {0};
   uint32_t kind = 0;
-  ctx_status s = invoke_js(b->handle, p, n, &o, NULL, &kind, &out);
+  ext_status s = invoke_js(b->handle, p, n, &o, NULL, &kind, &out);
   if (!s)
     s = emit(sink, kind, out.data, out.len);
-  ctx_buffer_free(&out);
+  ext_buffer_free(&out);
   return s;
 }
 static int tsfn(napi_env env, napi_value function,
@@ -266,7 +266,7 @@ static int tsfn(napi_env env, napi_value function,
   if (napi_typeof(env, function, &type) != napi_ok || type != napi_function)
     return 0;
   napi_value name;
-  napi_create_string_utf8(env, "ctx-engine-callback", NAPI_AUTO_LENGTH, &name);
+  napi_create_string_utf8(env, "ext-engine-callback", NAPI_AUTO_LENGTH, &name);
   if (napi_create_threadsafe_function(env, function, NULL, name, 0, 1, NULL,
                                       NULL, NULL, callback_js, out) != napi_ok)
     return 0;
@@ -291,7 +291,7 @@ static void observe_js(napi_env env, napi_value function, void *context,
   }
   free(json);
 }
-static void observe(void *user, const ctx_call_options *call, const uint8_t *p,
+static void observe(void *user, const ext_call_options *call, const uint8_t *p,
                     size_t n) {
   (void)call;
   binding *b = user;
@@ -309,7 +309,7 @@ static void observe(void *user, const ctx_call_options *call, const uint8_t *p,
 static void cleanup_binding(void *data) {
   binding *b = data;
   b->cleanup_hook = 0;
-  ctx_host_close(b->host);
+  ext_host_close(b->host);
   if (b->verify) {
     napi_release_threadsafe_function(b->verify, napi_tsfn_abort);
     b->verify = NULL;
@@ -331,9 +331,9 @@ static void dispose_contents(binding *b) {
   if (b->cleanup_hook)
     napi_remove_env_cleanup_hook(b->env, cleanup_binding, b);
   cleanup_binding(b);
-  ctx_host_destroy(b->host);
+  ext_host_destroy(b->host);
   b->host = NULL;
-  ctx_guest_destroy(b->guest);
+  ext_guest_destroy(b->guest);
   b->guest = NULL;
 }
 static void destroy_binding(napi_env env, void *data, void *hint) {
@@ -386,7 +386,7 @@ static napi_value create_host(napi_env env, napi_callback_info info) {
   uint32_t an = 0, en = 0;
   char **argv = strings(env, args[2], &an), **envp = strings(env, args[3], &en);
   binding *b = calloc(1, sizeof(*b));
-  ctx_status status = CTX_INVALID;
+  ext_status status = EXT_INVALID;
   if (!path || strlen(path) != pn || !descriptor || !argv || !envp || !b)
     goto done;
   if (!tsfn(env, args[4], &b->verify) || !tsfn(env, args[5], &b->authorize))
@@ -396,7 +396,7 @@ static napi_value create_host(napi_env env, napi_callback_info info) {
     goto done;
   if (observer_type != napi_undefined) {
     napi_value name;
-    napi_create_string_utf8(env, "ctx-engine-observer", NAPI_AUTO_LENGTH,
+    napi_create_string_utf8(env, "ext-engine-observer", NAPI_AUTO_LENGTH,
                             &name);
     if (observer_type != napi_function ||
         napi_create_threadsafe_function(env, args[6], NULL, name, 1024, 1, NULL,
@@ -405,23 +405,23 @@ static napi_value create_host(napi_env env, napi_callback_info info) {
       goto done;
     napi_unref_threadsafe_function(env, b->observe);
   }
-  ctx_jsonline_process_config process = {sizeof(process),           path,
+  ext_jsonline_process_config process = {sizeof(process),           path,
                                          (const char *const *)argv, an,
                                          (const char *const *)envp, en};
-  ctx_backend_options backend = {sizeof(backend),
-                                 CTX_BACKEND_JSONLINE_PROCESS_CONFIG, &process,
+  ext_backend_options backend = {sizeof(backend),
+                                 EXT_BACKEND_JSONLINE_PROCESS_CONFIG, &process,
                                  sizeof(process)};
-  ctx_host_options options = {CTX_HOST_ABI_VERSION,
+  ext_host_options options = {EXT_HOST_ABI_VERSION,
                               sizeof(options),
                               (uint8_t *)descriptor,
                               dn,
                               allow_placeholder,
                               allow_placeholder,
                               b};
-  status = ctx_host_create(&options, &backend, &b->host);
+  status = ext_host_create(&options, &backend, &b->host);
   if (!status) {
-    ctx_host_hooks hooks = {sizeof(hooks), b, verify, authorize, observe};
-    status = ctx_host_set_hooks(b->host, &hooks);
+    ext_host_hooks hooks = {sizeof(hooks), b, verify, authorize, observe};
+    status = ext_host_set_hooks(b->host, &hooks);
   }
 done:
   free(path);
@@ -433,7 +433,7 @@ done:
           napi_ok) {
     if (b)
       destroy_binding(env, b, NULL);
-    return failure(env, ctx_host_status_string(status ? status : CTX_IO));
+    return failure(env, ext_host_status_string(status ? status : EXT_IO));
   }
   if (napi_type_tag_object(env, external, &binding_tag) != napi_ok)
     return failure(env, "cannot tag native handle");
@@ -449,17 +449,17 @@ static napi_value create_guest(napi_env env, napi_callback_info info) {
   char *descriptor = string(env, args[0], &n);
   uint32_t ms = 0;
   binding *b = calloc(1, sizeof(*b));
-  ctx_status status = CTX_INVALID;
+  ext_status status = EXT_INVALID;
   if (descriptor && b && napi_get_value_uint32(env, args[1], &ms) == napi_ok &&
       tsfn(env, args[2], &b->handle)) {
-    ctx_guest_options options = {CTX_HOST_ABI_VERSION,
+    ext_guest_options options = {EXT_HOST_ABI_VERSION,
                                  sizeof(options),
                                  (uint8_t *)descriptor,
                                  n,
                                  ms,
                                  b,
                                  handle};
-    status = ctx_guest_create(&options, &b->guest);
+    status = ext_guest_create(&options, &b->guest);
   }
   free(descriptor);
   if (status || !register_cleanup(env, b) ||
@@ -467,7 +467,7 @@ static napi_value create_guest(napi_env env, napi_callback_info info) {
           napi_ok) {
     if (b)
       destroy_binding(env, b, NULL);
-    return failure(env, ctx_host_status_string(status ? status : CTX_IO));
+    return failure(env, ext_host_status_string(status ? status : EXT_IO));
   }
   if (napi_type_tag_object(env, external, &binding_tag) != napi_ok)
     return failure(env, "cannot tag native handle");
@@ -476,17 +476,17 @@ static napi_value create_guest(napi_env env, napi_callback_info info) {
 static void destroy_cancel(napi_env env, void *data, void *hint) {
   (void)env;
   (void)hint;
-  ctx_cancel_destroy(data);
+  ext_cancel_destroy(data);
 }
 static napi_value new_cancel(napi_env env, napi_callback_info info) {
   (void)info;
-  ctx_cancel *c = NULL;
+  ext_cancel *c = NULL;
   napi_value out;
-  ctx_status s = ctx_cancel_create(&c);
+  ext_status s = ext_cancel_create(&c);
   if (s)
-    return failure(env, ctx_host_status_string(s));
+    return failure(env, ext_host_status_string(s));
   if (napi_create_external(env, c, destroy_cancel, NULL, &out) != napi_ok) {
-    ctx_cancel_destroy(c);
+    ext_cancel_destroy(c);
     return failure(env, "allocation failed");
   }
   if (napi_type_tag_object(env, out, &cancel_tag) != napi_ok)
@@ -500,7 +500,7 @@ static napi_value signal_cancel(napi_env env, napi_callback_info info) {
   if (napi_get_cb_info(env, info, &n, &arg, NULL, NULL) != napi_ok || n != 1 ||
       !external(env, arg, &cancel_tag, &c))
     return failure(env, "invalid cancellation");
-  ctx_cancel_signal(c);
+  ext_cancel_signal(c);
   return undefined(env);
 }
 static napi_value close_host(napi_env env, napi_callback_info info) {
@@ -511,7 +511,7 @@ static napi_value close_host(napi_env env, napi_callback_info info) {
       !external(env, arg, &binding_tag, (void **)&b))
     return failure(env, "invalid host");
   b->disposed = 1;
-  ctx_host_close(b->host);
+  ext_host_close(b->host);
   if (!b->jobs)
     dispose_contents(b);
   return undefined(env);
@@ -521,13 +521,13 @@ typedef struct {
   napi_deferred deferred;
   napi_ref owner, signal;
   binding *binding;
-  ctx_call_options options;
+  ext_call_options options;
   char *operation;
   char *root;
   uint8_t *input;
   size_t input_len;
-  ctx_buffer output;
-  ctx_status status;
+  ext_buffer output;
+  ext_status status;
 } job;
 static void execute(napi_env env, void *data) {
   (void)env;
@@ -535,14 +535,14 @@ static void execute(napi_env env, void *data) {
   binding *b = j->binding;
   if (j->root) {
     if (!strcmp(j->operation, "verify")) {
-      j->status = ctx_package_verify(j->input, j->input_len, j->root);
+      j->status = ext_package_verify(j->input, j->input_len, j->root);
     } else if (!strcmp(j->operation, "digest")) {
       uint8_t hash[32];
-      j->status = ctx_directory_digest(j->root, hash);
+      j->status = ext_directory_digest(j->root, hash);
       if (!j->status) {
         j->output.data = malloc(67);
         if (!j->output.data)
-          j->status = CTX_NOMEM;
+          j->status = EXT_NOMEM;
         else {
           static const char hex[] = "0123456789abcdef";
           j->output.data[0] = j->output.data[65] = '"';
@@ -555,27 +555,27 @@ static void execute(napi_env env, void *data) {
         }
       }
     } else
-      j->status = CTX_INVALID;
+      j->status = EXT_INVALID;
   } else if (!strcmp(j->operation, "start") && b->host)
-    j->status = ctx_host_start_with_options(b->host, &j->options);
+    j->status = ext_host_start_with_options(b->host, &j->options);
   else if (!strcmp(j->operation, "invoke") && b->host)
-    j->status = ctx_host_invoke_with_options(b->host, j->input, j->input_len,
+    j->status = ext_host_invoke_with_options(b->host, j->input, j->input_len,
                                              &j->options, &j->output);
   else if (!strcmp(j->operation, "call") && b->host)
     j->status =
-        ctx_host_call(b->host, j->input, j->input_len, &j->options, &j->output);
+        ext_host_call(b->host, j->input, j->input_len, &j->options, &j->output);
   else if (!strcmp(j->operation, "drain") && b->host)
-    j->status = ctx_host_drain_with_options(b->host, &j->options);
+    j->status = ext_host_drain_with_options(b->host, &j->options);
   else if (!strcmp(j->operation, "guest.invoke") && b->guest)
     j->status =
-        ctx_guest_invoke(b->guest, j->input, j->input_len,
+        ext_guest_invoke(b->guest, j->input, j->input_len,
                          j->options.timeout_ms, &j->options, &j->output);
   else if (!strcmp(j->operation, "descriptor") && b->guest)
-    j->status = ctx_guest_descriptor(b->guest, &j->output);
+    j->status = ext_guest_descriptor(b->guest, &j->output);
   else
-    j->status = CTX_INVALID;
-  if (ctx_cancel_is_signaled(j->options.cancel))
-    j->status = CTX_CANCELED;
+    j->status = EXT_INVALID;
+  if (ext_cancel_is_signaled(j->options.cancel))
+    j->status = EXT_CANCELED;
 }
 static void free_job(napi_env env, job *j) {
   if (j->owner)
@@ -587,17 +587,17 @@ static void free_job(napi_env env, job *j) {
   free(j->operation);
   free(j->root);
   free(j->input);
-  ctx_buffer_free(&j->output);
+  ext_buffer_free(&j->output);
   free(j);
 }
 static void complete(napi_env env, napi_status code, void *data) {
   job *j = data;
   napi_value value;
   if (code != napi_ok && !j->status)
-    j->status = CTX_IO;
+    j->status = EXT_IO;
   if (j->status) {
     napi_value message, status;
-    napi_create_string_utf8(env, ctx_host_status_string(j->status),
+    napi_create_string_utf8(env, ext_host_status_string(j->status),
                             NAPI_AUTO_LENGTH, &message);
     napi_create_error(env, NULL, message, &value);
     napi_create_int32(env, j->status, &status);
@@ -642,7 +642,7 @@ static napi_value request(napi_env env, napi_callback_info info) {
       napi_create_reference(env, args[4], 1, &j->signal) != napi_ok ||
       napi_create_promise(env, &j->deferred, &promise) != napi_ok)
     goto invalid;
-  napi_create_string_utf8(env, "ctx-engine-call", NAPI_AUTO_LENGTH, &name);
+  napi_create_string_utf8(env, "ext-engine-call", NAPI_AUTO_LENGTH, &name);
   if (napi_create_async_work(env, NULL, name, execute, complete, j, &j->work) !=
           napi_ok ||
       napi_queue_async_work(env, j->work) != napi_ok)
@@ -661,19 +661,19 @@ static napi_value service(napi_env env, napi_callback_info info) {
     return failure(env, "invalid service arguments");
   size_t on = 0, n = 0;
   char *op = string(env, args[0], &on), *input = string(env, args[1], &n);
-  ctx_buffer out = {0};
-  ctx_status status = op && strlen(op) == on && input
-                          ? ctx_engine_call(op, (uint8_t *)input, n, &out)
-                          : CTX_INVALID;
+  ext_buffer out = {0};
+  ext_status status = op && strlen(op) == on && input
+                          ? ext_engine_call(op, (uint8_t *)input, n, &out)
+                          : EXT_INVALID;
   free(op);
   free(input);
   if (status) {
-    ctx_buffer_free(&out);
-    return failure(env, ctx_host_status_string(status));
+    ext_buffer_free(&out);
+    return failure(env, ext_host_status_string(status));
   }
   napi_status s =
       napi_create_string_utf8(env, (char *)out.data, out.len, &result);
-  ctx_buffer_free(&out);
+  ext_buffer_free(&out);
   return s == napi_ok ? result : failure(env, "allocation failed");
 }
 static napi_value integrity(napi_env env, napi_callback_info info) {
@@ -693,7 +693,7 @@ static napi_value integrity(napi_env env, napi_callback_info info) {
     goto invalid;
   if (napi_create_promise(env, &j->deferred, &promise) != napi_ok)
     goto invalid;
-  napi_create_string_utf8(env, "ctx-engine-integrity", NAPI_AUTO_LENGTH, &name);
+  napi_create_string_utf8(env, "ext-engine-integrity", NAPI_AUTO_LENGTH, &name);
   if (napi_create_async_work(env, NULL, name, execute, complete, j, &j->work) !=
           napi_ok ||
       napi_queue_async_work(env, j->work) != napi_ok)
@@ -713,36 +713,36 @@ static const napi_type_tag manager_tag = {0x4e3f1a8c52d70b19ULL,
 static const napi_type_tag lease_tag = {0x7a21c4d90be35f68ULL,
                                         0x2bd8f6e1479a0c53ULL};
 typedef struct {
-  ctx_instances *instances;
-  ctx_streams *streams;
+  ext_instances *instances;
+  ext_streams *streams;
   napi_threadsafe_function fn;
   napi_env env;
   int cleanup_hook, disposed;
   size_t jobs;
 } manager;
 typedef struct {
-  ctx_lease *lease;
+  ext_lease *lease;
 } lease_box;
 typedef struct {
   const uint8_t *p;
   size_t n;
 } field;
-static ctx_status manager_call(manager *m, const ctx_call_options *call,
-                               const ctx_cancel *life, ctx_buffer *out,
+static ext_status manager_call(manager *m, const ext_call_options *call,
+                               const ext_cancel *life, ext_buffer *out,
                                const char *op, const field *fields,
                                size_t count) {
-  ctx_call_options fallback = {sizeof(fallback), 30000, NULL, NULL};
+  ext_call_options fallback = {sizeof(fallback), 30000, NULL, NULL};
   if (!call)
     call = &fallback;
   size_t total = strlen(op) + 1;
   for (size_t i = 0; i < count; i++) {
     if (memchr(fields[i].p, 0, fields[i].n))
-      return CTX_INVALID;
+      return EXT_INVALID;
     total += fields[i].n + (i + 1 < count ? 1 : 0);
   }
   uint8_t *frame = malloc(total ? total : 1), *at = frame;
   if (!frame)
-    return CTX_NOMEM;
+    return EXT_NOMEM;
   size_t n = strlen(op);
   memcpy(at, op, n);
   at += n;
@@ -753,14 +753,14 @@ static ctx_status manager_call(manager *m, const ctx_call_options *call,
     at += fields[i].n;
   }
   uint32_t kind = 0;
-  ctx_buffer scratch = {0};
-  ctx_status s = invoke_js(m->fn, frame, (size_t)(at - frame), call, life,
+  ext_buffer scratch = {0};
+  ext_status s = invoke_js(m->fn, frame, (size_t)(at - frame), call, life,
                            &kind, out ? out : &scratch);
   free(frame);
-  ctx_buffer_free(&scratch);
+  ext_buffer_free(&scratch);
   return s;
 }
-static void *handle_id(ctx_buffer *out, ctx_status *status) {
+static void *handle_id(ext_buffer *out, ext_status *status) {
   char *end = NULL;
   unsigned long long id = 0;
   if (*status || !out->data || !out->len)
@@ -777,55 +777,55 @@ static void *handle_id(ctx_buffer *out, ctx_status *status) {
     return (void *)(uintptr_t)id;
 bad:
   if (!*status)
-    *status = CTX_INVALID;
+    *status = EXT_INVALID;
   return NULL;
 }
-static ctx_status instance_validate(void *u, const uint8_t *p, size_t n) {
+static ext_status instance_validate(void *u, const uint8_t *p, size_t n) {
   field f[] = {{p, n}};
   return manager_call(u, NULL, NULL, NULL, "validate", f, 1);
 }
-static ctx_status instance_create(void *u, const ctx_call_options *call,
-                                  const ctx_cancel *life, const uint8_t *key,
+static ext_status instance_create(void *u, const ext_call_options *call,
+                                  const ext_cancel *life, const uint8_t *key,
                                   size_t kn, const uint8_t *config, size_t cn,
                                   void **value) {
-  ctx_buffer out = {0};
+  ext_buffer out = {0};
   field f[] = {{key, kn}, {config, cn}};
-  ctx_status s = manager_call(u, call, life, &out, "create", f, 2);
+  ext_status s = manager_call(u, call, life, &out, "create", f, 2);
   *value = handle_id(&out, &s);
-  ctx_buffer_free(&out);
+  ext_buffer_free(&out);
   return s;
 }
-static ctx_status instance_dispose(void *u, void *value) {
+static ext_status instance_dispose(void *u, void *value) {
   char id[32];
   snprintf(id, sizeof(id), "%llu", (unsigned long long)(uintptr_t)value);
   field f[] = {{(uint8_t *)id, strlen(id)}};
   return manager_call(u, NULL, NULL, NULL, "dispose", f, 1);
 }
-static ctx_status stream_open(void *u, const ctx_call_options *call,
-                              const ctx_cancel *life, const uint8_t *p,
+static ext_status stream_open(void *u, const ext_call_options *call,
+                              const ext_cancel *life, const uint8_t *p,
                               size_t n, void **value) {
-  ctx_buffer out = {0};
+  ext_buffer out = {0};
   field f[] = {{p, n}};
-  ctx_status s = manager_call(u, call, life, &out, "open", f, 1);
+  ext_status s = manager_call(u, call, life, &out, "open", f, 1);
   *value = handle_id(&out, &s);
-  ctx_buffer_free(&out);
+  ext_buffer_free(&out);
   return s;
 }
-static ctx_status stream_read(void *u, void *value, const ctx_call_options *call,
-                              const ctx_cancel *life, uint32_t limit,
-                              ctx_emit emit, void *sink) {
+static ext_status stream_read(void *u, void *value, const ext_call_options *call,
+                              const ext_cancel *life, uint32_t limit,
+                              ext_emit emit, void *sink) {
   char id[32], count[16];
   snprintf(id, sizeof(id), "%llu", (unsigned long long)(uintptr_t)value);
   snprintf(count, sizeof(count), "%u", limit);
   field f[] = {{(uint8_t *)id, strlen(id)}, {(uint8_t *)count, strlen(count)}};
-  ctx_buffer out = {0};
-  ctx_status s = manager_call(u, call, life, &out, "read", f, 2);
+  ext_buffer out = {0};
+  ext_status s = manager_call(u, call, life, &out, "read", f, 2);
   if (!s)
     s = emit(sink, out.data, out.len);
-  ctx_buffer_free(&out);
+  ext_buffer_free(&out);
   return s;
 }
-static ctx_status stream_close(void *u, void *value) {
+static ext_status stream_close(void *u, void *value) {
   char id[32];
   snprintf(id, sizeof(id), "%llu", (unsigned long long)(uintptr_t)value);
   field f[] = {{(uint8_t *)id, strlen(id)}};
@@ -868,7 +868,7 @@ static void destroy_manager_external(napi_env env, void *data, void *hint) {
   if (!m->instances && !m->streams && !m->jobs)
     free(m);
 }
-static napi_value wrap_manager(napi_env env, manager *m, ctx_status status) {
+static napi_value wrap_manager(napi_env env, manager *m, ext_status status) {
   napi_value out;
   m->env = env;
   if (status || napi_add_env_cleanup_hook(env, cleanup_manager, m) != napi_ok)
@@ -882,13 +882,13 @@ static napi_value wrap_manager(napi_env env, manager *m, ctx_status status) {
 fail:
   release_manager_function(m);
   if (m->instances)
-    ctx_instances_destroy(m->instances);
+    ext_instances_destroy(m->instances);
   if (m->streams)
-    ctx_streams_destroy(m->streams);
+    ext_streams_destroy(m->streams);
   if (m->cleanup_hook)
     napi_remove_env_cleanup_hook(env, cleanup_manager, m);
   free(m);
-  return failure(env, ctx_host_status_string(status ? status : CTX_IO));
+  return failure(env, ext_host_status_string(status ? status : EXT_IO));
 }
 static napi_value create_instances(napi_env env, napi_callback_info info) {
   size_t count = 2;
@@ -904,11 +904,11 @@ static napi_value create_instances(napi_env env, napi_callback_info info) {
     }
     return failure(env, "invalid instance manager arguments");
   }
-  ctx_instance_options options = {sizeof(options),    capacity,
+  ext_instance_options options = {sizeof(options),    capacity,
                                   m,                  instance_validate,
                                   instance_create,    instance_dispose,
                                   NULL};
-  ctx_status status = ctx_instances_create(&options, &m->instances);
+  ext_status status = ext_instances_create(&options, &m->instances);
   return wrap_manager(env, m, status);
 }
 static napi_value create_streams(napi_env env, napi_callback_info info) {
@@ -926,10 +926,10 @@ static napi_value create_streams(napi_env env, napi_callback_info info) {
     }
     return failure(env, "invalid stream manager arguments");
   }
-  ctx_stream_options options = {sizeof(options), capacity,      max_age, m,
+  ext_stream_options options = {sizeof(options), capacity,      max_age, m,
                                 stream_open,     stream_read,   stream_close,
                                 stream_release};
-  ctx_status status = ctx_streams_create(&options, &m->streams);
+  ext_status status = ext_streams_create(&options, &m->streams);
   return wrap_manager(env, m, status);
 }
 typedef struct {
@@ -938,13 +938,13 @@ typedef struct {
   napi_ref owner, signal, lease_ref;
   manager *manager;
   lease_box *box;
-  ctx_lease *lease;
-  ctx_call_options options;
+  ext_lease *lease;
+  ext_call_options options;
   char *operation;
   char *field[3];
   size_t length[3];
-  ctx_buffer output;
-  ctx_status status;
+  ext_buffer output;
+  ext_status status;
 } manager_job;
 static int is_op(const manager_job *j, const char *name) {
   return !strcmp(j->operation, name);
@@ -959,55 +959,55 @@ static void manager_execute(napi_env env, void *data) {
   if (m->instances) {
     if (is_op(j, "configure"))
       j->status =
-          ctx_instances_configure(m->instances, a, an, b, bn, c, cn, &j->options);
+          ext_instances_configure(m->instances, a, an, b, bn, c, cn, &j->options);
     else if (is_op(j, "acquire"))
-      j->status = ctx_instances_acquire(m->instances, a, an, &j->lease);
+      j->status = ext_instances_acquire(m->instances, a, an, &j->lease);
     else if (is_op(j, "release"))
-      j->status = ctx_lease_release(j->lease);
+      j->status = ext_lease_release(j->lease);
     else if (is_op(j, "remove"))
-      j->status = ctx_instances_remove(m->instances, a, an);
+      j->status = ext_instances_remove(m->instances, a, an);
     else if (is_op(j, "close"))
-      j->status = ctx_instances_close(m->instances, &j->options);
+      j->status = ext_instances_close(m->instances, &j->options);
     else if (is_op(j, "destroy")) {
       int64_t end = now() + j->options.timeout_ms;
       do {
-        j->status = ctx_instances_destroy(m->instances);
-        if (j->status == CTX_DRAINING)
+        j->status = ext_instances_destroy(m->instances);
+        if (j->status == EXT_DRAINING)
           usleep(10000);
-      } while (j->status == CTX_DRAINING &&
-               !ctx_cancel_is_signaled(j->options.cancel) && now() < end);
+      } while (j->status == EXT_DRAINING &&
+               !ext_cancel_is_signaled(j->options.cancel) && now() < end);
     } else
-      j->status = CTX_INVALID;
+      j->status = EXT_INVALID;
   } else if (m->streams) {
     if (is_op(j, "open"))
       j->status =
-          ctx_streams_open(m->streams, a, an, b, bn, &j->options, &j->output);
+          ext_streams_open(m->streams, a, an, b, bn, &j->options, &j->output);
     else if (is_op(j, "read")) {
       char *end = NULL, *limit_end = NULL;
       unsigned long long sequence = strtoull(j->field[2], &end, 10);
       unsigned long limit = end && *end == ' ' ? strtoul(end + 1, &limit_end, 10)
                                               : 0;
       if (!limit_end || *limit_end || !limit || limit > 0xffffffffUL)
-        j->status = CTX_INVALID;
+        j->status = EXT_INVALID;
       else
-        j->status = ctx_streams_read(m->streams, a, an, j->field[1], sequence,
+        j->status = ext_streams_read(m->streams, a, an, j->field[1], sequence,
                                      (uint32_t)limit, &j->options, &j->output);
     } else if (is_op(j, "remove"))
-      j->status = ctx_streams_remove(m->streams, a, an, j->field[1]);
+      j->status = ext_streams_remove(m->streams, a, an, j->field[1]);
     else if (is_op(j, "close"))
-      j->status = ctx_streams_close(m->streams);
+      j->status = ext_streams_close(m->streams);
     else if (is_op(j, "destroy")) {
       int64_t end = now() + j->options.timeout_ms;
       do {
-        j->status = ctx_streams_destroy(m->streams);
-        if (j->status == CTX_DRAINING)
+        j->status = ext_streams_destroy(m->streams);
+        if (j->status == EXT_DRAINING)
           usleep(10000);
-      } while (j->status == CTX_DRAINING &&
-               !ctx_cancel_is_signaled(j->options.cancel) && now() < end);
+      } while (j->status == EXT_DRAINING &&
+               !ext_cancel_is_signaled(j->options.cancel) && now() < end);
     } else
-      j->status = CTX_INVALID;
+      j->status = EXT_INVALID;
   } else
-    j->status = CTX_CLOSED;
+    j->status = EXT_CLOSED;
 }
 static void free_manager_job(napi_env env, manager_job *j) {
   if (j->owner)
@@ -1021,7 +1021,7 @@ static void free_manager_job(napi_env env, manager_job *j) {
   free(j->operation);
   for (int i = 0; i < 3; i++)
     free(j->field[i]);
-  ctx_buffer_free(&j->output);
+  ext_buffer_free(&j->output);
   free(j);
 }
 static void free_lease_box(napi_env env, void *data, void *hint) {
@@ -1036,10 +1036,10 @@ static void manager_complete(napi_env env, napi_status code, void *data) {
   manager *m = j->manager;
   napi_value value;
   if (code != napi_ok && !j->status)
-    j->status = CTX_IO;
+    j->status = EXT_IO;
   if (j->status) {
     napi_value message, status;
-    napi_create_string_utf8(env, ctx_host_status_string(j->status),
+    napi_create_string_utf8(env, ext_host_status_string(j->status),
                             NAPI_AUTO_LENGTH, &message);
     napi_create_error(env, NULL, message, &value);
     napi_create_int32(env, j->status, &status);
@@ -1053,7 +1053,7 @@ static void manager_complete(napi_env env, napi_status code, void *data) {
       napi_resolve_deferred(env, j->deferred, value);
     } else {
       free(box);
-      ctx_lease_release(j->lease);
+      ext_lease_release(j->lease);
       napi_value message;
       napi_create_string_utf8(env, "allocation failed", NAPI_AUTO_LENGTH,
                               &message);
@@ -1113,7 +1113,7 @@ static napi_value manager_request(napi_env env, napi_callback_info info) {
       napi_create_reference(env, args[6], 1, &j->signal) != napi_ok ||
       napi_create_promise(env, &j->deferred, &promise) != napi_ok)
     goto invalid;
-  napi_create_string_utf8(env, "ctx-engine-manager", NAPI_AUTO_LENGTH, &name);
+  napi_create_string_utf8(env, "ext-engine-manager", NAPI_AUTO_LENGTH, &name);
   if (napi_create_async_work(env, NULL, name, manager_execute,
                              manager_complete, j, &j->work) != napi_ok ||
       napi_queue_async_work(env, j->work) != napi_ok)
@@ -1135,11 +1135,11 @@ static napi_value lease_info(napi_env env, napi_callback_info info) {
       !box->lease)
     return failure(env, "invalid lease");
   size_t n = 0;
-  const uint8_t *rev = ctx_lease_revision(box->lease, &n);
+  const uint8_t *rev = ext_lease_revision(box->lease, &n);
   if (napi_create_object(env, &out) != napi_ok ||
       napi_create_string_utf8(env, (const char *)rev, n, &revision) !=
           napi_ok ||
-      napi_create_double(env, (double)(uintptr_t)ctx_lease_value(box->lease),
+      napi_create_double(env, (double)(uintptr_t)ext_lease_value(box->lease),
                          &id) != napi_ok)
     return failure(env, "allocation failed");
   napi_set_named_property(env, out, "revision", revision);

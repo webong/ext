@@ -9,7 +9,7 @@ zig build --build-file pkg/plugin-zig/engine/build.zig \
 ```
 
 Add `-Dshared=true` for optional shared linkage. The public module is
-`ctx_plugin_engine`. Its `ffi` module is generated from all four C headers by
+`ext_plugin_engine`. Its `ffi` module is generated from all four C headers by
 `translate-c`, so foreign layouts and resource APIs are not manually duplicated.
 `Host`, `Guest`, `Instances`, `Lease`, `Streams`, `Cancellation`, `Buffer`, and service helpers provide the
 common ownership operations. Call `deinit` exactly once after concurrent uses

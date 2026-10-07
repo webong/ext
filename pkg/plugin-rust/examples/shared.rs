@@ -1,2 +1,2 @@
 mod common;
-ctx_plugin::export_guest!(common::factory);
+ext_plugin::export_guest!(common::factory);

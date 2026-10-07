@@ -20,7 +20,7 @@ const PluginName = "ctx"
 // HandshakeConfig returns a copy of the backend's native handshake. The cookie
 // identifies a compatible launch convention; it provides no authentication.
 func HandshakeConfig() hc.HandshakeConfig {
-	return hc.HandshakeConfig{ProtocolVersion: 1, MagicCookieKey: "CTX_GO_PLUGIN", MagicCookieValue: plugin.APIVersion}
+	return hc.HandshakeConfig{ProtocolVersion: 1, MagicCookieKey: "EXT_GO_PLUGIN", MagicCookieValue: plugin.APIVersion}
 }
 
 // Plugin implements both go-plugin bindings. Hosts leave Guest nil; plugins

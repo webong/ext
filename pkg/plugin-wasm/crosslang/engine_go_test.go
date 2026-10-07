@@ -1,4 +1,4 @@
-//go:build !ctx_cengine
+//go:build !ext_cengine
 
 package crosslang_test
 

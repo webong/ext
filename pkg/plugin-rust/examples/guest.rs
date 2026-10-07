@@ -1,6 +1,6 @@
 mod common;
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let guest = common::factory()?;
-    ctx_plugin::guest::serve(&guest, std::io::stdin().lock(), std::io::stdout().lock())?;
+    ext_plugin::guest::serve(&guest, std::io::stdin().lock(), std::io::stdout().lock())?;
     Ok(())
 }

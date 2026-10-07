@@ -13,86 +13,86 @@
 /* The application must protect reviewed files against writes. Descriptor-
  * relative opens avoid traversing symlink substitutions, but are not a sandbox.
  */
-static ctx_status root_open(const char *root, int *fd) {
+static ext_status root_open(const char *root, int *fd) {
   if (!root || !*root)
-    return CTX_INVALID;
+    return EXT_INVALID;
   char *path = strdup(root);
   if (!path)
-    return CTX_NOMEM;
+    return EXT_NOMEM;
   size_t n = strlen(path);
   while (n > 1 && path[n - 1] == '/')
     path[--n] = 0;
   struct stat st;
-  ctx_status s = CTX_OK;
+  ext_status s = EXT_OK;
   if (lstat(path, &st))
-    s = CTX_IO;
+    s = EXT_IO;
   else if (!S_ISDIR(st.st_mode))
-    s = CTX_INVALID;
+    s = EXT_INVALID;
   if (!s) {
     *fd = open(path, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
     if (*fd < 0)
-      s = CTX_IO;
+      s = EXT_IO;
   }
   free(path);
   return s;
 }
-static ctx_status file_hash(int dir, const char *name, uint8_t out[32]) {
+static ext_status file_hash(int dir, const char *name, uint8_t out[32]) {
   struct stat st;
   if (fstatat(dir, name, &st, AT_SYMLINK_NOFOLLOW))
-    return CTX_IO;
+    return EXT_IO;
   if (!S_ISREG(st.st_mode))
-    return CTX_INVALID;
+    return EXT_INVALID;
   int fd = openat(dir, name, O_RDONLY | O_NOFOLLOW | O_NONBLOCK | O_CLOEXEC);
   if (fd < 0)
-    return errno == ELOOP ? CTX_INVALID : CTX_IO;
-  ctx_status s = CTX_OK;
+    return errno == ELOOP ? EXT_INVALID : EXT_IO;
+  ext_status s = EXT_OK;
   if (fstat(fd, &st))
-    s = CTX_IO;
+    s = EXT_IO;
   else if (!S_ISREG(st.st_mode))
-    s = CTX_INVALID;
-  ctx_hash h;
-  ctx_hash_init(&h);
+    s = EXT_INVALID;
+  ext_hash h;
+  ext_hash_init(&h);
   uint8_t buffer[65536];
   while (!s) {
     ssize_t n = read(fd, buffer, sizeof(buffer));
     if (n > 0)
-      ctx_hash_update(&h, buffer, (size_t)n);
+      ext_hash_update(&h, buffer, (size_t)n);
     else if (!n)
       break;
     else if (errno != EINTR)
-      s = CTX_IO;
+      s = EXT_IO;
   }
   if (close(fd) && !s)
-    s = CTX_IO;
-  ctx_hash_finish(&h, out);
+    s = EXT_IO;
+  ext_hash_finish(&h, out);
   return s;
 }
-static ctx_status artifact_hash(int root, const char *path, uint8_t out[32]) {
+static ext_status artifact_hash(int root, const char *path, uint8_t out[32]) {
   char *parts = strdup(path);
   if (!parts)
-    return CTX_NOMEM;
+    return EXT_NOMEM;
   int fd = dup(root);
   if (fd < 0) {
     free(parts);
-    return CTX_IO;
+    return EXT_IO;
   }
-  ctx_status s = CTX_OK;
+  ext_status s = EXT_OK;
   char *part = parts, *slash;
   while ((slash = strchr(part, '/')) != NULL) {
     *slash = 0;
     struct stat st;
     if (fstatat(fd, part, &st, AT_SYMLINK_NOFOLLOW)) {
-      s = CTX_IO;
+      s = EXT_IO;
       break;
     }
     if (!S_ISDIR(st.st_mode)) {
-      s = CTX_INVALID;
+      s = EXT_INVALID;
       break;
     }
     int next =
         openat(fd, part, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
     if (next < 0) {
-      s = CTX_IO;
+      s = EXT_IO;
       break;
     }
     close(fd);
@@ -105,13 +105,13 @@ static ctx_status artifact_hash(int root, const char *path, uint8_t out[32]) {
   free(parts);
   return s;
 }
-ctx_status ctx_package_verify(const uint8_t *manifest, size_t len,
+ext_status ext_package_verify(const uint8_t *manifest, size_t len,
                               const char *root) {
-  yyjson_doc *doc = ctx_parse(manifest, len);
+  yyjson_doc *doc = ext_parse(manifest, len);
   if (!doc)
-    return CTX_INVALID;
+    return EXT_INVALID;
   yyjson_val *m = yyjson_doc_get_root(doc);
-  ctx_status s = ctx_manifest_valid(m);
+  ext_status s = ext_manifest_valid(m);
   int fd = -1;
   if (!s)
     s = root_open(root, &fd);
@@ -124,9 +124,9 @@ ctx_status ctx_package_verify(const uint8_t *manifest, size_t len,
       s = artifact_hash(fd, yyjson_get_str(yyjson_obj_get(a, "path")), sum);
       if (s)
         break;
-      ctx_hash_hex(sum, hex);
+      ext_hash_hex(sum, hex);
       if (!yyjson_equals_str(yyjson_obj_get(a, "sha256"), hex)) {
-        s = CTX_MISMATCH;
+        s = EXT_MISMATCH;
         break;
       }
     }
@@ -144,38 +144,38 @@ typedef struct {
   file *files;
   size_t count, capacity;
 } listing;
-static ctx_status walk(int fd, const char *prefix, listing *list,
+static ext_status walk(int fd, const char *prefix, listing *list,
                        unsigned depth) {
   if (depth > 1024)
-    return CTX_INVALID;
+    return EXT_INVALID;
   int copy = dup(fd);
   if (copy < 0)
-    return CTX_IO;
+    return EXT_IO;
   DIR *dir = fdopendir(copy);
   if (!dir) {
     close(copy);
-    return CTX_IO;
+    return EXT_IO;
   }
-  ctx_status s = CTX_OK;
+  ext_status s = EXT_OK;
   struct dirent *entry;
   for (;;) {
     errno = 0;
     entry = readdir(dir);
     if (!entry) {
       if (errno)
-        s = CTX_IO;
+        s = EXT_IO;
       break;
     }
     if (!strcmp(entry->d_name, ".") || !strcmp(entry->d_name, ".."))
       continue;
     size_t base = strlen(prefix), name = strlen(entry->d_name);
     if (base > SIZE_MAX - name - 2) {
-      s = CTX_NOMEM;
+      s = EXT_NOMEM;
       break;
     }
     char *path = malloc(base + name + 2);
     if (!path) {
-      s = CTX_NOMEM;
+      s = EXT_NOMEM;
       break;
     }
     memcpy(path, prefix, base);
@@ -184,18 +184,18 @@ static ctx_status walk(int fd, const char *prefix, listing *list,
     memcpy(path + base, entry->d_name, name + 1);
     struct stat st;
     if (fstatat(fd, entry->d_name, &st, AT_SYMLINK_NOFOLLOW))
-      s = CTX_IO;
+      s = EXT_IO;
     else if (S_ISDIR(st.st_mode)) {
       int child = openat(fd, entry->d_name,
                          O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
       if (child < 0)
-        s = CTX_IO;
+        s = EXT_IO;
       else {
         s = walk(child, path, list, depth + 1);
         close(child);
       }
     } else if (!S_ISREG(st.st_mode) || strchr(path, '\r') || strchr(path, '\n'))
-      s = CTX_INVALID;
+      s = EXT_INVALID;
     else {
       if (list->count == list->capacity) {
         size_t capacity = list->capacity ? list->capacity * 2 : 64;
@@ -204,7 +204,7 @@ static ctx_status walk(int fd, const char *prefix, listing *list,
                 ? realloc(list->files, capacity * sizeof(file))
                 : NULL;
         if (!files)
-          s = CTX_NOMEM;
+          s = EXT_NOMEM;
         else {
           list->files = files;
           list->capacity = capacity;
@@ -225,17 +225,17 @@ static ctx_status walk(int fd, const char *prefix, listing *list,
       break;
   }
   if (closedir(dir) && !s)
-    s = CTX_IO;
+    s = EXT_IO;
   return s;
 }
 static int compare(const void *a, const void *b) {
   return strcmp(((const file *)a)->path, ((const file *)b)->path);
 }
-ctx_status ctx_directory_digest(const char *root, uint8_t out[32]) {
+ext_status ext_directory_digest(const char *root, uint8_t out[32]) {
   if (!out)
-    return CTX_INVALID;
+    return EXT_INVALID;
   int fd = -1;
-  ctx_status s = root_open(root, &fd);
+  ext_status s = root_open(root, &fd);
   listing list = {0};
   if (!s) {
     s = walk(fd, "", &list, 0);
@@ -244,19 +244,19 @@ ctx_status ctx_directory_digest(const char *root, uint8_t out[32]) {
   if (!s) {
     if (list.count > 1)
       qsort(list.files, list.count, sizeof(file), compare);
-    ctx_hash hash;
-    ctx_hash_init(&hash);
+    ext_hash hash;
+    ext_hash_init(&hash);
     for (size_t i = 0; i < list.count; i++) {
       char hex[65];
-      ctx_hash_hex(list.files[i].sum, hex);
-      ctx_hash_update(&hash, (const uint8_t *)"./", 2);
-      ctx_hash_update(&hash, (const uint8_t *)list.files[i].path,
+      ext_hash_hex(list.files[i].sum, hex);
+      ext_hash_update(&hash, (const uint8_t *)"./", 2);
+      ext_hash_update(&hash, (const uint8_t *)list.files[i].path,
                       strlen(list.files[i].path));
-      ctx_hash_update(&hash, (const uint8_t *)" ", 1);
-      ctx_hash_update(&hash, (const uint8_t *)hex, 64);
-      ctx_hash_update(&hash, (const uint8_t *)"\n", 1);
+      ext_hash_update(&hash, (const uint8_t *)" ", 1);
+      ext_hash_update(&hash, (const uint8_t *)hex, 64);
+      ext_hash_update(&hash, (const uint8_t *)"\n", 1);
     }
-    ctx_hash_finish(&hash, out);
+    ext_hash_finish(&hash, out);
   }
   for (size_t i = 0; i < list.count; i++)
     free(list.files[i].path);

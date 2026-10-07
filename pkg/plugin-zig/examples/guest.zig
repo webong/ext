@@ -1,5 +1,5 @@
 const std = @import("std");
-const sdk = @import("ctx_plugin");
+const sdk = @import("ext_plugin");
 const common = @import("common.zig");
 pub fn main() !void {
     var guest = try common.factory(std.heap.page_allocator);

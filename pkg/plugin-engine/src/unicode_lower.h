@@ -1,5 +1,5 @@
 /* Generated from Go unicode.ToLower, Unicode 17.0.0. */
-static const uint32_t ctx_lower[][2] = {
+static const uint32_t ext_lower[][2] = {
 {0x41,0x61},
 {0x42,0x62},
 {0x43,0x63},

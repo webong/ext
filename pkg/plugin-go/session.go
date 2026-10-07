@@ -1,10 +1,10 @@
-//go:build ctx_cengine && cgo && (darwin || linux)
+//go:build ext_cengine && cgo && (darwin || linux)
 
 package goengine
 
 /*
-#include "ctx_host.h"
-ctx_status ctx_go_set_hooks(ctx_host *,uintptr_t);
+#include "ext_host.h"
+ext_status ext_go_set_hooks(ext_host *,uintptr_t);
 */
 import "C"
 import (
@@ -65,7 +65,7 @@ func Open(ctx context.Context, d plugin.Descriptor, options plugin.Options) (*Se
 		return options.Authorize(ctx, r)
 	}
 	policy.observer = options.Observer
-	if err = status(C.ctx_go_set_hooks(h.ptr, C.uintptr_t(h.policy))); err != nil {
+	if err = status(C.ext_go_set_hooks(h.ptr, C.uintptr_t(h.policy))); err != nil {
 		h.Destroy()
 		return nil, err
 	}

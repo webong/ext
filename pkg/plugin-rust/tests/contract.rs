@@ -1,4 +1,4 @@
-use ctx_plugin::{
+use ext_plugin::{
     guest,
     host::{Backend, Session},
     wire, *,

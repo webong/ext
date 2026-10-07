@@ -14,7 +14,7 @@ protocol and existing language guest implementations remain unchanged.
 
 ## What is implemented
 
-- Experimental versioned [host embedding API](include/ctx_host.h).
+- Experimental versioned [host embedding API](include/ext_host.h).
 - Linux/macOS JSON-line subprocess backend, owning one direct child per session.
 - Immutable descriptor selection, exact handshake matching independent of
   declaration order, request validation, response correlation, domain errors.
@@ -44,20 +44,20 @@ resource wrappers remain pending.
 
 ## Ownership and threading
 
-1. `ctx_host_create` copies backend configuration and the descriptor. The caller keeps
-   policy callback code and user data alive until `ctx_host_destroy` returns.
-2. `ctx_host_start` verifies, spawns and handshakes. Start exactly once. A failed
+1. `ext_host_create` copies backend configuration and the descriptor. The caller keeps
+   policy callback code and user data alive until `ext_host_destroy` returns.
+2. `ext_host_start` verifies, spawns and handshakes. Start exactly once. A failed
    start closes the session; there is no implicit retry.
-3. `ctx_host_invoke` receives borrowed request bytes for the duration of the call
-   and returns an owned `ctx_buffer`. Free it with `ctx_buffer_free`, never a
+3. `ext_host_invoke` receives borrowed request bytes for the duration of the call
+   and returns an owned `ext_buffer`. Free it with `ext_buffer_free`, never a
    language allocator. Use the functions from the same engine instance that
    created the handle/buffer, including when multiple addons embed static copies.
-   Never exchange these objects across engine copies. Domain errors are valid response envelopes with CTX_OK.
+   Never exchange these objects across engine copies. Domain errors are valid response envelopes with EXT_OK.
 4. Calls may come from multiple threads; the backend declares whether C serializes
    them. JSON-line is serialized. Queued
    calls count queue time toward their timeout. Admission is not FIFO.
-5. `ctx_host_close` is idempotent, concurrent-safe and wakes blocked I/O. After
-   all operations return, the owner calls `ctx_host_destroy` exactly once. It
+5. `ext_host_close` is idempotent, concurrent-safe and wakes blocked I/O. After
+   all operations return, the owner calls `ext_host_destroy` exactly once. It
    reaps the child and frees the handle. No calls may race with destruction.
 
 Policies run synchronously on the calling thread and must return promptly.
@@ -81,14 +81,14 @@ needed by the C build or its Rust example. The pinned MIT-licensed JSON parser
 is vendored; see [provenance](vendor/README.md).
 
 ```sh
-cmake -S pkg/plugin-engine -B /tmp/ctx-cengine -DCMAKE_BUILD_TYPE=Release
-cmake --build /tmp/ctx-cengine
-cmake --install /tmp/ctx-cengine --prefix /tmp/ctx-host-package
+cmake -S pkg/plugin-engine -B /tmp/ext-cengine -DCMAKE_BUILD_TYPE=Release
+cmake --build /tmp/ext-cengine
+cmake --install /tmp/ext-cengine --prefix /tmp/ext-host-package
 ```
 
-The default install contains `libctx_host_static.a`, `libctx_guest_static.a`,
+The default install contains `libext_host_static.a`, `libext_guest_static.a`,
 four public headers, versioned CMake package metadata and the CTX, parser and
-Unicode-table licenses. Add `-DCTX_BUILD_SHARED=ON` to
+Unicode-table licenses. Add `-DEXT_BUILD_SHARED=ON` to
 also build/install host and guest shared libraries (`.so` / `.dylib`, ABI major 2).
 There are no published binary bundles; builds target the local architecture.
 Windows support has not been implemented in this subprocess backend.
@@ -96,26 +96,26 @@ Windows support has not been implemented in this subprocess backend.
 CMake consumers use:
 
 ```cmake
-find_package(ctx_host CONFIG REQUIRED)
-target_link_libraries(my_app PRIVATE CTX::host) # static default
-# CTX::host_static is explicit; CTX::host_shared exists when installed.
-# CTX::guest / guest_static / guest_shared omit host and resource runtimes.
+find_package(ext_host CONFIG REQUIRED)
+target_link_libraries(my_app PRIVATE EXT::host) # static default
+# EXT::host_static is explicit; EXT::host_shared exists when installed.
+# EXT::guest / guest_static / guest_shared omit host and resource runtimes.
 ```
 
 The exported targets carry header paths, static API definitions and required
 system libraries. The static archive uses position-independent code so it can
-be embedded in a Node addon. Manual C consumers define `CTX_HOST_STATIC` and
-link `-lctx_host_static -pthread -lm`. Parser symbols are privately prefixed
+be embedded in a Node addon. Manual C consumers define `EXT_HOST_STATIC` and
+link `-lext_host_static -pthread -lm`. Parser symbols are privately prefixed
 at build time, allowing applications to link their own yyjson version.
 
 Go integration is opt-in and excluded from ordinary Go builds:
 
 ```sh
-CGO_LDFLAGS='-L/tmp/ctx-cengine' \
-  go build -tags ctx_cengine ./pkg/plugin-go/examples/host
+CGO_LDFLAGS='-L/tmp/ext-cengine' \
+  go build -tags ext_cengine ./pkg/plugin-go/examples/host
 ```
 
-For shared linkage, add the `ctx_cengine_shared` build tag and the appropriate
+For shared linkage, add the `ext_cengine_shared` build tag and the appropriate
 runtime library search path. The Rust example defaults to static linkage and
 accepts `--features shared`. Zig and Node builds select the archive or dynamic
 library through linker flags; the runner demonstrates both choices.
@@ -127,9 +127,9 @@ Browsers need a WASM embedding; they cannot load a native `.node` addon.
 
 ## Portable guest core
 
-`-DCTX_BUILD_HOST=OFF` builds the guest dispatcher, strict wire parser, pure JSON
+`-DEXT_BUILD_HOST=OFF` builds the guest dispatcher, strict wire parser, pure JSON
 services, hashing and cancellation without pthreads, process launch, filesystem
-access, instances or streams. Use `CTX::guest` or `-lctx_guest_static`. Native
+access, instances or streams. Use `EXT::guest` or `-lext_guest_static`. Native
 builds can also select that smaller library independently of the host target.
 
 The checked-in `cmake/wasi-zig.cmake` toolchain builds WASI Preview 1 with Zig
@@ -146,11 +146,11 @@ plugins execute. Static engine linkage does not make a subprocess guest built-in
 The built-in C backend remains JSON-line subprocess; a reviewed bridge can expose
 HashiCorp behind that same contract. An engine service is deferred.
 
-Experimental embedding ABI **2** separates `ctx_host_options` (descriptor and
-policy) from `ctx_backend_options` (kind, configuration pointer and size).
-`CTX_BACKEND_JSONLINE_PROCESS` accepts `ctx_jsonline_process_options`.
-Unknown kinds return `CTX_UNSUPPORTED`. `CTX_BACKEND_EXTENSION` accepts a
-`ctx_backend_extension` vtable for application-supplied runtime mechanics.
+Experimental embedding ABI **2** separates `ext_host_options` (descriptor and
+policy) from `ext_backend_options` (kind, configuration pointer and size).
+`EXT_BACKEND_JSONLINE_PROCESS` accepts `ext_jsonline_process_options`.
+Unknown kinds return `EXT_UNSUPPORTED`. `EXT_BACKEND_EXTENSION` accepts a
+`ext_backend_extension` vtable for application-supplied runtime mechanics.
 Rebuild all ABI 1 bindings; guest `ext.plugin/v1` is unchanged.
 
 ### Runtime extensions
@@ -194,11 +194,11 @@ From the repository root:
 ```sh
 ZIG_BIN=/path/to/zig \
 NODE_INCLUDE_DIR=/path/to/node/include/node \
-CTX_CENGINE_BUILD_DIR=/tmp/ctx-cengine-proof \
+EXT_CENGINE_BUILD_DIR=/tmp/ext-cengine-proof \
   scripts/plugin-cengine.sh
 ```
 
-Set `CTX_CENGINE_LINKAGE=shared` to exercise the same host examples and Go
+Set `EXT_CENGINE_LINKAGE=shared` to exercise the same host examples and Go
 conformance harness through the optional shared library. Use separate output
 directories for each run. Native sanitizer checks use the default static target.
 
@@ -217,10 +217,10 @@ in the output directory. It checks:
   Go JSON-line host. Three fresh-process repetitions, alternating engine order.
 
 To also run the C engine's Go conformance harness against prebuilt Rust and Zig
-command guests, set `CTX_CENGINE_RUST_GUEST` and `CTX_CENGINE_ZIG_GUEST` to those
+command guests, set `EXT_CENGINE_RUST_GUEST` and `EXT_CENGINE_ZIG_GUEST` to those
 absolute paths. These artifacts can be built from `pkg/plugin-rust` and `pkg/plugin-zig`.
 
-Use `CTX_CROSSLANG_ENGINE=c` with `scripts/plugin-crosslang.sh` for Rust/Zig
+Use `EXT_CROSSLANG_ENGINE=c` with `scripts/plugin-crosslang.sh` for Rust/Zig
 JSON-line, C ABI and WASI guests and a native Go guest through C-owned sessions.
 The runtime integration remains in Go; this does not port those runtimes to C.
 

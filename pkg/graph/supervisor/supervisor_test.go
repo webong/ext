@@ -15,19 +15,19 @@ import (
 )
 
 func TestHelperProcess(t *testing.T) {
-	if os.Getenv("CTX_SUPERVISOR_HELPER") != "1" {
+	if os.Getenv("EXT_SUPERVISOR_HELPER") != "1" {
 		return
 	}
-	if os.Getenv("CTX_SUPERVISOR_HOLD") == "1" {
+	if os.Getenv("EXT_SUPERVISOR_HOLD") == "1" {
 		time.Sleep(30 * time.Second)
 	}
-	if count, _ := strconv.Atoi(os.Getenv("CTX_SUPERVISOR_OUTPUT_BYTES")); count > 0 {
+	if count, _ := strconv.Atoi(os.Getenv("EXT_SUPERVISOR_OUTPUT_BYTES")); count > 0 {
 		_, _ = os.Stdout.WriteString(strings.Repeat("x", count))
 	}
-	if os.Getenv("CTX_SUPERVISOR_ECHO_SECRET") == "1" {
+	if os.Getenv("EXT_SUPERVISOR_ECHO_SECRET") == "1" {
 		_, _ = os.Stdout.WriteString(os.Getenv("EXAMPLE_SECRET"))
 	}
-	if code, _ := strconv.Atoi(os.Getenv("CTX_SUPERVISOR_EXIT_CODE")); code != 0 {
+	if code, _ := strconv.Atoi(os.Getenv("EXT_SUPERVISOR_EXIT_CODE")); code != 0 {
 		os.Exit(code)
 	}
 	_, _ = os.Stdout.WriteString("runtime-output\n")
@@ -44,7 +44,7 @@ func TestCrashRestartAndBoundedLogs(t *testing.T) {
 	defer sup.Close(context.Background())
 	instance, err := sup.Start(context.Background(), Spec{
 		Artifact: Artifact{ID: "crashing", Revision: "1"}, Command: os.Args[0], Args: []string{"-test.run=TestHelperProcess"},
-		Environment: map[string]string{"CTX_SUPERVISOR_HELPER": "1", "CTX_SUPERVISOR_EXIT_CODE": "7", "CTX_SUPERVISOR_OUTPUT_BYTES": "4096"},
+		Environment: map[string]string{"EXT_SUPERVISOR_HELPER": "1", "EXT_SUPERVISOR_EXIT_CODE": "7", "EXT_SUPERVISOR_OUTPUT_BYTES": "4096"},
 		Restart:     RestartPolicy{MaxAttempts: 1, InitialDelay: time.Millisecond, MaxDelay: time.Millisecond},
 	})
 	if err != nil {
@@ -86,7 +86,7 @@ func TestLifecycleFactsAndSecretReferences(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer sup.Close(context.Background())
-	instance, err := sup.Start(ctx, Spec{Artifact: Artifact{ID: "artifact-1", Revision: "rev-3", Checksum: checksum}, Command: os.Args[0], Args: []string{"-test.run=TestHelperProcess"}, Environment: map[string]string{"CTX_SUPERVISOR_HELPER": "1", "CTX_SUPERVISOR_ECHO_SECRET": "1"}, SecretReferences: map[string]SecretReference{"EXAMPLE_SECRET": {Scope: "project:demo", ID: "db-password"}}, Endpoints: []Endpoint{{ID: "ipc-1", Address: "unix:///tmp/example.sock", Transport: "unix"}, {ID: "ipc-2", Address: "tcp://127.0.0.1:7000", Transport: "tcp"}}, Connections: []Connection{{ID: "link-1", SourceEndpoint: "ipc-1", TargetEndpoint: "ipc-2", Metadata: map[string]string{"channel": "control"}}}})
+	instance, err := sup.Start(ctx, Spec{Artifact: Artifact{ID: "artifact-1", Revision: "rev-3", Checksum: checksum}, Command: os.Args[0], Args: []string{"-test.run=TestHelperProcess"}, Environment: map[string]string{"EXT_SUPERVISOR_HELPER": "1", "EXT_SUPERVISOR_ECHO_SECRET": "1"}, SecretReferences: map[string]SecretReference{"EXAMPLE_SECRET": {Scope: "project:demo", ID: "db-password"}}, Endpoints: []Endpoint{{ID: "ipc-1", Address: "unix:///tmp/example.sock", Transport: "unix"}, {ID: "ipc-2", Address: "tcp://127.0.0.1:7000", Transport: "tcp"}}, Connections: []Connection{{ID: "link-1", SourceEndpoint: "ipc-1", TargetEndpoint: "ipc-2", Metadata: map[string]string{"channel": "control"}}}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -138,7 +138,7 @@ func TestStopAndHealthProjection(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer sup.Close(context.Background())
-	instance, err := sup.Start(context.Background(), Spec{Artifact: Artifact{ID: "long", Revision: "1"}, Command: os.Args[0], Args: []string{"-test.run=TestHelperProcess"}, Environment: map[string]string{"CTX_SUPERVISOR_HELPER": "1", "CTX_SUPERVISOR_HOLD": "1"}, HealthCheck: func(context.Context) error { return nil }})
+	instance, err := sup.Start(context.Background(), Spec{Artifact: Artifact{ID: "long", Revision: "1"}, Command: os.Args[0], Args: []string{"-test.run=TestHelperProcess"}, Environment: map[string]string{"EXT_SUPERVISOR_HELPER": "1", "EXT_SUPERVISOR_HOLD": "1"}, HealthCheck: func(context.Context) error { return nil }})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -171,7 +171,7 @@ func TestArtifactChecksumRejectedBeforeStart(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer sup.Close(context.Background())
-	spec := Spec{Artifact: Artifact{ID: "verified", Revision: "1"}, Command: os.Args[0], Args: []string{"-test.run=TestHelperProcess"}, Environment: map[string]string{"CTX_SUPERVISOR_HELPER": "1"}}
+	spec := Spec{Artifact: Artifact{ID: "verified", Revision: "1"}, Command: os.Args[0], Args: []string{"-test.run=TestHelperProcess"}, Environment: map[string]string{"EXT_SUPERVISOR_HELPER": "1"}}
 	if _, err := sup.Start(context.Background(), spec); err == nil {
 		t.Fatal("required checksum was omitted")
 	}
@@ -197,7 +197,7 @@ func TestEndpointAndHandshakeGateReadiness(t *testing.T) {
 	handshakeEntered := make(chan struct{})
 	instance, err := sup.Start(context.Background(), Spec{
 		Artifact: Artifact{ID: "ipc", Revision: "1"}, Command: os.Args[0], Args: []string{"-test.run=TestHelperProcess"},
-		Environment: map[string]string{"CTX_SUPERVISOR_HELPER": "1", "CTX_SUPERVISOR_HOLD": "1"},
+		Environment: map[string]string{"EXT_SUPERVISOR_HELPER": "1", "EXT_SUPERVISOR_HOLD": "1"},
 		EndpointReady: func(ctx context.Context, _ Instance) error {
 			close(readyEntered)
 			select {
@@ -295,7 +295,7 @@ func TestTerminalInstanceRetentionBoundsGraph(t *testing.T) {
 	}
 	defer sup.Close(context.Background())
 	for i := 0; i < 3; i++ {
-		instance, err := sup.Start(context.Background(), Spec{Artifact: Artifact{ID: "short", Revision: "1"}, Command: os.Args[0], Args: []string{"-test.run=TestHelperProcess"}, Environment: map[string]string{"CTX_SUPERVISOR_HELPER": "1"}})
+		instance, err := sup.Start(context.Background(), Spec{Artifact: Artifact{ID: "short", Revision: "1"}, Command: os.Args[0], Args: []string{"-test.run=TestHelperProcess"}, Environment: map[string]string{"EXT_SUPERVISOR_HELPER": "1"}})
 		if err != nil {
 			t.Fatal(err)
 		}

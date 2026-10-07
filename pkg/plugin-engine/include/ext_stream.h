@@ -1,10 +1,10 @@
-#ifndef CTX_STREAM_H
-#define CTX_STREAM_H
-#include "ctx_host.h"
+#ifndef EXT_STREAM_H
+#define EXT_STREAM_H
+#include "ext_host.h"
 #ifdef __cplusplus
 extern "C" {
 #endif
-typedef struct ctx_streams ctx_streams;
+typedef struct ext_streams ext_streams;
 typedef struct {
   uint32_t struct_size, capacity, max_age_ms;
   void *user;
@@ -14,35 +14,35 @@ typedef struct {
    * JSON value. close must unblock read and may run concurrently with it.
    * release runs after close and all reads have joined. No callback may unwind
    * or reenter. */
-  ctx_status (*open)(void *, const ctx_call_options *, const ctx_cancel *,
+  ext_status (*open)(void *, const ext_call_options *, const ext_cancel *,
                      const uint8_t *, size_t, void **);
-  ctx_status (*read)(void *, void *, const ctx_call_options *,
-                     const ctx_cancel *, uint32_t limit, ctx_emit, void *);
-  ctx_status (*close)(void *, void *);
+  ext_status (*read)(void *, void *, const ext_call_options *,
+                     const ext_cancel *, uint32_t limit, ext_emit, void *);
+  ext_status (*close)(void *, void *);
   void (*release)(void *, void *);
-} ctx_stream_options;
-CTX_HOST_API ctx_status ctx_streams_create(const ctx_stream_options *,
-                                           ctx_streams **);
+} ext_stream_options;
+EXT_HOST_API ext_status ext_streams_create(const ext_stream_options *,
+                                           ext_streams **);
 /* Scope is an authenticated subject supplied by the application, 1..256 bytes.
  * Never pass a caller-controlled claim without authorization. IDs are 24 random
  * bytes encoded as 48 lowercase hex characters. Open output is a JSON string.
  */
-CTX_HOST_API ctx_status ctx_streams_open(ctx_streams *, const uint8_t *scope,
+EXT_HOST_API ext_status ext_streams_open(ext_streams *, const uint8_t *scope,
                                          size_t, const uint8_t *parameters,
-                                         size_t, const ctx_call_options *,
-                                         ctx_buffer *id);
-CTX_HOST_API ctx_status ctx_streams_read(ctx_streams *, const uint8_t *scope,
+                                         size_t, const ext_call_options *,
+                                         ext_buffer *id);
+EXT_HOST_API ext_status ext_streams_read(ext_streams *, const uint8_t *scope,
                                          size_t, const char *id,
                                          uint64_t sequence, uint32_t limit,
-                                         const ctx_call_options *,
-                                         ctx_buffer *);
-CTX_HOST_API ctx_status ctx_streams_remove(ctx_streams *, const uint8_t *scope,
+                                         const ext_call_options *,
+                                         ext_buffer *);
+EXT_HOST_API ext_status ext_streams_remove(ext_streams *, const uint8_t *scope,
                                            size_t, const char *id);
-CTX_HOST_API ctx_status ctx_streams_close(ctx_streams *);
-/* Requires close, all calls joined, no retained readers. CTX_DRAINING means
+EXT_HOST_API ext_status ext_streams_close(ext_streams *);
+/* Requires close, all calls joined, no retained readers. EXT_DRAINING means
  * asynchronous expiry cleanup is still in progress; retry after it completes.
  */
-CTX_HOST_API ctx_status ctx_streams_destroy(ctx_streams *);
+EXT_HOST_API ext_status ext_streams_destroy(ext_streams *);
 #ifdef __cplusplus
 }
 #endif

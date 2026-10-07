@@ -1,5 +1,5 @@
 #![cfg(not(feature = "guest-only"))]
-use ctx_plugin_engine::{resources::*, CallOptions, Error};
+use ext_plugin_engine::{resources::*, CallOptions, Error};
 use std::{
     sync::{
         atomic::{AtomicUsize, Ordering},
@@ -112,7 +112,7 @@ fn factory_panic_is_contained_at_ffi_boundary() {
 
 #[test]
 fn host_observer_gets_bounded_metadata() {
-    use ctx_plugin_engine::{Host, Process};
+    use ext_plugin_engine::{Host, Process};
     let count = Arc::new(AtomicUsize::new(0));
     let observed = count.clone();
     let host = Host::process(

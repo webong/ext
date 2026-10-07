@@ -391,11 +391,11 @@ Enable native fixtures explicitly (the shell must permit subprocess inspection
 and binding temporary loopback sockets):
 
 ```sh
-CTX_GRAPH_PROCESS_NATIVE_TESTS=1 go test -race -v ./pkg/graph/system \
+EXT_GRAPH_PROCESS_NATIVE_TESTS=1 go test -race -v ./pkg/graph/system \
   -run '^(TestNativeProcess|TestProcess)' -count=3 -timeout=5m
 ```
 
-On PowerShell, set `$env:CTX_GRAPH_PROCESS_NATIVE_TESTS = '1'` before the same
+On PowerShell, set `$env:EXT_GRAPH_PROCESS_NATIVE_TESTS = '1'` before the same
 `go test` command. The native GitHub Actions workflow now runs this step on
 macOS, Linux, and Windows. It fails when expected fixture resources are missing;
 partial coverage is not used to excuse a missing expected file or socket.

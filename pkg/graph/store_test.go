@@ -364,17 +364,17 @@ func TestFileStoresCoordinateAcrossIndependentHandles(t *testing.T) {
 }
 
 func TestFileGraphSubprocessWriter(t *testing.T) {
-	if os.Getenv("CTX_GRAPH_WRITER_HELPER") != "1" {
+	if os.Getenv("EXT_GRAPH_WRITER_HELPER") != "1" {
 		return
 	}
-	store, err := OpenFile(os.Getenv("CTX_GRAPH_STORE"))
+	store, err := OpenFile(os.Getenv("EXT_GRAPH_STORE"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	if err = store.Register(Schema{Namespace: testNS, Version: "1"}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = store.Apply(context.Background(), Transaction{Namespace: testNS, Vertices: []Vertex{vertex(os.Getenv("CTX_GRAPH_VERTEX_ID"), "node")}}); err != nil {
+	if _, err = store.Apply(context.Background(), Transaction{Namespace: testNS, Vertices: []Vertex{vertex(os.Getenv("EXT_GRAPH_VERTEX_ID"), "node")}}); err != nil {
 		t.Fatal(err)
 	}
 	if err = store.Close(); err != nil {
@@ -406,7 +406,7 @@ func TestFileStoreSharesWritesAndChangeCursorsAcrossProcesses(t *testing.T) {
 	commands := make([]*exec.Cmd, writers)
 	for i := range commands {
 		commands[i] = exec.Command(os.Args[0], "-test.run=^TestFileGraphSubprocessWriter$")
-		commands[i].Env = append(os.Environ(), "CTX_GRAPH_WRITER_HELPER=1", "CTX_GRAPH_STORE="+path, fmt.Sprintf("CTX_GRAPH_VERTEX_ID=written-by-child-%d", i))
+		commands[i].Env = append(os.Environ(), "EXT_GRAPH_WRITER_HELPER=1", "EXT_GRAPH_STORE="+path, fmt.Sprintf("EXT_GRAPH_VERTEX_ID=written-by-child-%d", i))
 		if err := commands[i].Start(); err != nil {
 			t.Fatal(err)
 		}

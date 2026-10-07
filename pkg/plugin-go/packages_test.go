@@ -1,4 +1,4 @@
-//go:build ctx_cengine && cgo && (darwin || linux)
+//go:build ext_cengine && cgo && (darwin || linux)
 
 package goengine
 
@@ -97,7 +97,7 @@ func TestRouteDifferential(t *testing.T) {
 	h := jsonline.Profile()
 	g := h
 	g.Name = "hashicorp-grpc"
-	bridge := interop.Bridge{Name: "ctx-bridge", Frontend: h, Backend: g}
+	bridge := interop.Bridge{Name: "ext-bridge", Frontend: h, Backend: g}
 	for _, guests := range [][]plugin.BackendProfile{{h}, {g}, {h, g}, nil, {g, g}} {
 		for _, bridges := range [][]interop.Bridge{nil, {bridge}, {bridge, bridge}} {
 			for _, w := range []interop.Requirements{{}, {Concurrent: true}, {NativeCallbacks: true}, {NativeStreaming: true}} {

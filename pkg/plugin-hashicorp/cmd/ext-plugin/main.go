@@ -1,4 +1,4 @@
-// ctx-plugin inspects portable packages without loading or executing plugins.
+// ext-plugin inspects portable packages without loading or executing plugins.
 package main
 
 import (
@@ -25,7 +25,7 @@ func main() {
 }
 func run(args []string, out io.Writer) error {
 	if len(args) == 0 {
-		return errors.New("usage: ctx-plugin inspect [--root DIR] [--entry NAME] MANIFEST | resolve MANIFEST...")
+		return errors.New("usage: ext-plugin inspect [--root DIR] [--entry NAME] MANIFEST | resolve MANIFEST...")
 	}
 	encoder := json.NewEncoder(out)
 	encoder.SetIndent("", "  ")

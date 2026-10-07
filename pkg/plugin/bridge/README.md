@@ -6,5 +6,5 @@ connection mechanics. Go, C, Rust, Zig and TypeScript implementations coexist.
 
 See [interoperability](../../docs/plugin-interoperability.md) for ownership,
 authorization, route planning, HashiCorp launch configuration, examples and
-conformance coverage. `pkg/plugin-hashicorp/cmd/ctx-plugin-bridge` is the first packaged bridge:
+conformance coverage. `pkg/plugin-hashicorp/cmd/ext-plugin-bridge` is the first packaged bridge:
 CTX JSON lines ↔ HashiCorp gRPC/net/rpc. No full engine migration is required.

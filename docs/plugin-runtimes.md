@@ -45,26 +45,26 @@ build flags for the host and native Go guest. The commands below create local
 artifacts and run the example; they do not install anything.
 
 ```sh
-mkdir -p /tmp/ctx-plugin-example
-go build -o /tmp/ctx-plugin-example/host ./examples/plugin-runtimes/host
+mkdir -p /tmp/ext-plugin-example
+go build -o /tmp/ext-plugin-example/host ./examples/plugin-runtimes/host
 
 # WASI: a Go command compiled to wasm.
-GOOS=wasip1 GOARCH=wasm go build -o /tmp/ctx-plugin-example/echo.wasm ./examples/plugin-runtimes/wasi
-/tmp/ctx-plugin-example/host --backend wasm \
-  --artifact /tmp/ctx-plugin-example/echo.wasm \
-  --sha256 "$(shasum -a 256 /tmp/ctx-plugin-example/echo.wasm | cut -d ' ' -f 1)"
+GOOS=wasip1 GOARCH=wasm go build -o /tmp/ext-plugin-example/echo.wasm ./examples/plugin-runtimes/wasi
+/tmp/ext-plugin-example/host --backend wasm \
+  --artifact /tmp/ext-plugin-example/echo.wasm \
+  --sha256 "$(shasum -a 256 /tmp/ext-plugin-example/echo.wasm | cut -d ' ' -f 1)"
 
 # Native Go: Linux, macOS or FreeBSD with cgo.
-go build -buildmode=plugin -o /tmp/ctx-plugin-example/echo.so ./examples/plugin-runtimes/nativego
-/tmp/ctx-plugin-example/host --backend nativego \
-  --artifact /tmp/ctx-plugin-example/echo.so \
-  --sha256 "$(shasum -a 256 /tmp/ctx-plugin-example/echo.so | cut -d ' ' -f 1)"
+go build -buildmode=plugin -o /tmp/ext-plugin-example/echo.so ./examples/plugin-runtimes/nativego
+/tmp/ext-plugin-example/host --backend nativego \
+  --artifact /tmp/ext-plugin-example/echo.so \
+  --sha256 "$(shasum -a 256 /tmp/ext-plugin-example/echo.so | cut -d ' ' -f 1)"
 
 # C ABI: this extension is for macOS; use .so on Linux/FreeBSD or .dll on Windows.
-go build -buildmode=c-shared -o /tmp/ctx-plugin-example/echo.dylib ./examples/plugin-runtimes/cshared
-/tmp/ctx-plugin-example/host --backend cshared \
-  --artifact /tmp/ctx-plugin-example/echo.dylib \
-  --sha256 "$(shasum -a 256 /tmp/ctx-plugin-example/echo.dylib | cut -d ' ' -f 1)"
+go build -buildmode=c-shared -o /tmp/ext-plugin-example/echo.dylib ./examples/plugin-runtimes/cshared
+/tmp/ext-plugin-example/host --backend cshared \
+  --artifact /tmp/ext-plugin-example/echo.dylib \
+  --sha256 "$(shasum -a 256 /tmp/ext-plugin-example/echo.dylib | cut -d ' ' -f 1)"
 ```
 
 Each example is intended to print `Hello from CTX`. Use native shell paths and
@@ -140,16 +140,16 @@ documents linear memory limits and execution cancellation.
 
 ## C ABI guests and foreign hosts
 
-The portable contract is [ctx_plugin.h](../pkg/plugin-cshared/ctx_plugin.h).
+The portable contract is [ext_plugin.h](../pkg/plugin-cshared/ext_plugin.h).
 ABI version `1` is independent of `ext.plugin/v1` and domain contract versions.
 Every library must export these C calling-convention symbols:
 
 | Export | Purpose |
 | --- | --- |
-| `ctx_plugin_abi_version` | Return `1` |
-| `ctx_plugin_open` | Create an independent nonzero opaque session handle; return zero on failure |
-| `ctx_plugin_call` | Perform handshake (`1`) or invocation (`2`) with bounded JSON buffers |
-| `ctx_plugin_close` | Release the handle's resources after calls finish |
+| `ext_plugin_abi_version` | Return `1` |
+| `ext_plugin_open` | Create an independent nonzero opaque session handle; return zero on failure |
+| `ext_plugin_call` | Perform handshake (`1`) or invocation (`2`) with bounded JSON buffers |
+| `ext_plugin_close` | Release the handle's resources after calls finish |
 
 The handshake request is `{"deadline":"<RFC3339 timestamp>"}`; its response is
 the CTX descriptor. Invocation uses ordinary `plugin.Request`/`Response` JSON.
@@ -175,7 +175,7 @@ implementations can use the portable header directly. Both have the same ABI.
 A foreign host can load the Go-built library and use these four exports too;
 that host must implement CTX selection, validation and admission policy itself.
 
-Rust authors can use `ctx_plugin::export_guest!(factory)` from the
+Rust authors can use `ext_plugin::export_guest!(factory)` from the
 [Rust SDK](../pkg/plugin-rust/README.md). Zig authors can use
 `comptime { sdk.cabi.exportGuest(factory); }` from the
 [Zig SDK](../pkg/plugin-zig/README.md). These helpers implement serialization,

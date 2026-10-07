@@ -29,7 +29,7 @@ jobs:
       - name: Validate isolated native graph processes
         working-directory: pkg/graph
         env:
-          CTX_GRAPH_PROCESS_NATIVE_TESTS: '1'
+          EXT_GRAPH_PROCESS_NATIVE_TESTS: '1'
         run: go test -race -v ./system -run '^(TestNativeProcess|TestProcess)' -count=3 -timeout=5m
       - name: Validate isolated native cookie credentials
         if: runner.os == 'macOS' || runner.os == 'Windows'

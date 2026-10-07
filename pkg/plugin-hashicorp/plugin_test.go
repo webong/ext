@@ -26,7 +26,7 @@ func fixtureDescriptor() plugin.Descriptor {
 // A real go-plugin subprocess exercises the native startup handshake, cookie,
 // TLS, Dispense, CTX handshake, invocation, and process cleanup for both RPCs.
 func TestGuestProcess(t *testing.T) {
-	transport := os.Getenv("CTX_PLUGIN_TEST_CHILD")
+	transport := os.Getenv("EXT_PLUGIN_TEST_CHILD")
 	if transport == "" {
 		return
 	}
@@ -45,7 +45,7 @@ func TestGuestProcess(t *testing.T) {
 			return r.Payload, nil
 		}
 	}})
-	if os.Getenv("CTX_PLUGIN_CONFORMANCE") == "1" {
+	if os.Getenv("EXT_PLUGIN_CONFORMANCE") == "1" {
 		guest, err = plugintest.Guest()
 	}
 	if err != nil {
@@ -76,9 +76,9 @@ func fixtureClient(t *testing.T, transport hc.Protocol) *hc.Client {
 		t.Fatal(errors.Join(err, closeErr))
 	}
 	command := exec.Command(executable, "-test.run=^TestGuestProcess$")
-	command.Env = []string{"CTX_PLUGIN_TEST_CHILD=" + string(transport)}
-	if os.Getenv("CTX_PLUGIN_CONFORMANCE") == "1" {
-		command.Env = append(command.Env, "CTX_PLUGIN_CONFORMANCE=1")
+	command.Env = []string{"EXT_PLUGIN_TEST_CHILD=" + string(transport)}
+	if os.Getenv("EXT_PLUGIN_CONFORMANCE") == "1" {
+		command.Env = append(command.Env, "EXT_PLUGIN_CONFORMANCE=1")
 	}
 	// Only platform startup material is inherited by this fixture.
 	for _, key := range []string{"PATH", "SystemRoot", "TMPDIR", "TEMP", "TMP"} {
@@ -216,7 +216,7 @@ func TestExistingInterfaceTranslation(t *testing.T) {
 }
 
 func TestBackendConformance(t *testing.T) {
-	t.Setenv("CTX_PLUGIN_CONFORMANCE", "1")
+	t.Setenv("EXT_PLUGIN_CONFORMANCE", "1")
 	for _, protocol := range []hc.Protocol{hc.ProtocolGRPC, hc.ProtocolNetRPC} {
 		t.Run(string(protocol), func(t *testing.T) {
 			plugintest.Run(t, func(ctx context.Context) (plugin.Backend, error) { return Connect(ctx, fixtureClient(t, protocol)) })

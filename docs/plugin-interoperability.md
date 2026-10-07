@@ -80,7 +80,7 @@ where callers have different authority.
 
 ## HashiCorp bridge executable
 
-`pkg/plugin-hashicorp/cmd/ctx-plugin-bridge` exposes a reviewed CTX guest through a JSON-line or
+`pkg/plugin-hashicorp/cmd/ext-plugin-bridge` exposes a reviewed CTX guest through a JSON-line or
 HashiCorp frontend. Its default exposes a HashiCorp CTX guest as a JSON-line command. A Rust, Zig, JS, C or Go host uses its normal CTX JSON-line binding.
 The bridge contains Go and runs in its own process; the host does not need to
 embed the Go runtime. Both HashiCorp gRPC and net/rpc are supported explicitly.
@@ -88,7 +88,7 @@ embed the Go runtime. Both HashiCorp gRPC and net/rpc are supported explicitly.
 ```text
 Host in any language
   → ext.plugin/v1 JSON lines
-  → ctx-plugin-bridge (Go)
+  → ext-plugin-bridge (Go)
   → HashiCorp gRPC or net/rpc
   → guest implementing the selected CTX domain contract
 ```
@@ -96,8 +96,8 @@ Host in any language
 Build and invoke:
 
 ```sh
-go build -o /tmp/ctx-plugin-bridge ./pkg/plugin-hashicorp/cmd/ctx-plugin-bridge
-/tmp/ctx-plugin-bridge --config /absolute/path/bridge.json
+go build -o /tmp/ext-plugin-bridge ./pkg/plugin-hashicorp/cmd/ext-plugin-bridge
+/tmp/ext-plugin-bridge --config /absolute/path/bridge.json
 ```
 
 Configuration uses `ext.bridge/v1` and is reviewed local launch policy. The
@@ -169,8 +169,8 @@ process. The frontend uses CTX's HashiCorp handshake and plugin binding. Its
 worker owns the JSON-line guest; launcher death closes the private lifetime pipe
 so the worker can close and reap that guest even if go-plugin kills the frontend.
 
-Build with `-tags ctx_cengine` and the C library linker flags to make the relay
-use C-owned sessions. Add `ctx_cengine_shared` for shared linkage. The bridge's
+Build with `-tags ext_cengine` and the C library linker flags to make the relay
+use C-owned sessions. Add `ext_cengine_shared` for shared linkage. The bridge's
 HashiCorp runtime code stays Go in its separate process.
 
 A Go HashiCorp server can expose a relay backed by a Rust/Zig JSON-line guest:
@@ -205,11 +205,11 @@ languages with the proper startup/service bindings.
 
 The local proof includes the optional Rust/Zig rows when their artifact paths
 are supplied. Ordinary Go test runs skip executable-based tests unless
-`CTX_BRIDGE_REQUIRED=1` and artifact paths are set. The runner builds the required
+`EXT_BRIDGE_REQUIRED=1` and artifact paths are set. The runner builds the required
 Go binaries and C-language examples; set `ZIG_BIN`/`NODE_INCLUDE_DIR` as described
-in the C prototype guide. `CTX_INTEROP_REUSE_CENGINE=1` reuses an existing verified
-runner output. Set `CTX_INTEROP_ENGINE=c` to repeat the bridge checks with
-C-owned sessions and `CTX_CENGINE_LINKAGE=shared` for the optional shared library.
+in the C prototype guide. `EXT_INTEROP_REUSE_CENGINE=1` reuses an existing verified
+runner output. Set `EXT_INTEROP_ENGINE=c` to repeat the bridge checks with
+C-owned sessions and `EXT_CENGINE_LINKAGE=shared` for the optional shared library.
 Both production directions have passed locally with Go and C session engines.
 It never enables unreviewed executable discovery.
 

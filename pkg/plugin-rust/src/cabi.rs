@@ -154,24 +154,24 @@ impl Server {
 #[macro_export]
 macro_rules! export_guest {
     ($factory:path) => {
-        fn ctx_server() -> &'static $crate::cabi::Server {
+        fn ext_server() -> &'static $crate::cabi::Server {
             static SERVER: std::sync::OnceLock<$crate::cabi::Server> = std::sync::OnceLock::new();
             SERVER.get_or_init(|| $crate::cabi::Server::new($factory, 64))
         }
         #[unsafe(no_mangle)]
-        pub extern "C" fn ctx_plugin_abi_version() -> u32 {
+        pub extern "C" fn ext_plugin_abi_version() -> u32 {
             1
         }
         #[unsafe(no_mangle)]
-        pub extern "C" fn ctx_plugin_open() -> u64 {
-            std::panic::catch_unwind(|| ctx_server().open()).unwrap_or(0)
+        pub extern "C" fn ext_plugin_open() -> u64 {
+            std::panic::catch_unwind(|| ext_server().open()).unwrap_or(0)
         }
         #[unsafe(no_mangle)]
-        pub extern "C" fn ctx_plugin_close(id: u64) {
-            let _ = std::panic::catch_unwind(|| ctx_server().close(id));
+        pub extern "C" fn ext_plugin_close(id: u64) {
+            let _ = std::panic::catch_unwind(|| ext_server().close(id));
         }
         #[unsafe(no_mangle)]
-        pub unsafe extern "C" fn ctx_plugin_call(
+        pub unsafe extern "C" fn ext_plugin_call(
             id: u64,
             op: u32,
             input: *const u8,
@@ -180,7 +180,7 @@ macro_rules! export_guest {
             cap: u32,
             written: *mut u32,
         ) -> u32 {
-            unsafe { ctx_server().call_into(id, op, input, len, out, cap, written) }
+            unsafe { ext_server().call_into(id, op, input, len, out, cap, written) }
         }
     };
 }

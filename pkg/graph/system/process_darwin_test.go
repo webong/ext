@@ -55,7 +55,7 @@ func TestProcessDarwinCPUTime(t *testing.T) {
 func restrictProcessFixture() error { return nil }
 
 func TestNativeProcessApplicationBundle(t *testing.T) {
-	if os.Getenv("CTX_GRAPH_PROCESS_NATIVE_TESTS") != "1" {
+	if os.Getenv("EXT_GRAPH_PROCESS_NATIVE_TESTS") != "1" {
 		t.Skip("native process tests are opt-in")
 	}
 	source, err := os.Executable()

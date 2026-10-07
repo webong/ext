@@ -1,5 +1,5 @@
 #define _POSIX_C_SOURCE 200809L
-#include "ctx_instance.h"
+#include "ext_instance.h"
 #include "sha256.h"
 #include "wire.h"
 #include <pthread.h>
@@ -17,19 +17,19 @@ struct instance {
   size_t leases;
   enum { PENDING, LIVE, RETIRED, DISPOSING } state;
 };
-struct ctx_instances {
+struct ext_instances {
   pthread_mutex_t mu;
   pthread_cond_t changed;
   pthread_t worker;
-  ctx_instance_options options;
-  ctx_cancel *life;
+  ext_instance_options options;
+  ext_cancel *life;
   instance *entries;
   size_t active;
   int closed;
-  ctx_status cleanup;
+  ext_status cleanup;
 };
-struct ctx_lease {
-  ctx_instances *manager;
+struct ext_lease {
+  ext_instances *manager;
   instance *entry;
 };
 static int64_t now(void) {
@@ -40,7 +40,7 @@ static int64_t now(void) {
 static int equal(const instance *e, const uint8_t *key, size_t len) {
   return e->key_len == len && !memcmp(e->key, key, len);
 }
-static instance *lookup(ctx_instances *m, const uint8_t *key, size_t len,
+static instance *lookup(ext_instances *m, const uint8_t *key, size_t len,
                         int pending) {
   for (instance *e = m->entries; e; e = e->next)
     if (e->state == (pending ? PENDING : LIVE) && equal(e, key, len))
@@ -48,23 +48,23 @@ static instance *lookup(ctx_instances *m, const uint8_t *key, size_t len,
   return NULL;
 }
 static int text(const uint8_t *p, size_t n) { return p && n && n <= 256; }
-static int call(const ctx_call_options *o) {
+static int call(const ext_call_options *o) {
   return o && o->struct_size == sizeof(*o) && o->timeout_ms;
 }
-static ctx_status stopped(const ctx_call_options *o, int64_t end) {
-  return ctx_cancel_is_signaled(o->cancel) ? CTX_CANCELED
-         : now() >= end                    ? CTX_TIMEOUT
-                                           : CTX_OK;
+static ext_status stopped(const ext_call_options *o, int64_t end) {
+  return ext_cancel_is_signaled(o->cancel) ? EXT_CANCELED
+         : now() >= end                    ? EXT_TIMEOUT
+                                           : EXT_OK;
 }
-static void observe(ctx_instances *m, const uint8_t *key, size_t k,
+static void observe(ext_instances *m, const uint8_t *key, size_t k,
                     const uint8_t *rev, size_t r, const char *state) {
   if (m->options.observe)
     m->options.observe(m->options.user, key, k, rev, r, state);
 }
 /* Caller has claimed DISPOSING under lock; no new lease can see the entry. */
-static ctx_status dispose(ctx_instances *m, instance *e) {
-  ctx_status s =
-      e->value ? m->options.dispose(m->options.user, e->value) : CTX_OK;
+static ext_status dispose(ext_instances *m, instance *e) {
+  ext_status s =
+      e->value ? m->options.dispose(m->options.user, e->value) : EXT_OK;
   if (e->published)
     observe(m, e->key, e->key_len, e->revision, e->revision_len, "disposed");
   pthread_mutex_lock(&m->mu);
@@ -81,7 +81,7 @@ static ctx_status dispose(ctx_instances *m, instance *e) {
   return s;
 }
 static void *cleanup_worker(void *arg) {
-  ctx_instances *m = arg;
+  ext_instances *m = arg;
   pthread_mutex_lock(&m->mu);
   for (;;) {
     if (m->closed && !m->active)
@@ -103,72 +103,72 @@ static void *cleanup_worker(void *arg) {
   pthread_mutex_unlock(&m->mu);
   return NULL;
 }
-ctx_status ctx_instances_create(const ctx_instance_options *o,
-                                ctx_instances **out) {
+ext_status ext_instances_create(const ext_instance_options *o,
+                                ext_instances **out) {
   if (!out)
-    return CTX_INVALID;
+    return EXT_INVALID;
   *out = NULL;
   if (!o || o->struct_size != sizeof(*o) || !o->capacity ||
       o->capacity > 4096 || !o->validate || !o->create || !o->dispose)
-    return CTX_INVALID;
-  ctx_instances *m = calloc(1, sizeof(*m));
+    return EXT_INVALID;
+  ext_instances *m = calloc(1, sizeof(*m));
   if (!m)
-    return CTX_NOMEM;
+    return EXT_NOMEM;
   m->options = *o;
-  ctx_status s = ctx_cancel_create(&m->life);
+  ext_status s = ext_cancel_create(&m->life);
   if (s) {
     free(m);
     return s;
   }
   if (pthread_mutex_init(&m->mu, NULL)) {
-    ctx_cancel_destroy(m->life);
+    ext_cancel_destroy(m->life);
     free(m);
-    return CTX_IO;
+    return EXT_IO;
   }
   if (pthread_cond_init(&m->changed, NULL)) {
     pthread_mutex_destroy(&m->mu);
-    ctx_cancel_destroy(m->life);
+    ext_cancel_destroy(m->life);
     free(m);
-    return CTX_IO;
+    return EXT_IO;
   }
   if (pthread_create(&m->worker, NULL, cleanup_worker, m)) {
     pthread_cond_destroy(&m->changed);
     pthread_mutex_destroy(&m->mu);
-    ctx_cancel_destroy(m->life);
+    ext_cancel_destroy(m->life);
     free(m);
-    return CTX_IO;
+    return EXT_IO;
   }
   *out = m;
-  return CTX_OK;
+  return EXT_OK;
 }
-ctx_status ctx_instances_configure(ctx_instances *m, const uint8_t *key,
+ext_status ext_instances_configure(ext_instances *m, const uint8_t *key,
                                    size_t key_len, const uint8_t *revision,
                                    size_t revision_len, const uint8_t *config,
                                    size_t config_len,
-                                   const ctx_call_options *o) {
+                                   const ext_call_options *o) {
   if (!m || !text(key, key_len) || !text(revision, revision_len) || !call(o))
-    return CTX_INVALID;
+    return EXT_INVALID;
   int64_t end = now() + o->timeout_ms;
-  ctx_status s = stopped(o, end);
+  ext_status s = stopped(o, end);
   if (s)
     return s;
-  yyjson_doc *doc = ctx_parse(config, config_len);
+  yyjson_doc *doc = ext_parse(config, config_len);
   if (!doc)
-    return CTX_INVALID;
+    return EXT_INVALID;
   yyjson_doc_free(doc);
   uint8_t *copy = malloc(config_len);
   instance *e = calloc(1, sizeof(*e));
   if (!copy || !e) {
     free(copy);
     free(e);
-    return CTX_NOMEM;
+    return EXT_NOMEM;
   }
   memcpy(copy, config, config_len);
   memcpy(e->key, key, key_len);
   memcpy(e->revision, revision, revision_len);
   e->key_len = key_len;
   e->revision_len = revision_len;
-  ctx_engine_sha256(copy, config_len, e->digest);
+  ext_engine_sha256(copy, config_len, e->digest);
   s = m->options.validate(m->options.user, copy, config_len);
   if (s)
     goto reject;
@@ -177,22 +177,22 @@ ctx_status ctx_instances_configure(ctx_instances *m, const uint8_t *key,
   pthread_mutex_lock(&m->mu);
   instance *old = lookup(m, key, key_len, 0);
   if (m->closed)
-    s = CTX_CLOSED;
+    s = EXT_CLOSED;
   else if (lookup(m, key, key_len, 1))
-    s = CTX_UPDATING;
+    s = EXT_UPDATING;
   else if (old && old->revision_len == revision_len &&
            !memcmp(old->revision, revision, revision_len))
-    s = memcmp(old->digest, e->digest, 32) ? CTX_MISMATCH : CTX_OK;
+    s = memcmp(old->digest, e->digest, 32) ? EXT_MISMATCH : EXT_OK;
   else if (m->active >= m->options.capacity)
-    s = CTX_CAPACITY;
+    s = EXT_CAPACITY;
   else {
     e->next = m->entries;
     m->entries = e;
     m->active++;
     pthread_mutex_unlock(&m->mu);
-    ctx_call_options bounded = *o;
+    ext_call_options bounded = *o;
     bounded.timeout_ms = (uint32_t)(end - now());
-    if ((s = stopped(o, end)) == CTX_OK)
+    if ((s = stopped(o, end)) == EXT_OK)
       s = m->options.create(m->options.user, &bounded, m->life, e->key,
                             e->key_len, copy, config_len, &e->value);
     free(copy);
@@ -201,11 +201,11 @@ ctx_status ctx_instances_configure(ctx_instances *m, const uint8_t *key,
       s = stopped(o, end);
     pthread_mutex_lock(&m->mu);
     if (m->closed && !s)
-      s = CTX_CLOSED;
+      s = EXT_CLOSED;
     if (s) {
       e->state = DISPOSING;
       pthread_mutex_unlock(&m->mu);
-      ctx_status cleanup = dispose(m, e);
+      ext_status cleanup = dispose(m, e);
       return s ? s : cleanup;
     }
     old = lookup(m, e->key, e->key_len, 0);
@@ -239,7 +239,7 @@ ctx_status ctx_instances_configure(ctx_instances *m, const uint8_t *key,
       e->state = DISPOSING;
     pthread_mutex_unlock(&m->mu);
     if (cleanup_new) {
-      ctx_status cleanup = dispose(m, e);
+      ext_status cleanup = dispose(m, e);
       if (!s)
         s = cleanup;
     }
@@ -251,19 +251,19 @@ reject:
   free(e);
   return s;
 }
-ctx_status ctx_instances_acquire(ctx_instances *m, const uint8_t *key,
-                                 size_t len, ctx_lease **out) {
+ext_status ext_instances_acquire(ext_instances *m, const uint8_t *key,
+                                 size_t len, ext_lease **out) {
   if (!out)
-    return CTX_INVALID;
+    return EXT_INVALID;
   *out = NULL;
   if (!m || !key)
-    return CTX_INVALID;
-  ctx_lease *l = malloc(sizeof(*l));
+    return EXT_INVALID;
+  ext_lease *l = malloc(sizeof(*l));
   if (!l)
-    return CTX_NOMEM;
+    return EXT_NOMEM;
   pthread_mutex_lock(&m->mu);
   instance *e = lookup(m, key, len, 0);
-  ctx_status s = m->closed ? CTX_CLOSED : !e ? CTX_NOT_FOUND : CTX_OK;
+  ext_status s = m->closed ? EXT_CLOSED : !e ? EXT_NOT_FOUND : EXT_OK;
   if (!s) {
     e->leases++;
     l->manager = m;
@@ -275,17 +275,17 @@ ctx_status ctx_instances_acquire(ctx_instances *m, const uint8_t *key,
     free(l);
   return s;
 }
-void *ctx_lease_value(const ctx_lease *l) { return l ? l->entry->value : NULL; }
-const uint8_t *ctx_lease_revision(const ctx_lease *l, size_t *len) {
+void *ext_lease_value(const ext_lease *l) { return l ? l->entry->value : NULL; }
+const uint8_t *ext_lease_revision(const ext_lease *l, size_t *len) {
   if (!l || !len)
     return NULL;
   *len = l->entry->revision_len;
   return l->entry->revision;
 }
-ctx_status ctx_lease_release(ctx_lease *l) {
+ext_status ext_lease_release(ext_lease *l) {
   if (!l)
-    return CTX_INVALID;
-  ctx_instances *m = l->manager;
+    return EXT_INVALID;
+  ext_instances *m = l->manager;
   instance *e = l->entry;
   pthread_mutex_lock(&m->mu);
   e->leases--;
@@ -294,18 +294,18 @@ ctx_status ctx_lease_release(ctx_lease *l) {
     e->state = DISPOSING;
   pthread_mutex_unlock(&m->mu);
   free(l);
-  return cleanup ? dispose(m, e) : CTX_OK;
+  return cleanup ? dispose(m, e) : EXT_OK;
 }
-ctx_status ctx_instances_remove(ctx_instances *m, const uint8_t *key,
+ext_status ext_instances_remove(ext_instances *m, const uint8_t *key,
                                 size_t len) {
   if (!m || !key)
-    return CTX_INVALID;
+    return EXT_INVALID;
   pthread_mutex_lock(&m->mu);
   instance *e = lookup(m, key, len, 0);
-  ctx_status s = m->closed                ? CTX_CLOSED
-                 : lookup(m, key, len, 1) ? CTX_UPDATING
-                 : !e                     ? CTX_NOT_FOUND
-                                          : CTX_OK;
+  ext_status s = m->closed                ? EXT_CLOSED
+                 : lookup(m, key, len, 1) ? EXT_UPDATING
+                 : !e                     ? EXT_NOT_FOUND
+                                          : EXT_OK;
   int cleanup = 0;
   if (!s) {
     e->state = RETIRED;
@@ -317,20 +317,20 @@ ctx_status ctx_instances_remove(ctx_instances *m, const uint8_t *key,
   pthread_mutex_unlock(&m->mu);
   return cleanup ? dispose(m, e) : s;
 }
-ctx_status ctx_instances_close(ctx_instances *m, const ctx_call_options *o) {
+ext_status ext_instances_close(ext_instances *m, const ext_call_options *o) {
   if (!m || !call(o))
-    return CTX_INVALID;
+    return EXT_INVALID;
   int64_t end = now() + o->timeout_ms;
   pthread_mutex_lock(&m->mu);
   if (!m->closed) {
     m->closed = 1;
-    ctx_cancel_signal(m->life);
+    ext_cancel_signal(m->life);
     for (instance *e = m->entries; e; e = e->next)
       if (e->state == LIVE)
         e->state = RETIRED;
     pthread_cond_broadcast(&m->changed);
   }
-  ctx_status s = CTX_OK;
+  ext_status s = EXT_OK;
   while (m->active) {
     if ((s = stopped(o, end)))
       break;
@@ -350,18 +350,18 @@ ctx_status ctx_instances_close(ctx_instances *m, const ctx_call_options *o) {
   pthread_mutex_unlock(&m->mu);
   return s;
 }
-ctx_status ctx_instances_destroy(ctx_instances *m) {
+ext_status ext_instances_destroy(ext_instances *m) {
   if (!m)
-    return CTX_INVALID;
+    return EXT_INVALID;
   pthread_mutex_lock(&m->mu);
   int busy = !m->closed || m->active;
   pthread_mutex_unlock(&m->mu);
   if (busy)
-    return CTX_DRAINING;
+    return EXT_DRAINING;
   pthread_join(m->worker, NULL);
   pthread_cond_destroy(&m->changed);
   pthread_mutex_destroy(&m->mu);
-  ctx_cancel_destroy(m->life);
+  ext_cancel_destroy(m->life);
   free(m);
-  return CTX_OK;
+  return EXT_OK;
 }

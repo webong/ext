@@ -25,18 +25,18 @@ func newServer() *guest.Server {
 	return s
 }
 
-//export ctx_plugin_abi_version
-func ctx_plugin_abi_version() C.uint32_t { return C.uint32_t(abi.Version) }
+//export ext_plugin_abi_version
+func ext_plugin_abi_version() C.uint32_t { return C.uint32_t(abi.Version) }
 
-//export ctx_plugin_open
-func ctx_plugin_open() C.uint64_t { return C.uint64_t(server.Open()) }
+//export ext_plugin_open
+func ext_plugin_open() C.uint64_t { return C.uint64_t(server.Open()) }
 
-//export ctx_plugin_call
-func ctx_plugin_call(handle C.uint64_t, op C.uint32_t, request *C.uint8_t, requestLen C.uint32_t, response *C.uint8_t, capacity C.uint32_t, responseLen *C.uint32_t) C.uint32_t {
+//export ext_plugin_call
+func ext_plugin_call(handle C.uint64_t, op C.uint32_t, request *C.uint8_t, requestLen C.uint32_t, response *C.uint8_t, capacity C.uint32_t, responseLen *C.uint32_t) C.uint32_t {
 	return C.uint32_t(server.CallInto(uint64(handle), uint32(op), unsafe.Pointer(request), uint32(requestLen), unsafe.Pointer(response), uint32(capacity), (*uint32)(unsafe.Pointer(responseLen))))
 }
 
-//export ctx_plugin_close
-func ctx_plugin_close(handle C.uint64_t) { server.Close(uint64(handle)) }
+//export ext_plugin_close
+func ext_plugin_close(handle C.uint64_t) { server.Close(uint64(handle)) }
 
 func main() {}

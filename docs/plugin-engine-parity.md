@@ -31,7 +31,7 @@ full parity achieved.
 | Compatibility (`plugin/compatibility.go`) | Shared exact protocol negotiation and route/profile accounting | Cross-language parity fixtures and release versioning |
 | Host session (`plugin/session.go`) | C-generated calls/IDs, verification, contextual authorization, cancellation, immutable matching, state, queued admission, abort and drain; Go session facade | Remaining error-cause fidelity and binding semantics audit |
 | Observability (`plugin/observe.go`) | C metadata-only events with Go/Rust/Zig hooks and bounded asynchronous Node observation | Match all stage/error semantics; document Node delivery limits |
-| Guest engine (`plugin/guest.go`) | C immutable dispatcher, deadlines, owned buffers and error sanitization; Go/Rust/Zig/Node bindings; a request matrix (27 one-field mutations, each with live and cancelled contexts) compares the C-backed and Go guests, including identical `invalid_request` responses (the Go and Node facades map `CTX_INVALID` to that response) | Rust and Zig expose raw bytes: a request with an unusable ID or unparseable JSON is a failed call (`CTX_INVALID`) there, not an `invalid_request` response as in Go and Node; decide whether the C engine should answer those itself |
+| Guest engine (`plugin/guest.go`) | C immutable dispatcher, deadlines, owned buffers and error sanitization; Go/Rust/Zig/Node bindings; a request matrix (27 one-field mutations, each with live and cancelled contexts) compares the C-backed and Go guests, including identical `invalid_request` responses (the Go and Node facades map `EXT_INVALID` to that response) | Rust and Zig expose raw bytes: a request with an unusable ID or unparseable JSON is a failed call (`EXT_INVALID`) there, not an `invalid_request` response as in Go and Node; decide whether the C engine should answer those itself |
 | Typed authoring (`pkg/plugin/author`) | Go registry construction, guest snapshots and typed host calls can use C schema evaluation; Rust/Zig/Node accept native handlers | Typed foreign conveniences and final default SDK integration |
 | Schema (`pkg/plugin/schema`) | Shared bounded schema validation and checks; a generated matrix of 30 schemas by about 90 raw values (2,037 pairs, including numbers, nulls, Unicode, surrogate escapes and malformed JSON) agrees with Go | Multi-keyword generated schemas |
 | Streams and capabilities (`pkg/plugin/stream`, `pkg/plugin/capability`) | C scoped pull-stream lifecycle, capacity, sequence, bounded batches, expiry, close/release; Go integration; Node bindings | Remaining race/error differential cases; capability helpers |
@@ -84,35 +84,35 @@ External CMake consumers load the installed static/shared host and guest targets
 
 ## Building the C engine locally
 
-The `ctx_cengine` build tag links `pkg/plugin-go` against the C engine, so those tests
-need the CMake library built first. `go test -tags ctx_cengine ./pkg/plugin-go` fails to
-link with `ld: library 'ctx_host_static' not found` until you do. Note that
+The `ext_cengine` build tag links `pkg/plugin-go` against the C engine, so those tests
+need the CMake library built first. `go test -tags ext_cengine ./pkg/plugin-go` fails to
+link with `ld: library 'ext_host_static' not found` until you do. Note that
 `go build` of a library package does not link, so it appears to succeed; the
 failure surfaces when `go test` builds the test binary.
 
-The cgo directives in `pkg/plugin-go/engine.go` use a bare `-lctx_host_static` with no
+The cgo directives in `pkg/plugin-go/engine.go` use a bare `-lext_host_static` with no
 library search path, so point the linker at your build directory:
 
 ```bash
 cmake -S pkg/plugin-engine -B /tmp/pkg/plugin-engine-build \
-  -DCMAKE_BUILD_TYPE=Release -DCTX_BUILD_SHARED=ON
+  -DCMAKE_BUILD_TYPE=Release -DEXT_BUILD_SHARED=ON
 cmake --build /tmp/pkg/plugin-engine-build -j 4
 
 export CGO_LDFLAGS="-L/tmp/pkg/plugin-engine-build -Wl,-rpath,/tmp/pkg/plugin-engine-build"
-export CTX_CENGINE_GUEST=/tmp/go-guest
-export CTX_CENGINE_FAULT_GUEST=/tmp/fault-guest
+export EXT_CENGINE_GUEST=/tmp/go-guest
+export EXT_CENGINE_FAULT_GUEST=/tmp/fault-guest
 
-go build -tags ctx_cengine -o "$CTX_CENGINE_GUEST" \
+go build -tags ext_cengine -o "$EXT_CENGINE_GUEST" \
   ./pkg/plugin-wasm/crosslang/testdata/go-guest
-go build -tags ctx_cengine -o "$CTX_CENGINE_FAULT_GUEST" \
-  ./pkg/plugin-engine/tests/faultguest
+go build -tags ext_cengine -o "$EXT_CENGINE_FAULT_GUEST" \
+  pkg/plugin-engine/tests/faultguest/main.go
 
-go test -tags ctx_cengine -race ./pkg/plugin-go
-go test -tags ctx_cengine,ctx_cengine_shared -race ./pkg/plugin-go   # shared linkage
+go test -tags ext_cengine -race ./pkg/plugin-go
+go test -tags ext_cengine,ext_cengine_shared -race ./pkg/plugin-go   # shared linkage
 ```
 
-The two guest binaries are required: without `CTX_CENGINE_GUEST` and
-`CTX_CENGINE_FAULT_GUEST` the tagged tests fail with `CTX_CENGINE_GUEST required`.
+The two guest binaries are required: without `EXT_CENGINE_GUEST` and
+`EXT_CENGINE_FAULT_GUEST` the tagged tests fail with `EXT_CENGINE_GUEST required`.
 
 `scripts/plugin-cengine.sh` does all of the above plus the sanitizer builds,
 Rust and Zig guests, and the Node addon, then uploads benchmarks. It also

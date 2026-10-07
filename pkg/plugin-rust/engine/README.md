@@ -2,7 +2,7 @@
 
 This development crate embeds the shared engine without a Go runtime or Rust
 protocol implementation. Build the C engine first, then set
-`CTX_ENGINE_LIB_DIR` to its library directory when building this crate. Static
+`EXT_ENGINE_LIB_DIR` to its library directory when building this crate. Static
 linkage is the default; `--features shared` uses the optional shared library and
 requires a configured loader path. Nothing is published to a registry yet.
 
@@ -33,9 +33,9 @@ C engine platforms.
 
 ## Guest-only and WASM builds
 
-Use `--features guest-only` to link `libctx_guest_static.a`; combine with `shared`
+Use `--features guest-only` to link `libext_guest_static.a`; combine with `shared`
 for the native shared guest library. Host and resource wrappers are excluded.
-Build C with `CTX_BUILD_HOST=OFF` for WASI, then point `CTX_ENGINE_LIB_DIR` at that
+Build C with `EXT_BUILD_HOST=OFF` for WASI, then point `EXT_ENGINE_LIB_DIR` at that
 Wasm archive and use `--target wasm32-wasip1`. `examples/guest.rs` executes the same
 C dispatcher natively and in WASI. The repository's `scripts/plugin-wasi-core.sh`
 reproduces both builds and runs them. Raw FFI users must only call symbols present

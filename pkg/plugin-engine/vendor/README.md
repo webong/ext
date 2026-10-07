@@ -14,6 +14,6 @@ layer adds duplicate-key checks, envelope validation and depth/frame limits.
 
 CMake force-includes a generated private namespace header for every engine
 translation unit. All external `yyjson_api` functions (including `unsafe_`
-helpers) are prefixed `ctx_host_private_`. The original source files and their
+helpers) are prefixed `ext_host_private_`. The original source files and their
 checksums remain unchanged; the build derives names from the pinned header.
 This prevents unprefixed parser symbols colliding with a consumer's yyjson.

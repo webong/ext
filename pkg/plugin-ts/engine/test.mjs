@@ -5,7 +5,7 @@ import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {createHash} from 'node:crypto';
 import {loadEngine} from './index.mjs';
-const engine=loadEngine(process.env.CTX_ENGINE_ADDON);
+const engine=loadEngine(process.env.EXT_ENGINE_ADDON);
 const descriptor=JSON.parse(await readFile(new URL('../../../pkg/plugin/testdata/v1/descriptor.json',import.meta.url)));
 function envelope(operation='echo',payload={value:7}){return {apiVersion:'ext.plugin/v1',id:'1',plugin:descriptor.identity,contract:{name:'ext.conformance',version:'v1'},operation,payload,deadline:new Date(Date.now()+5000).toISOString()};}
 test('C services and async guest dispatch',async()=>{
@@ -24,16 +24,16 @@ test('abort with a late promise is safe',async()=>{
  const abort=new AbortController();setTimeout(()=>abort.abort(),5);
  await assert.rejects(g.invoke(envelope(),{signal:abort.signal}),e=>e.status===12);g.close();await new Promise(r=>setTimeout(r,80));
 });
-test('C host with async policy, generated calls and drain',{skip:!process.env.CTX_CENGINE_GUEST},async()=>{
+test('C host with async policy, generated calls and drain',{skip:!process.env.EXT_CENGINE_GUEST},async()=>{
  let verified=0,authorized=0;
- const host=await engine.Host.open({executable:process.env.CTX_CENGINE_GUEST,descriptor,verify:async()=>{verified++;return true;},authorize:async()=>{authorized++;return true;}});
+ const host=await engine.Host.open({executable:process.env.EXT_CENGINE_GUEST,descriptor,verify:async()=>{verified++;return true;},authorize:async()=>{authorized++;return true;}});
  assert.equal(verified,1);const reply=await host.call({name:'ext.conformance',version:'v1'},'echo',{value:9});assert.deepEqual(reply.payload,{value:9});assert.equal(authorized,1);await host.drain();host.close();
 });
-test('C host denies before launch',{skip:!process.env.CTX_CENGINE_GUEST},async()=>{
- await assert.rejects(engine.Host.open({executable:process.env.CTX_CENGINE_GUEST,descriptor,verify:()=>false,authorize:()=>true}),e=>e.status===2);
+test('C host denies before launch',{skip:!process.env.EXT_CENGINE_GUEST},async()=>{
+ await assert.rejects(engine.Host.open({executable:process.env.EXT_CENGINE_GUEST,descriptor,verify:()=>false,authorize:()=>true}),e=>e.status===2);
 });
 test('C integrity work and symlink rejection',async()=>{
- const root=await mkdtemp(join(tmpdir(),'ctx-node-integrity-'));
+ const root=await mkdtemp(join(tmpdir(),'ext-node-integrity-'));
  try{
    await writeFile(join(root,'data.txt'),'abc');
    const fileHash=createHash('sha256').update('abc').digest('hex');
@@ -44,9 +44,9 @@ test('C integrity work and symlink rejection',async()=>{
    await assert.rejects(engine.verifyArtifacts({},root));
  }finally{await rm(root,{recursive:true,force:true});}
 });
-test('C metadata observer does not expose payloads',{skip:!process.env.CTX_CENGINE_GUEST},async()=>{
+test('C metadata observer does not expose payloads',{skip:!process.env.EXT_CENGINE_GUEST},async()=>{
  const events=[];
- const host=await engine.Host.open({executable:process.env.CTX_CENGINE_GUEST,descriptor,verify:()=>true,authorize:()=>true,observe:event=>events.push(event)});
+ const host=await engine.Host.open({executable:process.env.EXT_CENGINE_GUEST,descriptor,verify:()=>true,authorize:()=>true,observe:event=>events.push(event)});
  try{
   await host.call({name:'ext.conformance',version:'v1'},'echo',{secret:'private payload'});
   await new Promise(resolve=>setImmediate(resolve));

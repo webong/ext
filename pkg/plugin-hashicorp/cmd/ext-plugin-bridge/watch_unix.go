@@ -20,7 +20,7 @@ func watchParent(c config) error {
 	if err := syscall.SetNonblock(3, true); err != nil {
 		return plugin.ErrInvalid
 	}
-	life := os.NewFile(3, "ctx-parent-liveness")
+	life := os.NewFile(3, "ext-parent-liveness")
 	if life == nil {
 		return plugin.ErrInvalid
 	}

@@ -1,6 +1,6 @@
 # CTX plugin SDK for Rust
 
-`ctx-plugin` is the Rust host/guest implementation of `ext.plugin/v1`. This
+`ext-plugin` is the Rust host/guest implementation of `ext.plugin/v1`. This
 development crate is part of CTX and is not published to crates.io. Use a path
 dependency pointing at this directory, or a pinned CTX Git revision. Rust 1.88+
 is required by the locked dependencies; CI and local examples use Rust 1.98.1.
@@ -8,7 +8,7 @@ is required by the locked dependencies; CI and local examples use Rust 1.98.1.
 ## Write a typed guest
 
 ```rust
-use ctx_plugin::{ContractRef, Guest, Identity, Method, Operation, Registry, Result};
+use ext_plugin::{ContractRef, Guest, Identity, Method, Operation, Registry, Result};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
@@ -25,7 +25,7 @@ fn guest() -> Result<Guest> {
         Operation { name: "echo".into(), surface: "observation".into() },
     );
     echo.validate_input = |v| {
-        if v.text.len() > 256 { Err(ctx_plugin::Error::Invalid) } else { Ok(()) }
+        if v.text.len() > 256 { Err(ext_plugin::Error::Invalid) } else { Ok(()) }
     };
     registry.register(echo, |context, _request, input| {
         context.check()?;
@@ -33,7 +33,7 @@ fn guest() -> Result<Guest> {
     })?;
     registry.guest(Arc::new(|request| {
         // Apply your domain authorization here. This local example allows echo.
-        if request.operation == "echo" { Ok(()) } else { Err(ctx_plugin::Error::Denied) }
+        if request.operation == "echo" { Ok(()) } else { Err(ext_plugin::Error::Denied) }
     }))
 }
 ```
@@ -49,16 +49,16 @@ This crate does not implement the separate `ext.schema/v1` schema interpreter.
 **Standalone or WASI command:**
 
 ```rust,ignore
-ctx_plugin::guest::serve(&guest()?, std::io::stdin().lock(), std::io::stdout().lock())?;
+ext_plugin::guest::serve(&guest()?, std::io::stdin().lock(), std::io::stdout().lock())?;
 ```
 
 **C shared library:** configure `crate-type = ["cdylib"]`, then export:
 
 ```rust,ignore
-ctx_plugin::export_guest!(guest);
+ext_plugin::export_guest!(guest);
 ```
 
-The macro supplies the four exports from CTX's [C ABI](../../pkg/plugin-cshared/ctx_plugin.h).
+The macro supplies the four exports from CTX's [C ABI](../../pkg/plugin-cshared/ext_plugin.h).
 Each `open` calls the factory for an independent guest; up to 64 handles are
 admitted. Handle removal releases the guest when outstanding references finish.
 Guest-owned closure state can use `Arc`/`Drop` for resources. Panics are caught

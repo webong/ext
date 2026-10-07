@@ -1,5 +1,5 @@
 const std = @import("std");
-const sdk = @import("ctx_plugin");
+const sdk = @import("ext_plugin");
 const common = @import("common.zig");
 const w = sdk.wire;
 const Loader = struct {

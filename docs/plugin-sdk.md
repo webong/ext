@@ -33,7 +33,7 @@ Their existing native protocols are not automatically compatible with CTX.
 | `pkg/plugin-rust` | Rust typed registry, host sessions, JSON-line/WASI guests and C ABI host/guest bindings |
 | `pkg/plugin-zig` | Zig typed registry, host sessions, JSON-line/WASI guests and C ABI host/guest bindings |
 | `pkg/plugin-wasm/crosslang` | Real Rust/Zig/Go host and guest interoperability tests |
-| `pkg/plugin-hashicorp/cmd/ctx-plugin` | Read-only package inspection and dependency resolution |
+| `pkg/plugin-hashicorp/cmd/ext-plugin` | Read-only package inspection and dependency resolution |
 
 ## Compatibility policy
 
@@ -213,8 +213,8 @@ remain host-owned. Graph records do not grant permissions; restart generations,
 transactional activation and rollback remain part of the host's composition.
 
 ```sh
-go run ./pkg/plugin-hashicorp/cmd/ctx-plugin inspect --entry main examples/plugin-package/plugin.json
-go run ./pkg/plugin-hashicorp/cmd/ctx-plugin resolve examples/plugin-package/plugin.json
+go run ./pkg/plugin-hashicorp/cmd/ext-plugin inspect --entry main examples/plugin-package/plugin.json
+go run ./pkg/plugin-hashicorp/cmd/ext-plugin resolve examples/plugin-package/plugin.json
 ```
 
 Add `--root DIR` to verify artifact contents. `inspect` reports `trusted: false`
@@ -239,7 +239,7 @@ specific process cleanup remains covered by each runtime's own tests. Parser
 fixtures and domain/schema tests complement the behavioral backend suite.
 
 ```sh
-go test -race ./pkg/plugin-hashicorp/... ./pkg/plugin-hashicorp/cmd/ctx-plugin
+go test -race ./pkg/plugin-hashicorp/... ./pkg/plugin-hashicorp/cmd/ext-plugin
 node --test pkg/plugin-ts/test.mjs
 go run ./examples/plugin-typescript
 ```
@@ -304,7 +304,7 @@ tradeoffs. Ordinary Go builds do not depend on this C engine.
 
 Go, C and language-native SDK hosts can coexist behind the same contract.
 `pkg/plugin/interop` plans explicit direct/bridged routes; `pkg/plugin/bridge` exposes a
-verified backend as an Endpoint. `pkg/plugin-hashicorp/cmd/ctx-plugin-bridge` connects JSON-line hosts
+verified backend as an Endpoint. `pkg/plugin-hashicorp/cmd/ext-plugin-bridge` connects JSON-line hosts
 to HashiCorp gRPC/net/rpc guests, while HashiCorp servers can expose relay
 Endpoints in the reverse direction. See [interoperability](plugin-interoperability.md)
 for configuration, ownership and the tested host/guest matrix. This extends

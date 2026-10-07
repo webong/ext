@@ -1,11 +1,11 @@
-//go:build ctx_cengine && cgo && (darwin || linux)
+//go:build ext_cengine && cgo && (darwin || linux)
 
 package goengine
 
 /*
-#include "ctx_stream.h"
+#include "ext_stream.h"
 #include <stdlib.h>
-ctx_status ctx_go_streams_create(uintptr_t,uint32_t,uint32_t,ctx_streams **);
+ext_status ext_go_streams_create(uintptr_t,uint32_t,uint32_t,ext_streams **);
 */
 import "C"
 import (
@@ -27,7 +27,7 @@ import (
 // Close must be called. Scope and reader callbacks must not reenter this service.
 type Streams struct {
 	mu         sync.RWMutex
-	ptr        *C.ctx_streams
+	ptr        *C.ext_streams
 	handle     cgo.Handle
 	options    stream.Options
 	life       context.Context
@@ -53,20 +53,20 @@ func NewStreams(options stream.Options) (*Streams, error) {
 	if ms == 0 {
 		ms = 1
 	}
-	if err := status(C.ctx_go_streams_create(C.uintptr_t(s.handle), C.uint32_t(options.Capacity), C.uint32_t(ms), &s.ptr)); err != nil {
+	if err := status(C.ext_go_streams_create(C.uintptr_t(s.handle), C.uint32_t(options.Capacity), C.uint32_t(ms), &s.ptr)); err != nil {
 		s.handle.Delete()
 		cancel()
 		return nil, err
 	}
 	return s, nil
 }
-func streamStatus(code C.ctx_status) error {
+func streamStatus(code C.ext_status) error {
 	switch code {
-	case C.CTX_DENIED:
+	case C.EXT_DENIED:
 		return &plugin.RemoteError{Code: "denied", Message: "stream access denied"}
-	case C.CTX_CAPACITY:
+	case C.EXT_CAPACITY:
 		return &plugin.RemoteError{Code: "capacity", Message: "stream capacity reached"}
-	case C.CTX_SEQUENCE:
+	case C.EXT_SEQUENCE:
 		return &plugin.RemoteError{Code: "sequence", Message: "stream sequence mismatch"}
 	}
 	return status(code)
@@ -74,7 +74,7 @@ func streamStatus(code C.ctx_status) error {
 func (s *Streams) scope(ctx context.Context, r plugin.Request) ([]byte, error) {
 	scope, err := s.options.Scope(ctx, r.Clone())
 	if err != nil || scope == "" || len(scope) > 256 {
-		return nil, streamStatus(C.CTX_DENIED)
+		return nil, streamStatus(C.EXT_DENIED)
 	}
 	return []byte(scope), nil
 }
@@ -104,9 +104,9 @@ func (s *Streams) open(ctx context.Context, r plugin.Request, input stream.OpenR
 		return result, err
 	}
 	defer scope.finish()
-	var out C.ctx_buffer
-	code := C.ctx_streams_open(s.ptr, bytesPointer(subject), C.size_t(len(subject)), bytesPointer(input.Parameters), C.size_t(len(input.Parameters)), &scope.options, &out)
-	defer C.ctx_buffer_free(&out)
+	var out C.ext_buffer
+	code := C.ext_streams_open(s.ptr, bytesPointer(subject), C.size_t(len(subject)), bytesPointer(input.Parameters), C.size_t(len(input.Parameters)), &scope.options, &out)
+	defer C.ext_buffer_free(&out)
 	if ctx.Err() != nil {
 		return result, ctx.Err()
 	}
@@ -128,7 +128,7 @@ func (s *Streams) read(ctx context.Context, r plugin.Request, input stream.ReadR
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	if s.ptr == nil {
-		return result, streamStatus(C.CTX_DENIED)
+		return result, streamStatus(C.EXT_DENIED)
 	}
 	scope, err := resourceScope(ctx)
 	if err != nil {
@@ -137,9 +137,9 @@ func (s *Streams) read(ctx context.Context, r plugin.Request, input stream.ReadR
 	defer scope.finish()
 	id := C.CString(input.ID)
 	defer C.free(unsafe.Pointer(id))
-	var out C.ctx_buffer
-	code := C.ctx_streams_read(s.ptr, bytesPointer(subject), C.size_t(len(subject)), id, C.uint64_t(input.Sequence), C.uint32_t(input.Limit), &scope.options, &out)
-	defer C.ctx_buffer_free(&out)
+	var out C.ext_buffer
+	code := C.ext_streams_read(s.ptr, bytesPointer(subject), C.size_t(len(subject)), id, C.uint64_t(input.Sequence), C.uint32_t(input.Limit), &scope.options, &out)
+	defer C.ext_buffer_free(&out)
 	if ctx.Err() != nil {
 		return result, ctx.Err()
 	}
@@ -164,19 +164,19 @@ func (s *Streams) remove(ctx context.Context, r plugin.Request, input stream.Clo
 	}
 	id := C.CString(input.ID)
 	defer C.free(unsafe.Pointer(id))
-	return stream.Empty{}, streamStatus(C.ctx_streams_remove(s.ptr, bytesPointer(subject), C.size_t(len(subject)), id))
+	return stream.Empty{}, streamStatus(C.ext_streams_remove(s.ptr, bytesPointer(subject), C.size_t(len(subject)), id))
 }
 func (s *Streams) Close() error {
 	s.cancel()
 	s.mu.RLock()
 	if s.ptr != nil {
-		C.ctx_streams_close(s.ptr)
+		C.ext_streams_close(s.ptr)
 	}
 	s.mu.RUnlock()
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.ptr != nil {
-		if err := status(C.ctx_streams_destroy(s.ptr)); err != nil {
+		if err := status(C.ext_streams_destroy(s.ptr)); err != nil {
 			return err
 		}
 		s.ptr = nil
@@ -189,7 +189,7 @@ func (s *Streams) Close() error {
 
 //export ctxGoStreamOpen
 func ctxGoStreamOpen(handle, caller C.uintptr_t, data *C.uint8_t, n C.size_t, out *C.uintptr_t) (result C.int32_t) {
-	result = C.CTX_IO
+	result = C.EXT_IO
 	defer func() { _ = recover() }()
 	s := cgo.Handle(handle).Value().(*Streams)
 	ctx := cgo.Handle(caller).Value().(context.Context)
@@ -218,8 +218,8 @@ func ctxGoStreamOpen(handle, caller C.uintptr_t, data *C.uint8_t, n C.size_t, ou
 }
 
 //export ctxGoStreamRead
-func ctxGoStreamRead(handle, caller C.uintptr_t, ms, limit C.uint32_t, emit C.ctx_emit, sink unsafe.Pointer) (result C.int32_t) {
-	result = C.CTX_IO
+func ctxGoStreamRead(handle, caller C.uintptr_t, ms, limit C.uint32_t, emit C.ext_emit, sink unsafe.Pointer) (result C.int32_t) {
+	result = C.EXT_IO
 	defer func() { _ = recover() }()
 	v := cgo.Handle(handle).Value().(*streamValue)
 	parent := cgo.Handle(caller).Value().(context.Context)
@@ -242,7 +242,7 @@ func ctxGoStreamRead(handle, caller C.uintptr_t, ms, limit C.uint32_t, emit C.ct
 
 //export ctxGoStreamClose
 func ctxGoStreamClose(handle, value C.uintptr_t) (result C.int32_t) {
-	result = C.CTX_IO
+	result = C.EXT_IO
 	s := cgo.Handle(handle).Value().(*Streams)
 	v := cgo.Handle(value).Value().(*streamValue)
 	v.cancel()

@@ -1,4 +1,4 @@
-//go:build ctx_cengine && cgo && (darwin || linux)
+//go:build ext_cengine && cgo && (darwin || linux)
 
 package goengine
 
@@ -18,9 +18,9 @@ import (
 
 func guest(t *testing.T) string {
 	t.Helper()
-	p := os.Getenv("CTX_CENGINE_GUEST")
+	p := os.Getenv("EXT_CENGINE_GUEST")
 	if p == "" {
-		t.Fatal("CTX_CENGINE_GUEST required")
+		t.Fatal("EXT_CENGINE_GUEST required")
 	}
 	return p
 }
@@ -150,9 +150,9 @@ func TestSharedJSONFixtures(t *testing.T) {
 }
 
 func TestFaultyGuests(t *testing.T) {
-	base := os.Getenv("CTX_CENGINE_FAULT_GUEST")
+	base := os.Getenv("EXT_CENGINE_FAULT_GUEST")
 	if base == "" {
-		t.Fatal("CTX_CENGINE_FAULT_GUEST required")
+		t.Fatal("EXT_CENGINE_FAULT_GUEST required")
 	}
 	for _, mode := range []string{"bad-handshake", "stall", "exit", "duplicate", "wrong-id", "unknown", "oversize", "truncated", "negative-retry", "fragment"} {
 		t.Run(mode, func(t *testing.T) {

@@ -16,20 +16,20 @@
 #include <time.h>
 #include <unistd.h>
 
-static int canceled(const ctx_call_options *o) {
-  return ctx_cancel_is_signaled(o->cancel);
+static int canceled(const ext_call_options *o) {
+  return ext_cancel_is_signaled(o->cancel);
 }
-static int valid_call(const ctx_call_options *o) {
+static int valid_call(const ext_call_options *o) {
   return o && o->struct_size == sizeof(*o) && o->timeout_ms;
 }
-struct ctx_host {
+struct ext_host {
   pthread_mutex_t mu;
   pthread_cond_t changed;
   int active, running, started, closed, fd;
-  ctx_host_state state;
-  ctx_host_hooks hooks;
-  ctx_backend_extension extension;
-  ctx_backend_extension_context extension_context;
+  ext_host_state state;
+  ext_host_hooks hooks;
+  ext_backend_extension extension;
+  ext_backend_extension_context extension_context;
   pid_t pid;
   uint64_t next;
   char *path;
@@ -37,7 +37,7 @@ struct ctx_host {
   yyjson_doc *selection;
   uint8_t *descriptor;
   size_t descriptor_len;
-  ctx_policy verify, authorize;
+  ext_policy verify, authorize;
   void *user;
   uint8_t *readbuf;
   size_t capacity;
@@ -54,42 +54,42 @@ static void free_strings(char **strings) {
     free(strings);
   }
 }
-static ctx_status copy_strings(const char *const *input, size_t count,
+static ext_status copy_strings(const char *const *input, size_t count,
                                const char *prefix, int environment,
                                char ***out) {
   if (count > 256 || (count && !input))
-    return CTX_INVALID;
+    return EXT_INVALID;
   size_t offset = prefix ? 1 : 0;
   char **copy = calloc(count + offset + 1, sizeof(*copy));
   if (!copy)
-    return CTX_NOMEM;
+    return EXT_NOMEM;
   if (prefix && !(copy[0] = strdup(prefix))) {
     free(copy);
-    return CTX_NOMEM;
+    return EXT_NOMEM;
   }
-  ctx_status status = CTX_OK;
+  ext_status status = EXT_OK;
   for (size_t i = 0; i < count; i++) {
     if (!input[i] || strlen(input[i]) > (environment ? 8192 : 4096)) {
-      status = CTX_INVALID;
+      status = EXT_INVALID;
       break;
     }
     if (environment) {
       const char *equal = strchr(input[i], '=');
       if (!equal || equal == input[i]) {
-        status = CTX_INVALID;
+        status = EXT_INVALID;
         break;
       }
       size_t key = (size_t)(equal - input[i]);
       for (size_t j = 0; j < i; j++)
         if (!strncmp(input[i], input[j], key) && input[j][key] == '=') {
-          status = CTX_INVALID;
+          status = EXT_INVALID;
           break;
         }
       if (status)
         break;
     }
     if (!(copy[offset + i] = strdup(input[i]))) {
-      status = CTX_NOMEM;
+      status = EXT_NOMEM;
       break;
     }
   }
@@ -99,66 +99,66 @@ static ctx_status copy_strings(const char *const *input, size_t count,
     *out = copy;
   return status;
 }
-ctx_status ctx_host_create(const ctx_host_options *o,
-                           const ctx_backend_options *b, ctx_host **out) {
+ext_status ext_host_create(const ext_host_options *o,
+                           const ext_backend_options *b, ext_host **out) {
   if (!out)
-    return CTX_INVALID;
+    return EXT_INVALID;
   *out = NULL;
-  if (!o || o->abi_version != CTX_HOST_ABI_VERSION ||
+  if (!o || o->abi_version != EXT_HOST_ABI_VERSION ||
       o->struct_size != sizeof(*o) || !o->verify || !o->authorize || !b ||
       b->struct_size != sizeof(*b))
-    return CTX_INVALID;
-  const ctx_jsonline_process_options *process = NULL;
-  ctx_jsonline_process_options compatible_process;
-  const ctx_jsonline_process_config *process_config = NULL;
-  const ctx_backend_extension *extension = NULL;
-  const ctx_backend_extension_context *extension_context = NULL;
-  if (b->kind == CTX_BACKEND_JSONLINE_PROCESS_CONFIG) {
+    return EXT_INVALID;
+  const ext_jsonline_process_options *process = NULL;
+  ext_jsonline_process_options compatible_process;
+  const ext_jsonline_process_config *process_config = NULL;
+  const ext_backend_extension *extension = NULL;
+  const ext_backend_extension_context *extension_context = NULL;
+  if (b->kind == EXT_BACKEND_JSONLINE_PROCESS_CONFIG) {
     if (!b->config || b->config_size != sizeof(*process_config))
-      return CTX_INVALID;
+      return EXT_INVALID;
     process_config = b->config;
     if (process_config->struct_size != sizeof(*process_config))
-      return CTX_INVALID;
+      return EXT_INVALID;
     compatible_process.executable = process_config->executable;
     process = &compatible_process;
     if (!process->executable || process->executable[0] != '/' ||
         strlen(process->executable) > 4096)
-      return CTX_INVALID;
-  } else if (b->kind == CTX_BACKEND_JSONLINE_PROCESS) {
+      return EXT_INVALID;
+  } else if (b->kind == EXT_BACKEND_JSONLINE_PROCESS) {
     if (!b->config || b->config_size != sizeof(*process))
-      return CTX_INVALID;
+      return EXT_INVALID;
     process = b->config;
     if (!process->executable || process->executable[0] != '/')
-      return CTX_INVALID;
-  } else if (b->kind == CTX_BACKEND_EXTENSION) {
+      return EXT_INVALID;
+  } else if (b->kind == EXT_BACKEND_EXTENSION) {
     if (!b->config || b->config_size != sizeof(*extension))
-      return CTX_INVALID;
+      return EXT_INVALID;
     extension = b->config;
     if (extension->struct_size != sizeof(*extension) ||
-        (extension->flags & ~CTX_BACKEND_CONCURRENT) || !extension->connect ||
+        (extension->flags & ~EXT_BACKEND_CONCURRENT) || !extension->connect ||
         !extension->invoke || !extension->close || !extension->release)
-      return CTX_INVALID;
-  } else if (b->kind == CTX_BACKEND_EXTENSION_CONTEXT) {
+      return EXT_INVALID;
+  } else if (b->kind == EXT_BACKEND_EXTENSION_CONTEXT) {
     if (!b->config || b->config_size != sizeof(*extension_context))
-      return CTX_INVALID;
+      return EXT_INVALID;
     extension_context = b->config;
     if (extension_context->struct_size != sizeof(*extension_context) ||
-        (extension_context->flags & ~CTX_BACKEND_CONCURRENT) ||
+        (extension_context->flags & ~EXT_BACKEND_CONCURRENT) ||
         !extension_context->connect || !extension_context->invoke ||
         !extension_context->close || !extension_context->release)
-      return CTX_INVALID;
+      return EXT_INVALID;
   } else {
-    return CTX_UNSUPPORTED;
+    return EXT_UNSUPPORTED;
   }
-  yyjson_doc *d = ctx_parse(o->descriptor, o->descriptor_len);
-  if (!d || !ctx_descriptor(yyjson_doc_get_root(d))) {
+  yyjson_doc *d = ext_parse(o->descriptor, o->descriptor_len);
+  if (!d || !ext_descriptor(yyjson_doc_get_root(d))) {
     yyjson_doc_free(d);
-    return CTX_INVALID;
+    return EXT_INVALID;
   }
-  ctx_host *h = calloc(1, sizeof(*h));
+  ext_host *h = calloc(1, sizeof(*h));
   if (!h) {
     yyjson_doc_free(d);
-    return CTX_NOMEM;
+    return EXT_NOMEM;
   }
   h->fd = -1;
   h->path = process ? strdup(process->executable) : NULL;
@@ -168,14 +168,14 @@ ctx_status ctx_host_create(const ctx_host_options *o,
     free(h->descriptor);
     free(h);
     yyjson_doc_free(d);
-    return CTX_NOMEM;
+    return EXT_NOMEM;
   }
   if (pthread_mutex_init(&h->mu, NULL)) {
     free(h->path);
     free(h->descriptor);
     free(h);
     yyjson_doc_free(d);
-    return CTX_IO;
+    return EXT_IO;
   }
   pthread_condattr_t attr;
   int cond_error = pthread_condattr_init(&attr);
@@ -193,7 +193,7 @@ ctx_status ctx_host_create(const ctx_host_options *o,
     free(h->descriptor);
     free(h);
     yyjson_doc_free(d);
-    return CTX_IO;
+    return EXT_IO;
   }
   memcpy(h->descriptor, o->descriptor, o->descriptor_len);
   h->descriptor_len = o->descriptor_len;
@@ -202,7 +202,7 @@ ctx_status ctx_host_create(const ctx_host_options *o,
   h->authorize = o->authorize;
   h->user = o->user;
   if (process) {
-    ctx_status status =
+    ext_status status =
         copy_strings(process_config ? process_config->arguments : NULL,
                      process_config ? process_config->argument_count : 0,
                      h->path, 0, &h->arguments);
@@ -212,7 +212,7 @@ ctx_status ctx_host_create(const ctx_host_options *o,
                        process_config ? process_config->environment_count : 0,
                        NULL, 1, &h->environment);
     if (status) {
-      ctx_host_destroy(h);
+      ext_host_destroy(h);
       return status;
     }
   }
@@ -221,23 +221,23 @@ ctx_status ctx_host_create(const ctx_host_options *o,
   if (extension_context)
     h->extension_context = *extension_context;
   *out = h;
-  return CTX_OK;
+  return EXT_OK;
 }
-ctx_status ctx_host_set_hooks(ctx_host *h, const ctx_host_hooks *hooks) {
+ext_status ext_host_set_hooks(ext_host *h, const ext_host_hooks *hooks) {
   if (!h || !hooks || hooks->struct_size != sizeof(*hooks))
-    return CTX_INVALID;
+    return EXT_INVALID;
   pthread_mutex_lock(&h->mu);
-  ctx_status s = (h->state == CTX_HOST_CREATED && !h->active && !h->started)
-                     ? CTX_OK
-                     : CTX_INVALID;
+  ext_status s = (h->state == EXT_HOST_CREATED && !h->active && !h->started)
+                     ? EXT_OK
+                     : EXT_INVALID;
   if (!s)
     h->hooks = *hooks;
   pthread_mutex_unlock(&h->mu);
   return s;
 }
-static void observe_event(ctx_host *h, const ctx_call_options *options,
+static void observe_event(ext_host *h, const ext_call_options *options,
                           const char *stage, yyjson_val *request,
-                          ctx_status status, yyjson_val *response,
+                          ext_status status, yyjson_val *response,
                           int64_t start) {
   if (!h->hooks.observe)
     return;
@@ -246,10 +246,10 @@ static void observe_event(ctx_host *h, const ctx_call_options *options,
       "closed",    "deadline_exceeded", "failed",  "failed",   "draining",
       "not_found", "ambiguous",         "canceled"};
   const char *code =
-      status >= 0 && status <= CTX_CANCELED ? codes[status] : "failed";
+      status >= 0 && status <= EXT_CANCELED ? codes[status] : "failed";
   yyjson_val *remote =
       yyjson_obj_get(yyjson_obj_get(response, "error"), "code");
-  if (!status && ctx_text(remote, 0, 0))
+  if (!status && ext_text(remote, 0, 0))
     code = yyjson_get_str(remote);
   yyjson_mut_doc *doc = yyjson_mut_doc_new(NULL);
   if (!doc)
@@ -267,8 +267,8 @@ static void observe_event(ctx_host *h, const ctx_call_options *options,
   const char *fields[] = {"contract", "operation", "id"};
   for (size_t i = 0; i < 3 && ok; i++) {
     yyjson_val *v = yyjson_obj_get(request, fields[i]);
-    int valid = i == 0 ? (CTX_FIELDS(v, "name", "version") && ctx_ref(v))
-                       : ctx_text(v, i == 2, 0);
+    int valid = i == 0 ? (EXT_FIELDS(v, "name", "version") && ext_ref(v))
+                       : ext_text(v, i == 2, 0);
     if (valid) {
       copy = yyjson_val_mut_copy(doc, v);
       ok = copy && yyjson_mut_obj_add_val(
@@ -282,15 +282,15 @@ static void observe_event(ctx_host *h, const ctx_call_options *options,
   free(data);
   yyjson_mut_doc_free(doc);
 }
-void ctx_host_close(ctx_host *h) {
+void ext_host_close(ext_host *h) {
   if (!h)
     return;
   int notify = 0;
   pthread_mutex_lock(&h->mu);
   if (!h->closed) {
     h->closed = 1;
-    if (h->state != CTX_HOST_FAILED)
-      h->state = CTX_HOST_CLOSED;
+    if (h->state != EXT_HOST_FAILED)
+      h->state = EXT_HOST_CLOSED;
     notify = 1;
     if (h->fd >= 0)
       shutdown(h->fd, SHUT_RDWR);
@@ -304,10 +304,10 @@ void ctx_host_close(ctx_host *h) {
   if (notify && h->extension_context.close)
     h->extension_context.close(h->extension_context.user);
 }
-void ctx_host_destroy(ctx_host *h) {
+void ext_host_destroy(ext_host *h) {
   if (!h)
     return;
-  ctx_host_close(h);
+  ext_host_close(h);
   if (h->pid > 0) {
     int status;
     while (waitpid(h->pid, &status, 0) < 0 && errno == EINTR) {
@@ -329,8 +329,8 @@ void ctx_host_destroy(ctx_host *h) {
   pthread_mutex_destroy(&h->mu);
   free(h);
 }
-static void wait_changed(ctx_host *h, int64_t deadline,
-                         const ctx_call_options *o) {
+static void wait_changed(ext_host *h, int64_t deadline,
+                         const ext_call_options *o) {
   int64_t remain = deadline - mono_ms();
   if (remain <= 0)
     return;
@@ -348,15 +348,15 @@ static void wait_changed(ctx_host *h, int64_t deadline,
   pthread_cond_timedwait(&h->changed, &h->mu, &t);
 #endif
 }
-static ctx_status enter(ctx_host *h, int64_t deadline, int starting,
-                        const ctx_call_options *o) {
+static ext_status enter(ext_host *h, int64_t deadline, int starting,
+                        const ext_call_options *o) {
   pthread_mutex_lock(&h->mu);
-  ctx_status status = canceled(o)                                 ? CTX_CANCELED
-                      : h->closed                                 ? CTX_CLOSED
-                      : h->state == CTX_HOST_DRAINING             ? CTX_DRAINING
-                      : (!starting && h->state != CTX_HOST_READY) ? CTX_INVALID
-                      : mono_ms() >= deadline                     ? CTX_TIMEOUT
-                                                                  : CTX_OK;
+  ext_status status = canceled(o)                                 ? EXT_CANCELED
+                      : h->closed                                 ? EXT_CLOSED
+                      : h->state == EXT_HOST_DRAINING             ? EXT_DRAINING
+                      : (!starting && h->state != EXT_HOST_READY) ? EXT_INVALID
+                      : mono_ms() >= deadline                     ? EXT_TIMEOUT
+                                                                  : EXT_OK;
   if (status) {
     pthread_mutex_unlock(&h->mu);
     return status;
@@ -366,15 +366,15 @@ static ctx_status enter(ctx_host *h, int64_t deadline, int starting,
   h->active++;
   uint32_t flags = h->extension.flags | h->extension_context.flags;
   while (h->running && !h->closed &&
-         (starting || !(flags & CTX_BACKEND_CONCURRENT))) {
+         (starting || !(flags & EXT_BACKEND_CONCURRENT))) {
     if (canceled(o) || mono_ms() >= deadline)
       break;
     wait_changed(h, deadline, o);
   }
-  status = canceled(o)             ? CTX_CANCELED
-           : h->closed             ? CTX_CLOSED
-           : mono_ms() >= deadline ? CTX_TIMEOUT
-                                   : CTX_OK;
+  status = canceled(o)             ? EXT_CANCELED
+           : h->closed             ? EXT_CLOSED
+           : mono_ms() >= deadline ? EXT_TIMEOUT
+                                   : EXT_OK;
   if (status) {
     h->active--;
     pthread_cond_broadcast(&h->changed);
@@ -383,99 +383,99 @@ static ctx_status enter(ctx_host *h, int64_t deadline, int starting,
   pthread_mutex_unlock(&h->mu);
   return status;
 }
-static void leave(ctx_host *h) {
+static void leave(ext_host *h) {
   pthread_mutex_lock(&h->mu);
   h->active--;
   h->running--;
   pthread_cond_broadcast(&h->changed);
   pthread_mutex_unlock(&h->mu);
 }
-static void fail(ctx_host *h) {
+static void fail(ext_host *h) {
   pthread_mutex_lock(&h->mu);
   if (!h->closed)
-    h->state = CTX_HOST_FAILED;
+    h->state = EXT_HOST_FAILED;
   pthread_mutex_unlock(&h->mu);
-  ctx_host_close(h);
+  ext_host_close(h);
 }
-ctx_host_state ctx_host_get_state(ctx_host *h) {
+ext_host_state ext_host_get_state(ext_host *h) {
   if (!h)
-    return CTX_HOST_CLOSED;
+    return EXT_HOST_CLOSED;
   pthread_mutex_lock(&h->mu);
-  ctx_host_state state = h->state;
+  ext_host_state state = h->state;
   pthread_mutex_unlock(&h->mu);
   return state;
 }
-ctx_status ctx_host_drain_with_options(ctx_host *h, const ctx_call_options *o) {
+ext_status ext_host_drain_with_options(ext_host *h, const ext_call_options *o) {
   if (!h || !valid_call(o))
-    return CTX_INVALID;
+    return EXT_INVALID;
   if (canceled(o))
-    return CTX_CANCELED;
+    return EXT_CANCELED;
   int64_t deadline = mono_ms() + o->timeout_ms;
   pthread_mutex_lock(&h->mu);
   if (h->closed) {
     pthread_mutex_unlock(&h->mu);
-    return CTX_OK;
+    return EXT_OK;
   }
-  if (h->state != CTX_HOST_READY) {
-    ctx_status s = h->state == CTX_HOST_DRAINING ? CTX_DRAINING : CTX_INVALID;
+  if (h->state != EXT_HOST_READY) {
+    ext_status s = h->state == EXT_HOST_DRAINING ? EXT_DRAINING : EXT_INVALID;
     pthread_mutex_unlock(&h->mu);
     return s;
   }
-  h->state = CTX_HOST_DRAINING;
+  h->state = EXT_HOST_DRAINING;
   pthread_cond_broadcast(&h->changed);
   while (h->active && !h->closed) {
     if (canceled(o) || mono_ms() >= deadline) {
-      h->state = CTX_HOST_READY;
+      h->state = EXT_HOST_READY;
       pthread_cond_broadcast(&h->changed);
       pthread_mutex_unlock(&h->mu);
-      return canceled(o) ? CTX_CANCELED : CTX_TIMEOUT;
+      return canceled(o) ? EXT_CANCELED : EXT_TIMEOUT;
     }
     wait_changed(h, deadline, o);
   }
   if (!h->closed && canceled(o)) {
-    h->state = CTX_HOST_READY;
+    h->state = EXT_HOST_READY;
     pthread_cond_broadcast(&h->changed);
     pthread_mutex_unlock(&h->mu);
-    return CTX_CANCELED;
+    return EXT_CANCELED;
   }
   pthread_mutex_unlock(&h->mu);
-  ctx_host_close(h);
-  return CTX_OK;
+  ext_host_close(h);
+  return EXT_OK;
 }
 /* The result sink prevents foreign allocator ownership from crossing the ABI.
  */
 typedef struct {
-  ctx_buffer *out;
+  ext_buffer *out;
   int emitted;
-  ctx_status status;
+  ext_status status;
 } result_sink;
-static ctx_status emit_result(void *context, const uint8_t *data, size_t len) {
+static ext_status emit_result(void *context, const uint8_t *data, size_t len) {
   result_sink *sink = context;
-  if (sink->emitted++ || !data || !len || len > CTX_HOST_MAX_FRAME) {
-    sink->status = CTX_INVALID;
+  if (sink->emitted++ || !data || !len || len > EXT_HOST_MAX_FRAME) {
+    sink->status = EXT_INVALID;
     return sink->status;
   }
   sink->out->data = malloc(len);
   if (!sink->out->data) {
-    sink->status = CTX_NOMEM;
+    sink->status = EXT_NOMEM;
     return sink->status;
   }
   memcpy(sink->out->data, data, len);
   sink->out->len = len;
-  return CTX_OK;
+  return EXT_OK;
 }
-static ctx_status extension_call(ctx_host *h, const uint8_t *data, size_t len,
-                                 int64_t deadline, const ctx_call_options *o,
-                                 ctx_buffer *out) {
+static ext_status extension_call(ext_host *h, const uint8_t *data, size_t len,
+                                 int64_t deadline, const ext_call_options *o,
+                                 ext_buffer *out) {
   int64_t remaining = deadline - mono_ms();
   if (remaining <= 0)
-    return CTX_TIMEOUT;
+    return EXT_TIMEOUT;
   if (canceled(o))
-    return CTX_CANCELED;
-  result_sink sink = {out, 0, CTX_OK};
-  ctx_status s;
+    return EXT_CANCELED;
+  result_sink sink = {out, 0, EXT_OK};
+  ext_status s;
   if (h->extension_context.connect) {
-    ctx_call_options call = *o;
+    ext_call_options call = *o;
     call.timeout_ms = (uint32_t)remaining;
     s = data ? h->extension_context.invoke(h->extension_context.user, data, len,
                                            &call, emit_result, &sink)
@@ -487,28 +487,28 @@ static ctx_status extension_call(ctx_host *h, const uint8_t *data, size_t len,
              : h->extension.connect(h->extension.user, (uint32_t)remaining,
                                     emit_result, &sink);
   }
-  if (s < CTX_OK || s > CTX_CANCELED)
-    s = CTX_INVALID;
+  if (s < EXT_OK || s > EXT_CANCELED)
+    s = EXT_INVALID;
   if (!s)
-    s = sink.status ? sink.status : sink.emitted == 1 ? CTX_OK : CTX_INVALID;
+    s = sink.status ? sink.status : sink.emitted == 1 ? EXT_OK : EXT_INVALID;
   return s;
 }
-static int closed(ctx_host *h) {
+static int closed(ext_host *h) {
   pthread_mutex_lock(&h->mu);
   int result = h->closed;
   pthread_mutex_unlock(&h->mu);
   return result;
 }
-static ctx_status ready(ctx_host *h, short events, int64_t deadline,
-                        const ctx_call_options *o) {
+static ext_status ready(ext_host *h, short events, int64_t deadline,
+                        const ext_call_options *o) {
   for (;;) {
     if (canceled(o))
-      return CTX_CANCELED;
+      return EXT_CANCELED;
     if (closed(h))
-      return CTX_CLOSED;
+      return EXT_CLOSED;
     int64_t ms = deadline - mono_ms();
     if (ms <= 0)
-      return CTX_TIMEOUT;
+      return EXT_TIMEOUT;
     struct pollfd p = {h->fd, events, 0};
     if (o->cancel && ms > 10)
       ms = 10;
@@ -518,18 +518,18 @@ static ctx_status ready(ctx_host *h, short events, int64_t deadline,
     if (r < 0 && errno == EINTR)
       continue;
     if (r < 0)
-      return CTX_IO;
+      return EXT_IO;
     if (!r)
       continue;
     if (p.revents & events)
-      return CTX_OK;
-    return closed(h) ? CTX_CLOSED : CTX_IO;
+      return EXT_OK;
+    return closed(h) ? EXT_CLOSED : EXT_IO;
   }
 }
-static ctx_status write_bytes(ctx_host *h, const uint8_t *p, size_t n,
-                              int64_t deadline, const ctx_call_options *o) {
+static ext_status write_bytes(ext_host *h, const uint8_t *p, size_t n,
+                              int64_t deadline, const ext_call_options *o) {
   while (n) {
-    ctx_status s = ready(h, POLLOUT, deadline, o);
+    ext_status s = ready(h, POLLOUT, deadline, o);
     if (s)
       return s;
 #ifdef MSG_NOSIGNAL
@@ -540,16 +540,16 @@ static ctx_status write_bytes(ctx_host *h, const uint8_t *p, size_t n,
     if (r < 0 && (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK))
       continue;
     if (r <= 0)
-      return CTX_IO;
+      return EXT_IO;
     p += r;
     n -= (size_t)r;
   }
-  return CTX_OK;
+  return EXT_OK;
 }
-static ctx_status exchange(ctx_host *h, const uint8_t *p, size_t n,
-                           int64_t deadline, const ctx_call_options *o,
-                           ctx_buffer *out) {
-  ctx_status s = write_bytes(h, p, n, deadline, o);
+static ext_status exchange(ext_host *h, const uint8_t *p, size_t n,
+                           int64_t deadline, const ext_call_options *o,
+                           ext_buffer *out) {
+  ext_status s = write_bytes(h, p, n, deadline, o);
   if (!s)
     s = write_bytes(h, (const uint8_t *)"\n", 1, deadline, o);
   if (s)
@@ -558,13 +558,13 @@ static ctx_status exchange(ctx_host *h, const uint8_t *p, size_t n,
   for (;;) {
     if (len == h->capacity) {
       size_t next = h->capacity ? h->capacity * 2 : 4096;
-      if (next > CTX_HOST_MAX_FRAME + 1)
-        next = CTX_HOST_MAX_FRAME + 1;
+      if (next > EXT_HOST_MAX_FRAME + 1)
+        next = EXT_HOST_MAX_FRAME + 1;
       if (next <= len)
-        return CTX_INVALID;
+        return EXT_INVALID;
       uint8_t *b = realloc(h->readbuf, next);
       if (!b)
-        return CTX_NOMEM;
+        return EXT_NOMEM;
       h->readbuf = b;
       h->capacity = next;
     }
@@ -575,26 +575,26 @@ static ctx_status exchange(ctx_host *h, const uint8_t *p, size_t n,
     if (r < 0 && (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK))
       continue;
     if (r <= 0)
-      return CTX_IO;
+      return EXT_IO;
     uint8_t *end = memchr(h->readbuf + len, '\n', (size_t)r);
     len += (size_t)r;
     if (end) {
       size_t frame = (size_t)(end - h->readbuf);
-      if (frame + 1 != len || frame > CTX_HOST_MAX_FRAME)
-        return CTX_INVALID;
+      if (frame + 1 != len || frame > EXT_HOST_MAX_FRAME)
+        return EXT_INVALID;
       out->data = malloc(frame ? frame : 1);
       if (!out->data)
-        return CTX_NOMEM;
+        return EXT_NOMEM;
       memcpy(out->data, h->readbuf, frame);
       out->len = frame;
-      return CTX_OK;
+      return EXT_OK;
     }
   }
 }
-static ctx_status spawn_child(ctx_host *h) {
+static ext_status spawn_child(ext_host *h) {
   int fds[2];
   if (socketpair(AF_UNIX, SOCK_STREAM, 0, fds))
-    return CTX_IO;
+    return EXT_IO;
   /* Keep both endpoints above stderr, even when the embedding app closed its
    * standard descriptors. Preserve caller descriptors across posix_spawn. */
   for (int i = 0; i < 2; i++) {
@@ -608,7 +608,7 @@ static ctx_status spawn_child(ctx_host *h) {
         close(fds[0]);
       if (fds[1] >= 0)
         close(fds[1]);
-      return CTX_IO;
+      return EXT_IO;
     }
   }
 #ifdef SO_NOSIGPIPE
@@ -616,7 +616,7 @@ static ctx_status spawn_child(ctx_host *h) {
   if (setsockopt(fds[0], SOL_SOCKET, SO_NOSIGPIPE, &yes, sizeof(yes))) {
     close(fds[0]);
     close(fds[1]);
-    return CTX_IO;
+    return EXT_IO;
   }
 #endif
   posix_spawn_file_actions_t actions;
@@ -624,7 +624,7 @@ static ctx_status spawn_child(ctx_host *h) {
   if (err) {
     close(fds[0]);
     close(fds[1]);
-    return CTX_IO;
+    return EXT_IO;
   }
   if (!(err = posix_spawn_file_actions_adddup2(&actions, fds[1], STDIN_FILENO)))
     err = posix_spawn_file_actions_adddup2(&actions, fds[1], STDOUT_FILENO);
@@ -645,42 +645,42 @@ static ctx_status spawn_child(ctx_host *h) {
   close(fds[1]);
   if (err) {
     close(fds[0]);
-    return err == ECANCELED ? CTX_CLOSED : CTX_IO;
+    return err == ECANCELED ? EXT_CLOSED : EXT_IO;
   }
   if (fcntl(h->fd, F_SETFL, fcntl(h->fd, F_GETFL) | O_NONBLOCK) < 0)
-    return CTX_IO;
-  return CTX_OK;
+    return EXT_IO;
+  return EXT_OK;
 }
-ctx_status ctx_host_start_with_options(ctx_host *h, const ctx_call_options *o) {
+ext_status ext_host_start_with_options(ext_host *h, const ext_call_options *o) {
   if (!h || !valid_call(o))
-    return CTX_INVALID;
+    return EXT_INVALID;
   uint32_t timeout = o->timeout_ms;
   int64_t deadline = mono_ms() + timeout;
-  ctx_status s = enter(h, deadline, 1, o);
+  ext_status s = enter(h, deadline, 1, o);
   if (s)
     return s;
   if (h->started) {
     leave(h);
-    return CTX_INVALID;
+    return EXT_INVALID;
   }
   h->started = 1;
   int64_t stage_start = mono_ms();
   if (h->hooks.verify
           ? h->hooks.verify(h->hooks.user, o, h->descriptor, h->descriptor_len)
           : h->verify(h->user, h->descriptor, h->descriptor_len))
-    s = CTX_DENIED;
+    s = EXT_DENIED;
   observe_event(h, o, "verify", NULL, s, NULL, stage_start);
   stage_start = mono_ms();
   if (!s && canceled(o))
-    s = CTX_CANCELED;
+    s = EXT_CANCELED;
   if (!s && mono_ms() >= deadline)
-    s = CTX_TIMEOUT;
+    s = EXT_TIMEOUT;
   if (!s && closed(h))
-    s = CTX_CLOSED;
+    s = EXT_CLOSED;
   int connecting = !s;
   if (!s && !(h->extension.connect || h->extension_context.connect))
     s = spawn_child(h);
-  ctx_buffer response = {0};
+  ext_buffer response = {0};
   yyjson_doc *doc = NULL;
   if (!s && (h->extension.connect || h->extension_context.connect))
     s = extension_call(h, NULL, 0, deadline, o, &response);
@@ -690,7 +690,7 @@ ctx_status ctx_host_start_with_options(ctx_host *h, const ctx_call_options *o) {
   stage_start = mono_ms();
   if (!s && !(h->extension.connect || h->extension_context.connect)) {
     char hello[192], stamp[40];
-    int64_t wall = ctx_wall_ms() + (deadline - mono_ms());
+    int64_t wall = ext_wall_ms() + (deadline - mono_ms());
     time_t seconds = (time_t)(wall / 1000);
     struct tm t;
     gmtime_r(&seconds, &t);
@@ -703,74 +703,74 @@ ctx_status ctx_host_start_with_options(ctx_host *h, const ctx_call_options *o) {
     s = exchange(h, (uint8_t *)hello, (size_t)n, deadline, o, &response);
   }
   if (!s) {
-    doc = ctx_parse(response.data, response.len);
+    doc = ext_parse(response.data, response.len);
     if (!doc)
-      s = CTX_INVALID;
+      s = EXT_INVALID;
     else if (h->extension.connect || h->extension_context.connect) {
-      if (!ctx_match(yyjson_doc_get_root(h->selection),
+      if (!ext_match(yyjson_doc_get_root(h->selection),
                      yyjson_doc_get_root(doc)))
-        s = CTX_MISMATCH;
+        s = EXT_MISMATCH;
     } else {
-      s = ctx_response(yyjson_doc_get_root(doc), "hello");
-      if (!s && !ctx_match(yyjson_doc_get_root(h->selection),
+      s = ext_response(yyjson_doc_get_root(doc), "hello");
+      if (!s && !ext_match(yyjson_doc_get_root(h->selection),
                            yyjson_obj_get(yyjson_doc_get_root(doc), "payload")))
-        s = CTX_MISMATCH;
+        s = EXT_MISMATCH;
     }
   }
   if (!s && canceled(o))
-    s = CTX_CANCELED;
+    s = EXT_CANCELED;
   if (!s && mono_ms() >= deadline)
-    s = CTX_TIMEOUT;
+    s = EXT_TIMEOUT;
   if (!s && closed(h))
-    s = CTX_CLOSED;
+    s = EXT_CLOSED;
   if (handshaking)
     observe_event(h, o, "handshake", NULL, s, NULL, stage_start);
   yyjson_doc_free(doc);
-  ctx_buffer_free(&response);
+  ext_buffer_free(&response);
   if (s) {
     fail(h);
   } else {
     pthread_mutex_lock(&h->mu);
     if (!h->closed)
-      h->state = CTX_HOST_READY;
+      h->state = EXT_HOST_READY;
     else
-      s = CTX_CLOSED;
+      s = EXT_CLOSED;
     pthread_mutex_unlock(&h->mu);
   }
   leave(h);
   return s;
 }
-ctx_status ctx_host_invoke_with_options(ctx_host *h, const uint8_t *input,
-                                        size_t len, const ctx_call_options *o,
-                                        ctx_buffer *out) {
+ext_status ext_host_invoke_with_options(ext_host *h, const uint8_t *input,
+                                        size_t len, const ext_call_options *o,
+                                        ext_buffer *out) {
   if (!out)
-    return CTX_INVALID;
+    return EXT_INVALID;
   out->data = NULL;
   out->len = 0;
   if (!h || !valid_call(o))
-    return CTX_INVALID;
+    return EXT_INVALID;
   int64_t stage_start = mono_ms();
   uint32_t timeout = o->timeout_ms;
   int64_t deadline = mono_ms() + timeout;
-  yyjson_doc *request = ctx_parse(input, len);
+  yyjson_doc *request = ext_parse(input, len);
   if (!request) {
-    observe_event(h, o, "invoke", NULL, CTX_INVALID, NULL, stage_start);
-    return CTX_INVALID;
+    observe_event(h, o, "invoke", NULL, EXT_INVALID, NULL, stage_start);
+    return EXT_INVALID;
   }
   yyjson_val *r = yyjson_doc_get_root(request);
   int64_t wall_deadline;
-  ctx_status s =
-      ctx_request(yyjson_doc_get_root(h->selection), r, &wall_deadline);
+  ext_status s =
+      ext_request(yyjson_doc_get_root(h->selection), r, &wall_deadline);
   if (s) {
     observe_event(h, o, "invoke", r, s, NULL, stage_start);
     yyjson_doc_free(request);
     return s;
   }
-  int64_t remaining = wall_deadline - ctx_wall_ms();
+  int64_t remaining = wall_deadline - ext_wall_ms();
   if (remaining <= 0) {
-    observe_event(h, o, "invoke", r, CTX_TIMEOUT, NULL, stage_start);
+    observe_event(h, o, "invoke", r, EXT_TIMEOUT, NULL, stage_start);
     yyjson_doc_free(request);
-    return CTX_TIMEOUT;
+    return EXT_TIMEOUT;
   }
   if (remaining < (int64_t)timeout)
     deadline = mono_ms() + remaining;
@@ -781,30 +781,30 @@ ctx_status ctx_host_invoke_with_options(ctx_host *h, const uint8_t *input,
     return s;
   }
   if (!h->started) {
-    s = CTX_INVALID;
+    s = EXT_INVALID;
     goto done;
   }
   if (h->hooks.authorize ? h->hooks.authorize(h->hooks.user, o, input, len)
                          : h->authorize(h->user, input, len)) {
-    s = CTX_DENIED;
+    s = EXT_DENIED;
     goto done;
   }
   if (closed(h)) {
-    s = CTX_CLOSED;
+    s = EXT_CLOSED;
     goto done;
   }
   if (canceled(o)) {
-    s = CTX_CANCELED;
+    s = EXT_CANCELED;
     goto done;
   }
   if (mono_ms() >= deadline) {
-    s = CTX_TIMEOUT;
+    s = EXT_TIMEOUT;
     goto done;
   }
   size_t compact_len;
   char *compact = yyjson_write(request, 0, &compact_len);
   if (!compact) {
-    s = CTX_NOMEM;
+    s = EXT_NOMEM;
     goto done;
   }
   s = (h->extension.invoke || h->extension_context.invoke)
@@ -814,28 +814,28 @@ ctx_status ctx_host_invoke_with_options(ctx_host *h, const uint8_t *input,
                      out);
   free(compact);
   if (!s) {
-    yyjson_doc *response = ctx_parse(out->data, out->len);
+    yyjson_doc *response = ext_parse(out->data, out->len);
     if (!response)
-      s = CTX_INVALID;
+      s = EXT_INVALID;
     else {
-      s = ctx_response(yyjson_doc_get_root(response),
+      s = ext_response(yyjson_doc_get_root(response),
                        yyjson_get_str(yyjson_obj_get(r, "id")));
       yyjson_doc_free(response);
     }
   }
   if (!s && canceled(o))
-    s = CTX_CANCELED;
+    s = EXT_CANCELED;
   if (!s && mono_ms() >= deadline)
-    s = CTX_TIMEOUT;
+    s = EXT_TIMEOUT;
   if (!s && closed(h))
-    s = CTX_CLOSED;
+    s = EXT_CLOSED;
   if (s) {
-    ctx_buffer_free(out);
+    ext_buffer_free(out);
     fail(h);
   }
 done:
   if (h->hooks.observe) {
-    yyjson_doc *observed = out->data ? ctx_parse(out->data, out->len) : NULL;
+    yyjson_doc *observed = out->data ? ext_parse(out->data, out->len) : NULL;
     observe_event(h, o, "invoke", r, s,
                   observed ? yyjson_doc_get_root(observed) : NULL, stage_start);
     yyjson_doc_free(observed);
@@ -845,43 +845,43 @@ done:
   return s;
 }
 
-ctx_status ctx_host_start(ctx_host *h, uint32_t timeout) {
-  ctx_call_options o = {sizeof(o), timeout, NULL, NULL};
-  return ctx_host_start_with_options(h, &o);
+ext_status ext_host_start(ext_host *h, uint32_t timeout) {
+  ext_call_options o = {sizeof(o), timeout, NULL, NULL};
+  return ext_host_start_with_options(h, &o);
 }
-ctx_status ctx_host_invoke(ctx_host *h, const uint8_t *data, size_t len,
-                           uint32_t timeout, ctx_buffer *out) {
-  ctx_call_options o = {sizeof(o), timeout, NULL, NULL};
-  return ctx_host_invoke_with_options(h, data, len, &o, out);
+ext_status ext_host_invoke(ext_host *h, const uint8_t *data, size_t len,
+                           uint32_t timeout, ext_buffer *out) {
+  ext_call_options o = {sizeof(o), timeout, NULL, NULL};
+  return ext_host_invoke_with_options(h, data, len, &o, out);
 }
-ctx_status ctx_host_drain(ctx_host *h, uint32_t timeout) {
-  ctx_call_options o = {sizeof(o), timeout, NULL, NULL};
-  return ctx_host_drain_with_options(h, &o);
+ext_status ext_host_drain(ext_host *h, uint32_t timeout) {
+  ext_call_options o = {sizeof(o), timeout, NULL, NULL};
+  return ext_host_drain_with_options(h, &o);
 }
 
 /* Builds authoritative request metadata from the immutable selection. */
-ctx_status ctx_host_call(ctx_host *h, const uint8_t *input, size_t len,
-                         const ctx_call_options *options, ctx_buffer *out) {
+ext_status ext_host_call(ext_host *h, const uint8_t *input, size_t len,
+                         const ext_call_options *options, ext_buffer *out) {
   if (!out)
-    return CTX_INVALID;
-  *out = (ctx_buffer){0};
+    return EXT_INVALID;
+  *out = (ext_buffer){0};
   if (!h || !valid_call(options))
-    return CTX_INVALID;
-  yyjson_doc *doc = ctx_parse(input, len);
+    return EXT_INVALID;
+  yyjson_doc *doc = ext_parse(input, len);
   if (!doc)
-    return CTX_INVALID;
+    return EXT_INVALID;
   yyjson_val *call = yyjson_doc_get_root(doc),
              *ref = yyjson_obj_get(call, "contract"),
              *name = yyjson_obj_get(call, "operation");
-  ctx_status status = CTX_INVALID;
-  if (!CTX_FIELDS(call, "contract", "operation", "payload") ||
-      !CTX_FIELDS(ref, "name", "version") || !ctx_ref(ref) ||
-      !ctx_text(name, 0, 0))
+  ext_status status = EXT_INVALID;
+  if (!EXT_FIELDS(call, "contract", "operation", "payload") ||
+      !EXT_FIELDS(ref, "name", "version") || !ext_ref(ref) ||
+      !ext_text(name, 0, 0))
     goto done;
   yyjson_val *operation =
-      ctx_lookup(yyjson_doc_get_root(h->selection), ref, name);
+      ext_lookup(yyjson_doc_get_root(h->selection), ref, name);
   if (!operation) {
-    status = CTX_UNSUPPORTED;
+    status = EXT_UNSUPPORTED;
     goto done;
   }
   pthread_mutex_lock(&h->mu);
@@ -893,7 +893,7 @@ ctx_status ctx_host_call(ctx_host *h, const uint8_t *input, size_t len,
   pthread_mutex_unlock(&h->mu);
   char id[32], stamp[40], date[48];
   snprintf(id, sizeof(id), "%llu", (unsigned long long)sequence);
-  int64_t wall = ctx_wall_ms() + options->timeout_ms;
+  int64_t wall = ext_wall_ms() + options->timeout_ms;
   time_t seconds = (time_t)(wall / 1000);
   struct tm t;
   gmtime_r(&seconds, &t);
@@ -901,7 +901,7 @@ ctx_status ctx_host_call(ctx_host *h, const uint8_t *input, size_t len,
   snprintf(date, sizeof(date), "%s.%03lldZ", stamp, (long long)(wall % 1000));
   yyjson_mut_doc *request = yyjson_mut_doc_new(NULL);
   if (!request) {
-    status = CTX_NOMEM;
+    status = EXT_NOMEM;
     goto done;
   }
   yyjson_mut_val *root = yyjson_mut_obj(request);
@@ -923,9 +923,9 @@ ctx_status ctx_host_call(ctx_host *h, const uint8_t *input, size_t len,
     }
   size_t count = 0;
   char *bytes = ok ? yyjson_mut_write(request, 0, &count) : NULL;
-  status = bytes ? ctx_host_invoke_with_options(h, (const uint8_t *)bytes,
+  status = bytes ? ext_host_invoke_with_options(h, (const uint8_t *)bytes,
                                                 count, options, out)
-                 : CTX_NOMEM;
+                 : EXT_NOMEM;
   free(bytes);
   yyjson_mut_doc_free(request);
 done:

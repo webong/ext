@@ -128,10 +128,10 @@ pub const CShared = struct {
     pub fn open(path: []const u8) !CShared {
         if (!std.fs.path.isAbsolute(path) or std.mem.indexOfScalar(u8, path, 0) != null) return error.Invalid;
         var library = try std.DynLib.open(path); // Never close, even on ABI failure.
-        const version = library.lookup(*const fn () callconv(.c) u32, "ctx_plugin_abi_version") orelse return error.Unsupported;
-        const create = library.lookup(*const fn () callconv(.c) u64, "ctx_plugin_open") orelse return error.Unsupported;
-        const invoke = library.lookup(*const fn (u64, u32, [*]const u8, u32, [*]u8, u32, *u32) callconv(.c) u32, "ctx_plugin_call") orelse return error.Unsupported;
-        const release = library.lookup(*const fn (u64) callconv(.c) void, "ctx_plugin_close") orelse return error.Unsupported;
+        const version = library.lookup(*const fn () callconv(.c) u32, "ext_plugin_abi_version") orelse return error.Unsupported;
+        const create = library.lookup(*const fn () callconv(.c) u64, "ext_plugin_open") orelse return error.Unsupported;
+        const invoke = library.lookup(*const fn (u64, u32, [*]const u8, u32, [*]u8, u32, *u32) callconv(.c) u32, "ext_plugin_call") orelse return error.Unsupported;
+        const release = library.lookup(*const fn (u64) callconv(.c) void, "ext_plugin_close") orelse return error.Unsupported;
         if (version() != 1) return error.Unsupported;
         const handle = create();
         if (handle == 0) return error.Denied;

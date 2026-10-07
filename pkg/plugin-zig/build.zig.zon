@@ -1,5 +1,5 @@
 .{
-    .name = .ctx_plugin,
+    .name = .ext_plugin,
     .version = "0.1.0",
     .fingerprint = 0x8691d0902d088487,
     .minimum_zig_version = "0.17.0",

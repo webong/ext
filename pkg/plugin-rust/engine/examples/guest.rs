@@ -1,5 +1,5 @@
 //! The same guest runs natively or as a WASI Preview 1 module. No Go runtime.
-use ctx_plugin_engine::{service, CallOptions, Guest, GuestReply};
+use ext_plugin_engine::{service, CallOptions, Guest, GuestReply};
 use std::time::Duration;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {

@@ -329,7 +329,7 @@ remain inside the reusable plugin library, including HashiCorp go-plugin.
 ```sh
 go run ./examples/plugin-sdk --backend jsonline
 go run ./examples/plugin-typescript
-go run ./pkg/plugin-hashicorp/cmd/ctx-plugin inspect --root examples/plugin-package --entry main examples/plugin-package/plugin.json
+go run ./pkg/plugin-hashicorp/cmd/ext-plugin inspect --root examples/plugin-package --entry main examples/plugin-package/plugin.json
 ```
 
 Inspection validates metadata and content without starting plugins. CTX adapters

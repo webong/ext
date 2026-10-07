@@ -1,11 +1,11 @@
-//go:build ctx_cengine && cgo && (darwin || linux)
+//go:build ext_cengine && cgo && (darwin || linux)
 
 package goengine
 
 /*
-#include "ctx_host.h"
-ctx_status ctx_go_create_backend(const uint8_t *, size_t, uintptr_t, uintptr_t, uint32_t, ctx_host **);
-ctx_status ctx_go_emit(ctx_emit, void *, uint8_t *, size_t);
+#include "ext_host.h"
+ext_status ext_go_create_backend(const uint8_t *, size_t, uintptr_t, uintptr_t, uint32_t, ext_host **);
+ext_status ext_go_emit(ext_emit, void *, uint8_t *, size_t);
 */
 import "C"
 
@@ -65,10 +65,10 @@ func NewWithBackend(d plugin.Descriptor, opts BackendOptions, verify, authorize 
 	h := &Host{policy: cgo.NewHandle(&policies{verify: verify, authorize: authorize}), descriptor: d.Clone(), backend: binding}
 	var flags C.uint32_t
 	if opts.Concurrent {
-		flags = C.CTX_BACKEND_CONCURRENT
+		flags = C.EXT_BACKEND_CONCURRENT
 	}
-	s := C.ctx_go_create_backend((*C.uint8_t)(unsafe.Pointer(&data[0])), C.size_t(len(data)), C.uintptr_t(h.policy), C.uintptr_t(runtime), flags, &h.ptr)
-	if s != C.CTX_OK {
+	s := C.ext_go_create_backend((*C.uint8_t)(unsafe.Pointer(&data[0])), C.size_t(len(data)), C.uintptr_t(h.policy), C.uintptr_t(runtime), flags, &h.ptr)
+	if s != C.EXT_OK {
 		cancel()
 		runtime.Delete()
 		h.policy.Delete()
@@ -80,33 +80,33 @@ func NewWithBackend(d plugin.Descriptor, opts BackendOptions, verify, authorize 
 func backendStatus(err error) C.int32_t {
 	switch {
 	case err == nil:
-		return C.CTX_OK
+		return C.EXT_OK
 	case errors.Is(err, context.DeadlineExceeded):
-		return C.CTX_TIMEOUT
+		return C.EXT_TIMEOUT
 	case errors.Is(err, context.Canceled):
-		return C.CTX_CANCELED
+		return C.EXT_CANCELED
 	case errors.Is(err, plugin.ErrClosed):
-		return C.CTX_CLOSED
+		return C.EXT_CLOSED
 	case errors.Is(err, plugin.ErrInvalid):
-		return C.CTX_INVALID
+		return C.EXT_INVALID
 	case errors.Is(err, plugin.ErrMismatch):
-		return C.CTX_MISMATCH
+		return C.EXT_MISMATCH
 	case errors.Is(err, plugin.ErrDenied):
-		return C.CTX_DENIED
+		return C.EXT_DENIED
 	case errors.Is(err, plugin.ErrUnsupported):
-		return C.CTX_UNSUPPORTED
+		return C.EXT_UNSUPPORTED
 	case errors.Is(err, plugin.ErrDraining):
-		return C.CTX_DRAINING
+		return C.EXT_DRAINING
 	default:
-		return C.CTX_IO
+		return C.EXT_IO
 	}
 }
-func emitJSON(value any, emit C.ctx_emit, sink unsafe.Pointer) C.int32_t {
+func emitJSON(value any, emit C.ext_emit, sink unsafe.Pointer) C.int32_t {
 	data, err := json.Marshal(value)
 	if err != nil || len(data) == 0 || len(data) > plugin.MaxFrameBytes {
-		return C.CTX_INVALID
+		return C.EXT_INVALID
 	}
-	return C.ctx_go_emit(emit, sink, (*C.uint8_t)(unsafe.Pointer(&data[0])), C.size_t(len(data)))
+	return C.ext_go_emit(emit, sink, (*C.uint8_t)(unsafe.Pointer(&data[0])), C.size_t(len(data)))
 }
 
 func (b *backendBinding) bound(caller C.uintptr_t, duration time.Duration) (context.Context, func()) {
@@ -123,11 +123,11 @@ func (b *backendBinding) bound(caller C.uintptr_t, duration time.Duration) (cont
 }
 
 //export ctxGoConnect
-func ctxGoConnect(handle C.uintptr_t, timeout C.uint32_t, caller C.uintptr_t, emit C.ctx_emit, sink unsafe.Pointer) (result C.int32_t) {
-	result = C.CTX_IO
+func ctxGoConnect(handle C.uintptr_t, timeout C.uint32_t, caller C.uintptr_t, emit C.ext_emit, sink unsafe.Pointer) (result C.int32_t) {
+	result = C.EXT_IO
 	defer func() {
 		if recover() != nil {
-			result = C.CTX_IO
+			result = C.EXT_IO
 		}
 	}()
 	b := cgo.Handle(handle).Value().(*backendBinding)
@@ -144,13 +144,13 @@ func ctxGoConnect(handle C.uintptr_t, timeout C.uint32_t, caller C.uintptr_t, em
 		return backendStatus(recordCallbackError(ctx, err))
 	}
 	if backend == nil {
-		return C.CTX_INVALID
+		return C.EXT_INVALID
 	}
 	b.mu.Lock()
 	if b.closed {
 		b.mu.Unlock()
 		_ = backend.Close()
-		return C.CTX_CLOSED
+		return C.EXT_CLOSED
 	}
 	b.backend = backend
 	b.mu.Unlock()
@@ -165,20 +165,20 @@ func ctxGoConnect(handle C.uintptr_t, timeout C.uint32_t, caller C.uintptr_t, em
 }
 
 //export ctxGoInvoke
-func ctxGoInvoke(handle C.uintptr_t, data *C.uint8_t, n C.size_t, timeout C.uint32_t, caller C.uintptr_t, emit C.ctx_emit, sink unsafe.Pointer) (result C.int32_t) {
-	result = C.CTX_IO
+func ctxGoInvoke(handle C.uintptr_t, data *C.uint8_t, n C.size_t, timeout C.uint32_t, caller C.uintptr_t, emit C.ext_emit, sink unsafe.Pointer) (result C.int32_t) {
+	result = C.EXT_IO
 	defer func() {
 		if recover() != nil {
-			result = C.CTX_IO
+			result = C.EXT_IO
 		}
 	}()
 	b := cgo.Handle(handle).Value().(*backendBinding)
 	var request plugin.Request
 	if n > plugin.MaxFrameBytes {
-		return C.CTX_INVALID
+		return C.EXT_INVALID
 	}
 	if err := plugin.Decode(C.GoBytes(unsafe.Pointer(data), C.int(n)), &request); err != nil {
-		return C.CTX_INVALID
+		return C.EXT_INVALID
 	}
 	ctx, cancel := b.bound(caller, time.Duration(timeout)*time.Millisecond)
 	defer cancel()
@@ -191,7 +191,7 @@ func ctxGoInvoke(handle C.uintptr_t, data *C.uint8_t, n C.size_t, timeout C.uint
 	backend, isClosed := b.backend, b.closed
 	b.mu.Unlock()
 	if backend == nil || isClosed {
-		return C.CTX_CLOSED
+		return C.EXT_CLOSED
 	}
 	response, err := backend.Invoke(ctx, request)
 	if err == nil {
@@ -244,7 +244,7 @@ func (h *Host) Drain(duration time.Duration) error {
 	if h.ptr == nil {
 		return plugin.ErrClosed
 	}
-	return status(C.ctx_host_drain(h.ptr, C.uint32_t(duration/time.Millisecond)))
+	return status(C.ext_host_drain(h.ptr, C.uint32_t(duration/time.Millisecond)))
 }
 
 // State reports C-owned lifecycle state. Before Start it returns "created".
@@ -254,14 +254,14 @@ func (h *Host) State() plugin.State {
 	if h.ptr == nil {
 		return plugin.StateClosed
 	}
-	switch C.ctx_host_get_state(h.ptr) {
-	case C.CTX_HOST_READY:
+	switch C.ext_host_get_state(h.ptr) {
+	case C.EXT_HOST_READY:
 		return plugin.StateReady
-	case C.CTX_HOST_DRAINING:
+	case C.EXT_HOST_DRAINING:
 		return plugin.StateDraining
-	case C.CTX_HOST_FAILED:
+	case C.EXT_HOST_FAILED:
 		return plugin.StateFailed
-	case C.CTX_HOST_CREATED:
+	case C.EXT_HOST_CREATED:
 		return plugin.State("created")
 	default:
 		return plugin.StateClosed
@@ -284,7 +284,7 @@ func (h *Host) DrainContext(ctx context.Context) error {
 		return err
 	}
 	defer scope.finish()
-	err = status(C.ctx_host_drain_with_options(h.ptr, &scope.options))
+	err = status(C.ext_host_drain_with_options(h.ptr, &scope.options))
 	if scope.ctx.Err() != nil {
 		return scope.ctx.Err()
 	}

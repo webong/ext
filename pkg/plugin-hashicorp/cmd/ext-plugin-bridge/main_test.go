@@ -39,7 +39,7 @@ func artifact(t *testing.T, name string) string {
 	t.Helper()
 	p := os.Getenv(name)
 	if p == "" {
-		if os.Getenv("CTX_BRIDGE_REQUIRED") == "1" {
+		if os.Getenv("EXT_BRIDGE_REQUIRED") == "1" {
 			t.Fatalf("missing %s", name)
 		}
 		t.Skip("run scripts/plugin-interop.sh")
@@ -48,7 +48,7 @@ func artifact(t *testing.T, name string) string {
 }
 func selection(t *testing.T, protocol string) (config, string) {
 	t.Helper()
-	guest := artifact(t, "CTX_BRIDGE_GUEST")
+	guest := artifact(t, "EXT_BRIDGE_GUEST")
 	b, err := os.ReadFile(guest)
 	if err != nil {
 		t.Fatal(err)
@@ -59,7 +59,7 @@ func selection(t *testing.T, protocol string) (config, string) {
 	for _, op := range d.Contracts[0].Operations {
 		c.Allow = append(c.Allow, permission{Contract: d.Contracts[0].ContractRef, Operation: op.Name})
 	}
-	return c, artifact(t, "CTX_BRIDGE_EXECUTABLE")
+	return c, artifact(t, "EXT_BRIDGE_EXECUTABLE")
 }
 func configured(t *testing.T, c config) string {
 	t.Helper()
@@ -153,13 +153,13 @@ func TestBridgeDenialAndPin(t *testing.T) {
 	}
 }
 func TestReverseHashicorpFrontend(t *testing.T) {
-	guest := artifact(t, "CTX_BRIDGE_JSONLINE_GUEST")
+	guest := artifact(t, "EXT_BRIDGE_JSONLINE_GUEST")
 	guestData, err := os.ReadFile(guest)
 	if err != nil {
 		t.Fatal(err)
 	}
 	guestSum := sha256.Sum256(guestData)
-	exe := artifact(t, "CTX_BRIDGE_EXECUTABLE")
+	exe := artifact(t, "EXT_BRIDGE_EXECUTABLE")
 	data, err := os.ReadFile(exe)
 	if err != nil {
 		t.Fatal(err)

@@ -121,16 +121,16 @@ impl Worker {
         let library = pinned_library(path)?;
         unsafe {
             let version = *library
-                .get::<Version>(b"ctx_plugin_abi_version\0")
+                .get::<Version>(b"ext_plugin_abi_version\0")
                 .map_err(|_| Error::Unsupported)?;
             let open = *library
-                .get::<Open>(b"ctx_plugin_open\0")
+                .get::<Open>(b"ext_plugin_open\0")
                 .map_err(|_| Error::Unsupported)?;
             let call = *library
-                .get::<Call>(b"ctx_plugin_call\0")
+                .get::<Call>(b"ext_plugin_call\0")
                 .map_err(|_| Error::Unsupported)?;
             let close = *library
-                .get::<Close>(b"ctx_plugin_close\0")
+                .get::<Close>(b"ext_plugin_close\0")
                 .map_err(|_| Error::Unsupported)?;
             if version() != 1 {
                 return Err(Error::Unsupported);

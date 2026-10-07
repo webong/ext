@@ -21,7 +21,7 @@ import (
 	"time"
 )
 
-const processFixtureSentinel = "ctx-fixture-private-content-742619"
+const processFixtureSentinel = "ext-fixture-private-content-742619"
 
 type processFixtureReady struct {
 	PID                           int
@@ -31,7 +31,7 @@ type processFixtureReady struct {
 // This subprocess owns all inspected resources. No installed application or
 // personal profile is a test fixture. Control uses stdin/stdout acknowledgements.
 func TestProcessFixtureHelper(t *testing.T) {
-	if os.Getenv("CTX_GRAPH_PROCESS_FIXTURE") != "1" {
+	if os.Getenv("EXT_GRAPH_PROCESS_FIXTURE") != "1" {
 		return
 	}
 	if err := runProcessFixture(); err != nil {
@@ -41,7 +41,7 @@ func TestProcessFixtureHelper(t *testing.T) {
 	os.Exit(0)
 }
 func runProcessFixture() error {
-	root := os.Getenv("CTX_GRAPH_PROCESS_FIXTURE_DIR")
+	root := os.Getenv("EXT_GRAPH_PROCESS_FIXTURE_DIR")
 	file, err := os.OpenFile(filepath.Join(root, "open file.txt"), os.O_CREATE|os.O_RDWR, 0600)
 	if err != nil {
 		return err
@@ -83,7 +83,7 @@ func runProcessFixture() error {
 	}
 	defer pipeRead.Close()
 	defer pipeWrite.Close()
-	if os.Getenv("CTX_GRAPH_PROCESS_FIXTURE_DENY") == "1" {
+	if os.Getenv("EXT_GRAPH_PROCESS_FIXTURE_DENY") == "1" {
 		if err := restrictProcessFixture(); err != nil {
 			return err
 		}
@@ -138,7 +138,7 @@ func startProcessFixtureAt(t *testing.T, executable string, extraEnv ...string) 
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	t.Cleanup(cancel)
 	cmd := exec.CommandContext(ctx, executable, "-test.run=^TestProcessFixtureHelper$", "--", processFixtureSentinel)
-	cmd.Env = append(os.Environ(), "CTX_GRAPH_PROCESS_FIXTURE=1", "CTX_GRAPH_PROCESS_FIXTURE_DIR="+t.TempDir(), "CTX_GRAPH_PROCESS_PRIVATE="+processFixtureSentinel)
+	cmd.Env = append(os.Environ(), "EXT_GRAPH_PROCESS_FIXTURE=1", "EXT_GRAPH_PROCESS_FIXTURE_DIR="+t.TempDir(), "EXT_GRAPH_PROCESS_PRIVATE="+processFixtureSentinel)
 	cmd.Env = append(cmd.Env, extraEnv...)
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
@@ -200,8 +200,8 @@ func requireProcessFixtureResource(t *testing.T, p ProcessInfo, kind, value stri
 	t.Fatalf("missing fixture %s %q; coverage=%+v", kind, value, p.Coverage[kind])
 }
 func TestNativeProcessLifecycle(t *testing.T) {
-	if os.Getenv("CTX_GRAPH_PROCESS_NATIVE_TESTS") != "1" {
-		t.Skip("set CTX_GRAPH_PROCESS_NATIVE_TESTS=1 to run isolated native process inspection")
+	if os.Getenv("EXT_GRAPH_PROCESS_NATIVE_TESTS") != "1" {
+		t.Skip("set EXT_GRAPH_PROCESS_NATIVE_TESTS=1 to run isolated native process inspection")
 	}
 	f := startProcessFixture(t)
 	ctx := context.Background()
@@ -340,7 +340,7 @@ func TestNativeProcessLifecycle(t *testing.T) {
 	t.Logf("validated %s/%s: process/parent, executable, owner, open file, mapping, TCP, UDP, IPC, usage, limits, closure, exit, and reconciliation", runtime.GOOS, runtime.GOARCH)
 }
 func TestNativeProcessCancellation(t *testing.T) {
-	if os.Getenv("CTX_GRAPH_PROCESS_NATIVE_TESTS") != "1" {
+	if os.Getenv("EXT_GRAPH_PROCESS_NATIVE_TESTS") != "1" {
 		t.Skip("native process tests are opt-in")
 	}
 	ctx, cancel := context.WithCancel(context.Background())

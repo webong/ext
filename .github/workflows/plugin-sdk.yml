@@ -25,16 +25,16 @@ jobs:
           for module in pkg/plugin pkg/plugin-hashicorp pkg/plugin-wasm pkg/plugin-go; do
             (cd "$module" && go test -race ./...) || exit 1
           done
-      - run: go test -race ./pkg/plugin-hashicorp/cmd/ctx-plugin
+      - run: go test -race ./pkg/plugin-hashicorp/cmd/ext-plugin
       - run: node --test pkg/plugin-ts/test.mjs
       - name: Check TypeScript declarations
         run: npx --yes --package typescript@5.8.3 tsc --noEmit --strict --module NodeNext --moduleResolution NodeNext --target ES2022 pkg/plugin-ts/typecheck.mts
       - run: go run ./examples/plugin-sdk --backend jsonline
       - run: go run ./examples/plugin-sdk --backend inprocess
       - run: go run ./examples/plugin-typescript
-      - run: go build -o /tmp/ctx-plugin-example ./examples/plugin-typescript
-      - run: node examples/plugin-typescript/host.mjs /tmp/ctx-plugin-example
-      - run: go run ./pkg/plugin-hashicorp/cmd/ctx-plugin inspect --root examples/plugin-package --entry main examples/plugin-package/plugin.json
+      - run: go build -o /tmp/ext-plugin-example ./examples/plugin-typescript
+      - run: node examples/plugin-typescript/host.mjs /tmp/ext-plugin-example
+      - run: go run ./pkg/plugin-hashicorp/cmd/ext-plugin inspect --root examples/plugin-package --entry main examples/plugin-package/plugin.json
 
   foreign-sdks:
     strategy:
@@ -79,39 +79,39 @@ jobs:
           node-version: '22'
       - name: Shared C engine conformance
         env:
-          CTX_CENGINE_BUILD_DIR: ${{ runner.temp }}/ctx-cengine-proof
-          CTX_CENGINE_LINKAGE: ${{ matrix.linkage }}
+          EXT_CENGINE_BUILD_DIR: ${{ runner.temp }}/ext-cengine-proof
+          EXT_CENGINE_LINKAGE: ${{ matrix.linkage }}
           CC: clang
         run: scripts/plugin-cengine.sh
       - name: Portable guest core in WASI
         env:
-          CTX_WASI_CORE_BUILD_DIR: ${{ runner.temp }}/ctx-wasi-core
+          EXT_WASI_CORE_BUILD_DIR: ${{ runner.temp }}/ext-wasi-core
         run: scripts/plugin-wasi-core.sh
       - name: Foreign runtime conformance through the C session
         env:
-          CTX_CROSSLANG_ENGINE: c
-          CTX_CENGINE_LINKAGE: ${{ matrix.linkage }}
-          CTX_CENGINE_BUILD_DIR: ${{ runner.temp }}/ctx-cengine-proof
+          EXT_CROSSLANG_ENGINE: c
+          EXT_CENGINE_LINKAGE: ${{ matrix.linkage }}
+          EXT_CENGINE_BUILD_DIR: ${{ runner.temp }}/ext-cengine-proof
         run: scripts/plugin-crosslang.sh
       - name: Preserve prototype measurements
         uses: actions/upload-artifact@v4
         with:
           name: cengine-measurements-${{ matrix.os }}-${{ matrix.linkage }}
           path: |
-            ${{ runner.temp }}/ctx-cengine-proof/benchmarks.jsonl
-            ${{ runner.temp }}/ctx-cengine-proof/benchmark-report.md
+            ${{ runner.temp }}/ext-cengine-proof/benchmarks.jsonl
+            ${{ runner.temp }}/ext-cengine-proof/benchmark-report.md
 
       - name: Cross-runtime interoperability
         env:
-          CTX_INTEROP_BUILD_DIR: ${{ runner.temp }}/ctx-interop-proof
-          CTX_CENGINE_BUILD_DIR: ${{ runner.temp }}/ctx-cengine-proof
-          CTX_INTEROP_REUSE_CENGINE: '1'
+          EXT_INTEROP_BUILD_DIR: ${{ runner.temp }}/ext-interop-proof
+          EXT_CENGINE_BUILD_DIR: ${{ runner.temp }}/ext-cengine-proof
+          EXT_INTEROP_REUSE_CENGINE: '1'
         run: scripts/plugin-interop.sh
       - name: Bidirectional bridge with C-owned sessions
         env:
-          CTX_INTEROP_ENGINE: c
-          CTX_CENGINE_LINKAGE: ${{ matrix.linkage }}
-          CTX_INTEROP_BUILD_DIR: ${{ runner.temp }}/ctx-interop-c
-          CTX_CENGINE_BUILD_DIR: ${{ runner.temp }}/ctx-cengine-proof
-          CTX_INTEROP_REUSE_CENGINE: '1'
+          EXT_INTEROP_ENGINE: c
+          EXT_CENGINE_LINKAGE: ${{ matrix.linkage }}
+          EXT_INTEROP_BUILD_DIR: ${{ runner.temp }}/ext-interop-c
+          EXT_CENGINE_BUILD_DIR: ${{ runner.temp }}/ext-cengine-proof
+          EXT_INTEROP_REUSE_CENGINE: '1'
         run: scripts/plugin-interop.sh

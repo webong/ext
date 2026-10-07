@@ -1,10 +1,10 @@
 # Shared engine services
 
-`ctx_engine_call(operation, input, length, &out)` runs a pure bounded JSON service.
+`ext_engine_call(operation, input, length, &out)` runs a pure bounded JSON service.
 It never discovers, launches, authorizes, or changes files. Input obeys the same
 24 MiB, UTF-8, duplicate-key and nesting rules as plugin envelopes. Unknown fields
 in service-owned structures are rejected. Unknown operations return
-`CTX_UNSUPPORTED`. Free every successful output with `ctx_buffer_free`.
+`EXT_UNSUPPORTED`. Free every successful output with `ext_buffer_free`.
 
 | Operation | Input | Successful output |
 | --- | --- | --- |
@@ -48,9 +48,9 @@ Do not interpret a validated path or checksum as a trust grant.
 
 ## Native integrity functions
 
-- `ctx_engine_sha256`: bytes to a 32-byte digest.
-- `ctx_package_verify`: validate a manifest and hash its listed artifacts.
-- `ctx_directory_digest`: hash sorted slash-relative file paths and file digests
+- `ext_engine_sha256`: bytes to a 32-byte digest.
+- `ext_package_verify`: validate a manifest and hash its listed artifacts.
+- `ext_directory_digest`: hash sorted slash-relative file paths and file digests
   using the existing CTX trust-record format.
 
 Filesystem functions currently use POSIX descriptor-relative opens and reject
@@ -60,14 +60,14 @@ separately establish publisher trust. Neither function launches code.
 
 ## Resource engines
 
-`ctx_instance.h` manages configuration revisions, raw-byte digests, replacement,
+`ext_instance.h` manages configuration revisions, raw-byte digests, replacement,
 leases and bounded capacity. Retired values remain alive until their leases are
 released. Factory and cleanup callbacks execute outside locks. Close stops
 admission permanently, cancels factory lifetimes and waits within the supplied
 call budget; a timed-out close can be retried. Callback code and user data must
 remain loaded until destroy succeeds.
 
-`ctx_stream.h` supplies a bounded pull-stream lifecycle. Applications supply the
+`ext_stream.h` supplies a bounded pull-stream lifecycle. Applications supply the
 authenticated scope; the engine enforces scope matching, random IDs, monotonic
 sequence numbers, serialized reads, item/byte limits, capacity and maximum age.
 Close can run concurrently with read and must unblock it. `release` runs only
@@ -79,9 +79,9 @@ not an isolation boundary.
 
 - Go: `goengine.EngineCall`, package/schema/route helpers, `NewInstances`,
   `NewStreams`, and `GuestFromRegistry`.
-- Rust: `ctx-plugin-engine` in `pkg/plugin-rust/engine`, with safe host/guest/service
+- Rust: `ext-plugin-engine` in `pkg/plugin-rust/engine`, with safe host/guest/service
   wrappers and raw resource FFI.
-- Zig: `ctx_plugin_engine` in `pkg/plugin-zig/engine`, with host/guest/service wrappers
+- Zig: `ext_plugin_engine` in `pkg/plugin-zig/engine`, with host/guest/service wrappers
   and the complete header-generated FFI.
 - Node: `loadEngine` in `pkg/plugin-ts/engine`, with asynchronous host/guest
   callbacks, cancellation and pure JSON services. Node resource bindings and

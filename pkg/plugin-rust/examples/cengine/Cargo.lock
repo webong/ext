@@ -3,12 +3,12 @@
 version = 4
 
 [[package]]
-name = "ctx-cengine-example"
+name = "ext-cengine-example"
 version = "0.0.0"
 dependencies = [
- "ctx-plugin-engine",
+ "ext-plugin-engine",
 ]
 
 [[package]]
-name = "ctx-plugin-engine"
+name = "ext-plugin-engine"
 version = "0.0.0"

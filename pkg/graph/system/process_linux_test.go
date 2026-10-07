@@ -36,13 +36,13 @@ func TestProcessLinuxSocketAddressesAndPaths(t *testing.T) {
 }
 func restrictProcessFixture() error { return unix.Prctl(unix.PR_SET_DUMPABLE, 0, 0, 0, 0) }
 func TestNativeProcessPermissionDenied(t *testing.T) {
-	if os.Getenv("CTX_GRAPH_PROCESS_NATIVE_TESTS") != "1" {
+	if os.Getenv("EXT_GRAPH_PROCESS_NATIVE_TESTS") != "1" {
 		t.Skip("native process tests are opt-in")
 	}
 	if os.Geteuid() == 0 {
 		t.Skip("requires a non-root runner without ptrace bypass privileges")
 	}
-	f := startProcessFixture(t, "CTX_GRAPH_PROCESS_FIXTURE_DENY=1")
+	f := startProcessFixture(t, "EXT_GRAPH_PROCESS_FIXTURE_DENY=1")
 	s, err := InspectProcess(context.Background(), f.ready.PID, ProcessOptions{Timeout: 20 * time.Second})
 	if err != nil {
 		t.Fatal(err)

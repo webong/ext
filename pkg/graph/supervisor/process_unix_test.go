@@ -14,14 +14,14 @@ import (
 )
 
 func TestProcessTreeHelper(t *testing.T) {
-	if os.Getenv("CTX_TREE_HELPER") != "1" {
+	if os.Getenv("EXT_TREE_HELPER") != "1" {
 		return
 	}
-	child := exec.Command("sh", "-c", "sleep 1; printf done > \"$1\"", "sh", os.Getenv("CTX_TREE_SENTINEL"))
+	child := exec.Command("sh", "-c", "sleep 1; printf done > \"$1\"", "sh", os.Getenv("EXT_TREE_SENTINEL"))
 	if err := child.Start(); err != nil {
 		os.Exit(2)
 	}
-	_ = os.WriteFile(os.Getenv("CTX_TREE_STARTED"), []byte("started"), 0600)
+	_ = os.WriteFile(os.Getenv("EXT_TREE_STARTED"), []byte("started"), 0600)
 	time.Sleep(30 * time.Second)
 	os.Exit(0)
 }
@@ -39,7 +39,7 @@ func TestStopTerminatesDescendantProcesses(t *testing.T) {
 	sentinel := filepath.Join(dir, "descendant-survived")
 	instance, err := sup.Start(context.Background(), Spec{
 		Artifact: Artifact{ID: "tree", Revision: "1"}, Command: os.Args[0], Args: []string{"-test.run=TestProcessTreeHelper"},
-		Environment: map[string]string{"CTX_TREE_HELPER": "1", "CTX_TREE_STARTED": started, "CTX_TREE_SENTINEL": sentinel},
+		Environment: map[string]string{"EXT_TREE_HELPER": "1", "EXT_TREE_STARTED": started, "EXT_TREE_SENTINEL": sentinel},
 	})
 	if err != nil {
 		t.Fatal(err)

@@ -1,12 +1,12 @@
-//go:build ctx_cengine && cgo && (darwin || linux)
+//go:build ext_cengine && cgo && (darwin || linux)
 
 package goengine
 
 /*
-#include "ctx_instance.h"
-ctx_status ctx_go_instances_create(uintptr_t,uint32_t,ctx_instances **);
-uintptr_t ctx_go_lease_value(ctx_lease *);
-void ctx_go_call_init(ctx_call_options *,uint32_t,const ctx_cancel *,uintptr_t);
+#include "ext_instance.h"
+ext_status ext_go_instances_create(uintptr_t,uint32_t,ext_instances **);
+uintptr_t ext_go_lease_value(ext_lease *);
+void ext_go_call_init(ext_call_options *,uint32_t,const ext_cancel *,uintptr_t);
 */
 import "C"
 import (
@@ -28,7 +28,7 @@ type instanceValue struct {
 }
 type instancesCore struct {
 	mu         sync.RWMutex
-	ptr        *C.ctx_instances
+	ptr        *C.ext_instances
 	handle     cgo.Handle
 	life       context.Context
 	cancel     context.CancelFunc
@@ -53,7 +53,7 @@ func NewInstances[T any](options instance.Options[T]) (*Instances[T], error) {
 		return options.Create(ctx, k, c)
 	}}
 	core.handle = cgo.NewHandle(core)
-	if err := status(C.ctx_go_instances_create(C.uintptr_t(core.handle), C.uint32_t(options.Capacity), &core.ptr)); err != nil {
+	if err := status(C.ext_go_instances_create(C.uintptr_t(core.handle), C.uint32_t(options.Capacity), &core.ptr)); err != nil {
 		core.handle.Delete()
 		cancel()
 		return nil, err
@@ -66,11 +66,11 @@ func bytesPointer(b []byte) *C.uint8_t {
 	}
 	return (*C.uint8_t)(unsafe.Pointer(&b[0]))
 }
-func instanceStatus(s C.ctx_status) error {
+func instanceStatus(s C.ext_status) error {
 	switch s {
-	case C.CTX_UPDATING:
+	case C.EXT_UPDATING:
 		return instance.ErrUpdating
-	case C.CTX_CAPACITY:
+	case C.EXT_CAPACITY:
 		return instance.ErrCapacity
 	}
 	return status(s)
@@ -81,7 +81,7 @@ func instanceStatus(s C.ctx_status) error {
 func resourceScope(ctx context.Context) (*callScope, error) {
 	ctx = errorContext(ctx)
 	scope := &callScope{ctx: ctx}
-	if err := status(C.ctx_cancel_create(&scope.cancel)); err != nil {
+	if err := status(C.ext_cancel_create(&scope.cancel)); err != nil {
 		return nil, err
 	}
 	scope.value = cgo.NewHandle(ctx)
@@ -89,17 +89,17 @@ func resourceScope(ctx context.Context) (*callScope, error) {
 	if _, ok := ctx.Deadline(); ok {
 		duration = timeout(ctx)
 	}
-	C.ctx_go_call_init(&scope.options, duration, scope.cancel, C.uintptr_t(scope.value))
+	C.ext_go_call_init(&scope.options, duration, scope.cancel, C.uintptr_t(scope.value))
 	done := make(chan struct{})
-	stop := context.AfterFunc(ctx, func() { C.ctx_cancel_signal(scope.cancel); close(done) })
+	stop := context.AfterFunc(ctx, func() { C.ext_cancel_signal(scope.cancel); close(done) })
 	if ctx.Err() != nil {
-		C.ctx_cancel_signal(scope.cancel)
+		C.ext_cancel_signal(scope.cancel)
 	}
 	scope.finish = func() {
 		if !stop() {
 			<-done
 		}
-		C.ctx_cancel_destroy(scope.cancel)
+		C.ext_cancel_destroy(scope.cancel)
 		scope.value.Delete()
 	}
 	return scope, nil
@@ -133,7 +133,7 @@ func (m *Instances[T]) Configure(ctx context.Context, key, revision string, conf
 	}
 	defer scope.finish()
 	k, r := []byte(key), []byte(revision)
-	s := C.ctx_instances_configure(c.ptr, bytesPointer(k), C.size_t(len(k)), bytesPointer(r), C.size_t(len(r)), bytesPointer(config), C.size_t(len(config)), &scope.options)
+	s := C.ext_instances_configure(c.ptr, bytesPointer(k), C.size_t(len(k)), bytesPointer(r), C.size_t(len(r)), bytesPointer(config), C.size_t(len(config)), &scope.options)
 	if ctx.Err() != nil {
 		return ctx.Err()
 	}
@@ -144,7 +144,7 @@ type InstanceLease[T any] struct {
 	Value    T
 	Revision string
 	core     *instancesCore
-	ptr      *C.ctx_lease
+	ptr      *C.ext_lease
 	once     sync.Once
 	err      error
 }
@@ -160,13 +160,13 @@ func (m *Instances[T]) Acquire(key string) (*InstanceLease[T], error) {
 	if len(k) == 0 {
 		return nil, plugin.ErrNotFound
 	}
-	var ptr *C.ctx_lease
-	if err := instanceStatus(C.ctx_instances_acquire(c.ptr, bytesPointer(k), C.size_t(len(k)), &ptr)); err != nil {
+	var ptr *C.ext_lease
+	if err := instanceStatus(C.ext_instances_acquire(c.ptr, bytesPointer(k), C.size_t(len(k)), &ptr)); err != nil {
 		return nil, err
 	}
-	v := cgo.Handle(C.ctx_go_lease_value(ptr)).Value().(*instanceValue)
+	v := cgo.Handle(C.ext_go_lease_value(ptr)).Value().(*instanceValue)
 	var n C.size_t
-	revision := C.ctx_lease_revision(ptr, &n)
+	revision := C.ext_lease_revision(ptr, &n)
 	var value T
 	if v.value != nil {
 		value = v.value.(T)
@@ -177,7 +177,7 @@ func (l *InstanceLease[T]) Release() error {
 	l.once.Do(func() {
 		l.core.mu.RLock()
 		defer l.core.mu.RUnlock()
-		l.err = instanceStatus(C.ctx_lease_release(l.ptr))
+		l.err = instanceStatus(C.ext_lease_release(l.ptr))
 		l.ptr = nil
 	})
 	return l.err
@@ -193,7 +193,7 @@ func (m *Instances[T]) Remove(key string) error {
 	if len(k) == 0 {
 		return plugin.ErrNotFound
 	}
-	return instanceStatus(C.ctx_instances_remove(c.ptr, bytesPointer(k), C.size_t(len(k))))
+	return instanceStatus(C.ext_instances_remove(c.ptr, bytesPointer(k), C.size_t(len(k))))
 }
 func (m *Instances[T]) Close(ctx context.Context) error {
 	c := m.core
@@ -210,9 +210,9 @@ func (m *Instances[T]) Close(ctx context.Context) error {
 		defer c.errorsMu.Unlock()
 		return c.cleanupErr
 	}
-	s := C.ctx_instances_close(c.ptr, &scope.options)
+	s := C.ext_instances_close(c.ptr, &scope.options)
 	c.mu.RUnlock()
-	if s == C.CTX_TIMEOUT || s == C.CTX_CANCELED {
+	if s == C.EXT_TIMEOUT || s == C.EXT_CANCELED {
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
@@ -221,7 +221,7 @@ func (m *Instances[T]) Close(ctx context.Context) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if c.ptr != nil {
-		if err := instanceStatus(C.ctx_instances_destroy(c.ptr)); err != nil {
+		if err := instanceStatus(C.ext_instances_destroy(c.ptr)); err != nil {
 			return err
 		}
 		c.ptr = nil
@@ -237,7 +237,7 @@ func (m *Instances[T]) Close(ctx context.Context) error {
 
 //export ctxGoInstanceCreate
 func ctxGoInstanceCreate(handle, caller C.uintptr_t, ms C.uint32_t, key *C.uint8_t, kn C.size_t, config *C.uint8_t, cn C.size_t, out *C.uintptr_t) (result C.int32_t) {
-	result = C.CTX_IO
+	result = C.EXT_IO
 	defer func() { _ = recover() }()
 	c := cgo.Handle(handle).Value().(*instancesCore)
 	parent := cgo.Handle(caller).Value().(context.Context)
@@ -258,7 +258,7 @@ func ctxGoInstanceCreate(handle, caller C.uintptr_t, ms C.uint32_t, key *C.uint8
 
 //export ctxGoInstanceDispose
 func ctxGoInstanceDispose(handle, value C.uintptr_t) (result C.int32_t) {
-	result = C.CTX_IO
+	result = C.EXT_IO
 	c := cgo.Handle(handle).Value().(*instancesCore)
 	h := cgo.Handle(value)
 	v := h.Value().(*instanceValue)

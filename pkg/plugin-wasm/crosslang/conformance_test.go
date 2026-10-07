@@ -54,12 +54,12 @@ func TestForeignMalformedFrames(t *testing.T) {
 
 func artifact(t *testing.T, name string) string {
 	t.Helper()
-	p := os.Getenv("CTX_" + name)
+	p := os.Getenv("EXT_" + name)
 	if p == "" {
-		if os.Getenv("CTX_CROSSLANG_REQUIRED") == "1" {
-			t.Fatalf("CTX_%s is required", name)
+		if os.Getenv("EXT_CROSSLANG_REQUIRED") == "1" {
+			t.Fatalf("EXT_%s is required", name)
 		}
-		t.Skip("set CTX_" + name + " or run scripts/plugin-crosslang.sh")
+		t.Skip("set EXT_" + name + " or run scripts/plugin-crosslang.sh")
 	}
 	p, err := filepath.Abs(p)
 	if err != nil {

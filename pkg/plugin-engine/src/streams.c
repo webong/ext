@@ -1,5 +1,5 @@
 #define _POSIX_C_SOURCE 200809L
-#include "ctx_stream.h"
+#include "ext_stream.h"
 #include "wire.h"
 #include <errno.h>
 #include <fcntl.h>
@@ -17,38 +17,38 @@ struct stream_entry {
   size_t scope_len;
   int64_t expires;
   uint64_t sequence;
-  ctx_cancel *life;
+  ext_cancel *life;
   void *value;
   unsigned users;
   int opening, live, counted, closing, closed, busy, releasing;
-  ctx_status close_status;
+  ext_status close_status;
 };
-struct ctx_streams {
+struct ext_streams {
   pthread_mutex_t mu;
   pthread_cond_t changed;
   pthread_t timer, workers[4];
   size_t worker_count;
   stream_entry *work_head, *work_tail;
-  ctx_stream_options options;
+  ext_stream_options options;
   stream_entry *entries;
   size_t occupied;
   int closed;
-  ctx_status cleanup;
+  ext_status cleanup;
 };
 static int64_t now(void) {
   struct timespec t;
   clock_gettime(CLOCK_MONOTONIC, &t);
   return (int64_t)t.tv_sec * 1000 + t.tv_nsec / 1000000;
 }
-static int valid(const ctx_call_options *o) {
+static int valid(const ext_call_options *o) {
   return o && o->struct_size == sizeof(*o) && o->timeout_ms;
 }
-static ctx_status stopped(const ctx_call_options *o, int64_t deadline) {
-  return ctx_cancel_is_signaled(o->cancel) ? CTX_CANCELED
-         : now() >= deadline               ? CTX_TIMEOUT
-                                           : CTX_OK;
+static ext_status stopped(const ext_call_options *o, int64_t deadline) {
+  return ext_cancel_is_signaled(o->cancel) ? EXT_CANCELED
+         : now() >= deadline               ? EXT_TIMEOUT
+                                           : EXT_OK;
 }
-static void wait_slice(ctx_streams *s) {
+static void wait_slice(ext_streams *s) {
   struct timespec t;
   clock_gettime(CLOCK_REALTIME, &t);
   t.tv_nsec += 10000000;
@@ -62,7 +62,7 @@ static int scope_valid(const uint8_t *p, size_t n) {
   return p && n && n <= 256;
 }
 static int id_valid(const char *id) { return id && *id && strlen(id) <= 64; }
-static stream_entry *find(ctx_streams *s, const char *id) {
+static stream_entry *find(ext_streams *s, const char *id) {
   for (stream_entry *e = s->entries; e; e = e->next)
     if (e->live && !strcmp(e->id, id))
       return e;
@@ -73,7 +73,7 @@ static int scoped(stream_entry *e, const uint8_t *p, size_t n) {
 }
 /* Drop a use under lock. Release callbacks run outside the lock, with a
  * temporary entry use so destroy cannot race foreign reader destruction. */
-static void drop(ctx_streams *s, stream_entry *e) {
+static void drop(ext_streams *s, stream_entry *e) {
   if (--e->users || !e->closed)
     return;
   /* Keep the entry linked until release finishes: destroy remains busy. */
@@ -87,18 +87,18 @@ static void drop(ctx_streams *s, stream_entry *e) {
   while (*p != e)
     p = &(*p)->next;
   *p = e->next;
-  ctx_cancel_destroy(e->life);
+  ext_cancel_destroy(e->life);
   free(e);
   pthread_cond_broadcast(&s->changed);
 }
 /* Retire immediately, independently of slow close/read callbacks. */
-static int retire(ctx_streams *s, stream_entry *e) {
+static int retire(ext_streams *s, stream_entry *e) {
   e->live = 0;
   if (e->counted) {
     e->counted = 0;
     s->occupied--;
   }
-  ctx_cancel_signal(e->life);
+  ext_cancel_signal(e->life);
   if (!e->opening && !e->closing && !e->closed) {
     e->closing = 1;
     e->users++;
@@ -106,9 +106,9 @@ static int retire(ctx_streams *s, stream_entry *e) {
   }
   return 0;
 }
-static void close_entry(ctx_streams *s, stream_entry *e) {
-  ctx_status status =
-      e->value ? s->options.close(s->options.user, e->value) : CTX_OK;
+static void close_entry(ext_streams *s, stream_entry *e) {
+  ext_status status =
+      e->value ? s->options.close(s->options.user, e->value) : EXT_OK;
   pthread_mutex_lock(&s->mu);
   e->close_status = status;
   e->closed = 1;
@@ -120,7 +120,7 @@ static void close_entry(ctx_streams *s, stream_entry *e) {
   pthread_mutex_unlock(&s->mu);
 }
 static void *cleanup_worker(void *arg) {
-  ctx_streams *s = arg;
+  ext_streams *s = arg;
   pthread_mutex_lock(&s->mu);
   for (;;) {
     while (!s->work_head && !s->closed)
@@ -139,7 +139,7 @@ static void *cleanup_worker(void *arg) {
   return NULL;
 }
 static void *expiry(void *arg) {
-  ctx_streams *s = arg;
+  ext_streams *s = arg;
   pthread_mutex_lock(&s->mu);
   while (!s->closed) {
     int64_t at = now();
@@ -161,26 +161,26 @@ static void *expiry(void *arg) {
   pthread_mutex_unlock(&s->mu);
   return NULL;
 }
-ctx_status ctx_streams_create(const ctx_stream_options *o, ctx_streams **out) {
+ext_status ext_streams_create(const ext_stream_options *o, ext_streams **out) {
   if (!out)
-    return CTX_INVALID;
+    return EXT_INVALID;
   *out = NULL;
   if (!o || o->struct_size != sizeof(*o) || !o->capacity ||
       o->capacity > 1024 || !o->max_age_ms || o->max_age_ms > 86400000 ||
       !o->open || !o->read || !o->close || !o->release)
-    return CTX_INVALID;
-  ctx_streams *s = calloc(1, sizeof(*s));
+    return EXT_INVALID;
+  ext_streams *s = calloc(1, sizeof(*s));
   if (!s)
-    return CTX_NOMEM;
+    return EXT_NOMEM;
   s->options = *o;
   if (pthread_mutex_init(&s->mu, NULL)) {
     free(s);
-    return CTX_IO;
+    return EXT_IO;
   }
   if (pthread_cond_init(&s->changed, NULL)) {
     pthread_mutex_destroy(&s->mu);
     free(s);
-    return CTX_IO;
+    return EXT_IO;
   }
   int error = 0;
   for (size_t i = 0; i < 4; i++) {
@@ -201,24 +201,24 @@ ctx_status ctx_streams_create(const ctx_stream_options *o, ctx_streams **out) {
     pthread_cond_destroy(&s->changed);
     pthread_mutex_destroy(&s->mu);
     free(s);
-    return CTX_IO;
+    return EXT_IO;
   }
   *out = s;
-  return CTX_OK;
+  return EXT_OK;
 }
-static ctx_status random_id(char out[49]) {
+static ext_status random_id(char out[49]) {
   int fd = open("/dev/urandom", O_RDONLY | O_CLOEXEC);
   if (fd < 0)
-    return CTX_IO;
+    return EXT_IO;
   uint8_t bytes[24];
   size_t used = 0;
-  ctx_status s = CTX_OK;
+  ext_status s = EXT_OK;
   while (used < sizeof(bytes)) {
     ssize_t n = read(fd, bytes + used, sizeof(bytes) - used);
     if (n > 0)
       used += (size_t)n;
     else if (!n || errno != EINTR) {
-      s = CTX_IO;
+      s = EXT_IO;
       break;
     }
   }
@@ -231,30 +231,30 @@ static ctx_status random_id(char out[49]) {
     out[2 * i + 1] = hex[bytes[i] & 15];
   }
   out[48] = 0;
-  return CTX_OK;
+  return EXT_OK;
 }
-ctx_status ctx_streams_open(ctx_streams *s, const uint8_t *scope,
+ext_status ext_streams_open(ext_streams *s, const uint8_t *scope,
                             size_t scope_len, const uint8_t *params, size_t len,
-                            const ctx_call_options *o, ctx_buffer *out) {
+                            const ext_call_options *o, ext_buffer *out) {
   if (!out)
-    return CTX_INVALID;
-  *out = (ctx_buffer){0};
+    return EXT_INVALID;
+  *out = (ext_buffer){0};
   if (!s || !valid(o))
-    return CTX_INVALID;
+    return EXT_INVALID;
   if (!scope_valid(scope, scope_len))
-    return CTX_DENIED;
+    return EXT_DENIED;
   int64_t end = now() + o->timeout_ms;
-  ctx_status status = stopped(o, end);
+  ext_status status = stopped(o, end);
   if (status)
     return status;
-  yyjson_doc *doc = ctx_parse(params, len);
+  yyjson_doc *doc = ext_parse(params, len);
   if (!doc)
-    return CTX_INVALID;
+    return EXT_INVALID;
   yyjson_doc_free(doc);
   stream_entry *e = calloc(1, sizeof(*e));
   if (!e)
-    return CTX_NOMEM;
-  status = ctx_cancel_create(&e->life);
+    return EXT_NOMEM;
+  status = ext_cancel_create(&e->life);
   if (status) {
     free(e);
     return status;
@@ -267,12 +267,12 @@ ctx_status ctx_streams_open(ctx_streams *s, const uint8_t *scope,
   memcpy(e->scope, scope, scope_len);
   pthread_mutex_lock(&s->mu);
   if (s->closed)
-    status = CTX_CLOSED;
+    status = EXT_CLOSED;
   else if (s->occupied >= s->options.capacity)
-    status = CTX_CAPACITY;
+    status = EXT_CAPACITY;
   if (status) {
     pthread_mutex_unlock(&s->mu);
-    ctx_cancel_destroy(e->life);
+    ext_cancel_destroy(e->life);
     free(e);
     return status;
   }
@@ -283,29 +283,29 @@ ctx_status ctx_streams_open(ctx_streams *s, const uint8_t *scope,
   status = s->options.open(s->options.user, o, e->life, params, len, &e->value);
   if (!status)
     status = stopped(o, end);
-  if (!status && ctx_cancel_is_signaled(e->life))
-    status = CTX_CANCELED;
+  if (!status && ext_cancel_is_signaled(e->life))
+    status = EXT_CANCELED;
   if (!status && now() >= e->expires)
-    status = CTX_TIMEOUT;
+    status = EXT_TIMEOUT;
   if (!status && !e->value)
-    status = CTX_INVALID;
+    status = EXT_INVALID;
   if (!status)
     status = random_id(e->id);
   pthread_mutex_lock(&s->mu);
   e->opening = 0;
   if (!status && s->closed)
-    status = CTX_CLOSED;
-  if (!status && ctx_cancel_is_signaled(e->life))
-    status = CTX_CANCELED;
+    status = EXT_CLOSED;
+  if (!status && ext_cancel_is_signaled(e->life))
+    status = EXT_CANCELED;
   if (!status) {
     /* Defend even against a random collision: do not replace an existing
      * stream. */
     if (find(s, e->id))
-      status = CTX_AMBIGUOUS;
+      status = EXT_AMBIGUOUS;
     else {
       out->data = malloc(51);
       if (!out->data)
-        status = CTX_NOMEM;
+        status = EXT_NOMEM;
       else {
         out->data[0] = '"';
         memcpy(out->data + 1, e->id, 48);
@@ -326,32 +326,32 @@ ctx_status ctx_streams_open(ctx_streams *s, const uint8_t *scope,
   return status;
 }
 typedef struct {
-  ctx_buffer data;
+  ext_buffer data;
   int emitted;
 } batch_sink;
-static ctx_status emit(void *arg, const uint8_t *p, size_t n) {
+static ext_status emit(void *arg, const uint8_t *p, size_t n) {
   batch_sink *b = arg;
-  if (b->emitted++ || !p || !n || n > CTX_HOST_MAX_FRAME)
-    return CTX_INVALID;
+  if (b->emitted++ || !p || !n || n > EXT_HOST_MAX_FRAME)
+    return EXT_INVALID;
   b->data.data = malloc(n);
   if (!b->data.data)
-    return CTX_NOMEM;
+    return EXT_NOMEM;
   memcpy(b->data.data, p, n);
   b->data.len = n;
-  return CTX_OK;
+  return EXT_OK;
 }
-static ctx_status batch(ctx_buffer *raw, uint32_t limit, int *done) {
-  yyjson_doc *d = ctx_parse(raw->data, raw->len);
+static ext_status batch(ext_buffer *raw, uint32_t limit, int *done) {
+  yyjson_doc *d = ext_parse(raw->data, raw->len);
   if (!d)
-    return CTX_INVALID;
+    return EXT_INVALID;
   yyjson_val *v = yyjson_doc_get_root(d), *items = yyjson_obj_get(v, "items"),
              *end = yyjson_obj_get(v, "done");
-  ctx_status status = CTX_OK;
-  if (!CTX_FIELDS(v, "items", "done") ||
+  ext_status status = EXT_OK;
+  if (!EXT_FIELDS(v, "items", "done") ||
       (!yyjson_is_arr(items) && items && !yyjson_is_null(items)) ||
       (end && !yyjson_is_bool(end) && !yyjson_is_null(end)) ||
       yyjson_arr_size(items) > limit)
-    status = CTX_INVALID;
+    status = EXT_INVALID;
   if (!status) {
     size_t i, n, total = 0;
     yyjson_val *item;
@@ -359,13 +359,13 @@ static ctx_status batch(ctx_buffer *raw, uint32_t limit, int *done) {
       size_t len = 0;
       char *json = yyjson_val_write(item, 0, &len);
       if (!json) {
-        status = CTX_NOMEM;
+        status = EXT_NOMEM;
         break;
       }
       free(json);
       total += len;
       if (total > 1048576) {
-        status = CTX_INVALID;
+        status = EXT_INVALID;
         break;
       }
     }
@@ -374,7 +374,7 @@ static ctx_status batch(ctx_buffer *raw, uint32_t limit, int *done) {
     *done = yyjson_get_bool(end);
     yyjson_mut_doc *out = yyjson_mut_doc_new(NULL);
     if (!out)
-      status = CTX_NOMEM;
+      status = EXT_NOMEM;
     else {
       yyjson_mut_val *root = yyjson_mut_obj(out),
                      *array = yyjson_is_arr(items)
@@ -384,12 +384,12 @@ static ctx_status batch(ctx_buffer *raw, uint32_t limit, int *done) {
       if (!root || !array ||
           !yyjson_mut_obj_add_val(out, root, "items", array) ||
           !yyjson_mut_obj_add_bool(out, root, "done", *done))
-        status = CTX_NOMEM;
+        status = EXT_NOMEM;
       else {
-        ctx_buffer_free(raw);
+        ext_buffer_free(raw);
         raw->data = (uint8_t *)yyjson_mut_write(out, 0, &raw->len);
         if (!raw->data)
-          status = CTX_NOMEM;
+          status = EXT_NOMEM;
       }
       yyjson_mut_doc_free(out);
     }
@@ -397,35 +397,35 @@ static ctx_status batch(ctx_buffer *raw, uint32_t limit, int *done) {
   yyjson_doc_free(d);
   return status;
 }
-ctx_status ctx_streams_read(ctx_streams *s, const uint8_t *scope,
+ext_status ext_streams_read(ext_streams *s, const uint8_t *scope,
                             size_t scope_len, const char *id, uint64_t sequence,
-                            uint32_t limit, const ctx_call_options *o,
-                            ctx_buffer *out) {
+                            uint32_t limit, const ext_call_options *o,
+                            ext_buffer *out) {
   if (!out)
-    return CTX_INVALID;
-  *out = (ctx_buffer){0};
+    return EXT_INVALID;
+  *out = (ext_buffer){0};
   if (!s || !valid(o) || !id_valid(id) || !sequence || !limit || limit > 256)
-    return CTX_INVALID;
+    return EXT_INVALID;
   if (!scope_valid(scope, scope_len))
-    return CTX_DENIED;
+    return EXT_DENIED;
   int64_t end = now() + o->timeout_ms;
   pthread_mutex_lock(&s->mu);
   stream_entry *e = find(s, id);
   if (!scoped(e, scope, scope_len)) {
     pthread_mutex_unlock(&s->mu);
-    return CTX_DENIED;
+    return EXT_DENIED;
   }
   e->users++;
-  ctx_status status = CTX_OK;
-  while (e->busy && !ctx_cancel_is_signaled(e->life) &&
+  ext_status status = EXT_OK;
+  while (e->busy && !ext_cancel_is_signaled(e->life) &&
          !(status = stopped(o, end)))
     wait_slice(s);
   if (!status)
     status = stopped(o, end);
-  if (!status && ctx_cancel_is_signaled(e->life))
-    status = CTX_CANCELED;
+  if (!status && ext_cancel_is_signaled(e->life))
+    status = EXT_CANCELED;
   if (!status && (e->sequence == UINT64_MAX || sequence != e->sequence + 1))
-    status = CTX_SEQUENCE;
+    status = EXT_SEQUENCE;
   if (status) {
     drop(s, e);
     pthread_mutex_unlock(&s->mu);
@@ -434,17 +434,17 @@ ctx_status ctx_streams_read(ctx_streams *s, const uint8_t *scope,
   e->busy = 1;
   pthread_mutex_unlock(&s->mu);
   batch_sink sink = {0};
-  ctx_call_options bounded = *o;
+  ext_call_options bounded = *o;
   bounded.timeout_ms = (uint32_t)(end - now());
   if (!(status = stopped(o, end)))
     status = s->options.read(s->options.user, e->value, &bounded, e->life,
                              limit, emit, &sink);
   if (!status && sink.emitted != 1)
-    status = CTX_INVALID;
+    status = EXT_INVALID;
   if (!status)
     status = stopped(o, end);
-  if (!status && ctx_cancel_is_signaled(e->life))
-    status = CTX_CANCELED;
+  if (!status && ext_cancel_is_signaled(e->life))
+    status = EXT_CANCELED;
   int done = 0;
   if (!status)
     status = batch(&sink.data, limit, &done);
@@ -466,26 +466,26 @@ ctx_status ctx_streams_read(ctx_streams *s, const uint8_t *scope,
   drop(s, e);
   pthread_mutex_unlock(&s->mu);
   if (status)
-    ctx_buffer_free(&sink.data);
+    ext_buffer_free(&sink.data);
   else
     *out = sink.data;
   return status;
 }
-ctx_status ctx_streams_remove(ctx_streams *s, const uint8_t *scope,
+ext_status ext_streams_remove(ext_streams *s, const uint8_t *scope,
                               size_t scope_len, const char *id) {
   if (!s || !id_valid(id))
-    return CTX_INVALID;
+    return EXT_INVALID;
   if (!scope_valid(scope, scope_len))
-    return CTX_DENIED;
+    return EXT_DENIED;
   pthread_mutex_lock(&s->mu);
   stream_entry *e = find(s, id);
   if (!e) {
     pthread_mutex_unlock(&s->mu);
-    return CTX_OK;
+    return EXT_OK;
   }
   if (!scoped(e, scope, scope_len)) {
     pthread_mutex_unlock(&s->mu);
-    return CTX_DENIED;
+    return EXT_DENIED;
   }
   e->users++;
   int close_now = retire(s, e);
@@ -495,14 +495,14 @@ ctx_status ctx_streams_remove(ctx_streams *s, const uint8_t *scope,
   pthread_mutex_lock(&s->mu);
   while (e->closing)
     pthread_cond_wait(&s->changed, &s->mu);
-  ctx_status status = e->close_status;
+  ext_status status = e->close_status;
   drop(s, e);
   pthread_mutex_unlock(&s->mu);
   return status;
 }
-ctx_status ctx_streams_close(ctx_streams *s) {
+ext_status ext_streams_close(ext_streams *s) {
   if (!s)
-    return CTX_INVALID;
+    return EXT_INVALID;
   pthread_mutex_lock(&s->mu);
   s->closed = 1;
   for (stream_entry *e = s->entries; e; e = e->next) {
@@ -511,7 +511,7 @@ ctx_status ctx_streams_close(ctx_streams *s) {
       e->counted = 0;
       s->occupied--;
     }
-    ctx_cancel_signal(e->life);
+    ext_cancel_signal(e->life);
   }
   pthread_cond_broadcast(&s->changed);
   for (;;) {
@@ -536,23 +536,23 @@ ctx_status ctx_streams_close(ctx_streams *s) {
       break;
     pthread_cond_wait(&s->changed, &s->mu);
   }
-  ctx_status status = s->cleanup;
+  ext_status status = s->cleanup;
   pthread_mutex_unlock(&s->mu);
   return status;
 }
-ctx_status ctx_streams_destroy(ctx_streams *s) {
+ext_status ext_streams_destroy(ext_streams *s) {
   if (!s)
-    return CTX_INVALID;
+    return EXT_INVALID;
   pthread_mutex_lock(&s->mu);
   int busy = !s->closed || s->entries;
   pthread_mutex_unlock(&s->mu);
   if (busy)
-    return CTX_DRAINING;
+    return EXT_DRAINING;
   pthread_join(s->timer, NULL);
   for (size_t i = 0; i < s->worker_count; i++)
     pthread_join(s->workers[i], NULL);
   pthread_cond_destroy(&s->changed);
   pthread_mutex_destroy(&s->mu);
   free(s);
-  return CTX_OK;
+  return EXT_OK;
 }

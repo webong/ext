@@ -1,5 +1,5 @@
 mod common;
-use ctx_plugin::{host::Session, native::Worker, *};
+use ext_plugin::{host::Session, native::Worker, *};
 use std::{path::Path, sync::Arc, time::Duration};
 fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = std::env::args().skip(1).collect();

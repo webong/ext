@@ -28,11 +28,11 @@ var images sync.Map
 
 type image struct {
 	once    sync.Once
-	library *C.ctx_library
+	library *C.ext_library
 	err     error
 }
 type session struct {
-	library *C.ctx_library
+	library *C.ext_library
 	handle  C.uint64_t
 }
 
@@ -47,7 +47,7 @@ func openNative(path string) (nativeSession, error) {
 		name := C.CString(canonical)
 		defer C.free(unsafe.Pointer(name))
 		var message [1024]C.char
-		i.library = C.ctx_library_load(name, &message[0], C.size_t(len(message)))
+		i.library = C.ext_library_load(name, &message[0], C.size_t(len(message)))
 		if i.library == nil {
 			i.err = fmt.Errorf("%w: load C shared plugin: %s", plugin.ErrUnsupported, C.GoString(&message[0]))
 		}
@@ -55,7 +55,7 @@ func openNative(path string) (nativeSession, error) {
 	if i.err != nil {
 		return nil, i.err
 	}
-	handle := C.ctx_library_open(i.library)
+	handle := C.ext_library_open(i.library)
 	if handle == 0 {
 		return nil, fmt.Errorf("%w: C shared guest refused a new handle", plugin.ErrDenied)
 	}
@@ -73,7 +73,7 @@ func (s *session) call(op uint32, input []byte) ([]byte, error) {
 	}
 	defer C.free(response)
 	var size C.uint32_t
-	status := C.ctx_library_call(s.library, s.handle, C.uint32_t(op), (*C.uint8_t)(request), C.uint32_t(len(input)), (*C.uint8_t)(response), C.uint32_t(plugin.MaxFrameBytes), &size)
+	status := C.ext_library_call(s.library, s.handle, C.uint32_t(op), (*C.uint8_t)(request), C.uint32_t(len(input)), (*C.uint8_t)(response), C.uint32_t(plugin.MaxFrameBytes), &size)
 	if uint32(status) != abi.OK {
 		return nil, fmt.Errorf("%w: C ABI status %d", plugin.ErrInvalid, uint32(status))
 	}
@@ -82,4 +82,4 @@ func (s *session) call(op uint32, input []byte) ([]byte, error) {
 	}
 	return C.GoBytes(response, C.int(size)), nil
 }
-func (s *session) close() { C.ctx_library_close(s.library, s.handle) }
+func (s *session) close() { C.ext_library_close(s.library, s.handle) }

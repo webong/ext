@@ -42,11 +42,11 @@ static int unique(yyjson_val *v, unsigned depth) {
   }
   return 1;
 }
-yyjson_doc *ctx_parse(const uint8_t *data, size_t len) {
-  if (!data || !len || len > CTX_HOST_MAX_FRAME)
+yyjson_doc *ext_parse(const uint8_t *data, size_t len) {
+  if (!data || !len || len > EXT_HOST_MAX_FRAME)
     return NULL;
   /* Bound nesting before parsing/allocating. Full syntax and UTF-8 are checked
-   * by yyjson. Retain number ctx_text: payload precision must not depend on C
+   * by yyjson. Retain number ext_text: payload precision must not depend on C
    * types. */
   unsigned depth = 0;
   int string = 0, escape = 0;
@@ -78,17 +78,17 @@ yyjson_doc *ctx_parse(const uint8_t *data, size_t len) {
   }
   return d;
 }
-ctx_status ctx_host_validate_json(const uint8_t *data, size_t len) {
-  yyjson_doc *d = ctx_parse(data, len);
+ext_status ext_host_validate_json(const uint8_t *data, size_t len) {
+  yyjson_doc *d = ext_parse(data, len);
   if (!d)
-    return CTX_INVALID;
+    return EXT_INVALID;
   yyjson_doc_free(d);
-  return CTX_OK;
+  return EXT_OK;
 }
 static yyjson_val *get(yyjson_val *o, const char *k) {
   return yyjson_obj_get(o, k);
 }
-int ctx_fields(yyjson_val *o, const char *const *names, size_t count) {
+int ext_fields(yyjson_val *o, const char *const *names, size_t count) {
   if (!yyjson_is_obj(o))
     return 0;
   size_t i, n;
@@ -104,9 +104,9 @@ int ctx_fields(yyjson_val *o, const char *const *names, size_t count) {
   return 1;
 }
 #define FIELDS(v, ...)                                                         \
-  ctx_fields(v, (const char *const[]){__VA_ARGS__},                            \
+  ext_fields(v, (const char *const[]){__VA_ARGS__},                            \
              sizeof((const char *const[]){__VA_ARGS__}) / sizeof(char *))
-int ctx_text(yyjson_val *v, int revision, int optional) {
+int ext_text(yyjson_val *v, int revision, int optional) {
   if (!v || yyjson_is_null(v))
     return optional;
   if (!yyjson_is_str(v))
@@ -127,7 +127,7 @@ int ctx_text(yyjson_val *v, int revision, int optional) {
   }
   return 1;
 }
-int ctx_same(yyjson_val *a, yyjson_val *b) {
+int ext_same(yyjson_val *a, yyjson_val *b) {
   if (yyjson_is_null(a))
     a = NULL;
   if (yyjson_is_null(b))
@@ -140,66 +140,66 @@ int ctx_same(yyjson_val *a, yyjson_val *b) {
          yyjson_get_len(a) == yyjson_get_len(b) &&
          !memcmp(yyjson_get_str(a), yyjson_get_str(b), yyjson_get_len(a));
 }
-int ctx_identity(yyjson_val *v) {
+int ext_identity(yyjson_val *v) {
   return FIELDS(v, "id", "revision", "version") &&
-         ctx_text(get(v, "id"), 0, 0) && ctx_text(get(v, "revision"), 1, 0) &&
-         ctx_text(get(v, "version"), 1, 1);
+         ext_text(get(v, "id"), 0, 0) && ext_text(get(v, "revision"), 1, 0) &&
+         ext_text(get(v, "version"), 1, 1);
 }
-int ctx_same_identity(yyjson_val *a, yyjson_val *b) {
-  return ctx_same(get(a, "id"), get(b, "id")) &&
-         ctx_same(get(a, "revision"), get(b, "revision")) &&
-         ctx_same(get(a, "version"), get(b, "version"));
+int ext_same_identity(yyjson_val *a, yyjson_val *b) {
+  return ext_same(get(a, "id"), get(b, "id")) &&
+         ext_same(get(a, "revision"), get(b, "revision")) &&
+         ext_same(get(a, "version"), get(b, "version"));
 }
-int ctx_ref(yyjson_val *v) {
-  return ctx_text(get(v, "name"), 0, 0) && ctx_text(get(v, "version"), 1, 0);
+int ext_ref(yyjson_val *v) {
+  return ext_text(get(v, "name"), 0, 0) && ext_text(get(v, "version"), 1, 0);
 }
-int ctx_same_ref(yyjson_val *a, yyjson_val *b) {
-  return ctx_same(get(a, "name"), get(b, "name")) &&
-         ctx_same(get(a, "version"), get(b, "version"));
+int ext_same_ref(yyjson_val *a, yyjson_val *b) {
+  return ext_same(get(a, "name"), get(b, "name")) &&
+         ext_same(get(a, "version"), get(b, "version"));
 }
-yyjson_val *ctx_lookup(yyjson_val *d, yyjson_val *r, yyjson_val *name) {
+yyjson_val *ext_lookup(yyjson_val *d, yyjson_val *r, yyjson_val *name) {
   size_t i, n, j, m;
   yyjson_val *c, *o;
-  yyjson_arr_foreach(get(d, "contracts"), i, n, c) if (ctx_same_ref(c, r)) {
+  yyjson_arr_foreach(get(d, "contracts"), i, n, c) if (ext_same_ref(c, r)) {
     yyjson_arr_foreach(get(c, "operations"), j, m,
-                       o) if (ctx_same(get(o, "name"), name)) return o;
+                       o) if (ext_same(get(o, "name"), name)) return o;
   }
   return NULL;
 }
-int ctx_descriptor(yyjson_val *d) {
+int ext_descriptor(yyjson_val *d) {
   if (!FIELDS(d, "apiVersion", "identity", "contracts") ||
       !yyjson_equals_str(get(d, "apiVersion"), "ext.plugin/v1") ||
-      !ctx_identity(get(d, "identity")))
+      !ext_identity(get(d, "identity")))
     return 0;
   yyjson_val *cs = get(d, "contracts"), *c, *o;
   size_t i, n, j, m;
   if (!yyjson_is_arr(cs) || !yyjson_arr_size(cs) || yyjson_arr_size(cs) > 64)
     return 0;
   yyjson_arr_foreach(cs, i, n, c) {
-    if (!FIELDS(c, "name", "version", "operations") || !ctx_ref(c))
+    if (!FIELDS(c, "name", "version", "operations") || !ext_ref(c))
       return 0;
     for (size_t k = 0; k < i; k++)
-      if (ctx_same_ref(c, yyjson_arr_get(cs, k)))
+      if (ext_same_ref(c, yyjson_arr_get(cs, k)))
         return 0;
     yyjson_val *ops = get(c, "operations");
     if (!yyjson_is_arr(ops) || !yyjson_arr_size(ops) ||
         yyjson_arr_size(ops) > 256)
       return 0;
     yyjson_arr_foreach(ops, j, m, o) {
-      if (!FIELDS(o, "name", "surface") || !ctx_text(get(o, "name"), 0, 0) ||
+      if (!FIELDS(o, "name", "surface") || !ext_text(get(o, "name"), 0, 0) ||
           yyjson_equals_str(get(o, "name"), "plugin.hello") ||
-          !ctx_text(get(o, "surface"), 0, 1))
+          !ext_text(get(o, "surface"), 0, 1))
         return 0;
       for (size_t k = 0; k < j; k++)
-        if (ctx_same(get(o, "name"), get(yyjson_arr_get(ops, k), "name")))
+        if (ext_same(get(o, "name"), get(yyjson_arr_get(ops, k), "name")))
           return 0;
     }
   }
   return 1;
 }
-int ctx_match(yyjson_val *a, yyjson_val *b) {
-  if (!ctx_descriptor(b) ||
-      !ctx_same_identity(get(a, "identity"), get(b, "identity")) ||
+int ext_match(yyjson_val *a, yyjson_val *b) {
+  if (!ext_descriptor(b) ||
+      !ext_same_identity(get(a, "identity"), get(b, "identity")) ||
       yyjson_arr_size(get(a, "contracts")) !=
           yyjson_arr_size(get(b, "contracts")))
     return 0;
@@ -209,7 +209,7 @@ int ctx_match(yyjson_val *a, yyjson_val *b) {
     yyjson_val *match = NULL;
     size_t k, z;
     yyjson_val *bc;
-    yyjson_arr_foreach(get(b, "contracts"), k, z, bc) if (ctx_same_ref(c, bc)) {
+    yyjson_arr_foreach(get(b, "contracts"), k, z, bc) if (ext_same_ref(c, bc)) {
       match = bc;
       break;
     }
@@ -217,14 +217,14 @@ int ctx_match(yyjson_val *a, yyjson_val *b) {
                       yyjson_arr_size(get(match, "operations")))
       return 0;
     yyjson_arr_foreach(get(c, "operations"), j, m, o) {
-      yyjson_val *other = ctx_lookup(b, c, get(o, "name"));
-      if (!other || !ctx_same(get(o, "surface"), get(other, "surface")))
+      yyjson_val *other = ext_lookup(b, c, get(o, "name"));
+      if (!other || !ext_same(get(o, "surface"), get(other, "surface")))
         return 0;
     }
   }
   return 1;
 }
-int64_t ctx_wall_ms(void) {
+int64_t ext_wall_ms(void) {
   struct timespec ts;
   clock_gettime(CLOCK_REALTIME, &ts);
   return (int64_t)ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
@@ -293,58 +293,58 @@ static int64_t timestamp(yyjson_val *v) {
     return -1;
   return result;
 }
-ctx_status ctx_request(yyjson_val *d, yyjson_val *r, int64_t *deadline) {
+ext_status ext_request(yyjson_val *d, yyjson_val *r, int64_t *deadline) {
   if (!FIELDS(r, "apiVersion", "id", "plugin", "contract", "operation",
               "surface", "deadline", "payload") ||
       !yyjson_equals_str(get(r, "apiVersion"), "ext.plugin/v1") ||
-      !ctx_text(get(r, "id"), 1, 0) || !ctx_identity(get(r, "plugin")) ||
+      !ext_text(get(r, "id"), 1, 0) || !ext_identity(get(r, "plugin")) ||
       !FIELDS(get(r, "contract"), "name", "version") ||
-      !ctx_ref(get(r, "contract")))
-    return CTX_INVALID;
+      !ext_ref(get(r, "contract")))
+    return EXT_INVALID;
   *deadline = timestamp(get(r, "deadline"));
   if (*deadline == -1)
-    return CTX_INVALID;
-  if (!ctx_same_identity(get(d, "identity"), get(r, "plugin")))
-    return CTX_MISMATCH;
-  yyjson_val *op = ctx_lookup(d, get(r, "contract"), get(r, "operation"));
+    return EXT_INVALID;
+  if (!ext_same_identity(get(d, "identity"), get(r, "plugin")))
+    return EXT_MISMATCH;
+  yyjson_val *op = ext_lookup(d, get(r, "contract"), get(r, "operation"));
   if (!op)
-    return CTX_UNSUPPORTED;
-  return ctx_same(get(op, "surface"), get(r, "surface")) ? CTX_OK
-                                                         : CTX_MISMATCH;
+    return EXT_UNSUPPORTED;
+  return ext_same(get(op, "surface"), get(r, "surface")) ? EXT_OK
+                                                         : EXT_MISMATCH;
 }
-ctx_status ctx_response(yyjson_val *r, const char *id) {
+ext_status ext_response(yyjson_val *r, const char *id) {
   if (!FIELDS(r, "apiVersion", "id", "payload", "error"))
-    return CTX_INVALID;
+    return EXT_INVALID;
   if (!yyjson_equals_str(get(r, "apiVersion"), "ext.plugin/v1") ||
       !yyjson_equals_str(get(r, "id"), id))
-    return CTX_MISMATCH;
+    return EXT_MISMATCH;
   yyjson_val *err = get(r, "error");
   int has_error = err && !yyjson_is_null(err);
   if (has_error == (get(r, "payload") != NULL))
-    return CTX_INVALID;
+    return EXT_INVALID;
   if (has_error) {
     if (!FIELDS(err, "code", "message", "retryAfterMilliseconds") ||
-        !ctx_text(get(err, "code"), 0, 0) ||
+        !ext_text(get(err, "code"), 0, 0) ||
         (get(err, "message") && !yyjson_is_null(get(err, "message")) &&
          !yyjson_is_str(get(err, "message"))) ||
         yyjson_get_len(get(err, "message")) > 4096)
-      return CTX_INVALID;
+      return EXT_INVALID;
     yyjson_val *retry = get(err, "retryAfterMilliseconds");
     if (retry && !yyjson_is_null(retry)) {
       const char *s = yyjson_get_raw(retry);
       size_t n = yyjson_get_len(retry);
       uint64_t x = 0;
       if (!s || !n)
-        return CTX_INVALID;
+        return EXT_INVALID;
       if (n == 2 && s[0] == '-' && s[1] == '0')
-        return CTX_OK;
+        return EXT_OK;
       for (size_t i = 0; i < n; i++) {
         if (s[i] < '0' || s[i] > '9' ||
             x > ((uint64_t)INT64_MAX - (s[i] - '0')) / 10)
-          return CTX_INVALID;
+          return EXT_INVALID;
         x = x * 10 + s[i] - '0';
       }
     }
   }
-  return CTX_OK;
+  return EXT_OK;
 }

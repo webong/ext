@@ -21,8 +21,8 @@ pub struct Context<'a> {
 impl Context<'_> {
     pub fn is_canceled(&self) -> bool {
         unsafe {
-            ffi::ctx_cancel_is_signaled(self.call.cancel) != 0
-                || ffi::ctx_cancel_is_signaled(self.life) != 0
+            ffi::ext_cancel_is_signaled(self.call.cancel) != 0
+                || ffi::ext_cancel_is_signaled(self.life) != 0
         }
     }
 }
@@ -106,7 +106,7 @@ impl<T: Send + Sync> Instances<T> {
             observe: None,
         };
         let mut raw = ptr::null_mut();
-        check(unsafe { ffi::ctx_instances_create(&options, &mut raw) })?;
+        check(unsafe { ffi::ext_instances_create(&options, &mut raw) })?;
         Ok(Self {
             raw,
             _callbacks: callbacks,
@@ -120,7 +120,7 @@ impl<T: Send + Sync> Instances<T> {
         options: CallOptions<'_>,
     ) -> Result<(), Error> {
         check(unsafe {
-            ffi::ctx_instances_configure(
+            ffi::ext_instances_configure(
                 self.raw,
                 key.as_ptr(),
                 key.len(),
@@ -134,19 +134,19 @@ impl<T: Send + Sync> Instances<T> {
     }
     pub fn acquire(&self, key: &[u8]) -> Result<Lease<'_, T>, Error> {
         let mut raw = ptr::null_mut();
-        check(unsafe { ffi::ctx_instances_acquire(self.raw, key.as_ptr(), key.len(), &mut raw) })?;
+        check(unsafe { ffi::ext_instances_acquire(self.raw, key.as_ptr(), key.len(), &mut raw) })?;
         Ok(Lease {
             raw,
             _manager: PhantomData,
         })
     }
     pub fn remove(&self, key: &[u8]) -> Result<(), Error> {
-        check(unsafe { ffi::ctx_instances_remove(self.raw, key.as_ptr(), key.len()) })
+        check(unsafe { ffi::ext_instances_remove(self.raw, key.as_ptr(), key.len()) })
     }
     /// Permanently stops admission. Outstanding leases keep their values alive;
     /// release them and retry after a timeout. Cleanup errors are retained by C.
     pub fn close(&self, options: CallOptions<'_>) -> Result<(), Error> {
-        check(unsafe { ffi::ctx_instances_close(self.raw, &options.raw()?) })
+        check(unsafe { ffi::ext_instances_close(self.raw, &options.raw()?) })
     }
 }
 impl<T: Send + Sync> Drop for Instances<T> {
@@ -157,7 +157,7 @@ impl<T: Send + Sync> Drop for Instances<T> {
         };
         loop {
             let _ = self.close(options);
-            if unsafe { ffi::ctx_instances_destroy(self.raw) } == 0 {
+            if unsafe { ffi::ext_instances_destroy(self.raw) } == 0 {
                 break;
             }
         }
@@ -173,25 +173,25 @@ unsafe impl<T: Send + Sync> Send for Lease<'_, T> {}
 unsafe impl<T: Send + Sync> Sync for Lease<'_, T> {}
 impl<T: Send + Sync> Lease<'_, T> {
     pub fn value(&self) -> &T {
-        unsafe { &*ffi::ctx_lease_value(self.raw).cast::<T>() }
+        unsafe { &*ffi::ext_lease_value(self.raw).cast::<T>() }
     }
     pub fn revision(&self) -> &[u8] {
         let mut n = 0;
         unsafe {
-            let p = ffi::ctx_lease_revision(self.raw, &mut n);
+            let p = ffi::ext_lease_revision(self.raw, &mut n);
             slice::from_raw_parts(p, n)
         }
     }
     pub fn release(mut self) -> Result<(), Error> {
         let raw = std::mem::replace(&mut self.raw, ptr::null_mut());
-        check(unsafe { ffi::ctx_lease_release(raw) })
+        check(unsafe { ffi::ext_lease_release(raw) })
     }
 }
 impl<T: Send + Sync> Drop for Lease<'_, T> {
     fn drop(&mut self) {
         if !self.raw.is_null() {
             unsafe {
-                ffi::ctx_lease_release(self.raw);
+                ffi::ext_lease_release(self.raw);
             }
         }
     }
@@ -259,7 +259,7 @@ impl<T: Stream> Streams<T> {
             release: release::<T>,
         };
         let mut raw = ptr::null_mut();
-        check(unsafe { ffi::ctx_streams_create(&options, &mut raw) })?;
+        check(unsafe { ffi::ext_streams_create(&options, &mut raw) })?;
         Ok(Self {
             raw,
             _open: factory,
@@ -273,7 +273,7 @@ impl<T: Stream> Streams<T> {
     ) -> Result<String, Error> {
         let o = options.raw()?;
         let id = output(|out| unsafe {
-            ffi::ctx_streams_open(
+            ffi::ext_streams_open(
                 self.raw,
                 scope.as_ptr(),
                 scope.len(),
@@ -300,7 +300,7 @@ impl<T: Stream> Streams<T> {
         let id = cstring(id)?;
         let o = options.raw()?;
         output(|out| unsafe {
-            ffi::ctx_streams_read(
+            ffi::ext_streams_read(
                 self.raw,
                 scope.as_ptr(),
                 scope.len(),
@@ -315,18 +315,18 @@ impl<T: Stream> Streams<T> {
     pub fn remove(&self, scope: &[u8], id: &str) -> Result<(), Error> {
         let id = cstring(id)?;
         check(unsafe {
-            ffi::ctx_streams_remove(self.raw, scope.as_ptr(), scope.len(), id.as_ptr())
+            ffi::ext_streams_remove(self.raw, scope.as_ptr(), scope.len(), id.as_ptr())
         })
     }
     pub fn close(&self) -> Result<(), Error> {
-        check(unsafe { ffi::ctx_streams_close(self.raw) })
+        check(unsafe { ffi::ext_streams_close(self.raw) })
     }
 }
 impl<T: Stream> Drop for Streams<T> {
     fn drop(&mut self) {
         let _ = self.close();
         // Borrowed calls have joined before Drop. C expiry cleanup may still be releasing.
-        while unsafe { ffi::ctx_streams_destroy(self.raw) } == 9 {
+        while unsafe { ffi::ext_streams_destroy(self.raw) } == 9 {
             std::thread::yield_now();
         }
     }

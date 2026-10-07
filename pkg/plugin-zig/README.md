@@ -8,8 +8,8 @@ third-party dependencies and links libc for clocks and standalone stdio.
 Add a local path dependency in your `build.zig.zon`, then import its named module:
 
 ```zig
-const ctx = b.dependency("ctx_plugin", .{ .target = target, .optimize = optimize });
-exe.root_module.addImport("ctx_plugin", ctx.module("ctx_plugin"));
+const ctx = b.dependency("ext_plugin", .{ .target = target, .optimize = optimize });
+exe.root_module.addImport("ext_plugin", ctx.module("ext_plugin"));
 ```
 
 The dependency path points to CTX's `pkg/plugin-zig` directory. A future published
@@ -18,7 +18,7 @@ package can use the same module name; no registry publication is included here.
 ## Typed authoring
 
 ```zig
-const sdk = @import("ctx_plugin");
+const sdk = @import("ext_plugin");
 const Message = struct { text: []const u8 };
 const echo: sdk.author.Method(Message, Message) = .{
     .contract = .{ .name = "example.echo", .version = "v1" },
@@ -70,7 +70,7 @@ then independently deinitialized.
 - Return `ctx.fail(.{ .code = "busy", .message = "try later" })` for a deliberate
   public error. Other handler errors are sanitized to `operation_failed`.
 
-The [C ABI](../../pkg/plugin-cshared/ctx_plugin.h) passes only borrowed byte buffers. A foreign
+The [C ABI](../../pkg/plugin-cshared/ext_plugin.h) passes only borrowed byte buffers. A foreign
 caller owns them and supplies 24 MiB response capacity. Zig does not return
 allocator-owned memory or free caller memory. Valid non-overlapping pointers
 are required. Panics cannot be recovered by this helper and can terminate the
@@ -107,7 +107,7 @@ is implicit.
 ```sh
 zig build test --build-file pkg/plugin-zig/build.zig
 zig build --build-file pkg/plugin-zig/build.zig
-zig build --build-file pkg/plugin-zig/build.zig -Dtarget=wasm32-wasi --prefix /tmp/ctx-zig-wasi
+zig build --build-file pkg/plugin-zig/build.zig -Dtarget=wasm32-wasi --prefix /tmp/ext-zig-wasi
 scripts/plugin-crosslang.sh
 ```
 

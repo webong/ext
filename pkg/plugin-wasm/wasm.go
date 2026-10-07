@@ -103,7 +103,7 @@ func Open(ctx context.Context, module []byte, opts Options) (*Backend, error) {
 	stdin, hostWrite := io.Pipe()
 	hostRead, stdout := io.Pipe()
 	conn := &connection{reader: hostRead, writer: hostWrite, stdin: stdin, stdout: stdout, cancel: cancel}
-	config := wazero.NewModuleConfig().WithName("ctx-plugin").
+	config := wazero.NewModuleConfig().WithName("ext-plugin").
 		WithStdin(stdin).WithStdout(stdout).
 		WithStderr(&limitedWriter{writer: opts.Stderr, remaining: opts.MaxStderrBytes}).
 		WithSysWalltime().WithSysNanotime().WithRandSource(rand.Reader).

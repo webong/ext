@@ -39,7 +39,7 @@ if ($localSource) {
     }
     Push-Location $repositoryRoot
     try {
-        & go build -o $ctxTarget ./cmd/ctx
+        & go build -o $ctxTarget ./src/ctx/cmd/ctx
         if ($LASTEXITCODE -ne 0) { throw 'go build failed' }
     }
     finally {

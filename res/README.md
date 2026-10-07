@@ -14,7 +14,7 @@ workspace while each module stays independently consumable.
 
 Resources expose contracts and workflows that CTX, adapters, and other hosts can
 reuse. They do not import CTX internals, product adapters, commands or examples;
-`internal/arch` enforces that dependency direction across every reusable tree.
+`src/ctx/internal/arch` enforces that dependency direction across every reusable tree.
 
 - `browser/contract` owns browser request, response, cookie, policy, and session
   types and their validation.
@@ -41,4 +41,4 @@ provider automatically, so command-line behavior is unchanged.
 
 These packages currently share the repository's Go module. Their dependency
 direction already permits a module split, so each can gain its own `go.mod`,
-version, and release tag without depending back on CTX root.
+version, and release tag without depending back on the CTX CLI.

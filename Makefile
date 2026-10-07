@@ -11,7 +11,7 @@ install-native:
 
 build-native:
 	mkdir -p dist/build
-	GOCACHE=$(GO_CACHE) GOMODCACHE=$(GO_MOD_CACHE) go build -o dist/build/ctx-native ./cmd/ctx
+	GOCACHE=$(GO_CACHE) GOMODCACHE=$(GO_MOD_CACHE) go build -o dist/build/ctx-native ./src/ctx/cmd/ctx
 	for adapter in firefox zen floorp waterfox librewolf chrome chromium edge brave safari vivaldi opera whale arc comet dia atlas helium; do GOCACHE=$(GO_CACHE) GOMODCACHE=$(GO_MOD_CACHE) go build -o dist/build/ctx-$$adapter-share ./adapters/$$adapter/native || exit; done
 
 release:
@@ -26,14 +26,13 @@ test-native-installer:
 	./tests/native_installer_test.sh
 
 test-go:
-	GOCACHE=$(GO_CACHE) GOMODCACHE=$(GO_MOD_CACHE) go test ./...
-	for module in pkg/plugin-go pkg/plugin-cshared pkg/graph pkg/plugin pkg/plugin-hashicorp pkg/plugin-wasm res/browser res/credential; do \
+	for module in src/ctx examples pkg/plugin-go pkg/plugin-cshared pkg/graph pkg/plugin pkg/plugin-hashicorp pkg/plugin-wasm res/browser res/credential; do \
 		(cd $$module && GOCACHE=$(GO_CACHE) GOMODCACHE=$(GO_MOD_CACHE) go test ./...) || exit; \
 	done
 
 test-cross:
 	mkdir -p dist/build
-	GOOS=windows GOARCH=amd64 GOCACHE=$(GO_CACHE) GOMODCACHE=$(GO_MOD_CACHE) go build -o dist/build/ctx-windows-amd64.exe ./cmd/ctx
+	GOOS=windows GOARCH=amd64 GOCACHE=$(GO_CACHE) GOMODCACHE=$(GO_MOD_CACHE) go build -o dist/build/ctx-windows-amd64.exe ./src/ctx/cmd/ctx
 	for adapter in firefox zen floorp waterfox librewolf chrome chromium edge brave safari vivaldi opera whale arc comet dia atlas helium; do GOOS=windows GOARCH=amd64 GOCACHE=$(GO_CACHE) GOMODCACHE=$(GO_MOD_CACHE) go build -o dist/build/ctx-$$adapter-share-windows-amd64.exe ./adapters/$$adapter/native || exit; done
-	GOOS=windows GOARCH=arm64 GOCACHE=$(GO_CACHE) GOMODCACHE=$(GO_MOD_CACHE) go build -o dist/build/ctx-windows-arm64.exe ./cmd/ctx
+	GOOS=windows GOARCH=arm64 GOCACHE=$(GO_CACHE) GOMODCACHE=$(GO_MOD_CACHE) go build -o dist/build/ctx-windows-arm64.exe ./src/ctx/cmd/ctx
 	for adapter in firefox zen floorp waterfox librewolf chrome chromium edge brave safari vivaldi opera whale arc comet dia atlas helium; do GOOS=windows GOARCH=arm64 GOCACHE=$(GO_CACHE) GOMODCACHE=$(GO_MOD_CACHE) go build -o dist/build/ctx-$$adapter-share-windows-arm64.exe ./adapters/$$adapter/native || exit; done

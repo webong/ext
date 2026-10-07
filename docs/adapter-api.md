@@ -286,7 +286,7 @@ JSON object rendered once per selected event; it may use `{{event}}` and
 names, and generated entry shape. ctx only validates declared events and
 generically merges or removes the rendered JSON patch, preserving unrelated
 project settings. No provider names or native file formats are built into
-`internal/app`.
+`src/ctx/internal/app`.
 
 `ctx hook computer <adapter> <event>` passes the native hook payload from stdin
 to the adapter as `hook -- EVENT`; stdout, stderr, and exit status flow back to

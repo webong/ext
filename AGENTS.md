@@ -23,17 +23,23 @@ into the owning adapter before wiring it into shared workflows.
 other ecosystem consumers build on them; `internal/` stays private to CTX and
 must not be imported by consumers.
 
+The repository root is only the workspace: it holds `go.work` and no Go module or
+package. Bare `vX.Y.Z` tags name CLI binary releases, not Go module versions.
+`src/` is a container like `res/`; the CLI is the module
+`src/ctx` (`src/ctx/cmd/ctx`, with its private code in `src/ctx/internal`).
+`examples/` is its own module. Nothing may import `github.com/webong/ctx/src/`.
+
 `res/` is a container for reusable modules rather than a package. Each
 subdirectory is its own Go module, and nothing lives at that level: no Go package
 and no repository-wide policy. Keep container directories free of shared logic
-and keep repo-wide tests in `internal/arch`. `res/browser` and `res/credential`
+and keep repo-wide tests in `src/ctx/internal/arch`. `res/browser` and `res/credential`
 depend only on the standard library.
 
 Each reusable library under `pkg/` is its own Go module, not a package inside
 one repository-wide module. The root `go.work` keeps the repository building as
 a single workspace while every module stays independently buildable. Keep each
 library's dependencies pointing inward so it never depends back on its consumers;
-`internal/arch` enforces that direction.
+`src/ctx/internal/arch` enforces that direction.
 
 Runtime backends that own a heavy runtime are separate modules:
 `pkg/plugin-hashicorp` (go-plugin, grpc) and `pkg/plugin-wasm` (wazero). Keep a
@@ -42,13 +48,14 @@ Tests that need a backend belong in that backend's module, not in the core
 contract module, so the core stays free of the backend's runtime.
 
 When adding a library module, list it in `go.work`, give it a `go.mod`, and add
-matching `require` and `replace` directives to the root `go.mod`. Do not add
+matching `require` and `replace` directives to `src/ctx/go.mod`, plus `examples/go.mod`
+when examples use it. Do not add
 `replace` directives to library modules: Go ignores them for consumers, so they
 only misrepresent what a published module resolves. `GOWORK=off go build` in a
 library module is expected to fail until its dependencies are published.
 
 Test each module in workspace mode, and note that `go test ./...` only covers the
-root module. Versioning follows [module versioning](docs/module-versioning.md):
+module in the current directory. Versioning follows [module versioning](docs/module-versioning.md):
 one shared `MAJOR` across all modules, independent `MINOR` and `PATCH`, and tags
 named for each module path.
 
@@ -70,7 +77,7 @@ Product adapter engines and stores that are reused across adapters
 (`adapters/chromium` module, engine code in `adapters/chromium/engine`, `adapters/firefox/engine`, `adapters/safari/native`,
 `adapters/keychain/store`, `adapters/credman/store`, and
 `adapters/secret_service/store`) are their own Go modules, listed in `go.work`
-and resolved by the root `go.mod` while unpublished. Product adapter
+and resolved by `src/ctx/go.mod` while unpublished. Product adapter
 executables use the same plugin library. `pkg/plugin` owns the
 adapter process protocol and adapter descriptor helpers. Adapters import
 `pkg/plugin` directly to build guests, while CTX `internal/` imports it to

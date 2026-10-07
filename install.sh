@@ -33,7 +33,7 @@ fi
 ROOT=
 if [ -z "${CTX_RELEASE_BASE:-}" ] && [ -f "$0" ]; then
   candidate=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-  if [ -f "$candidate/cmd/ctx/main.go" ]; then ROOT=$candidate; fi
+  if [ -f "$candidate/src/ctx/cmd/ctx/main.go" ]; then ROOT=$candidate; fi
 fi
 
 temporary=$(mktemp -d "${TMPDIR:-/tmp}/ctx-install.XXXXXX")
@@ -43,7 +43,7 @@ bundle="$temporary/ctx"
 if [ -n "$ROOT" ]; then
   command -v go >/dev/null 2>&1 || { printf 'ctx: Go is required when installing from source\n' >&2; exit 1; }
   mkdir -p "$bundle/bin"
-  (cd "$ROOT" && go build -o "$bundle/bin/ctx" ./cmd/ctx)
+  (cd "$ROOT" && go build -o "$bundle/bin/ctx" ./src/ctx/cmd/ctx)
 else
   command -v curl >/dev/null 2>&1 || { printf 'ctx: curl is required for remote installation\n' >&2; exit 1; }
   os=$(uname -s)

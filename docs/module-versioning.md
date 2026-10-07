@@ -62,8 +62,15 @@ the dependency from the proxy at the required version. Keeping them out avoids
 the false impression that a published module can redirect consumers to a local
 path, and it means each `go.mod` describes exactly what a consumer will get.
 
-The root module keeps `replace` directives because it is the module developers
-build and run. Those are what let `go build ./...` use local module code.
+The CLI module `src/ctx` and the `examples` module keep `replace` directives
+because they are the modules developers build and run. Those are what let
+`go build ./...` use local module code. The repository root is not a module: it
+holds `go.work` only, so it has no `go.mod` and Go resolves no module there.
+
+A bare `vX.Y.Z` tag is therefore not a Go module version. It names a CLI binary
+release: the release workflow builds and publishes the native bundles when one
+is pushed, and `install.sh` downloads releases by that name. Library modules
+never use bare tags.
 
 Because of this, `GOWORK=off go build ./...` inside a library module fails until
 that dependency is published at the required version. That failure is the
@@ -95,11 +102,10 @@ a defect.
 ## Verifying a release
 
 Before tagging, confirm each module builds and tests on its own with the
-workspace active, and that the root module resolves the intended versions:
+workspace active, and that `src/ctx` resolves the intended versions:
 
 ```bash
-go build ./...
-for module in pkg/plugin-go pkg/graph pkg/plugin \
+for module in src/ctx examples pkg/plugin-go pkg/graph pkg/plugin \
               pkg/plugin-hashicorp pkg/plugin-wasm \
               res/browser res/credential; do
   (cd "$module" && go build ./... && go test ./...) || exit 1

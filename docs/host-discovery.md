@@ -384,7 +384,7 @@ layout. Real PID reuse is not forced, and a passing build is not a native test.
 Run ordinary contract/parser tests with:
 
 ```sh
-go test ./graph/... ./internal/app
+(cd pkg/graph && go test ./...) && (cd src/ctx && go test ./internal/app)
 ```
 
 Enable native fixtures explicitly (the shell must permit subprocess inspection

@@ -40,7 +40,7 @@ PowerShell implementations where Windows needs them.
 Build ctx locally:
 
 ~~~sh
-go build -o ./ctx-native ./cmd/ctx
+go build -o ./ctx-native ./src/ctx/cmd/ctx
 ./ctx-native version
 ~~~
 

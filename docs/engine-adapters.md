@@ -50,7 +50,7 @@ All five are required.
 - **`observe`** prints the graph JSON, with these attributes on every context:
   - `kind`: the engine kind, the same name used in `supports`.
   - `version`: the version of that engine or installation.
-  - `isolation`: `sandboxed` or `host` (below).
+  - `isolation`: `sandboxed`, `restricted` or `host` (below).
 
   An engine may add more, such as `home`, `source` or `engine`.
 - **`validate`** succeeds when the selection is available.
@@ -65,10 +65,19 @@ All five are required.
 - **`sandboxed`** (`wasm`, `evm`): the program gets nothing from the host (no
   environment, filesystem or network) unless a flag grants it. A fresh, in-memory
   environment is created for each run.
+- **`restricted`**: the program runs in a mainstream sandbox that the engine does
+  not control (a browser's), and the engine narrows what it can reach by policy
+  rather than by capability. The [web engine](web-engine.md) is the example: a
+  content security policy denies the network by default, but a policy cannot stop a
+  page from navigating its window away, and the page runs in whichever browser
+  profile the host opened. It sits between the other two. The web engine is a
+  library, not an adapter, so no maintained adapter reports this value yet; an
+  engine that does must say what its policy cannot prevent.
 - **`host`** (`jvm`): the program runs as a normal process with the user's full
   privileges. The engine selects and launches it and does not confine it.
 
-A tool that runs untrusted content must require `sandboxed`.
+A tool that runs untrusted content must require `sandboxed`. `restricted` is for
+content the user chose to run and wants kept off the network, not for hostile code.
 
 ## Flags for `run`
 

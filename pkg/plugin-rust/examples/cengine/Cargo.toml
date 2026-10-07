@@ -1,5 +1,5 @@
 [package]
-name = "ctx-pkg/plugin-engine-example"
+name = "ctx-cengine-example"
 version = "0.0.0"
 edition = "2021"
 publish = false

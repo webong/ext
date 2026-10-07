@@ -13,12 +13,12 @@ static ctx_status echo(void *u, void *call, const uint8_t *p, size_t n,
 }
 int main(void) {
   const char *descriptor =
-      "{\"apiVersion\":\"ctx.plugin/"
+      "{\"apiVersion\":\"ext.plugin/"
       "v1\",\"identity\":{\"id\":\"test\",\"revision\":\"r1\"},\"contracts\":[{"
       "\"name\":\"test\",\"version\":\"v1\",\"operations\":[{\"name\":\"echo\"}"
       "]}]}";
   const char *request =
-      "{\"apiVersion\":\"ctx.plugin/"
+      "{\"apiVersion\":\"ext.plugin/"
       "v1\",\"id\":\"1\",\"plugin\":{\"id\":\"test\",\"revision\":\"r1\"},"
       "\"contract\":{\"name\":\"test\",\"version\":\"v1\"},\"operation\":"
       "\"echo\",\"deadline\":\"2099-01-01T00:00:00Z\"}";

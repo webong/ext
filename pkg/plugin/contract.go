@@ -14,7 +14,7 @@ import (
 	"unicode/utf8"
 )
 
-const APIVersion = "ctx.plugin/v1"
+const APIVersion = "ext.plugin/v1"
 const MaxFrameBytes = 24 << 20
 const DefaultTimeout = 30 * time.Second
 

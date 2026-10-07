@@ -15,7 +15,7 @@ import (
 )
 
 func Descriptor() plugin.Descriptor {
-	return plugin.Descriptor{APIVersion: plugin.APIVersion, Identity: plugin.Identity{ID: "ctx/conformance", Revision: "fixture-1"}, Contracts: []plugin.Contract{{ContractRef: plugin.ContractRef{Name: "ctx.conformance", Version: "v1"}, Operations: []plugin.Operation{{Name: "echo"}, {Name: "wait"}, {Name: "private-error"}, {Name: "public-error"}}}}}
+	return plugin.Descriptor{APIVersion: plugin.APIVersion, Identity: plugin.Identity{ID: "ctx/conformance", Revision: "fixture-1"}, Contracts: []plugin.Contract{{ContractRef: plugin.ContractRef{Name: "ext.conformance", Version: "v1"}, Operations: []plugin.Operation{{Name: "echo"}, {Name: "wait"}, {Name: "private-error"}, {Name: "public-error"}}}}}
 }
 func Guest() (*plugin.Guest, error) {
 	return plugin.NewGuest(Descriptor(), plugin.GuestOptions{Handler: func(ctx context.Context, r plugin.Request) (json.RawMessage, error) {

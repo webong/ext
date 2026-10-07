@@ -15,7 +15,7 @@ import (
 // edgeValues are substituted into every position of a valid document.
 func edgeValues() []any {
 	return []any{
-		nil, true, false, 0, -1, 1, 1.5, 1e308, "", " ", "a", "ctx.plugin/v1", "ctx.plugin/v2", "Ünï", "🙂", "a b", "a\nb", "a\x00b",
+		nil, true, false, 0, -1, 1, 1.5, 1e308, "", " ", "a", "ext.plugin/v1", "ext.plugin/v2", "Ünï", "🙂", "a b", "a\nb", "a\x00b",
 		strings.Repeat("a", 64), strings.Repeat("a", 65), strings.Repeat("a", 129), strings.Repeat("a", 1025), "../x", "a/b", "UPPER", "-lead", "trail-",
 		[]any{}, []any{"x"}, []any{map[string]any{}}, map[string]any{}, map[string]any{"name": "x"},
 		"2099-01-01T00:00:00Z", "2000-01-01T00:00:00Z", "not-a-time", "2099-01-01T00:00:00+01:00", "2099-01-01 00:00:00",
@@ -127,9 +127,9 @@ func TestContractMutationDifferential(t *testing.T) {
 	if err = plugin.Decode(data, &d); err != nil || d.Validate() != nil {
 		t.Fatalf("fixture invalid: %v", err)
 	}
-	request := map[string]any{"apiVersion": "ctx.plugin/v1", "id": "1", "plugin": base["identity"], "contract": map[string]any{"name": "ctx.conformance", "version": "v1"}, "operation": "echo", "payload": map[string]any{"value": 7}, "deadline": "2099-01-01T00:00:00Z"}
-	response := map[string]any{"apiVersion": "ctx.plugin/v1", "id": "1", "payload": map[string]any{"value": 7}}
-	failure := map[string]any{"apiVersion": "ctx.plugin/v1", "id": "1", "error": map[string]any{"code": "busy", "message": "m", "retryAfterMilliseconds": 10}}
+	request := map[string]any{"apiVersion": "ext.plugin/v1", "id": "1", "plugin": base["identity"], "contract": map[string]any{"name": "ext.conformance", "version": "v1"}, "operation": "echo", "payload": map[string]any{"value": 7}, "deadline": "2099-01-01T00:00:00Z"}
+	response := map[string]any{"apiVersion": "ext.plugin/v1", "id": "1", "payload": map[string]any{"value": 7}}
+	failure := map[string]any{"apiVersion": "ext.plugin/v1", "id": "1", "error": map[string]any{"code": "busy", "message": "m", "retryAfterMilliseconds": 10}}
 
 	goDescriptor := func(raw json.RawMessage) error {
 		var v plugin.Descriptor

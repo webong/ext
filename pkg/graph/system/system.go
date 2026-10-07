@@ -1,5 +1,5 @@
 // Package systemgraph projects CTX machine inventory, shell, and browser
-// observations onto the public generic graph API. It owns the ctx.system
+// observations onto the public generic graph API. It owns the ext.system
 // vocabulary; the base graph package remains product-neutral.
 package systemgraph
 
@@ -18,7 +18,7 @@ import (
 	"github.com/webong/ext/pkg/graph"
 )
 
-const Namespace = "ctx.system"
+const Namespace = "ext.system"
 
 type Graph struct{ Store graph.Store }
 
@@ -49,7 +49,7 @@ func validateSchema(view graph.View, tx graph.Transaction) error {
 		Namespace + "/host-inventory": true, Namespace + "/shell": true, Namespace + "/filesystem": true, Namespace + "/webview": true, Namespace + "/process": true, Namespace + "/executable": true, Namespace + "/application": true, Namespace + "/process-resource": true}
 	for _, vertex := range tx.Vertices {
 		if !allowedKinds[vertex.Kind] {
-			return fmt.Errorf("unsupported ctx.system kind %q", vertex.Kind)
+			return fmt.Errorf("unsupported ext.system kind %q", vertex.Kind)
 		}
 	}
 	allowedRelations := map[string]struct{ from, to string }{
@@ -79,7 +79,7 @@ func validateSchema(view graph.View, tx graph.Transaction) error {
 	for _, edge := range tx.Edges {
 		expected, ok := allowedRelations[edge.Type]
 		if !ok {
-			return fmt.Errorf("unsupported ctx.system relationship %q", edge.Type)
+			return fmt.Errorf("unsupported ext.system relationship %q", edge.Type)
 		}
 		from, fromOK := view.Vertex(Namespace, edge.From)
 		to, toOK := view.Vertex(Namespace, edge.To)
@@ -87,7 +87,7 @@ func validateSchema(view graph.View, tx graph.Transaction) error {
 			return graph.ErrDanglingEdge
 		}
 		if from.Kind != expected.from || to.Kind != expected.to {
-			return fmt.Errorf("invalid endpoints for ctx.system relationship %q", edge.Type)
+			return fmt.Errorf("invalid endpoints for ext.system relationship %q", edge.Type)
 		}
 	}
 	return nil

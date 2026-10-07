@@ -10,7 +10,7 @@ pub fn factory() -> Result<Guest> {
     for name in ["echo", "wait", "private-error", "public-error"] {
         let method = Method::<Value, Value>::new(
             ContractRef {
-                name: "ctx.conformance".into(),
+                name: "ext.conformance".into(),
                 version: "v1".into(),
             },
             Operation {

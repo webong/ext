@@ -12,7 +12,7 @@ import (
 	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 
-const grpcServiceName = "ctx.plugin.v1.Runtime"
+const grpcServiceName = "ext.plugin.v1.Runtime"
 const grpcMaxMessage = plugin.MaxFrameBytes + 1024 // protobuf envelope overhead
 
 // GRPCServer is a go-plugin ServeConfig.GRPCServer factory with explicit wire

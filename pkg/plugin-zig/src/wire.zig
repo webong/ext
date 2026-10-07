@@ -1,7 +1,7 @@
 const std = @import("std");
 pub const Allocator = std.mem.Allocator;
 pub const Value = std.json.Value;
-pub const version = "ctx.plugin/v1";
+pub const version = "ext.plugin/v1";
 pub const max_frame = 24 << 20;
 pub const timeout_ns: i128 = 30_000_000_000;
 pub const Identity = struct { id: []const u8, revision: []const u8, version: []const u8 = "" };

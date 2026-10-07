@@ -25,7 +25,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
         Arc::new(move |r| r.validate(&d)),
     )?;
     let c = ContractRef {
-        name: "ctx.conformance".into(),
+        name: "ext.conformance".into(),
         version: "v1".into(),
     };
     let out = session.call_raw(

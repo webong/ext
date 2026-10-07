@@ -80,7 +80,7 @@ use a backend with indexed persistence behind the same interface.
 
 ## CTX system context
 
-The public `github.com/webong/ext/pkg/graph/system` package owns the `ctx.system`
+The public `github.com/webong/ext/pkg/graph/system` package owns the `ext.system`
 namespace. Short-lived CTX
 commands record the invoking shell session, current directory, detected project,
 active profile, and selected adapter context IDs. Optional Bash, Zsh, and
@@ -159,7 +159,7 @@ start, while CTX still controls the process tree. Windows Job assignment occurs
 immediately after `exec.Cmd.Start`; a service requiring containment before the
 first instruction must supply a suspended-launch policy through that hook.
 
-Each active process has a renewable lease in `ctx.runtime` with a supervisor
+Each active process has a renewable lease in `ext.runtime` with a supervisor
 owner ID, expiration, PID, and process identity where the OS permits reading
 it. On restart, a live unexpired lease returns `ErrRuntimeLeased`. Expired
 leases follow `Options.OrphanPolicy`: the default marks the process orphaned

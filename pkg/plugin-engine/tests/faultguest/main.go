@@ -23,9 +23,9 @@ func main() {
 	if mode == "exit" {
 		return
 	}
-	hello := `{"apiVersion":"ctx.plugin/v1","id":"hello","payload":{"apiVersion":"ctx.plugin/v1","identity":{"id":"ctx/conformance","revision":"fixture-1"},"contracts":[{"name":"ctx.conformance","version":"v1","operations":[{"name":"echo"},{"name":"wait"},{"name":"private-error"},{"name":"public-error"}]}]}}`
+	hello := `{"apiVersion":"ext.plugin/v1","id":"hello","payload":{"apiVersion":"ext.plugin/v1","identity":{"id":"ctx/conformance","revision":"fixture-1"},"contracts":[{"name":"ext.conformance","version":"v1","operations":[{"name":"echo"},{"name":"wait"},{"name":"private-error"},{"name":"public-error"}]}]}}`
 	if mode == "bad-handshake" {
-		fmt.Println(`{"apiVersion":"ctx.plugin/v1","id":"hello","payload":{}}`)
+		fmt.Println(`{"apiVersion":"ext.plugin/v1","id":"hello","payload":{}}`)
 		return
 	}
 	if mode == "fragment" {
@@ -40,20 +40,20 @@ func main() {
 	}
 	switch mode {
 	case "duplicate":
-		fmt.Println(`{"apiVersion":"ctx.plugin/v1","id":"1","payload":{"x":1,"\u0078":2}}`)
+		fmt.Println(`{"apiVersion":"ext.plugin/v1","id":"1","payload":{"x":1,"\u0078":2}}`)
 	case "wrong-id":
-		fmt.Println(`{"apiVersion":"ctx.plugin/v1","id":"other","payload":null}`)
+		fmt.Println(`{"apiVersion":"ext.plugin/v1","id":"other","payload":null}`)
 	case "unknown":
-		fmt.Println(`{"apiVersion":"ctx.plugin/v1","id":"1","payload":null,"extra":true}`)
+		fmt.Println(`{"apiVersion":"ext.plugin/v1","id":"1","payload":null,"extra":true}`)
 	case "oversize":
 		fmt.Println(strings.Repeat("x", 24<<20+1))
 	case "truncated":
 		fmt.Print(`{"apiVersion":`)
 	case "fragment":
-		for _, b := range []byte(`{"apiVersion":"ctx.plugin/v1","id":"1","payload":{"value":7}}` + "\n") {
+		for _, b := range []byte(`{"apiVersion":"ext.plugin/v1","id":"1","payload":{"value":7}}` + "\n") {
 			os.Stdout.Write([]byte{b})
 		}
 	default:
-		fmt.Println(`{"apiVersion":"ctx.plugin/v1","id":"1","error":{"code":"bad","message":"bad","retryAfterMilliseconds":-1}}`)
+		fmt.Println(`{"apiVersion":"ext.plugin/v1","id":"1","error":{"code":"bad","message":"bad","retryAfterMilliseconds":-1}}`)
 	}
 }

@@ -1,4 +1,4 @@
-// Package abi defines the language-neutral ctx.plugin C ABI v1 envelope.
+// Package abi defines the language-neutral ext.plugin C ABI v1 envelope.
 // See ../ctx_plugin.h for the C declarations and ownership rules.
 package abi
 

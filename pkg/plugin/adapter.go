@@ -12,7 +12,7 @@ const AdapterAPIVersion = "2.0"
 
 // AdapterContractName identifies CTX's argv/stream adapter binding. Its
 // version is the adapter API, independently of the plugin envelope API.
-const AdapterContractName = "ctx.adapter"
+const AdapterContractName = "ext.adapter"
 
 // AdapterInvocation is one operation delivered by ctx to an adapter
 // executable.

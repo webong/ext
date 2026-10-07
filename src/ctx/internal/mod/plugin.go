@@ -9,7 +9,7 @@ func (a *Adapter) PluginDescriptor() (plugin.Descriptor, error) {
 	if err != nil {
 		return plugin.Descriptor{}, err
 	}
-	d := plugin.AdapterDescriptor(plugin.Identity{ID: "ctx.adapter/" + a.Manifest.Name, Revision: "sha256:" + digest}, a.pluginOperations())
+	d := plugin.AdapterDescriptor(plugin.Identity{ID: "ext.adapter/" + a.Manifest.Name, Revision: "sha256:" + digest}, a.pluginOperations())
 	// Legacy argv bindings keep their declared native API version.
 	d.Contracts[0].Version = a.Manifest.APIVersion
 	if err := d.Validate(); err != nil {

@@ -69,7 +69,7 @@ test('authorization and private errors', async () => {
     await assert.rejects(() => session.call(descriptor.contracts[0], 'echo', {}), /denied/);
     allowed = true;
     await assert.rejects(() => session.call({
-        name: 'ctx.conformance', version: 'v1'
+        name: 'ext.conformance', version: 'v1'
     }, 'echo', {}), e => e instanceof RemoteError && e.code === 'operation_failed' && !e.message.includes('secret'));
     await session.close();
 });
@@ -92,7 +92,7 @@ test('cancellation fails a session and drain deadline restores admission', async
  const guest=new Guest(descriptor,{handler:async()=>{entered();await new Promise(resolve=>{release=resolve;});return null;}});
  const session=await Session.open(descriptor,{verify(){},authorize(){},connect(){return {handshake:s=>guest.handshake(s),invoke:(r,s)=>guest.invoke(r,s),close(){closed++;release?.();}};}});
  const controller=new AbortController();
- const result=session.call({name:'ctx.conformance',version:'v1'},'wait',{},controller.signal);
+ const result=session.call({name:'ext.conformance',version:'v1'},'wait',{},controller.signal);
  await called;
  const drain=new AbortController();const closing=session.close(drain.signal);drain.abort();await assert.rejects(closing);assert.equal(session.state,'ready');
  controller.abort();await assert.rejects(result);assert.equal(session.state,'failed');assert.equal(closed,1);await session.abort();assert.equal(closed,1);
@@ -114,9 +114,9 @@ test('selection is frozen before asynchronous verification', async () => {
 
 test('fragmented frames and multiple frames in one chunk preserve boundaries', async () => {
  const encoder=new TextEncoder();let bytes=new Uint8Array();let closed=false;
- const io={async write(data){const request=decodeJSON(data);const payload=request.operation==='plugin.hello'?descriptor:request.payload;const response=encoder.encode(JSON.stringify({apiVersion:'ctx.plugin/v1',id:request.id,payload})+'\n');const next=new Uint8Array(bytes.length+response.length);next.set(bytes);next.set(response,bytes.length);bytes=next;},async read(){if(closed)return null;const n=Math.min(7,bytes.length);const part=bytes.slice(0,n);bytes=bytes.slice(n);return part;},close(){closed=true;}};
+ const io={async write(data){const request=decodeJSON(data);const payload=request.operation==='plugin.hello'?descriptor:request.payload;const response=encoder.encode(JSON.stringify({apiVersion:'ext.plugin/v1',id:request.id,payload})+'\n');const next=new Uint8Array(bytes.length+response.length);next.set(bytes);next.set(response,bytes.length);bytes=next;},async read(){if(closed)return null;const n=Math.min(7,bytes.length);const part=bytes.slice(0,n);bytes=bytes.slice(n);return part;},close(){closed=true;}};
  const backend=new JSONLineBackend(io);const s=await Session.open(descriptor,{verify(){},authorize(){},connect(){return backend;}});
- assert.equal(await s.call({name:'ctx.conformance',version:'v1'},'echo','x'.repeat(12000)),'x'.repeat(12000));await s.close();
+ assert.equal(await s.call({name:'ext.conformance',version:'v1'},'echo','x'.repeat(12000)),'x'.repeat(12000));await s.close();
 });
 
 test('shared Go and TypeScript schema fixtures',async()=>{

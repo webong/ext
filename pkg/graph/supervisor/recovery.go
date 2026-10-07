@@ -164,7 +164,7 @@ func (s *Supervisor) pruneTerminals(ctx context.Context) error {
 		if vertex.Kind != RuntimeNamespace+"/artifact" && vertex.Kind != RuntimeNamespace+"/endpoint" && vertex.Kind != RuntimeNamespace+"/component" {
 			continue
 		}
-		if vertex.Provenance.Source != "ctx.supervisor" {
+		if vertex.Provenance.Source != "ext.supervisor" {
 			continue
 		}
 		used := false

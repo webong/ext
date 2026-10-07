@@ -29,19 +29,19 @@ import datetime,hashlib,json,pathlib,shutil,sys
 p=pathlib.Path(sys.argv[1]); fixtures=pathlib.Path(sys.argv[2]); descriptor=json.loads((fixtures/'descriptor.json').read_text())
 (p/'descriptor.json').write_text(json.dumps(descriptor))
 for operation in ('echo','public-error'):
- request=dict(apiVersion='ctx.plugin/v1',id='1',plugin=descriptor['identity'],contract=dict(name='ctx.conformance',version='v1'),operation=operation,deadline='2099-01-01T00:00:00Z',payload=dict(value=7))
+ request=dict(apiVersion='ext.plugin/v1',id='1',plugin=descriptor['identity'],contract=dict(name='ext.conformance',version='v1'),operation=operation,deadline='2099-01-01T00:00:00Z',payload=dict(value=7))
  (p/(operation+'.json')).write_text(json.dumps(request))
 guest=p/'hashicorp-guest'
 for protocol in ('grpc','netrpc'):
  executable=p/('bridge-'+protocol);shutil.copy2(p/'ctx-plugin-bridge',executable)
- config=dict(apiVersion='ctx.bridge/v1',descriptor=descriptor,process=dict(executable=str(guest),sha256=hashlib.sha256(guest.read_bytes()).hexdigest(),protocol=protocol,arguments=['--protocol',protocol]),allow=[dict(contract=dict(name=c['name'],version=c['version']),operation=o['name']) for c in descriptor['contracts'] for o in c['operations']])
+ config=dict(apiVersion='ext.bridge/v1',descriptor=descriptor,process=dict(executable=str(guest),sha256=hashlib.sha256(guest.read_bytes()).hexdigest(),protocol=protocol,arguments=['--protocol',protocol]),allow=[dict(contract=dict(name=c['name'],version=c['version']),operation=o['name']) for c in descriptor['contracts'] for o in c['operations']])
  pathlib.Path(str(executable)+'.json').write_text(json.dumps(config))
 PY
 for protocol in grpc netrpc; do
   executable="$build_dir/bridge-$protocol"
   inputs=("$executable" "$build_dir/descriptor.json" "$build_dir/echo.json" "$build_dir/public-error.json")
   "$CTX_CENGINE_BUILD_DIR/go-host" "${inputs[@]}" > "$build_dir/go-$protocol.jsonl"
-  rust_host="${CARGO_TARGET_DIR:-$CTX_CENGINE_BUILD_DIR/cargo}/debug/ctx-pkg/plugin-engine-example"
+  rust_host="${CARGO_TARGET_DIR:-$CTX_CENGINE_BUILD_DIR/cargo}/debug/ctx-cengine-example"
   "$rust_host" "${inputs[@]}" > "$build_dir/rust-$protocol.jsonl"
   "$CTX_CENGINE_BUILD_DIR/zig-host" "${inputs[@]}" > "$build_dir/zig-$protocol.jsonl"
   node pkg/plugin-ts/examples/cengine/host.cjs "$CTX_CENGINE_BUILD_DIR/ctx_host.node" "${inputs[@]}" > "$build_dir/node-$protocol.jsonl"

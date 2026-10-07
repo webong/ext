@@ -23,7 +23,7 @@ import (
 	"unsafe"
 )
 
-// Streams supplies the ctx.stream/v1 contract using the shared C lifecycle.
+// Streams supplies the ext.stream/v1 contract using the shared C lifecycle.
 // Close must be called. Scope and reader callbacks must not reenter this service.
 type Streams struct {
 	mu         sync.RWMutex

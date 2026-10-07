@@ -3,7 +3,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 build_dir="${CTX_CENGINE_BUILD_DIR:-}"
-if [[ -z "$build_dir" ]]; then build_dir="$(mktemp -d "${TMPDIR:-/tmp}/ctx-pkg/plugin-engine.XXXXXX")"; fi
+if [[ -z "$build_dir" ]]; then build_dir="$(mktemp -d "${TMPDIR:-/tmp}/ctx-cengine.XXXXXX")"; fi
 mkdir -p "$build_dir"
 build_dir="$(cd "$build_dir" && pwd -P)"
 export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-$build_dir/cargo}"
@@ -40,7 +40,7 @@ import json, pathlib, sys, datetime
 p=pathlib.Path(sys.argv[1]);d=json.loads(pathlib.Path('pkg/plugin/testdata/v1/descriptor.json').read_text())
 (p/'descriptor.json').write_text(json.dumps(d))
 for op in ['echo','public-error','wait']:
- r=dict(apiVersion='ctx.plugin/v1',id='1',plugin=d['identity'],contract=dict(name='ctx.conformance',version='v1'),operation=op,deadline='2099-01-01T00:00:00Z',payload=dict(value=7))
+ r=dict(apiVersion='ext.plugin/v1',id='1',plugin=d['identity'],contract=dict(name='ext.conformance',version='v1'),operation=op,deadline='2099-01-01T00:00:00Z',payload=dict(value=7))
  (p/(op+'.json')).write_text(json.dumps(r))
 PY
 cmake -S pkg/plugin-engine -B "$build_dir/sanitize" -DCMAKE_BUILD_TYPE=Debug -DCTX_SANITIZE=ON
@@ -73,7 +73,7 @@ if [[ "$(uname -s)" == Darwin ]]; then node_link=(-undefined dynamic_lookup); fi
 CTX_ENGINE_ADDON="$build_dir/ctx_engine.node" node --test pkg/plugin-ts/engine/test.mjs
 go build -tags "$go_tags" -o "$build_dir/go-host" ./pkg/plugin-go/examples/host
 "$build_dir/go-host" "$CTX_CENGINE_GUEST" "$build_dir/descriptor.json" "$build_dir/echo.json" "$build_dir/public-error.json" > "$build_dir/go.jsonl"
-"$CARGO_TARGET_DIR/debug/ctx-pkg/plugin-engine-example" "$CTX_CENGINE_GUEST" "$build_dir/descriptor.json" "$build_dir/echo.json" "$build_dir/public-error.json" > "$build_dir/rust.jsonl"
+"$CARGO_TARGET_DIR/debug/ctx-cengine-example" "$CTX_CENGINE_GUEST" "$build_dir/descriptor.json" "$build_dir/echo.json" "$build_dir/public-error.json" > "$build_dir/rust.jsonl"
 "$build_dir/zig-host" "$CTX_CENGINE_GUEST" "$build_dir/descriptor.json" "$build_dir/echo.json" "$build_dir/public-error.json" > "$build_dir/zig.jsonl"
 node pkg/plugin-ts/examples/cengine/host.cjs "$build_dir/ctx_host.node" "$CTX_CENGINE_GUEST" "$build_dir/descriptor.json" "$build_dir/echo.json" "$build_dir/public-error.json" > "$build_dir/node.jsonl"
 python3 - "$build_dir" <<'PY'

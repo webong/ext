@@ -62,7 +62,7 @@ func TestSelectionAndHandshake(t *testing.T) {
 func TestStrictEnvelopes(t *testing.T) {
 	d := testDescriptor()
 	for _, change := range []func(*Descriptor){
-		func(v *Descriptor) { v.APIVersion = "ctx.plugin/v2" },
+		func(v *Descriptor) { v.APIVersion = "ext.plugin/v2" },
 		func(v *Descriptor) { v.Identity.Revision = "" },
 		func(v *Descriptor) { v.Contracts = append(v.Contracts, v.Contracts[0]) },
 		func(v *Descriptor) {
@@ -77,8 +77,8 @@ func TestStrictEnvelopes(t *testing.T) {
 		}
 	}
 	for _, raw := range []string{
-		`{"apiVersion":"ctx.plugin/v1","unknown":true}`,
-		`{"apiVersion":"ctx.plugin/v1","apiVersion":"wrong"}`,
+		`{"apiVersion":"ext.plugin/v1","unknown":true}`,
+		`{"apiVersion":"ext.plugin/v1","apiVersion":"wrong"}`,
 		`{"payload":{"x":1,"x":2}}`,
 		`{} {}`,
 	} {

@@ -92,11 +92,11 @@ func TestCancellationClosesConnection(t *testing.T) {
 
 func TestMalformedResponsesCloseClient(t *testing.T) {
 	for _, response := range []string{
-		`{"apiVersion":"ctx.plugin/v1","id":"hello","payload":null}`,
-		`{"apiVersion":"ctx.plugin/v1","id":"wrong","payload":null}`,
-		`{"apiVersion":"ctx.plugin/v1","id":"hello","id":"hello","payload":null}`,
-		`{"apiVersion":"ctx.plugin/v1","id":"hello","payload":null,"error":{"code":"failure","message":"x"}}`,
-		`{"apiVersion":"ctx.plugin/v1","id":"hello","payload":null,"extra":true}`,
+		`{"apiVersion":"ext.plugin/v1","id":"hello","payload":null}`,
+		`{"apiVersion":"ext.plugin/v1","id":"wrong","payload":null}`,
+		`{"apiVersion":"ext.plugin/v1","id":"hello","id":"hello","payload":null}`,
+		`{"apiVersion":"ext.plugin/v1","id":"hello","payload":null,"error":{"code":"failure","message":"x"}}`,
+		`{"apiVersion":"ext.plugin/v1","id":"hello","payload":null,"extra":true}`,
 	} {
 		t.Run(response, func(t *testing.T) {
 			host, server := net.Pipe()

@@ -124,7 +124,7 @@ ctx_status ctx_guest_invoke(ctx_guest *g, const uint8_t *input, size_t len,
   yyjson_mut_val *root = yyjson_mut_obj(doc);
   yyjson_mut_doc_set_root(doc, root);
   int ok = root &&
-           yyjson_mut_obj_add_str(doc, root, "apiVersion", "ctx.plugin/v1") &&
+           yyjson_mut_obj_add_str(doc, root, "apiVersion", "ext.plugin/v1") &&
            yyjson_mut_obj_add_strn(doc, root, "id", yyjson_get_str(id),
                                    yyjson_get_len(id));
   if (code) {

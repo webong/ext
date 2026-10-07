@@ -1,6 +1,6 @@
 # CTX plugin SDK for Zig
 
-This package implements typed guests and host sessions for `ctx.plugin/v1`,
+This package implements typed guests and host sessions for `ext.plugin/v1`,
 including JSON-line and C ABI bindings. It targets **Zig 0.17.0**, pinned because
 Zig's standard library and build APIs change between releases. It has no
 third-party dependencies and links libc for clocks and standalone stdio.
@@ -49,7 +49,7 @@ pub fn factory(a: sdk.wire.Allocator) !sdk.author.Guest {
 Methods/handlers are registered at compile time with typed input/output and
 optional validators. JSON payload structs reject unknown fields. Domain bounds
 belong in validators; this package does not implement the separate
-`ctx.schema/v1` interpreter. Runtime domain state can be managed by the
+`ext.schema/v1` interpreter. Runtime domain state can be managed by the
 application; the initial dispatcher API uses function pointers, not closures.
 
 `Registry.guest` deep-copies its declaration and entries into an owned arena.

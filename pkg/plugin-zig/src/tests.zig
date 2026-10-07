@@ -82,7 +82,7 @@ const Local = struct {
     fn exchange(ctx: *anyopaque, a: w.Allocator, op: u32, bytes: []const u8, _: i128) ![]u8 {
         const self: *Local = @ptrCast(@alignCast(ctx));
         if (op == 1) return w.encode(a, self.guest.descriptor);
-        if (self.corrupt) return a.dupe(u8, "{\"apiVersion\":\"ctx.plugin/v1\",\"id\":\"wrong\",\"payload\":null}");
+        if (self.corrupt) return a.dupe(u8, "{\"apiVersion\":\"ext.plugin/v1\",\"id\":\"wrong\",\"payload\":null}");
         return w.encode(a, try self.guest.invoke(a, try w.typed(w.Request, a, try w.decode(a, bytes))));
     }
 };

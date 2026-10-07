@@ -14,7 +14,7 @@ extern "C" {
 #else
 #define CTX_HOST_API __attribute__((visibility("default")))
 #endif
-/* Experimental embedding ABI, independent of ctx.plugin/v1 and guest ABI v1.
+/* Experimental embedding ABI, independent of ext.plugin/v1 and guest ABI v1.
  * No ABI stability commitment until the prototype is evaluated. */
 #define CTX_HOST_ABI_VERSION 2u
 #define CTX_HOST_MAX_FRAME (24u * 1024u * 1024u)

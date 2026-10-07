@@ -1,4 +1,4 @@
-// Package jsonline binds ctx.plugin/v1 to bounded newline-delimited JSON over
+// Package jsonline binds ext.plugin/v1 to bounded newline-delimited JSON over
 // a caller-owned duplex connection (for example, local IPC or process pipes).
 // It neither starts processes nor chooses native endpoints.
 package jsonline

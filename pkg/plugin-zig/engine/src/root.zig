@@ -166,9 +166,9 @@ test "shared services and cancellation" {
     try std.testing.expect(!cancel.isSignaled());
     cancel.signal();
     try std.testing.expect(cancel.isSignaled());
-    var result = try service("protocol.negotiate", "{\"preferred\":[\"ctx.plugin/v1\"],\"offered\":[\"ctx.plugin/v1\"]}");
+    var result = try service("protocol.negotiate", "{\"preferred\":[\"ext.plugin/v1\"],\"offered\":[\"ext.plugin/v1\"]}");
     defer result.deinit();
-    try std.testing.expectEqualStrings("\"ctx.plugin/v1\"", result.bytes());
+    try std.testing.expectEqualStrings("\"ext.plugin/v1\"", result.bytes());
     try std.testing.expectEqualSlices(u8, &.{ 0xba, 0x78, 0x16, 0xbf, 0x8f, 0x01, 0xcf, 0xea, 0x41, 0x41, 0x40, 0xde, 0x5d, 0xae, 0x22, 0x23, 0xb0, 0x03, 0x61, 0xa3, 0x96, 0x17, 0x7a, 0x9c, 0xb4, 0x10, 0xff, 0x61, 0xf2, 0x00, 0x15, 0xad }, &sha256("abc"));
 }
 fn denied(_: ?*anyopaque, _: [*c]const u8, _: usize) callconv(.c) i32 {
@@ -177,7 +177,7 @@ fn denied(_: ?*anyopaque, _: [*c]const u8, _: usize) callconv(.c) i32 {
 fn echo(_: ?*anyopaque, _: ?*anyopaque, _: [*c]const u8, _: usize, _: u32, emit: ffi.ctx_guest_emit, sink: ?*anyopaque) callconv(.c) i32 {
     return emit.?(sink, ffi.CTX_GUEST_PAYLOAD, "7", 1);
 }
-const fixture = "{\"apiVersion\":\"ctx.plugin/v1\",\"identity\":{\"id\":\"test\",\"revision\":\"r1\"},\"contracts\":[{\"name\":\"test\",\"version\":\"v1\",\"operations\":[{\"name\":\"echo\"}]}]}";
+const fixture = "{\"apiVersion\":\"ext.plugin/v1\",\"identity\":{\"id\":\"test\",\"revision\":\"r1\"},\"contracts\":[{\"name\":\"test\",\"version\":\"v1\",\"operations\":[{\"name\":\"echo\"}]}]}";
 test "host and guest binding ownership" {
     var host = try Host.init(.{ .executable = "/not-launched" }, fixture, .{ .verify = denied, .authorize = denied });
     defer host.deinit();
@@ -192,7 +192,7 @@ test "host and guest binding ownership" {
     var desc = try guest.descriptor();
     defer desc.deinit();
     try std.testing.expectEqualStrings(fixture, desc.bytes());
-    var response = try guest.invoke("{\"apiVersion\":\"ctx.plugin/v1\",\"id\":\"1\",\"plugin\":{\"id\":\"test\",\"revision\":\"r1\"},\"contract\":{\"name\":\"test\",\"version\":\"v1\"},\"operation\":\"echo\",\"deadline\":\"2050-01-01T00:00:00Z\"}", 1000, null);
+    var response = try guest.invoke("{\"apiVersion\":\"ext.plugin/v1\",\"id\":\"1\",\"plugin\":{\"id\":\"test\",\"revision\":\"r1\"},\"contract\":{\"name\":\"test\",\"version\":\"v1\"},\"operation\":\"echo\",\"deadline\":\"2050-01-01T00:00:00Z\"}", 1000, null);
     defer response.deinit();
     try std.testing.expect(std.mem.indexOf(u8, response.bytes(), "\"payload\":7") != null);
 }

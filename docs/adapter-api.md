@@ -343,7 +343,7 @@ and [Neura Local settings](https://www.neurarelay.com/operators#neura-local-sett
 ## Process protocol
 
 CTX adapters also expose a shared library descriptor through
-`github.com/webong/ext/pkg/plugin.AdapterDescriptor`, using the `ctx.adapter`
+`github.com/webong/ext/pkg/plugin.AdapterDescriptor`, using the `ext.adapter`
 contract and their native API version. CTX uses the public `plugin` package
 for capability lookup and package integrity checking. The argv and stream
 binding below remains the adapter transport; it does not require a JSON-line

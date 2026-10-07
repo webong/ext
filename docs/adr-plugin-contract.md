@@ -28,7 +28,7 @@ record, matching checksum, or successful handshake never grants authority.
 
 There are three independent identities:
 
-1. `apiVersion: ctx.plugin/v1` specifies the shared envelope and semantics.
+1. `apiVersion: ext.plugin/v1` specifies the shared envelope and semantics.
 2. `identity` pins a package ID, immutable revision, and optional release
    version. A revision must change with any selected artifact or configuration
    change, including changes that keep the same release version.
@@ -201,10 +201,10 @@ usage and process examples.
 
 ## CTX adapter adoption
 
-`plugin.AdapterDescriptor` maps existing adapters to `ctx.adapter@2.0`.
+`plugin.AdapterDescriptor` maps existing adapters to `ext.adapter@2.0`.
 The internal binding preserves legacy adapters' declared native API versions.
 Capabilities, computer hook/plugin capabilities, and declared browser management
-support become operations. Installed identity is `ctx.adapter/<name>` with a
+support become operations. Installed identity is `ext.adapter/<name>` with a
 `sha256:<directory digest>` revision.
 
 The CTX adapter loader's capability queries use the shared contract lookup.
@@ -225,7 +225,7 @@ selected adapter's product-specific plugin operation.
 
 | Consumer | Shared mechanics | Consumer-owned contract and policy |
 | --- | --- | --- |
-| CTX adapters | Descriptor validation, operation lookup, directory integrity; library backends when needed | `ctx.adapter`, argv/stream binding, context selection, native behavior in adapters |
+| CTX adapters | Descriptor validation, operation lookup, directory integrity; library backends when needed | `ext.adapter`, argv/stream binding, context selection, native behavior in adapters |
 | Xallet Package plugins | Selection, handshake, admission sequencing, call envelopes, draining | Roles, Package/Node/Worker identities, surfaces, Host Broker permits, approval, secrets, reconciliation |
 | Xallet platform extensions | The same host mechanics where applicable | Contribution points, route mounting, schema restrictions, generations and composition rollback |
 | Cymonkey plugins | Selection, verified package identity, bounded transport, structured errors | Display/content/device methods, domain adapters, device grants, runtime choices |

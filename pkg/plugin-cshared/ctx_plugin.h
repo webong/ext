@@ -27,7 +27,7 @@ extern "C" {
  * the C calling convention. No function may let an exception cross this ABI.
  * Handshake must precede invoke. Requests/responses are UTF-8 JSON without a
  * trailing NUL or newline. Handshake input is {"deadline":"RFC3339 timestamp"};
- * output is a ctx.plugin/v1 Descriptor. Invoke uses its Request and Response.
+ * output is a ext.plugin/v1 Descriptor. Invoke uses its Request and Response.
  * The caller owns all buffers, which are valid only for the duration of call.
  * The guest may neither retain nor free pointers, nor write beyond capacity.
  * Set *response_len to zero on failure; only OK permits reading the response.

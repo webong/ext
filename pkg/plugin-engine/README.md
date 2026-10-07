@@ -9,7 +9,7 @@ No registry publication is configured.
 The same native engine can be embedded in Go, Rust, Zig and Node.js. Static
 linking is the default; a shared library is optional. The
 engine itself contains no Go runtime. The guest executable may use any runtime;
-the baseline fixture happens to be Go. CTX's existing `ctx.plugin/v1` guest
+the baseline fixture happens to be Go. CTX's existing `ext.plugin/v1` guest
 protocol and existing language guest implementations remain unchanged.
 
 ## What is implemented
@@ -81,9 +81,9 @@ needed by the C build or its Rust example. The pinned MIT-licensed JSON parser
 is vendored; see [provenance](vendor/README.md).
 
 ```sh
-cmake -S pkg/plugin-engine -B /tmp/ctx-pkg/plugin-engine -DCMAKE_BUILD_TYPE=Release
-cmake --build /tmp/ctx-pkg/plugin-engine
-cmake --install /tmp/ctx-pkg/plugin-engine --prefix /tmp/ctx-host-package
+cmake -S pkg/plugin-engine -B /tmp/ctx-cengine -DCMAKE_BUILD_TYPE=Release
+cmake --build /tmp/ctx-cengine
+cmake --install /tmp/ctx-cengine --prefix /tmp/ctx-host-package
 ```
 
 The default install contains `libctx_host_static.a`, `libctx_guest_static.a`,
@@ -111,7 +111,7 @@ at build time, allowing applications to link their own yyjson version.
 Go integration is opt-in and excluded from ordinary Go builds:
 
 ```sh
-CGO_LDFLAGS='-L/tmp/ctx-pkg/plugin-engine' \
+CGO_LDFLAGS='-L/tmp/ctx-cengine' \
   go build -tags ctx_cengine ./pkg/plugin-go/examples/host
 ```
 
@@ -151,7 +151,7 @@ policy) from `ctx_backend_options` (kind, configuration pointer and size).
 `CTX_BACKEND_JSONLINE_PROCESS` accepts `ctx_jsonline_process_options`.
 Unknown kinds return `CTX_UNSUPPORTED`. `CTX_BACKEND_EXTENSION` accepts a
 `ctx_backend_extension` vtable for application-supplied runtime mechanics.
-Rebuild all ABI 1 bindings; guest `ctx.plugin/v1` is unchanged.
+Rebuild all ABI 1 bindings; guest `ext.plugin/v1` is unchanged.
 
 ### Runtime extensions
 
@@ -194,7 +194,7 @@ From the repository root:
 ```sh
 ZIG_BIN=/path/to/zig \
 NODE_INCLUDE_DIR=/path/to/node/include/node \
-CTX_CENGINE_BUILD_DIR=/tmp/ctx-pkg/plugin-engine-proof \
+CTX_CENGINE_BUILD_DIR=/tmp/ctx-cengine-proof \
   scripts/plugin-cengine.sh
 ```
 

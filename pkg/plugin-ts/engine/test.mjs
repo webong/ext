@@ -7,7 +7,7 @@ import {createHash} from 'node:crypto';
 import {loadEngine} from './index.mjs';
 const engine=loadEngine(process.env.CTX_ENGINE_ADDON);
 const descriptor=JSON.parse(await readFile(new URL('../../../pkg/plugin/testdata/v1/descriptor.json',import.meta.url)));
-function envelope(operation='echo',payload={value:7}){return {apiVersion:'ctx.plugin/v1',id:'1',plugin:descriptor.identity,contract:{name:'ctx.conformance',version:'v1'},operation,payload,deadline:new Date(Date.now()+5000).toISOString()};}
+function envelope(operation='echo',payload={value:7}){return {apiVersion:'ext.plugin/v1',id:'1',plugin:descriptor.identity,contract:{name:'ext.conformance',version:'v1'},operation,payload,deadline:new Date(Date.now()+5000).toISOString()};}
 test('C services and async guest dispatch',async()=>{
  assert.deepEqual(engine.service('descriptor.validate',descriptor),descriptor);
  const g=new engine.Guest({descriptor,handle:async r=>{await new Promise(resolve=>setTimeout(resolve,1));return {payload:r.payload};}});
@@ -27,7 +27,7 @@ test('abort with a late promise is safe',async()=>{
 test('C host with async policy, generated calls and drain',{skip:!process.env.CTX_CENGINE_GUEST},async()=>{
  let verified=0,authorized=0;
  const host=await engine.Host.open({executable:process.env.CTX_CENGINE_GUEST,descriptor,verify:async()=>{verified++;return true;},authorize:async()=>{authorized++;return true;}});
- assert.equal(verified,1);const reply=await host.call({name:'ctx.conformance',version:'v1'},'echo',{value:9});assert.deepEqual(reply.payload,{value:9});assert.equal(authorized,1);await host.drain();host.close();
+ assert.equal(verified,1);const reply=await host.call({name:'ext.conformance',version:'v1'},'echo',{value:9});assert.deepEqual(reply.payload,{value:9});assert.equal(authorized,1);await host.drain();host.close();
 });
 test('C host denies before launch',{skip:!process.env.CTX_CENGINE_GUEST},async()=>{
  await assert.rejects(engine.Host.open({executable:process.env.CTX_CENGINE_GUEST,descriptor,verify:()=>false,authorize:()=>true}),e=>e.status===2);
@@ -48,7 +48,7 @@ test('C metadata observer does not expose payloads',{skip:!process.env.CTX_CENGI
  const events=[];
  const host=await engine.Host.open({executable:process.env.CTX_CENGINE_GUEST,descriptor,verify:()=>true,authorize:()=>true,observe:event=>events.push(event)});
  try{
-  await host.call({name:'ctx.conformance',version:'v1'},'echo',{secret:'private payload'});
+  await host.call({name:'ext.conformance',version:'v1'},'echo',{secret:'private payload'});
   await new Promise(resolve=>setImmediate(resolve));
   assert.ok(events.some(e=>e.stage==='verify'));
   assert.ok(events.some(e=>e.stage==='invoke'));
@@ -108,7 +108,7 @@ test('malformed requests are public invalid_request responses',async()=>{
  const g=new engine.Guest({descriptor,handle:async r=>({payload:r.payload})});
  try{
   const mutations={
-   'empty id':r=>{r.id='';},'oversized id':r=>{r.id='i'.repeat(4096);},'wrong api':r=>{r.apiVersion='ctx.plugin/v2';},
+   'empty id':r=>{r.id='';},'oversized id':r=>{r.id='i'.repeat(4096);},'wrong api':r=>{r.apiVersion='ext.plugin/v2';},
    'unknown operation':r=>{r.operation='nope';},'unknown contract':r=>{r.contract={name:'unknown',version:'v1'};},
    'other plugin':r=>{r.plugin={...r.plugin,id:'other'};},'no deadline':r=>{delete r.deadline;},
   };

@@ -137,7 +137,7 @@ export function loadEngine(addonPath){
      catch(error){
        if(error?.status!==1)throw error;
        const id=typeof envelope?.id==='string'?envelope.id:'';
-       return {apiVersion:'ctx.plugin/v1',id,error:{code:'invalid_request',message:'request does not match selected contract'}};
+       return {apiVersion:'ext.plugin/v1',id,error:{code:'invalid_request',message:'request does not match selected contract'}};
      }
    }
    close(){if(!this.#closed){this.#closed=true;native.closeHost(this.#handle);this.#handle=null;}}

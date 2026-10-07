@@ -1,6 +1,6 @@
 # CTX plugin SDK for TypeScript
 
-Portable host and guest APIs for `ctx.plugin/v1`. The runtime is dependency-free
+Portable host and guest APIs for `ext.plugin/v1`. The runtime is dependency-free
 ES modules with `.d.mts` declarations; Node-specific stream wiring is a separate
 export. The package is private and has not been published to npm.
 

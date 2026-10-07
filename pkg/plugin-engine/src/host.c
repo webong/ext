@@ -696,7 +696,7 @@ ctx_status ctx_host_start_with_options(ctx_host *h, const ctx_call_options *o) {
     gmtime_r(&seconds, &t);
     strftime(stamp, sizeof(stamp), "%Y-%m-%dT%H:%M:%S", &t);
     int n = snprintf(hello, sizeof(hello),
-                     "{\"apiVersion\":\"ctx.plugin/"
+                     "{\"apiVersion\":\"ext.plugin/"
                      "v1\",\"id\":\"hello\",\"operation\":\"plugin.hello\","
                      "\"deadline\":\"%s.%03lldZ\"}",
                      stamp, (long long)(wall % 1000));
@@ -908,7 +908,7 @@ ctx_status ctx_host_call(ctx_host *h, const uint8_t *input, size_t len,
   yyjson_mut_doc_set_root(request, root);
   int ok =
       root &&
-      yyjson_mut_obj_add_str(request, root, "apiVersion", "ctx.plugin/v1") &&
+      yyjson_mut_obj_add_str(request, root, "apiVersion", "ext.plugin/v1") &&
       yyjson_mut_obj_add_str(request, root, "id", id) &&
       yyjson_mut_obj_add_str(request, root, "deadline", date);
   const char *keys[] = {"plugin", "contract", "operation", "surface",

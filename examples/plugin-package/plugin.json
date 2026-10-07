@@ -1,7 +1,7 @@
 {
-  "apiVersion": "ctx.package/v1",
+  "apiVersion": "ext.package/v1",
   "descriptor": {
-    "apiVersion": "ctx.plugin/v1",
+    "apiVersion": "ext.plugin/v1",
     "identity": {
       "id": "example/package",
       "revision": "fixture-1"
@@ -31,7 +31,7 @@
       "runtime": "jsonline",
       "artifact": "main",
       "protocols": [
-        "ctx.plugin/v1"
+        "ext.plugin/v1"
       ]
     }
   ],

@@ -123,7 +123,7 @@ ctx_status ctx_manifest_valid(yyjson_val *m) {
   if (!CTX_FIELDS(m, "apiVersion", "descriptor", "artifacts", "entrypoints",
                   "requires", "configuration", "payloads", "assets",
                   "sharedDependencies") ||
-      !yyjson_equals_str(get(m, "apiVersion"), "ctx.package/v1") ||
+      !yyjson_equals_str(get(m, "apiVersion"), "ext.package/v1") ||
       !ctx_descriptor(get(m, "descriptor")))
     return CTX_INVALID;
   yyjson_val *a = get(m, "artifacts"), *e = get(m, "entrypoints"),

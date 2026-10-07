@@ -97,7 +97,7 @@ func TestCTXRecordsSystemContextAndGraphCommandReadsIt(t *testing.T) {
 	if code := Run([]string{"graph", "vertices", "shell-session"}, &stdout, &stderr); code != 0 {
 		t.Fatalf("graph query failed: %d %s", code, stderr.String())
 	}
-	if !strings.Contains(stdout.String(), "ctx.system/shell-session") {
+	if !strings.Contains(stdout.String(), "ext.system/shell-session") {
 		t.Fatalf("shell facts missing from graph query: %s", stdout.String())
 	}
 	if _, err := os.Stat(filepath.Join(stateDir, "graph.json")); err != nil {

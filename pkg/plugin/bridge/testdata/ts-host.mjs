@@ -17,7 +17,7 @@ const session=await Session.open(descriptor,{
  }
 });
 try{
- const contract={name:'ctx.conformance',version:'v1'};
+ const contract={name:'ext.conformance',version:'v1'};
  assert.deepEqual(await session.call(contract,'echo',{value:7}),{value:7});
  await assert.rejects(session.call(contract,'public-error',null),e=>e.code==='busy'&&e.retryAfterMilliseconds===10);
  console.log('Independent TypeScript host passed');

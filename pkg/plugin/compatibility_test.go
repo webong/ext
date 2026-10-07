@@ -11,11 +11,11 @@ import (
 )
 
 func TestNegotiationAndObserver(t *testing.T) {
-	v, err := plugin.NegotiateProtocol([]string{"ctx.plugin/v2", plugin.APIVersion}, []string{plugin.APIVersion})
+	v, err := plugin.NegotiateProtocol([]string{"ext.plugin/v2", plugin.APIVersion}, []string{plugin.APIVersion})
 	if err != nil || v != plugin.APIVersion {
 		t.Fatal(v, err)
 	}
-	if _, err := plugin.NegotiateProtocol([]string{"ctx.plugin/v2"}, []string{plugin.APIVersion}); !errors.Is(err, plugin.ErrUnsupported) {
+	if _, err := plugin.NegotiateProtocol([]string{"ext.plugin/v2"}, []string{plugin.APIVersion}); !errors.Is(err, plugin.ErrUnsupported) {
 		t.Fatal(err)
 	}
 	d := plugintest.Descriptor()

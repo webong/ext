@@ -168,7 +168,7 @@ yyjson_val *ctx_lookup(yyjson_val *d, yyjson_val *r, yyjson_val *name) {
 }
 int ctx_descriptor(yyjson_val *d) {
   if (!FIELDS(d, "apiVersion", "identity", "contracts") ||
-      !yyjson_equals_str(get(d, "apiVersion"), "ctx.plugin/v1") ||
+      !yyjson_equals_str(get(d, "apiVersion"), "ext.plugin/v1") ||
       !ctx_identity(get(d, "identity")))
     return 0;
   yyjson_val *cs = get(d, "contracts"), *c, *o;
@@ -296,7 +296,7 @@ static int64_t timestamp(yyjson_val *v) {
 ctx_status ctx_request(yyjson_val *d, yyjson_val *r, int64_t *deadline) {
   if (!FIELDS(r, "apiVersion", "id", "plugin", "contract", "operation",
               "surface", "deadline", "payload") ||
-      !yyjson_equals_str(get(r, "apiVersion"), "ctx.plugin/v1") ||
+      !yyjson_equals_str(get(r, "apiVersion"), "ext.plugin/v1") ||
       !ctx_text(get(r, "id"), 1, 0) || !ctx_identity(get(r, "plugin")) ||
       !FIELDS(get(r, "contract"), "name", "version") ||
       !ctx_ref(get(r, "contract")))
@@ -315,7 +315,7 @@ ctx_status ctx_request(yyjson_val *d, yyjson_val *r, int64_t *deadline) {
 ctx_status ctx_response(yyjson_val *r, const char *id) {
   if (!FIELDS(r, "apiVersion", "id", "payload", "error"))
     return CTX_INVALID;
-  if (!yyjson_equals_str(get(r, "apiVersion"), "ctx.plugin/v1") ||
+  if (!yyjson_equals_str(get(r, "apiVersion"), "ext.plugin/v1") ||
       !yyjson_equals_str(get(r, "id"), id))
     return CTX_MISMATCH;
   yyjson_val *err = get(r, "error");

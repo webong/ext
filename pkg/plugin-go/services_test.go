@@ -47,8 +47,8 @@ func TestEngineServices(t *testing.T) {
 	if _, err := service(t, "descriptor.match", map[string]any{"selected": d, "actual": changed}); !errors.Is(err, plugin.ErrMismatch) {
 		t.Fatal(err)
 	}
-	out, err := service(t, "protocol.negotiate", map[string]any{"preferred": []string{"ctx.plugin/v2", "ctx.plugin/v1"}, "offered": []string{"ctx.plugin/v1"}})
-	if err != nil || string(out) != `"ctx.plugin/v1"` {
+	out, err := service(t, "protocol.negotiate", map[string]any{"preferred": []string{"ext.plugin/v2", "ext.plugin/v1"}, "offered": []string{"ext.plugin/v1"}})
+	if err != nil || string(out) != `"ext.plugin/v1"` {
 		t.Fatalf("%s: %v", out, err)
 	}
 	if _, err := service(t, "protocol.negotiate", map[string]any{"preferred": []string{"v1", "v1"}, "offered": []string{"v1"}}); !errors.Is(err, plugin.ErrInvalid) {

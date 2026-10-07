@@ -33,7 +33,7 @@ pub fn main(init: std.process.Init) !void {
     var loader: Loader = .{ .path = args[1] };
     var session = try sdk.host.Session.open(a, guest.descriptor, verify, .{ .context = &loader, .connect = Loader.connect }, common.allow);
     defer session.deinit();
-    const ref: w.Ref = .{ .name = "ctx.conformance", .version = "v1" };
+    const ref: w.Ref = .{ .name = "ext.conformance", .version = "v1" };
     const out = try session.callRaw(a, ref, "echo", try w.decode(a, "{\"value\":7}"), 3_000_000_000);
     switch (out) {
         .remote => return error.UnexpectedRemote,

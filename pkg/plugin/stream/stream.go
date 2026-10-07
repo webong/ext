@@ -15,7 +15,7 @@ import (
 	"github.com/webong/ext/pkg/plugin/author"
 )
 
-const ContractName = "ctx.stream"
+const ContractName = "ext.stream"
 
 func Contract() plugin.ContractRef { return plugin.ContractRef{Name: ContractName, Version: "v1"} }
 

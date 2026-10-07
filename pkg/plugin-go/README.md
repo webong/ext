@@ -4,9 +4,9 @@ Import `github.com/webong/ext/pkg/plugin-go` as `goengine` to embed the CTX C ho
 It is opt-in: build with `-tags ctx_cengine` and cgo enabled on Linux/macOS.
 
 ```sh
-cmake -S pkg/plugin-engine -B /tmp/ctx-pkg/plugin-engine -DCMAKE_BUILD_TYPE=Release
-cmake --build /tmp/ctx-pkg/plugin-engine --target ctx_host_static
-CGO_LDFLAGS='-L/tmp/ctx-pkg/plugin-engine' \
+cmake -S pkg/plugin-engine -B /tmp/ctx-cengine -DCMAKE_BUILD_TYPE=Release
+cmake --build /tmp/ctx-cengine --target ctx_host_static
+CGO_LDFLAGS='-L/tmp/ctx-cengine' \
   go build -tags ctx_cengine ./pkg/plugin-go/examples/host
 ```
 

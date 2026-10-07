@@ -29,7 +29,7 @@ func TestRoutes(t *testing.T) {
 	if err != nil || r.Bridge != "" {
 		t.Fatalf("direct preference: %+v %v", r, err)
 	}
-	line.Protocols[0] = "ctx.plugin/v2"
+	line.Protocols[0] = "ext.plugin/v2"
 	if r.Host.Protocols[0] != plugin.APIVersion {
 		t.Fatal("route aliased inputs")
 	}

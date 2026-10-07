@@ -21,7 +21,7 @@ type Configured struct {
 }
 
 func ConfigurationMethod() author.Method[Configuration, Configured] {
-	return author.Method[Configuration, Configured]{Contract: plugin.ContractRef{Name: "ctx.configuration", Version: "v1"}, Operation: plugin.Operation{Name: "update", Surface: "configuration"}, ValidateInput: func(c Configuration) error {
+	return author.Method[Configuration, Configured]{Contract: plugin.ContractRef{Name: "ext.configuration", Version: "v1"}, Operation: plugin.Operation{Name: "update", Surface: "configuration"}, ValidateInput: func(c Configuration) error {
 		if c.Instance == "" || len(c.Instance) > 256 || c.Revision == "" || len(c.Revision) > 256 {
 			return plugin.ErrInvalid
 		}

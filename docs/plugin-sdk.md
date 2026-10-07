@@ -15,7 +15,7 @@ Their existing native protocols are not automatically compatible with CTX.
 | --- | --- |
 | `plugin` | Immutable descriptors, exact selection, verification, per-call admission, lifecycle, compatibility preflight and metadata observation |
 | `pkg/plugin/author` | Typed methods, runtime validation, descriptor generation and frozen guest dispatch |
-| `pkg/plugin/schema` | Bounded `ctx.schema/v1` payload/configuration schemas |
+| `pkg/plugin/schema` | Bounded `ext.schema/v1` payload/configuration schemas |
 | `pkg/plugin/inprocess` | Trusted endpoints with connection lifetime cancellation |
 | `pkg/plugin/jsonline` | Bounded JSON-line transport on a supplied duplex connection |
 | `pkg/plugin-hashicorp` | Native go-plugin startup and net/rpc or gRPC bindings |
@@ -39,9 +39,9 @@ Their existing native protocols are not automatically compatible with CTX.
 
 The wire protocol, domain contract versions, SDK/package releases and immutable
 artifact revisions are independent. The currently implemented wire version is
-`ctx.plugin/v1`. The optional contracts are `ctx.health@v1`,
-`ctx.configuration@v1` and `ctx.stream@v1`. Package manifests use
-`ctx.package/v1`; their embedded schemas use the `ctx.schema/v1` vocabulary.
+`ext.plugin/v1`. The optional contracts are `ext.health@v1`,
+`ext.configuration@v1` and `ext.stream@v1`. Package manifests use
+`ext.package/v1`; their embedded schemas use the `ext.schema/v1` vocabulary.
 
 * Existing v1 fields and meanings remain stable. Unknown envelope fields,
   duplicate JSON keys, oversized frames and trailing JSON remain errors.
@@ -93,7 +93,7 @@ The [runtime authoring guide](plugin-runtimes.md) contains build recipes and one
 typed implementation shared across native Go, WASI and C shared libraries.
 WASI guests use the same `jsonline.ServeStdio` helper as standalone command
 guests. The C binding has its own versioned ABI header, while domain envelopes
-continue to use `ctx.plugin/v1`. Native loaders require explicit verified paths;
+continue to use `ext.plugin/v1`. Native loaders require explicit verified paths;
 they do not discover, install or authorize artifacts.
 
 ## Typed authoring
@@ -162,7 +162,7 @@ factories and cleanup; a timeout leaves admission closed and permits waiting
 again. Factories honor their context; cleanup functions must finish promptly.
 The manager does not kill processes or implement durable configuration storage.
 
-`RegisterConfiguration` exposes `ctx.configuration@v1/update`. Its scope mapper
+`RegisterConfiguration` exposes `ext.configuration@v1/update`. Its scope mapper
 must derive a key from authenticated subject/tenant context and the requested
 instance ID. The host controls the allowed configuration and revision. Credentials
 use the host's explicit secret-delivery mechanism, not this payload. Manager

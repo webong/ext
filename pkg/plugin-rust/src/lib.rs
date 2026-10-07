@@ -7,7 +7,7 @@ pub mod native;
 pub mod wire;
 pub use guest::{CallContext, Guest, Method, Registry};
 pub use wire::{ContractRef, Descriptor, Identity, Operation, RemoteError, Request};
-pub const VERSION: &str = "ctx.plugin/v1";
+pub const VERSION: &str = "ext.plugin/v1";
 pub const MAX_FRAME: usize = 24 << 20;
 pub const DEFAULT_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(30);
 #[derive(Debug)]

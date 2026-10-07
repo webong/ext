@@ -1,6 +1,6 @@
 // Portable CTX v1 host/guest SDK. No process discovery, ambient permissions,
 // global registry, dependency loader, or implicit retry is installed.
-export const API_VERSION = 'ctx.plugin/v1';
+export const API_VERSION = 'ext.plugin/v1';
 export const MAX_FRAME_BYTES = 24 << 20;
 const encoder = new TextEncoder();
 const decoder = new TextDecoder('utf-8', { fatal: true });
@@ -617,7 +617,7 @@ function identityHello(id) {
     if (id.version)
         invalid();
 }
-// Compile the portable ctx.schema/v1 vocabulary into a runtime codec.
+// Compile the portable ext.schema/v1 vocabulary into a runtime codec.
 export function schemaCodec(source) {
     const s = copy(source);
     let budget = 1024;
@@ -716,7 +716,7 @@ export function schemaCodec(source) {
 }
 export const healthMethod = Object.freeze({
     contract: Object.freeze({
-        name: 'ctx.health', version: 'v1'
+        name: 'ext.health', version: 'v1'
     }), operation: Object.freeze({
         name: 'check', surface: 'observation'
     }), input: schemaCodec({ type: 'object' }), output: schemaCodec({
@@ -731,7 +731,7 @@ export const healthMethod = Object.freeze({
 // independently by the supplied Caller. No read or action is retried.
 export async function openStream(caller, parameters, signal) {
     const ref = {
-        name: 'ctx.stream', version: 'v1'
+        name: 'ext.stream', version: 'v1'
     };
     const opened = await caller.call(ref, 'open', { parameters }, signal);
     object(opened, ['id']);

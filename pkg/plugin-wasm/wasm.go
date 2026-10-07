@@ -1,5 +1,5 @@
 // Package wasm runs WASI Preview 1 command guests using wazero. Guests speak
-// ctx.plugin/v1 JSON lines on stdin/stdout; Go authors use jsonline.ServeStdio.
+// ext.plugin/v1 JSON lines on stdin/stdout; Go authors use jsonline.ServeStdio.
 // No host environment, filesystem or network is inherited.
 package wasm
 

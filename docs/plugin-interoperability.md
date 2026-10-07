@@ -10,7 +10,7 @@ binding is a convenience; it is not permission to use a plugin.
 
 | Layer | Responsibility |
 | --- | --- |
-| `ctx.plugin/v1` | Identity, exact descriptor, requests, responses, errors and deadlines |
+| `ext.plugin/v1` | Identity, exact descriptor, requests, responses, errors and deadlines |
 | Host implementation | Verify selection, authorize invocations, own sessions and choose installed bindings |
 | Guest implementation | Declare contracts, authorize domain work and execute handlers |
 | Runtime backend | Implement launch/ABI/transport mechanics behind `plugin.Backend` |
@@ -87,7 +87,7 @@ embed the Go runtime. Both HashiCorp gRPC and net/rpc are supported explicitly.
 
 ```text
 Host in any language
-  → ctx.plugin/v1 JSON lines
+  → ext.plugin/v1 JSON lines
   → ctx-plugin-bridge (Go)
   → HashiCorp gRPC or net/rpc
   → guest implementing the selected CTX domain contract
@@ -100,14 +100,14 @@ go build -o /tmp/ctx-plugin-bridge ./pkg/plugin-hashicorp/cmd/ctx-plugin-bridge
 /tmp/ctx-plugin-bridge --config /absolute/path/bridge.json
 ```
 
-Configuration uses `ctx.bridge/v1` and is reviewed local launch policy. The
+Configuration uses `ext.bridge/v1` and is reviewed local launch policy. The
 `descriptor` is the complete selected CTX descriptor, unchanged by the bridge:
 
 ```json
 {
-  "apiVersion": "ctx.bridge/v1",
+  "apiVersion": "ext.bridge/v1",
   "descriptor": {
-    "apiVersion": "ctx.plugin/v1",
+    "apiVersion": "ext.plugin/v1",
     "identity": {"id": "example/echo", "revision": "build-1"},
     "contracts": [{"name": "example.echo", "version": "v1",
       "operations": [{"name": "echo"}]}]
@@ -163,7 +163,7 @@ and provide a pinned `jsonline` selection:
 }
 ```
 
-These fields belong in the same `ctx.bridge/v1` configuration with the complete
+These fields belong in the same `ext.bridge/v1` configuration with the complete
 `descriptor` and explicit `allow` list shown above. Select exactly one upstream
 process. The frontend uses CTX's HashiCorp handshake and plugin binding. Its
 worker owns the JSON-line guest; launcher death closes the private lifetime pipe

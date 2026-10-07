@@ -1,11 +1,11 @@
 syntax = "proto3";
 
-package ctx.plugin.v1;
+package ext.plugin.v1;
 
 import "google/protobuf/empty.proto";
 import "google/protobuf/wrappers.proto";
 
-// BytesValue.value contains UTF-8 ctx.plugin/v1 JSON (without a trailing LF).
+// BytesValue.value contains UTF-8 ext.plugin/v1 JSON (without a trailing LF).
 // Handshake returns a Descriptor. Invoke takes a Request and returns a Response.
 // Peers must apply the shared contract's validation and size limits to the JSON.
 service Runtime {

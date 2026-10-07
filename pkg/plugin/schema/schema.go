@@ -12,7 +12,7 @@ import (
 	"github.com/webong/ext/pkg/plugin"
 )
 
-const Version = "ctx.schema/v1"
+const Version = "ext.schema/v1"
 
 // Schema rejects undeclared object properties by default. Types are object,
 // array, string, number, integer, boolean and null. Constraints inappropriate

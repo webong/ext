@@ -21,7 +21,7 @@ import (
 	"github.com/webong/ext/pkg/plugin/schema"
 )
 
-const Version = "ctx.package/v1"
+const Version = "ext.package/v1"
 
 var namePattern = regexp.MustCompile(`^[a-z0-9][a-z0-9._/-]{0,255}$`)
 var devicePattern = regexp.MustCompile(`(?i)^(con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)`)

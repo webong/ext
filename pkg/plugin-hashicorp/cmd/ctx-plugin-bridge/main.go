@@ -53,7 +53,7 @@ func decode(reader io.Reader) (config, error) {
 	if err != nil {
 		return c, err
 	}
-	if c.APIVersion != "ctx.bridge/v1" || len(c.Allow) == 0 || len(c.Allow) > 16384 {
+	if c.APIVersion != "ext.bridge/v1" || len(c.Allow) == 0 || len(c.Allow) > 16384 {
 		return c, plugin.ErrInvalid
 	}
 	requirements := make([]plugin.Requirement, len(c.Allow))

@@ -1,4 +1,4 @@
-export const API_VERSION: 'ctx.plugin/v1';
+export const API_VERSION: 'ext.plugin/v1';
 export const MAX_FRAME_BYTES: number;
 export interface Identity {
     id: string;

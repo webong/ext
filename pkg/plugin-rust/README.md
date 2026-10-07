@@ -1,6 +1,6 @@
 # CTX plugin SDK for Rust
 
-`ctx-plugin` is the Rust host/guest implementation of `ctx.plugin/v1`. This
+`ctx-plugin` is the Rust host/guest implementation of `ext.plugin/v1`. This
 development crate is part of CTX and is not published to crates.io. Use a path
 dependency pointing at this directory, or a pinned CTX Git revision. Rust 1.88+
 is required by the locked dependencies; CI and local examples use Rust 1.98.1.
@@ -42,7 +42,7 @@ The registry derives the descriptor and freezes it when creating a guest. Later
 registry changes do not expand that guest. Input/output validators apply on
 both typed host calls and guest dispatch. Serde handles payload shapes; use
 `deny_unknown_fields` on strict domain structs. Validators supply domain bounds.
-This crate does not implement the separate `ctx.schema/v1` schema interpreter.
+This crate does not implement the separate `ext.schema/v1` schema interpreter.
 
 ## Choose the guest entry point
 

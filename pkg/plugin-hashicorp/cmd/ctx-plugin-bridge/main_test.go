@@ -20,7 +20,7 @@ import (
 )
 
 func TestConfiguration(t *testing.T) {
-	c := config{APIVersion: "ctx.bridge/v1", Descriptor: plugintest.Descriptor(), Process: hashicorp.Process{Executable: "/tmp/guest", SHA256: hex.EncodeToString(make([]byte, 32)), Protocol: "grpc"}, Allow: []permission{{Contract: plugintest.Descriptor().Contracts[0].ContractRef, Operation: "echo"}}}
+	c := config{APIVersion: "ext.bridge/v1", Descriptor: plugintest.Descriptor(), Process: hashicorp.Process{Executable: "/tmp/guest", SHA256: hex.EncodeToString(make([]byte, 32)), Protocol: "grpc"}, Allow: []permission{{Contract: plugintest.Descriptor().Contracts[0].ContractRef, Operation: "echo"}}}
 	for _, bad := range []string{"", "wrong"} {
 		c.APIVersion = bad
 		b, _ := json.Marshal(c)
@@ -30,7 +30,7 @@ func TestConfiguration(t *testing.T) {
 			t.Fatal("accepted unsupported config")
 		}
 	}
-	c.APIVersion = "ctx.bridge/v1"
+	c.APIVersion = "ext.bridge/v1"
 	if err := c.authorize(context.Background(), plugin.Request{Contract: c.Allow[0].Contract, Operation: "wait"}); !errors.Is(err, plugin.ErrDenied) {
 		t.Fatal(err)
 	}
@@ -55,7 +55,7 @@ func selection(t *testing.T, protocol string) (config, string) {
 	}
 	sum := sha256.Sum256(b)
 	d := plugintest.Descriptor()
-	c := config{APIVersion: "ctx.bridge/v1", Descriptor: d, Process: hashicorp.Process{Executable: guest, SHA256: hex.EncodeToString(sum[:]), Protocol: protocol, Arguments: []string{"--protocol", protocol}}}
+	c := config{APIVersion: "ext.bridge/v1", Descriptor: d, Process: hashicorp.Process{Executable: guest, SHA256: hex.EncodeToString(sum[:]), Protocol: protocol, Arguments: []string{"--protocol", protocol}}}
 	for _, op := range d.Contracts[0].Operations {
 		c.Allow = append(c.Allow, permission{Contract: d.Contracts[0].ContractRef, Operation: op.Name})
 	}

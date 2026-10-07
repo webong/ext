@@ -5,7 +5,7 @@ pub fn factory(a: w.Allocator) !sdk.author.Guest {
     var r = try sdk.author.Registry.init(a, .{ .id = "ctx/conformance", .revision = "fixture-1" });
     defer r.deinit();
     inline for (.{ "echo", "wait", "private-error", "public-error" }) |name| {
-        try r.register(w.Value, w.Value, .{ .contract = .{ .name = "ctx.conformance", .version = "v1" }, .operation = .{ .name = name } }, handle);
+        try r.register(w.Value, w.Value, .{ .contract = .{ .name = "ext.conformance", .version = "v1" }, .operation = .{ .name = name } }, handle);
     }
     return r.guest(allow);
 }

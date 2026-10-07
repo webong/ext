@@ -59,7 +59,7 @@ func TestGuestRequestMatrixDifferential(t *testing.T) {
 	mutations := []mutation{
 		{"base", func(*plugin.Request) {}},
 		{"api-version-empty", func(r *plugin.Request) { r.APIVersion = "" }},
-		{"api-version-other", func(r *plugin.Request) { r.APIVersion = "ctx.plugin/v2" }},
+		{"api-version-other", func(r *plugin.Request) { r.APIVersion = "ext.plugin/v2" }},
 		{"id-empty", func(r *plugin.Request) { r.ID = "" }},
 		{"id-long", func(r *plugin.Request) { r.ID = strings.Repeat("i", 4096) }},
 		{"plugin-id-other", func(r *plugin.Request) { r.Plugin.ID = "other" }},

@@ -1,1 +1,1 @@
-{"apiVersion":"ctx.plugin/v1","identity":{"id":"ctx/conformance","revision":"fixture-1"},"contracts":[{"name":"ctx.conformance","version":"v1","operations":[{"name":"echo"},{"name":"wait"},{"name":"private-error"},{"name":"public-error"}]}]}
+{"apiVersion":"ext.plugin/v1","identity":{"id":"ctx/conformance","revision":"fixture-1"},"contracts":[{"name":"ext.conformance","version":"v1","operations":[{"name":"echo"},{"name":"wait"},{"name":"private-error"},{"name":"public-error"}]}]}

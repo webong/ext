@@ -10,7 +10,7 @@ import (
 )
 
 func TestWireOptionalNullsAndErrors(t *testing.T) {
-	descriptor := json.RawMessage(`{"apiVersion":"ctx.plugin/v1","identity":{"id":"test","revision":"r1","version":null},"contracts":[{"name":"test","version":"v1","operations":[{"name":"echo","surface":null}]}]}`)
+	descriptor := json.RawMessage(`{"apiVersion":"ext.plugin/v1","identity":{"id":"test","revision":"r1","version":null},"contracts":[{"name":"test","version":"v1","operations":[{"name":"echo","surface":null}]}]}`)
 	var d plugin.Descriptor
 	if err := plugin.Decode(descriptor, &d); err != nil {
 		t.Fatal(err)
@@ -21,12 +21,12 @@ func TestWireOptionalNullsAndErrors(t *testing.T) {
 	if _, err := EngineCall("descriptor.validate", descriptor); err != nil {
 		t.Fatal(err)
 	}
-	request := json.RawMessage(`{"apiVersion":"ctx.plugin/v1","id":"1","plugin":{"id":"test","revision":"r1"},"contract":{"name":"test","version":"v1"},"operation":"echo","surface":null,"deadline":"2099-01-01T00:00:00Z"}`)
+	request := json.RawMessage(`{"apiVersion":"ext.plugin/v1","id":"1","plugin":{"id":"test","revision":"r1"},"contract":{"name":"test","version":"v1"},"operation":"echo","surface":null,"deadline":"2099-01-01T00:00:00Z"}`)
 	if _, err := service(t, "request.validate", map[string]any{"descriptor": descriptor, "request": request}); err != nil {
 		t.Fatal(err)
 	}
 	for _, body := range []string{`{"code":"busy"}`, `{"code":"busy","message":null}`, `{"code":"busy","retryAfterMilliseconds":null}`, `{"code":"busy","retryAfterMilliseconds":-0}`, `{"code":"busy","retryAfterMilliseconds":1e2}`, `{"code":"busy","retryAfterMilliseconds":-1}`, `{"code":"busy","message":7}`} {
-		raw := json.RawMessage(`{"apiVersion":"ctx.plugin/v1","id":"1","error":` + body + `}`)
+		raw := json.RawMessage(`{"apiVersion":"ext.plugin/v1","id":"1","error":` + body + `}`)
 		var r plugin.Response
 		want := plugin.Decode(raw, &r)
 		if want == nil {

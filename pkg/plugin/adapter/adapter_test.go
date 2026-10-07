@@ -393,3 +393,38 @@ func TestRejectsSymlinks(t *testing.T) {
 		t.Fatal("adapter containing a symlink was accepted")
 	}
 }
+
+func TestUnknownRuntimeIsAcceptedButInert(t *testing.T) {
+	root := t.TempDir()
+	directory := fixtureAdapter(t, root, "notes", "content")
+	manifestPath := filepath.Join(directory, "adapter.toml")
+	original, err := os.ReadFile(manifestPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// A selectable adapter of a runtime this host does not define is refused.
+	if _, err := LoadDirectory(directory); err == nil || !strings.Contains(err.Error(), "selectable") {
+		t.Fatalf("selectable unknown runtime: %v", err)
+	}
+	inert := strings.ReplaceAll(string(original), "selector_key = \"notes\"\n", "selectable = \"false\"\n")
+	inert = strings.ReplaceAll(inert, "commands = \"notes\"\n", "")
+	if err := os.WriteFile(manifestPath, []byte(inert), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	loaded, err := LoadDirectory(directory)
+	if err != nil {
+		t.Fatalf("inert unknown runtime: %v", err)
+	}
+	if loaded.IsKnownRuntime() || loaded.IsSelectable() || !loaded.IsRuntime("content") {
+		t.Fatalf("unexpected adapter: %#v", loaded.Manifest)
+	}
+	for _, name := range []string{"Bad Runtime", "share", "9lives", ""} {
+		bad := strings.ReplaceAll(inert, `runtime = "content"`, `runtime = "`+name+`"`)
+		if err := os.WriteFile(manifestPath, []byte(bad), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := LoadDirectory(directory); err == nil {
+			t.Fatalf("runtime %q must be rejected", name)
+		}
+	}
+}

@@ -49,6 +49,14 @@ var reservedNames = map[string]bool{
 	"credential": true,
 }
 
+// knownRuntimes are the runtimes whose manifest rules and behavior this library
+// defines. Any other well-formed runtime name is accepted but inert: a product
+// ignores adapters whose runtime it does not understand.
+var knownRuntimes = map[string]bool{"computer": true, "manager": true, "browser": true}
+
+// IsKnownRuntime reports whether this library defines the runtime.
+func IsKnownRuntime(runtime string) bool { return knownRuntimes[runtime] }
+
 type Manifest struct {
 	APIVersion           string
 	Name                 string
@@ -292,6 +300,10 @@ func (a *Adapter) HasBrowserShare(operation string) bool {
 func (a *Adapter) HasBrowserManagement(operation string) bool {
 	return a.IsRuntime("browser") && contains(a.Manifest.BrowserManagement, operation)
 }
+
+// IsKnownRuntime reports whether the adapter's runtime is one this library
+// defines; products should skip adapters for which it is false.
+func (a *Adapter) IsKnownRuntime() bool { return IsKnownRuntime(a.Manifest.Runtime) }
 
 func (a *Adapter) IsRuntime(runtimeName string) bool {
 	return a.Manifest.Runtime == runtimeName
@@ -571,8 +583,15 @@ func validateManifest(manifest Manifest, directory, goos string) error {
 	if !validName.MatchString(manifest.Name) || reservedNames[manifest.Name] {
 		return fmt.Errorf("invalid or reserved adapter name %s", manifest.Name)
 	}
-	if manifest.Runtime != "computer" && manifest.Runtime != "manager" && manifest.Runtime != "browser" {
+	if !IsKnownRuntime(manifest.Runtime) && (!validName.MatchString(manifest.Runtime) || reservedNames[manifest.Runtime]) {
 		return fmt.Errorf("adapter %s has invalid runtime %s", manifest.Name, manifest.Runtime)
+	}
+	if !IsKnownRuntime(manifest.Runtime) && manifest.Selectable {
+		// Selection semantics belong to the product that defines the runtime.
+		// Until a runtime is added to this library, adapters that declare it are
+		// inert to products that do not know it: installable and trustable, but
+		// never offered as a selection.
+		return fmt.Errorf("adapter %s uses runtime %s, which this host does not define; set selectable = \"false\"", manifest.Name, manifest.Runtime)
 	}
 	if len(manifest.Surfaces) == 0 {
 		return fmt.Errorf("adapter %s must declare at least one surface", manifest.Name)

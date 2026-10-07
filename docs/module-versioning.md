@@ -88,14 +88,14 @@ correct signal: it means the module is not yet independently consumable.
 Every module is tagged `v0.1.0`. The original modules were tagged on the commit that introduced the split; `pkg/plugin-go`, `pkg/plugin-cshared`, `pkg/plugin-hashicorp` and `pkg/plugin-wasm` were tagged later, after they were renamed out of `pkg/go` and `pkg/plugin/*`. That
 release was verified by resolving the tagged modules into a scratch module
 outside this repository: a consumer requiring only `pkg/plugin-go` and
-`res/web` resolved `pkg/plugin` transitively and pulled in no HashiCorp or
+`res/browser` resolved `pkg/plugin` transitively and pulled in no HashiCorp or
 WASI runtime, confirming the dependency isolation holds for real consumers.
 
 `pkg/graph/supervisor` was a module of its own at the original split and is now
 a package of the `pkg/graph` module. The unpublished `pkg/supervisor/v0.1.0` tag
 was deleted and no `pkg/supervisor` tag is cut again.
 
-Because nothing was published, the `pkg/graph`, `pkg/plugin` and `res/web`
+Because nothing was published, the `pkg/graph`, `pkg/plugin` and `res/browser`
 `v0.1.0` tags were moved from the original split commit to the tree that also
 carries the `pkg/plugin-*` tags, so every library's `v0.1.0` resolves to one
 coherent tree that includes the supervisor. Once any tag is pushed, tags are immutable:
@@ -110,6 +110,22 @@ Local tags are not yet reachable through the public module proxy. Pushing them
 is a separate, deliberate publication step, and `GOWORK=off` builds inside a
 library module keep failing until it happens. That is the expected signal, not
 a defect.
+
+## `res/browser` became `res/web`
+
+The browser resources module was renamed `res/web`, because web is the broader
+concept: browsers today and the web engine that runs web content through them.
+A module path and its tags are a pair, so this is a new module, not a new version:
+
+- `res/browser/v0.1.0` was already pushed. It is immutable, stays resolvable for
+  anything that still requires `github.com/webong/ext/res/browser`, and is the last
+  tag that path will ever have. Never move or delete it, and cut no further
+  `res/browser` tags.
+- `res/web/v0.1.0` is the first tag of the new path, cut on a tree whose `go.mod`
+  declares `github.com/webong/ext/res/web`.
+- A module that requires `res/web` cannot resolve it from the proxy until that tag is
+  pushed. The published `v0.1.0` tags of the adapters still require `res/browser`
+  and remain valid; their next release requires `res/web`.
 
 ## Verifying a release
 

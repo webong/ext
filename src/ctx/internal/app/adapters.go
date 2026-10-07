@@ -15,7 +15,7 @@ import (
 
 	"github.com/webong/ext/ctx/internal/config"
 	"github.com/webong/ext/ctx/internal/launch"
-	modpkg "github.com/webong/ext/ctx/internal/mod"
+	modpkg "github.com/webong/ext/pkg/plugin/adapter"
 )
 
 func adapterStore() *modpkg.Store {

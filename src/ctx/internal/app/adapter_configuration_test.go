@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	modpkg "github.com/webong/ext/ctx/internal/mod"
+	modpkg "github.com/webong/ext/pkg/plugin/adapter"
 )
 
 func TestAdapterConfigurationLineEndings(t *testing.T) {

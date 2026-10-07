@@ -252,7 +252,7 @@ versioned domain contracts may coexist in a descriptor.
 
 Run the end-to-end example with `go run ./examples/plugin`. Contract, admission,
 drain, integrity, malformed-frame, cancellation, concurrency, and CTX compatibility
-tests live under `pkg/plugin/`, `pkg/plugin/jsonline/`, and `internal/mod/plugin_test.go`.
+tests live under `pkg/plugin/`, `pkg/plugin/jsonline/`, and `pkg/plugin/adapter/plugin_test.go`.
 HashiCorp tests under `pkg/plugin-hashicorp/` launch real subprocesses over both
 RPC protocols with checksum verification and automatic TLS. They cover host
 admission, concurrent requests, structured errors, mismatch, cancellation, and

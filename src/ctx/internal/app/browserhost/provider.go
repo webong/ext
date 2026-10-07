@@ -12,15 +12,15 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/webong/ext/ctx/internal/mod"
 	"github.com/webong/ext/ctx/internal/platform"
+	modpkg "github.com/webong/ext/pkg/plugin/adapter"
 	"github.com/webong/ext/res/browser"
 )
 
 type Provider struct{ AdapterHome string }
 
 func (provider Provider) Sources(ctx context.Context, options browser.Options) ([]browser.Source, []string, error) {
-	store := mod.NewStore(adapterHome(provider.AdapterHome))
+	store := modpkg.NewStore(adapterHome(provider.AdapterHome))
 	selected, warnings, err := selectSources(ctx, store, options)
 	if err != nil {
 		return nil, warnings, err
@@ -40,7 +40,7 @@ func (provider Provider) Sources(ctx context.Context, options browser.Options) (
 }
 
 func (provider Provider) Normalize(ctx context.Context, name, profile string, request []byte) ([]byte, error) {
-	store := mod.NewStore(adapterHome(provider.AdapterHome))
+	store := modpkg.NewStore(adapterHome(provider.AdapterHome))
 	adapter, err := store.Load(name)
 	if err != nil {
 		return nil, err
@@ -69,12 +69,12 @@ func adapterHome(override string) string {
 }
 
 type selectedSource struct {
-	adapter *mod.Adapter
+	adapter *modpkg.Adapter
 	profile string
 	label   string
 }
 
-func selectSources(ctx context.Context, store *mod.Store, options browser.Options) ([]selectedSource, []string, error) {
+func selectSources(ctx context.Context, store *modpkg.Store, options browser.Options) ([]selectedSource, []string, error) {
 	if len(options.Sources) > 0 {
 		sources := make([]selectedSource, 0, len(options.Sources))
 		for _, endpoint := range options.Sources {
@@ -93,7 +93,7 @@ func selectSources(ctx context.Context, store *mod.Store, options browser.Option
 		}
 		return sources, nil, nil
 	}
-	var adapters []*mod.Adapter
+	var adapters []*modpkg.Adapter
 	if len(options.Browsers) > 0 {
 		for _, name := range options.Browsers {
 			adapter, err := store.Load(name)
@@ -182,20 +182,20 @@ func selectSources(ctx context.Context, store *mod.Store, options browser.Option
 	return sources, warnings, nil
 }
 
-func checkSource(store *mod.Store, adapter *mod.Adapter) error {
+func checkSource(store *modpkg.Store, adapter *modpkg.Adapter) error {
 	if !supportsCookieQuery(adapter) {
 		return fmt.Errorf("adapter %s does not support cookie queries", adapter.Manifest.Name)
 	}
 	return store.AssertTrusted(adapter)
 }
 
-func supportsCookieQuery(adapter *mod.Adapter) bool {
+func supportsCookieQuery(adapter *modpkg.Adapter) bool {
 	return adapter.IsRuntime("browser") && (adapter.HasBrowserShare("cookie.query") ||
 		(adapter.HasBrowserShare("cookie.list") && adapter.HasBrowserShare("cookie.export")))
 }
 
-func invoke(ctx context.Context, adapter *mod.Adapter, operation, profile string, args []string, input []byte) ([]byte, error) {
-	command, err := adapter.CommandContext(ctx, mod.Invocation{Operation: operation, Selection: profile, Arguments: args})
+func invoke(ctx context.Context, adapter *modpkg.Adapter, operation, profile string, args []string, input []byte) ([]byte, error) {
+	command, err := adapter.CommandContext(ctx, modpkg.Invocation{Operation: operation, Selection: profile, Arguments: args})
 	if err != nil {
 		return nil, err
 	}

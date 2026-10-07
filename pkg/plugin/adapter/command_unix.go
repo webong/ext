@@ -1,6 +1,6 @@
 //go:build !windows
 
-package mod
+package adapter
 
 import (
 	"context"

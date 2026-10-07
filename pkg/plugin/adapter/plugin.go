@@ -1,4 +1,4 @@
-package mod
+package adapter
 
 import "github.com/webong/ext/pkg/plugin"
 

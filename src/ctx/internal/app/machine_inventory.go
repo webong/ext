@@ -11,8 +11,8 @@ import (
 	"time"
 
 	"github.com/webong/ext/ctx/internal/config"
-	modpkg "github.com/webong/ext/ctx/internal/mod"
 	"github.com/webong/ext/pkg/graph/system"
+	modpkg "github.com/webong/ext/pkg/plugin/adapter"
 	browsershare "github.com/webong/ext/res/browser/contract"
 )
 

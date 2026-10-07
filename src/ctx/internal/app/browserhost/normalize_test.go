@@ -12,11 +12,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/webong/ext/ctx/internal/mod"
+	modpkg "github.com/webong/ext/pkg/plugin/adapter"
 	"github.com/webong/ext/res/browser"
 )
 
-func normalizeFixture(t *testing.T, operation, response string) (string, *mod.Store) {
+func normalizeFixture(t *testing.T, operation, response string) (string, *modpkg.Store) {
 	t.Helper()
 	if runtime.GOOS == "windows" {
 		t.Skip("fixture uses a POSIX shell")
@@ -34,7 +34,7 @@ func normalizeFixture(t *testing.T, operation, response string) (string, *mod.St
 			t.Fatal(err)
 		}
 	}
-	store := mod.NewStore(home)
+	store := modpkg.NewStore(home)
 	adapter, err := store.Install(source)
 	if err != nil {
 		t.Fatal(err)

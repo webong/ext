@@ -1,4 +1,4 @@
-package mod
+package adapter
 
 import (
 	"encoding/base64"

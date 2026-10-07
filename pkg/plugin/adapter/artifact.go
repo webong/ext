@@ -1,4 +1,4 @@
-package mod
+package adapter
 
 import (
 	"archive/zip"

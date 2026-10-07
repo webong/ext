@@ -87,8 +87,10 @@ Product adapter engines and stores that are reused across adapters
 and resolved by `src/ctx/go.mod` while unpublished. Product adapter
 executables use the same plugin library. `pkg/plugin` owns the
 adapter process protocol and adapter descriptor helpers. Adapters import
-`pkg/plugin` directly to build guests, while CTX `internal/` imports it to
-build hosts.
+`pkg/plugin` directly to build guests. Hosts, in any product, import
+`pkg/plugin` and `pkg/plugin/adapter`, which owns manifests, the installed
+store, trust and invocation; a product keeps only its own selection and
+commands.
 
 Language SDKs and bindings belong under `pkg/<language>/` (Go, Rust, Zig and
 TypeScript), with language-specific embedding examples alongside them. Keep

@@ -15,7 +15,7 @@ import (
 	"strings"
 
 	"github.com/webong/ext/ctx/internal/config"
-	modpkg "github.com/webong/ext/ctx/internal/mod"
+	modpkg "github.com/webong/ext/pkg/plugin/adapter"
 )
 
 func computerCommand(args []string, stdout, stderr io.Writer) int {

@@ -12,12 +12,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/webong/ext/ctx/internal/mod"
+	modpkg "github.com/webong/ext/pkg/plugin/adapter"
 	"github.com/webong/ext/res/browser"
 	browsercontract "github.com/webong/ext/res/browser/contract"
 )
 
-func installQueryFixture(t *testing.T, store *mod.Store, name string, priority int, auto bool, query string, legacy bool) {
+func installQueryFixture(t *testing.T, store *modpkg.Store, name string, priority int, auto bool, query string, legacy bool) {
 	t.Helper()
 	if runtime.GOOS == "windows" {
 		t.Skip("fixture uses a POSIX shell")
@@ -54,7 +54,7 @@ func cookieResponse(value string) string {
 
 func TestQuerySourceOrderFallbackAndTrust(t *testing.T) {
 	home := filepath.Join(t.TempDir(), "adapters")
-	store := mod.NewStore(home)
+	store := modpkg.NewStore(home)
 	installQueryFixture(t, store, "alpha", 20, true, cookieResponse("alpha"), false)
 	installQueryFixture(t, store, "beta", 10, true, cookieResponse("beta"), false)
 	installQueryFixture(t, store, "optin", 0, false, cookieResponse("optin"), false)
@@ -88,7 +88,7 @@ func TestQuerySourceOrderFallbackAndTrust(t *testing.T) {
 
 func TestQueryCancellationAndMalformedSources(t *testing.T) {
 	home := filepath.Join(t.TempDir(), "adapters")
-	store := mod.NewStore(home)
+	store := modpkg.NewStore(home)
 	installQueryFixture(t, store, "slow", 10, true, "sleep 5 & wait", false)
 	start := time.Now()
 	result, err := browser.Get(context.Background(), browser.Options{URL: "https://example.test", Sources: []string{"slow:default"}, Backend: Provider{AdapterHome: home}, Timeout: 50 * time.Millisecond})
@@ -109,7 +109,7 @@ func TestQueryCancellationAndMalformedSources(t *testing.T) {
 
 func TestLegacyQueryContinuesAfterIndividualExportFailure(t *testing.T) {
 	home := filepath.Join(t.TempDir(), "adapters")
-	store := mod.NewStore(home)
+	store := modpkg.NewStore(home)
 	script := `request=$(cat)
 if [ "$5" = list ]; then
 printf '%s' '[{"id":1,"name":"bad","value":"","domain":"example.test","path":"/"},{"id":2,"name":"good","value":"","domain":"example.test","path":"/"}]'

@@ -12,7 +12,7 @@ import (
 	"strings"
 
 	"github.com/webong/ext/ctx/internal/config"
-	modpkg "github.com/webong/ext/ctx/internal/mod"
+	modpkg "github.com/webong/ext/pkg/plugin/adapter"
 	"github.com/webong/ext/res/browser"
 	browsershare "github.com/webong/ext/res/browser/contract"
 )

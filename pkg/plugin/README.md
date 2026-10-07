@@ -7,6 +7,7 @@ backends that carry it.
 | Package | Role |
 | --- | --- |
 | `pkg/plugin` | Contract, validation, selection, requirements, session lifecycle and observation |
+| `pkg/plugin/adapter` | Host side of adapters, usable by any ext product: manifests, the installed store, packaging and indexes, trust and invocation. The process protocol adapter executables speak is in the root package (`adapter.go`). |
 | `pkg/plugin/inprocess` | Trusted endpoints with connection lifetime cancellation |
 | `pkg/plugin/jsonline` | Bounded JSON-line transport over a supplied duplex connection |
 | `pkg/plugin/nativego` | Native Go plugin loading |

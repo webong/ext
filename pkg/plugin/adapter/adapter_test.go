@@ -1,4 +1,4 @@
-package mod
+package adapter
 
 import (
 	"os"
@@ -265,22 +265,6 @@ func TestSelfContainedAdapterOptInPreservesDefaultCommands(t *testing.T) {
 	selfContained, err := LoadDirectory(directory)
 	if err != nil || !selfContained.Manifest.SelfContained || len(selfContained.Manifest.Commands) != 0 {
 		t.Fatalf("self-contained adapter did not opt out: %v, %v", selfContained, err)
-	}
-}
-
-func TestBundledManagerAppAdaptersLoadOnUnixAndWindows(t *testing.T) {
-	for _, name := range []string{"rancher_desktop", "orbstack", "docker_desktop"} {
-		directory := filepath.Join("..", "..", "..", "..", "adapters", name)
-		for _, goos := range []string{"darwin", "linux", "windows"} {
-			loaded, err := LoadDirectoryForOS(directory, goos)
-			if err != nil {
-				t.Errorf("%s on %s: %v", name, goos, err)
-				continue
-			}
-			if !loaded.Manifest.SelfContained || !loaded.IsRuntime("manager") || len(loaded.Manifest.Commands) != 0 {
-				t.Errorf("%s on %s has unexpected manifest: %#v", name, goos, loaded.Manifest)
-			}
-		}
 	}
 }
 

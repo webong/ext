@@ -24,7 +24,8 @@ other ecosystem consumers build on them; `internal/` stays private to CTX and
 must not be imported by consumers.
 
 The repository root is only the workspace: it holds `go.work` and no Go module or
-package. Bare `vX.Y.Z` tags currently name ctx binary releases, not Go module versions.
+package. Binary releases use product tags, `ctx-vX.Y.Z` and `ctn-vX.Y.Z`; those are not Go
+module versions. Bare `vX.Y.Z` tags are not used.
 `src/` is a container like `res/`; the context manager is the module
 `src/ctx` (`src/ctx/cmd/ctx`, with its private code in `src/ctx/internal`) and
 the content manager is `src/ctn`. This repository is ext: it provides libraries

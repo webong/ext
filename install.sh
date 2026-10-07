@@ -54,9 +54,15 @@ else
   if [ -n "${CTX_RELEASE_BASE:-}" ]; then
     release_base=${CTX_RELEASE_BASE%/}
   else
-    release=latest/download
-    [ "$VERSION" = latest ] || release="download/$VERSION"
-    release_base="https://github.com/webong/ext/releases/$release"
+    if [ "$VERSION" = latest ]; then
+      # GitHub's "latest" is repository-wide and may be another product's release.
+      tag=$(curl -fsSL "https://api.github.com/repos/webong/ext/releases?per_page=100" |
+        grep -o '"tag_name": *"ctx-v[^"]*"' | head -n 1 | sed 's/.*"\(ctx-v[^"]*\)"/\1/')
+      [ -n "$tag" ] || { printf 'ctx: no ctx release was found\n' >&2; exit 1; }
+    else
+      case "$VERSION" in ctx-v*) tag=$VERSION;; v*) tag=ctx-$VERSION;; *) tag=ctx-v$VERSION;; esac
+    fi
+    release_base="https://github.com/webong/ext/releases/download/$tag"
   fi
   archive="$temporary/$asset"
   curl -fsSL "$release_base/$asset" -o "$archive"

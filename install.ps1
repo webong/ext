@@ -52,8 +52,16 @@ else {
         'arm64' { 'arm64' }
         default { throw "Unsupported Windows architecture: $_" }
     }
-    $release = if ($Version -eq 'latest') { 'latest/download' } else { "download/$Version" }
-    $releaseBase = "https://github.com/webong/ext/releases/$release"
+    if ($Version -eq 'latest') {
+        # GitHub's "latest" is repository-wide and may be another product's release.
+        $tag = (Invoke-RestMethod -UseBasicParsing -Uri 'https://api.github.com/repos/webong/ext/releases?per_page=100' |
+            Where-Object { $_.tag_name -like 'ctx-v*' } | Select-Object -First 1).tag_name
+        if (-not $tag) { throw 'No ctx release was found.' }
+    }
+    elseif ($Version -like 'ctx-v*') { $tag = $Version }
+    elseif ($Version -like 'v*') { $tag = "ctx-$Version" }
+    else { $tag = "ctx-v$Version" }
+    $releaseBase = "https://github.com/webong/ext/releases/download/$tag"
     $asset = "ctx-windows-$architecture.zip"
     $downloadRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("ctx-install-" + [guid]::NewGuid().ToString('N'))
     New-Item -ItemType Directory -Force -Path $downloadRoot | Out-Null

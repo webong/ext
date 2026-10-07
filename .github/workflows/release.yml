@@ -2,7 +2,7 @@ name: Release native bundles
 
 on:
   push:
-    tags: ['v*']
+    tags: ['ctx-v*', 'ctn-v*']
 
 permissions:
   contents: write
@@ -11,6 +11,7 @@ permissions:
 
 jobs:
   keychain:
+    if: startsWith(github.ref_name, 'ctx-v')
     env:
       MACOSX_DEPLOYMENT_TARGET: '11.0'
     strategy:
@@ -39,6 +40,7 @@ jobs:
 
   release:
     needs: keychain
+    if: startsWith(github.ref_name, 'ctx-v')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -61,7 +63,7 @@ jobs:
           done
       - run: ./tests/native_test.sh
       - run: ./tests/native_installer_test.sh
-      - run: sh ./scripts/build-release.sh "$GITHUB_REF_NAME" dist
+      - run: sh ./scripts/build-release.sh "${GITHUB_REF_NAME#ctx-}" dist
         env:
           CTX_KEYCHAIN_AMD64: ${{ github.workspace }}/native-keychain/amd64/ctx-keychain
           CTX_KEYCHAIN_ARM64: ${{ github.workspace }}/native-keychain/arm64/ctx-keychain
@@ -75,3 +77,29 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh release create "$GITHUB_REF_NAME" dist/* --verify-tag --generate-notes --title "$GITHUB_REF_NAME"
+
+  release-ctn:
+    if: startsWith(github.ref_name, 'ctn-v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.x'
+          cache: true
+      - name: Test ctn and the libraries it builds on
+        run: |
+          for module in src/ctn pkg/graph pkg/plugin res/browser res/credential; do
+            (cd "$module" && go test ./...) || exit 1
+          done
+      - run: sh ./scripts/build-release-ctn.sh "${GITHUB_REF_NAME#ctn-}" dist
+      - name: Create checksums
+        run: (cd dist && sha256sum ctn-* > checksums.txt)
+      - name: Attest release provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: 'dist/*'
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist/* --verify-tag --generate-notes --title "$GITHUB_REF_NAME" --latest=false

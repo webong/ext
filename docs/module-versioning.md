@@ -68,10 +68,16 @@ because they are the modules developers build and run. Those are what let
 `go build ./...` use local module code. The repository root is not a module: it
 holds `go.work` only, so it has no `go.mod` and Go resolves no module there.
 
-A bare `vX.Y.Z` tag is therefore not a Go module version. It names a CLI binary
-release: the release workflow builds and publishes the native bundles when one
-is pushed, and `install.sh` downloads releases by that name. Library modules
-never use bare tags.
+Binary releases are tagged per product, `ctx-vX.Y.Z` and `ctn-vX.Y.Z`, and are
+not Go module versions. Pushing one runs the release workflow for that product
+only: `ctx-v*` builds and publishes the ctx native bundles with
+`scripts/build-release.sh`, and `ctn-v*` builds the ctn bundles with
+`scripts/build-release-ctn.sh`. The names use a dash, not a slash, because a
+slash would read as a Go module tag for a directory that does not exist and
+makes download URLs ambiguous. GitHub's "latest" release is repository-wide, so
+`install.sh` and `install.ps1` resolve the newest `ctx-v*` release instead of
+`latest/download`, and ctn releases are published with `--latest=false`.
+Library modules never use these tags, and bare `vX.Y.Z` tags are not used.
 
 Because of this, `GOWORK=off go build ./...` inside a library module fails until
 that dependency is published at the required version. That failure is the

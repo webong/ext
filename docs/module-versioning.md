@@ -77,6 +77,12 @@ outside this repository: a consumer requiring only `pkg/plugin-go` and
 `res/browser` resolved `pkg/plugin` transitively and pulled in no HashiCorp or
 WASI runtime, confirming the dependency isolation holds for real consumers.
 
+`pkg/graph/supervisor` was a module of its own at this baseline and is now a
+package of the `pkg/graph` module. The unpublished `pkg/supervisor/v0.1.0` tag
+was deleted and no `pkg/supervisor` tag is cut again. `pkg/graph/v0.1.0` does not
+contain the supervisor, so the first `pkg/graph` tag that includes it is an
+additive `v0.2.0`.
+
 Local tags are not yet reachable through the public module proxy. Pushing them
 is a separate, deliberate publication step, and `GOWORK=off` builds inside a
 library module keep failing until it happens. That is the expected signal, not

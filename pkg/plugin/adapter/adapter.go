@@ -609,7 +609,10 @@ func validateManifest(manifest Manifest, directory, goos string) error {
 	if manifest.DefaultProvider && manifest.Runtime != "manager" {
 		return fmt.Errorf("adapter %s can only be a default provider for the manager runtime", manifest.Name)
 	}
-	if manifest.SelfContained && (len(manifest.Commands) != 0 || len(manifest.ComputerCommands) != 0) {
+	// A self-contained adapter is its own implementation and has no native
+	// executable for the host to find. Only a computer adapter may still name
+	// the commands it answers to (its computer_commands).
+	if manifest.SelfContained && (len(manifest.Commands) != 0 || (len(manifest.ComputerCommands) != 0 && manifest.Runtime != "computer")) {
 		return fmt.Errorf("adapter %s cannot declare native commands when self_contained is true", manifest.Name)
 	}
 	if manifest.Selectable && !hasComputerEndpoint(manifest) && manifest.SelectorKey == "" {

@@ -428,3 +428,34 @@ func TestUnknownRuntimeIsAcceptedButInert(t *testing.T) {
 		}
 	}
 }
+
+func TestSelfContainedComputerAdapterMayNameItsCommands(t *testing.T) {
+	root := t.TempDir()
+	directory := fixtureAdapter(t, root, "engine_tool", "computer")
+	manifestPath := filepath.Join(directory, "adapter.toml")
+	original, err := os.ReadFile(manifestPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The adapter is its own implementation: it answers to a command but has no
+	// native executable for the host to locate.
+	contents := strings.ReplaceAll(string(original), "commands = \"engine_tool\"\n", "computer_commands = \"engine_tool\"\nself_contained = \"true\"\n")
+	if err := os.WriteFile(manifestPath, []byte(contents), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	loaded, err := LoadDirectory(directory)
+	if err != nil {
+		t.Fatalf("self-contained computer adapter: %v", err)
+	}
+	if !loaded.Manifest.SelfContained || !loaded.HasComputerCommand("engine_tool") {
+		t.Fatalf("unexpected manifest: %#v", loaded.Manifest)
+	}
+	// Native commands still contradict self_contained.
+	native := strings.ReplaceAll(contents, "self_contained", "commands = \"engine_tool\"\nself_contained")
+	if err := os.WriteFile(manifestPath, []byte(native), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := LoadDirectory(directory); err == nil {
+		t.Fatal("native commands with self_contained must be rejected")
+	}
+}

@@ -86,6 +86,14 @@ from `JAVA_HOME`, SDKMAN, `~/.jdks`, asdf, Homebrew and the system locations
 (`ctx set jvm 21`). It runs `java`, `javac` or `jar` from the selected
 installation with `JAVA_HOME` set, without changing the host's default Java.
 
+`wasm` is the built-in WebAssembly engine. It is self-contained: modules run in the
+embedded wazero runtime (WASI Preview 1), so it needs no system runtime and works
+on every platform ext builds for, including headless machines. `ctx run wasm
+module.wasm args...` needs no selection. The module is sandboxed: it sees no host
+environment, filesystem or network unless a flag grants one (`--env K=V`,
+`--dir GUEST=HOST`, `--ro-dir GUEST=HOST`), and `--timeout` and `--memory-pages`
+bound it. Standard streams belong to the command line and are connected.
+
 `git` is an optional computer-runtime adapter for Git commands and repository
 hooks. It adds no Git shim. Its hook subcommand writes marked blocks to shell
 hooks without changing `core.hooksPath`; an explicit directory can target an

@@ -644,7 +644,9 @@ func invokeAdapterIOWithEnv(resolver *config.Resolver, candidate *modpkg.Adapter
 				return reportErrorCode(stderr, err, 127)
 			}
 			realCommand = override
-		} else if commandName != "" {
+		} else if commandName != "" && !(candidate.Manifest.SelfContained && candidate.IsRuntime("computer")) {
+			// A self-contained computer adapter is the implementation, so there is
+			// no native executable to locate.
 			var err error
 			realCommand, err = launch.FindReal(commandName)
 			if err != nil {

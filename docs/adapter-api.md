@@ -235,6 +235,10 @@ selectors before calling the adapter, so adapters continue to receive their
 native selection. `ctx manager doctor` checks toolchain paths and host-side
 manager issues without changing any configuration.
 
+A computer adapter may also set `self_contained = "true"` while declaring
+`computer_commands`: it is then its own implementation, and ctx does not look for
+a native executable of that name. The built-in `wasm` engine works this way.
+
 An API v2.0 manager adapter may set `self_contained = "true"` and omit
 `commands` when its executable handles its own native CLI discovery. Without
 this opt-in, `commands` still defaults to the adapter name. Manager-app adapters declare

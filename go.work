@@ -9,6 +9,7 @@ use (
 	./adapters/credman
 	./adapters/keychain
 	./adapters/git
+	./adapters/wasm
 	./adapters/zen
 	./adapters/waterfox
 	./adapters/librewolf

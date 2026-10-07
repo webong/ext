@@ -4,6 +4,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -108,6 +109,7 @@ func execute(arguments []string, stdin io.Reader, stdout, stderr io.Writer) int 
 	flags.Var(readonly, "ro-dir", "mount a host directory read-only: GUEST=HOST (repeatable)")
 	flags.Var(env, "env", "set an environment variable: KEY=VALUE (repeatable)")
 	timeout := flags.Duration("timeout", 0, "stop the module after this long (0 means no limit)")
+	inspect := flags.Bool("inspect", false, "report what the module imports and whether this engine can run it, without running it")
 	pages := flags.Uint("memory-pages", 0, "linear memory limit in 64 KiB pages (0 uses the default)")
 	if err := flags.Parse(arguments); err != nil {
 		return 2
@@ -121,6 +123,20 @@ func execute(arguments []string, stdin io.Reader, stdout, stderr io.Writer) int 
 	if err != nil {
 		fmt.Fprintf(stderr, "wasm: %v\n", err)
 		return 1
+	}
+	// Choose by what the module needs, not by what the machine has: this engine
+	// runs WASI and pure modules, and says precisely why it cannot run others.
+	inspection, err := wasm.Inspect(context.Background(), module)
+	if err != nil {
+		fmt.Fprintf(stderr, "wasm: %v\n", err)
+		return 1
+	}
+	if *inspect {
+		return report(stdout, inspection)
+	}
+	if inspection.Target == wasm.TargetHost {
+		fmt.Fprintf(stderr, "wasm: %s\n", refusal(rest[0], inspection))
+		return 126
 	}
 	ctx := context.Background()
 	if *timeout > 0 {
@@ -145,6 +161,36 @@ func execute(arguments []string, stdin io.Reader, stdout, stderr io.Writer) int 
 		return 1
 	}
 	return code
+}
+
+// report prints the inspection and whether the built-in engine can run it.
+func report(stdout io.Writer, inspection wasm.Inspection) int {
+	runnable := inspection.Target != wasm.TargetHost
+	engineName := engine
+	if !runnable {
+		engineName = "none available"
+	}
+	data, err := json.Marshal(struct {
+		wasm.Inspection
+		Runnable bool   `json:"runnable"`
+		Engine   string `json:"engine"`
+	}{inspection, runnable, engineName})
+	if err != nil {
+		return 1
+	}
+	fmt.Fprintln(stdout, string(data))
+	return 0
+}
+
+// refusal explains why the built-in engine cannot run a module.
+func refusal(path string, inspection wasm.Inspection) string {
+	modules := strings.Join(inspection.Unsupported, ", ")
+	if inspection.Web {
+		return fmt.Sprintf("%s is a web module: it imports JavaScript glue (%s). The built-in engine runs WASI and pure modules only, "+
+			"and running web modules needs a webview engine, which is not installed.", path, modules)
+	}
+	return fmt.Sprintf("%s imports host functions the built-in engine does not provide (%s). "+
+		"It runs WASI Preview 1 and pure modules only.", path, modules)
 }
 
 func readModule(path string) ([]byte, error) {

@@ -140,3 +140,67 @@ func TestRunTimeoutAndUsage(t *testing.T) {
 		t.Fatalf("an invalid module must fail: %d", code)
 	}
 }
+
+func leb(n int) []byte {
+	var out []byte
+	for {
+		b := byte(n & 0x7f)
+		n >>= 7
+		if n != 0 {
+			out = append(out, b|0x80)
+			continue
+		}
+		return append(out, b)
+	}
+}
+
+func text(s string) []byte { return append(leb(len(s)), s...) }
+
+// moduleImporting builds a module whose only content is one function import.
+func moduleImporting(t *testing.T, module, field string) string {
+	t.Helper()
+	bytes := []byte{0, 'a', 's', 'm', 1, 0, 0, 0, 1, 4, 1, 0x60, 0, 0}
+	body := append(append(append([]byte{1}, text(module)...), text(field)...), 0x00, 0x00)
+	bytes = append(append(append(bytes, 2), leb(len(body))...), body...)
+	path := filepath.Join(t.TempDir(), module+".wasm")
+	if err := os.WriteFile(path, bytes, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
+
+func TestAutoChoosesByWhatTheModuleNeeds(t *testing.T) {
+	wasi := buildGuest(t)
+	code, stdout, _ := invoke("run", "--", "--inspect", wasi)
+	if code != 0 || !strings.Contains(stdout, `"target":"wasi"`) || !strings.Contains(stdout, `"runnable":true`) || !strings.Contains(stdout, `"engine":"embedded"`) {
+		t.Fatalf("WASI module: %d %q", code, stdout)
+	}
+	web := moduleImporting(t, "wbg", "__wbg_alert")
+	code, stdout, _ = invoke("run", "--", "--inspect", web)
+	if code != 0 || !strings.Contains(stdout, `"target":"host"`) || !strings.Contains(stdout, `"web":true`) ||
+		!strings.Contains(stdout, `"runnable":false`) || !strings.Contains(stdout, `"engine":"none available"`) {
+		t.Fatalf("web module: %d %q", code, stdout)
+	}
+}
+
+func TestWebModulesGetAPreciseRefusal(t *testing.T) {
+	web := moduleImporting(t, "wbg", "__wbg_alert")
+	code, stdout, stderr := invoke("run", "--", web)
+	if code != 126 || stdout != "" {
+		t.Fatalf("a web module must not run: %d %q", code, stdout)
+	}
+	for _, want := range []string{"web module", "wbg", "webview engine", "not installed"} {
+		if !strings.Contains(stderr, want) {
+			t.Errorf("message %q does not mention %q", stderr, want)
+		}
+	}
+	other := moduleImporting(t, "env", "host_log")
+	code, _, stderr = invoke("run", "--", other)
+	if code != 126 || !strings.Contains(stderr, "host functions") || strings.Contains(stderr, "web module") {
+		t.Fatalf("an unknown host import: %d %q", code, stderr)
+	}
+	// An explicit webview selection is refused before any module is read.
+	if code, _, stderr := invoke("run", "webview", "--", web); code != 1 || !strings.Contains(stderr, "not available") {
+		t.Fatalf("explicit webview: %d %q", code, stderr)
+	}
+}

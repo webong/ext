@@ -94,6 +94,14 @@ environment, filesystem or network unless a flag grants one (`--env K=V`,
 `--dir GUEST=HOST`, `--ro-dir GUEST=HOST`), and `--timeout` and `--memory-pages`
 bound it. Standard streams belong to the command line and are connected.
 
+The engine is chosen by what the module needs, not by what the machine has. A WASI
+or pure module runs here, always. A web module (one that imports JavaScript glue
+such as wasm-bindgen's `wbg`, Go's `gojs` or Emscripten's web runtime) cannot, and
+`ctx run wasm` stops with exit status 126 and says so, instead of failing on the
+first missing import. A webview engine for such modules is not installed or built
+yet. `--inspect` reports what a module imports and whether it can run, without
+running it.
+
 `git` is an optional computer-runtime adapter for Git commands and repository
 hooks. It adds no Git shim. Its hook subcommand writes marked blocks to shell
 hooks without changing `core.hooksPath`; an explicit directory can target an

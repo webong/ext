@@ -88,7 +88,7 @@ installation with `JAVA_HOME` set, without changing the host's default Java.
 
 `wasm` is the built-in WebAssembly engine. It is self-contained: modules run in the
 embedded wazero runtime (WASI Preview 1), so it needs no system runtime and works
-on every platform ext builds for, including headless machines. `ctx run wasm
+on every platform ext builds for. `ctx run wasm
 module.wasm args...` needs no selection. The module is sandboxed: it sees no host
 environment, filesystem or network unless a flag grants one (`--env K=V`,
 `--dir GUEST=HOST`, `--ro-dir GUEST=HOST`), and `--timeout` and `--memory-pages`
@@ -101,6 +101,8 @@ such as wasm-bindgen's `wbg`, Go's `gojs` or Emscripten's web runtime) cannot, a
 first missing import. A webview engine for such modules is not installed or built
 yet. `--inspect` reports what a module imports and whether it can run, without
 running it.
+A WebAssembly component (WASI Preview 2) is also refused with exit status 126, naming
+the component model, until a runtime that supports it is offered.
 
 `evm` is the built-in EVM engine. It executes EVM bytecode in memory with no
 blockchain, node or network, so it is deterministic and sandboxed. The selection is

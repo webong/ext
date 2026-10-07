@@ -163,7 +163,7 @@ func execute(arguments []string, stdin io.Reader, stdout, stderr io.Writer) int 
 	if *inspect {
 		return report(stdout, inspection)
 	}
-	if inspection.Target == wasm.TargetHost {
+	if inspection.Target == wasm.TargetComponent || inspection.Target == wasm.TargetHost {
 		fmt.Fprintf(stderr, "wasm: %s\n", refusal(rest[0], inspection))
 		return 126
 	}
@@ -194,7 +194,7 @@ func execute(arguments []string, stdin io.Reader, stdout, stderr io.Writer) int 
 
 // report prints the inspection and whether the built-in engine can run it.
 func report(stdout io.Writer, inspection wasm.Inspection) int {
-	runnable := inspection.Target != wasm.TargetHost
+	runnable := inspection.Target != wasm.TargetHost && inspection.Target != wasm.TargetComponent
 	engineName := engine
 	if !runnable {
 		engineName = "none available"
@@ -213,6 +213,11 @@ func report(stdout io.Writer, inspection wasm.Inspection) int {
 
 // refusal explains why the built-in engine cannot run a module.
 func refusal(path string, inspection wasm.Inspection) string {
+	if inspection.Target == wasm.TargetComponent {
+		return fmt.Sprintf("%s is a WebAssembly component (the component model, WASI Preview 2). The built-in engine runs core "+
+			"modules (WASI Preview 1) only, and running components needs a runtime that supports them, such as wasmtime, "+
+			"which ctx does not offer yet.", path)
+	}
 	modules := strings.Join(inspection.Unsupported, ", ")
 	if inspection.Web {
 		return fmt.Sprintf("%s is a web module: it imports JavaScript glue (%s). The built-in engine runs WASI and pure modules only, "+

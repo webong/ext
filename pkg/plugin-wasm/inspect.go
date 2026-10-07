@@ -21,6 +21,9 @@ const (
 	// TargetHost modules import functions RunCommand cannot supply, typically
 	// JavaScript glue for a browser or another embedder.
 	TargetHost Target = "host"
+	// TargetComponent is a WebAssembly component (the component model, WASI
+	// Preview 2). RunCommand runs core modules only.
+	TargetComponent Target = "component"
 )
 
 // Inspection summarizes a module's imports without running it.
@@ -44,6 +47,9 @@ var wasiModules = map[string]bool{"wasi_snapshot_preview1": true}
 func Inspect(ctx context.Context, module []byte) (Inspection, error) {
 	if len(module) == 0 || len(module) > MaxModuleBytes {
 		return Inspection{}, plugin.ErrInvalid
+	}
+	if isComponent(module) {
+		return Inspection{Target: TargetComponent, Imports: []string{}}, nil
 	}
 	runtime := wazero.NewRuntime(ctx)
 	defer runtime.Close(context.Background())
@@ -83,6 +89,13 @@ func Inspect(ctx context.Context, module []byte) (Inspection, error) {
 		inspection.Imports = []string{}
 	}
 	return inspection, nil
+}
+
+// isComponent reports whether the bytes are a component, whose header carries
+// version 0x0d and layer 1 where a core module carries version 1 and layer 0.
+func isComponent(module []byte) bool {
+	return len(module) >= 8 && string(module[:4]) == "\x00asm" &&
+		module[4] == 0x0d && module[5] == 0 && module[6] == 0x01 && module[7] == 0
 }
 
 // looksWeb recognizes the import modules and functions that browser-oriented

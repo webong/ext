@@ -77,3 +77,20 @@ func TestInspectRejectsInvalidModules(t *testing.T) {
 		}
 	}
 }
+
+func TestInspectRecognizesComponents(t *testing.T) {
+	component := []byte{0, 'a', 's', 'm', 0x0d, 0, 0x01, 0}
+	got, err := Inspect(context.Background(), component)
+	if err != nil || got.Target != TargetComponent || len(got.Imports) != 0 {
+		t.Fatalf("component: %+v %v", got, err)
+	}
+	// A core module has version 1, layer 0.
+	core := []byte{0, 'a', 's', 'm', 1, 0, 0, 0}
+	if got, err := Inspect(context.Background(), core); err != nil || got.Target != TargetNone {
+		t.Fatalf("core module: %+v %v", got, err)
+	}
+	// RunCommand runs core modules only, and says so instead of failing obscurely.
+	if _, err := RunCommand(context.Background(), component, CommandOptions{}); err == nil {
+		t.Fatal("a component must not run on the core engine")
+	}
+}

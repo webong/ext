@@ -205,3 +205,18 @@ func TestWebModulesGetAPreciseRefusal(t *testing.T) {
 		t.Fatalf("explicit webview: %d %q", code, stderr)
 	}
 }
+
+func TestComponentsGetAPreciseRefusal(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "component.wasm")
+	if err := os.WriteFile(path, []byte{0, 'a', 's', 'm', 0x0d, 0, 0x01, 0}, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	code, stdout, stderr := invoke("run", "--", path)
+	if code != 126 || stdout != "" || !strings.Contains(stderr, "component") || !strings.Contains(stderr, "wasmtime") {
+		t.Fatalf("component: %d %q %q", code, stdout, stderr)
+	}
+	code, stdout, _ = invoke("run", "--", "--inspect", path)
+	if code != 0 || !strings.Contains(stdout, `"target":"component"`) || !strings.Contains(stdout, `"runnable":false`) {
+		t.Fatalf("inspect component: %d %q", code, stdout)
+	}
+}

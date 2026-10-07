@@ -82,9 +82,9 @@ a package of the `pkg/graph` module. The unpublished `pkg/supervisor/v0.1.0` tag
 was deleted and no `pkg/supervisor` tag is cut again.
 
 Because nothing was published, the `pkg/graph`, `pkg/plugin` and `res/browser`
-`v0.1.0` tags were moved from the original split commit to the commit that
-tagged the `pkg/plugin-*` modules, so every `v0.1.0` resolves to one coherent
-tree that includes the supervisor. Once any tag is pushed, tags are immutable:
+`v0.1.0` tags were moved from the original split commit to the tree that also
+carries the `pkg/plugin-*` tags, so every library's `v0.1.0` resolves to one
+coherent tree that includes the supervisor. Once any tag is pushed, tags are immutable:
 never move one again, and release changes under a new version.
 
 Local tags are not yet reachable through the public module proxy. Pushing them

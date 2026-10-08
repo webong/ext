@@ -973,7 +973,7 @@ static void manager_execute(napi_env env, void *data) {
       do {
         j->status = ext_instances_destroy(m->instances);
         if (j->status == EXT_DRAINING)
-          usleep(10000);
+          nanosleep(&(struct timespec){0, 10000000}, NULL);
       } while (j->status == EXT_DRAINING &&
                !ext_cancel_is_signaled(j->options.cancel) && now() < end);
     } else
@@ -1001,7 +1001,7 @@ static void manager_execute(napi_env env, void *data) {
       do {
         j->status = ext_streams_destroy(m->streams);
         if (j->status == EXT_DRAINING)
-          usleep(10000);
+          nanosleep(&(struct timespec){0, 10000000}, NULL);
       } while (j->status == EXT_DRAINING &&
                !ext_cancel_is_signaled(j->options.cancel) && now() < end);
     } else

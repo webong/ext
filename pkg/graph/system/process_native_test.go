@@ -205,7 +205,14 @@ func requireProcessFixtureResource(t *testing.T, p ProcessInfo, kind, value stri
 			return
 		}
 	}
-	t.Fatalf("missing fixture %s %q; coverage=%+v", kind, value, p.Coverage[kind])
+	// List what was observed, so a platform where the fixture is not matched shows why.
+	var seen []string
+	for _, r := range p.Resources {
+		if r.Kind == kind && len(seen) < 25 {
+			seen = append(seen, fmt.Sprintf("%q", r.Path+r.LocalAddress))
+		}
+	}
+	t.Fatalf("missing fixture %s %q; coverage=%+v; %d resources, first %d of this kind: %s", kind, value, p.Coverage[kind], len(p.Resources), len(seen), strings.Join(seen, ", "))
 }
 func TestNativeProcessLifecycle(t *testing.T) {
 	if os.Getenv("EXT_GRAPH_PROCESS_NATIVE_TESTS") != "1" {

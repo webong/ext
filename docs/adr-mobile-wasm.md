@@ -115,9 +115,10 @@ The plugin C ABI (`pkg/plugin-cshared/ext_plugin.h`) is the other shape: a handf
 of synchronous functions (`ext_plugin_open`, `ext_plugin_call`, `ext_plugin_close`)
 with caller-owned buffers. A guest compiled to WebAssembly that **exports** those
 functions (a reactor) needs no blocking input, no Worker and no isolation. The page,
-or any interpreter, just calls the exports. This is a design direction: **no reactor
-guest was built or run**, and the ABI needs a buffer-allocation convention for
-WebAssembly memory, which it does not define.
+or any interpreter, just calls the exports. The contract, including the allocation
+exports WebAssembly memory needs, is [the reactor ABI](plugin-reactor-abi.md); a
+reactor guest and a Go host (`wasm.OpenReactor` in `pkg/plugin-wasm`) pass the
+cross-language conformance suite.
 
 ## Decision
 
@@ -138,8 +139,9 @@ decided by the project owner after the evidence above.
 3. **One guest format for both: a WebAssembly reactor.** The guest exports the
    existing `ext_plugin_*` functions plus an allocation export, so the same module
    runs in a webview and in an interpreter, and neither needs a blocking input
-   queue, a Worker, a `SharedArrayBuffer` or cross-origin isolation. The
-   allocation convention is not defined yet and is the first thing to design.
+   queue, a Worker, a `SharedArrayBuffer` or cross-origin isolation. The allocation
+   convention (`ext_plugin_alloc` and `ext_plugin_free`) is defined in
+   [the reactor ABI](plugin-reactor-abi.md).
 4. **Keep the command-style stdio guest** as a desktop and server format. It works in
    browsers only with the isolation machinery in the spike, so it is not the mobile
    format.
@@ -149,15 +151,29 @@ and a Kotlin webview host that implement the plugin backend over the web engine'
 message channel. The WAMR backend comes after, behind the same plugin contract, so a
 host can choose either without changing its plugins.
 
+## Since this was decided
+
+Reported by the mobile SDK session, not re-run here:
+
+- **The webview route works in a real WKWebView**, on macOS and in the iOS 18.3
+  Simulator, using the web engine's unchanged `shim.js` and the
+  [page API](web-engine.md#the-page-api-and-the-host-channel). A reactor built from
+  the Rust SDK's conformance guest passed 9 of 9 tests there: handshake, Unicode and
+  large-number echo, public and sanitized private errors, ordering, a guest that
+  honours its deadline, and page destruction when a call overruns.
+- **Starting a webview is slow at first.** In the simulator the first web view of a
+  fresh app took about 32 seconds to start, then 11.7, then 3.1 as it warmed. A call
+  timeout fired at about 1.0 second when asked for one. A host should start its
+  webview early and keep it, not create one per call. Nothing was measured on a
+  physical device, so treat these as simulator figures.
+
 ## Not verified
 
-- Real iOS and Android devices; the store policies; in-app webview isolation and a
-  custom-scheme loader.
-- Android's System WebView as distinct from Chrome.
-- wasmi and WAMR built for iOS and Android, and either running on a device.
-- A reactor guest, and the allocation convention it needs; and whether an embedded
-  webview can load and message a guest the way the browser spike did (including
-  cross-origin isolation, which a reactor guest avoids needing).
+- Real iOS and Android devices; the store policies; in-app webview isolation.
+- Android's System WebView, as a host or distinct from Chrome. The Android host is
+  not built.
+- wasmi and WAMR built for iOS and Android, and either running on a device. The WAMR
+  fallback is not started.
 
 The Swift and Java bindings belong to the mobile SDK work (`pkg/plugin-ios`,
 `pkg/plugin-android`). This record covers only how a mobile host runs WebAssembly.

@@ -184,8 +184,8 @@ func TestShimTransports(t *testing.T) {
 const fs = require("fs"), vm = require("vm"), assert = require("assert");
 const shim = fs.readFileSync(__dirname + "/shim.js", "utf8");
 function boot(extra, replace) {
-  const posted = [], fetched = [], intervals = [];
-  const window = Object.assign({ addEventListener() {}, close() {} }, extra(posted));
+  const posted = [], fetched = [], intervals = [], listeners = [];
+  const window = Object.assign({ addEventListener(name) { listeners.push(name); }, close() {} }, extra(posted));
   const context = vm.createContext({
     window, console: { log() {}, info() {}, warn() {}, error() {}, debug() {} },
     setInterval: (fn, ms) => intervals.push(ms), setTimeout() {},
@@ -193,7 +193,7 @@ function boot(extra, replace) {
     Promise, JSON,
   });
   vm.runInContext(replace ? shim.replace("%TOKEN%", replace) : shim, context);
-  return { window, posted, fetched };
+  return { window, posted, fetched, intervals, listeners };
 }
 const frames = (posted) => posted.map((s) => JSON.parse(s));
 
@@ -207,7 +207,9 @@ const got = frames(ios.posted);
 assert.deepStrictEqual(got.find((f) => f.kind === "host"), { data: '{"apiVersion":"ext.plugin/v1"}', kind: "host" });
 assert.deepStrictEqual(got.find((f) => f.kind === "log" && f.level === "log"), { level: "log", text: 'a {"b":1}', kind: "log" });
 assert.strictEqual(got.find((f) => f.kind === "exit").code, 7);
-assert.ok(got.some((f) => f.kind === "alive"), "the page announces itself");
+assert.ok(!got.some((f) => f.kind === "alive" || f.kind === "closed"), "a native host owns its webview, so no heartbeat crosses the bridge");
+assert.strictEqual(ios.intervals.length, 0, "no heartbeat timer on a native transport");
+assert.ok(!ios.listeners.includes("pagehide"), "no close report on a native transport");
 assert.strictEqual(ios.fetched.length, 0, "a native page never uses HTTP");
 // host to page: native calls _deliver, the page receives it in onmessage
 const seen = [];
@@ -222,10 +224,13 @@ const android = boot((posted) => ({ ExtHost: { postMessage: (s) => posted.push(s
 assert.strictEqual(android.window.ext.host.transport, "android");
 android.window.ext.host.send("hello");
 assert.deepStrictEqual(frames(android.posted).find((f) => f.kind === "host"), { data: "hello", kind: "host" });
+assert.ok(!frames(android.posted).some((f) => f.kind === "alive"), "no heartbeat on Android either");
 
 // Loopback HTTP: a served page has a token, posts to it and polls for messages.
 const served = boot(() => ({}), "t".repeat(32));
 assert.strictEqual(served.window.ext.host.transport, "http");
+assert.deepStrictEqual(served.intervals, [1000], "over HTTP the heartbeat stays: it is how a closed tab is noticed");
+assert.ok(served.listeners.includes("pagehide"), "over HTTP the page reports that it is closing");
 served.window.ext.host.send("over http");
 let post = served.fetched.find((f) => f.url.endsWith("/host"));
 assert.ok(post && post.url.startsWith("/__ext/" + "t".repeat(32) + "/") && JSON.parse(post.options.body).data === "over http");

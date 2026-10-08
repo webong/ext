@@ -103,7 +103,12 @@
       });
     }
   });
-  post("alive", {});
-  setInterval(function () { post("alive", {}); }, 1000);
-  window.addEventListener("pagehide", function () { post("closed", {}); });
+  // Over HTTP the engine learns that a tab was closed from these. A native host
+  // owns its webview and knows, so on those transports they would only be wasted
+  // work across the bridge once a second.
+  if (kind === "http") {
+    post("alive", {});
+    setInterval(function () { post("alive", {}); }, 1000);
+    window.addEventListener("pagehide", function () { post("closed", {}); });
+  }
 })();

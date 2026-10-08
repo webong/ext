@@ -89,11 +89,12 @@ The page-to-host argument is a JSON object with a `kind`:
 | `host` | `data` (the string) | the page called `window.ext.host.send` |
 | `log` | `level`, `text` | console output or `window.ext.log`; level is `log`, `info`, `warn`, `error`, `debug` or `exception` |
 | `exit` | `code` | the page called `window.ext.exit` |
-| `alive` | | sent at load and every second |
-| `closed` | | the page is going away |
+| `alive` | | HTTP transport only: sent at load and every second |
+| `closed` | | HTTP transport only: the page is going away |
 
-The host owns the webview, so it may ignore `alive` and `closed`. The loopback
-engine uses them to notice a closed tab.
+A native host owns its webview and knows when it closes, so the native transports do
+not send `alive` or `closed` at all. The loopback engine uses them to notice a closed
+tab, so only the HTTP transport sends them.
 
 ## What it protects, and what it does not
 

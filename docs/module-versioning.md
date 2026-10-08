@@ -134,6 +134,7 @@ A module path and its tags are a pair, so this is a new module, not a new versio
 | --- | --- | --- |
 | `v0.2.0` | `pkg/plugin`, `pkg/plugin-wasm` | additive: the adapter package, the reactor host, components and `Inspect` |
 | `v0.1.0` (first tag) | `res/web`, `adapters/wasm`, `adapters/evm` | new modules; `res/web` was the renamed `res/browser` |
+| `v0.1.1` | `res/web` | console output from a page is delivered in order, and an exit no longer overtakes it |
 | `v0.1.1` | `adapters/chromium`, `adapters/firefox`, `adapters/safari` and the other 15 browser adapters | they now require `res/web` instead of `res/browser` |
 
 Modules that did not change keep `v0.1.0`: `pkg/graph`, `pkg/plugin-go`, `pkg/plugin-cshared`,

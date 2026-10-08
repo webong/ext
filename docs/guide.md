@@ -13,7 +13,7 @@ use:
 | host or write a plugin | `github.com/webong/ext/pkg/plugin` (v0.2.0) |
 | run WebAssembly in a sandbox | `github.com/webong/ext/pkg/plugin-wasm` (v0.2.0) |
 | discover the machine | `github.com/webong/ext/pkg/graph` (v0.1.0) |
-| run web content in a browser | `github.com/webong/ext/res/web` (v0.1.0) |
+| run web content in a browser | `github.com/webong/ext/res/web` (v0.1.1) |
 
 ```sh
 go get github.com/webong/ext/pkg/plugin@v0.2.0
@@ -223,8 +223,8 @@ The page's outside request is blocked by default; set `Policy.AllowNet` to open 
 engine's limits, including that it is not a complete sandbox, are in
 [the web engine doc](web-engine.md).
 
-> With `res/web` v0.1.0 the two `page log` lines can arrive in either order and an exit
-> can overtake the lines before it. That is fixed in the repository but not yet released.
+> Use `res/web` v0.1.1 or newer. In v0.1.0 console lines could arrive out of order, and an
+> exit could overtake the lines logged just before it.
 
 ## Check content from the command line
 

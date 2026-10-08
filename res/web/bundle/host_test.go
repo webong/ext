@@ -232,18 +232,21 @@ assert.strictEqual(served.window.ext.host.transport, "http");
 assert.deepStrictEqual(served.intervals, [1000], "over HTTP the heartbeat stays: it is how a closed tab is noticed");
 assert.ok(served.listeners.includes("pagehide"), "over HTTP the page reports that it is closing");
 served.window.ext.host.send("over http");
-let post = served.fetched.find((f) => f.url.endsWith("/host"));
-assert.ok(post && post.url.startsWith("/__ext/" + "t".repeat(32) + "/") && JSON.parse(post.options.body).data === "over http");
-served.window.ext.host.onmessage = () => {};
-assert.ok(served.fetched.some((f) => f.url.endsWith("/next")), "setting onmessage starts polling");
+// Requests go out one at a time, so the send is issued a moment later.
+setImmediate(() => {
+  const post = served.fetched.find((f) => f.url.endsWith("/host"));
+  assert.ok(post && post.url.startsWith("/__ext/" + "t".repeat(32) + "/") && JSON.parse(post.options.body).data === "over http");
+  served.window.ext.host.onmessage = () => {};
+  assert.ok(served.fetched.some((f) => f.url.endsWith("/next")), "setting onmessage starts polling");
 
-// A page with neither a handler nor a token has no transport and must not throw.
-const bare = boot(() => ({}));
-assert.strictEqual(bare.window.ext.host.transport, "none");
-bare.window.ext.host.send("dropped");
-bare.window.ext.exit(0);
-assert.strictEqual(bare.fetched.length, 0);
-console.log("ok");
+  // A page with neither a handler nor a token has no transport and must not throw.
+  const bare = boot(() => ({}));
+  assert.strictEqual(bare.window.ext.host.transport, "none");
+  bare.window.ext.host.send("dropped");
+  bare.window.ext.exit(0);
+  assert.strictEqual(bare.fetched.length, 0);
+  console.log("ok");
+});
 `
 	if err := os.WriteFile(filepath.Join(dir, "test.js"), []byte(test), 0o644); err != nil {
 		t.Fatal(err)
@@ -259,5 +262,54 @@ console.log("ok");
 func TestTheShimKeepsItsPlaceholder(t *testing.T) {
 	if !strings.Contains(Shim(), `"%TOKEN%"`) {
 		t.Fatal("Shim must return the script with its token placeholder, for embedded hosts")
+	}
+}
+
+// Over HTTP the page sends one request at a time and in order: the next is not
+// sent until the previous has been answered. Separate concurrent requests can
+// arrive out of order, which reordered console output and let an exit overtake
+// the lines logged just before it.
+func TestShimSendsHTTPReportsInOrder(t *testing.T) {
+	node, err := exec.LookPath("node")
+	if err != nil {
+		t.Skip("node is required to run the page script")
+	}
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "shim.js"), []byte(Shim()), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	test := `
+const fs = require("fs"), vm = require("vm"), assert = require("assert");
+const shim = fs.readFileSync(__dirname + "/shim.js", "utf8");
+(async () => {
+  const calls = [], resolvers = [];
+  const window = { addEventListener() {}, close() {} };
+  const context = vm.createContext({
+    window, console: { log() {}, info() {}, warn() {}, error() {}, debug() {} },
+    setInterval() {}, setTimeout() {}, Promise, JSON,
+    fetch: (url, options) => { calls.push(JSON.parse(options.body)); return new Promise((resolve) => resolvers.push(() => resolve({ status: 204 }))); },
+  });
+  vm.runInContext(shim.replace("%TOKEN%", "o".repeat(32)), context);
+  const settle = () => new Promise((resolve) => setImmediate(resolve));
+  await settle();
+  window.ext.log("first");
+  window.ext.log("second");
+  window.ext.exit(3);
+  await settle();
+  assert.strictEqual(calls.length, 1, "only the first request may be in flight");
+  for (let i = 0; i < 10 && resolvers.length; i++) { resolvers.shift()(); await settle(); }
+  const order = calls.map((c) => c.text !== undefined ? c.text : c.code !== undefined ? "exit" : "alive");
+  assert.deepStrictEqual(order, ["alive", "first", "second", "exit"]);
+  console.log("ok");
+})().catch((e) => { console.error(e); process.exit(1); });
+`
+	if err := os.WriteFile(filepath.Join(dir, "test.js"), []byte(test), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	output, err := exec.CommandContext(ctx, node, filepath.Join(dir, "test.js")).CombinedOutput()
+	if err != nil || !strings.Contains(string(output), "ok") {
+		t.Fatalf("%v\n%s", err, output)
 	}
 }

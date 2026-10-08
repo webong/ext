@@ -6,7 +6,7 @@ Adapters and applications own their domain contracts, grants, native behavior,
 distribution and activation. HashiCorp go-plugin remains a dependency of
 `pkg/plugin-hashicorp` inside the library.
 
-This change is entirely within CTX. Xallet and Cymonkey migration is deferred.
+This change is entirely within CTX. Migration of other consumers is deferred.
 Their existing native protocols are not automatically compatible with CTX.
 
 ## Packages
@@ -280,7 +280,7 @@ registry releases. Current examples/CI pin Rust 1.98.1 and Zig 0.17.0.
 
 This is the first implemented SDK layer covering the six planned areas. CTX
 adapters retain their existing shared descriptor/integrity integration and native
-argv/stream behavior. Xallet and Cymonkey are reference consumers for future
+argv/stream behavior. Other consumers are reference consumers for future
 adoption; no migration or dependency change is included in their repositories.
 
 Future releases can add remote RPC backends, WASI component-model bindings,

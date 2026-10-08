@@ -215,4 +215,4 @@ guest, while the manifest's platform fields constrain the host.
 
 The core does not select a backend by product name or infer one from an extension.
 Native paths, installation and policy belong to the consuming application or
-adapter. Xallet and Cymonkey adoption remain separate work.
+adapter. Adoption by other consumers remains separate work.

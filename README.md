@@ -310,7 +310,7 @@ Both `res` modules and `pkg/plugin` depend only on the Go standard library, so
 consumers that do not need a runtime backend never download the HashiCorp or
 WASI stacks.
 
-CTX adapters, Xallet, Cymonkey, and other applications can build on these
+CTX adapters and other applications can build on these
 libraries. Each is published as its own Go module under a shared major version;
 see [module versioning](docs/module-versioning.md). Domain behavior and
 authorization remain with each consumer.
@@ -349,4 +349,4 @@ go run ./pkg/plugin-hashicorp/cmd/ext-plugin inspect --root examples/plugin-pack
 ```
 
 Inspection validates metadata and content without starting plugins. CTX adapters
-retain their native bindings. Xallet and Cymonkey adoption is separate work.
+retain their native bindings. Adoption by other consumers is separate work.

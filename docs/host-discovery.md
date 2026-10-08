@@ -357,7 +357,7 @@ edge's timestamp. All observations are point-in-time evidence, not atomic views
 or guarantees that a resource remains available. Older observations are rejected
 when they would overwrite newer inventory or process evidence.
 
-Consumers such as Xallet can schedule these library calls, inspect graph changes,
+Consumers can schedule these library calls, inspect graph changes,
 and add their own interpretations. CTX's graph command itself remains short-lived.
 
 Native references: [Linux proc](https://docs.kernel.org/filesystems/proc.html),

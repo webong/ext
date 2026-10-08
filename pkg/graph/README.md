@@ -4,8 +4,8 @@
 store with transactions, plus `graph/system` for host, shell, filesystem and
 webview discovery and process-graph inspection.
 
-The store is domain-neutral: callers own their node and edge vocabulary. CTX,
-Xallet, Cymonkey and other consumers share this library rather than each
+The store is domain-neutral: callers own their node and edge vocabulary. CTX
+and other consumers share this library rather than each
 implementing their own graph.
 
 Product-specific provider discovery belongs in the owning adapter under

@@ -76,7 +76,7 @@ not benchmarked. Results should not be generalized to those workloads.
    I/O, establish binary release packaging and library search-path rules.
 4. **Real consumer integration:** replace the fixture-specific policy/batch code
    in the Node example with a usable async host binding. Validate application
-   integration needs without migrating Xallet or Cymonkey in this pass.
+   integration needs without migrating other consumers in this pass.
 5. **Backend compatibility:** prove a second backend, then plan WASI, HashiCorp
    and native Go integration. Those are not provided by this prototype.
 6. **Feature scope:** decide where schema, instance management, packaging,

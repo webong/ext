@@ -1,7 +1,7 @@
 # ADR: Shared plugin contract
 
 Status: implemented initial v1 contract in the CTX library. Consumer migrations
-to the JSON binding require explicit integration; existing Xallet and Cymonkey
+to the JSON binding require explicit integration; existing consumer
 wire protocols do not become compatible merely by importing this package.
 
 ## Ownership
@@ -38,7 +38,7 @@ There are three independent identities:
 
 `Descriptor` declares 1–64 unique contract references, each with 1–256 unique
 operations. An operation may name a consumer-defined surface for admission.
-For example, Xallet may use `observation` and `action`; CTX does not assign
+For example, a consumer may use `observation` and `action`; CTX does not assign
 permissions to those names. Capability and role catalogs remain domain data.
 
 `Select` requires a contract and operation, optionally pins the complete
@@ -226,16 +226,16 @@ selected adapter's product-specific plugin operation.
 | Consumer | Shared mechanics | Consumer-owned contract and policy |
 | --- | --- | --- |
 | CTX adapters | Descriptor validation, operation lookup, directory integrity; library backends when needed | `ext.adapter`, argv/stream binding, context selection, native behavior in adapters |
-| Xallet Package plugins | Selection, handshake, admission sequencing, call envelopes, draining | Roles, Package/Node/Worker identities, surfaces, Host Broker permits, approval, secrets, reconciliation |
-| Xallet platform extensions | The same host mechanics where applicable | Contribution points, route mounting, schema restrictions, generations and composition rollback |
-| Cymonkey plugins | Selection, verified package identity, bounded transport, structured errors | Display/content/device methods, domain adapters, device grants, runtime choices |
+| Application plugin packages | Selection, handshake, admission sequencing, call envelopes, draining | Roles, package and worker identities, surfaces, permits, approval, secrets, reconciliation |
+| Application platform extensions | The same host mechanics where applicable | Contribution points, route mounting, schema restrictions, generations and composition rollback |
+| Device-facing plugins | Selection, verified package identity, bounded transport, structured errors | Display/content/device methods, domain adapters, device grants, runtime choices |
 
-Xallet's `xallet.plugin.v1` and platform-extension envelopes can be translated
-by a consumer-owned `plugin.Backend` while implementations migrate. Cymonkey's
-existing `plugin.hello` and `provider.plugin/v1alpha1` packages likewise need an
-explicit translation or a new native binding; sharing a hello method name does
-not make the envelopes compatible. The generic library must not detect either
-product by name to choose a translation.
+A consumer's existing plugin and platform-extension envelopes can be translated
+by a consumer-owned `plugin.Backend` while implementations migrate. Existing
+envelopes that use a `plugin.hello` method likewise need an explicit translation
+or a new native binding; sharing a hello method name does not make the
+envelopes compatible. The generic library must not detect any product by name
+to choose a translation.
 
 Browser augmentation source packages, userscript approval, extension signing,
 native installation, and UI contribution semantics remain in their owning
@@ -271,5 +271,5 @@ The TypeScript SDK supplies both sides of the v1 JSON-line contract. Frozen
 fixtures and real Go/JavaScript examples cover interoperability. In-process,
 JSON-line and both HashiCorp RPC bindings run a common conformance suite.
 
-Scope: this SDK work is CTX-only. Xallet and Cymonkey migration is deferred;
+Scope: this SDK work is CTX-only. Migration of other consumers is deferred;
 their repositories and pinned CTX dependencies are not changed by this work.

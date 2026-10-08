@@ -373,7 +373,7 @@ contract and their native API version. CTX uses the public `plugin` package
 for capability lookup and package integrity checking. The argv and stream
 binding below remains the adapter transport; it does not require a JSON-line
 handshake. See [the shared plugin contract](adr-plugin-contract.md) for the
-public host API and Xallet/Cymonkey integration boundary.
+public host API and consumer integration boundary.
 
 ctx selects `executable_windows` on Windows when it is present and otherwise uses
 `executable`. Windows adapters may be `.exe`, `.cmd`, `.bat`, or `.ps1`; PowerShell

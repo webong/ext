@@ -174,34 +174,33 @@ The process enters `ready` only after both succeed. Failure stops the process
 tree and follows its restart policy. `Health` is false before readiness and
 after stopping, crashing, or process exit, even without a custom probe.
 
-## Consumer integration: Xallet
+## Consumer integration
 
-Xallet's existing `kernel/ctxgraph` adapter registers `xallet.computer` schema
-version `1`, including its Package, Pack, Packet kinds and exact relationship
-vocabulary. Its validator enforces those semantics using the proposed
-transaction and `View`. Authorization and product decisions remain in Xallet.
-See `examples/xallet-shaped` for a smaller consumer-owned example.
+A consumer registers its own schema, a namespace and version with its kinds and
+exact relationship vocabulary. Its validator enforces those semantics using the
+proposed transaction and `View`. Authorization and product decisions remain in
+the consumer. See `examples/consumer-shaped` for a small consumer-owned example.
 
 The integration boundary is:
 
-1. Open a `graph.Store` and register the Xallet schema and validator.
-2. Translate Xallet-owned entities to stable vertex IDs and namespace-qualified
+1. Open a `graph.Store` and register the consumer's schema and validator.
+2. Translate consumer-owned entities to stable vertex IDs and namespace-qualified
    kinds; translate relationships to namespace-qualified edge types.
 3. Apply related changes in one `Transaction`, setting `ExpectedRevision` for
    concurrent writers and a stable `IdempotencyKey` for retried requests.
 4. Use namespace-scoped bounded queries, `Snapshot`, and `Watch` cursors for
-   reads and projections; revalidate/authorize in Xallet at the product boundary.
-5. Start only processes Xallet has already authorized. Translate selected
+   reads and projections; revalidate and authorize in the consumer at the
+   product boundary.
+5. Start only processes the consumer has already authorized. Translate selected
    binary identity/revision/checksum, ordinary environment, opaque secret
-   references, endpoints, and dependencies to `supervisor.Spec`. Supply Xallet
-   IPC readiness and handshake hooks, an orphan policy, and any platform
-   resource controls; consume lifecycle and health observations without
+   references, endpoints, and dependencies to `supervisor.Spec`. Supply the
+   consumer's IPC readiness and handshake hooks, an orphan policy, and any
+   platform resource controls; consume lifecycle and health observations without
    interpreting them as permission.
-6. Keep Xallet IDs, roles, vocabulary, validation, graph migration, trust,
-   approvals, and authorization out of CTX core.
+6. Keep the consumer's IDs, roles, vocabulary, validation, graph migration,
+   trust, approvals, and authorization out of CTX core.
 
-CTX has no database migrations to run for Xallet. Xallet's Computer graph
-adapter already supplies its semantic validation and projection. Xallet's
-process host continues to own Package supervision until its separate adapter
-maps admission, Host Broker permits, IPC hooks, and lifecycle projections to
-the generic CTX supervisor.
+CTX has no database migrations to run for a consumer. The consumer's graph
+adapter supplies its own semantic validation and projection, and its process
+host continues to own supervision until a separate adapter maps admission,
+permits, IPC hooks, and lifecycle projections to the generic CTX supervisor.

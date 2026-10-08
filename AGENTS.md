@@ -19,8 +19,8 @@ into the owning adapter before wiring it into shared workflows.
 
 # Public libraries
 
-`pkg/` is the home for reusable libraries. CTX adapters, Xallet, Cymonkey, and
-other ecosystem consumers build on them; `internal/` stays private to CTX and
+`pkg/` is the home for reusable libraries. CTX adapters and other
+ecosystem consumers build on them; `internal/` stays private to CTX and
 must not be imported by consumers.
 
 The repository root is only the workspace: it holds `go.work` and no Go module or

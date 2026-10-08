@@ -9,7 +9,7 @@ only retrievable at a `vN` prefix matching its major version, so the path
 ## Shared major version
 
 All modules share one `MAJOR` version. The repository is a single product with a
-single compatibility promise, and adapters, Xallet, Cymonkey, and other
+single compatibility promise, and adapters and other
 consumers depend on several modules at once.
 
 Bumping the major version in any module bumps it everywhere. `v1` to `v2`

@@ -41,6 +41,21 @@ final class WebViewPluginHostTests: XCTestCase {
 
     private func text(_ data: Data) -> String { String(decoding: data, as: UTF8.self) }
 
+    func testTheEmbeddedAssetsMatchTheirSources() throws {
+        // GeneratedAssets is internal; its content is exercised through the default
+        // bridge. Here the bundled shim must still be the repository's shim.js.
+        let embedded = try shim()
+        XCTAssertTrue(embedded.contains("window.ext") && embedded.contains("%TOKEN%"))
+    }
+
+    func testTheDefaultBridgeWorksWithoutPassingTheShim() async throws {
+        let host = WebViewPluginHost(module: try reactor())
+        try await host.start(timeout: 120)
+        defer { host.close() }
+        let descriptor = String(decoding: try await host.handshake(deadline: Date().addingTimeInterval(10)), as: UTF8.self)
+        XCTAssertTrue(descriptor.contains(#""id":"ctx/conformance""#), descriptor)
+    }
+
     func testHandshakeReturnsTheDescriptor() async throws {
         let host = try await host()
         defer { host.close() }

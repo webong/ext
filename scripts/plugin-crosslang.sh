@@ -54,12 +54,15 @@ export EXT_RUST_REACTOR="$CARGO_TARGET_DIR/wasm32-wasip1/release/examples/shared
 export EXT_ZIG_GUEST="$build_dir/zig/bin/ext-zig-guest" EXT_ZIG_HOST="$build_dir/zig/bin/ext-zig-host"
 export EXT_ZIG_SHARED="$build_dir/zig/lib/libext-zig-guest.$extension"
 export EXT_ZIG_WASM="$build_dir/wasi/bin/ext-zig-guest.wasm"
+# The mobile hosts embed the page glue and the page shim; fail if a copy is stale.
+scripts/plugin-mobile-assets.sh --check
 # Swift builds on Apple platforms only. Its package tests run on the host, then
 # the dynamic fixture is checked through the same Go cshared suite as the others.
 if [[ "$(uname -s)" == Darwin ]]; then
   scripts/plugin-ios-xcframework.sh
   swift test --package-path pkg/plugin-ios --scratch-path "$build_dir/swift"
   swift build --package-path pkg/plugin-ios --scratch-path "$build_dir/swift" --product ExtConformancePlugin
+  scripts/plugin-ios-objc.sh
   export EXT_SWIFT_SHARED="$build_dir/swift/debug/libExtConformancePlugin.dylib" EXT_SWIFT_REQUIRED=1
 fi
 # Java runs over JNI on any host with a JDK. Its guest is a JSON-line process.

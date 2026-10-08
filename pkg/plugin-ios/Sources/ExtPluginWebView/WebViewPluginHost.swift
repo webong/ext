@@ -36,13 +36,15 @@ public final class WebViewPluginHost {
     /// - Parameters:
     ///   - module: the reactor module's bytes.
     ///   - bridge: the page shim, `res/web/bundle/shim.js`, unchanged, with its
-    ///     `%TOKEN%` placeholder in place. It runs at document start and defines
+    ///     `%TOKEN%` placeholder in place. Nil uses the copy this package embeds
+    ///     (`scripts/plugin-mobile-assets.sh`); pass another to use a newer shim. It
+    ///     runs at document start and defines
     ///     `window.ext`; on a `WKWebView` it picks the native transport and posts to
     ///     the script message handler this class registers as `ext`.
     ///   - log: receives the guest's diagnostics and page-side log lines.
-    public init(module: Data, bridge: String, log: ((String) -> Void)? = nil) {
+    public init(module: Data, bridge: String? = nil, log: ((String) -> Void)? = nil) {
         self.module = module
-        self.bridge = bridge
+        self.bridge = bridge ?? GeneratedAssets.shim
         self.onLog = log
     }
 

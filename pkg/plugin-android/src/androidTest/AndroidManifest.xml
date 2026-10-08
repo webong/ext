@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- No INTERNET permission: the test app, like a plugin host, has no network. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="io.github.webong.ext.plugin.webviewtest">
+    <application android:label="ext webview test" android:allowBackup="false">
+        <activity android:name=".TestActivity" android:exported="true" />
+    </application>
+</manifest>

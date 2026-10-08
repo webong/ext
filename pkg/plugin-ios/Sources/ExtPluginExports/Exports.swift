@@ -34,6 +34,20 @@ public func exportGuest(_ make: () throws -> Guest) -> UnsafeMutableRawPointer? 
     return Unmanaged.passRetained(guest).toOpaque()
 }
 
+/// Objective-C hook for the one function a plugin defines. From Objective-C:
+///
+///     void *ext_plugin_guest_factory(void) {
+///         return [EXTPluginExport retainedPointerFor:makeGuest()];
+///     }
+@objc(EXTPluginExport)
+public final class ObjCPluginExport: NSObject {
+    /// A retained pointer for ext_plugin_guest_factory, or NULL when `guest` is nil.
+    @objc public static func retainedPointer(for guest: ObjCGuest?) -> UnsafeMutableRawPointer? {
+        guard let guest else { return nil }
+        return Unmanaged.passRetained(guest.guest).toOpaque()
+    }
+}
+
 @_cdecl("ext_plugin_abi_version")
 public func extPluginABIVersion() -> UInt32 { UInt32(EXT_PLUGIN_ABI_VERSION) }
 

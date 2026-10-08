@@ -163,7 +163,7 @@ enum GeneratedAssets {
   var token = "%TOKEN%";
   var served = token !== "%" + "TOKEN%" && token !== "";
   var base = served ? "/__ext/" + token + "/" : "";
-  var native = null, kind = "none";
+  var native = null, kind = "none", sent = Promise.resolve();
   if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.ext) {
     native = function (s) { window.webkit.messageHandlers.ext.postMessage(s); };
     kind = "wkwebview";
@@ -184,10 +184,17 @@ enum GeneratedAssets {
         return Promise.resolve();
       }
       if (served) {
-        return fetch(base + name, {
-          method: "POST", body: JSON.stringify(body || {}), keepalive: true,
-          headers: { "Content-Type": "text/plain" }
-        }).catch(function () {});
+        // One request at a time, in order: separate requests can arrive out of
+        // order, which would reorder console output and let an exit overtake the
+        // lines logged just before it.
+        var data = JSON.stringify(body || {});
+        sent = sent.then(function () {
+          return fetch(base + name, {
+            method: "POST", body: data, keepalive: true,
+            headers: { "Content-Type": "text/plain" }
+          }).catch(function () {});
+        });
+        return sent;
       }
     } catch (e) {}
     return Promise.resolve();

@@ -79,6 +79,10 @@ makes download URLs ambiguous. GitHub's "latest" release is repository-wide, so
 `latest/download`, and ctn releases are published with `--latest=false`.
 Library modules never use these tags, and bare `vX.Y.Z` tags are not used.
 
+The iOS SDK's engine archive is released under its own tag, `plugin-ios-vX.Y.Z`; see
+[`pkg/plugin-ios`](../pkg/plugin-ios/README.md) and `scripts/plugin-ios-release.sh`. It is
+not a Go module version either.
+
 Because of this, `GOWORK=off go build ./...` inside a library module fails until
 that dependency is published at the required version. That failure is the
 correct signal: it means the module is not yet independently consumable.

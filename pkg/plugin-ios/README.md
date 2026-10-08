@@ -106,10 +106,22 @@ plugins that arrive after release need an interpreter, such as the WASM backend.
 
 ## Distribution
 
-SwiftPM resolves a package from a repository root, which this monorepo's root is
-not, so the manifest here is for development against the local xcframework. A
-release publishes the xcframework as a checksummed archive and a manifest whose
-binary target points at it. That release step is not automated yet.
+SwiftPM resolves a package from a repository root, which this monorepo's root is not,
+so the manifest here is for development against the local xcframework.
+`scripts/plugin-ios-release.sh <version>` stages a release under
+`dist/plugin-ios-<version>/`:
+
+- `CExtEngine.xcframework.zip`, the engine's guest core for macOS, iOS and the iOS
+  Simulator, to attach to a GitHub release tagged `plugin-ios-v<version>`; and
+- `package/`, a release manifest whose binary target points at that archive by URL and
+  `swift package compute-checksum` checksum, plus the Swift sources, to publish at a
+  repository root SwiftPM can resolve.
+
+The archive is not byte-reproducible, so its checksum changes with every run: upload the
+archive from the same run as the manifest. The script checks that the staged package builds
+against the archive. It publishes
+nothing: it does not tag, upload, or create the distribution repository, and the
+release URL does not exist until someone attaches the archive. No CI job does this yet.
 
 ## Objective-C
 

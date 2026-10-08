@@ -10,6 +10,8 @@ resources) and two binaries:
 | [`ctx`](#ctx) | `src/ctx` | Project-local contexts for the tools you already use |
 | `ctn` | `src/ctn` | Content management: `ctn verify` runs content through a sandboxed engine ([docs](docs/ctn-verify.md)); `ctn adapter ls` lists installed adapters |
 
+New here? [Using ext](docs/guide.md) is organised by what you want to do, with recipes that run.
+
 Reusable libraries live in [`pkg/`](pkg/README.md) and [`res/`](res/README.md);
 product-specific behavior lives in [`adapters/`](adapters/README.md). A product
 never imports another product. The rest of this file describes `ctx`.

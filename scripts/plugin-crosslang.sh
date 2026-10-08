@@ -32,6 +32,9 @@ cargo test --locked --manifest-path pkg/plugin-rust/Cargo.toml
 cargo build --locked --manifest-path pkg/plugin-rust/Cargo.toml --examples
 # Keep DWARF stack-trace decoding out of bounded WASI cancellation checks.
 cargo build --release --locked --manifest-path pkg/plugin-rust/Cargo.toml --target wasm32-wasip1 --example guest
+# The shared example is the same guest as a WebAssembly reactor: the C ABI plus
+# ext_plugin_alloc/ext_plugin_free (docs/plugin-reactor-abi.md).
+cargo build --release --locked --manifest-path pkg/plugin-rust/Cargo.toml --target wasm32-wasip1 --example shared
 "$ZIG_BIN" build test --build-file pkg/plugin-zig/build.zig --prefix "$build_dir/zig"
 "$ZIG_BIN" build --build-file pkg/plugin-zig/build.zig --prefix "$build_dir/zig"
 "$ZIG_BIN" build --build-file pkg/plugin-zig/build.zig -Dtarget=wasm32-wasi --prefix "$build_dir/wasi"
@@ -47,6 +50,7 @@ export EXT_GO_GUEST="$build_dir/go-guest" EXT_GO_SHARED="$build_dir/go-shared.$e
 export EXT_RUST_GUEST="$CARGO_TARGET_DIR/debug/examples/guest" EXT_RUST_HOST="$CARGO_TARGET_DIR/debug/examples/host"
 export EXT_RUST_SHARED="$CARGO_TARGET_DIR/debug/examples/libshared.$extension"
 export EXT_RUST_WASM="$CARGO_TARGET_DIR/wasm32-wasip1/release/examples/guest.wasm"
+export EXT_RUST_REACTOR="$CARGO_TARGET_DIR/wasm32-wasip1/release/examples/shared.wasm" EXT_REACTOR_REQUIRED=1
 export EXT_ZIG_GUEST="$build_dir/zig/bin/ext-zig-guest" EXT_ZIG_HOST="$build_dir/zig/bin/ext-zig-host"
 export EXT_ZIG_SHARED="$build_dir/zig/lib/libext-zig-guest.$extension"
 export EXT_ZIG_WASM="$build_dir/wasi/bin/ext-zig-guest.wasm"

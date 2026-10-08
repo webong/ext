@@ -1,0 +1,112 @@
+# The WebAssembly reactor ABI
+
+A plugin guest that runs inside a WebAssembly host, a phone's web engine or an
+embedded interpreter, is a **reactor**: a module that exports the `ext.plugin` C ABI
+([`ext_plugin.h`](../pkg/plugin-cshared/ext_plugin.h)) plus two allocation functions.
+It never reads standard input and never loops forever. The host calls its exports
+when it has a frame to deliver, so no Worker, `SharedArrayBuffer` or cross-origin
+isolation is involved. [The mobile decision record](adr-mobile-wasm.md) explains why
+this is the common guest format; this page is the contract.
+
+A reactor is the same plugin as a shared-library guest. Source written against
+`ext_plugin.h` compiles to either target, and the same conformance suite checks both.
+
+## Exports
+
+| Export | Signature (WebAssembly) | Meaning |
+|---|---|---|
+| `memory` | linear memory | The memory the host reads and writes. Required. |
+| `ext_plugin_abi_version` | `() -> i32` | `1`. |
+| `ext_plugin_open` | `() -> i64` | Create an independent session. `0` is failure. |
+| `ext_plugin_call` | `(i64 handle, i32 operation, i32 request, i32 request_len, i32 response, i32 capacity, i32 written) -> i32` | One handshake or invocation; see below. |
+| `ext_plugin_close` | `(i64 handle) -> ()` | Release a session. |
+| `ext_plugin_alloc` | `(i32 size) -> i32` | Allocate `size` bytes in guest memory. Returns a 16-byte-aligned pointer, or `0` on failure or when `size` is `0`. |
+| `ext_plugin_free` | `(i32 pointer, i32 size) -> ()` | Release memory from `ext_plugin_alloc`, with the same size. |
+| `_initialize` | `() -> ()` | Optional. If present, the host calls it exactly once, first. |
+
+A module that exports `_start` is a command, not a reactor, and a host must refuse it.
+The six `ext_plugin_*` functions are required; a host refuses a module missing any.
+
+`ext_plugin_open`, `ext_plugin_call` and `ext_plugin_close` have the semantics, status
+codes and constants of `ext_plugin.h`: operation `1` is the handshake, `2` is an
+invocation, and the statuses are `0` ok, `1` invalid, `2` closed, `3` failed. Requests
+and responses are UTF-8 JSON without a trailing NUL or newline. Read that header for
+the rules; they are not repeated here. Only the memory model below is new.
+
+## Memory model
+
+- A pointer is an unsigned 32-bit offset into `memory`. Values are little-endian.
+  `handle` is a 64-bit integer, which a JavaScript host passes as a `BigInt`.
+- The host owns every buffer it passes. It allocates them with `ext_plugin_alloc`,
+  writes into them, and frees them with `ext_plugin_free`.
+- For each call the host allocates the request buffer, and frees it afterwards. It
+  allocates **one response buffer of `24 MiB` (`EXT_PLUGIN_MAX_FRAME_BYTES`)** and one
+  4-byte cell for `written` per session, and reuses them. The capacity is always the
+  maximum, because a call may have performed effects and cannot be retried with a
+  larger buffer. A guest returns `1` (invalid) if the capacity is not the maximum.
+- On status `0` the guest has stored the response length in the `written` cell, and
+  the host reads that many bytes from the response buffer. On any other status it
+  must not read the response.
+- **Memory can grow during a call.** A JavaScript host must read `memory.buffer`
+  again after every call into the guest, because growing detaches the old buffer.
+- The guest never retains or frees a host pointer, and never writes beyond
+  `capacity`.
+
+## Execution model
+
+- An instance is single-threaded and runs one call at a time. The host serializes all
+  calls into an instance, across sessions, and a guest must not assume otherwise. The
+  C ABI's "different handles may run at once" does not apply here.
+- A guest must not block on input and must not sleep unboundedly. It honours the
+  request deadline it was given, as any guest does.
+- **A trap ends the instance.** If the guest traps, exhausts memory, or the host
+  cancels it, the host discards the whole instance and every session in it, and
+  reports a transport failure. Cancellation of a call that overruns its deadline is
+  exactly that: the host closes the module. A web host with no way to interrupt a
+  running call destroys the page.
+- A failed `ext_plugin_open`, `ext_plugin_alloc` or `ext_plugin_call` leaves nothing
+  for the host to free except what it allocated itself.
+
+## WASI imports
+
+A reactor may import functions from `wasi_snapshot_preview1`, because standard
+libraries pull them in. A host provides the set below and nothing else; a module
+importing anything outside it fails to instantiate.
+
+| Import | What a host does |
+|---|---|
+| `clock_time_get` | Provide wall and monotonic time. |
+| `random_get` | Provide random bytes from a secure source. |
+| `environ_sizes_get`, `environ_get` | Report an empty environment. |
+| `fd_write` | Accept writes to descriptors 1 and 2 as diagnostics; discard or log them, bounded. Refuse other descriptors. |
+| `poll_oneoff` | Support clock subscriptions only, for sleeping. A host without a way to sleep may busy-wait. |
+| `proc_exit` | Treat as a trap. |
+
+There is no filesystem, network or standard input. This is the set the Rust SDK's
+shared guest imports today; a guest that needs more is outside this ABI.
+
+## Producing a reactor
+
+The Rust SDK's `export_guest!` macro emits the allocation exports on `wasm32`:
+
+```sh
+cargo build --release --target wasm32-wasip1 --example shared
+```
+
+Any language that compiles to `wasm32` and can export these functions works. The
+module needs no `_start`. Compiling `ext_plugin.h`-style C needs a bump allocator or
+`malloc` behind `ext_plugin_alloc`.
+
+## Hosts and what is verified
+
+| Host | Status |
+|---|---|
+| `wasm.OpenReactor` in `pkg/plugin-wasm`, on wazero | Implemented. The Rust SDK's shared guest, built as a reactor, passes the full cross-language conformance suite through it: round trips, concurrent calls, public and private errors, deadline cancellation, close while a call is blocked. |
+| A web engine page (hidden `WKWebView` or Android `WebView`) | Being built in `pkg/plugin-ios`; not verified yet. |
+| WAMR or wasmi inside `pkg/plugin-engine` | Fallback route; not built. Both need their metering and termination options enabled to meet the deadline rules. |
+
+Not yet measured: the cost of reserving the 24 MiB response buffer inside a phone's
+web engine, where memory is tight. Pages commit only as the guest writes, but that is
+an engine behaviour to test, not assume. If it matters, a later ABI version can let a
+guest own the response buffer. Version 1 keeps the C ABI's caller-owned buffers so a
+single source compiles to both targets.

@@ -150,10 +150,45 @@ impl Server {
         }
     }
 }
+/// Allocate `size` bytes for a WebAssembly host to fill. The pointer is 16-byte
+/// aligned and null on failure or when `size` is zero. The host releases it with
+/// [`reactor_free`] and the same size.
+pub fn reactor_alloc(size: u32) -> *mut u8 {
+    match std::alloc::Layout::from_size_align(size as usize, 16) {
+        Ok(layout) if size != 0 => unsafe { std::alloc::alloc(layout) },
+        _ => std::ptr::null_mut(),
+    }
+}
+
+/// Release memory from [`reactor_alloc`].
+///
+/// # Safety
+/// `ptr` must come from `reactor_alloc(size)` and not have been freed.
+pub unsafe fn reactor_free(ptr: *mut u8, size: u32) {
+    if ptr.is_null() {
+        return;
+    }
+    if let Ok(layout) = std::alloc::Layout::from_size_align(size as usize, 16) {
+        unsafe { std::alloc::dealloc(ptr, layout) }
+    }
+}
+
 /// Export the four CTX C ABI symbols. The factory returns an independent Guest.
+/// For wasm32 targets it also exports `ext_plugin_alloc` and `ext_plugin_free`,
+/// which make the module a WebAssembly reactor; see docs/plugin-reactor-abi.md.
 #[macro_export]
 macro_rules! export_guest {
     ($factory:path) => {
+        #[cfg(target_arch = "wasm32")]
+        #[unsafe(no_mangle)]
+        pub extern "C" fn ext_plugin_alloc(size: u32) -> u32 {
+            $crate::cabi::reactor_alloc(size) as usize as u32
+        }
+        #[cfg(target_arch = "wasm32")]
+        #[unsafe(no_mangle)]
+        pub unsafe extern "C" fn ext_plugin_free(ptr: u32, size: u32) {
+            unsafe { $crate::cabi::reactor_free(ptr as usize as *mut u8, size) }
+        }
         fn ext_server() -> &'static $crate::cabi::Server {
             static SERVER: std::sync::OnceLock<$crate::cabi::Server> = std::sync::OnceLock::new();
             SERVER.get_or_init(|| $crate::cabi::Server::new($factory, 64))

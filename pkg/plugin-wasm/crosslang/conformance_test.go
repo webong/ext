@@ -129,6 +129,35 @@ func sharedBackend(t *testing.T, path string) func(context.Context) (plugin.Back
 	}
 }
 
+// TestRustReactorGuest runs the conformance suite against the Rust SDK's shared
+// guest compiled to a WebAssembly reactor, hosted by wasm.OpenReactor: the C ABI
+// plus ext_plugin_alloc/ext_plugin_free (docs/plugin-reactor-abi.md). The artifact
+// is optional unless scripts/plugin-crosslang.sh sets EXT_REACTOR_REQUIRED=1.
+func TestRustReactorGuest(t *testing.T) {
+	if os.Getenv("EXT_RUST_REACTOR") == "" && os.Getenv("EXT_REACTOR_REQUIRED") != "1" {
+		t.Skip("set EXT_RUST_REACTOR to the wasm32-wasip1 build of the Rust shared example")
+	}
+	module, err := os.ReadFile(artifact(t, "RUST_REACTOR"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	runGuestConformance(t, func(ctx context.Context) (plugin.Backend, error) {
+		b, err := wasm.OpenReactor(ctx, module, wasm.ReactorOptions{})
+		if err != nil {
+			return nil, err
+		}
+		t.Cleanup(func() {
+			_ = b.Close()
+			ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
+			defer cancel()
+			if err := b.WaitClosed(ctx); err != nil {
+				t.Error(err)
+			}
+		})
+		return b, nil
+	})
+}
+
 // javaGuest returns the launcher scripts/plugin-android.sh builds, or skips. Java is
 // optional so ordinary runs need no JDK; the script sets EXT_JAVA_REQUIRED=1.
 func javaGuest(t *testing.T) string {

@@ -205,14 +205,15 @@ func requireProcessFixtureResource(t *testing.T, p ProcessInfo, kind, value stri
 			return
 		}
 	}
-	// List what was observed, so a platform where the fixture is not matched shows why.
+	// List what was observed, so a platform where the fixture is not matched shows why: the
+	// first resources of any kind, with their protocol (the handle type on Windows) and names.
 	var seen []string
 	for _, r := range p.Resources {
-		if r.Kind == kind && len(seen) < 25 {
-			seen = append(seen, fmt.Sprintf("%q", r.Path+r.LocalAddress))
+		if len(seen) < 30 {
+			seen = append(seen, fmt.Sprintf("{kind=%s protocol=%q path=%q endpoint=%q}", r.Kind, r.Protocol, r.Path, r.Endpoint))
 		}
 	}
-	t.Fatalf("missing fixture %s %q; coverage=%+v; %d resources, first %d of this kind: %s", kind, value, p.Coverage[kind], len(p.Resources), len(seen), strings.Join(seen, ", "))
+	t.Fatalf("missing fixture %s %q; coverage=%+v; %d resources, first %d: %s", kind, value, p.Coverage[kind], len(p.Resources), len(seen), strings.Join(seen, " "))
 }
 func TestNativeProcessLifecycle(t *testing.T) {
 	if os.Getenv("EXT_GRAPH_PROCESS_NATIVE_TESTS") != "1" {

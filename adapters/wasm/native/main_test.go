@@ -66,6 +66,7 @@ func invoke(args ...string) (code int, stdout, stderr string) {
 }
 
 func TestDiscoveryOperations(t *testing.T) {
+	isolateRuntimes(t)
 	if code, stdout, _ := invoke("list"); code != 0 || stdout != "embedded\n" {
 		t.Fatalf("list: %d %q", code, stdout)
 	}
@@ -76,7 +77,7 @@ func TestDiscoveryOperations(t *testing.T) {
 	if code, _, _ := invoke("validate", "embedded"); code != 0 {
 		t.Fatalf("validate embedded: %d", code)
 	}
-	if code, _, stderr := invoke("validate", "wasmtime"); code != 1 || !strings.Contains(stderr, "not available") {
+	if code, _, stderr := invoke("validate", "frontier"); code != 1 || !strings.Contains(stderr, "not available") {
 		t.Fatalf("validate unknown: %d %q", code, stderr)
 	}
 	if code, stdout, stderr := invoke("doctor", "embedded"); code != 0 || !strings.Contains(stdout, "ready") {

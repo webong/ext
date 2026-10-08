@@ -101,8 +101,29 @@ such as wasm-bindgen's `wbg`, Go's `gojs` or Emscripten's web runtime) cannot, a
 first missing import. Web modules run in a browser through the ext web engine
 (`res/web/bundle`), not through an adapter. `--inspect` reports what a module imports and whether it can run, without
 running it.
-A WebAssembly component (WASI Preview 2) is also refused with exit status 126, naming
-the component model, until a runtime that supports it is offered.
+
+`wasm` can also use a WebAssembly runtime installed on the machine. `ctx ls wasm` lists
+`embedded` plus any of `wasmtime` and `wasmer` it finds (on `PATH`, or where their own
+installers put them), and `ctx set wasm wasmtime` selects one. What each does, checked
+against the real programs (wasmtime 49.0.2, wasmer 7.5.0):
+
+| | embedded | wasmtime | wasmer |
+| --- | --- | --- | --- |
+| Core modules (WASI Preview 1) | yes | yes | yes |
+| Components (WASI Preview 2) | no | **yes** | no |
+| `--ro-dir` (read-only mount) | yes | refused | refused |
+| `--memory-pages` | yes | yes | refused |
+| `--timeout` | yes | yes | yes |
+| Nothing from the host unless granted | yes | yes | yes |
+
+The adapter enforces `--timeout` itself by stopping the runtime, so it behaves the same
+for all three. A request a runtime cannot honor is refused with exit status 2, never
+ignored: wasmtime and wasmer accept a read-only mount flag but then allow writes, so
+`--ro-dir` is refused for them. A component with no selection runs on wasmtime when it
+is installed; with `embedded` or `wasmer` selected, or no runtime installed, it exits 126
+and says to select or install wasmtime. A web module is refused whichever engine is
+selected. With wasmtime installed, ordinary modules still run on the built-in engine
+unless you select otherwise.
 
 `evm` is the built-in EVM engine. It executes EVM bytecode in memory with no
 blockchain, node or network, so it is deterministic and sandboxed. The selection is

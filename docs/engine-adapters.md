@@ -35,7 +35,7 @@ The selection names the one thing that varies between installations of the engin
 | Engine | A selection is | Default with no selection |
 | --- | --- | --- |
 | `jvm` | a major Java version (`21`) | the first installation found |
-| `wasm` | an engine (`embedded`) | `embedded` |
+| `wasm` | an engine (`embedded`, or an installed `wasmtime` or `wasmer`) | `embedded` |
 | `evm` | a rule set (`cancun`) | the newest (`prague`) |
 
 **An engine must work with no selection,** using a documented default, so a project

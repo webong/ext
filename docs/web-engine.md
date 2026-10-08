@@ -157,3 +157,28 @@ The two-way channel (the page answering a host's `ping` with `pong`, then exitin
 Simulator, and in Chrome on an Android emulator. The iOS and Android native
 transports above were checked only by running the page script against mock message
 handlers; no app has used them yet.
+
+## A second, independent run (reported, not re-run here)
+
+Another agent re-ran the checks on 2026-10 with no physical device attached
+(`adb devices -l` empty, `xcrun devicectl list devices` found none), so these are
+emulator and simulator results only:
+
+| Where | Test | Result |
+| --- | --- | --- |
+| Android 14 emulator, Chrome 113 | WASI plugin guest | pass: instantiate 487 ms, handshake 628 ms, echo 17 ms |
+| Android 14 emulator | two-way channel | pass: ready 306 ms, echo 27 ms |
+| Android 14 emulator | outside fetch | blocked by the content security policy |
+| Android 14 emulator | Back button | `closed`, reason "the page stopped reporting" (the heartbeat, not an immediate report) |
+| iOS 18.3 Simulator, Safari 18.3 | WASI plugin guest | pass: instantiate 118 ms, handshake 112 ms, echo 2 ms |
+| iOS 18.3 Simulator | two-way channel | pass: ready 1,480 ms, echo 12.5 ms |
+| iOS 18.3 Simulator | outside fetch | blocked |
+| In-app WKWebView (`pkg/plugin-ios`, Rust reactor) | handshake and echo | pass: start-up 8.24 s, handshake 38 ms, Unicode echo 1.9 ms |
+
+Two things worth knowing from it: the first two attempts to open the page in the
+simulator's Safari failed with "Operation timed out" (error 60) and the third worked, so
+a host that drives the simulator should retry the open; and closing by the Back button
+was noticed only by the heartbeat timeout, so a closed page can take up to the heartbeat
+period to be reported. Still unverified: physical phones, iOS close detection, the
+Android in-app WebView host, and the full native conformance suite.
+

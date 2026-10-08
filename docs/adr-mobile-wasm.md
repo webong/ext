@@ -167,6 +167,11 @@ Reported by the mobile SDK session, not re-run here:
   webview early and keep it, not create one per call. Nothing was measured on a
   physical device, so treat these as simulator figures.
 
+A second run by another agent, also on a simulator and emulator only, saw the same
+results for the browser route and measured an in-app WKWebView start-up of 8.24 s with a
+38 ms handshake; the figures are in [the web engine doc](web-engine.md). No physical
+device has been used.
+
 ## Not verified
 
 - Real iOS and Android devices; the store policies; in-app webview isolation.

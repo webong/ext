@@ -134,6 +134,13 @@ func windowsProcessHandles(ctx context.Context, p *ProcessInfo, limit int) {
 	}
 	p.Coverage["file"] = completeProcessStatus()
 	p.Coverage["ipc"] = completeProcessStatus()
+	// The snapshot does not name every file handle. For those, duplicate the handle into this
+	// process and ask for its final path; this needs the same PROCESS_DUP_HANDLE right, and
+	// when it is denied the handle simply stays unnamed and the coverage says so.
+	owner, ownerErr := windows.OpenProcess(windows.PROCESS_DUP_HANDLE, false, uint32(p.PID))
+	if ownerErr == nil {
+		defer windows.CloseHandle(owner)
+	}
 	err = api.withSnapshot(p.PID, windows.PROCESS_QUERY_INFORMATION|windows.PROCESS_DUP_HANDLE, 0x4|0x8|0x10, func(snapshot uintptr) error {
 		entry := processHandleEntry{}
 		return api.walkRecords(ctx, snapshot, 2, limit*4, unsafe.Pointer(&entry), unsafe.Sizeof(entry), func() {
@@ -142,6 +149,9 @@ func windowsProcessHandles(ctx context.Context, p *ProcessInfo, limit int) {
 				name = ""
 			}
 			r := ProcessResource{Descriptor: strconv.FormatUint(uint64(entry.Handle), 16), Protocol: typ}
+			if name == "" && ownerErr == nil && strings.EqualFold(typ, "File") {
+				name = windowsFileHandlePath(owner, entry.Handle)
+			}
 			if strings.EqualFold(typ, "File") && !strings.HasPrefix(strings.ToLower(name), `\device\namedpipe\`) {
 				r.Kind = "file"
 				r.Path = name
@@ -168,6 +178,27 @@ func windowsProcessHandles(ctx context.Context, p *ProcessInfo, limit int) {
 			p.Coverage[kind] = status
 		}
 	}
+}
+
+// windowsFileHandlePath names a disk file handle of another process: it duplicates the handle
+// into this process, and only for a disk file (a pipe or console handle can block a query) asks
+// for the final path in NT form, like the paths the snapshot reports. It returns "" on any failure.
+func windowsFileHandlePath(owner windows.Handle, handle uintptr) string {
+	var duplicate windows.Handle
+	if err := windows.DuplicateHandle(owner, windows.Handle(handle), windows.CurrentProcess(), &duplicate, 0, false, windows.DUPLICATE_SAME_ACCESS); err != nil {
+		return ""
+	}
+	defer windows.CloseHandle(duplicate)
+	if kind, err := windows.GetFileType(duplicate); err != nil || kind != windows.FILE_TYPE_DISK {
+		return ""
+	}
+	const volumeNameNT = 0x2 // VOLUME_NAME_NT
+	buffer := make([]uint16, 1024)
+	length, err := windows.GetFinalPathNameByHandle(duplicate, &buffer[0], uint32(len(buffer)), volumeNameNT)
+	if err != nil || length == 0 || int(length) >= len(buffer) {
+		return ""
+	}
+	return windows.UTF16ToString(buffer[:length])
 }
 
 // windowsProcessMappings augments module enumeration with named memory mappings.

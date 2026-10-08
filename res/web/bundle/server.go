@@ -10,10 +10,16 @@ import (
 	"net/url"
 	"path"
 	"strings"
+	"time"
 )
 
 //go:embed shim.js
 var shim string
+
+// Shim returns the page script with its token placeholder left in place, which
+// is what an embedded host injects at document start. The script then reports
+// through the app's native message handler instead of over HTTP.
+func Shim() string { return shim }
 
 const controlPrefix = "/__ext/"
 
@@ -55,6 +61,10 @@ func (s *session) control(w http.ResponseWriter, r *http.Request) {
 		io.WriteString(w, strings.ReplaceAll(shim, "%TOKEN%", s.token))
 		return
 	}
+	if name == "next" && r.Method == http.MethodGet && s.sameOrigin(r) {
+		s.next(w, r)
+		return
+	}
 	if r.Method != http.MethodPost || !s.sameOrigin(r) {
 		http.Error(w, "not allowed", http.StatusForbidden)
 		return
@@ -63,9 +73,14 @@ func (s *session) control(w http.ResponseWriter, r *http.Request) {
 		Level string `json:"level"`
 		Text  string `json:"text"`
 		Code  int    `json:"code"`
+		Data  string `json:"data"`
 	}
-	data, err := io.ReadAll(io.LimitReader(r.Body, maxBodyBytes+1))
-	if err != nil || len(data) > maxBodyBytes || (len(data) > 0 && json.Unmarshal(data, &body) != nil) {
+	limit := int64(maxBodyBytes)
+	if name == "host" {
+		limit = 2*maxMessageBytes + 1<<10 // JSON escaping can double a message
+	}
+	data, err := io.ReadAll(io.LimitReader(r.Body, limit+1))
+	if err != nil || int64(len(data)) > limit || (len(data) > 0 && json.Unmarshal(data, &body) != nil) {
 		http.Error(w, "bad request", http.StatusBadRequest)
 		return
 	}
@@ -75,6 +90,15 @@ func (s *session) control(w http.ResponseWriter, r *http.Request) {
 	case "log":
 		s.touch()
 		s.emit(cleanLevel(body.Level), body.Text)
+	case "host":
+		s.touch()
+		if len(body.Data) > maxMessageBytes {
+			http.Error(w, "message too large", http.StatusRequestEntityTooLarge)
+			return
+		}
+		if s.onMessage != nil {
+			s.onMessage(body.Data)
+		}
 	case "exit":
 		s.touch()
 		s.finish(Result{Status: StatusExited, ExitCode: body.Code})
@@ -85,6 +109,23 @@ func (s *session) control(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// next answers the page's request for the host's next message: the message, or
+// "nothing yet" so the page asks again. A request that stays open counts as the
+// page being alive.
+func (s *session) next(w http.ResponseWriter, r *http.Request) {
+	s.touch()
+	timer := time.NewTimer(pollWait)
+	defer timer.Stop()
+	select {
+	case message := <-s.outbox:
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		io.WriteString(w, message)
+	case <-timer.C:
+		w.WriteHeader(http.StatusNoContent)
+	case <-r.Context().Done():
+	}
 }
 
 // sameOrigin accepts a report that names this server as its origin, and one

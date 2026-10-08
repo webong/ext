@@ -53,6 +53,48 @@ also refuses cross-origin resources that do not opt in, which suits a bundle ser
 from one origin but not every page. [`examples/plugin-webview`](../examples/plugin-webview)
 uses it to host a WASI plugin guest in a browser.
 
+## The page API and the host channel
+
+The page script is one file, `res/web/bundle/shim.js`, used the same way on every
+transport. A page sees:
+
+| | |
+| --- | --- |
+| `window.ext.log(...)` | report a line to the host |
+| `window.ext.exit(code)` | end the run with a code |
+| `window.ext.host.send(string)` | send a message to the host |
+| `window.ext.host.onmessage = fn` | receive messages from the host; the page assigns it |
+| `window.ext.host.transport` | `"http"`, `"wkwebview"`, `"android"` or `"none"` |
+
+Messages are strings, so `ext.plugin/v1` frames pass through unchanged. `console.*`
+and uncaught errors are reported to the host as well, with no code in the page.
+
+**Over loopback** (`Run`), the page posts to the engine's server and polls it for
+host messages. A program using `Run` sets `Options.OnMessage` to receive what the
+page sends, and `Options.OnReady` to get the function that sends to the page.
+
+**In an embedded host** (an app with a webview), there is no server. The host
+injects `shim.js` unchanged at document start (`bundle.Shim()` returns it, with its
+token placeholder in place) and the page reports through the app instead:
+
+| | Page to host | Host to page |
+| --- | --- | --- |
+| iOS | `window.webkit.messageHandlers.ext.postMessage(json)`; register a `WKScriptMessageHandler` named `ext` | `evaluateJavaScript("window.ext.host._deliver(<string literal>)")` |
+| Android | `window.ExtHost.postMessage(json)`; `addJavascriptInterface` with the name `ExtHost` | `evaluateJavascript("window.ext.host._deliver(<string literal>)")` |
+
+The page-to-host argument is a JSON object with a `kind`:
+
+| `kind` | other fields | meaning |
+| --- | --- | --- |
+| `host` | `data` (the string) | the page called `window.ext.host.send` |
+| `log` | `level`, `text` | console output or `window.ext.log`; level is `log`, `info`, `warn`, `error`, `debug` or `exception` |
+| `exit` | `code` | the page called `window.ext.exit` |
+| `alive` | | sent at load and every second |
+| `closed` | | the page is going away |
+
+The host owns the webview, so it may ignore `alive` and `closed`. The loopback
+engine uses them to notice a closed tab.
+
 ## What it protects, and what it does not
 
 - **No network by default.** Every response carries a content security policy that
@@ -108,3 +150,9 @@ What running it on real browsers taught:
 
 Not exercised: Windows and Linux browsers, and real iOS and Android devices as
 opposed to a simulator and an emulator.
+
+The two-way channel (the page answering a host's `ping` with `pong`, then exiting on
+`bye`) ran in Chrome, Safari and Firefox on macOS, in Mobile Safari in the iOS
+Simulator, and in Chrome on an Android emulator. The iOS and Android native
+transports above were checked only by running the page script against mock message
+handlers; no app has used them yet.

@@ -65,6 +65,13 @@ type Options struct {
 	// Console receives what the page logs, including uncaught errors. It is
 	// called from the server's goroutines and must not block for long.
 	Console func(Event)
+	// OnMessage receives each string the page sends with window.ext.host.send.
+	// It is called from the server's goroutines and must not block for long.
+	OnMessage func(message string)
+	// OnReady is called once, when the page first reports in, with a function that
+	// sends a string to the page's window.ext.host.onmessage. The function fails
+	// if the queue to the page is full or the run has ended.
+	OnReady func(send func(message string) error)
 	// Timeout ends the run after this long. Zero means no limit.
 	Timeout time.Duration
 	// StartupTimeout is how long to wait for the page to load and report in.
@@ -93,7 +100,15 @@ const (
 	maxEventBytes    = 64 << 10
 	maxBodyBytes     = 256 << 10
 	maxFileBytes     = 64 << 20
+	// maxMessageBytes bounds one message in either direction, matching the plugin
+	// ABI's frame limit.
+	maxMessageBytes = 24 << 20
+	queuedMessages  = 256
 )
+
+// pollWait is how long a request for the next host message waits before
+// answering "nothing yet". It is a variable so tests can shorten it.
+var pollWait = 20 * time.Second
 
 // Run serves the bundle, asks the host to open it, and waits for the page to
 // exit, close, or time out. It returns an error only when the run could not
@@ -126,6 +141,7 @@ func Run(ctx context.Context, options Options) (Result, error) {
 	s := &session{
 		root: root, entry: entry, policy: options.Policy.ContentSecurityPolicy(), isolated: options.CrossOriginIsolation,
 		token: hex.EncodeToString(token), host: listener.Addr().String(), console: options.Console,
+		onMessage: options.OnMessage, onReady: options.OnReady, outbox: make(chan string, queuedMessages),
 		finished: make(chan Result, 1),
 	}
 	server := &http.Server{Handler: s, ReadHeaderTimeout: 5 * time.Second, MaxHeaderBytes: 16 << 10}
@@ -191,6 +207,10 @@ type session struct {
 	console  func(Event)
 	finished chan Result
 
+	onMessage func(string)
+	onReady   func(send func(string) error)
+	outbox    chan string
+
 	mu   sync.Mutex
 	seen bool
 	last time.Time
@@ -205,8 +225,31 @@ func (s *session) lastSeen() (bool, time.Time) {
 
 func (s *session) touch() {
 	s.mu.Lock()
+	first := !s.seen
 	s.seen, s.last = true, time.Now()
 	s.mu.Unlock()
+	if first && s.onReady != nil {
+		s.onReady(s.sendToPage)
+	}
+}
+
+// sendToPage queues one message for the page's next poll.
+func (s *session) sendToPage(message string) error {
+	if len(message) > maxMessageBytes {
+		return errors.New("bundle: message is too large")
+	}
+	s.mu.Lock()
+	done := s.done
+	s.mu.Unlock()
+	if done {
+		return errors.New("bundle: the run has ended")
+	}
+	select {
+	case s.outbox <- message:
+		return nil
+	default:
+		return errors.New("bundle: the queue to the page is full")
+	}
 }
 
 // finish records the first outcome and ignores any later one.

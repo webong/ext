@@ -6,11 +6,11 @@ require (
 	github.com/hashicorp/go-hclog v0.14.1
 	github.com/hashicorp/go-plugin v1.6.3
 	github.com/webong/ext/pkg/graph v0.1.0
-	github.com/webong/ext/pkg/plugin v0.1.0
+	github.com/webong/ext/pkg/plugin v0.2.0
 	github.com/webong/ext/pkg/plugin-cshared v0.1.0
 	github.com/webong/ext/pkg/plugin-go v0.1.0
 	github.com/webong/ext/pkg/plugin-hashicorp v0.1.0
-	github.com/webong/ext/pkg/plugin-wasm v0.1.0
+	github.com/webong/ext/pkg/plugin-wasm v0.2.0
 )
 
 require (

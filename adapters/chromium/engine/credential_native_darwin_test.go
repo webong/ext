@@ -35,7 +35,8 @@ func TestNativeCookieCredentialsMacOSKeychain(t *testing.T) {
 		}
 	})
 	run("unlock-keychain", "-p", "ctx-synthetic-keychain-password", keychain)
-	root, err := filepath.Abs("../..")
+	// The workspace root: this package is adapters/chromium/engine.
+	root, err := filepath.Abs("../../..")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -49,7 +50,7 @@ func TestNativeCookieCredentialsMacOSKeychain(t *testing.T) {
 	}
 	fixture := t.TempDir()
 	ctxBinary := filepath.Join(fixture, "ctx")
-	build(ctxBinary, "./cmd/ctx")
+	build(ctxBinary, "./src/ctx/cmd/ctx")
 	// Stage the keychain adapter from source and let the real ctx CLI install
 	// and trust it, mirroring the documented fixture flow.
 	staging := filepath.Join(fixture, "keychain-src")

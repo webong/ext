@@ -37,7 +37,8 @@ cargo build --release --locked --manifest-path pkg/plugin-rust/Cargo.toml --targ
 cargo build --release --locked --manifest-path pkg/plugin-rust/Cargo.toml --target wasm32-wasip1 --example shared
 "$ZIG_BIN" build test --build-file pkg/plugin-zig/build.zig --prefix "$build_dir/zig"
 "$ZIG_BIN" build --build-file pkg/plugin-zig/build.zig --prefix "$build_dir/zig"
-"$ZIG_BIN" build --build-file pkg/plugin-zig/build.zig -Dtarget=wasm32-wasi --prefix "$build_dir/wasi"
+# Optimized: a Debug module is slow enough to compile that it exhausts the harness's 3 s session timeout.
+"$ZIG_BIN" build --build-file pkg/plugin-zig/build.zig -Dtarget=wasm32-wasi -Doptimize=ReleaseSafe --prefix "$build_dir/wasi"
 
 case "$(uname -s)" in
   Darwin) extension=dylib ;;

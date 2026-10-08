@@ -72,7 +72,7 @@ func TestProcessWindowsSnapshotABI(t *testing.T) {
 	}
 	entry := processHandleEntry{}
 	va := processVAEntry{}
-	if unsafe.Offsetof(entry.TypeName) != 64 || unsafe.Offsetof(entry.Name) != 80 || unsafe.Sizeof(entry) < 136 {
+	if unsafe.Offsetof(entry.TypeName) != 64 || unsafe.Offsetof(entry.Name) != 80 || unsafe.Sizeof(entry) != 136 {
 		t.Fatalf("handle ABI: type=%d name=%d size=%d", unsafe.Offsetof(entry.TypeName), unsafe.Offsetof(entry.Name), unsafe.Sizeof(entry))
 	}
 	if unsafe.Offsetof(va.Name) != 72 || unsafe.Sizeof(va) != 80 {

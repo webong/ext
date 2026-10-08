@@ -14,8 +14,9 @@ import (
 	"golang.org/x/sys/windows"
 )
 
-// These prefixes follow processsnapshot.h. The handle union is deliberately
-// oversized: its contents are unused, and PssWalkSnapshot accepts a larger buffer.
+// These layouts follow processsnapshot.h. The handle record is the header's size
+// exactly (136 bytes on 64-bit): PssWalkSnapshot rejects a larger buffer with
+// ERROR_BAD_LENGTH on current Windows images, as the native CI run showed.
 type processHandleEntry struct {
 	Handle     uintptr
 	Flags      uint32
@@ -32,7 +33,7 @@ type processHandleEntry struct {
 	TypeName   *uint16
 	NameLength uint16
 	Name       *uint16
-	Union      [64]byte
+	Union      [48]byte // the largest member of TypeSpecificInformation (Thread)
 }
 type processVAEntry struct {
 	Base                 uintptr

@@ -189,7 +189,7 @@ int ext_schema_check(yyjson_val *s, yyjson_val *v) {
   yyjson_val *type = get(s, "type");
   size_t i, n;
   yyjson_val *k, *item;
-  double min, max, x;
+  double min = 0, max = 0, x;
   if (eq(type, "object")) {
     if (!yyjson_is_obj(v))
       return 0;
@@ -237,16 +237,12 @@ int ext_schema_check(yyjson_val *s, yyjson_val *v) {
   if (!number(v, &x) || (eq(type, "integer") && trunc(x) != x))
     return 0;
   yyjson_val *lo = get(s, "minimum"), *hi = get(s, "maximum");
-  if (!absent(lo)) {
-    number(lo, &min);
-    if (x < min)
-      return 0;
-  }
-  if (!absent(hi)) {
-    number(hi, &max);
-    if (x > max)
-      return 0;
-  }
+  /* A bound that is not a finite number cannot be satisfied: reject, never compare
+   * against an uninitialized value. */
+  if (!absent(lo) && (!number(lo, &min) || x < min))
+    return 0;
+  if (!absent(hi) && (!number(hi, &max) || x > max))
+    return 0;
   return 1;
 }
 static int profile(yyjson_val *p) {

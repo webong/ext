@@ -51,26 +51,27 @@ $payload = @($Arguments | Select-Object -Skip 1)
 $inventory = @(Get-JavaInventory)
 # The first home wins when several installs share a major version.
 $distinct = @($inventory | Group-Object selection | ForEach-Object { $_.Group[0] })
+function Get-InstalledList { ($distinct | ForEach-Object { $_.selection }) -join ' ' }
 function Find-Record($selection) { $distinct | Where-Object { $_.selection -eq $selection } | Select-Object -First 1 }
 
 switch ($operation) {
     'list' { $distinct | ForEach-Object { $_.selection }; exit 0 }
     'observe' {
         $contexts = @($distinct | ForEach-Object {
-            @{ selection = $_.selection; attributes = @{ version = $_.version; home = $_.home; source = $_.source } }
+            @{ selection = $_.selection; attributes = @{ kind = 'jvm'; isolation = 'host'; version = $_.version; home = $_.home; source = $_.source } }
         })
         @{ version = 1; contexts = $contexts } | ConvertTo-Json -Compress -Depth 5
         exit 0
     }
     'validate' {
         $selection = if ($payload.Count) { $payload[0] } else { '' }
-        if (-not $selection -or -not (Find-Record $selection)) { [Console]::Error.WriteLine("jvm: Java $selection is not installed"); exit 1 }
+        if (-not $selection -or -not (Find-Record $selection)) { [Console]::Error.WriteLine("jvm: Java $selection is not installed (installed: $(Get-InstalledList))"); exit 1 }
         exit 0
     }
     'doctor' {
         $selection = if ($payload.Count) { $payload[0] } else { '' }
         $record = if ($selection) { Find-Record $selection } else { $distinct | Select-Object -First 1 }
-        if ($selection -and -not $record) { [Console]::Error.WriteLine("jvm: Java $selection is not installed"); exit 1 }
+        if ($selection -and -not $record) { [Console]::Error.WriteLine("jvm: Java $selection is not installed (installed: $(Get-InstalledList))"); exit 1 }
         if (-not $record) { [Console]::Error.WriteLine('jvm: no Java installation found'); exit 127 }
         & (Join-Path $record.home 'bin\java.exe') -version
         exit $LASTEXITCODE
@@ -80,7 +81,7 @@ switch ($operation) {
         if ($payload.Count -and $payload[0] -ne '--') { $selection = $payload[0]; $payload = @($payload | Select-Object -Skip 1) }
         if ($payload.Count -and $payload[0] -eq '--') { $payload = @($payload | Select-Object -Skip 1) }
         $record = if ($selection) { Find-Record $selection } else { $distinct | Select-Object -First 1 }
-        if ($selection -and -not $record) { [Console]::Error.WriteLine("jvm: Java $selection is not installed"); exit 1 }
+        if ($selection -and -not $record) { [Console]::Error.WriteLine("jvm: Java $selection is not installed (installed: $(Get-InstalledList))"); exit 1 }
         if (-not $record) { [Console]::Error.WriteLine('jvm: no Java installation found'); exit 127 }
         $tool = if ($env:CTX_ADAPTER_COMMAND -in @('javac', 'jar')) { $env:CTX_ADAPTER_COMMAND } else { 'java' }
         $executable = Join-Path $record.home "bin\$tool.exe"

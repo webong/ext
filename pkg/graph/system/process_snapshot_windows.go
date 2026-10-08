@@ -120,6 +120,10 @@ func pssString(pointer *uint16, bytes uint16) string {
 	}
 	return string(utf16.Decode(unsafe.Slice(pointer, int(bytes)/2)))
 }
+
+// The capture flags are PSS_CAPTURE_HANDLES (0x4), PSS_CAPTURE_HANDLE_NAME_INFORMATION (0x8) and
+// PSS_CAPTURE_HANDLE_BASIC_INFORMATION (0x10). Without the last, every handle comes back without
+// a type name, so no handle can be classed as a file.
 func windowsProcessHandles(ctx context.Context, p *ProcessInfo, limit int) {
 	api, err := loadProcessSnapshotAPI()
 	if err != nil {
@@ -129,7 +133,7 @@ func windowsProcessHandles(ctx context.Context, p *ProcessInfo, limit int) {
 	}
 	p.Coverage["file"] = completeProcessStatus()
 	p.Coverage["ipc"] = completeProcessStatus()
-	err = api.withSnapshot(p.PID, windows.PROCESS_QUERY_INFORMATION|windows.PROCESS_DUP_HANDLE, 0x4|0x8, func(snapshot uintptr) error {
+	err = api.withSnapshot(p.PID, windows.PROCESS_QUERY_INFORMATION|windows.PROCESS_DUP_HANDLE, 0x4|0x8|0x10, func(snapshot uintptr) error {
 		entry := processHandleEntry{}
 		return api.walkRecords(ctx, snapshot, 2, limit*4, unsafe.Pointer(&entry), unsafe.Sizeof(entry), func() {
 			typ, name := pssString(entry.TypeName, entry.TypeLength), pssString(entry.Name, entry.NameLength)

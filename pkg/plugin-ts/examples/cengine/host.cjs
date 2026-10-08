@@ -12,7 +12,11 @@ binding.run(guest, selected, requests).then(responses => {
   // Also ensure a waiting guest doesn't block the event loop.
   const wait = JSON.parse(requests[0]);
   wait.operation = 'wait'; wait.deadline = new Date(Date.now() + 100).toISOString();
-  return assert.rejects(binding.run(guest, selected, [JSON.stringify(wait)]));
+  // The guest honours its deadline and answers with an error at about the moment the host's own
+  // timeout fires, so a rejection and an error response are both correct; success is not.
+  return binding.run(guest, selected, [JSON.stringify(wait)]).then(
+    (waited) => assert.ok(waited.some((r) => String(r).includes('"error"')), 'a waiting guest must not succeed'),
+    () => {});
 }).then(() => {
   clearInterval(timer);
   assert.ok(ticks > 0, 'native work blocked the event loop');

@@ -42,7 +42,8 @@ switch ($Operation) {
     'doctor' { if (-not $firefox -or ($Selection -and -not (Test-Profile $Selection))) { exit 1 } }
     'open' {
         if (-not $firefox -or -not (Test-Profile $Selection)) { [Console]::Error.WriteLine("firefox: profile $Selection is unavailable"); exit 1 }
-        & $firefox -P 'share' $Selection '--' @Arguments
+        if ($Arguments.Count -gt 0 -and $Arguments[0] -eq '--') { $Arguments = @($Arguments | Select-Object -Skip 1) }
+        & $firefox -P $Selection @Arguments
         exit $LASTEXITCODE
     }
     default { exit 2 }

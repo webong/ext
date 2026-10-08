@@ -56,7 +56,9 @@ uses it to host a WASI plugin guest in a browser.
 ## The page API and the host channel
 
 The page script is one file, `res/web/bundle/shim.js`, used the same way on every
-transport. A page sees:
+transport. The Swift and Java hosts embed a generated copy of it, so after **any** change
+to `shim.js` run `scripts/plugin-mobile-assets.sh` and commit the two files it writes, or
+the Plugin SDK CI job fails (`--check` verifies them). A page sees:
 
 | | |
 | --- | --- |

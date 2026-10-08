@@ -106,10 +106,31 @@ module needs no `_start`. Compiling `ext_plugin.h`-style C needs a bump allocato
 | A hidden Android `WebView`, `WebViewPluginHost` in `pkg/plugin-android` | Implemented in plain Java over the same page API and the same glue. The Rust reactor passes the same 9 checks in a real `WebView` on an Android 14 (API 34) emulator; not run on a physical device. |
 | WAMR or wasmi inside `pkg/plugin-engine` | Fallback route; not built. Both need their metering and termination options enabled to meet the deadline rules. |
 
-The 24 MiB response buffer was allocated and used inside `WKWebView` on macOS and in
-the iOS Simulator without failure. Resident memory was not measured, and a physical
-phone's limits were not tried, so treat the cost of reserving it as unknown. Pages
-commit only as the guest writes, but that is an engine behaviour to test, not assume.
+### Memory
+
+The 24 MiB response buffer is not committed up front: a page only pays for what the guest
+writes. Measured with the Rust conformance reactor, once each, on a Mac and on an
+emulator, not on a phone:
+
+| | Before | Reactor loaded, handshake done | After a 4 MB echo |
+|---|---|---|---|
+| macOS `WKWebView` content process, footprint | 10 MB (bare page) | 20 MB | 47 MB |
+| Android 14 emulator, WebView renderer process, PSS | none | 36.9 MB | 138.6 MB |
+| Android 14 emulator, app process, PSS | 23.0 MB (no WebView yet) | 60.4 MB | 46.0 MB |
+
+What this means:
+
+- The buffer is not what costs. A 24 MiB buffer would put the macOS process over 34 MB
+  and the Android renderer over 60 MB if it were committed, and neither is.
+- **Payload size is what costs.** A frame passes through the page as a JSON string, UTF-8
+  bytes, guest memory and the guest's own parsing, so one 4 MB frame cost about 27 MB on
+  macOS and about 100 MB on the Android renderer, many times its size. The 24 MiB frame
+  limit is therefore not practical through the web-engine route on a phone; keep frames
+  small, or use a native backend for large data.
+- Part of the Android app-process figure is the WebView itself, which a bare WebView would
+  also pay; a bare-WebView baseline was not measured, so the reactor's share of it is
+  unknown. Footprint and PSS are different metrics and the figures are not comparable
+  across rows.
 
 The first web view in a freshly launched app was slow to start in the simulator: 32 s
 cold, then 11.7 s, then 3.1 s as it warmed. A host should give `start` a generous

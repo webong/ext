@@ -88,6 +88,12 @@ func observeAdapterCandidate(resolver *config.Resolver, store *modpkg.Store, can
 	if !trusted {
 		observation.DiscoveryStatus = "untrusted"
 	}
+	// An adapter whose runtime this host does not define is inert: it is listed
+	// so it stays visible, but its executable is never run to discover anything.
+	if trusted && !candidate.IsKnownRuntime() {
+		observation.DiscoveryStatus = "inert"
+		return observation, nil
+	}
 	if trusted && candidate.HasCapability("observe") {
 		var output boundedObservationBuffer
 		var adapterError boundedObservationBuffer

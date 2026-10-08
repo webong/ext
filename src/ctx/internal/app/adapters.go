@@ -548,7 +548,7 @@ func doctor(resolver *config.Resolver, stdout, stderr io.Writer) int {
 		return reportError(stderr, err)
 	}
 	for _, candidate := range installed {
-		if candidate.IsRuntime("browser") || !candidate.SupportsSurface("shell") {
+		if candidate.IsRuntime("browser") || !candidate.SupportsSurface("shell") || !candidate.IsKnownRuntime() {
 			continue
 		}
 		selection, err := adapterSelection(resolver, candidate)

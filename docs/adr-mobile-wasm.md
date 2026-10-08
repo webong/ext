@@ -167,6 +167,8 @@ Reported by the mobile SDK session, not re-run here:
   webview early and keep it, not create one per call. Nothing was measured on a
   physical device, so treat these as simulator figures.
 
+**The WAMR fallback is built** in [`pkg/plugin-engine/wamr`](../pkg/plugin-engine/wamr/README.md), behind the engine's extension-backend interface. The Rust SDK's conformance reactor passes its test on macOS, in the iOS 18.3 Simulator and on an Android 14 emulator, and a deadline, cancel or close stops a running guest in about the time asked (300 ms, 200 ms, 200 ms). On macOS, connecting took 34 to 43 ms and a call's median was about 0.4 ms, with 12 MB of memory. Building it taught three things the earlier evaluation did not: reference types and bulk memory must be on for toolchain-built reactors to load; WAMR only warns about an unknown import and loads the module anyway, so the backend checks imports itself; and the engine's own subprocess backend needs Android API 28.
+
 A second run by another agent, also on a simulator and emulator only, saw the same
 results for the browser route and measured an in-app WKWebView start-up of 8.24 s with a
 38 ms handshake; the figures are in [the web engine doc](web-engine.md). No physical
@@ -177,8 +179,8 @@ device has been used.
 - Real iOS and Android devices; the store policies; in-app webview isolation.
 - Android's System WebView, as a host or distinct from Chrome. The Android host is
   not built.
-- wasmi and WAMR built for iOS and Android, and either running on a device. The WAMR
-  fallback is not started.
+- WAMR on a physical device (it was built for and run on the iOS Simulator and an Android
+  emulator), and wasmi, which was not built for either.
 
 The Swift and Java bindings belong to the mobile SDK work (`pkg/plugin-ios`,
 `pkg/plugin-android`). This record covers only how a mobile host runs WebAssembly.

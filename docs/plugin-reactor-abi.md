@@ -104,7 +104,8 @@ module needs no `_start`. Compiling `ext_plugin.h`-style C needs a bump allocato
 | `wasm.OpenReactor` in `pkg/plugin-wasm`, on wazero | Implemented. The Rust SDK's shared guest, built as a reactor, passes the full cross-language conformance suite through it: round trips, concurrent calls, public and private errors, deadline cancellation, close while a call is blocked. |
 | A hidden `WKWebView`, `WebViewPluginHost` in `pkg/plugin-ios` | Implemented over the page API of `res/web/bundle` (`shim.js`). The Rust reactor passes its 9 tests on macOS and in the iOS 18.3 Simulator: handshake, echo with Unicode and large numbers, public and sanitized private errors, ordering, a guest that honours its deadline, and destroying the page when a call overruns. Not run on a physical device. |
 | A hidden Android `WebView`, `WebViewPluginHost` in `pkg/plugin-android` | Implemented in plain Java over the same page API and the same glue. The Rust reactor passes the same 9 checks in a real `WebView` on an Android 14 (API 34) emulator; not run on a physical device. |
-| WAMR or wasmi inside `pkg/plugin-engine` | Fallback route; not built. Both need their metering and termination options enabled to meet the deadline rules. |
+| WAMR inside `pkg/plugin-engine` (optional, `EXT_WITH_WAMR`) | Implemented as the fallback route in [`pkg/plugin-engine/wamr`](../pkg/plugin-engine/wamr/README.md). The Rust SDK's conformance reactor passes its test on macOS, in the iOS 18.3 Simulator and on an Android 14 emulator; deadline, cancel, close, memory and instruction limits all stop a guest. It needs metering and the thread manager on in WAMR to meet the deadline rules. Not run on a physical device. |
+| wasmi inside `pkg/plugin-engine` | Not built; the alternative if startup or memory matter more than avoiding a Rust build. |
 
 ### Memory
 

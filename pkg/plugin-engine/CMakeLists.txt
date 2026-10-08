@@ -110,6 +110,13 @@ foreach(test_target IN ITEMS ext_host_native_test ext_resources_test)
   endif()
 endforeach()
 endif()
+option(EXT_WITH_WAMR "Build the optional WAMR reactor backend (needs EXT_WAMR_ROOT)" OFF)
+if(EXT_WITH_WAMR)
+  if(NOT EXT_BUILD_HOST)
+    message(FATAL_ERROR "EXT_WITH_WAMR needs EXT_BUILD_HOST")
+  endif()
+  add_subdirectory(wamr)
+endif()
 include(CMakePackageConfigHelpers)
 configure_package_config_file(cmake/ext_hostConfig.cmake.in
   "${CMAKE_CURRENT_BINARY_DIR}/ext_hostConfig.cmake"

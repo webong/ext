@@ -12,8 +12,12 @@ shared [C engine](../plugin-engine/README.md), which does the strict JSON parsin
 request validation against the descriptor, deadlines and error sanitizing. The
 application supplies a descriptor and a `Handler`.
 
-Only the **guest** is here. The host half needs an in-process backend, which is
-separate work. Nothing is published yet.
+This package covers both halves for an app. Authoring a guest is the first part. The
+second is hosting a WebAssembly reactor in a hidden WebView (see Hosting a plugin in a
+WebView), the first route of [the mobile decision](../../docs/adr-mobile-wasm.md). The
+fallback route, an in-process interpreter, exists as a C backend in
+[`pkg/plugin-engine/wamr`](../plugin-engine/wamr/README.md) but this package does not bind it
+yet. Nothing is published yet.
 
 ## Writing a plugin
 

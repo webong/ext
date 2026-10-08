@@ -5,8 +5,12 @@ Objective-C through the C headers, author an `ext.plugin/v1` plugin on iOS and m
 which does the strict JSON parsing, request validation against the descriptor,
 deadlines and error sanitizing. A Swift author supplies a descriptor and a handler.
 
-Only the **guest** is here. The host half needs an in-process backend, because iOS
-cannot spawn processes; that is separate work. Nothing is published yet.
+This package covers both halves for an app. Authoring a guest is the first part. The
+second is hosting a WebAssembly reactor in a hidden web view (see below), the first route of
+[the mobile decision](../../docs/adr-mobile-wasm.md). The fallback route, an in-process
+interpreter, exists as a C backend in [`pkg/plugin-engine/wamr`](../plugin-engine/wamr/README.md)
+but this package does not bind it yet. iOS cannot spawn processes, so a host cannot use the
+engine's subprocess backend. Nothing is published yet.
 
 ## Writing a plugin
 

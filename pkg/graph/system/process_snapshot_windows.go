@@ -118,7 +118,8 @@ func pssString(pointer *uint16, bytes uint16) string {
 	if pointer == nil || bytes == 0 {
 		return ""
 	}
-	return string(utf16.Decode(unsafe.Slice(pointer, int(bytes)/2)))
+	// The reported length includes the terminating NUL, which would make "File" compare unequal.
+	return strings.TrimRight(string(utf16.Decode(unsafe.Slice(pointer, int(bytes)/2))), "\x00")
 }
 
 // The capture flags are PSS_CAPTURE_HANDLES (0x4), PSS_CAPTURE_HANDLE_NAME_INFORMATION (0x8) and

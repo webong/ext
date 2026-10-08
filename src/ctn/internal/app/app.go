@@ -20,6 +20,9 @@ func Run(args []string, stdout, stderr io.Writer) int {
 	if args[0] == "adapter" {
 		return adapterCommand(args[1:], stdout, stderr)
 	}
+	if args[0] == "verify" {
+		return verifyCommand(args[1:], stdout, stderr)
+	}
 	fmt.Fprintf(stderr, "ctn: unknown command %q\n", args[0])
 	usage(stderr)
 	return 2
@@ -30,6 +33,7 @@ func usage(w io.Writer) {
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "Usage:")
 	fmt.Fprintln(w, "  ctn adapter ls")
+	fmt.Fprintln(w, "  ctn verify [--engine NAME] [--selection SEL] [--timeout D] [--json] FILE [ARGUMENTS...]")
 	fmt.Fprintln(w, "  ctn help")
 	fmt.Fprintln(w, "  ctn version")
 }

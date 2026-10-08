@@ -8,7 +8,7 @@ resources) and two binaries:
 | Binary | Module | Purpose |
 | --- | --- | --- |
 | [`ctx`](#ctx) | `src/ctx` | Project-local contexts for the tools you already use |
-| `ctn` | `src/ctn` | Content management (a stub: `help` and `version` only) |
+| `ctn` | `src/ctn` | Content management: `ctn verify` runs content through a sandboxed engine ([docs](docs/ctn-verify.md)); `ctn adapter ls` lists installed adapters |
 
 Reusable libraries live in [`pkg/`](pkg/README.md) and [`res/`](res/README.md);
 product-specific behavior lives in [`adapters/`](adapters/README.md). A product

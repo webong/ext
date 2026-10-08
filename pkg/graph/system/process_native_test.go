@@ -178,7 +178,15 @@ func processFixturePathEqual(observed, expected string) bool {
 	observed = strings.ReplaceAll(observed, "\\", "/")
 	expected = strings.ReplaceAll(expected, "\\", "/")
 	if runtime.GOOS == "windows" {
-		return strings.HasSuffix(strings.ToLower(observed), strings.ToLower(expected[2:]))
+		// Keep the unique test directory, its numbered child and the file: the profile
+		// part of a temp path may be an 8.3 short name (RUNNER~1) while the system
+		// reports the long one.
+		parts := strings.Split(expected, "/")
+		keep := 3
+		if len(parts) < keep {
+			keep = len(parts)
+		}
+		return strings.HasSuffix(strings.ToLower(observed), strings.ToLower("/"+strings.Join(parts[len(parts)-keep:], "/")))
 	}
 	a, e1 := filepath.EvalSymlinks(observed)
 	b, e2 := filepath.EvalSymlinks(expected)

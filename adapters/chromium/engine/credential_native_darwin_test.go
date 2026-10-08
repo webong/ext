@@ -22,8 +22,8 @@ func TestNativeCookieCredentialsMacOSKeychain(t *testing.T) {
 		t.Helper()
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
-		if err := exec.CommandContext(ctx, "/usr/bin/security", args...).Run(); err != nil {
-			t.Fatalf("synthetic keychain operation %s failed: %v", args[0], err)
+		if output, err := exec.CommandContext(ctx, "/usr/bin/security", args...).CombinedOutput(); err != nil {
+			t.Fatalf("synthetic keychain operation %s failed: %v: %s", args[0], err, output)
 		}
 	}
 	run("create-keychain", "-p", "ctx-synthetic-keychain-password", keychain)
@@ -81,16 +81,19 @@ func TestNativeCookieCredentialsMacOSKeychain(t *testing.T) {
 	}
 	ctxCtl("adapter", "install", staging)
 	ctxCtl("adapter", "trust", "keychain")
-	executelookup := func() string {
-		t.Helper()
-		path := filepath.Join(adapterHome, "keychain")
-		if _, err := os.Stat(path); err != nil {
-			t.Fatalf("installed keychain adapter not found at %s: %v", path, err)
+	// The manifest names the executable at the adapter's root; older layouts nested it
+	// under native/. Use whichever exists, because `security -T` needs a real path.
+	installed := filepath.Join(adapterHome, "keychain")
+	executable := ""
+	for _, candidate := range []string{filepath.Join(installed, "ctx-keychain"), filepath.Join(installed, "native", "ctx-keychain")} {
+		if _, err := os.Stat(candidate); err == nil {
+			executable = candidate
+			break
 		}
-		return filepath.Join(path, "native", "ctx-keychain")
 	}
-	_ = executelookup
-	executable := executelookup()
+	if executable == "" {
+		t.Fatalf("installed keychain adapter has no ctx-keychain executable under %s", installed)
+	}
 	run("add-generic-password", "-s", "CTX Synthetic Safe Storage", "-a", "CTX Synthetic",
 		"-w", "ctx-synthetic-safe-storage-password", "-T", "/usr/bin/security", "-T", executable, keychain)
 	t.Setenv("CTX_HOME", filepath.Join(fixture, "state"))

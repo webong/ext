@@ -102,7 +102,7 @@ static int limit(yyjson_val *s, const char *name, double *out) {
     if (p[i] < '0' || p[i] > '9')
       return 0;
     unsigned digit = (unsigned)(p[i] - '0');
-    if (value > (INT64_MAX - digit) / 10)
+    if (value > ((uint64_t)INT64_MAX - digit) / 10)
       return 0;
     value = value * 10 + digit;
   }

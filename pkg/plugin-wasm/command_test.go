@@ -127,7 +127,9 @@ func TestRunCommandCancelsAComputeLoop(t *testing.T) {
 	if !errors.Is(err, context.DeadlineExceeded) {
 		t.Fatalf("a spinning module must be cancelled: %v", err)
 	}
-	if elapsed := time.Since(started); elapsed > 10*time.Second {
+	// The bound catches a loop that is never cancelled. It includes compiling and starting
+	// the module, which takes about 10 s under the race detector on a shared CI runner.
+	if elapsed := time.Since(started); elapsed > 60*time.Second {
 		t.Fatalf("cancellation took %s", elapsed)
 	}
 }

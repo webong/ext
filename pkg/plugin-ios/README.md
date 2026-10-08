@@ -51,6 +51,35 @@ that has its own transport.
 - **A handler must not trap** (`fatalError`, out-of-range index, forced unwrap):
   nothing can recover a crashed process. Long loops call `Call.checkDeadline()`.
 
+## Hosting a plugin in a web view
+
+`ExtPluginWebView` runs a WebAssembly reactor ([the ABI](../../docs/plugin-reactor-abi.md))
+in a hidden `WKWebView`, the phone's own web engine. This is the first route of
+[the mobile decision](../../docs/adr-mobile-wasm.md), with `restricted` isolation: no
+network, files or process, but the browser's rules and not a capability sandbox.
+
+```swift
+let shim = try String(contentsOf: shimURL)           // res/web/bundle/shim.js, unchanged
+let host = WebViewPluginHost(module: reactorBytes, bridge: shim)
+try await host.start()
+let descriptor = try await host.handshake(deadline: Date().addingTimeInterval(10))
+let response = try await host.invoke(requestJSON, timeout: 10)
+host.close()
+```
+
+- The page API is [`window.ext.host`](../../docs/web-engine.md) of `res/web/bundle`. The
+  host registers a script message handler named `ext` and delivers frames with
+  `window.ext.host._deliver`; `ext.plugin/v1` frames pass through as strings.
+- A running WebAssembly call cannot be interrupted. A call that overruns its timeout
+  destroys the web view, and the host is then closed.
+- It is main-actor code. One host runs one plugin, one call at a time.
+- `shim.js` is not bundled here, because a Swift package cannot reach outside its own
+  directory; the app supplies it. Embedding it at release time is not done yet.
+
+Tested on macOS and in the iOS Simulator, not on a physical device. Set
+`EXT_RUST_REACTOR` to the Rust shared example built for `wasm32-wasip1`
+(`scripts/plugin-crosslang.sh` builds it); the tests skip without it.
+
 ## Building and testing
 
 ```sh

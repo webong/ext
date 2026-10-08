@@ -102,11 +102,17 @@ module needs no `_start`. Compiling `ext_plugin.h`-style C needs a bump allocato
 | Host | Status |
 |---|---|
 | `wasm.OpenReactor` in `pkg/plugin-wasm`, on wazero | Implemented. The Rust SDK's shared guest, built as a reactor, passes the full cross-language conformance suite through it: round trips, concurrent calls, public and private errors, deadline cancellation, close while a call is blocked. |
-| A web engine page (hidden `WKWebView` or Android `WebView`) | Being built in `pkg/plugin-ios`; not verified yet. |
+| A hidden `WKWebView`, `WebViewPluginHost` in `pkg/plugin-ios` | Implemented over the page API of `res/web/bundle` (`shim.js`). The Rust reactor passes its 9 tests on macOS and in the iOS 18.3 Simulator: handshake, echo with Unicode and large numbers, public and sanitized private errors, ordering, a guest that honours its deadline, and destroying the page when a call overruns. Not run on a physical device. |
+| A hidden Android `WebView` | Not built or run: `pkg/plugin-android` has no Kotlin or Android toolchain here. The page side is the same glue and the same `shim.js`. |
 | WAMR or wasmi inside `pkg/plugin-engine` | Fallback route; not built. Both need their metering and termination options enabled to meet the deadline rules. |
 
-Not yet measured: the cost of reserving the 24 MiB response buffer inside a phone's
-web engine, where memory is tight. Pages commit only as the guest writes, but that is
-an engine behaviour to test, not assume. If it matters, a later ABI version can let a
+The 24 MiB response buffer was allocated and used inside `WKWebView` on macOS and in
+the iOS Simulator without failure. Resident memory was not measured, and a physical
+phone's limits were not tried, so treat the cost of reserving it as unknown. Pages
+commit only as the guest writes, but that is an engine behaviour to test, not assume.
+
+The first web view in a freshly launched app was slow to start in the simulator: 32 s
+cold, then 11.7 s, then 3.1 s as it warmed. A host should give `start` a generous
+timeout; device cold start is unmeasured. If it matters, a later ABI version can let a
 guest own the response buffer. Version 1 keeps the C ABI's caller-owned buffers so a
 single source compiles to both targets.

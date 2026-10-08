@@ -13,6 +13,8 @@ let package = Package(
         // Export the four ext_plugin_* C symbols so any plugin-cshared host can
         // load the plugin. Needs one ext_plugin_guest_factory definition.
         .library(name: "ExtPluginExports", targets: ["ExtPluginExports"]),
+        // Host a WebAssembly reactor in a hidden web view (docs/plugin-reactor-abi.md).
+        .library(name: "ExtPluginWebView", targets: ["ExtPluginWebView"]),
         // Test fixture for the cross-language conformance suite.
         .library(name: "ExtConformancePlugin", type: .dynamic, targets: ["ExtConformancePlugin"]),
     ],
@@ -22,6 +24,8 @@ let package = Package(
         .target(name: "CExtPluginShim", dependencies: ["CExtEngine"]),
         .target(name: "ExtPluginExports", dependencies: ["ExtPluginGuest", "CExtPluginShim", "CExtEngine"]),
         .target(name: "ExtConformancePlugin", dependencies: ["ExtPluginGuest", "ExtPluginExports"]),
+        .target(name: "ExtPluginWebView"),
+        .testTarget(name: "ExtPluginWebViewTests", dependencies: ["ExtPluginWebView"]),
         .testTarget(name: "ExtPluginGuestTests", dependencies: ["ExtPluginGuest", "ExtPluginExports", "CExtEngine"]),
     ],
     swiftLanguageVersions: [.v5]

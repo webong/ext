@@ -106,10 +106,7 @@ it. Tags are named for the module's directory, so their names did not change,
 but the unpublished `v0.1.0` tags were moved again to the commit with the new
 paths so each one resolves to a `go.mod` that matches its own module path.
 
-Local tags are not yet reachable through the public module proxy. Pushing them
-is a separate, deliberate publication step, and `GOWORK=off` builds inside a
-library module keep failing until it happens. That is the expected signal, not
-a defect.
+The `v0.1.0` tags were pushed to `origin` and are immutable.
 
 ## `res/browser` became `res/web`
 
@@ -126,6 +123,24 @@ A module path and its tags are a pair, so this is a new module, not a new versio
 - A module that requires `res/web` cannot resolve it from the proxy until that tag is
   pushed. The published `v0.1.0` tags of the adapters still require `res/browser`
   and remain valid; their next release requires `res/web`.
+
+## Releases since the baseline
+
+| Release | Modules | Why |
+| --- | --- | --- |
+| `v0.2.0` | `pkg/plugin`, `pkg/plugin-wasm` | additive: the adapter package, the reactor host, components and `Inspect` |
+| `v0.1.0` (first tag) | `res/web`, `adapters/wasm`, `adapters/evm` | new modules; `res/web` was the renamed `res/browser` |
+| `v0.1.1` | `adapters/chromium`, `adapters/firefox`, `adapters/safari` and the other 15 browser adapters | they now require `res/web` instead of `res/browser` |
+
+Modules that did not change keep `v0.1.0`: `pkg/graph`, `pkg/plugin-go`, `pkg/plugin-cshared`,
+`pkg/plugin-hashicorp`, `res/credential`, and the `credman`, `git`, `keychain` and
+`secret_service` adapters. Every tagged module requires the new versions of the modules it
+uses. The first `res/web/v0.1.0` tag was local only, so it was re-cut at the release commit.
+
+It was verified the way consumers meet it: from a scratch module outside the repository, with
+no workspace and no `replace`, the new tags resolved from GitHub, the libraries imported, the
+`wasm`, `evm` and `firefox` adapter programs built, and the old `res/browser` path appeared
+nowhere in the resolved graph.
 
 ## Verifying a release
 

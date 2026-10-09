@@ -3,7 +3,22 @@ project(ext_plugin_java C)
 
 # JNI binding over the guest half of the shared C engine. The same file builds on
 # a desktop JDK and, unchanged, with the Android NDK toolchain file.
-set(EXT_BUILD_HOST OFF CACHE BOOL "The JNI binding needs only the guest core" FORCE)
+#
+# EXT_WAMR_ROOT (a WAMR checkout, see scripts/plugin-wamr-source.sh) also builds
+# libextwamrjni: the host half of the engine with the WAMR reactor backend, a separate
+# library so the default guest SDK carries neither the host nor an interpreter.
+set(EXT_WAMR_ROOT "" CACHE PATH "A WAMR checkout; builds the optional extwamrjni host")
+if(EXT_WAMR_ROOT)
+  # WAMR's hardware bound checks reserve guard address space and install SIGSEGV handlers,
+  # and probe the native stack from the calling thread. That collides with the JVM and ART,
+  # which own those signals and thread stacks (the JVM aborts with SIGILL at first use), so
+  # the embedded interpreter checks in software instead.
+  set(WAMR_DISABLE_HW_BOUND_CHECK 1 CACHE STRING "Software bound checks inside a JVM or ART")
+  set(EXT_BUILD_HOST ON CACHE BOOL "The WAMR host needs the host half" FORCE)
+  set(EXT_WITH_WAMR ON CACHE BOOL "The WAMR reactor backend" FORCE)
+else()
+  set(EXT_BUILD_HOST OFF CACHE BOOL "The JNI binding needs only the guest core" FORCE)
+endif()
 add_subdirectory(../plugin-engine plugin-engine EXCLUDE_FROM_ALL)
 
 add_library(extjni SHARED src/main/native/ext_jni.c)
@@ -14,3 +29,14 @@ if(NOT ANDROID)
   target_include_directories(extjni PRIVATE ${JNI_INCLUDE_DIRS})
 endif()
 target_compile_options(extjni PRIVATE -Wall -Wextra -Werror)
+
+if(EXT_WAMR_ROOT)
+  add_library(extwamrjni SHARED src/main/native/ext_wamr_jni.c)
+  target_link_libraries(extwamrjni PRIVATE ext_wamr)
+  set_target_properties(extwamrjni PROPERTIES C_STANDARD 11 POSITION_INDEPENDENT_CODE ON
+    C_VISIBILITY_PRESET hidden)
+  if(NOT ANDROID)
+    target_include_directories(extwamrjni PRIVATE ${JNI_INCLUDE_DIRS})
+  endif()
+  target_compile_options(extwamrjni PRIVATE -Wall -Wextra -Werror)
+endif()

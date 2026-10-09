@@ -15,9 +15,9 @@ application supplies a descriptor and a `Handler`.
 This package covers both halves for an app. Authoring a guest is the first part. The
 second is hosting a WebAssembly reactor in a hidden WebView (see Hosting a plugin in a
 WebView), the first route of [the mobile decision](../../docs/adr-mobile-wasm.md). The
-fallback route, an in-process interpreter, exists as a C backend in
-[`pkg/plugin-engine/wamr`](../plugin-engine/wamr/README.md) but this package does not bind it
-yet. Nothing is published yet.
+fallback route, an in-process interpreter, is the C backend in
+[`pkg/plugin-engine/wamr`](../plugin-engine/wamr/README.md), bound here as an optional
+`WamrPluginHost` (see Hosting a plugin in WAMR). Nothing is published yet.
 
 ## Writing a plugin
 
@@ -100,6 +100,34 @@ host.close();
 first AVD headless, and runs the nine checks the iOS suite runs. All pass on a Pixel 7
 API 34 emulator, not on a physical device. A running emulator needs several GiB of free
 disk.
+
+## Hosting a plugin in WAMR (optional)
+
+`WamrPluginHost` runs a reactor in-process on WAMR's interpreter, through the engine's host
+half and a second JNI library, `libextwamrjni`, which is built only when `EXT_WAMR_ROOT` names
+a WAMR checkout. The default `libextjni` and its guest SDK carry neither the host nor an
+interpreter. It needs API 28 or later.
+
+```java
+byte[] descriptor = WamrPluginHost.descriptorOf(module, 30_000, null);   // inspection only
+try (WamrPluginHost host = new WamrPluginHost(module, descriptor)) {
+    host.start(30_000);
+    byte[] response = host.invoke(request, 10_000);   // blocks: call from a background thread
+}
+```
+
+- The constructor also takes `Options` (memory pages, interpreter stack, an instruction
+  budget per call, diagnostic bytes) and `verify`, `authorize` and diagnostic callbacks.
+  A denial from `authorize` throws `WamrException` with status `DENIED` and leaves the
+  host usable; a timeout, trap or exhausted budget ends the instance.
+- `close()` is safe from any thread and interrupts a running call.
+- The build disables WAMR's hardware bound checks (`WAMR_DISABLE_HW_BOUND_CHECK`): they
+  install signal handlers and probe the native stack, which the JVM and ART own, and the JVM
+  aborted with SIGILL on first use. The interpreter checks memory in software instead.
+- `scripts/plugin-android-wamr.sh` builds it and runs the 12 checks on a desktop JDK;
+  `scripts/plugin-android-wamr-device.sh` cross-builds with the NDK and runs them in a test
+  app on an emulator or device. WAMR is fetched at its pinned commit
+  (`scripts/plugin-wamr-source.sh`) and its license must ship with any binary that links it.
 
 ## Kotlin and Android
 

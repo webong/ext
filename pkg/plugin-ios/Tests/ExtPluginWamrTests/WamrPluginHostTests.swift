@@ -94,16 +94,21 @@ final class WamrPluginHostTests: XCTestCase {
     func testTheHostStopsAGuestAtItsRequestDeadline() throws {
         // Unlike a web view, the host enforces the request deadline itself: a guest that is still
         // running at the deadline is stopped and the instance ends, so the caller sees a timeout.
+        // The guest also watches its own deadline, so at the boundary it may answer first, with an
+        // error and no result.
         let host = try started()
         defer { host.close() }
         let began = Date()
-        XCTAssertThrowsError(try host.invoke(request("wait", deadline: Date().addingTimeInterval(0.4)), timeout: 10)) { error in
+        do {
+            let reply = text(try host.invoke(request("wait", deadline: Date().addingTimeInterval(0.4)), timeout: 10))
+            XCTAssertTrue(reply.contains(#""error""#) && !reply.contains(#""payload""#), reply)
+        } catch {
             XCTAssertEqual((error as? WamrPluginHost.Failure)?.status, 6, "\(error)") // EXT_TIMEOUT
+            XCTAssertThrowsError(try host.invoke(request("echo", payload: "1")), "the instance ends with the guest")
         }
         let elapsed = Date().timeIntervalSince(began)
         XCTAssertGreaterThan(elapsed, 0.3)
         XCTAssertLessThan(elapsed, 5)
-        XCTAssertThrowsError(try host.invoke(request("echo", payload: "1")), "the instance ends with the guest")
     }
 
     func testACallThatOverrunsItsTimeoutEndsTheInstance() throws {

@@ -225,8 +225,51 @@ int main(int argc, char **argv) {
   tight.instruction_limit = 1000;
   l = start(module, n, tight, &connected, &d);
   printf("instruction limit: connect status %d\n", (int)connected);
-  assert(connected == EXT_CAPACITY);
+  assert(connected == EXT_TIMEOUT);
   finish(&l);
+
+  /* The same through the engine's host API, which rewrites statuses it does not
+   * accept from a backend: an overrun during invoke must reach the application as
+   * a timeout, not as an invalid request. 64000 instructions fit the handshake. */
+  {
+    l = start(module, n, defaults, &connected, &d);
+    assert(connected == EXT_OK);
+    captured descriptor_for_budget = {0};
+    capture(&descriptor_for_budget, d.data, d.len);
+    finish(&l);
+    ext_wamr_options budget = {sizeof(ext_wamr_options), 0, 0, 64000, 0, NULL, NULL};
+    ext_backend_extension_context backend_budget;
+    ext_status made = ext_wamr_backend_create(module, n, &budget, &backend_budget);
+    assert(made == EXT_OK);
+    ext_backend_options bo = {sizeof(bo), EXT_BACKEND_EXTENSION_CONTEXT, &backend_budget, sizeof(backend_budget)};
+    ext_host_options ho = {EXT_HOST_ABI_VERSION, sizeof(ho), descriptor_for_budget.data, descriptor_for_budget.len, allow, allow, NULL};
+    ext_host *budget_host = NULL;
+    ext_status created = ext_host_create(&ho, &bo, &budget_host);
+    assert(created == EXT_OK);
+    ext_status started = ext_host_start(budget_host, 20000);
+    assert(started == EXT_OK);
+    (void)made;
+    (void)created;
+    (void)started;
+    size_t text = 60000;
+    char *heavy = malloc(text + 8);
+    memset(heavy, 'a', text);
+    heavy[text] = 0;
+    char *payload_heavy = malloc(text + 32);
+    snprintf(payload_heavy, text + 32, "{\"text\":\"%s\"}", heavy);
+    q = request("echo", payload_heavy, 20000);
+    ext_buffer heavy_out = {0};
+    ext_status over = ext_host_invoke(budget_host, (const uint8_t *)q, strlen(q), 20000, &heavy_out);
+    printf("instruction limit during invoke through ext_host: status %d\n", (int)over);
+    assert(over == EXT_TIMEOUT);
+    ext_buffer_free(&heavy_out);
+    free(q);
+    free(payload_heavy);
+    free(heavy);
+    ext_host_close(budget_host);
+    ext_host_destroy(budget_host);
+    free(descriptor_for_budget.data);
+  }
 
   /* Memory is capped: the 24 MiB response buffer cannot fit in 16 pages. */
   ext_wamr_options small = {0};

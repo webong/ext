@@ -29,6 +29,10 @@
 #define WASI_NOSYS 52u
 #define SLICE_MS 5u
 
+/* The engine accepts only statuses from EXT_OK through EXT_CANCELED from an
+ * extension backend and rewrites anything else (EXT_CAPACITY, EXT_SEQUENCE and so
+ * on) to EXT_INVALID, so this file returns nothing outside that range. */
+
 enum { NEW, CONNECTED, DEAD };
 
 typedef struct backend {
@@ -311,7 +315,9 @@ static ext_status classify_failure(backend *b) {
   if (cancelled) return EXT_CANCELED;
   if (tripped) return EXT_TIMEOUT;
   const char *why = b->inst ? wasm_runtime_get_exception(b->inst) : NULL;
-  if (why && strstr(why, "instruction limit")) return EXT_CAPACITY;
+  /* An exhausted instruction budget is compute time the call was not given, so it
+   * is reported as a timeout. */
+  if (why && strstr(why, "instruction limit")) return EXT_TIMEOUT;
   return EXT_CLOSED;
 }
 
@@ -415,7 +421,7 @@ static ext_status begin(backend *b) {
   pthread_mutex_lock(&b->mu);
   ext_status s = EXT_OK;
   if (b->state == DEAD) s = EXT_CLOSED;
-  else if (b->busy) s = EXT_CAPACITY; /* the engine serializes; this is a guard */
+  else if (b->busy) s = EXT_INVALID; /* the engine serializes; this is a guard */
   else {
     b->busy = 1;
     b->tripped = 0;
@@ -518,7 +524,7 @@ static ext_status connect_cb(void *user, const ext_call_options *o, ext_emit emi
   pthread_mutex_lock(&b->mu);
   int fresh = b->state == NEW;
   pthread_mutex_unlock(&b->mu);
-  if (!fresh) return EXT_SEQUENCE;
+  if (!fresh) return EXT_INVALID; /* connect is called once */
   ext_status s = begin(b);
   if (s != EXT_OK) return s;
   /* The watchdog exists for the life of the backend, asleep unless a call runs. */
@@ -549,7 +555,7 @@ static ext_status invoke_cb(void *user, const uint8_t *request, size_t len,
   int dead = b->state == DEAD;
   pthread_mutex_unlock(&b->mu);
   if (dead) return EXT_CLOSED;
-  if (!ready) return EXT_SEQUENCE;
+  if (!ready) return EXT_INVALID; /* invoke before a successful connect */
   ext_status s = begin(b);
   if (s != EXT_OK) return s;
   arm(b, o->timeout_ms, o->cancel);

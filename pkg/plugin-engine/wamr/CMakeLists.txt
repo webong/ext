@@ -46,6 +46,14 @@ set(WAMR_BUILD_LIBC_WASI 0)
 # so a reactor built with them will not load without these.
 set(WAMR_BUILD_REF_TYPES 1)
 set(WAMR_BUILD_BULK_MEMORY 1)
+# WAMR bounds-checks guest memory with signal handlers by default. A process that
+# installs its own (a JVM, so every Android app) can abort on them: the Android
+# binding of this backend aborted with SIGILL at first use. Turning them off makes
+# WAMR check bounds in software, which is slower but safe in such a process.
+option(EXT_WAMR_DISABLE_HW_BOUND_CHECK "Check guest memory bounds in software, not with signal handlers" OFF)
+if(EXT_WAMR_DISABLE_HW_BOUND_CHECK)
+  set(WAMR_DISABLE_HW_BOUND_CHECK 1)
+endif()
 set(WAMR_BUILD_INSTRUCTION_METERING 1)
 set(WAMR_BUILD_THREAD_MGR 1)
 set(WAMR_ROOT_DIR "${EXT_WAMR_ROOT}")

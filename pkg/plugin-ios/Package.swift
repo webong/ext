@@ -1,5 +1,12 @@
 // swift-tools-version:5.10
+import Foundation
 import PackageDescription
+
+// The WAMR host is opt-in: it is part of the package only once scripts/plugin-ios-wamr-xcframework.sh
+// has built Frameworks/CExtWamr.xcframework, so a build that does not want WAMR never needs it.
+let wamrFramework = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+    .appendingPathComponent("Frameworks/CExtWamr.xcframework").path
+let withWamr = FileManager.default.fileExists(atPath: wamrFramework)
 
 // Development manifest. It builds against the xcframework produced by
 // scripts/plugin-ios-xcframework.sh; a release manifest points the binary
@@ -30,3 +37,13 @@ let package = Package(
     ],
     swiftLanguageVersions: [.v5]
 )
+
+if withWamr {
+    package.products.append(.library(name: "ExtPluginWamr", targets: ["ExtPluginWamr"]))
+    package.targets.append(contentsOf: [
+        .binaryTarget(name: "CExtWamr", path: "Frameworks/CExtWamr.xcframework"),
+        // CExtEngine supplies the engine core that CExtWamr's host objects use.
+        .target(name: "ExtPluginWamr", dependencies: ["CExtWamr", "CExtEngine"]),
+        .testTarget(name: "ExtPluginWamrTests", dependencies: ["ExtPluginWamr"]),
+    ])
+}

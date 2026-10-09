@@ -86,6 +86,31 @@ Tested on macOS and in the iOS Simulator, not on a physical device. Set
 `EXT_RUST_REACTOR` to the Rust shared example built for `wasm32-wasip1`
 (`scripts/plugin-crosslang.sh` builds it); the tests skip without it.
 
+## Hosting a plugin in WAMR (optional)
+
+`ExtPluginWamr` is the in-process fallback for a reactor when a web view is not wanted: a
+`WamrPluginHost` runs it on WAMR's interpreter (no JIT or AOT, which iOS forbids) through
+the engine's host half. It is built only when `Frameworks/CExtWamr.xcframework` exists, so
+the default package stays free of it.
+
+```swift
+let host = try WamrPluginHost(module: reactorBytes, descriptor: descriptor,
+                              verify: { _ in true }, authorize: { _ in true })
+try host.start(timeout: 10)
+let response = try host.invoke(requestJSON, timeout: 10)
+host.close()
+```
+
+- The host enforces the request deadline, a linear-memory cap and an optional
+  instruction budget; a guest that overruns, traps or exhausts either ends the instance.
+- `WamrPluginHost.descriptor(of:)` reads a module's descriptor before it is trusted.
+- `scripts/plugin-ios-wamr-xcframework.sh` fetches WAMR at the pinned commit
+  (`scripts/plugin-wamr-source.sh`) and builds the macOS, iOS and Simulator slices
+  (about 0.5 to 0.9 MB each). `CExtEngine.xcframework` declares the `CExtWamr` module and
+  header, because two xcframeworks cannot ship the same header or module map. WAMR's
+  license is written to `Frameworks/WAMR-LICENSE` and must ship with any binary linking it.
+- `scripts/plugin-ios-wamr.sh` builds it and runs the tests on macOS.
+
 ## Building and testing
 
 ```sh

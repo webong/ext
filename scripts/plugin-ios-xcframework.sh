@@ -45,12 +45,19 @@ mkdir -p "$work/ios" && cp "$work/ios-arm64/libext_guest.a" "$work/ios/libext_gu
 
 headers="$work/Headers"
 mkdir -p "$headers"
-cp "$engine/include/ext_host.h" "$engine/include/ext_guest.h" pkg/plugin-cshared/ext_plugin.h "$headers/"
+cp "$engine/include/ext_host.h" "$engine/include/ext_guest.h" pkg/plugin-cshared/ext_plugin.h "$engine/wamr/ext_wamr.h" "$headers/"
 cat >"$headers/module.modulemap" <<'MODULE'
 module CExtEngine {
   header "ext_host.h"
   header "ext_guest.h"
   header "ext_plugin.h"
+  export *
+}
+// The optional WAMR host (CExtWamr.xcframework) ships no headers of its own: two
+// xcframeworks cannot ship the same header or module map. Its header and module are
+// declared here, and the symbols exist only when that framework is linked.
+module CExtWamr {
+  header "ext_wamr.h"
   export *
 }
 MODULE

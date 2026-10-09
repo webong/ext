@@ -159,3 +159,17 @@ for module in src/ctx src/ctn examples pkg/plugin-go pkg/graph pkg/plugin \
   (cd "$module" && go build ./... && go test ./...) || exit 1
 done
 ```
+
+## The Go version floor
+
+Each module's `go` line is the oldest Go that builds it, so it must be at least what its own
+dependencies require; `go mod tidy` raises it when it is not. The light libraries
+(`pkg/plugin`, `pkg/graph`, `pkg/plugin-go`, `pkg/plugin-cshared`, `pkg/plugin-wasm`, `res/*`
+and the adapters) declare `go 1.23.0` and their dependencies allow it. Four modules declare
+`go 1.26.0` because `golang.org/x/net`, `x/sys` and `x/text` at the versions they use require it:
+`pkg/plugin-hashicorp` (gRPC), `src/ctx`, `src/ctn` and `examples`. The workspace file
+`go.work` declares the highest of them, and CI runs Go 1.26.x.
+
+`pkg/plugin-hashicorp/v0.1.0` was published declaring `go 1.23.0` while requiring those
+dependencies, so it is mislabeled: a consumer on an older Go gets an error naming 1.26. Published
+tags are immutable, so the correct floor ships with that module's next version.

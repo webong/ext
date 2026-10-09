@@ -1,6 +1,6 @@
 module github.com/webong/ext/pkg/plugin-hashicorp
 
-go 1.23.0
+go 1.26.0
 
 require (
 	github.com/hashicorp/go-hclog v0.14.1

@@ -56,7 +56,7 @@ capabilities. See [Build a CTX adapter](docs/adapter-authoring.md) to build one.
 ## Install
 
 The default installer installs only the ctx core. Run it from a source checkout
-with Go 1.23 or newer:
+with Go 1.26 or newer:
 
 ```sh
 git clone https://github.com/webong/ext.git

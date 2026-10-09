@@ -1,6 +1,6 @@
 module github.com/webong/ext/ctx
 
-go 1.23.0
+go 1.26.0
 
 require (
 	github.com/webong/ext/pkg/graph v0.1.0

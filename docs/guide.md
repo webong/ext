@@ -5,8 +5,9 @@ to do. Every Go recipe here was run from a scratch module outside this repositor
 no workspace and no `replace`, against the published tags, and its output is shown. If a
 recipe does not work for you, that is a bug in this page.
 
-You need Go 1.23 or newer. Each library is its own module, so you depend on only what you
-use:
+The libraries need Go 1.23 or newer, except `pkg/plugin-hashicorp`, which needs Go 1.26
+(its gRPC dependencies require it). Each library is its own module, so you depend on only
+what you use:
 
 | You want to | Module (version used here) |
 | --- | --- |

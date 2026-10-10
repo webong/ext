@@ -157,3 +157,14 @@ func TestDecodeRejectsUnpairedSurrogates(t *testing.T) {
 		}
 	}
 }
+
+func TestRetryAfterBound(t *testing.T) {
+	r := Response{APIVersion: APIVersion, ID: "x", Error: &RemoteError{Code: "busy", Message: "m", RetryAfterMilliseconds: MaxRetryAfterMilliseconds}}
+	if err := r.Validate("x"); err != nil {
+		t.Fatal(err)
+	}
+	r.Error.RetryAfterMilliseconds++
+	if err := r.Validate("x"); err == nil {
+		t.Fatal("unbounded retry-after accepted")
+	}
+}

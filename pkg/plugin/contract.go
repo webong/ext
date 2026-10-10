@@ -16,6 +16,10 @@ import (
 
 const APIVersion = "ext.plugin/v1"
 const MaxFrameBytes = 24 << 20
+
+// MaxRetryAfterMilliseconds bounds a RemoteError retry hint to one year.
+const MaxRetryAfterMilliseconds int64 = 365 * 24 * 60 * 60 * 1000
+
 const DefaultTimeout = 30 * time.Second
 
 var (
@@ -275,7 +279,7 @@ func (r Response) Validate(requestID string) error {
 		return ErrInvalid
 	}
 	if r.Error != nil {
-		if !identifier.MatchString(r.Error.Code) || len(r.Error.Message) > 4096 || r.Error.RetryAfterMilliseconds < 0 {
+		if !identifier.MatchString(r.Error.Code) || len(r.Error.Message) > 4096 || r.Error.RetryAfterMilliseconds < 0 || r.Error.RetryAfterMilliseconds > MaxRetryAfterMilliseconds {
 			return ErrInvalid
 		}
 	} else {

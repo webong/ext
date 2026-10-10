@@ -29,6 +29,7 @@ Their existing native protocols are not automatically compatible with CTX.
 | `pkg/plugin/packagekit` | Portable manifests, artifact verification, preflight and graph projection |
 | `pkg/plugin/plugintest` | Reusable backend conformance tests |
 | `pkg/plugin-go` | Go binding to the C engine; static by default, shared optional |
+| `pkg/plugin-python` | Standard-library guest SDK (`ext_plugin`) serving JSON lines on stdin and stdout |
 | `pkg/plugin-ts` | Portable JavaScript runtime and TypeScript declarations for hosts and guests |
 | `pkg/plugin-rust` | Rust typed registry, host sessions, JSON-line/WASI guests and C ABI host/guest bindings |
 | `pkg/plugin-zig` | Zig typed registry, host sessions, JSON-line/WASI guests and C ABI host/guest bindings |

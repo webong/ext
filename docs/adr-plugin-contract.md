@@ -18,7 +18,10 @@ It has no product catalog, default installation location, native command map,
 browser fallback, or built-in permission vocabulary.
 
 Consumers define domain contracts, payloads, authorization, configuration,
-discovery, package distribution, trust storage, and endpoint authentication.
+discovery, package distribution, trust decisions, and endpoint authentication.
+The library supplies the generic mechanics around them: `pkg/plugin/store`
+installs, upgrades, lists, removes and re-verifies packages, and
+`pkg/plugin/process` launches process plugins (see below).
 Product and native mechanisms in CTX belong under `adapters/<name>/`.
 Portable integrity and plugin runtime implementations belong in the library.
 A descriptor, graph
@@ -119,6 +122,42 @@ resident for process lifetime. WASI cancellation closes its command pipes and
 terminates module execution; blocking host-provided I/O still needs host
 cooperation. These mechanics are explicit in backend profiles and the
 [runtime authoring guide](plugin-runtimes.md).
+
+## Package store
+
+`store.New(root, Limits)` manages `packagekit` packages under a root the
+consumer supplies; the library has no default location. A package directory
+holds `package.json` (the `ext.package/v1` manifest) and exactly the artifacts
+it lists. `Install` copies from a source directory, refusing symbolic links,
+non-regular files, oversize artifacts (`Limits.MaxArtifactBytes`, default
+4 GiB), unlisted files and digest mismatches, verifies the staged copy, then
+renames it into place. Artifacts an entrypoint references install as 0700 and
+the rest as 0600. It never replaces an existing ID. `Upgrade` requires the
+same ID, the same contract names and versions, and a new revision; operations
+may change, so the consumer must re-review authority. The old install survives
+any failure. `List` re-verifies every package and fails closed. `Installed`
+offers `Verify`, `ArtifactPath(name)` (a verified path) and `Digest`
+(`DirectoryDigest`, for consumer trust records). The store is not safe against
+concurrent mutation by several processes, and a digest is integrity, not
+publisher trust.
+
+A package with no entrypoints is a source-file package: `packagekit` lists the
+payload files and declares no command, and the consumer chooses the runtime and
+the file to run (`Manifest.SourceOnly`, `Manifest.Artifact`).
+
+## Process backend
+
+`process.Start(ctx, Command)` launches the consumer's command and returns a
+`plugin.Backend` for `plugin.Open` over the child's stdin and stdout with the
+JSON-line binding. `Command.Path` and `Args` are the whole launch decision, so
+a consumer can run a managed interpreter over a package script. The child gets
+a scrubbed environment, `PATH` plus `SystemRoot` on Windows plus explicit
+`Env` entries, never the host environment. Stderr is retained up to
+`StderrBytes` (default 4096) and is untrusted. Canceling a call, a transport
+failure or `Close` kills and reaps the process, and a closed process answers
+`plugin.ErrClosed` thereafter. Frames are limited to 24 MiB. Remote errors
+carry `retryAfterMilliseconds`, bounded by `plugin.MaxRetryAfterMilliseconds`
+(one year). Verification and authorization stay with `plugin.Open`.
 
 ## JSON-line binding
 

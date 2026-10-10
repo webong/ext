@@ -384,3 +384,17 @@ func (m Manifest) SelectEntrypoint(name string, env Environment) (LaunchSelectio
 	}
 	return LaunchSelection{}, plugin.ErrNotFound
 }
+
+// SourceOnly reports whether the package ships payload files with no declared
+// entrypoint. The consumer chooses the runtime and the file that starts it.
+func (m Manifest) SourceOnly() bool { return len(m.Entrypoints) == 0 }
+
+// Artifact returns the listed artifact with the given name.
+func (m Manifest) Artifact(name string) (Artifact, bool) {
+	for _, a := range m.Artifacts {
+		if a.Name == name {
+			return a, true
+		}
+	}
+	return Artifact{}, false
+}

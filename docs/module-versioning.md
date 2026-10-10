@@ -135,10 +135,11 @@ A module path and its tags are a pair, so this is a new module, not a new versio
 | `v0.2.0` | `pkg/plugin`, `pkg/plugin-wasm` | additive: the adapter package, the reactor host, components and `Inspect` |
 | `v0.1.0` (first tag) | `res/web`, `adapters/wasm`, `adapters/evm` | new modules; `res/web` was the renamed `res/browser` |
 | `v0.1.1` | `res/web` | console output from a page is delivered in order, and an exit no longer overtakes it |
+| `v0.1.1` | `pkg/plugin-hashicorp` | only its `go` line: it now declares `go 1.26.0`, which its dependencies already required |
 | `v0.1.1` | `adapters/chromium`, `adapters/firefox`, `adapters/safari` and the other 15 browser adapters | they now require `res/web` instead of `res/browser` |
 
 Modules that did not change keep `v0.1.0`: `pkg/graph`, `pkg/plugin-go`, `pkg/plugin-cshared`,
-`pkg/plugin-hashicorp`, `res/credential`, and the `credman`, `git`, `keychain` and
+`res/credential`, and the `credman`, `git`, `keychain` and
 `secret_service` adapters. Every tagged module requires the new versions of the modules it
 uses. The first `res/web/v0.1.0` tag was local only, so it was re-cut at the release commit.
 
@@ -172,4 +173,6 @@ and the adapters) declare `go 1.23.0` and their dependencies allow it. Four modu
 
 `pkg/plugin-hashicorp/v0.1.0` was published declaring `go 1.23.0` while requiring those
 dependencies, so it is mislabeled: a consumer on an older Go gets an error naming 1.26. Published
-tags are immutable, so the correct floor ships with that module's next version.
+tags are immutable, so the correct floor ships in `pkg/plugin-hashicorp/v0.1.1`. Resolved from GitHub
+in a clean module, v0.1.0 reports `go 1.23.0` and v0.1.1 reports `go 1.26.0`. Consumers on an
+older Go should require v0.1.1 or newer, and the v0.1.0 tag stays as published.

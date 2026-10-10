@@ -41,10 +41,14 @@ func TestInstalledEntrypointLaunches(t *testing.T) {
 		t.Fatal(err)
 	}
 	src := t.TempDir()
-	bin := write(t, src, "bin/provider", string(body))
+	provider := "bin/provider"
+	if runtime.GOOS == "windows" {
+		provider += ".exe" // Windows only executes files with an executable extension.
+	}
+	bin := write(t, src, provider, string(body))
 	data := write(t, src, "data/readme.txt", "doc")
 	m := packagekit.Manifest{APIVersion: packagekit.Version, Descriptor: launchDescriptor,
-		Artifacts:   []packagekit.Artifact{{Name: "provider", Path: "bin/provider", SHA256: bin}, {Name: "doc", Path: "data/readme.txt", SHA256: data}},
+		Artifacts:   []packagekit.Artifact{{Name: "provider", Path: provider, SHA256: bin}, {Name: "doc", Path: "data/readme.txt", SHA256: data}},
 		Entrypoints: []packagekit.Entrypoint{{Name: "default", Runtime: "jsonline", Artifact: "provider", Protocols: []string{plugin.APIVersion}}}}
 	raw, _ := json.Marshal(m)
 	if err := os.WriteFile(filepath.Join(src, store.ManifestName), raw, 0o600); err != nil {

@@ -145,6 +145,23 @@ A package with no entrypoints is a source-file package: `packagekit` lists the
 payload files and declares no command, and the consumer chooses the runtime and
 the file to run (`Manifest.SourceOnly`, `Manifest.Artifact`).
 
+### Entry points and directory names
+
+The manifest names the exact artifact file on every platform. The store does
+not search `PATHEXT` or add extensions: a search would let a different file
+run than the one whose digest was verified. A package that ships an executable
+for Windows therefore names a file such as `bin/provider.exe`, using a
+platform-specific artifact (`os`/`arch`) where it also ships other systems.
+`process.Start` checks this up front on Windows and reports that the launch
+path needs an executable extension (`.exe`, `.com`, `.bat` or `.cmd`),
+instead of Go's "executable file not found".
+
+A package ID may contain `/`, so its directory name encodes it as `%2f`. `%` is
+not valid in an ID, so the encoding is unambiguous, and it is legal in Windows
+and Unix paths. Treat `Installed.Directory` as an opaque path: pass it as an
+argument or working directory, and never build a shell command string from it,
+because `cmd.exe` batch files expand `%`-sequences.
+
 ## Process backend
 
 `process.Start(ctx, Command)` launches the consumer's command and returns a
@@ -158,6 +175,35 @@ failure or `Close` kills and reaps the process, and a closed process answers
 `plugin.ErrClosed` thereafter. Frames are limited to 24 MiB. Remote errors
 carry `retryAfterMilliseconds`, bounded by `plugin.MaxRetryAfterMilliseconds`
 (one year). Verification and authorization stay with `plugin.Open`.
+
+## Host helper, dotted methods and authoring
+
+`host.Open(ctx, installed, host.Options)` re-verifies an installed package,
+starts it through `process.Start` and completes the handshake. `Options.Launch`
+overrides the command (for a managed runtime over source files), `Authorize`
+defaults to allowing every operation the reviewed descriptor declares, and
+`Timeout` defaults to 10 minutes. `Process.Call(ctx, method, params, result)`
+JSON-encodes params (nil is null) and decodes the payload. `Close` drains for
+5 seconds, then aborts.
+
+A consumer that names an operation with one string uses
+`Descriptor.ResolveMethod`: the longest declared contract name that prefixes the
+method wins and the rest is the operation; if none does, the first dot-separated
+segment selects the one declared contract whose name starts with that segment
+plus a dot. Anything else is unresolved. `plugin.Method` is the inverse.
+Guests use `jsonline.ServeFunc(ctx, descriptor, fn, options)`, where fn receives
+`Contract.Name + "." + Operation`. An ordinary error becomes a `provider_error`
+remote error whose message (cut to 4096 bytes on a character boundary) reaches
+the host; `RedactErrors` sends a generic message instead.
+
+`packagekit.ExecutableManifest` and `packagekit.SourceManifest` build manifests
+from files; `store.WriteManifest` writes one beside its artifacts. The executable
+form pins the running GOOS/GOARCH and a `sha256:` revision of the file, and
+declares entrypoint `main` for the `process` runtime (`process.Profile`) speaking
+`ext.plugin/v1`. The source form lists files as artifacts named by their paths
+(artifact names are lower-case) with a revision over the sorted path and digest
+pairs. `packagekit.LoadDescriptor` reads a descriptor from a manifest or a
+bare descriptor file.
 
 ## JSON-line binding
 

@@ -10,6 +10,8 @@ backends that carry it.
 | `pkg/plugin/adapter` | Host side of adapters, usable by any ext product: manifests, the installed store, packaging and indexes, trust and invocation. The process protocol adapter executables speak is in the root package (`adapter.go`). |
 | `pkg/plugin/inprocess` | Trusted endpoints with connection lifetime cancellation |
 | `pkg/plugin/jsonline` | Bounded JSON-line transport over a supplied duplex connection |
+| `pkg/plugin/host` | Opens an installed package as a running plugin and calls it by dotted method name (`Open`, `Call`, `Close`) |
+| `pkg/plugin/jsonschema` | Bounded offline JSON Schema (2020-12 subset) validation of arbitrary caller schemas; `schema` is the small typed vocabulary for manifests |
 | `pkg/plugin/process` | Child-process backend over JSON lines: scrubbed environment, bounded stderr, consumer-supplied launch command, kill on cancel |
 | `pkg/plugin/store` | Generic package store under a caller-supplied root: install, upgrade, list, remove, digest-verified |
 | `pkg/plugin/nativego` | Native Go plugin loading |

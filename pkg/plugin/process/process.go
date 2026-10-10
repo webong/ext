@@ -11,6 +11,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"sync"
@@ -66,6 +67,9 @@ func Start(ctx context.Context, c Command) (*Process, error) {
 	if !info.Mode().IsRegular() {
 		return nil, fmt.Errorf("%w: launch executable must be a regular file", plugin.ErrInvalid)
 	}
+	if err := checkLaunchable(runtime.GOOS, c.Path); err != nil {
+		return nil, err
+	}
 	env, err := environment(c.Env)
 	if err != nil {
 		return nil, err
@@ -102,6 +106,22 @@ func Start(ctx context.Context, c Command) (*Process, error) {
 // Stderr returns the retained (bounded, possibly truncated) diagnostic output.
 // Treat it as untrusted text.
 func (p *Process) Stderr() string { return p.conn.stderr.String() }
+
+// checkLaunchable explains the Windows rule up front: the launch path must name
+// the exact executable file, extension included. Go would otherwise report
+// only "executable file not found" for a package file such as bin/provider.
+func checkLaunchable(goos, path string) error {
+	if goos != "windows" {
+		return nil
+	}
+	extension := strings.ToLower(filepath.Ext(path))
+	for _, allowed := range []string{".exe", ".com", ".bat", ".cmd"} {
+		if extension == allowed {
+			return nil
+		}
+	}
+	return fmt.Errorf("%w: on Windows the launch path must name the exact executable file with an extension such as .exe; %q has none of .exe, .com, .bat or .cmd", plugin.ErrInvalid, filepath.Base(path))
+}
 
 func environment(extra []string) ([]string, error) {
 	env := []string{"PATH=" + os.Getenv("PATH")}
@@ -165,3 +185,10 @@ func (b *bounded) String() string {
 }
 
 var _ plugin.Backend = (*Process)(nil)
+
+// Profile describes this backend for packagekit entrypoint selection: the
+// "process" runtime speaking plugin.APIVersion over JSON lines, with the host
+// owning the child process.
+func Profile() plugin.BackendProfile {
+	return plugin.BackendProfile{Name: "process", Protocols: []string{plugin.APIVersion}, Cancellation: "kill", ProcessOwner: "host"}
+}

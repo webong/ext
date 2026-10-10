@@ -502,3 +502,38 @@ func (p Installed) ArtifactPath(name string) (string, error) {
 	}
 	return "", plugin.ErrNotFound
 }
+
+// Name is the package identity ID.
+func (p Installed) Name() string { return p.Manifest.Name() }
+
+// Version is the package release version, which may be empty.
+func (p Installed) Version() string { return p.Manifest.Version() }
+
+// Supports reports whether the package serves an exact contract version.
+func (p Installed) Supports(name, version string) bool { return p.Manifest.Supports(name, version) }
+
+// IsExecutable reports whether the package declares an entrypoint, as opposed
+// to shipping source files the consumer runs under a runtime it owns.
+func (p Installed) IsExecutable() bool { return len(p.Manifest.Entrypoints) > 0 }
+
+// Executable returns the digest-verified path of the first entrypoint's
+// artifact. A package without entrypoints returns plugin.ErrNotFound.
+func (p Installed) Executable() (string, error) {
+	if !p.IsExecutable() {
+		return "", fmt.Errorf("%w: package declares no entrypoint", plugin.ErrNotFound)
+	}
+	return p.ArtifactPath(p.Manifest.Entrypoints[0].Artifact)
+}
+
+// WriteManifest validates m and writes it as ManifestName in dir, for authors
+// assembling a package directory that Install will copy.
+func WriteManifest(dir string, m packagekit.Manifest) error {
+	if err := m.Validate(); err != nil {
+		return err
+	}
+	encoded, err := json.MarshalIndent(m, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join(dir, ManifestName), append(encoded, '\n'), 0o600)
+}

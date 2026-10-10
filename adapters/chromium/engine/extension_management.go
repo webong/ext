@@ -222,29 +222,40 @@ func (backend extensionBackend) resolveTargetInput(profile string, input extensi
 }
 
 func extensionCapability(config Config) extension.InstallCapability {
+	return extensionCapabilityFor(runtime.GOOS, config, debuggingPipeSupported(runtime.GOOS))
+}
+
+// extensionCapabilityFor derives the routes from what the adapter declares and
+// from the host facts passed in: the operating system and whether this engine
+// can speak the browser's debugging-pipe transport there.
+func extensionCapabilityFor(goos string, config Config, pipeSupported bool) extension.InstallCapability {
 	result := extension.InstallCapability{Browser: config.Name, UpdateManifest: true}
 	if store := config.Extensions.Store; store != nil {
-		result.ExternalStoreRequest = runtime.GOOS == "darwin" || runtime.GOOS == "linux" || runtime.GOOS == "windows"
-		result.ExternalLocalPackage = runtime.GOOS == "linux" && store.LinuxLocalCRX
-		result.ExternalUpdateURL = runtime.GOOS == "linux" && store.LinuxUpdateURL
+		result.ExternalStoreRequest = goos == "darwin" || goos == "linux" || goos == "windows"
+		result.ExternalLocalPackage = goos == "linux" && store.LinuxLocalCRX
+		result.ExternalUpdateURL = goos == "linux" && store.LinuxUpdateURL
 		result.ExternalInstallScope = "machine"
-		if runtime.GOOS == "darwin" || runtime.GOOS == "linux" && store.LinuxDirectoryInHome {
+		if goos == "darwin" || goos == "linux" && store.LinuxDirectoryInHome {
 			result.ExternalInstallScope = "browser-user"
 		}
 		for name := range store.UpdateURLs {
 			result.SupportedStores = append(result.SupportedStores, name)
 		}
 		sort.Strings(result.SupportedStores)
-		if runtime.GOOS == "windows" {
+		if goos == "windows" {
 			result.ExternalStoreDriver = "powershell-registry"
 		} else if result.ExternalStoreRequest {
 			result.ExternalStoreDriver = "external-preferences-json"
 		}
 	}
-	result.ManagedPolicyDriver = config.Extensions.ManagedPolicyDrivers[runtime.GOOS]
+	result.ManagedPolicyDriver = config.Extensions.ManagedPolicyDrivers[goos]
 	result.ManagedPolicy = result.ManagedPolicyDriver != ""
 	if config.Extensions.ExtensionPage == "" {
 		result.Reason = "this adapter has no native extension installation or activation route"
+		return result
+	}
+	if !pipeSupported {
+		result.Reason = "the debugging-pipe transport used for extension sessions is not implemented on " + goos
 		return result
 	}
 	result.PersistentLocalInstall = true

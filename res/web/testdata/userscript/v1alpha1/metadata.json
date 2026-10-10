@@ -1,0 +1,77 @@
+{
+  "doc": "InferMetadata on a record with only source set. null means the field stays unset (nil). Subset of the fields a richer parser reports; extra fields are out of scope for v1alpha1.",
+  "cases": [
+    {
+      "name": "name, matches, excludes",
+      "sourceFile": "",
+      "source": "// ==UserScript==\n// @name Hello World\n// @match https://a.example/*\n// @exclude-match https://a.example/x/*\n// ==/UserScript==\nconsole.log(1);\n",
+      "expect": {
+        "name": "Hello World",
+        "id": "hello-world",
+        "matches": [
+          "https://a.example/*"
+        ],
+        "excludeMatches": [
+          "https://a.example/x/*"
+        ]
+      }
+    },
+    {
+      "name": "name from file when header has none",
+      "sourceFile": "/x/my-script.user.js",
+      "source": "// ==UserScript==\n// @match https://a.example/*\n// ==/UserScript==\n",
+      "expect": {
+        "name": "my-script.user",
+        "id": "my-script.user",
+        "matches": [
+          "https://a.example/*"
+        ],
+        "excludeMatches": null
+      }
+    },
+    {
+      "name": "id slug",
+      "sourceFile": "",
+      "source": "// ==UserScript==\n// @name  Café & Co. v2 ! \n// ==/UserScript==\nconsole.log(1);\n",
+      "expect": {
+        "name": "Café & Co. v2 !",
+        "id": "caf-co.-v2",
+        "matches": null,
+        "excludeMatches": null
+      }
+    },
+    {
+      "name": "no header",
+      "sourceFile": "",
+      "source": "console.log(1)\n",
+      "expect": {
+        "name": "",
+        "id": "",
+        "matches": null,
+        "excludeMatches": null
+      }
+    },
+    {
+      "name": "directives outside the block are ignored",
+      "sourceFile": "",
+      "source": "// @name Outside\n// ==UserScript==\n// @name Inside\n// ==/UserScript==\n// @match https://late.example/*\n",
+      "expect": {
+        "name": "Inside",
+        "id": "inside",
+        "matches": null,
+        "excludeMatches": null
+      }
+    },
+    {
+      "name": "explicit marker spacing is exact",
+      "sourceFile": "",
+      "source": "//==UserScript==\n// @name X\n//==/UserScript==\n",
+      "expect": {
+        "name": "",
+        "id": "",
+        "matches": null,
+        "excludeMatches": null
+      }
+    }
+  ]
+}

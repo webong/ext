@@ -1,0 +1,171 @@
+{
+  "doc": "Whole-source rules. In scope for v1alpha1: document-start, @grant none, page world. Everything else is rejected with a stable code; widening is an additive v1alpha2.",
+  "cases": [
+    {
+      "name": "grant none",
+      "source": "// ==UserScript==\n// @name t\n// @match https://example.com/*\n// @grant none\n// ==/UserScript==\n1;\n",
+      "matches": [
+        "https://example.com/*"
+      ],
+      "excludeMatches": []
+    },
+    {
+      "name": "no grant line",
+      "source": "// ==UserScript==\n// @name t\n// @match https://example.com/*\n// ==/UserScript==\n1;\n",
+      "matches": [
+        "https://example.com/*"
+      ],
+      "excludeMatches": []
+    },
+    {
+      "name": "run-at document-start",
+      "source": "// ==UserScript==\n// @name t\n// @match https://example.com/*\n// @run-at document-start\n// ==/UserScript==\n1;\n",
+      "matches": [
+        "https://example.com/*"
+      ],
+      "excludeMatches": []
+    },
+    {
+      "name": "inject-into page",
+      "source": "// ==UserScript==\n// @name t\n// @match https://example.com/*\n// @inject-into page\n// ==/UserScript==\n1;\n",
+      "matches": [
+        "https://example.com/*"
+      ],
+      "excludeMatches": []
+    },
+    {
+      "name": "grant GM_getValue",
+      "source": "// ==UserScript==\n// @name t\n// @match https://example.com/*\n// @grant GM_getValue\n// ==/UserScript==\n1;\n",
+      "matches": [
+        "https://example.com/*"
+      ],
+      "excludeMatches": [],
+      "error": "unsupported_grant"
+    },
+    {
+      "name": "run-at document-end",
+      "source": "// ==UserScript==\n// @name t\n// @match https://example.com/*\n// @run-at document-end\n// ==/UserScript==\n1;\n",
+      "matches": [
+        "https://example.com/*"
+      ],
+      "excludeMatches": [],
+      "error": "unsupported_run_at"
+    },
+    {
+      "name": "run-at document-idle",
+      "source": "// ==UserScript==\n// @name t\n// @match https://example.com/*\n// @run-at document-idle\n// ==/UserScript==\n1;\n",
+      "matches": [
+        "https://example.com/*"
+      ],
+      "excludeMatches": [],
+      "error": "unsupported_run_at"
+    },
+    {
+      "name": "inject-into content",
+      "source": "// ==UserScript==\n// @name t\n// @match https://example.com/*\n// @inject-into content\n// ==/UserScript==\n1;\n",
+      "matches": [
+        "https://example.com/*"
+      ],
+      "excludeMatches": [],
+      "error": "unsupported_world"
+    },
+    {
+      "name": "require",
+      "source": "// ==UserScript==\n// @name t\n// @match https://example.com/*\n// @require https://example.com/lib.js\n// ==/UserScript==\n1;\n",
+      "matches": [
+        "https://example.com/*"
+      ],
+      "excludeMatches": [],
+      "error": "unsupported_require"
+    },
+    {
+      "name": "resource",
+      "source": "// ==UserScript==\n// @name t\n// @match https://example.com/*\n// @resource css https://example.com/a.css\n// ==/UserScript==\n1;\n",
+      "matches": [
+        "https://example.com/*"
+      ],
+      "excludeMatches": [],
+      "error": "unsupported_require"
+    },
+    {
+      "name": "directive @include",
+      "source": "// ==UserScript==\n// @name t\n// @match https://example.com/*\n// @include https://example.com/*\n// ==/UserScript==\n1;\n",
+      "matches": [
+        "https://example.com/*"
+      ],
+      "excludeMatches": [],
+      "error": "unsupported_directive"
+    },
+    {
+      "name": "directive @exclude",
+      "source": "// ==UserScript==\n// @name t\n// @match https://example.com/*\n// @exclude https://example.com/x\n// ==/UserScript==\n1;\n",
+      "matches": [
+        "https://example.com/*"
+      ],
+      "excludeMatches": [],
+      "error": "unsupported_directive"
+    },
+    {
+      "name": "directive @connect",
+      "source": "// ==UserScript==\n// @name t\n// @match https://example.com/*\n// @connect example.com\n// ==/UserScript==\n1;\n",
+      "matches": [
+        "https://example.com/*"
+      ],
+      "excludeMatches": [],
+      "error": "unsupported_directive"
+    },
+    {
+      "name": "directive @updateURL",
+      "source": "// ==UserScript==\n// @name t\n// @match https://example.com/*\n// @updateURL https://example.com/u.js\n// ==/UserScript==\n1;\n",
+      "matches": [
+        "https://example.com/*"
+      ],
+      "excludeMatches": [],
+      "error": "unsupported_directive"
+    },
+    {
+      "name": "directive @downloadURL",
+      "source": "// ==UserScript==\n// @name t\n// @match https://example.com/*\n// @downloadURL https://example.com/d.js\n// ==/UserScript==\n1;\n",
+      "matches": [
+        "https://example.com/*"
+      ],
+      "excludeMatches": [],
+      "error": "unsupported_directive"
+    },
+    {
+      "name": "directive @noframes",
+      "source": "// ==UserScript==\n// @name t\n// @match https://example.com/*\n// @noframes\n// ==/UserScript==\n1;\n",
+      "matches": [
+        "https://example.com/*"
+      ],
+      "excludeMatches": [],
+      "error": "unsupported_directive"
+    },
+    {
+      "name": "header match differs from record",
+      "source": "// ==UserScript==\n// @name t\n// @match https://other.example/*\n// ==/UserScript==\n1;\n",
+      "matches": [
+        "https://example.com/*"
+      ],
+      "excludeMatches": [],
+      "error": "match_metadata_mismatch"
+    },
+    {
+      "name": "header match order is irrelevant",
+      "source": "// ==UserScript==\n// @name t\n// @match https://b.example/*\n// @match https://a.example/*\n// ==/UserScript==\n1;\n",
+      "matches": [
+        "https://a.example/*",
+        "https://b.example/*"
+      ],
+      "excludeMatches": []
+    },
+    {
+      "name": "no header means no metadata check",
+      "source": "console.log(1);\n",
+      "matches": [
+        "https://example.com/*"
+      ],
+      "excludeMatches": []
+    }
+  ]
+}

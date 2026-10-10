@@ -1,0 +1,91 @@
+{
+  "cases": [
+    {
+      "name": "baseline with empty exclusions",
+      "record": {
+        "excludeMatches": [],
+        "id": "demo",
+        "matches": [
+          "https://example.com/*"
+        ],
+        "name": "demo",
+        "source": "console.log(1);\n",
+        "target": "session"
+      },
+      "revision": "sha256:7443a61d70e39e9c2e0d0f04f58784af3fbcc0f3c5caa9f10f12f6cfa1092eb3"
+    },
+    {
+      "name": "exclusions absent (null) differ from empty",
+      "record": {
+        "excludeMatches": null,
+        "id": "demo",
+        "matches": [
+          "https://example.com/*"
+        ],
+        "name": "demo",
+        "source": "console.log(1);\n",
+        "target": "session"
+      },
+      "revision": "sha256:e35ea2f8a9f44c59bf9a0770c573d157f5d050566707f5d003708001b5cf7ce1"
+    },
+    {
+      "name": "with exclusion",
+      "record": {
+        "excludeMatches": [
+          "https://example.com/private/*"
+        ],
+        "id": "demo",
+        "matches": [
+          "https://example.com/*"
+        ],
+        "name": "demo",
+        "source": "console.log(1);\n",
+        "target": "session"
+      },
+      "revision": "sha256:197910237f2d8ba07cb627709b8a7edb20ed99728ffba7d2937e5357392f78c9"
+    },
+    {
+      "name": "HTML-sensitive characters are escaped as encoding/json does",
+      "record": {
+        "excludeMatches": [],
+        "id": "demo",
+        "matches": [
+          "https://example.com/*"
+        ],
+        "name": "demo",
+        "source": "if (a \u003c b \u0026\u0026 c \u003e d) { x = \"\u003c/script\u003e\"; }\u2028\n",
+        "target": "session"
+      },
+      "revision": "sha256:3a47afb5c6b5aac5e0d904b78d62d2c654957ee396a2b238d71aefea1cf55e4e"
+    },
+    {
+      "name": "non-ASCII text",
+      "record": {
+        "excludeMatches": [],
+        "id": "demo",
+        "matches": [
+          "https://example.com/*"
+        ],
+        "name": "Café ☕",
+        "source": "const s = '😀';\n",
+        "target": "session"
+      },
+      "revision": "sha256:fed3e9527e68cb1e8f03630264df49b4c0cd1aaadfe6af9225bbcba668930aa7"
+    },
+    {
+      "name": "target is bound",
+      "record": {
+        "excludeMatches": [],
+        "id": "demo",
+        "matches": [
+          "https://example.com/*"
+        ],
+        "name": "demo",
+        "source": "console.log(1);\n",
+        "target": "other"
+      },
+      "revision": "sha256:20f86f06568adf3f8f8e8b9af3387efc6990808bd9675ccbbaf8c0b8d480ac96"
+    }
+  ],
+  "doc": "revision = \"sha256:\" + hex(sha256(JSON)), JSON = {target,id,name,matches,excludeMatches,source} in that key order, compact, UTF-8, with \u003c, \u003e, \u0026 and U+2028/U+2029 written as \\u003c \\u003e \\u0026 \\u2028 \\u2029 (Go encoding/json defaults). A missing excludeMatches is JSON null, not []."
+}

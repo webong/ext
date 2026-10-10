@@ -72,53 +72,80 @@ func Revision(record Record) string {
 	return "sha256:" + hex.EncodeToString(digest[:])
 }
 
+// Error is a validation failure with a stable, language-neutral Code. The
+// codes are part of the ext.userscript/v1alpha1 fixtures; messages are not.
+type Error struct {
+	Code    string
+	Message string
+}
+
+func (e *Error) Error() string { return e.Message }
+
+// ErrorCode returns the Code of a validation failure, or "" for any other error.
+func ErrorCode(err error) string {
+	var e *Error
+	if errors.As(err, &e) {
+		return e.Code
+	}
+	return ""
+}
+
+func reject(code, message string) error { return &Error{Code: code, Message: message} }
+
+func rejectf(code, format string, args ...any) error {
+	return &Error{Code: code, Message: fmt.Sprintf(format, args...)}
+}
+
+// Validate checks a record against ext.userscript/v1alpha1: document-start,
+// @grant none, page world, and explicit match patterns (<all_urls> is not
+// accepted). Widening the scope is an additive future version.
 func Validate(record Record) error {
 	if strings.TrimSpace(record.Target) == "" || record.Target != strings.TrimSpace(record.Target) || len(record.Target) > 512 {
-		return errors.New("userscript target must be a non-empty stable identifier")
+		return reject("invalid_target", "userscript target must be a non-empty stable identifier")
 	}
 	if !idPattern.MatchString(record.ID) {
-		return errors.New("userscript id must contain 1–128 letters, digits, dots, underscores, or hyphens")
+		return reject("invalid_id", "userscript id must contain 1–128 letters, digits, dots, underscores, or hyphens")
 	}
 	if strings.TrimSpace(record.Name) == "" || len(record.Name) > 128 {
-		return errors.New("userscript name must contain 1–128 characters")
+		return reject("invalid_name", "userscript name must contain 1–128 characters")
 	}
 	if len(record.Source) == 0 || len(record.Source) > maxSourceBytes {
-		return errors.New("userscript source must contain 1 byte to 1 MiB")
+		return reject("invalid_source_size", "userscript source must contain 1 byte to 1 MiB")
 	}
 	if record.Revision != Revision(record) {
-		return errors.New("userscript revision does not match source, target, or permissions")
+		return reject("revision_mismatch", "userscript revision does not match source, target, or permissions")
 	}
 	if len(record.Matches) == 0 || len(record.Matches) > 128 || len(record.ExcludeMatches) > 128 {
-		return errors.New("userscript requires 1–128 matches and at most 128 exclusions")
+		return reject("invalid_matches", "userscript requires 1–128 matches and at most 128 exclusions")
 	}
 	seen := map[string]bool{}
 	for _, pattern := range append(append([]string{}, record.Matches...), record.ExcludeMatches...) {
 		if len(pattern) > 512 || !matchPattern.MatchString(pattern) || seen[pattern] {
-			return fmt.Errorf("invalid or repeated userscript match pattern %q", pattern)
+			return rejectf("invalid_match_pattern", "invalid or repeated userscript match pattern %q", pattern)
 		}
 		if strings.HasPrefix(pattern, "file://") && !strings.HasPrefix(pattern, "file://*/") {
-			return errors.New("file userscript match host must be *")
+			return reject("invalid_file_host", "file userscript match host must be *")
 		}
 		seen[pattern] = true
 	}
 	for _, line := range strings.Split(record.Source, "\n") {
 		trimmed := strings.TrimSpace(line)
 		if strings.HasPrefix(trimmed, "// @grant ") && trimmed != "// @grant none" {
-			return errors.New("extension-free userscripts support @grant none only")
+			return reject("unsupported_grant", "extension-free userscripts support @grant none only")
 		}
 		if strings.HasPrefix(trimmed, "// @require ") || strings.HasPrefix(trimmed, "// @resource ") {
-			return errors.New("extension-free userscripts do not support @require or @resource")
+			return reject("unsupported_require", "extension-free userscripts do not support @require or @resource")
 		}
 		if strings.HasPrefix(trimmed, "// @include ") || strings.HasPrefix(trimmed, "// @exclude ") ||
 			strings.HasPrefix(trimmed, "// @connect ") || strings.HasPrefix(trimmed, "// @updateURL ") ||
 			strings.HasPrefix(trimmed, "// @downloadURL ") || trimmed == "// @noframes" {
-			return errors.New("extension-free userscript metadata contains an unsupported directive")
+			return reject("unsupported_directive", "extension-free userscript metadata contains an unsupported directive")
 		}
 		if strings.HasPrefix(trimmed, "// @run-at ") && trimmed != "// @run-at document-start" {
-			return errors.New("extension-free userscripts run at document-start only")
+			return reject("unsupported_run_at", "extension-free userscripts run at document-start only")
 		}
 		if strings.HasPrefix(trimmed, "// @inject-into ") && trimmed != "// @inject-into page" {
-			return errors.New("extension-free userscripts run in the page world only")
+			return reject("unsupported_world", "extension-free userscripts run in the page world only")
 		}
 	}
 	return validateSourceMetadata(record)
@@ -152,7 +179,7 @@ func validateSourceMetadata(record Record) error {
 		return nil
 	}
 	if !sameStrings(matches, record.Matches) || !sameStrings(excludes, record.ExcludeMatches) {
-		return errors.New("userscript source match metadata must match --match and --exclude-match")
+		return reject("match_metadata_mismatch", "userscript source match metadata must match --match and --exclude-match")
 	}
 	return nil
 }

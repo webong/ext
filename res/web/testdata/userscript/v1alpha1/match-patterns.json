@@ -1,0 +1,77 @@
+{
+  "doc": "Each pattern is used as the single entry of a record's matches. valid=false cases name the stable error code.",
+  "cases": [
+    {
+      "name": "https host",
+      "pattern": "https://example.com/*",
+      "valid": true
+    },
+    {
+      "name": "any scheme http(s)",
+      "pattern": "*://example.com/path/*",
+      "valid": true
+    },
+    {
+      "name": "wildcard host",
+      "pattern": "https://*/*",
+      "valid": true
+    },
+    {
+      "name": "subdomain wildcard",
+      "pattern": "https://*.example.com/*",
+      "valid": true
+    },
+    {
+      "name": "file with wildcard host",
+      "pattern": "file://*/tmp/*",
+      "valid": true
+    },
+    {
+      "name": "all_urls is rejected by decision",
+      "pattern": "<all_urls>",
+      "valid": false,
+      "error": "invalid_match_pattern"
+    },
+    {
+      "name": "ftp scheme",
+      "pattern": "ftp://example.com/*",
+      "valid": false,
+      "error": "invalid_match_pattern"
+    },
+    {
+      "name": "missing path",
+      "pattern": "https://example.com",
+      "valid": false,
+      "error": "invalid_match_pattern"
+    },
+    {
+      "name": "no scheme",
+      "pattern": "example.com/*",
+      "valid": false,
+      "error": "invalid_match_pattern"
+    },
+    {
+      "name": "empty",
+      "pattern": "",
+      "valid": false,
+      "error": "invalid_match_pattern"
+    },
+    {
+      "name": "file with concrete host",
+      "pattern": "file://localhost/tmp/*",
+      "valid": false,
+      "error": "invalid_file_host"
+    },
+    {
+      "name": "too long (513 bytes)",
+      "pattern": "https://example.com/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "valid": false,
+      "error": "invalid_match_pattern"
+    },
+    {
+      "name": "max length (512 bytes)",
+      "pattern": "https://example.com/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "valid": true
+    }
+  ]
+}

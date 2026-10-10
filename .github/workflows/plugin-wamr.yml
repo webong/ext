@@ -1,0 +1,105 @@
+name: Plugin WAMR host
+
+# The optional in-process WebAssembly host (WAMR) bound into pkg/plugin-ios and
+# pkg/plugin-android. It is deliberately not part of default CI: it fetches WAMR, builds an
+# interpreter and boots an emulator and a simulator. It runs by hand and once a week.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '23 4 * * 1'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: plugin-wamr-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # The WAMR checkout is cached on the commit pinned in scripts/plugin-wamr.sh.
+  EXT_CACHE: ${{ github.workspace }}/.cache/ext
+
+jobs:
+  # Desktop JDK: builds libextwamrjni and runs the 12 checks. Linux minutes are the cheap ones.
+  jdk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.98.1'
+          targets: wasm32-wasip1
+      - uses: actions/cache@v4
+        with:
+          path: .cache/ext
+          key: wamr-${{ hashFiles('scripts/plugin-wamr.sh') }}
+      - run: scripts/plugin-android-wamr.sh
+
+  # Android emulator: cross-builds with the NDK and runs the same 12 checks in a test app. The
+  # runner has KVM, so an x86_64 image is fast; the device script follows the device's ABI. Real
+  # arm64 devices stay manual.
+  emulator:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.98.1'
+          targets: wasm32-wasip1
+      - uses: actions/cache@v4
+        with:
+          path: .cache/ext
+          key: wamr-${{ hashFiles('scripts/plugin-wamr.sh') }}
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - uses: reactivecircus/android-emulator-runner@v2.33.0
+        with:
+          api-level: 34
+          arch: x86_64
+          target: default
+          disable-animations: true
+          script: scripts/plugin-android-wamr-device.sh
+
+  # One macOS job for both Apple suites, because macOS minutes cost about ten times Linux:
+  # the Swift tests on the host, then the same tests in an iOS Simulator.
+  apple:
+    runs-on: macos-14
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.98.1'
+          targets: wasm32-wasip1
+      - uses: actions/cache@v4
+        with:
+          path: .cache/ext
+          key: wamr-${{ hashFiles('scripts/plugin-wamr.sh') }}
+      - name: macOS (Swift tests on the host)
+        run: scripts/plugin-ios-wamr.sh
+      - name: iOS Simulator
+        run: |
+          set -euo pipefail
+          reactor="$RUNNER_TEMP/reactor.wasm"
+          CARGO_TARGET_DIR="$RUNNER_TEMP/cargo" cargo build --release --locked \
+            --manifest-path pkg/plugin-rust/Cargo.toml --target wasm32-wasip1 --example shared
+          cp "$RUNNER_TEMP/cargo/wasm32-wasip1/release/examples/shared.wasm" "$reactor"
+          # The frameworks were built by the step above. Pick an installed iPhone simulator.
+          device="$(xcrun simctl list devices available | grep -m1 -E 'iPhone' | sed -E 's/^ *(.*) \(([0-9A-F-]{36})\).*/\2/')"
+          [[ -n "$device" ]] || { echo 'no iPhone simulator is installed' >&2; exit 1; }
+          cd pkg/plugin-ios
+          TEST_RUNNER_EXT_RUST_REACTOR="$reactor" xcodebuild test -scheme ExtPlugin-Package \
+            -destination "platform=iOS Simulator,id=$device" -only-testing:ExtPluginWamrTests

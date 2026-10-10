@@ -121,13 +121,22 @@ try (WamrPluginHost host = new WamrPluginHost(module, descriptor)) {
   A denial from `authorize` throws `WamrException` with status `DENIED` and leaves the
   host usable; a timeout, trap or exhausted budget ends the instance.
 - `close()` is safe from any thread and interrupts a running call.
-- The build disables WAMR's hardware bound checks (`WAMR_DISABLE_HW_BOUND_CHECK`): they
+- The build disables WAMR's hardware bound checks (`EXT_WAMR_DISABLE_HW_BOUND_CHECK`): they
   install signal handlers and probe the native stack, which the JVM and ART own, and the JVM
   aborted with SIGILL on first use. The interpreter checks memory in software instead.
 - `scripts/plugin-android-wamr.sh` builds it and runs the 12 checks on a desktop JDK;
   `scripts/plugin-android-wamr-device.sh` cross-builds with the NDK and runs them in a test
   app on an emulator or device. WAMR is fetched at its pinned commit
   (`scripts/plugin-wamr-source.sh`) and its license must ship with any binary that links it.
+
+## Distribution
+
+`scripts/plugin-android-release.sh <version>` stages `dist/plugin-android-<version>/ext-plugin-<version>.aar`:
+the guest SDK and the WebView host as `classes.jar` (Java 17, which the app's D8 desugars) and
+`libextjni` for arm64-v8a and x86_64. With `--with-wamr` it also holds `libextwamrjni`, the
+`WamrPluginHost` classes and WAMR's license (`META-INF/WAMR-LICENSE`, also written beside the
+AAR), and the minimum SDK becomes 28; without the flag the AAR contains nothing of WAMR. The
+script checks the AAR's contents and publishes nothing.
 
 ## Kotlin and Android
 

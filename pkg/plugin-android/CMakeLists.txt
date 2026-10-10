@@ -9,11 +9,9 @@ project(ext_plugin_java C)
 # library so the default guest SDK carries neither the host nor an interpreter.
 set(EXT_WAMR_ROOT "" CACHE PATH "A WAMR checkout; builds the optional extwamrjni host")
 if(EXT_WAMR_ROOT)
-  # WAMR's hardware bound checks reserve guard address space and install SIGSEGV handlers,
-  # and probe the native stack from the calling thread. That collides with the JVM and ART,
-  # which own those signals and thread stacks (the JVM aborts with SIGILL at first use), so
-  # the embedded interpreter checks in software instead.
-  set(WAMR_DISABLE_HW_BOUND_CHECK 1 CACHE STRING "Software bound checks inside a JVM or ART")
+  # WAMR's hardware bound checks install signal handlers and probe the native stack, which the
+  # JVM and ART own (the JVM aborts with SIGILL at first use), so check in software here.
+  set(EXT_WAMR_DISABLE_HW_BOUND_CHECK ON CACHE BOOL "Software bound checks inside a JVM or ART" FORCE)
   set(EXT_BUILD_HOST ON CACHE BOOL "The WAMR host needs the host half" FORCE)
   set(EXT_WITH_WAMR ON CACHE BOOL "The WAMR reactor backend" FORCE)
 else()

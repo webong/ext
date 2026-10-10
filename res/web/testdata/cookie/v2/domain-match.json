@@ -1,0 +1,53 @@
+{
+  "doc": "CookieDomainMatches(siteHost, cookieDomain).",
+  "cases": [
+    {
+      "name": "exact host",
+      "siteHost": "example.com",
+      "cookieDomain": "example.com",
+      "match": true
+    },
+    {
+      "name": "exact host is case-insensitive",
+      "siteHost": "Example.com",
+      "cookieDomain": "example.COM",
+      "match": true
+    },
+    {
+      "name": "dot-prefixed domain matches apex",
+      "siteHost": "example.com",
+      "cookieDomain": ".example.com",
+      "match": true
+    },
+    {
+      "name": "dot-prefixed matches subdomain",
+      "siteHost": "a.b.example.com",
+      "cookieDomain": ".example.com",
+      "match": true
+    },
+    {
+      "name": "trailing dot on host",
+      "siteHost": "example.com.",
+      "cookieDomain": ".example.com",
+      "match": true
+    },
+    {
+      "name": "host-only cookie does not match subdomain",
+      "siteHost": "a.example.com",
+      "cookieDomain": "example.com",
+      "match": false
+    },
+    {
+      "name": "suffix without dot boundary",
+      "siteHost": "notexample.com",
+      "cookieDomain": ".example.com",
+      "match": false
+    },
+    {
+      "name": "different domain",
+      "siteHost": "example.org",
+      "cookieDomain": ".example.com",
+      "match": false
+    }
+  ]
+}

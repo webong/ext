@@ -1,0 +1,35 @@
+{
+  "doc": "InstallPage returns an HTML page. Name is 1-256 bytes of UTF-8 without NUL; source follows the encode rules. The name and source appear HTML-escaped and the bookmark link is the encode result, also HTML-escaped. Checks are substring based.",
+  "cases": [
+    {
+      "name": "escapes markup in name and source",
+      "pageName": "<b>Tool</b> & co",
+      "source": "if (a<b) alert(\"x\")",
+      "contains": [
+        "<title>Install &lt;b&gt;Tool&lt;/b&gt; &amp; co</title>",
+        "<pre>if (a&lt;b) alert(&#34;x&#34;)</pre>",
+        "draggable=\"true\""
+      ],
+      "absent": [
+        "<b>Tool</b>"
+      ]
+    }
+  ],
+  "rejects": [
+    {
+      "name": "empty name",
+      "pageName": "",
+      "source": "x()"
+    },
+    {
+      "name": "name over 256 bytes",
+      "pageName": "nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn",
+      "source": "x()"
+    },
+    {
+      "name": "invalid source",
+      "pageName": "ok",
+      "source": ""
+    }
+  ]
+}

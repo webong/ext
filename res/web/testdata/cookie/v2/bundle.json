@@ -1,0 +1,169 @@
+{
+  "doc": "ValidateCookieBundle (wire version 2): the site must parse, the cookie must validate and be active and match the site (domain, path, secure), and SameSite must be one of unspecified, none, lax, strict or empty. expiry 1 is in the past; 0 is a session cookie.",
+  "cases": [
+    {
+      "name": "valid bundle",
+      "bundle": {
+        "version": 2,
+        "source": "example-adapter",
+        "site": "https://example.com/",
+        "cookie": {
+          "name": "sid",
+          "value": "v",
+          "domain": "example.com",
+          "path": "/",
+          "expiry": 0,
+          "secure": false,
+          "http_only": false
+        }
+      },
+      "valid": true
+    },
+    {
+      "name": "wrong version",
+      "bundle": {
+        "version": 1,
+        "source": "example-adapter",
+        "site": "https://example.com/",
+        "cookie": {
+          "name": "sid",
+          "value": "v",
+          "domain": "example.com",
+          "path": "/",
+          "expiry": 0,
+          "secure": false,
+          "http_only": false
+        }
+      },
+      "valid": false
+    },
+    {
+      "name": "site is not http(s)",
+      "bundle": {
+        "version": 2,
+        "source": "example-adapter",
+        "site": "ftp://example.com/",
+        "cookie": {
+          "name": "sid",
+          "value": "v",
+          "domain": "example.com",
+          "path": "/",
+          "expiry": 0,
+          "secure": false,
+          "http_only": false
+        }
+      },
+      "valid": false
+    },
+    {
+      "name": "cookie does not match site",
+      "bundle": {
+        "version": 2,
+        "source": "example-adapter",
+        "site": "https://other.example/",
+        "cookie": {
+          "name": "sid",
+          "value": "v",
+          "domain": "example.com",
+          "path": "/",
+          "expiry": 0,
+          "secure": false,
+          "http_only": false
+        }
+      },
+      "valid": false
+    },
+    {
+      "name": "secure cookie on http site",
+      "bundle": {
+        "version": 2,
+        "source": "example-adapter",
+        "site": "http://example.com/",
+        "cookie": {
+          "name": "sid",
+          "value": "v",
+          "domain": "example.com",
+          "path": "/",
+          "expiry": 0,
+          "secure": true,
+          "http_only": false
+        }
+      },
+      "valid": false
+    },
+    {
+      "name": "expired cookie",
+      "bundle": {
+        "version": 2,
+        "source": "example-adapter",
+        "site": "https://example.com/",
+        "cookie": {
+          "name": "sid",
+          "value": "v",
+          "domain": "example.com",
+          "path": "/",
+          "expiry": 1,
+          "secure": false,
+          "http_only": false
+        }
+      },
+      "valid": false
+    },
+    {
+      "name": "path scope mismatch",
+      "bundle": {
+        "version": 2,
+        "source": "example-adapter",
+        "site": "https://example.com/public",
+        "cookie": {
+          "name": "sid",
+          "value": "v",
+          "domain": "example.com",
+          "path": "/private",
+          "expiry": 0,
+          "secure": false,
+          "http_only": false
+        }
+      },
+      "valid": false
+    },
+    {
+      "name": "SameSite lax",
+      "bundle": {
+        "version": 2,
+        "source": "example-adapter",
+        "site": "https://example.com/",
+        "cookie": {
+          "name": "sid",
+          "value": "v",
+          "domain": "example.com",
+          "path": "/",
+          "expiry": 0,
+          "secure": false,
+          "http_only": false,
+          "same_site_policy": "lax"
+        }
+      },
+      "valid": true
+    },
+    {
+      "name": "SameSite unsupported value",
+      "bundle": {
+        "version": 2,
+        "source": "example-adapter",
+        "site": "https://example.com/",
+        "cookie": {
+          "name": "sid",
+          "value": "v",
+          "domain": "example.com",
+          "path": "/",
+          "expiry": 0,
+          "secure": false,
+          "http_only": false,
+          "same_site_policy": "sometimes"
+        }
+      },
+      "valid": false
+    }
+  ]
+}

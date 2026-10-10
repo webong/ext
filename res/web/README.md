@@ -7,12 +7,12 @@ without pulling an adapter, a browser engine, or any CTX application code.
 
 | Package | Contents |
 | --- | --- |
-| `contract` | Request, response, cookie, policy and session types with their validation |
+| `contract` | Request, response, cookie, policy and session types with their validation; cookie fixtures in `testdata/cookie` |
 | `guest` | Portable browser workflows served through adapter-provided backends |
 | `extension` | Extension artifact discovery, packaging and install targets |
 | `bundle` | The web engine: serves a web bundle from loopback under a content security policy and runs it in a browser the host opens, reporting console output and the exit code |
 | `userscript` | Userscript metadata, storage and replay, with language-neutral fixtures in `testdata/userscript` |
-| `bookmarklet` | Bookmarklet generation |
+| `bookmarklet` | Bookmarklet generation, with language-neutral fixtures in `testdata/bookmarklet` |
 
 `browser` itself parses and combines cookies. `Get` and `Normalize` require an
 injected `browser.Backend` for source operations; `InlineOnly`, the parsers and

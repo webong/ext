@@ -1,0 +1,42 @@
+{
+  "doc": "ParseSite accepts http and https URLs with a hostname and no userinfo, and lower-cases the host. expect is the canonical string form.",
+  "cases": [
+    {
+      "name": "https host",
+      "input": "https://Example.COM/a",
+      "valid": true,
+      "expect": "https://example.com/a"
+    },
+    {
+      "name": "http with port",
+      "input": "http://example.com:8080/",
+      "valid": true,
+      "expect": "http://example.com:8080/"
+    },
+    {
+      "name": "ftp scheme",
+      "input": "ftp://example.com/",
+      "valid": false
+    },
+    {
+      "name": "no host",
+      "input": "https:///path",
+      "valid": false
+    },
+    {
+      "name": "userinfo",
+      "input": "https://user:pass@example.com/",
+      "valid": false
+    },
+    {
+      "name": "not a URL",
+      "input": "::::",
+      "valid": false
+    },
+    {
+      "name": "empty",
+      "input": "",
+      "valid": false
+    }
+  ]
+}

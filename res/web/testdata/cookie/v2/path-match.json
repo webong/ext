@@ -1,0 +1,53 @@
+{
+  "doc": "CookiePathMatches(requestPath, cookiePath): a prefix matches only at a path boundary.",
+  "cases": [
+    {
+      "name": "same path",
+      "requestPath": "/a",
+      "cookiePath": "/a",
+      "match": true
+    },
+    {
+      "name": "child path",
+      "requestPath": "/a/b",
+      "cookiePath": "/a",
+      "match": true
+    },
+    {
+      "name": "prefix without boundary",
+      "requestPath": "/ab",
+      "cookiePath": "/a",
+      "match": false
+    },
+    {
+      "name": "root cookie",
+      "requestPath": "/anything",
+      "cookiePath": "/",
+      "match": true
+    },
+    {
+      "name": "trailing slash cookie path",
+      "requestPath": "/a/b",
+      "cookiePath": "/a/",
+      "match": true
+    },
+    {
+      "name": "empty request path is root",
+      "requestPath": "",
+      "cookiePath": "/",
+      "match": true
+    },
+    {
+      "name": "empty cookie path",
+      "requestPath": "/a",
+      "cookiePath": "",
+      "match": false
+    },
+    {
+      "name": "shorter request path",
+      "requestPath": "/",
+      "cookiePath": "/a",
+      "match": false
+    }
+  ]
+}

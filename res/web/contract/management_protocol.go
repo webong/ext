@@ -11,6 +11,18 @@ import (
 
 const ManagementVersion = "1.0"
 
+// Size bounds a host can rely on and must apply when reading from an adapter.
+const (
+	// MaxRequestInputBytes bounds Request.Input.
+	MaxRequestInputBytes = 8 << 20
+	// MaxResultBytes bounds Response.Result.
+	MaxResultBytes = 16 << 20
+	// MaxResponseBytes bounds a whole encoded Response: the result bound plus
+	// room for the envelope. A host reading an adapter's stdout should stop
+	// reading and fail beyond this.
+	MaxResponseBytes = MaxResultBytes + 64<<10
+)
+
 var namePattern = regexp.MustCompile(`^[a-z][a-z0-9_]*$`)
 
 // Request carries one profile-scoped operation. Input is operation-specific
@@ -77,8 +89,8 @@ func ValidateRequest(request Request) error {
 	if !namePattern.MatchString(request.Kind) || !operations[request.Kind][request.Action] {
 		return fmt.Errorf("unsupported browser management operation %q %q", request.Kind, request.Action)
 	}
-	if len(request.Input) > 8<<20 {
-		return errors.New("browser management input exceeds 8 MiB")
+	if len(request.Input) > MaxRequestInputBytes {
+		return errors.New("browser management input exceeds the request bound")
 	}
 	if len(request.Input) > 0 && !json.Valid(request.Input) {
 		return errors.New("browser management input must be JSON")
@@ -96,13 +108,13 @@ func ValidateResponse(response Response, request Request) error {
 	if response.Status == "" || len(response.Status) > 64 {
 		return errors.New("browser management response needs a status")
 	}
-	if len(response.Result) > 16<<20 || (len(response.Result) > 0 && !json.Valid(response.Result)) {
+	if len(response.Result) > MaxResultBytes || (len(response.Result) > 0 && !json.Valid(response.Result)) {
 		return errors.New("browser management response has invalid or oversized result JSON")
 	}
-	if request.Kind == "extension" && request.Action == "activate" && response.Status == "installed" {
+	if request.Kind == "extension" && request.Action == "activate" && response.Status == StatusInstalled {
 		return errors.New("session activation cannot report persistent installation")
 	}
-	if request.Kind == "extension" && request.Action == "install" && response.Status == "activated" {
+	if request.Kind == "extension" && request.Action == "install" && response.Status == StatusActivated {
 		return errors.New("installation cannot report session activation")
 	}
 	return nil

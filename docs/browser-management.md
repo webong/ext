@@ -61,6 +61,51 @@ operation-specific `input`. The response has `version`, `kind`, `action`,
 Status values remain adapter-defined, subject to the install/activation
 boundary validated by CTX.
 
+## Calling an adapter from a host
+
+A host drives an installed browser adapter through one process per request. It
+needs no adapter code: `pkg/plugin/adapter` provides the store, trust check and
+command construction, and `res/web/contract` provides the envelope and its
+validation.
+
+1. Load the adapter from the adapter store the host manages and run
+   `Store.AssertTrusted` on it. Never start an adapter that is untrusted or
+   changed since it was trusted.
+2. Require `Adapter.HasBrowserManagement("<kind>.<action>")`, which reflects the
+   `browser_management` field of the adapter manifest.
+3. Build the request with `contract.NewRequest(kind, action, input)`. It checks
+   the kind and action, and that `input` is a JSON object of at most
+   `contract.MaxRequestInputBytes`.
+4. Build the command with `Adapter.CommandContext(ctx, adapter.Invocation{
+   Operation: "share", Selection: profile, Arguments: []string{"management",
+   kind, action}})`. The process runs as `<adapter> share <profile> -- management
+   <kind> <action>` with the `CTX_ADAPTER_*` environment, plus one
+   `CTX_ADAPTER_VALUE_<KEY>` per key in `Adapter.ConfigKeys()` that the host
+   supplies through `Invocation.Values`.
+5. Write the encoded request to stdin and close it. Read the single JSON
+   `contract.Response` from stdout, but stop reading beyond
+   `contract.MaxResponseBytes`. Stderr carries progress and diagnostics.
+6. A non-zero exit status is a failure; the cause is on stderr, prefixed
+   `browser adapter:`. On success, decode the response and call
+   `contract.ValidateResponse(response, request)` before trusting any field.
+
+Progress for long operations (an installation waiting for the user, or a
+browser session) is written to stderr one report per line: the text of
+`contract.ProgressPrefix` followed by a JSON `extension.InstallResult`. Pass
+each stderr line through `contract.ParseProgress`; lines that do not parse are
+ordinary diagnostics. Such an operation does not exit until it finishes. For
+`extension.activate` and `userscript.activate` the running process is the
+session: cancel the context, or interrupt the process, to end it, and it
+cleans up its browser.
+
+Status values are descriptive. The constants in `res/web/contract` list those the
+first-party adapters report. Handle unknown values without failing, and show
+something as installed only when `contract.Persistent(status)` is true, which
+`ValidateResponse` already guards: an `extension.activate` response cannot
+report `installed`, and an `extension.install` response cannot report
+`activated`. Statuses such as `awaiting-browser-action`, `requested`,
+`policy-updated`, `prepared` and `signed` never prove an installation.
+
 ## Go adapter API
 
 `github.com/webong/ext/res/web/contract` exposes the request and response

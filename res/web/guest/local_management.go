@@ -134,10 +134,12 @@ func writeManagementProgress(output io.Writer, result extension.InstallResult) e
 	if output == nil {
 		return nil
 	}
-	if _, err := fmt.Fprint(output, "browser management progress: "); err != nil {
+	line, err := contract.ProgressLine(result)
+	if err != nil {
 		return err
 	}
-	return json.NewEncoder(output).Encode(result)
+	_, err = fmt.Fprintln(output, line)
+	return err
 }
 
 type userscriptInput struct {

@@ -43,18 +43,20 @@ static double seconds(void) {
   clock_gettime(CLOCK_MONOTONIC, &t);
   return (double)t.tv_sec + (double)t.tv_nsec / 1e9;
 }
-static void deadline_in(unsigned ms, char out[40]) {
+/* Large enough for the worst case, six ints of up to 11 characters and the separators. */
+#define DEADLINE_BYTES 96
+static void deadline_in(unsigned ms, char out[DEADLINE_BYTES]) {
   struct timespec t;
   clock_gettime(CLOCK_REALTIME, &t);
   uint64_t at = (uint64_t)t.tv_sec * 1000 + (uint64_t)t.tv_nsec / 1000000 + ms;
   time_t s = (time_t)(at / 1000);
   struct tm tm;
-  gmtime_r(&s, &tm);
-  snprintf(out, 40, "%04d-%02d-%02dT%02d:%02d:%02d.%03uZ", tm.tm_year + 1900, tm.tm_mon + 1,
+  if (!gmtime_r(&s, &tm)) abort();
+  snprintf(out, DEADLINE_BYTES, "%04d-%02d-%02dT%02d:%02d:%02d.%03uZ", tm.tm_year + 1900, tm.tm_mon + 1,
            tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec, (unsigned)(at % 1000));
 }
 static char *request(const char *operation, const char *payload, unsigned deadline_ms) {
-  char deadline[40];
+  char deadline[DEADLINE_BYTES];
   deadline_in(deadline_ms, deadline);
   size_t cap = strlen(payload) + 400;
   char *r = malloc(cap);

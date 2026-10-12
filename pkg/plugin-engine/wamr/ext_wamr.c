@@ -395,16 +395,25 @@ static ext_status emit_response(backend *b, uint32_t n, ext_emit emit, void *con
 
 /* ---- the extension interface -------------------------------------------- */
 
-static void format_deadline(uint32_t timeout_ms, char out[40]) {
+/* The longest an RFC 3339 deadline can print is 84 bytes: six ints of up to 11
+ * characters (the compiler must assume any int), an unsigned of up to 10, and the
+ * separators. The buffer is sized for that, and the result is checked rather than
+ * trusting the fields. */
+#define DEADLINE_BYTES 96
+
+/* Formats now plus timeout_ms as an RFC 3339 UTC time. Returns 0 if the time cannot be
+ * converted or does not fit, so the caller never sends an unset or truncated deadline. */
+static int format_deadline(uint32_t timeout_ms, char out[DEADLINE_BYTES]) {
   struct timespec t;
   clock_gettime(CLOCK_REALTIME, &t);
   uint64_t ms = (uint64_t)t.tv_sec * 1000 + (uint64_t)t.tv_nsec / 1000000 + timeout_ms;
   time_t secs = (time_t)(ms / 1000);
   struct tm tm;
-  gmtime_r(&secs, &tm);
-  snprintf(out, 40, "%04d-%02d-%02dT%02d:%02d:%02d.%03uZ", tm.tm_year + 1900,
-           tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec,
-           (unsigned)(ms % 1000));
+  if (!gmtime_r(&secs, &tm)) return 0;
+  int n = snprintf(out, DEADLINE_BYTES, "%04d-%02d-%02dT%02d:%02d:%02d.%03uZ", tm.tm_year + 1900,
+                   tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec,
+                   (unsigned)(ms % 1000));
+  return n > 0 && n < DEADLINE_BYTES;
 }
 
 static void teardown(backend *b) {
@@ -436,7 +445,7 @@ static ext_status begin(backend *b) {
 static void report(backend *b, const char *stage, const char *why) {
   if (!b->opt.diagnostic) return;
   char line[256];
-  int n = snprintf(line, sizeof(line), "ext_wamr %s: %s", stage, why);
+  int n = snprintf(line, sizeof(line), "ext_wamr %.16s: %.200s", stage, why);
   if (n > 0) b->opt.diagnostic(b->opt.diagnostic_user, (const uint8_t *)line, (size_t)(n < 256 ? n : 255));
 }
 
@@ -458,7 +467,7 @@ static ext_status do_connect(backend *b, const ext_call_options *o, ext_emit emi
     wasm_runtime_get_import_type(b->module, i, &import);
     if (import.kind != WASM_IMPORT_EXPORT_KIND_FUNC || !import.linked) {
       char why[200];
-      snprintf(why, sizeof(why), "the module imports %s.%s, which the host does not provide",
+      snprintf(why, sizeof(why), "the module imports %.64s.%.64s, which the host does not provide",
                import.module_name ? import.module_name : "?", import.name ? import.name : "?");
       report(b, "reject", why);
       return EXT_UNSUPPORTED;
@@ -508,9 +517,10 @@ static ext_status do_connect(backend *b, const ext_call_options *o, ext_emit emi
   if ((s = guest_alloc(b, MAX_FRAME, &b->resp_ptr)) != EXT_OK) return s;
   if ((s = guest_alloc(b, 4, &b->len_ptr)) != EXT_OK) return s;
 
-  char deadline[40], request[80];
-  format_deadline(o->timeout_ms, deadline);
+  char deadline[DEADLINE_BYTES], request[DEADLINE_BYTES + 32];
+  if (!format_deadline(o->timeout_ms, deadline)) return EXT_IO;
   int n = snprintf(request, sizeof(request), "{\"deadline\":\"%s\"}", deadline);
+  if (n <= 0 || (size_t)n >= sizeof(request)) return EXT_IO;
   uint32_t out = 0;
   if ((s = round_trip(b, OP_HANDSHAKE, (const uint8_t *)request, (size_t)n, &out)) != EXT_OK)
     return s;

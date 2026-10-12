@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/webong/ext/pkg/plugin"
 	"github.com/webong/ext/pkg/plugin/inprocess"
@@ -77,6 +78,7 @@ func TestPythonGuest(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	warmUpPython(t, python, dir)
 	plugintest.Run(t, func(ctx context.Context) (plugin.Backend, error) {
 		return process.Start(ctx, process.Command{Path: python, Args: []string{"-I", filepath.Join(dir, "tests", "conformance_guest.py")}, Dir: dir})
 	})
@@ -95,5 +97,20 @@ func TestPythonUnitTests(t *testing.T) {
 	cmd.Dir = dir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("%v\n%s", err, out)
+	}
+}
+
+// warmUpPython runs the guest's imports once with a generous bound. The
+// conformance suite gives each handshake only a few seconds, and a cold first
+// start of the interpreter (for example on a Windows runner with antivirus
+// scanning) can exceed that, which would fail the first case for reasons that
+// have nothing to do with the protocol.
+func warmUpPython(t *testing.T, python, dir string) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, python, "-I", "-c", "import sys; sys.path.insert(0, sys.argv[1]); import ext_plugin", dir)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("python warm-up failed: %v\n%s", err, out)
 	}
 }

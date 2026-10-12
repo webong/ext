@@ -4,8 +4,28 @@ name: Plugin WAMR host
 # pkg/plugin-android. It is deliberately not part of default CI: it fetches WAMR, builds an
 # interpreter and boots an emulator and a simulator. It runs by hand, and on pushes and pull
 # requests that touch the code it builds, so it costs nothing while those paths are untouched.
+#
+# A hand-started run can pick its jobs, so it does not always cost all three. Each input defaults
+# to true, and push and pull-request runs always start every job:
+#   jdk      desktop JDK suite (Linux)
+#   emulator Android emulator suite (Linux, KVM)
+#   apple    macOS Swift tests and the iOS Simulator suite, together (macOS, the costly one)
+# For example, skip macOS: gh workflow run plugin-wamr.yml -f apple=false
 on:
   workflow_dispatch:
+    inputs:
+      jdk:
+        description: Run the desktop JDK suite
+        type: boolean
+        default: true
+      emulator:
+        description: Run the Android emulator suite
+        type: boolean
+        default: true
+      apple:
+        description: Run the macOS and iOS Simulator suites (one macOS job)
+        type: boolean
+        default: true
   push:
     branches: [main]
     paths:
@@ -42,6 +62,7 @@ env:
 jobs:
   # Desktop JDK: builds libextwamrjni and runs the 12 checks. Linux minutes are the cheap ones.
   jdk:
+    if: github.event_name != 'workflow_dispatch' || inputs.jdk
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -64,6 +85,7 @@ jobs:
   # runner has KVM, so an x86_64 image is fast; the device script follows the device's ABI. Real
   # arm64 devices stay manual.
   emulator:
+    if: github.event_name != 'workflow_dispatch' || inputs.emulator
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
@@ -96,6 +118,7 @@ jobs:
   # One macOS job for both Apple suites, because macOS minutes cost about ten times Linux:
   # the Swift tests on the host, then the same tests in an iOS Simulator.
   apple:
+    if: github.event_name != 'workflow_dispatch' || inputs.apple
     runs-on: macos-14
     timeout-minutes: 45
     steps:

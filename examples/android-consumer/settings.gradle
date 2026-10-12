@@ -1,0 +1,19 @@
+// A minimal app that consumes the SDK the way an application would: from the AAR that
+// scripts/plugin-android-release.sh stages, through a local flat repository. It is built from a
+// temporary copy by scripts/plugin-android-consumer.sh, which passes -PaarDir and -PaarName.
+pluginManagement {
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+dependencyResolutionManagement {
+    repositories {
+        google()
+        mavenCentral()
+        flatDir { dirs providers.gradleProperty('aarDir').get() }
+    }
+}
+rootProject.name = 'ext-android-consumer'
+include ':app'

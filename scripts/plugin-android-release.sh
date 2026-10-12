@@ -55,6 +55,8 @@ cat >"$work/aar/AndroidManifest.xml" <<MANIFEST
 </manifest>
 MANIFEST
 : >"$work/aar/R.txt"
+# Rules the native code needs from R8, applied to every app that depends on the AAR.
+cp "$pkg/consumer-rules.pro" "$work/aar/proguard.txt"
 if [[ -n "$with_wamr" ]]; then
   mkdir -p "$work/aar/META-INF"
   cp "$wamr/LICENSE" "$work/aar/META-INF/WAMR-LICENSE"
@@ -64,7 +66,7 @@ fi
 
 # Prove it: the AAR must hold what it claims, and nothing of WAMR unless asked.
 listing="$(unzip -Z1 "$out/ext-plugin-$version.aar")"
-for entry in AndroidManifest.xml classes.jar jni/arm64-v8a/libextjni.so jni/x86_64/libextjni.so; do
+for entry in AndroidManifest.xml classes.jar proguard.txt jni/arm64-v8a/libextjni.so jni/x86_64/libextjni.so; do
   grep -qx "$entry" <<<"$listing" || { echo "AAR is missing $entry" >&2; exit 1; }
 done
 wamr_entries="$(grep -c -i wamr <<<"$listing" || true)"

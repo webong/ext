@@ -1,0 +1,51 @@
+plugins {
+    id 'com.android.application'
+}
+
+// -PwithWamr selects the WAMR build of the AAR, which needs API 28.
+def withWamr = providers.gradleProperty('withWamr').isPresent()
+
+android {
+    namespace 'dev.ext.consumer'
+    compileSdk 34
+    defaultConfig {
+        // The AAR's own manifest declares the minimum it needs (24, or 28 with WAMR); the app
+        // asks for exactly that, so a mismatch fails the manifest merge instead of hiding.
+        minSdk withWamr ? 28 : 24
+        targetSdk 34
+        testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
+        // The test APK is minified too, so androidx.test needs its own warning rule.
+        testProguardFiles 'proguard-test.pro'
+        // Only the ABIs the AAR ships.
+        ndk { abiFilters 'arm64-v8a', 'x86_64' }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    buildTypes {
+        release {
+            // What a real release does: shrink, rename and optimize with R8.
+            minifyEnabled true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            signingConfig signingConfigs.debug
+        }
+    }
+    // The instrumented tests run against the minified release build.
+    testBuildType 'release'
+    sourceSets {
+        if (withWamr) {
+            main.java.srcDir 'src/wamr/java'
+            androidTest.java.srcDir 'src/androidTestWamr/java'
+        }
+    }
+    packaging {
+        jniLibs { useLegacyPackaging true }
+    }
+}
+
+dependencies {
+    implementation name: providers.gradleProperty('aarName').get(), ext: 'aar'
+    androidTestImplementation 'androidx.test.ext:junit:1.2.1'
+    androidTestImplementation 'androidx.test:runner:1.6.2'
+}

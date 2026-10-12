@@ -2,11 +2,27 @@ name: Plugin WAMR host
 
 # The optional in-process WebAssembly host (WAMR) bound into pkg/plugin-ios and
 # pkg/plugin-android. It is deliberately not part of default CI: it fetches WAMR, builds an
-# interpreter and boots an emulator and a simulator. It runs by hand and once a week.
+# interpreter and boots an emulator and a simulator. It runs by hand, and on pushes and pull
+# requests that touch the code it builds, so it costs nothing while those paths are untouched.
 on:
   workflow_dispatch:
-  schedule:
-    - cron: '23 4 * * 1'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/plugin-wamr.yml'
+      - 'scripts/plugin-*wamr*.sh'
+      - 'pkg/plugin-android/**'
+      - 'pkg/plugin-ios/**'
+      - 'pkg/plugin-engine/**'
+      - 'pkg/plugin-rust/**'
+  pull_request:
+    paths:
+      - '.github/workflows/plugin-wamr.yml'
+      - 'scripts/plugin-*wamr*.sh'
+      - 'pkg/plugin-android/**'
+      - 'pkg/plugin-ios/**'
+      - 'pkg/plugin-engine/**'
+      - 'pkg/plugin-rust/**'
 
 permissions:
   contents: read

@@ -50,6 +50,17 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: ./tests/windows_native_test.ps1
+      # ctx launches PowerShell adapters through powershell.exe, which is Windows PowerShell
+      # 5.1, and most people run install.ps1 from it too. The step above runs PowerShell 7, so
+      # the same test runs again here, where it also parses every adapter script with the 5.1
+      # parser. The check keeps this step from quietly running on PowerShell 7.
+      - name: Test Windows source installer (Windows PowerShell 5.1)
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: |
+          if ($PSVersionTable.PSEdition -ne 'Desktop') { throw "expected Windows PowerShell, got $($PSVersionTable.PSEdition) $($PSVersionTable.PSVersion)" }
+          "Windows PowerShell $($PSVersionTable.PSVersion)"
+          ./tests/windows_native_test.ps1
 
   native-integration:
     strategy:

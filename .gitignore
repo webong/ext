@@ -11,3 +11,4 @@
 /pkg/plugin-ios/.build/
 
 .DS_Store
+__pycache__/

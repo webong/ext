@@ -11,16 +11,20 @@ on:
     paths:
       - '.github/workflows/plugin-wamr.yml'
       - 'scripts/plugin-*wamr*.sh'
+      - 'scripts/plugin-ios-xcframework.sh'
       - 'pkg/plugin-android/**'
       - 'pkg/plugin-ios/**'
+      - 'pkg/plugin-cshared/**'
       - 'pkg/plugin-engine/**'
       - 'pkg/plugin-rust/**'
   pull_request:
     paths:
       - '.github/workflows/plugin-wamr.yml'
       - 'scripts/plugin-*wamr*.sh'
+      - 'scripts/plugin-ios-xcframework.sh'
       - 'pkg/plugin-android/**'
       - 'pkg/plugin-ios/**'
+      - 'pkg/plugin-cshared/**'
       - 'pkg/plugin-engine/**'
       - 'pkg/plugin-rust/**'
 

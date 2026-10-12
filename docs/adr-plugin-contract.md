@@ -145,6 +145,27 @@ A package with no entrypoints is a source-file package: `packagekit` lists the
 payload files and declares no command, and the consumer chooses the runtime and
 the file to run (`Manifest.SourceOnly`, `Manifest.Artifact`).
 
+### Tree artifacts
+
+A large vendored dependency tree is one artifact with `kind: "tree"`, instead of
+one manifest entry per file. Its `path` is a directory and its `sha256` is
+`plugin.DirectoryDigest` of that directory, so files inside may use any case and
+do not count toward the 4096-artifact limit. A tree may hold only regular files
+and directories; symbolic links and special files are rejected, so an author
+materializes links when staging. It must not overlap another artifact and cannot
+be an entrypoint. `packagekit.SourceManifest` turns a directory path into a tree
+artifact, `packagekit.TreeDigest(root, dir)` computes its digest, and
+`Installed.ArtifactPath(name)` returns the verified directory.
+
+`store.Limits` bounds a tree: `MaxTreeFiles` (default 250000), `MaxTreeBytes`
+(default 16 GiB) and, per file, `MaxArtifactBytes`. Install copies the tree with
+those bounds, keeps each file's owner-execute bit (permission bits are not part
+of the digest and so are not integrity-protected), and verifies the staged copy
+against the manifest. Every `Verify`, and therefore every `host.Open`, rehashes
+the tree, so very large trees make opening slow; hosts that open often should
+keep the process running. Manifests that use trees need a library that knows the
+field, since older readers reject unknown manifest fields.
+
 ### Entry points and directory names
 
 The manifest names the exact artifact file on every platform. The store does

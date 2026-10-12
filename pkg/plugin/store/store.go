@@ -36,9 +36,35 @@ var (
 	ErrNotFound = errors.New("plugin package not installed")
 )
 
+// Defaults for Limits.
+const (
+	// DefaultMaxTreeFiles bounds the files in one tree artifact.
+	DefaultMaxTreeFiles = 250000
+	// DefaultMaxTreeBytes bounds the total size of one tree artifact.
+	DefaultMaxTreeBytes int64 = 16 << 30
+)
+
 // Limits are optional size bounds. Zero values use defaults.
 type Limits struct {
+	// MaxArtifactBytes bounds one file, including each file inside a tree.
 	MaxArtifactBytes int64
+	// MaxTreeFiles bounds the files in one tree artifact.
+	MaxTreeFiles int
+	// MaxTreeBytes bounds the total bytes of one tree artifact.
+	MaxTreeBytes int64
+}
+
+func (l Limits) normalize() Limits {
+	if l.MaxArtifactBytes == 0 {
+		l.MaxArtifactBytes = DefaultMaxArtifactBytes
+	}
+	if l.MaxTreeFiles == 0 {
+		l.MaxTreeFiles = DefaultMaxTreeFiles
+	}
+	if l.MaxTreeBytes == 0 {
+		l.MaxTreeBytes = DefaultMaxTreeBytes
+	}
+	return l
 }
 
 type Store struct {
@@ -50,13 +76,10 @@ type Store struct {
 // New returns a store rooted at root. The directory is created on first
 // install. root must be supplied by the consumer.
 func New(root string, limits Limits) (*Store, error) {
-	if root == "" || limits.MaxArtifactBytes < 0 {
+	if root == "" || limits.MaxArtifactBytes < 0 || limits.MaxTreeFiles < 0 || limits.MaxTreeBytes < 0 {
 		return nil, plugin.ErrInvalid
 	}
-	if limits.MaxArtifactBytes == 0 {
-		limits.MaxArtifactBytes = DefaultMaxArtifactBytes
-	}
-	return &Store{root: root, limits: limits}, nil
+	return &Store{root: root, limits: limits.normalize()}, nil
 }
 
 func (s *Store) Root() string { return s.root }
@@ -65,7 +88,7 @@ func (s *Store) Root() string { return s.root }
 type Installed struct {
 	Manifest  packagekit.Manifest
 	Directory string
-	limit     int64
+	limits    Limits
 }
 
 // dirName maps a package ID to one directory name. IDs permit "/" but not "%",
@@ -107,7 +130,7 @@ func (s *Store) load(id string) (Installed, error) {
 	if m.Descriptor.Identity.ID != id {
 		return Installed{}, fmt.Errorf("%w: directory does not match manifest", plugin.ErrMismatch)
 	}
-	p := Installed{Manifest: m, Directory: dir, limit: s.limits.MaxArtifactBytes}
+	p := Installed{Manifest: m, Directory: dir, limits: s.limits}
 	if err := p.Verify(); err != nil {
 		return Installed{}, err
 	}
@@ -255,7 +278,7 @@ func (s *Store) checkSource(source string) (packagekit.Manifest, error) {
 			return m, fmt.Errorf("%w: artifact path %q is reserved", plugin.ErrInvalid, ManifestName)
 		}
 	}
-	if err := (Installed{Manifest: m, Directory: source, limit: s.limits.MaxArtifactBytes}).Verify(); err != nil {
+	if err := (Installed{Manifest: m, Directory: source, limits: s.limits}).Verify(); err != nil {
 		return m, err
 	}
 	return m, nil
@@ -284,7 +307,7 @@ func (s *Store) stage(source string, m packagekit.Manifest, dest string) (Instal
 		if executable[a.Name] {
 			mode = 0o700
 		}
-		if err := copyArtifact(source, staging, a, s.limits.MaxArtifactBytes, mode); err != nil {
+		if err := copyArtifact(source, staging, a, s.limits, mode); err != nil {
 			return Installed{}, fmt.Errorf("artifact %s: %w", a.Name, err)
 		}
 	}
@@ -295,7 +318,7 @@ func (s *Store) stage(source string, m packagekit.Manifest, dest string) (Instal
 	if err := os.WriteFile(filepath.Join(staging, ManifestName), append(encoded, '\n'), 0o600); err != nil {
 		return Installed{}, err
 	}
-	p := Installed{Manifest: m, Directory: staging, limit: s.limits.MaxArtifactBytes}
+	p := Installed{Manifest: m, Directory: staging, limits: s.limits}
 	if err := p.Verify(); err != nil {
 		return Installed{}, err
 	}
@@ -309,7 +332,11 @@ func (s *Store) stage(source string, m packagekit.Manifest, dest string) (Instal
 	return p, nil
 }
 
-func copyArtifact(srcRoot, dstRoot string, a packagekit.Artifact, max int64, mode os.FileMode) error {
+func copyArtifact(srcRoot, dstRoot string, a packagekit.Artifact, limits Limits, mode os.FileMode) error {
+	if a.Kind == packagekit.ArtifactTree {
+		return copyTree(srcRoot, dstRoot, a, limits)
+	}
+	max := limits.MaxArtifactBytes
 	src, err := securePath(srcRoot, a.Path)
 	if err != nil {
 		return err
@@ -412,17 +439,26 @@ func (p Installed) Verify() error {
 	if err := p.Manifest.Validate(); err != nil {
 		return err
 	}
-	max := p.limit
-	if max == 0 {
-		max = DefaultMaxArtifactBytes
-	}
+	limits := p.limits.normalize()
 	listed := map[string]bool{ManifestName: true}
+	trees := map[string]bool{}
 	for _, a := range p.Manifest.Artifacts {
+		if a.Kind == packagekit.ArtifactTree {
+			path, err := secureDirectory(p.Directory, a.Path)
+			if err == nil {
+				err = verifyTree(path, a.SHA256, limits)
+			}
+			if err != nil {
+				return fmt.Errorf("artifact %s: %w", a.Name, err)
+			}
+			trees[strings.ToLower(a.Path)] = true
+			continue
+		}
 		path, err := securePath(p.Directory, a.Path)
 		if err != nil {
 			return fmt.Errorf("artifact %s: %w", a.Name, err)
 		}
-		if err := checkDigest(path, a.SHA256, max); err != nil {
+		if err := checkDigest(path, a.SHA256, limits.MaxArtifactBytes); err != nil {
 			return fmt.Errorf("artifact %s: %w", a.Name, err)
 		}
 		listed[strings.ToLower(a.Path)] = true
@@ -430,22 +466,26 @@ func (p Installed) Verify() error {
 	if _, err := securePath(p.Directory, ManifestName); err != nil {
 		return err
 	}
-	return filepathWalkExtra(p.Directory, listed)
+	return filepathWalkExtra(p.Directory, listed, trees)
 }
 
-func filepathWalkExtra(root string, listed map[string]bool) error {
+func filepathWalkExtra(root string, listed, trees map[string]bool) error {
 	return filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
 			return err
-		}
-		if d.IsDir() {
-			return nil
 		}
 		rel, err := filepath.Rel(root, path)
 		if err != nil {
 			return err
 		}
-		if !listed[strings.ToLower(filepath.ToSlash(rel))] {
+		key := strings.ToLower(filepath.ToSlash(rel))
+		if d.IsDir() {
+			if trees[key] {
+				return filepath.SkipDir // verified as a whole by its digest
+			}
+			return nil
+		}
+		if !listed[key] {
 			return fmt.Errorf("%w: unlisted file %q", plugin.ErrInvalid, filepath.ToSlash(rel))
 		}
 		return nil
@@ -482,19 +522,27 @@ func (p Installed) Digest() (string, error) {
 }
 
 // ArtifactPath verifies the named artifact and returns its filesystem path
-// (under Directory). Use it to locate source files or an executable.
+// (under Directory): a file, or for a tree artifact its directory. Use it to
+// locate source files, a vendored tree or an executable.
 func (p Installed) ArtifactPath(name string) (string, error) {
 	for _, a := range p.Manifest.Artifacts {
 		if a.Name == name {
+			limits := p.limits.normalize()
+			if a.Kind == packagekit.ArtifactTree {
+				path, err := secureDirectory(p.Directory, a.Path)
+				if err == nil {
+					err = verifyTree(path, a.SHA256, limits)
+				}
+				if err != nil {
+					return "", fmt.Errorf("artifact %s: %w", name, err)
+				}
+				return path, nil
+			}
 			path, err := securePath(p.Directory, a.Path)
 			if err != nil {
 				return "", err
 			}
-			max := p.limit
-			if max == 0 {
-				max = DefaultMaxArtifactBytes
-			}
-			if err := checkDigest(path, a.SHA256, max); err != nil {
+			if err := checkDigest(path, a.SHA256, limits.MaxArtifactBytes); err != nil {
 				return "", fmt.Errorf("artifact %s: %w", name, err)
 			}
 			return path, nil
@@ -536,4 +584,133 @@ func WriteManifest(dir string, m packagekit.Manifest) error {
 		return err
 	}
 	return os.WriteFile(filepath.Join(dir, ManifestName), append(encoded, '\n'), 0o600)
+}
+
+// secureDirectory resolves a slash path under root to a directory, refusing
+// symbolic links at every component.
+func secureDirectory(root, name string) (string, error) {
+	current := root
+	for _, part := range strings.Split(name, "/") {
+		if part == "" || part == "." || part == ".." {
+			return "", plugin.ErrInvalid
+		}
+		current = filepath.Join(current, part)
+		info, err := os.Lstat(current)
+		if err != nil {
+			return "", err
+		}
+		if info.Mode()&os.ModeSymlink != 0 || !info.IsDir() {
+			return "", fmt.Errorf("%w: tree path must be a plain directory", plugin.ErrInvalid)
+		}
+	}
+	return current, nil
+}
+
+// verifyTree enforces the tree bounds and compares plugin.DirectoryDigest with
+// the manifest. Only regular files and directories are allowed.
+func verifyTree(dir, digest string, limits Limits) error {
+	files, total := 0, int64(0)
+	err := filepath.WalkDir(dir, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			return nil
+		}
+		if !d.Type().IsRegular() {
+			return fmt.Errorf("%w: trees may hold only regular files", plugin.ErrInvalid)
+		}
+		info, err := d.Info()
+		if err != nil {
+			return err
+		}
+		files++
+		total += info.Size()
+		if files > limits.MaxTreeFiles || total > limits.MaxTreeBytes || info.Size() > limits.MaxArtifactBytes {
+			return fmt.Errorf("%w: tree exceeds its size limits", plugin.ErrInvalid)
+		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	if files == 0 {
+		return fmt.Errorf("%w: tree holds no files", plugin.ErrInvalid)
+	}
+	actual, err := plugin.DirectoryDigest(dir)
+	if err != nil {
+		return err
+	}
+	if actual != digest {
+		return plugin.ErrMismatch
+	}
+	return nil
+}
+
+// copyTree copies a tree artifact into dstRoot, enforcing the bounds while it
+// copies. Directories are created 0700 and files 0600, or 0700 when the source
+// file has its owner-execute bit (modes are not covered by the digest). The
+// caller verifies the staged copy against the manifest digest afterwards.
+func copyTree(srcRoot, dstRoot string, a packagekit.Artifact, limits Limits) error {
+	source, err := secureDirectory(srcRoot, a.Path)
+	if err != nil {
+		return err
+	}
+	destination := filepath.Join(dstRoot, filepath.FromSlash(a.Path))
+	files, total := 0, int64(0)
+	return filepath.WalkDir(source, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		relative, err := filepath.Rel(source, path)
+		if err != nil {
+			return err
+		}
+		target := filepath.Join(destination, relative)
+		if d.IsDir() {
+			return os.MkdirAll(target, 0o700)
+		}
+		if !d.Type().IsRegular() {
+			return fmt.Errorf("%w: trees may hold only regular files", plugin.ErrInvalid)
+		}
+		files++
+		if files > limits.MaxTreeFiles {
+			return fmt.Errorf("%w: tree exceeds its file limit", plugin.ErrInvalid)
+		}
+		linkInfo, err := os.Lstat(path)
+		if err != nil {
+			return err
+		}
+		in, err := os.Open(path)
+		if err != nil {
+			return err
+		}
+		defer in.Close()
+		info, err := in.Stat()
+		if err != nil {
+			return err
+		}
+		if !info.Mode().IsRegular() || !os.SameFile(linkInfo, info) {
+			return fmt.Errorf("%w: file changed while copying", plugin.ErrInvalid)
+		}
+		mode := os.FileMode(0o600)
+		if info.Mode().Perm()&0o100 != 0 {
+			mode = 0o700
+		}
+		out, err := os.OpenFile(target, os.O_WRONLY|os.O_CREATE|os.O_EXCL, mode)
+		if err != nil {
+			return err
+		}
+		n, copyErr := io.Copy(out, io.LimitReader(in, limits.MaxArtifactBytes+1))
+		closeErr := out.Close()
+		if copyErr != nil || closeErr != nil {
+			return errors.Join(copyErr, closeErr)
+		}
+		total += n
+		if n > limits.MaxArtifactBytes || total > limits.MaxTreeBytes {
+			return fmt.Errorf("%w: tree exceeds its size limits", plugin.ErrInvalid)
+		}
+		// Keep the owner-execute bit even under a restrictive umask.
+		return os.Chmod(target, mode)
+	})
 }

@@ -6,10 +6,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"runtime"
 	"sort"
+	"strings"
 
 	"github.com/webong/ext/pkg/plugin"
 )
@@ -63,6 +65,44 @@ func FileDigest(path string) (string, error) {
 	return hex.EncodeToString(hash.Sum(nil)), nil
 }
 
+// TreeDigest returns plugin.DirectoryDigest of the directory dir (a
+// slash-separated path) under root, for an artifact of kind ArtifactTree. The
+// directory must hold at least one file and only regular files and directories.
+func TreeDigest(root, dir string) (string, error) {
+	if !portablePath(dir) {
+		return "", fmt.Errorf("%w: tree path %q is not portable", plugin.ErrInvalid, dir)
+	}
+	path := filepath.Join(root, filepath.FromSlash(dir))
+	current := root
+	for _, part := range strings.Split(dir, "/") {
+		current = filepath.Join(current, part)
+		info, err := os.Lstat(current)
+		if err != nil {
+			return "", err
+		}
+		if info.Mode()&os.ModeSymlink != 0 || !info.IsDir() {
+			return "", fmt.Errorf("%w: %s is not a plain directory", plugin.ErrInvalid, dir)
+		}
+	}
+	empty := true
+	err := filepath.WalkDir(path, func(_ string, entry fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if !entry.IsDir() {
+			empty = false
+		}
+		return nil
+	})
+	if err != nil {
+		return "", err
+	}
+	if empty {
+		return "", fmt.Errorf("%w: tree %s holds no files", plugin.ErrInvalid, dir)
+	}
+	return plugin.DirectoryDigest(path)
+}
+
 // ExecutableManifest describes a one-executable package. The executable sits
 // beside package.json under its base name, and the artifact is bound to the
 // running GOOS and GOARCH. The revision is "sha256:<digest of the executable>",
@@ -86,11 +126,14 @@ func ExecutableManifest(id, version string, contracts []plugin.Contract, executa
 	return m, m.Validate()
 }
 
-// SourceManifest describes a package of source files that the consumer runs
+// SourceManifest describes a package of source files and directories that the consumer runs
 // under a runtime it owns; it declares no entrypoint. files are slash-separated
 // paths relative to root, each listed once as an artifact whose name equals its
-// path. The revision is "sha256:" over the sorted "path digest" pairs, so it
-// follows the files' content and names, not the order given.
+// path. A path that names a directory becomes one ArtifactTree artifact (see
+// TreeDigest), which suits large vendored dependency trees; its files may use
+// any case, while the tree's own path follows the lower-case artifact rules.
+// The revision is "sha256:" over the sorted "path digest" pairs (a tree's path
+// carries a trailing slash), so it follows content and names, not the order given.
 func SourceManifest(id, version string, contracts []plugin.Contract, root string, files []string) (Manifest, error) {
 	if len(files) == 0 {
 		return Manifest{}, fmt.Errorf("%w: a source package needs at least one file", plugin.ErrInvalid)
@@ -106,7 +149,22 @@ func SourceManifest(id, version string, contracts []plugin.Contract, root string
 		if !portablePath(file) {
 			return Manifest{}, fmt.Errorf("%w: file path %q is not portable", plugin.ErrInvalid, file)
 		}
-		digest, err := FileDigest(filepath.Join(root, filepath.FromSlash(file)))
+		full := filepath.Join(root, filepath.FromSlash(file))
+		info, err := os.Lstat(full)
+		if err != nil {
+			return Manifest{}, err
+		}
+		if info.Mode().IsDir() {
+			// A directory becomes one tree artifact covering everything in it.
+			digest, err := TreeDigest(root, file)
+			if err != nil {
+				return Manifest{}, err
+			}
+			fmt.Fprintf(combined, "%s/ %s\n", file, digest)
+			artifacts = append(artifacts, Artifact{Name: file, Path: file, Kind: ArtifactTree, SHA256: digest})
+			continue
+		}
+		digest, err := FileDigest(full)
 		if err != nil {
 			return Manifest{}, err
 		}

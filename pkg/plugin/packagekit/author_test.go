@@ -1,6 +1,7 @@
 package packagekit_test
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -128,5 +129,89 @@ func TestLoadDescriptorFromManifestOrBareFile(t *testing.T) {
 	}
 	if _, err := packagekit.LoadDescriptor(filepath.Join(dir, "none.json")); err == nil {
 		t.Fatal("accepted a missing file")
+	}
+}
+
+func TestSourceManifestTreeArtifact(t *testing.T) {
+	root := t.TempDir()
+	for name, body := range map[string]string{"provider.py": "x", "vendor/LICENSE": "l", "vendor/Pkg/METADATA": "m"} {
+		path := filepath.Join(root, filepath.FromSlash(name))
+		os.MkdirAll(filepath.Dir(path), 0o700)
+		os.WriteFile(path, []byte(body), 0o600)
+	}
+	m, err := packagekit.SourceManifest("example/t", "", contracts(), root, []string{"vendor", "provider.py"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(m.Artifacts) != 2 || m.Artifacts[0].Kind != "" || m.Artifacts[1].Kind != packagekit.ArtifactTree || m.Artifacts[1].Path != "vendor" {
+		t.Fatalf("artifacts: %+v", m.Artifacts)
+	}
+	digest, err := packagekit.TreeDigest(root, "vendor")
+	if err != nil || digest != m.Artifacts[1].SHA256 {
+		t.Fatalf("digest: %q %v", digest, err)
+	}
+	if err := m.VerifyArtifacts(root); err != nil {
+		t.Fatal(err)
+	}
+	os.WriteFile(filepath.Join(root, "vendor", "LICENSE"), []byte("changed"), 0o600)
+	if err := m.VerifyArtifacts(root); !errors.Is(err, plugin.ErrMismatch) {
+		t.Fatalf("tamper: %v", err)
+	}
+	// A manifest with a tree survives JSON and keeps its kind.
+	raw, _ := jsonMarshal(m)
+	back, err := packagekit.Decode(raw)
+	if err != nil || back.Artifacts[1].Kind != packagekit.ArtifactTree {
+		t.Fatalf("round trip: %+v %v", back.Artifacts, err)
+	}
+}
+
+func TestTreeRulesRejected(t *testing.T) {
+	root := t.TempDir()
+	os.MkdirAll(filepath.Join(root, "vendor", "sub"), 0o700)
+	os.MkdirAll(filepath.Join(root, "empty"), 0o700)
+	os.WriteFile(filepath.Join(root, "vendor", "a"), []byte("a"), 0o600)
+	os.WriteFile(filepath.Join(root, "vendor", "sub", "b"), []byte("b"), 0o600)
+	os.WriteFile(filepath.Join(root, "main.py"), []byte("x"), 0o600)
+	if _, err := packagekit.SourceManifest("example/t", "", contracts(), root, []string{"empty"}); err == nil {
+		t.Fatal("empty tree accepted")
+	}
+	if _, err := packagekit.SourceManifest("example/t", "", contracts(), root, []string{"vendor", "vendor/a"}); err == nil {
+		t.Fatal("file inside a listed tree accepted")
+	}
+	if _, err := packagekit.SourceManifest("example/t", "", contracts(), root, []string{"vendor", "vendor/sub"}); err == nil {
+		t.Fatal("nested trees accepted")
+	}
+	if _, err := packagekit.TreeDigest(root, "main.py"); err == nil {
+		t.Fatal("file accepted as a tree")
+	}
+	if _, err := packagekit.TreeDigest(root, "../escape"); err == nil {
+		t.Fatal("escaping tree accepted")
+	}
+	if runtime.GOOS != "windows" {
+		os.Symlink(filepath.Join(root, "vendor"), filepath.Join(root, "link"))
+		if _, err := packagekit.TreeDigest(root, "link"); err == nil {
+			t.Fatal("symlinked tree accepted")
+		}
+		os.Symlink(filepath.Join(root, "main.py"), filepath.Join(root, "vendor", "sym"))
+		if _, err := packagekit.TreeDigest(root, "vendor"); err == nil {
+			t.Fatal("tree with a symlink accepted")
+		}
+	}
+	m, err := packagekit.SourceManifest("example/t", "", contracts(), root, []string{"main.py"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// An entrypoint cannot name a tree.
+	os.Remove(filepath.Join(root, "vendor", "sym"))
+	tree, _ := packagekit.TreeDigest(root, "vendor")
+	m.Artifacts = append(m.Artifacts, packagekit.Artifact{Name: "vendor", Path: "vendor", Kind: packagekit.ArtifactTree, SHA256: tree})
+	m.Entrypoints = []packagekit.Entrypoint{{Name: "main", Runtime: "process", Artifact: "vendor", Protocols: []string{plugin.APIVersion}}}
+	if err := m.Validate(); err == nil {
+		t.Fatal("tree entrypoint accepted")
+	}
+	m.Entrypoints = nil
+	m.Artifacts[len(m.Artifacts)-1].Kind = "bundle"
+	if err := m.Validate(); err == nil {
+		t.Fatal("unknown artifact kind accepted")
 	}
 }

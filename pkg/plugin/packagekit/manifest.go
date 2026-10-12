@@ -28,9 +28,17 @@ var devicePattern = regexp.MustCompile(`(?i)^(con|prn|aux|nul|com[1-9]|lpt[1-9])
 
 var digestPattern = regexp.MustCompile(`^[a-f0-9]{64}$`)
 
+// ArtifactTree marks an Artifact whose Path is a directory. Its SHA256 is
+// plugin.DirectoryDigest of that directory, so one entry covers a large vendored
+// tree whose files are not named individually (and may use any case). Trees hold
+// only regular files; symbolic links and special files are rejected.
+const ArtifactTree = "tree"
+
 type Artifact struct {
-	Name   string `json:"name"`
-	Path   string `json:"path"`
+	Name string `json:"name"`
+	Path string `json:"path"`
+	// Kind is empty for a file, or ArtifactTree.
+	Kind   string `json:"kind,omitempty"`
 	SHA256 string `json:"sha256"`
 	OS     string `json:"os,omitempty"`
 	Arch   string `json:"arch,omitempty"`
@@ -103,12 +111,32 @@ func (m Manifest) Validate() error {
 		if !namePattern.MatchString(a.Name) || names[a.Name] || !portablePath(a.Path) || paths[strings.ToLower(a.Path)] || !digestPattern.MatchString(a.SHA256) || (a.OS != "" && !namePattern.MatchString(a.OS)) || (a.Arch != "" && !namePattern.MatchString(a.Arch)) {
 			return fmt.Errorf("%w: invalid artifact", plugin.ErrInvalid)
 		}
+		if a.Kind != "" && a.Kind != ArtifactTree {
+			return fmt.Errorf("%w: unsupported artifact kind", plugin.ErrInvalid)
+		}
 		names[a.Name] = true
 		paths[strings.ToLower(a.Path)] = true
 	}
+	// A tree owns everything below its directory: no other artifact may share,
+	// contain or sit inside that path.
+	for _, tree := range m.Artifacts {
+		if tree.Kind != ArtifactTree {
+			continue
+		}
+		prefix := strings.ToLower(tree.Path)
+		for _, other := range m.Artifacts {
+			if other.Name == tree.Name {
+				continue
+			}
+			op := strings.ToLower(other.Path)
+			if op == prefix || strings.HasPrefix(op, prefix+"/") || strings.HasPrefix(prefix, op+"/") {
+				return fmt.Errorf("%w: artifact %s overlaps tree %s", plugin.ErrInvalid, other.Name, tree.Name)
+			}
+		}
+	}
 	entries := map[string]bool{}
 	for _, e := range m.Entrypoints {
-		if !namePattern.MatchString(e.Name) || entries[e.Name] || !namePattern.MatchString(e.Runtime) || !names[e.Artifact] {
+		if !namePattern.MatchString(e.Name) || entries[e.Name] || !namePattern.MatchString(e.Runtime) || !names[e.Artifact] || m.treeArtifact(e.Artifact) {
 			return plugin.ErrInvalid
 		}
 		entries[e.Name] = true
@@ -180,6 +208,14 @@ func (m Manifest) Validate() error {
 	}
 	return nil
 }
+func (m Manifest) treeArtifact(name string) bool {
+	for _, a := range m.Artifacts {
+		if a.Name == name {
+			return a.Kind == ArtifactTree
+		}
+	}
+	return false
+}
 func Decode(data []byte) (Manifest, error) {
 	var m Manifest
 	if err := plugin.Decode(data, &m); err != nil {
@@ -211,9 +247,20 @@ func (m Manifest) VerifyArtifacts(root string) error {
 			if err != nil {
 				return err
 			}
-			if info.Mode()&os.ModeSymlink != 0 || (i < len(parts)-1 && !info.IsDir()) || (i == len(parts)-1 && !info.Mode().IsRegular()) {
+			last := i == len(parts)-1
+			if info.Mode()&os.ModeSymlink != 0 || (!last && !info.IsDir()) || (last && a.Kind == ArtifactTree && !info.IsDir()) || (last && a.Kind != ArtifactTree && !info.Mode().IsRegular()) {
 				return plugin.ErrInvalid
 			}
+		}
+		if a.Kind == ArtifactTree {
+			digest, err := TreeDigest(root, a.Path)
+			if err != nil {
+				return err
+			}
+			if digest != a.SHA256 {
+				return fmt.Errorf("%w: artifact %s", plugin.ErrMismatch, a.Name)
+			}
+			continue
 		}
 		f, err := os.Open(current)
 		if err != nil {

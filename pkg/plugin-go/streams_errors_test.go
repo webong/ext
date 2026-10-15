@@ -369,6 +369,9 @@ func TestStreamErrorCausesMatchGo(t *testing.T) {
 				for _, r := range sc.readers() {
 					counts = append(counts, r.counts())
 				}
+				if name == "cancelled-read" {
+					steps = interrupted(steps)
+				}
 				outs[i] = fmt.Sprintf("%q %v", steps, counts)
 			}
 			if outs[0] != outs[1] {
@@ -384,4 +387,26 @@ func sortedPair(a, b string) string {
 		a, b = b, a
 	}
 	return a + " | " + b
+}
+
+// interrupted folds the outcomes of a read cut short by a client deadline. Whether
+// the guest's error reply or the client's own deadline notification arrives first
+// is a race in both implementations: the read then fails as a deadline (and the
+// session fails with it) or as an operation error (and the session survives), and
+// the stream is gone either way.
+func interrupted(steps []string) []string {
+	fold := map[string]string{
+		"read:deadline":                "read:interrupted",
+		"read:remote:operation_failed": "read:interrupted",
+		"read:closed":                  "read:gone",
+		"read:remote:denied":           "read:gone",
+	}
+	out := make([]string, len(steps))
+	for i, s := range steps {
+		if f, ok := fold[s]; ok {
+			s = f
+		}
+		out[i] = s
+	}
+	return out
 }

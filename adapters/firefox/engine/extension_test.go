@@ -175,3 +175,22 @@ func TestBiDiRejectsUnsignedPermanentXPI(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+// Firefox publishes no profile marker for its debugging endpoint, so it does not
+// answer session.endpoint and does not declare it. A marker could be added later
+// behind the same guest.EndpointBackend interface.
+func TestSessionEndpointIsRejected(t *testing.T) {
+	var stdout, stderr strings.Builder
+	input := `{"version":"1.0","kind":"session","action":"endpoint"}`
+	code := Run(Config{Name: "example", NativeExtensions: true}, []string{"share", "Default", "--", "management", "session", "endpoint"}, strings.NewReader(input), &stdout, &stderr)
+	if code == 0 || stdout.Len() != 0 || !strings.Contains(stderr.String(), "no endpoint route") {
+		t.Fatalf("code=%d stdout=%q stderr=%q", code, stdout.String(), stderr.String())
+	}
+	manifest, err := os.ReadFile(filepath.Join("..", "adapter.toml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(manifest), "session.endpoint") {
+		t.Fatal("the Firefox adapter must not declare session.endpoint")
+	}
+}

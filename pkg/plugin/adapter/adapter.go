@@ -38,7 +38,7 @@ var knownBrowserManagementOperations = map[string]bool{
 	"userscript.enable": true, "userscript.disable": true, "userscript.uninstall": true,
 	"userscript.activate": true, "bookmarklet.encode": true, "bookmarklet.decode": true,
 	"bookmarklet.install_page": true,
-	"session.targets":          true, "session.connect": true, "session.navigate": true, "session.inject": true, "session.replay": true,
+	"session.targets":          true, "session.endpoint": true, "session.connect": true, "session.navigate": true, "session.inject": true, "session.replay": true,
 }
 var validEnvironmentName = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
 var validComputerHookEvent = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9]*$`)

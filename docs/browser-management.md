@@ -275,7 +275,7 @@ Consult `extension.capabilities` for the current platform's supported drivers.
 
 ## Native page sessions
 
-The `session` operations are `targets`, `connect`, `navigate`, `inject`, and
+The `session` operations are `targets`, `endpoint`, `connect`, `navigate`, `inject`, and
 `replay`. Chrome, Chromium, and Edge use CDP; Firefox uses WebDriver BiDi. A
 browser must already expose its debugging endpoint. CTX attaches to an explicit
 page; these routes never launch or close the caller's browser.
@@ -289,6 +289,43 @@ An explicit `/session/SESSION_ID` URL attaches to the provider's existing sessio
 Target results include page IDs, endpoint,
 protocol, and URL. A debugging marker or endpoint does not prove isolation
 between profiles in the same browser process; select the returned page ID.
+
+### `session.endpoint`
+
+`session.endpoint` returns the browser-level debugging endpoint for a profile
+without needing an open page, which `session.targets` cannot do when it lists no
+pages. The result is `{"protocol":"cdp","endpoint":"ws://127.0.0.1:PORT/devtools/browser/ID"}`
+with status `ready`. It takes no input.
+
+Support is declared per adapter: a host checks
+`Adapter.HasBrowserManagement("session.endpoint")`. Chrome, Chromium, and Edge
+declare it; they read the debugging marker the browser publishes in the selected
+user data root, then make one loopback TCP connection to the marker's port (it
+only connects and closes, sends nothing, and follows no redirects) so that a
+marker left behind by a crashed browser is reported as "no active debugging
+endpoint" instead of a dead URL. Firefox and Safari do not declare it. Firefox
+publishes no profile marker for its debugging port, which exists only for a
+process the adapter itself launched; a profile marker could be added later
+behind the same `guest.EndpointBackend` interface.
+
+The endpoint is a capability. For CDP its path holds a secret identifier, and
+anyone who can read the URL and reach the port controls every profile and page
+of that browser process. Rules that follow:
+
+- Only loopback endpoints are reported. `contract.ValidateResponse` rejects any
+  other host, a missing port, credentials, a query, a fragment, or a URL over
+  2048 bytes, so a host built on the contract refuses a non-loopback answer.
+  Do not forward the port.
+- The response carries only the URL; there is no separate token.
+- Treat the response as a credential: do not log it or store it. In Go,
+  `contract.EndpointResult` prints a redacted form for `%v`, `%+v` and `%#v`,
+  `contract.RedactEndpoint` keeps scheme, host and port, and JSON encoding
+  carries the real value because the protocol needs it. Adapter errors and
+  progress lines never include the endpoint.
+
+~~~sh
+ctx browser manage session endpoint --target 'chrome:Default'
+~~~
 
 ~~~sh
 ctx browser manage session targets --target 'chrome:/path/to/custom-user-data'

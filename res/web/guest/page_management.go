@@ -18,6 +18,15 @@ type PageSessionBackend interface {
 	PageRuntime(context.Context, string, json.RawMessage) (contract.PageSessionRuntime, error)
 }
 
+// EndpointBackend is optionally implemented by an adapter's native backend to
+// answer session.endpoint: the browser-level debugging endpoint for a profile,
+// without needing an open page. Only adapters whose browser publishes such an
+// endpoint implement it and declare the operation. The result is validated
+// before it is returned, and errors must not include the endpoint URL.
+type EndpointBackend interface {
+	Endpoint(ctx context.Context, profile string, raw json.RawMessage) (contract.EndpointResult, error)
+}
+
 type sessionInput struct {
 	Target        contract.SessionTarget            `json:"target"`
 	URL           string                            `json:"url"`
@@ -45,6 +54,20 @@ func (backend localManagementBackend) manageSession(ctx context.Context, profile
 	var input sessionInput
 	if err := decodeManagementInput(raw, &input); err != nil {
 		return nil, "", err
+	}
+	if action == "endpoint" {
+		native, ok := backend.native.(EndpointBackend)
+		if !ok {
+			return nil, "", fmt.Errorf("adapter %s has no endpoint route for a profile", backend.browserName)
+		}
+		endpoint, err := native.Endpoint(ctx, profile, raw)
+		if err != nil {
+			return nil, "", err
+		}
+		if err := contract.ValidateEndpoint(endpoint); err != nil {
+			return nil, "", err
+		}
+		return endpoint, contract.StatusReady, nil
 	}
 	runtime, err := backend.pageRuntime(ctx, profile, raw)
 	if err != nil {

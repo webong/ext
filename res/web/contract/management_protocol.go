@@ -48,7 +48,7 @@ type Response struct {
 var operations = map[string]map[string]bool{
 	"extension":   {"targets": true, "capabilities": true, "prepare": true, "package": true, "sign": true, "stage": true, "install": true, "activate": true, "store_install": true, "store_remove": true, "update_manifest": true, "convert": true, "policy": true},
 	"userscript":  {"prepare": true, "install": true, "update": true, "list": true, "describe": true, "enable": true, "disable": true, "uninstall": true, "activate": true},
-	"session":     {"targets": true, "connect": true, "navigate": true, "inject": true, "replay": true},
+	"session":     {"targets": true, "endpoint": true, "connect": true, "navigate": true, "inject": true, "replay": true},
 	"bookmarklet": {"encode": true, "decode": true, "install_page": true},
 }
 
@@ -110,6 +110,11 @@ func ValidateResponse(response Response, request Request) error {
 	}
 	if len(response.Result) > MaxResultBytes || (len(response.Result) > 0 && !json.Valid(response.Result)) {
 		return errors.New("browser management response has invalid or oversized result JSON")
+	}
+	if request.Kind == "session" && request.Action == "endpoint" {
+		if err := validateEndpointResponse(response); err != nil {
+			return err
+		}
 	}
 	if request.Kind == "extension" && request.Action == "activate" && response.Status == StatusInstalled {
 		return errors.New("session activation cannot report persistent installation")

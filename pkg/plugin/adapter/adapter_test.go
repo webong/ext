@@ -232,7 +232,16 @@ func TestBrowserManagementManifestOperations(t *testing.T) {
 	if !loaded.HasBrowserManagement("extension.prepare") || loaded.HasBrowserManagement("extension.sign") {
 		t.Fatalf("unexpected management operations: %v", loaded.Manifest.BrowserManagement)
 	}
-	for _, operation := range []string{"../prepare", "extension.unknown"} {
+	// session.endpoint is a known operation.
+	withEndpoint := strings.Replace(updated, "extension.prepare", "session.targets,session.endpoint", 1)
+	if err := os.WriteFile(path, []byte(withEndpoint), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	endpointAdapter, err := LoadDirectory(directory)
+	if err != nil || !endpointAdapter.HasBrowserManagement("session.endpoint") {
+		t.Fatalf("session.endpoint was not accepted: %v", err)
+	}
+	for _, operation := range []string{"../prepare", "extension.unknown", "session.endpoints"} {
 		invalid := strings.Replace(updated, "extension.prepare", operation, 1)
 		if err := os.WriteFile(path, []byte(invalid), 0o644); err != nil {
 			t.Fatal(err)

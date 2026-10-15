@@ -696,8 +696,13 @@ change makes the adapter untrusted until the user reviews and trusts it again.
 Adapters implementing the shared local manager can supply `PageSessionBackend`
 with `PageRuntime(ctx, profile, input)`. It returns the native
 `PageSessionRuntime`; endpoint discovery and connection behavior stay in the
-adapter. CTX handles the generic `session.targets|connect|navigate|inject|replay`
-workflow and userscript store reconciliation. `PageSessionState` exposes an
+adapter. CTX handles the generic `session.targets|endpoint|connect|navigate|inject|replay`
+workflow and userscript store reconciliation. A backend that implements
+`guest.EndpointBackend` (`Endpoint(ctx, profile, input)`) also answers
+`session.endpoint`, the browser-level debugging endpoint without an open page;
+only adapters that implement it declare `session.endpoint` in
+`browser_management`, and the response is validated as loopback-only by
+`contract.ValidateResponse`. `PageSessionState` exposes an
 optional terminal channel and error for long-running consumers. Native engines
 keep that channel open during automatic transport recovery, bounded to 30 seconds.
 Recovery keeps the selected page ID and restores userscripts and document-start

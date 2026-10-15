@@ -137,11 +137,10 @@ func (s *Store) load(id string) (Installed, error) {
 	return p, nil
 }
 
-// List verifies every installed package and fails closed on the first bad one.
-// A missing root is an empty store. Staging directories (leading ".") are skipped.
-func (s *Store) List() ([]Installed, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+// entryIDs returns the package IDs named by the root's directories without
+// reading or verifying their content. A missing root has none. It fails on an
+// entry that is not a package directory. The caller holds s.mu.
+func (s *Store) entryIDs() ([]string, error) {
 	entries, err := os.ReadDir(s.root)
 	if errors.Is(err, os.ErrNotExist) {
 		return nil, nil
@@ -149,7 +148,7 @@ func (s *Store) List() ([]Installed, error) {
 	if err != nil {
 		return nil, err
 	}
-	var out []Installed
+	var ids []string
 	for _, e := range entries {
 		if strings.HasPrefix(e.Name(), ".") {
 			continue
@@ -161,6 +160,28 @@ func (s *Store) List() ([]Installed, error) {
 		if !validID(id) {
 			return nil, fmt.Errorf("%w: invalid package directory %q", plugin.ErrInvalid, e.Name())
 		}
+		ids = append(ids, id)
+	}
+	return ids, nil
+}
+
+func (s *Store) listIDs() ([]string, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.entryIDs()
+}
+
+// List verifies every installed package and fails closed on the first bad one.
+// A missing root is an empty store. Staging directories (leading ".") are skipped.
+func (s *Store) List() ([]Installed, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	ids, err := s.entryIDs()
+	if err != nil {
+		return nil, err
+	}
+	var out []Installed
+	for _, id := range ids {
 		p, err := s.load(id)
 		if err != nil {
 			return nil, fmt.Errorf("package %s: %w", id, err)

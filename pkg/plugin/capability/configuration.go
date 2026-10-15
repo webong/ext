@@ -3,10 +3,10 @@ package capability
 import (
 	"context"
 	"encoding/json"
+	"reflect"
 
 	"github.com/webong/ext/pkg/plugin"
 	"github.com/webong/ext/pkg/plugin/author"
-	"github.com/webong/ext/pkg/plugin/instance"
 	"github.com/webong/ext/pkg/plugin/schema"
 )
 
@@ -30,12 +30,27 @@ func ConfigurationMethod() author.Method[Configuration, Configured] {
 	}}
 }
 
+// Configurer applies a configuration to the instance stored under key. Both
+// *instance.Manager[T] and the C engine's *goengine.Instances[T] implement it,
+// so these helpers work over either.
+type Configurer interface {
+	Configure(ctx context.Context, key, revision string, config json.RawMessage) error
+}
+
+func isNil(c Configurer) bool {
+	if c == nil {
+		return true
+	}
+	v := reflect.ValueOf(c)
+	return v.Kind() == reflect.Pointer && v.IsNil()
+}
+
 // RegisterConfiguration requires an authenticated scope mapping. The mapper
 // derives the manager key from the request's admitted subject and instance ID;
 // this prevents two tenants from accidentally sharing a configured resource.
 // Configuration values must not contain credentials; hosts own secret delivery.
-func RegisterConfiguration[T any](r *author.Registry, manager *instance.Manager[T], configSchema schema.Schema, scope func(context.Context, plugin.Request, string) (string, error)) error {
-	if manager == nil || scope == nil {
+func RegisterConfiguration(r *author.Registry, manager Configurer, configSchema schema.Schema, scope func(context.Context, plugin.Request, string) (string, error)) error {
+	if scope == nil || isNil(manager) {
 		return plugin.ErrInvalid
 	}
 	if err := configSchema.Validate(); err != nil {

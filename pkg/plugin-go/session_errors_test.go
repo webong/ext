@@ -222,13 +222,16 @@ func TestOpenErrorCausesMatchGo(t *testing.T) {
 	}
 }
 
-// TestDrainErrorCausesMatchGo compares calls and closes while a call is in flight.
+// TestDrainErrorCausesMatchGo compares calls and closes while a call is in
+// flight. Every probe waits for the event it depends on, so nothing here races
+// a timer: drain with no deadline, then a close that times out.
 func TestDrainErrorCausesMatchGo(t *testing.T) {
-	run := func(open func(context.Context, plugin.Descriptor, plugin.Options) (session, error)) string {
-		release := make(chan struct{})
+	type opener func(context.Context, plugin.Descriptor, plugin.Options) (session, error)
+	rig := func(open opener) (s session, b *testBackend, ref plugin.ContractRef, started, release chan struct{}, inflight chan string) {
+		release = make(chan struct{})
+		started = make(chan struct{}, 1)
 		var first atomic.Bool
-		started := make(chan struct{}, 1)
-		b := &testBackend{d: testDescriptor(), invoke: func(ctx context.Context, r plugin.Request) (plugin.Response, error) {
+		b = &testBackend{d: testDescriptor(), invoke: func(ctx context.Context, r plugin.Request) (plugin.Response, error) {
 			if first.CompareAndSwap(false, true) { // only the first call blocks
 				started <- struct{}{}
 				<-release
@@ -237,30 +240,50 @@ func TestDrainErrorCausesMatchGo(t *testing.T) {
 		}}
 		s, err := open(context.Background(), b.d, referenceOptions(b))
 		if err != nil {
-			return "open:" + causes(err)
+			t.Fatal(err)
 		}
-		defer s.Abort()
-		ref := b.d.Contracts[0].ContractRef
-		inflight := make(chan string, 1)
+		ref = b.d.Contracts[0].ContractRef
+		inflight = make(chan string, 1)
 		go func() { inflight <- one(context.Background(), s, ref, "inspect") }()
 		<-started
+		return s, b, ref, started, release, inflight
+	}
+	drainWithoutDeadline := func(open opener) string {
+		s, _, ref, _, release, inflight := rig(open)
+		defer s.Abort()
 		closed := make(chan string, 1)
-		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
-		defer cancel()
-		go func() { closed <- causes(s.Close(ctx)) }()
-		time.Sleep(60 * time.Millisecond)
+		go func() { closed <- causes(s.Close(context.Background())) }()
+		// Close with no deadline must be draining before it can finish; wait for that state.
+		for i := 0; i < 2000 && s.State() != plugin.StateDraining; i++ {
+			time.Sleep(time.Millisecond)
+		}
 		during := one(context.Background(), s, ref, "inspect")
 		state := s.State()
 		close(release)
-		return fmt.Sprintf("inflight=%s during=%s close=%s state-while-draining=%s final=%s", <-inflight, during, <-closed, state, s.State())
+		return fmt.Sprintf("inflight=%s during=%s close=%s state=%s final=%s", <-inflight, during, <-closed, state, s.State())
 	}
-	goOut := run(func(ctx context.Context, d plugin.Descriptor, o plugin.Options) (session, error) {
-		return plugin.Open(ctx, d, o)
-	})
-	cOut := run(func(ctx context.Context, d plugin.Descriptor, o plugin.Options) (session, error) {
-		return Open(ctx, d, o)
-	})
-	if goOut != cOut {
-		t.Fatalf("drain error causes differ\n  go: %s\n  c:  %s", goOut, cOut)
+	closeTimesOut := func(open opener) string {
+		s, _, ref, _, release, inflight := rig(open)
+		defer s.Abort()
+		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
+		defer cancel()
+		timedOut := causes(s.Close(ctx)) // returns only once the deadline has passed
+		after := one(context.Background(), s, ref, "inspect")
+		state := s.State()
+		close(release)
+		return fmt.Sprintf("close=%s after=%s state=%s inflight=%s final=%s", timedOut, after, state, <-inflight, s.State())
+	}
+	for name, run := range map[string]func(opener) string{"drain-without-deadline": drainWithoutDeadline, "close-times-out": closeTimesOut} {
+		t.Run(name, func(t *testing.T) {
+			goOut := run(func(ctx context.Context, d plugin.Descriptor, o plugin.Options) (session, error) {
+				return plugin.Open(ctx, d, o)
+			})
+			cOut := run(func(ctx context.Context, d plugin.Descriptor, o plugin.Options) (session, error) {
+				return Open(ctx, d, o)
+			})
+			if goOut != cOut {
+				t.Fatalf("drain error causes differ\n  go: %s\n  c:  %s", goOut, cOut)
+			}
+		})
 	}
 }

@@ -13,8 +13,8 @@ import (
 	"github.com/webong/ext/ctx/internal/config"
 	"github.com/webong/ext/ctx/internal/launch"
 	"github.com/webong/ext/ctx/internal/platform"
-	"github.com/webong/ext/res/graph/system"
 	modpkg "github.com/webong/ext/pkg/plugin-go/adapter"
+	"github.com/webong/ext/res/graph/system"
 )
 
 var Version = "0.8.0-dev"

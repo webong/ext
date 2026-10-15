@@ -11,7 +11,7 @@
 #include <time.h>
 #include <unistd.h>
 
-/* Constants restated from pkg/plugin-cshared/ext_plugin.h and the reactor ABI. */
+/* Constants restated from lib/plugin/include/ext_plugin.h and the reactor ABI. */
 #define ABI_VERSION 1u
 #define OP_HANDSHAKE 1u
 #define OP_INVOKE 2u

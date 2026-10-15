@@ -7,7 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"github.com/webong/ext/pkg/plugin-cshared"
+	"github.com/webong/ext/pkg/plugin-go/cshared"
 	plugin "github.com/webong/ext/pkg/plugin-go/contract"
 	"github.com/webong/ext/pkg/plugin-go/jsonline"
 	"github.com/webong/ext/pkg/plugin-go/nativego"

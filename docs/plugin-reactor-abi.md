@@ -2,7 +2,7 @@
 
 A plugin guest that runs inside a WebAssembly host, a phone's web engine or an
 embedded interpreter, is a **reactor**: a module that exports the `ext.plugin` C ABI
-([`ext_plugin.h`](../pkg/plugin-cshared/ext_plugin.h)) plus two allocation functions.
+([`ext_plugin.h`](../lib/plugin/include/ext_plugin.h)) plus two allocation functions.
 It never reads standard input and never loops forever. The host calls its exports
 when it has a frame to deliver, so no Worker, `SharedArrayBuffer` or cross-origin
 isolation is involved. [The mobile decision record](adr-mobile-wasm.md) explains why

@@ -70,7 +70,7 @@ then independently deinitialized.
 - Return `ctx.fail(.{ .code = "busy", .message = "try later" })` for a deliberate
   public error. Other handler errors are sanitized to `operation_failed`.
 
-The [C ABI](../../pkg/plugin-cshared/ext_plugin.h) passes only borrowed byte buffers. A foreign
+The [C ABI](../../lib/plugin/include/ext_plugin.h) passes only borrowed byte buffers. A foreign
 caller owns them and supplies 24 MiB response capacity. Zig does not return
 allocator-owned memory or free caller memory. Valid non-overlapping pointers
 are required. Panics cannot be recovered by this helper and can terminate the

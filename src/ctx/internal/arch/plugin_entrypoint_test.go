@@ -12,7 +12,7 @@ import (
 // Go programs reach the plugin system through pkg/plugin-go, which re-exports the
 // data model that lives in pkg/plugin-go/contract and runs on the C engine or in
 // pure Go. Only the plugin library itself and the runtime backends that implement
-// contract.Backend (pkg/plugin-hashicorp, pkg/plugin-wasm, pkg/plugin-cshared)
+// contract.Backend (pkg/plugin-hashicorp, pkg/plugin-wasm, pkg/plugin-go/cshared)
 // import the contract package.
 func TestGoProgramsImportPluginGoNotItsContractPackage(t *testing.T) {
 	root := repoRoot(t)

@@ -41,13 +41,12 @@ and `NewLaunch` are engine-only and need the C engine build.
 | `interop`, `bridge` | Route resolution and bridges between backends |
 | `adapter` | Host side of ctx adapters: manifests, the installed store, packaging, trust and invocation |
 | `plugintest` | Shared conformance fixtures |
-| `cshared/guest` | Go guest lifecycle for the public C plugin ABI |
+| `cshared` | The C plugin ABI in Go: the loader that opens such libraries as a backend (cgo; the header is `lib/plugin/include/ext_plugin.h`), `cshared/abi` (the envelope's constants and wire types, no cgo) and `cshared/guest` (the Go guest lifecycle that exports it) |
 
 Runtime backends that own a heavy runtime are separate modules:
 [`pkg/plugin-hashicorp`](../plugin-hashicorp/README.md) (go-plugin, net/rpc and
-gRPC), [`pkg/plugin-wasm`](../plugin-wasm/README.md) (wazero) and
-`pkg/plugin-cshared` (the versioned C ABI header and loader). The portable C
-engine is [`lib/plugin`](../../lib/plugin/README.md), and the shared conformance
+gRPC) and [`pkg/plugin-wasm`](../plugin-wasm/README.md) (wazero; guests in other
+languages run through it). The portable C engine is [`lib/plugin`](../../lib/plugin/README.md), and the shared conformance
 fixtures are in `lib/plugin/testdata`.
 
 ## Building with the C engine

@@ -1,5 +1,5 @@
 // Package abi defines the language-neutral ext.plugin C ABI v1 envelope.
-// See ../ext_plugin.h for the C declarations and ownership rules.
+// See lib/plugin/include/ext_plugin.h for the C declarations and ownership rules.
 package abi
 
 import "time"

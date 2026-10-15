@@ -29,7 +29,6 @@ use (
 	./adapters/firefox
 	./adapters/safari
 	./pkg/graph
-	./pkg/plugin-cshared
 	./pkg/plugin-go
 	./pkg/plugin-hashicorp
 	./pkg/plugin-wasm

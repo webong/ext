@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"github.com/webong/ext/examples/plugin-runtimes/echo"
-	"github.com/webong/ext/pkg/plugin-cshared"
+	"github.com/webong/ext/pkg/plugin-go/cshared"
 	goengine "github.com/webong/ext/pkg/plugin-go"
 	"github.com/webong/ext/pkg/plugin-go/author"
 	"github.com/webong/ext/pkg/plugin-go/nativego"

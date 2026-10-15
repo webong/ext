@@ -191,3 +191,9 @@ matching path under `pkg/plugin-go`. The old tags stay for existing consumers;
 later releases are tagged `pkg/plugin-go/vX.Y.Z`. This changes public import
 paths, so it ships as a new `pkg/plugin-go` minor release that consumers adopt by
 rewriting their imports.
+
+`github.com/webong/ext/pkg/plugin-cshared` (tagged through `v0.1.0`) was folded into
+`pkg/plugin-go` the same way: the loader is `pkg/plugin-go/cshared`, its ABI
+envelope is `pkg/plugin-go/cshared/abi`, and the language-neutral C header
+`ext_plugin.h` moved to `lib/plugin/include`. `pkg/plugin-wasm` and
+`pkg/plugin-hashicorp` stay separate modules.

@@ -140,7 +140,7 @@ documents linear memory limits and execution cancellation.
 
 ## C ABI guests and foreign hosts
 
-The portable contract is [ext_plugin.h](../pkg/plugin-cshared/ext_plugin.h).
+The portable contract is [ext_plugin.h](../lib/plugin/include/ext_plugin.h).
 ABI version `1` is independent of `ext.plugin/v1` and domain contract versions.
 Every library must export these C calling-convention symbols:
 

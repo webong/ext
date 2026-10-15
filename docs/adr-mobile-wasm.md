@@ -111,7 +111,7 @@ pages, which is why the web engine gained an opt-in `CrossOriginIsolation` optio
 That is fragile inside an app's embedded webview, where the page is not served over
 ordinary HTTP.
 
-The plugin C ABI (`pkg/plugin-cshared/ext_plugin.h`) is the other shape: a handful
+The plugin C ABI (`lib/plugin/include/ext_plugin.h`) is the other shape: a handful
 of synchronous functions (`ext_plugin_open`, `ext_plugin_call`, `ext_plugin_close`)
 with caller-owned buffers. A guest compiled to WebAssembly that **exports** those
 functions (a reactor) needs no blocking input, no Worker and no isolation. The page,

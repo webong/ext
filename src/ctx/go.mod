@@ -62,8 +62,6 @@ replace github.com/webong/ext/pkg/plugin-go => ../../pkg/plugin-go
 
 replace github.com/webong/ext/pkg/graph => ../../pkg/graph
 
-replace github.com/webong/ext/pkg/plugin-cshared => ../../pkg/plugin-cshared
-
 replace github.com/webong/ext/pkg/plugin-hashicorp => ../../pkg/plugin-hashicorp
 
 replace github.com/webong/ext/pkg/plugin-wasm => ../../pkg/plugin-wasm

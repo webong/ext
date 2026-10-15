@@ -12,7 +12,7 @@ import "C"
 
 import (
 	"fmt"
-	"github.com/webong/ext/pkg/plugin-cshared/abi"
+	"github.com/webong/ext/pkg/plugin-go/cshared/abi"
 	plugin "github.com/webong/ext/pkg/plugin-go/contract"
 	"path/filepath"
 	"sync"

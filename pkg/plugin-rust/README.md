@@ -58,7 +58,7 @@ ext_plugin::guest::serve(&guest()?, std::io::stdin().lock(), std::io::stdout().l
 ext_plugin::export_guest!(guest);
 ```
 
-The macro supplies the four exports from CTX's [C ABI](../../pkg/plugin-cshared/ext_plugin.h).
+The macro supplies the four exports from CTX's [C ABI](../../lib/plugin/include/ext_plugin.h).
 Each `open` calls the factory for an independent guest; up to 64 handles are
 admitted. Handle removal releases the guest when outstanding references finish.
 Guest-owned closure state can use `Arc`/`Drop` for resources. Panics are caught

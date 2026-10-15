@@ -16,8 +16,7 @@ consumers.
 | Module | Depends on | Third-party dependencies |
 | --- | --- | --- |
 | [`graph`](graph/README.md) | none | `golang.org/x/sys` |
-| [`plugin-go`](plugin-go/README.md) | `pkg/graph`, `pkg/plugin-cshared` | none |
-| `plugin-cshared` | `pkg/plugin-go` | none |
+| [`plugin-go`](plugin-go/README.md) | `pkg/graph` | none |
 | [`plugin-hashicorp`](plugin-hashicorp/README.md) | `pkg/plugin-go` | `go-plugin`, `grpc`, `protobuf` |
 | [`plugin-wasm`](plugin-wasm/README.md) | `pkg/plugin-go` | `wazero` |
 

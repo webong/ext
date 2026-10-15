@@ -45,7 +45,7 @@ mkdir -p "$work/ios" && cp "$work/ios-arm64/libext_guest.a" "$work/ios/libext_gu
 
 headers="$work/Headers"
 mkdir -p "$headers"
-cp "$engine/include/ext_host.h" "$engine/include/ext_guest.h" pkg/plugin-cshared/ext_plugin.h "$engine/wamr/ext_wamr.h" "$headers/"
+cp "$engine/include/ext_host.h" "$engine/include/ext_guest.h" "$engine/include/ext_plugin.h" "$engine/wamr/ext_wamr.h" "$headers/"
 cat >"$headers/module.modulemap" <<'MODULE'
 module CExtEngine {
   header "ext_host.h"

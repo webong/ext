@@ -5,7 +5,7 @@ package guest
 import (
 	"context"
 	"encoding/json"
-	"github.com/webong/ext/pkg/plugin-cshared/abi"
+	"github.com/webong/ext/pkg/plugin-go/cshared/abi"
 	plugin "github.com/webong/ext/pkg/plugin-go/contract"
 	"sync"
 	"unsafe"

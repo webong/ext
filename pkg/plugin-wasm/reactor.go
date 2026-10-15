@@ -18,7 +18,7 @@ import (
 
 // The reactor ABI is the ext.plugin C ABI v1 compiled to WebAssembly, plus the
 // allocation exports that let a host place buffers in guest memory. The constants
-// restate pkg/plugin-cshared/ext_plugin.h; the cross-language suite checks them.
+// restate lib/plugin/include/ext_plugin.h; the cross-language suite checks them.
 const (
 	reactorABIVersion = 1
 	reactorHandshake  = 1

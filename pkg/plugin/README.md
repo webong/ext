@@ -19,7 +19,7 @@ backends that carry it.
 | `pkg/plugin/author`, `schema`, `stream`, `instance`, `capability`, `packagekit` | Typed authoring, bounded schemas, streams, instances, capabilities and packaging |
 | `pkg/plugin/plugintest` | Shared conformance fixtures |
 | `pkg/plugin/bridge`, `interop` | Route resolution and bridges between backends |
-| `pkg/plugin-engine` | Portable C engine and its public headers |
+| `lib/plugin` | Portable C engine and its public headers |
 
 Runtime backends that own a heavy runtime are separate modules:
 

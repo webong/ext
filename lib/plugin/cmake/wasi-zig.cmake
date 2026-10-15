@@ -1,5 +1,5 @@
-# cmake -S pkg/plugin-engine -B build/wasi -DEXT_BUILD_HOST=OFF \
-#   -DCMAKE_TOOLCHAIN_FILE="$PWD/pkg/plugin-engine/cmake/wasi-zig.cmake" \
+# cmake -S lib/plugin -B build/wasi -DEXT_BUILD_HOST=OFF \
+#   -DCMAKE_TOOLCHAIN_FILE="$PWD/lib/plugin/cmake/wasi-zig.cmake" \
 #   -DEXT_ZIG=/absolute/path/to/zig
 set(CMAKE_SYSTEM_NAME Generic)
 set(CMAKE_SYSTEM_PROCESSOR wasm32)

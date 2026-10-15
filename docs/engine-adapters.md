@@ -7,7 +7,7 @@ It builds on the [adapter API](adapter-api.md); the maintained engines are `jvm`
 `wasm` and `evm`.
 
 The word is used in two senses in this repository. An **engine adapter** is on this
-page: an adapter that runs a program. The **plugin engine**, `pkg/plugin-engine`,
+page: an adapter that runs a program. The **plugin engine**, `lib/plugin`,
 is the shared C library that the language SDKs bind to host or author
 `ext.plugin/v1` plugins; it is not an adapter. Mobile support belongs to the second:
 see [`pkg/plugin-ios`](../pkg/plugin-ios/README.md) and

@@ -2,7 +2,7 @@ const std = @import("std");
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
-    const include = b.option([]const u8, "engine-include", "Installed C engine headers") orelse "../../../pkg/plugin-engine/include";
+    const include = b.option([]const u8, "engine-include", "Installed C engine headers") orelse "../../../lib/plugin/include";
     const lib = b.option([]const u8, "engine-lib", "C engine library directory") orelse @panic("provide -Dengine-lib=/absolute/path");
     const shared = b.option(bool, "shared", "Link the optional shared engine") orelse false;
     const translated = b.addTranslateC(.{ .root_source_file = b.path("src/bindings.h"), .target = target, .optimize = optimize });

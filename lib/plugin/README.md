@@ -3,7 +3,7 @@
 This is the shared CTX host, guest and resource engine under development. It runs
 alongside the existing Go library. It is **not a replacement, stable public ABI,
 or a complete port of the Go SDK**. Full SDK parity is required before the
-common Go implementation is retired; see the [parity checklist](../../../docs/plugin-engine-parity.md).
+common Go implementation is retired; see the [parity checklist](../../docs/plugin-engine-parity.md).
 No registry publication is configured.
 
 The same native engine can be embedded in Go, Rust, Zig and Node.js. Static
@@ -31,8 +31,8 @@ protocol and existing language guest implementations remain unchanged.
 - Instance leases and replacement, scoped pull-stream lifecycle and expiry.
 - Metadata-only observation and typed Go registry integration.
 - C-owned result buffers returned to the caller and freed through the same ABI.
-- Bindings in [Go](../../go/README.md), [Rust](../../rust/engine/README.md),
-  [Zig](../../zig/engine/README.md) and [Node](../../typescript/engine/README.md).
+- Bindings in [Go](../../pkg/plugin-go/README.md), [Rust](../../pkg/plugin-rust/engine/README.md),
+  [Zig](../../pkg/plugin-zig/engine/README.md) and [Node](../../pkg/plugin-ts/engine/README.md).
   They are additive while the existing language SDKs remain the reference.
 
 See the [service and resource APIs](services.md) for the common operations.
@@ -81,7 +81,7 @@ needed by the C build or its Rust example. The pinned MIT-licensed JSON parser
 is vendored; see [provenance](vendor/README.md).
 
 ```sh
-cmake -S pkg/plugin-engine -B /tmp/ext-cengine -DCMAKE_BUILD_TYPE=Release
+cmake -S lib/plugin -B /tmp/ext-cengine -DCMAKE_BUILD_TYPE=Release
 cmake --build /tmp/ext-cengine
 cmake --install /tmp/ext-cengine --prefix /tmp/ext-host-package
 ```

@@ -6,7 +6,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 [[ "$(uname -s)" == Darwin ]] || { echo "plugin-ios-xcframework.sh needs macOS and Xcode" >&2; exit 1; }
-engine=pkg/plugin-engine
+engine=lib/plugin
 out="${EXT_SWIFT_FRAMEWORKS:-pkg/plugin-ios/Frameworks}"
 work="$(mktemp -d "${TMPDIR:-/tmp}/ext-swift-xcframework.XXXXXX")"
 trap 'rm -rf "$work"' EXIT

@@ -25,7 +25,7 @@ services. `Host::with_observer` installs synchronous metadata observation.
 `resources::Streams<T>` owns scoped readers implementing `Stream`. Explicit close
 reports errors; Drop joins cleanup. Factories and close callbacks must cooperate
 and must not reenter their manager. `ffi` also exposes raw extension/resource APIs. See the
-[shared service contract](../../../pkg/plugin-engine/services.md).
+[shared service contract](../../../lib/plugin/services.md).
 
 The crate is additive while parity is completed. The existing parent Rust SDK
 still implements the wire protocol independently. Linux/macOS are the current

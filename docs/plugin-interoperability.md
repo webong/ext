@@ -228,5 +228,5 @@ The C ABI separates host selection/policy from backend configuration. Its curren
 built-in backend remains JSON-line subprocess. Runtime extensions may supply
 additional mechanics through a versioned vtable; unknown kinds are unsupported.
 Native Go consumers can continue using the Go implementation without cgo. A
-central engine service is deferred. See the [C embedding guide](../pkg/plugin-engine/README.md)
+central engine service is deferred. See the [C embedding guide](../lib/plugin/README.md)
 for packaging, ABI migration and ownership rules.

@@ -1,14 +1,14 @@
 # iOS plugin SDK (guest)
 
 `pkg/plugin-ios` is the plugin SDK for Apple platforms. It lets Swift code, and
-Objective-C through the C headers, author an `ext.plugin/v1` plugin on iOS and macOS. It binds the guest half of the shared [C engine](../plugin-engine/README.md),
+Objective-C through the C headers, author an `ext.plugin/v1` plugin on iOS and macOS. It binds the guest half of the shared [C engine](../../lib/plugin/README.md),
 which does the strict JSON parsing, request validation against the descriptor,
 deadlines and error sanitizing. A Swift author supplies a descriptor and a handler.
 
 This package covers both halves for an app. Authoring a guest is the first part. The
 second is hosting a WebAssembly reactor in a hidden web view (see below), the first route of
 [the mobile decision](../../docs/adr-mobile-wasm.md). The fallback route, an in-process
-interpreter, exists as a C backend in [`pkg/plugin-engine/wamr`](../plugin-engine/wamr/README.md)
+interpreter, exists as a C backend in [`lib/plugin/wamr`](../../lib/plugin/wamr/README.md)
 but this package does not bind it yet. iOS cannot spawn processes, so a host cannot use the
 engine's subprocess backend. Nothing is published yet.
 
@@ -184,7 +184,7 @@ macOS. It is not run in the iOS Simulator.
 
 - [Engine adapters](../../docs/engine-adapters.md) are adapters that run programs
   (`jvm`, `wasm`, `evm`). They are a different thing from this SDK, which binds the
-  shared plugin engine, `pkg/plugin-engine`; the page explains the two senses of
+  shared plugin engine, `lib/plugin`; the page explains the two senses of
   "engine".
 - [The web engine](../../docs/web-engine.md) runs web content in a browser the host
   chooses, including the iOS Simulator and Android devices. It does not author plugins.

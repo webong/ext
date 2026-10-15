@@ -94,18 +94,18 @@ The cgo directives in `pkg/plugin-go/engine.go` use a bare `-lext_host_static` w
 library search path, so point the linker at your build directory:
 
 ```bash
-cmake -S pkg/plugin-engine -B /tmp/pkg/plugin-engine-build \
+cmake -S lib/plugin -B /tmp/lib/plugin-build \
   -DCMAKE_BUILD_TYPE=Release -DEXT_BUILD_SHARED=ON
-cmake --build /tmp/pkg/plugin-engine-build -j 4
+cmake --build /tmp/lib/plugin-build -j 4
 
-export CGO_LDFLAGS="-L/tmp/pkg/plugin-engine-build -Wl,-rpath,/tmp/pkg/plugin-engine-build"
+export CGO_LDFLAGS="-L/tmp/lib/plugin-build -Wl,-rpath,/tmp/lib/plugin-build"
 export EXT_CENGINE_GUEST=/tmp/go-guest
 export EXT_CENGINE_FAULT_GUEST=/tmp/fault-guest
 
 go build -tags ext_cengine -o "$EXT_CENGINE_GUEST" \
   ./pkg/plugin-wasm/crosslang/testdata/go-guest
 go build -tags ext_cengine -o "$EXT_CENGINE_FAULT_GUEST" \
-  pkg/plugin-engine/tests/faultguest/main.go
+  lib/plugin/tests/faultguest/main.go
 
 go test -tags ext_cengine -race ./pkg/plugin-go
 go test -tags ext_cengine,ext_cengine_shared -race ./pkg/plugin-go   # shared linkage

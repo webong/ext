@@ -6,7 +6,7 @@
 package goengine
 
 /*
-#cgo CFLAGS: -I${SRCDIR}/../../pkg/plugin-engine/include
+#cgo CFLAGS: -I${SRCDIR}/../../lib/plugin/include
 #cgo !ext_cengine_shared CFLAGS: -DEXT_HOST_STATIC
 #cgo !ext_cengine_shared LDFLAGS: -lext_host_static -lpthread -lm
 #cgo ext_cengine_shared LDFLAGS: -lext_host
@@ -267,7 +267,7 @@ func ctxGoPolicy(handle C.uintptr_t, kind C.int, data *C.uint8_t, n C.size_t) (r
 var _ plugin.Backend = (*Host)(nil)
 
 // EngineCall runs a pure shared-engine service. Input/output are bounded JSON;
-// no plugin is executed and no policy is inferred. See pkg/plugin-engine/services.md.
+// no plugin is executed and no policy is inferred. See lib/plugin/services.md.
 func EngineCall(operation string, input json.RawMessage) (json.RawMessage, error) {
 	if len(input) == 0 || strings.IndexByte(operation, 0) >= 0 {
 		return nil, plugin.ErrInvalid

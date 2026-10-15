@@ -9,10 +9,10 @@ from a project's own README on 2026-10-08) or **unverified**.
 A Swift or Kotlin app that hosts third-party ext plugins cannot load downloaded
 native code: iOS and Google Play forbid it (**unverified**: the exact store rules
 were not read). Interpreted WebAssembly is the usual way around that. The shared C
-engine in `pkg/plugin-engine` has no WebAssembly runtime, and `pkg/plugin-wasm` uses
+engine in `lib/plugin` has no WebAssembly runtime, and `pkg/plugin-wasm` uses
 wazero, which is Go. What should mobile hosts use?
 
-## Option 1: a C-callable interpreter in `pkg/plugin-engine`
+## Option 1: a C-callable interpreter in `lib/plugin`
 
 Every binding (Swift, Kotlin, the rest) would get it. Candidates, from their READMEs:
 
@@ -129,7 +129,7 @@ decided by the project owner after the evidence above.
    Android). It ships nothing extra, and the spike shows the hard part works. A
    host loads the guest into a hidden webview and passes `ext.plugin/v1` messages
    across the page boundary. Its isolation is `restricted`.
-2. **Fallback: WAMR** as an in-process interpreter in `pkg/plugin-engine`, for hosts
+2. **Fallback: WAMR** as an in-process interpreter in `lib/plugin`, for hosts
    where the webview is unsuitable: no usable webview, a need for the stricter
    `sandboxed` guarantee, or behaviour that must not depend on the platform's
    browser. Prototype it with the build options noted above (instruction metering
@@ -167,7 +167,7 @@ Reported by the mobile SDK session, not re-run here:
   webview early and keep it, not create one per call. Nothing was measured on a
   physical device, so treat these as simulator figures.
 
-**The WAMR fallback is built** in [`pkg/plugin-engine/wamr`](../pkg/plugin-engine/wamr/README.md), behind the engine's extension-backend interface. The Rust SDK's conformance reactor passes its test on macOS, in the iOS 18.3 Simulator and on an Android 14 emulator, and a deadline, cancel or close stops a running guest in about the time asked (300 ms, 200 ms, 200 ms). On macOS, connecting took 34 to 43 ms and a call's median was about 0.4 ms, with 12 MB of memory. Building it taught three things the earlier evaluation did not: reference types and bulk memory must be on for toolchain-built reactors to load; WAMR only warns about an unknown import and loads the module anyway, so the backend checks imports itself; and the engine's own subprocess backend needs Android API 28.
+**The WAMR fallback is built** in [`lib/plugin/wamr`](../lib/plugin/wamr/README.md), behind the engine's extension-backend interface. The Rust SDK's conformance reactor passes its test on macOS, in the iOS 18.3 Simulator and on an Android 14 emulator, and a deadline, cancel or close stops a running guest in about the time asked (300 ms, 200 ms, 200 ms). On macOS, connecting took 34 to 43 ms and a call's median was about 0.4 ms, with 12 MB of memory. Building it taught three things the earlier evaluation did not: reference types and bulk memory must be on for toolchain-built reactors to load; WAMR only warns about an unknown import and loads the module anyway, so the backend checks imports itself; and the engine's own subprocess backend needs Android API 28.
 
 A second run by another agent, also on a simulator and emulator only, saw the same
 results for the browser route and measured an in-app WKWebView start-up of 8.24 s with a

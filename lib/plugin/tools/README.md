@@ -5,7 +5,7 @@ mapping. `../src/unicode_lower.h` pins Unicode 17.0.0. Regenerate with a toolcha
 whose `unicode.Version` is `17.0.0`:
 
 ```sh
-go run pkg/plugin-engine/tools/unicode_lower.go > pkg/plugin-engine/src/unicode_lower.h
+go run lib/plugin/tools/unicode_lower.go > lib/plugin/src/unicode_lower.h
 ```
 
 The generated table supports locale-independent package-path comparisons.

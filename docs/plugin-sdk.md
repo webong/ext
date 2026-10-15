@@ -292,12 +292,12 @@ are separate steps; the TypeScript package remains private during development.
 
 ### C host embedding prototype
 
-`pkg/plugin-engine` is an opt-in experiment in sharing one native host engine
+`lib/plugin` is an opt-in experiment in sharing one native host engine
 between Go, Rust, Zig and Node.js. It implements the JSON-line subprocess
 backend and preserves the existing guest wire contract. It does not replace
 the Go plugin library or port its other runtimes/capabilities. See the
-[prototype guide](../pkg/plugin-engine/README.md) and
-[evaluation](../pkg/plugin-engine/evaluation.md) for ownership, scope and measured
+[prototype guide](../lib/plugin/README.md) and
+[evaluation](../lib/plugin/evaluation.md) for ownership, scope and measured
 tradeoffs. Ordinary Go builds do not depend on this C engine.
 
 

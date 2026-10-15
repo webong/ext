@@ -42,6 +42,15 @@ and no repository-wide policy. Keep container directories free of shared logic
 and keep repo-wide tests in `src/ctx/internal/arch`. `res/web` and `res/credential`
 depend only on the standard library.
 
+`lib/` is a container for native libraries that several language bindings
+share. Nothing lives at that level. `lib/plugin` is the portable C plugin
+engine, built with CMake: it is not a Go module, has no `go.mod` and is not
+listed in `go.work`. The language bindings under `pkg/plugin-*` build on it.
+Until it reaches parity with `pkg/plugin`, the Go implementation is the
+behavioral baseline; see `docs/plugin-engine-parity.md`. A change to the plugin
+contract or the package manifest lands in both, and the engine's conformance
+checks compare the two.
+
 Each reusable library under `pkg/` is its own Go module, not a package inside
 one repository-wide module. The root `go.work` keeps the repository building as
 a single workspace while every module stays independently buildable. Keep each
@@ -70,6 +79,7 @@ The reusable libraries are:
 
 - `res/web` for portable web contracts and workflows: browsers, and the web engine that runs web content through them.
 - `res/credential` for portable credential serving and client code.
+- `lib/plugin` for the portable C plugin engine shared by the `pkg/plugin-*` language bindings.
 - `pkg/graph` for host, system, and process discovery.
 - `pkg/plugin` for the shared host/guest contract and runtime backends.
 - `pkg/graph/supervisor` (inside the graph module) for process supervision and recovery.

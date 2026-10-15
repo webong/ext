@@ -28,12 +28,12 @@ case "$linkage" in
     ;;
   *) echo "EXT_CENGINE_LINKAGE must be static or shared" >&2; exit 1 ;;
 esac
-cmake -S pkg/plugin-engine -B "$build_dir/release" -DCMAKE_BUILD_TYPE=Release -DEXT_BUILD_SHARED=ON
+cmake -S lib/plugin -B "$build_dir/release" -DCMAKE_BUILD_TYPE=Release -DEXT_BUILD_SHARED=ON
 cmake --build "$build_dir/release" -j 4
 export CGO_LDFLAGS="${CGO_LDFLAGS:-} -L$build_dir/release -Wl,-rpath,$build_dir/release"
 export EXT_CENGINE_GUEST="$build_dir/go-guest" EXT_CENGINE_FAULT_GUEST="$build_dir/fault-guest"
 go build -o "$EXT_CENGINE_GUEST" ./pkg/plugin-wasm/crosslang/testdata/go-guest
-go build -o "$EXT_CENGINE_FAULT_GUEST" pkg/plugin-engine/tests/faultguest/main.go
+go build -o "$EXT_CENGINE_FAULT_GUEST" lib/plugin/tests/faultguest/main.go
 go test -tags "$go_tags" -race -count=1 -timeout=90s ./pkg/plugin-go
 python3 - "$build_dir" <<'PY'
 import json, pathlib, sys, datetime
@@ -43,12 +43,12 @@ for op in ['echo','public-error','wait']:
  r=dict(apiVersion='ext.plugin/v1',id='1',plugin=d['identity'],contract=dict(name='ext.conformance',version='v1'),operation=op,deadline='2099-01-01T00:00:00Z',payload=dict(value=7))
  (p/(op+'.json')).write_text(json.dumps(r))
 PY
-cmake -S pkg/plugin-engine -B "$build_dir/sanitize" -DCMAKE_BUILD_TYPE=Debug -DEXT_SANITIZE=ON
+cmake -S lib/plugin -B "$build_dir/sanitize" -DCMAKE_BUILD_TYPE=Debug -DEXT_SANITIZE=ON
 cmake --build "$build_dir/sanitize" -j 4
 "$build_dir/sanitize/ext_guest_core_test"
 "$build_dir/sanitize/ext_resources_test"
 "$build_dir/sanitize/ext_host_native_test" "$EXT_CENGINE_GUEST" "$build_dir/descriptor.json" "$build_dir/echo.json" "$build_dir/wait.json"
-cmake -S pkg/plugin-engine -B "$build_dir/thread-sanitize" -DCMAKE_BUILD_TYPE=Debug -DEXT_THREAD_SANITIZE=ON
+cmake -S lib/plugin -B "$build_dir/thread-sanitize" -DCMAKE_BUILD_TYPE=Debug -DEXT_THREAD_SANITIZE=ON
 cmake --build "$build_dir/thread-sanitize" -j 4
 "$build_dir/thread-sanitize/ext_guest_core_test"
 "$build_dir/thread-sanitize/ext_resources_test"
@@ -61,15 +61,15 @@ done
 cargo fmt --manifest-path pkg/plugin-rust/engine/Cargo.toml -- --check
 EXT_ENGINE_LIB_DIR="$build_dir/release" RUSTFLAGS="-C link-arg=-Wl,-rpath,$build_dir/release" cargo test "${rust_features[@]}" --locked --manifest-path pkg/plugin-rust/engine/Cargo.toml
 "$zig_bin" fmt --check pkg/plugin-zig/engine
-"$zig_bin" build --build-file pkg/plugin-zig/engine/build.zig -Dengine-include="$PWD/pkg/plugin-engine/include" -Dengine-lib="$build_dir/release" -Dshared="$([[ "$linkage" == shared ]] && echo true || echo false)" test
+"$zig_bin" build --build-file pkg/plugin-zig/engine/build.zig -Dengine-include="$PWD/lib/plugin/include" -Dengine-lib="$build_dir/release" -Dshared="$([[ "$linkage" == shared ]] && echo true || echo false)" test
 cargo fmt --manifest-path pkg/plugin-rust/examples/cengine/Cargo.toml -- --check
 RUSTFLAGS="-L native=$build_dir/release -C link-arg=-Wl,-rpath,$build_dir/release" cargo build "${rust_features[@]}" --locked --manifest-path pkg/plugin-rust/examples/cengine/Cargo.toml
 "$zig_bin" fmt --check pkg/plugin-zig/examples/cengine/main.zig
 "$zig_bin" build-exe pkg/plugin-zig/examples/cengine/main.zig -O ReleaseSafe -L "$build_dir/release" "${engine_link[@]}" -lc -rpath "$build_dir/release" -femit-bin="$build_dir/zig-host"
 node_link=()
 if [[ "$(uname -s)" == Darwin ]]; then node_link=(-undefined dynamic_lookup); fi
-"${CC:-cc}" -std=c11 -Wall -Wextra -Werror -O2 -shared -fPIC "${node_link[@]}" -I "$node_include" -I pkg/plugin-engine/include pkg/plugin-ts/examples/cengine/addon.c -L "$build_dir/release" "${engine_link[@]}" "${engine_cflags[@]}" -Wl,-rpath,"$build_dir/release" -o "$build_dir/ext_host.node"
-"${CC:-cc}" -std=c11 -Wall -Wextra -Werror -O2 -shared -fPIC "${node_link[@]}" -I "$node_include" -I pkg/plugin-engine/include pkg/plugin-ts/engine/addon.c -L "$build_dir/release" "${engine_link[@]}" "${engine_cflags[@]}" -Wl,-rpath,"$build_dir/release" -o "$build_dir/ext_engine.node"
+"${CC:-cc}" -std=c11 -Wall -Wextra -Werror -O2 -shared -fPIC "${node_link[@]}" -I "$node_include" -I lib/plugin/include pkg/plugin-ts/examples/cengine/addon.c -L "$build_dir/release" "${engine_link[@]}" "${engine_cflags[@]}" -Wl,-rpath,"$build_dir/release" -o "$build_dir/ext_host.node"
+"${CC:-cc}" -std=c11 -Wall -Wextra -Werror -O2 -shared -fPIC "${node_link[@]}" -I "$node_include" -I lib/plugin/include pkg/plugin-ts/engine/addon.c -L "$build_dir/release" "${engine_link[@]}" "${engine_cflags[@]}" -Wl,-rpath,"$build_dir/release" -o "$build_dir/ext_engine.node"
 EXT_ENGINE_ADDON="$build_dir/ext_engine.node" node --test pkg/plugin-ts/engine/test.mjs
 go build -tags "$go_tags" -o "$build_dir/go-host" ./pkg/plugin-go/examples/host
 "$build_dir/go-host" "$EXT_CENGINE_GUEST" "$build_dir/descriptor.json" "$build_dir/echo.json" "$build_dir/public-error.json" > "$build_dir/go.jsonl"
@@ -102,6 +102,6 @@ for repetition in 1 2 3; do
     done
   done
 done
-python3 pkg/plugin-engine/bench/report.py "$build_dir/benchmarks.jsonl" > "$build_dir/benchmark-report.md"
+python3 lib/plugin/bench/report.py "$build_dir/benchmarks.jsonl" > "$build_dir/benchmark-report.md"
 cat "$build_dir/benchmark-report.md"
 echo "Artifacts and raw measurements: $build_dir"

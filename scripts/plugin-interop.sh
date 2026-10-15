@@ -6,7 +6,7 @@ build_dir="${EXT_INTEROP_BUILD_DIR:-}"
 if [[ -z "$build_dir" ]]; then build_dir="$(mktemp -d "${TMPDIR:-/tmp}/ext-interop.XXXXXX")"; fi
 mkdir -p "$build_dir"
 build_dir="$(cd "$build_dir" && pwd -P)"
-export EXT_CENGINE_BUILD_DIR="${EXT_CENGINE_BUILD_DIR:-$build_dir/pkg/plugin-engine}"
+export EXT_CENGINE_BUILD_DIR="${EXT_CENGINE_BUILD_DIR:-$build_dir/lib/plugin}"
 if [[ "${EXT_INTEROP_REUSE_CENGINE:-0}" != 1 ]]; then
   EXT_CENGINE_SKIP_BENCH=1 scripts/plugin-cengine.sh
 fi

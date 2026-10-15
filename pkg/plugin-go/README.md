@@ -4,7 +4,7 @@ Import `github.com/webong/ext/pkg/plugin-go` as `goengine` to embed the CTX C ho
 It is opt-in: build with `-tags ext_cengine` and cgo enabled on Linux/macOS.
 
 ```sh
-cmake -S pkg/plugin-engine -B /tmp/ext-cengine -DCMAKE_BUILD_TYPE=Release
+cmake -S lib/plugin -B /tmp/ext-cengine -DCMAKE_BUILD_TYPE=Release
 cmake --build /tmp/ext-cengine --target ext_host_static
 CGO_LDFLAGS='-L/tmp/ext-cengine' \
   go build -tags ext_cengine ./pkg/plugin-go/examples/host
@@ -12,7 +12,7 @@ CGO_LDFLAGS='-L/tmp/ext-cengine' \
 
 Static linkage is the default. To use the optional shared library, enable
 `EXT_BUILD_SHARED` in CMake, add the `ext_cengine_shared` Go build tag and configure
-the dynamic loader's library path. See the [engine guide](../../pkg/plugin-engine/README.md)
+the dynamic loader's library path. See the [engine guide](../../lib/plugin/README.md)
 for lifecycle, ownership, backend extension and current limitations.
 
 - [`examples/host`](examples/host/main.go): host using the C engine.

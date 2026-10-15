@@ -33,12 +33,11 @@ HashiCorp or WASI runtime stacks, and each runtime backend is opt-in.
 ## Plugin language SDKs and bindings
 
 Language-facing plugin packages live here. `plugin/` owns the contract, runtime
-backends and shared conformance fixtures; `plugin-engine/` is the portable C
-engine and its public headers.
+backends and shared conformance fixtures. The portable C engine and its public
+headers live in [`lib/plugin`](../lib/plugin/README.md); these packages bind to it.
 
 | Directory | Contents |
 | --- | --- |
-| [`plugin-engine`](plugin-engine/README.md) | Portable C engine, headers, static and shared libraries |
 | [`plugin-go`](plugin-go/README.md) | Go host/guest/resource binding for the C engine and Go-to-C guest exports |
 | [`plugin-rust`](plugin-rust/README.md) | Rust SDK and reusable C engine host/guest binding |
 | [`plugin-zig`](plugin-zig/README.md) | Zig SDK and header-generated C engine binding |

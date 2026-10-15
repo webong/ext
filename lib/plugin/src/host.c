@@ -12,6 +12,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <sys/wait.h>
 #include <time.h>
 #include <unistd.h>
@@ -34,6 +35,11 @@ struct ext_host {
   uint64_t next;
   char *path;
   char **arguments, **environment;
+  char *directory;
+  int capture, stderr_fd, stderr_stop, stderr_started;
+  size_t stderr_limit, stderr_len;
+  uint8_t *stderr_data;
+  pthread_t stderr_thread;
   yyjson_doc *selection;
   uint8_t *descriptor;
   size_t descriptor_len;
@@ -99,6 +105,12 @@ static ext_status copy_strings(const char *const *input, size_t count,
     *out = copy;
   return status;
 }
+static int sets_path(const char *const *environment, size_t count) {
+  for (size_t i = 0; i < count; i++)
+    if (!strncmp(environment[i], "PATH=", 5))
+      return 1;
+  return 0;
+}
 ext_status ext_host_create(const ext_host_options *o,
                            const ext_backend_options *b, ext_host **out) {
   if (!out)
@@ -111,6 +123,7 @@ ext_status ext_host_create(const ext_host_options *o,
   const ext_jsonline_process_options *process = NULL;
   ext_jsonline_process_options compatible_process;
   const ext_jsonline_process_config *process_config = NULL;
+  const ext_jsonline_process_launch *launch = NULL;
   const ext_backend_extension *extension = NULL;
   const ext_backend_extension_context *extension_context = NULL;
   if (b->kind == EXT_BACKEND_JSONLINE_PROCESS_CONFIG) {
@@ -120,6 +133,21 @@ ext_status ext_host_create(const ext_host_options *o,
     if (process_config->struct_size != sizeof(*process_config))
       return EXT_INVALID;
     compatible_process.executable = process_config->executable;
+    process = &compatible_process;
+    if (!process->executable || process->executable[0] != '/' ||
+        strlen(process->executable) > 4096)
+      return EXT_INVALID;
+  } else if (b->kind == EXT_BACKEND_JSONLINE_PROCESS_LAUNCH) {
+    if (!b->config || b->config_size != sizeof(*launch))
+      return EXT_INVALID;
+    launch = b->config;
+    if (launch->struct_size != sizeof(*launch) ||
+        launch->stderr_bytes > (16u << 20) ||
+        (launch->working_directory &&
+         (launch->working_directory[0] != '/' ||
+          strlen(launch->working_directory) > 4096)))
+      return EXT_INVALID;
+    compatible_process.executable = launch->executable;
     process = &compatible_process;
     if (!process->executable || process->executable[0] != '/' ||
         strlen(process->executable) > 4096)
@@ -161,6 +189,7 @@ ext_status ext_host_create(const ext_host_options *o,
     return EXT_NOMEM;
   }
   h->fd = -1;
+  h->stderr_fd = -1;
   h->path = process ? strdup(process->executable) : NULL;
   h->descriptor = malloc(o->descriptor_len);
   if ((process && !h->path) || !h->descriptor) {
@@ -202,15 +231,50 @@ ext_status ext_host_create(const ext_host_options *o,
   h->authorize = o->authorize;
   h->user = o->user;
   if (process) {
+    const char *const *arguments =
+        launch ? launch->arguments : process_config ? process_config->arguments : NULL;
+    size_t argument_count = launch ? launch->argument_count
+                            : process_config ? process_config->argument_count : 0;
+    const char *const *environment = launch ? launch->environment
+                            : process_config ? process_config->environment : NULL;
+    size_t environment_count = launch ? launch->environment_count
+                            : process_config ? process_config->environment_count : 0;
     ext_status status =
-        copy_strings(process_config ? process_config->arguments : NULL,
-                     process_config ? process_config->argument_count : 0,
-                     h->path, 0, &h->arguments);
+        copy_strings(arguments, argument_count, h->path, 0, &h->arguments);
     if (!status)
-      status =
-          copy_strings(process_config ? process_config->environment : NULL,
-                       process_config ? process_config->environment_count : 0,
-                       NULL, 1, &h->environment);
+      status = copy_strings(environment, environment_count, NULL, 1,
+                            &h->environment);
+    if (!status && launch) {
+      h->capture = 1;
+      h->stderr_fd = -1;
+      h->stderr_limit = launch->stderr_bytes ? launch->stderr_bytes : 4096;
+      h->stderr_data = malloc(h->stderr_limit);
+      h->directory = launch->working_directory
+                         ? strdup(launch->working_directory)
+                         : NULL;
+      if (!h->stderr_data || (launch->working_directory && !h->directory))
+        status = EXT_NOMEM;
+      /* Scrubbed base environment: PATH from the host, unless the caller set
+       * its own. */
+      if (!status && !sets_path(environment, environment_count)) {
+        const char *path = getenv("PATH");
+        size_t length = 5 + (path ? strlen(path) : 0);
+        char *entry = malloc(length + 1);
+        char **grown = calloc(environment_count + 2, sizeof(*grown));
+        if (!entry || !grown) {
+          free(entry);
+          free(grown);
+          status = EXT_NOMEM;
+        } else {
+          snprintf(entry, length + 1, "PATH=%s", path ? path : "");
+          grown[0] = entry;
+          for (size_t i = 0; i < environment_count; i++)
+            grown[i + 1] = h->environment[i];
+          free(h->environment);
+          h->environment = grown;
+        }
+      }
+    }
     if (status) {
       ext_host_destroy(h);
       return status;
@@ -315,6 +379,14 @@ void ext_host_destroy(ext_host *h) {
   }
   if (h->fd >= 0)
     close(h->fd);
+  if (h->stderr_started) {
+    pthread_mutex_lock(&h->mu);
+    h->stderr_stop = 1;
+    pthread_mutex_unlock(&h->mu);
+    pthread_join(h->stderr_thread, NULL);
+  }
+  if (h->stderr_fd >= 0)
+    close(h->stderr_fd);
   if (h->extension.release)
     h->extension.release(h->extension.user);
   if (h->extension_context.release)
@@ -325,6 +397,8 @@ void ext_host_destroy(ext_host *h) {
   free(h->readbuf);
   free_strings(h->arguments);
   free_strings(h->environment);
+  free(h->directory);
+  free(h->stderr_data);
   pthread_cond_destroy(&h->changed);
   pthread_mutex_destroy(&h->mu);
   free(h);
@@ -591,7 +665,69 @@ static ext_status exchange(ext_host *h, const uint8_t *p, size_t n,
     }
   }
 }
+#if defined(__APPLE__) ||                                                      \
+    (defined(__GLIBC__) &&                                                     \
+     (__GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ >= 29)))
+#define EXT_HAVE_SPAWN_CHDIR 1
+#endif
+/* Retains the first stderr_limit bytes of the child's stderr and discards the
+ * rest, until the pipe closes or the host is destroyed. */
+static void *stderr_reader(void *arg) {
+  ext_host *h = arg;
+  uint8_t chunk[1024];
+  for (;;) {
+    pthread_mutex_lock(&h->mu);
+    int stop = h->stderr_stop;
+    pthread_mutex_unlock(&h->mu);
+    struct pollfd p = {h->stderr_fd, POLLIN, 0};
+    int ready = poll(&p, 1, 100);
+    if (ready < 0 && errno == EINTR)
+      continue;
+    if (ready < 0)
+      break;
+    if (!ready) {
+      if (stop)
+        break;
+      continue;
+    }
+    ssize_t n = read(h->stderr_fd, chunk, sizeof(chunk));
+    if (n < 0 && (errno == EINTR || errno == EAGAIN))
+      continue;
+    if (n <= 0)
+      break;
+    pthread_mutex_lock(&h->mu);
+    size_t room = h->stderr_limit - h->stderr_len;
+    size_t keep = (size_t)n < room ? (size_t)n : room;
+    memcpy(h->stderr_data + h->stderr_len, chunk, keep);
+    h->stderr_len += keep;
+    pthread_mutex_unlock(&h->mu);
+  }
+  return NULL;
+}
+ext_status ext_host_process_stderr(ext_host *h, uint8_t *buffer,
+                                   size_t capacity, size_t *length) {
+  if (!h || !length || (capacity && !buffer))
+    return EXT_INVALID;
+  pthread_mutex_lock(&h->mu);
+  size_t n = h->stderr_len;
+  if (n && buffer)
+    memcpy(buffer, h->stderr_data, n < capacity ? n : capacity);
+  *length = n;
+  pthread_mutex_unlock(&h->mu);
+  return EXT_OK;
+}
 static ext_status spawn_child(ext_host *h) {
+  if (h->capture) {
+    struct stat st;
+    if (stat(h->path, &st))
+      return EXT_IO;
+    if (!S_ISREG(st.st_mode))
+      return EXT_INVALID;
+#ifndef EXT_HAVE_SPAWN_CHDIR
+    if (h->directory)
+      return EXT_UNSUPPORTED;
+#endif
+  }
   int fds[2];
   if (socketpair(AF_UNIX, SOCK_STREAM, 0, fds))
     return EXT_IO;
@@ -619,11 +755,35 @@ static ext_status spawn_child(ext_host *h) {
     return EXT_IO;
   }
 #endif
+  int errfds[2] = {-1, -1};
+  if (h->capture) {
+    int bad = pipe(errfds);
+    for (int i = 0; !bad && i < 2; i++) {
+      if (errfds[i] <= 2) {
+        int next = fcntl(errfds[i], F_DUPFD_CLOEXEC, 3);
+        close(errfds[i]);
+        errfds[i] = next;
+      }
+      if (errfds[i] < 0 || fcntl(errfds[i], F_SETFD, FD_CLOEXEC) < 0)
+        bad = 1;
+    }
+    if (bad) {
+      for (int i = 0; i < 2; i++)
+        if (errfds[i] >= 0)
+          close(errfds[i]);
+      close(fds[0]);
+      close(fds[1]);
+      return EXT_IO;
+    }
+  }
   posix_spawn_file_actions_t actions;
   int err = posix_spawn_file_actions_init(&actions);
   if (err) {
     close(fds[0]);
     close(fds[1]);
+    for (int i = 0; i < 2; i++)
+      if (errfds[i] >= 0)
+        close(errfds[i]);
     return EXT_IO;
   }
   if (!(err = posix_spawn_file_actions_adddup2(&actions, fds[1], STDIN_FILENO)))
@@ -632,6 +792,17 @@ static ext_status spawn_child(ext_host *h) {
     err = posix_spawn_file_actions_addclose(&actions, fds[0]);
   if (!err)
     err = posix_spawn_file_actions_addclose(&actions, fds[1]);
+  if (!err && h->capture) {
+    err = posix_spawn_file_actions_adddup2(&actions, errfds[1], STDERR_FILENO);
+    if (!err)
+      err = posix_spawn_file_actions_addclose(&actions, errfds[0]);
+    if (!err)
+      err = posix_spawn_file_actions_addclose(&actions, errfds[1]);
+  }
+#ifdef EXT_HAVE_SPAWN_CHDIR
+  if (!err && h->directory)
+    err = posix_spawn_file_actions_addchdir_np(&actions, h->directory);
+#endif
   pthread_mutex_lock(&h->mu);
   if (h->closed)
     err = ECANCELED;
@@ -643,9 +814,19 @@ static ext_status spawn_child(ext_host *h) {
   pthread_mutex_unlock(&h->mu);
   posix_spawn_file_actions_destroy(&actions);
   close(fds[1]);
+  if (errfds[1] >= 0)
+    close(errfds[1]);
   if (err) {
     close(fds[0]);
+    if (errfds[0] >= 0)
+      close(errfds[0]);
     return err == ECANCELED ? EXT_CLOSED : EXT_IO;
+  }
+  if (h->capture) {
+    h->stderr_fd = errfds[0];
+    if (pthread_create(&h->stderr_thread, NULL, stderr_reader, h))
+      return EXT_IO;
+    h->stderr_started = 1;
   }
   if (fcntl(h->fd, F_SETFL, fcntl(h->fd, F_GETFL) | O_NONBLOCK) < 0)
     return EXT_IO;

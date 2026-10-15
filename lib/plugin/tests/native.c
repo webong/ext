@@ -104,6 +104,56 @@ int main(int argc, char **argv) {
          EXT_DENIED);
   assert(!out.data && !out.len);
   ext_host_destroy(h);
+  /* Launch backend: working directory, bounded stderr capture, validation. */
+  {
+    o.verify = allow;
+    o.authorize = allow;
+    ext_jsonline_process_launch launch = {sizeof(launch), argv[1], NULL, 0,
+                                          NULL,           0,       "/",  16};
+    ext_backend_options launch_backend = {sizeof(launch_backend),
+                                          EXT_BACKEND_JSONLINE_PROCESS_LAUNCH,
+                                          &launch, sizeof(launch)};
+    ext_host *l = NULL;
+    assert(ext_host_create(&o, &launch_backend, &l) == EXT_OK);
+    assert(ext_host_start(l, 3000) == EXT_OK);
+    ext_buffer reply = {0};
+    assert(ext_host_invoke(l, request.data, request.len, 3000, &reply) ==
+           EXT_OK);
+    ext_buffer_free(&reply);
+    uint8_t retained[16];
+    size_t length = 99;
+    assert(ext_host_process_stderr(l, retained, sizeof(retained), &length) ==
+               EXT_OK &&
+           length <= sizeof(retained));
+    assert(ext_host_process_stderr(l, NULL, 0, &length) == EXT_OK);
+    assert(ext_host_process_stderr(l, NULL, 1, &length) == EXT_INVALID);
+    ext_host_destroy(l);
+
+    launch.working_directory = "relative";
+    assert(ext_host_create(&o, &launch_backend, &l) == EXT_INVALID);
+    launch.working_directory = "/does/not/exist";
+    assert(ext_host_create(&o, &launch_backend, &l) == EXT_OK);
+    assert(ext_host_start(l, 1000) != EXT_OK);
+    ext_host_destroy(l);
+    launch.working_directory = NULL;
+    launch.stderr_bytes = (16u << 20) + 1;
+    assert(ext_host_create(&o, &launch_backend, &l) == EXT_INVALID);
+    launch.stderr_bytes = 0;
+    launch.executable = "/";
+    assert(ext_host_create(&o, &launch_backend, &l) == EXT_OK);
+    assert(ext_host_start(l, 1000) != EXT_OK);
+    ext_host_destroy(l);
+    const char *bad_env[] = {"NOEQUALS"};
+    launch.executable = argv[1];
+    launch.environment = bad_env;
+    launch.environment_count = 1;
+    assert(ext_host_create(&o, &launch_backend, &l) == EXT_INVALID);
+    ext_host *plain = NULL;
+    assert(ext_host_create(&o, &backend, &plain) == EXT_OK);
+    assert(ext_host_process_stderr(plain, NULL, 0, &length) == EXT_OK &&
+           length == 0);
+    ext_host_destroy(plain);
+  }
   ext_buffer_free(&descriptor);
   ext_buffer_free(&request);
   ext_buffer_free(&wait);

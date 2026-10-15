@@ -29,6 +29,26 @@ func Open(ctx context.Context, d plugin.Descriptor, options plugin.Options) (*Se
 	if options.Connect == nil || options.Timeout < 0 || options.Timeout/time.Millisecond > math.MaxUint32 {
 		return nil, plugin.ErrInvalid
 	}
+	return openSession(ctx, d, options, func() (*Host, error) {
+		return NewWithBackend(d, BackendOptions{Connect: options.Connect, Concurrent: true}, func([]byte) error { return nil }, func([]byte) error { return nil })
+	})
+}
+
+// OpenProcess is Open with the child process owned by the C engine: it starts
+// the launch described by launch, then handshakes. options.Connect is unused.
+func OpenProcess(ctx context.Context, d plugin.Descriptor, launch LaunchOptions, options plugin.Options) (*Session, error) {
+	if options.Verify == nil || options.Authorize == nil {
+		return nil, plugin.ErrDenied
+	}
+	if options.Timeout < 0 || options.Timeout/time.Millisecond > math.MaxUint32 {
+		return nil, plugin.ErrInvalid
+	}
+	return openSession(ctx, d, options, func() (*Host, error) {
+		return NewLaunch(launch, d, func([]byte) error { return nil }, func([]byte) error { return nil })
+	})
+}
+
+func openSession(ctx context.Context, d plugin.Descriptor, options plugin.Options, create func() (*Host, error)) (*Session, error) {
 	requirements := make([]map[string]any, 0, len(options.Requirements))
 	for _, r := range options.Requirements {
 		value := map[string]any{"contract": r.Contract, "operation": r.Operation}
@@ -44,7 +64,7 @@ func Open(ctx context.Context, d plugin.Descriptor, options plugin.Options) (*Se
 	if _, err = EngineCall("descriptor.requirements", data); err != nil {
 		return nil, err
 	}
-	h, err := NewWithBackend(d, BackendOptions{Connect: options.Connect, Concurrent: true}, func([]byte) error { return nil }, func([]byte) error { return nil })
+	h, err := create()
 	if err != nil {
 		return nil, err
 	}

@@ -104,6 +104,26 @@ typedef struct {
   const char *const *environment;
   size_t environment_count;
 } ext_jsonline_process_config;
+/* Process launch with the options a host needs to run an installed package
+ * (backend kind 5). Like kind 4, but also: working_directory (absolute path;
+ * NULL inherits the host's), a bounded capture of the child's stderr
+ * (stderr_bytes retained, 0 uses 4096; read it with ext_host_process_stderr),
+ * and a scrubbed base environment of PATH taken from the host, to which the
+ * environment entries are added (an entry named PATH replaces it). The
+ * executable must be an absolute path to a regular file when the host starts.
+ * Working directories need posix_spawn_file_actions_addchdir_np (macOS, glibc
+ * 2.29 or later); elsewhere a launch with one returns EXT_UNSUPPORTED. */
+#define EXT_BACKEND_JSONLINE_PROCESS_LAUNCH 5u
+typedef struct {
+  uint32_t struct_size;
+  const char *executable;
+  const char *const *arguments;
+  size_t argument_count;
+  const char *const *environment;
+  size_t environment_count;
+  const char *working_directory;
+  uint32_t stderr_bytes;
+} ext_jsonline_process_launch;
 /* An extension returns one descriptor (connect) or response envelope (invoke)
  * through emit. emit copies bytes into engine-owned memory; call exactly once
  * on success, synchronously, and never retain emit/context or input pointers.
@@ -204,6 +224,13 @@ EXT_HOST_API ext_host_state ext_host_get_state(ext_host *);
  * handle. Reaps child and frees resources. No concurrent use or double destroy.
  */
 EXT_HOST_API void ext_host_destroy(ext_host *);
+/* Copies up to capacity bytes of the retained stderr of a host created with
+ * EXT_BACKEND_JSONLINE_PROCESS_LAUNCH, and sets *length to the retained size.
+ * The output is bounded, possibly truncated, and untrusted text. Hosts of other
+ * kinds retain none (length 0). */
+EXT_HOST_API ext_status ext_host_process_stderr(ext_host *, uint8_t *buffer,
+                                                size_t capacity,
+                                                size_t *length);
 EXT_HOST_API void ext_buffer_free(ext_buffer *);
 /* Strict bounded JSON validation used by bindings/conformance, not a schema
  * API. */

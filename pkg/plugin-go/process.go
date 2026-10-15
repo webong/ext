@@ -6,6 +6,7 @@ package goengine
 #include "ext_host.h"
 #include <stdlib.h>
 ext_status ext_go_create_process(const char *,const char *const *,size_t,const char *const *,size_t,const uint8_t *,size_t,uintptr_t,ext_host **);
+ext_status ext_go_create_launch(const char *,const char *const *,size_t,const char *const *,size_t,const char *,uint32_t,const uint8_t *,size_t,uintptr_t,ext_host **);
 */
 import "C"
 import (
@@ -78,4 +79,75 @@ func NewProcess(options ProcessOptions, d plugin.Descriptor, verify, authorize P
 		return nil, err
 	}
 	return h, nil
+}
+
+// LaunchOptions starts a reviewed executable the way an installed package is
+// run: like ProcessOptions, but with a working directory, bounded capture of
+// the child's stderr and a scrubbed base environment of PATH. The environment
+// entries are added to it (an entry named PATH replaces it). Executable must
+// be the absolute path of a regular file.
+type LaunchOptions struct {
+	ProcessOptions
+	// Directory is the child's working directory; empty inherits the host's.
+	// It must be absolute, and needs a platform with a spawn working directory
+	// (macOS, glibc 2.29 or later).
+	Directory string
+	// StderrBytes bounds the retained stderr; zero retains 4096 bytes.
+	StderrBytes int
+}
+
+// NewLaunch creates a host that runs the launch in a child process owned by the
+// C engine. Read the child's retained stderr with Stderr.
+func NewLaunch(options LaunchOptions, d plugin.Descriptor, verify, authorize Policy) (*Host, error) {
+	if verify == nil || authorize == nil || strings.IndexByte(options.Executable, 0) >= 0 || strings.IndexByte(options.Directory, 0) >= 0 ||
+		len(options.Arguments) > 256 || len(options.Environment) > 256 || options.StderrBytes < 0 || options.StderrBytes > 16<<20 {
+		return nil, plugin.ErrInvalid
+	}
+	data, err := json.Marshal(d)
+	if err != nil {
+		return nil, err
+	}
+	path := C.CString(options.Executable)
+	defer C.free(unsafe.Pointer(path))
+	var dir *C.char
+	if options.Directory != "" {
+		dir = C.CString(options.Directory)
+		defer C.free(unsafe.Pointer(dir))
+	}
+	args, freeArgs, err := cStrings(options.Arguments)
+	if err != nil {
+		return nil, err
+	}
+	defer freeArgs()
+	env, freeEnv, err := cStrings(options.Environment)
+	if err != nil {
+		return nil, err
+	}
+	defer freeEnv()
+	h := &Host{policy: cgo.NewHandle(&policies{verify: verify, authorize: authorize}), descriptor: d.Clone()}
+	code := C.ext_go_create_launch(path, args, C.size_t(len(options.Arguments)), env, C.size_t(len(options.Environment)), dir, C.uint32_t(options.StderrBytes), bytesPointer(data), C.size_t(len(data)), C.uintptr_t(h.policy), &h.ptr)
+	if err = status(code); err != nil {
+		h.policy.Delete()
+		return nil, err
+	}
+	return h, nil
+}
+
+// Stderr returns the retained, bounded and possibly truncated stderr of a host
+// created by NewLaunch. Treat it as untrusted text.
+func (h *Host) Stderr() string {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	if h.ptr == nil {
+		return ""
+	}
+	var n C.size_t
+	if status(C.ext_host_process_stderr(h.ptr, nil, 0, &n)) != nil || n == 0 {
+		return ""
+	}
+	buffer := make([]byte, n)
+	if status(C.ext_host_process_stderr(h.ptr, (*C.uint8_t)(unsafe.Pointer(&buffer[0])), n, &n)) != nil || int(n) > len(buffer) {
+		return ""
+	}
+	return string(buffer[:n])
 }

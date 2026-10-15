@@ -59,6 +59,11 @@ void ext_go_call_init(ext_call_options *o, uint32_t timeout,
                       const ext_cancel *cancel, uintptr_t value) {
   *o = (ext_call_options){sizeof(*o), timeout, cancel, (void *)value};
 }
+ext_status ext_go_create_launch(const char *path,const char *const *args,size_t argc,const char *const *env,size_t envc,const char *dir,uint32_t stderr_bytes,const uint8_t *d,size_t n,uintptr_t handle,ext_host **out){
+ ext_jsonline_process_launch launch={sizeof(launch),path,args,argc,env,envc,dir,stderr_bytes};
+ ext_backend_options backend={sizeof(backend),EXT_BACKEND_JSONLINE_PROCESS_LAUNCH,&launch,sizeof(launch)};
+ ext_host_options o={EXT_HOST_ABI_VERSION,sizeof(o),d,n,verify,authorize,(void *)handle};return ext_host_create(&o,&backend,out);
+}
 extern int32_t ctxGoContextPolicy(uintptr_t, int, uintptr_t, uint8_t *, size_t);
 extern void ctxGoObserver(uintptr_t, uintptr_t, uint8_t *, size_t);
 static int32_t verify_context(void *user, const ext_call_options *o,

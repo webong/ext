@@ -149,6 +149,33 @@ func TestSharedJSONFixtures(t *testing.T) {
 	}
 }
 
+// A grandchild that keeps the inherited stderr open must not hold the host:
+// destroying the host kills the guest and returns without waiting for the pipe.
+func TestDestroyIgnoresGrandchildHoldingStderr(t *testing.T) {
+	base := os.Getenv("EXT_CENGINE_FAULT_GUEST")
+	if base == "" {
+		t.Fatal("EXT_CENGINE_FAULT_GUEST required")
+	}
+	path := filepath.Join(t.TempDir(), "grandchild"+exeSuffix())
+	linkOrCopy(t, base, path)
+	h, err := New(path, plugintest.Descriptor(), allow, allow)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := h.Start(ctx); err != nil {
+		t.Fatal(err)
+	}
+	done := make(chan struct{})
+	go func() { h.Destroy(); close(done) }()
+	select {
+	case <-done:
+	case <-time.After(3 * time.Second):
+		t.Fatal("Destroy waited for a grandchild that holds stderr open")
+	}
+}
+
 func TestFaultyGuests(t *testing.T) {
 	base := os.Getenv("EXT_CENGINE_FAULT_GUEST")
 	if base == "" {

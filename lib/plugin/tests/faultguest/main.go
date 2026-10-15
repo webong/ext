@@ -5,12 +5,18 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
 )
 
 func main() {
+	// A grandchild that holds the inherited stderr open long after its parent is gone.
+	if os.Getenv("FAULT_GRANDCHILD") == "1" {
+		time.Sleep(10 * time.Second) // outlives the host's destroy, but never the test run
+		return
+	}
 	// The mode is the name this binary was started under; Windows adds ".exe".
 	mode := strings.TrimSuffix(filepath.Base(os.Args[0]), ".exe")
 	r := bufio.NewReader(os.Stdin)
@@ -23,6 +29,14 @@ func main() {
 	}
 	if mode == "exit" {
 		return
+	}
+	if mode == "grandchild" {
+		gc := exec.Command(os.Args[0])
+		gc.Env = append(os.Environ(), "FAULT_GRANDCHILD=1")
+		gc.Stderr = os.Stderr
+		if err := gc.Start(); err != nil {
+			return
+		}
 	}
 	hello := `{"apiVersion":"ext.plugin/v1","id":"hello","payload":{"apiVersion":"ext.plugin/v1","identity":{"id":"ctx/conformance","revision":"fixture-1"},"contracts":[{"name":"ext.conformance","version":"v1","operations":[{"name":"echo"},{"name":"wait"},{"name":"private-error"},{"name":"public-error"}]}]}}`
 	if mode == "bad-handshake" {

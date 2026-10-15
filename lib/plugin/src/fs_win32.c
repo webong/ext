@@ -3,7 +3,11 @@
  * point; every component of every path is checked and refused. Unlike the
  * POSIX implementation this is path-based rather than handle-relative, so the
  * application must keep the root and its files from being modified while they
- * are read, which is the documented contract. */
+ * are read, which is the documented contract. As a second line of defense, each
+ * file is opened and then its final path, as the system resolved it, must be
+ * the root's canonical path plus the lexical relative path: a directory swapped
+ * for a junction or symbolic link after the component check changes where the
+ * handle really points, and the file is refused. */
 #define WIN32_LEAN_AND_MEAN
 #ifndef _WIN32_WINNT
 #define _WIN32_WINNT 0x0A00
@@ -15,8 +19,51 @@
 #include <windows.h>
 
 struct ext_fs {
-  wchar_t *root; /* absolute, \\?\ prefixed, no trailing separator */
+  wchar_t *root;      /* absolute, \\?\ prefixed, no trailing separator */
+  wchar_t *canonical; /* the root's final path as the system resolves it */
 };
+
+/* A hashing context: where files are expected to resolve. */
+typedef struct {
+  const wchar_t *root;
+  const wchar_t *canonical;
+} where;
+
+/* The final path of an open handle, or NULL. */
+static wchar_t *final_path(HANDLE h) {
+  DWORD n = GetFinalPathNameByHandleW(h, NULL, 0, FILE_NAME_NORMALIZED | VOLUME_NAME_DOS);
+  if (!n)
+    return NULL;
+  wchar_t *path = malloc((n + 1) * sizeof(*path));
+  if (!path)
+    return NULL;
+  DWORD m = GetFinalPathNameByHandleW(h, path, n + 1, FILE_NAME_NORMALIZED | VOLUME_NAME_DOS);
+  if (!m || m > n) {
+    free(path);
+    return NULL;
+  }
+  return path;
+}
+
+/* Whether handle h is where the lexical path says: canonical root plus the part
+ * of path below the lexical root, compared without regard to case. */
+static int resolves_to(HANDLE h, const wchar_t *path, const where *w) {
+  size_t root = wcslen(w->root);
+  if (!w->canonical || wcsncmp(path, w->root, root))
+    return 0;
+  size_t base = wcslen(w->canonical), rest = wcslen(path + root);
+  wchar_t *expected = malloc((base + rest + 1) * sizeof(*expected));
+  wchar_t *actual = final_path(h);
+  int same = 0;
+  if (expected && actual) {
+    memcpy(expected, w->canonical, base * sizeof(*expected));
+    memcpy(expected + base, path + root, (rest + 1) * sizeof(*expected));
+    same = CompareStringOrdinal(expected, -1, actual, -1, TRUE) == CSTR_EQUAL;
+  }
+  free(expected);
+  free(actual);
+  return same;
+}
 
 static wchar_t *widen(const char *s) {
   int n = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, s, -1, NULL, 0);
@@ -118,7 +165,7 @@ static ext_status check_components(const wchar_t *root, const char *relative,
   free(copy);
   return s;
 }
-static ext_status hash_path(const wchar_t *path, uint8_t out[32]) {
+static ext_status hash_path(const wchar_t *path, const where *w, uint8_t out[32]) {
   HANDLE h = CreateFileW(path, GENERIC_READ,
                          FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
                          NULL, OPEN_EXISTING,
@@ -132,6 +179,8 @@ static ext_status hash_path(const wchar_t *path, uint8_t out[32]) {
     s = EXT_IO;
   else if (info.dwFileAttributes &
            (FILE_ATTRIBUTE_REPARSE_POINT | FILE_ATTRIBUTE_DIRECTORY))
+    s = EXT_INVALID;
+  else if (!resolves_to(h, path, w))
     s = EXT_INVALID;
   ext_hash hash;
   ext_hash_init(&hash);
@@ -149,7 +198,7 @@ static ext_status hash_path(const wchar_t *path, uint8_t out[32]) {
   ext_hash_finish(&hash, out);
   return s;
 }
-static ext_status walk(const wchar_t *directory, const char *prefix,
+static ext_status walk(const wchar_t *directory, const where *w, const char *prefix,
                        ext_fs_visit visit, void *user, unsigned depth) {
   if (depth > 1024)
     return EXT_INVALID;
@@ -199,12 +248,12 @@ static ext_status walk(const wchar_t *directory, const char *prefix,
     if (data.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT)
       s = EXT_INVALID;
     else if (data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
-      s = walk(child, path, visit, user, depth + 1);
+      s = walk(child, w, path, visit, user, depth + 1);
     else if (strchr(path, '\r') || strchr(path, '\n'))
       s = EXT_INVALID;
     else {
       uint8_t sum[32];
-      s = hash_path(child, sum);
+      s = hash_path(child, w, sum);
       if (!s)
         s = visit(user, path, sum);
     }
@@ -268,6 +317,24 @@ ext_status ext_fs_open(const char *root, ext_fs **out) {
     return EXT_NOMEM;
   }
   fs->root = prefixed;
+  fs->canonical = NULL;
+  HANDLE dir = CreateFileW(prefixed, FILE_READ_ATTRIBUTES,
+                            FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                            NULL, OPEN_EXISTING,
+                            FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT,
+                            NULL);
+  if (dir == INVALID_HANDLE_VALUE) {
+    free(fs->root);
+    free(fs);
+    return EXT_IO;
+  }
+  fs->canonical = final_path(dir);
+  CloseHandle(dir);
+  if (!fs->canonical) {
+    free(fs->root);
+    free(fs);
+    return EXT_IO;
+  }
   *out = fs;
   return EXT_OK;
 }
@@ -275,6 +342,7 @@ void ext_fs_close(ext_fs *fs) {
   if (!fs)
     return;
   free(fs->root);
+  free(fs->canonical);
   free(fs);
 }
 ext_status ext_fs_hash_file(ext_fs *fs, const char *path, uint8_t out[32]) {
@@ -284,7 +352,8 @@ ext_status ext_fs_hash_file(ext_fs *fs, const char *path, uint8_t out[32]) {
   wchar_t *full = join(fs->root, path);
   if (!full)
     return EXT_NOMEM;
-  s = hash_path(full, out);
+  where w = {fs->root, fs->canonical};
+  s = hash_path(full, &w, out);
   free(full);
   return s;
 }
@@ -296,7 +365,8 @@ ext_status ext_fs_walk(ext_fs *fs, const char *path, ext_fs_visit visit,
   wchar_t *full = join(fs->root, path);
   if (!full)
     return EXT_NOMEM;
-  s = walk(full, "", visit, user, 0);
+  where w = {fs->root, fs->canonical};
+  s = walk(full, &w, "", visit, user, 0);
   free(full);
   return s;
 }

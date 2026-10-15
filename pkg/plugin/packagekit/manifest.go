@@ -245,7 +245,7 @@ func (m Manifest) validateMetadata() error {
 	total := 0
 	for key, value := range m.Metadata {
 		trimmed := bytes.TrimSpace(value)
-		if !metadataKeyPattern.MatchString(key) || len(trimmed) == 0 || trimmed[0] != '{' || len(value) > maxMetadataValueBytes {
+		if !metadataKeyPattern.MatchString(key) || len(trimmed) == 0 || trimmed[0] != '{' || len(value) > maxMetadataValueBytes || !json.Valid(value) {
 			return fmt.Errorf("%w: invalid metadata %q", plugin.ErrInvalid, key)
 		}
 		total += len(key) + len(value)

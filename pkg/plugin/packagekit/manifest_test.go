@@ -126,6 +126,7 @@ func TestRejectsBadLicenseAndMetadata(t *testing.T) {
 		"x/v1":             json.RawMessage(`"s"`), // not an object
 		"y/v1":             json.RawMessage(`null`),
 		"z/v1":             json.RawMessage(``),
+		"w/v1":             json.RawMessage(`{"unterminated":`), // built in code, never decoded
 	}
 	for key, value := range bad {
 		m := manifest("example/a")

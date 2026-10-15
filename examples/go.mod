@@ -5,10 +5,10 @@ go 1.26.0
 require (
 	github.com/hashicorp/go-hclog v0.14.1
 	github.com/hashicorp/go-plugin v1.6.3
+	github.com/webong/ext/pkg/plugin-go v0.2.0
+	github.com/webong/ext/pkg/plugin-hashicorp v0.2.0
+	github.com/webong/ext/pkg/plugin-wasm v0.3.0
 	github.com/webong/ext/res/graph v0.1.0
-	github.com/webong/ext/pkg/plugin-go v0.1.0
-	github.com/webong/ext/pkg/plugin-hashicorp v0.1.0
-	github.com/webong/ext/pkg/plugin-wasm v0.2.0
 )
 
 require (

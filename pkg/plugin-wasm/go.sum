@@ -1,4 +1,6 @@
 github.com/tetratelabs/wazero v1.10.1 h1:2DugeJf6VVk58KTPszlNfeeN8AhhpwcZqkJj2wwFuH8=
 github.com/tetratelabs/wazero v1.10.1/go.mod h1:DRm5twOQ5Gr1AoEdSi0CLjDQF1J9ZAuyqFIjl1KKfQU=
-github.com/webong/ext/pkg/plugin-go v0.1.1 h1:K3DoKXoPWlyJQ39kOaWFnAJ510UMuX8A/d4CwT/cHf0=
-github.com/webong/ext/pkg/plugin-go v0.1.1/go.mod h1:ayBD5794iC2io5SpRp0pUlwtfhFtUxBESsq3jw01G/Q=
+github.com/webong/ext/pkg/plugin-go v0.2.0 h1:QGfq12QIzrGLvbNpbR7S4C2PChNzVEbjs6e2fgG5mf8=
+github.com/webong/ext/pkg/plugin-go v0.2.0/go.mod h1:cjCTxlzruvu2WAMtNtyEglV5K0jLxUSGmwMsQdVsTk8=
+github.com/webong/ext/res/graph v0.1.0 h1:c/LRR0toSw+aMqGsvaGdvowyCl5axB4Ilj5ieEKY4i0=
+github.com/webong/ext/res/graph v0.1.0/go.mod h1:fjlS2iDx5EunSAaSzk2bsYVCzCN+VgfoF/nQzPtcxvc=

@@ -1,2 +1,4 @@
-github.com/webong/ext/pkg/plugin v0.1.0 h1:er+Gpvnoowtmtt1r9OxJOviss/z13rh3hfpZNk5ULbw=
-github.com/webong/ext/pkg/plugin v0.1.0/go.mod h1:4HjMr9xajSrI6DroQ7+3jntxmrZF1M5UPwhlMliljDE=
+github.com/webong/ext/pkg/plugin-go v0.2.0 h1:QGfq12QIzrGLvbNpbR7S4C2PChNzVEbjs6e2fgG5mf8=
+github.com/webong/ext/pkg/plugin-go v0.2.0/go.mod h1:cjCTxlzruvu2WAMtNtyEglV5K0jLxUSGmwMsQdVsTk8=
+github.com/webong/ext/res/graph v0.1.0 h1:c/LRR0toSw+aMqGsvaGdvowyCl5axB4Ilj5ieEKY4i0=
+github.com/webong/ext/res/graph v0.1.0/go.mod h1:fjlS2iDx5EunSAaSzk2bsYVCzCN+VgfoF/nQzPtcxvc=

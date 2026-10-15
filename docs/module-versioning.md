@@ -36,15 +36,14 @@ change.
 
 ```bash
 # fix in one module only
-git tag pkg/graph/v1.0.1
+git tag res/graph/v1.0.1
 
 # additive change in one module
-git tag pkg/plugin/v1.1.0
+git tag pkg/plugin-go/v1.1.0
 
 # coordinated breaking change across every module
-git tag res/web/v2.0.0 pkg/plugin-go/v2.0.0 \
-        pkg/graph/v2.0.0 pkg/plugin/v2.0.0 pkg/plugin-hashicorp/v2.0.0 \
-        pkg/plugin-wasm/v2.0.0 v2.0.0
+git tag res/web/v2.0.0 res/graph/v2.0.0 pkg/plugin-go/v2.0.0 \
+        pkg/plugin-hashicorp/v2.0.0 pkg/plugin-wasm/v2.0.0
 ```
 
 For a major bump, update the `/vN` path suffix in each affected `go.mod`, in
@@ -158,7 +157,7 @@ Before tagging, confirm each module builds and tests on its own with the
 workspace active, and that `src/ctx` resolves the intended versions:
 
 ```bash
-for module in src/ctx src/ctn examples pkg/plugin-go pkg/graph \
+for module in src/ctx src/ctn examples pkg/plugin-go res/graph \
               pkg/plugin-hashicorp pkg/plugin-wasm \
               res/web res/credential; do
   (cd "$module" && go build ./... && go test ./...) || exit 1
@@ -169,8 +168,7 @@ done
 
 Each module's `go` line is the oldest Go that builds it, so it must be at least what its own
 dependencies require; `go mod tidy` raises it when it is not. The light libraries
-(`pkg/plugin`, `pkg/graph`, `pkg/plugin-go`, `pkg/plugin-cshared`, `pkg/plugin-wasm`, `res/*`
-and the adapters) declare `go 1.23.0` and their dependencies allow it. Four modules declare
+(`pkg/plugin-go`, `pkg/plugin-wasm`, `res/*` and the adapters) declare `go 1.23.0` and their dependencies allow it. Four modules declare
 `go 1.26.0` because `golang.org/x/net`, `x/sys` and `x/text` at the versions they use require it:
 `pkg/plugin-hashicorp` (gRPC), `src/ctx`, `src/ctn` and `examples`. The workspace file
 `go.work` declares the highest of them, and CI runs Go 1.26.x.
@@ -202,3 +200,28 @@ envelope is `pkg/plugin-go/cshared/abi`, and the language-neutral C header
 `github.com/webong/ext/res/graph`, the home of the other dependency-light shared
 modules. Its old tag stays for existing consumers; later releases are tagged
 `res/graph/vX.Y.Z`. `pkg/plugin-go` depends on it for `Plan.Graph`.
+
+## The release that folded the plugin modules
+
+| Release | Modules | Why |
+| --- | --- | --- |
+| `v0.1.0` (first tag) | `res/graph` | the new path of `pkg/graph`; it needs no tag history of its own |
+| `v0.2.0` | `pkg/plugin-go` | the Go language package of the plugin engine: `pkg/plugin` and `pkg/plugin-cshared` folded in, so import paths changed, and one API runs on the C engine or in pure Go |
+| `v0.2.0` | `pkg/plugin-hashicorp` | its imports moved to `pkg/plugin-go`, and it requires `pkg/plugin-go` v0.2.0 |
+| `v0.3.0` | `pkg/plugin-wasm` | the same move of imports |
+| `v0.3.1` | `adapters/chromium` | it imports `pkg/plugin-go` instead of `pkg/plugin`; no exported API changed |
+| `v0.2.1` | `adapters/firefox` | the same |
+| `v0.2.2` | `adapters/chrome`, `adapters/edge` | they require `adapters/chromium` v0.3.1 and `pkg/plugin-go` v0.2.0 |
+| `v0.1.4` | `adapters/arc`, `atlas`, `brave`, `comet`, `dia`, `helium`, `opera`, `vivaldi`, `whale`, `floorp`, `librewolf`, `waterfox`, `zen` | the same, through `adapters/chromium` or `adapters/firefox` |
+| `v0.1.3` | `adapters/safari` | the same |
+| `v0.1.2` | `adapters/credman`, `keychain`, `secret_service`, `wasm` | they import `pkg/plugin-go`; `adapters/wasm` also requires `pkg/plugin-wasm` v0.3.0 |
+| `v0.1.1` | `adapters/git`, `adapters/evm` | they import `pkg/plugin-go` |
+
+`res/web` and `res/credential` did not change and keep their versions. No exported function of an
+adapter changed, so the adapters take a patch version; the three plugin libraries take a minor
+version because their import paths moved.
+
+Every module's `go.sum` carries the real checksums of the sibling versions it requires. They were
+computed before tagging, in dependency order, from a throwaway local module proxy holding the new
+versions, then checked against the published tags afterwards. That avoids the older pattern of a
+second commit per layer just to record checksums, so every tag of this release is on one commit.

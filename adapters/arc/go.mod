@@ -2,7 +2,7 @@ module github.com/webong/ext/adapters/arc
 
 go 1.23.0
 
-require github.com/webong/ext/adapters/chromium v0.3.0
+require github.com/webong/ext/adapters/chromium v0.3.1
 
 require (
 	github.com/gorilla/websocket v1.5.3 // indirect

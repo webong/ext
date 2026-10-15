@@ -1,4 +1,8 @@
 github.com/tetratelabs/wazero v1.10.1 h1:2DugeJf6VVk58KTPszlNfeeN8AhhpwcZqkJj2wwFuH8=
 github.com/tetratelabs/wazero v1.10.1/go.mod h1:DRm5twOQ5Gr1AoEdSi0CLjDQF1J9ZAuyqFIjl1KKfQU=
-github.com/webong/ext/pkg/plugin-wasm v0.2.1 h1:flrLigPYbfNuLBb30ZgVN7rjUvh9qlM+nDihtgm3MXU=
-github.com/webong/ext/pkg/plugin-wasm v0.2.1/go.mod h1:9pk6KeOH+drwUouxEQwTnOuYpvfmX0L2Tm5bb7lIctE=
+github.com/webong/ext/pkg/plugin-go v0.2.0 h1:QGfq12QIzrGLvbNpbR7S4C2PChNzVEbjs6e2fgG5mf8=
+github.com/webong/ext/pkg/plugin-go v0.2.0/go.mod h1:cjCTxlzruvu2WAMtNtyEglV5K0jLxUSGmwMsQdVsTk8=
+github.com/webong/ext/pkg/plugin-wasm v0.3.0 h1:PHGI7InYM77TUfCgzv3wfO12N8NUrB0V5G27VxA5V9s=
+github.com/webong/ext/pkg/plugin-wasm v0.3.0/go.mod h1:4lNXx+IZu/67cVFtFJls4YCBcNKALJYc1O94qgqqNrE=
+github.com/webong/ext/res/graph v0.1.0 h1:c/LRR0toSw+aMqGsvaGdvowyCl5axB4Ilj5ieEKY4i0=
+github.com/webong/ext/res/graph v0.1.0/go.mod h1:fjlS2iDx5EunSAaSzk2bsYVCzCN+VgfoF/nQzPtcxvc=

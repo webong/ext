@@ -1,4 +1,5 @@
-// go:build ext_cengine && cgo && (darwin || linux)
+//go:build ext_cengine && cgo && (darwin || linux || windows)
+
 #include "ext_instance.h"
 extern int32_t ctxGoInstanceCreate(uintptr_t,uintptr_t,uint32_t,uint8_t *,size_t,uint8_t *,size_t,uintptr_t *);
 extern int32_t ctxGoInstanceDispose(uintptr_t,uintptr_t);

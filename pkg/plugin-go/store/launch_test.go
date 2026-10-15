@@ -1,5 +1,3 @@
-//go:build ext_cengine && cgo && (darwin || linux || windows)
-
 package store_test
 
 import (

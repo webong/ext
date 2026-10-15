@@ -1,4 +1,5 @@
-// go:build ext_cengine && cgo && (darwin || linux)
+//go:build ext_cengine && cgo && (darwin || linux || windows)
+
 #include "ext_host.h"
 extern int32_t ctxGoPolicy(uintptr_t, int, uint8_t *, size_t);
 static int32_t verify(void *p, const uint8_t *b, size_t n) {

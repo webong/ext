@@ -1,4 +1,5 @@
-// go:build ext_cengine && cgo && (darwin || linux)
+//go:build ext_cengine && cgo && (darwin || linux || windows)
+
 #include "ext_stream.h"
 extern int32_t ctxGoStreamOpen(uintptr_t,uintptr_t,uint8_t *,size_t,uintptr_t *);
 extern int32_t ctxGoStreamRead(uintptr_t,uintptr_t,uint32_t,uint32_t,ext_emit,void *);

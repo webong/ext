@@ -1,5 +1,3 @@
-//go:build ext_cengine && cgo && (darwin || linux || windows)
-
 // Package store installs, upgrades, lists and removes reviewed packages under
 // a caller-supplied root. A package is a packagekit manifest plus the artifacts
 // it lists. The store has no default location and no product vocabulary; it

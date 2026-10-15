@@ -1,4 +1,5 @@
-// go:build ext_cengine && cgo && (darwin || linux)
+//go:build ext_cengine && cgo && (darwin || linux || windows)
+
 #include "ext_guest.h"
 extern int32_t ctxGoGuestHandler(uintptr_t, uintptr_t, uint8_t *, size_t,
                                  uint32_t, ext_guest_emit, void *);

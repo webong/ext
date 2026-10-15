@@ -1,5 +1,18 @@
 # Shared plugin engine parity
 
+## One Go API, two builds
+
+`pkg/plugin-go` is the single Go entry point. With the `ext_cengine` tag and cgo
+it runs on the C engine; in any other build (no cgo, no tag, an unsupported
+platform) the same API is served by the pure-Go implementation in `pkg/plugin`,
+so `CGO_ENABLED=0` programs keep building. `goengine.CEngine` reports which one
+a build is. The data model (descriptors, requests, responses, errors, backends)
+is `pkg/plugin`'s, re-exported by `pkg/plugin-go`. The common API is `Open`,
+`OpenProcess`, `Session`, `NewGuest`, `Guest`, `NewRegistry`, `GuestFromRegistry`,
+the manifest, route and schema functions, the digests, and the `store` and
+`host` packages. Engine-only APIs (`Host`, `Streams`, `Instances`, `NewProcess`)
+need the C engine build. Both builds are tested in CI.
+
 ## Required destination
 
 CTX is in development. The shared engine must reach the current Go SDK's

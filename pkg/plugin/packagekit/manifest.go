@@ -120,6 +120,11 @@ func portablePath(value string) bool {
 	}
 	return true
 }
+// PortablePath reports whether value is a portable relative path: slash
+// separated, with no empty, "." or ".." component, no backslash, colon, NUL or
+// line break, no component ending in "." or a space, no Windows device name,
+// and at most 1024 bytes. Manifest artifact paths must satisfy it.
+func PortablePath(value string) bool { return portablePath(value) }
 func (m Manifest) Validate() error {
 	if m.APIVersion != Version {
 		return plugin.ErrInvalid

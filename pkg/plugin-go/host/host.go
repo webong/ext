@@ -1,5 +1,3 @@
-//go:build ext_cengine && cgo && (darwin || linux || windows)
-
 // Package host opens an installed package as a running plugin and calls it by
 // dotted method name. It composes the store (verified content), the C engine's
 // process runtime (launch, stderr capture, drain) and its session (handshake,

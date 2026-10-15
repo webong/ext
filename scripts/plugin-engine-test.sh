@@ -49,4 +49,6 @@ CGO_LDFLAGS="-L$(winpath "$build/engine")" \
 EXT_CENGINE_GUEST="$(winpath "$guest")" \
 EXT_CENGINE_FAULT_GUEST="$(winpath "$fault")" \
   go test -tags ext_cengine "${race[@]}" -count=1 -timeout=10m ./...
+echo "== the same API without cgo, served by the pure-Go implementation"
+CGO_ENABLED=0 go test -count=1 -timeout=10m ./...
 echo "plugin engine tests passed"

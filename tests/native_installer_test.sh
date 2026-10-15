@@ -125,6 +125,53 @@ HOME="$release_home" CTX_HOME="$release_config" CTX_BIN_DIR="$release_bin" \
 test -d "$release_config/catalog/adapters/docker"
 test -d "$release_config/adapters/docker"
 
+# The installer must refuse a release whose archives do not match checksums.txt,
+# or whose checksum entry is missing, and must leave nothing installed. Each case
+# starts from a pristine copy of the good release so one failure cannot mask another.
+expect_refusal() {
+  label=$1
+  expected=$2
+  release=$3
+  shift 3
+  refuse_home="$TEST_ROOT/refuse-$label-home"
+  refuse_config="$TEST_ROOT/refuse-$label-config"
+  refuse_bin="$TEST_ROOT/refuse-$label-bin"
+  mkdir -p "$refuse_home"
+  if HOME="$refuse_home" CTX_HOME="$refuse_config" CTX_BIN_DIR="$refuse_bin" \
+    CTX_RELEASE_BASE="file://$release" "$ROOT/install.sh" "$@" >"$TEST_ROOT/refuse-$label.out" 2>&1; then
+    printf 'installer accepted a bad release (%s)\n' "$label" >&2
+    exit 1
+  fi
+  grep -Fq "$expected" "$TEST_ROOT/refuse-$label.out" || {
+    printf 'installer refused %s for the wrong reason:\n' "$label" >&2
+    cat "$TEST_ROOT/refuse-$label.out" >&2
+    exit 1
+  }
+  test ! -e "$refuse_bin/ctx"
+  test ! -e "$refuse_config/adapters"
+  test ! -e "$refuse_config/catalog"
+}
+
+tampered_core="$TEST_ROOT/release-tampered-core"
+cp -R "$release_dir" "$tampered_core"
+printf 'x' >> "$tampered_core/$asset"
+expect_refusal tampered-core 'release checksum verification failed' "$tampered_core" --minimal
+
+tampered_catalog="$TEST_ROOT/release-tampered-catalog"
+cp -R "$release_dir" "$tampered_catalog"
+printf 'x' >> "$tampered_catalog/$catalog_asset"
+expect_refusal tampered-catalog 'release checksum verification failed' "$tampered_catalog" --adapters docker
+
+missing_core="$TEST_ROOT/release-missing-core"
+cp -R "$release_dir" "$missing_core"
+grep -v " $asset\$" "$release_dir/checksums.txt" > "$missing_core/checksums.txt" || true
+expect_refusal missing-core-checksum 'release checksum is missing' "$missing_core" --minimal
+
+missing_catalog="$TEST_ROOT/release-missing-catalog"
+cp -R "$release_dir" "$missing_catalog"
+grep -v " $catalog_asset\$" "$release_dir/checksums.txt" > "$missing_catalog/checksums.txt" || true
+expect_refusal missing-catalog-checksum 'release checksum is missing' "$missing_catalog" --adapters docker
+
 # The old installer URL remains a functional streamed compatibility redirect.
 compat_home="$TEST_ROOT/compat-home"
 compat_config="$TEST_ROOT/compat-config"

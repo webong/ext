@@ -12,7 +12,6 @@ import (
 	"encoding/json"
 	"github.com/webong/ext/pkg/plugin"
 	"github.com/webong/ext/pkg/plugin/interop"
-	"github.com/webong/ext/pkg/plugin/packagekit"
 	"github.com/webong/ext/pkg/plugin/schema"
 	"strings"
 	"unicode/utf8"
@@ -43,20 +42,6 @@ func engineValue(operation string, input any, output any) error {
 	}
 	return plugin.Decode(data, output)
 }
-func ValidateManifest(m packagekit.Manifest) error { return engineValue("package.validate", m, nil) }
-func ResolvePackages(manifests []packagekit.Manifest) (packagekit.Plan, error) {
-	if manifests == nil {
-		manifests = []packagekit.Manifest{}
-	}
-	var out packagekit.Plan
-	err := engineValue("package.resolve", manifests, &out)
-	return out, err
-}
-func SelectEntrypoint(m packagekit.Manifest, name string, env packagekit.Environment) (packagekit.LaunchSelection, error) {
-	var out packagekit.LaunchSelection
-	err := engineValue("package.select", map[string]any{"manifest": m, "name": name, "environment": map[string]any{"os": env.OS, "arch": env.Arch, "runtimes": env.Runtimes, "sharedVersions": env.SharedVersions}}, &out)
-	return out, err
-}
 func ResolveRoute(hosts, guests []plugin.BackendProfile, bridges []interop.Bridge, w interop.Requirements) (interop.Route, error) {
 	var out interop.Route
 	err := engineValue("route.resolve", map[string]any{"hosts": hosts, "guests": guests, "bridges": bridges, "requirements": map[string]bool{"concurrent": w.Concurrent, "nativeStreaming": w.NativeStreaming, "nativeCallbacks": w.NativeCallbacks}}, &out)
@@ -70,20 +55,26 @@ func CheckSchema(s schema.Schema, value json.RawMessage) error {
 	return engineValue("schema.check", map[string]any{"schema": s, "value": value}, nil)
 }
 
-// VerifyArtifacts checks the manifest and listed files in C. The application
-// must protect reviewed files against modification and separately establish trust.
-func VerifyArtifacts(m packagekit.Manifest, root string) error {
-	data, err := json.Marshal(m)
-	if err != nil {
-		return err
-	}
-	if strings.IndexByte(root, 0) >= 0 {
+// VerifyPackage validates a package manifest (JSON) and checks the artifacts it
+// lists under root, in C. The application must protect reviewed files against
+// modification and separately establish trust. Package.VerifyArtifacts in the
+// packages subpackage is the typed form.
+func VerifyPackage(manifest []byte, root string) error {
+	if len(manifest) == 0 || strings.IndexByte(root, 0) >= 0 {
 		return plugin.ErrInvalid
 	}
 	path := C.CString(root)
 	defer C.free(unsafe.Pointer(path))
-	return status(C.ext_package_verify((*C.uint8_t)(unsafe.Pointer(&data[0])), C.size_t(len(data)), path))
+	return status(C.ext_package_verify((*C.uint8_t)(unsafe.Pointer(&manifest[0])), C.size_t(len(manifest)), path))
 }
+
+// EngineValue runs a pure engine service with a JSON-encoded input and decodes
+// the result into output (nil to discard it). See lib/plugin/services.md for the
+// operations.
+func EngineValue(operation string, input any, output any) error {
+	return engineValue(operation, input, output)
+}
+
 func DirectoryDigest(root string) (string, error) {
 	if strings.IndexByte(root, 0) >= 0 {
 		return "", plugin.ErrInvalid

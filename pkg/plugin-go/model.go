@@ -71,7 +71,9 @@ var (
 	Method                 = plugin.Method
 	NegotiateProtocol      = plugin.NegotiateProtocol
 	ParseAdapterInvocation = plugin.ParseAdapterInvocation
+	PortablePath           = plugin.PortablePath
 	Select                 = plugin.Select
+	TreeDigest             = plugin.TreeDigest
 	ValidateRequest        = plugin.ValidateRequest
 )
 

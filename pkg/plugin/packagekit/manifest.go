@@ -9,9 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/fs"
 	"os"
-	"path"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -25,7 +23,6 @@ import (
 const Version = "ext.package/v1"
 
 var namePattern = regexp.MustCompile(`^[a-z0-9][a-z0-9._/-]{0,255}$`)
-var devicePattern = regexp.MustCompile(`(?i)^(con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)`)
 
 var digestPattern = regexp.MustCompile(`^[a-f0-9]{64}$`)
 
@@ -109,22 +106,7 @@ type Manifest struct {
 	Metadata map[string]json.RawMessage `json:"metadata,omitempty"`
 }
 
-func portablePath(value string) bool {
-	if !fs.ValidPath(value) || value == "." || path.Clean(value) != value || strings.ContainsAny(value, "\\:\x00\r\n") || len(value) > 1024 {
-		return false
-	}
-	for _, part := range strings.Split(value, "/") {
-		if strings.HasSuffix(part, ".") || strings.HasSuffix(part, " ") || devicePattern.MatchString(part) {
-			return false
-		}
-	}
-	return true
-}
-// PortablePath reports whether value is a portable relative path: slash
-// separated, with no empty, "." or ".." component, no backslash, colon, NUL or
-// line break, no component ending in "." or a space, no Windows device name,
-// and at most 1024 bytes. Manifest artifact paths must satisfy it.
-func PortablePath(value string) bool { return portablePath(value) }
+func portablePath(value string) bool { return plugin.PortablePath(value) }
 func (m Manifest) Validate() error {
 	if m.APIVersion != Version {
 		return plugin.ErrInvalid

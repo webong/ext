@@ -96,11 +96,17 @@ Product adapter engines and stores that are reused across adapters
 `adapters/secret_service/store`) are their own Go modules, listed in `go.work`
 and resolved by `src/ctx/go.mod` while unpublished. Product adapter
 executables use the same plugin library. `pkg/plugin` owns the
-adapter process protocol and adapter descriptor helpers. Adapters import
-`pkg/plugin` directly to build guests. Hosts, in any product, import
-`pkg/plugin` and `pkg/plugin/adapter`, which owns manifests, the installed
-store, trust and invocation; a product keeps only its own selection and
-commands.
+adapter process protocol and adapter descriptor helpers. Adapters and other Go
+programs import `pkg/plugin-go`, the one Go entry point: it re-exports the
+`pkg/plugin` data model and serves sessions, guests, digests and routes on the C
+engine (`ext_cengine` and cgo) or in pure Go, so `CGO_ENABLED=0` builds keep
+working. Its `packages`, `store` and `host` subpackages cover manifests, the
+installed package store and opening a package; the root stays free of
+`packagekit` so it does not reach `pkg/graph`. Runtime backends
+(`pkg/plugin-hashicorp`, `pkg/plugin-wasm`, `pkg/plugin-cshared`) implement
+`plugin.Backend` and keep importing `pkg/plugin`. Hosts import `pkg/plugin/adapter`,
+which owns manifests, the installed store, trust and invocation; a product keeps
+only its own selection and commands.
 
 Language SDKs and bindings belong under `pkg/<language>/` (Go, Rust, Zig and
 TypeScript), with language-specific embedding examples alongside them. The

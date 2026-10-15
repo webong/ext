@@ -16,7 +16,6 @@ import (
 	"github.com/webong/ext/pkg/plugin"
 	"github.com/webong/ext/pkg/plugin/author"
 	"github.com/webong/ext/pkg/plugin/interop"
-	"github.com/webong/ext/pkg/plugin/packagekit"
 	"github.com/webong/ext/pkg/plugin/process"
 	"github.com/webong/ext/pkg/plugin/schema"
 )
@@ -113,13 +112,6 @@ func (s *Session) Stderr() string {
 // SHA256 returns the SHA-256 digest of input.
 func SHA256(input []byte) [32]byte { return sha256.Sum256(input) }
 
-func ValidateManifest(m packagekit.Manifest) error { return m.Validate() }
-func ResolvePackages(manifests []packagekit.Manifest) (packagekit.Plan, error) {
-	return packagekit.Resolve(manifests)
-}
-func SelectEntrypoint(m packagekit.Manifest, name string, env packagekit.Environment) (packagekit.LaunchSelection, error) {
-	return m.SelectEntrypoint(name, env)
-}
 func ResolveRoute(hosts, guests []plugin.BackendProfile, bridges []interop.Bridge, w interop.Requirements) (interop.Route, error) {
 	return interop.Resolve(hosts, guests, bridges, w)
 }
@@ -130,9 +122,6 @@ func CheckSchema(s schema.Schema, value json.RawMessage) error {
 	}
 	return s.Check(value)
 }
-
-// VerifyArtifacts checks the manifest and the files it lists under root.
-func VerifyArtifacts(m packagekit.Manifest, root string) error { return m.VerifyArtifacts(root) }
 
 // DirectoryDigest is the digest of every regular file under root.
 func DirectoryDigest(root string) (string, error) {
@@ -147,11 +136,11 @@ func DirectoryDigest(root string) (string, error) {
 // file, or for a tree the directory digest of a directory that holds at least
 // one file.
 func ArtifactDigest(root, path string, tree bool) (string, error) {
-	if strings.IndexByte(root, 0) >= 0 || !utf8.ValidString(path) || !packagekit.PortablePath(path) {
+	if strings.IndexByte(root, 0) >= 0 || !utf8.ValidString(path) || !plugin.PortablePath(path) {
 		return "", plugin.ErrInvalid
 	}
 	if tree {
-		return packagekit.TreeDigest(root, path)
+		return plugin.TreeDigest(root, path)
 	}
 	current := root
 	parts := strings.Split(path, "/")

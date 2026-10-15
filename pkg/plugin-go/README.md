@@ -1,7 +1,32 @@
-# Go plugin bindings
+# Go plugin API
 
-Import `github.com/webong/ext/pkg/plugin-go` as `goengine` to embed the CTX C host engine.
-It is opt-in: build with `-tags ext_cengine` and cgo enabled on Linux/macOS.
+Import `github.com/webong/ext/pkg/plugin-go` (package `goengine`): the one Go entry
+point to the ext plugin system. One API, two builds:
+
+- **C engine.** With the `ext_cengine` build tag and cgo (Linux, macOS, and
+  Windows with MinGW-w64) the engine functions run in the shared C engine in
+  `lib/plugin`.
+- **Pure Go.** In any other build (no cgo, no tag, an unsupported platform) the
+  same API is served by the pure-Go implementation in `pkg/plugin`, so
+  `CGO_ENABLED=0` programs keep working. `goengine.CEngine` reports which build
+  you have.
+
+The data model (`Descriptor`, `Request`, `Response`, `Identity`, the `Err*`
+classes, `Backend`, `BackendProfile` and the contract helpers) is `pkg/plugin`'s,
+re-exported so a program imports this package alone. The common API is `Open`,
+`OpenProcess`, `Session`, `NewGuest`, `Guest`, `NewRegistry`,
+`GuestFromRegistry`, `ResolveRoute`, `ValidateSchema`, `CheckSchema`,
+`DirectoryDigest`, `ArtifactDigest` and `SHA256`. Subpackages:
+
+- [`packages`](packages): validate, resolve and verify `ext.package/v1` manifests.
+- [`store`](store): the installed package store, with layered roots and `Verify`.
+- [`host`](host): open an installed package as a running plugin.
+
+The root package does not import `packagekit`, so a small program such as an
+adapter does not reach `pkg/graph`. `Host`, `Streams`, `Instances`, `NewProcess`
+and `NewLaunch` are engine-only and need the C engine build.
+
+## Building with the C engine
 
 ```sh
 cmake -S lib/plugin -B /tmp/ext-cengine -DCMAKE_BUILD_TYPE=Release
@@ -19,7 +44,8 @@ for lifecycle, ownership, backend extension and current limitations.
 - [`cshared/guest`](cshared/guest/guest.go): Go guest lifecycle for the public
   C plugin ABI; does not depend on the C host engine or its build tag.
 
-The native Go contract and runtime implementations remain in `plugin/` while
+The pure-Go implementation remains in `pkg/plugin` as the fallback build and the
+baseline the engine is compared against, while
 [shared-engine parity](../../docs/plugin-engine-parity.md) is completed.
 
 ## Shared engine APIs

@@ -20,6 +20,7 @@ import (
 
 	"github.com/webong/ext/pkg/plugin"
 	goengine "github.com/webong/ext/pkg/plugin-go"
+	"github.com/webong/ext/pkg/plugin-go/packages"
 	"github.com/webong/ext/pkg/plugin/packagekit"
 )
 
@@ -438,7 +439,7 @@ func readManifest(dir string) (packagekit.Manifest, error) {
 	if err := plugin.Decode(data, &m); err != nil {
 		return m, err
 	}
-	return m, goengine.ValidateManifest(m)
+	return m, packages.ValidateManifest(m)
 }
 
 func sameContracts(a, b plugin.Descriptor) bool {
@@ -488,7 +489,7 @@ func securePath(root, name string) (string, error) {
 // Verify rechecks the manifest, every listed artifact (type, size, digest) and
 // that the directory holds nothing else, so Digest is stable and complete.
 func (p Installed) Verify() error {
-	if err := goengine.ValidateManifest(p.Manifest); err != nil {
+	if err := packages.ValidateManifest(p.Manifest); err != nil {
 		return err
 	}
 	limits := p.limits.normalize()
@@ -629,7 +630,7 @@ func (p Installed) Executable() (string, error) {
 // WriteManifest validates m and writes it as ManifestName in dir, for authors
 // assembling a package directory that Install will copy.
 func WriteManifest(dir string, m packagekit.Manifest) error {
-	if err := goengine.ValidateManifest(m); err != nil {
+	if err := packages.ValidateManifest(m); err != nil {
 		return err
 	}
 	encoded, err := json.MarshalIndent(m, "", "  ")

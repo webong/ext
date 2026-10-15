@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
@@ -50,7 +51,7 @@ func request(op string) []byte {
 }
 func TestAdmissionAndValidation(t *testing.T) {
 	t.Run("verify-before-spawn", func(t *testing.T) {
-		h, err := New("/does/not/exist", plugintest.Descriptor(), func([]byte) error { return plugin.ErrDenied }, allow)
+		h, err := New(missingExecutable(t), plugintest.Descriptor(), func([]byte) error { return plugin.ErrDenied }, allow)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -156,10 +157,8 @@ func TestFaultyGuests(t *testing.T) {
 	}
 	for _, mode := range []string{"bad-handshake", "stall", "exit", "duplicate", "wrong-id", "unknown", "oversize", "truncated", "negative-retry", "fragment"} {
 		t.Run(mode, func(t *testing.T) {
-			path := t.TempDir() + "/" + mode
-			if err := os.Symlink(base, path); err != nil {
-				t.Fatal(err)
-			}
+			path := filepath.Join(t.TempDir(), mode+exeSuffix())
+			linkOrCopy(t, base, path)
 			h, err := New(path, plugintest.Descriptor(), allow, allow)
 			if err != nil {
 				t.Fatal(err)

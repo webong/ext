@@ -246,8 +246,12 @@ func TestLaunchMatchesGoProcess(t *testing.T) {
 	}
 	src := t.TempDir()
 	body, _ := os.ReadFile(exe)
-	os.WriteFile(filepath.Join(src, "provider"), body, 0o700)
-	m, err := packagekit.ExecutableManifest("example/host", "1.0.0", contracts, filepath.Join(src, "provider"))
+	name := "provider"
+	if runtime.GOOS == "windows" {
+		name += ".exe"
+	}
+	os.WriteFile(filepath.Join(src, name), body, 0o700)
+	m, err := packagekit.ExecutableManifest("example/host", "1.0.0", contracts, filepath.Join(src, name))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -303,7 +307,10 @@ func TestLaunchMatchesGoProcess(t *testing.T) {
 func TestLaunchPathEnvironmentOverrideAndRejections(t *testing.T) {
 	installed := installExecutable(t)
 	exe := mustExecutable(t, installed)
-	p, err := host.Open(context.Background(), installed, host.Options{Launch: &host.Launch{Path: exe, Env: []string{"HOST_TEST_CHILD=1", "PATH=/custom"}}})
+	// Keep the host's directories on PATH so a binary that loads DLLs from them
+	// still starts; the point is that the caller's value replaces the base.
+	custom := "custom" + string(os.PathListSeparator) + os.Getenv("PATH")
+	p, err := host.Open(context.Background(), installed, host.Options{Launch: &host.Launch{Path: exe, Env: []string{"HOST_TEST_CHILD=1", "PATH=" + custom}}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -316,7 +323,7 @@ func TestLaunchPathEnvironmentOverrideAndRejections(t *testing.T) {
 	for _, e := range got.Env {
 		if strings.HasPrefix(e, "PATH=") {
 			paths++
-			if e != "PATH=/custom" {
+			if e != "PATH="+custom {
 				t.Errorf("caller PATH not honored: %s", e)
 			}
 		}

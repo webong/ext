@@ -9,6 +9,7 @@ import (
 	"github.com/webong/ext/pkg/plugin/plugintest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
@@ -25,6 +26,9 @@ func TestProcessConfiguration(t *testing.T) {
 	guest := os.Getenv("EXT_CENGINE_GUEST")
 	if guest == "" {
 		t.Skip("process fixture not supplied")
+	}
+	if runtime.GOOS == "windows" {
+		t.Skip("needs a POSIX shell wrapper; the host package tests cover arguments and environment on Windows")
 	}
 	wrapper := filepath.Join(t.TempDir(), "launch")
 	data := []byte("#!/bin/sh\n[ \"$1\" = expected ] || exit 2\n[ \"$EXT_PLUGIN_VALUE\" = selected ] || exit 3\n[ -z \"$EXT_PLUGIN_PARENT\" ] || exit 4\nexec \"$2\"\n")

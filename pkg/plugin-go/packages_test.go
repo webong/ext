@@ -15,6 +15,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -153,8 +154,10 @@ func TestIntegrityDifferential(t *testing.T) {
 	if err := os.Remove(filepath.Join(root, "link")); err != nil {
 		t.Fatal(err)
 	}
-	write("newline\n", "invalid")
-	check()
+	if runtime.GOOS != "windows" { // a file name cannot hold a line break there
+		write("newline\n", "invalid")
+		check()
+	}
 	linked := filepath.Join(t.TempDir(), "linked")
 	if err := os.Symlink(root, linked); err != nil {
 		t.Fatal(err)

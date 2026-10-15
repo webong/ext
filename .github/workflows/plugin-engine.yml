@@ -64,3 +64,33 @@ jobs:
       - name: Build the engine and run its tests
         shell: msys2 {0}
         run: scripts/plugin-engine-test.sh "$RUNNER_TEMP/engine"
+
+  # Windows on ARM64 with clang from MSYS2. Experimental: it reports without
+  # blocking until the toolchain has proven stable on hosted runners.
+  windows-arm64:
+    runs-on: windows-11-arm
+    continue-on-error: true
+    env:
+      CC: clang
+      CXX: clang++
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.x'
+          cache: true
+          cache-dependency-path: |
+            **/go.sum
+            go.work.sum
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: CLANGARM64
+          path-type: inherit
+          install: >-
+            mingw-w64-clang-aarch64-clang
+            mingw-w64-clang-aarch64-cmake
+            mingw-w64-clang-aarch64-ninja
+            mingw-w64-clang-aarch64-winpthreads
+      - name: Build the engine and run its tests
+        shell: msys2 {0}
+        run: scripts/plugin-engine-test.sh "$RUNNER_TEMP/engine"

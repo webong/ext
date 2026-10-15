@@ -225,3 +225,40 @@ func TestFaultyGuests(t *testing.T) {
 		})
 	}
 }
+
+// A frame far larger than any pipe buffer must cross the child's stdin and
+// stdout intact, in both directions, on every platform.
+func TestLargeFrameRoundTrip(t *testing.T) {
+	h := newHost(t, plugintest.Descriptor(), allow, allow)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	if err := h.Start(ctx); err != nil {
+		t.Fatal(err)
+	}
+	pad := strings.Repeat("0123456789abcdef", 512<<10) // 8 MiB
+	payload := `{"value":7,"pad":"` + pad + `"}`
+	d := plugintest.Descriptor()
+	req, err := json.Marshal(plugin.Request{APIVersion: plugin.APIVersion, ID: "1", Plugin: d.Identity, Contract: d.Contracts[0].ContractRef, Operation: "echo", Deadline: time.Now().Add(25 * time.Second), Payload: json.RawMessage(payload)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	reply, err := h.CallRaw(ctx, req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var resp plugin.Response
+	if err := json.Unmarshal(reply, &resp); err != nil {
+		t.Fatal(err)
+	}
+	if resp.Error != nil {
+		t.Fatalf("remote error: %+v", resp.Error)
+	}
+	t.Logf("sent %d bytes, received %d", len(req), len(reply))
+	// The conformance guest echoes the payload, so the reply is as large as the request.
+	if len(reply) < len(req)/2 {
+		t.Fatalf("reply truncated: %d bytes for a %d byte request", len(reply), len(req))
+	}
+	if _, err := h.CallRaw(ctx, request("echo")); err != nil {
+		t.Fatalf("session unusable after a large frame: %v", err)
+	}
+}

@@ -111,6 +111,14 @@ func RunCookie(profile, operation string, input io.Reader, stdout, stderr io.Wri
 			}
 			result.Cookies = append(result.Cookies, cookie)
 		}
+		encoded, err := json.Marshal(result)
+		if err != nil {
+			return ReportError(stderr, err)
+		}
+		if len(encoded) > contract.MaxCookieQueryResultBytes {
+			fmt.Fprintln(stderr, "ctx: cookie query result exceeds its size bound; narrow the site or names")
+			return 1
+		}
 		return Encode(stdout, result)
 	case "list", "export":
 		if backend.List == nil || (operation == "export" && backend.ReadValue == nil) {

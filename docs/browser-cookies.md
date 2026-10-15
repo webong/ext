@@ -176,6 +176,47 @@ browser sources, then fallback input fills missing scopes. First mode stops at
 the first source yielding any match, and uses fallback only if all earlier
 sources yielded none. Select explicit profiles when session provenance matters.
 
+## Cookie values are secrets
+
+A `cookie.query`, `cookie.export` or `cookie export` response carries cookie
+values: the adapter's stdout is a credential. A host must keep it out of logs,
+error text, progress output and persistent storage, pass it only to the code
+that needs it, and stop reading at `contract.MaxCookieQueryResultBytes` (32 MiB).
+An adapter refuses to return a larger result; narrow the site or names. Stderr,
+warnings and errors never carry a value, and the protocol has no consent
+token: whether a caller may read a profile is the host's decision, made before
+it runs the adapter.
+
+In Go, `contract.Cookie`, `CookieBundle`, `CookieQueryResult` and `CookieRequest`
+print their identity (name, domain, path, partition) and replace the value with
+`<redacted>` for `%v`, `%+v`, `%#v` and `%s`, including inside slices, maps and
+pointers. JSON encoding keeps the real value, because the protocol needs it.
+`cookie.query` requires a `site` unless `allow_all_hosts` is set, so a caller
+chooses a domain for every export.
+
+## Reading cookie databases
+
+Chromium-family and Firefox-family adapters read `Cookies` and `cookies.sqlite`
+with a built-in, read-only SQLite reader in `res/web/sqlite` (`Open`,
+`OpenShared`, `Database.Scan`, `Lookup`, `Columns`). No `sqlite3` program is
+needed, so reads work on Windows as well. The reader loads a consistent
+in-memory snapshot of the database and its `-wal` log (the pair is read again if
+it changes while being read), replays committed log frames after checking their
+checksums, creates no files and never writes, so a database the browser has open
+is read without locking it. Very recent writes that are not yet committed to the
+log are not visible.
+
+It handles table b-trees, overflow pages, columns added later with `ALTER TABLE`
+(read as their declared defaults), and a column declared `INTEGER PRIMARY KEY`
+(read as the rowid). It reports, rather than misreads, UTF-16 databases,
+`WITHOUT ROWID` and virtual tables, and generated columns. Files are treated as
+hostile: the database is limited to 512 MiB and its log to 256 MiB, b-trees to
+32 levels, and each query to a bounded amount of work; corrupt input returns
+`sqlite.ErrCorrupt`.
+
+Importing a cookie still writes through the `sqlite3` program, so `cookie import`
+needs it installed, and refuses to run on a profile whose browser is open.
+
 ## Platform boundaries and validation
 
 Browser-API cookie export, permission requests, user interaction, and export

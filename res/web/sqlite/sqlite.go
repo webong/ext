@@ -15,24 +15,37 @@ import (
 	"unicode/utf8"
 )
 
-type sqliteColumn struct {
-	Name string `json:"name"`
-}
-
-func CookieHostSQL(host string) string {
+// CookieHostCandidates returns the host_key values a cookie for host can have:
+// the host and each parent domain, each with and without a leading dot.
+func CookieHostCandidates(host string) []string {
 	var hosts []string
 	for part := host; part != ""; {
-		hosts = append(hosts, SQLString(part), SQLString("."+part))
+		hosts = append(hosts, part, "."+part)
 		dot := strings.IndexByte(part, '.')
 		if dot < 0 {
 			break
 		}
 		part = part[dot+1:]
 	}
-	return strings.Join(hosts, ",")
+	return hosts
 }
 
-func CookieDatabaseColumns(database, table string) ([]string, error) {
+func CookieHostSQL(host string) string {
+	candidates := CookieHostCandidates(host)
+	quoted := make([]string, len(candidates))
+	for i, candidate := range candidates {
+		quoted[i] = SQLString(candidate)
+	}
+	return strings.Join(quoted, ",")
+}
+
+type sqliteColumn struct {
+	Name string `json:"name"`
+}
+
+// cliColumns lists a table's columns through the sqlite3 shell. It is how
+// ReadableCookieDatabase learns whether the shell itself can open a database.
+func cliColumns(database, table string) ([]string, error) {
 	output, err := RunSQLite(database, true, "PRAGMA table_info("+SQLIdentifier(table)+")")
 	if err != nil {
 		return nil, err
@@ -48,10 +61,26 @@ func CookieDatabaseColumns(database, table string) ([]string, error) {
 	return names, nil
 }
 
-// ReadableCookieDatabase takes a private snapshot when a read-only SQLite
+// CookieDatabaseColumns returns the column names of a table, read with the
+// built-in reader (no sqlite3 binary needed).
+func CookieDatabaseColumns(database, table string) ([]string, error) {
+	db, err := Open(database)
+	if err != nil {
+		return nil, err
+	}
+	columns, err := db.Columns(table)
+	if err != nil {
+		return nil, fmt.Errorf("cookie table %s is unavailable", table)
+	}
+	return columns, nil
+}
+
+// ReadableCookieDatabase is for callers that run SQL through RunSQLite and so
+// need a path the sqlite3 shell can open. The cookie readers in the adapters no
+// longer use it: they read through Open, which needs no shell. It takes a private snapshot when a read-only SQLite
 // connection cannot open a profile's active WAL database.
 func ReadableCookieDatabase(database, table string) (string, func(), []string, error) {
-	columns, err := CookieDatabaseColumns(database, table)
+	columns, err := cliColumns(database, table)
 	if err == nil {
 		return database, func() {}, columns, nil
 	}
@@ -62,7 +91,7 @@ func ReadableCookieDatabase(database, table string) (string, func(), []string, e
 	if snapshotErr != nil {
 		return "", nil, nil, fmt.Errorf("cannot read cookie database: %w", snapshotErr)
 	}
-	columns, snapshotErr = CookieDatabaseColumns(snapshot, table)
+	columns, snapshotErr = cliColumns(snapshot, table)
 	if snapshotErr != nil {
 		cleanup()
 		return "", nil, nil, snapshotErr

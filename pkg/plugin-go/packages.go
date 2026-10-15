@@ -15,6 +15,7 @@ import (
 	"github.com/webong/ext/pkg/plugin/packagekit"
 	"github.com/webong/ext/pkg/plugin/schema"
 	"strings"
+	"unicode/utf8"
 	"unsafe"
 )
 
@@ -91,6 +92,28 @@ func DirectoryDigest(root string) (string, error) {
 	defer C.free(unsafe.Pointer(path))
 	var out [32]byte
 	if err := status(C.ext_directory_digest(path, (*C.uint8_t)(unsafe.Pointer(&out[0])))); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(out[:]), nil
+}
+
+// ArtifactDigest returns the digest of one artifact under root, addressed by a
+// portable relative path, never following symbolic links: the SHA-256 of a
+// file, or for a tree the directory digest of a directory that holds at least
+// one file. It computes the digests that a manifest records.
+func ArtifactDigest(root, path string, tree bool) (string, error) {
+	if strings.IndexByte(root, 0) >= 0 || strings.IndexByte(path, 0) >= 0 || !utf8.ValidString(path) {
+		return "", plugin.ErrInvalid
+	}
+	r, p := C.CString(root), C.CString(path)
+	defer C.free(unsafe.Pointer(r))
+	defer C.free(unsafe.Pointer(p))
+	flag := C.int(0)
+	if tree {
+		flag = 1
+	}
+	var out [32]byte
+	if err := status(C.ext_artifact_digest(r, p, flag, (*C.uint8_t)(unsafe.Pointer(&out[0])))); err != nil {
 		return "", err
 	}
 	return hex.EncodeToString(out[:]), nil

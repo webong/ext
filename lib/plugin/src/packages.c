@@ -33,11 +33,14 @@ static int digest(yyjson_val *v) {
       return 0;
   return 1;
 }
-static int portable(yyjson_val *v) {
-  if (!string(v, 1, 1024))
+/* Whether s (n bytes, valid UTF-8) is a portable relative path: slash separated,
+ * no empty, "." or ".." components, no backslash, colon, NUL or line break, no
+ * component ending in "." or space, no Windows device names, at most 1024
+ * bytes. Matches packagekit. */
+int ext_portable_path(const char *s, size_t n) {
+  if (!n || n > 1024)
     return 0;
-  const char *s = yyjson_get_str(v);
-  size_t n = yyjson_get_len(v), start = 0;
+  size_t start = 0;
   for (size_t i = 0; i <= n; i++) {
     if (i < n &&
         (s[i] == '\\' || s[i] == ':' || !s[i] || s[i] == '\r' || s[i] == '\n'))
@@ -67,6 +70,10 @@ static int portable(yyjson_val *v) {
     start = i + 1;
   }
   return 1;
+}
+static int portable(yyjson_val *v) {
+  return string(v, 1, 1024) &&
+         ext_portable_path(yyjson_get_str(v), yyjson_get_len(v));
 }
 /* Inputs have already passed strict UTF-8 validation. Match Go's simple
  * Unicode lowercase mapping, rather than locale-dependent tolower/casefold. */

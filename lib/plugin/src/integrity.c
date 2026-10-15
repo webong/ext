@@ -320,3 +320,19 @@ ext_status ext_directory_digest(const char *root, uint8_t out[32]) {
   }
   return s;
 }
+/* Digest of one artifact under root, addressed by a portable relative path and
+ * never following symbolic links. A file artifact is its SHA-256; a tree
+ * artifact is the directory digest of the tree, which must hold at least one
+ * file. */
+ext_status ext_artifact_digest(const char *root, const char *path, int tree,
+                               uint8_t out[32]) {
+  if (!root || !path || !out || !ext_portable_path(path, strlen(path)))
+    return EXT_INVALID;
+  int fd = -1;
+  ext_status s = root_open(root, &fd);
+  if (s)
+    return s;
+  s = tree ? tree_hash(fd, path, out) : artifact_hash(fd, path, out);
+  close(fd);
+  return s;
+}

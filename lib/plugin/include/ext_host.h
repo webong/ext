@@ -218,6 +218,11 @@ EXT_HOST_API ext_status ext_engine_sha256(const uint8_t *, size_t,
 EXT_HOST_API ext_status ext_package_verify(const uint8_t *manifest, size_t len,
                                            const char *root);
 EXT_HOST_API ext_status ext_directory_digest(const char *root, uint8_t out[32]);
+/* Digest of one artifact addressed by a portable relative path under root,
+ * never following symbolic links: the SHA-256 of a file, or when tree is
+ * nonzero the directory digest of a tree that holds at least one file. */
+EXT_HOST_API ext_status ext_artifact_digest(const char *root, const char *path,
+                                            int tree, uint8_t out[32]);
 /* Pure engine services: strict bounded JSON input/output, no runtime callbacks,
  * filesystem access, discovery or authorization. Returns an owned JSON value.
  * See services.md for operations and schemas. Free output with ext_buffer_free.

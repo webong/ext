@@ -360,3 +360,59 @@ func TestTreeIntegrityDifferential(t *testing.T) {
 	}
 	check("tree containing a symlink", "vendor/lib", false)
 }
+
+func TestArtifactDigestDifferential(t *testing.T) {
+	root := t.TempDir()
+	put := func(rel, body string) {
+		t.Helper()
+		p := filepath.Join(root, filepath.FromSlash(rel))
+		if err := os.MkdirAll(filepath.Dir(p), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(p, []byte(body), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	put("source.txt", "payload")
+	put("vendor/lib/b.txt", "two")
+	put("vendor/a.txt", "one")
+	os.MkdirAll(filepath.Join(root, "empty/inner"), 0o700)
+	os.Symlink(filepath.Join(root, "source.txt"), filepath.Join(root, "link.txt"))
+	os.Symlink(filepath.Join(root, "vendor"), filepath.Join(root, "linkdir"))
+
+	for _, rel := range []string{"source.txt", "vendor/a.txt", "vendor/lib/b.txt"} {
+		want, err := packagekit.FileDigest(filepath.Join(root, filepath.FromSlash(rel)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got, err := ArtifactDigest(root, rel, false); err != nil || got != want {
+			t.Errorf("file %s: C %q (%v), Go %q", rel, got, err, want)
+		}
+	}
+	for _, rel := range []string{"vendor", "vendor/lib"} {
+		want, err := packagekit.TreeDigest(root, rel)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got, err := ArtifactDigest(root, rel, true); err != nil || got != want {
+			t.Errorf("tree %s: C %q (%v), Go %q", rel, got, err, want)
+		}
+	}
+	for _, rel := range []string{"empty", "missing", "source.txt", "linkdir", "linkdir/lib", "vendor/a.txt", "../escape", "/abs", "a\\b", "", "a//b", "CON", "a/", "é\xff"} {
+		_, goErr := packagekit.TreeDigest(root, rel)
+		_, cErr := ArtifactDigest(root, rel, true)
+		if goErr == nil || cErr == nil {
+			t.Errorf("tree %q: Go %v, C %v: both must fail", rel, goErr, cErr)
+			continue
+		}
+		sameError(t, cErr, goErr)
+	}
+	for _, rel := range []string{"link.txt", "linkdir/a.txt", "vendor", "missing.txt", "../escape", "/abs", "", "a//b", "CON"} {
+		if _, err := ArtifactDigest(root, rel, false); err == nil {
+			t.Errorf("file %q accepted", rel)
+		}
+	}
+	if _, err := ArtifactDigest(root+"\x00", "source.txt", false); !errors.Is(err, plugin.ErrInvalid) {
+		t.Error("NUL in root accepted")
+	}
+}

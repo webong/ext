@@ -14,6 +14,7 @@ the way the Go ``plugin.ValidateRequest`` does, and calls the handler
 sequentially. It never writes to stdout except protocol frames.
 """
 
+from . import capability
 from .guest import (
     API_VERSION,
     MAX_FRAME_BYTES,
@@ -30,6 +31,7 @@ from .guest import (
 )
 
 __all__ = [
+    "capability",
     "API_VERSION",
     "MAX_FRAME_BYTES",
     "MAX_RETRY_AFTER_MS",

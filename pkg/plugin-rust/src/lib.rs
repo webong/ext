@@ -1,5 +1,6 @@
 //! Typed CTX hosts and guests. Domain policy is mandatory on both sides.
 pub mod cabi;
+pub mod capability;
 pub mod guest;
 pub mod host;
 #[cfg(not(target_os = "wasi"))]

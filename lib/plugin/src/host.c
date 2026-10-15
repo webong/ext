@@ -237,7 +237,7 @@ ext_status ext_host_create(const ext_host_options *o,
   pthread_condattr_t attr;
   int cond_error = pthread_condattr_init(&attr);
   if (!cond_error) {
-#ifndef __APPLE__
+#if !defined(__APPLE__) && !defined(_WIN32)
     cond_error = pthread_condattr_setclock(&attr, CLOCK_MONOTONIC);
 #endif
     if (!cond_error)
@@ -408,6 +408,15 @@ static void wait_changed(ext_host *h, int64_t deadline,
   t.tv_sec = (time_t)(remain / 1000);
   t.tv_nsec = (long)(remain % 1000) * 1000000;
   pthread_cond_timedwait_relative_np(&h->changed, &h->mu, &t);
+#elif defined(_WIN32)
+  /* winpthreads condition variables run on the realtime clock. Callers loop and
+   * recheck their deadline on the monotonic clock, so a clock step only moves
+   * the wake-up. */
+  clock_gettime(CLOCK_REALTIME, &t);
+  int64_t nanoseconds = (int64_t)t.tv_nsec + (remain % 1000) * 1000000;
+  t.tv_sec += (time_t)(remain / 1000 + nanoseconds / 1000000000);
+  t.tv_nsec = (long)(nanoseconds % 1000000000);
+  pthread_cond_timedwait(&h->changed, &h->mu, &t);
 #else
   int64_t until = mono_ms() + remain;
   t.tv_sec = (time_t)(until / 1000);

@@ -1,0 +1,66 @@
+name: Plugin engine
+
+# Builds the portable C plugin engine in lib/plugin and runs its native tests and
+# the Go suites that link against it, on Linux, macOS and Windows (MinGW-w64).
+on:
+  push:
+    branches: [main, 'plugin-engine/**']
+    paths:
+      - 'lib/plugin/**'
+      - 'pkg/plugin-go/**'
+      - 'pkg/plugin/**'
+      - 'scripts/plugin-engine-test.sh'
+      - '.github/workflows/plugin-engine.yml'
+  pull_request:
+    paths:
+      - 'lib/plugin/**'
+      - 'pkg/plugin-go/**'
+      - 'pkg/plugin/**'
+      - 'scripts/plugin-engine-test.sh'
+      - '.github/workflows/plugin-engine.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  posix:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.x'
+          cache: true
+          cache-dependency-path: |
+            **/go.sum
+            go.work.sum
+      - name: Build the engine and run its tests
+        run: scripts/plugin-engine-test.sh "$RUNNER_TEMP/engine"
+
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.x'
+          cache: true
+          cache-dependency-path: |
+            **/go.sum
+            go.work.sum
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          path-type: inherit
+          install: >-
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-cmake
+            mingw-w64-x86_64-ninja
+      - name: Build the engine and run its tests
+        shell: msys2 {0}
+        run: scripts/plugin-engine-test.sh "$RUNNER_TEMP/engine"

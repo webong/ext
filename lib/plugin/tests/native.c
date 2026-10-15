@@ -43,6 +43,14 @@ static void *invoke(void *p) {
   ext_buffer_free(&out);
   return NULL;
 }
+/* Absolute paths that look right on this platform. */
+#ifdef _WIN32
+#define TEST_ROOT_DIR "C:\\"
+#define TEST_MISSING "C:\\does\\not\\exist"
+#else
+#define TEST_ROOT_DIR "/"
+#define TEST_MISSING "/does/not/exist"
+#endif
 int main(int argc, char **argv) {
   assert(argc == 5);
   ext_buffer descriptor = read_file(argv[2]), request = read_file(argv[3]),
@@ -90,7 +98,7 @@ int main(int argc, char **argv) {
   }
   ext_host *h = NULL;
   o.verify = deny;
-  process.executable = "/does/not/exist";
+  process.executable = TEST_MISSING;
   assert(ext_host_create(&o, &backend, &h) == EXT_OK);
   assert(ext_host_start(h, 100) == EXT_DENIED);
   ext_host_destroy(h);
@@ -109,7 +117,7 @@ int main(int argc, char **argv) {
     o.verify = allow;
     o.authorize = allow;
     ext_jsonline_process_launch launch = {sizeof(launch), argv[1], NULL, 0,
-                                          NULL,           0,       "/",  16};
+                                          NULL,           0,       TEST_ROOT_DIR,  16};
     ext_backend_options launch_backend = {sizeof(launch_backend),
                                           EXT_BACKEND_JSONLINE_PROCESS_LAUNCH,
                                           &launch, sizeof(launch)};
@@ -131,7 +139,7 @@ int main(int argc, char **argv) {
 
     launch.working_directory = "relative";
     assert(ext_host_create(&o, &launch_backend, &l) == EXT_INVALID);
-    launch.working_directory = "/does/not/exist";
+    launch.working_directory = TEST_MISSING;
     assert(ext_host_create(&o, &launch_backend, &l) == EXT_OK);
     assert(ext_host_start(l, 1000) != EXT_OK);
     ext_host_destroy(l);
@@ -139,7 +147,7 @@ int main(int argc, char **argv) {
     launch.stderr_bytes = (16u << 20) + 1;
     assert(ext_host_create(&o, &launch_backend, &l) == EXT_INVALID);
     launch.stderr_bytes = 0;
-    launch.executable = "/";
+    launch.executable = TEST_ROOT_DIR;
     assert(ext_host_create(&o, &launch_backend, &l) == EXT_OK);
     assert(ext_host_start(l, 1000) != EXT_OK);
     ext_host_destroy(l);

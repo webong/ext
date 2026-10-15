@@ -1,4 +1,4 @@
-//go:build ext_cengine && cgo && (darwin || linux)
+//go:build ext_cengine && cgo && (darwin || linux || windows)
 
 // Package goengine (github.com/webong/ext/pkg/plugin-go) binds Go to the C host engine.
 // Build with -tags ext_cengine and link libext_host_static. Add the
@@ -9,6 +9,7 @@ package goengine
 #cgo CFLAGS: -I${SRCDIR}/../../lib/plugin/include
 #cgo !ext_cengine_shared CFLAGS: -DEXT_HOST_STATIC
 #cgo !ext_cengine_shared LDFLAGS: -lext_host_static -lpthread -lm
+#cgo windows,!ext_cengine_shared LDFLAGS: -lbcrypt
 #cgo ext_cengine_shared LDFLAGS: -lext_host
 #include "ext_host.h"
 #include <stdlib.h>

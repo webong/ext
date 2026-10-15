@@ -1,4 +1,4 @@
-//go:build ext_cengine && cgo && (darwin || linux)
+//go:build ext_cengine && cgo && (darwin || linux || windows)
 
 package store
 

@@ -1,0 +1,6 @@
+github.com/tetratelabs/wazero v1.10.1 h1:2DugeJf6VVk58KTPszlNfeeN8AhhpwcZqkJj2wwFuH8=
+github.com/tetratelabs/wazero v1.10.1/go.mod h1:DRm5twOQ5Gr1AoEdSi0CLjDQF1J9ZAuyqFIjl1KKfQU=
+github.com/webong/ext/pkg/plugin v0.2.0 h1:KJ0L0vGyM0acl433Bbo6nqbDezUrW/JK07XW7txcLOw=
+github.com/webong/ext/pkg/plugin v0.2.0/go.mod h1:4HjMr9xajSrI6DroQ7+3jntxmrZF1M5UPwhlMliljDE=
+github.com/webong/ext/pkg/plugin-wasm v0.2.1 h1:flrLigPYbfNuLBb30ZgVN7rjUvh9qlM+nDihtgm3MXU=
+github.com/webong/ext/pkg/plugin-wasm v0.2.1/go.mod h1:9pk6KeOH+drwUouxEQwTnOuYpvfmX0L2Tm5bb7lIctE=

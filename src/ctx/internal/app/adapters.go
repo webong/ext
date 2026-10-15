@@ -43,7 +43,7 @@ func stripDependencyEnvironment(values []string) []string {
 
 func adapterCommand(resolver *config.Resolver, args []string, stdout, stderr io.Writer) int {
 	if len(args) == 0 {
-		fmt.Fprintln(stderr, "ctx: adapter requires ls, available, add, refresh, inspect, build, pack, index, install, trust, test, doctor, or remove")
+		fmt.Fprintln(stderr, "ctx: adapter requires ls, available, add, refresh, inspect, build, pack, index, install, trust, verify, test, doctor, or remove")
 		return 2
 	}
 	store := adapterStore()
@@ -261,6 +261,30 @@ func adapterCommand(resolver *config.Resolver, args []string, stdout, stderr io.
 		}
 		fmt.Fprintf(stdout, "trusted adapter %s\n", candidate.Manifest.Name)
 		return 0
+	case "verify":
+		// Read-only: loads each adapter and compares it with its recorded trust
+		// digest. It never runs an adapter, changes trust, or creates the store.
+		checks, err := store.Verify(args[1:]...)
+		if err != nil {
+			return reportError(stderr, err)
+		}
+		failed := false
+		for _, check := range checks {
+			switch {
+			case check.Err != nil:
+				failed = true
+				fmt.Fprintf(stdout, "%-16s %-10s %v\n", check.Name, "invalid", check.Err)
+			case check.State == modpkg.TrustTrusted:
+				fmt.Fprintf(stdout, "%-16s %s\n", check.Name, check.State)
+			default:
+				failed = true
+				fmt.Fprintf(stdout, "%-16s %-10s run ctx adapter trust %s after reviewing it\n", check.Name, check.State, check.Name)
+			}
+		}
+		if failed {
+			return 1
+		}
+		return 0
 	case "test":
 		if len(args) != 2 {
 			fmt.Fprintln(stderr, "ctx: adapter test needs an adapter directory")
@@ -325,7 +349,7 @@ func adapterCommand(resolver *config.Resolver, args []string, stdout, stderr io.
 		fmt.Fprintf(stdout, "removed adapter %s\n", args[1])
 		return 0
 	default:
-		fmt.Fprintln(stderr, "ctx: adapter requires ls, available, add, refresh, inspect, build, pack, index, install, trust, test, doctor, or remove")
+		fmt.Fprintln(stderr, "ctx: adapter requires ls, available, add, refresh, inspect, build, pack, index, install, trust, verify, test, doctor, or remove")
 		return 2
 	}
 }

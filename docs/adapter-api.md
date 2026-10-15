@@ -691,6 +691,16 @@ Direct `ctx adapter install ./directory` installation does not imply trust. Trus
 records a checksum over every file in the adapter directory. Any subsequent
 change makes the adapter untrusted until the user reviews and trusts it again.
 
+`ctx adapter verify [name...]` checks installed adapters without running any of
+them. It loads each one with the validation an install applies and compares its
+content with the recorded checksum. Each adapter is reported as `trusted`;
+`untrusted` (never trusted); `changed` (trusted once, modified since); or
+`invalid` (it fails to load, which `ctx adapter ls` would silently omit). With no
+names it checks every adapter directory. The exit status is 0 only when every
+checked adapter is trusted. It is read-only: it does not change trust, create the
+adapter store, or run an adapter. It is unrelated to `ctn verify`, which runs
+content in a sandboxed engine.
+
 ### Native browser page backends
 
 Adapters implementing the shared local manager can supply `PageSessionBackend`

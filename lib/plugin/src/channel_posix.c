@@ -166,8 +166,12 @@ ext_status ext_channel_open(const ext_launch *launch, ext_channel **out) {
       err = posix_spawn_file_actions_addclose(&actions, errfds[1]);
   }
 #ifdef EXT_HAVE_SPAWN_CHDIR
+  /* Newer macOS SDKs deprecate the _np name in favor of one older systems lack. */
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
   if (!err && launch->directory)
     err = posix_spawn_file_actions_addchdir_np(&actions, launch->directory);
+#pragma GCC diagnostic pop
 #endif
   if (!err)
     err = posix_spawn(&c->pid, launch->path, &actions, NULL,

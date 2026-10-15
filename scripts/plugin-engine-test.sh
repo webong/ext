@@ -41,7 +41,7 @@ PY
 echo "== native tests"
 "$build/engine/ext_guest_core_test$exe"
 "$build/engine/ext_resources_test$exe"
-"$build/engine/ext_host_native_test$exe" "$guest" "$build/descriptor.json" "$build/echo.json" "$build/wait.json"
+"$build/engine/ext_host_native_test$exe" "$(winpath "$guest")" "$(winpath "$build/descriptor.json")" "$(winpath "$build/echo.json")" "$(winpath "$build/wait.json")"
 
 echo "== Go suites linked against the engine"
 cd pkg/plugin-go

@@ -73,7 +73,12 @@ int main(int argc, char **argv) {
                         NULL};
   for (int i = 0; i < 20; i++) {
     ext_host *h = NULL;
-    assert(ext_host_create(&o, &backend, &h) == EXT_OK);
+    ext_status created = ext_host_create(&o, &backend, &h);
+    if (created != EXT_OK)
+      fprintf(stderr, "ext_host_create: %s (executable %s, descriptor %zu bytes)\n",
+              ext_host_status_string(created), process.executable,
+              descriptor.len);
+    assert(created == EXT_OK);
     assert(ext_host_start(h, 3000) == EXT_OK);
     call calls[4];
     pthread_t threads[4];

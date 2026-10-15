@@ -3,10 +3,7 @@
 package goengine
 
 /*
-#include "ext_guest.h"
-ext_status ext_go_guest_create(const uint8_t *,size_t,uint32_t,uintptr_t,ext_guest **);
-ext_status ext_go_guest_emit(ext_guest_emit,void *,uint32_t,uint8_t *,size_t);
-ext_status ext_go_guest_invoke(ext_guest *,const uint8_t *,size_t,uint32_t,uintptr_t,ext_buffer *);
+#include "ext_go_bridge.h"
 */
 import "C"
 import (

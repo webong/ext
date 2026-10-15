@@ -3,10 +3,7 @@
 package goengine
 
 /*
-#include "ext_instance.h"
-ext_status ext_go_instances_create(uintptr_t,uint32_t,ext_instances **);
-uintptr_t ext_go_lease_value(ext_lease *);
-void ext_go_call_init(ext_call_options *,uint32_t,const ext_cancel *,uintptr_t);
+#include "ext_go_bridge.h"
 */
 import "C"
 import (

@@ -3,9 +3,8 @@
 package goengine
 
 /*
-#include "ext_stream.h"
+#include "ext_go_bridge.h"
 #include <stdlib.h>
-ext_status ext_go_streams_create(uintptr_t,uint32_t,uint32_t,ext_streams **);
 */
 import "C"
 import (

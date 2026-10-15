@@ -6,15 +6,13 @@
 package goengine
 
 /*
-#cgo CFLAGS: -I${SRCDIR}/../../lib/plugin/include
+#cgo CFLAGS: -I${SRCDIR}/../../lib/plugin/include -I${SRCDIR}/../../lib/plugin/bindings/go
 #cgo !ext_cengine_shared CFLAGS: -DEXT_HOST_STATIC
 #cgo !ext_cengine_shared LDFLAGS: -lext_host_static -lpthread -lm
 #cgo windows,!ext_cengine_shared LDFLAGS: -lbcrypt
 #cgo ext_cengine_shared LDFLAGS: -lext_host
-#include "ext_host.h"
+#include "ext_go_bridge.h"
 #include <stdlib.h>
-void ext_go_call_init(ext_call_options *,uint32_t,const ext_cancel *,uintptr_t);
-ext_status ext_go_create(const char *, const unsigned char *, size_t, uintptr_t, ext_host **);
 */
 import "C"
 

@@ -3,8 +3,7 @@
 package goengine
 
 /*
-#include "ext_host.h"
-ext_status ext_go_set_hooks(ext_host *,uintptr_t);
+#include "ext_go_bridge.h"
 */
 import "C"
 import (

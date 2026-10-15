@@ -3,10 +3,8 @@
 package goengine
 
 /*
-#include "ext_host.h"
+#include "ext_go_bridge.h"
 #include <stdlib.h>
-ext_status ext_go_create_process(const char *,const char *const *,size_t,const char *const *,size_t,const uint8_t *,size_t,uintptr_t,ext_host **);
-ext_status ext_go_create_launch(const char *,const char *const *,size_t,const char *const *,size_t,const char *,uint32_t,const uint8_t *,size_t,uintptr_t,ext_host **);
 */
 import "C"
 import (

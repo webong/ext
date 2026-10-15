@@ -34,6 +34,8 @@ protocol and existing language guest implementations remain unchanged.
 - Bindings in [Go](../../pkg/plugin-go/README.md), [Rust](../../pkg/plugin-rust/engine/README.md),
   [Zig](../../pkg/plugin-zig/engine/README.md) and [Node](../../pkg/plugin-ts/engine/README.md).
   They are additive while the existing language SDKs remain the reference.
+  The Go binding's C glue is the header-only `bindings/go/ext_go_bridge.h`, which its
+  cgo preambles include, so the Go package has no `.c` files.
 
 See the [service and resource APIs](services.md) for the common operations.
 The binding examples use permissive fixture policies; applications supply their

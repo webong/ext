@@ -165,3 +165,49 @@ func TestLayeredListFailsOnUnexpectedEntry(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestLayeredVerifyReportsWhatWouldBeServed(t *testing.T) {
+	user, system := newStore(t), newStore(t)
+	shadowed, err := system.Install(source(t, "example/a", "sys", "system"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	write(t, shadowed.Directory, "src/main.py", "evil") // shadowed, so never checked
+	sysBad, err := system.Install(source(t, "example/b", "sys", "two"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	write(t, sysBad.Directory, "src/main.py", "evil")
+	if _, err := system.Install(source(t, "example/c", "sys", "three")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := user.Install(source(t, "example/a", "usr", "user")); err != nil {
+		t.Fatal(err)
+	}
+	userBad, err := user.Install(source(t, "example/d", "usr", "four"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	write(t, userBad.Directory, "src/main.py", "evil")
+
+	checks, err := layered(t, user, system).Verify()
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := map[string]error{}
+	for _, c := range checks {
+		if _, dup := got[c.ID]; dup {
+			t.Fatalf("%s reported twice: %v", c.ID, checks)
+		}
+		got[c.ID] = c.Err
+	}
+	if len(got) != 4 {
+		t.Fatal(checks)
+	}
+	if got["example/a"] != nil || got["example/c"] != nil {
+		t.Fatal("served packages must verify; shadowed copy must be ignored:", got)
+	}
+	if !errors.Is(got["example/b"], plugin.ErrMismatch) || !errors.Is(got["example/d"], plugin.ErrMismatch) {
+		t.Fatal("damaged packages must be reported in both stores:", got)
+	}
+}

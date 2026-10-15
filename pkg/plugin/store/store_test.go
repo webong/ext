@@ -193,3 +193,71 @@ func TestReservedPathAndEmptyRoot(t *testing.T) {
 		t.Fatal("reserved artifact path accepted")
 	}
 }
+
+func TestVerifyReportsEveryProblem(t *testing.T) {
+	s := newStore(t)
+	good, err := s.Install(source(t, "example/good", "r1", "one"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	bad, err := s.Install(source(t, "example/bad", "r1", "two"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	extra, err := s.Install(source(t, "example/extra", "r1", "three"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	write(t, bad.Directory, "src/main.py", "evil")
+	write(t, extra.Directory, "extra.txt", "x")
+	if err := os.WriteFile(filepath.Join(s.Root(), "stray"), nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(s.Root(), ".install-staging"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+
+	// List stops at the first problem; Verify reports all of them.
+	if _, err := s.List(); err == nil {
+		t.Fatal("list must fail closed")
+	}
+	checks, err := s.Verify()
+	if err != nil || len(checks) != 4 {
+		t.Fatal(checks, err)
+	}
+	byID := map[string]store.Check{}
+	for _, c := range checks {
+		byID[c.ID] = c
+	}
+	if !byID["example/good"].OK() || byID["example/good"].Directory != good.Directory {
+		t.Fatal("good package:", byID["example/good"])
+	}
+	if c := byID["example/bad"]; !errors.Is(c.Err, plugin.ErrMismatch) {
+		t.Fatal("tampered artifact:", c)
+	}
+	if c := byID["example/extra"]; !errors.Is(c.Err, plugin.ErrInvalid) {
+		t.Fatal("unlisted file:", c)
+	}
+	if c := byID["stray"]; !errors.Is(c.Err, plugin.ErrInvalid) {
+		t.Fatal("stray entry:", c)
+	}
+	for i := 1; i < len(checks); i++ {
+		if checks[i-1].ID >= checks[i].ID {
+			t.Fatal("not sorted", checks)
+		}
+	}
+}
+
+func TestVerifyMissingRootIsEmptyAndNotCreated(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "no", "such")
+	s, err := store.New(root, store.Limits{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if checks, err := s.Verify(); err != nil || len(checks) != 0 {
+		t.Fatal(checks, err)
+	}
+	if _, err := os.Stat(root); !os.IsNotExist(err) {
+		t.Fatal("Verify created the root")
+	}
+}

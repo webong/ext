@@ -137,10 +137,17 @@ func (s *Store) load(id string) (Installed, error) {
 	return p, nil
 }
 
-// entryIDs returns the package IDs named by the root's directories without
-// reading or verifying their content. A missing root has none. It fails on an
-// entry that is not a package directory. The caller holds s.mu.
-func (s *Store) entryIDs() ([]string, error) {
+// entry is one name found directly under a store root.
+type entry struct {
+	name string // directory name as stored
+	id   string // package ID when name is a valid package directory
+	err  error  // why name is not a package directory
+}
+
+// scan lists the names under the root without reading or verifying any
+// package. A missing root has none. Staging directories (leading ".") are
+// skipped. The caller holds s.mu.
+func (s *Store) scan() ([]entry, error) {
 	entries, err := os.ReadDir(s.root)
 	if errors.Is(err, os.ErrNotExist) {
 		return nil, nil
@@ -148,19 +155,38 @@ func (s *Store) entryIDs() ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	var ids []string
+	var out []entry
 	for _, e := range entries {
 		if strings.HasPrefix(e.Name(), ".") {
 			continue
 		}
+		item := entry{name: e.Name()}
 		if !e.IsDir() {
-			return nil, fmt.Errorf("%w: unexpected entry %q", plugin.ErrInvalid, e.Name())
+			item.err = fmt.Errorf("%w: unexpected entry %q", plugin.ErrInvalid, e.Name())
+		} else if id := strings.ReplaceAll(e.Name(), "%2f", "/"); !validID(id) {
+			item.err = fmt.Errorf("%w: invalid package directory %q", plugin.ErrInvalid, e.Name())
+		} else {
+			item.id = id
 		}
-		id := strings.ReplaceAll(e.Name(), "%2f", "/")
-		if !validID(id) {
-			return nil, fmt.Errorf("%w: invalid package directory %q", plugin.ErrInvalid, e.Name())
+		out = append(out, item)
+	}
+	return out, nil
+}
+
+// entryIDs returns the package IDs named by the root's directories without
+// reading or verifying their content. It fails on an entry that is not a
+// package directory. The caller holds s.mu.
+func (s *Store) entryIDs() ([]string, error) {
+	entries, err := s.scan()
+	if err != nil {
+		return nil, err
+	}
+	ids := make([]string, 0, len(entries))
+	for _, e := range entries {
+		if e.err != nil {
+			return nil, e.err
 		}
-		ids = append(ids, id)
+		ids = append(ids, e.id)
 	}
 	return ids, nil
 }
@@ -734,4 +760,58 @@ func copyTree(srcRoot, dstRoot string, a packagekit.Artifact, limits Limits) err
 		// Keep the owner-execute bit even under a restrictive umask.
 		return os.Chmod(target, mode)
 	})
+}
+
+// Check is the verification result for one entry under a store root.
+type Check struct {
+	// ID is the package ID, or the directory name when it is not a valid one.
+	ID string
+	// Directory is where the entry lives.
+	Directory string
+	// Err is why the entry failed: a manifest that does not decode or validate,
+	// an artifact that is missing, changed, linked or oversized, an unlisted
+	// file, a directory that does not match its manifest, or an entry that is
+	// not a package directory. Nil means the package verified.
+	Err error
+}
+
+// OK reports whether the entry verified.
+func (c Check) OK() bool { return c.Err == nil }
+
+// Verify checks every package under the root and reports each one. Unlike List
+// it does not stop at the first bad package, so a caller can show everything
+// that is wrong. It runs nothing and changes nothing. Results are sorted by ID.
+// The error is only for a root that cannot be read; a missing root is empty.
+func (s *Store) Verify() ([]Check, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	checks, _, err := s.verifyAll(nil)
+	return checks, err
+}
+
+// verifyAll verifies each entry, skipping any ID for which skip returns true.
+// It also returns every valid package ID found, skipped or not. The caller
+// holds s.mu.
+func (s *Store) verifyAll(skip func(id string) bool) ([]Check, []string, error) {
+	entries, err := s.scan()
+	if err != nil {
+		return nil, nil, err
+	}
+	var ids []string
+	out := make([]Check, 0, len(entries))
+	for _, e := range entries {
+		dir := filepath.Join(s.root, e.name)
+		if e.err != nil {
+			out = append(out, Check{ID: e.name, Directory: dir, Err: e.err})
+			continue
+		}
+		ids = append(ids, e.id)
+		if skip != nil && skip(e.id) {
+			continue
+		}
+		_, err := s.load(e.id)
+		out = append(out, Check{ID: e.id, Directory: dir, Err: err})
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
+	return out, ids, nil
 }

@@ -103,3 +103,28 @@ func (l *Layered) List() ([]Installed, error) {
 	}
 	return out, nil
 }
+
+// Verify checks what Load and List would serve and reports every failure
+// instead of stopping at the first. A package is checked in the highest-priority
+// store that holds it; shadowed copies are skipped, as in List. An entry that is
+// not a package directory is reported in the store it sits in. It runs nothing
+// and changes nothing. Results are sorted by ID, then by store priority. The
+// error is only for a root that cannot be read.
+func (l *Layered) Verify() ([]Check, error) {
+	claimed := map[string]bool{}
+	var out []Check
+	for _, s := range l.stores {
+		s.mu.Lock()
+		checks, ids, err := s.verifyAll(func(id string) bool { return claimed[id] })
+		s.mu.Unlock()
+		if err != nil {
+			return nil, err
+		}
+		for _, id := range ids {
+			claimed[id] = true
+		}
+		out = append(out, checks...)
+	}
+	sort.SliceStable(out, func(i, j int) bool { return out[i].ID < out[j].ID })
+	return out, nil
+}

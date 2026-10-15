@@ -3,10 +3,9 @@ package chromium
 import (
 	"encoding/json"
 	"fmt"
+	goengine "github.com/webong/ext/pkg/plugin-go"
 	"io"
 	"net/url"
-
-	"github.com/webong/ext/pkg/plugin"
 
 	"github.com/webong/ext/adapters/chromium/engine/webextension"
 	share "github.com/webong/ext/res/web/contract"
@@ -16,7 +15,7 @@ import (
 // Run serves the versioned cookie protocol for a Chromium-family adapter.
 // Each adapter supplies its own storage paths and credential identity.
 func Run(config Config, args []string, input io.Reader, stdout, stderr io.Writer) int {
-	request, err := plugin.ParseAdapterInvocation(args)
+	request, err := goengine.ParseAdapterInvocation(args)
 	if err != nil || request.Operation != "share" {
 		fmt.Fprintln(stderr, "ctx: browser sharing needs profile resource operation")
 		return 2

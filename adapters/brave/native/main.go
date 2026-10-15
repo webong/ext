@@ -2,11 +2,10 @@ package main
 
 import (
 	"fmt"
+	goengine "github.com/webong/ext/pkg/plugin-go"
 	"io"
 	"os"
 	"runtime"
-
-	"github.com/webong/ext/pkg/plugin"
 
 	chromiumengine "github.com/webong/ext/adapters/chromium/engine"
 	share "github.com/webong/ext/res/web/contract"
@@ -25,7 +24,7 @@ func braveConfig() chromiumengine.Config {
 func main() { os.Exit(run(os.Args[1:], os.Stdin, os.Stdout, os.Stderr)) }
 
 func run(args []string, input io.Reader, stdout, stderr io.Writer) int {
-	request, err := plugin.ParseAdapterInvocation(args)
+	request, err := goengine.ParseAdapterInvocation(args)
 	if err != nil || request.Operation != "share" {
 		fmt.Fprintln(stderr, "ctx: Brave sharing needs profile resource operation")
 		return 2

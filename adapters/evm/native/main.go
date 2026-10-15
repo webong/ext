@@ -27,7 +27,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/vm/runtime"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/holiman/uint256"
-	"github.com/webong/ext/pkg/plugin"
+	goengine "github.com/webong/ext/pkg/plugin-go"
 )
 
 const (
@@ -52,7 +52,7 @@ var forks = []fork{
 func main() { os.Exit(run(os.Args[1:], os.Stdin, os.Stdout, os.Stderr)) }
 
 func run(args []string, _ io.Reader, stdout, stderr io.Writer) int {
-	request, err := plugin.ParseAdapterInvocation(args)
+	request, err := goengine.ParseAdapterInvocation(args)
 	if err != nil {
 		fmt.Fprintf(stderr, "evm: %v\n", err)
 		return 2

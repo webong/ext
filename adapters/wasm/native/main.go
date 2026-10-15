@@ -8,15 +8,14 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	goengine "github.com/webong/ext/pkg/plugin-go"
+	wasm "github.com/webong/ext/pkg/plugin-wasm"
 	"io"
 	"os"
 	"path/filepath"
 	"runtime/debug"
 	"strings"
 	"time"
-
-	"github.com/webong/ext/pkg/plugin"
-	wasm "github.com/webong/ext/pkg/plugin-wasm"
 )
 
 const engine = "embedded"
@@ -34,7 +33,7 @@ var smokeModule = []byte{
 func main() { os.Exit(run(os.Args[1:], os.Stdin, os.Stdout, os.Stderr)) }
 
 func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
-	request, err := plugin.ParseAdapterInvocation(args)
+	request, err := goengine.ParseAdapterInvocation(args)
 	if err != nil {
 		fmt.Fprintf(stderr, "wasm: %v\n", err)
 		return 2

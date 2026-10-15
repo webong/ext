@@ -13,8 +13,8 @@ import (
 	"time"
 
 	"github.com/webong/ext/examples/plugin-runtimes/echo"
-	"github.com/webong/ext/pkg/plugin"
 	"github.com/webong/ext/pkg/plugin-cshared"
+	goengine "github.com/webong/ext/pkg/plugin-go"
 	"github.com/webong/ext/pkg/plugin-wasm"
 	"github.com/webong/ext/pkg/plugin/author"
 	"github.com/webong/ext/pkg/plugin/nativego"
@@ -33,7 +33,7 @@ func main() {
 
 func run(kind, path, digest string) error {
 	if kind != "wasm" && kind != "nativego" && kind != "cshared" {
-		return plugin.ErrUnsupported
+		return goengine.ErrUnsupported
 	}
 	want, err := hex.DecodeString(digest)
 	if err != nil || len(want) != sha256.Size || path == "" {
@@ -45,13 +45,13 @@ func run(kind, path, digest string) error {
 	}
 	ctx := context.Background()
 	var artifact []byte
-	var loaded plugin.Backend
-	session, err := plugin.Open(ctx, echo.Descriptor(), plugin.Options{
+	var loaded goengine.Backend
+	session, err := goengine.Open(ctx, echo.Descriptor(), goengine.Options{
 		// This example trusts an explicit caller-supplied digest of a local build.
 		// Real hosts additionally authenticate publisher/package and protect the
 		// artifact and its native dependencies against replacement while loaded.
-		Verify: func(ctx context.Context, selected plugin.Descriptor) error {
-			if err := plugin.MatchHandshake(echo.Descriptor(), selected); err != nil {
+		Verify: func(ctx context.Context, selected goengine.Descriptor) error {
+			if err := goengine.MatchHandshake(echo.Descriptor(), selected); err != nil {
 				return err
 			}
 			info, err := os.Lstat(path)
@@ -59,7 +59,7 @@ func run(kind, path, digest string) error {
 				return err
 			}
 			if !info.Mode().IsRegular() {
-				return plugin.ErrInvalid
+				return goengine.ErrInvalid
 			}
 			f, err := os.Open(path)
 			if err != nil {
@@ -71,18 +71,18 @@ func run(kind, path, digest string) error {
 				return err
 			}
 			if len(artifact) > wasm.MaxModuleBytes {
-				return plugin.ErrInvalid
+				return goengine.ErrInvalid
 			}
 			sum := sha256.Sum256(artifact)
 			if hex.EncodeToString(sum[:]) != hex.EncodeToString(want) {
-				return plugin.ErrMismatch
+				return goengine.ErrMismatch
 			}
 			return ctx.Err()
 		},
-		Authorize: func(_ context.Context, request plugin.Request) error {
-			return plugin.ValidateRequest(echo.Descriptor(), request)
+		Authorize: func(_ context.Context, request goengine.Request) error {
+			return goengine.ValidateRequest(echo.Descriptor(), request)
 		},
-		Connect: func(ctx context.Context, _ plugin.Descriptor) (plugin.Backend, error) {
+		Connect: func(ctx context.Context, _ goengine.Descriptor) (goengine.Backend, error) {
 			// Preserve a genuinely nil interface on failure (typed nils are not nil).
 			switch kind {
 			case "wasm":

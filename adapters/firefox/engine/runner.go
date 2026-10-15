@@ -3,14 +3,13 @@ package firefox
 import (
 	"encoding/json"
 	"fmt"
+	goengine "github.com/webong/ext/pkg/plugin-go"
 	"io"
 	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
-
-	"github.com/webong/ext/pkg/plugin"
 
 	"github.com/webong/ext/adapters/chromium/engine/webextension"
 	browsershare "github.com/webong/ext/res/web/contract"
@@ -32,7 +31,7 @@ type Config struct {
 }
 
 func Run(config Config, args []string, input io.Reader, stdout, stderr io.Writer) int {
-	request, err := plugin.ParseAdapterInvocation(args)
+	request, err := goengine.ParseAdapterInvocation(args)
 	if err != nil || request.Operation != "share" {
 		fmt.Fprintln(stderr, "ctx: Firefox sharing needs profile resource operation")
 		return 2

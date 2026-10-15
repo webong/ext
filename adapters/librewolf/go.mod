@@ -10,3 +10,5 @@ require (
 	github.com/webong/ext/pkg/plugin v0.2.0 // indirect
 	github.com/webong/ext/res/web v0.5.0 // indirect
 )
+
+require github.com/webong/ext/pkg/plugin-go v0.2.0 // indirect

@@ -6,6 +6,7 @@ require (
 	github.com/ethereum/go-ethereum v1.16.3
 	github.com/holiman/uint256 v1.3.2
 	github.com/webong/ext/pkg/plugin v0.2.0
+	github.com/webong/ext/pkg/plugin-go v0.2.0
 )
 
 require (

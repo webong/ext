@@ -6,5 +6,6 @@ require (
 	github.com/gorilla/websocket v1.5.3
 	github.com/webong/ext/adapters/chromium v0.2.0
 	github.com/webong/ext/pkg/plugin v0.2.0
+	github.com/webong/ext/pkg/plugin-go v0.2.0
 	github.com/webong/ext/res/web v0.5.0
 )

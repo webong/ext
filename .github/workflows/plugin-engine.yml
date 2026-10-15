@@ -94,3 +94,21 @@ jobs:
       - name: Build the engine and run its tests
         shell: msys2 {0}
         run: scripts/plugin-engine-test.sh "$RUNNER_TEMP/engine"
+
+  # The C engine built with MSVC (cl), through the Win32 shim in src/sync.h.
+  # Native tests only: cgo links the MinGW build, not this one. Experimental.
+  windows-msvc:
+    runs-on: windows-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.x'
+      - uses: ilammy/msvc-dev-cmd@v1
+      - name: Build the engine with MSVC and run the native tests
+        shell: bash
+        env:
+          EXT_ENGINE_C_ONLY: '1'
+          CC: cl
+        run: scripts/plugin-engine-test.sh "$RUNNER_TEMP/engine"

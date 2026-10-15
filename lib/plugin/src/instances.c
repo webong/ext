@@ -2,7 +2,7 @@
 #include "ext_instance.h"
 #include "sha256.h"
 #include "wire.h"
-#include <pthread.h>
+#include "sync.h"
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>

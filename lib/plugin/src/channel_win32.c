@@ -11,7 +11,7 @@
 #endif
 #include "channel.h"
 #include <errno.h>
-#include <pthread.h>
+#include "sync.h"
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>

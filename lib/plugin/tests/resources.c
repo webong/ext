@@ -2,7 +2,7 @@
 #include "ext_instance.h"
 #include "ext_stream.h"
 #include <assert.h>
-#include <pthread.h>
+#include "../src/sync.h"
 #include <stdatomic.h>
 #include <stdio.h>
 #include <stdlib.h>

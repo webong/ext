@@ -4,7 +4,7 @@
 #include "wire.h"
 #include <errno.h>
 #include <limits.h>
-#include <pthread.h>
+#include "sync.h"
 #include <stdatomic.h>
 #include <stdio.h>
 #include <stdlib.h>

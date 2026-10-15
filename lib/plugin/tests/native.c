@@ -1,7 +1,7 @@
 #define _POSIX_C_SOURCE 200809L
 #include "ext_host.h"
 #include <assert.h>
-#include <pthread.h>
+#include "../src/sync.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

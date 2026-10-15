@@ -5,6 +5,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <time.h>
+#include "sync.h"
 
 #ifdef _WIN32
 #define ext_gmtime(seconds, out) ((void)gmtime_s((out), (seconds)))

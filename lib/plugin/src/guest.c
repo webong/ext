@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include "sync.h"
 struct ext_guest {
   yyjson_doc *descriptor;
   ext_guest_options options;

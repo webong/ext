@@ -2,6 +2,7 @@
 # Build the C plugin engine and run its native tests, then the Go suites that link
 # against it. Works on Linux, macOS and Windows (MinGW-w64, from an MSYS2 shell).
 # Usage: scripts/plugin-engine-test.sh [build-dir]
+# EXT_ENGINE_C_ONLY=1 stops after the native tests, for toolchains cgo cannot use (MSVC).
 set -euo pipefail
 cd "$(dirname "$0")/.."
 root=$PWD
@@ -42,6 +43,11 @@ echo "== native tests"
 "$build/engine/ext_guest_core_test$exe"
 "$build/engine/ext_resources_test$exe"
 "$build/engine/ext_host_native_test$exe" "$(winpath "$guest")" "$(winpath "$build/descriptor.json")" "$(winpath "$build/echo.json")" "$(winpath "$build/wait.json")"
+
+if [ -n "${EXT_ENGINE_C_ONLY:-}" ]; then
+  echo "native engine tests passed (EXT_ENGINE_C_ONLY: Go suites skipped)"
+  exit 0
+fi
 
 echo "== Go suites linked against the engine"
 cd pkg/plugin-go

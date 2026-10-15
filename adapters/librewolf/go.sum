@@ -2,9 +2,9 @@ github.com/gorilla/websocket v1.5.3 h1:saDtZ6Pbx/0u+bgYQ3q96pZgCzfhKXGPqt7kZ72aN
 github.com/gorilla/websocket v1.5.3/go.mod h1:YR8l580nyteQvAITg2hZ9XVh4b55+EU/adAjf1fMHhE=
 github.com/webong/ext/adapters/chromium v0.2.0 h1:FGi6JDnjPJWuJPqoy+ELPWYCz/uIlQrVWwcBvjB2q9Q=
 github.com/webong/ext/adapters/chromium v0.2.0/go.mod h1:W8sBhMOMBlHFnqphm1NevKnhtbzXv713IyzLc7OILG4=
-github.com/webong/ext/adapters/firefox v0.1.2 h1:IoEydItFZu2WaqotpCjPAIC/k+v1Dzt0uVb0aZhIbkU=
-github.com/webong/ext/adapters/firefox v0.1.2/go.mod h1:ZtF3VhHWJoDC++LuwsVZ/0+37o31Ds1BB++rCpKA+AQ=
+github.com/webong/ext/adapters/firefox v0.2.0 h1:fE/Qlg9FSlUPq9EYBCqOYtd2leQUIajH1I7dYkia1mQ=
+github.com/webong/ext/adapters/firefox v0.2.0/go.mod h1:OB9E49lCNs+poGjiBcrVVI49fweyvVn6dKkyeSNII48=
 github.com/webong/ext/pkg/plugin v0.2.0 h1:KJ0L0vGyM0acl433Bbo6nqbDezUrW/JK07XW7txcLOw=
 github.com/webong/ext/pkg/plugin v0.2.0/go.mod h1:4HjMr9xajSrI6DroQ7+3jntxmrZF1M5UPwhlMliljDE=
-github.com/webong/ext/res/web v0.4.0 h1:gu9vj/SpZA9G8JDPb7u/7NQuxWo/katgglsIc93YTmM=
-github.com/webong/ext/res/web v0.4.0/go.mod h1:DoAk6ydqtqqC21xr+XbngXzx2Br5J6DRXvACQx7DC5I=
+github.com/webong/ext/res/web v0.5.0 h1:FCD4435Xi4M4g8d66rBNoBEE1wuHgGGvXhI3kpL2WYk=
+github.com/webong/ext/res/web v0.5.0/go.mod h1:DoAk6ydqtqqC21xr+XbngXzx2Br5J6DRXvACQx7DC5I=

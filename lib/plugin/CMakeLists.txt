@@ -34,6 +34,14 @@ set(core_sources src/common.c src/wire.c src/services.c src/guest.c src/sha256.c
 add_library(ext_guest_static STATIC ${core_sources})
 set_target_properties(ext_guest_static PROPERTIES EXPORT_NAME guest_static)
 target_compile_definitions(ext_guest_static PUBLIC EXT_HOST_STATIC)
+if(WIN32)
+  # clock_gettime comes from winpthreads on some Windows toolchains (clang on
+  # ARM64), so even the guest-only library needs it at link time.
+  find_package(Threads)
+  if(Threads_FOUND)
+    target_link_libraries(ext_guest_static PUBLIC "$<BUILD_INTERFACE:Threads::Threads>")
+  endif()
+endif()
 add_library(ext_guest INTERFACE)
 target_link_libraries(ext_guest INTERFACE ext_guest_static)
 set_target_properties(ext_guest PROPERTIES EXPORT_NAME guest)

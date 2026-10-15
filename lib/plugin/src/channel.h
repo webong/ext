@@ -19,6 +19,9 @@ typedef struct {
   size_t stderr_limit;
 } ext_launch;
 
+/* Whether path is absolute on this platform: begins with "/" on POSIX; a drive
+ * letter and a separator ("C:\\", "C:/") or a UNC prefix on Windows. */
+int ext_path_is_absolute(const char *path);
 /* Spawns the child and sets up the stream. EXT_IO on failure to start,
  * EXT_INVALID for a path that is not a regular file, EXT_UNSUPPORTED for a
  * working directory the platform cannot honor. */

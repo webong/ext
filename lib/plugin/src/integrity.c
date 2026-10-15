@@ -1,190 +1,13 @@
-#define _POSIX_C_SOURCE 200809L
-#define _DARWIN_C_SOURCE
+#include "fs.h"
 #include "services.h"
 #include "sha256.h"
-#include <dirent.h>
-#include <errno.h>
-#include <fcntl.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/stat.h>
-#include <unistd.h>
 
-/* The application must protect reviewed files against writes. Descriptor-
- * relative opens avoid traversing symlink substitutions, but are not a sandbox.
- */
-static ext_status root_open(const char *root, int *fd) {
-  if (!root || !*root)
-    return EXT_INVALID;
-  char *path = strdup(root);
-  if (!path)
-    return EXT_NOMEM;
-  size_t n = strlen(path);
-  while (n > 1 && path[n - 1] == '/')
-    path[--n] = 0;
-  struct stat st;
-  ext_status s = EXT_OK;
-  if (lstat(path, &st))
-    s = EXT_IO;
-  else if (!S_ISDIR(st.st_mode))
-    s = EXT_INVALID;
-  if (!s) {
-    *fd = open(path, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
-    if (*fd < 0)
-      s = EXT_IO;
-  }
-  free(path);
-  return s;
-}
-static ext_status file_hash(int dir, const char *name, uint8_t out[32]) {
-  struct stat st;
-  if (fstatat(dir, name, &st, AT_SYMLINK_NOFOLLOW))
-    return EXT_IO;
-  if (!S_ISREG(st.st_mode))
-    return EXT_INVALID;
-  int fd = openat(dir, name, O_RDONLY | O_NOFOLLOW | O_NONBLOCK | O_CLOEXEC);
-  if (fd < 0)
-    return errno == ELOOP ? EXT_INVALID : EXT_IO;
-  ext_status s = EXT_OK;
-  if (fstat(fd, &st))
-    s = EXT_IO;
-  else if (!S_ISREG(st.st_mode))
-    s = EXT_INVALID;
-  ext_hash h;
-  ext_hash_init(&h);
-  uint8_t buffer[65536];
-  while (!s) {
-    ssize_t n = read(fd, buffer, sizeof(buffer));
-    if (n > 0)
-      ext_hash_update(&h, buffer, (size_t)n);
-    else if (!n)
-      break;
-    else if (errno != EINTR)
-      s = EXT_IO;
-  }
-  if (close(fd) && !s)
-    s = EXT_IO;
-  ext_hash_finish(&h, out);
-  return s;
-}
-static ext_status artifact_hash(int root, const char *path, uint8_t out[32]) {
-  char *parts = strdup(path);
-  if (!parts)
-    return EXT_NOMEM;
-  int fd = dup(root);
-  if (fd < 0) {
-    free(parts);
-    return EXT_IO;
-  }
-  ext_status s = EXT_OK;
-  char *part = parts, *slash;
-  while ((slash = strchr(part, '/')) != NULL) {
-    *slash = 0;
-    struct stat st;
-    if (fstatat(fd, part, &st, AT_SYMLINK_NOFOLLOW)) {
-      s = EXT_IO;
-      break;
-    }
-    if (!S_ISDIR(st.st_mode)) {
-      s = EXT_INVALID;
-      break;
-    }
-    int next =
-        openat(fd, part, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
-    if (next < 0) {
-      s = EXT_IO;
-      break;
-    }
-    close(fd);
-    fd = next;
-    part = slash + 1;
-  }
-  if (!s)
-    s = file_hash(fd, part, out);
-  close(fd);
-  free(parts);
-  return s;
-}
-static ext_status digest_fd(int fd, uint8_t out[32], int need_files);
-/* Digest of a tree artifact: every component of path must be a plain directory
- * (no symbolic links), and the directory must hold at least one file. */
-static ext_status tree_hash(int root, const char *path, uint8_t out[32]) {
-  char *parts = strdup(path);
-  if (!parts)
-    return EXT_NOMEM;
-  int fd = dup(root);
-  if (fd < 0) {
-    free(parts);
-    return EXT_IO;
-  }
-  ext_status s = EXT_OK;
-  char *part = parts;
-  for (;;) {
-    char *slash = strchr(part, '/');
-    if (slash)
-      *slash = 0;
-    struct stat st;
-    if (fstatat(fd, part, &st, AT_SYMLINK_NOFOLLOW)) {
-      s = EXT_IO;
-      break;
-    }
-    if (!S_ISDIR(st.st_mode)) {
-      s = EXT_INVALID;
-      break;
-    }
-    int next =
-        openat(fd, part, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
-    if (next < 0) {
-      s = EXT_IO;
-      break;
-    }
-    close(fd);
-    fd = next;
-    if (!slash)
-      break;
-    part = slash + 1;
-  }
-  if (!s)
-    s = digest_fd(fd, out, 1);
-  close(fd);
-  free(parts);
-  return s;
-}
-ext_status ext_package_verify(const uint8_t *manifest, size_t len,
-                              const char *root) {
-  yyjson_doc *doc = ext_parse(manifest, len);
-  if (!doc)
-    return EXT_INVALID;
-  yyjson_val *m = yyjson_doc_get_root(doc);
-  ext_status s = ext_manifest_valid(m);
-  int fd = -1;
-  if (!s)
-    s = root_open(root, &fd);
-  if (!s) {
-    size_t i, n;
-    yyjson_val *a;
-    yyjson_arr_foreach(yyjson_obj_get(m, "artifacts"), i, n, a) {
-      uint8_t sum[32];
-      char hex[65];
-      yyjson_val *kind = yyjson_obj_get(a, "kind");
-      const char *path = yyjson_get_str(yyjson_obj_get(a, "path"));
-      s = yyjson_is_str(kind) && yyjson_equals_str(kind, "tree")
-              ? tree_hash(fd, path, sum)
-              : artifact_hash(fd, path, sum);
-      if (s)
-        break;
-      ext_hash_hex(sum, hex);
-      if (!yyjson_equals_str(yyjson_obj_get(a, "sha256"), hex)) {
-        s = EXT_MISMATCH;
-        break;
-      }
-    }
-  }
-  if (fd >= 0)
-    close(fd);
-  yyjson_doc_free(doc);
-  return s;
-}
+/* Package integrity: manifest validation, artifact digests and directory
+ * digests. The operating-system access is in fs_posix.c and fs_win32.c; the
+ * application must protect the root against modification while it is read. */
+
 typedef struct {
   char *path;
   uint8_t sum[32];
@@ -193,98 +16,37 @@ typedef struct {
   file *files;
   size_t count, capacity;
 } listing;
-static ext_status walk(int fd, const char *prefix, listing *list,
-                       unsigned depth) {
-  if (depth > 1024)
-    return EXT_INVALID;
-  int copy = dup(fd);
-  if (copy < 0)
-    return EXT_IO;
-  DIR *dir = fdopendir(copy);
-  if (!dir) {
-    close(copy);
-    return EXT_IO;
+
+static ext_status collect(void *user, const char *path, const uint8_t sum[32]) {
+  listing *list = user;
+  if (list->count == list->capacity) {
+    size_t capacity = list->capacity ? list->capacity * 2 : 64;
+    if (capacity <= list->capacity || capacity > SIZE_MAX / sizeof(file))
+      return EXT_NOMEM;
+    file *files = realloc(list->files, capacity * sizeof(file));
+    if (!files)
+      return EXT_NOMEM;
+    list->files = files;
+    list->capacity = capacity;
   }
-  ext_status s = EXT_OK;
-  struct dirent *entry;
-  for (;;) {
-    errno = 0;
-    entry = readdir(dir);
-    if (!entry) {
-      if (errno)
-        s = EXT_IO;
-      break;
-    }
-    if (!strcmp(entry->d_name, ".") || !strcmp(entry->d_name, ".."))
-      continue;
-    size_t base = strlen(prefix), name = strlen(entry->d_name);
-    if (base > SIZE_MAX - name - 2) {
-      s = EXT_NOMEM;
-      break;
-    }
-    char *path = malloc(base + name + 2);
-    if (!path) {
-      s = EXT_NOMEM;
-      break;
-    }
-    memcpy(path, prefix, base);
-    if (base)
-      path[base++] = '/';
-    memcpy(path + base, entry->d_name, name + 1);
-    struct stat st;
-    if (fstatat(fd, entry->d_name, &st, AT_SYMLINK_NOFOLLOW))
-      s = EXT_IO;
-    else if (S_ISDIR(st.st_mode)) {
-      int child = openat(fd, entry->d_name,
-                         O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
-      if (child < 0)
-        s = EXT_IO;
-      else {
-        s = walk(child, path, list, depth + 1);
-        close(child);
-      }
-    } else if (!S_ISREG(st.st_mode) || strchr(path, '\r') || strchr(path, '\n'))
-      s = EXT_INVALID;
-    else {
-      if (list->count == list->capacity) {
-        size_t capacity = list->capacity ? list->capacity * 2 : 64;
-        file *files =
-            capacity > list->capacity && capacity <= SIZE_MAX / sizeof(file)
-                ? realloc(list->files, capacity * sizeof(file))
-                : NULL;
-        if (!files)
-          s = EXT_NOMEM;
-        else {
-          list->files = files;
-          list->capacity = capacity;
-        }
-      }
-      if (!s) {
-        file *f = &list->files[list->count];
-        s = file_hash(fd, entry->d_name, f->sum);
-        if (!s) {
-          f->path = path;
-          path = NULL;
-          list->count++;
-        }
-      }
-    }
-    free(path);
-    if (s)
-      break;
-  }
-  if (closedir(dir) && !s)
-    s = EXT_IO;
-  return s;
+  file *f = &list->files[list->count];
+  f->path = strdup(path);
+  if (!f->path)
+    return EXT_NOMEM;
+  memcpy(f->sum, sum, 32);
+  list->count++;
+  return EXT_OK;
 }
 static int compare(const void *a, const void *b) {
   return strcmp(((const file *)a)->path, ((const file *)b)->path);
 }
-/* Digest of every regular file under fd, as plugin.DirectoryDigest computes it.
- * A tree artifact must hold at least one file. */
-static ext_status digest_fd(int fd, uint8_t out[32], int need_files) {
+/* Digest of every regular file under the directory at path, as
+ * plugin.DirectoryDigest computes it. A tree artifact must hold at least one
+ * file. */
+static ext_status digest_directory(ext_fs *fs, const char *path,
+                                   uint8_t out[32], int need_files) {
   listing list = {0};
-  ext_status s = walk(fd, "", &list, 0);
+  ext_status s = ext_fs_walk(fs, path, collect, &list);
   if (!s && need_files && !list.count)
     s = EXT_INVALID;
   if (!s) {
@@ -309,17 +71,54 @@ static ext_status digest_fd(int fd, uint8_t out[32], int need_files) {
   free(list.files);
   return s;
 }
+
+ext_status ext_package_verify(const uint8_t *manifest, size_t len,
+                              const char *root) {
+  yyjson_doc *doc = ext_parse(manifest, len);
+  if (!doc)
+    return EXT_INVALID;
+  yyjson_val *m = yyjson_doc_get_root(doc);
+  ext_status s = ext_manifest_valid(m);
+  ext_fs *fs = NULL;
+  if (!s)
+    s = ext_fs_open(root, &fs);
+  if (!s) {
+    size_t i, n;
+    yyjson_val *a;
+    yyjson_arr_foreach(yyjson_obj_get(m, "artifacts"), i, n, a) {
+      uint8_t sum[32];
+      char hex[65];
+      yyjson_val *kind = yyjson_obj_get(a, "kind");
+      const char *path = yyjson_get_str(yyjson_obj_get(a, "path"));
+      s = yyjson_is_str(kind) && yyjson_equals_str(kind, "tree")
+              ? digest_directory(fs, path, sum, 1)
+              : ext_fs_hash_file(fs, path, sum);
+      if (s)
+        break;
+      ext_hash_hex(sum, hex);
+      if (!yyjson_equals_str(yyjson_obj_get(a, "sha256"), hex)) {
+        s = EXT_MISMATCH;
+        break;
+      }
+    }
+  }
+  ext_fs_close(fs);
+  yyjson_doc_free(doc);
+  return s;
+}
+
 ext_status ext_directory_digest(const char *root, uint8_t out[32]) {
   if (!out)
     return EXT_INVALID;
-  int fd = -1;
-  ext_status s = root_open(root, &fd);
+  ext_fs *fs = NULL;
+  ext_status s = ext_fs_open(root, &fs);
   if (!s) {
-    s = digest_fd(fd, out, 0);
-    close(fd);
+    s = digest_directory(fs, "", out, 0);
+    ext_fs_close(fs);
   }
   return s;
 }
+
 /* Digest of one artifact under root, addressed by a portable relative path and
  * never following symbolic links. A file artifact is its SHA-256; a tree
  * artifact is the directory digest of the tree, which must hold at least one
@@ -328,11 +127,12 @@ ext_status ext_artifact_digest(const char *root, const char *path, int tree,
                                uint8_t out[32]) {
   if (!root || !path || !out || !ext_portable_path(path, strlen(path)))
     return EXT_INVALID;
-  int fd = -1;
-  ext_status s = root_open(root, &fd);
-  if (s)
-    return s;
-  s = tree ? tree_hash(fd, path, out) : artifact_hash(fd, path, out);
-  close(fd);
+  ext_fs *fs = NULL;
+  ext_status s = ext_fs_open(root, &fs);
+  if (!s) {
+    s = tree ? digest_directory(fs, path, out, 1)
+             : ext_fs_hash_file(fs, path, out);
+    ext_fs_close(fs);
+  }
   return s;
 }

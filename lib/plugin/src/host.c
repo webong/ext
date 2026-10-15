@@ -1,5 +1,6 @@
 #define _GNU_SOURCE
 #include "channel.h"
+#include "platform.h"
 #include "wire.h"
 #include <errno.h>
 #include <limits.h>
@@ -96,11 +97,49 @@ static ext_status copy_strings(const char *const *input, size_t count,
     *out = copy;
   return status;
 }
-static int sets_path(const char *const *environment, size_t count) {
+static int names_entry(const char *entry, const char *name) {
+  size_t n = strlen(name);
+#ifdef _WIN32
+  return !_strnicmp(entry, name, n) && entry[n] == '=';
+#else
+  return !strncmp(entry, name, n) && entry[n] == '=';
+#endif
+}
+/* Prepends the base environment of a launched package to *environment (which
+ * holds count caller entries): PATH, plus SystemRoot on Windows, each taken from
+ * the host and skipped when the caller supplied that name. */
+static ext_status add_base_environment(char ***environment, size_t count) {
+  static const char *const names[] = {"PATH",
+#ifdef _WIN32
+                                      "SystemRoot",
+#endif
+  };
+  const size_t known = sizeof(names) / sizeof(names[0]);
+  char **grown = calloc(count + known + 1, sizeof(*grown));
+  if (!grown)
+    return EXT_NOMEM;
+  size_t added = 0;
+  for (size_t k = 0; k < known; k++) {
+    int supplied = 0;
+    for (size_t i = 0; i < count; i++)
+      supplied |= names_entry((*environment)[i], names[k]);
+    if (supplied)
+      continue;
+    const char *value = getenv(names[k]);
+    size_t length = strlen(names[k]) + 1 + (value ? strlen(value) : 0);
+    char *entry = malloc(length + 1);
+    if (!entry) {
+      free_strings(grown);
+      return EXT_NOMEM;
+    }
+    snprintf(entry, length + 1, "%s=%s", names[k], value ? value : "");
+    grown[added++] = entry;
+  }
   for (size_t i = 0; i < count; i++)
-    if (!strncmp(environment[i], "PATH=", 5))
-      return 1;
-  return 0;
+    grown[added + i] = (*environment)[i];
+  free(*environment);
+  *environment = grown;
+  return EXT_OK;
 }
 ext_status ext_host_create(const ext_host_options *o,
                            const ext_backend_options *b, ext_host **out) {
@@ -125,7 +164,7 @@ ext_status ext_host_create(const ext_host_options *o,
       return EXT_INVALID;
     compatible_process.executable = process_config->executable;
     process = &compatible_process;
-    if (!process->executable || process->executable[0] != '/' ||
+    if (!process->executable || !ext_path_is_absolute(process->executable) ||
         strlen(process->executable) > 4096)
       return EXT_INVALID;
   } else if (b->kind == EXT_BACKEND_JSONLINE_PROCESS_LAUNCH) {
@@ -135,19 +174,19 @@ ext_status ext_host_create(const ext_host_options *o,
     if (launch->struct_size != sizeof(*launch) ||
         launch->stderr_bytes > (16u << 20) ||
         (launch->working_directory &&
-         (launch->working_directory[0] != '/' ||
+         (!ext_path_is_absolute(launch->working_directory) ||
           strlen(launch->working_directory) > 4096)))
       return EXT_INVALID;
     compatible_process.executable = launch->executable;
     process = &compatible_process;
-    if (!process->executable || process->executable[0] != '/' ||
+    if (!process->executable || !ext_path_is_absolute(process->executable) ||
         strlen(process->executable) > 4096)
       return EXT_INVALID;
   } else if (b->kind == EXT_BACKEND_JSONLINE_PROCESS) {
     if (!b->config || b->config_size != sizeof(*process))
       return EXT_INVALID;
     process = b->config;
-    if (!process->executable || process->executable[0] != '/')
+    if (!process->executable || !ext_path_is_absolute(process->executable))
       return EXT_INVALID;
   } else if (b->kind == EXT_BACKEND_EXTENSION) {
     if (!b->config || b->config_size != sizeof(*extension))
@@ -241,26 +280,10 @@ ext_status ext_host_create(const ext_host_options *o,
                          : NULL;
       if (launch->working_directory && !h->directory)
         status = EXT_NOMEM;
-      /* Scrubbed base environment: PATH from the host, unless the caller set
-       * its own. */
-      if (!status && !sets_path(environment, environment_count)) {
-        const char *path = getenv("PATH");
-        size_t length = 5 + (path ? strlen(path) : 0);
-        char *entry = malloc(length + 1);
-        char **grown = calloc(environment_count + 2, sizeof(*grown));
-        if (!entry || !grown) {
-          free(entry);
-          free(grown);
-          status = EXT_NOMEM;
-        } else {
-          snprintf(entry, length + 1, "PATH=%s", path ? path : "");
-          grown[0] = entry;
-          for (size_t i = 0; i < environment_count; i++)
-            grown[i + 1] = h->environment[i];
-          free(h->environment);
-          h->environment = grown;
-        }
-      }
+      /* Scrubbed base environment taken from the host, unless the caller set
+       * the same name. */
+      if (!status)
+        status = add_base_environment(&h->environment, environment_count);
     }
     if (status) {
       ext_host_destroy(h);
@@ -694,7 +717,7 @@ ext_status ext_host_start_with_options(ext_host *h, const ext_call_options *o) {
     int64_t wall = ext_wall_ms() + (deadline - mono_ms());
     time_t seconds = (time_t)(wall / 1000);
     struct tm t;
-    gmtime_r(&seconds, &t);
+    ext_gmtime(&seconds, &t);
     strftime(stamp, sizeof(stamp), "%Y-%m-%dT%H:%M:%S", &t);
     int n = snprintf(hello, sizeof(hello),
                      "{\"apiVersion\":\"ext.plugin/"
@@ -897,7 +920,7 @@ ext_status ext_host_call(ext_host *h, const uint8_t *input, size_t len,
   int64_t wall = ext_wall_ms() + options->timeout_ms;
   time_t seconds = (time_t)(wall / 1000);
   struct tm t;
-  gmtime_r(&seconds, &t);
+  ext_gmtime(&seconds, &t);
   strftime(stamp, sizeof(stamp), "%Y-%m-%dT%H:%M:%S", &t);
   snprintf(date, sizeof(date), "%s.%03lldZ", stamp, (long long)(wall % 1000));
   yyjson_mut_doc *request = yyjson_mut_doc_new(NULL);

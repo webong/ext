@@ -81,6 +81,8 @@ static int keep_high(int fd) {
   return fd;
 }
 
+int ext_path_is_absolute(const char *path) { return path && path[0] == '/'; }
+
 ext_status ext_channel_open(const ext_launch *launch, ext_channel **out) {
   struct stat st;
   if (stat(launch->path, &st))

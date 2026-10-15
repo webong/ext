@@ -1,4 +1,5 @@
 #define _GNU_SOURCE
+#include "platform.h"
 #include "wire.h"
 #include <limits.h>
 #include <stdlib.h>
@@ -287,7 +288,7 @@ static int64_t timestamp(yyjson_val *v) {
   t.tm_sec = se;
   /* The ABI schedules in milliseconds. Round a wire deadline up so a guest
    * cannot finish early merely because a host supplied nanosecond precision. */
-  int64_t result = ((int64_t)timegm(&t) - offset) * 1000 + ms + submillisecond;
+  int64_t result = ((int64_t)ext_timegm(&t) - offset) * 1000 + ms + submillisecond;
   if (y == 1 && mo == 1 && d == 1 && !h && !mi && !se && !ms &&
       !submillisecond && !offset)
     return -1;

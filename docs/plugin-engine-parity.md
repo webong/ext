@@ -42,7 +42,7 @@ full parity achieved.
 | In-process, HashiCorp, WASI, native Go, C ABI | C-session conformance with Rust/Zig C ABI and WASI guests, native Go guest, and both HashiCorp transports; direct process engine | Remaining platform combinations; portable runtime modules |
 | Static/shared distribution | Static/shared host and guest libraries, exact CMake package version, external install-consumer checks and macOS sanitizers | Execute CI on all platforms; reproducible release packages |
 | Go/Rust/Zig/JS bindings | Go session/resources; Rust host/guest/lease/stream ownership; Zig resource wrappers and generated FFI; async Node host/guest/integrity/observation and instance/stream managers | Remaining typed conveniences; replace independent SDK implementations |
-| Platforms | Native C host remains POSIX/Linux/macOS; portable C and Rust guest-only builds execute in WASI | Windows implementation and all supported Go-backend/platform combinations |
+| Platforms | Native C host runs on Linux and macOS; a Windows implementation (MinGW-w64: `channel_win32.c` with CreateProcess, pipes and a Job Object, `fs_win32.c` refusing reparse points, `random_win32.c`) cross-compiles cleanly with `-Wall -Wextra -Werror` but has not yet been run; portable C and Rust guest-only builds execute in WASI | Run the Windows build and its tests on a Windows runner; the Go binding on Windows; MSVC; all supported Go-backend/platform combinations |
 
 ## Implementation order
 

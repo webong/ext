@@ -1,13 +1,12 @@
 #define _POSIX_C_SOURCE 200809L
 #include "ext_stream.h"
+#include "platform.h"
 #include "wire.h"
 #include <errno.h>
-#include <fcntl.h>
 #include <pthread.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-#include <unistd.h>
 
 typedef struct stream_entry stream_entry;
 struct stream_entry {
@@ -207,22 +206,8 @@ ext_status ext_streams_create(const ext_stream_options *o, ext_streams **out) {
   return EXT_OK;
 }
 static ext_status random_id(char out[49]) {
-  int fd = open("/dev/urandom", O_RDONLY | O_CLOEXEC);
-  if (fd < 0)
-    return EXT_IO;
   uint8_t bytes[24];
-  size_t used = 0;
-  ext_status s = EXT_OK;
-  while (used < sizeof(bytes)) {
-    ssize_t n = read(fd, bytes + used, sizeof(bytes) - used);
-    if (n > 0)
-      used += (size_t)n;
-    else if (!n || errno != EINTR) {
-      s = EXT_IO;
-      break;
-    }
-  }
-  close(fd);
+  ext_status s = ext_random_bytes(bytes, sizeof(bytes));
   if (s)
     return s;
   const char *hex = "0123456789abcdef";

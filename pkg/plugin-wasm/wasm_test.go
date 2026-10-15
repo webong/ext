@@ -3,11 +3,10 @@ package wasm
 import (
 	"context"
 	"errors"
+	plugin "github.com/webong/ext/pkg/plugin-go/contract"
 	"sync"
 	"testing"
 	"time"
-
-	"github.com/webong/ext/pkg/plugin"
 )
 
 // (module (func (export "_start") (loop (br 0))))

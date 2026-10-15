@@ -15,9 +15,9 @@ import (
 
 	"github.com/hashicorp/go-hclog"
 	hc "github.com/hashicorp/go-plugin"
-	"github.com/webong/ext/pkg/plugin"
-	"github.com/webong/ext/pkg/plugin/interop"
-	"github.com/webong/ext/pkg/plugin/jsonline"
+	plugin "github.com/webong/ext/pkg/plugin-go/contract"
+	"github.com/webong/ext/pkg/plugin-go/interop"
+	"github.com/webong/ext/pkg/plugin-go/jsonline"
 )
 
 // Process is a reviewed launch selection. SHA256 pins bytes, not publisher

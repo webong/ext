@@ -3,9 +3,9 @@ package main
 import (
 	"context"
 	goengine "github.com/webong/ext/pkg/plugin-go"
-	"github.com/webong/ext/pkg/plugin/author"
-	"github.com/webong/ext/pkg/plugin/jsonline"
-	"github.com/webong/ext/pkg/plugin/schema"
+	"github.com/webong/ext/pkg/plugin-go/author"
+	"github.com/webong/ext/pkg/plugin-go/jsonline"
+	"github.com/webong/ext/pkg/plugin-go/schema"
 	"os"
 )
 

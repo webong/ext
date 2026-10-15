@@ -4,7 +4,7 @@ package cshared
 
 import (
 	"fmt"
-	"github.com/webong/ext/pkg/plugin"
+	plugin "github.com/webong/ext/pkg/plugin-go/contract"
 )
 
 func Supported() bool { return false }

@@ -4,11 +4,11 @@ import { readFile } from 'node:fs/promises';
 import { PassThrough } from 'node:stream';
 import { decodeJSON, validateDescriptor, matchHandshake, Guest, Session, Registry, JSONLineBackend, serveGuest, call, RemoteError } from './index.mjs';
 import { nodeIO } from './node.mjs';
-const descriptor = decodeJSON(await readFile(new URL('../../pkg/plugin/testdata/v1/descriptor.json', import.meta.url)));
+const descriptor = decodeJSON(await readFile(new URL('../../lib/plugin/testdata/v1/descriptor.json', import.meta.url)));
 test('shared frozen fixtures', async () => {
     validateDescriptor(descriptor);
     matchHandshake(descriptor, structuredClone(descriptor));
-    const bad = JSON.parse(await readFile(new URL('../../pkg/plugin/testdata/v1/invalid.json', import.meta.url)));
+    const bad = JSON.parse(await readFile(new URL('../../lib/plugin/testdata/v1/invalid.json', import.meta.url)));
     for (const raw of bad)
         assert.throws(() => decodeJSON(raw));
 });
@@ -121,6 +121,6 @@ test('fragmented frames and multiple frames in one chunk preserve boundaries', a
 
 test('shared Go and TypeScript schema fixtures',async()=>{
  const {schemaCodec}=await import('./index.mjs');
- const cases=JSON.parse(await readFile(new URL('../../pkg/plugin/testdata/schema-v1.json',import.meta.url)));
+ const cases=JSON.parse(await readFile(new URL('../../lib/plugin/testdata/schema-v1.json',import.meta.url)));
  for(const c of cases){const codec=schemaCodec(c.schema);for(const v of c.valid)assert.deepEqual(codec.parse(v),v);for(const v of c.invalid)assert.throws(()=>codec.parse(v));}
 });

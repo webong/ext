@@ -7,21 +7,20 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"github.com/webong/ext/pkg/plugin-go/author"
+	plugin "github.com/webong/ext/pkg/plugin-go/contract"
+	"github.com/webong/ext/pkg/plugin-go/interop"
+	"github.com/webong/ext/pkg/plugin-go/process"
+	"github.com/webong/ext/pkg/plugin-go/schema"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
 	"unicode/utf8"
-
-	"github.com/webong/ext/pkg/plugin"
-	"github.com/webong/ext/pkg/plugin/author"
-	"github.com/webong/ext/pkg/plugin/interop"
-	"github.com/webong/ext/pkg/plugin/process"
-	"github.com/webong/ext/pkg/plugin/schema"
 )
 
 // This file is the pure-Go build of the engine API: the same functions and
-// behavior as the C engine build, served by pkg/plugin, for programs built
+// behavior as the C engine build, served by pkg/plugin-go, for programs built
 // without cgo, without the ext_cengine tag, or for a platform the C engine does
 // not support.
 

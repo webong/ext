@@ -5,9 +5,9 @@ package echo
 import (
 	"context"
 	goengine "github.com/webong/ext/pkg/plugin-go"
-	"github.com/webong/ext/pkg/plugin/author"
-	"github.com/webong/ext/pkg/plugin/inprocess"
-	"github.com/webong/ext/pkg/plugin/schema"
+	"github.com/webong/ext/pkg/plugin-go/author"
+	"github.com/webong/ext/pkg/plugin-go/inprocess"
+	"github.com/webong/ext/pkg/plugin-go/schema"
 )
 
 type Message struct {

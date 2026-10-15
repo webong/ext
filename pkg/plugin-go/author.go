@@ -4,9 +4,9 @@ package goengine
 
 import (
 	"encoding/json"
-	"github.com/webong/ext/pkg/plugin"
-	"github.com/webong/ext/pkg/plugin/author"
-	"github.com/webong/ext/pkg/plugin/schema"
+	"github.com/webong/ext/pkg/plugin-go/author"
+	plugin "github.com/webong/ext/pkg/plugin-go/contract"
+	"github.com/webong/ext/pkg/plugin-go/schema"
 )
 
 type sharedSchemas struct{}

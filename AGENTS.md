@@ -46,10 +46,11 @@ depend only on the standard library.
 share. Nothing lives at that level. `lib/plugin` is the portable C plugin
 engine, built with CMake: it is not a Go module, has no `go.mod` and is not
 listed in `go.work`. The language bindings under `pkg/plugin-*` build on it.
-Until it reaches parity with `pkg/plugin`, the Go implementation is the
-behavioral baseline; see `docs/plugin-engine-parity.md`. A change to the plugin
-contract or the package manifest lands in both, and the engine's conformance
-checks compare the two.
+Until it reaches parity, the pure-Go implementation in `pkg/plugin-go` is the
+behavioral baseline; see `docs/plugin-engine-parity.md`. The shared conformance
+fixtures live in `lib/plugin/testdata`. A change to the plugin contract or the
+package manifest lands in both implementations, and the conformance checks
+compare the two.
 
 Each reusable library under `pkg/` is its own Go module, not a package inside
 one repository-wide module. The root `go.work` keeps the repository building as
@@ -59,7 +60,7 @@ library's dependencies pointing inward so it never depends back on its consumers
 
 Runtime backends that own a heavy runtime are separate modules:
 `pkg/plugin-hashicorp` (go-plugin, grpc) and `pkg/plugin-wasm` (wazero). Keep a
-backend's non-test code dependent only on `pkg/plugin` and `pkg/plugin/jsonline`.
+backend's non-test code dependent only on `pkg/plugin-go/contract` and `pkg/plugin-go/jsonline`.
 Tests that need a backend belong in that backend's module, not in the core
 contract module, so the core stays free of the backend's runtime.
 
@@ -81,7 +82,7 @@ The reusable libraries are:
 - `res/credential` for portable credential serving and client code.
 - `lib/plugin` for the portable C plugin engine shared by the `pkg/plugin-*` language bindings.
 - `pkg/graph` for host, system, and process discovery.
-- `pkg/plugin` for the shared host/guest contract and runtime backends.
+- `pkg/plugin-go` for the Go plugin library: the contract, sessions, guests, packages and runtime backends, on the C engine or in pure Go.
 - `pkg/graph/supervisor` (inside the graph module) for process supervision and recovery.
 
 Plugin runtime backends, including HashiCorp go-plugin, belong inside the
@@ -95,16 +96,18 @@ Product adapter engines and stores that are reused across adapters
 `adapters/keychain/store`, `adapters/credman/store`, and
 `adapters/secret_service/store`) are their own Go modules, listed in `go.work`
 and resolved by `src/ctx/go.mod` while unpublished. Product adapter
-executables use the same plugin library. `pkg/plugin` owns the
+executables use the same plugin library. `pkg/plugin-go/contract` owns the
 adapter process protocol and adapter descriptor helpers. Adapters and other Go
 programs import `pkg/plugin-go`, the one Go entry point: it re-exports the
-`pkg/plugin` data model and serves sessions, guests, digests and routes on the C
+`contract` data model and serves sessions, guests, digests and routes on the C
 engine (`ext_cengine` and cgo) or in pure Go, so `CGO_ENABLED=0` builds keep
-working. Its `packages`, `store` and `host` subpackages cover manifests, the
+working. There is no separate `pkg/plugin` module: the Go plugin library is the
+Go language package of the plugin engine, beside the other `pkg/plugin-*`
+language packages. Its `packages`, `store` and `host` subpackages cover manifests, the
 installed package store and opening a package; the root stays free of
 `packagekit` so it does not reach `pkg/graph`. Runtime backends
 (`pkg/plugin-hashicorp`, `pkg/plugin-wasm`, `pkg/plugin-cshared`) implement
-`plugin.Backend` and keep importing `pkg/plugin`. Hosts import `pkg/plugin/adapter`,
+`contract.Backend` and import `pkg/plugin-go/contract`. Hosts import `pkg/plugin-go/adapter`,
 which owns manifests, the installed store, trust and invocation; a product keeps
 only its own selection and commands.
 
@@ -113,8 +116,7 @@ TypeScript), with language-specific embedding examples alongside them. The
 mobile SDKs are named for their platforms because they are native to them:
 `pkg/plugin-ios` (Swift, with Objective-C through the C headers) and
 `pkg/plugin-android` (Java, with Kotlin through the same API). Keep
-`pkg/plugin` focused on engine contracts, runtime backends and shared
-conformance fixtures. The Go-to-C guest binding belongs in
+`pkg/plugin-go` focused on the contract, the engine API and runtime backends. The Go-to-C guest binding belongs in
 `pkg/plugin-go/cshared/guest`; the language-neutral C ABI header and runtime loader
 remain in `pkg/plugin-cshared`.
 

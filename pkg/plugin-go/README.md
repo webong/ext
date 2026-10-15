@@ -7,12 +7,12 @@ point to the ext plugin system. One API, two builds:
   Windows with MinGW-w64) the engine functions run in the shared C engine in
   `lib/plugin`.
 - **Pure Go.** In any other build (no cgo, no tag, an unsupported platform) the
-  same API is served by the pure-Go implementation in `pkg/plugin`, so
+  same API is served by the pure-Go implementation in `pkg/plugin-go`, so
   `CGO_ENABLED=0` programs keep working. `goengine.CEngine` reports which build
   you have.
 
 The data model (`Descriptor`, `Request`, `Response`, `Identity`, the `Err*`
-classes, `Backend`, `BackendProfile` and the contract helpers) is `pkg/plugin`'s,
+classes, `Backend`, `BackendProfile` and the contract helpers) is `pkg/plugin-go`'s,
 re-exported so a program imports this package alone. The common API is `Open`,
 `OpenProcess`, `Session`, `NewGuest`, `Guest`, `NewRegistry`,
 `GuestFromRegistry`, `ResolveRoute`, `ValidateSchema`, `CheckSchema`,
@@ -25,6 +25,30 @@ re-exported so a program imports this package alone. The common API is `Open`,
 The root package does not import `packagekit`, so a small program such as an
 adapter does not reach `pkg/graph`. `Host`, `Streams`, `Instances`, `NewProcess`
 and `NewLaunch` are engine-only and need the C engine build.
+
+## Packages
+
+| Package | Role |
+| --- | --- |
+| `goengine` (this package) | The entry point: re-exports the data model; sessions, guests, digests and routes on the C engine or in pure Go |
+| `contract` | The portable contract: descriptors, requests, responses, errors, validation, selection, requirements, the pure-Go session and guest, and the adapter process protocol |
+| `packages` | Validate, resolve and verify `ext.package/v1` manifests |
+| `store` | The installed package store under a caller-supplied root, with layered roots and `Verify` |
+| `host` | Opens an installed package as a running plugin and calls it by dotted method name |
+| `packagekit` | The `ext.package/v1` manifest, dependency resolution and authoring helpers |
+| `author`, `schema`, `jsonschema`, `stream`, `instance`, `capability` | Typed authoring, the manifest schema vocabulary, bounded JSON Schema validation, pull streams, instances and the configuration and health helpers |
+| `process`, `jsonline`, `inprocess`, `nativego` | Runtime backends: child process over JSON lines, the JSON-line transport, trusted in-process endpoints, native Go plugins |
+| `interop`, `bridge` | Route resolution and bridges between backends |
+| `adapter` | Host side of ctx adapters: manifests, the installed store, packaging, trust and invocation |
+| `plugintest` | Shared conformance fixtures |
+| `cshared/guest` | Go guest lifecycle for the public C plugin ABI |
+
+Runtime backends that own a heavy runtime are separate modules:
+[`pkg/plugin-hashicorp`](../plugin-hashicorp/README.md) (go-plugin, net/rpc and
+gRPC), [`pkg/plugin-wasm`](../plugin-wasm/README.md) (wazero) and
+`pkg/plugin-cshared` (the versioned C ABI header and loader). The portable C
+engine is [`lib/plugin`](../../lib/plugin/README.md), and the shared conformance
+fixtures are in `lib/plugin/testdata`.
 
 ## Building with the C engine
 
@@ -44,7 +68,7 @@ for lifecycle, ownership, backend extension and current limitations.
 - [`cshared/guest`](cshared/guest/guest.go): Go guest lifecycle for the public
   C plugin ABI; does not depend on the C host engine or its build tag.
 
-The pure-Go implementation remains in `pkg/plugin` as the fallback build and the
+The pure-Go implementation remains in `pkg/plugin-go` as the fallback build and the
 baseline the engine is compared against, while
 [shared-engine parity](../../docs/plugin-engine-parity.md) is completed.
 

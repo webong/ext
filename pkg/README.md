@@ -16,24 +16,23 @@ consumers.
 | Module | Depends on | Third-party dependencies |
 | --- | --- | --- |
 | [`graph`](graph/README.md) | none | `golang.org/x/sys` |
-| [`plugin`](plugin/README.md) | `pkg/graph` | none |
-| `plugin-go` | `pkg/plugin` | none |
-| `plugin-cshared` | `pkg/plugin` | none |
-| [`plugin-hashicorp`](plugin-hashicorp/README.md) | `pkg/plugin` | `go-plugin`, `grpc`, `protobuf` |
-| [`plugin-wasm`](plugin-wasm/README.md) | `pkg/plugin`, `pkg/plugin-go` | `wazero` |
+| [`plugin-go`](plugin-go/README.md) | `pkg/graph`, `pkg/plugin-cshared` | none |
+| `plugin-cshared` | `pkg/plugin-go` | none |
+| [`plugin-hashicorp`](plugin-hashicorp/README.md) | `pkg/plugin-go` | `go-plugin`, `grpc`, `protobuf` |
+| [`plugin-wasm`](plugin-wasm/README.md) | `pkg/plugin-go` | `wazero` |
 
-A consumer that only needs `pkg/plugin` or `pkg/graph` never downloads the
+A consumer that only needs `pkg/plugin-go` or `pkg/graph` never downloads the
 HashiCorp or WASI runtime stacks, and each runtime backend is opt-in.
 
 | Library | Contents |
 | --- | --- |
 | [`graph`](graph/README.md) | Host, system and process discovery, storage and transactions. `graph/supervisor` supervises and recovers local processes. |
-| [`plugin`](plugin/README.md) | Shared host/guest contract, the adapter process protocol, runtime backends and conformance fixtures |
+| [`plugin-go`](plugin-go/README.md) | The Go plugin library: the contract, sessions, guests, packages, the store and runtime backends, on the C engine or in pure Go |
 
 ## Plugin language SDKs and bindings
 
-Language-facing plugin packages live here. `plugin/` owns the contract, runtime
-backends and shared conformance fixtures. The portable C engine and its public
+Language-facing plugin packages live here; `plugin-go` is the Go one and holds the
+contract and the runtime backends. The portable C engine and its public
 headers live in [`lib/plugin`](../lib/plugin/README.md); these packages bind to it.
 
 | Directory | Contents |

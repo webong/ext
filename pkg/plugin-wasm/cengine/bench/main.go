@@ -7,6 +7,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/webong/ext/pkg/plugin-go"
+	plugin "github.com/webong/ext/pkg/plugin-go/contract"
+	"github.com/webong/ext/pkg/plugin-go/jsonline"
+	"github.com/webong/ext/pkg/plugin-go/plugintest"
 	"io"
 	"os"
 	"os/exec"
@@ -17,11 +21,6 @@ import (
 	"sync"
 	"syscall"
 	"time"
-
-	"github.com/webong/ext/pkg/plugin"
-	"github.com/webong/ext/pkg/plugin-go"
-	"github.com/webong/ext/pkg/plugin/jsonline"
-	"github.com/webong/ext/pkg/plugin/plugintest"
 )
 
 type process struct {

@@ -2,14 +2,13 @@ package hashicorp
 
 import (
 	"context"
-	"time"
-
-	"github.com/webong/ext/pkg/plugin"
+	plugin "github.com/webong/ext/pkg/plugin-go/contract"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
+	"time"
 )
 
 const grpcServiceName = "ext.plugin.v1.Runtime"

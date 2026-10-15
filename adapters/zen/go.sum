@@ -4,7 +4,5 @@ github.com/webong/ext/adapters/chromium v0.2.0 h1:FGi6JDnjPJWuJPqoy+ELPWYCz/uIlQ
 github.com/webong/ext/adapters/chromium v0.2.0/go.mod h1:W8sBhMOMBlHFnqphm1NevKnhtbzXv713IyzLc7OILG4=
 github.com/webong/ext/adapters/firefox v0.2.0 h1:fE/Qlg9FSlUPq9EYBCqOYtd2leQUIajH1I7dYkia1mQ=
 github.com/webong/ext/adapters/firefox v0.2.0/go.mod h1:OB9E49lCNs+poGjiBcrVVI49fweyvVn6dKkyeSNII48=
-github.com/webong/ext/pkg/plugin v0.2.0 h1:KJ0L0vGyM0acl433Bbo6nqbDezUrW/JK07XW7txcLOw=
-github.com/webong/ext/pkg/plugin v0.2.0/go.mod h1:4HjMr9xajSrI6DroQ7+3jntxmrZF1M5UPwhlMliljDE=
 github.com/webong/ext/res/web v0.5.0 h1:FCD4435Xi4M4g8d66rBNoBEE1wuHgGGvXhI3kpL2WYk=
 github.com/webong/ext/res/web v0.5.0/go.mod h1:DoAk6ydqtqqC21xr+XbngXzx2Br5J6DRXvACQx7DC5I=

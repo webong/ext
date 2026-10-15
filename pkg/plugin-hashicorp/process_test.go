@@ -4,11 +4,10 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	plugin "github.com/webong/ext/pkg/plugin-go/contract"
 	"os"
 	"path/filepath"
 	"testing"
-
-	"github.com/webong/ext/pkg/plugin"
 )
 
 func TestPinnedProcessSelection(t *testing.T) {

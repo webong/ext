@@ -3,11 +3,10 @@ package hashicorp
 import (
 	"context"
 	"encoding/json"
+	plugin "github.com/webong/ext/pkg/plugin-go/contract"
 	"net/rpc"
 	"sync"
 	"time"
-
-	"github.com/webong/ext/pkg/plugin"
 )
 
 type hello struct {

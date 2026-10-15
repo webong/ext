@@ -5,11 +5,10 @@ package guest
 import (
 	"context"
 	"encoding/json"
+	"github.com/webong/ext/pkg/plugin-cshared/abi"
+	plugin "github.com/webong/ext/pkg/plugin-go/contract"
 	"sync"
 	"unsafe"
-
-	"github.com/webong/ext/pkg/plugin"
-	"github.com/webong/ext/pkg/plugin-cshared/abi"
 )
 
 type Factory func(context.Context) (plugin.Backend, error)

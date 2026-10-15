@@ -6,13 +6,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/webong/ext/pkg/plugin-cshared/abi"
+	plugin "github.com/webong/ext/pkg/plugin-go/contract"
 	"path/filepath"
 	"strings"
 	"sync"
 	"unicode/utf8"
-
-	"github.com/webong/ext/pkg/plugin"
-	"github.com/webong/ext/pkg/plugin-cshared/abi"
 )
 
 type nativeSession interface {

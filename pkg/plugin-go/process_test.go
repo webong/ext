@@ -5,8 +5,8 @@ package goengine
 import (
 	"context"
 	"errors"
-	"github.com/webong/ext/pkg/plugin"
-	"github.com/webong/ext/pkg/plugin/plugintest"
+	plugin "github.com/webong/ext/pkg/plugin-go/contract"
+	"github.com/webong/ext/pkg/plugin-go/plugintest"
 	"os"
 	"path/filepath"
 	"runtime"

@@ -5,14 +5,13 @@ package goengine
 import (
 	"context"
 	"encoding/json"
+	"github.com/webong/ext/pkg/plugin-go/author"
+	"github.com/webong/ext/pkg/plugin-go/capability"
+	plugin "github.com/webong/ext/pkg/plugin-go/contract"
+	"github.com/webong/ext/pkg/plugin-go/inprocess"
+	"github.com/webong/ext/pkg/plugin-go/instance"
+	"github.com/webong/ext/pkg/plugin-go/schema"
 	"testing"
-
-	"github.com/webong/ext/pkg/plugin"
-	"github.com/webong/ext/pkg/plugin/author"
-	"github.com/webong/ext/pkg/plugin/capability"
-	"github.com/webong/ext/pkg/plugin/inprocess"
-	"github.com/webong/ext/pkg/plugin/instance"
-	"github.com/webong/ext/pkg/plugin/schema"
 )
 
 // The capability helpers must work over the C engine end to end: a C-backed

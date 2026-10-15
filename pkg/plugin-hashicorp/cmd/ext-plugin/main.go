@@ -6,15 +6,14 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	plugin "github.com/webong/ext/pkg/plugin-go/contract"
+	"github.com/webong/ext/pkg/plugin-go/inprocess"
+	"github.com/webong/ext/pkg/plugin-go/jsonline"
+	"github.com/webong/ext/pkg/plugin-go/packagekit"
+	"github.com/webong/ext/pkg/plugin-hashicorp"
 	"io"
 	"os"
 	"runtime"
-
-	"github.com/webong/ext/pkg/plugin"
-	"github.com/webong/ext/pkg/plugin-hashicorp"
-	"github.com/webong/ext/pkg/plugin/inprocess"
-	"github.com/webong/ext/pkg/plugin/jsonline"
-	"github.com/webong/ext/pkg/plugin/packagekit"
 )
 
 func main() {

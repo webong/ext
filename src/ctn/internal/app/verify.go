@@ -16,7 +16,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/webong/ext/pkg/plugin/adapter"
+	"github.com/webong/ext/pkg/plugin-go/adapter"
 )
 
 // Exit statuses of verify. They are separate so a script can tell content that

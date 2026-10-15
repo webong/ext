@@ -3,10 +3,9 @@ package store
 import (
 	"errors"
 	"fmt"
+	plugin "github.com/webong/ext/pkg/plugin-go/contract"
 	"path/filepath"
 	"sort"
-
-	"github.com/webong/ext/pkg/plugin"
 )
 
 // Layered is a read-only view over several stores. Earlier stores shadow later

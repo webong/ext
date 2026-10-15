@@ -5,15 +5,14 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	plugin "github.com/webong/ext/pkg/plugin-go/contract"
+	"github.com/webong/ext/pkg/plugin-go/packagekit"
+	"github.com/webong/ext/pkg/plugin-go/store"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
-
-	"github.com/webong/ext/pkg/plugin"
-	"github.com/webong/ext/pkg/plugin-go/store"
-	"github.com/webong/ext/pkg/plugin/packagekit"
 )
 
 func write(t *testing.T, dir, rel, body string) string {

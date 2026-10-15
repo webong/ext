@@ -11,7 +11,7 @@ ext_status ext_go_create_launch(const char *,const char *const *,size_t,const ch
 import "C"
 import (
 	"encoding/json"
-	"github.com/webong/ext/pkg/plugin"
+	plugin "github.com/webong/ext/pkg/plugin-go/contract"
 	"runtime/cgo"
 	"strings"
 	"unsafe"

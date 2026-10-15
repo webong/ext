@@ -14,7 +14,7 @@ use std::{
 fn fixture() -> Descriptor {
     wire::typed(
         wire::decode(include_bytes!(
-            "../../../pkg/plugin/testdata/v1/descriptor.json"
+            "../../../lib/plugin/testdata/v1/descriptor.json"
         ))
         .unwrap(),
     )
@@ -26,7 +26,7 @@ fn frozen_wire_and_strict_json() {
     d.validate().unwrap();
     d.matches(&d).unwrap();
     let invalid: Vec<String> =
-        serde_json::from_str(include_str!("../../../pkg/plugin/testdata/v1/invalid.json")).unwrap();
+        serde_json::from_str(include_str!("../../../lib/plugin/testdata/v1/invalid.json")).unwrap();
     for s in invalid {
         assert!(wire::decode(s.as_bytes()).is_err(), "{s}");
     }

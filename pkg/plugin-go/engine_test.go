@@ -6,15 +6,14 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	plugin "github.com/webong/ext/pkg/plugin-go/contract"
+	"github.com/webong/ext/pkg/plugin-go/plugintest"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
 	"time"
-
-	"github.com/webong/ext/pkg/plugin"
-	"github.com/webong/ext/pkg/plugin/plugintest"
 )
 
 func guest(t *testing.T) string {
@@ -129,7 +128,7 @@ func TestAdmissionAndValidation(t *testing.T) {
 	})
 }
 func TestSharedJSONFixtures(t *testing.T) {
-	data, err := os.ReadFile("../../pkg/plugin/testdata/v1/invalid.json")
+	data, err := os.ReadFile("../../lib/plugin/testdata/v1/invalid.json")
 	if err != nil {
 		t.Fatal(err)
 	}

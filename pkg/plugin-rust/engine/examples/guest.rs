@@ -3,7 +3,7 @@ use ext_plugin_engine::{service, CallOptions, Guest, GuestReply};
 use std::time::Duration;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let descriptor = include_bytes!("../../../../pkg/plugin/testdata/v1/descriptor.json");
+    let descriptor = include_bytes!("../../../../lib/plugin/testdata/v1/descriptor.json");
     let guest = Guest::new(
         descriptor,
         Duration::from_secs(1),

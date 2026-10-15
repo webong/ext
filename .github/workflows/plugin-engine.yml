@@ -8,14 +8,14 @@ on:
     paths:
       - 'lib/plugin/**'
       - 'pkg/plugin-go/**'
-      - 'pkg/plugin/**'
+      - 'pkg/plugin-go/**'
       - 'scripts/plugin-engine-test.sh'
       - '.github/workflows/plugin-engine.yml'
   pull_request:
     paths:
       - 'lib/plugin/**'
       - 'pkg/plugin-go/**'
-      - 'pkg/plugin/**'
+      - 'pkg/plugin-go/**'
       - 'scripts/plugin-engine-test.sh'
       - '.github/workflows/plugin-engine.yml'
   workflow_dispatch:

@@ -5,7 +5,6 @@ go 1.26.0
 require (
 	github.com/hashicorp/go-hclog v0.14.1
 	github.com/hashicorp/go-plugin v1.6.3
-	github.com/webong/ext/pkg/plugin v0.1.0
 	github.com/webong/ext/pkg/plugin-go v0.1.0
 	google.golang.org/grpc v1.83.1
 	google.golang.org/protobuf v1.36.11

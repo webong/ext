@@ -10,7 +10,7 @@ import (
 	"sort"
 	"strings"
 
-	modpkg "github.com/webong/ext/pkg/plugin/adapter"
+	modpkg "github.com/webong/ext/pkg/plugin-go/adapter"
 	browser "github.com/webong/ext/res/web"
 )
 

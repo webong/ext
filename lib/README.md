@@ -9,6 +9,6 @@ Nothing lives at this level: no source, no build file, no repository-wide policy
 
 The language bindings live under `pkg/plugin-*` (Go, Rust, Zig, TypeScript, iOS and
 Android) and build on `lib/plugin`. A library here is not a Go module and is not
-listed in `go.work`. The Go implementation in `pkg/plugin` remains the behavioral
+listed in `go.work`. The Go implementation in `pkg/plugin-go` remains the behavioral
 baseline until the engine reaches parity; see
 [the parity checklist](../docs/plugin-engine-parity.md).

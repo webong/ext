@@ -15,9 +15,9 @@ import (
 	"github.com/webong/ext/examples/plugin-runtimes/echo"
 	"github.com/webong/ext/pkg/plugin-cshared"
 	goengine "github.com/webong/ext/pkg/plugin-go"
+	"github.com/webong/ext/pkg/plugin-go/author"
+	"github.com/webong/ext/pkg/plugin-go/nativego"
 	"github.com/webong/ext/pkg/plugin-wasm"
-	"github.com/webong/ext/pkg/plugin/author"
-	"github.com/webong/ext/pkg/plugin/nativego"
 )
 
 func main() {

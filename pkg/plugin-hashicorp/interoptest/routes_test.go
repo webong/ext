@@ -2,10 +2,10 @@ package hashicorp_test
 
 import (
 	"errors"
-	"github.com/webong/ext/pkg/plugin"
+	plugin "github.com/webong/ext/pkg/plugin-go/contract"
+	"github.com/webong/ext/pkg/plugin-go/interop"
+	"github.com/webong/ext/pkg/plugin-go/jsonline"
 	hashicorp "github.com/webong/ext/pkg/plugin-hashicorp"
-	"github.com/webong/ext/pkg/plugin/interop"
-	"github.com/webong/ext/pkg/plugin/jsonline"
 	"testing"
 )
 

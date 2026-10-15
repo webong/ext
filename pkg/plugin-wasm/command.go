@@ -10,7 +10,7 @@ import (
 	"github.com/tetratelabs/wazero"
 	"github.com/tetratelabs/wazero/imports/wasi_snapshot_preview1"
 	"github.com/tetratelabs/wazero/sys"
-	"github.com/webong/ext/pkg/plugin"
+	plugin "github.com/webong/ext/pkg/plugin-go/contract"
 )
 
 // CommandOptions describes one run of a WASI Preview 1 command. Nothing is

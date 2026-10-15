@@ -7,6 +7,12 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"github.com/webong/ext/pkg/plugin-cshared"
+	plugin "github.com/webong/ext/pkg/plugin-go/contract"
+	"github.com/webong/ext/pkg/plugin-go/jsonline"
+	"github.com/webong/ext/pkg/plugin-go/nativego"
+	"github.com/webong/ext/pkg/plugin-go/plugintest"
+	"github.com/webong/ext/pkg/plugin-wasm"
 	"io"
 	"os"
 	"os/exec"
@@ -16,13 +22,6 @@ import (
 	"sync"
 	"testing"
 	"time"
-
-	"github.com/webong/ext/pkg/plugin"
-	"github.com/webong/ext/pkg/plugin-cshared"
-	"github.com/webong/ext/pkg/plugin-wasm"
-	"github.com/webong/ext/pkg/plugin/jsonline"
-	"github.com/webong/ext/pkg/plugin/nativego"
-	"github.com/webong/ext/pkg/plugin/plugintest"
 )
 
 func TestForeignMalformedFrames(t *testing.T) {
@@ -37,7 +36,7 @@ func TestForeignMalformedFrames(t *testing.T) {
 // every malformed first frame.
 func rejectMalformedFrames(t *testing.T, path string) {
 	t.Helper()
-	data, err := os.ReadFile("../../plugin/testdata/v1/invalid.json")
+	data, err := os.ReadFile("../../../lib/plugin/testdata/v1/invalid.json")
 	if err != nil {
 		t.Fatal(err)
 	}

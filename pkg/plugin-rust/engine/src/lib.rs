@@ -383,7 +383,7 @@ pub fn directory_digest(root: &str) -> Result<[u8; 32], Error> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    const DESCRIPTOR: &[u8] = include_bytes!("../../../../pkg/plugin/testdata/v1/descriptor.json");
+    const DESCRIPTOR: &[u8] = include_bytes!("../../../../lib/plugin/testdata/v1/descriptor.json");
     #[test]
     fn services() {
         assert!(service("descriptor.validate", DESCRIPTOR).is_ok());

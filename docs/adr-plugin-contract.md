@@ -6,9 +6,9 @@ wire protocols do not become compatible merely by importing this package.
 
 ## Ownership
 
-CTX supplies `github.com/webong/ext/pkg/plugin`, alongside `graph` and `supervisor`.
-Its implementations include `pkg/plugin/inprocess`, `pkg/plugin/jsonline`,
-`pkg/plugin-hashicorp`, `pkg/plugin/nativego`, `pkg/plugin-wasm`, and `pkg/plugin-cshared`, with
+CTX supplies `github.com/webong/ext/pkg/plugin-go`, alongside `graph` and `supervisor`.
+Its implementations include `pkg/plugin-go/inprocess`, `pkg/plugin-go/jsonline`,
+`pkg/plugin-hashicorp`, `pkg/plugin-go/nativego`, `pkg/plugin-wasm`, and `pkg/plugin-cshared`, with
 additional backends able to implement the same public interface. HashiCorp
 go-plugin is a dependency of the plugin library, not a CTX product adapter.
 CTX adapters and ecosystem applications are consumers of these libraries.
@@ -19,9 +19,9 @@ browser fallback, or built-in permission vocabulary.
 
 Consumers define domain contracts, payloads, authorization, configuration,
 discovery, package distribution, trust decisions, and endpoint authentication.
-The library supplies the generic mechanics around them: `pkg/plugin/store`
+The library supplies the generic mechanics around them: `pkg/plugin-go/store`
 installs, upgrades, lists, removes and re-verifies packages, and
-`pkg/plugin/process` launches process plugins (see below).
+`pkg/plugin-go/process` launches process plugins (see below).
 Product and native mechanisms in CTX belong under `adapters/<name>/`.
 Portable integrity and plugin runtime implementations belong in the library.
 A descriptor, graph
@@ -386,7 +386,7 @@ versioned domain contracts may coexist in a descriptor.
 
 Run the end-to-end example with `go run ./examples/plugin`. Contract, admission,
 drain, integrity, malformed-frame, cancellation, concurrency, and CTX compatibility
-tests live under `pkg/plugin/`, `pkg/plugin/jsonline/`, and `pkg/plugin/adapter/plugin_test.go`.
+tests live under `pkg/plugin-go/contract/`, `pkg/plugin-go/jsonline/`, and `pkg/plugin-go/adapter/plugin_test.go`.
 HashiCorp tests under `pkg/plugin-hashicorp/` launch real subprocesses over both
 RPC protocols with checksum verification and automatic TLS. They cover host
 admission, concurrent requests, structured errors, mismatch, cancellation, and

@@ -2,6 +2,6 @@
 
 package main
 
-import "github.com/webong/ext/pkg/plugin"
+import plugin "github.com/webong/ext/pkg/plugin-go/contract"
 
 func watchParent(config) error { return plugin.ErrUnsupported }

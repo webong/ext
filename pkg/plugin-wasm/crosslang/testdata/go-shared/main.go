@@ -6,10 +6,10 @@ package main
 import "C"
 import (
 	"context"
-	"github.com/webong/ext/pkg/plugin"
+	plugin "github.com/webong/ext/pkg/plugin-go/contract"
 	"github.com/webong/ext/pkg/plugin-go/cshared/guest"
-	"github.com/webong/ext/pkg/plugin/inprocess"
-	"github.com/webong/ext/pkg/plugin/plugintest"
+	"github.com/webong/ext/pkg/plugin-go/inprocess"
+	"github.com/webong/ext/pkg/plugin-go/plugintest"
 	"unsafe"
 )
 

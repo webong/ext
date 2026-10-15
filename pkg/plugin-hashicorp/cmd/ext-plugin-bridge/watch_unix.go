@@ -4,12 +4,11 @@ package main
 
 import (
 	"context"
+	plugin "github.com/webong/ext/pkg/plugin-go/contract"
 	"io"
 	"os"
 	"os/signal"
 	"syscall"
-
-	"github.com/webong/ext/pkg/plugin"
 )
 
 // The worker survives launcher death and owns the actual go-plugin client.

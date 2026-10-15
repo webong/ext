@@ -6,12 +6,11 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	plugin "github.com/webong/ext/pkg/plugin-go/contract"
+	"github.com/webong/ext/pkg/plugin-go/instance"
 	"sync/atomic"
 	"testing"
 	"time"
-
-	"github.com/webong/ext/pkg/plugin"
-	"github.com/webong/ext/pkg/plugin/instance"
 )
 
 func TestCInstanceReplacementLeasesAndDrain(t *testing.T) {

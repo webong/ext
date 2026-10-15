@@ -10,12 +10,13 @@ import (
 )
 
 // Go programs reach the plugin system through pkg/plugin-go, which re-exports the
-// pkg/plugin data model and runs on the C engine or in pure Go. Only the plugin
-// libraries themselves import the pkg/plugin root: pkg/plugin, the runtime
-// backends that implement plugin.Backend, and the language bindings.
-func TestGoProgramsImportPluginGoNotThePluginRoot(t *testing.T) {
+// data model that lives in pkg/plugin-go/contract and runs on the C engine or in
+// pure Go. Only the plugin library itself and the runtime backends that implement
+// contract.Backend (pkg/plugin-hashicorp, pkg/plugin-wasm, pkg/plugin-cshared)
+// import the contract package.
+func TestGoProgramsImportPluginGoNotItsContractPackage(t *testing.T) {
 	root := repoRoot(t)
-	const pluginRoot = "github.com/webong/ext/pkg/plugin"
+	const pluginRoot = "github.com/webong/ext/pkg/plugin-go/contract"
 	for _, tree := range []string{"adapters", "examples", "src", "res"} {
 		err := filepath.WalkDir(filepath.Join(root, tree), func(path string, entry fs.DirEntry, walkErr error) error {
 			if walkErr != nil {

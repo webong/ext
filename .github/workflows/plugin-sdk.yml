@@ -25,7 +25,7 @@ jobs:
           node-version: '22'
       - name: Test plugin library modules
         run: |
-          for module in pkg/plugin pkg/plugin-hashicorp pkg/plugin-wasm pkg/plugin-go; do
+          for module in pkg/plugin-go pkg/plugin-hashicorp pkg/plugin-wasm; do
             (cd "$module" && go test -race ./...) || exit 1
           done
       - run: go test -race ./pkg/plugin-hashicorp/cmd/ext-plugin

@@ -29,7 +29,7 @@ go build -o "$fault" lib/plugin/tests/faultguest/main.go
 "$python" - "$build" <<'PY'
 import json, pathlib, sys
 p = pathlib.Path(sys.argv[1])
-d = json.loads(pathlib.Path('pkg/plugin/testdata/v1/descriptor.json').read_text())
+d = json.loads(pathlib.Path('lib/plugin/testdata/v1/descriptor.json').read_text())
 (p / 'descriptor.json').write_text(json.dumps(d))
 for op in ['echo', 'public-error', 'wait']:
     r = dict(apiVersion='ext.plugin/v1', id='1', plugin=d['identity'],

@@ -3,14 +3,13 @@ package store_test
 import (
 	"encoding/json"
 	"errors"
+	plugin "github.com/webong/ext/pkg/plugin-go/contract"
+	"github.com/webong/ext/pkg/plugin-go/packagekit"
+	"github.com/webong/ext/pkg/plugin-go/store"
 	"os"
 	"path/filepath"
 	"runtime"
 	"testing"
-
-	"github.com/webong/ext/pkg/plugin"
-	"github.com/webong/ext/pkg/plugin-go/store"
-	"github.com/webong/ext/pkg/plugin/packagekit"
 )
 
 var treeContracts = []plugin.Contract{{ContractRef: plugin.ContractRef{Name: "example.read", Version: "v1"}, Operations: []plugin.Operation{{Name: "read"}}}}

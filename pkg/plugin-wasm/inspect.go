@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/tetratelabs/wazero"
-	"github.com/webong/ext/pkg/plugin"
+	plugin "github.com/webong/ext/pkg/plugin-go/contract"
 )
 
 // Target classifies what a module needs from its host.

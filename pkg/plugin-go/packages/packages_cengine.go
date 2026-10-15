@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 
 	goengine "github.com/webong/ext/pkg/plugin-go"
-	"github.com/webong/ext/pkg/plugin/packagekit"
+	"github.com/webong/ext/pkg/plugin-go/packagekit"
 )
 
 // ValidateManifest reports whether m is a valid ext.package/v1 manifest.

@@ -18,8 +18,8 @@ import (
 	"github.com/tetratelabs/wazero"
 	"github.com/tetratelabs/wazero/imports/wasi_snapshot_preview1"
 	"github.com/tetratelabs/wazero/sys"
-	"github.com/webong/ext/pkg/plugin"
-	"github.com/webong/ext/pkg/plugin/jsonline"
+	plugin "github.com/webong/ext/pkg/plugin-go/contract"
+	"github.com/webong/ext/pkg/plugin-go/jsonline"
 )
 
 const MaxModuleBytes = 64 << 20

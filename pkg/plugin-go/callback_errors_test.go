@@ -6,12 +6,11 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	plugin "github.com/webong/ext/pkg/plugin-go/contract"
+	"github.com/webong/ext/pkg/plugin-go/instance"
+	"github.com/webong/ext/pkg/plugin-go/stream"
 	"testing"
 	"time"
-
-	"github.com/webong/ext/pkg/plugin"
-	"github.com/webong/ext/pkg/plugin/instance"
-	"github.com/webong/ext/pkg/plugin/stream"
 )
 
 func TestCallbackErrorCauses(t *testing.T) {

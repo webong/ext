@@ -5,6 +5,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	plugin "github.com/webong/ext/pkg/plugin-go/contract"
+	"github.com/webong/ext/pkg/plugin-go/host"
+	"github.com/webong/ext/pkg/plugin-go/jsonline"
+	"github.com/webong/ext/pkg/plugin-go/packagekit"
+	"github.com/webong/ext/pkg/plugin-go/process"
+	"github.com/webong/ext/pkg/plugin-go/store"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -12,15 +18,6 @@ import (
 	"strings"
 	"testing"
 	"time"
-
-	"github.com/webong/ext/pkg/plugin"
-	"github.com/webong/ext/pkg/plugin-go/host"
-	"github.com/webong/ext/pkg/plugin-go/store"
-	gohost "github.com/webong/ext/pkg/plugin/host"
-	"github.com/webong/ext/pkg/plugin/jsonline"
-	"github.com/webong/ext/pkg/plugin/packagekit"
-	"github.com/webong/ext/pkg/plugin/process"
-	gostore "github.com/webong/ext/pkg/plugin/store"
 )
 
 var contracts = []plugin.Contract{
@@ -219,7 +216,7 @@ func envKeys(env []string) []string {
 	return keys
 }
 
-// The C engine's launch must match pkg/plugin/process: working directory
+// The C engine's launch must match pkg/plugin-go/process: working directory
 // defaulting to the package directory, a scrubbed environment of PATH plus the
 // caller's entries, and bounded retained stderr.
 func TestLaunchMatchesGoProcess(t *testing.T) {
@@ -238,46 +235,17 @@ func TestLaunchMatchesGoProcess(t *testing.T) {
 	stderr := p.Stderr()
 	p.Close()
 
-	goInstalled, err := gostore.New(filepath.Join(t.TempDir(), "p"), gostore.Limits{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	src := t.TempDir()
-	body, _ := os.ReadFile(exe)
-	name := "provider"
-	if runtime.GOOS == "windows" {
-		name += ".exe"
-	}
-	os.WriteFile(filepath.Join(src, name), body, 0o700)
-	m, err := packagekit.ExecutableManifest("example/host", "1.0.0", contracts, filepath.Join(src, name))
-	if err != nil {
-		t.Fatal(err)
-	}
-	m.Descriptor.Identity.Revision = "child"
-	if err := gostore.WriteManifest(src, m); err != nil {
-		t.Fatal(err)
-	}
-	gi, err := goInstalled.Install(src)
-	if err != nil {
-		t.Fatal(err)
-	}
-	gp, err := gohost.Open(context.Background(), gi, gohost.Options{Launch: &process.Command{Path: mustGoExecutable(t, gi), Env: env, StderrBytes: 100}})
-	if err != nil {
-		t.Fatal(err)
-	}
+	// The reference: the same installed package launched by the pure-Go process
+	// runtime, composed from contract.Open and process.Start.
 	var want diag
-	if err := gp.Call(context.Background(), "example.content.echo", nil, &want); err != nil {
-		t.Fatal(err)
-	}
-	goStderr := gp.Stderr()
-	gp.Close()
+	goStderr := goReference(t, installed, exe, env, 100, &want)
 
 	resolve := func(p string) string { r, _ := filepath.EvalSymlinks(p); return r }
 	if resolve(got.Cwd) != resolve(installed.Directory) {
 		t.Errorf("C working directory %q, want the package directory %q", got.Cwd, installed.Directory)
 	}
-	if resolve(want.Cwd) != resolve(gi.Directory) {
-		t.Errorf("Go working directory %q, want %q", want.Cwd, gi.Directory)
+	if resolve(want.Cwd) != resolve(installed.Directory) {
+		t.Errorf("Go working directory %q, want %q", want.Cwd, installed.Directory)
 	}
 	ck, gk := envKeys(got.Env), envKeys(want.Env)
 	if strings.Join(ck, ",") != strings.Join(gk, ",") {
@@ -340,11 +308,35 @@ func TestLaunchPathEnvironmentOverrideAndRejections(t *testing.T) {
 	}
 }
 
-func mustGoExecutable(t *testing.T, installed gostore.Installed) string {
+// goReference launches the installed package with the pure-Go process runtime,
+// calls echo, fills diagnostics, and returns the retained stderr.
+func goReference(t *testing.T, installed store.Installed, exe string, env []string, stderrBytes int, out *diag) string {
 	t.Helper()
-	path, err := installed.Executable()
+	var proc *process.Process
+	session, err := plugin.Open(context.Background(), installed.Manifest.Descriptor, plugin.Options{
+		Verify:    func(context.Context, plugin.Descriptor) error { return installed.Verify() },
+		Authorize: func(context.Context, plugin.Request) error { return nil },
+		Timeout:   host.DefaultTimeout,
+		Connect: func(ctx context.Context, _ plugin.Descriptor) (plugin.Backend, error) {
+			p, err := process.Start(ctx, process.Command{Path: exe, Dir: installed.Directory, Env: env, StderrBytes: stderrBytes})
+			proc = p
+			return p, err
+		},
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	return path
+	defer session.Abort()
+	ref, operation, err := session.Descriptor().ResolveMethod("example.content.echo")
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, err := session.Call(context.Background(), ref, operation, json.RawMessage("null"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(raw, out); err != nil {
+		t.Fatal(err)
+	}
+	return proc.Stderr()
 }

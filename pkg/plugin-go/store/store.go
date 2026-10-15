@@ -11,17 +11,16 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	goengine "github.com/webong/ext/pkg/plugin-go"
+	plugin "github.com/webong/ext/pkg/plugin-go/contract"
+	"github.com/webong/ext/pkg/plugin-go/packagekit"
+	"github.com/webong/ext/pkg/plugin-go/packages"
 	"io"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
 	"sync"
-
-	"github.com/webong/ext/pkg/plugin"
-	goengine "github.com/webong/ext/pkg/plugin-go"
-	"github.com/webong/ext/pkg/plugin-go/packages"
-	"github.com/webong/ext/pkg/plugin/packagekit"
 )
 
 // ManifestName is the manifest file at the top of every package directory. An

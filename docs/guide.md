@@ -11,13 +11,13 @@ what you use:
 
 | You want to | Module (version used here) |
 | --- | --- |
-| host or write a plugin | `github.com/webong/ext/pkg/plugin` (v0.2.0) |
+| host or write a plugin | `github.com/webong/ext/pkg/plugin-go` (v0.2.0) |
 | run WebAssembly in a sandbox | `github.com/webong/ext/pkg/plugin-wasm` (v0.2.0) |
 | discover the machine | `github.com/webong/ext/pkg/graph` (v0.1.0) |
 | run web content in a browser | `github.com/webong/ext/res/web` (v0.1.1) |
 
 ```sh
-go get github.com/webong/ext/pkg/plugin@v0.2.0
+go get github.com/webong/ext/pkg/plugin-go@v0.2.0
 ```
 
 ## Host a plugin
@@ -35,9 +35,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/webong/ext/pkg/plugin"
-	"github.com/webong/ext/pkg/plugin/author"
-	"github.com/webong/ext/pkg/plugin/inprocess"
+	"github.com/webong/ext/pkg/plugin-go"
+	"github.com/webong/ext/pkg/plugin-go/author"
+	"github.com/webong/ext/pkg/plugin-go/inprocess"
 )
 
 type Greeting struct {

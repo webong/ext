@@ -64,7 +64,7 @@ jobs:
             go.work.sum
       - name: Test library modules
         run: |
-          for module in src/ctx src/ctn examples pkg/graph pkg/plugin pkg/plugin-cshared pkg/plugin-go pkg/plugin-hashicorp pkg/plugin-wasm adapters/wasm adapters/evm res/web res/credential; do
+          for module in src/ctx src/ctn examples pkg/graph pkg/plugin-go pkg/plugin-cshared pkg/plugin-hashicorp pkg/plugin-wasm adapters/wasm adapters/evm res/web res/credential; do
             (cd "$module" && go test ./...) || exit 1
           done
       - run: ./tests/native_test.sh
@@ -98,7 +98,7 @@ jobs:
             go.work.sum
       - name: Test ctn and the libraries it builds on
         run: |
-          for module in src/ctn pkg/graph pkg/plugin res/web res/credential; do
+          for module in src/ctn pkg/graph pkg/plugin-go res/web res/credential; do
             (cd "$module" && go test ./...) || exit 1
           done
       - run: sh ./scripts/build-release-ctn.sh "${GITHUB_REF_NAME#ctn-}" dist

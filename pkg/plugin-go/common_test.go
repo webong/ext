@@ -4,13 +4,12 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	plugin "github.com/webong/ext/pkg/plugin-go/contract"
+	"github.com/webong/ext/pkg/plugin-go/packagekit"
 	"os"
 	"path/filepath"
 	"runtime"
 	"testing"
-
-	"github.com/webong/ext/pkg/plugin"
-	"github.com/webong/ext/pkg/plugin/packagekit"
 )
 
 // These tests run in both builds, with and without the C engine, so the common

@@ -13,13 +13,12 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	plugin "github.com/webong/ext/pkg/plugin-go/contract"
 	"math"
 	"runtime/cgo"
 	"sync"
 	"time"
 	"unsafe"
-
-	"github.com/webong/ext/pkg/plugin"
 )
 
 // BackendOptions supplies runtime mechanics to the C engine. Connect must honor

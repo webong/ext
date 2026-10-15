@@ -3,17 +3,16 @@ package store_test
 import (
 	"context"
 	"encoding/json"
+	plugin "github.com/webong/ext/pkg/plugin-go/contract"
+	"github.com/webong/ext/pkg/plugin-go/jsonline"
+	"github.com/webong/ext/pkg/plugin-go/packagekit"
+	"github.com/webong/ext/pkg/plugin-go/process"
+	"github.com/webong/ext/pkg/plugin-go/store"
 	"os"
 	"path/filepath"
 	"runtime"
 	"testing"
 	"time"
-
-	"github.com/webong/ext/pkg/plugin"
-	"github.com/webong/ext/pkg/plugin-go/store"
-	"github.com/webong/ext/pkg/plugin/jsonline"
-	"github.com/webong/ext/pkg/plugin/packagekit"
-	"github.com/webong/ext/pkg/plugin/process"
 )
 
 var launchDescriptor = plugin.Descriptor{APIVersion: plugin.APIVersion, Identity: plugin.Identity{ID: "example/exec", Revision: "r1"},

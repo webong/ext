@@ -2,7 +2,7 @@
 
 package packages
 
-import "github.com/webong/ext/pkg/plugin/packagekit"
+import "github.com/webong/ext/pkg/plugin-go/packagekit"
 
 // ValidateManifest reports whether m is a valid ext.package/v1 manifest.
 func ValidateManifest(m packagekit.Manifest) error { return m.Validate() }

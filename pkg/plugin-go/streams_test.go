@@ -5,14 +5,13 @@ package goengine
 import (
 	"context"
 	"encoding/json"
+	"github.com/webong/ext/pkg/plugin-go/author"
+	plugin "github.com/webong/ext/pkg/plugin-go/contract"
+	"github.com/webong/ext/pkg/plugin-go/inprocess"
+	"github.com/webong/ext/pkg/plugin-go/stream"
 	"sync/atomic"
 	"testing"
 	"time"
-
-	"github.com/webong/ext/pkg/plugin"
-	"github.com/webong/ext/pkg/plugin/author"
-	"github.com/webong/ext/pkg/plugin/inprocess"
-	"github.com/webong/ext/pkg/plugin/stream"
 )
 
 type reader struct{ closed atomic.Int32 }

@@ -12,12 +12,11 @@ import "C"
 
 import (
 	"fmt"
+	"github.com/webong/ext/pkg/plugin-cshared/abi"
+	plugin "github.com/webong/ext/pkg/plugin-go/contract"
 	"path/filepath"
 	"sync"
 	"unsafe"
-
-	"github.com/webong/ext/pkg/plugin"
-	"github.com/webong/ext/pkg/plugin-cshared/abi"
 )
 
 func Supported() bool { return true }

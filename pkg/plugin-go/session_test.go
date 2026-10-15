@@ -6,7 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"github.com/webong/ext/pkg/plugin"
+	plugin "github.com/webong/ext/pkg/plugin-go/contract"
 	"sync/atomic"
 	"testing"
 	"time"

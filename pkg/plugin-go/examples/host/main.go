@@ -6,8 +6,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/webong/ext/pkg/plugin"
 	"github.com/webong/ext/pkg/plugin-go"
+	plugin "github.com/webong/ext/pkg/plugin-go/contract"
 	"os"
 )
 

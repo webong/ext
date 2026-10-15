@@ -37,7 +37,7 @@ go build -o "$EXT_CENGINE_FAULT_GUEST" lib/plugin/tests/faultguest/main.go
 go test -tags "$go_tags" -race -count=1 -timeout=90s ./pkg/plugin-go
 python3 - "$build_dir" <<'PY'
 import json, pathlib, sys, datetime
-p=pathlib.Path(sys.argv[1]);d=json.loads(pathlib.Path('pkg/plugin/testdata/v1/descriptor.json').read_text())
+p=pathlib.Path(sys.argv[1]);d=json.loads(pathlib.Path('lib/plugin/testdata/v1/descriptor.json').read_text())
 (p/'descriptor.json').write_text(json.dumps(d))
 for op in ['echo','public-error','wait']:
  r=dict(apiVersion='ext.plugin/v1',id='1',plugin=d['identity'],contract=dict(name='ext.conformance',version='v1'),operation=op,deadline='2099-01-01T00:00:00Z',payload=dict(value=7))

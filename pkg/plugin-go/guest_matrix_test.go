@@ -5,12 +5,11 @@ package goengine
 import (
 	"context"
 	"encoding/json"
+	plugin "github.com/webong/ext/pkg/plugin-go/contract"
+	"github.com/webong/ext/pkg/plugin-go/plugintest"
 	"strings"
 	"testing"
 	"time"
-
-	"github.com/webong/ext/pkg/plugin"
-	"github.com/webong/ext/pkg/plugin/plugintest"
 )
 
 // outcome reduces a guest invocation to what a host can observe: whether the

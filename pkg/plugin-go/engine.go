@@ -22,14 +22,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	plugin "github.com/webong/ext/pkg/plugin-go/contract"
 	"math"
 	"runtime/cgo"
 	"strings"
 	"sync"
 	"time"
 	"unsafe"
-
-	"github.com/webong/ext/pkg/plugin"
 )
 
 type Policy func([]byte) error

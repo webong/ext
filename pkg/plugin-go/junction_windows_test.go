@@ -4,12 +4,11 @@ package goengine
 
 import (
 	"errors"
+	plugin "github.com/webong/ext/pkg/plugin-go/contract"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"testing"
-
-	"github.com/webong/ext/pkg/plugin"
 )
 
 // A junction is a reparse point that is not a symbolic link, and needs no

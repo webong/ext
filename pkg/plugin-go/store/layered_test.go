@@ -2,13 +2,12 @@ package store_test
 
 import (
 	"errors"
+	plugin "github.com/webong/ext/pkg/plugin-go/contract"
+	"github.com/webong/ext/pkg/plugin-go/store"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
-
-	"github.com/webong/ext/pkg/plugin"
-	"github.com/webong/ext/pkg/plugin-go/store"
 )
 
 func layered(t *testing.T, stores ...*store.Store) *store.Layered {

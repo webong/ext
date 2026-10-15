@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/webong/ext/pkg/plugin/adapter"
+	"github.com/webong/ext/pkg/plugin-go/adapter"
 )
 
 // engineStore installs a fake engine adapter into a temporary shared store and

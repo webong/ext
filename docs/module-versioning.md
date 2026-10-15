@@ -158,7 +158,7 @@ Before tagging, confirm each module builds and tests on its own with the
 workspace active, and that `src/ctx` resolves the intended versions:
 
 ```bash
-for module in src/ctx src/ctn examples pkg/plugin-go pkg/graph pkg/plugin \
+for module in src/ctx src/ctn examples pkg/plugin-go pkg/graph \
               pkg/plugin-hashicorp pkg/plugin-wasm \
               res/web res/credential; do
   (cd "$module" && go build ./... && go test ./...) || exit 1
@@ -180,3 +180,14 @@ dependencies, so it is mislabeled: a consumer on an older Go gets an error namin
 tags are immutable, so the correct floor ships in `pkg/plugin-hashicorp/v0.1.1`. Resolved from GitHub
 in a clean module, v0.1.0 reports `go 1.23.0` and v0.1.1 reports `go 1.26.0`. Consumers on an
 older Go should require v0.1.1 or newer, and the v0.1.0 tag stays as published.
+
+## The `pkg/plugin` module was folded into `pkg/plugin-go`
+
+`github.com/webong/ext/pkg/plugin` (tagged through `v0.6.0`) no longer exists as a
+module. Its contract and implementation now live in `pkg/plugin-go`, the Go
+language package of the plugin engine: the root package, now `contract`, is
+`github.com/webong/ext/pkg/plugin-go/contract`, and each subpackage moved to the
+matching path under `pkg/plugin-go`. The old tags stay for existing consumers;
+later releases are tagged `pkg/plugin-go/vX.Y.Z`. This changes public import
+paths, so it ships as a new `pkg/plugin-go` minor release that consumers adopt by
+rewriting their imports.

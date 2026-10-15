@@ -10,7 +10,7 @@ import "C"
 import (
 	"context"
 	"encoding/json"
-	"github.com/webong/ext/pkg/plugin"
+	plugin "github.com/webong/ext/pkg/plugin-go/contract"
 	"math"
 	"runtime/cgo"
 	"time"

@@ -3,10 +3,9 @@ package wasm
 import (
 	"context"
 	"errors"
+	plugin "github.com/webong/ext/pkg/plugin-go/contract"
 	"strings"
 	"testing"
-
-	"github.com/webong/ext/pkg/plugin"
 )
 
 // exportingModule returns a valid WebAssembly module with one empty function

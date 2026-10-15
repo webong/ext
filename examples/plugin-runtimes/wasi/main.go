@@ -7,7 +7,7 @@ import (
 	"os"
 
 	"github.com/webong/ext/examples/plugin-runtimes/echo"
-	"github.com/webong/ext/pkg/plugin/jsonline"
+	"github.com/webong/ext/pkg/plugin-go/jsonline"
 )
 
 func main() {

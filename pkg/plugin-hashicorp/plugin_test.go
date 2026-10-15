@@ -15,8 +15,8 @@ import (
 
 	"github.com/hashicorp/go-hclog"
 	hc "github.com/hashicorp/go-plugin"
-	"github.com/webong/ext/pkg/plugin"
-	"github.com/webong/ext/pkg/plugin/plugintest"
+	plugin "github.com/webong/ext/pkg/plugin-go/contract"
+	"github.com/webong/ext/pkg/plugin-go/plugintest"
 )
 
 func fixtureDescriptor() plugin.Descriptor {

@@ -1,6 +1,4 @@
 github.com/webong/ext/pkg/graph v0.1.0 h1:bM0T6s9EUZlrhnjITeXyS9Wnq/aTTIVlJ5YC2L5+8Mw=
 github.com/webong/ext/pkg/graph v0.1.0/go.mod h1:3ICq+WAgHkT/gxHft7YtdAYmS5T07OxHlPc58WGnArA=
-github.com/webong/ext/pkg/plugin v0.1.0 h1:er+Gpvnoowtmtt1r9OxJOviss/z13rh3hfpZNk5ULbw=
-github.com/webong/ext/pkg/plugin v0.1.0/go.mod h1:4HjMr9xajSrI6DroQ7+3jntxmrZF1M5UPwhlMliljDE=
 github.com/webong/ext/pkg/plugin-cshared v0.1.0 h1:nNu7GUB2GHdAaK+iW4keHRN2NW2Z/AGD7ON6WtchnFo=
 github.com/webong/ext/pkg/plugin-cshared v0.1.0/go.mod h1:14tVbkpbCLQtcT6drvP9fhLlEDBxWHtlPG241vNFaKM=

@@ -2,18 +2,18 @@
 // builds: with the ext_cengine tag and cgo (Linux, macOS, Windows with
 // MinGW-w64) the contract validation, sessions, guests, package integrity and
 // process launch run in the shared C engine in lib/plugin; in any other build
-// the same API is served by the pure-Go implementation in pkg/plugin, so
+// the same API is served by the pure-Go implementation in this module, so
 // CGO_ENABLED=0 programs keep working. CEngine reports which build this is.
 //
 // The data model (descriptors, requests, responses, errors, backends) is
-// pkg/plugin's, re-exported here so a program imports this package alone.
+// defined in pkg/plugin-go/contract and re-exported here so a program imports this package alone.
 // Engine-only APIs (Host, Streams, Instances, NewProcess and the like) need the
 // C engine build.
 package goengine
 
-import "github.com/webong/ext/pkg/plugin"
+import plugin "github.com/webong/ext/pkg/plugin-go/contract"
 
-// Data model, re-exported from pkg/plugin.
+// Data model, re-exported from pkg/plugin-go/contract.
 type (
 	AdapterInvocation = plugin.AdapterInvocation
 	Backend           = plugin.Backend
@@ -49,7 +49,7 @@ const (
 	StateReady                = plugin.StateReady
 )
 
-// Error classes. They are the same values as pkg/plugin's, so errors.Is works
+// Error classes. They are the same values as the contract package's, so errors.Is works
 // across both packages.
 var (
 	ErrAmbiguous   = plugin.ErrAmbiguous
@@ -62,7 +62,7 @@ var (
 	ErrUnsupported = plugin.ErrUnsupported
 )
 
-// Contract helpers, re-exported from pkg/plugin.
+// Contract helpers, re-exported from pkg/plugin-go/contract.
 var (
 	AdapterDescriptor      = plugin.AdapterDescriptor
 	CheckRequirements      = plugin.CheckRequirements

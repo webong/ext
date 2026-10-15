@@ -4,7 +4,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/webong/ext/pkg/plugin/adapter"
+	"github.com/webong/ext/pkg/plugin-go/adapter"
 )
 
 // The maintained manager-app adapters are repository content, so loading them

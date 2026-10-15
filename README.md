@@ -296,10 +296,10 @@ and [the graph design](docs/adr-graph-runtime.md).
 CTX and its ecosystem share public Go libraries:
 
 - `github.com/webong/ext/pkg/graph` supplies generic graph storage and transactions.
-- `github.com/webong/ext/pkg/plugin` supplies the shared host/guest contract,
+- `github.com/webong/ext/pkg/plugin-go` supplies the shared host/guest contract,
   validation, selection, admission, and session lifecycle. Its implementations
-  include `pkg/plugin/inprocess`, `pkg/plugin/jsonline`, `pkg/plugin-hashicorp` (net/rpc and
-  gRPC), `pkg/plugin/nativego`, `pkg/plugin-wasm` (WASI Preview 1), and `pkg/plugin-cshared`
+  include `pkg/plugin-go/inprocess`, `pkg/plugin-go/jsonline`, `pkg/plugin-hashicorp` (net/rpc and
+  gRPC), `pkg/plugin-go/nativego`, `pkg/plugin-wasm` (WASI Preview 1), and `pkg/plugin-cshared`
   (versioned C ABI). All use the same typed authoring and host session APIs.
 - `github.com/webong/ext/pkg/graph/supervisor` supplies local process supervision when
   the selected plugin backend does not already own its process lifecycle.
@@ -308,7 +308,7 @@ CTX and its ecosystem share public Go libraries:
 - `github.com/webong/ext/res/credential` supplies portable credential serving and
   the CTX credential client.
 
-Both `res` modules and `pkg/plugin` depend only on the Go standard library, so
+Both `res` modules and `pkg/plugin-go` depend only on the Go standard library, so
 consumers that do not need a runtime backend never download the HashiCorp or
 WASI stacks.
 

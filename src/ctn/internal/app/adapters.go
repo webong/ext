@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/webong/ext/pkg/plugin/adapter"
+	"github.com/webong/ext/pkg/plugin-go/adapter"
 )
 
 // adapterCommand lists the adapters installed for this user. The store and the

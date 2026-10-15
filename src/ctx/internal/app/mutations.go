@@ -12,7 +12,7 @@ import (
 	"strings"
 
 	"github.com/webong/ext/ctx/internal/config"
-	modpkg "github.com/webong/ext/pkg/plugin/adapter"
+	modpkg "github.com/webong/ext/pkg/plugin-go/adapter"
 )
 
 var profileNamePattern = regexp.MustCompile(`^[A-Za-z0-9._-]+$`)

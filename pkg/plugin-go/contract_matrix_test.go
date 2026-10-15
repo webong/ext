@@ -4,12 +4,11 @@ package goengine
 
 import (
 	"encoding/json"
+	plugin "github.com/webong/ext/pkg/plugin-go/contract"
 	"os"
 	"sort"
 	"strings"
 	"testing"
-
-	"github.com/webong/ext/pkg/plugin"
 )
 
 // edgeValues are substituted into every position of a valid document.
@@ -115,7 +114,7 @@ func deepCopy(v any) any {
 }
 
 func TestContractMutationDifferential(t *testing.T) {
-	data, err := os.ReadFile("../../pkg/plugin/testdata/v1/descriptor.json")
+	data, err := os.ReadFile("../../lib/plugin/testdata/v1/descriptor.json")
 	if err != nil {
 		t.Fatal(err)
 	}

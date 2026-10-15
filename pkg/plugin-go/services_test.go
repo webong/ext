@@ -6,10 +6,10 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"github.com/webong/ext/pkg/plugin"
-	"github.com/webong/ext/pkg/plugin/inprocess"
-	"github.com/webong/ext/pkg/plugin/plugintest"
-	"github.com/webong/ext/pkg/plugin/schema"
+	plugin "github.com/webong/ext/pkg/plugin-go/contract"
+	"github.com/webong/ext/pkg/plugin-go/inprocess"
+	"github.com/webong/ext/pkg/plugin-go/plugintest"
+	"github.com/webong/ext/pkg/plugin-go/schema"
 	"os"
 	"sync/atomic"
 	"testing"
@@ -56,7 +56,7 @@ func TestEngineServices(t *testing.T) {
 	}
 }
 func TestSchemaDifferential(t *testing.T) {
-	data, err := os.ReadFile("../../pkg/plugin/testdata/schema-v1.json")
+	data, err := os.ReadFile("../../lib/plugin/testdata/schema-v1.json")
 	if err != nil {
 		t.Fatal(err)
 	}

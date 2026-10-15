@@ -79,3 +79,21 @@ jobs:
             go.work.sum
       - run: ./tests/native_test.sh
       - run: ./tests/native_installer_test.sh
+
+  # Every published module has to build on its own, the way `go install module@version`
+  # or a consumer sees it: workspace off, go.mod and go.sum complete. The offline test
+  # in src/ctx/internal/arch catches missing requirements on every pull request; this
+  # job checks the real thing against the published tags. It fetches modules from
+  # GitHub, so it runs after merges and not on pull requests, whose sibling versions
+  # may not be published yet. A module waiting for an unpublished sibling is skipped
+  # with a message and checked by the next run.
+  standalone-modules:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.x'
+          cache: false
+      - run: ./scripts/check-standalone-modules.sh

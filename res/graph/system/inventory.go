@@ -12,7 +12,7 @@ import (
 	"sort"
 	"time"
 
-	"github.com/webong/ext/pkg/graph"
+	"github.com/webong/ext/res/graph"
 )
 
 // AdapterObservation describes an installed adapter and any contexts it listed.

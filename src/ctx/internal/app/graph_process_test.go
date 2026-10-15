@@ -3,8 +3,8 @@ package app
 import (
 	"bytes"
 	"context"
-	"github.com/webong/ext/pkg/graph"
-	systemgraph "github.com/webong/ext/pkg/graph/system"
+	"github.com/webong/ext/res/graph"
+	systemgraph "github.com/webong/ext/res/graph/system"
 	"testing"
 )
 

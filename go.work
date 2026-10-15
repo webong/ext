@@ -28,7 +28,7 @@ use (
 	./adapters/chrome
 	./adapters/firefox
 	./adapters/safari
-	./pkg/graph
+	./res/graph
 	./pkg/plugin-go
 	./pkg/plugin-hashicorp
 	./pkg/plugin-wasm

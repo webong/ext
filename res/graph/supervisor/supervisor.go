@@ -20,7 +20,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/webong/ext/pkg/graph"
+	"github.com/webong/ext/res/graph"
 )
 
 const RuntimeNamespace = "ext.runtime"

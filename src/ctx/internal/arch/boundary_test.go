@@ -26,7 +26,6 @@ var forbiddenPrefixes = []string{
 // expected to stay free of implementation imports so it can back its own module.
 var libraryRoots = []string{
 	"res",
-	"pkg/graph",
 	"pkg/plugin-go",
 }
 

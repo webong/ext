@@ -13,7 +13,7 @@ what you use:
 | --- | --- |
 | host or write a plugin | `github.com/webong/ext/pkg/plugin-go` (v0.2.0) |
 | run WebAssembly in a sandbox | `github.com/webong/ext/pkg/plugin-wasm` (v0.2.0) |
-| discover the machine | `github.com/webong/ext/pkg/graph` (v0.1.0) |
+| discover the machine | `github.com/webong/ext/res/graph` (v0.1.0) |
 | run web content in a browser | `github.com/webong/ext/res/web` (v0.1.1) |
 
 ```sh
@@ -144,7 +144,7 @@ import (
 	"context"
 	"fmt"
 
-	systemgraph "github.com/webong/ext/pkg/graph/system"
+	systemgraph "github.com/webong/ext/res/graph/system"
 )
 
 func main() {

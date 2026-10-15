@@ -5,7 +5,7 @@ go 1.26.0
 require (
 	github.com/hashicorp/go-hclog v0.14.1
 	github.com/hashicorp/go-plugin v1.6.3
-	github.com/webong/ext/pkg/graph v0.1.0
+	github.com/webong/ext/res/graph v0.1.0
 	github.com/webong/ext/pkg/plugin-go v0.1.0
 	github.com/webong/ext/pkg/plugin-hashicorp v0.1.0
 	github.com/webong/ext/pkg/plugin-wasm v0.2.0
@@ -77,7 +77,7 @@ replace github.com/webong/ext/adapters/secret_service => ../adapters/secret_serv
 
 replace github.com/webong/ext/pkg/plugin-go => ../pkg/plugin-go
 
-replace github.com/webong/ext/pkg/graph => ../pkg/graph
+replace github.com/webong/ext/res/graph => ../res/graph
 
 replace github.com/webong/ext/pkg/plugin-hashicorp => ../pkg/plugin-hashicorp
 

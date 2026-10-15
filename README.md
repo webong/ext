@@ -295,13 +295,13 @@ and [the graph design](docs/adr-graph-runtime.md).
 
 CTX and its ecosystem share public Go libraries:
 
-- `github.com/webong/ext/pkg/graph` supplies generic graph storage and transactions.
+- `github.com/webong/ext/res/graph` supplies generic graph storage and transactions.
 - `github.com/webong/ext/pkg/plugin-go` supplies the shared host/guest contract,
   validation, selection, admission, and session lifecycle. Its implementations
   include `pkg/plugin-go/inprocess`, `pkg/plugin-go/jsonline`, `pkg/plugin-hashicorp` (net/rpc and
   gRPC), `pkg/plugin-go/nativego`, `pkg/plugin-wasm` (WASI Preview 1), and `pkg/plugin-go/cshared`
   (versioned C ABI). All use the same typed authoring and host session APIs.
-- `github.com/webong/ext/pkg/graph/supervisor` supplies local process supervision when
+- `github.com/webong/ext/res/graph/supervisor` supplies local process supervision when
   the selected plugin backend does not already own its process lifecycle.
 - `github.com/webong/ext/res/web` supplies portable browser contracts,
   workflows, extension and userscript handling.

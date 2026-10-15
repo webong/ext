@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/webong/ext/pkg/graph"
+	"github.com/webong/ext/res/graph"
 )
 
 // ShellInfo describes an executable available to this host user. Discovery

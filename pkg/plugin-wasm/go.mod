@@ -7,4 +7,4 @@ require (
 	github.com/webong/ext/pkg/plugin-go v0.1.1
 )
 
-require github.com/webong/ext/pkg/graph v0.1.0 // indirect
+require github.com/webong/ext/res/graph v0.1.0 // indirect

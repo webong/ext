@@ -6,7 +6,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/webong/ext/pkg/graph"
+	"github.com/webong/ext/res/graph"
 )
 
 func main() {

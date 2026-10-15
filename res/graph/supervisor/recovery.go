@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/webong/ext/pkg/graph"
+	"github.com/webong/ext/res/graph"
 )
 
 func activeState(state State) bool {

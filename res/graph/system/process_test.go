@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/webong/ext/pkg/graph"
+	"github.com/webong/ext/res/graph"
 )
 
 func TestProcessOptionsAndCoverage(t *testing.T) {

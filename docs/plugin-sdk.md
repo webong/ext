@@ -1,6 +1,6 @@
 # CTX plugin SDK
 
-CTX owns the reusable plugin library alongside and `pkg/graph` (including `pkg/graph/supervisor`).
+CTX owns the reusable plugin library alongside and `res/graph` (including `res/graph/supervisor`).
 Hosts and guests share one protocol and can select a supported transport.
 Adapters and applications own their domain contracts, grants, native behavior,
 distribution and activation. HashiCorp go-plugin remains a dependency of

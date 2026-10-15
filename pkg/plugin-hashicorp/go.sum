@@ -37,8 +37,6 @@ github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZN
 github.com/stretchr/testify v1.2.2/go.mod h1:a8OnRcib4nhh0OaRAV+Yts87kKdq0PP7pXfy6kDkUVs=
 github.com/stretchr/testify v1.8.3 h1:RP3t2pwF7cMEbC1dqtB6poj3niw/9gnV4Cjg5oW5gtY=
 github.com/stretchr/testify v1.8.3/go.mod h1:sz/lmYIOXD/1dqDmKjjqLyZ2RngseejIcXlSw2iwfAo=
-github.com/webong/ext/pkg/graph v0.1.0 h1:bM0T6s9EUZlrhnjITeXyS9Wnq/aTTIVlJ5YC2L5+8Mw=
-github.com/webong/ext/pkg/graph v0.1.0/go.mod h1:3ICq+WAgHkT/gxHft7YtdAYmS5T07OxHlPc58WGnArA=
 github.com/webong/ext/pkg/plugin-go v0.1.0 h1:f7p0DuJpLADG/ojnUuz1u8du23CdU4BcqlgoKntDj5M=
 github.com/webong/ext/pkg/plugin-go v0.1.0/go.mod h1:pNuVkDnEp+2UzLzt7PhlBTGcYc8VZxBCkQIXNkg15XU=
 go.opentelemetry.io/auto/sdk v1.2.1 h1:jXsnJ4Lmnqd11kwkBV2LgLoFMZKizbCi5fNZ/ipaZ64=

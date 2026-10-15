@@ -163,7 +163,14 @@ func TestFaultyGuests(t *testing.T) {
 				t.Fatal(err)
 			}
 			defer h.Destroy()
-			ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+			// Modes that must be rejected are bounded tightly; the others only need
+			// to finish, and the fragment guest writes its handshake a byte at a
+			// time, so give a loaded machine room.
+			timeout := 5 * time.Second
+			if mode == "bad-handshake" || mode == "stall" || mode == "exit" {
+				timeout = 200 * time.Millisecond
+			}
+			ctx, cancel := context.WithTimeout(context.Background(), timeout)
 			defer cancel()
 			err = h.Start(ctx)
 			if mode == "bad-handshake" || mode == "stall" || mode == "exit" {

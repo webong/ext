@@ -139,7 +139,7 @@ next successful graph scan. `observe` works for any runtime; no provider name
 is built into the graph collector. Adapters without `observe` retain the
 line-oriented `list` behavior documented below.
 
-The public `github.com/webong/ext/pkg/graph/system` package exposes
+The public `github.com/webong/ext/res/graph/system` package exposes
 `ObserveInventory`, `ResolveInventory`, and `Inventory.Find` for other Go
 consumers. `ctx graph resolve [runtime|all] [capability...] [--supports <kind>] [--share <resource.operation>]`
 shows the same candidate view as JSON. `ctx graph vertices support` and

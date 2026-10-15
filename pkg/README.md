@@ -15,17 +15,15 @@ consumers.
 
 | Module | Depends on | Third-party dependencies |
 | --- | --- | --- |
-| [`graph`](graph/README.md) | none | `golang.org/x/sys` |
-| [`plugin-go`](plugin-go/README.md) | `pkg/graph` | none |
+| [`plugin-go`](plugin-go/README.md) | `res/graph` | none |
 | [`plugin-hashicorp`](plugin-hashicorp/README.md) | `pkg/plugin-go` | `go-plugin`, `grpc`, `protobuf` |
 | [`plugin-wasm`](plugin-wasm/README.md) | `pkg/plugin-go` | `wazero` |
 
-A consumer that only needs `pkg/plugin-go` or `pkg/graph` never downloads the
+A consumer that only needs `pkg/plugin-go` never downloads the
 HashiCorp or WASI runtime stacks, and each runtime backend is opt-in.
 
 | Library | Contents |
 | --- | --- |
-| [`graph`](graph/README.md) | Host, system and process discovery, storage and transactions. `graph/supervisor` supervises and recovers local processes. |
 | [`plugin-go`](plugin-go/README.md) | The Go plugin library: the contract, sessions, guests, packages, the store and runtime backends, on the C engine or in pure Go |
 
 ## Plugin language SDKs and bindings

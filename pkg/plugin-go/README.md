@@ -23,7 +23,7 @@ re-exported so a program imports this package alone. The common API is `Open`,
 - [`host`](host): open an installed package as a running plugin.
 
 The root package does not import `packagekit`, so a small program such as an
-adapter does not reach `pkg/graph`. `Host`, `Streams`, `Instances`, `NewProcess`
+adapter does not reach `res/graph`. `Host`, `Streams`, `Instances`, `NewProcess`
 and `NewLaunch` are engine-only and need the C engine build.
 
 ## Packages

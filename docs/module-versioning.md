@@ -197,3 +197,8 @@ rewriting their imports.
 envelope is `pkg/plugin-go/cshared/abi`, and the language-neutral C header
 `ext_plugin.h` moved to `lib/plugin/include`. `pkg/plugin-wasm` and
 `pkg/plugin-hashicorp` stay separate modules.
+
+`github.com/webong/ext/pkg/graph` (tagged `v0.1.0`) moved to
+`github.com/webong/ext/res/graph`, the home of the other dependency-light shared
+modules. Its old tag stays for existing consumers; later releases are tagged
+`res/graph/vX.Y.Z`. `pkg/plugin-go` depends on it for `Plan.Graph`.

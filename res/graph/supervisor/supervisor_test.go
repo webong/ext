@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/webong/ext/pkg/graph"
+	"github.com/webong/ext/res/graph"
 )
 
 func TestHelperProcess(t *testing.T) {

@@ -11,7 +11,8 @@ import (
 )
 
 func main() {
-	mode := filepath.Base(os.Args[0])
+	// The mode is the name this binary was started under; Windows adds ".exe".
+	mode := strings.TrimSuffix(filepath.Base(os.Args[0]), ".exe")
 	r := bufio.NewReader(os.Stdin)
 	if _, err := r.ReadString('\n'); err != nil {
 		return

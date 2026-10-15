@@ -907,9 +907,12 @@ ext_status ext_host_call(ext_host *h, const uint8_t *input, size_t len,
              *ref = yyjson_obj_get(call, "contract"),
              *name = yyjson_obj_get(call, "operation");
   ext_status status = EXT_INVALID;
+  /* Only the shape is checked here. A name or version no validated descriptor
+   * can hold is an unsupported operation, as in the Go session, not invalid. */
   if (!EXT_FIELDS(call, "contract", "operation", "payload") ||
-      !EXT_FIELDS(ref, "name", "version") || !ext_ref(ref) ||
-      !ext_text(name, 0, 0))
+      !EXT_FIELDS(ref, "name", "version") ||
+      !yyjson_is_str(yyjson_obj_get(ref, "name")) ||
+      !yyjson_is_str(yyjson_obj_get(ref, "version")) || !yyjson_is_str(name))
     goto done;
   yyjson_val *operation =
       ext_lookup(yyjson_doc_get_root(h->selection), ref, name);

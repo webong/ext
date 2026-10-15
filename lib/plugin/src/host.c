@@ -1,21 +1,14 @@
 #define _GNU_SOURCE
+#include "channel.h"
 #include "wire.h"
 #include <errno.h>
-#include <fcntl.h>
 #include <limits.h>
-#include <poll.h>
 #include <pthread.h>
-#include <signal.h>
-#include <spawn.h>
 #include <stdatomic.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/socket.h>
-#include <sys/stat.h>
-#include <sys/wait.h>
 #include <time.h>
-#include <unistd.h>
 
 static int canceled(const ext_call_options *o) {
   return ext_cancel_is_signaled(o->cancel);
@@ -26,20 +19,18 @@ static int valid_call(const ext_call_options *o) {
 struct ext_host {
   pthread_mutex_t mu;
   pthread_cond_t changed;
-  int active, running, started, closed, fd;
+  int active, running, started, closed;
   ext_host_state state;
   ext_host_hooks hooks;
   ext_backend_extension extension;
   ext_backend_extension_context extension_context;
-  pid_t pid;
+  ext_channel *channel;
   uint64_t next;
   char *path;
   char **arguments, **environment;
   char *directory;
-  int capture, stderr_fd, stderr_stop, stderr_started;
-  size_t stderr_limit, stderr_len;
-  uint8_t *stderr_data;
-  pthread_t stderr_thread;
+  int capture;
+  size_t stderr_limit;
   yyjson_doc *selection;
   uint8_t *descriptor;
   size_t descriptor_len;
@@ -188,8 +179,6 @@ ext_status ext_host_create(const ext_host_options *o,
     yyjson_doc_free(d);
     return EXT_NOMEM;
   }
-  h->fd = -1;
-  h->stderr_fd = -1;
   h->path = process ? strdup(process->executable) : NULL;
   h->descriptor = malloc(o->descriptor_len);
   if ((process && !h->path) || !h->descriptor) {
@@ -246,13 +235,11 @@ ext_status ext_host_create(const ext_host_options *o,
                             &h->environment);
     if (!status && launch) {
       h->capture = 1;
-      h->stderr_fd = -1;
       h->stderr_limit = launch->stderr_bytes ? launch->stderr_bytes : 4096;
-      h->stderr_data = malloc(h->stderr_limit);
       h->directory = launch->working_directory
                          ? strdup(launch->working_directory)
                          : NULL;
-      if (!h->stderr_data || (launch->working_directory && !h->directory))
+      if (launch->working_directory && !h->directory)
         status = EXT_NOMEM;
       /* Scrubbed base environment: PATH from the host, unless the caller set
        * its own. */
@@ -356,10 +343,8 @@ void ext_host_close(ext_host *h) {
     if (h->state != EXT_HOST_FAILED)
       h->state = EXT_HOST_CLOSED;
     notify = 1;
-    if (h->fd >= 0)
-      shutdown(h->fd, SHUT_RDWR);
-    if (h->pid > 0)
-      kill(h->pid, SIGKILL);
+    if (h->channel)
+      ext_channel_kill(h->channel);
     pthread_cond_broadcast(&h->changed);
   }
   pthread_mutex_unlock(&h->mu);
@@ -372,21 +357,7 @@ void ext_host_destroy(ext_host *h) {
   if (!h)
     return;
   ext_host_close(h);
-  if (h->pid > 0) {
-    int status;
-    while (waitpid(h->pid, &status, 0) < 0 && errno == EINTR) {
-    }
-  }
-  if (h->fd >= 0)
-    close(h->fd);
-  if (h->stderr_started) {
-    pthread_mutex_lock(&h->mu);
-    h->stderr_stop = 1;
-    pthread_mutex_unlock(&h->mu);
-    pthread_join(h->stderr_thread, NULL);
-  }
-  if (h->stderr_fd >= 0)
-    close(h->stderr_fd);
+  ext_channel_destroy(h->channel);
   if (h->extension.release)
     h->extension.release(h->extension.user);
   if (h->extension_context.release)
@@ -398,7 +369,6 @@ void ext_host_destroy(ext_host *h) {
   free_strings(h->arguments);
   free_strings(h->environment);
   free(h->directory);
-  free(h->stderr_data);
   pthread_cond_destroy(&h->changed);
   pthread_mutex_destroy(&h->mu);
   free(h);
@@ -573,7 +543,7 @@ static int closed(ext_host *h) {
   pthread_mutex_unlock(&h->mu);
   return result;
 }
-static ext_status ready(ext_host *h, short events, int64_t deadline,
+static ext_status ready(ext_host *h, int write, int64_t deadline,
                         const ext_call_options *o) {
   for (;;) {
     if (canceled(o))
@@ -583,19 +553,14 @@ static ext_status ready(ext_host *h, short events, int64_t deadline,
     int64_t ms = deadline - mono_ms();
     if (ms <= 0)
       return EXT_TIMEOUT;
-    struct pollfd p = {h->fd, events, 0};
     if (o->cancel && ms > 10)
       ms = 10;
     if (ms > INT_MAX)
       ms = INT_MAX;
-    int r = poll(&p, 1, (int)ms);
-    if (r < 0 && errno == EINTR)
+    ext_status s = ext_channel_wait(h->channel, write, (int)ms);
+    if (s == EXT_TIMEOUT)
       continue;
-    if (r < 0)
-      return EXT_IO;
-    if (!r)
-      continue;
-    if (p.revents & events)
+    if (s == EXT_OK)
       return EXT_OK;
     return closed(h) ? EXT_CLOSED : EXT_IO;
   }
@@ -603,17 +568,13 @@ static ext_status ready(ext_host *h, short events, int64_t deadline,
 static ext_status write_bytes(ext_host *h, const uint8_t *p, size_t n,
                               int64_t deadline, const ext_call_options *o) {
   while (n) {
-    ext_status s = ready(h, POLLOUT, deadline, o);
+    ext_status s = ready(h, 1, deadline, o);
     if (s)
       return s;
-#ifdef MSG_NOSIGNAL
-    ssize_t r = send(h->fd, p, n, MSG_NOSIGNAL);
-#else
-    ssize_t r = send(h->fd, p, n, 0);
-#endif
-    if (r < 0 && (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK))
+    ptrdiff_t r = ext_channel_write(h->channel, p, n);
+    if (!r)
       continue;
-    if (r <= 0)
+    if (r < 0)
       return EXT_IO;
     p += r;
     n -= (size_t)r;
@@ -642,13 +603,14 @@ static ext_status exchange(ext_host *h, const uint8_t *p, size_t n,
       h->readbuf = b;
       h->capacity = next;
     }
-    s = ready(h, POLLIN, deadline, o);
+    s = ready(h, 0, deadline, o);
     if (s)
       return s;
-    ssize_t r = recv(h->fd, h->readbuf + len, h->capacity - len, 0);
-    if (r < 0 && (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK))
+    ptrdiff_t r = ext_channel_read(h->channel, h->readbuf + len,
+                                   h->capacity - len);
+    if (!r)
       continue;
-    if (r <= 0)
+    if (r < 0)
       return EXT_IO;
     uint8_t *end = memchr(h->readbuf + len, '\n', (size_t)r);
     len += (size_t)r;
@@ -665,172 +627,30 @@ static ext_status exchange(ext_host *h, const uint8_t *p, size_t n,
     }
   }
 }
-#if defined(__APPLE__) ||                                                      \
-    (defined(__GLIBC__) &&                                                     \
-     (__GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ >= 29)))
-#define EXT_HAVE_SPAWN_CHDIR 1
-#endif
-/* Retains the first stderr_limit bytes of the child's stderr and discards the
- * rest, until the pipe closes or the host is destroyed. */
-static void *stderr_reader(void *arg) {
-  ext_host *h = arg;
-  uint8_t chunk[1024];
-  for (;;) {
-    pthread_mutex_lock(&h->mu);
-    int stop = h->stderr_stop;
-    pthread_mutex_unlock(&h->mu);
-    struct pollfd p = {h->stderr_fd, POLLIN, 0};
-    int ready = poll(&p, 1, 100);
-    if (ready < 0 && errno == EINTR)
-      continue;
-    if (ready < 0)
-      break;
-    if (!ready) {
-      if (stop)
-        break;
-      continue;
-    }
-    ssize_t n = read(h->stderr_fd, chunk, sizeof(chunk));
-    if (n < 0 && (errno == EINTR || errno == EAGAIN))
-      continue;
-    if (n <= 0)
-      break;
-    pthread_mutex_lock(&h->mu);
-    size_t room = h->stderr_limit - h->stderr_len;
-    size_t keep = (size_t)n < room ? (size_t)n : room;
-    memcpy(h->stderr_data + h->stderr_len, chunk, keep);
-    h->stderr_len += keep;
-    pthread_mutex_unlock(&h->mu);
-  }
-  return NULL;
-}
 ext_status ext_host_process_stderr(ext_host *h, uint8_t *buffer,
                                    size_t capacity, size_t *length) {
   if (!h || !length || (capacity && !buffer))
     return EXT_INVALID;
   pthread_mutex_lock(&h->mu);
-  size_t n = h->stderr_len;
-  if (n && buffer)
-    memcpy(buffer, h->stderr_data, n < capacity ? n : capacity);
-  *length = n;
+  ext_channel *channel = h->channel;
   pthread_mutex_unlock(&h->mu);
+  *length = channel ? ext_channel_stderr(channel, buffer, capacity) : 0;
   return EXT_OK;
 }
 static ext_status spawn_child(ext_host *h) {
-  if (h->capture) {
-    struct stat st;
-    if (stat(h->path, &st))
-      return EXT_IO;
-    if (!S_ISREG(st.st_mode))
-      return EXT_INVALID;
-#ifndef EXT_HAVE_SPAWN_CHDIR
-    if (h->directory)
-      return EXT_UNSUPPORTED;
-#endif
-  }
-  int fds[2];
-  if (socketpair(AF_UNIX, SOCK_STREAM, 0, fds))
-    return EXT_IO;
-  /* Keep both endpoints above stderr, even when the embedding app closed its
-   * standard descriptors. Preserve caller descriptors across posix_spawn. */
-  for (int i = 0; i < 2; i++) {
-    if (fds[i] <= 2) {
-      int next = fcntl(fds[i], F_DUPFD_CLOEXEC, 3);
-      close(fds[i]);
-      fds[i] = next;
-    }
-    if (fds[i] < 0 || fcntl(fds[i], F_SETFD, FD_CLOEXEC) < 0) {
-      if (fds[0] >= 0)
-        close(fds[0]);
-      if (fds[1] >= 0)
-        close(fds[1]);
-      return EXT_IO;
-    }
-  }
-#ifdef SO_NOSIGPIPE
-  int yes = 1;
-  if (setsockopt(fds[0], SOL_SOCKET, SO_NOSIGPIPE, &yes, sizeof(yes))) {
-    close(fds[0]);
-    close(fds[1]);
-    return EXT_IO;
-  }
-#endif
-  int errfds[2] = {-1, -1};
-  if (h->capture) {
-    int bad = pipe(errfds);
-    for (int i = 0; !bad && i < 2; i++) {
-      if (errfds[i] <= 2) {
-        int next = fcntl(errfds[i], F_DUPFD_CLOEXEC, 3);
-        close(errfds[i]);
-        errfds[i] = next;
-      }
-      if (errfds[i] < 0 || fcntl(errfds[i], F_SETFD, FD_CLOEXEC) < 0)
-        bad = 1;
-    }
-    if (bad) {
-      for (int i = 0; i < 2; i++)
-        if (errfds[i] >= 0)
-          close(errfds[i]);
-      close(fds[0]);
-      close(fds[1]);
-      return EXT_IO;
-    }
-  }
-  posix_spawn_file_actions_t actions;
-  int err = posix_spawn_file_actions_init(&actions);
-  if (err) {
-    close(fds[0]);
-    close(fds[1]);
-    for (int i = 0; i < 2; i++)
-      if (errfds[i] >= 0)
-        close(errfds[i]);
-    return EXT_IO;
-  }
-  if (!(err = posix_spawn_file_actions_adddup2(&actions, fds[1], STDIN_FILENO)))
-    err = posix_spawn_file_actions_adddup2(&actions, fds[1], STDOUT_FILENO);
-  if (!err)
-    err = posix_spawn_file_actions_addclose(&actions, fds[0]);
-  if (!err)
-    err = posix_spawn_file_actions_addclose(&actions, fds[1]);
-  if (!err && h->capture) {
-    err = posix_spawn_file_actions_adddup2(&actions, errfds[1], STDERR_FILENO);
-    if (!err)
-      err = posix_spawn_file_actions_addclose(&actions, errfds[0]);
-    if (!err)
-      err = posix_spawn_file_actions_addclose(&actions, errfds[1]);
-  }
-#ifdef EXT_HAVE_SPAWN_CHDIR
-  if (!err && h->directory)
-    err = posix_spawn_file_actions_addchdir_np(&actions, h->directory);
-#endif
+  ext_launch launch = {h->path,     h->arguments,    h->environment,
+                       h->directory, h->capture,      h->stderr_limit};
+  ext_channel *channel = NULL;
   pthread_mutex_lock(&h->mu);
-  if (h->closed)
-    err = ECANCELED;
-  if (!err)
-    err = posix_spawn(&h->pid, h->path, &actions, NULL, h->arguments,
-                      h->environment);
-  if (!err)
-    h->fd = fds[0];
+  if (h->closed) {
+    pthread_mutex_unlock(&h->mu);
+    return EXT_CLOSED;
+  }
+  ext_status s = ext_channel_open(&launch, &channel);
+  if (!s)
+    h->channel = channel;
   pthread_mutex_unlock(&h->mu);
-  posix_spawn_file_actions_destroy(&actions);
-  close(fds[1]);
-  if (errfds[1] >= 0)
-    close(errfds[1]);
-  if (err) {
-    close(fds[0]);
-    if (errfds[0] >= 0)
-      close(errfds[0]);
-    return err == ECANCELED ? EXT_CLOSED : EXT_IO;
-  }
-  if (h->capture) {
-    h->stderr_fd = errfds[0];
-    if (pthread_create(&h->stderr_thread, NULL, stderr_reader, h))
-      return EXT_IO;
-    h->stderr_started = 1;
-  }
-  if (fcntl(h->fd, F_SETFL, fcntl(h->fd, F_GETFL) | O_NONBLOCK) < 0)
-    return EXT_IO;
-  return EXT_OK;
+  return s;
 }
 ext_status ext_host_start_with_options(ext_host *h, const ext_call_options *o) {
   if (!h || !valid_call(o))

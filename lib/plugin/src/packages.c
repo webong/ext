@@ -106,6 +106,112 @@ static int same_path(yyjson_val *a, yyjson_val *b) {
       return 0;
   return x == xe && y == ye;
 }
+/* Optional SPDX license expression: 1 to 128 characters, starting with a
+ * letter, digit or "(", using letters, digits and ". + ( ) -" and single interior
+ * spaces. It is recorded and never interpreted. Matches packagekit. */
+static int license_valid(yyjson_val *v) {
+  if (absent(v))
+    return 1;
+  if (!yyjson_is_str(v))
+    return 0;
+  size_t n = yyjson_get_len(v);
+  const unsigned char *s = (const unsigned char *)yyjson_get_str(v);
+  if (!n)
+    return 1;
+  if (n > 128 || s[n - 1] == ' ')
+    return 0;
+  for (size_t i = 0; i < n; i++) {
+    int alnum = (s[i] >= 'a' && s[i] <= 'z') || (s[i] >= 'A' && s[i] <= 'Z') ||
+                (s[i] >= '0' && s[i] <= '9');
+    int other = s[i] == '.' || s[i] == '+' || s[i] == '(' || s[i] == ')' ||
+                s[i] == '-' || s[i] == ' ';
+    if (!(alnum || (i && other) || (!i && s[i] == '(')) ||
+        (s[i] == ' ' && i && s[i - 1] == ' '))
+      return 0;
+  }
+  return 1;
+}
+/* A metadata key is namespaced and versioned, such as "kvlite.module/v1":
+ * [a-z0-9][a-z0-9._-]{0,127}/v[1-9][0-9]{0,8}. */
+static int metadata_key(yyjson_val *k) {
+  const unsigned char *s = (const unsigned char *)yyjson_get_str(k);
+  size_t n = yyjson_get_len(k), i = 0;
+  if (!n || !((s[0] >= 'a' && s[0] <= 'z') || (s[0] >= '0' && s[0] <= '9')))
+    return 0;
+  while (i < n && s[i] != '/') {
+    int ok = (s[i] >= 'a' && s[i] <= 'z') || (s[i] >= '0' && s[i] <= '9') ||
+             s[i] == '.' || s[i] == '_' || s[i] == '-';
+    if (!ok || i >= 128)
+      return 0;
+    i++;
+  }
+  if (i == n || n - i < 3 || s[i + 1] != 'v' || s[i + 2] < '1' || s[i + 2] > '9')
+    return 0;
+  size_t digits = n - i - 2;
+  if (digits > 9)
+    return 0;
+  for (size_t j = i + 3; j < n; j++)
+    if (s[j] < '0' || s[j] > '9')
+      return 0;
+  return 1;
+}
+/* Size of a metadata value: the byte length of every string (keys included),
+ * 8 for each number, boolean and null, and 2 for each object and array. It does
+ * not depend on source whitespace, escapes or number spelling, so every engine
+ * agrees on it. Nesting is already bounded by the parser. */
+static size_t metadata_weight(yyjson_val *v) {
+  size_t i, n, total;
+  yyjson_val *key, *child;
+  if (yyjson_is_str(v))
+    return yyjson_get_len(v);
+  if (yyjson_is_obj(v)) {
+    total = 2;
+    yyjson_obj_foreach(v, i, n, key, child)
+        total += yyjson_get_len(key) + metadata_weight(child);
+    return total;
+  }
+  if (yyjson_is_arr(v)) {
+    total = 2;
+    yyjson_arr_foreach(v, i, n, child) total += metadata_weight(child);
+    return total;
+  }
+  return 8;
+}
+/* Optional consumer-defined data: at most 64 keys, each value a JSON object of
+ * weight at most 64 KiB, and at most 256 KiB in all with the keys. ext checks
+ * the shape and bounds only and never interprets a value. */
+static int metadata_valid(yyjson_val *v) {
+  if (absent(v))
+    return 1;
+  if (!yyjson_is_obj(v) || yyjson_obj_size(v) > 64)
+    return 0;
+  size_t i, n, total = 0;
+  yyjson_val *key, *value;
+  yyjson_obj_foreach(v, i, n, key, value) {
+    if (!metadata_key(key) || !yyjson_is_obj(value))
+      return 0;
+    size_t weight = metadata_weight(value);
+    total += yyjson_get_len(key) + weight;
+    if (weight > (64u << 10) || total > (256u << 10))
+      return 0;
+  }
+  return 1;
+}
+static int tree_artifact(yyjson_val *a) {
+  yyjson_val *k = get(a, "kind");
+  return yyjson_is_str(k) && yyjson_equals_str(k, "tree");
+}
+/* Whether directory path a equals or contains path b, comparing lowercase
+ * runes on whole components, as packagekit does for tree overlap. */
+static int path_contains(yyjson_val *a, yyjson_val *b) {
+  const uint8_t *x = (const uint8_t *)yyjson_get_str(a),
+                *y = (const uint8_t *)yyjson_get_str(b);
+  const uint8_t *xe = x + yyjson_get_len(a), *ye = y + yyjson_get_len(b);
+  while (x < xe && y < ye)
+    if (lower_rune(&x) != lower_rune(&y))
+      return 0;
+  return x == xe && (y == ye || *y == '/');
+}
 static int dependency(yyjson_val *r) {
   return EXT_FIELDS(r, "contract", "operation", "identity") &&
          EXT_FIELDS(get(r, "contract"), "name", "version") &&
@@ -120,9 +226,10 @@ static int same_dependency(yyjson_val *a, yyjson_val *b) {
           (!absent(ai) && !absent(bi) && ext_same_identity(ai, bi)));
 }
 ext_status ext_manifest_valid(yyjson_val *m) {
-  if (!EXT_FIELDS(m, "apiVersion", "descriptor", "artifacts", "entrypoints",
-                  "requires", "configuration", "payloads", "assets",
-                  "sharedDependencies") ||
+  if (!EXT_FIELDS(m, "apiVersion", "descriptor", "license", "artifacts",
+                  "entrypoints", "requires", "configuration", "payloads",
+                  "assets", "sharedDependencies", "metadata") ||
+      !license_valid(get(m, "license")) || !metadata_valid(get(m, "metadata")) ||
       !yyjson_equals_str(get(m, "apiVersion"), "ext.package/v1") ||
       !ext_descriptor(get(m, "descriptor")))
     return EXT_INVALID;
@@ -137,7 +244,10 @@ ext_status ext_manifest_valid(yyjson_val *m) {
   size_t i, n, j, k;
   yyjson_val *v, *w;
   yyjson_arr_foreach(a, i, n, v) {
-    if (!EXT_FIELDS(v, "name", "path", "sha256", "os", "arch") ||
+    yyjson_val *kind = get(v, "kind");
+    if (!EXT_FIELDS(v, "name", "path", "kind", "sha256", "os", "arch") ||
+        (!absent(kind) && !(yyjson_is_str(kind) && (!yyjson_get_len(kind) ||
+                                                    yyjson_equals_str(kind, "tree")))) ||
         !ext_text(get(v, "name"), 0, 0) || !portable(get(v, "path")) ||
         !digest(get(v, "sha256")) || !ext_text(get(v, "os"), 0, 1) ||
         !ext_text(get(v, "arch"), 0, 1))
@@ -149,10 +259,24 @@ ext_status ext_manifest_valid(yyjson_val *m) {
         return EXT_INVALID;
     }
   }
+  /* A tree owns everything below its directory: no other artifact may share,
+   * contain or sit inside that path. */
+  yyjson_arr_foreach(a, i, n, v) {
+    if (!tree_artifact(v))
+      continue;
+    for (j = 0; j < yyjson_arr_size(a); j++) {
+      w = yyjson_arr_get(a, j);
+      if (j != i &&
+          (path_contains(get(v, "path"), get(w, "path")) ||
+           path_contains(get(w, "path"), get(v, "path"))))
+        return EXT_INVALID;
+    }
+  }
   yyjson_arr_foreach(e, i, n, v) {
+    yyjson_val *target = named(a, get(v, "artifact"));
     if (!EXT_FIELDS(v, "name", "runtime", "artifact", "protocols") ||
         !ext_text(get(v, "name"), 0, 0) || !ext_text(get(v, "runtime"), 0, 0) ||
-        !named(a, get(v, "artifact")) || !ext_protocols(get(v, "protocols")))
+        !target || tree_artifact(target) || !ext_protocols(get(v, "protocols")))
       return EXT_INVALID;
     for (j = 0; j < i; j++)
       if (ext_same(get(v, "name"), get(yyjson_arr_get(e, j), "name")))

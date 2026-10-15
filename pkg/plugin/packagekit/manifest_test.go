@@ -76,7 +76,7 @@ func TestResolutionAndGraph(t *testing.T) {
 
 func TestLicenseAndMetadataRoundTrip(t *testing.T) {
 	m := manifest("example/a")
-	m.License = "Apache-2.0 OR MIT"
+	m.License = "(Apache-2.0 OR MIT)"
 	m.Metadata = map[string]json.RawMessage{
 		"kvlite.module/v1": json.RawMessage(`{"driver":"rocksdb","symbol":"kvlite_module_init_v1"}`),
 		"other.tool/v2":    json.RawMessage(` {"x":1} `),

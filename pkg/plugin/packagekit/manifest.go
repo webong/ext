@@ -31,12 +31,13 @@ var digestPattern = regexp.MustCompile(`^[a-f0-9]{64}$`)
 
 // licensePattern bounds an SPDX license expression such as "MIT" or
 // "Apache-2.0 OR MIT". ext records it; it does not interpret or enforce it.
-var licensePattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9.+() -]{0,127}$`)
+var licensePattern = regexp.MustCompile(`^[A-Za-z0-9(][A-Za-z0-9.+() -]{0,127}$`)
 
 // metadataKeyPattern is a namespaced, versioned key such as "kvlite.module/v1".
 var metadataKeyPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]{0,127}/v[1-9][0-9]{0,8}$`)
 
-// Bounds on Manifest.Metadata.
+// Bounds on Manifest.Metadata. Sizes are weights, not source bytes; see
+// metadataWeight.
 const (
 	maxMetadataKeys       = 64
 	maxMetadataValueBytes = 64 << 10
@@ -245,15 +246,54 @@ func (m Manifest) validateMetadata() error {
 	total := 0
 	for key, value := range m.Metadata {
 		trimmed := bytes.TrimSpace(value)
-		if !metadataKeyPattern.MatchString(key) || len(trimmed) == 0 || trimmed[0] != '{' || len(value) > maxMetadataValueBytes || !json.Valid(value) {
+		if !metadataKeyPattern.MatchString(key) || len(trimmed) == 0 || trimmed[0] != '{' {
 			return fmt.Errorf("%w: invalid metadata %q", plugin.ErrInvalid, key)
 		}
-		total += len(key) + len(value)
+		weight, err := metadataWeight(trimmed)
+		if err != nil || weight > maxMetadataValueBytes {
+			return fmt.Errorf("%w: invalid metadata %q", plugin.ErrInvalid, key)
+		}
+		total += len(key) + weight
 		if total > maxMetadataTotalBytes {
 			return fmt.Errorf("%w: metadata too large", plugin.ErrInvalid)
 		}
 	}
 	return nil
+}
+
+// metadataWeight is the size bound counts: the byte length of every string
+// (keys included), 8 for each number, boolean and null, and 2 for each object
+// and array. It ignores source whitespace, escapes and number spelling, so the
+// shared C engine computes the same value. It reports invalid JSON.
+func metadataWeight(raw []byte) (int, error) {
+	if !json.Valid(raw) {
+		return 0, plugin.ErrInvalid
+	}
+	d := json.NewDecoder(bytes.NewReader(raw))
+	d.UseNumber()
+	weight := 0
+	for {
+		token, err := d.Token()
+		if err == io.EOF {
+			return weight, nil
+		}
+		if err != nil {
+			return 0, err
+		}
+		switch t := token.(type) {
+		case json.Delim:
+			if t == '{' || t == '[' {
+				weight += 2
+			}
+		case string:
+			weight += len(t)
+		default:
+			weight += 8
+		}
+		if weight > maxMetadataTotalBytes {
+			return weight, nil
+		}
+	}
 }
 func (m Manifest) treeArtifact(name string) bool {
 	for _, a := range m.Artifacts {

@@ -105,6 +105,51 @@ static ext_status artifact_hash(int root, const char *path, uint8_t out[32]) {
   free(parts);
   return s;
 }
+static ext_status digest_fd(int fd, uint8_t out[32], int need_files);
+/* Digest of a tree artifact: every component of path must be a plain directory
+ * (no symbolic links), and the directory must hold at least one file. */
+static ext_status tree_hash(int root, const char *path, uint8_t out[32]) {
+  char *parts = strdup(path);
+  if (!parts)
+    return EXT_NOMEM;
+  int fd = dup(root);
+  if (fd < 0) {
+    free(parts);
+    return EXT_IO;
+  }
+  ext_status s = EXT_OK;
+  char *part = parts;
+  for (;;) {
+    char *slash = strchr(part, '/');
+    if (slash)
+      *slash = 0;
+    struct stat st;
+    if (fstatat(fd, part, &st, AT_SYMLINK_NOFOLLOW)) {
+      s = EXT_IO;
+      break;
+    }
+    if (!S_ISDIR(st.st_mode)) {
+      s = EXT_INVALID;
+      break;
+    }
+    int next =
+        openat(fd, part, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
+    if (next < 0) {
+      s = EXT_IO;
+      break;
+    }
+    close(fd);
+    fd = next;
+    if (!slash)
+      break;
+    part = slash + 1;
+  }
+  if (!s)
+    s = digest_fd(fd, out, 1);
+  close(fd);
+  free(parts);
+  return s;
+}
 ext_status ext_package_verify(const uint8_t *manifest, size_t len,
                               const char *root) {
   yyjson_doc *doc = ext_parse(manifest, len);
@@ -121,7 +166,11 @@ ext_status ext_package_verify(const uint8_t *manifest, size_t len,
     yyjson_arr_foreach(yyjson_obj_get(m, "artifacts"), i, n, a) {
       uint8_t sum[32];
       char hex[65];
-      s = artifact_hash(fd, yyjson_get_str(yyjson_obj_get(a, "path")), sum);
+      yyjson_val *kind = yyjson_obj_get(a, "kind");
+      const char *path = yyjson_get_str(yyjson_obj_get(a, "path"));
+      s = yyjson_is_str(kind) && yyjson_equals_str(kind, "tree")
+              ? tree_hash(fd, path, sum)
+              : artifact_hash(fd, path, sum);
       if (s)
         break;
       ext_hash_hex(sum, hex);
@@ -231,16 +280,13 @@ static ext_status walk(int fd, const char *prefix, listing *list,
 static int compare(const void *a, const void *b) {
   return strcmp(((const file *)a)->path, ((const file *)b)->path);
 }
-ext_status ext_directory_digest(const char *root, uint8_t out[32]) {
-  if (!out)
-    return EXT_INVALID;
-  int fd = -1;
-  ext_status s = root_open(root, &fd);
+/* Digest of every regular file under fd, as plugin.DirectoryDigest computes it.
+ * A tree artifact must hold at least one file. */
+static ext_status digest_fd(int fd, uint8_t out[32], int need_files) {
   listing list = {0};
-  if (!s) {
-    s = walk(fd, "", &list, 0);
-    close(fd);
-  }
+  ext_status s = walk(fd, "", &list, 0);
+  if (!s && need_files && !list.count)
+    s = EXT_INVALID;
   if (!s) {
     if (list.count > 1)
       qsort(list.files, list.count, sizeof(file), compare);
@@ -261,5 +307,16 @@ ext_status ext_directory_digest(const char *root, uint8_t out[32]) {
   for (size_t i = 0; i < list.count; i++)
     free(list.files[i].path);
   free(list.files);
+  return s;
+}
+ext_status ext_directory_digest(const char *root, uint8_t out[32]) {
+  if (!out)
+    return EXT_INVALID;
+  int fd = -1;
+  ext_status s = root_open(root, &fd);
+  if (!s) {
+    s = digest_fd(fd, out, 0);
+    close(fd);
+  }
   return s;
 }

@@ -22,18 +22,29 @@ import (
 type instanceValue struct {
 	value   any
 	dispose func() error
+	mu      sync.Mutex
+	err     error // what the disposer returned, kept so the releasing call can report it
 }
+
+func (v *instanceValue) disposeError() error {
+	v.mu.Lock()
+	defer v.mu.Unlock()
+	return v.err
+}
+
 type instancesCore struct {
-	mu         sync.RWMutex
-	ptr        *C.ext_instances
-	handle     cgo.Handle
-	life       context.Context
-	cancel     context.CancelFunc
-	validate   func(json.RawMessage) error
-	create     func(context.Context, string, json.RawMessage) (any, func() error, error)
-	observe    func(instance.Event)
-	errorsMu   sync.Mutex
-	cleanupErr error
+	disposed    uint64 // disposals that failed, to attribute a retiring instance's error to the call that retired it
+	disposedErr error
+	mu          sync.RWMutex
+	ptr         *C.ext_instances
+	handle      cgo.Handle
+	life        context.Context
+	cancel      context.CancelFunc
+	validate    func(json.RawMessage) error
+	create      func(context.Context, string, json.RawMessage) (any, func() error, error)
+	observe     func(instance.Event)
+	errorsMu    sync.Mutex
+	cleanupErr  error
 }
 
 // Instances binds typed Go resource factories to C-owned leases, replacement,
@@ -130,17 +141,27 @@ func (m *Instances[T]) Configure(ctx context.Context, key, revision string, conf
 	}
 	defer scope.finish()
 	k, r := []byte(key), []byte(revision)
+	before := c.disposeCount()
 	s := C.ext_instances_configure(c.ptr, bytesPointer(k), C.size_t(len(k)), bytesPointer(r), C.size_t(len(r)), bytesPointer(config), C.size_t(len(config)), &scope.options)
 	if ctx.Err() != nil {
 		return ctx.Err()
 	}
-	return scope.result(instanceStatus(s))
+	err = scope.result(instanceStatus(s))
+	// Replacing an instance with no leases disposes the old one inside this call;
+	// the Go manager returns what its disposer returned.
+	if err != nil {
+		if cause := c.disposeCauseSince(before); cause != nil {
+			return cause
+		}
+	}
+	return err
 }
 
 type InstanceLease[T any] struct {
 	Value    T
 	Revision string
 	core     *instancesCore
+	value    *instanceValue
 	ptr      *C.ext_lease
 	once     sync.Once
 	err      error
@@ -168,17 +189,40 @@ func (m *Instances[T]) Acquire(key string) (*InstanceLease[T], error) {
 	if v.value != nil {
 		value = v.value.(T)
 	}
-	return &InstanceLease[T]{Value: value, Revision: string(C.GoBytes(unsafe.Pointer(revision), C.int(n))), ptr: ptr, core: c}, nil
+	return &InstanceLease[T]{Value: value, Revision: string(C.GoBytes(unsafe.Pointer(revision), C.int(n))), ptr: ptr, core: c, value: v}, nil
 }
 func (l *InstanceLease[T]) Release() error {
 	l.once.Do(func() {
 		l.core.mu.RLock()
 		defer l.core.mu.RUnlock()
 		l.err = instanceStatus(C.ext_lease_release(l.ptr))
+		// The lease that drops the last reference disposes the instance and, as in
+		// the Go manager, reports what the disposer returned.
+		if l.err != nil {
+			if cause := l.value.disposeError(); cause != nil {
+				l.err = cause
+			}
+		}
 		l.ptr = nil
 	})
 	return l.err
 }
+func (c *instancesCore) disposeCount() uint64 {
+	c.errorsMu.Lock()
+	defer c.errorsMu.Unlock()
+	return c.disposed
+}
+
+// disposeCauseSince is the most recent disposer error if one failed after the count.
+func (c *instancesCore) disposeCauseSince(count uint64) error {
+	c.errorsMu.Lock()
+	defer c.errorsMu.Unlock()
+	if c.disposed != count {
+		return c.disposedErr
+	}
+	return nil
+}
+
 func (m *Instances[T]) Remove(key string) error {
 	c := m.core
 	c.mu.RLock()
@@ -190,7 +234,14 @@ func (m *Instances[T]) Remove(key string) error {
 	if len(k) == 0 {
 		return plugin.ErrNotFound
 	}
-	return instanceStatus(C.ext_instances_remove(c.ptr, bytesPointer(k), C.size_t(len(k))))
+	before := c.disposeCount()
+	err := instanceStatus(C.ext_instances_remove(c.ptr, bytesPointer(k), C.size_t(len(k))))
+	if err != nil {
+		if cause := c.disposeCauseSince(before); cause != nil {
+			return cause
+		}
+	}
+	return err
 }
 func (m *Instances[T]) Close(ctx context.Context) error {
 	c := m.core
@@ -246,7 +297,7 @@ func ctxGoInstanceCreate(handle, caller C.uintptr_t, ms C.uint32_t, key *C.uint8
 		cancel()
 	}
 	value, dispose, err := c.create(ctx, string(C.GoBytes(unsafe.Pointer(key), C.int(kn))), C.GoBytes(unsafe.Pointer(config), C.int(cn)))
-	*out = C.uintptr_t(cgo.NewHandle(&instanceValue{value, dispose}))
+	*out = C.uintptr_t(cgo.NewHandle(&instanceValue{value: value, dispose: dispose}))
 	if err == nil {
 		err = ctx.Err()
 	}
@@ -265,7 +316,14 @@ func ctxGoInstanceDispose(handle, value C.uintptr_t) (result C.int32_t) {
 		if recover() != nil {
 			err = fmt.Errorf("instance cleanup panicked")
 		}
+		v.mu.Lock()
+		v.err = err
+		v.mu.Unlock()
 		if err != nil {
+			c.errorsMu.Lock()
+			c.disposed++
+			c.disposedErr = err
+			c.errorsMu.Unlock()
 			c.errorsMu.Lock()
 			if c.cleanupErr == nil {
 				c.cleanupErr = err

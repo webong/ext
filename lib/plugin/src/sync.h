@@ -25,6 +25,18 @@ typedef struct {
   CONDITION_VARIABLE variable;
 } pthread_cond_t;
 
+typedef struct {
+  int unused;
+} pthread_condattr_t;
+static inline int pthread_condattr_init(pthread_condattr_t *a) {
+  (void)a;
+  return 0;
+}
+static inline int pthread_condattr_destroy(pthread_condattr_t *a) {
+  (void)a;
+  return 0;
+}
+
 #ifndef CLOCK_REALTIME
 #define CLOCK_REALTIME 0
 #define CLOCK_MONOTONIC 1
@@ -81,7 +93,7 @@ static inline int pthread_mutex_unlock(pthread_mutex_t *m) {
   ReleaseSRWLockExclusive(&m->lock);
   return 0;
 }
-static inline int pthread_cond_init(pthread_cond_t *c, const void *attributes) {
+static inline int pthread_cond_init(pthread_cond_t *c, const pthread_condattr_t *attributes) {
   (void)attributes;
   InitializeConditionVariable(&c->variable);
   return 0;

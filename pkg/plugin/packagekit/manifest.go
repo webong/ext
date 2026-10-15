@@ -3,6 +3,7 @@
 package packagekit
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -27,6 +28,20 @@ var namePattern = regexp.MustCompile(`^[a-z0-9][a-z0-9._/-]{0,255}$`)
 var devicePattern = regexp.MustCompile(`(?i)^(con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)`)
 
 var digestPattern = regexp.MustCompile(`^[a-f0-9]{64}$`)
+
+// licensePattern bounds an SPDX license expression such as "MIT" or
+// "Apache-2.0 OR MIT". ext records it; it does not interpret or enforce it.
+var licensePattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9.+() -]{0,127}$`)
+
+// metadataKeyPattern is a namespaced, versioned key such as "kvlite.module/v1".
+var metadataKeyPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]{0,127}/v[1-9][0-9]{0,8}$`)
+
+// Bounds on Manifest.Metadata.
+const (
+	maxMetadataKeys       = 64
+	maxMetadataValueBytes = 64 << 10
+	maxMetadataTotalBytes = 256 << 10
+)
 
 // ArtifactTree marks an Artifact whose Path is a directory. Its SHA256 is
 // plugin.DirectoryDigest of that directory, so one entry covers a large vendored
@@ -73,8 +88,10 @@ type PayloadSchema struct {
 	Output    *schema.Schema     `json:"output,omitempty"`
 }
 type Manifest struct {
-	APIVersion         string             `json:"apiVersion"`
-	Descriptor         plugin.Descriptor  `json:"descriptor"`
+	APIVersion string            `json:"apiVersion"`
+	Descriptor plugin.Descriptor `json:"descriptor"`
+	// License is an optional SPDX license expression. It is descriptive only.
+	License            string             `json:"license,omitempty"`
 	Artifacts          []Artifact         `json:"artifacts"`
 	Entrypoints        []Entrypoint       `json:"entrypoints,omitempty"`
 	Requires           []Dependency       `json:"requires,omitempty"`
@@ -82,6 +99,13 @@ type Manifest struct {
 	Payloads           []PayloadSchema    `json:"payloads,omitempty"`
 	Assets             []Asset            `json:"assets,omitempty"`
 	SharedDependencies []SharedDependency `json:"sharedDependencies,omitempty"`
+	// Metadata carries data defined by a consumer, keyed by a namespaced,
+	// versioned name such as "kvlite.module/v1"; each value is a JSON object.
+	// ext validates only the key shape and the bounds. It never interprets a
+	// value, and a value never grants authority, selects a backend or establishes
+	// trust. The manifest is part of the package directory, so the trust digest
+	// covers metadata. A consumer reads its own key and ignores the rest.
+	Metadata map[string]json.RawMessage `json:"metadata,omitempty"`
 }
 
 func portablePath(value string) bool {
@@ -104,6 +128,12 @@ func (m Manifest) Validate() error {
 	}
 	if len(m.Artifacts) < 1 || len(m.Artifacts) > 4096 || len(m.Entrypoints) > 64 || len(m.Requires) > 256 || len(m.Assets) > 1024 || len(m.Payloads) > 1024 || len(m.SharedDependencies) > 256 {
 		return plugin.ErrInvalid
+	}
+	if m.License != "" && (!licensePattern.MatchString(m.License) || strings.HasSuffix(m.License, " ") || strings.Contains(m.License, "  ")) {
+		return fmt.Errorf("%w: invalid license", plugin.ErrInvalid)
+	}
+	if err := m.validateMetadata(); err != nil {
+		return err
 	}
 	names := map[string]bool{}
 	paths := map[string]bool{}
@@ -204,6 +234,23 @@ func (m Manifest) Validate() error {
 				return plugin.ErrInvalid
 			}
 			seen[v] = true
+		}
+	}
+	return nil
+}
+func (m Manifest) validateMetadata() error {
+	if len(m.Metadata) > maxMetadataKeys {
+		return fmt.Errorf("%w: too many metadata keys", plugin.ErrInvalid)
+	}
+	total := 0
+	for key, value := range m.Metadata {
+		trimmed := bytes.TrimSpace(value)
+		if !metadataKeyPattern.MatchString(key) || len(trimmed) == 0 || trimmed[0] != '{' || len(value) > maxMetadataValueBytes {
+			return fmt.Errorf("%w: invalid metadata %q", plugin.ErrInvalid, key)
+		}
+		total += len(key) + len(value)
+		if total > maxMetadataTotalBytes {
+			return fmt.Errorf("%w: metadata too large", plugin.ErrInvalid)
 		}
 	}
 	return nil

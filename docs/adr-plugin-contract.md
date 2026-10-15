@@ -141,6 +141,34 @@ offers `Verify`, `ArtifactPath(name)` (a verified path) and `Digest`
 concurrent mutation by several processes, and a digest is integrity, not
 publisher trust.
 
+`Store.Verify` checks every package under the root and reports each result
+instead of stopping at the first, so a caller can show everything that is wrong.
+`store.NewLayered(stores...)` is a read-only view over several stores in
+priority order: a package ID is served from the first store that holds it, so a
+user installation can shadow a system one. Roots and order come from the
+consumer. A damaged winning copy fails closed rather than falling back to a
+later store, shadowed copies are never read, and no root is created.
+`Layered.Verify` reports what `Load` and `List` would serve.
+
+### Manifest license and metadata
+
+A manifest may carry an optional `license` (an SPDX expression, recorded and
+never interpreted) and an optional `metadata` map for data a consumer defines.
+Metadata keys are namespaced and versioned, such as `kvlite.module/v1`; each
+value is a JSON object. ext checks only the key shape and the bounds (64 keys,
+64 KiB per value, 256 KiB in all). It never interprets a value, and a value never
+grants authority, selects a backend or establishes trust. Because `package.json`
+is part of the package directory, the trust digest covers metadata. A consumer
+reads its own key and ignores the others.
+
+These are additive fields of `ext.package/v1`. Decoding rejects unknown fields,
+so a host older than this change rejects a package that uses either field. That
+is deliberate: a host must not silently ignore a requirement it does not
+understand. A package that sets neither field is unchanged and stays readable by
+older hosts. Consumer-specific values belong in metadata, not in new core fields:
+an ABI version is an `Entrypoint.Protocols` token, and a consumer-specific entry
+symbol or driver name goes under the consumer's own metadata key.
+
 A package with no entrypoints is a source-file package: `packagekit` lists the
 payload files and declares no command, and the consumer chooses the runtime and
 the file to run (`Manifest.SourceOnly`, `Manifest.Artifact`).

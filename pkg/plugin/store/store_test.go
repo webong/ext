@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/webong/ext/pkg/plugin"
@@ -259,5 +260,44 @@ func TestVerifyMissingRootIsEmptyAndNotCreated(t *testing.T) {
 	}
 	if _, err := os.Stat(root); !os.IsNotExist(err) {
 		t.Fatal("Verify created the root")
+	}
+}
+
+func TestMetadataSurvivesInstallAndChangesDigest(t *testing.T) {
+	src := source(t, "example/a", "r1", "one")
+	raw, err := os.ReadFile(filepath.Join(src, store.ManifestName))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var m packagekit.Manifest
+	if err := json.Unmarshal(raw, &m); err != nil {
+		t.Fatal(err)
+	}
+	m.License = "MIT"
+	m.Metadata = map[string]json.RawMessage{"kvlite.module/v1": json.RawMessage(`{"driver":"rocksdb"}`)}
+	if err := store.WriteManifest(src, m); err != nil {
+		t.Fatal(err)
+	}
+	s := newStore(t)
+	if _, err := s.Install(src); err != nil {
+		t.Fatal(err)
+	}
+	p, err := s.Load("example/a")
+	if err != nil || p.Manifest.License != "MIT" || string(p.Manifest.Metadata["kvlite.module/v1"]) == "" {
+		t.Fatal("metadata lost across install:", p.Manifest, err)
+	}
+	before, err := p.Digest()
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Metadata is part of the trust digest even though Verify only validates it.
+	path := filepath.Join(p.Directory, store.ManifestName)
+	edited, _ := os.ReadFile(path)
+	if err := os.WriteFile(path, []byte(strings.Replace(string(edited), "rocksdb", "sqlite", 1)), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	after, err := p.Digest()
+	if err != nil || after == before {
+		t.Fatal("editing metadata must change the digest", err)
 	}
 }

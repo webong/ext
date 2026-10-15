@@ -14,6 +14,7 @@ type browserResourceBundle = share.ResourceBundle
 
 var (
 	cookieDatabaseColumns  = sqlite.CookieDatabaseColumns
+	openCookieDatabase     = sqlite.OpenShared
 	readableCookieDatabase = sqlite.ReadableCookieDatabase
 	snapshotCookieDatabase = sqlite.SnapshotCookieDatabase
 	copyPrivateFile        = sqlite.CopyPrivateFile
@@ -23,6 +24,7 @@ var (
 	sqlIdentifier          = sqlite.SQLIdentifier
 	sqlBool                = sqlite.SQLBool
 	cookieHostSQL          = sqlite.CookieHostSQL
+	cookieHostCandidates   = sqlite.CookieHostCandidates
 )
 
 func cookieActive(cookie browserCookie) bool { return share.CookieActive(cookie) }

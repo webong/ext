@@ -36,6 +36,7 @@ type browserCookie = Cookie
 
 var (
 	cookieDatabaseColumns  = sqlite.CookieDatabaseColumns
+	openCookieDatabase     = sqlite.OpenShared
 	readableCookieDatabase = sqlite.ReadableCookieDatabase
 	hasSQLiteColumn        = sqlite.HasSQLiteColumn
 	runSQLite              = sqlite.RunSQLite
@@ -43,6 +44,7 @@ var (
 	sqlIdentifier          = sqlite.SQLIdentifier
 	sqlBool                = sqlite.SQLBool
 	cookieHostSQL          = sqlite.CookieHostSQL
+	cookieHostCandidates   = sqlite.CookieHostCandidates
 )
 
 func cookieActive(cookie browserCookie) bool { return share.CookieActive(cookie) }

@@ -17,6 +17,7 @@ import (
 	"time"
 
 	browsershare "github.com/webong/ext/res/web/contract"
+	"github.com/webong/ext/res/web/sqlite"
 )
 
 type firefoxCookieRow struct {
@@ -42,44 +43,59 @@ func queryFirefoxCookies(config Config, profile string, site *url.URL, name stri
 	if err != nil {
 		return nil, "", err
 	}
-	readableDB, cleanup, columns, err := readableFirefoxCookieDatabase(database)
+	db, err := openCookieDatabase(database)
 	if err != nil {
-		return nil, "", err
+		return nil, "", fmt.Errorf("cannot read the Firefox cookie database: %w", err)
 	}
-	defer cleanup()
+	columns, err := db.Columns("moz_cookies")
+	if err != nil {
+		return nil, "", fmt.Errorf("Firefox cookie database has no readable cookie table: %w", err)
+	}
 	for _, required := range []string{"id", "name", "value", "host", "path", "expiry", "isSecure", "isHttpOnly", "sameSite", "originAttributes"} {
 		if !hasSQLiteColumn(columns, required) {
 			return nil, "", fmt.Errorf("Firefox cookie database lacks %s; this profile schema is not supported", required)
 		}
 	}
-	scale, err := firefoxExpiryScale(readableDB)
+	scale, err := firefoxExpiryScale(db)
 	if err != nil {
 		return nil, "", err
 	}
-	partitioned := "0"
-	if hasSQLiteColumn(columns, "isPartitionedAttributeSet") {
-		partitioned = "isPartitionedAttributeSet"
-	}
-	statement := "SELECT id,name,host,path,expiry,isSecure,isHttpOnly,sameSite,originAttributes," + partitioned + " AS partitionedAttribute FROM moz_cookies WHERE 1=1"
+	partitioned := hasSQLiteColumn(columns, "isPartitionedAttributeSet")
+	var hosts map[string]bool
 	if site != nil {
 		host := strings.TrimSuffix(strings.ToLower(site.Hostname()), ".")
 		if host == "" {
 			return nil, "", errors.New("site has no hostname")
 		}
-		statement += " AND host IN (" + cookieHostSQL(host) + ")"
-	}
-	if name != "" {
-		statement += " AND name=" + sqlString(name)
-	}
-	output, err := runSQLite(readableDB, true, statement)
-	if err != nil {
-		return nil, "", err
+		hosts = map[string]bool{}
+		for _, candidate := range cookieHostCandidates(host) {
+			hosts[candidate] = true
+		}
 	}
 	var rows []firefoxCookieRow
-	if len(bytes.TrimSpace(output)) != 0 {
-		if err := json.Unmarshal(output, &rows); err != nil {
-			return nil, "", errors.New("cannot decode Firefox cookie database response")
+	err = db.Scan("moz_cookies", func(r sqlite.Row) error {
+		host, _ := r.Text("host")
+		cookieName, _ := r.Text("name")
+		if (hosts != nil && !hosts[host]) || (name != "" && cookieName != name) {
+			return nil
 		}
+		row := firefoxCookieRow{ID: r.RowID, Name: cookieName, Host: host}
+		row.Path, _ = r.Text("path")
+		row.Expiry, _ = r.Int("expiry")
+		secure, _ := r.Int("isSecure")
+		httpOnly, _ := r.Int("isHttpOnly")
+		sameSite, _ := r.Int("sameSite")
+		row.IsSecure, row.IsHTTPOnly, row.SameSite = int(secure), int(httpOnly), int(sameSite)
+		row.OriginAttributes, _ = r.Text("originAttributes")
+		if partitioned {
+			flag, _ := r.Int("isPartitionedAttributeSet")
+			row.PartitionedAttribute = int(flag)
+		}
+		rows = append(rows, row)
+		return nil
+	})
+	if err != nil {
+		return nil, "", fmt.Errorf("cannot read the Firefox cookie rows: %w", err)
 	}
 	containerNames := firefoxContainerNames(filepath.Dir(database))
 	cookies := make([]browserCookie, 0, len(rows))
@@ -159,25 +175,27 @@ func firefoxContainerNames(profileDirectory string) map[int]string {
 }
 
 func readFirefoxCookieValue(database string, cookie browserCookie) (string, error) {
-	readableDB, cleanup, _, err := readableFirefoxCookieDatabase(database)
+	db, err := openCookieDatabase(database)
 	if err != nil {
 		return "", err
 	}
-	defer cleanup()
-	statement := "SELECT value FROM moz_cookies WHERE id=" + strconv.FormatInt(cookie.ID, 10) +
-		" AND name=" + sqlString(cookie.Name) + " AND host=" + sqlString(cookie.Domain) +
-		" AND path=" + sqlString(cookie.Path) + " AND originAttributes=" + sqlString(cookie.Attributes["firefox.origin_attributes"])
-	output, err := runSQLite(readableDB, true, statement)
+	row, found, err := db.Lookup("moz_cookies", cookie.ID)
 	if err != nil {
 		return "", err
 	}
-	var rows []struct {
-		Value string `json:"value"`
+	changed := errors.New("Firefox cookie changed since listing; retry")
+	if !found {
+		return "", changed
 	}
-	if err := json.Unmarshal(output, &rows); err != nil || len(rows) != 1 {
-		return "", errors.New("Firefox cookie changed since listing; retry")
+	name, _ := row.Text("name")
+	host, _ := row.Text("host")
+	path, _ := row.Text("path")
+	origin, _ := row.Text("originAttributes")
+	if name != cookie.Name || host != cookie.Domain || path != cookie.Path || origin != cookie.Attributes["firefox.origin_attributes"] {
+		return "", changed
 	}
-	return rows[0].Value, nil
+	value, _ := row.Text("value")
+	return value, nil
 }
 
 func firefoxSameSitePolicy(raw int) string {
@@ -355,7 +373,11 @@ func importFirefoxCookie(config Config, profile string, cookie browserCookie, re
 	if err != nil {
 		return err
 	}
-	scale, err := firefoxExpiryScale(database)
+	target, err := sqlite.Open(database)
+	if err != nil {
+		return err
+	}
+	scale, err := firefoxExpiryScale(target)
 	if err != nil {
 		return err
 	}
@@ -403,18 +425,12 @@ func importFirefoxCookie(config Config, profile string, cookie browserCookie, re
 
 // Firefox schema 16 migrated expiry from seconds to milliseconds. Keep the
 // portable contract in seconds, and avoid guessing about future migrations.
-func firefoxExpiryScale(database string) (int64, error) {
-	output, err := runSQLite(database, true, "PRAGMA user_version")
-	if err != nil {
-		return 0, err
-	}
-	var versions []struct {
-		Version int `json:"user_version"`
-	}
-	if json.Unmarshal(output, &versions) != nil || len(versions) != 1 || versions[0].Version < 0 || versions[0].Version > 17 {
+func firefoxExpiryScale(db *sqlite.Database) (int64, error) {
+	version, err := db.UserVersion()
+	if err != nil || version < 0 || version > 17 {
 		return 0, errors.New("unsupported Firefox cookie schema version")
 	}
-	if versions[0].Version >= 16 {
+	if version >= 16 {
 		return 1000, nil
 	}
 	return 1, nil

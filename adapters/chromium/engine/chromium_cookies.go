@@ -9,7 +9,6 @@ import (
 	"crypto/sha1"
 	"crypto/sha256"
 	"encoding/base64"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -25,6 +24,7 @@ import (
 
 	credentialclient "github.com/webong/ext/res/credential/client"
 	share "github.com/webong/ext/res/web/contract"
+	"github.com/webong/ext/res/web/sqlite"
 )
 
 const chromiumEpochOffsetMicros = int64(11644473600000000)
@@ -52,44 +52,55 @@ func queryChromiumCookies(provider Config, profile string, site *url.URL, name s
 	if err != nil {
 		return nil, "", err
 	}
-	readable, cleanup, columns, err := readableCookieDatabase(database, "cookies")
+	db, err := openCookieDatabase(database)
 	if err != nil {
-		return nil, "", err
+		return nil, "", fmt.Errorf("cannot read the %s cookie database: %w", provider.Name, err)
 	}
-	defer cleanup()
+	columns, err := db.Columns("cookies")
+	if err != nil {
+		return nil, "", fmt.Errorf("%s cookie database has no readable cookies table: %w", provider.Name, err)
+	}
 	for _, required := range []string{"host_key", "name", "path", "expires_utc", "is_secure", "is_httponly", "samesite", "value", "encrypted_value"} {
 		if !hasSQLiteColumn(columns, required) {
 			return nil, "", fmt.Errorf("%s cookie database lacks %s; this profile schema is not supported", provider.Name, required)
 		}
 	}
-	statement := "SELECT rowid AS id,name,host_key AS host,path,expires_utc AS expiresUTC," +
-		"is_secure AS isSecure,is_httponly AS isHttpOnly,samesite AS sameSite," +
-		chromiumColumnExpr(columns, "top_frame_site_key", "''", "topFrameSiteKey") + "," +
-		chromiumColumnExpr(columns, "has_cross_site_ancestor", "0", "hasCrossSiteAncestor") + "," +
-		chromiumColumnExpr(columns, "has_expires", "1", "hasExpires") +
-		" FROM cookies WHERE 1=1"
+	var hosts map[string]bool
 	if site != nil {
 		host := strings.TrimSuffix(strings.ToLower(site.Hostname()), ".")
 		if host == "" {
 			return nil, "", errors.New("site has no hostname")
 		}
-		statement += " AND host_key IN (" + cookieHostSQL(host) + ")"
-	}
-	if name != "" {
-		statement += " AND name=" + sqlString(name)
-	}
-	output, err := runSQLite(readable, true, statement)
-	if err != nil {
-		return nil, "", err
-	}
-	var rows []chromiumCookieRow
-	if len(bytes.TrimSpace(output)) != 0 {
-		if err := json.Unmarshal(output, &rows); err != nil {
-			return nil, "", errors.New("cannot decode Chromium cookie database response")
+		hosts = map[string]bool{}
+		for _, candidate := range cookieHostCandidates(host) {
+			hosts[candidate] = true
 		}
 	}
-	cookies := make([]browserCookie, 0, len(rows))
-	for _, row := range rows {
+	cookies := []browserCookie{}
+	err = db.Scan("cookies", func(r sqlite.Row) error {
+		host, _ := r.Text("host_key")
+		cookieName, _ := r.Text("name")
+		if (hosts != nil && !hosts[host]) || (name != "" && cookieName != name) {
+			return nil
+		}
+		row := chromiumCookieRow{ID: r.RowID, Name: cookieName, Host: host}
+		row.Path, _ = r.Text("path")
+		row.ExpiresUTC, _ = r.Int("expires_utc")
+		intColumn := func(column string, fallback int) int {
+			if !hasSQLiteColumn(columns, column) {
+				return fallback
+			}
+			value, _ := r.Int(column)
+			return int(value)
+		}
+		row.IsSecure = intColumn("is_secure", 0)
+		row.IsHTTPOnly = intColumn("is_httponly", 0)
+		row.SameSite = intColumn("samesite", 0)
+		row.HasCrossSiteAncestor = intColumn("has_cross_site_ancestor", 0)
+		row.HasExpires = intColumn("has_expires", 1)
+		if hasSQLiteColumn(columns, "top_frame_site_key") {
+			row.TopFrameSiteKey, _ = r.Text("top_frame_site_key")
+		}
 		expiry := int64(0)
 		if row.HasExpires != 0 {
 			if row.ExpiresUTC <= chromiumEpochOffsetMicros {
@@ -107,6 +118,10 @@ func queryChromiumCookies(provider Config, profile string, site *url.URL, name s
 		if share.CookieMatchesSiteOptions(site, cookie, includeExpired) {
 			cookies = append(cookies, cookie)
 		}
+		return nil
+	})
+	if err != nil {
+		return nil, "", fmt.Errorf("cannot read the %s cookie rows: %w", provider.Name, err)
 	}
 	return cookies, database, nil
 }
@@ -204,59 +219,62 @@ func readChromiumCookieValue(provider Config, database string, cookie browserCoo
 }
 
 func readChromiumCookieValueWithDecryptor(database string, cookie browserCookie, decrypt func(string, []byte) (string, error)) (string, error) {
-	readable, cleanup, columns, err := readableCookieDatabase(database, "cookies")
+	db, err := openCookieDatabase(database)
 	if err != nil {
 		return "", err
 	}
-	defer cleanup()
-	statement := "SELECT value,hex(encrypted_value) AS encryptedHex FROM cookies WHERE rowid=" + strconv.FormatInt(cookie.ID, 10) +
-		" AND name=" + sqlString(cookie.Name) + " AND host_key=" + sqlString(cookie.Domain) + " AND path=" + sqlString(cookie.Path)
+	columns, err := db.Columns("cookies")
+	if err != nil {
+		return "", err
+	}
+	row, found, err := db.Lookup("cookies", cookie.ID)
+	if err != nil {
+		return "", err
+	}
+	changed := errors.New("Chromium cookie changed since listing; retry")
+	if !found {
+		return "", changed
+	}
+	if name, _ := row.Text("name"); name != cookie.Name {
+		return "", changed
+	}
+	if host, _ := row.Text("host_key"); host != cookie.Domain {
+		return "", changed
+	}
+	if path, _ := row.Text("path"); path != cookie.Path {
+		return "", changed
+	}
 	if hasSQLiteColumn(columns, "top_frame_site_key") {
-		statement += " AND top_frame_site_key=" + sqlString(cookie.PartitionKey)
+		if key, _ := row.Text("top_frame_site_key"); key != cookie.PartitionKey {
+			return "", changed
+		}
 	}
 	if hasSQLiteColumn(columns, "has_cross_site_ancestor") {
-		ancestor := 0
+		ancestor := int64(0)
 		if cookie.CrossSiteAncestor {
 			ancestor = 1
 		}
-		statement += " AND has_cross_site_ancestor=" + strconv.Itoa(ancestor)
+		if value, _ := row.Int("has_cross_site_ancestor"); value != ancestor {
+			return "", changed
+		}
 	}
-	output, err := runSQLite(readable, true, statement)
-	if err != nil {
-		return "", err
-	}
-	var rows []struct {
-		Value        string `json:"value"`
-		EncryptedHex string `json:"encryptedHex"`
-	}
-	if err := json.Unmarshal(output, &rows); err != nil || len(rows) != 1 {
-		return "", errors.New("Chromium cookie changed since listing; retry")
-	}
-	if rows[0].Value != "" && rows[0].EncryptedHex != "" {
+	plainValue, _ := row.Text("value")
+	ciphertext, _ := row.Bytes("encrypted_value")
+	if plainValue != "" && len(ciphertext) != 0 {
 		return "", errors.New("Chromium cookie contains both plaintext and encrypted values")
 	}
-	if rows[0].EncryptedHex == "" {
-		return rows[0].Value, nil
-	}
-	ciphertext, err := hex.DecodeString(rows[0].EncryptedHex)
-	if err != nil {
-		return "", errors.New("Chromium cookie ciphertext is malformed")
+	if len(ciphertext) == 0 {
+		return plainValue, nil
 	}
 	plaintext, err := decrypt(database, ciphertext)
 	if err != nil {
 		return "", err
 	}
-	versionOutput, err := runSQLite(readable, true, "SELECT value AS version FROM meta WHERE key='version'")
+	version, err := chromiumMetaVersion(db)
 	if err != nil {
-		return "", fmt.Errorf("cannot determine Chromium cookie database version: %w", err)
+		return "", err
 	}
-	var versions []struct {
-		Version int `json:"version"`
-	}
-	if err := json.Unmarshal(versionOutput, &versions); err != nil || len(versions) != 1 {
-		return "", errors.New("cannot determine Chromium cookie database version")
-	}
-	if versions[0].Version >= 24 {
+	if version >= 24 {
 		// Chromium database v24 binds the encrypted value to its host key.
 		// See net/extras/sqlite/sqlite_persistent_cookie_store.cc.
 		hostHash := sha256.Sum256([]byte(cookie.Domain))
@@ -590,4 +608,29 @@ func chromiumNetworkWallet() string {
 		}
 	}
 	return "kdewallet"
+}
+
+// chromiumMetaVersion reads the schema version from the meta table. Chromium
+// stores it as text in a LONGVARCHAR column, but older stores hold an integer.
+func chromiumMetaVersion(db *sqlite.Database) (int, error) {
+	version, found := 0, false
+	err := db.Scan("meta", func(r sqlite.Row) error {
+		if key, _ := r.Text("key"); key != "version" || found {
+			return nil
+		}
+		value, _ := r.Get("value")
+		switch v := value.(type) {
+		case int64:
+			version, found = int(v), true
+		case string:
+			if parsed, err := strconv.Atoi(strings.TrimSpace(v)); err == nil {
+				version, found = parsed, true
+			}
+		}
+		return nil
+	})
+	if err != nil || !found {
+		return 0, errors.New("cannot determine Chromium cookie database version")
+	}
+	return version, nil
 }

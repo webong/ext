@@ -1,0 +1,122 @@
+name: Release Android SDK
+
+# Releases pkg/plugin-android as two AARs (the default build and the one with the optional WAMR
+# host) on a GitHub release. It runs only for plugin-android-vX.Y.Z tags, and by hand for a dry
+# run that builds and tests but publishes nothing. The tag is not a Go module tag; see
+# docs/module-versioning.md.
+on:
+  push:
+    tags: ['plugin-android-v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version to build for the dry run, for example 0.1.0
+        type: string
+        default: 0.0.0
+      dry_run:
+        description: Build and test only; never publish (a manual run always behaves as a dry run)
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: plugin-release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  EXT_CACHE: ${{ github.workspace }}/.cache/ext
+
+jobs:
+  # Builds both AARs and tests each exactly as it will ship, on an emulator, before anything is
+  # published. Read-only: it has no token that can write.
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Version
+        id: version
+        env:
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          if [[ "$REF_TYPE" == tag ]]; then version="${REF_NAME#plugin-android-v}"; else version="$INPUT_VERSION"; fi
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "version '$version' must look like 0.1.0" >&2; exit 1; }
+          echo "version=$version" >>"$GITHUB_OUTPUT"
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.98.1'
+          targets: wasm32-wasip1
+      - uses: actions/cache@v4
+        with:
+          path: .cache/ext
+          key: wamr-${{ hashFiles('scripts/plugin-wamr.sh') }}
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.14.3'
+      - name: Build both AARs
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          scripts/plugin-android-release.sh "$VERSION"
+          scripts/plugin-android-release.sh --with-wamr "$VERSION"
+          (cd "dist/plugin-android-$VERSION" && sha256sum ext-plugin-*.aar WAMR-LICENSE | tee checksums.txt)
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Test the shipped AARs in an app (R8 on)
+        uses: reactivecircus/android-emulator-runner@v2.33.0
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        with:
+          api-level: 34
+          arch: x86_64
+          target: default
+          disable-animations: true
+          script: |
+            scripts/plugin-android-consumer.sh --aar dist/plugin-android-${{ steps.version.outputs.version }}/ext-plugin-${{ steps.version.outputs.version }}.aar
+            scripts/plugin-android-consumer.sh --with-wamr --aar dist/plugin-android-${{ steps.version.outputs.version }}/ext-plugin-wamr-${{ steps.version.outputs.version }}.aar
+      - uses: actions/upload-artifact@v4
+        with:
+          name: plugin-android-${{ steps.version.outputs.version }}
+          path: dist/plugin-android-${{ steps.version.outputs.version }}/*
+          if-no-files-found: error
+
+  # Publishes. Only a pushed plugin-android-v tag gets here (never a manual run, even on a tag), and only after the build job passed. It
+  # builds nothing: it attaches the exact files that were tested.
+  publish:
+    needs: build
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/plugin-android-v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: plugin-android-${{ needs.build.outputs.version }}
+          path: dist
+      - name: Verify checksums
+        run: (cd dist && sha256sum -c checksums.txt)
+      - name: Attest release provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: 'dist/*'
+      # Not "latest": install.sh and install.ps1 resolve the newest ctx-v release by tag.
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist/* --verify-tag --generate-notes --latest=false --title "$GITHUB_REF_NAME"

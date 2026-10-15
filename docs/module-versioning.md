@@ -77,6 +77,10 @@ slash would read as a Go module tag for a directory that does not exist and
 makes download URLs ambiguous. GitHub's "latest" release is repository-wide, so
 `install.sh` and `install.ps1` resolve the newest `ctx-v*` release instead of
 `latest/download`, and ctn releases are published with `--latest=false`.
+The mobile SDKs follow the same dash form: `plugin-android-vX.Y.Z` releases the Android AARs
+(`.github/workflows/plugin-release.yml`, published with `--latest=false`) and `plugin-ios-vX.Y.Z` is
+reserved for the iOS SDK, which has no release job yet. Their `MINOR` and `PATCH` move
+independently; their `MAJOR` follows the repository-wide `MAJOR`.
 Library modules never use these tags, and bare `vX.Y.Z` tags are not used.
 
 The iOS SDK's engine archive is released under its own tag, `plugin-ios-vX.Y.Z`; see

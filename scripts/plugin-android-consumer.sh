@@ -7,11 +7,20 @@
 # Needs the Android SDK (platform 34, build-tools, NDK), JDK 17, cargo with wasm32-wasip1, and
 # Gradle (GRADLE=<path>, else `gradle` on PATH, else the newest 8.x in ~/.gradle/wrapper/dists).
 # Downloads the Android Gradle Plugin and androidx.test from Google/Maven on first use.
-# Usage: scripts/plugin-android-consumer.sh [--with-wamr]
+# --aar <path> tests that exact file instead of building one, so a release gates what it ships;
+# its name must be ext-plugin[-wamr]-<version>.aar.
+# Usage: scripts/plugin-android-consumer.sh [--with-wamr] [--aar <path>]
 set -euo pipefail
 cd "$(dirname "$0")/.."
 with_wamr=""
-if [[ "${1:-}" == --with-wamr ]]; then with_wamr=1; shift; fi
+given_aar=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --with-wamr) with_wamr=1; shift ;;
+    --aar) given_aar="${2:?--aar needs a path}"; shift 2 ;;
+    *) echo "unknown argument $1" >&2; exit 2 ;;
+  esac
+done
 sdk="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-$HOME/Library/Android/sdk}}"
 export ANDROID_HOME="$sdk"
 adb="$sdk/platform-tools/adb"
@@ -28,11 +37,19 @@ cleanup() {
 }
 trap cleanup EXIT
 
-# Stage the AAR under the same name the release script gives it, in a repository of its own.
-scripts/plugin-android-release.sh ${with_wamr:+--with-wamr} "$version" >/dev/null
+# The AAR in a repository of its own: the one given, or one staged by the release script.
 mkdir -p "$work/aar"
-cp "dist/plugin-android-$version/ext-plugin-$version.aar" "$work/aar/"
-rm -rf "dist/plugin-android-$version"
+if [[ -n "$given_aar" ]]; then
+  [[ -f "$given_aar" ]] || { echo "no AAR at $given_aar" >&2; exit 2; }
+  aar_name="$(basename "$given_aar" .aar)"
+  cp "$given_aar" "$work/aar/"
+else
+  scripts/plugin-android-release.sh ${with_wamr:+--with-wamr} "$version" >/dev/null
+  aar_name="ext-plugin-${with_wamr:+wamr-}$version"
+  cp "dist/plugin-android-$version/$aar_name.aar" "$work/aar/"
+  rm -f "dist/plugin-android-$version/$aar_name.aar"
+  rmdir "dist/plugin-android-$version" 2>/dev/null || true
+fi
 
 # The reactor module the host tests run.
 CARGO_TARGET_DIR="$work/cargo" cargo build --release --locked \
@@ -57,7 +74,7 @@ if [[ -z "$("$adb" devices | awk 'NR>1 && $2=="device"')" ]]; then
   sleep 10
 fi
 
-args=(-p "$work/app" -PaarDir="$work/aar" -PaarName="ext-plugin-$version" --no-daemon --console=plain)
+args=(-p "$work/app" -PaarDir="$work/aar" -PaarName="$aar_name" --no-daemon --console=plain)
 [[ -z "$with_wamr" ]] || args+=(-PwithWamr)
 "$gradle" "${args[@]}" connectedReleaseAndroidTest
 # The merged manifest must carry the minimum the AAR needs.

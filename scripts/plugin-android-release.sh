@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
-# Stage a release of the Android plugin SDK as an AAR under dist/plugin-android-<version>/.
+# Stage a release of the Android plugin SDK as an AAR under dist/plugin-android-<version>/:
+# ext-plugin-<version>.aar, or ext-plugin-wamr-<version>.aar with --with-wamr. The two builds
+# share the directory, so a release stages both in turn.
 # The AAR holds the guest SDK and the WebView host (classes.jar) and libextjni for arm64-v8a and
 # x86_64. It publishes nothing. Needs the Android SDK (platform, build-tools, NDK), a JDK, cmake.
 #
@@ -23,8 +25,9 @@ pkg=pkg/plugin-android
 out="dist/plugin-android-$version"
 work="$(mktemp -d "${TMPDIR:-/tmp}/ext-android-release.XXXXXX")"
 trap 'rm -rf "$work"' EXIT
-rm -rf "$out"
+aar_name="ext-plugin-${with_wamr:+wamr-}$version.aar"
 mkdir -p "$out" "$work/aar/jni"
+rm -f "$out/$aar_name"
 ./scripts/plugin-mobile-assets.sh --check
 
 wamr=""
@@ -62,10 +65,10 @@ if [[ -n "$with_wamr" ]]; then
   cp "$wamr/LICENSE" "$work/aar/META-INF/WAMR-LICENSE"
   cp "$wamr/LICENSE" "$out/WAMR-LICENSE"
 fi
-( cd "$work/aar" && zip -q -r "$OLDPWD/$out/ext-plugin-$version.aar" . )
+( cd "$work/aar" && zip -q -r "$OLDPWD/$out/$aar_name" . )
 
 # Prove it: the AAR must hold what it claims, and nothing of WAMR unless asked.
-listing="$(unzip -Z1 "$out/ext-plugin-$version.aar")"
+listing="$(unzip -Z1 "$out/$aar_name")"
 for entry in AndroidManifest.xml classes.jar proguard.txt jni/arm64-v8a/libextjni.so jni/x86_64/libextjni.so; do
   grep -qx "$entry" <<<"$listing" || { echo "AAR is missing $entry" >&2; exit 1; }
 done
@@ -75,11 +78,11 @@ if [[ -n "$with_wamr" ]]; then
 elif [[ "$wamr_entries" != 0 ]]; then
   echo 'a release without --with-wamr must not contain WAMR' >&2; exit 1
 fi
-unzip -p "$out/ext-plugin-$version.aar" classes.jar >"$work/check.jar"
+unzip -p "$out/$aar_name" classes.jar >"$work/check.jar"
 if [[ -z "$with_wamr" ]] && unzip -Z1 "$work/check.jar" | grep -q Wamr; then
   echo 'classes.jar contains WAMR classes' >&2; exit 1
 fi
 echo "version   $version"
-echo "aar       $out/ext-plugin-$version.aar"
+echo "aar       $out/$aar_name"
 echo "entries   $(wc -l <<<"$listing" | tr -d ' ')"
 [[ -z "$with_wamr" ]] || echo "license   $out/WAMR-LICENSE"

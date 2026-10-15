@@ -135,6 +135,11 @@ plugins that arrive after release need an interpreter, such as the WASM backend.
 
 ## Distribution
 
+**Not distributed yet.** There is no iOS release job: the tag form `plugin-ios-vX.Y.Z` is
+reserved and documented, but SwiftPM needs a repository root or a dedicated distribution
+repository to resolve a binary-target package from, and until that is decided a release job
+would publish something nobody can consume. The staging script below produces the pieces.
+
 SwiftPM resolves a package from a repository root, which this monorepo's root is not,
 so the manifest here is for development against the local xcframework.
 `scripts/plugin-ios-release.sh <version>` stages a release under

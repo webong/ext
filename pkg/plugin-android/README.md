@@ -131,12 +131,30 @@ try (WamrPluginHost host = new WamrPluginHost(module, descriptor)) {
 
 ## Distribution
 
-`scripts/plugin-android-release.sh <version>` stages `dist/plugin-android-<version>/ext-plugin-<version>.aar`:
-the guest SDK and the WebView host as `classes.jar` (Java 17, which the app's D8 desugars) and
-`libextjni` for arm64-v8a and x86_64. With `--with-wamr` it also holds `libextwamrjni`, the
-`WamrPluginHost` classes and WAMR's license (`META-INF/WAMR-LICENSE`, also written beside the
-AAR), and the minimum SDK becomes 28; without the flag the AAR contains nothing of WAMR. The
-script checks the AAR's contents and publishes nothing.
+Releases are GitHub releases tagged `plugin-android-vX.Y.Z` (a dash form, not a Go module tag;
+see [module versioning](../../docs/module-versioning.md)). Each carries:
+
+- `ext-plugin-X.Y.Z.aar`: the guest SDK and the WebView host as `classes.jar` (Java 17, which the
+  app's D8 desugars), `libextjni` for arm64-v8a and x86_64, and consumer R8 rules (`proguard.txt`).
+  Minimum SDK 24.
+- `ext-plugin-wamr-X.Y.Z.aar`: the same plus `libextwamrjni` and the `WamrPluginHost` classes.
+  Minimum SDK 28. WAMR's license is inside it (`META-INF/WAMR-LICENSE`) and beside it
+  (`WAMR-LICENSE`), and must ship with any app that links it.
+- `checksums.txt` (SHA-256) and a build-provenance attestation for every file.
+
+The release workflow builds both AARs, tests each one as shipped in an app with R8 on, on an
+emulator, and only then publishes. Verify a download with `sha256sum -c checksums.txt` and
+`gh attestation verify <file> --repo webong/ext`. To use one, put it in a local flat repository:
+
+```groovy
+repositories { flatDir { dirs 'libs' } }          // libs/ext-plugin-X.Y.Z.aar
+dependencies { implementation name: 'ext-plugin-X.Y.Z', ext: 'aar' }
+```
+
+It is not on Maven Central: that waits until an outside app needs it. To build locally,
+`scripts/plugin-android-release.sh [--with-wamr] <version>` stages the same AARs under
+`dist/plugin-android-<version>/` and publishes nothing; `scripts/plugin-android-consumer.sh
+[--with-wamr] [--aar <file>]` tests an AAR in an app.
 
 ## Kotlin and Android
 

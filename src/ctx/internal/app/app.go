@@ -14,7 +14,7 @@ import (
 	"github.com/webong/ext/ctx/internal/launch"
 	"github.com/webong/ext/ctx/internal/platform"
 	modpkg "github.com/webong/ext/pkg/plugin-go/contract/host/adapter"
-	"github.com/webong/ext/res/graph/system"
+	systemgraph "github.com/webong/ext/res/system"
 )
 
 var Version = "0.8.0-dev"

@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/webong/ext/res/graph/system"
+	systemgraph "github.com/webong/ext/res/system"
 )
 
 func TestVersion(t *testing.T) {

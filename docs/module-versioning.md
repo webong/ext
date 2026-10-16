@@ -36,13 +36,13 @@ change.
 
 ```bash
 # fix in one module only
-git tag res/graph/v1.0.1
+git tag res/system/v1.0.1
 
 # additive change in one module
 git tag pkg/plugin-go/v1.1.0
 
 # coordinated breaking change across every module
-git tag res/web/v2.0.0 res/graph/v2.0.0 pkg/plugin-go/v2.0.0 \
+git tag res/web/v2.0.0 res/system/v2.0.0 pkg/plugin-go/v2.0.0 \
         pkg/plugin-hashicorp/v2.0.0 pkg/plugin-wasm/v2.0.0
 ```
 
@@ -157,7 +157,7 @@ Before tagging, confirm each module builds and tests on its own with the
 workspace active, and that `src/ctx` resolves the intended versions:
 
 ```bash
-for module in src/ctx src/ctn examples pkg/plugin-go res/graph \
+for module in src/ctx src/ctn examples pkg/plugin-go res/system \
               pkg/plugin-hashicorp pkg/plugin-wasm \
               res/web res/credential; do
   (cd "$module" && go build ./... && go test ./...) || exit 1
@@ -190,7 +190,7 @@ so an application imports only what it needs and stacks the rest:
 | `pkg/plugin-go/cengine` | the Go binding of the C engine, a pure-Go build of the same API, engine-routed variants of `store` and `host` with the same API as the ones in `contract`, the C ABI loader (the old `pkg/plugin-cshared`) and a generated copy of the C sources | `contract` |
 | `pkg/plugin-go/wasm` | the wazero backend (the old `pkg/plugin-wasm`) | `contract` |
 | `pkg/plugin-go/hashicorp` | the go-plugin (gRPC) backend (the old `pkg/plugin-hashicorp`) | `contract` |
-| `pkg/plugin-go` | the umbrella: requires every module above at matching versions and holds what needs several of them (`PlanGraph`, the bridge command, the cross-language tests) | all of the above, `res/graph` |
+| `pkg/plugin-go` | the umbrella: requires every module above at matching versions and holds what needs several of them (`PlanGraph`, the bridge command, the cross-language tests) | all of the above, `res/system` |
 
 The name `contract` was chosen over `core` because it is already the name of the Go
 package and of every alias in use, and the module is that contract plus tooling that
@@ -218,8 +218,9 @@ from `_csrc` and links the engine library, which is built from `_csrc` with CMak
 | `pkg/plugin-wasm` (up to v0.2.1) | `pkg/plugin-go/wasm` (`pkg/plugin-go/wasm`) |
 | `pkg/plugin-hashicorp` (up to v0.1.1) | `pkg/plugin-go/hashicorp` (`pkg/plugin-go/hashicorp`) |
 | `pkg/plugin-hashicorp/cmd/ext-plugin-bridge` | `pkg/plugin-go/cmd/ext-plugin-bridge` (`pkg/plugin-go`) |
-| `pkg/graph` (v0.1.0) | `res/graph` (`res/graph`) |
-| `packagekit.Plan.Graph(namespace)` | `plugingo.PlanGraph(plan, namespace)` in `pkg/plugin-go`; `packagekit.IdentityKey` is now exported. The conversion lives in the umbrella so `contract` has no `res/graph` dependency. No caller in this repository other than the method's own test used it, and the consumer repository calls neither it nor `res/graph` |
+| `pkg/graph` (v0.1.0) | the generic store is `res/system/graph`, in module `res/system` (see below) |
+| `res/graph` (v0.1.0, published for a short time) | `res/system` (module `res/system`): the discovery package that lived in `res/graph/system` (declared name `systemgraph`) is now the module root, package `system`; the store, `res/graph`'s own package, is `res/system/graph`; `res/graph/supervisor` is `res/system/supervisor` |
+| `packagekit.Plan.Graph(namespace)` | `plugingo.PlanGraph(plan, namespace)` in `pkg/plugin-go`; `packagekit.IdentityKey` is now exported. The conversion lives in the umbrella so `contract` has no `res/system` dependency; the transaction it returns is `res/system/graph`'s. No caller in this repository other than the method's own test used it, and the consumer repository calls neither it nor `res/graph` |
 
 Subpackages of the old `pkg/plugin-go` and `pkg/plugin` that move under `contract`:
 `package` (the old `packagekit`: its import path is `contract/package`, and because `package` is a Go
@@ -239,21 +240,34 @@ version starts at v0.2.0, above v0.1.1. No other path is shared between modules.
 
 ### Versions and tags
 
-| Version | Modules |
-| --- | --- |
-| `v0.1.0` (first tag) | `res/graph` |
-| `v0.2.0` | `pkg/plugin-go/contract`, `.../cengine`, `.../wasm`, `.../hashicorp`, `pkg/plugin-go` |
-| patch bumps | the adapters (`adapters/chromium` v0.3.1, `adapters/firefox` v0.2.1, and so on); no exported API changed |
+The release went out in two rounds because of one mistake, recorded here so it is not repeated.
 
-Every `go.sum` carries the real checksums of the sibling versions it requires, computed
-before tagging, in dependency order, from a throwaway local module proxy holding the
-new versions, so one commit carries every tag. Verify a tree this way before tagging:
-build each module's zip with `golang.org/x/mod/zip`, serve them with `GOPROXY=file://`,
-use a module cache path that has never held other contents for the same versions
-(Go indexes cache directories by path and assumes they never change), and run
-`GOWORK=off go vet ./...` on linux, darwin and windows plus `go mod tidy -diff`
-in each module. `scripts/check-standalone-modules.sh` repeats this against published
-tags and skips a module whose sibling tags are not yet published.
+| Round | Tags |
+| --- | --- |
+| First (`v0.2.0`) | `res/graph` v0.1.0, `pkg/plugin-go/contract`, `.../cengine`, `.../wasm`, `.../hashicorp` and `pkg/plugin-go` at v0.2.0, and the adapters as patch bumps (`adapters/chromium` v0.3.1, `adapters/firefox` v0.2.1, and so on) |
+| Corrective (`v0.2.1`) | `res/system` v0.1.0 (the module was renamed from `res/graph` before anyone used it); `pkg/plugin-go/contract`, `.../cengine`, `.../wasm`, `.../hashicorp` and `pkg/plugin-go` at v0.2.1; and the adapters again (`adapters/chromium` v0.3.2, `adapters/firefox` v0.2.2, `adapters/safari` v0.1.4, the rest as listed by `git tag`) |
+
+`pkg/plugin-go/contract` v0.2.0 is correct: it needs no sibling checksums, because it has no sibling
+dependencies. Its v0.2.1 differs from it only by one doc comment in `session.go`, which named
+`res/graph/supervisor` before the rename; a consumer that pins `contract` alone can stay on v0.2.0. The first
+round's other tags resolve and build for every consumer, but their `go.sum` files record checksums for sibling versions that are wrong, so a
+checkout of one cannot build inside its own directory with the workspace off. The cause is that the module
+proxy adds the repository's root `LICENSE` to the zip of a module in a subdirectory, and the zips used to
+compute those checksums did not. The `v0.2.1` line carries the correct checksums; prefer it.
+
+Every `go.sum` carries the real checksums of the sibling versions it requires, computed before tagging, in
+dependency order, from a throwaway local module proxy holding the new versions, so one commit carries every
+tag. To verify a tree this way:
+
+- Build each module's zip with `golang.org/x/mod/zip`, **and add the repository's root `LICENSE` to it when
+  the module has none of its own**, as the proxy does. Without it every hash is wrong.
+- Serve the zips with `GOPROXY=file://`, and use a module cache path that has never held other contents for
+  the same versions (Go indexes cache directories by path and assumes they never change).
+- Run `GOWORK=off go vet ./...` on linux, darwin and windows plus `go mod tidy -diff` in each module.
+- Before tagging, recompute each hash independently from the merged commit's git tree
+  (`zip.CreateFromVCS`) and compare it with what the `go.sum` files record.
+- After tagging, `scripts/check-standalone-modules.sh` repeats the check against the published tags; it
+  skips a module whose sibling tags are not yet published.
 
 ### Deprecating the old modules
 
@@ -266,7 +280,8 @@ the `module` line, then no further tags:
 | `pkg/plugin-cshared` | `// Deprecated: use github.com/webong/ext/pkg/plugin-go/cengine.` | `pkg/plugin-go/cengine` |
 | `pkg/plugin-wasm` | `// Deprecated: use github.com/webong/ext/pkg/plugin-go/wasm.` | `pkg/plugin-go/wasm` |
 | `pkg/plugin-hashicorp` | `// Deprecated: use github.com/webong/ext/pkg/plugin-go/hashicorp.` | `pkg/plugin-go/hashicorp` |
-| `pkg/graph` | `// Deprecated: use github.com/webong/ext/res/graph.` | `res/graph` |
+| `pkg/graph` | `// Deprecated: use github.com/webong/ext/res/system.` (v0.1.2; v0.1.1 named `res/graph`, which was then renamed) | `res/system` |
+| `res/graph` | `// Deprecated: use github.com/webong/ext/res/system.` (v0.1.1) | `res/system` |
 
 The old `pkg/plugin-go` v0.1.x keeps resolving for existing consumers; its replacement
 at the same path is the umbrella v0.2.0 and its engine API is `cengine`. Tell every

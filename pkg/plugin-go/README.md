@@ -12,7 +12,7 @@ module of its own and a program that wants less takes less:
 | [`hashicorp`](hashicorp) | the HashiCorp go-plugin (gRPC) backend |
 
 The umbrella package itself, `plugingo`, holds what needs more than one part:
-`PlanGraph` joins a package plan to the host graph (`res/graph`). The `cmd/ext-plugin-bridge`
+`PlanGraph` joins a package plan to the host graph (`res/system`). The `cmd/ext-plugin-bridge`
 command and the cross-language conformance tests (`crosslang`, `bench`) also live
 here, because they need the engine and a backend together.
 

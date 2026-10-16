@@ -6,7 +6,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/webong/ext/res/graph"
+	"github.com/webong/ext/res/system/graph"
 )
 
 func main() {

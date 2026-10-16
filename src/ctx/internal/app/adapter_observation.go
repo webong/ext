@@ -7,8 +7,8 @@ import (
 	"io"
 	"strings"
 
-	"github.com/webong/ext/res/graph"
-	systemgraph "github.com/webong/ext/res/graph/system"
+	systemgraph "github.com/webong/ext/res/system"
+	"github.com/webong/ext/res/system/graph"
 )
 
 const maxAdapterObservationBytes = 1 << 20

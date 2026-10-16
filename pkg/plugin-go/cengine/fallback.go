@@ -6,17 +6,12 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/json"
-	"fmt"
 	plugin "github.com/webong/ext/pkg/plugin-go/contract"
 	"github.com/webong/ext/pkg/plugin-go/contract/author"
 	"github.com/webong/ext/pkg/plugin-go/contract/interop"
 	"github.com/webong/ext/pkg/plugin-go/contract/process"
 	"github.com/webong/ext/pkg/plugin-go/contract/schema"
-	"io"
-	"os"
-	"path/filepath"
 	"strings"
-	"unicode/utf8"
 )
 
 // This file is the pure-Go build of the engine API: the same functions and
@@ -135,35 +130,5 @@ func DirectoryDigest(root string) (string, error) {
 // file, or for a tree the directory digest of a directory that holds at least
 // one file.
 func ArtifactDigest(root, path string, tree bool) (string, error) {
-	if strings.IndexByte(root, 0) >= 0 || !utf8.ValidString(path) || !plugin.PortablePath(path) {
-		return "", plugin.ErrInvalid
-	}
-	if tree {
-		return plugin.TreeDigest(root, path)
-	}
-	current := root
-	parts := strings.Split(path, "/")
-	for i, part := range parts {
-		current = filepath.Join(current, part)
-		info, err := os.Lstat(current)
-		if err != nil {
-			return "", err
-		}
-		if info.Mode()&os.ModeSymlink != 0 || (i < len(parts)-1 && !info.IsDir()) {
-			return "", plugin.ErrInvalid
-		}
-		if i == len(parts)-1 && !info.Mode().IsRegular() {
-			return "", fmt.Errorf("%w: %s is not a regular file", plugin.ErrInvalid, path)
-		}
-	}
-	f, err := os.Open(current)
-	if err != nil {
-		return "", err
-	}
-	defer f.Close()
-	h := sha256.New()
-	if _, err := io.Copy(h, f); err != nil {
-		return "", err
-	}
-	return fmt.Sprintf("%x", h.Sum(nil)), nil
+	return plugin.ArtifactDigest(root, path, tree)
 }

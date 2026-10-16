@@ -6,9 +6,11 @@ data model, host sessions and guests, `ext.package/v1` manifests and the install
 package store's building blocks, JSON-line and bridge transports, process launching,
 schemas and typed authoring, instances and streams, and the conformance suite.
 
-Subpackages: `adapter`, `author`, `bridge`, `capability`, `inprocess`, `instance`,
+Subpackages: `adapter`, `author`, `bridge`, `capability`, `host`, `inprocess`, `instance`,
 `interop`, `jsonline`, `jsonschema`, `nativego`, `packagekit`, `plugintest`,
-`process`, `schema`, `stream`.
+`process`, `schema`, `store`, `stream`. `store` installs, verifies and lists packages under a
+root you choose; `host` opens an installed package as a running plugin. Both are pure Go. The
+[`cengine`](../cengine) module has engine-routed variants with an identical API.
 
 This is the lean choice. Add [`cengine`](../cengine) for the C engine binding,
 [`wasm`](../wasm) for WebAssembly or [`hashicorp`](../hashicorp) for go-plugin, or

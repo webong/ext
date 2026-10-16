@@ -1,13 +1,16 @@
 package contract
 
 import (
+	"crypto/sha256"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"path"
 	"path/filepath"
 	"regexp"
 	"strings"
+	"unicode/utf8"
 )
 
 var devicePattern = regexp.MustCompile(`(?i)^(con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)`)
@@ -65,4 +68,43 @@ func TreeDigest(root, dir string) (string, error) {
 		return "", fmt.Errorf("%w: tree %s holds no files", ErrInvalid, dir)
 	}
 	return DirectoryDigest(target)
+}
+
+// ArtifactDigest returns the digest of one artifact under root, addressed by a
+// portable relative path, never following symbolic links: the SHA-256 of a
+// file, or for a tree the directory digest of a directory that holds at least
+// one file. A symbolic link at any component, a path that is not portable and a
+// final component of the wrong kind are ErrInvalid.
+func ArtifactDigest(root, relative string, tree bool) (string, error) {
+	if strings.IndexByte(root, 0) >= 0 || !utf8.ValidString(relative) || !PortablePath(relative) {
+		return "", ErrInvalid
+	}
+	if tree {
+		return TreeDigest(root, relative)
+	}
+	current := root
+	parts := strings.Split(relative, "/")
+	for i, part := range parts {
+		current = filepath.Join(current, part)
+		info, err := os.Lstat(current)
+		if err != nil {
+			return "", err
+		}
+		if info.Mode()&os.ModeSymlink != 0 || (i < len(parts)-1 && !info.IsDir()) {
+			return "", ErrInvalid
+		}
+		if i == len(parts)-1 && !info.Mode().IsRegular() {
+			return "", fmt.Errorf("%w: %s is not a regular file", ErrInvalid, relative)
+		}
+	}
+	f, err := os.Open(current)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+	h := sha256.New()
+	if _, err := io.Copy(h, f); err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%x", h.Sum(nil)), nil
 }

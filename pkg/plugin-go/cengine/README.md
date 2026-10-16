@@ -19,8 +19,15 @@ re-exported so a program imports this package alone. The common API is `Open`,
 `DirectoryDigest`, `ArtifactDigest` and `SHA256`. Subpackages:
 
 - [`packages`](packages): validate, resolve and verify `ext.package/v1` manifests.
-- [`store`](store): the installed package store, with layered roots and `Verify`.
-- [`host`](host): open an installed package as a running plugin.
+- [`store`](store): the installed package store, with layered roots and `Verify`; the same API as
+  [`contract/store`](../contract/store), routed through the engine's digests and validation.
+- [`host`](host): open an installed package as a running plugin; the same API as
+  [`contract/host`](../contract/host), over the engine's process runtime and sessions.
+
+An application that needs only the store and host takes the `contract` module and uses its pure-Go
+`store` and `host`; take these when you want the engine's behavior. Swapping one import for the
+other never needs a code change (an architecture test enforces the identical API, and
+`TestContractStoreMatchesEngineStore` compares their behavior).
 
 The module depends on `pkg/plugin-go/contract` only, which uses the standard library only. `Host`, `Streams`, `Instances`, `NewProcess`
 and `NewLaunch` are engine-only and need the C engine build.

@@ -186,8 +186,8 @@ so an application imports only what it needs and stacks the rest:
 
 | Module | Contents | Requires |
 | --- | --- | --- |
-| `pkg/plugin-go/contract` | the contract, sessions, guests, packages, bridges and tooling (the old `pkg/plugin`); standard library only | nothing |
-| `pkg/plugin-go/cengine` | the Go binding of the C engine, a pure-Go build of the same API, the C ABI loader (the old `pkg/plugin-cshared`) and a generated copy of the C sources | `contract` |
+| `pkg/plugin-go/contract` | the contract, sessions, guests, packages, the package store and host, bridges and tooling (the old `pkg/plugin`); standard library only | nothing |
+| `pkg/plugin-go/cengine` | the Go binding of the C engine, a pure-Go build of the same API, engine-routed variants of `store` and `host` with the same API as the ones in `contract`, the C ABI loader (the old `pkg/plugin-cshared`) and a generated copy of the C sources | `contract` |
 | `pkg/plugin-go/wasm` | the wazero backend (the old `pkg/plugin-wasm`) | `contract` |
 | `pkg/plugin-go/hashicorp` | the go-plugin (gRPC) backend (the old `pkg/plugin-hashicorp`) | `contract` |
 | `pkg/plugin-go` | the umbrella: requires every module above at matching versions and holds what needs several of them (`PlanGraph`, the bridge command, the cross-language tests) | all of the above, `res/graph` |
@@ -211,7 +211,7 @@ from `_csrc` and links the engine library, which is built from `_csrc` with CMak
 
 | Old import path (module) | New import path (module) |
 | --- | --- |
-| `pkg/plugin` and its subpackages (`pkg/plugin`, up to v0.6.0) | `pkg/plugin-go/contract` and `.../contract/<subpackage>` (`pkg/plugin-go/contract`) |
+| `pkg/plugin` and its subpackages, including `store` and `host` (`pkg/plugin`, up to v0.6.0) | `pkg/plugin-go/contract` and `.../contract/<subpackage>` (`pkg/plugin-go/contract`); an application that wants the engine-routed behavior swaps `contract/store` and `contract/host` for `cengine/store` and `cengine/host`, which have an identical API |
 | `pkg/plugin-go` root, the engine API (`pkg/plugin-go`, up to v0.1.1) | `pkg/plugin-go/cengine` (`pkg/plugin-go/cengine`) |
 | `pkg/plugin-go/cshared`, `.../cshared/abi`, `.../cshared/guest` | `pkg/plugin-go/cengine/cshared`, `.../abi`, `.../guest` (`pkg/plugin-go/cengine`) |
 | `pkg/plugin-cshared` (up to v0.1.0) | `pkg/plugin-go/cengine/cshared` (`pkg/plugin-go/cengine`) |
@@ -223,8 +223,10 @@ from `_csrc` and links the engine library, which is built from `_csrc` with CMak
 
 Subpackages of the old `pkg/plugin-go` and `pkg/plugin` that move under `contract`:
 `adapter`, `author`, `bridge`, `capability`, `inprocess`, `instance`, `interop`,
-`jsonline`, `jsonschema`, `nativego`, `packagekit`, `plugintest`, `process`, `schema`,
-`stream`. Those that need the engine move under `cengine`: `packages`, `store`, `host`.
+`host`, `jsonline`, `jsonschema`, `nativego`, `packagekit`, `plugintest`, `process`, `schema`,
+`store`, `stream`. `cengine` holds `packages` (engine-only) and engine-routed variants of `store` and
+`host` whose exported API is identical to `contract`'s; `src/ctx/internal/arch` enforces that, and
+`TestContractStoreMatchesEngineStore` compares their behavior.
 
 Import paths that existed in published `pkg/plugin-go` v0.1.x are `pkg/plugin-go`
 (the root package) and `pkg/plugin-go/cshared/guest`. The new umbrella reuses the

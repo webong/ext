@@ -1,7 +1,10 @@
 package arch_test
 
 import (
+	"bytes"
+	"go/ast"
 	"go/parser"
+	"go/printer"
 	"go/token"
 	"io/fs"
 	"os"
@@ -123,4 +126,102 @@ func TestContractModuleUsesOnlyTheStandardLibrary(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+}
+
+// contract/store and contract/host are the pure-Go implementations an application
+// takes with the contract module alone; cengine/store and cengine/host are the same
+// packages routed through the engine. Swapping one import for the other must never
+// need a code change, so their exported surfaces must be identical.
+func TestEngineVariantsKeepTheSameAPI(t *testing.T) {
+	root := repoRoot(t)
+	for _, name := range []string{"store", "host"} {
+		pure := exportedAPI(t, filepath.Join(root, "pkg/plugin-go/contract", name))
+		engine := exportedAPI(t, filepath.Join(root, "pkg/plugin-go/cengine", name))
+		for line := range pure {
+			if !engine[line] {
+				t.Errorf("%s: in contract but not in cengine: %s", name, line)
+			}
+		}
+		for line := range engine {
+			if !pure[line] {
+				t.Errorf("%s: in cengine but not in contract: %s", name, line)
+			}
+		}
+		if len(pure) == 0 {
+			t.Errorf("%s: no exported declarations found", name)
+		}
+	}
+}
+
+// exportedAPI describes every exported declaration of a package's non-test files:
+// functions and methods with their signatures, types with their exported fields,
+// constants and variables by name.
+func exportedAPI(t *testing.T, dir string) map[string]bool {
+	t.Helper()
+	fset := token.NewFileSet()
+	pkgs, err := parser.ParseDir(fset, dir, func(fi fs.FileInfo) bool { return !strings.HasSuffix(fi.Name(), "_test.go") }, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	render := func(n any) string {
+		var b bytes.Buffer
+		if err := printer.Fprint(&b, fset, n); err != nil {
+			t.Fatal(err)
+		}
+		return strings.Join(strings.Fields(b.String()), " ")
+	}
+	out := map[string]bool{}
+	for _, pkg := range pkgs {
+		for _, file := range pkg.Files {
+			for _, decl := range file.Decls {
+				switch d := decl.(type) {
+				case *ast.FuncDecl:
+					if !d.Name.IsExported() {
+						continue
+					}
+					recv := ""
+					if d.Recv != nil {
+						recv = render(d.Recv.List[0].Type)
+						if !ast.IsExported(strings.TrimLeft(strings.SplitN(recv, "[", 2)[0], "*")) {
+							continue
+						}
+						recv = "(" + recv + ") "
+					}
+					out["func "+recv+d.Name.Name+strings.TrimPrefix(render(d.Type), "func")] = true
+				case *ast.GenDecl:
+					for _, spec := range d.Specs {
+						switch s := spec.(type) {
+						case *ast.TypeSpec:
+							if !s.Name.IsExported() {
+								continue
+							}
+							line := "type " + s.Name.Name
+							if st, ok := s.Type.(*ast.StructType); ok {
+								var fields []string
+								for _, f := range st.Fields.List {
+									for _, n := range f.Names {
+										if n.IsExported() {
+											fields = append(fields, n.Name+" "+render(f.Type))
+										}
+									}
+								}
+								sort.Strings(fields)
+								line += " struct{" + strings.Join(fields, "; ") + "}"
+							} else {
+								line += " " + render(s.Type)
+							}
+							out[line] = true
+						case *ast.ValueSpec:
+							for _, n := range s.Names {
+								if n.IsExported() {
+									out[d.Tok.String()+" "+n.Name] = true
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	return out
 }

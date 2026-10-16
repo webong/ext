@@ -1,8 +1,8 @@
-github.com/webong/ext/adapters/chromium v0.3.1 h1:0c1QEha2o21STEr9g0QsftngvNeetY6LaiAnI33vElE=
+github.com/webong/ext/adapters/chromium v0.3.1 h1:j7cNLbdshRUknX+pipjBhwZsdJo6GWUM4Q1rueHu7vA=
 github.com/webong/ext/adapters/chromium v0.3.1/go.mod h1:KA/MydsMvdSs6BC5gDmxL8A6HUYRlx498cSC0uH4ito=
-github.com/webong/ext/pkg/plugin-go/cengine v0.2.0 h1:CcRjtSAvWK5pQ8hELJQJ5He1oXFDcn+L8B8JCyd8uSU=
+github.com/webong/ext/pkg/plugin-go/cengine v0.2.0 h1:DyZ2vYtj4PuLp+mzJBw/4RjFWEqwZJ1dqgw0O9KAVcM=
 github.com/webong/ext/pkg/plugin-go/cengine v0.2.0/go.mod h1:WwFnLNPXX7BgVnKaUgLd2eHAP2mqMF+3J41M9iEZIQw=
-github.com/webong/ext/pkg/plugin-go/contract v0.2.0 h1:ZqgbqZ6Qgm+K+xPUyZVaz6At1NlSmUlYnrv+JSEDXAg=
+github.com/webong/ext/pkg/plugin-go/contract v0.2.0 h1:bYtx7NWAl1ES2qlt9AD+B6XIKXQ55nHX029Tb64WcEk=
 github.com/webong/ext/pkg/plugin-go/contract v0.2.0/go.mod h1:YajPTz7utaUNrcn856mnFegEHuk8l70pK2krbVFSZoc=
 github.com/webong/ext/res/web v0.5.0 h1:FCD4435Xi4M4g8d66rBNoBEE1wuHgGGvXhI3kpL2WYk=
 github.com/webong/ext/res/web v0.5.0/go.mod h1:DoAk6ydqtqqC21xr+XbngXzx2Br5J6DRXvACQx7DC5I=

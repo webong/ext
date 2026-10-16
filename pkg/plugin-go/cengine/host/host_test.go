@@ -92,7 +92,7 @@ func TestOpenAndCallExecutablePackage(t *testing.T) {
 	if path, err := installed.Executable(); err != nil || filepath.Dir(path) != installed.Directory {
 		t.Fatalf("executable: %q %v", path, err)
 	}
-	p, err := host.Open(context.Background(), installed, host.Options{Launch: &host.Launch{Path: mustExecutable(t, installed), Env: []string{"HOST_TEST_CHILD=1"}}})
+	p, err := host.Open(context.Background(), installed, host.Options{Launch: &process.Command{Path: mustExecutable(t, installed), Env: []string{"HOST_TEST_CHILD=1"}}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -129,7 +129,7 @@ func TestLaunchOverrideAndAuthorize(t *testing.T) {
 	exe := mustExecutable(t, installed)
 	var denied []string
 	p, err := host.Open(context.Background(), installed, host.Options{
-		Launch: &host.Launch{Path: exe, Args: []string{"-test.run=^$", "script.py"}, Env: []string{"HOST_TEST_CHILD=1"}},
+		Launch: &process.Command{Path: exe, Args: []string{"-test.run=^$", "script.py"}, Env: []string{"HOST_TEST_CHILD=1"}},
 		Authorize: func(_ context.Context, r plugin.Request) error {
 			if r.Operation == "fail" {
 				denied = append(denied, r.Operation)
@@ -156,7 +156,7 @@ func TestLaunchOverrideAndAuthorize(t *testing.T) {
 func TestOpenRejections(t *testing.T) {
 	installed := installExecutable(t)
 	exe := mustExecutable(t, installed)
-	if _, err := host.Open(context.Background(), installed, host.Options{Launch: &host.Launch{}}); !errors.Is(err, plugin.ErrInvalid) {
+	if _, err := host.Open(context.Background(), installed, host.Options{Launch: &process.Command{}}); !errors.Is(err, plugin.ErrInvalid) {
 		t.Fatalf("empty launch path: %v", err)
 	}
 	// A package whose content changed after install never starts.
@@ -224,7 +224,7 @@ func TestLaunchMatchesGoProcess(t *testing.T) {
 	exe := mustExecutable(t, installed)
 	env := []string{"HOST_TEST_CHILD=1", "HOST_TEST_NOISE=1", "EXTRA=1"}
 
-	p, err := host.Open(context.Background(), installed, host.Options{Launch: &host.Launch{Path: exe, Env: env, StderrBytes: 100}})
+	p, err := host.Open(context.Background(), installed, host.Options{Launch: &process.Command{Path: exe, Env: env, StderrBytes: 100}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -276,7 +276,7 @@ func TestLaunchPathEnvironmentOverrideAndRejections(t *testing.T) {
 	// Keep the host's directories on PATH so a binary that loads DLLs from them
 	// still starts; the point is that the caller's value replaces the base.
 	custom := "custom" + string(os.PathListSeparator) + os.Getenv("PATH")
-	p, err := host.Open(context.Background(), installed, host.Options{Launch: &host.Launch{Path: exe, Env: []string{"HOST_TEST_CHILD=1", "PATH=" + custom}}})
+	p, err := host.Open(context.Background(), installed, host.Options{Launch: &process.Command{Path: exe, Env: []string{"HOST_TEST_CHILD=1", "PATH=" + custom}}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -297,13 +297,13 @@ func TestLaunchPathEnvironmentOverrideAndRejections(t *testing.T) {
 	if paths != 1 {
 		t.Errorf("want one PATH entry, got %d", paths)
 	}
-	for _, bad := range []host.Launch{{Path: filepath.Join(installed.Directory, "missing")}, {Path: installed.Directory}} {
+	for _, bad := range []process.Command{{Path: filepath.Join(installed.Directory, "missing")}, {Path: installed.Directory}} {
 		bad := bad
 		if _, err := host.Open(context.Background(), installed, host.Options{Launch: &bad}); err == nil {
 			t.Errorf("launch %q accepted", bad.Path)
 		}
 	}
-	if _, err := host.Open(context.Background(), installed, host.Options{Launch: &host.Launch{Path: exe, Env: []string{"NOEQUALS"}}}); err == nil {
+	if _, err := host.Open(context.Background(), installed, host.Options{Launch: &process.Command{Path: exe, Env: []string{"NOEQUALS"}}}); err == nil {
 		t.Error("malformed environment entry accepted")
 	}
 }

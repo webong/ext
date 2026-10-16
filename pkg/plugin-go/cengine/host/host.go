@@ -13,6 +13,7 @@ import (
 	goengine "github.com/webong/ext/pkg/plugin-go/cengine"
 	"github.com/webong/ext/pkg/plugin-go/cengine/store"
 	plugin "github.com/webong/ext/pkg/plugin-go/contract"
+	"github.com/webong/ext/pkg/plugin-go/contract/process"
 	"path/filepath"
 	"time"
 )
@@ -23,27 +24,14 @@ const DefaultTimeout = 10 * time.Minute
 // DrainTimeout is how long Close waits for admitted calls before aborting.
 const DrainTimeout = 5 * time.Second
 
-// Launch is the consumer's launch decision.
-type Launch struct {
-	// Path is the executable, a regular file.
-	Path string
-	// Args are the arguments after the executable name.
-	Args []string
-	// Dir is the working directory; empty means the package directory.
-	Dir string
-	// Env adds "KEY=value" entries to the scrubbed base environment of PATH.
-	Env []string
-	// StderrBytes bounds retained stderr; zero retains 4096 bytes.
-	StderrBytes int
-}
-
 // Options supplies the admission policy and launch choice.
 type Options struct {
 	// Launch overrides how the package starts, for example to run source files
 	// under a runtime the consumer manages (Path is that runtime, Args begin
 	// with the script). When nil, the package's first entrypoint artifact is
-	// started with no arguments.
-	Launch *Launch
+	// started with no arguments. This is the same type contract/host takes;
+	// the engine does not use KillGrace.
+	Launch *process.Command
 	// Authorize runs before every call. When nil, any operation the reviewed
 	// descriptor declares is allowed.
 	Authorize func(context.Context, plugin.Request) error
@@ -61,7 +49,7 @@ type Process struct {
 // handshake. Verification binds the launch to the installed content; it is not
 // publisher trust, which stays with the consumer.
 func Open(ctx context.Context, installed store.Installed, options Options) (*Process, error) {
-	var launch Launch
+	var launch process.Command
 	if options.Launch != nil {
 		launch = *options.Launch
 		if launch.Path == "" {

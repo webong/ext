@@ -232,7 +232,7 @@ func TestLaunchMatchesGoProcess(t *testing.T) {
 	if err := p.Call(context.Background(), "example.content.echo", nil, &got); err != nil {
 		t.Fatal(err)
 	}
-	stderr := p.Stderr()
+	stderr := settledStderr(p.Stderr, 100)
 	p.Close()
 
 	// The reference: the same installed package launched by the pure-Go process
@@ -338,5 +338,19 @@ func goReference(t *testing.T, installed store.Installed, exe string, env []stri
 	if err := json.Unmarshal(raw, out); err != nil {
 		t.Fatal(err)
 	}
-	return proc.Stderr()
+	return settledStderr(proc.Stderr, stderrBytes)
+}
+
+// settledStderr polls read until it holds want bytes. The child's stderr is
+// copied by a goroutine of the parent, so what the child wrote before its reply
+// can still be on its way when the reply has already been read.
+func settledStderr(read func() string, want int) string {
+	deadline := time.Now().Add(10 * time.Second)
+	for {
+		s := read()
+		if len(s) >= want || time.Now().After(deadline) {
+			return s
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
 }

@@ -14,9 +14,17 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-#if defined(__APPLE__) ||                                                      \
-    (defined(__GLIBC__) &&                                                     \
-     (__GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ >= 29)))
+/* A child's working directory needs posix_spawn_file_actions_addchdir_np: macOS
+ * has it, iOS and the other Apple device SDKs mark it unavailable (apps cannot
+ * start processes there anyway), and glibc has it from 2.29. Without it a launch
+ * that names a directory is EXT_UNSUPPORTED. */
+#if defined(__APPLE__)
+#include <TargetConditionals.h>
+#if TARGET_OS_OSX
+#define EXT_HAVE_SPAWN_CHDIR 1
+#endif
+#elif defined(__GLIBC__) &&                                                    \
+    (__GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ >= 29))
 #define EXT_HAVE_SPAWN_CHDIR 1
 #endif
 

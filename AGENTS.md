@@ -126,8 +126,8 @@ child), `adapter` (the host-side adapter manager), `interop` (route resolution) 
 package beside `Session`. How frames travel is grouped under `contract/transport` (`jsonline`, `inprocess`, `bridge`) and how values
 are checked under `contract/validate` (`schema`, `jsonschema`). The groups are layered: `transport` and
 `validate` import neither `host` nor `guest` nor each other, and `host` and `guest` never import each
-other (`src/ctx/internal/arch` enforces it). `packagekit` and `plugintest` stay at the top because both
-sides use them. `cengine/packages` covers manifests over the
+other (`src/ctx/internal/arch` enforces it). `package` (declared name `packagekit`, since `package` is a Go keyword) and `plugintest` stay at
+the top because both sides use them. `cengine/packages` covers manifests over the
 engine, and `cengine/host` and `cengine/host/store` are engine-routed variants of `contract/host` and
 `contract/host/store` with an identical exported API (a rule `src/ctx/internal/arch` enforces), so
 swapping the import never needs a code change.

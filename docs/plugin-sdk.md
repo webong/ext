@@ -26,7 +26,7 @@ Their existing native protocols are not automatically compatible with CTX.
 | `pkg/plugin-go/contract/guest/instance` | Configuration revisions, resource leases, replacement and disposal |
 | `pkg/plugin-go/contract/guest/capability` | Optional health and configuration contracts |
 | `pkg/plugin-go/contract/guest/stream` | Optional, scoped, bounded pull streams |
-| `pkg/plugin-go/contract/packagekit` | Portable manifests, artifact verification, preflight and graph projection |
+| `pkg/plugin-go/contract/package` | Portable manifests, artifact verification, preflight and graph projection |
 | `pkg/plugin-go/contract/plugintest` | Reusable backend conformance tests |
 | `pkg/plugin-go` | Go binding to the C engine; static by default, shared optional |
 | `pkg/plugin-python` | Standard-library guest SDK (`ext_plugin`) serving JSON lines on stdin and stdout |

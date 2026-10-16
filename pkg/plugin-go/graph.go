@@ -14,7 +14,7 @@ package plugingo
 import (
 	"fmt"
 
-	"github.com/webong/ext/pkg/plugin-go/contract/packagekit"
+	"github.com/webong/ext/pkg/plugin-go/contract/package"
 	"github.com/webong/ext/res/graph"
 )
 

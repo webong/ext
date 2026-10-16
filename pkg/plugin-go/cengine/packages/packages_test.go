@@ -9,7 +9,7 @@ import (
 	"errors"
 	goengine "github.com/webong/ext/pkg/plugin-go/cengine"
 	plugin "github.com/webong/ext/pkg/plugin-go/contract"
-	"github.com/webong/ext/pkg/plugin-go/contract/packagekit"
+	"github.com/webong/ext/pkg/plugin-go/contract/package"
 	"github.com/webong/ext/pkg/plugin-go/contract/transport/jsonline"
 	"os"
 	"path/filepath"

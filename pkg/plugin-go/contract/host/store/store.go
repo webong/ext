@@ -12,7 +12,7 @@ import (
 	"errors"
 	"fmt"
 	plugin "github.com/webong/ext/pkg/plugin-go/contract"
-	"github.com/webong/ext/pkg/plugin-go/contract/packagekit"
+	"github.com/webong/ext/pkg/plugin-go/contract/package"
 	"io"
 	"os"
 	"path/filepath"

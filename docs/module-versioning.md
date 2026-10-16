@@ -222,7 +222,8 @@ from `_csrc` and links the engine library, which is built from `_csrc` with CMak
 | `packagekit.Plan.Graph(namespace)` | `plugingo.PlanGraph(plan, namespace)` in `pkg/plugin-go`; `packagekit.IdentityKey` is now exported. The conversion lives in the umbrella so `contract` has no `res/graph` dependency. No caller in this repository other than the method's own test used it, and the consumer repository calls neither it nor `res/graph` |
 
 Subpackages of the old `pkg/plugin-go` and `pkg/plugin` that move under `contract`:
-`packagekit` and `plugintest` at the top, with the transports grouped under `contract/transport`
+`package` (the old `packagekit`: its import path is `contract/package`, and because `package` is a Go
+keyword the declared package name stays `packagekit`) and `plugintest` at the top, with the transports grouped under `contract/transport`
 (`transport/jsonline`, `transport/inprocess`, `transport/bridge`), the validators under
 `contract/validate` (`validate/schema`, `validate/jsonschema`), the host-side ones grouped under `contract/host` (`host` itself and `host/adapter`, `host/interop`,
 `host/nativego`, `host/process`, `host/store`) and the guest-side ones under `contract/guest`

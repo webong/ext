@@ -7,7 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	plugin "github.com/webong/ext/pkg/plugin-go/contract"
-	"github.com/webong/ext/pkg/plugin-go/contract/packagekit"
+	"github.com/webong/ext/pkg/plugin-go/contract/package"
 	"math/rand"
 	"os"
 	"sort"

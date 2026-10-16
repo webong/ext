@@ -4,7 +4,7 @@ import (
 	"encoding/hex"
 	"errors"
 	plugin "github.com/webong/ext/pkg/plugin-go/contract"
-	"github.com/webong/ext/pkg/plugin-go/contract/packagekit"
+	"github.com/webong/ext/pkg/plugin-go/contract/package"
 	"testing"
 )
 

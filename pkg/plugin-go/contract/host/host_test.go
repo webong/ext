@@ -9,7 +9,7 @@ import (
 	"github.com/webong/ext/pkg/plugin-go/contract/host"
 	"github.com/webong/ext/pkg/plugin-go/contract/host/process"
 	"github.com/webong/ext/pkg/plugin-go/contract/host/store"
-	"github.com/webong/ext/pkg/plugin-go/contract/packagekit"
+	"github.com/webong/ext/pkg/plugin-go/contract/package"
 	"github.com/webong/ext/pkg/plugin-go/contract/transport/jsonline"
 	"os"
 	"path/filepath"

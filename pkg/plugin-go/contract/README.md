@@ -6,8 +6,10 @@ data model, host sessions and guests, `ext.package/v1` manifests and the install
 package store's building blocks, JSON-line and bridge transports, process launching,
 schemas and typed authoring, instances and streams, and the conformance suite.
 
-Two packages sit at the top level because they belong to no single side: `packagekit` (the
-package manifest and dependency model) and `plugintest` (the conformance suite). The rest are
+Two packages sit at the top level because they belong to no single side: `package` (the package
+manifest and dependency model) and `plugintest` (the conformance suite). `package` is a Go
+keyword, so the import path is `.../contract/package` and the declared package name stays
+`packagekit` (`packagekit.Manifest`, `packagekit.Resolve`). The rest are
 four groups:
 
 - `transport`: how frames travel. `transport/jsonline` (newline-delimited JSON over pipes),

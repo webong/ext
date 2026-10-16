@@ -1,12 +1,12 @@
 github.com/gorilla/websocket v1.5.3 h1:saDtZ6Pbx/0u+bgYQ3q96pZgCzfhKXGPqt7kZ72aNNg=
 github.com/gorilla/websocket v1.5.3/go.mod h1:YR8l580nyteQvAITg2hZ9XVh4b55+EU/adAjf1fMHhE=
-github.com/webong/ext/adapters/chromium v0.3.1 h1:2oxFCWq8tHCXmTzkWka6PFzLcNdiN2G8p2C7lOsoAMs=
+github.com/webong/ext/adapters/chromium v0.3.1 h1:wNtHeQaTGBApTJt3aIUnyYZC8Nlt0DJylWwIuTsLeNE=
 github.com/webong/ext/adapters/chromium v0.3.1/go.mod h1:KA/MydsMvdSs6BC5gDmxL8A6HUYRlx498cSC0uH4ito=
-github.com/webong/ext/adapters/firefox v0.2.1 h1:beLcqnpaJv9/GcV5UcE2SjV5aDT6SMaNtDOLrCBTbBo=
+github.com/webong/ext/adapters/firefox v0.2.1 h1:kwZlzPZ9ddwTP/rtQw5h7+5Uz+J4aUPXhC2B+aTwvSI=
 github.com/webong/ext/adapters/firefox v0.2.1/go.mod h1:VO7f1005JwOve/XNI0Kys4Qi6LWQ3rvywewwMdIhrfM=
-github.com/webong/ext/pkg/plugin-go/cengine v0.2.0 h1:q2SrNoperM5GMuK3SBI3YhzBtT607hpJdnpRrA4SWzo=
+github.com/webong/ext/pkg/plugin-go/cengine v0.2.0 h1:dnOmj+VD45msr9VrI71TneCYx2UENm5si5mb3JpgYn4=
 github.com/webong/ext/pkg/plugin-go/cengine v0.2.0/go.mod h1:WwFnLNPXX7BgVnKaUgLd2eHAP2mqMF+3J41M9iEZIQw=
-github.com/webong/ext/pkg/plugin-go/contract v0.2.0 h1:IxGZQRoW+WriUnfS9uxlx+Ioc2y3ZkqQlVHI5PelXQA=
+github.com/webong/ext/pkg/plugin-go/contract v0.2.0 h1:aMxiVJb2DyK6QrZXB+kEsV5I1eE0QvJt056eHhgQvxk=
 github.com/webong/ext/pkg/plugin-go/contract v0.2.0/go.mod h1:YajPTz7utaUNrcn856mnFegEHuk8l70pK2krbVFSZoc=
 github.com/webong/ext/res/web v0.5.0 h1:FCD4435Xi4M4g8d66rBNoBEE1wuHgGGvXhI3kpL2WYk=
 github.com/webong/ext/res/web v0.5.0/go.mod h1:DoAk6ydqtqqC21xr+XbngXzx2Br5J6DRXvACQx7DC5I=

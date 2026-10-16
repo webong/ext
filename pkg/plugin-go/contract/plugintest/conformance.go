@@ -113,16 +113,24 @@ func RunWithHost(t *testing.T, factory Factory, openHost OpenHost) {
 		}
 	})
 	t.Run("cancellation", func(t *testing.T) {
-		s := open(t, Descriptor(), allow)
-		ctx, cancel := context.WithTimeout(context.Background(), 40*time.Millisecond)
-		defer cancel()
-		_, err := s.Call(ctx, ref, "wait", nil)
-		if err == nil {
-			t.Fatal("canceled call succeeded")
+		// A deadline that has already passed when the call arrives is refused before
+		// admission and leaves the session alone, which is correct and is what a
+		// heavily loaded machine can produce. So allow a few fresh sessions; a backend
+		// that never fails the session on a canceled invocation fails every attempt.
+		const attempts = 5
+		for i := 0; i < attempts; i++ {
+			s := open(t, Descriptor(), allow)
+			ctx, cancel := context.WithTimeout(context.Background(), 40*time.Millisecond)
+			_, err := s.Call(ctx, ref, "wait", nil)
+			cancel()
+			if err == nil {
+				t.Fatal("canceled call succeeded")
+			}
+			if s.State() == plugin.StateFailed {
+				return
+			}
 		}
-		if s.State() != plugin.StateFailed {
-			t.Fatal("canceled invocation did not fail session")
-		}
+		t.Fatalf("canceled invocation did not fail the session in %d attempts", attempts)
 	})
 	t.Run("close-interrupts-io", func(t *testing.T) {
 		b, err := factory(context.Background())

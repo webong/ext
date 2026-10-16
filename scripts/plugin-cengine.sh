@@ -32,7 +32,7 @@ cmake -S lib/plugin -B "$build_dir/release" -DCMAKE_BUILD_TYPE=Release -DEXT_BUI
 cmake --build "$build_dir/release" -j 4
 export CGO_LDFLAGS="${CGO_LDFLAGS:-} -L$build_dir/release -Wl,-rpath,$build_dir/release"
 export EXT_CENGINE_GUEST="$build_dir/go-guest" EXT_CENGINE_FAULT_GUEST="$build_dir/fault-guest"
-go build -o "$EXT_CENGINE_GUEST" ./pkg/plugin-wasm/crosslang/testdata/go-guest
+go build -o "$EXT_CENGINE_GUEST" ./pkg/plugin-go/crosslang/testdata/go-guest
 go build -o "$EXT_CENGINE_FAULT_GUEST" lib/plugin/tests/faultguest/main.go
 go test -tags "$go_tags" -race -count=1 -timeout=90s ./pkg/plugin-go
 python3 - "$build_dir" <<'PY'
@@ -71,7 +71,7 @@ if [[ "$(uname -s)" == Darwin ]]; then node_link=(-undefined dynamic_lookup); fi
 "${CC:-cc}" -std=c11 -Wall -Wextra -Werror -O2 -shared -fPIC "${node_link[@]}" -I "$node_include" -I lib/plugin/include pkg/plugin-ts/examples/cengine/addon.c -L "$build_dir/release" "${engine_link[@]}" "${engine_cflags[@]}" -Wl,-rpath,"$build_dir/release" -o "$build_dir/ext_host.node"
 "${CC:-cc}" -std=c11 -Wall -Wextra -Werror -O2 -shared -fPIC "${node_link[@]}" -I "$node_include" -I lib/plugin/include pkg/plugin-ts/engine/addon.c -L "$build_dir/release" "${engine_link[@]}" "${engine_cflags[@]}" -Wl,-rpath,"$build_dir/release" -o "$build_dir/ext_engine.node"
 EXT_ENGINE_ADDON="$build_dir/ext_engine.node" node --test pkg/plugin-ts/engine/test.mjs
-go build -tags "$go_tags" -o "$build_dir/go-host" ./pkg/plugin-go/examples/host
+go build -tags "$go_tags" -o "$build_dir/go-host" ./pkg/plugin-go/cengine/examples/host
 "$build_dir/go-host" "$EXT_CENGINE_GUEST" "$build_dir/descriptor.json" "$build_dir/echo.json" "$build_dir/public-error.json" > "$build_dir/go.jsonl"
 "$CARGO_TARGET_DIR/debug/ext-cengine-example" "$EXT_CENGINE_GUEST" "$build_dir/descriptor.json" "$build_dir/echo.json" "$build_dir/public-error.json" > "$build_dir/rust.jsonl"
 "$build_dir/zig-host" "$EXT_CENGINE_GUEST" "$build_dir/descriptor.json" "$build_dir/echo.json" "$build_dir/public-error.json" > "$build_dir/zig.jsonl"
@@ -90,7 +90,7 @@ if [[ "${EXT_CENGINE_SKIP_BENCH:-0}" == 1 ]]; then
   echo "Conformance artifacts: $build_dir"
   exit 0
 fi
-go build -tags "$go_tags" -o "$build_dir/bench" ./pkg/plugin-wasm/cengine/bench
+go build -tags "$go_tags" -o "$build_dir/bench" ./pkg/plugin-go/bench
 : > "$build_dir/benchmarks.jsonl"
 # Each sample is a fresh process. Alternate order to reduce warm-cache bias.
 for repetition in 1 2 3; do

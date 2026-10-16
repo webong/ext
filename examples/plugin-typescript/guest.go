@@ -2,10 +2,10 @@ package main
 
 import (
 	"context"
-	goengine "github.com/webong/ext/pkg/plugin-go"
-	"github.com/webong/ext/pkg/plugin-go/author"
-	"github.com/webong/ext/pkg/plugin-go/jsonline"
-	"github.com/webong/ext/pkg/plugin-go/schema"
+	goengine "github.com/webong/ext/pkg/plugin-go/cengine"
+	"github.com/webong/ext/pkg/plugin-go/contract/author"
+	"github.com/webong/ext/pkg/plugin-go/contract/jsonline"
+	"github.com/webong/ext/pkg/plugin-go/contract/schema"
 	"os"
 )
 

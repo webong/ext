@@ -3,7 +3,7 @@ package chromium
 import (
 	"encoding/json"
 	"fmt"
-	goengine "github.com/webong/ext/pkg/plugin-go"
+	goengine "github.com/webong/ext/pkg/plugin-go/cengine"
 	"io"
 	"net/url"
 

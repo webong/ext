@@ -45,8 +45,8 @@ case "$(uname -s)" in
   Linux) extension=so ;;
   *) echo 'The cross-language native runner currently supports Linux and macOS.' >&2; exit 1 ;;
 esac
-go build -o "$build_dir/go-guest" ./pkg/plugin-wasm/crosslang/testdata/go-guest
-go build -buildmode=c-shared -o "$build_dir/go-shared.$extension" ./pkg/plugin-wasm/crosslang/testdata/go-shared
+go build -o "$build_dir/go-guest" ./pkg/plugin-go/crosslang/testdata/go-guest
+go build -buildmode=c-shared -o "$build_dir/go-shared.$extension" ./pkg/plugin-go/crosslang/testdata/go-shared
 export EXT_GO_GUEST="$build_dir/go-guest" EXT_GO_SHARED="$build_dir/go-shared.$extension"
 export EXT_RUST_GUEST="$CARGO_TARGET_DIR/debug/examples/guest" EXT_RUST_HOST="$CARGO_TARGET_DIR/debug/examples/host"
 export EXT_RUST_SHARED="$CARGO_TARGET_DIR/debug/examples/libshared.$extension"
@@ -72,6 +72,6 @@ if command -v javac >/dev/null 2>&1; then
   export EXT_JAVA_GUEST="$build_dir/java/ext-java-guest" EXT_JAVA_REQUIRED=1
 fi
 export EXT_CROSSLANG_REQUIRED=1
-go build -race -buildmode=plugin -o "$build_dir/go-native.so" ./pkg/plugin-wasm/crosslang/testdata/go-native
+go build -race -buildmode=plugin -o "$build_dir/go-native.so" ./pkg/plugin-go/crosslang/testdata/go-native
 export EXT_GO_NATIVE="$build_dir/go-native.so"
-go test "${go_tags[@]}" -race -count=1 -timeout=180s -v ./pkg/plugin-wasm/crosslang
+go test "${go_tags[@]}" -race -count=1 -timeout=180s -v ./pkg/plugin-go/crosslang

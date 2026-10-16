@@ -1,0 +1,6 @@
+[
+  {"schema":{"type":"object","properties":{"items":{"type":"array","items":{"type":"integer","minimum":0},"maxItems":2}},"required":["items"]},"valid":[{"items":[]},{"items":[0,2]}],"invalid":[{},null,{"items":[-1]},{"items":[1.5]},{"items":[1,2,3]},{"items":[],"extra":true}]},
+  {"schema":{"type":"string","minLength":1,"maxLength":3},"valid":["a","é","🙂"],"invalid":["",4,null,"abcd"]},
+  {"schema":{"type":"boolean"},"valid":[true,false],"invalid":[null,0,"true"]},
+  {"schema":{"type":"null"},"valid":[null],"invalid":[false,{},[]]}
+]

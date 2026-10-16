@@ -59,8 +59,8 @@ library's dependencies pointing inward so it never depends back on its consumers
 `src/ctx/internal/arch` enforces that direction.
 
 Runtime backends that own a heavy runtime are separate modules:
-`pkg/plugin-hashicorp` (go-plugin, grpc) and `pkg/plugin-wasm` (wazero). Keep a
-backend's non-test code dependent only on `pkg/plugin-go/contract` and `pkg/plugin-go/jsonline`.
+`pkg/plugin-go/hashicorp` (go-plugin, grpc) and `pkg/plugin-go/wasm` (wazero). Keep a
+backend's non-test code dependent only on `pkg/plugin-go/contract` and `pkg/plugin-go/contract/jsonline`.
 Tests that need a backend belong in that backend's module, not in the core
 contract module, so the core stays free of the backend's runtime.
 
@@ -86,7 +86,7 @@ The reusable libraries are:
 - `res/graph/supervisor` (inside the graph module) for process supervision and recovery.
 
 Plugin runtime backends, including HashiCorp go-plugin, belong inside the
-plugin library (for example `pkg/plugin-hashicorp`), together with their
+plugin library (for example `pkg/plugin-go/hashicorp`), together with their
 dependencies. They are not CTX product adapters. Keep the shared host/guest
 contract independent of backend choice so existing and future plugin
 implementations can use it.
@@ -106,8 +106,8 @@ Go language package of the plugin engine, beside the other `pkg/plugin-*`
 language packages. Its `packages`, `store` and `host` subpackages cover manifests, the
 installed package store and opening a package; the root stays free of
 `packagekit` so it does not reach `res/graph`. Runtime backends
-(`pkg/plugin-hashicorp`, `pkg/plugin-wasm`) and the C ABI loader in `pkg/plugin-go/cshared` implement
-`contract.Backend` and import `pkg/plugin-go/contract`. Hosts import `pkg/plugin-go/adapter`,
+(`pkg/plugin-go/hashicorp`, `pkg/plugin-go/wasm`) and the C ABI loader in `pkg/plugin-go/cengine/cshared` implement
+`contract.Backend` and import `pkg/plugin-go/contract`. Hosts import `pkg/plugin-go/contract/adapter`,
 which owns manifests, the installed store, trust and invocation; a product keeps
 only its own selection and commands.
 
@@ -117,10 +117,10 @@ mobile SDKs are named for their platforms because they are native to them:
 `pkg/plugin-ios` (Swift, with Objective-C through the C headers) and
 `pkg/plugin-android` (Java, with Kotlin through the same API). Keep
 `pkg/plugin-go` focused on the contract, the engine API and runtime backends. The Go-to-C guest binding belongs in
-`pkg/plugin-go/cshared/guest`. The language-neutral C ABI header
+`pkg/plugin-go/cengine/cshared/guest`. The language-neutral C ABI header
 (`lib/plugin/include/ext_plugin.h`) belongs to the engine; its constants and wire
 envelope (`cshared/abi`) and the runtime loader (`cshared`) live under
-`pkg/plugin-go/cshared`; there is no separate `pkg/plugin-cshared` module. `pkg/plugin-wasm` stays its own module because guests
+`pkg/plugin-go/cengine/cshared`; there is no separate `pkg/plugin-go/cengine/cshared` module. `pkg/plugin-go/wasm` stays its own module because guests
 in other languages run through it.
 
 Moving a library into or out of `pkg/` changes public import paths. Update

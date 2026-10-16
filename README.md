@@ -298,8 +298,8 @@ CTX and its ecosystem share public Go libraries:
 - `github.com/webong/ext/res/graph` supplies generic graph storage and transactions.
 - `github.com/webong/ext/pkg/plugin-go` supplies the shared host/guest contract,
   validation, selection, admission, and session lifecycle. Its implementations
-  include `pkg/plugin-go/inprocess`, `pkg/plugin-go/jsonline`, `pkg/plugin-hashicorp` (net/rpc and
-  gRPC), `pkg/plugin-go/nativego`, `pkg/plugin-wasm` (WASI Preview 1), and `pkg/plugin-go/cshared`
+  include `pkg/plugin-go/contract/inprocess`, `pkg/plugin-go/contract/jsonline`, `pkg/plugin-go/hashicorp` (net/rpc and
+  gRPC), `pkg/plugin-go/contract/nativego`, `pkg/plugin-go/wasm` (WASI Preview 1), and `pkg/plugin-go/cengine/cshared`
   (versioned C ABI). All use the same typed authoring and host session APIs.
 - `github.com/webong/ext/res/graph/supervisor` supplies local process supervision when
   the selected plugin backend does not already own its process lifecycle.
@@ -317,7 +317,7 @@ libraries. Each is published as its own Go module under a shared major version;
 see [module versioning](docs/module-versioning.md). Domain behavior and
 authorization remain with each consumer.
 See the [plugin contract](docs/adr-plugin-contract.md) and the
-[HashiCorp backend guide](pkg/plugin-hashicorp/README.md). The
+[HashiCorp backend guide](pkg/plugin-go/hashicorp/README.md). The
 [runtime authoring guide](docs/plugin-runtimes.md) shows one implementation built
 as a Go plugin, a WASI command, or a C shared library.
 
@@ -347,7 +347,7 @@ remain inside the reusable plugin library, including HashiCorp go-plugin.
 ```sh
 go run ./examples/plugin-sdk --backend jsonline
 go run ./examples/plugin-typescript
-go run ./pkg/plugin-hashicorp/cmd/ext-plugin inspect --root examples/plugin-package --entry main examples/plugin-package/plugin.json
+go run ./pkg/plugin-go/hashicorp/cmd/ext-plugin inspect --root examples/plugin-package --entry main examples/plugin-package/plugin.json
 ```
 
 Inspection validates metadata and content without starting plugins. CTX adapters

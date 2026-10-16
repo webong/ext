@@ -37,7 +37,7 @@ on:
       - 'examples/android-consumer/**'
       - 'pkg/plugin-android/**'
       - 'pkg/plugin-ios/**'
-      - 'pkg/plugin-go/cshared/**'
+      - 'pkg/plugin-go/cengine/cshared/**'
       - 'lib/plugin/**'
       - 'pkg/plugin-rust/**'
   pull_request:
@@ -50,7 +50,7 @@ on:
       - 'examples/android-consumer/**'
       - 'pkg/plugin-android/**'
       - 'pkg/plugin-ios/**'
-      - 'pkg/plugin-go/cshared/**'
+      - 'pkg/plugin-go/cengine/cshared/**'
       - 'lib/plugin/**'
       - 'pkg/plugin-rust/**'
 

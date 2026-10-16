@@ -50,7 +50,7 @@ try (Guest guest = new Guest(descriptor, call -> {
 
 ## What a JVM guest cannot do
 
-The `ext_plugin_*` C ABI that `pkg/plugin-go/cshared` loads would need a JVM inside
+The `ext_plugin_*` C ABI that `pkg/plugin-go/cengine/cshared` loads would need a JVM inside
 the host process, so a Java library cannot be loaded that way. A JVM guest speaks
 JSON lines in its own process, or runs inside an application that provides the
 transport. Kotlin/Native, which compiles to a native library, could export that
@@ -178,4 +178,4 @@ code, so a native plugin must ship inside the signed app bundle or package.
 - A WASM interpreter reachable from the C engine does not exist yet. Until it does,
   a mobile app that hosts third-party plugins after release has no route that
   satisfies the no-downloaded-code rules. That is open work shared with
-  `pkg/plugin-wasm`, which is Go and wazero.
+  `pkg/plugin-go/wasm`, which is Go and wazero.

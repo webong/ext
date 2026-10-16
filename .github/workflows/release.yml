@@ -64,7 +64,7 @@ jobs:
             go.work.sum
       - name: Test library modules
         run: |
-          for module in src/ctx src/ctn examples res/graph pkg/plugin-go pkg/plugin-hashicorp pkg/plugin-wasm adapters/wasm adapters/evm res/web res/credential; do
+          for module in src/ctx src/ctn examples res/graph pkg/plugin-go pkg/plugin-go/hashicorp pkg/plugin-go/wasm adapters/wasm adapters/evm res/web res/credential; do
             (cd "$module" && go test ./...) || exit 1
           done
       - run: ./tests/native_test.sh

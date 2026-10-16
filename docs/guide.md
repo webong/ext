@@ -5,14 +5,14 @@ to do. Every Go recipe here was run from a scratch module outside this repositor
 no workspace and no `replace`, against the published tags, and its output is shown. If a
 recipe does not work for you, that is a bug in this page.
 
-The libraries need Go 1.23 or newer, except `pkg/plugin-hashicorp`, which needs Go 1.26
+The libraries need Go 1.23 or newer, except `pkg/plugin-go/hashicorp`, which needs Go 1.26
 (its gRPC dependencies require it). Each library is its own module, so you depend on only
 what you use:
 
 | You want to | Module (version used here) |
 | --- | --- |
 | host or write a plugin | `github.com/webong/ext/pkg/plugin-go` (v0.2.0) |
-| run WebAssembly in a sandbox | `github.com/webong/ext/pkg/plugin-wasm` (v0.2.0) |
+| run WebAssembly in a sandbox | `github.com/webong/ext/pkg/plugin-go/wasm` (v0.2.0) |
 | discover the machine | `github.com/webong/ext/res/graph` (v0.1.0) |
 | run web content in a browser | `github.com/webong/ext/res/web` (v0.1.1) |
 
@@ -36,8 +36,8 @@ import (
 	"fmt"
 
 	"github.com/webong/ext/pkg/plugin-go"
-	"github.com/webong/ext/pkg/plugin-go/author"
-	"github.com/webong/ext/pkg/plugin-go/inprocess"
+	"github.com/webong/ext/pkg/plugin-go/contract/author"
+	"github.com/webong/ext/pkg/plugin-go/contract/inprocess"
 )
 
 type Greeting struct {
@@ -100,7 +100,7 @@ import (
 	"fmt"
 	"time"
 
-	wasm "github.com/webong/ext/pkg/plugin-wasm"
+	wasm "github.com/webong/ext/pkg/plugin-go/wasm"
 )
 
 // (module (func (export "_start")))

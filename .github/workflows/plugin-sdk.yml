@@ -25,10 +25,10 @@ jobs:
           node-version: '22'
       - name: Test plugin library modules
         run: |
-          for module in pkg/plugin-go pkg/plugin-hashicorp pkg/plugin-wasm; do
+          for module in pkg/plugin-go pkg/plugin-go/hashicorp pkg/plugin-go/wasm; do
             (cd "$module" && go test -race ./...) || exit 1
           done
-      - run: go test -race ./pkg/plugin-hashicorp/cmd/ext-plugin
+      - run: go test -race ./pkg/plugin-go/hashicorp/cmd/ext-plugin
       - run: node --test pkg/plugin-ts/test.mjs
       - name: Check TypeScript declarations
         run: npx --yes --package typescript@5.8.3 tsc --noEmit --strict --module NodeNext --moduleResolution NodeNext --target ES2022 pkg/plugin-ts/typecheck.mts
@@ -37,7 +37,7 @@ jobs:
       - run: go run ./examples/plugin-typescript
       - run: go build -o /tmp/ext-plugin-example ./examples/plugin-typescript
       - run: node examples/plugin-typescript/host.mjs /tmp/ext-plugin-example
-      - run: go run ./pkg/plugin-hashicorp/cmd/ext-plugin inspect --root examples/plugin-package --entry main examples/plugin-package/plugin.json
+      - run: go run ./pkg/plugin-go/hashicorp/cmd/ext-plugin inspect --root examples/plugin-package --entry main examples/plugin-package/plugin.json
 
   foreign-sdks:
     strategy:

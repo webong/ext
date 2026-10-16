@@ -9,12 +9,13 @@ import (
 	"testing"
 )
 
-// Go programs reach the plugin system through pkg/plugin-go, which re-exports the
-// data model that lives in pkg/plugin-go/contract and runs on the C engine or in
-// pure Go. Only the plugin library itself and the runtime backends that implement
-// contract.Backend (pkg/plugin-hashicorp, pkg/plugin-wasm, pkg/plugin-go/cshared)
-// import the contract package.
-func TestGoProgramsImportPluginGoNotItsContractPackage(t *testing.T) {
+// Go programs reach the plugin system through pkg/plugin-go/cengine, which
+// re-exports the data model that lives in the root package of
+// pkg/plugin-go/contract and runs on the C engine or in pure Go. Only the plugin
+// library itself and the runtime backends that implement contract.Backend
+// (pkg/plugin-go/hashicorp, pkg/plugin-go/wasm, pkg/plugin-go/cengine/cshared)
+// import that root package.
+func TestGoProgramsImportCengineNotTheContractPackage(t *testing.T) {
 	root := repoRoot(t)
 	const pluginRoot = "github.com/webong/ext/pkg/plugin-go/contract"
 	for _, tree := range []string{"adapters", "examples", "src", "res"} {
@@ -43,7 +44,7 @@ func TestGoProgramsImportPluginGoNotItsContractPackage(t *testing.T) {
 				}
 				if name == pluginRoot {
 					rel, _ := filepath.Rel(root, path)
-					t.Errorf("%s imports %s; import github.com/webong/ext/pkg/plugin-go instead", filepath.ToSlash(rel), name)
+					t.Errorf("%s imports %s; import github.com/webong/ext/pkg/plugin-go/cengine instead", filepath.ToSlash(rel), name)
 				}
 			}
 			return nil

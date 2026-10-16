@@ -5,7 +5,7 @@ import (
 	"os"
 
 	"github.com/webong/ext/adapters/credman/store"
-	goengine "github.com/webong/ext/pkg/plugin-go"
+	goengine "github.com/webong/ext/pkg/plugin-go/cengine"
 	"github.com/webong/ext/res/credential/adapterkit"
 )
 

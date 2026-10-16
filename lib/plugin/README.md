@@ -114,7 +114,7 @@ Go integration is opt-in and excluded from ordinary Go builds:
 
 ```sh
 CGO_LDFLAGS='-L/tmp/ext-cengine' \
-  go build -tags ext_cengine ./pkg/plugin-go/examples/host
+  go build -tags ext_cengine ./pkg/plugin-go/cengine/examples/host
 ```
 
 For shared linkage, add the `ext_cengine_shared` build tag and the appropriate

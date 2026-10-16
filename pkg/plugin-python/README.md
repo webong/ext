@@ -1,7 +1,7 @@
 # ext_plugin (Python guest SDK)
 
 Standard-library-only guest for `ext.plugin/v1` over JSON lines (Python 3.8+).
-Hosts use the Go `pkg/plugin-go/process` backend (or any JSON-line client) to run it.
+Hosts use the Go `pkg/plugin-go/contract/process` backend (or any JSON-line client) to run it.
 
 ```python
 import ext_plugin
@@ -39,5 +39,5 @@ and deadline, and a mismatch returns `invalid_request`. Stdout carries only
 protocol frames: file descriptor 1 and `sys.stdout` are redirected to stderr.
 
 Tests: `python3 -I -m unittest discover -s tests` here, and the Go suite in
-`pkg/plugin-go/plugintest` (`TestPythonGuest`) runs this guest through
+`pkg/plugin-go/contract/plugintest` (`TestPythonGuest`) runs this guest through
 `process.Start` against the shared conformance fixtures.

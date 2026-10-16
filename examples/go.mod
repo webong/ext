@@ -5,9 +5,8 @@ go 1.26.0
 require (
 	github.com/hashicorp/go-hclog v0.14.1
 	github.com/hashicorp/go-plugin v1.6.3
-	github.com/webong/ext/pkg/plugin-go v0.2.0
-	github.com/webong/ext/pkg/plugin-hashicorp v0.2.0
-	github.com/webong/ext/pkg/plugin-wasm v0.3.0
+	github.com/webong/ext/pkg/plugin-go/hashicorp v0.2.0
+	github.com/webong/ext/pkg/plugin-go/wasm v0.2.0
 	github.com/webong/ext/res/graph v0.1.0
 )
 
@@ -19,6 +18,8 @@ require (
 	github.com/mattn/go-isatty v0.0.17 // indirect
 	github.com/oklog/run v1.0.0 // indirect
 	github.com/tetratelabs/wazero v1.10.1 // indirect
+	github.com/webong/ext/pkg/plugin-go/cengine v0.2.0
+	github.com/webong/ext/pkg/plugin-go/contract v0.2.0
 	golang.org/x/net v0.59.0 // indirect
 	golang.org/x/sys v0.48.0 // indirect
 	golang.org/x/text v0.42.0 // indirect
@@ -79,10 +80,14 @@ replace github.com/webong/ext/pkg/plugin-go => ../pkg/plugin-go
 
 replace github.com/webong/ext/res/graph => ../res/graph
 
-replace github.com/webong/ext/pkg/plugin-hashicorp => ../pkg/plugin-hashicorp
+replace github.com/webong/ext/pkg/plugin-go/hashicorp => ../pkg/plugin-go/hashicorp
 
-replace github.com/webong/ext/pkg/plugin-wasm => ../pkg/plugin-wasm
+replace github.com/webong/ext/pkg/plugin-go/wasm => ../pkg/plugin-go/wasm
 
 replace github.com/webong/ext/res/web => ../res/web
 
 replace github.com/webong/ext/res/credential => ../res/credential
+
+replace github.com/webong/ext/pkg/plugin-go/contract => ../pkg/plugin-go/contract
+
+replace github.com/webong/ext/pkg/plugin-go/cengine => ../pkg/plugin-go/cengine

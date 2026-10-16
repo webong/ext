@@ -41,7 +41,7 @@ headers live in [`lib/plugin`](../lib/plugin/README.md); these packages bind to 
 
 The Go host binding import is `github.com/webong/ext/pkg/plugin-go`; its package
 name is `goengine`. Go guest C exports use
-`github.com/webong/ext/pkg/plugin-go/cshared/guest`.
+`github.com/webong/ext/pkg/plugin-go/cengine/cshared/guest`.
 
 C embedding examples live in each language's `examples/` directory. Native
 runtime integrations such as HashiCorp are separate modules

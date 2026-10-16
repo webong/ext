@@ -3,7 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
-	goengine "github.com/webong/ext/pkg/plugin-go"
+	goengine "github.com/webong/ext/pkg/plugin-go/cengine"
 	"io"
 	"os"
 	"os/exec"

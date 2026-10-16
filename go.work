@@ -30,8 +30,10 @@ use (
 	./adapters/safari
 	./res/graph
 	./pkg/plugin-go
-	./pkg/plugin-hashicorp
-	./pkg/plugin-wasm
+	./pkg/plugin-go/hashicorp
+	./pkg/plugin-go/wasm
 	./res/web
 	./res/credential
+	./pkg/plugin-go/contract
+	./pkg/plugin-go/cengine
 )

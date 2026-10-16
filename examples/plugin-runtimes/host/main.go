@@ -13,11 +13,11 @@ import (
 	"time"
 
 	"github.com/webong/ext/examples/plugin-runtimes/echo"
-	goengine "github.com/webong/ext/pkg/plugin-go"
-	"github.com/webong/ext/pkg/plugin-go/author"
-	"github.com/webong/ext/pkg/plugin-go/cshared"
-	"github.com/webong/ext/pkg/plugin-go/nativego"
-	"github.com/webong/ext/pkg/plugin-wasm"
+	goengine "github.com/webong/ext/pkg/plugin-go/cengine"
+	"github.com/webong/ext/pkg/plugin-go/cengine/cshared"
+	"github.com/webong/ext/pkg/plugin-go/contract/author"
+	"github.com/webong/ext/pkg/plugin-go/contract/nativego"
+	"github.com/webong/ext/pkg/plugin-go/wasm"
 )
 
 func main() {

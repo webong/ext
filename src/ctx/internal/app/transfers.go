@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/webong/ext/ctx/internal/config"
-	modpkg "github.com/webong/ext/pkg/plugin-go/adapter"
+	modpkg "github.com/webong/ext/pkg/plugin-go/contract/adapter"
 	systemgraph "github.com/webong/ext/res/graph/system"
 )
 

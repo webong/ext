@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	goengine "github.com/webong/ext/pkg/plugin-go"
+	goengine "github.com/webong/ext/pkg/plugin-go/cengine"
 	"io"
 	"os"
 	"runtime"

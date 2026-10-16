@@ -7,8 +7,8 @@ wire protocols do not become compatible merely by importing this package.
 ## Ownership
 
 CTX supplies `github.com/webong/ext/pkg/plugin-go`, alongside `graph` and `supervisor`.
-Its implementations include `pkg/plugin-go/inprocess`, `pkg/plugin-go/jsonline`,
-`pkg/plugin-hashicorp`, `pkg/plugin-go/nativego`, `pkg/plugin-wasm`, and `pkg/plugin-go/cshared`, with
+Its implementations include `pkg/plugin-go/contract/inprocess`, `pkg/plugin-go/contract/jsonline`,
+`pkg/plugin-go/hashicorp`, `pkg/plugin-go/contract/nativego`, `pkg/plugin-go/wasm`, and `pkg/plugin-go/cengine/cshared`, with
 additional backends able to implement the same public interface. HashiCorp
 go-plugin is a dependency of the plugin library, not a CTX product adapter.
 CTX adapters and ecosystem applications are consumers of these libraries.
@@ -19,9 +19,9 @@ browser fallback, or built-in permission vocabulary.
 
 Consumers define domain contracts, payloads, authorization, configuration,
 discovery, package distribution, trust decisions, and endpoint authentication.
-The library supplies the generic mechanics around them: `pkg/plugin-go/store`
+The library supplies the generic mechanics around them: `pkg/plugin-go/cengine/store`
 installs, upgrades, lists, removes and re-verifies packages, and
-`pkg/plugin-go/process` launches process plugins (see below).
+`pkg/plugin-go/contract/process` launches process plugins (see below).
 Product and native mechanisms in CTX belong under `adapters/<name>/`.
 Portable integrity and plugin runtime implementations belong in the library.
 A descriptor, graph
@@ -295,7 +295,7 @@ methods and use separately declared channels for streams.
 
 ## HashiCorp backend
 
-`github.com/webong/ext/pkg/plugin-hashicorp` implements HashiCorp go-plugin's
+`github.com/webong/ext/pkg/plugin-go/hashicorp` implements HashiCorp go-plugin's
 `Plugin` and `GRPCPlugin` interfaces, supporting both net/rpc and gRPC for hosts
 and guests. It is a library implementation alongside JSON-line transport.
 The shared plugin core has no HashiCorp imports; importing the HashiCorp backend
@@ -318,7 +318,7 @@ translation to `plugin.Backend`. Their existing method signatures and payloads
 must be mapped explicitly; a runtime framework cannot infer domain semantics.
 The translation must provide a verified descriptor and honor cancellation.
 
-The gRPC service schema is `pkg/plugin-hashicorp/runtime.proto`. It uses standard
+The gRPC service schema is `pkg/plugin-go/hashicorp/runtime.proto`. It uses standard
 protobuf `Empty` and `BytesValue` messages carrying CTX JSON envelopes, so other
 languages can generate service stubs without a custom codec. Use the supplied
 `hashicorp.GRPCServer` factory for transport message limits. net/rpc checks the
@@ -330,7 +330,7 @@ retries a call automatically.
 Native broker callbacks, streaming interfaces, and reattachment remain explicit
 upstream features that consumer bindings can use. This backend's standard CTX
 interface currently exposes unary handshake/invocation. See
-[`pkg/plugin-hashicorp/README.md`](../pkg/plugin-hashicorp/README.md) for host and guest
+[`pkg/plugin-go/hashicorp/README.md`](../pkg/plugin-go/hashicorp/README.md) for host and guest
 usage and process examples.
 
 ## CTX adapter adoption
@@ -386,8 +386,8 @@ versioned domain contracts may coexist in a descriptor.
 
 Run the end-to-end example with `go run ./examples/plugin`. Contract, admission,
 drain, integrity, malformed-frame, cancellation, concurrency, and CTX compatibility
-tests live under `pkg/plugin-go/contract/`, `pkg/plugin-go/jsonline/`, and `pkg/plugin-go/adapter/plugin_test.go`.
-HashiCorp tests under `pkg/plugin-hashicorp/` launch real subprocesses over both
+tests live under `pkg/plugin-go/contract/`, `pkg/plugin-go/contract/jsonline/`, and `pkg/plugin-go/contract/adapter/plugin_test.go`.
+HashiCorp tests under `pkg/plugin-go/hashicorp/` launch real subprocesses over both
 RPC protocols with checksum verification and automatic TLS. They cover host
 admission, concurrent requests, structured errors, mismatch, cancellation, and
 cleanup. These tests require permission to bind local IPC sockets.

@@ -219,7 +219,7 @@ from `_csrc` and links the engine library, which is built from `_csrc` with CMak
 | `pkg/plugin-hashicorp` (up to v0.1.1) | `pkg/plugin-go/hashicorp` (`pkg/plugin-go/hashicorp`) |
 | `pkg/plugin-hashicorp/cmd/ext-plugin-bridge` | `pkg/plugin-go/cmd/ext-plugin-bridge` (`pkg/plugin-go`) |
 | `pkg/graph` (v0.1.0) | `res/graph` (`res/graph`) |
-| `packagekit.Plan.Graph(namespace)` | `plugingo.PlanGraph(plan, namespace)` in `pkg/plugin-go`; `packagekit.IdentityKey` is now exported |
+| `packagekit.Plan.Graph(namespace)` | `plugingo.PlanGraph(plan, namespace)` in `pkg/plugin-go`; `packagekit.IdentityKey` is now exported. The conversion lives in the umbrella so `contract` has no `res/graph` dependency. No caller in this repository other than the method's own test used it, and the consumer repository calls neither it nor `res/graph` |
 
 Subpackages of the old `pkg/plugin-go` and `pkg/plugin` that move under `contract`:
 `adapter`, `author`, `bridge`, `capability`, `inprocess`, `instance`, `interop`,

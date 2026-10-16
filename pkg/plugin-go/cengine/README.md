@@ -45,7 +45,7 @@ and `NewLaunch` are engine-only and need the C engine build.
 Runtime backends that own a heavy runtime are separate modules:
 [`pkg/plugin-go/hashicorp`](../plugin-hashicorp/README.md) (go-plugin, net/rpc and
 gRPC) and [`pkg/plugin-go/wasm`](../plugin-wasm/README.md) (wazero; guests in other
-languages run through it). The portable C engine is [`lib/plugin`](../../lib/plugin/README.md), and the shared conformance
+languages run through it). The portable C engine is [`lib/plugin`](../../../lib/plugin/README.md), and the shared conformance
 fixtures are in `lib/plugin/testdata`.
 
 ## Building with the C engine
@@ -59,7 +59,7 @@ CGO_LDFLAGS='-L/tmp/ext-cengine' \
 
 Static linkage is the default. To use the optional shared library, enable
 `EXT_BUILD_SHARED` in CMake, add the `ext_cengine_shared` Go build tag and configure
-the dynamic loader's library path. See the [engine guide](../../lib/plugin/README.md)
+the dynamic loader's library path. See the [engine guide](../../../lib/plugin/README.md)
 for lifecycle, ownership, backend extension and current limitations.
 
 - [`examples/host`](examples/host/main.go): host using the C engine.
@@ -68,7 +68,7 @@ for lifecycle, ownership, backend extension and current limitations.
 
 The pure-Go implementation remains in `pkg/plugin-go` as the fallback build and the
 baseline the engine is compared against, while
-[shared-engine parity](../../docs/plugin-engine-parity.md) is completed.
+[shared-engine parity](../../../docs/plugin-engine-parity.md) is completed.
 
 ## Shared engine APIs
 

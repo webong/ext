@@ -4,7 +4,7 @@
 transport can serve. It preserves the CTX domain contract while translating
 connection mechanics. Go, C, Rust, Zig and TypeScript implementations coexist.
 
-See [interoperability](../../docs/plugin-interoperability.md) for ownership,
+See [interoperability](../../../../docs/plugin-interoperability.md) for ownership,
 authorization, route planning, HashiCorp launch configuration, examples and
 conformance coverage. `pkg/plugin-go/cmd/ext-plugin-bridge` is the first packaged bridge:
 CTX JSON lines ↔ HashiCorp gRPC/net/rpc. No full engine migration is required.

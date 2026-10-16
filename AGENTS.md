@@ -40,7 +40,7 @@ paths and directories match; they are built from source and released as binaries
 subdirectory is its own Go module, and nothing lives at that level: no Go package
 and no repository-wide policy. Keep container directories free of shared logic
 and keep repo-wide tests in `src/ctx/internal/arch`. `res/web` and `res/credential`
-depend only on the standard library; `res/graph` depends on `golang.org/x/sys`.
+depend only on the standard library; `res/system` depends on `golang.org/x/sys`.
 
 `lib/` is a container for native libraries that several language bindings
 share. Nothing lives at that level. `lib/plugin` is the portable C plugin
@@ -94,12 +94,11 @@ The reusable libraries are:
 - `res/web` for portable web contracts and workflows: browsers, and the web engine that runs web content through them.
 - `res/credential` for portable credential serving and client code.
 - `lib/plugin` for the portable C plugin engine shared by the `pkg/plugin-*` language bindings.
-- `res/graph` for host, system, and process discovery, storage and transactions.
+- `res/system` for observing the machine: host, shell, file system and web view discovery and process inspection, with `res/system/graph` (the namespaced graph store and its transactions) and `res/system/supervisor` (process supervision and recovery).
 - `pkg/plugin-go/contract` for the Go plugin contract, sessions, guests, packages, bridges and tooling (standard library only).
 - `pkg/plugin-go/cengine` for the Go binding of the C engine, with a pure-Go build of the same API and the C ABI loader.
 - `pkg/plugin-go/wasm` and `pkg/plugin-go/hashicorp` for the WebAssembly and HashiCorp go-plugin backends.
 - `pkg/plugin-go` for the umbrella module that requires all of the above and holds code that needs several of them.
-- `res/graph/supervisor` (inside the graph module) for process supervision and recovery.
 
 Plugin runtime backends, including HashiCorp go-plugin, belong inside the
 plugin library (for example `pkg/plugin-go/hashicorp`), together with their
@@ -131,7 +130,7 @@ the top because both sides use them. `cengine/packages` covers manifests over th
 engine, and `cengine/host` and `cengine/host/store` are engine-routed variants of `contract/host` and
 `contract/host/store` with an identical exported API (a rule `src/ctx/internal/arch` enforces), so
 swapping the import never needs a code change.
-`packagekit` has no dependency on `res/graph`; joining a package plan to the host
+`packagekit` has no dependency on `res/system`; joining a package plan to the host
 graph is `plugingo.PlanGraph` in the umbrella module. Runtime backends
 (`pkg/plugin-go/hashicorp`, `pkg/plugin-go/wasm`) and the C ABI loader in
 `pkg/plugin-go/cengine/cshared` implement `contract.Backend` and import

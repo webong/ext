@@ -13,7 +13,7 @@ what you use:
 | --- | --- |
 | host or write a plugin | `github.com/webong/ext/pkg/plugin-go` (v0.2.0) |
 | run WebAssembly in a sandbox | `github.com/webong/ext/pkg/plugin-go/wasm` (v0.2.0) |
-| discover the machine | `github.com/webong/ext/res/graph` (v0.1.0) |
+| discover the machine | `github.com/webong/ext/res/system` (v0.1.0) |
 | run web content in a browser | `github.com/webong/ext/res/web` (v0.1.1) |
 
 ```sh
@@ -133,8 +133,9 @@ inspect: none imports: 0 err <nil>
 
 ## Discover the machine
 
-Collectors report shells, filesystems and webviews without starting anything. Note the
-package is named `systemgraph`, so import it with that name.
+Collectors report shells, filesystems and webviews without starting anything. The package is
+`system` (`github.com/webong/ext/res/system`). The examples import it as `systemgraph` so a
+variable of your own named `system` does not hide it, which is what the CTX app does.
 
 ```go
 // Discover what the machine has, without starting anything.
@@ -144,7 +145,7 @@ import (
 	"context"
 	"fmt"
 
-	systemgraph "github.com/webong/ext/res/graph/system"
+	systemgraph "github.com/webong/ext/res/system"
 )
 
 func main() {

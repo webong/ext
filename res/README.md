@@ -2,14 +2,14 @@
 
 `res/` is a container for reusable modules. Each subdirectory is its own Go
 module, and nothing lives at this level: no Go package, no repository-wide
-policy. `web` and `credential` depend only on the standard library; `graph` depends
+policy. `web` and `credential` depend only on the standard library; `system` depends
 only on `golang.org/x/sys`.
 
 | Module | Import path | Contents |
 | --- | --- | --- |
 | [`web`](web/README.md) | `github.com/webong/ext/res/web` | Portable web contracts and workflows: browser cookies, extensions, userscripts and sessions, and the web engine |
 | [`credential`](credential/README.md) | `github.com/webong/ext/res/credential` | Portable credential serving (`adapterkit`) and CTX credential client |
-| [`graph`](graph/README.md) | `github.com/webong/ext/res/graph` | Host, system and process discovery, storage and transactions; `graph/supervisor` supervises and recovers local processes. Depends on `golang.org/x/sys` |
+| [`system`](system/README.md) | `github.com/webong/ext/res/system` | Observing the machine: host, shell, file system and web view discovery and process inspection (`system`), a namespaced graph store they record into (`system/graph`), and process supervision and recovery (`system/supervisor`). Depends only on `golang.org/x/sys` |
 
 All three are listed in the root `go.work`, so the repository still builds as one
 workspace while each module stays independently consumable.

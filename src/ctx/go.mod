@@ -3,7 +3,7 @@ module github.com/webong/ext/ctx
 go 1.26.0
 
 require (
-	github.com/webong/ext/res/graph v0.1.0
+	github.com/webong/ext/res/system v0.1.0
 	github.com/webong/ext/res/web v0.1.0
 )
 
@@ -62,7 +62,7 @@ replace github.com/webong/ext/adapters/secret_service => ../../adapters/secret_s
 
 replace github.com/webong/ext/pkg/plugin-go => ../../pkg/plugin-go
 
-replace github.com/webong/ext/res/graph => ../../res/graph
+replace github.com/webong/ext/res/system => ../../res/system
 
 replace github.com/webong/ext/pkg/plugin-go/hashicorp => ../../pkg/plugin-go/hashicorp
 

@@ -103,7 +103,9 @@ func Start(ctx context.Context, c Command) (*Process, error) {
 }
 
 // Stderr returns the retained (bounded, possibly truncated) diagnostic output.
-// Treat it as untrusted text.
+// Treat it as untrusted text. A goroutine copies the child's stderr, so output
+// written just before a reply can arrive a moment after it; Close waits for the
+// copy, and what Stderr returns after Close is complete.
 func (p *Process) Stderr() string { return p.conn.stderr.String() }
 
 // checkLaunchable explains the Windows rule up front: the launch path must name

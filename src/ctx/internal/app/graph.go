@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/webong/ext/ctx/internal/config"
-	"github.com/webong/ext/res/graph"
-	"github.com/webong/ext/res/graph/system"
+	systemgraph "github.com/webong/ext/res/system"
+	"github.com/webong/ext/res/system/graph"
 )
 
 func graphCommand(args []string, stdout, stderr io.Writer) int {

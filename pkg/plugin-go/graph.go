@@ -15,7 +15,7 @@ import (
 	"fmt"
 
 	"github.com/webong/ext/pkg/plugin-go/contract/package"
-	"github.com/webong/ext/res/graph"
+	"github.com/webong/ext/res/system/graph"
 )
 
 // PlanGraph creates a graph transaction for the caller's namespace from a

@@ -32,7 +32,7 @@ var pluginRequires = map[string][]string{
 	"pkg/plugin-go/cengine":   {"pkg/plugin-go/contract"},
 	"pkg/plugin-go/wasm":      {"pkg/plugin-go/contract"},
 	"pkg/plugin-go/hashicorp": {"pkg/plugin-go/contract"},
-	"pkg/plugin-go":           {"pkg/plugin-go/contract", "pkg/plugin-go/cengine", "pkg/plugin-go/wasm", "pkg/plugin-go/hashicorp", "res/graph"},
+	"pkg/plugin-go":           {"pkg/plugin-go/contract", "pkg/plugin-go/cengine", "pkg/plugin-go/wasm", "pkg/plugin-go/hashicorp", "res/system"},
 }
 
 var requireLine = regexp.MustCompile(`(?m)^\s*(?:require\s+)?(github\.com/webong/ext/\S+)\s+v\S+`)

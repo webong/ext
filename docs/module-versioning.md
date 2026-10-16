@@ -179,49 +179,89 @@ tags are immutable, so the correct floor ships in `pkg/plugin-hashicorp/v0.1.1`.
 in a clean module, v0.1.0 reports `go 1.23.0` and v0.1.1 reports `go 1.26.0`. Consumers on an
 older Go should require v0.1.1 or newer, and the v0.1.0 tag stays as published.
 
-## The `pkg/plugin` module was folded into `pkg/plugin-go`
+## The plugin library is a tree of modules
 
-`github.com/webong/ext/pkg/plugin` (tagged through `v0.6.0`) no longer exists as a
-module. Its contract and implementation now live in `pkg/plugin-go`, the Go
-language package of the plugin engine: the root package, now `contract`, is
-`github.com/webong/ext/pkg/plugin-go/contract`, and each subpackage moved to the
-matching path under `pkg/plugin-go`. The old tags stay for existing consumers;
-later releases are tagged `pkg/plugin-go/vX.Y.Z`. This changes public import
-paths, so it ships as a new `pkg/plugin-go` minor release that consumers adopt by
-rewriting their imports.
+`pkg/plugin-go/` is a directory tree in which each heavy part is its own module,
+so an application imports only what it needs and stacks the rest:
 
-`github.com/webong/ext/pkg/plugin-cshared` (tagged through `v0.1.0`) was folded into
-`pkg/plugin-go` the same way: the loader is `pkg/plugin-go/cshared`, its ABI
-envelope is `pkg/plugin-go/cshared/abi`, and the language-neutral C header
-`ext_plugin.h` moved to `lib/plugin/include`. `pkg/plugin-wasm` and
-`pkg/plugin-hashicorp` stay separate modules.
-
-`github.com/webong/ext/pkg/graph` (tagged `v0.1.0`) moved to
-`github.com/webong/ext/res/graph`, the home of the other dependency-light shared
-modules. Its old tag stays for existing consumers; later releases are tagged
-`res/graph/vX.Y.Z`. `pkg/plugin-go` depends on it for `Plan.Graph`.
-
-## The release that folded the plugin modules
-
-| Release | Modules | Why |
+| Module | Contents | Requires |
 | --- | --- | --- |
-| `v0.1.0` (first tag) | `res/graph` | the new path of `pkg/graph`; it needs no tag history of its own |
-| `v0.2.0` | `pkg/plugin-go` | the Go language package of the plugin engine: `pkg/plugin` and `pkg/plugin-cshared` folded in, so import paths changed, and one API runs on the C engine or in pure Go |
-| `v0.2.0` | `pkg/plugin-hashicorp` | its imports moved to `pkg/plugin-go`, and it requires `pkg/plugin-go` v0.2.0 |
-| `v0.3.0` | `pkg/plugin-wasm` | the same move of imports |
-| `v0.3.1` | `adapters/chromium` | it imports `pkg/plugin-go` instead of `pkg/plugin`; no exported API changed |
-| `v0.2.1` | `adapters/firefox` | the same |
-| `v0.2.2` | `adapters/chrome`, `adapters/edge` | they require `adapters/chromium` v0.3.1 and `pkg/plugin-go` v0.2.0 |
-| `v0.1.4` | `adapters/arc`, `atlas`, `brave`, `comet`, `dia`, `helium`, `opera`, `vivaldi`, `whale`, `floorp`, `librewolf`, `waterfox`, `zen` | the same, through `adapters/chromium` or `adapters/firefox` |
-| `v0.1.3` | `adapters/safari` | the same |
-| `v0.1.2` | `adapters/credman`, `keychain`, `secret_service`, `wasm` | they import `pkg/plugin-go`; `adapters/wasm` also requires `pkg/plugin-wasm` v0.3.0 |
-| `v0.1.1` | `adapters/git`, `adapters/evm` | they import `pkg/plugin-go` |
+| `pkg/plugin-go/contract` | the contract, sessions, guests, packages, bridges and tooling (the old `pkg/plugin`); standard library only | nothing |
+| `pkg/plugin-go/cengine` | the Go binding of the C engine, a pure-Go build of the same API, the C ABI loader (the old `pkg/plugin-cshared`) and a generated copy of the C sources | `contract` |
+| `pkg/plugin-go/wasm` | the wazero backend (the old `pkg/plugin-wasm`) | `contract` |
+| `pkg/plugin-go/hashicorp` | the go-plugin (gRPC) backend (the old `pkg/plugin-hashicorp`) | `contract` |
+| `pkg/plugin-go` | the umbrella: requires every module above at matching versions and holds what needs several of them (`PlanGraph`, the bridge command, the cross-language tests) | all of the above, `res/graph` |
 
-`res/web` and `res/credential` did not change and keep their versions. No exported function of an
-adapter changed, so the adapters take a patch version; the three plugin libraries take a minor
-version because their import paths moved.
+The name `contract` was chosen over `core` because it is already the name of the Go
+package and of every alias in use, and the module is that contract plus tooling that
+needs nothing beyond the standard library, not a runtime. `wasm` and `hashicorp`
+never depend on `cengine`, in code, tests or `go.mod`, so a wazero or gRPC user needs
+no C toolchain; `src/ctx/internal/arch` enforces this.
 
-Every module's `go.sum` carries the real checksums of the sibling versions it requires. They were
-computed before tagging, in dependency order, from a throwaway local module proxy holding the new
-versions, then checked against the published tags afterwards. That avoids the older pattern of a
-second commit per layer just to record checksums, so every tag of this release is on one commit.
+### The C sources
+
+A published module contains only its own directory, so `cengine` carries the sources
+it compiles as `_csrc`, a copy of `lib/plugin` generated by `scripts/cengine-sync.sh`.
+`TestCSourcesMatchCanonical` fails when the two differ. `lib/plugin` stays canonical
+for the iOS, Android, Rust and Zig bindings. The cgo preamble includes the headers
+from `_csrc` and links the engine library, which is built from `_csrc` with CMake
+(the default build tag set uses no C at all).
+
+### Migration
+
+| Old import path (module) | New import path (module) |
+| --- | --- |
+| `pkg/plugin` and its subpackages (`pkg/plugin`, up to v0.6.0) | `pkg/plugin-go/contract` and `.../contract/<subpackage>` (`pkg/plugin-go/contract`) |
+| `pkg/plugin-go` root, the engine API (`pkg/plugin-go`, up to v0.1.1) | `pkg/plugin-go/cengine` (`pkg/plugin-go/cengine`) |
+| `pkg/plugin-go/cshared`, `.../cshared/abi`, `.../cshared/guest` | `pkg/plugin-go/cengine/cshared`, `.../abi`, `.../guest` (`pkg/plugin-go/cengine`) |
+| `pkg/plugin-cshared` (up to v0.1.0) | `pkg/plugin-go/cengine/cshared` (`pkg/plugin-go/cengine`) |
+| `pkg/plugin-wasm` (up to v0.2.1) | `pkg/plugin-go/wasm` (`pkg/plugin-go/wasm`) |
+| `pkg/plugin-hashicorp` (up to v0.1.1) | `pkg/plugin-go/hashicorp` (`pkg/plugin-go/hashicorp`) |
+| `pkg/plugin-hashicorp/cmd/ext-plugin-bridge` | `pkg/plugin-go/cmd/ext-plugin-bridge` (`pkg/plugin-go`) |
+| `pkg/graph` (v0.1.0) | `res/graph` (`res/graph`) |
+| `packagekit.Plan.Graph(namespace)` | `plugingo.PlanGraph(plan, namespace)` in `pkg/plugin-go`; `packagekit.IdentityKey` is now exported |
+
+Subpackages of the old `pkg/plugin-go` and `pkg/plugin` that move under `contract`:
+`adapter`, `author`, `bridge`, `capability`, `inprocess`, `instance`, `interop`,
+`jsonline`, `jsonschema`, `nativego`, `packagekit`, `plugintest`, `process`, `schema`,
+`stream`. Those that need the engine move under `cengine`: `packages`, `store`, `host`.
+
+Import paths that existed in published `pkg/plugin-go` v0.1.x are `pkg/plugin-go`
+(the root package) and `pkg/plugin-go/cshared/guest`. The new umbrella reuses the
+root path `pkg/plugin-go` for a different package (`plugingo`), which is why every new
+version starts at v0.2.0, above v0.1.1. No other path is shared between modules.
+
+### Versions and tags
+
+| Version | Modules |
+| --- | --- |
+| `v0.1.0` (first tag) | `res/graph` |
+| `v0.2.0` | `pkg/plugin-go/contract`, `.../cengine`, `.../wasm`, `.../hashicorp`, `pkg/plugin-go` |
+| patch bumps | the adapters (`adapters/chromium` v0.3.1, `adapters/firefox` v0.2.1, and so on); no exported API changed |
+
+Every `go.sum` carries the real checksums of the sibling versions it requires, computed
+before tagging, in dependency order, from a throwaway local module proxy holding the
+new versions, so one commit carries every tag. Verify a tree this way before tagging:
+build each module's zip with `golang.org/x/mod/zip`, serve them with `GOPROXY=file://`,
+use a module cache path that has never held other contents for the same versions
+(Go indexes cache directories by path and assumes they never change), and run
+`GOWORK=off go vet ./...` on linux, darwin and windows plus `go mod tidy -diff`
+in each module. `scripts/check-standalone-modules.sh` repeats this against published
+tags and skips a module whose sibling tags are not yet published.
+
+### Deprecating the old modules
+
+Each old module gets one final tag whose `go.mod` carries a deprecation comment above
+the `module` line, then no further tags:
+
+| Old module | Final tag content | Points to |
+| --- | --- | --- |
+| `pkg/plugin` | `// Deprecated: use github.com/webong/ext/pkg/plugin-go/contract.` | `pkg/plugin-go/contract` |
+| `pkg/plugin-cshared` | `// Deprecated: use github.com/webong/ext/pkg/plugin-go/cengine.` | `pkg/plugin-go/cengine` |
+| `pkg/plugin-wasm` | `// Deprecated: use github.com/webong/ext/pkg/plugin-go/wasm.` | `pkg/plugin-go/wasm` |
+| `pkg/plugin-hashicorp` | `// Deprecated: use github.com/webong/ext/pkg/plugin-go/hashicorp.` | `pkg/plugin-go/hashicorp` |
+| `pkg/graph` | `// Deprecated: use github.com/webong/ext/res/graph.` | `res/graph` |
+
+The old `pkg/plugin-go` v0.1.x keeps resolving for existing consumers; its replacement
+at the same path is the umbrella v0.2.0 and its engine API is `cengine`. Tell every
+consumer before any tag is pushed, because they migrate by rewriting imports.

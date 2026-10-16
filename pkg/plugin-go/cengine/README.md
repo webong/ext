@@ -1,18 +1,18 @@
 # Go plugin API
 
-Import `github.com/webong/ext/pkg/plugin-go` (package `goengine`): the one Go entry
-point to the ext plugin system. One API, two builds:
+Import `github.com/webong/ext/pkg/plugin-go/cengine` (package `goengine`): the Go entry
+point to the ext plugin engine. One API, two builds:
 
 - **C engine.** With the `ext_cengine` build tag and cgo (Linux, macOS, and
   Windows with MinGW-w64) the engine functions run in the shared C engine in
   `lib/plugin`.
 - **Pure Go.** In any other build (no cgo, no tag, an unsupported platform) the
-  same API is served by the pure-Go implementation in `pkg/plugin-go`, so
+  same API is served by the pure-Go implementation over `pkg/plugin-go/contract`, so
   `CGO_ENABLED=0` programs keep working. `goengine.CEngine` reports which build
   you have.
 
 The data model (`Descriptor`, `Request`, `Response`, `Identity`, the `Err*`
-classes, `Backend`, `BackendProfile` and the contract helpers) is `pkg/plugin-go`'s,
+classes, `Backend`, `BackendProfile` and the contract helpers) is `pkg/plugin-go/contract`'s,
 re-exported so a program imports this package alone. The common API is `Open`,
 `OpenProcess`, `Session`, `NewGuest`, `Guest`, `NewRegistry`,
 `GuestFromRegistry`, `ResolveRoute`, `ValidateSchema`, `CheckSchema`,
@@ -22,8 +22,7 @@ re-exported so a program imports this package alone. The common API is `Open`,
 - [`store`](store): the installed package store, with layered roots and `Verify`.
 - [`host`](host): open an installed package as a running plugin.
 
-The root package does not import `packagekit`, so a small program such as an
-adapter does not reach `res/graph`. `Host`, `Streams`, `Instances`, `NewProcess`
+The module depends on `pkg/plugin-go/contract` only, which uses the standard library only. `Host`, `Streams`, `Instances`, `NewProcess`
 and `NewLaunch` are engine-only and need the C engine build.
 
 ## Packages
@@ -86,3 +85,16 @@ Backend, policy and resource callbacks remain Go application code. Their errors
 are retained locally when the call carries a Go context; guest responses still
 sanitize private failures. Resources require explicit close; guest/low-level host
 handles require destruction after their users have joined.
+
+## Building the C engine build
+
+A published Go module contains only its own directory, so this module carries the C
+sources it is built from as `_csrc`, a generated copy of `lib/plugin` (a test fails if
+the copy drifts). The default build uses no C. For the C engine build, build the
+library from `_csrc`, then point cgo at it:
+
+```sh
+dir=$(go list -m -f '{{.Dir}}' github.com/webong/ext/pkg/plugin-go/cengine)
+cmake -S "$dir/_csrc" -B build -DCMAKE_BUILD_TYPE=Release && cmake --build build
+CGO_LDFLAGS="-L$PWD/build" go build -tags ext_cengine ./...
+```

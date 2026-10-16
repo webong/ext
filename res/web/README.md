@@ -11,6 +11,7 @@ without pulling an adapter, a browser engine, or any CTX application code.
 | `guest` | Portable browser workflows served through adapter-provided backends |
 | `extension` | Extension artifact discovery, packaging and install targets |
 | `bundle` | The web engine: serves a web bundle from loopback under a content security policy and runs it in a browser the host opens, reporting console output and the exit code |
+| `wasm` | `reactor.js`, the page side of hosting a WebAssembly reactor in a web view (a hidden `WKWebView`, an Android `WebView` or a browser). Not a Go package: a shared asset that `scripts/plugin-mobile-assets.sh` embeds in the iOS and Android hosts, written against the page API of `bundle/shim.js` |
 | `sqlite` | Read-only SQLite reader for browser cookie stores (standard library only, no sqlite3 program) and the sqlite3 helper used by cookie import |
 | `userscript` | Userscript metadata, storage and replay, with language-neutral fixtures in `testdata/userscript` |
 | `bookmarklet` | Bookmarklet generation, with language-neutral fixtures in `testdata/bookmarklet` |

@@ -1,5 +1,5 @@
 // The page document of the web-engine host. The glue that instantiates a reactor and
-// answers handshake and invoke messages is pkg/plugin-go/wasm/page/reactor.js, the one
+// answers handshake and invoke messages is res/web/wasm/reactor.js, the one
 // source shared with the Android host; see its header for the message protocol.
 
 enum PageGlue {
@@ -14,6 +14,6 @@ enum PageGlue {
         """
     }
 
-    /// pkg/plugin-go/wasm/page/reactor.js, embedded by scripts/plugin-mobile-assets.sh.
+    /// res/web/wasm/reactor.js, embedded by scripts/plugin-mobile-assets.sh.
     static var script: String { GeneratedAssets.reactorPage }
 }

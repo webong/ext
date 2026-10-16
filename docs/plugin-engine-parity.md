@@ -120,8 +120,8 @@ go build -tags ext_cengine -o "$EXT_CENGINE_GUEST" \
 go build -tags ext_cengine -o "$EXT_CENGINE_FAULT_GUEST" \
   lib/plugin/tests/faultguest/main.go
 
-go test -tags ext_cengine -race ./pkg/plugin-go
-go test -tags ext_cengine,ext_cengine_shared -race ./pkg/plugin-go   # shared linkage
+go test -tags ext_cengine -race ./pkg/plugin-go/cengine
+go test -tags ext_cengine,ext_cengine_shared -race ./pkg/plugin-go/cengine   # shared linkage
 ```
 
 The two guest binaries are required: without `EXT_CENGINE_GUEST` and

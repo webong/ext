@@ -34,7 +34,7 @@ export CGO_LDFLAGS="${CGO_LDFLAGS:-} -L$build_dir/release -Wl,-rpath,$build_dir/
 export EXT_CENGINE_GUEST="$build_dir/go-guest" EXT_CENGINE_FAULT_GUEST="$build_dir/fault-guest"
 go build -o "$EXT_CENGINE_GUEST" ./pkg/plugin-go/crosslang/testdata/go-guest
 go build -o "$EXT_CENGINE_FAULT_GUEST" lib/plugin/tests/faultguest/main.go
-go test -tags "$go_tags" -race -count=1 -timeout=90s ./pkg/plugin-go
+go test -tags "$go_tags" -race -count=1 -timeout=90s ./pkg/plugin-go/cengine
 python3 - "$build_dir" <<'PY'
 import json, pathlib, sys, datetime
 p=pathlib.Path(sys.argv[1]);d=json.loads(pathlib.Path('lib/plugin/testdata/v1/descriptor.json').read_text())
@@ -55,7 +55,7 @@ cmake --build "$build_dir/thread-sanitize" -j 4
 "$build_dir/thread-sanitize/ext_host_native_test" "$EXT_CENGINE_GUEST" "$build_dir/descriptor.json" "$build_dir/echo.json" "$build_dir/wait.json"
 for foreign in "${EXT_CENGINE_RUST_GUEST:-}" "${EXT_CENGINE_ZIG_GUEST:-}"; do
   if [[ -n "$foreign" ]]; then
-    EXT_CENGINE_GUEST="$foreign" go test -tags "$go_tags" -race -count=1 -run '^TestConformance$' ./pkg/plugin-go
+    EXT_CENGINE_GUEST="$foreign" go test -tags "$go_tags" -race -count=1 -run '^TestConformance$' ./pkg/plugin-go/cengine
   fi
 done
 cargo fmt --manifest-path pkg/plugin-rust/engine/Cargo.toml -- --check

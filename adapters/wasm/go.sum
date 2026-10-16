@@ -1,8 +1,8 @@
 github.com/tetratelabs/wazero v1.10.1 h1:2DugeJf6VVk58KTPszlNfeeN8AhhpwcZqkJj2wwFuH8=
 github.com/tetratelabs/wazero v1.10.1/go.mod h1:DRm5twOQ5Gr1AoEdSi0CLjDQF1J9ZAuyqFIjl1KKfQU=
-github.com/webong/ext/pkg/plugin-go/cengine v0.2.0 h1:xbB6Xyb574W0+XCX65W8gtN0s90aFhYr3P0ydTEYUeQ=
+github.com/webong/ext/pkg/plugin-go/cengine v0.2.0 h1:CcRjtSAvWK5pQ8hELJQJ5He1oXFDcn+L8B8JCyd8uSU=
 github.com/webong/ext/pkg/plugin-go/cengine v0.2.0/go.mod h1:WwFnLNPXX7BgVnKaUgLd2eHAP2mqMF+3J41M9iEZIQw=
-github.com/webong/ext/pkg/plugin-go/contract v0.2.0 h1:zD5E5ThywJS6P+E42wXypBQYpw5Q88+BuKqN1On15sw=
+github.com/webong/ext/pkg/plugin-go/contract v0.2.0 h1:ZqgbqZ6Qgm+K+xPUyZVaz6At1NlSmUlYnrv+JSEDXAg=
 github.com/webong/ext/pkg/plugin-go/contract v0.2.0/go.mod h1:YajPTz7utaUNrcn856mnFegEHuk8l70pK2krbVFSZoc=
-github.com/webong/ext/pkg/plugin-go/wasm v0.2.0 h1:2qCcVX0RNbn6b09c26WuyEL0R+bMZ9ULzyslrmxJ+3c=
+github.com/webong/ext/pkg/plugin-go/wasm v0.2.0 h1:rH26V0mbPDGdg5Ny4oVbV8P7yn8maDj+woDz27SH6CI=
 github.com/webong/ext/pkg/plugin-go/wasm v0.2.0/go.mod h1:VL8kt/gsiGCBZBY5PcUdMqVlClEo18kqVV5RcBozfmU=

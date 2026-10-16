@@ -7,8 +7,8 @@ import (
 	"encoding/json"
 	"errors"
 	plugin "github.com/webong/ext/pkg/plugin-go/contract"
-	"github.com/webong/ext/pkg/plugin-go/contract/instance"
-	"github.com/webong/ext/pkg/plugin-go/contract/stream"
+	"github.com/webong/ext/pkg/plugin-go/contract/guest/instance"
+	"github.com/webong/ext/pkg/plugin-go/contract/guest/stream"
 	"testing"
 	"time"
 )

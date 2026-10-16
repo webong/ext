@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/webong/ext/pkg/plugin-go/contract/instance"
+	"github.com/webong/ext/pkg/plugin-go/contract/guest/instance"
 	"strings"
 	"testing"
 	"time"

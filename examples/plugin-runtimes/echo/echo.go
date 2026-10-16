@@ -5,7 +5,7 @@ package echo
 import (
 	"context"
 	goengine "github.com/webong/ext/pkg/plugin-go/cengine"
-	"github.com/webong/ext/pkg/plugin-go/contract/author"
+	"github.com/webong/ext/pkg/plugin-go/contract/guest/author"
 	"github.com/webong/ext/pkg/plugin-go/contract/inprocess"
 	"github.com/webong/ext/pkg/plugin-go/contract/schema"
 )

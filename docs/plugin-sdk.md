@@ -14,18 +14,18 @@ Their existing native protocols are not automatically compatible with CTX.
 | Package | Responsibility |
 | --- | --- |
 | `plugin` | Immutable descriptors, exact selection, verification, per-call admission, lifecycle, compatibility preflight and metadata observation |
-| `pkg/plugin-go/contract/author` | Typed methods, runtime validation, descriptor generation and frozen guest dispatch |
+| `pkg/plugin-go/contract/guest/author` | Typed methods, runtime validation, descriptor generation and frozen guest dispatch |
 | `pkg/plugin-go/contract/schema` | Bounded `ext.schema/v1` payload/configuration schemas |
 | `pkg/plugin-go/contract/inprocess` | Trusted endpoints with connection lifetime cancellation |
 | `pkg/plugin-go/contract/jsonline` | Bounded JSON-line transport on a supplied duplex connection |
 | `pkg/plugin-go/hashicorp` | Native go-plugin startup and net/rpc or gRPC bindings |
-| `pkg/plugin-go/contract/nativego` | Dynamic Go `.so` loading through a standard guest factory |
+| `pkg/plugin-go/contract/host/nativego` | Dynamic Go `.so` loading through a standard guest factory |
 | `pkg/plugin-go/wasm` | Embedded wazero execution of WASI Preview 1 command guests |
 | `pkg/plugin-go/cengine/cshared` | Dynamic C ABI loading with separate guest handles and owned buffers |
 | `pkg/plugin-go/cengine/cshared/guest` | Go guest lifecycle and cgo export bridge for C shared libraries |
-| `pkg/plugin-go/contract/instance` | Configuration revisions, resource leases, replacement and disposal |
-| `pkg/plugin-go/contract/capability` | Optional health and configuration contracts |
-| `pkg/plugin-go/contract/stream` | Optional, scoped, bounded pull streams |
+| `pkg/plugin-go/contract/guest/instance` | Configuration revisions, resource leases, replacement and disposal |
+| `pkg/plugin-go/contract/guest/capability` | Optional health and configuration contracts |
+| `pkg/plugin-go/contract/guest/stream` | Optional, scoped, bounded pull streams |
 | `pkg/plugin-go/contract/packagekit` | Portable manifests, artifact verification, preflight and graph projection |
 | `pkg/plugin-go/contract/plugintest` | Reusable backend conformance tests |
 | `pkg/plugin-go` | Go binding to the C engine; static by default, shared optional |
@@ -304,7 +304,7 @@ tradeoffs. Ordinary Go builds do not depend on this C engine.
 ### Interoperability across implementations
 
 Go, C and language-native SDK hosts can coexist behind the same contract.
-`pkg/plugin-go/contract/interop` plans explicit direct/bridged routes; `pkg/plugin-go/contract/bridge` exposes a
+`pkg/plugin-go/contract/host/interop` plans explicit direct/bridged routes; `pkg/plugin-go/contract/bridge` exposes a
 verified backend as an Endpoint. `pkg/plugin-go/cmd/ext-plugin-bridge` connects JSON-line hosts
 to HashiCorp gRPC/net/rpc guests, while HashiCorp servers can expose relay
 Endpoints in the reverse direction. See [interoperability](plugin-interoperability.md)

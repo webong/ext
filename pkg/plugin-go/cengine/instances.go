@@ -11,7 +11,7 @@ import (
 	"encoding/json"
 	"fmt"
 	plugin "github.com/webong/ext/pkg/plugin-go/contract"
-	"github.com/webong/ext/pkg/plugin-go/contract/instance"
+	"github.com/webong/ext/pkg/plugin-go/contract/guest/instance"
 	"math"
 	"runtime/cgo"
 	"sync"

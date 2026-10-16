@@ -8,10 +8,10 @@ import (
 	"errors"
 	"fmt"
 	plugin "github.com/webong/ext/pkg/plugin-go/contract"
-	"github.com/webong/ext/pkg/plugin-go/contract/author"
-	"github.com/webong/ext/pkg/plugin-go/contract/capability"
+	"github.com/webong/ext/pkg/plugin-go/contract/guest/author"
+	"github.com/webong/ext/pkg/plugin-go/contract/guest/capability"
+	"github.com/webong/ext/pkg/plugin-go/contract/guest/instance"
 	"github.com/webong/ext/pkg/plugin-go/contract/inprocess"
-	"github.com/webong/ext/pkg/plugin-go/contract/instance"
 	"github.com/webong/ext/pkg/plugin-go/contract/schema"
 	"testing"
 )

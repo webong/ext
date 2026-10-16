@@ -225,3 +225,36 @@ func exportedAPI(t *testing.T, dir string) map[string]bool {
 	}
 	return out
 }
+
+// contract/host groups what runs plugins on a machine and contract/guest what a plugin
+// implementation uses. Neither may import the other: a plugin must not need host code,
+// and a host must not need a plugin's authoring helpers.
+func TestHostAndGuestGroupsStayIndependent(t *testing.T) {
+	root := repoRoot(t)
+	groups := map[string]string{
+		"pkg/plugin-go/contract/host":  pluginPrefix + "/contract/guest",
+		"pkg/plugin-go/contract/guest": pluginPrefix + "/contract/host",
+	}
+	for dir, forbidden := range groups {
+		err := filepath.WalkDir(filepath.Join(root, dir), func(path string, entry fs.DirEntry, walkErr error) error {
+			if walkErr != nil || entry.IsDir() || filepath.Ext(path) != ".go" {
+				return walkErr
+			}
+			file, err := parser.ParseFile(token.NewFileSet(), path, nil, parser.ImportsOnly)
+			if err != nil {
+				return err
+			}
+			for _, imp := range file.Imports {
+				name, _ := strconv.Unquote(imp.Path.Value)
+				if name == forbidden || strings.HasPrefix(name, forbidden+"/") {
+					rel, _ := filepath.Rel(root, path)
+					t.Errorf("%s imports %s; the host and guest groups must stay independent", filepath.ToSlash(rel), name)
+				}
+			}
+			return nil
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+}

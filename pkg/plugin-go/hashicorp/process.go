@@ -16,7 +16,7 @@ import (
 	"github.com/hashicorp/go-hclog"
 	hc "github.com/hashicorp/go-plugin"
 	plugin "github.com/webong/ext/pkg/plugin-go/contract"
-	"github.com/webong/ext/pkg/plugin-go/contract/interop"
+	"github.com/webong/ext/pkg/plugin-go/contract/host/interop"
 	"github.com/webong/ext/pkg/plugin-go/contract/jsonline"
 )
 

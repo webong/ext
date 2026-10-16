@@ -7,9 +7,9 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	plugin "github.com/webong/ext/pkg/plugin-go/contract"
-	"github.com/webong/ext/pkg/plugin-go/contract/author"
+	"github.com/webong/ext/pkg/plugin-go/contract/guest/author"
+	"github.com/webong/ext/pkg/plugin-go/contract/host/interop"
 	"github.com/webong/ext/pkg/plugin-go/contract/host/process"
-	"github.com/webong/ext/pkg/plugin-go/contract/interop"
 	"github.com/webong/ext/pkg/plugin-go/contract/schema"
 	"strings"
 )

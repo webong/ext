@@ -36,7 +36,7 @@ import (
 	"fmt"
 
 	"github.com/webong/ext/pkg/plugin-go"
-	"github.com/webong/ext/pkg/plugin-go/contract/author"
+	"github.com/webong/ext/pkg/plugin-go/contract/guest/author"
 	"github.com/webong/ext/pkg/plugin-go/contract/inprocess"
 )
 

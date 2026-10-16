@@ -6,11 +6,14 @@ data model, host sessions and guests, `ext.package/v1` manifests and the install
 package store's building blocks, JSON-line and bridge transports, process launching,
 schemas and typed authoring, instances and streams, and the conformance suite.
 
-Subpackages: `author`, `bridge`, `capability`, `inprocess`, `instance`, `interop`, `jsonline`,
-`jsonschema`, `nativego`, `packagekit`, `plugintest`, `schema`, `stream`, and `host`, which groups
-everything that runs plugins on a machine: `host` opens an installed package as a running plugin,
-`host/store` installs, verifies and lists packages under a root you choose, `host/process` starts
-the child process and `host/adapter` manages host-side adapters. All of it is pure Go. The
+Subpackages: `bridge`, `inprocess`, `jsonline`, `jsonschema`, `packagekit`, `plugintest`, `schema`,
+plus two groups. `guest` holds what a plugin implementation uses: `guest/author` (typed operations and
+guest construction), `guest/capability` (the health and configuration contracts), `guest/instance`
+(configured resources) and `guest/stream` (the pull-stream service); the `Guest` type itself is in the
+root package beside the host's `Session`. `host` groups everything that runs plugins on a machine: `host` opens an installed package as a running plugin, `host/store` installs,
+verifies and lists packages under a root you choose, `host/process` starts the child process,
+`host/adapter` manages host-side adapters, `host/interop` resolves which backend serves a request
+and `host/nativego` loads a Go plugin built as a shared library. All of it is pure Go. The
 [`cengine`](../cengine) module has engine-routed variants of `host` and `host/store` with an identical API.
 
 This is the lean choice. Add [`cengine`](../cengine) for the C engine binding,

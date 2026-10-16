@@ -15,8 +15,8 @@ import (
 	"github.com/webong/ext/examples/plugin-runtimes/echo"
 	goengine "github.com/webong/ext/pkg/plugin-go/cengine"
 	"github.com/webong/ext/pkg/plugin-go/cengine/cshared"
-	"github.com/webong/ext/pkg/plugin-go/contract/author"
-	"github.com/webong/ext/pkg/plugin-go/contract/nativego"
+	"github.com/webong/ext/pkg/plugin-go/contract/guest/author"
+	"github.com/webong/ext/pkg/plugin-go/contract/host/nativego"
 	"github.com/webong/ext/pkg/plugin-go/wasm"
 )
 

@@ -11,7 +11,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	plugin "github.com/webong/ext/pkg/plugin-go/contract"
-	"github.com/webong/ext/pkg/plugin-go/contract/interop"
+	"github.com/webong/ext/pkg/plugin-go/contract/host/interop"
 	"github.com/webong/ext/pkg/plugin-go/contract/schema"
 	"strings"
 	"unicode/utf8"

@@ -11,7 +11,7 @@ import (
 	"encoding/json"
 	"errors"
 	plugin "github.com/webong/ext/pkg/plugin-go/contract"
-	"github.com/webong/ext/pkg/plugin-go/contract/author"
+	"github.com/webong/ext/pkg/plugin-go/contract/guest/author"
 	"math"
 	"runtime/cgo"
 	"sync"

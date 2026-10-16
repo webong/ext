@@ -4,8 +4,8 @@ import (
 	"context"
 	goengine "github.com/webong/ext/pkg/plugin-go/cengine"
 	"github.com/webong/ext/pkg/plugin-go/contract/guest/author"
-	"github.com/webong/ext/pkg/plugin-go/contract/jsonline"
-	"github.com/webong/ext/pkg/plugin-go/contract/schema"
+	"github.com/webong/ext/pkg/plugin-go/contract/transport/jsonline"
+	"github.com/webong/ext/pkg/plugin-go/contract/validate/schema"
 	"os"
 )
 

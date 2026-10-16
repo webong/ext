@@ -10,7 +10,7 @@ import (
 	plugin "github.com/webong/ext/pkg/plugin-go/contract"
 	"github.com/webong/ext/pkg/plugin-go/contract/guest/author"
 	"github.com/webong/ext/pkg/plugin-go/contract/guest/stream"
-	"github.com/webong/ext/pkg/plugin-go/contract/inprocess"
+	"github.com/webong/ext/pkg/plugin-go/contract/transport/inprocess"
 	"strings"
 	"sync"
 	"testing"

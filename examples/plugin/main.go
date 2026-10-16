@@ -8,7 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	goengine "github.com/webong/ext/pkg/plugin-go/cengine"
-	"github.com/webong/ext/pkg/plugin-go/contract/jsonline"
+	"github.com/webong/ext/pkg/plugin-go/contract/transport/jsonline"
 	"net"
 	"os"
 )

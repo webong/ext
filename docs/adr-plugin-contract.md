@@ -7,7 +7,7 @@ wire protocols do not become compatible merely by importing this package.
 ## Ownership
 
 CTX supplies `github.com/webong/ext/pkg/plugin-go`, alongside `graph` and `supervisor`.
-Its implementations include `pkg/plugin-go/contract/inprocess`, `pkg/plugin-go/contract/jsonline`,
+Its implementations include `pkg/plugin-go/contract/transport/inprocess`, `pkg/plugin-go/contract/transport/jsonline`,
 `pkg/plugin-go/hashicorp`, `pkg/plugin-go/contract/host/nativego`, `pkg/plugin-go/wasm`, and `pkg/plugin-go/cengine/cshared`, with
 additional backends able to implement the same public interface. HashiCorp
 go-plugin is a dependency of the plugin library, not a CTX product adapter.
@@ -386,7 +386,7 @@ versioned domain contracts may coexist in a descriptor.
 
 Run the end-to-end example with `go run ./examples/plugin`. Contract, admission,
 drain, integrity, malformed-frame, cancellation, concurrency, and CTX compatibility
-tests live under `pkg/plugin-go/contract/`, `pkg/plugin-go/contract/jsonline/`, and `pkg/plugin-go/contract/host/adapter/plugin_test.go`.
+tests live under `pkg/plugin-go/contract/`, `pkg/plugin-go/contract/transport/jsonline/`, and `pkg/plugin-go/contract/host/adapter/plugin_test.go`.
 HashiCorp tests under `pkg/plugin-go/hashicorp/` launch real subprocesses over both
 RPC protocols with checksum verification and automatic TLS. They cover host
 admission, concurrent requests, structured errors, mismatch, cancellation, and

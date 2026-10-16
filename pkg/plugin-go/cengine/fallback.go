@@ -10,7 +10,7 @@ import (
 	"github.com/webong/ext/pkg/plugin-go/contract/guest/author"
 	"github.com/webong/ext/pkg/plugin-go/contract/host/interop"
 	"github.com/webong/ext/pkg/plugin-go/contract/host/process"
-	"github.com/webong/ext/pkg/plugin-go/contract/schema"
+	"github.com/webong/ext/pkg/plugin-go/contract/validate/schema"
 	"strings"
 )
 

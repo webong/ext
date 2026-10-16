@@ -7,8 +7,8 @@ import (
 	"github.com/webong/ext/pkg/plugin-go/contract/guest/author"
 	"github.com/webong/ext/pkg/plugin-go/contract/guest/capability"
 	"github.com/webong/ext/pkg/plugin-go/contract/guest/instance"
-	"github.com/webong/ext/pkg/plugin-go/contract/inprocess"
-	"github.com/webong/ext/pkg/plugin-go/contract/schema"
+	"github.com/webong/ext/pkg/plugin-go/contract/transport/inprocess"
+	"github.com/webong/ext/pkg/plugin-go/contract/validate/schema"
 	"testing"
 )
 

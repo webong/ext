@@ -8,8 +8,8 @@ import (
 	"context"
 	"github.com/webong/ext/pkg/plugin-go/cengine/cshared/guest"
 	plugin "github.com/webong/ext/pkg/plugin-go/contract"
-	"github.com/webong/ext/pkg/plugin-go/contract/inprocess"
 	"github.com/webong/ext/pkg/plugin-go/contract/plugintest"
+	"github.com/webong/ext/pkg/plugin-go/contract/transport/inprocess"
 	"unsafe"
 )
 

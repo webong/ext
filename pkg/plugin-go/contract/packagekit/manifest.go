@@ -16,7 +16,7 @@ import (
 	"strings"
 
 	plugin "github.com/webong/ext/pkg/plugin-go/contract"
-	"github.com/webong/ext/pkg/plugin-go/contract/schema"
+	"github.com/webong/ext/pkg/plugin-go/contract/validate/schema"
 )
 
 const Version = "ext.package/v1"

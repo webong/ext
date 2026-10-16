@@ -5,7 +5,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/webong/ext/pkg/plugin-go/contract/schema"
+	"github.com/webong/ext/pkg/plugin-go/contract/validate/schema"
 )
 
 func TestSchema(t *testing.T) {
@@ -28,7 +28,7 @@ func TestSchema(t *testing.T) {
 }
 
 func TestSharedSchemaFixtures(t *testing.T) {
-	data, err := os.ReadFile("../../../../lib/plugin/testdata/schema-v1.json")
+	data, err := os.ReadFile("../../../../../lib/plugin/testdata/schema-v1.json")
 	if err != nil {
 		t.Fatal(err)
 	}

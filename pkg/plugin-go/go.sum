@@ -39,13 +39,13 @@ github.com/stretchr/testify v1.8.3 h1:RP3t2pwF7cMEbC1dqtB6poj3niw/9gnV4Cjg5oW5gt
 github.com/stretchr/testify v1.8.3/go.mod h1:sz/lmYIOXD/1dqDmKjjqLyZ2RngseejIcXlSw2iwfAo=
 github.com/tetratelabs/wazero v1.10.1 h1:2DugeJf6VVk58KTPszlNfeeN8AhhpwcZqkJj2wwFuH8=
 github.com/tetratelabs/wazero v1.10.1/go.mod h1:DRm5twOQ5Gr1AoEdSi0CLjDQF1J9ZAuyqFIjl1KKfQU=
-github.com/webong/ext/pkg/plugin-go/cengine v0.2.0 h1:7gl1lbP2hotH9iSRh+fw2cWXIXkOlnOYm6DNRH5GRO0=
+github.com/webong/ext/pkg/plugin-go/cengine v0.2.0 h1:q2SrNoperM5GMuK3SBI3YhzBtT607hpJdnpRrA4SWzo=
 github.com/webong/ext/pkg/plugin-go/cengine v0.2.0/go.mod h1:WwFnLNPXX7BgVnKaUgLd2eHAP2mqMF+3J41M9iEZIQw=
-github.com/webong/ext/pkg/plugin-go/contract v0.2.0 h1:zhfdjhrJb4KTKxwS+ImZk4t5Vuma+1EUDKET0Zh7PdI=
+github.com/webong/ext/pkg/plugin-go/contract v0.2.0 h1:IxGZQRoW+WriUnfS9uxlx+Ioc2y3ZkqQlVHI5PelXQA=
 github.com/webong/ext/pkg/plugin-go/contract v0.2.0/go.mod h1:YajPTz7utaUNrcn856mnFegEHuk8l70pK2krbVFSZoc=
-github.com/webong/ext/pkg/plugin-go/hashicorp v0.2.0 h1:u1CC42Q1/gQNJ7QFEt2mojXHj49Q3lk6dFBEcITV29k=
+github.com/webong/ext/pkg/plugin-go/hashicorp v0.2.0 h1:0Hd72cWG5UUIPBzod8hvL/rkC+AeHazhggENnPwW66o=
 github.com/webong/ext/pkg/plugin-go/hashicorp v0.2.0/go.mod h1:Vl6q217EymSL7jEx1Cpc6C+JLY21LBxnMFCATFWNY4o=
-github.com/webong/ext/pkg/plugin-go/wasm v0.2.0 h1:AwBj1LOx9oUknByBCU1Pdw6XGeDAFuq4CRK/7mPoRVI=
+github.com/webong/ext/pkg/plugin-go/wasm v0.2.0 h1:TJhRx1CrYB6AcY/LBctnKJ/MraX+FhYXWaCvJ8d24vs=
 github.com/webong/ext/pkg/plugin-go/wasm v0.2.0/go.mod h1:VL8kt/gsiGCBZBY5PcUdMqVlClEo18kqVV5RcBozfmU=
 github.com/webong/ext/res/graph v0.1.0 h1:c/LRR0toSw+aMqGsvaGdvowyCl5axB4Ilj5ieEKY4i0=
 github.com/webong/ext/res/graph v0.1.0/go.mod h1:fjlS2iDx5EunSAaSzk2bsYVCzCN+VgfoF/nQzPtcxvc=

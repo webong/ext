@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	plugin "github.com/webong/ext/pkg/plugin-go/contract"
-	"github.com/webong/ext/pkg/plugin-go/contract/schema"
+	"github.com/webong/ext/pkg/plugin-go/contract/validate/schema"
 	"sort"
 	"sync"
 	"time"

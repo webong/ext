@@ -10,7 +10,7 @@ import (
 	"errors"
 	"fmt"
 	goengine "github.com/webong/ext/pkg/plugin-go/cengine"
-	"github.com/webong/ext/pkg/plugin-go/contract/jsonline"
+	"github.com/webong/ext/pkg/plugin-go/contract/transport/jsonline"
 	"io"
 	"os"
 	"os/exec"

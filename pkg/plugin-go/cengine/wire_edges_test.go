@@ -5,7 +5,7 @@ package goengine
 import (
 	"encoding/json"
 	plugin "github.com/webong/ext/pkg/plugin-go/contract"
-	"github.com/webong/ext/pkg/plugin-go/contract/schema"
+	"github.com/webong/ext/pkg/plugin-go/contract/validate/schema"
 	"testing"
 )
 

@@ -15,9 +15,9 @@ Their existing native protocols are not automatically compatible with CTX.
 | --- | --- |
 | `plugin` | Immutable descriptors, exact selection, verification, per-call admission, lifecycle, compatibility preflight and metadata observation |
 | `pkg/plugin-go/contract/guest/author` | Typed methods, runtime validation, descriptor generation and frozen guest dispatch |
-| `pkg/plugin-go/contract/schema` | Bounded `ext.schema/v1` payload/configuration schemas |
-| `pkg/plugin-go/contract/inprocess` | Trusted endpoints with connection lifetime cancellation |
-| `pkg/plugin-go/contract/jsonline` | Bounded JSON-line transport on a supplied duplex connection |
+| `pkg/plugin-go/contract/validate/schema` | Bounded `ext.schema/v1` payload/configuration schemas |
+| `pkg/plugin-go/contract/transport/inprocess` | Trusted endpoints with connection lifetime cancellation |
+| `pkg/plugin-go/contract/transport/jsonline` | Bounded JSON-line transport on a supplied duplex connection |
 | `pkg/plugin-go/hashicorp` | Native go-plugin startup and net/rpc or gRPC bindings |
 | `pkg/plugin-go/contract/host/nativego` | Dynamic Go `.so` loading through a standard guest factory |
 | `pkg/plugin-go/wasm` | Embedded wazero execution of WASI Preview 1 command guests |
@@ -304,7 +304,7 @@ tradeoffs. Ordinary Go builds do not depend on this C engine.
 ### Interoperability across implementations
 
 Go, C and language-native SDK hosts can coexist behind the same contract.
-`pkg/plugin-go/contract/host/interop` plans explicit direct/bridged routes; `pkg/plugin-go/contract/bridge` exposes a
+`pkg/plugin-go/contract/host/interop` plans explicit direct/bridged routes; `pkg/plugin-go/contract/transport/bridge` exposes a
 verified backend as an Endpoint. `pkg/plugin-go/cmd/ext-plugin-bridge` connects JSON-line hosts
 to HashiCorp gRPC/net/rpc guests, while HashiCorp servers can expose relay
 Endpoints in the reverse direction. See [interoperability](plugin-interoperability.md)

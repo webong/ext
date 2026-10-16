@@ -211,7 +211,7 @@ from `_csrc` and links the engine library, which is built from `_csrc` with CMak
 
 | Old import path (module) | New import path (module) |
 | --- | --- |
-| `pkg/plugin` and its subpackages, including `store` and `host` (`pkg/plugin`, up to v0.6.0) | `pkg/plugin-go/contract` and `.../contract/<subpackage>` (`pkg/plugin-go/contract`); the packages that run plugins on a machine are grouped under `contract/host` (`store` becomes `contract/host/store`, `process` becomes `contract/host/process`, `adapter` becomes `contract/host/adapter`, `interop` becomes `contract/host/interop`, `nativego` becomes `contract/host/nativego`; what a plugin implementation uses is grouped under `contract/guest`: `author` becomes `contract/guest/author`, `capability` becomes `contract/guest/capability`, `instance` becomes `contract/guest/instance`, `stream` becomes `contract/guest/stream`); an application that wants the engine-routed behavior swaps `contract/host` and `contract/host/store` for `cengine/host` and `cengine/host/store`, which have an identical API |
+| `pkg/plugin` and its subpackages, including `store` and `host` (`pkg/plugin`, up to v0.6.0) | `pkg/plugin-go/contract` and `.../contract/<subpackage>` (`pkg/plugin-go/contract`); the packages that run plugins on a machine are grouped under `contract/host` (`store` becomes `contract/host/store`, `process` becomes `contract/host/process`, `adapter` becomes `contract/host/adapter`, `interop` becomes `contract/host/interop`, `nativego` becomes `contract/host/nativego`; what a plugin implementation uses is grouped under `contract/guest`: `author` becomes `contract/guest/author`, `capability` becomes `contract/guest/capability`, `instance` becomes `contract/guest/instance`, `stream` becomes `contract/guest/stream`; the transports and validators are grouped too: `jsonline` becomes `contract/transport/jsonline`, `inprocess` becomes `contract/transport/inprocess`, `bridge` becomes `contract/transport/bridge`, `schema` becomes `contract/validate/schema`, `jsonschema` becomes `contract/validate/jsonschema`); an application that wants the engine-routed behavior swaps `contract/host` and `contract/host/store` for `cengine/host` and `cengine/host/store`, which have an identical API |
 | `pkg/plugin-go` root, the engine API (`pkg/plugin-go`, up to v0.1.1) | `pkg/plugin-go/cengine` (`pkg/plugin-go/cengine`) |
 | `pkg/plugin-go/cshared`, `.../cshared/abi`, `.../cshared/guest` | `pkg/plugin-go/cengine/cshared`, `.../abi`, `.../guest` (`pkg/plugin-go/cengine`) |
 | `pkg/plugin-cshared` (up to v0.1.0) | `pkg/plugin-go/cengine/cshared` (`pkg/plugin-go/cengine`) |
@@ -222,8 +222,9 @@ from `_csrc` and links the engine library, which is built from `_csrc` with CMak
 | `packagekit.Plan.Graph(namespace)` | `plugingo.PlanGraph(plan, namespace)` in `pkg/plugin-go`; `packagekit.IdentityKey` is now exported. The conversion lives in the umbrella so `contract` has no `res/graph` dependency. No caller in this repository other than the method's own test used it, and the consumer repository calls neither it nor `res/graph` |
 
 Subpackages of the old `pkg/plugin-go` and `pkg/plugin` that move under `contract`:
-`bridge`, `inprocess`, `jsonline`, `jsonschema`, `packagekit`, `plugintest` and `schema`, with the
-host-side ones grouped under `contract/host` (`host` itself and `host/adapter`, `host/interop`,
+`packagekit` and `plugintest` at the top, with the transports grouped under `contract/transport`
+(`transport/jsonline`, `transport/inprocess`, `transport/bridge`), the validators under
+`contract/validate` (`validate/schema`, `validate/jsonschema`), the host-side ones grouped under `contract/host` (`host` itself and `host/adapter`, `host/interop`,
 `host/nativego`, `host/process`, `host/store`) and the guest-side ones under `contract/guest`
 (`guest/author`, `guest/capability`, `guest/instance`, `guest/stream`). `cengine`
 holds `packages` (engine-only) and engine-routed variants of `host` and `host/store` whose exported API is

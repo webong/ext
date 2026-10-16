@@ -9,7 +9,7 @@ import (
 	"context"
 	"fmt"
 	plugin "github.com/webong/ext/pkg/plugin-go/contract"
-	"github.com/webong/ext/pkg/plugin-go/contract/jsonline"
+	"github.com/webong/ext/pkg/plugin-go/contract/transport/jsonline"
 	"io"
 	"os"
 	"os/exec"

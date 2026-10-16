@@ -2,7 +2,7 @@ package store_test
 
 import (
 	"errors"
-	"github.com/webong/ext/pkg/plugin-go/cengine/store"
+	"github.com/webong/ext/pkg/plugin-go/cengine/host/store"
 	plugin "github.com/webong/ext/pkg/plugin-go/contract"
 	"os"
 	"path/filepath"

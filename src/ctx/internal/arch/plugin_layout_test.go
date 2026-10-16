@@ -128,13 +128,13 @@ func TestContractModuleUsesOnlyTheStandardLibrary(t *testing.T) {
 	}
 }
 
-// contract/store and contract/host are the pure-Go implementations an application
-// takes with the contract module alone; cengine/store and cengine/host are the same
-// packages routed through the engine. Swapping one import for the other must never
+// contract/host and contract/host/store are the pure-Go implementations an
+// application takes with the contract module alone; cengine/host and
+// cengine/host/store are the same packages routed through the engine. Swapping one import for the other must never
 // need a code change, so their exported surfaces must be identical.
 func TestEngineVariantsKeepTheSameAPI(t *testing.T) {
 	root := repoRoot(t)
-	for _, name := range []string{"store", "host"} {
+	for _, name := range []string{"host", "host/store"} {
 		pure := exportedAPI(t, filepath.Join(root, "pkg/plugin-go/contract", name))
 		engine := exportedAPI(t, filepath.Join(root, "pkg/plugin-go/cengine", name))
 		for line := range pure {

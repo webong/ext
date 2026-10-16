@@ -3,9 +3,9 @@ package store_test
 import (
 	"errors"
 	"fmt"
-	"github.com/webong/ext/pkg/plugin-go/cengine/store"
+	"github.com/webong/ext/pkg/plugin-go/cengine/host/store"
 	plugin "github.com/webong/ext/pkg/plugin-go/contract"
-	cstore "github.com/webong/ext/pkg/plugin-go/contract/store"
+	cstore "github.com/webong/ext/pkg/plugin-go/contract/host/store"
 	"os"
 	"path/filepath"
 	"sort"

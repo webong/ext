@@ -19,9 +19,9 @@ browser fallback, or built-in permission vocabulary.
 
 Consumers define domain contracts, payloads, authorization, configuration,
 discovery, package distribution, trust decisions, and endpoint authentication.
-The library supplies the generic mechanics around them: `pkg/plugin-go/cengine/store`
+The library supplies the generic mechanics around them: `pkg/plugin-go/cengine/host/store`
 installs, upgrades, lists, removes and re-verifies packages, and
-`pkg/plugin-go/contract/process` launches process plugins (see below).
+`pkg/plugin-go/contract/host/process` launches process plugins (see below).
 Product and native mechanisms in CTX belong under `adapters/<name>/`.
 Portable integrity and plugin runtime implementations belong in the library.
 A descriptor, graph
@@ -386,7 +386,7 @@ versioned domain contracts may coexist in a descriptor.
 
 Run the end-to-end example with `go run ./examples/plugin`. Contract, admission,
 drain, integrity, malformed-frame, cancellation, concurrency, and CTX compatibility
-tests live under `pkg/plugin-go/contract/`, `pkg/plugin-go/contract/jsonline/`, and `pkg/plugin-go/contract/adapter/plugin_test.go`.
+tests live under `pkg/plugin-go/contract/`, `pkg/plugin-go/contract/jsonline/`, and `pkg/plugin-go/contract/host/adapter/plugin_test.go`.
 HashiCorp tests under `pkg/plugin-go/hashicorp/` launch real subprocesses over both
 RPC protocols with checksum verification and automatic TLS. They cover host
 admission, concurrent requests, structured errors, mismatch, cancellation, and

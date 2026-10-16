@@ -64,7 +64,7 @@ boundary validated by CTX.
 ## Calling an adapter from a host
 
 A host drives an installed browser adapter through one process per request. It
-needs no adapter code: `pkg/plugin-go/contract/adapter` provides the store, trust check and
+needs no adapter code: `pkg/plugin-go/contract/host/adapter` provides the store, trust check and
 command construction, and `res/web/contract` provides the envelope and its
 validation.
 

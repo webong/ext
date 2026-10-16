@@ -7,10 +7,10 @@ import (
 	"fmt"
 	plugin "github.com/webong/ext/pkg/plugin-go/contract"
 	"github.com/webong/ext/pkg/plugin-go/contract/host"
+	"github.com/webong/ext/pkg/plugin-go/contract/host/process"
+	"github.com/webong/ext/pkg/plugin-go/contract/host/store"
 	"github.com/webong/ext/pkg/plugin-go/contract/jsonline"
 	"github.com/webong/ext/pkg/plugin-go/contract/packagekit"
-	"github.com/webong/ext/pkg/plugin-go/contract/process"
-	"github.com/webong/ext/pkg/plugin-go/contract/store"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -216,7 +216,7 @@ func envKeys(env []string) []string {
 	return keys
 }
 
-// The launch must match contract/process used directly: working directory
+// The launch must match contract/host/process used directly: working directory
 // defaulting to the package directory, a scrubbed environment of PATH plus the
 // caller's entries, and bounded retained stderr.
 func TestLaunchMatchesGoProcess(t *testing.T) {

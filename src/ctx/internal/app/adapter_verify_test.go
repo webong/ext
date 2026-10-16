@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	modpkg "github.com/webong/ext/pkg/plugin-go/contract/adapter"
+	modpkg "github.com/webong/ext/pkg/plugin-go/contract/host/adapter"
 )
 
 func writeVerifyAdapter(t *testing.T, home, name string) *modpkg.Adapter {

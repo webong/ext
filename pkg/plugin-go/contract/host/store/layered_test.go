@@ -3,7 +3,7 @@ package store_test
 import (
 	"errors"
 	plugin "github.com/webong/ext/pkg/plugin-go/contract"
-	"github.com/webong/ext/pkg/plugin-go/contract/store"
+	"github.com/webong/ext/pkg/plugin-go/contract/host/store"
 	"os"
 	"path/filepath"
 	"strings"

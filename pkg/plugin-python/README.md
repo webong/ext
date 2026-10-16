@@ -1,7 +1,7 @@
 # ext_plugin (Python guest SDK)
 
 Standard-library-only guest for `ext.plugin/v1` over JSON lines (Python 3.8+).
-Hosts use the Go `pkg/plugin-go/contract/process` backend (or any JSON-line client) to run it.
+Hosts use the Go `pkg/plugin-go/contract/host/process` backend (or any JSON-line client) to run it.
 
 ```python
 import ext_plugin

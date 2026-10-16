@@ -11,9 +11,9 @@ import (
 	"errors"
 	"fmt"
 	goengine "github.com/webong/ext/pkg/plugin-go/cengine"
-	"github.com/webong/ext/pkg/plugin-go/cengine/store"
+	"github.com/webong/ext/pkg/plugin-go/cengine/host/store"
 	plugin "github.com/webong/ext/pkg/plugin-go/contract"
-	"github.com/webong/ext/pkg/plugin-go/contract/process"
+	"github.com/webong/ext/pkg/plugin-go/contract/host/process"
 	"path/filepath"
 	"time"
 )

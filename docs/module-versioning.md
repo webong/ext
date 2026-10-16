@@ -211,7 +211,7 @@ from `_csrc` and links the engine library, which is built from `_csrc` with CMak
 
 | Old import path (module) | New import path (module) |
 | --- | --- |
-| `pkg/plugin` and its subpackages, including `store` and `host` (`pkg/plugin`, up to v0.6.0) | `pkg/plugin-go/contract` and `.../contract/<subpackage>` (`pkg/plugin-go/contract`); an application that wants the engine-routed behavior swaps `contract/store` and `contract/host` for `cengine/store` and `cengine/host`, which have an identical API |
+| `pkg/plugin` and its subpackages, including `store` and `host` (`pkg/plugin`, up to v0.6.0) | `pkg/plugin-go/contract` and `.../contract/<subpackage>` (`pkg/plugin-go/contract`); the packages that run plugins on a machine are grouped under `contract/host` (`store` becomes `contract/host/store`, `process` becomes `contract/host/process`, `adapter` becomes `contract/host/adapter`); an application that wants the engine-routed behavior swaps `contract/host` and `contract/host/store` for `cengine/host` and `cengine/host/store`, which have an identical API |
 | `pkg/plugin-go` root, the engine API (`pkg/plugin-go`, up to v0.1.1) | `pkg/plugin-go/cengine` (`pkg/plugin-go/cengine`) |
 | `pkg/plugin-go/cshared`, `.../cshared/abi`, `.../cshared/guest` | `pkg/plugin-go/cengine/cshared`, `.../abi`, `.../guest` (`pkg/plugin-go/cengine`) |
 | `pkg/plugin-cshared` (up to v0.1.0) | `pkg/plugin-go/cengine/cshared` (`pkg/plugin-go/cengine`) |
@@ -222,10 +222,11 @@ from `_csrc` and links the engine library, which is built from `_csrc` with CMak
 | `packagekit.Plan.Graph(namespace)` | `plugingo.PlanGraph(plan, namespace)` in `pkg/plugin-go`; `packagekit.IdentityKey` is now exported. The conversion lives in the umbrella so `contract` has no `res/graph` dependency. No caller in this repository other than the method's own test used it, and the consumer repository calls neither it nor `res/graph` |
 
 Subpackages of the old `pkg/plugin-go` and `pkg/plugin` that move under `contract`:
-`adapter`, `author`, `bridge`, `capability`, `inprocess`, `instance`, `interop`,
-`host`, `jsonline`, `jsonschema`, `nativego`, `packagekit`, `plugintest`, `process`, `schema`,
-`store`, `stream`. `cengine` holds `packages` (engine-only) and engine-routed variants of `store` and
-`host` whose exported API is identical to `contract`'s; `src/ctx/internal/arch` enforces that, and
+`author`, `bridge`, `capability`, `inprocess`, `instance`, `interop`, `jsonline`, `jsonschema`,
+`nativego`, `packagekit`, `plugintest`, `schema` and `stream`, with the host-side ones grouped
+under `contract/host`: `host` itself and `host/adapter`, `host/process`, `host/store`. `cengine`
+holds `packages` (engine-only) and engine-routed variants of `host` and `host/store` whose exported API is
+identical to `contract`'s; `src/ctx/internal/arch` enforces that, and
 `TestContractStoreMatchesEngineStore` compares their behavior.
 
 Import paths that existed in published `pkg/plugin-go` v0.1.x are `pkg/plugin-go`

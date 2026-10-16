@@ -6,11 +6,11 @@ import (
 	"errors"
 	"fmt"
 	"github.com/webong/ext/pkg/plugin-go/cengine/host"
-	"github.com/webong/ext/pkg/plugin-go/cengine/store"
+	"github.com/webong/ext/pkg/plugin-go/cengine/host/store"
 	plugin "github.com/webong/ext/pkg/plugin-go/contract"
+	"github.com/webong/ext/pkg/plugin-go/contract/host/process"
 	"github.com/webong/ext/pkg/plugin-go/contract/jsonline"
 	"github.com/webong/ext/pkg/plugin-go/contract/packagekit"
-	"github.com/webong/ext/pkg/plugin-go/contract/process"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -216,7 +216,7 @@ func envKeys(env []string) []string {
 	return keys
 }
 
-// The C engine's launch must match pkg/plugin-go/contract/process: working directory
+// The C engine's launch must match pkg/plugin-go/contract/host/process: working directory
 // defaulting to the package directory, a scrubbed environment of PATH plus the
 // caller's entries, and bounded retained stderr.
 func TestLaunchMatchesGoProcess(t *testing.T) {

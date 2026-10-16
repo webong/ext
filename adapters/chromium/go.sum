@@ -1,8 +1,8 @@
 github.com/gorilla/websocket v1.5.3 h1:saDtZ6Pbx/0u+bgYQ3q96pZgCzfhKXGPqt7kZ72aNNg=
 github.com/gorilla/websocket v1.5.3/go.mod h1:YR8l580nyteQvAITg2hZ9XVh4b55+EU/adAjf1fMHhE=
-github.com/webong/ext/pkg/plugin-go/cengine v0.2.0 h1:DyZ2vYtj4PuLp+mzJBw/4RjFWEqwZJ1dqgw0O9KAVcM=
+github.com/webong/ext/pkg/plugin-go/cengine v0.2.0 h1:nEB3xQ49eq8M9vVe7pxF3cArnMghrWucrjoeZcG6x9M=
 github.com/webong/ext/pkg/plugin-go/cengine v0.2.0/go.mod h1:WwFnLNPXX7BgVnKaUgLd2eHAP2mqMF+3J41M9iEZIQw=
-github.com/webong/ext/pkg/plugin-go/contract v0.2.0 h1:bYtx7NWAl1ES2qlt9AD+B6XIKXQ55nHX029Tb64WcEk=
+github.com/webong/ext/pkg/plugin-go/contract v0.2.0 h1:fGkrXFDHiiywoYAZJ5A9Y+jb5xvQZu61G6mBfRg5WcI=
 github.com/webong/ext/pkg/plugin-go/contract v0.2.0/go.mod h1:YajPTz7utaUNrcn856mnFegEHuk8l70pK2krbVFSZoc=
 github.com/webong/ext/res/credential v0.1.0 h1:aeINsDKrFuxvjPHGq1QwbZhhBOkU6Lf1WlGE2l7LvVk=
 github.com/webong/ext/res/credential v0.1.0/go.mod h1:HIKj1culv/BFo+MtX9vTL6y7cG4BQ9tnMW3FgUiZR18=

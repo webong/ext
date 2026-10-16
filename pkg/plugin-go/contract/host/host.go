@@ -12,8 +12,8 @@ import (
 	"time"
 
 	plugin "github.com/webong/ext/pkg/plugin-go/contract"
-	"github.com/webong/ext/pkg/plugin-go/contract/process"
-	"github.com/webong/ext/pkg/plugin-go/contract/store"
+	"github.com/webong/ext/pkg/plugin-go/contract/host/process"
+	"github.com/webong/ext/pkg/plugin-go/contract/host/store"
 )
 
 // DefaultTimeout bounds handshake and calls without an earlier caller deadline.

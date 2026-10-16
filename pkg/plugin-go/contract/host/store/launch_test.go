@@ -3,11 +3,11 @@ package store_test
 import (
 	"context"
 	"encoding/json"
-	"github.com/webong/ext/pkg/plugin-go/cengine/store"
 	plugin "github.com/webong/ext/pkg/plugin-go/contract"
+	"github.com/webong/ext/pkg/plugin-go/contract/host/process"
+	"github.com/webong/ext/pkg/plugin-go/contract/host/store"
 	"github.com/webong/ext/pkg/plugin-go/contract/jsonline"
 	"github.com/webong/ext/pkg/plugin-go/contract/packagekit"
-	"github.com/webong/ext/pkg/plugin-go/contract/process"
 	"os"
 	"path/filepath"
 	"runtime"

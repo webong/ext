@@ -113,19 +113,22 @@ Product adapter engines and stores that are reused across adapters
 `adapters/secret_service/store`) are their own Go modules, listed in `go.work`
 and resolved by `src/ctx/go.mod` while unpublished. Product adapter
 executables use the same plugin library. `pkg/plugin-go/contract` owns the
-adapter process protocol and adapter descriptor helpers, and holds the pure-Go package `store` and `host`. Adapters and other Go
+adapter process protocol and adapter descriptor helpers (`contract/host/adapter`), and holds the pure-Go package store and host (`contract/host`, `contract/host/store`). Adapters and other Go
 programs import `pkg/plugin-go/cengine`, the Go entry point to the engine: it
 re-exports the `contract` data model and serves sessions, guests, digests and
 routes on the C engine (`ext_cengine` and cgo) or in pure Go, so `CGO_ENABLED=0`
 builds keep working. There is no separate `pkg/plugin` module: its code is
-`pkg/plugin-go/contract`. `cengine/packages` covers manifests over the engine, and `cengine/store` and `cengine/host` are
-engine-routed variants of `contract/store` and `contract/host` with an identical exported API (a
-rule `src/ctx/internal/arch` enforces), so swapping the import never needs a code change.
+`pkg/plugin-go/contract`. Everything that runs plugins on a machine is grouped under `contract/host`: `host` opens an
+installed package, and its subpackages `store` (the installed package store), `process` (starting the
+child) and `adapter` (the host-side adapter manager). `cengine/packages` covers manifests over the
+engine, and `cengine/host` and `cengine/host/store` are engine-routed variants of `contract/host` and
+`contract/host/store` with an identical exported API (a rule `src/ctx/internal/arch` enforces), so
+swapping the import never needs a code change.
 `packagekit` has no dependency on `res/graph`; joining a package plan to the host
 graph is `plugingo.PlanGraph` in the umbrella module. Runtime backends
 (`pkg/plugin-go/hashicorp`, `pkg/plugin-go/wasm`) and the C ABI loader in
 `pkg/plugin-go/cengine/cshared` implement `contract.Backend` and import
-`pkg/plugin-go/contract`. Hosts import `pkg/plugin-go/contract/adapter`, which
+`pkg/plugin-go/contract`. Hosts import `pkg/plugin-go/contract/host/adapter`, which
 owns manifests, the installed store, trust and invocation; a product keeps only
 its own selection and commands.
 

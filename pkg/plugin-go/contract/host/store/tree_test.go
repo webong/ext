@@ -3,8 +3,8 @@ package store_test
 import (
 	"encoding/json"
 	"errors"
-	"github.com/webong/ext/pkg/plugin-go/cengine/store"
 	plugin "github.com/webong/ext/pkg/plugin-go/contract"
+	"github.com/webong/ext/pkg/plugin-go/contract/host/store"
 	"github.com/webong/ext/pkg/plugin-go/contract/packagekit"
 	"os"
 	"path/filepath"

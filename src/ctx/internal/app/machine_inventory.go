@@ -11,8 +11,8 @@ import (
 	"time"
 
 	"github.com/webong/ext/ctx/internal/config"
-	"github.com/webong/ext/pkg/graph/system"
-	modpkg "github.com/webong/ext/pkg/plugin/adapter"
+	modpkg "github.com/webong/ext/pkg/plugin-go/contract/host/adapter"
+	"github.com/webong/ext/res/graph/system"
 	browsershare "github.com/webong/ext/res/web/contract"
 )
 

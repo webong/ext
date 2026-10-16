@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/webong/ext/ctx/internal/config"
-	systemgraph "github.com/webong/ext/pkg/graph/system"
-	modpkg "github.com/webong/ext/pkg/plugin/adapter"
+	modpkg "github.com/webong/ext/pkg/plugin-go/contract/host/adapter"
+	systemgraph "github.com/webong/ext/res/graph/system"
 )
 
 type endpoint struct {

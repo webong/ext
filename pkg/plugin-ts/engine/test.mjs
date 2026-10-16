@@ -6,7 +6,7 @@ import {join} from 'node:path';
 import {createHash} from 'node:crypto';
 import {loadEngine} from './index.mjs';
 const engine=loadEngine(process.env.EXT_ENGINE_ADDON);
-const descriptor=JSON.parse(await readFile(new URL('../../../pkg/plugin/testdata/v1/descriptor.json',import.meta.url)));
+const descriptor=JSON.parse(await readFile(new URL('../../../lib/plugin/testdata/v1/descriptor.json',import.meta.url)));
 function envelope(operation='echo',payload={value:7}){return {apiVersion:'ext.plugin/v1',id:'1',plugin:descriptor.identity,contract:{name:'ext.conformance',version:'v1'},operation,payload,deadline:new Date(Date.now()+5000).toISOString()};}
 test('C services and async guest dispatch',async()=>{
  assert.deepEqual(engine.service('descriptor.validate',descriptor),descriptor);

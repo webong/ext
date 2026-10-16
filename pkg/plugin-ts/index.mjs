@@ -727,6 +727,33 @@ export const healthMethod = Object.freeze({
         }, required: ['status', 'ready']
     })
 });
+// ext.configuration update: the same wire shape and limits as the Go library.
+// `values` is any JSON document; the guest's own schema then checks it. It must
+// not carry credentials.
+const configurationInput = {
+    parse(value) {
+        object(value, ['instance', 'revision', 'values']);
+        for (const key of ['instance', 'revision']) {
+            if (typeof value[key] !== 'string' || !value[key] || value[key].length > 256)
+                invalid();
+        }
+        if (!('values' in value))
+            invalid();
+        encode(value.values);
+        return copy(value);
+    }
+};
+export const configurationMethod = Object.freeze({
+    contract: Object.freeze({
+        name: 'ext.configuration', version: 'v1'
+    }), operation: Object.freeze({
+        name: 'update', surface: 'configuration'
+    }), input: configurationInput, output: schemaCodec({
+        type: 'object', properties: {
+            instance: { type: 'string' }, revision: { type: 'string' }
+        }, required: ['instance', 'revision']
+    })
+});
 // Pull streams work over the existing unary protocol; each read is authorized
 // independently by the supplied Caller. No read or action is retried.
 export async function openStream(caller, parameters, signal) {

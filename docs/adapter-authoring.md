@@ -123,7 +123,7 @@ request, err := plugin.ParseAdapterInvocation(os.Args[1:])
 // request.Selection and request.Arguments preserve the invocation fields.
 ```
 
-Import `github.com/webong/ext/pkg/plugin`. The complete
+Import `github.com/webong/ext/pkg/plugin-go`. The complete
 [Go echo example](../examples/adapters/go_echo/main.go) implements the basic
 handlers; the [shell echo example](../examples/adapters/echo/ctx-echo) shows the
 same contract without the Go SDK. These examples echo arguments; replace that

@@ -6,9 +6,9 @@ wire protocols do not become compatible merely by importing this package.
 
 ## Ownership
 
-CTX supplies `github.com/webong/ext/pkg/plugin`, alongside `graph` and `supervisor`.
-Its implementations include `pkg/plugin/inprocess`, `pkg/plugin/jsonline`,
-`pkg/plugin-hashicorp`, `pkg/plugin/nativego`, `pkg/plugin-wasm`, and `pkg/plugin-cshared`, with
+CTX supplies `github.com/webong/ext/pkg/plugin-go`, alongside `graph` and `supervisor`.
+Its implementations include `pkg/plugin-go/contract/transport/inprocess`, `pkg/plugin-go/contract/transport/jsonline`,
+`pkg/plugin-go/hashicorp`, `pkg/plugin-go/contract/host/nativego`, `pkg/plugin-go/wasm`, and `pkg/plugin-go/cengine/cshared`, with
 additional backends able to implement the same public interface. HashiCorp
 go-plugin is a dependency of the plugin library, not a CTX product adapter.
 CTX adapters and ecosystem applications are consumers of these libraries.
@@ -19,9 +19,9 @@ browser fallback, or built-in permission vocabulary.
 
 Consumers define domain contracts, payloads, authorization, configuration,
 discovery, package distribution, trust decisions, and endpoint authentication.
-The library supplies the generic mechanics around them: `pkg/plugin/store`
+The library supplies the generic mechanics around them: `pkg/plugin-go/cengine/host/store`
 installs, upgrades, lists, removes and re-verifies packages, and
-`pkg/plugin/process` launches process plugins (see below).
+`pkg/plugin-go/contract/host/process` launches process plugins (see below).
 Product and native mechanisms in CTX belong under `adapters/<name>/`.
 Portable integrity and plugin runtime implementations belong in the library.
 A descriptor, graph
@@ -140,6 +140,34 @@ offers `Verify`, `ArtifactPath(name)` (a verified path) and `Digest`
 (`DirectoryDigest`, for consumer trust records). The store is not safe against
 concurrent mutation by several processes, and a digest is integrity, not
 publisher trust.
+
+`Store.Verify` checks every package under the root and reports each result
+instead of stopping at the first, so a caller can show everything that is wrong.
+`store.NewLayered(stores...)` is a read-only view over several stores in
+priority order: a package ID is served from the first store that holds it, so a
+user installation can shadow a system one. Roots and order come from the
+consumer. A damaged winning copy fails closed rather than falling back to a
+later store, shadowed copies are never read, and no root is created.
+`Layered.Verify` reports what `Load` and `List` would serve.
+
+### Manifest license and metadata
+
+A manifest may carry an optional `license` (an SPDX expression, recorded and
+never interpreted) and an optional `metadata` map for data a consumer defines.
+Metadata keys are namespaced and versioned, such as `kvlite.module/v1`; each
+value is a JSON object. ext checks only the key shape and the bounds (64 keys,
+64 KiB per value, 256 KiB in all). It never interprets a value, and a value never
+grants authority, selects a backend or establishes trust. Because `package.json`
+is part of the package directory, the trust digest covers metadata. A consumer
+reads its own key and ignores the others.
+
+These are additive fields of `ext.package/v1`. Decoding rejects unknown fields,
+so a host older than this change rejects a package that uses either field. That
+is deliberate: a host must not silently ignore a requirement it does not
+understand. A package that sets neither field is unchanged and stays readable by
+older hosts. Consumer-specific values belong in metadata, not in new core fields:
+an ABI version is an `Entrypoint.Protocols` token, and a consumer-specific entry
+symbol or driver name goes under the consumer's own metadata key.
 
 A package with no entrypoints is a source-file package: `packagekit` lists the
 payload files and declares no command, and the consumer chooses the runtime and
@@ -267,7 +295,7 @@ methods and use separately declared channels for streams.
 
 ## HashiCorp backend
 
-`github.com/webong/ext/pkg/plugin-hashicorp` implements HashiCorp go-plugin's
+`github.com/webong/ext/pkg/plugin-go/hashicorp` implements HashiCorp go-plugin's
 `Plugin` and `GRPCPlugin` interfaces, supporting both net/rpc and gRPC for hosts
 and guests. It is a library implementation alongside JSON-line transport.
 The shared plugin core has no HashiCorp imports; importing the HashiCorp backend
@@ -290,7 +318,7 @@ translation to `plugin.Backend`. Their existing method signatures and payloads
 must be mapped explicitly; a runtime framework cannot infer domain semantics.
 The translation must provide a verified descriptor and honor cancellation.
 
-The gRPC service schema is `pkg/plugin-hashicorp/runtime.proto`. It uses standard
+The gRPC service schema is `pkg/plugin-go/hashicorp/runtime.proto`. It uses standard
 protobuf `Empty` and `BytesValue` messages carrying CTX JSON envelopes, so other
 languages can generate service stubs without a custom codec. Use the supplied
 `hashicorp.GRPCServer` factory for transport message limits. net/rpc checks the
@@ -302,7 +330,7 @@ retries a call automatically.
 Native broker callbacks, streaming interfaces, and reattachment remain explicit
 upstream features that consumer bindings can use. This backend's standard CTX
 interface currently exposes unary handshake/invocation. See
-[`pkg/plugin-hashicorp/README.md`](../pkg/plugin-hashicorp/README.md) for host and guest
+[`pkg/plugin-go/hashicorp/README.md`](../pkg/plugin-go/hashicorp/README.md) for host and guest
 usage and process examples.
 
 ## CTX adapter adoption
@@ -358,8 +386,8 @@ versioned domain contracts may coexist in a descriptor.
 
 Run the end-to-end example with `go run ./examples/plugin`. Contract, admission,
 drain, integrity, malformed-frame, cancellation, concurrency, and CTX compatibility
-tests live under `pkg/plugin/`, `pkg/plugin/jsonline/`, and `pkg/plugin/adapter/plugin_test.go`.
-HashiCorp tests under `pkg/plugin-hashicorp/` launch real subprocesses over both
+tests live under `pkg/plugin-go/contract/`, `pkg/plugin-go/contract/transport/jsonline/`, and `pkg/plugin-go/contract/host/adapter/plugin_test.go`.
+HashiCorp tests under `pkg/plugin-go/hashicorp/` launch real subprocesses over both
 RPC protocols with checksum verification and automatic TLS. They cover host
 admission, concurrent requests, structured errors, mismatch, cancellation, and
 cleanup. These tests require permission to bind local IPC sockets.

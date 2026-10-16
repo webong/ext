@@ -2,13 +2,13 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { PassThrough } from 'node:stream';
-import { decodeJSON, validateDescriptor, matchHandshake, Guest, Session, Registry, JSONLineBackend, serveGuest, call, RemoteError } from './index.mjs';
+import { decodeJSON, validateDescriptor, matchHandshake, Guest, Session, Registry, JSONLineBackend, serveGuest, call, RemoteError, configurationMethod, healthMethod } from './index.mjs';
 import { nodeIO } from './node.mjs';
-const descriptor = decodeJSON(await readFile(new URL('../../pkg/plugin/testdata/v1/descriptor.json', import.meta.url)));
+const descriptor = decodeJSON(await readFile(new URL('../../lib/plugin/testdata/v1/descriptor.json', import.meta.url)));
 test('shared frozen fixtures', async () => {
     validateDescriptor(descriptor);
     matchHandshake(descriptor, structuredClone(descriptor));
-    const bad = JSON.parse(await readFile(new URL('../../pkg/plugin/testdata/v1/invalid.json', import.meta.url)));
+    const bad = JSON.parse(await readFile(new URL('../../lib/plugin/testdata/v1/invalid.json', import.meta.url)));
     for (const raw of bad)
         assert.throws(() => decodeJSON(raw));
 });
@@ -121,6 +121,24 @@ test('fragmented frames and multiple frames in one chunk preserve boundaries', a
 
 test('shared Go and TypeScript schema fixtures',async()=>{
  const {schemaCodec}=await import('./index.mjs');
- const cases=JSON.parse(await readFile(new URL('../../pkg/plugin/testdata/schema-v1.json',import.meta.url)));
+ const cases=JSON.parse(await readFile(new URL('../../lib/plugin/testdata/schema-v1.json',import.meta.url)));
  for(const c of cases){const codec=schemaCodec(c.schema);for(const v of c.valid)assert.deepEqual(codec.parse(v),v);for(const v of c.invalid)assert.throws(()=>codec.parse(v));}
+});
+
+test('configuration and health methods match the Go contract', () => {
+    assert.deepEqual(configurationMethod.contract, { name: 'ext.configuration', version: 'v1' });
+    assert.deepEqual(configurationMethod.operation, { name: 'update', surface: 'configuration' });
+    const ok = { instance: 'one', revision: 'r1', values: { name: 'a' } };
+    assert.deepEqual(configurationMethod.input.parse(ok), ok);
+    assert.deepEqual(configurationMethod.input.parse({ ...ok, instance: 'x'.repeat(256), revision: 'r'.repeat(256) }).instance.length, 256);
+    for (const bad of [
+        { ...ok, instance: '' }, { ...ok, revision: '' }, { ...ok, instance: 'x'.repeat(257) }, { ...ok, revision: 'r'.repeat(257) },
+        { instance: 'one', revision: 'r1' }, { ...ok, extra: 1 }, { ...ok, instance: 1 }, null, [], 'x'
+    ])
+        assert.throws(() => configurationMethod.input.parse(bad), undefined, JSON.stringify(bad));
+    assert.deepEqual(configurationMethod.output.parse({ instance: 'one', revision: 'r1' }), { instance: 'one', revision: 'r1' });
+    assert.throws(() => configurationMethod.output.parse({ instance: 'one' }));
+    assert.deepEqual(healthMethod.output.parse({ status: 'degraded', ready: false }), { status: 'degraded', ready: false });
+    for (const status of ['', 'great', 'HEALTHY'])
+        assert.throws(() => healthMethod.output.parse({ status, ready: true }));
 });

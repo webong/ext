@@ -5,12 +5,12 @@ import (
 	"os"
 
 	"github.com/webong/ext/adapters/secret_service/store"
-	"github.com/webong/ext/pkg/plugin"
+	goengine "github.com/webong/ext/pkg/plugin-go/cengine"
 	"github.com/webong/ext/res/credential/adapterkit"
 )
 
 func main() {
-	request, err := plugin.ParseAdapterInvocation(os.Args[1:])
+	request, err := goengine.ParseAdapterInvocation(os.Args[1:])
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "ctx: %v\n", err)
 		os.Exit(2)

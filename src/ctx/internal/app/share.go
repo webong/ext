@@ -6,7 +6,7 @@ import (
 	"os"
 
 	"github.com/webong/ext/ctx/internal/config"
-	modpkg "github.com/webong/ext/pkg/plugin/adapter"
+	modpkg "github.com/webong/ext/pkg/plugin-go/contract/host/adapter"
 )
 
 func shareSpaceCommand(resolver *config.Resolver, space string, args []string, stdout, stderr io.Writer) int {

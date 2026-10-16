@@ -1,0 +1,112 @@
+name: Plugin engine
+
+# Builds the portable C plugin engine in lib/plugin and runs its native tests and
+# the Go suites that link against it, on Linux, macOS and Windows (MinGW-w64).
+on:
+  push:
+    branches: [main, 'plugin-engine/**']
+    paths:
+      - 'lib/plugin/**'
+      - 'pkg/plugin-go/**'
+      - 'scripts/plugin-engine-test.sh'
+      - '.github/workflows/plugin-engine.yml'
+  pull_request:
+    paths:
+      - 'lib/plugin/**'
+      - 'pkg/plugin-go/**'
+      - 'scripts/plugin-engine-test.sh'
+      - '.github/workflows/plugin-engine.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  posix:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.x'
+          cache: true
+          cache-dependency-path: |
+            **/go.sum
+            go.work.sum
+      - name: Build the engine and run its tests
+        run: scripts/plugin-engine-test.sh "$RUNNER_TEMP/engine"
+
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.x'
+          cache: true
+          cache-dependency-path: |
+            **/go.sum
+            go.work.sum
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          path-type: inherit
+          install: >-
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-cmake
+            mingw-w64-x86_64-ninja
+      - name: Build the engine and run its tests
+        shell: msys2 {0}
+        run: scripts/plugin-engine-test.sh "$RUNNER_TEMP/engine"
+
+  # Windows on ARM64 with clang from MSYS2. Experimental: it reports without
+  # blocking until the toolchain has proven stable on hosted runners.
+  windows-arm64:
+    runs-on: windows-11-arm
+    continue-on-error: true
+    env:
+      CC: clang
+      CXX: clang++
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.x'
+          cache: true
+          cache-dependency-path: |
+            **/go.sum
+            go.work.sum
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: CLANGARM64
+          path-type: inherit
+          install: >-
+            mingw-w64-clang-aarch64-clang
+            mingw-w64-clang-aarch64-cmake
+            mingw-w64-clang-aarch64-ninja
+            mingw-w64-clang-aarch64-winpthreads
+      - name: Build the engine and run its tests
+        shell: msys2 {0}
+        run: scripts/plugin-engine-test.sh "$RUNNER_TEMP/engine"
+
+  # The C engine built with MSVC (cl), through the Win32 shim in src/sync.h.
+  # Native tests only: cgo links the MinGW build, not this one. Experimental.
+  windows-msvc:
+    runs-on: windows-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.x'
+      - uses: ilammy/msvc-dev-cmd@v1
+      - name: Build the engine with MSVC and run the native tests
+        shell: bash
+        env:
+          EXT_ENGINE_C_ONLY: '1'
+          CC: cl
+        run: scripts/plugin-engine-test.sh "$RUNNER_TEMP/engine"

@@ -8,7 +8,7 @@ through the same API, author an `ext.plugin/v1` guest on the JVM.
   Android build of the JNI library (NDK) has not been compiled or run.
 - The WebView host (`WebViewPluginHost`) is plain Java built against `android.jar` and
   has run in a real `WebView` on an Android 14 emulator. See Hosting a plugin in a WebView. A small JNI library binds the guest half of the
-shared [C engine](../plugin-engine/README.md), which does the strict JSON parsing,
+shared [C engine](../../lib/plugin/README.md), which does the strict JSON parsing,
 request validation against the descriptor, deadlines and error sanitizing. The
 application supplies a descriptor and a `Handler`.
 
@@ -16,7 +16,7 @@ This package covers both halves for an app. Authoring a guest is the first part.
 second is hosting a WebAssembly reactor in a hidden WebView (see Hosting a plugin in a
 WebView), the first route of [the mobile decision](../../docs/adr-mobile-wasm.md). The
 fallback route, an in-process interpreter, is the C backend in
-[`pkg/plugin-engine/wamr`](../plugin-engine/wamr/README.md), bound here as an optional
+[`lib/plugin/wamr`](../../lib/plugin/wamr/README.md), bound here as an optional
 `WamrPluginHost` (see Hosting a plugin in WAMR). Nothing is published yet.
 
 ## Writing a plugin
@@ -50,7 +50,7 @@ try (Guest guest = new Guest(descriptor, call -> {
 
 ## What a JVM guest cannot do
 
-The `ext_plugin_*` C ABI that `pkg/plugin-cshared` loads would need a JVM inside
+The `ext_plugin_*` C ABI that `pkg/plugin-go/cengine/cshared` loads would need a JVM inside
 the host process, so a Java library cannot be loaded that way. A JVM guest speaks
 JSON lines in its own process, or runs inside an application that provides the
 transport. Kotlin/Native, which compiles to a native library, could export that
@@ -171,11 +171,11 @@ code, so a native plugin must ship inside the signed app bundle or package.
 
 - [Engine adapters](../../docs/engine-adapters.md) are adapters that run programs
   (`jvm`, `wasm`, `evm`). They are a different thing from this SDK, which binds the
-  shared plugin engine, `pkg/plugin-engine`; the page explains the two senses of
+  shared plugin engine, `lib/plugin`; the page explains the two senses of
   "engine".
 - [The web engine](../../docs/web-engine.md) runs web content in a browser the host
   chooses, including the iOS Simulator and Android devices. It does not author plugins.
 - A WASM interpreter reachable from the C engine does not exist yet. Until it does,
   a mobile app that hosts third-party plugins after release has no route that
   satisfies the no-downloaded-code rules. That is open work shared with
-  `pkg/plugin-wasm`, which is Go and wazero.
+  `pkg/plugin-go/wasm`, which is Go and wazero.

@@ -3,11 +3,10 @@ package main
 import (
 	"errors"
 	"fmt"
+	goengine "github.com/webong/ext/pkg/plugin-go/cengine"
 	"io"
 	"os"
 	"os/exec"
-
-	"github.com/webong/ext/pkg/plugin"
 )
 
 func main() {
@@ -15,7 +14,7 @@ func main() {
 }
 
 func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
-	request, err := plugin.ParseAdapterInvocation(args)
+	request, err := goengine.ParseAdapterInvocation(args)
 	if err != nil {
 		fmt.Fprintf(stderr, "git: %v\n", err)
 		return 2

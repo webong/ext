@@ -2,12 +2,11 @@ package main
 
 import (
 	"context"
+	goengine "github.com/webong/ext/pkg/plugin-go/cengine"
+	"github.com/webong/ext/pkg/plugin-go/contract/guest/author"
+	"github.com/webong/ext/pkg/plugin-go/contract/transport/jsonline"
+	"github.com/webong/ext/pkg/plugin-go/contract/validate/schema"
 	"os"
-
-	"github.com/webong/ext/pkg/plugin"
-	"github.com/webong/ext/pkg/plugin/author"
-	"github.com/webong/ext/pkg/plugin/jsonline"
-	"github.com/webong/ext/pkg/plugin/schema"
 )
 
 func serveGoGuest() error {
@@ -15,17 +14,17 @@ func serveGoGuest() error {
 		Message string `json:"message"`
 	}
 	s := schema.Schema{Type: "object", Properties: map[string]schema.Schema{"message": {Type: "string", MaxLength: 256}}, Required: []string{"message"}}
-	r, err := author.New(plugin.Identity{ID: "example/typescript", Revision: "compiled-1"})
+	r, err := author.New(goengine.Identity{ID: "example/typescript", Revision: "compiled-1"})
 	if err != nil {
 		return err
 	}
-	method := author.Method[message, message]{Contract: plugin.ContractRef{Name: "example.echo", Version: "v1"}, Operation: plugin.Operation{Name: "echo", Surface: "observation"}, Input: &s, Output: &s}
-	if err := author.Register(r, method, func(_ context.Context, _ plugin.Request, m message) (message, error) { return m, nil }); err != nil {
+	method := author.Method[message, message]{Contract: goengine.ContractRef{Name: "example.echo", Version: "v1"}, Operation: goengine.Operation{Name: "echo", Surface: "observation"}, Input: &s, Output: &s}
+	if err := author.Register(r, method, func(_ context.Context, _ goengine.Request, m message) (message, error) { return m, nil }); err != nil {
 		return err
 	}
-	g, err := r.Guest(author.Options{Authorize: func(_ context.Context, r plugin.Request) error {
+	g, err := r.Guest(author.Options{Authorize: func(_ context.Context, r goengine.Request) error {
 		if r.Operation != "echo" {
-			return plugin.ErrDenied
+			return goengine.ErrDenied
 		}
 		return nil
 	}})

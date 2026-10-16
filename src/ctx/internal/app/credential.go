@@ -11,7 +11,7 @@ import (
 	"strings"
 
 	"github.com/webong/ext/ctx/internal/config"
-	modpkg "github.com/webong/ext/pkg/plugin/adapter"
+	modpkg "github.com/webong/ext/pkg/plugin-go/contract/host/adapter"
 )
 
 const maxCredentialBytes = 1024 * 1024

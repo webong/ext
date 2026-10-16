@@ -120,7 +120,7 @@ fn host_observer_gets_bounded_metadata() {
             executable: "/not-launched",
             ..Default::default()
         },
-        include_bytes!("../../../../pkg/plugin/testdata/v1/descriptor.json"),
+        include_bytes!("../../../../lib/plugin/testdata/v1/descriptor.json"),
         Box::new(|_| Err(Error(2))),
         Box::new(|_| Ok(())),
     )

@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	modpkg "github.com/webong/ext/pkg/plugin/adapter"
+	modpkg "github.com/webong/ext/pkg/plugin-go/contract/host/adapter"
 	browser "github.com/webong/ext/res/web"
 	browsercontract "github.com/webong/ext/res/web/contract"
 )

@@ -134,6 +134,14 @@ export const healthMethod: Method<Record<string, never>, {
     status: 'healthy' | 'degraded' | 'unhealthy';
     ready: boolean;
 }>;
+export const configurationMethod: Method<{
+    instance: string;
+    revision: string;
+    values: unknown;
+}, {
+    instance: string;
+    revision: string;
+}>;
 export function openStream(caller: Caller, parameters: unknown, signal?: AbortSignal): Promise<{
     read(limit?: number, signal?: AbortSignal): Promise<{
         items: unknown[];

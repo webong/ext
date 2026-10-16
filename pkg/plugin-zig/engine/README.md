@@ -4,8 +4,8 @@ Build with Zig 0.17.0 and a prebuilt C engine:
 
 ```sh
 zig build --build-file pkg/plugin-zig/engine/build.zig \
-  -Dengine-include=/absolute/ctx/pkg/plugin-engine/include \
-  -Dengine-lib=/absolute/pkg/plugin-engine/build test
+  -Dengine-include=/absolute/ctx/lib/plugin/include \
+  -Dengine-lib=/absolute/lib/plugin/build test
 ```
 
 Add `-Dshared=true` for optional shared linkage. The public module is

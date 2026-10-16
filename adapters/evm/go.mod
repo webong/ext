@@ -5,8 +5,9 @@ go 1.23.0
 require (
 	github.com/ethereum/go-ethereum v1.16.3
 	github.com/holiman/uint256 v1.3.2
-	github.com/webong/ext/pkg/plugin v0.2.0
 )
+
+require github.com/webong/ext/pkg/plugin-go/contract v0.2.0 // indirect
 
 require (
 	github.com/StackExchange/wmi v1.2.1 // indirect
@@ -36,6 +37,7 @@ require (
 	github.com/supranational/blst v0.3.14 // indirect
 	github.com/tklauser/go-sysconf v0.3.12 // indirect
 	github.com/tklauser/numcpus v0.6.1 // indirect
+	github.com/webong/ext/pkg/plugin-go/cengine v0.2.0
 	golang.org/x/crypto v0.36.0 // indirect
 	golang.org/x/sync v0.12.0 // indirect
 	golang.org/x/sys v0.31.0 // indirect

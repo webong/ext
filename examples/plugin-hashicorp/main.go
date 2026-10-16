@@ -18,8 +18,8 @@ import (
 
 	"github.com/hashicorp/go-hclog"
 	goplugin "github.com/hashicorp/go-plugin"
-	"github.com/webong/ext/pkg/plugin"
-	"github.com/webong/ext/pkg/plugin-hashicorp"
+	goengine "github.com/webong/ext/pkg/plugin-go/cengine"
+	"github.com/webong/ext/pkg/plugin-go/hashicorp"
 )
 
 func main() {
@@ -51,11 +51,11 @@ func run() error {
 		return err
 	}
 	digest := hash.Sum(nil)
-	descriptor := plugin.Descriptor{APIVersion: plugin.APIVersion, Identity: plugin.Identity{ID: "example/echo", Revision: "sha256:" + hex.EncodeToString(digest)}, Contracts: []plugin.Contract{{ContractRef: plugin.ContractRef{Name: "example.echo", Version: "v1"}, Operations: []plugin.Operation{{Name: "echo", Surface: "observation"}}}}}
+	descriptor := goengine.Descriptor{APIVersion: goengine.APIVersion, Identity: goengine.Identity{ID: "example/echo", Revision: "sha256:" + hex.EncodeToString(digest)}, Contracts: []goengine.Contract{{ContractRef: goengine.ContractRef{Name: "example.echo", Version: "v1"}, Operations: []goengine.Operation{{Name: "echo", Surface: "observation"}}}}}
 	if *guestMode {
-		guest, err := plugin.NewGuest(descriptor, plugin.GuestOptions{Handler: func(_ context.Context, r plugin.Request) (json.RawMessage, error) {
+		guest, err := goengine.NewGuest(descriptor, goengine.GuestOptions{Handler: func(_ context.Context, r goengine.Request) (json.RawMessage, error) {
 			if r.Operation != "echo" {
-				return nil, plugin.ErrDenied
+				return nil, goengine.ErrDenied
 			}
 			return r.Payload, nil
 		}})
@@ -70,17 +70,17 @@ func run() error {
 		return nil
 	}
 	ctx := context.Background()
-	session, err := plugin.Open(ctx, descriptor, plugin.Options{
-		Verify: func(_ context.Context, candidate plugin.Descriptor) error {
-			return plugin.MatchHandshake(descriptor, candidate)
+	session, err := goengine.Open(ctx, descriptor, goengine.Options{
+		Verify: func(_ context.Context, candidate goengine.Descriptor) error {
+			return goengine.MatchHandshake(descriptor, candidate)
 		},
-		Authorize: func(_ context.Context, r plugin.Request) error {
+		Authorize: func(_ context.Context, r goengine.Request) error {
 			if r.Operation != "echo" {
-				return plugin.ErrDenied
+				return goengine.ErrDenied
 			}
 			return nil
 		},
-		Connect: func(ctx context.Context, _ plugin.Descriptor) (plugin.Backend, error) {
+		Connect: func(ctx context.Context, _ goengine.Descriptor) (goengine.Backend, error) {
 			command := exec.Command(executable, "--guest", "--protocol", *protocol)
 			for _, key := range []string{"SystemRoot", "TMPDIR", "TEMP", "TMP"} {
 				if value := os.Getenv(key); value != "" {

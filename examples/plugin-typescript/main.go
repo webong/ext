@@ -9,14 +9,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	goengine "github.com/webong/ext/pkg/plugin-go/cengine"
+	"github.com/webong/ext/pkg/plugin-go/contract/transport/jsonline"
 	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"sync"
-
-	"github.com/webong/ext/pkg/plugin"
-	"github.com/webong/ext/pkg/plugin/jsonline"
 )
 
 type pipes struct {
@@ -58,14 +57,14 @@ func run() error {
 		return err
 	}
 	scriptHash := sha256.Sum256(scriptBytes)
-	expected, err := plugin.DirectoryDigest(sdk)
+	expected, err := goengine.DirectoryDigest(sdk)
 	if err != nil {
 		return err
 	}
-	descriptor := plugin.Descriptor{APIVersion: plugin.APIVersion, Identity: plugin.Identity{ID: "example/typescript", Revision: "compiled-1"}, Contracts: []plugin.Contract{{ContractRef: plugin.ContractRef{Name: "example.echo", Version: "v1"}, Operations: []plugin.Operation{{Name: "echo", Surface: "observation"}}}}}
+	descriptor := goengine.Descriptor{APIVersion: goengine.APIVersion, Identity: goengine.Identity{ID: "example/typescript", Revision: "compiled-1"}, Contracts: []goengine.Contract{{ContractRef: goengine.ContractRef{Name: "example.echo", Version: "v1"}, Operations: []goengine.Operation{{Name: "echo", Surface: "observation"}}}}}
 	ctx := context.Background()
-	s, err := plugin.Open(ctx, descriptor, plugin.Options{Verify: func(context.Context, plugin.Descriptor) error {
-		actual, err := plugin.DirectoryDigest(sdk)
+	s, err := goengine.Open(ctx, descriptor, goengine.Options{Verify: func(context.Context, goengine.Descriptor) error {
+		actual, err := goengine.DirectoryDigest(sdk)
 		if err != nil {
 			return err
 		}
@@ -74,15 +73,15 @@ func run() error {
 			return err
 		}
 		if actual != expected || sha256.Sum256(currentScript) != scriptHash {
-			return plugin.ErrMismatch
+			return goengine.ErrMismatch
 		}
 		return nil
-	}, Authorize: func(_ context.Context, r plugin.Request) error {
+	}, Authorize: func(_ context.Context, r goengine.Request) error {
 		if r.Operation != "echo" {
-			return plugin.ErrDenied
+			return goengine.ErrDenied
 		}
 		return nil
-	}, Connect: func(context.Context, plugin.Descriptor) (plugin.Backend, error) {
+	}, Connect: func(context.Context, goengine.Descriptor) (goengine.Backend, error) {
 		cmd := exec.Command(node, script)
 		cmd.Env = []string{}
 		for _, key := range []string{"SystemRoot", "TMPDIR", "TEMP", "TMP"} {

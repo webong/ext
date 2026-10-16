@@ -6,7 +6,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 [[ "$(uname -s)" == Darwin ]] || { echo "plugin-ios-xcframework.sh needs macOS and Xcode" >&2; exit 1; }
-engine=pkg/plugin-engine
+engine=lib/plugin
 out="${EXT_SWIFT_FRAMEWORKS:-pkg/plugin-ios/Frameworks}"
 work="$(mktemp -d "${TMPDIR:-/tmp}/ext-swift-xcframework.XXXXXX")"
 trap 'rm -rf "$work"' EXIT
@@ -45,7 +45,7 @@ mkdir -p "$work/ios" && cp "$work/ios-arm64/libext_guest.a" "$work/ios/libext_gu
 
 headers="$work/Headers"
 mkdir -p "$headers"
-cp "$engine/include/ext_host.h" "$engine/include/ext_guest.h" pkg/plugin-cshared/ext_plugin.h "$engine/wamr/ext_wamr.h" "$headers/"
+cp "$engine/include/ext_host.h" "$engine/include/ext_guest.h" "$engine/include/ext_plugin.h" "$engine/wamr/ext_wamr.h" "$headers/"
 cat >"$headers/module.modulemap" <<'MODULE'
 module CExtEngine {
   header "ext_host.h"

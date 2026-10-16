@@ -17,7 +17,7 @@ if(EXT_WAMR_ROOT)
 else()
   set(EXT_BUILD_HOST OFF CACHE BOOL "The JNI binding needs only the guest core" FORCE)
 endif()
-add_subdirectory(../plugin-engine plugin-engine EXCLUDE_FROM_ALL)
+add_subdirectory(../../lib/plugin plugin-engine EXCLUDE_FROM_ALL)
 
 add_library(extjni SHARED src/main/native/ext_jni.c)
 target_link_libraries(extjni PRIVATE ext_guest_static)

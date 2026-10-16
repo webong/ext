@@ -37,8 +37,8 @@ on:
       - 'examples/android-consumer/**'
       - 'pkg/plugin-android/**'
       - 'pkg/plugin-ios/**'
-      - 'pkg/plugin-cshared/**'
-      - 'pkg/plugin-engine/**'
+      - 'pkg/plugin-go/cengine/cshared/**'
+      - 'lib/plugin/**'
       - 'pkg/plugin-rust/**'
   pull_request:
     paths:
@@ -50,8 +50,8 @@ on:
       - 'examples/android-consumer/**'
       - 'pkg/plugin-android/**'
       - 'pkg/plugin-ios/**'
-      - 'pkg/plugin-cshared/**'
-      - 'pkg/plugin-engine/**'
+      - 'pkg/plugin-go/cengine/cshared/**'
+      - 'lib/plugin/**'
       - 'pkg/plugin-rust/**'
 
 permissions:

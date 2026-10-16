@@ -1,0 +1,4 @@
+github.com/tetratelabs/wazero v1.10.1 h1:2DugeJf6VVk58KTPszlNfeeN8AhhpwcZqkJj2wwFuH8=
+github.com/tetratelabs/wazero v1.10.1/go.mod h1:DRm5twOQ5Gr1AoEdSi0CLjDQF1J9ZAuyqFIjl1KKfQU=
+github.com/webong/ext/pkg/plugin-go/contract v0.2.0 h1:u6EvYAJ3CvQYKcayGq7a0HmOkBZbXgvG5uF+I5ygsq0=
+github.com/webong/ext/pkg/plugin-go/contract v0.2.0/go.mod h1:YajPTz7utaUNrcn856mnFegEHuk8l70pK2krbVFSZoc=

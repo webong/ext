@@ -356,7 +356,7 @@ impl Drop for Guest {
         unsafe { ffi::ext_guest_destroy(self.raw) }
     }
 }
-/// Run a pure bounded JSON engine service; see pkg/plugin-engine/services.md.
+/// Run a pure bounded JSON engine service; see lib/plugin/services.md.
 pub fn service(operation: &str, input: &[u8]) -> Result<Vec<u8>, Error> {
     let name = cstring(operation)?;
     output(|out| unsafe { ffi::ext_engine_call(name.as_ptr(), input.as_ptr(), input.len(), out) })
@@ -383,7 +383,7 @@ pub fn directory_digest(root: &str) -> Result<[u8; 32], Error> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    const DESCRIPTOR: &[u8] = include_bytes!("../../../../pkg/plugin/testdata/v1/descriptor.json");
+    const DESCRIPTOR: &[u8] = include_bytes!("../../../../lib/plugin/testdata/v1/descriptor.json");
     #[test]
     fn services() {
         assert!(service("descriptor.validate", DESCRIPTOR).is_ok());

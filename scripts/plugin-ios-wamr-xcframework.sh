@@ -30,7 +30,7 @@ for slice in "${slices[@]}"; do
   args=(-DCMAKE_BUILD_TYPE=Release -DEXT_WITH_WAMR=ON -DEXT_WAMR_ROOT="$wamr"
     -DCMAKE_OSX_SYSROOT="$sysroot" -DCMAKE_OSX_ARCHITECTURES="$arch" -DCMAKE_OSX_DEPLOYMENT_TARGET="$target")
   [[ -z "$system" ]] || args+=(-DCMAKE_SYSTEM_NAME="$system")
-  cmake -S pkg/plugin-engine -B "$work/$name" "${args[@]}" >/dev/null
+  cmake -S lib/plugin -B "$work/$name" "${args[@]}" >/dev/null
   cmake --build "$work/$name" --target ext_wamr -j 4 >/dev/null
   mkdir -p "$work/$name/objs"
   for lib in "$work/$name/libext_host_static.a" "$work/$name/wamr/libext_wamr.a" "$work/$name/wamr/libext_wamr_vm.a"; do

@@ -139,7 +139,7 @@ next successful graph scan. `observe` works for any runtime; no provider name
 is built into the graph collector. Adapters without `observe` retain the
 line-oriented `list` behavior documented below.
 
-The public `github.com/webong/ext/pkg/graph/system` package exposes
+The public `github.com/webong/ext/res/graph/system` package exposes
 `ObserveInventory`, `ResolveInventory`, and `Inventory.Find` for other Go
 consumers. `ctx graph resolve [runtime|all] [capability...] [--supports <kind>] [--share <resource.operation>]`
 shows the same candidate view as JSON. `ctx graph vertices support` and
@@ -368,7 +368,7 @@ and [Neura Local settings](https://www.neurarelay.com/operators#neura-local-sett
 ## Process protocol
 
 CTX adapters also expose a shared library descriptor through
-`github.com/webong/ext/pkg/plugin.AdapterDescriptor`, using the `ext.adapter`
+`github.com/webong/ext/pkg/plugin-go.AdapterDescriptor`, using the `ext.adapter`
 contract and their native API version. CTX uses the public `plugin` package
 for capability lookup and package integrity checking. The argv and stream
 binding below remains the adapter transport; it does not require a JSON-line
@@ -465,7 +465,7 @@ adapter's `native` directory; it is included in the adapter checksum and runs
 as a separate process. External adapters implement the same protocol in their own
 executable. The helper receives the same invocation as every adapter,
 `share <profile> -- <resource> <operation>` (or `-- management <kind> <action>`),
-and parses it with `plugin.ParseAdapterInvocation` from `pkg/plugin`; the
+and parses it with `plugin.ParseAdapterInvocation` from `pkg/plugin-go`; the
 adapter's shell or PowerShell entry point passes its argv through unchanged.
 CTX core has no browser-specific storage code or provider dispatch.
 Maintained adapters use `res/web/contract` for versioned request, cookie,
@@ -619,7 +619,7 @@ platform, unsafe paths, links, oversized contents, and checksum mismatches.
 It installs the package untrusted; review it and run `ctx adapter trust <name>`
 before using it.
 
-Go authors can use the public `github.com/webong/ext/pkg/plugin` package to parse
+Go authors can use the public `github.com/webong/ext/pkg/plugin-go` package to parse
 the versioned process invocation. Browser authors can also import
 `github.com/webong/ext/res/web/contract` for the cookie and policy bridge
 types, and `github.com/webong/ext/res/web/guest` for serving helpers, while

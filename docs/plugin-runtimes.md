@@ -28,8 +28,8 @@ explicit binding and authorization; loaders do not automatically inject them.
 | --- | --- | --- | --- |
 | Native Go | Export `CTXPlugin(context.Context) (plugin.Backend, error)` | `nativego.Open(ctx, absolutePath)` | Linux, macOS, FreeBSD; cgo and Go plugin build support required |
 | WASI Preview 1 command | `jsonline.ServeStdio(ctx, guest)` | `wasm.Open(ctx, verifiedBytes, options)` | wazero-supported host targets, no cgo required |
-| C shared library | Four C exports backed by `pkg/plugin-go/cshared/guest.Server` or a foreign implementation | `cshared.Open(ctx, absolutePath)` | Linux, macOS, FreeBSD, Windows; cgo and a matching native C toolchain required |
-| HashiCorp | `hashicorp.Plugin` and go-plugin serving | `hashicorp.Connect` | Existing gRPC and net/rpc bindings; see its [guide](../pkg/plugin-hashicorp/README.md) |
+| C shared library | Four C exports backed by `pkg/plugin-go/cengine/cshared/guest.Server` or a foreign implementation | `cshared.Open(ctx, absolutePath)` | Linux, macOS, FreeBSD, Windows; cgo and a matching native C toolchain required |
+| HashiCorp | `hashicorp.Plugin` and go-plugin serving | `hashicorp.Connect` | Existing gRPC and net/rpc bindings; see its [guide](../pkg/plugin-go/hashicorp/README.md) |
 
 `nativego.Supported()` and `cshared.Supported()` report whether the loader is
 compiled into the current build. Unsupported builds return
@@ -140,7 +140,7 @@ documents linear memory limits and execution cancellation.
 
 ## C ABI guests and foreign hosts
 
-The portable contract is [ext_plugin.h](../pkg/plugin-cshared/ext_plugin.h).
+The portable contract is [ext_plugin.h](../lib/plugin/include/ext_plugin.h).
 ABI version `1` is independent of `ext.plugin/v1` and domain contract versions.
 Every library must export these C calling-convention symbols:
 

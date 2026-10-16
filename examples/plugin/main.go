@@ -7,11 +7,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	goengine "github.com/webong/ext/pkg/plugin-go/cengine"
+	"github.com/webong/ext/pkg/plugin-go/contract/transport/jsonline"
 	"net"
 	"os"
-
-	"github.com/webong/ext/pkg/plugin"
-	"github.com/webong/ext/pkg/plugin/jsonline"
 )
 
 func main() {
@@ -22,10 +21,10 @@ func main() {
 }
 
 func run() error {
-	d := plugin.Descriptor{
-		APIVersion: plugin.APIVersion,
-		Identity:   plugin.Identity{ID: "example/catalog", Revision: "embedded-example-1", Version: "1.0.0"},
-		Contracts:  []plugin.Contract{{ContractRef: plugin.ContractRef{Name: "example.catalog", Version: "v1"}, Operations: []plugin.Operation{{Name: "inspect", Surface: "observation"}}}},
+	d := goengine.Descriptor{
+		APIVersion: goengine.APIVersion,
+		Identity:   goengine.Identity{ID: "example/catalog", Revision: "embedded-example-1", Version: "1.0.0"},
+		Contracts:  []goengine.Contract{{ContractRef: goengine.ContractRef{Name: "example.catalog", Version: "v1"}, Operations: []goengine.Operation{{Name: "inspect", Surface: "observation"}}}},
 	}
 	trusted := d.Clone() // This example's reviewed, compiled-in implementation.
 	ctx := context.Background()
@@ -33,21 +32,23 @@ func run() error {
 	defer host.Close()
 	done := make(chan error, 1)
 	go func() {
-		done <- jsonline.Serve(ctx, provider, d, func(_ context.Context, request plugin.Request) (json.RawMessage, error) {
+		done <- jsonline.Serve(ctx, provider, d, func(_ context.Context, request goengine.Request) (json.RawMessage, error) {
 			if request.Operation != "inspect" {
-				return nil, plugin.ErrDenied
+				return nil, goengine.ErrDenied
 			}
 			return json.RawMessage(`{"items":["example"]}`), nil
 		})
 	}()
-	session, err := plugin.Open(ctx, d, plugin.Options{
-		Verify: func(_ context.Context, candidate plugin.Descriptor) error {
-			return plugin.MatchHandshake(trusted, candidate)
+	session, err := goengine.Open(ctx, d, goengine.Options{
+		Verify: func(_ context.Context, candidate goengine.Descriptor) error {
+			return goengine.MatchHandshake(trusted, candidate)
 		},
-		Connect: func(context.Context, plugin.Descriptor) (plugin.Backend, error) { return jsonline.NewClient(host), nil },
-		Authorize: func(_ context.Context, request plugin.Request) error {
+		Connect: func(context.Context, goengine.Descriptor) (goengine.Backend, error) {
+			return jsonline.NewClient(host), nil
+		},
+		Authorize: func(_ context.Context, request goengine.Request) error {
 			if request.Operation != "inspect" || request.Surface != "observation" {
-				return plugin.ErrDenied
+				return goengine.ErrDenied
 			}
 			return nil
 		},

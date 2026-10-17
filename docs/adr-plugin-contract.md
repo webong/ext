@@ -127,7 +127,7 @@ cooperation. These mechanics are explicit in backend profiles and the
 
 `store.New(root, Limits)` manages `packagekit` packages under a root the
 consumer supplies; the library has no default location. A package directory
-holds `package.json` (the `ext.package/v1` manifest) and exactly the artifacts
+holds `plugin.json` (the `ext.package/v1` manifest) and exactly the artifacts
 it lists. `Install` copies from a source directory, refusing symbolic links,
 non-regular files, oversize artifacts (`Limits.MaxArtifactBytes`, default
 4 GiB), unlisted files and digest mismatches, verifies the staged copy, then
@@ -158,10 +158,23 @@ as `Check` values with a non-nil error, so one broken package never hides the
 others. It costs one directory listing and one manifest read per package, where
 `List` and `Verify` hash every artifact; with a 20,000-file tree installed that
 is about 80 microseconds against 1 to 2 seconds. The result is unverified: content
-is checked only by `Installed.Verify`, `host.Open` and `ArtifactPath` (against the manifest read at listing time, not a later `package.json`), and nothing
+is checked only by `Installed.Verify`, `host.Open` and `ArtifactPath` (against the manifest read at listing time, not a later `plugin.json`), and nothing
 may be launched or trusted from it directly. `List` and `Load` are unchanged and
 still fail closed. `Installed.Name`, `Version`, `Supports` and `IsExecutable` read
 only the manifest and are safe on an unverified package.
+
+The manifest is the file `plugin.json` at the top of the package directory
+(`store.ManifestName`), and only that name. It was `package.json` until v0.4.0,
+which collided with the name npm and Node tooling use: a package that carries a
+Node tree, or ships an npm `package.json` as one of its own files, could not
+exist. A `package.json` is now an ordinary file. It may be declared as an
+artifact beside `plugin.json`, it is hashed inside a tree artifact, and a stray
+unlisted one at the top level is rejected like any other unlisted file. The
+manifest path itself is reserved: an artifact may not use `plugin.json`, in any
+case. A `plugin.json` that is not an `ext.package/v1` document is told apart by
+its `apiVersion` field and fails validation; ext never guesses another format.
+Packages with a `package.json` manifest are not read: there is no fallback, and a
+package directory without `plugin.json` is reported as not found.
 
 ### Manifest license and metadata
 
@@ -170,7 +183,7 @@ never interpreted) and an optional `metadata` map for data a consumer defines.
 Metadata keys are namespaced and versioned, such as `kvlite.module/v1`; each
 value is a JSON object. ext checks only the key shape and the bounds (64 keys,
 64 KiB per value, 256 KiB in all). It never interprets a value, and a value never
-grants authority, selects a backend or establishes trust. Because `package.json`
+grants authority, selects a backend or establishes trust. Because `plugin.json`
 is part of the package directory, the trust digest covers metadata. A consumer
 reads its own key and ignores the others.
 

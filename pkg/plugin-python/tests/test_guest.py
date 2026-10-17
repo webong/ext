@@ -211,7 +211,7 @@ class GuestTest(unittest.TestCase):
     def test_descriptor_loading(self):
         with tempfile.TemporaryDirectory() as d:
             bare = os.path.join(d, "descriptor.json")
-            pkg = os.path.join(d, "package.json")
+            pkg = os.path.join(d, "plugin.json")
             dump(bare, DESC)
             dump(pkg, {"apiVersion": "ext.package/v1", "descriptor": DESC, "artifacts": []})
             self.assertEqual(ext_plugin.load_descriptor(bare), DESC)

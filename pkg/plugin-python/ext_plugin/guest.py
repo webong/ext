@@ -208,7 +208,7 @@ def _match(pattern, value):
 
 
 def load_descriptor(path):
-    """Read a descriptor from a package.json (ext.package/v1) or a bare descriptor file."""
+    """Read a descriptor from a plugin.json (ext.package/v1) or a bare descriptor file."""
     with open(os.fspath(path), "rb") as f:
         raw = f.read((16 << 20) + 1)
     if len(raw) > 16 << 20:
@@ -419,7 +419,7 @@ def _answer_hello(guest, request):
 def serve_stdio(descriptor, handler, max_call_seconds=DEFAULT_MAX_CALL_SECONDS, redact_errors=False):
     """Serve on this process's stdin/stdout. Returns at EOF.
 
-    descriptor is a dict or the path of a package.json / descriptor file.
+    descriptor is a dict or the path of a plugin.json / descriptor file.
     Protocol frames use a private duplicate of the original stdout; file
     descriptor 1 and ``sys.stdout`` are redirected to stderr, so stray prints
     cannot corrupt the stream. Call once, from the guest's main.

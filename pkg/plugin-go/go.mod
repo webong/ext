@@ -5,8 +5,8 @@ go 1.26.0
 require (
 	github.com/hashicorp/go-hclog v0.14.1
 	github.com/hashicorp/go-plugin v1.6.3
-	github.com/webong/ext/pkg/plugin-go/cengine v0.3.0
-	github.com/webong/ext/pkg/plugin-go/contract v0.3.0
+	github.com/webong/ext/pkg/plugin-go/cengine v0.4.0
+	github.com/webong/ext/pkg/plugin-go/contract v0.4.0
 	github.com/webong/ext/pkg/plugin-go/hashicorp v0.2.1
 	github.com/webong/ext/pkg/plugin-go/wasm v0.2.1
 	github.com/webong/ext/res/system v0.1.0

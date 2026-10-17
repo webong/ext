@@ -249,6 +249,7 @@ third round followed for new content.
 | Corrective (`v0.2.1`) | `res/system` v0.1.0 (the module was renamed from `res/graph` before anyone used it); `pkg/plugin-go/contract`, `.../cengine`, `.../wasm`, `.../hashicorp` and `pkg/plugin-go` at v0.2.1; and the adapters again (`adapters/chromium` v0.3.2, `adapters/firefox` v0.2.2, `adapters/safari` v0.1.4, the rest as listed by `git tag`) |
 
 | Bounds and listing (`v0.3.0`) | `pkg/plugin-go/contract`, `pkg/plugin-go/cengine` and `pkg/plugin-go` at v0.3.0, and nothing else |
+| Manifest name (`v0.4.0`) | `pkg/plugin-go/contract`, `pkg/plugin-go/cengine` and `pkg/plugin-go` at v0.4.0, and nothing else |
 
 `v0.3.0` is a minor version because `Store.ListUnverified` and `Layered.ListUnverified` are new API in
 both `contract/host/store` and `cengine/host/store`. It also bounds the cost of validating and resolving
@@ -261,6 +262,23 @@ have the same bytes as before and are not retagged. They still require `contract
 fine: a build that also requires v0.3.0 (the umbrella does) resolves to it. A consumer that wants the
 bounds in an adapter's binary requires `contract` v0.3.0 itself. A manifest whose tree overlaps another
 artifact is rejected as before, but the error may name a different one of the overlapping artifacts.
+
+`v0.4.0` renames the package manifest file from `package.json` to `plugin.json`
+(`store.ManifestName`, in `contract/host/store` and `cengine/host/store`). It is a **behavioural break at the
+same Go API**, which is why it is a new minor version of the three modules (a 0.x break) rather than a patch;
+the exported names and signatures do not change. A package directory is read only through `plugin.json`:
+a directory whose manifest is still named `package.json` is not read (it is reported as not found, with no
+fallback and no dual support), so installed packages and package sources have to be regenerated or have their
+manifest renamed. A `package.json` is now an ordinary file: a package can ship one as a declared artifact beside
+`plugin.json`, a tree artifact can hold its own, and an unlisted top-level one is rejected like any unlisted file.
+`plugin.json` is reserved as an artifact path in any case. A `plugin.json` is told apart from other files of that
+name by its `apiVersion` (`ext.package/v1`). The reason is that npm and Node tooling own the name `package.json`,
+and a package that carries a Node tree could not coexist with an ext manifest in the same directory.
+`pkg/plugin-python` is consumed from the repository, not published: its examples and docs now say `plugin.json`
+(`serve_stdio` accepts a manifest, a bare descriptor file or a dict, by structure, so only the example strings
+changed). `v0.3.0` stays published and still reads `package.json`; it has `ListUnverified` and the validation
+bounds, and anything that adopted it only has to move to `v0.4.0` to rename its manifests. No adapter or other
+module read the manifest by file name, so none of them changes or is retagged.
 
 `pkg/plugin-go/contract` v0.2.0 is correct: it needs no sibling checksums, because it has no sibling
 dependencies. Its v0.2.1 differs from it only by one doc comment in `session.go`, which named

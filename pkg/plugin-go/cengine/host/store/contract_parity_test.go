@@ -217,6 +217,26 @@ func TestContractStoreMatchesEngineStore(t *testing.T) {
 			}
 			return out
 		}},
+		{"manifest name", func(t *testing.T, a storeAPI) []string {
+			var out []string
+			// the old name is not a manifest; package.json is an ordinary artifact
+			old := source(t, "example/old", "r1", "print(1)")
+			_ = os.Rename(filepath.Join(old, "plugin.json"), filepath.Join(old, "package.json"))
+			i, err := a.install(old)
+			out = append(out, describe(a, i, err))
+			i, err = a.install(npmPackage(t, "example/npm"))
+			out = append(out, describe(a, i, err))
+			stray := source(t, "example/stray", "r1", "print(2)")
+			_ = os.WriteFile(filepath.Join(stray, "package.json"), []byte("{}"), 0o600)
+			i, err = a.install(stray)
+			out = append(out, describe(a, i, err))
+			i, err = a.install(treePackage(t, func(root string) {
+				_ = os.WriteFile(filepath.Join(root, "vendor", "package.json"), []byte("{}"), 0o600)
+			}))
+			out = append(out, describe(a, i, err))
+			v, verr := a.verify()
+			return append(out, listDescribe(a), v, a.classify(verr))
+		}},
 		{"rejected sources", func(t *testing.T, a storeAPI) []string {
 			var out []string
 			bad := source(t, "example/b", "r1", "print(1)")

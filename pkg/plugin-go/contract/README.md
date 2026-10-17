@@ -30,6 +30,12 @@ four groups:
 The [`cengine`](../cengine) module has engine-routed variants of `host` and `host/store` with an
 identical API.
 
+## The package manifest
+
+A package directory holds `plugin.json`, the `ext.package/v1` manifest, and exactly the artifacts it lists
+(`store.ManifestName`). A `package.json` is an ordinary file there: ship one as an artifact, or carry a Node
+tree with its own. Manifests named `package.json`, as in releases before v0.4.0, are not read.
+
 ## Listing installed packages
 
 `host/store` has two ways to enumerate a root. `List` and `Load` verify every package, hashing each

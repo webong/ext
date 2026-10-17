@@ -109,7 +109,7 @@ func TestLoadDescriptorFromManifestOrBareFile(t *testing.T) {
 	os.WriteFile(exe, []byte("x"), 0o700)
 	m, _ := packagekit.ExecutableManifest("example/p", "", contracts(), exe)
 	raw, _ := jsonMarshal(m)
-	manifestPath := filepath.Join(dir, "package.json")
+	manifestPath := filepath.Join(dir, "plugin.json")
 	os.WriteFile(manifestPath, raw, 0o600)
 	d, err := packagekit.LoadDescriptor(manifestPath)
 	if err != nil || d.Identity != m.Descriptor.Identity {

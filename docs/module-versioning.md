@@ -271,18 +271,51 @@ proxy adds the repository's root `LICENSE` to the zip of a module in a subdirect
 compute those checksums did not. The `v0.2.1` line carries the correct checksums; prefer it.
 
 Every `go.sum` carries the real checksums of the sibling versions it requires, computed before tagging, in
-dependency order, from a throwaway local module proxy holding the new versions, so one commit carries every
-tag. To verify a tree this way:
+dependency order, so one commit carries every tag. [Releasing a round](#releasing-a-round) says how.
 
-- Build each module's zip with `golang.org/x/mod/zip`, **and add the repository's root `LICENSE` to it when
-  the module has none of its own**, as the proxy does. Without it every hash is wrong.
-- Serve the zips with `GOPROXY=file://`, and use a module cache path that has never held other contents for
-  the same versions (Go indexes cache directories by path and assumes they never change).
-- Run `GOWORK=off go vet ./...` on linux, darwin and windows plus `go mod tidy -diff` in each module.
-- Before tagging, recompute each hash independently from the merged commit's git tree
-  (`zip.CreateFromVCS`) and compare it with what the `go.sum` files record.
-- After tagging, `scripts/check-standalone-modules.sh` repeats the check against the published tags; it
-  skips a module whose sibling tags are not yet published.
+### Releasing a round
+
+A tag can never be moved or reused, and a `go.sum` that records the wrong hash of a sibling makes every
+checkout of the dependent module unbuildable, so a round is rehearsed before the first tag and verified
+against the published bytes layer by layer. The scripts below live in `scripts/`; they need only bash, git,
+awk, sed and Go, and run from a clean checkout on macOS and Linux. Each starts with a comment saying what it
+checks. They take a **versions file** of `module version` lines (the module is a directory relative to the
+repository root, for example `pkg/plugin-go/contract v0.4.0`; `#` starts a comment).
+
+1. **Scope.** Tag a module only if its own bytes changed, plus a thin umbrella whose `go.mod` must pin the
+   modules that did. A module whose bytes did not change keeps its tag and keeps working. Choose a minor
+   version for new API or a behavioural break (this is 0.x), a patch otherwise.
+2. **Layers.** `scripts/release-layers.sh VERSIONS` prints the dependency layers: a module sits one layer above
+   the highest listed module it requires.
+3. **Pins and checksums.** `scripts/release-pins.sh VERSIONS` bumps every requirement on a listed module to its
+   release version and records the true hashes in each `go.sum`, layer by layer, by resolving the lower layers from
+   a throwaway repository with the real go toolchain. Bump the product modules that build against local `replace`
+   directives (`src/ctx`, `src/ctn`, `examples`) with `go mod edit -require`. Update the docs and READMEs, commit,
+   open a pull request, and merge it as a merge commit once its checks pass; check that the merged tree equals
+   the prepared one.
+4. **Two independent hash checks on the commit you will tag.** Both must report 0 mismatches.
+   `scripts/release-rehearse.sh -o WANT VERSIONS REVISION` tags every module in a throwaway repository and lets
+   `go mod download` compute each hash, which is the code path the module proxy runs.
+   `scripts/release-treehash.sh VERSIONS REVISION` computes them from the git tree with
+   `zip.CreateFromVCS`. The two share no code, so agreement rules out a mistake in either.
+5. **Tag, one layer at a time.** `scripts/release-layer.sh --push VERSIONS WANT LAYER REVISION` creates the
+   annotated tags on the merged commit, pushes them in one atomic push, and compares the published zip hash and
+   `go.mod` hash with `WANT`, once from the remote with `GOPROXY=direct` and once from `proxy.golang.org`. Without
+   `--push` it only prints what it would tag. After each layer run
+   `STANDALONE_ONLY="<the layer's modules>" scripts/check-standalone-modules.sh`, which builds and tidies them from
+   the published tags with the workspace off. **Stop at the first difference**; tell whoever depends on the round,
+   and fix the cause with a new version, not a retag.
+6. **After the last layer.** Run `scripts/check-standalone-modules.sh` for every module, and build a clean module
+   that requires the released versions with the default checksum database.
+
+The zip layout is the reason for the two checks. The module proxy, and `zip.CreateFromVCS`, add the repository's
+root `LICENSE` to the zip of a module that lives in a subdirectory and has no `LICENSE` of its own. A zip built
+any other way (for example `zip.CreateFromDir` over the directory) lacks it, so its hash is one no proxy will
+ever serve; recording that hash in a `go.sum` is what made 28 tags of the first round unbuildable on their own.
+Hashes must therefore come from the go toolchain or from `zip.CreateFromVCS`, never from a hand-built zip. Use a
+fresh module cache whenever a version is rehearsed twice (Go indexes cache directories by path and assumes they
+never change); the scripts do. Because tags are immutable, anything wrong in a published layer is superseded by a
+new version, which is why each layer is verified before the next one is tagged.
 
 ### Deprecating the old modules
 

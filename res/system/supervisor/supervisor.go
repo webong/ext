@@ -290,8 +290,7 @@ func (s *Supervisor) run(ctx context.Context, m *managed) {
 		m.instance.State = StateStarting
 		m.instance.UpdatedAt = time.Now().UTC()
 		m.instance.LastError = ""
-		m.mu.Unlock()
-		_ = s.project(context.Background(), m)
+		_ = s.projectAndUnlock(context.Background(), m)
 		if ctx.Err() != nil {
 			s.recordStopped(m)
 			return
@@ -371,8 +370,7 @@ func (s *Supervisor) run(ctx context.Context, m *managed) {
 			m.instance.CrashCount++
 			m.instance.Health = "unhealthy"
 			m.instance.UpdatedAt = time.Now().UTC()
-			m.mu.Unlock()
-			_ = s.project(context.Background(), m)
+			_ = s.projectAndUnlock(context.Background(), m)
 			attempt++
 			if !shouldRestart(m.spec.Restart, attempt) {
 				return
@@ -417,8 +415,7 @@ func (s *Supervisor) run(ctx context.Context, m *managed) {
 		if m.instance.StartedAt.IsZero() {
 			m.instance.StartedAt = m.instance.UpdatedAt
 		}
-		m.mu.Unlock()
-		_ = s.project(context.Background(), m)
+		_ = s.projectAndUnlock(context.Background(), m)
 		readyErr := s.waitReadiness(ctx, m)
 		if readyErr == nil {
 			m.mu.Lock()
@@ -427,8 +424,7 @@ func (s *Supervisor) run(ctx context.Context, m *managed) {
 				m.instance.Health = "healthy"
 				m.instance.UpdatedAt = time.Now().UTC()
 			}
-			m.mu.Unlock()
-			_ = s.project(context.Background(), m)
+			_ = s.projectAndUnlock(context.Background(), m)
 		}
 		waitCtx := ctx
 		if readyErr != nil {
@@ -469,8 +465,7 @@ func (s *Supervisor) run(ctx context.Context, m *managed) {
 			m.instance.State = StateStopped
 		}
 		state := m.instance.State
-		m.mu.Unlock()
-		_ = s.project(context.Background(), m)
+		_ = s.projectAndUnlock(context.Background(), m)
 		if state != StateCrashed {
 			return
 		}
@@ -481,14 +476,12 @@ func (s *Supervisor) run(ctx context.Context, m *managed) {
 		m.mu.Lock()
 		m.instance.State = StateRestarting
 		m.instance.UpdatedAt = time.Now().UTC()
-		m.mu.Unlock()
-		_ = s.project(context.Background(), m)
+		_ = s.projectAndUnlock(context.Background(), m)
 		if !sleepContext(ctx, backoff(m.spec.Restart, attempt)) {
 			m.mu.Lock()
 			m.instance.State = StateStopped
 			m.instance.UpdatedAt = time.Now().UTC()
-			m.mu.Unlock()
-			_ = s.project(context.Background(), m)
+			_ = s.projectAndUnlock(context.Background(), m)
 			return
 		}
 	}
@@ -620,8 +613,7 @@ func (s *Supervisor) recordFailure(m *managed, reason string) {
 	m.instance.LastError = reason
 	m.instance.CrashCount++
 	m.instance.UpdatedAt = time.Now().UTC()
-	m.mu.Unlock()
-	_ = s.project(context.Background(), m)
+	_ = s.projectAndUnlock(context.Background(), m)
 }
 
 func (s *Supervisor) recordStopped(m *managed) {
@@ -629,8 +621,7 @@ func (s *Supervisor) recordStopped(m *managed) {
 	m.instance.State = StateStopped
 	m.instance.Health = "unhealthy"
 	m.instance.UpdatedAt = time.Now().UTC()
-	m.mu.Unlock()
-	_ = s.project(context.Background(), m)
+	_ = s.projectAndUnlock(context.Background(), m)
 }
 
 func (s *Supervisor) renewLease(ctx context.Context, m *managed) {
@@ -698,8 +689,7 @@ func (s *Supervisor) Stop(ctx context.Context, id string) error {
 	m.instance.State = StateStopping
 	m.instance.UpdatedAt = time.Now().UTC()
 	m.cancel()
-	m.mu.Unlock()
-	_ = s.project(context.Background(), m)
+	_ = s.projectAndUnlock(context.Background(), m)
 	select {
 	case <-m.done:
 		return nil
@@ -719,8 +709,7 @@ func (s *Supervisor) Health(ctx context.Context, id string) (bool, error) {
 		m.mu.Lock()
 		m.instance.Health = "unhealthy"
 		m.instance.UpdatedAt = time.Now().UTC()
-		m.mu.Unlock()
-		if err := s.project(context.Background(), m); err != nil {
+		if err := s.projectAndUnlock(context.Background(), m); err != nil {
 			return false, err
 		}
 		return false, nil
@@ -736,8 +725,7 @@ func (s *Supervisor) Health(ctx context.Context, id string) (bool, error) {
 	}
 	healthy := m.instance.Health == "healthy"
 	m.instance.UpdatedAt = time.Now().UTC()
-	m.mu.Unlock()
-	if projectErr := s.project(context.Background(), m); projectErr != nil {
+	if projectErr := s.projectAndUnlock(context.Background(), m); projectErr != nil {
 		return false, projectErr
 	}
 	if err != nil {
@@ -799,14 +787,37 @@ func (s *Supervisor) Close(ctx context.Context) error {
 	return first
 }
 
+// project publishes the instance's current state to the graph.
 func (s *Supervisor) project(ctx context.Context, m *managed) error {
+	m.mu.Lock()
+	return s.projectAndUnlock(ctx, m)
+}
+
+// projectAndUnlock publishes the instance's current state to the graph and then
+// releases m.mu, which the caller must hold. A lifecycle change is made under
+// that lock, so applying the graph fact before releasing it means Instance
+// never reports a state the graph has not recorded, and the facts of one
+// instance reach the graph in the order its states changed. The graph store
+// takes no supervisor lock, so holding m.mu across the write cannot deadlock.
+func (s *Supervisor) projectAndUnlock(ctx context.Context, m *managed) error {
+	err := s.applyProjection(ctx, m)
+	terminal := m.instance.State == StateStopped || m.instance.State == StateCrashed
+	m.mu.Unlock()
+	if err == nil && terminal {
+		// Pruning reads and rewrites the whole runtime namespace; it need not
+		// hold up readers of this instance.
+		_ = s.pruneTerminals(ctx)
+	}
+	return err
+}
+
+// applyProjection writes the graph fact for m's current state. m.mu must be held.
+func (s *Supervisor) applyProjection(ctx context.Context, m *managed) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	m.mu.Lock()
 	inst := cloneInstance(m.instance)
 	spec := cloneSpec(m.spec)
-	m.mu.Unlock()
 	attrs := map[string]any{"artifact_id": inst.Artifact.ID, "artifact_revision": inst.Artifact.Revision, "state": string(inst.State), "runtime_id": s.runtimeID, "crash_count": inst.CrashCount}
 	attrs["supervisor_owner"] = s.ownerID
 	if inst.State == StateStarting || inst.State == StateRunning || inst.State == StateReady || inst.State == StateRestarting || inst.State == StateStopping {
@@ -847,9 +858,6 @@ func (s *Supervisor) project(ctx context.Context, m *managed) error {
 		edges = append(edges, graph.Edge{ID: "connected-to/" + connection.ID, From: "endpoint/" + connection.SourceEndpoint, To: "endpoint/" + connection.TargetEndpoint, Type: RuntimeNamespace + "/connected-to", Attributes: attrs})
 	}
 	_, err := s.graph.Apply(ctx, graph.Transaction{Namespace: RuntimeNamespace, Vertices: vertices, Edges: edges})
-	if err == nil && (inst.State == StateStopped || inst.State == StateCrashed) {
-		_ = s.pruneTerminals(ctx)
-	}
 	return err
 }
 

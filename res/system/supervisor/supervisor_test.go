@@ -163,6 +163,75 @@ func TestStopAndHealthProjection(t *testing.T) {
 	}
 }
 
+// slowGraph delays every write, widening the window between an instance
+// changing state and its graph fact landing from microseconds to a fixed gap
+// that a poller cannot miss.
+type slowGraph struct {
+	graph.Store
+	delay time.Duration
+}
+
+func (g slowGraph) Apply(ctx context.Context, tx graph.Transaction) (graph.Commit, error) {
+	time.Sleep(g.delay)
+	return g.Store.Apply(ctx, tx)
+}
+
+// An observer that sees a lifecycle state through Instance must find the graph
+// already at that state or later. Instance reporting "stopped" while the graph
+// still says "ready" lets a caller act on a state the graph has not recorded.
+func TestInstanceNeverLeadsGraph(t *testing.T) {
+	ctx := context.Background()
+	store := graph.NewMemory()
+	defer store.Close()
+	sup, err := New(Options{Graph: slowGraph{Store: store, delay: 20 * time.Millisecond}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer sup.Close(ctx)
+	instance, err := sup.Start(ctx, Spec{Artifact: Artifact{ID: "observed", Revision: "1"}, Command: os.Args[0], Args: []string{"-test.run=TestHelperProcess"}, Environment: map[string]string{"EXT_SUPERVISOR_HELPER": "1", "EXT_SUPERVISOR_HOLD": "1"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The graph states an observer may legitimately find once it has seen the
+	// instance in a given state: the same state, or a later one.
+	allowed := map[State][]string{
+		StateReady:    {"ready", "stopping", "stopped"},
+		StateStopping: {"stopping", "stopped"},
+		StateStopped:  {"stopped"},
+	}
+	stopping := false
+	deadline := time.Now().Add(10 * time.Second)
+	for time.Now().Before(deadline) {
+		seen, err := sup.Instance(instance.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if want, watched := allowed[seen.State]; watched {
+			vertex, err := store.GetVertex(ctx, RuntimeNamespace, "process/"+instance.ID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			got, _ := vertex.Attributes["state"].(string)
+			ok := false
+			for _, state := range want {
+				ok = ok || got == state
+			}
+			if !ok {
+				t.Fatalf("Instance reported %q but the graph says %q", seen.State, got)
+			}
+		}
+		if seen.State == StateReady && !stopping {
+			stopping = true
+			go func() { _ = sup.Stop(ctx, instance.ID) }()
+		}
+		if seen.State == StateStopped {
+			return
+		}
+		time.Sleep(time.Millisecond)
+	}
+	t.Fatal("instance never reached stopped")
+}
+
 func TestArtifactChecksumRejectedBeforeStart(t *testing.T) {
 	store := graph.NewMemory()
 	defer store.Close()

@@ -6,7 +6,7 @@ import (
 	"io"
 )
 
-var Version = "0.0.0-dev"
+var Version = "0.2.0-dev"
 
 func Run(args []string, stdout, stderr io.Writer) int {
 	if len(args) == 0 || args[0] == "help" || args[0] == "--help" || args[0] == "-h" {

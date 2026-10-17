@@ -1,7 +1,7 @@
 #!/usr/bin/env sh
 set -eu
 
-VERSION=${1:-0.0.0-dev}
+VERSION=${1:-0.2.0-dev}
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 OUTPUT=${2:-$ROOT/dist/release/ctn-$VERSION}
 

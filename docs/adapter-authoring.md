@@ -11,7 +11,7 @@ Have `ctx` installed before using the build, pack, or install commands below.
 
 | Piece | What an author supplies |
 | --- | --- |
-| `adapter.toml` | API version, unique name, runtime, surfaces, executable name, and implemented capabilities. |
+| `plugin.json` | The ext package manifest: unique name, the `ext.adapter` contract with the capabilities you implement, the executable as an artifact, and a `ctx.adapter/v1` metadata object with runtime, surfaces and the rest (see [the manifest](adapter-api.md#manifest)). |
 | Executable | Handlers for `validate`, `doctor`, and at least one of `run`, `open`, or `share`. Add `list` to discover selections. |
 | Native integration | Product-specific discovery, selection validation, command routing, protocols, paths, and diagnostics. |
 | Runtime dependencies | A native tool, script interpreter, or runtime assets where required. Document these requirements and diagnose missing dependencies; installation does not provision them. |
@@ -42,43 +42,69 @@ operation by itself.
 
 ## 2. Write the manifest
 
-A small selectable Go CLI adapter can start with:
+An adapter's manifest is `plugin.json`, an ext package document. A small
+selectable Go CLI adapter can start with:
 
-```toml
-api_version = "2.0"
-name = "my_tool"
-runtime = "computer"
-surfaces = "shell"
-executable = "ctx-my-tool"
-executable_windows = "ctx-my-tool.exe"
-description = "Route my tool through a project-selected context"
-capabilities = "list,validate,run,doctor"
-selector_key = "my_tool"
-commands = "my_tool"
-go_entry = "."
+```json
+{
+  "apiVersion": "ext.package/v1",
+  "descriptor": {
+    "apiVersion": "ext.plugin/v1",
+    "identity": {"id": "my_tool", "revision": ""},
+    "contracts": [{
+      "name": "ext.adapter", "version": "2.0",
+      "operations": [{"name": "list"}, {"name": "validate"}, {"name": "run"}, {"name": "doctor"}]
+    }]
+  },
+  "artifacts": [
+    {"name": "main", "path": "ctx-my-tool", "sha256": ""},
+    {"name": "main-windows", "path": "ctx-my-tool.exe", "sha256": "", "os": "windows"}
+  ],
+  "entrypoints": [
+    {"name": "main", "runtime": "argv", "artifact": "main", "protocols": ["ext.adapter/2.0"]},
+    {"name": "main.windows", "runtime": "argv", "artifact": "main-windows", "protocols": ["ext.adapter/2.0"]}
+  ],
+  "metadata": {
+    "ctx.adapter/v1": {
+      "description": "Route my tool through a project-selected context",
+      "runtime": "computer",
+      "surfaces": ["shell"],
+      "selector_key": "my_tool",
+      "commands": ["my_tool"],
+      "go_entry": "."
+    }
+  }
+}
 ```
 
+This is a **template**: leave `sha256` and `revision` empty. CTX fills them in
+when it installs, builds or packs the adapter (it seals the manifest), lists the
+other files in the directory too, and records the platform on the launcher.
+[The manifest reference](adapter-api.md#manifest) maps every adapter field to its
+place in the document, and lists the `ctx.adapter/v1` keys; an unknown key is an
+error.
+
 Use a unique lowercase name containing letters, numbers, or underscores; CTX
-reserves its runtime, surface, and command names. Executable fields are file
+reserves its runtime, surface, and command names. Executable paths are file
 names within the package. On Unix, the executable needs executable permissions.
-On Windows, `executable_windows` overrides `executable`; Go builds require an
+On Windows, the `main.windows` entrypoint overrides `main`; Go builds require an
 `.exe` name. Script packages can use supported `.ps1`, `.cmd`, or `.bat` entry
 points on Windows.
 
-The current manifest parser uses quoted string values and comma-separated
-strings for lists, as shown above. Use `surfaces = "shell,web"`, not a TOML
-array. Use standalone comment lines rather than trailing comments on values.
+Capabilities are the operations of the `ext.adapter` contract. The metadata
+object carries the rest, and its lists are JSON arrays: `"surfaces": ["shell", "web"]`.
+The documentation elsewhere writes fields in the shorthand `surfaces = "shell,web"`
+to keep examples short.
 
-Optional fields include `extra_keys`, `override_env`, and `package_files`.
-Set `selectable = "false"` for a share-only adapter with no context selection.
-Use `dependencies_darwin`, `dependencies_linux`, or `dependencies_windows` to
-declare separately installed share-space adapters, for example
-`dependencies_darwin = "credential:keychain@2.0"`. Catalog selection installs
-missing dependencies; manual package installation leaves them to the user.
-`go_entry` defaults to `.` and can point to a relative main package such as
-`./cmd/ctx-my-tool`. `package_files = "templates,policy.json"` includes assets
-in a Go build. Keep credentials outside package files and project selectors.
-The [manifest reference](adapter-api.md#manifest) describes specialized fields.
+Optional metadata includes `extra_keys`, `override_env`, and `go_entry`, and
+files an adapter needs can be listed as further artifacts (a Go build ships only
+the ones you list). Set `"selectable": false` for a share-only adapter with no
+context selection. Use `dependencies_darwin`, `dependencies_linux`, or
+`dependencies_windows` to declare separately installed share-space adapters, for
+example `"dependencies_darwin": ["credential:keychain@2.0"]`. Catalog selection
+installs missing dependencies; manual package installation leaves them to the
+user. `go_entry` defaults to `.` and can point to a relative main package such as
+`./cmd/ctx-my-tool`. Keep credentials outside package files and project selectors.
 
 ## 3. Implement the process contract
 
@@ -135,7 +161,7 @@ behavior with your native integration.
 
 ```text
 my-adapter/
-  adapter.toml
+  plugin.json
   go.mod
   main.go
   templates/       # optional runtime assets
@@ -164,9 +190,9 @@ ctx adapter build ./my-adapter --os windows --arch amd64
 ```
 
 The default output is `my-adapter/dist/my_tool-<os>-<arch>.ctxadapter`.
-`--output` selects another destination. The build ships the manifest, compiled
-executable, and `package_files`; source files and `go.mod` are excluded unless
-explicitly included. Cross builds default to `CGO_ENABLED=0` unless set by the
+`--output` selects another destination. The build ships the sealed manifest, the
+compiled executable, and the other artifacts the template lists; source files and
+`go.mod` are excluded unless explicitly listed. Cross builds default to `CGO_ENABLED=0` unless set by the
 author; native libraries may require a suitable target toolchain.
 
 To build the repository's complete example, run this from the CTX checkout:
@@ -181,7 +207,7 @@ Prepare a directory with only the manifest, target executable, and runtime files
 
 ```text
 ready-package/
-  adapter.toml
+  plugin.json
   ctx-my-tool
   templates/
 ```
@@ -192,7 +218,7 @@ ctx adapter pack ./ready-package --os darwin --arch arm64 \
   --output ./my_tool-darwin-arm64.ctxadapter
 ```
 
-`pack` archives every regular file in that directory and adds platform metadata;
+`pack` seals the manifest and archives every regular file in that directory;
 it does not compile or convert executables. A Windows package must contain its
 Windows entry point. Interpreted adapters still need their interpreter installed.
 

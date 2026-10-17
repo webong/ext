@@ -1,7 +1,8 @@
 package arch_test
 
 import (
-	"bufio"
+	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
@@ -9,24 +10,54 @@ import (
 	"testing"
 )
 
-// manifestValues reads the key = "value" lines of an adapter.toml.
+// manifestValues reads an adapter's plugin.json and returns the fields the
+// policy tests look at: the name, the operations of the ext.adapter contracts and
+// the ctx.adapter/v1 metadata, with lists joined by commas.
 func manifestValues(t *testing.T, path string) map[string]string {
 	t.Helper()
-	file, err := os.Open(path)
+	data, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer file.Close()
-	values := map[string]string{}
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		key, value, ok := strings.Cut(strings.TrimSpace(scanner.Text()), "=")
-		if ok {
-			values[strings.TrimSpace(key)] = strings.Trim(strings.TrimSpace(value), `"`)
-		}
+	var document struct {
+		Descriptor struct {
+			Identity  struct{ ID string } `json:"identity"`
+			Contracts []struct {
+				Name       string
+				Operations []struct{ Name string }
+			} `json:"contracts"`
+		} `json:"descriptor"`
+		Metadata map[string]map[string]any `json:"metadata"`
 	}
-	if err := scanner.Err(); err != nil {
-		t.Fatal(err)
+	if err := json.Unmarshal(data, &document); err != nil {
+		t.Fatalf("%s: %v", path, err)
+	}
+	values := map[string]string{"name": document.Descriptor.Identity.ID}
+	operations := map[string]string{"ext.adapter": "capabilities", "ext.adapter.browser.share": "browser_share", "ext.adapter.browser.management": "browser_management"}
+	for _, contract := range document.Descriptor.Contracts {
+		key, known := operations[contract.Name]
+		if !known {
+			continue
+		}
+		var names []string
+		for _, operation := range contract.Operations {
+			names = append(names, operation.Name)
+		}
+		values[key] = strings.Join(names, ",")
+	}
+	for key, value := range document.Metadata["ctx.adapter/v1"] {
+		switch typed := value.(type) {
+		case string:
+			values[key] = typed
+		case []any:
+			var items []string
+			for _, item := range typed {
+				items = append(items, fmt.Sprint(item))
+			}
+			values[key] = strings.Join(items, ",")
+		default:
+			values[key] = fmt.Sprint(typed)
+		}
 	}
 	return values
 }
@@ -45,7 +76,7 @@ func splitList(value string) []string {
 // that a manifest can show: the declaration and the required operations.
 func TestEngineAdaptersFollowTheContract(t *testing.T) {
 	root := repoRoot(t)
-	manifests, err := filepath.Glob(filepath.Join(root, "adapters", "*", "adapter.toml"))
+	manifests, err := filepath.Glob(filepath.Join(root, "adapters", "*", "plugin.json"))
 	if err != nil {
 		t.Fatal(err)
 	}

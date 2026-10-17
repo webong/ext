@@ -2,6 +2,7 @@ package app
 
 import (
 	"bytes"
+	modpkg "github.com/webong/ext/pkg/plugin-go/contract/host/adapter"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -48,7 +49,7 @@ case "$5" in
   *) exit 2 ;;
 esac
 `
-	if err := os.WriteFile(filepath.Join(source, "adapter.toml"), []byte(manifest), 0o600); err != nil {
+	if err := modpkg.WriteKeyValueManifest(source, manifest); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(source, "ctx-vault"), []byte(command), 0o700); err != nil {
@@ -113,7 +114,7 @@ self_contained = "true"
 dependencies_darwin = "credential:vault@2.0"
 dependencies_linux = "credential:vault@2.0"
 `
-	if err := os.WriteFile(filepath.Join(requesterSource, "adapter.toml"), []byte(requesterManifest), 0o600); err != nil {
+	if err := modpkg.WriteKeyValueManifest(requesterSource, requesterManifest); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(requesterSource, "ctx-caller"), []byte("#!/bin/sh\nexit 0\n"), 0o700); err != nil {

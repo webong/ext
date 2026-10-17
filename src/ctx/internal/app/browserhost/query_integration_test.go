@@ -29,7 +29,10 @@ func installQueryFixture(t *testing.T, store *modpkg.Store, name string, priorit
 	}
 	manifest := fmt.Sprintf("api_version = \"2.0\"\nname = %q\nruntime = \"browser\"\nsurfaces = \"web\"\nexecutable = \"adapter\"\ncapabilities = \"list,share,validate,doctor\"\nselector_key = \"browser\"\nshare_spaces = \"browser\"\nbrowser_share = %q\nbrowser_query_priority = \"%d\"\nbrowser_query_auto = \"%t\"\n", name, operations, priority, auto)
 	script := "#!/bin/sh\nroot=$(dirname \"$0\")\ncase \"$1\" in\nlist) printf '%s:default\\n' \"$CTX_ADAPTER_NAME\";;\nshare) " + query + ";;\nesac\n"
-	for filename, contents := range map[string]string{"adapter.toml": manifest, "adapter": script} {
+	if err := modpkg.WriteKeyValueManifest(root, manifest); err != nil {
+		t.Fatal(err)
+	}
+	for filename, contents := range map[string]string{"adapter": script} {
 		mode := os.FileMode(0o600)
 		if filename == "adapter" {
 			mode = 0o700

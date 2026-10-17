@@ -29,7 +29,10 @@ func normalizeFixture(t *testing.T, operation, response string) (string, *modpkg
 	}
 	manifest := fmt.Sprintf("api_version = \"2.0\"\nname = \"fixture\"\nruntime = \"browser\"\nsurfaces = \"web\"\nexecutable = \"adapter\"\ncapabilities = \"share,validate,doctor\"\nshare_spaces = \"browser\"\nbrowser_share = %q\n", operation)
 	script := "#!/bin/sh\n" + response + "\n"
-	for name, data := range map[string]string{"adapter.toml": manifest, "adapter": script} {
+	if err := modpkg.WriteKeyValueManifest(source, manifest); err != nil {
+		t.Fatal(err)
+	}
+	for name, data := range map[string]string{"adapter": script} {
 		if err := os.WriteFile(filepath.Join(source, name), []byte(data), 0700); err != nil {
 			t.Fatal(err)
 		}

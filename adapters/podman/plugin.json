@@ -1,0 +1,108 @@
+{
+  "apiVersion": "ext.package/v1",
+  "descriptor": {
+    "apiVersion": "ext.plugin/v1",
+    "identity": {
+      "id": "podman",
+      "revision": ""
+    },
+    "contracts": [
+      {
+        "name": "ext.adapter",
+        "version": "2.0",
+        "operations": [
+          {
+            "name": "list"
+          },
+          {
+            "name": "validate"
+          },
+          {
+            "name": "run"
+          },
+          {
+            "name": "doctor"
+          },
+          {
+            "name": "build"
+          },
+          {
+            "name": "image_push"
+          },
+          {
+            "name": "image_pull"
+          },
+          {
+            "name": "image_save"
+          },
+          {
+            "name": "image_load"
+          },
+          {
+            "name": "volume_exists"
+          },
+          {
+            "name": "volume_create"
+          },
+          {
+            "name": "volume_export"
+          },
+          {
+            "name": "volume_import"
+          }
+        ]
+      }
+    ]
+  },
+  "artifacts": [
+    {
+      "name": "main",
+      "path": "ctx-podman",
+      "sha256": ""
+    },
+    {
+      "name": "main-windows",
+      "path": "ctx-podman.ps1",
+      "sha256": ""
+    }
+  ],
+  "entrypoints": [
+    {
+      "name": "main",
+      "runtime": "argv",
+      "artifact": "main",
+      "protocols": [
+        "ext.adapter/2.0"
+      ]
+    },
+    {
+      "name": "main.windows",
+      "runtime": "argv",
+      "artifact": "main-windows",
+      "protocols": [
+        "ext.adapter/2.0"
+      ]
+    }
+  ],
+  "metadata": {
+    "ctx.adapter/v1": {
+      "commands": [
+        "podman"
+      ],
+      "description": "First-party Podman manager provider",
+      "override_env": [
+        "CONTAINER_CONNECTION",
+        "CONTAINER_HOST"
+      ],
+      "runtime": "manager",
+      "selector_key": "podman",
+      "supports": [
+        "virtualizer",
+        "container"
+      ],
+      "surfaces": [
+        "shell"
+      ]
+    }
+  }
+}

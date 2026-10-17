@@ -1,0 +1,83 @@
+{
+  "apiVersion": "ext.package/v1",
+  "descriptor": {
+    "apiVersion": "ext.plugin/v1",
+    "identity": {
+      "id": "wasm",
+      "revision": ""
+    },
+    "contracts": [
+      {
+        "name": "ext.adapter",
+        "version": "2.0",
+        "operations": [
+          {
+            "name": "list"
+          },
+          {
+            "name": "observe"
+          },
+          {
+            "name": "validate"
+          },
+          {
+            "name": "run"
+          },
+          {
+            "name": "doctor"
+          }
+        ]
+      }
+    ]
+  },
+  "artifacts": [
+    {
+      "name": "main",
+      "path": "ctx-wasm",
+      "sha256": ""
+    },
+    {
+      "name": "main-windows",
+      "path": "ctx-wasm.exe",
+      "sha256": ""
+    }
+  ],
+  "entrypoints": [
+    {
+      "name": "main",
+      "runtime": "argv",
+      "artifact": "main",
+      "protocols": [
+        "ext.adapter/2.0"
+      ]
+    },
+    {
+      "name": "main.windows",
+      "runtime": "argv",
+      "artifact": "main-windows",
+      "protocols": [
+        "ext.adapter/2.0"
+      ]
+    }
+  ],
+  "metadata": {
+    "ctx.adapter/v1": {
+      "computer_commands": [
+        "wasm"
+      ],
+      "description": "Built-in sandboxed WebAssembly (WASI Preview 1) engine",
+      "display_name": "WebAssembly",
+      "go_entry": "./native",
+      "runtime": "computer",
+      "selector_key": "wasm",
+      "self_contained": true,
+      "supports": [
+        "engine",
+        "wasm"
+      ],
+      "surfaces": [
+        "shell"
+      ]
+    }
+  }
+}

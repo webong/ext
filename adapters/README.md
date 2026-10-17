@@ -59,7 +59,7 @@ adapters with the packaged helper. A core-only update leaves installed browser
 adapters in place; refresh the optional catalog when updating their helpers.
 
 `kube`, `aws`, `gcloud`, `postgres`, `mysql`, and `php` are maintained computer-runtime
-adapters. Every adapter has an `adapter.toml` manifest and implements ctx adapter
+adapters. Every adapter has a `plugin.json` manifest (an ext package template) and implements ctx adapter
 API v2.0. Only explicit adapter selection downloads or prepares maintained
 packages in `$EXT_HOME/catalog/adapters`; `ctx setup` or `ctx adapter add` activates selected
 packages under `$EXT_HOME/adapters` and records their checksum trust. A package

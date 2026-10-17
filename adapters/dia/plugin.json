@@ -1,0 +1,162 @@
+{
+  "apiVersion": "ext.package/v1",
+  "descriptor": {
+    "apiVersion": "ext.plugin/v1",
+    "identity": {
+      "id": "dia",
+      "revision": ""
+    },
+    "contracts": [
+      {
+        "name": "ext.adapter",
+        "version": "2.0",
+        "operations": [
+          {
+            "name": "list"
+          },
+          {
+            "name": "validate"
+          },
+          {
+            "name": "doctor"
+          },
+          {
+            "name": "share"
+          }
+        ]
+      },
+      {
+        "name": "ext.adapter.browser.share",
+        "version": "1",
+        "operations": [
+          {
+            "name": "cookie.list"
+          },
+          {
+            "name": "cookie.export"
+          },
+          {
+            "name": "cookie.query"
+          },
+          {
+            "name": "cookie.normalize"
+          },
+          {
+            "name": "cookie.import"
+          }
+        ]
+      },
+      {
+        "name": "ext.adapter.browser.management",
+        "version": "1",
+        "operations": [
+          {
+            "name": "extension.targets"
+          },
+          {
+            "name": "extension.capabilities"
+          },
+          {
+            "name": "extension.prepare"
+          },
+          {
+            "name": "extension.package"
+          },
+          {
+            "name": "extension.sign"
+          },
+          {
+            "name": "extension.update_manifest"
+          },
+          {
+            "name": "extension.stage"
+          },
+          {
+            "name": "userscript.prepare"
+          },
+          {
+            "name": "userscript.install"
+          },
+          {
+            "name": "userscript.update"
+          },
+          {
+            "name": "userscript.list"
+          },
+          {
+            "name": "userscript.describe"
+          },
+          {
+            "name": "userscript.enable"
+          },
+          {
+            "name": "userscript.disable"
+          },
+          {
+            "name": "userscript.uninstall"
+          },
+          {
+            "name": "bookmarklet.encode"
+          },
+          {
+            "name": "bookmarklet.decode"
+          },
+          {
+            "name": "bookmarklet.install_page"
+          }
+        ]
+      }
+    ]
+  },
+  "artifacts": [
+    {
+      "name": "main",
+      "path": "ctx-dia",
+      "sha256": ""
+    },
+    {
+      "name": "main-windows",
+      "path": "ctx-dia.ps1",
+      "sha256": ""
+    }
+  ],
+  "entrypoints": [
+    {
+      "name": "main",
+      "runtime": "argv",
+      "artifact": "main",
+      "protocols": [
+        "ext.adapter/2.0"
+      ]
+    },
+    {
+      "name": "main.windows",
+      "runtime": "argv",
+      "artifact": "main-windows",
+      "protocols": [
+        "ext.adapter/2.0"
+      ]
+    }
+  ],
+  "metadata": {
+    "ctx.adapter/v1": {
+      "browser_query_priority": 120,
+      "dependencies_darwin": [
+        "credential:keychain@2.0"
+      ],
+      "dependencies_linux": [
+        "credential:secret_service@2.0"
+      ],
+      "description": "Dia browser provider",
+      "display_name": "Dia",
+      "runtime": "browser",
+      "selector_key": "browser",
+      "share_spaces": [
+        "browser"
+      ],
+      "surfaces": [
+        "web"
+      ]
+    }
+  }
+}

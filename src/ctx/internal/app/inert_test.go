@@ -2,6 +2,7 @@ package app
 
 import (
 	"bytes"
+	modpkg "github.com/webong/ext/pkg/plugin-go/contract/host/adapter"
 	"os"
 	"path/filepath"
 	"testing"
@@ -29,7 +30,7 @@ capabilities = "list,observe,validate,run,doctor"
 selectable = "false"
 `
 	script := "#!/bin/sh\necho \"$1\" >> " + log + "\nexit 0\n"
-	if err := os.WriteFile(filepath.Join(source, "adapter.toml"), []byte(manifest), 0o600); err != nil {
+	if err := modpkg.WriteKeyValueManifest(source, manifest); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(source, "ctx-zzz"), []byte(script), 0o700); err != nil {

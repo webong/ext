@@ -1,6 +1,6 @@
 # ctx adapter API v2.0
 
-An external adapter is a directory containing `adapter.toml` and an executable
+An external adapter is a directory containing `plugin.json` and an executable
 for the current operating system. It can be distributed as a platform-specific
 `.ctxadapter` archive or through a platform index.
 ctx installs adapters under `$EXT_HOME/adapters`; it never discovers or sources
@@ -35,32 +35,94 @@ provider switch in core code.
 
 ## Manifest
 
-~~~toml
-api_version = "2.0"
-name = "example"
-display_name = "Example App"
-runtime = "computer"
-surfaces = "shell,web"
-executable = "ctx-example"
-# Optional native Windows implementation. When absent, executable is used.
-executable_windows = "ctx-example.ps1"
-description = "Example context adapter"
-capabilities = "list,observe,validate,run,doctor,open,share"
-supports = "virtualizer,container"
-selector_key = "example_context"
-extra_keys = "example_namespace"
-commands = "example,examplectl"
-# Optional when capabilities includes share; defaults to adapter name.
-share_spaces = "workspace,project"
-# A share-only store can opt out of project context selection.
-# selectable = "false"
-# Optional platform-specific runtime dependency: share space, adapter, API.
-# dependencies_darwin = "credential:keychain@2.0"
-# Native variables that take priority over the stored selection.
-override_env = "EXAMPLE_CONTEXT,EXAMPLE_HOST"
-# Optional for the manager runtime. At most one installed provider should set it.
-default_provider = "false"
+An adapter is an ext package. Its manifest is `plugin.json`, the same
+`ext.package/v1` document every ext package has (see the
+[plugin contract](adr-plugin-contract.md)), and there is no other manifest file.
+`plugin.json` is also the only manifest a package directory has, so one tool reads
+adapters and other packages alike. (It is not `plugin.toml`: that name does not
+exist. A `plugin.json` is told apart from any other file of that name by its
+`apiVersion`, `ext.package/v1`.)
+
+The `plugin.json` in an adapter's source directory is a **template**: it lists
+the files the adapter needs but not their digests, which do not exist until the
+executable is built. `ctx adapter install`, `build` and `pack` seal it: they add
+the digest of every file, the platform of the launcher, and a revision, then write
+the sealed `plugin.json` that an installed adapter carries and that ctx's trust
+digest covers. A sealed manifest lists exactly the files in the directory.
+
+~~~json
+{
+  "apiVersion": "ext.package/v1",
+  "descriptor": {
+    "apiVersion": "ext.plugin/v1",
+    "identity": {"id": "example", "revision": ""},
+    "contracts": [{
+      "name": "ext.adapter", "version": "2.0",
+      "operations": [{"name": "list"}, {"name": "validate"}, {"name": "run"}, {"name": "doctor"}]
+    }]
+  },
+  "artifacts": [
+    {"name": "main", "path": "ctx-example", "sha256": ""},
+    {"name": "main-windows", "path": "ctx-example.ps1", "sha256": "", "os": "windows"}
+  ],
+  "entrypoints": [
+    {"name": "main", "runtime": "argv", "artifact": "main", "protocols": ["ext.adapter/2.0"]},
+    {"name": "main.windows", "runtime": "argv", "artifact": "main-windows", "protocols": ["ext.adapter/2.0"]}
+  ],
+  "metadata": {
+    "ctx.adapter/v1": {
+      "display_name": "Example App",
+      "description": "Example context adapter",
+      "runtime": "computer",
+      "surfaces": ["shell", "web"],
+      "selector_key": "example_context",
+      "commands": ["example", "examplectl"]
+    }
+  }
+}
 ~~~
+
+Where each adapter field lives:
+
+| Field | In plugin.json |
+| --- | --- |
+| `name` | `descriptor.identity.id` |
+| API version `2.0` | the version of the `ext.adapter` contract. It is the version of the invocation protocol below, which this change did not alter, so it stays `2.0`. |
+| `capabilities` | the operations of the `ext.adapter` contract |
+| `browser_share` | the operations of the `ext.adapter.browser.share` contract (version `1`) |
+| `browser_management` | the operations of the `ext.adapter.browser.management` contract (version `1`) |
+| `executable` | the artifact of the `main` entrypoint |
+| `executable_windows` | the artifact of the `main.windows` entrypoint; on Windows it is used when present, as before |
+| `package_files`, and any other file in the directory | artifacts (a directory is a `tree` artifact) |
+| `license` | `license` (an SPDX expression), optional |
+| everything else ctx interprets | the `ctx.adapter/v1` object of `metadata` |
+
+The entrypoint runtime is `argv`: ctx invokes the executable once per operation
+with arguments and streams (the process protocol below), not as a JSON-line
+session, and the entrypoint's protocol is `ext.adapter/2.0`. ext validates the
+document, the contracts and the artifacts; it never interprets the metadata, and
+a metadata value never grants authority. The `ctx.adapter/v1` object belongs to
+ctx and is closed: an unknown key is an error, so a typo is not ignored. Its keys:
+
+| Key | Type | Meaning |
+| --- | --- | --- |
+| `display_name`, `description` | string | presentation |
+| `runtime` | string | `computer`, `manager`, `browser`, `credential`, or a runtime a product defines |
+| `surfaces` | list | `shell`, `web` |
+| `supports`, `extra_keys`, `commands`, `share_spaces`, `override_env` | list | as described below |
+| `selector_key` | string | the key that selects this adapter |
+| `selectable`, `self_contained`, `default_provider`, `browser_query_auto` | boolean | as described below |
+| `browser_query_priority` | integer | 0 to 1000 |
+| `computer_commands`, `computer_capabilities`, `computer_hook_events`, `computer_hook_default_events` | list | computer endpoint integrations |
+| `computer_hook_settings_file`, `computer_hook_template` | string | computer hook setup |
+| `dependencies_darwin`, `dependencies_linux`, `dependencies_windows` | list | `space:adapter@api` strings |
+| `go_entry` | string | the Go package `ctx adapter build` compiles, default `.` |
+
+To stay short, the rest of this page writes a field in the compact notation
+`key = "value"`, where a list is comma separated: `capabilities = "list,run"` means
+the operations `list` and `run` of the `ext.adapter` contract, and
+`selector_key = "browser"` means that key in the metadata object. The compact
+notation is only a way to write about fields; the loader reads `plugin.json`.
 
 Names use lowercase letters, numbers, and underscores, and cannot collide with a
 runtime, surface, or ctx command.
@@ -612,10 +674,11 @@ ctx adapter remove example
 
 `ctx adapter install` accepts a ready-to-run directory, a local `.ctxadapter`
 archive, or an HTTPS archive with `--sha256 <digest>`. Installation never runs
-Go or executes the adapter. The archive has `adapter.toml`, the platform's
-executable, optional runtime assets, and a `ctx-package.json` record containing
-`format_version`, `name`, `os`, and `arch`. ctx rejects archives for another
-platform, unsafe paths, links, oversized contents, and checksum mismatches.
+Go or executes the adapter. The archive has the sealed
+`plugin.json`, the platform's executable, and optional runtime assets: exactly the files the
+manifest lists, with the platform recorded on the launcher. ctx rejects archives for another
+platform, unsafe paths, links, oversized contents, files that do not match their
+digests or are not listed, and checksum mismatches.
 It installs the package untrusted; review it and run `ctx adapter trust <name>`
 before using it.
 
@@ -624,10 +687,11 @@ the versioned process invocation. Browser authors can also import
 `github.com/webong/ext/res/web/contract` for the cookie and policy bridge
 types, and `github.com/webong/ext/res/web/guest` for serving helpers, while
 keeping their own browser-specific storage code. A source
-directory needs `adapter.toml` and
+directory needs a `plugin.json` template and
 a Go `main` package. `go_entry` names that package (default `.`), and optional
 `package_files` lists runtime files or directories to ship. Source code and
-`go.mod` are not copied into the archive unless deliberately listed.
+`go.mod` are not copied into the archive unless deliberately listed. In the compact
+notation, a Go adapter's fields are:
 
 ~~~toml
 api_version = "2.0"
@@ -653,7 +717,7 @@ ctx adapter trust example
 default to `CGO_ENABLED=0` unless the author sets it explicitly. The example
 under `examples/adapters/go_echo` shows the public parser and a complete Go
 adapter. An adapter written in another language can prepare a package directory
-and use `ctx adapter pack` without Go. `pack` includes every regular file in the
+and use `ctx adapter pack` without Go. `pack` seals and includes every regular file in the
 given directory, so use a directory containing only runtime files.
 
 Publishers may provide a `.ctxadapter.json` index so users need one install

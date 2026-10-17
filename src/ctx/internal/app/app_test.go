@@ -3,6 +3,7 @@ package app
 import (
 	"bytes"
 	"context"
+	modpkg "github.com/webong/ext/pkg/plugin-go/contract/host/adapter"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -46,7 +47,7 @@ executable = "ctx-fixture"
 capabilities = "list,validate,open,doctor,share"
 browser_management = "extension.prepare"
 `
-	if err := os.WriteFile(filepath.Join(adapterDir, "adapter.toml"), []byte(manifest), 0o600); err != nil {
+	if err := modpkg.WriteKeyValueManifest(adapterDir, manifest); err != nil {
 		t.Fatal(err)
 	}
 	if runtime.GOOS == "windows" {

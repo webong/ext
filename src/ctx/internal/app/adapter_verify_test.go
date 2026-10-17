@@ -25,7 +25,7 @@ capabilities = "list,validate,run,doctor"
 selector_key = "` + name + `"
 commands = "` + name + `"
 `
-	if err := os.WriteFile(filepath.Join(directory, "adapter.toml"), []byte(manifest), 0o600); err != nil {
+	if err := modpkg.WriteKeyValueManifest(directory, manifest); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(directory, "ctx-"+name), []byte("#!/bin/sh\nexit 0\n"), 0o700); err != nil {

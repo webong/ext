@@ -1,0 +1,91 @@
+{
+  "apiVersion": "ext.package/v1",
+  "descriptor": {
+    "apiVersion": "ext.plugin/v1",
+    "identity": {
+      "id": "codex",
+      "revision": ""
+    },
+    "contracts": [
+      {
+        "name": "ext.adapter",
+        "version": "2.0",
+        "operations": [
+          {
+            "name": "validate"
+          },
+          {
+            "name": "doctor"
+          },
+          {
+            "name": "run"
+          }
+        ]
+      }
+    ]
+  },
+  "artifacts": [
+    {
+      "name": "main",
+      "path": "ctx-codex",
+      "sha256": ""
+    },
+    {
+      "name": "main-windows",
+      "path": "ctx-codex.ps1",
+      "sha256": ""
+    }
+  ],
+  "entrypoints": [
+    {
+      "name": "main",
+      "runtime": "argv",
+      "artifact": "main",
+      "protocols": [
+        "ext.adapter/2.0"
+      ]
+    },
+    {
+      "name": "main.windows",
+      "runtime": "argv",
+      "artifact": "main-windows",
+      "protocols": [
+        "ext.adapter/2.0"
+      ]
+    }
+  ],
+  "metadata": {
+    "ctx.adapter/v1": {
+      "computer_capabilities": [
+        "hook",
+        "plugin"
+      ],
+      "computer_commands": [
+        "codex"
+      ],
+      "computer_hook_default_events": [
+        "PreToolUse",
+        "PermissionRequest"
+      ],
+      "computer_hook_events": [
+        "PreToolUse",
+        "PermissionRequest",
+        "PostToolUse",
+        "UserPromptSubmit",
+        "SessionStart",
+        "SessionEnd",
+        "Stop"
+      ],
+      "computer_hook_settings_file": ".codex/hooks.json",
+      "computer_hook_template": "computer-hooks.json",
+      "description": "Computer-side shim and native hook/plugin bridge for Codex CLI",
+      "extra_keys": [
+        "computer_hook_command"
+      ],
+      "runtime": "computer",
+      "surfaces": [
+        "shell"
+      ]
+    }
+  }
+}

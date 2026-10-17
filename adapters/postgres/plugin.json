@@ -1,0 +1,81 @@
+{
+  "apiVersion": "ext.package/v1",
+  "descriptor": {
+    "apiVersion": "ext.plugin/v1",
+    "identity": {
+      "id": "postgres",
+      "revision": ""
+    },
+    "contracts": [
+      {
+        "name": "ext.adapter",
+        "version": "2.0",
+        "operations": [
+          {
+            "name": "configure"
+          },
+          {
+            "name": "validate"
+          },
+          {
+            "name": "run"
+          },
+          {
+            "name": "doctor"
+          }
+        ]
+      }
+    ]
+  },
+  "artifacts": [
+    {
+      "name": "main",
+      "path": "ctx-postgres",
+      "sha256": ""
+    },
+    {
+      "name": "main-windows",
+      "path": "ctx-postgres.ps1",
+      "sha256": ""
+    }
+  ],
+  "entrypoints": [
+    {
+      "name": "main",
+      "runtime": "argv",
+      "artifact": "main",
+      "protocols": [
+        "ext.adapter/2.0"
+      ]
+    },
+    {
+      "name": "main.windows",
+      "runtime": "argv",
+      "artifact": "main-windows",
+      "protocols": [
+        "ext.adapter/2.0"
+      ]
+    }
+  ],
+  "metadata": {
+    "ctx.adapter/v1": {
+      "commands": [
+        "postgres",
+        "psql",
+        "pg_dump",
+        "pg_restore",
+        "createdb",
+        "dropdb"
+      ],
+      "description": "First-party PostgreSQL service adapter",
+      "extra_keys": [
+        "postgres_service_file"
+      ],
+      "runtime": "computer",
+      "selector_key": "postgres_service",
+      "surfaces": [
+        "shell"
+      ]
+    }
+  }
+}

@@ -34,12 +34,12 @@ func TestManagementRequestReachesAdapterBackend(t *testing.T) {
 }
 
 func TestSessionEndpointReachesAdapterBackendAndIsDeclared(t *testing.T) {
-	manifest, err := os.ReadFile(filepath.Join("..", "adapter.toml"))
+	manifest, err := os.ReadFile(filepath.Join("..", "plugin.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(string(manifest), "session.endpoint") {
-		t.Fatal("adapter.toml does not declare session.endpoint")
+		t.Fatal("plugin.json does not declare session.endpoint")
 	}
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {

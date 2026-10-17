@@ -1,0 +1,84 @@
+{
+  "apiVersion": "ext.package/v1",
+  "descriptor": {
+    "apiVersion": "ext.plugin/v1",
+    "identity": {
+      "id": "kube",
+      "revision": ""
+    },
+    "contracts": [
+      {
+        "name": "ext.adapter",
+        "version": "2.0",
+        "operations": [
+          {
+            "name": "list"
+          },
+          {
+            "name": "configure"
+          },
+          {
+            "name": "validate"
+          },
+          {
+            "name": "run"
+          },
+          {
+            "name": "doctor"
+          }
+        ]
+      }
+    ]
+  },
+  "artifacts": [
+    {
+      "name": "main",
+      "path": "ctx-kube",
+      "sha256": ""
+    },
+    {
+      "name": "main-windows",
+      "path": "ctx-kube.ps1",
+      "sha256": ""
+    }
+  ],
+  "entrypoints": [
+    {
+      "name": "main",
+      "runtime": "argv",
+      "artifact": "main",
+      "protocols": [
+        "ext.adapter/2.0"
+      ]
+    },
+    {
+      "name": "main.windows",
+      "runtime": "argv",
+      "artifact": "main-windows",
+      "protocols": [
+        "ext.adapter/2.0"
+      ]
+    }
+  ],
+  "metadata": {
+    "ctx.adapter/v1": {
+      "commands": [
+        "kube",
+        "kubectl"
+      ],
+      "description": "First-party Kubernetes context adapter",
+      "extra_keys": [
+        "kube_namespace",
+        "kubeconfig"
+      ],
+      "runtime": "computer",
+      "selector_key": "kube_context",
+      "supports": [
+        "container"
+      ],
+      "surfaces": [
+        "shell"
+      ]
+    }
+  }
+}

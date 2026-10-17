@@ -1,0 +1,111 @@
+{
+  "apiVersion": "ext.package/v1",
+  "descriptor": {
+    "apiVersion": "ext.plugin/v1",
+    "identity": {
+      "id": "docker",
+      "revision": ""
+    },
+    "contracts": [
+      {
+        "name": "ext.adapter",
+        "version": "2.0",
+        "operations": [
+          {
+            "name": "list"
+          },
+          {
+            "name": "observe"
+          },
+          {
+            "name": "validate"
+          },
+          {
+            "name": "run"
+          },
+          {
+            "name": "doctor"
+          },
+          {
+            "name": "build"
+          },
+          {
+            "name": "image_push"
+          },
+          {
+            "name": "image_pull"
+          },
+          {
+            "name": "image_save"
+          },
+          {
+            "name": "image_load"
+          },
+          {
+            "name": "volume_exists"
+          },
+          {
+            "name": "volume_create"
+          },
+          {
+            "name": "volume_export"
+          },
+          {
+            "name": "volume_import"
+          }
+        ]
+      }
+    ]
+  },
+  "artifacts": [
+    {
+      "name": "main",
+      "path": "ctx-docker",
+      "sha256": ""
+    },
+    {
+      "name": "main-windows",
+      "path": "ctx-docker.ps1",
+      "sha256": ""
+    }
+  ],
+  "entrypoints": [
+    {
+      "name": "main",
+      "runtime": "argv",
+      "artifact": "main",
+      "protocols": [
+        "ext.adapter/2.0"
+      ]
+    },
+    {
+      "name": "main.windows",
+      "runtime": "argv",
+      "artifact": "main-windows",
+      "protocols": [
+        "ext.adapter/2.0"
+      ]
+    }
+  ],
+  "metadata": {
+    "ctx.adapter/v1": {
+      "commands": [
+        "docker"
+      ],
+      "default_provider": true,
+      "description": "First-party Docker manager provider",
+      "override_env": [
+        "DOCKER_CONTEXT",
+        "DOCKER_HOST"
+      ],
+      "runtime": "manager",
+      "selector_key": "docker",
+      "supports": [
+        "container"
+      ],
+      "surfaces": [
+        "shell"
+      ]
+    }
+  }
+}

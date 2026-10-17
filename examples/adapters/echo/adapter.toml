@@ -1,7 +1,0 @@
-api_version = "2.0"
-name = "echo"
-runtime = "computer"
-surfaces = "shell,web"
-executable = "ctx-echo"
-description = "Reference adapter for ctx adapter API v1"
-capabilities = "list,validate,run,doctor,open"

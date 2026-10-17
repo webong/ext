@@ -39,7 +39,7 @@ func TestCatalogAddInstallsDeclaredDependency(t *testing.T) {
 		if err := os.MkdirAll(directory, 0o700); err != nil {
 			t.Fatal(err)
 		}
-		if err := os.WriteFile(filepath.Join(directory, "adapter.toml"), []byte(manifest), 0o600); err != nil {
+		if err := modpkg.WriteKeyValueManifest(directory, manifest); err != nil {
 			t.Fatal(err)
 		}
 		command := "#!/bin/sh\nexit 0\n"

@@ -1,0 +1,59 @@
+{
+  "apiVersion": "ext.package/v1",
+  "descriptor": {
+    "apiVersion": "ext.plugin/v1",
+    "identity": {
+      "id": "keychain",
+      "revision": ""
+    },
+    "contracts": [
+      {
+        "name": "ext.adapter",
+        "version": "2.0",
+        "operations": [
+          {
+            "name": "validate"
+          },
+          {
+            "name": "doctor"
+          },
+          {
+            "name": "share"
+          }
+        ]
+      }
+    ]
+  },
+  "artifacts": [
+    {
+      "name": "main",
+      "path": "ctx-keychain",
+      "sha256": ""
+    }
+  ],
+  "entrypoints": [
+    {
+      "name": "main",
+      "runtime": "argv",
+      "artifact": "main",
+      "protocols": [
+        "ext.adapter/2.0"
+      ]
+    }
+  ],
+  "metadata": {
+    "ctx.adapter/v1": {
+      "description": "macOS Keychain generic-password store",
+      "go_entry": "./native",
+      "runtime": "computer",
+      "selectable": false,
+      "self_contained": true,
+      "share_spaces": [
+        "credential"
+      ],
+      "surfaces": [
+        "shell"
+      ]
+    }
+  }
+}

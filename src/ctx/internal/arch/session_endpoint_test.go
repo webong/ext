@@ -11,7 +11,7 @@ import (
 // adapter here means its native backend answers the operation and has tests.
 func TestSessionEndpointIsDeclaredOnlyWhereImplemented(t *testing.T) {
 	implemented := map[string]bool{"chrome": true, "chromium": true, "edge": true}
-	manifests, err := filepath.Glob(filepath.Join(repoRoot(t), "adapters", "*", "adapter.toml"))
+	manifests, err := filepath.Glob(filepath.Join(repoRoot(t), "adapters", "*", "plugin.json"))
 	if err != nil {
 		t.Fatal(err)
 	}

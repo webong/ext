@@ -7,16 +7,19 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	goengine "github.com/webong/ext/pkg/plugin-go/cengine"
 	plugin "github.com/webong/ext/pkg/plugin-go/contract"
 	"github.com/webong/ext/pkg/plugin-go/contract/package"
 	"github.com/webong/ext/pkg/plugin-go/contract/transport/jsonline"
+	"math/rand"
 	"os"
 	"path/filepath"
 	"reflect"
 	"runtime"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestPackageDifferential(t *testing.T) {
@@ -326,5 +329,99 @@ func sameError(t *testing.T, got, want error) {
 		if errors.Is(got, class) != errors.Is(want, class) {
 			t.Fatalf("C %v, Go %v", got, want)
 		}
+	}
+}
+
+// The C engine once compared every pair of artifacts, and for resolve scanned
+// every manifest for every requirement; Go's tree-overlap check and Resolve had
+// the same shape. Either took minutes on manifests that fit in one frame. These
+// cases keep both stacks returning the same verdict and keep the C engine inside
+// a time bound a regression would miss by orders of magnitude.
+
+func TestPackageDifferentialAtLimits(t *testing.T) {
+	sum := hex.EncodeToString(make([]byte, 32))
+	prefix := strings.Repeat("a", 900)
+	for _, tree := range []bool{false, true} {
+		m := packageFixture("example/a")
+		m.Entrypoints = nil
+		m.Artifacts = nil
+		for i := 0; i < 4096; i++ {
+			a := packagekit.Artifact{Name: fmt.Sprintf("art%d", i), Path: fmt.Sprintf("%s/f%d", prefix, i), SHA256: sum}
+			if tree {
+				a.Kind, a.Path = packagekit.ArtifactTree, fmt.Sprintf("%s%d", prefix, i)
+			}
+			m.Artifacts = append(m.Artifacts, a)
+		}
+		start := time.Now()
+		ge := ValidateManifest(m)
+		elapsed := time.Since(start)
+		sameError(t, ge, m.Validate())
+		if ge != nil {
+			t.Fatalf("tree=%v: %v", tree, ge)
+		}
+		if elapsed > 20*time.Second {
+			t.Fatalf("tree=%v: C validated 4096 artifacts in %v", tree, elapsed)
+		}
+		t.Logf("tree=%v: C validated 4096 artifacts with a 900-byte shared prefix in %v", tree, elapsed)
+	}
+
+	// Many manifests, each requiring the contracts of the first 128: the plan
+	// must agree with Go's and not take minutes.
+	manifests := make([]packagekit.Manifest, 512)
+	for i := range manifests {
+		manifests[i] = packageFixture(fmt.Sprintf("example/m%d", i))
+		for k := 0; k < i && k < 128; k++ {
+			manifests[i].Requires = append(manifests[i].Requires, packagekit.Dependency{
+				Contract:  plugin.ContractRef{Name: fmt.Sprintf("example/m%d", k), Version: "v1"},
+				Operation: "read",
+			})
+		}
+	}
+	start := time.Now()
+	got, ge := ResolvePackages(manifests)
+	elapsed := time.Since(start)
+	want, we := packagekit.Resolve(manifests)
+	sameError(t, ge, we)
+	if ge != nil || !reflect.DeepEqual(got, want) {
+		t.Fatalf("C and Go plans differ (C error %v)", ge)
+	}
+	if elapsed > 20*time.Second {
+		t.Fatalf("C resolved 512 manifests in %v", elapsed)
+	}
+	t.Logf("C resolved 512 manifests with up to 128 requirements each in %v", elapsed)
+}
+
+// Random artifact sets, with the collisions that matter: case, Unicode case,
+// siblings that sort between a directory and its children, nested trees.
+func TestArtifactSetDifferential(t *testing.T) {
+	parts := []string{"a", "A", "b", "ä", "Ä", "a-b", "a+b", "a b", "x.y", "ǅ", "ǆ"}
+	sum := hex.EncodeToString(make([]byte, 32))
+	rng := rand.New(rand.NewSource(7))
+	var valid, invalid int
+	for round := 0; round < 4000; round++ {
+		m := packageFixture("example/a")
+		m.Entrypoints = nil
+		m.Artifacts = nil
+		for i, n := 0, 1+rng.Intn(7); i < n; i++ {
+			var path []string
+			for d, depth := 0, 1+rng.Intn(3); d < depth; d++ {
+				path = append(path, parts[rng.Intn(len(parts))])
+			}
+			a := packagekit.Artifact{Name: fmt.Sprintf("n%d", rng.Intn(n+3)), Path: strings.Join(path, "/"), SHA256: sum}
+			if rng.Intn(3) == 0 {
+				a.Kind = packagekit.ArtifactTree
+			}
+			m.Artifacts = append(m.Artifacts, a)
+		}
+		ge, we := ValidateManifest(m), m.Validate()
+		sameError(t, ge, we)
+		if we == nil {
+			valid++
+		} else {
+			invalid++
+		}
+	}
+	if valid < 500 || invalid < 500 {
+		t.Fatalf("random artifact sets were lopsided: %d valid, %d invalid", valid, invalid)
 	}
 }

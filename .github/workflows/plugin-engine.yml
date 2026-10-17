@@ -40,6 +40,22 @@ jobs:
       - name: Build the engine and run its tests
         run: scripts/plugin-engine-test.sh "$RUNNER_TEMP/engine"
 
+  # Sanitizers do not see an input that is merely slow, so the parsers and
+  # validators also get a short libFuzzer run with a per-input time limit.
+  fuzz:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the fuzz target
+        run: |
+          cmake -S lib/plugin -B "$RUNNER_TEMP/fuzz" -G Ninja -DCMAKE_C_COMPILER=clang -DCMAKE_BUILD_TYPE=RelWithDebInfo -DEXT_FUZZ=ON
+          cmake --build "$RUNNER_TEMP/fuzz" --target ext_fuzz
+      - name: Fuzz for a minute
+        run: |
+          mkdir -p "$RUNNER_TEMP/corpus"
+          cp lib/plugin/testdata/fuzz/*.json lib/plugin/testdata/v1/*.json "$RUNNER_TEMP/corpus/"
+          "$RUNNER_TEMP/fuzz/ext_fuzz" -max_len=262144 -timeout=5 -max_total_time=60 "$RUNNER_TEMP/corpus"
+
   windows:
     runs-on: windows-latest
     steps:

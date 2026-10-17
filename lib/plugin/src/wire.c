@@ -179,9 +179,9 @@ int ext_descriptor(yyjson_val *d) {
   yyjson_arr_foreach(cs, i, n, c) {
     if (!FIELDS(c, "name", "version", "operations") || !ext_ref(c))
       return 0;
-    for (size_t k = 0; k < i; k++)
-      if (ext_same_ref(c, yyjson_arr_get(cs, k)))
-        return 0;
+    size_t k, z;
+    yyjson_val *earlier;
+    EXT_ARR_BEFORE(cs, i, k, z, earlier) if (ext_same_ref(c, earlier)) return 0;
     yyjson_val *ops = get(c, "operations");
     if (!yyjson_is_arr(ops) || !yyjson_arr_size(ops) ||
         yyjson_arr_size(ops) > 256)
@@ -191,9 +191,10 @@ int ext_descriptor(yyjson_val *d) {
           yyjson_equals_str(get(o, "name"), "plugin.hello") ||
           !ext_text(get(o, "surface"), 0, 1))
         return 0;
-      for (size_t k = 0; k < j; k++)
-        if (ext_same(get(o, "name"), get(yyjson_arr_get(ops, k), "name")))
-          return 0;
+      size_t x, y;
+      yyjson_val *sibling;
+      EXT_ARR_BEFORE(ops, j, x, y, sibling)
+      if (ext_same(get(o, "name"), get(sibling, "name"))) return 0;
     }
   }
   return 1;
@@ -224,6 +225,14 @@ int ext_match(yyjson_val *a, yyjson_val *b) {
     }
   }
   return 1;
+}
+yyjson_val **ext_arr_snapshot(yyjson_val *arr) {
+  size_t n = yyjson_arr_size(arr), i, max;
+  yyjson_val *v, **out = malloc((n ? n : 1) * sizeof(*out));
+  if (!out)
+    return NULL;
+  yyjson_arr_foreach(arr, i, max, v) out[i] = v;
+  return out;
 }
 int64_t ext_wall_ms(void) {
   struct timespec ts;

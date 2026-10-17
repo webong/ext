@@ -135,19 +135,31 @@ func (m Manifest) Validate() error {
 		paths[strings.ToLower(a.Path)] = true
 	}
 	// A tree owns everything below its directory: no other artifact may share,
-	// contain or sit inside that path.
+	// contain or sit inside that path. Comparing every tree with every artifact
+	// cost minutes at 4096 trees; the lower-cased paths are sorted once, so a tree
+	// needs one binary search for what sits below it and one lookup per directory
+	// above it. Paths are unique by now, so none equals a tree's own.
+	type placed struct{ path, name string }
+	byPath := make(map[string]string, len(m.Artifacts))
+	sorted := make([]placed, 0, len(m.Artifacts))
+	for _, a := range m.Artifacts {
+		p := strings.ToLower(a.Path)
+		byPath[p] = a.Name
+		sorted = append(sorted, placed{p, a.Name})
+	}
+	sort.Slice(sorted, func(i, j int) bool { return sorted[i].path < sorted[j].path })
 	for _, tree := range m.Artifacts {
 		if tree.Kind != ArtifactTree {
 			continue
 		}
 		prefix := strings.ToLower(tree.Path)
-		for _, other := range m.Artifacts {
-			if other.Name == tree.Name {
-				continue
-			}
-			op := strings.ToLower(other.Path)
-			if op == prefix || strings.HasPrefix(op, prefix+"/") || strings.HasPrefix(prefix, op+"/") {
-				return fmt.Errorf("%w: artifact %s overlaps tree %s", plugin.ErrInvalid, other.Name, tree.Name)
+		below := prefix + "/"
+		if i := sort.Search(len(sorted), func(i int) bool { return sorted[i].path >= below }); i < len(sorted) && strings.HasPrefix(sorted[i].path, below) {
+			return fmt.Errorf("%w: artifact %s overlaps tree %s", plugin.ErrInvalid, sorted[i].name, tree.Name)
+		}
+		for j := strings.LastIndexByte(prefix, '/'); j > 0; j = strings.LastIndexByte(prefix[:j], '/') {
+			if name, ok := byPath[prefix[:j]]; ok {
+				return fmt.Errorf("%w: artifact %s overlaps tree %s", plugin.ErrInvalid, name, tree.Name)
 			}
 		}
 	}
@@ -383,20 +395,51 @@ func Resolve(manifests []Manifest) (Plan, error) {
 		index[m.Descriptor.Identity] = i
 		descriptors[i] = m.Descriptor
 	}
+	// What each manifest offers, indexed once. plugin.Select validates every
+	// candidate again for every requirement, which took minutes on a plan of
+	// hundreds of manifests; they were all validated above, as were the
+	// requirements, so the lookup is the same decision at constant cost. A
+	// requirement is satisfied by a manifest that offers its contract operation
+	// and, when it pins an identity, has exactly that identity; one provider is
+	// required.
+	type offer struct {
+		contract  plugin.ContractRef
+		operation string
+	}
+	offers := map[offer][]int{}
+	for i, d := range descriptors {
+		for _, c := range d.Contracts {
+			for _, op := range c.Operations {
+				k := offer{c.ContractRef, op.Name}
+				offers[k] = append(offers[k], i)
+			}
+		}
+	}
 	p := Plan{}
 	dependencies := make([][]int, len(manifests))
 	for i, m := range manifests {
 		for _, r := range m.Requires {
-			d, err := plugin.Select(descriptors, plugin.Requirement{Contract: r.Contract, Operation: r.Operation, Identity: r.Identity})
-			if err != nil {
+			provider, count := 0, 0
+			for _, candidate := range offers[offer{r.Contract, r.Operation}] {
+				if r.Identity != nil && descriptors[candidate].Identity != *r.Identity {
+					continue
+				}
+				provider = candidate
+				count++
+			}
+			if count != 1 {
+				err := plugin.ErrAmbiguous
+				if count == 0 {
+					err = plugin.ErrNotFound
+				}
 				return Plan{}, fmt.Errorf("%s requires %s@%s/%s: %w", m.Descriptor.Identity.ID, r.Contract.Name, r.Contract.Version, r.Operation, err)
 			}
-			dependencies[i] = append(dependencies[i], index[d.Identity])
+			dependencies[i] = append(dependencies[i], provider)
 			if r.Identity != nil {
 				id := *r.Identity
 				r.Identity = &id
 			}
-			p.Bindings = append(p.Bindings, Resolution{Consumer: m.Descriptor.Identity, Requirement: r, Provider: d.Identity})
+			p.Bindings = append(p.Bindings, Resolution{Consumer: m.Descriptor.Identity, Requirement: r, Provider: descriptors[provider].Identity})
 		}
 	}
 	state := make([]int, len(manifests))

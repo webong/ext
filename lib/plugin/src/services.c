@@ -153,11 +153,14 @@ int ext_schema_valid(yyjson_val *s, unsigned depth, unsigned *budget) {
   if (eq(type, "object")) {
     if (yyjson_obj_size(props) > 256)
       return 0;
-    yyjson_obj_foreach(props, i, n, k, v) {
-      if (!yyjson_get_len(k) || yyjson_get_len(k) > 256 ||
-          !ext_schema_valid(v, depth + 1, budget))
-        return 0;
-    }
+    /* yyjson_obj_foreach steps a null object's first pointer even when it then
+     * visits nothing, which is undefined; "properties" is optional. */
+    if (props)
+      yyjson_obj_foreach(props, i, n, k, v) {
+        if (!yyjson_get_len(k) || yyjson_get_len(k) > 256 ||
+            !ext_schema_valid(v, depth + 1, budget))
+          return 0;
+      }
     yyjson_arr_foreach(required, i, n, k) {
       if (!yyjson_is_str(k) ||
           !yyjson_obj_getn(props, yyjson_get_str(k), yyjson_get_len(k)))
@@ -260,9 +263,10 @@ static int profile(yyjson_val *p) {
           yyjson_is_str(get(p, "processOwner")));
 }
 static int unique_name(yyjson_val *array, size_t i, yyjson_val *p) {
-  for (size_t j = 0; j < i; j++)
-    if (ext_same(get(p, "name"), get(yyjson_arr_get(array, j), "name")))
-      return 0;
+  size_t j, n;
+  yyjson_val *earlier;
+  EXT_ARR_BEFORE(array, i, j, n, earlier)
+  if (ext_same(get(p, "name"), get(earlier, "name"))) return 0;
   return 1;
 }
 static ext_status route_result(yyjson_val *h, yyjson_val *g, yyjson_val *bridge,

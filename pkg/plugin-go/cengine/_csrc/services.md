@@ -46,6 +46,21 @@ Unicode 17.0.0 simple lowercase, pinned in `src/unicode_lower.h`; regeneration i
 in `tools/unicode_lower.go`. Unicode versions in older Go toolchains can differ.
 Do not interpret a validated path or checksum as a trust grant.
 
+Duplicate names and paths, and tree overlap, are decided by sorting the
+artifacts, so validation costs O(n log n) in the artifact count, and
+`package.resolve` finds providers through an index built once per call. Both used
+to compare every pair or scan every manifest per requirement, which took minutes
+on a manifest that fits in one frame. `tests/limits.c` keeps that from coming
+back: it checks verdicts against a naive reference and bounds CPU time at the
+documented limits, and `tests/fuzz.c` is a libFuzzer target for the parsers and
+validators (see the comment at its top for how to run it with a time limit).
+
+Package and plugin identifiers may contain `/` and `.` after the first character,
+so an identifier such as `a/../b` or `a//b` is valid. Nothing in the engine
+builds a filesystem path from one. A binding or application that does, for
+example to place an installed package in a directory, must encode it first (the
+Go store replaces `/` with `%2f`) and must not join it into a path as written.
+
 ## Native integrity functions
 
 - `ext_engine_sha256`: bytes to a 32-byte digest.
@@ -54,7 +69,11 @@ Do not interpret a validated path or checksum as a trust grant.
   using the existing CTX trust-record format.
 
 Filesystem functions currently use POSIX descriptor-relative opens and reject
-symlinks and special files. Directory traversal is bounded to 1024 nested levels.
+symlinks and special files. Directory traversal is bounded to 1024 nested levels,
+and one directory digest to 250,000 files (the Go store's default `MaxTreeFiles`)
+and 64 MiB of path text; beyond either it fails with `EXT_INVALID` instead of
+holding every path in memory. The Go store applies its own configurable limits
+first, and `plugin.DirectoryDigest` in the contract module does not cap the count.
 Applications must protect reviewed content against concurrent writes and
 separately establish publisher trust. Neither function launches code.
 

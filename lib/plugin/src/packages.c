@@ -104,15 +104,6 @@ static uint32_t lower_rune(const uint8_t **p) {
     return ext_lower[lo][1];
   return c;
 }
-static int same_path(yyjson_val *a, yyjson_val *b) {
-  const uint8_t *x = (const uint8_t *)yyjson_get_str(a),
-                *y = (const uint8_t *)yyjson_get_str(b);
-  const uint8_t *xe = x + yyjson_get_len(a), *ye = y + yyjson_get_len(b);
-  while (x < xe && y < ye)
-    if (lower_rune(&x) != lower_rune(&y))
-      return 0;
-  return x == xe && y == ye;
-}
 /* Optional SPDX license expression: 1 to 128 characters, starting with a
  * letter, digit or "(", using letters, digits and ". + ( ) -" and single interior
  * spaces. It is recorded and never interpreted. Matches packagekit. */
@@ -208,17 +199,6 @@ static int tree_artifact(yyjson_val *a) {
   yyjson_val *k = get(a, "kind");
   return yyjson_is_str(k) && yyjson_equals_str(k, "tree");
 }
-/* Whether directory path a equals or contains path b, comparing lowercase
- * runes on whole components, as packagekit does for tree overlap. */
-static int path_contains(yyjson_val *a, yyjson_val *b) {
-  const uint8_t *x = (const uint8_t *)yyjson_get_str(a),
-                *y = (const uint8_t *)yyjson_get_str(b);
-  const uint8_t *xe = x + yyjson_get_len(a), *ye = y + yyjson_get_len(b);
-  while (x < xe && y < ye)
-    if (lower_rune(&x) != lower_rune(&y))
-      return 0;
-  return x == xe && (y == ye || *y == '/');
-}
 static int dependency(yyjson_val *r) {
   return EXT_FIELDS(r, "contract", "operation", "identity") &&
          EXT_FIELDS(get(r, "contract"), "name", "version") &&
@@ -231,6 +211,147 @@ static int same_dependency(yyjson_val *a, yyjson_val *b) {
          ext_same(get(a, "operation"), get(b, "operation")) &&
          ((absent(ai) && absent(bi)) ||
           (!absent(ai) && !absent(bi) && ext_same_identity(ai, bi)));
+}
+/* One artifact for the duplicate and overlap checks. key is its path folded to
+ * lower case, as Go's strings.ToLower does for the same comparison, with "/"
+ * replaced by NUL: a path cannot hold NUL, so comparing keys as bytes sorts a
+ * directory immediately before everything below it. */
+typedef struct {
+  yyjson_val *v;
+  uint8_t *key;
+  size_t len;
+  int tree;
+} artifact;
+static size_t rune_size(uint32_t c) {
+  return c < 0x80 ? 1 : c < 0x800 ? 2 : c < 0x10000 ? 3 : 4;
+}
+static uint8_t *put_rune(uint8_t *out, uint32_t c) {
+  if (c < 0x80)
+    *out++ = (uint8_t)c;
+  else if (c < 0x800) {
+    *out++ = (uint8_t)(0xc0 | (c >> 6));
+    *out++ = (uint8_t)(0x80 | (c & 63));
+  } else if (c < 0x10000) {
+    *out++ = (uint8_t)(0xe0 | (c >> 12));
+    *out++ = (uint8_t)(0x80 | ((c >> 6) & 63));
+    *out++ = (uint8_t)(0x80 | (c & 63));
+  } else {
+    *out++ = (uint8_t)(0xf0 | (c >> 18));
+    *out++ = (uint8_t)(0x80 | ((c >> 12) & 63));
+    *out++ = (uint8_t)(0x80 | ((c >> 6) & 63));
+    *out++ = (uint8_t)(0x80 | (c & 63));
+  }
+  return out;
+}
+static int fold_path(yyjson_val *path, artifact *out) {
+  const uint8_t *p = (const uint8_t *)yyjson_get_str(path),
+                *end = p + yyjson_get_len(path), *q = p;
+  size_t size = 0;
+  while (q < end)
+    size += rune_size(lower_rune(&q));
+  out->key = malloc(size ? size : 1);
+  if (!out->key)
+    return 0;
+  uint8_t *o = out->key;
+  for (q = p; q < end;) {
+    uint32_t c = lower_rune(&q);
+    if (c == '/')
+      *o++ = 0;
+    else
+      o = put_rune(o, c);
+  }
+  out->len = size;
+  return 1;
+}
+static int key_order(const void *a, const void *b) {
+  const artifact *x = *(const artifact *const *)a,
+                 *y = *(const artifact *const *)b;
+  size_t n = x->len < y->len ? x->len : y->len;
+  int c = memcmp(x->key, y->key, n);
+  return c ? c : (x->len > y->len) - (x->len < y->len);
+}
+typedef struct {
+  const char *s;
+  size_t len;
+} span;
+static int span_order(const void *a, const void *b) {
+  const span *x = a, *y = b;
+  size_t n = x->len < y->len ? x->len : y->len;
+  int c = memcmp(x->s, y->s, n);
+  return c ? c : (x->len > y->len) - (x->len < y->len);
+}
+/* Whether parent is a directory above child: a proper prefix that ends at a
+ * path separator. */
+static int above(const artifact *parent, const artifact *child) {
+  return parent->len < child->len &&
+         !memcmp(parent->key, child->key, parent->len) &&
+         child->key[parent->len] == 0;
+}
+/* No two artifacts share a name or, ignoring case, a path; a tree owns
+ * everything below its directory, so no other artifact may share, contain or sit
+ * inside that path. Sorting makes this O(n log n) in the artifact count:
+ * comparing every pair of 4096 artifacts, each reached through
+ * yyjson_arr_get, took minutes. */
+static ext_status artifacts_distinct(yyjson_val *a) {
+  size_t count = yyjson_arr_size(a), i, n;
+  yyjson_val *v;
+  ext_status status = EXT_OK;
+  artifact *items = calloc(count, sizeof(*items));
+  artifact **order = malloc(count * sizeof(*order));
+  artifact **open = malloc(count * sizeof(*open));
+  span *names = malloc(count * sizeof(*names));
+  if (!items || !order || !open || !names) {
+    status = EXT_NOMEM;
+    goto done;
+  }
+  yyjson_arr_foreach(a, i, n, v) {
+    items[i].v = v;
+    items[i].tree = tree_artifact(v);
+    if (!fold_path(get(v, "path"), &items[i])) {
+      status = EXT_NOMEM;
+      goto done;
+    }
+    order[i] = &items[i];
+    names[i].s = yyjson_get_str(get(v, "name"));
+    names[i].len = yyjson_get_len(get(v, "name"));
+  }
+  qsort(names, count, sizeof(*names), span_order);
+  for (i = 1; i < count; i++)
+    if (!span_order(&names[i - 1], &names[i])) {
+      status = EXT_INVALID;
+      goto done;
+    }
+  qsort(order, count, sizeof(*order), key_order);
+  for (i = 1; i < count; i++)
+    if (!key_order(&order[i - 1], &order[i])) {
+      status = EXT_INVALID;
+      goto done;
+    }
+  /* In this order everything below a directory follows it directly, so the
+   * artifacts that can still contain the next one are a chain, popped as soon
+   * as the next path is outside them. */
+  size_t depth = 0, trees = 0;
+  for (i = 0; i < count; i++) {
+    while (depth && !above(open[depth - 1], order[i])) {
+      depth--;
+      trees -= (size_t)open[depth]->tree;
+    }
+    if (depth && (order[i]->tree || trees)) {
+      status = EXT_INVALID;
+      goto done;
+    }
+    open[depth++] = order[i];
+    trees += (size_t)order[i]->tree;
+  }
+done:
+  if (items)
+    for (i = 0; i < count; i++)
+      free(items[i].key);
+  free(items);
+  free(order);
+  free(open);
+  free(names);
+  return status;
 }
 ext_status ext_manifest_valid(yyjson_val *m) {
   if (!EXT_FIELDS(m, "apiVersion", "descriptor", "license", "artifacts",
@@ -259,42 +380,24 @@ ext_status ext_manifest_valid(yyjson_val *m) {
         !digest(get(v, "sha256")) || !ext_text(get(v, "os"), 0, 1) ||
         !ext_text(get(v, "arch"), 0, 1))
       return EXT_INVALID;
-    for (j = 0; j < i; j++) {
-      w = yyjson_arr_get(a, j);
-      if (ext_same(get(v, "name"), get(w, "name")) ||
-          same_path(get(v, "path"), get(w, "path")))
-        return EXT_INVALID;
-    }
   }
-  /* A tree owns everything below its directory: no other artifact may share,
-   * contain or sit inside that path. */
-  yyjson_arr_foreach(a, i, n, v) {
-    if (!tree_artifact(v))
-      continue;
-    for (j = 0; j < yyjson_arr_size(a); j++) {
-      w = yyjson_arr_get(a, j);
-      if (j != i &&
-          (path_contains(get(v, "path"), get(w, "path")) ||
-           path_contains(get(w, "path"), get(v, "path"))))
-        return EXT_INVALID;
-    }
-  }
+  ext_status distinct = artifacts_distinct(a);
+  if (distinct)
+    return distinct;
   yyjson_arr_foreach(e, i, n, v) {
     yyjson_val *target = named(a, get(v, "artifact"));
     if (!EXT_FIELDS(v, "name", "runtime", "artifact", "protocols") ||
         !ext_text(get(v, "name"), 0, 0) || !ext_text(get(v, "runtime"), 0, 0) ||
         !target || tree_artifact(target) || !ext_protocols(get(v, "protocols")))
       return EXT_INVALID;
-    for (j = 0; j < i; j++)
-      if (ext_same(get(v, "name"), get(yyjson_arr_get(e, j), "name")))
-        return EXT_INVALID;
+    EXT_ARR_BEFORE(e, i, j, k, w)
+    if (ext_same(get(v, "name"), get(w, "name"))) return EXT_INVALID;
   }
   yyjson_arr_foreach(r, i, n, v) {
     if (!dependency(v))
       return EXT_INVALID;
-    for (j = 0; j < i; j++)
-      if (same_dependency(v, yyjson_arr_get(r, j)))
-        return EXT_INVALID;
+    EXT_ARR_BEFORE(r, i, j, k, w)
+    if (same_dependency(v, w)) return EXT_INVALID;
   }
   yyjson_arr_foreach(p, i, n, v) {
     if (!EXT_FIELDS(v, "contract", "operation", "input", "output") ||
@@ -305,12 +408,10 @@ ext_status ext_manifest_valid(yyjson_val *m) {
     if (!ext_lookup(get(m, "descriptor"), get(v, "contract"),
                     get(v, "operation")))
       return EXT_UNSUPPORTED;
-    for (j = 0; j < i; j++) {
-      w = yyjson_arr_get(p, j);
-      if (ext_same_ref(get(v, "contract"), get(w, "contract")) &&
-          ext_same(get(v, "operation"), get(w, "operation")))
-        return EXT_INVALID;
-    }
+    EXT_ARR_BEFORE(p, i, j, k, w)
+    if (ext_same_ref(get(v, "contract"), get(w, "contract")) &&
+        ext_same(get(v, "operation"), get(w, "operation")))
+      return EXT_INVALID;
   }
   yyjson_arr_foreach(
       assets, i, n,
@@ -324,15 +425,15 @@ ext_status ext_manifest_valid(yyjson_val *m) {
         !yyjson_is_arr(versions) || !yyjson_arr_size(versions) ||
         !array(versions, 64))
       return EXT_INVALID;
-    for (j = 0; j < i; j++)
-      if (ext_same(get(v, "name"), get(yyjson_arr_get(shared, j), "name")))
-        return EXT_INVALID;
+    EXT_ARR_BEFORE(shared, i, j, k, w)
+    if (ext_same(get(v, "name"), get(w, "name"))) return EXT_INVALID;
     yyjson_arr_foreach(versions, j, k, w) {
       if (!string(w, 1, 256))
         return EXT_INVALID;
-      for (size_t x = 0; x < j; x++)
-        if (ext_same(w, yyjson_arr_get(versions, x)))
-          return EXT_INVALID;
+      size_t x, y;
+      yyjson_val *earlier;
+      EXT_ARR_BEFORE(versions, j, x, y, earlier)
+      if (ext_same(w, earlier)) return EXT_INVALID;
     }
   }
   return EXT_OK;
@@ -454,12 +555,80 @@ static ext_status visit(node *nodes, size_t i, yyjson_mut_doc *d,
   p->state = 2;
   return EXT_OK;
 }
+/* Which manifests offer a contract operation. package.resolve used to scan
+ * every manifest for every requirement and search each descriptor with
+ * ext_lookup, which is far worse than quadratic on a plan of many manifests;
+ * this index answers one requirement in expected constant time. */
+typedef struct {
+  uint64_t hash;
+  size_t manifest;
+  yyjson_val *contract, *operation;
+} offer;
+typedef struct {
+  offer *offers;
+  size_t count;
+  size_t *slots; /* offer index + 1, 0 for empty; the size is a power of two */
+  size_t mask;
+} offers;
+static uint64_t hash_text(uint64_t h, yyjson_val *v) {
+  const char *s = yyjson_is_str(v) ? yyjson_get_str(v) : "";
+  size_t n = yyjson_is_str(v) ? yyjson_get_len(v) : 0;
+  for (size_t i = 0; i < n; i++)
+    h = (h ^ (uint8_t)s[i]) * 1099511628211ull;
+  return (h ^ 0xff) * 1099511628211ull;
+}
+static uint64_t offer_hash(yyjson_val *contract, yyjson_val *operation) {
+  uint64_t h = 14695981039346656037ull;
+  h = hash_text(h, get(contract, "name"));
+  h = hash_text(h, get(contract, "version"));
+  return hash_text(h, operation);
+}
+static void offers_free(offers *o) {
+  free(o->offers);
+  free(o->slots);
+  memset(o, 0, sizeof(*o));
+}
+static ext_status offers_build(offers *o, yyjson_val *ms) {
+  size_t i, n, j, k, x, y, total = 0;
+  yyjson_val *m, *c, *op;
+  yyjson_arr_foreach(ms, i, n, m) yyjson_arr_foreach(
+      get(get(m, "descriptor"), "contracts"), j, k,
+      c) total += yyjson_arr_size(get(c, "operations"));
+  size_t slots = 16;
+  while (slots / 2 < total) {
+    if (slots > SIZE_MAX / 4)
+      return EXT_NOMEM;
+    slots *= 2;
+  }
+  o->offers = calloc(total ? total : 1, sizeof(*o->offers));
+  o->slots = calloc(slots, sizeof(*o->slots));
+  if (!o->offers || !o->slots) {
+    offers_free(o);
+    return EXT_NOMEM;
+  }
+  o->mask = slots - 1;
+  yyjson_arr_foreach(ms, i, n, m) yyjson_arr_foreach(
+      get(get(m, "descriptor"), "contracts"), j, k,
+      c) yyjson_arr_foreach(get(c, "operations"), x, y, op) {
+    offer *e = &o->offers[o->count];
+    e->hash = offer_hash(c, get(op, "name"));
+    e->manifest = i;
+    e->contract = c;
+    e->operation = get(op, "name");
+    size_t slot = (size_t)e->hash & o->mask;
+    while (o->slots[slot])
+      slot = (slot + 1) & o->mask;
+    o->slots[slot] = ++o->count;
+  }
+  return EXT_OK;
+}
 static ext_status resolve(yyjson_val *ms, ext_buffer *out) {
   if (!yyjson_is_arr(ms) || yyjson_arr_size(ms) > 1024)
     return EXT_INVALID;
   size_t count = yyjson_arr_size(ms), i, n, j, k;
   yyjson_val *m, *r;
   ext_status s = EXT_OK;
+  offers index = {0};
   node *nodes = calloc(count ? count : 1, sizeof(*nodes));
   sorted *sorted_nodes = calloc(count ? count : 1, sizeof(*sorted_nodes));
   yyjson_mut_doc *d = yyjson_mut_doc_new(NULL);
@@ -486,6 +655,8 @@ static ext_status resolve(yyjson_val *ms, ext_buffer *out) {
     sorted_nodes[i].index = i;
     identity_hash(nodes[i].id, sorted_nodes[i].hash);
   }
+  if ((s = offers_build(&index, ms)))
+    goto done;
   yyjson_arr_foreach(ms, i, n, m) {
     nodes[i].count = yyjson_arr_size(get(m, "requires"));
     if (nodes[i].count) {
@@ -497,13 +668,18 @@ static ext_status resolve(yyjson_val *ms, ext_buffer *out) {
     }
     yyjson_arr_foreach(get(m, "requires"), j, k, r) {
       size_t found = 0, provider = 0;
-      for (size_t x = 0; x < count; x++) {
-        yyjson_val *desc = get(yyjson_arr_get(ms, x), "descriptor");
-        if ((absent(get(r, "identity")) ||
-             ext_same_identity(get(r, "identity"), nodes[x].id)) &&
-            ext_lookup(desc, get(r, "contract"), get(r, "operation"))) {
+      yyjson_val *want = get(r, "identity");
+      uint64_t hash = offer_hash(get(r, "contract"), get(r, "operation"));
+      for (size_t slot = (size_t)hash & index.mask; index.slots[slot];
+           slot = (slot + 1) & index.mask) {
+        const offer *e = &index.offers[index.slots[slot] - 1];
+        if (e->hash == hash &&
+            ext_same_ref(e->contract, get(r, "contract")) &&
+            ext_same(e->operation, get(r, "operation")) &&
+            (absent(want) ||
+             ext_same_identity(want, nodes[e->manifest].id))) {
           found++;
-          provider = x;
+          provider = e->manifest;
         }
       }
       if (found != 1) {
@@ -544,6 +720,7 @@ done:
   }
   free(nodes);
   free(sorted_nodes);
+  offers_free(&index);
   yyjson_mut_doc_free(d);
   return s;
 }

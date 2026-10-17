@@ -3,8 +3,8 @@ module github.com/webong/ext/adapters/keychain
 go 1.23.0
 
 require (
-	github.com/webong/ext/pkg/plugin-go/cengine v0.2.1
+	github.com/webong/ext/pkg/plugin-go/cengine v0.4.0
 	github.com/webong/ext/res/credential v0.1.0
 )
 
-require github.com/webong/ext/pkg/plugin-go/contract v0.2.1 // indirect
+require github.com/webong/ext/pkg/plugin-go/contract v0.4.0 // indirect

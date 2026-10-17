@@ -47,11 +47,15 @@ cmake -S lib/plugin -B "$build_dir/sanitize" -DCMAKE_BUILD_TYPE=Debug -DEXT_SANI
 cmake --build "$build_dir/sanitize" -j 4
 "$build_dir/sanitize/ext_guest_core_test"
 "$build_dir/sanitize/ext_resources_test"
+"$build_dir/sanitize/ext_limits_test"
+"$build_dir/sanitize/ext_tree_limits_test"
 "$build_dir/sanitize/ext_host_native_test" "$EXT_CENGINE_GUEST" "$build_dir/descriptor.json" "$build_dir/echo.json" "$build_dir/wait.json"
 cmake -S lib/plugin -B "$build_dir/thread-sanitize" -DCMAKE_BUILD_TYPE=Debug -DEXT_THREAD_SANITIZE=ON
 cmake --build "$build_dir/thread-sanitize" -j 4
 "$build_dir/thread-sanitize/ext_guest_core_test"
 "$build_dir/thread-sanitize/ext_resources_test"
+"$build_dir/thread-sanitize/ext_limits_test"
+"$build_dir/thread-sanitize/ext_tree_limits_test"
 "$build_dir/thread-sanitize/ext_host_native_test" "$EXT_CENGINE_GUEST" "$build_dir/descriptor.json" "$build_dir/echo.json" "$build_dir/wait.json"
 for foreign in "${EXT_CENGINE_RUST_GUEST:-}" "${EXT_CENGINE_ZIG_GUEST:-}"; do
   if [[ -n "$foreign" ]]; then

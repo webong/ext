@@ -15,7 +15,7 @@ import (
 	"testing"
 )
 
-func write(t *testing.T, dir, rel, body string) string {
+func write(t testing.TB, dir, rel, body string) string {
 	t.Helper()
 	p := filepath.Join(dir, filepath.FromSlash(rel))
 	if err := os.MkdirAll(filepath.Dir(p), 0o700); err != nil {
@@ -29,7 +29,7 @@ func write(t *testing.T, dir, rel, body string) string {
 }
 
 // source builds a source-only package (no entrypoints).
-func source(t *testing.T, id, revision, body string) string {
+func source(t testing.TB, id, revision, body string) string {
 	t.Helper()
 	dir := t.TempDir()
 	d := write(t, dir, "src/main.py", body)
@@ -44,7 +44,7 @@ func source(t *testing.T, id, revision, body string) string {
 	return dir
 }
 
-func newStore(t *testing.T) *store.Store {
+func newStore(t testing.TB) *store.Store {
 	s, err := store.New(filepath.Join(t.TempDir(), "plugins"), store.Limits{})
 	if err != nil {
 		t.Fatal(err)

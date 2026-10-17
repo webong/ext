@@ -127,3 +127,38 @@ func (l *Layered) Verify() ([]Check, error) {
 	sort.SliceStable(out, func(i, j int) bool { return out[i].ID < out[j].ID })
 	return out, nil
 }
+
+// ListUnverified returns one package's manifest per ID, each from the
+// highest-priority store that holds it, without verifying any content, and
+// reports the packages it could not read separately. See Store.ListUnverified:
+// the result is unverified, content is checked only by Installed.Verify,
+// host.Open and ArtifactPath, and that check is against the manifest read at
+// listing time. Shadowing is as in List and Verify: an ID belongs
+// to the highest-priority store whose directory holds it, even if that copy
+// cannot be read, in which case it is reported rather than replaced by a copy in
+// a later store; a shadowed copy is never read. An entry that is not a package
+// directory is reported in the store it sits in. Results are sorted by ID. The
+// error is only for a root that cannot be read.
+func (l *Layered) ListUnverified() ([]Installed, []Check, error) {
+	claimed := map[string]bool{}
+	var installed []Installed
+	var problems []Check
+	for _, s := range l.stores {
+		s.mu.Lock()
+		got, bad, ids, err := s.manifestsAll(func(id string) bool { return claimed[id] })
+		s.mu.Unlock()
+		if err != nil {
+			return nil, nil, err
+		}
+		for _, id := range ids {
+			claimed[id] = true
+		}
+		installed = append(installed, got...)
+		problems = append(problems, bad...)
+	}
+	sort.SliceStable(installed, func(i, j int) bool {
+		return installed[i].Manifest.Descriptor.Identity.ID < installed[j].Manifest.Descriptor.Identity.ID
+	})
+	sort.SliceStable(problems, func(i, j int) bool { return problems[i].ID < problems[j].ID })
+	return installed, problems, nil
+}

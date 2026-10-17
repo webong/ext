@@ -113,6 +113,20 @@ func (s *Store) Load(id string) (Installed, error) {
 }
 
 func (s *Store) load(id string) (Installed, error) {
+	p, err := s.loadManifest(id)
+	if err != nil {
+		return Installed{}, err
+	}
+	if err := p.Verify(); err != nil {
+		return Installed{}, err
+	}
+	return p, nil
+}
+
+// loadManifest reads and validates one package's manifest and checks that the
+// directory matches it. It does not read, hash or walk any content: the result
+// is unverified. The caller holds s.mu.
+func (s *Store) loadManifest(id string) (Installed, error) {
 	dir := s.dir(id)
 	info, err := os.Lstat(dir)
 	if errors.Is(err, os.ErrNotExist) {
@@ -131,11 +145,7 @@ func (s *Store) load(id string) (Installed, error) {
 	if m.Descriptor.Identity.ID != id {
 		return Installed{}, fmt.Errorf("%w: directory does not match manifest", plugin.ErrMismatch)
 	}
-	p := Installed{Manifest: m, Directory: dir, limits: s.limits}
-	if err := p.Verify(); err != nil {
-		return Installed{}, err
-	}
-	return p, nil
+	return Installed{Manifest: m, Directory: dir, limits: s.limits}, nil
 }
 
 // entry is one name found directly under a store root.
@@ -219,6 +229,80 @@ func (s *Store) List() ([]Installed, error) {
 		return out[i].Manifest.Descriptor.Identity.ID < out[j].Manifest.Descriptor.Identity.ID
 	})
 	return out, nil
+}
+
+// ListUnverified returns every installed package's manifest and directory
+// without verifying any content, and reports the packages it could not read
+// separately. It is for a caller that needs to know what is installed, such as
+// a catalog or a picker, and cannot afford to hash every artifact: it costs one
+// directory listing and one small manifest read per package, whatever the
+// size of the artifacts, where List hashes them all.
+//
+// THE RESULT IS UNVERIFIED. A returned package has a manifest that decodes and
+// validates and a directory that matches it, nothing more: artifacts may be
+// missing, changed, linked, unlisted or oversized. Content is checked only by
+// Installed.Verify, by host.Open (which verifies before it launches) and by
+// ArtifactPath and Executable (which verify the artifact they return). Do not
+// launch, load or trust anything from this result directly, and do not take
+// its presence as proof that the package would pass List or Load. Name, Version,
+// Supports and IsExecutable read only the manifest and are safe to use.
+//
+// A returned Installed carries the manifest read at listing time, and Verify,
+// host.Open and ArtifactPath check content against that manifest, not against
+// whatever package.json holds later. If the manifest on disk changes after the
+// listing, list again to see the change.
+//
+// A package that cannot be read does not hide the others. Each one is reported
+// in the second result, in the same form Verify uses: its ID (the directory name
+// when that is not a valid ID), its directory and why, which is a manifest that
+// does not decode or validate, a directory that does not match its manifest, or
+// an entry that is not a package directory. Every Check returned here has a
+// non-nil Err. Both results are sorted by ID. The error is only for a root that
+// cannot be read; a missing root is empty. Staging directories (leading ".") are
+// skipped.
+//
+// List and Load are unchanged and still fail closed.
+func (s *Store) ListUnverified() ([]Installed, []Check, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	installed, problems, _, err := s.manifestsAll(nil)
+	return installed, problems, err
+}
+
+// manifestsAll reads the manifest of each entry, skipping any ID for which skip
+// returns true. It returns the packages read, a Check for each entry that could
+// not be read, and every valid package ID found, skipped or not. The caller
+// holds s.mu.
+func (s *Store) manifestsAll(skip func(id string) bool) ([]Installed, []Check, []string, error) {
+	entries, err := s.scan()
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	var installed []Installed
+	var problems []Check
+	var ids []string
+	for _, e := range entries {
+		dir := filepath.Join(s.root, e.name)
+		if e.err != nil {
+			problems = append(problems, Check{ID: e.name, Directory: dir, Err: e.err})
+			continue
+		}
+		ids = append(ids, e.id)
+		if skip != nil && skip(e.id) {
+			continue
+		}
+		p, err := s.loadManifest(e.id)
+		if err != nil {
+			problems = append(problems, Check{ID: e.id, Directory: dir, Err: err})
+			continue
+		}
+		installed = append(installed, p)
+	}
+	sort.Slice(installed, func(i, j int) bool {
+		return installed[i].Manifest.Descriptor.Identity.ID < installed[j].Manifest.Descriptor.Identity.ID
+	})
+	sort.Slice(problems, func(i, j int) bool { return problems[i].ID < problems[j].ID })
+	return installed, problems, ids, nil
 }
 
 // Install copies the package in source (a directory holding ManifestName and

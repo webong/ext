@@ -8,17 +8,31 @@
  * digests. The operating-system access is in fs_posix.c and fs_win32.c; the
  * application must protect the root against modification while it is read. */
 
+/* Bounds on one directory digest, so a tree with millions of entries cannot
+ * exhaust memory: the digest keeps every path until it has sorted them. The file
+ * count is the Go store's default MaxTreeFiles; the path bytes allow paths of
+ * about 256 bytes at that count. Beyond either the walk stops with EXT_INVALID. */
+#ifndef EXT_TREE_MAX_FILES
+#define EXT_TREE_MAX_FILES 250000u
+#endif
+#ifndef EXT_TREE_MAX_PATH_BYTES
+#define EXT_TREE_MAX_PATH_BYTES (64u << 20)
+#endif
 typedef struct {
   char *path;
   uint8_t sum[32];
 } file;
 typedef struct {
   file *files;
-  size_t count, capacity;
+  size_t count, capacity, path_bytes;
 } listing;
 
 static ext_status collect(void *user, const char *path, const uint8_t sum[32]) {
   listing *list = user;
+  size_t length = strlen(path) + 1;
+  if (list->count >= EXT_TREE_MAX_FILES ||
+      length > EXT_TREE_MAX_PATH_BYTES - list->path_bytes)
+    return EXT_INVALID;
   if (list->count == list->capacity) {
     size_t capacity = list->capacity ? list->capacity * 2 : 64;
     if (capacity <= list->capacity || capacity > SIZE_MAX / sizeof(file))
@@ -34,6 +48,7 @@ static ext_status collect(void *user, const char *path, const uint8_t sum[32]) {
   if (!f->path)
     return EXT_NOMEM;
   memcpy(f->sum, sum, 32);
+  list->path_bytes += length;
   list->count++;
   return EXT_OK;
 }

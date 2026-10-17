@@ -15,6 +15,13 @@ see [`pkg/plugin-ios`](../pkg/plugin-ios/README.md) and
 
 ## Declaration
 
+An engine is an adapter, so its manifest is the `plugin.json` of an ext package
+([the adapter API](adapter-api.md#manifest) maps every field). The block below uses
+the compact `key = "value"` notation that page defines, where a list is comma
+separated: `capabilities` are the operations of the `ext.adapter` contract, and the
+other keys belong to the `ctx.adapter/v1` metadata object (lists are JSON arrays
+there). There is no `adapter.toml`.
+
 ```toml
 runtime = "computer"
 supports = "engine,<kind>"        # for example engine,jvm

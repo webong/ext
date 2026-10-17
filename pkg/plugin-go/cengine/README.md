@@ -21,13 +21,19 @@ re-exported so a program imports this package alone. The common API is `Open`,
 - [`packages`](packages): validate, resolve and verify `ext.package/v1` manifests.
 - [`host`](host): open an installed package as a running plugin; the same API as
   [`contract/host`](../contract/host), over the engine's process runtime and sessions.
-- [`host/store`](host/store): the installed package store, with layered roots and `Verify`; the same
+- [`host/store`](host/store): the installed package store, with layered roots, `Verify` and
+  `ListUnverified` (a manifest-only listing that hashes nothing; the result is unverified, see the
+  [`contract` README](../contract/README.md#listing-installed-packages)); the same
   API as [`contract/host/store`](../contract/host/store), routed through the engine's digests and validation.
 
 An application that needs only the store and host takes the `contract` module and uses its pure-Go
 `host` and `host/store`; take these when you want the engine's behavior. Swapping one import for the
 other never needs a code change (an architecture test enforces the identical API, and
 `TestContractStoreMatchesEngineStore` compares their behavior).
+
+Manifest validation and plan resolution in the C engine are bounded by the manifest size: they sort
+instead of comparing every pair, and a directory digest stops at 250,000 files or 64 MiB of path text
+(`EXT_INVALID`). Earlier versions took minutes on a 4 MB manifest; see `lib/plugin/services.md`.
 
 The module depends on `pkg/plugin-go/contract` only, which uses the standard library only. `Host`, `Streams`, `Instances`, `NewProcess`
 and `NewLaunch` are engine-only and need the C engine build.

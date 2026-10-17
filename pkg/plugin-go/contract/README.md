@@ -30,6 +30,28 @@ four groups:
 The [`cengine`](../cengine) module has engine-routed variants of `host` and `host/store` with an
 identical API.
 
+## Listing installed packages
+
+`host/store` has two ways to enumerate a root. `List` and `Load` verify every package, hashing each
+artifact, and fail closed on the first bad one. `ListUnverified` (also on `store.NewLayered`) reads
+only each package's manifest, so its cost does not depend on artifact size, and reports packages it
+could not read as `Check` values beside the good ones instead of failing the whole listing:
+
+```go
+packages, problems, err := s.ListUnverified()
+for _, p := range packages {
+    fmt.Println(p.Name(), p.Version(), p.Supports("example.read", "v1"), p.IsExecutable())
+}
+for _, c := range problems { // every c.Err is non-nil
+    log.Printf("%s (%s): %v", c.ID, c.Directory, c.Err)
+}
+```
+
+The result is **unverified**: use it to show what is installed, never to launch it. Content is checked
+only by `Installed.Verify`, `host.Open` and `ArtifactPath`, against the manifest read at listing time,
+and `host.Open` refuses a package whose content changed. With a 20,000-file tree package installed a
+listing takes about 80 microseconds where `List` takes 1.7 s.
+
 This is the lean choice. Add [`cengine`](../cengine) for the C engine binding,
 [`wasm`](../wasm) for WebAssembly or [`hashicorp`](../hashicorp) for go-plugin, or
 require the umbrella module `github.com/webong/ext/pkg/plugin-go` to take them all.

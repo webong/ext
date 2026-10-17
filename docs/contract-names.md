@@ -50,9 +50,17 @@ and cannot be declared.
 
 | Contract | Version | Owner | Status | Schema |
 | --- | --- | --- | --- | --- |
-| `content.provider` | `v1` | Cymonkey | proposed, not yet in use | defined by the owner |
-| `device.provider` | `v1` | Cymonkey | proposed, not yet in use | defined by the owner |
-| `display.engine` | `v1` | Cymonkey | proposed, not yet in use | defined by the owner |
+| `content.provider` | `v1` | Cymonkey | in use | Go constants and doc comments in `lib/blockade/plugin/adapter.go`; JSON schemas for its documents in `lib/blockade/protocol/v1alpha1/` |
+| `device.provider` | `v1` | Cymonkey | in use | Go constants and doc comments in `lib/board/plugin/provider.go` |
+| `display.engine` | `v1` | Cymonkey | in use | Go constants and doc comments in `lib/jangolova/plugin/adapter.go` |
+
+The owner's repository is `github.com/webong/cymonkey`. Its operations, as
+declared by the owner: `content.provider` has `start`, `observe`, `interpret`,
+`capabilities`, `health`, `close` and `model.inspect`; `device.provider` has
+`list`, `open`, `invoke`, `stream.open`, `stream.read`, `stream.close` and
+`close`; `display.engine` has `inspect`, `connect`, `call`, `authorize`,
+`health`, `disconnect`, `events` and `material`. The owner commits to additive
+changes only within `v1`.
 
 Status is one of `proposed`, `in use` and `retired`. The owner updates its own
 rows through a change to this page.

@@ -172,7 +172,8 @@ func TestInstallSealsForThisPlatformAndKeepsHelpers(t *testing.T) {
 	if err != nil || sealed(original) {
 		t.Fatalf("the source directory was changed: %v sealed=%v", err, sealed(original))
 	}
-	// an installed adapter reports a hand-copied template as unsealed
+	// a directory copied into the home by hand keeps its template: it loads, and
+	// the trust digest of its files covers it like any installed adapter
 	handCopied := filepath.Join(store.Home, "copied")
 	if err := copyDirectory(scriptSource(t, filepath.Join(root, "other"), "copied"), handCopied); err != nil {
 		t.Fatal(err)
@@ -181,11 +182,20 @@ func TestInstallSealsForThisPlatformAndKeepsHelpers(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if c := checkByName(t, checks, "copied"); c.Err == nil || !strings.Contains(c.Err.Error(), "unsealed") {
-		t.Fatalf("a hand-copied template was not reported: %+v", c)
+	for _, name := range []string{"copied", "echo"} {
+		if c := checkByName(t, checks, name); c.Err != nil || c.State != TrustUntrusted {
+			t.Fatalf("%s: %+v", name, c)
+		}
 	}
-	if c := checkByName(t, checks, "echo"); c.Err != nil {
-		t.Fatalf("a sealed install was reported: %+v", c)
+	copied, err := store.Load("copied")
+	if err != nil || sealed(copied.Package) {
+		t.Fatalf("hand-copied adapter: %v sealed=%v", err, sealed(copied.Package))
+	}
+	if err := store.Trust(copied); err != nil {
+		t.Fatal(err)
+	}
+	if state, err := store.TrustState(copied); err != nil || state != TrustTrusted {
+		t.Fatalf("trust state %v %v", state, err)
 	}
 }
 
@@ -508,7 +518,7 @@ package_files = "policy.json"
 		if _, ok := files[launcher]; !ok {
 			t.Errorf("%s/%s: archive lacks the built launcher", target.OS, target.Arch)
 		}
-		if target.OS == runtime.GOOS {
+		if target.OS == runtime.GOOS && target.Arch == runtime.GOARCH {
 			installed, err := NewStore(filepath.Join(root, "installed")).InstallSource(archive, "")
 			if err != nil {
 				t.Fatal(err)

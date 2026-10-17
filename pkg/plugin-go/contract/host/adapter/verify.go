@@ -1,7 +1,6 @@
 package adapter
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"sort"
@@ -52,11 +51,9 @@ func trustStateOf(trust map[string]string, a *Adapter) (TrustState, error) {
 type Check struct {
 	Name  string
 	State TrustState
-	// Err is why the adapter could not be loaded (a malformed manifest, an
-	// escaping path, a symbolic link, a name that does not match its directory),
-	// in which case State is empty, or that the manifest is not sealed (a
-	// directory copied in by hand), in which case State says what the trust record
-	// makes of the same content.
+	// Err is why the adapter could not be loaded: a malformed manifest, an
+	// escaping path, a symbolic link, a name that does not match its directory.
+	// State is empty when Err is set.
 	Err error
 }
 
@@ -103,15 +100,7 @@ func (s *Store) Verify(names ...string) ([]Check, error) {
 			checks = append(checks, Check{Name: name, Err: err})
 			continue
 		}
-		// An installed adapter is sealed. A directory copied into the home by
-		// hand still holds a template; it is reported beside its trust state. A
-		// changed file needs no separate report: it changes the digest, and the
-		// state is "changed".
-		var integrity error
-		if !sealed(loaded.Package) {
-			integrity = errors.New("installed adapter has an unsealed manifest; reinstall it with ctx adapter install")
-		}
-		checks = append(checks, Check{Name: name, State: state, Err: integrity})
+		checks = append(checks, Check{Name: name, State: state})
 	}
 	sort.Slice(checks, func(i, j int) bool { return checks[i].Name < checks[j].Name })
 	return checks, nil

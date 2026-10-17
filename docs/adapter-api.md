@@ -48,7 +48,9 @@ the files the adapter needs but not their digests, which do not exist until the
 executable is built. `ctx adapter install`, `build` and `pack` seal it: they add
 the digest of every file, the platform of the launcher, and a revision, then write
 the sealed `plugin.json` that an installed adapter carries and that ctx's trust
-digest covers. A sealed manifest lists exactly the files in the directory.
+digest covers. A sealed manifest lists exactly the files in the directory. A directory copied into
+the adapter home by hand keeps its template; it loads, and the trust digest of its files covers it
+like any other adapter.
 
 ~~~json
 {

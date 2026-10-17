@@ -38,9 +38,11 @@ digests and revision. Sealing (`adapter.Seal`, run by install, build and pack)
 fills them in, records the platform on the launchers, and lists every other file in
 the directory as an artifact, so first-party helper binaries built beside a
 launcher keep shipping. A sealed manifest lists exactly the files present, which
-is the rule the package store applies, and an installed adapter must be sealed. For
-a platform, the launcher of the other kind is dropped: an installed Windows
-adapter has `main.windows`, any other has `main`.
+is the rule the package store applies, and install, build and pack always seal. A
+directory copied into the home by hand keeps its template and still loads; the trust
+digest of its files covers it like any other adapter. For a platform, the launcher of
+the other kind is dropped: an installed Windows adapter has `main.windows`, any
+other has `main`.
 
 **Trust is unchanged.** The trust record is still the digest of the whole adapter
 directory (which now includes the sealed `plugin.json`), keyed by name, and an

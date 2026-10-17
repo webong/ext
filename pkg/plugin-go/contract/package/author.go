@@ -68,7 +68,7 @@ func FileDigest(path string) (string, error) {
 func TreeDigest(root, dir string) (string, error) { return plugin.TreeDigest(root, dir) }
 
 // ExecutableManifest describes a one-executable package. The executable sits
-// beside package.json under its base name, and the artifact is bound to the
+// beside plugin.json under its base name, and the artifact is bound to the
 // running GOOS and GOARCH. The revision is "sha256:<digest of the executable>",
 // so any rebuild is a new immutable revision. The entrypoint "main" runs under
 // the process runtime and speaks plugin.APIVersion over JSON lines.

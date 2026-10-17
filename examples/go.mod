@@ -18,8 +18,8 @@ require (
 	github.com/mattn/go-isatty v0.0.17 // indirect
 	github.com/oklog/run v1.0.0 // indirect
 	github.com/tetratelabs/wazero v1.10.1 // indirect
-	github.com/webong/ext/pkg/plugin-go/cengine v0.3.0
-	github.com/webong/ext/pkg/plugin-go/contract v0.3.0
+	github.com/webong/ext/pkg/plugin-go/cengine v0.4.0
+	github.com/webong/ext/pkg/plugin-go/contract v0.4.0
 	golang.org/x/net v0.59.0 // indirect
 	golang.org/x/sys v0.48.0 // indirect
 	golang.org/x/text v0.42.0 // indirect

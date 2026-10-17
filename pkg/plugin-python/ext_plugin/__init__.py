@@ -7,7 +7,7 @@
             raise ext_plugin.RemoteError("busy", "try later", retry_after_ms=250)
         return payload
 
-    ext_plugin.serve_stdio("package.json", handler)
+    ext_plugin.serve_stdio("plugin.json", handler)
 
 The module answers ``plugin.hello`` with the descriptor, validates every request
 the way the Go ``plugin.ValidateRequest`` does, and calls the handler

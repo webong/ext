@@ -5,7 +5,7 @@ payload and result against them before and after your function runs.
 
     router = ext_plugin.capability.Router()
     router.health(lambda: {"status": "healthy", "ready": True})
-    ext_plugin.serve_stdio("package.json", router)
+    ext_plugin.serve_stdio("plugin.json", router)
 """
 
 import json

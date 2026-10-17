@@ -75,7 +75,7 @@ func TestOpenFailsClosedOnUnverifiedListing(t *testing.T) {
 	}
 
 	// A listed package carries the manifest read at listing time, and is verified
-	// against that manifest. Rewriting package.json to match the new content does
+	// against that manifest. Rewriting plugin.json to match the new content does
 	// not change what an earlier listing will accept; a new listing sees it.
 	sum := sha256.Sum256([]byte(readFile(t, artifact)))
 	rewritten := altered.Manifest

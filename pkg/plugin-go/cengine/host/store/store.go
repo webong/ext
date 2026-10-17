@@ -23,9 +23,12 @@ import (
 	"sync"
 )
 
-// ManifestName is the manifest file at the top of every package directory. An
-// artifact may not use this path.
-const ManifestName = "package.json"
+// ManifestName is the manifest file at the top of every package directory: the
+// ext.package/v1 document. A package.json at the top level is an ordinary file,
+// which a package may ship as an artifact (an npm package, say) like any other;
+// only this name is read as the manifest. An artifact may not use this path,
+// whatever its case, and a tree may hold a file of this name of its own.
+const ManifestName = "plugin.json"
 
 // DefaultMaxArtifactBytes bounds one artifact when Limits does not.
 const DefaultMaxArtifactBytes int64 = 4 << 30
@@ -249,7 +252,7 @@ func (s *Store) List() ([]Installed, error) {
 //
 // A returned Installed carries the manifest read at listing time, and Verify,
 // host.Open and ArtifactPath check content against that manifest, not against
-// whatever package.json holds later. If the manifest on disk changes after the
+// whatever plugin.json holds later. If the manifest on disk changes after the
 // listing, list again to see the change.
 //
 // A package that cannot be read does not hide the others. Each one is reported
@@ -406,7 +409,7 @@ func (s *Store) checkSource(source string) (packagekit.Manifest, error) {
 		return m, err
 	}
 	for _, a := range m.Artifacts {
-		if a.Path == ManifestName {
+		if strings.EqualFold(a.Path, ManifestName) {
 			return m, fmt.Errorf("%w: artifact path %q is reserved", plugin.ErrInvalid, ManifestName)
 		}
 	}

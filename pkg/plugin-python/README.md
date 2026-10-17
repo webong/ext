@@ -11,14 +11,18 @@ def handler(contract, operation, payload):
         raise ext_plugin.RemoteError("busy", "try later", retry_after_ms=250)
     return payload                      # any JSON-serializable value
 
-ext_plugin.serve_stdio("package.json", handler)   # or a descriptor dict
+ext_plugin.serve_stdio("plugin.json", handler)   # or a descriptor dict
 ```
+
+The manifest file is `plugin.json` (it was `package.json` before ext v0.4.0, which freed that name for
+npm and Node tooling). `serve_stdio` accepts the manifest or a bare descriptor file by structure, so only the
+file name in your code changes.
 
 Import `ext_plugin` from this directory (add it to `PYTHONPATH`, or `pip install` it).
 
 - `serve_stdio(descriptor, handler, max_call_seconds=30, redact_errors=False)`:
   serves until EOF. `descriptor` is a dict or the path of an `ext.package/v1`
-  `package.json` (its `descriptor` is used) or a bare descriptor file.
+  `plugin.json` (its `descriptor` is used) or a bare descriptor file.
 - `Guest(descriptor, handler, ...)`, `serve(guest, stdin, stdout)`: the same
   with caller-supplied binary streams, for tests.
 - `RemoteError(code, message, retry_after_ms=None)`: sent as the structured

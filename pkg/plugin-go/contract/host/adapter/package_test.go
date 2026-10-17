@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -491,8 +492,8 @@ package_files = "policy.json"
 `); err != nil {
 		t.Fatal(err)
 	}
-	for _, target := range []Target{{runtime.GOOS, runtime.GOARCH}, {"windows", "amd64"}} {
-		archive, err := BuildGoPackage(GoBuildOptions{Source: source, OS: target.OS, Arch: target.Arch, Output: filepath.Join(root, "dist", target.OS+"-"+target.Arch+".ctxadapter")})
+	for number, target := range []Target{{runtime.GOOS, runtime.GOARCH}, {"windows", "amd64"}} {
+		archive, err := BuildGoPackage(GoBuildOptions{Source: source, OS: target.OS, Arch: target.Arch, Output: filepath.Join(root, "dist", strconv.Itoa(number)+"-"+target.OS+"-"+target.Arch+".ctxadapter")})
 		if err != nil {
 			t.Fatalf("%s/%s: %v", target.OS, target.Arch, err)
 		}
@@ -519,7 +520,7 @@ package_files = "policy.json"
 			t.Errorf("%s/%s: archive lacks the built launcher", target.OS, target.Arch)
 		}
 		if target.OS == runtime.GOOS && target.Arch == runtime.GOARCH {
-			installed, err := NewStore(filepath.Join(root, "installed")).InstallSource(archive, "")
+			installed, err := NewStore(filepath.Join(root, "installed", strconv.Itoa(number))).InstallSource(archive, "")
 			if err != nil {
 				t.Fatal(err)
 			}

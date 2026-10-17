@@ -69,7 +69,7 @@ func TestVerifyReportsDamagedAdapterInsteadOfSkipping(t *testing.T) {
 	if err := os.MkdirAll(broken, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(broken, "adapter.toml"), []byte("not a manifest"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(broken, "plugin.json"), []byte("not a manifest"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.MkdirAll(filepath.Join(store.Home, ".staging"), 0o755); err != nil {

@@ -3,6 +3,7 @@ package app
 import (
 	"bytes"
 	"encoding/json"
+	modpkg "github.com/webong/ext/pkg/plugin-go/contract/host/adapter"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -24,7 +25,7 @@ func cookieCLIAdapter(t *testing.T, operations, script string) string {
 		t.Fatal(err)
 	}
 	manifest := "api_version = \"2.0\"\nname = \"fixture\"\nruntime = \"browser\"\nsurfaces = \"web\"\nexecutable = \"adapter\"\ncapabilities = \"list,share,validate,doctor\"\nselector_key = \"browser\"\nshare_spaces = \"browser\"\nbrowser_share = \"" + operations + "\"\n"
-	if err := os.WriteFile(filepath.Join(source, "adapter.toml"), []byte(manifest), 0o600); err != nil {
+	if err := modpkg.WriteKeyValueManifest(source, manifest); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(source, "adapter"), []byte("#!/bin/sh\n"+script+"\n"), 0o700); err != nil {

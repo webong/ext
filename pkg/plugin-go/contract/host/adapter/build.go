@@ -21,7 +21,7 @@ type GoBuildOptions struct {
 }
 
 // BuildGoPackage compiles a local Go adapter and creates a platform archive.
-// Only adapter.toml, the resulting executable, and declared package_files are shipped.
+// Only the sealed plugin.json, the resulting executable, and the artifacts it lists are shipped.
 func BuildGoPackage(options GoBuildOptions) (string, error) {
 	source, err := filepath.Abs(options.Source)
 	if err != nil {
@@ -31,9 +31,16 @@ func BuildGoPackage(options GoBuildOptions) (string, error) {
 	if err != nil || !info.IsDir() {
 		return "", fmt.Errorf("Go adapter source directory not found: %s", options.Source)
 	}
-	values, err := parseManifest(filepath.Join(source, "adapter.toml"))
+	pm, err := readPackage(source)
 	if err != nil {
 		return "", err
+	}
+	if sealed(pm) {
+		return "", errors.New("Go adapter source needs an unsealed plugin.json template; a sealed package is already built")
+	}
+	values, err := valuesFromPackage(pm)
+	if err != nil {
+		return "", fmt.Errorf("Go adapter manifest: %w", err)
 	}
 	name := values["name"]
 	if !validName.MatchString(name) || reservedNames[name] || values["api_version"] != APIVersion {
@@ -76,11 +83,11 @@ func BuildGoPackage(options GoBuildOptions) (string, error) {
 		return "", err
 	}
 	defer os.RemoveAll(staging)
-	if err := copyBuildAsset(source, staging, "adapter.toml"); err != nil {
+	if err := copyBuildAsset(source, staging, ManifestFileName); err != nil {
 		return "", err
 	}
 	for _, asset := range splitList(values["package_files"]) {
-		if !validPackagePath(asset) || asset == artifactMetadataName || asset == "adapter.toml" || asset == executable {
+		if !validPackagePath(asset) || strings.EqualFold(asset, ManifestFileName) || asset == executable {
 			return "", fmt.Errorf("invalid package_files entry %q", asset)
 		}
 		if err := copyBuildAsset(source, staging, asset); err != nil {

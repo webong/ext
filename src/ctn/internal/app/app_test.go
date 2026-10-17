@@ -2,6 +2,7 @@ package app
 
 import (
 	"bytes"
+	modpkg "github.com/webong/ext/pkg/plugin-go/contract/host/adapter"
 	"os"
 	"path/filepath"
 	"strings"
@@ -48,7 +49,7 @@ func TestAdapterListSharesTheInstalledStore(t *testing.T) {
 	}
 	manifest := "api_version = \"2.0\"\nname = \"notes\"\nruntime = \"content\"\nsurfaces = \"shell\"\n" +
 		"executable = \"ext-notes\"\ndescription = \"Notes\"\ncapabilities = \"list,validate,run,doctor\"\nselectable = \"false\"\n"
-	if err := os.WriteFile(filepath.Join(directory, "adapter.toml"), []byte(manifest), 0o644); err != nil {
+	if err := modpkg.WriteKeyValueManifest(directory, manifest); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(directory, "ext-notes"), []byte("#!/bin/sh\nexit 0\n"), 0o755); err != nil {

@@ -58,11 +58,11 @@ func TestNativeCookieCredentialsMacOSKeychain(t *testing.T) {
 		t.Fatal(err)
 	}
 	build(filepath.Join(staging, "ctx-keychain"), "./adapters/keychain/native")
-	manifestBytes, err := os.ReadFile(filepath.Join(root, "adapters", "keychain", "adapter.toml"))
+	manifestBytes, err := os.ReadFile(filepath.Join(root, "adapters", "keychain", "plugin.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(staging, "adapter.toml"), manifestBytes, 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(staging, "plugin.json"), manifestBytes, 0o600); err != nil {
 		t.Fatal(err)
 	}
 	adapterHome := filepath.Join(fixture, "state", "adapters")

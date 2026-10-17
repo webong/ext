@@ -17,9 +17,11 @@ import (
 	"runtime"
 	"strings"
 	"time"
+
+	plugin "github.com/webong/ext/pkg/plugin-go/contract"
+	"github.com/webong/ext/pkg/plugin-go/contract/package"
 )
 
-const artifactMetadataName = "ctx-package.json"
 const maxArtifactBytes int64 = 256 << 20
 const maxExpandedBytes int64 = 512 << 20
 const maxArtifactEntries = 4096
@@ -27,11 +29,12 @@ const maxIndexBytes int64 = 1 << 20
 
 var validTarget = regexp.MustCompile(`^[a-z0-9][a-z0-9_]*$`)
 
+// artifactMetadata is what an index needs to know about a platform archive; it
+// is read from the archive's own plugin.json, not from a second record.
 type artifactMetadata struct {
-	FormatVersion int    `json:"format_version"`
-	Name          string `json:"name"`
-	OS            string `json:"os"`
-	Arch          string `json:"arch"`
+	Name string
+	OS   string
+	Arch string
 }
 
 type artifactIndex struct {
@@ -45,7 +48,13 @@ type artifactLocation struct {
 	SHA256 string `json:"sha256"`
 }
 
-// PackageDirectory writes a platform-specific adapter archive from a ready-to-run directory.
+// PackageDirectory writes a platform-specific adapter archive from a
+// ready-to-run directory: a source directory with a plugin.json template and the
+// files it lists, or an already sealed package. The archive holds the sealed
+// plugin.json and exactly the artifacts it lists, so unlisted files in the
+// directory are not shipped. A template is sealed for the target: the launcher
+// that does not apply is dropped and the platform is recorded on the one that
+// does.
 func PackageDirectory(directory, output, goos, goarch string) error {
 	if !validTarget.MatchString(goos) || !validTarget.MatchString(goarch) {
 		return errors.New("package target needs an operating system and architecture")
@@ -61,6 +70,50 @@ func PackageDirectory(directory, output, goos, goarch string) error {
 	if relative, err := filepath.Rel(adapter.Directory, output); err == nil &&
 		(relative == "." || relative != ".." && !strings.HasPrefix(relative, ".."+string(filepath.Separator))) {
 		return errors.New("package output must be outside the adapter directory")
+	}
+	target := Target{OS: goos, Arch: goarch}
+	source := adapter.Directory
+	pm := adapter.Package
+	if sealed(pm) {
+		if err := verifyPackage(source, pm); err != nil {
+			return err
+		}
+		info, err := archiveInfo(pm)
+		if err != nil {
+			return err
+		}
+		if info.OS != goos || info.Arch != goarch {
+			return fmt.Errorf("adapter package targets %s/%s, not %s/%s", info.OS, info.Arch, goos, goarch)
+		}
+	} else {
+		stage, err := os.MkdirTemp("", "ctx-adapter-stage-")
+		if err != nil {
+			return err
+		}
+		defer os.RemoveAll(stage)
+		if err := copyDirectory(adapter.Directory, stage); err != nil {
+			return err
+		}
+		if _, dropped := pruneToTarget(pm, target); dropped != "" {
+			if err := os.Remove(filepath.Join(stage, filepath.FromSlash(dropped))); err != nil && !errors.Is(err, os.ErrNotExist) {
+				return err
+			}
+		}
+		if _, err := Seal(stage, target); err != nil {
+			return err
+		}
+		source = stage
+		if pm, err = readPackage(stage); err != nil {
+			return err
+		}
+	}
+	launchers := map[string]bool{}
+	for _, entry := range pm.Entrypoints {
+		for _, artifact := range pm.Artifacts {
+			if artifact.Name == entry.Artifact {
+				launchers[artifact.Path] = true
+			}
+		}
 	}
 	if err := os.MkdirAll(filepath.Dir(output), 0o700); err != nil {
 		return err
@@ -80,16 +133,9 @@ func PackageDirectory(directory, output, goos, goarch string) error {
 		os.Remove(temporary)
 	}()
 	writer := zip.NewWriter(file)
-	metadata, err := json.Marshal(artifactMetadata{FormatVersion: 1, Name: adapter.Manifest.Name, OS: goos, Arch: goarch})
-	if err != nil {
-		return err
-	}
-	if err := writeArtifactFile(writer, artifactMetadataName, 0o644, append(metadata, '\n')); err != nil {
-		return err
-	}
 	var total int64
 	entries := 0
-	err = filepath.WalkDir(adapter.Directory, func(path string, entry fs.DirEntry, walkErr error) error {
+	err = filepath.WalkDir(source, func(path string, entry fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
 		}
@@ -99,16 +145,13 @@ func PackageDirectory(directory, output, goos, goarch string) error {
 		if !entry.Type().IsRegular() {
 			return fmt.Errorf("unsupported adapter package entry: %s", path)
 		}
-		relative, err := filepath.Rel(adapter.Directory, path)
+		relative, err := filepath.Rel(source, path)
 		if err != nil {
 			return err
 		}
 		archiveName := filepath.ToSlash(relative)
 		if !safeArtifactPath(archiveName) {
 			return fmt.Errorf("unsafe adapter package path %q", archiveName)
-		}
-		if archiveName == artifactMetadataName {
-			return fmt.Errorf("adapter directory must not contain %s", artifactMetadataName)
 		}
 		info, err := entry.Info()
 		if err != nil {
@@ -131,7 +174,7 @@ func PackageDirectory(directory, output, goos, goarch string) error {
 		header.Name = archiveName
 		header.Method = zip.Deflate
 		mode := info.Mode()
-		if goos != "windows" && header.Name == filepath.ToSlash(adapter.Manifest.Executable) {
+		if goos != "windows" && launchers[archiveName] {
 			mode = 0o755
 		}
 		header.SetMode(mode)
@@ -161,6 +204,34 @@ func PackageDirectory(directory, output, goos, goarch string) error {
 		return errors.New("adapter archive exceeds size limit")
 	}
 	return replaceFile(temporary, output)
+}
+
+// archiveInfo reads what an index and an installer need from a sealed package:
+// the adapter name and the platform of its launchers. Every launcher must name
+// the same operating system and architecture, because a platform archive holds
+// executables for one.
+func archiveInfo(pm packagekit.Manifest) (artifactMetadata, error) {
+	info := artifactMetadata{Name: pm.Descriptor.Identity.ID}
+	launchers := map[string]bool{}
+	for _, entry := range pm.Entrypoints {
+		launchers[entry.Artifact] = true
+	}
+	for _, artifact := range pm.Artifacts {
+		if !launchers[artifact.Name] {
+			continue
+		}
+		if artifact.OS == "" || artifact.Arch == "" {
+			return info, errors.New("adapter package is not a platform package: its executable names no operating system and architecture")
+		}
+		if info.OS != "" && (info.OS != artifact.OS || info.Arch != artifact.Arch) {
+			return info, errors.New("adapter package mixes platforms")
+		}
+		info.OS, info.Arch = artifact.OS, artifact.Arch
+	}
+	if !validName.MatchString(info.Name) || !validTarget.MatchString(info.OS) || !validTarget.MatchString(info.Arch) {
+		return info, errors.New("adapter archive has invalid package metadata")
+	}
+	return info, nil
 }
 
 func writeArtifactFile(writer *zip.Writer, name string, mode fs.FileMode, data []byte) error {
@@ -262,11 +333,11 @@ func inspectArtifact(path string) (artifactMetadata, string, error) {
 		return artifactMetadata{}, "", err
 	}
 	for _, entry := range archive.File {
-		if entry.Name != artifactMetadataName {
+		if entry.Name != ManifestFileName {
 			continue
 		}
 		if entry.UncompressedSize64 > uint64(maxIndexBytes) {
-			return artifactMetadata{}, "", errors.New("adapter package metadata is oversized")
+			return artifactMetadata{}, "", errors.New("adapter package manifest is oversized")
 		}
 		input, err := entry.Open()
 		if err != nil {
@@ -277,15 +348,17 @@ func inspectArtifact(path string) (artifactMetadata, string, error) {
 		if readErr != nil || closeErr != nil {
 			return artifactMetadata{}, "", errors.Join(readErr, closeErr)
 		}
-		var metadata artifactMetadata
-		if len(contents) > int(maxIndexBytes) || json.Unmarshal(contents, &metadata) != nil ||
-			metadata.FormatVersion != 1 || !validName.MatchString(metadata.Name) ||
-			!validTarget.MatchString(metadata.OS) || !validTarget.MatchString(metadata.Arch) {
-			return artifactMetadata{}, "", errors.New("adapter archive has invalid package metadata")
+		var pm packagekit.Manifest
+		if len(contents) > int(maxIndexBytes) || plugin.Decode(contents, &pm) != nil || !sealed(pm) || validateTemplate(pm) != nil {
+			return artifactMetadata{}, "", errors.New("adapter archive has an invalid or unsealed manifest")
+		}
+		metadata, err := archiveInfo(pm)
+		if err != nil {
+			return artifactMetadata{}, "", err
 		}
 		return metadata, hex.EncodeToString(digest.Sum(nil)), nil
 	}
-	return artifactMetadata{}, "", fmt.Errorf("adapter archive lacks %s", artifactMetadataName)
+	return artifactMetadata{}, "", fmt.Errorf("adapter archive lacks %s", ManifestFileName)
 }
 
 // InstallSource installs a local adapter directory, a package archive, or an HTTPS archive.
@@ -487,27 +560,22 @@ func (s *Store) installArchive(path, expectedSHA256, expectedName string) (*Adap
 	if err := extractArtifact(archive, staging); err != nil {
 		return nil, err
 	}
-	metadataFile, err := os.Open(filepath.Join(staging, artifactMetadataName))
-	if err != nil {
-		return nil, fmt.Errorf("adapter archive lacks %s", artifactMetadataName)
-	}
-	var metadata artifactMetadata
-	decoder := json.NewDecoder(metadataFile)
-	decoder.DisallowUnknownFields()
-	decodeErr := decoder.Decode(&metadata)
-	closeErr := metadataFile.Close()
-	if decodeErr != nil || closeErr != nil {
-		return nil, errors.New("adapter archive has invalid package metadata")
-	}
-	if metadata.FormatVersion != 1 || !validName.MatchString(metadata.Name) {
-		return nil, errors.New("adapter archive has unsupported package metadata")
-	}
-	if metadata.OS != runtime.GOOS || metadata.Arch != runtime.GOARCH {
-		return nil, fmt.Errorf("adapter package targets %s/%s, this machine is %s/%s", metadata.OS, metadata.Arch, runtime.GOOS, runtime.GOARCH)
-	}
 	loaded, err := LoadDirectory(staging)
 	if err != nil {
 		return nil, err
+	}
+	if !sealed(loaded.Package) {
+		return nil, errors.New("adapter archive holds an unsealed manifest")
+	}
+	if err := verifyPackage(loaded.Directory, loaded.Package); err != nil {
+		return nil, fmt.Errorf("adapter archive does not match its manifest: %w", err)
+	}
+	metadata, err := archiveInfo(loaded.Package)
+	if err != nil {
+		return nil, err
+	}
+	if metadata.OS != runtime.GOOS || metadata.Arch != runtime.GOARCH {
+		return nil, fmt.Errorf("adapter package targets %s/%s, this machine is %s/%s", metadata.OS, metadata.Arch, runtime.GOOS, runtime.GOARCH)
 	}
 	if loaded.Manifest.Name != metadata.Name {
 		return nil, errors.New("adapter package name does not match its manifest")

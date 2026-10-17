@@ -186,7 +186,7 @@ func TestSessionEndpointIsRejected(t *testing.T) {
 	if code == 0 || stdout.Len() != 0 || !strings.Contains(stderr.String(), "no endpoint route") {
 		t.Fatalf("code=%d stdout=%q stderr=%q", code, stdout.String(), stderr.String())
 	}
-	manifest, err := os.ReadFile(filepath.Join("..", "adapter.toml"))
+	manifest, err := os.ReadFile(filepath.Join("..", "plugin.json"))
 	if err != nil {
 		t.Fatal(err)
 	}

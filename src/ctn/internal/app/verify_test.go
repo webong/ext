@@ -36,7 +36,7 @@ func engineStore(t *testing.T) (string, func(name, kind, observe, run string, tr
 			"computer_commands = \"" + name + "\"\nself_contained = \"true\"\n"
 		script := "#!/bin/sh\necho \"$*\" >> '" + log + "'\ncase \"$1\" in\n" +
 			"observe) echo '" + observe + "'; exit 0;;\nrun) " + run + ";;\n*) exit 0;;\nesac\n"
-		if err := os.WriteFile(filepath.Join(directory, "adapter.toml"), []byte(manifest), 0o644); err != nil {
+		if err := adapter.WriteKeyValueManifest(directory, manifest); err != nil {
 			t.Fatal(err)
 		}
 		if err := os.WriteFile(filepath.Join(directory, "ctx-"+name), []byte(script), 0o755); err != nil {

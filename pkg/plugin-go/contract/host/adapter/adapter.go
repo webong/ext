@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	plugin "github.com/webong/ext/pkg/plugin-go/contract"
+	"github.com/webong/ext/pkg/plugin-go/contract/package"
 	"io"
 	"io/fs"
 	"os"
@@ -20,9 +21,6 @@ import (
 )
 
 const APIVersion = "2.0"
-
-const legacyAPIVersion = "1"
-const legacyDecimalAPIVersion = "1.0"
 
 var validName = regexp.MustCompile(`^[a-z][a-z0-9_]*$`)
 var validExecutable = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]*$`)
@@ -91,6 +89,9 @@ type Manifest struct {
 type Adapter struct {
 	Directory string
 	Manifest  Manifest
+	// Package is the ext.package/v1 document the Manifest was derived from: a
+	// template in a source directory, sealed in an installed or packaged one.
+	Package packagekit.Manifest
 }
 
 // DisplayLabel is presentation metadata, never an authentication identity.
@@ -124,6 +125,17 @@ func LoadDirectory(directory string) (*Adapter, error) {
 
 // LoadDirectoryForOS validates a package for a specific target operating system.
 func LoadDirectoryForOS(directory, goos string) (*Adapter, error) {
+	return loadDirectory(directory, goos, true)
+}
+
+// LoadSource validates the plugin.json template of an adapter source directory
+// without requiring its executable to exist yet: a Go adapter is built before it
+// can run. Everything else is checked as LoadDirectoryForOS does.
+func LoadSource(directory, goos string) (*Adapter, error) {
+	return loadDirectory(directory, goos, false)
+}
+
+func loadDirectory(directory, goos string, requireExecutable bool) (*Adapter, error) {
 	absolute, err := filepath.Abs(directory)
 	if err != nil {
 		return nil, err
@@ -135,11 +147,20 @@ func LoadDirectoryForOS(directory, goos string) (*Adapter, error) {
 	if err := rejectLinks(absolute); err != nil {
 		return nil, err
 	}
-	manifestPath := filepath.Join(absolute, "adapter.toml")
-	values, err := parseManifest(manifestPath)
+	pm, err := readPackage(absolute)
 	if err != nil {
 		return nil, err
 	}
+	values, err := valuesFromPackage(pm)
+	if err != nil {
+		return nil, fmt.Errorf("adapter manifest %s: %w", filepath.Join(absolute, ManifestFileName), err)
+	}
+	return adapterFromValues(values, pm, absolute, goos, requireExecutable)
+}
+
+// adapterFromValues derives the adapter's Manifest from the key/value form of its
+// package document, applies the defaults, and validates it against directory.
+func adapterFromValues(values map[string]string, pm packagekit.Manifest, absolute, goos string, requireExecutable bool) (*Adapter, error) {
 	manifest := Manifest{
 		APIVersion:           values["api_version"],
 		Name:                 values["name"],
@@ -188,13 +209,6 @@ func LoadDirectoryForOS(directory, goos string) (*Adapter, error) {
 	if raw := values["browser_query_auto"]; raw != "" && raw != "true" && raw != "false" {
 		return nil, fmt.Errorf("adapter %s has invalid browser_query_auto %q", manifest.Name, raw)
 	}
-	if manifest.APIVersion == legacyAPIVersion || manifest.APIVersion == legacyDecimalAPIVersion {
-		if err := normalizeLegacyManifest(&manifest, values["kind"]); err != nil {
-			return nil, err
-		}
-	} else if values["kind"] != "" {
-		return nil, fmt.Errorf("adapter %s uses removed manifest field kind; declare runtime and surfaces", manifest.Name)
-	}
 	if manifest.Runtime != "browser" && (values["browser_query_priority"] != "" || values["browser_query_auto"] != "") {
 		return nil, fmt.Errorf("adapter %s browser query preferences require the browser runtime", manifest.Name)
 	}
@@ -218,10 +232,10 @@ func LoadDirectoryForOS(directory, goos string) (*Adapter, error) {
 		manifest.ShareSpaces = []string{manifest.Name}
 	}
 	manifest.BrowserManagement = splitList(values["browser_management"])
-	if err := validateManifest(manifest, absolute, goos); err != nil {
+	if err := validateManifest(manifest, absolute, goos, requireExecutable); err != nil {
 		return nil, err
 	}
-	return &Adapter{Directory: absolute, Manifest: manifest}, nil
+	return &Adapter{Directory: absolute, Manifest: manifest, Package: pm}, nil
 }
 
 func parseDependencies(raw, owner string) (map[string]Dependency, error) {
@@ -336,31 +350,6 @@ func hasComputerEndpoint(manifest Manifest) bool {
 	return len(manifest.ComputerCommands) > 0 || len(manifest.ComputerCapabilities) > 0
 }
 
-func normalizeLegacyManifest(manifest *Manifest, kind string) error {
-	if kind == "" {
-		if hasComputerEndpoint(*manifest) {
-			manifest.Runtime = "computer"
-			manifest.Surfaces = []string{"shell"}
-			return nil
-		}
-		kind = "selector"
-	}
-	switch kind {
-	case "selector":
-		manifest.Runtime = "computer"
-		manifest.Surfaces = []string{"shell"}
-	case "browser":
-		manifest.Runtime = "browser"
-		manifest.Surfaces = []string{"web"}
-	case "container":
-		manifest.Runtime = "manager"
-		manifest.Surfaces = []string{"shell"}
-	default:
-		return fmt.Errorf("adapter %s has invalid legacy kind %s", manifest.Name, kind)
-	}
-	return nil
-}
-
 func (a *Adapter) ConfigKeys() []string {
 	keys := append([]string(nil), a.Manifest.ExtraKeys...)
 	if a.Manifest.SelectorKey != "" {
@@ -449,13 +438,47 @@ func (s *Store) Install(source string) (*Adapter, error) {
 		return nil, err
 	}
 	defer os.RemoveAll(staging)
-	if err := copyDirectory(loaded.Directory, staging); err != nil {
+	if err := stageForInstall(loaded, staging); err != nil {
 		return nil, err
 	}
 	if err := os.Rename(staging, target); err != nil {
 		return nil, err
 	}
 	return s.Load(loaded.Manifest.Name)
+}
+
+// stageForInstall copies a loaded adapter into staging and leaves it sealed and
+// verified. A source directory holds a template: its files are copied and sealed
+// with their digests for this platform. A package that is already
+// sealed is copied whole, and must match its manifest exactly.
+func stageForInstall(loaded *Adapter, staging string) error {
+	if sealed(loaded.Package) {
+		if err := verifyPackage(loaded.Directory, loaded.Package); err != nil {
+			return fmt.Errorf("adapter %s does not match its manifest: %w", loaded.Manifest.Name, err)
+		}
+		return copyDirectory(loaded.Directory, staging)
+	}
+	// An installed adapter runs on this machine, so only its launcher for this
+	// platform is installed; the other, if the template names one, is left out.
+	// Every other file in the directory is installed and listed in the sealed
+	// manifest.
+	target := Target{OS: runtime.GOOS, Arch: runtime.GOARCH}
+	if err := copyDirectory(loaded.Directory, staging); err != nil {
+		return err
+	}
+	if _, dropped := pruneToTarget(loaded.Package, target); dropped != "" {
+		if err := os.Remove(filepath.Join(staging, filepath.FromSlash(dropped))); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return err
+		}
+	}
+	if _, err := Seal(staging, target); err != nil {
+		return err
+	}
+	staged, err := LoadDirectory(staging)
+	if err != nil {
+		return err
+	}
+	return verifyPackage(staged.Directory, staged.Package)
 }
 
 // Replace validates and stages an adapter before swapping it into the store.
@@ -473,7 +496,7 @@ func (s *Store) Replace(source string) (*Adapter, error) {
 		return nil, err
 	}
 	defer os.RemoveAll(staging)
-	if err := copyDirectory(loaded.Directory, staging); err != nil {
+	if err := stageForInstall(loaded, staging); err != nil {
 		return nil, err
 	}
 	if _, err := LoadDirectory(staging); err != nil {
@@ -533,38 +556,7 @@ func (s *Store) Remove(name string) error {
 	return s.RemoveTrust(name)
 }
 
-func parseManifest(path string) (map[string]string, error) {
-	input, err := os.Open(path)
-	if err != nil {
-		return nil, fmt.Errorf("adapter manifest not found: %s", path)
-	}
-	defer input.Close()
-	values := map[string]string{}
-	scanner := bufio.NewScanner(input)
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
-		parts := strings.SplitN(line, "=", 2)
-		if len(parts) != 2 {
-			continue
-		}
-		key := strings.TrimSpace(parts[0])
-		raw := strings.TrimSpace(parts[1])
-		value, err := strconv.Unquote(raw)
-		if err != nil {
-			continue
-		}
-		values[key] = value
-	}
-	if err := scanner.Err(); err != nil {
-		return nil, err
-	}
-	return values, nil
-}
-
-func validateManifest(manifest Manifest, directory, goos string) error {
+func validateManifest(manifest Manifest, directory, goos string, requireExecutable bool) error {
 	if manifest.DisplayName != "" {
 		if !utf8.ValidString(manifest.DisplayName) || utf8.RuneCountInString(manifest.DisplayName) > 80 ||
 			strings.TrimSpace(manifest.DisplayName) != manifest.DisplayName {
@@ -576,7 +568,7 @@ func validateManifest(manifest Manifest, directory, goos string) error {
 			}
 		}
 	}
-	if manifest.APIVersion != APIVersion && manifest.APIVersion != legacyAPIVersion && manifest.APIVersion != legacyDecimalAPIVersion {
+	if manifest.APIVersion != APIVersion {
 		return fmt.Errorf("adapter %s uses unsupported API %s (expected %s)", manifest.Name, manifest.APIVersion, APIVersion)
 	}
 	if !validName.MatchString(manifest.Name) || reservedNames[manifest.Name] {
@@ -721,12 +713,14 @@ func validateManifest(manifest Manifest, directory, goos string) error {
 		executableName = manifest.ExecutableWindows
 	}
 	executable := filepath.Join(directory, executableName)
-	info, err := os.Stat(executable)
-	if err != nil || !info.Mode().IsRegular() {
-		return fmt.Errorf("adapter executable is missing: %s", executable)
-	}
-	if goos != "windows" && runtime.GOOS != "windows" && info.Mode().Perm()&0o111 == 0 {
-		return fmt.Errorf("adapter executable is not executable: %s", executable)
+	if requireExecutable {
+		info, err := os.Stat(executable)
+		if err != nil || !info.Mode().IsRegular() {
+			return fmt.Errorf("adapter executable is missing: %s", executable)
+		}
+		if goos != "windows" && runtime.GOOS != "windows" && info.Mode().Perm()&0o111 == 0 {
+			return fmt.Errorf("adapter executable is not executable: %s", executable)
+		}
 	}
 	if !contains(manifest.Capabilities, "validate") || !contains(manifest.Capabilities, "doctor") {
 		return fmt.Errorf("adapter %s must provide validate and doctor", manifest.Name)

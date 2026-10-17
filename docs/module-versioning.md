@@ -291,6 +291,22 @@ compute those checksums did not. The `v0.2.1` line carries the correct checksums
 Every `go.sum` carries the real checksums of the sibling versions it requires, computed before tagging, in
 dependency order, so one commit carries every tag. [Releasing a round](#releasing-a-round) says how.
 
+### Adapters as packages
+
+The adapter manifest `adapter.toml` is replaced by `plugin.json`, the ext package manifest
+([the decision](adr-adapter-package.md)). It is a hard cut at the same Go API: `contract/host/adapter`
+reads only `plugin.json`, so an adapter installed under the old format fails to load (the error says
+that `adapter.toml` is no longer read) until it is reinstalled, and because the trust digest covers
+the files of the adapter's directory, every adapter is trusted again after that reinstall. Archives
+built before the change contain `adapter.toml` and a `ctx-package.json` and cannot be installed; the
+new archive is the sealed package directory and has no second record. The adapter API stays `2.0`.
+
+The change is in the `contract` module (the adapter package, so a minor version), and the manifest
+sits inside each of the 24 adapter Go modules, so each of them changes bytes and takes a new minor
+version with recomputed pins, in the layers `scripts/release-layers.sh` prints. `ctx` and `ctn`
+must be released with them, because an older host cannot read the new manifests. `cengine` and the
+umbrella change only if the round also changes them.
+
 ### Releasing a round
 
 A tag can never be moved or reused, and a `go.sum` that records the wrong hash of a sibling makes every

@@ -245,7 +245,15 @@ mechanics. Complete foreign wrappers, Windows support, error/observer edge-case
 parity and the SDK migration remain required work in the checklist above. `Close` is abortive; `Drain`
 provides bounded graceful shutdown.
 
+Manifest validation and `package.resolve` are bounded by the input size: duplicate names and
+paths and tree overlap are found by sorting, providers by a hash index, and one directory digest
+stops at 250,000 files or 64 MiB of path text. Before these bounds a 4 MB manifest of 4096
+artifacts could take minutes to validate (`services.md` has the details). `tests/limits.c` holds
+verdicts to a naive reference and CPU time to a bound at the documented limits; `tests/fuzz.c` is a
+libFuzzer target (`-DEXT_FUZZ=ON`, clang) for the parsers and validators, run with a per-input
+`-timeout` because sanitizers do not see an input that is merely slow.
+
 The parser and output copy allocate native memory; the frame limit is not a
 whole-process memory limit. The measured Go allocation count excludes that C
-memory. Production hardening would require allocation-failure/fuzz testing,
-resource accounting, API compatibility review and broader platform/workload checks.
+memory. Production hardening would require allocation-failure testing, longer
+fuzzing campaigns, resource accounting, API compatibility review and broader platform/workload checks.

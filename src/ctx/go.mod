@@ -8,7 +8,7 @@ require (
 )
 
 require (
-	github.com/webong/ext/pkg/plugin-go/contract v0.2.0
+	github.com/webong/ext/pkg/plugin-go/contract v0.3.0
 	golang.org/x/sys v0.48.0 // indirect
 )
 

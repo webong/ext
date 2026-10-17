@@ -240,12 +240,27 @@ version starts at v0.2.0, above v0.1.1. No other path is shared between modules.
 
 ### Versions and tags
 
-The release went out in two rounds because of one mistake, recorded here so it is not repeated.
+The release went out in two rounds because of one mistake, recorded here so it is not repeated, and a
+third round followed for new content.
 
 | Round | Tags |
 | --- | --- |
 | First (`v0.2.0`) | `res/graph` v0.1.0, `pkg/plugin-go/contract`, `.../cengine`, `.../wasm`, `.../hashicorp` and `pkg/plugin-go` at v0.2.0, and the adapters as patch bumps (`adapters/chromium` v0.3.1, `adapters/firefox` v0.2.1, and so on) |
 | Corrective (`v0.2.1`) | `res/system` v0.1.0 (the module was renamed from `res/graph` before anyone used it); `pkg/plugin-go/contract`, `.../cengine`, `.../wasm`, `.../hashicorp` and `pkg/plugin-go` at v0.2.1; and the adapters again (`adapters/chromium` v0.3.2, `adapters/firefox` v0.2.2, `adapters/safari` v0.1.4, the rest as listed by `git tag`) |
+
+| Bounds and listing (`v0.3.0`) | `pkg/plugin-go/contract`, `pkg/plugin-go/cengine` and `pkg/plugin-go` at v0.3.0, and nothing else |
+
+`v0.3.0` is a minor version because `Store.ListUnverified` and `Layered.ListUnverified` are new API in
+both `contract/host/store` and `cengine/host/store`. It also bounds the cost of validating and resolving
+untrusted manifests in the C engine and in `contract/package`: a 4 MB manifest that took minutes (4096
+artifacts) now takes a tenth of a second, and a directory digest stops at 250,000 files or 64 MiB of path
+text. Only the modules whose own files changed are tagged: `contract` and `cengine` (which also carries the
+engine's C sources in `_csrc`), plus the umbrella, whose `go.mod` now requires both at v0.3.0 so a consumer
+of the umbrella takes the fixed engine and the new API. `wasm`, `hashicorp`, `res/system` and the adapters
+have the same bytes as before and are not retagged. They still require `contract` v0.2.1, which is
+fine: a build that also requires v0.3.0 (the umbrella does) resolves to it. A consumer that wants the
+bounds in an adapter's binary requires `contract` v0.3.0 itself. A manifest whose tree overlaps another
+artifact is rejected as before, but the error may name a different one of the overlapping artifacts.
 
 `pkg/plugin-go/contract` v0.2.0 is correct: it needs no sibling checksums, because it has no sibling
 dependencies. Its v0.2.1 differs from it only by one doc comment in `session.go`, which named

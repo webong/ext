@@ -12,18 +12,8 @@ require (
 	golang.org/x/sys v0.48.0 // indirect
 )
 
-replace github.com/webong/ext/pkg/plugin-go => ../../pkg/plugin-go
-
 replace github.com/webong/ext/res/system => ../../res/system
-
-replace github.com/webong/ext/pkg/plugin-go/hashicorp => ../../pkg/plugin-go/hashicorp
-
-replace github.com/webong/ext/pkg/plugin-go/wasm => ../../pkg/plugin-go/wasm
 
 replace github.com/webong/ext/res/web => ../../res/web
 
-replace github.com/webong/ext/res/credential => ../../res/credential
-
 replace github.com/webong/ext/pkg/plugin-go/contract => ../../pkg/plugin-go/contract
-
-replace github.com/webong/ext/pkg/plugin-go/cengine => ../../pkg/plugin-go/cengine

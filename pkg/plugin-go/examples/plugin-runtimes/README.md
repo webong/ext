@@ -6,5 +6,5 @@
 - `cshared/`: Go `-buildmode=c-shared` with four C ABI exports.
 - `host/`: one verified host calling the same method through each backend.
 
-See [the runtime authoring guide](../../docs/plugin-runtimes.md) for build/run
+See [the runtime authoring guide](../../../../docs/plugin-runtimes.md) for build/run
 commands, supported targets, package metadata and lifecycle behavior.

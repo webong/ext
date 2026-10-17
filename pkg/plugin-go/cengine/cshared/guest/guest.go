@@ -1,5 +1,5 @@
 // Package guest binds Go guests to the CTX C ABI. A c-shared main package
-// exports four tiny cgo wrappers; see examples/plugin-runtimes/cshared.
+// exports four tiny cgo wrappers; see pkg/plugin-go/examples/plugin-runtimes/cshared.
 package guest
 
 import (

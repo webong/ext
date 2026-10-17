@@ -31,7 +31,10 @@ module versions. Bare `vX.Y.Z` tags are not used.
 the content manager is `src/ctn`. This repository is ext: it provides libraries
 and binaries, and ctx and ctn are binaries built on those libraries. A product
 never imports another product; shared code goes in `pkg/` or `res/`.
-`examples/` is its own module. Nothing may import the product modules `github.com/webong/ext/ctx` or
+`examples/` is not a Go module: it holds only samples that need no Go build (a shell adapter and an Android
+consumer app). Go examples live in the library they show, as an `examples/` directory inside that module:
+`pkg/plugin-go/examples` for plugins (the umbrella requires every backend), `res/system/examples` and
+`res/web/examples` for those libraries. Nothing may import the product modules `github.com/webong/ext/ctx` or
 `github.com/webong/ext/ctn`; their directories are `src/ctx` and `src/ctn`. The module paths deliberately omit
 `src/`, so the products are not `go get`-resolvable from the repository until their
 paths and directories match; they are built from source and released as binaries.
@@ -79,8 +82,7 @@ library only. `src/ctx/internal/arch` enforces both rules.
 
 When adding a library module, list it in `go.work`, give it a `go.mod`, and add
 matching `require` and `replace` directives to `src/ctx/go.mod` only if ctx imports it
-(adapters are loaded as ext packages, so `src/ctx/go.mod` never lists them), plus
-`examples/go.mod` when examples use it. Do not add
+(adapters are loaded as ext packages, so `src/ctx/go.mod` never lists them). Do not add
 `replace` directives to library modules: Go ignores them for consumers, so they
 only misrepresent what a published module resolves. `GOWORK=off go build` in a
 library module is expected to fail until its dependencies are published.

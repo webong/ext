@@ -18,7 +18,7 @@ import (
 func TestGoProgramsImportCengineNotTheContractPackage(t *testing.T) {
 	root := repoRoot(t)
 	const pluginRoot = "github.com/webong/ext/pkg/plugin-go/contract"
-	for _, tree := range []string{"adapters", "examples", "src", "res"} {
+	for _, tree := range []string{"adapters", "examples", "pkg/plugin-go/examples", "src", "res"} {
 		err := filepath.WalkDir(filepath.Join(root, tree), func(path string, entry fs.DirEntry, walkErr error) error {
 			if walkErr != nil {
 				return walkErr

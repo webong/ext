@@ -3,12 +3,12 @@
 A proof of concept: a plugin guest compiled to WASI runs inside a browser or
 webview, and a page speaks `ext.plugin/v1` to it. It exists to answer whether the
 web engine every phone already has can host ext plugins. See
-[the decision record](../../docs/adr-mobile-wasm.md) for what it showed.
+[the decision record](../../../../docs/adr-mobile-wasm.md) for what it showed.
 
 ```sh
 # Build the repository's Go test guest as a WASI command (about 5.6 MB).
 (cd ../../pkg/plugin-go/wasm && GOOS=wasip1 GOARCH=wasm go build \
-  -o ../../examples/plugin-webview/site/guest.wasm ./crosslang/testdata/go-guest)
+  -o ../../res/web/examples/plugin-webview/site/guest.wasm ./crosslang/testdata/go-guest)
 
 go run . -target Safari            # or "Google Chrome", Firefox, ios-simulator, android
 ```

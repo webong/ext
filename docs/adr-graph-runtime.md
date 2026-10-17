@@ -179,7 +179,7 @@ after stopping, crashing, or process exit, even without a custom probe.
 A consumer registers its own schema, a namespace and version with its kinds and
 exact relationship vocabulary. Its validator enforces those semantics using the
 proposed transaction and `View`. Authorization and product decisions remain in
-the consumer. See `examples/consumer-shaped` for a small consumer-owned example.
+the consumer. See `res/system/examples/consumer-shaped` for a small consumer-owned example.
 
 The integration boundary is:
 

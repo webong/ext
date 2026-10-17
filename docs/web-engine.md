@@ -50,7 +50,7 @@ require-corp` and `Cross-Origin-Resource-Policy: same-origin`. Browsers allow
 `SharedArrayBuffer`, and so WebAssembly threads or a worker blocking on a shared
 queue, only on pages that are cross-origin isolated. It is off by default because it
 also refuses cross-origin resources that do not opt in, which suits a bundle served
-from one origin but not every page. [`examples/plugin-webview`](../examples/plugin-webview)
+from one origin but not every page. [`res/web/examples/plugin-webview`](../res/web/examples/plugin-webview)
 uses it to host a WASI plugin guest in a browser.
 
 ## The page API and the host channel

@@ -345,9 +345,9 @@ package manifests, dependency graphs and conformance tests. Runtime backends
 remain inside the reusable plugin library, including HashiCorp go-plugin.
 
 ```sh
-go run ./examples/plugin-sdk --backend jsonline
-go run ./examples/plugin-typescript
-go run ./pkg/plugin-go/hashicorp/cmd/ext-plugin inspect --root examples/plugin-package --entry main examples/plugin-package/plugin.json
+go run ./pkg/plugin-go/examples/plugin-sdk --backend jsonline
+go run ./pkg/plugin-go/examples/plugin-typescript
+go run ./pkg/plugin-go/hashicorp/cmd/ext-plugin inspect --root pkg/plugin-go/examples/plugin-package --entry main pkg/plugin-go/examples/plugin-package/plugin.json
 ```
 
 Inspection validates metadata and content without starting plugins. CTX adapters

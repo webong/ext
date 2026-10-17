@@ -17,7 +17,7 @@ import (
 	systemgraph "github.com/webong/ext/res/system"
 )
 
-var Version = "0.8.0-dev"
+var Version = "0.9.0-dev"
 
 func Run(args []string, stdout, stderr io.Writer) int {
 	if len(args) == 0 || args[0] == "help" || args[0] == "--help" || args[0] == "-h" {

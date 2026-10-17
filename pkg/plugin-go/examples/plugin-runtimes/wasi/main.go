@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/webong/ext/examples/plugin-runtimes/echo"
+	"github.com/webong/ext/pkg/plugin-go/examples/plugin-runtimes/echo"
 	"github.com/webong/ext/pkg/plugin-go/contract/transport/jsonline"
 )
 

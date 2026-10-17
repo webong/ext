@@ -25,7 +25,7 @@ const siblingPrefix = "github.com/webong/ext/"
 
 // productModules are built from source with the workspace; they are not go-get
 // resolvable by design, so they are not checked here.
-var productModules = map[string]bool{"src/ctx": true, "src/ctn": true, "examples": true}
+var productModules = map[string]bool{"src/ctx": true, "src/ctn": true}
 
 type workspaceModule struct {
 	dir     string

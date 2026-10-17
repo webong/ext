@@ -246,7 +246,7 @@ the profile portion as their selection. `ctx set name:profile` uses the
 adapter's declared `browser` runtime to store that value under the `browser`
 selection key.
 
-A browser adapter participating in `ctx share:browser` declares, for example:
+A browser adapter participating in `ctx share:browser` declares, for example (compact notation, see [the manifest](#manifest)):
 
 ~~~toml
 runtime = "browser"
@@ -261,7 +261,7 @@ browser_query_auto = "true"
 
 Browser adapters can also expose profile-management workflows with the
 optional `browser_management` field. It requires the browser runtime and the
-`share` capability. For example:
+`share` capability. For example (compact notation):
 
 ~~~toml
 browser_management = "extension.targets,extension.prepare,extension.package,extension.stage,extension.install,extension.activate,userscript.prepare,userscript.install,userscript.activate,bookmarklet.encode,bookmarklet.decode"
@@ -335,7 +335,7 @@ at load time: `selector` becomes the `computer` runtime on the `shell` surface,
 ## Computer-side CLI integrations
 
 Computer integrations declare their host commands and capabilities directly.
-For example, a Claude package can declare:
+For example, a Claude package can declare (compact notation):
 
 ~~~toml
 api_version = "2.0"

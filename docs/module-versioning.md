@@ -249,7 +249,7 @@ third round followed for new content.
 | Corrective (`v0.2.1`) | `res/system` v0.1.0 (the module was renamed from `res/graph` before anyone used it); `pkg/plugin-go/contract`, `.../cengine`, `.../wasm`, `.../hashicorp` and `pkg/plugin-go` at v0.2.1; and the adapters again (`adapters/chromium` v0.3.2, `adapters/firefox` v0.2.2, `adapters/safari` v0.1.4, the rest as listed by `git tag`) |
 
 | Bounds and listing (`v0.3.0`) | `pkg/plugin-go/contract`, `pkg/plugin-go/cengine` and `pkg/plugin-go` at v0.3.0, and nothing else |
-| Manifest name (`v0.4.0`) | `pkg/plugin-go/contract`, `pkg/plugin-go/cengine` and `pkg/plugin-go` at v0.4.0, and nothing else |
+| Manifest names (`v0.4.0`) | `pkg/plugin-go/contract`, `pkg/plugin-go/cengine` and `pkg/plugin-go` at v0.4.0, and the 24 adapter modules at their next minor version: `adapters/chromium` v0.4.0; `adapters/firefox`, `adapters/chrome` and `adapters/edge` v0.3.0; and `adapters/safari`, `adapters/credman`, `adapters/keychain`, `adapters/secret_service`, `adapters/git`, `adapters/evm`, `adapters/wasm` and the Chromium- and Firefox-family adapters v0.2.0 |
 
 `v0.3.0` is a minor version because `Store.ListUnverified` and `Layered.ListUnverified` are new API in
 both `contract/host/store` and `cengine/host/store`. It also bounds the cost of validating and resolving
@@ -301,11 +301,13 @@ the files of the adapter's directory, every adapter is trusted again after that 
 built before the change contain `adapter.toml` and a `ctx-package.json` and cannot be installed; the
 new archive is the sealed package directory and has no second record. The adapter API stays `2.0`.
 
-The change is in the `contract` module (the adapter package, so a minor version), and the manifest
-sits inside each of the 24 adapter Go modules, so each of them changes bytes and takes a new minor
-version with recomputed pins, in the layers `scripts/release-layers.sh` prints. `ctx` and `ctn`
-must be released with them, because an older host cannot read the new manifests. `cengine` and the
-umbrella change only if the round also changes them.
+This ships in the same round as the package manifest rename above (`v0.4.0`), so `contract` carries
+both and users face one `contract` version and one adapter trust break. The change is in the
+`contract` module (the adapter package), and the manifest sits inside each of the 24 adapter Go
+modules, so each of them changes bytes and takes a new minor version with recomputed pins, tagged in
+the layers `scripts/release-layers.sh` prints. `ctx` and `ctn` must be released with them, because an
+older host cannot read the new manifests. A host that fixtures adapters in its tests writes
+`plugin.json` (`adapter.WriteKeyValueManifest` takes the old compact text) instead of `adapter.toml`.
 
 ### Releasing a round
 
@@ -332,6 +334,10 @@ repository root, for example `pkg/plugin-go/contract v0.4.0`; `#` starts a comme
    `go mod download` compute each hash, which is the code path the module proxy runs.
    `scripts/release-treehash.sh VERSIONS REVISION` computes them from the git tree with
    `zip.CreateFromVCS`. The two share no code, so agreement rules out a mistake in either.
+   `scripts/release-standalone.sh VERSIONS REVISION` then builds every listed module on its own from that
+   commit (`go vet` on linux, darwin and windows, and `go mod tidy -diff`, with the workspace off and a read-only
+   `go.mod` and `go.sum`), resolving the round's modules from the throwaway repository. It is the check
+   `check-standalone-modules.sh` makes after tagging, made while a failure can still be fixed.
 5. **Tag, one layer at a time.** `scripts/release-layer.sh --push VERSIONS WANT LAYER REVISION` creates the
    annotated tags on the merged commit, pushes them in one atomic push, and compares the published zip hash and
    `go.mod` hash with `WANT`, once from the remote with `GOPROXY=direct` and once from `proxy.golang.org`. Without

@@ -280,3 +280,129 @@ func TestContractStoreLimitsMatchEngineStore(t *testing.T) {
 		}
 	}
 }
+
+// ListUnverified reads manifests only. The two stores must report the same
+// packages, the same unreadable entries and the same error classes for the same
+// bytes on disk, alone and layered.
+func TestListUnverifiedMatchesContractStore(t *testing.T) {
+	populate := func(t *testing.T, s *cstore.Store, tag string) {
+		t.Helper()
+		if _, err := s.Install(source(t, "example/a", "r"+tag, "one")); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := s.Install(treePackage(t, nil)); err != nil {
+			t.Fatal(err)
+		}
+		broken, err := s.Install(source(t, "example/broken", "r1", "two"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(broken.Directory, cstore.ManifestName), []byte("{not json"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		moved, err := s.Install(source(t, "example/moved", "r1", "three"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Rename(moved.Directory, filepath.Join(s.Root(), "example%2fmoved-elsewhere")); err != nil {
+			t.Fatal(err)
+		}
+		for _, name := range []string{"notes.txt"} {
+			if err := os.WriteFile(filepath.Join(s.Root(), name), []byte("hi"), 0o600); err != nil {
+				t.Fatal(err)
+			}
+		}
+		for _, name := range []string{"Bad Name", ".staging-1"} {
+			if err := os.Mkdir(filepath.Join(s.Root(), name), 0o700); err != nil {
+				t.Fatal(err)
+			}
+		}
+		// content that only a verifying call would notice
+		tree := filepath.Join(s.Root(), "example%2ftree", "vendor", "LICENSE")
+		if err := os.WriteFile(tree, []byte("changed"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	type result struct{ installed, problems []string }
+	pureResult := func(root string, items []cstore.Installed, problems []cstore.Check) result {
+		var r result
+		for _, p := range items {
+			r.installed = append(r.installed, fmt.Sprintf("%s|%s|%s|%s|%v", p.Manifest.Descriptor.Identity.ID, p.Name(), p.Version(), strings.TrimPrefix(p.Directory, root), p.IsExecutable()))
+		}
+		for _, c := range problems {
+			r.problems = append(r.problems, fmt.Sprintf("%s|%s|%s", c.ID, strings.TrimPrefix(c.Directory, root), classes(c.Err)))
+		}
+		return r
+	}
+	engineResult := func(root string, items []store.Installed, problems []store.Check) result {
+		var r result
+		for _, p := range items {
+			r.installed = append(r.installed, fmt.Sprintf("%s|%s|%s|%s|%v", p.Manifest.Descriptor.Identity.ID, p.Name(), p.Version(), strings.TrimPrefix(p.Directory, root), p.IsExecutable()))
+		}
+		for _, c := range problems {
+			r.problems = append(r.problems, fmt.Sprintf("%s|%s|%s", c.ID, strings.TrimPrefix(c.Directory, root), classes(c.Err)))
+		}
+		return r
+	}
+	same := func(t *testing.T, label string, pure, engine result) {
+		t.Helper()
+		if strings.Join(pure.installed, "\n") != strings.Join(engine.installed, "\n") || strings.Join(pure.problems, "\n") != strings.Join(engine.problems, "\n") {
+			t.Fatalf("%s differs\n pure:   %v / %v\n engine: %v / %v", label, pure.installed, pure.problems, engine.installed, engine.problems)
+		}
+		if len(pure.installed) == 0 || len(pure.problems) == 0 {
+			t.Fatalf("%s: vacuous result %v / %v", label, pure.installed, pure.problems)
+		}
+	}
+
+	user, system := filepath.Join(t.TempDir(), "user"), filepath.Join(t.TempDir(), "system")
+	pureUser, err := cstore.New(user, cstore.Limits{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	pureSystem, err := cstore.New(system, cstore.Limits{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	populate(t, pureUser, "usr")
+	populate(t, pureSystem, "sys")
+	engineUser, err := store.New(user, store.Limits{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	engineSystem, err := store.New(system, store.Limits{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	pi, pp, perr := pureUser.ListUnverified()
+	ei, ep, eerr := engineUser.ListUnverified()
+	if perr != nil || eerr != nil {
+		t.Fatal(perr, eerr)
+	}
+	same(t, "store", pureResult(user, pi, pp), engineResult(user, ei, ep))
+
+	pureLayers, err := cstore.NewLayered(pureUser, pureSystem)
+	if err != nil {
+		t.Fatal(err)
+	}
+	engineLayers, err := store.NewLayered(engineUser, engineSystem)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pli, plp, perr := pureLayers.ListUnverified()
+	eli, elp, eerr := engineLayers.ListUnverified()
+	if perr != nil || eerr != nil {
+		t.Fatal(perr, eerr)
+	}
+	// directories differ by root, so compare with both roots removed
+	strip := func(r result) result {
+		for i := range r.installed {
+			r.installed[i] = strings.NewReplacer(user, "", system, "").Replace(r.installed[i])
+		}
+		for i := range r.problems {
+			r.problems[i] = strings.NewReplacer(user, "", system, "").Replace(r.problems[i])
+		}
+		return r
+	}
+	same(t, "layered", strip(pureResult("", pli, plp)), strip(engineResult("", eli, elp)))
+}

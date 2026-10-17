@@ -44,7 +44,7 @@ output=$("$ROOT/install.sh" </dev/null)
 printf '%s\n' "$output" | grep -Fq 'no adapter catalog downloaded'
 
 test -x "$CTX_BIN_DIR/ctx"
-test "$("$CTX_BIN_DIR/ctx" version)" = 'ctx 0.8.0-dev'
+test "$("$CTX_BIN_DIR/ctx" version)" = 'ctx 0.9.0-dev'
 for engine in docker podman nerdctl; do
   test -x "$CTX_BIN_DIR/$engine"
   test ! -e "$CTX_HOME/adapters/$engine"
@@ -117,7 +117,7 @@ release_bin="$TEST_ROOT/release-bin"
 mkdir -p "$release_home"
 HOME="$release_home" CTX_HOME="$release_config" CTX_BIN_DIR="$release_bin" \
   CTX_RELEASE_BASE="file://$release_dir" "$ROOT/install.sh" --minimal >/dev/null
-test "$("$release_bin/ctx" version)" = 'ctx 0.8.0-dev'
+test "$("$release_bin/ctx" version)" = 'ctx 0.9.0-dev'
 test ! -e "$release_config/catalog/adapters/docker"
 test ! -e "$release_config/adapters/docker"
 HOME="$release_home" CTX_HOME="$release_config" CTX_BIN_DIR="$release_bin" \
@@ -180,6 +180,6 @@ mkdir -p "$compat_home"
 HOME="$compat_home" CTX_HOME="$compat_config" CTX_BIN_DIR="$compat_bin" \
   CTX_RELEASE_BASE="file://$release_dir" CTX_INSTALL_URL="file://$ROOT/install.sh" \
   sh -s -- --minimal < "$ROOT/install-native.sh" >/dev/null
-test "$("$compat_bin/ctx" version)" = 'ctx 0.8.0-dev'
+test "$("$compat_bin/ctx" version)" = 'ctx 0.9.0-dev'
 
 printf 'ctx native installer tests passed\n'

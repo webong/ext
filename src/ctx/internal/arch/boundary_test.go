@@ -1,7 +1,7 @@
 package arch_test
 
 // Repository-wide dependency-direction checks. CTX internals, product adapters,
-// commands and examples are implementation packages: reusable libraries must not
+// and commands are implementation packages: reusable libraries must not
 // depend back on their consumers.
 
 import (
@@ -19,7 +19,6 @@ var forbiddenPrefixes = []string{
 	"github.com/webong/ext/ctx/",
 	"github.com/webong/ext/ctn/",
 	"github.com/webong/ext/adapters/",
-	"github.com/webong/ext/examples/",
 }
 
 // libraryRoots are the reusable trees that consumers may depend on. Each is

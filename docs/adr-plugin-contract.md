@@ -410,7 +410,7 @@ new wire fields need a separately supported API version. New domain methods
 can be declared without changing the generic protocol, and independently
 versioned domain contracts may coexist in a descriptor.
 
-Run the end-to-end example with `go run ./examples/plugin`. Contract, admission,
+Run the end-to-end example with `go run ./pkg/plugin-go/examples/plugin`. Contract, admission,
 drain, integrity, malformed-frame, cancellation, concurrency, and CTX compatibility
 tests live under `pkg/plugin-go/contract/`, `pkg/plugin-go/contract/transport/jsonline/`, and `pkg/plugin-go/contract/host/adapter/plugin_test.go`.
 HashiCorp tests under `pkg/plugin-go/hashicorp/` launch real subprocesses over both

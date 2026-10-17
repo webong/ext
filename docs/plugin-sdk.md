@@ -131,12 +131,12 @@ version. The host must bind the reviewed metadata to installed artifacts.
 Runnable template:
 
 ```sh
-go run ./examples/plugin-sdk --backend jsonline
-go run ./examples/plugin-sdk --backend inprocess
+go run ./pkg/plugin-go/examples/plugin-sdk --backend jsonline
+go run ./pkg/plugin-go/examples/plugin-sdk --backend inprocess
 ```
 
 Both print the configured echo, health and a three-item stream. The existing
-`examples/plugin-hashicorp` shows native subprocess ownership for both RPCs.
+`pkg/plugin-go/examples/plugin-hashicorp` shows native subprocess ownership for both RPCs.
 
 ## Instances and configuration
 
@@ -214,8 +214,8 @@ remain host-owned. Graph records do not grant permissions; restart generations,
 transactional activation and rollback remain part of the host's composition.
 
 ```sh
-go run ./pkg/plugin-go/hashicorp/cmd/ext-plugin inspect --entry main examples/plugin-package/plugin.json
-go run ./pkg/plugin-go/hashicorp/cmd/ext-plugin resolve examples/plugin-package/plugin.json
+go run ./pkg/plugin-go/hashicorp/cmd/ext-plugin inspect --entry main pkg/plugin-go/examples/plugin-package/plugin.json
+go run ./pkg/plugin-go/hashicorp/cmd/ext-plugin resolve pkg/plugin-go/examples/plugin-package/plugin.json
 ```
 
 Add `--root DIR` to verify artifact contents. `inspect` reports `trusted: false`
@@ -242,12 +242,12 @@ fixtures and domain/schema tests complement the behavioral backend suite.
 ```sh
 go test -race ./pkg/plugin-go/hashicorp/... ./pkg/plugin-go/hashicorp/cmd/ext-plugin
 node --test pkg/plugin-ts/test.mjs
-go run ./examples/plugin-typescript
+go run ./pkg/plugin-go/examples/plugin-typescript
 ```
 
 The cross-language example runs a real JavaScript guest from a Go host. The
 reverse direction is available by building that Go example and passing the
-executable to `examples/plugin-typescript/host.mjs`. Type declarations have a
+executable to `pkg/plugin-go/examples/plugin-typescript/host.mjs`. Type declarations have a
 separate `typecheck.mts` fixture. CI exercises both directions and the native
 backend conformance suite.
 

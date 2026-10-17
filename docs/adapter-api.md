@@ -717,7 +717,7 @@ ctx adapter trust example
 
 `ctx adapter build` requires Go and emits one archive per target. Cross builds
 default to `CGO_ENABLED=0` unless the author sets it explicitly. The example
-under `examples/adapters/go_echo` shows the public parser and a complete Go
+under `pkg/plugin-go/examples/adapters/go_echo` shows the public parser and a complete Go
 adapter. An adapter written in another language can prepare a package directory
 and use `ctx adapter pack` without Go. `pack` seals and includes every regular file in the
 given directory, so use a directory containing only runtime files.

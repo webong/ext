@@ -12,7 +12,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/webong/ext/examples/plugin-runtimes/echo"
+	"github.com/webong/ext/pkg/plugin-go/examples/plugin-runtimes/echo"
 	goengine "github.com/webong/ext/pkg/plugin-go/cengine"
 	"github.com/webong/ext/pkg/plugin-go/cengine/cshared"
 	"github.com/webong/ext/pkg/plugin-go/contract/guest/author"

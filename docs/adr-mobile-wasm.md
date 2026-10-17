@@ -89,7 +89,7 @@ was correctly refused as `invalid_request`.
 | Mobile Safari, iOS 18.3 Simulator | 248 ms | 200 ms | 13 ms |
 | Chrome, Android 14 emulator | 567 ms | 611 ms | 11 ms |
 
-The code is `examples/plugin-webview`. What this does and does not show:
+The code is `res/web/examples/plugin-webview`. What this does and does not show:
 
 - It shows a WASI plugin guest works in WebKit, Blink and Gecko, with no interpreter
   shipped. It is a proof of concept: the WASI shim covers only the sixteen calls this

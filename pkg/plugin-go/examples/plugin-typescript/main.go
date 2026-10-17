@@ -1,4 +1,4 @@
-// Run from the CTX repository root: go run ./examples/plugin-typescript.
+// Run from the CTX repository root: go run ./pkg/plugin-go/examples/plugin-typescript.
 // This example trusts the explicitly selected repository fixture and hashes it
 // before launch; production hosts must authenticate their own artifact source.
 package main
@@ -43,7 +43,7 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	script, err := filepath.Abs("examples/plugin-typescript/guest.mjs")
+	script, err := filepath.Abs("pkg/plugin-go/examples/plugin-typescript/guest.mjs")
 	if err != nil {
 		return err
 	}

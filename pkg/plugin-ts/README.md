@@ -66,9 +66,9 @@ From the repository root:
 ```sh
 node --test pkg/plugin-ts/test.mjs
 tsc --noEmit --strict --module NodeNext --moduleResolution NodeNext --target ES2022 pkg/plugin-ts/typecheck.mts
-go run ./examples/plugin-typescript
-go build -o /tmp/ext-plugin-example ./examples/plugin-typescript
-node examples/plugin-typescript/host.mjs /tmp/ext-plugin-example
+go run ./pkg/plugin-go/examples/plugin-typescript
+go build -o /tmp/ext-plugin-example ./pkg/plugin-go/examples/plugin-typescript
+node pkg/plugin-go/examples/plugin-typescript/host.mjs /tmp/ext-plugin-example
 ```
 
 Use a platform-appropriate executable path on Windows. The two process examples

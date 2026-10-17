@@ -17,8 +17,8 @@ provide their own domain contracts and trust decisions.
    authorization, and the chosen backend's `Open` or `Connect` function.
 6. Call the same typed method using `author.Call`.
 
-The [echo implementation](../examples/plugin-runtimes/echo/echo.go) and
-[host](../examples/plugin-runtimes/host/main.go) demonstrate this. The echo
+The [echo implementation](../pkg/plugin-go/examples/plugin-runtimes/echo/echo.go) and
+[host](../pkg/plugin-go/examples/plugin-runtimes/host/main.go) demonstrate this. The echo
 handler, schema and descriptor are shared by three build targets; only their
 entry points differ. Existing health, configuration and pull-stream contracts
 can also run over these backends' unary calls. Reverse host services need an
@@ -46,22 +46,22 @@ artifacts and run the example; they do not install anything.
 
 ```sh
 mkdir -p /tmp/ext-plugin-example
-go build -o /tmp/ext-plugin-example/host ./examples/plugin-runtimes/host
+go build -o /tmp/ext-plugin-example/host ./pkg/plugin-go/examples/plugin-runtimes/host
 
 # WASI: a Go command compiled to wasm.
-GOOS=wasip1 GOARCH=wasm go build -o /tmp/ext-plugin-example/echo.wasm ./examples/plugin-runtimes/wasi
+GOOS=wasip1 GOARCH=wasm go build -o /tmp/ext-plugin-example/echo.wasm ./pkg/plugin-go/examples/plugin-runtimes/wasi
 /tmp/ext-plugin-example/host --backend wasm \
   --artifact /tmp/ext-plugin-example/echo.wasm \
   --sha256 "$(shasum -a 256 /tmp/ext-plugin-example/echo.wasm | cut -d ' ' -f 1)"
 
 # Native Go: Linux, macOS or FreeBSD with cgo.
-go build -buildmode=plugin -o /tmp/ext-plugin-example/echo.so ./examples/plugin-runtimes/nativego
+go build -buildmode=plugin -o /tmp/ext-plugin-example/echo.so ./pkg/plugin-go/examples/plugin-runtimes/nativego
 /tmp/ext-plugin-example/host --backend nativego \
   --artifact /tmp/ext-plugin-example/echo.so \
   --sha256 "$(shasum -a 256 /tmp/ext-plugin-example/echo.so | cut -d ' ' -f 1)"
 
 # C ABI: this extension is for macOS; use .so on Linux/FreeBSD or .dll on Windows.
-go build -buildmode=c-shared -o /tmp/ext-plugin-example/echo.dylib ./examples/plugin-runtimes/cshared
+go build -buildmode=c-shared -o /tmp/ext-plugin-example/echo.dylib ./pkg/plugin-go/examples/plugin-runtimes/cshared
 /tmp/ext-plugin-example/host --backend cshared \
   --artifact /tmp/ext-plugin-example/echo.dylib \
   --sha256 "$(shasum -a 256 /tmp/ext-plugin-example/echo.dylib | cut -d ' ' -f 1)"
@@ -105,7 +105,7 @@ old native code; use immutable artifact paths for each selected revision.
 ## WASI guests
 
 Go authors use the existing typed guest and call `jsonline.ServeStdio` from
-`main`. The [WASI entry point](../examples/plugin-runtimes/wasi/main.go) also
+`main`. The [WASI entry point](../pkg/plugin-go/examples/plugin-runtimes/wasi/main.go) also
 handles errors on stderr. Guests in other languages implement the existing
 JSON-line hello/request/response protocol. Stdout is exclusively protocol data.
 
@@ -165,7 +165,7 @@ let exceptions cross the C boundary. Host and guest may use different languages
 and allocators. The Go host uses C-allocated byte buffers; Go pointers and Go
 objects never cross between independently compiled runtimes.
 
-For Go, copy the [four cgo wrappers](../examples/plugin-runtimes/cshared/main.go)
+For Go, copy the [four cgo wrappers](../pkg/plugin-go/examples/plugin-runtimes/cshared/main.go)
 and use `guest.New(factory, options)`. The helper owns handles, enforces capacity
 (64 by default), serializes each handle, validates envelopes and applies
 deadlines. It deliberately requires an explicit factory so each handle owns

@@ -245,6 +245,11 @@ func (s *Store) List() ([]Installed, error) {
 // its presence as proof that the package would pass List or Load. Name, Version,
 // Supports and IsExecutable read only the manifest and are safe to use.
 //
+// A returned Installed carries the manifest read at listing time, and Verify,
+// host.Open and ArtifactPath check content against that manifest, not against
+// whatever package.json holds later. If the manifest on disk changes after the
+// listing, list again to see the change.
+//
 // A package that cannot be read does not hide the others. Each one is reported
 // in the second result, in the same form Verify uses: its ID (the directory name
 // when that is not a valid ID), its directory and why, which is a manifest that

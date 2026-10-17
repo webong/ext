@@ -131,8 +131,9 @@ func (l *Layered) Verify() ([]Check, error) {
 // ListUnverified returns one package's manifest per ID, each from the
 // highest-priority store that holds it, without verifying any content, and
 // reports the packages it could not read separately. See Store.ListUnverified:
-// the result is unverified, and content is checked only by Installed.Verify,
-// host.Open and ArtifactPath. Shadowing is as in List and Verify: an ID belongs
+// the result is unverified, content is checked only by Installed.Verify,
+// host.Open and ArtifactPath, and that check is against the manifest read at
+// listing time. Shadowing is as in List and Verify: an ID belongs
 // to the highest-priority store whose directory holds it, even if that copy
 // cannot be read, in which case it is reported rather than replaced by a copy in
 // a later store; a shadowed copy is never read. An entry that is not a package

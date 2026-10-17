@@ -158,7 +158,7 @@ as `Check` values with a non-nil error, so one broken package never hides the
 others. It costs one directory listing and one manifest read per package, where
 `List` and `Verify` hash every artifact; with a 20,000-file tree installed that
 is about 80 microseconds against 1 to 2 seconds. The result is unverified: content
-is checked only by `Installed.Verify`, `host.Open` and `ArtifactPath`, and nothing
+is checked only by `Installed.Verify`, `host.Open` and `ArtifactPath` (against the manifest read at listing time, not a later `package.json`), and nothing
 may be launched or trusted from it directly. `List` and `Load` are unchanged and
 still fail closed. `Installed.Name`, `Version`, `Supports` and `IsExecutable` read
 only the manifest and are safe on an unverified package.

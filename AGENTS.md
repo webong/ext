@@ -78,8 +78,9 @@ the core stays free of every runtime. `pkg/plugin-go/contract` uses the standard
 library only. `src/ctx/internal/arch` enforces both rules.
 
 When adding a library module, list it in `go.work`, give it a `go.mod`, and add
-matching `require` and `replace` directives to `src/ctx/go.mod`, plus `examples/go.mod`
-when examples use it. Do not add
+matching `require` and `replace` directives to `src/ctx/go.mod` only if ctx imports it
+(adapters are loaded as ext packages, so `src/ctx/go.mod` never lists them), plus
+`examples/go.mod` when examples use it. Do not add
 `replace` directives to library modules: Go ignores them for consumers, so they
 only misrepresent what a published module resolves. `GOWORK=off go build` in a
 library module is expected to fail until its dependencies are published.
@@ -109,8 +110,8 @@ implementations can use it.
 Product adapter engines and stores that are reused across adapters
 (`adapters/chromium` module, engine code in `adapters/chromium/engine`, `adapters/firefox/engine`, `adapters/safari/native`,
 `adapters/keychain/store`, `adapters/credman/store`, and
-`adapters/secret_service/store`) are their own Go modules, listed in `go.work`
-and resolved by `src/ctx/go.mod` while unpublished. Product adapter
+`adapters/secret_service/store`) are their own Go modules, listed in `go.work`.
+ctx does not import them: it loads adapters as installed ext packages. Product adapter
 executables use the same plugin library. `pkg/plugin-go/contract` owns the
 adapter process protocol and adapter descriptor helpers (`contract/host/adapter`), and holds the pure-Go package store and host (`contract/host`, `contract/host/store`). Adapters and other Go
 programs import `pkg/plugin-go/cengine`, the Go entry point to the engine: it

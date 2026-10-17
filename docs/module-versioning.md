@@ -332,6 +332,10 @@ repository root, for example `pkg/plugin-go/contract v0.4.0`; `#` starts a comme
    `go mod download` compute each hash, which is the code path the module proxy runs.
    `scripts/release-treehash.sh VERSIONS REVISION` computes them from the git tree with
    `zip.CreateFromVCS`. The two share no code, so agreement rules out a mistake in either.
+   `scripts/release-standalone.sh VERSIONS REVISION` then builds every listed module on its own from that
+   commit (`go vet` on linux, darwin and windows, and `go mod tidy -diff`, with the workspace off and a read-only
+   `go.mod` and `go.sum`), resolving the round's modules from the throwaway repository. It is the check
+   `check-standalone-modules.sh` makes after tagging, made while a failure can still be fixed.
 5. **Tag, one layer at a time.** `scripts/release-layer.sh --push VERSIONS WANT LAYER REVISION` creates the
    annotated tags on the merged commit, pushes them in one atomic push, and compares the published zip hash and
    `go.mod` hash with `WANT`, once from the remote with `GOPROXY=direct` and once from `proxy.golang.org`. Without

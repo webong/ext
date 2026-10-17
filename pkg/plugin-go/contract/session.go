@@ -62,6 +62,7 @@ type Session struct {
 	idle       chan struct{}
 	closeOnce  sync.Once
 	closeErr   error
+	done       chan struct{}
 }
 
 // Open verifies selection before opening a backend, then checks its exact
@@ -120,11 +121,16 @@ func Open(ctx context.Context, selected Descriptor, opts Options) (*Session, err
 	}
 	idle := make(chan struct{})
 	close(idle)
-	return &Session{descriptor: selected, backend: backend, authorize: opts.Authorize, timeout: opts.Timeout, observer: opts.Observer, state: StateReady, idle: idle}, nil
+	return &Session{descriptor: selected, backend: backend, authorize: opts.Authorize, timeout: opts.Timeout, observer: opts.Observer, state: StateReady, idle: idle, done: make(chan struct{})}, nil
 }
 
 func (s *Session) Descriptor() Descriptor { return s.descriptor.Clone() }
 func (s *Session) State() State           { s.mu.Lock(); defer s.mu.Unlock(); return s.state }
+
+// Done is closed once the session's backend has been closed, whether by Close,
+// Abort or a failed call. Anything whose lifetime is tied to the session (for
+// example an admitted data endpoint) ends when it closes.
+func (s *Session) Done() <-chan struct{} { return s.done }
 
 // Call derives identity, surface, deadline, and a fresh correlation ID from
 // host state. A payload cannot expand the selected descriptor. Request IDs do
@@ -257,6 +263,6 @@ func (s *Session) fail() {
 	_ = s.closeBackend()
 }
 func (s *Session) closeBackend() error {
-	s.closeOnce.Do(func() { s.closeErr = s.backend.Close() })
+	s.closeOnce.Do(func() { s.closeErr = s.backend.Close(); close(s.done) })
 	return s.closeErr
 }

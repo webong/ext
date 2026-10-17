@@ -55,6 +55,9 @@ type ContractRef struct {
 type Operation struct {
 	Name    string `json:"name"`
 	Surface string `json:"surface,omitempty"`
+	// Progress declares that a call to this operation may emit progress and log
+	// frames before its response. Absent means it never does.
+	Progress bool `json:"progress,omitempty"`
 }
 
 type Contract struct {
@@ -66,6 +69,10 @@ type Descriptor struct {
 	APIVersion string     `json:"apiVersion"`
 	Identity   Identity   `json:"identity"`
 	Contracts  []Contract `json:"contracts"`
+	// Reverse lists the host contracts and operations this plugin may call
+	// while one of its own calls is in flight. A reverse call to anything not
+	// listed is denied. Absent means the plugin makes no reverse calls.
+	Reverse []Contract `json:"reverse,omitempty"`
 }
 
 func (id Identity) Validate() error {
@@ -92,8 +99,25 @@ func (d Descriptor) Validate() error {
 	if len(d.Contracts) == 0 || len(d.Contracts) > 64 {
 		return fmt.Errorf("%w: declare 1..64 contracts", ErrInvalid)
 	}
+	if err := validateContracts(d.Contracts); err != nil {
+		return err
+	}
+	if len(d.Reverse) > 64 {
+		return fmt.Errorf("%w: declare at most 64 reverse contracts", ErrInvalid)
+	}
+	for _, c := range d.Reverse {
+		for _, op := range c.Operations {
+			if op.Progress {
+				return fmt.Errorf("%w: a reverse operation cannot declare progress", ErrInvalid)
+			}
+		}
+	}
+	return validateContracts(d.Reverse)
+}
+
+func validateContracts(contracts []Contract) error {
 	seen := map[ContractRef]bool{}
-	for _, c := range d.Contracts {
+	for _, c := range contracts {
 		if err := c.ContractRef.Validate(); err != nil {
 			return err
 		}
@@ -127,12 +151,26 @@ func (d Descriptor) Lookup(ref ContractRef, name string) (Operation, error) {
 	return Operation{}, ErrUnsupported
 }
 
+// LookupReverse finds an operation the plugin declared it may call on the host.
+func (d Descriptor) LookupReverse(ref ContractRef, name string) (Operation, error) {
+	return Descriptor{Contracts: d.Reverse}.Lookup(ref, name)
+}
+
 func (d Descriptor) Clone() Descriptor {
-	d.Contracts = append([]Contract(nil), d.Contracts...)
-	for i := range d.Contracts {
-		d.Contracts[i].Operations = append([]Operation(nil), d.Contracts[i].Operations...)
-	}
+	d.Contracts = cloneContracts(d.Contracts)
+	d.Reverse = cloneContracts(d.Reverse)
 	return d
+}
+
+func cloneContracts(contracts []Contract) []Contract {
+	if contracts == nil {
+		return nil
+	}
+	contracts = append([]Contract(nil), contracts...)
+	for i := range contracts {
+		contracts[i].Operations = append([]Operation(nil), contracts[i].Operations...)
+	}
+	return contracts
 }
 
 // MatchHandshake rejects both expansion and reduction of the selected contract.
@@ -144,12 +182,24 @@ func MatchHandshake(selected, actual Descriptor) error {
 	if err := actual.Validate(); err != nil {
 		return err
 	}
-	if selected.Identity != actual.Identity || len(selected.Contracts) != len(actual.Contracts) {
+	if selected.Identity != actual.Identity {
 		return ErrMismatch
 	}
-	for _, c := range selected.Contracts {
+	if err := matchContracts(selected.Contracts, actual.Contracts); err != nil {
+		return err
+	}
+	return matchContracts(selected.Reverse, actual.Reverse)
+}
+
+// matchContracts requires the same contracts with the same operations.
+func matchContracts(selected, actual []Contract) error {
+	if len(selected) != len(actual) {
+		return ErrMismatch
+	}
+	whole := Descriptor{Contracts: actual}
+	for _, c := range selected {
 		found := false
-		for _, candidate := range actual.Contracts {
+		for _, candidate := range actual {
 			if c.ContractRef == candidate.ContractRef && len(c.Operations) == len(candidate.Operations) {
 				found = true
 				break
@@ -159,7 +209,7 @@ func MatchHandshake(selected, actual Descriptor) error {
 			return ErrMismatch
 		}
 		for _, op := range c.Operations {
-			other, err := actual.Lookup(c.ContractRef, op.Name)
+			other, err := whole.Lookup(c.ContractRef, op.Name)
 			if err != nil || other != op {
 				return ErrMismatch
 			}

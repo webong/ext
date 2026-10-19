@@ -55,11 +55,9 @@ func main() {
 		defer r.Close()
 		endpoint = r
 	}
-	config := &hc.ServeConfig{HandshakeConfig: hashicorp.HandshakeConfig(), Plugins: hc.PluginSet{hashicorp.PluginName: &hashicorp.Plugin{Guest: endpoint}}, Logger: hclog.NewNullLogger()}
-	if *protocol == "grpc" {
-		config.GRPCServer = hashicorp.GRPCServer
+	if err := hashicorp.Serve(endpoint, *protocol); err != nil {
+		panic(err)
 	}
-	hc.Serve(config)
 }
 
 type conn struct {

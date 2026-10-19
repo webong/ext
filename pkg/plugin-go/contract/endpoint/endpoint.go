@@ -8,9 +8,25 @@
 // use the listener. Every error, String and %v/%+v/%#v rendering from this
 // package omits the address, path and token. JSON encoding carries the real
 // values because the protocol needs them.
+//
+// Presenting the token. A client presents Endpoint.Token to the listener the
+// same way for every consumer: for ws, wss, http and https, as the header
+// "Authorization: Bearer <token>" on the handshake or request; for tcp, as the
+// first line of the stream, the token followed by one "\n", before any other
+// data. A listener that gets no token, or a wrong one, closes the connection.
+// When Token is empty the listener needs none. The token is never put in a URL.
+// Grant.AuthorizationHeader and Grant.DialTCP present it this way.
+//
+// Rotation. A grant is bounded by its session and by ExpiresAt. For a listener
+// that outlives one expiry the plugin announces a replacement endpoint and the
+// host Admits it and then Revokes the old grant. Announcing is the consumer's
+// contract (a reverse operation, conventionally named "endpoint.rotate", whose
+// payload is {"endpoint": <Endpoint>}); the library only validates and admits.
 package endpoint
 
 import (
+	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
@@ -81,26 +97,30 @@ var knownSchemes = map[string]bool{"ws": true, "wss": true, "http": true, "https
 
 func invalid(reason string) error { return fmt.Errorf("%w: endpoint %s", plugin.ErrInvalid, reason) }
 
-// Validate checks the endpoint against the policy. Its errors never include a
-// value taken from the endpoint.
-func (e Endpoint) Validate(p Policy) error {
-	if len(p.Schemes) == 0 {
-		return fmt.Errorf("%w: no endpoint scheme is admitted", plugin.ErrDenied)
+// Key is the conventional JSON key under which a result carries an Endpoint:
+// {"endpoint": {...}}. A contract may nest it elsewhere; Decode reads the object.
+const Key = "endpoint"
+
+// Decode reads one Endpoint from JSON, rejecting unknown fields, duplicate keys
+// and anything Check refuses. It applies no host policy: call Admit (or
+// Validate) for that. An error never includes a value from the input.
+func Decode(raw json.RawMessage) (Endpoint, error) {
+	var e Endpoint
+	if err := plugin.Decode(raw, &e); err != nil {
+		return Endpoint{}, invalid("is malformed")
 	}
-	allowed := false
-	for _, s := range p.Schemes {
-		if !knownSchemes[s] {
-			return invalid("policy names an unknown scheme")
-		}
-		if s == e.Scheme {
-			allowed = true
-		}
+	if err := e.Check(); err != nil {
+		return Endpoint{}, err
 	}
+	return e, nil
+}
+
+// Check validates the endpoint's shape, which no policy changes: a supported
+// scheme, a loopback host with a port, a well-formed path and token, and an
+// expiry. Its errors never include a value from the endpoint.
+func (e Endpoint) Check() error {
 	if !knownSchemes[e.Scheme] {
 		return invalid("scheme is not supported")
-	}
-	if !allowed {
-		return fmt.Errorf("%w: endpoint scheme is not admitted", plugin.ErrDenied)
 	}
 	if err := validAddress(e.Address); err != nil {
 		return err
@@ -118,6 +138,30 @@ func (e Endpoint) Validate(p Policy) error {
 	}
 	if e.ExpiresAt.IsZero() {
 		return invalid("needs an expiry")
+	}
+	return nil
+}
+
+// Validate checks the endpoint against the policy: Check, then the admitted
+// schemes and the lifetime. Its errors never include a value from the endpoint.
+func (e Endpoint) Validate(p Policy) error {
+	if len(p.Schemes) == 0 {
+		return fmt.Errorf("%w: no endpoint scheme is admitted", plugin.ErrDenied)
+	}
+	allowed := false
+	for _, s := range p.Schemes {
+		if !knownSchemes[s] {
+			return invalid("policy names an unknown scheme")
+		}
+		if s == e.Scheme {
+			allowed = true
+		}
+	}
+	if err := e.Check(); err != nil {
+		return err
+	}
+	if !allowed {
+		return fmt.Errorf("%w: endpoint scheme is not admitted", plugin.ErrDenied)
 	}
 	max := p.MaxLifetime
 	if max <= 0 {
@@ -266,6 +310,76 @@ func (g *Grant) Token() (string, error) {
 		g.used = true
 	}
 	return g.ep.Token, nil
+}
+
+// AuthorizationHeader returns the value for the Authorization header that a
+// client of a ws, wss, http or https endpoint sends ("Bearer <token>"), per the
+// convention in the package documentation. It returns an empty string when the
+// endpoint has no token, and ErrInvalid for a tcp endpoint, which presents its
+// token as the first line instead (see DialTCP). It reads the token, so a
+// one-time endpoint allows one call; an ended grant returns ErrExpired.
+func (g *Grant) AuthorizationHeader() (string, error) {
+	switch g.ep.Scheme {
+	case "ws", "wss", "http", "https":
+	default:
+		return "", fmt.Errorf("%w: this endpoint does not use an Authorization header", plugin.ErrInvalid)
+	}
+	token, err := g.Token()
+	if err != nil || token == "" {
+		return "", err
+	}
+	return "Bearer " + token, nil
+}
+
+// ErrDial is returned when DialTCP cannot connect or present the token. It
+// carries no detail: the system's own dial errors name the address, which is as
+// secret as the token.
+var ErrDial = errors.New("plugin endpoint connection failed")
+
+// DialTCP connects to a tcp endpoint and presents its token as the first line,
+// the token followed by one "\n", before any other data, per the convention in
+// the package documentation. An endpoint without a token sends nothing. The
+// caller owns the returned connection and the grant's lifetime still applies:
+// an ended grant returns ErrExpired, a one-time token is read only once, and a
+// cancelled or expired ctx returns ctx.Err().
+func (g *Grant) DialTCP(ctx context.Context) (net.Conn, error) {
+	if g.ep.Scheme != "tcp" {
+		return nil, fmt.Errorf("%w: this endpoint is not tcp", plugin.ErrInvalid)
+	}
+	_, address, _, err := g.Target()
+	if err != nil {
+		return nil, err
+	}
+	var dialer net.Dialer
+	conn, err := dialer.DialContext(ctx, "tcp", address)
+	if err != nil {
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return nil, ctxErr
+		}
+		return nil, ErrDial
+	}
+	// Read the token after the connection exists, so a one-time token is not
+	// spent on a dial that failed.
+	token, err := g.Token()
+	if err != nil {
+		_ = conn.Close()
+		return nil, err
+	}
+	if token == "" {
+		return conn, nil
+	}
+	if deadline, ok := ctx.Deadline(); ok {
+		_ = conn.SetWriteDeadline(deadline)
+		defer conn.SetWriteDeadline(time.Time{})
+	}
+	if _, err := conn.Write([]byte(token + "\n")); err != nil {
+		_ = conn.Close()
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return nil, ctxErr
+		}
+		return nil, ErrDial
+	}
+	return conn, nil
 }
 
 func (g *Grant) String() string   { return "endpoint grant(" + redactedScheme(g.ep.Scheme) + ")" }

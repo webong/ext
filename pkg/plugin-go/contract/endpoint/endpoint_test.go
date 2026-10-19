@@ -1,9 +1,12 @@
 package endpoint
 
 import (
+	"bufio"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"strings"
 	"testing"
 	"time"
@@ -189,5 +192,243 @@ func TestGrantExpiresWithTime(t *testing.T) {
 func TestAdmitNeedsSession(t *testing.T) {
 	if _, err := Admit(nil, good(), policy()); !errors.Is(err, plugin.ErrInvalid) {
 		t.Fatalf("got %v", err)
+	}
+}
+
+func TestDecodeReadsAnEndpointStrictly(t *testing.T) {
+	good := `{"scheme":"ws","address":"127.0.0.1:4455","path":"` + secretPath + `","token":"` + secretToken + `","oneTime":true,"expiresAt":"2026-01-02T03:05:05Z"}`
+	e, err := Decode(json.RawMessage(good))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if e.Scheme != "ws" || e.Address != "127.0.0.1:4455" || e.Token != secretToken || !e.OneTime || e.ExpiresAt.IsZero() {
+		t.Fatalf("decoded %+v", e)
+	}
+	bad := map[string]string{
+		"unknown field":    `{"scheme":"ws","address":"127.0.0.1:1","expiresAt":"2026-01-02T03:05:05Z","tokn":"` + secretToken + `"}`,
+		"duplicate key":    `{"scheme":"ws","scheme":"tcp","address":"127.0.0.1:1","expiresAt":"2026-01-02T03:05:05Z"}`,
+		"remote address":   `{"scheme":"ws","address":"203.0.113.9:80","expiresAt":"2026-01-02T03:05:05Z"}`,
+		"unknown scheme":   `{"scheme":"ftp","address":"127.0.0.1:1","expiresAt":"2026-01-02T03:05:05Z"}`,
+		"no expiry":        `{"scheme":"ws","address":"127.0.0.1:1"}`,
+		"query in path":    `{"scheme":"ws","address":"127.0.0.1:1","path":"/a?x=` + secretToken + `","expiresAt":"2026-01-02T03:05:05Z"}`,
+		"not an object":    `"` + secretToken + `"`,
+		"bad time":         `{"scheme":"ws","address":"127.0.0.1:1","token":"` + secretToken + `","expiresAt":"soon"}`,
+		"control in token": `{"scheme":"ws","address":"127.0.0.1:1","token":"a\u0000` + secretToken + `","expiresAt":"2026-01-02T03:05:05Z"}`,
+	}
+	for name, raw := range bad {
+		_, err := Decode(json.RawMessage(raw))
+		if err == nil {
+			t.Fatalf("%s accepted", name)
+		}
+		if !errors.Is(err, plugin.ErrInvalid) && !errors.Is(err, plugin.ErrDenied) {
+			t.Fatalf("%s: unexpected class %v", name, err)
+		}
+		for _, secret := range []string{secretToken, secretPath, "203.0.113.9"} {
+			if strings.Contains(err.Error(), secret) {
+				t.Fatalf("%s: error leaks %q: %v", name, secret, err)
+			}
+		}
+	}
+}
+
+// Check is the part of Validate no host policy changes.
+func TestCheckIsPolicyIndependent(t *testing.T) {
+	if err := good().Check(); err != nil {
+		t.Fatal(err)
+	}
+	e := good()
+	e.Scheme = "https" // not in policy(), but a supported scheme
+	if err := e.Check(); err != nil {
+		t.Fatalf("Check must not apply a policy: %v", err)
+	}
+	if err := e.Validate(policy()); !errors.Is(err, plugin.ErrDenied) {
+		t.Fatalf("Validate applies the policy: %v", err)
+	}
+	e = good()
+	e.ExpiresAt = now.Add(-time.Hour) // expiry versus now is policy-time, not shape
+	if err := e.Check(); err != nil {
+		t.Fatalf("Check must not judge the clock: %v", err)
+	}
+}
+
+// listen starts a loopback listener and returns an endpoint that points at it.
+func listen(t *testing.T) (net.Listener, Endpoint) {
+	t.Helper()
+	l, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Skipf("no loopback listener: %v", err)
+	}
+	t.Cleanup(func() { _ = l.Close() })
+	e := good()
+	e.Scheme = "tcp"
+	e.Path = ""
+	e.Address = l.Addr().String()
+	return l, e
+}
+
+func tcpPolicy() Policy {
+	return Policy{Schemes: []string{"tcp", "ws", "wss", "http", "https"}, Now: func() time.Time { return now }}
+}
+
+func TestDialTCPPresentsTheTokenAsTheFirstLine(t *testing.T) {
+	l, e := listen(t)
+	lines := make(chan string, 1)
+	go func() {
+		c, err := l.Accept()
+		if err != nil {
+			return
+		}
+		defer c.Close()
+		line, _ := bufio.NewReader(c).ReadString('\n')
+		lines <- line
+	}()
+	g, err := Admit(session{make(chan struct{})}, e, tcpPolicy())
+	if err != nil {
+		t.Fatal(err)
+	}
+	conn, err := g.DialTCP(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+	select {
+	case line := <-lines:
+		if line != secretToken+"\n" {
+			t.Fatalf("first line %q, want the token and one newline", line)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("the listener received no token line")
+	}
+}
+
+func TestDialTCPWithoutATokenSendsNothing(t *testing.T) {
+	l, e := listen(t)
+	e.Token = ""
+	got := make(chan int, 1)
+	go func() {
+		c, err := l.Accept()
+		if err != nil {
+			return
+		}
+		defer c.Close()
+		_ = c.SetReadDeadline(time.Now().Add(300 * time.Millisecond))
+		buf := make([]byte, 64)
+		n, _ := c.Read(buf)
+		got <- n
+	}()
+	g, _ := Admit(session{make(chan struct{})}, e, tcpPolicy())
+	conn, err := g.DialTCP(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+	if n := <-got; n != 0 {
+		t.Fatalf("an endpoint without a token must send nothing, sent %d bytes", n)
+	}
+}
+
+func TestDialTCPRules(t *testing.T) {
+	// Not a tcp endpoint.
+	ws, _ := Admit(session{make(chan struct{})}, good(), tcpPolicy())
+	if _, err := ws.DialTCP(context.Background()); !errors.Is(err, plugin.ErrInvalid) {
+		t.Fatalf("ws endpoint: %v", err)
+	}
+	// An ended grant.
+	l, e := listen(t)
+	go func() {
+		for {
+			c, err := l.Accept()
+			if err != nil {
+				return
+			}
+			_ = c.Close()
+		}
+	}()
+	s := session{make(chan struct{})}
+	g, _ := Admit(s, e, tcpPolicy())
+	g.Revoke()
+	if _, err := g.DialTCP(context.Background()); !errors.Is(err, ErrExpired) {
+		t.Fatalf("revoked grant: %v", err)
+	}
+	// A one-time token is read once, however the client connects.
+	e.OneTime = true
+	once, _ := Admit(s, e, tcpPolicy())
+	c, err := once.DialTCP(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = c.Close()
+	if _, err := once.DialTCP(context.Background()); !errors.Is(err, ErrUsed) {
+		t.Fatalf("second dial of a one-time endpoint: %v", err)
+	}
+	// A cancelled context is reported as such.
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	fresh, _ := Admit(s, e, tcpPolicy())
+	if _, err := fresh.DialTCP(ctx); !errors.Is(err, context.Canceled) {
+		t.Fatalf("cancelled context: %v", err)
+	}
+}
+
+// A failed dial must not spend a one-time token, and must not name the address.
+func TestDialTCPFailureIsRedactedAndKeepsTheToken(t *testing.T) {
+	l, e := listen(t)
+	address := e.Address
+	_ = l.Close() // nothing listens there now
+	e.OneTime = true
+	g, _ := Admit(session{make(chan struct{})}, e, tcpPolicy())
+	_, err := g.DialTCP(context.Background())
+	if !errors.Is(err, ErrDial) {
+		t.Fatalf("got %v", err)
+	}
+	for _, secret := range []string{address, secretToken, "127.0.0.1"} {
+		if strings.Contains(err.Error(), secret) {
+			t.Fatalf("the error names %q: %v", secret, err)
+		}
+	}
+	if token, err := g.Token(); err != nil || token != secretToken {
+		t.Fatalf("a failed dial spent the one-time token: %q %v", token, err)
+	}
+}
+
+func TestAuthorizationHeader(t *testing.T) {
+	s := session{make(chan struct{})}
+	for _, scheme := range []string{"ws", "wss", "http", "https"} {
+		e := good()
+		e.Scheme = scheme
+		g, err := Admit(s, e, tcpPolicy())
+		if err != nil {
+			t.Fatal(err)
+		}
+		if header, err := g.AuthorizationHeader(); err != nil || header != "Bearer "+secretToken {
+			t.Fatalf("%s: %q %v", scheme, header, err)
+		}
+	}
+	// No token: no header, no error.
+	e := good()
+	e.Token = ""
+	g, _ := Admit(s, e, tcpPolicy())
+	if header, err := g.AuthorizationHeader(); err != nil || header != "" {
+		t.Fatalf("no token: %q %v", header, err)
+	}
+	// A tcp endpoint presents its token as a first line instead.
+	_, tcp := listen(t)
+	tg, _ := Admit(s, tcp, tcpPolicy())
+	if _, err := tg.AuthorizationHeader(); !errors.Is(err, plugin.ErrInvalid) {
+		t.Fatalf("tcp: %v", err)
+	}
+	// One-time endpoints and ended grants follow Token.
+	e = good()
+	e.OneTime = true
+	og, _ := Admit(s, e, tcpPolicy())
+	if _, err := og.AuthorizationHeader(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := og.AuthorizationHeader(); !errors.Is(err, ErrUsed) {
+		t.Fatalf("second read: %v", err)
+	}
+	g.Revoke()
+	if _, err := g.AuthorizationHeader(); !errors.Is(err, ErrExpired) {
+		t.Fatalf("revoked: %v", err)
 	}
 }

@@ -207,8 +207,11 @@ func (s *serveState) invoke(ctx context.Context, guest plugin.Endpoint, request 
 	callCtx = plugin.WithReverse(callCtx, wireReverse{s: s, descriptor: descriptor, parent: request.ID})
 	callCtx = plugin.WithSessionReverse(callCtx, wireReverse{s: s, descriptor: descriptor})
 	reporter := &reporter{s: s, parent: request.ID}
+	callCtx = plugin.WithProgressLimits(callCtx, nil)
 	if op, err := descriptor.Lookup(request.Contract, request.Operation); err == nil && op.Progress && request.Progress != nil {
-		reporter.limiter = plugin.NewLimiter(*request.Progress, nil)
+		limits := request.Progress.Resolved()
+		reporter.limiter = plugin.NewLimiter(limits, nil)
+		callCtx = plugin.WithProgressLimits(callCtx, &limits)
 	}
 	callCtx = plugin.WithProgressReporter(callCtx, reporter)
 	response, err := guest.Invoke(callCtx, request)

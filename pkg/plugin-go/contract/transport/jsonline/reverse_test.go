@@ -575,3 +575,63 @@ func TestForwardHandlerRemoteErrors(t *testing.T) {
 		})
 	}
 }
+
+// A handler can read the event rate the host set for its call, so a streamer
+// can coalesce lines instead of letting the limit drop events.
+func TestHandlerSeesTheHostsProgressLimits(t *testing.T) {
+	type seen struct {
+		limits plugin.ProgressLimits
+		ok     bool
+	}
+	record := func(out chan<- seen) plugin.Handler {
+		return func(ctx context.Context, _ plugin.Request) (json.RawMessage, error) {
+			limits, ok := plugin.ProgressLimitsFrom(ctx)
+			out <- seen{limits, ok}
+			return json.RawMessage(`1`), nil
+		}
+	}
+	opens := map[string]func(chan<- seen) *plugin.Session{
+		"over the wire": func(out chan<- seen) *plugin.Session {
+			r := open(t, context.Background(), reverseDescriptor(), record(out), nil)
+			t.Cleanup(r.stop)
+			return r.session
+		},
+		"in process": func(out chan<- seen) *plugin.Session {
+			return openInProcess(t, context.Background(), reverseDescriptor(), record(out), nil)
+		},
+	}
+	for name, openSession := range opens {
+		t.Run(name, func(t *testing.T) {
+			out := make(chan seen, 3)
+			session := openSession(out)
+			ctx := context.Background()
+			// Defaults are filled in.
+			if _, err := session.CallProgress(ctx, main1, "long", nil, nil); err != nil {
+				t.Fatal(err)
+			}
+			if got := <-out; !got.ok || got.limits.EventsPerSecond != plugin.DefaultProgressEvents || got.limits.BytesPerSecond != plugin.DefaultProgressBytes {
+				t.Fatalf("defaults: %+v", got)
+			}
+			// A custom rate, partly set, is resolved per field.
+			if _, err := session.CallProgress(ctx, main1, "long", nil, nil, plugin.CallOptions{Progress: plugin.ProgressLimits{EventsPerSecond: 7}}); err != nil {
+				t.Fatal(err)
+			}
+			if got := <-out; !got.ok || got.limits.EventsPerSecond != 7 || got.limits.BytesPerSecond != plugin.DefaultProgressBytes {
+				t.Fatalf("custom: %+v", got)
+			}
+			// An operation that did not declare progress has none.
+			if _, err := session.Call(ctx, main1, "quiet", nil); err != nil {
+				t.Fatal(err)
+			}
+			if got := <-out; got.ok {
+				t.Fatalf("an operation without progress must see no limits: %+v", got)
+			}
+		})
+	}
+}
+
+func TestProgressLimitsFromWithoutACall(t *testing.T) {
+	if _, ok := plugin.ProgressLimitsFrom(context.Background()); ok {
+		t.Fatal("no call, no limits")
+	}
+}

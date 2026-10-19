@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 	"unicode/utf8"
@@ -174,6 +175,29 @@ func (p Progress) Validate() error {
 	return nil
 }
 
+// SplitProgressText cuts text into pieces that each fit one event: at most
+// MaxProgressTextBytes bytes and valid UTF-8. A piece never ends inside a
+// multi-byte character, and bytes that are not valid UTF-8 are replaced with
+// U+FFFD, because an event carrying either is a protocol violation. Splitting a
+// longer line into events, and where, is the reporter's job; this only keeps each
+// piece legal. It returns nil for empty text.
+func SplitProgressText(text string) []string {
+	text = strings.ToValidUTF8(text, "\uFFFD")
+	var pieces []string
+	for len(text) > MaxProgressTextBytes {
+		cut := MaxProgressTextBytes
+		for cut > 0 && !utf8.RuneStart(text[cut]) {
+			cut--
+		}
+		pieces = append(pieces, text[:cut])
+		text = text[cut:]
+	}
+	if text != "" {
+		pieces = append(pieces, text)
+	}
+	return pieces
+}
+
 // ProgressFrame carries one event of the call named by Parent.
 type ProgressFrame struct {
 	Frame      string `json:"frame"`
@@ -218,10 +242,43 @@ func (l ProgressLimits) Validate() error {
 
 // ProgressReporter sends events from inside a call.
 type ProgressReporter interface {
-	// Report sends one event. ErrProgressDropped means the rate limit dropped
-	// it; ErrUnsupported means the operation did not declare progress; any
-	// other error means the call is over or the connection failed.
+	// Report sends one event. What each error means for the call:
+	//
+	//	nil                  sent
+	//	ErrProgressDropped   the rate limit dropped it and counted it; the call
+	//	                     is fine, so treat it as sent (or slow down)
+	//	ErrUnsupported       the operation did not declare progress, so no event
+	//	                     will ever flow: stop reporting and return the text in
+	//	                     the result instead
+	//	ErrInvalid           the event breaks the rules (kind, stream, text bound
+	//	                     or UTF-8); the caller's bug, nothing was sent
+	//	ErrClosed            the call is over, or the connection closed
+	//	any other error      the connection is failing; the call will fail
+	//
+	// Only ErrProgressDropped is routine. An operation that declared progress
+	// is always given a working reporter, whether or not the host asked for the
+	// events: a host that calls it with plain Call simply discards them.
 	Report(Progress) error
+}
+
+type limitsKey struct{}
+
+// WithProgressLimits attaches the resolved event rate of the call being
+// handled; pass nil for a call that has none.
+func WithProgressLimits(ctx context.Context, limits *ProgressLimits) context.Context {
+	return context.WithValue(ctx, limitsKey{}, limits)
+}
+
+// ProgressLimitsFrom returns the event rate the host set for the call being
+// handled, with defaults filled in. A handler that streams a long output can
+// coalesce lines to stay inside it instead of letting the rate limit drop
+// events. ok is false when the operation did not declare progress.
+func ProgressLimitsFrom(ctx context.Context) (limits ProgressLimits, ok bool) {
+	l, _ := ctx.Value(limitsKey{}).(*ProgressLimits)
+	if l == nil {
+		return ProgressLimits{}, false
+	}
+	return l.Resolved(), true
 }
 
 type noReporter struct{}

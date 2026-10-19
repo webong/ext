@@ -15,6 +15,7 @@ import (
 	plugin "github.com/webong/ext/pkg/plugin-go/contract"
 	"github.com/webong/ext/pkg/plugin-go/contract/host/process"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -42,6 +43,11 @@ type Options struct {
 	// Timeout bounds the handshake and calls without an earlier caller
 	// deadline. Zero uses DefaultTimeout.
 	Timeout time.Duration
+	// Env adds KEY=value entries to the child's environment, which is otherwise
+	// scrubbed (PATH only, plus SystemRoot on Windows). It applies to the default
+	// launch and is added to Launch.Env when Launch is set. A name may appear only
+	// once across both.
+	Env []string
 	// Reverse offers services to the plugin: calls from the plugin to this
 	// host, limited to the operations its descriptor declares in Reverse. When
 	// nil, every reverse call is denied.
@@ -73,6 +79,11 @@ func Open(ctx context.Context, installed store.Installed, options Options) (*Pro
 	if launch.Dir == "" {
 		launch.Dir = installed.Directory
 	}
+	env, err := withEnv(launch.Env, options.Env)
+	if err != nil {
+		return nil, err
+	}
+	launch.Env = env
 	path, err := filepath.Abs(launch.Path)
 	if err != nil {
 		return nil, err
@@ -104,6 +115,11 @@ func Open(ctx context.Context, installed store.Installed, options Options) (*Pro
 	}
 	return &Process{session: session}, nil
 }
+
+// Done is closed once the plugin session has ended, whether by Close, an abort or
+// a failed call. Anything whose lifetime is tied to the plugin, such as an
+// endpoint grant (endpoint.Admit takes it), ends with it.
+func (p *Process) Done() <-chan struct{} { return p.session.Done() }
 
 // Descriptor is a copy of the session's reviewed descriptor.
 func (p *Process) Descriptor() plugin.Descriptor { return p.session.Descriptor() }
@@ -154,4 +170,23 @@ func (p *Process) Close() error {
 		_ = p.session.Abort()
 	}
 	return err
+}
+
+// withEnv returns the launch environment with extra entries added. Both lists
+// are KEY=value entries; a name may appear only once across them, so what the
+// child sees never depends on an order or on a platform's duplicate rule.
+func withEnv(launch, extra []string) ([]string, error) {
+	if len(extra) == 0 {
+		return launch, nil
+	}
+	merged := append(append([]string(nil), launch...), extra...)
+	seen := map[string]bool{}
+	for _, entry := range merged {
+		key, _, ok := strings.Cut(entry, "=")
+		if !ok || key == "" || strings.ContainsRune(entry, 0) || seen[key] {
+			return nil, fmt.Errorf("%w: environment entries must be KEY=value with distinct names", plugin.ErrInvalid)
+		}
+		seen[key] = true
+	}
+	return merged, nil
 }

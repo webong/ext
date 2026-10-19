@@ -14,8 +14,6 @@ import (
 	"os/signal"
 	"path/filepath"
 
-	"github.com/hashicorp/go-hclog"
-	hc "github.com/hashicorp/go-plugin"
 	plugin "github.com/webong/ext/pkg/plugin-go/contract"
 	"github.com/webong/ext/pkg/plugin-go/contract/transport/bridge"
 	"github.com/webong/ext/pkg/plugin-go/contract/transport/jsonline"
@@ -244,12 +242,11 @@ func serveHashicorp(ctx context.Context, self string, c config) error {
 	defer relay.Close()
 	stop := context.AfterFunc(ctx, func() { _ = relay.Close() })
 	defer stop()
-	options := &hc.ServeConfig{HandshakeConfig: hashicorp.HandshakeConfig(), Plugins: hc.PluginSet{hashicorp.PluginName: &hashicorp.Plugin{Guest: relay}}, Logger: hclog.NewNullLogger()}
+	protocol := "netrpc"
 	if c.Frontend == "hashicorp-grpc" {
-		options.GRPCServer = hashicorp.GRPCServer
+		protocol = "grpc"
 	}
-	hc.Serve(options)
-	return nil
+	return hashicorp.Serve(relay, protocol)
 }
 func connectWorker(ctx context.Context, self string, c config) (plugin.Backend, error) {
 	if err := ctx.Err(); err != nil {

@@ -13,11 +13,7 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
-	"time"
 
-	"github.com/hashicorp/go-hclog"
-	goplugin "github.com/hashicorp/go-plugin"
 	goengine "github.com/webong/ext/pkg/plugin-go/cengine"
 	"github.com/webong/ext/pkg/plugin-go/hashicorp"
 )
@@ -62,12 +58,7 @@ func run() error {
 		if err != nil {
 			return err
 		}
-		config := &goplugin.ServeConfig{HandshakeConfig: hashicorp.HandshakeConfig(), Plugins: goplugin.PluginSet{hashicorp.PluginName: &hashicorp.Plugin{Guest: guest}}, Logger: hclog.NewNullLogger()}
-		if *protocol == "grpc" {
-			config.GRPCServer = hashicorp.GRPCServer
-		}
-		goplugin.Serve(config)
-		return nil
+		return hashicorp.Serve(guest, *protocol)
 	}
 	ctx := context.Background()
 	session, err := goengine.Open(ctx, descriptor, goengine.Options{
@@ -81,20 +72,13 @@ func run() error {
 			return nil
 		},
 		Connect: func(ctx context.Context, _ goengine.Descriptor) (goengine.Backend, error) {
-			command := exec.Command(executable, "--guest", "--protocol", *protocol)
+			process := hashicorp.Process{Executable: executable, SHA256: hex.EncodeToString(digest), Protocol: *protocol, Arguments: []string{"--guest", "--protocol", *protocol}}
 			for _, key := range []string{"SystemRoot", "TMPDIR", "TEMP", "TMP"} {
 				if value := os.Getenv(key); value != "" {
-					command.Env = append(command.Env, key+"="+value)
+					process.Environment = append(process.Environment, key+"="+value)
 				}
 			}
-			deadline, _ := ctx.Deadline()
-			client := goplugin.NewClient(&goplugin.ClientConfig{
-				HandshakeConfig: hashicorp.HandshakeConfig(), Plugins: goplugin.PluginSet{hashicorp.PluginName: &hashicorp.Plugin{}},
-				AllowedProtocols: []goplugin.Protocol{goplugin.Protocol(*protocol)}, Cmd: command, SkipHostEnv: true,
-				SecureConfig: &goplugin.SecureConfig{Checksum: digest, Hash: sha256.New()}, AutoMTLS: true,
-				StartTimeout: time.Until(deadline), Logger: hclog.NewNullLogger(),
-			})
-			return hashicorp.Connect(ctx, client)
+			return hashicorp.ConnectProcess(ctx, process)
 		},
 	})
 	if err != nil {

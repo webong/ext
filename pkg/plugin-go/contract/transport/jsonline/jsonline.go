@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	plugin "github.com/webong/ext/pkg/plugin-go/contract"
 	"io"
 	"sync"
@@ -16,6 +17,12 @@ import (
 
 // Connections must allow Close concurrently with Read/Write and unblock both.
 // The client owns the supplied connection. One client belongs to one session.
+//
+// One call is in flight at a time. While it is, the guest may send progress
+// frames and reverse requests, and at any time after the handshake it may send
+// session-scoped reverse requests; a reader goroutine, started with the first
+// call, routes them so a blocked call never stops reverse calls from being
+// served.
 type Client struct {
 	conn     io.ReadWriteCloser
 	reader   *bufio.Reader
@@ -23,11 +30,41 @@ type Client struct {
 	closed   chan struct{}
 	once     sync.Once
 	closeErr error
+
+	wmu sync.Mutex // serializes frames written to conn
+
+	mu      sync.Mutex
+	pending *pendingCall
+	reverse plugin.ReverseHost
+	started sync.Once
+	failure error
+}
+
+type pendingCall struct {
+	id       string
+	declared bool // the operation declared progress
+	sink     plugin.ProgressSink
+	result   chan callResult
+}
+
+type callResult struct {
+	response plugin.Response
+	err      error
 }
 
 func NewClient(conn io.ReadWriteCloser) *Client {
 	return &Client{conn: conn, reader: bufio.NewReader(conn), gate: make(chan struct{}, 1), closed: make(chan struct{})}
 }
+
+// SetReverse registers the host that serves the guest's reverse calls. Open
+// calls it before the handshake when the host configured Reverse.
+func (c *Client) SetReverse(h plugin.ReverseHost) {
+	c.mu.Lock()
+	c.reverse = h
+	c.mu.Unlock()
+}
+
+var _ plugin.ReverseBackend = (*Client)(nil)
 
 func (c *Client) Handshake(ctx context.Context) (plugin.Descriptor, error) {
 	deadline := time.Now().Add(plugin.DefaultTimeout)
@@ -92,46 +129,212 @@ func (c *Client) exchange(ctx context.Context, request plugin.Request) (plugin.R
 	if len(data) > plugin.MaxFrameBytes {
 		return plugin.Response{}, plugin.ErrInvalid
 	}
-	type outcome struct {
-		response plugin.Response
-		err      error
+	c.started.Do(func() { go c.readLoop() })
+	call := &pendingCall{id: request.ID, declared: request.Progress != nil, sink: plugin.ProgressSinkFrom(ctx), result: make(chan callResult, 1)}
+	c.mu.Lock()
+	if c.failure != nil {
+		err := c.failure
+		c.mu.Unlock()
+		return plugin.Response{}, err
 	}
-	done := make(chan outcome, 1)
-	go func() {
-		if err := writeFrame(c.conn, data); err != nil {
-			done <- outcome{err: err}
+	c.pending = call
+	c.mu.Unlock()
+	defer func() {
+		c.mu.Lock()
+		c.pending = nil
+		c.mu.Unlock()
+	}()
+	written := make(chan error, 1)
+	go func() { written <- c.write(data) }()
+	for written != nil || call.result != nil {
+		select {
+		case <-ctx.Done():
+			_ = c.Close()
+			if written != nil {
+				<-written // Close must unblock the outstanding write.
+			}
+			return plugin.Response{}, ctx.Err()
+		case err := <-written:
+			written = nil
+			if err != nil {
+				_ = c.Close()
+				return plugin.Response{}, err
+			}
+		case result := <-call.result:
+			if err := ctx.Err(); err != nil {
+				_ = c.Close()
+				return plugin.Response{}, err
+			}
+			if result.err == nil {
+				result.err = result.response.Validate(request.ID)
+			}
+			if result.err != nil {
+				_ = c.Close()
+			}
+			return result.response, result.err
+		}
+	}
+	return plugin.Response{}, plugin.ErrClosed
+}
+
+func (c *Client) write(data []byte) error {
+	c.wmu.Lock()
+	defer c.wmu.Unlock()
+	return writeFrame(c.conn, data)
+}
+
+// fail ends the session after a protocol or transport error: the pending call
+// receives err and the connection closes, which stops the child.
+func (c *Client) fail(err error) {
+	c.mu.Lock()
+	if c.failure == nil {
+		c.failure = err
+	}
+	pending := c.pending
+	c.mu.Unlock()
+	if pending != nil {
+		select {
+		case pending.result <- callResult{err: err}:
+		default:
+		}
+	}
+	_ = c.Close()
+}
+
+func (c *Client) readLoop() {
+	for {
+		line, err := readFrame(c.reader)
+		if err != nil {
+			select {
+			case <-c.closed:
+				err = plugin.ErrClosed
+			default:
+			}
+			if errors.Is(err, io.EOF) {
+				err = io.ErrUnexpectedEOF
+			}
+			c.fail(err)
 			return
 		}
-		line, err := readFrame(c.reader)
-		var response plugin.Response
-		if err == nil {
-			err = plugin.Decode(line, &response)
+		if err := c.route(line); err != nil {
+			c.fail(err)
+			return
 		}
-		if err == nil {
-			err = response.Validate(request.ID)
-		}
-		done <- outcome{response, err}
-	}()
-	select {
-	case <-ctx.Done():
-		_ = c.Close()
-		<-done // Close must unblock the outstanding read/write.
-		return plugin.Response{}, ctx.Err()
-	case result := <-done:
-		if err := ctx.Err(); err != nil {
-			_ = c.Close()
-			return plugin.Response{}, err
-		}
-		if result.err != nil {
-			_ = c.Close()
-		}
-		return result.response, result.err
 	}
+}
+
+func (c *Client) route(line []byte) error {
+	kind, err := peekFrame(line)
+	if err != nil {
+		return err
+	}
+	switch kind {
+	case "":
+		var response plugin.Response
+		if err := plugin.Decode(line, &response); err != nil {
+			return err
+		}
+		c.mu.Lock()
+		pending := c.pending
+		c.mu.Unlock()
+		if pending == nil || pending.id != response.ID {
+			return fmt.Errorf("%w: response to no call in flight", plugin.ErrProtocol)
+		}
+		select {
+		case pending.result <- callResult{response: response}:
+		default:
+			return fmt.Errorf("%w: second response to one call", plugin.ErrProtocol)
+		}
+		return nil
+	case plugin.FrameProgress:
+		var frame plugin.ProgressFrame
+		if err := plugin.Decode(line, &frame); err != nil {
+			return fmt.Errorf("%w: malformed progress frame", plugin.ErrProtocol)
+		}
+		if err := frame.Validate(); err != nil {
+			return err
+		}
+		c.mu.Lock()
+		pending := c.pending
+		c.mu.Unlock()
+		if pending == nil || pending.id != frame.Parent || !pending.declared {
+			return fmt.Errorf("%w: progress for no call that declared it", plugin.ErrProtocol)
+		}
+		if pending.sink != nil {
+			if _, err := pending.sink.Deliver(frame.Progress); err != nil {
+				return err
+			}
+		}
+		return nil
+	case plugin.FrameReverseRequest:
+		var frame plugin.ReverseRequestFrame
+		if err := plugin.Decode(line, &frame); err != nil {
+			return fmt.Errorf("%w: malformed reverse request", plugin.ErrProtocol)
+		}
+		if err := frame.Validate(); err != nil {
+			return err
+		}
+		return c.serveReverse(frame)
+	default:
+		return fmt.Errorf("%w: unknown frame", plugin.ErrProtocol)
+	}
+}
+
+func (c *Client) serveReverse(frame plugin.ReverseRequestFrame) error {
+	c.mu.Lock()
+	host := c.reverse
+	c.mu.Unlock()
+	if host == nil {
+		return c.respond(frame.ID, plugin.ReverseResult{Error: &plugin.RemoteError{Code: plugin.ReverseDenied, Message: "reverse call refused"}})
+	}
+	run, immediate, err := host.AdmitReverse(frame)
+	if err != nil {
+		return err
+	}
+	if immediate != nil {
+		return c.respond(frame.ID, *immediate)
+	}
+	go func() {
+		if err := c.respond(frame.ID, run()); err != nil {
+			c.fail(err)
+		}
+	}()
+	return nil
+}
+
+func (c *Client) respond(id string, result plugin.ReverseResult) error {
+	data, err := json.Marshal(plugin.ReverseResponseFrame{Frame: plugin.FrameReverseResponse, APIVersion: plugin.APIVersion, ID: id, Payload: result.Payload, Error: result.Error})
+	if err != nil {
+		return err
+	}
+	if len(data) > plugin.MaxFrameBytes {
+		// An answer too large to send becomes a refusal, never a truncation.
+		data, err = json.Marshal(plugin.ReverseResponseFrame{Frame: plugin.FrameReverseResponse, APIVersion: plugin.APIVersion, ID: id, Error: &plugin.RemoteError{Code: plugin.ReverseTooLarge, Message: "reverse call refused"}})
+		if err != nil {
+			return err
+		}
+	}
+	return c.write(data)
 }
 
 func (c *Client) Close() error {
 	c.once.Do(func() { close(c.closed); c.closeErr = c.conn.Close() })
 	return c.closeErr
+}
+
+// peekFrame returns the value of a frame's "frame" field, or "" for a request
+// or response, which carry none.
+func peekFrame(line []byte) (string, error) {
+	var probe struct {
+		Frame *string `json:"frame"`
+	}
+	if err := json.Unmarshal(line, &probe); err != nil {
+		return "", fmt.Errorf("%w: malformed frame", plugin.ErrProtocol)
+	}
+	if probe.Frame == nil {
+		return "", nil
+	}
+	return *probe.Frame, nil
 }
 
 // Handler performs consumer authorization and executes one domain call. It
@@ -161,73 +364,6 @@ func (s Server) Serve(ctx context.Context, conn io.ReadWriteCloser) error {
 		return err
 	}
 	return ServeGuest(ctx, conn, guest)
-}
-
-// ServeGuest binds a shared guest endpoint to a JSON-line connection. This
-// owns only conn; the embedding application owns the endpoint's lifecycle.
-func ServeGuest(ctx context.Context, conn io.ReadWriteCloser, guest plugin.Endpoint) error {
-	defer conn.Close()
-	if guest == nil {
-		return plugin.ErrDenied
-	}
-	stop := context.AfterFunc(ctx, func() { _ = conn.Close() })
-	defer stop()
-	reader := bufio.NewReader(conn)
-	hello := false
-	for {
-		line, err := readFrame(reader)
-		if err != nil {
-			if ctx.Err() != nil {
-				return ctx.Err()
-			}
-			if errors.Is(err, io.EOF) {
-				return nil
-			}
-			return err
-		}
-		var request plugin.Request
-		if err := plugin.Decode(line, &request); err != nil {
-			return err
-		}
-		response := plugin.Response{APIVersion: plugin.APIVersion, ID: request.ID}
-		if !hello {
-			if request.APIVersion != plugin.APIVersion || request.ID != "hello" || request.Operation != "plugin.hello" || request.Plugin != (plugin.Identity{}) || request.Contract != (plugin.ContractRef{}) || request.Surface != "" || len(request.Payload) != 0 || request.Deadline.IsZero() {
-				return plugin.ErrInvalid
-			}
-			if !time.Now().Before(request.Deadline) {
-				return context.DeadlineExceeded
-			}
-			var descriptor plugin.Descriptor
-			helloCtx, cancel := context.WithDeadline(ctx, request.Deadline)
-			descriptor, err = guest.Handshake(helloCtx)
-			cancel()
-			if err == nil {
-				err = descriptor.Validate()
-			}
-			if err == nil {
-				response.Payload, err = json.Marshal(descriptor)
-			}
-			hello = true
-		} else {
-			response, err = guest.Invoke(ctx, request)
-		}
-		if err != nil {
-			return err
-		}
-		if err := response.Validate(request.ID); err != nil {
-			return err
-		}
-		data, err := json.Marshal(response)
-		if err != nil {
-			return err
-		}
-		if len(data) > plugin.MaxFrameBytes {
-			return plugin.ErrInvalid
-		}
-		if err := writeFrame(conn, data); err != nil {
-			return err
-		}
-	}
 }
 
 func readFrame(reader *bufio.Reader) ([]byte, error) {

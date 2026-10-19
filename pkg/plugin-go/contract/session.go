@@ -35,6 +35,10 @@ type Options struct {
 	Observer Observer
 	// Requirements are checked before verification or connection.
 	Requirements []Requirement
+	// Reverse, when set, offers services to the plugin: calls from the plugin to
+	// the host, limited to what its descriptor declares in Reverse. Without it
+	// every reverse call is denied.
+	Reverse *ReverseOptions
 }
 
 type State string
@@ -63,6 +67,13 @@ type Session struct {
 	closeOnce  sync.Once
 	closeErr   error
 	done       chan struct{}
+	reverse    *ReverseOptions
+	base       context.Context // session-scoped reverse calls derive from it
+	baseCancel context.CancelFunc
+	ready      bool                       // the handshake matched
+	calls      map[string]context.Context // forward calls in flight, by id
+	reverses   int                        // reverse calls in flight
+	nextRev    uint64
 }
 
 // Open verifies selection before opening a backend, then checks its exact
@@ -81,6 +92,12 @@ func Open(ctx context.Context, selected Descriptor, opts Options) (*Session, err
 	if opts.Timeout == 0 {
 		opts.Timeout = DefaultTimeout
 	}
+	if opts.Reverse != nil {
+		if err := opts.Reverse.validate(); err != nil {
+			return nil, err
+		}
+	}
+	caller := ctx
 	ctx, cancel := context.WithTimeout(ctx, opts.Timeout)
 	defer cancel()
 	if err := ctx.Err(); err != nil {
@@ -96,16 +113,25 @@ func Open(ctx context.Context, selected Descriptor, opts Options) (*Session, err
 		return nil, err
 	}
 	start = time.Now()
+	base, baseCancel := context.WithCancel(context.WithoutCancel(caller))
 	backend, err := opts.Connect(ctx, selected.Clone())
 	observe(ctx, opts.Observer, Event{Stage: "connect", Identity: selected.Identity}, start, err)
 	if err != nil {
+		baseCancel()
 		if backend != nil {
 			_ = backend.Close()
 		}
 		return nil, err
 	}
 	if backend == nil {
+		baseCancel()
 		return nil, ErrInvalid
+	}
+	idle := make(chan struct{})
+	close(idle)
+	s := &Session{descriptor: selected, backend: backend, authorize: opts.Authorize, timeout: opts.Timeout, observer: opts.Observer, state: StateReady, idle: idle, done: make(chan struct{}), reverse: opts.Reverse, base: base, baseCancel: baseCancel, calls: map[string]context.Context{}}
+	if rb, ok := backend.(ReverseBackend); ok && opts.Reverse != nil {
+		rb.SetReverse(s)
 	}
 	start = time.Now()
 	actual, err := backend.Handshake(ctx)
@@ -117,11 +143,13 @@ func Open(ctx context.Context, selected Descriptor, opts Options) (*Session, err
 	}
 	observe(ctx, opts.Observer, Event{Stage: "handshake", Identity: selected.Identity}, start, err)
 	if err != nil {
+		baseCancel()
 		return nil, errors.Join(err, backend.Close())
 	}
-	idle := make(chan struct{})
-	close(idle)
-	return &Session{descriptor: selected, backend: backend, authorize: opts.Authorize, timeout: opts.Timeout, observer: opts.Observer, state: StateReady, idle: idle, done: make(chan struct{})}, nil
+	s.mu.Lock()
+	s.ready = true
+	s.mu.Unlock()
+	return s, nil
 }
 
 func (s *Session) Descriptor() Descriptor { return s.descriptor.Clone() }
@@ -135,7 +163,28 @@ func (s *Session) Done() <-chan struct{} { return s.done }
 // Call derives identity, surface, deadline, and a fresh correlation ID from
 // host state. A payload cannot expand the selected descriptor. Request IDs do
 // not supply idempotency, authorization, or automatic retries.
-func (s *Session) Call(ctx context.Context, contract ContractRef, operation string, payload json.RawMessage) (result json.RawMessage, callErr error) {
+func (s *Session) Call(ctx context.Context, contract ContractRef, operation string, payload json.RawMessage) (json.RawMessage, error) {
+	return s.callProgress(ctx, contract, operation, payload, nil, CallOptions{})
+}
+
+// CallProgress is Call for an operation that declares progress: onProgress
+// receives its events while the call runs, on the connection's reader, so it
+// must not block. The final result is unchanged. Events beyond the rate limit
+// are dropped and counted: the next event carries Dropped, and a last event
+// with the remaining count arrives before the call returns. For an operation
+// that did not declare progress, onProgress is never called.
+func (s *Session) CallProgress(ctx context.Context, contract ContractRef, operation string, payload json.RawMessage, onProgress func(Progress), options ...CallOptions) (json.RawMessage, error) {
+	var o CallOptions
+	if len(options) > 0 {
+		o = options[0]
+	}
+	if err := o.Progress.Validate(); err != nil {
+		return nil, err
+	}
+	return s.callProgress(ctx, contract, operation, payload, onProgress, o)
+}
+
+func (s *Session) callProgress(ctx context.Context, contract ContractRef, operation string, payload json.RawMessage, onProgress func(Progress), options CallOptions) (result json.RawMessage, callErr error) {
 	start := time.Now()
 	event := Event{Stage: "invoke", Identity: s.descriptor.Identity, Contract: contract, Operation: operation}
 	defer func() { observe(ctx, s.observer, event, start, callErr) }()
@@ -175,6 +224,29 @@ func (s *Session) Call(ctx context.Context, contract ContractRef, operation stri
 	}()
 	deadline, _ := ctx.Deadline()
 	request := Request{APIVersion: APIVersion, ID: id, Plugin: s.descriptor.Identity, Contract: contract, Operation: operation, Surface: op.Surface, Deadline: deadline, Payload: append(json.RawMessage(nil), payload...)}
+	// The reverse handlers of this call derive from ctx as the caller gave it,
+	// before this session adds its own values, so a host that is itself a plugin
+	// still finds its upstream caller there.
+	s.mu.Lock()
+	s.calls[id] = ctx
+	s.mu.Unlock()
+	defer func() {
+		s.mu.Lock()
+		delete(s.calls, id)
+		s.mu.Unlock()
+	}()
+	var sink *callbackSink
+	if op.Progress {
+		limits := options.Progress.Resolved()
+		request.Progress = &limits
+		sink = newCallbackSink(limits, onProgress)
+		ctx = WithProgressSink(ctx, sink)
+		defer sink.finish()
+	}
+	if s.reverse != nil {
+		ctx = WithReverse(ctx, reverseCaller{s: s, parent: id})
+		ctx = WithSessionReverse(ctx, reverseCaller{s: s})
+	}
 	if err := ValidateRequest(s.descriptor, request); err != nil {
 		return nil, err
 	}
@@ -263,6 +335,6 @@ func (s *Session) fail() {
 	_ = s.closeBackend()
 }
 func (s *Session) closeBackend() error {
-	s.closeOnce.Do(func() { s.closeErr = s.backend.Close(); close(s.done) })
+	s.closeOnce.Do(func() { s.closeErr = s.backend.Close(); s.baseCancel(); close(s.done) })
 	return s.closeErr
 }

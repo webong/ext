@@ -162,8 +162,16 @@ func TestServerRejectsExpiredCalls(t *testing.T) {
 			return nil, nil
 		})
 	}()
-	client := NewClient(host)
-	if _, err := client.Handshake(context.Background()); err != nil {
+	// Raw frames throughout: a Client would read the same pipe concurrently.
+	reader := bufio.NewReader(host)
+	hello, err := json.Marshal(plugin.Request{APIVersion: plugin.APIVersion, ID: "hello", Operation: "plugin.hello", Deadline: time.Now().Add(time.Minute)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := writeFrame(host, hello); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := readFrame(reader); err != nil {
 		t.Fatal(err)
 	}
 	request := plugin.Request{APIVersion: plugin.APIVersion, ID: "1", Plugin: d.Identity, Contract: d.Contracts[0].ContractRef, Operation: "echo", Deadline: time.Now().Add(-time.Second)}
@@ -174,7 +182,7 @@ func TestServerRejectsExpiredCalls(t *testing.T) {
 	if err := writeFrame(host, data); err != nil {
 		t.Fatal(err)
 	}
-	line, err := readFrame(bufio.NewReader(host))
+	line, err := readFrame(reader)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -185,7 +193,7 @@ func TestServerRejectsExpiredCalls(t *testing.T) {
 	if err := response.Validate("1"); err != nil || response.Error == nil {
 		t.Fatalf("expired request accepted: %s, %v", line, err)
 	}
-	if err := client.Close(); err != nil {
+	if err := host.Close(); err != nil {
 		t.Fatal(err)
 	}
 	if err := <-done; err != nil {

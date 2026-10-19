@@ -272,9 +272,23 @@ type Request struct {
 	Surface    string          `json:"surface,omitempty"`
 	Deadline   time.Time       `json:"deadline"`
 	Payload    json.RawMessage `json:"payload,omitempty"`
+	// Progress carries the event rate of a call whose operation declared
+	// progress. It is absent otherwise.
+	Progress *ProgressLimits `json:"progress,omitempty"`
+	// Parent names the forward call a reverse call belongs to. It is set only on
+	// the request a host's reverse handler receives, and empty for a
+	// session-scoped call.
+	Parent string `json:"parent,omitempty"`
 }
 
-func (r Request) Clone() Request { r.Payload = append(json.RawMessage(nil), r.Payload...); return r }
+func (r Request) Clone() Request {
+	r.Payload = append(json.RawMessage(nil), r.Payload...)
+	if r.Progress != nil {
+		limits := *r.Progress
+		r.Progress = &limits
+	}
+	return r
+}
 
 // ValidateRequest enforces the selected descriptor, before domain admission.
 // Payload semantics and any authorization references are consumer-owned.

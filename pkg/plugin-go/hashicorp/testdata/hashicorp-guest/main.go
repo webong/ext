@@ -5,8 +5,6 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"github.com/hashicorp/go-hclog"
-	hc "github.com/hashicorp/go-plugin"
 	plugin "github.com/webong/ext/pkg/plugin-go/contract"
 	"github.com/webong/ext/pkg/plugin-go/contract/plugintest"
 	"github.com/webong/ext/pkg/plugin-go/contract/transport/bridge"

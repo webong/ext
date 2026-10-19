@@ -354,3 +354,94 @@ func settledStderr(read func() string, want int) string {
 		time.Sleep(5 * time.Millisecond)
 	}
 }
+
+// Options.Env alone starts the default launch of an installed package, and a
+// child sees the entries added to its scrubbed environment.
+func TestOptionsEnvReachesTheChildOfTheDefaultLaunch(t *testing.T) {
+	installed := installExecutable(t)
+	p, err := host.Open(context.Background(), installed, host.Options{Env: []string{"HOST_TEST_CHILD=1", "WORKER_PATH=/opt/worker"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer p.Close()
+	var out struct {
+		Env []string `json:"env"`
+	}
+	if err := p.Call(context.Background(), "example.content.echo", nil, &out); err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, entry := range out.Env {
+		if entry == "WORKER_PATH=/opt/worker" {
+			found = true
+		}
+		if strings.HasPrefix(entry, "HOME=") || strings.HasPrefix(entry, "USER=") {
+			t.Fatalf("the child inherited %q: the environment must stay scrubbed", entry)
+		}
+	}
+	if !found {
+		t.Fatalf("Options.Env did not reach the child: %v", out.Env)
+	}
+}
+
+// With a Launch the entries are added to Launch.Env; a repeated name is refused
+// rather than resolved by order.
+func TestOptionsEnvAddsToLaunchEnvAndRefusesDuplicates(t *testing.T) {
+	installed := installExecutable(t)
+	exe := mustExecutable(t, installed)
+	p, err := host.Open(context.Background(), installed, host.Options{
+		Launch: &process.Command{Path: exe, Env: []string{"HOST_TEST_CHILD=1"}},
+		Env:    []string{"EXTRA=1"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var out struct {
+		Env []string `json:"env"`
+	}
+	if err := p.Call(context.Background(), "example.content.echo", nil, &out); err != nil {
+		t.Fatal(err)
+	}
+	_ = p.Close()
+	have := map[string]bool{}
+	for _, entry := range out.Env {
+		have[entry] = true
+	}
+	if !have["EXTRA=1"] || !have["HOST_TEST_CHILD=1"] {
+		t.Fatalf("both Launch.Env and Options.Env must reach the child: %v", out.Env)
+	}
+	for name, options := range map[string]host.Options{
+		"repeated across the lists": {Launch: &process.Command{Path: exe, Env: []string{"A=1"}}, Env: []string{"A=2"}},
+		"repeated within Env":       {Env: []string{"A=1", "A=2"}},
+		"no equals sign":            {Env: []string{"NOEQUALS"}},
+		"empty name":                {Env: []string{"=x"}},
+		"NUL byte":                  {Env: []string{"A=1\x00"}},
+	} {
+		if _, err := host.Open(context.Background(), installed, options); !errors.Is(err, plugin.ErrInvalid) {
+			t.Errorf("%s: %v", name, err)
+		}
+	}
+}
+
+// Done lets a host tie anything to the plugin's lifetime without reaching into
+// the session.
+func TestProcessDoneClosesWithTheProcess(t *testing.T) {
+	installed := installExecutable(t)
+	p, err := host.Open(context.Background(), installed, host.Options{Env: []string{"HOST_TEST_CHILD=1"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-p.Done():
+		t.Fatal("Done closed while the process was open")
+	default:
+	}
+	if err := p.Close(); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-p.Done():
+	case <-time.After(5 * time.Second):
+		t.Fatal("Done did not close after Close")
+	}
+}

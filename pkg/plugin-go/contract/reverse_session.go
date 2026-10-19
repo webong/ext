@@ -153,8 +153,7 @@ func (s *Session) runReverse(ctx, caller context.Context, frame ReverseRequestFr
 	if err != nil {
 		var remote *RemoteError
 		if errors.As(err, &remote) && remote != nil {
-			copied := *remote
-			return ReverseResult{Error: &copied}
+			return ReverseResult{Error: publicError(remote, "host service failed")}
 		}
 		return ReverseResult{Error: &RemoteError{Code: "operation_failed", Message: "host service failed"}}
 	}

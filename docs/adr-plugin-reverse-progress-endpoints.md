@@ -75,9 +75,34 @@ Host side (`contract`, `contract/host`):
 - A reverse call is admitted only if (contract, operation) is in the plugin's
   declared `reverse` set, its `parent` (if named) is the live call, the payload
   is within bound, and `Authorize` allows it. `ReverseRequest` tells the handler
-  whether the call is call-scoped or session-scoped. Otherwise the plugin gets a `reverse_response` error
-  with a stable code (`denied`, `unsupported`, `too_large`, `busy`, `expired`);
-  the call and the session continue.
+  whether the call is call-scoped or session-scoped. Otherwise the plugin gets a
+  `reverse_response` error with a stable code; the call and the session continue.
+  The codes separate "not offered, fall back" from "forbidden" and make a missing
+  declaration easy to debug:
+
+  | code | meaning |
+  | ---- | ------- |
+  | `reverse_undeclared` | the descriptor's `reverse` list does not name the operation; fix the descriptor (a guest also gets this locally, without sending) |
+  | `reverse_unavailable` | the host offers no reverse services, or not yet (before the handshake matched) |
+  | `denied` | the host's `Authorize` refused this call |
+  | `too_large`, `busy`, `expired` | payload over the bound, too many in flight, deadline already past |
+
+  Which operations a plugin declared is the plugin's own information, so
+  `reverse_undeclared` reveals nothing about the host.
+- **What the guest sees from a handler's error.** A reverse call fails in the
+  guest with a `*plugin.RemoteError` (`errors.As` finds it). When `Handle`
+  returns a `*plugin.RemoteError`, the guest receives that code and message
+  unchanged, so a host may define its own codes (for example `policy`) and
+  guests may branch on them. The code must match the identifier rule (lowercase
+  letters, digits and `. _ / -`, at most 256 bytes), the message must be at most
+  4096 bytes and the retry hint within range. An error that breaks those rules,
+  and any error that is not a `RemoteError`, reaches the guest as
+  `operation_failed` with a generic message, and the connection stays up. The
+  same holds for a guest handler's error on a forward call.
+- **Per-session host state.** There is no per-session value in the API: a host
+  keeps it in the context. A call-scoped handler's context derives from the
+  context given to `Call`, and a session-scoped handler's from the context given
+  to `Open` (its values, not its cancellation).
 - The reverse deadline is the earliest of the plugin's deadline, the parent
   call's deadline (if call-scoped) and `Timeout`. When the parent call ends,
   its still-running reverse handlers are canceled and their late results are
@@ -124,6 +149,31 @@ In-process and bridge backends implement the same interfaces over direct calls
   A host may set other limits per call with `CallOptions.Progress`; the limits
   travel to the guest in the request (`progress`, present only for operations
   that declare progress) so both ends apply the same ones.
+- Each event's text is valid UTF-8 of at most 2048 bytes. **Splitting a longer
+  line into events is the reporter's job**, and so is not cutting a multi-byte
+  character in half: `plugin.SplitProgressText` cuts at rune boundaries (and
+  replaces invalid bytes with U+FFFD) so every piece is a legal event. Where to
+  split (at newlines, say) stays with the guest.
+- **The handler can read the rate.** `plugin.ProgressLimitsFrom(ctx)` returns the
+  event rate the host set for the call (defaults filled in), and false for an
+  operation that did not declare progress, so a streamer can coalesce lines to
+  stay inside it instead of letting the limit drop events.
+- **What `Report` returns.** Only `ErrProgressDropped` is routine (the event was
+  dropped and counted; treat it as sent or slow down). `ErrUnsupported` means the
+  operation did not declare progress, so no event will ever flow: stop reporting
+  and return the text in the result. `ErrInvalid` means the event breaks the
+  rules and nothing was sent. `ErrClosed` means the call is over or the
+  connection closed. Any other error means the connection is failing. An
+  operation that declared progress always gets a working reporter, whether or
+  not the host asked for the events (a host using plain `Call` discards them).
+- **A long call has two bounds, and both need raising.** The host's
+  `Options.Timeout` (and the caller's context deadline) bounds how long the host
+  waits; the guest's own `MaxCallDuration` (default 30 seconds) is a limit the
+  guest sets for itself, independent of the host, because a guest decides what it
+  is willing to run. A command that runs for minutes or days must raise both, or
+  whichever is lower ends the call with a deadline error. The handler's context
+  also ends at the request's deadline, so a handler that honors its context stops
+  there too.
 - Over the limit, events are **dropped and counted, never an error**: the next
   event that is delivered carries `dropped: N` (events lost since the last
   delivered one), and a final marker with the remaining count is delivered
@@ -165,7 +215,29 @@ carry:
   first `Token()` succeeds and later calls return `ErrUsed`.
 - **Rotation:** the plugin publishes a new endpoint (any result or reverse
   call can carry one), the host `Admit`s it and calls `Revoke()` on the old
-  grant. A revoked grant returns `ErrExpired` for everything.
+  grant. A revoked grant returns `ErrExpired` for everything. How the plugin
+  announces it is the consumer's contract; the recommended pattern is a reverse
+  operation named `endpoint.rotate` whose payload is `{"endpoint": <Endpoint>}`,
+  sent before `expiresAt`. The library standardizes no announcement contract yet.
+- **Presenting the token.** One convention for every consumer: for `ws`, `wss`,
+  `http` and `https`, the header `Authorization: Bearer <token>` on the handshake
+  or request; for `tcp`, the token followed by one `\n` as the first line of the
+  stream, before any other data. A listener closes the connection on a missing or
+  wrong token, and needs none when `Token` is empty. The token is never put in a
+  URL.
+  `Grant.AuthorizationHeader()` returns the header value for the first group and
+  `Grant.DialTCP(ctx)` connects and sends the token line for `tcp`, so a host
+  follows the convention without writing it. `DialTCP` reads a one-time token
+  only after the connection exists, and its errors (`ErrDial`) never name the
+  address.
+- **Declaring an endpoint in a result.** A result carries the object under the
+  key `endpoint` (`endpoint.Key`). `endpoint.Decode(raw)` reads it strictly
+  (unknown fields and duplicate keys are refused) and applies `Check`, the shape
+  rules no policy changes; `Admit` and `Validate` add the host's policy. Errors
+  never include a value from the input.
+- `host.Process.Done()` returns the session's done channel, so a host that opened
+  a plugin with `host.Open` passes the process to `endpoint.Admit` as the
+  lifetime.
 - Endpoint values are secrets. `String`, `GoString`, `Format` (`%v %+v %#v`)
   and every error from this package print a redacted form (scheme and
   loopback host class only, never address, path or token). JSON encoding

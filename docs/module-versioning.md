@@ -254,6 +254,7 @@ later rounds followed for new content.
 | Manifest names (`v0.4.0`) | `pkg/plugin-go/contract`, `pkg/plugin-go/cengine` and `pkg/plugin-go` at v0.4.0, and the 24 adapter modules at their next minor version: `adapters/chromium` v0.4.0; `adapters/firefox`, `adapters/chrome` and `adapters/edge` v0.3.0; and `adapters/safari`, `adapters/credman`, `adapters/keychain`, `adapters/secret_service`, `adapters/git`, `adapters/evm`, `adapters/wasm` and the Chromium- and Firefox-family adapters v0.2.0 |
 | Reverse calls, progress and endpoints (`v0.5.0`) | `pkg/plugin-go/contract`, `pkg/plugin-go/cengine` and `pkg/plugin-go` at v0.5.0; `res/system` v0.1.1 and `res/web` v0.5.1 as patch releases; no adapter, `wasm` or `hashicorp` |
 | Dependency security (`v0.5.1`) | `pkg/plugin-go/hashicorp` v0.3.0 and `pkg/plugin-go` v0.5.1; no other module |
+| API additions (`v0.6.0`) | `pkg/plugin-go/contract`, `pkg/plugin-go/cengine` and `pkg/plugin-go` at v0.6.0; no other module |
 
 `v0.3.0` is a minor version because `Store.ListUnverified` and `Layered.ListUnverified` are new API in
 both `contract/host/store` and `cengine/host/store`. It also bounds the cost of validating and resolving
@@ -299,6 +300,15 @@ moved into it; `res/web` v0.5.1 carries the examples and the `wasm/reactor.js` a
 Both are patch releases, since neither changes an exported name. `wasm`, `hashicorp` and the 24 adapters
 have the same bytes as before and are not retagged: they still require `contract` v0.4.0, which is fine,
 because a build that also requires v0.5.0 (the umbrella and the products do) resolves to it.
+
+The `v0.6.0` round adds API found by a consumer using reverse calls, progress and endpoints in real code, and fixes
+one defect. `contract` gains `endpoint.Decode`, `Endpoint.Check` and `endpoint.Key`; `Grant.AuthorizationHeader` and
+`Grant.DialTCP`; `SplitProgressText` and `ProgressLimitsFrom`; and a handler that returns a `RemoteError` the peer would
+reject no longer ends the peer's connection (the error becomes `operation_failed`). `contract/host` and `cengine/host`
+gain `Options.Env` and `Process.Done`, with an identical exported API. All of it is additive, so the modules take a
+minor version, and the umbrella follows because it pins them. `hashicorp` differs from its `v0.3.0` tag only in a test
+fixture and keeps that tag. The C engine still refuses reverse calls and progress; see
+[engine parity](plugin-engine-parity.md).
 
 The `v0.5.1` round is a dependency-security patch, plus one small API move. `hashicorp` v0.3.0 and
 the umbrella v0.5.1 move `google.golang.org/grpc` from v1.83.1 to v1.83.2 and `golang.org/x/net` from v0.59.0 to

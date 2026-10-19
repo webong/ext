@@ -3,12 +3,12 @@ module github.com/webong/ext/ctx
 go 1.26.0
 
 require (
-	github.com/webong/ext/res/system v0.1.0
-	github.com/webong/ext/res/web v0.1.0
+	github.com/webong/ext/res/system v0.1.1
+	github.com/webong/ext/res/web v0.5.1
 )
 
 require (
-	github.com/webong/ext/pkg/plugin-go/contract v0.4.0
+	github.com/webong/ext/pkg/plugin-go/contract v0.5.0
 	golang.org/x/sys v0.48.0 // indirect
 )
 

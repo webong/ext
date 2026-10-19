@@ -240,16 +240,16 @@ version starts at v0.2.0, above v0.1.1. No other path is shared between modules.
 
 ### Versions and tags
 
-The release went out in two rounds because of one mistake, recorded here so it is not repeated, and a
-third round followed for new content.
+The release went out in two rounds because of one mistake, recorded here so it is not repeated, and
+later rounds followed for new content.
 
 | Round | Tags |
 | --- | --- |
 | First (`v0.2.0`) | `res/graph` v0.1.0, `pkg/plugin-go/contract`, `.../cengine`, `.../wasm`, `.../hashicorp` and `pkg/plugin-go` at v0.2.0, and the adapters as patch bumps (`adapters/chromium` v0.3.1, `adapters/firefox` v0.2.1, and so on) |
 | Corrective (`v0.2.1`) | `res/system` v0.1.0 (the module was renamed from `res/graph` before anyone used it); `pkg/plugin-go/contract`, `.../cengine`, `.../wasm`, `.../hashicorp` and `pkg/plugin-go` at v0.2.1; and the adapters again (`adapters/chromium` v0.3.2, `adapters/firefox` v0.2.2, `adapters/safari` v0.1.4, the rest as listed by `git tag`) |
-
 | Bounds and listing (`v0.3.0`) | `pkg/plugin-go/contract`, `pkg/plugin-go/cengine` and `pkg/plugin-go` at v0.3.0, and nothing else |
 | Manifest names (`v0.4.0`) | `pkg/plugin-go/contract`, `pkg/plugin-go/cengine` and `pkg/plugin-go` at v0.4.0, and the 24 adapter modules at their next minor version: `adapters/chromium` v0.4.0; `adapters/firefox`, `adapters/chrome` and `adapters/edge` v0.3.0; and `adapters/safari`, `adapters/credman`, `adapters/keychain`, `adapters/secret_service`, `adapters/git`, `adapters/evm`, `adapters/wasm` and the Chromium- and Firefox-family adapters v0.2.0 |
+| Reverse calls, progress and endpoints (`v0.5.0`) | `pkg/plugin-go/contract`, `pkg/plugin-go/cengine` and `pkg/plugin-go` at v0.5.0; `res/system` v0.1.1 and `res/web` v0.5.1 as patch releases; no adapter, `wasm` or `hashicorp` |
 
 `v0.3.0` is a minor version because `Store.ListUnverified` and `Layered.ListUnverified` are new API in
 both `contract/host/store` and `cengine/host/store`. It also bounds the cost of validating and resolving
@@ -279,6 +279,22 @@ and a package that carries a Node tree could not coexist with an ext manifest in
 changed). `v0.3.0` stays published and still reads `package.json`; it has `ListUnverified` and the validation
 bounds, and anything that adopted it only has to move to `v0.4.0` to rename its manifests. No adapter or other
 module read the manifest by file name, so none of them changes or is retagged.
+
+`v0.5.0` adds three features to the Go plugin contract, described in
+[the decision record](adr-plugin-reverse-progress-endpoints.md): calls from a guest back into its host
+(`Manifest.WithReverse`), bounded progress and log frames streamed from a call, and a standard declared
+loopback data endpoint (`contract/endpoint`), plus `Session.Done`. It is a new minor version of
+`contract`, `cengine` and the umbrella because the exported API grows and the descriptor gains optional
+`reverse` and `progress` declarations: **a plugin that declares either needs a v0.5 host**, while a plugin
+that declares neither runs on any host, and the wire version stays `ext.plugin/v1`. The C engine does not
+implement them and **fails closed**: its descriptor parser rejects a package that declares them, and the
+C build of `cengine` refuses a host that enables reverse calls, instead of ignoring either
+([the parity note](plugin-engine-parity.md)). `res/system` v0.1.1 carries the supervisor
+fix that makes `Instance` never report a state the graph has not recorded, and the library examples
+moved into it; `res/web` v0.5.1 carries the examples and the `wasm/reactor.js` asset that moved into it.
+Both are patch releases, since neither changes an exported name. `wasm`, `hashicorp` and the 24 adapters
+have the same bytes as before and are not retagged: they still require `contract` v0.4.0, which is fine,
+because a build that also requires v0.5.0 (the umbrella and the products do) resolves to it.
 
 `pkg/plugin-go/contract` v0.2.0 is correct: it needs no sibling checksums, because it has no sibling
 dependencies. Its v0.2.1 differs from it only by one doc comment in `session.go`, which named
@@ -326,9 +342,14 @@ repository root, for example `pkg/plugin-go/contract v0.4.0`; `#` starts a comme
 3. **Pins and checksums.** `scripts/release-pins.sh VERSIONS` bumps every requirement on a listed module to its
    release version and records the true hashes in each `go.sum`, layer by layer, by resolving the lower layers from
    a throwaway repository with the real go toolchain. Bump the product modules that build against local `replace`
-   directives (`src/ctx`, `src/ctn`, `examples`) with `go mod edit -require`. Update the docs and READMEs, commit,
-   open a pull request, and merge it as a merge commit once its checks pass; check that the merged tree equals
-   the prepared one.
+   directives (`src/ctx`, `src/ctn`) with `go mod edit -require`. A listed module that another workspace module
+   requires at its release version has no tag yet, so the go command cannot read its `go.mod` and every
+   workspace build fails with `unknown revision`, on every platform. `src/ctx` already replaces the modules it
+   imports; for any other such module (in v0.5.0, `cengine`, required by the umbrella) add a version-pinned
+   `replace <module> <version> => ./<dir>` to `go.work`. It must carry the version: Go rejects a workspace
+   module replaced at all versions. Remove the line in the commit after the last layer is tagged. Update the
+   docs and READMEs, commit, open a pull request, and merge it as a merge commit once its checks pass; check
+   that the merged tree equals the prepared one.
 4. **Two independent hash checks on the commit you will tag.** Both must report 0 mismatches.
    `scripts/release-rehearse.sh -o WANT VERSIONS REVISION` tags every module in a throwaway repository and lets
    `go mod download` compute each hash, which is the code path the module proxy runs.

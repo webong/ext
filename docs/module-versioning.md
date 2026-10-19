@@ -342,9 +342,14 @@ repository root, for example `pkg/plugin-go/contract v0.4.0`; `#` starts a comme
 3. **Pins and checksums.** `scripts/release-pins.sh VERSIONS` bumps every requirement on a listed module to its
    release version and records the true hashes in each `go.sum`, layer by layer, by resolving the lower layers from
    a throwaway repository with the real go toolchain. Bump the product modules that build against local `replace`
-   directives (`src/ctx`, `src/ctn`, `examples`) with `go mod edit -require`. Update the docs and READMEs, commit,
-   open a pull request, and merge it as a merge commit once its checks pass; check that the merged tree equals
-   the prepared one.
+   directives (`src/ctx`, `src/ctn`) with `go mod edit -require`. A listed module that another workspace module
+   requires at its release version has no tag yet, so the go command cannot read its `go.mod` and every
+   workspace build fails with `unknown revision`, on every platform. `src/ctx` already replaces the modules it
+   imports; for any other such module (in v0.5.0, `cengine`, required by the umbrella) add a version-pinned
+   `replace <module> <version> => ./<dir>` to `go.work`. It must carry the version: Go rejects a workspace
+   module replaced at all versions. Remove the line in the commit after the last layer is tagged. Update the
+   docs and READMEs, commit, open a pull request, and merge it as a merge commit once its checks pass; check
+   that the merged tree equals the prepared one.
 4. **Two independent hash checks on the commit you will tag.** Both must report 0 mismatches.
    `scripts/release-rehearse.sh -o WANT VERSIONS REVISION` tags every module in a throwaway repository and lets
    `go mod download` compute each hash, which is the code path the module proxy runs.

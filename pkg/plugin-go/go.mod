@@ -3,11 +3,9 @@ module github.com/webong/ext/pkg/plugin-go
 go 1.26.0
 
 require (
-	github.com/hashicorp/go-hclog v0.14.1
-	github.com/hashicorp/go-plugin v1.6.3
 	github.com/webong/ext/pkg/plugin-go/cengine v0.5.0
 	github.com/webong/ext/pkg/plugin-go/contract v0.5.0
-	github.com/webong/ext/pkg/plugin-go/hashicorp v0.2.2
+	github.com/webong/ext/pkg/plugin-go/hashicorp v0.3.0
 	github.com/webong/ext/pkg/plugin-go/wasm v0.2.1
 	github.com/webong/ext/res/system v0.1.1
 )
@@ -15,6 +13,8 @@ require (
 require (
 	github.com/fatih/color v1.7.0 // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
+	github.com/hashicorp/go-hclog v0.14.1 // indirect
+	github.com/hashicorp/go-plugin v1.6.3 // indirect
 	github.com/hashicorp/yamux v0.1.1 // indirect
 	github.com/mattn/go-colorable v0.1.4 // indirect
 	github.com/mattn/go-isatty v0.0.17 // indirect

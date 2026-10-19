@@ -191,13 +191,18 @@ func TestSessionScopedReverseCallAfterTheCallReturned(t *testing.T) {
 	var caller plugin.ReverseCaller
 	var mu sync.Mutex
 	var scopes []string
-	host := allow(func(_ context.Context, r plugin.Request) (json.RawMessage, error) {
+	var openValue any
+	host := allow(func(ctx context.Context, r plugin.Request) (json.RawMessage, error) {
 		mu.Lock()
 		scopes = append(scopes, r.Parent)
+		openValue = ctx.Value(ctxKey)
 		mu.Unlock()
 		return json.RawMessage(`"ok"`), nil
 	})
-	r := open(t, context.Background(), reverseDescriptor(), func(ctx context.Context, _ plugin.Request) (json.RawMessage, error) {
+	// A host keeps per-session state in the context it opens the session with:
+	// a session-scoped handler's context derives from it, values included.
+	openCtx := context.WithValue(context.Background(), ctxKey, "per-session")
+	r := open(t, openCtx, reverseDescriptor(), func(ctx context.Context, _ plugin.Request) (json.RawMessage, error) {
 		caller = plugin.SessionReverseFrom(ctx)
 		return json.RawMessage(`1`), nil
 	}, host)
@@ -221,6 +226,9 @@ func TestSessionScopedReverseCallAfterTheCallReturned(t *testing.T) {
 	defer mu.Unlock()
 	if len(scopes) != 1 || scopes[0] != "" {
 		t.Fatalf("a session-scoped call has no parent, got %q", scopes)
+	}
+	if openValue != "per-session" {
+		t.Fatalf("the handler context must carry the values of the context the session was opened with, got %v", openValue)
 	}
 }
 

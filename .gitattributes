@@ -1,0 +1,3 @@
+# pkg/plugin-go/cengine/_csrc is a generated copy of lib/plugin (scripts/cengine-sync.sh);
+# review the change in lib/plugin, not the copy. GitHub collapses these diffs.
+pkg/plugin-go/cengine/_csrc/** linguist-generated=true

@@ -21,6 +21,7 @@ extern void ctxGoCloseBackend(uintptr_t);
 extern void ctxGoReleaseBackend(uintptr_t);
 extern int32_t ctxGoContextPolicy(uintptr_t, int, uintptr_t, uint8_t *, size_t);
 extern void ctxGoObserver(uintptr_t, uintptr_t, uint8_t *, size_t);
+extern void ctxGoProgress(uintptr_t, uint8_t *, size_t);
 
 static inline int32_t ext_go_verify(void *p, const uint8_t *b, size_t n) {
   return ctxGoPolicy((uintptr_t)p, 0, (uint8_t *)b, n);
@@ -90,6 +91,23 @@ static inline ext_status ext_go_emit(ext_emit emit, void *context, uint8_t *data
 static inline void ext_go_call_init(ext_call_options *o, uint32_t timeout,
                                     const ext_cancel *cancel, uintptr_t value) {
   *o = (ext_call_options){sizeof(*o), timeout, cancel, (void *)value};
+}
+static inline void ext_go_progress_deliver(void *user, const uint8_t *data,
+                                           size_t len) {
+  ctxGoProgress((uintptr_t)user, (uint8_t *)data, len);
+}
+/* user is a cgo.Handle for the callback, or zero to count and discard events. */
+static inline void ext_go_progress_init(ext_progress_options *o, uintptr_t user,
+                                        uint32_t events, uint32_t bytes) {
+  *o = (ext_progress_options){sizeof(*o), user ? ext_go_progress_deliver : NULL,
+                              (void *)user, events, bytes};
+}
+static inline ext_status ext_go_call_progress(ext_host *host,
+                                              const uint8_t *data, size_t len,
+                                              const ext_call_options *options,
+                                              const ext_progress_options *progress,
+                                              ext_buffer *out) {
+  return ext_host_call_progress(host, data, len, options, progress, out);
 }
 static inline ext_status ext_go_create_launch(
     const char *path, const char *const *args, size_t argc,

@@ -40,7 +40,11 @@ enum {
   EXT_CANCELED,
   EXT_UPDATING,
   EXT_CAPACITY,
-  EXT_SEQUENCE
+  EXT_SEQUENCE,
+  /* The peer broke the framing rules: a frame that is not valid, one the call
+   * did not allow (progress for a call that did not declare it), or one this
+   * host does not know. The session is closed. */
+  EXT_PROTOCOL
 };
 typedef struct ext_cancel ext_cancel;
 EXT_HOST_API ext_status ext_cancel_create(ext_cancel **out);
@@ -202,6 +206,38 @@ EXT_HOST_API ext_status ext_host_invoke(ext_host *, const uint8_t *, size_t,
  * envelope. */
 EXT_HOST_API ext_status ext_host_call(ext_host *, const uint8_t *, size_t,
                                       const ext_call_options *, ext_buffer *);
+/* Progress events. A plugin may report progress and log events while a call
+ * runs, if its descriptor declares progress for the operation. The engine
+ * validates each event, applies the rate limit as a backstop to what the plugin
+ * sent, and passes on what is within it. fn receives the JSON of one Progress
+ * object: {"kind":"progress"|"log","stream"?:"out"|"err","text"?,"completed"?,
+ * "total"?,"dropped"?}, zero fields left out. dropped counts events lost to the
+ * rate limit since the previous delivered one; the last event of a call that
+ * lost events is a marker with only kind "log" and dropped, delivered before the
+ * call returns, whatever its outcome. fn runs on the thread that is making the
+ * call, between its start and its return; it must return promptly, must not
+ * throw or reenter the host, and may not retain the borrowed bytes. user must
+ * live until the call returns. */
+typedef void (*ext_progress_fn)(void *user, const uint8_t *json, size_t len);
+typedef struct {
+  uint32_t struct_size;
+  ext_progress_fn deliver; /* NULL: events are limited and discarded */
+  void *user;
+  /* Events and bytes of text per second for the call, with a burst of twice
+   * that; zero uses 50 events and 65536 bytes. At most 2^20 and 2^30. The rate
+   * travels to the plugin in the request, so both ends apply the same one. */
+  uint32_t events_per_second;
+  uint32_t bytes_per_second;
+} ext_progress_options;
+/* ext_host_call with progress events. progress may be NULL, which is
+ * ext_host_call: an operation that declares progress still runs, and its events
+ * are discarded. For an operation that does not declare progress, progress is
+ * ignored and fn is never called. */
+EXT_HOST_API ext_status ext_host_call_progress(ext_host *, const uint8_t *,
+                                               size_t,
+                                               const ext_call_options *,
+                                               const ext_progress_options *,
+                                               ext_buffer *);
 /* Thread-safe and idempotent. Stops admission, wakes I/O, kills owned child.
  * A timeout/cancellation after dispatch terminates this session. No
  * process-tree containment. Policies are synchronous and cannot be forcibly

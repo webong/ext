@@ -349,7 +349,7 @@ static int64_t timestamp(yyjson_val *v) {
 /* A JSON integer that fits int64, which is what Go decodes into an int. The
  * parser keeps numbers as raw text, so check the digits: an optional minus, then
  * digits only (no fraction or exponent). */
-static int int64_value(yyjson_val *v) {
+static int int64_parse(yyjson_val *v, int64_t *out) {
   if (!yyjson_is_raw(v))
     return 0;
   const char *s = yyjson_get_raw(v);
@@ -369,7 +369,13 @@ static int int64_value(yyjson_val *v) {
       return 0;
     x = x * 10 + (uint64_t)(s[i] - '0');
   }
+  /* -2^63 has no positive counterpart in int64_t. */
+  *out = negative ? (x == limit ? INT64_MIN : -(int64_t)x) : (int64_t)x;
   return 1;
+}
+static int int64_value(yyjson_val *v) {
+  int64_t ignored;
+  return int64_parse(v, &ignored);
 }
 static int progress_limits_valid(yyjson_val *v) {
   if (!v || yyjson_is_null(v))
@@ -382,11 +388,32 @@ static int progress_limits_valid(yyjson_val *v) {
   return (!events || yyjson_is_null(events) || int64_value(events)) &&
          (!bytes || yyjson_is_null(bytes) || int64_value(bytes));
 }
-int ext_descriptor_needs_frames(yyjson_val *d) {
-  yyjson_val *reverse = get(d, "reverse"), *cs = get(d, "contracts"), *c, *o;
+/* Reads the event rate of a request that carries one. declared is set when the
+ * request has a progress object: that is what makes the call one that may
+ * report progress, as in the Go client. A rate that is absent, null or not
+ * positive is returned as zero, which means the default. The request is valid
+ * (ext_request accepted it). */
+void ext_request_progress(yyjson_val *r, int *declared, int64_t *events,
+                          int64_t *bytes) {
+  yyjson_val *progress = get(r, "progress");
+  *declared = progress && !yyjson_is_null(progress);
+  *events = *bytes = 0;
+  if (!*declared)
+    return;
+  yyjson_val *e = get(progress, "eventsPerSecond"),
+             *b = get(progress, "bytesPerSecond");
+  if (e && !yyjson_is_null(e) && !int64_parse(e, events))
+    *events = 0;
+  if (b && !yyjson_is_null(b) && !int64_parse(b, bytes))
+    *bytes = 0;
+}
+int ext_descriptor_declares_reverse(yyjson_val *d) {
+  yyjson_val *reverse = get(d, "reverse");
+  return reverse && yyjson_is_arr(reverse) && yyjson_arr_size(reverse);
+}
+int ext_descriptor_declares_progress(yyjson_val *d) {
+  yyjson_val *cs = get(d, "contracts"), *c, *o;
   size_t i, n, j, m;
-  if (reverse && yyjson_is_arr(reverse) && yyjson_arr_size(reverse))
-    return 1;
   yyjson_arr_foreach(cs, i, n, c) {
     yyjson_arr_foreach(get(c, "operations"), j, m, o) if (progress_of(o))
         return 1;

@@ -264,6 +264,21 @@ builds so code compiles against either. The remaining C work, and the Rust, Zig,
 TypeScript, Swift and Java bindings that follow it, is listed in
 [engine parity](plugin-engine-parity.md).
 
+**Progress in the C engine (c-parity, stage 2).** A host that owns the child's
+pipes (`EXT_BACKEND_JSONLINE_PROCESS*`) carries `progress` frames. Its `exchange`
+reads lines until the response and validates each tagged frame with the rules of
+`plugin.ProgressFrame`; the parent must be the call in flight and the request must
+carry a `progress` rate, which is how the Go client decides that a call declared
+progress. The shared token bucket (`src/progress.c`) limits what a plugin sends,
+markers are folded into the next count, and `ext_host_call_progress` hands what
+passes to the caller as the JSON of one `Progress`, ending with a marker for events
+never reported. A violation fails the session with `EXT_PROTOCOL`, which the Go
+facade reports as `plugin.ErrProtocol`; an untagged line the strict parser refuses
+is classed as the Go client classes it (not JSON or not an object: a violation; a
+duplicate key or unknown field: an invalid response; a response naming another
+call: a violation). An extension backend still refuses a descriptor that declares
+progress, and reverse requests are not carried.
+
 ## Identifiers
 
 Request and call identifiers (`Request.ID`, `Request.Parent`, reverse ids) are

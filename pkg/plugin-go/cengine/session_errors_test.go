@@ -34,7 +34,7 @@ func causes(err error) string {
 	}{
 		{"invalid", plugin.ErrInvalid}, {"unsupported", plugin.ErrUnsupported}, {"notfound", plugin.ErrNotFound},
 		{"ambiguous", plugin.ErrAmbiguous}, {"denied", plugin.ErrDenied}, {"mismatch", plugin.ErrMismatch},
-		{"closed", plugin.ErrClosed}, {"draining", plugin.ErrDraining},
+		{"closed", plugin.ErrClosed}, {"draining", plugin.ErrDraining}, {"protocol", plugin.ErrProtocol},
 		{"canceled", context.Canceled}, {"deadline", context.DeadlineExceeded},
 	} {
 		if errors.Is(err, c.err) {

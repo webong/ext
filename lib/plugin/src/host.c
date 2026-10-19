@@ -1,6 +1,7 @@
 #define _GNU_SOURCE
 #include "channel.h"
 #include "platform.h"
+#include "progress.h"
 #include "wire.h"
 #include <errno.h>
 #include <limits.h>
@@ -213,9 +214,13 @@ ext_status ext_host_create(const ext_host_options *o,
     yyjson_doc_free(d);
     return EXT_INVALID;
   }
-  /* This host does not carry reverse requests or progress frames yet, so it
-   * refuses a plugin whose descriptor needs them rather than run it without. */
-  if (ext_descriptor_needs_frames(yyjson_doc_get_root(d))) {
+  /* Fail closed rather than run a plugin without the frames it declared. A host
+   * that owns the child's pipes carries progress frames; reverse requests are not
+   * carried yet, and an extension backend hands the engine one response at a
+   * time, so it carries neither. */
+  if (ext_descriptor_declares_reverse(yyjson_doc_get_root(d)) ||
+      ((extension || extension_context) &&
+       ext_descriptor_declares_progress(yyjson_doc_get_root(d)))) {
     yyjson_doc_free(d);
     return EXT_UNSUPPORTED;
   }
@@ -619,16 +624,140 @@ static ext_status write_bytes(ext_host *h, const uint8_t *p, size_t n,
   }
   return EXT_OK;
 }
+/* The call the frames being read belong to. A progress frame is legal only
+ * while a call that declared progress is in flight, and names it as its parent;
+ * anything else is a protocol violation. */
+typedef struct {
+  const char *id;
+  int declared;
+  ext_progress_sink *sink;
+} frame_call;
+/* A line the strict parser refused. Go reads a line in two steps: it peeks at the
+ * "frame" tag with a lenient decoder, and decodes the whole frame strictly only
+ * afterwards. So a line that is not even JSON, or not an object, is a violation
+ * of the framing; one that is an object with a tag is a malformed frame, also a
+ * violation; and an untagged object the strict step refuses (a duplicate key, an
+ * unknown field, bad UTF-8) is an invalid response. */
+static ext_status unparsable(const uint8_t *line, size_t len) {
+  yyjson_doc *loose = yyjson_read(
+      (const char *)line, len,
+      YYJSON_READ_NUMBER_AS_RAW | YYJSON_READ_ALLOW_INVALID_UNICODE);
+  yyjson_val *root = loose ? yyjson_doc_get_root(loose) : NULL;
+  yyjson_val *tag = yyjson_is_obj(root) ? yyjson_obj_get(root, "frame") : NULL;
+  ext_status s = !yyjson_is_obj(root)                              ? EXT_PROTOCOL
+                 : tag && yyjson_is_str(tag) && yyjson_get_len(tag) ? EXT_PROTOCOL
+                                                                    : EXT_INVALID;
+  yyjson_doc_free(loose);
+  return s;
+}
+/* Routes one line the plugin sent. A line without a "frame" tag is the response;
+ * *response says so, and the caller validates it. */
+static ext_status route_frame(yyjson_doc *doc, const frame_call *call,
+                              int *response) {
+  yyjson_val *root = yyjson_doc_get_root(doc), *tag;
+  *response = 0;
+  /* Only an object can be a frame or a response. A JSON null decodes in Go to
+   * an empty response, whose id never names the call in flight: a violation. */
+  if (!yyjson_is_obj(root))
+    return EXT_PROTOCOL;
+  tag = yyjson_obj_get(root, "frame");
+  if (!tag || yyjson_is_null(tag) || yyjson_equals_str(tag, "")) {
+    *response = 1;
+    return EXT_OK;
+  }
+  if (!yyjson_is_str(tag))
+    return EXT_PROTOCOL;
+  if (yyjson_equals_str(tag, "progress")) {
+    ext_progress_event event;
+    yyjson_val *parent;
+    ext_status s = ext_progress_frame(root, &event, &parent);
+    if (s)
+      return s;
+    if (!call || !call->declared || !yyjson_equals_str(parent, call->id))
+      return EXT_PROTOCOL;
+    return ext_progress_sink_deliver(call->sink, &event);
+  }
+  /* Reverse requests are not carried yet; a descriptor that declares them is
+   * refused when the host is created. */
+  if (yyjson_equals_str(tag, "reverse_request"))
+    return EXT_UNSUPPORTED;
+  return EXT_PROTOCOL;
+}
+/* Writes one request line and reads lines until the response. Progress frames
+ * that arrive first are validated, limited and passed on through call. The
+ * response must be the last thing the plugin has sent. On success *parsed is the
+ * response, parsed, and out holds its bytes. */
 static ext_status exchange(ext_host *h, const uint8_t *p, size_t n,
                            int64_t deadline, const ext_call_options *o,
-                           ext_buffer *out) {
+                           const frame_call *call, ext_buffer *out,
+                           yyjson_doc **parsed) {
+  *parsed = NULL;
   ext_status s = write_bytes(h, p, n, deadline, o);
   if (!s)
     s = write_bytes(h, (const uint8_t *)"\n", 1, deadline, o);
   if (s)
     return s;
-  size_t len = 0;
+  /* Bytes [start, len) are unprocessed; those before searched hold no newline. */
+  size_t start = 0, searched = 0, len = 0;
   for (;;) {
+    uint8_t *newline =
+        len > searched ? memchr(h->readbuf + searched, '\n', len - searched)
+                       : NULL;
+    if (newline) {
+      size_t end = (size_t)(newline - h->readbuf), frame = end - start;
+      if (frame > EXT_HOST_MAX_FRAME)
+        return EXT_INVALID;
+      yyjson_doc *doc = ext_parse(h->readbuf + start, frame);
+      int response = 0;
+      s = doc ? route_frame(doc, call, &response)
+              : unparsable(h->readbuf + start, frame);
+      if (!s && response) {
+        /* A response that names another call is a violation, as in the Go
+         * client; one that is malformed or has the wrong version is left to the
+         * caller's validation. */
+        yyjson_val *root = yyjson_doc_get_root(doc);
+        if (ext_response(root, call->id) == EXT_MISMATCH &&
+            !yyjson_equals_str(yyjson_obj_get(root, "id"), call->id))
+          s = EXT_PROTOCOL;
+        else if (end + 1 != len)
+          s = EXT_INVALID;
+      }
+      if (!s && !response) {
+        /* A plugin that floods frames must not outlast the call. */
+        if (canceled(o))
+          s = EXT_CANCELED;
+        else if (closed(h))
+          s = EXT_CLOSED;
+        else if (mono_ms() >= deadline)
+          s = EXT_TIMEOUT;
+      }
+      if (s) {
+        yyjson_doc_free(doc);
+        return s;
+      }
+      if (response) {
+        out->data = malloc(frame ? frame : 1);
+        if (!out->data) {
+          yyjson_doc_free(doc);
+          return EXT_NOMEM;
+        }
+        memcpy(out->data, h->readbuf + start, frame);
+        out->len = frame;
+        *parsed = doc;
+        return EXT_OK;
+      }
+      yyjson_doc_free(doc);
+      start = end + 1;
+      searched = start;
+      continue;
+    }
+    searched = len;
+    if (start) {
+      memmove(h->readbuf, h->readbuf + start, len - start);
+      len -= start;
+      searched = len;
+      start = 0;
+    }
     if (len == h->capacity) {
       size_t next = h->capacity ? h->capacity * 2 : 4096;
       if (next > EXT_HOST_MAX_FRAME + 1)
@@ -644,25 +773,13 @@ static ext_status exchange(ext_host *h, const uint8_t *p, size_t n,
     s = ready(h, 0, deadline, o);
     if (s)
       return s;
-    ptrdiff_t r = ext_channel_read(h->channel, h->readbuf + len,
-                                   h->capacity - len);
+    ptrdiff_t r =
+        ext_channel_read(h->channel, h->readbuf + len, h->capacity - len);
     if (!r)
       continue;
     if (r < 0)
       return EXT_IO;
-    uint8_t *end = memchr(h->readbuf + len, '\n', (size_t)r);
     len += (size_t)r;
-    if (end) {
-      size_t frame = (size_t)(end - h->readbuf);
-      if (frame + 1 != len || frame > EXT_HOST_MAX_FRAME)
-        return EXT_INVALID;
-      out->data = malloc(frame ? frame : 1);
-      if (!out->data)
-        return EXT_NOMEM;
-      memcpy(out->data, h->readbuf, frame);
-      out->len = frame;
-      return EXT_OK;
-    }
   }
 }
 ext_status ext_host_process_stderr(ext_host *h, uint8_t *buffer,
@@ -739,10 +856,13 @@ ext_status ext_host_start_with_options(ext_host *h, const ext_call_options *o) {
                      "v1\",\"id\":\"hello\",\"operation\":\"plugin.hello\","
                      "\"deadline\":\"%s.%03lldZ\"}",
                      stamp, (long long)(wall % 1000));
-    s = exchange(h, (uint8_t *)hello, (size_t)n, deadline, o, &response);
+    frame_call hello_call = {"hello", 0, NULL};
+    s = exchange(h, (uint8_t *)hello, (size_t)n, deadline, o, &hello_call,
+                 &response, &doc);
   }
   if (!s) {
-    doc = ext_parse(response.data, response.len);
+    if (!doc)
+      doc = ext_parse(response.data, response.len);
     if (!doc)
       s = EXT_INVALID;
     else if (h->extension.connect || h->extension_context.connect) {
@@ -779,9 +899,10 @@ ext_status ext_host_start_with_options(ext_host *h, const ext_call_options *o) {
   leave(h);
   return s;
 }
-ext_status ext_host_invoke_with_options(ext_host *h, const uint8_t *input,
-                                        size_t len, const ext_call_options *o,
-                                        ext_buffer *out) {
+static ext_status invoke_impl(ext_host *h, const uint8_t *input, size_t len,
+                              const ext_call_options *o,
+                              const ext_progress_options *progress,
+                              ext_buffer *out) {
   if (!out)
     return EXT_INVALID;
   out->data = NULL;
@@ -813,6 +934,16 @@ ext_status ext_host_invoke_with_options(ext_host *h, const uint8_t *input,
   }
   if (remaining < (int64_t)timeout)
     deadline = mono_ms() + remaining;
+  /* A request that carries an event rate is one that may report progress; the
+   * limits it names are applied to what the plugin sends, as a backstop. */
+  int declared;
+  int64_t events, bytes;
+  ext_request_progress(r, &declared, &events, &bytes);
+  ext_progress_sink sink;
+  if (declared)
+    ext_progress_sink_init(&sink, progress ? progress->deliver : NULL,
+                           progress ? progress->user : NULL, events, bytes);
+  frame_call call = {yyjson_get_str(yyjson_obj_get(r, "id")), declared, &sink};
   s = enter(h, deadline, 0, o);
   if (s) {
     observe_event(h, o, "invoke", r, s, NULL, stage_start);
@@ -846,22 +977,23 @@ ext_status ext_host_invoke_with_options(ext_host *h, const uint8_t *input,
     s = EXT_NOMEM;
     goto done;
   }
+  yyjson_doc *response = NULL;
   s = (h->extension.invoke || h->extension_context.invoke)
           ? extension_call(h, (const uint8_t *)compact, compact_len, deadline,
                            o, out)
           : exchange(h, (const uint8_t *)compact, compact_len, deadline, o,
-                     out);
+                     &call, out, &response);
   free(compact);
   if (!s) {
-    yyjson_doc *response = ext_parse(out->data, out->len);
+    if (!response)
+      response = ext_parse(out->data, out->len);
     if (!response)
       s = EXT_INVALID;
-    else {
+    else
       s = ext_response(yyjson_doc_get_root(response),
                        yyjson_get_str(yyjson_obj_get(r, "id")));
-      yyjson_doc_free(response);
-    }
   }
+  yyjson_doc_free(response);
   if (!s && canceled(o))
     s = EXT_CANCELED;
   if (!s && mono_ms() >= deadline)
@@ -873,6 +1005,9 @@ ext_status ext_host_invoke_with_options(ext_host *h, const uint8_t *input,
     fail(h);
   }
 done:
+  /* The marker for events never reported comes last, whatever the outcome. */
+  if (declared)
+    ext_progress_sink_finish(&sink);
   if (h->hooks.observe) {
     yyjson_doc *observed = out->data ? ext_parse(out->data, out->len) : NULL;
     observe_event(h, o, "invoke", r, s,
@@ -882,6 +1017,12 @@ done:
   yyjson_doc_free(request);
   leave(h);
   return s;
+}
+
+ext_status ext_host_invoke_with_options(ext_host *h, const uint8_t *input,
+                                        size_t len, const ext_call_options *o,
+                                        ext_buffer *out) {
+  return invoke_impl(h, input, len, o, NULL, out);
 }
 
 ext_status ext_host_start(ext_host *h, uint32_t timeout) {
@@ -899,12 +1040,18 @@ ext_status ext_host_drain(ext_host *h, uint32_t timeout) {
 }
 
 /* Builds authoritative request metadata from the immutable selection. */
-ext_status ext_host_call(ext_host *h, const uint8_t *input, size_t len,
-                         const ext_call_options *options, ext_buffer *out) {
+static ext_status call_impl(ext_host *h, const uint8_t *input, size_t len,
+                            const ext_call_options *options,
+                            const ext_progress_options *progress,
+                            ext_buffer *out) {
   if (!out)
     return EXT_INVALID;
   *out = (ext_buffer){0};
   if (!h || !valid_call(options))
+    return EXT_INVALID;
+  if (progress && (progress->struct_size != sizeof(*progress) ||
+                   progress->events_per_second > (1u << 20) ||
+                   progress->bytes_per_second > (1u << 30)))
     return EXT_INVALID;
   yyjson_doc *doc = ext_parse(input, len);
   if (!doc)
@@ -963,14 +1110,42 @@ ext_status ext_host_call(ext_host *h, const uint8_t *input, size_t len,
       yyjson_mut_val *copy = yyjson_val_mut_copy(request, values[i]);
       ok = copy && yyjson_mut_obj_add_val(request, root, keys[i], copy);
     }
+  /* An operation that declares progress is called with the event rate both
+   * ends apply, the defaults where the caller named none. */
+  if (ok && yyjson_is_true(yyjson_obj_get(operation, "progress"))) {
+    yyjson_mut_val *limits = yyjson_mut_obj(request);
+    ok = limits &&
+         yyjson_mut_obj_add_uint(
+             request, limits, "eventsPerSecond",
+             progress && progress->events_per_second
+                 ? progress->events_per_second
+                 : EXT_PROGRESS_DEFAULT_EVENTS) &&
+         yyjson_mut_obj_add_uint(
+             request, limits, "bytesPerSecond",
+             progress && progress->bytes_per_second
+                 ? progress->bytes_per_second
+                 : EXT_PROGRESS_DEFAULT_BYTES) &&
+         yyjson_mut_obj_add_val(request, root, "progress", limits);
+  }
   size_t count = 0;
   char *bytes = ok ? yyjson_mut_write(request, 0, &count) : NULL;
-  status = bytes ? ext_host_invoke_with_options(h, (const uint8_t *)bytes,
-                                                count, options, out)
+  status = bytes ? invoke_impl(h, (const uint8_t *)bytes, count, options,
+                               progress, out)
                  : EXT_NOMEM;
   free(bytes);
   yyjson_mut_doc_free(request);
 done:
   yyjson_doc_free(doc);
   return status;
+}
+
+ext_status ext_host_call(ext_host *h, const uint8_t *input, size_t len,
+                         const ext_call_options *options, ext_buffer *out) {
+  return call_impl(h, input, len, options, NULL, out);
+}
+ext_status ext_host_call_progress(ext_host *h, const uint8_t *input, size_t len,
+                                  const ext_call_options *options,
+                                  const ext_progress_options *progress,
+                                  ext_buffer *out) {
+  return call_impl(h, input, len, options, progress, out);
 }

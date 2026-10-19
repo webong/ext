@@ -31,16 +31,22 @@ func (s *Session) Done() <-chan struct{} { return s.done }
 
 func (s *Session) finish() { s.doneOnce.Do(func() { close(s.done) }) }
 
-// CallProgress is Call for an operation that declares progress. The C engine
-// does not carry progress frames yet, so an operation that declares them is
-// refused (plugin.ErrUnsupported) rather than run without its events; any other
-// operation runs as Call and onProgress is never invoked. Use the pure-Go build
-// for progress until the C engine supports it.
+// CallProgress is Call for an operation that declares progress: onProgress
+// receives its events while the call runs, before CallProgress returns. The C
+// engine validates each event and applies the rate limit, as the pure-Go
+// session does: events beyond it are dropped and counted, the next event
+// carries Dropped, and a last event with the remaining count arrives before the
+// call returns. For an operation that did not declare progress, onProgress is
+// never called.
 func (s *Session) CallProgress(ctx context.Context, contract plugin.ContractRef, operation string, payload json.RawMessage, onProgress func(plugin.Progress), options ...plugin.CallOptions) (json.RawMessage, error) {
-	if op, err := s.Descriptor().Lookup(contract, operation); err == nil && op.Progress {
-		return nil, plugin.ErrUnsupported
+	var o plugin.CallOptions
+	if len(options) > 0 {
+		o = options[0]
 	}
-	return s.Call(ctx, contract, operation, payload)
+	if err := o.Progress.Validate(); err != nil {
+		return nil, err
+	}
+	return s.Host.callProgress(ctx, contract, operation, payload, onProgress, o.Progress)
 }
 
 // refuseReverse rejects Options.Reverse on a build whose engine does not

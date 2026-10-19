@@ -167,14 +167,17 @@ yyjson_val *ext_lookup(yyjson_val *d, yyjson_val *r, yyjson_val *name) {
   }
   return NULL;
 }
-int ext_descriptor(yyjson_val *d) {
-  if (!FIELDS(d, "apiVersion", "identity", "contracts") ||
-      !yyjson_equals_str(get(d, "apiVersion"), "ext.plugin/v1") ||
-      !ext_identity(get(d, "identity")))
-    return 0;
-  yyjson_val *cs = get(d, "contracts"), *c, *o;
+/* A list of contracts, as in a descriptor's "contracts" and "reverse": distinct
+ * name/version references, each with 1..256 operations of distinct names.
+ * min and max bound the list length. progress says whether an operation may
+ * carry the optional boolean "progress": a plugin declares it for operations it
+ * serves, never for the host operations it calls. */
+static int contracts_valid(yyjson_val *cs, size_t min, size_t max,
+                           int progress) {
+  yyjson_val *c, *o;
   size_t i, n, j, m;
-  if (!yyjson_is_arr(cs) || !yyjson_arr_size(cs) || yyjson_arr_size(cs) > 64)
+  if (!yyjson_is_arr(cs) || yyjson_arr_size(cs) < min ||
+      yyjson_arr_size(cs) > max)
     return 0;
   yyjson_arr_foreach(cs, i, n, c) {
     if (!FIELDS(c, "name", "version", "operations") || !ext_ref(c))
@@ -187,9 +190,15 @@ int ext_descriptor(yyjson_val *d) {
         yyjson_arr_size(ops) > 256)
       return 0;
     yyjson_arr_foreach(ops, j, m, o) {
-      if (!FIELDS(o, "name", "surface") || !ext_text(get(o, "name"), 0, 0) ||
+      yyjson_val *flag = get(o, "progress");
+      if (flag && yyjson_is_null(flag))
+        flag = NULL; /* null decodes as false in Go */
+      if (!FIELDS(o, "name", "surface", "progress") ||
+          !ext_text(get(o, "name"), 0, 0) ||
           yyjson_equals_str(get(o, "name"), "plugin.hello") ||
-          !ext_text(get(o, "surface"), 0, 1))
+          !ext_text(get(o, "surface"), 0, 1) ||
+          (flag && !yyjson_is_bool(flag)) ||
+          (flag && yyjson_get_bool(flag) && !progress))
         return 0;
       size_t x, y;
       yyjson_val *sibling;
@@ -199,19 +208,38 @@ int ext_descriptor(yyjson_val *d) {
   }
   return 1;
 }
-int ext_match(yyjson_val *a, yyjson_val *b) {
-  if (!ext_descriptor(b) ||
-      !ext_same_identity(get(a, "identity"), get(b, "identity")) ||
-      yyjson_arr_size(get(a, "contracts")) !=
-          yyjson_arr_size(get(b, "contracts")))
+int ext_descriptor(yyjson_val *d) {
+  if (!FIELDS(d, "apiVersion", "identity", "contracts", "reverse") ||
+      !yyjson_equals_str(get(d, "apiVersion"), "ext.plugin/v1") ||
+      !ext_identity(get(d, "identity")) ||
+      !contracts_valid(get(d, "contracts"), 1, 64, 1))
     return 0;
+  yyjson_val *reverse = get(d, "reverse");
+  /* An absent list and a null one (Go encodes none) both mean no reverse. */
+  return !reverse || yyjson_is_null(reverse) ||
+         contracts_valid(reverse, 0, 64, 0);
+}
+/* "progress" absent and false are the same declaration. */
+static int progress_of(yyjson_val *op) {
+  yyjson_val *flag = get(op, "progress");
+  return flag && yyjson_is_bool(flag) && yyjson_get_bool(flag);
+}
+/* The two lists declare the same contracts with the same operations, surfaces
+ * and progress flags, in any order. Both are valid lists. */
+static int contracts_match(yyjson_val *a, yyjson_val *b) {
   size_t i, n, j, m;
   yyjson_val *c, *o;
-  yyjson_arr_foreach(get(a, "contracts"), i, n, c) {
+  size_t na = (a && yyjson_is_arr(a)) ? yyjson_arr_size(a) : 0;
+  size_t nb = (b && yyjson_is_arr(b)) ? yyjson_arr_size(b) : 0;
+  if (na != nb)
+    return 0;
+  if (!na)
+    return 1;
+  yyjson_arr_foreach(a, i, n, c) {
     yyjson_val *match = NULL;
     size_t k, z;
     yyjson_val *bc;
-    yyjson_arr_foreach(get(b, "contracts"), k, z, bc) if (ext_same_ref(c, bc)) {
+    yyjson_arr_foreach(b, k, z, bc) if (ext_same_ref(c, bc)) {
       match = bc;
       break;
     }
@@ -219,12 +247,25 @@ int ext_match(yyjson_val *a, yyjson_val *b) {
                       yyjson_arr_size(get(match, "operations")))
       return 0;
     yyjson_arr_foreach(get(c, "operations"), j, m, o) {
-      yyjson_val *other = ext_lookup(b, c, get(o, "name"));
-      if (!other || !ext_same(get(o, "surface"), get(other, "surface")))
+      yyjson_val *other = NULL, *candidate;
+      size_t x, y;
+      yyjson_arr_foreach(get(match, "operations"), x, y, candidate) if (
+          ext_same(get(o, "name"), get(candidate, "name"))) {
+        other = candidate;
+        break;
+      }
+      if (!other || !ext_same(get(o, "surface"), get(other, "surface")) ||
+          progress_of(o) != progress_of(other))
         return 0;
     }
   }
   return 1;
+}
+int ext_match(yyjson_val *a, yyjson_val *b) {
+  return ext_descriptor(b) &&
+         ext_same_identity(get(a, "identity"), get(b, "identity")) &&
+         contracts_match(get(a, "contracts"), get(b, "contracts")) &&
+         contracts_match(get(a, "reverse"), get(b, "reverse"));
 }
 yyjson_val **ext_arr_snapshot(yyjson_val *arr) {
   size_t n = yyjson_arr_size(arr), i, max;
@@ -303,9 +344,61 @@ static int64_t timestamp(yyjson_val *v) {
     return -1;
   return result;
 }
+/* The optional event rate a host sends for an operation that declares progress:
+ * integers, or null. Their range is checked by the side that applies them. */
+/* A JSON integer that fits int64, which is what Go decodes into an int. The
+ * parser keeps numbers as raw text, so check the digits: an optional minus, then
+ * digits only (no fraction or exponent). */
+static int int64_value(yyjson_val *v) {
+  if (!yyjson_is_raw(v))
+    return 0;
+  const char *s = yyjson_get_raw(v);
+  size_t n = yyjson_get_len(v), i = 0;
+  int negative = 0;
+  if (!s || !n)
+    return 0;
+  if (s[0] == '-') {
+    negative = 1;
+    i = 1;
+  }
+  if (i == n)
+    return 0;
+  uint64_t limit = (uint64_t)INT64_MAX + (negative ? 1u : 0u), x = 0;
+  for (; i < n; i++) {
+    if (s[i] < '0' || s[i] > '9' || x > (limit - (uint64_t)(s[i] - '0')) / 10)
+      return 0;
+    x = x * 10 + (uint64_t)(s[i] - '0');
+  }
+  return 1;
+}
+static int progress_limits_valid(yyjson_val *v) {
+  if (!v || yyjson_is_null(v))
+    return 1;
+  yyjson_val *events, *bytes;
+  if (!FIELDS(v, "eventsPerSecond", "bytesPerSecond"))
+    return 0;
+  events = get(v, "eventsPerSecond");
+  bytes = get(v, "bytesPerSecond");
+  return (!events || yyjson_is_null(events) || int64_value(events)) &&
+         (!bytes || yyjson_is_null(bytes) || int64_value(bytes));
+}
+int ext_descriptor_needs_frames(yyjson_val *d) {
+  yyjson_val *reverse = get(d, "reverse"), *cs = get(d, "contracts"), *c, *o;
+  size_t i, n, j, m;
+  if (reverse && yyjson_is_arr(reverse) && yyjson_arr_size(reverse))
+    return 1;
+  yyjson_arr_foreach(cs, i, n, c) {
+    yyjson_arr_foreach(get(c, "operations"), j, m, o) if (progress_of(o))
+        return 1;
+  }
+  return 0;
+}
 ext_status ext_request(yyjson_val *d, yyjson_val *r, int64_t *deadline) {
+  yyjson_val *parent = get(r, "parent");
   if (!FIELDS(r, "apiVersion", "id", "plugin", "contract", "operation",
-              "surface", "deadline", "payload") ||
+              "surface", "deadline", "payload", "progress", "parent") ||
+      !progress_limits_valid(get(r, "progress")) ||
+      (parent && !yyjson_is_null(parent) && !yyjson_is_str(parent)) ||
       !yyjson_equals_str(get(r, "apiVersion"), "ext.plugin/v1") ||
       !ext_text(get(r, "id"), 1, 0) || !ext_identity(get(r, "plugin")) ||
       !FIELDS(get(r, "contract"), "name", "version") ||

@@ -5,6 +5,10 @@
 yyjson_doc *ext_parse(const uint8_t *, size_t);
 int ext_descriptor(yyjson_val *);
 int ext_match(yyjson_val *, yyjson_val *);
+/* Nonzero when the descriptor declares host operations the plugin may call
+ * ("reverse") or an operation that emits progress: both need frames beyond a
+ * single response, which only some hosts carry. */
+int ext_descriptor_needs_frames(yyjson_val *);
 ext_status ext_request(yyjson_val *, yyjson_val *, int64_t *deadline_ms);
 ext_status ext_response(yyjson_val *, const char *id);
 int64_t ext_wall_ms(void);

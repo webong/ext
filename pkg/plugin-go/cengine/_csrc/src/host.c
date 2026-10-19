@@ -213,6 +213,12 @@ ext_status ext_host_create(const ext_host_options *o,
     yyjson_doc_free(d);
     return EXT_INVALID;
   }
+  /* This host does not carry reverse requests or progress frames yet, so it
+   * refuses a plugin whose descriptor needs them rather than run it without. */
+  if (ext_descriptor_needs_frames(yyjson_doc_get_root(d))) {
+    yyjson_doc_free(d);
+    return EXT_UNSUPPORTED;
+  }
   ext_host *h = calloc(1, sizeof(*h));
   if (!h) {
     yyjson_doc_free(d);

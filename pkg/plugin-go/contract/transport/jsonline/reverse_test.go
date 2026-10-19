@@ -503,3 +503,67 @@ func TestNestedHosting(t *testing.T) {
 		t.Fatalf("deadlines must nest child < middle < top: top saw %v, call %v", seen, want)
 	}
 }
+
+// A handler's own RemoteError reaches the guest as a *plugin.RemoteError with
+// the same code and message. One the receiver would reject (an invalid code, or
+// a message over the bound) becomes operation_failed, and never ends the
+// connection: a handler bug must not take the plugin down.
+func TestReverseHandlerRemoteErrors(t *testing.T) {
+	cases := []struct {
+		name     string
+		remote   *plugin.RemoteError
+		wantCode string
+		wantText string
+	}{
+		{"custom code and message pass through", &plugin.RemoteError{Code: "policy", Message: "refused for ******"}, "policy", "refused for ******"},
+		{"uppercase code", &plugin.RemoteError{Code: "Policy", Message: "x"}, "operation_failed", "host service failed"},
+		{"empty code", &plugin.RemoteError{Code: "", Message: "x"}, "operation_failed", "host service failed"},
+		{"over-long message", &plugin.RemoteError{Code: "policy", Message: strings.Repeat("a", 5000)}, "operation_failed", "host service failed"},
+		{"negative retry hint", &plugin.RemoteError{Code: "policy", Message: "x", RetryAfterMilliseconds: -1}, "operation_failed", "host service failed"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			host := allow(func(context.Context, plugin.Request) (json.RawMessage, error) { return nil, c.remote })
+			var seen *plugin.RemoteError
+			r := open(t, context.Background(), reverseDescriptor(), func(ctx context.Context, _ plugin.Request) (json.RawMessage, error) {
+				_, err := plugin.ReverseFrom(ctx).Call(ctx, svc, "sign", nil)
+				if !errors.As(err, &seen) {
+					return nil, errors.New("the guest did not receive a RemoteError")
+				}
+				return json.RawMessage(`1`), nil
+			}, host)
+			defer r.stop()
+			for i := 0; i < 2; i++ { // the second call proves the connection survived
+				if _, err := r.session.Call(context.Background(), main1, "run", nil); err != nil {
+					t.Fatalf("call %d: %v (state %s)", i+1, err, r.session.State())
+				}
+			}
+			if seen == nil || seen.Code != c.wantCode || seen.Message != c.wantText {
+				t.Fatalf("guest saw %+v, want code %q message %q", seen, c.wantCode, c.wantText)
+			}
+		})
+	}
+}
+
+// The same holds for a guest handler that returns a RemoteError the host would
+// reject: the call fails with operation_failed and the connection stays up.
+func TestForwardHandlerRemoteErrors(t *testing.T) {
+	for name, remote := range map[string]*plugin.RemoteError{
+		"uppercase code":    {Code: "Bad", Message: "x"},
+		"over-long message": {Code: "policy", Message: strings.Repeat("a", 5000)},
+	} {
+		t.Run(name, func(t *testing.T) {
+			r := open(t, context.Background(), reverseDescriptor(), func(context.Context, plugin.Request) (json.RawMessage, error) { return nil, remote }, nil)
+			defer r.stop()
+			for i := 0; i < 2; i++ {
+				_, err := r.session.Call(context.Background(), main1, "run", nil)
+				if remoteCode(err) != "operation_failed" {
+					t.Fatalf("call %d: %v", i+1, err)
+				}
+				if r.session.State() != plugin.StateReady {
+					t.Fatalf("call %d: the session ended (%s)", i+1, r.session.State())
+				}
+			}
+		})
+	}
+}

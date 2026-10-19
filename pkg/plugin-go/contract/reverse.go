@@ -53,6 +53,19 @@ var (
 	ErrProtocol = errors.New("plugin protocol violation")
 )
 
+// publicError returns err's RemoteError when it is one a peer will accept, and
+// the generic failure otherwise. A handler's own RemoteError is copied into a
+// frame, and a frame whose error has an invalid code or an over-long message is
+// a protocol violation for the receiver, which would end its connection: one
+// handler bug must not take the connection down.
+func publicError(remote *RemoteError, generic string) *RemoteError {
+	copied := *remote
+	if (Response{APIVersion: APIVersion, ID: "x", Error: &copied}).Validate("x") != nil {
+		return &RemoteError{Code: "operation_failed", Message: generic}
+	}
+	return &copied
+}
+
 // ReverseCaller calls an operation the host offers. It has the method set of
 // author.Caller, so author.Call works with it unchanged.
 type ReverseCaller interface {

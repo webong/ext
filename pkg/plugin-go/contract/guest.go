@@ -92,8 +92,7 @@ func (g *Guest) Invoke(ctx context.Context, request Request) (Response, error) {
 		response.Payload = nil
 		var remote *RemoteError
 		if errors.As(err, &remote) && remote != nil {
-			copy := *remote
-			response.Error = &copy
+			response.Error = publicError(remote, "plugin operation failed")
 		} else {
 			response.Error = &RemoteError{Code: "operation_failed", Message: "plugin operation failed"}
 		}

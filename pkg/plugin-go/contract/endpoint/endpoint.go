@@ -8,9 +8,23 @@
 // use the listener. Every error, String and %v/%+v/%#v rendering from this
 // package omits the address, path and token. JSON encoding carries the real
 // values because the protocol needs them.
+//
+// Presenting the token. A client presents Endpoint.Token to the listener the
+// same way for every consumer: for ws, wss, http and https, as the header
+// "Authorization: Bearer <token>" on the handshake or request; for tcp, as the
+// first line of the stream, the token followed by one "\n", before any other
+// data. A listener that gets no token, or a wrong one, closes the connection.
+// When Token is empty the listener needs none. The token is never put in a URL.
+//
+// Rotation. A grant is bounded by its session and by ExpiresAt. For a listener
+// that outlives one expiry the plugin announces a replacement endpoint and the
+// host Admits it and then Revokes the old grant. Announcing is the consumer's
+// contract (a reverse operation, conventionally named "endpoint.rotate", whose
+// payload is {"endpoint": <Endpoint>}); the library only validates and admits.
 package endpoint
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
@@ -81,26 +95,30 @@ var knownSchemes = map[string]bool{"ws": true, "wss": true, "http": true, "https
 
 func invalid(reason string) error { return fmt.Errorf("%w: endpoint %s", plugin.ErrInvalid, reason) }
 
-// Validate checks the endpoint against the policy. Its errors never include a
-// value taken from the endpoint.
-func (e Endpoint) Validate(p Policy) error {
-	if len(p.Schemes) == 0 {
-		return fmt.Errorf("%w: no endpoint scheme is admitted", plugin.ErrDenied)
+// Key is the conventional JSON key under which a result carries an Endpoint:
+// {"endpoint": {...}}. A contract may nest it elsewhere; Decode reads the object.
+const Key = "endpoint"
+
+// Decode reads one Endpoint from JSON, rejecting unknown fields, duplicate keys
+// and anything Check refuses. It applies no host policy: call Admit (or
+// Validate) for that. An error never includes a value from the input.
+func Decode(raw json.RawMessage) (Endpoint, error) {
+	var e Endpoint
+	if err := plugin.Decode(raw, &e); err != nil {
+		return Endpoint{}, invalid("is malformed")
 	}
-	allowed := false
-	for _, s := range p.Schemes {
-		if !knownSchemes[s] {
-			return invalid("policy names an unknown scheme")
-		}
-		if s == e.Scheme {
-			allowed = true
-		}
+	if err := e.Check(); err != nil {
+		return Endpoint{}, err
 	}
+	return e, nil
+}
+
+// Check validates the endpoint's shape, which no policy changes: a supported
+// scheme, a loopback host with a port, a well-formed path and token, and an
+// expiry. Its errors never include a value from the endpoint.
+func (e Endpoint) Check() error {
 	if !knownSchemes[e.Scheme] {
 		return invalid("scheme is not supported")
-	}
-	if !allowed {
-		return fmt.Errorf("%w: endpoint scheme is not admitted", plugin.ErrDenied)
 	}
 	if err := validAddress(e.Address); err != nil {
 		return err
@@ -118,6 +136,30 @@ func (e Endpoint) Validate(p Policy) error {
 	}
 	if e.ExpiresAt.IsZero() {
 		return invalid("needs an expiry")
+	}
+	return nil
+}
+
+// Validate checks the endpoint against the policy: Check, then the admitted
+// schemes and the lifetime. Its errors never include a value from the endpoint.
+func (e Endpoint) Validate(p Policy) error {
+	if len(p.Schemes) == 0 {
+		return fmt.Errorf("%w: no endpoint scheme is admitted", plugin.ErrDenied)
+	}
+	allowed := false
+	for _, s := range p.Schemes {
+		if !knownSchemes[s] {
+			return invalid("policy names an unknown scheme")
+		}
+		if s == e.Scheme {
+			allowed = true
+		}
+	}
+	if err := e.Check(); err != nil {
+		return err
+	}
+	if !allowed {
+		return fmt.Errorf("%w: endpoint scheme is not admitted", plugin.ErrDenied)
 	}
 	max := p.MaxLifetime
 	if max <= 0 {

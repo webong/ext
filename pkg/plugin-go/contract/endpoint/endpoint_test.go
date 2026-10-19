@@ -191,3 +191,59 @@ func TestAdmitNeedsSession(t *testing.T) {
 		t.Fatalf("got %v", err)
 	}
 }
+
+func TestDecodeReadsAnEndpointStrictly(t *testing.T) {
+	good := `{"scheme":"ws","address":"127.0.0.1:4455","path":"` + secretPath + `","token":"` + secretToken + `","oneTime":true,"expiresAt":"2026-01-02T03:05:05Z"}`
+	e, err := Decode(json.RawMessage(good))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if e.Scheme != "ws" || e.Address != "127.0.0.1:4455" || e.Token != secretToken || !e.OneTime || e.ExpiresAt.IsZero() {
+		t.Fatalf("decoded %+v", e)
+	}
+	bad := map[string]string{
+		"unknown field":    `{"scheme":"ws","address":"127.0.0.1:1","expiresAt":"2026-01-02T03:05:05Z","tokn":"` + secretToken + `"}`,
+		"duplicate key":    `{"scheme":"ws","scheme":"tcp","address":"127.0.0.1:1","expiresAt":"2026-01-02T03:05:05Z"}`,
+		"remote address":   `{"scheme":"ws","address":"203.0.113.9:80","expiresAt":"2026-01-02T03:05:05Z"}`,
+		"unknown scheme":   `{"scheme":"ftp","address":"127.0.0.1:1","expiresAt":"2026-01-02T03:05:05Z"}`,
+		"no expiry":        `{"scheme":"ws","address":"127.0.0.1:1"}`,
+		"query in path":    `{"scheme":"ws","address":"127.0.0.1:1","path":"/a?x=` + secretToken + `","expiresAt":"2026-01-02T03:05:05Z"}`,
+		"not an object":    `"` + secretToken + `"`,
+		"bad time":         `{"scheme":"ws","address":"127.0.0.1:1","token":"` + secretToken + `","expiresAt":"soon"}`,
+		"control in token": `{"scheme":"ws","address":"127.0.0.1:1","token":"a\u0000` + secretToken + `","expiresAt":"2026-01-02T03:05:05Z"}`,
+	}
+	for name, raw := range bad {
+		_, err := Decode(json.RawMessage(raw))
+		if err == nil {
+			t.Fatalf("%s accepted", name)
+		}
+		if !errors.Is(err, plugin.ErrInvalid) && !errors.Is(err, plugin.ErrDenied) {
+			t.Fatalf("%s: unexpected class %v", name, err)
+		}
+		for _, secret := range []string{secretToken, secretPath, "203.0.113.9"} {
+			if strings.Contains(err.Error(), secret) {
+				t.Fatalf("%s: error leaks %q: %v", name, secret, err)
+			}
+		}
+	}
+}
+
+// Check is the part of Validate no host policy changes.
+func TestCheckIsPolicyIndependent(t *testing.T) {
+	if err := good().Check(); err != nil {
+		t.Fatal(err)
+	}
+	e := good()
+	e.Scheme = "https" // not in policy(), but a supported scheme
+	if err := e.Check(); err != nil {
+		t.Fatalf("Check must not apply a policy: %v", err)
+	}
+	if err := e.Validate(policy()); !errors.Is(err, plugin.ErrDenied) {
+		t.Fatalf("Validate applies the policy: %v", err)
+	}
+	e = good()
+	e.ExpiresAt = now.Add(-time.Hour) // expiry versus now is policy-time, not shape
+	if err := e.Check(); err != nil {
+		t.Fatalf("Check must not judge the clock: %v", err)
+	}
+}

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 	"unicode/utf8"
@@ -172,6 +173,29 @@ func (p Progress) Validate() error {
 		return fmt.Errorf("%w: malformed progress event", ErrProtocol)
 	}
 	return nil
+}
+
+// SplitProgressText cuts text into pieces that each fit one event: at most
+// MaxProgressTextBytes bytes and valid UTF-8. A piece never ends inside a
+// multi-byte character, and bytes that are not valid UTF-8 are replaced with
+// U+FFFD, because an event carrying either is a protocol violation. Splitting a
+// longer line into events, and where, is the reporter's job; this only keeps each
+// piece legal. It returns nil for empty text.
+func SplitProgressText(text string) []string {
+	text = strings.ToValidUTF8(text, "\uFFFD")
+	var pieces []string
+	for len(text) > MaxProgressTextBytes {
+		cut := MaxProgressTextBytes
+		for cut > 0 && !utf8.RuneStart(text[cut]) {
+			cut--
+		}
+		pieces = append(pieces, text[:cut])
+		text = text[cut:]
+	}
+	if text != "" {
+		pieces = append(pieces, text)
+	}
+	return pieces
 }
 
 // ProgressFrame carries one event of the call named by Parent.

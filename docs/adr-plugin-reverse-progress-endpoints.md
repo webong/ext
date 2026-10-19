@@ -192,6 +192,22 @@ builds so code compiles against either. The remaining C work, and the Rust, Zig,
 TypeScript, Swift and Java bindings that follow it, is listed in
 [engine parity](plugin-engine-parity.md).
 
+## Identifiers
+
+Request and call identifiers (`Request.ID`, `Request.Parent`, reverse ids) are
+opaque correlation tokens. They are unique within one session, are not stable
+across sessions or restarts, and carry no meaning a host may rely on. Do not
+persist them or use them as keys in policy.
+
+## Progress markers
+
+The last event of a call that lost events is a marker: `kind: "log"`, empty
+`text`, empty `stream`, and `dropped` set. A consumer must accept an event whose
+only content is `dropped`. `dropped` on every event, the marker included, counts
+events lost since the previous delivered event, not since the start of the call,
+so the sum over a call's events is the total lost. Delivered events plus that sum
+equal the events reported by the guest.
+
 ## Limits and failure model
 
 | Case | Result |

@@ -18,8 +18,16 @@ const (
 	FrameProgress        = "progress"
 )
 
-// Stable codes of the errors a host returns for a reverse call.
+// Stable codes of the errors a reverse call fails with. They let a guest tell a
+// feature that is not offered (fall back) from one that is forbidden, and
+// debug a missing declaration.
 const (
+	// ReverseUndeclared: the plugin's descriptor does not list the operation in
+	// Reverse. Fix the descriptor.
+	ReverseUndeclared = "reverse_undeclared"
+	// ReverseUnavailable: the host offers no reverse services, or not yet.
+	ReverseUnavailable = "reverse_unavailable"
+	// ReverseDenied: the host's Authorize refused this call.
 	ReverseDenied   = "denied"
 	ReverseTooLarge = "too_large"
 	ReverseBusy     = "busy"

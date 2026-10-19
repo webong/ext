@@ -225,7 +225,7 @@ type wireReverse struct {
 
 func (r wireReverse) Call(ctx context.Context, ref plugin.ContractRef, operation string, payload json.RawMessage) (json.RawMessage, error) {
 	if _, err := r.descriptor.LookupReverse(ref, operation); err != nil {
-		return nil, plugin.ErrUnsupported
+		return nil, &plugin.RemoteError{Code: plugin.ReverseUndeclared, Message: "reverse call refused"}
 	}
 	deadline, ok := ctx.Deadline()
 	if !ok {

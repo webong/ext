@@ -190,8 +190,11 @@ operations in the descriptor's `reverse` list, offer them with
 handler with `plugin.ReverseFrom(ctx)`, which implements `author.Caller`; use
 `plugin.SessionReverseFrom(ctx)` for work that outlives the call. An operation
 that declares `progress` reports with `plugin.ProgressFrom(ctx)`, and the host
-reads it with `Session.CallProgress`. A loopback data endpoint is declared with
-`contract/endpoint`. See the
+reads it with `Session.CallProgress`. A package author declares host operations with
+`Manifest.WithReverse` (ExecutableManifest and SourceManifest take the
+operations' `Progress` flags in the contracts); a manifest generator writes the
+descriptor's `reverse` list and each operation's `progress` flag. A loopback
+data endpoint is declared with `contract/endpoint`. See the
 [design record](adr-plugin-reverse-progress-endpoints.md); the C engine and the
 other SDKs do not carry these yet. The rest of this section describes the
 separate-connection approach the other SDKs still use.

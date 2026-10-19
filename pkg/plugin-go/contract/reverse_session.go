@@ -98,11 +98,11 @@ func (s *Session) admitReverse(frame ReverseRequestFrame, caller context.Context
 	if frame.Parent != "" && !parentLive {
 		return nil, nil, fmt.Errorf("%w: reverse call names a call that is not in flight", ErrProtocol)
 	}
-	if s.reverse == nil || !ready || state != StateReady && state != StateDraining {
-		return nil, denied(ReverseDenied), nil
-	}
 	if _, err := s.descriptor.LookupReverse(frame.Contract, frame.Operation); err != nil {
-		return nil, denied(ReverseDenied), nil
+		return nil, denied(ReverseUndeclared), nil
+	}
+	if s.reverse == nil || !ready || state != StateReady && state != StateDraining {
+		return nil, denied(ReverseUnavailable), nil
 	}
 	maxPayload, maxInFlight := s.reverseLimits()
 	if len(frame.Payload) > maxPayload {

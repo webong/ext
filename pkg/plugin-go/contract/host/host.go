@@ -22,6 +22,10 @@ const DefaultTimeout = 10 * time.Minute
 // DrainTimeout is how long Close waits for admitted calls before aborting.
 const DrainTimeout = 5 * time.Second
 
+// ReverseOptions configures the services a host offers to its plugin; it is
+// plugin.ReverseOptions, so a host need not import the root package for it.
+type ReverseOptions = plugin.ReverseOptions
+
 // Options supplies the admission policy and launch choice.
 type Options struct {
 	// Launch overrides how the package starts, for example to run source files
@@ -38,7 +42,7 @@ type Options struct {
 	// Reverse offers services to the plugin: calls from the plugin to this
 	// host, limited to the operations its descriptor declares in Reverse. When
 	// nil, every reverse call is denied.
-	Reverse *plugin.ReverseOptions
+	Reverse *ReverseOptions
 }
 
 // Process is one plugin process behind a plugin session.

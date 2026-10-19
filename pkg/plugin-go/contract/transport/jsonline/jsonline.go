@@ -285,7 +285,7 @@ func (c *Client) serveReverse(frame plugin.ReverseRequestFrame) error {
 	host := c.reverse
 	c.mu.Unlock()
 	if host == nil {
-		return c.respond(frame.ID, plugin.ReverseResult{Error: &plugin.RemoteError{Code: plugin.ReverseDenied, Message: "reverse call refused"}})
+		return c.respond(frame.ID, plugin.ReverseResult{Error: &plugin.RemoteError{Code: plugin.ReverseUnavailable, Message: "reverse call refused"}})
 	}
 	run, immediate, err := host.AdmitReverse(frame)
 	if err != nil {

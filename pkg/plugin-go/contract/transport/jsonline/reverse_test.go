@@ -114,15 +114,15 @@ func TestReverseDeniedPaths(t *testing.T) {
 	// A guest cannot call what its descriptor did not declare: the guest itself
 	// refuses before sending.
 	r := open(t, context.Background(), reverseDescriptor(), call(svc, "undeclared", `1`), host)
-	if _, err := r.session.Call(context.Background(), main1, "run", nil); remoteCode(err) != "operation_failed" {
+	if _, err := r.session.Call(context.Background(), main1, "run", nil); remoteCode(err) != plugin.ReverseUndeclared {
 		t.Fatalf("undeclared operation: %v", err)
 	}
 	r.stop()
 	// No Reverse options on the host: every reverse call is denied and the
 	// session continues.
 	r = open(t, context.Background(), reverseDescriptor(), call(svc, "sign", `1`), nil)
-	if _, err := r.session.Call(context.Background(), main1, "run", nil); err == nil {
-		t.Fatal("reverse call succeeded without host services")
+	if _, err := r.session.Call(context.Background(), main1, "run", nil); remoteCode(err) != plugin.ReverseUnavailable {
+		t.Fatalf("no host services must be told apart from a refusal: %v", err)
 	}
 	if r.session.State() != plugin.StateReady {
 		t.Fatalf("a denied reverse call must not fail the session, state %s", r.session.State())
@@ -132,8 +132,8 @@ func TestReverseDeniedPaths(t *testing.T) {
 	refuse := allow(func(context.Context, plugin.Request) (json.RawMessage, error) { reached.Add(1); return nil, nil })
 	refuse.Authorize = func(context.Context, plugin.Request) error { return errors.New("no") }
 	r = open(t, context.Background(), reverseDescriptor(), call(svc, "sign", `1`), refuse)
-	if _, err := r.session.Call(context.Background(), main1, "run", nil); err == nil {
-		t.Fatal("authorize was ignored")
+	if _, err := r.session.Call(context.Background(), main1, "run", nil); remoteCode(err) != plugin.ReverseDenied {
+		t.Fatalf("authorize was ignored or mislabeled: %v", err)
 	}
 	r.stop()
 	if reached.Load() != 0 {
@@ -458,7 +458,7 @@ func TestInProcessReverseAndProgress(t *testing.T) {
 	denied := openInProcess(t, context.Background(), reverseDescriptor(), func(ctx context.Context, _ plugin.Request) (json.RawMessage, error) {
 		return plugin.ReverseFrom(ctx).Call(ctx, svc, "undeclared", nil)
 	}, allow(func(context.Context, plugin.Request) (json.RawMessage, error) { return json.RawMessage(`1`), nil }))
-	if _, err := denied.Call(context.Background(), main1, "run", nil); remoteCode(err) != plugin.ReverseDenied {
+	if _, err := denied.Call(context.Background(), main1, "run", nil); remoteCode(err) != plugin.ReverseUndeclared {
 		t.Fatalf("undeclared: %v", err)
 	}
 }

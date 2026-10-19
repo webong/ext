@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include "sync.h"
 
 int64_t ext_mono_ns(void) {
   struct timespec t;

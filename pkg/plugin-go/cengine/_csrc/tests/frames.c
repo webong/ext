@@ -3,7 +3,7 @@
  * with --guest <mode>; each mode misbehaves in one way, so every protocol
  * violation the host must refuse has a case. The Go differential tests in
  * pkg/plugin-go/cengine compare the same behavior with the pure-Go session. */
-#define _POSIX_C_SOURCE 200809L
+#define _XOPEN_SOURCE 700 /* realpath, under -std=c11 on glibc */
 #include "progress.h"
 #include "wire.h"
 #include <assert.h>
@@ -236,13 +236,17 @@ static int32_t allow(void *u, const uint8_t *p, size_t n) {
 }
 static char self[4096];
 
+/* Starts the scripted guest through the launch backend, which gives the child a
+ * scrubbed environment that still holds PATH (and SystemRoot on Windows): a child
+ * with no environment at all cannot find the runtime libraries it was linked
+ * with on every toolchain. A failure says why, since a CI log is all there is. */
 static ext_status open_host(const char *mode, ext_host **out) {
   const char *args[] = {"--guest", mode};
-  ext_jsonline_process_config process = {sizeof(process), self, args, 2,
-                                         NULL,            0};
+  ext_jsonline_process_launch launch = {sizeof(launch), self, args, 2,
+                                        NULL,           0,    NULL, 0};
   ext_backend_options backend = {sizeof(backend),
-                                 EXT_BACKEND_JSONLINE_PROCESS_CONFIG, &process,
-                                 sizeof(process)};
+                                 EXT_BACKEND_JSONLINE_PROCESS_LAUNCH, &launch,
+                                 sizeof(launch)};
   ext_host_options options = {EXT_HOST_ABI_VERSION,
                               sizeof(options),
                               (const uint8_t *)DESCRIPTOR,
@@ -251,9 +255,22 @@ static ext_status open_host(const char *mode, ext_host **out) {
                               allow,
                               NULL};
   ext_status s = ext_host_create(&options, &backend, out);
-  if (s)
+  if (s) {
+    fprintf(stderr, "create %s: %s (executable %s)\n", mode,
+            ext_host_status_string(s), self);
     return s;
-  return ext_host_start(*out, 5000);
+  }
+  s = ext_host_start(*out, 5000);
+  if (s && strcmp(mode, "hellofirst")) {
+    uint8_t text[512];
+    size_t n = 0;
+    if (ext_host_process_stderr(*out, text, sizeof(text) - 1, &n) != EXT_OK)
+      n = 0;
+    text[n] = 0;
+    fprintf(stderr, "start %s: %s (executable %s); child stderr: %s\n", mode,
+            ext_host_status_string(s), self, (const char *)text);
+  }
+  return s;
 }
 static ext_status call(ext_host *h, const char *op, events *e,
                        uint32_t timeout_ms, uint32_t events_per_second) {

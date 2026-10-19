@@ -102,7 +102,7 @@ Guest side (`contract/transport/jsonline`):
   never blocks the reader, which is what removes the deadlock on a serialized
   channel.
 - The handler obtains the caller with `plugin.ReverseFrom(ctx)`; it satisfies
-  `author.Caller`, so `author.Call` works unchanged. `plugin.SessionReverse(ctx)`
+  `author.Caller`, so `author.Call` works unchanged. `plugin.SessionReverseFrom(ctx)`
   returns a caller for session-scoped work that a guest can keep after its
   call returns; it is valid until the connection closes. Writes use one mutex so
   frames never interleave.
@@ -176,12 +176,21 @@ carry:
 
 ### The C engine and other SDKs
 
-`lib/plugin` gets the same frames, descriptor fields, bounds and error codes,
-and the same endpoint validation, so the conformance fixtures
-(`lib/plugin/testdata`) run against both engines. `pkg/plugin-go/cengine`
-re-exports the new Go API with identical signatures (the arch test already
-requires `cengine/host` to mirror `contract/host`). The TypeScript, Rust, Zig,
-Swift and Java bindings follow the C engine and are not part of v0.5.0.
+**Status in v0.5.0: the Go side ships; the C engine refuses.** The pure-Go
+baseline in `pkg/plugin-go/contract` implements everything above, and the
+pure-Go build of `pkg/plugin-go/cengine` (the build used without cgo or without
+the `ext_cengine` tag) inherits it because it opens sessions through `contract`.
+`cengine/host` mirrors `contract/host` exactly (`Options.Reverse`,
+`Process.CallProgress`), as the architecture test requires.
+
+The C engine in `lib/plugin` does not carry these frames yet, so it fails
+closed instead of ignoring them: its descriptor parser rejects the `reverse` and
+`progress` fields, and the C build of `cengine` returns `plugin.ErrUnsupported`
+from `Open` and `OpenProcess` when `Options.Reverse` is set and for an operation
+that declares progress. `Session.Done` and `Session.CallProgress` exist in both
+builds so code compiles against either. The remaining C work, and the Rust, Zig,
+TypeScript, Swift and Java bindings that follow it, is listed in
+[engine parity](plugin-engine-parity.md).
 
 ## Limits and failure model
 

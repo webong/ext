@@ -36,8 +36,3 @@ use (
 	./pkg/plugin-go/contract
 	./pkg/plugin-go/cengine
 )
-
-// The umbrella requires hashicorp v0.3.0, which has no tag until the v0.5.1 round is
-// published, so the go command cannot read its go.mod. Remove this line in the
-// commit after that round is tagged (docs/module-versioning.md, "Releasing a round").
-replace github.com/webong/ext/pkg/plugin-go/hashicorp v0.3.0 => ./pkg/plugin-go/hashicorp

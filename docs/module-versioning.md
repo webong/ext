@@ -240,16 +240,16 @@ version starts at v0.2.0, above v0.1.1. No other path is shared between modules.
 
 ### Versions and tags
 
-The release went out in two rounds because of one mistake, recorded here so it is not repeated, and a
-third round followed for new content.
+The release went out in two rounds because of one mistake, recorded here so it is not repeated, and
+later rounds followed for new content.
 
 | Round | Tags |
 | --- | --- |
 | First (`v0.2.0`) | `res/graph` v0.1.0, `pkg/plugin-go/contract`, `.../cengine`, `.../wasm`, `.../hashicorp` and `pkg/plugin-go` at v0.2.0, and the adapters as patch bumps (`adapters/chromium` v0.3.1, `adapters/firefox` v0.2.1, and so on) |
 | Corrective (`v0.2.1`) | `res/system` v0.1.0 (the module was renamed from `res/graph` before anyone used it); `pkg/plugin-go/contract`, `.../cengine`, `.../wasm`, `.../hashicorp` and `pkg/plugin-go` at v0.2.1; and the adapters again (`adapters/chromium` v0.3.2, `adapters/firefox` v0.2.2, `adapters/safari` v0.1.4, the rest as listed by `git tag`) |
-
 | Bounds and listing (`v0.3.0`) | `pkg/plugin-go/contract`, `pkg/plugin-go/cengine` and `pkg/plugin-go` at v0.3.0, and nothing else |
 | Manifest names (`v0.4.0`) | `pkg/plugin-go/contract`, `pkg/plugin-go/cengine` and `pkg/plugin-go` at v0.4.0, and the 24 adapter modules at their next minor version: `adapters/chromium` v0.4.0; `adapters/firefox`, `adapters/chrome` and `adapters/edge` v0.3.0; and `adapters/safari`, `adapters/credman`, `adapters/keychain`, `adapters/secret_service`, `adapters/git`, `adapters/evm`, `adapters/wasm` and the Chromium- and Firefox-family adapters v0.2.0 |
+| Reverse calls, progress and endpoints (`v0.5.0`) | `pkg/plugin-go/contract`, `pkg/plugin-go/cengine` and `pkg/plugin-go` at v0.5.0; `res/system` v0.1.1 and `res/web` v0.5.1 as patch releases; no adapter, `wasm` or `hashicorp` |
 
 `v0.3.0` is a minor version because `Store.ListUnverified` and `Layered.ListUnverified` are new API in
 both `contract/host/store` and `cengine/host/store`. It also bounds the cost of validating and resolving
@@ -279,6 +279,22 @@ and a package that carries a Node tree could not coexist with an ext manifest in
 changed). `v0.3.0` stays published and still reads `package.json`; it has `ListUnverified` and the validation
 bounds, and anything that adopted it only has to move to `v0.4.0` to rename its manifests. No adapter or other
 module read the manifest by file name, so none of them changes or is retagged.
+
+`v0.5.0` adds three features to the Go plugin contract, described in
+[the decision record](adr-plugin-reverse-progress-endpoints.md): calls from a guest back into its host
+(`Manifest.WithReverse`), bounded progress and log frames streamed from a call, and a standard declared
+loopback data endpoint (`contract/endpoint`), plus `Session.Done`. It is a new minor version of
+`contract`, `cengine` and the umbrella because the exported API grows and the descriptor gains optional
+`reverse` and `progress` declarations: **a plugin that declares either needs a v0.5 host**, while a plugin
+that declares neither runs on any host, and the wire version stays `ext.plugin/v1`. The C engine does not
+implement them and **fails closed**: its descriptor parser rejects a package that declares them, and the
+C build of `cengine` refuses a host that enables reverse calls, instead of ignoring either
+([the parity note](plugin-engine-parity.md)). `res/system` v0.1.1 carries the supervisor
+fix that makes `Instance` never report a state the graph has not recorded, and the library examples
+moved into it; `res/web` v0.5.1 carries the examples and the `wasm/reactor.js` asset that moved into it.
+Both are patch releases, since neither changes an exported name. `wasm`, `hashicorp` and the 24 adapters
+have the same bytes as before and are not retagged: they still require `contract` v0.4.0, which is fine,
+because a build that also requires v0.5.0 (the umbrella and the products do) resolves to it.
 
 `pkg/plugin-go/contract` v0.2.0 is correct: it needs no sibling checksums, because it has no sibling
 dependencies. Its v0.2.1 differs from it only by one doc comment in `session.go`, which named

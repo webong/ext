@@ -1,6 +1,6 @@
 # ADR: reverse calls, progress frames and data endpoints
 
-Status: proposed. Target: `contract`, `cengine` and the umbrella at v0.5.0, as one release.
+Status: accepted. Ships in `contract`, `cengine` and the umbrella at v0.5.0, as one release: the Go side is implemented, and the C engine refuses it (see "Status in v0.5.0" below).
 
 ## Problem
 

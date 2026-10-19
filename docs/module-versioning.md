@@ -253,6 +253,7 @@ later rounds followed for new content.
 | Bounds and listing (`v0.3.0`) | `pkg/plugin-go/contract`, `pkg/plugin-go/cengine` and `pkg/plugin-go` at v0.3.0, and nothing else |
 | Manifest names (`v0.4.0`) | `pkg/plugin-go/contract`, `pkg/plugin-go/cengine` and `pkg/plugin-go` at v0.4.0, and the 24 adapter modules at their next minor version: `adapters/chromium` v0.4.0; `adapters/firefox`, `adapters/chrome` and `adapters/edge` v0.3.0; and `adapters/safari`, `adapters/credman`, `adapters/keychain`, `adapters/secret_service`, `adapters/git`, `adapters/evm`, `adapters/wasm` and the Chromium- and Firefox-family adapters v0.2.0 |
 | Reverse calls, progress and endpoints (`v0.5.0`) | `pkg/plugin-go/contract`, `pkg/plugin-go/cengine` and `pkg/plugin-go` at v0.5.0; `res/system` v0.1.1 and `res/web` v0.5.1 as patch releases; no adapter, `wasm` or `hashicorp` |
+| Dependency security (`v0.5.1`) | `pkg/plugin-go/hashicorp` v0.2.2 and `pkg/plugin-go` v0.5.1; no other module |
 
 `v0.3.0` is a minor version because `Store.ListUnverified` and `Layered.ListUnverified` are new API in
 both `contract/host/store` and `cengine/host/store`. It also bounds the cost of validating and resolving
@@ -298,6 +299,16 @@ moved into it; `res/web` v0.5.1 carries the examples and the `wasm/reactor.js` a
 Both are patch releases, since neither changes an exported name. `wasm`, `hashicorp` and the 24 adapters
 have the same bytes as before and are not retagged: they still require `contract` v0.4.0, which is fine,
 because a build that also requires v0.5.0 (the umbrella and the products do) resolves to it.
+
+The `v0.5.1` round is a dependency-security patch with no code or exported-API change. `hashicorp` v0.2.2 and
+the umbrella v0.5.1 move `google.golang.org/grpc` from v1.83.1 to v1.83.2 and `golang.org/x/net` from v0.59.0 to
+v0.60.0. `govulncheck` on `main` reported GO-2026-6443 (grpc) and GO-2026-6603, GO-2026-6611, GO-2026-6612 and
+GO-2026-6617 (x/net) for the umbrella; the same scan of the prepared tree reports none of them for either module.
+The standard-library findings it still lists depend on the Go toolchain, not on `go.mod`. `hashicorp` pinned the
+older versions as well, so the umbrella alone could not fix it, which is why both modules are tagged. A pin is only a
+minimum: a consumer of `hashicorp` v0.2.1 or the umbrella v0.5.0 takes the vulnerable versions unless it requires the
+patched ones itself, and `go get google.golang.org/grpc@v1.83.2 golang.org/x/net@v0.60.0` fixes that without
+waiting. `v0.5.0` and `v0.2.1` stay published.
 
 `pkg/plugin-go/contract` v0.2.0 is correct: it needs no sibling checksums, because it has no sibling
 dependencies. Its v0.2.1 differs from it only by one doc comment in `session.go`, which named

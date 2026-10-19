@@ -12,6 +12,7 @@ import (
 	plugin "github.com/webong/ext/pkg/plugin-go/contract"
 	"math"
 	"runtime/cgo"
+	"sync"
 	"time"
 	"unsafe"
 )
@@ -19,11 +20,45 @@ import (
 // Session is the Go session facade over the shared C engine. It implements the
 // author.Caller interface and uses existing runtime Backend factories. Close
 // drains and frees the C allocation; Abort stops work and then frees it.
-type Session struct{ *Host }
+type Session struct {
+	*Host
+	done     chan struct{}
+	doneOnce sync.Once
+}
+
+// Done is closed once the session has been closed or aborted.
+func (s *Session) Done() <-chan struct{} { return s.done }
+
+func (s *Session) finish() { s.doneOnce.Do(func() { close(s.done) }) }
+
+// CallProgress is Call for an operation that declares progress. The C engine
+// does not carry progress frames yet, so an operation that declares them is
+// refused (plugin.ErrUnsupported) rather than run without its events; any other
+// operation runs as Call and onProgress is never invoked. Use the pure-Go build
+// for progress until the C engine supports it.
+func (s *Session) CallProgress(ctx context.Context, contract plugin.ContractRef, operation string, payload json.RawMessage, onProgress func(plugin.Progress), options ...plugin.CallOptions) (json.RawMessage, error) {
+	if op, err := s.Descriptor().Lookup(contract, operation); err == nil && op.Progress {
+		return nil, plugin.ErrUnsupported
+	}
+	return s.Call(ctx, contract, operation, payload)
+}
+
+// refuseReverse rejects Options.Reverse on a build whose engine does not
+// carry reverse calls yet. The host is refused at open, never silently without
+// the services it configured.
+func refuseReverse(options plugin.Options) error {
+	if options.Reverse != nil {
+		return plugin.ErrUnsupported
+	}
+	return nil
+}
 
 func Open(ctx context.Context, d plugin.Descriptor, options plugin.Options) (*Session, error) {
 	if options.Verify == nil || options.Authorize == nil {
 		return nil, plugin.ErrDenied
+	}
+	if err := refuseReverse(options); err != nil {
+		return nil, err
 	}
 	if options.Connect == nil || options.Timeout < 0 || options.Timeout/time.Millisecond > math.MaxUint32 {
 		return nil, plugin.ErrInvalid
@@ -38,6 +73,9 @@ func Open(ctx context.Context, d plugin.Descriptor, options plugin.Options) (*Se
 func OpenProcess(ctx context.Context, d plugin.Descriptor, launch LaunchOptions, options plugin.Options) (*Session, error) {
 	if options.Verify == nil || options.Authorize == nil {
 		return nil, plugin.ErrDenied
+	}
+	if err := refuseReverse(options); err != nil {
+		return nil, err
 	}
 	if options.Timeout < 0 || options.Timeout/time.Millisecond > math.MaxUint32 {
 		return nil, plugin.ErrInvalid
@@ -92,13 +130,14 @@ func openSession(ctx context.Context, d plugin.Descriptor, options plugin.Option
 		h.Destroy()
 		return nil, err
 	}
-	return &Session{h}, nil
+	return &Session{Host: h, done: make(chan struct{})}, nil
 }
 func (s *Session) Close(ctx context.Context) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
 	if s.State() == plugin.StateClosed {
+		s.finish()
 		return s.Host.Close()
 	}
 	if err := s.DrainContext(ctx); err != nil {
@@ -106,9 +145,15 @@ func (s *Session) Close(ctx context.Context) error {
 	}
 	err := s.Host.Close()
 	s.Destroy()
+	s.finish()
 	return err
 }
-func (s *Session) Abort() error { err := s.Host.Close(); s.Destroy(); return err }
+func (s *Session) Abort() error {
+	err := s.Host.Close()
+	s.Destroy()
+	s.finish()
+	return err
+}
 
 //export ctxGoContextPolicy
 func ctxGoContextPolicy(handle C.uintptr_t, kind C.int, caller C.uintptr_t, data *C.uint8_t, n C.size_t) (result C.int32_t) {

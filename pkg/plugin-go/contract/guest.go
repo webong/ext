@@ -66,6 +66,15 @@ func (g *Guest) Invoke(ctx context.Context, request Request) (Response, error) {
 		response.Error = &RemoteError{Code: "invalid_request", Message: "request does not match selected contract"}
 		return response, response.Validate(request.ID)
 	}
+	// Called in the host's own process, the host's sink is the reporter: events
+	// reach it directly, and only for an operation that declared progress.
+	if sink := ProgressSinkFrom(ctx); sink != nil {
+		if op, err := g.descriptor.Lookup(request.Contract, request.Operation); err == nil && op.Progress {
+			ctx = WithProgressReporter(ctx, sinkReporter{sink})
+		} else {
+			ctx = WithProgressReporter(ctx, noReporter{})
+		}
+	}
 	ctx, deadlineCancel := context.WithDeadline(ctx, request.Deadline)
 	defer deadlineCancel()
 	ctx, limitCancel := context.WithTimeout(ctx, g.timeout)
@@ -93,4 +102,17 @@ func (g *Guest) Invoke(ctx context.Context, request Request) (Response, error) {
 	}
 	response.Payload = append(json.RawMessage(nil), response.Payload...)
 	return response, response.Validate(request.ID)
+}
+
+type sinkReporter struct{ sink ProgressSink }
+
+func (r sinkReporter) Report(p Progress) error {
+	delivered, err := r.sink.Deliver(p)
+	if err != nil {
+		return err
+	}
+	if !delivered {
+		return ErrProgressDropped
+	}
+	return nil
 }

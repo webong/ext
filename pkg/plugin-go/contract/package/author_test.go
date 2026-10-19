@@ -1,6 +1,7 @@
 package packagekit_test
 
 import (
+	"encoding/json"
 	"errors"
 	plugin "github.com/webong/ext/pkg/plugin-go/contract"
 	"github.com/webong/ext/pkg/plugin-go/contract/package"
@@ -212,5 +213,36 @@ func TestTreeRulesRejected(t *testing.T) {
 	m.Artifacts[len(m.Artifacts)-1].Kind = "bundle"
 	if err := m.Validate(); err == nil {
 		t.Fatal("unknown artifact kind accepted")
+	}
+}
+
+func TestWithReverseDeclaresHostOperations(t *testing.T) {
+	exe := filepath.Join(t.TempDir(), "provider")
+	if err := os.WriteFile(exe, []byte("binary"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	contracts := []plugin.Contract{{ContractRef: plugin.ContractRef{Name: "work", Version: "v1"}, Operations: []plugin.Operation{{Name: "run", Progress: true}}}}
+	m, err := packagekit.ExecutableManifest("p", "1", contracts, exe)
+	if err != nil {
+		t.Fatal(err)
+	}
+	reverse := []plugin.Contract{{ContractRef: plugin.ContractRef{Name: "host.svc", Version: "v1"}, Operations: []plugin.Operation{{Name: "sign"}}}}
+	withReverse, err := m.WithReverse(reverse)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(m.Descriptor.Reverse) != 0 {
+		t.Fatal("WithReverse changed its receiver")
+	}
+	if _, err := withReverse.Descriptor.LookupReverse(reverse[0].ContractRef, "sign"); err != nil {
+		t.Fatal(err)
+	}
+	data, err := json.Marshal(withReverse)
+	if err != nil || !strings.Contains(string(data), `"reverse":[`) || !strings.Contains(string(data), `"progress":true`) {
+		t.Fatalf("manifest JSON must carry both declarations: %s %v", data, err)
+	}
+	bad := []plugin.Contract{{ContractRef: reverse[0].ContractRef}}
+	if _, err := m.WithReverse(bad); err == nil {
+		t.Fatal("a reverse contract without operations was accepted")
 	}
 }

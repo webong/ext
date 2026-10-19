@@ -90,6 +90,16 @@ func ExecutableManifest(id, version string, contracts []plugin.Contract, executa
 	return m, m.Validate()
 }
 
+// WithReverse returns the manifest declaring the host operations its plugin may
+// call (see plugin.Descriptor.Reverse). Declaring progress needs no helper: set
+// Operation.Progress in the contracts given to ExecutableManifest or
+// SourceManifest. A manifest generator writes both as the descriptor's
+// "reverse" list and each operation's "progress" flag.
+func (m Manifest) WithReverse(reverse []plugin.Contract) (Manifest, error) {
+	m.Descriptor.Reverse = cloneContracts(reverse)
+	return m, m.Validate()
+}
+
 // SourceManifest describes a package of source files and directories that the consumer runs
 // under a runtime it owns; it declares no entrypoint. files are slash-separated
 // paths relative to root, each listed once as an artifact whose name equals its

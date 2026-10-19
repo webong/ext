@@ -22,6 +22,10 @@ const DefaultTimeout = 10 * time.Minute
 // DrainTimeout is how long Close waits for admitted calls before aborting.
 const DrainTimeout = 5 * time.Second
 
+// ReverseOptions configures the services a host offers to its plugin; it is
+// plugin.ReverseOptions, so a host need not import the root package for it.
+type ReverseOptions = plugin.ReverseOptions
+
 // Options supplies the admission policy and launch choice.
 type Options struct {
 	// Launch overrides how the package starts, for example to run source files
@@ -35,6 +39,10 @@ type Options struct {
 	// Timeout bounds the handshake and calls without an earlier caller
 	// deadline. Zero uses DefaultTimeout.
 	Timeout time.Duration
+	// Reverse offers services to the plugin: calls from the plugin to this
+	// host, limited to the operations its descriptor declares in Reverse. When
+	// nil, every reverse call is denied.
+	Reverse *ReverseOptions
 }
 
 // Process is one plugin process behind a plugin session.
@@ -84,6 +92,7 @@ func Open(ctx context.Context, installed store.Installed, options Options) (*Pro
 		},
 		Authorize: authorize,
 		Timeout:   timeout,
+		Reverse:   options.Reverse,
 	})
 	if err != nil {
 		return nil, err
@@ -99,6 +108,14 @@ func (p *Process) Descriptor() plugin.Descriptor { return p.session.Descriptor()
 // params is JSON-encoded, with nil meaning JSON null. A non-nil result receives
 // the decoded payload; a null payload leaves it untouched.
 func (p *Process) Call(ctx context.Context, method string, params any, result any) error {
+	return p.CallProgress(ctx, method, params, result, nil)
+}
+
+// CallProgress is Call for an operation that declares progress: onProgress
+// receives its progress and log events while the call runs. It must not block.
+// Events beyond the rate limit are dropped and counted in the next event's
+// Dropped field. The result is unchanged.
+func (p *Process) CallProgress(ctx context.Context, method string, params any, result any, onProgress func(plugin.Progress), options ...plugin.CallOptions) error {
 	ref, operation, err := p.session.Descriptor().ResolveMethod(method)
 	if err != nil {
 		return err
@@ -111,7 +128,7 @@ func (p *Process) Call(ctx context.Context, method string, params any, result an
 		}
 		payload = encoded
 	}
-	raw, err := p.session.Call(ctx, ref, operation, payload)
+	raw, err := p.session.CallProgress(ctx, ref, operation, payload, onProgress, options...)
 	if err != nil {
 		return err
 	}

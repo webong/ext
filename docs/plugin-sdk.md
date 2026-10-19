@@ -184,6 +184,21 @@ cancels factories and closes readers. A read failure terminates the client strea
 there is no replay, resume cursor or implicit retry. Cancellation can fail the
 whole underlying session, so expiry is the final cleanup backstop.
 
+In Go, a plugin calls its host over the same connection. Declare the host
+operations in the descriptor's `reverse` list, offer them with
+`Options.Reverse` (a handler and a required `Authorize`), and call them from a
+handler with `plugin.ReverseFrom(ctx)`, which implements `author.Caller`; use
+`plugin.SessionReverseFrom(ctx)` for work that outlives the call. An operation
+that declares `progress` reports with `plugin.ProgressFrom(ctx)`, and the host
+reads it with `Session.CallProgress`. A package author declares host operations with
+`Manifest.WithReverse` (ExecutableManifest and SourceManifest take the
+operations' `Progress` flags in the contracts); a manifest generator writes the
+descriptor's `reverse` list and each operation's `progress` flag. A loopback
+data endpoint is declared with `contract/endpoint`. See the
+[design record](adr-plugin-reverse-progress-endpoints.md); the C engine and the
+other SDKs do not carry these yet. The rest of this section describes the
+separate-connection approach the other SDKs still use.
+
 For guest-to-host calls, expose the host service as another `Guest` and give the
 plugin an explicitly admitted reverse `Session` implementing `author.Caller`.
 Apply verification and per-call authorization in that direction too. A supplied

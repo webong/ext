@@ -61,10 +61,12 @@ the dependency from the proxy at the required version. Keeping them out avoids
 the false impression that a published module can redirect consumers to a local
 path, and it means each `go.mod` describes exactly what a consumer will get.
 
-The CLI module `src/ctx` (module path `github.com/webong/ext/ctx`) and the
-`examples` module keep `replace` directives
-because they are the modules developers build and run. Those are what let
-`go build ./...` use local module code. The repository root is not a module: it
+The CLI modules `src/ctx` (module path `github.com/webong/ext/ctx`) and `src/ctn` keep
+`replace` directives, but only for the sibling modules they require, because they are the modules
+developers build and run. Those are what let `go build ./...` use local module code. Adapters are
+ext packages that `ctx` loads, not Go imports, so neither module lists or replaces them. The Go
+examples live in the library they show (for example `pkg/plugin-go/examples`) and need no module
+of their own. The repository root is not a module: it
 holds `go.work` only, so it has no `go.mod` and Go resolves no module there.
 
 Binary releases are tagged per product, `ctx-vX.Y.Z` and `ctn-vX.Y.Z`, and are
@@ -157,8 +159,8 @@ Before tagging, confirm each module builds and tests on its own with the
 workspace active, and that `src/ctx` resolves the intended versions:
 
 ```bash
-for module in src/ctx src/ctn examples pkg/plugin-go res/system \
-              pkg/plugin-hashicorp pkg/plugin-wasm \
+for module in src/ctx src/ctn pkg/plugin-go pkg/plugin-go/contract pkg/plugin-go/cengine \
+              pkg/plugin-go/hashicorp pkg/plugin-go/wasm res/system adapters/wasm adapters/evm \
               res/web res/credential; do
   (cd "$module" && go build ./... && go test ./...) || exit 1
 done
@@ -168,9 +170,10 @@ done
 
 Each module's `go` line is the oldest Go that builds it, so it must be at least what its own
 dependencies require; `go mod tidy` raises it when it is not. The light libraries
-(`pkg/plugin-go`, `pkg/plugin-wasm`, `res/*` and the adapters) declare `go 1.23.0` and their dependencies allow it. Four modules declare
+(`pkg/plugin-go/contract`, `pkg/plugin-go/cengine`, `pkg/plugin-go/wasm`, `res/*` and the adapters) declare `go 1.23.0` and their dependencies allow it. Four modules declare
 `go 1.26.0` because `golang.org/x/net`, `x/sys` and `x/text` at the versions they use require it:
-`pkg/plugin-hashicorp` (gRPC), `src/ctx`, `src/ctn` and `examples`. The workspace file
+`pkg/plugin-go/hashicorp` (gRPC), the umbrella `pkg/plugin-go` (it requires `hashicorp`), `src/ctx`
+and `src/ctn`. The workspace file
 `go.work` declares the highest of them, and CI runs Go 1.26.x.
 
 `pkg/plugin-hashicorp/v0.1.0` was published declaring `go 1.23.0` while requiring those

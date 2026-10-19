@@ -71,8 +71,14 @@ func (g *Guest) Invoke(ctx context.Context, request Request) (Response, error) {
 	if sink := ProgressSinkFrom(ctx); sink != nil {
 		if op, err := g.descriptor.Lookup(request.Contract, request.Operation); err == nil && op.Progress {
 			ctx = WithProgressReporter(ctx, sinkReporter{sink})
+			limits := ProgressLimits{}.Resolved()
+			if request.Progress != nil {
+				limits = request.Progress.Resolved()
+			}
+			ctx = WithProgressLimits(ctx, &limits)
 		} else {
 			ctx = WithProgressReporter(ctx, noReporter{})
+			ctx = WithProgressLimits(ctx, nil)
 		}
 	}
 	ctx, deadlineCancel := context.WithDeadline(ctx, request.Deadline)

@@ -154,6 +154,26 @@ In-process and bridge backends implement the same interfaces over direct calls
   character in half: `plugin.SplitProgressText` cuts at rune boundaries (and
   replaces invalid bytes with U+FFFD) so every piece is a legal event. Where to
   split (at newlines, say) stays with the guest.
+- **The handler can read the rate.** `plugin.ProgressLimitsFrom(ctx)` returns the
+  event rate the host set for the call (defaults filled in), and false for an
+  operation that did not declare progress, so a streamer can coalesce lines to
+  stay inside it instead of letting the limit drop events.
+- **What `Report` returns.** Only `ErrProgressDropped` is routine (the event was
+  dropped and counted; treat it as sent or slow down). `ErrUnsupported` means the
+  operation did not declare progress, so no event will ever flow: stop reporting
+  and return the text in the result. `ErrInvalid` means the event breaks the
+  rules and nothing was sent. `ErrClosed` means the call is over or the
+  connection closed. Any other error means the connection is failing. An
+  operation that declared progress always gets a working reporter, whether or
+  not the host asked for the events (a host using plain `Call` discards them).
+- **A long call has two bounds, and both need raising.** The host's
+  `Options.Timeout` (and the caller's context deadline) bounds how long the host
+  waits; the guest's own `MaxCallDuration` (default 30 seconds) is a limit the
+  guest sets for itself, independent of the host, because a guest decides what it
+  is willing to run. A command that runs for minutes or days must raise both, or
+  whichever is lower ends the call with a deadline error. The handler's context
+  also ends at the request's deadline, so a handler that honors its context stops
+  there too.
 - Over the limit, events are **dropped and counted, never an error**: the next
   event that is delivered carries `dropped: N` (events lost since the last
   delivered one), and a final marker with the remaining count is delivered
@@ -205,6 +225,11 @@ carry:
   stream, before any other data. A listener closes the connection on a missing or
   wrong token, and needs none when `Token` is empty. The token is never put in a
   URL.
+  `Grant.AuthorizationHeader()` returns the header value for the first group and
+  `Grant.DialTCP(ctx)` connects and sends the token line for `tcp`, so a host
+  follows the convention without writing it. `DialTCP` reads a one-time token
+  only after the connection exists, and its errors (`ErrDial`) never name the
+  address.
 - **Declaring an endpoint in a result.** A result carries the object under the
   key `endpoint` (`endpoint.Key`). `endpoint.Decode(raw)` reads it strictly
   (unknown fields and duplicate keys are refused) and applies `Check`, the shape

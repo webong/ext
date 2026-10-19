@@ -15,6 +15,7 @@
 // first line of the stream, the token followed by one "\n", before any other
 // data. A listener that gets no token, or a wrong one, closes the connection.
 // When Token is empty the listener needs none. The token is never put in a URL.
+// Grant.AuthorizationHeader and Grant.DialTCP present it this way.
 //
 // Rotation. A grant is bounded by its session and by ExpiresAt. For a listener
 // that outlives one expiry the plugin announces a replacement endpoint and the
@@ -24,6 +25,7 @@
 package endpoint
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -308,6 +310,76 @@ func (g *Grant) Token() (string, error) {
 		g.used = true
 	}
 	return g.ep.Token, nil
+}
+
+// AuthorizationHeader returns the value for the Authorization header that a
+// client of a ws, wss, http or https endpoint sends ("Bearer <token>"), per the
+// convention in the package documentation. It returns an empty string when the
+// endpoint has no token, and ErrInvalid for a tcp endpoint, which presents its
+// token as the first line instead (see DialTCP). It reads the token, so a
+// one-time endpoint allows one call; an ended grant returns ErrExpired.
+func (g *Grant) AuthorizationHeader() (string, error) {
+	switch g.ep.Scheme {
+	case "ws", "wss", "http", "https":
+	default:
+		return "", fmt.Errorf("%w: this endpoint does not use an Authorization header", plugin.ErrInvalid)
+	}
+	token, err := g.Token()
+	if err != nil || token == "" {
+		return "", err
+	}
+	return "Bearer " + token, nil
+}
+
+// ErrDial is returned when DialTCP cannot connect or present the token. It
+// carries no detail: the system's own dial errors name the address, which is as
+// secret as the token.
+var ErrDial = errors.New("plugin endpoint connection failed")
+
+// DialTCP connects to a tcp endpoint and presents its token as the first line,
+// the token followed by one "\n", before any other data, per the convention in
+// the package documentation. An endpoint without a token sends nothing. The
+// caller owns the returned connection and the grant's lifetime still applies:
+// an ended grant returns ErrExpired, a one-time token is read only once, and a
+// cancelled or expired ctx returns ctx.Err().
+func (g *Grant) DialTCP(ctx context.Context) (net.Conn, error) {
+	if g.ep.Scheme != "tcp" {
+		return nil, fmt.Errorf("%w: this endpoint is not tcp", plugin.ErrInvalid)
+	}
+	_, address, _, err := g.Target()
+	if err != nil {
+		return nil, err
+	}
+	var dialer net.Dialer
+	conn, err := dialer.DialContext(ctx, "tcp", address)
+	if err != nil {
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return nil, ctxErr
+		}
+		return nil, ErrDial
+	}
+	// Read the token after the connection exists, so a one-time token is not
+	// spent on a dial that failed.
+	token, err := g.Token()
+	if err != nil {
+		_ = conn.Close()
+		return nil, err
+	}
+	if token == "" {
+		return conn, nil
+	}
+	if deadline, ok := ctx.Deadline(); ok {
+		_ = conn.SetWriteDeadline(deadline)
+		defer conn.SetWriteDeadline(time.Time{})
+	}
+	if _, err := conn.Write([]byte(token + "\n")); err != nil {
+		_ = conn.Close()
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return nil, ctxErr
+		}
+		return nil, ErrDial
+	}
+	return conn, nil
 }
 
 func (g *Grant) String() string   { return "endpoint grant(" + redactedScheme(g.ep.Scheme) + ")" }

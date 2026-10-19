@@ -75,9 +75,34 @@ Host side (`contract`, `contract/host`):
 - A reverse call is admitted only if (contract, operation) is in the plugin's
   declared `reverse` set, its `parent` (if named) is the live call, the payload
   is within bound, and `Authorize` allows it. `ReverseRequest` tells the handler
-  whether the call is call-scoped or session-scoped. Otherwise the plugin gets a `reverse_response` error
-  with a stable code (`denied`, `unsupported`, `too_large`, `busy`, `expired`);
-  the call and the session continue.
+  whether the call is call-scoped or session-scoped. Otherwise the plugin gets a
+  `reverse_response` error with a stable code; the call and the session continue.
+  The codes separate "not offered, fall back" from "forbidden" and make a missing
+  declaration easy to debug:
+
+  | code | meaning |
+  | ---- | ------- |
+  | `reverse_undeclared` | the descriptor's `reverse` list does not name the operation; fix the descriptor (a guest also gets this locally, without sending) |
+  | `reverse_unavailable` | the host offers no reverse services, or not yet (before the handshake matched) |
+  | `denied` | the host's `Authorize` refused this call |
+  | `too_large`, `busy`, `expired` | payload over the bound, too many in flight, deadline already past |
+
+  Which operations a plugin declared is the plugin's own information, so
+  `reverse_undeclared` reveals nothing about the host.
+- **What the guest sees from a handler's error.** A reverse call fails in the
+  guest with a `*plugin.RemoteError` (`errors.As` finds it). When `Handle`
+  returns a `*plugin.RemoteError`, the guest receives that code and message
+  unchanged, so a host may define its own codes (for example `policy`) and
+  guests may branch on them. The code must match the identifier rule (lowercase
+  letters, digits and `. _ / -`, at most 256 bytes), the message must be at most
+  4096 bytes and the retry hint within range. An error that breaks those rules,
+  and any error that is not a `RemoteError`, reaches the guest as
+  `operation_failed` with a generic message, and the connection stays up. The
+  same holds for a guest handler's error on a forward call.
+- **Per-session host state.** There is no per-session value in the API: a host
+  keeps it in the context. A call-scoped handler's context derives from the
+  context given to `Call`, and a session-scoped handler's from the context given
+  to `Open` (its values, not its cancellation).
 - The reverse deadline is the earliest of the plugin's deadline, the parent
   call's deadline (if call-scoped) and `Timeout`. When the parent call ends,
   its still-running reverse handlers are canceled and their late results are

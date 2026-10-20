@@ -238,6 +238,59 @@ EXT_HOST_API ext_status ext_host_call_progress(ext_host *, const uint8_t *,
                                                const ext_call_options *,
                                                const ext_progress_options *,
                                                ext_buffer *);
+
+/* Reverse calls. A plugin whose descriptor lists operations in "reverse" may call
+ * them on its host while a call of its own is in flight. The engine checks each
+ * request (the frame is well formed, it names the call in flight, the operation
+ * is declared, the payload is within bounds, the plugin's deadline has not
+ * passed) and refuses it with a stable code otherwise: reverse_undeclared,
+ * reverse_unavailable (no services configured), denied, too_large, busy,
+ * expired. The plugin gets the refusal as its answer and the call goes on; a
+ * request that breaks the framing rules fails the session with EXT_PROTOCOL.
+ *
+ * What the engine does not decide is policy. authorize runs for every request
+ * that passed the checks (zero allows); handle serves it. Both receive the
+ * request as the JSON of a Request (apiVersion, id, plugin, contract, operation,
+ * surface, deadline, payload, parent: the id of the call in flight) and the
+ * options of the call in flight: cancel and value are that call's, so a binding
+ * can derive the handler's context from the caller's, and timeout_ms is the time
+ * left to this reverse call, the earliest of the plugin's deadline, the call's
+ * and services.timeout_ms. Both run on the thread that is making the call, one
+ * at a time, and must honor the deadline; they must not reenter the host.
+ *
+ * handle emits exactly one result through emit and returns EXT_OK: a payload (a
+ * JSON value; empty means null) or a public error (the JSON of a RemoteError,
+ * which the plugin receives unchanged if it is valid, and as operation_failed
+ * if a peer would reject it). Returning anything else, or emitting twice, is a
+ * failure the plugin sees as operation_failed. A result that outlives the
+ * deadline is a failure too.
+ *
+ * Only calls made on a call in flight are served. A request without a parent (a
+ * session-scoped call) fails the session with EXT_UNSUPPORTED for now, unless
+ * no services are configured, which refuses it as unavailable. */
+#define EXT_HOST_REVERSE_PAYLOAD 0u
+#define EXT_HOST_REVERSE_PUBLIC_ERROR 1u
+typedef ext_status (*ext_reverse_emit)(void *sink, uint32_t kind,
+                                       const uint8_t *data, size_t len);
+typedef ext_status (*ext_reverse_handler)(void *user, const ext_call_options *,
+                                          const uint8_t *request, size_t len,
+                                          ext_reverse_emit emit, void *sink);
+typedef struct {
+  uint32_t struct_size;
+  void *user;
+  ext_context_policy authorize; /* required */
+  ext_reverse_handler handle;   /* required */
+  uint32_t timeout_ms;          /* zero uses 30000 */
+  uint32_t max_payload_bytes;   /* zero uses 1 MiB; at most the frame limit */
+  uint32_t max_in_flight;       /* zero uses 4; at most 1024 */
+} ext_host_services;
+/* Configure once, before start or any concurrent use. Copies the struct; user
+ * must live until destroy returns. EXT_DENIED when a hook is missing,
+ * EXT_INVALID for a bound out of range. A host created over an extension backend
+ * serves no reverse calls and refuses a descriptor that lists them. Calls are
+ * served one at a time on the calling thread, so max_in_flight is not reached. */
+EXT_HOST_API ext_status ext_host_set_services(ext_host *,
+                                              const ext_host_services *);
 /* Thread-safe and idempotent. Stops admission, wakes I/O, kills owned child.
  * A timeout/cancellation after dispatch terminates this session. No
  * process-tree containment. Policies are synchronous and cannot be forcibly

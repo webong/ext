@@ -2,6 +2,7 @@
 #include "channel.h"
 #include "platform.h"
 #include "progress.h"
+#include "reverse.h"
 #include "wire.h"
 #include <errno.h>
 #include <limits.h>
@@ -24,6 +25,8 @@ struct ext_host {
   int active, running, started, closed;
   ext_host_state state;
   ext_host_hooks hooks;
+  ext_host_services services;
+  int has_services;
   ext_backend_extension extension;
   ext_backend_extension_context extension_context;
   ext_channel *channel;
@@ -215,11 +218,11 @@ ext_status ext_host_create(const ext_host_options *o,
     return EXT_INVALID;
   }
   /* Fail closed rather than run a plugin without the frames it declared. A host
-   * that owns the child's pipes carries progress frames; reverse requests are not
-   * carried yet, and an extension backend hands the engine one response at a
-   * time, so it carries neither. */
-  if (ext_descriptor_declares_reverse(yyjson_doc_get_root(d)) ||
-      ((extension || extension_context) &&
+   * that owns the child's pipes carries progress frames and call-scoped reverse
+   * requests; an extension backend hands the engine one response at a time, so
+   * it carries neither. */
+  if ((extension || extension_context) &&
+      (ext_descriptor_declares_reverse(yyjson_doc_get_root(d)) ||
        ext_descriptor_declares_progress(yyjson_doc_get_root(d)))) {
     yyjson_doc_free(d);
     return EXT_UNSUPPORTED;
@@ -319,6 +322,33 @@ ext_status ext_host_set_hooks(ext_host *h, const ext_host_hooks *hooks) {
     h->hooks = *hooks;
   pthread_mutex_unlock(&h->mu);
   return s;
+}
+ext_status ext_host_set_services(ext_host *h, const ext_host_services *s) {
+  if (!h || !s || s->struct_size != sizeof(*s))
+    return EXT_INVALID;
+  if (!s->authorize || !s->handle)
+    return EXT_DENIED;
+  if (s->max_payload_bytes > EXT_HOST_MAX_FRAME ||
+      s->max_in_flight > EXT_REVERSE_MAX_IN_FLIGHT)
+    return EXT_INVALID;
+  pthread_mutex_lock(&h->mu);
+  ext_status status = (h->state == EXT_HOST_CREATED && !h->active &&
+                       !h->started && !h->extension.connect &&
+                       !h->extension_context.connect)
+                          ? EXT_OK
+                          : EXT_INVALID;
+  if (!status) {
+    h->services = *s;
+    if (!h->services.timeout_ms)
+      h->services.timeout_ms = EXT_REVERSE_DEFAULT_TIMEOUT_MS;
+    if (!h->services.max_payload_bytes)
+      h->services.max_payload_bytes = EXT_REVERSE_DEFAULT_PAYLOAD;
+    if (!h->services.max_in_flight)
+      h->services.max_in_flight = EXT_REVERSE_DEFAULT_IN_FLIGHT;
+    h->has_services = 1;
+  }
+  pthread_mutex_unlock(&h->mu);
+  return status;
 }
 static void observe_event(ext_host *h, const ext_call_options *options,
                           const char *stage, yyjson_val *request,
@@ -628,8 +658,12 @@ static ext_status write_bytes(ext_host *h, const uint8_t *p, size_t n,
  * while a call that declared progress is in flight, and names it as its parent;
  * anything else is a protocol violation. */
 typedef struct {
+  ext_host *host;
+  const ext_call_options *options;
+  int64_t deadline; /* of the call, on the monotonic clock */
   const char *id;
-  int declared;
+  int declared;     /* the request carried a progress rate */
+  int forward;      /* a call, not the handshake */
   ext_progress_sink *sink;
 } frame_call;
 /* A line the strict parser refused. Go reads a line in two steps: it peeks at the
@@ -648,6 +682,171 @@ static ext_status unparsable(const uint8_t *line, size_t len) {
                  : tag && yyjson_is_str(tag) && yyjson_get_len(tag) ? EXT_PROTOCOL
                                                                     : EXT_INVALID;
   yyjson_doc_free(loose);
+  return s;
+}
+/* What a reverse handler emitted. */
+typedef struct {
+  uint32_t kind;
+  uint8_t *data;
+  size_t len;
+  int emitted;
+} reverse_sink;
+static ext_status emit_reverse(void *context, uint32_t kind,
+                               const uint8_t *data, size_t len) {
+  reverse_sink *sink = context;
+  if (sink->emitted++ || kind > EXT_HOST_REVERSE_PUBLIC_ERROR ||
+      (len && !data) || len > EXT_HOST_MAX_FRAME)
+    return EXT_INVALID;
+  if (len) {
+    sink->data = malloc(len);
+    if (!sink->data)
+      return EXT_NOMEM;
+    memcpy(sink->data, data, len);
+  }
+  sink->kind = kind;
+  sink->len = len;
+  return EXT_OK;
+}
+/* The Request the hooks receive: the plugin's frame as the host's own record of
+ * the call, with the plugin's identity, the surface the descriptor declared for
+ * the operation, and the call it belongs to as parent. */
+static char *reverse_request_json(ext_host *h, const ext_reverse_request *r,
+                                  yyjson_val *declared, size_t *len) {
+  yyjson_mut_doc *doc = yyjson_mut_doc_new(NULL);
+  if (!doc)
+    return NULL;
+  yyjson_mut_val *root = yyjson_mut_obj(doc);
+  yyjson_mut_doc_set_root(doc, root);
+  yyjson_val *surface = yyjson_obj_get(declared, "surface");
+  if (surface && (!yyjson_is_str(surface) || !yyjson_get_len(surface)))
+    surface = NULL;
+  const struct {
+    const char *key;
+    yyjson_val *value;
+  } fields[] = {
+      {"id", r->id},
+      {"plugin", yyjson_obj_get(yyjson_doc_get_root(h->selection), "identity")},
+      {"contract", r->contract},
+      {"operation", r->operation},
+      {"surface", surface},
+      {"deadline", r->deadline},
+      {"payload", r->payload},
+      {"parent", r->parent}};
+  int ok = root && yyjson_mut_obj_add_str(doc, root, "apiVersion",
+                                          "ext.plugin/v1");
+  for (size_t i = 0; ok && i < sizeof(fields) / sizeof(*fields); i++) {
+    if (!fields[i].value)
+      continue;
+    yyjson_mut_val *copy = yyjson_val_mut_copy(doc, fields[i].value);
+    ok = copy && yyjson_mut_obj_add_val(doc, root, fields[i].key, copy);
+  }
+  char *json = ok ? yyjson_mut_write(doc, 0, len) : NULL;
+  yyjson_mut_doc_free(doc);
+  return json;
+}
+static int64_t earliest(int64_t a, int64_t b) { return a < b ? a : b; }
+/* Serves one reverse_request frame that arrived while a call was in flight, and
+ * writes the plugin its answer. The checks and their order are Session.
+ * admitReverse and runReverse in the Go contract; what they decide is policy
+ * goes to the hooks. A refusal is an answer: only a request that breaks the
+ * framing fails the session. */
+static ext_status serve_reverse(const frame_call *call, yyjson_val *frame) {
+  ext_host *h = call->host;
+  ext_reverse_request request;
+  ext_status s = ext_reverse_request_frame(frame, &request);
+  if (s)
+    return s;
+  const char *id = yyjson_get_str(request.id);
+  size_t id_len = yyjson_get_len(request.id), len = 0;
+  const ext_host_services *services = &h->services;
+  char *line = NULL, *json = NULL;
+  reverse_sink sink = {0};
+  yyjson_val *declared = NULL;
+  if (!h->has_services) {
+    /* Without services every reverse call is unavailable, whatever it names. */
+    line = ext_reverse_refusal(id, id_len, EXT_REVERSE_UNAVAILABLE, &len);
+    goto write;
+  }
+  /* A session-scoped call needs the host to read while no call is in flight. */
+  if (!request.parent)
+    return EXT_UNSUPPORTED;
+  if (!call->forward || !yyjson_equals_str(request.parent, call->id))
+    return EXT_PROTOCOL;
+  declared = ext_lookup_in(
+      yyjson_obj_get(yyjson_doc_get_root(h->selection), "reverse"),
+      request.contract, request.operation);
+  if (!declared) {
+    line = ext_reverse_refusal(id, id_len, EXT_REVERSE_UNDECLARED, &len);
+    goto write;
+  }
+  if (request.payload) {
+    /* The bound is on the payload as it would be written compactly. */
+    size_t payload_len = 0;
+    char *payload = yyjson_val_write(request.payload, 0, &payload_len);
+    free(payload);
+    if (!payload || payload_len > services->max_payload_bytes) {
+      line = ext_reverse_refusal(id, id_len, EXT_REVERSE_TOO_LARGE, &len);
+      goto write;
+    }
+  }
+  if (request.deadline_ms - ext_wall_ms() <= 0) {
+    line = ext_reverse_refusal(id, id_len, EXT_REVERSE_EXPIRED, &len);
+    goto write;
+  }
+  /* The reverse deadline is the earliest of the plugin's, the call's and the
+   * services' own bound. */
+  int64_t now = mono_ms();
+  int64_t until = earliest(
+      earliest(request.deadline_ms - ext_wall_ms(), call->deadline - now),
+      (int64_t)services->timeout_ms);
+  int64_t reverse_deadline = now + until;
+  ext_call_options options = *call->options;
+  options.timeout_ms = until > 0 ? (uint32_t)earliest(until, UINT32_MAX) : 1;
+  json = reverse_request_json(h, &request, declared, &len);
+  if (!json) {
+    s = EXT_NOMEM;
+    goto done;
+  }
+  size_t json_len = len;
+  len = 0;
+  if (services->authorize(services->user, &options, (const uint8_t *)json,
+                          json_len)) {
+    line = ext_reverse_refusal(id, id_len, EXT_REVERSE_DENIED, &len);
+    goto write;
+  }
+  if (canceled(call->options) || mono_ms() >= reverse_deadline) {
+    line = ext_reverse_refusal(id, id_len, EXT_REVERSE_EXPIRED, &len);
+    goto write;
+  }
+  int64_t left = reverse_deadline - mono_ms();
+  options.timeout_ms = (uint32_t)earliest(left, UINT32_MAX);
+  s = services->handle(services->user, &options, (const uint8_t *)json,
+                       json_len, emit_reverse, &sink);
+  if (s || sink.emitted != 1) {
+    line = ext_reverse_failure(id, id_len, &len);
+  } else if (sink.kind != EXT_HOST_REVERSE_PUBLIC_ERROR &&
+             (canceled(call->options) || mono_ms() >= reverse_deadline)) {
+    /* A result that outlived its deadline is not one the plugin may use. */
+    line = ext_reverse_failure(id, id_len, &len);
+  } else {
+    line = ext_reverse_answer(id, id_len, sink.kind, sink.data, sink.len,
+                              services->max_payload_bytes, &len);
+  }
+  s = EXT_OK;
+write:
+  if (!line) {
+    s = EXT_NOMEM;
+    goto done;
+  }
+  s = write_bytes(h, (const uint8_t *)line, len, call->deadline,
+                  call->options);
+  if (!s)
+    s = write_bytes(h, (const uint8_t *)"\n", 1, call->deadline,
+                    call->options);
+done:
+  free(line);
+  free(json);
+  free(sink.data);
   return s;
 }
 /* Routes one line the plugin sent. A line without a "frame" tag is the response;
@@ -677,10 +876,8 @@ static ext_status route_frame(yyjson_doc *doc, const frame_call *call,
       return EXT_PROTOCOL;
     return ext_progress_sink_deliver(call->sink, &event);
   }
-  /* Reverse requests are not carried yet; a descriptor that declares them is
-   * refused when the host is created. */
   if (yyjson_equals_str(tag, "reverse_request"))
-    return EXT_UNSUPPORTED;
+    return serve_reverse(call, root);
   return EXT_PROTOCOL;
 }
 /* Writes one request line and reads lines until the response. Progress frames
@@ -856,7 +1053,7 @@ ext_status ext_host_start_with_options(ext_host *h, const ext_call_options *o) {
                      "v1\",\"id\":\"hello\",\"operation\":\"plugin.hello\","
                      "\"deadline\":\"%s.%03lldZ\"}",
                      stamp, (long long)(wall % 1000));
-    frame_call hello_call = {"hello", 0, NULL};
+    frame_call hello_call = {h, o, deadline, "hello", 0, 0, NULL};
     s = exchange(h, (uint8_t *)hello, (size_t)n, deadline, o, &hello_call,
                  &response, &doc);
   }
@@ -943,7 +1140,13 @@ static ext_status invoke_impl(ext_host *h, const uint8_t *input, size_t len,
   if (declared)
     ext_progress_sink_init(&sink, progress ? progress->deliver : NULL,
                            progress ? progress->user : NULL, events, bytes);
-  frame_call call = {yyjson_get_str(yyjson_obj_get(r, "id")), declared, &sink};
+  frame_call call = {h,
+                     o,
+                     deadline,
+                     yyjson_get_str(yyjson_obj_get(r, "id")),
+                     declared,
+                     1,
+                     &sink};
   s = enter(h, deadline, 0, o);
   if (s) {
     observe_event(h, o, "invoke", r, s, NULL, stage_start);

@@ -49,9 +49,11 @@ func (s *Session) CallProgress(ctx context.Context, contract plugin.ContractRef,
 	return s.Host.callProgress(ctx, contract, operation, payload, onProgress, o.Progress)
 }
 
-// refuseReverse rejects Options.Reverse on a build whose engine does not
-// carry reverse calls yet. The host is refused at open, never silently without
-// the services it configured.
+// refuseReverse rejects Options.Reverse on a session whose backend the engine
+// does not own. An extension backend (Open with Connect: in-process, HashiCorp,
+// WASI, native Go) hands the engine one response at a time and carries no
+// reverse frames, so the host is refused at open, never silently without the
+// services it configured. OpenProcess serves them.
 func refuseReverse(options plugin.Options) error {
 	if options.Reverse != nil {
 		return plugin.ErrUnsupported
@@ -80,11 +82,13 @@ func OpenProcess(ctx context.Context, d plugin.Descriptor, launch LaunchOptions,
 	if options.Verify == nil || options.Authorize == nil {
 		return nil, plugin.ErrDenied
 	}
-	if err := refuseReverse(options); err != nil {
-		return nil, err
-	}
 	if options.Timeout < 0 || options.Timeout/time.Millisecond > math.MaxUint32 {
 		return nil, plugin.ErrInvalid
+	}
+	if options.Reverse != nil {
+		if err := validateReverse(options.Reverse); err != nil {
+			return nil, err
+		}
 	}
 	return openSession(ctx, d, options, func() (*Host, error) {
 		return NewLaunch(launch, d, func([]byte) error { return nil }, func([]byte) error { return nil })
@@ -131,6 +135,12 @@ func openSession(ctx context.Context, d plugin.Descriptor, options plugin.Option
 	if err = status(C.ext_go_set_hooks(h.ptr, C.uintptr_t(h.policy))); err != nil {
 		h.Destroy()
 		return nil, err
+	}
+	if options.Reverse != nil {
+		if err = h.setReverse(options.Reverse); err != nil {
+			h.Destroy()
+			return nil, err
+		}
 	}
 	if err = h.Start(ctx); err != nil {
 		h.Destroy()

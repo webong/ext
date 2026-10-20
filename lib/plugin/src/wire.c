@@ -442,6 +442,36 @@ ext_status ext_request(yyjson_val *d, yyjson_val *r, int64_t *deadline) {
   return ext_same(get(op, "surface"), get(r, "surface")) ? EXT_OK
                                                          : EXT_MISMATCH;
 }
+/* A RemoteError as it travels in a response or a reverse response: a code, a
+ * message of at most 4096 bytes and an optional retry hint of whole
+ * milliseconds from zero to one year, the bounds of plugin.Response.Validate. */
+int ext_error_valid(yyjson_val *err) {
+  yyjson_val *message = get(err, "message"), *retry = get(err, "retryAfterMilliseconds");
+  if (!FIELDS(err, "code", "message", "retryAfterMilliseconds") ||
+      !ext_text(get(err, "code"), 0, 0) ||
+      (message && !yyjson_is_null(message) && !yyjson_is_str(message)) ||
+      yyjson_get_len(message) > 4096)
+    return 0;
+  if (retry && !yyjson_is_null(retry)) {
+    int64_t milliseconds;
+    if (!int64_parse(retry, &milliseconds) || milliseconds < 0 ||
+        milliseconds > EXT_MAX_RETRY_AFTER_MS)
+      return 0;
+  }
+  return 1;
+}
+int ext_int64(yyjson_val *v, int64_t *out) { return int64_parse(v, out); }
+int64_t ext_deadline_ms(yyjson_val *v) { return timestamp(v); }
+yyjson_val *ext_lookup_in(yyjson_val *contracts, yyjson_val *r,
+                          yyjson_val *name) {
+  size_t i, n, j, m;
+  yyjson_val *c, *o;
+  yyjson_arr_foreach(contracts, i, n, c) if (ext_same_ref(c, r)) {
+    yyjson_arr_foreach(get(c, "operations"), j, m,
+                       o) if (ext_same(get(o, "name"), name)) return o;
+  }
+  return NULL;
+}
 ext_status ext_response(yyjson_val *r, const char *id) {
   if (!FIELDS(r, "apiVersion", "id", "payload", "error"))
     return EXT_INVALID;
@@ -452,29 +482,7 @@ ext_status ext_response(yyjson_val *r, const char *id) {
   int has_error = err && !yyjson_is_null(err);
   if (has_error == (get(r, "payload") != NULL))
     return EXT_INVALID;
-  if (has_error) {
-    if (!FIELDS(err, "code", "message", "retryAfterMilliseconds") ||
-        !ext_text(get(err, "code"), 0, 0) ||
-        (get(err, "message") && !yyjson_is_null(get(err, "message")) &&
-         !yyjson_is_str(get(err, "message"))) ||
-        yyjson_get_len(get(err, "message")) > 4096)
-      return EXT_INVALID;
-    yyjson_val *retry = get(err, "retryAfterMilliseconds");
-    if (retry && !yyjson_is_null(retry)) {
-      const char *s = yyjson_get_raw(retry);
-      size_t n = yyjson_get_len(retry);
-      uint64_t x = 0;
-      if (!s || !n)
-        return EXT_INVALID;
-      if (n == 2 && s[0] == '-' && s[1] == '0')
-        return EXT_OK;
-      for (size_t i = 0; i < n; i++) {
-        if (s[i] < '0' || s[i] > '9' ||
-            x > ((uint64_t)INT64_MAX - (s[i] - '0')) / 10)
-          return EXT_INVALID;
-        x = x * 10 + s[i] - '0';
-      }
-    }
-  }
+  if (has_error && !ext_error_valid(err))
+    return EXT_INVALID;
   return EXT_OK;
 }

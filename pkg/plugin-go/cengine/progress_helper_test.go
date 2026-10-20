@@ -41,6 +41,9 @@ func TestMain(m *testing.M) {
 }
 
 func runProgressGuest(mode string) int {
+	if strings.HasPrefix(mode, "rev-") {
+		return runReverseGuest(mode)
+	}
 	if strings.HasPrefix(mode, "raw:") {
 		return runRawGuest(strings.TrimPrefix(mode, "raw:"))
 	}

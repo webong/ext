@@ -279,6 +279,23 @@ duplicate key or unknown field: an invalid response; a response naming another
 call: a violation). An extension backend still refuses a descriptor that declares
 progress, and reverse requests are not carried.
 
+**Call-scoped reverse calls in the C engine (c-parity, stage 3).** The same read
+loop serves a `reverse_request` that names the call in flight. Admission runs in
+the order of `Session.admitReverse`: a frame that does not decode or validate, or a
+`parent` that is not the live call, fails the session (`EXT_PROTOCOL`); a host
+with no services answers every request `reverse_unavailable`; then
+`reverse_undeclared`, `too_large` (the payload as written compactly), `expired`.
+The engine owns those checks, the deadline chain (the earliest of the plugin's
+deadline, the call's and the services' timeout) and the shape of every answer;
+the binding supplies `authorize` and `handle` through `ext_host_set_services`.
+Both hooks receive the parent call's options, so a binding derives the handler's
+context from the caller's: values (nested hosting finds its upstream through
+`plugin.ReverseFrom`), cancellation, and a deadline no later than the call's. A
+result is passed on as `runReverse` passes it, and a handler's error is judged by
+the receiver's rules in one place, in C. Requests are served one at a time on the
+calling thread, so a slow handler delays later frames and `busy` is not produced;
+session-scoped calls wait for the reader thread of the next stage.
+
 ## Identifiers
 
 Request and call identifiers (`Request.ID`, `Request.Parent`, reverse ids) are

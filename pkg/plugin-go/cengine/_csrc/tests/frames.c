@@ -585,8 +585,10 @@ static void test_calls(void) {
   expect_violation("extrafield", "stream", EXT_INVALID);
   expect_violation("dupresponse", "stream", EXT_INVALID);
   expect_violation("after", "stream", EXT_INVALID);
-  /* Reverse requests are not carried yet. */
-  expect_violation("reverse", "stream", EXT_UNSUPPORTED);
+  /* A reverse request to a host with no services is refused as unavailable, and
+   * the call goes on (tests/reverse.c covers the rest). */
+  assert(run("reverse", "stream", &e, &state) == EXT_OK &&
+         state == EXT_HOST_READY);
 
   /* A frame before the handshake answers is a violation of the handshake. */
   assert(open_host("hellofirst", &h) == EXT_PROTOCOL);
@@ -622,9 +624,9 @@ static ext_status extension_invoke(void *user, const uint8_t *request,
 }
 static void extension_close(void *user) { (void)user; }
 static void test_descriptors(void) {
-  /* Progress is carried by a host that owns the child's pipes; an extension
-   * backend hands the engine one response at a time, so it refuses the plugin
-   * rather than run it without the events. Reverse is not carried yet. */
+  /* Progress and reverse calls are carried by a host that owns the child's
+   * pipes; an extension backend hands the engine one response at a time, so it
+   * refuses the plugin rather than run it without them. */
   ext_host *h = NULL;
   ext_host_options options = {EXT_HOST_ABI_VERSION,
                               sizeof(options),
@@ -648,9 +650,10 @@ static void test_descriptors(void) {
       "\"version\":\"v1\",\"operations\":[{\"name\":\"s\"}]}]}";
   options.descriptor = (const uint8_t *)reverse;
   options.descriptor_len = strlen(reverse);
-  assert(ext_host_create(&options, &backend, &h) == EXT_UNSUPPORTED);
-  /* An extension backend carries no progress frames: it is refused for a
-   * descriptor that declares them, and runs one that does not. */
+  assert(ext_host_create(&options, &backend, &h) == EXT_OK);
+  ext_host_destroy(h);
+  /* An extension backend carries neither: it is refused for a descriptor that
+   * declares them, and runs one that does not. */
   ext_backend_extension extension = {sizeof(extension), 0, NULL, extension_connect,
                                      extension_invoke, extension_close,
                                      extension_close};
@@ -658,6 +661,9 @@ static void test_descriptors(void) {
                                   &extension, sizeof(extension)};
   options.descriptor = (const uint8_t *)DESCRIPTOR;
   options.descriptor_len = strlen(DESCRIPTOR);
+  assert(ext_host_create(&options, &extended, &h) == EXT_UNSUPPORTED);
+  options.descriptor = (const uint8_t *)reverse;
+  options.descriptor_len = strlen(reverse);
   assert(ext_host_create(&options, &extended, &h) == EXT_UNSUPPORTED);
   const char *plain =
       "{\"apiVersion\":\"ext.plugin/v1\",\"identity\":{\"id\":\"a\","

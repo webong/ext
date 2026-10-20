@@ -42,6 +42,7 @@ type Host struct {
 	mu          sync.RWMutex
 	ptr         *C.ext_host
 	policy      cgo.Handle
+	reverse     cgo.Handle // the host's reverse services, zero when none
 	descriptor  plugin.Descriptor
 	callTimeout time.Duration
 	backend     *backendBinding
@@ -236,6 +237,10 @@ func (h *Host) Destroy() {
 		C.ext_host_destroy(h.ptr)
 		h.ptr = nil
 		h.policy.Delete()
+		if h.reverse != 0 {
+			h.reverse.Delete()
+			h.reverse = 0
+		}
 	}
 }
 func ValidateJSON(data []byte) error {

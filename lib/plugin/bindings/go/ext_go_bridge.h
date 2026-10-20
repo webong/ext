@@ -22,6 +22,10 @@ extern void ctxGoReleaseBackend(uintptr_t);
 extern int32_t ctxGoContextPolicy(uintptr_t, int, uintptr_t, uint8_t *, size_t);
 extern void ctxGoObserver(uintptr_t, uintptr_t, uint8_t *, size_t);
 extern void ctxGoProgress(uintptr_t, uint8_t *, size_t);
+extern int32_t ctxGoReverseAuthorize(uintptr_t, uintptr_t, uint32_t, uint8_t *,
+                                     size_t);
+extern int32_t ctxGoReverseHandle(uintptr_t, uintptr_t, uint32_t, uint8_t *,
+                                  size_t, ext_reverse_emit, void *);
 
 static inline int32_t ext_go_verify(void *p, const uint8_t *b, size_t n) {
   return ctxGoPolicy((uintptr_t)p, 0, (uint8_t *)b, n);
@@ -108,6 +112,40 @@ static inline ext_status ext_go_call_progress(ext_host *host,
                                               const ext_progress_options *progress,
                                               ext_buffer *out) {
   return ext_host_call_progress(host, data, len, options, progress, out);
+}
+/* Reverse calls: the hooks get the parent call's Go context through o->value. */
+static inline int32_t ext_go_reverse_authorize(void *user,
+                                               const ext_call_options *o,
+                                               const uint8_t *data,
+                                               size_t len) {
+  return ctxGoReverseAuthorize((uintptr_t)user, (uintptr_t)o->value,
+                               o->timeout_ms, (uint8_t *)data, len);
+}
+static inline ext_status ext_go_reverse_handle(void *user,
+                                               const ext_call_options *o,
+                                               const uint8_t *data, size_t len,
+                                               ext_reverse_emit emit,
+                                               void *sink) {
+  return ctxGoReverseHandle((uintptr_t)user, (uintptr_t)o->value,
+                            o->timeout_ms, (uint8_t *)data, len, emit, sink);
+}
+static inline ext_status ext_go_reverse_emit(ext_reverse_emit emit, void *sink,
+                                             uint32_t kind, uint8_t *data,
+                                             size_t len) {
+  return emit(sink, kind, data, len);
+}
+static inline ext_status ext_go_set_services(ext_host *host, uintptr_t user,
+                                             uint32_t timeout_ms,
+                                             uint32_t max_payload,
+                                             uint32_t max_in_flight) {
+  ext_host_services services = {sizeof(services),
+                                (void *)user,
+                                ext_go_reverse_authorize,
+                                ext_go_reverse_handle,
+                                timeout_ms,
+                                max_payload,
+                                max_in_flight};
+  return ext_host_set_services(host, &services);
 }
 static inline ext_status ext_go_create_launch(
     const char *path, const char *const *args, size_t argc,

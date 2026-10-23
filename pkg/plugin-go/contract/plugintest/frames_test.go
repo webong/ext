@@ -47,7 +47,8 @@ func TestFramesDescriptorFixture(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !bytes.Equal(got, want) {
+	// A checkout may have turned line ends into CRLF; the content is what counts.
+	if !bytes.Equal(bytes.ReplaceAll(got, []byte("\r\n"), []byte("\n")), want) {
 		t.Fatal("frames-descriptor.json is stale: run EXT_UPDATE_FIXTURES=1 go test -run TestFramesDescriptorFixture ./pkg/plugin-go/contract/plugintest")
 	}
 	var d plugin.Descriptor

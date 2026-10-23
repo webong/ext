@@ -43,7 +43,8 @@ func TestSDKFixtures(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if !bytes.Equal(got, want) {
+			// A checkout may have turned line ends into CRLF; the content is what counts.
+			if !bytes.Equal(bytes.ReplaceAll(got, []byte("\r\n"), []byte("\n")), want) {
 				t.Fatalf("%s is stale: run EXT_UPDATE_FIXTURES=1 go test -run TestSDKFixtures ./pkg/plugin-go/contract", name)
 			}
 		})

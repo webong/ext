@@ -43,6 +43,12 @@ for op in ['echo','public-error','wait']:
  r=dict(apiVersion='ext.plugin/v1',id='1',plugin=d['identity'],contract=dict(name='ext.conformance',version='v1'),operation=op,deadline='2099-01-01T00:00:00Z',payload=dict(value=7))
  (p/(op+'.json')).write_text(json.dumps(r))
 PY
+# The Rust, Zig and Node.js tests of progress events, reverse calls and data endpoints
+# run the engine's scripted test guest and the shared endpoint fixture.
+export EXT_REVERSE_TEST_GUEST="$build_dir/release/ext_reverse_test"
+"$EXT_REVERSE_TEST_GUEST" --descriptor > "$build_dir/reverse-descriptor.json"
+export EXT_REVERSE_TEST_DESCRIPTOR="$build_dir/reverse-descriptor.json"
+export EXT_ENDPOINT_CASES="$PWD/lib/plugin/testdata/v1/endpoint-cases.json"
 cmake -S lib/plugin -B "$build_dir/sanitize" -DCMAKE_BUILD_TYPE=Debug -DEXT_SANITIZE=ON
 cmake --build "$build_dir/sanitize" -j 4
 "$build_dir/sanitize/ext_guest_core_test"

@@ -23,5 +23,12 @@ final class NativeEngine {
     /** Strict JSON validation by the engine: depth, UTF-8, duplicate keys, trailing data. */
     static native int validateJson(byte[] data);
 
+    /**
+     * Runs one of the engine's endpoint services ("endpoint.check" or
+     * "endpoint.validate") and returns its ext_status; nothing of the input is
+     * returned or thrown, because an endpoint is a credential.
+     */
+    static native int endpoint(String operation, byte[] input);
+
     static native void destroy(long handle);
 }

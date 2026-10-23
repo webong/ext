@@ -25,6 +25,8 @@ public final class GuestTests {
         run("closed guest rejects calls and close is idempotent", GuestTests::closed);
         run("json line serves hello then requests", GuestTests::jsonLine);
         run("json line rejects malformed and bad hello frames", GuestTests::jsonLineRejects);
+        run("data endpoints reproduce the shared fixture", EndpointTests::fixture);
+        run("data endpoint inputs and statuses", EndpointTests::inputs);
         System.out.println(failures == 0 ? "all Java plugin tests passed" : failures + " Java plugin tests FAILED");
         System.exit(failures == 0 ? 0 : 1);
     }

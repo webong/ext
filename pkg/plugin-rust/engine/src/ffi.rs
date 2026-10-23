@@ -70,6 +70,36 @@ pub struct Extension {
     pub close: unsafe extern "C" fn(*mut c_void),
     pub release: unsafe extern "C" fn(*mut c_void),
 }
+/// Progress events of a call: `deliver` receives the JSON of one event.
+#[repr(C)]
+pub struct ProgressOptions {
+    pub struct_size: u32,
+    pub deliver: Option<unsafe extern "C" fn(*mut c_void, *const u8, usize)>,
+    pub user: *mut c_void,
+    pub events_per_second: u32,
+    pub bytes_per_second: u32,
+}
+pub type ReverseEmit = unsafe extern "C" fn(*mut c_void, u32, *const u8, usize) -> Status;
+pub type ReverseHandler = unsafe extern "C" fn(
+    *mut c_void,
+    *const Call,
+    *const u8,
+    usize,
+    ReverseEmit,
+    *mut c_void,
+) -> Status;
+/// The services a host offers its plugin (`ext_host_set_services`).
+#[repr(C)]
+pub struct Services {
+    pub struct_size: u32,
+    pub user: *mut c_void,
+    pub authorize: ContextPolicy,
+    pub handle: ReverseHandler,
+    pub timeout_ms: u32,
+    pub max_payload_bytes: u32,
+    pub max_in_flight: u32,
+    pub session_value: *mut c_void,
+}
 pub type GuestEmit = unsafe extern "C" fn(*mut c_void, u32, *const u8, usize) -> Status;
 #[repr(C)]
 pub struct GuestOptions {
@@ -159,6 +189,15 @@ extern "C" {
         o: *const Call,
         out: *mut Buffer,
     ) -> Status;
+    pub fn ext_host_call_progress(
+        h: *mut c_void,
+        p: *const u8,
+        n: usize,
+        o: *const Call,
+        progress: *const ProgressOptions,
+        out: *mut Buffer,
+    ) -> Status;
+    pub fn ext_host_set_services(h: *mut c_void, s: *const Services) -> Status;
     pub fn ext_host_drain_with_options(h: *mut c_void, o: *const Call) -> Status;
     pub fn ext_host_get_state(h: *mut c_void) -> i32;
     pub fn ext_host_close(h: *mut c_void);

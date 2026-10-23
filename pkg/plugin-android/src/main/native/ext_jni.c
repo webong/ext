@@ -170,6 +170,26 @@ JNIEXPORT jint JNICALL Java_io_github_webong_ext_plugin_NativeEngine_validateJso
   return status;
 }
 
+JNIEXPORT jint JNICALL Java_io_github_webong_ext_plugin_NativeEngine_endpoint(
+    JNIEnv *env, jclass cls, jstring operation, jbyteArray data) {
+  (void)cls;
+  const char *op = (*env)->GetStringUTFChars(env, operation, NULL);
+  if (!op) return EXT_NOMEM;
+  jsize n = (*env)->GetArrayLength(env, data);
+  uint8_t *in = malloc(n ? (size_t)n : 1);
+  if (!in) {
+    (*env)->ReleaseStringUTFChars(env, operation, op);
+    return EXT_NOMEM;
+  }
+  (*env)->GetByteArrayRegion(env, data, 0, n, (jbyte *)in);
+  ext_buffer out = {0};
+  ext_status status = ext_engine_call(op, in, (size_t)n, &out);
+  ext_buffer_free(&out);
+  free(in);
+  (*env)->ReleaseStringUTFChars(env, operation, op);
+  return status;
+}
+
 JNIEXPORT void JNICALL Java_io_github_webong_ext_plugin_NativeEngine_destroy(
     JNIEnv *env, jclass cls, jlong handle) {
   (void)cls;

@@ -13,6 +13,21 @@ wire request. Both return full response JSON, including public domain errors.
 work; `close` aborts it. Rust ownership keeps handles alive during borrowed calls.
 Policy callbacks must not reenter the same host.
 
+`Host::call_progress` is `call` for an operation that declares progress: the
+callback in `Progress::on_event` receives the JSON of each event, in order, before
+the call returns, after the engine has validated it and applied the rate limit.
+`Host::with_services` offers the plugin's `reverse` operations to it: the engine
+admits or refuses each request with a stable code, and the `authorize` and `handle`
+hooks of `Services` are the host's policy. They run on engine threads, up to
+`max_in_flight` at a time, see a `ReverseCall` with the request JSON and an
+engine-owned cancellation to poll, and answer with a payload or a public error.
+`endpoint::check` and `endpoint::validate` admit loopback data endpoints and
+answer with `Error::INVALID`, `Error::DENIED` or `Error::EXPIRED`, never text.
+`Error::PROTOCOL` is a plugin that broke the framing; the session is closed.
+`tests/frames.rs` runs the engine's scripted test guest (set
+`EXT_REVERSE_TEST_GUEST` to the built `ext_reverse_test`) and the shared endpoint
+fixture.
+
 `Guest` snapshots its descriptor and dispatches through a Rust handler. Handlers
 receive borrowed requests, remaining time and optional cancellation. Public
 errors are explicit; panics/private failures are sanitized by the engine. Native

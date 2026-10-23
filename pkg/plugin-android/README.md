@@ -56,6 +56,15 @@ JSON lines in its own process, or runs inside an application that provides the
 transport. Kotlin/Native, which compiles to a native library, could export that
 ABI; it is not attempted here.
 
+## Data endpoints
+
+`Endpoint.check` and `Endpoint.validate` run the engine's rules for the loopback endpoint
+a host hands a plugin (see `lib/plugin/services.md`): a plugin checks what it receives
+before dialing, a host validates what it grants. A refusal is a `GuestException` whose
+`status()` is `Endpoint.INVALID`, `Endpoint.DENIED` or `Endpoint.EXPIRED`, and nothing of
+the endpoint, which is a credential. This SDK does not yet report progress or call a
+host's reverse services; its WAMR host runs reactors, which have no frame channel for them.
+
 ## Building and testing
 
 ```sh

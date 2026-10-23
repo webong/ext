@@ -1,4 +1,23 @@
-export interface CallOptions { timeout?: number; signal?: AbortSignal }
+export interface CallOptions {
+ timeout?: number; signal?: AbortSignal;
+ /** Receives each progress event of an operation that declares progress, in order,
+  * before the call settles. Only `Host.call` reports progress. */
+ onProgress?(event: ProgressEvent): void | Promise<void>;
+ /** The rate the plugin may report at (zero or absent uses 50 events and 65536 bytes of text per second). */
+ progress?: { eventsPerSecond?: number; bytesPerSecond?: number };
+}
+/** `dropped` counts events lost to the rate limit since the previous one; the last event of a call that lost any is a marker with only `kind: "log"` and `dropped`. */
+export interface ProgressEvent { kind: 'progress' | 'log'; stream?: 'out' | 'err'; text?: string; completed?: number; total?: number; dropped?: number }
+/** The services a host offers its plugin: the operations its descriptor lists under `reverse`. */
+export interface ReverseOptions {
+ /** Runs for every request the engine admitted; return false or throw to deny. */
+ authorize(request: unknown, context: CallbackContext): void | boolean | Promise<void | boolean>;
+ /** Serves an authorized request: a payload, or an error the plugin may see. */
+ handle(request: unknown, context: CallbackContext): GuestReply | Promise<GuestReply>;
+ /** Milliseconds; zero or absent uses 30000. */
+ timeout?: number; maxPayloadBytes?: number; maxInFlight?: number;
+}
+export const status: Readonly<{ INVALID: 1; DENIED: 2; PROTOCOL: 16; EXPIRED: 17 }>;
 export interface CallbackContext { timeout: number; signal: AbortSignal }
 export interface GuestReply { payload?: unknown; error?: { code: string; message: string; retryAfterMilliseconds?: number } }
 export interface HostOptions {
@@ -7,6 +26,8 @@ export interface HostOptions {
  authorize(request: unknown, context: CallbackContext): void | boolean | Promise<void | boolean>;
  /** Asynchronous metadata only. Best effort, bounded to 1024 queued events. */
  observe?(event: EngineEvent): void;
+ /** Offer reverse-call services to the plugin. */
+ reverse?: ReverseOptions;
 }
 export interface EngineEvent { stage: string; code: string; durationMilliseconds: number; identity: {id: string; revision: string}; contract?: {name: string; version: string}; operation?: string; requestID?: string }
 export interface GuestOptions { descriptor: unknown; maxCallDuration?: number; handle(request: unknown, context: CallbackContext): GuestReply | Promise<GuestReply> }
@@ -49,6 +70,8 @@ export function loadEngine(addonPath: string): {
  Instances: { new<T>(options: InstanceOptions<T>): Instances<T> };
  Streams: { new(options: StreamOptions): Streams };
  service(operation: string, input: unknown): unknown;
+ /** Each throws an Error whose `status` is INVALID, DENIED or EXPIRED when the endpoint is not admitted. */
+ endpoint: { check(endpoint: unknown): void; validate(endpoint: unknown, policy?: { schemes?: string[]; maxLifetimeMilliseconds?: number; now?: string }): void };
  directoryDigest(root: string): Promise<string>;
  verifyArtifacts(manifest: unknown, root: string): Promise<void>;
 };

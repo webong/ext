@@ -26,6 +26,9 @@ typedef struct {
   ext_host *host;
   ext_guest *guest;
   napi_threadsafe_function verify, authorize, handle, observe;
+  /* The host's reverse services: policy and handler for requests the plugin
+   * makes on its host. */
+  napi_threadsafe_function reverse_authorize, reverse_handle;
   napi_env env;
   int cleanup_hook;
   size_t jobs;
@@ -260,6 +263,30 @@ static ext_status handle(void *u, void *call, const uint8_t *p, size_t n,
   ext_buffer_free(&out);
   return s;
 }
+/* Reverse calls: the engine runs these on its own threads, up to max_in_flight
+ * at a time, and each blocks until the JS function replies, as a policy does.
+ * The options carry an engine-owned cancel signal and the time left. */
+static int32_t reverse_authorize(void *u, const ext_call_options *o,
+                                 const uint8_t *p, size_t n) {
+  binding *b = u;
+  ext_buffer out = {0};
+  uint32_t kind;
+  ext_status s = invoke_js(b->reverse_authorize, p, n, o, NULL, &kind, &out);
+  ext_buffer_free(&out);
+  return s == EXT_OK ? 0 : 1;
+}
+static ext_status reverse_handle(void *u, const ext_call_options *o,
+                                 const uint8_t *p, size_t n,
+                                 ext_reverse_emit emit, void *sink) {
+  binding *b = u;
+  ext_buffer out = {0};
+  uint32_t kind = 0;
+  ext_status s = invoke_js(b->reverse_handle, p, n, o, NULL, &kind, &out);
+  if (!s)
+    s = emit(sink, kind, out.data, out.len);
+  ext_buffer_free(&out);
+  return s;
+}
 static int tsfn(napi_env env, napi_value function,
                 napi_threadsafe_function *out) {
   napi_valuetype type;
@@ -326,6 +353,14 @@ static void cleanup_binding(void *data) {
     napi_release_threadsafe_function(b->observe, napi_tsfn_abort);
     b->observe = NULL;
   }
+  if (b->reverse_authorize) {
+    napi_release_threadsafe_function(b->reverse_authorize, napi_tsfn_abort);
+    b->reverse_authorize = NULL;
+  }
+  if (b->reverse_handle) {
+    napi_release_threadsafe_function(b->reverse_handle, napi_tsfn_abort);
+    b->reverse_handle = NULL;
+  }
 }
 static void dispose_contents(binding *b) {
   if (b->cleanup_hook)
@@ -375,10 +410,10 @@ static char **strings(napi_env env, napi_value array, uint32_t *count) {
   return out;
 }
 static napi_value create_host(napi_env env, napi_callback_info info) {
-  size_t count = 7;
-  napi_value args[7], external;
+  size_t count = 10;
+  napi_value args[10], external;
   if (napi_get_cb_info(env, info, &count, args, NULL, NULL) != napi_ok ||
-      count != 7)
+      count != 10)
     return failure(env, "invalid host arguments");
   size_t pn = 0, dn = 0;
   char *path = string(env, args[0], &pn),
@@ -387,6 +422,9 @@ static napi_value create_host(napi_env env, napi_callback_info info) {
   char **argv = strings(env, args[2], &an), **envp = strings(env, args[3], &en);
   binding *b = calloc(1, sizeof(*b));
   ext_status status = EXT_INVALID;
+  napi_valuetype authorize_type, handle_type;
+  uint32_t bounds[3] = {0, 0, 0};
+  int services = 0;
   if (!path || strlen(path) != pn || !descriptor || !argv || !envp || !b)
     goto done;
   if (!tsfn(env, args[4], &b->verify) || !tsfn(env, args[5], &b->authorize))
@@ -405,6 +443,22 @@ static napi_value create_host(napi_env env, napi_callback_info info) {
       goto done;
     napi_unref_threadsafe_function(env, b->observe);
   }
+  /* Reverse services are offered when both functions are given; the bounds are
+   * [timeout ms, max payload bytes, max in flight], zero for the default. */
+  if (napi_typeof(env, args[7], &authorize_type) != napi_ok ||
+      napi_typeof(env, args[8], &handle_type) != napi_ok)
+    goto done;
+  if (authorize_type != napi_undefined || handle_type != napi_undefined) {
+    napi_value element;
+    if (!tsfn(env, args[7], &b->reverse_authorize) ||
+        !tsfn(env, args[8], &b->reverse_handle))
+      goto done;
+    for (uint32_t i = 0; i < 3; i++)
+      if (napi_get_element(env, args[9], i, &element) != napi_ok ||
+          napi_get_value_uint32(env, element, &bounds[i]) != napi_ok)
+        goto done;
+    services = 1;
+  }
   ext_jsonline_process_config process = {sizeof(process),           path,
                                          (const char *const *)argv, an,
                                          (const char *const *)envp, en};
@@ -422,6 +476,12 @@ static napi_value create_host(napi_env env, napi_callback_info info) {
   if (!status) {
     ext_host_hooks hooks = {sizeof(hooks), b, verify, authorize, observe};
     status = ext_host_set_hooks(b->host, &hooks);
+  }
+  if (!status && services) {
+    ext_host_services offered = {sizeof(offered),   b,         reverse_authorize,
+                                 reverse_handle,    bounds[0], bounds[1],
+                                 bounds[2],         NULL};
+    status = ext_host_set_services(b->host, &offered);
   }
 done:
   free(path);
@@ -528,7 +588,21 @@ typedef struct {
   size_t input_len;
   ext_buffer output;
   ext_status status;
+  /* A call that reports progress: the JS function each event is handed to, and
+   * the rate the plugin may report at (zero uses the default). */
+  napi_threadsafe_function progress;
+  uint32_t events, bytes;
 } job;
+/* Passes one event to JS and waits for it to return, so every event has been
+ * delivered before the call's promise settles. The engine runs this on the thread
+ * that makes the call, or on its reader thread. */
+static void progress_deliver(void *user, const uint8_t *json, size_t len) {
+  job *j = user;
+  ext_buffer out = {0};
+  uint32_t kind = 0;
+  (void)invoke_js(j->progress, json, len, &j->options, NULL, &kind, &out);
+  ext_buffer_free(&out);
+}
 static void execute(napi_env env, void *data) {
   (void)env;
   job *j = data;
@@ -561,7 +635,12 @@ static void execute(napi_env env, void *data) {
   else if (!strcmp(j->operation, "invoke") && b->host)
     j->status = ext_host_invoke_with_options(b->host, j->input, j->input_len,
                                              &j->options, &j->output);
-  else if (!strcmp(j->operation, "call") && b->host)
+  else if (!strcmp(j->operation, "call") && b->host && j->progress) {
+    ext_progress_options progress = {sizeof(progress), progress_deliver, j,
+                                     j->events, j->bytes};
+    j->status = ext_host_call_progress(b->host, j->input, j->input_len,
+                                       &j->options, &progress, &j->output);
+  } else if (!strcmp(j->operation, "call") && b->host)
     j->status =
         ext_host_call(b->host, j->input, j->input_len, &j->options, &j->output);
   else if (!strcmp(j->operation, "drain") && b->host)
@@ -584,6 +663,8 @@ static void free_job(napi_env env, job *j) {
     napi_delete_reference(env, j->signal);
   if (j->work)
     napi_delete_async_work(env, j->work);
+  if (j->progress)
+    napi_release_threadsafe_function(j->progress, napi_tsfn_abort);
   free(j->operation);
   free(j->root);
   free(j->input);
@@ -617,10 +698,12 @@ static void complete(napi_env env, napi_status code, void *data) {
   free_job(env, j);
 }
 static napi_value request(napi_env env, napi_callback_info info) {
-  size_t count = 5;
-  napi_value args[5], promise, name;
+  size_t count = 8;
+  napi_value args[8], promise, name;
+  /* (host, operation, input, timeout, cancel) and, for a call that reports
+   * progress, (events function, events per second, bytes per second). */
   if (napi_get_cb_info(env, info, &count, args, NULL, NULL) != napi_ok ||
-      count != 5)
+      (count != 5 && count != 8))
     return failure(env, "invalid call arguments");
   job *j = calloc(1, sizeof(*j));
   if (!j)
@@ -636,6 +719,11 @@ static napi_value request(napi_env env, napi_callback_info info) {
       !(j->input = (uint8_t *)string(env, args[2], &j->input_len)))
     goto invalid;
   if (j->binding->disposed)
+    goto invalid;
+  if (count == 8 &&
+      (!tsfn(env, args[5], &j->progress) ||
+       napi_get_value_uint32(env, args[6], &j->events) != napi_ok ||
+       napi_get_value_uint32(env, args[7], &j->bytes) != napi_ok))
     goto invalid;
   j->options.cancel = cancel;
   if (napi_create_reference(env, args[0], 1, &j->owner) != napi_ok ||
@@ -653,6 +741,17 @@ invalid:
   free_job(env, j);
   return failure(env, "invalid call or allocation failure");
 }
+/* An error with the engine's status as .status, as a rejected call has. */
+static napi_value failure_status(napi_env env, ext_status status) {
+  napi_value message, error, code;
+  napi_create_string_utf8(env, ext_host_status_string(status), NAPI_AUTO_LENGTH,
+                          &message);
+  napi_create_error(env, NULL, message, &error);
+  napi_create_int32(env, status, &code);
+  napi_set_named_property(env, error, "status", code);
+  napi_throw(env, error);
+  return NULL;
+}
 static napi_value service(napi_env env, napi_callback_info info) {
   size_t count = 2;
   napi_value args[2], result;
@@ -669,7 +768,7 @@ static napi_value service(napi_env env, napi_callback_info info) {
   free(input);
   if (status) {
     ext_buffer_free(&out);
-    return failure(env, ext_host_status_string(status));
+    return failure_status(env, status);
   }
   napi_status s =
       napi_create_string_utf8(env, (char *)out.data, out.len, &result);

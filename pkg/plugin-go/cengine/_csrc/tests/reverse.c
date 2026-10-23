@@ -1,6 +1,6 @@
 /* Reverse calls: the frame validator, the answer builder, then the host serving a
  * scripted guest that calls it back. The guest is this program started with
- * --guest <mode>; each mode asks for one thing, so every refusal code, every way
+ * --guest <mode> (--descriptor prints the descriptor it serves); each mode asks for one thing, so every refusal code, every way
  * a handler can answer and every framing violation has a case. The Go
  * differential tests in pkg/plugin-go/cengine run the same behavior through the
  * pure-Go session and compare. */
@@ -941,6 +941,12 @@ static void find_self(const char *argv0) {
 int main(int argc, char **argv) {
   if (argc == 3 && !strcmp(argv[1], "--guest"))
     return guest(argv[2]);
+  /* The descriptor the scripted guest answers with, for the language bindings'
+   * tests, which run this program as a plugin of their own. */
+  if (argc == 2 && !strcmp(argv[1], "--descriptor")) {
+    puts(DESCRIPTOR);
+    return 0;
+  }
   assert(argc == 1);
   find_self(argv[0]);
   test_request_frames();

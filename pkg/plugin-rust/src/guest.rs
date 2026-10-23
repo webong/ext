@@ -1,12 +1,15 @@
+pub use crate::serve::{serve, serve_stdio, serve_with, Mode};
 use crate::{
-    wire, ContractRef, Descriptor, Error, Identity, Operation, Policy, Request, Result,
-    DEFAULT_TIMEOUT, MAX_FRAME, VERSION,
+    frames::{Progress, ProgressOutcome},
+    serve::{CallFrames, Reverse},
+    wire, ContractRef, Descriptor, Error, Identity, Operation, Policy, ProgressLimits, Request,
+    Result, DEFAULT_TIMEOUT, MAX_FRAME, VERSION,
 };
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::Value;
 use std::{
     collections::BTreeMap,
-    io::{BufRead, Write},
+    io::BufRead,
     marker::PhantomData,
     sync::{
         atomic::{AtomicBool, Ordering},
@@ -18,8 +21,37 @@ use std::{
 pub struct CallContext {
     pub deadline: SystemTime,
     pub(crate) canceled: Arc<AtomicBool>,
+    pub(crate) frames: Option<CallFrames>,
 }
 impl CallContext {
+    /// Reports one progress or log event of this call to the host. Dropped by the
+    /// rate limit is `Ok(Dropped)`: routine, and the call goes on. Errors:
+    /// `Unsupported` when the operation did not declare progress or the transport
+    /// carries no frames (stop reporting and return the text in the result),
+    /// `Invalid` for an event that breaks the rules (nothing was sent), `Closed`
+    /// when the call is over or the connection ended.
+    pub fn progress(&self, event: Progress) -> Result<ProgressOutcome> {
+        match self.frames.as_ref().and_then(|f| f.reporter.as_ref()) {
+            Some(reporter) => reporter.report(event),
+            None => Err(Error::Unsupported),
+        }
+    }
+    /// The event rate the host set for this call, with defaults filled in; None
+    /// when the operation did not declare progress. A handler that streams a long
+    /// output can coalesce lines to stay inside it.
+    pub fn progress_limits(&self) -> Option<ProgressLimits> {
+        self.frames.as_ref().and_then(|f| f.limits)
+    }
+    /// Calls the host's operations on behalf of this call, when the transport
+    /// carries frames and the host may be asked.
+    pub fn reverse(&self) -> Option<&Reverse> {
+        self.frames.as_ref().and_then(|f| f.reverse.as_ref())
+    }
+    /// A caller that outlives this call, for background work; None where no thread
+    /// reads the connection (inline mode, or a transport without frames).
+    pub fn session_reverse(&self) -> Option<&Reverse> {
+        self.frames.as_ref().and_then(|f| f.session.as_ref())
+    }
     pub fn check(&self) -> Result<()> {
         if self.canceled.load(Ordering::Acquire) {
             Err(Error::Closed)
@@ -70,6 +102,7 @@ pub struct Guest {
 pub struct Registry {
     identity: Identity,
     methods: BTreeMap<Key, (Operation, Handler)>,
+    reverse: Vec<wire::Contract>,
 }
 impl Registry {
     pub fn new(identity: Identity) -> Result<Self> {
@@ -77,7 +110,25 @@ impl Registry {
         Ok(Self {
             identity,
             methods: BTreeMap::new(),
+            reverse: Vec::new(),
         })
+    }
+    /// Declares host operations the plugin may call (`CallContext::reverse`).
+    pub fn declare_reverse(
+        &mut self,
+        contract: ContractRef,
+        operations: Vec<Operation>,
+    ) -> Result<()> {
+        self.reverse.push(wire::Contract {
+            name: contract.name,
+            version: contract.version,
+            operations,
+        });
+        if let Err(e) = self.descriptor().validate() {
+            self.reverse.pop();
+            return Err(e);
+        }
+        Ok(())
     }
     pub fn register<I: DeserializeOwned + 'static, O: Serialize + 'static>(
         &mut self,
@@ -127,6 +178,7 @@ impl Registry {
             api_version: VERSION.into(),
             identity: self.identity.clone(),
             contracts,
+            reverse: self.reverse.clone(),
         }
     }
     pub fn guest(&self, authorize: Policy) -> Result<Guest> {
@@ -148,6 +200,14 @@ impl Guest {
         self.descriptor.clone()
     }
     pub fn invoke(&self, request: Request, canceled: Arc<AtomicBool>) -> Result<Value> {
+        self.invoke_in(request, canceled, None)
+    }
+    pub(crate) fn invoke_in(
+        &self,
+        request: Request,
+        canceled: Arc<AtomicBool>,
+        frames: Option<CallFrames>,
+    ) -> Result<Value> {
         if request.validate(&self.descriptor).is_err() {
             return wire::response(
                 &request.id,
@@ -158,10 +218,12 @@ impl Guest {
                 })),
             );
         }
+        let deadline =
+            wire::parse_deadline(&request.deadline)?.min(SystemTime::now() + DEFAULT_TIMEOUT);
         let ctx = CallContext {
-            deadline: wire::parse_deadline(&request.deadline)?
-                .min(SystemTime::now() + DEFAULT_TIMEOUT),
+            deadline,
             canceled,
+            frames: frames.map(|f| f.at(deadline)),
         };
         let result = (|| {
             ctx.check()?;
@@ -206,30 +268,7 @@ pub fn read_frame<R: BufRead>(reader: &mut R) -> Result<Option<Vec<u8>>> {
         }
     }
 }
-pub fn serve<R: BufRead, W: Write>(guest: &Guest, mut input: R, mut output: W) -> Result<()> {
-    let mut hello = false;
-    while let Some(bytes) = read_frame(&mut input)? {
-        let value = wire::decode(&bytes)?;
-        let response = if !hello {
-            validate_hello(&value)?;
-            hello = true;
-            wire::response(
-                "hello",
-                Ok(serde_json::to_value(guest.descriptor()).map_err(|_| Error::Invalid)?),
-            )?
-        } else {
-            guest.invoke(wire::typed(value)?, Arc::new(AtomicBool::new(false)))?
-        };
-        let bytes = wire::encode(&response)?;
-        output
-            .write_all(&bytes)
-            .and_then(|_| output.write_all(b"\n"))
-            .and_then(|_| output.flush())
-            .map_err(|_| Error::Transport)?;
-    }
-    Ok(())
-}
-fn validate_hello(v: &Value) -> Result<()> {
+pub(crate) fn validate_hello(v: &Value) -> Result<()> {
     let m = v.as_object().ok_or(Error::Invalid)?;
     if m.keys().any(|k| {
         ![

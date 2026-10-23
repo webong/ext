@@ -3,15 +3,14 @@
 package crosslang_test
 
 import (
-	"context"
-	plugin "github.com/webong/ext/pkg/plugin-go/contract"
 	"github.com/webong/ext/pkg/plugin-go/contract/plugintest"
 	"testing"
 )
 
 func runGuestConformance(t *testing.T, factory plugintest.Factory) { plugintest.Run(t, factory) }
 
-// runFrames runs the frames suite on a guest process, through the pure-Go session.
-func runFrames(t *testing.T, path string, opts plugintest.FramesOptions) {
-	plugintest.RunFrames(t, func(context.Context) (plugin.Backend, error) { return process(path) }, opts)
+// runFrames runs the frames suite on a guest through the pure-Go session. path names
+// the guest when it is a process the C engine could own; it is not used here.
+func runFrames(t *testing.T, factory plugintest.Factory, path string, opts plugintest.FramesOptions) {
+	plugintest.RunFrames(t, factory, opts)
 }

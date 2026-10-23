@@ -100,12 +100,25 @@ pub fn identifier(v: &str, revision: bool) -> bool {
 fn empty(v: &str) -> bool {
     v.is_empty()
 }
+fn is_false(v: &bool) -> bool {
+    !*v
+}
+// Go leaves a member alone when its JSON is null, so a null is the default value.
+fn null_default<'de, D: de::Deserializer<'de>, T: Deserialize<'de> + Default>(
+    d: D,
+) -> std::result::Result<T, D::Error> {
+    Ok(Option::<T>::deserialize(d)?.unwrap_or_default())
+}
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct Identity {
     pub id: String,
     pub revision: String,
-    #[serde(default, skip_serializing_if = "empty")]
+    #[serde(
+        default,
+        skip_serializing_if = "empty",
+        deserialize_with = "null_default"
+    )]
     pub version: String,
 }
 impl Identity {
@@ -130,8 +143,29 @@ pub struct ContractRef {
 #[serde(deny_unknown_fields)]
 pub struct Operation {
     pub name: String,
-    #[serde(default, skip_serializing_if = "empty")]
+    #[serde(
+        default,
+        skip_serializing_if = "empty",
+        deserialize_with = "null_default"
+    )]
     pub surface: String,
+    /// A call to this operation may emit progress and log frames before its
+    /// response. Absent means it never does.
+    #[serde(
+        default,
+        skip_serializing_if = "is_false",
+        deserialize_with = "null_default"
+    )]
+    pub progress: bool,
+}
+impl Operation {
+    pub fn new(name: &str) -> Self {
+        Self {
+            name: name.into(),
+            surface: String::new(),
+            progress: false,
+        }
+    }
 }
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
@@ -147,6 +181,55 @@ pub struct Descriptor {
     pub api_version: String,
     pub identity: Identity,
     pub contracts: Vec<Contract>,
+    /// The host operations the plugin may call (reverse calls).
+    #[serde(
+        default,
+        skip_serializing_if = "Vec::is_empty",
+        deserialize_with = "null_default"
+    )]
+    pub reverse: Vec<Contract>,
+}
+fn validate_contracts(contracts: &[Contract]) -> Result<()> {
+    let mut refs = HashSet::new();
+    for c in contracts {
+        if !identifier(&c.name, false)
+            || !identifier(&c.version, true)
+            || !refs.insert((&c.name, &c.version))
+            || c.operations.is_empty()
+            || c.operations.len() > 256
+        {
+            return Err(Error::Invalid);
+        }
+        let mut ops = HashSet::new();
+        for op in &c.operations {
+            if !identifier(&op.name, false)
+                || op.name == "plugin.hello"
+                || !ops.insert(&op.name)
+                || (!op.surface.is_empty() && !identifier(&op.surface, false))
+            {
+                return Err(Error::Invalid);
+            }
+        }
+    }
+    Ok(())
+}
+// The same contracts with the same operations, in any order.
+fn contracts_match(selected: &[Contract], actual: &[Contract]) -> Result<()> {
+    if selected.len() != actual.len() {
+        return Err(Error::Mismatch);
+    }
+    for c in selected {
+        let a = actual
+            .iter()
+            .find(|a| a.name == c.name && a.version == c.version)
+            .ok_or(Error::Mismatch)?;
+        if a.operations.len() != c.operations.len()
+            || c.operations.iter().any(|op| !a.operations.contains(op))
+        {
+            return Err(Error::Mismatch);
+        }
+    }
+    Ok(())
 }
 impl Descriptor {
     pub fn validate(&self) -> Result<()> {
@@ -154,31 +237,26 @@ impl Descriptor {
         if self.api_version != VERSION || self.contracts.is_empty() || self.contracts.len() > 64 {
             return Err(Error::Invalid);
         }
-        let mut refs = HashSet::new();
-        for c in &self.contracts {
-            if !identifier(&c.name, false)
-                || !identifier(&c.version, true)
-                || !refs.insert((&c.name, &c.version))
-                || c.operations.is_empty()
-                || c.operations.len() > 256
-            {
-                return Err(Error::Invalid);
-            }
-            let mut ops = HashSet::new();
-            for op in &c.operations {
-                if !identifier(&op.name, false)
-                    || op.name == "plugin.hello"
-                    || !ops.insert(&op.name)
-                    || (!op.surface.is_empty() && !identifier(&op.surface, false))
-                {
-                    return Err(Error::Invalid);
-                }
-            }
+        validate_contracts(&self.contracts)?;
+        if self.reverse.len() > 64
+            || self
+                .reverse
+                .iter()
+                .any(|c| c.operations.iter().any(|op| op.progress))
+        {
+            return Err(Error::Invalid);
         }
-        Ok(())
+        validate_contracts(&self.reverse)
     }
     pub fn lookup(&self, c: &ContractRef, name: &str) -> Result<&Operation> {
-        self.contracts
+        Self::find(&self.contracts, c, name)
+    }
+    /// An operation the plugin declared it may call on the host.
+    pub fn lookup_reverse(&self, c: &ContractRef, name: &str) -> Result<&Operation> {
+        Self::find(&self.reverse, c, name)
+    }
+    fn find<'a>(contracts: &'a [Contract], c: &ContractRef, name: &str) -> Result<&'a Operation> {
+        contracts
             .iter()
             .find(|v| v.name == c.name && v.version == c.version)
             .and_then(|v| v.operations.iter().find(|o| o.name == name))
@@ -187,22 +265,65 @@ impl Descriptor {
     pub fn matches(&self, actual: &Self) -> Result<()> {
         self.validate()?;
         actual.validate()?;
-        if self.identity != actual.identity || self.contracts.len() != actual.contracts.len() {
+        if self.identity != actual.identity {
             return Err(Error::Mismatch);
         }
-        for c in &self.contracts {
-            let a = actual
-                .contracts
-                .iter()
-                .find(|a| a.name == c.name && a.version == c.version)
-                .ok_or(Error::Mismatch)?;
-            if a.operations.len() != c.operations.len()
-                || c.operations.iter().any(|op| !a.operations.contains(op))
-            {
-                return Err(Error::Mismatch);
-            }
+        contracts_match(&self.contracts, &actual.contracts)?;
+        contracts_match(&self.reverse, &actual.reverse)
+    }
+}
+/// The event rate a host sets for a call: events and bytes of text per second.
+/// Zero or negative values use the defaults.
+#[derive(Clone, Copy, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct ProgressLimits {
+    #[serde(
+        default,
+        rename = "eventsPerSecond",
+        skip_serializing_if = "is_zero_i64",
+        deserialize_with = "null_default"
+    )]
+    pub events_per_second: i64,
+    #[serde(
+        default,
+        rename = "bytesPerSecond",
+        skip_serializing_if = "is_zero_i64",
+        deserialize_with = "null_default"
+    )]
+    pub bytes_per_second: i64,
+}
+fn is_zero_i64(v: &i64) -> bool {
+    *v == 0
+}
+// The rate is a JSON object or null: serde would also read a list as a struct.
+fn limits_object<'de, D: de::Deserializer<'de>>(
+    d: D,
+) -> std::result::Result<Option<ProgressLimits>, D::Error> {
+    match Option::<Value>::deserialize(d)? {
+        None | Some(Value::Null) => Ok(None),
+        Some(v @ Value::Object(_)) => serde_json::from_value(v)
+            .map(Some)
+            .map_err(de::Error::custom),
+        Some(_) => Err(de::Error::custom("progress must be an object")),
+    }
+}
+pub const DEFAULT_PROGRESS_EVENTS: i64 = 50;
+pub const DEFAULT_PROGRESS_BYTES: i64 = 64 << 10;
+impl ProgressLimits {
+    /// The limits with the defaults filled in.
+    pub fn resolved(self) -> Self {
+        Self {
+            events_per_second: if self.events_per_second <= 0 {
+                DEFAULT_PROGRESS_EVENTS
+            } else {
+                self.events_per_second
+            },
+            bytes_per_second: if self.bytes_per_second <= 0 {
+                DEFAULT_PROGRESS_BYTES
+            } else {
+                self.bytes_per_second
+            },
         }
-        Ok(())
     }
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -214,11 +335,31 @@ pub struct Request {
     pub plugin: Identity,
     pub contract: ContractRef,
     pub operation: String,
-    #[serde(default, skip_serializing_if = "empty")]
+    #[serde(
+        default,
+        skip_serializing_if = "empty",
+        deserialize_with = "null_default"
+    )]
     pub surface: String,
     pub deadline: String,
     #[serde(default)]
     pub payload: Value,
+    /// Present on a call whose operation declared progress: the rate at which it
+    /// may report.
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "limits_object"
+    )]
+    pub progress: Option<ProgressLimits>,
+    /// Names the forward call a reverse call belongs to; set only on the request
+    /// a host's reverse handler receives.
+    #[serde(
+        default,
+        skip_serializing_if = "empty",
+        deserialize_with = "null_default"
+    )]
+    pub parent: String,
 }
 impl Request {
     pub fn validate(&self, d: &Descriptor) -> Result<()> {

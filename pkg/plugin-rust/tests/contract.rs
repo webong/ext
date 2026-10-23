@@ -59,10 +59,7 @@ fn method() -> Method<Message, Message> {
             name: "example.echo".into(),
             version: "v1".into(),
         },
-        Operation {
-            name: "echo".into(),
-            surface: String::new(),
-        },
+        Operation::new("echo"),
     );
     m.validate_input = |v: &Message| {
         if v.text.len() > 8 {
@@ -183,6 +180,8 @@ fn guest_denial_and_cabi_ownership() {
         surface: String::new(),
         deadline: wire::timestamp(SystemTime::now() + Duration::from_secs(5)).unwrap(),
         payload: serde_json::json!({"text":"hello"}),
+        progress: None,
+        parent: String::new(),
     };
     let v = wire::decode(&server.call(id, 2, &wire::encode(&req).unwrap()).unwrap()).unwrap();
     assert_eq!(v["error"]["code"], "operation_failed");

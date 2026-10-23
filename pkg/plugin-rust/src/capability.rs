@@ -16,6 +16,7 @@ fn operation(name: &str, surface: &str) -> Operation {
     Operation {
         name: name.into(),
         surface: surface.into(),
+        progress: false,
     }
 }
 

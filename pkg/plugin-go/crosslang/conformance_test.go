@@ -292,28 +292,70 @@ func TestNativeGoGuest(t *testing.T) {
 // TestFramesGuests runs the frames suite (progress events and reverse calls, see
 // docs/plugin-guest-frames.md) on every guest that implements it. The Go reference
 // guest is always built by scripts/plugin-crosslang.sh; a language joins by setting
-// EXT_<LANGUAGE>_FRAMES_GUEST to a process that serves the descriptor in
-// lib/plugin/testdata/v1/frames-descriptor.json. A guest is concurrent when it can
-// serve a request while it waits for the host's answer (a thread or an event loop);
-// one that cannot answers the operations that need it with the error "unsupported".
+// EXT_<NAME>_FRAMES_GUEST to a process that serves the descriptor in
+// lib/plugin/testdata/v1/frames-descriptor.json (or EXT_<NAME>_FRAMES_WASM to a WASI
+// command that does). A guest is concurrent when it can serve a request while it waits
+// for the host's answer (a thread or an event loop); one that cannot answers the
+// operations that need it with the error "unsupported". EXT_FRAMES_REQUIRED lists
+// (separated by spaces or commas) the guests that must be present, as GO, RUST,
+// RUST_INLINE or RUST_WASI.
 func TestFramesGuests(t *testing.T) {
+	required := func(name string) bool {
+		for _, r := range strings.FieldsFunc(os.Getenv("EXT_FRAMES_REQUIRED"), func(c rune) bool { return c == ' ' || c == ',' }) {
+			if r == name {
+				return true
+			}
+		}
+		return false
+	}
 	for _, g := range []struct {
-		language   string
+		name       string
 		concurrent bool
 	}{
 		{"GO", true},
 		{"RUST", true},
+		{"RUST_INLINE", false},
 		{"TS", true},
 		{"JAVA", true},
 		{"PYTHON", false},
 		{"ZIG", false},
 	} {
-		t.Run(g.language, func(t *testing.T) {
-			name := g.language + "_FRAMES_GUEST"
-			if os.Getenv("EXT_"+name) == "" && os.Getenv("EXT_FRAMES_REQUIRED") != g.language && os.Getenv("EXT_FRAMES_REQUIRED") != "all" {
-				t.Skip("set EXT_" + name + " to a guest process that serves the frames descriptor")
+		t.Run(g.name, func(t *testing.T) {
+			variable := g.name + "_FRAMES_GUEST"
+			if os.Getenv("EXT_"+variable) == "" && !required(g.name) {
+				t.Skip("set EXT_" + variable + " to a guest process that serves the frames descriptor")
 			}
-			runFrames(t, artifact(t, name), plugintest.FramesOptions{Concurrent: g.concurrent})
+			path := artifact(t, variable)
+			runFrames(t, func(context.Context) (plugin.Backend, error) { return process(path) }, path, plugintest.FramesOptions{Concurrent: g.concurrent})
+		})
+	}
+	// A WebAssembly command speaks JSON lines through the same client as a process,
+	// without threads.
+	for _, g := range []string{"RUST", "ZIG"} {
+		t.Run(g+"_WASI", func(t *testing.T) {
+			variable := g + "_FRAMES_WASM"
+			if os.Getenv("EXT_"+variable) == "" && !required(g+"_WASI") {
+				t.Skip("set EXT_" + variable + " to a WASI command that serves the frames descriptor")
+			}
+			data, err := os.ReadFile(artifact(t, variable))
+			if err != nil {
+				t.Fatal(err)
+			}
+			runFrames(t, func(ctx context.Context) (plugin.Backend, error) {
+				b, err := wasm.Open(ctx, data, wasm.Options{})
+				if err != nil {
+					return nil, err
+				}
+				t.Cleanup(func() {
+					_ = b.Close()
+					ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
+					defer cancel()
+					if err := b.Wait(ctx); ctx.Err() != nil {
+						t.Errorf("WASI cleanup: %v", err)
+					}
+				})
+				return b, nil
+			}, "", plugintest.FramesOptions{Concurrent: false})
 		})
 	}
 }

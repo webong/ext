@@ -32,6 +32,8 @@ cargo test --locked --manifest-path pkg/plugin-rust/Cargo.toml
 cargo build --locked --manifest-path pkg/plugin-rust/Cargo.toml --examples
 # Keep DWARF stack-trace decoding out of bounded WASI cancellation checks.
 cargo build --release --locked --manifest-path pkg/plugin-rust/Cargo.toml --target wasm32-wasip1 --example guest
+# The frames guest (progress events and reverse calls) as a WASI command: no threads.
+cargo build --release --locked --manifest-path pkg/plugin-rust/Cargo.toml --target wasm32-wasip1 --example frames
 # The shared example is the same guest as a WebAssembly reactor: the C ABI plus
 # ext_plugin_alloc/ext_plugin_free (docs/plugin-reactor-abi.md).
 cargo build --release --locked --manifest-path pkg/plugin-rust/Cargo.toml --target wasm32-wasip1 --example shared
@@ -50,6 +52,10 @@ go build -o "$build_dir/go-guest" ./pkg/plugin-go/crosslang/testdata/go-guest
 # language's guest joins it by setting EXT_<LANGUAGE>_FRAMES_GUEST.
 go build -o "$build_dir/go-frames-guest" ./pkg/plugin-go/crosslang/testdata/frames-guest
 export EXT_GO_FRAMES_GUEST="$build_dir/go-frames-guest"
+export EXT_RUST_FRAMES_GUEST="$CARGO_TARGET_DIR/debug/examples/frames"
+export EXT_RUST_INLINE_FRAMES_GUEST="$CARGO_TARGET_DIR/debug/examples/frames_inline"
+export EXT_RUST_FRAMES_WASM="$CARGO_TARGET_DIR/wasm32-wasip1/release/examples/frames.wasm"
+export EXT_FRAMES_REQUIRED="GO RUST RUST_INLINE RUST_WASI"
 go build -buildmode=c-shared -o "$build_dir/go-shared.$extension" ./pkg/plugin-go/crosslang/testdata/go-shared
 export EXT_GO_GUEST="$build_dir/go-guest" EXT_GO_SHARED="$build_dir/go-shared.$extension"
 export EXT_RUST_GUEST="$CARGO_TARGET_DIR/debug/examples/guest" EXT_RUST_HOST="$CARGO_TARGET_DIR/debug/examples/host"

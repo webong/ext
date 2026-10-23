@@ -103,6 +103,8 @@ impl Session {
             surface: self.descriptor.lookup(contract, operation)?.surface.clone(),
             deadline: wire::timestamp(deadline)?,
             payload,
+            progress: None,
+            parent: String::new(),
         };
         req.validate(&self.descriptor)?;
         (self.authorize)(&req)?;

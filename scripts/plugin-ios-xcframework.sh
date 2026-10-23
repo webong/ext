@@ -14,7 +14,7 @@ trap 'rm -rf "$work"' EXIT
 # The engine renames its vendored parser symbols through a header CMake generates.
 cmake -S "$engine" -B "$work/gen" -DEXT_BUILD_HOST=OFF >/dev/null
 namespace="$work/gen/parser_namespace.h"
-sources=(src/common.c src/wire.c src/services.c src/guest.c src/sha256.c src/packages.c vendor/yyjson.c)
+sources=(src/common.c src/wire.c src/progress.c src/reverse.c src/endpoint.c src/services.c src/guest.c src/sha256.c src/packages.c vendor/yyjson.c)
 
 # slice name | sdk | clang target
 slices=(

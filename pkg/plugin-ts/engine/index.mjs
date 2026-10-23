@@ -26,14 +26,46 @@ function managerCallback(handlers){
   };
 }
 const invalid=message=>Object.assign(new Error(message),{status:1});
+// Progress events are handed to the caller's function one at a time, in order, and
+// the call's promise settles only after the last one has been: a function that
+// throws or rejects must not fail the call.
+function progressCallback(fn){
+  return (raw,_remaining,reply)=>{
+    try{Promise.resolve(fn(JSON.parse(raw))).catch(()=>{});}catch{}
+    reply(0,0,'null');
+  };
+}
+const rate=(value,name,max)=>{
+  if(value===undefined)return 0;
+  if(!Number.isInteger(value)||value<0||value>max)throw new TypeError(name+' must be 0..'+max);
+  return value;
+};
+const natural=(value,name)=>{
+  if(value===undefined)return 0;
+  if(!Number.isInteger(value)||value<0||value>0xffffffff)throw new TypeError(name+' must be 0..4294967295');
+  return value;
+};
+/** The statuses the engine reports in the `status` of a rejection. */
+export const status=Object.freeze({INVALID:1,DENIED:2,PROTOCOL:16,EXPIRED:17});
 /** Load a caller-selected addon built from this package and the C engine. */
 export function loadEngine(addonPath){
  const native=require(addonPath);
  async function request(handle,operation,input,options={}){
-   const duration=timeout(options.timeout),cancel=native.newCancel();
+   const duration=timeout(options.timeout);
+   // A call that reports progress hands each event to onProgress; the rate the
+   // plugin may report at travels to it in the request.
+   const progress=[];
+   if(options.onProgress!==undefined){
+     if(typeof options.onProgress!=='function')throw new TypeError('onProgress must be a function');
+     if(operation==='call'){
+       const rates=options.progress??{};
+       progress.push(progressCallback(options.onProgress),rate(rates.eventsPerSecond,'eventsPerSecond',1<<20),rate(rates.bytesPerSecond,'bytesPerSecond',2**30));
+     }
+   }
+   const cancel=native.newCancel();
    const abort=()=>native.cancel(cancel);options.signal?.addEventListener('abort',abort,{once:true});
    if(options.signal?.aborted)abort();
-   try{return JSON.parse(await native.request(handle,operation,json(input),duration,cancel));}
+   try{return JSON.parse(await native.request(handle,operation,json(input),duration,cancel,...progress));}
    finally{options.signal?.removeEventListener('abort',abort);}
  }
 
@@ -114,7 +146,17 @@ export function loadEngine(addonPath){
    constructor(options){
      if(options.observe!==undefined&&typeof options.observe!=='function')throw new TypeError('observe must be a function');
      const observe=options.observe===undefined?undefined:raw=>{try{Promise.resolve(options.observe(JSON.parse(raw))).catch(()=>{});}catch{}};
-     this.#handle=native.createHost(options.executable,json(options.descriptor),options.arguments??[],options.environment??[],callback(options.verify,true),callback(options.authorize,true),observe);
+     // Services for the plugin's reverse calls: the engine admits a request (declared,
+     // within bounds, before the plugin's deadline, below the in-flight bound) and
+     // refuses it with a stable code; these two functions are the host's policy.
+     const reverse=options.reverse;
+     let authorizeReverse,handleReverse,bounds=[0,0,0];
+     if(reverse!==undefined){
+       if(typeof reverse.authorize!=='function'||typeof reverse.handle!=='function')throw new TypeError('reverse.authorize and reverse.handle are required');
+       authorizeReverse=callback(reverse.authorize,true);handleReverse=callback(reverse.handle,false);
+       bounds=[reverse.timeout===undefined?0:timeout(reverse.timeout),natural(reverse.maxPayloadBytes,'maxPayloadBytes'),natural(reverse.maxInFlight,'maxInFlight')];
+     }
+     this.#handle=native.createHost(options.executable,json(options.descriptor),options.arguments??[],options.environment??[],callback(options.verify,true),callback(options.authorize,true),observe,authorizeReverse,handleReverse,bounds);
    }
    static async open(options,callOptions){const h=new Host(options);try{await h.start(callOptions);return h;}catch(e){h.close();throw e;}}
    #invoke(op,input,options){if(this.#closed)return Promise.reject(new Error('host closed'));return request(this.#handle,op,input,options);}
@@ -142,7 +184,14 @@ export function loadEngine(addonPath){
    }
    close(){if(!this.#closed){this.#closed=true;native.closeHost(this.#handle);this.#handle=null;}}
  }
- return {Host,Guest,Instances,Streams,service:(operation,input)=>JSON.parse(native.service(operation,json(input))),
+ // Loopback data endpoints. An outcome is a status and never text, because an
+ // endpoint is a credential: a rejection carries status INVALID (malformed),
+ // DENIED (the policy does not admit it) or EXPIRED, and nothing of the endpoint.
+ const endpoint={
+   check:value=>{native.service('endpoint.check',json(value));},
+   validate:(value,policy)=>{native.service('endpoint.validate',json({endpoint:value,policy}));},
+ };
+ return {Host,Guest,Instances,Streams,endpoint,service:(operation,input)=>JSON.parse(native.service(operation,json(input))),
    directoryDigest:async root=>JSON.parse(await native.integrity('digest',root,'null')),
    verifyArtifacts:async(manifest,root)=>{await native.integrity('verify',root,json(manifest));}};
 }

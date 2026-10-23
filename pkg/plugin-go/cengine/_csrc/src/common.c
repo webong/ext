@@ -1,8 +1,10 @@
 #include "ext_host.h"
+#include "reverse.h"
 #include <stdatomic.h>
 #include <stdlib.h>
 struct ext_cancel {
   atomic_int signaled;
+  const ext_cancel *parent; /* also signaled when this one is; set before use */
 };
 ext_status ext_cancel_create(ext_cancel **out) {
   if (!out)
@@ -11,6 +13,7 @@ ext_status ext_cancel_create(ext_cancel **out) {
   if (!*out)
     return EXT_NOMEM;
   atomic_init(&(*out)->signaled, 0);
+  (*out)->parent = NULL;
   return EXT_OK;
 }
 void ext_cancel_signal(ext_cancel *c) {
@@ -18,7 +21,11 @@ void ext_cancel_signal(ext_cancel *c) {
     atomic_store(&c->signaled, 1);
 }
 int ext_cancel_is_signaled(const ext_cancel *c) {
-  return c && atomic_load(&c->signaled);
+  return c && (atomic_load(&c->signaled) || ext_cancel_is_signaled(c->parent));
+}
+void ext_cancel_link(ext_cancel *c, const ext_cancel *parent) {
+  if (c)
+    c->parent = parent;
 }
 void ext_cancel_destroy(ext_cancel *c) { free(c); }
 uint32_t ext_host_abi_version(void) { return EXT_HOST_ABI_VERSION; }
@@ -27,7 +34,7 @@ const char *ext_host_status_string(ext_status s) {
       "ok",        "invalid",   "denied",   "mismatch",      "unsupported",
       "closed",    "timeout",   "io",       "out of memory", "draining",
       "not found", "ambiguous", "canceled", "updating",      "capacity",
-      "sequence"};
+      "sequence",  "protocol",  "expired"};
   return s >= 0 && (size_t)s < sizeof(names) / sizeof(names[0]) ? names[s]
                                                                 : "unknown";
 }

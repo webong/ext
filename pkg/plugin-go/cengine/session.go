@@ -31,37 +31,40 @@ func (s *Session) Done() <-chan struct{} { return s.done }
 
 func (s *Session) finish() { s.doneOnce.Do(func() { close(s.done) }) }
 
-// CallProgress is Call for an operation that declares progress. The C engine
-// does not carry progress frames yet, so an operation that declares them is
-// refused (plugin.ErrUnsupported) rather than run without its events; any other
-// operation runs as Call and onProgress is never invoked. Use the pure-Go build
-// for progress until the C engine supports it.
+// CallProgress is Call for an operation that declares progress: onProgress
+// receives its events while the call runs, before CallProgress returns. The C
+// engine validates each event and applies the rate limit, as the pure-Go
+// session does: events beyond it are dropped and counted, the next event
+// carries Dropped, and a last event with the remaining count arrives before the
+// call returns. For an operation that did not declare progress, onProgress is
+// never called.
 func (s *Session) CallProgress(ctx context.Context, contract plugin.ContractRef, operation string, payload json.RawMessage, onProgress func(plugin.Progress), options ...plugin.CallOptions) (json.RawMessage, error) {
-	if op, err := s.Descriptor().Lookup(contract, operation); err == nil && op.Progress {
-		return nil, plugin.ErrUnsupported
+	var o plugin.CallOptions
+	if len(options) > 0 {
+		o = options[0]
 	}
-	return s.Call(ctx, contract, operation, payload)
+	if err := o.Progress.Validate(); err != nil {
+		return nil, err
+	}
+	return s.Host.callProgress(ctx, contract, operation, payload, onProgress, o.Progress)
 }
 
-// refuseReverse rejects Options.Reverse on a build whose engine does not
-// carry reverse calls yet. The host is refused at open, never silently without
-// the services it configured.
-func refuseReverse(options plugin.Options) error {
-	if options.Reverse != nil {
-		return plugin.ErrUnsupported
-	}
-	return nil
-}
-
+// Open runs a plugin over a Go backend (in-process, JSON-line, HashiCorp, WASI,
+// native Go) from options.Connect. The engine owns the session; the backend hands
+// it the frames it carries, the progress events of a call and the reverse calls
+// of the plugin, which a backend that carries none (HashiCorp, native Go, the C ABI,
+// the WebAssembly reactor) never does.
 func Open(ctx context.Context, d plugin.Descriptor, options plugin.Options) (*Session, error) {
 	if options.Verify == nil || options.Authorize == nil {
 		return nil, plugin.ErrDenied
 	}
-	if err := refuseReverse(options); err != nil {
-		return nil, err
-	}
 	if options.Connect == nil || options.Timeout < 0 || options.Timeout/time.Millisecond > math.MaxUint32 {
 		return nil, plugin.ErrInvalid
+	}
+	if options.Reverse != nil {
+		if err := validateReverse(options.Reverse); err != nil {
+			return nil, err
+		}
 	}
 	return openSession(ctx, d, options, func() (*Host, error) {
 		return NewWithBackend(d, BackendOptions{Connect: options.Connect, Concurrent: true}, func([]byte) error { return nil }, func([]byte) error { return nil })
@@ -74,11 +77,13 @@ func OpenProcess(ctx context.Context, d plugin.Descriptor, launch LaunchOptions,
 	if options.Verify == nil || options.Authorize == nil {
 		return nil, plugin.ErrDenied
 	}
-	if err := refuseReverse(options); err != nil {
-		return nil, err
-	}
 	if options.Timeout < 0 || options.Timeout/time.Millisecond > math.MaxUint32 {
 		return nil, plugin.ErrInvalid
+	}
+	if options.Reverse != nil {
+		if err := validateReverse(options.Reverse); err != nil {
+			return nil, err
+		}
 	}
 	return openSession(ctx, d, options, func() (*Host, error) {
 		return NewLaunch(launch, d, func([]byte) error { return nil }, func([]byte) error { return nil })
@@ -125,6 +130,12 @@ func openSession(ctx context.Context, d plugin.Descriptor, options plugin.Option
 	if err = status(C.ext_go_set_hooks(h.ptr, C.uintptr_t(h.policy))); err != nil {
 		h.Destroy()
 		return nil, err
+	}
+	if options.Reverse != nil {
+		if err = h.setReverse(ctx, options.Reverse); err != nil {
+			h.Destroy()
+			return nil, err
+		}
 	}
 	if err = h.Start(ctx); err != nil {
 		h.Destroy()

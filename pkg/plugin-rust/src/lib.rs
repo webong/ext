@@ -1,13 +1,18 @@
 //! Typed CTX hosts and guests. Domain policy is mandatory on both sides.
 pub mod cabi;
 pub mod capability;
+pub mod frames;
 pub mod guest;
 pub mod host;
 #[cfg(not(target_os = "wasi"))]
 pub mod native;
+pub mod serve;
 pub mod wire;
 pub use guest::{CallContext, Guest, Method, Registry};
-pub use wire::{ContractRef, Descriptor, Identity, Operation, RemoteError, Request};
+pub use serve::{serve, serve_stdio, serve_with, Mode, Reverse};
+pub use wire::{
+    ContractRef, Descriptor, Identity, Operation, ProgressLimits, RemoteError, Request,
+};
 pub const VERSION: &str = "ext.plugin/v1";
 pub const MAX_FRAME: usize = 24 << 20;
 pub const DEFAULT_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(30);
@@ -20,6 +25,9 @@ pub enum Error {
     Closed,
     Deadline,
     Transport,
+    /// The peer broke the framing rules: a frame that is not valid, or one the
+    /// connection did not allow. The session is over.
+    Protocol,
     Remote(RemoteError),
 }
 impl std::fmt::Display for Error {

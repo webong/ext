@@ -11,7 +11,7 @@
 typedef struct {
   JavaVM *vm;
   jobject self;       /* global reference to the Guest */
-  jmethodID dispatch; /* byte[] dispatch(byte[] request, int remainingMs) */
+  jmethodID dispatch; /* byte[] dispatch(byte[] request, int remainingMs, Object state) */
 } binding;
 
 static JNIEnv *attach(JavaVM *vm, int *attached) {
@@ -43,7 +43,6 @@ static void throw_status(JNIEnv *env, ext_status status) {
 static ext_status handle(void *user, void *call_user, const uint8_t *request,
                          size_t len, uint32_t remaining_ms, ext_guest_emit emit,
                          void *sink) {
-  (void)call_user;
   binding *b = user;
   int attached;
   JNIEnv *env = attach(b->vm, &attached);
@@ -52,8 +51,9 @@ static ext_status handle(void *user, void *call_user, const uint8_t *request,
   jbyteArray in = (*env)->NewByteArray(env, (jsize)len);
   if (in) {
     (*env)->SetByteArrayRegion(env, in, 0, (jsize)len, (const jbyte *)request);
-    jbyteArray out = (jbyteArray)(*env)->CallObjectMethod(env, b->self, b->dispatch,
-                                                          in, (jint)remaining_ms);
+    /* call_user is the global reference invoke made to the call's state, or NULL. */
+    jbyteArray out = (jbyteArray)(*env)->CallObjectMethod(env, b->self, b->dispatch, in,
+                                                          (jint)remaining_ms, (jobject)call_user);
     if ((*env)->ExceptionCheck(env)) {
       (*env)->ExceptionClear(env);
     } else if (out) {
@@ -96,7 +96,7 @@ JNIEXPORT jlong JNICALL Java_io_github_webong_ext_plugin_NativeEngine_create(
   }
   (*env)->GetByteArrayRegion(env, descriptor, 0, n, (jbyte *)text);
   jclass guest_class = (*env)->GetObjectClass(env, guest);
-  s->b.dispatch = (*env)->GetMethodID(env, guest_class, "dispatch", "([BI)[B");
+  s->b.dispatch = (*env)->GetMethodID(env, guest_class, "dispatch", "([BILjava/lang/Object;)[B");
   s->b.self = (*env)->NewGlobalRef(env, guest);
   if (!s->b.dispatch || !s->b.self || (*env)->GetJavaVM(env, &s->b.vm) != JNI_OK) {
     if (s->b.self) (*env)->DeleteGlobalRef(env, s->b.self);
@@ -135,7 +135,7 @@ JNIEXPORT jbyteArray JNICALL Java_io_github_webong_ext_plugin_NativeEngine_descr
 }
 
 JNIEXPORT jbyteArray JNICALL Java_io_github_webong_ext_plugin_NativeEngine_invoke(
-    JNIEnv *env, jclass cls, jlong handle, jbyteArray request, jint timeout_ms) {
+    JNIEnv *env, jclass cls, jlong handle, jbyteArray request, jint timeout_ms, jobject state) {
   (void)cls;
   jsize n = (*env)->GetArrayLength(env, request);
   uint8_t *in = malloc(n ? (size_t)n : 1);
@@ -145,7 +145,10 @@ JNIEXPORT jbyteArray JNICALL Java_io_github_webong_ext_plugin_NativeEngine_invok
   }
   (*env)->GetByteArrayRegion(env, request, 0, n, (jbyte *)in);
   ext_buffer out = {0};
-  ext_status status = ext_guest_invoke(guest_of(handle), in, (size_t)n, (uint32_t)timeout_ms, NULL, &out);
+  /* The state outlives this call's frames on every thread the engine might run the handler on. */
+  jobject call_state = state ? (*env)->NewGlobalRef(env, state) : NULL;
+  ext_status status = ext_guest_invoke(guest_of(handle), in, (size_t)n, (uint32_t)timeout_ms, call_state, &out);
+  if (call_state) (*env)->DeleteGlobalRef(env, call_state);
   free(in);
   if (status != EXT_OK) {
     ext_buffer_free(&out);
@@ -167,6 +170,26 @@ JNIEXPORT jint JNICALL Java_io_github_webong_ext_plugin_NativeEngine_validateJso
   (*env)->GetByteArrayRegion(env, data, 0, n, (jbyte *)in);
   ext_status status = ext_host_validate_json(in, (size_t)n);
   free(in);
+  return status;
+}
+
+JNIEXPORT jint JNICALL Java_io_github_webong_ext_plugin_NativeEngine_endpoint(
+    JNIEnv *env, jclass cls, jstring operation, jbyteArray data) {
+  (void)cls;
+  const char *op = (*env)->GetStringUTFChars(env, operation, NULL);
+  if (!op) return EXT_NOMEM;
+  jsize n = (*env)->GetArrayLength(env, data);
+  uint8_t *in = malloc(n ? (size_t)n : 1);
+  if (!in) {
+    (*env)->ReleaseStringUTFChars(env, operation, op);
+    return EXT_NOMEM;
+  }
+  (*env)->GetByteArrayRegion(env, data, 0, n, (jbyte *)in);
+  ext_buffer out = {0};
+  ext_status status = ext_engine_call(op, in, (size_t)n, &out);
+  ext_buffer_free(&out);
+  free(in);
+  (*env)->ReleaseStringUTFChars(env, operation, op);
   return status;
 }
 

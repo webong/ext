@@ -34,8 +34,9 @@ protocol and existing language guest implementations remain unchanged.
 - Bindings in [Go](../../pkg/plugin-go/README.md), [Rust](../../pkg/plugin-rust/engine/README.md),
   [Zig](../../pkg/plugin-zig/engine/README.md) and [Node](../../pkg/plugin-ts/engine/README.md).
   They are additive while the existing language SDKs remain the reference.
-  The Go binding's C glue is the header-only `bindings/go/ext_go_bridge.h`, which its
-  cgo preambles include, so the Go package has no `.c` files.
+  Each binding's glue lives with the binding: the Go package carries its own cgo
+  header (`ext_go_bridge.h`, header-only, so it has no `.c` files), and this
+  directory holds the engine alone.
 
 See the [service and resource APIs](services.md) for the common operations.
 The binding examples use permissive fixture policies; applications supply their
@@ -163,6 +164,14 @@ exactly one bounded result into the C engine's copying sink. Callback code and
 user state stay alive until release. Close is called once and can run concurrently
 with connect/invoke; it must interrupt runtime work. Release runs only after all
 host calls have joined. Failed create leaves ownership with the caller.
+
+An extension that also reads the plugin's tagged frames (progress events and
+reverse requests) is created with `EXT_BACKEND_FRAMES` and hands them to the engine
+with `ext_host_backend_progress`, `ext_host_backend_reverse_admit` and
+`ext_host_backend_reverse_run`: the engine validates, limits, admits and answers as
+it does for a process it reads, and the backend keeps its transport and threads.
+Without the flag the engine refuses a descriptor that declares progress or reverse
+operations, since the backend could not carry them.
 
 Go consumers use `goengine.NewWithBackend` with a reviewed `Connect` factory:
 

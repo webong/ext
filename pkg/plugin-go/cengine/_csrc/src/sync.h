@@ -21,6 +21,7 @@ typedef struct {
 typedef struct {
   SRWLOCK lock;
 } pthread_mutex_t;
+#define PTHREAD_MUTEX_INITIALIZER {SRWLOCK_INIT}
 typedef struct {
   CONDITION_VARIABLE variable;
 } pthread_cond_t;

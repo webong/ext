@@ -25,6 +25,26 @@ public final class GuestTests {
         run("closed guest rejects calls and close is idempotent", GuestTests::closed);
         run("json line serves hello then requests", GuestTests::jsonLine);
         run("json line rejects malformed and bad hello frames", GuestTests::jsonLineRejects);
+        run("frames are judged as the Go contract judges them", FramesTests::frames);
+        run("the rate limiter reproduces every step", FramesTests::limiter);
+        run("the wire model is judged as the Go contract judges it", FramesTests::model);
+        run("router: the descriptor declares progress and reverse", RouterTests::descriptor);
+        run("router: events come in order before the response", RouterTests::eventsInOrder);
+        run("router: a flood is limited, counted and closed with a marker", RouterTests::flood);
+        run("router: an operation that did not declare progress cannot report", RouterTests::undeclared);
+        run("router: an event that breaks the rules is refused and never sent", RouterTests::invalidEvents);
+        run("router: a reverse call names the call and returns the answer", RouterTests::reverseCall);
+        run("router: reverse calls of one handler run at once", RouterTests::reverseAtOnce);
+        run("router: a session-scoped request carries no parent", RouterTests::sessionScoped);
+        run("router: a call-scoped caller ends with its call", RouterTests::callScopeEnds);
+        run("router: an answer to an abandoned request is dropped", RouterTests::abandoned);
+        run("router: what the host may not do ends the session", RouterTests::violations);
+        run("router: a connection that ends releases a waiting handler", RouterTests::connectionEnds);
+        run("router: a request may follow the hello right away", RouterTests::pipelinedAfterHello);
+        run("router: a guest invoked directly has no frames", RouterTests::withoutFrames);
+        run("router: the hello may leave out the plugin, contract and surface", RouterTests::bareHello);
+        run("data endpoints reproduce the shared fixture", EndpointTests::fixture);
+        run("data endpoint inputs and statuses", EndpointTests::inputs);
         System.out.println(failures == 0 ? "all Java plugin tests passed" : failures + " Java plugin tests FAILED");
         System.exit(failures == 0 ? 0 : 1);
     }

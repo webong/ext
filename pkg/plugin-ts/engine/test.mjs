@@ -4,7 +4,8 @@ import {readFile,mkdtemp,writeFile,symlink,rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {createHash} from 'node:crypto';
-import {loadEngine} from './index.mjs';
+import {execFileSync} from 'node:child_process';
+import {loadEngine,status} from './index.mjs';
 const engine=loadEngine(process.env.EXT_ENGINE_ADDON);
 const descriptor=JSON.parse(await readFile(new URL('../../../lib/plugin/testdata/v1/descriptor.json',import.meta.url)));
 function envelope(operation='echo',payload={value:7}){return {apiVersion:'ext.plugin/v1',id:'1',plugin:descriptor.identity,contract:{name:'ext.conformance',version:'v1'},operation,payload,deadline:new Date(Date.now()+5000).toISOString()};}
@@ -121,4 +122,106 @@ test('malformed requests are public invalid_request responses',async()=>{
   const missing=envelope();delete missing.payload;
   assert.equal((await g.invoke(missing)).payload,null,'a missing payload is null, as in Go');
  }finally{g.close();}
+});
+
+// Progress events, reverse calls and data endpoints. The plugin is the C engine's
+// scripted test guest (lib/plugin/tests/reverse.c), started as `<guest> --guest
+// <mode>`; set EXT_REVERSE_TEST_GUEST to the built ext_reverse_test.
+const reverseGuest=process.env.EXT_REVERSE_TEST_GUEST;
+const reverseSkip=!reverseGuest;
+const reverseDescriptor=()=>JSON.parse(execFileSync(reverseGuest,['--descriptor']).toString());
+const run={name:'reverse.test',version:'v1'};
+function services(seen){
+ return {
+  authorize:async(request,context)=>{seen.authorized.push(request);assert.ok(context.timeout>0);return request.operation!=='secret';},
+  handle:async request=>{
+   seen.handled.push(request);
+   switch(request.operation){
+    case 'sign':return {payload:'signed'};
+    case 'empty':return {};
+    case 'errok':return {error:{code:'policy',message:'refused for you',retryAfterMilliseconds:5}};
+    case 'fail':throw new Error('private');
+   }
+   throw new Error('unexpected');
+  },
+  timeout:150,maxPayloadBytes:64,
+ };
+}
+async function reverseHost(mode,reverse){
+ const seen={authorized:[],handled:[]};
+ const host=await engine.Host.open({executable:reverseGuest,arguments:['--guest',mode],descriptor:reverseDescriptor(),verify:()=>true,authorize:()=>true,...(reverse===false?{}:{reverse:services(seen)})});
+ return {host,seen};
+}
+test('reverse calls are served by the host\'s policy and handler',{skip:reverseSkip},async()=>{
+ let {host,seen}=await reverseHost('call:sign');
+ let reply=await host.call(run,'run',{});
+ assert.equal(reply.payload.reply.id,'g1');assert.equal(reply.payload.reply.payload,'signed');
+ assert.equal(seen.authorized.length,1);assert.equal(seen.handled.length,1);
+ const request=seen.handled[0];
+ assert.equal(request.operation,'sign');assert.equal(request.surface,'signing');assert.equal(request.parent,'1');
+ assert.deepEqual(request.plugin,{id:'reverse/guest',revision:'r1'});assert.deepEqual(request.payload,{n:1});
+ host.close();
+ // Every way a handler can answer, and what the plugin sees.
+ for(const [mode,check] of [
+  ['call:empty',r=>assert.equal(r.payload,null)],
+  ['call:errok',r=>assert.deepEqual(r.error,{code:'policy',message:'refused for you',retryAfterMilliseconds:5})],
+  ['call:fail',r=>assert.equal(r.error.code,'operation_failed')],
+  ['call:secret',r=>assert.equal(r.error.code,'denied')],
+  ['call:nothere',r=>assert.equal(r.error.code,'reverse_undeclared')],
+ ]){
+  ({host,seen}=await reverseHost(mode));
+  reply=await host.call(run,'run',{});check(reply.payload.reply);
+  if(mode==='call:secret')assert.equal(seen.handled.length,0);
+  if(mode==='call:nothere')assert.equal(seen.authorized.length,0);
+  host.close();
+ }
+ // A host that offers no services answers every request as unavailable.
+ ({host}=await reverseHost('call:sign',false));
+ reply=await host.call(run,'run',{});assert.equal(reply.payload.reply.error.code,'reverse_unavailable');host.close();
+});
+test('a plugin that breaks the framing ends the session',{skip:reverseSkip},async()=>{
+ for(const mode of ['wrongparent','bad-id','bad-extra']){
+  const {host}=await reverseHost(mode);
+  await assert.rejects(host.call(run,'run',{}),e=>e.status===status.PROTOCOL,mode);
+  await assert.rejects(host.call(run,'run',{}),mode);
+  host.close();
+ }
+});
+test('progress events arrive in order before the call settles',{skip:reverseSkip},async()=>{
+ const {host}=await reverseHost('interleave');
+ const events=[];let settled=false;
+ const pending=host.call(run,'run',{},{onProgress:event=>{assert.equal(settled,false);events.push(event);}});
+ const reply=await pending;settled=true;
+ assert.deepEqual(events,[{kind:'log',text:'one'},{kind:'log',text:'two'}]);
+ assert.equal(reply.payload.reply.payload,'signed');
+ // A callback that throws does not fail the call, and a call without one works.
+ const again=await host.call(run,'run',{},{onProgress:()=>{throw new Error('callback failed');}});
+ assert.equal(again.payload.reply.payload,'signed');
+ assert.equal((await host.call(run,'run',{})).payload.reply.payload,'signed');
+ await assert.rejects(host.call(run,'run',{},{onProgress:'no'}),TypeError);
+ await assert.rejects(host.call(run,'run',{},{onProgress(){},progress:{eventsPerSecond:-1}}),TypeError);
+ host.close();
+});
+test('reverse options are checked before anything starts',()=>{
+ const base={executable:'/nonexistent',descriptor,verify(){},authorize(){}};
+ assert.throws(()=>new engine.Host({...base,reverse:{authorize(){}}}),TypeError);
+ assert.throws(()=>new engine.Host({...base,reverse:{handle(){}}}),TypeError);
+ assert.throws(()=>new engine.Host({...base,reverse:{authorize(){},handle(){},maxInFlight:-1}}),TypeError);
+ assert.throws(()=>new engine.Host({...base,reverse:{authorize(){},handle(){},timeout:0}}),TypeError);
+});
+test('data endpoints reproduce every outcome of the shared fixture',async()=>{
+ const fixture=JSON.parse(await readFile(new URL('../../../lib/plugin/testdata/v1/endpoint-cases.json',import.meta.url)));
+ const outcome=fn=>{try{fn();return 'ok';}catch(error){return {[status.INVALID]:'invalid',[status.DENIED]:'denied',[status.EXPIRED]:'expired'}[error.status]??'error '+error.message;}};
+ assert.equal(fixture.cases.length,213);
+ const seen=new Set();
+ for(const c of fixture.cases){
+  assert.equal(outcome(()=>engine.endpoint.check(c.endpoint)),c.check,'check: '+c.name);
+  assert.equal(outcome(()=>engine.endpoint.validate(c.endpoint,c.policy)),c.validate,'validate: '+c.name);
+  seen.add(c.validate);
+ }
+ assert.deepEqual([...seen].sort(),['denied','expired','invalid','ok']);
+ // An outcome is a status: nothing of the endpoint reaches the error.
+ const secret={scheme:'ws',address:'localhost:80',token:'s3cr3t-t0ken',expiresAt:'2000-01-01T00:00:00Z'};
+ try{engine.endpoint.validate(secret,{schemes:['ws'],now:'2030-01-01T00:00:00Z'});assert.fail('admitted');}
+ catch(error){assert.equal(error.status,status.EXPIRED);assert.ok(!JSON.stringify(error).includes('s3cr3t')&&!error.message.includes('s3cr3t'));}
 });

@@ -59,10 +59,7 @@ fn method() -> Method<Message, Message> {
             name: "example.echo".into(),
             version: "v1".into(),
         },
-        Operation {
-            name: "echo".into(),
-            surface: String::new(),
-        },
+        Operation::new("echo"),
     );
     m.validate_input = |v: &Message| {
         if v.text.len() > 8 {
@@ -183,6 +180,8 @@ fn guest_denial_and_cabi_ownership() {
         surface: String::new(),
         deadline: wire::timestamp(SystemTime::now() + Duration::from_secs(5)).unwrap(),
         payload: serde_json::json!({"text":"hello"}),
+        progress: None,
+        parent: String::new(),
     };
     let v = wire::decode(&server.call(id, 2, &wire::encode(&req).unwrap()).unwrap()).unwrap();
     assert_eq!(v["error"]["code"], "operation_failed");
@@ -207,4 +206,49 @@ fn guest_denial_and_cabi_ownership() {
     assert_eq!(len, 0);
     let mut input = std::io::Cursor::new(b"{}".to_vec());
     assert!(guest::read_frame(&mut input).is_err());
+}
+
+#[test]
+fn a_struct_is_read_only_from_an_object() {
+    // serde would read a list as the fields in order; Go refuses it.
+    assert!(wire::typed::<Operation>(serde_json::json!(["echo"])).is_err());
+    assert!(wire::typed::<ContractRef>(serde_json::json!(["a", "v1"])).is_err());
+    let descriptor = |identity: serde_json::Value, contract: serde_json::Value| serde_json::json!({"apiVersion":"ext.plugin/v1","identity":identity,"contracts":[contract]});
+    let identity = serde_json::json!({"id":"a/b","revision":"r1"});
+    let contract = serde_json::json!({"name":"c","version":"v1","operations":[{"name":"o"}]});
+    assert!(wire::typed::<Descriptor>(descriptor(identity.clone(), contract.clone())).is_ok());
+    assert!(wire::typed::<Descriptor>(descriptor(
+        serde_json::json!(["a/b", "r1"]),
+        contract.clone()
+    ))
+    .is_err());
+    assert!(wire::typed::<Descriptor>(descriptor(
+        identity.clone(),
+        serde_json::json!(["c", "v1", [{"name":"o"}]])
+    ))
+    .is_err());
+    assert!(wire::typed::<Descriptor>(descriptor(
+        identity,
+        serde_json::json!({"name":"c","version":"v1","operations":[["o"]]})
+    ))
+    .is_err());
+    // Objects, lists, tuples, options and a payload's own types are unaffected.
+    assert_eq!(
+        wire::typed::<Operation>(serde_json::json!({"name":"echo"})).unwrap(),
+        Operation::new("echo")
+    );
+    assert_eq!(
+        wire::typed::<Vec<u32>>(serde_json::json!([1, 2])).unwrap(),
+        vec![1, 2]
+    );
+    assert_eq!(
+        wire::typed::<(u32, String)>(serde_json::json!([1, "a"])).unwrap(),
+        (1, "a".to_string())
+    );
+    assert_eq!(
+        wire::typed::<Option<u32>>(serde_json::Value::Null).unwrap(),
+        None
+    );
+    assert!(wire::typed::<u32>(serde_json::json!(-1)).is_err());
+    assert!(wire::typed::<u32>(serde_json::json!(1.5)).is_err());
 }

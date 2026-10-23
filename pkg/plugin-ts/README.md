@@ -59,12 +59,57 @@ translations, credentials and process launch policy belong to the embedding
 application. Go's instance manager and package/graph tooling currently live in
 Go; they are not duplicated in this JavaScript package.
 
+## Report progress and call the host
+
+A guest can report progress while a call runs and call back into its host, over a
+transport that carries frames (`serveGuest` on a process or a socket; not the C ABI).
+An operation that reports declares `progress: true`; the host operations a guest may
+call are declared with `registry.declareReverse`. A typed handler gets the call's
+`frames` as its fourth argument.
+
+```ts
+const registry = new Registry(identity)
+  .declareReverse({ name: 'host.svc', version: 'v1' }, [{ name: 'sign' }])
+  .register({ ...method, operation: { name: 'echo', progress: true } }, async (input, signal, request, frames) => {
+    // Events reach the host in order, before the result. 'dropped' is routine: the
+    // rate limit the host set dropped it and counts it for the next event.
+    await frames.progress({ kind: 'log', text: 'starting' });
+    await frames.progress({ kind: 'progress', completed: 1, total: 3 });
+    // The host's refusal or error comes back as a RemoteError with its code
+    // (denied, busy, too_large, expired, ...).
+    return frames.reverse!.call({ name: 'host.svc', version: 'v1' }, 'sign', input, signal);
+  });
+```
+
+`frames.progress` rejects with a `FrameError` whose `code` is `unsupported` (the
+operation did not declare progress, or the transport has no frames), `invalid` (the
+event breaks the rules; nothing is sent) or `closed` (the call is over);
+`frames.progressLimits` is the rate the host set, and `splitProgressText` cuts a long
+line into events that each fit. `serveGuest` keeps reading while a handler runs, so a
+handler may have several reverse calls outstanding and `frames.sessionReverse` is a
+caller that background work keeps after the call returned (a host answers it only
+while the session lives). `frames.reverse.call` honors the signal and the call's
+deadline. A frame that breaks the rules ends the session: `serveGuest` rejects with a
+`FrameError` whose code is `protocol`, and the call in flight is not answered. A
+transport with no frames (`Guest.invoke` called directly) gives `frames.reverse` and
+`frames.sessionReverse` as null.
+
+The shared fixtures (`lib/plugin/testdata/v1/{frame-cases,progress-limiter-cases,model-cases}.json`,
+computed by the Go contract) are reproduced by `frames.test.mjs`, with the exceptions
+that follow from JavaScript numbers: an integer beyond 2^53 is refused where Go
+accepts it, and a count written `1.0` reads as `1`. The list of exceptions is
+checked in both directions, so a case that starts agreeing fails the test until it
+is removed. `router.test.mjs` covers the router itself, and `examples/frames/guest.mjs`
+is the frames conformance guest of
+[docs/plugin-guest-frames.md](../../docs/plugin-guest-frames.md), which
+`scripts/plugin-crosslang.sh` runs through the Go session and the C engine.
+
 ## Run
 
 From the repository root:
 
 ```sh
-node --test pkg/plugin-ts/test.mjs
+node --test pkg/plugin-ts/test.mjs pkg/plugin-ts/frames.test.mjs pkg/plugin-ts/router.test.mjs
 tsc --noEmit --strict --module NodeNext --moduleResolution NodeNext --target ES2022 pkg/plugin-ts/typecheck.mts
 go run ./pkg/plugin-go/examples/plugin-typescript
 go build -o /tmp/ext-plugin-example ./pkg/plugin-go/examples/plugin-typescript

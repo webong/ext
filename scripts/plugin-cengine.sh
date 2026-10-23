@@ -33,7 +33,7 @@ cmake --build "$build_dir/release" -j 4
 export CGO_LDFLAGS="${CGO_LDFLAGS:-} -L$build_dir/release -Wl,-rpath,$build_dir/release"
 export EXT_CENGINE_GUEST="$build_dir/go-guest" EXT_CENGINE_FAULT_GUEST="$build_dir/fault-guest"
 go build -o "$EXT_CENGINE_GUEST" ./pkg/plugin-go/crosslang/testdata/go-guest
-go build -o "$EXT_CENGINE_FAULT_GUEST" lib/plugin/tests/faultguest/main.go
+go build -o "$EXT_CENGINE_FAULT_GUEST" ./pkg/plugin-go/cengine/testdata/faultguest
 go test -tags "$go_tags" -race -count=1 -timeout=90s ./pkg/plugin-go/cengine
 python3 - "$build_dir" <<'PY'
 import json, pathlib, sys, datetime
@@ -43,12 +43,23 @@ for op in ['echo','public-error','wait']:
  r=dict(apiVersion='ext.plugin/v1',id='1',plugin=d['identity'],contract=dict(name='ext.conformance',version='v1'),operation=op,deadline='2099-01-01T00:00:00Z',payload=dict(value=7))
  (p/(op+'.json')).write_text(json.dumps(r))
 PY
+# The Rust, Zig and Node.js tests of progress events, reverse calls and data endpoints
+# run the engine's scripted test guest and the shared endpoint fixture.
+export EXT_REVERSE_TEST_GUEST="$build_dir/release/ext_reverse_test"
+"$EXT_REVERSE_TEST_GUEST" --descriptor > "$build_dir/reverse-descriptor.json"
+export EXT_REVERSE_TEST_DESCRIPTOR="$build_dir/reverse-descriptor.json"
+export EXT_ENDPOINT_CASES="$PWD/lib/plugin/testdata/v1/endpoint-cases.json"
 cmake -S lib/plugin -B "$build_dir/sanitize" -DCMAKE_BUILD_TYPE=Debug -DEXT_SANITIZE=ON
 cmake --build "$build_dir/sanitize" -j 4
 "$build_dir/sanitize/ext_guest_core_test"
 "$build_dir/sanitize/ext_resources_test"
 "$build_dir/sanitize/ext_limits_test"
 "$build_dir/sanitize/ext_tree_limits_test"
+"$build_dir/sanitize/ext_frames_test"
+"$build_dir/sanitize/ext_reverse_test"
+"$build_dir/sanitize/ext_backend_test"
+"$build_dir/sanitize/ext_endpoint_test" lib/plugin/testdata/v1/endpoint-cases.json
+"$build_dir/sanitize/ext_fixtures_test" lib/plugin/testdata/v1
 "$build_dir/sanitize/ext_host_native_test" "$EXT_CENGINE_GUEST" "$build_dir/descriptor.json" "$build_dir/echo.json" "$build_dir/wait.json"
 cmake -S lib/plugin -B "$build_dir/thread-sanitize" -DCMAKE_BUILD_TYPE=Debug -DEXT_THREAD_SANITIZE=ON
 cmake --build "$build_dir/thread-sanitize" -j 4
@@ -56,6 +67,11 @@ cmake --build "$build_dir/thread-sanitize" -j 4
 "$build_dir/thread-sanitize/ext_resources_test"
 "$build_dir/thread-sanitize/ext_limits_test"
 "$build_dir/thread-sanitize/ext_tree_limits_test"
+"$build_dir/thread-sanitize/ext_frames_test"
+"$build_dir/thread-sanitize/ext_reverse_test"
+"$build_dir/thread-sanitize/ext_backend_test"
+"$build_dir/thread-sanitize/ext_endpoint_test" lib/plugin/testdata/v1/endpoint-cases.json
+"$build_dir/thread-sanitize/ext_fixtures_test" lib/plugin/testdata/v1
 "$build_dir/thread-sanitize/ext_host_native_test" "$EXT_CENGINE_GUEST" "$build_dir/descriptor.json" "$build_dir/echo.json" "$build_dir/wait.json"
 for foreign in "${EXT_CENGINE_RUST_GUEST:-}" "${EXT_CENGINE_ZIG_GUEST:-}"; do
   if [[ -n "$foreign" ]]; then
@@ -102,7 +118,8 @@ for repetition in 1 2 3; do
     read -r size iterations concurrency <<< "$shape"
     engines=(go c); if [[ "$repetition" == 2 ]]; then engines=(c go); fi
     for engine in "${engines[@]}"; do
-      "$build_dir/bench" "$engine" "$EXT_CENGINE_GUEST" "$size" "$iterations" "$concurrency" >> "$build_dir/benchmarks.jsonl"
+      "$build_dir/bench" "$engine" "$EXT_CENGINE_GUEST" "$size" "$iterations" "$concurrency" >> "$build_dir/benchmarks.jsonl" ||
+        { echo "bench $engine $size $iterations $concurrency (repetition $repetition) failed" >&2; exit 1; }
     done
   done
 done

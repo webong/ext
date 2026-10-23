@@ -16,6 +16,18 @@ common ownership operations. Call `deinit` exactly once after concurrent uses
 have joined; owned values must not be copied. Callbacks and their user data must
 outlive handles and must not reenter the same host.
 
+`Host.callProgress` is `call` for an operation that declares progress: the
+callback in `Progress.deliver` receives the JSON of each event, in order, before the
+call returns. `Host.setServices` offers the plugin's `reverse` operations to it:
+the engine admits or refuses each request with a stable code, and the `authorize`
+and `handle` callbacks of `Services` are the host's policy; they run on engine
+threads, receive the request JSON and an engine-owned cancel signal, and emit one
+payload or public error. `endpoint.check` and `endpoint.validate` admit loopback
+data endpoints and fail with `error.Invalid`, `error.Denied` or `error.Expired`,
+never text; `error.Protocol` is a plugin that broke the framing. The tests of these
+read `EXT_REVERSE_TEST_GUEST`, `EXT_REVERSE_TEST_DESCRIPTOR` and
+`EXT_ENDPOINT_CASES` (see `scripts/plugin-cengine.sh`) and are skipped without them.
+
 The guest handler uses the C copying result sink. It must cooperate with its
 remaining time and must not retain borrowed pointers. Instance/stream APIs are
 available through both ownership wrappers and `ffi`. Release all leases and join

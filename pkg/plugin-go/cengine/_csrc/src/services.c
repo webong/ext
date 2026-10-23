@@ -1,5 +1,8 @@
 #define _POSIX_C_SOURCE 200809L
 #include "services.h"
+#include "endpoint.h"
+#include "progress.h"
+#include "reverse.h"
 #include "wire.h"
 #include <math.h>
 #include <stdlib.h>
@@ -403,6 +406,38 @@ static ext_status dispatch(const char *op, yyjson_val *v, ext_buffer *out) {
       if (!satisfies(get(v, "descriptor"), r))
         return EXT_NOT_FOUND;
     }
+  } else if (!strcmp(op, "endpoint.check")) {
+    /* An endpoint's shape, which no policy changes (endpoint.Decode). */
+    ext_status s = ext_endpoint_check(v);
+    if (s)
+      return s;
+    result = v;
+  } else if (!strcmp(op, "endpoint.validate")) {
+    /* An endpoint against what a host admits (Endpoint.Validate). */
+    ext_endpoint_policy policy;
+    if (!EXT_FIELDS(v, "endpoint", "policy") || !get(v, "endpoint") ||
+        !ext_endpoint_policy_parse(get(v, "policy"), &policy))
+      return EXT_INVALID;
+    ext_status s = ext_endpoint_validate(get(v, "endpoint"), &policy);
+    if (s)
+      return s;
+    result = get(v, "endpoint");
+  } else if (!strcmp(op, "frame.validate")) {
+    /* One tagged frame as it travels between a host and a plugin. The Go
+     * reference is the frame types' Decode and Validate (reverse.go). */
+    yyjson_val *tag = get(v, "frame");
+    ext_status s = EXT_PROTOCOL;
+    if (yyjson_equals_str(tag, "progress")) {
+      ext_progress_event event;
+      yyjson_val *parent;
+      s = ext_progress_frame(v, &event, &parent);
+    } else if (yyjson_equals_str(tag, "reverse_request")) {
+      ext_reverse_request request;
+      s = ext_reverse_request_frame(v, &request);
+    }
+    if (s)
+      return s;
+    result = v;
   } else if (!strcmp(op, "protocol.negotiate")) {
     if (!EXT_FIELDS(v, "preferred", "offered") ||
         !ext_protocols(get(v, "preferred")) ||

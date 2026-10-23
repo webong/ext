@@ -76,6 +76,54 @@ allocator-owned memory or free caller memory. Valid non-overlapping pointers
 are required. Panics cannot be recovered by this helper and can terminate the
 host when running natively.
 
+## Report progress and call the host
+
+A guest served by `jsonline.serve` (a command or a WASI module, not the C ABI) can report
+progress while a call runs and call back into its host. An operation that reports declares
+`.progress = true`; the host operations a guest may call are declared with
+`Registry.declareReverse`. Both go through the call's `Context`:
+
+```zig
+fn handle(ctx: *sdk.author.Context, _: sdk.wire.Request, input: sdk.wire.Value) !sdk.wire.Value {
+    // Events reach the host in order, before the result. .dropped is routine: the rate limit the
+    // host set dropped it and counts it for the next event.
+    _ = try ctx.progress(sdk.frames.Progress.log("starting"));
+    _ = try ctx.progress(sdk.frames.Progress.fraction(1, 3));
+    // The host's refusal or error is left in ctx.reverse_error and returned as error.Remote
+    // (denied, busy, too_large, expired, ...). The answer lives as long as ctx.allocator.
+    return ctx.reverse(.{ .name = "host.svc", .version = "v1" }, "sign", input);
+}
+```
+
+`ctx.progress` fails with `error.Unsupported` for an operation that did not declare progress, a
+call the host asked no events of, or a transport with no frames (stop reporting),
+`error.Invalid` for an event that breaks the rules (nothing is sent), and `error.Closed` once the
+call is over. `ctx.progressLimits()` is the rate the host set, and `frames.splitText` cuts a long
+line into events that each fit. This guest reads *inline*: it has no reader of its own, so the
+thread that waits for the host's answer reads the connection itself. The host sends nothing but
+that answer during a call, so this suffices, with limits: one reverse call at a time, no
+session-scoped caller, and a wait that ends with the answer or the end of the connection (standard
+input cannot be read with a timeout). A frame the host may not send ends the session with
+`error.Protocol` and the call in flight is not answered; when the input ends during a call,
+`ctx.reverse` fails with `error.Closed`, the call is answered and the session ends. `Guest.invoke`
+on its own has no frames, so `progress` and `reverse` fail with `error.Unsupported` there.
+
+`src/frames_tests.zig` reproduces the shared fixtures
+(`lib/plugin/testdata/v1/{frame-cases,progress-limiter-cases,model-cases}.json`, computed by the Go
+contract) and runs the router against a scripted host; `examples/frames.zig` is the frames
+conformance guest of [docs/plugin-guest-frames.md](../../docs/plugin-guest-frames.md), which
+`scripts/plugin-crosslang.sh` runs natively and as a WASI command through the Go session. It
+answers the operations that need a reader of its own with the public error `unsupported`. The
+fixtures are read from `EXT_FIXTURES`, or relative to the build root or the repository root.
+
+Requests are decoded with `wire.requestFromValue`, which reads a request the way the Go contract
+does (a member it does not know is refused, a null member is empty); `wire.descriptorFromValue`
+does the same for a descriptor.
+
+**Status:** written without a Zig toolchain, then compiled and run with Zig 0.17.0: the 17 SDK tests pass
+(the three fixtures and the scripted router among them), and the frames suite passes natively through
+the Go session and the C engine, and as a WASI command through the Go session.
+
 ## Host API
 
 `host.Session.open(allocator, selected, verify, connector, authorize)` snapshots
@@ -111,7 +159,7 @@ zig build --build-file pkg/plugin-zig/build.zig -Dtarget=wasm32-wasi --prefix /t
 scripts/plugin-crosslang.sh
 ```
 
-`examples/common.zig` contains the shared conformance guest. Native builds
+`examples/common.zig` contains the shared conformance guest, and `examples/frames.zig` the frames one. Native builds
 produce command/host executables and a C shared library. WASI builds produce
 only the command guest. The native integration runner targets Linux and macOS;
 Windows native hosting and other Zig versions are not validated by this pass.

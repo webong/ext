@@ -20,6 +20,21 @@ Callbacks must cooperate and must not recursively wait on the same host.
 The shared libuv pool limits simultaneously blocked native calls; applications
 must account for that when choosing their worker concurrency.
 
+`call(contract, operation, payload, {onProgress, progress})` hands each progress
+event of an operation that declares progress to `onProgress`, in order, after the
+engine has validated it and applied the rate limit and before the promise settles;
+`progress` sets the rate the plugin may report at. `HostOptions.reverse`
+(`{authorize, handle, timeout, maxPayloadBytes, maxInFlight}`) offers the plugin's
+`reverse` operations to it: the engine admits or refuses each request with a stable
+code, and the two functions are the host's policy, called for each admitted request
+with its JSON; `handle` returns `{payload}` or `{error}`. Their `signal` aborts when
+the reverse deadline passes, not when the engine cancels the request (the call ended
+or the host closed): the answer is then discarded. `engine.endpoint.check(endpoint)`
+and `engine.endpoint.validate(endpoint, policy)` admit loopback data endpoints and
+throw an error whose `status` is `status.INVALID`, `status.DENIED` or
+`status.EXPIRED`, never text. A plugin that breaks the framing rejects with
+`status.PROTOCOL`.
+
 Call `close` explicitly. It stops new work and disposes native resources after
 outstanding calls finish; GC finalizers and environment cleanup are fallbacks.
 Guest close allows active calls to finish within their budgets. Pure shared

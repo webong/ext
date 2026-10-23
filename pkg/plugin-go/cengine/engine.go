@@ -6,7 +6,7 @@
 package goengine
 
 /*
-#cgo CFLAGS: -I${SRCDIR}/_csrc/include -I${SRCDIR}/_csrc/bindings/go
+#cgo CFLAGS: -I${SRCDIR}/_csrc/include -I${SRCDIR}
 #cgo !ext_cengine_shared CFLAGS: -DEXT_HOST_STATIC
 #cgo !ext_cengine_shared LDFLAGS: -lext_host_static -lpthread -lm
 #cgo windows,!ext_cengine_shared LDFLAGS: -lbcrypt
@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 	plugin "github.com/webong/ext/pkg/plugin-go/contract"
+	"github.com/webong/ext/pkg/plugin-go/contract/endpoint"
 	"math"
 	"runtime/cgo"
 	"strings"
@@ -39,12 +40,14 @@ type policies struct {
 // Host owns one C session. Close cancels; Destroy waits for active calls and
 // releases memory. Policy callbacks must not reenter the host.
 type Host struct {
-	mu          sync.RWMutex
-	ptr         *C.ext_host
-	policy      cgo.Handle
-	descriptor  plugin.Descriptor
-	callTimeout time.Duration
-	backend     *backendBinding
+	mu             sync.RWMutex
+	ptr            *C.ext_host
+	policy         cgo.Handle
+	reverse        cgo.Handle // the host's reverse services, zero when none
+	reverseSession cgo.Handle // the context of session-scoped reverse calls
+	descriptor     plugin.Descriptor
+	callTimeout    time.Duration
+	backend        *backendBinding
 }
 
 func New(path string, d plugin.Descriptor, verify, authorize Policy) (*Host, error) {
@@ -94,6 +97,10 @@ func status(s C.ext_status) error {
 		return plugin.ErrDraining
 	case C.EXT_CLOSED:
 		return plugin.ErrClosed
+	case C.EXT_PROTOCOL:
+		return plugin.ErrProtocol
+	case C.EXT_EXPIRED:
+		return endpoint.ErrExpired
 	case C.EXT_CANCELED:
 		return context.Canceled
 	case C.EXT_TIMEOUT:
@@ -234,6 +241,11 @@ func (h *Host) Destroy() {
 		C.ext_host_destroy(h.ptr)
 		h.ptr = nil
 		h.policy.Delete()
+		if h.reverse != 0 {
+			h.reverse.Delete()
+			h.reverseSession.Delete()
+			h.reverse, h.reverseSession = 0, 0
+		}
 	}
 }
 func ValidateJSON(data []byte) error {
@@ -287,6 +299,14 @@ func (h *Host) Descriptor() plugin.Descriptor { return h.descriptor.Clone() }
 // Call implements author.Caller using C-generated identity, surface, deadlines
 // and correlation IDs. Public domain errors retain their structured details.
 func (h *Host) Call(ctx context.Context, contract plugin.ContractRef, operation string, payload json.RawMessage) (json.RawMessage, error) {
+	return h.callProgress(ctx, contract, operation, payload, nil, plugin.ProgressLimits{})
+}
+
+// callProgress is Call with the progress events of an operation that declares
+// them passed to onProgress, within limits (zero fields use the defaults). The
+// engine validates and rate-limits the events and delivers them on the calling
+// thread, so onProgress runs before this returns and never after.
+func (h *Host) callProgress(ctx context.Context, contract plugin.ContractRef, operation string, payload json.RawMessage, onProgress func(plugin.Progress), limits plugin.ProgressLimits) (json.RawMessage, error) {
 	data, err := json.Marshal(struct {
 		Contract  plugin.ContractRef `json:"contract"`
 		Operation string             `json:"operation"`
@@ -300,8 +320,15 @@ func (h *Host) Call(ctx context.Context, contract plugin.ContractRef, operation 
 		return nil, err
 	}
 	defer scope.finish()
+	var deliver cgo.Handle
+	if onProgress != nil {
+		deliver = cgo.NewHandle(onProgress)
+		defer deliver.Delete()
+	}
+	var progress C.ext_progress_options
+	C.ext_go_progress_init(&progress, C.uintptr_t(deliver), C.uint32_t(limits.EventsPerSecond), C.uint32_t(limits.BytesPerSecond))
 	var out C.ext_buffer
-	s := C.ext_host_call(h.ptr, (*C.uint8_t)(unsafe.Pointer(&data[0])), C.size_t(len(data)), &scope.options, &out)
+	s := C.ext_go_call_progress(h.ptr, (*C.uint8_t)(unsafe.Pointer(&data[0])), C.size_t(len(data)), &scope.options, &progress, &out)
 	defer C.ext_buffer_free(&out)
 	if scope.ctx.Err() != nil {
 		return nil, scope.ctx.Err()
@@ -317,4 +344,14 @@ func (h *Host) Call(ctx context.Context, contract plugin.ContractRef, operation 
 		return nil, response.Error
 	}
 	return response.Payload, nil
+}
+
+//export ctxGoProgress
+func ctxGoProgress(handle C.uintptr_t, data *C.uint8_t, n C.size_t) {
+	defer func() { _ = recover() }()
+	var p plugin.Progress
+	if plugin.Decode(C.GoBytes(unsafe.Pointer(data), C.int(n)), &p) != nil {
+		return
+	}
+	cgo.Handle(handle).Value().(func(plugin.Progress))(p)
 }

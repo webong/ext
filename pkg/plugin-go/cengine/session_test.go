@@ -34,12 +34,20 @@ func referenceOptions(b *testBackend) plugin.Options {
 
 // Deliberately delays cancellation notification, making the timer scheduling
 // race deterministic without depending on which real context timer fires first.
+// The deadline of a test that uses it must leave room for a stalled runner: if it
+// has passed before the engine dispatches, nothing is sent and no session fails.
 type delayedDeadlineContext struct {
 	context.Context
 	deadline time.Time
 }
 
 func (c delayedDeadlineContext) Deadline() (time.Time, bool) { return c.deadline, true }
+
+// The call's budget. The backend answers a millisecond after the deadline, so its response is
+// late. A runner that stalls for a few milliseconds before the call (as shared macOS runners do)
+// must still find the deadline ahead of it, or the engine refuses the call before dispatching it
+// and the late response this test pins never happens.
+const lateResponseBudget = 100 * time.Millisecond
 
 func TestCSessionLateResponseFailsSessionBeforeContextTimerNotification(t *testing.T) {
 	for _, remote := range []bool{false, true} {
@@ -60,7 +68,7 @@ func TestCSessionLateResponseFailsSessionBeforeContextTimerNotification(t *testi
 				t.Fatal(err)
 			}
 			defer s.Abort()
-			ctx := delayedDeadlineContext{Context: context.Background(), deadline: time.Now().Add(5 * time.Millisecond)}
+			ctx := delayedDeadlineContext{Context: context.Background(), deadline: time.Now().Add(lateResponseBudget)}
 			_, err = s.Call(ctx, d.Contracts[0].ContractRef, "inspect", nil)
 			if !errors.Is(err, context.DeadlineExceeded) || s.State() != plugin.StateFailed || b.closes.Load() != 1 {
 				t.Fatalf("late result: error=%v state=%s closes=%d", err, s.State(), b.closes.Load())

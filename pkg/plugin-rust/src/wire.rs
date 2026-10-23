@@ -83,7 +83,125 @@ pub fn encode<T: Serialize>(v: &T) -> Result<Vec<u8>> {
     Ok(bytes)
 }
 pub fn typed<T: de::DeserializeOwned>(value: Value) -> Result<T> {
-    serde_json::from_value(value).map_err(|_| Error::Invalid)
+    T::deserialize(Objects(value)).map_err(|_| Error::Invalid)
+}
+
+// A deserializer over a JSON value that reads a struct only from an object. serde's
+// derive would also read a list as the struct's fields in order, so an operation
+// given as ["echo"] would pass where Go refuses it.
+struct Objects(Value);
+struct Items(std::vec::IntoIter<Value>);
+struct Members {
+    iter: serde_json::map::IntoIter,
+    value: Option<Value>,
+}
+impl<'de> de::Deserializer<'de> for Objects {
+    type Error = serde_json::Error;
+    fn deserialize_any<V: Visitor<'de>>(
+        self,
+        visitor: V,
+    ) -> std::result::Result<V::Value, Self::Error> {
+        match self.0 {
+            Value::Null => visitor.visit_unit(),
+            Value::Bool(b) => visitor.visit_bool(b),
+            Value::Number(n) => {
+                if let Some(u) = n.as_u64() {
+                    visitor.visit_u64(u)
+                } else if let Some(i) = n.as_i64() {
+                    visitor.visit_i64(i)
+                } else {
+                    visitor.visit_f64(n.as_f64().unwrap_or(f64::NAN))
+                }
+            }
+            Value::String(s) => visitor.visit_string(s),
+            Value::Array(a) => visitor.visit_seq(Items(a.into_iter())),
+            Value::Object(m) => visitor.visit_map(Members {
+                iter: m.into_iter(),
+                value: None,
+            }),
+        }
+    }
+    fn deserialize_struct<V: Visitor<'de>>(
+        self,
+        _name: &'static str,
+        _fields: &'static [&'static str],
+        visitor: V,
+    ) -> std::result::Result<V::Value, Self::Error> {
+        if self.0.is_array() {
+            return Err(de::Error::custom("a struct is a JSON object"));
+        }
+        self.deserialize_any(visitor)
+    }
+    fn deserialize_option<V: Visitor<'de>>(
+        self,
+        visitor: V,
+    ) -> std::result::Result<V::Value, Self::Error> {
+        if self.0.is_null() {
+            visitor.visit_none()
+        } else {
+            visitor.visit_some(self)
+        }
+    }
+    fn deserialize_newtype_struct<V: Visitor<'de>>(
+        self,
+        _name: &'static str,
+        visitor: V,
+    ) -> std::result::Result<V::Value, Self::Error> {
+        visitor.visit_newtype_struct(self)
+    }
+    fn deserialize_enum<V: Visitor<'de>>(
+        self,
+        name: &'static str,
+        variants: &'static [&'static str],
+        visitor: V,
+    ) -> std::result::Result<V::Value, Self::Error> {
+        self.0.deserialize_enum(name, variants, visitor)
+    }
+    serde::forward_to_deserialize_any! {
+        bool i8 i16 i32 i64 i128 u8 u16 u32 u64 u128 f32 f64 char str string bytes byte_buf
+        unit unit_struct seq tuple tuple_struct map identifier ignored_any
+    }
+}
+impl<'de> SeqAccess<'de> for Items {
+    type Error = serde_json::Error;
+    fn next_element_seed<T: DeserializeSeed<'de>>(
+        &mut self,
+        seed: T,
+    ) -> std::result::Result<Option<T::Value>, Self::Error> {
+        match self.0.next() {
+            Some(v) => seed.deserialize(Objects(v)).map(Some),
+            None => Ok(None),
+        }
+    }
+    fn size_hint(&self) -> Option<usize> {
+        Some(self.0.len())
+    }
+}
+impl<'de> MapAccess<'de> for Members {
+    type Error = serde_json::Error;
+    fn next_key_seed<K: DeserializeSeed<'de>>(
+        &mut self,
+        seed: K,
+    ) -> std::result::Result<Option<K::Value>, Self::Error> {
+        match self.iter.next() {
+            Some((key, value)) => {
+                self.value = Some(value);
+                seed.deserialize(de::value::StringDeserializer::<serde_json::Error>::new(key))
+                    .map(Some)
+            }
+            None => Ok(None),
+        }
+    }
+    fn next_value_seed<V: DeserializeSeed<'de>>(
+        &mut self,
+        seed: V,
+    ) -> std::result::Result<V::Value, Self::Error> {
+        let value = self
+            .value
+            .take()
+            .ok_or_else(|| de::Error::custom("a member without a value"))?;
+        seed.deserialize(Objects(value))
+    }
 }
 pub fn identifier(v: &str, revision: bool) -> bool {
     !v.is_empty()
@@ -100,12 +218,25 @@ pub fn identifier(v: &str, revision: bool) -> bool {
 fn empty(v: &str) -> bool {
     v.is_empty()
 }
+fn is_false(v: &bool) -> bool {
+    !*v
+}
+// Go leaves a member alone when its JSON is null, so a null is the default value.
+fn null_default<'de, D: de::Deserializer<'de>, T: Deserialize<'de> + Default>(
+    d: D,
+) -> std::result::Result<T, D::Error> {
+    Ok(Option::<T>::deserialize(d)?.unwrap_or_default())
+}
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct Identity {
     pub id: String,
     pub revision: String,
-    #[serde(default, skip_serializing_if = "empty")]
+    #[serde(
+        default,
+        skip_serializing_if = "empty",
+        deserialize_with = "null_default"
+    )]
     pub version: String,
 }
 impl Identity {
@@ -130,8 +261,29 @@ pub struct ContractRef {
 #[serde(deny_unknown_fields)]
 pub struct Operation {
     pub name: String,
-    #[serde(default, skip_serializing_if = "empty")]
+    #[serde(
+        default,
+        skip_serializing_if = "empty",
+        deserialize_with = "null_default"
+    )]
     pub surface: String,
+    /// A call to this operation may emit progress and log frames before its
+    /// response. Absent means it never does.
+    #[serde(
+        default,
+        skip_serializing_if = "is_false",
+        deserialize_with = "null_default"
+    )]
+    pub progress: bool,
+}
+impl Operation {
+    pub fn new(name: &str) -> Self {
+        Self {
+            name: name.into(),
+            surface: String::new(),
+            progress: false,
+        }
+    }
 }
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
@@ -147,6 +299,55 @@ pub struct Descriptor {
     pub api_version: String,
     pub identity: Identity,
     pub contracts: Vec<Contract>,
+    /// The host operations the plugin may call (reverse calls).
+    #[serde(
+        default,
+        skip_serializing_if = "Vec::is_empty",
+        deserialize_with = "null_default"
+    )]
+    pub reverse: Vec<Contract>,
+}
+fn validate_contracts(contracts: &[Contract]) -> Result<()> {
+    let mut refs = HashSet::new();
+    for c in contracts {
+        if !identifier(&c.name, false)
+            || !identifier(&c.version, true)
+            || !refs.insert((&c.name, &c.version))
+            || c.operations.is_empty()
+            || c.operations.len() > 256
+        {
+            return Err(Error::Invalid);
+        }
+        let mut ops = HashSet::new();
+        for op in &c.operations {
+            if !identifier(&op.name, false)
+                || op.name == "plugin.hello"
+                || !ops.insert(&op.name)
+                || (!op.surface.is_empty() && !identifier(&op.surface, false))
+            {
+                return Err(Error::Invalid);
+            }
+        }
+    }
+    Ok(())
+}
+// The same contracts with the same operations, in any order.
+fn contracts_match(selected: &[Contract], actual: &[Contract]) -> Result<()> {
+    if selected.len() != actual.len() {
+        return Err(Error::Mismatch);
+    }
+    for c in selected {
+        let a = actual
+            .iter()
+            .find(|a| a.name == c.name && a.version == c.version)
+            .ok_or(Error::Mismatch)?;
+        if a.operations.len() != c.operations.len()
+            || c.operations.iter().any(|op| !a.operations.contains(op))
+        {
+            return Err(Error::Mismatch);
+        }
+    }
+    Ok(())
 }
 impl Descriptor {
     pub fn validate(&self) -> Result<()> {
@@ -154,31 +355,26 @@ impl Descriptor {
         if self.api_version != VERSION || self.contracts.is_empty() || self.contracts.len() > 64 {
             return Err(Error::Invalid);
         }
-        let mut refs = HashSet::new();
-        for c in &self.contracts {
-            if !identifier(&c.name, false)
-                || !identifier(&c.version, true)
-                || !refs.insert((&c.name, &c.version))
-                || c.operations.is_empty()
-                || c.operations.len() > 256
-            {
-                return Err(Error::Invalid);
-            }
-            let mut ops = HashSet::new();
-            for op in &c.operations {
-                if !identifier(&op.name, false)
-                    || op.name == "plugin.hello"
-                    || !ops.insert(&op.name)
-                    || (!op.surface.is_empty() && !identifier(&op.surface, false))
-                {
-                    return Err(Error::Invalid);
-                }
-            }
+        validate_contracts(&self.contracts)?;
+        if self.reverse.len() > 64
+            || self
+                .reverse
+                .iter()
+                .any(|c| c.operations.iter().any(|op| op.progress))
+        {
+            return Err(Error::Invalid);
         }
-        Ok(())
+        validate_contracts(&self.reverse)
     }
     pub fn lookup(&self, c: &ContractRef, name: &str) -> Result<&Operation> {
-        self.contracts
+        Self::find(&self.contracts, c, name)
+    }
+    /// An operation the plugin declared it may call on the host.
+    pub fn lookup_reverse(&self, c: &ContractRef, name: &str) -> Result<&Operation> {
+        Self::find(&self.reverse, c, name)
+    }
+    fn find<'a>(contracts: &'a [Contract], c: &ContractRef, name: &str) -> Result<&'a Operation> {
+        contracts
             .iter()
             .find(|v| v.name == c.name && v.version == c.version)
             .and_then(|v| v.operations.iter().find(|o| o.name == name))
@@ -187,22 +383,65 @@ impl Descriptor {
     pub fn matches(&self, actual: &Self) -> Result<()> {
         self.validate()?;
         actual.validate()?;
-        if self.identity != actual.identity || self.contracts.len() != actual.contracts.len() {
+        if self.identity != actual.identity {
             return Err(Error::Mismatch);
         }
-        for c in &self.contracts {
-            let a = actual
-                .contracts
-                .iter()
-                .find(|a| a.name == c.name && a.version == c.version)
-                .ok_or(Error::Mismatch)?;
-            if a.operations.len() != c.operations.len()
-                || c.operations.iter().any(|op| !a.operations.contains(op))
-            {
-                return Err(Error::Mismatch);
-            }
+        contracts_match(&self.contracts, &actual.contracts)?;
+        contracts_match(&self.reverse, &actual.reverse)
+    }
+}
+/// The event rate a host sets for a call: events and bytes of text per second.
+/// Zero or negative values use the defaults.
+#[derive(Clone, Copy, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct ProgressLimits {
+    #[serde(
+        default,
+        rename = "eventsPerSecond",
+        skip_serializing_if = "is_zero_i64",
+        deserialize_with = "null_default"
+    )]
+    pub events_per_second: i64,
+    #[serde(
+        default,
+        rename = "bytesPerSecond",
+        skip_serializing_if = "is_zero_i64",
+        deserialize_with = "null_default"
+    )]
+    pub bytes_per_second: i64,
+}
+fn is_zero_i64(v: &i64) -> bool {
+    *v == 0
+}
+// The rate is a JSON object or null: serde would also read a list as a struct.
+fn limits_object<'de, D: de::Deserializer<'de>>(
+    d: D,
+) -> std::result::Result<Option<ProgressLimits>, D::Error> {
+    match Option::<Value>::deserialize(d)? {
+        None | Some(Value::Null) => Ok(None),
+        Some(v @ Value::Object(_)) => typed(v)
+            .map(Some)
+            .map_err(|_| de::Error::custom("progress limits")),
+        Some(_) => Err(de::Error::custom("progress must be an object")),
+    }
+}
+pub const DEFAULT_PROGRESS_EVENTS: i64 = 50;
+pub const DEFAULT_PROGRESS_BYTES: i64 = 64 << 10;
+impl ProgressLimits {
+    /// The limits with the defaults filled in.
+    pub fn resolved(self) -> Self {
+        Self {
+            events_per_second: if self.events_per_second <= 0 {
+                DEFAULT_PROGRESS_EVENTS
+            } else {
+                self.events_per_second
+            },
+            bytes_per_second: if self.bytes_per_second <= 0 {
+                DEFAULT_PROGRESS_BYTES
+            } else {
+                self.bytes_per_second
+            },
         }
-        Ok(())
     }
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -214,11 +453,31 @@ pub struct Request {
     pub plugin: Identity,
     pub contract: ContractRef,
     pub operation: String,
-    #[serde(default, skip_serializing_if = "empty")]
+    #[serde(
+        default,
+        skip_serializing_if = "empty",
+        deserialize_with = "null_default"
+    )]
     pub surface: String,
     pub deadline: String,
     #[serde(default)]
     pub payload: Value,
+    /// Present on a call whose operation declared progress: the rate at which it
+    /// may report.
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "limits_object"
+    )]
+    pub progress: Option<ProgressLimits>,
+    /// Names the forward call a reverse call belongs to; set only on the request
+    /// a host's reverse handler receives.
+    #[serde(
+        default,
+        skip_serializing_if = "empty",
+        deserialize_with = "null_default"
+    )]
+    pub parent: String,
 }
 impl Request {
     pub fn validate(&self, d: &Descriptor) -> Result<()> {

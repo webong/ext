@@ -14,7 +14,7 @@ wamr="$(scripts/plugin-wamr-source.sh)"
 out="${EXT_SWIFT_FRAMEWORKS:-pkg/plugin-ios/Frameworks}"
 work="$(mktemp -d "${TMPDIR:-/tmp}/ext-wamr-xcframework.XXXXXX")"
 trap 'rm -rf "$work"' EXIT
-core=(common.c.o wire.c.o services.c.o guest.c.o sha256.c.o packages.c.o yyjson.c.o)
+core=(common.c.o wire.c.o progress.c.o reverse.c.o endpoint.c.o services.c.o guest.c.o sha256.c.o packages.c.o yyjson.c.o)
 
 # slice | sdk | architecture | deployment target | system name
 slices=(

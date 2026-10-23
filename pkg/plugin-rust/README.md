@@ -49,8 +49,44 @@ This crate does not implement the separate `ext.schema/v1` schema interpreter.
 **Standalone or WASI command:**
 
 ```rust,ignore
-ext_plugin::guest::serve(&guest()?, std::io::stdin().lock(), std::io::stdout().lock())?;
+ext_plugin::guest::serve_stdio(&guest()?)?;
 ```
+
+`serve_stdio` is `serve` on standard input and output; `serve` and `serve_with` take
+any `BufRead + Send + 'static` and `Write + Send + 'static`.
+
+## Report progress and call the host
+
+A guest can report progress while a call runs and call back into its host, over a
+transport that carries frames (a process or a WASI command; not the C ABI). An
+operation that reports declares `Operation { progress: true, .. }`; the host
+operations a guest may call are declared with `Registry::declare_reverse`.
+
+```rust,ignore
+registry.register(method, |ctx, _req, input| {
+    // Events reach the host in order, before the result. Dropped is routine: the
+    // rate limit the host set dropped it and counts it for the next event.
+    ctx.progress(Progress::log("starting"))?;
+    ctx.progress(Progress::fraction(1, 3))?;
+    // Call a declared host operation; the host's refusal or error comes back as
+    // Error::Remote with its code (denied, busy, too_large, expired, ...).
+    let signed = ctx.reverse().ok_or(Error::Unsupported)?.call(&host, "sign", &input)?;
+    Ok(signed)
+})?;
+```
+
+`ctx.progress` returns `Err(Unsupported)` for an operation that did not declare
+progress or a transport without frames, `Err(Invalid)` for an event that breaks the
+rules (nothing is sent) and `Err(Closed)` once the call is over;
+`ctx.progress_limits()` gives the rate the host set, and `split_progress_text` cuts a
+long line into events that each fit. `serve` reads on a thread of its own where there
+are threads (`Mode::Threaded`): a handler may have several reverse calls outstanding,
+and `ctx.session_reverse()` is a caller that background work keeps after the call
+returned. Where there are none (a WASI command, or `Mode::Inline`) the thread that
+waits for the host's answer reads for it: one request at a time, no session-scoped
+caller, and a wait for an answer ends only with the answer or the end of the
+connection, since standard input cannot be read with a timeout. A frame that breaks
+the rules ends the session with `Error::Protocol`.
 
 **C shared library:** configure `crate-type = ["cdylib"]`, then export:
 
@@ -98,7 +134,9 @@ retry, OS sandbox, process-tree containment or native-code unloading.
 
 Handlers call `CallContext::check()` around long work and honor its deadline.
 `serve` takes caller-supplied blocking `BufRead`/`Write`: it cannot interrupt
-arbitrary I/O or force a synchronous handler to stop. The Go WASI backend can
+arbitrary I/O or force a synchronous handler to stop (a threaded `serve` leaves its
+reader thread blocked in a read when a violation ends the session; the process is
+about to exit). The Go WASI backend can
 terminate the containing module. Native host workers are excluded from WASI;
 the guest, wire contract and abstract host Session remain portable.
 
@@ -113,6 +151,13 @@ rustup target add wasm32-wasip1
 cargo build --locked --manifest-path pkg/plugin-rust/Cargo.toml --target wasm32-wasip1 --example guest
 scripts/plugin-crosslang.sh
 ```
+
+`examples/frames` is the frames conformance guest of
+[docs/plugin-guest-frames.md](../../docs/plugin-guest-frames.md) (`frames_inline` is
+the same guest forced into inline mode, and `--target wasm32-wasip1` builds it as a
+WASI command); the cross-language script runs all three through the Go session and
+the C engine. `tests/fixtures.rs` reproduces the shared frame, rate-limiter and model
+fixtures and `tests/serve.rs` covers the router.
 
 The examples share one fixture plugin providing echo, wait and deliberate error
 operations. `examples/guest.rs` is the command/WASI guest, `shared.rs` is the

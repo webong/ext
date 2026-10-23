@@ -21,6 +21,9 @@ in service-owned structures are rejected. Unknown operations return
 | `package.validate` | Manifest | Detached manifest |
 | `package.select` | `{manifest,name,environment}` | `{entrypoint,artifact,protocol}` |
 | `package.resolve` | Array of manifests | `{order,bindings}` |
+| `frame.validate` | One tagged frame (`progress` or `reverse_request`) | The frame |
+| `endpoint.check` | Endpoint | The endpoint |
+| `endpoint.validate` | `{endpoint,policy}` | The endpoint |
 
 Requirements use `{contract:{name,version},operation,identity?}`. Route profiles
 use the public BackendProfile JSON fields. Route requirements use lowercase
@@ -28,6 +31,30 @@ use the public BackendProfile JSON fields. Route requirements use lowercase
 a bridge is considered only when declared, with exact common protocol and the
 intersection of all four endpoint feature sets. This performs no discovery or
 version translation.
+
+Endpoints are the loopback listeners a plugin's result declares (`pkg/plugin-go/
+contract/endpoint`). `endpoint.check` reads one strictly (unknown and duplicate
+fields and wrong types are refused) and applies the rules no policy changes: a
+scheme of `ws`, `wss`, `http`, `https` or `tcp`; an address that is a host and a
+port, the host being `localhost` or a loopback IP literal (`net.SplitHostPort` and
+`net.ParseIP` are followed, so `[::1]:80`, `[::ffff:127.0.0.1]:80` and `127.0.0.1:80`
+pass and `127.1:80`, `10.0.0.1:80` and a zone do not); a path of at most 1024 bytes
+that begins with `/` and holds no `?`, `#`, `\`, control character or space; a token
+of at most 512 bytes with no control character or space; and an expiry. It answers
+`EXT_INVALID` for a malformed endpoint and `EXT_DENIED` for one that is not on a
+loopback host, in the order of the Go rules (the first rule broken decides).
+`endpoint.validate` takes `{endpoint,policy}` with `policy` =
+`{schemes?:[string],maxLifetimeMilliseconds?:int,now?:RFC3339}` and adds what a host
+admits: `EXT_DENIED` when no scheme is admitted or this one is not, `EXT_INVALID`
+for a policy naming a scheme there is none of or an expiry beyond the lifetime (an
+hour unless the policy says otherwise), and `EXT_EXPIRED` for one already past. A
+policy with no `now` reads the wall clock. Expiry is compared to the nanosecond.
+Times are RFC 3339 and nothing else: Go also accepts a few non-RFC spellings (an
+offset of 24 hours, a comma before the fraction, year 0000), which the engine
+refuses. An outcome is a status, never text: an endpoint is a credential, and no
+part of one is copied into an error. The grant (a lifetime tied to a session,
+one-time tokens, dialing) is the binding's.
+`testdata/v1/endpoint-cases.json` states 213 outcomes every binding must reproduce.
 
 Package environments use `{os,arch,runtimes,sharedVersions}`. `runtimes` maps names
 to installed backend profiles; `sharedVersions` maps host libraries to exact
@@ -42,8 +69,9 @@ C. Integer-valued schema bounds must use integer JSON syntax and fit int64.
 
 Artifact paths reject traversal, empty components, backslashes, colons, NUL,
 line breaks, Windows device names, and trailing dots/spaces. Duplicate paths use
-Unicode 17.0.0 simple lowercase, pinned in `src/unicode_lower.h`; regeneration is
-in `tools/unicode_lower.go`. Unicode versions in older Go toolchains can differ.
+Unicode 17.0.0 simple lowercase, pinned in `src/unicode_lower.h`; the Go module
+owns the generator, `pkg/plugin-go/cengine/tools/unicode_lower.go`. Unicode versions
+in older Go toolchains can differ.
 Do not interpret a validated path or checksum as a trust grant.
 
 Duplicate names and paths, and tree overlap, are decided by sorting the

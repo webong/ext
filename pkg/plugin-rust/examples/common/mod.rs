@@ -13,10 +13,7 @@ pub fn factory() -> Result<Guest> {
                 name: "ext.conformance".into(),
                 version: "v1".into(),
             },
-            Operation {
-                name: name.into(),
-                surface: String::new(),
-            },
+            Operation::new(name),
         );
         r.register(method, |ctx, req, input| match req.operation.as_str() {
             "wait" => loop {

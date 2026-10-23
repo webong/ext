@@ -1,6 +1,7 @@
 //! Rust ownership and callback bindings for the CTX C engine. Wire values remain
 //! JSON bytes; consumers choose their own serializer and domain types. Requires
 //! ABI v2, currently Linux/macOS. No Go runtime or Rust protocol engine is linked.
+pub mod endpoint;
 pub mod ffi;
 #[cfg(not(feature = "guest-only"))]
 pub mod resources;
@@ -26,6 +27,15 @@ impl fmt::Display for Error {
     }
 }
 impl std::error::Error for Error {}
+impl Error {
+    pub const INVALID: Error = Error(1);
+    pub const DENIED: Error = Error(2);
+    /// The peer broke the framing rules (a frame that is not valid, or that the
+    /// call did not allow); the session is closed.
+    pub const PROTOCOL: Error = Error(16);
+    /// A time has run out: an endpoint whose expiry is already past.
+    pub const EXPIRED: Error = Error(17);
+}
 fn check(s: i32) -> Result<(), Error> {
     if s == 0 {
         Ok(())
@@ -143,12 +153,134 @@ unsafe fn policy(p: *mut c_void, data: *const u8, n: usize, verify: bool) -> i32
     }))
     .unwrap_or(1)
 }
+/// Receives the JSON of one progress event.
+#[cfg(not(feature = "guest-only"))]
+pub type EventHook<'a> = dyn Fn(&[u8]) + Sync + 'a;
+/// Progress events of one call. A zero rate uses the default (50 events and 65536
+/// bytes of text per second, with a burst of twice that); the rate travels to the
+/// plugin in the request, so both ends apply the same one.
+#[cfg(not(feature = "guest-only"))]
+#[derive(Default)]
+pub struct Progress<'a> {
+    pub events_per_second: u32,
+    pub bytes_per_second: u32,
+    /// Receives the JSON of one event. It runs on the calling thread, or on an
+    /// engine thread when the plugin declares reverse operations, and never after
+    /// the call returns. It must be quick and must not reenter the host.
+    pub on_event: Option<&'a EventHook<'a>>,
+}
+#[cfg(not(feature = "guest-only"))]
+unsafe extern "C" fn progress_event(user: *mut c_void, p: *const u8, n: usize) {
+    let _ = catch_unwind(AssertUnwindSafe(|| {
+        if let Some(f) = (*user.cast::<Progress<'_>>()).on_event {
+            f(slice::from_raw_parts(p, n));
+        }
+    }));
+}
+/// One reverse request, borrowed for the hook that serves it. `request` is the
+/// JSON of the request (apiVersion, id, plugin, contract, operation, surface,
+/// deadline, payload and, for a call-scoped request, parent).
+#[cfg(not(feature = "guest-only"))]
+pub struct ReverseCall<'a> {
+    pub request: &'a [u8],
+    /// The time left to this reverse call.
+    pub remaining: Duration,
+    cancel: *const c_void,
+    _life: std::marker::PhantomData<&'a ()>,
+}
+#[cfg(not(feature = "guest-only"))]
+impl ReverseCall<'_> {
+    /// Set when the call it belongs to ends, when the caller cancels it and when
+    /// the host closes. A hook polls it and stops early.
+    pub fn is_canceled(&self) -> bool {
+        unsafe { ffi::ext_cancel_is_signaled(self.cancel) != 0 }
+    }
+}
+/// A hook's answer to a reverse request: a payload (empty means null) or a public
+/// error, the JSON of a RemoteError. Any other failure is private and reaches
+/// the plugin as `operation_failed`.
+#[cfg(not(feature = "guest-only"))]
+pub enum ReverseReply {
+    Payload(Vec<u8>),
+    PublicError(Vec<u8>),
+}
+#[cfg(not(feature = "guest-only"))]
+pub type ReverseAuthorize = Box<dyn for<'a> Fn(ReverseCall<'a>) -> Result<(), Error> + Send + Sync>;
+#[cfg(not(feature = "guest-only"))]
+pub type ReverseHandle =
+    Box<dyn for<'a> Fn(ReverseCall<'a>) -> Result<ReverseReply, Error> + Send + Sync>;
+/// What a host offers its plugin: the host operations the plugin's descriptor
+/// lists under `reverse`. The engine decides admission (declared, within bounds,
+/// before the plugin's deadline, fewer than `max_in_flight`) and refuses with a
+/// stable code; `authorize` and `handle` are the host's policy. Zero bounds use
+/// the defaults (30 s, 1 MiB, 4).
+#[cfg(not(feature = "guest-only"))]
+pub struct Services {
+    pub authorize: ReverseAuthorize,
+    pub handle: ReverseHandle,
+    pub timeout: Duration,
+    pub max_payload_bytes: u32,
+    pub max_in_flight: u32,
+}
+#[cfg(not(feature = "guest-only"))]
+struct ServiceHooks {
+    authorize: ReverseAuthorize,
+    handle: ReverseHandle,
+}
+#[cfg(not(feature = "guest-only"))]
+unsafe fn reverse_call<'a>(call: *const ffi::Call, p: *const u8, n: usize) -> ReverseCall<'a> {
+    ReverseCall {
+        request: slice::from_raw_parts(p, n),
+        remaining: Duration::from_millis((*call).timeout_ms as u64),
+        cancel: (*call).cancel,
+        _life: std::marker::PhantomData,
+    }
+}
+#[cfg(not(feature = "guest-only"))]
+unsafe extern "C" fn reverse_authorize(
+    user: *mut c_void,
+    call: *const ffi::Call,
+    p: *const u8,
+    n: usize,
+) -> i32 {
+    // A policy that fails denies.
+    catch_unwind(AssertUnwindSafe(|| {
+        let hooks = &*user.cast::<ServiceHooks>();
+        if (hooks.authorize)(reverse_call(call, p, n)).is_ok() {
+            0
+        } else {
+            1
+        }
+    }))
+    .unwrap_or(1)
+}
+#[cfg(not(feature = "guest-only"))]
+unsafe extern "C" fn reverse_handle(
+    user: *mut c_void,
+    call: *const ffi::Call,
+    p: *const u8,
+    n: usize,
+    emit: ffi::ReverseEmit,
+    sink: *mut c_void,
+) -> i32 {
+    // A hook that fails or panics is a failure the plugin sees as operation_failed.
+    catch_unwind(AssertUnwindSafe(|| {
+        let hooks = &*user.cast::<ServiceHooks>();
+        match (hooks.handle)(reverse_call(call, p, n)) {
+            Ok(ReverseReply::Payload(v)) => emit(sink, 0, v.as_ptr(), v.len()),
+            Ok(ReverseReply::PublicError(v)) => emit(sink, 1, v.as_ptr(), v.len()),
+            Err(e) => e.0,
+        }
+    }))
+    .unwrap_or(7)
+}
 /// A shared host session. Policy callbacks must not reenter this same host.
 /// Rust borrows ensure Drop cannot race a call. Raw FFI users own that guarantee.
 #[cfg(not(feature = "guest-only"))]
 pub struct Host {
     raw: *mut c_void,
     _policies: Box<Policies>,
+    _services: Option<Box<ServiceHooks>>,
 }
 #[cfg(not(feature = "guest-only"))]
 unsafe impl Send for Host {}
@@ -218,7 +350,34 @@ impl Host {
         Ok(Self {
             raw,
             _policies: policies,
+            _services: None,
         })
+    }
+    /// Offer reverse-call services to the plugin. Install before start. The hooks
+    /// run on engine threads, several at a time, and must not reenter this host.
+    pub fn with_services(mut self, services: Services) -> Result<Self, Error> {
+        let timeout_ms = if services.timeout.is_zero() {
+            0
+        } else {
+            milliseconds(services.timeout)?
+        };
+        let mut hooks = Box::new(ServiceHooks {
+            authorize: services.authorize,
+            handle: services.handle,
+        });
+        let raw = ffi::Services {
+            struct_size: size_of::<ffi::Services>() as u32,
+            user: (&mut *hooks as *mut ServiceHooks).cast(),
+            authorize: reverse_authorize,
+            handle: reverse_handle,
+            timeout_ms,
+            max_payload_bytes: services.max_payload_bytes,
+            max_in_flight: services.max_in_flight,
+            session_value: ptr::null_mut(),
+        };
+        check(unsafe { ffi::ext_host_set_services(self.raw, &raw) })?;
+        self._services = Some(hooks);
+        Ok(self)
     }
     pub fn start(&self, options: CallOptions<'_>) -> Result<(), Error> {
         check(unsafe { ffi::ext_host_start_with_options(self.raw, &options.raw()?) })
@@ -248,6 +407,28 @@ impl Host {
     pub fn call(&self, input: &[u8], options: CallOptions<'_>) -> Result<Vec<u8>, Error> {
         let o = options.raw()?;
         output(|out| unsafe { ffi::ext_host_call(self.raw, input.as_ptr(), input.len(), &o, out) })
+    }
+    /// [`Host::call`] for an operation that declares progress: `progress.on_event`
+    /// receives the JSON of each event while the call runs. The engine validates
+    /// the events, applies the rate limit and delivers what passes before this
+    /// returns, ending with a marker for any it dropped.
+    pub fn call_progress(
+        &self,
+        input: &[u8],
+        options: CallOptions<'_>,
+        progress: &Progress<'_>,
+    ) -> Result<Vec<u8>, Error> {
+        let o = options.raw()?;
+        let raw = ffi::ProgressOptions {
+            struct_size: size_of::<ffi::ProgressOptions>() as u32,
+            deliver: progress.on_event.map(|_| progress_event as _),
+            user: (progress as *const Progress<'_>).cast_mut().cast(),
+            events_per_second: progress.events_per_second,
+            bytes_per_second: progress.bytes_per_second,
+        };
+        output(|out| unsafe {
+            ffi::ext_host_call_progress(self.raw, input.as_ptr(), input.len(), &o, &raw, out)
+        })
     }
     pub fn drain(&self, options: CallOptions<'_>) -> Result<(), Error> {
         check(unsafe { ffi::ext_host_drain_with_options(self.raw, &options.raw()?) })

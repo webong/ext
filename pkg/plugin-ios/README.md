@@ -127,6 +127,16 @@ is the shared `ext.conformance/v1` fixture. `scripts/plugin-crosslang.sh` loads
 its dynamic library through the Go `cshared` host, with the same suite that checks
 Rust and Zig, and requires it on macOS.
 
+## Data endpoints
+
+`Endpoint.check(_:)` and `Endpoint.validate(_:policy:)` run the engine's rules for the
+loopback endpoint a host hands a plugin (see `lib/plugin/services.md`): a plugin checks
+what it receives before dialing, a host validates what it grants. A refusal is an
+`EndpointError` (`invalid`, `denied` or `expired`) and never carries the endpoint, which
+is a credential. This SDK does not report progress or call a host's reverse services:
+a guest exported through the `ext_plugin_*` C ABI has no frame channel for them, and a
+WebAssembly reactor has none either.
+
 ## Platform and policy limits
 
 Apple's App Store rule 2.5.2 and Google Play policy forbid downloading executable

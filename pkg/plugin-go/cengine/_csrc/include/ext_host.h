@@ -40,7 +40,13 @@ enum {
   EXT_CANCELED,
   EXT_UPDATING,
   EXT_CAPACITY,
-  EXT_SEQUENCE
+  EXT_SEQUENCE,
+  /* The peer broke the framing rules: a frame that is not valid, one the call
+   * did not allow (progress for a call that did not declare it), or one this
+   * host does not know. The session is closed. */
+  EXT_PROTOCOL,
+  /* A time has run out: an endpoint whose expiry is already past. */
+  EXT_EXPIRED
 };
 typedef struct ext_cancel ext_cancel;
 EXT_HOST_API ext_status ext_cancel_create(ext_cancel **out);
@@ -138,6 +144,11 @@ typedef struct {
  */
 #define EXT_BACKEND_EXTENSION 2u
 #define EXT_BACKEND_CONCURRENT 1u
+/* The backend hands the engine the tagged frames it reads from its plugin, with
+ * ext_host_backend_progress and ext_host_backend_reverse_admit (see below). Only
+ * such a backend may serve a plugin that declares progress or reverse operations;
+ * the engine refuses the others when the host is created. */
+#define EXT_BACKEND_FRAMES 4u
 typedef ext_status (*ext_emit)(void *context, const uint8_t *data, size_t len);
 typedef struct {
   uint32_t struct_size;
@@ -202,6 +213,142 @@ EXT_HOST_API ext_status ext_host_invoke(ext_host *, const uint8_t *, size_t,
  * envelope. */
 EXT_HOST_API ext_status ext_host_call(ext_host *, const uint8_t *, size_t,
                                       const ext_call_options *, ext_buffer *);
+/* Progress events. A plugin may report progress and log events while a call
+ * runs, if its descriptor declares progress for the operation. The engine
+ * validates each event, applies the rate limit as a backstop to what the plugin
+ * sent, and passes on what is within it. fn receives the JSON of one Progress
+ * object: {"kind":"progress"|"log","stream"?:"out"|"err","text"?,"completed"?,
+ * "total"?,"dropped"?}, zero fields left out. dropped counts events lost to the
+ * rate limit since the previous delivered one; the last event of a call that
+ * lost events is a marker with only kind "log" and dropped, delivered before the
+ * call returns, whatever its outcome. fn runs between the call's start and its
+ * return, on the thread that is making the call, or on an engine thread when the
+ * plugin declares reverse operations (the engine reads while no call is in
+ * flight); it never runs once the call has returned. It must return promptly,
+ * must not throw or reenter the host, and may not retain the borrowed bytes. user
+ * must live until the call returns. */
+typedef void (*ext_progress_fn)(void *user, const uint8_t *json, size_t len);
+typedef struct {
+  uint32_t struct_size;
+  ext_progress_fn deliver; /* NULL: events are limited and discarded */
+  void *user;
+  /* Events and bytes of text per second for the call, with a burst of twice
+   * that; zero uses 50 events and 65536 bytes. At most 2^20 and 2^30. The rate
+   * travels to the plugin in the request, so both ends apply the same one. */
+  uint32_t events_per_second;
+  uint32_t bytes_per_second;
+} ext_progress_options;
+/* ext_host_call with progress events. progress may be NULL, which is
+ * ext_host_call: an operation that declares progress still runs, and its events
+ * are discarded. For an operation that does not declare progress, progress is
+ * ignored and fn is never called. */
+EXT_HOST_API ext_status ext_host_call_progress(ext_host *, const uint8_t *,
+                                               size_t,
+                                               const ext_call_options *,
+                                               const ext_progress_options *,
+                                               ext_buffer *);
+
+/* Reverse calls. A plugin whose descriptor lists operations in "reverse" may call
+ * them on its host: while a call of its own is in flight (call scoped, the
+ * request names that call as its parent) or at any time after the handshake
+ * (session scoped, no parent). The engine checks each request (the frame is well
+ * formed, a parent is the call in flight, the operation is declared, the
+ * payload is within bounds, the plugin's deadline has not passed, fewer than
+ * max_in_flight are running) and refuses it with a stable code otherwise:
+ * reverse_undeclared, reverse_unavailable (no services configured, or the
+ * handshake has not matched), denied, too_large, busy, expired. The plugin gets
+ * the refusal as its answer and the call goes on; a request that breaks the
+ * framing rules fails the session with EXT_PROTOCOL.
+ *
+ * What the engine does not decide is policy. authorize runs for every request
+ * that passed the checks (zero allows); handle serves it. Both receive the
+ * request as the JSON of a Request (apiVersion, id, plugin, contract, operation,
+ * surface, deadline, payload and, for a call-scoped request, parent: the id of
+ * the call in flight) and an ext_call_options with these meanings:
+ *   value      the binding's context for the request: the value of the call in
+ *              flight for a call-scoped request, so a binding can derive the
+ *              handler's context from the caller's, and services.session_value
+ *              for a session-scoped one;
+ *   cancel     an engine-owned signal for this request, set when the call in
+ *              flight ends (call scoped), when the host is closed, or when the
+ *              caller cancels the call; poll it, it is valid until the hook
+ *              returns;
+ *   timeout_ms the time left to this reverse call, the earliest of the plugin's
+ *              deadline, the call's (call scoped) and services.timeout_ms.
+ * Hooks run on engine threads, up to max_in_flight at a time, so they must be
+ * safe to run concurrently, must honor cancel and the deadline, and must not
+ * reenter the host. A call does not return until the hooks of its call-scoped
+ * requests have, so value stays valid.
+ *
+ * handle emits exactly one result through emit and returns EXT_OK: a payload (a
+ * JSON value; empty means null) or a public error (the JSON of a RemoteError,
+ * which the plugin receives unchanged if it is valid, and as operation_failed
+ * if a peer would reject it). Returning anything else, or emitting twice, is a
+ * failure the plugin sees as operation_failed. A result that outlives the
+ * deadline is a failure too. */
+#define EXT_HOST_REVERSE_PAYLOAD 0u
+#define EXT_HOST_REVERSE_PUBLIC_ERROR 1u
+typedef ext_status (*ext_reverse_emit)(void *sink, uint32_t kind,
+                                       const uint8_t *data, size_t len);
+typedef ext_status (*ext_reverse_handler)(void *user, const ext_call_options *,
+                                          const uint8_t *request, size_t len,
+                                          ext_reverse_emit emit, void *sink);
+typedef struct {
+  uint32_t struct_size;
+  void *user;
+  ext_context_policy authorize; /* required */
+  ext_reverse_handler handle;   /* required */
+  uint32_t timeout_ms;          /* zero uses 30000 */
+  uint32_t max_payload_bytes;   /* zero uses 1 MiB; at most the frame limit */
+  uint32_t max_in_flight;       /* zero uses 4; at most 1024 */
+  void *session_value;          /* the options' value for session-scoped calls */
+} ext_host_services;
+/* Configure once, before start or any concurrent use. Copies the struct; user
+ * and session_value must live until destroy returns. EXT_DENIED when a hook is
+ * missing, EXT_INVALID for a bound out of range. A host created over an
+ * extension backend serves reverse calls only if it was created with
+ * EXT_BACKEND_FRAMES. Destroy waits for the hooks that are running. */
+EXT_HOST_API ext_status ext_host_set_services(ext_host *,
+                                              const ext_host_services *);
+
+/* Frames from an extension backend. A backend owns its transport and its threads,
+ * so it reads the plugin's tagged frames itself and hands them to the engine, which
+ * validates them and decides exactly as it does for a process it reads: progress
+ * events are checked, limited and delivered to the call they belong to; a reverse
+ * request is admitted or refused, and its hooks run. Both calls need a host whose
+ * backend was created with EXT_BACKEND_FRAMES (EXT_INVALID otherwise), may be
+ * made from any thread, and return EXT_PROTOCOL for a frame that breaks the rules,
+ * which the backend must treat as a failed connection. A frame names its call by
+ * id, so a call is in flight from the moment its invoke callback is entered until
+ * it returns.
+ *
+ * ext_host_backend_progress takes one progress frame, as JSON. *delivered, when
+ * given, is set to 1 if the event was passed on and 0 if the rate limit dropped it.
+ *
+ * A reverse request takes two steps, so the backend's reader is never held while a
+ * hook runs. ext_host_backend_reverse_admit takes one reverse_request frame and
+ * either refuses it, setting *ticket to NULL and *answer to the reverse_response
+ * frame to send, or admits it, setting *ticket and leaving *answer empty. Then
+ * ext_host_backend_reverse_run, called exactly once for each ticket and on any
+ * thread, runs the hooks, which can take as long as the request's deadline, and
+ * sets *answer to the reverse_response frame to send. caller, when given, is a
+ * signal of the backend's own that ends the hooks early, as the engine's own
+ * signal does (the plugin's context, for a plugin in the host's process); it must
+ * stay valid until run returns. The ticket is consumed. A
+ * call does not return from its invoke callback's host until the requests of that
+ * call have been run, so hooks that borrow the call's options stay valid; a request
+ * that is admitted and never run holds the host open. Free *answer with
+ * ext_buffer_free. */
+typedef struct ext_reverse_ticket ext_reverse_ticket;
+EXT_HOST_API ext_status ext_host_backend_progress(ext_host *, const uint8_t *frame,
+                                                  size_t len, int *delivered);
+EXT_HOST_API ext_status ext_host_backend_reverse_admit(
+    ext_host *, const uint8_t *frame, size_t len, ext_reverse_ticket **ticket,
+    ext_buffer *answer);
+EXT_HOST_API ext_status ext_host_backend_reverse_run(ext_host *,
+                                                     ext_reverse_ticket *ticket,
+                                                     const ext_cancel *caller,
+                                                     ext_buffer *answer);
 /* Thread-safe and idempotent. Stops admission, wakes I/O, kills owned child.
  * A timeout/cancellation after dispatch terminates this session. No
  * process-tree containment. Policies are synchronous and cannot be forcibly

@@ -6,10 +6,15 @@ pub const max_frame = 24 << 20;
 pub const timeout_ns: i128 = 30_000_000_000;
 pub const Identity = struct { id: []const u8, revision: []const u8, version: []const u8 = "" };
 pub const Ref = struct { name: []const u8, version: []const u8 };
-pub const Operation = struct { name: []const u8, surface: []const u8 = "" };
+// progress says the operation reports progress events while it runs; it is not valid on a host
+// operation in Descriptor.reverse, the contracts the plugin may call on its host.
+pub const Operation = struct { name: []const u8, surface: []const u8 = "", progress: bool = false };
 pub const Contract = struct { name: []const u8, version: []const u8, operations: []const Operation };
-pub const Descriptor = struct { apiVersion: []const u8 = version, identity: Identity, contracts: []const Contract };
-pub const Request = struct { apiVersion: []const u8, id: []const u8, plugin: Identity, contract: Ref, operation: []const u8, surface: []const u8 = "", deadline: []const u8, payload: Value = .null };
+pub const Descriptor = struct { apiVersion: []const u8 = version, identity: Identity, contracts: []const Contract, reverse: []const Contract = &.{} };
+// The rate at which the host lets a call report progress; a member that is not positive uses the default.
+pub const Rate = struct { eventsPerSecond: i64 = 0, bytesPerSecond: i64 = 0 };
+// parent is the call that issued the request, empty for a session-scoped one.
+pub const Request = struct { apiVersion: []const u8, id: []const u8, plugin: Identity, contract: Ref, operation: []const u8, surface: []const u8 = "", deadline: []const u8, payload: Value = .null, progress: ?Rate = null, parent: []const u8 = "" };
 pub const RemoteError = struct { code: []const u8, message: []const u8, retryAfterMilliseconds: i64 = 0 };
 pub const eq = std.mem.eql;
 
@@ -26,35 +31,51 @@ pub fn sameIdentity(a: Identity, b: Identity) bool {
 }
 pub fn validate(d: Descriptor) !void {
     try validateIdentity(d.identity);
-    if (!eq(u8, d.apiVersion, version) or d.contracts.len == 0 or d.contracts.len > 64) return error.Invalid;
-    for (d.contracts, 0..) |c, i| {
+    if (!eq(u8, d.apiVersion, version) or d.contracts.len == 0 or d.contracts.len > 64 or d.reverse.len > 64) return error.Invalid;
+    try validateContracts(d.contracts, false);
+    try validateContracts(d.reverse, true);
+}
+fn validateContracts(contracts: []const Contract, reverse: bool) !void {
+    for (contracts, 0..) |c, i| {
         if (!identifier(c.name, false) or !identifier(c.version, true) or c.operations.len == 0 or c.operations.len > 256) return error.Invalid;
-        for (d.contracts[0..i]) |p| if (eq(u8, p.name, c.name) and eq(u8, p.version, c.version)) return error.Invalid;
+        for (contracts[0..i]) |p| if (eq(u8, p.name, c.name) and eq(u8, p.version, c.version)) return error.Invalid;
         for (c.operations, 0..) |op, j| {
-            if (!identifier(op.name, false) or eq(u8, op.name, "plugin.hello") or (op.surface.len != 0 and !identifier(op.surface, false))) return error.Invalid;
+            if (!identifier(op.name, false) or eq(u8, op.name, "plugin.hello") or (op.surface.len != 0 and !identifier(op.surface, false)) or (reverse and op.progress)) return error.Invalid;
             for (c.operations[0..j]) |p| if (eq(u8, p.name, op.name)) return error.Invalid;
         }
     }
 }
-pub fn lookup(d: Descriptor, ref: Ref, name: []const u8) !Operation {
-    for (d.contracts) |c| if (eq(u8, c.name, ref.name) and eq(u8, c.version, ref.version)) {
+fn find(contracts: []const Contract, ref: Ref, name: []const u8) !Operation {
+    for (contracts) |c| if (eq(u8, c.name, ref.name) and eq(u8, c.version, ref.version)) {
         for (c.operations) |op| if (eq(u8, op.name, name)) return op;
     };
     return error.Unsupported;
 }
+pub fn lookup(d: Descriptor, ref: Ref, name: []const u8) !Operation {
+    return find(d.contracts, ref, name);
+}
+// An operation the plugin declared it may call on its host.
+pub fn lookupReverse(d: Descriptor, ref: Ref, name: []const u8) !Operation {
+    return find(d.reverse, ref, name);
+}
 pub fn match(a: Descriptor, b: Descriptor) !void {
     try validate(a);
     try validate(b);
-    if (!sameIdentity(a.identity, b.identity) or a.contracts.len != b.contracts.len) return error.Mismatch;
-    for (a.contracts) |c| {
+    if (!sameIdentity(a.identity, b.identity)) return error.Mismatch;
+    try matchContracts(a.contracts, b.contracts);
+    try matchContracts(a.reverse, b.reverse);
+}
+fn matchContracts(a: []const Contract, b: []const Contract) !void {
+    if (a.len != b.len) return error.Mismatch;
+    for (a) |c| {
         var found = false;
-        for (b.contracts) |d| if (eq(u8, c.name, d.name) and eq(u8, c.version, d.version) and c.operations.len == d.operations.len) {
+        for (b) |d| if (eq(u8, c.name, d.name) and eq(u8, c.version, d.version) and c.operations.len == d.operations.len) {
             found = true;
         };
         if (!found) return error.Mismatch;
         for (c.operations) |op| {
-            const other = lookup(b, .{ .name = c.name, .version = c.version }, op.name) catch return error.Mismatch;
-            if (!eq(u8, op.surface, other.surface)) return error.Mismatch;
+            const other = find(b, .{ .name = c.name, .version = c.version }, op.name) catch return error.Mismatch;
+            if (!eq(u8, op.surface, other.surface) or op.progress != other.progress) return error.Mismatch;
         }
     }
 }
@@ -63,6 +84,122 @@ pub fn validateRequest(d: Descriptor, r: Request) !void {
     if (!eq(u8, r.apiVersion, version) or !identifier(r.id, true)) return error.Invalid;
     _ = try deadline(r.deadline);
     if (!sameIdentity(d.identity, r.plugin) or !eq(u8, (try lookup(d, r.contract, r.operation)).surface, r.surface)) return error.Mismatch;
+}
+
+// The strict readers below take a decoded JSON tree the way the Go contract decodes it: a member it
+// does not know is refused, a member it leaves alone when it is null is empty, and a number that is
+// not a whole one that fits is refused. Slices point into the tree.
+fn keysWithin(v: Value, allowed: []const []const u8) !void {
+    if (v != .object) return error.Invalid;
+    for (v.object.keys()) |k| {
+        var known = false;
+        for (allowed) |name| {
+            if (eq(u8, k, name)) known = true;
+        }
+        if (!known) return error.Invalid;
+    }
+}
+// A member that is a string when present; null is not.
+fn memberString(v: Value, key: []const u8) ![]const u8 {
+    const m = v.object.get(key) orelse return "";
+    return string(m);
+}
+// A member that is a string when present, and empty when absent or null.
+fn nullableString(v: Value, key: []const u8) ![]const u8 {
+    const m = v.object.get(key) orelse return "";
+    if (m == .null) return "";
+    return string(m);
+}
+const identity_fields = [_][]const u8{ "id", "revision", "version" };
+const ref_fields = [_][]const u8{ "name", "version" };
+const operation_fields = [_][]const u8{ "name", "surface", "progress" };
+const contract_fields = [_][]const u8{ "name", "version", "operations" };
+const descriptor_fields = [_][]const u8{ "apiVersion", "identity", "contracts", "reverse" };
+const rate_fields = [_][]const u8{ "eventsPerSecond", "bytesPerSecond" };
+const request_fields = [_][]const u8{ "apiVersion", "id", "plugin", "contract", "operation", "surface", "deadline", "payload", "progress", "parent" };
+fn operationFrom(v: Value) !Operation {
+    try keysWithin(v, &operation_fields);
+    var progress = false;
+    if (v.object.get("progress")) |p| {
+        switch (p) {
+            .null => {},
+            .bool => |b| progress = b,
+            else => return error.Invalid,
+        }
+    }
+    return .{ .name = try string(try field(v, "name")), .surface = try nullableString(v, "surface"), .progress = progress };
+}
+fn contractFrom(a: Allocator, v: Value) !Contract {
+    try keysWithin(v, &contract_fields);
+    const list = try field(v, "operations");
+    if (list != .array) return error.Invalid;
+    const operations = try a.alloc(Operation, list.array.items.len);
+    for (list.array.items, 0..) |item, i| operations[i] = try operationFrom(item);
+    return .{ .name = try string(try field(v, "name")), .version = try string(try field(v, "version")), .operations = operations };
+}
+fn contractsFrom(a: Allocator, v: Value) ![]const Contract {
+    if (v != .array) return error.Invalid;
+    const contracts = try a.alloc(Contract, v.array.items.len);
+    for (v.array.items, 0..) |item, i| contracts[i] = try contractFrom(a, item);
+    return contracts;
+}
+// A descriptor as the Go contract decodes it; validate checks the rules that remain.
+pub fn descriptorFromValue(a: Allocator, v: Value) !Descriptor {
+    try keysWithin(v, &descriptor_fields);
+    const identity_value = try field(v, "identity");
+    try keysWithin(identity_value, &identity_fields);
+    var reverse: []const Contract = &.{};
+    if (v.object.get("reverse")) |r| {
+        if (r != .null) reverse = try contractsFrom(a, r);
+    }
+    return .{
+        .apiVersion = try string(try field(v, "apiVersion")),
+        .identity = .{ .id = try string(try field(identity_value, "id")), .revision = try string(try field(identity_value, "revision")), .version = try memberString(identity_value, "version") },
+        .contracts = try contractsFrom(a, try field(v, "contracts")),
+        .reverse = reverse,
+    };
+}
+// An identity or a contract reference in a request: absent and null are empty, and a member that is
+// present is a string.
+fn requestIdentity(v: ?Value) !Identity {
+    const value = v orelse return .{ .id = "", .revision = "", .version = "" };
+    if (value == .null) return .{ .id = "", .revision = "", .version = "" };
+    try keysWithin(value, &identity_fields);
+    return .{ .id = try memberString(value, "id"), .revision = try memberString(value, "revision"), .version = try memberString(value, "version") };
+}
+fn requestRef(v: ?Value) !Ref {
+    const value = v orelse return .{ .name = "", .version = "" };
+    if (value == .null) return .{ .name = "", .version = "" };
+    try keysWithin(value, &ref_fields);
+    return .{ .name = try memberString(value, "name"), .version = try memberString(value, "version") };
+}
+fn rateMember(v: Value, key: []const u8) !i64 {
+    const m = v.object.get(key) orelse return 0;
+    if (m == .null) return 0;
+    if (m != .number_string) return error.Invalid;
+    return std.fmt.parseInt(i64, m.number_string, 10) catch return error.Invalid;
+}
+fn rateFrom(v: ?Value) !?Rate {
+    const value = v orelse return null;
+    if (value == .null) return null;
+    try keysWithin(value, &rate_fields);
+    return Rate{ .eventsPerSecond = try rateMember(value, "eventsPerSecond"), .bytesPerSecond = try rateMember(value, "bytesPerSecond") };
+}
+// A request as the Go contract decodes it; validateRequest checks it against a descriptor.
+pub fn requestFromValue(v: Value) !Request {
+    try keysWithin(v, &request_fields);
+    return .{
+        .apiVersion = try memberString(v, "apiVersion"),
+        .id = try string(try field(v, "id")),
+        .plugin = try requestIdentity(v.object.get("plugin")),
+        .contract = try requestRef(v.object.get("contract")),
+        .operation = try memberString(v, "operation"),
+        .surface = try memberString(v, "surface"),
+        .deadline = try memberString(v, "deadline"),
+        .payload = v.object.get("payload") orelse .null,
+        .progress = try rateFrom(v.object.get("progress")),
+        .parent = try nullableString(v, "parent"),
+    };
 }
 
 // Scan depth before allocating the JSON tree. The standard parser then rejects

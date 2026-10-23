@@ -18,10 +18,18 @@ final class NativeEngine {
 
     static native byte[] descriptor(long handle);
 
-    static native byte[] invoke(long handle, byte[] request, int timeoutMilliseconds);
+    /** {@code state} reaches the handler with the call (the engine's call_user); it may be null. */
+    static native byte[] invoke(long handle, byte[] request, int timeoutMilliseconds, Object state);
 
     /** Strict JSON validation by the engine: depth, UTF-8, duplicate keys, trailing data. */
     static native int validateJson(byte[] data);
+
+    /**
+     * Runs one of the engine's endpoint services ("endpoint.check" or
+     * "endpoint.validate") and returns its ext_status; nothing of the input is
+     * returned or thrown, because an endpoint is a credential.
+     */
+    static native int endpoint(String operation, byte[] input);
 
     static native void destroy(long handle);
 }

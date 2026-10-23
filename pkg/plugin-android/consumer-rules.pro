@@ -5,7 +5,7 @@
 
 # ext_jni.c: the guest engine calls the handler and throws its exception by name.
 -keepclassmembers class io.github.webong.ext.plugin.Guest {
-    byte[] dispatch(byte[], int);
+    byte[] dispatch(byte[], int, java.lang.Object);
 }
 -keep class io.github.webong.ext.plugin.GuestException {
     <init>(int);

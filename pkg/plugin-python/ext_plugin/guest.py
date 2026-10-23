@@ -1,63 +1,58 @@
 import json
 import os
-import re
 import sys
+import threading
 import time
-from datetime import datetime, timedelta, timezone
 
-API_VERSION = "ext.plugin/v1"
-MAX_FRAME_BYTES = 24 << 20
-MAX_RETRY_AFTER_MS = 365 * 24 * 60 * 60 * 1000
-MAX_MESSAGE_BYTES = 4096
-DEFAULT_MAX_CALL_SECONDS = 30.0
-_MAX_DEPTH = 64
-
-_IDENTIFIER = re.compile(r"\A[a-z0-9][a-z0-9._/-]{0,255}\Z")
-_REVISION = re.compile(r"\A[A-Za-z0-9][A-Za-z0-9._:+/-]{0,255}\Z")
-_TIME = re.compile(
-    r"\A(\d{4})-(\d\d)-(\d\d)[Tt](\d\d):(\d\d):(\d\d)(\.\d+)?([Zz]|[+-]\d\d:\d\d)\Z"
+from . import frames
+from .frames import FrameError
+from ._core import (  # noqa: F401 - re-exported for callers and tests
+    API_VERSION,
+    MAX_FRAME_BYTES,
+    MAX_MESSAGE_BYTES,
+    MAX_RETRY_AFTER_MS,
+    ProtocolError,
+    RemoteError,
+    _IDENTIFIER,
+    _MAX_DEPTH,
+    _REVISION,
+    _TIME,
+    _ZERO_TIME,
+    _check_value,
+    _constant,
+    _has_surrogate,
+    _match,
+    _pairs,
+    _parse_deadline,
+    _read_frame,
+    decode_frame,
+    encode_frame,
 )
 
-
-class ProtocolError(Exception):
-    """The peer violated the framing or envelope rules; the stream is unusable."""
-
-
-class RemoteError(Exception):
-    """A deliberate public failure sent to the host as the structured error.
-
-    ``code`` must match the identifier syntax, ``message`` is at most 4096 UTF-8
-    bytes, and ``retry_after_ms`` is an optional non-negative bound of one year.
-    """
-
-    def __init__(self, code, message, retry_after_ms=None):
-        if not isinstance(code, str) or not _IDENTIFIER.match(code):
-            raise ValueError("error code must match [a-z0-9][a-z0-9._/-]{0,255}")
-        if not isinstance(message, str) or len(message.encode("utf-8", "replace")) > MAX_MESSAGE_BYTES:
-            raise ValueError("error message must be a string of at most 4096 bytes")
-        if retry_after_ms is not None and (
-            isinstance(retry_after_ms, bool)
-            or not isinstance(retry_after_ms, int)
-            or retry_after_ms < 0
-            or retry_after_ms > MAX_RETRY_AFTER_MS
-        ):
-            raise ValueError("retry_after_ms must be an integer in [0, one year]")
-        super().__init__(message)
-        self.code = code
-        self.message = message
-        self.retry_after_ms = retry_after_ms
-
-    def to_wire(self):
-        wire = {"code": self.code, "message": self.message}
-        if self.retry_after_ms:
-            wire["retryAfterMilliseconds"] = self.retry_after_ms
-        return wire
+DEFAULT_MAX_CALL_SECONDS = 30.0
 
 
 class CallInfo:
-    """Details of the call being handled, for handlers that need them."""
+    """Details of the call being handled, for handlers that need them.
 
-    __slots__ = ("request_id", "contract_name", "contract_version", "operation", "surface", "deadline")
+    On a transport that carries frames (a guest served by :func:`serve`) the call can also
+    report progress and call its host: see :meth:`progress`, ``progress_limits`` and
+    ``reverse``. This guest reads inline, so ``session_reverse`` is always None and a handler
+    makes one reverse call at a time, from its own thread.
+    """
+
+    __slots__ = (
+        "request_id",
+        "contract_name",
+        "contract_version",
+        "operation",
+        "surface",
+        "deadline",
+        "progress_limits",
+        "reverse",
+        "session_reverse",
+        "_reporter",
+    )
 
     def __init__(self, request_id, contract_name, contract_version, operation, surface, deadline):
         self.request_id = request_id
@@ -66,9 +61,29 @@ class CallInfo:
         self.operation = operation
         self.surface = surface
         self.deadline = deadline  # seconds since the epoch (time.time() scale)
+        #: The rate the host set for this call's events (a frames.ProgressLimits), or None when
+        #: the operation reports none.
+        self.progress_limits = None
+        #: A frames.ReverseCaller for host operations, bound by the call's deadline, or None on a
+        #: transport with no frames.
+        self.reverse = None
+        #: Always None here: nobody reads the connection between calls.
+        self.session_reverse = None
+        self._reporter = None
 
     def remaining(self):
         return self.deadline - time.time()
+
+    def progress(self, event):
+        """Reports a frames.Progress event to the host while the call runs. Events reach the host
+        in order, before the result. Returns ``frames.SENT``, or ``frames.DROPPED`` when the rate
+        limit dropped it (routine: the next event that passes carries the count). Raises
+        FrameError: ``unsupported`` when the operation did not declare progress, the host asked
+        for no events or there is no frame channel (stop reporting), ``invalid`` for an event that
+        breaks the rules (nothing is sent), ``closed`` once the call is over."""
+        if self._reporter is None:
+            raise FrameError("unsupported", "no progress channel on this call")
+        return self._reporter.report(event)
 
 
 _current = None
@@ -79,90 +94,12 @@ def current_call():
     return _current
 
 
-# --- strict JSON ------------------------------------------------------------
-
-
-def _pairs(pairs):
-    out = {}
-    for key, value in pairs:
-        if key in out:
-            raise ProtocolError("duplicate JSON key")
-        out[key] = value
-    return out
-
-
-def _constant(name):
-    raise ProtocolError("non-finite JSON number")
-
-
-def _check_value(root):
-    stack = [(root, 0)]
-    while stack:
-        value, depth = stack.pop()
-        if depth > _MAX_DEPTH:
-            raise ProtocolError("JSON nesting exceeds 64 levels")
-        if isinstance(value, str):
-            if _has_surrogate(value):
-                raise ProtocolError("unpaired surrogate escape")
-        elif isinstance(value, dict):
-            for key, child in value.items():
-                if _has_surrogate(key):
-                    raise ProtocolError("unpaired surrogate escape")
-                stack.append((child, depth + 1))
-        elif isinstance(value, list):
-            for child in value:
-                stack.append((child, depth + 1))
-
-
-def _has_surrogate(text):
-    # A valid pair decodes to an astral character, so any code point in the
-    # surrogate range left in a decoded string was unpaired.
-    for ch in text:
-        if "\ud800" <= ch <= "\udfff":
-            return True
-    return False
-
-
-def decode_frame(raw):
-    """Decode one frame (bytes without the LF) with the Go decoder's rules."""
-    if len(raw) > MAX_FRAME_BYTES:
-        raise ProtocolError("frame too large")
-    try:
-        text = raw.decode("utf-8")
-    except UnicodeDecodeError:
-        raise ProtocolError("JSON must be UTF-8")
-    try:
-        value = json.loads(text, object_pairs_hook=_pairs, parse_constant=_constant)
-    except ProtocolError:
-        raise
-    except (ValueError, RecursionError) as exc:
-        raise ProtocolError("malformed JSON: %s" % type(exc).__name__)
-    _check_value(value)
-    return value
-
-
-def encode_frame(value):
-    return json.dumps(value, separators=(",", ":"), ensure_ascii=True, allow_nan=False).encode("ascii")
-
-
-def _read_frame(stream):
-    """Read one LF-terminated frame; None at clean EOF. Bounded by the limit."""
-    line = stream.readline(MAX_FRAME_BYTES + 2)
-    if not line:
-        return None
-    if not line.endswith(b"\n"):
-        if len(line) > MAX_FRAME_BYTES + 1:
-            raise ProtocolError("frame too large")
-        raise ProtocolError("unexpected EOF inside a frame")
-    return line[:-1]
-
-
 # --- descriptor -------------------------------------------------------------
 
 
 def validate_descriptor(d):
     """Raise ValueError unless d is a valid ext.plugin/v1 descriptor."""
-    if not isinstance(d, dict) or set(d) - {"apiVersion", "identity", "contracts"}:
+    if not isinstance(d, dict) or set(d) - {"apiVersion", "identity", "contracts", "reverse"}:
         raise ValueError("descriptor must be an object with apiVersion, identity, contracts")
     if d.get("apiVersion") != API_VERSION:
         raise ValueError("unsupported apiVersion")
@@ -176,6 +113,16 @@ def validate_descriptor(d):
     contracts = d.get("contracts")
     if not isinstance(contracts, list) or not 1 <= len(contracts) <= 64:
         raise ValueError("declare 1..64 contracts")
+    _validate_contracts(contracts, reverse=False)
+    # The host operations the plugin may call; none is a null or empty list.
+    reverse = d.get("reverse")
+    if reverse is not None:
+        if not isinstance(reverse, list) or len(reverse) > 64:
+            raise ValueError("declare at most 64 reverse contracts")
+        _validate_contracts(reverse, reverse=True)
+
+
+def _validate_contracts(contracts, reverse):
     seen = set()
     for c in contracts:
         if not isinstance(c, dict) or set(c) - {"name", "version", "operations"}:
@@ -189,15 +136,19 @@ def validate_descriptor(d):
         seen.add(key)
         names = set()
         for op in ops:
-            if not isinstance(op, dict) or set(op) - {"name", "surface"}:
+            if not isinstance(op, dict) or set(op) - {"name", "surface", "progress"}:
                 raise ValueError("invalid operation")
-            name, surface = op.get("name"), op.get("surface", "")
+            name, surface, progress = op.get("name"), op.get("surface"), op.get("progress")
+            # Go leaves a member that is null alone, as if absent.
+            surface = "" if surface is None else surface
             if (
                 not _match(_IDENTIFIER, name)
                 or name == "plugin.hello"
                 or name in names
                 or not isinstance(surface, str)
                 or (surface != "" and not _match(_IDENTIFIER, surface))
+                or (progress is not None and not isinstance(progress, bool))
+                or (progress is True and reverse)  # a host operation does not report progress
             ):
                 raise ValueError("invalid, reserved, or duplicate operation")
             names.add(name)
@@ -227,33 +178,27 @@ def load_descriptor(path):
 
 # --- guest ------------------------------------------------------------------
 
-_ZERO_TIME = -62135596800.0
-_REQUEST_FIELDS = {"apiVersion", "id", "plugin", "contract", "operation", "surface", "deadline", "payload"}
+_HELLO_FIELDS = {"apiVersion", "id", "plugin", "contract", "operation", "surface", "deadline", "payload"}
+_REQUEST_FIELDS = _HELLO_FIELDS | {"progress", "parent"}
 
 
-def _parse_deadline(value):
-    """RFC 3339 to epoch seconds; None when invalid or the zero time."""
-    if not isinstance(value, str):
+def _rate_of(value):
+    """The rate a request sets for a call's progress events: None when absent, else
+    ``(events_per_second, bytes_per_second)`` with 0 for a member left out. Go decodes the members
+    into int64s, so a number that is not a whole one that fits is not a request at all."""
+    if value is None:
         return None
-    m = _TIME.match(value)
-    if not m:
-        return None
-    year, month, day, hour, minute, second = (int(m.group(i)) for i in range(1, 7))
-    frac = m.group(7)
-    micro = int((frac[1:] + "000000")[:6]) if frac else 0
-    tz = m.group(8)
-    if tz in ("Z", "z"):
-        offset = timedelta(0)
-    else:
-        sign = 1 if tz[0] == "+" else -1
-        offset = sign * timedelta(hours=int(tz[1:3]), minutes=int(tz[4:6]))
-    try:
-        stamp = datetime(year, month, day, hour, minute, second, micro, tzinfo=timezone(offset)).timestamp()
-    except (ValueError, OverflowError, OSError):
-        return None
-    if stamp == _ZERO_TIME:
-        return None  # Go's zero time means "no deadline given"
-    return stamp
+    if not isinstance(value, dict) or set(value) - {"eventsPerSecond", "bytesPerSecond"}:
+        raise ProtocolError("invalid progress rate")
+    out = []
+    for key in ("eventsPerSecond", "bytesPerSecond"):
+        n = value.get(key)
+        if n is None:
+            n = 0
+        if type(n) is not int or not -(1 << 63) <= n < 1 << 63:
+            raise ProtocolError("invalid progress rate")
+        out.append(n)
+    return tuple(out)
 
 
 def _identity_of(obj, fields):
@@ -293,21 +238,27 @@ class Guest:
         self._handler = handler
         self._max_call = float(max_call_seconds)
         self._redact = bool(redact_errors)
-        self._ops = {}
+        self._ops = {}  # (contract, version, operation) -> (surface, reports progress)
         for c in self._descriptor["contracts"]:
             for op in c["operations"]:
-                self._ops[(c["name"], c["version"], op["name"])] = op.get("surface", "")
+                self._ops[(c["name"], c["version"], op["name"])] = (op.get("surface") or "", op.get("progress") is True)
+        self._reverse = set()  # (contract, version, operation) the plugin may call on its host
+        for c in self._descriptor.get("reverse") or []:
+            for op in c["operations"]:
+                self._reverse.add((c["name"], c["version"], op["name"]))
         ident = self._descriptor["identity"]
         self._identity = {"id": ident["id"], "revision": ident["revision"], "version": ident.get("version", "")}
 
     def handshake(self):
         return json.loads(json.dumps(self._descriptor))
 
-    def invoke(self, request):
+    def invoke(self, request, link=None):
         """Validate one decoded request and return the response object.
 
         Raises ProtocolError for envelopes the Go host would not even decode
-        (unknown fields, wrong types); those end the stream.
+        (unknown fields, wrong types); those end the stream. ``link`` is the connection the
+        request came in on (:func:`serve` passes it): without one the call can neither report
+        progress nor call its host.
         """
         global _current
         if not isinstance(request, dict) or set(request) - _REQUEST_FIELDS:
@@ -322,6 +273,9 @@ class Guest:
                 raise ProtocolError("invalid request field")
         if "deadline" in request and not isinstance(request["deadline"], str):
             raise ProtocolError("invalid request deadline")
+        if request.get("parent") is not None and not isinstance(request["parent"], str):
+            raise ProtocolError("invalid request parent")
+        rate = _rate_of(request.get("progress"))
         response = {"apiVersion": API_VERSION, "id": request_id}
         deadline = _parse_deadline(request.get("deadline"))
         operation = request.get("operation", "")
@@ -333,7 +287,7 @@ class Guest:
             or deadline is None
             or plugin != self._identity
             or key not in self._ops
-            or self._ops[key] != surface
+            or self._ops[key][0] != surface
         ):
             response["error"] = {"code": "invalid_request", "message": "request does not match selected contract"}
             return response
@@ -343,7 +297,18 @@ class Guest:
         if time.time() >= limit:
             error = self._failure(TimeoutError("deadline exceeded"))
         else:
-            _current = CallInfo(request_id, contract["name"], contract["version"], operation, surface, limit)
+            info = _current = CallInfo(request_id, contract["name"], contract["version"], operation, surface, limit)
+            reporter = caller = None
+            if link is not None:
+                # A call reports progress when its operation declared it and the host asked for
+                # events; it can call the host on the connection it came in on.
+                if rate is not None and self._ops[key][1]:
+                    info.progress_limits = frames.ProgressLimits(
+                        rate[0] if rate[0] > 0 else frames.DEFAULT_PROGRESS_EVENTS,
+                        rate[1] if rate[1] > 0 else frames.DEFAULT_PROGRESS_BYTES,
+                    )
+                    reporter = info._reporter = frames.Reporter(link, request_id, info.progress_limits)
+                caller = info.reverse = frames.ReverseCaller(link, self._reverse, request_id, limit)
             try:
                 result = self._handler(contract["name"], operation, request.get("payload"))
                 encode_frame(result)  # surface unserializable results as provider errors
@@ -356,6 +321,10 @@ class Guest:
                     error = self._failure(TimeoutError("deadline exceeded"))
             finally:
                 _current = None
+                if caller is not None:
+                    caller.over = True  # a request names its call, so a caller cannot outlive it
+                if reporter is not None:
+                    reporter.finish()  # a marker for events never reported, before the response
         if error is not None:
             response["error"] = error
         else:
@@ -370,7 +339,14 @@ class Guest:
 
 
 def serve(guest, stdin, stdout):
-    """Serve ``guest`` over binary streams until EOF. Raises ProtocolError on violations."""
+    """Serve ``guest`` over binary streams until EOF. Raises ProtocolError on violations.
+
+    A handler can report progress and call its host (see :class:`CallInfo`). The host sends
+    nothing during a call but the answer to a reverse call: anything else ends the session with
+    ProtocolError, and the call in flight is not answered. When the input ends during a call, the
+    call is answered and the session ends.
+    """
+    link = frames.Link(stdin, stdout)
     hello = False
     while True:
         raw = _read_frame(stdin)
@@ -381,7 +357,9 @@ def serve(guest, stdin, stdout):
             response = _answer_hello(guest, request)
             hello = True
         else:
-            response = guest.invoke(request)
+            response = guest.invoke(request, link)
+            if link.failure is not None:
+                raise link.failure  # the host broke the rules while the handler waited
         frame = encode_frame(response)
         if len(frame) > MAX_FRAME_BYTES:
             response = {
@@ -390,12 +368,11 @@ def serve(guest, stdin, stdout):
                 "error": {"code": "response_too_large", "message": "response exceeds the frame limit"},
             }
             frame = encode_frame(response)
-        stdout.write(frame + b"\n")
-        stdout.flush()
+        link.write(frame)
 
 
 def _answer_hello(guest, request):
-    if not isinstance(request, dict) or set(request) - _REQUEST_FIELDS:
+    if not isinstance(request, dict) or set(request) - _HELLO_FIELDS:
         raise ProtocolError("invalid hello")
     plugin = _identity_of(request.get("plugin"), ("id", "revision", "version"))
     contract = _identity_of(request.get("contract"), ("name", "version"))

@@ -8,7 +8,8 @@ import java.util.Map;
 
 /**
  * The little JSON this SDK needs. The engine owns strict validation; this reads
- * input the engine already accepted, so it stays small. Numbers stay as text.
+ * input the engine already accepted, so it stays small. Numbers stay as text, in a
+ * {@link Num}, so a number can be told from a string.
  */
 final class Json {
     private Json() {}
@@ -35,7 +36,10 @@ final class Json {
         return out.append('"');
     }
 
-    /** Parses one JSON value. Objects become Map, arrays List, numbers raw String text. */
+    /** A JSON number, as the text it was written in. */
+    record Num(String text) {}
+
+    /** Parses one JSON value. Objects become Map, arrays List, numbers {@link Num}, true and false Boolean. */
     static Object parse(byte[] json) {
         Parser parser = new Parser(json);
         Object value = parser.value();
@@ -63,34 +67,46 @@ final class Json {
      * without re-encoding them. Empty when the key is absent.
      */
     static byte[] rawPayload(byte[] json) {
-        Parser parser = new Parser(json);
-        parser.space();
-        if (parser.i >= json.length || json[parser.i] != '{') {
-            return new byte[0];
-        }
-        parser.i++;
-        while (true) {
+        byte[] payload = member(json, "payload");
+        return payload == null ? new byte[0] : payload;
+    }
+
+    /**
+     * The bytes of a top-level member of an object, without re-encoding them, or null when
+     * the member is absent or the text is not an object. It skips the other members without
+     * building them, so it suits finding out what kind of frame has just arrived.
+     */
+    static byte[] member(byte[] json, String name) {
+        try {
+            Parser parser = new Parser(json);
             parser.space();
-            if (parser.i >= json.length || json[parser.i] != '"') {
-                return new byte[0];
-            }
-            String key = parser.string();
-            parser.space();
-            if (parser.i >= json.length || json[parser.i] != ':') {
-                return new byte[0];
-            }
-            parser.i++;
-            parser.space();
-            int start = parser.i;
-            parser.value();
-            if (key.equals("payload")) {
-                return java.util.Arrays.copyOfRange(json, start, parser.i);
-            }
-            parser.space();
-            if (parser.i >= json.length || json[parser.i] != ',') {
-                return new byte[0];
+            if (parser.i >= json.length || json[parser.i] != '{') {
+                return null;
             }
             parser.i++;
+            parser.space();
+            if (parser.i < json.length && json[parser.i] == '}') {
+                return null;
+            }
+            while (true) {
+                parser.space();
+                String key = parser.string();
+                parser.space();
+                parser.expect(':');
+                parser.space();
+                int start = parser.i;
+                parser.skip();
+                if (key.equals(name)) {
+                    return java.util.Arrays.copyOfRange(json, start, parser.i);
+                }
+                parser.space();
+                if (parser.i >= json.length || json[parser.i] != ',') {
+                    return null;
+                }
+                parser.i++;
+            }
+        } catch (RuntimeException e) {
+            return null;
         }
     }
 
@@ -164,17 +180,56 @@ final class Json {
                     case '"':
                         return string();
                     default: {
-                        int start = i;
-                        while (i < in.length && " \t\r\n,]}".indexOf(in[i]) < 0) {
-                            i++;
-                        }
-                        String literal = new String(in, start, i - start, StandardCharsets.US_ASCII);
-                        return literal.equals("null") ? NULL : literal;
+                        String literal = literal();
+                        return switch (literal) {
+                            case "null" -> NULL;
+                            case "true" -> Boolean.TRUE;
+                            case "false" -> Boolean.FALSE;
+                            default -> new Num(literal);
+                        };
                     }
                 }
             } finally {
                 depth--;
             }
+        }
+
+        String literal() {
+            int start = i;
+            while (i < in.length && " \t\r\n,]}".indexOf(in[i]) < 0) {
+                i++;
+            }
+            return new String(in, start, i - start, StandardCharsets.US_ASCII);
+        }
+
+        /** Steps over one value without building it. */
+        void skip() {
+            space();
+            if (i >= in.length) {
+                throw new IllegalArgumentException("unexpected end");
+            }
+            int depth = 0;
+            do {
+                space();
+                if (i >= in.length) {
+                    throw new IllegalArgumentException("unexpected end");
+                }
+                switch (in[i]) {
+                    case '{', '[' -> {
+                        if (++depth > 64) {
+                            throw new IllegalArgumentException("too deep");
+                        }
+                        i++;
+                    }
+                    case '}', ']' -> {
+                        depth--;
+                        i++;
+                    }
+                    case ',', ':' -> i++;
+                    case '"' -> string();
+                    default -> literal();
+                }
+            } while (depth > 0);
         }
 
         void expect(char c) {

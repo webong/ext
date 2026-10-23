@@ -1,3 +1,9 @@
 # pkg/plugin-go/cengine/_csrc is a generated copy of lib/plugin (scripts/cengine-sync.sh);
 # review the change in lib/plugin, not the copy. GitHub collapses these diffs.
 pkg/plugin-go/cengine/_csrc/** linguist-generated=true
+
+# The fixtures under lib/plugin/testdata are read by every language's tests, and some
+# are compared byte for byte with what the Go contract generates. They, and their
+# copies under _csrc, keep LF on every platform, whatever core.autocrlf says.
+lib/plugin/testdata/** text eol=lf
+pkg/plugin-go/cengine/_csrc/testdata/** text eol=lf

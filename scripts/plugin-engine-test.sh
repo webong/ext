@@ -25,7 +25,7 @@ cmake --build "$build/engine" -j 4
 guest="$build/go-guest$exe"
 fault="$build/fault-guest$exe"
 go build -o "$guest" ./pkg/plugin-go/crosslang/testdata/go-guest
-go build -o "$fault" lib/plugin/tests/faultguest/main.go
+go build -o "$fault" ./pkg/plugin-go/cengine/testdata/faultguest
 
 "$python" - "$build" <<'PY'
 import json, pathlib, sys
@@ -44,6 +44,11 @@ echo "== native tests"
 "$build/engine/ext_resources_test$exe"
 "$build/engine/ext_limits_test$exe"
 "$build/engine/ext_tree_limits_test$exe"
+"$build/engine/ext_frames_test$exe"
+"$build/engine/ext_reverse_test$exe"
+"$build/engine/ext_backend_test$exe"
+"$build/engine/ext_endpoint_test$exe" "$(winpath "$root/lib/plugin/testdata/v1/endpoint-cases.json")"
+"$build/engine/ext_fixtures_test$exe" "$(winpath "$root/lib/plugin/testdata/v1")"
 "$build/engine/ext_host_native_test$exe" "$(winpath "$guest")" "$(winpath "$build/descriptor.json")" "$(winpath "$build/echo.json")" "$(winpath "$build/wait.json")"
 
 if [ -n "${EXT_ENGINE_C_ONLY:-}" ]; then

@@ -38,9 +38,10 @@ func validateReverse(o *plugin.ReverseOptions) error {
 }
 
 // setReverse offers the services to the plugin. It must run before the host
-// starts. The engine serves one reverse call at a time on the thread that is
-// making the call, so MaxInFlight is accepted but not reached.
-func (h *Host) setReverse(o *plugin.ReverseOptions) error {
+// starts. ctx is the context the session is opened with: a session-scoped
+// reverse call runs in a context derived from it without its cancellation (its
+// values stay), which the engine cancels when the host closes.
+func (h *Host) setReverse(ctx context.Context, o *plugin.ReverseOptions) error {
 	if err := validateReverse(o); err != nil {
 		return err
 	}
@@ -52,35 +53,58 @@ func (h *Host) setReverse(o *plugin.ReverseOptions) error {
 		}
 	}
 	binding := cgo.NewHandle(&reverseBinding{options: *o})
-	if err := status(C.ext_go_set_services(h.ptr, C.uintptr_t(binding), C.uint32_t(timeout), C.uint32_t(o.MaxPayloadBytes), C.uint32_t(o.MaxInFlight))); err != nil {
+	session := cgo.NewHandle(context.WithoutCancel(ctx))
+	if err := status(C.ext_go_set_services(h.ptr, C.uintptr_t(binding), C.uintptr_t(session), C.uint32_t(timeout), C.uint32_t(o.MaxPayloadBytes), C.uint32_t(o.MaxInFlight))); err != nil {
 		binding.Delete()
+		session.Delete()
 		return err
 	}
-	h.reverse = binding
+	h.reverse, h.reverseSession = binding, session
 	return nil
 }
 
 // request reads the Request the engine built for the plugin's frame, and the
 // context the handler runs in. That context derives from the context of the call
-// in flight, so its values (a host that is itself a plugin finds its upstream
-// caller through plugin.ReverseFrom there) and its cancellation carry through;
-// its deadline is the engine's, the earliest of the plugin's, the call's and the
-// services' own bound.
-func (b *reverseBinding) request(caller C.uintptr_t, timeout C.uint32_t, data *C.uint8_t, n C.size_t) (context.Context, context.CancelFunc, plugin.Request, error) {
-	parent := context.Background()
-	if caller != 0 {
-		parent = cgo.Handle(caller).Value().(context.Context)
+// in flight (a call-scoped request) or of the session (a session-scoped one), so
+// its values carry through: a host that is itself a plugin finds its upstream
+// caller through plugin.ReverseFrom there. Its deadline is the engine's, the
+// earliest of the plugin's, the call's and the services' own bound. The engine
+// cancels a request when the call it belongs to ends or the host closes; the
+// context follows, through a watcher that runs until the returned stop is called.
+// The signal is only valid until the hook returns, so stop must run before then.
+func (b *reverseBinding) request(parent C.uintptr_t, signal C.uintptr_t, timeout C.uint32_t, data *C.uint8_t, n C.size_t) (context.Context, func(), plugin.Request, error) {
+	base := context.Background()
+	if parent != 0 {
+		base = cgo.Handle(parent).Value().(context.Context)
 	}
 	var r plugin.Request
 	if err := plugin.Decode(C.GoBytes(unsafe.Pointer(data), C.int(n)), &r); err != nil {
 		return nil, nil, r, err
 	}
-	ctx, cancel := context.WithTimeout(parent, time.Duration(timeout)*time.Millisecond)
-	return ctx, cancel, r, nil
+	ctx, cancel := context.WithTimeout(base, time.Duration(timeout)*time.Millisecond)
+	stopped := make(chan struct{})
+	finished := make(chan struct{})
+	go func() {
+		defer close(finished)
+		tick := time.NewTicker(2 * time.Millisecond)
+		defer tick.Stop()
+		for {
+			select {
+			case <-stopped:
+				return
+			case <-tick.C:
+				if C.ext_go_cancel_signaled(signal) != 0 {
+					cancel()
+					return
+				}
+			}
+		}
+	}()
+	return ctx, func() { close(stopped); <-finished; cancel() }, r, nil
 }
 
 //export ctxGoReverseAuthorize
-func ctxGoReverseAuthorize(handle C.uintptr_t, caller C.uintptr_t, timeout C.uint32_t, data *C.uint8_t, n C.size_t) (result C.int32_t) {
+func ctxGoReverseAuthorize(handle C.uintptr_t, parent C.uintptr_t, signal C.uintptr_t, timeout C.uint32_t, data *C.uint8_t, n C.size_t) (result C.int32_t) {
 	result = 1 // a policy that fails denies
 	defer func() {
 		if recover() != nil {
@@ -88,11 +112,11 @@ func ctxGoReverseAuthorize(handle C.uintptr_t, caller C.uintptr_t, timeout C.uin
 		}
 	}()
 	b := cgo.Handle(handle).Value().(*reverseBinding)
-	ctx, cancel, r, err := b.request(caller, timeout, data, n)
+	ctx, stop, r, err := b.request(parent, signal, timeout, data, n)
 	if err != nil {
 		return 1
 	}
-	defer cancel()
+	defer stop()
 	if b.options.Authorize(ctx, r.Clone()) != nil {
 		return 1
 	}
@@ -100,7 +124,7 @@ func ctxGoReverseAuthorize(handle C.uintptr_t, caller C.uintptr_t, timeout C.uin
 }
 
 //export ctxGoReverseHandle
-func ctxGoReverseHandle(handle C.uintptr_t, caller C.uintptr_t, timeout C.uint32_t, data *C.uint8_t, n C.size_t, emit C.ext_reverse_emit, sink unsafe.Pointer) (result C.int32_t) {
+func ctxGoReverseHandle(handle C.uintptr_t, parent C.uintptr_t, signal C.uintptr_t, timeout C.uint32_t, data *C.uint8_t, n C.size_t, emit C.ext_reverse_emit, sink unsafe.Pointer) (result C.int32_t) {
 	result = C.EXT_IO // a handler that fails, or panics, is a failure the plugin sees as operation_failed
 	defer func() {
 		if recover() != nil {
@@ -108,11 +132,11 @@ func ctxGoReverseHandle(handle C.uintptr_t, caller C.uintptr_t, timeout C.uint32
 		}
 	}()
 	b := cgo.Handle(handle).Value().(*reverseBinding)
-	ctx, cancel, r, err := b.request(caller, timeout, data, n)
+	ctx, stop, r, err := b.request(parent, signal, timeout, data, n)
 	if err != nil {
 		return result
 	}
-	defer cancel()
+	defer stop()
 	payload, err := b.options.Handle(ctx, r.Clone())
 	if err != nil {
 		// A handler's own RemoteError is handed to the engine, which passes it on

@@ -6,7 +6,7 @@
 package goengine
 
 /*
-#cgo CFLAGS: -I${SRCDIR}/_csrc/include -I${SRCDIR}/_csrc/bindings/go
+#cgo CFLAGS: -I${SRCDIR}/_csrc/include -I${SRCDIR}
 #cgo !ext_cengine_shared CFLAGS: -DEXT_HOST_STATIC
 #cgo !ext_cengine_shared LDFLAGS: -lext_host_static -lpthread -lm
 #cgo windows,!ext_cengine_shared LDFLAGS: -lbcrypt
@@ -39,13 +39,14 @@ type policies struct {
 // Host owns one C session. Close cancels; Destroy waits for active calls and
 // releases memory. Policy callbacks must not reenter the host.
 type Host struct {
-	mu          sync.RWMutex
-	ptr         *C.ext_host
-	policy      cgo.Handle
-	reverse     cgo.Handle // the host's reverse services, zero when none
-	descriptor  plugin.Descriptor
-	callTimeout time.Duration
-	backend     *backendBinding
+	mu             sync.RWMutex
+	ptr            *C.ext_host
+	policy         cgo.Handle
+	reverse        cgo.Handle // the host's reverse services, zero when none
+	reverseSession cgo.Handle // the context of session-scoped reverse calls
+	descriptor     plugin.Descriptor
+	callTimeout    time.Duration
+	backend        *backendBinding
 }
 
 func New(path string, d plugin.Descriptor, verify, authorize Policy) (*Host, error) {
@@ -239,7 +240,8 @@ func (h *Host) Destroy() {
 		h.policy.Delete()
 		if h.reverse != 0 {
 			h.reverse.Delete()
-			h.reverse = 0
+			h.reverseSession.Delete()
+			h.reverse, h.reverseSession = 0, 0
 		}
 	}
 }

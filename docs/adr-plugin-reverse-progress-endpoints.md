@@ -292,9 +292,25 @@ Both hooks receive the parent call's options, so a binding derives the handler's
 context from the caller's: values (nested hosting finds its upstream through
 `plugin.ReverseFrom`), cancellation, and a deadline no later than the call's. A
 result is passed on as `runReverse` passes it, and a handler's error is judged by
-the receiver's rules in one place, in C. Requests are served one at a time on the
-calling thread, so a slow handler delays later frames and `busy` is not produced;
-session-scoped calls wait for the reader thread of the next stage.
+the receiver's rules in one place, in C.
+
+**Session-scoped calls and concurrency in the C engine (c-parity, stage 4).** A
+plugin that declares reverse operations may speak when no call is in flight, so
+once the handshake matched the host starts a reader thread that owns the channel's
+input; a plugin that declares none keeps the single-threaded loop. The reader
+routes the response and the progress of the call in flight and hands each admitted
+reverse request to a worker thread, so up to `max_in_flight` run at once and the
+rest are `busy`. A request with no parent is session scoped: it is served between
+calls, and while a call is in flight, with the session's value rather than the
+call's. Each worker has an engine-owned cancel signal that is set when its call
+ends, when the caller cancels or when the host closes (the Go facade turns it into
+the handler's context cancellation), and a call does not return until the workers
+of its call-scoped requests have, so the options they borrow stay valid. Frames
+are written one at a time under a lock, whole or not at all. A violation or a lost
+connection fails the session as the Go client does when it fails its connection:
+the call in flight reports why, and a call made afterwards finds the host closed.
+`Destroy` joins the reader and the workers; a hook must honor its cancel signal or
+it holds the host.
 
 ## Identifiers
 

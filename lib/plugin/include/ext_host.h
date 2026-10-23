@@ -214,10 +214,12 @@ EXT_HOST_API ext_status ext_host_call(ext_host *, const uint8_t *, size_t,
  * "total"?,"dropped"?}, zero fields left out. dropped counts events lost to the
  * rate limit since the previous delivered one; the last event of a call that
  * lost events is a marker with only kind "log" and dropped, delivered before the
- * call returns, whatever its outcome. fn runs on the thread that is making the
- * call, between its start and its return; it must return promptly, must not
- * throw or reenter the host, and may not retain the borrowed bytes. user must
- * live until the call returns. */
+ * call returns, whatever its outcome. fn runs between the call's start and its
+ * return, on the thread that is making the call, or on an engine thread when the
+ * plugin declares reverse operations (the engine reads while no call is in
+ * flight); it never runs once the call has returned. It must return promptly,
+ * must not throw or reenter the host, and may not retain the borrowed bytes. user
+ * must live until the call returns. */
 typedef void (*ext_progress_fn)(void *user, const uint8_t *json, size_t len);
 typedef struct {
   uint32_t struct_size;
@@ -240,34 +242,43 @@ EXT_HOST_API ext_status ext_host_call_progress(ext_host *, const uint8_t *,
                                                ext_buffer *);
 
 /* Reverse calls. A plugin whose descriptor lists operations in "reverse" may call
- * them on its host while a call of its own is in flight. The engine checks each
- * request (the frame is well formed, it names the call in flight, the operation
- * is declared, the payload is within bounds, the plugin's deadline has not
- * passed) and refuses it with a stable code otherwise: reverse_undeclared,
- * reverse_unavailable (no services configured), denied, too_large, busy,
- * expired. The plugin gets the refusal as its answer and the call goes on; a
- * request that breaks the framing rules fails the session with EXT_PROTOCOL.
+ * them on its host: while a call of its own is in flight (call scoped, the
+ * request names that call as its parent) or at any time after the handshake
+ * (session scoped, no parent). The engine checks each request (the frame is well
+ * formed, a parent is the call in flight, the operation is declared, the
+ * payload is within bounds, the plugin's deadline has not passed, fewer than
+ * max_in_flight are running) and refuses it with a stable code otherwise:
+ * reverse_undeclared, reverse_unavailable (no services configured, or the
+ * handshake has not matched), denied, too_large, busy, expired. The plugin gets
+ * the refusal as its answer and the call goes on; a request that breaks the
+ * framing rules fails the session with EXT_PROTOCOL.
  *
  * What the engine does not decide is policy. authorize runs for every request
  * that passed the checks (zero allows); handle serves it. Both receive the
  * request as the JSON of a Request (apiVersion, id, plugin, contract, operation,
- * surface, deadline, payload, parent: the id of the call in flight) and the
- * options of the call in flight: cancel and value are that call's, so a binding
- * can derive the handler's context from the caller's, and timeout_ms is the time
- * left to this reverse call, the earliest of the plugin's deadline, the call's
- * and services.timeout_ms. Both run on the thread that is making the call, one
- * at a time, and must honor the deadline; they must not reenter the host.
+ * surface, deadline, payload and, for a call-scoped request, parent: the id of
+ * the call in flight) and an ext_call_options with these meanings:
+ *   value      the binding's context for the request: the value of the call in
+ *              flight for a call-scoped request, so a binding can derive the
+ *              handler's context from the caller's, and services.session_value
+ *              for a session-scoped one;
+ *   cancel     an engine-owned signal for this request, set when the call in
+ *              flight ends (call scoped), when the host is closed, or when the
+ *              caller cancels the call; poll it, it is valid until the hook
+ *              returns;
+ *   timeout_ms the time left to this reverse call, the earliest of the plugin's
+ *              deadline, the call's (call scoped) and services.timeout_ms.
+ * Hooks run on engine threads, up to max_in_flight at a time, so they must be
+ * safe to run concurrently, must honor cancel and the deadline, and must not
+ * reenter the host. A call does not return until the hooks of its call-scoped
+ * requests have, so value stays valid.
  *
  * handle emits exactly one result through emit and returns EXT_OK: a payload (a
  * JSON value; empty means null) or a public error (the JSON of a RemoteError,
  * which the plugin receives unchanged if it is valid, and as operation_failed
  * if a peer would reject it). Returning anything else, or emitting twice, is a
  * failure the plugin sees as operation_failed. A result that outlives the
- * deadline is a failure too.
- *
- * Only calls made on a call in flight are served. A request without a parent (a
- * session-scoped call) fails the session with EXT_UNSUPPORTED for now, unless
- * no services are configured, which refuses it as unavailable. */
+ * deadline is a failure too. */
 #define EXT_HOST_REVERSE_PAYLOAD 0u
 #define EXT_HOST_REVERSE_PUBLIC_ERROR 1u
 typedef ext_status (*ext_reverse_emit)(void *sink, uint32_t kind,
@@ -283,12 +294,13 @@ typedef struct {
   uint32_t timeout_ms;          /* zero uses 30000 */
   uint32_t max_payload_bytes;   /* zero uses 1 MiB; at most the frame limit */
   uint32_t max_in_flight;       /* zero uses 4; at most 1024 */
+  void *session_value;          /* the options' value for session-scoped calls */
 } ext_host_services;
 /* Configure once, before start or any concurrent use. Copies the struct; user
- * must live until destroy returns. EXT_DENIED when a hook is missing,
- * EXT_INVALID for a bound out of range. A host created over an extension backend
- * serves no reverse calls and refuses a descriptor that lists them. Calls are
- * served one at a time on the calling thread, so max_in_flight is not reached. */
+ * and session_value must live until destroy returns. EXT_DENIED when a hook is
+ * missing, EXT_INVALID for a bound out of range. A host created over an
+ * extension backend serves no reverse calls and refuses a descriptor that lists
+ * them. Destroy waits for the hooks that are running. */
 EXT_HOST_API ext_status ext_host_set_services(ext_host *,
                                               const ext_host_services *);
 /* Thread-safe and idempotent. Stops admission, wakes I/O, kills owned child.

@@ -37,6 +37,40 @@ type recorder struct {
 	mu                         sync.Mutex
 	Authorized, Handled, Facts []string
 	callDeadline               time.Time
+	release                    chan struct{} // closed to let "hold" return
+}
+
+func (rec *recorder) count() int {
+	rec.mu.Lock()
+	defer rec.mu.Unlock()
+	return len(rec.Handled)
+}
+
+func (rec *recorder) fact(f string) {
+	rec.mu.Lock()
+	rec.Facts = append(rec.Facts, f)
+	rec.mu.Unlock()
+}
+
+func (rec *recorder) hasFact(f string) bool {
+	rec.mu.Lock()
+	defer rec.mu.Unlock()
+	for _, have := range rec.Facts {
+		if have == f {
+			return true
+		}
+	}
+	return false
+}
+
+// eventually polls cond for up to three seconds.
+func eventually(cond func() bool) bool {
+	for deadline := time.Now().Add(3 * time.Second); time.Now().Before(deadline); time.Sleep(5 * time.Millisecond) {
+		if cond() {
+			return true
+		}
+	}
+	return cond()
 }
 
 func normalized(r plugin.Request) string {
@@ -64,9 +98,7 @@ func (rec *recorder) options(timeout time.Duration, maxPayload int) *plugin.Reve
 			rec.Handled = append(rec.Handled, normalized(r))
 			rec.mu.Unlock()
 			deadline, ok := ctx.Deadline()
-			rec.mu.Lock()
-			rec.Facts = append(rec.Facts, fmt.Sprintf("deadline-within-call=%v", ok && !deadline.After(rec.callDeadline)))
-			rec.mu.Unlock()
+			rec.fact(fmt.Sprintf("deadline-within-call=%v value=%v", ok && !deadline.After(rec.callDeadline), ctx.Value(ctxKey)))
 			switch r.Operation {
 			case "sign":
 				return json.RawMessage(`"signed"`), nil
@@ -94,6 +126,17 @@ func (rec *recorder) options(timeout time.Duration, maxPayload int) *plugin.Reve
 			case "slowok":
 				time.Sleep(450 * time.Millisecond)
 				return json.RawMessage(`"late"`), nil
+			case "hold":
+				select {
+				case <-rec.release:
+					return json.RawMessage(`"held"`), nil
+				case <-ctx.Done():
+					return nil, ctx.Err()
+				}
+			case "hang":
+				<-ctx.Done()
+				rec.fact("canceled=true")
+				return nil, ctx.Err()
 			case "nested":
 				// A host that is itself a plugin answers by calling its own host.
 				upstream := plugin.ReverseFrom(ctx)
@@ -123,6 +166,10 @@ func reverseOpts() plugin.Options {
 }
 
 func openGoReverse(t *testing.T, mode string, reverse *plugin.ReverseOptions) (reverseSession, error) {
+	return openGoReverseIn(t, context.Background(), mode, reverse)
+}
+
+func openGoReverseIn(t *testing.T, ctx context.Context, mode string, reverse *plugin.ReverseOptions) (reverseSession, error) {
 	t.Helper()
 	exe := guestPath(t)
 	options := reverseOpts()
@@ -130,7 +177,7 @@ func openGoReverse(t *testing.T, mode string, reverse *plugin.ReverseOptions) (r
 	options.Connect = func(ctx context.Context, _ plugin.Descriptor) (plugin.Backend, error) {
 		return process.Start(ctx, process.Command{Path: exe, Env: []string{guestEnv + "=" + mode}})
 	}
-	s, err := plugin.Open(context.Background(), reverseDescriptor(), options)
+	s, err := plugin.Open(ctx, reverseDescriptor(), options)
 	if err != nil {
 		return nil, err
 	}
@@ -138,11 +185,15 @@ func openGoReverse(t *testing.T, mode string, reverse *plugin.ReverseOptions) (r
 }
 
 func openCReverse(t *testing.T, mode string, reverse *plugin.ReverseOptions) (reverseSession, error) {
+	return openCReverseIn(t, context.Background(), mode, reverse)
+}
+
+func openCReverseIn(t *testing.T, ctx context.Context, mode string, reverse *plugin.ReverseOptions) (reverseSession, error) {
 	t.Helper()
 	launch := LaunchOptions{ProcessOptions: ProcessOptions{Executable: guestPath(t), Environment: []string{guestEnv + "=" + mode}}}
 	options := reverseOpts()
 	options.Reverse = reverse
-	s, err := OpenProcess(context.Background(), reverseDescriptor(), launch, options)
+	s, err := OpenProcess(ctx, reverseDescriptor(), launch, options)
 	if err != nil {
 		return nil, err
 	}
@@ -218,6 +269,8 @@ func TestReverseCallsMatchGo(t *testing.T) {
 		{name: "no services, wrong parent", mode: "rev-raw:wrongparent", payload: `{}`, noReverse: true, want: `"code":"reverse_unavailable"`},
 		{name: "no services, session scoped", mode: "rev-raw:noparent", payload: `{}`, noReverse: true, want: `"code":"reverse_unavailable"`},
 		{name: "no services, before the handshake", mode: "rev-raw:pre-handshake", payload: `{}`, noReverse: true, want: `"reply":null`},
+		{name: "session scoped, before the handshake", mode: "rev-raw:pre-handshake-session", payload: `{}`, want: `"code":"reverse_unavailable"`},
+		{name: "session scoped, during a call", mode: "rev-raw:noparent", payload: `{}`, want: `"payload":"signed"`},
 		// Breaking the framing ends the session.
 		{name: "parent is not the call in flight", mode: "rev-raw:wrongparent", payload: `{}`, want: "protocol,"},
 		{name: "deadline is not a time", mode: "rev-raw:bad-deadline", payload: `{}`, want: "protocol,"},
@@ -250,7 +303,7 @@ func TestReverseRequestSeenByServices(t *testing.T) {
 	if len(got.Authorized) != 1 || len(got.Handled) != 1 || got.Authorized[0] != want || got.Handled[0] != want {
 		t.Fatalf("authorized %q, handled %q, want %q", got.Authorized, got.Handled, want)
 	}
-	if !reflect.DeepEqual(got.Facts, []string{"deadline-within-call=true"}) {
+	if !reflect.DeepEqual(got.Facts, []string{"deadline-within-call=true value=root"}) {
 		t.Fatalf("facts %q", got.Facts)
 	}
 	// A refused call never reaches the services.

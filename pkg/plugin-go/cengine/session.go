@@ -137,7 +137,7 @@ func openSession(ctx context.Context, d plugin.Descriptor, options plugin.Option
 		return nil, err
 	}
 	if options.Reverse != nil {
-		if err = h.setReverse(options.Reverse); err != nil {
+		if err = h.setReverse(ctx, options.Reverse); err != nil {
 			h.Destroy()
 			return nil, err
 		}

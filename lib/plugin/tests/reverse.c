@@ -7,6 +7,7 @@
 #define _XOPEN_SOURCE 700 /* realpath, under -std=c11 on glibc */
 #include "progress.h"
 #include "reverse.h"
+#include "sync.h"
 #include "wire.h"
 #include <assert.h>
 #include <stdio.h>
@@ -30,7 +31,7 @@
   "{\"name\":\"none\"},{\"name\":\"errok\"},{\"name\":\"errcode\"},"          \
   "{\"name\":\"errmsg\"},{\"name\":\"errretry\"},{\"name\":\"errretryok\"},"  \
   "{\"name\":\"badjson\"},{\"name\":\"big\"},{\"name\":\"slow\"},"            \
-  "{\"name\":\"slowerr\"}]}]}"
+  "{\"name\":\"slowerr\"},{\"name\":\"gate\"},{\"name\":\"hang\"}]}]}"
 #define CONTRACT "\"contract\":{\"name\":\"host.svc\",\"version\":\"v1\"}"
 #define FUTURE "2099-01-01T00:00:00Z"
 
@@ -53,11 +54,10 @@ static int field(const char *text, const char *key, char *out, size_t size) {
   out[end - at] = 0;
   return 1;
 }
-/* Sends one reverse request, reads the host's answer line into reply and strips
- * its newline. An empty reply means the host closed the connection. */
-static void reverse(const char *id_field, const char *parent, const char *op,
-                    const char *deadline, const char *payload, char *reply,
-                    size_t size) {
+/* Sends one reverse request. */
+static void send_reverse(const char *id_field, const char *parent,
+                         const char *op, const char *deadline,
+                         const char *payload) {
   char clause[128] = "";
   if (parent)
     snprintf(clause, sizeof(clause), ",\"parent\":\"%s\"", parent);
@@ -66,6 +66,13 @@ static void reverse(const char *id_field, const char *parent, const char *op,
          id_field, clause, op, deadline, payload ? ",\"payload\":" : "",
          payload ? payload : "");
   fflush(stdout);
+}
+/* Sends one reverse request, reads the host's answer line into reply and strips
+ * its newline. An empty reply means the host closed the connection. */
+static void reverse(const char *id_field, const char *parent, const char *op,
+                    const char *deadline, const char *payload, char *reply,
+                    size_t size) {
+  send_reverse(id_field, parent, op, deadline, payload);
   reply[0] = 0;
   if (!fgets(reply, (int)size, stdin))
     reply[0] = 0;
@@ -96,7 +103,26 @@ static int guest(const char *mode) {
   printf("{\"apiVersion\":\"ext.plugin/v1\",\"id\":\"hello\",\"payload\":%s}\n",
          DESCRIPTOR);
   fflush(stdout);
+  /* The plugin speaks when no call is in flight. */
+  char idle_reply[1 << 14] = "";
+  if (!strcmp(mode, "idle")) {
+    reverse("\"id\":\"g1\"", NULL, "sign", "\"" FUTURE "\"", NULL, idle_reply,
+            sizeof(idle_reply));
+  } else if (!strcmp(mode, "hang-session")) {
+    reverse("\"id\":\"g1\"", NULL, "hang", "\"" FUTURE "\"", NULL, idle_reply,
+            sizeof(idle_reply));
+    return 0;
+  } else if (!strcmp(mode, "idle-bad")) {
+    reverse("\"id\":\"!!\"", NULL, "sign", "\"" FUTURE "\"", NULL, idle_reply,
+            sizeof(idle_reply));
+    return 0;
+  } else if (!strcmp(mode, "idle-exit")) {
+    return 0;
+  }
   while (fgets(line, sizeof(line), stdin)) {
+    /* An answer to a request whose call has ended is not a call. */
+    if (strstr(line, "\"frame\":\"reverse_response\""))
+      continue;
     if (!field(line, "id", id, sizeof(id)))
       return 1;
     reply[0] = 0;
@@ -111,6 +137,34 @@ static int guest(const char *mode) {
     } else if (!strcmp(mode, "expired")) {
       reverse("\"id\":\"g1\"", id, "sign", "\"2000-01-01T00:00:00Z\"", NULL,
               reply, sizeof(reply));
+    } else if (!strcmp(mode, "idle")) {
+      snprintf(reply, sizeof(reply), "%s", idle_reply);
+    } else if (!strcmp(mode, "hang-call")) {
+      /* Asks, gives the hook time to start, then ends the call without waiting
+       * for the answer. */
+      send_reverse("\"id\":\"g1\"", id, "hang", "\"" FUTURE "\"", NULL);
+      int64_t until = ext_mono_ns() + 300000000LL;
+      while (ext_mono_ns() < until)
+        ;
+    } else if (!strcmp(mode, "burst")) {
+      /* Six calls at once, then their six answers in whatever order. */
+      for (int i = 1; i <= 6; i++) {
+        char name[16];
+        snprintf(name, sizeof(name), "\"id\":\"g%d\"", i);
+        send_reverse(name, id, "gate", "\"" FUTURE "\"", NULL);
+      }
+      int busy = 0, gated = 0;
+      for (int i = 0; i < 6; i++) {
+        if (!fgets(reply, sizeof(reply), stdin))
+          return 0;
+        busy += strstr(reply, "\"code\":\"busy\"") != NULL;
+        gated += strstr(reply, "\"gated\"") != NULL;
+      }
+      printf("{\"apiVersion\":\"ext.plugin/v1\",\"id\":\"%s\",\"payload\":{"
+             "\"done\":true,\"busy\":%d,\"gated\":%d}}\n",
+             id, busy, gated);
+      fflush(stdout);
+      continue;
     } else if (!strcmp(mode, "noparent")) {
       reverse("\"id\":\"g1\"", NULL, "sign", "\"" FUTURE "\"", NULL, reply,
               sizeof(reply));
@@ -194,20 +248,51 @@ static int32_t allow(void *u, const uint8_t *p, size_t n) {
   return 0;
 }
 
-/* What the hooks saw and what they are told to do. */
+/* What the hooks saw and what they are told to do. The hooks run on engine
+ * threads, several at a time, so everything here is guarded by seen_mu. */
+static pthread_mutex_t seen_mu = PTHREAD_MUTEX_INITIALIZER;
 static struct {
-  int authorized, handled;
+  int authorized, handled, canceled_in_hook;
   char request[4096];
   uint32_t timeout_ms;
   const void *value;
   const ext_cancel *cancel;
+  int cancel_signaled_at_start;
   int sleep_ms;
+  int gate_open;
 } seen;
-static int token;
+static int token, session_token;
+
+static void reset_seen(void) {
+  pthread_mutex_lock(&seen_mu);
+  int sleep_ms = seen.sleep_ms;
+  memset(&seen, 0, sizeof(seen));
+  seen.sleep_ms = sleep_ms;
+  pthread_mutex_unlock(&seen_mu);
+}
+static int seen_count(int *counter) {
+  pthread_mutex_lock(&seen_mu);
+  int n = *counter;
+  pthread_mutex_unlock(&seen_mu);
+  return n;
+}
+/* Waits up to three seconds for a hook to have reached a state. */
+static int wait_until(int *counter, int want) {
+  int64_t until = ext_mono_ns() + 3000000000LL;
+  while (ext_mono_ns() < until) {
+    if (seen_count(counter) >= want)
+      return 1;
+    int64_t pause = ext_mono_ns() + 1000000;
+    while (ext_mono_ns() < pause) {
+    }
+  }
+  return seen_count(counter) >= want;
+}
 
 static int32_t authorize(void *user, const ext_call_options *o,
                          const uint8_t *json, size_t len) {
   (void)user;
+  pthread_mutex_lock(&seen_mu);
   seen.authorized++;
   assert(len < sizeof(seen.request));
   memcpy(seen.request, json, len);
@@ -215,18 +300,29 @@ static int32_t authorize(void *user, const ext_call_options *o,
   seen.timeout_ms = o->timeout_ms;
   seen.value = o->value;
   seen.cancel = o->cancel;
-  return strstr(seen.request, "\"operation\":\"secret\"") ? 1 : 0;
+  seen.cancel_signaled_at_start = ext_cancel_is_signaled(o->cancel);
+  int deny = strstr(seen.request, "\"operation\":\"secret\"") != NULL;
+  pthread_mutex_unlock(&seen_mu);
+  return deny;
+}
+static void spin_until(const ext_call_options *o, int64_t ns, const int *flag) {
+  int64_t until = ext_mono_ns() + ns;
+  while (ext_mono_ns() < until && !ext_cancel_is_signaled(o->cancel) &&
+         !(flag && seen_count((int *)flag)))
+    ;
 }
 static ext_status handle(void *user, const ext_call_options *o,
                          const uint8_t *json, size_t len, ext_reverse_emit emit,
                          void *sink) {
   (void)user;
-  (void)o;
   char text[4096];
   assert(len < sizeof(text));
   memcpy(text, json, len);
   text[len] = 0;
+  pthread_mutex_lock(&seen_mu);
   seen.handled++;
+  int sleep_ms = seen.sleep_ms;
+  pthread_mutex_unlock(&seen_mu);
   const char *operation = strstr(text, "\"operation\":\"") + 13;
 #define IS(name) (!strncmp(operation, name "\"", strlen(name) + 1))
 #define PAYLOAD(s) emit(sink, EXT_HOST_REVERSE_PAYLOAD, (const uint8_t *)(s), strlen(s))
@@ -266,11 +362,22 @@ static ext_status handle(void *user, const ext_call_options *o,
   if (IS("big"))
     return PAYLOAD("\"0123456789012345678901234567890123456789012345678901234567890123456789\"");
   if (IS("slow") || IS("slowerr")) {
-    int64_t until = ext_mono_ns() + (int64_t)seen.sleep_ms * 1000000;
-    while (ext_mono_ns() < until) {
-    }
+    spin_until(o, (int64_t)sleep_ms * 1000000, NULL);
     return IS("slow") ? PAYLOAD("\"late\"")
                       : FAIL("{\"code\":\"policy\",\"message\":\"late\"}");
+  }
+  if (IS("gate")) {
+    /* Held until the test opens the gate, so several are in flight at once. */
+    spin_until(o, 3000000000LL, &seen.gate_open);
+    return PAYLOAD("\"gated\"");
+  }
+  if (IS("hang")) {
+    /* Runs until the engine says the call ended or the host closed. */
+    spin_until(o, 5000000000LL, NULL);
+    pthread_mutex_lock(&seen_mu);
+    seen.canceled_in_hook = ext_cancel_is_signaled(o->cancel);
+    pthread_mutex_unlock(&seen_mu);
+    return PAYLOAD("\"too late\"");
   }
   return EXT_UNSUPPORTED;
 }
@@ -303,12 +410,12 @@ static ext_status open_host(const char *mode, int services, uint32_t timeout_ms,
                                     handle,
                                     timeout_ms,
                                     max_payload,
-                                    0};
+                                    0,
+                                    &session_token};
     s = ext_host_set_services(*out, &configured);
     assert(s == EXT_OK);
   }
-  memset(&seen.request, 0, sizeof(seen.request));
-  seen.authorized = seen.handled = 0;
+  reset_seen();
   s = ext_host_start(*out, 5000);
   if (s && strncmp(mode, "hello", 5)) {
     uint8_t text[512];
@@ -555,7 +662,8 @@ static void test_calls(void) {
   assert(strstr(seen.request, "\"deadline\":\"" FUTURE "\""));
   assert(strstr(seen.request, "\"payload\":{\"n\":1}"));
   assert(strstr(seen.request, "\"parent\":\"1\"")); /* the call in flight */
-  assert(seen.value == &token && seen.cancel == NULL);
+  /* The engine's own signal for this request, not the caller's; not set. */
+  assert(seen.value == &token && seen.cancel && !seen.cancel_signaled_at_start);
   assert(seen.timeout_ms > 0 && seen.timeout_ms <= 150);
   answered("call:empty", 1, "\"payload\":null");
   assert(!strstr(seen.request, "\"surface\"")); /* the descriptor names none */
@@ -592,6 +700,10 @@ static void test_calls(void) {
   answered("call:nothere", 0, "\"code\":\"reverse_unavailable\"");
   answered("wrongparent", 0, "\"code\":\"reverse_unavailable\"");
   answered("noparent", 0, "\"code\":\"reverse_unavailable\"");
+  /* A request with no parent is session scoped: served with the session's
+   * value, even while a call is in flight. */
+  answered("noparent", 1, "\"payload\":\"signed\"");
+  assert(!strstr(seen.request, "\"parent\"") && seen.value == &session_token);
   /* Several calls on one connection, and between progress events. */
   answered("twice", 1, "\"first\":{\"frame\":\"reverse_response\"");
   assert(strstr(body, "\"id\":\"g2\",\"payload\":\"signed\""));
@@ -616,7 +728,7 @@ static void test_calls(void) {
   ext_buffer out = {0};
   assert(ext_host_call(h, (const uint8_t *)request, strlen(request), &options,
                        &out) == EXT_OK);
-  assert(seen.cancel == cancel);
+  assert(seen.cancel && seen.cancel != cancel); /* the engine's own signal */
   ext_buffer_free(&out);
   ext_host_destroy(h);
   ext_cancel_destroy(cancel);
@@ -634,20 +746,108 @@ static void test_calls(void) {
   violation("bad-version", EXT_PROTOCOL);
   violation("bad-nocontract", EXT_PROTOCOL);
   violation("bad-response", EXT_PROTOCOL); /* a host never receives these */
-  /* A session-scoped call needs the host to read between calls. */
-  violation("noparent", EXT_UNSUPPORTED);
+
   /* Before the handshake there is no call in flight to name. */
   assert(open_host("hello-parent", 1, 0, 0, &h) == EXT_PROTOCOL);
   assert(ext_host_get_state(h) == EXT_HOST_FAILED);
   ext_host_destroy(h);
   assert(open_host("hello-parent", 0, 0, 0, &h) == EXT_OK); /* unavailable */
   ext_host_destroy(h);
+  /* A session-scoped request before the handshake matched is refused, and the
+   * handshake goes on. */
+  assert(open_host("hello-noparent", 1, 0, 0, &h) == EXT_OK);
+  assert(seen_count(&seen.handled) == 0);
+  ext_host_destroy(h);
   (void)state;
+}
+
+/* Opens the gate the "gate" hooks wait on once four of them are running. */
+static void *open_gate(void *unused) {
+  (void)unused;
+  if (wait_until(&seen.handled, 4)) {
+    /* Let the reader take the fifth and sixth requests while all four slots are
+     * held; they are refused at once, so this is only a pause. */
+    int64_t until = ext_mono_ns() + 400000000LL;
+    while (ext_mono_ns() < until)
+      ;
+    pthread_mutex_lock(&seen_mu);
+    seen.gate_open = 1;
+    pthread_mutex_unlock(&seen_mu);
+  }
+  return NULL;
+}
+
+/* The reader thread and the workers: what a plugin can do between calls and
+ * while several of its requests run at once. */
+static void test_threads(void) {
+  ext_host *h = NULL;
+  /* A request made when no call is in flight is served, and it is session
+   * scoped: no parent, and the session's value. */
+  assert(open_host("idle", 1, 0, 0, &h) == EXT_OK);
+  assert(wait_until(&seen.handled, 1));
+  assert(call(h, body, sizeof(body), NULL) == EXT_OK);
+  assert(strstr(body, "\"reply\":{\"frame\":\"reverse_response\""));
+  assert(strstr(body, "\"payload\":\"signed\""));
+  assert(seen.value == &session_token && !strstr(seen.request, "\"parent\""));
+  ext_host_destroy(h);
+
+  /* Six requests at once with the default four in flight: two are busy, four
+   * are answered once their hooks are released. */
+  pthread_t opener;
+  assert(open_host("burst", 1, 5000, 0, &h) == EXT_OK);
+  assert(!pthread_create(&opener, NULL, open_gate, NULL));
+  assert(call(h, body, sizeof(body), NULL) == EXT_OK);
+  pthread_join(opener, NULL);
+  if (!strstr(body, "\"busy\":2,\"gated\":4"))
+    fprintf(stderr, "burst: %s (handled %d)\n", body, seen.handled);
+  assert(strstr(body, "\"busy\":2,\"gated\":4"));
+  assert(seen.handled == 4);
+  ext_host_destroy(h);
+
+  /* A call that ends cancels the hooks of its requests and waits for them. */
+  assert(open_host("hang-call", 1, 5000, 0, &h) == EXT_OK);
+  assert(call(h, body, sizeof(body), NULL) == EXT_OK);
+  /* The hook saw the call end. (On a machine too slow to start it within the
+   * guest's pause, the request is refused as expired and the hook never runs.) */
+  assert(seen.canceled_in_hook == 1 || seen.handled == 0);
+  assert(ext_host_get_state(h) == EXT_HOST_READY);
+  ext_host_destroy(h);
+
+  /* Closing the host cancels a session-scoped hook, and destroy waits for it. */
+  assert(open_host("hang-session", 1, 5000, 0, &h) == EXT_OK);
+  assert(wait_until(&seen.handled, 1));
+  ext_host_close(h);
+  ext_host_destroy(h);
+  assert(seen.canceled_in_hook == 1);
+
+  /* A violation made between calls ends the session, and the next call finds it
+   * closed. */
+  assert(open_host("idle-bad", 1, 0, 0, &h) == EXT_OK);
+  int64_t until = ext_mono_ns() + 400000000LL;
+  while (ext_mono_ns() < until)
+    ;
+  assert(ext_host_get_state(h) == EXT_HOST_FAILED);
+  assert(call(h, body, sizeof(body), NULL) == EXT_CLOSED);
+  ext_host_destroy(h);
+
+  /* So does a plugin that goes away between calls. */
+  assert(open_host("idle-exit", 1, 0, 0, &h) == EXT_OK);
+  until = ext_mono_ns() + 400000000LL;
+  while (ext_mono_ns() < until)
+    ;
+  assert(ext_host_get_state(h) == EXT_HOST_FAILED);
+  assert(call(h, body, sizeof(body), NULL) == EXT_CLOSED);
+  ext_host_destroy(h);
+
+  /* Closing an idle host stops its threads. */
+  assert(open_host("call:sign", 1, 0, 0, &h) == EXT_OK);
+  ext_host_close(h);
+  ext_host_destroy(h);
 }
 
 static void test_configuration(void) {
   ext_host *h = NULL;
-  ext_host_services s = {sizeof(s), NULL, authorize, handle, 0, 0, 0};
+  ext_host_services s = {sizeof(s), NULL, authorize, handle, 0, 0, 0, NULL};
   assert(open_host("call:sign", 0, 0, 0, &h) == EXT_OK);
   /* Configuration is for before the host starts. */
   assert(ext_host_set_services(h, &s) == EXT_INVALID);
@@ -709,6 +909,7 @@ int main(int argc, char **argv) {
   test_answers();
   test_configuration();
   test_calls();
+  test_threads();
   puts("reverse call checks passed");
   return 0;
 }

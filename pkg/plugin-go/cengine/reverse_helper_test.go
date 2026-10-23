@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"sync"
+	"time"
 
 	plugin "github.com/webong/ext/pkg/plugin-go/contract"
 	"github.com/webong/ext/pkg/plugin-go/contract/transport/jsonline"
@@ -38,10 +40,27 @@ func reverseDescriptor() plugin.Descriptor {
 	return plugin.Descriptor{
 		APIVersion: plugin.APIVersion,
 		Identity:   plugin.Identity{ID: "cengine/reverse", Revision: "r1"},
-		Contracts:  []plugin.Contract{{ContractRef: reverseRef, Operations: ops("call", "plain")}},
+		Contracts:  []plugin.Contract{{ContractRef: reverseRef, Operations: ops("call", "plain", "idle", "collect", "burst", "linger", "sessionhang")}},
 		Reverse: []plugin.Contract{{ContractRef: hostRef, Operations: ops("sign", "secret", "empty", "fail", "errok",
-			"errcode", "errmsg", "errretry", "errretryok", "badjson", "big", "slow", "slowok", "nested")}},
+			"errcode", "errmsg", "errretry", "errretryok", "badjson", "big", "slow", "slowok", "nested", "hold", "hang")}},
 	}
+}
+
+// outcomes of reverse calls the guest made in the background, for "collect".
+var background = make(chan json.RawMessage, 16)
+
+func backgroundReport(result json.RawMessage, err error) json.RawMessage {
+	report := map[string]any{"result": json.RawMessage(nilToNull(result))}
+	if err != nil {
+		var remote *plugin.RemoteError
+		if errors.As(err, &remote) {
+			report["error"] = map[string]any{"code": remote.Code}
+		} else {
+			report["error"] = map[string]any{"other": true}
+		}
+	}
+	raw, _ := json.Marshal(report)
+	return raw
 }
 
 func runReverseGuest(mode string) int {
@@ -49,6 +68,68 @@ func runReverseGuest(mode string) int {
 		return runRawReverse(strings.TrimPrefix(mode, "rev-raw:"))
 	}
 	guest, err := plugin.NewGuest(reverseDescriptor(), plugin.GuestOptions{Handler: func(ctx context.Context, r plugin.Request) (json.RawMessage, error) {
+		switch r.Operation {
+		case "idle":
+			// A reverse call made after this call has returned, on the session.
+			session := plugin.SessionReverseFrom(ctx)
+			go func() {
+				time.Sleep(20 * time.Millisecond)
+				callCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+				defer cancel()
+				background <- backgroundReport(session.Call(callCtx, hostRef, "sign", json.RawMessage(`{"n":1}`)))
+			}()
+			return json.RawMessage(`{"started":true}`), nil
+		case "sessionhang":
+			session := plugin.SessionReverseFrom(ctx)
+			go func() {
+				callCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+				defer cancel()
+				background <- backgroundReport(session.Call(callCtx, hostRef, "hang", nil))
+			}()
+			return json.RawMessage(`{"started":true}`), nil
+		case "linger":
+			// A call-scoped request that outlives the call that made it.
+			caller := plugin.ReverseFrom(ctx)
+			go func() {
+				callCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+				defer cancel()
+				background <- backgroundReport(caller.Call(callCtx, hostRef, "hang", nil))
+			}()
+			time.Sleep(200 * time.Millisecond) // let the host start serving it
+			return json.RawMessage(`{"started":true}`), nil
+		case "collect":
+			select {
+			case report := <-background:
+				return report, nil
+			case <-time.After(5 * time.Second):
+				return json.RawMessage(`{"timeout":true}`), nil
+			}
+		case "burst":
+			// Six requests at once; the host holds four.
+			caller := plugin.ReverseFrom(ctx)
+			var wg sync.WaitGroup
+			var mu sync.Mutex
+			counts := map[string]int{}
+			for i := 0; i < 6; i++ {
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+					_, err := caller.Call(ctx, hostRef, "hold", nil)
+					var remote *plugin.RemoteError
+					key := "ok"
+					if errors.As(err, &remote) {
+						key = remote.Code
+					} else if err != nil {
+						key = "other"
+					}
+					mu.Lock()
+					counts[key]++
+					mu.Unlock()
+				}()
+			}
+			wg.Wait()
+			return json.Marshal(counts)
+		}
 		if r.Operation != "call" {
 			return json.RawMessage(`{"done":true}`), nil
 		}
@@ -119,10 +200,22 @@ func runRawReverse(mode string) int {
 		return strings.TrimRight(reply, "\r\n")
 	}
 	descriptor, _ := json.Marshal(reverseDescriptor())
-	if mode == "pre-handshake" {
+	early := ""
+	switch mode {
+	case "pre-handshake":
 		ask(request(`"id":"g1"`, "hello", "sign", future, ""))
+	case "pre-handshake-session":
+		early = ask(request(`"id":"g1"`, "", "sign", future, ""))
 	}
 	fmt.Printf(`{"apiVersion":"ext.plugin/v1","id":"hello","payload":%s}`+"\n", descriptor)
+	switch mode {
+	case "idle-bad":
+		// A frame that breaks the rules, when no call is in flight.
+		fmt.Print(request(`"id":"!!"`, "", "sign", future, ""))
+		return 0
+	case "idle-exit":
+		return 0
+	}
 	for {
 		line, err := in.ReadString('\n')
 		if err != nil {
@@ -155,7 +248,7 @@ func runRawReverse(mode string) int {
 			frame = request(`"id":"g1","extra":1`, id, "sign", future, "")
 		case "bad-operation":
 			frame = request(`"id":"g1"`, id, "Sign", future, "")
-		case "pre-handshake":
+		case "pre-handshake", "pre-handshake-session":
 			frame = ""
 		default:
 			return 2
@@ -163,6 +256,9 @@ func runRawReverse(mode string) int {
 		reply := ""
 		if frame != "" {
 			reply = ask(frame)
+		}
+		if mode == "pre-handshake-session" {
+			reply = early
 		}
 		if reply == "" {
 			reply = "null"

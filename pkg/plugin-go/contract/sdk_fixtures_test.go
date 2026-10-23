@@ -295,6 +295,7 @@ func buildFrameCases() []byte {
 		`{"frame":"progress","apiVersion":"ext.plugin/v1","parent":"1","kind":"log","kind":"log"}`,
 		`{"frame":"progress","apiVersion":"ext.plugin/v1","parent":"1","kind":"log"} `,
 		`{"frame":"progress","apiVersion":"ext.plugin/v1","parent":"1","kind":"log"} x`,
+		`["progress","ext.plugin/v1","1","log"]`,
 		`[]`, `null`, `"progress"`, `7`, ``, `{`,
 	}, judgeProgress)
 	requestBase := map[string]any{"frame": "reverse_request", "apiVersion": "ext.plugin/v1", "id": "g1", "parent": "1",
@@ -310,6 +311,8 @@ func buildFrameCases() []byte {
 		`{"frame":"reverse_request","apiVersion":"ext.plugin/v1","id":"g1","contract":{"name":"host.svc","version":"v1"},"operation":"Sign","deadline":"2099-01-01T00:00:00Z"}`,
 		`{"frame":"reverse_request","apiVersion":"ext.plugin/v1","id":"g1","contract":{"name":"host.svc","version":"v1"},"operation":"sign","operation":"sign","deadline":"2099-01-01T00:00:00Z"}`,
 		`{"frame":"reverse_request","apiVersion":"ext.plugin/v1","id":"!!","contract":{"name":"host.svc","version":"v1"},"operation":"sign","deadline":"2099-01-01T00:00:00Z"}`,
+		`{"frame":"reverse_request","apiVersion":"ext.plugin/v1","id":"g1","contract":["host.svc","v1"],"operation":"sign","deadline":"2099-01-01T00:00:00Z"}`,
+		`["reverse_request","ext.plugin/v1","g1",{"name":"host.svc","version":"v1"},"sign","2099-01-01T00:00:00Z"]`,
 		`[]`, `null`, ``,
 	}, judgeReverseRequest)
 	session := raws("session-scoped reverse request", sessionBase, nil, judgeReverseRequest)
@@ -335,6 +338,7 @@ func buildFrameCases() []byte {
 		{"wrong version", "g1", `{"frame":"reverse_response","apiVersion":"ext.plugin/v2","id":"g1","payload":1}`},
 		{"unknown field", "g1", `{"frame":"reverse_response","apiVersion":"ext.plugin/v1","id":"g1","payload":1,"extra":1}`},
 		{"duplicate key", "g1", `{"frame":"reverse_response","apiVersion":"ext.plugin/v1","id":"g1","id":"g1","payload":1}`},
+		{"error given as a list", "g1", `{"frame":"reverse_response","apiVersion":"ext.plugin/v1","id":"g1","error":["denied","m"]}`},
 		{"not an object", "g1", `[]`},
 		{"empty", "g1", ``},
 	} {
@@ -474,6 +478,13 @@ func buildModelCases() []byte {
 		`{"apiVersion":"ext.plugin/v1","identity":{"id":"a/b","revision":"r1"},"contracts":[{"name":"c","version":"v1","operations":[{"name":"o"}]}],"reverse":[{"name":"h","version":"v1","operations":[{"name":"x"},{"name":"x"}]}]}`,
 		`{"apiVersion":"ext.plugin/v1","identity":{"id":"a/b","revision":"r1"},"contracts":[{"name":"c","version":"v1","operations":[{"name":"o"}]}],"reverse":[{"name":"c","version":"v1","operations":[{"name":"o"}]}]}`,
 		`{"apiVersion":"ext.plugin/v1","identity":{"id":"a/b","revision":"r1"},"contracts":[{"name":"c","version":"v1","operations":[{"name":"o","progress":true,"progress":false}]}]}`,
+		// A structure is a JSON object. A list of its members in order is not one,
+		// although some decoders read it so.
+		`["ext.plugin/v1",{"id":"a/b","revision":"r1"},[{"name":"c","version":"v1","operations":[{"name":"o"}]}]]`,
+		`{"apiVersion":"ext.plugin/v1","identity":["a/b","r1"],"contracts":[{"name":"c","version":"v1","operations":[{"name":"o"}]}]}`,
+		`{"apiVersion":"ext.plugin/v1","identity":{"id":"a/b","revision":"r1"},"contracts":[["c","v1",[{"name":"o"}]]]}`,
+		`{"apiVersion":"ext.plugin/v1","identity":{"id":"a/b","revision":"r1"},"contracts":[{"name":"c","version":"v1","operations":[["o"]]}]}`,
+		`{"apiVersion":"ext.plugin/v1","identity":{"id":"a/b","revision":"r1"},"contracts":[{"name":"c","version":"v1","operations":[{"name":"o"}]}],"reverse":[["h","v1",[{"name":"x"}]]]}`,
 	} {
 		add(fmt.Sprintf("hand-made %d", i+1), raw)
 	}
@@ -512,6 +523,10 @@ func buildModelCases() []byte {
 		`{"apiVersion":"ext.plugin/v1","id":"1","plugin":{"id":"ctx/conformance","revision":"fixture-1"},"contract":{"name":"ext.conformance","version":"v1"},"operation":"wait","deadline":"2099-01-01T00:00:00Z","progress":{"eventsPerSecond":7}}`,
 		`{"apiVersion":"ext.plugin/v1","id":"1","plugin":{"id":"ctx/conformance","revision":"fixture-1"},"contract":{"name":"ext.conformance","version":"v1"},"operation":"long","deadline":"2099-01-01T00:00:00Z","parent":"1"}`,
 		`{"apiVersion":"ext.plugin/v1","id":"1","plugin":{"id":"ctx/conformance","revision":"fixture-1"},"contract":{"name":"ext.conformance","version":"v1"},"operation":"long","deadline":"2099-01-01T00:00:00Z","progress":{"eventsPerSecond":7,"eventsPerSecond":8}}`,
+		`["ext.plugin/v1","1",{"id":"ctx/conformance","revision":"fixture-1"},{"name":"ext.conformance","version":"v1"},"long","2099-01-01T00:00:00Z"]`,
+		`{"apiVersion":"ext.plugin/v1","id":"1","plugin":["ctx/conformance","fixture-1"],"contract":{"name":"ext.conformance","version":"v1"},"operation":"long","deadline":"2099-01-01T00:00:00Z"}`,
+		`{"apiVersion":"ext.plugin/v1","id":"1","plugin":{"id":"ctx/conformance","revision":"fixture-1"},"contract":["ext.conformance","v1"],"operation":"long","deadline":"2099-01-01T00:00:00Z"}`,
+		`{"apiVersion":"ext.plugin/v1","id":"1","plugin":{"id":"ctx/conformance","revision":"fixture-1"},"contract":{"name":"ext.conformance","version":"v1"},"operation":"long","deadline":"2099-01-01T00:00:00Z","progress":[7,900]}`,
 	} {
 		addRequest(fmt.Sprintf("hand-made %d", i+1), raw)
 	}

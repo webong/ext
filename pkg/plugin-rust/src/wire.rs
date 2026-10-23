@@ -83,7 +83,125 @@ pub fn encode<T: Serialize>(v: &T) -> Result<Vec<u8>> {
     Ok(bytes)
 }
 pub fn typed<T: de::DeserializeOwned>(value: Value) -> Result<T> {
-    serde_json::from_value(value).map_err(|_| Error::Invalid)
+    T::deserialize(Objects(value)).map_err(|_| Error::Invalid)
+}
+
+// A deserializer over a JSON value that reads a struct only from an object. serde's
+// derive would also read a list as the struct's fields in order, so an operation
+// given as ["echo"] would pass where Go refuses it.
+struct Objects(Value);
+struct Items(std::vec::IntoIter<Value>);
+struct Members {
+    iter: serde_json::map::IntoIter,
+    value: Option<Value>,
+}
+impl<'de> de::Deserializer<'de> for Objects {
+    type Error = serde_json::Error;
+    fn deserialize_any<V: Visitor<'de>>(
+        self,
+        visitor: V,
+    ) -> std::result::Result<V::Value, Self::Error> {
+        match self.0 {
+            Value::Null => visitor.visit_unit(),
+            Value::Bool(b) => visitor.visit_bool(b),
+            Value::Number(n) => {
+                if let Some(u) = n.as_u64() {
+                    visitor.visit_u64(u)
+                } else if let Some(i) = n.as_i64() {
+                    visitor.visit_i64(i)
+                } else {
+                    visitor.visit_f64(n.as_f64().unwrap_or(f64::NAN))
+                }
+            }
+            Value::String(s) => visitor.visit_string(s),
+            Value::Array(a) => visitor.visit_seq(Items(a.into_iter())),
+            Value::Object(m) => visitor.visit_map(Members {
+                iter: m.into_iter(),
+                value: None,
+            }),
+        }
+    }
+    fn deserialize_struct<V: Visitor<'de>>(
+        self,
+        _name: &'static str,
+        _fields: &'static [&'static str],
+        visitor: V,
+    ) -> std::result::Result<V::Value, Self::Error> {
+        if self.0.is_array() {
+            return Err(de::Error::custom("a struct is a JSON object"));
+        }
+        self.deserialize_any(visitor)
+    }
+    fn deserialize_option<V: Visitor<'de>>(
+        self,
+        visitor: V,
+    ) -> std::result::Result<V::Value, Self::Error> {
+        if self.0.is_null() {
+            visitor.visit_none()
+        } else {
+            visitor.visit_some(self)
+        }
+    }
+    fn deserialize_newtype_struct<V: Visitor<'de>>(
+        self,
+        _name: &'static str,
+        visitor: V,
+    ) -> std::result::Result<V::Value, Self::Error> {
+        visitor.visit_newtype_struct(self)
+    }
+    fn deserialize_enum<V: Visitor<'de>>(
+        self,
+        name: &'static str,
+        variants: &'static [&'static str],
+        visitor: V,
+    ) -> std::result::Result<V::Value, Self::Error> {
+        self.0.deserialize_enum(name, variants, visitor)
+    }
+    serde::forward_to_deserialize_any! {
+        bool i8 i16 i32 i64 i128 u8 u16 u32 u64 u128 f32 f64 char str string bytes byte_buf
+        unit unit_struct seq tuple tuple_struct map identifier ignored_any
+    }
+}
+impl<'de> SeqAccess<'de> for Items {
+    type Error = serde_json::Error;
+    fn next_element_seed<T: DeserializeSeed<'de>>(
+        &mut self,
+        seed: T,
+    ) -> std::result::Result<Option<T::Value>, Self::Error> {
+        match self.0.next() {
+            Some(v) => seed.deserialize(Objects(v)).map(Some),
+            None => Ok(None),
+        }
+    }
+    fn size_hint(&self) -> Option<usize> {
+        Some(self.0.len())
+    }
+}
+impl<'de> MapAccess<'de> for Members {
+    type Error = serde_json::Error;
+    fn next_key_seed<K: DeserializeSeed<'de>>(
+        &mut self,
+        seed: K,
+    ) -> std::result::Result<Option<K::Value>, Self::Error> {
+        match self.iter.next() {
+            Some((key, value)) => {
+                self.value = Some(value);
+                seed.deserialize(de::value::StringDeserializer::<serde_json::Error>::new(key))
+                    .map(Some)
+            }
+            None => Ok(None),
+        }
+    }
+    fn next_value_seed<V: DeserializeSeed<'de>>(
+        &mut self,
+        seed: V,
+    ) -> std::result::Result<V::Value, Self::Error> {
+        let value = self
+            .value
+            .take()
+            .ok_or_else(|| de::Error::custom("a member without a value"))?;
+        seed.deserialize(Objects(value))
+    }
 }
 pub fn identifier(v: &str, revision: bool) -> bool {
     !v.is_empty()
@@ -301,9 +419,9 @@ fn limits_object<'de, D: de::Deserializer<'de>>(
 ) -> std::result::Result<Option<ProgressLimits>, D::Error> {
     match Option::<Value>::deserialize(d)? {
         None | Some(Value::Null) => Ok(None),
-        Some(v @ Value::Object(_)) => serde_json::from_value(v)
+        Some(v @ Value::Object(_)) => typed(v)
             .map(Some)
-            .map_err(de::Error::custom),
+            .map_err(|_| de::Error::custom("progress limits")),
         Some(_) => Err(de::Error::custom("progress must be an object")),
     }
 }

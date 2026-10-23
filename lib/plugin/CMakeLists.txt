@@ -196,5 +196,5 @@ install(FILES "${CMAKE_CURRENT_BINARY_DIR}/ext_hostConfigVersion.cmake" DESTINAT
 install(FILES include/ext_host.h include/ext_guest.h include/ext_instance.h include/ext_stream.h include/ext_plugin.h DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 install(FILES vendor/LICENSE DESTINATION ${CMAKE_INSTALL_DATADIR}/ext-host/licenses RENAME yyjson-LICENSE)
 
-install(FILES tools/Go-LICENSE DESTINATION ${CMAKE_INSTALL_DATADIR}/ext-host/licenses)
+install(FILES licenses/Go-LICENSE DESTINATION ${CMAKE_INSTALL_DATADIR}/ext-host/licenses)
 install(FILES ../../LICENSE DESTINATION ${CMAKE_INSTALL_DATADIR}/ext-host/licenses RENAME CTX-LICENSE)

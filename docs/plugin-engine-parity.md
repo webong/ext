@@ -119,7 +119,7 @@ export EXT_CENGINE_FAULT_GUEST=/tmp/fault-guest
 go build -tags ext_cengine -o "$EXT_CENGINE_GUEST" \
   ./pkg/plugin-go/crosslang/testdata/go-guest
 go build -tags ext_cengine -o "$EXT_CENGINE_FAULT_GUEST" \
-  lib/plugin/tests/faultguest/main.go
+  ./pkg/plugin-go/cengine/testdata/faultguest
 
 go test -tags ext_cengine -race ./pkg/plugin-go/cengine
 go test -tags ext_cengine,ext_cengine_shared -race ./pkg/plugin-go/cengine   # shared linkage

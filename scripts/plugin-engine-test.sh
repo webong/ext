@@ -25,7 +25,7 @@ cmake --build "$build/engine" -j 4
 guest="$build/go-guest$exe"
 fault="$build/fault-guest$exe"
 go build -o "$guest" ./pkg/plugin-go/crosslang/testdata/go-guest
-go build -o "$fault" lib/plugin/tests/faultguest/main.go
+go build -o "$fault" ./pkg/plugin-go/cengine/testdata/faultguest
 
 "$python" - "$build" <<'PY'
 import json, pathlib, sys

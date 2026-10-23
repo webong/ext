@@ -42,8 +42,9 @@ C. Integer-valued schema bounds must use integer JSON syntax and fit int64.
 
 Artifact paths reject traversal, empty components, backslashes, colons, NUL,
 line breaks, Windows device names, and trailing dots/spaces. Duplicate paths use
-Unicode 17.0.0 simple lowercase, pinned in `src/unicode_lower.h`; regeneration is
-in `tools/unicode_lower.go`. Unicode versions in older Go toolchains can differ.
+Unicode 17.0.0 simple lowercase, pinned in `src/unicode_lower.h`; the Go module
+owns the generator, `pkg/plugin-go/cengine/tools/unicode_lower.go`. Unicode versions
+in older Go toolchains can differ.
 Do not interpret a validated path or checksum as a trust grant.
 
 Duplicate names and paths, and tree overlap, are decided by sorting the

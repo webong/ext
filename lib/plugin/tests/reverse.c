@@ -36,6 +36,18 @@
 #define FUTURE "2099-01-01T00:00:00Z"
 
 static char line[1 << 16];
+/* A call that reached the guest while it waited for the answer to a request of
+ * its own; it is served once that answer is in. */
+static char queued[1 << 12];
+/* The next call, whether it arrived first or was queued behind an answer. */
+static char *next_call(void) {
+  if (queued[0]) {
+    snprintf(line, sizeof(line), "%s", queued);
+    queued[0] = 0;
+    return line;
+  }
+  return fgets(line, sizeof(line), stdin);
+}
 static void put(const char *s) {
   fputs(s, stdout);
   fflush(stdout);
@@ -74,8 +86,17 @@ static void reverse(const char *id_field, const char *parent, const char *op,
                     size_t size) {
   send_reverse(id_field, parent, op, deadline, payload);
   reply[0] = 0;
-  if (!fgets(reply, (int)size, stdin))
-    reply[0] = 0;
+  /* Frames are read by what they are: anything but the answer is a call that
+   * overtook it. */
+  for (;;) {
+    if (!fgets(reply, (int)size, stdin)) {
+      reply[0] = 0;
+      break;
+    }
+    if (strstr(reply, "\"frame\":\"reverse_response\""))
+      break;
+    snprintf(queued, sizeof(queued), "%s", reply);
+  }
   reply[strcspn(reply, "\r\n")] = 0;
 }
 static void finish(const char *id, const char *reply) {
@@ -119,7 +140,7 @@ static int guest(const char *mode) {
   } else if (!strcmp(mode, "idle-exit")) {
     return 0;
   }
-  while (fgets(line, sizeof(line), stdin)) {
+  while (next_call()) {
     /* An answer to a request whose call has ended is not a call. */
     if (strstr(line, "\"frame\":\"reverse_response\""))
       continue;
@@ -327,8 +348,11 @@ static ext_status handle(void *user, const ext_call_options *o,
 #define IS(name) (!strncmp(operation, name "\"", strlen(name) + 1))
 #define PAYLOAD(s) emit(sink, EXT_HOST_REVERSE_PAYLOAD, (const uint8_t *)(s), strlen(s))
 #define FAIL(s) emit(sink, EXT_HOST_REVERSE_PUBLIC_ERROR, (const uint8_t *)(s), strlen(s))
-  if (IS("sign"))
+  if (IS("sign")) {
+    if (sleep_ms) /* the answer is late: the next call can overtake it */
+      spin_until(o, (int64_t)sleep_ms * 1000000, NULL);
     return PAYLOAD("\"signed\"");
+  }
   if (IS("empty"))
     return emit(sink, EXT_HOST_REVERSE_PAYLOAD, NULL, 0);
   if (IS("fail"))
@@ -449,6 +473,16 @@ static ext_status call(ext_host *h, char *body, size_t size, events *e) {
   ext_buffer out = {0};
   ext_status s = ext_host_call_progress(
       h, (const uint8_t *)request, strlen(request), &options, &progress, &out);
+  if (s && s != EXT_PROTOCOL && s != EXT_CLOSED && s != EXT_IO) {
+    /* A failure a test does not expect says why, since a CI log is all there is. */
+    uint8_t text[256];
+    size_t n = 0;
+    if (ext_host_process_stderr(h, text, sizeof(text) - 1, &n) != EXT_OK)
+      n = 0;
+    text[n] = 0;
+    fprintf(stderr, "call failed: %s (host state %d); child stderr: %s\n",
+            ext_host_status_string(s), ext_host_get_state(h), (const char *)text);
+  }
   if (!s && body) {
     assert(out.len < size);
     memcpy(body, out.data, out.len);
@@ -782,10 +816,14 @@ static void *open_gate(void *unused) {
 static void test_threads(void) {
   ext_host *h = NULL;
   /* A request made when no call is in flight is served, and it is session
-   * scoped: no parent, and the session's value. */
+   * scoped: no parent, and the session's value. The hook is slow, so the next
+   * call reaches the plugin before the answer to this one does: a plugin reads
+   * frames by what they are, not by when they arrive. */
+  seen.sleep_ms = 300;
   assert(open_host("idle", 1, 0, 0, &h) == EXT_OK);
   assert(wait_until(&seen.handled, 1));
   assert(call(h, body, sizeof(body), NULL) == EXT_OK);
+  seen.sleep_ms = 0;
   assert(strstr(body, "\"reply\":{\"frame\":\"reverse_response\""));
   assert(strstr(body, "\"payload\":\"signed\""));
   assert(seen.value == &session_token && !strstr(seen.request, "\"parent\""));

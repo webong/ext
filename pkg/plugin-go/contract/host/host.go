@@ -31,7 +31,9 @@ type ReverseOptions = plugin.ReverseOptions
 type Options struct {
 	// Launch overrides how the package starts, for example to run source files
 	// under a runtime the consumer manages (Path is that runtime, Args begin
-	// with the script). Dir defaults to the package directory. When nil, the
+	// with the script). Dir defaults to the package directory, not the caller's
+	// working directory: a plugin that runs commands for the user needs Dir set
+	// explicitly. When nil, the
 	// package's first entrypoint artifact is started with no arguments.
 	Launch *process.Command
 	// Authorize runs before every call. When nil, any operation the reviewed
@@ -60,6 +62,10 @@ type Process struct {
 // Open re-verifies the installed package, starts it and completes the
 // handshake. Verification binds the launch to the installed content; it is not
 // publisher trust, which stays with the consumer.
+//
+// ctx bounds the start and the handshake only. It does not bound the process:
+// cancelling it after Open returns does not stop the plugin or its calls. Close
+// ends the process, and each Call takes its own context.
 func Open(ctx context.Context, installed store.Installed, options Options) (*Process, error) {
 	var launch process.Command
 	if options.Launch != nil {

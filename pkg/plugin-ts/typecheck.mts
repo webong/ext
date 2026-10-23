@@ -17,3 +17,17 @@ await nativeHost.call({name:'example.echo',version:'v1'},'echo',{value:'ok'},{ti
 await engine.directoryDigest('/absolute/path/package');
 await engine.verifyArtifacts({},'/absolute/path/package');
 nativeHost.close();
+
+import { FrameError, Limiter, splitProgressText, type CallFrames } from './index.mjs';
+const withFrames = new Registry({id:'example/frames',revision:'r1'})
+    .declareReverse({name:'example.host',version:'v1'},[{name:'ask'}])
+    .register({...method, operation:{name:'echo',progress:true}}, async (input, signal, request, frames: CallFrames) => {
+        await frames.progress({kind:'progress',completed:1,total:2});
+        const answer = await frames.reverse?.call({name:'example.host',version:'v1'},'ask',{value:input.value},signal);
+        void answer; void request;
+        return input;
+    });
+withFrames.guest({authorize(){}});
+const limiter = new Limiter({eventsPerSecond:5}, 0);
+const admitted: number | null = limiter.admit(3, 1);
+void admitted; void splitProgressText('text'); void FrameError;

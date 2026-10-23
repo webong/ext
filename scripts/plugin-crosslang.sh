@@ -56,6 +56,17 @@ export EXT_RUST_FRAMES_GUEST="$CARGO_TARGET_DIR/debug/examples/frames"
 export EXT_RUST_INLINE_FRAMES_GUEST="$CARGO_TARGET_DIR/debug/examples/frames_inline"
 export EXT_RUST_FRAMES_WASM="$CARGO_TARGET_DIR/wasm32-wasip1/release/examples/frames.wasm"
 export EXT_FRAMES_REQUIRED="GO RUST RUST_INLINE RUST_WASI"
+# TypeScript runs on any host with Node 22 (the engine starts a guest with an empty
+# environment, so the launcher names node and the script by absolute path).
+if command -v node >/dev/null 2>&1; then
+  cat >"$build_dir/ext-ts-frames-guest" <<LAUNCHER
+#!/bin/sh
+exec "$(command -v node)" "$PWD/pkg/plugin-ts/examples/frames/guest.mjs"
+LAUNCHER
+  chmod +x "$build_dir/ext-ts-frames-guest"
+  export EXT_TS_FRAMES_GUEST="$build_dir/ext-ts-frames-guest"
+  EXT_FRAMES_REQUIRED="$EXT_FRAMES_REQUIRED TS"
+fi
 go build -buildmode=c-shared -o "$build_dir/go-shared.$extension" ./pkg/plugin-go/crosslang/testdata/go-shared
 export EXT_GO_GUEST="$build_dir/go-guest" EXT_GO_SHARED="$build_dir/go-shared.$extension"
 export EXT_RUST_GUEST="$CARGO_TARGET_DIR/debug/examples/guest" EXT_RUST_HOST="$CARGO_TARGET_DIR/debug/examples/host"

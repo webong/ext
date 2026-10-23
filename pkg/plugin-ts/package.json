@@ -8,6 +8,6 @@
     "./node": { "types": "./node.d.mts", "default": "./node.mjs" },
     "./engine": { "types": "./engine/index.d.mts", "default": "./engine/index.mjs" }
   },
-  "scripts": { "test": "node --test test.mjs" },
+  "scripts": { "test": "node --test test.mjs frames.test.mjs router.test.mjs" },
   "engines": { "node": ">=22" }
 }

@@ -76,6 +76,10 @@ export EXT_RUST_REACTOR="$CARGO_TARGET_DIR/wasm32-wasip1/release/examples/shared
 export EXT_ZIG_GUEST="$build_dir/zig/bin/ext-zig-guest" EXT_ZIG_HOST="$build_dir/zig/bin/ext-zig-host"
 export EXT_ZIG_SHARED="$build_dir/zig/lib/libext-zig-guest.$extension"
 export EXT_ZIG_WASM="$build_dir/wasi/bin/ext-zig-guest.wasm"
+# The Zig frames guest reads inline, natively and as a WASI command (no threads).
+export EXT_ZIG_FRAMES_GUEST="$build_dir/zig/bin/ext-zig-frames"
+export EXT_ZIG_FRAMES_WASM="$build_dir/wasi/bin/ext-zig-frames.wasm"
+EXT_FRAMES_REQUIRED="$EXT_FRAMES_REQUIRED ZIG ZIG_WASI"
 # The mobile hosts embed the page glue and the page shim; fail if a copy is stale.
 scripts/plugin-mobile-assets.sh --check
 # Swift builds on Apple platforms only. Its package tests run on the host, then

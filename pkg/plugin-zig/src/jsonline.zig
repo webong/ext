@@ -1,6 +1,7 @@
 const std = @import("std");
 const w = @import("wire.zig");
 const author = @import("author.zig");
+const frames = @import("frames.zig");
 // Callbacks own I/O deadlines and cancellation. close must unblock read/write.
 pub const IO = struct {
     context: *anyopaque,
@@ -60,8 +61,21 @@ pub const Connection = struct {
         }
     }
 };
+// The link a handler's reverse calls read from: the host sends nothing but the answer during a call.
+fn readLink(context: *anyopaque, a: w.Allocator) anyerror!?[]u8 {
+    const conn: *Connection = @ptrCast(@alignCast(context));
+    return conn.readFrame(a, std.math.maxInt(i128));
+}
+fn writeLink(context: *anyopaque, bytes: []const u8) anyerror!void {
+    const conn: *Connection = @ptrCast(@alignCast(context));
+    try conn.writeFrame(bytes, w.now() + w.timeout_ns);
+}
+// Serves until the input ends. A handler can report progress and call its host (see author.Context);
+// a frame the host may not send ends the session with error.Protocol, and the call in flight is not
+// answered. When the input ends during a call, the call is answered and the session ends.
 pub fn serve(guest: *const author.Guest, conn: *Connection, a: w.Allocator) !void {
     defer conn.close();
+    var link: frames.Link = .{ .context = conn, .read = readLink, .write = writeLink };
     var hello = false;
     while (true) {
         var arena = std.heap.ArenaAllocator.init(a);
@@ -73,7 +87,8 @@ pub fn serve(guest: *const author.Guest, conn: *Connection, a: w.Allocator) !voi
             try validateHello(scratch, value);
             hello = true;
             break :blk try w.response(scratch, "hello", try w.decode(scratch, try w.encode(scratch, guest.descriptor)), null);
-        } else try guest.invoke(scratch, try w.typed(w.Request, scratch, value));
+        } else try guest.invokeWith(scratch, try w.requestFromValue(value), &link);
+        if (link.violated) return error.Protocol;
         try conn.writeFrame(try w.encode(scratch, response), w.now() + w.timeout_ns);
     }
 }

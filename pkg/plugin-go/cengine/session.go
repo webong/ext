@@ -52,7 +52,8 @@ func (s *Session) CallProgress(ctx context.Context, contract plugin.ContractRef,
 // Open runs a plugin over a Go backend (in-process, JSON-line, HashiCorp, WASI,
 // native Go) from options.Connect. The engine owns the session; the backend hands
 // it the frames it carries, the progress events of a call and the reverse calls
-// of the plugin, which a backend that carries none (HashiCorp, WASI) never does.
+// of the plugin, which a backend that carries none (HashiCorp, native Go, the C ABI,
+// the WebAssembly reactor) never does.
 func Open(ctx context.Context, d plugin.Descriptor, options plugin.Options) (*Session, error) {
 	if options.Verify == nil || options.Authorize == nil {
 		return nil, plugin.ErrDenied

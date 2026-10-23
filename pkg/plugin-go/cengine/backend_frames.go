@@ -22,7 +22,8 @@ import (
 // that: the plugin.ProgressSink a call's context carries, and the
 // plugin.ReverseHost a plugin.ReverseBackend is given, both ending in the
 // engine's ext_host_backend_* entry points. Backends that cannot carry frames
-// (HashiCorp, WASI) never use either, as with the pure-Go session.
+// (HashiCorp, native Go, the C ABI, the WebAssembly reactor) never use either, as
+// with the pure-Go session; a WebAssembly command is a JSON-line client and does.
 
 // enter reserves the engine host for one call into it. Close waits for these, so
 // the host is never destroyed under a frame; false once the backend is closed.

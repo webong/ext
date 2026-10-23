@@ -46,6 +46,10 @@ case "$(uname -s)" in
   *) echo 'The cross-language native runner currently supports Linux and macOS.' >&2; exit 1 ;;
 esac
 go build -o "$build_dir/go-guest" ./pkg/plugin-go/crosslang/testdata/go-guest
+# The reference guest of the frames suite (progress events and reverse calls); a
+# language's guest joins it by setting EXT_<LANGUAGE>_FRAMES_GUEST.
+go build -o "$build_dir/go-frames-guest" ./pkg/plugin-go/crosslang/testdata/frames-guest
+export EXT_GO_FRAMES_GUEST="$build_dir/go-frames-guest"
 go build -buildmode=c-shared -o "$build_dir/go-shared.$extension" ./pkg/plugin-go/crosslang/testdata/go-shared
 export EXT_GO_GUEST="$build_dir/go-guest" EXT_GO_SHARED="$build_dir/go-shared.$extension"
 export EXT_RUST_GUEST="$CARGO_TARGET_DIR/debug/examples/guest" EXT_RUST_HOST="$CARGO_TARGET_DIR/debug/examples/host"

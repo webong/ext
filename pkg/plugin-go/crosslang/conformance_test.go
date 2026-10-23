@@ -288,3 +288,32 @@ func TestNativeGoGuest(t *testing.T) {
 	path := artifact(t, "GO_NATIVE")
 	runGuestConformance(t, func(ctx context.Context) (plugin.Backend, error) { return nativego.Open(ctx, path) })
 }
+
+// TestFramesGuests runs the frames suite (progress events and reverse calls, see
+// docs/plugin-guest-frames.md) on every guest that implements it. The Go reference
+// guest is always built by scripts/plugin-crosslang.sh; a language joins by setting
+// EXT_<LANGUAGE>_FRAMES_GUEST to a process that serves the descriptor in
+// lib/plugin/testdata/v1/frames-descriptor.json. A guest is concurrent when it can
+// serve a request while it waits for the host's answer (a thread or an event loop);
+// one that cannot answers the operations that need it with the error "unsupported".
+func TestFramesGuests(t *testing.T) {
+	for _, g := range []struct {
+		language   string
+		concurrent bool
+	}{
+		{"GO", true},
+		{"RUST", true},
+		{"TS", true},
+		{"JAVA", true},
+		{"PYTHON", false},
+		{"ZIG", false},
+	} {
+		t.Run(g.language, func(t *testing.T) {
+			name := g.language + "_FRAMES_GUEST"
+			if os.Getenv("EXT_"+name) == "" && os.Getenv("EXT_FRAMES_REQUIRED") != g.language && os.Getenv("EXT_FRAMES_REQUIRED") != "all" {
+				t.Skip("set EXT_" + name + " to a guest process that serves the frames descriptor")
+			}
+			runFrames(t, artifact(t, name), plugintest.FramesOptions{Concurrent: g.concurrent})
+		})
+	}
+}

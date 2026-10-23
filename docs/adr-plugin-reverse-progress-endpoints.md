@@ -336,14 +336,22 @@ of every answer, and cancellation when the call ends or the host closes. A call 
 registered with the engine for as long as its invoke callback runs, so frames find it
 by id and the call waits for the hooks of its requests. A violation returns
 `EXT_PROTOCOL`, which the backend reports as it reports any failed connection. A
-backend that cannot carry frames (HashiCorp, WASI) never sends one, as under the Go
-session. The Go facade supplies what the pure-Go session supplies a backend: the
+backend that cannot carry frames (HashiCorp, native Go, the C ABI and the WebAssembly
+reactor) never sends one, as under the Go session; a WebAssembly command speaks JSON
+lines through the same client as a process and does carry them. The Go facade supplies what the pure-Go session supplies a backend: the
 progress sink (which tells a plugin in the host's process when the limit dropped an
 event), the `plugin.ReverseHost` that `plugin.ReverseBackend` receives, and the
 callers an in-process plugin finds through `plugin.ReverseFrom` and
 `plugin.SessionReverseFrom`; the plugin's own context ends the host's handler through
 a signal the ticket's run is given. An admitted request that is never run holds the
 host open, so a backend must run every ticket, as `jsonline.Client` does.
+
+**Guest SDKs (c-parity, after stage 6).** The guest side of progress and reverse calls
+in the Rust, TypeScript, Java, Python and Zig SDKs is planned in
+[plugin-guest-frames.md](plugin-guest-frames.md): a frame router with a threaded and
+an inline mode, one API, fixtures computed by the Go contract
+(`frame-cases.json`, `progress-limiter-cases.json`, `model-cases.json`) and a frames
+conformance guest that every language runs against the Go session and the C engine.
 
 ## Identifiers
 

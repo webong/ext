@@ -72,6 +72,14 @@ func errorScenarios() []errorScenario {
 		{name: "unknown-operation", backend: plain, run: func(t *testing.T, s session, r plugin.ContractRef) []string {
 			return []string{one(context.Background(), s, r, "nope")}
 		}},
+		// The session-wide bound applies to a call that brings no deadline of its own.
+		{name: "session-timeout", backend: failing(func(ctx context.Context, r plugin.Request) (plugin.Response, error) {
+			<-ctx.Done()
+			return plugin.Response{}, ctx.Err()
+		}), options: func(o *plugin.Options) { o.Timeout = 50 * time.Millisecond },
+			run: func(t *testing.T, s session, r plugin.ContractRef) []string {
+				return []string{one(context.Background(), s, r, "inspect"), one(context.Background(), s, r, "inspect")}
+			}},
 		{name: "unknown-contract", backend: plain, run: func(t *testing.T, s session, r plugin.ContractRef) []string {
 			return []string{one(context.Background(), s, plugin.ContractRef{Name: "other.work", Version: "v1"}, "inspect")}
 		}},

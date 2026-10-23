@@ -144,6 +144,11 @@ typedef struct {
  */
 #define EXT_BACKEND_EXTENSION 2u
 #define EXT_BACKEND_CONCURRENT 1u
+/* The backend hands the engine the tagged frames it reads from its plugin, with
+ * ext_host_backend_progress and ext_host_backend_reverse_admit (see below). Only
+ * such a backend may serve a plugin that declares progress or reverse operations;
+ * the engine refuses the others when the host is created. */
+#define EXT_BACKEND_FRAMES 4u
 typedef ext_status (*ext_emit)(void *context, const uint8_t *data, size_t len);
 typedef struct {
   uint32_t struct_size;
@@ -301,10 +306,49 @@ typedef struct {
 /* Configure once, before start or any concurrent use. Copies the struct; user
  * and session_value must live until destroy returns. EXT_DENIED when a hook is
  * missing, EXT_INVALID for a bound out of range. A host created over an
- * extension backend serves no reverse calls and refuses a descriptor that lists
- * them. Destroy waits for the hooks that are running. */
+ * extension backend serves reverse calls only if it was created with
+ * EXT_BACKEND_FRAMES. Destroy waits for the hooks that are running. */
 EXT_HOST_API ext_status ext_host_set_services(ext_host *,
                                               const ext_host_services *);
+
+/* Frames from an extension backend. A backend owns its transport and its threads,
+ * so it reads the plugin's tagged frames itself and hands them to the engine, which
+ * validates them and decides exactly as it does for a process it reads: progress
+ * events are checked, limited and delivered to the call they belong to; a reverse
+ * request is admitted or refused, and its hooks run. Both calls need a host whose
+ * backend was created with EXT_BACKEND_FRAMES (EXT_INVALID otherwise), may be
+ * made from any thread, and return EXT_PROTOCOL for a frame that breaks the rules,
+ * which the backend must treat as a failed connection. A frame names its call by
+ * id, so a call is in flight from the moment its invoke callback is entered until
+ * it returns.
+ *
+ * ext_host_backend_progress takes one progress frame, as JSON. *delivered, when
+ * given, is set to 1 if the event was passed on and 0 if the rate limit dropped it.
+ *
+ * A reverse request takes two steps, so the backend's reader is never held while a
+ * hook runs. ext_host_backend_reverse_admit takes one reverse_request frame and
+ * either refuses it, setting *ticket to NULL and *answer to the reverse_response
+ * frame to send, or admits it, setting *ticket and leaving *answer empty. Then
+ * ext_host_backend_reverse_run, called exactly once for each ticket and on any
+ * thread, runs the hooks, which can take as long as the request's deadline, and
+ * sets *answer to the reverse_response frame to send. caller, when given, is a
+ * signal of the backend's own that ends the hooks early, as the engine's own
+ * signal does (the plugin's context, for a plugin in the host's process); it must
+ * stay valid until run returns. The ticket is consumed. A
+ * call does not return from its invoke callback's host until the requests of that
+ * call have been run, so hooks that borrow the call's options stay valid; a request
+ * that is admitted and never run holds the host open. Free *answer with
+ * ext_buffer_free. */
+typedef struct ext_reverse_ticket ext_reverse_ticket;
+EXT_HOST_API ext_status ext_host_backend_progress(ext_host *, const uint8_t *frame,
+                                                  size_t len, int *delivered);
+EXT_HOST_API ext_status ext_host_backend_reverse_admit(
+    ext_host *, const uint8_t *frame, size_t len, ext_reverse_ticket **ticket,
+    ext_buffer *answer);
+EXT_HOST_API ext_status ext_host_backend_reverse_run(ext_host *,
+                                                     ext_reverse_ticket *ticket,
+                                                     const ext_cancel *caller,
+                                                     ext_buffer *answer);
 /* Thread-safe and idempotent. Stops admission, wakes I/O, kills owned child.
  * A timeout/cancellation after dispatch terminates this session. No
  * process-tree containment. Policies are synchronous and cannot be forcibly

@@ -40,6 +40,16 @@ type backendBinding struct {
 	closed     bool
 	closeDone  chan struct{}
 	closeErr   error
+
+	// What a backend that carries frames needs (backend_frames.go): the engine
+	// host, set once it exists; the number of calls into it, which Close waits
+	// for; and the host's reverse services, set before the host starts.
+	host           *C.ext_host
+	inflight       int
+	idle           *sync.Cond
+	reverse        bool
+	reverseOptions plugin.ReverseOptions
+	nextReverse    uint64
 }
 
 // NewWithBackend embeds the common C session engine around any Go Backend,
@@ -58,11 +68,14 @@ func NewWithBackend(d plugin.Descriptor, opts BackendOptions, verify, authorize 
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	binding := &backendBinding{options: opts, descriptor: d.Clone(), ctx: ctx, cancel: cancel, closeDone: make(chan struct{})}
+	binding.idle = sync.NewCond(&binding.mu)
 	runtime := cgo.NewHandle(binding)
 	h := &Host{policy: cgo.NewHandle(&policies{verify: verify, authorize: authorize}), descriptor: d.Clone(), backend: binding}
-	var flags C.uint32_t
+	// The backend hands the engine its frames: a plugin may report progress and
+	// call the host's reverse services, as it can through any Go Session.
+	flags := C.uint32_t(C.EXT_BACKEND_FRAMES)
 	if opts.Concurrent {
-		flags = C.EXT_BACKEND_CONCURRENT
+		flags |= C.EXT_BACKEND_CONCURRENT
 	}
 	s := C.ext_go_create_backend((*C.uint8_t)(unsafe.Pointer(&data[0])), C.size_t(len(data)), C.uintptr_t(h.policy), C.uintptr_t(runtime), flags, &h.ptr)
 	if s != C.EXT_OK {
@@ -71,6 +84,9 @@ func NewWithBackend(d plugin.Descriptor, opts BackendOptions, verify, authorize 
 		h.policy.Delete()
 		return nil, status(s)
 	}
+	binding.mu.Lock()
+	binding.host = h.ptr
+	binding.mu.Unlock()
 	return h, nil
 }
 
@@ -82,6 +98,8 @@ func backendStatus(err error) C.int32_t {
 		return C.EXT_TIMEOUT
 	case errors.Is(err, context.Canceled):
 		return C.EXT_CANCELED
+	case errors.Is(err, plugin.ErrProtocol):
+		return C.EXT_PROTOCOL
 	case errors.Is(err, plugin.ErrClosed):
 		return C.EXT_CLOSED
 	case errors.Is(err, plugin.ErrInvalid):
@@ -150,7 +168,13 @@ func ctxGoConnect(handle C.uintptr_t, timeout C.uint32_t, caller C.uintptr_t, em
 		return C.EXT_CLOSED
 	}
 	b.backend = backend
+	reverse := b.reverse
 	b.mu.Unlock()
+	// A backend that carries reverse frames is told where to send them before the
+	// handshake, as plugin.Open does.
+	if rb, ok := backend.(plugin.ReverseBackend); ok && reverse {
+		rb.SetReverse(b)
+	}
 	actual, err := backend.Handshake(ctx)
 	if err == nil {
 		err = ctx.Err()
@@ -190,7 +214,7 @@ func ctxGoInvoke(handle C.uintptr_t, data *C.uint8_t, n C.size_t, timeout C.uint
 	if backend == nil || isClosed {
 		return C.EXT_CLOSED
 	}
-	response, err := backend.Invoke(ctx, request)
+	response, err := backend.Invoke(b.withFrames(ctx, request), request)
 	if err == nil {
 		err = ctx.Err()
 	}
@@ -204,6 +228,16 @@ func ctxGoInvoke(handle C.uintptr_t, data *C.uint8_t, n C.size_t, timeout C.uint
 func ctxGoCloseBackend(handle C.uintptr_t) {
 	b := cgo.Handle(handle).Value().(*backendBinding)
 	defer close(b.closeDone)
+	// Frames the backend handed the engine are finished with before the engine
+	// host can be destroyed: new ones are refused once closed is set, and the
+	// engine has already told the running reverse hooks to stop.
+	defer func() {
+		b.mu.Lock()
+		for b.inflight > 0 {
+			b.idle.Wait()
+		}
+		b.mu.Unlock()
+	}()
 	defer func() {
 		if recover() != nil {
 			b.mu.Lock()

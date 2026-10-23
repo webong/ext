@@ -159,8 +159,13 @@ static ext_status emit_event(ext_progress_sink *s, const ext_progress_event *e,
   return EXT_OK;
 }
 
-ext_status ext_progress_sink_deliver(ext_progress_sink *s,
-                                     const ext_progress_event *e) {
+ext_status ext_progress_sink_report(ext_progress_sink *s,
+                                    const ext_progress_event *e,
+                                    int *delivered) {
+  int ignored;
+  if (!delivered)
+    delivered = &ignored;
+  *delivered = 1;
   /* A marker carries only a count. It is folded into the total reported by the
    * next event or the final marker, and is not itself rate-limited. */
   if (e->log && !e->text_len && !e->stream && e->dropped) {
@@ -171,9 +176,14 @@ ext_status ext_progress_sink_deliver(ext_progress_sink *s,
   if (!ext_limiter_admit(&s->limiter, e->text_len, ext_mono_ns(), &dropped)) {
     /* The dropped event's own count must not vanish with it. */
     ext_limiter_carry(&s->limiter, e->dropped);
+    *delivered = 0;
     return EXT_OK;
   }
   return emit_event(s, e, e->dropped + dropped);
+}
+ext_status ext_progress_sink_deliver(ext_progress_sink *s,
+                                     const ext_progress_event *e) {
+  return ext_progress_sink_report(s, e, NULL);
 }
 
 void ext_progress_sink_finish(ext_progress_sink *s) {

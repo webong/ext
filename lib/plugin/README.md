@@ -165,6 +165,14 @@ user state stay alive until release. Close is called once and can run concurrent
 with connect/invoke; it must interrupt runtime work. Release runs only after all
 host calls have joined. Failed create leaves ownership with the caller.
 
+An extension that also reads the plugin's tagged frames (progress events and
+reverse requests) is created with `EXT_BACKEND_FRAMES` and hands them to the engine
+with `ext_host_backend_progress`, `ext_host_backend_reverse_admit` and
+`ext_host_backend_reverse_run`: the engine validates, limits, admits and answers as
+it does for a process it reads, and the backend keeps its transport and threads.
+Without the flag the engine refuses a descriptor that declares progress or reverse
+operations, since the backend could not carry them.
+
 Go consumers use `goengine.NewWithBackend` with a reviewed `Connect` factory:
 
 ```go

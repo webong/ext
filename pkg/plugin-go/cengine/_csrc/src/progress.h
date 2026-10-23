@@ -64,6 +64,10 @@ void ext_progress_sink_init(ext_progress_sink *, ext_progress_fn fn, void *user,
  * over the limit are dropped and counted: that is not an error. */
 ext_status ext_progress_sink_deliver(ext_progress_sink *,
                                      const ext_progress_event *);
+/* ext_progress_sink_deliver, saying whether the event was passed on (a marker
+ * counts) or dropped by the limit; delivered may be NULL. */
+ext_status ext_progress_sink_report(ext_progress_sink *,
+                                    const ext_progress_event *, int *delivered);
 /* Delivers a final marker for events never reported. Call it once, when the
  * call ends, whatever its outcome. */
 void ext_progress_sink_finish(ext_progress_sink *);

@@ -60,6 +60,13 @@ func (h *Host) setReverse(ctx context.Context, o *plugin.ReverseOptions) error {
 		return err
 	}
 	h.reverse, h.reverseSession = binding, session
+	if h.backend != nil {
+		// A backend that carries frames hands the plugin's requests to the engine:
+		// it now knows the host serves them, and what bounds its own callers use.
+		h.backend.mu.Lock()
+		h.backend.reverse, h.backend.reverseOptions = true, *o
+		h.backend.mu.Unlock()
+	}
 	return nil
 }
 

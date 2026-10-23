@@ -63,14 +63,23 @@ func TestSessionScopedReverseMatchesGo(t *testing.T) {
 		out.Authorized, out.Handled, out.Facts = snapshot(rec)
 		return out
 	}
-	want, got := run(openGoReverseIn), run(openCReverseIn)
-	if !reflect.DeepEqual(got, want) {
-		t.Errorf("C engine and Go session disagree\n  C:  %+v\n  Go: %+v", got, want)
-	}
-	if want.Collected != `{"result":"signed"}` || len(want.Handled) != 1 ||
-		want.Handled[0] != `{"apiVersion":"ext.plugin/v1","id":"g1","plugin":{"id":"cengine/reverse","revision":"r1"},"contract":{"name":"host.svc","version":"v1"},"operation":"sign","surface":"signing","deadline":"0001-01-01T00:00:00Z","payload":{"n":1}} deadline-set=true` ||
-		want.Facts[0] != "deadline-within-call=true value=open" {
-		t.Errorf("the reference answered %+v", want)
+	for _, p := range openPairs() {
+		t.Run(p.name, func(t *testing.T) {
+			want, got := run(p.want), run(p.got)
+			if !reflect.DeepEqual(got, want) {
+				t.Errorf("engine and Go session disagree\n  C:  %+v\n  Go: %+v", got, want)
+			}
+			// A plugin in the host's own process names its request itself.
+			id := "g1"
+			if !p.process {
+				id = "r1"
+			}
+			if want.Collected != `{"result":"signed"}` || len(want.Handled) != 1 ||
+				want.Handled[0] != `{"apiVersion":"ext.plugin/v1","id":"`+id+`","plugin":{"id":"cengine/reverse","revision":"r1"},"contract":{"name":"host.svc","version":"v1"},"operation":"sign","surface":"signing","deadline":"0001-01-01T00:00:00Z","payload":{"n":1}} deadline-set=true` ||
+				want.Facts[0] != "deadline-within-call=true value=open" {
+				t.Errorf("the reference answered %+v", want)
+			}
+		})
 	}
 }
 
@@ -92,12 +101,16 @@ func TestReverseInFlightBoundMatchesGo(t *testing.T) {
 		}()
 		return callOp(t, s, "burst")
 	}
-	want, got := run(openGoReverseIn), run(openCReverseIn)
-	if got != want {
-		t.Errorf("C engine %s, Go session %s", got, want)
-	}
-	if want != `{"busy":2,"ok":4}` {
-		t.Errorf("the reference answered %s", want)
+	for _, p := range openPairs() {
+		t.Run(p.name, func(t *testing.T) {
+			want, got := run(p.want), run(p.got)
+			if got != want {
+				t.Errorf("engine %s, Go session %s", got, want)
+			}
+			if want != `{"busy":2,"ok":4}` {
+				t.Errorf("the reference answered %s", want)
+			}
+		})
 	}
 }
 
@@ -148,12 +161,16 @@ func TestReverseCancellationMatchesGo(t *testing.T) {
 		}
 		return out
 	}
-	want, got := run(openGoReverseIn), run(openCReverseIn)
-	if !reflect.DeepEqual(got, want) {
-		t.Errorf("C engine and Go session disagree\n  C:  %+v\n  Go: %+v", got, want)
-	}
-	if want.Collected != `{"error":{"code":"operation_failed"},"result":null}` {
-		t.Errorf("the reference answered %+v", want)
+	for _, p := range openPairs() {
+		t.Run(p.name, func(t *testing.T) {
+			want, got := run(p.want), run(p.got)
+			if !reflect.DeepEqual(got, want) {
+				t.Errorf("engine and Go session disagree\n  C:  %+v\n  Go: %+v", got, want)
+			}
+			if want.Collected != `{"error":{"code":"operation_failed"},"result":null}` {
+				t.Errorf("the reference answered %+v", want)
+			}
+		})
 	}
 }
 
@@ -187,16 +204,21 @@ func TestIdleBehaviorMatchesGo(t *testing.T) {
 				_, err = s.Call(ctx, reverseRef, "plain", nil)
 				return [2]string{causes(err), string(s.State())}
 			}
-			want, got := run(openGoReverseIn), run(openCReverseIn)
-			if want[0] == "ok" || want[1] != string(plugin.StateFailed) {
-				t.Errorf("the reference answered %v: the call and the session should fail", want)
-			}
-			known := false
-			for _, class := range c.wantC {
-				known = known || got[0] == class
-			}
-			if !known || got[1] != string(plugin.StateFailed) {
-				t.Errorf("C engine %v for %s, want one of %v and the failed state", got, c.explains, c.wantC)
+			for _, p := range processPairs() {
+				want, got := run(p.want), run(p.got)
+				if want[0] == "ok" || want[1] != string(plugin.StateFailed) {
+					t.Errorf("%s: the reference answered %v: the call and the session should fail", p.name, want)
+				}
+				// The engine owns the child in one pair and reads it itself, so its
+				// class is pinned; over a backend the client reports what it saw and
+				// the call and the session simply fail.
+				known := got[0] != "ok" && p.name != "engine-owned process"
+				for _, class := range c.wantC {
+					known = known || got[0] == class
+				}
+				if !known || got[1] != string(plugin.StateFailed) {
+					t.Errorf("%s: engine %v for %s, want one of %v and the failed state", p.name, got, c.explains, c.wantC)
+				}
 			}
 		})
 	}

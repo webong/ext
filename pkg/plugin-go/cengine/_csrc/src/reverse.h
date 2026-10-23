@@ -49,4 +49,7 @@ char *ext_reverse_failure(const char *id, size_t id_len, size_t *len);
 char *ext_reverse_answer(const char *id, size_t id_len, uint32_t kind,
                          const uint8_t *data, size_t n, size_t max_payload,
                          size_t *len);
+/* Makes c read as signaled whenever parent is, too. Call it before anything polls
+ * c; parent must outlive that use. */
+void ext_cancel_link(ext_cancel *c, const ext_cancel *parent);
 #endif

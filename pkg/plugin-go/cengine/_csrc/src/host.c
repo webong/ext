@@ -57,10 +57,10 @@ struct ext_host {
   int serving; /* the handshake matched; reverse calls may be served */
   pthread_t reader;
   int reader_started;
-  pending_call *pending; /* the call in flight */
-  int delivering;        /* the reader is passing progress to pending's sink */
+  pending_call *calls;   /* the calls in flight, newest first */
+  int frames;            /* an extension backend that hands the engine its frames */
   ext_status reader_failure; /* why the reader stopped, when nothing closed us */
-  unsigned reverses, call_reverses; /* reverse calls running; call scoped */
+  unsigned reverses; /* reverse calls admitted and not yet finished */
   reverse_worker *workers;          /* running */
   reverse_worker *finished;         /* done, waiting to be joined */
 };
@@ -217,7 +217,8 @@ ext_status ext_host_create(const ext_host_options *o,
       return EXT_INVALID;
     extension = b->config;
     if (extension->struct_size != sizeof(*extension) ||
-        (extension->flags & ~EXT_BACKEND_CONCURRENT) || !extension->connect ||
+        (extension->flags & ~(EXT_BACKEND_CONCURRENT | EXT_BACKEND_FRAMES)) ||
+        !extension->connect ||
         !extension->invoke || !extension->close || !extension->release)
       return EXT_INVALID;
   } else if (b->kind == EXT_BACKEND_EXTENSION_CONTEXT) {
@@ -225,7 +226,8 @@ ext_status ext_host_create(const ext_host_options *o,
       return EXT_INVALID;
     extension_context = b->config;
     if (extension_context->struct_size != sizeof(*extension_context) ||
-        (extension_context->flags & ~EXT_BACKEND_CONCURRENT) ||
+        (extension_context->flags &
+         ~(EXT_BACKEND_CONCURRENT | EXT_BACKEND_FRAMES)) ||
         !extension_context->connect || !extension_context->invoke ||
         !extension_context->close || !extension_context->release)
       return EXT_INVALID;
@@ -238,10 +240,12 @@ ext_status ext_host_create(const ext_host_options *o,
     return EXT_INVALID;
   }
   /* Fail closed rather than run a plugin without the frames it declared. A host
-   * that owns the child's pipes carries progress frames and call-scoped reverse
-   * requests; an extension backend hands the engine one response at a time, so
-   * it carries neither. */
-  if ((extension || extension_context) &&
+   * that owns the child's pipes carries them; an extension backend hands the
+   * engine one response at a time unless it says it hands over its frames too. */
+  int frames = (extension && (extension->flags & EXT_BACKEND_FRAMES)) ||
+               (extension_context &&
+                (extension_context->flags & EXT_BACKEND_FRAMES));
+  if ((extension || extension_context) && !frames &&
       (ext_descriptor_declares_reverse(yyjson_doc_get_root(d)) ||
        ext_descriptor_declares_progress(yyjson_doc_get_root(d)))) {
     yyjson_doc_free(d);
@@ -299,6 +303,7 @@ ext_status ext_host_create(const ext_host_options *o,
   h->descriptor_len = o->descriptor_len;
   h->selection = d;
   h->threaded = process && ext_descriptor_declares_reverse(yyjson_doc_get_root(d));
+  h->frames = frames;
   h->verify = o->verify;
   h->authorize = o->authorize;
   h->user = o->user;
@@ -362,11 +367,12 @@ ext_status ext_host_set_services(ext_host *h, const ext_host_services *s) {
       s->max_in_flight > EXT_REVERSE_MAX_IN_FLIGHT)
     return EXT_INVALID;
   pthread_mutex_lock(&h->mu);
-  ext_status status = (h->state == EXT_HOST_CREATED && !h->active &&
-                       !h->started && !h->extension.connect &&
-                       !h->extension_context.connect)
-                          ? EXT_OK
-                          : EXT_INVALID;
+  ext_status status =
+      (h->state == EXT_HOST_CREATED && !h->active && !h->started &&
+       (h->frames ||
+        (!h->extension.connect && !h->extension_context.connect)))
+          ? EXT_OK
+          : EXT_INVALID;
   if (!status) {
     h->services = *s;
     if (!h->services.timeout_ms)
@@ -427,9 +433,9 @@ static void observe_event(ext_host *h, const ext_call_options *options,
   free(data);
   yyjson_mut_doc_free(doc);
 }
-/* Signals the cancel of the running reverse calls, only the call-scoped ones if
- * call_scoped_only; the caller holds h->mu. */
-static void cancel_workers(ext_host *h, int call_scoped_only);
+/* Signals the cancel of the running reverse calls: those of one call, or all of
+ * them when call is NULL; the caller holds h->mu. */
+static void cancel_workers(ext_host *h, const pending_call *call);
 void ext_host_close(ext_host *h) {
   if (!h)
     return;
@@ -442,7 +448,7 @@ void ext_host_close(ext_host *h) {
     notify = 1;
     if (h->channel)
       ext_channel_kill(h->channel);
-    cancel_workers(h, 0);
+    cancel_workers(h, NULL);
     pthread_cond_broadcast(&h->changed);
   }
   pthread_mutex_unlock(&h->mu);
@@ -641,7 +647,9 @@ static ext_status extension_call(ext_host *h, const uint8_t *data, size_t len,
              : h->extension.connect(h->extension.user, (uint32_t)remaining,
                                     emit_result, &sink);
   }
-  if (s < EXT_OK || s > EXT_CANCELED)
+  /* A backend that hands over its frames reports the violation the engine found
+   * in them, so the session fails with the same status. */
+  if (s < EXT_OK || (s > EXT_CANCELED && !(h->frames && s == EXT_PROTOCOL)))
     s = EXT_INVALID;
   if (!s)
     s = sink.status ? sink.status : sink.emitted == 1 ? EXT_OK : EXT_INVALID;
@@ -840,11 +848,8 @@ static ext_status admit_reverse(ext_host *h, const ext_reverse_request *r,
     *refusal = EXT_REVERSE_EXPIRED;
   else if (h->reverses >= h->services.max_in_flight)
     *refusal = EXT_REVERSE_BUSY;
-  else {
+  else
     h->reverses++;
-    if (r->parent)
-      h->call_reverses++;
-  }
   return EXT_OK;
 }
 /* Answers a request with a refusal. */
@@ -873,12 +878,14 @@ struct reverse_worker {
   size_t json_len;
   int64_t plugin_deadline_ms; /* wall clock */
   int call_scoped;
+  pending_call *call;    /* the call it belongs to, when call scoped */
+  int threaded;          /* it runs on a thread of its own; else the backend's */
   void *value;           /* the options' value for the hooks */
   int64_t call_deadline; /* monotonic; call scoped */
 };
-static void cancel_workers(ext_host *h, int call_scoped_only) {
+static void cancel_workers(ext_host *h, const pending_call *call) {
   for (reverse_worker *w = h->workers; w; w = w->next)
-    if (w->call_scoped || !call_scoped_only)
+    if (!call || w->call == call)
       ext_cancel_signal(w->cancel);
 }
 static void destroy_worker(reverse_worker *w) {
@@ -917,28 +924,77 @@ static void reap_workers(ext_host *h) {
 static reverse_worker *new_worker(ext_host *h, const ext_reverse_request *r,
                                   const pending_call *call);
 
-static void *worker_main(void *arg) {
-  reverse_worker *w = arg;
+/* The call in flight, as the reader thread sees it. Its fields are guarded by
+ * h->mu; the caller waits on h->changed until done. */
+struct pending_call {
+  const char *id;
+  int declared; /* the request carried a progress rate */
+  ext_progress_sink *sink;
+  const ext_call_options *options;
+  int64_t deadline; /* monotonic */
+  int done;
+  uint8_t *response;
+  size_t response_len;
+  yyjson_doc *doc;
+  pending_call *next;
+  unsigned reverses; /* its reverse requests that have not finished */
+  unsigned users;    /* threads handing it frames (they keep it alive) */
+  int busy;          /* one of them is passing progress to the sink */
+};
+/* The calls in flight are on a list under h->mu: one for a process the engine
+ * reads, any number on a concurrent backend. */
+static pending_call *find_call(ext_host *h, const char *id, size_t len) {
+  for (pending_call *c = h->calls; c; c = c->next)
+    if (strlen(c->id) == len && !memcmp(c->id, id, len))
+      return c;
+  return NULL;
+}
+static void link_call(ext_host *h, pending_call *c) {
+  c->next = h->calls;
+  h->calls = c;
+}
+static void unlink_call(ext_host *h, pending_call *c) {
+  for (pending_call **at = &h->calls; *at; at = &(*at)->next)
+    if (*at == c) {
+      *at = c->next;
+      return;
+    }
+}
+
+/* Takes a call off the list and waits for everything that holds it: the threads
+ * handing it frames, and the hooks of its reverse requests, which are told to
+ * stop. The caller holds h->mu. */
+static void end_call(ext_host *h, pending_call *call) {
+  unlink_call(h, call);
+  cancel_workers(h, call);
+  while (call->users || call->reverses)
+    pthread_cond_wait(&h->changed, &h->mu);
+}
+/* Runs the hooks of an admitted request and returns the reverse_response line
+ * for the plugin, or NULL when memory ran out. *until is the reverse deadline on
+ * the monotonic clock. The line is the engine's whole contribution to the
+ * answer; writing it is the caller's. */
+static char *reverse_line(reverse_worker *w, size_t *len, int64_t *until) {
   ext_host *h = w->host;
   const ext_host_services *services = &h->services;
   ext_call_options options = {sizeof(options), 1, w->cancel, w->value};
   reverse_sink sink = {0};
-  size_t len = 0;
   char *line = NULL;
   /* The reverse deadline is the earliest of the plugin's, the call's (call
    * scoped) and the services' own bound. */
   int64_t now = mono_ms();
-  int64_t until = earliest(w->plugin_deadline_ms - ext_wall_ms(),
-                           (int64_t)services->timeout_ms);
+  int64_t left = earliest(w->plugin_deadline_ms - ext_wall_ms(),
+                          (int64_t)services->timeout_ms);
   if (w->call_scoped)
-    until = earliest(until, w->call_deadline - now);
-  int64_t reverse_deadline = now + until;
-  options.timeout_ms = until > 0 ? (uint32_t)earliest(until, UINT32_MAX) : 1;
+    left = earliest(left, w->call_deadline - now);
+  int64_t reverse_deadline = now + left;
+  *until = reverse_deadline;
+  options.timeout_ms = left > 0 ? (uint32_t)earliest(left, UINT32_MAX) : 1;
   if (services->authorize(services->user, &options, (const uint8_t *)w->json,
                           w->json_len)) {
-    line = ext_reverse_refusal(w->id, w->id_len, EXT_REVERSE_DENIED, &len);
+    line = ext_reverse_refusal(w->id, w->id_len, EXT_REVERSE_DENIED, len);
   } else if (canceled(&options) || mono_ms() >= reverse_deadline) {
-    line = ext_reverse_refusal(w->id, w->id_len, EXT_REVERSE_EXPIRED, &len);
+    line = ext_reverse_refusal(w->id, w->id_len, EXT_REVERSE_EXPIRED, len);
   } else {
     options.timeout_ms =
         (uint32_t)earliest(reverse_deadline - mono_ms(), UINT32_MAX);
@@ -946,16 +1002,44 @@ static void *worker_main(void *arg) {
         services->handle(services->user, &options, (const uint8_t *)w->json,
                          w->json_len, emit_reverse, &sink);
     if (s || sink.emitted != 1) {
-      line = ext_reverse_failure(w->id, w->id_len, &len);
+      line = ext_reverse_failure(w->id, w->id_len, len);
     } else if (sink.kind != EXT_HOST_REVERSE_PUBLIC_ERROR &&
                (canceled(&options) || mono_ms() >= reverse_deadline)) {
       /* A result that outlived its deadline is not one the plugin may use. */
-      line = ext_reverse_failure(w->id, w->id_len, &len);
+      line = ext_reverse_failure(w->id, w->id_len, len);
     } else {
       line = ext_reverse_answer(w->id, w->id_len, sink.kind, sink.data,
-                                sink.len, services->max_payload_bytes, &len);
+                                sink.len, services->max_payload_bytes, len);
     }
   }
+  free(sink.data);
+  return line;
+}
+/* Ends an admitted request: it no longer counts, and its call no longer waits for
+ * it. A request on a thread of its own is left for the reader to join; one that
+ * ran on the backend's thread is freed here. */
+static void finish_worker(reverse_worker *w) {
+  ext_host *h = w->host;
+  pthread_mutex_lock(&h->mu);
+  unlink_worker(h, w);
+  if (w->threaded) {
+    w->next = h->finished;
+    h->finished = w;
+  }
+  h->reverses--;
+  if (w->call)
+    w->call->reverses--;
+  pthread_cond_broadcast(&h->changed);
+  pthread_mutex_unlock(&h->mu);
+  if (!w->threaded)
+    destroy_worker(w);
+}
+static void *worker_main(void *arg) {
+  reverse_worker *w = arg;
+  ext_host *h = w->host;
+  size_t len = 0;
+  int64_t reverse_deadline;
+  char *line = reverse_line(w, &len, &reverse_deadline);
   if (line) {
     /* A frame is written whole or the session is ended: cancellation must not
      * cut one short, so the write ignores the signal and is bounded by the call
@@ -969,16 +1053,7 @@ static void *worker_main(void *arg) {
       fail(h);
   }
   free(line);
-  free(sink.data);
-  pthread_mutex_lock(&h->mu);
-  unlink_worker(h, w);
-  w->next = h->finished;
-  h->finished = w;
-  h->reverses--;
-  if (w->call_scoped)
-    h->call_reverses--;
-  pthread_cond_broadcast(&h->changed);
-  pthread_mutex_unlock(&h->mu);
+  finish_worker(w);
   return NULL;
 }
 /* Routes a reverse_request when no thread can run the hooks: during the
@@ -1001,8 +1076,6 @@ static ext_status serve_reverse(const frame_call *call, yyjson_val *frame) {
     /* Unreachable: only a plugin with declared reverse operations is admitted,
      * and its reader thread serves it. Do not run it here. */
     h->reverses--;
-    if (request.parent)
-      h->call_reverses--;
     refusal = EXT_REVERSE_UNAVAILABLE;
   }
   pthread_mutex_unlock(&h->mu);
@@ -1010,20 +1083,6 @@ static ext_status serve_reverse(const frame_call *call, yyjson_val *frame) {
     return s;
   return refuse_reverse(h, &request, refusal, call->deadline, call->options);
 }
-
-/* The call in flight, as the reader thread sees it. Its fields are guarded by
- * h->mu; the caller waits on h->changed until done. */
-struct pending_call {
-  const char *id;
-  int declared; /* the request carried a progress rate */
-  ext_progress_sink *sink;
-  const ext_call_options *options;
-  int64_t deadline; /* monotonic */
-  int done;
-  uint8_t *response;
-  size_t response_len;
-  yyjson_doc *doc;
-};
 
 static reverse_worker *new_worker(ext_host *h, const ext_reverse_request *r,
                                   const pending_call *call) {
@@ -1042,6 +1101,8 @@ static reverse_worker *new_worker(ext_host *h, const ext_reverse_request *r,
   w->plugin_deadline_ms = r->deadline_ms;
   if (r->parent) {
     w->call_scoped = 1;
+    w->call = (pending_call *)call;
+    w->call->reverses++;
     w->value = call->options->value;
     w->call_deadline = call->deadline;
   } else {
@@ -1188,18 +1249,17 @@ static ext_status exchange(ext_host *h, const uint8_t *p, size_t n,
 
 /* ---- the reader thread ---- */
 
-/* The response to the call in flight. Takes the parsed line on success. */
+/* The response to the call it names. Takes the parsed line on success. */
 static ext_status reader_response(ext_host *h, yyjson_doc *doc,
                                   const uint8_t *line, size_t len) {
-  yyjson_val *root = yyjson_doc_get_root(doc);
+  yyjson_val *root = yyjson_doc_get_root(doc), *id = yyjson_obj_get(root, "id");
   ext_status s = EXT_OK;
   pthread_mutex_lock(&h->mu);
-  pending_call *call = h->pending;
+  pending_call *call =
+      yyjson_is_str(id) ? find_call(h, yyjson_get_str(id), yyjson_get_len(id))
+                        : NULL;
   if (!call || call->done)
     s = EXT_PROTOCOL; /* a response to no call in flight */
-  else if (ext_response(root, call->id) == EXT_MISMATCH &&
-           !yyjson_equals_str(yyjson_obj_get(root, "id"), call->id))
-    s = EXT_PROTOCOL;
   else if (!(call->response = malloc(len ? len : 1)))
     s = EXT_NOMEM;
   else {
@@ -1212,70 +1272,131 @@ static ext_status reader_response(ext_host *h, yyjson_doc *doc,
   pthread_mutex_unlock(&h->mu);
   return s;
 }
-/* A progress event of the call in flight, passed to its sink outside the lock;
- * the caller does not return until delivering is cleared. */
-static ext_status reader_progress(ext_host *h, yyjson_val *frame) {
+/* A progress event of a call in flight, passed to its sink outside the lock. The
+ * call does not end while a thread is handing it frames, and events reach the sink
+ * one at a time. */
+static ext_status progress_frame(ext_host *h, yyjson_val *frame,
+                                 int *delivered) {
   ext_progress_event event;
   yyjson_val *parent;
+  if (delivered)
+    *delivered = 0;
   ext_status s = ext_progress_frame(frame, &event, &parent);
   if (s)
     return s;
   pthread_mutex_lock(&h->mu);
-  pending_call *call = h->pending;
-  if (!call || !call->declared || !yyjson_equals_str(parent, call->id)) {
+  pending_call *call =
+      find_call(h, yyjson_get_str(parent), yyjson_get_len(parent));
+  if (!call || !call->declared) {
     pthread_mutex_unlock(&h->mu);
     return EXT_PROTOCOL;
   }
-  ext_progress_sink *sink = call->sink;
-  h->delivering = 1;
+  call->users++;
+  while (call->busy)
+    pthread_cond_wait(&h->changed, &h->mu);
+  call->busy = 1;
   pthread_mutex_unlock(&h->mu);
-  s = ext_progress_sink_deliver(sink, &event);
+  s = ext_progress_sink_report(call->sink, &event, delivered);
   pthread_mutex_lock(&h->mu);
-  h->delivering = 0;
+  call->busy = 0;
+  call->users--;
   pthread_cond_broadcast(&h->changed);
   pthread_mutex_unlock(&h->mu);
   return s;
 }
-/* A reverse request: refused here, or handed to a worker thread. */
-static ext_status reader_reverse(ext_host *h, yyjson_val *frame) {
+/* Validates and admits one reverse request. On EXT_OK either *refusal is the line
+ * that answers it, or *worker is the admitted request with the Request its hooks
+ * receive built. EXT_PROTOCOL for a request that breaks the framing rules.
+ * write_deadline, when not NULL, is how long an answer may take to write. */
+static ext_status reverse_admit(ext_host *h, yyjson_val *frame,
+                                reverse_worker **worker, char **refusal,
+                                size_t *refusal_len, int64_t *write_deadline) {
   ext_reverse_request request;
+  *worker = NULL;
+  *refusal = NULL;
   ext_status s = ext_reverse_request_frame(frame, &request);
   if (s)
     return s;
   size_t payload_len = payload_size(&request);
-  const char *refusal;
+  const char *code;
   yyjson_val *declared;
   reverse_worker *w = NULL;
-  ext_call_options plain = {sizeof(plain), 1, NULL, NULL};
-  int64_t write_deadline = mono_ms() + 30000;
+  if (write_deadline)
+    *write_deadline = mono_ms() + 30000;
   pthread_mutex_lock(&h->mu);
-  pending_call *call = h->pending;
-  s = admit_reverse(h, &request, payload_len, call ? call->id : NULL, &refusal,
+  pending_call *call = request.parent
+                           ? find_call(h, yyjson_get_str(request.parent),
+                                       yyjson_get_len(request.parent))
+                           : NULL;
+  s = admit_reverse(h, &request, payload_len, call ? call->id : NULL, &code,
                     &declared);
-  if (!s && request.parent && call)
-    write_deadline = call->deadline;
-  if (!s && !refusal && !(w = new_worker(h, &request, call))) {
+  if (!s && write_deadline && call)
+    *write_deadline = call->deadline;
+  if (!s && !code && !(w = new_worker(h, &request, call))) {
     h->reverses--;
-    if (request.parent)
-      h->call_reverses--;
-    refusal = EXT_REVERSE_BUSY;
+    code = EXT_REVERSE_BUSY;
   }
   pthread_mutex_unlock(&h->mu);
   if (s)
     return s;
-  if (refusal)
-    return refuse_reverse(h, &request, refusal, write_deadline, &plain);
-  w->json = reverse_request_json(h, &request, declared, &w->json_len);
-  if (!w->json || pthread_create(&w->thread, NULL, worker_main, w)) {
+  if (!code) {
+    w->json = reverse_request_json(h, &request, declared, &w->json_len);
+    if (w->json)
+      *worker = w;
+    else {
+      pthread_mutex_lock(&h->mu);
+      unlink_worker(h, w);
+      h->reverses--;
+      if (w->call)
+        w->call->reverses--;
+      pthread_cond_broadcast(&h->changed);
+      pthread_mutex_unlock(&h->mu);
+      destroy_worker(w);
+      code = EXT_REVERSE_BUSY;
+    }
+  }
+  if (code) {
+    *refusal = ext_reverse_refusal(yyjson_get_str(request.id),
+                                   yyjson_get_len(request.id), code,
+                                   refusal_len);
+    if (!*refusal)
+      return EXT_NOMEM;
+  }
+  return EXT_OK;
+}
+/* A reverse request from the reader: refused here, or handed to a thread. */
+static ext_status reader_reverse(ext_host *h, yyjson_val *frame) {
+  reverse_worker *w;
+  char *refusal;
+  size_t len = 0;
+  int64_t write_deadline;
+  ext_call_options plain = {sizeof(plain), 1, NULL, NULL};
+  ext_status s = reverse_admit(h, frame, &w, &refusal, &len, &write_deadline);
+  if (s)
+    return s;
+  if (refusal) {
+    s = write_frame(h, (const uint8_t *)refusal, len, write_deadline, &plain);
+    free(refusal);
+    return s;
+  }
+  w->threaded = 1;
+  if (pthread_create(&w->thread, NULL, worker_main, w)) {
+    w->threaded = 0;
     pthread_mutex_lock(&h->mu);
     unlink_worker(h, w);
     h->reverses--;
-    if (w->call_scoped)
-      h->call_reverses--;
+    if (w->call)
+      w->call->reverses--;
     pthread_cond_broadcast(&h->changed);
     pthread_mutex_unlock(&h->mu);
+    /* The plugin's id is still in the worker: answer busy before freeing it. */
+    char *line = ext_reverse_refusal(w->id, w->id_len, EXT_REVERSE_BUSY, &len);
     destroy_worker(w);
-    return refuse_reverse(h, &request, EXT_REVERSE_BUSY, write_deadline, &plain);
+    if (!line)
+      return EXT_NOMEM;
+    s = write_frame(h, (const uint8_t *)line, len, write_deadline, &plain);
+    free(line);
+    return s;
   }
   return EXT_OK;
 }
@@ -1295,7 +1416,7 @@ static ext_status reader_line(ext_host *h, const uint8_t *line, size_t len) {
   } else if (!yyjson_is_str(tag)) {
     s = EXT_PROTOCOL;
   } else if (yyjson_equals_str(tag, "progress")) {
-    s = reader_progress(h, root);
+    s = progress_frame(h, root, NULL);
   } else if (yyjson_equals_str(tag, "reverse_request")) {
     s = reader_reverse(h, root);
   } else {
@@ -1375,7 +1496,7 @@ static void *reader_main(void *arg) {
    * call in flight, if any, reports why, and a later call finds the host closed. */
   pthread_mutex_lock(&h->mu);
   int ended = failure != EXT_CLOSED && !h->closed;
-  if (ended && h->pending && !h->reader_failure)
+  if (ended && h->calls && !h->reader_failure)
     h->reader_failure = failure;
   pthread_cond_broadcast(&h->changed);
   pthread_mutex_unlock(&h->mu);
@@ -1405,15 +1526,19 @@ static ext_status exchange_threaded(ext_host *h, const uint8_t *p, size_t n,
                                     const ext_call_options *o,
                                     const frame_call *call, ext_buffer *out,
                                     yyjson_doc **parsed) {
-  pending_call pending = {call->id, call->declared, call->sink, o, deadline,
-                          0,        NULL,           0,          NULL};
+  pending_call pending = {0};
+  pending.id = call->id;
+  pending.declared = call->declared;
+  pending.sink = call->sink;
+  pending.options = o;
+  pending.deadline = deadline;
   *parsed = NULL;
   pthread_mutex_lock(&h->mu);
   ext_status s = h->reader_failure ? h->reader_failure
                  : h->closed       ? EXT_CLOSED
                                    : EXT_OK;
   if (!s)
-    h->pending = &pending;
+    link_call(h, &pending);
   pthread_mutex_unlock(&h->mu);
   if (s)
     return s;
@@ -1433,12 +1558,7 @@ static ext_status exchange_threaded(ext_host *h, const uint8_t *p, size_t n,
   }
   if (!s && !pending.done)
     s = h->reader_failure ? h->reader_failure : EXT_CLOSED;
-  h->pending = NULL;
-  while (h->delivering)
-    pthread_cond_wait(&h->changed, &h->mu);
-  cancel_workers(h, 1);
-  while (h->call_reverses)
-    pthread_cond_wait(&h->changed, &h->mu);
+  end_call(h, &pending);
   pthread_mutex_unlock(&h->mu);
   reap_workers(h);
   if (!s) {
@@ -1673,7 +1793,22 @@ static ext_status invoke_impl(ext_host *h, const uint8_t *input, size_t len,
     goto done;
   }
   yyjson_doc *response = NULL;
-  s = (h->extension.invoke || h->extension_context.invoke)
+  int extension_backend = h->extension.invoke || h->extension_context.invoke;
+  /* A backend that hands over its frames names this call in them: it is on the
+   * list for as long as the backend runs, and ends only when every thread that
+   * was handing it frames, and every hook of its requests, has finished. */
+  pending_call registered = {0};
+  if (extension_backend && h->frames) {
+    registered.id = call.id;
+    registered.declared = declared;
+    registered.sink = &sink;
+    registered.options = o;
+    registered.deadline = deadline;
+    pthread_mutex_lock(&h->mu);
+    link_call(h, &registered);
+    pthread_mutex_unlock(&h->mu);
+  }
+  s = extension_backend
           ? extension_call(h, (const uint8_t *)compact, compact_len, deadline,
                            o, out)
       : h->threaded
@@ -1682,6 +1817,11 @@ static ext_status invoke_impl(ext_host *h, const uint8_t *input, size_t len,
           : exchange(h, (const uint8_t *)compact, compact_len, deadline, o,
                      &call, 0, out, &response);
   free(compact);
+  if (extension_backend && h->frames) {
+    pthread_mutex_lock(&h->mu);
+    end_call(h, &registered);
+    pthread_mutex_unlock(&h->mu);
+  }
   if (!s) {
     if (!response)
       response = ext_parse(out->data, out->len);
@@ -1846,4 +1986,70 @@ ext_status ext_host_call_progress(ext_host *h, const uint8_t *input, size_t len,
                                   const ext_progress_options *progress,
                                   ext_buffer *out) {
   return call_impl(h, input, len, options, progress, out);
+}
+
+/* ---- frames from an extension backend ---- */
+
+ext_status ext_host_backend_progress(ext_host *h, const uint8_t *frame,
+                                     size_t len, int *delivered) {
+  if (delivered)
+    *delivered = 0;
+  if (!h || !h->frames || !frame)
+    return EXT_INVALID;
+  yyjson_doc *doc = ext_parse(frame, len);
+  if (!doc)
+    return EXT_PROTOCOL;
+  ext_status s = progress_frame(h, yyjson_doc_get_root(doc), delivered);
+  yyjson_doc_free(doc);
+  return s;
+}
+ext_status ext_host_backend_reverse_admit(ext_host *h, const uint8_t *frame,
+                                          size_t len,
+                                          ext_reverse_ticket **ticket,
+                                          ext_buffer *answer) {
+  if (!ticket || !answer)
+    return EXT_INVALID;
+  *ticket = NULL;
+  *answer = (ext_buffer){0};
+  if (!h || !h->frames || !frame)
+    return EXT_INVALID;
+  yyjson_doc *doc = ext_parse(frame, len);
+  if (!doc)
+    return EXT_PROTOCOL;
+  reverse_worker *w;
+  char *refusal;
+  size_t refusal_len = 0;
+  ext_status s = reverse_admit(h, yyjson_doc_get_root(doc), &w, &refusal,
+                               &refusal_len, NULL);
+  yyjson_doc_free(doc);
+  if (s)
+    return s;
+  if (refusal) {
+    answer->data = (uint8_t *)refusal;
+    answer->len = refusal_len;
+  } else {
+    *ticket = (ext_reverse_ticket *)w;
+  }
+  return EXT_OK;
+}
+ext_status ext_host_backend_reverse_run(ext_host *h, ext_reverse_ticket *ticket,
+                                        const ext_cancel *caller,
+                                        ext_buffer *answer) {
+  if (!answer)
+    return EXT_INVALID;
+  *answer = (ext_buffer){0};
+  reverse_worker *w = (reverse_worker *)ticket;
+  if (!h || !w || w->host != h)
+    return EXT_INVALID;
+  /* The caller's own signal ends the hooks early, as the engine's does. */
+  ext_cancel_link(w->cancel, caller);
+  size_t len = 0;
+  int64_t until;
+  char *line = reverse_line(w, &len, &until);
+  finish_worker(w);
+  if (!line)
+    return EXT_NOMEM;
+  answer->data = (uint8_t *)line;
+  answer->len = len;
+  return EXT_OK;
 }

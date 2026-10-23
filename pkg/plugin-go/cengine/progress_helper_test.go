@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -29,6 +30,7 @@ func progressDescriptor() plugin.Descriptor {
 		Contracts: []plugin.Contract{{ContractRef: progressRef, Operations: []plugin.Operation{
 			{Name: "plain"}, {Name: "stream", Progress: true}, {Name: "flood", Progress: true},
 			{Name: "fail", Progress: true}, {Name: "limits", Progress: true}, {Name: "plainlimits"},
+			{Name: "flooddrops", Progress: true},
 		}}},
 	}
 }
@@ -47,7 +49,20 @@ func runProgressGuest(mode string) int {
 	if strings.HasPrefix(mode, "raw:") {
 		return runRawGuest(strings.TrimPrefix(mode, "raw:"))
 	}
-	guest, err := plugin.NewGuest(progressDescriptor(), plugin.GuestOptions{Handler: func(ctx context.Context, r plugin.Request) (json.RawMessage, error) {
+	guest, err := newProgressGuest()
+	if err != nil {
+		return 2
+	}
+	if err := jsonline.ServeStdio(context.Background(), guest); err != nil {
+		return 1
+	}
+	return 0
+}
+
+// newProgressGuest is the Go guest that reports progress through
+// plugin.ProgressFrom. It serves a child process or the host's own.
+func newProgressGuest() (*plugin.Guest, error) {
+	return plugin.NewGuest(progressDescriptor(), plugin.GuestOptions{Handler: func(ctx context.Context, r plugin.Request) (json.RawMessage, error) {
 		report := plugin.ProgressFrom(ctx)
 		done := json.RawMessage(`{"done":true}`)
 		switch r.Operation {
@@ -59,6 +74,15 @@ func runProgressGuest(mode string) int {
 			for i := 0; i < 300; i++ {
 				_ = report.Report(plugin.Progress{Kind: "log", Text: "x"})
 			}
+		case "flooddrops":
+			// What the plugin is told about its own events: a dropped one is an error.
+			drops := 0
+			for i := 0; i < 300; i++ {
+				if errors.Is(report.Report(plugin.Progress{Kind: "log", Text: "x"}), plugin.ErrProgressDropped) {
+					drops++
+				}
+			}
+			return json.Marshal(map[string]int{"drops": drops})
 		case "fail":
 			_ = report.Report(plugin.Progress{Kind: "log", Text: "before"})
 			return nil, &plugin.RemoteError{Code: "busy", Message: "try later"}
@@ -68,13 +92,6 @@ func runProgressGuest(mode string) int {
 		}
 		return done, nil
 	}})
-	if err != nil {
-		return 2
-	}
-	if err := jsonline.ServeStdio(context.Background(), guest); err != nil {
-		return 1
-	}
-	return 0
 }
 
 // runRawGuest answers the handshake, then answers every call with the frames

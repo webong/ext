@@ -242,8 +242,8 @@ func goCall(op string) string {
 	return `{"op":"` + op + `","payload":{"n":1}}`
 }
 
-func TestReverseCallsMatchGo(t *testing.T) {
-	cases := []reverseCase{
+func reverseCases() []reverseCase {
+	return []reverseCase{
 		// A Go guest calling through plugin.ReverseFrom.
 		{name: "answer", mode: "rev-go", payload: goCall("sign"), want: `"result":"signed"`},
 		{name: "empty payload is null", mode: "rev-go", payload: goCall("empty"), want: `"result":null`},
@@ -279,7 +279,10 @@ func TestReverseCallsMatchGo(t *testing.T) {
 		{name: "operation is not an identifier", mode: "rev-raw:bad-operation", payload: `{}`, want: "protocol,"},
 		{name: "call before the handshake", mode: "rev-raw:pre-handshake", payload: `{}`, want: "protocol,"},
 	}
-	for _, c := range cases {
+}
+
+func TestReverseCallsMatchGo(t *testing.T) {
+	for _, c := range reverseCases() {
 		t.Run(c.name, func(t *testing.T) {
 			want := c.run(t, openGoReverse)
 			got := c.run(t, openCReverse)
@@ -289,6 +292,40 @@ func TestReverseCallsMatchGo(t *testing.T) {
 			// Both engines could be wrong in the same way: pin the answer.
 			if text := want.Result + want.Err + want.Open; !strings.Contains(text, c.want) {
 				t.Errorf("the Go session answered %+v, want %q", want, c.want)
+			}
+		})
+	}
+}
+
+// The same plugins over a Go backend: the engine decides, the backend carries.
+func TestBackendReverseCallsMatchGo(t *testing.T) {
+	for _, c := range reverseCases() {
+		t.Run(c.name, func(t *testing.T) {
+			want := c.run(t, openGoReverse)
+			got := c.run(t, openCBackendReverse)
+			if !reflect.DeepEqual(got, want) {
+				t.Errorf("engine over a backend and Go session disagree\n  C:  %+v\n  Go: %+v", got, want)
+			}
+		})
+	}
+}
+
+// A plugin in the host's own process, which calls the services directly.
+func TestInProcessReverseCallsMatchGo(t *testing.T) {
+	for _, c := range reverseCases() {
+		if c.mode != "rev-go" {
+			continue // a hand-made frame needs a process
+		}
+		t.Run(c.name, func(t *testing.T) {
+			open := func(openIn openIn) func(*testing.T, string, *plugin.ReverseOptions) (reverseSession, error) {
+				return func(t *testing.T, mode string, reverse *plugin.ReverseOptions) (reverseSession, error) {
+					return openIn(t, context.Background(), mode, reverse)
+				}
+			}
+			want := c.run(t, open(openGoInProcessReverseIn))
+			got := c.run(t, open(openCInProcessReverseIn))
+			if !reflect.DeepEqual(got, want) {
+				t.Errorf("engine and Go session disagree\n  C:  %+v\n  Go: %+v", got, want)
 			}
 		})
 	}
@@ -340,28 +377,17 @@ func TestReverseOptionsMatchGo(t *testing.T) {
 		"very long timeout":      mutate(func(o *plugin.ReverseOptions) { o.Timeout = 1000 * time.Hour }),
 	} {
 		t.Run(name, func(t *testing.T) {
-			var classes [2]string
-			for i, open := range []func(*testing.T, string, *plugin.ReverseOptions) (reverseSession, error){openGoReverse, openCReverse} {
+			var classes [3]string
+			for i, open := range []func(*testing.T, string, *plugin.ReverseOptions) (reverseSession, error){openGoReverse, openCReverse, openCBackendReverse} {
 				s, err := open(t, "rev-go", o)
 				if err == nil {
 					_ = s.Abort()
 				}
 				classes[i] = causes(err)
 			}
-			if classes[0] != classes[1] {
-				t.Errorf("Go session %q, C engine %q", classes[0], classes[1])
+			if classes[0] != classes[1] || classes[0] != classes[2] {
+				t.Errorf("Go session %q, C engine %q, C engine over a backend %q", classes[0], classes[1], classes[2])
 			}
 		})
-	}
-}
-
-// An extension backend hands the engine one response at a time and carries no
-// reverse frames, so a session over one still refuses the services.
-func TestReverseOverExtensionBackendIsRefused(t *testing.T) {
-	d := testDescriptor()
-	options := referenceOptions(&testBackend{d: d})
-	options.Reverse = (&recorder{}).options(0, 0)
-	if _, err := Open(context.Background(), d, options); !errors.Is(err, plugin.ErrUnsupported) {
-		t.Fatalf("Open with Reverse: %v", err)
 	}
 }

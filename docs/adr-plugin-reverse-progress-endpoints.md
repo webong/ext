@@ -276,8 +276,8 @@ never reported. A violation fails the session with `EXT_PROTOCOL`, which the Go
 facade reports as `plugin.ErrProtocol`; an untagged line the strict parser refuses
 is classed as the Go client classes it (not JSON or not an object: a violation; a
 duplicate key or unknown field: an invalid response; a response naming another
-call: a violation). An extension backend still refuses a descriptor that declares
-progress, and reverse requests are not carried.
+call: a violation). An extension backend carries them from stage 6; before that it
+refused a descriptor that declared progress.
 
 **Call-scoped reverse calls in the C engine (c-parity, stage 3).** The same read
 loop serves a `reverse_request` that names the call in flight. Admission runs in
@@ -322,6 +322,28 @@ stays in Go. `testdata/v1/endpoint-cases.json` is the shared statement of the
 outcomes. The engine follows the rules of `net.SplitHostPort` and `net.ParseIP`
 exactly for the loopback test, and reads times as RFC 3339 only, where Go's lenient
 parser also accepts a few other spellings.
+
+**Extension backends in the C engine (c-parity, stage 6).** A backend that owns its
+own transport (`Open` with `Connect`: the in-process, JSON-line, HashiCorp, WASI and
+native Go backends) reads its plugin's frames itself, so it hands them to the engine
+instead of the engine reading them. A host created with `EXT_BACKEND_FRAMES` takes a
+progress frame with `ext_host_backend_progress` and a reverse request in two steps:
+`ext_host_backend_reverse_admit` refuses it with the stable code, or returns a ticket
+that `ext_host_backend_reverse_run` executes on any thread (a reader is never held
+while a hook runs). The decisions are the engine's, as they are for a process it
+reads: validation, the rate limit, the admission order, the deadline chain, the shape
+of every answer, and cancellation when the call ends or the host closes. A call is
+registered with the engine for as long as its invoke callback runs, so frames find it
+by id and the call waits for the hooks of its requests. A violation returns
+`EXT_PROTOCOL`, which the backend reports as it reports any failed connection. A
+backend that cannot carry frames (HashiCorp, WASI) never sends one, as under the Go
+session. The Go facade supplies what the pure-Go session supplies a backend: the
+progress sink (which tells a plugin in the host's process when the limit dropped an
+event), the `plugin.ReverseHost` that `plugin.ReverseBackend` receives, and the
+callers an in-process plugin finds through `plugin.ReverseFrom` and
+`plugin.SessionReverseFrom`; the plugin's own context ends the host's handler through
+a signal the ticket's run is given. An admitted request that is never run holds the
+host open, so a backend must run every ticket, as `jsonline.Client` does.
 
 ## Identifiers
 

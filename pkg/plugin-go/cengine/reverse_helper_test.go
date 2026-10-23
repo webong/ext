@@ -46,9 +46,6 @@ func reverseDescriptor() plugin.Descriptor {
 	}
 }
 
-// outcomes of reverse calls the guest made in the background, for "collect".
-var background = make(chan json.RawMessage, 16)
-
 func backgroundReport(result json.RawMessage, err error) json.RawMessage {
 	report := map[string]any{"result": json.RawMessage(nilToNull(result))}
 	if err != nil {
@@ -63,11 +60,12 @@ func backgroundReport(result json.RawMessage, err error) json.RawMessage {
 	return raw
 }
 
-func runReverseGuest(mode string) int {
-	if strings.HasPrefix(mode, "rev-raw:") {
-		return runRawReverse(strings.TrimPrefix(mode, "rev-raw:"))
-	}
-	guest, err := plugin.NewGuest(reverseDescriptor(), plugin.GuestOptions{Handler: func(ctx context.Context, r plugin.Request) (json.RawMessage, error) {
+// newReverseGuest is the Go guest that calls the host through plugin.ReverseFrom.
+// It serves a child process (runReverseGuest) or the host's own (in-process).
+func newReverseGuest() (*plugin.Guest, error) {
+	// outcomes of reverse calls the guest made in the background, for "collect".
+	background := make(chan json.RawMessage, 16)
+	return plugin.NewGuest(reverseDescriptor(), plugin.GuestOptions{Handler: func(ctx context.Context, r plugin.Request) (json.RawMessage, error) {
 		switch r.Operation {
 		case "idle":
 			// A reverse call made after this call has returned, on the session.
@@ -134,8 +132,9 @@ func runReverseGuest(mode string) int {
 			return json.RawMessage(`{"done":true}`), nil
 		}
 		var in struct {
-			Op      string          `json:"op"`
-			Payload json.RawMessage `json:"payload"`
+			Op       string          `json:"op"`
+			Payload  json.RawMessage `json:"payload"`
+			CancelMs int             `json:"cancelMs"`
 		}
 		if err := json.Unmarshal(r.Payload, &in); err != nil {
 			return nil, err
@@ -144,7 +143,15 @@ func runReverseGuest(mode string) int {
 		if caller == nil {
 			return json.RawMessage(`{"caller":false}`), nil
 		}
-		result, err := caller.Call(ctx, hostRef, in.Op, in.Payload)
+		callCtx := ctx
+		if in.CancelMs > 0 {
+			// The plugin's own context ends while the host is still serving.
+			var cancel context.CancelFunc
+			callCtx, cancel = context.WithCancel(ctx)
+			defer cancel()
+			time.AfterFunc(time.Duration(in.CancelMs)*time.Millisecond, cancel)
+		}
+		result, err := caller.Call(callCtx, hostRef, in.Op, in.Payload)
 		report := map[string]any{"result": json.RawMessage(nilToNull(result))}
 		if err != nil {
 			var remote *plugin.RemoteError
@@ -156,6 +163,13 @@ func runReverseGuest(mode string) int {
 		}
 		return json.Marshal(report)
 	}})
+}
+
+func runReverseGuest(mode string) int {
+	if strings.HasPrefix(mode, "rev-raw:") {
+		return runRawReverse(strings.TrimPrefix(mode, "rev-raw:"))
+	}
+	guest, err := newReverseGuest()
 	if err != nil {
 		return 2
 	}

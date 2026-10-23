@@ -110,7 +110,8 @@ for repetition in 1 2 3; do
     read -r size iterations concurrency <<< "$shape"
     engines=(go c); if [[ "$repetition" == 2 ]]; then engines=(c go); fi
     for engine in "${engines[@]}"; do
-      "$build_dir/bench" "$engine" "$EXT_CENGINE_GUEST" "$size" "$iterations" "$concurrency" >> "$build_dir/benchmarks.jsonl"
+      "$build_dir/bench" "$engine" "$EXT_CENGINE_GUEST" "$size" "$iterations" "$concurrency" >> "$build_dir/benchmarks.jsonl" ||
+        { echo "bench $engine $size $iterations $concurrency (repetition $repetition) failed" >&2; exit 1; }
     done
   done
 done

@@ -84,6 +84,11 @@ func run() error {
 	if size < 0 || iterations < 1 || concurrency < 1 {
 		return fmt.Errorf("invalid benchmark dimensions")
 	}
+	// A failure names the invocation and the phase it happened in, so a timeout in a
+	// long run says which engine, shape and call it was.
+	fail := func(phase string, err error) error {
+		return fmt.Errorf("benchmark %s engine, %d-byte payload, %d iterations, concurrency %d, %s: %w", engine, size, iterations, concurrency, phase, err)
+	}
 	payload, _ := json.Marshal(strings.Repeat("x", size))
 	d := plugintest.Descriptor()
 	ctx := context.Background()
@@ -95,12 +100,12 @@ func run() error {
 	case "c":
 		h, err := goengine.New(path, d, func([]byte) error { return nil }, func([]byte) error { return nil })
 		if err != nil {
-			return err
+			return fail("create", err)
 		}
 		closeHost = h.Destroy
 		if err = h.Start(ctx); err != nil {
 			h.Destroy()
-			return err
+			return fail("handshake", err)
 		}
 		call = func() error {
 			request, err := json.Marshal(plugin.Request{APIVersion: plugin.APIVersion, ID: "benchmark", Plugin: d.Identity, Contract: ref, Operation: "echo", Deadline: time.Now().Add(30 * time.Second), Payload: payload})
@@ -123,7 +128,7 @@ func run() error {
 	case "go":
 		s, err := plugin.Open(ctx, d, plugin.Options{Verify: func(context.Context, plugin.Descriptor) error { return nil }, Authorize: func(context.Context, plugin.Request) error { return nil }, Connect: func(context.Context, plugin.Descriptor) (plugin.Backend, error) { return launch(path) }})
 		if err != nil {
-			return err
+			return fail("open and handshake", err)
 		}
 		closeHost = func() { _ = s.Abort() }
 		call = func() error {
@@ -143,7 +148,7 @@ func run() error {
 	defer closeHost()
 	for i := 0; i < 10; i++ {
 		if err := call(); err != nil {
-			return err
+			return fail(fmt.Sprintf("warm-up call %d after %v", i+1, time.Since(start)), err)
 		}
 	}
 	runtime.GC()
@@ -160,7 +165,7 @@ func run() error {
 			for i := worker; i < iterations; i += concurrency {
 				t := time.Now()
 				if err := call(); err != nil {
-					errs <- err
+					errs <- fail(fmt.Sprintf("measured call %d after %v", i, time.Since(start)), err)
 					return
 				}
 				samples[i] = time.Since(t).Nanoseconds()

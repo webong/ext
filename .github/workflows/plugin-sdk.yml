@@ -31,6 +31,7 @@ jobs:
           done
       - run: go test -race ./pkg/plugin-go/hashicorp/cmd/ext-plugin
       - run: node --test pkg/plugin-ts/test.mjs pkg/plugin-ts/frames.test.mjs pkg/plugin-ts/router.test.mjs
+      - run: python3 -I -m unittest discover -s pkg/plugin-python/tests
       - name: Check TypeScript declarations
         run: npx --yes --package typescript@5.8.3 tsc --noEmit --strict --module NodeNext --moduleResolution NodeNext --target ES2022 pkg/plugin-ts/typecheck.mts
       - run: go run ./pkg/plugin-go/examples/plugin-sdk --backend jsonline

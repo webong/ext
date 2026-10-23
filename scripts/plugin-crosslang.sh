@@ -94,6 +94,18 @@ if command -v javac >/dev/null 2>&1; then
   export EXT_JAVA_FRAMES_GUEST="$build_dir/java/ext-java-frames-guest"
   EXT_FRAMES_REQUIRED="$EXT_FRAMES_REQUIRED JAVA"
 fi
+# Python needs only python3. Its frames guest reads inline (no reverse call but one at a time).
+# The launcher names the interpreter by absolute path, since the engine starts a guest with
+# an empty environment.
+if command -v python3 >/dev/null 2>&1; then
+  cat >"$build_dir/ext-python-frames-guest" <<LAUNCHER
+#!/bin/sh
+exec "$(python3 -c 'import sys; print(sys.executable)')" -I "$PWD/pkg/plugin-python/tests/frames_guest.py"
+LAUNCHER
+  chmod +x "$build_dir/ext-python-frames-guest"
+  export EXT_PYTHON_FRAMES_GUEST="$build_dir/ext-python-frames-guest"
+  EXT_FRAMES_REQUIRED="$EXT_FRAMES_REQUIRED PYTHON"
+fi
 export EXT_CROSSLANG_REQUIRED=1
 go build -race -buildmode=plugin -o "$build_dir/go-native.so" ./pkg/plugin-go/crosslang/testdata/go-native
 export EXT_GO_NATIVE="$build_dir/go-native.so"

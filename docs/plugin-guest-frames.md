@@ -133,7 +133,7 @@ and the in-flight bound.
 | 1 | Rust: reader thread, inline mode for WASI, `CallContext` progress and reverse | done |
 | 2 | TypeScript: `serveGuest` reads while the handler runs | done |
 | 3 | Java: reader thread, `Call` progress and reverse, descriptor model | done |
-| 4 | Python: inline mode | |
+| 4 | Python: inline mode | done |
 | 5 | Zig: inline mode, written without a local compiler | |
 
 Each phase ends with its guest passing the fixtures and `TestFramesGuests` through the

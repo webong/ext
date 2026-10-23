@@ -169,7 +169,8 @@ static void request_id(const uint8_t *request, size_t len, char *id,
 }
 static ext_status frame_progress(backend *b, const char *parent,
                                  const char *rest) {
-  char frame[512];
+  /* The frame's own text, a parent of up to 63 characters and a rest of up to 1023. */
+  char frame[1280];
   snprintf(frame, sizeof(frame),
            "{\"frame\":\"progress\",\"apiVersion\":\"ext.plugin/v1\","
            "\"parent\":\"%s\",%s}",
@@ -284,7 +285,7 @@ static ext_status invoke_cb(void *user, const uint8_t *request, size_t len,
   }
   if (!strcmp(mode, "progress-burst")) {
     for (int i = 0; i < 400; i++) {
-      char frame_text[160];
+      char frame_text[256];
       snprintf(frame_text, sizeof(frame_text),
                "{\"frame\":\"progress\",\"apiVersion\":\"ext.plugin/v1\","
                "\"parent\":\"%s\",\"kind\":\"log\",\"text\":\"x\"}",

@@ -69,7 +69,9 @@ type Endpoint struct {
 	// reusable while the grant is active unless OneTime is set.
 	Token string `json:"token,omitempty"`
 	// OneTime makes the token single-use: the first Grant.Token succeeds and
-	// later calls return ErrUsed.
+	// later calls return ErrUsed. It limits how often the host may read the
+	// token, not how many connections the listener accepts: a listener that wants
+	// one attachment enforces that itself.
 	OneTime bool `json:"oneTime,omitempty"`
 	// ExpiresAt bounds the endpoint's life. It is required.
 	ExpiresAt time.Time `json:"expiresAt"`

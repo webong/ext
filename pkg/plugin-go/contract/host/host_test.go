@@ -445,3 +445,28 @@ func TestProcessDoneClosesWithTheProcess(t *testing.T) {
 		t.Fatal("Done did not close after Close")
 	}
 }
+
+// Open's context bounds the start and the handshake only: cancelling it
+// afterwards neither stops the process nor breaks later calls.
+func TestOpenContextOnlyBoundsStartup(t *testing.T) {
+	installed := installExecutable(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	p, err := host.Open(ctx, installed, host.Options{Env: []string{"HOST_TEST_CHILD=1"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer p.Close()
+	cancel()
+	time.Sleep(50 * time.Millisecond)
+	select {
+	case <-p.Done():
+		t.Fatal("cancelling Open's context ended the process")
+	default:
+	}
+	var out struct {
+		Method string `json:"method"`
+	}
+	if err := p.Call(context.Background(), "example.content.echo", nil, &out); err != nil || out.Method != "example.content.echo" {
+		t.Fatalf("call after cancelling Open's context: %+v %v", out, err)
+	}
+}

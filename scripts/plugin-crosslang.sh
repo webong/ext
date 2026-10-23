@@ -91,6 +91,8 @@ fi
 if command -v javac >/dev/null 2>&1; then
   scripts/plugin-android.sh "$build_dir/java"
   export EXT_JAVA_GUEST="$build_dir/java/ext-java-guest" EXT_JAVA_REQUIRED=1
+  export EXT_JAVA_FRAMES_GUEST="$build_dir/java/ext-java-frames-guest"
+  EXT_FRAMES_REQUIRED="$EXT_FRAMES_REQUIRED JAVA"
 fi
 export EXT_CROSSLANG_REQUIRED=1
 go build -race -buildmode=plugin -o "$build_dir/go-native.so" ./pkg/plugin-go/crosslang/testdata/go-native

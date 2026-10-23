@@ -13,9 +13,15 @@ import java.util.Set;
  * The ext.plugin/v1 JSON-line transport for a guest process: one JSON frame per
  * line, a plugin.hello frame first, then one response per request. Stdout belongs
  * to the protocol; log to stderr.
+ *
+ * <p>The input is read on a thread of its own, so a handler can report progress
+ * ({@link Call#progress}) and call its host ({@link Call#reverse}) and still have the host's
+ * answers read. A frame the host may not send, such as a second request while a call is in
+ * flight, ends the session with an {@link IOException} and the call in flight is not answered.
+ * When the input ends, the call in flight is answered and the session ends.
  */
 public final class JsonLine {
-    private static final int MAX_FRAME = 24 * 1024 * 1024;
+    static final int MAX_FRAME = 24 * 1024 * 1024;
     private static final Set<String> HELLO_FIELDS =
             Set.of("apiVersion", "id", "operation", "deadline", "plugin", "contract", "surface");
 
@@ -31,28 +37,50 @@ public final class JsonLine {
      * exception and writes nothing, so the host sees a failed process.
      */
     public static void serve(Guest guest, InputStream in, OutputStream out) throws IOException, GuestException {
-        boolean hello = false;
-        byte[] frame;
-        while ((frame = readFrame(in)) != null) {
-            byte[] response;
-            if (!hello) {
-                checkHello(frame);
-                hello = true;
-                ByteArrayOutputStream body = new ByteArrayOutputStream();
-                body.write("{\"apiVersion\":\"ext.plugin/v1\",\"id\":\"hello\",\"payload\":".getBytes(StandardCharsets.UTF_8));
-                body.write(guest.descriptorJson());
-                body.write('}');
-                response = body.toByteArray();
-            } else {
-                response = guest.invoke(frame);
+        Connection connection = new Connection(guest.declared(), out);
+        connection.start(in);
+        try {
+            boolean hello = false;
+            byte[] frame;
+            while ((frame = nextRequest(connection)) != null) {
+                byte[] response;
+                if (!hello) {
+                    checkHello(frame);
+                    hello = true;
+                    ByteArrayOutputStream body = new ByteArrayOutputStream();
+                    body.write("{\"apiVersion\":\"ext.plugin/v1\",\"id\":\"hello\",\"payload\":".getBytes(StandardCharsets.UTF_8));
+                    body.write(guest.descriptorJson());
+                    body.write('}');
+                    response = body.toByteArray();
+                } else {
+                    response = guest.invoke(frame, Guest.DEFAULT_MAX_CALL_MILLISECONDS, connection);
+                }
+                // A violation found while the handler ran ends the session, and the call goes unanswered.
+                if (connection.violated()) {
+                    break;
+                }
+                connection.idle(); // before the response, so the next request is never early
+                connection.write(response);
             }
-            out.write(response);
-            out.write('\n');
-            out.flush();
+            IOException failure = connection.failure();
+            if (failure != null) {
+                throw failure;
+            }
+        } finally {
+            connection.end(null, false);
         }
     }
 
-    private static byte[] readFrame(InputStream in) throws IOException {
+    private static byte[] nextRequest(Connection connection) throws IOException {
+        try {
+            return connection.next();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new java.io.InterruptedIOException("interrupted while waiting for a request");
+        }
+    }
+
+    static byte[] readFrame(InputStream in) throws IOException {
         ByteArrayOutputStream line = new ByteArrayOutputStream();
         int b;
         while ((b = in.read()) >= 0) {

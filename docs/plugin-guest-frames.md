@@ -132,7 +132,7 @@ and the in-flight bound.
 | 0 | Fixtures, the frames guest contract, the Go reference guest and driver, the C engine reproducing the fixtures | done |
 | 1 | Rust: reader thread, inline mode for WASI, `CallContext` progress and reverse | done |
 | 2 | TypeScript: `serveGuest` reads while the handler runs | done |
-| 3 | Java: reader thread, `Call` progress and reverse, descriptor model | |
+| 3 | Java: reader thread, `Call` progress and reverse, descriptor model | done |
 | 4 | Python: inline mode | |
 | 5 | Zig: inline mode, written without a local compiler | |
 

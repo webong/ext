@@ -62,8 +62,55 @@ ABI; it is not attempted here.
 a host hands a plugin (see `lib/plugin/services.md`): a plugin checks what it receives
 before dialing, a host validates what it grants. A refusal is a `GuestException` whose
 `status()` is `Endpoint.INVALID`, `Endpoint.DENIED` or `Endpoint.EXPIRED`, and nothing of
-the endpoint, which is a credential. This SDK does not yet report progress or call a
-host's reverse services; its WAMR host runs reactors, which have no frame channel for them.
+the endpoint, which is a credential.
+
+## Report progress and call the host
+
+A guest process can report progress while a call runs and call back into its host, over
+`JsonLine` (not the WAMR host, which runs reactors, and not `Guest.invoke` on its own: those have
+no frame channel). An operation that reports is declared with `Operation.reporting(name)`; the
+host operations a guest may call are the descriptor's `reverse` list.
+
+```java
+Descriptor descriptor = new Descriptor(
+    new Identity("com.example/signer", "1"),
+    List.of(new Contract("example.signer", "v1", List.of(Operation.reporting("sign")))),
+    List.of(new Contract("host.svc", "v1", List.of(new Operation("sign")))));
+
+Guest guest = new Guest(descriptor, call -> {
+    // Events reach the host in order, before the result. DROPPED is routine: the rate
+    // limit the host set dropped it and counts it for the next event.
+    call.progress(Progress.log("starting"));
+    call.progress(Progress.fraction(1, 3));
+    // The host's refusal or error comes back as a RemoteError with its code (denied,
+    // busy, too_large, expired, ...).
+    return call.reverse().call(new ContractRef("host.svc", "v1"), "sign", call.payload());
+});
+```
+
+`Call.progress` throws a `FrameException` whose `code()` is `UNSUPPORTED` (the operation
+did not declare progress, the host asked for no events, or there is no frame channel: stop
+reporting), `INVALID` (the event breaks the rules; nothing is sent) or `CLOSED` (the call
+is over or the connection ended). `Call.progressLimits()` is the rate the host set, and
+`Progress.split` cuts a long line into events that each fit. `JsonLine` reads its input on
+a thread of its own, so a handler may have several reverse calls outstanding (from several
+threads) and `Call.sessionReverse()` is a caller that background work keeps after the call
+returned; `ReverseCaller.call` waits for the answer until the call's deadline (30 seconds
+for the session's), or the timeout given. A handler can poll `Call.connectionEnded()` to
+stop early. Both `Call.reverse()` and `Call.sessionReverse()` are null, and `progress`
+fails with `UNSUPPORTED`, when the guest is invoked directly.
+
+A frame the host may not send (a second request while a call is in flight, an unknown
+frame, an answer to a request that was never made, a malformed answer) ends the session:
+`JsonLine.serve` throws an `IOException`, and the call in flight is not answered. When the
+input ends, the call in flight is answered and the session ends; a reverse call still
+waiting fails with `CLOSED`. One request may follow the hello without waiting for its
+answer. The engine validates the descriptor and each request; `Frames` judges the frames
+the guest writes and reads by the Go contract's rules, which `FramesTests` reproduces from
+the shared fixtures, and `RouterTests` covers the router.
+`src/test/java/.../FramesGuest.java` is the frames conformance guest of
+[docs/plugin-guest-frames.md](../../docs/plugin-guest-frames.md), which
+`scripts/plugin-crosslang.sh` runs through the Go session and the C engine.
 
 ## Building and testing
 
@@ -73,10 +120,11 @@ scripts/plugin-android.sh          # needs a JDK and CMake
 
 The script builds the JNI library with CMake, compiles the classes with
 `javac -Xlint:all -Werror`, runs the tests with `java -ea` (no test framework is
-assumed), and writes a launcher for `ConformanceGuest`, the shared
-`ext.conformance/v1` fixture. `scripts/plugin-crosslang.sh` runs that launcher
-through the same Go suite as the Rust and Zig guests, and requires it when a JDK
-is present.
+assumed), and writes launchers for `ConformanceGuest`, the shared
+`ext.conformance/v1` fixture, and `FramesGuest` (each names `java` by absolute path,
+since the engine starts a guest with an empty environment). `scripts/plugin-crosslang.sh`
+runs them through the same Go suite as the Rust and Zig guests, and requires them when a
+JDK is present.
 
 ## Hosting a plugin in a WebView
 

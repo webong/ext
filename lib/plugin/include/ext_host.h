@@ -44,7 +44,9 @@ enum {
   /* The peer broke the framing rules: a frame that is not valid, one the call
    * did not allow (progress for a call that did not declare it), or one this
    * host does not know. The session is closed. */
-  EXT_PROTOCOL
+  EXT_PROTOCOL,
+  /* A time has run out: an endpoint whose expiry is already past. */
+  EXT_EXPIRED
 };
 typedef struct ext_cancel ext_cancel;
 EXT_HOST_API ext_status ext_cancel_create(ext_cancel **out);

@@ -27,7 +27,7 @@ const char *ext_host_status_string(ext_status s) {
       "ok",        "invalid",   "denied",   "mismatch",      "unsupported",
       "closed",    "timeout",   "io",       "out of memory", "draining",
       "not found", "ambiguous", "canceled", "updating",      "capacity",
-      "sequence",  "protocol"};
+      "sequence",  "protocol",  "expired"};
   return s >= 0 && (size_t)s < sizeof(names) / sizeof(names[0]) ? names[s]
                                                                 : "unknown";
 }

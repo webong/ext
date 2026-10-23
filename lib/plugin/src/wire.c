@@ -275,6 +275,12 @@ yyjson_val **ext_arr_snapshot(yyjson_val *arr) {
   yyjson_arr_foreach(arr, i, max, v) out[i] = v;
   return out;
 }
+void ext_wall_clock(int64_t *seconds, int32_t *nanoseconds) {
+  struct timespec ts;
+  clock_gettime(CLOCK_REALTIME, &ts);
+  *seconds = (int64_t)ts.tv_sec;
+  *nanoseconds = (int32_t)ts.tv_nsec;
+}
 int64_t ext_wall_ms(void) {
   struct timespec ts;
   clock_gettime(CLOCK_REALTIME, &ts);
@@ -289,14 +295,28 @@ static int digits(const char *s, size_t n) {
   }
   return v;
 }
-static int64_t timestamp(yyjson_val *v) {
+/* Days from 1970-01-01 to a date of the proleptic Gregorian calendar. This does
+ * not use the platform's timegm, which differs in the years it accepts (it fails
+ * for year 1, and _mkgmtime stops at 3000). */
+static int64_t days_from_civil(int64_t y, unsigned m, unsigned d) {
+  y -= m <= 2;
+  int64_t era = (y >= 0 ? y : y - 399) / 400;
+  unsigned yoe = (unsigned)(y - era * 400);
+  unsigned doy = (153 * (m > 2 ? m - 3 : m + 9) + 2) / 5 + d - 1;
+  unsigned doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+  return era * 146097 + (int64_t)doe - 719468;
+}
+/* An RFC 3339 time as the seconds since the Unix epoch and the nanoseconds of
+ * the instant it names (fraction digits past the ninth are dropped, as Go's
+ * parser does). Zero when v is not one. */
+static int instant(yyjson_val *v, int64_t *seconds, int32_t *nanoseconds) {
   if (!yyjson_is_str(v))
-    return -1;
+    return 0;
   const char *s = yyjson_get_str(v);
   size_t n = yyjson_get_len(v), p = 19;
   if (n < 20 || s[4] != '-' || s[7] != '-' || s[10] != 'T' || s[13] != ':' ||
       s[16] != ':')
-    return -1;
+    return 0;
   int y = digits(s, 4), mo = digits(s + 5, 2), d = digits(s + 8, 2),
       h = digits(s + 11, 2), mi = digits(s + 14, 2), se = digits(s + 17, 2);
   static const int days[] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
@@ -304,45 +324,54 @@ static int64_t timestamp(yyjson_val *v) {
       d > days[mo - 1] +
               (mo == 2 && y % 4 == 0 && (y % 100 != 0 || y % 400 == 0)) ||
       h < 0 || h > 23 || mi < 0 || mi > 59 || se < 0 || se > 59)
-    return -1;
-  int ms = 0, submillisecond = 0;
+    return 0;
+  int32_t fraction = 0;
   if (p < n && s[p] == '.') {
-    size_t start = ++p;
+    size_t start = ++p, kept = 0;
     while (p < n && s[p] >= '0' && s[p] <= '9') {
-      if (p - start < 3)
-        ms = ms * 10 + s[p] - '0';
-      else if (p - start < 9 && s[p] != '0')
-        submillisecond = 1;
+      if (kept < 9) {
+        fraction = fraction * 10 + (s[p] - '0');
+        kept++;
+      }
       p++;
     }
     if (p == start)
-      return -1;
-    for (size_t k = p - start; k < 3; k++)
-      ms *= 10;
+      return 0;
+    for (; kept < 9; kept++)
+      fraction *= 10;
   }
   int offset = 0;
   if (p + 1 == n && s[p] == 'Z') {
   } else if (p + 6 == n && (s[p] == '+' || s[p] == '-') && s[p + 3] == ':') {
     int oh = digits(s + p + 1, 2), om = digits(s + p + 4, 2);
     if (oh < 0 || oh > 23 || om < 0 || om > 59)
-      return -1;
+      return 0;
     offset = (oh * 60 + om) * 60 * (s[p] == '+' ? 1 : -1);
   } else
+    return 0;
+  *seconds = days_from_civil(y, (unsigned)mo, (unsigned)d) * 86400 + h * 3600 +
+             mi * 60 + se - offset;
+  *nanoseconds = fraction;
+  return 1;
+}
+/* Go's zero time, 0001-01-01T00:00:00Z, which a time field left out decodes to. */
+#define EXT_ZERO_TIME_SECONDS (-62135596800LL)
+int ext_instant(yyjson_val *v, int64_t *seconds, int32_t *nanoseconds) {
+  return instant(v, seconds, nanoseconds);
+}
+int ext_instant_is_zero(int64_t seconds, int32_t nanoseconds) {
+  return seconds == EXT_ZERO_TIME_SECONDS && !nanoseconds;
+}
+static int64_t timestamp(yyjson_val *v) {
+  int64_t seconds;
+  int32_t nanoseconds;
+  /* The zero time is no time at all, whichever way it is spelled. */
+  if (!instant(v, &seconds, &nanoseconds) ||
+      ext_instant_is_zero(seconds, nanoseconds))
     return -1;
-  struct tm t = {0};
-  t.tm_year = y - 1900;
-  t.tm_mon = mo - 1;
-  t.tm_mday = d;
-  t.tm_hour = h;
-  t.tm_min = mi;
-  t.tm_sec = se;
   /* The ABI schedules in milliseconds. Round a wire deadline up so a guest
    * cannot finish early merely because a host supplied nanosecond precision. */
-  int64_t result = ((int64_t)ext_timegm(&t) - offset) * 1000 + ms + submillisecond;
-  if (y == 1 && mo == 1 && d == 1 && !h && !mi && !se && !ms &&
-      !submillisecond && !offset)
-    return -1;
-  return result;
+  return seconds * 1000 + nanoseconds / 1000000 + (nanoseconds % 1000000 != 0);
 }
 /* The optional event rate a host sends for an operation that declares progress:
  * integers, or null. Their range is checked by the side that applies them. */

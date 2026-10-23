@@ -312,6 +312,17 @@ the call in flight reports why, and a call made afterwards finds the host closed
 `Destroy` joins the reader and the workers; a hook must honor its cancel signal or
 it holds the host.
 
+**Endpoints in the C engine (c-parity, stage 5).** The validation rules of
+`contract/endpoint` (`Decode`, `Check` and `Validate`) are the engine services
+`endpoint.check` and `endpoint.validate`, so a non-Go host admits an endpoint by the
+same rules. An outcome is a status (`EXT_INVALID`, `EXT_DENIED`, `EXT_EXPIRED`) and
+never text, which keeps the rule that no error carries a part of the endpoint; the
+grant (a lifetime tied to the session, one-time tokens, dialing) is the binding's and
+stays in Go. `testdata/v1/endpoint-cases.json` is the shared statement of the
+outcomes. The engine follows the rules of `net.SplitHostPort` and `net.ParseIP`
+exactly for the loopback test, and reads times as RFC 3339 only, where Go's lenient
+parser also accepts a few other spellings.
+
 ## Identifiers
 
 Request and call identifiers (`Request.ID`, `Request.Parent`, reverse ids) are

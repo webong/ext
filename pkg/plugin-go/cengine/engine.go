@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 	plugin "github.com/webong/ext/pkg/plugin-go/contract"
+	"github.com/webong/ext/pkg/plugin-go/contract/endpoint"
 	"math"
 	"runtime/cgo"
 	"strings"
@@ -98,6 +99,8 @@ func status(s C.ext_status) error {
 		return plugin.ErrClosed
 	case C.EXT_PROTOCOL:
 		return plugin.ErrProtocol
+	case C.EXT_EXPIRED:
+		return endpoint.ErrExpired
 	case C.EXT_CANCELED:
 		return context.Canceled
 	case C.EXT_TIMEOUT:

@@ -25,10 +25,17 @@ int ext_int64(yyjson_val *, int64_t *out);
 /* The wall-clock time in milliseconds of an RFC 3339 string as a request
  * deadline, or -1 when it is not one, or is the zero time. */
 int64_t ext_deadline_ms(yyjson_val *);
+/* An RFC 3339 time as the seconds since the Unix epoch and the nanoseconds of the
+ * instant, exactly; zero when v is not one. ext_instant_is_zero tells Go's zero
+ * time, which a field left out decodes to. */
+int ext_instant(yyjson_val *, int64_t *seconds, int32_t *nanoseconds);
+int ext_instant_is_zero(int64_t seconds, int32_t nanoseconds);
 /* ext_lookup over any list of contracts, such as a descriptor's "reverse". */
 yyjson_val *ext_lookup_in(yyjson_val *contracts, yyjson_val *ref,
                           yyjson_val *name);
 int64_t ext_wall_ms(void);
+/* The wall clock as seconds since the Unix epoch and nanoseconds. */
+void ext_wall_clock(int64_t *seconds, int32_t *nanoseconds);
 int ext_fields(yyjson_val *, const char *const *, size_t);
 int ext_text(yyjson_val *, int revision, int optional);
 int ext_same(yyjson_val *, yyjson_val *);

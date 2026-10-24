@@ -1,11 +1,8 @@
-//go:build ext_cengine && cgo && (darwin || linux || windows)
-
-package goengine
+package enginetest
 
 import (
 	"encoding/json"
 	plugin "github.com/webong/ext/pkg/plugin-go/contract"
-	"os"
 	"sort"
 	"strings"
 	"testing"
@@ -113,8 +110,8 @@ func deepCopy(v any) any {
 	return out
 }
 
-func TestContractMutationDifferential(t *testing.T) {
-	data, err := os.ReadFile("../../../lib/plugin/testdata/v1/descriptor.json")
+func ContractMutationDifferential(t *testing.T, e Engine) {
+	data, err := e.fixture(t, "v1/descriptor.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -152,12 +149,12 @@ func TestContractMutationDifferential(t *testing.T) {
 		}
 	}
 	for _, raw := range mutations(base) {
-		_, got := EngineCall("descriptor.validate", raw)
+		_, got := e.Call("descriptor.validate", raw)
 		compare("descriptor", raw, goDescriptor(raw), got)
 	}
 	descriptorRaw := json.RawMessage(data)
 	for _, raw := range mutations(request) {
-		_, got := service(t, "request.validate", map[string]any{"descriptor": descriptorRaw, "request": raw})
+		_, got := e.service(t, "request.validate", map[string]any{"descriptor": descriptorRaw, "request": raw})
 		var r plugin.Request
 		want := plugin.Decode(raw, &r)
 		if want == nil {
@@ -167,7 +164,7 @@ func TestContractMutationDifferential(t *testing.T) {
 	}
 	for name, doc := range map[string]map[string]any{"response": response, "failure": failure} {
 		for _, raw := range mutations(doc) {
-			_, got := service(t, "response.validate", map[string]any{"requestID": "1", "response": raw})
+			_, got := e.service(t, "response.validate", map[string]any{"requestID": "1", "response": raw})
 			var r plugin.Response
 			want := plugin.Decode(raw, &r)
 			if want == nil {

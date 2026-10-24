@@ -1,6 +1,4 @@
-//go:build ext_cengine && cgo && (darwin || linux || windows)
-
-package goengine
+package enginetest
 
 import (
 	"encoding/json"
@@ -188,10 +186,10 @@ func genValue(r *rand.Rand, s schema.Schema, depth int) json.RawMessage {
 	return json.RawMessage("null")
 }
 
-// TestSchemaGeneratedDifferential compares the C engine and the Go schema package on seeded
+// SchemaGeneratedDifferential compares the C engine and the Go schema package on seeded
 // random schemas that combine several keywords and nest, and on values built to sit on and across
 // the bounds they declare. EXT_PAIR_SCALE multiplies the sample.
-func TestSchemaGeneratedDifferential(t *testing.T) {
+func SchemaGeneratedDifferential(t *testing.T, e Engine) {
 	scale := 1
 	if v, err := strconv.Atoi(os.Getenv("EXT_PAIR_SCALE")); err == nil && v > 0 {
 		scale = v
@@ -206,7 +204,7 @@ func TestSchemaGeneratedDifferential(t *testing.T) {
 		}
 		schemas++
 		want := s.Validate()
-		_, got := EngineCall("schema.validate", raw)
+		_, got := e.Call("schema.validate", raw)
 		if (want == nil) != (got == nil) {
 			diverged++
 			if diverged <= 8 {
@@ -220,7 +218,7 @@ func TestSchemaGeneratedDifferential(t *testing.T) {
 		valid++
 		for j := 0; j < 12; j++ {
 			v := genValue(r, s, 3)
-			w, g := s.Check(v), CheckSchema(s, v)
+			w, g := s.Check(v), e.checkSchema(s, v)
 			pairs++
 			if w == nil {
 				accepted++

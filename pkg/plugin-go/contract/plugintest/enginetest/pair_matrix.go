@@ -1,6 +1,4 @@
-//go:build ext_cengine && cgo && (darwin || linux || windows)
-
-package goengine
+package enginetest
 
 import (
 	"crypto/sha256"
@@ -162,11 +160,11 @@ func manifestDocument(t *testing.T) (map[string]any, json.RawMessage) {
 	return doc, raw
 }
 
-// TestPairwiseMutationDifferential changes two independent positions of a valid
+// PairwiseMutationDifferential changes two independent positions of a valid
 // descriptor, request, response and package manifest at once and requires the C
 // engine and the Go code to agree on whether the result is valid.
-func TestPairwiseMutationDifferential(t *testing.T) {
-	data, err := os.ReadFile("../../../lib/plugin/testdata/v1/descriptor.json")
+func PairwiseMutationDifferential(t *testing.T, e Engine) {
+	data, err := e.fixture(t, "v1/descriptor.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -215,7 +213,7 @@ func TestPairwiseMutationDifferential(t *testing.T) {
 		if want == nil {
 			want = v.Validate()
 		}
-		_, got := EngineCall("descriptor.validate", raw)
+		_, got := e.Call("descriptor.validate", raw)
 		return want, got
 	})
 	run("request", request, 4000, 2, func(raw json.RawMessage) (error, error) {
@@ -224,7 +222,7 @@ func TestPairwiseMutationDifferential(t *testing.T) {
 		if want == nil {
 			want = plugin.ValidateRequest(d, r)
 		}
-		_, got := service(t, "request.validate", map[string]any{"descriptor": json.RawMessage(data), "request": raw})
+		_, got := e.service(t, "request.validate", map[string]any{"descriptor": json.RawMessage(data), "request": raw})
 		return want, got
 	})
 	for i, doc := range []map[string]any{response, failure} {
@@ -235,13 +233,13 @@ func TestPairwiseMutationDifferential(t *testing.T) {
 			if want == nil {
 				want = r.Validate("1")
 			}
-			_, got := service(t, "response.validate", map[string]any{"requestID": "1", "response": raw})
+			_, got := e.service(t, "response.validate", map[string]any{"requestID": "1", "response": raw})
 			return want, got
 		})
 	}
 	run("manifest", manifest, 6000, 5, func(raw json.RawMessage) (error, error) {
 		_, want := packagekit.Decode(raw)
-		_, got := EngineCall("package.validate", raw)
+		_, got := e.Call("package.validate", raw)
 		return want, got
 	})
 }

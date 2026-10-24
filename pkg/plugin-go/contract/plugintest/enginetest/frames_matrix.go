@@ -1,10 +1,7 @@
-//go:build ext_cengine && cgo && (darwin || linux || windows)
-
-package goengine
+package enginetest
 
 import (
 	"encoding/json"
-	"os"
 	"testing"
 
 	plugin "github.com/webong/ext/pkg/plugin-go/contract"
@@ -14,9 +11,9 @@ import (
 // contract and the C engine: a descriptor that uses them, a request that
 // carries the host's progress rate, and whether two descriptors match.
 
-func framesFixture(t *testing.T) (json.RawMessage, map[string]any, plugin.Descriptor) {
+func (e Engine) framesFixture(t *testing.T) (json.RawMessage, map[string]any, plugin.Descriptor) {
 	t.Helper()
-	data, err := os.ReadFile("../../../lib/plugin/testdata/v1/descriptor-frames.json")
+	data, err := e.fixture(t, "v1/descriptor-frames.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -42,13 +39,13 @@ func goValidates(raw json.RawMessage) error {
 	return v.Validate()
 }
 
-func TestFramesDescriptorDifferential(t *testing.T) {
-	_, base, _ := framesFixture(t)
+func FramesDescriptorDifferential(t *testing.T, e Engine) {
+	_, base, _ := e.framesFixture(t)
 	var accepted, total, diverged int
 	for _, raw := range mutations(base) {
 		total++
 		want := goValidates(raw)
-		_, got := EngineCall("descriptor.validate", raw)
+		_, got := e.Call("descriptor.validate", raw)
 		if want == nil {
 			accepted++
 		}
@@ -65,8 +62,8 @@ func TestFramesDescriptorDifferential(t *testing.T) {
 	}
 }
 
-func TestFramesRequestDifferential(t *testing.T) {
-	data, base, d := framesFixture(t)
+func FramesRequestDifferential(t *testing.T, e Engine) {
+	data, base, d := e.framesFixture(t)
 	request := map[string]any{"apiVersion": "ext.plugin/v1", "id": "1", "plugin": base["identity"], "contract": map[string]any{"name": "ext.conformance", "version": "v1"}, "operation": "long", "payload": map[string]any{"value": 7}, "deadline": "2099-01-01T00:00:00Z", "progress": map[string]any{"eventsPerSecond": 10, "bytesPerSecond": 4096}, "parent": "p1"}
 	var accepted, total, diverged int
 	for _, raw := range mutations(request) {
@@ -76,7 +73,7 @@ func TestFramesRequestDifferential(t *testing.T) {
 		if want == nil {
 			want = plugin.ValidateRequest(d, r)
 		}
-		_, got := service(t, "request.validate", map[string]any{"descriptor": json.RawMessage(data), "request": raw})
+		_, got := e.service(t, "request.validate", map[string]any{"descriptor": json.RawMessage(data), "request": raw})
 		if want == nil {
 			accepted++
 		}
@@ -93,8 +90,8 @@ func TestFramesRequestDifferential(t *testing.T) {
 	}
 }
 
-func TestFramesMatchDifferential(t *testing.T) {
-	data, base, selected := framesFixture(t)
+func FramesMatchDifferential(t *testing.T, e Engine) {
+	data, base, selected := e.framesFixture(t)
 	var matched, total, diverged int
 	for _, raw := range mutations(base) {
 		var actual plugin.Descriptor
@@ -103,7 +100,7 @@ func TestFramesMatchDifferential(t *testing.T) {
 		}
 		total++
 		want := plugin.MatchHandshake(selected, actual)
-		_, got := service(t, "descriptor.match", map[string]any{"selected": json.RawMessage(data), "actual": raw})
+		_, got := e.service(t, "descriptor.match", map[string]any{"selected": json.RawMessage(data), "actual": raw})
 		if want == nil {
 			matched++
 		}

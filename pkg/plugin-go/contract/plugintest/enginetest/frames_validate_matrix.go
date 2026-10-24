@@ -1,6 +1,4 @@
-//go:build ext_cengine && cgo && (darwin || linux || windows)
-
-package goengine
+package enginetest
 
 import (
 	"encoding/json"
@@ -36,7 +34,7 @@ func goFrameValidates(raw json.RawMessage) error {
 	return plugin.ErrProtocol
 }
 
-func TestFrameValidationDifferential(t *testing.T) {
+func FrameValidationDifferential(t *testing.T, e Engine) {
 	for name, base := range map[string]map[string]any{
 		"progress": {"frame": "progress", "apiVersion": "ext.plugin/v1", "parent": "1", "kind": "log", "stream": "out", "text": "hello", "completed": 1, "total": 3, "dropped": 2},
 		"reverse request": {"frame": "reverse_request", "apiVersion": "ext.plugin/v1", "id": "g1", "parent": "1",
@@ -52,7 +50,7 @@ func TestFrameValidationDifferential(t *testing.T) {
 			for _, raw := range mutations(base) {
 				total++
 				want := goFrameValidates(raw)
-				_, got := EngineCall("frame.validate", raw)
+				_, got := e.Call("frame.validate", raw)
 				if want == nil {
 					accepted++
 				}
@@ -82,7 +80,7 @@ func mustMarshal(t *testing.T, v any) json.RawMessage {
 
 // A retry hint is whole milliseconds from zero to one year: the C engine used to
 // accept anything an int64 holds.
-func TestRetryHintBoundMatchesGo(t *testing.T) {
+func RetryHintBoundMatchesGo(t *testing.T, e Engine) {
 	for _, hint := range []string{"0", "-0", "1", "31535999999", "31536000000", "31536000001", "9223372036854775807", "9223372036854775808", "-1", "1.5", "1e3", `"5"`, "null"} {
 		raw := json.RawMessage(`{"apiVersion":"ext.plugin/v1","id":"1","error":{"code":"busy","message":"m","retryAfterMilliseconds":` + hint + `}}`)
 		var r plugin.Response
@@ -90,7 +88,7 @@ func TestRetryHintBoundMatchesGo(t *testing.T) {
 		if want == nil {
 			want = r.Validate("1")
 		}
-		_, got := service(t, "response.validate", map[string]any{"response": raw, "requestID": "1"})
+		_, got := e.service(t, "response.validate", map[string]any{"response": raw, "requestID": "1"})
 		if (want == nil) != (got == nil) {
 			t.Errorf("retry hint %s: Go=%s C=%s", hint, errText(want), errText(got))
 		}

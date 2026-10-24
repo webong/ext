@@ -1,6 +1,4 @@
-//go:build ext_cengine && cgo && (darwin || linux || windows)
-
-package goengine
+package enginetest
 
 import (
 	"encoding/json"
@@ -10,13 +8,13 @@ import (
 	packagekit "github.com/webong/ext/pkg/plugin-go/contract/package"
 )
 
-// TestCaseFoldingMatchesGoForEveryRune compares how the engine and Go decide that two artifact paths
+// CaseFoldingMatchesGoForEveryRune compares how the engine and Go decide that two artifact paths
 // differ only in case, for every character whose lowercase differs from itself and for those next
 // to them that do not fold. The engine pins the Unicode simple lowercase mapping of one version
 // (lib/plugin/src/unicode_lower.h), where Go follows its toolchain: this test is what makes a
 // toolchain that moves ahead of the table visible, and is skipped, with the reason, until the table
 // is regenerated for it (pkg/plugin-go/cengine/tools/README.md).
-func TestCaseFoldingMatchesGoForEveryRune(t *testing.T) {
+func CaseFoldingMatchesGoForEveryRune(t *testing.T, e Engine) {
 	const pinned = "17.0.0"
 	if unicode.Version != pinned {
 		t.Skipf("this toolchain has Unicode %s and the engine pins %s: regenerate the table, or decide to keep the older mapping", unicode.Version, pinned)
@@ -33,7 +31,7 @@ func TestCaseFoldingMatchesGoForEveryRune(t *testing.T) {
 			t.Fatal(err)
 		}
 		_, want = packagekit.Decode(raw)
-		_, got = EngineCall("package.validate", raw)
+		_, got = e.Call("package.validate", raw)
 		return want, got
 	}
 	var folded, informative, diverged int

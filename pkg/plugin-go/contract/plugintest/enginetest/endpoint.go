@@ -1,13 +1,10 @@
-//go:build ext_cengine && cgo && (darwin || linux || windows)
-
-package goengine
+package enginetest
 
 import (
 	"encoding/json"
 	"errors"
 	"fmt"
 	"math/rand"
-	"os"
 	"strings"
 	"testing"
 	"time"
@@ -80,14 +77,14 @@ func goValidate(raw, policy json.RawMessage) string {
 	return endpointOutcome(e.Validate(p))
 }
 
-func engineCheck(raw json.RawMessage) string {
-	_, err := EngineCall("endpoint.check", raw)
+func (e Engine) engineCheck(raw json.RawMessage) string {
+	_, err := e.Call("endpoint.check", raw)
 	return endpointOutcome(err)
 }
 
-func engineValidate(raw, policy json.RawMessage) string {
+func (e Engine) engineValidate(raw, policy json.RawMessage) string {
 	input, _ := json.Marshal(map[string]json.RawMessage{"endpoint": raw, "policy": policy})
-	_, err := EngineCall("endpoint.validate", input)
+	_, err := e.Call("endpoint.validate", input)
 	return endpointOutcome(err)
 }
 
@@ -99,9 +96,9 @@ type endpointCase struct {
 	Validate string          `json:"validate"`
 }
 
-func endpointFixture(t *testing.T) []endpointCase {
+func (e Engine) endpointFixture(t *testing.T) []endpointCase {
 	t.Helper()
-	data, err := os.ReadFile("../../../lib/plugin/testdata/v1/endpoint-cases.json")
+	data, err := e.fixture(t, "v1/endpoint-cases.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -115,8 +112,8 @@ func endpointFixture(t *testing.T) []endpointCase {
 }
 
 // Both implementations reproduce every outcome the fixture states.
-func TestEndpointFixture(t *testing.T) {
-	cases := endpointFixture(t)
+func EndpointFixture(t *testing.T, e Engine) {
+	cases := e.endpointFixture(t)
 	counts := map[string]int{}
 	for _, c := range cases {
 		counts[c.Validate]++
@@ -126,10 +123,10 @@ func TestEndpointFixture(t *testing.T) {
 		if got := goValidate(c.Endpoint, c.Policy); got != c.Validate {
 			t.Errorf("%s: Go validate %s, fixture %s", c.Name, got, c.Validate)
 		}
-		if got := engineCheck(c.Endpoint); got != c.Check {
+		if got := e.engineCheck(c.Endpoint); got != c.Check {
 			t.Errorf("%s: engine check %s, fixture %s", c.Name, got, c.Check)
 		}
-		if got := engineValidate(c.Endpoint, c.Policy); got != c.Validate {
+		if got := e.engineValidate(c.Endpoint, c.Policy); got != c.Validate {
 			t.Errorf("%s: engine validate %s, fixture %s", c.Name, got, c.Validate)
 		}
 	}
@@ -142,7 +139,7 @@ func TestEndpointFixture(t *testing.T) {
 }
 
 // One-field mutations of an endpoint and of a policy are judged the same.
-func TestEndpointMutationDifferential(t *testing.T) {
+func EndpointMutationDifferential(t *testing.T, e Engine) {
 	endpointBase := map[string]any{"scheme": "ws", "address": "127.0.0.1:8080", "path": "/stream/abc", "token": "t0k3n", "oneTime": true, "expiresAt": "2030-01-01T00:30:00Z"}
 	policyBase := map[string]any{"schemes": []any{"ws", "tcp"}, "maxLifetimeMilliseconds": 3600000, "now": "2030-01-01T00:00:00Z"}
 	policyRaw := mustMarshal(t, policyBase)
@@ -150,9 +147,9 @@ func TestEndpointMutationDifferential(t *testing.T) {
 	var accepted, total, diverged int
 	compare := func(label string, raw, policy json.RawMessage, check bool) {
 		total++
-		want, got := goValidate(raw, policy), engineValidate(raw, policy)
+		want, got := goValidate(raw, policy), e.engineValidate(raw, policy)
 		if check {
-			want, got = goCheck(raw), engineCheck(raw)
+			want, got = goCheck(raw), e.engineCheck(raw)
 		}
 		if want == "ok" {
 			accepted++
@@ -179,12 +176,12 @@ func TestEndpointMutationDifferential(t *testing.T) {
 
 // The loopback test rests on net.SplitHostPort and net.ParseIP; the engine carries
 // its own copies of their rules, so address text of every shape is compared.
-func TestEndpointAddressDifferential(t *testing.T) {
+func EndpointAddressDifferential(t *testing.T, e Engine) {
 	base := map[string]any{"scheme": "tcp", "address": "", "expiresAt": "2030-01-01T00:30:00Z"}
 	check := func(address string) (string, string) {
 		base["address"] = address
 		raw := mustMarshal(t, base)
-		return goCheck(raw), engineCheck(raw)
+		return goCheck(raw), e.engineCheck(raw)
 	}
 	var hosts []string
 	// Structured forms: every way to write the two loopback hosts and their neighbors.
@@ -240,7 +237,7 @@ func TestEndpointAddressDifferential(t *testing.T) {
 
 // Expiry is compared to the nanosecond, in any zone, at both edges of the allowed
 // lifetime.
-func TestEndpointTimeDifferential(t *testing.T) {
+func EndpointTimeDifferential(t *testing.T, e Engine) {
 	now := time.Date(2030, 6, 15, 12, 0, 0, 123456789, time.UTC)
 	lifetime := 90 * time.Second
 	policy := mustMarshal(t, map[string]any{"schemes": []string{"ws"}, "maxLifetimeMilliseconds": lifetime.Milliseconds(), "now": now.Format(time.RFC3339Nano)})
@@ -253,7 +250,7 @@ func TestEndpointTimeDifferential(t *testing.T) {
 				for _, text := range []string{expires.Format(time.RFC3339Nano), expires.Format("2006-01-02T15:04:05.000000000Z07:00"), expires.Format("2006-01-02T15:04:05Z07:00")} {
 					raw := mustMarshal(t, map[string]any{"scheme": "ws", "address": "localhost:80", "expiresAt": text})
 					total++
-					want, got := goValidate(raw, policy), engineValidate(raw, policy)
+					want, got := goValidate(raw, policy), e.engineValidate(raw, policy)
 					if want == "ok" {
 						accepted++
 					}
@@ -274,14 +271,14 @@ func TestEndpointTimeDifferential(t *testing.T) {
 }
 
 // A policy with no clock uses the wall clock, as the Go package does.
-func TestEndpointDefaultClock(t *testing.T) {
+func EndpointDefaultClock(t *testing.T, e Engine) {
 	policy := mustMarshal(t, map[string]any{"schemes": []string{"tcp"}})
 	soon := time.Now().Add(10 * time.Minute).UTC().Format(time.RFC3339Nano)
 	late := time.Now().Add(3 * time.Hour).UTC().Format(time.RFC3339Nano)
 	past := time.Now().Add(-time.Minute).UTC().Format(time.RFC3339Nano)
 	for text, want := range map[string]string{soon: "ok", late: "invalid", past: "expired"} {
 		raw := mustMarshal(t, map[string]any{"scheme": "tcp", "address": "[::1]:9", "expiresAt": text})
-		if got := engineValidate(raw, policy); got != want {
+		if got := e.engineValidate(raw, policy); got != want {
 			t.Errorf("expires %s: engine %s, want %s", text, got, want)
 		}
 		if got := goValidate(raw, policy); got != want {
@@ -291,14 +288,14 @@ func TestEndpointDefaultClock(t *testing.T) {
 }
 
 // An endpoint is a credential: no outcome carries a part of one.
-func TestEndpointErrorsCarryNoValue(t *testing.T) {
+func EndpointErrorsCarryNoValue(t *testing.T, e Engine) {
 	secret := "s3cr3t-token-value"
 	raw := mustMarshal(t, map[string]any{"scheme": "ws", "address": "10.9.8.7:6543", "path": "/hidden/path", "token": secret + " with space", "expiresAt": "2030-01-01T00:30:00Z"})
 	for _, call := range []func() error{
-		func() error { _, err := EngineCall("endpoint.check", raw); return err },
+		func() error { _, err := e.Call("endpoint.check", raw); return err },
 		func() error {
 			input, _ := json.Marshal(map[string]json.RawMessage{"endpoint": raw, "policy": mustMarshal(t, map[string]any{"schemes": []string{"ws"}})})
-			_, err := EngineCall("endpoint.validate", input)
+			_, err := e.Call("endpoint.validate", input)
 			return err
 		},
 	} {
@@ -321,13 +318,13 @@ func TestEndpointErrorsCarryNoValue(t *testing.T) {
 // and nothing else, which is the safe side of the difference: a host built on the
 // engine refuses an endpoint a Go host would admit, never the other way round.
 // The engine's side is pinned; Go's is only reported, since it may tighten.
-func TestEndpointTimeSpellingsAreStricterInTheEngine(t *testing.T) {
+func EndpointTimeSpellingsAreStricterInTheEngine(t *testing.T, e Engine) {
 	policy := mustMarshal(t, map[string]any{"schemes": []string{"ws"}, "now": "2030-01-01T00:00:00Z"})
 	for _, text := range []string{
 		"2030-01-01T00:30:00+24:00", "2030-01-01T00:30:00+23:60", "2030-01-01T1:30:00Z", "2030-01-01T00:30:00,5Z", "0000-06-01T00:30:00Z",
 	} {
 		raw := mustMarshal(t, map[string]any{"scheme": "ws", "address": "localhost:80", "expiresAt": text})
-		got := engineValidate(raw, policy)
+		got := e.engineValidate(raw, policy)
 		t.Logf("%-28q Go: %-8s engine: %s", text, goValidate(raw, policy), got)
 		if got != "invalid" {
 			t.Errorf("expires %q: the engine answered %s, want invalid", text, got)
@@ -336,12 +333,12 @@ func TestEndpointTimeSpellingsAreStricterInTheEngine(t *testing.T) {
 }
 
 // Go's zero time is no time at all, in whatever zone it is written.
-func TestZeroTimeInAnyZoneMatchesGo(t *testing.T) {
+func ZeroTimeInAnyZoneMatchesGo(t *testing.T, e Engine) {
 	for _, text := range []string{"0001-01-01T00:00:00Z", "0001-01-01T00:00:00.000000000Z", "0001-01-01T01:00:00+01:00", "0001-01-01T00:30:00+00:30", "0000-12-31T23:00:00-01:00"} {
 		frame := mustMarshal(t, map[string]any{"frame": "reverse_request", "apiVersion": "ext.plugin/v1", "id": "g1", "parent": "1",
 			"contract": map[string]any{"name": "host.svc", "version": "v1"}, "operation": "sign", "deadline": text})
 		want, got := goFrameValidates(frame), error(nil)
-		_, got = EngineCall("frame.validate", frame)
+		_, got = e.Call("frame.validate", frame)
 		if (want == nil) != (got == nil) {
 			t.Errorf("deadline %q: Go=%s engine=%s", text, errText(want), errText(got))
 		}

@@ -104,9 +104,20 @@ trust state. Nothing about an existing `ctx` installation changes.
 
 Each step is its own pull request and lands green before the next starts.
 
-## Open questions
+## Decided questions
 
-- Whether the standing source choice is per command or global, and its config key.
-- Whether `ext` should also forward unknown names to installed adapter commands, or
-  only to commands that packages declare explicitly.
-- Whether `ext` replaces `ctx` as the documented entry point, or stays an addition.
+These were open in the first draft and are settled the following way:
+
+- **The source choice is per command.** A package overrides a builtin only for the
+  command it is chosen for, either per invocation (`--source=package`) or as a
+  standing entry for that command in the ext config. There is no global switch, so
+  choosing a package `ctx` never changes how `ctn` runs.
+- **`ext` forwards only declared commands.** A name runs only if a builtin or a
+  package declares it. Unknown names are an error with the closest match, and are
+  never passed to an adapter, so a typo cannot run something.
+- **`ext` is an addition.** `ctx` and `ctn` stay the documented entry points and keep
+  shipping standalone; `ext` is documented as the way to run them together with other
+  commands. This can be revisited once `ext` has shipped.
+- **Release order.** The pending `contract` release (v0.8.0: the `instance.Manager`
+  disposal ordering and `plugintest/enginetest`) goes before step 1, so the module
+  move does not change paths in the middle of a release round.

@@ -57,14 +57,17 @@ func openRig(c bool, opts instance.Options[string]) (instanceRig, error) {
 	}}, nil
 }
 
-// TestInstanceErrorCausesMatchGo runs the same sequence of operations through
-// both managers and compares the class of every error.
-func TestInstanceErrorCausesMatchGo(t *testing.T) {
-	scenarios := []struct {
-		name string
-		opts func() instance.Options[string]
-		run  func(ctx context.Context, r instanceRig) []string
-	}{
+// instanceScenario is a sequence of operations to run through both managers.
+type instanceScenario struct {
+	name string
+	opts func() instance.Options[string]
+	run  func(ctx context.Context, r instanceRig) []string
+}
+
+// instanceScenarios are shared by the tests that compare the managers: the class of every error,
+// and the events they report.
+func instanceScenarios() []instanceScenario {
+	return []instanceScenario{
 		{"dispose-error-on-release",
 			func() instance.Options[string] {
 				return instance.Options[string]{Capacity: 2, Validate: func(json.RawMessage) error { return nil },
@@ -188,7 +191,12 @@ func TestInstanceErrorCausesMatchGo(t *testing.T) {
 				return append(out, causes(r.m.Close(ctx)))
 			}},
 	}
-	for _, sc := range scenarios {
+}
+
+// TestInstanceErrorCausesMatchGo runs the same sequence of operations through
+// both managers and compares the class of every error.
+func TestInstanceErrorCausesMatchGo(t *testing.T) {
+	for _, sc := range instanceScenarios() {
 		t.Run(sc.name, func(t *testing.T) {
 			var outs [2]string
 			for i, c := range []bool{false, true} {

@@ -109,3 +109,35 @@ func TestFailedReplacementAndConcurrentClose(t *testing.T) {
 		t.Fatal("factory result leaked", disposed.Load())
 	}
 }
+
+// Every instance disposed of by Close has been reported to the observer by the time Close returns.
+func TestCloseReportsEveryDisposalBeforeReturning(t *testing.T) {
+	for run := 0; run < 20; run++ {
+		var observed atomic.Int32
+		m, err := instance.New(instance.Options[string]{Capacity: 8, Validate: func(json.RawMessage) error { return nil },
+			Create: func(_ context.Context, _ string, config json.RawMessage) (string, func() error, error) {
+				return string(config), func() error { return nil }, nil
+			},
+			Observe: func(e instance.Event) {
+				if e.State == "disposed" {
+					// A slow observer is what shows an event reported after Close returned.
+					time.Sleep(time.Millisecond)
+					observed.Add(1)
+				}
+			}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, key := range []string{"a", "b", "c", "d"} {
+			if err := m.Configure(context.Background(), key, "r1", json.RawMessage(`{}`)); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if err := m.Close(context.Background()); err != nil {
+			t.Fatal(err)
+		}
+		if got := observed.Load(); got != 4 {
+			t.Fatalf("run %d: %d of 4 disposals observed when Close returned", run, got)
+		}
+	}
+}

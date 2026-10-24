@@ -90,8 +90,10 @@ func (m *Manager[T]) dispose(e *entry[T]) error {
 	if e.dispose != nil {
 		err = e.dispose()
 	}
-	m.finish(err)
+	// The event comes first: finish can let Close return, and a host that closes the manager
+	// must have seen every instance disposed of by then.
 	m.observe(Event{Key: e.key, Revision: e.revision, State: "disposed"})
+	m.finish(err)
 	return err
 }
 

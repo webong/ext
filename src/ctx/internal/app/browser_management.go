@@ -9,7 +9,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/webong/ext/ctx/internal/config"
+	"github.com/webong/ext/src/ctx/internal/config"
 	"github.com/webong/ext/res/web/contract"
 )
 

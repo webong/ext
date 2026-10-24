@@ -61,7 +61,7 @@ the dependency from the proxy at the required version. Keeping them out avoids
 the false impression that a published module can redirect consumers to a local
 path, and it means each `go.mod` describes exactly what a consumer will get.
 
-The CLI modules `src/ctx` (module path `github.com/webong/ext/ctx`) and `src/ctn` keep
+The CLI modules `src/ctx` (module path `github.com/webong/ext/src/ctx`) and `src/ctn` keep
 `replace` directives, but only for the sibling modules they require, because they are the modules
 developers build and run. Those are what let `go build ./...` use local module code. Adapters are
 ext packages that `ctx` loads, not Go imports, so neither module lists or replaces them. The Go

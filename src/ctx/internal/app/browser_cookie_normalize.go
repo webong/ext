@@ -11,7 +11,7 @@ import (
 	"os/signal"
 	"time"
 
-	"github.com/webong/ext/ctx/internal/app/browserhost"
+	"github.com/webong/ext/src/ctx/internal/app/browserhost"
 	browser "github.com/webong/ext/res/web"
 )
 

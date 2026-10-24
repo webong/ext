@@ -16,8 +16,8 @@ import (
 )
 
 var forbiddenPrefixes = []string{
-	"github.com/webong/ext/ctx/",
-	"github.com/webong/ext/ctn/",
+	"github.com/webong/ext/src/ctx/",
+	"github.com/webong/ext/src/ctn/",
 	"github.com/webong/ext/adapters/",
 }
 
@@ -52,8 +52,8 @@ func repoRoot(t *testing.T) string {
 // productRoots are the binaries under src. Each is its own module and must not
 // depend on another product; shared code belongs in pkg or res.
 var productRoots = []struct{ dir, module string }{
-	{"src/ctx", "github.com/webong/ext/ctx"},
-	{"src/ctn", "github.com/webong/ext/ctn"},
+	{"src/ctx", "github.com/webong/ext/src/ctx"},
+	{"src/ctn", "github.com/webong/ext/src/ctn"},
 }
 
 func TestProductsDoNotImportEachOther(t *testing.T) {

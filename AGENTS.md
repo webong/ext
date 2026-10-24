@@ -34,10 +34,10 @@ never imports another product; shared code goes in `pkg/` or `res/`.
 `examples/` is not a Go module: it holds only samples that need no Go build (a shell adapter and an Android
 consumer app). Go examples live in the library they show, as an `examples/` directory inside that module:
 `pkg/plugin-go/examples` for plugins (the umbrella requires every backend), `res/system/examples` and
-`res/web/examples` for those libraries. Nothing may import the product modules `github.com/webong/ext/ctx` or
-`github.com/webong/ext/ctn`; their directories are `src/ctx` and `src/ctn`. The module paths deliberately omit
-`src/`, so the products are not `go get`-resolvable from the repository until their
-paths and directories match; they are built from source and released as binaries.
+`res/web/examples` for those libraries. Nothing may import the product modules `github.com/webong/ext/src/ctx` or
+`github.com/webong/ext/src/ctn`; their module paths match their directories, `src/ctx` and `src/ctn`. They are
+released as binaries (`ctx-vX.Y.Z`, `ctn-vX.Y.Z`); until the planned `ext` command imports them as libraries
+([the decision](docs/adr-ext-command.md)), nothing imports them.
 
 `res/` is a container for reusable modules rather than a package. Each
 subdirectory is its own Go module, and nothing lives at that level: no Go package

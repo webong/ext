@@ -21,7 +21,7 @@ build_bundle() {
   bundle="$staging/ctn"
   mkdir -p "$bundle/bin"
   (cd "$ROOT" && CGO_ENABLED=0 GOOS="$os" GOARCH="$arch" \
-    go build -trimpath -ldflags "-s -w -X github.com/webong/ext/ctn/internal/app.Version=${VERSION#v}" \
+    go build -trimpath -ldflags "-s -w -X github.com/webong/ext/src/ctn/internal/app.Version=${VERSION#v}" \
     -o "$bundle/bin/ctn$extension" ./src/ctn/cmd/ctn)
   cp "$ROOT/LICENSE" "$bundle/"
   if [ "$os" = windows ]; then

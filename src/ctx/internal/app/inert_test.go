@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/webong/ext/ctx/internal/config"
+	"github.com/webong/ext/src/ctx/internal/config"
 )
 
 // An adapter with a runtime this host does not define is installable and

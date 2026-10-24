@@ -1,4 +1,4 @@
-module github.com/webong/ext/ctn
+module github.com/webong/ext/src/ctn
 
 go 1.26.0
 

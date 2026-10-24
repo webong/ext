@@ -10,9 +10,9 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/webong/ext/ctx/internal/config"
-	"github.com/webong/ext/ctx/internal/launch"
-	"github.com/webong/ext/ctx/internal/platform"
+	"github.com/webong/ext/src/ctx/internal/config"
+	"github.com/webong/ext/src/ctx/internal/launch"
+	"github.com/webong/ext/src/ctx/internal/platform"
 	modpkg "github.com/webong/ext/pkg/plugin-go/contract/host/adapter"
 	systemgraph "github.com/webong/ext/res/system"
 )

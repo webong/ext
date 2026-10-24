@@ -5,7 +5,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/webong/ext/ctx/internal/config"
+	"github.com/webong/ext/src/ctx/internal/config"
 	modpkg "github.com/webong/ext/pkg/plugin-go/contract/host/adapter"
 )
 

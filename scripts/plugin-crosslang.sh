@@ -80,6 +80,13 @@ export EXT_ZIG_WASM="$build_dir/wasi/bin/ext-zig-guest.wasm"
 export EXT_ZIG_FRAMES_GUEST="$build_dir/zig/bin/ext-zig-frames"
 export EXT_ZIG_FRAMES_WASM="$build_dir/wasi/bin/ext-zig-frames.wasm"
 EXT_FRAMES_REQUIRED="$EXT_FRAMES_REQUIRED ZIG ZIG_WASI"
+# The Zig capability guest (ext.health, ext.configuration, ext.stream) is called with the Go
+# library's own methods and stream client, natively and as a WASI command; the Zig capability host
+# calls the same contracts of a guest the Go library serves.
+export EXT_ZIG_CAPABILITY_GUEST="$build_dir/zig/bin/ext-zig-capability"
+export EXT_ZIG_CAPABILITY_WASM="$build_dir/wasi/bin/ext-zig-capability.wasm"
+export EXT_ZIG_CAPABILITY_HOST="$build_dir/zig/bin/ext-zig-capability-host"
+export EXT_CAPABILITY_REQUIRED="ZIG ZIG_WASI"
 # The mobile hosts embed the page glue and the page shim; fail if a copy is stale.
 scripts/plugin-mobile-assets.sh --check
 # Swift builds on Apple platforms only. Its package tests run on the host, then

@@ -120,9 +120,49 @@ Requests are decoded with `wire.requestFromValue`, which reads a request the way
 does (a member it does not know is refused, a null member is empty); `wire.descriptorFromValue`
 does the same for a descriptor.
 
-**Status:** written without a Zig toolchain, then compiled and run with Zig 0.17.0: the 17 SDK tests pass
+**Status:** written without a Zig toolchain, then compiled and run with Zig 0.17.0: the 28 SDK tests pass
 (the three fixtures and the scripted router among them), and the frames suite passes natively through
 the Go session and the C engine, and as a WASI command through the Go session.
+
+## Capability contracts
+
+`capability` defines the optional contracts `ext.health`, `ext.configuration` and `ext.stream`
+with the wire shapes and limits of the Go library (`contract/guest/capability` and
+`contract/guest/stream`), as typed `author.Method` values. A guest registers handlers for them like
+any other method, and a host calls them through the same values:
+
+```zig
+const cap = sdk.capability;
+try registry.register(cap.HealthRequest, cap.Health, cap.health_method, health);
+try registry.register(cap.Configuration, cap.Configured, cap.configuration_method, configure);
+try registry.register(cap.stream.OpenRequest, cap.stream.OpenResponse, cap.stream.open_method, open);
+try registry.register(cap.stream.ReadRequest, cap.stream.Batch, cap.stream.read_method, read);
+try registry.register(cap.stream.CloseRequest, cap.stream.Empty, cap.stream.close_method, close);
+```
+
+- `ext.health` `check` (surface `observation`) takes `{}` and answers `{status, ready}`, where the
+  status is `healthy`, `degraded` or `unhealthy`; a handler that returns anything else is not answered.
+- `ext.configuration` `update` (surface `configuration`) takes `{instance, revision, values}` and
+  answers `{instance, revision}`. The instance and the revision are 1 to 256 bytes; `values` is any
+  JSON document, required, that the guest's own schema then checks (the SDK has no schema
+  interpreter) and that must not carry credentials.
+- `ext.stream` is a pull stream: `open` takes `{parameters}` and answers `{id}` (1 to 64 bytes),
+  `read` takes `{id, sequence, limit}` and answers `{items, done}`, `close` takes `{id}` and answers
+  `{}`. A read carries a sequence from 1 and a limit from 1 to `stream.max_items` (256); a batch holds
+  at most 256 items and `stream.max_batch_bytes` (1 MiB) of compact JSON. `sequence` and `limit` are
+  whole JSON numbers, as in Go: `1.0` and `1e0` are refused, though the standard parser would take
+  them. The guest owns the stream's state (its scope, its lifetime, and that each read carries the next
+  sequence); the SDK defines what travels, not Go's `stream.Service`.
+- `stream.Client` pulls one stream over a `host.Session`: `open`, `read(limit)` and `close`. It
+  numbers the reads, answers locally once the stream is done, checks that a batch holds no more than
+  the limit, and ends the stream when a read fails, since items may already have been consumed.
+
+A request that does not satisfy a method never reaches the handler. `src/capability_tests.zig`
+pins the limits and the wire shapes (the cases the Rust, Python and TypeScript SDKs check too), and
+`examples/capability.zig` and `examples/capability-host.zig` take part in
+`pkg/plugin-go/crosslang/capability_test.go`: the Go library's own methods and stream client call the
+Zig guest (natively and as a WASI command), and the Zig host calls a guest the Go library serves
+(`stream.Service`, `RegisterConfiguration`, `RegisterHealth`).
 
 ## Host API
 
@@ -159,7 +199,8 @@ zig build --build-file pkg/plugin-zig/build.zig -Dtarget=wasm32-wasi --prefix /t
 scripts/plugin-crosslang.sh
 ```
 
-`examples/common.zig` contains the shared conformance guest, and `examples/frames.zig` the frames one. Native builds
+`examples/common.zig` contains the shared conformance guest, `examples/frames.zig` the frames one, and
+`examples/capability.zig` and `examples/capability-host.zig` the capability ones. Native builds
 produce command/host executables and a C shared library. WASI builds produce
 only the command guest. The native integration runner targets Linux and macOS;
 Windows native hosting and other Zig versions are not validated by this pass.

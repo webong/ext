@@ -32,7 +32,7 @@ Their existing native protocols are not automatically compatible with CTX.
 | `pkg/plugin-python` | Standard-library guest SDK (`ext_plugin`) serving JSON lines on stdin and stdout |
 | `pkg/plugin-ts` | Portable JavaScript runtime and TypeScript declarations for hosts and guests |
 | `pkg/plugin-rust` | Rust typed registry, host sessions, JSON-line/WASI guests and C ABI host/guest bindings |
-| `pkg/plugin-zig` | Zig typed registry, host sessions, JSON-line/WASI guests and C ABI host/guest bindings |
+| `pkg/plugin-zig` | Zig typed registry, host sessions, JSON-line/WASI guests, C ABI host/guest bindings, and the health, configuration and stream contracts with a stream client |
 | `pkg/plugin-go/crosslang` | Real Rust/Zig/Go host and guest interoperability tests |
 | `pkg/plugin-go/hashicorp/cmd/ext-plugin` | Read-only package inspection and dependency resolution |
 

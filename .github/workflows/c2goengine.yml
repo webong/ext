@@ -32,11 +32,11 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - {os: ubuntu-latest, goos: linux, goarch: amd64, required: false, race: '-race', shell: bash}
-          - {os: ubuntu-24.04-arm, goos: linux, goarch: arm64, required: true, race: '-race', shell: bash}
-          - {os: macos-latest, goos: darwin, goarch: arm64, required: true, race: '', shell: bash}
-          - {os: windows-latest, goos: windows, goarch: amd64, required: false, race: '', shell: 'msys2 {0}', msystem: MINGW64, packages: 'mingw-w64-x86_64-gcc'}
-          - {os: windows-11-arm, goos: windows, goarch: arm64, required: false, race: '', shell: 'msys2 {0}', msystem: CLANGARM64, packages: 'mingw-w64-clang-aarch64-clang', cc: clang}
+          - {os: ubuntu-latest, goos: linux, goarch: amd64, required: false, race: '-race'}
+          - {os: ubuntu-24.04-arm, goos: linux, goarch: arm64, required: true, race: '-race'}
+          - {os: macos-latest, goos: darwin, goarch: arm64, required: true, race: ''}
+          - {os: windows-latest, goos: windows, goarch: amd64, required: false, race: '', msystem: MINGW64, packages: 'mingw-w64-x86_64-gcc'}
+          - {os: windows-11-arm, goos: windows, goarch: arm64, required: false, race: '', msystem: CLANGARM64, packages: 'mingw-w64-clang-aarch64-clang', cc: clang}
     steps:
       - name: Keep line endings as they are
         if: runner.os == 'Windows'
@@ -61,7 +61,13 @@ jobs:
           path-type: inherit
           install: ${{ matrix.packages }}
       - name: Generate the translation
-        shell: ${{ matrix.shell }}
+        if: runner.os != 'Windows'
+        shell: bash
+        working-directory: pkg/plugin-go/c2goengine/tools
+        run: GOWORK=off go run .
+      - name: Generate the translation (MSYS2)
+        if: runner.os == 'Windows'
+        shell: msys2 {0}
         working-directory: pkg/plugin-go/c2goengine/tools
         run: GOWORK=off go run .
       - name: Compare with what is checked in
@@ -80,9 +86,15 @@ jobs:
           fi
           echo "::notice::No translation is checked in for ${{ matrix.goos }}/${{ matrix.goarch }} yet. The translation-${{ matrix.goos }}-${{ matrix.goarch }} artifact has the file and the updated build constraints."
       - name: Test
-        shell: ${{ matrix.shell }}
+        if: runner.os != 'Windows'
+        shell: bash
         working-directory: pkg/plugin-go/c2goengine
         run: go test -count=1 ${{ matrix.race }} ./...
+      - name: Test (MSYS2)
+        if: runner.os == 'Windows'
+        shell: msys2 {0}
+        working-directory: pkg/plugin-go/c2goengine
+        run: go test -count=1 ./...
       - name: Keep the result
         if: always()
         uses: actions/upload-artifact@v4

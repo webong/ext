@@ -42,7 +42,7 @@ on:
       - 'res/web/ios/**'
       - 'pkg/plugin-go/cengine/cshared/**'
       - 'lib/plugin/**'
-      - 'pkg/plugin-rust/**'
+      - 'pkg/ext-rust/**'
   pull_request:
     paths:
       - '.github/workflows/plugin-wamr.yml'
@@ -58,7 +58,7 @@ on:
       - 'res/web/ios/**'
       - 'pkg/plugin-go/cengine/cshared/**'
       - 'lib/plugin/**'
-      - 'pkg/plugin-rust/**'
+      - 'pkg/ext-rust/**'
 
 permissions:
   contents: read
@@ -160,7 +160,7 @@ jobs:
           set -euo pipefail
           reactor="$RUNNER_TEMP/reactor.wasm"
           CARGO_TARGET_DIR="$RUNNER_TEMP/cargo" cargo build --release --locked \
-            --manifest-path pkg/plugin-rust/Cargo.toml --target wasm32-wasip1 --example shared
+            --manifest-path pkg/ext-rust/Cargo.toml --target wasm32-wasip1 --example shared
           cp "$RUNNER_TEMP/cargo/wasm32-wasip1/release/examples/shared.wasm" "$reactor"
           # The frameworks were built by the step above. Pick an installed iPhone simulator.
           device="$(xcrun simctl list devices available | grep -m1 -E 'iPhone' | sed -E 's/^ *(.*) \(([0-9A-F-]{36})\).*/\2/')"

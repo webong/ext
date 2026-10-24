@@ -126,11 +126,11 @@ not an isolation boundary.
 
 - Go: `goengine.EngineCall`, package/schema/route helpers, `NewInstances`,
   `NewStreams`, and `GuestFromRegistry`.
-- Rust: `ext-plugin-engine` in `pkg/plugin-rust/engine`, with safe host/guest/service
+- Rust: `ext-plugin-engine` in `pkg/ext-rust/engine`, with safe host/guest/service
   wrappers and raw resource FFI.
-- Zig: `ext_plugin_engine` in `pkg/plugin-zig/engine`, with host/guest/service wrappers
+- Zig: `ext_plugin_engine` in `pkg/ext-zig/engine`, with host/guest/service wrappers
   and the complete header-generated FFI.
-- Node: `loadEngine` in `pkg/plugin-ts/engine`, with asynchronous host/guest
+- Node: `loadEngine` in `pkg/ext-ts/engine`, with asynchronous host/guest
   callbacks, cancellation and pure JSON services. Node resource bindings and
   filesystem helpers are still missing.
 

@@ -53,7 +53,7 @@ fi
 
 # The reactor module the host tests run.
 CARGO_TARGET_DIR="$work/cargo" cargo build --release --locked \
-  --manifest-path pkg/plugin-rust/Cargo.toml --target wasm32-wasip1 --example shared
+  --manifest-path pkg/ext-rust/Cargo.toml --target wasm32-wasip1 --example shared
 cp -R examples/android-consumer "$work/app"
 mkdir -p "$work/app/app/src/main/assets"
 cp "$work/cargo/wasm32-wasip1/release/examples/shared.wasm" "$work/app/app/src/main/assets/reactor.wasm"

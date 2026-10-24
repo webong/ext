@@ -44,7 +44,7 @@ for protocol in grpc netrpc; do
   rust_host="${CARGO_TARGET_DIR:-$EXT_CENGINE_BUILD_DIR/cargo}/debug/ext-cengine-example"
   "$rust_host" "${inputs[@]}" > "$build_dir/rust-$protocol.jsonl"
   "$EXT_CENGINE_BUILD_DIR/zig-host" "${inputs[@]}" > "$build_dir/zig-$protocol.jsonl"
-  node pkg/plugin-ts/examples/cengine/host.cjs "$EXT_CENGINE_BUILD_DIR/ext_host.node" "${inputs[@]}" > "$build_dir/node-$protocol.jsonl"
+  node pkg/ext-ts/examples/cengine/host.cjs "$EXT_CENGINE_BUILD_DIR/ext_host.node" "${inputs[@]}" > "$build_dir/node-$protocol.jsonl"
   node pkg/plugin-go/contract/transport/bridge/testdata/ts-host.mjs "$executable" "$build_dir/descriptor.json"
   if [[ -n "${EXT_INTEROP_RUST_HOST:-}" ]]; then "$EXT_INTEROP_RUST_HOST" process "$executable"; fi
   if [[ -n "${EXT_INTEROP_ZIG_HOST:-}" ]]; then python3 pkg/plugin-go/contract/transport/bridge/testdata/zig_host.py "$EXT_INTEROP_ZIG_HOST" "$executable"; fi

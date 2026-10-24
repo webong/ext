@@ -4,7 +4,7 @@
 # build-tools, NDK), a JDK, cmake, git and cargo with wasm32-wasip1. WAMR is fetched at the
 # pinned commit (scripts/plugin-wamr-source.sh).
 # Usage: scripts/ext-android-wamr-device.sh [reactor.wasm]
-#        (default: built from pkg/plugin-rust, the Rust shared example)
+#        (default: built from pkg/ext-rust, the Rust shared example)
 # Uses a running device (ANDROID_SERIAL selects one). If none is running it starts the first
 # AVD headless and stops it afterwards. The ABI follows the device (arm64-v8a or x86_64).
 set -euo pipefail
@@ -32,7 +32,7 @@ trap cleanup EXIT
 reactor="${1:-}"
 if [[ -z "$reactor" ]]; then
   CARGO_TARGET_DIR="$work/cargo" cargo build --release --locked \
-    --manifest-path pkg/plugin-rust/Cargo.toml --target wasm32-wasip1 --example shared
+    --manifest-path pkg/ext-rust/Cargo.toml --target wasm32-wasip1 --example shared
   reactor="$work/cargo/wasm32-wasip1/release/examples/shared.wasm"
 fi
 [[ -f "$reactor" ]] || { echo "no reactor module at $reactor" >&2; exit 2; }

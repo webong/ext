@@ -145,10 +145,10 @@ the guest, wire contract and abstract host Session remain portable.
 From the repository root:
 
 ```sh
-cargo test --locked --manifest-path pkg/plugin-rust/Cargo.toml
-cargo build --locked --manifest-path pkg/plugin-rust/Cargo.toml --examples
+cargo test --locked --manifest-path pkg/ext-rust/Cargo.toml
+cargo build --locked --manifest-path pkg/ext-rust/Cargo.toml --examples
 rustup target add wasm32-wasip1
-cargo build --locked --manifest-path pkg/plugin-rust/Cargo.toml --target wasm32-wasip1 --example guest
+cargo build --locked --manifest-path pkg/ext-rust/Cargo.toml --target wasm32-wasip1 --example guest
 scripts/plugin-crosslang.sh
 ```
 

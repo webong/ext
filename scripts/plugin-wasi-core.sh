@@ -15,7 +15,7 @@ cmake -S lib/plugin -B "$build_dir/core" -DEXT_BUILD_HOST=OFF \
 cmake --build "$build_dir/core" -j 4
 go run ./pkg/plugin-go/wasm/cmd/wasirun "$build_dir/core/ext_guest_core_test"
 EXT_ENGINE_LIB_DIR="$build_dir/core" CARGO_TARGET_DIR="$build_dir/cargo" \
-  cargo build --locked --manifest-path pkg/plugin-rust/engine/Cargo.toml \
+  cargo build --locked --manifest-path pkg/ext-rust/engine/Cargo.toml \
   --target wasm32-wasip1 --features guest-only --example guest
 go run ./pkg/plugin-go/wasm/cmd/wasirun "$build_dir/cargo/wasm32-wasip1/debug/examples/guest.wasm"
 echo "Portable guest artifacts: $build_dir"

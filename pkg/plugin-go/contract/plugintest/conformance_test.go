@@ -66,14 +66,14 @@ func TestFrozenV1Fixtures(t *testing.T) {
 	}
 }
 
-// The Python guest SDK (pkg/plugin-python) must pass the same suite through
+// The Python guest SDK (pkg/ext-python) must pass the same suite through
 // the process backend. Skipped when no python3 is installed.
 func TestPythonGuest(t *testing.T) {
 	python, err := exec.LookPath("python3")
 	if err != nil {
 		t.Skip("python3 not installed")
 	}
-	dir, err := filepath.Abs("../../../plugin-python")
+	dir, err := filepath.Abs("../../../ext-python")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -88,7 +88,7 @@ func TestPythonUnitTests(t *testing.T) {
 	if err != nil {
 		t.Skip("python3 not installed")
 	}
-	dir, err := filepath.Abs("../../../plugin-python")
+	dir, err := filepath.Abs("../../../ext-python")
 	if err != nil {
 		t.Fatal(err)
 	}

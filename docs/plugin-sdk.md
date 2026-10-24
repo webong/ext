@@ -29,10 +29,10 @@ Their existing native protocols are not automatically compatible with CTX.
 | `pkg/plugin-go/contract/package` | Portable manifests, artifact verification, preflight and graph projection |
 | `pkg/plugin-go/contract/plugintest` | Reusable backend conformance tests |
 | `pkg/plugin-go` | Go binding to the C engine; static by default, shared optional |
-| `pkg/plugin-python` | Standard-library guest SDK (`ext_plugin`) serving JSON lines on stdin and stdout |
-| `pkg/plugin-ts` | Portable JavaScript runtime and TypeScript declarations for hosts and guests |
-| `pkg/plugin-rust` | Rust typed registry, host sessions, JSON-line/WASI guests and C ABI host/guest bindings |
-| `pkg/plugin-zig` | Zig typed registry, host sessions, JSON-line/WASI guests, C ABI host/guest bindings, and the health, configuration and stream contracts with a stream client |
+| `pkg/ext-python` | Standard-library guest SDK (`ext_plugin`) serving JSON lines on stdin and stdout |
+| `pkg/ext-ts` | Portable JavaScript runtime and TypeScript declarations for hosts and guests |
+| `pkg/ext-rust` | Rust typed registry, host sessions, JSON-line/WASI guests and C ABI host/guest bindings |
+| `pkg/ext-zig` | Zig typed registry, host sessions, JSON-line/WASI guests, C ABI host/guest bindings, and the health, configuration and stream contracts with a stream client |
 | `pkg/plugin-go/crosslang` | Real Rust/Zig/Go host and guest interoperability tests |
 | `pkg/plugin-go/hashicorp/cmd/ext-plugin` | Read-only package inspection and dependency resolution |
 
@@ -256,7 +256,7 @@ fixtures and domain/schema tests complement the behavioral backend suite.
 
 ```sh
 go test -race ./pkg/plugin-go/hashicorp/... ./pkg/plugin-go/hashicorp/cmd/ext-plugin
-node --test pkg/plugin-ts/test.mjs
+node --test pkg/ext-ts/test.mjs
 go run ./pkg/plugin-go/examples/plugin-typescript
 ```
 
@@ -270,7 +270,7 @@ backend conformance suite.
 
 ### Rust and Zig SDKs
 
-The [Rust SDK](../pkg/plugin-rust/README.md) and [Zig SDK](../pkg/plugin-zig/README.md)
+The [Rust SDK](../pkg/ext-rust/README.md) and [Zig SDK](../pkg/ext-zig/README.md)
 provide typed method registration, immutable guest snapshots, explicit policy
 callbacks, envelope validation, host sessions and C ABI export helpers. Their
 command guests also compile to WASI Preview 1. Both use the existing wire/ABI

@@ -48,8 +48,8 @@ depend only on the standard library; `res/system` depends on `golang.org/x/sys`.
 `lib/` is a container for native libraries that several language bindings
 share. Nothing lives at that level. `lib/plugin` is the portable C plugin
 engine, built with CMake: it is not a Go module, has no `go.mod` and is not
-listed in `go.work`. The language bindings under `pkg/plugin-*` (and the mobile SDKs `pkg/ext-ios` and
-`pkg/ext-android`) build on it.
+listed in `go.work`. The language bindings (`pkg/plugin-go`, `pkg/ext-rust`, `pkg/ext-zig`, `pkg/ext-ts`,
+`pkg/ext-python`) and the mobile SDKs (`pkg/ext-ios`, `pkg/ext-android`) build on it.
 Until it reaches parity, the pure-Go implementation in `pkg/plugin-go/contract`
 (and the pure-Go build of `pkg/plugin-go/cengine`) is the behavioral baseline; see `docs/plugin-engine-parity.md`. The shared conformance
 fixtures live in `lib/plugin/testdata`. A change to the plugin contract or the
@@ -97,7 +97,7 @@ The reusable libraries are:
 
 - `res/web` for portable web contracts and workflows: browsers, and the web engine that runs web content through them. It is also the iOS and Android module of the cookie, userscript and bookmarklet rules (`res/web/ios`, `res/web/android`), which `pkg/ext-ios` and `pkg/ext-android` ship.
 - `res/credential` for portable credential serving and client code.
-- `lib/plugin` for the portable C plugin engine shared by the `pkg/plugin-*` language bindings and the mobile SDKs.
+- `lib/plugin` for the portable C plugin engine shared by the language bindings under `pkg/` (`plugin-go`, `ext-rust`, `ext-zig`, `ext-ts`, `ext-python`) and the mobile SDKs.
 - `res/system` for observing the machine: host, shell, file system and web view discovery and process inspection, with `res/system/graph` (the namespaced graph store and its transactions) and `res/system/supervisor` (process supervision and recovery).
 - `pkg/plugin-go/contract` for the Go plugin contract, sessions, guests, packages, bridges and tooling (standard library only).
 - `pkg/plugin-go/cengine` for the Go binding of the C engine, with a pure-Go build of the same API and the C ABI loader.

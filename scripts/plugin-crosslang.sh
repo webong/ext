@@ -26,21 +26,21 @@ case "${EXT_CROSSLANG_ENGINE:-go}" in
   *) echo 'EXT_CROSSLANG_ENGINE must be go or c' >&2; exit 1 ;;
 esac
 
-cargo fmt --manifest-path pkg/plugin-rust/Cargo.toml -- --check
-cargo clippy --locked --manifest-path pkg/plugin-rust/Cargo.toml --all-targets -- -D warnings
-cargo test --locked --manifest-path pkg/plugin-rust/Cargo.toml
-cargo build --locked --manifest-path pkg/plugin-rust/Cargo.toml --examples
+cargo fmt --manifest-path pkg/ext-rust/Cargo.toml -- --check
+cargo clippy --locked --manifest-path pkg/ext-rust/Cargo.toml --all-targets -- -D warnings
+cargo test --locked --manifest-path pkg/ext-rust/Cargo.toml
+cargo build --locked --manifest-path pkg/ext-rust/Cargo.toml --examples
 # Keep DWARF stack-trace decoding out of bounded WASI cancellation checks.
-cargo build --release --locked --manifest-path pkg/plugin-rust/Cargo.toml --target wasm32-wasip1 --example guest
+cargo build --release --locked --manifest-path pkg/ext-rust/Cargo.toml --target wasm32-wasip1 --example guest
 # The frames guest (progress events and reverse calls) as a WASI command: no threads.
-cargo build --release --locked --manifest-path pkg/plugin-rust/Cargo.toml --target wasm32-wasip1 --example frames
+cargo build --release --locked --manifest-path pkg/ext-rust/Cargo.toml --target wasm32-wasip1 --example frames
 # The shared example is the same guest as a WebAssembly reactor: the C ABI plus
 # ext_plugin_alloc/ext_plugin_free (docs/plugin-reactor-abi.md).
-cargo build --release --locked --manifest-path pkg/plugin-rust/Cargo.toml --target wasm32-wasip1 --example shared
-"$ZIG_BIN" build test --build-file pkg/plugin-zig/build.zig --prefix "$build_dir/zig"
-"$ZIG_BIN" build --build-file pkg/plugin-zig/build.zig --prefix "$build_dir/zig"
+cargo build --release --locked --manifest-path pkg/ext-rust/Cargo.toml --target wasm32-wasip1 --example shared
+"$ZIG_BIN" build test --build-file pkg/ext-zig/build.zig --prefix "$build_dir/zig"
+"$ZIG_BIN" build --build-file pkg/ext-zig/build.zig --prefix "$build_dir/zig"
 # Optimized: a Debug module is slow enough to compile that it exhausts the harness's 3 s session timeout.
-"$ZIG_BIN" build --build-file pkg/plugin-zig/build.zig -Dtarget=wasm32-wasi -Doptimize=ReleaseSafe --prefix "$build_dir/wasi"
+"$ZIG_BIN" build --build-file pkg/ext-zig/build.zig -Dtarget=wasm32-wasi -Doptimize=ReleaseSafe --prefix "$build_dir/wasi"
 
 case "$(uname -s)" in
   Darwin) extension=dylib ;;
@@ -61,7 +61,7 @@ export EXT_FRAMES_REQUIRED="GO RUST RUST_INLINE RUST_WASI"
 if command -v node >/dev/null 2>&1; then
   cat >"$build_dir/ext-ts-frames-guest" <<LAUNCHER
 #!/bin/sh
-exec "$(command -v node)" "$PWD/pkg/plugin-ts/examples/frames/guest.mjs"
+exec "$(command -v node)" "$PWD/pkg/ext-ts/examples/frames/guest.mjs"
 LAUNCHER
   chmod +x "$build_dir/ext-ts-frames-guest"
   export EXT_TS_FRAMES_GUEST="$build_dir/ext-ts-frames-guest"
@@ -116,7 +116,7 @@ fi
 if command -v python3 >/dev/null 2>&1; then
   cat >"$build_dir/ext-python-frames-guest" <<LAUNCHER
 #!/bin/sh
-exec "$(python3 -c 'import sys; print(sys.executable)')" -I "$PWD/pkg/plugin-python/tests/frames_guest.py"
+exec "$(python3 -c 'import sys; print(sys.executable)')" -I "$PWD/pkg/ext-python/tests/frames_guest.py"
 LAUNCHER
   chmod +x "$build_dir/ext-python-frames-guest"
   export EXT_PYTHON_FRAMES_GUEST="$build_dir/ext-python-frames-guest"

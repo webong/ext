@@ -94,6 +94,12 @@ release workflow no longer watches them (the one release made under the old form
 `scripts/ext-android*.sh`; the SwiftPM package is `Ext` (scheme `Ext-Package`) and its plugin
 products keep their `ExtPlugin…` names.
 
+`pkg/plugin-rust`, `pkg/plugin-zig`, `pkg/plugin-ts` and `pkg/plugin-python` became `pkg/ext-rust`,
+`pkg/ext-zig`, `pkg/ext-ts` and `pkg/ext-python` (a hard cut, like the mobile SDKs). The names of the packages
+inside did not change: the crates `ext-plugin` and `ext-plugin-engine`, the npm package `@ctx/plugin`, the
+Python package `ext-plugin` and the Zig package `ext_plugin`. None of the four is a Go module, so no tag moved.
+`pkg/plugin-go` keeps its name for now, because renaming it changes published Go module paths.
+
 `res/web/ios` (the SwiftPM package `ExtWeb`) and `res/web/android` (the Java package
 `io.github.webong.ext.web`) live inside the Go module `res/web` but are not part of its version: the Go
 module zip carries their files, which Go never reads, and a change to them needs no `res/web/vX.Y.Z` tag.
@@ -296,7 +302,7 @@ manifest renamed. A `package.json` is now an ordinary file: a package can ship o
 `plugin.json` is reserved as an artifact path in any case. A `plugin.json` is told apart from other files of that
 name by its `apiVersion` (`ext.package/v1`). The reason is that npm and Node tooling own the name `package.json`,
 and a package that carries a Node tree could not coexist with an ext manifest in the same directory.
-`pkg/plugin-python` is consumed from the repository, not published: its examples and docs now say `plugin.json`
+`pkg/ext-python` is consumed from the repository, not published: its examples and docs now say `plugin.json`
 (`serve_stdio` accepts a manifest, a bare descriptor file or a dict, by structure, so only the example strings
 changed). `v0.3.0` stays published and still reads `package.json`; it has `ListUnverified` and the validation
 bounds, and anything that adopted it only has to move to `v0.4.0` to rename its manifests. No adapter or other

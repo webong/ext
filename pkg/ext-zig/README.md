@@ -12,7 +12,7 @@ const ctx = b.dependency("ext_plugin", .{ .target = target, .optimize = optimize
 exe.root_module.addImport("ext_plugin", ctx.module("ext_plugin"));
 ```
 
-The dependency path points to CTX's `pkg/plugin-zig` directory. A future published
+The dependency path points to CTX's `pkg/ext-zig` directory. A future published
 package can use the same module name; no registry publication is included here.
 
 ## Typed authoring
@@ -193,9 +193,9 @@ is implicit.
 ## Build and test
 
 ```sh
-zig build test --build-file pkg/plugin-zig/build.zig
-zig build --build-file pkg/plugin-zig/build.zig
-zig build --build-file pkg/plugin-zig/build.zig -Dtarget=wasm32-wasi --prefix /tmp/ext-zig-wasi
+zig build test --build-file pkg/ext-zig/build.zig
+zig build --build-file pkg/ext-zig/build.zig
+zig build --build-file pkg/ext-zig/build.zig -Dtarget=wasm32-wasi --prefix /tmp/ext-zig-wasi
 scripts/plugin-crosslang.sh
 ```
 

@@ -31,8 +31,8 @@ protocol and existing language guest implementations remain unchanged.
 - Instance leases and replacement, scoped pull-stream lifecycle and expiry.
 - Metadata-only observation and typed Go registry integration.
 - C-owned result buffers returned to the caller and freed through the same ABI.
-- Bindings in [Go](../../pkg/plugin-go/README.md), [Rust](../../pkg/plugin-rust/engine/README.md),
-  [Zig](../../pkg/plugin-zig/engine/README.md) and [Node](../../pkg/plugin-ts/engine/README.md).
+- Bindings in [Go](../../pkg/plugin-go/README.md), [Rust](../../pkg/ext-rust/engine/README.md),
+  [Zig](../../pkg/ext-zig/engine/README.md) and [Node](../../pkg/ext-ts/engine/README.md).
   They are additive while the existing language SDKs remain the reference.
   Each binding's glue lives with the binding: the Go package carries its own cgo
   header (`ext_go_bridge.h`, header-only, so it has no `.c` files), and this
@@ -229,7 +229,7 @@ in the output directory. It checks:
 
 To also run the C engine's Go conformance harness against prebuilt Rust and Zig
 command guests, set `EXT_CENGINE_RUST_GUEST` and `EXT_CENGINE_ZIG_GUEST` to those
-absolute paths. These artifacts can be built from `pkg/plugin-rust` and `pkg/plugin-zig`.
+absolute paths. These artifacts can be built from `pkg/ext-rust` and `pkg/ext-zig`.
 
 Use `EXT_CROSSLANG_ENGINE=c` with `scripts/plugin-crosslang.sh` for Rust/Zig
 JSON-line, C ABI and WASI guests and a native Go guest through C-owned sessions.

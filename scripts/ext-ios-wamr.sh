@@ -10,6 +10,6 @@ scripts/ext-ios-wamr-xcframework.sh >/dev/null
 work="$(mktemp -d "${TMPDIR:-/tmp}/ext-ios-wamr.XXXXXX")"
 trap 'rm -rf "$work"' EXIT
 CARGO_TARGET_DIR="$work/cargo" cargo build --release --locked \
-  --manifest-path pkg/plugin-rust/Cargo.toml --target wasm32-wasip1 --example shared
+  --manifest-path pkg/ext-rust/Cargo.toml --target wasm32-wasip1 --example shared
 EXT_RUST_REACTOR="$work/cargo/wasm32-wasip1/release/examples/shared.wasm" \
   swift test --package-path pkg/ext-ios --filter ExtPluginWamrTests

@@ -77,7 +77,7 @@ jobs:
       - name: Build the reactor the host tests run
         run: |
           CARGO_TARGET_DIR="$RUNNER_TEMP/cargo" cargo build --release --locked \
-            --manifest-path pkg/plugin-rust/Cargo.toml --target wasm32-wasip1 --example shared
+            --manifest-path pkg/ext-rust/Cargo.toml --target wasm32-wasip1 --example shared
           echo "EXT_RUST_REACTOR=$RUNNER_TEMP/cargo/wasm32-wasip1/release/examples/shared.wasm" >>"$GITHUB_ENV"
       # The frameworks the staging step built are the ones in the archives.
       - name: Swift tests on the host

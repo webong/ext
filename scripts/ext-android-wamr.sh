@@ -13,7 +13,7 @@ sdk=pkg/ext-android
 wamr="$(scripts/plugin-wamr-source.sh)"
 
 CARGO_TARGET_DIR="$build_dir/cargo" cargo build --release --locked \
-  --manifest-path pkg/plugin-rust/Cargo.toml --target wasm32-wasip1 --example shared
+  --manifest-path pkg/ext-rust/Cargo.toml --target wasm32-wasip1 --example shared
 cmake -S "$sdk" -B "$build_dir/native" -DCMAKE_BUILD_TYPE=Release -DEXT_WAMR_ROOT="$wamr" >/dev/null
 cmake --build "$build_dir/native" --target extwamrjni -j 4 >/dev/null
 mkdir -p "$build_dir/classes"

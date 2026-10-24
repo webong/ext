@@ -176,9 +176,9 @@ A foreign host can load the Go-built library and use these four exports too;
 that host must implement CTX selection, validation and admission policy itself.
 
 Rust authors can use `ext_plugin::export_guest!(factory)` from the
-[Rust SDK](../pkg/plugin-rust/README.md). Zig authors can use
+[Rust SDK](../pkg/ext-rust/README.md). Zig authors can use
 `comptime { sdk.cabi.exportGuest(factory); }` from the
-[Zig SDK](../pkg/plugin-zig/README.md). These helpers implement serialization,
+[Zig SDK](../pkg/ext-zig/README.md). These helpers implement serialization,
 validation, dispatch and handle/buffer ownership around typed guest methods.
 Both SDKs also serve command guests over JSON lines and compile them to WASI.
 They include host Sessions for consuming CTX guests from those languages.

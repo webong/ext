@@ -109,8 +109,8 @@ is the frames conformance guest of
 From the repository root:
 
 ```sh
-node --test pkg/plugin-ts/test.mjs pkg/plugin-ts/frames.test.mjs pkg/plugin-ts/router.test.mjs
-tsc --noEmit --strict --module NodeNext --moduleResolution NodeNext --target ES2022 pkg/plugin-ts/typecheck.mts
+node --test pkg/ext-ts/test.mjs pkg/ext-ts/frames.test.mjs pkg/ext-ts/router.test.mjs
+tsc --noEmit --strict --module NodeNext --moduleResolution NodeNext --target ES2022 pkg/ext-ts/typecheck.mts
 go run ./pkg/plugin-go/examples/plugin-typescript
 go build -o /tmp/ext-plugin-example ./pkg/plugin-go/examples/plugin-typescript
 node pkg/plugin-go/examples/plugin-typescript/host.mjs /tmp/ext-plugin-example

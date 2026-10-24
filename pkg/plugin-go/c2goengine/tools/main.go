@@ -71,6 +71,7 @@ var coreSources = regexp.MustCompile(`(?s)set\(core_sources\s+([^)]*)\)`)
 func main() {
 	log := func(format string, args ...any) { fmt.Fprintf(os.Stderr, "c2goengine: "+format+"\n", args...) }
 	out := flag.String("out", "", "file to write (default internal/ccgo/generated_<goos>_<goarch>.go in the module)")
+	syncOnly := flag.Bool("sync", false, "only bring the build constraints of the hand-written files in line with the generated files that exist")
 	flag.Parse()
 	root, err := repositoryRoot()
 	if err != nil {
@@ -78,6 +79,13 @@ func main() {
 		os.Exit(1)
 	}
 	pkg := filepath.Join(root, "pkg", "plugin-go", "c2goengine", "internal", "ccgo")
+	if *syncOnly {
+		if err := syncTargets(pkg); err != nil {
+			log("%v", err)
+			os.Exit(1)
+		}
+		return
+	}
 	sync := *out == ""
 	if sync {
 		*out = filepath.Join(pkg, fmt.Sprintf("generated_%s_%s.go", runtime.GOOS, runtime.GOARCH))

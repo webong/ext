@@ -45,7 +45,7 @@ code there is Win32.
 | darwin/arm64 | `internal/ccgo/generated_darwin_arm64.go` | checked in, tested natively |
 | darwin/amd64 | `internal/ccgo/generated_darwin_amd64.go` | checked in, tested under Rosetta |
 | linux/arm64 | `internal/ccgo/generated_linux_arm64.go` | checked in, tested natively |
-| linux/amd64 | | generated and tested by the workflow, which uploads the file |
+| linux/amd64 | `internal/ccgo/generated_linux_amd64.go` | checked in, generated and tested by the workflow |
 | windows/amd64, windows/arm64 | | not translated yet, see below |
 
 On any other platform `Available` and `HostAvailable` are false and the calls return
@@ -71,6 +71,9 @@ file also follow its system headers, so they are not compared; the digest is. Th
 workflow does this on every supported platform and fails when a
 checked-in translation is stale; run it, on every supported platform, after changing anything under
 `lib/plugin/src`, `include` or `vendor`.
+
+`GOWORK=off go run . -sync` only brings the build constraints of the hand-written files in line with the
+generated files that exist (the workflow's artifact for a new platform has the file; commit it, then sync).
 
 `libc` is pinned in three places that must agree: `libcVersion` in `tools/main.go`, `tools/go.mod`
 and this module's `go.mod`. The generator refuses to run when they differ.

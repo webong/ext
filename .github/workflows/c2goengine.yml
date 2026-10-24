@@ -2,8 +2,8 @@ name: c2goengine
 
 # The C engine's portable core translated to Go (pkg/plugin-go/c2goengine). ccgo translates for the
 # platform it runs on, so every platform generates its own file here. A platform whose translation is
-# checked in must regenerate it byte for byte (a stale file fails the job); one without is a probe: it
-# generates, tests the result and uploads it, so it can be committed. A probe never blocks.
+# checked in must find the inputs digest unchanged (a stale translation fails the job); one without is
+# a probe: it generates, tests the result and uploads it, so it can be committed. A probe never blocks.
 on:
   push:
     branches: [main, 'engine/**']
@@ -32,7 +32,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - {os: ubuntu-latest, goos: linux, goarch: amd64, required: false, race: '-race'}
+          - {os: ubuntu-latest, goos: linux, goarch: amd64, required: true, race: '-race'}
           - {os: ubuntu-24.04-arm, goos: linux, goarch: arm64, required: true, race: '-race'}
           - {os: macos-latest, goos: darwin, goarch: arm64, required: true, race: ''}
           - {os: windows-latest, goos: windows, goarch: amd64, required: false, race: '', msystem: MINGW64, packages: 'mingw-w64-x86_64-gcc'}
@@ -110,8 +110,14 @@ jobs:
           name: translation-${{ matrix.goos }}-${{ matrix.goarch }}
           path: |
             pkg/plugin-go/c2goengine/internal/ccgo/generated_${{ matrix.goos }}_${{ matrix.goarch }}.go
+            pkg/plugin-go/c2goengine/internal/ccgo/inputs.sha256
             pkg/plugin-go/c2goengine/internal/ccgo/call.go
             pkg/plugin-go/c2goengine/internal/ccgo/call_unsupported.go
+            pkg/plugin-go/c2goengine/internal/ccgo/host.go
+            pkg/plugin-go/c2goengine/internal/ccgo/host_unsupported.go
+            pkg/plugin-go/c2goengine/internal/ccgo/channel.go
+            pkg/plugin-go/c2goengine/internal/ccgo/session.go
+            pkg/plugin-go/c2goengine/internal/ccgo/instances.go
           if-no-files-found: ignore
           retention-days: 14
 

@@ -32,6 +32,10 @@ import (
 	"unsafe"
 )
 
+// CEngine reports whether this build runs on the shared C engine. It is true here and false in the
+// pure-Go build (fallback.go), as the package documentation says.
+const CEngine = true
+
 type Policy func([]byte) error
 type policies struct {
 	verify, authorize               Policy

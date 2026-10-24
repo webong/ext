@@ -20,11 +20,12 @@ import (
 // module so an application imports only what it needs:
 //
 //	contract    standard library only
-//	cgoengine     the C engine binding and pure-Go build of the same API; needs contract
+//	cgoengine   the C engine binding and pure-Go build of the same API; needs contract
 //	c2goengine  the C engine's portable core translated to Go; needs contract
 //	wasm        the wazero backend; needs contract only, never cgoengine
 //	hashicorp   the gRPC backend; needs contract only, never cgoengine
-//	(umbrella)  pkg/plugin-go itself, the one module that may require them all
+//	(umbrella)  pkg/plugin-go itself, the one module that may require them all; its engine package
+//	            chooses between contract, cgoengine and c2goengine
 const pluginPrefix = "github.com/webong/ext/pkg/plugin-go"
 
 // A module's allowed requirements among the repository's own modules.
@@ -34,7 +35,7 @@ var pluginRequires = map[string][]string{
 	"pkg/plugin-go/c2goengine": {"pkg/plugin-go/contract"},
 	"pkg/plugin-go/wasm":       {"pkg/plugin-go/contract"},
 	"pkg/plugin-go/hashicorp":  {"pkg/plugin-go/contract"},
-	"pkg/plugin-go":            {"pkg/plugin-go/contract", "pkg/plugin-go/cgoengine", "pkg/plugin-go/wasm", "pkg/plugin-go/hashicorp", "res/system"},
+	"pkg/plugin-go":            {"pkg/plugin-go/contract", "pkg/plugin-go/cgoengine", "pkg/plugin-go/c2goengine", "pkg/plugin-go/wasm", "pkg/plugin-go/hashicorp", "res/system"},
 }
 
 var requireLine = regexp.MustCompile(`(?m)^\s*(?:require\s+)?(github\.com/webong/ext/\S+)\s+v\S+`)
@@ -69,7 +70,7 @@ func TestPluginGoModulesRequireOnlyTheirParts(t *testing.T) {
 func TestBackendsNeverImportTheCEngine(t *testing.T) {
 	root := repoRoot(t)
 	for _, dir := range []string{"pkg/plugin-go/wasm", "pkg/plugin-go/hashicorp"} {
-		forbidden := []string{pluginPrefix + "/cgoengine", pluginPrefix}
+		forbidden := []string{pluginPrefix + "/cgoengine", pluginPrefix + "/c2goengine", pluginPrefix + "/engine", pluginPrefix}
 		err := filepath.WalkDir(filepath.Join(root, dir), func(path string, entry fs.DirEntry, walkErr error) error {
 			if walkErr != nil || entry.IsDir() || filepath.Ext(path) != ".go" {
 				return walkErr

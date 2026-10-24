@@ -95,7 +95,7 @@ named for each module path.
 
 The reusable libraries are:
 
-- `res/web` for portable web contracts and workflows: browsers, and the web engine that runs web content through them.
+- `res/web` for portable web contracts and workflows: browsers, and the web engine that runs web content through them. It is also the iOS and Android module of the cookie, userscript and bookmarklet rules (`res/web/ios`, `res/web/android`), which `pkg/ext-ios` and `pkg/ext-android` ship.
 - `res/credential` for portable credential serving and client code.
 - `lib/plugin` for the portable C plugin engine shared by the `pkg/plugin-*` language bindings and the mobile SDKs.
 - `res/system` for observing the machine: host, shell, file system and web view discovery and process inspection, with `res/system/graph` (the namespaced graph store and its transactions) and `res/system/supervisor` (process supervision and recovery).
@@ -152,13 +152,17 @@ Language SDKs and bindings belong under `pkg/<language>/` (Go, Rust, Zig and
 TypeScript), with language-specific embedding examples alongside them. The
 mobile SDKs are named for their platforms because they are native to them:
 `pkg/ext-ios` (Swift, with Objective-C through the C headers) and
-`pkg/ext-android` (Java, with Kotlin through the same API). Each is one library per
-platform that carries both the plugin code (guest SDK, WebView and WAMR hosts) and the web
-code (the cookie, userscript and bookmarklet rules of `res/web`, ported against its
-language-neutral fixtures). The two stay separate modules inside it: the web code (`ExtWeb`,
-`io.github.webong.ext.web`) never imports the plugin code or the C engine, so it builds and
-tests without the engine build, and `scripts/ext-ios-web.sh` and `scripts/ext-android-web.sh`
-enforce that. Keep
+`pkg/ext-android` (Java, with Kotlin through the same API). Each is the one package an app adds
+for a platform and ships both the plugin code (guest SDK, WebView and WAMR hosts), which is
+written there, and the web code (the cookie, userscript and bookmarklet rules), which is not:
+`res/web` is a Go module and also the iOS module (`res/web/ios`, the SwiftPM package `ExtWeb`)
+and the Android module (`res/web/android`, the Java package `io.github.webong.ext.web`) of the
+same rules, checked against one set of fixtures. The mobile modules in `res/web` import nothing of
+the plugin code or the C engine and build and test with Swift or a JDK alone
+(`scripts/web-ios.sh`, `scripts/web-android.sh`, `scripts/web-differential.sh`); `pkg/ext-ios`
+reaches `res/web/ios` through the link `Sources/ExtWeb` (a release stages a real copy), and
+`pkg/ext-android` compiles `res/web/android` into its AAR. Edit web code in `res/web`, never in
+the SDKs. Keep
 `pkg/plugin-go` focused on the contract, the engine API and runtime backends. The Go-to-C guest binding belongs in
 `pkg/plugin-go/cengine/cshared/guest`. The language-neutral C ABI header
 (`lib/plugin/include/ext_plugin.h`) belongs to the engine; its constants and wire

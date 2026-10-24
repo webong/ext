@@ -67,7 +67,7 @@ jobs:
           key: wamr-${{ hashFiles('scripts/plugin-wamr.sh') }}
       # The web rules need Swift only; fail before the engine builds if they drift from res/web.
       - name: Web rules against the fixtures and against Go
-        run: scripts/ext-web-differential.sh
+        run: scripts/web-differential.sh
       # The release carries the WAMR host: its xcframework is a second asset, and its license ships
       # beside it and inside the package.
       - name: Stage the release
@@ -90,6 +90,13 @@ jobs:
           cd pkg/ext-ios
           TEST_RUNNER_EXT_RUST_REACTOR="$EXT_RUST_REACTOR" xcodebuild test -scheme Ext-Package \
             -destination "platform=iOS Simulator,id=$device"
+      - name: Web rules in an iOS Simulator
+        run: |
+          set -euo pipefail
+          device="$(xcrun simctl list devices available | grep -m1 -E 'iPhone' | sed -E 's/^ *(.*) \(([0-9A-F-]{36})\).*/\2/')"
+          [[ -n "$device" ]] || { echo 'no iPhone simulator is installed' >&2; exit 1; }
+          cd res/web/ios
+          xcodebuild test -scheme ExtWeb -destination "platform=iOS Simulator,id=$device"
       - name: Checksums
         env:
           VERSION: ${{ steps.version.outputs.version }}

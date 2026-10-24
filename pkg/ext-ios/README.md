@@ -7,11 +7,11 @@ do not depend on each other.
   `ext.plugin/v1` plugin in Swift, and Objective-C through the C headers, on the guest half of the
   shared [C engine](../../lib/plugin/README.md); host a WebAssembly reactor in a web view or in WAMR.
 - **Web** (`ExtWeb`): the cookie, userscript and bookmarklet rules of [`res/web`](../../res/web/README.md),
-  ported to Swift and run against the same fixtures as Go. See Web rules.
+  in Swift, run against the same fixtures as Go. The code is `res/web/ios`; this package ships it. See Web rules.
 
-`ExtWeb` imports nothing of the plugin code or the engine, and `scripts/ext-ios-web.sh` fails if it
-ever does. An app that uses only `ExtWeb` links no engine code; it still resolves the package, whose
-manifest declares the engine's binary target.
+`ExtWeb` lives in [`res/web/ios`](../../res/web/ios/README.md) and imports nothing of the plugin code or
+the engine. An app that uses only `ExtWeb` links no engine code; it still resolves the package, whose manifest
+declares the engine's binary target.
 
 The plugin part covers both halves for an app. Authoring a guest binds the engine, which does the
 strict JSON parsing, request validation against the descriptor, deadlines and error sanitizing; a Swift
@@ -66,44 +66,21 @@ that has its own transport.
 
 ## Web rules
 
-`ExtWeb` is the part of `res/web` a phone needs: the portable rules for browser cookies, userscripts
-and bookmarklets, with no engine and no native code.
+`ExtWeb` is the iOS module of [`res/web`](../../res/web/README.md): the cookie, userscript and bookmarklet
+rules in Swift, with no dependency on the plugin code or the engine. Its code, its tests and its usage are in
+[`res/web/ios`](../../res/web/ios/README.md); `Sources/ExtWeb` here is a link to it, so an app that adds this
+package gets the `ExtWeb` product beside the plugin ones, and `scripts/ext-ios-release.sh` stages a real copy.
 
 ```swift
 import ExtWeb
 
-let site = try parseSite("https://Example.com:8443/a?b=1")        // host lower-cased, escapes as Go's net/url
-let cookie = Cookie(name: "sid", value: token, domain: ".example.com", path: "/", secure: true)
-try CookieRules.validate(cookie)                                   // field rules; the error never has the value
-CookieRules.matches(site, cookie)                                  // domain, path, Secure and expiry
-
-var record = Userscript.inferMetadata(UserscriptRecord(target: "app", id: "", name: "", source: source))
-record.revision = Userscript.revision(of: record)                   // sha256 over the reviewed fields
-try Userscript.validate(record)                                     // document-start, @grant none, explicit matches
-let script = try Userscript.replaySource(id: record.id, revision: record.revision, source: record.source,
-                                         matches: record.matches, excludes: record.excludeMatches)
-// App code: webView.configuration.userContentController.addUserScript(
-//     WKUserScript(source: script, injectionTime: .atDocumentStart, forMainFrameOnly: false))
-
-let url = try Bookmarklet.encode("alert(document.title)")           // a javascript: URL, wrapped and percent-encoded
-let source = try Bookmarklet.decode(url)                            // back to source for review; never evaluated
+let site = try parseSite("https://Example.com:8443/a?b=1")
+try CookieRules.validate(Cookie(name: "sid", value: token, domain: ".example.com", path: "/", secure: true))
+let url = try Bookmarklet.encode("alert(document.title)")
 ```
 
-- `Cookie`, `CookieBundle` and `UserscriptRecord` are `Codable` with the wire names of `res/web`; a cookie's
-  `description`, `debugDescription` and `dump` print its name, domain and path and never its value.
-- `UserscriptRecord.matches` and `excludeMatches` are optional because the revision digest tells `null`
-  from `[]`.
-- The rules are Go's, written out for Swift. They are checked two ways: the language-neutral fixtures in
-  `res/web/testdata` (`cookie/v2`, `userscript/v1alpha1`, `bookmarklet/v1alpha1`), which the Go tests run too,
-  and `scripts/ext-web-differential.sh`, which compares the port with Go on about 94,000 generated URLs,
-  cookie domains, names and bookmarklet strings (all agree; Go 1.27 with `GODEBUG=urlstrictcolons=1`).
-- Not ported: the userscript file store (`Load`, `Save`, `List`; an app owns its storage) and the SQLite
-  cookie readers and extension packaging, which read desktop browser profiles. Also different on purpose:
-  the wording of descriptions, JSON member names match exactly where Go ignores case, and a host with several
-  colons is refused (Go's default for that follows the consuming module's `go` line).
-
 ```sh
-scripts/ext-ios-web.sh        # swift test of ExtWeb alone; needs Swift, not the engine xcframework
+scripts/web-ios.sh            # swift test of res/web/ios; needs Swift, not the engine xcframework
 ```
 
 ## Hosting a plugin in a web view
@@ -169,7 +146,7 @@ scripts/ext-ios-xcframework.sh     # macOS, iOS and iOS Simulator slices
 swift test --package-path pkg/ext-ios
 xcodebuild test -scheme Ext-Package \
   -destination 'platform=iOS Simulator,name=iPhone 16 Pro'   # in pkg/ext-ios
-scripts/ext-ios-web.sh                # just ExtWeb, without the xcframework
+scripts/web-ios.sh                    # just ExtWeb (res/web/ios), without the xcframework
 ```
 
 `scripts/ext-ios-xcframework.sh` compiles the engine's guest core (no

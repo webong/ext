@@ -94,6 +94,12 @@ release workflow no longer watches them (the one release made under the old form
 `scripts/ext-android*.sh`; the SwiftPM package is `Ext` (scheme `Ext-Package`) and its plugin
 products keep their `ExtPlugin…` names.
 
+`res/web/ios` (the SwiftPM package `ExtWeb`) and `res/web/android` (the Java package
+`io.github.webong.ext.web`) live inside the Go module `res/web` but are not part of its version: the Go
+module zip carries their files, which Go never reads, and a change to them needs no `res/web/vX.Y.Z` tag.
+They reach apps through `pkg/ext-ios` and `pkg/ext-android`, so they are released with those, under
+`ext-ios-vX.Y.Z` and `ext-android-vX.Y.Z`.
+
 The iOS SDK's engine and WAMR archives are released under that same tag; see
 [`pkg/ext-ios`](../pkg/ext-ios/README.md) and `scripts/ext-ios-release.sh`. It is
 not a Go module version either.

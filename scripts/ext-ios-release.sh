@@ -46,7 +46,7 @@ fi
 # The distribution package: the manifest with the binary target by URL and checksum.
 dist="$out/package"
 mkdir -p "$dist"
-cp -R "$sdk/Sources" "$dist/Sources"
+cp -RL "$sdk/Sources" "$dist/Sources"
 rm -rf "$dist/Sources/ExtConformancePlugin" "$dist/Sources/ExtFramesGuest"
 cp "$sdk/README.md" "$dist/README.md"
 cp LICENSE "$dist/LICENSE"
@@ -77,8 +77,6 @@ if wamr_checksum:
     text = text.replace(block.group(0), pinned)
 else:
     text = text.replace(block.group(0), '')
-# EXT_WEB_ONLY is for the repository's own web checks; a release has the engine.
-text = re.sub(r'\n// EXT_WEB_ONLY=1 .*?\n\}\n', '\n', text, flags=re.S)
 # Drop what only the repository's own tree can use: the tests, which read res/web and the
 # engine, and the conformance fixture, which is not part of the SDK.
 text = re.sub(r'\n\s*\.testTarget\([^\n]*\),', '', text)

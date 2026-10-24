@@ -65,7 +65,7 @@ jobs:
           gradle-version: '8.14.3'
       # The web rules need a JDK only; fail before any native build if they drift from res/web.
       - name: Web rules against the fixtures
-        run: scripts/ext-android-web.sh
+        run: scripts/web-android.sh
       - name: Build both AARs
         env:
           VERSION: ${{ steps.version.outputs.version }}

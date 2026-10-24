@@ -41,8 +41,8 @@ headers live in [`lib/plugin`](../lib/plugin/README.md); these packages bind to 
 | [`plugin-rust`](plugin-rust/README.md) | Rust SDK and reusable C engine host/guest binding |
 | [`plugin-zig`](plugin-zig/README.md) | Zig SDK and header-generated C engine binding |
 | [`plugin-ts`](plugin-ts/README.md) | JavaScript SDK, TypeScript declarations and async Node C engine binding |
-| [`ext-ios`](ext-ios/README.md) | Swift SDK for iOS and macOS: plugin guest and hosts (web view, WAMR) over the C engine, plus `ExtWeb`, the cookie, userscript and bookmarklet rules of `res/web` |
-| [`ext-android`](ext-android/README.md) | Java SDK for Android: plugin guest and hosts (WebView, WAMR) over the C engine, plus the same web rules in `io.github.webong.ext.web` |
+| [`ext-ios`](ext-ios/README.md) | Swift SDK for iOS and macOS: plugin guest and hosts (web view, WAMR) over the C engine, plus `ExtWeb`, the cookie, userscript and bookmarklet rules (the code is `res/web/ios`) |
+| [`ext-android`](ext-android/README.md) | Java SDK for Android: plugin guest and hosts (WebView, WAMR) over the C engine, plus the same web rules in `io.github.webong.ext.web` (the code is `res/web/android`) |
 
 The Go host binding import is `github.com/webong/ext/pkg/plugin-go/cengine`; its package
 name is `goengine`. Go guest C exports use

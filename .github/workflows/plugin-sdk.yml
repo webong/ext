@@ -124,9 +124,9 @@ jobs:
           EXT_INTEROP_REUSE_CENGINE: '1'
         run: scripts/plugin-interop.sh
 
-  # The Swift and Java ports of the web rules (pkg/ext-ios ExtWeb, pkg/ext-android io.github.webong.ext.web)
-  # against res/web/testdata and against what the Go implementation answers for a generated corpus.
-  # Neither port needs the engine, so this does not wait for the C builds.
+  # The Swift and Java modules of the web rules (res/web/ios, res/web/android) against res/web/testdata
+  # and against what the Go module answers for a generated corpus. Neither needs the engine, so this
+  # does not wait for the C builds.
   web-ports:
     strategy:
       fail-fast: false
@@ -149,4 +149,4 @@ jobs:
       - run: go test ./res/web/...
         working-directory: res/web
       - name: Swift and Java ports against Go
-        run: scripts/ext-web-differential.sh
+        run: scripts/web-differential.sh

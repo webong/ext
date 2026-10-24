@@ -8,10 +8,10 @@ enum Fixtures {
         if let path = ProcessInfo.processInfo.environment["EXT_WEB_TESTDATA"] {
             return URL(fileURLWithPath: path)
         }
-        // pkg/ext-ios/Tests/ExtWebTests/Fixtures.swift -> the repository root.
+        // res/web/ios/Tests/ExtWebTests/Fixtures.swift -> res/web.
         var url = URL(fileURLWithPath: #filePath)
-        for _ in 0..<5 { url.deleteLastPathComponent() }
-        return url.appendingPathComponent("res/web/testdata")
+        for _ in 0..<4 { url.deleteLastPathComponent() }
+        return url.appendingPathComponent("testdata")
     }()
 
     static func load<T: Decodable>(_ path: String, as type: T.Type = T.self) throws -> T {

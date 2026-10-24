@@ -45,5 +45,4 @@ accept the cases without `error`, and reject the others. Fixtures cover the
 shared rules above; the object shapes of a consumer's manifest need not match
 the Go `Record`.
 
-The Swift port (`ExtWeb` in `pkg/ext-ios`) and the Java port (`io.github.webong.ext.web` in
-`pkg/ext-android`) run these files too.
+The Swift module (`res/web/ios`) and the Java module (`res/web/android`) run these files too.

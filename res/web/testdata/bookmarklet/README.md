@@ -14,5 +14,4 @@ The encoded URL expected values were produced by an independent percent-encoder,
 not by the Go code. Each file's `doc` states the rule. Decoding never evaluates
 the script.
 
-The Swift port (`ExtWeb` in `pkg/ext-ios`) and the Java port (`io.github.webong.ext.web` in
-`pkg/ext-android`) run these files too.
+The Swift module (`res/web/ios`) and the Java module (`res/web/android`) run these files too.

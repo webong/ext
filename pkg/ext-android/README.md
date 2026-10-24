@@ -7,12 +7,12 @@ each other. Java is the API, and Kotlin calls it directly.
   library that binds the guest half of the shared [C engine](../../lib/plugin/README.md), and host a
   WebAssembly reactor in a WebView or in WAMR.
 - **Web** (`io.github.webong.ext.web`): the cookie, userscript and bookmarklet rules of
-  [`res/web`](../../res/web/README.md), ported to plain Java with no native code and run against the same
-  fixtures as Go. See Web rules.
+  [`res/web`](../../res/web/README.md), in plain Java with no native code, run against the same fixtures as
+  Go. The code is `res/web/android`; this AAR ships it. See Web rules.
 
-The web package imports nothing of the plugin package and loads no native library, and
-`scripts/ext-android-web.sh` fails if it ever does. It is still in the same AAR as the plugin code, so an
-app that wants only the web rules takes the native libraries and the minimum SDK with it.
+The web package lives in [`res/web/android`](../../res/web/android/README.md), imports nothing of the plugin
+package and loads no native library. It is still in the same AAR as the plugin code, so an app that wants only
+the web rules takes the native libraries and the minimum SDK with it.
 
 **Status:** verified in three ways.
 - The guest SDK is plain JVM and JNI; its tests run on a desktop JDK 17.
@@ -66,44 +66,19 @@ try (Guest guest = new Guest(descriptor, call -> {
 
 ## Web rules
 
-`io.github.webong.ext.web` is the part of `res/web` a phone needs: the portable rules for browser
-cookies, userscripts and bookmarklets, in plain Java with no dependency.
+`io.github.webong.ext.web` is the Android module of [`res/web`](../../res/web/README.md): the cookie,
+userscript and bookmarklet rules in plain Java, with no dependency, no native code and no use of the plugin
+package. Its code, its tests and its usage are in [`res/web/android`](../../res/web/android/README.md); the AAR
+of this package carries its classes beside the plugin ones.
 
 ```java
-Site site = Site.parse("https://Example.com:8443/a?b=1");      // host lower-cased, escapes as Go's net/url
-Cookie cookie = Cookie.builder("sid", token, ".example.com", "/").secure(true).build();
-CookieRules.validate(cookie);                                   // field rules; the error never has the value
-CookieRules.matches(site, cookie, false);                       // domain, path, Secure and expiry
-
-UserscriptRecord record = Userscript.inferMetadata(new UserscriptRecord("app", "", "", null, null, source), "").signed();
-Userscript.validate(record);                                    // document-start, @grant none, explicit matches
-String script = Userscript.replaySource(record.id, record.revision, record.source,
-        record.matches, record.excludeMatches);
-// App code: register `script` to run at document start, for example with androidx.webkit's
-// WebViewCompat.addDocumentStartJavaScript(webView, script, allowedOriginRules).
-
-String url = Bookmarklet.encode("alert(document.title)");       // a javascript: URL, wrapped and percent-encoded
-String source = Bookmarklet.decode(url);                        // back to source for review; never evaluated
+Site site = Site.parse("https://Example.com:8443/a?b=1");
+CookieRules.validate(Cookie.builder("sid", token, ".example.com", "/").secure(true).build());
+String url = Bookmarklet.encode("alert(document.title)");
 ```
 
-- Errors are checked exceptions: `SiteException`, `CookieException`, `UserscriptException` (its `code()` is
-  the stable, language-neutral code the fixtures check) and `BookmarkletException`.
-- `Cookie`, `CookieBundle` and `UserscriptRecord` read and write the wire form with `fromJson` and
-  `toJson`. A cookie's `toString()` prints its name, domain and path and never its value.
-- `UserscriptRecord.matches` and `excludeMatches` may be null because the revision digest tells `null`
-  from an empty list.
-- The rules are Go's, written out for Java. They are checked two ways: the language-neutral fixtures in
-  `res/web/testdata` (`cookie/v2`, `userscript/v1alpha1`, `bookmarklet/v1alpha1`), which the Go tests run too,
-  and `scripts/ext-web-differential.sh`, which compares the port with Go on about 94,000 generated URLs,
-  cookie domains, names and bookmarklet strings (all agree; Go 1.27 with `GODEBUG=urlstrictcolons=1`).
-- Not ported: the userscript file store (`Load`, `Save`, `List`; an app owns its storage) and the SQLite
-  cookie readers and extension packaging, which read desktop browser profiles. Also different on purpose:
-  the wording of `toString()`, JSON member names match exactly where Go ignores case, and a host with
-  several colons is refused (Go's default for that follows the consuming module's `go` line). Text must be
-  well-formed UTF-16; an unpaired surrogate is rejected where the rules ask for UTF-8.
-
 ```sh
-scripts/ext-android-web.sh    # javac -Xlint:all -Werror and the tests; needs a JDK only
+scripts/web-android.sh        # javac -Xlint:all -Werror and the tests of res/web/android; needs a JDK only
 ```
 
 ## What a JVM guest cannot do
@@ -174,7 +149,7 @@ the shared fixtures, and `RouterTests` covers the router.
 
 ```sh
 scripts/ext-android.sh          # the plugin part; needs a JDK and CMake
-scripts/ext-android-web.sh      # the web part; needs a JDK only
+scripts/web-android.sh          # the web part (res/web/android); needs a JDK only
 ```
 
 The script builds the JNI library with CMake, compiles the classes with

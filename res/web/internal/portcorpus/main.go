@@ -8,7 +8,7 @@
 //
 //	GODEBUG=urlstrictcolons=1 go run ./internal/portcorpus corpus.json
 //
-// scripts/ext-web-differential.sh does that and runs both ports against the result.
+// scripts/web-differential.sh does that and runs both modules against the result.
 package main
 
 import (

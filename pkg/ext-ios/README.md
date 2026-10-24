@@ -179,15 +179,63 @@ is the shared `ext.conformance/v1` fixture. `scripts/plugin-crosslang.sh` loads
 its dynamic library through the Go `cshared` host, with the same suite that checks
 Rust and Zig, and requires it on macOS.
 
+## Report progress and call the host
+
+A guest process can report progress while a call runs and call back into its host, over `JSONLine`
+(not the C ABI that `ExtPluginExports` exports, not a WebAssembly reactor, and not `Guest.invoke` on its
+own: those have no frame channel, so reporting is `unsupported` there and a call has no reverse caller).
+An operation that reports is declared with `Operation.reporting(_:)`; the host operations a guest may call
+are the descriptor's `reverse` list.
+
+```swift
+let descriptor = Descriptor(
+    identity: Identity(id: "com.example/signer", revision: "1"),
+    contracts: [Contract(name: "example.signer", version: "v1", operations: [.reporting("sign")])],
+    reverse: [Contract(name: "host.svc", version: "v1", operations: [Operation(name: "sign")])])
+
+let guest = try Guest(descriptor: descriptor) { call in
+    // Events reach the host in order, before the result. `.dropped` is routine: the rate limit the
+    // host set dropped it and counts it for the next event that passes.
+    _ = try call.progress(.log("starting"))
+    _ = try call.progress(.fraction(1, of: 3))
+    // The host's refusal or error comes back as a RemoteError with its code (denied, busy,
+    // too_large, expired, ...).
+    return try call.reverse!.call(ContractRef(name: "host.svc", version: "v1"), "sign", payload: call.payloadMember("payload"))
+}
+try JSONLine.serveStandardIO(guest)    // or JSONLine.serve(guest, input: fd, output: fd) over your own pipes
+```
+
+`Call.progress` throws a `FrameError` whose `code` is `unsupported` (the operation did not declare progress,
+the host asked for no events, or there is no frame channel: stop reporting), `invalid` (the event breaks the
+rules; nothing is sent) or `closed` (the call is over or the connection ended). `Call.progressLimits` is the
+rate the host set, and `ProgressEvent.split` cuts a long line into events that each fit. The event type is
+`ProgressEvent` because Foundation already has a `Progress`.
+
+`JSONLine` reads its input on a thread of its own, so a handler may have several reverse calls outstanding
+(from several threads) and `Call.sessionReverse` is a caller that background work keeps after the call
+returned; `ReverseCaller.call` waits for the answer until the call's deadline (30 seconds for the session's),
+or the `timeout` given. A handler can poll `Call.connectionEnded` to stop early. `Call.reverse` and
+`Call.sessionReverse` are nil, and `progress` fails with `unsupported`, when the guest is invoked directly.
+
+A frame the host may not send (a second request while a call is in flight, an unknown frame, an answer to a
+request that was never made, a malformed answer) ends the session: `JSONLine.serve` throws
+`JSONLineError.protocolViolation`, and the call in flight is not answered. When the input ends, the call in
+flight is answered and the session ends; a reverse call still waiting fails with `closed`. One request may
+follow the hello without waiting for its answer. The engine validates the descriptor and each request;
+`Frames` judges the frames the guest writes and reads by the Go contract's rules, which `FramesFixtureTests`
+reproduces from the shared fixtures (`lib/plugin/testdata/v1`), and `RouterTests` covers the router on pipes.
+`ExtFramesGuest` is the frames conformance guest of
+[docs/plugin-guest-frames.md](../../docs/plugin-guest-frames.md); `scripts/plugin-crosslang.sh` runs it
+through the Go session and the C engine on macOS. It is a process, so it runs on macOS, not on iOS, which
+cannot spawn one: on iOS the transport is whatever pipes the app opens.
+
 ## Data endpoints
 
 `Endpoint.check(_:)` and `Endpoint.validate(_:policy:)` run the engine's rules for the
 loopback endpoint a host hands a plugin (see `lib/plugin/services.md`): a plugin checks
 what it receives before dialing, a host validates what it grants. A refusal is an
 `EndpointError` (`invalid`, `denied` or `expired`) and never carries the endpoint, which
-is a credential. This SDK does not report progress or call a host's reverse services:
-a guest exported through the `ext_plugin_*` C ABI has no frame channel for them, and a
-WebAssembly reactor has none either.
+is a credential.
 
 ## Platform and policy limits
 

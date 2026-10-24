@@ -317,6 +317,7 @@ func TestFramesGuests(t *testing.T) {
 		{"RUST_INLINE", false},
 		{"TS", true},
 		{"JAVA", true},
+		{"SWIFT", true},
 		{"PYTHON", false},
 		{"ZIG", false},
 	} {

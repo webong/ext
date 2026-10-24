@@ -27,9 +27,35 @@ public struct ContractRef: Codable, Equatable, Sendable {
 public struct Operation: Codable, Equatable, Sendable {
     public var name: String
     public var surface: String?
-    public init(name: String, surface: String? = nil) {
+    /// The operation reports progress events while it runs (`Call.progress`). It is not valid on
+    /// a host operation in `Descriptor.reverse`.
+    public var progress: Bool
+    public init(name: String, surface: String? = nil, progress: Bool = false) {
         self.name = name
         self.surface = surface
+        self.progress = progress
+    }
+
+    /// An operation that reports progress.
+    public static func reporting(_ name: String) -> Operation {
+        Operation(name: name, progress: true)
+    }
+
+    private enum CodingKeys: String, CodingKey { case name, surface, progress }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        name = try container.decode(String.self, forKey: .name)
+        surface = try container.decodeIfPresent(String.self, forKey: .surface)
+        progress = try container.decodeIfPresent(Bool.self, forKey: .progress) ?? false
+    }
+
+    /// `progress` is written only when set, as the descriptor model has it.
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(name, forKey: .name)
+        try container.encodeIfPresent(surface, forKey: .surface)
+        if progress { try container.encode(true, forKey: .progress) }
     }
 }
 
@@ -48,10 +74,32 @@ public struct Descriptor: Codable, Equatable, Sendable {
     public var apiVersion: String
     public var identity: Identity
     public var contracts: [Contract]
-    public init(identity: Identity, contracts: [Contract]) {
+    /// The host operations the plugin may call (`Call.reverse`); empty for a plugin that calls none.
+    public var reverse: [Contract]
+    public init(identity: Identity, contracts: [Contract], reverse: [Contract] = []) {
         self.apiVersion = ExtPluginGuest.apiVersion
         self.identity = identity
         self.contracts = contracts
+        self.reverse = reverse
+    }
+
+    private enum CodingKeys: String, CodingKey { case apiVersion, identity, contracts, reverse }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        apiVersion = try container.decode(String.self, forKey: .apiVersion)
+        identity = try container.decode(Identity.self, forKey: .identity)
+        contracts = try container.decode([Contract].self, forKey: .contracts)
+        reverse = try container.decodeIfPresent([Contract].self, forKey: .reverse) ?? []
+    }
+
+    /// `reverse` is written only when the plugin lists host operations.
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(apiVersion, forKey: .apiVersion)
+        try container.encode(identity, forKey: .identity)
+        try container.encode(contracts, forKey: .contracts)
+        if !reverse.isEmpty { try container.encode(reverse, forKey: .reverse) }
     }
 }
 
@@ -82,6 +130,8 @@ public struct Call: Sendable {
     /// empty when the request had none. Numbers keep their original text.
     public let payload: Data
     let expiry: DispatchTime
+    /// Progress and the reverse callers, when the call came in on a connection that carries frames.
+    let channel: CallChannel?
 
     public var remainingMilliseconds: UInt32 {
         let now = DispatchTime.now().uptimeNanoseconds
@@ -97,6 +147,13 @@ public struct Call: Sendable {
     public func decodePayload<T: Decodable>(_ type: T.Type = T.self) throws -> T {
         try JSONDecoder().decode(type, from: payload.isEmpty ? Data("null".utf8) : payload)
     }
+
+    /// The raw JSON text of a top-level member of the payload object, exactly as sent (numbers
+    /// keep their text), or nil when the payload is not an object or has no such member. A
+    /// handler forwards a sub-value to the host this way without re-encoding it.
+    public func payloadMember(_ name: String) -> Data? {
+        rawMember(in: Array(payload), key: name).map { Data($0) }
+    }
 }
 
 struct Envelope: Decodable {
@@ -110,6 +167,13 @@ struct Envelope: Decodable {
 /// Returns the bytes of the top-level "payload" value of an already validated
 /// request, without re-encoding it. Empty when the key is absent.
 func rawPayload(in request: [UInt8]) -> [UInt8] {
+    rawMember(in: request, key: "payload") ?? []
+}
+
+/// The bytes of a top-level member of a JSON object, without re-encoding them, or nil when
+/// the member is absent or the text is not an object. It skips the other members without
+/// building them, so it also finds out what kind of frame has just arrived.
+func rawMember(in request: [UInt8], key wanted: String) -> [UInt8]? {
     var i = 0
     func skipSpace() { while i < request.count, [0x20, 0x09, 0x0A, 0x0D].contains(request[i]) { i += 1 } }
     func skipString() { // at the opening quote
@@ -142,23 +206,23 @@ func rawPayload(in request: [UInt8]) -> [UInt8] {
         }
     }
     skipSpace()
-    guard i < request.count, request[i] == 0x7B else { return [] }
+    guard i < request.count, request[i] == 0x7B else { return nil }
     i += 1
     while true {
         skipSpace()
-        guard i < request.count, request[i] == 0x22 else { return [] }
+        guard i < request.count, request[i] == 0x22 else { return nil }
         let keyStart = i
         skipString()
         let key = Array(request[keyStart..<i])
         skipSpace()
-        guard i < request.count, request[i] == 0x3A else { return [] }
+        guard i < request.count, request[i] == 0x3A else { return nil }
         i += 1
         skipSpace()
         let valueStart = i
         skipValue()
-        if key == Array("\"payload\"".utf8) { return Array(request[valueStart..<i]) }
+        if key == Array("\"\(wanted)\"".utf8) { return Array(request[valueStart..<i]) }
         skipSpace()
-        guard i < request.count, request[i] == 0x2C else { return [] }
+        guard i < request.count, request[i] == 0x2C else { return nil }
         i += 1
     }
 }

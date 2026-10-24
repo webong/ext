@@ -24,6 +24,8 @@ let package = Package(
         .library(name: "ExtPluginWebView", targets: ["ExtPluginWebView"]),
         // Test fixture for the cross-language conformance suite.
         .library(name: "ExtConformancePlugin", type: .dynamic, targets: ["ExtConformancePlugin"]),
+        // The frames conformance guest: a JSON-line process the Go cross-language suite drives.
+        .executable(name: "ExtFramesGuest", targets: ["ExtFramesGuest"]),
         // The portable web rules of res/web: cookies, userscripts and bookmarklets. It has no
         // dependency on the plugin code or the engine.
         .library(name: "ExtWeb", targets: ["ExtWeb"]),
@@ -34,6 +36,7 @@ let package = Package(
         .target(name: "CExtPluginShim", dependencies: ["CExtEngine"]),
         .target(name: "ExtPluginExports", dependencies: ["ExtPluginGuest", "CExtPluginShim", "CExtEngine"]),
         .target(name: "ExtConformancePlugin", dependencies: ["ExtPluginGuest", "ExtPluginExports"]),
+        .executableTarget(name: "ExtFramesGuest", dependencies: ["ExtPluginGuest"]),
         .target(name: "ExtPluginWebView"),
         .testTarget(name: "ExtPluginWebViewTests", dependencies: ["ExtPluginWebView"]),
         .target(name: "ExtWeb"),

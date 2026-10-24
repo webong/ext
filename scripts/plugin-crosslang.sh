@@ -97,6 +97,11 @@ if [[ "$(uname -s)" == Darwin ]]; then
   swift build --package-path pkg/ext-ios --scratch-path "$build_dir/swift" --product ExtConformancePlugin
   scripts/ext-ios-objc.sh
   export EXT_SWIFT_SHARED="$build_dir/swift/debug/libExtConformancePlugin.dylib" EXT_SWIFT_REQUIRED=1
+  # The frames guest (progress events and reverse calls) is a JSON-line process, so it joins the
+  # frames suite beside the guests of the other languages.
+  swift build --package-path pkg/ext-ios --scratch-path "$build_dir/swift" --product ExtFramesGuest
+  export EXT_SWIFT_FRAMES_GUEST="$build_dir/swift/debug/ExtFramesGuest"
+  EXT_FRAMES_REQUIRED="$EXT_FRAMES_REQUIRED SWIFT"
 fi
 # Java runs over JNI on any host with a JDK. Its guest is a JSON-line process.
 if command -v javac >/dev/null 2>&1; then

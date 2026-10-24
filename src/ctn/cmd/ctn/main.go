@@ -3,9 +3,9 @@ package main
 import (
 	"os"
 
-	"github.com/webong/ext/ctn/internal/app"
+	"github.com/webong/ext/ctn"
 )
 
 func main() {
-	os.Exit(app.Run(os.Args[1:], os.Stdout, os.Stderr))
+	os.Exit(ctn.Run(os.Args[1:], os.Stdout, os.Stderr))
 }

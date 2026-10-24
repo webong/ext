@@ -13,3 +13,6 @@ import (
 func Run(args []string, stdout, stderr io.Writer) int {
 	return app.Run(args, stdout, stderr)
 }
+
+// Version is the version this build of ctx reports.
+func Version() string { return app.Version }

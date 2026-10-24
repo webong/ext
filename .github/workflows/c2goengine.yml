@@ -60,10 +60,6 @@ jobs:
           msystem: ${{ matrix.msystem }}
           path-type: inherit
           install: ${{ matrix.packages }}
-      - name: Check that every checked-in translation names the same inputs
-        shell: bash
-        working-directory: pkg/plugin-go/c2goengine
-        run: go test -count=1 -run 'TestTranslationsMatchInputs|TestTargetsAgree' ./internal/ccgo
       - name: Generate the translation
         if: runner.os != 'Windows'
         shell: bash
@@ -79,9 +75,19 @@ jobs:
         run: |
           # What the translation is made from is the same on every platform, and so is the digest the
           # generator writes for it; the bytes of a platform's file also follow its system headers, so
-          # they are not compared.
+          # they are not compared. A platform's own checked-in file is stale when the digest it names
+          # is not the one just computed.
           dir=pkg/plugin-go/c2goengine/internal/ccgo
+          own=$dir/generated_${{ matrix.goos }}_${{ matrix.goarch }}.go
           changed=$(git status --porcelain -- "$dir/inputs.sha256" "$dir/call.go" "$dir/call_unsupported.go")
+          if git cat-file -e "HEAD:$own" 2>/dev/null; then
+            before=$(git show "HEAD:$own" | grep -m1 'c2goengine inputs sha256:' || true)
+            after=$(grep -m1 'c2goengine inputs sha256:' "$own" || true)
+            if [ "$before" != "$after" ]; then
+              changed="$changed
+          $own names inputs $before, the generator's are $after"
+            fi
+          fi
           if [ -z "$changed" ]; then
             echo "The checked-in translation is current for ${{ matrix.goos }}/${{ matrix.goarch }}."
             exit 0
@@ -93,6 +99,10 @@ jobs:
             exit 1
           fi
           echo "::notice::No translation is checked in for ${{ matrix.goos }}/${{ matrix.goarch }} yet. The translation-${{ matrix.goos }}-${{ matrix.goarch }} artifact has the file and the updated build constraints."
+      - name: Check that every checked-in translation names the same inputs
+        shell: bash
+        working-directory: pkg/plugin-go/c2goengine
+        run: go test -count=1 -run 'TestTranslationsMatchInputs|TestTargetsAgree' ./internal/ccgo
       - name: Test
         if: runner.os != 'Windows'
         shell: bash

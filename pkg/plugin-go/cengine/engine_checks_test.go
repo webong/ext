@@ -5,13 +5,34 @@ package goengine
 import (
 	"testing"
 
+	"github.com/webong/ext/pkg/plugin-go/contract/guest/instance"
 	"github.com/webong/ext/pkg/plugin-go/contract/plugintest/enginetest"
 )
 
 // The differential checks that hold the engine against the pure-Go contract live in
 // enginetest, so that any build of the engine can run them; these are the C engine's runs, under
 // the names the checks have always had.
-var cengine = enginetest.Engine{Name: "C engine", Call: EngineCall, Fixtures: "../../../lib/plugin/testdata"}
+var cengine = enginetest.Engine{
+	Name: "C engine", Call: EngineCall, Fixtures: "../../../lib/plugin/testdata",
+	NewInstances: func(opts instance.Options[string]) (enginetest.Instances, error) {
+		m, err := NewInstances(opts)
+		if err != nil {
+			return nil, err
+		}
+		return engineInstances{m}, nil
+	},
+}
+
+// engineInstances gives the C-backed manager the shape the harness compares.
+type engineInstances struct{ *Instances[string] }
+
+func (e engineInstances) Acquire(key string) (string, enginetest.Lease, error) {
+	l, err := e.Instances.Acquire(key)
+	if err != nil {
+		return "", nil, err
+	}
+	return l.Value, l, nil
+}
 
 func TestContractMutationDifferential(t *testing.T) {
 	enginetest.ContractMutationDifferential(t, cengine)
@@ -69,4 +90,10 @@ func TestZeroTimeInAnyZoneMatchesGo(t *testing.T) { enginetest.ZeroTimeInAnyZone
 
 func TestCaseFoldingMatchesGoForEveryRune(t *testing.T) {
 	enginetest.CaseFoldingMatchesGoForEveryRune(t, cengine)
+}
+
+func TestInstanceErrorCausesMatchGo(t *testing.T) { enginetest.InstanceErrorCausesMatchGo(t, cengine) }
+
+func TestInstanceObserverEventsMatchGo(t *testing.T) {
+	enginetest.InstanceObserverEventsMatchGo(t, cengine)
 }

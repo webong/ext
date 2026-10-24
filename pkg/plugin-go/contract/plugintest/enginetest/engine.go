@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	plugin "github.com/webong/ext/pkg/plugin-go/contract"
+	"github.com/webong/ext/pkg/plugin-go/contract/guest/instance"
 	"github.com/webong/ext/pkg/plugin-go/contract/validate/schema"
 )
 
@@ -25,6 +26,9 @@ type Engine struct {
 	Call func(operation string, input json.RawMessage) (json.RawMessage, error)
 	// Fixtures is the directory of the shared fixtures, lib/plugin/testdata.
 	Fixtures string
+	// NewInstances opens the engine's instance manager over string values. Optional: the checks
+	// that compare instance managers are skipped without it.
+	NewInstances func(instance.Options[string]) (Instances, error)
 }
 
 // fixture reads a shared fixture, such as "v1/descriptor.json".

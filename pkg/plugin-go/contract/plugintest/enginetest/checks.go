@@ -30,6 +30,8 @@ func Checks() []Check {
 		{"EndpointTimeSpellingsAreStricterInTheEngine", EndpointTimeSpellingsAreStricterInTheEngine},
 		{"ZeroTimeInAnyZoneMatchesGo", ZeroTimeInAnyZoneMatchesGo},
 		{"CaseFoldingMatchesGoForEveryRune", CaseFoldingMatchesGoForEveryRune},
+		{"InstanceErrorCausesMatchGo", InstanceErrorCausesMatchGo},
+		{"InstanceObserverEventsMatchGo", InstanceObserverEventsMatchGo},
 	}
 }
 

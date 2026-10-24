@@ -18,13 +18,13 @@ need the C engine build. Both builds are tested in CI.
 The pure-Go contract is the oracle. The checks that hold an engine's pure services against it
 (descriptor, request, response, frame, manifest, schema and endpoint validation, descriptor
 matching, case folding; 19 checks, among them the pairwise, multi-field and generated-schema
-differentials) are an importable package, `pkg/plugin-go/contract/plugintest/enginetest`, that
-takes an `enginetest.Engine`: a name, the engine's `Call(operation, json)` and the directory of the
-shared fixtures. The C engine's runs are in `pkg/plugin-go/cengine/engine_checks_test.go`, under the
+differentials, and the instance manager's error causes and events, 21 in all) are an importable package, `pkg/plugin-go/contract/plugintest/enginetest`, that
+takes an `enginetest.Engine`: a name, the engine's `Call(operation, json)`, the directory of the
+shared fixtures and, to compare instance managers, `NewInstances`. The C engine's runs are in `pkg/plugin-go/cengine/engine_checks_test.go`, under the
 names the checks have always had (`TestPairwiseMutationDifferential` and the rest). Another build of
 the same engine, or another binding of it, runs the same checks with its own `Engine`
 (`enginetest.Run`), and a check that passes for it passes for the same reasons. The session,
-instance, stream, capability, process and observer differentials still live in the `cengine`
+stream, capability, process and observer differentials still live in the `cengine`
 package, because they open sessions and managers through its API; moving them behind the same
 kind of interface is the next step.
 

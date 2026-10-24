@@ -46,6 +46,8 @@ func eventCode(err error) string {
 		return "unsupported"
 	case errors.Is(err, ErrClosed):
 		return "closed"
+	case errors.Is(err, ErrDraining):
+		return "draining"
 	default:
 		return "failed"
 	}

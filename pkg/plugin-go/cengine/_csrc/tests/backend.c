@@ -449,6 +449,10 @@ static void collect(void *user, const uint8_t *json, size_t len) {
   pthread_mutex_unlock(&events_mu);
 }
 
+/* An observer a test installs before the next host starts, then clears. */
+static void (*pending_observer)(void *, const ext_call_options *,
+                                const uint8_t *, size_t);
+static void *pending_observer_user;
 static ext_status open_host(backend *b, uint32_t flags, int services,
                             uint32_t max_in_flight, ext_host **out) {
   ext_backend_extension extension = {
@@ -467,6 +471,13 @@ static ext_status open_host(backend *b, uint32_t flags, int services,
   if (s)
     return s;
   b->host = *out;
+  if (pending_observer) {
+    ext_host_hooks hooks = {sizeof(hooks), pending_observer_user, NULL, NULL,
+                            pending_observer};
+    s = ext_host_set_hooks(*out, &hooks);
+    if (s)
+      return s;
+  }
   if (services) {
     ext_host_services configured = {sizeof(configured), NULL, authorize, handle,
                                     0,                  0,    max_in_flight,
@@ -774,7 +785,70 @@ static void test_close(void) {
   ext_host_destroy(other);
 }
 
+typedef struct {
+  char last[512]; /* the latest observer event */
+  size_t count;
+} observed;
+static void observe_cb(void *user, const ext_call_options *o,
+                       const uint8_t *json, size_t len) {
+  (void)o;
+  observed *e = user;
+  pthread_mutex_lock(&events_mu);
+  assert(len < sizeof(e->last));
+  memcpy(e->last, json, len);
+  e->last[len] = 0;
+  e->count++;
+  pthread_mutex_unlock(&events_mu);
+}
+/* A call refused before it has a request is observed without a request id, as
+ * the Go session observes it: an operation the descriptor does not list, a
+ * caller that is already canceled, and a session that is closed. */
+static void test_refused_calls_are_observed(void) {
+  backend b = {0};
+  b.mode = "quiet";
+  observed e = {0};
+  pending_observer = observe_cb;
+  pending_observer_user = &e;
+  ext_host *h = NULL;
+  assert(open_host(&b, EXT_BACKEND_FRAMES, 0, 0, &h) == EXT_OK);
+  pending_observer = NULL;
+  size_t before = e.count; /* the host's own stages: verify, connect, handshake */
+  assert(before >= 1);
+
+  assert(call(h,
+              "{\"contract\":{\"name\":\"backend.test\",\"version\":\"v1\"},"
+              "\"operation\":\"nope\",\"payload\":{}}",
+              NULL, NULL) == EXT_UNSUPPORTED);
+  assert(e.count == before + 1);
+  assert(strstr(e.last, "\"stage\":\"invoke\"") &&
+         strstr(e.last, "\"code\":\"unsupported\"") &&
+         strstr(e.last, "\"operation\":\"nope\"") &&
+         !strstr(e.last, "requestID"));
+
+  ext_cancel *cancel = NULL;
+  assert(ext_cancel_create(&cancel) == EXT_OK);
+  ext_cancel_signal(cancel);
+  assert(call(h, RUN, NULL, cancel) == EXT_CANCELED);
+  assert(e.count == before + 2);
+  assert(strstr(e.last, "\"code\":\"canceled\"") &&
+         !strstr(e.last, "requestID"));
+  ext_cancel_destroy(cancel);
+
+  /* A call that is served has its id. */
+  assert(call(h, QUIET, NULL, NULL) == EXT_OK);
+  assert(strstr(e.last, "\"code\":\"ok\"") &&
+         strstr(e.last, "\"requestID\":\"1\""));
+
+  ext_host_close(h);
+  assert(call(h, RUN, NULL, NULL) == EXT_CLOSED);
+  assert(strstr(e.last, "\"code\":\"closed\"") &&
+         !strstr(e.last, "requestID"));
+  join_all(&b);
+  ext_host_destroy(h);
+}
+
 int main(void) {
+  test_refused_calls_are_observed();
   test_configuration();
   test_progress();
   test_concurrent_progress();

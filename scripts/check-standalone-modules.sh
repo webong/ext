@@ -7,7 +7,7 @@
 # published yet (a release in progress) cannot be checked until that tag
 # exists. It is skipped with a message and checked on a later run, so the
 # check never fails for the chicken-and-egg order of a release. Product modules
-# built with the workspace (src/ctx, src/ctn) are not checked.
+# built with the workspace (src/ctx, src/ctn, cmd/ext) are not checked.
 #
 # Environment:
 #   STANDALONE_OS   operating systems to vet, default "linux darwin windows"
@@ -30,7 +30,7 @@ published() { # <module path without prefix> <version>
 
 failed=0 checked=0 skipped=0
 for dir in $modules; do
-  case $dir in src/ctx|src/ctn) continue ;; esac
+  case $dir in src/ctx|src/ctn|cmd/ext) continue ;; esac
   [ -f "$dir/go.mod" ] || continue
   waiting=""
   while read -r path version; do

@@ -585,6 +585,70 @@ mod tests {
         c.cancel();
         assert!(c.is_canceled());
     }
+    // A request that does not match the descriptor is answered by the engine, for every binding, as a
+    // public invalid_request response that echoes its id; one with no usable id, or that is not a
+    // request, is a failed call (EXT_INVALID, status 1). The handler is never called for either.
+    #[test]
+    fn malformed_requests() {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        use std::sync::Arc;
+        let called = Arc::new(AtomicUsize::new(0));
+        let counter = called.clone();
+        let g = Guest::new(
+            DESCRIPTOR,
+            Duration::from_secs(1),
+            Box::new(move |_| {
+                counter.fetch_add(1, Ordering::SeqCst);
+                Ok(GuestReply::Payload(b"7".to_vec()))
+            }),
+        )
+        .unwrap();
+        let request = |id: &str, operation: &str, deadline: &str| {
+            format!(
+                "{{\"apiVersion\":\"ext.plugin/v1\",\"id\":\"{id}\",\"plugin\":{{\"id\":\"ctx/conformance\",\"revision\":\"fixture-1\"}},\"contract\":{{\"name\":\"ext.conformance\",\"version\":\"v1\"}},\"operation\":\"{operation}\"{deadline}}}"
+            )
+        };
+        let deadline = ",\"deadline\":\"2099-01-01T00:00:00Z\"";
+        let answered = g
+            .invoke(
+                request("1", "echo", deadline).as_bytes(),
+                CallOptions::default(),
+            )
+            .unwrap();
+        assert!(String::from_utf8_lossy(&answered).contains("\"payload\":7"));
+        for bad in [
+            request("1", "nope", deadline),
+            request("1", "echo", ""),
+            request("1", "echo", deadline).replace("ext.plugin/v1", "ext.plugin/v2"),
+        ] {
+            called.store(0, Ordering::SeqCst);
+            let reply = g.invoke(bad.as_bytes(), CallOptions::default()).unwrap();
+            let text = String::from_utf8_lossy(&reply);
+            assert!(
+                text.contains("\"id\":\"1\"")
+                    && text.contains("\"code\":\"invalid_request\"")
+                    && !text.contains("\"payload\"")
+                    && called.load(Ordering::SeqCst) == 0,
+                "{bad}: {text}"
+            );
+        }
+        for bad in [
+            String::new(),
+            "{".to_string(),
+            "[]".to_string(),
+            "{}".to_string(),
+            request("", "echo", deadline),
+            request("-bad", "echo", deadline),
+        ] {
+            called.store(0, Ordering::SeqCst);
+            assert_eq!(
+                g.invoke(bad.as_bytes(), CallOptions::default()),
+                Err(Error(1)),
+                "{bad}"
+            );
+            assert_eq!(called.load(Ordering::SeqCst), 0);
+        }
+    }
     #[test]
     fn guest() {
         let g = Guest::new(

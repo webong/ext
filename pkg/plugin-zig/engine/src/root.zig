@@ -285,6 +285,49 @@ test "host and guest binding ownership" {
     defer response.deinit();
     try std.testing.expect(std.mem.indexOf(u8, response.bytes(), "\"payload\":7") != null);
 }
+fn counting(user: ?*anyopaque, _: ?*anyopaque, _: [*c]const u8, _: usize, _: u32, emit: ffi.ext_guest_emit, sink: ?*anyopaque) callconv(.c) i32 {
+    const calls: *usize = @ptrCast(@alignCast(user.?));
+    calls.* += 1;
+    return emit.?(sink, ffi.EXT_GUEST_PAYLOAD, "7", 1);
+}
+fn conformanceRequest(buffer: []u8, id: []const u8, version: []const u8, operation: []const u8, deadline: []const u8) ![]const u8 {
+    return std.fmt.bufPrint(buffer, "{{\"apiVersion\":\"{s}\",\"id\":\"{s}\",\"plugin\":{{\"id\":\"test\",\"revision\":\"r1\"}},\"contract\":{{\"name\":\"test\",\"version\":\"v1\"}},\"operation\":\"{s}\"{s}}}", .{ version, id, operation, deadline });
+}
+// A request that does not match the descriptor is answered by the engine, for every binding, as a
+// public invalid_request response that echoes its id; one with no usable id, or that is not a
+// request, is a failed call (error.Invalid). The handler is never called for either.
+test "malformed requests" {
+    var calls: usize = 0;
+    var guest = try Guest.init(.{ .abi_version = ffi.EXT_HOST_ABI_VERSION, .struct_size = @sizeOf(ffi.ext_guest_options), .descriptor = fixture, .descriptor_len = fixture.len, .max_call_ms = 1000, .user = &calls, .handle = counting });
+    defer guest.deinit();
+    var first: [320]u8 = undefined;
+    var second: [320]u8 = undefined;
+    var third: [320]u8 = undefined;
+    var fourth: [320]u8 = undefined;
+    const deadline = ",\"deadline\":\"2099-01-01T00:00:00Z\"";
+    var ok = try guest.invoke(try conformanceRequest(&first, "1", "ext.plugin/v1", "echo", deadline), 1000, null);
+    defer ok.deinit();
+    try std.testing.expect(std.mem.indexOf(u8, ok.bytes(), "\"payload\":7") != null);
+    try std.testing.expectEqual(@as(usize, 1), calls);
+    calls = 0;
+    const mismatched = [_][]const u8{
+        try conformanceRequest(&second, "1", "ext.plugin/v1", "nope", deadline),
+        try conformanceRequest(&third, "1", "ext.plugin/v1", "echo", ""),
+        try conformanceRequest(&fourth, "1", "ext.plugin/v2", "echo", deadline),
+    };
+    for (mismatched) |bad| {
+        var reply = try guest.invoke(bad, 1000, null);
+        defer reply.deinit();
+        const text = reply.bytes();
+        try std.testing.expect(std.mem.indexOf(u8, text, "\"id\":\"1\"") != null);
+        try std.testing.expect(std.mem.indexOf(u8, text, "\"code\":\"invalid_request\"") != null);
+        try std.testing.expect(std.mem.indexOf(u8, text, "\"payload\"") == null);
+    }
+    for ([_][]const u8{ "", "{", "[]", "7", "{}", "{\"id\":1}", "{\"id\":\"\"}", "{\"id\":\"-bad\"}" }) |bad| {
+        try std.testing.expectError(error.Invalid, guest.invoke(bad, 1000, null));
+    }
+    try std.testing.expectEqual(@as(usize, 0), calls);
+}
 
 /// C owns instance admission, revisions and lifecycle. User callback state must
 /// outlive the manager. Close, join calls/release leases, then deinit once.

@@ -255,6 +255,7 @@ later rounds followed for new content.
 | Reverse calls, progress and endpoints (`v0.5.0`) | `pkg/plugin-go/contract`, `pkg/plugin-go/cengine` and `pkg/plugin-go` at v0.5.0; `res/system` v0.1.1 and `res/web` v0.5.1 as patch releases; no adapter, `wasm` or `hashicorp` |
 | Dependency security (`v0.5.1`) | `pkg/plugin-go/hashicorp` v0.3.0 and `pkg/plugin-go` v0.5.1; no other module |
 | API additions (`v0.6.0`) | `pkg/plugin-go/contract`, `pkg/plugin-go/cengine` and `pkg/plugin-go` at v0.6.0; no other module |
+| Engine parity (`v0.7.0`) | `pkg/plugin-go/contract`, `pkg/plugin-go/cengine` and `pkg/plugin-go` at v0.7.0; no other module |
 
 `v0.3.0` is a minor version because `Store.ListUnverified` and `Layered.ListUnverified` are new API in
 both `contract/host/store` and `cengine/host/store`. It also bounds the cost of validating and resolving
@@ -300,6 +301,15 @@ moved into it; `res/web` v0.5.1 carries the examples and the `wasm/reactor.js` a
 Both are patch releases, since neither changes an exported name. `wasm`, `hashicorp` and the 24 adapters
 have the same bytes as before and are not retagged: they still require `contract` v0.4.0, which is fine,
 because a build that also requires v0.5.0 (the umbrella and the products do) resolves to it.
+
+The `v0.7.0` round brings the C engine to the behavior of the pure-Go baseline: reverse calls, progress frames,
+endpoint validation and extension backends now run on both (see [engine parity](plugin-engine-parity.md)). `contract`
+gains the `plugintest` frames conformance suite, and a call refused while the host drains is now reported to observers
+as `draining` rather than `failed`, a behavior change that takes a minor version. `cengine` carries the engine
+sources it is built from (`_csrc`), so its bytes change with every engine fix. The C ABI is additive and
+`EXT_HOST_ABI_VERSION` stays 2. The umbrella follows because it pins both. `hashicorp` differs from its `v0.3.0` tag
+only in a test fixture, and `wasm`, `res/*` and the adapters have the same bytes as before, so none is retagged. The
+Zig guest SDK gains capability contracts in the same round; it is not a Go module and has no tag here.
 
 The `v0.6.0` round adds API found by a consumer using reverse calls, progress and endpoints in real code, and fixes
 one defect. `contract` gains `endpoint.Decode`, `Endpoint.Check` and `endpoint.Key`; `Grant.AuthorizationHeader` and

@@ -3,6 +3,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 
@@ -29,7 +30,7 @@ func main() {
 		}
 	}
 	home := adapter.ConfigHome()
-	discoverPackages(reg, home)
+	manage := discoverPackages(reg, home)
 	cfg, err := config.Load(home)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "ext:", err)
@@ -41,26 +42,31 @@ func main() {
 			os.Exit(1)
 		}
 	}
-	os.Exit(app.Run(reg, os.Args[1:], os.Stdout, os.Stderr))
+	os.Exit(app.RunWith(app.Options{Registry: reg, Package: manage}, os.Args[1:], os.Stdout, os.Stderr))
 }
 
 // discoverPackages registers the commands of the trusted packages installed under
-// home/commands. Without that directory there is nothing to discover and nothing is
-// created.
-func discoverPackages(reg *registry.Registry, home string) {
+// home/commands and returns the handler for "ext package". Nothing is created in
+// home until a package is installed.
+func discoverPackages(reg *registry.Registry, home string) func([]string, io.Writer, io.Writer) int {
 	dir := filepath.Join(home, "commands")
-	if info, err := os.Stat(dir); err != nil || !info.IsDir() {
-		return
+	fail := func(err error) func([]string, io.Writer, io.Writer) int {
+		reg.Note(err.Error())
+		return func(_ []string, _, stderr io.Writer) int {
+			fmt.Fprintln(stderr, "ext:", err)
+			return 1
+		}
 	}
 	trust, err := pkgcmd.LoadTrust(home)
 	if err != nil {
-		reg.Note(err.Error())
-		return
+		return fail(err)
 	}
 	packages, err := store.New(dir, store.Limits{})
 	if err != nil {
-		reg.Note(err.Error())
-		return
+		return fail(err)
 	}
-	pkgcmd.Discover(reg, packages, trust, host.Options{})
+	if info, err := os.Stat(dir); err == nil && info.IsDir() {
+		pkgcmd.Discover(reg, packages, trust, host.Options{})
+	}
+	return pkgcmd.Manager{Store: packages, Trust: trust}.Run
 }

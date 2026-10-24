@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -67,9 +68,9 @@ func TestMain(m *testing.M) {
 
 var childEnv = host.Options{Env: []string{"PKGCMD_CHILD=1"}}
 
-// install builds a package whose executable is a copy of this test binary and
-// installs it into a fresh store; version changes the installed content.
-func install(t *testing.T, root, version, metadata string) store.Installed {
+// source writes a package directory whose executable is a copy of this test binary;
+// version changes the content.
+func source(t *testing.T, version, metadata string) string {
 	t.Helper()
 	body, err := os.ReadFile(os.Args[0])
 	if err != nil {
@@ -94,14 +95,20 @@ func install(t *testing.T, root, version, metadata string) store.Installed {
 	if err := store.WriteManifest(src, m); err != nil {
 		t.Fatal(err)
 	}
+	return src
+}
+
+// install replaces whatever is installed under root with a fresh package.
+func install(t *testing.T, root, version, metadata string) store.Installed {
+	t.Helper()
 	s, err := store.New(root, store.Limits{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := s.Remove("example/tools"); err != nil && !os.IsNotExist(err) {
-		t.Logf("remove: %v", err) // nothing installed yet
+	if err := s.Remove("example/tools"); err != nil && !errors.Is(err, store.ErrNotFound) {
+		t.Fatal(err)
 	}
-	installed, err := s.Install(src)
+	installed, err := s.Install(source(t, version, metadata))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -219,5 +226,90 @@ func TestRunKeepsEveryLineOfALargeOutput(t *testing.T) {
 	}
 	if !strings.HasPrefix(out, "line 0\nline 1\n") || !strings.HasSuffix(out, "line 1999\n") {
 		t.Fatal("lines are out of order or truncated")
+	}
+}
+
+func manager(t *testing.T) (Manager, string) {
+	t.Helper()
+	home := t.TempDir()
+	s, err := store.New(filepath.Join(home, "commands"), store.Limits{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	trust, err := LoadTrust(home)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return Manager{Store: s, Trust: trust}, home
+}
+
+func manage(t *testing.T, m Manager, args ...string) (int, string, string) {
+	t.Helper()
+	var out, errOut bytes.Buffer
+	code := m.Run(args, &out, &errOut)
+	return code, out.String(), errOut.String()
+}
+
+func TestManageInstallTrustListRemove(t *testing.T) {
+	m, home := manager(t)
+	src := source(t, "1.0.0", declares)
+
+	code, out, errOut := manage(t, m, "install", src)
+	if code != 0 || !strings.Contains(out, "not trusted") || !strings.Contains(out, "ext package trust example/tools") {
+		t.Fatalf("install = %d %q %q", code, out, errOut)
+	}
+	if _, _, err := discover(t, home).Resolve("echo", ""); err == nil {
+		t.Fatal("installing a package registered its commands")
+	}
+	if code, _, errOut := manage(t, m, "install", src); code != 1 || !strings.Contains(errOut, "already installed") {
+		t.Fatalf("second install = %d %q", code, errOut)
+	}
+	if _, out, _ := manage(t, m, "list"); !strings.Contains(out, "untrusted") || !strings.Contains(out, "echo, fail, flood, where") {
+		t.Fatalf("list = %q", out)
+	}
+
+	if code, out, errOut := manage(t, m, "trust", "example/tools"); code != 0 || !strings.Contains(out, "trusted example/tools 1.0.0") {
+		t.Fatalf("trust = %d %q %q", code, out, errOut)
+	}
+	if c, _, err := discover(t, home).Resolve("echo", ""); err != nil || c.Source != registry.Package {
+		t.Fatalf("after trust: %+v %v", c, err)
+	}
+	if _, out, _ := manage(t, m, "list"); !strings.Contains(out, "trusted") || strings.Contains(out, "untrusted") {
+		t.Fatalf("list after trust = %q", out)
+	}
+
+	if code, _, _ := manage(t, m, "untrust", "example/tools"); code != 0 {
+		t.Fatal("untrust failed")
+	}
+	if _, _, err := discover(t, home).Resolve("echo", ""); err == nil {
+		t.Fatal("untrusted package still registered")
+	}
+
+	if code, _, _ := manage(t, m, "trust", "example/tools"); code != 0 {
+		t.Fatal("trust failed")
+	}
+	if code, out, _ := manage(t, m, "remove", "example/tools"); code != 0 || !strings.Contains(out, "removed") {
+		t.Fatalf("remove = %d %q", code, out)
+	}
+	if again, _ := LoadTrust(home); len(again.Packages) != 0 {
+		t.Fatalf("remove left a trust record: %v", again.Packages)
+	}
+}
+
+func TestManageRefusesWhatCannotBeTrustedOrUsed(t *testing.T) {
+	m, _ := manager(t)
+	if code, _, _ := manage(t, m, "install", source(t, "1.0.0", "")); code != 0 {
+		t.Fatal("install without commands failed")
+	}
+	if code, _, errOut := manage(t, m, "trust", "example/tools"); code != 1 || !strings.Contains(errOut, "declares no commands") {
+		t.Fatalf("trust without commands = %d %q", code, errOut)
+	}
+	if code, _, _ := manage(t, m, "trust", "no/such"); code != 1 {
+		t.Fatal("trusted a package that is not installed")
+	}
+	for _, args := range [][]string{{}, {"bogus", "x"}, {"install"}, {"list", "extra"}} {
+		if code, _, _ := manage(t, m, args...); code != 2 {
+			t.Fatalf("%v exit %d, want 2", args, code)
+		}
 	}
 }

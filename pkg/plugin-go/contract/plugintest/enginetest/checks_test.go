@@ -16,8 +16,8 @@ func TestChecksAreNamedOnce(t *testing.T) {
 		}
 		seen[c.Name] = true
 	}
-	if len(seen) != 27 {
-		t.Errorf("%d checks, want 27", len(seen))
+	if len(seen) != 28 {
+		t.Errorf("%d checks, want 28", len(seen))
 	}
 }
 

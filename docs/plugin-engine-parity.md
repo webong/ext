@@ -17,25 +17,29 @@ need the C engine build. Both builds are tested in CI.
 
 The pure-Go contract is the oracle. The checks that hold an engine against it are an importable
 package, `pkg/plugin-go/contract/plugintest/enginetest`, and take an `enginetest.Engine`: a name,
-the engine's `Call(operation, json)`, the directory of the shared fixtures and, to compare
-instance managers and sessions, `NewInstances` and `Open`. There are 27 checks:
+the engine's `Call(operation, json)`, the directory of the shared fixtures and, to compare instance
+managers, sessions and child processes, `NewInstances`, `Open` and `OpenProcess`. There are 28
+checks:
 
 - the pure services: descriptor, request, response, frame, manifest, schema and endpoint
   validation, descriptor matching and case folding, among them the pairwise, multi-field and
   generated-schema differentials (19, driven by `Call`);
 - the instance manager's error causes and events (2, `NewInstances`);
-- the session's error causes, admission failures, drains and observer events (6, `Open`).
+- the session's error causes, admission failures, drains and observer events (6, `Open`);
+- the events and error classes of 14 ways admitting a child process the engine starts can go
+  (1, `OpenProcess`; a test binary serves as the plugin, see `MaybeServeGuest`).
 
-The C engine's runs are in `pkg/plugin-go/cengine/engine_checks_test.go`, under the names the
-checks have always had (`TestPairwiseMutationDifferential` and the rest). Another build of the same
-engine, or another binding of it, runs the same checks with its own `Engine` (`enginetest.Run`),
-and a check that passes for it passes for the same reasons. A check whose constructor the engine
-leaves out is skipped. The oracle also runs the instance and session checks against itself, which
-shows the checks' own mechanics and timing do not flake.
+Two engines run them. The cgo engine's runs are in `pkg/plugin-go/cengine/engine_checks_test.go`,
+under the names the checks have always had (`TestPairwiseMutationDifferential` and the rest). The
+translated engine (`pkg/plugin-go/c2goengine`: the same C, translated to Go by ccgo) runs all 28 in
+`c2goengine_test.go` on darwin and linux, also under the race detector; it does not translate on
+Windows yet. A check whose constructor an engine leaves out is skipped, and a check that passes
+for an engine passes for the same reasons. The oracle also runs the instance and session checks
+against itself, which shows the checks' own mechanics and timing do not flake.
 
-The stream, capability, process, progress and reverse-call differentials still live in the
-`cengine` package, because they need process launch, progress frames and reverse calls, which the
-harness has no interface for yet.
+The stream, capability, progress and reverse-call differentials still live in the `cengine`
+package, because they need progress frames and reverse calls, which the harness has no interface
+for yet.
 
 ## Required destination
 

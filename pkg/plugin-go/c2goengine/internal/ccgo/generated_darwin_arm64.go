@@ -1,5 +1,5 @@
 // Code generated for darwin/arm64 by 'ccgo -o engine.go --package-name ccgo -I csrc/shim -I csrc/src -I csrc/vendor -I csrc/include -DEXT_HOST_STATIC -DEXT_HOST_BUILD -Dyyjson_align(x)= -Dyyjson_inline= -Dyyjson_noinline= -U__SIZEOF_INT128__ -include csrc/shim/compat.h csrc/src/common.c csrc/src/wire.c csrc/src/progress.c csrc/src/reverse.c csrc/src/endpoint.c csrc/src/services.c csrc/src/guest.c csrc/src/sha256.c csrc/src/packages.c csrc/vendor/yyjson.c csrc/src/host.c csrc/src/fs_posix.c csrc/src/random_posix.c csrc/src/integrity.c csrc/src/instances.c csrc/src/streams.c csrc/shim/channel_go.c csrc/shim/missing.c', DO NOT EDIT.
-// c2goengine inputs sha256:904336fc831ce823d75d7f64b5194a4919f67cb746ad510effb1d538cca99fb4
+// c2goengine inputs sha256:9c14f651bb5e5f35466b9b06e3dddafe04f7e443eeae5bbc33b1770d8962e3e2
 
 //go:build darwin && arm64
 
@@ -105559,7 +105559,7 @@ func ext_instances_close(tls *libc.TLS, m uintptr, o uintptr) (r ext_status) {
 			(*(*timespec)(unsafe.Add(nil, bp))).Ftv_sec = (*(*timespec)(unsafe.Add(nil, bp))).Ftv_sec + 1
 			(*(*timespec)(unsafe.Add(nil, bp))).Ftv_nsec -= int64(1000000000)
 		}
-		libc.Xpthread_cond_timedwait(tls, m+64, m, bp)
+		ext_cond_timedwait(tls, m+64, m, bp)
 	}
 	if !(s != 0) {
 		s = (*ext_instances)(unsafe.Pointer(m)).Fcleanup
@@ -111232,7 +111232,7 @@ func wait_slice(tls *libc.TLS, s uintptr) {
 		(*(*timespec)(unsafe.Add(nil, bp))).Ftv_sec = (*(*timespec)(unsafe.Add(nil, bp))).Ftv_sec + 1
 		(*(*timespec)(unsafe.Add(nil, bp))).Ftv_nsec -= int64(1000000000)
 	}
-	libc.Xpthread_cond_timedwait(tls, s+64, s, bp)
+	ext_cond_timedwait(tls, s+64, s, bp)
 }
 
 func scope_valid(tls *libc.TLS, p uintptr, n size_t) (r int32) {
@@ -112027,6 +112027,7 @@ func ext_channel_stderr(tls *libc.TLS, c uintptr, buffer uintptr, capacity size_
 	return (*(*func(*libc.TLS, uintptr, uintptr, size_t) size_t)(unsafe.Pointer(&struct{ uintptr }{(*ext_channel_ops)(unsafe.Pointer(ext_channel_ops_table)).Fstderr_copy})))(tls, c, buffer, capacity)
 }
 
+const CLOCK_MONOTONIC9 = 6
 const CLOCK_REALTIME5 = 0
 const NULL = "__DARWIN_NULL"
 
@@ -112231,6 +112232,34 @@ const NULL = "__DARWIN_NULL"
  *	@(#)time.h	8.3 (Berkeley) 1/21/94
  */
 
+// C documentation
+//
+//	/* A timed wait that takes a deadline on the real-time clock or on the monotonic one. The engine's
+//	   monotonic deadlines count from boot, a few billion seconds at most; a real-time deadline is
+//	   past 10^9 seconds since 1970 since 2001. */
+func ext_cond_timedwait(tls *libc.TLS, c uintptr, m uintptr, t uintptr) (r int32) {
+	bp := tls.Alloc(48)
+	defer tls.Free(48)
+	var ns, total int64
+	var _ /* mono at bp+16 */ timespec
+	var _ /* now at bp+32 */ timespec
+	var _ /* real at bp+0 */ timespec
+	_, _ = ns, total
+	*(*timespec)(unsafe.Add(nil, bp)) = *(*timespec)(unsafe.Add(nil, t))
+	if (*timespec)(unsafe.Pointer(t)).Ftv_sec < int64(1000000000) {
+		libc.Xclock_gettime(tls, int32(_CLOCK_MONOTONIC), bp+16)
+		libc.Xclock_gettime(tls, int32(_CLOCK_REALTIME), bp+32)
+		ns = ((*timespec)(unsafe.Pointer(t)).Ftv_sec-(*(*timespec)(unsafe.Add(nil, bp+16))).Ftv_sec)*int64(1000000000) + ((*timespec)(unsafe.Pointer(t)).Ftv_nsec - (*(*timespec)(unsafe.Add(nil, bp+16))).Ftv_nsec)
+		if ns < 0 {
+			ns = 0
+		}
+		total = (*(*timespec)(unsafe.Add(nil, bp+32))).Ftv_nsec + ns
+		(*(*timespec)(unsafe.Add(nil, bp))).Ftv_sec = (*(*timespec)(unsafe.Add(nil, bp+32))).Ftv_sec + int64(total/libc.Int64FromInt64(1000000000))
+		(*(*timespec)(unsafe.Add(nil, bp))).Ftv_nsec = int64(total % libc.Int64FromInt64(1000000000))
+	}
+	return libc.Xpthread_cond_timedwait(tls, c, m, bp)
+}
+
 func pthread_condattr_init(tls *libc.TLS, a uintptr) (r int32) {
 	_ = a
 	return 0
@@ -112243,7 +112272,7 @@ func pthread_condattr_destroy(tls *libc.TLS, a uintptr) (r int32) {
 
 // C documentation
 //
-//	/* Waits on the real-time clock, as the dropped monotonic attribute makes every wait do. */
+//	/* macOS waits for a duration: add it to the real-time clock. */
 func pthread_cond_timedwait_relative_np(tls *libc.TLS, c uintptr, m uintptr, rel uintptr) (r int32) {
 	bp := tls.Alloc(16)
 	defer tls.Free(16)

@@ -1,15 +1,22 @@
 # c2goengine
 
-The C engine's portable core, translated to Go by [ccgo](https://pkg.go.dev/modernc.org/ccgo/v4)
-and linked into your program: no cgo, no C compiler, the same answers as the C library.
+The C engine, translated to Go by [ccgo](https://pkg.go.dev/modernc.org/ccgo/v4) and linked into your
+program: no cgo, no C compiler, the same answers as the C library.
 
 ```go
 out, err := c2goengine.EngineCall("descriptor.validate", descriptorJSON)
+
+session, err := c2goengine.Open(ctx, descriptor, plugin.Options{Verify: ..., Authorize: ..., Connect: ...})
+session, err = c2goengine.OpenProcess(ctx, descriptor, c2goengine.LaunchOptions{...}, options)
+leases, err := c2goengine.NewInstances(instance.Options[T]{...})
 ```
 
-`EngineCall` runs the engine's pure services (descriptor, request, response, frame, manifest,
-schema and endpoint rules; see [lib/plugin/services.md](../../../lib/plugin/services.md)) on bounded
-JSON, exactly as `pkg/plugin-go/cengine.EngineCall` does through cgo. Nothing here starts a plugin.
+- `EngineCall` runs the engine's pure services (descriptor, request, response, frame, manifest, schema
+  and endpoint rules; see [lib/plugin/services.md](../../../lib/plugin/services.md)) on bounded JSON,
+  exactly as `pkg/plugin-go/cengine.EngineCall` does through cgo. Nothing here starts a plugin.
+- `Open` and `OpenProcess` are the engine's sessions: the host's state machine, admission, deadlines,
+  draining, policies and observer events (host.c, run as Go), over a Go `plugin.Backend` or over a
+  child process the engine itself starts. `NewInstances` is its lease manager.
 
 ## What it is for
 
@@ -29,18 +36,21 @@ platform-table checks.
 ## Platforms
 
 The translation is generated for a platform on that platform (ccgo reads the platform's headers),
-so there is one file per target:
+so there is one file per target. POSIX platforms translate the whole engine (the services and the
+host); Windows would translate the services only, because the host's filesystem and random-number
+code there is Win32.
 
 | platform | file | state |
 | --- | --- | --- |
-| darwin/arm64 | `internal/ccgo/generated_darwin_arm64.go` | checked in, tested |
-| linux/arm64 | `internal/ccgo/generated_linux_arm64.go` | checked in, tested |
+| darwin/arm64 | `internal/ccgo/generated_darwin_arm64.go` | checked in, tested natively |
 | darwin/amd64 | `internal/ccgo/generated_darwin_amd64.go` | checked in, tested under Rosetta |
-| linux/amd64 | `internal/ccgo/generated_linux_amd64.go` | checked in, from the workflow (built and tested there under `-race`) |
+| linux/arm64 | `internal/ccgo/generated_linux_arm64.go` | checked in, tested natively |
+| linux/amd64 | | generated and tested by the workflow, which uploads the file |
 | windows/amd64, windows/arm64 | | not translated yet, see below |
 
-On any other platform `Available` is false and `EngineCall` returns `plugin.ErrUnsupported`.
-`internal/ccgo/targets_test.go` keeps the file list and the build constraints in step.
+On any other platform `Available` and `HostAvailable` are false and the calls return
+`plugin.ErrUnsupported`. `internal/ccgo/targets_test.go` keeps the file list and the build
+constraints in step, and the generator rewrites the constraints when it writes a file.
 
 ## Regenerating
 
@@ -79,10 +89,25 @@ is ours to fix in the C; each needs a stand-in in the generator or a change upst
 
 ## What the translation needed
 
-ccgo translates C to Go over a Go reimplementation of libc. For this core that took four changes,
-all in the generator and none in the C: yyjson's own switches for no 128-bit integers, no alignment
-or inline attributes, and no GCC inline assembly (a one-line edit to the copy of `yyjson.h`), and a
-`<stdatomic.h>` stand-in over the GCC atomic builtins ccgo does translate.
+ccgo translates C to Go over a Go reimplementation of libc. Getting this engine through it took
+changes in the generator and none in the C:
+
+- yyjson, the JSON library: its own switches for no 128-bit integers, no alignment or inline
+  attributes, and no GCC inline assembly (edits to the copy of `yyjson.h` and `yyjson.c`, each
+  checked to match exactly once).
+- `<stdatomic.h>`: ccgo does not translate the `__c11_atomic` builtins, so a stand-in over the GCC
+  ones it does translate.
+- Condition variables (`tools/shim/compat.h`, `missing.c`): ccgo's libc does not implement
+  condition-variable attributes, and takes timed-wait deadlines on the real-time clock where the
+  engine's are on the monotonic one, so a wait that takes either replaces `pthread_cond_timedwait`.
+  macOS's relative timed wait and the attribute functions are defined the same way.
+- The channel to a child process (`channel.h`, eight functions): written in Go over `os/exec`
+  (`internal/ccgo/channel.go`) in place of `channel_posix.c`, which needs `socketpair` and
+  `posix_spawn`, absent from ccgo's libc. The C calls it through a table the Go code installs.
+
+Every byte slice that crosses is copied into memory the translated code owns: it does pointer
+arithmetic on what it is given, including the address one past the end, which a Go allocation does not
+allow (the race detector's pointer checks stop the program).
 
 The vet diagnostics ccgo's output attracts (unreachable code, `unsafe.Pointer` conversions) are not
 ours to fix, so `scripts/check-standalone-modules.sh` and `scripts/release-standalone.sh` vet every
@@ -90,7 +115,11 @@ package of the module except `internal/ccgo`.
 
 ## Not here yet
 
-The host: sessions, process ownership, instances and streams, which `cengine` reaches through the C
-library's host API. A spike translated the whole host and ran the engine's own C tests over it
-(threads, reverse calls, progress frames, and child processes through a channel layer written in Go
-in place of `channel_posix.c`); wiring that behind the same Go API is the next step.
+- Progress events and reverse calls over `Open`: a plugin that declares them is refused, and
+  `Options.Reverse` is unsupported. cengine carries both through the engine's frame hooks.
+- Streams, the package store and the digests, which cengine also binds.
+- Windows.
+- `CallProgress`.
+
+The checks of `enginetest` for all that exist in `cengine` only; moving them behind the harness
+and binding the rest is the same work again for each.

@@ -30,6 +30,13 @@ var cengine = enginetest.Engine{
 		}
 		return s, nil
 	},
+	OpenProcess: func(ctx context.Context, d plugin.Descriptor, l enginetest.Launch, o plugin.Options) (enginetest.Session, error) {
+		s, err := OpenProcess(ctx, d, LaunchOptions{ProcessOptions: ProcessOptions{Executable: l.Executable, Environment: l.Environment}}, o)
+		if err != nil {
+			return nil, err
+		}
+		return s, nil
+	},
 }
 
 // engineInstances gives the C-backed manager the shape the harness compares.
@@ -120,3 +127,7 @@ func TestSessionObserverEventsMatchGo(t *testing.T) {
 func TestOpenObserverEventsMatchGo(t *testing.T) { enginetest.OpenObserverEventsMatchGo(t, cengine) }
 
 func TestDrainObserverEventsMatchGo(t *testing.T) { enginetest.DrainObserverEventsMatchGo(t, cengine) }
+
+func TestProcessObserverEventsMatchGo(t *testing.T) {
+	enginetest.ProcessObserverEventsMatchGo(t, cengine)
+}

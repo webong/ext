@@ -33,6 +33,10 @@ type Engine struct {
 	// Open admits a plugin through the engine, as plugin.Open does through the oracle. Optional:
 	// the checks that compare sessions are skipped without it.
 	Open func(ctx context.Context, d plugin.Descriptor, o plugin.Options) (Session, error)
+	// OpenProcess is Open with a child process the engine itself starts (launch.Executable is the
+	// test binary, which serves as the plugin: see MaybeServeGuest). Optional: the process check is
+	// skipped without it.
+	OpenProcess func(ctx context.Context, d plugin.Descriptor, launch Launch, o plugin.Options) (Session, error)
 }
 
 // fixture reads a shared fixture, such as "v1/descriptor.json".

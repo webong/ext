@@ -1,4 +1,4 @@
-//go:build (darwin && amd64) || (darwin && arm64) || (linux && amd64) || (linux && arm64)
+//go:build (darwin && amd64) || (darwin && arm64) || (linux && arm64)
 
 package ccgo
 
@@ -129,4 +129,20 @@ func Call(operation string, input []byte) ([]byte, error) {
 		return nil, err
 	}
 	return append([]byte(nil), unsafe.Slice((*byte)(unsafe.Pointer(buffer.Fdata)), int(buffer.Flen1))...), nil
+}
+
+// copyIn puts a copy of b in memory the translated code owns and returns its address (0 for an
+// empty slice) and what frees it. The code does pointer arithmetic on what it is given, including
+// the address one past the end, which a Go allocation does not allow (the race detector's pointer
+// checks stop the program), so Go slices never cross as they are.
+func copyIn(tls *libc.TLS, b []byte) (uintptr, func()) {
+	if len(b) == 0 {
+		return 0, func() {}
+	}
+	p := libc.Xmalloc(tls, libc.Tsize_t(len(b)))
+	if p == 0 {
+		return 0, func() {}
+	}
+	copy(unsafe.Slice((*byte)(unsafe.Pointer(p)), len(b)), b)
+	return p, func() { libc.Xfree(tls, p) }
 }

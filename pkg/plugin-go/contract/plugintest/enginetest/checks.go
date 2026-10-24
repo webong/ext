@@ -38,6 +38,7 @@ func Checks() []Check {
 		{"SessionObserverEventsMatchGo", SessionObserverEventsMatchGo},
 		{"OpenObserverEventsMatchGo", OpenObserverEventsMatchGo},
 		{"DrainObserverEventsMatchGo", DrainObserverEventsMatchGo},
+		{"ProcessObserverEventsMatchGo", ProcessObserverEventsMatchGo},
 	}
 }
 

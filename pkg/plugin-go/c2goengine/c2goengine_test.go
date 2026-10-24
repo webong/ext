@@ -1,20 +1,64 @@
 package c2goengine
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"sync"
 	"testing"
 
+	plugin "github.com/webong/ext/pkg/plugin-go/contract"
+	"github.com/webong/ext/pkg/plugin-go/contract/guest/instance"
 	"github.com/webong/ext/pkg/plugin-go/contract/plugintest/enginetest"
 )
 
 func engine() enginetest.Engine {
-	return enginetest.Engine{
+	e := enginetest.Engine{
 		Name:     "c2go engine",
 		Fixtures: "../../../lib/plugin/testdata",
 		Call:     EngineCall,
 	}
+	if HostAvailable {
+		e.Open = func(ctx context.Context, d plugin.Descriptor, o plugin.Options) (enginetest.Session, error) {
+			s, err := Open(ctx, d, o)
+			if err != nil {
+				return nil, err
+			}
+			return s, nil
+		}
+		e.NewInstances = func(opts instance.Options[string]) (enginetest.Instances, error) {
+			m, err := NewInstances(opts)
+			if err != nil {
+				return nil, err
+			}
+			return engineInstances{m}, nil
+		}
+		e.OpenProcess = func(ctx context.Context, d plugin.Descriptor, l enginetest.Launch, o plugin.Options) (enginetest.Session, error) {
+			s, err := OpenProcess(ctx, d, LaunchOptions{ProcessOptions: ProcessOptions{Executable: l.Executable, Environment: l.Environment}}, o)
+			if err != nil {
+				return nil, err
+			}
+			return s, nil
+		}
+	}
+	return e
+}
+
+// engineInstances gives the translated manager the shape the harness compares.
+type engineInstances struct{ *Instances[string] }
+
+func (e engineInstances) Acquire(key string) (string, enginetest.Lease, error) {
+	l, err := e.Instances.Acquire(key)
+	if err != nil {
+		return "", nil, err
+	}
+	return l.Value, l, nil
+}
+
+func TestMain(m *testing.M) {
+	enginetest.MaybeServeGuest()
+	os.Exit(m.Run())
 }
 
 // TestEngineChecks holds the translated engine against the pure-Go contract, with every check the

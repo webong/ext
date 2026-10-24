@@ -134,7 +134,8 @@ func targetsExpr(files []string) (constraint.Expr, error) {
 
 // syncTargets rewrites the //go:build lines of the hand-written files that depend on what was
 // generated: call.go and call_unsupported.go follow the platforms that have a generated file, and
-// host.go and host_unsupported.go the ones among them that have the host profile.
+// the host files (host.go, channel.go, session.go, instances.go) and host_unsupported.go the ones
+// among them that have the host profile.
 func syncTargets(dir string) error {
 	files, err := filepath.Glob(filepath.Join(dir, "generated_*.go"))
 	if err != nil {
@@ -147,20 +148,22 @@ func syncTargets(dir string) error {
 		}
 	}
 	for _, set := range []struct {
-		files   []string
-		yes, no string
+		files []string
+		yes   []string
+		no    string
 	}{
-		{files, "call.go", "call_unsupported.go"},
-		{hosts, "host.go", "host_unsupported.go"},
+		{files, []string{"call.go"}, "call_unsupported.go"},
+		{hosts, []string{"host.go", "channel.go", "session.go", "instances.go"}, "host_unsupported.go"},
 	} {
 		expr, err := targetsExpr(set.files)
 		if err != nil {
 			return err
 		}
-		for file, line := range map[string]string{
-			set.yes: "//go:build " + expr.String(),
-			set.no:  "//go:build " + (&constraint.NotExpr{X: expr}).String(),
-		} {
+		lines := map[string]string{set.no: "//go:build " + (&constraint.NotExpr{X: expr}).String()}
+		for _, f := range set.yes {
+			lines[f] = "//go:build " + expr.String()
+		}
+		for file, line := range lines {
 			path := filepath.Join(dir, file)
 			data, err := os.ReadFile(path)
 			if err != nil {

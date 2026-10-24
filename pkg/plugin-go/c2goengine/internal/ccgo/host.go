@@ -1,10 +1,9 @@
-//go:build darwin && arm64
+//go:build (darwin && amd64) || (darwin && arm64) || (linux && arm64)
 
 package ccgo
 
 import (
 	"errors"
-	"runtime"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -98,7 +97,6 @@ type Host struct {
 	mu    sync.Mutex
 	ptr   uintptr
 	state Handle // *hostState: the Go side the engine calls back into
-	tls   *libc.TLS
 }
 
 type hostState struct {
@@ -201,9 +199,12 @@ func emitter(tls *libc.TLS, emit, sink uintptr) Emit {
 			return stInvalid
 		}
 		call := *(*func(*libc.TLS, uintptr, uintptr, size_t) int32)(unsafe.Pointer(&struct{ uintptr }{emit}))
-		status := call(tls, sink, uintptr(unsafe.Pointer(&data[0])), size_t(len(data)))
-		runtime.KeepAlive(data)
-		return status
+		p, free := copyIn(tls, data)
+		defer free()
+		if p == 0 {
+			return stNoMem
+		}
+		return call(tls, sink, p, size_t(len(data)))
 	}
 }
 
@@ -277,19 +278,21 @@ func cStringArray(tls *libc.TLS, values []string) (uintptr, func(), error) {
 	return array, free, nil
 }
 
-func create(descriptor []byte, st *hostState, kind uint32, config func(tls *libc.TLS) (uintptr, uintptr, func(), int32)) (*Host, int32) {
+func create(descriptor []byte, st *hostState, kind uint32, config func(tls *libc.TLS, user uintptr) (uintptr, uintptr, func(), int32)) (*Host, int32) {
 	if len(descriptor) == 0 {
 		return nil, stInvalid
 	}
-	tls := libc.NewTLS()
-	h := &Host{tls: tls, state: NewHandle(st)}
-	cfg, cfgSize, free, status := config(tls)
+	tls := acquire()
+	defer release(tls)
+	h := &Host{state: NewHandle(st)}
+	cfg, cfgSize, free, status := config(tls, uintptr(h.state))
 	if status != stOK {
 		h.state.Delete()
-		tls.Close()
 		return nil, status
 	}
 	defer free()
+	descriptorAddr, freeDescriptor := copyIn(tls, descriptor)
+	defer freeDescriptor()
 	options := alloc(tls, unsafe.Sizeof(ext_host_options{}))
 	backend := alloc(tls, unsafe.Sizeof(ext_backend_options{}))
 	out := alloc(tls, unsafe.Sizeof(uintptr(0)))
@@ -298,13 +301,12 @@ func create(descriptor []byte, st *hostState, kind uint32, config func(tls *libc
 	defer libc.Xfree(tls, out)
 	if options == 0 || backend == 0 || out == 0 {
 		h.state.Delete()
-		tls.Close()
 		return nil, stNoMem
 	}
 	*(*ext_host_options)(unsafe.Pointer(options)) = ext_host_options{
 		Fabi_version:    2,
 		Fstruct_size:    uint32_t(unsafe.Sizeof(ext_host_options{})),
-		Fdescriptor:     uintptr(unsafe.Pointer(&descriptor[0])),
+		Fdescriptor:     descriptorAddr,
 		Fdescriptor_len: size_t(len(descriptor)),
 		Fverify:         pointer(&fVerify),
 		Fauthorize:      pointer(&fAuthorize),
@@ -317,10 +319,8 @@ func create(descriptor []byte, st *hostState, kind uint32, config func(tls *libc
 		Fconfig_size: size_t(cfgSize),
 	}
 	status = ext_host_create(tls, options, backend, out)
-	runtime.KeepAlive(descriptor)
 	if status != stOK {
 		h.state.Delete()
-		tls.Close()
 		return nil, status
 	}
 	h.ptr = *(*uintptr)(unsafe.Pointer(out))
@@ -332,7 +332,7 @@ func create(descriptor []byte, st *hostState, kind uint32, config func(tls *libc
 // requires; SetHooks replaces them with contextual ones.
 func NewBackendHost(descriptor []byte, flags uint32, b Backend, verify, authorize Policy) (*Host, int32) {
 	st := &hostState{verify: verify, authorize: authorize, backend: b}
-	return create(descriptor, st, backendExtensionContext, func(tls *libc.TLS) (uintptr, uintptr, func(), int32) {
+	return create(descriptor, st, backendExtensionContext, func(tls *libc.TLS, user uintptr) (uintptr, uintptr, func(), int32) {
 		ext := alloc(tls, unsafe.Sizeof(ext_backend_extension_context{}))
 		if ext == 0 {
 			return 0, 0, nil, stNoMem
@@ -341,6 +341,7 @@ func NewBackendHost(descriptor []byte, flags uint32, b Backend, verify, authoriz
 		*(*ext_backend_extension_context)(unsafe.Pointer(ext)) = ext_backend_extension_context{
 			Fstruct_size: uint32_t(unsafe.Sizeof(ext_backend_extension_context{})),
 			Fflags:       flags,
+			Fuser:        user,
 			Fconnect:     pointer(&fConnect),
 			Finvoke:      pointer(&fInvoke),
 			Fclose1:      pointer(&fCloseBackend),
@@ -357,7 +358,7 @@ func NewLaunchHost(l Launch, descriptor []byte, verify, authorize Policy) (*Host
 		return nil, stInvalid
 	}
 	st := &hostState{verify: verify, authorize: authorize}
-	return create(descriptor, st, backendProcessLaunch, func(tls *libc.TLS) (uintptr, uintptr, func(), int32) {
+	return create(descriptor, st, backendProcessLaunch, func(tls *libc.TLS, _ uintptr) (uintptr, uintptr, func(), int32) {
 		path, err := libc.CString(l.Executable)
 		if err != nil {
 			return 0, 0, nil, stNoMem
@@ -406,7 +407,8 @@ func NewLaunchHost(l Launch, descriptor []byte, verify, authorize Policy) (*Host
 func (h *Host) SetHooks(hooks Hooks) int32 {
 	st := stateOf(uintptr(h.state))
 	st.hooks = &hooks
-	tls := h.tls
+	tls := acquire()
+	defer release(tls)
 	p := alloc(tls, unsafe.Sizeof(ext_host_hooks{}))
 	if p == 0 {
 		return stNoMem
@@ -424,23 +426,21 @@ func (h *Host) SetHooks(hooks Hooks) int32 {
 
 // Options is the native call options and cancel signal of one operation.
 type Options struct {
-	tls     *libc.TLS
 	options uintptr
 	cancel  uintptr
 }
 
 // NewOptions makes the options of a call that may take timeoutMs and carries value to the callbacks.
 func NewOptions(timeoutMs uint32, value Handle) (*Options, int32) {
-	tls := libc.NewTLS()
-	c := &Options{tls: tls}
+	tls := acquire()
+	defer release(tls)
+	c := &Options{}
 	out := alloc(tls, unsafe.Sizeof(uintptr(0)))
 	if out == 0 {
-		tls.Close()
 		return nil, stNoMem
 	}
 	defer libc.Xfree(tls, out)
 	if s := ext_cancel_create(tls, out); s != stOK {
-		tls.Close()
 		return nil, s
 	}
 	c.cancel = *(*uintptr)(unsafe.Pointer(out))
@@ -455,23 +455,40 @@ func NewOptions(timeoutMs uint32, value Handle) (*Options, int32) {
 }
 
 // Signal tells the engine the call is canceled. Safe from any goroutine until Free.
-func (c *Options) Signal() { ext_cancel_signal(c.tls, c.cancel) }
+func (c *Options) Signal() {
+	tls := acquire()
+	defer release(tls)
+	ext_cancel_signal(tls, c.cancel)
+}
 
 // Free releases the call's native memory, after everything that uses it has joined.
 func (c *Options) Free() {
-	ext_cancel_destroy(c.tls, c.cancel)
-	libc.Xfree(c.tls, c.options)
-	c.tls.Close()
+	tls := acquire()
+	defer release(tls)
+	ext_cancel_destroy(tls, c.cancel)
+	libc.Xfree(tls, c.options)
 }
 
 // Start handshakes with the backend.
-func (h *Host) Start(c *Options) int32 { return ext_host_start_with_options(h.tls, h.ptr, c.options) }
+func (h *Host) Start(c *Options) int32 {
+	tls := acquire()
+	defer release(tls)
+	return ext_host_start_with_options(tls, h.ptr, c.options)
+}
 
 // Drain stops admission and waits for admitted calls, bounded by the call's options.
-func (h *Host) Drain(c *Options) int32 { return ext_host_drain_with_options(h.tls, h.ptr, c.options) }
+func (h *Host) Drain(c *Options) int32 {
+	tls := acquire()
+	defer release(tls)
+	return ext_host_drain_with_options(tls, h.ptr, c.options)
+}
 
 // DrainFor is Drain bounded by a duration in milliseconds, without a context.
-func (h *Host) DrainFor(ms uint32) int32 { return ext_host_drain(h.tls, h.ptr, ms) }
+func (h *Host) DrainFor(ms uint32) int32 {
+	tls := acquire()
+	defer release(tls)
+	return ext_host_drain(tls, h.ptr, ms)
+}
 
 func (h *Host) takeBuffer(tls *libc.TLS, out uintptr) []byte {
 	buffer := (*ext_buffer)(unsafe.Pointer(out))
@@ -485,11 +502,14 @@ func (h *Host) Invoke(request []byte, c *Options) ([]byte, int32) {
 	if len(request) == 0 {
 		return nil, stInvalid
 	}
-	out := alloc(c.tls, unsafe.Sizeof(ext_buffer{}))
-	defer libc.Xfree(c.tls, out)
-	status := ext_host_invoke_with_options(c.tls, h.ptr, uintptr(unsafe.Pointer(&request[0])), size_t(len(request)), c.options, out)
-	runtime.KeepAlive(request)
-	return h.takeBuffer(c.tls, out), status
+	tls := acquire()
+	defer release(tls)
+	out := alloc(tls, unsafe.Sizeof(ext_buffer{}))
+	defer libc.Xfree(tls, out)
+	in, freeIn := copyIn(tls, request)
+	defer freeIn()
+	status := ext_host_invoke_with_options(tls, h.ptr, in, size_t(len(request)), c.options, out)
+	return h.takeBuffer(tls, out), status
 }
 
 // Call sends {contract, operation, payload}; the engine supplies identity, surface, deadline and id,
@@ -498,18 +518,25 @@ func (h *Host) Call(request []byte, c *Options) ([]byte, int32) {
 	if len(request) == 0 {
 		return nil, stInvalid
 	}
-	out := alloc(c.tls, unsafe.Sizeof(ext_buffer{}))
-	progress := alloc(c.tls, unsafe.Sizeof(ext_progress_options{}))
-	defer libc.Xfree(c.tls, out)
-	defer libc.Xfree(c.tls, progress)
+	tls := acquire()
+	defer release(tls)
+	out := alloc(tls, unsafe.Sizeof(ext_buffer{}))
+	progress := alloc(tls, unsafe.Sizeof(ext_progress_options{}))
+	defer libc.Xfree(tls, out)
+	defer libc.Xfree(tls, progress)
 	*(*ext_progress_options)(unsafe.Pointer(progress)) = ext_progress_options{Fstruct_size: uint32_t(unsafe.Sizeof(ext_progress_options{}))}
-	status := ext_host_call_progress(c.tls, h.ptr, uintptr(unsafe.Pointer(&request[0])), size_t(len(request)), c.options, progress, out)
-	runtime.KeepAlive(request)
-	return h.takeBuffer(c.tls, out), status
+	in, freeIn := copyIn(tls, request)
+	defer freeIn()
+	status := ext_host_call_progress(tls, h.ptr, in, size_t(len(request)), c.options, progress, out)
+	return h.takeBuffer(tls, out), status
 }
 
 // State is the engine's lifecycle state, one of the ext_host_state values.
-func (h *Host) State() int32 { return ext_host_get_state(h.tls, h.ptr) }
+func (h *Host) State() int32 {
+	tls := acquire()
+	defer release(tls)
+	return ext_host_get_state(tls, h.ptr)
+}
 
 // Host states (ext_host.h).
 const (
@@ -521,7 +548,11 @@ const (
 )
 
 // Close cancels the host: it interrupts pending work and closes the backend.
-func (h *Host) Close() { ext_host_close(h.tls, h.ptr) }
+func (h *Host) Close() {
+	tls := acquire()
+	defer release(tls)
+	ext_host_close(tls, h.ptr)
+}
 
 // Destroy waits for active calls and releases the host; the Host is unusable after.
 func (h *Host) Destroy() {
@@ -530,15 +561,17 @@ func (h *Host) Destroy() {
 	if h.ptr == 0 {
 		return
 	}
-	ext_host_destroy(h.tls, h.ptr)
+	tls := acquire()
+	defer release(tls)
+	ext_host_destroy(tls, h.ptr)
 	h.ptr = 0
 	h.state.Delete()
-	h.tls.Close()
 }
 
 // Stderr returns the retained stderr of a launched child.
 func (h *Host) Stderr() string {
-	tls := h.tls
+	tls := acquire()
+	defer release(tls)
 	n := alloc(tls, unsafe.Sizeof(size_t(0)))
 	defer libc.Xfree(tls, n)
 	if ext_host_process_stderr(tls, h.ptr, 0, 0, n) != stOK {

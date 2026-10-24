@@ -3,6 +3,7 @@ go 1.26.0
 use (
 	./src/ctn
 	./src/ctx
+	./cmd/ext
 	./adapters/chromium
 	./adapters/secret_service
 	./adapters/credman

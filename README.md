@@ -299,7 +299,7 @@ CTX and its ecosystem share public Go libraries:
 - `github.com/webong/ext/pkg/plugin-go` supplies the shared host/guest contract,
   validation, selection, admission, and session lifecycle. Its implementations
   include `pkg/plugin-go/contract/transport/inprocess`, `pkg/plugin-go/contract/transport/jsonline`, `pkg/plugin-go/hashicorp` (net/rpc and
-  gRPC), `pkg/plugin-go/contract/host/nativego`, `pkg/plugin-go/wasm` (WASI Preview 1), and `pkg/plugin-go/cengine/cshared`
+  gRPC), `pkg/plugin-go/contract/host/nativego`, `pkg/plugin-go/wasm` (WASI Preview 1), and `pkg/plugin-go/cgoengine/cshared`
   (versioned C ABI). All use the same typed authoring and host session APIs.
 - `github.com/webong/ext/res/system/supervisor` supplies local process supervision when
   the selected plugin backend does not already own its process lifecycle.

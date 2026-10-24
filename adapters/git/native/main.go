@@ -3,7 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
-	goengine "github.com/webong/ext/pkg/plugin-go/cengine"
+	"github.com/webong/ext/pkg/plugin-go/cgoengine"
 	"io"
 	"os"
 	"os/exec"
@@ -14,7 +14,7 @@ func main() {
 }
 
 func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
-	request, err := goengine.ParseAdapterInvocation(args)
+	request, err := cgoengine.ParseAdapterInvocation(args)
 	if err != nil {
 		fmt.Fprintf(stderr, "git: %v\n", err)
 		return 2

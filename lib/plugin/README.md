@@ -115,7 +115,7 @@ Go integration is opt-in and excluded from ordinary Go builds:
 
 ```sh
 CGO_LDFLAGS='-L/tmp/ext-cengine' \
-  go build -tags ext_cengine ./pkg/plugin-go/cengine/examples/host
+  go build -tags ext_cengine ./pkg/plugin-go/cgoengine/examples/host
 ```
 
 For shared linkage, add the `ext_cengine_shared` build tag and the appropriate
@@ -173,10 +173,10 @@ it does for a process it reads, and the backend keeps its transport and threads.
 Without the flag the engine refuses a descriptor that declares progress or reverse
 operations, since the backend could not carry them.
 
-Go consumers use `goengine.NewWithBackend` with a reviewed `Connect` factory:
+Go consumers use `cgoengine.NewWithBackend` with a reviewed `Connect` factory:
 
 ```go
-host, err := goengine.NewWithBackend(descriptor, goengine.BackendOptions{
+host, err := cgoengine.NewWithBackend(descriptor, cgoengine.BackendOptions{
     Concurrent: true,
     Connect: func(ctx context.Context, selected plugin.Descriptor) (plugin.Backend, error) {
         return hashicorp.ConnectProcess(ctx, reviewedProcess)
@@ -194,7 +194,7 @@ the calling Go application; only status codes cross the C ABI.
 
 `Host.State()` exposes C-owned lifecycle state. `Host.Drain(duration)` and
 `Host.DrainContext(ctx)` wait for admitted calls; timeout or cancellation reopens
-admission. `Host.Close()` aborts. `goengine.Open` provides a Session facade;
+admission. `Host.Close()` aborts. `cgoengine.Open` provides a Session facade;
 `NewRegistry`, `GuestFromRegistry` and typed host calls use C schema evaluation.
 Complete Go session API parity remains on the checklist.
 

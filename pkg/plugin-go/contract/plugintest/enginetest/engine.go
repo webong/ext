@@ -1,7 +1,7 @@
 // Package enginetest holds the differential checks that hold an engine of the shared C
 // implementation against the pure-Go contract, which is the oracle: the same documents,
 // requests, schemas and endpoints are judged by both, and the answers must agree. An engine is
-// whatever runs the C engine's services (the cgo binding in pkg/plugin-go/cengine, and any other
+// whatever runs the C engine's services (the cgo binding in pkg/plugin-go/cgoengine, and any other
 // build of the same C), so each engine's tests call these checks with their own Engine and
 // nothing else changes.
 package enginetest

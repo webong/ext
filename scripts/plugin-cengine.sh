@@ -33,8 +33,8 @@ cmake --build "$build_dir/release" -j 4
 export CGO_LDFLAGS="${CGO_LDFLAGS:-} -L$build_dir/release -Wl,-rpath,$build_dir/release"
 export EXT_CENGINE_GUEST="$build_dir/go-guest" EXT_CENGINE_FAULT_GUEST="$build_dir/fault-guest"
 go build -o "$EXT_CENGINE_GUEST" ./pkg/plugin-go/crosslang/testdata/go-guest
-go build -o "$EXT_CENGINE_FAULT_GUEST" ./pkg/plugin-go/cengine/testdata/faultguest
-go test -tags "$go_tags" -race -count=1 -timeout=90s ./pkg/plugin-go/cengine
+go build -o "$EXT_CENGINE_FAULT_GUEST" ./pkg/plugin-go/cgoengine/testdata/faultguest
+go test -tags "$go_tags" -race -count=1 -timeout=90s ./pkg/plugin-go/cgoengine
 python3 - "$build_dir" <<'PY'
 import json, pathlib, sys, datetime
 p=pathlib.Path(sys.argv[1]);d=json.loads(pathlib.Path('lib/plugin/testdata/v1/descriptor.json').read_text())
@@ -75,7 +75,7 @@ cmake --build "$build_dir/thread-sanitize" -j 4
 "$build_dir/thread-sanitize/ext_host_native_test" "$EXT_CENGINE_GUEST" "$build_dir/descriptor.json" "$build_dir/echo.json" "$build_dir/wait.json"
 for foreign in "${EXT_CENGINE_RUST_GUEST:-}" "${EXT_CENGINE_ZIG_GUEST:-}"; do
   if [[ -n "$foreign" ]]; then
-    EXT_CENGINE_GUEST="$foreign" go test -tags "$go_tags" -race -count=1 -run '^TestConformance$' ./pkg/plugin-go/cengine
+    EXT_CENGINE_GUEST="$foreign" go test -tags "$go_tags" -race -count=1 -run '^TestConformance$' ./pkg/plugin-go/cgoengine
   fi
 done
 cargo fmt --manifest-path pkg/plugin-rust/engine/Cargo.toml -- --check
@@ -91,7 +91,7 @@ if [[ "$(uname -s)" == Darwin ]]; then node_link=(-undefined dynamic_lookup); fi
 "${CC:-cc}" -std=c11 -Wall -Wextra -Werror -O2 -shared -fPIC "${node_link[@]}" -I "$node_include" -I lib/plugin/include pkg/plugin-ts/examples/cengine/addon.c -L "$build_dir/release" "${engine_link[@]}" "${engine_cflags[@]}" -Wl,-rpath,"$build_dir/release" -o "$build_dir/ext_host.node"
 "${CC:-cc}" -std=c11 -Wall -Wextra -Werror -O2 -shared -fPIC "${node_link[@]}" -I "$node_include" -I lib/plugin/include pkg/plugin-ts/engine/addon.c -L "$build_dir/release" "${engine_link[@]}" "${engine_cflags[@]}" -Wl,-rpath,"$build_dir/release" -o "$build_dir/ext_engine.node"
 EXT_ENGINE_ADDON="$build_dir/ext_engine.node" node --test pkg/plugin-ts/engine/test.mjs
-go build -tags "$go_tags" -o "$build_dir/go-host" ./pkg/plugin-go/cengine/examples/host
+go build -tags "$go_tags" -o "$build_dir/go-host" ./pkg/plugin-go/cgoengine/examples/host
 "$build_dir/go-host" "$EXT_CENGINE_GUEST" "$build_dir/descriptor.json" "$build_dir/echo.json" "$build_dir/public-error.json" > "$build_dir/go.jsonl"
 "$CARGO_TARGET_DIR/debug/ext-cengine-example" "$EXT_CENGINE_GUEST" "$build_dir/descriptor.json" "$build_dir/echo.json" "$build_dir/public-error.json" > "$build_dir/rust.jsonl"
 "$build_dir/zig-host" "$EXT_CENGINE_GUEST" "$build_dir/descriptor.json" "$build_dir/echo.json" "$build_dir/public-error.json" > "$build_dir/zig.jsonl"

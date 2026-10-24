@@ -8,7 +8,7 @@ wire protocols do not become compatible merely by importing this package.
 
 CTX supplies `github.com/webong/ext/pkg/plugin-go`, alongside `graph` and `supervisor`.
 Its implementations include `pkg/plugin-go/contract/transport/inprocess`, `pkg/plugin-go/contract/transport/jsonline`,
-`pkg/plugin-go/hashicorp`, `pkg/plugin-go/contract/host/nativego`, `pkg/plugin-go/wasm`, and `pkg/plugin-go/cengine/cshared`, with
+`pkg/plugin-go/hashicorp`, `pkg/plugin-go/contract/host/nativego`, `pkg/plugin-go/wasm`, and `pkg/plugin-go/cgoengine/cshared`, with
 additional backends able to implement the same public interface. HashiCorp
 go-plugin is a dependency of the plugin library, not a CTX product adapter.
 CTX adapters and ecosystem applications are consumers of these libraries.
@@ -19,7 +19,7 @@ browser fallback, or built-in permission vocabulary.
 
 Consumers define domain contracts, payloads, authorization, configuration,
 discovery, package distribution, trust decisions, and endpoint authentication.
-The library supplies the generic mechanics around them: `pkg/plugin-go/cengine/host/store`
+The library supplies the generic mechanics around them: `pkg/plugin-go/cgoengine/host/store`
 installs, upgrades, lists, removes and re-verifies packages, and
 `pkg/plugin-go/contract/host/process` launches process plugins (see below).
 Product and native mechanisms in CTX belong under `adapters/<name>/`.

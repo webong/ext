@@ -13,7 +13,7 @@ import (
 // to them that do not fold. The engine pins the Unicode simple lowercase mapping of one version
 // (lib/plugin/src/unicode_lower.h), where Go follows its toolchain: this test is what makes a
 // toolchain that moves ahead of the table visible, and is skipped, with the reason, until the table
-// is regenerated for it (pkg/plugin-go/cengine/tools/README.md).
+// is regenerated for it (pkg/plugin-go/cgoengine/tools/README.md).
 func CaseFoldingMatchesGoForEveryRune(t *testing.T, e Engine) {
 	const pinned = "17.0.0"
 	if unicode.Version != pinned {

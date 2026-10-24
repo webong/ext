@@ -16,14 +16,14 @@ consumers.
 | Module | Depends on | Third-party dependencies |
 | --- | --- | --- |
 | [`plugin-go/contract`](plugin-go/contract/README.md) | nothing | none (standard library only) |
-| [`plugin-go/cengine`](plugin-go/cengine/README.md) | `plugin-go/contract` | none |
+| [`plugin-go/cgoengine`](plugin-go/cgoengine/README.md) | `plugin-go/contract` | none |
 | [`plugin-go/wasm`](plugin-go/wasm/README.md) | `plugin-go/contract` | `wazero` |
 | [`plugin-go/hashicorp`](plugin-go/hashicorp/README.md) | `plugin-go/contract` | `go-plugin`, `grpc`, `protobuf` |
 | [`plugin-go`](plugin-go/README.md) (umbrella) | all of the above, `res/system` | none |
 
 A consumer that only needs `plugin-go/contract` never downloads the C engine, the
 HashiCorp stack or the WASI runtime, and each backend is opt-in. A backend never
-depends on `cengine`.
+depends on `cgoengine`.
 
 | Library | Contents |
 | --- | --- |
@@ -42,9 +42,9 @@ headers live in [`lib/plugin`](../lib/plugin/README.md); these packages bind to 
 | [`plugin-zig`](plugin-zig/README.md) | Zig SDK and header-generated C engine binding |
 | [`plugin-ts`](plugin-ts/README.md) | JavaScript SDK, TypeScript declarations and async Node C engine binding |
 
-The Go host binding import is `github.com/webong/ext/pkg/plugin-go/cengine`; its package
-name is `goengine`. Go guest C exports use
-`github.com/webong/ext/pkg/plugin-go/cengine/cshared/guest`.
+The Go host binding import is `github.com/webong/ext/pkg/plugin-go/cgoengine`; its package
+name is `cgoengine`. Go guest C exports use
+`github.com/webong/ext/pkg/plugin-go/cgoengine/cshared/guest`.
 
 C embedding examples live in each language's `examples/` directory. Native
 runtime integrations such as HashiCorp are separate modules

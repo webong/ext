@@ -28,7 +28,7 @@ jobs:
       - name: Test library modules
         shell: bash # the loop is bash; Windows runners default to PowerShell
         run: |
-          for module in src/ctx src/ctn res/system pkg/plugin-go pkg/plugin-go/contract pkg/plugin-go/cengine pkg/plugin-go/hashicorp pkg/plugin-go/wasm adapters/wasm adapters/evm res/web res/credential; do
+          for module in src/ctx src/ctn res/system pkg/plugin-go pkg/plugin-go/contract pkg/plugin-go/cgoengine pkg/plugin-go/hashicorp pkg/plugin-go/wasm adapters/wasm adapters/evm res/web res/credential; do
             (cd "$module" && go test ./...) || exit 1
           done
       - name: Validate isolated native graph processes

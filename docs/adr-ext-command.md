@@ -12,14 +12,14 @@ one command, `ext`, that runs either of them or any other command.
 
 ## Decisions
 
-**ctx and ctn become libraries, and stay in `src/`.** `src/ctx` and `src/ctn` do not
-move; `src/` stays the container for the products. Each stays its own Go module, with
-its private code in `internal/` and a small exported API, and both keep a `cmd/`
-directory in the same module with the standalone `main`. What changes is the module
-path: it now omits `src/`, which is why neither can be fetched with `go get`. The
-path is aligned with the directory (`github.com/webong/ext/src/ctx` and
-`.../src/ctn`), so the modules resolve and are tagged `src/ctx/vX.Y.Z` and
-`src/ctn/vX.Y.Z`. Hard cut: the old module paths are removed, with no forwarding stub.
+**ctx and ctn become libraries, and stay exactly where they are.** `src/ctx` and
+`src/ctn` do not move and their module paths do not change (`github.com/webong/ext/ctx`
+and `.../ctn`). Each stays its own Go module, with its private code in `internal/` and
+a small exported API, and both keep a `cmd/` directory in the same module with the
+standalone `main`. Because the paths still omit `src/`, the modules are not
+`go get`-resolvable; they are built from source with the workspace and `replace`
+directives, as they are today, and are released as binaries. Nothing about their layout
+or names is part of this change.
 
 **One entry contract.** Each library exports the entry point it already has
 internally, `app.Run(args []string, stdout, stderr io.Writer) int`, as
@@ -28,8 +28,9 @@ internally, `app.Run(args []string, stdout, stderr io.Writer) int`, as
 must behave the same however it was started, so `ext ctx <args>` and `ctx <args>` are
 the same code with the same exit code.
 
-**`ext` is a third front door.** `cmd/ext` is its own module at `github.com/webong/ext/cmd/ext`
-(`go install github.com/webong/ext/cmd/ext@latest`). The repository root stays
+**`ext` is a third front door.** `cmd/ext` is its own module at `github.com/webong/ext/cmd/ext`,
+built from source like the products it composes (it requires them through `replace`
+directives, so it is not installed with `go install`). The repository root stays
 workspace-only: it holds `go.work` and no module. `ext <command> <args>` looks the
 command up in a registry and runs it. `ext ctx ...` and `ext ctn ...` are the first
 two entries. `ext` is a plugin host, so it runs any other command a package
@@ -70,15 +71,11 @@ its first first-party users.
 
 ## Releases and tags
 
-There are two tag families, because a library and a binary are different things:
-
-- **Module tags** for the libraries and the command module: `src/ctx/vX.Y.Z`,
-  `src/ctn/vX.Y.Z`, `cmd/ext/vX.Y.Z`, versioned and released with the rest of the
-  modules by the method in [module versioning](module-versioning.md).
-- **Binary tags** stay `ctx-vX.Y.Z` and `ctn-vX.Y.Z`, and add `ext-vX.Y.Z`. They are
-  not Go module versions, and `install.sh` and `install.ps1` keep resolving the
-  newest `ctx-v` release by tag. Each binary release states the library version it was
-  built from.
+Binary tags only: `ctx-vX.Y.Z` and `ctn-vX.Y.Z` stay, and `ext-vX.Y.Z` is added. They
+are not Go module versions, and `install.sh` and `install.ps1` keep resolving the newest
+`ctx-v` release by tag. `ctx`, `ctn` and `ext` take no module tags, because their
+module paths do not match their directories and nothing outside the workspace imports
+them. Each `ext` release states the `ctx` and `ctn` source revisions it was built from.
 
 `ext ctx` runs the ctx version `ext` was built with, which can differ from a
 standalone `ctx` on the same machine. `ext version` prints the embedded versions so
@@ -94,15 +91,12 @@ trust state. Nothing about an existing `ctx` installation changes.
 
 ## Order of work
 
-1. Align the module paths of `src/ctx` and `src/ctn` with their directories: the
-   `go.mod` files, imports, `go.work`, the arch tests, `AGENTS.md`, docs, the release
-   workflows and scripts. No directory moves, and behavior is unchanged.
-2. Export `Run` from both libraries and make the standalone `main` a one-liner.
-3. Add `cmd/ext` with the registry and the two builtins, and `ext commands`,
+1. Export `Run` from both libraries and make the standalone `main` a one-liner.
+2. Add `cmd/ext` with the registry and the two builtins, and `ext commands`,
    `ext which`, `ext version`.
-4. Add package-sourced commands: the manifest field that declares them, the host
+3. Add package-sourced commands: the manifest field that declares them, the host
    path, trust, shadowing and the pin.
-5. Installers and the first `ext` binary release.
+4. Installers and the first `ext` binary release.
 
 Each step is its own pull request and lands green before the next starts.
 
@@ -121,5 +115,5 @@ These were open in the first draft and are settled the following way:
   shipping standalone; `ext` is documented as the way to run them together with other
   commands. This can be revisited once `ext` has shipped.
 - **Release order.** The pending `contract` release (v0.8.0: the `instance.Manager`
-  disposal ordering and `plugintest/enginetest`) goes before step 1, so the module
-  move does not change paths in the middle of a release round.
+  disposal ordering and `plugintest/enginetest`) is independent of this work, because
+  nothing here moves or renames a module. It can ship before, during or after any step.

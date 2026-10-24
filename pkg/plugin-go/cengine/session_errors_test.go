@@ -72,6 +72,14 @@ func errorScenarios() []errorScenario {
 		{name: "unknown-operation", backend: plain, run: func(t *testing.T, s session, r plugin.ContractRef) []string {
 			return []string{one(context.Background(), s, r, "nope")}
 		}},
+		// The session-wide bound applies to a call that brings no deadline of its own.
+		{name: "session-timeout", backend: failing(func(ctx context.Context, r plugin.Request) (plugin.Response, error) {
+			<-ctx.Done()
+			return plugin.Response{}, ctx.Err()
+		}), options: func(o *plugin.Options) { o.Timeout = 50 * time.Millisecond },
+			run: func(t *testing.T, s session, r plugin.ContractRef) []string {
+				return []string{one(context.Background(), s, r, "inspect"), one(context.Background(), s, r, "inspect")}
+			}},
 		{name: "unknown-contract", backend: plain, run: func(t *testing.T, s session, r plugin.ContractRef) []string {
 			return []string{one(context.Background(), s, plugin.ContractRef{Name: "other.work", Version: "v1"}, "inspect")}
 		}},
@@ -155,15 +163,18 @@ func TestSessionErrorCausesMatchGo(t *testing.T) {
 	}
 }
 
-// TestOpenErrorCausesMatchGo compares failures while admitting a plugin.
-func TestOpenErrorCausesMatchGo(t *testing.T) {
+type openCase struct {
+	name    string
+	backend func() *testBackend
+	options func(*plugin.Options)
+}
+
+// openErrorCases are the ways admitting a plugin can fail, shared by the tests that compare the
+// C-backed session with the Go session.
+func openErrorCases() []openCase {
 	mismatched := testDescriptor()
 	mismatched.Identity.Revision = "r2"
-	cases := []struct {
-		name    string
-		backend func() *testBackend
-		options func(*plugin.Options)
-	}{
+	return []openCase{
 		{"verify-denies", func() *testBackend { return &testBackend{d: testDescriptor()} },
 			func(o *plugin.Options) {
 				o.Verify = func(context.Context, plugin.Descriptor) error { return errors.New("no") }
@@ -181,6 +192,11 @@ func TestOpenErrorCausesMatchGo(t *testing.T) {
 			func(o *plugin.Options) { o.Connect = nil }},
 		{"canceled-context", func() *testBackend { return &testBackend{d: testDescriptor()} }, nil},
 	}
+}
+
+// TestOpenErrorCausesMatchGo compares failures while admitting a plugin.
+func TestOpenErrorCausesMatchGo(t *testing.T) {
+	cases := openErrorCases()
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			run := func(open func(context.Context, plugin.Descriptor, plugin.Options) (session, error)) string {

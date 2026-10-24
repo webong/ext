@@ -19,10 +19,12 @@ import "C"
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	plugin "github.com/webong/ext/pkg/plugin-go/contract"
 	"github.com/webong/ext/pkg/plugin-go/contract/endpoint"
 	"math"
+	"regexp"
 	"runtime/cgo"
 	"strings"
 	"sync"
@@ -35,6 +37,10 @@ type policies struct {
 	verify, authorize               Policy
 	verifyContext, authorizeContext func(context.Context, []byte) error
 	observer                        plugin.Observer
+	// verifyErr is what the verify policy returned. The engine knows only that it denied, and the
+	// Go session names the stage's event after the policy's own error, so the observer needs it.
+	verifyMu  sync.Mutex
+	verifyErr error
 }
 
 // Host owns one C session. Close cancels; Destroy waits for active calls and
@@ -46,6 +52,7 @@ type Host struct {
 	reverse        cgo.Handle // the host's reverse services, zero when none
 	reverseSession cgo.Handle // the context of session-scoped reverse calls
 	descriptor     plugin.Descriptor
+	observer       plugin.Observer // the session's, kept apart from policy, which Destroy deletes
 	callTimeout    time.Duration
 	backend        *backendBinding
 }
@@ -307,6 +314,12 @@ func (h *Host) Call(ctx context.Context, contract plugin.ContractRef, operation 
 // engine validates and rate-limits the events and delivers them on the calling
 // thread, so onProgress runs before this returns and never after.
 func (h *Host) callProgress(ctx context.Context, contract plugin.ContractRef, operation string, payload json.RawMessage, onProgress func(plugin.Progress), limits plugin.ProgressLimits) (json.RawMessage, error) {
+	start := time.Now()
+	// A context that is already done is refused before anything else, as the Go session does.
+	if err := ctx.Err(); err != nil {
+		h.observeRejected(ctx, contract, operation, start, err)
+		return nil, err
+	}
 	data, err := json.Marshal(struct {
 		Contract  plugin.ContractRef `json:"contract"`
 		Operation string             `json:"operation"`
@@ -317,6 +330,7 @@ func (h *Host) callProgress(ctx context.Context, contract plugin.ContractRef, op
 	}
 	scope, err := h.scope(ctx)
 	if err != nil {
+		h.observeRejected(ctx, contract, operation, start, err)
 		return nil, err
 	}
 	defer scope.finish()
@@ -344,6 +358,55 @@ func (h *Host) callProgress(ctx context.Context, contract plugin.ContractRef, op
 		return nil, response.Error
 	}
 	return response.Payload, nil
+}
+
+var operationName = regexp.MustCompile(`^[a-z0-9][a-z0-9._/-]{0,255}$`)
+
+// eventCode names how a call ended in an observer event, as the Go session names it
+// (contract/observe.go); TestSessionObserverEventsMatchGo keeps the two in step.
+func eventCode(err error) string {
+	if err == nil {
+		return "ok"
+	}
+	var remote *plugin.RemoteError
+	if errors.As(err, &remote) && remote != nil && operationName.MatchString(remote.Code) {
+		return remote.Code
+	}
+	switch {
+	case errors.Is(err, context.DeadlineExceeded):
+		return "deadline_exceeded"
+	case errors.Is(err, context.Canceled):
+		return "canceled"
+	case errors.Is(err, plugin.ErrDenied):
+		return "denied"
+	case errors.Is(err, plugin.ErrMismatch):
+		return "mismatch"
+	case errors.Is(err, plugin.ErrInvalid):
+		return "invalid"
+	case errors.Is(err, plugin.ErrUnsupported):
+		return "unsupported"
+	case errors.Is(err, plugin.ErrClosed):
+		return "closed"
+	}
+	return "failed"
+}
+
+// observeRejected reports a call the binding refuses before the engine sees it (a context
+// that is done, a host already destroyed), with the event the Go session gives such a call: no
+// request id, and a blank contract or operation when the name is not a valid one.
+func (h *Host) observeRejected(ctx context.Context, contract plugin.ContractRef, operation string, start time.Time, err error) {
+	if h.observer == nil {
+		return
+	}
+	event := plugin.Event{Stage: "invoke", Identity: h.descriptor.Identity, Contract: contract, Operation: operation}
+	if !operationName.MatchString(event.Operation) {
+		event.Operation = ""
+	}
+	if event.Contract.Validate() != nil {
+		event.Contract = plugin.ContractRef{}
+	}
+	event.Duration, event.Code = time.Since(start), eventCode(err)
+	h.observer(ctx, event)
 }
 
 //export ctxGoProgress

@@ -36,7 +36,8 @@ so there is one file per target:
 | darwin/arm64 | `internal/ccgo/generated_darwin_arm64.go` | checked in, tested |
 | linux/arm64 | `internal/ccgo/generated_linux_arm64.go` | checked in, tested |
 | darwin/amd64 | `internal/ccgo/generated_darwin_amd64.go` | checked in, tested under Rosetta |
-| linux/amd64, windows/amd64, windows/arm64 | | not yet generated: the workflow builds and tests each and uploads the file |
+| linux/amd64 | `internal/ccgo/generated_linux_amd64.go` | checked in, from the workflow (built and tested there under `-race`) |
+| windows/amd64, windows/arm64 | | not translated yet, see below |
 
 On any other platform `Available` is false and `EngineCall` returns `plugin.ErrUnsupported`.
 `internal/ccgo/targets_test.go` keeps the file list and the build constraints in step.
@@ -63,6 +64,18 @@ checked-in translation is stale; run it, on every supported platform, after chan
 
 `libc` is pinned in three places that must agree: `libcVersion` in `tools/main.go`, `tools/go.mod`
 and this module's `go.mod`. The generator refuses to run when they differ.
+
+## Windows
+
+Neither Windows platform translates yet; the workflow probes both and reports what stops them:
+
+- windows/amd64 (MinGW-w64 gcc): ccgo cannot type-check `__int128` in `_mingw.h`, a system header.
+- windows/arm64 (MSYS2 clang): translation proceeds as far as linking, which finds no definition of
+  `__fpclassify` and `clock_gettime64` in ccgo's Windows libc.
+
+The first is in the toolchain's headers and the second in libc's coverage of the platform, so neither
+is ours to fix in the C; each needs a stand-in in the generator or a change upstream. Until then
+`Available` is false on Windows and `EngineCall` reports `plugin.ErrUnsupported`.
 
 ## What the translation needed
 

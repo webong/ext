@@ -1,4 +1,4 @@
-//go:build !((darwin && amd64) || (darwin && arm64) || (linux && arm64))
+//go:build !((darwin && amd64) || (darwin && arm64) || (linux && amd64) || (linux && arm64))
 
 package ccgo
 

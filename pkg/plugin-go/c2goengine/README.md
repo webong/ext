@@ -35,7 +35,8 @@ so there is one file per target:
 | --- | --- | --- |
 | darwin/arm64 | `internal/ccgo/generated_darwin_arm64.go` | checked in, tested |
 | linux/arm64 | `internal/ccgo/generated_linux_arm64.go` | checked in, tested |
-| linux/amd64, darwin/amd64, windows/amd64, windows/arm64 | | not yet generated: the workflow builds and tests each and uploads the file |
+| darwin/amd64 | `internal/ccgo/generated_darwin_amd64.go` | checked in, tested under Rosetta |
+| linux/amd64, windows/amd64, windows/arm64 | | not yet generated: the workflow builds and tests each and uploads the file |
 
 On any other platform `Available` is false and `EngineCall` returns `plugin.ErrUnsupported`.
 `internal/ccgo/targets_test.go` keeps the file list and the build constraints in step.

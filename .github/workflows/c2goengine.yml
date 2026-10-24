@@ -6,7 +6,7 @@ name: c2goengine
 # generates, tests the result and uploads it, so it can be committed. A probe never blocks.
 on:
   push:
-    branches: [main]
+    branches: [main, 'engine/**']
     paths:
       - 'lib/plugin/**'
       - 'pkg/plugin-go/c2goengine/**'

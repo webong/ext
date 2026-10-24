@@ -63,6 +63,9 @@ const libcVersion = "v1.79.0"
 var hostSources = []string{"src/host.c", "src/fs_posix.c", "src/random_posix.c", "src/integrity.c", "src/instances.c", "src/streams.c"}
 var hostShims = []string{"shim/channel_go.c", "shim/missing.c"}
 
+// windowsShims are translated on Windows only; see shim/windows.c.
+var windowsShims = []string{"shim/windows.c"}
+
 // hasHost reports whether the platform gets the host profile.
 func hasHost(goos string) bool { return goos != "windows" }
 
@@ -231,6 +234,9 @@ func generate(root, out string) (digest string, err error) {
 		sources = append(sources, hostSources...)
 		sources = append(sources, hostShims...)
 	}
+	if runtime.GOOS == "windows" {
+		sources = append(sources, windowsShims...)
+	}
 
 	work, err := os.MkdirTemp("", "c2goengine-*")
 	if err != nil {
@@ -264,7 +270,7 @@ func generate(root, out string) (digest string, err error) {
 	// does not depend on the platform, so a stale translation is one made from another digest, whatever
 	// bytes the platform's headers happen to add to it.
 	// Hashed as the same list on every platform, whichever of it a platform translates.
-	everything := append(append(append([]string{}, strings.Fields(string(match[1]))...), hostSources...), hostShims...)
+	everything := append(append(append(append([]string{}, strings.Fields(string(match[1]))...), hostSources...), hostShims...), windowsShims...)
 	digest, err = inputsDigest(filepath.Join(work, "csrc"), everything)
 	if err != nil {
 		return "", err
@@ -292,6 +298,7 @@ func generate(root, out string) (digest string, err error) {
 	args := []string{"ccgo", "-o", "engine.go", "--package-name", "ccgo",
 		"-I", "csrc/shim", "-I", "csrc/src", "-I", "csrc/vendor", "-I", "csrc/include"}
 	args = append(args, flags...)
+	args = append(args, "-include", "csrc/shim/compat_core.h")
 	if host {
 		args = append(args, "-include", "csrc/shim/compat.h")
 	}

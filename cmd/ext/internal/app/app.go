@@ -47,6 +47,9 @@ func Run(reg *registry.Registry, args []string, stdout, stderr io.Writer) int {
 			fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", e.Name, e.Source, e.Version, runs)
 		}
 		w.Flush()
+		for _, n := range reg.Notes() {
+			fmt.Fprintf(stderr, "ext: %s\n", n)
+		}
 		return 0
 	case "which":
 		if len(args) != 2 {

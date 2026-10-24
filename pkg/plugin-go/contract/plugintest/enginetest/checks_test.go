@@ -1,8 +1,10 @@
 package enginetest
 
 import (
+	"context"
 	"testing"
 
+	plugin "github.com/webong/ext/pkg/plugin-go/contract"
 	"github.com/webong/ext/pkg/plugin-go/contract/guest/instance"
 )
 
@@ -14,8 +16,8 @@ func TestChecksAreNamedOnce(t *testing.T) {
 		}
 		seen[c.Name] = true
 	}
-	if len(seen) != 21 {
-		t.Errorf("%d checks, want 21", len(seen))
+	if len(seen) != 27 {
+		t.Errorf("%d checks, want 27", len(seen))
 	}
 }
 
@@ -33,5 +35,22 @@ func TestInstanceChecksPassForTheOracleItself(t *testing.T) {
 	for run := 0; run < 25; run++ {
 		t.Run("errors", func(t *testing.T) { InstanceErrorCausesMatchGo(t, self) })
 		t.Run("events", func(t *testing.T) { InstanceObserverEventsMatchGo(t, self) })
+	}
+}
+
+// The same for sessions: the oracle opened through the harness, against the oracle. The drain and
+// timeout scenarios depend on timing, so this also shows they do not flake.
+func TestSessionChecksPassForTheOracleItself(t *testing.T) {
+	self := Engine{Name: "oracle", Open: func(ctx context.Context, d plugin.Descriptor, o plugin.Options) (Session, error) {
+		s, err := plugin.Open(ctx, d, o)
+		if err != nil {
+			return nil, err
+		}
+		return s, nil
+	}}
+	for run := 0; run < 10; run++ {
+		for _, c := range []Check{{"SessionErrorCausesMatchGo", SessionErrorCausesMatchGo}, {"OpenErrorCausesMatchGo", OpenErrorCausesMatchGo}, {"DrainErrorCausesMatchGo", DrainErrorCausesMatchGo}, {"SessionObserverEventsMatchGo", SessionObserverEventsMatchGo}, {"OpenObserverEventsMatchGo", OpenObserverEventsMatchGo}, {"DrainObserverEventsMatchGo", DrainObserverEventsMatchGo}} {
+			t.Run(c.Name, func(t *testing.T) { c.Run(t, self) })
+		}
 	}
 }

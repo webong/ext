@@ -3,8 +3,10 @@
 package goengine
 
 import (
+	"context"
 	"testing"
 
+	plugin "github.com/webong/ext/pkg/plugin-go/contract"
 	"github.com/webong/ext/pkg/plugin-go/contract/guest/instance"
 	"github.com/webong/ext/pkg/plugin-go/contract/plugintest/enginetest"
 )
@@ -20,6 +22,13 @@ var cengine = enginetest.Engine{
 			return nil, err
 		}
 		return engineInstances{m}, nil
+	},
+	Open: func(ctx context.Context, d plugin.Descriptor, o plugin.Options) (enginetest.Session, error) {
+		s, err := Open(ctx, d, o)
+		if err != nil {
+			return nil, err
+		}
+		return s, nil
 	},
 }
 
@@ -97,3 +106,17 @@ func TestInstanceErrorCausesMatchGo(t *testing.T) { enginetest.InstanceErrorCaus
 func TestInstanceObserverEventsMatchGo(t *testing.T) {
 	enginetest.InstanceObserverEventsMatchGo(t, cengine)
 }
+
+func TestSessionErrorCausesMatchGo(t *testing.T) { enginetest.SessionErrorCausesMatchGo(t, cengine) }
+
+func TestOpenErrorCausesMatchGo(t *testing.T) { enginetest.OpenErrorCausesMatchGo(t, cengine) }
+
+func TestDrainErrorCausesMatchGo(t *testing.T) { enginetest.DrainErrorCausesMatchGo(t, cengine) }
+
+func TestSessionObserverEventsMatchGo(t *testing.T) {
+	enginetest.SessionObserverEventsMatchGo(t, cengine)
+}
+
+func TestOpenObserverEventsMatchGo(t *testing.T) { enginetest.OpenObserverEventsMatchGo(t, cengine) }
+
+func TestDrainObserverEventsMatchGo(t *testing.T) { enginetest.DrainObserverEventsMatchGo(t, cengine) }

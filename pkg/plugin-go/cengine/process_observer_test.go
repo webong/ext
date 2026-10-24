@@ -13,6 +13,7 @@ import (
 
 	plugin "github.com/webong/ext/pkg/plugin-go/contract"
 	"github.com/webong/ext/pkg/plugin-go/contract/host/process"
+	"github.com/webong/ext/pkg/plugin-go/contract/plugintest/enginetest"
 )
 
 type processCase struct {
@@ -95,9 +96,9 @@ func TestProcessObserverEventsMatchGo(t *testing.T) {
 				if exe == "" {
 					exe = guestPath(t)
 				}
-				rec := &eventLog{}
+				rec := &enginetest.EventLog{}
 				o := progressOptions()
-				o.Observer = rec.observe
+				o.Observer = rec.Observe
 				if c.timeout > 0 {
 					o.Timeout = c.timeout
 				}
@@ -120,7 +121,7 @@ func TestProcessObserverEventsMatchGo(t *testing.T) {
 						out += " call:" + causes(err)
 					}
 				}
-				return out + "\n  " + rec.text()
+				return out + "\n  " + rec.Text()
 			}
 			goOut := run(func(ctx context.Context, exe string, o plugin.Options) (progressSession, error) {
 				o.Connect = func(ctx context.Context, _ plugin.Descriptor) (plugin.Backend, error) {

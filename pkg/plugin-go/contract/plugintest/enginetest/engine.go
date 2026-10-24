@@ -7,6 +7,7 @@
 package enginetest
 
 import (
+	"context"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -29,6 +30,9 @@ type Engine struct {
 	// NewInstances opens the engine's instance manager over string values. Optional: the checks
 	// that compare instance managers are skipped without it.
 	NewInstances func(instance.Options[string]) (Instances, error)
+	// Open admits a plugin through the engine, as plugin.Open does through the oracle. Optional:
+	// the checks that compare sessions are skipped without it.
+	Open func(ctx context.Context, d plugin.Descriptor, o plugin.Options) (Session, error)
 }
 
 // fixture reads a shared fixture, such as "v1/descriptor.json".

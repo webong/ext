@@ -22,7 +22,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: plugin-release-${{ github.ref }}
+  group: ext-android-release-${{ github.ref }}
   cancel-in-progress: false
 
 env:
@@ -63,6 +63,9 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.14.3'
+      # The web rules need a JDK only; fail before any native build if they drift from res/web.
+      - name: Web rules against the fixtures
+        run: scripts/ext-android-web.sh
       - name: Build both AARs
         env:
           VERSION: ${{ steps.version.outputs.version }}

@@ -197,32 +197,45 @@ plugins that arrive after release need an interpreter, such as the WASM backend.
 
 ## Distribution
 
-**Not distributed yet.** There is no iOS release job: the tag form `ext-ios-vX.Y.Z` is
-reserved and documented, but SwiftPM needs a repository root or a dedicated distribution
-repository to resolve a binary-target package from, and until that is decided a release job
-would publish something nobody can consume. The staging script below produces the pieces.
+Releases are GitHub releases tagged `ext-ios-vX.Y.Z` (a dash form, not a Go module tag; see
+[module versioning](../../docs/module-versioning.md)), made by
+[`.github/workflows/ext-ios-release.yml`](../../.github/workflows/ext-ios-release.yml). It stages
+the release with `scripts/ext-ios-release.sh --with-wamr`, runs the web checks, the Swift tests on the
+host and the same tests in an iOS Simulator, and only then publishes. Each release carries:
 
-SwiftPM resolves a package from a repository root, which this monorepo's root is not,
-so the manifest here is for development against the local xcframework.
-`scripts/ext-ios-release.sh <version>` stages a release under
-`dist/ext-ios-<version>/`:
+- `CExtEngine.xcframework.zip`, the engine's guest core for macOS, iOS and the iOS Simulator;
+- `CExtWamr.xcframework.zip` and `WAMR-LICENSE`, the optional WAMR host. WAMR is Apache-2.0 with the
+  LLVM exception; its license must ship with any binary that links it, and the package carries it in
+  `LICENSES/`;
+- `ext-ios-X.Y.Z-package.tar.gz`, the staged Swift package: a release manifest whose binary targets
+  point at the two archives by URL and checksum, the Swift sources, the README and the licenses;
+- `checksums.txt` (SHA-256) and a build-provenance attestation for every file.
 
-- `CExtEngine.xcframework.zip`, the engine's guest core for macOS, iOS and the iOS
-  Simulator, to attach to a GitHub release tagged `ext-ios-v<version>`; and
-- `package/`, a release manifest whose binary target points at that archive by URL and
-  `swift package compute-checksum` checksum, plus the Swift sources, to publish at a
-  repository root SwiftPM can resolve.
+Verify a download with `shasum -a 256 -c checksums.txt` and
+`gh attestation verify <file> --repo webong/ext`.
 
-`scripts/ext-ios-release.sh --with-wamr <version>` also stages the optional WAMR host:
-`CExtWamr.xcframework.zip` as a second release asset, `WAMR-LICENSE` beside it (and in the
-package's `LICENSES/`), and the `ExtPluginWamr` product pinned to that archive by checksum.
-Without the flag the package carries neither the product nor its sources.
+**SwiftPM needs a repository root.** It resolves a package from a repository root, which this
+monorepo's root is not, so the manifest in this directory is for development against the local
+xcframework, and a consumer needs the staged package at the root of a repository of its own. The
+workflow's last job does that, but only when the repository variable `EXT_IOS_DISTRIBUTION_REPO` names
+one (for example `webong/ext-ios`) and the secret `EXT_IOS_DISTRIBUTION_TOKEN` can push to it: it
+replaces that repository's contents with the staged package, commits `ext-ios X.Y.Z` and tags `X.Y.Z`,
+after the release exists, because the manifest's binary targets are the release's assets. Until that
+variable is set, a release is the GitHub release alone and an app takes the package from
+`ext-ios-X.Y.Z-package.tar.gz` (or builds from source). Nothing creates that repository.
 
-The archive is not byte-reproducible, so its checksum changes with every run: upload the
-archive from the same run as the manifest. The script checks that the staged package builds
-against the archive. It publishes
-nothing: it does not tag, upload, or create the distribution repository, and the
-release URL does not exist until someone attaches the archive. No CI job does this yet.
+A consumer then writes:
+
+```swift
+.package(url: "https://github.com/<distribution repository>", from: "0.1.0")
+// and depends on the products it uses: ExtWeb, ExtPluginGuest, ExtPluginExports, ExtPluginWebView, ExtPluginWamr
+```
+
+The archives are not byte-reproducible, so their checksums change with every run: the manifest and
+the archives always come from the same run. `scripts/ext-ios-release.sh [--with-wamr] <version>`
+stages the same pieces locally under `dist/ext-ios-<version>/` and checks that the staged package
+builds against the archives; it publishes nothing. Without `--with-wamr` the package carries neither
+the `ExtPluginWamr` product nor its sources.
 
 ## Objective-C
 

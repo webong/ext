@@ -79,8 +79,8 @@ makes download URLs ambiguous. GitHub's "latest" release is repository-wide, so
 `install.sh` and `install.ps1` resolve the newest `ctx-v*` release instead of
 `latest/download`, and ctn releases are published with `--latest=false`.
 The mobile SDKs follow the same dash form: `ext-android-vX.Y.Z` releases the Android AARs
-(`.github/workflows/plugin-release.yml`, published with `--latest=false`) and `ext-ios-vX.Y.Z` is
-reserved for the iOS SDK, which has no release job yet. Their `MINOR` and `PATCH` move
+(`.github/workflows/ext-android-release.yml`, published with `--latest=false`) and `ext-ios-vX.Y.Z` releases the iOS
+SDK (`.github/workflows/ext-ios-release.yml`, same form). Their `MINOR` and `PATCH` move
 independently; their `MAJOR` follows the repository-wide `MAJOR`.
 Library modules never use these tags, and bare `vX.Y.Z` tags are not used.
 
@@ -94,7 +94,7 @@ release workflow no longer watches them (the one release made under the old form
 `scripts/ext-android*.sh`; the SwiftPM package is `Ext` (scheme `Ext-Package`) and its plugin
 products keep their `ExtPlugin…` names.
 
-The iOS SDK's engine archive is released under its own tag, `ext-ios-vX.Y.Z`; see
+The iOS SDK's engine and WAMR archives are released under that same tag; see
 [`pkg/ext-ios`](../pkg/ext-ios/README.md) and `scripts/ext-ios-release.sh`. It is
 not a Go module version either.
 

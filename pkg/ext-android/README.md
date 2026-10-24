@@ -20,9 +20,10 @@ app that wants only the web rules takes the native libraries and the minimum SDK
   and the release workflow tests each AAR as shipped, in an app with R8 on, on an emulator.
 - The WebView host (`WebViewPluginHost`) is plain Java built against `android.jar` and has run in a
   real `WebView` on an Android 14 emulator. Nothing has run on a physical device.
-- The web package has run on a desktop JDK only, and dexes with D8 for API 24; it has not run under ART
-  or R8. Android's `Character` case tables come from ICU, so check id derivation and the lower-casing of
-  non-ASCII hosts on a device before relying on them.
+- The web package has run on a desktop JDK, and dexes with D8 for API 24. The release workflow also runs
+  `WebRoundtrips` (examples/android-consumer) on an emulator under R8, with answers Go gave, because Android's
+  `Character` case tables come from ICU; that job has not run yet, so check id derivation and the lower-casing
+  of non-ASCII hosts on a device before relying on them.
 
 The application supplies a descriptor and a `Handler`. The engine does the strict JSON parsing, request
 validation against the descriptor, deadlines and error sanitizing.
@@ -249,7 +250,7 @@ try (WamrPluginHost host = new WamrPluginHost(module, descriptor)) {
 Releases are GitHub releases tagged `ext-android-vX.Y.Z` (a dash form, not a Go module tag;
 see [module versioning](../../docs/module-versioning.md)). Each carries:
 
-- `ext-android-X.Y.Z.aar`: the guest SDK and the WebView host as `classes.jar` (Java 17, which the
+- `ext-android-X.Y.Z.aar`: the guest SDK, the WebView host and the web rules as `classes.jar` (Java 17, which the
   app's D8 desugars), `libextjni` for arm64-v8a and x86_64, and consumer R8 rules (`proguard.txt`).
   Minimum SDK 24.
 - `ext-android-wamr-X.Y.Z.aar`: the same plus `libextwamrjni` and the `WamrPluginHost` classes.
@@ -257,8 +258,9 @@ see [module versioning](../../docs/module-versioning.md)). Each carries:
   (`WAMR-LICENSE`), and must ship with any app that links it.
 - `checksums.txt` (SHA-256) and a build-provenance attestation for every file.
 
-The release workflow builds both AARs, tests each one as shipped in an app with R8 on, on an
-emulator, and only then publishes. Verify a download with `sha256sum -c checksums.txt` and
+The release workflow ([`ext-android-release.yml`](../../.github/workflows/ext-android-release.yml))
+checks the web rules on a JDK, builds both AARs, tests each one as shipped in an app with R8 on, on an
+emulator (guest, WebView host, web rules, native libraries per ABI), and only then publishes. Verify a download with `sha256sum -c checksums.txt` and
 `gh attestation verify <file> --repo webong/ext`. To use one, put it in a local flat repository:
 
 ```groovy

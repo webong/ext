@@ -49,6 +49,7 @@ mkdir -p "$dist"
 cp -R "$sdk/Sources" "$dist/Sources"
 rm -rf "$dist/Sources/ExtConformancePlugin"
 cp "$sdk/README.md" "$dist/README.md"
+cp LICENSE "$dist/LICENSE"
 if [[ -n "$with_wamr" ]]; then
   mkdir -p "$dist/LICENSES" && cp "$out/WAMR-LICENSE" "$dist/LICENSES/WAMR-LICENSE"
 else

@@ -15,8 +15,22 @@ import (
 // Version is the version of ext itself; the release build sets it with -ldflags -X.
 var Version = "0.1.0-dev"
 
+// Options are what ext runs with besides its arguments.
+type Options struct {
+	Registry *registry.Registry
+	// Package runs "ext package ...", given the arguments after "package". Nil
+	// means the host has no package management.
+	Package func(args []string, stdout, stderr io.Writer) int
+}
+
 // Run executes ext with args (without the program name) and returns the exit code.
 func Run(reg *registry.Registry, args []string, stdout, stderr io.Writer) int {
+	return RunWith(Options{Registry: reg}, args, stdout, stderr)
+}
+
+// RunWith is Run with options.
+func RunWith(o Options, args []string, stdout, stderr io.Writer) int {
+	reg := o.Registry
 	source, args, err := splitSource(args)
 	if err != nil {
 		fmt.Fprintln(stderr, "ext:", err)
@@ -36,6 +50,12 @@ func Run(reg *registry.Registry, args []string, stdout, stderr io.Writer) int {
 			fmt.Fprintf(stdout, "%s %s (%s)\n", e.Name, e.Version, e.Source)
 		}
 		return 0
+	case "package":
+		if o.Package == nil {
+			fmt.Fprintln(stderr, "ext: package management is not available")
+			return 2
+		}
+		return o.Package(args[1:], stdout, stderr)
 	case "commands":
 		w := tabwriter.NewWriter(stdout, 0, 4, 2, ' ', 0)
 		fmt.Fprintln(w, "COMMAND\tSOURCE\tVERSION\tRUNS")
@@ -107,7 +127,7 @@ func failed(reg *registry.Registry, name string, err error, stderr io.Writer) in
 
 func usage(reg *registry.Registry, w io.Writer) {
 	fmt.Fprintln(w, "usage: ext [--source=builtin|package] <command> [args]")
-	fmt.Fprintln(w, "       ext commands | which <command> | version | help")
+	fmt.Fprintln(w, "       ext commands | which <command> | package ... | version | help")
 	fmt.Fprintln(w, "\ncommands:")
 	seen := map[string]bool{}
 	for _, e := range reg.List() {

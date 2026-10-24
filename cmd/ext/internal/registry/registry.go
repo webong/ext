@@ -26,7 +26,7 @@ type Command struct {
 }
 
 // reserved names are ext's own subcommands; a command cannot take one.
-var reserved = map[string]bool{"commands": true, "which": true, "version": true, "help": true}
+var reserved = map[string]bool{"commands": true, "which": true, "version": true, "help": true, "package": true}
 
 // Choice says why a command's entry was selected.
 type Choice string

@@ -6,7 +6,8 @@ param(
     [string]$Adapters,
     [switch]$AllAdapters,
     [switch]$Minimal,
-    [switch]$Interactive
+    [switch]$Interactive,
+    [switch]$Ext
 )
 
 $ErrorActionPreference = 'Stop'
@@ -89,6 +90,58 @@ else {
         $catalogActual = (Get-FileHash -Algorithm SHA256 $catalogArchive).Hash.ToLowerInvariant()
         if ($catalogActual -ne $catalogExpected) { throw "Release checksum verification failed for $catalogAsset" }
         Expand-Archive -Path $catalogArchive -DestinationPath $downloadRoot -Force
+    }
+}
+
+if ($Ext) {
+    $extTarget = Join-Path $BinDir 'ext.exe'
+    if (Test-Path $extTarget) {
+        $extOwned = $false
+        try {
+            $extVersionOutput = @(& $extTarget version 2>$null) -join "`n"
+            $extOwned = $LASTEXITCODE -eq 0 -and $extVersionOutput -match '^ext '
+        }
+        catch { $extOwned = $false }
+        if (-not $extOwned) { throw "$extTarget exists; choose another BinDir" }
+    }
+    if ($localSource) {
+        Push-Location $repositoryRoot
+        try {
+            & go build -o $extTarget ./cmd/ext
+            if ($LASTEXITCODE -ne 0) { throw 'go build failed' }
+        }
+        finally { Pop-Location }
+    }
+    else {
+        if (-not $downloadRoot) {
+            $downloadRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("ctx-install-" + [guid]::NewGuid().ToString('N'))
+            New-Item -ItemType Directory -Force -Path $downloadRoot | Out-Null
+        }
+        $extVersion = if ($env:EXT_VERSION) { $env:EXT_VERSION } else { 'latest' }
+        if ($extVersion -eq 'latest') {
+            # GitHub's "latest" is repository-wide and may be another product's release.
+            $extTag = (Invoke-RestMethod -UseBasicParsing -Uri 'https://api.github.com/repos/webong/ext/releases?per_page=100' |
+                Where-Object { $_.tag_name -like 'ext-v*' } | Select-Object -First 1).tag_name
+            if (-not $extTag) { throw 'No ext release was found.' }
+        }
+        elseif ($extVersion -like 'ext-v*') { $extTag = $extVersion }
+        elseif ($extVersion -like 'v*') { $extTag = "ext-$extVersion" }
+        else { $extTag = "ext-v$extVersion" }
+        $extBase = "https://github.com/webong/ext/releases/download/$extTag"
+        $extAsset = "ext-windows-$architecture.zip"
+        $extArchive = Join-Path $downloadRoot $extAsset
+        $extChecksums = Join-Path $downloadRoot 'ext-checksums.txt'
+        Invoke-WebRequest -UseBasicParsing -Uri "$extBase/$extAsset" -OutFile $extArchive
+        Invoke-WebRequest -UseBasicParsing -Uri "$extBase/checksums.txt" -OutFile $extChecksums
+        $escapedExtAsset = [regex]::Escape($extAsset)
+        $extChecksumLine = Get-Content $extChecksums | Where-Object { $_ -match "\s\*?$escapedExtAsset`$" } | Select-Object -First 1
+        if (-not $extChecksumLine) { throw "Release checksum is missing for $extAsset" }
+        $extExpected = ($extChecksumLine -split '\s+')[0].ToLowerInvariant()
+        $extActual = (Get-FileHash -Algorithm SHA256 $extArchive).Hash.ToLowerInvariant()
+        if ($extActual -ne $extExpected) { throw "Release checksum verification failed for $extAsset" }
+        $extRoot = Join-Path $downloadRoot 'ext-extract'
+        Expand-Archive -Path $extArchive -DestinationPath $extRoot
+        Copy-Item (Join-Path $extRoot 'ext\bin\ext.exe') $extTarget
     }
 }
 
@@ -184,6 +237,7 @@ if ($LASTEXITCODE -ne 0) { throw 'Failed to generate PowerShell completion' }
 
 if ($needCatalog) { Write-Host "Installed ctx.exe and the optional adapter catalog in $BinDir" }
 else { Write-Host "Installed ctx.exe core in $BinDir (no adapter catalog downloaded)" }
+if ($Ext) { Write-Host "Installed ext.exe in $BinDir" }
 Write-Host "Config: $configFile"
 Write-Host "PowerShell completion: add `. '$completionPath' to your PowerShell profile"
 if (($env:PATH -split ';') -notcontains $BinDir) {

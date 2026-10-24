@@ -234,5 +234,20 @@ func ctxGoObserver(handle C.uintptr_t, caller C.uintptr_t, data *C.uint8_t, n C.
 	if caller != 0 {
 		ctx = cgo.Handle(caller).Value().(context.Context)
 	}
+	event.Code = settledEventCode(ctx, event.Code)
 	p.observer(ctx, plugin.Event{Stage: event.Stage, Identity: event.Identity, Contract: event.Contract, Operation: event.Operation, RequestID: event.RequestID, Code: event.Code, Duration: time.Duration(event.Duration) * time.Millisecond})
+}
+
+// settledEventCode names how a stage ended when the call's context is done. The engine knows only
+// that its cancel signal fired or that its own deadline passed, and which one it sees first depends
+// on which timer the platform wakes first: the Go deadline fires the cancel signal and the engine's
+// deadline is the same instant, so on Windows, whose timers are coarser, a timeout is often seen as
+// a cancellation. The context knows why it ended, and that is what the Go session reports.
+func settledEventCode(ctx context.Context, code string) string {
+	if code == "canceled" || code == "deadline_exceeded" {
+		if err := ctx.Err(); err != nil {
+			return eventCode(err)
+		}
+	}
+	return code
 }

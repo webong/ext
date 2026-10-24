@@ -56,6 +56,16 @@ var flags = []string{
 // do not.
 const libcVersion = "v1.79.0"
 
+// hostSources are translated besides core_sources on a platform that has the host: the engine's
+// session, filesystem, instance and stream code with its POSIX parts. The channel layer
+// (channel_posix.c) is replaced by shim/channel_go.c and the Go code in internal/ccgo. Windows has the
+// core only.
+var hostSources = []string{"src/host.c", "src/fs_posix.c", "src/random_posix.c", "src/integrity.c", "src/instances.c", "src/streams.c"}
+var hostShims = []string{"shim/channel_go.c", "shim/missing.c"}
+
+// hasHost reports whether the platform gets the host profile.
+func hasHost(goos string) bool { return goos != "windows" }
+
 var coreSources = regexp.MustCompile(`(?s)set\(core_sources\s+([^)]*)\)`)
 
 func main() {
@@ -122,33 +132,51 @@ func targetsExpr(files []string) (constraint.Expr, error) {
 	return expr, nil
 }
 
-// syncTargets rewrites the //go:build line of call.go to the platforms with a generated file and
-// that of call_unsupported.go to all the others.
+// syncTargets rewrites the //go:build lines of the hand-written files that depend on what was
+// generated: call.go and call_unsupported.go follow the platforms that have a generated file, and
+// host.go and host_unsupported.go the ones among them that have the host profile.
 func syncTargets(dir string) error {
 	files, err := filepath.Glob(filepath.Join(dir, "generated_*.go"))
 	if err != nil {
 		return err
 	}
-	expr, err := targetsExpr(files)
-	if err != nil {
-		return err
+	var hosts []string
+	for _, f := range files {
+		if m := generatedFile.FindStringSubmatch(filepath.Base(f)); m != nil && hasHost(m[1]) {
+			hosts = append(hosts, f)
+		}
 	}
-	for file, line := range map[string]string{
-		"call.go":             "//go:build " + expr.String(),
-		"call_unsupported.go": "//go:build " + (&constraint.NotExpr{X: expr}).String(),
+	for _, set := range []struct {
+		files   []string
+		yes, no string
+	}{
+		{files, "call.go", "call_unsupported.go"},
+		{hosts, "host.go", "host_unsupported.go"},
 	} {
-		path := filepath.Join(dir, file)
-		data, err := os.ReadFile(path)
+		expr, err := targetsExpr(set.files)
 		if err != nil {
 			return err
 		}
-		if !buildLine.Match(data) {
-			return fmt.Errorf("%s has no //go:build line", file)
-		}
-		updated := buildLine.ReplaceAllLiteral(data, []byte(line))
-		if !bytes.Equal(updated, data) {
-			if err := os.WriteFile(path, updated, 0o644); err != nil {
+		for file, line := range map[string]string{
+			set.yes: "//go:build " + expr.String(),
+			set.no:  "//go:build " + (&constraint.NotExpr{X: expr}).String(),
+		} {
+			path := filepath.Join(dir, file)
+			data, err := os.ReadFile(path)
+			if err != nil {
+				if os.IsNotExist(err) {
+					continue // the host files arrive with the host binding
+				}
 				return err
+			}
+			if !buildLine.Match(data) {
+				return fmt.Errorf("%s has no //go:build line", file)
+			}
+			updated := buildLine.ReplaceAllLiteral(data, []byte(line))
+			if !bytes.Equal(updated, data) {
+				if err := os.WriteFile(path, updated, 0o644); err != nil {
+					return err
+				}
 			}
 		}
 	}
@@ -187,6 +215,11 @@ func generate(root, out string) (digest string, err error) {
 	if len(sources) == 0 {
 		return "", fmt.Errorf("core_sources is empty")
 	}
+	host := hasHost(runtime.GOOS)
+	if host {
+		sources = append(sources, hostSources...)
+		sources = append(sources, hostShims...)
+	}
 
 	work, err := os.MkdirTemp("", "c2goengine-*")
 	if err != nil {
@@ -219,7 +252,9 @@ func generate(root, out string) (digest string, err error) {
 	// edits and with the shims), the flags, and the versions of the translator and its runtime. It
 	// does not depend on the platform, so a stale translation is one made from another digest, whatever
 	// bytes the platform's headers happen to add to it.
-	digest, err = inputsDigest(filepath.Join(work, "csrc"), sources)
+	// Hashed as the same list on every platform, whichever of it a platform translates.
+	everything := append(append(append([]string{}, strings.Fields(string(match[1]))...), hostSources...), hostShims...)
+	digest, err = inputsDigest(filepath.Join(work, "csrc"), everything)
 	if err != nil {
 		return "", err
 	}
@@ -246,6 +281,9 @@ func generate(root, out string) (digest string, err error) {
 	args := []string{"ccgo", "-o", "engine.go", "--package-name", "ccgo",
 		"-I", "csrc/shim", "-I", "csrc/src", "-I", "csrc/vendor", "-I", "csrc/include"}
 	args = append(args, flags...)
+	if host {
+		args = append(args, "-include", "csrc/shim/compat.h")
+	}
 	for _, s := range sources {
 		args = append(args, "csrc/"+s)
 	}

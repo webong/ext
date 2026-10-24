@@ -32,8 +32,9 @@ checks:
 Two engines run them. The cgo engine's runs are in `pkg/plugin-go/cengine/engine_checks_test.go`,
 under the names the checks have always had (`TestPairwiseMutationDifferential` and the rest). The
 translated engine (`pkg/plugin-go/c2goengine`: the same C, translated to Go by ccgo) runs all 28 in
-`c2goengine_test.go` on darwin and linux, also under the race detector; it does not translate on
-Windows yet. A check whose constructor an engine leaves out is skipped, and a check that passes
+`c2goengine_test.go` on darwin and linux, also under the race detector; on Windows it translates the
+services only, so the checks that need `EngineCall` run there and the session, process and instance
+checks are skipped. A check whose constructor an engine leaves out is skipped, and a check that passes
 for an engine passes for the same reasons. The oracle also runs the instance and session checks
 against itself, which shows the checks' own mechanics and timing do not flake.
 

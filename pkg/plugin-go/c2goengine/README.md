@@ -37,7 +37,7 @@ platform-table checks.
 
 The translation is generated for a platform on that platform (ccgo reads the platform's headers),
 so there is one file per target. POSIX platforms translate the whole engine (the services and the
-host); Windows would translate the services only, because the host's filesystem and random-number
+host); Windows translates the services only, because the host's filesystem and random-number
 code there is Win32.
 
 | platform | file | state |
@@ -46,7 +46,8 @@ code there is Win32.
 | darwin/amd64 | `internal/ccgo/generated_darwin_amd64.go` | checked in, tested under Rosetta |
 | linux/arm64 | `internal/ccgo/generated_linux_arm64.go` | checked in, tested natively |
 | linux/amd64 | `internal/ccgo/generated_linux_amd64.go` | checked in, generated and tested by the workflow |
-| windows/amd64, windows/arm64 | | not translated yet, see below |
+| windows/amd64 | `internal/ccgo/generated_windows_amd64.go` | checked in, generated and tested by the workflow (services only) |
+| windows/arm64 | `internal/ccgo/generated_windows_arm64.go` | checked in, generated and tested by the workflow (services only) |
 
 On any other platform `Available` and `HostAvailable` are false and the calls return
 `plugin.ErrUnsupported`. `internal/ccgo/targets_test.go` keeps the file list and the build
@@ -80,15 +81,25 @@ and this module's `go.mod`. The generator refuses to run when they differ.
 
 ## Windows
 
-Neither Windows platform translates yet; the workflow probes both and reports what stops them:
+Both Windows platforms translate the services, not the host: `Available` is true and `EngineCall`
+answers, while `HostAvailable` is false, so `Open`, `OpenProcess` and `NewInstances` return
+`plugin.ErrUnsupported`. The host's filesystem and random-number code is Win32 (`fs_win32.c`,
+`random_win32.c`) and its channel to a child process needs the Windows API; translating them is the
+same work again.
 
-- windows/amd64 (MinGW-w64 gcc): ccgo cannot type-check `__int128` in `_mingw.h`, a system header.
-- windows/arm64 (MSYS2 clang): translation proceeds as far as linking, which finds no definition of
-  `__fpclassify` and `clock_gettime64` in ccgo's Windows libc.
+The generator runs in an MSYS2 shell for the compiler's headers (MinGW-w64 gcc for amd64, clang on
+arm64 where gcc has no port), which the workflow sets up. Three things stood in the way, all in the
+generator's shims and none in the C:
 
-The first is in the toolchain's headers and the second in libc's coverage of the platform, so neither
-is ours to fix in the C; each needs a stand-in in the generator or a change upstream. Until then
-`Available` is false on Windows and `EngineCall` reports `plugin.ErrUnsupported`.
+- MinGW's `_mingw.h` declares `__int128` itself when the compiler's `__SIZEOF_INT128__` is missing,
+  and ccgo cannot type-check that declaration; on Windows the macro stays defined (the engine never
+  uses the type).
+- ccgo's Windows libc has no `__fpclassify`, which `fpclassify` expands to, and no `clock_gettime64`,
+  which winpthreads' inline `clock_gettime` calls. `tools/shim/windows.c` defines both, once: the
+  wall clock from `_ftime64` (millisecond resolution), the monotonic clock from the performance
+  counter.
+- The shim is a source of its own and not part of the force-included header, because every
+  translation unit includes the header and the definitions would be repeated.
 
 ## What the translation needed
 
@@ -121,7 +132,7 @@ package of the module except `internal/ccgo`.
 - Progress events and reverse calls over `Open`: a plugin that declares them is refused, and
   `Options.Reverse` is unsupported. cengine carries both through the engine's frame hooks.
 - Streams, the package store and the digests, which cengine also binds.
-- Windows.
+- The host on Windows (see above).
 - `CallProgress`.
 
 The checks of `enginetest` for all that exist in `cengine` only; moving them behind the harness

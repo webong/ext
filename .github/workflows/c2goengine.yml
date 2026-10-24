@@ -1,0 +1,108 @@
+name: c2goengine
+
+# The C engine's portable core translated to Go (pkg/plugin-go/c2goengine). ccgo translates for the
+# platform it runs on, so every platform generates its own file here. A platform whose translation is
+# checked in must regenerate it byte for byte (a stale file fails the job); one without is a probe: it
+# generates, tests the result and uploads it, so it can be committed. A probe never blocks.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'lib/plugin/**'
+      - 'pkg/plugin-go/c2goengine/**'
+      - 'pkg/plugin-go/contract/plugintest/enginetest/**'
+      - '.github/workflows/c2goengine.yml'
+  pull_request:
+    paths:
+      - 'lib/plugin/**'
+      - 'pkg/plugin-go/c2goengine/**'
+      - 'pkg/plugin-go/contract/plugintest/enginetest/**'
+      - '.github/workflows/c2goengine.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  translate:
+    name: translate (${{ matrix.goos }}/${{ matrix.goarch }})
+    runs-on: ${{ matrix.os }}
+    continue-on-error: ${{ !matrix.required }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {os: ubuntu-latest, goos: linux, goarch: amd64, required: false, race: '-race', shell: bash}
+          - {os: ubuntu-24.04-arm, goos: linux, goarch: arm64, required: true, race: '-race', shell: bash}
+          - {os: macos-latest, goos: darwin, goarch: arm64, required: true, race: '', shell: bash}
+          - {os: windows-latest, goos: windows, goarch: amd64, required: false, race: '', shell: 'msys2 {0}', msystem: MINGW64, packages: 'mingw-w64-x86_64-gcc'}
+          - {os: windows-11-arm, goos: windows, goarch: arm64, required: false, race: '', shell: 'msys2 {0}', msystem: CLANGARM64, packages: 'mingw-w64-clang-aarch64-clang', cc: clang}
+    steps:
+      - name: Keep line endings as they are
+        if: runner.os == 'Windows'
+        shell: bash
+        run: git config --global core.autocrlf false
+      - uses: actions/checkout@v4
+      - name: Use the matrix compiler
+        if: matrix.cc != ''
+        shell: bash
+        run: echo "CC=${{ matrix.cc }}" >> "$GITHUB_ENV"
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.x'
+          cache: true
+          cache-dependency-path: |
+            **/go.sum
+            go.work.sum
+      - uses: msys2/setup-msys2@v2
+        if: runner.os == 'Windows'
+        with:
+          msystem: ${{ matrix.msystem }}
+          path-type: inherit
+          install: ${{ matrix.packages }}
+      - name: Generate the translation
+        shell: ${{ matrix.shell }}
+        working-directory: pkg/plugin-go/c2goengine/tools
+        run: GOWORK=off go run .
+      - name: Compare with what is checked in
+        shell: bash
+        run: |
+          changed=$(git status --porcelain -- pkg/plugin-go/c2goengine)
+          if [ -z "$changed" ]; then
+            echo "The checked-in translation for ${{ matrix.goos }}/${{ matrix.goarch }} is current."
+            exit 0
+          fi
+          printf '%s\n' "$changed"
+          if [ "${{ matrix.required }}" = true ]; then
+            echo "::error::The translation for ${{ matrix.goos }}/${{ matrix.goarch }} is stale. Run 'GOWORK=off go run .' in pkg/plugin-go/c2goengine/tools on that platform and commit the result (the translation-${{ matrix.goos }}-${{ matrix.goarch }} artifact has it)."
+            git diff --stat -- pkg/plugin-go/c2goengine | tail -5
+            exit 1
+          fi
+          echo "::notice::No translation is checked in for ${{ matrix.goos }}/${{ matrix.goarch }} yet. The translation-${{ matrix.goos }}-${{ matrix.goarch }} artifact has the file and the updated build constraints."
+      - name: Test
+        shell: ${{ matrix.shell }}
+        working-directory: pkg/plugin-go/c2goengine
+        run: go test -count=1 ${{ matrix.race }} ./...
+      - name: Keep the result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: translation-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: |
+            pkg/plugin-go/c2goengine/internal/ccgo/generated_${{ matrix.goos }}_${{ matrix.goarch }}.go
+            pkg/plugin-go/c2goengine/internal/ccgo/call.go
+            pkg/plugin-go/c2goengine/internal/ccgo/call_unsupported.go
+          if-no-files-found: ignore
+          retention-days: 14
+
+  # The generator's own tests.
+  tools:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.x'
+      - name: Test the generator
+        working-directory: pkg/plugin-go/c2goengine/tools
+        run: GOWORK=off go test -count=1 ./... && GOWORK=off go vet ./...

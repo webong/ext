@@ -21,6 +21,7 @@ import (
 //
 //	contract    standard library only
 //	cengine     the C engine binding and pure-Go build of the same API; needs contract
+//	c2goengine  the C engine's portable core translated to Go; needs contract
 //	wasm        the wazero backend; needs contract only, never cengine
 //	hashicorp   the gRPC backend; needs contract only, never cengine
 //	(umbrella)  pkg/plugin-go itself, the one module that may require them all
@@ -28,11 +29,12 @@ const pluginPrefix = "github.com/webong/ext/pkg/plugin-go"
 
 // A module's allowed requirements among the repository's own modules.
 var pluginRequires = map[string][]string{
-	"pkg/plugin-go/contract":  {},
-	"pkg/plugin-go/cengine":   {"pkg/plugin-go/contract"},
-	"pkg/plugin-go/wasm":      {"pkg/plugin-go/contract"},
-	"pkg/plugin-go/hashicorp": {"pkg/plugin-go/contract"},
-	"pkg/plugin-go":           {"pkg/plugin-go/contract", "pkg/plugin-go/cengine", "pkg/plugin-go/wasm", "pkg/plugin-go/hashicorp", "res/system"},
+	"pkg/plugin-go/contract":   {},
+	"pkg/plugin-go/cengine":    {"pkg/plugin-go/contract"},
+	"pkg/plugin-go/c2goengine": {"pkg/plugin-go/contract"},
+	"pkg/plugin-go/wasm":       {"pkg/plugin-go/contract"},
+	"pkg/plugin-go/hashicorp":  {"pkg/plugin-go/contract"},
+	"pkg/plugin-go":            {"pkg/plugin-go/contract", "pkg/plugin-go/cengine", "pkg/plugin-go/wasm", "pkg/plugin-go/hashicorp", "res/system"},
 }
 
 var requireLine = regexp.MustCompile(`(?m)^\s*(?:require\s+)?(github\.com/webong/ext/\S+)\s+v\S+`)

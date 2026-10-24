@@ -53,9 +53,13 @@ newer (ccgo's floor), a C compiler on the path for the preprocessor, and `gofmt`
 `lib/plugin`'s `core_sources` (read from `CMakeLists.txt`) into a temporary directory, applies the
 few edits ccgo needs (listed in `tools/main.go`, each checked to match exactly once, none to the
 repository's files), and runs ccgo there with relative paths, so the output is the same bytes
-wherever it runs. The `c2goengine` workflow does this on every supported platform and fails when a
-checked-in file is stale; run it after changing anything under `lib/plugin/src`, `include` or
-`vendor`.
+wherever it runs. It also writes `internal/ccgo/inputs.sha256`, a digest of what the translation is
+made from (the sources as ccgo sees them, the flags, and the ccgo and libc versions), the same on
+every platform, and each generated file names the digest it was made from. The bytes of a platform's
+file also follow its system headers, so they are not compared; the digest is. The `c2goengine`
+workflow does this on every supported platform and fails when a
+checked-in translation is stale; run it, on every supported platform, after changing anything under
+`lib/plugin/src`, `include` or `vendor`.
 
 `libc` is pinned in three places that must agree: `libcVersion` in `tools/main.go`, `tools/go.mod`
 and this module's `go.mod`. The generator refuses to run when they differ.

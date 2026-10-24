@@ -60,6 +60,10 @@ jobs:
           msystem: ${{ matrix.msystem }}
           path-type: inherit
           install: ${{ matrix.packages }}
+      - name: Check that every checked-in translation names the same inputs
+        shell: bash
+        working-directory: pkg/plugin-go/c2goengine
+        run: go test -count=1 -run 'TestTranslationsMatchInputs|TestTargetsAgree' ./internal/ccgo
       - name: Generate the translation
         if: runner.os != 'Windows'
         shell: bash
@@ -73,15 +77,19 @@ jobs:
       - name: Compare with what is checked in
         shell: bash
         run: |
-          changed=$(git status --porcelain -- pkg/plugin-go/c2goengine)
+          # What the translation is made from is the same on every platform, and so is the digest the
+          # generator writes for it; the bytes of a platform's file also follow its system headers, so
+          # they are not compared.
+          dir=pkg/plugin-go/c2goengine/internal/ccgo
+          changed=$(git status --porcelain -- "$dir/inputs.sha256" "$dir/call.go" "$dir/call_unsupported.go")
           if [ -z "$changed" ]; then
-            echo "The checked-in translation for ${{ matrix.goos }}/${{ matrix.goarch }} is current."
+            echo "The checked-in translation is current for ${{ matrix.goos }}/${{ matrix.goarch }}."
             exit 0
           fi
           printf '%s\n' "$changed"
           if [ "${{ matrix.required }}" = true ]; then
-            echo "::error::The translation for ${{ matrix.goos }}/${{ matrix.goarch }} is stale. Run 'GOWORK=off go run .' in pkg/plugin-go/c2goengine/tools on that platform and commit the result (the translation-${{ matrix.goos }}-${{ matrix.goarch }} artifact has it)."
-            git diff --stat -- pkg/plugin-go/c2goengine | tail -5
+            echo "::error::The translation is stale: lib/plugin or the generator changed. Run 'GOWORK=off go run .' in pkg/plugin-go/c2goengine/tools on every supported platform and commit the results (the translation-<goos>-<goarch> artifacts have them)."
+            git diff --stat -- "$dir" | tail -5
             exit 1
           fi
           echo "::notice::No translation is checked in for ${{ matrix.goos }}/${{ matrix.goarch }} yet. The translation-${{ matrix.goos }}-${{ matrix.goarch }} artifact has the file and the updated build constraints."

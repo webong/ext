@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"testing"
 )
 
@@ -69,5 +70,31 @@ func TestTargetsAgree(t *testing.T) {
 	}
 	if len(generated) == 0 {
 		t.Error("no generated file")
+	}
+}
+
+// TestTranslationsMatchInputs requires every platform's translation to have been made from the
+// inputs digest the module records in inputs.sha256: regenerating on one platform after the C
+// changed, and not on the others, leaves the others naming an older digest. (Whether the C has
+// changed since is for the generator to say: it writes a new digest, which the workflow compares.)
+func TestTranslationsMatchInputs(t *testing.T) {
+	want, err := os.ReadFile("inputs.sha256")
+	if err != nil {
+		t.Fatal(err)
+	}
+	digest := strings.TrimSpace(string(want))
+	files, err := filepath.Glob("generated_*.go")
+	if err != nil || len(files) == 0 {
+		t.Fatalf("no generated files (%v)", err)
+	}
+	for _, f := range files {
+		data, err := os.ReadFile(f)
+		if err != nil {
+			t.Fatal(err)
+		}
+		lines := strings.SplitN(string(data[:min(len(data), 1<<16)]), "\n", 3)
+		if len(lines) < 3 || lines[1] != "// c2goengine inputs sha256:"+digest {
+			t.Errorf("%s was not made from inputs.sha256 (%s): regenerate it with tools", f, digest[:12])
+		}
 	}
 }

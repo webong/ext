@@ -1,4 +1,5 @@
 // Code generated for linux/arm64 by 'ccgo -o engine.go --package-name ccgo -I csrc/shim -I csrc/src -I csrc/vendor -I csrc/include -DEXT_HOST_STATIC -DEXT_HOST_BUILD -Dyyjson_align(x)= -Dyyjson_inline= -Dyyjson_noinline= -U__SIZEOF_INT128__ csrc/src/common.c csrc/src/wire.c csrc/src/progress.c csrc/src/reverse.c csrc/src/endpoint.c csrc/src/services.c csrc/src/guest.c csrc/src/sha256.c csrc/src/packages.c csrc/vendor/yyjson.c', DO NOT EDIT.
+// c2goengine inputs sha256:7dc2e08fc74d58b739df2901bc840ab9a101b85088f56a50b970cd45e62e39d5
 
 //go:build linux && arm64
 

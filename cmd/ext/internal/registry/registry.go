@@ -43,6 +43,7 @@ const (
 type Registry struct {
 	commands map[string][]Command
 	pins     map[string]Source
+	notes    []string
 }
 
 // New returns an empty registry.
@@ -72,6 +73,13 @@ func (r *Registry) Register(c Command) error {
 }
 
 func validSource(s Source) bool { return s == Builtin || s == Package }
+
+// Note records something discovery skipped or refused, so that ext commands can say
+// why a command is missing instead of leaving it out silently.
+func (r *Registry) Note(text string) { r.notes = append(r.notes, text) }
+
+// Notes returns what Note recorded, in order.
+func (r *Registry) Notes() []string { return append([]string(nil), r.notes...) }
 
 // Pin records the standing source for one command. It does not require the
 // command to be registered yet, because packages are discovered after the config

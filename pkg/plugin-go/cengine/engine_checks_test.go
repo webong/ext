@@ -3,15 +3,45 @@
 package goengine
 
 import (
+	"context"
 	"testing"
 
+	plugin "github.com/webong/ext/pkg/plugin-go/contract"
+	"github.com/webong/ext/pkg/plugin-go/contract/guest/instance"
 	"github.com/webong/ext/pkg/plugin-go/contract/plugintest/enginetest"
 )
 
 // The differential checks that hold the engine against the pure-Go contract live in
 // enginetest, so that any build of the engine can run them; these are the C engine's runs, under
 // the names the checks have always had.
-var cengine = enginetest.Engine{Name: "C engine", Call: EngineCall, Fixtures: "../../../lib/plugin/testdata"}
+var cengine = enginetest.Engine{
+	Name: "C engine", Call: EngineCall, Fixtures: "../../../lib/plugin/testdata",
+	NewInstances: func(opts instance.Options[string]) (enginetest.Instances, error) {
+		m, err := NewInstances(opts)
+		if err != nil {
+			return nil, err
+		}
+		return engineInstances{m}, nil
+	},
+	Open: func(ctx context.Context, d plugin.Descriptor, o plugin.Options) (enginetest.Session, error) {
+		s, err := Open(ctx, d, o)
+		if err != nil {
+			return nil, err
+		}
+		return s, nil
+	},
+}
+
+// engineInstances gives the C-backed manager the shape the harness compares.
+type engineInstances struct{ *Instances[string] }
+
+func (e engineInstances) Acquire(key string) (string, enginetest.Lease, error) {
+	l, err := e.Instances.Acquire(key)
+	if err != nil {
+		return "", nil, err
+	}
+	return l.Value, l, nil
+}
 
 func TestContractMutationDifferential(t *testing.T) {
 	enginetest.ContractMutationDifferential(t, cengine)
@@ -70,3 +100,23 @@ func TestZeroTimeInAnyZoneMatchesGo(t *testing.T) { enginetest.ZeroTimeInAnyZone
 func TestCaseFoldingMatchesGoForEveryRune(t *testing.T) {
 	enginetest.CaseFoldingMatchesGoForEveryRune(t, cengine)
 }
+
+func TestInstanceErrorCausesMatchGo(t *testing.T) { enginetest.InstanceErrorCausesMatchGo(t, cengine) }
+
+func TestInstanceObserverEventsMatchGo(t *testing.T) {
+	enginetest.InstanceObserverEventsMatchGo(t, cengine)
+}
+
+func TestSessionErrorCausesMatchGo(t *testing.T) { enginetest.SessionErrorCausesMatchGo(t, cengine) }
+
+func TestOpenErrorCausesMatchGo(t *testing.T) { enginetest.OpenErrorCausesMatchGo(t, cengine) }
+
+func TestDrainErrorCausesMatchGo(t *testing.T) { enginetest.DrainErrorCausesMatchGo(t, cengine) }
+
+func TestSessionObserverEventsMatchGo(t *testing.T) {
+	enginetest.SessionObserverEventsMatchGo(t, cengine)
+}
+
+func TestOpenObserverEventsMatchGo(t *testing.T) { enginetest.OpenObserverEventsMatchGo(t, cengine) }
+
+func TestDrainObserverEventsMatchGo(t *testing.T) { enginetest.DrainObserverEventsMatchGo(t, cengine) }

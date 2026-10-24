@@ -24,6 +24,9 @@ let package = Package(
         .library(name: "ExtPluginWebView", targets: ["ExtPluginWebView"]),
         // Test fixture for the cross-language conformance suite.
         .library(name: "ExtConformancePlugin", type: .dynamic, targets: ["ExtConformancePlugin"]),
+        // The portable web rules of res/web: cookies, userscripts and bookmarklets. It has no
+        // dependency on the plugin code or the engine.
+        .library(name: "ExtWeb", targets: ["ExtWeb"]),
     ],
     targets: [
         .binaryTarget(name: "CExtEngine", path: "Frameworks/CExtEngine.xcframework"),
@@ -33,6 +36,8 @@ let package = Package(
         .target(name: "ExtConformancePlugin", dependencies: ["ExtPluginGuest", "ExtPluginExports"]),
         .target(name: "ExtPluginWebView"),
         .testTarget(name: "ExtPluginWebViewTests", dependencies: ["ExtPluginWebView"]),
+        .target(name: "ExtWeb"),
+        .testTarget(name: "ExtWebTests", dependencies: ["ExtWeb"]),
         .testTarget(name: "ExtPluginGuestTests", dependencies: ["ExtPluginGuest", "ExtPluginExports", "CExtEngine"]),
     ],
     swiftLanguageVersions: [.v5]
@@ -46,4 +51,11 @@ if withWamr {
         .target(name: "ExtPluginWamr", dependencies: ["CExtWamr", "CExtEngine"]),
         .testTarget(name: "ExtPluginWamrTests", dependencies: ["ExtPluginWamr"]),
     ])
+}
+
+// EXT_WEB_ONLY=1 declares just ExtWeb and its tests, so they build and run without the engine
+// xcframework (scripts/ext-ios-web.sh). The release manifest drops this block.
+if ProcessInfo.processInfo.environment["EXT_WEB_ONLY"] != nil {
+    package.products = package.products.filter { $0.name == "ExtWeb" }
+    package.targets = package.targets.filter { $0.name == "ExtWeb" || $0.name == "ExtWebTests" }
 }

@@ -48,7 +48,8 @@ depend only on the standard library; `res/system` depends on `golang.org/x/sys`.
 `lib/` is a container for native libraries that several language bindings
 share. Nothing lives at that level. `lib/plugin` is the portable C plugin
 engine, built with CMake: it is not a Go module, has no `go.mod` and is not
-listed in `go.work`. The language bindings under `pkg/plugin-*` build on it.
+listed in `go.work`. The language bindings under `pkg/plugin-*` (and the mobile SDKs `pkg/ext-ios` and
+`pkg/ext-android`) build on it.
 Until it reaches parity, the pure-Go implementation in `pkg/plugin-go/contract`
 (and the pure-Go build of `pkg/plugin-go/cengine`) is the behavioral baseline; see `docs/plugin-engine-parity.md`. The shared conformance
 fixtures live in `lib/plugin/testdata`. A change to the plugin contract or the
@@ -96,7 +97,7 @@ The reusable libraries are:
 
 - `res/web` for portable web contracts and workflows: browsers, and the web engine that runs web content through them.
 - `res/credential` for portable credential serving and client code.
-- `lib/plugin` for the portable C plugin engine shared by the `pkg/plugin-*` language bindings.
+- `lib/plugin` for the portable C plugin engine shared by the `pkg/plugin-*` language bindings and the mobile SDKs.
 - `res/system` for observing the machine: host, shell, file system and web view discovery and process inspection, with `res/system/graph` (the namespaced graph store and its transactions) and `res/system/supervisor` (process supervision and recovery).
 - `pkg/plugin-go/contract` for the Go plugin contract, sessions, guests, packages, bridges and tooling (standard library only).
 - `pkg/plugin-go/cengine` for the Go binding of the C engine, with a pure-Go build of the same API and the C ABI loader.
@@ -151,7 +152,13 @@ Language SDKs and bindings belong under `pkg/<language>/` (Go, Rust, Zig and
 TypeScript), with language-specific embedding examples alongside them. The
 mobile SDKs are named for their platforms because they are native to them:
 `pkg/ext-ios` (Swift, with Objective-C through the C headers) and
-`pkg/ext-android` (Java, with Kotlin through the same API). Keep
+`pkg/ext-android` (Java, with Kotlin through the same API). Each is one library per
+platform that carries both the plugin code (guest SDK, WebView and WAMR hosts) and the web
+code (the cookie, userscript and bookmarklet rules of `res/web`, ported against its
+language-neutral fixtures). The two stay separate modules inside it: the web code (`ExtWeb`,
+`io.github.webong.ext.web`) never imports the plugin code or the C engine, so it builds and
+tests without the engine build, and `scripts/ext-ios-web.sh` and `scripts/ext-android-web.sh`
+enforce that. Keep
 `pkg/plugin-go` focused on the contract, the engine API and runtime backends. The Go-to-C guest binding belongs in
 `pkg/plugin-go/cengine/cshared/guest`. The language-neutral C ABI header
 (`lib/plugin/include/ext_plugin.h`) belongs to the engine; its constants and wire

@@ -24,6 +24,12 @@ Native storage, discovery and tooling belong under `adapters/<name>/`. No
 package here chooses a browser implementation by name — hosts supply selection
 and authorization policy.
 
+The cookie, userscript and bookmarklet rules are also ported to Swift (`ExtWeb` in
+[`pkg/ext-ios`](../../pkg/ext-ios/README.md)) and Java (`io.github.webong.ext.web` in
+[`pkg/ext-android`](../../pkg/ext-android/README.md)). Both run the fixtures in `testdata`, and
+`scripts/ext-web-differential.sh` compares them with this module on a corpus that
+`internal/portcorpus` writes. A change to those rules lands in all three, with a fixture.
+
 See [browser profile and page management](../../docs/browser-management.md),
 [browser cookies and automation input](../../docs/browser-cookies.md), and the
 [adapter API](../../docs/adapter-api.md).

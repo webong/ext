@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Stage a release of the iOS plugin SDK. SwiftPM resolves a package from a repository
+# Stage a release of the iOS SDK (plugin code and web code). SwiftPM resolves a package from a repository
 # root and this monorepo's root is not a package, so a release is two pieces:
 #   1. CExtEngine.xcframework.zip, the engine's guest core for macOS, iOS and the
 #      iOS Simulator, attached to a GitHub release of this repository, and
@@ -76,6 +76,8 @@ if wamr_checksum:
     text = text.replace(block.group(0), pinned)
 else:
     text = text.replace(block.group(0), '')
+# EXT_WEB_ONLY is for the repository's own web checks; a release has the engine.
+text = re.sub(r'\n// EXT_WEB_ONLY=1 .*?\n\}\n', '\n', text, flags=re.S)
 # Drop what only the repository's own tree can use: the tests, which read res/web and the
 # engine, and the conformance fixture, which is not part of the SDK.
 text = re.sub(r'\n\s*\.testTarget\([^\n]*\),', '', text)

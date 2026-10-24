@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Stage a release of the Android plugin SDK as an AAR under dist/ext-android-<version>/:
+# Stage a release of the Android SDK (plugin code and web code) as an AAR under dist/ext-android-<version>/:
 # ext-android-<version>.aar, or ext-android-wamr-<version>.aar with --with-wamr. The two builds
 # share the directory, so a release stages both in turn.
-# The AAR holds the guest SDK and the WebView host (classes.jar) and libextjni for arm64-v8a and
+# The AAR holds the guest SDK, the WebView host and the web rules (classes.jar) and libextjni for arm64-v8a and
 # x86_64. It publishes nothing. Needs the Android SDK (platform, build-tools, NDK), a JDK, cmake.
 #
 # --with-wamr also builds the optional WAMR host: libextwamrjni for the same ABIs and the
@@ -79,7 +79,9 @@ elif [[ "$wamr_entries" != 0 ]]; then
   echo 'a release without --with-wamr must not contain WAMR' >&2; exit 1
 fi
 unzip -p "$out/$aar_name" classes.jar >"$work/check.jar"
-if [[ -z "$with_wamr" ]] && unzip -Z1 "$work/check.jar" | grep -q Wamr; then
+classes="$(unzip -Z1 "$work/check.jar")"
+grep -qx 'io/github/webong/ext/web/Cookie.class' <<<"$classes" || { echo 'classes.jar is missing the web rules' >&2; exit 1; }
+if [[ -z "$with_wamr" ]] && grep -q Wamr <<<"$classes"; then
   echo 'classes.jar contains WAMR classes' >&2; exit 1
 fi
 echo "version   $version"

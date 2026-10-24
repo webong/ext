@@ -31,6 +31,7 @@ on:
     paths:
       - '.github/workflows/plugin-wamr.yml'
       - 'scripts/plugin-*wamr*.sh'
+      - 'scripts/ext-*wamr*.sh'
       - 'scripts/ext-ios-xcframework.sh'
       - 'scripts/ext-android-release.sh'
       - 'scripts/ext-android-consumer.sh'
@@ -44,6 +45,7 @@ on:
     paths:
       - '.github/workflows/plugin-wamr.yml'
       - 'scripts/plugin-*wamr*.sh'
+      - 'scripts/ext-*wamr*.sh'
       - 'scripts/ext-ios-xcframework.sh'
       - 'scripts/ext-android-release.sh'
       - 'scripts/ext-android-consumer.sh'

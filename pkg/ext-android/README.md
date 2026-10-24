@@ -1,23 +1,38 @@
-# Android plugin SDK (guest)
+# Android SDK (plugin and web)
 
-`pkg/ext-android` is the plugin SDK for Android. It lets Java code, and Kotlin
-through the same API, author an `ext.plugin/v1` guest on the JVM.
+`pkg/ext-android` is the ext SDK for Android: one library with two parts that do not depend on
+each other. Java is the API, and Kotlin calls it directly.
 
-**Status:** two parts, verified differently.
-- The guest SDK (below) is plain JVM and JNI; its tests run on a desktop JDK 17. An
-  Android build of the JNI library (NDK) has not been compiled or run.
-- The WebView host (`WebViewPluginHost`) is plain Java built against `android.jar` and
-  has run in a real `WebView` on an Android 14 emulator. See Hosting a plugin in a WebView. A small JNI library binds the guest half of the
-shared [C engine](../../lib/plugin/README.md), which does the strict JSON parsing,
-request validation against the descriptor, deadlines and error sanitizing. The
-application supplies a descriptor and a `Handler`.
+- **Plugin** (`io.github.webong.ext.plugin`): author an `ext.plugin/v1` guest on the JVM over a small JNI
+  library that binds the guest half of the shared [C engine](../../lib/plugin/README.md), and host a
+  WebAssembly reactor in a WebView or in WAMR.
+- **Web** (`io.github.webong.ext.web`): the cookie, userscript and bookmarklet rules of
+  [`res/web`](../../res/web/README.md), ported to plain Java with no native code and run against the same
+  fixtures as Go. See Web rules.
 
-This package covers both halves for an app. Authoring a guest is the first part. The
+The web package imports nothing of the plugin package and loads no native library, and
+`scripts/ext-android-web.sh` fails if it ever does. It is still in the same AAR as the plugin code, so an
+app that wants only the web rules takes the native libraries and the minimum SDK with it.
+
+**Status:** verified in three ways.
+- The guest SDK is plain JVM and JNI; its tests run on a desktop JDK 17.
+- The JNI library is built with the NDK for arm64-v8a and x86_64 by `scripts/ext-android-release.sh`,
+  and the release workflow tests each AAR as shipped, in an app with R8 on, on an emulator.
+- The WebView host (`WebViewPluginHost`) is plain Java built against `android.jar` and has run in a
+  real `WebView` on an Android 14 emulator. Nothing has run on a physical device.
+- The web package has run on a desktop JDK only, and dexes with D8 for API 24; it has not run under ART
+  or R8. Android's `Character` case tables come from ICU, so check id derivation and the lower-casing of
+  non-ASCII hosts on a device before relying on them.
+
+The application supplies a descriptor and a `Handler`. The engine does the strict JSON parsing, request
+validation against the descriptor, deadlines and error sanitizing.
+
+The plugin part covers both halves for an app. Authoring a guest is the first part. The
 second is hosting a WebAssembly reactor in a hidden WebView (see Hosting a plugin in a
 WebView), the first route of [the mobile decision](../../docs/adr-mobile-wasm.md). The
 fallback route, an in-process interpreter, is the C backend in
 [`lib/plugin/wamr`](../../lib/plugin/wamr/README.md), bound here as an optional
-`WamrPluginHost` (see Hosting a plugin in WAMR). Nothing is published yet.
+`WamrPluginHost` (see Hosting a plugin in WAMR). Nothing is on Maven yet.
 
 ## Writing a plugin
 
@@ -47,6 +62,48 @@ try (Guest guest = new Guest(descriptor, call -> {
   throwable is private and becomes a generic `operation_failed`.
 - Long-running handlers call `Call.checkDeadline()`. Native code cannot be
   interrupted from outside.
+
+## Web rules
+
+`io.github.webong.ext.web` is the part of `res/web` a phone needs: the portable rules for browser
+cookies, userscripts and bookmarklets, in plain Java with no dependency.
+
+```java
+Site site = Site.parse("https://Example.com:8443/a?b=1");      // host lower-cased, escapes as Go's net/url
+Cookie cookie = Cookie.builder("sid", token, ".example.com", "/").secure(true).build();
+CookieRules.validate(cookie);                                   // field rules; the error never has the value
+CookieRules.matches(site, cookie, false);                       // domain, path, Secure and expiry
+
+UserscriptRecord record = Userscript.inferMetadata(new UserscriptRecord("app", "", "", null, null, source), "").signed();
+Userscript.validate(record);                                    // document-start, @grant none, explicit matches
+String script = Userscript.replaySource(record.id, record.revision, record.source,
+        record.matches, record.excludeMatches);
+// App code: register `script` to run at document start, for example with androidx.webkit's
+// WebViewCompat.addDocumentStartJavaScript(webView, script, allowedOriginRules).
+
+String url = Bookmarklet.encode("alert(document.title)");       // a javascript: URL, wrapped and percent-encoded
+String source = Bookmarklet.decode(url);                        // back to source for review; never evaluated
+```
+
+- Errors are checked exceptions: `SiteException`, `CookieException`, `UserscriptException` (its `code()` is
+  the stable, language-neutral code the fixtures check) and `BookmarkletException`.
+- `Cookie`, `CookieBundle` and `UserscriptRecord` read and write the wire form with `fromJson` and
+  `toJson`. A cookie's `toString()` prints its name, domain and path and never its value.
+- `UserscriptRecord.matches` and `excludeMatches` may be null because the revision digest tells `null`
+  from an empty list.
+- The rules are Go's, written out for Java. They are checked two ways: the language-neutral fixtures in
+  `res/web/testdata` (`cookie/v2`, `userscript/v1alpha1`, `bookmarklet/v1alpha1`), which the Go tests run too,
+  and `scripts/ext-web-differential.sh`, which compares the port with Go on about 94,000 generated URLs,
+  cookie domains, names and bookmarklet strings (all agree; Go 1.27 with `GODEBUG=urlstrictcolons=1`).
+- Not ported: the userscript file store (`Load`, `Save`, `List`; an app owns its storage) and the SQLite
+  cookie readers and extension packaging, which read desktop browser profiles. Also different on purpose:
+  the wording of `toString()`, JSON member names match exactly where Go ignores case, and a host with
+  several colons is refused (Go's default for that follows the consuming module's `go` line). Text must be
+  well-formed UTF-16; an unpaired surrogate is rejected where the rules ask for UTF-8.
+
+```sh
+scripts/ext-android-web.sh    # javac -Xlint:all -Werror and the tests; needs a JDK only
+```
 
 ## What a JVM guest cannot do
 
@@ -115,7 +172,8 @@ the shared fixtures, and `RouterTests` covers the router.
 ## Building and testing
 
 ```sh
-scripts/ext-android.sh          # needs a JDK and CMake
+scripts/ext-android.sh          # the plugin part; needs a JDK and CMake
+scripts/ext-android-web.sh      # the web part; needs a JDK only
 ```
 
 The script builds the JNI library with CMake, compiles the classes with
@@ -215,11 +273,9 @@ It is not on Maven Central: that waits until an outside app needs it. To build l
 
 ## Kotlin and Android
 
-Kotlin calls this API directly; there is no separate Kotlin layer yet.
-`CMakeLists.txt` and `ext_jni.c` are written to build unchanged with the Android
-NDK toolchain, but **neither the Kotlin usage nor an Android build has been
-compiled or run**: this repository's checks have no Kotlin compiler, Gradle or
-NDK. Packaging as an AAR, and distribution through Maven, are not done.
+Kotlin calls this API directly; there is no separate Kotlin layer yet. **No Kotlin has been compiled
+here**: the consumer app and the tests are Java, and this repository's checks have no Kotlin compiler.
+The NDK build and the packaging are done (see Distribution); Maven Central is not.
 
 Apple's App Store rule 2.5.2 and Google Play policy forbid downloading executable
 code, so a native plugin must ship inside the signed app bundle or package.
@@ -232,7 +288,7 @@ code, so a native plugin must ship inside the signed app bundle or package.
   "engine".
 - [The web engine](../../docs/web-engine.md) runs web content in a browser the host
   chooses, including the iOS Simulator and Android devices. It does not author plugins.
-- A WASM interpreter reachable from the C engine does not exist yet. Until it does,
-  a mobile app that hosts third-party plugins after release has no route that
-  satisfies the no-downloaded-code rules. That is open work shared with
-  `pkg/plugin-go/wasm`, which is Go and wazero.
+- A WASM interpreter reachable from the C engine exists as the optional WAMR host
+  (`lib/plugin/wamr`, `WamrPluginHost` here), run on an Android emulator; it has not run on a
+  physical device. `pkg/plugin-go/wasm`, which is Go and wazero, is the separate Go route.
+- [`res/web`](../../res/web/README.md) is the Go home of the rules the web package ports.

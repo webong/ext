@@ -84,6 +84,16 @@ reserved for the iOS SDK, which has no release job yet. Their `MINOR` and `PATCH
 independently; their `MAJOR` follows the repository-wide `MAJOR`.
 Library modules never use these tags, and bare `vX.Y.Z` tags are not used.
 
+`pkg/ext-ios` and `pkg/ext-android` were `pkg/plugin-ios` and `pkg/plugin-android` until they
+also carried the web code (cookie, userscript and bookmarklet rules) beside the plugin code. This
+was a hard cut: the tag forms `plugin-ios-vX.Y.Z` and `plugin-android-vX.Y.Z` are retired and the
+release workflow no longer watches them (the one release made under the old form,
+`plugin-android-v0.1.0`, stays as it was published), and the AARs are now
+`ext-android-X.Y.Z.aar` and `ext-android-wamr-X.Y.Z.aar` (were `ext-plugin-…`). The scripts
+`scripts/plugin-ios-*.sh` and `scripts/plugin-android*.sh` are `scripts/ext-ios-*.sh` and
+`scripts/ext-android*.sh`; the SwiftPM package is `Ext` (scheme `Ext-Package`) and its plugin
+products keep their `ExtPlugin…` names.
+
 The iOS SDK's engine archive is released under its own tag, `ext-ios-vX.Y.Z`; see
 [`pkg/ext-ios`](../pkg/ext-ios/README.md) and `scripts/ext-ios-release.sh`. It is
 not a Go module version either.

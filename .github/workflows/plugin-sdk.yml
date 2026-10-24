@@ -123,3 +123,30 @@ jobs:
           EXT_CENGINE_BUILD_DIR: ${{ runner.temp }}/ext-cengine-proof
           EXT_INTEROP_REUSE_CENGINE: '1'
         run: scripts/plugin-interop.sh
+
+  # The Swift and Java ports of the web rules (pkg/ext-ios ExtWeb, pkg/ext-android io.github.webong.ext.web)
+  # against res/web/testdata and against what the Go implementation answers for a generated corpus.
+  # Neither port needs the engine, so this does not wait for the C builds.
+  web-ports:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-14]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.27.x'  # the version the ports were checked against; net/url changes between releases
+          cache: true
+          cache-dependency-path: |
+            **/go.sum
+            go.work.sum
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - run: go test ./res/web/...
+        working-directory: res/web
+      - name: Swift and Java ports against Go
+        run: scripts/ext-web-differential.sh

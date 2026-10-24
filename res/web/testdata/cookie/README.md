@@ -17,3 +17,6 @@ cookie value.
 Cookie JSON uses the contract's field names (`http_only`, `same_site_policy`,
 `has_cross_site_ancestor`, `partition_key`). An `expiry` of 0 is a session
 cookie and 1 is already expired.
+
+The Swift port (`ExtWeb` in `pkg/ext-ios`) and the Java port (`io.github.webong.ext.web` in
+`pkg/ext-android`) run these files too.

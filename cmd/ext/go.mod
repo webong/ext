@@ -5,10 +5,10 @@ go 1.26.0
 require (
 	github.com/webong/ext/ctn v0.0.0
 	github.com/webong/ext/ctx v0.0.0
+	github.com/webong/ext/pkg/plugin-go/contract v0.7.0
 )
 
 require (
-	github.com/webong/ext/pkg/plugin-go/contract v0.7.0 // indirect
 	github.com/webong/ext/res/system v0.1.1 // indirect
 	github.com/webong/ext/res/web v0.5.1 // indirect
 	golang.org/x/sys v0.48.0 // indirect

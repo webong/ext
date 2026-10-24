@@ -25,19 +25,33 @@ type Command struct {
 	Run     func(args []string, stdout, stderr io.Writer) int
 }
 
-// Registry maps command names to the entry that runs them.
-type Registry struct {
-	commands map[string]Command
-}
-
-// New returns an empty registry.
-func New() *Registry { return &Registry{commands: map[string]Command{}} }
-
 // reserved names are ext's own subcommands; a command cannot take one.
 var reserved = map[string]bool{"commands": true, "which": true, "version": true, "help": true}
 
-// Register adds a command. A name is registered once: a second registration of the
-// same name is an error, so a command never shadows another silently.
+// Choice says why a command's entry was selected.
+type Choice string
+
+const (
+	ByDefault Choice = "default" // the builtin wins over a package of the same name
+	ByPin     Choice = "pin"     // a standing choice for this command in the ext config
+	ByFlag    Choice = "flag"    // --source for this invocation
+)
+
+// Registry maps command names to the entries that can run them. A name may be
+// registered once per source, so a package that declares a name a builtin already
+// has is kept beside it, never silently replacing it.
+type Registry struct {
+	commands map[string][]Command
+	pins     map[string]Source
+}
+
+// New returns an empty registry.
+func New() *Registry {
+	return &Registry{commands: map[string][]Command{}, pins: map[string]Source{}}
+}
+
+// Register adds a command. A name is registered once per source; registering it
+// again for the same source is an error.
 func (r *Registry) Register(c Command) error {
 	if c.Name == "" || c.Run == nil {
 		return fmt.Errorf("registry: a command needs a name and a Run function")
@@ -45,29 +59,96 @@ func (r *Registry) Register(c Command) error {
 	if reserved[c.Name] {
 		return fmt.Errorf("registry: %q is an ext subcommand and cannot be a command name", c.Name)
 	}
-	if c.Source != Builtin && c.Source != Package {
+	if !validSource(c.Source) {
 		return fmt.Errorf("registry: command %q has unknown source %q", c.Name, c.Source)
 	}
-	if prev, ok := r.commands[c.Name]; ok {
-		return fmt.Errorf("registry: command %q is already registered as %s", c.Name, prev.Source)
+	for _, prev := range r.commands[c.Name] {
+		if prev.Source == c.Source {
+			return fmt.Errorf("registry: command %q is already registered as %s", c.Name, prev.Source)
+		}
 	}
-	r.commands[c.Name] = c
+	r.commands[c.Name] = append(r.commands[c.Name], c)
 	return nil
 }
 
-// Lookup returns the command registered under name.
-func (r *Registry) Lookup(name string) (Command, bool) {
-	c, ok := r.commands[name]
-	return c, ok
+func validSource(s Source) bool { return s == Builtin || s == Package }
+
+// Pin records the standing source for one command. It does not require the
+// command to be registered yet, because packages are discovered after the config
+// is read; a pin to a source the command lacks fails when the command is resolved.
+func (r *Registry) Pin(name string, source Source) error {
+	if !validSource(source) {
+		return fmt.Errorf("registry: cannot pin %q to unknown source %q", name, source)
+	}
+	r.pins[name] = source
+	return nil
 }
 
-// List returns every command ordered by name.
-func (r *Registry) List() []Command {
-	out := make([]Command, 0, len(r.commands))
-	for _, c := range r.commands {
-		out = append(out, c)
+// Resolve picks the entry that runs name. A requested source (the --source flag)
+// wins over a pin, and a pin wins over the default, which prefers the builtin. A
+// chosen source the command does not have is an error, never a fallback.
+func (r *Registry) Resolve(name string, requested Source) (Command, Choice, error) {
+	entries := r.commands[name]
+	if len(entries) == 0 {
+		return Command{}, "", fmt.Errorf("%w: %s", ErrUnknown, name)
 	}
-	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
+	pick := func(source Source) (Command, bool) {
+		for _, c := range entries {
+			if c.Source == source {
+				return c, true
+			}
+		}
+		return Command{}, false
+	}
+	if requested != "" {
+		if !validSource(requested) {
+			return Command{}, "", fmt.Errorf("registry: unknown source %q", requested)
+		}
+		c, ok := pick(requested)
+		if !ok {
+			return Command{}, "", fmt.Errorf("registry: command %q has no %s source", name, requested)
+		}
+		return c, ByFlag, nil
+	}
+	if pinned, ok := r.pins[name]; ok {
+		c, ok := pick(pinned)
+		if !ok {
+			return Command{}, "", fmt.Errorf("registry: command %q is pinned to %s but has no such source", name, pinned)
+		}
+		return c, ByPin, nil
+	}
+	if c, ok := pick(Builtin); ok {
+		return c, ByDefault, nil
+	}
+	return entries[0], ByDefault, nil
+}
+
+// ErrUnknown is returned by Resolve for a name nothing registered.
+var ErrUnknown = fmt.Errorf("registry: unknown command")
+
+// Entry is one registered command and whether it is the one that runs by default
+// (no flag), after pins.
+type Entry struct {
+	Command
+	Active bool
+}
+
+// List returns every entry ordered by name, then source, marking the one a plain
+// invocation runs.
+func (r *Registry) List() []Entry {
+	var out []Entry
+	for name, entries := range r.commands {
+		active, _, err := r.Resolve(name, "")
+		for _, c := range entries {
+			out = append(out, Entry{Command: c, Active: err == nil && c.Source == active.Source})
+		}
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].Name != out[j].Name {
+			return out[i].Name < out[j].Name
+		}
+		return out[i].Source < out[j].Source
+	})
 	return out
 }
 

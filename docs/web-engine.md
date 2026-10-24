@@ -175,7 +175,7 @@ emulator and simulator results only:
 | iOS 18.3 Simulator, Safari 18.3 | WASI plugin guest | pass: instantiate 118 ms, handshake 112 ms, echo 2 ms |
 | iOS 18.3 Simulator | two-way channel | pass: ready 1,480 ms, echo 12.5 ms |
 | iOS 18.3 Simulator | outside fetch | blocked |
-| In-app WKWebView (`pkg/plugin-ios`, Rust reactor) | handshake and echo | pass: start-up 8.24 s, handshake 38 ms, Unicode echo 1.9 ms |
+| In-app WKWebView (`pkg/ext-ios`, Rust reactor) | handshake and echo | pass: start-up 8.24 s, handshake 38 ms, Unicode echo 1.9 ms |
 
 Two things worth knowing from it: the first two attempts to open the page in the
 simulator's Safari failed with "Operation timed out" (error 60) and the third worked, so

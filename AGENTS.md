@@ -150,8 +150,8 @@ Android, Rust and Zig bindings build from: edit it, run the script, commit both.
 Language SDKs and bindings belong under `pkg/<language>/` (Go, Rust, Zig and
 TypeScript), with language-specific embedding examples alongside them. The
 mobile SDKs are named for their platforms because they are native to them:
-`pkg/plugin-ios` (Swift, with Objective-C through the C headers) and
-`pkg/plugin-android` (Java, with Kotlin through the same API). Keep
+`pkg/ext-ios` (Swift, with Objective-C through the C headers) and
+`pkg/ext-android` (Java, with Kotlin through the same API). Keep
 `pkg/plugin-go` focused on the contract, the engine API and runtime backends. The Go-to-C guest binding belongs in
 `pkg/plugin-go/cengine/cshared/guest`. The language-neutral C ABI header
 (`lib/plugin/include/ext_plugin.h`) belongs to the engine; its constants and wire

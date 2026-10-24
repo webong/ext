@@ -157,18 +157,18 @@ func TestRustReactorGuest(t *testing.T) {
 	})
 }
 
-// javaGuest returns the launcher scripts/plugin-android.sh builds, or skips. Java is
+// javaGuest returns the launcher scripts/ext-android.sh builds, or skips. Java is
 // optional so ordinary runs need no JDK; the script sets EXT_JAVA_REQUIRED=1.
 func javaGuest(t *testing.T) string {
 	t.Helper()
 	if os.Getenv("EXT_JAVA_GUEST") == "" && os.Getenv("EXT_JAVA_REQUIRED") != "1" {
-		t.Skip("set EXT_JAVA_GUEST to the launcher built by scripts/plugin-android.sh")
+		t.Skip("set EXT_JAVA_GUEST to the launcher built by scripts/ext-android.sh")
 	}
 	return artifact(t, "JAVA_GUEST")
 }
 
 // TestJavaJSONLineGuest runs the conformance suite against the Java guest
-// process from pkg/plugin-android, over the JSON-line transport.
+// process from pkg/ext-android, over the JSON-line transport.
 func TestJavaJSONLineGuest(t *testing.T) {
 	p := javaGuest(t)
 	runGuestConformance(t, func(context.Context) (plugin.Backend, error) { return process(p) })
@@ -179,13 +179,13 @@ func TestJavaMalformedFrames(t *testing.T) {
 }
 
 // TestSwiftSharedGuest runs the conformance suite against the fixture that
-// pkg/plugin-ios builds, through the same cshared ABI the other languages use.
+// pkg/ext-ios builds, through the same cshared ABI the other languages use.
 //
 // Swift builds only on Apple platforms, so the artifact is optional elsewhere:
 // scripts/plugin-crosslang.sh sets EXT_SWIFT_REQUIRED=1 on macOS.
 func TestSwiftSharedGuest(t *testing.T) {
 	if os.Getenv("EXT_SWIFT_SHARED") == "" && os.Getenv("EXT_SWIFT_REQUIRED") != "1" {
-		t.Skip("set EXT_SWIFT_SHARED to the library built by pkg/plugin-ios")
+		t.Skip("set EXT_SWIFT_SHARED to the library built by pkg/ext-ios")
 	}
 	runGuestConformance(t, sharedBackend(t, artifact(t, "SWIFT_SHARED")))
 }

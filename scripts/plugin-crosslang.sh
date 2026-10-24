@@ -92,15 +92,15 @@ scripts/plugin-mobile-assets.sh --check
 # Swift builds on Apple platforms only. Its package tests run on the host, then
 # the dynamic fixture is checked through the same Go cshared suite as the others.
 if [[ "$(uname -s)" == Darwin ]]; then
-  scripts/plugin-ios-xcframework.sh
-  swift test --package-path pkg/plugin-ios --scratch-path "$build_dir/swift"
-  swift build --package-path pkg/plugin-ios --scratch-path "$build_dir/swift" --product ExtConformancePlugin
-  scripts/plugin-ios-objc.sh
+  scripts/ext-ios-xcframework.sh
+  swift test --package-path pkg/ext-ios --scratch-path "$build_dir/swift"
+  swift build --package-path pkg/ext-ios --scratch-path "$build_dir/swift" --product ExtConformancePlugin
+  scripts/ext-ios-objc.sh
   export EXT_SWIFT_SHARED="$build_dir/swift/debug/libExtConformancePlugin.dylib" EXT_SWIFT_REQUIRED=1
 fi
 # Java runs over JNI on any host with a JDK. Its guest is a JSON-line process.
 if command -v javac >/dev/null 2>&1; then
-  scripts/plugin-android.sh "$build_dir/java"
+  scripts/ext-android.sh "$build_dir/java"
   export EXT_JAVA_GUEST="$build_dir/java/ext-java-guest" EXT_JAVA_REQUIRED=1
   export EXT_JAVA_FRAMES_GUEST="$build_dir/java/ext-java-frames-guest"
   EXT_FRAMES_REQUIRED="$EXT_FRAMES_REQUIRED JAVA"

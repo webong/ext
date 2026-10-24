@@ -57,8 +57,8 @@ def java():
     return '\n'.join(out) + '\n'
 
 targets = {
-    'pkg/plugin-ios/Sources/ExtPluginWebView/GeneratedAssets.swift': swift(),
-    'pkg/plugin-android/src/android/java/io/github/webong/ext/plugin/webview/GeneratedAssets.java': java(),
+    'pkg/ext-ios/Sources/ExtPluginWebView/GeneratedAssets.swift': swift(),
+    'pkg/ext-android/src/android/java/io/github/webong/ext/plugin/webview/GeneratedAssets.java': java(),
 }
 stale = []
 for path, content in targets.items():

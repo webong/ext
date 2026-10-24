@@ -1,7 +1,7 @@
 name: Plugin WAMR host
 
-# The optional in-process WebAssembly host (WAMR) bound into pkg/plugin-ios and
-# pkg/plugin-android. It is deliberately not part of default CI: it fetches WAMR, builds an
+# The optional in-process WebAssembly host (WAMR) bound into pkg/ext-ios and
+# pkg/ext-android. It is deliberately not part of default CI: it fetches WAMR, builds an
 # interpreter and boots an emulator and a simulator. It runs by hand, and on pushes and pull
 # requests that touch the code it builds, so it costs nothing while those paths are untouched.
 #
@@ -31,12 +31,12 @@ on:
     paths:
       - '.github/workflows/plugin-wamr.yml'
       - 'scripts/plugin-*wamr*.sh'
-      - 'scripts/plugin-ios-xcframework.sh'
-      - 'scripts/plugin-android-release.sh'
-      - 'scripts/plugin-android-consumer.sh'
+      - 'scripts/ext-ios-xcframework.sh'
+      - 'scripts/ext-android-release.sh'
+      - 'scripts/ext-android-consumer.sh'
       - 'examples/android-consumer/**'
-      - 'pkg/plugin-android/**'
-      - 'pkg/plugin-ios/**'
+      - 'pkg/ext-android/**'
+      - 'pkg/ext-ios/**'
       - 'pkg/plugin-go/cengine/cshared/**'
       - 'lib/plugin/**'
       - 'pkg/plugin-rust/**'
@@ -44,12 +44,12 @@ on:
     paths:
       - '.github/workflows/plugin-wamr.yml'
       - 'scripts/plugin-*wamr*.sh'
-      - 'scripts/plugin-ios-xcframework.sh'
-      - 'scripts/plugin-android-release.sh'
-      - 'scripts/plugin-android-consumer.sh'
+      - 'scripts/ext-ios-xcframework.sh'
+      - 'scripts/ext-android-release.sh'
+      - 'scripts/ext-android-consumer.sh'
       - 'examples/android-consumer/**'
-      - 'pkg/plugin-android/**'
-      - 'pkg/plugin-ios/**'
+      - 'pkg/ext-android/**'
+      - 'pkg/ext-ios/**'
       - 'pkg/plugin-go/cengine/cshared/**'
       - 'lib/plugin/**'
       - 'pkg/plugin-rust/**'
@@ -85,7 +85,7 @@ jobs:
         with:
           path: .cache/ext
           key: wamr-${{ hashFiles('scripts/plugin-wamr.sh') }}
-      - run: scripts/plugin-android-wamr.sh
+      - run: scripts/ext-android-wamr.sh
 
   # Android emulator: cross-builds with the NDK and runs the same 12 checks in a test app, then
   # tests the staged AAR the way an app consumes it. The
@@ -127,9 +127,9 @@ jobs:
           # One boot, three suites: the WAMR host in a test app, then an app that consumes the
           # staged AAR (R8 on) with the default build and with the WAMR build.
           script: |
-            scripts/plugin-android-wamr-device.sh
-            scripts/plugin-android-consumer.sh
-            scripts/plugin-android-consumer.sh --with-wamr
+            scripts/ext-android-wamr-device.sh
+            scripts/ext-android-consumer.sh
+            scripts/ext-android-consumer.sh --with-wamr
 
   # One macOS job for both Apple suites, because macOS minutes cost about ten times Linux:
   # the Swift tests on the host, then the same tests in an iOS Simulator.
@@ -148,7 +148,7 @@ jobs:
           path: .cache/ext
           key: wamr-${{ hashFiles('scripts/plugin-wamr.sh') }}
       - name: macOS (Swift tests on the host)
-        run: scripts/plugin-ios-wamr.sh
+        run: scripts/ext-ios-wamr.sh
       - name: iOS Simulator
         run: |
           set -euo pipefail
@@ -159,6 +159,6 @@ jobs:
           # The frameworks were built by the step above. Pick an installed iPhone simulator.
           device="$(xcrun simctl list devices available | grep -m1 -E 'iPhone' | sed -E 's/^ *(.*) \(([0-9A-F-]{36})\).*/\2/')"
           [[ -n "$device" ]] || { echo 'no iPhone simulator is installed' >&2; exit 1; }
-          cd pkg/plugin-ios
-          TEST_RUNNER_EXT_RUST_REACTOR="$reactor" xcodebuild test -scheme ExtPlugin-Package \
+          cd pkg/ext-ios
+          TEST_RUNNER_EXT_RUST_REACTOR="$reactor" xcodebuild test -scheme Ext-Package \
             -destination "platform=iOS Simulator,id=$device" -only-testing:ExtPluginWamrTests

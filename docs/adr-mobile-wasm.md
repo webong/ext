@@ -182,5 +182,5 @@ device has been used.
 - WAMR on a physical device (it was built for and run on the iOS Simulator and an Android
   emulator), and wasmi, which was not built for either.
 
-The Swift and Java bindings belong to the mobile SDK work (`pkg/plugin-ios`,
-`pkg/plugin-android`). This record covers only how a mobile host runs WebAssembly.
+The Swift and Java bindings belong to the mobile SDK work (`pkg/ext-ios`,
+`pkg/ext-android`). This record covers only how a mobile host runs WebAssembly.

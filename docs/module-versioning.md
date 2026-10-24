@@ -78,14 +78,14 @@ slash would read as a Go module tag for a directory that does not exist and
 makes download URLs ambiguous. GitHub's "latest" release is repository-wide, so
 `install.sh` and `install.ps1` resolve the newest `ctx-v*` release instead of
 `latest/download`, and ctn releases are published with `--latest=false`.
-The mobile SDKs follow the same dash form: `plugin-android-vX.Y.Z` releases the Android AARs
-(`.github/workflows/plugin-release.yml`, published with `--latest=false`) and `plugin-ios-vX.Y.Z` is
+The mobile SDKs follow the same dash form: `ext-android-vX.Y.Z` releases the Android AARs
+(`.github/workflows/plugin-release.yml`, published with `--latest=false`) and `ext-ios-vX.Y.Z` is
 reserved for the iOS SDK, which has no release job yet. Their `MINOR` and `PATCH` move
 independently; their `MAJOR` follows the repository-wide `MAJOR`.
 Library modules never use these tags, and bare `vX.Y.Z` tags are not used.
 
-The iOS SDK's engine archive is released under its own tag, `plugin-ios-vX.Y.Z`; see
-[`pkg/plugin-ios`](../pkg/plugin-ios/README.md) and `scripts/plugin-ios-release.sh`. It is
+The iOS SDK's engine archive is released under its own tag, `ext-ios-vX.Y.Z`; see
+[`pkg/ext-ios`](../pkg/ext-ios/README.md) and `scripts/ext-ios-release.sh`. It is
 not a Go module version either.
 
 Because of this, `GOWORK=off go build ./...` inside a library module fails until

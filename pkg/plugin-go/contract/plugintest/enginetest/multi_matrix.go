@@ -1,6 +1,4 @@
-//go:build ext_cengine && cgo && (darwin || linux || windows)
-
-package goengine
+package enginetest
 
 import (
 	"encoding/json"
@@ -63,9 +61,9 @@ func multiMutations(doc any, k, count int, seed int64) []json.RawMessage {
 	return out
 }
 
-func readJSON(t *testing.T, path string) (json.RawMessage, map[string]any) {
+func (e Engine) readJSON(t *testing.T, name string) (json.RawMessage, map[string]any) {
 	t.Helper()
-	data, err := os.ReadFile(path)
+	data, err := e.fixture(t, name)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -76,15 +74,15 @@ func readJSON(t *testing.T, path string) (json.RawMessage, map[string]any) {
 	return data, doc
 }
 
-// TestMultiFieldMutationDifferential changes three and four independent positions of a
+// MultiFieldMutationDifferential changes three and four independent positions of a
 // valid descriptor, request, response, progress frame, reverse request and package
 // manifest at once and requires the C engine and the Go code to agree on whether the
 // result is valid. The descriptor and request documents also carry the members that
 // progress events and reverse calls added: an operation's progress flag, the reverse
 // list, a request's rate and parent. EXT_PAIR_SCALE multiplies every sample size.
-func TestMultiFieldMutationDifferential(t *testing.T) {
-	data, base := readJSON(t, "../../../lib/plugin/testdata/v1/descriptor.json")
-	framesData, framesBase := readJSON(t, "../../../lib/plugin/testdata/v1/frames-descriptor.json")
+func MultiFieldMutationDifferential(t *testing.T, e Engine) {
+	data, base := e.readJSON(t, "v1/descriptor.json")
+	framesData, framesBase := e.readJSON(t, "v1/frames-descriptor.json")
 	var d, fd plugin.Descriptor
 	if err := plugin.Decode(data, &d); err != nil || d.Validate() != nil {
 		t.Fatalf("fixture invalid: %v", err)
@@ -133,7 +131,7 @@ func TestMultiFieldMutationDifferential(t *testing.T) {
 		if want == nil {
 			want = v.Validate()
 		}
-		_, got := EngineCall("descriptor.validate", raw)
+		_, got := e.Call("descriptor.validate", raw)
 		return want, got
 	}
 	requestCheck := func(selected plugin.Descriptor, selectedJSON json.RawMessage) func(json.RawMessage) (error, error) {
@@ -143,7 +141,7 @@ func TestMultiFieldMutationDifferential(t *testing.T) {
 			if want == nil {
 				want = plugin.ValidateRequest(selected, r)
 			}
-			_, got := service(t, "request.validate", map[string]any{"descriptor": selectedJSON, "request": raw})
+			_, got := e.service(t, "request.validate", map[string]any{"descriptor": selectedJSON, "request": raw})
 			return want, got
 		}
 	}
@@ -153,16 +151,16 @@ func TestMultiFieldMutationDifferential(t *testing.T) {
 		if want == nil {
 			want = r.Validate("1")
 		}
-		_, got := service(t, "response.validate", map[string]any{"requestID": "1", "response": raw})
+		_, got := e.service(t, "response.validate", map[string]any{"requestID": "1", "response": raw})
 		return want, got
 	}
 	frameCheck := func(raw json.RawMessage) (error, error) {
-		_, got := EngineCall("frame.validate", raw)
+		_, got := e.Call("frame.validate", raw)
 		return goFrameValidates(raw), got
 	}
 	manifestCheck := func(raw json.RawMessage) (error, error) {
 		_, want := packagekit.Decode(raw)
-		_, got := EngineCall("package.validate", raw)
+		_, got := e.Call("package.validate", raw)
 		return want, got
 	}
 	for k := 3; k <= 4; k++ {

@@ -13,6 +13,21 @@ the manifest, route and schema functions, the digests, and the `store` and
 `host` packages. Engine-only APIs (`Host`, `Streams`, `Instances`, `NewProcess`)
 need the C engine build. Both builds are tested in CI.
 
+### Running the comparison against an engine
+
+The pure-Go contract is the oracle. The checks that hold an engine's pure services against it
+(descriptor, request, response, frame, manifest, schema and endpoint validation, descriptor
+matching, case folding; 19 checks, among them the pairwise, multi-field and generated-schema
+differentials) are an importable package, `pkg/plugin-go/contract/plugintest/enginetest`, that
+takes an `enginetest.Engine`: a name, the engine's `Call(operation, json)` and the directory of the
+shared fixtures. The C engine's runs are in `pkg/plugin-go/cengine/engine_checks_test.go`, under the
+names the checks have always had (`TestPairwiseMutationDifferential` and the rest). Another build of
+the same engine, or another binding of it, runs the same checks with its own `Engine`
+(`enginetest.Run`), and a check that passes for it passes for the same reasons. The session,
+instance, stream, capability, process and observer differentials still live in the `cengine`
+package, because they open sessions and managers through its API; moving them behind the same
+kind of interface is the next step.
+
 ## Required destination
 
 CTX is in development. The shared engine must reach the current Go SDK's
@@ -88,7 +103,7 @@ The same engine has been called from Go, Rust, Zig and Node. New binding checks
 cover Rust services/cancellation/guests and resource leases, Zig generated host/guest
 and resource APIs, and Node async handlers, policy, cancellation, late promises,
 integrity, observation and cleanup. A deadline-rounding regression has repeated
-Go race checks. Go's decoder now rejects unpaired surrogate escapes, as the C parser does, instead of silently substituting U+FFFD. Raw optional-null and numeric schema cases compare against Go, as do the generated schema and contract mutation matrices (`schema_matrix_test.go`, `contract_matrix_test.go`). Node instance and stream managers pass their lifecycle suite; the full Node suite (11 tests, three runs) also ran clean under AddressSanitizer and UndefinedBehaviorSanitizer on macOS. Preload the sanitizer runtime into a re-signed copy of `node` and run it directly: wrapping it in `timeout` makes the runtime abort with an interceptor error, which is a harness artifact, not an engine defect.
+Go race checks. Go's decoder now rejects unpaired surrogate escapes, as the C parser does, instead of silently substituting U+FFFD. Raw optional-null and numeric schema cases compare against Go, as do the generated schema and contract mutation matrices (`SchemaMatrixDifferential`, `ContractMutationDifferential` in `enginetest`). Node instance and stream managers pass their lifecycle suite; the full Node suite (11 tests, three runs) also ran clean under AddressSanitizer and UndefinedBehaviorSanitizer on macOS. Preload the sanitizer runtime into a re-signed copy of `node` and run it directly: wrapping it in `timeout` makes the runtime abort with an interceptor error, which is a harness artifact, not an engine defect.
 
 The production bridge passed both directions with gRPC and net/rpc under Go and
 C-backed sessions. The C-session runtime matrix passed Rust/Zig JSON-line, native

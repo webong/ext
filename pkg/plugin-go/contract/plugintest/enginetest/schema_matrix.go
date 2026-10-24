@@ -1,6 +1,4 @@
-//go:build ext_cengine && cgo && (darwin || linux || windows)
-
-package goengine
+package enginetest
 
 import (
 	"encoding/json"
@@ -53,13 +51,13 @@ func matrixValues() []string {
 	}
 }
 
-func TestSchemaMatrixDifferential(t *testing.T) {
+func SchemaMatrixDifferential(t *testing.T, e Engine) {
 	schemas, values := matrixSchemas(), matrixValues()
 	checked := 0
 	for i, s := range schemas {
 		goInvalid := s.Validate()
 		raw, _ := json.Marshal(s)
-		_, cInvalid := EngineCall("schema.validate", raw)
+		_, cInvalid := e.Call("schema.validate", raw)
 		if (goInvalid == nil) != (cInvalid == nil) {
 			t.Fatalf("schema[%d] %s validate: Go=%v C=%v", i, raw, goInvalid, cInvalid)
 		}
@@ -68,7 +66,7 @@ func TestSchemaMatrixDifferential(t *testing.T) {
 		}
 		for _, v := range values {
 			want := s.Check(json.RawMessage(v))
-			got := CheckSchema(s, json.RawMessage(v))
+			got := e.checkSchema(s, json.RawMessage(v))
 			checked++
 			if (want == nil) != (got == nil) {
 				t.Errorf("schema[%d] %s value %q: Go=%v C=%v", i, raw, v, want, got)

@@ -1891,6 +1891,7 @@ static ext_status call_impl(ext_host *h, const uint8_t *input, size_t len,
                    progress->events_per_second > (1u << 20) ||
                    progress->bytes_per_second > (1u << 30)))
     return EXT_INVALID;
+  int64_t started = mono_ms();
   yyjson_doc *doc = ext_parse(input, len);
   if (!doc)
     return EXT_INVALID;
@@ -1905,10 +1906,32 @@ static ext_status call_impl(ext_host *h, const uint8_t *input, size_t len,
       !yyjson_is_str(yyjson_obj_get(ref, "name")) ||
       !yyjson_is_str(yyjson_obj_get(ref, "version")) || !yyjson_is_str(name))
     goto done;
+  /* A call that is refused before it has a request is reported without an id,
+   * as the Go session reports it, and in the same order: a caller that is
+   * already canceled, an operation the descriptor does not list, then a
+   * session that is no longer ready. */
+  if (canceled(options)) {
+    observe_event(h, options, "invoke", call, EXT_CANCELED, NULL, started);
+    status = EXT_CANCELED;
+    goto done;
+  }
   yyjson_val *operation =
       ext_lookup(yyjson_doc_get_root(h->selection), ref, name);
   if (!operation) {
+    observe_event(h, options, "invoke", call, EXT_UNSUPPORTED, NULL, started);
     status = EXT_UNSUPPORTED;
+    goto done;
+  }
+  pthread_mutex_lock(&h->mu);
+  ext_status gate = h->closed || h->state == EXT_HOST_FAILED ||
+                            h->state == EXT_HOST_CLOSED
+                        ? EXT_CLOSED
+                    : h->state == EXT_HOST_DRAINING ? EXT_DRAINING
+                                                    : EXT_OK;
+  pthread_mutex_unlock(&h->mu);
+  if (gate) {
+    observe_event(h, options, "invoke", call, gate, NULL, started);
+    status = gate;
     goto done;
   }
   pthread_mutex_lock(&h->mu);

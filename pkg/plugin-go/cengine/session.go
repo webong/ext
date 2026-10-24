@@ -127,6 +127,7 @@ func openSession(ctx context.Context, d plugin.Descriptor, options plugin.Option
 		return options.Authorize(ctx, r)
 	}
 	policy.observer = options.Observer
+	h.observer = options.Observer
 	if err = status(C.ext_go_set_hooks(h.ptr, C.uintptr_t(h.policy))); err != nil {
 		h.Destroy()
 		return nil, err
@@ -189,7 +190,13 @@ func ctxGoContextPolicy(handle C.uintptr_t, kind C.int, caller C.uintptr_t, data
 	if f == nil {
 		return ctxGoPolicy(handle, kind, data, n)
 	}
-	if recordCallbackError(ctx, f(ctx, C.GoBytes(unsafe.Pointer(data), C.int(n)))) == nil {
+	err := recordCallbackError(ctx, f(ctx, C.GoBytes(unsafe.Pointer(data), C.int(n))))
+	if kind == 0 {
+		p.verifyMu.Lock()
+		p.verifyErr = err
+		p.verifyMu.Unlock()
+	}
+	if err == nil {
 		return 0
 	}
 	return 1
@@ -213,6 +220,15 @@ func ctxGoObserver(handle C.uintptr_t, caller C.uintptr_t, data *C.uint8_t, n C.
 	}
 	if plugin.Decode(C.GoBytes(unsafe.Pointer(data), C.int(n)), &event) != nil {
 		return
+	}
+	if event.Stage == "verify" && event.Code == "denied" {
+		// The Go session reports the verify stage with the policy's own error, which is
+		// "failed" for an error that does not say it denied.
+		p.verifyMu.Lock()
+		if p.verifyErr != nil {
+			event.Code = eventCode(p.verifyErr)
+		}
+		p.verifyMu.Unlock()
 	}
 	ctx := context.Background()
 	if caller != 0 {

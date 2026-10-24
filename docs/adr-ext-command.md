@@ -12,12 +12,14 @@ one command, `ext`, that runs either of them or any other command.
 
 ## Decisions
 
-**ctx and ctn become libraries.** `src/ctx` moves to `pkg/ctx` and `src/ctn` to
-`pkg/ctn`. Each stays its own Go module, with its private code in `internal/` and a
-small exported API, and is `go get`-resolvable. Both keep a `cmd/` directory in the
-same module with the standalone `main`. Hard cut: the old `src/` directories and the
-`github.com/webong/ext/ctx` and `.../ctn` module paths are removed, with no
-forwarding stub, and `src/` goes away as a container.
+**ctx and ctn become libraries, and stay in `src/`.** `src/ctx` and `src/ctn` do not
+move; `src/` stays the container for the products. Each stays its own Go module, with
+its private code in `internal/` and a small exported API, and both keep a `cmd/`
+directory in the same module with the standalone `main`. What changes is the module
+path: it now omits `src/`, which is why neither can be fetched with `go get`. The
+path is aligned with the directory (`github.com/webong/ext/src/ctx` and
+`.../src/ctn`), so the modules resolve and are tagged `src/ctx/vX.Y.Z` and
+`src/ctn/vX.Y.Z`. Hard cut: the old module paths are removed, with no forwarding stub.
 
 **One entry contract.** Each library exports the entry point it already has
 internally, `app.Run(args []string, stdout, stderr io.Writer) int`, as
@@ -34,7 +36,7 @@ two entries. `ext` is a plugin host, so it runs any other command a package
 declares through the same path.
 
 **ctx and ctn do not import each other.** Only `ext` imports both, and
-`src/ctx/internal/arch` (moved with ctx) enforces it: a product never imports
+`src/ctx/internal/arch` enforces it: a product never imports
 another product, and shared code goes in `pkg/` or `res/`.
 
 ## The command registry
@@ -70,8 +72,8 @@ its first first-party users.
 
 There are two tag families, because a library and a binary are different things:
 
-- **Module tags** for the libraries and the command module: `pkg/ctx/vX.Y.Z`,
-  `pkg/ctn/vX.Y.Z`, `cmd/ext/vX.Y.Z`, versioned and released with the rest of the
+- **Module tags** for the libraries and the command module: `src/ctx/vX.Y.Z`,
+  `src/ctn/vX.Y.Z`, `cmd/ext/vX.Y.Z`, versioned and released with the rest of the
   modules by the method in [module versioning](module-versioning.md).
 - **Binary tags** stay `ctx-vX.Y.Z` and `ctn-vX.Y.Z`, and add `ext-vX.Y.Z`. They are
   not Go module versions, and `install.sh` and `install.ps1` keep resolving the
@@ -92,9 +94,9 @@ trust state. Nothing about an existing `ctx` installation changes.
 
 ## Order of work
 
-1. Move `src/ctx` and `src/ctn` to `pkg/ctx` and `pkg/ctn`: module paths, `go.work`,
-   the arch tests, `AGENTS.md`, docs, the release workflows and scripts. Behavior is
-   unchanged; the standalone binaries are byte-for-byte equivalent in behavior.
+1. Align the module paths of `src/ctx` and `src/ctn` with their directories: the
+   `go.mod` files, imports, `go.work`, the arch tests, `AGENTS.md`, docs, the release
+   workflows and scripts. No directory moves, and behavior is unchanged.
 2. Export `Run` from both libraries and make the standalone `main` a one-liner.
 3. Add `cmd/ext` with the registry and the two builtins, and `ext commands`,
    `ext which`, `ext version`.

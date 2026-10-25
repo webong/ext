@@ -37,6 +37,15 @@ try {
     if (Test-Path (Join-Path $coreConfig 'catalog\adapters\docker')) { throw 'default Windows install copied an adapter catalog' }
     if (Test-Path (Join-Path $coreConfig 'adapters\docker')) { throw 'default Windows install activated Docker' }
 
+    $extBin = Join-Path $testRoot 'ext-bin'
+    $extConfig = Join-Path $testRoot 'ext-config'
+    & (Join-Path $root 'install.ps1') -BinDir $extBin -ConfigDir $extConfig -Ext
+    Assert-Success 'ext source installation'
+    $extVersion = (& (Join-Path $extBin 'ext.exe') version | Select-Object -First 1)
+    if ($extVersion -notmatch '^ext ') { throw "ext.exe version printed: $extVersion" }
+    $ctxViaExt = (& (Join-Path $extBin 'ext.exe') ctx version | Select-Object -First 1)
+    if ($ctxViaExt -notmatch '^ctx ') { throw "ext ctx version printed: $ctxViaExt" }
+
     & (Join-Path $root 'install.ps1') -BinDir $bin -ConfigDir $config -AllAdapters
     Assert-Success 'source installation'
     $completionTokens = $null; $completionErrors = $null

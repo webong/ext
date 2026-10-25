@@ -38,7 +38,8 @@ cleanup() {
 trap cleanup EXIT
 if [[ -z "$build_only" ]]; then "$adb" get-state >/dev/null; fi
 mkdir -p "$work/classes" "$work/dex"
-sources=(res/web/android/src/androidTest/java/io/github/webong/ext/web/workspacetest/*.java)
+sources=(res/web/android/src/androidTest/java/io/github/webong/ext/web/workspacetest/*.java
+  res/web/android/src/androidTest/java/io/github/webong/ext/web/android/*.java)
 classpath="$platform"
 inputs=()
 if [[ -n "$aar" ]]; then

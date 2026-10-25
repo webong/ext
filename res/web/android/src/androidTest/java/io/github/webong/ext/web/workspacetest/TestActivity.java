@@ -12,6 +12,7 @@ import java.util.Collections;
 
 public final class TestActivity extends Activity {
     private BrowserWorkspace workspace;
+    private BundleChecks bundles;
     private io.github.webong.ext.web.android.WorkspaceManagement router;
     private io.github.webong.ext.web.UserscriptStore store;
     private int phase, passed, failed;
@@ -202,6 +203,11 @@ public final class TestActivity extends Activity {
             catch (IllegalStateException expected) { check(true, "closed workspace rejects cookie access"); }
             catch (Exception unexpected) { check(false, "closed workspace cookie error"); }
         }
-        done = true; Log.i("EXTWORKSPACE", "DONE passed=" + passed + " failed=" + failed); }
-    @Override public void onDestroy() { done = true; if (workspace != null) workspace.close(); super.onDestroy(); }
+        if (bundles == null && failed == 0) {
+            bundles = new BundleChecks(this, this::check, this::reportDone);
+            bundles.start();
+        } else reportDone();
+    }
+    private void reportDone() { done = true; Log.i("EXTWORKSPACE", "DONE passed=" + passed + " failed=" + failed); }
+    @Override public void onDestroy() { done = true; if (bundles != null) bundles.close(); if (workspace != null) workspace.close(); super.onDestroy(); }
 }

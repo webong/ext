@@ -59,3 +59,5 @@ uses the portable `ExtWeb` userscript rules. Both products are shipped by
 `pkg/ext-ios`; native source lives here. See [workspace usage](WORKSPACE.md).
 `scripts/web-ios.sh` selects the portable rules tests;
 `scripts/web-workspace-ios.sh` selects the native WebKit integration tests.
+
+See [local web bundle runners](../BUNDLE_RUNNER.md) for native HTML/module execution, CSP, console events, host messaging and lifecycle handling.

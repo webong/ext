@@ -1,0 +1,47 @@
+{
+  "cases": [
+    {
+      "name": "strict",
+      "allowNet": false,
+      "allowOrigins": [],
+      "csp": "default-src 'none'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' blob:; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' data: blob:; font-src 'self' data: blob:; media-src 'self' data: blob:; worker-src 'self' blob:; form-action 'none'; frame-src 'none'; object-src 'none'; base-uri 'self'"
+    },
+    {
+      "name": "network",
+      "allowNet": true,
+      "allowOrigins": [
+        "https://ignored.invalid"
+      ],
+      "csp": "default-src 'none'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' blob:; style-src 'self' 'unsafe-inline'; connect-src *; img-src * data: blob:; font-src * data: blob:; media-src * data: blob:; worker-src 'self' blob:; form-action 'none'; frame-src 'none'; object-src 'none'; base-uri 'self'"
+    },
+    {
+      "name": "origins",
+      "allowNet": false,
+      "allowOrigins": [
+        "https://api.example.com",
+        "http://localhost:8080"
+      ],
+      "csp": "default-src 'none'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' blob:; style-src 'self' 'unsafe-inline'; connect-src 'self' https://api.example.com http://localhost:8080; img-src 'self' data: blob: https://api.example.com http://localhost:8080; font-src 'self' data: blob: https://api.example.com http://localhost:8080; media-src 'self' data: blob: https://api.example.com http://localhost:8080; worker-src 'self' blob:; form-action 'none'; frame-src 'none'; object-src 'none'; base-uri 'self'"
+    },
+    {
+      "name": "filter",
+      "allowNet": false,
+      "allowOrigins": [
+        "https://good.example",
+        "https://bad.example/path",
+        "https://bad.example; connect-src *",
+        "data:",
+        "https://bad.example\r\nX: y"
+      ],
+      "csp": "default-src 'none'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' blob:; style-src 'self' 'unsafe-inline'; connect-src 'self' https://good.example; img-src 'self' data: blob: https://good.example; font-src 'self' data: blob: https://good.example; media-src 'self' data: blob: https://good.example; worker-src 'self' blob:; form-action 'none'; frame-src 'none'; object-src 'none'; base-uri 'self'"
+    },
+    {
+      "name": "invalid-only",
+      "allowNet": false,
+      "allowOrigins": [
+        "https://bad.example/"
+      ],
+      "csp": "default-src 'none'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' blob:; style-src 'self' 'unsafe-inline'; connect-src 'self' ; img-src 'self' data: blob: ; font-src 'self' data: blob: ; media-src 'self' data: blob: ; worker-src 'self' blob:; form-action 'none'; frame-src 'none'; object-src 'none'; base-uri 'self'"
+    }
+  ]
+}

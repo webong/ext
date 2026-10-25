@@ -57,3 +57,5 @@ The `src/android` source set owns the Android WebView workspace and uses the
 portable rules in `src/main`. `pkg/ext-android` compiles both into its AAR.
 The JDK-only rules tests still build only `src/main` and `src/test`; native tests
 live in `src/androidTest`. See [workspace usage](WORKSPACE.md).
+
+See [local web bundle runners](../BUNDLE_RUNNER.md) for native HTML/module execution, CSP, console events, host messaging and lifecycle handling.

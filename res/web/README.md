@@ -59,3 +59,5 @@ See [mobile cookie workflows](COOKIE_WORKFLOWS.md) for portable import/export an
 See [mobile browser-management protocol](MANAGEMENT.md) for Swift/Java envelopes, validation, endpoint safety and backend dispatch.
 
 See [workspace management and persistence](WORKSPACE_MANAGEMENT.md) for native management routing and Go-compatible userscript storage.
+
+See [local web bundle runners](BUNDLE_RUNNER.md) for native HTML/module execution, CSP, console events, host messaging and lifecycle handling.

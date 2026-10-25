@@ -82,6 +82,10 @@ fi
 unzip -p "$out/$aar_name" classes.jar >"$work/check.jar"
 classes="$(unzip -Z1 "$work/check.jar")"
 grep -qx 'io/github/webong/ext/web/android/BrowserWorkspace.class' <<<"$classes" || { echo 'classes.jar is missing the browser workspace'; exit 1; }
+for entry in BundleRunner BundleServer BundleAssets; do
+  grep -qx "io/github/webong/ext/web/android/$entry.class" <<<"$classes" || { echo "classes.jar is missing $entry" >&2; exit 1; }
+done
+grep -qx 'io/github/webong/ext/web/BundlePolicy.class' <<<"$classes" || { echo 'classes.jar is missing BundlePolicy' >&2; exit 1; }
 grep -qx 'io/github/webong/ext/web/Cookie.class' <<<"$classes" || { echo 'classes.jar is missing the web rules' >&2; exit 1; }
 if [[ -z "$with_wamr" ]] && grep -q Wamr <<<"$classes"; then
   echo 'classes.jar contains WAMR classes' >&2; exit 1

@@ -513,6 +513,13 @@ public final class WebTests {
     }
 
     public static void main(String[] args) {
+        test("bundle policy", () -> {
+            for (Map<String, Object> c : cases(load("bundle/policy.json"), "cases")) {
+                List<String> origins = new ArrayList<>();
+                for (Object value : (List<?>) c.get("allowOrigins")) origins.add((String) value);
+                eq(str(c, "csp"), new BundlePolicy(Boolean.TRUE.equals(c.get("allowNet")), origins).contentSecurityPolicy(), str(c, "name"));
+            }
+        });
         test("workspace scripts", WebTests::workspaceScripts);
         test("cookie fixtures", WebTests::cookieFixtures);
         test("cookie workflows", CookieWorkflowTests::run);

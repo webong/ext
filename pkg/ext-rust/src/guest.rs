@@ -104,6 +104,15 @@ pub struct Registry {
     methods: BTreeMap<Key, (Operation, Handler)>,
     reverse: Vec<wire::Contract>,
 }
+
+fn invalid_input() -> Error {
+    Error::Remote(crate::RemoteError {
+        code: "invalid_input".into(),
+        message: "request payload does not satisfy operation contract".into(),
+        retry_after_milliseconds: 0,
+    })
+}
+
 impl Registry {
     pub fn new(identity: Identity) -> Result<Self> {
         identity.validate()?;
@@ -145,8 +154,8 @@ impl Registry {
         }
         let op = m.operation.clone();
         let dispatch: Handler = Arc::new(move |ctx, req| {
-            let input: I = wire::typed(req.payload.clone())?;
-            (m.validate_input)(&input)?;
+            let input: I = wire::typed(req.payload.clone()).map_err(|_| invalid_input())?;
+            (m.validate_input)(&input).map_err(|_| invalid_input())?;
             let out = handler(ctx, req, input)?;
             (m.validate_output)(&out)?;
             serde_json::to_value(out).map_err(|_| Error::Invalid)

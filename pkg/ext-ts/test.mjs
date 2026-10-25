@@ -26,9 +26,20 @@ test('typed JSON-line host and guest', async () => {
     const registry = new Registry({
         id: 'example/typed', revision: 'fixture-1'
     }).register(method, v => v);
+    const guest = registry.guest({ authorize() {
+        } });
+    const invalid = await guest.invoke({
+        apiVersion: 'ext.plugin/v1',
+        id: 'invalid',
+        plugin: registry.descriptor.identity,
+        contract: method.contract,
+        operation: method.operation.name,
+        deadline: new Date(Date.now() + 5000).toISOString(),
+        payload: 42
+    });
+    assert.equal(invalid.error.code, 'invalid_input');
     const a = new PassThrough(), b = new PassThrough();
-    const server = serveGuest(nodeIO(a, b), registry.guest({ authorize() {
-        } }));
+    const server = serveGuest(nodeIO(a, b), guest);
     const backend = new JSONLineBackend(nodeIO(b, a));
     const session = await Session.open(registry.descriptor, {
         verify(d) {

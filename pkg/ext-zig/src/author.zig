@@ -116,8 +116,11 @@ pub const Registry = struct {
         for (self.entries.items) |e| if (w.eq(u8, e.contract.name, method.contract.name) and w.eq(u8, e.contract.version, method.contract.version) and w.eq(u8, e.operation.name, method.operation.name)) return error.Invalid;
         const Dispatcher = struct {
             fn dispatch(ctx: *Context, r: w.Request, a: A) !w.Value {
-                const input = try w.typed(Input, a, r.payload);
-                try method.validate_input(input);
+                const input = w.typed(Input, a, r.payload) catch |err| switch (err) {
+                    error.OutOfMemory => return err,
+                    else => return ctx.fail(.{ .code = "invalid_input", .message = "request payload does not satisfy operation contract" }),
+                };
+                method.validate_input(input) catch return ctx.fail(.{ .code = "invalid_input", .message = "request payload does not satisfy operation contract" });
                 const output = try handler(ctx, r, input);
                 try method.validate_output(output);
                 return w.decode(a, try w.encode(a, output));

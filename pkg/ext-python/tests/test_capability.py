@@ -55,7 +55,7 @@ class CapabilityTest(unittest.TestCase):
         r = self.call("ext.health", "check", {}, "observation")
         self.assertEqual(r["payload"], {"status": "degraded", "ready": False})
         r = self.call("ext.health", "check", {"x": 1}, "observation")
-        self.assertEqual(r["error"]["code"], "invalid_request")
+        self.assertEqual(r["error"]["code"], "invalid_input")
 
     def test_health_result_is_validated(self):
         bad = cap.Router().health(lambda: {"status": "great", "ready": True})
@@ -78,7 +78,7 @@ class CapabilityTest(unittest.TestCase):
             dict(ok, instance=1),
         ]:
             r = self.call("ext.configuration", "update", bad, "configuration")
-            self.assertEqual(r["error"]["code"], "invalid_request", bad)
+            self.assertEqual(r["error"]["code"], "invalid_input", bad)
         self.assertEqual(len(self.updates), 1)
         long_ok = dict(ok, instance="x" * 256, revision="r" * 256)
         self.assertEqual(self.call("ext.configuration", "update", long_ok, "configuration")["payload"]["instance"], "x" * 256)
@@ -99,10 +99,10 @@ class CapabilityTest(unittest.TestCase):
             {"id": "s1", "sequence": 1.5, "limit": 1},
         ]:
             r = self.call("ext.stream", "read", bad)
-            self.assertEqual(r["error"]["code"], "invalid_request", bad)
+            self.assertEqual(r["error"]["code"], "invalid_input", bad)
         self.assertEqual(self.call("ext.stream", "close", {"id": "s1"})["payload"], {})
         self.assertEqual(self.closed, ["s1"])
-        self.assertEqual(self.call("ext.stream", "close", {"id": ""})["error"]["code"], "invalid_request")
+        self.assertEqual(self.call("ext.stream", "close", {"id": ""})["error"]["code"], "invalid_input")
 
     def test_batch_limits(self):
         cap.stream_batch({"items": [{"v": i} for i in range(cap.MAX_STREAM_ITEMS)], "done": False})

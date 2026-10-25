@@ -70,6 +70,11 @@ fn payloadOf(a: w.Allocator, response: w.Value) ![]u8 {
     try std.testing.expect(!response.object.contains("error"));
     return w.encode(a, try w.field(response, "payload"));
 }
+fn errorCode(response: w.Value) []const u8 {
+    const err = response.object.get("error") orelse return "";
+    return err.object.get("code").?.string;
+}
+
 fn repeated(a: w.Allocator, byte: u8, n: usize) ![]u8 {
     const bytes = try a.alloc(u8, n);
     @memset(bytes, byte);
@@ -245,7 +250,7 @@ test "a guest serves the capability contracts" {
     const stream_ref = stream.open_method.contract;
 
     try std.testing.expectEqualStrings("{\"status\":\"degraded\",\"ready\":false}", try payloadOf(a, try invoke(a, &g, health_ref, "check", "{}")));
-    try std.testing.expect((try invoke(a, &g, health_ref, "check", "{\"x\":1}")).object.contains("error"));
+    try std.testing.expectEqualStrings("invalid_input", errorCode(try invoke(a, &g, health_ref, "check", "{\"x\":1}")));
     try std.testing.expectEqual(@as(usize, 1), health_calls);
 
     try std.testing.expectEqualStrings("{\"instance\":\"one\",\"revision\":\"r1\"}", try payloadOf(a, try invoke(a, &g, config_ref, "update", "{\"instance\":\"one\",\"revision\":\"r1\",\"values\":{\"name\":\"a\"}}")));
@@ -263,12 +268,12 @@ test "a guest serves the capability contracts" {
         "{\"instance\":1,\"revision\":\"r1\",\"values\":{}}",
         too_long,
     }) |bad| {
-        try std.testing.expect((try invoke(a, &g, config_ref, "update", bad)).object.contains("error"));
+        try std.testing.expectEqualStrings("invalid_input", errorCode(try invoke(a, &g, config_ref, "update", bad)));
     }
     try std.testing.expectEqual(@as(usize, 2), updates);
 
     try std.testing.expectEqualStrings("{\"id\":\"s1\"}", try payloadOf(a, try invoke(a, &g, stream_ref, "open", "{\"parameters\":{}}")));
-    try std.testing.expect((try invoke(a, &g, stream_ref, "open", "{}")).object.contains("error"));
+    try std.testing.expectEqualStrings("invalid_input", errorCode(try invoke(a, &g, stream_ref, "open", "{}")));
     try std.testing.expectEqualStrings("{\"items\":[7,8],\"done\":false}", try payloadOf(a, try invoke(a, &g, stream_ref, "read", "{\"id\":\"s1\",\"sequence\":1,\"limit\":5}")));
     try std.testing.expectEqualStrings("{\"items\":[7],\"done\":true}", try payloadOf(a, try invoke(a, &g, stream_ref, "read", "{\"id\":\"s1\",\"sequence\":2,\"limit\":1}")));
     try std.testing.expectEqual(@as(usize, 2), reads);
@@ -281,11 +286,11 @@ test "a guest serves the capability contracts" {
         "{\"id\":\"s1\",\"sequence\":1.0,\"limit\":1}",
         "{\"id\":\"s1\",\"sequence\":true,\"limit\":1}",
     }) |bad| {
-        try std.testing.expect((try invoke(a, &g, stream_ref, "read", bad)).object.contains("error"));
+        try std.testing.expectEqualStrings("invalid_input", errorCode(try invoke(a, &g, stream_ref, "read", bad)));
     }
     try std.testing.expectEqual(@as(usize, 2), reads);
     try std.testing.expectEqualStrings("{}", try payloadOf(a, try invoke(a, &g, stream_ref, "close", "{\"id\":\"s1\"}")));
-    try std.testing.expect((try invoke(a, &g, stream_ref, "close", "{\"id\":\"\"}")).object.contains("error"));
+    try std.testing.expectEqualStrings("invalid_input", errorCode(try invoke(a, &g, stream_ref, "close", "{\"id\":\"\"}")));
     try std.testing.expectEqual(@as(usize, 1), closed);
 }
 
@@ -315,15 +320,9 @@ test "a handler that breaks the output rules is not answered" {
     try r.register(stream.ReadRequest, stream.Batch, stream.read_method, brokenRead);
     var g = try r.guest(allow);
     defer g.deinit();
-    const code = struct {
-        fn of(response: w.Value) []const u8 {
-            const e = response.object.get("error") orelse return "";
-            return e.object.get("code").?.string;
-        }
-    }.of;
-    try std.testing.expectEqualStrings("operation_failed", code(try invoke(a, &g, cap.health_method.contract, "check", "{}")));
-    try std.testing.expectEqualStrings("operation_failed", code(try invoke(a, &g, stream.open_method.contract, "open", "{\"parameters\":null}")));
-    try std.testing.expectEqualStrings("operation_failed", code(try invoke(a, &g, stream.read_method.contract, "read", "{\"id\":\"s\",\"sequence\":1,\"limit\":1}")));
+    try std.testing.expectEqualStrings("operation_failed", errorCode(try invoke(a, &g, cap.health_method.contract, "check", "{}")));
+    try std.testing.expectEqualStrings("operation_failed", errorCode(try invoke(a, &g, stream.open_method.contract, "open", "{\"parameters\":null}")));
+    try std.testing.expectEqualStrings("operation_failed", errorCode(try invoke(a, &g, stream.read_method.contract, "read", "{\"id\":\"s\",\"sequence\":1,\"limit\":1}")));
 }
 
 const Local = struct {

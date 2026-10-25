@@ -107,7 +107,7 @@ def stream_batch(value):
 class Router:
     """Dispatches (contract, operation) to registered functions, validating the
     payload before the call and the result after it. A payload that fails
-    validation is an ``invalid_request`` remote error; a result that fails is an
+    validation is an ``invalid_input`` remote error; a result that fails is an
     internal error, because it is the plugin's own bug."""
 
     def __init__(self):
@@ -149,7 +149,7 @@ class Router:
             if check_input:
                 check_input(payload)
         except ValueError:
-            raise RemoteError("invalid_request", "payload does not match the contract")
+            raise RemoteError("invalid_input", "request payload does not satisfy operation contract")
         result = function(payload)
         if check_output:
             check_output(result)  # a ValueError here is the plugin's bug and surfaces as an internal error

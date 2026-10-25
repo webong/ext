@@ -47,8 +47,10 @@ func TestTypedRegistry(t *testing.T) {
 		t.Fatal(result, err)
 	}
 	for _, raw := range []string{`{}`, `{"value":""}`, `{"value":"ok","unexpected":true}`, `{"value":"ok","value":"again"}`} {
-		if _, err := session.Call(context.Background(), m.Contract, "echo", json.RawMessage(raw)); err == nil {
-			t.Fatal(raw)
+		_, err := session.Call(context.Background(), m.Contract, "echo", json.RawMessage(raw))
+		var remote *plugin.RemoteError
+		if !errors.As(err, &remote) || remote.Code != "invalid_input" {
+			t.Fatalf("%s: got %v, want invalid_input", raw, err)
 		}
 	}
 	if count != 1 {

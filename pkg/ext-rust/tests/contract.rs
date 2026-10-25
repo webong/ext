@@ -6,7 +6,7 @@ use ext_plugin::{
 use serde::{Deserialize, Serialize};
 use std::{
     sync::{
-        atomic::{AtomicUsize, Ordering},
+        atomic::{AtomicBool, AtomicUsize, Ordering},
         Arc,
     },
     time::{Duration, SystemTime},
@@ -103,6 +103,24 @@ impl Backend for Local {
 fn typed_host_guest_policy_and_cleanup() {
     let r = registry();
     let g = r.guest(Arc::new(|_| Ok(()))).unwrap();
+    let response = g
+        .invoke(
+            Request {
+                api_version: VERSION.into(),
+                id: "invalid".into(),
+                plugin: r.descriptor().identity,
+                contract: method().contract,
+                operation: "echo".into(),
+                surface: String::new(),
+                deadline: wire::timestamp(SystemTime::now() + Duration::from_secs(5)).unwrap(),
+                payload: serde_json::json!({"text":"too long input"}),
+                progress: None,
+                parent: String::new(),
+            },
+            Arc::new(AtomicBool::new(false)),
+        )
+        .unwrap();
+    assert_eq!(response["error"]["code"], "invalid_input");
     let closed = Arc::new(AtomicUsize::new(0));
     let mut s = Session::open(
         r.descriptor(),

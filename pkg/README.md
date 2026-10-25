@@ -15,15 +15,15 @@ consumers.
 
 | Module | Depends on | Third-party dependencies |
 | --- | --- | --- |
-| [`plugin-go/contract`](plugin-go/contract/README.md) | nothing | none (standard library only) |
-| [`plugin-go/cengine`](plugin-go/cengine/README.md) | `plugin-go/contract` | none |
-| [`plugin-go/wasm`](plugin-go/wasm/README.md) | `plugin-go/contract` | `wazero` |
-| [`plugin-go/hashicorp`](plugin-go/hashicorp/README.md) | `plugin-go/contract` | `go-plugin`, `grpc`, `protobuf` |
+| [`plugin-go/engine`](plugin-go/engine/README.md) | nothing | none (standard library only) |
+| [`plugin-go/cgoengine`](plugin-go/cgoengine/README.md) | `plugin-go/engine` | none |
+| [`plugin-go/wasm`](plugin-go/wasm/README.md) | `plugin-go/engine` | `wazero` |
+| [`plugin-go/hashicorp`](plugin-go/hashicorp/README.md) | `plugin-go/engine` | `go-plugin`, `grpc`, `protobuf` |
 | [`plugin-go`](plugin-go/README.md) (umbrella) | all of the above, `res/system` | none |
 
-A consumer that only needs `plugin-go/contract` never downloads the C engine, the
+A consumer that only needs `plugin-go/engine` never downloads the C engine, the
 HashiCorp stack or the WASI runtime, and each backend is opt-in. A backend never
-depends on `cengine`.
+depends on `cgoengine`.
 
 | Library | Contents |
 | --- | --- |
@@ -45,9 +45,9 @@ headers live in [`lib/plugin`](../lib/plugin/README.md); these packages bind to 
 | [`ext-ios`](ext-ios/README.md) | Swift SDK for iOS and macOS: plugin guest and hosts (web view, WAMR) over the C engine, plus `ExtWeb`, the cookie, userscript and bookmarklet rules (the code is `res/web/ios`) |
 | [`ext-android`](ext-android/README.md) | Java SDK for Android: plugin guest and hosts (WebView, WAMR) over the C engine, plus the same web rules in `io.github.webong.ext.web` (the code is `res/web/android`) |
 
-The Go host binding import is `github.com/webong/ext/pkg/plugin-go/cengine`; its package
-name is `goengine`. Go guest C exports use
-`github.com/webong/ext/pkg/plugin-go/cengine/cshared/guest`.
+The Go host binding import is `github.com/webong/ext/pkg/plugin-go/cgoengine`; its package
+name is `cgoengine`. Go guest C exports use
+`github.com/webong/ext/pkg/plugin-go/cgoengine/cshared/guest`.
 
 C embedding examples live in each language's `examples/` directory. Native
 runtime integrations such as HashiCorp are separate modules

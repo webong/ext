@@ -73,7 +73,7 @@ Go's `plugin.ProgressFrom` and `ReverseFrom` behave there.
 
 ## Fixtures
 
-The Go contract is the oracle. `pkg/plugin-go/contract/sdk_fixtures_test.go`
+The Go contract is the oracle. `pkg/plugin-go/engine/sdk_fixtures_test.go`
 computes these files from it, checks the committed copies against them, and rewrites
 them with `EXT_UPDATE_FIXTURES=1`. Each SDK reproduces every outcome, as for
 `endpoint-cases.json`; the C engine does too (`lib/plugin/tests/fixtures.c`).

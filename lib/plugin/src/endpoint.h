@@ -3,7 +3,7 @@
 #include "wire.h"
 
 /* The loopback data endpoint a plugin's result declares and a host admits or
- * refuses. The reference is pkg/plugin-go/contract/endpoint: Decode, Check and
+ * refuses. The reference is pkg/plugin-go/engine/endpoint: Decode, Check and
  * Validate. The grant (a session-bound lifetime, one-time tokens, dialing) is the
  * binding's; the engine decides only whether an endpoint is acceptable, and says
  * so with a status, never with text: an endpoint is a credential, and nothing

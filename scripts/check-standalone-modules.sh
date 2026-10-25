@@ -7,7 +7,7 @@
 # published yet (a release in progress) cannot be checked until that tag
 # exists. It is skipped with a message and checked on a later run, so the
 # check never fails for the chicken-and-egg order of a release. Product modules
-# built with the workspace (src/ctx, src/ctn) are not checked.
+# built with the workspace (src/ctx, src/ctn, cmd/ext) are not checked.
 #
 # Environment:
 #   STANDALONE_OS   operating systems to vet, default "linux darwin windows"
@@ -30,7 +30,7 @@ published() { # <module path without prefix> <version>
 
 failed=0 checked=0 skipped=0
 for dir in $modules; do
-  case $dir in src/ctx|src/ctn) continue ;; esac
+  case $dir in src/ctx|src/ctn|cmd/ext) continue ;; esac
   [ -f "$dir/go.mod" ] || continue
   waiting=""
   while read -r path version; do
@@ -45,7 +45,9 @@ for dir in $modules; do
   checked=$((checked + 1))
   ok=1
   for goos in $systems; do
-    if ! (cd "$dir" && GOWORK=off GOPROXY=https://proxy.golang.org,direct GOFLAGS=-mod=readonly GOOS=$goos go vet ./... >/tmp/standalone.$$ 2>&1); then
+    # The translation of the C engine (pkg/plugin-go/c2goengine/internal/ccgo) is written by ccgo and
+    # reports thousands of vet diagnostics that are not ours to fix; every other package is vetted.
+    if ! (cd "$dir" && export GOWORK=off GOPROXY=https://proxy.golang.org,direct GOFLAGS=-mod=readonly GOOS=$goos && pkgs=$(go list ./...) && go vet $(printf '%s\n' "$pkgs" | grep -v '/internal/ccgo$') >/tmp/standalone.$$ 2>&1); then
       echo "FAIL $dir: go vet (GOOS=$goos)"; sed 's/^/    /' /tmp/standalone.$$ | head -8; ok=0; break
     fi
   done

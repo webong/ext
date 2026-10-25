@@ -3,7 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	goengine "github.com/webong/ext/pkg/plugin-go/cengine"
+	"github.com/webong/ext/pkg/plugin-go/cgoengine"
 	"io"
 	"net/url"
 	"os"
@@ -19,7 +19,7 @@ import (
 func main() { os.Exit(run(os.Args[1:], os.Stdin, os.Stdout, os.Stderr)) }
 
 func run(args []string, input io.Reader, stdout, stderr io.Writer) int {
-	request, err := goengine.ParseAdapterInvocation(args)
+	request, err := cgoengine.ParseAdapterInvocation(args)
 	if err != nil || request.Operation != "share" || runtime.GOOS != "darwin" {
 		fmt.Fprintln(stderr, "ctx: Safari sharing requires macOS")
 		return 2

@@ -2,7 +2,7 @@ name: Release native bundles
 
 on:
   push:
-    tags: ['ctx-v*', 'ctn-v*']
+    tags: ['ctx-v*', 'ctn-v*', 'ext-v*']
 
 permissions:
   contents: write
@@ -64,7 +64,7 @@ jobs:
             go.work.sum
       - name: Test library modules
         run: |
-          for module in src/ctx src/ctn res/system pkg/plugin-go pkg/plugin-go/contract pkg/plugin-go/cengine pkg/plugin-go/hashicorp pkg/plugin-go/wasm adapters/wasm adapters/evm res/web res/credential; do
+          for module in src/ctx src/ctn res/system pkg/plugin-go pkg/plugin-go/engine pkg/plugin-go/cgoengine pkg/plugin-go/hashicorp pkg/plugin-go/wasm adapters/wasm adapters/evm res/web res/credential; do
             (cd "$module" && go test ./...) || exit 1
           done
       - run: ./tests/native_test.sh
@@ -98,12 +98,43 @@ jobs:
             go.work.sum
       - name: Test ctn and the libraries it builds on
         run: |
-          for module in src/ctn res/system pkg/plugin-go pkg/plugin-go/contract pkg/plugin-go/cengine res/web res/credential; do
+          for module in src/ctn res/system pkg/plugin-go pkg/plugin-go/engine pkg/plugin-go/cgoengine res/web res/credential; do
             (cd "$module" && go test ./...) || exit 1
           done
       - run: sh ./scripts/build-release-ctn.sh "${GITHUB_REF_NAME#ctn-}" dist
       - name: Create checksums
         run: (cd dist && sha256sum ctn-* > checksums.txt)
+      - name: Attest release provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: 'dist/*'
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist/* --verify-tag --generate-notes --title "$GITHUB_REF_NAME" --latest=false
+
+  release-ext:
+    if: startsWith(github.ref_name, 'ext-v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # the embedded ctx and ctn versions are read from tags
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.x'
+          cache: true
+          cache-dependency-path: |
+            **/go.sum
+            go.work.sum
+      - name: Test ext and the libraries it builds on
+        run: |
+          for module in cmd/ext src/ctx src/ctn res/system pkg/plugin-go/engine pkg/plugin-go/cgoengine res/web res/credential; do
+            (cd "$module" && go test ./...) || exit 1
+          done
+      - run: sh ./scripts/build-release-ext.sh "${GITHUB_REF_NAME#ext-}" dist
+      - name: Create checksums
+        run: (cd dist && sha256sum ext-* > checksums.txt)
       - name: Attest release provenance
         uses: actions/attest-build-provenance@v2
         with:

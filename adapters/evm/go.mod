@@ -7,7 +7,7 @@ require (
 	github.com/holiman/uint256 v1.3.2
 )
 
-require github.com/webong/ext/pkg/plugin-go/contract v0.4.0 // indirect
+require github.com/webong/ext/pkg/plugin-go/engine v0.1.0 // indirect
 
 require (
 	github.com/StackExchange/wmi v1.2.1 // indirect
@@ -37,7 +37,7 @@ require (
 	github.com/supranational/blst v0.3.14 // indirect
 	github.com/tklauser/go-sysconf v0.3.12 // indirect
 	github.com/tklauser/numcpus v0.6.1 // indirect
-	github.com/webong/ext/pkg/plugin-go/cengine v0.4.0
+	github.com/webong/ext/pkg/plugin-go/cgoengine v0.1.0
 	golang.org/x/crypto v0.36.0 // indirect
 	golang.org/x/sync v0.12.0 // indirect
 	golang.org/x/sys v0.31.0 // indirect

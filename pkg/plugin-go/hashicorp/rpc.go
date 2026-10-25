@@ -3,7 +3,7 @@ package hashicorp
 import (
 	"context"
 	"encoding/json"
-	plugin "github.com/webong/ext/pkg/plugin-go/contract"
+	plugin "github.com/webong/ext/pkg/plugin-go/engine"
 	"net/rpc"
 	"sync"
 	"time"

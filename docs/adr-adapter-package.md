@@ -53,7 +53,7 @@ once, when it is reinstalled in the new form.
 a zip. The second record, `ctx-package.json`, is gone: the name and platform are
 in the manifest. The platform index is unchanged.
 
-**The loader.** `contract/host/adapter` stays a thin layer: `Adapter.Manifest` is
+**The loader.** `engine/host/adapter` stays a thin layer: `Adapter.Manifest` is
 the projection hosts already use, filled from the package document, and
 `Adapter.Package` is the document itself. The exported API hosts depend on
 (`NewStore`, `Home`, `Manifest`, `HasCapability`, `HasBrowserShare`,

@@ -40,7 +40,7 @@ on:
       - 'pkg/ext-ios/**'
       - 'res/web/android/**'
       - 'res/web/ios/**'
-      - 'pkg/plugin-go/cengine/cshared/**'
+      - 'pkg/plugin-go/cgoengine/cshared/**'
       - 'lib/plugin/**'
       - 'pkg/ext-rust/**'
   pull_request:
@@ -56,7 +56,7 @@ on:
       - 'pkg/ext-ios/**'
       - 'res/web/android/**'
       - 'res/web/ios/**'
-      - 'pkg/plugin-go/cengine/cshared/**'
+      - 'pkg/plugin-go/cgoengine/cshared/**'
       - 'lib/plugin/**'
       - 'pkg/ext-rust/**'
 

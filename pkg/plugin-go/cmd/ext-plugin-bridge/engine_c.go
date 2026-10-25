@@ -4,13 +4,13 @@ package main
 
 import (
 	"context"
-	goengine "github.com/webong/ext/pkg/plugin-go/cengine"
-	plugin "github.com/webong/ext/pkg/plugin-go/contract"
-	"github.com/webong/ext/pkg/plugin-go/contract/transport/bridge"
+	"github.com/webong/ext/pkg/plugin-go/cgoengine"
+	plugin "github.com/webong/ext/pkg/plugin-go/engine"
+	"github.com/webong/ext/pkg/plugin-go/engine/transport/bridge"
 )
 
 func openRelay(ctx context.Context, d plugin.Descriptor, o plugin.Options) (*bridge.Relay, error) {
-	session, err := goengine.Open(ctx, d, o)
+	session, err := cgoengine.Open(ctx, d, o)
 	if err != nil {
 		return nil, err
 	}

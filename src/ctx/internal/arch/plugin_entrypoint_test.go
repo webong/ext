@@ -9,15 +9,15 @@ import (
 	"testing"
 )
 
-// Go programs reach the plugin system through pkg/plugin-go/cengine, which
+// Go programs reach the plugin system through pkg/plugin-go/cgoengine, which
 // re-exports the data model that lives in the root package of
-// pkg/plugin-go/contract and runs on the C engine or in pure Go. Only the plugin
-// library itself and the runtime backends that implement contract.Backend
-// (pkg/plugin-go/hashicorp, pkg/plugin-go/wasm, pkg/plugin-go/cengine/cshared)
+// pkg/plugin-go/engine and runs on the C engine or in pure Go. Only the plugin
+// library itself and the runtime backends that implement engine.Backend
+// (pkg/plugin-go/hashicorp, pkg/plugin-go/wasm, pkg/plugin-go/cgoengine/cshared)
 // import that root package.
-func TestGoProgramsImportCengineNotTheContractPackage(t *testing.T) {
+func TestGoProgramsImportCgoengineNotTheEnginePackage(t *testing.T) {
 	root := repoRoot(t)
-	const pluginRoot = "github.com/webong/ext/pkg/plugin-go/contract"
+	const pluginRoot = "github.com/webong/ext/pkg/plugin-go/engine"
 	for _, tree := range []string{"adapters", "examples", "pkg/plugin-go/examples", "src", "res"} {
 		err := filepath.WalkDir(filepath.Join(root, tree), func(path string, entry fs.DirEntry, walkErr error) error {
 			if walkErr != nil {
@@ -44,7 +44,7 @@ func TestGoProgramsImportCengineNotTheContractPackage(t *testing.T) {
 				}
 				if name == pluginRoot {
 					rel, _ := filepath.Rel(root, path)
-					t.Errorf("%s imports %s; import github.com/webong/ext/pkg/plugin-go/cengine instead", filepath.ToSlash(rel), name)
+					t.Errorf("%s imports %s; import github.com/webong/ext/pkg/plugin-go/cgoengine instead", filepath.ToSlash(rel), name)
 				}
 			}
 			return nil

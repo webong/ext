@@ -16,7 +16,7 @@ require (
 	github.com/mattn/go-colorable v0.1.4 // indirect
 	github.com/mattn/go-isatty v0.0.17 // indirect
 	github.com/oklog/run v1.0.0 // indirect
-	github.com/webong/ext/pkg/plugin-go/contract v0.2.1
+	github.com/webong/ext/pkg/plugin-go/engine v0.1.0
 	golang.org/x/net v0.60.0 // indirect
 	golang.org/x/sys v0.48.0 // indirect
 	golang.org/x/text v0.42.0 // indirect

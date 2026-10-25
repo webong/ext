@@ -182,4 +182,42 @@ HOME="$compat_home" CTX_HOME="$compat_config" CTX_BIN_DIR="$compat_bin" \
   sh -s -- --minimal < "$ROOT/install-native.sh" >/dev/null
 test "$("$compat_bin/ctx" version)" = 'ctx 0.9.0-dev'
 
+# --ext installs the ext command beside ctx, from source and from a checksum-verified
+# release, and ext runs ctx in process.
+ext_home="$TEST_ROOT/ext-home"
+ext_config="$TEST_ROOT/ext-config"
+ext_bin="$TEST_ROOT/ext-bin"
+mkdir -p "$ext_home"
+HOME="$ext_home" CTX_HOME="$ext_config" CTX_BIN_DIR="$ext_bin" "$ROOT/install.sh" --ext --minimal >/dev/null
+test -x "$ext_bin/ext"
+"$ext_bin/ext" version | head -n 1 | grep -Eq '^ext '
+test "$("$ext_bin/ext" ctx version)" = 'ctx 0.9.0-dev'
+"$ext_bin/ext" commands | grep -Eq '^ctn[[:space:]]+builtin'
+
+ext_stage="$TEST_ROOT/ext-stage"
+mkdir -p "$ext_stage/ext/bin"
+cp "$ext_bin/ext" "$ext_stage/ext/bin/ext"
+ext_asset="ext-$os-$arch.tar.gz"
+tar -C "$ext_stage" -czf "$release_dir/$ext_asset" ext
+if command -v shasum >/dev/null 2>&1; then
+  (cd "$release_dir" && shasum -a 256 "$asset" "$catalog_asset" "$ext_asset" > checksums.txt)
+else
+  (cd "$release_dir" && sha256sum "$asset" "$catalog_asset" "$ext_asset" > checksums.txt)
+fi
+ext_release_home="$TEST_ROOT/ext-release-home"
+ext_release_bin="$TEST_ROOT/ext-release-bin"
+mkdir -p "$ext_release_home"
+HOME="$ext_release_home" CTX_HOME="$TEST_ROOT/ext-release-config" CTX_BIN_DIR="$ext_release_bin" \
+  CTX_RELEASE_BASE="file://$release_dir" "$ROOT/install.sh" --ext --minimal >/dev/null
+"$ext_release_bin/ext" version | head -n 1 | grep -Eq '^ext '
+
+bad_ext="$TEST_ROOT/bad-ext-release"
+cp -R "$release_dir" "$bad_ext"
+printf 'tampered' >> "$bad_ext/$ext_asset"
+expect_refusal ext-checksum 'release checksum verification failed for ext' "$bad_ext" --ext --minimal
+no_ext="$TEST_ROOT/no-ext-checksum"
+cp -R "$release_dir" "$no_ext"
+grep -v " $ext_asset\$" "$release_dir/checksums.txt" > "$no_ext/checksums.txt" || true
+expect_refusal ext-missing-checksum 'release checksum is missing for ext' "$no_ext" --ext --minimal
+
 printf 'ctx native installer tests passed\n'

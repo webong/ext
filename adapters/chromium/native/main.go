@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	goengine "github.com/webong/ext/pkg/plugin-go/cengine"
+	"github.com/webong/ext/pkg/plugin-go/cgoengine"
 	"io"
 	"os"
 	"runtime"
@@ -33,7 +33,7 @@ func chromiumConfig() chromiumengine.Config {
 func main() { os.Exit(run(os.Args[1:], os.Stdin, os.Stdout, os.Stderr)) }
 
 func run(args []string, input io.Reader, stdout, stderr io.Writer) int {
-	request, err := goengine.ParseAdapterInvocation(args)
+	request, err := cgoengine.ParseAdapterInvocation(args)
 	if err != nil || request.Operation != "share" {
 		fmt.Fprintln(stderr, "ctx: Chromium sharing needs profile resource operation")
 		return 2

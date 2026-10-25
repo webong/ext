@@ -14,7 +14,7 @@ import (
 	"io"
 	"os"
 
-	goengine "github.com/webong/ext/pkg/plugin-go/cengine"
+	"github.com/webong/ext/pkg/plugin-go/cgoengine"
 	"github.com/webong/ext/pkg/plugin-go/hashicorp"
 )
 
@@ -47,11 +47,11 @@ func run() error {
 		return err
 	}
 	digest := hash.Sum(nil)
-	descriptor := goengine.Descriptor{APIVersion: goengine.APIVersion, Identity: goengine.Identity{ID: "example/echo", Revision: "sha256:" + hex.EncodeToString(digest)}, Contracts: []goengine.Contract{{ContractRef: goengine.ContractRef{Name: "example.echo", Version: "v1"}, Operations: []goengine.Operation{{Name: "echo", Surface: "observation"}}}}}
+	descriptor := cgoengine.Descriptor{APIVersion: cgoengine.APIVersion, Identity: cgoengine.Identity{ID: "example/echo", Revision: "sha256:" + hex.EncodeToString(digest)}, Contracts: []cgoengine.Contract{{ContractRef: cgoengine.ContractRef{Name: "example.echo", Version: "v1"}, Operations: []cgoengine.Operation{{Name: "echo", Surface: "observation"}}}}}
 	if *guestMode {
-		guest, err := goengine.NewGuest(descriptor, goengine.GuestOptions{Handler: func(_ context.Context, r goengine.Request) (json.RawMessage, error) {
+		guest, err := cgoengine.NewGuest(descriptor, cgoengine.GuestOptions{Handler: func(_ context.Context, r cgoengine.Request) (json.RawMessage, error) {
 			if r.Operation != "echo" {
-				return nil, goengine.ErrDenied
+				return nil, cgoengine.ErrDenied
 			}
 			return r.Payload, nil
 		}})
@@ -61,17 +61,17 @@ func run() error {
 		return hashicorp.Serve(guest, *protocol)
 	}
 	ctx := context.Background()
-	session, err := goengine.Open(ctx, descriptor, goengine.Options{
-		Verify: func(_ context.Context, candidate goengine.Descriptor) error {
-			return goengine.MatchHandshake(descriptor, candidate)
+	session, err := cgoengine.Open(ctx, descriptor, cgoengine.Options{
+		Verify: func(_ context.Context, candidate cgoengine.Descriptor) error {
+			return cgoengine.MatchHandshake(descriptor, candidate)
 		},
-		Authorize: func(_ context.Context, r goengine.Request) error {
+		Authorize: func(_ context.Context, r cgoengine.Request) error {
 			if r.Operation != "echo" {
-				return goengine.ErrDenied
+				return cgoengine.ErrDenied
 			}
 			return nil
 		},
-		Connect: func(ctx context.Context, _ goengine.Descriptor) (goengine.Backend, error) {
+		Connect: func(ctx context.Context, _ cgoengine.Descriptor) (cgoengine.Backend, error) {
 			process := hashicorp.Process{Executable: executable, SHA256: hex.EncodeToString(digest), Protocol: *protocol, Arguments: []string{"--guest", "--protocol", *protocol}}
 			for _, key := range []string{"SystemRoot", "TMPDIR", "TEMP", "TMP"} {
 				if value := os.Getenv(key); value != "" {

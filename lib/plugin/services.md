@@ -33,7 +33,7 @@ intersection of all four endpoint feature sets. This performs no discovery or
 version translation.
 
 Endpoints are the loopback listeners a plugin's result declares (`pkg/plugin-go/
-contract/endpoint`). `endpoint.check` reads one strictly (unknown and duplicate
+engine/endpoint`). `endpoint.check` reads one strictly (unknown and duplicate
 fields and wrong types are refused) and applies the rules no policy changes: a
 scheme of `ws`, `wss`, `http`, `https` or `tcp`; an address that is a host and a
 port, the host being `localhost` or a loopback IP literal (`net.SplitHostPort` and
@@ -70,7 +70,7 @@ C. Integer-valued schema bounds must use integer JSON syntax and fit int64.
 Artifact paths reject traversal, empty components, backslashes, colons, NUL,
 line breaks, Windows device names, and trailing dots/spaces. Duplicate paths use
 Unicode 17.0.0 simple lowercase, pinned in `src/unicode_lower.h`; the Go module
-owns the generator, `pkg/plugin-go/cengine/tools/unicode_lower.go`. Unicode versions
+owns the generator, `pkg/plugin-go/cgoengine/tools/unicode_lower.go`. Unicode versions
 in older Go toolchains can differ.
 Do not interpret a validated path or checksum as a trust grant.
 
@@ -101,7 +101,7 @@ symlinks and special files. Directory traversal is bounded to 1024 nested levels
 and one directory digest to 250,000 files (the Go store's default `MaxTreeFiles`)
 and 64 MiB of path text; beyond either it fails with `EXT_INVALID` instead of
 holding every path in memory. The Go store applies its own configurable limits
-first, and `plugin.DirectoryDigest` in the contract module does not cap the count.
+first, and `plugin.DirectoryDigest` in the engine module does not cap the count.
 Applications must protect reviewed content against concurrent writes and
 separately establish publisher trust. Neither function launches code.
 
@@ -124,7 +124,7 @@ not an isolation boundary.
 
 ## Bindings
 
-- Go: `goengine.EngineCall`, package/schema/route helpers, `NewInstances`,
+- Go: `cgoengine.EngineCall`, package/schema/route helpers, `NewInstances`,
   `NewStreams`, and `GuestFromRegistry`.
 - Rust: `ext-plugin-engine` in `pkg/ext-rust/engine`, with safe host/guest/service
   wrappers and raw resource FFI.

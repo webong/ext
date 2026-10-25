@@ -127,8 +127,8 @@ the Go session and the C engine, and as a WASI command through the Go session.
 ## Capability contracts
 
 `capability` defines the optional contracts `ext.health`, `ext.configuration` and `ext.stream`
-with the wire shapes and limits of the Go library (`contract/guest/capability` and
-`contract/guest/stream`), as typed `author.Method` values. A guest registers handlers for them like
+with the wire shapes and limits of the Go library (`engine/guest/capability` and
+`engine/guest/stream`), as typed `author.Method` values. A guest registers handlers for them like
 any other method, and a host calls them through the same values:
 
 ```zig

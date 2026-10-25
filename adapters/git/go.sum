@@ -1,4 +1,4 @@
-github.com/webong/ext/pkg/plugin-go/cengine v0.4.0 h1:g5PGxxxTNwYxR7dOKs3Qgk4nQMd9kML4X7eoA0Ksy8s=
-github.com/webong/ext/pkg/plugin-go/cengine v0.4.0/go.mod h1:s6oKAMyEmV1+k1wjxzCxhvNoFveiL8N9TDgM5dA3KNQ=
-github.com/webong/ext/pkg/plugin-go/contract v0.4.0 h1:GVaLpo3F3Tpv1T1xAM5RXmnfUVDRLiWlZWc0npRBlFc=
-github.com/webong/ext/pkg/plugin-go/contract v0.4.0/go.mod h1:YajPTz7utaUNrcn856mnFegEHuk8l70pK2krbVFSZoc=
+github.com/webong/ext/pkg/plugin-go/cgoengine v0.1.0 h1:2gXJtXRy8H0Ku6xnicLnXQ3EdAxmTfzBumGWKdRtPsM=
+github.com/webong/ext/pkg/plugin-go/cgoengine v0.1.0/go.mod h1:o7Lg03SwEv8nKXJ58MaQXJnWO1+gsKjUx/f14D2Pha4=
+github.com/webong/ext/pkg/plugin-go/engine v0.1.0 h1:9trJr/fIH/n+5Go//cw9yOfjJbbOY+20wZEIlrkNwgQ=
+github.com/webong/ext/pkg/plugin-go/engine v0.1.0/go.mod h1:7kwTFoT8X3W2rP8NZFXHT3rcur7M7FndSULxFjBgZJc=

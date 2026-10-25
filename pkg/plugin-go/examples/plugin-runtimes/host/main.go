@@ -12,11 +12,11 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/webong/ext/pkg/plugin-go/cgoengine"
+	"github.com/webong/ext/pkg/plugin-go/cgoengine/cshared"
+	"github.com/webong/ext/pkg/plugin-go/engine/guest/author"
+	"github.com/webong/ext/pkg/plugin-go/engine/host/nativego"
 	"github.com/webong/ext/pkg/plugin-go/examples/plugin-runtimes/echo"
-	goengine "github.com/webong/ext/pkg/plugin-go/cengine"
-	"github.com/webong/ext/pkg/plugin-go/cengine/cshared"
-	"github.com/webong/ext/pkg/plugin-go/contract/guest/author"
-	"github.com/webong/ext/pkg/plugin-go/contract/host/nativego"
 	"github.com/webong/ext/pkg/plugin-go/wasm"
 )
 
@@ -33,7 +33,7 @@ func main() {
 
 func run(kind, path, digest string) error {
 	if kind != "wasm" && kind != "nativego" && kind != "cshared" {
-		return goengine.ErrUnsupported
+		return cgoengine.ErrUnsupported
 	}
 	want, err := hex.DecodeString(digest)
 	if err != nil || len(want) != sha256.Size || path == "" {
@@ -45,13 +45,13 @@ func run(kind, path, digest string) error {
 	}
 	ctx := context.Background()
 	var artifact []byte
-	var loaded goengine.Backend
-	session, err := goengine.Open(ctx, echo.Descriptor(), goengine.Options{
+	var loaded cgoengine.Backend
+	session, err := cgoengine.Open(ctx, echo.Descriptor(), cgoengine.Options{
 		// This example trusts an explicit caller-supplied digest of a local build.
 		// Real hosts additionally authenticate publisher/package and protect the
 		// artifact and its native dependencies against replacement while loaded.
-		Verify: func(ctx context.Context, selected goengine.Descriptor) error {
-			if err := goengine.MatchHandshake(echo.Descriptor(), selected); err != nil {
+		Verify: func(ctx context.Context, selected cgoengine.Descriptor) error {
+			if err := cgoengine.MatchHandshake(echo.Descriptor(), selected); err != nil {
 				return err
 			}
 			info, err := os.Lstat(path)
@@ -59,7 +59,7 @@ func run(kind, path, digest string) error {
 				return err
 			}
 			if !info.Mode().IsRegular() {
-				return goengine.ErrInvalid
+				return cgoengine.ErrInvalid
 			}
 			f, err := os.Open(path)
 			if err != nil {
@@ -71,18 +71,18 @@ func run(kind, path, digest string) error {
 				return err
 			}
 			if len(artifact) > wasm.MaxModuleBytes {
-				return goengine.ErrInvalid
+				return cgoengine.ErrInvalid
 			}
 			sum := sha256.Sum256(artifact)
 			if hex.EncodeToString(sum[:]) != hex.EncodeToString(want) {
-				return goengine.ErrMismatch
+				return cgoengine.ErrMismatch
 			}
 			return ctx.Err()
 		},
-		Authorize: func(_ context.Context, request goengine.Request) error {
-			return goengine.ValidateRequest(echo.Descriptor(), request)
+		Authorize: func(_ context.Context, request cgoengine.Request) error {
+			return cgoengine.ValidateRequest(echo.Descriptor(), request)
 		},
-		Connect: func(ctx context.Context, _ goengine.Descriptor) (goengine.Backend, error) {
+		Connect: func(ctx context.Context, _ cgoengine.Descriptor) (cgoengine.Backend, error) {
 			// Preserve a genuinely nil interface on failure (typed nils are not nil).
 			switch kind {
 			case "wasm":

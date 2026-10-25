@@ -2,13 +2,13 @@ package main
 
 import (
 	"fmt"
-	goengine "github.com/webong/ext/pkg/plugin-go/cengine"
+	"github.com/webong/ext/pkg/plugin-go/cgoengine"
 	"os"
 	"strings"
 )
 
 func main() {
-	request, err := goengine.ParseAdapterInvocation(os.Args[1:])
+	request, err := cgoengine.ParseAdapterInvocation(os.Args[1:])
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(2)

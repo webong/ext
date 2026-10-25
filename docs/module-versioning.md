@@ -140,12 +140,11 @@ The Go binding of the C engine was renamed because it is now one of three engine
 [the engine selection ADR](adr-engine-selection.md)) and `cengine` did not say which. A module path
 and its tags are a pair, so this is a new module, not a new version:
 
-- The tags of `pkg/plugin-go/cengine` (`v0.2.0` to `v0.7.0`, and `v0.8.0` once the v0.8.0 round is
-  tagged) are immutable, stay resolvable for anything that requires
-  `github.com/webong/ext/pkg/plugin-go/cengine`, and the last of them is the last tag that path will
-  ever have. Never move or delete them, and cut no further `cengine` tags. There is no forwarding
-  module and no alias package. The rename lands after the v0.8.0 round has been tagged, so that round
-  is cut on the tree whose module is still `cengine`.
+- The tags of `pkg/plugin-go/cengine` (`v0.2.0` to `v0.8.0`) are immutable, stay resolvable for
+  anything that requires `github.com/webong/ext/pkg/plugin-go/cengine`, and `v0.8.0` is the last tag
+  that path will ever have. Never move or delete them, and cut no further `cengine` tags. There is no
+  forwarding module and no alias package. The v0.8.0 round was cut on the tree whose module was still
+  `cengine`; the rename landed after it.
 - `pkg/plugin-go/cgoengine/v0.1.0` is the first tag of the new path, cut on a tree whose `go.mod`
   declares `github.com/webong/ext/pkg/plugin-go/cgoengine`.
 - A module that requires `cgoengine` cannot resolve it from the proxy until that tag is pushed. The
@@ -238,7 +237,7 @@ in its `tools` directory, which pins ccgo and runs only on the platform it write
 module contains only its own directory, and the generated files are that directory's copy of the C,
 so no C sources travel with it. The `c2goengine` workflow regenerates the file for each platform and
 fails when it differs from the one checked in. Tags follow the usual rule: `pkg/plugin-go/c2goengine/vX.Y.Z`,
-with a `contract` release that holds `plugintest/enginetest` below it.
+with a `contract` release that holds the `plugintest/enginetest` checks it runs below it (v0.9.0: v0.8.0 has the service checks only, and the instance, session and process checks came after).
 
 ### The C sources
 
@@ -295,6 +294,7 @@ later rounds followed for new content.
 | Dependency security (`v0.5.1`) | `pkg/plugin-go/hashicorp` v0.3.0 and `pkg/plugin-go` v0.5.1; no other module |
 | API additions (`v0.6.0`) | `pkg/plugin-go/contract`, `pkg/plugin-go/cengine` and `pkg/plugin-go` at v0.6.0; no other module |
 | Engine parity (`v0.7.0`) | `pkg/plugin-go/contract`, `pkg/plugin-go/cengine` and `pkg/plugin-go` at v0.7.0; no other module |
+| Engine test harness (`v0.8.0`) | `pkg/plugin-go/contract`, `pkg/plugin-go/cengine` and `pkg/plugin-go` at v0.8.0; no other module |
 
 `v0.3.0` is a minor version because `Store.ListUnverified` and `Layered.ListUnverified` are new API in
 both `contract/host/store` and `cengine/host/store`. It also bounds the cost of validating and resolving
@@ -340,6 +340,15 @@ moved into it; `res/web` v0.5.1 carries the examples and the `wasm/reactor.js` a
 Both are patch releases, since neither changes an exported name. `wasm`, `hashicorp` and the 24 adapters
 have the same bytes as before and are not retagged: they still require `contract` v0.4.0, which is fine,
 because a build that also requires v0.5.0 (the umbrella and the products do) resolves to it.
+
+The `v0.8.0` round publishes what the engine tests were moved into. `contract` gains `plugintest/enginetest`, the
+engine-agnostic differential checks that the C-backed `cengine` runs under the same names as the pure-Go core, and
+`instance.Manager` now reports a disposal before `Close` returns, where it used to tell `Close` it was done first, so
+a host could see `Close` return with a disposal unreported (a behavior change, hence a minor version). `cengine`
+changes with its tests and the engine sources it carries, and the umbrella follows because it pins both. The round
+exists because the `cengine` tests import `enginetest`, which `contract` v0.7.0 does not contain, so a standalone
+`go mod tidy` of `cengine` failed on `main` from the commit that moved the checks until this release. `wasm`,
+`hashicorp` (one test fixture), `res/*` and the adapters have the same bytes as before and are not retagged.
 
 The `v0.7.0` round brings the C engine to the behavior of the pure-Go baseline: reverse calls, progress frames,
 endpoint validation and extension backends now run on both (see [engine parity](plugin-engine-parity.md)). `contract`

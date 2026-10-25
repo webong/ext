@@ -1,5 +1,5 @@
 // Code generated for windows/amd64 by 'ccgo -o engine.go --package-name ccgo -I csrc/shim -I csrc/src -I csrc/vendor -I csrc/include -DEXT_HOST_STATIC -DEXT_HOST_BUILD -Dyyjson_align(x)= -Dyyjson_inline= -Dyyjson_noinline= -U__SIZEOF_INT128__ -include csrc/shim/compat_core.h csrc/src/common.c csrc/src/wire.c csrc/src/progress.c csrc/src/reverse.c csrc/src/endpoint.c csrc/src/services.c csrc/src/guest.c csrc/src/sha256.c csrc/src/packages.c csrc/vendor/yyjson.c csrc/shim/windows.c', DO NOT EDIT.
-// c2goengine inputs sha256:1cf6b1bccc68f18c7bdee11c0a6511e60caa7daedaa8191870c69a336c048026
+// c2goengine inputs sha256:f6e2fd94e2fc86f0bbe8d942d2be5b97e429c4c09f1498b515f0112b34f2795c
 
 //go:build windows && amd64
 

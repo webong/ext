@@ -190,7 +190,7 @@ func Get(name Name) (Engine, error) {
 func Choose(name Name, need Feature) (Engine, error) {
 	if name == "" || name == Auto {
 		for _, e := range Engines() {
-			if e.Features().Has(need) {
+			if e.Available() && e.Features().Has(need) {
 				return e, nil
 			}
 		}

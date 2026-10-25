@@ -98,3 +98,7 @@ jobs:
           go-version: '1.26.x'
           cache: false
       - run: ./scripts/check-standalone-modules.sh
+        env:
+          # Development main may contain dependencies awaiting a release round.
+          # Release checks use the script's strict default instead.
+          STANDALONE_ALLOW_SKIPS: '1'

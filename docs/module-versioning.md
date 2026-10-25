@@ -536,8 +536,13 @@ repository root, for example `pkg/plugin-go/contract v0.4.0`; `#` starts a comme
    `STANDALONE_ONLY="<the layer's modules>" scripts/check-standalone-modules.sh`, which builds and tidies them from
    the published tags with the workspace off. **Stop at the first difference**; tell whoever depends on the round,
    and fix the cause with a new version, not a retag.
-6. **After the last layer.** Run `scripts/check-standalone-modules.sh` for every module, and build a clean module
+6. **After the last layer.** Run `STANDALONE_ALLOW_SKIPS=0 scripts/check-standalone-modules.sh` for every module, and build a clean module
    that requires the released versions with the default checksum database.
+
+The standalone script fails on skipped modules by default. Only development checks may use
+`STANDALONE_ALLOW_SKIPS=1` while sibling versions are unpublished; such a pass is not release
+approval. Modules explicitly listed in `STANDALONE_ONLY` are always required, even with that opt-in, and
+missing modules or product modules in that list fail instead of silently disappearing.
 
 The zip layout is the reason for the two checks. The module proxy, and `zip.CreateFromVCS`, add the repository's
 root `LICENSE` to the zip of a module that lives in a subdirectory and has no `LICENSE` of its own. A zip built

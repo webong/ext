@@ -146,7 +146,7 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - run: go test ./res/web/...
+      - run: go test ./...
         working-directory: res/web
       - name: Swift and Java ports against Go
         run: scripts/web-differential.sh

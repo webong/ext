@@ -63,7 +63,7 @@ func TestAnEngineThatIsNotAvailableHasNoFeatures(t *testing.T) {
 // available and has every feature.
 func best(need core.Feature) core.Engine {
 	for _, e := range core.Engines() {
-		if e.Features().Has(need) {
+		if e.Available() && e.Features().Has(need) {
 			return e
 		}
 	}
@@ -84,6 +84,32 @@ func TestChooseWithoutANamePicksTheBestAvailable(t *testing.T) {
 			if err != nil || got.Name() != want.Name() {
 				t.Errorf("Choose(%q, %s) = %v, %v; want %s", name, need, got, err, want.Name())
 			}
+		}
+	}
+}
+
+// Zero requirements still require an available implementation. In a normal build
+// cgo is first in preference order but unavailable.
+func TestAutomaticSelectionWithoutRequirementsIsAvailable(t *testing.T) {
+	for _, name := range []core.Name{"", core.Auto} {
+		t.Run(string(name), func(t *testing.T) {
+			e, err := core.Choose(name, 0)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !e.Available() {
+				t.Fatalf("Choose(%q, 0) selected unavailable engine %s", name, e.Name())
+			}
+		})
+	}
+	for _, value := range []string{"", "auto"} {
+		t.Setenv(core.Environment, value)
+		e, err := core.FromEnvironment(0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !e.Available() {
+			t.Errorf("EXT_ENGINE=%q selected unavailable engine %s", value, e.Name())
 		}
 	}
 }

@@ -5,19 +5,26 @@
 #
 # A module whose go.mod requires a sibling module at a version that is not
 # published yet (a release in progress) cannot be checked until that tag
-# exists. It is skipped with a message and checked on a later run, so the
-# check never fails for the chicken-and-egg order of a release. Product modules
+# exists. Skips fail the release gate by default. Development checks can opt in
+# to allowing skips; explicitly selected modules are always required. Product modules
 # built with the workspace (src/ctx, src/ctn, cmd/ext) are not checked.
 #
 # Environment:
 #   STANDALONE_OS   operating systems to vet, default "linux darwin windows"
-#   STANDALONE_ONLY a space-separated list of module directories to check
+#   STANDALONE_ONLY a space-separated list of required module directories to check
+#   STANDALONE_ALLOW_SKIPS set to 1 for development checks only (ignored with STANDALONE_ONLY)
 set -u
 
 root=$(cd "$(dirname "$0")/.." && pwd)
 cd "$root"
 prefix=github.com/webong/ext/
 systems=${STANDALONE_OS:-"linux darwin windows"}
+allow_skips=${STANDALONE_ALLOW_SKIPS:-0}
+case "$allow_skips" in
+  0|1) ;;
+  *) echo 'STANDALONE_ALLOW_SKIPS must be 0 or 1' >&2; exit 2 ;;
+esac
+if [ -n "${STANDALONE_ONLY:-}" ]; then allow_skips=0; fi
 
 modules=$(awk '/^use \(/{u=1;next} u&&/^\)/{u=0} u{gsub(/[ \t]/,""); sub(/^\.\//,""); if ($0!="") print} /^use \.\//{sub(/^use \.\//,""); print}' go.work)
 if [ -n "${STANDALONE_ONLY:-}" ]; then modules=$STANDALONE_ONLY; fi
@@ -30,8 +37,19 @@ published() { # <module path without prefix> <version>
 
 failed=0 checked=0 skipped=0
 for dir in $modules; do
-  case $dir in src/ctx|src/ctn|cmd/ext) continue ;; esac
-  [ -f "$dir/go.mod" ] || continue
+  case $dir in
+    src/ctx|src/ctn|cmd/ext)
+      if [ -n "${STANDALONE_ONLY:-}" ]; then
+        echo "FAIL $dir: product modules cannot be checked standalone"
+        failed=$((failed + 1))
+      fi
+      continue ;;
+  esac
+  if [ ! -f "$dir/go.mod" ]; then
+    echo "FAIL $dir: missing go.mod"
+    failed=$((failed + 1))
+    continue
+  fi
   waiting=""
   while read -r path version; do
     [ -n "$path" ] || continue
@@ -58,4 +76,8 @@ for dir in $modules; do
 done
 rm -f /tmp/standalone.$$
 echo "checked $checked module(s), skipped $skipped, failed $failed"
+if [ "$skipped" -gt 0 ] && [ "$allow_skips" = 0 ]; then
+  echo 'FAIL: required standalone modules were skipped'
+  exit 1
+fi
 [ $failed = 0 ]

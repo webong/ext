@@ -54,11 +54,11 @@ not pick native behavior by name.
 A module path and its tags are a pair (see `docs/module-versioning.md`, "`pkg/plugin-go/cengine`
 became `pkg/plugin-go/cgoengine`"), so this is a new module, not a new version:
 
-- The tags of `pkg/plugin-go/cengine` (v0.7.0 now, v0.8.0 once the v0.8.0 round is tagged) are
-  immutable. They stay resolvable for anything that requires
-  `github.com/webong/ext/pkg/plugin-go/cengine`, and no further tags are cut on that path. Hard
-  cut, as in development: no forwarding module, no alias package. The rename merges after that
-  round is tagged, so the round is cut on the tree whose module is still `cengine`.
+- The tags of `pkg/plugin-go/cengine` (v0.2.0 to v0.8.0) are immutable. They stay resolvable for
+  anything that requires `github.com/webong/ext/pkg/plugin-go/cengine`, and no further tags are
+  cut on that path. Hard cut, as in development: no forwarding module, no alias package. The
+  v0.8.0 round was cut on the tree whose module was still `cengine`, and the rename merges after
+  it.
 - `pkg/plugin-go/cgoengine/v0.1.0` is the first tag of the new path, to be cut on a tree whose
   `go.mod` declares the new path. Until then the umbrella and the 24 adapters require
   `cgoengine v0.1.0` in their `go.mod` files, which resolves in the workspace and not from
@@ -74,10 +74,12 @@ became `pkg/plugin-go/cgoengine`"), so this is a new module, not a new version:
 ## Order of work
 
 1. This branch (`engine/c2goengine`): the translated engine, unchanged by the above.
-2. The coordinator's round that publishes `contract` v0.8.0 (it carries `enginetest` and
-   the dispose-ordering fix `c2goengine` needs), then `c2goengine/v0.1.0`.
+2. A `contract` release that publishes the instance, session and process checks of `enginetest`
+   (v0.9.0, additive: v0.8.0 has the service checks only). `cgoengine` and `c2goengine` require it,
+   so the standalone check skips them until it is tagged; then `c2goengine/v0.1.0`.
 3. The rename (done on `engine/cgoengine-rename`), then its first tag `cgoengine/v0.1.0` in the
-   coordinator's round, after `contract` v0.8.0.
+   coordinator's round, after `contract` v0.9.0. The old `cengine` path ended at v0.8.0, the
+   v0.8.0 round.
 4. After the rename: the `Engine` interface and the selection in `pkg/plugin-go`, with
    a test that runs `enginetest` against whatever the selection returns.
 

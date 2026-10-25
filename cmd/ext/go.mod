@@ -5,7 +5,7 @@ go 1.26.0
 require (
 	github.com/webong/ext/ctn v0.0.0
 	github.com/webong/ext/ctx v0.0.0
-	github.com/webong/ext/pkg/plugin-go/contract v0.7.0
+	github.com/webong/ext/pkg/plugin-go/contract v0.8.0
 )
 
 require (

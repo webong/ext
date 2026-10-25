@@ -39,8 +39,6 @@ github.com/stretchr/testify v1.8.3 h1:RP3t2pwF7cMEbC1dqtB6poj3niw/9gnV4Cjg5oW5gt
 github.com/stretchr/testify v1.8.3/go.mod h1:sz/lmYIOXD/1dqDmKjjqLyZ2RngseejIcXlSw2iwfAo=
 github.com/tetratelabs/wazero v1.10.1 h1:2DugeJf6VVk58KTPszlNfeeN8AhhpwcZqkJj2wwFuH8=
 github.com/tetratelabs/wazero v1.10.1/go.mod h1:DRm5twOQ5Gr1AoEdSi0CLjDQF1J9ZAuyqFIjl1KKfQU=
-github.com/webong/ext/pkg/plugin-go/contract v0.7.0 h1:Flh3CqO0kE4Xj+83sbJZghXJkkO/jmaXBr5IhnAWSIo=
-github.com/webong/ext/pkg/plugin-go/contract v0.7.0/go.mod h1:YajPTz7utaUNrcn856mnFegEHuk8l70pK2krbVFSZoc=
 github.com/webong/ext/pkg/plugin-go/hashicorp v0.3.0 h1:24KUXbR0ZujsMJJFpk8XzJq/0zIwWMeTTI0/A4WXp3s=
 github.com/webong/ext/pkg/plugin-go/hashicorp v0.3.0/go.mod h1:BVmsuLaau9M9pwqzCHL5vAlwOKkFBKHPgWVJKN/ZDPo=
 github.com/webong/ext/pkg/plugin-go/wasm v0.2.1 h1:eIx43CBI5bN5njyjicBPLddWOFGqTySzUbIZX+hBl3w=

@@ -3,7 +3,7 @@ module github.com/webong/ext/pkg/plugin-go/c2goengine
 go 1.26.0
 
 require (
-	github.com/webong/ext/pkg/plugin-go/contract v0.8.0
+	github.com/webong/ext/pkg/plugin-go/contract v0.9.0
 	modernc.org/libc v1.79.0
 )
 

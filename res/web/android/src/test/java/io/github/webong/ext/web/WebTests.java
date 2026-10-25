@@ -512,7 +512,52 @@ public final class WebTests {
         eq(0, WorkspaceScripts.prepare(List.of(disabled), "page").size(), "disabled registration");
     }
 
+    private static String queryJSON(Object raw) {
+        StringBuilder out = new StringBuilder("[");
+        for (Object row : (List<?>)raw) {
+            if (out.length() > 1) out.append(',');
+            out.append(Cookie.fromObject(map(row)).toJson());
+        }
+        return out.append(']').toString();
+    }
+    private static void queryFixtures() throws Exception {
+        for (Map<String, Object> v : cases(load("cookie/query.json"), "cases")) {
+            CookieQuery.Options o = new CookieQuery.Options();
+            o.url = str(v, "url"); o.mode = str(v, "mode");
+            for (Object x : (List<?>) v.get("origins")) o.origins.add((String)x);
+            for (Object x : (List<?>) v.get("names")) o.names.add((String)x);
+            o.inlineOnly = Boolean.TRUE.equals(v.get("inlineOnly")); o.includeExpired = Boolean.TRUE.equals(v.get("includeExpired"));
+            o.allowAllHosts = Boolean.TRUE.equals(v.get("allowAllHosts"));
+            o.inline = queryJSON(v.get("inline")).getBytes(StandardCharsets.UTF_8);
+            o.fallbackInline = queryJSON(v.get("fallback")).getBytes(StandardCharsets.UTF_8);
+            List<String> calls = new ArrayList<>();
+            CookieQuery.Result result = CookieQuery.get(o, (context, options) -> {
+                List<CookieQuery.Source> sources = new ArrayList<>();
+                for (Object raw : (List<?>) v.get("sources")) {
+                    Map<String, Object> source = map(raw);
+                    List<Cookie> cookies = CookieWorkflows.parse(queryJSON(source.get("cookies")).getBytes(StandardCharsets.UTF_8));
+                    sources.add(new CookieQuery.Source("test", "work", str(source,"label"), (ctx, request) -> {
+                        calls.add(str(source,"label"));
+                        eq(o.names, request.names, "query names"); eq(o.includeExpired, request.includeExpired, "query expired flag");
+                        return new CookieQuery.Batch(cookies, Collections.singletonList("notice"), str(source,"storePath"));
+                    }));
+                }
+                return new CookieQuery.Selection(sources);
+            });
+            List<?> expected = (List<?>) v.get("expected"); eq(expected.size(), result.cookies.size(), str(v,"name"));
+            for (int i=0; i<Math.min(expected.size(),result.cookies.size()); i++) {
+                CookieQuery.Entry entry=result.cookies.get(i); Map<String,Object> want=map(expected.get(i));
+                eq(str(want,"value"),entry.cookie.value,"query value"); eq(str(want,"source"),entry.source,"query source");
+                eq(entry.source.startsWith("inline"),entry.sourceInfo.inline,"inline provenance");
+                eq(entry.source.equals("inline:fallback"),entry.sourceInfo.fallback,"fallback provenance");
+            }
+            eq(v.get("calls"),calls,"source priority");
+        }
+    }
+
     public static void main(String[] args) {
+        test("query fixtures", WebTests::queryFixtures);
+        test("query behavior", () -> CookieQueryChecks.run(WebTests::check));
         test("bundle policy", () -> {
             for (Map<String, Object> c : cases(load("bundle/policy.json"), "cases")) {
                 List<String> origins = new ArrayList<>();

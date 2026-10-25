@@ -61,3 +61,5 @@ uses the portable `ExtWeb` userscript rules. Both products are shipped by
 `scripts/web-workspace-ios.sh` selects the native WebKit integration tests.
 
 See [local web bundle runners](../BUNDLE_RUNNER.md) for native HTML/module execution, CSP, console events, host messaging and lifecycle handling.
+
+See [mobile cookie queries](../COOKIE_QUERY.md) for host-authorized source ordering, merge/first modes, fallback, provenance and cancellation.

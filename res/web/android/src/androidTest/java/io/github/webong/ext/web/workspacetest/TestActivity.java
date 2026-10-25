@@ -204,6 +204,8 @@ public final class TestActivity extends Activity {
             catch (Exception unexpected) { check(false, "closed workspace cookie error"); }
         }
         if (bundles == null && failed == 0) {
+            try { io.github.webong.ext.web.CookieQueryChecks.run(this::check); }
+            catch (Exception error) { check(false, "query checks failed"); Log.e("EXTWORKSPACE", "query failure", error); }
             bundles = new BundleChecks(this, this::check, this::reportDone);
             bundles.start();
         } else reportDone();

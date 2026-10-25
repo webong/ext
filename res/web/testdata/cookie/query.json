@@ -1,0 +1,645 @@
+{
+  "cases": [
+    {
+      "url": "https://example.test/account",
+      "origins": [],
+      "names": [],
+      "mode": "merge",
+      "inlineOnly": false,
+      "includeExpired": false,
+      "allowAllHosts": false,
+      "inline": [
+        {
+          "name": "sid",
+          "value": "inline",
+          "domain": "example.test",
+          "path": "/"
+        }
+      ],
+      "fallback": [
+        {
+          "name": "sid",
+          "value": "fallback",
+          "domain": "example.test",
+          "path": "/"
+        },
+        {
+          "name": "tail",
+          "value": "last",
+          "domain": "example.test",
+          "path": "/"
+        }
+      ],
+      "sources": [
+        {
+          "label": "a",
+          "cookies": [
+            {
+              "name": "sid",
+              "value": "a",
+              "domain": "example.test",
+              "path": "/"
+            },
+            {
+              "name": "other",
+              "value": "other",
+              "domain": "example.test",
+              "path": "/"
+            }
+          ],
+          "warnings": [
+            "notice"
+          ],
+          "storePath": "/private/store"
+        },
+        {
+          "label": "b",
+          "cookies": [
+            {
+              "name": "other",
+              "value": "b",
+              "domain": "example.test",
+              "path": "/"
+            }
+          ],
+          "warnings": [
+            "notice"
+          ],
+          "storePath": "/private/store"
+        }
+      ],
+      "expected": [
+        {
+          "value": "inline",
+          "source": "inline"
+        },
+        {
+          "value": "other",
+          "source": "a"
+        },
+        {
+          "value": "last",
+          "source": "inline:fallback"
+        }
+      ],
+      "calls": [
+        "a",
+        "b"
+      ],
+      "name": "priority"
+    },
+    {
+      "url": "https://example.test/account",
+      "origins": [],
+      "names": [],
+      "mode": "first",
+      "inlineOnly": false,
+      "includeExpired": false,
+      "allowAllHosts": false,
+      "inline": [
+        {
+          "name": "sid",
+          "value": "inline",
+          "domain": "example.test",
+          "path": "/"
+        }
+      ],
+      "fallback": [],
+      "sources": [
+        {
+          "label": "unused",
+          "cookies": [
+            {
+              "name": "sid",
+              "value": "other",
+              "domain": "example.test",
+              "path": "/"
+            }
+          ],
+          "warnings": [
+            "notice"
+          ],
+          "storePath": "/private/store"
+        }
+      ],
+      "expected": [
+        {
+          "value": "inline",
+          "source": "inline"
+        }
+      ],
+      "calls": [],
+      "name": "first-inline"
+    },
+    {
+      "url": "https://example.test/account",
+      "origins": [],
+      "names": [],
+      "mode": "first",
+      "inlineOnly": false,
+      "includeExpired": false,
+      "allowAllHosts": false,
+      "inline": [],
+      "fallback": [
+        {
+          "name": "tail",
+          "value": "last",
+          "domain": "example.test",
+          "path": "/"
+        }
+      ],
+      "sources": [
+        {
+          "label": "empty",
+          "cookies": [],
+          "warnings": [
+            "notice"
+          ],
+          "storePath": "/private/store"
+        },
+        {
+          "label": "winner",
+          "cookies": [
+            {
+              "name": "sid",
+              "value": "one",
+              "domain": "example.test",
+              "path": "/"
+            },
+            {
+              "name": "two",
+              "value": "two",
+              "domain": "example.test",
+              "path": "/"
+            }
+          ],
+          "warnings": [
+            "notice"
+          ],
+          "storePath": "/private/store"
+        },
+        {
+          "label": "unused",
+          "cookies": [
+            {
+              "name": "three",
+              "value": "three",
+              "domain": "example.test",
+              "path": "/"
+            }
+          ],
+          "warnings": [
+            "notice"
+          ],
+          "storePath": "/private/store"
+        }
+      ],
+      "expected": [
+        {
+          "value": "one",
+          "source": "winner"
+        },
+        {
+          "value": "two",
+          "source": "winner"
+        }
+      ],
+      "calls": [
+        "empty",
+        "winner"
+      ],
+      "name": "first-source"
+    },
+    {
+      "url": "https://example.test/account",
+      "origins": [],
+      "names": [],
+      "mode": "first",
+      "inlineOnly": false,
+      "includeExpired": false,
+      "allowAllHosts": false,
+      "inline": [],
+      "fallback": [
+        {
+          "name": "sid",
+          "value": "last",
+          "domain": "example.test",
+          "path": "/"
+        }
+      ],
+      "sources": [
+        {
+          "label": "empty",
+          "cookies": [],
+          "warnings": [
+            "notice"
+          ],
+          "storePath": "/private/store"
+        }
+      ],
+      "expected": [
+        {
+          "value": "last",
+          "source": "inline:fallback"
+        }
+      ],
+      "calls": [
+        "empty"
+      ],
+      "name": "first-fallback"
+    },
+    {
+      "url": "https://example.test/account",
+      "origins": [],
+      "names": [],
+      "mode": "merge",
+      "inlineOnly": true,
+      "includeExpired": false,
+      "allowAllHosts": false,
+      "inline": [
+        {
+          "name": "a",
+          "value": "one",
+          "domain": "example.test",
+          "path": "/"
+        }
+      ],
+      "fallback": [
+        {
+          "name": "a",
+          "value": "two",
+          "domain": "example.test",
+          "path": "/"
+        },
+        {
+          "name": "b",
+          "value": "three",
+          "domain": "example.test",
+          "path": "/"
+        }
+      ],
+      "sources": [],
+      "expected": [
+        {
+          "value": "one",
+          "source": "inline"
+        },
+        {
+          "value": "three",
+          "source": "inline:fallback"
+        }
+      ],
+      "calls": [],
+      "name": "inline-only"
+    },
+    {
+      "url": "http://example.test/account",
+      "origins": [],
+      "names": [
+        "sid"
+      ],
+      "mode": "merge",
+      "inlineOnly": false,
+      "includeExpired": false,
+      "allowAllHosts": false,
+      "inline": [],
+      "fallback": [],
+      "sources": [
+        {
+          "label": "a",
+          "cookies": [
+            {
+              "name": "sid",
+              "value": "secure",
+              "domain": "example.test",
+              "path": "/",
+              "secure": true
+            },
+            {
+              "name": "sid",
+              "value": "expired",
+              "domain": "example.test",
+              "path": "/",
+              "expiry": 1
+            },
+            {
+              "name": "sid",
+              "value": "wrong",
+              "domain": "example.test",
+              "path": "/other"
+            },
+            {
+              "name": "other",
+              "value": "name",
+              "domain": "example.test",
+              "path": "/"
+            },
+            {
+              "name": "sid",
+              "value": "valid",
+              "domain": "example.test",
+              "path": "/"
+            }
+          ],
+          "warnings": [
+            "notice"
+          ],
+          "storePath": "/private/store"
+        }
+      ],
+      "expected": [
+        {
+          "value": "valid",
+          "source": "a"
+        }
+      ],
+      "calls": [
+        "a"
+      ],
+      "name": "filters"
+    },
+    {
+      "url": "https://example.test/account",
+      "origins": [],
+      "names": [],
+      "mode": "merge",
+      "inlineOnly": false,
+      "includeExpired": true,
+      "allowAllHosts": false,
+      "inline": [],
+      "fallback": [],
+      "sources": [
+        {
+          "label": "a",
+          "cookies": [
+            {
+              "name": "sid",
+              "value": "expired",
+              "domain": "example.test",
+              "path": "/",
+              "expiry": 1
+            }
+          ],
+          "warnings": [
+            "notice"
+          ],
+          "storePath": "/private/store"
+        }
+      ],
+      "expected": [
+        {
+          "value": "expired",
+          "source": "a"
+        }
+      ],
+      "calls": [
+        "a"
+      ],
+      "name": "expired"
+    },
+    {
+      "url": "",
+      "origins": [],
+      "names": [],
+      "mode": "merge",
+      "inlineOnly": false,
+      "includeExpired": false,
+      "allowAllHosts": true,
+      "inline": [],
+      "fallback": [],
+      "sources": [
+        {
+          "label": "a",
+          "cookies": [
+            {
+              "name": "sid",
+              "value": "one",
+              "domain": "example.test",
+              "path": "/"
+            },
+            {
+              "name": "sid",
+              "value": "two",
+              "domain": "other.test",
+              "path": "/"
+            }
+          ],
+          "warnings": [
+            "notice"
+          ],
+          "storePath": "/private/store"
+        }
+      ],
+      "expected": [
+        {
+          "value": "one",
+          "source": "a"
+        },
+        {
+          "value": "two",
+          "source": "a"
+        }
+      ],
+      "calls": [
+        "a"
+      ],
+      "name": "all-hosts"
+    },
+    {
+      "url": "https://example.test",
+      "origins": [
+        "https://other.test"
+      ],
+      "names": [],
+      "mode": "first",
+      "inlineOnly": false,
+      "includeExpired": false,
+      "allowAllHosts": false,
+      "inline": [],
+      "fallback": [],
+      "sources": [
+        {
+          "label": "a",
+          "cookies": [
+            {
+              "name": "sid",
+              "value": "one",
+              "domain": "example.test",
+              "path": "/"
+            },
+            {
+              "name": "other",
+              "value": "two",
+              "domain": "other.test",
+              "path": "/"
+            }
+          ],
+          "warnings": [
+            "notice"
+          ],
+          "storePath": "/private/store"
+        },
+        {
+          "label": "unused",
+          "cookies": [],
+          "warnings": [
+            "notice"
+          ],
+          "storePath": "/private/store"
+        }
+      ],
+      "expected": [
+        {
+          "value": "one",
+          "source": "a"
+        },
+        {
+          "value": "two",
+          "source": "a"
+        }
+      ],
+      "calls": [
+        "a",
+        "a"
+      ],
+      "name": "multi-site-first"
+    },
+    {
+      "url": "https://example.test/account",
+      "origins": [],
+      "names": [],
+      "mode": "merge",
+      "inlineOnly": false,
+      "includeExpired": false,
+      "allowAllHosts": false,
+      "inline": [],
+      "fallback": [],
+      "sources": [
+        {
+          "label": "a",
+          "cookies": [
+            {
+              "name": "sid",
+              "value": "one",
+              "domain": "example.test",
+              "path": "/",
+              "attributes": {
+                "x.a": "a",
+                "x.b": "b"
+              }
+            },
+            {
+              "name": "sid",
+              "value": "duplicate",
+              "domain": "example.test",
+              "path": "/",
+              "attributes": {
+                "x.b": "b",
+                "x.a": "a"
+              }
+            },
+            {
+              "name": "sid",
+              "value": "two",
+              "domain": "example.test",
+              "path": "/",
+              "partition_key": "https://top.test"
+            },
+            {
+              "name": "sid",
+              "value": "three",
+              "domain": "example.test",
+              "path": "/",
+              "has_cross_site_ancestor": true,
+              "partition_key": "https://top.test"
+            },
+            {
+              "name": "sid",
+              "value": "four",
+              "domain": "example.test",
+              "path": "/"
+            }
+          ],
+          "warnings": [
+            "notice"
+          ],
+          "storePath": "/private/store"
+        }
+      ],
+      "expected": [
+        {
+          "value": "one",
+          "source": "a"
+        },
+        {
+          "value": "two",
+          "source": "a"
+        },
+        {
+          "value": "three",
+          "source": "a"
+        },
+        {
+          "value": "four",
+          "source": "a"
+        }
+      ],
+      "calls": [
+        "a"
+      ],
+      "name": "opaque-scope"
+    },
+    {
+      "url": "https://example.test",
+      "origins": [],
+      "names": [],
+      "mode": "merge",
+      "inlineOnly": false,
+      "includeExpired": false,
+      "allowAllHosts": false,
+      "inline": [],
+      "fallback": [],
+      "sources": [
+        {
+          "label": "a",
+          "cookies": [
+            {
+              "name": "sid",
+              "value": "composed",
+              "domain": "example.test",
+              "path": "/",
+              "attributes": {
+                "x.scope": "\u00e9"
+              }
+            },
+            {
+              "name": "sid",
+              "value": "decomposed",
+              "domain": "example.test",
+              "path": "/",
+              "attributes": {
+                "x.scope": "e\u0301"
+              }
+            }
+          ],
+          "warnings": [],
+          "storePath": "/private/store"
+        }
+      ],
+      "expected": [
+        {
+          "value": "composed",
+          "source": "a"
+        },
+        {
+          "value": "decomposed",
+          "source": "a"
+        }
+      ],
+      "calls": [
+        "a"
+      ],
+      "name": "utf8-scope"
+    }
+  ]
+}

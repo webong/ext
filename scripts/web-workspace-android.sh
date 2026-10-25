@@ -39,7 +39,8 @@ trap cleanup EXIT
 if [[ -z "$build_only" ]]; then "$adb" get-state >/dev/null; fi
 mkdir -p "$work/classes" "$work/dex"
 sources=(res/web/android/src/androidTest/java/io/github/webong/ext/web/workspacetest/*.java
-  res/web/android/src/androidTest/java/io/github/webong/ext/web/android/*.java)
+  res/web/android/src/androidTest/java/io/github/webong/ext/web/android/*.java
+  res/web/android/src/test/java/io/github/webong/ext/web/CookieQueryChecks.java)
 classpath="$platform"
 inputs=()
 if [[ -n "$aar" ]]; then
@@ -60,7 +61,9 @@ if [[ -z "$without_androidx" ]]; then
     if [[ "$dependency" == *.aar ]]; then
       unzip -p "$dependency" classes.jar >"$work/dependency-$index.jar"
       inputs+=("$work/dependency-$index.jar")
-      if unzip -Z1 "$dependency" | grep -qx proguard.txt; then
+      # Drain the listing: grep -q can SIGPIPE unzip under pipefail and silently
+      # skip AndroidX's reflection-boundary keep rules.
+      if unzip -Z1 "$dependency" | grep -x proguard.txt >/dev/null; then
         printf '\n' >>"$work/consumer.pro"
         unzip -p "$dependency" proguard.txt >>"$work/consumer.pro"
       fi

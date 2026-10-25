@@ -59,3 +59,5 @@ The JDK-only rules tests still build only `src/main` and `src/test`; native test
 live in `src/androidTest`. See [workspace usage](WORKSPACE.md).
 
 See [local web bundle runners](../BUNDLE_RUNNER.md) for native HTML/module execution, CSP, console events, host messaging and lifecycle handling.
+
+See [mobile cookie queries](../COOKIE_QUERY.md) for host-authorized source ordering, merge/first modes, fallback, provenance and cancellation.

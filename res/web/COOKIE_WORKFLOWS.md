@@ -106,3 +106,5 @@ arm64 emulator passed 17 checks with AndroidX WebKit 1.9.0 and 13 without Androi
 both against the built SDK AAR with R8 enabled. Physical devices were not tested.
 The iOS navigation test attaches its view to a window to avoid WebKit suspension;
 the Android test ignores callbacks after its Activity is destroyed/recreated.
+
+See [mobile cookie queries](COOKIE_QUERY.md) for host-authorized source ordering, merge/first modes, fallback, provenance and cancellation.

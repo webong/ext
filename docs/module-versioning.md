@@ -140,10 +140,12 @@ The Go binding of the C engine was renamed because it is now one of three engine
 [the engine selection ADR](adr-engine-selection.md)) and `cengine` did not say which. A module path
 and its tags are a pair, so this is a new module, not a new version:
 
-- `pkg/plugin-go/cengine/v0.2.0` to `v0.7.0` are published. They are immutable, stay resolvable for
-  anything that requires `github.com/webong/ext/pkg/plugin-go/cengine`, and `v0.7.0` is the last tag
-  that path will ever have. Never move or delete them, and cut no further `cengine` tags. There is no
-  forwarding module and no alias package.
+- The tags of `pkg/plugin-go/cengine` (`v0.2.0` to `v0.7.0`, and `v0.8.0` once the v0.8.0 round is
+  tagged) are immutable, stay resolvable for anything that requires
+  `github.com/webong/ext/pkg/plugin-go/cengine`, and the last of them is the last tag that path will
+  ever have. Never move or delete them, and cut no further `cengine` tags. There is no forwarding
+  module and no alias package. The rename lands after the v0.8.0 round has been tagged, so that round
+  is cut on the tree whose module is still `cengine`.
 - `pkg/plugin-go/cgoengine/v0.1.0` is the first tag of the new path, cut on a tree whose `go.mod`
   declares `github.com/webong/ext/pkg/plugin-go/cgoengine`.
 - A module that requires `cgoengine` cannot resolve it from the proxy until that tag is pushed. The

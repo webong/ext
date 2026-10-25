@@ -12,6 +12,8 @@ import java.util.Collections;
 
 public final class TestActivity extends Activity {
     private BrowserWorkspace workspace;
+    private io.github.webong.ext.web.android.WorkspaceManagement router;
+    private io.github.webong.ext.web.UserscriptStore store;
     private int phase, passed, failed;
     private boolean evaluating, done, expectDocumentStart, navigationStarted;
 
@@ -31,13 +33,26 @@ public final class TestActivity extends Activity {
             check(workspace.supportsDocumentStartScripts() == expectDocumentStart, "document-start capability");
             try { workspace.navigate("file:///etc/passwd"); check(false, "file navigation rejected"); }
             catch (Exception expected) { check(true, "file navigation rejected"); }
-            if (expectDocumentStart) {
-                workspace.replaceUserscripts(Collections.singletonList(record()));
-            } else {
-                try {
-                    workspace.replaceUserscripts(Collections.singletonList(record()));
-                    check(false, "unsupported registration rejected");
-                } catch (UnsupportedOperationException expected) { check(true, "unsupported registration rejected"); }
+            java.io.File directory = new java.io.File(getFilesDir(), "scripts-" + java.util.UUID.randomUUID());
+            store = new io.github.webong.ext.web.UserscriptStore(directory);
+            router = new io.github.webong.ext.web.android.WorkspaceManagement(workspace, store, "profile");
+            check(route("userscript", "prepare", installInput()).status.equals("prepared"), "route prepare");
+            check(store.list("test").isEmpty(), "prepare does not persist");
+            check(route("userscript", "install", installInput()).status.equals("installed"), "route install");
+            check(new io.github.webong.ext.web.UserscriptStore(directory).load("test", "script").equals(record()), "reopen stored record");
+            String targets = route("session", "targets", "{}").result;
+            check(targets.contains("webview"), "native target discovery");
+            check(route("session", "connect", "{\"target\":" + targets.substring(1, targets.length() - 1) + "}").status.equals("connected"), "native connect with discovered target");
+            try { route("session", "navigate", "{\"url\":\"file:///etc/passwd\"}"); check(false, "routed file navigation rejected"); }
+            catch (Exception expected) { check(true, "routed file navigation rejected"); }
+            try { route("session", "endpoint", "{}"); check(false, "unsupported endpoint rejected"); }
+            catch (Exception expected) { check(true, "unsupported endpoint rejected"); }
+            try { router.manage("other", new io.github.webong.ext.web.BrowserManagement.Request("userscript", "uninstall", "{\"id\":\"script\"}"), (r,e) -> {}); check(false,"profile mismatch"); }
+            catch (Exception expected) { check(true,"profile mismatch"); }
+            if (expectDocumentStart) route("userscript", "activate", "{}");
+            else {
+                try { route("userscript", "activate", "{}"); check(false, "unsupported registration rejected"); }
+                catch (UnsupportedOperationException expected) { check(true, "unsupported registration rejected"); }
                 workspace.replaceUserscripts(Collections.emptyList());
             }
             testCookies();
@@ -45,6 +60,37 @@ public final class TestActivity extends Activity {
                 if (!done) { check(false, "test timeout"); finishTests(); }
             }, 30000);
         } catch (Exception failure) { fail(failure); }
+    }
+
+    private io.github.webong.ext.web.BrowserManagement.Response route(String kind, String action, String input) throws Exception {
+        io.github.webong.ext.web.BrowserManagement.Response[] result = {null};
+        router.manage("profile", new io.github.webong.ext.web.BrowserManagement.Request(kind,action,input), (response,error) -> {
+            if (error != null) throw new IllegalStateException(error);
+            result[0] = response;
+        });
+        if (result[0] == null) throw new IllegalStateException("expected synchronous routing completion");
+        return result[0];
+    }
+    private String installInput() {
+        return "{\"id\":\"script\",\"name\":\"Script\",\"matches\":[\"https://example.com/*\"],\"excludeMatches\":[\"https://example.com/private/*\"],\"source\":"
+            + io.github.webong.ext.web.WorkspaceInput.quote(record().source) + "}";
+    }
+    private void injectThen(Runnable next) throws Exception {
+        router.manage("profile", new io.github.webong.ext.web.BrowserManagement.Request("session","inject","{\"source\":\"window.routed = 42;\"}"), (response,error) -> {
+            if (done) return;
+            if (error != null) { fail(error); return; }
+            check("injected".equals(response.status),"routed injection completion");
+            workspace.view().evaluateJavascript("window.routed", value -> {
+                if (done) return;
+                check("42".equals(value),"routed injection ran");
+                try {
+                    router.manage("profile", new io.github.webong.ext.web.BrowserManagement.Request("session","inject","{\"source\":\"throw new Error('fixture');\"}"), (r,e) -> {
+                        if (done) return;
+                        check(e != null && r == null,"routed script failure"); next.run();
+                    });
+                } catch (Exception failure) { fail(failure); }
+            });
+        });
     }
 
     private void testCookies() throws Exception {
@@ -95,28 +141,49 @@ public final class TestActivity extends Activity {
         try {
             if (!expectDocumentStart) {
                 check("0".equals(value), "navigation works without AndroidX");
-                workspace.close();
-                finishTests();
+                injectThen(() -> { workspace.close(); finishTests(); });
                 return;
             }
             switch (phase++) {
                 case 0:
                     check("1".equals(value), "runs before inline page code");
-                    load("/private/secret"); break;
+                    injectThen(() -> load("/private/secret")); break;
                 case 1:
                     check("0".equals(value), "excluded path");
                     try {
-                        workspace.replaceUserscripts(Collections.singletonList(record().withRevision("tampered")));
+                        route("session", "replay", "{\"records\":[" + record().withRevision("tampered").toJson() + "]}");
                         check(false, "tampered revision rejected");
                     } catch (Exception expected) { check(true, "tampered revision rejected"); }
                     load("/again"); break;
                 case 2:
                     check("1".equals(value), "rejected update retains registrations");
-                    workspace.replaceUserscripts(Collections.emptyList());
+                    route("userscript", "disable", "{\"id\":\"script\"}");
+                    check(!store.load("test", "script").enabled,"routed disable persisted");
+                    route("userscript", "activate", "{}");
                     load("/removed"); break;
+                case 3:
+                    check("0".equals(value), "disabled script stays removed on navigation");
+                    route("userscript", "enable", "{\"id\":\"script\"}");
+                    route("session", "replay", "{\"records\":[" + store.load("test", "script").toJson() + "]}");
+                    load("/restored"); break;
+                case 4:
+                    check("1".equals(value), "routed replay restores enabled script");
+                    route("userscript", "uninstall", "{\"id\":\"script\"}");
+                    check(store.list("test").isEmpty(),"routed uninstall persisted");
+                    route("userscript", "activate", "{}");
+                    load("/uninstalled"); break;
                 default:
-                    check("0".equals(value), "removed script stays removed on navigation");
+                    check("0".equals(value), "uninstalled script removed after activation");
+                    check(route("session", "navigate", "{\"url\":\"http://127.0.0.1:1/\"}").status.equals("navigated"),"routed navigation acknowledged");
+                    workspace.stop();
+                    int[] completions = {0};
+                    router.manage("profile", new io.github.webong.ext.web.BrowserManagement.Request("session","inject","{\"source\":\"window.pending = true;\"}"), (r,e) -> {
+                        completions[0]++; check(e != null && r == null,"close rejects pending injection");
+                    });
                     workspace.close();
+                    check(completions[0] == 1,"pending injection completed exactly once on close");
+                    try { route("session","targets","{}"); check(false,"closed route rejected"); }
+                    catch (Exception expected) { check(true,"closed route rejected"); }
                     try { workspace.reload(); check(false, "closed workspace rejects work"); }
                     catch (IllegalStateException expected) { check(true, "closed workspace rejects work"); }
                     finishTests();

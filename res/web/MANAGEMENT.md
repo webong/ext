@@ -86,3 +86,7 @@ limits, nesting limits and diagnostic redaction.
 
 Run `go test ./...` from `res/web`, `scripts/web-ios.sh`, and
 `scripts/web-android.sh` from the repository root.
+
+[Workspace management and persistence](WORKSPACE_MANAGEMENT.md) implements mobile
+session and userscript routes over the existing native workspaces and a host-owned
+store. It documents the supported input schemas and activation lifetime.

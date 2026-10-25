@@ -57,6 +57,8 @@ public final class BrowserWorkspace implements AutoCloseable {
     private Listener listener;
     private boolean closed, loading, failed;
     private String error;
+    private long injectionID;
+    private final java.util.Map<Long, android.webkit.ValueCallback<Boolean>> injections = new java.util.LinkedHashMap<>();
 
     @SuppressLint("SetJavaScriptEnabled")
     public BrowserWorkspace(Context context, String target, Listener listener) {
@@ -139,9 +141,31 @@ public final class BrowserWorkspace implements AutoCloseable {
         if (view.getParent() instanceof ViewGroup) ((ViewGroup) view.getParent()).removeView(view);
         view.destroy();
         listener = null;
+        List<android.webkit.ValueCallback<Boolean>> pending = new ArrayList<>(injections.values());
+        injections.clear();
+        for (android.webkit.ValueCallback<Boolean> completion : pending) completion.onReceiveValue(false);
     }
 
     private void emit() { if (!closed) listener.onStateChange(new State(view, loading, error)); }
+    String managementTarget() { requireOpen(); return target; }
+    void checkOpen() { requireOpen(); }
+    /** Executes in the current main frame's page world. The callback reports synchronous
+     * evaluation success; JavaScript promises are not awaited. */
+    public void inject(String source, android.webkit.ValueCallback<Boolean> completion) {
+        requireOpen();
+        if (completion == null) throw new IllegalArgumentException("injection completion is required");
+        io.github.webong.ext.web.WorkspaceInput.validateSource(source);
+        String script = "(function(){try{(0,eval)(" + io.github.webong.ext.web.WorkspaceInput.quote(source)
+            + ");return true;}catch(_){return false;}})()";
+        long id = ++injectionID;
+        injections.put(id, completion);
+        try {
+            view.evaluateJavascript(script, value -> {
+                android.webkit.ValueCallback<Boolean> pending = injections.remove(id);
+                if (pending != null) pending.onReceiveValue(!closed && "true".equals(value));
+            });
+        } catch (RuntimeException failure) { injections.remove(id); throw failure; }
+    }
     private void requireOpen() { requireUI(); if (closed) throw new IllegalStateException("workspace is closed"); }
     private static void requireUI() {
         if (Looper.myLooper() != Looper.getMainLooper()) throw new IllegalStateException("workspace requires the UI thread");

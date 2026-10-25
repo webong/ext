@@ -77,3 +77,5 @@ all eight document-start/lifecycle checks passed with R8 and AndroidX WebKit
 1.9.0, and all four checks passed with R8 and no AndroidX dependency.
 
 See [mobile cookie workflows](../COOKIE_WORKFLOWS.md) for portable import/export and native workspace cookie access.
+
+`WorkspaceManagement` routes validated session/userscript requests into this workspace and a host-owned `UserscriptStore`; see [management and persistence](../WORKSPACE_MANAGEMENT.md).

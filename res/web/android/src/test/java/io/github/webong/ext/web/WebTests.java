@@ -517,6 +517,7 @@ public final class WebTests {
         test("cookie fixtures", WebTests::cookieFixtures);
         test("cookie workflows", CookieWorkflowTests::run);
         test("management protocol", ManagementTests::run);
+        test("userscript store", UserscriptStoreTests::run);
         test("cookie behavior", WebTests::cookieBehavior);
         test("site behavior", WebTests::siteBehavior);
         test("userscript fixtures", WebTests::userscriptFixtures);

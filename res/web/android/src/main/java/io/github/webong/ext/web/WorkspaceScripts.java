@@ -10,6 +10,9 @@ public final class WorkspaceScripts {
     private WorkspaceScripts() {}
 
     public static List<String> prepare(List<UserscriptRecord> records, String target) throws UserscriptException {
+        long bytes = 0;
+        for (UserscriptRecord record : records) bytes += GoText.utf8Length(record.source);
+        if (records.size() > 512 || bytes > (8 << 20)) throw new IllegalArgumentException("userscript batch exceeds limit");
         Set<String> ids = new HashSet<>();
         List<String> sources = new ArrayList<>();
         for (UserscriptRecord record : records) {

@@ -1,0 +1,1 @@
+{"target":"fixture:mobile","id":"reviewed","name":"Reviewed 🧪","revision":"sha256:4bc0d811c0b6cf2026431e5391717fe515c59d7bae1b54dca431d47473303f88","matches":["https://example.com/*"],"excludeMatches":null,"enabled":true,"source":"globalThis.fixture = '\u003c\u003e\u0026';"}

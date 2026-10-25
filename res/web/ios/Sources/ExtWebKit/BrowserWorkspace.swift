@@ -26,6 +26,7 @@ public final class BrowserWorkspace: NSObject, WKNavigationDelegate, WKUIDelegat
     private var observations: [NSKeyValueObservation] = []
     private var closed = false
     private var lastError: String?
+    private var injections: [UUID: CheckedContinuation<Void, Error>] = [:]
 
     public init(target: String, dataStore: WKWebsiteDataStore? = nil) {
         self.target = target
@@ -109,6 +110,8 @@ public final class BrowserWorkspace: NSObject, WKNavigationDelegate, WKUIDelegat
     public func close() {
         guard !closed else { return }
         closed = true
+        let pending = Array(injections.values); injections.removeAll()
+        pending.forEach { $0.resume(throwing: WorkspaceError.closed) }
         observations.forEach { $0.invalidate() }
         observations.removeAll()
         webView.stopLoading()
@@ -159,6 +162,22 @@ public final class BrowserWorkspace: NSObject, WKNavigationDelegate, WKUIDelegat
         return nil
     }
     private func emit() { if !closed { onStateChange?(state) } }
+    func checkOpen() throws { try requireOpen() }
+    /// Executes reviewed source in the current main frame's page world. Completion means
+    /// synchronous evaluation finished; promises returned by the script are not awaited.
+    public func inject(_ source: String) async throws {
+        try requireOpen()
+        guard !source.isEmpty, source.utf8.count <= 1 << 20 else { throw WorkspaceError.injectionFailed }
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            let id = UUID()
+            injections[id] = continuation
+            webView.evaluateJavaScript(source + "\n;void 0;") { [weak self] _, error in
+                guard let self, let pending = self.injections.removeValue(forKey: id) else { return }
+                if error != nil { pending.resume(throwing: WorkspaceError.injectionFailed) }
+                else { pending.resume() }
+            }
+        }
+    }
     private func requireOpen() throws { if closed { throw WorkspaceError.closed } }
-    public enum WorkspaceError: Error { case closed, invalidURL }
+    public enum WorkspaceError: Error { case closed, invalidURL, injectionFailed }
 }

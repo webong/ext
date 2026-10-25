@@ -71,6 +71,72 @@ final class BrowserWorkspaceTests: XCTestCase {
         XCTAssertThrowsError(try workspace.navigate("https://example.com"))
     }
 
+    func testManagementRoutingAndPersistence() async throws {
+        let workspace = BrowserWorkspace(target: "test")
+        attach(workspace)
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { workspace.close(); detach(); try? FileManager.default.removeItem(at: root) }
+        let store = UserscriptStore(directory: root)
+        let router = WorkspaceManagement(workspace: workspace, store: store, profile: "profile")
+        func call(_ kind: String, _ action: String, _ input: String = "{}") async throws -> BrowserManagement.Response {
+            try await router.manage(profile: "profile", request: .init(kind: kind, action: action, input: input))
+        }
+        let r = record()
+        let payload = "{\"id\":\"script\",\"name\":\"Script\",\"matches\":[\"https://example.com/*\"],\"excludeMatches\":[\"https://example.com/private/*\"],\"source\":" + String(decoding: try JSONEncoder().encode(r.source), as: UTF8.self) + "}"
+        let prepared = try await call("userscript", "prepare", payload)
+        XCTAssertEqual(prepared.status, "prepared")
+        XCTAssertEqual(try store.list(target: "test").count, 0)
+        _ = try await call("userscript", "install", payload)
+        XCTAssertEqual(try UserscriptStore(directory: root).load(target: "test", id: "script"), r)
+        let targets = try await call("session", "targets")
+        XCTAssertTrue(targets.result!.contains("webview"))
+        _ = try await call("session", "connect", "{\"target\":" + targets.result!.dropFirst().dropLast() + "}")
+        _ = try await call("userscript", "activate")
+        let loaded = try await load(workspace, path: "/routed")
+        XCTAssertEqual(loaded as? Int, 1)
+        let injected = try await call("session", "inject", #"{"source":"window.routed = 42;","options":{"runAt":"now","world":"page"}}"#)
+        XCTAssertEqual(injected.status, "injected")
+        let value = try await workspace.webView.evaluateJavaScript("window.routed")
+        XCTAssertEqual(value as? Int, 42)
+        do { _ = try await call("session", "inject", #"{"source":"throw new Error('fixture');"}"#); XCTFail("execution failure accepted") } catch {}
+        do { _ = try await call("session", "navigate", #"{"url":"file:///etc/passwd"}"#); XCTFail("invalid navigation accepted") } catch {}
+        do { _ = try await call("session", "endpoint"); XCTFail("unsupported endpoint accepted") } catch {}
+        do { _ = try await router.manage(profile: "other", request: .init(kind: "userscript", action: "uninstall", input: #"{"id":"script"}"#)); XCTFail("profile mismatch") } catch {}
+        var tampered = r; tampered.source += "tampered"
+        let replay = "{\"records\":" + String(decoding: try JSONEncoder().encode([tampered]), as: UTF8.self) + "}"
+        do { _ = try await call("session", "replay", replay); XCTFail("tampered replay accepted") } catch {}
+        let kept = try await load(workspace, path: "/kept")
+        XCTAssertEqual(kept as? Int, 1)
+        _ = try await call("userscript", "disable", #"{"id":"script"}"#)
+        _ = try await call("userscript", "activate")
+        let disabled = try await load(workspace, path: "/disabled")
+        XCTAssertEqual(disabled as? Int, 0)
+        _ = try await call("userscript", "enable", #"{"id":"script"}"#)
+        let restored = try UserscriptStore(directory: root).load(target: "test", id: "script")
+        _ = try await call("session", "replay", "{\"records\":" + String(decoding: try JSONEncoder().encode([restored]), as: UTF8.self) + "}")
+        let replayed = try await load(workspace, path: "/replayed")
+        XCTAssertEqual(replayed as? Int, 1)
+        _ = try await call("userscript", "uninstall", #"{"id":"script"}"#)
+        _ = try await call("userscript", "activate")
+        let removed = try await load(workspace, path: "/removed")
+        XCTAssertEqual(removed as? Int, 0)
+        workspace.close()
+        do { _ = try await call("session", "targets"); XCTFail("closed workspace accepted") } catch {}
+    }
+
+    func testCloseRejectsPendingInjection() async throws {
+        let workspace = BrowserWorkspace(target: "closing")
+        var closed = false
+        let injection = Task {
+            try await workspace.inject("window.pending = true;")
+            return !closed
+        }
+        await Task.yield()
+        closed = true; workspace.close()
+        // Evaluation may finish before close, but can never succeed afterwards.
+        do { let finishedBeforeClose = try await injection.value; XCTAssertTrue(finishedBeforeClose) } catch {}
+    }
+
     func testNativeCookieStore() async throws {
         let workspace = BrowserWorkspace(target: "cookies")
         defer { workspace.close() }

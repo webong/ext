@@ -57,3 +57,5 @@ Separate targets/source sets keep the portable rules free of native webview impo
 See [mobile cookie workflows](COOKIE_WORKFLOWS.md) for portable import/export and native workspace cookie access.
 
 See [mobile browser-management protocol](MANAGEMENT.md) for Swift/Java envelopes, validation, endpoint safety and backend dispatch.
+
+See [workspace management and persistence](WORKSPACE_MANAGEMENT.md) for native management routing and Go-compatible userscript storage.

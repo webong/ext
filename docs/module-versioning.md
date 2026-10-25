@@ -268,6 +268,7 @@ later rounds followed for new content.
 | Dependency security (`v0.5.1`) | `pkg/plugin-go/hashicorp` v0.3.0 and `pkg/plugin-go` v0.5.1; no other module |
 | API additions (`v0.6.0`) | `pkg/plugin-go/contract`, `pkg/plugin-go/cengine` and `pkg/plugin-go` at v0.6.0; no other module |
 | Engine parity (`v0.7.0`) | `pkg/plugin-go/contract`, `pkg/plugin-go/cengine` and `pkg/plugin-go` at v0.7.0; no other module |
+| Engine test harness (`v0.8.0`) | `pkg/plugin-go/contract`, `pkg/plugin-go/cengine` and `pkg/plugin-go` at v0.8.0; no other module |
 
 `v0.3.0` is a minor version because `Store.ListUnverified` and `Layered.ListUnverified` are new API in
 both `contract/host/store` and `cengine/host/store`. It also bounds the cost of validating and resolving
@@ -313,6 +314,15 @@ moved into it; `res/web` v0.5.1 carries the examples and the `wasm/reactor.js` a
 Both are patch releases, since neither changes an exported name. `wasm`, `hashicorp` and the 24 adapters
 have the same bytes as before and are not retagged: they still require `contract` v0.4.0, which is fine,
 because a build that also requires v0.5.0 (the umbrella and the products do) resolves to it.
+
+The `v0.8.0` round publishes what the engine tests were moved into. `contract` gains `plugintest/enginetest`, the
+engine-agnostic differential checks that the C-backed `cengine` runs under the same names as the pure-Go core, and
+`instance.Manager` now reports a disposal before `Close` returns, where it used to tell `Close` it was done first, so
+a host could see `Close` return with a disposal unreported (a behavior change, hence a minor version). `cengine`
+changes with its tests and the engine sources it carries, and the umbrella follows because it pins both. The round
+exists because the `cengine` tests import `enginetest`, which `contract` v0.7.0 does not contain, so a standalone
+`go mod tidy` of `cengine` failed on `main` from the commit that moved the checks until this release. `wasm`,
+`hashicorp` (one test fixture), `res/*` and the adapters have the same bytes as before and are not retagged.
 
 The `v0.7.0` round brings the C engine to the behavior of the pure-Go baseline: reverse calls, progress frames,
 endpoint validation and extension backends now run on both (see [engine parity](plugin-engine-parity.md)). `contract`

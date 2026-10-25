@@ -38,3 +38,5 @@ use (
 	./pkg/plugin-go/cengine
 	./pkg/plugin-go/c2goengine
 )
+
+replace github.com/webong/ext/pkg/plugin-go/cengine v0.8.0 => ./pkg/plugin-go/cengine

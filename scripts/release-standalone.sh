@@ -47,7 +47,9 @@ while read -r m v; do
   git -C "$ROOT" archive "$rev" "$m" | tar -x -C "$WORK/src"
   ok=yes
   for goos in linux darwin windows; do
-    if ! out=$(cd "$src" && GOOS=$goos go vet ./... 2>&1); then
+    # Not the translation of the C engine (pkg/plugin-go/c2goengine/internal/ccgo): ccgo writes it and
+    # it reports thousands of vet diagnostics that are not ours to fix.
+    if ! out=$(cd "$src" && export GOOS=$goos && pkgs=$(go list ./...) && go vet $(printf '%s\n' "$pkgs" | grep -v '/internal/ccgo$') 2>&1); then
       echo "FAIL $m@$v: go vet (GOOS=$goos)"
       printf '%s\n' "$out" | head -8 | sed 's/^/    /'
       ok=no

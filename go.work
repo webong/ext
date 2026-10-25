@@ -36,4 +36,5 @@ use (
 	./res/credential
 	./pkg/plugin-go/contract
 	./pkg/plugin-go/cengine
+	./pkg/plugin-go/c2goengine
 )

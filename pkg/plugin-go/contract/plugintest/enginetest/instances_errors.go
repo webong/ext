@@ -1,6 +1,4 @@
-//go:build ext_cengine && cgo && (darwin || linux || windows)
-
-package goengine
+package enginetest
 
 import (
 	"context"
@@ -13,48 +11,40 @@ import (
 	"time"
 )
 
-// instances is the part of the Go and C instance managers that is shared.
-type instances interface {
-	Configure(context.Context, string, string, json.RawMessage) error
-	Remove(string) error
-	Close(context.Context) error
-}
-
-type leaseLike interface{ Release() error }
+type leaseLike = Lease
 
 type instanceRig struct {
-	m       instances
+	m       Instances
 	acquire func(string) (leaseLike, string, error)
+}
+
+func newRig(m Instances) instanceRig {
+	return instanceRig{m: m, acquire: func(k string) (leaseLike, string, error) {
+		v, l, err := m.Acquire(k)
+		if err != nil {
+			return nil, "", err
+		}
+		return l, v, nil
+	}}
 }
 
 // disposeBoom is returned by a disposer so the test can see it survive.
 var disposeBoom = errors.New("dispose boom")
 
-func openRig(c bool, opts instance.Options[string]) (instanceRig, error) {
-	if c {
-		m, err := NewInstances(opts)
+// openRig opens the manager of the oracle (c false) or of the engine under test.
+func (e Engine) openRig(c bool, opts instance.Options[string]) (instanceRig, error) {
+	if !c {
+		m, err := instance.New(opts)
 		if err != nil {
 			return instanceRig{}, err
 		}
-		return instanceRig{m: m, acquire: func(k string) (leaseLike, string, error) {
-			l, err := m.Acquire(k)
-			if err != nil {
-				return nil, "", err
-			}
-			return l, l.Value, nil
-		}}, nil
+		return newRig(oracleInstances{m}), nil
 	}
-	m, err := instance.New(opts)
+	m, err := e.NewInstances(opts)
 	if err != nil {
 		return instanceRig{}, err
 	}
-	return instanceRig{m: m, acquire: func(k string) (leaseLike, string, error) {
-		l, err := m.Acquire(k)
-		if err != nil {
-			return nil, "", err
-		}
-		return l, l.Value, nil
-	}}, nil
+	return newRig(m), nil
 }
 
 // instanceScenario is a sequence of operations to run through both managers.
@@ -76,10 +66,10 @@ func instanceScenarios() []instanceScenario {
 					}}
 			},
 			func(ctx context.Context, r instanceRig) []string {
-				out := []string{causes(r.m.Configure(ctx, "a", "r1", json.RawMessage(`{}`)))}
+				out := []string{Causes(r.m.Configure(ctx, "a", "r1", json.RawMessage(`{}`)))}
 				l, _, err := r.acquire("a")
-				out = append(out, causes(err))
-				out = append(out, causes(r.m.Remove("a")), fmt.Sprint(errors.Is(l.Release(), disposeBoom)), fmt.Sprint(errors.Is(l.Release(), disposeBoom)))
+				out = append(out, Causes(err))
+				out = append(out, Causes(r.m.Remove("a")), fmt.Sprint(errors.Is(l.Release(), disposeBoom)), fmt.Sprint(errors.Is(l.Release(), disposeBoom)))
 				return out
 			}},
 		{"dispose-error-on-close",
@@ -90,12 +80,12 @@ func instanceScenarios() []instanceScenario {
 					}}
 			},
 			func(ctx context.Context, r instanceRig) []string {
-				out := []string{causes(r.m.Configure(ctx, "a", "r1", json.RawMessage(`{}`))), causes(r.m.Configure(ctx, "b", "r1", json.RawMessage(`{}`)))}
+				out := []string{Causes(r.m.Configure(ctx, "a", "r1", json.RawMessage(`{}`))), Causes(r.m.Configure(ctx, "b", "r1", json.RawMessage(`{}`)))}
 				err := r.m.Close(ctx)
-				out = append(out, causes(err), fmt.Sprint(errors.Is(err, disposeBoom)))
-				out = append(out, causes(r.m.Close(ctx)), causes(r.m.Configure(ctx, "c", "r1", json.RawMessage(`{}`))))
+				out = append(out, Causes(err), fmt.Sprint(errors.Is(err, disposeBoom)))
+				out = append(out, Causes(r.m.Close(ctx)), Causes(r.m.Configure(ctx, "c", "r1", json.RawMessage(`{}`))))
 				_, _, aerr := r.acquire("a")
-				return append(out, causes(aerr))
+				return append(out, Causes(aerr))
 			}},
 		{"dispose-error-on-remove",
 			func() instance.Options[string] {
@@ -105,9 +95,9 @@ func instanceScenarios() []instanceScenario {
 					}}
 			},
 			func(ctx context.Context, r instanceRig) []string {
-				out := []string{causes(r.m.Configure(ctx, "a", "r1", json.RawMessage(`{}`)))}
+				out := []string{Causes(r.m.Configure(ctx, "a", "r1", json.RawMessage(`{}`)))}
 				err := r.m.Remove("a")
-				return append(out, causes(err), fmt.Sprint(errors.Is(err, disposeBoom)), causes(r.m.Remove("a")))
+				return append(out, Causes(err), fmt.Sprint(errors.Is(err, disposeBoom)), Causes(r.m.Remove("a")))
 			}},
 		{"dispose-error-on-replace",
 			func() instance.Options[string] {
@@ -119,14 +109,14 @@ func instanceScenarios() []instanceScenario {
 					}}
 			},
 			func(ctx context.Context, r instanceRig) []string {
-				out := []string{causes(r.m.Configure(ctx, "a", "r1", json.RawMessage(`{}`)))}
+				out := []string{Causes(r.m.Configure(ctx, "a", "r1", json.RawMessage(`{}`)))}
 				err := r.m.Configure(ctx, "a", "r2", json.RawMessage(`{}`))
-				out = append(out, causes(err), fmt.Sprint(errors.Is(err, disposeBoom)))
+				out = append(out, Causes(err), fmt.Sprint(errors.Is(err, disposeBoom)))
 				l, v, aerr := r.acquire("a")
 				if l != nil {
 					out = append(out, fmt.Sprint(errors.Is(l.Release(), disposeBoom)))
 				}
-				return append(out, v, causes(aerr))
+				return append(out, v, Causes(aerr))
 			}},
 		{"create-fails-and-validate-fails",
 			func() instance.Options[string] {
@@ -146,14 +136,14 @@ func instanceScenarios() []instanceScenario {
 			},
 			func(ctx context.Context, r instanceRig) []string {
 				return []string{
-					causes(r.m.Configure(ctx, "a", "r1", json.RawMessage(`{"bad":1}`))),
-					causes(r.m.Configure(ctx, "a", "r1", json.RawMessage(`{"fail":1}`))),
-					causes(r.m.Configure(ctx, "a", "r1", json.RawMessage(`{`))),
-					causes(r.m.Configure(ctx, "", "r1", json.RawMessage(`{}`))),
-					causes(r.m.Configure(ctx, "a", "", json.RawMessage(`{}`))),
-					causes(r.m.Configure(ctx, "a", "r1", json.RawMessage(`{}`))),
-					causes(r.m.Configure(ctx, "a", "r1", json.RawMessage(`{}`))),
-					causes(r.m.Configure(ctx, "a", "r1", json.RawMessage(`{"x":2}`))),
+					Causes(r.m.Configure(ctx, "a", "r1", json.RawMessage(`{"bad":1}`))),
+					Causes(r.m.Configure(ctx, "a", "r1", json.RawMessage(`{"fail":1}`))),
+					Causes(r.m.Configure(ctx, "a", "r1", json.RawMessage(`{`))),
+					Causes(r.m.Configure(ctx, "", "r1", json.RawMessage(`{}`))),
+					Causes(r.m.Configure(ctx, "a", "", json.RawMessage(`{}`))),
+					Causes(r.m.Configure(ctx, "a", "r1", json.RawMessage(`{}`))),
+					Causes(r.m.Configure(ctx, "a", "r1", json.RawMessage(`{}`))),
+					Causes(r.m.Configure(ctx, "a", "r1", json.RawMessage(`{"x":2}`))),
 				}
 			}},
 		{"capacity-and-unknown-keys",
@@ -164,9 +154,9 @@ func instanceScenarios() []instanceScenario {
 					}}
 			},
 			func(ctx context.Context, r instanceRig) []string {
-				out := []string{causes(r.m.Configure(ctx, "a", "r1", json.RawMessage(`{}`))), causes(r.m.Configure(ctx, "b", "r1", json.RawMessage(`{}`)))}
+				out := []string{Causes(r.m.Configure(ctx, "a", "r1", json.RawMessage(`{}`))), Causes(r.m.Configure(ctx, "b", "r1", json.RawMessage(`{}`)))}
 				_, _, err := r.acquire("missing")
-				out = append(out, causes(err), causes(r.m.Remove("missing")), causes(r.m.Remove("a")), causes(r.m.Configure(ctx, "b", "r1", json.RawMessage(`{}`))))
+				out = append(out, Causes(err), Causes(r.m.Remove("missing")), Causes(r.m.Remove("a")), Causes(r.m.Configure(ctx, "b", "r1", json.RawMessage(`{}`))))
 				return out
 			}},
 		{"canceled-contexts",
@@ -179,28 +169,31 @@ func instanceScenarios() []instanceScenario {
 			func(ctx context.Context, r instanceRig) []string {
 				dead, cancel := context.WithCancel(ctx)
 				cancel()
-				out := []string{causes(r.m.Configure(dead, "a", "r1", json.RawMessage(`{}`))), causes(r.m.Configure(ctx, "a", "r1", json.RawMessage(`{}`)))}
+				out := []string{Causes(r.m.Configure(dead, "a", "r1", json.RawMessage(`{}`))), Causes(r.m.Configure(ctx, "a", "r1", json.RawMessage(`{}`)))}
 				l, _, err := r.acquire("a")
 				past, c2 := context.WithTimeout(ctx, time.Nanosecond)
 				defer c2()
 				time.Sleep(time.Millisecond)
-				out = append(out, causes(err), causes(r.m.Close(past)))
+				out = append(out, Causes(err), Causes(r.m.Close(past)))
 				if l != nil {
-					out = append(out, causes(l.Release()))
+					out = append(out, Causes(l.Release()))
 				}
-				return append(out, causes(r.m.Close(ctx)))
+				return append(out, Causes(r.m.Close(ctx)))
 			}},
 	}
 }
 
-// TestInstanceErrorCausesMatchGo runs the same sequence of operations through
+// InstanceErrorCausesMatchGo runs the same sequence of operations through
 // both managers and compares the class of every error.
-func TestInstanceErrorCausesMatchGo(t *testing.T) {
+func InstanceErrorCausesMatchGo(t *testing.T, e Engine) {
+	if e.NewInstances == nil {
+		t.Skip("the engine has no instance manager to compare")
+	}
 	for _, sc := range instanceScenarios() {
 		t.Run(sc.name, func(t *testing.T) {
 			var outs [2]string
 			for i, c := range []bool{false, true} {
-				r, err := openRig(c, sc.opts())
+				r, err := e.openRig(c, sc.opts())
 				if err != nil {
 					t.Fatal(err)
 				}

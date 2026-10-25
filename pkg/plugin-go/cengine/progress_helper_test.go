@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	plugin "github.com/webong/ext/pkg/plugin-go/contract"
+	"github.com/webong/ext/pkg/plugin-go/contract/plugintest/enginetest"
 	"github.com/webong/ext/pkg/plugin-go/contract/transport/jsonline"
 )
 
@@ -36,6 +37,7 @@ func progressDescriptor() plugin.Descriptor {
 }
 
 func TestMain(m *testing.M) {
+	enginetest.MaybeServeGuest()
 	if mode := os.Getenv(guestEnv); mode != "" {
 		os.Exit(runProgressGuest(mode))
 	}
@@ -45,9 +47,6 @@ func TestMain(m *testing.M) {
 func runProgressGuest(mode string) int {
 	if strings.HasPrefix(mode, "rev-") {
 		return runReverseGuest(mode)
-	}
-	if strings.HasPrefix(mode, "stage-") {
-		return runStageGuest(mode)
 	}
 	if strings.HasPrefix(mode, "raw:") {
 		return runRawGuest(strings.TrimPrefix(mode, "raw:"))

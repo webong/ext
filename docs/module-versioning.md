@@ -173,7 +173,8 @@ dependencies require; `go mod tidy` raises it when it is not. The light librarie
 (`pkg/plugin-go/contract`, `pkg/plugin-go/cengine`, `pkg/plugin-go/wasm`, `res/*` and the adapters) declare `go 1.23.0` and their dependencies allow it. Four modules declare
 `go 1.26.0` because `golang.org/x/net`, `x/sys` and `x/text` at the versions they use require it:
 `pkg/plugin-go/hashicorp` (gRPC), the umbrella `pkg/plugin-go` (it requires `hashicorp`), `src/ctx`
-and `src/ctn`. The workspace file
+and `src/ctn`. A fifth, `pkg/plugin-go/c2goengine`, declares `go 1.26.0` because the runtime library the
+translated code links against (`modernc.org/libc`) requires it. The workspace file
 `go.work` declares the highest of them, and CI runs Go 1.26.x.
 
 `pkg/plugin-hashicorp/v0.1.0` was published declaring `go 1.23.0` while requiring those
@@ -191,6 +192,7 @@ so an application imports only what it needs and stacks the rest:
 | --- | --- | --- |
 | `pkg/plugin-go/contract` | the contract, sessions, guests, packages, the package store and host, bridges and tooling (the old `pkg/plugin`); standard library only | nothing |
 | `pkg/plugin-go/cengine` | the Go binding of the C engine, a pure-Go build of the same API, engine-routed variants of `store` and `host` with the same API as the ones in `contract`, the C ABI loader (the old `pkg/plugin-cshared`) and a generated copy of the C sources | `contract` |
+| `pkg/plugin-go/c2goengine` | the C engine's portable core translated to Go by ccgo (`modernc.org/ccgo`), with no cgo and no C compiler: one generated file per platform, made on that platform (see its README) | `contract` |
 | `pkg/plugin-go/wasm` | the wazero backend (the old `pkg/plugin-wasm`) | `contract` |
 | `pkg/plugin-go/hashicorp` | the go-plugin (gRPC) backend (the old `pkg/plugin-hashicorp`) | `contract` |
 | `pkg/plugin-go` | the umbrella: requires every module above at matching versions and holds what needs several of them (`PlanGraph`, the bridge command, the cross-language tests) | all of the above, `res/system` |
@@ -200,6 +202,16 @@ package and of every alias in use, and the module is that contract plus tooling 
 needs nothing beyond the standard library, not a runtime. `wasm` and `hashicorp`
 never depend on `cengine`, in code, tests or `go.mod`, so a wazero or gRPC user needs
 no C toolchain; `src/ctx/internal/arch` enforces this.
+
+### The translated engine
+
+`c2goengine` is the same C as `cengine`, run as Go. Its translation of `lib/plugin`'s portable core is
+generated, one file per platform (`internal/ccgo/generated_<goos>_<goarch>.go`), by the tools module
+in its `tools` directory, which pins ccgo and runs only on the platform it writes for. A published
+module contains only its own directory, and the generated files are that directory's copy of the C,
+so no C sources travel with it. The `c2goengine` workflow regenerates the file for each platform and
+fails when it differs from the one checked in. Tags follow the usual rule: `pkg/plugin-go/c2goengine/vX.Y.Z`,
+with a `contract` release that holds the `plugintest/enginetest` checks it runs below it (v0.9.0: v0.8.0 has the service checks only, and the instance, session and process checks came after).
 
 ### The C sources
 

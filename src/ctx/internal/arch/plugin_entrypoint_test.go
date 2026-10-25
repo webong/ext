@@ -15,7 +15,7 @@ import (
 // library itself and the runtime backends that implement contract.Backend
 // (pkg/plugin-go/hashicorp, pkg/plugin-go/wasm, pkg/plugin-go/cgoengine/cshared)
 // import that root package.
-func TestGoProgramsImportCengineNotTheContractPackage(t *testing.T) {
+func TestGoProgramsImportCgoengineNotTheContractPackage(t *testing.T) {
 	root := repoRoot(t)
 	const pluginRoot = "github.com/webong/ext/pkg/plugin-go/contract"
 	for _, tree := range []string{"adapters", "examples", "pkg/plugin-go/examples", "src", "res"} {

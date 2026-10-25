@@ -221,7 +221,7 @@ so an application imports only what it needs and stacks the rest:
 | `pkg/plugin-go/c2goengine` | the C engine's portable core translated to Go by ccgo (`modernc.org/ccgo`), with no cgo and no C compiler: one generated file per platform, made on that platform (see its README) | `contract` |
 | `pkg/plugin-go/wasm` | the wazero backend (the old `pkg/plugin-wasm`) | `contract` |
 | `pkg/plugin-go/hashicorp` | the go-plugin (gRPC) backend (the old `pkg/plugin-hashicorp`) | `contract` |
-| `pkg/plugin-go` | the umbrella: requires every module above at matching versions and holds what needs several of them (`PlanGraph`, the bridge command, the cross-language tests) | all of the above, `res/system` |
+| `pkg/plugin-go` | the umbrella: requires every module above at matching versions and holds what needs several of them (`PlanGraph`, the `engine` package that chooses between `contract`, `cgoengine` and `c2goengine`, the bridge command, the cross-language tests) | all of the above, `res/system` |
 
 The name `contract` was chosen over `core` because it is already the name of the Go
 package and of every alias in use, and the module is that contract plus tooling that

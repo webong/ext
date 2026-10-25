@@ -39,6 +39,9 @@ use (
 	./pkg/plugin-go/c2goengine
 )
 
-// cgoengine v0.1.0, the first tag of the renamed module, is not published yet, and the umbrella and the
-// adapters require it. This resolves that one version to the workspace copy; delete it once the tag exists.
+// cgoengine v0.1.0 and c2goengine v0.1.0, the first tags of two modules, are not published yet, and the
+// umbrella and the adapters require them. These resolve those versions to the workspace copies; delete
+// each once its tag exists.
 replace github.com/webong/ext/pkg/plugin-go/cgoengine v0.1.0 => ./pkg/plugin-go/cgoengine
+
+replace github.com/webong/ext/pkg/plugin-go/c2goengine v0.1.0 => ./pkg/plugin-go/c2goengine

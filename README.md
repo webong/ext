@@ -65,7 +65,9 @@ cd ext
 export PATH="$HOME/.local/bin:$PATH"
 ```
 
-Choose adapters explicitly when you need them:
+Choose adapters explicitly when you need them (add `--ext` to install the `ext` command
+beside `ctx`, and `-Ext` on Windows; `ext ctx` and `ext ctn` run the same code as the
+standalone commands, and `ext package` adds commands from installed packages):
 
 ```sh
 ./install.sh --adapters docker,kube,aws,firefox

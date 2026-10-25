@@ -19,6 +19,7 @@ esac
 if [ -n "$CREDENTIAL_ADAPTER" ]; then CATALOG_ADAPTERS="$CATALOG_ADAPTERS $CREDENTIAL_ADAPTER"; fi
 SETUP_MODE=minimal
 SETUP_CHOSEN=0
+INSTALL_EXT=0
 SETUP_ADAPTERS=
 while [ "$#" -gt 0 ]; do
   case "$1" in
@@ -27,6 +28,7 @@ while [ "$#" -gt 0 ]; do
     --interactive) [ "$SETUP_CHOSEN" -eq 0 ] || { printf 'ctx: choose only one adapter selection mode\n' >&2; exit 2; }; SETUP_MODE=interactive; SETUP_CHOSEN=1 ;;
     --adapters) [ "$SETUP_CHOSEN" -eq 0 ] && [ "$#" -ge 2 ] || { printf 'ctx: --adapters needs a comma-separated value\n' >&2; exit 2; }; SETUP_MODE=selected; SETUP_CHOSEN=1; SETUP_ADAPTERS=$2; shift ;;
     --adapters=*) [ "$SETUP_CHOSEN" -eq 0 ] || { printf 'ctx: choose only one adapter selection mode\n' >&2; exit 2; }; SETUP_MODE=selected; SETUP_CHOSEN=1; SETUP_ADAPTERS=${1#--adapters=} ;;
+    --ext) INSTALL_EXT=1 ;;
     *) printf 'ctx: unknown installer option: %s\n' "$1" >&2; exit 2 ;;
   esac
   shift
@@ -83,6 +85,43 @@ else
   tar -xzf "$archive" -C "$temporary"
 fi
 
+if [ "$INSTALL_EXT" = 1 ]; then
+  ext_target="$DST_BIN/ext"
+  if [ -e "$ext_target" ] || [ -L "$ext_target" ]; then
+    "$ext_target" version 2>/dev/null | grep -Eq '^ext ' || { printf 'ext: %s exists; choose another CTX_BIN_DIR\n' "$ext_target" >&2; exit 1; }
+  fi
+  if [ -n "$ROOT" ]; then
+    (cd "$ROOT" && go build -o "$temporary/ext-binary" ./cmd/ext)
+  else
+    ext_asset="ext-$os-$arch.tar.gz"
+    if [ -n "${CTX_RELEASE_BASE:-}" ]; then
+      ext_base=${CTX_RELEASE_BASE%/}
+    else
+      ext_version=${EXT_VERSION:-latest}
+      if [ "$ext_version" = latest ]; then
+        # GitHub's "latest" is repository-wide and may be another product's release.
+        ext_tag=$(curl -fsSL "https://api.github.com/repos/webong/ext/releases?per_page=100" |
+          grep -o '"tag_name": *"ext-v[^"]*"' | head -n 1 | sed 's/.*"\(ext-v[^"]*\)"/\1/')
+        [ -n "$ext_tag" ] || { printf 'ext: no ext release was found\n' >&2; exit 1; }
+      else
+        case "$ext_version" in ext-v*) ext_tag=$ext_version;; v*) ext_tag=ext-$ext_version;; *) ext_tag=ext-v$ext_version;; esac
+      fi
+      ext_base="https://github.com/webong/ext/releases/download/$ext_tag"
+    fi
+    curl -fsSL "$ext_base/$ext_asset" -o "$temporary/$ext_asset"
+    curl -fsSL "$ext_base/checksums.txt" -o "$temporary/ext-checksums.txt"
+    expected=$(awk -v asset="$ext_asset" '$2 == asset || $2 == "*" asset { print $1; exit }' "$temporary/ext-checksums.txt")
+    [ -n "$expected" ] || { printf 'ext: release checksum is missing for %s\n' "$ext_asset" >&2; exit 1; }
+    if command -v shasum >/dev/null 2>&1; then actual=$(shasum -a 256 "$temporary/$ext_asset" | awk '{print $1}')
+    elif command -v sha256sum >/dev/null 2>&1; then actual=$(sha256sum "$temporary/$ext_asset" | awk '{print $1}')
+    else printf 'ext: shasum or sha256sum is required to verify the release\n' >&2; exit 1
+    fi
+    [ "$actual" = "$expected" ] || { printf 'ext: release checksum verification failed for %s\n' "$ext_asset" >&2; exit 1; }
+    tar -xzf "$temporary/$ext_asset" -C "$temporary"
+    mv "$temporary/ext/bin/ext" "$temporary/ext-binary"
+  fi
+fi
+
 if [ "$SETUP_MODE" != minimal ]; then
   if [ -n "$ROOT" ]; then
     mkdir -p "$bundle/adapters"
@@ -134,6 +173,12 @@ done
 mkdir -p "$DST_BIN" "$CONFIG_DIR/adapters"
 cp "$bundle/bin/ctx" "$DST_BIN/ctx"
 chmod +x "$DST_BIN/ctx"
+
+if [ "$INSTALL_EXT" = 1 ]; then
+  cp "$temporary/ext-binary" "$DST_BIN/ext"
+  chmod +x "$DST_BIN/ext"
+fi
+
 if [ "$SETUP_MODE" != minimal ]; then
   mkdir -p "$CONFIG_DIR/catalog/adapters"
   for adapter in $CATALOG_ADAPTERS; do
@@ -169,6 +214,7 @@ if [ "$SETUP_MODE" = minimal ]; then
 else
   printf 'Installed ctx and the optional adapter catalog in %s\n' "$DST_BIN"
 fi
+if [ "$INSTALL_EXT" = 1 ]; then printf 'Installed ext in %s\n' "$DST_BIN"; fi
 printf 'Config: %s/config.toml\n' "$CONFIG_DIR"
 case ":$PATH:" in *":$DST_BIN:"*) ;; *) printf 'Add %s before Docker, Podman, and nerdctl on PATH.\n' "$DST_BIN";; esac
 for rc in "$HOME/.zshrc" "$HOME/.bashrc"; do

@@ -47,7 +47,7 @@ github.com/stretchr/testify v1.8.3 h1:RP3t2pwF7cMEbC1dqtB6poj3niw/9gnV4Cjg5oW5gt
 github.com/stretchr/testify v1.8.3/go.mod h1:sz/lmYIOXD/1dqDmKjjqLyZ2RngseejIcXlSw2iwfAo=
 github.com/tetratelabs/wazero v1.10.1 h1:2DugeJf6VVk58KTPszlNfeeN8AhhpwcZqkJj2wwFuH8=
 github.com/tetratelabs/wazero v1.10.1/go.mod h1:DRm5twOQ5Gr1AoEdSi0CLjDQF1J9ZAuyqFIjl1KKfQU=
-github.com/webong/ext/pkg/plugin-go/c2goengine v0.1.0 h1:0EXxChkriPTklq5PLD/Sd7s3OXg9kXISaPMK6V5naOc=
+github.com/webong/ext/pkg/plugin-go/c2goengine v0.1.0 h1:gzve+caKX4db3JTmZxgYe8tSFd0RiScGOry30wkb3A0=
 github.com/webong/ext/pkg/plugin-go/c2goengine v0.1.0/go.mod h1:NaIytBBNDlP/AI8SJrcZUlXFbGt0aKtvlf7cvDLDWk8=
 github.com/webong/ext/pkg/plugin-go/cgoengine v0.1.0 h1:2gXJtXRy8H0Ku6xnicLnXQ3EdAxmTfzBumGWKdRtPsM=
 github.com/webong/ext/pkg/plugin-go/cgoengine v0.1.0/go.mod h1:o7Lg03SwEv8nKXJ58MaQXJnWO1+gsKjUx/f14D2Pha4=

@@ -17,7 +17,7 @@ import (
 )
 
 // Instances over the translated engine (lib/plugin/src/instances.c): the counterpart of the cgo
-// binding's instances.go in pkg/plugin-go/cengine. The engine owns leases, replacement, capacity and
+// binding's instances.go in pkg/plugin-go/cgoengine. The engine owns leases, replacement, capacity and
 // cleanup; Go owns the values and what creating and disposing of them means.
 
 type instanceValue struct {

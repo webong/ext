@@ -13,7 +13,7 @@ leases, err := c2goengine.NewInstances(instance.Options[T]{...})
 
 - `EngineCall` runs the engine's pure services (descriptor, request, response, frame, manifest, schema
   and endpoint rules; see [lib/plugin/services.md](../../../lib/plugin/services.md)) on bounded JSON,
-  exactly as `pkg/plugin-go/cengine.EngineCall` does through cgo. Nothing here starts a plugin.
+  exactly as `pkg/plugin-go/cgoengine.EngineCall` does through cgo. Nothing here starts a plugin.
 - `Open` and `OpenProcess` are the engine's sessions: the host's state machine, admission, deadlines,
   draining, policies and observer events (host.c, run as Go), over a Go `plugin.Backend` or over a
   child process the engine itself starts. `NewInstances` is its lease manager.
@@ -25,7 +25,7 @@ leases, err := c2goengine.NewInstances(instance.Options[T]{...})
 | | needs | notes |
 | --- | --- | --- |
 | the pure-Go contract (`contract`) | nothing | the oracle: written separately, so a bug in the C cannot hide in it |
-| `cengine` | cgo and the C library | the C itself, at native speed |
+| `cgoengine` | cgo and the C library | the C itself, at native speed |
 | `c2goengine` | nothing | the C, translated; about twice as slow as native and about twice as fast as the Go contract on the services measured |
 
 `contract/plugintest/enginetest` holds an engine against the oracle: the same documents, requests,
@@ -130,10 +130,10 @@ package of the module except `internal/ccgo`.
 ## Not here yet
 
 - Progress events and reverse calls over `Open`: a plugin that declares them is refused, and
-  `Options.Reverse` is unsupported. cengine carries both through the engine's frame hooks.
-- Streams, the package store and the digests, which cengine also binds.
+  `Options.Reverse` is unsupported. cgoengine carries both through the engine's frame hooks.
+- Streams, the package store and the digests, which cgoengine also binds.
 - The host on Windows (see above).
 - `CallProgress`.
 
-The checks of `enginetest` for all that exist in `cengine` only; moving them behind the harness
+The checks of `enginetest` for all that exist in `cgoengine` only; moving them behind the harness
 and binding the rest is the same work again for each.

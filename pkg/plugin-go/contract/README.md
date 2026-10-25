@@ -27,7 +27,7 @@ four groups:
   in the root package, beside the host's `Session`.
 
 `transport` and `validate` are leaves; `host` and `guest` build on them and never import each other.
-The [`cengine`](../cengine) module has engine-routed variants of `host` and `host/store` with an
+The [`cgoengine`](../cgoengine) module has engine-routed variants of `host` and `host/store` with an
 identical API.
 
 ## The package manifest
@@ -58,7 +58,7 @@ only by `Installed.Verify`, `host.Open` and `ArtifactPath`, against the manifest
 and `host.Open` refuses a package whose content changed. With a 20,000-file tree package installed a
 listing takes about 80 microseconds where `List` takes 1.7 s.
 
-This is the lean choice. Add [`cengine`](../cengine) for the C engine binding,
+This is the lean choice. Add [`cgoengine`](../cgoengine) for the C engine binding,
 [`wasm`](../wasm) for WebAssembly or [`hashicorp`](../hashicorp) for go-plugin, or
 require the umbrella module `github.com/webong/ext/pkg/plugin-go` to take them all.
-A backend never depends on `cengine`.
+A backend never depends on `cgoengine`.

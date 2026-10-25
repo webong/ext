@@ -4,7 +4,7 @@ package crosslang_test
 
 import (
 	"context"
-	goengine "github.com/webong/ext/pkg/plugin-go/cengine"
+	"github.com/webong/ext/pkg/plugin-go/cgoengine"
 	plugin "github.com/webong/ext/pkg/plugin-go/contract"
 	"github.com/webong/ext/pkg/plugin-go/contract/plugintest"
 	"testing"
@@ -17,7 +17,7 @@ func runFrames(t *testing.T, factory plugintest.Factory, path string, opts plugi
 	t.Run("Go session", func(t *testing.T) { plugintest.RunFrames(t, factory, opts) })
 	t.Run("C engine, Go client", func(t *testing.T) {
 		plugintest.RunFramesWithHost(t, factory, func(ctx context.Context, d plugin.Descriptor, o plugin.Options) (plugintest.FramesHost, error) {
-			return goengine.Open(ctx, d, o)
+			return cgoengine.Open(ctx, d, o)
 		}, opts)
 	})
 	if path == "" {
@@ -25,13 +25,13 @@ func runFrames(t *testing.T, factory plugintest.Factory, path string, opts plugi
 	}
 	t.Run("C engine, engine-owned process", func(t *testing.T) {
 		plugintest.RunFramesWithHost(t, factory, func(ctx context.Context, d plugin.Descriptor, o plugin.Options) (plugintest.FramesHost, error) {
-			return goengine.OpenProcess(ctx, d, goengine.LaunchOptions{ProcessOptions: goengine.ProcessOptions{Executable: path}}, o)
+			return cgoengine.OpenProcess(ctx, d, cgoengine.LaunchOptions{ProcessOptions: cgoengine.ProcessOptions{Executable: path}}, o)
 		}, opts)
 	})
 }
 
 func runGuestConformance(t *testing.T, factory plugintest.Factory) {
 	plugintest.RunWithHost(t, factory, func(ctx context.Context, d plugin.Descriptor, o plugin.Options) (plugintest.Host, error) {
-		return goengine.Open(ctx, d, o)
+		return cgoengine.Open(ctx, d, o)
 	})
 }

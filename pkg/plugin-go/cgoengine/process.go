@@ -1,0 +1,129 @@
+//go:build ext_cengine && cgo && (darwin || linux || windows)
+
+package cgoengine
+
+/*
+#include "ext_go_bridge.h"
+#include <stdlib.h>
+*/
+import "C"
+import (
+	"encoding/json"
+	plugin "github.com/webong/ext/pkg/plugin-go/contract"
+	"runtime/cgo"
+	"strings"
+	"unsafe"
+)
+
+func cStrings(values []string) (**C.char, func(), error) {
+	if len(values) == 0 {
+		return nil, func() {}, nil
+	}
+	ptr := C.calloc(C.size_t(len(values)), C.size_t(unsafe.Sizeof(uintptr(0))))
+	if ptr == nil {
+		return nil, nil, status(C.EXT_NOMEM)
+	}
+	array := unsafe.Slice((**C.char)(ptr), len(values))
+	cleanup := func() {
+		for _, v := range array {
+			C.free(unsafe.Pointer(v))
+		}
+		C.free(ptr)
+	}
+	for i, v := range values {
+		if strings.IndexByte(v, 0) >= 0 {
+			cleanup()
+			return nil, nil, plugin.ErrInvalid
+		}
+		array[i] = C.CString(v)
+		if array[i] == nil {
+			cleanup()
+			return nil, nil, status(C.EXT_NOMEM)
+		}
+	}
+	return (**C.char)(ptr), cleanup, nil
+}
+func NewProcess(options ProcessOptions, d plugin.Descriptor, verify, authorize Policy) (*Host, error) {
+	if verify == nil || authorize == nil || strings.IndexByte(options.Executable, 0) >= 0 || len(options.Arguments) > 256 || len(options.Environment) > 256 {
+		return nil, plugin.ErrInvalid
+	}
+	data, err := json.Marshal(d)
+	if err != nil {
+		return nil, err
+	}
+	path := C.CString(options.Executable)
+	defer C.free(unsafe.Pointer(path))
+	args, freeArgs, err := cStrings(options.Arguments)
+	if err != nil {
+		return nil, err
+	}
+	defer freeArgs()
+	env, freeEnv, err := cStrings(options.Environment)
+	if err != nil {
+		return nil, err
+	}
+	defer freeEnv()
+	h := &Host{policy: cgo.NewHandle(&policies{verify: verify, authorize: authorize}), descriptor: d.Clone()}
+	code := C.ext_go_create_process(path, args, C.size_t(len(options.Arguments)), env, C.size_t(len(options.Environment)), bytesPointer(data), C.size_t(len(data)), C.uintptr_t(h.policy), &h.ptr)
+	if err = status(code); err != nil {
+		h.policy.Delete()
+		return nil, err
+	}
+	return h, nil
+}
+
+// NewLaunch creates a host that runs the launch in a child process owned by the
+// C engine. Read the child's retained stderr with Stderr.
+func NewLaunch(options LaunchOptions, d plugin.Descriptor, verify, authorize Policy) (*Host, error) {
+	if verify == nil || authorize == nil || strings.IndexByte(options.Executable, 0) >= 0 || strings.IndexByte(options.Directory, 0) >= 0 ||
+		len(options.Arguments) > 256 || len(options.Environment) > 256 || options.StderrBytes < 0 || options.StderrBytes > 16<<20 {
+		return nil, plugin.ErrInvalid
+	}
+	data, err := json.Marshal(d)
+	if err != nil {
+		return nil, err
+	}
+	path := C.CString(options.Executable)
+	defer C.free(unsafe.Pointer(path))
+	var dir *C.char
+	if options.Directory != "" {
+		dir = C.CString(options.Directory)
+		defer C.free(unsafe.Pointer(dir))
+	}
+	args, freeArgs, err := cStrings(options.Arguments)
+	if err != nil {
+		return nil, err
+	}
+	defer freeArgs()
+	env, freeEnv, err := cStrings(options.Environment)
+	if err != nil {
+		return nil, err
+	}
+	defer freeEnv()
+	h := &Host{policy: cgo.NewHandle(&policies{verify: verify, authorize: authorize}), descriptor: d.Clone()}
+	code := C.ext_go_create_launch(path, args, C.size_t(len(options.Arguments)), env, C.size_t(len(options.Environment)), dir, C.uint32_t(options.StderrBytes), bytesPointer(data), C.size_t(len(data)), C.uintptr_t(h.policy), &h.ptr)
+	if err = status(code); err != nil {
+		h.policy.Delete()
+		return nil, err
+	}
+	return h, nil
+}
+
+// Stderr returns the retained, bounded and possibly truncated stderr of a host
+// created by NewLaunch. Treat it as untrusted text.
+func (h *Host) Stderr() string {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	if h.ptr == nil {
+		return ""
+	}
+	var n C.size_t
+	if status(C.ext_host_process_stderr(h.ptr, nil, 0, &n)) != nil || n == 0 {
+		return ""
+	}
+	buffer := make([]byte, n)
+	if status(C.ext_host_process_stderr(h.ptr, (*C.uint8_t)(unsafe.Pointer(&buffer[0])), n, &n)) != nil || int(n) > len(buffer) {
+		return ""
+	}
+	return string(buffer[:n])
+}

@@ -15,7 +15,7 @@ import (
 )
 
 // This file is the Go side of a session over the translated host, the counterpart of the cgo
-// binding's session.go, engine.go and backend.go in pkg/plugin-go/cengine: how a Go context becomes
+// binding's session.go, engine.go and backend.go in pkg/plugin-go/cgoengine: how a Go context becomes
 // native call options and a cancel signal, how Go errors survive the trip through status codes, how
 // a plugin.Backend becomes the engine's extension backend, and how events and policies reach
 // plugin.Options. It does not carry progress events or reverse calls yet: a plugin that declares

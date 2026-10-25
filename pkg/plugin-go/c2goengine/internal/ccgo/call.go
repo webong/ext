@@ -39,7 +39,7 @@ const (
 	stExpired
 )
 
-// statusError names a status as the cgo binding does (pkg/plugin-go/cengine status).
+// statusError names a status as the cgo binding does (pkg/plugin-go/cgoengine status).
 func statusError(s int32) error {
 	switch s {
 	case stOK:

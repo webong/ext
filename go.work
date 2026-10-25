@@ -35,6 +35,10 @@ use (
 	./res/web
 	./res/credential
 	./pkg/plugin-go/contract
-	./pkg/plugin-go/cengine
+	./pkg/plugin-go/cgoengine
 	./pkg/plugin-go/c2goengine
 )
+
+// cgoengine v0.1.0, the first tag of the renamed module, is not published yet, and the umbrella and the
+// adapters require it. This resolves that one version to the workspace copy; delete it once the tag exists.
+replace github.com/webong/ext/pkg/plugin-go/cgoengine v0.1.0 => ./pkg/plugin-go/cgoengine

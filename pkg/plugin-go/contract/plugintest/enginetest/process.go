@@ -35,7 +35,7 @@ var guestRef = plugin.ContractRef{Name: "progress.test", Version: "v1"}
 func guestDescriptor() plugin.Descriptor {
 	return plugin.Descriptor{
 		APIVersion: plugin.APIVersion,
-		Identity:   plugin.Identity{ID: "cengine/progress", Revision: "r1"},
+		Identity:   plugin.Identity{ID: "cgoengine/progress", Revision: "r1"},
 		Contracts: []plugin.Contract{{ContractRef: guestRef, Operations: []plugin.Operation{
 			{Name: "plain"}, {Name: "stream", Progress: true}, {Name: "flood", Progress: true},
 			{Name: "fail", Progress: true}, {Name: "limits", Progress: true}, {Name: "plainlimits"},
@@ -157,7 +157,7 @@ type deliberateDifference struct {
 
 // stageEvent is the line eventLog keeps for a stage of the test plugin.
 func stageEvent(stage, code string) string {
-	return fmt.Sprintf("%s id=cengine/progress/r1 contract=/ op=%q request=%q code=%s", stage, "", "", code)
+	return fmt.Sprintf("%s id=cgoengine/progress/r1 contract=/ op=%q request=%q code=%s", stage, "", "", code)
 }
 
 func (d *deliberateDifference) outcome(engine bool) string {

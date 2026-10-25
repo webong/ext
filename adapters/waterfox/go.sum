@@ -4,8 +4,6 @@ github.com/webong/ext/adapters/chromium v0.4.0 h1:dWtL8TXlauLV9l+UnnsK387lyB8WGx
 github.com/webong/ext/adapters/chromium v0.4.0/go.mod h1:jXuuM0LHP+3T6DI8Len79h4iCZ9r/VAfN6O7JPosEV8=
 github.com/webong/ext/adapters/firefox v0.3.0 h1:fIXL4ZMleMHRMV21WRdCfPYyupOG/OLcyTkKoJh0TeU=
 github.com/webong/ext/adapters/firefox v0.3.0/go.mod h1:oP4CueufRKJDuIO8/t3K8LucXa0Ktx2q/2iuP1hChm0=
-github.com/webong/ext/pkg/plugin-go/cengine v0.4.0 h1:g5PGxxxTNwYxR7dOKs3Qgk4nQMd9kML4X7eoA0Ksy8s=
-github.com/webong/ext/pkg/plugin-go/cengine v0.4.0/go.mod h1:s6oKAMyEmV1+k1wjxzCxhvNoFveiL8N9TDgM5dA3KNQ=
 github.com/webong/ext/pkg/plugin-go/contract v0.4.0 h1:GVaLpo3F3Tpv1T1xAM5RXmnfUVDRLiWlZWc0npRBlFc=
 github.com/webong/ext/pkg/plugin-go/contract v0.4.0/go.mod h1:YajPTz7utaUNrcn856mnFegEHuk8l70pK2krbVFSZoc=
 github.com/webong/ext/res/web v0.5.0 h1:FCD4435Xi4M4g8d66rBNoBEE1wuHgGGvXhI3kpL2WYk=

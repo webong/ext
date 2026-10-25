@@ -133,6 +133,32 @@ A module path and its tags are a pair, so this is a new module, not a new versio
   pushed. The published `v0.1.0` tags of the adapters still require `res/browser`
   and remain valid; their next release requires `res/web`.
 
+## `pkg/plugin-go/cengine` became `pkg/plugin-go/cgoengine`
+
+The Go binding of the C engine was renamed because it is now one of three engines (the pure-Go
+`contract`, the C engine through cgo, and the C engine translated to Go by ccgo, `c2goengine`; see
+[the engine selection ADR](adr-engine-selection.md)) and `cengine` did not say which. A module path
+and its tags are a pair, so this is a new module, not a new version:
+
+- The tags of `pkg/plugin-go/cengine` (`v0.2.0` to `v0.8.0`) are immutable, stay resolvable for
+  anything that requires `github.com/webong/ext/pkg/plugin-go/cengine`, and `v0.8.0` is the last tag
+  that path will ever have. Never move or delete them, and cut no further `cengine` tags. There is no
+  forwarding module and no alias package. The v0.8.0 round was cut on the tree whose module was still
+  `cengine`; the rename landed after it.
+- `pkg/plugin-go/cgoengine/v0.1.0` is the first tag of the new path, cut on a tree whose `go.mod`
+  declares `github.com/webong/ext/pkg/plugin-go/cgoengine`.
+- A module that requires `cgoengine` cannot resolve it from the proxy until that tag is pushed. The
+  `go.mod` files in the tree already require `cgoengine v0.1.0` (the umbrella and the 24 adapters, with
+  no `go.sum` lines for it yet), so they build in the workspace and are skipped by the standalone check
+  until the tag exists. The published releases of those modules still require `cengine` and remain
+  valid; their next release requires `cgoengine`.
+- The Go package was renamed with the directory, from `goengine` to `cgoengine`, so importers no longer
+  need an alias. The build tags `ext_cengine` and `ext_cengine_shared`, the `EXT_CENGINE_*` variables
+  and the `scripts/plugin-cengine*.sh` scripts name the C engine, not the module, and did not change.
+
+The history below keeps the names of its time: a release row that says `cengine` means the module now
+called `cgoengine`.
+
 ## Releases since the baseline
 
 | Release | Modules | Why |
@@ -159,7 +185,7 @@ Before tagging, confirm each module builds and tests on its own with the
 workspace active, and that `src/ctx` resolves the intended versions:
 
 ```bash
-for module in src/ctx src/ctn pkg/plugin-go pkg/plugin-go/contract pkg/plugin-go/cengine \
+for module in src/ctx src/ctn pkg/plugin-go pkg/plugin-go/contract pkg/plugin-go/cgoengine \
               pkg/plugin-go/hashicorp pkg/plugin-go/wasm res/system adapters/wasm adapters/evm \
               res/web res/credential; do
   (cd "$module" && go build ./... && go test ./...) || exit 1
@@ -170,7 +196,7 @@ done
 
 Each module's `go` line is the oldest Go that builds it, so it must be at least what its own
 dependencies require; `go mod tidy` raises it when it is not. The light libraries
-(`pkg/plugin-go/contract`, `pkg/plugin-go/cengine`, `pkg/plugin-go/wasm`, `res/*` and the adapters) declare `go 1.23.0` and their dependencies allow it. Four modules declare
+(`pkg/plugin-go/contract`, `pkg/plugin-go/cgoengine`, `pkg/plugin-go/wasm`, `res/*` and the adapters) declare `go 1.23.0` and their dependencies allow it. Four modules declare
 `go 1.26.0` because `golang.org/x/net`, `x/sys` and `x/text` at the versions they use require it:
 `pkg/plugin-go/hashicorp` (gRPC), the umbrella `pkg/plugin-go` (it requires `hashicorp`), `src/ctx`
 and `src/ctn`. A fifth, `pkg/plugin-go/c2goengine`, declares `go 1.26.0` because the runtime library the
@@ -191,7 +217,7 @@ so an application imports only what it needs and stacks the rest:
 | Module | Contents | Requires |
 | --- | --- | --- |
 | `pkg/plugin-go/contract` | the contract, sessions, guests, packages, the package store and host, bridges and tooling (the old `pkg/plugin`); standard library only | nothing |
-| `pkg/plugin-go/cengine` | the Go binding of the C engine, a pure-Go build of the same API, engine-routed variants of `store` and `host` with the same API as the ones in `contract`, the C ABI loader (the old `pkg/plugin-cshared`) and a generated copy of the C sources | `contract` |
+| `pkg/plugin-go/cgoengine` | the Go binding of the C engine, a pure-Go build of the same API, engine-routed variants of `store` and `host` with the same API as the ones in `contract`, the C ABI loader (the old `pkg/plugin-cshared`) and a generated copy of the C sources | `contract` |
 | `pkg/plugin-go/c2goengine` | the C engine's portable core translated to Go by ccgo (`modernc.org/ccgo`), with no cgo and no C compiler: one generated file per platform, made on that platform (see its README) | `contract` |
 | `pkg/plugin-go/wasm` | the wazero backend (the old `pkg/plugin-wasm`) | `contract` |
 | `pkg/plugin-go/hashicorp` | the go-plugin (gRPC) backend (the old `pkg/plugin-hashicorp`) | `contract` |
@@ -200,12 +226,12 @@ so an application imports only what it needs and stacks the rest:
 The name `contract` was chosen over `core` because it is already the name of the Go
 package and of every alias in use, and the module is that contract plus tooling that
 needs nothing beyond the standard library, not a runtime. `wasm` and `hashicorp`
-never depend on `cengine`, in code, tests or `go.mod`, so a wazero or gRPC user needs
+never depend on `cgoengine`, in code, tests or `go.mod`, so a wazero or gRPC user needs
 no C toolchain; `src/ctx/internal/arch` enforces this.
 
 ### The translated engine
 
-`c2goengine` is the same C as `cengine`, run as Go. Its translation of `lib/plugin`'s portable core is
+`c2goengine` is the same C as `cgoengine`, run as Go. Its translation of `lib/plugin`'s portable core is
 generated, one file per platform (`internal/ccgo/generated_<goos>_<goarch>.go`), by the tools module
 in its `tools` directory, which pins ccgo and runs only on the platform it writes for. A published
 module contains only its own directory, and the generated files are that directory's copy of the C,
@@ -215,8 +241,8 @@ with a `contract` release that holds the `plugintest/enginetest` checks it runs 
 
 ### The C sources
 
-A published module contains only its own directory, so `cengine` carries the sources
-it compiles as `_csrc`, a copy of `lib/plugin` generated by `scripts/cengine-sync.sh`.
+A published module contains only its own directory, so `cgoengine` carries the sources
+it compiles as `_csrc`, a copy of `lib/plugin` generated by `scripts/cgoengine-sync.sh`.
 `TestCSourcesMatchCanonical` fails when the two differ. `lib/plugin` stays canonical
 for the iOS, Android, Rust and Zig bindings. The cgo preamble includes the headers
 from `_csrc` and links the engine library, which is built from `_csrc` with CMake
@@ -243,7 +269,7 @@ keyword the declared package name stays `packagekit`) and `plugintest` at the to
 (`transport/jsonline`, `transport/inprocess`, `transport/bridge`), the validators under
 `contract/validate` (`validate/schema`, `validate/jsonschema`), the host-side ones grouped under `contract/host` (`host` itself and `host/adapter`, `host/interop`,
 `host/nativego`, `host/process`, `host/store`) and the guest-side ones under `contract/guest`
-(`guest/author`, `guest/capability`, `guest/instance`, `guest/stream`). `cengine`
+(`guest/author`, `guest/capability`, `guest/instance`, `guest/stream`). `cgoengine`
 holds `packages` (engine-only) and engine-routed variants of `host` and `host/store` whose exported API is
 identical to `contract`'s; `src/ctx/internal/arch` enforces that, and
 `TestContractStoreMatchesEngineStore` compares their behavior.

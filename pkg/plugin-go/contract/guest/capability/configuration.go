@@ -30,7 +30,7 @@ func ConfigurationMethod() author.Method[Configuration, Configured] {
 }
 
 // Configurer applies a configuration to the instance stored under key. Both
-// *instance.Manager[T] and the C engine's *goengine.Instances[T] implement it,
+// *instance.Manager[T] and the C engine's *cgoengine.Instances[T] implement it,
 // so these helpers work over either.
 type Configurer interface {
 	Configure(ctx context.Context, key, revision string, config json.RawMessage) error

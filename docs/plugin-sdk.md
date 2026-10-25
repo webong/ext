@@ -21,8 +21,8 @@ Their existing native protocols are not automatically compatible with CTX.
 | `pkg/plugin-go/hashicorp` | Native go-plugin startup and net/rpc or gRPC bindings |
 | `pkg/plugin-go/contract/host/nativego` | Dynamic Go `.so` loading through a standard guest factory |
 | `pkg/plugin-go/wasm` | Embedded wazero execution of WASI Preview 1 command guests |
-| `pkg/plugin-go/cengine/cshared` | Dynamic C ABI loading with separate guest handles and owned buffers |
-| `pkg/plugin-go/cengine/cshared/guest` | Go guest lifecycle and cgo export bridge for C shared libraries |
+| `pkg/plugin-go/cgoengine/cshared` | Dynamic C ABI loading with separate guest handles and owned buffers |
+| `pkg/plugin-go/cgoengine/cshared/guest` | Go guest lifecycle and cgo export bridge for C shared libraries |
 | `pkg/plugin-go/contract/guest/instance` | Configuration revisions, resource leases, replacement and disposal |
 | `pkg/plugin-go/contract/guest/capability` | Optional health and configuration contracts |
 | `pkg/plugin-go/contract/guest/stream` | Optional, scoped, bounded pull streams |

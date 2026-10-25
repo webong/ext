@@ -77,9 +77,11 @@ not pick native behavior by name.
 A module path and its tags are a pair (see `docs/module-versioning.md`, "`pkg/plugin-go/cengine`
 became `pkg/plugin-go/cgoengine`"), so this is a new module, not a new version:
 
-- `pkg/plugin-go/cengine/v0.7.0` is published and immutable. It stays resolvable for
-  anything that requires `github.com/webong/ext/pkg/plugin-go/cengine`, and no further tags
-  are cut on that path. Hard cut, as in development: no forwarding module, no alias package.
+- The tags of `pkg/plugin-go/cengine` (v0.7.0 now, v0.8.0 once the v0.8.0 round is tagged) are
+  immutable. They stay resolvable for anything that requires
+  `github.com/webong/ext/pkg/plugin-go/cengine`, and no further tags are cut on that path. Hard
+  cut, as in development: no forwarding module, no alias package. The rename merges after that
+  round is tagged, so the round is cut on the tree whose module is still `cengine`.
 - `pkg/plugin-go/cgoengine/v0.1.0` is the first tag of the new path, to be cut on a tree whose
   `go.mod` declares the new path. Until then the umbrella and the 24 adapters require
   `cgoengine v0.1.0` in their `go.mod` files, which resolves in the workspace and not from

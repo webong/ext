@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	goengine "github.com/webong/ext/pkg/plugin-go/cengine"
+	"github.com/webong/ext/pkg/plugin-go/cgoengine"
 	"github.com/webong/ext/pkg/plugin-go/contract/guest/author"
 	"github.com/webong/ext/pkg/plugin-go/contract/guest/capability"
 	"github.com/webong/ext/pkg/plugin-go/contract/guest/instance"
@@ -26,7 +26,7 @@ type Message struct {
 
 func echoMethod() author.Method[Message, Message] {
 	s := schema.Schema{Type: "object", Properties: map[string]schema.Schema{"message": {Type: "string", MaxLength: 256}}, Required: []string{"message"}}
-	return author.Method[Message, Message]{Contract: goengine.ContractRef{Name: "example.echo", Version: "v1"}, Operation: goengine.Operation{Name: "echo", Surface: "observation"}, Input: &s, Output: &s}
+	return author.Method[Message, Message]{Contract: cgoengine.ContractRef{Name: "example.echo", Version: "v1"}, Operation: cgoengine.Operation{Name: "echo", Surface: "observation"}, Input: &s, Output: &s}
 }
 func main() {
 	binding := flag.String("backend", "jsonline", "jsonline or inprocess")
@@ -38,14 +38,14 @@ func main() {
 }
 func run(binding string) error {
 	if binding != "jsonline" && binding != "inprocess" {
-		return goengine.ErrUnsupported
+		return cgoengine.ErrUnsupported
 	}
 	ctx := context.Background()
 	// The example authorizes only compiled-in implementations and operations.
 	// Production hosts replace these policies with their own reviewed selection.
-	allow := func(context.Context, goengine.Request) error { return nil }
-	hostRegistry, _ := author.New(goengine.Identity{ID: "example/host-service", Revision: "compiled-1"})
-	if err := author.Register(hostRegistry, echoMethod(), func(_ context.Context, _ goengine.Request, m Message) (Message, error) { return m, nil }); err != nil {
+	allow := func(context.Context, cgoengine.Request) error { return nil }
+	hostRegistry, _ := author.New(cgoengine.Identity{ID: "example/host-service", Revision: "compiled-1"})
+	if err := author.Register(hostRegistry, echoMethod(), func(_ context.Context, _ cgoengine.Request, m Message) (Message, error) { return m, nil }); err != nil {
 		return err
 	}
 	hostGuest, err := hostRegistry.Guest(author.Options{Authorize: allow})
@@ -66,7 +66,7 @@ func run(binding string) error {
 		var c struct {
 			Prefix string `json:"prefix"`
 		}
-		if err := goengine.Decode(raw, &c); err != nil {
+		if err := cgoengine.Decode(raw, &c); err != nil {
 			return "", nil, err
 		}
 		return c.Prefix, func() error { return nil }, nil
@@ -75,11 +75,13 @@ func run(binding string) error {
 		return err
 	}
 	defer instances.Close(ctx)
-	registry, _ := author.New(goengine.Identity{ID: "example/sdk", Revision: "compiled-1"})
-	if err := capability.RegisterConfiguration(registry, instances, configSchema, func(context.Context, goengine.Request, string) (string, error) { return "example-subject/default", nil }); err != nil {
+	registry, _ := author.New(cgoengine.Identity{ID: "example/sdk", Revision: "compiled-1"})
+	if err := capability.RegisterConfiguration(registry, instances, configSchema, func(context.Context, cgoengine.Request, string) (string, error) {
+		return "example-subject/default", nil
+	}); err != nil {
 		return err
 	}
-	if err := author.Register(registry, echoMethod(), func(ctx context.Context, _ goengine.Request, m Message) (Message, error) {
+	if err := author.Register(registry, echoMethod(), func(ctx context.Context, _ cgoengine.Request, m Message) (Message, error) {
 		lease, err := instances.Acquire("example-subject/default")
 		if err != nil {
 			return Message{}, err
@@ -95,7 +97,7 @@ func run(binding string) error {
 	}); err != nil {
 		return err
 	}
-	streams, err := stream.New(stream.Options{Capacity: 4, MaxAge: time.Minute, Scope: func(context.Context, goengine.Request) (string, error) { return "example-subject", nil }, Open: func(context.Context, goengine.Request, json.RawMessage) (stream.Reader, error) {
+	streams, err := stream.New(stream.Options{Capacity: 4, MaxAge: time.Minute, Scope: func(context.Context, cgoengine.Request) (string, error) { return "example-subject", nil }, Open: func(context.Context, cgoengine.Request, json.RawMessage) (stream.Reader, error) {
 		return &numbers{}, nil
 	}})
 	if err != nil {
@@ -109,7 +111,7 @@ func run(binding string) error {
 	if err != nil {
 		return err
 	}
-	var backend goengine.Backend
+	var backend cgoengine.Backend
 	if binding == "inprocess" {
 		backend, err = inprocess.New(guest)
 	} else {
@@ -160,11 +162,11 @@ func run(binding string) error {
 	}
 	return session.Close(ctx)
 }
-func open(ctx context.Context, d goengine.Descriptor, b goengine.Backend) (*goengine.Session, error) {
-	return goengine.Open(ctx, d, goengine.Options{Verify: func(_ context.Context, actual goengine.Descriptor) error { return goengine.MatchHandshake(d, actual) }, Authorize: func(_ context.Context, r goengine.Request) error {
+func open(ctx context.Context, d cgoengine.Descriptor, b cgoengine.Backend) (*cgoengine.Session, error) {
+	return cgoengine.Open(ctx, d, cgoengine.Options{Verify: func(_ context.Context, actual cgoengine.Descriptor) error { return cgoengine.MatchHandshake(d, actual) }, Authorize: func(_ context.Context, r cgoengine.Request) error {
 		_, err := d.Lookup(r.Contract, r.Operation)
 		return err
-	}, Connect: func(context.Context, goengine.Descriptor) (goengine.Backend, error) { return b, nil }})
+	}, Connect: func(context.Context, cgoengine.Descriptor) (cgoengine.Backend, error) { return b, nil }})
 }
 
 type numbers struct{ next int }

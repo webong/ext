@@ -8,7 +8,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	goengine "github.com/webong/ext/pkg/plugin-go/cengine"
+	"github.com/webong/ext/pkg/plugin-go/cgoengine"
 	wasm "github.com/webong/ext/pkg/plugin-go/wasm"
 	"io"
 	"os"
@@ -33,7 +33,7 @@ var smokeModule = []byte{
 func main() { os.Exit(run(os.Args[1:], os.Stdin, os.Stdout, os.Stderr)) }
 
 func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
-	request, err := goengine.ParseAdapterInvocation(args)
+	request, err := cgoengine.ParseAdapterInvocation(args)
 	if err != nil {
 		fmt.Fprintf(stderr, "wasm: %v\n", err)
 		return 2

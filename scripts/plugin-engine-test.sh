@@ -25,7 +25,7 @@ cmake --build "$build/engine" -j 4
 guest="$build/go-guest$exe"
 fault="$build/fault-guest$exe"
 go build -o "$guest" ./pkg/plugin-go/crosslang/testdata/go-guest
-go build -o "$fault" ./pkg/plugin-go/cengine/testdata/faultguest
+go build -o "$fault" ./pkg/plugin-go/cgoengine/testdata/faultguest
 
 "$python" - "$build" <<'PY'
 import json, pathlib, sys
@@ -56,8 +56,8 @@ if [ -n "${EXT_ENGINE_C_ONLY:-}" ]; then
   exit 0
 fi
 
-echo "== Go suites linked against the engine (pkg/plugin-go/cengine)"
-(cd pkg/plugin-go/cengine
+echo "== Go suites linked against the engine (pkg/plugin-go/cgoengine)"
+(cd pkg/plugin-go/cgoengine
  CGO_LDFLAGS="-L$(winpath "$build/engine")" \
  EXT_CENGINE_GUEST="$(winpath "$guest")" \
  EXT_CENGINE_FAULT_GUEST="$(winpath "$fault")" \
@@ -65,7 +65,7 @@ echo "== Go suites linked against the engine (pkg/plugin-go/cengine)"
 echo "== the contract module, standard library only (pkg/plugin-go/contract)"
 (cd pkg/plugin-go/contract && go test -count=1 -timeout=10m ./...)
 echo "== the same API without cgo, served by the pure-Go implementation"
-(cd pkg/plugin-go/cengine && CGO_ENABLED=0 go test -count=1 -timeout=10m ./...)
+(cd pkg/plugin-go/cgoengine && CGO_ENABLED=0 go test -count=1 -timeout=10m ./...)
 echo "== the umbrella module (pkg/plugin-go)"
 (cd pkg/plugin-go && go test -count=1 -timeout=10m .)
 echo "plugin engine tests passed"

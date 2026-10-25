@@ -3,7 +3,7 @@ module github.com/webong/ext/pkg/plugin-go
 go 1.26.0
 
 require (
-	github.com/webong/ext/pkg/plugin-go/cengine v0.7.0
+	github.com/webong/ext/pkg/plugin-go/cgoengine v0.1.0
 	github.com/webong/ext/pkg/plugin-go/contract v0.7.0
 	github.com/webong/ext/pkg/plugin-go/hashicorp v0.3.0
 	github.com/webong/ext/pkg/plugin-go/wasm v0.2.1

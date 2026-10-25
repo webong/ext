@@ -7,7 +7,7 @@ module of its own and a program that wants less takes less:
 | Module | For |
 | --- | --- |
 | [`contract`](contract) | the contract, sessions, guests, packages, bridges (standard library only) |
-| [`cengine`](cengine) | the C engine binding, with a pure-Go build of the same API |
+| [`cgoengine`](cgoengine) | the C engine binding, with a pure-Go build of the same API |
 | [`wasm`](wasm) | the WebAssembly (wazero) backend |
 | [`hashicorp`](hashicorp) | the HashiCorp go-plugin (gRPC) backend |
 

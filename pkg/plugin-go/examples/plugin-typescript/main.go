@@ -9,7 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	goengine "github.com/webong/ext/pkg/plugin-go/cengine"
+	"github.com/webong/ext/pkg/plugin-go/cgoengine"
 	"github.com/webong/ext/pkg/plugin-go/contract/transport/jsonline"
 	"io"
 	"os"
@@ -57,14 +57,14 @@ func run() error {
 		return err
 	}
 	scriptHash := sha256.Sum256(scriptBytes)
-	expected, err := goengine.DirectoryDigest(sdk)
+	expected, err := cgoengine.DirectoryDigest(sdk)
 	if err != nil {
 		return err
 	}
-	descriptor := goengine.Descriptor{APIVersion: goengine.APIVersion, Identity: goengine.Identity{ID: "example/typescript", Revision: "compiled-1"}, Contracts: []goengine.Contract{{ContractRef: goengine.ContractRef{Name: "example.echo", Version: "v1"}, Operations: []goengine.Operation{{Name: "echo", Surface: "observation"}}}}}
+	descriptor := cgoengine.Descriptor{APIVersion: cgoengine.APIVersion, Identity: cgoengine.Identity{ID: "example/typescript", Revision: "compiled-1"}, Contracts: []cgoengine.Contract{{ContractRef: cgoengine.ContractRef{Name: "example.echo", Version: "v1"}, Operations: []cgoengine.Operation{{Name: "echo", Surface: "observation"}}}}}
 	ctx := context.Background()
-	s, err := goengine.Open(ctx, descriptor, goengine.Options{Verify: func(context.Context, goengine.Descriptor) error {
-		actual, err := goengine.DirectoryDigest(sdk)
+	s, err := cgoengine.Open(ctx, descriptor, cgoengine.Options{Verify: func(context.Context, cgoengine.Descriptor) error {
+		actual, err := cgoengine.DirectoryDigest(sdk)
 		if err != nil {
 			return err
 		}
@@ -73,15 +73,15 @@ func run() error {
 			return err
 		}
 		if actual != expected || sha256.Sum256(currentScript) != scriptHash {
-			return goengine.ErrMismatch
+			return cgoengine.ErrMismatch
 		}
 		return nil
-	}, Authorize: func(_ context.Context, r goengine.Request) error {
+	}, Authorize: func(_ context.Context, r cgoengine.Request) error {
 		if r.Operation != "echo" {
-			return goengine.ErrDenied
+			return cgoengine.ErrDenied
 		}
 		return nil
-	}, Connect: func(context.Context, goengine.Descriptor) (goengine.Backend, error) {
+	}, Connect: func(context.Context, cgoengine.Descriptor) (cgoengine.Backend, error) {
 		cmd := exec.Command(node, script)
 		cmd.Env = []string{}
 		for _, key := range []string{"SystemRoot", "TMPDIR", "TEMP", "TMP"} {

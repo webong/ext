@@ -23,7 +23,7 @@ type (
 )
 
 // Open runs a plugin over a Go backend (in-process, JSON-line, HashiCorp, WASI, native Go) from
-// options.Connect, as cengine.Open does, with the engine's session logic running as Go. A plugin
+// options.Connect, as cgoengine.Open does, with the engine's session logic running as Go. A plugin
 // that declares progress events or reverse operations is refused, and options.Reverse is
 // unsupported: neither is carried yet.
 func Open(ctx context.Context, d plugin.Descriptor, options plugin.Options) (*Session, error) {

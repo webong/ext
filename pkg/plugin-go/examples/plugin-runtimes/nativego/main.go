@@ -3,9 +3,9 @@ package main
 
 import (
 	"context"
+	"github.com/webong/ext/pkg/plugin-go/cgoengine"
 	"github.com/webong/ext/pkg/plugin-go/examples/plugin-runtimes/echo"
-	goengine "github.com/webong/ext/pkg/plugin-go/cengine"
 )
 
-func CTXPlugin(ctx context.Context) (goengine.Backend, error) { return echo.New(ctx) }
-func main()                                                   {}
+func CTXPlugin(ctx context.Context) (cgoengine.Backend, error) { return echo.New(ctx) }
+func main()                                                    {}

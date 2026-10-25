@@ -50,7 +50,7 @@ try (Guest guest = new Guest(descriptor, call -> {
 
 ## What a JVM guest cannot do
 
-The `ext_plugin_*` C ABI that `pkg/plugin-go/cengine/cshared` loads would need a JVM inside
+The `ext_plugin_*` C ABI that `pkg/plugin-go/cgoengine/cshared` loads would need a JVM inside
 the host process, so a Java library cannot be loaded that way. A JVM guest speaks
 JSON lines in its own process, or runs inside an application that provides the
 transport. Kotlin/Native, which compiles to a native library, could export that

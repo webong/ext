@@ -7,7 +7,7 @@ import (
 
 type (
 	// Instances binds typed Go resource factories to engine-owned leases, replacement, capacity and
-	// cleanup, as cengine.Instances does, with the engine running as Go. Close frees the engine after
+	// cleanup, as cgoengine.Instances does, with the engine running as Go. Close frees the engine after
 	// all outstanding leases and factories finish; a timed-out Close can be retried.
 	Instances[T any] = ccgo.Instances[T]
 	// InstanceLease holds an instance until Release.

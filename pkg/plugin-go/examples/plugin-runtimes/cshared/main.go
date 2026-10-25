@@ -9,9 +9,9 @@ package main
 import "C"
 
 import (
+	"github.com/webong/ext/pkg/plugin-go/cgoengine/cshared/abi"
+	"github.com/webong/ext/pkg/plugin-go/cgoengine/cshared/guest"
 	"github.com/webong/ext/pkg/plugin-go/examples/plugin-runtimes/echo"
-	"github.com/webong/ext/pkg/plugin-go/cengine/cshared/abi"
-	"github.com/webong/ext/pkg/plugin-go/cengine/cshared/guest"
 	"unsafe"
 )
 

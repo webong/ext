@@ -7,7 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/webong/ext/pkg/plugin-go/cengine"
+	"github.com/webong/ext/pkg/plugin-go/cgoengine"
 	plugin "github.com/webong/ext/pkg/plugin-go/contract"
 	"github.com/webong/ext/pkg/plugin-go/contract/plugintest"
 	"github.com/webong/ext/pkg/plugin-go/contract/transport/jsonline"
@@ -98,7 +98,7 @@ func run() error {
 	start := time.Now()
 	switch engine {
 	case "c":
-		h, err := goengine.New(path, d, func([]byte) error { return nil }, func([]byte) error { return nil })
+		h, err := cgoengine.New(path, d, func([]byte) error { return nil }, func([]byte) error { return nil })
 		if err != nil {
 			return fail("create", err)
 		}

@@ -3,7 +3,7 @@
 // so an application imports only what it needs:
 //
 //	github.com/webong/ext/pkg/plugin-go/contract   contract, sessions, packages, bridges (standard library only)
-//	github.com/webong/ext/pkg/plugin-go/cengine    the C engine binding, with a pure-Go build of the same API
+//	github.com/webong/ext/pkg/plugin-go/cgoengine    the C engine binding, with a pure-Go build of the same API
 //	github.com/webong/ext/pkg/plugin-go/wasm       the WebAssembly (wazero) backend
 //	github.com/webong/ext/pkg/plugin-go/hashicorp  the HashiCorp go-plugin (gRPC) backend
 //

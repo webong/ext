@@ -6,8 +6,8 @@ require (
 	github.com/webong/ext/pkg/plugin-go/c2goengine v0.1.0
 	github.com/webong/ext/pkg/plugin-go/cgoengine v0.1.0
 	github.com/webong/ext/pkg/plugin-go/engine v0.1.0
-	github.com/webong/ext/pkg/plugin-go/hashicorp v0.3.0
-	github.com/webong/ext/pkg/plugin-go/wasm v0.2.1
+	github.com/webong/ext/pkg/plugin-go/hashicorp v0.3.1
+	github.com/webong/ext/pkg/plugin-go/wasm v0.2.2
 	github.com/webong/ext/res/system v0.1.1
 )
 

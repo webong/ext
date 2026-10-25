@@ -2,7 +2,7 @@ module github.com/webong/ext/adapters/atlas
 
 go 1.26.0
 
-require github.com/webong/ext/adapters/chromium v0.4.0
+require github.com/webong/ext/adapters/chromium v0.4.1
 
 require (
 	github.com/gorilla/websocket v1.5.3 // indirect

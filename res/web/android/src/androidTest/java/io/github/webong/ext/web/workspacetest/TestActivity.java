@@ -13,10 +13,11 @@ import java.util.Collections;
 public final class TestActivity extends Activity {
     private BrowserWorkspace workspace;
     private int phase, passed, failed;
-    private boolean evaluating, done;
+    private boolean evaluating, done, expectDocumentStart;
 
     @Override public void onCreate(Bundle saved) {
         super.onCreate(saved);
+        expectDocumentStart = getIntent().getBooleanExtra("documentStart", true);
         try {
             workspace = new BrowserWorkspace(this, "test", new BrowserWorkspace.Listener() {
                 @Override public void onStateChange(BrowserWorkspace.State state) {
@@ -27,10 +28,18 @@ public final class TestActivity extends Activity {
                 }
             });
             setContentView(workspace.view());
-            check(workspace.supportsDocumentStartScripts(), "document-start support");
+            check(workspace.supportsDocumentStartScripts() == expectDocumentStart, "document-start capability");
             try { workspace.navigate("file:///etc/passwd"); check(false, "file navigation rejected"); }
             catch (Exception expected) { check(true, "file navigation rejected"); }
-            workspace.replaceUserscripts(Collections.singletonList(record()));
+            if (expectDocumentStart) {
+                workspace.replaceUserscripts(Collections.singletonList(record()));
+            } else {
+                try {
+                    workspace.replaceUserscripts(Collections.singletonList(record()));
+                    check(false, "unsupported registration rejected");
+                } catch (UnsupportedOperationException expected) { check(true, "unsupported registration rejected"); }
+                workspace.replaceUserscripts(Collections.emptyList());
+            }
             load("/public");
             new Handler(Looper.getMainLooper()).postDelayed(() -> {
                 if (!done) { check(false, "test timeout"); finishTests(); }
@@ -51,6 +60,12 @@ public final class TestActivity extends Activity {
     private void loaded(String value) {
         if (done) return;
         try {
+            if (!expectDocumentStart) {
+                check("0".equals(value), "navigation works without AndroidX");
+                workspace.close();
+                finishTests();
+                return;
+            }
             switch (phase++) {
                 case 0:
                     check("1".equals(value), "runs before inline page code");

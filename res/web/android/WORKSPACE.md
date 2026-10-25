@@ -47,6 +47,31 @@ incoming intents, storage and record retention remain host choices.
 
 `scripts/web-workspace-android.sh` builds and runs tests on a running device
 (`ANDROID_SERIAL` selects it). Set `EXT_ANDROIDX_CLASSPATH` to colon-separated
-AndroidX WebKit and runtime dependency JARs. It fetches nothing and needs a JDK,
+AndroidX WebKit and runtime dependency AARs (or JARs without minification). It fetches nothing and needs a JDK,
 Android SDK and build-tools, with no NDK or plugin engine. The checks exercise
 actual document-start timing, exclusions, rejected updates, removal and closure.
+
+To verify the packaged SDK and its reflection keep rules, pass an AAR and enable
+R8. Supply dependency AARs so their own consumer rules are included alongside
+the SDK rules, as they would be by Gradle. The script does not resolve or download
+dependencies.
+
+```sh
+scripts/ext-android-release.sh 0.0.0 # local verification artifact; publishes nothing
+EXT_ANDROIDX_CLASSPATH=/path/webkit.aar:/path/core.aar \
+  scripts/web-workspace-android.sh \
+  --aar dist/ext-android-0.0.0/ext-android-0.0.0.aar --minify
+```
+
+`--build-only /path/test.apk` produces the signed test app without touching a
+device, useful for build verification. Runtime verification still requires
+installing and executing that app. The test APK is for verification only.
+
+Use `--without-androidx` to verify the optional dependency boundary: navigation
+still works, document-start support is false, nonempty userscript registration
+throws, and clearing registrations succeeds. This mode needs no AndroidX dependencies
+and can also run against the packaged AAR with `--minify`.
+
+Verified on an Android 14 (API 34) arm64 emulator using the generated SDK AAR:
+all eight document-start/lifecycle checks passed with R8 and AndroidX WebKit
+1.9.0, and all four checks passed with R8 and no AndroidX dependency.

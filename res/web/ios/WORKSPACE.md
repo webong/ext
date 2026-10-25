@@ -47,4 +47,13 @@ not a sandbox for untrusted applications or the hidden Wasm plugin host.
 
 `scripts/web-workspace-ios.sh` tests document-start execution, exclusions,
 rejected updates, removal, and closure in real WKWebView on macOS. Sources also
-support iOS 13+.
+support iOS 13+. To run the same tests on an already booted iOS simulator:
+
+```sh
+scripts/web-workspace-ios.sh --simulator <simulator-UDID>
+```
+
+The script uses Xcode's `ExtWeb-Package` test scheme and selects `ExtWebKitTests`;
+the `ExtWebKit` product scheme has no test action. Both tests passed on an iPhone
+16 Pro simulator running iOS 18.3.1. The staged SDK also built for an iOS simulator
+consumer against the generated XCFramework archive.

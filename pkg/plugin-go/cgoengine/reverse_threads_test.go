@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	plugin "github.com/webong/ext/pkg/plugin-go/contract"
+	plugin "github.com/webong/ext/pkg/plugin-go/engine"
 )
 
 // These scenarios need a plugin that speaks when no call is in flight, and

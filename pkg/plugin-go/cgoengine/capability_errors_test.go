@@ -7,12 +7,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	plugin "github.com/webong/ext/pkg/plugin-go/contract"
-	"github.com/webong/ext/pkg/plugin-go/contract/guest/author"
-	"github.com/webong/ext/pkg/plugin-go/contract/guest/capability"
-	"github.com/webong/ext/pkg/plugin-go/contract/guest/instance"
-	"github.com/webong/ext/pkg/plugin-go/contract/transport/inprocess"
-	"github.com/webong/ext/pkg/plugin-go/contract/validate/schema"
+	plugin "github.com/webong/ext/pkg/plugin-go/engine"
+	"github.com/webong/ext/pkg/plugin-go/engine/guest/author"
+	"github.com/webong/ext/pkg/plugin-go/engine/guest/capability"
+	"github.com/webong/ext/pkg/plugin-go/engine/guest/instance"
+	"github.com/webong/ext/pkg/plugin-go/engine/transport/inprocess"
+	"github.com/webong/ext/pkg/plugin-go/engine/validate/schema"
 	"testing"
 )
 

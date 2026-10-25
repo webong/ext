@@ -3,7 +3,7 @@
 // The engine's rules exist three times, and each is its own module so an application takes only the
 // ones it needs:
 //
-//	go    the pure-Go contract (pkg/plugin-go/contract): the oracle the others are held against, and
+//	go    the pure-Go engine (pkg/plugin-go/engine): the oracle the others are held against, and
 //	      the one that exists on every platform
 //	cgo   the C engine through cgo (pkg/plugin-go/cgoengine): the C itself, at native speed
 //	c2go  the C engine translated to Go by ccgo (pkg/plugin-go/c2goengine): no cgo and no C compiler
@@ -23,8 +23,8 @@ import (
 	"os"
 	"strings"
 
-	plugin "github.com/webong/ext/pkg/plugin-go/contract"
-	"github.com/webong/ext/pkg/plugin-go/contract/guest/instance"
+	plugin "github.com/webong/ext/pkg/plugin-go/engine"
+	"github.com/webong/ext/pkg/plugin-go/engine/guest/instance"
 )
 
 // Name identifies an engine.
@@ -35,7 +35,7 @@ const (
 	CGo Name = "cgo"
 	// C2Go is the C engine translated to Go.
 	C2Go Name = "c2go"
-	// Go is the pure-Go contract, the oracle.
+	// Go is the pure-Go engine, the oracle.
 	Go Name = "go"
 )
 

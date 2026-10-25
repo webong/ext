@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 
 	"github.com/webong/ext/pkg/plugin-go/c2goengine"
-	plugin "github.com/webong/ext/pkg/plugin-go/contract"
-	"github.com/webong/ext/pkg/plugin-go/contract/guest/instance"
+	plugin "github.com/webong/ext/pkg/plugin-go/engine"
+	"github.com/webong/ext/pkg/plugin-go/engine/guest/instance"
 )
 
 // c2goEngine is the C engine translated to Go. It has the services wherever it was translated, and

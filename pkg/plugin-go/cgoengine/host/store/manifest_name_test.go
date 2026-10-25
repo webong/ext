@@ -3,8 +3,8 @@ package store_test
 import (
 	"errors"
 	"github.com/webong/ext/pkg/plugin-go/cgoengine/host/store"
-	plugin "github.com/webong/ext/pkg/plugin-go/contract"
-	"github.com/webong/ext/pkg/plugin-go/contract/package"
+	plugin "github.com/webong/ext/pkg/plugin-go/engine"
+	"github.com/webong/ext/pkg/plugin-go/engine/package"
 	"os"
 	"path/filepath"
 	"testing"

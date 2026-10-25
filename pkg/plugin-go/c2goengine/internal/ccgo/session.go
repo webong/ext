@@ -11,7 +11,7 @@ import (
 	"sync"
 	"time"
 
-	plugin "github.com/webong/ext/pkg/plugin-go/contract"
+	plugin "github.com/webong/ext/pkg/plugin-go/engine"
 )
 
 // This file is the Go side of a session over the translated host, the counterpart of the cgo

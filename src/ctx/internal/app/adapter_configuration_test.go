@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	modpkg "github.com/webong/ext/pkg/plugin-go/contract/host/adapter"
+	modpkg "github.com/webong/ext/pkg/plugin-go/engine/host/adapter"
 )
 
 func TestAdapterConfigurationLineEndings(t *testing.T) {

@@ -9,7 +9,7 @@ package cgoengine
 import "C"
 import (
 	"encoding/json"
-	plugin "github.com/webong/ext/pkg/plugin-go/contract"
+	plugin "github.com/webong/ext/pkg/plugin-go/engine"
 	"runtime/cgo"
 	"strings"
 	"unsafe"

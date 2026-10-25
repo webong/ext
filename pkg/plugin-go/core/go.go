@@ -4,12 +4,12 @@ import (
 	"context"
 	"encoding/json"
 
-	plugin "github.com/webong/ext/pkg/plugin-go/contract"
-	"github.com/webong/ext/pkg/plugin-go/contract/guest/instance"
-	"github.com/webong/ext/pkg/plugin-go/contract/host/process"
+	plugin "github.com/webong/ext/pkg/plugin-go/engine"
+	"github.com/webong/ext/pkg/plugin-go/engine/guest/instance"
+	"github.com/webong/ext/pkg/plugin-go/engine/host/process"
 )
 
-// goEngine is the pure-Go contract: the oracle, and the engine that exists on every platform.
+// goEngine is the pure-Go engine: the oracle, and the engine that exists on every platform.
 type goEngine struct{}
 
 func (goEngine) sealed()         {}

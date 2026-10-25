@@ -5,8 +5,8 @@ package main
 import (
 	"context"
 	"github.com/webong/ext/pkg/plugin-go/cgoengine"
-	plugin "github.com/webong/ext/pkg/plugin-go/contract"
-	"github.com/webong/ext/pkg/plugin-go/contract/transport/bridge"
+	plugin "github.com/webong/ext/pkg/plugin-go/engine"
+	"github.com/webong/ext/pkg/plugin-go/engine/transport/bridge"
 )
 
 func openRelay(ctx context.Context, d plugin.Descriptor, o plugin.Options) (*bridge.Relay, error) {

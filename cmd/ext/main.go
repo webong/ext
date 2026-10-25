@@ -13,9 +13,9 @@ import (
 	"github.com/webong/ext/cmd/ext/internal/registry"
 	"github.com/webong/ext/ctn"
 	"github.com/webong/ext/ctx"
-	"github.com/webong/ext/pkg/plugin-go/contract/host"
-	"github.com/webong/ext/pkg/plugin-go/contract/host/adapter"
-	"github.com/webong/ext/pkg/plugin-go/contract/host/store"
+	"github.com/webong/ext/pkg/plugin-go/engine/host"
+	"github.com/webong/ext/pkg/plugin-go/engine/host/adapter"
+	"github.com/webong/ext/pkg/plugin-go/engine/host/store"
 )
 
 func main() {

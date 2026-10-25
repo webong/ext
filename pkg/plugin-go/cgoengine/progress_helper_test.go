@@ -10,9 +10,9 @@ import (
 	"strings"
 	"testing"
 
-	plugin "github.com/webong/ext/pkg/plugin-go/contract"
-	"github.com/webong/ext/pkg/plugin-go/contract/plugintest/enginetest"
-	"github.com/webong/ext/pkg/plugin-go/contract/transport/jsonline"
+	plugin "github.com/webong/ext/pkg/plugin-go/engine"
+	"github.com/webong/ext/pkg/plugin-go/engine/plugintest/enginetest"
+	"github.com/webong/ext/pkg/plugin-go/engine/transport/jsonline"
 )
 
 // The tests that compare the C engine with the pure-Go session on progress

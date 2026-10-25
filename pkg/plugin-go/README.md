@@ -6,7 +6,7 @@ module of its own and a program that wants less takes less:
 
 | Module | For |
 | --- | --- |
-| [`contract`](contract) | the contract, sessions, guests, packages, bridges (standard library only) |
+| [`engine`](engine) | the pure-Go engine: the contract, sessions, guests, packages, bridges (standard library only) |
 | [`cgoengine`](cgoengine) | the C engine binding, with a pure-Go build of the same API |
 | [`c2goengine`](c2goengine) | the C engine's portable core translated to Go by ccgo (no cgo, no C compiler) |
 | [`wasm`](wasm) | the WebAssembly (wazero) backend |
@@ -20,7 +20,7 @@ here, because they need the engine and a backend together.
 
 ## Choosing an engine
 
-The engine's rules exist as the pure-Go `contract` (the oracle, on every platform), as the C
+The engine's rules exist as the pure-Go `engine` (the oracle, on every platform), as the C
 engine through cgo (`cgoengine`, at native speed) and as the C translated to Go (`c2goengine`, no
 cgo). `engine` is the one place that knows all three:
 

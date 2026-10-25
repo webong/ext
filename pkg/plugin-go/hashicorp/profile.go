@@ -1,6 +1,6 @@
 package hashicorp
 
-import plugin "github.com/webong/ext/pkg/plugin-go/contract"
+import plugin "github.com/webong/ext/pkg/plugin-go/engine"
 
 func GRPCProfile() plugin.BackendProfile {
 	return plugin.BackendProfile{Name: "hashicorp/grpc", Protocols: []string{plugin.APIVersion}, Concurrent: true, Cancellation: "request", ProcessOwner: "go-plugin"}

@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 
 	"github.com/webong/ext/pkg/plugin-go/cgoengine"
-	plugin "github.com/webong/ext/pkg/plugin-go/contract"
+	plugin "github.com/webong/ext/pkg/plugin-go/engine"
 )
 
 // cgoEngine is the C engine through cgo. cgoengine serves the same API in pure Go when it is built

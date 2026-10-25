@@ -3,8 +3,8 @@ package packages
 import (
 	"encoding/hex"
 	"errors"
-	plugin "github.com/webong/ext/pkg/plugin-go/contract"
-	"github.com/webong/ext/pkg/plugin-go/contract/package"
+	plugin "github.com/webong/ext/pkg/plugin-go/engine"
+	"github.com/webong/ext/pkg/plugin-go/engine/package"
 	"testing"
 )
 

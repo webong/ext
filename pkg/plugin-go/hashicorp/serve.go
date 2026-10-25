@@ -3,7 +3,7 @@ package hashicorp
 import (
 	"github.com/hashicorp/go-hclog"
 	hc "github.com/hashicorp/go-plugin"
-	plugin "github.com/webong/ext/pkg/plugin-go/contract"
+	plugin "github.com/webong/ext/pkg/plugin-go/engine"
 )
 
 // Serve serves guest as a go-plugin plugin on this process's stdio and returns

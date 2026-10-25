@@ -10,9 +10,9 @@ import (
 	"testing"
 	"time"
 
-	plugin "github.com/webong/ext/pkg/plugin-go/contract"
-	"github.com/webong/ext/pkg/plugin-go/contract/host/process"
-	"github.com/webong/ext/pkg/plugin-go/contract/transport/inprocess"
+	plugin "github.com/webong/ext/pkg/plugin-go/engine"
+	"github.com/webong/ext/pkg/plugin-go/engine/host/process"
+	"github.com/webong/ext/pkg/plugin-go/engine/transport/inprocess"
 )
 
 // A session over a Go backend (Open with Connect) carries progress events and

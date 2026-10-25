@@ -7,12 +7,12 @@ point to the ext plugin engine. One API, two builds:
   Windows with MinGW-w64) the engine functions run in the shared C engine in
   `lib/plugin`.
 - **Pure Go.** In any other build (no cgo, no tag, an unsupported platform) the
-  same API is served by the pure-Go implementation over `pkg/plugin-go/contract`, so
+  same API is served by the pure-Go implementation over `pkg/plugin-go/engine`, so
   `CGO_ENABLED=0` programs keep working. `cgoengine.CEngine` reports which build
   you have.
 
 The data model (`Descriptor`, `Request`, `Response`, `Identity`, the `Err*`
-classes, `Backend`, `BackendProfile` and the contract helpers) is `pkg/plugin-go/contract`'s,
+classes, `Backend`, `BackendProfile` and the contract helpers) is `pkg/plugin-go/engine`'s,
 re-exported so a program imports this package alone. The common API is `Open`,
 `OpenProcess`, `Session`, `NewGuest`, `Guest`, `NewRegistry`,
 `GuestFromRegistry`, `ResolveRoute`, `ValidateSchema`, `CheckSchema`,
@@ -20,13 +20,13 @@ re-exported so a program imports this package alone. The common API is `Open`,
 
 - [`packages`](packages): validate, resolve and verify `ext.package/v1` manifests.
 - [`host`](host): open an installed package as a running plugin; the same API as
-  [`contract/host`](../contract/host), over the engine's process runtime and sessions.
+  [`engine/host`](../engine/host), over the engine's process runtime and sessions.
 - [`host/store`](host/store): the installed package store, with layered roots, `Verify` and
   `ListUnverified` (a manifest-only listing that hashes nothing; the result is unverified, see the
-  [`contract` README](../contract/README.md#listing-installed-packages)); the same
-  API as [`contract/host/store`](../contract/host/store), routed through the engine's digests and validation.
+  [`engine` README](../engine/README.md#listing-installed-packages)); the same
+  API as [`engine/host/store`](../engine/host/store), routed through the engine's digests and validation.
 
-An application that needs only the store and host takes the `contract` module and uses its pure-Go
+An application that needs only the store and host takes the `engine` module and uses its pure-Go
 `host` and `host/store`; take these when you want the engine's behavior. Swapping one import for the
 other never needs a code change (an architecture test enforces the identical API, and
 `TestContractStoreMatchesEngineStore` compares their behavior).
@@ -35,7 +35,7 @@ Manifest validation and plan resolution in the C engine are bounded by the manif
 instead of comparing every pair, and a directory digest stops at 250,000 files or 64 MiB of path text
 (`EXT_INVALID`). Earlier versions took minutes on a 4 MB manifest; see `lib/plugin/services.md`.
 
-The module depends on `pkg/plugin-go/contract` only, which uses the standard library only. `Host`, `Streams`, `Instances`, `NewProcess`
+The module depends on `pkg/plugin-go/engine` only, which uses the standard library only. `Host`, `Streams`, `Instances`, `NewProcess`
 and `NewLaunch` are engine-only and need the C engine build.
 
 ## Packages
@@ -43,7 +43,7 @@ and `NewLaunch` are engine-only and need the C engine build.
 | Package | Role |
 | --- | --- |
 | `cgoengine` (this package) | The entry point: re-exports the data model; sessions, guests, digests and routes on the C engine or in pure Go |
-| `contract` | The portable contract: descriptors, requests, responses, errors, validation, selection, requirements, the pure-Go session and guest, and the adapter process protocol |
+| `engine` | The pure-Go engine and the portable contract: descriptors, requests, responses, errors, validation, selection, requirements, the pure-Go session and guest, and the adapter process protocol |
 | `packages` | Validate, resolve and verify `ext.package/v1` manifests |
 | `store` | The installed package store under a caller-supplied root, with layered roots and `Verify` |
 | `host` | Opens an installed package as a running plugin and calls it by dotted method name |

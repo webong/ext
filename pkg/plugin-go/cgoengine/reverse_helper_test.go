@@ -11,8 +11,8 @@ import (
 	"sync"
 	"time"
 
-	plugin "github.com/webong/ext/pkg/plugin-go/contract"
-	"github.com/webong/ext/pkg/plugin-go/contract/transport/jsonline"
+	plugin "github.com/webong/ext/pkg/plugin-go/engine"
+	"github.com/webong/ext/pkg/plugin-go/engine/transport/jsonline"
 )
 
 // The guest for the reverse-call comparison. Like the progress guest it is this

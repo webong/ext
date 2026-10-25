@@ -3,7 +3,7 @@
 package crosslang_test
 
 import (
-	"github.com/webong/ext/pkg/plugin-go/contract/plugintest"
+	"github.com/webong/ext/pkg/plugin-go/engine/plugintest"
 	"testing"
 )
 

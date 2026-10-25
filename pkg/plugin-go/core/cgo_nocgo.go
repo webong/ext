@@ -5,8 +5,8 @@ package core
 import (
 	"encoding/json"
 
-	plugin "github.com/webong/ext/pkg/plugin-go/contract"
-	"github.com/webong/ext/pkg/plugin-go/contract/guest/instance"
+	plugin "github.com/webong/ext/pkg/plugin-go/engine"
+	"github.com/webong/ext/pkg/plugin-go/engine/guest/instance"
 )
 
 // Without the C engine linked, cgoengine is its pure-Go build: the go engine again, and neither

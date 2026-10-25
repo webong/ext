@@ -13,11 +13,11 @@ import (
 	"testing"
 
 	"github.com/webong/ext/cmd/ext/internal/registry"
-	plugin "github.com/webong/ext/pkg/plugin-go/contract"
-	"github.com/webong/ext/pkg/plugin-go/contract/host"
-	"github.com/webong/ext/pkg/plugin-go/contract/host/store"
-	packagekit "github.com/webong/ext/pkg/plugin-go/contract/package"
-	"github.com/webong/ext/pkg/plugin-go/contract/transport/jsonline"
+	plugin "github.com/webong/ext/pkg/plugin-go/engine"
+	"github.com/webong/ext/pkg/plugin-go/engine/host"
+	"github.com/webong/ext/pkg/plugin-go/engine/host/store"
+	packagekit "github.com/webong/ext/pkg/plugin-go/engine/package"
+	"github.com/webong/ext/pkg/plugin-go/engine/transport/jsonline"
 )
 
 func descriptor() plugin.Descriptor {

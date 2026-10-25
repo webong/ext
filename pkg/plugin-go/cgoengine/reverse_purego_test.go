@@ -7,8 +7,8 @@ import (
 	"encoding/json"
 	"testing"
 
-	plugin "github.com/webong/ext/pkg/plugin-go/contract"
-	"github.com/webong/ext/pkg/plugin-go/contract/transport/inprocess"
+	plugin "github.com/webong/ext/pkg/plugin-go/engine"
+	"github.com/webong/ext/pkg/plugin-go/engine/transport/inprocess"
 )
 
 // The pure-Go build serves reverse calls and progress through pkg/plugin-go

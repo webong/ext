@@ -13,8 +13,8 @@ import (
 	"testing"
 	"time"
 
-	plugin "github.com/webong/ext/pkg/plugin-go/contract"
-	"github.com/webong/ext/pkg/plugin-go/contract/host/process"
+	plugin "github.com/webong/ext/pkg/plugin-go/engine"
+	"github.com/webong/ext/pkg/plugin-go/engine/host/process"
 )
 
 // The reverse-call comparison runs one guest through the pure-Go session and the

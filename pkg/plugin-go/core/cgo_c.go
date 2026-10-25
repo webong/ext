@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 
 	"github.com/webong/ext/pkg/plugin-go/cgoengine"
-	"github.com/webong/ext/pkg/plugin-go/contract/guest/instance"
+	"github.com/webong/ext/pkg/plugin-go/engine/guest/instance"
 )
 
 // This file is the build that links the C engine; cgo_nocgo.go is every other build. The constraint is

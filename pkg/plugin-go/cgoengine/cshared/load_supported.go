@@ -13,7 +13,7 @@ import "C"
 import (
 	"fmt"
 	"github.com/webong/ext/pkg/plugin-go/cgoengine/cshared/abi"
-	plugin "github.com/webong/ext/pkg/plugin-go/contract"
+	plugin "github.com/webong/ext/pkg/plugin-go/engine"
 	"path/filepath"
 	"sync"
 	"unsafe"

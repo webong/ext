@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/webong/ext/pkg/plugin-go/c2goengine/internal/ccgo"
-	plugin "github.com/webong/ext/pkg/plugin-go/contract"
+	plugin "github.com/webong/ext/pkg/plugin-go/engine"
 )
 
 // HostAvailable reports whether this build holds the translated host: sessions over Go backends

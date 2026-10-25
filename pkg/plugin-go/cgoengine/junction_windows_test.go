@@ -4,7 +4,7 @@ package cgoengine
 
 import (
 	"errors"
-	plugin "github.com/webong/ext/pkg/plugin-go/contract"
+	plugin "github.com/webong/ext/pkg/plugin-go/engine"
 	"os"
 	"os/exec"
 	"path/filepath"

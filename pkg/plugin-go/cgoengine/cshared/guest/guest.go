@@ -6,7 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"github.com/webong/ext/pkg/plugin-go/cgoengine/cshared/abi"
-	plugin "github.com/webong/ext/pkg/plugin-go/contract"
+	plugin "github.com/webong/ext/pkg/plugin-go/engine"
 	"sync"
 	"unsafe"
 )

@@ -1,7 +1,7 @@
 // Package c2goengine is the C engine's portable core, translated to Go by ccgo (modernc.org/ccgo)
 // and linked into the program with no C compiler and no cgo. It answers as the engine does: the
 // descriptor, request, response, frame, manifest, schema and endpoint rules of lib/plugin, through
-// the same service calls pkg/plugin-go/cgoengine makes into the C library. The pure-Go contract is
+// the same service calls pkg/plugin-go/cgoengine makes into the C library. The pure-Go engine is
 // the oracle it is held against (contract/plugintest/enginetest).
 //
 // The translation exists for the platforms listed in README.md. On any other, Available is false

@@ -62,8 +62,8 @@ echo "== Go suites linked against the engine (pkg/plugin-go/cgoengine)"
  EXT_CENGINE_GUEST="$(winpath "$guest")" \
  EXT_CENGINE_FAULT_GUEST="$(winpath "$fault")" \
    go test -tags ext_cengine "${race[@]}" -count=1 -timeout=10m ./...)
-echo "== the contract module, standard library only (pkg/plugin-go/contract)"
-(cd pkg/plugin-go/contract && go test -count=1 -timeout=10m ./...)
+echo "== the engine module, standard library only (pkg/plugin-go/engine)"
+(cd pkg/plugin-go/engine && go test -count=1 -timeout=10m ./...)
 echo "== the same API without cgo, served by the pure-Go implementation"
 (cd pkg/plugin-go/cgoengine && CGO_ENABLED=0 go test -count=1 -timeout=10m ./...)
 echo "== the umbrella module (pkg/plugin-go)"

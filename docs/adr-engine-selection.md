@@ -73,8 +73,9 @@ became `res/web`"), so this is a new module, not a new version:
 ## Order of work
 
 1. This branch (`engine/c2goengine`): the translated engine, unchanged by the above.
-2. The coordinator's round that publishes `contract` v0.8.0 (it carries `enginetest` and
-   the dispose-ordering fix `c2goengine` needs), then `c2goengine/v0.1.0`.
+2. A `contract` release that publishes the instance, session and process checks of `enginetest`
+   (v0.9.0, additive: v0.8.0 has the service checks only). `cengine` and `c2goengine` require it,
+   so the standalone check skips them until it is tagged; then `c2goengine/v0.1.0`.
 3. On the user's go-ahead: the rename, as one change with the new module's first tag.
 4. After the rename: the `Engine` interface and the selection in `pkg/plugin-go`, with
    a test that runs `enginetest` against whatever the selection returns.

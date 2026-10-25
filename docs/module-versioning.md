@@ -211,7 +211,7 @@ in its `tools` directory, which pins ccgo and runs only on the platform it write
 module contains only its own directory, and the generated files are that directory's copy of the C,
 so no C sources travel with it. The `c2goengine` workflow regenerates the file for each platform and
 fails when it differs from the one checked in. Tags follow the usual rule: `pkg/plugin-go/c2goengine/vX.Y.Z`,
-with a `contract` release that holds `plugintest/enginetest` below it.
+with a `contract` release that holds the `plugintest/enginetest` checks it runs below it (v0.9.0: v0.8.0 has the service checks only, and the instance, session and process checks came after).
 
 ### The C sources
 

@@ -356,9 +356,13 @@ func inputsDigest(csrc string, sources []string) (string, error) {
 		}
 	}
 	fmt.Fprintf(h, "ccgo %s\n", ccgoVersion)
+	// Only the C the translator reads counts, and without its comments (see stripComments): a README,
+	// a license or a reworded comment does not change the translation, so it must not turn the
+	// workflow red.
+	fmt.Fprintf(h, "inputs: sources and headers, comments and blank space stripped\n")
 	var files []string
 	err := filepath.WalkDir(csrc, func(path string, d fs.DirEntry, err error) error {
-		if err != nil || d.IsDir() {
+		if err != nil || d.IsDir() || !isCSource(path) {
 			return err
 		}
 		rel, err := filepath.Rel(csrc, path)
@@ -377,7 +381,7 @@ func inputsDigest(csrc string, sources []string) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		sum := sha256.Sum256(data)
+		sum := sha256.Sum256(canonicalSource(data))
 		fmt.Fprintf(h, "%s %s\n", rel, hex.EncodeToString(sum[:]))
 	}
 	return hex.EncodeToString(h.Sum(nil)), nil

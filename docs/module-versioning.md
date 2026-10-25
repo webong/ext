@@ -364,7 +364,7 @@ later rounds followed for new content.
 | API additions (`v0.6.0`) | `pkg/plugin-go/contract`, `pkg/plugin-go/cengine` and `pkg/plugin-go` at v0.6.0; no other module |
 | Engine parity (`v0.7.0`) | `pkg/plugin-go/contract`, `pkg/plugin-go/cengine` and `pkg/plugin-go` at v0.7.0; no other module |
 | Engine test harness (`v0.8.0`) | `pkg/plugin-go/contract`, `pkg/plugin-go/cengine` and `pkg/plugin-go` at v0.8.0; no other module |
-| Three engines (`v0.9.0`) | `pkg/plugin-go` at v0.9.0; `pkg/plugin-go/engine`, `pkg/plugin-go/cgoengine` and `pkg/plugin-go/c2goengine` at v0.1.0 (new modules); `hashicorp` v0.3.1, `wasm` v0.2.2 and the 24 adapters as patch releases |
+| Three engines (`v0.9.0`), prepared and **not cut**: superseded by the `pkg/ext-go` rename, which is merged first and tags the next round under the new paths | `pkg/plugin-go` at v0.9.0; `pkg/plugin-go/engine`, `pkg/plugin-go/cgoengine` and `pkg/plugin-go/c2goengine` at v0.1.0 (new modules); `hashicorp` v0.3.1, `wasm` v0.2.2 and the 24 adapters as patch releases |
 
 `v0.3.0` is a minor version because `Store.ListUnverified` and `Layered.ListUnverified` are new API in
 both `contract/host/store` and `cengine/host/store`. It also bounds the cost of validating and resolving

@@ -37,5 +37,3 @@ use (
 	./pkg/plugin-go/contract
 	./pkg/plugin-go/cengine
 )
-
-replace github.com/webong/ext/pkg/plugin-go/cengine v0.8.0 => ./pkg/plugin-go/cengine

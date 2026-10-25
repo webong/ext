@@ -14,7 +14,7 @@ import (
 	"time"
 	"unsafe"
 
-	plugin "github.com/webong/ext/pkg/plugin-go/contract"
+	plugin "github.com/webong/ext/pkg/plugin-go/engine"
 )
 
 // A backend that carries frames hands them to the engine, which validates and

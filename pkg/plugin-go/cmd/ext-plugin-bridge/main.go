@@ -14,9 +14,9 @@ import (
 	"os/signal"
 	"path/filepath"
 
-	plugin "github.com/webong/ext/pkg/plugin-go/contract"
-	"github.com/webong/ext/pkg/plugin-go/contract/transport/bridge"
-	"github.com/webong/ext/pkg/plugin-go/contract/transport/jsonline"
+	plugin "github.com/webong/ext/pkg/plugin-go/engine"
+	"github.com/webong/ext/pkg/plugin-go/engine/transport/bridge"
+	"github.com/webong/ext/pkg/plugin-go/engine/transport/jsonline"
 	"github.com/webong/ext/pkg/plugin-go/hashicorp"
 )
 

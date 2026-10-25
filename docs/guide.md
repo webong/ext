@@ -36,8 +36,8 @@ import (
 	"fmt"
 
 	"github.com/webong/ext/pkg/plugin-go"
-	"github.com/webong/ext/pkg/plugin-go/contract/guest/author"
-	"github.com/webong/ext/pkg/plugin-go/contract/transport/inprocess"
+	"github.com/webong/ext/pkg/plugin-go/engine/guest/author"
+	"github.com/webong/ext/pkg/plugin-go/engine/transport/inprocess"
 )
 
 type Greeting struct {

@@ -6,8 +6,8 @@ import (
 	"context"
 	"encoding/json"
 
-	plugin "github.com/webong/ext/pkg/plugin-go/contract"
-	instancepkg "github.com/webong/ext/pkg/plugin-go/contract/guest/instance"
+	plugin "github.com/webong/ext/pkg/plugin-go/engine"
+	instancepkg "github.com/webong/ext/pkg/plugin-go/engine/guest/instance"
 )
 
 // HostAvailable is false where no translation of the host has been generated for the platform.

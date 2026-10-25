@@ -136,7 +136,7 @@ A module path and its tags are a pair, so this is a new module, not a new versio
 ## `pkg/plugin-go/cengine` became `pkg/plugin-go/cgoengine`
 
 The Go binding of the C engine was renamed because it is now one of three engines (the pure-Go
-`contract`, the C engine through cgo, and the C engine translated to Go by ccgo, `c2goengine`; see
+`contract`, now `engine` (next section), the C engine through cgo, and the C engine translated to Go by ccgo, `c2goengine`; see
 [the engine selection ADR](adr-engine-selection.md)) and `cengine` did not say which. A module path
 and its tags are a pair, so this is a new module, not a new version:
 
@@ -158,6 +158,31 @@ and its tags are a pair, so this is a new module, not a new version:
 
 The history below keeps the names of its time: a release row that says `cengine` means the module now
 called `cgoengine`.
+
+## `pkg/plugin-go/contract` became `pkg/plugin-go/engine`
+
+The pure-Go module is the oracle the other two engines are held against, and the third engine beside
+`cgoengine` and `c2goengine`, so it is called `engine`. The package that chooses between the three is
+`core` (`pkg/plugin-go/core`, in the umbrella). Again a new module, not a new version:
+
+- The tags of `pkg/plugin-go/contract` (`v0.2.0` to `v0.8.0`) are immutable and `v0.8.0` is the last tag
+  that path will ever have. They are not deleted, and the path is not reused for anything else. Deleting
+  a tag from GitHub would not remove the version: `proxy.golang.org` keeps what it has served and the
+  checksum database `sum.golang.org` keeps its hash for good, so `go get` of the old path would still
+  resolve it. That is why the selection package is `core` and not `contract`; it is the repository's rule
+  that a published path is not reused by a different module (Go itself does not forbid it). A final
+  `// Deprecated: use github.com/webong/ext/pkg/plugin-go/engine.` commit on the last tag, as for
+  `pkg/plugin-cshared`, retires the path.
+- `pkg/plugin-go/engine/v0.1.0` is the first tag of the new path, cut on a tree whose `go.mod` declares
+  `github.com/webong/ext/pkg/plugin-go/engine`. Until it exists every module that requires it (the
+  umbrella, `cgoengine`, `c2goengine`, `wasm`, `hashicorp`, the adapters and the products) is skipped by
+  the standalone check, and the products resolve it in the workspace through their `replace`.
+- The Go package was renamed with the directory (`contract` to `engine`). Importers named it `plugin`
+  and are unchanged apart from the path. The contract itself, the data model (`ContractRef`, the
+  `contract` field of the wire format, the `ext.*` contracts), keeps its name: only the module moved.
+- The subpackages moved with it: `engine/host`, `engine/guest`, `engine/transport`, `engine/validate`,
+  `engine/endpoint`, `engine/package` and `engine/plugintest` (with `enginetest`). Everything below this
+  point in the document that says `contract` for the module means the module now called `engine`.
 
 ## Releases since the baseline
 
@@ -185,7 +210,7 @@ Before tagging, confirm each module builds and tests on its own with the
 workspace active, and that `src/ctx` resolves the intended versions:
 
 ```bash
-for module in src/ctx src/ctn pkg/plugin-go pkg/plugin-go/contract pkg/plugin-go/cgoengine \
+for module in src/ctx src/ctn pkg/plugin-go pkg/plugin-go/engine pkg/plugin-go/cgoengine \
               pkg/plugin-go/hashicorp pkg/plugin-go/wasm res/system adapters/wasm adapters/evm \
               res/web res/credential; do
   (cd "$module" && go build ./... && go test ./...) || exit 1
@@ -196,7 +221,7 @@ done
 
 Each module's `go` line is the oldest Go that builds it, so it must be at least what its own
 dependencies require; `go mod tidy` raises it when it is not. The light libraries
-(`pkg/plugin-go/contract`, `pkg/plugin-go/cgoengine`, `pkg/plugin-go/wasm`, `res/*` and the adapters) declare `go 1.23.0` and their dependencies allow it. Four modules declare
+(`pkg/plugin-go/engine`, `pkg/plugin-go/cgoengine`, `pkg/plugin-go/wasm`, `res/*` and the adapters) declare `go 1.23.0` and their dependencies allow it. Four modules declare
 `go 1.26.0` because `golang.org/x/net`, `x/sys` and `x/text` at the versions they use require it:
 `pkg/plugin-go/hashicorp` (gRPC), the umbrella `pkg/plugin-go` (it requires `hashicorp`), `src/ctx`
 and `src/ctn`. A fifth, `pkg/plugin-go/c2goengine`, declares `go 1.26.0` because the runtime library the
@@ -216,16 +241,16 @@ so an application imports only what it needs and stacks the rest:
 
 | Module | Contents | Requires |
 | --- | --- | --- |
-| `pkg/plugin-go/contract` | the contract, sessions, guests, packages, the package store and host, bridges and tooling (the old `pkg/plugin`); standard library only | nothing |
-| `pkg/plugin-go/cgoengine` | the Go binding of the C engine, a pure-Go build of the same API, engine-routed variants of `store` and `host` with the same API as the ones in `contract`, the C ABI loader (the old `pkg/plugin-cshared`) and a generated copy of the C sources | `contract` |
-| `pkg/plugin-go/c2goengine` | the C engine's portable core translated to Go by ccgo (`modernc.org/ccgo`), with no cgo and no C compiler: one generated file per platform, made on that platform (see its README) | `contract` |
-| `pkg/plugin-go/wasm` | the wazero backend (the old `pkg/plugin-wasm`) | `contract` |
-| `pkg/plugin-go/hashicorp` | the go-plugin (gRPC) backend (the old `pkg/plugin-hashicorp`) | `contract` |
-| `pkg/plugin-go` | the umbrella: requires every module above at matching versions and holds what needs several of them (`PlanGraph`, the `engine` package that chooses between `contract`, `cgoengine` and `c2goengine`, the bridge command, the cross-language tests) | all of the above, `res/system` |
+| `pkg/plugin-go/engine` | the pure-Go engine (the oracle): the contract, sessions, guests, packages, the package store and host, bridges and tooling (the old `pkg/plugin`); standard library only | nothing |
+| `pkg/plugin-go/cgoengine` | the Go binding of the C engine, a pure-Go build of the same API, engine-routed variants of `store` and `host` with the same API as the ones in `engine`, the C ABI loader (the old `pkg/plugin-cshared`) and a generated copy of the C sources | `contract` |
+| `pkg/plugin-go/c2goengine` | the C engine's portable core translated to Go by ccgo (`modernc.org/ccgo`), with no cgo and no C compiler: one generated file per platform, made on that platform (see its README) | `engine` |
+| `pkg/plugin-go/wasm` | the wazero backend (the old `pkg/plugin-wasm`) | `engine` |
+| `pkg/plugin-go/hashicorp` | the go-plugin (gRPC) backend (the old `pkg/plugin-hashicorp`) | `engine` |
+| `pkg/plugin-go` | the umbrella: requires every module above at matching versions and holds what needs several of them (`PlanGraph`, the `core` package that chooses between `engine`, `cgoengine` and `c2goengine`, the bridge command, the cross-language tests) | all of the above, `res/system` |
 
-The name `contract` was chosen over `core` because it is already the name of the Go
-package and of every alias in use, and the module is that contract plus tooling that
-needs nothing beyond the standard library, not a runtime. `wasm` and `hashicorp`
+The module was called `contract` until v0.8.0 because it is the contract plus tooling that needs
+nothing beyond the standard library, not a runtime; it became `engine` once it was the oracle
+among three engines (see above), and `core` is the package that chooses between them. `wasm` and `hashicorp`
 never depend on `cgoengine`, in code, tests or `go.mod`, so a wazero or gRPC user needs
 no C toolchain; `src/ctx/internal/arch` enforces this.
 
@@ -237,7 +262,7 @@ in its `tools` directory, which pins ccgo and runs only on the platform it write
 module contains only its own directory, and the generated files are that directory's copy of the C,
 so no C sources travel with it. The `c2goengine` workflow regenerates the file for each platform and
 fails when it differs from the one checked in. Tags follow the usual rule: `pkg/plugin-go/c2goengine/vX.Y.Z`,
-with a `contract` release that holds the `plugintest/enginetest` checks it runs below it (v0.9.0: v0.8.0 has the service checks only, and the instance, session and process checks came after).
+with an `engine` release that holds the `plugintest/enginetest` checks it runs below it (`engine` v0.1.0; `contract` v0.8.0 has the service checks only, and the instance, session and process checks came after).
 
 ### The C sources
 

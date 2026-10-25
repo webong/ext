@@ -6,9 +6,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	plugin "github.com/webong/ext/pkg/plugin-go/contract"
-	"github.com/webong/ext/pkg/plugin-go/contract/guest/instance"
-	"github.com/webong/ext/pkg/plugin-go/contract/guest/stream"
+	plugin "github.com/webong/ext/pkg/plugin-go/engine"
+	"github.com/webong/ext/pkg/plugin-go/engine/guest/instance"
+	"github.com/webong/ext/pkg/plugin-go/engine/guest/stream"
 	"testing"
 	"time"
 )

@@ -2,7 +2,7 @@
 
 package ccgo
 
-import plugin "github.com/webong/ext/pkg/plugin-go/contract"
+import plugin "github.com/webong/ext/pkg/plugin-go/engine"
 
 // Available is false where no translation has been generated for the platform.
 const Available = false

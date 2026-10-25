@@ -33,7 +33,7 @@ intersection of all four endpoint feature sets. This performs no discovery or
 version translation.
 
 Endpoints are the loopback listeners a plugin's result declares (`pkg/plugin-go/
-contract/endpoint`). `endpoint.check` reads one strictly (unknown and duplicate
+engine/endpoint`). `endpoint.check` reads one strictly (unknown and duplicate
 fields and wrong types are refused) and applies the rules no policy changes: a
 scheme of `ws`, `wss`, `http`, `https` or `tcp`; an address that is a host and a
 port, the host being `localhost` or a loopback IP literal (`net.SplitHostPort` and
@@ -101,7 +101,7 @@ symlinks and special files. Directory traversal is bounded to 1024 nested levels
 and one directory digest to 250,000 files (the Go store's default `MaxTreeFiles`)
 and 64 MiB of path text; beyond either it fails with `EXT_INVALID` instead of
 holding every path in memory. The Go store applies its own configurable limits
-first, and `plugin.DirectoryDigest` in the contract module does not cap the count.
+first, and `plugin.DirectoryDigest` in the engine module does not cap the count.
 Applications must protect reviewed content against concurrent writes and
 separately establish publisher trust. Neither function launches code.
 

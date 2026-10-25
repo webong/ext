@@ -34,7 +34,7 @@ use (
 	./pkg/plugin-go/wasm
 	./res/web
 	./res/credential
-	./pkg/plugin-go/contract
+	./pkg/plugin-go/engine
 	./pkg/plugin-go/cgoengine
 	./pkg/plugin-go/c2goengine
 )

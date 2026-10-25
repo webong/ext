@@ -14,8 +14,8 @@ import (
 
 	"github.com/webong/ext/pkg/plugin-go/cgoengine"
 	"github.com/webong/ext/pkg/plugin-go/cgoengine/cshared"
-	"github.com/webong/ext/pkg/plugin-go/contract/guest/author"
-	"github.com/webong/ext/pkg/plugin-go/contract/host/nativego"
+	"github.com/webong/ext/pkg/plugin-go/engine/guest/author"
+	"github.com/webong/ext/pkg/plugin-go/engine/host/nativego"
 	"github.com/webong/ext/pkg/plugin-go/examples/plugin-runtimes/echo"
 	"github.com/webong/ext/pkg/plugin-go/wasm"
 )

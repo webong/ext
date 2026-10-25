@@ -3,9 +3,9 @@ package main
 import (
 	"context"
 	"github.com/webong/ext/pkg/plugin-go/cgoengine"
-	"github.com/webong/ext/pkg/plugin-go/contract/guest/author"
-	"github.com/webong/ext/pkg/plugin-go/contract/transport/jsonline"
-	"github.com/webong/ext/pkg/plugin-go/contract/validate/schema"
+	"github.com/webong/ext/pkg/plugin-go/engine/guest/author"
+	"github.com/webong/ext/pkg/plugin-go/engine/transport/jsonline"
+	"github.com/webong/ext/pkg/plugin-go/engine/validate/schema"
 	"os"
 )
 

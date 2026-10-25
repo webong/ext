@@ -12,8 +12,8 @@ import (
 
 	"modernc.org/libc"
 
-	plugin "github.com/webong/ext/pkg/plugin-go/contract"
-	instancepkg "github.com/webong/ext/pkg/plugin-go/contract/guest/instance"
+	plugin "github.com/webong/ext/pkg/plugin-go/engine"
+	instancepkg "github.com/webong/ext/pkg/plugin-go/engine/guest/instance"
 )
 
 // Instances over the translated engine (lib/plugin/src/instances.c): the counterpart of the cgo

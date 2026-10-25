@@ -10,13 +10,13 @@ on:
     paths:
       - 'lib/plugin/**'
       - 'pkg/plugin-go/c2goengine/**'
-      - 'pkg/plugin-go/contract/plugintest/enginetest/**'
+      - 'pkg/plugin-go/engine/plugintest/enginetest/**'
       - '.github/workflows/c2goengine.yml'
   pull_request:
     paths:
       - 'lib/plugin/**'
       - 'pkg/plugin-go/c2goengine/**'
-      - 'pkg/plugin-go/contract/plugintest/enginetest/**'
+      - 'pkg/plugin-go/engine/plugintest/enginetest/**'
       - '.github/workflows/c2goengine.yml'
   workflow_dispatch:
 

@@ -15,13 +15,13 @@ consumers.
 
 | Module | Depends on | Third-party dependencies |
 | --- | --- | --- |
-| [`plugin-go/contract`](plugin-go/contract/README.md) | nothing | none (standard library only) |
-| [`plugin-go/cgoengine`](plugin-go/cgoengine/README.md) | `plugin-go/contract` | none |
-| [`plugin-go/wasm`](plugin-go/wasm/README.md) | `plugin-go/contract` | `wazero` |
-| [`plugin-go/hashicorp`](plugin-go/hashicorp/README.md) | `plugin-go/contract` | `go-plugin`, `grpc`, `protobuf` |
+| [`plugin-go/engine`](plugin-go/engine/README.md) | nothing | none (standard library only) |
+| [`plugin-go/cgoengine`](plugin-go/cgoengine/README.md) | `plugin-go/engine` | none |
+| [`plugin-go/wasm`](plugin-go/wasm/README.md) | `plugin-go/engine` | `wazero` |
+| [`plugin-go/hashicorp`](plugin-go/hashicorp/README.md) | `plugin-go/engine` | `go-plugin`, `grpc`, `protobuf` |
 | [`plugin-go`](plugin-go/README.md) (umbrella) | all of the above, `res/system` | none |
 
-A consumer that only needs `plugin-go/contract` never downloads the C engine, the
+A consumer that only needs `plugin-go/engine` never downloads the C engine, the
 HashiCorp stack or the WASI runtime, and each backend is opt-in. A backend never
 depends on `cgoengine`.
 

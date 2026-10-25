@@ -16,7 +16,7 @@ import (
 	"time"
 	"unsafe"
 
-	plugin "github.com/webong/ext/pkg/plugin-go/contract"
+	plugin "github.com/webong/ext/pkg/plugin-go/engine"
 )
 
 // reverseBinding is what the C engine's reverse hooks call back into. The engine

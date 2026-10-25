@@ -7,9 +7,9 @@ import "C"
 import (
 	"context"
 	"github.com/webong/ext/pkg/plugin-go/cgoengine/cshared/guest"
-	plugin "github.com/webong/ext/pkg/plugin-go/contract"
-	"github.com/webong/ext/pkg/plugin-go/contract/plugintest"
-	"github.com/webong/ext/pkg/plugin-go/contract/transport/inprocess"
+	plugin "github.com/webong/ext/pkg/plugin-go/engine"
+	"github.com/webong/ext/pkg/plugin-go/engine/plugintest"
+	"github.com/webong/ext/pkg/plugin-go/engine/transport/inprocess"
 	"unsafe"
 )
 

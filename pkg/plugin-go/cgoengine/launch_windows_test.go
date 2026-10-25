@@ -5,8 +5,8 @@ package cgoengine
 import (
 	"context"
 	"errors"
-	plugin "github.com/webong/ext/pkg/plugin-go/contract"
-	"github.com/webong/ext/pkg/plugin-go/contract/plugintest"
+	plugin "github.com/webong/ext/pkg/plugin-go/engine"
+	"github.com/webong/ext/pkg/plugin-go/engine/plugintest"
 	"os"
 	"path/filepath"
 	"testing"

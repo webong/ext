@@ -5,7 +5,7 @@ go 1.26.0
 require (
 	github.com/webong/ext/ctn v0.0.0
 	github.com/webong/ext/ctx v0.0.0
-	github.com/webong/ext/pkg/plugin-go/contract v0.8.0
+	github.com/webong/ext/pkg/plugin-go/engine v0.1.0
 )
 
 require (
@@ -22,4 +22,4 @@ replace github.com/webong/ext/res/system => ../../res/system
 
 replace github.com/webong/ext/res/web => ../../res/web
 
-replace github.com/webong/ext/pkg/plugin-go/contract => ../../pkg/plugin-go/contract
+replace github.com/webong/ext/pkg/plugin-go/engine => ../../pkg/plugin-go/engine

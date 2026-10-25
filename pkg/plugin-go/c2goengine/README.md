@@ -24,11 +24,11 @@ leases, err := c2goengine.NewInstances(instance.Options[T]{...})
 
 | | needs | notes |
 | --- | --- | --- |
-| the pure-Go contract (`contract`) | nothing | the oracle: written separately, so a bug in the C cannot hide in it |
+| the pure-Go engine (`engine`) | nothing | the oracle: written separately, so a bug in the C cannot hide in it |
 | `cgoengine` | cgo and the C library | the C itself, at native speed |
 | `c2goengine` | nothing | the C, translated; about twice as slow as native and about twice as fast as the Go contract on the services measured |
 
-`contract/plugintest/enginetest` holds an engine against the oracle: the same documents, requests,
+`engine/plugintest/enginetest` holds an engine against the oracle: the same documents, requests,
 schemas and endpoints, and the answers must agree. `TestEngineChecks` here runs every check of that
 harness that needs only `EngineCall`, and the module's own tests add concurrency, memory and
 platform-table checks.

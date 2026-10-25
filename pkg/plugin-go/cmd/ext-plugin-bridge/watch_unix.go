@@ -4,7 +4,7 @@ package main
 
 import (
 	"context"
-	plugin "github.com/webong/ext/pkg/plugin-go/contract"
+	plugin "github.com/webong/ext/pkg/plugin-go/engine"
 	"io"
 	"os"
 	"os/signal"

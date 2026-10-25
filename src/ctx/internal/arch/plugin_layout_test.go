@@ -19,23 +19,23 @@ import (
 // pkg/plugin-go is a tree of modules, not one module. Each heavy part is its own
 // module so an application imports only what it needs:
 //
-//	contract    standard library only
-//	cgoengine   the C engine binding and pure-Go build of the same API; needs contract
-//	c2goengine  the C engine's portable core translated to Go; needs contract
-//	wasm        the wazero backend; needs contract only, never cgoengine
-//	hashicorp   the gRPC backend; needs contract only, never cgoengine
-//	(umbrella)  pkg/plugin-go itself, the one module that may require them all; its engine package
-//	            chooses between contract, cgoengine and c2goengine
+//	engine      the pure-Go engine, the oracle and the shared data model; standard library only
+//	cgoengine   the C engine binding and pure-Go build of the same API; needs engine
+//	c2goengine  the C engine's portable core translated to Go; needs engine
+//	wasm        the wazero backend; needs engine only, never cgoengine
+//	hashicorp   the gRPC backend; needs engine only, never cgoengine
+//	(umbrella)  pkg/plugin-go itself, the one module that may require them all; its core package
+//	            chooses between engine, cgoengine and c2goengine
 const pluginPrefix = "github.com/webong/ext/pkg/plugin-go"
 
 // A module's allowed requirements among the repository's own modules.
 var pluginRequires = map[string][]string{
-	"pkg/plugin-go/contract":   {},
-	"pkg/plugin-go/cgoengine":  {"pkg/plugin-go/contract"},
-	"pkg/plugin-go/c2goengine": {"pkg/plugin-go/contract"},
-	"pkg/plugin-go/wasm":       {"pkg/plugin-go/contract"},
-	"pkg/plugin-go/hashicorp":  {"pkg/plugin-go/contract"},
-	"pkg/plugin-go":            {"pkg/plugin-go/contract", "pkg/plugin-go/cgoengine", "pkg/plugin-go/c2goengine", "pkg/plugin-go/wasm", "pkg/plugin-go/hashicorp", "res/system"},
+	"pkg/plugin-go/engine":     {},
+	"pkg/plugin-go/cgoengine":  {"pkg/plugin-go/engine"},
+	"pkg/plugin-go/c2goengine": {"pkg/plugin-go/engine"},
+	"pkg/plugin-go/wasm":       {"pkg/plugin-go/engine"},
+	"pkg/plugin-go/hashicorp":  {"pkg/plugin-go/engine"},
+	"pkg/plugin-go":            {"pkg/plugin-go/engine", "pkg/plugin-go/cgoengine", "pkg/plugin-go/c2goengine", "pkg/plugin-go/wasm", "pkg/plugin-go/hashicorp", "res/system"},
 }
 
 var requireLine = regexp.MustCompile(`(?m)^\s*(?:require\s+)?(github\.com/webong/ext/\S+)\s+v\S+`)
@@ -64,13 +64,13 @@ func TestPluginGoModulesRequireOnlyTheirParts(t *testing.T) {
 	}
 }
 
-// The backends reach the contract and nothing of the C engine, in source as well
+// The backends reach the engine module and nothing of the C engine, in source as well
 // as in go.mod: a wazero or gRPC user must not need a C toolchain or even have the
 // engine binding in the module graph.
 func TestBackendsNeverImportTheCEngine(t *testing.T) {
 	root := repoRoot(t)
 	for _, dir := range []string{"pkg/plugin-go/wasm", "pkg/plugin-go/hashicorp"} {
-		forbidden := []string{pluginPrefix + "/cgoengine", pluginPrefix + "/c2goengine", pluginPrefix + "/engine", pluginPrefix}
+		forbidden := []string{pluginPrefix + "/cgoengine", pluginPrefix + "/c2goengine", pluginPrefix + "/core", pluginPrefix}
 		err := filepath.WalkDir(filepath.Join(root, dir), func(path string, entry fs.DirEntry, walkErr error) error {
 			if walkErr != nil || entry.IsDir() || filepath.Ext(path) != ".go" {
 				return walkErr
@@ -84,7 +84,7 @@ func TestBackendsNeverImportTheCEngine(t *testing.T) {
 				for _, f := range forbidden {
 					if name == f || strings.HasPrefix(name, f+"/") && f != pluginPrefix {
 						rel, _ := filepath.Rel(root, path)
-						t.Errorf("%s imports %s; a backend depends on pkg/plugin-go/contract only", filepath.ToSlash(rel), name)
+						t.Errorf("%s imports %s; a backend depends on pkg/plugin-go/engine only", filepath.ToSlash(rel), name)
 					}
 				}
 			}
@@ -96,10 +96,10 @@ func TestBackendsNeverImportTheCEngine(t *testing.T) {
 	}
 }
 
-// pkg/plugin-go/contract is the lean choice: standard library only.
-func TestContractModuleUsesOnlyTheStandardLibrary(t *testing.T) {
+// pkg/plugin-go/engine is the lean choice: standard library only.
+func TestEngineModuleUsesOnlyTheStandardLibrary(t *testing.T) {
 	root := repoRoot(t)
-	err := filepath.WalkDir(filepath.Join(root, "pkg/plugin-go/contract"), func(path string, entry fs.DirEntry, walkErr error) error {
+	err := filepath.WalkDir(filepath.Join(root, "pkg/plugin-go/engine"), func(path string, entry fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
 		}
@@ -119,9 +119,9 @@ func TestContractModuleUsesOnlyTheStandardLibrary(t *testing.T) {
 		for _, imp := range file.Imports {
 			name, _ := strconv.Unquote(imp.Path.Value)
 			first, _, _ := strings.Cut(name, "/")
-			if strings.Contains(first, ".") && !strings.HasPrefix(name, pluginPrefix+"/contract") {
+			if strings.Contains(first, ".") && !strings.HasPrefix(name, pluginPrefix+"/engine") {
 				rel, _ := filepath.Rel(root, path)
-				t.Errorf("%s imports %s; the contract module uses only the standard library", filepath.ToSlash(rel), name)
+				t.Errorf("%s imports %s; the engine module uses only the standard library", filepath.ToSlash(rel), name)
 			}
 		}
 		return nil
@@ -131,23 +131,23 @@ func TestContractModuleUsesOnlyTheStandardLibrary(t *testing.T) {
 	}
 }
 
-// contract/host and contract/host/store are the pure-Go implementations an
-// application takes with the contract module alone; cgoengine/host and
+// engine/host and engine/host/store are the pure-Go implementations an
+// application takes with the engine module alone; cgoengine/host and
 // cgoengine/host/store are the same packages routed through the engine. Swapping one import for the other must never
 // need a code change, so their exported surfaces must be identical.
 func TestEngineVariantsKeepTheSameAPI(t *testing.T) {
 	root := repoRoot(t)
 	for _, name := range []string{"host", "host/store"} {
-		pure := exportedAPI(t, filepath.Join(root, "pkg/plugin-go/contract", name))
+		pure := exportedAPI(t, filepath.Join(root, "pkg/plugin-go/engine", name))
 		engine := exportedAPI(t, filepath.Join(root, "pkg/plugin-go/cgoengine", name))
 		for line := range pure {
 			if !engine[line] {
-				t.Errorf("%s: in contract but not in cgoengine: %s", name, line)
+				t.Errorf("%s: in engine but not in cgoengine: %s", name, line)
 			}
 		}
 		for line := range engine {
 			if !pure[line] {
-				t.Errorf("%s: in cgoengine but not in contract: %s", name, line)
+				t.Errorf("%s: in cgoengine but not in engine: %s", name, line)
 			}
 		}
 		if len(pure) == 0 {
@@ -229,12 +229,12 @@ func exportedAPI(t *testing.T, dir string) map[string]bool {
 	return out
 }
 
-// The contract module is layered. transport (how frames travel) and validate (how values are
+// The engine module is layered. transport (how frames travel) and validate (how values are
 // checked) are leaves: they import neither host nor guest, and not each other. host (what runs
 // plugins on a machine) and guest (what a plugin implementation uses) build on them but never
 // import each other: a plugin must not need host code, and a host must not need a plugin's
 // authoring helpers.
-func TestContractGroupsKeepTheirLayering(t *testing.T) {
+func TestEngineGroupsKeepTheirLayering(t *testing.T) {
 	root := repoRoot(t)
 	forbidden := map[string][]string{
 		"host":      {"guest"},
@@ -244,8 +244,8 @@ func TestContractGroupsKeepTheirLayering(t *testing.T) {
 	}
 	for group, others := range forbidden {
 		for _, other := range others {
-			banned := pluginPrefix + "/contract/" + other
-			err := filepath.WalkDir(filepath.Join(root, "pkg/plugin-go/contract", group), func(path string, entry fs.DirEntry, walkErr error) error {
+			banned := pluginPrefix + "/engine/" + other
+			err := filepath.WalkDir(filepath.Join(root, "pkg/plugin-go/engine", group), func(path string, entry fs.DirEntry, walkErr error) error {
 				if walkErr != nil || entry.IsDir() || filepath.Ext(path) != ".go" {
 					return walkErr
 				}
@@ -257,7 +257,7 @@ func TestContractGroupsKeepTheirLayering(t *testing.T) {
 					name, _ := strconv.Unquote(imp.Path.Value)
 					if name == banned || strings.HasPrefix(name, banned+"/") {
 						rel, _ := filepath.Rel(root, path)
-						t.Errorf("%s imports %s; contract/%s must not import contract/%s", filepath.ToSlash(rel), name, group, other)
+						t.Errorf("%s imports %s; engine/%s must not import engine/%s", filepath.ToSlash(rel), name, group, other)
 					}
 				}
 				return nil

@@ -2,7 +2,7 @@ package c2goengine
 
 import (
 	"github.com/webong/ext/pkg/plugin-go/c2goengine/internal/ccgo"
-	"github.com/webong/ext/pkg/plugin-go/contract/guest/instance"
+	"github.com/webong/ext/pkg/plugin-go/engine/guest/instance"
 )
 
 type (

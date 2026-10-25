@@ -5,8 +5,8 @@ package cgoengine
 import (
 	"context"
 	"encoding/json"
-	plugin "github.com/webong/ext/pkg/plugin-go/contract"
-	"github.com/webong/ext/pkg/plugin-go/contract/plugintest/enginetest"
+	plugin "github.com/webong/ext/pkg/plugin-go/engine"
+	"github.com/webong/ext/pkg/plugin-go/engine/plugintest/enginetest"
 )
 
 // session is the part of a session both implementations share.

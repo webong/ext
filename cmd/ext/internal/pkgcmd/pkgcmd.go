@@ -15,9 +15,9 @@ import (
 	"sync"
 
 	"github.com/webong/ext/cmd/ext/internal/registry"
-	plugin "github.com/webong/ext/pkg/plugin-go/contract"
-	"github.com/webong/ext/pkg/plugin-go/contract/host"
-	"github.com/webong/ext/pkg/plugin-go/contract/host/store"
+	plugin "github.com/webong/ext/pkg/plugin-go/engine"
+	"github.com/webong/ext/pkg/plugin-go/engine/host"
+	"github.com/webong/ext/pkg/plugin-go/engine/host/store"
 )
 
 const (

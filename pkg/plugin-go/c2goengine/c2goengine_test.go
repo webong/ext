@@ -8,9 +8,9 @@ import (
 	"sync"
 	"testing"
 
-	plugin "github.com/webong/ext/pkg/plugin-go/contract"
-	"github.com/webong/ext/pkg/plugin-go/contract/guest/instance"
-	"github.com/webong/ext/pkg/plugin-go/contract/plugintest/enginetest"
+	plugin "github.com/webong/ext/pkg/plugin-go/engine"
+	"github.com/webong/ext/pkg/plugin-go/engine/guest/instance"
+	"github.com/webong/ext/pkg/plugin-go/engine/plugintest/enginetest"
 )
 
 func engine() enginetest.Engine {
@@ -61,7 +61,7 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-// TestEngineChecks holds the translated engine against the pure-Go contract, with every check the
+// TestEngineChecks holds the translated engine against the pure-Go engine, with every check the
 // harness has for the engine's services.
 func TestEngineChecks(t *testing.T) {
 	if !Available {

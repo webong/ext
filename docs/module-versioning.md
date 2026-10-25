@@ -166,6 +166,9 @@ Each is a new module, not a new version:
 - The tags under `pkg/plugin-go/...` are immutable and stay resolvable for anything that requires the old
   paths; they are the last versions of those paths. Nothing is tagged under the new paths until a release
   round cuts them, on a tree whose `go.mod` files declare them.
+- `v0.8.0` is the last version of the old ways (`pkg/plugin-go/contract`, `cengine` and the umbrella). The
+  v0.9.0 round that was prepared under the old layout is not cut; the next round is considered only after
+  this rename is on `main`, and the versions of the new paths are chosen then.
 - Every import path, `require`, `replace`, `go.work` entry, script, workflow and document that named
   `pkg/plugin-go` now names `pkg/ext-go`. The history in the sections below keeps the old names, because
   those are the paths the tags carry.

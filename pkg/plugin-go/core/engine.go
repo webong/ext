@@ -1,4 +1,4 @@
-// Package engine chooses which implementation of the plugin engine runs a program's sessions.
+// Package core chooses which implementation of the plugin engine runs a program's sessions.
 //
 // The engine's rules exist three times, and each is its own module so an application takes only the
 // ones it needs:
@@ -14,7 +14,7 @@
 // when a session or an instance manager is opened, and it is visible: Session.Engine names the engine
 // that runs the session. An engine is never replaced by another halfway through a session, and Choose
 // never falls back silently: a name that cannot be served is an error.
-package engine
+package core
 
 import (
 	"context"
@@ -166,7 +166,7 @@ func NewInstances[T any](e Engine, options instance.Options[T]) (Instances[T], e
 	case c2goEngine:
 		return newC2GoInstances(e, options)
 	}
-	return nil, fmt.Errorf("engine: %v: %w", e, plugin.ErrUnsupported)
+	return nil, fmt.Errorf("core: %v: %w", e, plugin.ErrUnsupported)
 }
 
 // Engines lists every engine, available or not, in the order Choose prefers them: cgo, c2go, go.
@@ -180,7 +180,7 @@ func Get(name Name) (Engine, error) {
 			return e, nil
 		}
 	}
-	return nil, fmt.Errorf("engine: unknown engine %q (want %s, %s, %s or %s): %w", name, CGo, C2Go, Go, Auto, plugin.ErrInvalid)
+	return nil, fmt.Errorf("core: unknown engine %q (want %s, %s, %s or %s): %w", name, CGo, C2Go, Go, Auto, plugin.ErrInvalid)
 }
 
 // Choose returns the engine to use. With Auto (or an empty name) it is the best available engine,
@@ -194,17 +194,17 @@ func Choose(name Name, need Feature) (Engine, error) {
 				return e, nil
 			}
 		}
-		return nil, fmt.Errorf("engine: no engine here carries %s: %w", need, plugin.ErrUnsupported)
+		return nil, fmt.Errorf("core: no engine here carries %s: %w", need, plugin.ErrUnsupported)
 	}
 	e, err := Get(name)
 	if err != nil {
 		return nil, err
 	}
 	if !e.Available() {
-		return nil, fmt.Errorf("engine: %s is not available in this build: %w", name, plugin.ErrUnsupported)
+		return nil, fmt.Errorf("core: %s is not available in this build: %w", name, plugin.ErrUnsupported)
 	}
 	if !e.Features().Has(need) {
-		return nil, fmt.Errorf("engine: %s lacks %s (it has %s): %w", name, need&^e.Features(), e.Features(), plugin.ErrUnsupported)
+		return nil, fmt.Errorf("core: %s lacks %s (it has %s): %w", name, need&^e.Features(), e.Features(), plugin.ErrUnsupported)
 	}
 	return e, nil
 }
@@ -217,10 +217,10 @@ func FromEnvironment(need Feature) (Engine, error) {
 
 // errUnsupported is what an engine that lacks a feature reports.
 func errUnsupported(e Engine, what string) error {
-	return fmt.Errorf("engine: %s does not carry %s here: %w", e.Name(), what, plugin.ErrUnsupported)
+	return fmt.Errorf("core: %s does not carry %s here: %w", e.Name(), what, plugin.ErrUnsupported)
 }
 
 // errUnsupportedBy is errUnsupported for a session, which knows its engine's name and not the engine.
 func errUnsupportedBy(name Name, what string) error {
-	return fmt.Errorf("engine: %s does not carry %s here: %w", name, what, plugin.ErrUnsupported)
+	return fmt.Errorf("core: %s does not carry %s here: %w", name, what, plugin.ErrUnsupported)
 }

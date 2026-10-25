@@ -102,7 +102,7 @@ The reusable libraries are:
 - `pkg/plugin-go/c2goengine` for the C engine's portable core translated to Go by ccgo (no cgo, no C compiler). The translation is generated per platform by its `tools` module and held against the pure-Go contract, the oracle, by `contract/plugintest/enginetest`; it depends on `contract` only.
 - `pkg/plugin-go/cgoengine` for the Go binding of the C engine, with a pure-Go build of the same API and the C ABI loader.
 - `pkg/plugin-go/wasm` and `pkg/plugin-go/hashicorp` for the WebAssembly and HashiCorp go-plugin backends.
-- `pkg/plugin-go` for the umbrella module that requires all of the above and holds code that needs several of them, such as `pkg/plugin-go/engine`, which chooses between the pure-Go contract, `cgoengine` and `c2goengine` (the only place that knows all three).
+- `pkg/plugin-go` for the umbrella module that requires all of the above and holds code that needs several of them, such as `pkg/plugin-go/core`, which chooses between the pure-Go contract, `cgoengine` and `c2goengine` (the only place that knows all three).
 
 Plugin runtime backends, including HashiCorp go-plugin, belong inside the
 plugin library (for example `pkg/plugin-go/hashicorp`), together with their

@@ -1,4 +1,4 @@
-package engine_test
+package core_test
 
 import (
 	"context"
@@ -13,7 +13,7 @@ import (
 	"github.com/webong/ext/pkg/plugin-go/contract/guest/capability"
 	"github.com/webong/ext/pkg/plugin-go/contract/guest/instance"
 	"github.com/webong/ext/pkg/plugin-go/contract/plugintest/enginetest"
-	"github.com/webong/ext/pkg/plugin-go/engine"
+	"github.com/webong/ext/pkg/plugin-go/core"
 )
 
 func TestMain(m *testing.M) {
@@ -21,7 +21,7 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-func names(es []engine.Engine) (out []engine.Name) {
+func names(es []core.Engine) (out []core.Name) {
 	for _, e := range es {
 		out = append(out, e.Name())
 	}
@@ -29,8 +29,8 @@ func names(es []engine.Engine) (out []engine.Name) {
 }
 
 func TestEnginesAreListedInPreferenceOrder(t *testing.T) {
-	got := names(engine.Engines())
-	want := []engine.Name{engine.CGo, engine.C2Go, engine.Go}
+	got := names(core.Engines())
+	want := []core.Name{core.CGo, core.C2Go, core.Go}
 	if len(got) != len(want) {
 		t.Fatalf("Engines() = %v, want %v", got, want)
 	}
@@ -39,17 +39,17 @@ func TestEnginesAreListedInPreferenceOrder(t *testing.T) {
 			t.Fatalf("Engines() = %v, want %v", got, want)
 		}
 	}
-	last := engine.Engines()[2]
-	if !last.Available() || !last.Features().Has(engine.Sessions|engine.Progress|engine.Reverse) {
+	last := core.Engines()[2]
+	if !last.Available() || !last.Features().Has(core.Sessions|core.Progress|core.Reverse) {
 		t.Fatalf("the go engine must be available with sessions, progress and reverse: %v", last.Features())
 	}
-	if last.Features().Has(engine.Services) {
+	if last.Features().Has(core.Services) {
 		t.Fatalf("the go engine has no services by name: %v", last.Features())
 	}
 }
 
 func TestAnEngineThatIsNotAvailableHasNoFeatures(t *testing.T) {
-	for _, e := range engine.Engines() {
+	for _, e := range core.Engines() {
 		if !e.Available() && e.Features() != 0 {
 			t.Errorf("%s is not available but has %s", e.Name(), e.Features())
 		}
@@ -61,8 +61,8 @@ func TestAnEngineThatIsNotAvailableHasNoFeatures(t *testing.T) {
 
 // best is what Choose should return for need with no name: the first engine in the order that is
 // available and has every feature.
-func best(need engine.Feature) engine.Engine {
-	for _, e := range engine.Engines() {
+func best(need core.Feature) core.Engine {
+	for _, e := range core.Engines() {
 		if e.Features().Has(need) {
 			return e
 		}
@@ -71,10 +71,10 @@ func best(need engine.Feature) engine.Engine {
 }
 
 func TestChooseWithoutANamePicksTheBestAvailable(t *testing.T) {
-	for _, name := range []engine.Name{"", engine.Auto} {
-		for _, need := range []engine.Feature{0, engine.Services, engine.Sessions, engine.Progress, engine.Reverse, engine.Services | engine.Sessions, engine.Sessions | engine.Reverse, engine.Services | engine.Reverse} {
+	for _, name := range []core.Name{"", core.Auto} {
+		for _, need := range []core.Feature{0, core.Services, core.Sessions, core.Progress, core.Reverse, core.Services | core.Sessions, core.Sessions | core.Reverse, core.Services | core.Reverse} {
 			want := best(need)
-			got, err := engine.Choose(name, need)
+			got, err := core.Choose(name, need)
 			if want == nil {
 				if !errors.Is(err, plugin.ErrUnsupported) {
 					t.Errorf("Choose(%q, %s) = %v, %v; want ErrUnsupported", name, need, got, err)
@@ -89,15 +89,15 @@ func TestChooseWithoutANamePicksTheBestAvailable(t *testing.T) {
 }
 
 func TestChooseByNameNeverFallsBack(t *testing.T) {
-	if e, err := engine.Choose(engine.Go, engine.Sessions|engine.Progress|engine.Reverse); err != nil || e.Name() != engine.Go {
+	if e, err := core.Choose(core.Go, core.Sessions|core.Progress|core.Reverse); err != nil || e.Name() != core.Go {
 		t.Fatalf("Choose(go) = %v, %v", e, err)
 	}
 	// The go engine has no services; asking for them by name is an error, not another engine.
-	if e, err := engine.Choose(engine.Go, engine.Services); !errors.Is(err, plugin.ErrUnsupported) {
+	if e, err := core.Choose(core.Go, core.Services); !errors.Is(err, plugin.ErrUnsupported) {
 		t.Fatalf("Choose(go, services) = %v, %v; want ErrUnsupported", e, err)
 	}
-	for _, e := range engine.Engines() {
-		got, err := engine.Choose(e.Name(), 0)
+	for _, e := range core.Engines() {
+		got, err := core.Choose(e.Name(), 0)
 		switch {
 		case e.Available() && (err != nil || got.Name() != e.Name()):
 			t.Errorf("Choose(%s) = %v, %v", e.Name(), got, err)
@@ -105,9 +105,9 @@ func TestChooseByNameNeverFallsBack(t *testing.T) {
 			t.Errorf("Choose(%s) on an engine that is not available = %v, %v; want ErrUnsupported", e.Name(), got, err)
 		}
 		// Whatever is missing is named in the error and nothing else is returned.
-		for _, need := range []engine.Feature{engine.Progress, engine.Reverse} {
+		for _, need := range []core.Feature{core.Progress, core.Reverse} {
 			if e.Available() && !e.Features().Has(need) {
-				if got, err := engine.Choose(e.Name(), need); !errors.Is(err, plugin.ErrUnsupported) || got != nil || !strings.Contains(err.Error(), need.String()) {
+				if got, err := core.Choose(e.Name(), need); !errors.Is(err, plugin.ErrUnsupported) || got != nil || !strings.Contains(err.Error(), need.String()) {
 					t.Errorf("Choose(%s, %s) = %v, %v; want an ErrUnsupported naming %s", e.Name(), need, got, err, need)
 				}
 			}
@@ -116,57 +116,57 @@ func TestChooseByNameNeverFallsBack(t *testing.T) {
 }
 
 func TestChooseRejectsAnUnknownName(t *testing.T) {
-	if e, err := engine.Choose("rust", 0); !errors.Is(err, plugin.ErrInvalid) {
+	if e, err := core.Choose("rust", 0); !errors.Is(err, plugin.ErrInvalid) {
 		t.Fatalf("Choose(rust) = %v, %v; want ErrInvalid", e, err)
 	}
-	if _, err := engine.Get("rust"); !errors.Is(err, plugin.ErrInvalid) {
+	if _, err := core.Get("rust"); !errors.Is(err, plugin.ErrInvalid) {
 		t.Fatalf("Get(rust) = %v; want ErrInvalid", err)
 	}
 }
 
 func TestFromEnvironment(t *testing.T) {
-	t.Setenv(engine.Environment, "")
-	if e, err := engine.FromEnvironment(0); err != nil || e.Name() != best(0).Name() {
+	t.Setenv(core.Environment, "")
+	if e, err := core.FromEnvironment(0); err != nil || e.Name() != best(0).Name() {
 		t.Fatalf("unset: %v, %v; want %s", e, err, best(0).Name())
 	}
-	t.Setenv(engine.Environment, " go ")
-	if e, err := engine.FromEnvironment(engine.Sessions); err != nil || e.Name() != engine.Go {
+	t.Setenv(core.Environment, " go ")
+	if e, err := core.FromEnvironment(core.Sessions); err != nil || e.Name() != core.Go {
 		t.Fatalf("go: %v, %v", e, err)
 	}
-	t.Setenv(engine.Environment, "auto")
-	if e, err := engine.FromEnvironment(engine.Reverse); err != nil || !e.Features().Has(engine.Reverse) {
+	t.Setenv(core.Environment, "auto")
+	if e, err := core.FromEnvironment(core.Reverse); err != nil || !e.Features().Has(core.Reverse) {
 		t.Fatalf("auto: %v, %v", e, err)
 	}
-	t.Setenv(engine.Environment, "nonsense")
-	if _, err := engine.FromEnvironment(0); !errors.Is(err, plugin.ErrInvalid) {
+	t.Setenv(core.Environment, "nonsense")
+	if _, err := core.FromEnvironment(0); !errors.Is(err, plugin.ErrInvalid) {
 		t.Fatalf("nonsense: %v; want ErrInvalid", err)
 	}
 }
 
 func TestFeatureStrings(t *testing.T) {
-	if got := (engine.Services | engine.Reverse).String(); got != "services+reverse" {
+	if got := (core.Services | core.Reverse).String(); got != "services+reverse" {
 		t.Fatalf("String() = %q", got)
 	}
-	if got := engine.Feature(0).String(); got != "none" {
+	if got := core.Feature(0).String(); got != "none" {
 		t.Fatalf("String() = %q", got)
 	}
 }
 
 func TestAnEngineWithoutAFeatureRefusesItsCalls(t *testing.T) {
-	for _, e := range engine.Engines() {
-		if !e.Features().Has(engine.Services) {
+	for _, e := range core.Engines() {
+		if !e.Features().Has(core.Services) {
 			if _, err := e.Call("descriptor.validate", json.RawMessage(`{}`)); !errors.Is(err, plugin.ErrUnsupported) {
 				t.Errorf("%s.Call without services = %v; want ErrUnsupported", e.Name(), err)
 			}
 		}
-		if !e.Features().Has(engine.Sessions) {
+		if !e.Features().Has(core.Sessions) {
 			if _, err := e.Open(context.Background(), plugin.Descriptor{}, plugin.Options{}); !errors.Is(err, plugin.ErrUnsupported) {
 				t.Errorf("%s.Open without sessions = %v; want ErrUnsupported", e.Name(), err)
 			}
-			if _, err := e.OpenProcess(context.Background(), plugin.Descriptor{}, engine.Launch{}, plugin.Options{}); !errors.Is(err, plugin.ErrUnsupported) {
+			if _, err := e.OpenProcess(context.Background(), plugin.Descriptor{}, core.Launch{}, plugin.Options{}); !errors.Is(err, plugin.ErrUnsupported) {
 				t.Errorf("%s.OpenProcess without sessions = %v; want ErrUnsupported", e.Name(), err)
 			}
-			if _, err := engine.NewInstances(e, instance.Options[int]{}); !errors.Is(err, plugin.ErrUnsupported) {
+			if _, err := core.NewInstances(e, instance.Options[int]{}); !errors.Is(err, plugin.ErrUnsupported) {
 				t.Errorf("%s.NewInstances without sessions = %v; want ErrUnsupported", e.Name(), err)
 			}
 		}
@@ -175,15 +175,15 @@ func TestAnEngineWithoutAFeatureRefusesItsCalls(t *testing.T) {
 
 // harness gives an engine the shape enginetest compares, and checks on the way that every session
 // reports the engine that was asked to run it.
-func harness(t *testing.T, e engine.Engine) enginetest.Engine {
+func harness(t *testing.T, e core.Engine) enginetest.Engine {
 	h := enginetest.Engine{Name: string(e.Name()), Fixtures: "../../../lib/plugin/testdata"}
-	if e.Features().Has(engine.Services) {
+	if e.Features().Has(core.Services) {
 		h.Call = e.Call
 	}
-	if !e.Features().Has(engine.Sessions) {
+	if !e.Features().Has(core.Sessions) {
 		return h
 	}
-	check := func(s engine.Session, err error) (enginetest.Session, error) {
+	check := func(s core.Session, err error) (enginetest.Session, error) {
 		if err != nil {
 			return nil, err
 		}
@@ -196,10 +196,10 @@ func harness(t *testing.T, e engine.Engine) enginetest.Engine {
 		return check(e.Open(ctx, d, o))
 	}
 	h.OpenProcess = func(ctx context.Context, d plugin.Descriptor, l enginetest.Launch, o plugin.Options) (enginetest.Session, error) {
-		return check(e.OpenProcess(ctx, d, engine.Launch{Executable: l.Executable, Environment: l.Environment}, o))
+		return check(e.OpenProcess(ctx, d, core.Launch{Executable: l.Executable, Environment: l.Environment}, o))
 	}
 	h.NewInstances = func(opts instance.Options[string]) (enginetest.Instances, error) {
-		m, err := engine.NewInstances(e, opts)
+		m, err := core.NewInstances(e, opts)
 		if err != nil {
 			return nil, err
 		}
@@ -208,7 +208,7 @@ func harness(t *testing.T, e engine.Engine) enginetest.Engine {
 	return h
 }
 
-type harnessInstances struct{ engine.Instances[string] }
+type harnessInstances struct{ core.Instances[string] }
 
 func (h harnessInstances) Acquire(key string) (string, enginetest.Lease, error) {
 	l, err := h.Instances.Acquire(key)
@@ -231,7 +231,7 @@ var selfChecks = map[string]bool{
 // differential checks of enginetest: all of them for the engines that are translations of the C, the
 // ones the oracle passes against itself for the oracle.
 func TestEveryAvailableEngineAgreesWithTheOracle(t *testing.T) {
-	for _, e := range engine.Engines() {
+	for _, e := range core.Engines() {
 		if !e.Available() {
 			t.Logf("%s is not available in this build", e.Name())
 			continue
@@ -239,7 +239,7 @@ func TestEveryAvailableEngineAgreesWithTheOracle(t *testing.T) {
 		t.Run(string(e.Name()), func(t *testing.T) {
 			h := harness(t, e)
 			for _, c := range enginetest.Checks() {
-				if e.Name() == engine.Go && !selfChecks[c.Name] {
+				if e.Name() == core.Go && !selfChecks[c.Name] {
 					continue
 				}
 				t.Run(c.Name, func(t *testing.T) { c.Run(t, h) })
@@ -250,13 +250,13 @@ func TestEveryAvailableEngineAgreesWithTheOracle(t *testing.T) {
 
 func TestInstancesLeaseAndDisposeOnEveryEngine(t *testing.T) {
 	type resource struct{ key, config string }
-	for _, e := range engine.Engines() {
-		if !e.Features().Has(engine.Sessions) {
+	for _, e := range core.Engines() {
+		if !e.Features().Has(core.Sessions) {
 			continue
 		}
 		t.Run(string(e.Name()), func(t *testing.T) {
 			var disposed atomic.Int32
-			m, err := engine.NewInstances(e, instance.Options[*resource]{
+			m, err := core.NewInstances(e, instance.Options[*resource]{
 				Capacity: 2,
 				Validate: func(c json.RawMessage) error {
 					if !json.Valid(c) {

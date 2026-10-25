@@ -2,7 +2,7 @@
 
 Status: the rename is accepted and done on branch `engine/cgoengine-rename` (off
 `engine/c2goengine`, no pull request yet); the selection is implemented in
-`pkg/plugin-go/engine` on branch `engine/engine-selection` (off the rename, no pull request
+`pkg/plugin-go/core` on branch `engine/engine-selection` (off the rename, no pull request
 yet). `pkg/plugin-go/c2goengine` exists on `engine/c2goengine`.
 
 The C engine in `lib/plugin` can be reached three ways, and `pkg/plugin-go` is meant to
@@ -32,21 +32,21 @@ beside `c2goengine` (C translated to Go) without implying that one is the engine
 other a variant. The Go package is renamed with it, from `goengine` to `cgoengine`, so the
 import needs no alias; nothing else about the module changes.
 
-**One selection point, in the umbrella** (done). `pkg/plugin-go/engine` is a package of the
+**One selection point, in the umbrella** (done). `pkg/plugin-go/core` is a package of the
 umbrella module, so the three engine modules stay as they are and only the umbrella requires all
 three. Its `Engine` interface is the surface `enginetest.Engine` already uses, with the types the
 engines share:
 
 - `Call(operation, input)`: the engine's pure services by name.
-- `Open` and `OpenProcess` return an `engine.Session` (`Call`, `CallProgress`, `State`, `Done`,
+- `Open` and `OpenProcess` return an `core.Session` (`Call`, `CallProgress`, `State`, `Done`,
   `Close`, `Abort`, `Stderr`, and `Engine()`, the name of the engine that runs it).
-- `engine.NewInstances(e, options)` is a function and not a method, because methods cannot be
+- `core.NewInstances(e, options)` is a function and not a method, because methods cannot be
   generic. It returns an `Instances[T]` whose `Lease[T]` carries `Value` and `Revision`.
 
-The engines are `engine.CGo` (`"cgo"`), `engine.C2Go` (`"c2go"`) and `engine.Go` (`"go"`, the
-contract). `engine.Choose(name, need)` picks one: with no name (or `auto`) the first of cgo, c2go, go
+The engines are `core.CGo` (`"cgo"`), `core.C2Go` (`"c2go"`) and `core.Go` (`"go"`, the
+contract). `core.Choose(name, need)` picks one: with no name (or `auto`) the first of cgo, c2go, go
 that is available and carries every feature in `need`; with a name, that engine or an error wrapping
-`plugin.ErrUnsupported`. `engine.FromEnvironment(need)` reads the name from `EXT_ENGINE`. The
+`plugin.ErrUnsupported`. `core.FromEnvironment(need)` reads the name from `EXT_ENGINE`. The
 oracle is the answer of last resort, and also the choice when a caller wants the reference
 behavior. The choice is made once, when a session or an instance manager is opened. No engine
 silently falls back to another, and none is replaced in the middle of a session.
@@ -103,7 +103,7 @@ became `pkg/plugin-go/cgoengine`"), so this is a new module, not a new version:
 3. The rename (done on `engine/cgoengine-rename`), then its first tag `cgoengine/v0.1.0` in the
    coordinator's round, after `contract` v0.9.0. The old `cengine` path ended at v0.8.0, the
    v0.8.0 round.
-4. The selection in `pkg/plugin-go/engine`, with a test that runs `enginetest` against every
+4. The selection in `pkg/plugin-go/core`, with a test that runs `enginetest` against every
    engine the selection returns (done, on `engine/engine-selection`).
 
 ## Not decided here

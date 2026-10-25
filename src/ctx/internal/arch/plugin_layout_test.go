@@ -24,7 +24,7 @@ import (
 //	c2goengine  the C engine's portable core translated to Go; needs contract
 //	wasm        the wazero backend; needs contract only, never cgoengine
 //	hashicorp   the gRPC backend; needs contract only, never cgoengine
-//	(umbrella)  pkg/plugin-go itself, the one module that may require them all; its engine package
+//	(umbrella)  pkg/plugin-go itself, the one module that may require them all; its core package
 //	            chooses between contract, cgoengine and c2goengine
 const pluginPrefix = "github.com/webong/ext/pkg/plugin-go"
 
@@ -70,7 +70,7 @@ func TestPluginGoModulesRequireOnlyTheirParts(t *testing.T) {
 func TestBackendsNeverImportTheCEngine(t *testing.T) {
 	root := repoRoot(t)
 	for _, dir := range []string{"pkg/plugin-go/wasm", "pkg/plugin-go/hashicorp"} {
-		forbidden := []string{pluginPrefix + "/cgoengine", pluginPrefix + "/c2goengine", pluginPrefix + "/engine", pluginPrefix}
+		forbidden := []string{pluginPrefix + "/cgoengine", pluginPrefix + "/c2goengine", pluginPrefix + "/core", pluginPrefix}
 		err := filepath.WalkDir(filepath.Join(root, dir), func(path string, entry fs.DirEntry, walkErr error) error {
 			if walkErr != nil || entry.IsDir() || filepath.Ext(path) != ".go" {
 				return walkErr

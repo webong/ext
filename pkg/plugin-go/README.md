@@ -13,7 +13,7 @@ module of its own and a program that wants less takes less:
 | [`hashicorp`](hashicorp) | the HashiCorp go-plugin (gRPC) backend |
 
 The umbrella package itself, `plugingo`, holds what needs more than one part:
-`PlanGraph` joins a package plan to the host graph (`res/system`). The `engine` package
+`PlanGraph` joins a package plan to the host graph (`res/system`). The `core` package
 chooses between the three engines (see below). The `cmd/ext-plugin-bridge`
 command and the cross-language conformance tests (`crosslang`, `bench`) also live
 here, because they need the engine and a backend together.
@@ -25,17 +25,17 @@ engine through cgo (`cgoengine`, at native speed) and as the C translated to Go 
 cgo). `engine` is the one place that knows all three:
 
 ```go
-import "github.com/webong/ext/pkg/plugin-go/engine"
+import "github.com/webong/ext/pkg/plugin-go/core"
 
 // The best available engine that carries what the program needs, or the one EXT_ENGINE names
 // (cgo, c2go, go or auto).
-e, err := engine.FromEnvironment(engine.Sessions | engine.Progress)
+e, err := core.FromEnvironment(core.Sessions | core.Progress)
 if err != nil { ... }
 
 session, err := e.Open(ctx, descriptor, plugin.Options{Verify: ..., Authorize: ..., Connect: ...})
 fmt.Println(session.Engine()) // which engine runs this session
 
-leases, err := engine.NewInstances(e, instance.Options[T]{...})
+leases, err := core.NewInstances(e, instance.Options[T]{...})
 ```
 
 `Engines` lists them in the order `Choose` prefers: cgo, c2go, go. A name is never served by

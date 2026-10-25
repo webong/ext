@@ -269,3 +269,12 @@ code, so a native plugin must ship inside the signed app bundle or package.
   (`lib/plugin/wamr`, `WamrPluginHost` here), run on an Android emulator; it has not run on a
   physical device. `pkg/ext-go/wasm`, which is Go and wazero, is the separate Go route.
 - [`res/web`](../../res/web/README.md) is the Go home of the rules the web package ports.
+
+## Browser workspace
+
+The AAR includes `io.github.webong.ext.web.android.BrowserWorkspace` from
+[`adapters/android_webview`](../../adapters/android_webview/README.md). It provides
+a native page and navigation/state callbacks, using `res/web` for reviewed
+userscript preparation. Document-start scripts require the consuming app to add
+AndroidX WebKit 1.9+ and an installed WebView supporting that feature; navigation
+itself has no AndroidX dependency. The SDK ships the necessary R8 consumer rules.

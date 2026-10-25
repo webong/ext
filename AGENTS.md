@@ -174,3 +174,12 @@ stays its own module because guests in other languages run through it.
 Moving a library into or out of `pkg/` changes public import paths. Update
 `AGENTS.md`, the docs, and the language SDKs together, and verify with
 `go build ./...` and `go vet ./...`.
+
+Mobile browser workspaces are native adapter libraries: `adapters/webkit` owns
+WKWebView (`ios/Sources/ExtWebKit`, exposed by `pkg/ext-ios` through a source link),
+and `adapters/android_webview` owns Android WebView and optional AndroidX
+document-start integration (compiled into the `pkg/ext-android` AAR). They are
+not CTX process plugins. Portable reviewed-userscript preparation stays in
+`res/web/ios` and `res/web/android`; keep Expo, app identity, storage policy, and
+UI out of these libraries. Native changes are tested with
+`scripts/web-workspace-ios.sh` and `scripts/web-workspace-android.sh`.

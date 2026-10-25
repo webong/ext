@@ -150,3 +150,6 @@ jobs:
         working-directory: res/web
       - name: Swift and Java ports against Go
         run: scripts/web-differential.sh
+      - name: Native WebKit workspace
+        if: runner.os == 'macOS'
+        run: scripts/web-workspace-ios.sh

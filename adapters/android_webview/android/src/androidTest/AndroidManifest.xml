@@ -1,0 +1,6 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="io.github.webong.ext.web.workspacetest">
+  <uses-permission android:name="android.permission.INTERNET" />
+  <application android:theme="@android:style/Theme.Material.Light.NoActionBar" android:label="Ext workspace test">
+    <activity android:name=".TestActivity" android:exported="true" />
+  </application>
+</manifest>

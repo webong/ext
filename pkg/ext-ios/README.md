@@ -292,3 +292,11 @@ macOS. It is not run in the iOS Simulator.
   (`lib/plugin/wamr`, `ExtPluginWamr` here), built for and run on the iOS Simulator; it has not
   run on a physical device. `pkg/ext-go/wasm`, which is Go and wazero, is the separate Go route.
 - [`res/web`](../../res/web/README.md) is the Go home of the rules `ExtWeb` ports.
+
+## Browser workspace
+
+The `ExtWebKit` product exposes the native browser workspace owned by
+[`adapters/webkit`](../../adapters/webkit/README.md). It uses `ExtWeb` for reviewed
+userscript validation and document-start replay, with navigation/state callbacks
+and caller-selected WebKit storage. It has no dependency on the plugin engine.
+Its source link is materialized by the existing release staging step.

@@ -497,7 +497,23 @@ public final class WebTests {
         check(bad.isEmpty(), label + ": " + bad.size() + " of " + total + " differ");
     }
 
+    private static void workspaceScripts() throws Exception {
+        UserscriptRecord record = new UserscriptRecord("page", "script", "Script", "",
+                List.of("https://example.com/*"), null, true, "window.test = true;").signed();
+        eq(1, WorkspaceScripts.prepare(List.of(record), "page").size(), "enabled registration");
+        try { WorkspaceScripts.prepare(List.of(record), "other"); check(false, "target accepted"); }
+        catch (IllegalArgumentException expected) { check(true, "target rejected"); }
+        try { WorkspaceScripts.prepare(List.of(record, record), "page"); check(false, "duplicate accepted"); }
+        catch (IllegalArgumentException expected) { check(true, "duplicate rejected"); }
+        try { WorkspaceScripts.prepare(List.of(record.withRevision("tampered")), "page"); check(false, "revision accepted"); }
+        catch (UserscriptException expected) { check(true, "revision rejected"); }
+        UserscriptRecord disabled = new UserscriptRecord(record.target, record.id, record.name, record.revision,
+                record.matches, record.excludeMatches, false, record.source);
+        eq(0, WorkspaceScripts.prepare(List.of(disabled), "page").size(), "disabled registration");
+    }
+
     public static void main(String[] args) {
+        test("workspace scripts", WebTests::workspaceScripts);
         test("cookie fixtures", WebTests::cookieFixtures);
         test("cookie behavior", WebTests::cookieBehavior);
         test("site behavior", WebTests::siteBehavior);

@@ -30,6 +30,7 @@ let package = Package(
         // dependency on the plugin code or the engine. Sources/ExtWeb is a link to res/web/ios,
         // where the code and its tests live.
         .library(name: "ExtWeb", targets: ["ExtWeb"]),
+        .library(name: "ExtWebKit", targets: ["ExtWebKit"]),
     ],
     targets: [
         .binaryTarget(name: "CExtEngine", path: "Frameworks/CExtEngine.xcframework"),
@@ -41,6 +42,7 @@ let package = Package(
         .target(name: "ExtPluginWebView"),
         .testTarget(name: "ExtPluginWebViewTests", dependencies: ["ExtPluginWebView"]),
         .target(name: "ExtWeb"),
+        .target(name: "ExtWebKit", dependencies: ["ExtWeb"]),
         .testTarget(name: "ExtPluginGuestTests", dependencies: ["ExtPluginGuest", "ExtPluginExports", "CExtEngine"]),
     ],
     swiftLanguageVersions: [.v5]

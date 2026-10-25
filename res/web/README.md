@@ -46,3 +46,10 @@ which ship them beside their plugin code and release under their own tags.
 See [browser profile and page management](../../docs/browser-management.md),
 [browser cookies and automation input](../../docs/browser-cookies.md), and the
 [adapter API](../../docs/adapter-api.md).
+
+`WorkspaceScripts.prepare` in the mobile modules validates a complete set of
+reviewed userscript records, rejects duplicate IDs and target mismatches, and
+generates replay source for enabled records. Native workspace ownership stays in
+[`adapters/webkit`](../../adapters/webkit/README.md) and
+[`adapters/android_webview`](../../adapters/android_webview/README.md), shipped by
+the platform SDKs. The portable modules import neither native webview framework.

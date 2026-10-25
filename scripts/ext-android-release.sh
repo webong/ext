@@ -47,7 +47,7 @@ done
 # classes.jar (Java 17, which the guest SDK uses; the app's D8 desugars it): the guest SDK and the WebView host, plus the WAMR host classes when requested.
 mkdir -p "$work/classes"
 # The plugin code and the WebView host are this package's; the web rules are res/web/android's.
-sources=($(find "$pkg/src/main/java" "$pkg/src/android/java" res/web/android/src/main/java -name '*.java' | grep -v '/Wamr[A-Za-z]*\.java$'))
+sources=($(find "$pkg/src/main/java" "$pkg/src/android/java" res/web/android/src/main/java adapters/android_webview/android/src/main/java -name '*.java' | grep -v '/Wamr[A-Za-z]*\.java$'))
 [[ -z "$with_wamr" ]] || sources+=($(find "$pkg/src/main/java" -name 'Wamr*.java'))
 javac -Xlint:all --release 17 -classpath "$jar" -d "$work/classes" "${sources[@]}"
 ( cd "$work/classes" && jar cf "$work/aar/classes.jar" . )
@@ -81,6 +81,7 @@ elif [[ "$wamr_entries" != 0 ]]; then
 fi
 unzip -p "$out/$aar_name" classes.jar >"$work/check.jar"
 classes="$(unzip -Z1 "$work/check.jar")"
+grep -qx 'io/github/webong/ext/web/android/BrowserWorkspace.class' <<<"$classes" || { echo 'classes.jar is missing the browser workspace'; exit 1; }
 grep -qx 'io/github/webong/ext/web/Cookie.class' <<<"$classes" || { echo 'classes.jar is missing the web rules' >&2; exit 1; }
 if [[ -z "$with_wamr" ]] && grep -q Wamr <<<"$classes"; then
   echo 'classes.jar contains WAMR classes' >&2; exit 1

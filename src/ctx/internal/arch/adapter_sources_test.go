@@ -8,7 +8,7 @@ import (
 	adapter "github.com/webong/ext/pkg/ext-go/engine/host/adapter"
 )
 
-// Every adapter in the repository is an ext package: a plugin.json template
+// Every process adapter in the repository is an ext package: a plugin.json template
 // that the adapter loader accepts on every platform we ship, and no adapter
 // directory still carries the old manifest or two manifests at once.
 func TestEveryAdapterSourceLoadsOnEveryPlatform(t *testing.T) {
@@ -38,17 +38,44 @@ func TestEveryAdapterSourceLoadsOnEveryPlatform(t *testing.T) {
 			}
 		}
 	}
-	// no adapter directory lacks the manifest
+	// Embedded platform libraries have native SDK entry points rather than a process
+	// manifest. Keep this explicit so a missing manifest never silently passes.
+	embedded := map[string]string{
+		"webkit":          "ios/Sources/ExtWebKit/BrowserWorkspace.swift",
+		"android_webview": "android/src/main/java/io/github/webong/ext/web/android/BrowserWorkspace.java",
+	}
+	for name, source := range embedded {
+		if _, err := os.Stat(filepath.Join(root, "adapters", name, source)); err != nil {
+			t.Errorf("embedded adapter %s: %v", name, err)
+		}
+		if _, err := os.Stat(filepath.Join(root, "adapters", name, "plugin.json")); !os.IsNotExist(err) {
+			t.Errorf("embedded adapter %s must not declare a process plugin", name)
+		}
+	}
+	// Every other adapter directory must have a manifest.
 	entries, err := os.ReadDir(filepath.Join(root, "adapters"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	for _, entry := range entries {
-		if !entry.IsDir() {
+		if !entry.IsDir() || embedded[entry.Name()] != "" {
 			continue
 		}
 		if _, err := os.Stat(filepath.Join(root, "adapters", entry.Name(), "plugin.json")); err != nil {
 			t.Errorf("adapters/%s has no plugin.json", entry.Name())
 		}
+	}
+}
+
+// The SDK must ship the owning adapter's sources, not an independently edited copy.
+func TestWebKitSDKSourceOwnership(t *testing.T) {
+	root := repoRoot(t)
+	got, err := filepath.EvalSymlinks(filepath.Join(root, "pkg", "ext-ios", "Sources", "ExtWebKit"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := filepath.Join(root, "adapters", "webkit", "ios", "Sources", "ExtWebKit")
+	if got != want {
+		t.Fatalf("ExtWebKit source = %s, want %s", got, want)
 	}
 }

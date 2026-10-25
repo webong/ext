@@ -45,3 +45,9 @@ use (
 replace github.com/webong/ext/pkg/plugin-go/cgoengine v0.1.0 => ./pkg/plugin-go/cgoengine
 
 replace github.com/webong/ext/pkg/plugin-go/c2goengine v0.1.0 => ./pkg/plugin-go/c2goengine
+
+// The adapters that other adapters require are released in this round too (chromium v0.4.1, firefox
+// v0.3.1); until their tags exist, these resolve those versions to the workspace copies.
+replace github.com/webong/ext/adapters/chromium v0.4.1 => ./adapters/chromium
+
+replace github.com/webong/ext/adapters/firefox v0.3.1 => ./adapters/firefox

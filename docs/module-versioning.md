@@ -295,6 +295,7 @@ later rounds followed for new content.
 | API additions (`v0.6.0`) | `pkg/plugin-go/contract`, `pkg/plugin-go/cengine` and `pkg/plugin-go` at v0.6.0; no other module |
 | Engine parity (`v0.7.0`) | `pkg/plugin-go/contract`, `pkg/plugin-go/cengine` and `pkg/plugin-go` at v0.7.0; no other module |
 | Engine test harness (`v0.8.0`) | `pkg/plugin-go/contract`, `pkg/plugin-go/cengine` and `pkg/plugin-go` at v0.8.0; no other module |
+| Three engines (`v0.9.0`) | `pkg/plugin-go/contract` and `pkg/plugin-go` at v0.9.0; `pkg/plugin-go/cgoengine` and `pkg/plugin-go/c2goengine` at v0.1.0 (new modules); the 24 adapters as patch releases |
 
 `v0.3.0` is a minor version because `Store.ListUnverified` and `Layered.ListUnverified` are new API in
 both `contract/host/store` and `cengine/host/store`. It also bounds the cost of validating and resolving
@@ -349,6 +350,17 @@ changes with its tests and the engine sources it carries, and the umbrella follo
 exists because the `cengine` tests import `enginetest`, which `contract` v0.7.0 does not contain, so a standalone
 `go mod tidy` of `cengine` failed on `main` from the commit that moved the checks until this release. `wasm`,
 `hashicorp` (one test fixture), `res/*` and the adapters have the same bytes as before and are not retagged.
+
+The `v0.9.0` round publishes the three engines. `contract` gains the rest of `plugintest/enginetest`: the instance,
+session, open, drain and process checks, with the `Session`, `Instances`, `Lease` and `Launch` types and
+`MaybeServeGuest` that an engine passes to run them (new exported API, hence a minor version; the v0.8.0 harness had the
+service checks only, which is why `c2goengine` and the renamed `cgoengine` could not build against it). `cgoengine` is
+`cengine` renamed, so it is a new module at v0.1.0 and `cengine/v0.8.0` stays the last tag of the old path (see
+"`pkg/plugin-go/cengine` became `pkg/plugin-go/cgoengine`"). `c2goengine` is new at v0.1.0. The umbrella gains the
+`engine` package, which chooses between `contract`, `cgoengine` and `c2goengine`, and pins all three. The 24 adapters
+changed because their imports and requirements moved to `cgoengine` (behavior is the same, hence patch releases), and
+their go.sum records for the new modules have to exist before the tags do. `wasm`, `hashicorp`, `res/*` and the products
+are not retagged; `src/ctx`, `src/ctn` and `cmd/ext` keep requiring `contract` v0.8.0, which has everything they use.
 
 The `v0.7.0` round brings the C engine to the behavior of the pure-Go baseline: reverse calls, progress frames,
 endpoint validation and extension backends now run on both (see [engine parity](plugin-engine-parity.md)). `contract`

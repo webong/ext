@@ -7,4 +7,4 @@ require (
 	github.com/webong/ext/res/credential v0.1.0
 )
 
-require github.com/webong/ext/pkg/plugin-go/contract v0.4.0 // indirect
+require github.com/webong/ext/pkg/plugin-go/contract v0.9.0 // indirect

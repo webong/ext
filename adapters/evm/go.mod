@@ -7,7 +7,7 @@ require (
 	github.com/holiman/uint256 v1.3.2
 )
 
-require github.com/webong/ext/pkg/plugin-go/contract v0.4.0 // indirect
+require github.com/webong/ext/pkg/plugin-go/contract v0.9.0 // indirect
 
 require (
 	github.com/StackExchange/wmi v1.2.1 // indirect

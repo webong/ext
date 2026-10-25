@@ -149,6 +149,7 @@ public let cookieWireVersion = 2
 /// A cookie or bundle that breaks the portable rules. The message never contains a cookie value.
 public struct CookieError: Error, Equatable, CustomStringConvertible {
     public let message: String
+    public init(message: String) { self.message = message }
     public var description: String { message }
 }
 

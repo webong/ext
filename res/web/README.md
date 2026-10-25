@@ -53,3 +53,7 @@ generates replay source for enabled records. Native workspaces also live here:
 [`ios/Sources/ExtWebKit`](ios/WORKSPACE.md) and
 [`android/src/android`](android/WORKSPACE.md), shipped by the platform SDKs.
 Separate targets/source sets keep the portable rules free of native webview imports.
+
+See [mobile cookie workflows](COOKIE_WORKFLOWS.md) for portable import/export and native workspace cookie access.
+
+See [mobile browser-management protocol](MANAGEMENT.md) for Swift/Java envelopes, validation, endpoint safety and backend dispatch.

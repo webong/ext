@@ -1,0 +1,829 @@
+{
+  "operations": {
+    "extension": [
+      "activate",
+      "capabilities",
+      "convert",
+      "install",
+      "package",
+      "policy",
+      "prepare",
+      "sign",
+      "stage",
+      "store_install",
+      "store_remove",
+      "targets",
+      "update_manifest"
+    ],
+    "userscript": [
+      "activate",
+      "describe",
+      "disable",
+      "enable",
+      "install",
+      "list",
+      "prepare",
+      "uninstall",
+      "update"
+    ],
+    "session": [
+      "connect",
+      "endpoint",
+      "inject",
+      "navigate",
+      "replay",
+      "targets"
+    ],
+    "bookmarklet": [
+      "decode",
+      "encode",
+      "install_page"
+    ]
+  },
+  "statuses": [
+    "ready",
+    "prepared",
+    "packaged",
+    "staged",
+    "signed",
+    "installed",
+    "activated",
+    "updated",
+    "uninstalled",
+    "requested",
+    "request-removed",
+    "policy-updated",
+    "awaiting-browser-action",
+    "awaiting-browser-confirmation",
+    "reconciled",
+    "connected",
+    "navigated",
+    "injected"
+  ],
+  "cases": [
+    {
+      "name": "extension.targets",
+      "request": "{\"version\": \"1.0\", \"kind\": \"extension\", \"action\": \"targets\", \"input\": {}}",
+      "valid": true,
+      "response": "{\"version\": \"1.0\", \"kind\": \"extension\", \"action\": \"targets\", \"status\": \"ready\", \"result\": {}}",
+      "response_valid": true
+    },
+    {
+      "name": "extension.capabilities",
+      "request": "{\"version\": \"1.0\", \"kind\": \"extension\", \"action\": \"capabilities\", \"input\": {}}",
+      "valid": true,
+      "response": "{\"version\": \"1.0\", \"kind\": \"extension\", \"action\": \"capabilities\", \"status\": \"ready\", \"result\": {}}",
+      "response_valid": true
+    },
+    {
+      "name": "extension.prepare",
+      "request": "{\"version\": \"1.0\", \"kind\": \"extension\", \"action\": \"prepare\", \"input\": {}}",
+      "valid": true,
+      "response": "{\"version\": \"1.0\", \"kind\": \"extension\", \"action\": \"prepare\", \"status\": \"ready\", \"result\": {}}",
+      "response_valid": true
+    },
+    {
+      "name": "extension.package",
+      "request": "{\"version\": \"1.0\", \"kind\": \"extension\", \"action\": \"package\", \"input\": {}}",
+      "valid": true,
+      "response": "{\"version\": \"1.0\", \"kind\": \"extension\", \"action\": \"package\", \"status\": \"ready\", \"result\": {}}",
+      "response_valid": true
+    },
+    {
+      "name": "extension.sign",
+      "request": "{\"version\": \"1.0\", \"kind\": \"extension\", \"action\": \"sign\", \"input\": {}}",
+      "valid": true,
+      "response": "{\"version\": \"1.0\", \"kind\": \"extension\", \"action\": \"sign\", \"status\": \"ready\", \"result\": {}}",
+      "response_valid": true
+    },
+    {
+      "name": "extension.stage",
+      "request": "{\"version\": \"1.0\", \"kind\": \"extension\", \"action\": \"stage\", \"input\": {}}",
+      "valid": true,
+      "response": "{\"version\": \"1.0\", \"kind\": \"extension\", \"action\": \"stage\", \"status\": \"ready\", \"result\": {}}",
+      "response_valid": true
+    },
+    {
+      "name": "extension.install",
+      "request": "{\"version\": \"1.0\", \"kind\": \"extension\", \"action\": \"install\", \"input\": {}}",
+      "valid": true,
+      "response": "{\"version\": \"1.0\", \"kind\": \"extension\", \"action\": \"install\", \"status\": \"ready\", \"result\": {}}",
+      "response_valid": true
+    },
+    {
+      "name": "extension.activate",
+      "request": "{\"version\": \"1.0\", \"kind\": \"extension\", \"action\": \"activate\", \"input\": {}}",
+      "valid": true,
+      "response": "{\"version\": \"1.0\", \"kind\": \"extension\", \"action\": \"activate\", \"status\": \"ready\", \"result\": {}}",
+      "response_valid": true
+    },
+    {
+      "name": "extension.store_install",
+      "request": "{\"version\": \"1.0\", \"kind\": \"extension\", \"action\": \"store_install\", \"input\": {}}",
+      "valid": true,
+      "response": "{\"version\": \"1.0\", \"kind\": \"extension\", \"action\": \"store_install\", \"status\": \"ready\", \"result\": {}}",
+      "response_valid": true
+    },
+    {
+      "name": "extension.store_remove",
+      "request": "{\"version\": \"1.0\", \"kind\": \"extension\", \"action\": \"store_remove\", \"input\": {}}",
+      "valid": true,
+      "response": "{\"version\": \"1.0\", \"kind\": \"extension\", \"action\": \"store_remove\", \"status\": \"ready\", \"result\": {}}",
+      "response_valid": true
+    },
+    {
+      "name": "extension.update_manifest",
+      "request": "{\"version\": \"1.0\", \"kind\": \"extension\", \"action\": \"update_manifest\", \"input\": {}}",
+      "valid": true,
+      "response": "{\"version\": \"1.0\", \"kind\": \"extension\", \"action\": \"update_manifest\", \"status\": \"ready\", \"result\": {}}",
+      "response_valid": true
+    },
+    {
+      "name": "extension.convert",
+      "request": "{\"version\": \"1.0\", \"kind\": \"extension\", \"action\": \"convert\", \"input\": {}}",
+      "valid": true,
+      "response": "{\"version\": \"1.0\", \"kind\": \"extension\", \"action\": \"convert\", \"status\": \"ready\", \"result\": {}}",
+      "response_valid": true
+    },
+    {
+      "name": "extension.policy",
+      "request": "{\"version\": \"1.0\", \"kind\": \"extension\", \"action\": \"policy\", \"input\": {}}",
+      "valid": true,
+      "response": "{\"version\": \"1.0\", \"kind\": \"extension\", \"action\": \"policy\", \"status\": \"ready\", \"result\": {}}",
+      "response_valid": true
+    },
+    {
+      "name": "userscript.prepare",
+      "request": "{\"version\": \"1.0\", \"kind\": \"userscript\", \"action\": \"prepare\", \"input\": {}}",
+      "valid": true,
+      "response": "{\"version\": \"1.0\", \"kind\": \"userscript\", \"action\": \"prepare\", \"status\": \"ready\", \"result\": {}}",
+      "response_valid": true
+    },
+    {
+      "name": "userscript.install",
+      "request": "{\"version\": \"1.0\", \"kind\": \"userscript\", \"action\": \"install\", \"input\": {}}",
+      "valid": true,
+      "response": "{\"version\": \"1.0\", \"kind\": \"userscript\", \"action\": \"install\", \"status\": \"ready\", \"result\": {}}",
+      "response_valid": true
+    },
+    {
+      "name": "userscript.update",
+      "request": "{\"version\": \"1.0\", \"kind\": \"userscript\", \"action\": \"update\", \"input\": {}}",
+      "valid": true,
+      "response": "{\"version\": \"1.0\", \"kind\": \"userscript\", \"action\": \"update\", \"status\": \"ready\", \"result\": {}}",
+      "response_valid": true
+    },
+    {
+      "name": "userscript.list",
+      "request": "{\"version\": \"1.0\", \"kind\": \"userscript\", \"action\": \"list\", \"input\": {}}",
+      "valid": true,
+      "response": "{\"version\": \"1.0\", \"kind\": \"userscript\", \"action\": \"list\", \"status\": \"ready\", \"result\": {}}",
+      "response_valid": true
+    },
+    {
+      "name": "userscript.describe",
+      "request": "{\"version\": \"1.0\", \"kind\": \"userscript\", \"action\": \"describe\", \"input\": {}}",
+      "valid": true,
+      "response": "{\"version\": \"1.0\", \"kind\": \"userscript\", \"action\": \"describe\", \"status\": \"ready\", \"result\": {}}",
+      "response_valid": true
+    },
+    {
+      "name": "userscript.enable",
+      "request": "{\"version\": \"1.0\", \"kind\": \"userscript\", \"action\": \"enable\", \"input\": {}}",
+      "valid": true,
+      "response": "{\"version\": \"1.0\", \"kind\": \"userscript\", \"action\": \"enable\", \"status\": \"ready\", \"result\": {}}",
+      "response_valid": true
+    },
+    {
+      "name": "userscript.disable",
+      "request": "{\"version\": \"1.0\", \"kind\": \"userscript\", \"action\": \"disable\", \"input\": {}}",
+      "valid": true,
+      "response": "{\"version\": \"1.0\", \"kind\": \"userscript\", \"action\": \"disable\", \"status\": \"ready\", \"result\": {}}",
+      "response_valid": true
+    },
+    {
+      "name": "userscript.uninstall",
+      "request": "{\"version\": \"1.0\", \"kind\": \"userscript\", \"action\": \"uninstall\", \"input\": {}}",
+      "valid": true,
+      "response": "{\"version\": \"1.0\", \"kind\": \"userscript\", \"action\": \"uninstall\", \"status\": \"ready\", \"result\": {}}",
+      "response_valid": true
+    },
+    {
+      "name": "userscript.activate",
+      "request": "{\"version\": \"1.0\", \"kind\": \"userscript\", \"action\": \"activate\", \"input\": {}}",
+      "valid": true,
+      "response": "{\"version\": \"1.0\", \"kind\": \"userscript\", \"action\": \"activate\", \"status\": \"ready\", \"result\": {}}",
+      "response_valid": true
+    },
+    {
+      "name": "session.targets",
+      "request": "{\"version\": \"1.0\", \"kind\": \"session\", \"action\": \"targets\", \"input\": {}}",
+      "valid": true,
+      "response": "{\"version\": \"1.0\", \"kind\": \"session\", \"action\": \"targets\", \"status\": \"ready\", \"result\": {}}",
+      "response_valid": true
+    },
+    {
+      "name": "session.endpoint",
+      "request": "{\"version\": \"1.0\", \"kind\": \"session\", \"action\": \"endpoint\", \"input\": {}}",
+      "valid": true,
+      "response": "{\"version\": \"1.0\", \"kind\": \"session\", \"action\": \"endpoint\", \"status\": \"ready\", \"result\": {\"protocol\": \"cdp\", \"endpoint\": \"ws://127.0.0.1:9222/secret\"}}",
+      "response_valid": true
+    },
+    {
+      "name": "session.connect",
+      "request": "{\"version\": \"1.0\", \"kind\": \"session\", \"action\": \"connect\", \"input\": {}}",
+      "valid": true,
+      "response": "{\"version\": \"1.0\", \"kind\": \"session\", \"action\": \"connect\", \"status\": \"ready\", \"result\": {}}",
+      "response_valid": true
+    },
+    {
+      "name": "session.navigate",
+      "request": "{\"version\": \"1.0\", \"kind\": \"session\", \"action\": \"navigate\", \"input\": {}}",
+      "valid": true,
+      "response": "{\"version\": \"1.0\", \"kind\": \"session\", \"action\": \"navigate\", \"status\": \"ready\", \"result\": {}}",
+      "response_valid": true
+    },
+    {
+      "name": "session.inject",
+      "request": "{\"version\": \"1.0\", \"kind\": \"session\", \"action\": \"inject\", \"input\": {}}",
+      "valid": true,
+      "response": "{\"version\": \"1.0\", \"kind\": \"session\", \"action\": \"inject\", \"status\": \"ready\", \"result\": {}}",
+      "response_valid": true
+    },
+    {
+      "name": "session.replay",
+      "request": "{\"version\": \"1.0\", \"kind\": \"session\", \"action\": \"replay\", \"input\": {}}",
+      "valid": true,
+      "response": "{\"version\": \"1.0\", \"kind\": \"session\", \"action\": \"replay\", \"status\": \"ready\", \"result\": {}}",
+      "response_valid": true
+    },
+    {
+      "name": "bookmarklet.encode",
+      "request": "{\"version\": \"1.0\", \"kind\": \"bookmarklet\", \"action\": \"encode\", \"input\": {}}",
+      "valid": true,
+      "response": "{\"version\": \"1.0\", \"kind\": \"bookmarklet\", \"action\": \"encode\", \"status\": \"ready\", \"result\": {}}",
+      "response_valid": true
+    },
+    {
+      "name": "bookmarklet.decode",
+      "request": "{\"version\": \"1.0\", \"kind\": \"bookmarklet\", \"action\": \"decode\", \"input\": {}}",
+      "valid": true,
+      "response": "{\"version\": \"1.0\", \"kind\": \"bookmarklet\", \"action\": \"decode\", \"status\": \"ready\", \"result\": {}}",
+      "response_valid": true
+    },
+    {
+      "name": "bookmarklet.install_page",
+      "request": "{\"version\": \"1.0\", \"kind\": \"bookmarklet\", \"action\": \"install_page\", \"input\": {}}",
+      "valid": true,
+      "response": "{\"version\": \"1.0\", \"kind\": \"bookmarklet\", \"action\": \"install_page\", \"status\": \"ready\", \"result\": {}}",
+      "response_valid": true
+    },
+    {
+      "name": "bad version",
+      "request": "{\"version\": \"2\", \"kind\": \"userscript\", \"action\": \"list\"}",
+      "valid": false
+    },
+    {
+      "name": "bad kind",
+      "request": "{\"version\": \"1.0\", \"kind\": \"Extension\", \"action\": \"list\"}",
+      "valid": false
+    },
+    {
+      "name": "bad action",
+      "request": "{\"version\": \"1.0\", \"kind\": \"userscript\", \"action\": \"nope\"}",
+      "valid": false
+    },
+    {
+      "name": "null input",
+      "request": "{\"version\": \"1.0\", \"kind\": \"userscript\", \"action\": \"list\", \"input\": null}",
+      "valid": false
+    },
+    {
+      "name": "array input",
+      "request": "{\"version\": \"1.0\", \"kind\": \"userscript\", \"action\": \"list\", \"input\": []}",
+      "valid": false
+    },
+    {
+      "name": "string input",
+      "request": "{\"version\": \"1.0\", \"kind\": \"userscript\", \"action\": \"list\", \"input\": \"secret\"}",
+      "valid": false
+    },
+    {
+      "name": "absent input",
+      "request": "{\"version\": \"1.0\", \"kind\": \"userscript\", \"action\": \"list\"}",
+      "valid": true,
+      "response": "{\"version\": \"1.0\", \"kind\": \"userscript\", \"action\": \"list\", \"status\": \"ready\"}",
+      "response_valid": true
+    },
+    {
+      "name": "invalid payload 38",
+      "request": "{\"version\": \"1.0\", \"kind\": \"userscript\", \"action\": \"list\",\"input\":{\"n\":01}}",
+      "valid": false
+    },
+    {
+      "name": "invalid payload 39",
+      "request": "{\"version\": \"1.0\", \"kind\": \"userscript\", \"action\": \"list\",\"input\":{\"n\":1.}}",
+      "valid": false
+    },
+    {
+      "name": "invalid payload 40",
+      "request": "{\"version\": \"1.0\", \"kind\": \"userscript\", \"action\": \"list\",\"input\":{\"n\":1e}}",
+      "valid": false
+    },
+    {
+      "name": "invalid payload 41",
+      "request": "{\"version\": \"1.0\", \"kind\": \"userscript\", \"action\": \"list\",\"input\":{\"n\":+1}}",
+      "valid": false
+    },
+    {
+      "name": "invalid payload 42",
+      "request": "{\"version\": \"1.0\", \"kind\": \"userscript\", \"action\": \"list\",\"input\":{\"n\":NaN}}",
+      "valid": false
+    },
+    {
+      "name": "invalid payload 43",
+      "request": "{\"version\": \"1.0\", \"kind\": \"userscript\", \"action\": \"list\",\"input\":{\"x\":true,}}",
+      "valid": false
+    },
+    {
+      "name": "invalid payload 44",
+      "request": "{\"version\": \"1.0\", \"kind\": \"userscript\", \"action\": \"list\",\"input\":{\"x\":\"\\q\"}}",
+      "valid": false
+    },
+    {
+      "name": "trailing data",
+      "request": "{\"version\": \"1.0\", \"kind\": \"userscript\", \"action\": \"list\"} {}",
+      "valid": false
+    },
+    {
+      "name": "huge number",
+      "request": "{\"version\": \"1.0\", \"kind\": \"userscript\", \"action\": \"list\",\"input\":{\"number\":1e999,\"int\":123456789012345678901234567890}}",
+      "valid": true
+    },
+    {
+      "name": "case insensitive fields",
+      "request": "{\"VERSION\":\"1.0\",\"Kind\":\"userscript\",\"ACTION\":\"list\",\"INPUT\":{}}",
+      "valid": true
+    },
+    {
+      "name": "duplicate last wins",
+      "request": "{\"version\":\"2\",\"Version\":\"1.0\",\"kind\":\"userscript\",\"action\":\"list\"}",
+      "valid": true
+    },
+    {
+      "name": "status ready",
+      "request": "{\"version\": \"1.0\", \"kind\": \"userscript\", \"action\": \"list\"}",
+      "valid": true,
+      "response": "{\"version\": \"1.0\", \"kind\": \"userscript\", \"action\": \"list\", \"status\": \"ready\"}",
+      "response_valid": true
+    },
+    {
+      "name": "status prepared",
+      "request": "{\"version\": \"1.0\", \"kind\": \"userscript\", \"action\": \"list\"}",
+      "valid": true,
+      "response": "{\"version\": \"1.0\", \"kind\": \"userscript\", \"action\": \"list\", \"status\": \"prepared\"}",
+      "response_valid": true
+    },
+    {
+      "name": "status packaged",
+      "request": "{\"version\": \"1.0\", \"kind\": \"userscript\", \"action\": \"list\"}",
+      "valid": true,
+      "response": "{\"version\": \"1.0\", \"kind\": \"userscript\", \"action\": \"list\", \"status\": \"packaged\"}",
+      "response_valid": true
+    },
+    {
+      "name": "status staged",
+      "request": "{\"version\": \"1.0\", \"kind\": \"userscript\", \"action\": \"list\"}",
+      "valid": true,
+      "response": "{\"version\": \"1.0\", \"kind\": \"userscript\", \"action\": \"list\", \"status\": \"staged\"}",
+      "response_valid": true
+    },
+    {
+      "name": "status signed",
+      "request": "{\"version\": \"1.0\", \"kind\": \"userscript\", \"action\": \"list\"}",
+      "valid": true,
+      "response": "{\"version\": \"1.0\", \"kind\": \"userscript\", \"action\": \"list\", \"status\": \"signed\"}",
+      "response_valid": true
+    },
+    {
+      "name": "status installed",
+      "request": "{\"version\": \"1.0\", \"kind\": \"userscript\", \"action\": \"list\"}",
+      "valid": true,
+      "response": "{\"version\": \"1.0\", \"kind\": \"userscript\", \"action\": \"list\", \"status\": \"installed\"}",
+      "response_valid": true
+    },
+    {
+      "name": "status activated",
+      "request": "{\"version\": \"1.0\", \"kind\": \"userscript\", \"action\": \"list\"}",
+      "valid": true,
+      "response": "{\"version\": \"1.0\", \"kind\": \"userscript\", \"action\": \"list\", \"status\": \"activated\"}",
+      "response_valid": true
+    },
+    {
+      "name": "status updated",
+      "request": "{\"version\": \"1.0\", \"kind\": \"userscript\", \"action\": \"list\"}",
+      "valid": true,
+      "response": "{\"version\": \"1.0\", \"kind\": \"userscript\", \"action\": \"list\", \"status\": \"updated\"}",
+      "response_valid": true
+    },
+    {
+      "name": "status uninstalled",
+      "request": "{\"version\": \"1.0\", \"kind\": \"userscript\", \"action\": \"list\"}",
+      "valid": true,
+      "response": "{\"version\": \"1.0\", \"kind\": \"userscript\", \"action\": \"list\", \"status\": \"uninstalled\"}",
+      "response_valid": true
+    },
+    {
+      "name": "status requested",
+      "request": "{\"version\": \"1.0\", \"kind\": \"userscript\", \"action\": \"list\"}",
+      "valid": true,
+      "response": "{\"version\": \"1.0\", \"kind\": \"userscript\", \"action\": \"list\", \"status\": \"requested\"}",
+      "response_valid": true
+    },
+    {
+      "name": "status request-removed",
+      "request": "{\"version\": \"1.0\", \"kind\": \"userscript\", \"action\": \"list\"}",
+      "valid": true,
+      "response": "{\"version\": \"1.0\", \"kind\": \"userscript\", \"action\": \"list\", \"status\": \"request-removed\"}",
+      "response_valid": true
+    },
+    {
+      "name": "status policy-updated",
+      "request": "{\"version\": \"1.0\", \"kind\": \"userscript\", \"action\": \"list\"}",
+      "valid": true,
+      "response": "{\"version\": \"1.0\", \"kind\": \"userscript\", \"action\": \"list\", \"status\": \"policy-updated\"}",
+      "response_valid": true
+    },
+    {
+      "name": "status awaiting-browser-action",
+      "request": "{\"version\": \"1.0\", \"kind\": \"userscript\", \"action\": \"list\"}",
+      "valid": true,
+      "response": "{\"version\": \"1.0\", \"kind\": \"userscript\", \"action\": \"list\", \"status\": \"awaiting-browser-action\"}",
+      "response_valid": true
+    },
+    {
+      "name": "status awaiting-browser-confirmation",
+      "request": "{\"version\": \"1.0\", \"kind\": \"userscript\", \"action\": \"list\"}",
+      "valid": true,
+      "response": "{\"version\": \"1.0\", \"kind\": \"userscript\", \"action\": \"list\", \"status\": \"awaiting-browser-confirmation\"}",
+      "response_valid": true
+    },
+    {
+      "name": "status reconciled",
+      "request": "{\"version\": \"1.0\", \"kind\": \"userscript\", \"action\": \"list\"}",
+      "valid": true,
+      "response": "{\"version\": \"1.0\", \"kind\": \"userscript\", \"action\": \"list\", \"status\": \"reconciled\"}",
+      "response_valid": true
+    },
+    {
+      "name": "status connected",
+      "request": "{\"version\": \"1.0\", \"kind\": \"userscript\", \"action\": \"list\"}",
+      "valid": true,
+      "response": "{\"version\": \"1.0\", \"kind\": \"userscript\", \"action\": \"list\", \"status\": \"connected\"}",
+      "response_valid": true
+    },
+    {
+      "name": "status navigated",
+      "request": "{\"version\": \"1.0\", \"kind\": \"userscript\", \"action\": \"list\"}",
+      "valid": true,
+      "response": "{\"version\": \"1.0\", \"kind\": \"userscript\", \"action\": \"list\", \"status\": \"navigated\"}",
+      "response_valid": true
+    },
+    {
+      "name": "status injected",
+      "request": "{\"version\": \"1.0\", \"kind\": \"userscript\", \"action\": \"list\"}",
+      "valid": true,
+      "response": "{\"version\": \"1.0\", \"kind\": \"userscript\", \"action\": \"list\", \"status\": \"injected\"}",
+      "response_valid": true
+    },
+    {
+      "name": "status future-status",
+      "request": "{\"version\": \"1.0\", \"kind\": \"userscript\", \"action\": \"list\"}",
+      "valid": true,
+      "response": "{\"version\": \"1.0\", \"kind\": \"userscript\", \"action\": \"list\", \"status\": \"future-status\"}",
+      "response_valid": true
+    },
+    {
+      "name": "status \u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9",
+      "request": "{\"version\": \"1.0\", \"kind\": \"userscript\", \"action\": \"list\"}",
+      "valid": true,
+      "response": "{\"version\": \"1.0\", \"kind\": \"userscript\", \"action\": \"list\", \"status\": \"\\u00e9\\u00e9\\u00e9\\u00e9\\u00e9\\u00e9\\u00e9\\u00e9\\u00e9\\u00e9\\u00e9\\u00e9\\u00e9\\u00e9\\u00e9\\u00e9\\u00e9\\u00e9\\u00e9\\u00e9\\u00e9\\u00e9\\u00e9\\u00e9\\u00e9\\u00e9\\u00e9\\u00e9\\u00e9\\u00e9\\u00e9\\u00e9\"}",
+      "response_valid": true
+    },
+    {
+      "name": "status \u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9",
+      "request": "{\"version\": \"1.0\", \"kind\": \"userscript\", \"action\": \"list\"}",
+      "valid": true,
+      "response": "{\"version\": \"1.0\", \"kind\": \"userscript\", \"action\": \"list\", \"status\": \"\\u00e9\\u00e9\\u00e9\\u00e9\\u00e9\\u00e9\\u00e9\\u00e9\\u00e9\\u00e9\\u00e9\\u00e9\\u00e9\\u00e9\\u00e9\\u00e9\\u00e9\\u00e9\\u00e9\\u00e9\\u00e9\\u00e9\\u00e9\\u00e9\\u00e9\\u00e9\\u00e9\\u00e9\\u00e9\\u00e9\\u00e9\\u00e9\\u00e9\"}",
+      "response_valid": false
+    },
+    {
+      "name": "status ",
+      "request": "{\"version\": \"1.0\", \"kind\": \"userscript\", \"action\": \"list\"}",
+      "valid": true,
+      "response": "{\"version\": \"1.0\", \"kind\": \"userscript\", \"action\": \"list\", \"status\": \"\"}",
+      "response_valid": false
+    },
+    {
+      "name": "activateinstalled",
+      "request": "{\"version\": \"1.0\", \"kind\": \"extension\", \"action\": \"activate\"}",
+      "valid": true,
+      "response": "{\"version\": \"1.0\", \"kind\": \"extension\", \"action\": \"activate\", \"status\": \"installed\"}",
+      "response_valid": false
+    },
+    {
+      "name": "installactivated",
+      "request": "{\"version\": \"1.0\", \"kind\": \"extension\", \"action\": \"install\"}",
+      "valid": true,
+      "response": "{\"version\": \"1.0\", \"kind\": \"extension\", \"action\": \"install\", \"status\": \"activated\"}",
+      "response_valid": false
+    },
+    {
+      "name": "activateactivated",
+      "request": "{\"version\": \"1.0\", \"kind\": \"extension\", \"action\": \"activate\"}",
+      "valid": true,
+      "response": "{\"version\": \"1.0\", \"kind\": \"extension\", \"action\": \"activate\", \"status\": \"activated\"}",
+      "response_valid": true
+    },
+    {
+      "name": "installinstalled",
+      "request": "{\"version\": \"1.0\", \"kind\": \"extension\", \"action\": \"install\"}",
+      "valid": true,
+      "response": "{\"version\": \"1.0\", \"kind\": \"extension\", \"action\": \"install\", \"status\": \"installed\"}",
+      "response_valid": true
+    },
+    {
+      "name": "mismatch version",
+      "request": "{\"version\": \"1.0\", \"kind\": \"userscript\", \"action\": \"list\"}",
+      "valid": true,
+      "response": "{\"version\": \"2\", \"kind\": \"userscript\", \"action\": \"list\", \"status\": \"ready\"}",
+      "response_valid": false
+    },
+    {
+      "name": "mismatch kind",
+      "request": "{\"version\": \"1.0\", \"kind\": \"userscript\", \"action\": \"list\"}",
+      "valid": true,
+      "response": "{\"version\": \"1.0\", \"kind\": \"extension\", \"action\": \"list\", \"status\": \"ready\"}",
+      "response_valid": false
+    },
+    {
+      "name": "mismatch action",
+      "request": "{\"version\": \"1.0\", \"kind\": \"userscript\", \"action\": \"list\"}",
+      "valid": true,
+      "response": "{\"version\": \"1.0\", \"kind\": \"userscript\", \"action\": \"enable\", \"status\": \"ready\"}",
+      "response_valid": false
+    },
+    {
+      "name": "result null",
+      "request": "{\"version\": \"1.0\", \"kind\": \"userscript\", \"action\": \"list\"}",
+      "valid": true,
+      "response": "{\"version\": \"1.0\", \"kind\": \"userscript\", \"action\": \"list\", \"status\": \"ready\",\"result\":null}",
+      "response_valid": true
+    },
+    {
+      "name": "result true",
+      "request": "{\"version\": \"1.0\", \"kind\": \"userscript\", \"action\": \"list\"}",
+      "valid": true,
+      "response": "{\"version\": \"1.0\", \"kind\": \"userscript\", \"action\": \"list\", \"status\": \"ready\",\"result\":true}",
+      "response_valid": true
+    },
+    {
+      "name": "result 42",
+      "request": "{\"version\": \"1.0\", \"kind\": \"userscript\", \"action\": \"list\"}",
+      "valid": true,
+      "response": "{\"version\": \"1.0\", \"kind\": \"userscript\", \"action\": \"list\", \"status\": \"ready\",\"result\":42}",
+      "response_valid": true
+    },
+    {
+      "name": "result 1e999",
+      "request": "{\"version\": \"1.0\", \"kind\": \"userscript\", \"action\": \"list\"}",
+      "valid": true,
+      "response": "{\"version\": \"1.0\", \"kind\": \"userscript\", \"action\": \"list\", \"status\": \"ready\",\"result\":1e999}",
+      "response_valid": true
+    },
+    {
+      "name": "result [1,2]",
+      "request": "{\"version\": \"1.0\", \"kind\": \"userscript\", \"action\": \"list\"}",
+      "valid": true,
+      "response": "{\"version\": \"1.0\", \"kind\": \"userscript\", \"action\": \"list\", \"status\": \"ready\",\"result\":[1,2]}",
+      "response_valid": true
+    },
+    {
+      "name": "result \"secret\"",
+      "request": "{\"version\": \"1.0\", \"kind\": \"userscript\", \"action\": \"list\"}",
+      "valid": true,
+      "response": "{\"version\": \"1.0\", \"kind\": \"userscript\", \"action\": \"list\", \"status\": \"ready\",\"result\":\"secret\"}",
+      "response_valid": true
+    },
+    {
+      "name": "result {\"n\":1.}",
+      "request": "{\"version\": \"1.0\", \"kind\": \"userscript\", \"action\": \"list\"}",
+      "valid": true,
+      "response": "{\"version\": \"1.0\", \"kind\": \"userscript\", \"action\": \"list\", \"status\": \"ready\",\"result\":{\"n\":1.}}",
+      "response_valid": false
+    },
+    {
+      "name": "result {\"n\":01}",
+      "request": "{\"version\": \"1.0\", \"kind\": \"userscript\", \"action\": \"list\"}",
+      "valid": true,
+      "response": "{\"version\": \"1.0\", \"kind\": \"userscript\", \"action\": \"list\", \"status\": \"ready\",\"result\":{\"n\":01}}",
+      "response_valid": false
+    },
+    {
+      "name": "endpoint 0",
+      "request": "{\"version\": \"1.0\", \"kind\": \"session\", \"action\": \"endpoint\"}",
+      "valid": true,
+      "response": "{\"version\": \"1.0\", \"kind\": \"session\", \"action\": \"endpoint\", \"status\": \"ready\", \"result\": {\"protocol\": \"cdp\", \"endpoint\": \"ws://localhost:1\"}}",
+      "response_valid": true
+    },
+    {
+      "name": "endpoint 1",
+      "request": "{\"version\": \"1.0\", \"kind\": \"session\", \"action\": \"endpoint\"}",
+      "valid": true,
+      "response": "{\"version\": \"1.0\", \"kind\": \"session\", \"action\": \"endpoint\", \"status\": \"ready\", \"result\": {\"protocol\": \"cdp\", \"endpoint\": \"wss://LOCALHOST:65536/a\"}}",
+      "response_valid": true
+    },
+    {
+      "name": "endpoint 2",
+      "request": "{\"version\": \"1.0\", \"kind\": \"session\", \"action\": \"endpoint\"}",
+      "valid": true,
+      "response": "{\"version\": \"1.0\", \"kind\": \"session\", \"action\": \"endpoint\", \"status\": \"ready\", \"result\": {\"protocol\": \"cdp\", \"endpoint\": \"ws://127.9.8.7:0/a\"}}",
+      "response_valid": true
+    },
+    {
+      "name": "endpoint 3",
+      "request": "{\"version\": \"1.0\", \"kind\": \"session\", \"action\": \"endpoint\"}",
+      "valid": true,
+      "response": "{\"version\": \"1.0\", \"kind\": \"session\", \"action\": \"endpoint\", \"status\": \"ready\", \"result\": {\"protocol\": \"cdp\", \"endpoint\": \"ws://[::1]:9222/a\"}}",
+      "response_valid": true
+    },
+    {
+      "name": "endpoint 4",
+      "request": "{\"version\": \"1.0\", \"kind\": \"session\", \"action\": \"endpoint\"}",
+      "valid": true,
+      "response": "{\"version\": \"1.0\", \"kind\": \"session\", \"action\": \"endpoint\", \"status\": \"ready\", \"result\": {\"protocol\": \"cdp\", \"endpoint\": \"ws://[0:0:0:0:0:0:0:1]:9222\"}}",
+      "response_valid": true
+    },
+    {
+      "name": "endpoint 5",
+      "request": "{\"version\": \"1.0\", \"kind\": \"session\", \"action\": \"endpoint\"}",
+      "valid": true,
+      "response": "{\"version\": \"1.0\", \"kind\": \"session\", \"action\": \"endpoint\", \"status\": \"ready\", \"result\": {\"protocol\": \"cdp\", \"endpoint\": \"ws://[::ffff:127.0.0.1]:9/a\"}}",
+      "response_valid": true
+    },
+    {
+      "name": "endpoint 6",
+      "request": "{\"version\": \"1.0\", \"kind\": \"session\", \"action\": \"endpoint\"}",
+      "valid": true,
+      "response": "{\"version\": \"1.0\", \"kind\": \"session\", \"action\": \"endpoint\", \"status\": \"ready\", \"result\": {\"protocol\": \"cdp\", \"endpoint\": \"ws://localhost:999999999999/a\"}}",
+      "response_valid": true
+    },
+    {
+      "name": "endpoint 7",
+      "request": "{\"version\": \"1.0\", \"kind\": \"session\", \"action\": \"endpoint\"}",
+      "valid": true,
+      "response": "{\"version\": \"1.0\", \"kind\": \"session\", \"action\": \"endpoint\", \"status\": \"ready\", \"result\": {\"protocol\": \"cdp\", \"endpoint\": \"ws://localhost:9/a b\"}}",
+      "response_valid": true
+    },
+    {
+      "name": "endpoint 8",
+      "request": "{\"version\": \"1.0\", \"kind\": \"session\", \"action\": \"endpoint\"}",
+      "valid": true,
+      "response": "{\"version\": \"1.0\", \"kind\": \"session\", \"action\": \"endpoint\", \"status\": \"ready\", \"result\": {\"protocol\": \"cdp\", \"endpoint\": \"ws://localhost:9/%zz\"}}",
+      "response_valid": false
+    },
+    {
+      "name": "endpoint 9",
+      "request": "{\"version\": \"1.0\", \"kind\": \"session\", \"action\": \"endpoint\"}",
+      "valid": true,
+      "response": "{\"version\": \"1.0\", \"kind\": \"session\", \"action\": \"endpoint\", \"status\": \"ready\", \"result\": {\"protocol\": \"cdp\", \"endpoint\": \"https://localhost:9\"}}",
+      "response_valid": false
+    },
+    {
+      "name": "endpoint 10",
+      "request": "{\"version\": \"1.0\", \"kind\": \"session\", \"action\": \"endpoint\"}",
+      "valid": true,
+      "response": "{\"version\": \"1.0\", \"kind\": \"session\", \"action\": \"endpoint\", \"status\": \"ready\", \"result\": {\"protocol\": \"cdp\", \"endpoint\": \"ws://example.com:9\"}}",
+      "response_valid": false
+    },
+    {
+      "name": "endpoint 11",
+      "request": "{\"version\": \"1.0\", \"kind\": \"session\", \"action\": \"endpoint\"}",
+      "valid": true,
+      "response": "{\"version\": \"1.0\", \"kind\": \"session\", \"action\": \"endpoint\", \"status\": \"ready\", \"result\": {\"protocol\": \"cdp\", \"endpoint\": \"ws://192.168.1.1:9\"}}",
+      "response_valid": false
+    },
+    {
+      "name": "endpoint 12",
+      "request": "{\"version\": \"1.0\", \"kind\": \"session\", \"action\": \"endpoint\"}",
+      "valid": true,
+      "response": "{\"version\": \"1.0\", \"kind\": \"session\", \"action\": \"endpoint\", \"status\": \"ready\", \"result\": {\"protocol\": \"cdp\", \"endpoint\": \"ws://127.0.0.1\"}}",
+      "response_valid": false
+    },
+    {
+      "name": "endpoint 13",
+      "request": "{\"version\": \"1.0\", \"kind\": \"session\", \"action\": \"endpoint\"}",
+      "valid": true,
+      "response": "{\"version\": \"1.0\", \"kind\": \"session\", \"action\": \"endpoint\", \"status\": \"ready\", \"result\": {\"protocol\": \"cdp\", \"endpoint\": \"ws://localhost:\"}}",
+      "response_valid": false
+    },
+    {
+      "name": "endpoint 14",
+      "request": "{\"version\": \"1.0\", \"kind\": \"session\", \"action\": \"endpoint\"}",
+      "valid": true,
+      "response": "{\"version\": \"1.0\", \"kind\": \"session\", \"action\": \"endpoint\", \"status\": \"ready\", \"result\": {\"protocol\": \"cdp\", \"endpoint\": \"ws://localhost:+1\"}}",
+      "response_valid": false
+    },
+    {
+      "name": "endpoint 15",
+      "request": "{\"version\": \"1.0\", \"kind\": \"session\", \"action\": \"endpoint\"}",
+      "valid": true,
+      "response": "{\"version\": \"1.0\", \"kind\": \"session\", \"action\": \"endpoint\", \"status\": \"ready\", \"result\": {\"protocol\": \"cdp\", \"endpoint\": \"ws://localhost:9?\"}}",
+      "response_valid": false
+    },
+    {
+      "name": "endpoint 16",
+      "request": "{\"version\": \"1.0\", \"kind\": \"session\", \"action\": \"endpoint\"}",
+      "valid": true,
+      "response": "{\"version\": \"1.0\", \"kind\": \"session\", \"action\": \"endpoint\", \"status\": \"ready\", \"result\": {\"protocol\": \"cdp\", \"endpoint\": \"ws://localhost:9#\"}}",
+      "response_valid": false
+    },
+    {
+      "name": "endpoint 17",
+      "request": "{\"version\": \"1.0\", \"kind\": \"session\", \"action\": \"endpoint\"}",
+      "valid": true,
+      "response": "{\"version\": \"1.0\", \"kind\": \"session\", \"action\": \"endpoint\", \"status\": \"ready\", \"result\": {\"protocol\": \"cdp\", \"endpoint\": \"ws://user@localhost:9/a\"}}",
+      "response_valid": false
+    },
+    {
+      "name": "endpoint 18",
+      "request": "{\"version\": \"1.0\", \"kind\": \"session\", \"action\": \"endpoint\"}",
+      "valid": true,
+      "response": "{\"version\": \"1.0\", \"kind\": \"session\", \"action\": \"endpoint\", \"status\": \"ready\", \"result\": {\"protocol\": \"cdp\", \"endpoint\": \"ws://[::2]:9\"}}",
+      "response_valid": false
+    },
+    {
+      "name": "endpoint 19",
+      "request": "{\"version\": \"1.0\", \"kind\": \"session\", \"action\": \"endpoint\"}",
+      "valid": true,
+      "response": "{\"version\": \"1.0\", \"kind\": \"session\", \"action\": \"endpoint\", \"status\": \"ready\", \"result\": {\"protocol\": \"cdp\", \"endpoint\": \"ws://[::1%25lo0]:9\"}}",
+      "response_valid": false
+    },
+    {
+      "name": "endpoint 20",
+      "request": "{\"version\": \"1.0\", \"kind\": \"session\", \"action\": \"endpoint\"}",
+      "valid": true,
+      "response": "{\"version\": \"1.0\", \"kind\": \"session\", \"action\": \"endpoint\", \"status\": \"ready\", \"result\": {\"protocol\": \"cdp\", \"endpoint\": \"ws://127.1:9\"}}",
+      "response_valid": false
+    },
+    {
+      "name": "endpoint 21",
+      "request": "{\"version\": \"1.0\", \"kind\": \"session\", \"action\": \"endpoint\"}",
+      "valid": true,
+      "response": "{\"version\": \"1.0\", \"kind\": \"session\", \"action\": \"endpoint\", \"status\": \"ready\", \"result\": {\"protocol\": \"cdp\", \"endpoint\": \"ws://127.00.0.1:9\"}}",
+      "response_valid": false
+    },
+    {
+      "name": "bad endpoint fields 108",
+      "request": "{\"version\": \"1.0\", \"kind\": \"session\", \"action\": \"endpoint\"}",
+      "valid": true,
+      "response": "{\"version\": \"1.0\", \"kind\": \"session\", \"action\": \"endpoint\", \"status\": \"ready\", \"result\": null}",
+      "response_valid": false
+    },
+    {
+      "name": "bad endpoint fields 109",
+      "request": "{\"version\": \"1.0\", \"kind\": \"session\", \"action\": \"endpoint\"}",
+      "valid": true,
+      "response": "{\"version\": \"1.0\", \"kind\": \"session\", \"action\": \"endpoint\", \"status\": \"ready\", \"result\": {}}",
+      "response_valid": false
+    },
+    {
+      "name": "bad endpoint fields 110",
+      "request": "{\"version\": \"1.0\", \"kind\": \"session\", \"action\": \"endpoint\"}",
+      "valid": true,
+      "response": "{\"version\": \"1.0\", \"kind\": \"session\", \"action\": \"endpoint\", \"status\": \"ready\", \"result\": {\"protocol\": \"other\", \"endpoint\": \"ws://localhost:9\"}}",
+      "response_valid": false
+    },
+    {
+      "name": "bad endpoint fields 111",
+      "request": "{\"version\": \"1.0\", \"kind\": \"session\", \"action\": \"endpoint\"}",
+      "valid": true,
+      "response": "{\"version\": \"1.0\", \"kind\": \"session\", \"action\": \"endpoint\", \"status\": \"ready\", \"result\": {\"protocol\": \"bidi\", \"endpoint\": \"ws://localhost:9\", \"secret\": \"unknown\"}}",
+      "response_valid": false
+    },
+    {
+      "name": "endpoint uppercase",
+      "request": "{\"version\": \"1.0\", \"kind\": \"session\", \"action\": \"endpoint\"}",
+      "valid": true,
+      "response": "{\"version\": \"1.0\", \"kind\": \"session\", \"action\": \"endpoint\", \"status\": \"ready\", \"result\": {\"Protocol\": \"bidi\", \"Endpoint\": \"ws://localhost:9\"}}",
+      "response_valid": true
+    },
+    {
+      "name": "Go accepts unbracketed IPv6",
+      "request": "{\"version\": \"1.0\", \"kind\": \"session\", \"action\": \"endpoint\"}",
+      "valid": true,
+      "response": "{\"version\": \"1.0\", \"kind\": \"session\", \"action\": \"endpoint\", \"status\": \"ready\", \"result\": {\"protocol\": \"cdp\", \"endpoint\": \"ws://::1:9\"}}",
+      "response_valid": true
+    }
+  ]
+}

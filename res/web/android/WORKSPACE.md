@@ -75,3 +75,5 @@ and can also run against the packaged AAR with `--minify`.
 Verified on an Android 14 (API 34) arm64 emulator using the generated SDK AAR:
 all eight document-start/lifecycle checks passed with R8 and AndroidX WebKit
 1.9.0, and all four checks passed with R8 and no AndroidX dependency.
+
+See [mobile cookie workflows](../COOKIE_WORKFLOWS.md) for portable import/export and native workspace cookie access.

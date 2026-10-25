@@ -515,6 +515,8 @@ public final class WebTests {
     public static void main(String[] args) {
         test("workspace scripts", WebTests::workspaceScripts);
         test("cookie fixtures", WebTests::cookieFixtures);
+        test("cookie workflows", CookieWorkflowTests::run);
+        test("management protocol", ManagementTests::run);
         test("cookie behavior", WebTests::cookieBehavior);
         test("site behavior", WebTests::siteBehavior);
         test("userscript fixtures", WebTests::userscriptFixtures);

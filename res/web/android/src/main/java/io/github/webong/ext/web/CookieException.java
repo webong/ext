@@ -4,7 +4,7 @@ package io.github.webong.ext.web;
 public final class CookieException extends Exception {
     private static final long serialVersionUID = 1L;
 
-    CookieException(String message) {
+    public CookieException(String message) {
         super(message, null, false, false);
     }
 }

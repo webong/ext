@@ -64,6 +64,35 @@ public final class BrowserWorkspace: NSObject, WKNavigationDelegate, WKUIDelegat
     public func reload() throws { try requireOpen(); webView.reload() }
     public func stop() throws { try requireOpen(); webView.stopLoading(); emit() }
 
+    /// Reads WebKit's native records for a request URL, including HttpOnly cookies.
+    /// Records expose only metadata available from WebKit; they are not portable exports.
+    public func cookies(for site: String, completion: @escaping @MainActor @Sendable ([HTTPCookie]) -> Void) throws {
+        try requireOpen()
+        let url = try parseSite(site)
+        webView.configuration.websiteDataStore.httpCookieStore.getAllCookies { cookies in
+            completion(cookies.filter { cookie in
+                CookieRules.domainMatches(siteHost: url.hostname, cookieDomain: cookie.domain)
+                    && CookieRules.pathMatches(requestPath: url.escapedPath, cookiePath: cookie.path)
+                    && (!cookie.isSecure || url.scheme == "https")
+                    && (cookie.expiresDate == nil || cookie.expiresDate! > Date())
+            })
+        }
+    }
+
+    /// Validates before mutation. Completion means WebKit finished the write, not that a
+    /// navigation was authenticated. Accepted operations may complete after close().
+    public func setCookie(_ bundle: CookieBundle, completion: @escaping @MainActor @Sendable () -> Void) throws {
+        try requireOpen()
+        let cookie = try WorkspaceCookies.native(bundle)
+        webView.configuration.websiteDataStore.httpCookieStore.setCookie(cookie, completionHandler: completion)
+    }
+
+    /// Deletes exactly a native record returned by cookies(for:completion:).
+    public func deleteCookie(_ cookie: HTTPCookie, completion: @escaping @MainActor @Sendable () -> Void) throws {
+        try requireOpen()
+        webView.configuration.websiteDataStore.httpCookieStore.delete(cookie, completionHandler: completion)
+    }
+
     /// Replaces registrations for FUTURE documents, in page world and all frames.
     /// Removing a script cannot undo its effects in an already-loaded document.
     public func replaceUserscripts(_ records: [UserscriptRecord]) throws {

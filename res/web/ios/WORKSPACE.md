@@ -57,3 +57,5 @@ The script uses Xcode's `ExtWeb-Package` test scheme and selects `ExtWebKitTests
 the `ExtWebKit` product scheme has no test action. Both tests passed on an iPhone
 16 Pro simulator running iOS 18.3.1. The staged SDK also built for an iOS simulator
 consumer against the generated XCFramework archive.
+
+See [mobile cookie workflows](../COOKIE_WORKFLOWS.md) for portable import/export and native workspace cookie access.

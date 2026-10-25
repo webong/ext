@@ -12,6 +12,8 @@ import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import io.github.webong.ext.web.CookieBundle;
+import io.github.webong.ext.web.CookieException;
 import io.github.webong.ext.web.Site;
 import io.github.webong.ext.web.SiteException;
 import io.github.webong.ext.web.UserscriptException;
@@ -78,6 +80,26 @@ public final class BrowserWorkspace implements AutoCloseable {
 
     public WebView view() { requireOpen(); return view; }
     public State state() { requireOpen(); return new State(view, loading, error); }
+    /** Native request header, including HttpOnly cookies. No domain/expiry metadata is
+     * available through CookieManager; do not treat this as a portable cookie export.
+     * Android's app-level WebView cookie store is shared across workspaces. */
+    public String cookieHeader(String site) throws SiteException {
+        requireOpen();
+        Site.parse(site);
+        String header = android.webkit.CookieManager.getInstance().getCookie(site);
+        return header == null ? "" : header;
+    }
+
+    /** Validates before mutation. The callback reports the native write result on the UI
+     * thread, and may complete after close(). Does not change app cookie acceptance policy. */
+    public void setCookie(CookieBundle bundle, android.webkit.ValueCallback<Boolean> completion)
+            throws CookieException {
+        requireOpen();
+        if (completion == null) throw new IllegalArgumentException("cookie completion is required");
+        String header = WorkspaceCookies.header(bundle);
+        android.webkit.CookieManager.getInstance().setCookie(bundle.site, header, completion);
+    }
+
     public boolean supportsDocumentStartScripts() { requireOpen(); return documentStart.available(); }
     public void navigate(String url) throws SiteException {
         requireOpen(); Site.parse(url); view.loadUrl(url);

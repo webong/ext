@@ -1,0 +1,485 @@
+[
+  {
+    "name": "array",
+    "input": "[{\"name\":\"sid\",\"value\":\"fixture-token\",\"domain\":\"example.com\",\"path\":\"/\",\"expiry\":0,\"secure\":false,\"http_only\":false}]",
+    "valid": true,
+    "site": "https://example.com/account",
+    "header_error": false,
+    "cookies": [
+      {
+        "name": "sid",
+        "value": "fixture-token",
+        "domain": "example.com",
+        "path": "/",
+        "expiry": 0,
+        "secure": false,
+        "http_only": false
+      }
+    ],
+    "header": "sid=fixture-token",
+    "jar": "# Netscape HTTP Cookie File\n# Exported by CTX; SameSite and source metadata are not represented.\nexample.com\tFALSE\t/\tFALSE\t0\tsid\tfixture-token\n"
+  },
+  {
+    "name": "bundle",
+    "input": "{\"version\":2,\"source\":\"inline\",\"cookie\":{\"name\":\"sid\",\"value\":\"fixture-token\",\"domain\":\"example.com\",\"path\":\"/\",\"expiry\":0,\"secure\":false,\"http_only\":false}}",
+    "valid": true,
+    "site": "https://example.com/account",
+    "header_error": false,
+    "cookies": [
+      {
+        "name": "sid",
+        "value": "fixture-token",
+        "domain": "example.com",
+        "path": "/",
+        "expiry": 0,
+        "secure": false,
+        "http_only": false
+      }
+    ]
+  },
+  {
+    "name": "query",
+    "input": "{\"cookies\":[{\"name\":\"sid\",\"value\":\"fixture-token\",\"domain\":\"example.com\",\"path\":\"/\",\"expiry\":0,\"secure\":false,\"http_only\":false}]}",
+    "valid": true,
+    "site": "https://example.com/account",
+    "header_error": false,
+    "cookies": [
+      {
+        "name": "sid",
+        "value": "fixture-token",
+        "domain": "example.com",
+        "path": "/",
+        "expiry": 0,
+        "secure": false,
+        "http_only": false
+      }
+    ]
+  },
+  {
+    "name": "bom",
+    "input": "\ufeff[{\"name\": \"sid\", \"value\": \"fixture-token\", \"domain\": \"example.com\", \"path\": \"/\", \"expiry\": 0, \"secure\": false, \"http_only\": false}]",
+    "valid": true,
+    "site": "https://example.com/account",
+    "header_error": false,
+    "cookies": [
+      {
+        "name": "sid",
+        "value": "fixture-token",
+        "domain": "example.com",
+        "path": "/",
+        "expiry": 0,
+        "secure": false,
+        "http_only": false
+      }
+    ]
+  },
+  {
+    "name": "aliases",
+    "input": "[{\"name\":\"sid\",\"value\":\"fixture-token\",\"domain\":\".example.com\",\"path\":\"/\",\"hostOnly\":true,\"httpOnly\":true,\"sameSite\":\"Lax\",\"expirationDate\":253402300799}]",
+    "valid": true,
+    "site": "https://example.com/account",
+    "header_error": false,
+    "cookies": [
+      {
+        "name": "sid",
+        "value": "fixture-token",
+        "domain": "example.com",
+        "path": "/",
+        "expiry": 253402300799,
+        "secure": false,
+        "http_only": true,
+        "same_site_policy": "lax"
+      }
+    ]
+  },
+  {
+    "name": "subsecond",
+    "input": "[{\"name\":\"sid\",\"value\":\"fixture-token\",\"domain\":\"example.com\",\"path\":\"/\",\"expiry\":0.1,\"secure\":false,\"http_only\":false}]",
+    "valid": true,
+    "site": "https://example.com/account",
+    "header_error": false,
+    "cookies": [
+      {
+        "name": "sid",
+        "value": "fixture-token",
+        "domain": "example.com",
+        "path": "/",
+        "expiry": -1,
+        "secure": false,
+        "http_only": false
+      }
+    ],
+    "header": ""
+  },
+  {
+    "name": "session-minus-one",
+    "input": "[{\"name\":\"sid\",\"value\":\"fixture-token\",\"domain\":\"example.com\",\"path\":\"/\",\"expires\":-1,\"session\":true}]",
+    "valid": true,
+    "site": "https://example.com/account",
+    "header_error": false,
+    "cookies": [
+      {
+        "name": "sid",
+        "value": "fixture-token",
+        "domain": "example.com",
+        "path": "/",
+        "expiry": 0,
+        "secure": false,
+        "http_only": false
+      }
+    ]
+  },
+  {
+    "name": "jar",
+    "input": "#HttpOnly_.example.com\tTRUE\t/\tTRUE\t0\tsid\tfixture-token\r\n",
+    "valid": true,
+    "site": "https://example.com/account",
+    "header_error": false,
+    "cookies": [
+      {
+        "name": "sid",
+        "value": "fixture-token",
+        "domain": ".example.com",
+        "path": "/",
+        "expiry": 0,
+        "secure": true,
+        "http_only": true
+      }
+    ]
+  },
+  {
+    "name": "empty-value",
+    "input": "example.com\tFALSE\t/\tFALSE\t0\tsid\t\n",
+    "valid": true,
+    "site": "https://example.com/account",
+    "header_error": false,
+    "cookies": [
+      {
+        "name": "sid",
+        "value": "",
+        "domain": "example.com",
+        "path": "/",
+        "expiry": 0,
+        "secure": false,
+        "http_only": false
+      }
+    ],
+    "header": "sid="
+  },
+  {
+    "name": "comments",
+    "input": "# Netscape HTTP Cookie File\n",
+    "valid": true,
+    "site": "https://example.com/account",
+    "header_error": false,
+    "cookies": [],
+    "header": ""
+  },
+  {
+    "name": "header-order",
+    "input": "[{\"name\":\"sid\",\"value\":\"fixture-token\",\"domain\":\"example.com\",\"path\":\"/\",\"expiry\":0,\"secure\":false,\"http_only\":false},{\"name\":\"sid\",\"value\":\"second\",\"domain\":\"example.com\",\"path\":\"/account\",\"expiry\":0,\"secure\":false,\"http_only\":false},{\"name\":\"sid\",\"value\":\"third\",\"domain\":\"example.com\",\"path\":\"/account\",\"expiry\":0,\"secure\":false,\"http_only\":false},{\"name\":\"sid\",\"value\":\"fixture-token\",\"domain\":\"other.com\",\"path\":\"/\",\"expiry\":0,\"secure\":false,\"http_only\":false}]",
+    "valid": true,
+    "site": "https://example.com/account",
+    "header_error": false,
+    "cookies": [
+      {
+        "name": "sid",
+        "value": "fixture-token",
+        "domain": "example.com",
+        "path": "/",
+        "expiry": 0,
+        "secure": false,
+        "http_only": false
+      },
+      {
+        "name": "sid",
+        "value": "second",
+        "domain": "example.com",
+        "path": "/account",
+        "expiry": 0,
+        "secure": false,
+        "http_only": false
+      },
+      {
+        "name": "sid",
+        "value": "third",
+        "domain": "example.com",
+        "path": "/account",
+        "expiry": 0,
+        "secure": false,
+        "http_only": false
+      },
+      {
+        "name": "sid",
+        "value": "fixture-token",
+        "domain": "other.com",
+        "path": "/",
+        "expiry": 0,
+        "secure": false,
+        "http_only": false
+      }
+    ],
+    "header": "sid=second; sid=third; sid=fixture-token"
+  },
+  {
+    "name": "secure-filter",
+    "input": "[{\"name\":\"sid\",\"value\":\"fixture-token\",\"domain\":\"example.com\",\"path\":\"/\",\"expiry\":0,\"secure\":true,\"http_only\":false}]",
+    "valid": true,
+    "site": "http://example.com/",
+    "header_error": false,
+    "cookies": [
+      {
+        "name": "sid",
+        "value": "fixture-token",
+        "domain": "example.com",
+        "path": "/",
+        "expiry": 0,
+        "secure": true,
+        "http_only": false
+      }
+    ],
+    "header": ""
+  },
+  {
+    "name": "host-only-filter",
+    "input": "[{\"name\":\"sid\",\"value\":\"fixture-token\",\"domain\":\"example.com\",\"path\":\"/\",\"expiry\":0,\"secure\":false,\"http_only\":false}]",
+    "valid": true,
+    "site": "https://sub.example.com/",
+    "header_error": false,
+    "cookies": [
+      {
+        "name": "sid",
+        "value": "fixture-token",
+        "domain": "example.com",
+        "path": "/",
+        "expiry": 0,
+        "secure": false,
+        "http_only": false
+      }
+    ],
+    "header": ""
+  },
+  {
+    "name": "domain-cookie",
+    "input": "[{\"name\":\"sid\",\"value\":\"fixture-token\",\"domain\":\".example.com\",\"path\":\"/\",\"expiry\":0,\"secure\":false,\"http_only\":false}]",
+    "valid": true,
+    "site": "https://sub.example.com/",
+    "header_error": false,
+    "cookies": [
+      {
+        "name": "sid",
+        "value": "fixture-token",
+        "domain": ".example.com",
+        "path": "/",
+        "expiry": 0,
+        "secure": false,
+        "http_only": false
+      }
+    ],
+    "header": "sid=fixture-token"
+  },
+  {
+    "name": "isolated-partition_key",
+    "input": "[{\"name\":\"sid\",\"value\":\"fixture-token\",\"domain\":\"example.com\",\"path\":\"/\",\"expiry\":0,\"secure\":false,\"http_only\":false,\"partition_key\":\"https://top.example\"}]",
+    "valid": true,
+    "site": "https://example.com/account",
+    "header_error": true,
+    "cookies": [
+      {
+        "name": "sid",
+        "value": "fixture-token",
+        "domain": "example.com",
+        "path": "/",
+        "expiry": 0,
+        "secure": false,
+        "http_only": false,
+        "partition_key": "https://top.example"
+      }
+    ]
+  },
+  {
+    "name": "isolated-attributes",
+    "input": "[{\"name\":\"sid\",\"value\":\"fixture-token\",\"domain\":\"example.com\",\"path\":\"/\",\"expiry\":0,\"secure\":false,\"http_only\":false,\"attributes\":{\"browser.store\":\"1\"}}]",
+    "valid": true,
+    "site": "https://example.com/account",
+    "header_error": true,
+    "cookies": [
+      {
+        "name": "sid",
+        "value": "fixture-token",
+        "domain": "example.com",
+        "path": "/",
+        "expiry": 0,
+        "secure": false,
+        "http_only": false,
+        "attributes": {
+          "browser.store": "1"
+        }
+      }
+    ]
+  },
+  {
+    "name": "header-unsafe",
+    "input": "[{\"name\":\"sid\",\"value\":\"fixture;token\",\"domain\":\"example.com\",\"path\":\"/\",\"expiry\":0,\"secure\":false,\"http_only\":false}]",
+    "valid": true,
+    "site": "https://example.com/account",
+    "header_error": true,
+    "cookies": [
+      {
+        "name": "sid",
+        "value": "fixture;token",
+        "domain": "example.com",
+        "path": "/",
+        "expiry": 0,
+        "secure": false,
+        "http_only": false
+      }
+    ]
+  },
+  {
+    "name": "unknown",
+    "input": "[{\"name\":\"sid\",\"value\":\"fixture-token\",\"domain\":\"example.com\",\"path\":\"/\",\"expiry\":0,\"secure\":false,\"http_only\":false,\"unknown\":\"fixture-token\"}]",
+    "valid": false,
+    "site": "https://example.com/account",
+    "header_error": false
+  },
+  {
+    "name": "store",
+    "input": "[{\"name\":\"sid\",\"value\":\"fixture-token\",\"domain\":\"example.com\",\"path\":\"/\",\"expiry\":0,\"secure\":false,\"http_only\":false,\"storeId\":\"1\"}]",
+    "valid": false,
+    "site": "https://example.com/account",
+    "header_error": false
+  },
+  {
+    "name": "partition-alias",
+    "input": "[{\"name\":\"sid\",\"value\":\"fixture-token\",\"domain\":\"example.com\",\"path\":\"/\",\"expiry\":0,\"secure\":false,\"http_only\":false,\"partitionKey\":{}}]",
+    "valid": false,
+    "site": "https://example.com/account",
+    "header_error": false
+  },
+  {
+    "name": "conflicting-http",
+    "input": "[{\"name\":\"sid\",\"value\":\"fixture-token\",\"domain\":\"example.com\",\"path\":\"/\",\"expiry\":0,\"secure\":false,\"http_only\":false,\"httpOnly\":true}]",
+    "valid": false,
+    "site": "https://example.com/account",
+    "header_error": false
+  },
+  {
+    "name": "conflicting-expiry",
+    "input": "[{\"name\":\"sid\",\"value\":\"fixture-token\",\"domain\":\"example.com\",\"path\":\"/\",\"expiry\":0,\"secure\":false,\"http_only\":false,\"expires\":0}]",
+    "valid": false,
+    "site": "https://example.com/account",
+    "header_error": false
+  },
+  {
+    "name": "null-secure",
+    "input": "[{\"name\":\"sid\",\"value\":\"fixture-token\",\"domain\":\"example.com\",\"path\":\"/\",\"expiry\":0,\"secure\":null,\"http_only\":false}]",
+    "valid": false,
+    "site": "https://example.com/account",
+    "header_error": false
+  },
+  {
+    "name": "wrong-session",
+    "input": "[{\"name\":\"sid\",\"value\":\"fixture-token\",\"domain\":\"example.com\",\"path\":\"/\",\"expiry\":0,\"secure\":false,\"http_only\":false,\"session\":false}]",
+    "valid": false,
+    "site": "https://example.com/account",
+    "header_error": false
+  },
+  {
+    "name": "bad-domain",
+    "input": "[{\"name\":\"sid\",\"value\":\"fixture-token\",\"domain\":\"bad domain\",\"path\":\"/\",\"expiry\":0,\"secure\":false,\"http_only\":false}]",
+    "valid": false,
+    "site": "https://example.com/account",
+    "header_error": false
+  },
+  {
+    "name": "bad-name",
+    "input": "[{\"name\":\"bad;name\",\"value\":\"fixture-token\",\"domain\":\"example.com\",\"path\":\"/\",\"expiry\":0,\"secure\":false,\"http_only\":false}]",
+    "valid": false,
+    "site": "https://example.com/account",
+    "header_error": false
+  },
+  {
+    "name": "expiry-bool",
+    "input": "[{\"name\":\"sid\",\"value\":\"fixture-token\",\"domain\":\"example.com\",\"path\":\"/\",\"expiry\":true,\"secure\":false,\"http_only\":false}]",
+    "valid": false,
+    "site": "https://example.com/account",
+    "header_error": false
+  },
+  {
+    "name": "expired-negative",
+    "input": "[{\"name\":\"sid\",\"value\":\"fixture-token\",\"domain\":\"example.com\",\"path\":\"/\",\"expiry\":-2,\"secure\":false,\"http_only\":false}]",
+    "valid": false,
+    "site": "https://example.com/account",
+    "header_error": false
+  },
+  {
+    "name": "missing-value",
+    "input": "[{\"name\":\"sid\",\"domain\":\"example.com\",\"path\":\"/\",\"expiry\":0,\"secure\":false,\"http_only\":false}]",
+    "valid": false,
+    "site": "https://example.com/account",
+    "header_error": false
+  },
+  {
+    "name": "bad-version",
+    "input": "{\"version\":1,\"cookie\":{\"name\":\"sid\",\"value\":\"fixture-token\",\"domain\":\"example.com\",\"path\":\"/\",\"expiry\":0,\"secure\":false,\"http_only\":false}}",
+    "valid": false,
+    "site": "https://example.com/account",
+    "header_error": false
+  },
+  {
+    "name": "both",
+    "input": "{\"version\":2,\"cookie\":{\"name\":\"sid\",\"value\":\"fixture-token\",\"domain\":\"example.com\",\"path\":\"/\",\"expiry\":0,\"secure\":false,\"http_only\":false},\"cookies\":[]}",
+    "valid": false,
+    "site": "https://example.com/account",
+    "header_error": false
+  },
+  {
+    "name": "null-array",
+    "input": "{\"cookies\":null}",
+    "valid": false,
+    "site": "https://example.com/account",
+    "header_error": false
+  },
+  {
+    "name": "truncated",
+    "input": "[{\"value\":\"fixture-token\"",
+    "valid": false,
+    "site": "https://example.com/account",
+    "header_error": false
+  },
+  {
+    "name": "bad-jar",
+    "input": "example.com\tFALSE\t/\tFALSE\t-1\tsid\tfixture-token",
+    "valid": false,
+    "site": "https://example.com/account",
+    "header_error": false
+  },
+  {
+    "name": "empty",
+    "input": "",
+    "valid": false,
+    "site": "https://example.com/account",
+    "header_error": false
+  },
+  {
+    "name": "unicode-whitespace",
+    "input": "\u00a0[{\"name\":\"sid\",\"value\":\"fixture-token\",\"domain\":\"example.com\",\"path\":\"/\",\"expiry\":0,\"secure\":false,\"http_only\":false}]\u0085",
+    "valid": true,
+    "site": "https://example.com/account",
+    "header_error": false,
+    "cookies": [
+      {
+        "name": "sid",
+        "value": "fixture-token",
+        "domain": "example.com",
+        "path": "/",
+        "expiry": 0,
+        "secure": false,
+        "http_only": false
+      }
+    ],
+    "header": "sid=fixture-token",
+    "jar": "# Netscape HTTP Cookie File\n# Exported by CTX; SameSite and source metadata are not represented.\nexample.com\tFALSE\t/\tFALSE\t0\tsid\tfixture-token\n"
+  }
+]

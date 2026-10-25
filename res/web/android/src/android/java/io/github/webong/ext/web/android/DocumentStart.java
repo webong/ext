@@ -6,7 +6,7 @@ import java.lang.reflect.Method;
 import java.util.Collections;
 import java.util.Set;
 
-/** Optional AndroidX WebKit linkage, isolated in the owning adapter. No late-injection fallback. */
+/** Optional AndroidX WebKit linkage, isolated in the native source set. No late-injection fallback. */
 final class DocumentStart {
     private final Method supported;
     private final Method add;

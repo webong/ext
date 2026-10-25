@@ -47,7 +47,7 @@ done
 # classes.jar (Java 17, which the guest SDK uses; the app's D8 desugars it): the guest SDK and the WebView host, plus the WAMR host classes when requested.
 mkdir -p "$work/classes"
 # The plugin code and the WebView host are this package's; the web rules are res/web/android's.
-sources=($(find "$pkg/src/main/java" "$pkg/src/android/java" res/web/android/src/main/java adapters/android_webview/android/src/main/java -name '*.java' | grep -v '/Wamr[A-Za-z]*\.java$'))
+sources=($(find "$pkg/src/main/java" "$pkg/src/android/java" res/web/android/src/main/java res/web/android/src/android/java -name '*.java' | grep -v '/Wamr[A-Za-z]*\.java$'))
 [[ -z "$with_wamr" ]] || sources+=($(find "$pkg/src/main/java" -name 'Wamr*.java'))
 javac -Xlint:all --release 17 -classpath "$jar" -d "$work/classes" "${sources[@]}"
 ( cd "$work/classes" && jar cf "$work/aar/classes.jar" . )

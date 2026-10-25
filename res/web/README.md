@@ -49,7 +49,7 @@ See [browser profile and page management](../../docs/browser-management.md),
 
 `WorkspaceScripts.prepare` in the mobile modules validates a complete set of
 reviewed userscript records, rejects duplicate IDs and target mismatches, and
-generates replay source for enabled records. Native workspace ownership stays in
-[`adapters/webkit`](../../adapters/webkit/README.md) and
-[`adapters/android_webview`](../../adapters/android_webview/README.md), shipped by
-the platform SDKs. The portable modules import neither native webview framework.
+generates replay source for enabled records. Native workspaces also live here:
+[`ios/Sources/ExtWebKit`](ios/WORKSPACE.md) and
+[`android/src/android`](android/WORKSPACE.md), shipped by the platform SDKs.
+Separate targets/source sets keep the portable rules free of native webview imports.

@@ -13,4 +13,3 @@
 
 .DS_Store
 __pycache__/
-/adapters/webkit/.build/

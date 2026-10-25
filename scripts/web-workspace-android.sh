@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build and run the native adapter integration test. Provide AndroidX WebKit 1.9+ classes.jar
+# Build and run the native workspace integration test. Provide AndroidX WebKit 1.9+ classes.jar
 # and its runtime dependency jars (colon-separated) in EXT_ANDROIDX_CLASSPATH. Nothing is fetched.
 # Requires an already running device/emulator; ANDROID_SERIAL selects it.
 set -euo pipefail
@@ -16,13 +16,13 @@ trap '"$adb" uninstall "$package" >/dev/null 2>&1 || true; rm -rf "$work"' EXIT
 mkdir -p "$work/classes" "$work/dex"
 javac --release 11 -Xlint:all -Werror -classpath "$platform" -d "$work/classes" \
   res/web/android/src/main/java/io/github/webong/ext/web/*.java \
-  adapters/android_webview/android/src/main/java/io/github/webong/ext/web/android/*.java \
-  adapters/android_webview/android/src/androidTest/java/io/github/webong/ext/web/workspacetest/*.java
+  res/web/android/src/android/java/io/github/webong/ext/web/android/*.java \
+  res/web/android/src/androidTest/java/io/github/webong/ext/web/workspacetest/*.java
 IFS=: read -r -a dependencies <<< "$EXT_ANDROIDX_CLASSPATH"
 "$build_tools/d8" --lib "$platform" --min-api 24 --output "$work/dex" \
   $(find "$work/classes" -name '*.class') "${dependencies[@]}"
 "$build_tools/aapt2" link -o "$work/base.apk" -I "$platform" \
-  --manifest adapters/android_webview/android/src/androidTest/AndroidManifest.xml --min-sdk-version 24 --target-sdk-version 34
+  --manifest res/web/android/src/androidTest/AndroidManifest.xml --min-sdk-version 24 --target-sdk-version 34
 (cd "$work/dex" && zip -q "$work/base.apk" classes*.dex)
 "$build_tools/zipalign" -f -p 4 "$work/base.apk" "$work/aligned.apk"
 keytool -genkeypair -keystore "$work/key" -storepass android -keypass android -alias debug \

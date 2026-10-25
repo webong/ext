@@ -273,7 +273,7 @@ code, so a native plugin must ship inside the signed app bundle or package.
 ## Browser workspace
 
 The AAR includes `io.github.webong.ext.web.android.BrowserWorkspace` from
-[`adapters/android_webview`](../../adapters/android_webview/README.md). It provides
+[`res/web/android`](../../res/web/android/WORKSPACE.md). It provides
 a native page and navigation/state callbacks, using `res/web` for reviewed
 userscript preparation. Document-start scripts require the consuming app to add
 AndroidX WebKit 1.9+ and an installed WebView supporting that feature; navigation

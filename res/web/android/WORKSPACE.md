@@ -1,8 +1,8 @@
 # Android WebView browser workspace
 
-`android/src/main/java/io/github/webong/ext/web/android` owns Android WebView
+`res/web/android/src/android/java/io/github/webong/ext/web/android` owns Android WebView
 behavior. `pkg/ext-android` compiles it into its AAR alongside `res/web/android`.
-This is an embedded library, not a CTX process plugin. Adapted from POS/Xallet's
+This is the native source set of the web resource module. Adapted from POS/Xallet's
 workspace, with Expo, app identity, persistent history and Passport storage removed.
 
 ```java
@@ -23,7 +23,7 @@ page.close();
 
 Navigation needs only the Android SDK (API 24+). Userscripts require the consuming
 app to add `androidx.webkit:webkit:1.9.0` or newer and the installed WebView to support
-`DOCUMENT_START_SCRIPT`. The adapter resolves these optional APIs reflectively;
+`DOCUMENT_START_SCRIPT`. The workspace resolves these optional APIs reflectively;
 the SDK supplies R8 consumer rules. AndroidX is not bundled or required for other
 SDK features. Unsupported registration throws; there is no late-injection fallback.
 See the official [WebViewCompat API](https://developer.android.com/reference/androidx/webkit/WebViewCompat).

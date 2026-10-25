@@ -11,4 +11,4 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 [[ "$(uname -s)" == Darwin ]] || { echo 'web-ios.sh needs macOS (ExtWeb uses CryptoKit)' >&2; exit 1; }
 scratch="${1:-$(mktemp -d "${TMPDIR:-/tmp}/ext-web-swift.XXXXXX")}"
-swift test --package-path res/web/ios --scratch-path "$scratch"
+swift test --package-path res/web/ios --filter ExtWebTests --scratch-path "$scratch"

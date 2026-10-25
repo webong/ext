@@ -157,7 +157,3 @@ variable `CTX_COMPUTER_HOOK_COMMAND`) with the event name, and plugin operations
 delegate to each CLI's native plugin subcommand. `ctx computer hooks install`
 writes the CLI's project settings and records the selected handler and events
 in the local `.ctx` file.
-
-`webkit` and `android_webview` are embedded mobile browser workspace libraries,
-not process plugins. They own native view lifecycle and document-start injection;
-portable rules remain in `res/web`. See their READMEs for SDK integration.

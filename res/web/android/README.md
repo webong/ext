@@ -50,3 +50,10 @@ String source = Bookmarklet.decode(url);                        // back to sourc
 scripts/web-android.sh        # javac -Xlint:all -Werror and the tests; needs a JDK only
 ```
 
+
+## Native browser workspace
+
+The `src/android` source set owns the Android WebView workspace and uses the
+portable rules in `src/main`. `pkg/ext-android` compiles both into its AAR.
+The JDK-only rules tests still build only `src/main` and `src/test`; native tests
+live in `src/androidTest`. See [workspace usage](WORKSPACE.md).

@@ -1,9 +1,9 @@
 # WebKit browser workspace
 
-`ios/Sources/ExtWebKit` owns WKWebView behavior. Build independently with
-`swift test --package-path adapters/webkit`, or use the `ExtWebKit` product of
+`res/web/ios/Sources/ExtWebKit` owns WKWebView behavior. Build independently with
+`swift test --package-path res/web/ios --filter ExtWebKitTests`, or use the `ExtWebKit` product of
 `pkg/ext-ios`. The SDK links these sources and stages real copies for releases.
-This is an embedded adapter library, not a CTX process plugin.
+This is the native workspace target of the web resource module.
 
 Adapted from POS/Xallet's browser workspace. Expo, app identity, persistent
 history, encrypted Passport storage and event routing are not dependencies.

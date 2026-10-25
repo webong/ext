@@ -17,6 +17,15 @@ own paths, identifiers, capabilities, and policy through configuration.
 Apply this boundary when bringing code into CTX: move provider-specific behavior
 into the owning adapter before wiring it into shared workflows.
 
+A platform implementation of a portable public-library API is not an adapter
+merely because it calls a native framework. Keep those implementations beside
+their portable contract in the owning library. An adapter represents a
+selectable external product, provider, browser, or native service and supplies
+that selection through an adapter capability or backend. For example, Safari
+and Chrome integration belongs in their adapters, while the WKWebView and
+Android WebView implementations of the public `res/web` workspace API belong in
+`res/web/ios` and `res/web/android`.
+
 # Public libraries
 
 `pkg/` is the home for reusable libraries. CTX adapters and other
@@ -156,13 +165,16 @@ mobile SDKs are named for their platforms because they are native to them:
 `pkg/ext-android` (Java, with Kotlin through the same API). Each is the one package an app adds
 for a platform and ships both the plugin code (guest SDK, WebView and WAMR hosts), which is
 written there, and the web code (the cookie, userscript and bookmarklet rules), which is not:
-`res/web` is a Go module and also the iOS module (`res/web/ios`, the SwiftPM package `ExtWeb`)
-and the Android module (`res/web/android`, the Java package `io.github.webong.ext.web`) of the
-same rules, checked against one set of fixtures. The mobile modules in `res/web` import nothing of
-the plugin code or the C engine and build and test with Swift or a JDK alone
+`res/web` is a Go module and also the iOS module (`res/web/ios`, the SwiftPM packages `ExtWeb`
+and `ExtWebKit`) and the Android module (`res/web/android`, the Java packages
+`io.github.webong.ext.web` and `io.github.webong.ext.web.android`) of the same web library.
+Portable rules are checked against one set of fixtures; native workspace targets and source sets
+remain separate from those portable rules. The mobile modules in `res/web` import nothing of
+the plugin code or the C engine and build and test with Swift or a JDK/Android SDK
 (`scripts/web-ios.sh`, `scripts/web-android.sh`, `scripts/web-differential.sh`); `pkg/ext-ios`
-reaches `res/web/ios` through the link `Sources/ExtWeb` (a release stages a real copy), and
-`pkg/ext-android` compiles `res/web/android` into its AAR. Edit web code in `res/web`, never in
+reaches `res/web/ios` through the links `Sources/ExtWeb` and `Sources/ExtWebKit` (a release stages
+real copies), and `pkg/ext-android` compiles the portable and Android source sets from
+`res/web/android` into its AAR. Edit web code in `res/web`, never in
 the SDKs. Keep
 `pkg/ext-go` focused on the contract, the engine API and runtime backends. The Go-to-C guest binding belongs in
 `pkg/ext-go/cgoengine/cshared/guest`. The language-neutral C ABI header
@@ -175,11 +187,11 @@ Moving a library into or out of `pkg/` changes public import paths. Update
 `AGENTS.md`, the docs, and the language SDKs together, and verify with
 `go build ./...` and `go vet ./...`.
 
-Mobile browser workspaces are native adapter libraries: `adapters/webkit` owns
-WKWebView (`ios/Sources/ExtWebKit`, exposed by `pkg/ext-ios` through a source link),
-and `adapters/android_webview` owns Android WebView and optional AndroidX
-document-start integration (compiled into the `pkg/ext-android` AAR). They are
-not CTX process plugins. Portable reviewed-userscript preparation stays in
-`res/web/ios` and `res/web/android`; keep Expo, app identity, storage policy, and
-UI out of these libraries. Native changes are tested with
+Mobile browser workspaces are platform implementations of the public `res/web`
+API, not product adapters. WKWebView code lives in `res/web/ios/Sources/ExtWebKit`
+and is exposed by `pkg/ext-ios`; Android WebView and optional AndroidX
+document-start integration live in `res/web/android/src/android` and are compiled
+into the `pkg/ext-android` AAR. Portable reviewed-userscript preparation stays in
+the portable targets and source sets. Keep Expo, app identity, storage policy,
+and UI out of these libraries. Native changes are tested with
 `scripts/web-workspace-ios.sh` and `scripts/web-workspace-android.sh`.

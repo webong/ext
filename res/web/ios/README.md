@@ -51,3 +51,11 @@ let source = try Bookmarklet.decode(url)                            // back to s
 scripts/web-ios.sh            # swift test of this package; needs Swift, not the engine xcframework
 ```
 
+
+## Native browser workspace
+
+The separate `ExtWebKit` target in this package owns the WKWebView workspace and
+uses the portable `ExtWeb` userscript rules. Both products are shipped by
+`pkg/ext-ios`; native source lives here. See [workspace usage](WORKSPACE.md).
+`scripts/web-ios.sh` selects the portable rules tests;
+`scripts/web-workspace-ios.sh` selects the native WebKit integration tests.

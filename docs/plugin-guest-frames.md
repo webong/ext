@@ -4,10 +4,11 @@ The Go guest (`jsonline.ServeGuest`) can report progress while a call runs and c
 back into its host; the C engine hosts both ([ADR](adr-plugin-reverse-progress-endpoints.md),
 [engine parity](plugin-engine-parity.md)). This is the plan and the contract for
 bringing the same to the guests the language SDKs serve over JSON lines: Rust,
-TypeScript, Java, Python and Zig. Swift has no JSON-line guest and is left out until
-one is wanted. The C ABI, WebAssembly reactors and HashiCorp have no frame channel
-and are out of scope, as are the host sides of these SDKs (they would reject a
-guest's frames).
+TypeScript, Java, Python, Zig and Swift. The C ABI, WebAssembly reactors and HashiCorp
+have no frame channel and are out of scope, as are the host sides of these SDKs (they
+would reject a guest's frames). A Swift guest exported through the C ABI (`ExtPluginExports`)
+therefore reports `unsupported`; the frames are for `JSONLine`, which serves a guest as a
+process, or over pipes an app opens itself, since iOS cannot spawn one.
 
 ## What a guest must do
 
@@ -47,7 +48,7 @@ waiter; a read step that classifies a frame as a request (queued for the call lo
 a reverse response (handed to its waiter) or a violation. It runs in one of two modes
 behind one API.
 
-- **Threaded or async** (Rust native, Java, TypeScript): a dedicated reader. The
+- **Threaded or async** (Rust native, Java, TypeScript, Swift): a dedicated reader. The
   handler runs on the call loop. Several reverse calls may be outstanding at once, and
   a session-scoped call may be made from background work after a call returned.
 - **Inline** (WebAssembly commands, Zig, Python): no reader. The thread that waits for
@@ -72,7 +73,7 @@ Go's `plugin.ProgressFrom` and `ReverseFrom` behave there.
 
 ## Fixtures
 
-The Go contract is the oracle. `pkg/plugin-go/engine/sdk_fixtures_test.go`
+The Go contract is the oracle. `pkg/ext-go/engine/sdk_fixtures_test.go`
 computes these files from it, checks the committed copies against them, and rewrites
 them with `EXT_UPDATE_FIXTURES=1`. Each SDK reproduces every outcome, as for
 `endpoint-cases.json`; the C engine does too (`lib/plugin/tests/fixtures.c`).
@@ -88,7 +89,7 @@ them with `EXT_UPDATE_FIXTURES=1`. Each SDK reproduces every outcome, as for
 `lib/plugin/testdata/v1/frames-descriptor.json` is the descriptor every language's
 frames guest serves (identity `ctx/frames`, revision `fixture-1`); `plugintest.FramesGuest`
 is the reference. `plugintest.RunFrames` hosts a guest process through the Go session,
-and `pkg/plugin-go/crosslang` runs the same suite through the C engine too, over a Go
+and `pkg/ext-go/crosslang` runs the same suite through the C engine too, over a Go
 client and with the engine owning the process (`TestFramesGuests`; a language
 joins by setting `EXT_<LANGUAGE>_FRAMES_GUEST` to its guest process). Results are JSON;
 key order does not matter.
@@ -135,6 +136,7 @@ and the in-flight bound.
 | 3 | Java: reader thread, `Call` progress and reverse, descriptor model | done |
 | 4 | Python: inline mode | done |
 | 5 | Zig: inline mode, written without a local compiler | done |
+| 6 | Swift: reader thread, `Call.progress` and `Call.reverse`, `JSONLine`; the type is `ProgressEvent` because Foundation has a `Progress` | done |
 
 Each phase ends with its guest passing the fixtures and `TestFramesGuests` through the
 Go session and the C engine, its own tests, and the docs of its SDK.

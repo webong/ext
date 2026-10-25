@@ -32,9 +32,9 @@ cmake -S lib/plugin -B "$build_dir/release" -DCMAKE_BUILD_TYPE=Release -DEXT_BUI
 cmake --build "$build_dir/release" -j 4
 export CGO_LDFLAGS="${CGO_LDFLAGS:-} -L$build_dir/release -Wl,-rpath,$build_dir/release"
 export EXT_CENGINE_GUEST="$build_dir/go-guest" EXT_CENGINE_FAULT_GUEST="$build_dir/fault-guest"
-go build -o "$EXT_CENGINE_GUEST" ./pkg/plugin-go/crosslang/testdata/go-guest
-go build -o "$EXT_CENGINE_FAULT_GUEST" ./pkg/plugin-go/cgoengine/testdata/faultguest
-go test -tags "$go_tags" -race -count=1 -timeout=90s ./pkg/plugin-go/cgoengine
+go build -o "$EXT_CENGINE_GUEST" ./pkg/ext-go/crosslang/testdata/go-guest
+go build -o "$EXT_CENGINE_FAULT_GUEST" ./pkg/ext-go/cgoengine/testdata/faultguest
+go test -tags "$go_tags" -race -count=1 -timeout=90s ./pkg/ext-go/cgoengine
 python3 - "$build_dir" <<'PY'
 import json, pathlib, sys, datetime
 p=pathlib.Path(sys.argv[1]);d=json.loads(pathlib.Path('lib/plugin/testdata/v1/descriptor.json').read_text())
@@ -75,27 +75,27 @@ cmake --build "$build_dir/thread-sanitize" -j 4
 "$build_dir/thread-sanitize/ext_host_native_test" "$EXT_CENGINE_GUEST" "$build_dir/descriptor.json" "$build_dir/echo.json" "$build_dir/wait.json"
 for foreign in "${EXT_CENGINE_RUST_GUEST:-}" "${EXT_CENGINE_ZIG_GUEST:-}"; do
   if [[ -n "$foreign" ]]; then
-    EXT_CENGINE_GUEST="$foreign" go test -tags "$go_tags" -race -count=1 -run '^TestConformance$' ./pkg/plugin-go/cgoengine
+    EXT_CENGINE_GUEST="$foreign" go test -tags "$go_tags" -race -count=1 -run '^TestConformance$' ./pkg/ext-go/cgoengine
   fi
 done
-cargo fmt --manifest-path pkg/plugin-rust/engine/Cargo.toml -- --check
-EXT_ENGINE_LIB_DIR="$build_dir/release" RUSTFLAGS="-C link-arg=-Wl,-rpath,$build_dir/release" cargo test "${rust_features[@]}" --locked --manifest-path pkg/plugin-rust/engine/Cargo.toml
-"$zig_bin" fmt --check pkg/plugin-zig/engine
-"$zig_bin" build --build-file pkg/plugin-zig/engine/build.zig -Dengine-include="$PWD/lib/plugin/include" -Dengine-lib="$build_dir/release" -Dshared="$([[ "$linkage" == shared ]] && echo true || echo false)" test
-cargo fmt --manifest-path pkg/plugin-rust/examples/cengine/Cargo.toml -- --check
-RUSTFLAGS="-L native=$build_dir/release -C link-arg=-Wl,-rpath,$build_dir/release" cargo build "${rust_features[@]}" --locked --manifest-path pkg/plugin-rust/examples/cengine/Cargo.toml
-"$zig_bin" fmt --check pkg/plugin-zig/examples/cengine/main.zig
-"$zig_bin" build-exe pkg/plugin-zig/examples/cengine/main.zig -O ReleaseSafe -L "$build_dir/release" "${engine_link[@]}" -lc -rpath "$build_dir/release" -femit-bin="$build_dir/zig-host"
+cargo fmt --manifest-path pkg/ext-rust/engine/Cargo.toml -- --check
+EXT_ENGINE_LIB_DIR="$build_dir/release" RUSTFLAGS="-C link-arg=-Wl,-rpath,$build_dir/release" cargo test "${rust_features[@]}" --locked --manifest-path pkg/ext-rust/engine/Cargo.toml
+"$zig_bin" fmt --check pkg/ext-zig/engine
+"$zig_bin" build --build-file pkg/ext-zig/engine/build.zig -Dengine-include="$PWD/lib/plugin/include" -Dengine-lib="$build_dir/release" -Dshared="$([[ "$linkage" == shared ]] && echo true || echo false)" test
+cargo fmt --manifest-path pkg/ext-rust/examples/cengine/Cargo.toml -- --check
+RUSTFLAGS="-L native=$build_dir/release -C link-arg=-Wl,-rpath,$build_dir/release" cargo build "${rust_features[@]}" --locked --manifest-path pkg/ext-rust/examples/cengine/Cargo.toml
+"$zig_bin" fmt --check pkg/ext-zig/examples/cengine/main.zig
+"$zig_bin" build-exe pkg/ext-zig/examples/cengine/main.zig -O ReleaseSafe -L "$build_dir/release" "${engine_link[@]}" -lc -rpath "$build_dir/release" -femit-bin="$build_dir/zig-host"
 node_link=()
 if [[ "$(uname -s)" == Darwin ]]; then node_link=(-undefined dynamic_lookup); fi
-"${CC:-cc}" -std=c11 -Wall -Wextra -Werror -O2 -shared -fPIC "${node_link[@]}" -I "$node_include" -I lib/plugin/include pkg/plugin-ts/examples/cengine/addon.c -L "$build_dir/release" "${engine_link[@]}" "${engine_cflags[@]}" -Wl,-rpath,"$build_dir/release" -o "$build_dir/ext_host.node"
-"${CC:-cc}" -std=c11 -Wall -Wextra -Werror -O2 -shared -fPIC "${node_link[@]}" -I "$node_include" -I lib/plugin/include pkg/plugin-ts/engine/addon.c -L "$build_dir/release" "${engine_link[@]}" "${engine_cflags[@]}" -Wl,-rpath,"$build_dir/release" -o "$build_dir/ext_engine.node"
-EXT_ENGINE_ADDON="$build_dir/ext_engine.node" node --test pkg/plugin-ts/engine/test.mjs
-go build -tags "$go_tags" -o "$build_dir/go-host" ./pkg/plugin-go/cgoengine/examples/host
+"${CC:-cc}" -std=c11 -Wall -Wextra -Werror -O2 -shared -fPIC "${node_link[@]}" -I "$node_include" -I lib/plugin/include pkg/ext-ts/examples/cengine/addon.c -L "$build_dir/release" "${engine_link[@]}" "${engine_cflags[@]}" -Wl,-rpath,"$build_dir/release" -o "$build_dir/ext_host.node"
+"${CC:-cc}" -std=c11 -Wall -Wextra -Werror -O2 -shared -fPIC "${node_link[@]}" -I "$node_include" -I lib/plugin/include pkg/ext-ts/engine/addon.c -L "$build_dir/release" "${engine_link[@]}" "${engine_cflags[@]}" -Wl,-rpath,"$build_dir/release" -o "$build_dir/ext_engine.node"
+EXT_ENGINE_ADDON="$build_dir/ext_engine.node" node --test pkg/ext-ts/engine/test.mjs
+go build -tags "$go_tags" -o "$build_dir/go-host" ./pkg/ext-go/cgoengine/examples/host
 "$build_dir/go-host" "$EXT_CENGINE_GUEST" "$build_dir/descriptor.json" "$build_dir/echo.json" "$build_dir/public-error.json" > "$build_dir/go.jsonl"
 "$CARGO_TARGET_DIR/debug/ext-cengine-example" "$EXT_CENGINE_GUEST" "$build_dir/descriptor.json" "$build_dir/echo.json" "$build_dir/public-error.json" > "$build_dir/rust.jsonl"
 "$build_dir/zig-host" "$EXT_CENGINE_GUEST" "$build_dir/descriptor.json" "$build_dir/echo.json" "$build_dir/public-error.json" > "$build_dir/zig.jsonl"
-node pkg/plugin-ts/examples/cengine/host.cjs "$build_dir/ext_host.node" "$EXT_CENGINE_GUEST" "$build_dir/descriptor.json" "$build_dir/echo.json" "$build_dir/public-error.json" > "$build_dir/node.jsonl"
+node pkg/ext-ts/examples/cengine/host.cjs "$build_dir/ext_host.node" "$EXT_CENGINE_GUEST" "$build_dir/descriptor.json" "$build_dir/echo.json" "$build_dir/public-error.json" > "$build_dir/node.jsonl"
 python3 - "$build_dir" <<'PY'
 import json,pathlib,sys
 p=pathlib.Path(sys.argv[1])
@@ -110,7 +110,7 @@ if [[ "${EXT_CENGINE_SKIP_BENCH:-0}" == 1 ]]; then
   echo "Conformance artifacts: $build_dir"
   exit 0
 fi
-go build -tags "$go_tags" -o "$build_dir/bench" ./pkg/plugin-go/bench
+go build -tags "$go_tags" -o "$build_dir/bench" ./pkg/ext-go/bench
 : > "$build_dir/benchmarks.jsonl"
 # Each sample is a fresh process. Alternate order to reduce warm-cache bias.
 for repetition in 1 2 3; do

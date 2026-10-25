@@ -298,10 +298,10 @@ and [the graph design](docs/adr-graph-runtime.md).
 CTX and its ecosystem share public Go libraries:
 
 - `github.com/webong/ext/res/system` supplies generic graph storage and transactions.
-- `github.com/webong/ext/pkg/plugin-go` supplies the shared host/guest contract,
+- `github.com/webong/ext/pkg/ext-go` supplies the shared host/guest contract,
   validation, selection, admission, and session lifecycle. Its implementations
-  include `pkg/plugin-go/engine/transport/inprocess`, `pkg/plugin-go/engine/transport/jsonline`, `pkg/plugin-go/hashicorp` (net/rpc and
-  gRPC), `pkg/plugin-go/engine/host/nativego`, `pkg/plugin-go/wasm` (WASI Preview 1), and `pkg/plugin-go/cgoengine/cshared`
+  include `pkg/ext-go/engine/transport/inprocess`, `pkg/ext-go/engine/transport/jsonline`, `pkg/ext-go/hashicorp` (net/rpc and
+  gRPC), `pkg/ext-go/engine/host/nativego`, `pkg/ext-go/wasm` (WASI Preview 1), and `pkg/ext-go/cgoengine/cshared`
   (versioned C ABI). All use the same typed authoring and host session APIs.
 - `github.com/webong/ext/res/system/supervisor` supplies local process supervision when
   the selected plugin backend does not already own its process lifecycle.
@@ -310,7 +310,7 @@ CTX and its ecosystem share public Go libraries:
 - `github.com/webong/ext/res/credential` supplies portable credential serving and
   the CTX credential client.
 
-Both `res` modules and `pkg/plugin-go` depend only on the Go standard library, so
+Both `res` modules and `pkg/ext-go` depend only on the Go standard library, so
 consumers that do not need a runtime backend never download the HashiCorp or
 WASI stacks.
 
@@ -319,7 +319,7 @@ libraries. Each is published as its own Go module under a shared major version;
 see [module versioning](docs/module-versioning.md). Domain behavior and
 authorization remain with each consumer.
 See the [plugin contract](docs/adr-plugin-contract.md) and the
-[HashiCorp backend guide](pkg/plugin-go/hashicorp/README.md). The
+[HashiCorp backend guide](pkg/ext-go/hashicorp/README.md). The
 [runtime authoring guide](docs/plugin-runtimes.md) shows one implementation built
 as a Go plugin, a WASI command, or a C shared library.
 
@@ -347,9 +347,9 @@ package manifests, dependency graphs and conformance tests. Runtime backends
 remain inside the reusable plugin library, including HashiCorp go-plugin.
 
 ```sh
-go run ./pkg/plugin-go/examples/plugin-sdk --backend jsonline
-go run ./pkg/plugin-go/examples/plugin-typescript
-go run ./pkg/plugin-go/hashicorp/cmd/ext-plugin inspect --root pkg/plugin-go/examples/plugin-package --entry main pkg/plugin-go/examples/plugin-package/plugin.json
+go run ./pkg/ext-go/examples/plugin-sdk --backend jsonline
+go run ./pkg/ext-go/examples/plugin-typescript
+go run ./pkg/ext-go/hashicorp/cmd/ext-plugin inspect --root pkg/ext-go/examples/plugin-package --entry main pkg/ext-go/examples/plugin-package/plugin.json
 ```
 
 Inspection validates metadata and content without starting plugins. CTX adapters

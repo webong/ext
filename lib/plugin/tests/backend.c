@@ -3,7 +3,7 @@
  * plugin would send (ext_host_backend_progress, ext_host_backend_reverse_admit and
  * _run), from its own threads where a transport would. Each mode of the backend
  * asks for one thing, so every refusal, every way a hook can answer and every
- * framing violation has a case. The Go differential tests in pkg/plugin-go/cgoengine
+ * framing violation has a case. The Go differential tests in pkg/ext-go/cgoengine
  * run the same scenarios through the pure-Go session and compare. */
 #include "progress.h"
 #include "reverse.h"

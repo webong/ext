@@ -4,16 +4,16 @@ Status: accepted and built on the engine stack (`engine/c2goengine`, the `cengin
 `cgoengine` rename, the selection package, and the `contract` → `engine` rename with the
 selection in `core`). The branches are pull requests; tags are the coordinator's.
 
-The C engine in `lib/plugin` can be reached three ways, and `pkg/plugin-go` picks between
+The C engine in `lib/plugin` can be reached three ways, and `pkg/ext-go` picks between
 them. The three are named alike, as engines:
 
 | engine | module | needs | role |
 | --- | --- | --- | --- |
-| the pure-Go engine | `pkg/plugin-go/engine` (formerly `contract`) | nothing | the **oracle**: written separately, so a bug in the C cannot hide in it; also the portable default |
-| the C engine through cgo | `pkg/plugin-go/cgoengine` (formerly `cengine`) | cgo and `libext_host_static` | the C itself at native speed |
-| the C engine translated to Go | `pkg/plugin-go/c2goengine` | nothing (Go 1.26 for the module) | the C run as Go by ccgo: about twice as slow as native, about twice as fast as the oracle on the services measured |
+| the pure-Go engine | `pkg/ext-go/engine` (formerly `contract`) | nothing | the **oracle**: written separately, so a bug in the C cannot hide in it; also the portable default |
+| the C engine through cgo | `pkg/ext-go/cgoengine` (formerly `cengine`) | cgo and `libext_host_static` | the C itself at native speed |
+| the C engine translated to Go | `pkg/ext-go/c2goengine` | nothing (Go 1.26 for the module) | the C run as Go by ccgo: about twice as slow as native, about twice as fast as the oracle on the services measured |
 
-The package that chooses between them is `pkg/plugin-go/core`, in the umbrella module.
+The package that chooses between them is `pkg/ext-go/core`, in the umbrella module.
 
 `engine/plugintest/enginetest` holds an engine against the oracle with 28 checks (services,
 sessions over a Go backend, engine-owned child processes, instances). The cgo engine and the
@@ -39,7 +39,7 @@ unchanged apart from the path. The plugin contract as a concept (`ContractRef`, 
 `contract` field of the wire format) keeps its name, and so does everything inside the module:
 only the module moved.
 
-**One selection point, in the umbrella.** `pkg/plugin-go/core` is a package of the umbrella
+**One selection point, in the umbrella.** `pkg/ext-go/core` is a package of the umbrella
 module, so the three engine modules stay as they are and only the umbrella requires all
 three. Its `Engine` interface is the surface `enginetest.Engine` already uses, with the types
 the engines share:
@@ -85,7 +85,7 @@ by name.
 A module path and its tags are a pair (see `docs/module-versioning.md`, the sections on
 `cengine` and `contract`), so each rename is a new module, not a new version:
 
-- The tags of `pkg/plugin-go/cengine` (v0.2.0 to v0.8.0) and of `pkg/plugin-go/contract`
+- The tags of `pkg/ext-go/cengine` (v0.2.0 to v0.8.0) and of `pkg/ext-go/contract`
   (v0.2.0 to v0.8.0) are immutable. They stay resolvable for anything that requires the old
   paths, and no further tags are cut on them. Hard cut, as in development: no forwarding
   module, no alias package.
@@ -129,4 +129,4 @@ A module path and its tags are a pair (see `docs/module-versioning.md`, the sect
   time and a cgo call at run time, so a program that crosses the boundary often and calls the
   engine rarely may prefer the translation. That is a policy knob for the host application,
   not a default.
-- Windows for the translated engine; see `pkg/plugin-go/c2goengine/README.md`.
+- Windows for the translated engine; see `pkg/ext-go/c2goengine/README.md`.

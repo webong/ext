@@ -189,6 +189,47 @@ func TestFixtureRecords(t *testing.T) {
 	}
 }
 
+func TestFixtureReplay(t *testing.T) {
+	var f struct {
+		Cases []struct {
+			Name           string   `json:"name"`
+			ID             string   `json:"id"`
+			Revision       string   `json:"revision"`
+			Source         string   `json:"source"`
+			Matches        []string `json:"matches"`
+			ExcludeMatches []string `json:"excludeMatches"`
+			Expect         string   `json:"expect"`
+			Error          string   `json:"error"`
+		} `json:"cases"`
+	}
+	load(t, "replay.json", &f)
+	if len(f.Cases) == 0 {
+		t.Fatal("no cases")
+	}
+	for _, c := range f.Cases {
+		t.Run(c.Name, func(t *testing.T) {
+			got, err := ReplaySource(c.ID, c.Revision, c.Source, c.Matches, c.ExcludeMatches)
+			if c.Error != "" {
+				if err == nil {
+					t.Fatalf("want error %q, got a script", c.Error)
+				}
+				// "-" stands for a failure that is not a record rule, which has no code.
+				want := c.Error
+				if want == "-" {
+					want = ""
+				}
+				if ErrorCode(err) != want {
+					t.Fatalf("want error code %q, got %q (%v)", want, ErrorCode(err), err)
+				}
+				return
+			}
+			if err != nil || got != c.Expect {
+				t.Fatalf("got %q, %v\nwant %q", got, err, c.Expect)
+			}
+		})
+	}
+}
+
 func TestErrorCodeIgnoresForeignErrors(t *testing.T) {
 	if ErrorCode(nil) != "" || ErrorCode(os.ErrNotExist) != "" {
 		t.Fatal("foreign errors have no code")

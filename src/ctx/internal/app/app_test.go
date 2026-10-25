@@ -3,7 +3,7 @@ package app
 import (
 	"bytes"
 	"context"
-	modpkg "github.com/webong/ext/pkg/plugin-go/engine/host/adapter"
+	modpkg "github.com/webong/ext/pkg/ext-go/engine/host/adapter"
 	"os"
 	"path/filepath"
 	"runtime"

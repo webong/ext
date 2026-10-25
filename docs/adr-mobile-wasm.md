@@ -9,7 +9,7 @@ from a project's own README on 2026-10-08) or **unverified**.
 A Swift or Kotlin app that hosts third-party ext plugins cannot load downloaded
 native code: iOS and Google Play forbid it (**unverified**: the exact store rules
 were not read). Interpreted WebAssembly is the usual way around that. The shared C
-engine in `lib/plugin` has no WebAssembly runtime, and `pkg/plugin-go/wasm` uses
+engine in `lib/plugin` has no WebAssembly runtime, and `pkg/ext-go/wasm` uses
 wazero, which is Go. What should mobile hosts use?
 
 ## Option 1: a C-callable interpreter in `lib/plugin`
@@ -117,7 +117,7 @@ with caller-owned buffers. A guest compiled to WebAssembly that **exports** thos
 functions (a reactor) needs no blocking input, no Worker and no isolation. The page,
 or any interpreter, just calls the exports. The contract, including the allocation
 exports WebAssembly memory needs, is [the reactor ABI](plugin-reactor-abi.md); a
-reactor guest and a Go host (`wasm.OpenReactor` in `pkg/plugin-go/wasm`) pass the
+reactor guest and a Go host (`wasm.OpenReactor` in `pkg/ext-go/wasm`) pass the
 cross-language conformance suite.
 
 ## Decision
@@ -182,5 +182,5 @@ device has been used.
 - WAMR on a physical device (it was built for and run on the iOS Simulator and an Android
   emulator), and wasmi, which was not built for either.
 
-The Swift and Java bindings belong to the mobile SDK work (`pkg/plugin-ios`,
-`pkg/plugin-android`). This record covers only how a mobile host runs WebAssembly.
+The Swift and Java bindings belong to the mobile SDK work (`pkg/ext-ios`,
+`pkg/ext-android`). This record covers only how a mobile host runs WebAssembly.

@@ -19,6 +19,7 @@ the scope is an additive `v1alpha2`.
 | `v1alpha1/metadata.json` | Name, match and exclude inference from a header, and id derivation |
 | `v1alpha1/record.json` | Whole-record validation: target, id, name, source size, revision, match counts |
 | `v1alpha1/revision.json` | Revision digest vectors |
+| `v1alpha1/replay.json` | `ReplaySource`: the registration script byte for byte, and its rejections (`"-"` is a failure with no error code) |
 
 Error codes: `invalid_target`, `invalid_id`, `invalid_name`, `invalid_source_size`,
 `revision_mismatch`, `invalid_matches`, `invalid_match_pattern`,
@@ -43,3 +44,5 @@ pinned ext tag, and drive the consumer's parser and validator from each file:
 accept the cases without `error`, and reject the others. Fixtures cover the
 shared rules above; the object shapes of a consumer's manifest need not match
 the Go `Record`.
+
+The Swift module (`res/web/ios`) and the Java module (`res/web/android`) run these files too.

@@ -1,0 +1,184 @@
+name: Release iOS SDK
+
+# Releases pkg/ext-ios on a GitHub release: the engine and WAMR xcframeworks, the staged Swift
+# package, their checksums and a build-provenance attestation. It runs only for ext-ios-vX.Y.Z
+# tags, and by hand for a dry run that builds and tests but publishes nothing. The tag is not a Go
+# module tag; see docs/module-versioning.md.
+#
+# SwiftPM resolves a package from a repository root and this monorepo's root is not a package, so
+# the staged package also has to land in a repository of its own. That last step (the "distribute"
+# job) runs only when the repository variable EXT_IOS_DISTRIBUTION_REPO names one, for example
+# webong/ext-ios, and the secret EXT_IOS_DISTRIBUTION_TOKEN can push to it. Without the variable
+# the release is the GitHub release alone and the job is skipped.
+on:
+  push:
+    tags: ['ext-ios-v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version to build for the dry run, for example 0.1.0
+        type: string
+        default: 0.0.0
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ext-ios-release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  EXT_CACHE: ${{ github.workspace }}/.cache/ext
+
+jobs:
+  # Stages the release and tests it, on the host and in an iOS Simulator, before anything is
+  # published. Read-only: it has no token that can write.
+  build:
+    runs-on: macos-14
+    timeout-minutes: 60
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Version
+        id: version
+        env:
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          if [[ "$REF_TYPE" == tag ]]; then version="${REF_NAME#ext-ios-v}"; else version="$INPUT_VERSION"; fi
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "version '$version' must look like 0.1.0" >&2; exit 1; }
+          echo "version=$version" >>"$GITHUB_OUTPUT"
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.27.x'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.98.1'
+          targets: wasm32-wasip1
+      - uses: actions/cache@v4
+        with:
+          path: .cache/ext
+          key: wamr-${{ hashFiles('scripts/plugin-wamr.sh') }}
+      # The web rules need Swift only; fail before the engine builds if they drift from res/web.
+      - name: Web rules against the fixtures and against Go
+        run: scripts/web-differential.sh
+      # The release carries the WAMR host: its xcframework is a second asset, and its license ships
+      # beside it and inside the package.
+      - name: Stage the release
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: scripts/ext-ios-release.sh --with-wamr "$VERSION"
+      - name: Build the reactor the host tests run
+        run: |
+          CARGO_TARGET_DIR="$RUNNER_TEMP/cargo" cargo build --release --locked \
+            --manifest-path pkg/ext-rust/Cargo.toml --target wasm32-wasip1 --example shared
+          echo "EXT_RUST_REACTOR=$RUNNER_TEMP/cargo/wasm32-wasip1/release/examples/shared.wasm" >>"$GITHUB_ENV"
+      # The frameworks the staging step built are the ones in the archives.
+      - name: Swift tests on the host
+        run: swift test --package-path pkg/ext-ios
+      - name: Swift tests in an iOS Simulator
+        run: |
+          set -euo pipefail
+          device="$(xcrun simctl list devices available | grep -m1 -E 'iPhone' | sed -E 's/^ *(.*) \(([0-9A-F-]{36})\).*/\2/')"
+          [[ -n "$device" ]] || { echo 'no iPhone simulator is installed' >&2; exit 1; }
+          cd pkg/ext-ios
+          TEST_RUNNER_EXT_RUST_REACTOR="$EXT_RUST_REACTOR" xcodebuild test -scheme Ext-Package \
+            -destination "platform=iOS Simulator,id=$device"
+      - name: Web rules in an iOS Simulator
+        run: |
+          set -euo pipefail
+          device="$(xcrun simctl list devices available | grep -m1 -E 'iPhone' | sed -E 's/^ *(.*) \(([0-9A-F-]{36})\).*/\2/')"
+          [[ -n "$device" ]] || { echo 'no iPhone simulator is installed' >&2; exit 1; }
+          cd res/web/ios
+          xcodebuild test -scheme ExtWeb -destination "platform=iOS Simulator,id=$device"
+      - name: Checksums
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          cd "dist/ext-ios-$VERSION"
+          tar -czf "ext-ios-$VERSION-package.tar.gz" -C package .
+          shasum -a 256 *.zip *.tar.gz WAMR-LICENSE | tee checksums.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ext-ios-${{ steps.version.outputs.version }}
+          path: |
+            dist/ext-ios-${{ steps.version.outputs.version }}/*.zip
+            dist/ext-ios-${{ steps.version.outputs.version }}/*.tar.gz
+            dist/ext-ios-${{ steps.version.outputs.version }}/WAMR-LICENSE
+            dist/ext-ios-${{ steps.version.outputs.version }}/checksums.txt
+          if-no-files-found: error
+
+  # Publishes. Only a pushed ext-ios-v tag gets here (never a manual run, even on a tag), and only
+  # after the build job passed. It builds nothing: it attaches the exact files that were tested.
+  publish:
+    needs: build
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/ext-ios-v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: ext-ios-${{ needs.build.outputs.version }}
+          path: dist
+      - name: Verify checksums
+        run: (cd dist && sha256sum -c checksums.txt)
+      - name: Attest release provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: 'dist/*'
+      # Not "latest": install.sh and install.ps1 resolve the newest ctx-v release by tag.
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist/* --verify-tag --generate-notes --latest=false --title "$GITHUB_REF_NAME"
+
+  # Puts the staged package at the root of a repository SwiftPM can resolve, tagged with the
+  # version. It runs after the release exists, because the package's binary targets point at the
+  # release's assets by URL and checksum. Skipped unless EXT_IOS_DISTRIBUTION_REPO is set.
+  distribute:
+    needs: [build, publish]
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/ext-ios-v') && vars.EXT_IOS_DISTRIBUTION_REPO != ''
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: ext-ios-${{ needs.build.outputs.version }}
+          path: dist
+      - name: Check the configuration
+        env:
+          TOKEN: ${{ secrets.EXT_IOS_DISTRIBUTION_TOKEN }}
+        run: '[[ -n "$TOKEN" ]] || { echo "EXT_IOS_DISTRIBUTION_REPO is set but the secret EXT_IOS_DISTRIBUTION_TOKEN is not" >&2; exit 1; }'
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ vars.EXT_IOS_DISTRIBUTION_REPO }}
+          token: ${{ secrets.EXT_IOS_DISTRIBUTION_TOKEN }}
+          path: distribution
+      - name: Push the package
+        env:
+          VERSION: ${{ needs.build.outputs.version }}
+        run: |
+          set -euo pipefail
+          cd distribution
+          if git rev-parse -q --verify "refs/tags/$VERSION" >/dev/null; then
+            echo "the distribution repository already has the tag $VERSION" >&2
+            exit 1
+          fi
+          find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+          tar -xzf "../dist/ext-ios-$VERSION-package.tar.gz" -C .
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m "ext-ios $VERSION" -m "Staged by $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID from $GITHUB_REF_NAME."
+          git tag "$VERSION"
+          git push origin HEAD "refs/tags/$VERSION"

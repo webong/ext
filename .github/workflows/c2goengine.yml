@@ -1,6 +1,6 @@
 name: c2goengine
 
-# The C engine's portable core translated to Go (pkg/plugin-go/c2goengine). ccgo translates for the
+# The C engine's portable core translated to Go (pkg/ext-go/c2goengine). ccgo translates for the
 # platform it runs on, so every platform generates its own file here. A platform whose translation is
 # checked in must find the inputs digest unchanged (a stale translation fails the job); one without is
 # a probe: it generates, tests the result and uploads it, so it can be committed. A probe never blocks.
@@ -9,14 +9,14 @@ on:
     branches: [main, 'engine/**']
     paths:
       - 'lib/plugin/**'
-      - 'pkg/plugin-go/c2goengine/**'
-      - 'pkg/plugin-go/engine/plugintest/enginetest/**'
+      - 'pkg/ext-go/c2goengine/**'
+      - 'pkg/ext-go/engine/plugintest/enginetest/**'
       - '.github/workflows/c2goengine.yml'
   pull_request:
     paths:
       - 'lib/plugin/**'
-      - 'pkg/plugin-go/c2goengine/**'
-      - 'pkg/plugin-go/engine/plugintest/enginetest/**'
+      - 'pkg/ext-go/c2goengine/**'
+      - 'pkg/ext-go/engine/plugintest/enginetest/**'
       - '.github/workflows/c2goengine.yml'
   workflow_dispatch:
 
@@ -63,12 +63,12 @@ jobs:
       - name: Generate the translation
         if: runner.os != 'Windows'
         shell: bash
-        working-directory: pkg/plugin-go/c2goengine/tools
+        working-directory: pkg/ext-go/c2goengine/tools
         run: GOWORK=off go run .
       - name: Generate the translation (MSYS2)
         if: runner.os == 'Windows'
         shell: msys2 {0}
-        working-directory: pkg/plugin-go/c2goengine/tools
+        working-directory: pkg/ext-go/c2goengine/tools
         run: GOWORK=off go run .
       - name: Compare with what is checked in
         shell: bash
@@ -77,7 +77,7 @@ jobs:
           # generator writes for it; the bytes of a platform's file also follow its system headers, so
           # they are not compared. A platform's own checked-in file is stale when the digest it names
           # is not the one just computed.
-          dir=pkg/plugin-go/c2goengine/internal/ccgo
+          dir=pkg/ext-go/c2goengine/internal/ccgo
           own=$dir/generated_${{ matrix.goos }}_${{ matrix.goarch }}.go
           changed=$(git status --porcelain -- "$dir/inputs.sha256" "$dir/call.go" "$dir/call_unsupported.go")
           if git cat-file -e "HEAD:$own" 2>/dev/null; then
@@ -94,24 +94,24 @@ jobs:
           fi
           printf '%s\n' "$changed"
           if [ "${{ matrix.required }}" = true ]; then
-            echo "::error::The translation is stale: lib/plugin or the generator changed. Run 'GOWORK=off go run .' in pkg/plugin-go/c2goengine/tools on every supported platform and commit the results (the translation-<goos>-<goarch> artifacts have them)."
+            echo "::error::The translation is stale: lib/plugin or the generator changed. Run 'GOWORK=off go run .' in pkg/ext-go/c2goengine/tools on every supported platform and commit the results (the translation-<goos>-<goarch> artifacts have them)."
             git diff --stat -- "$dir" | tail -5
             exit 1
           fi
           echo "::notice::No translation is checked in for ${{ matrix.goos }}/${{ matrix.goarch }} yet. The translation-${{ matrix.goos }}-${{ matrix.goarch }} artifact has the file and the updated build constraints."
       - name: Check that every checked-in translation names the same inputs
         shell: bash
-        working-directory: pkg/plugin-go/c2goengine
+        working-directory: pkg/ext-go/c2goengine
         run: go test -count=1 -run 'TestTranslationsMatchInputs|TestTargetsAgree' ./internal/ccgo
       - name: Test
         if: runner.os != 'Windows'
         shell: bash
-        working-directory: pkg/plugin-go/c2goengine
+        working-directory: pkg/ext-go/c2goengine
         run: go test -count=1 ${{ matrix.race }} ./...
       - name: Test (MSYS2)
         if: runner.os == 'Windows'
         shell: msys2 {0}
-        working-directory: pkg/plugin-go/c2goengine
+        working-directory: pkg/ext-go/c2goengine
         run: go test -count=1 ./...
       - name: Keep the result
         if: always()
@@ -119,15 +119,15 @@ jobs:
         with:
           name: translation-${{ matrix.goos }}-${{ matrix.goarch }}
           path: |
-            pkg/plugin-go/c2goengine/internal/ccgo/generated_${{ matrix.goos }}_${{ matrix.goarch }}.go
-            pkg/plugin-go/c2goengine/internal/ccgo/inputs.sha256
-            pkg/plugin-go/c2goengine/internal/ccgo/call.go
-            pkg/plugin-go/c2goengine/internal/ccgo/call_unsupported.go
-            pkg/plugin-go/c2goengine/internal/ccgo/host.go
-            pkg/plugin-go/c2goengine/internal/ccgo/host_unsupported.go
-            pkg/plugin-go/c2goengine/internal/ccgo/channel.go
-            pkg/plugin-go/c2goengine/internal/ccgo/session.go
-            pkg/plugin-go/c2goengine/internal/ccgo/instances.go
+            pkg/ext-go/c2goengine/internal/ccgo/generated_${{ matrix.goos }}_${{ matrix.goarch }}.go
+            pkg/ext-go/c2goengine/internal/ccgo/inputs.sha256
+            pkg/ext-go/c2goengine/internal/ccgo/call.go
+            pkg/ext-go/c2goengine/internal/ccgo/call_unsupported.go
+            pkg/ext-go/c2goengine/internal/ccgo/host.go
+            pkg/ext-go/c2goengine/internal/ccgo/host_unsupported.go
+            pkg/ext-go/c2goengine/internal/ccgo/channel.go
+            pkg/ext-go/c2goengine/internal/ccgo/session.go
+            pkg/ext-go/c2goengine/internal/ccgo/instances.go
           if-no-files-found: ignore
           retention-days: 14
 
@@ -140,5 +140,5 @@ jobs:
         with:
           go-version: '1.26.x'
       - name: Test the generator
-        working-directory: pkg/plugin-go/c2goengine/tools
+        working-directory: pkg/ext-go/c2goengine/tools
         run: GOWORK=off go test -count=1 ./... && GOWORK=off go vet ./...

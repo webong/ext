@@ -4,7 +4,7 @@
 
 /* Reverse calls: a plugin calling an operation its host offers. The reference is
  * ReverseRequestFrame, ReverseResponseFrame and Session.runReverse in
- * pkg/plugin-go/engine (reverse.go, reverse_session.go). */
+ * pkg/ext-go/engine (reverse.go, reverse_session.go). */
 
 #define EXT_REVERSE_DEFAULT_PAYLOAD (1u << 20)
 #define EXT_REVERSE_DEFAULT_IN_FLIGHT 4u

@@ -29,29 +29,29 @@ use (
 	./adapters/firefox
 	./adapters/safari
 	./res/system
-	./pkg/plugin-go
-	./pkg/plugin-go/hashicorp
-	./pkg/plugin-go/wasm
+	./pkg/ext-go
+	./pkg/ext-go/hashicorp
+	./pkg/ext-go/wasm
 	./res/web
 	./res/credential
-	./pkg/plugin-go/engine
-	./pkg/plugin-go/cgoengine
-	./pkg/plugin-go/c2goengine
+	./pkg/ext-go/engine
+	./pkg/ext-go/cgoengine
+	./pkg/ext-go/c2goengine
 )
 
 // cgoengine v0.1.0 and c2goengine v0.1.0, the first tags of two modules, are not published yet, and the
 // umbrella and the adapters require them. These resolve those versions to the workspace copies; delete
 // each once its tag exists.
-replace github.com/webong/ext/pkg/plugin-go/cgoengine v0.1.0 => ./pkg/plugin-go/cgoengine
+replace github.com/webong/ext/pkg/ext-go/cgoengine v0.1.0 => ./pkg/ext-go/cgoengine
 
-replace github.com/webong/ext/pkg/plugin-go/c2goengine v0.1.0 => ./pkg/plugin-go/c2goengine
+replace github.com/webong/ext/pkg/ext-go/c2goengine v0.1.0 => ./pkg/ext-go/c2goengine
 
 // The modules of the v0.9.0 round that other modules of the round require are not tagged yet: the
 // backends (hashicorp v0.3.1, wasm v0.2.2) and the adapters the browser adapters build on (chromium
 // v0.4.1, firefox v0.3.1). Until their tags exist these resolve those versions to the workspace copies.
-replace github.com/webong/ext/pkg/plugin-go/hashicorp v0.3.1 => ./pkg/plugin-go/hashicorp
+replace github.com/webong/ext/pkg/ext-go/hashicorp v0.3.1 => ./pkg/ext-go/hashicorp
 
-replace github.com/webong/ext/pkg/plugin-go/wasm v0.2.2 => ./pkg/plugin-go/wasm
+replace github.com/webong/ext/pkg/ext-go/wasm v0.2.2 => ./pkg/ext-go/wasm
 
 replace github.com/webong/ext/adapters/chromium v0.4.1 => ./adapters/chromium
 

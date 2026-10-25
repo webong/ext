@@ -1,7 +1,7 @@
 /* Loopback data endpoints: the engine services endpoint.check and
  * endpoint.validate, run against the shared conformance fixture
  * (testdata/v1/endpoint-cases.json) and against inputs the fixture does not hold.
- * The Go differential tests in pkg/plugin-go/cgoengine run the same fixture through
+ * The Go differential tests in pkg/ext-go/cgoengine run the same fixture through
  * the Go package as well. Usage: ext_endpoint_test <path to the fixture> */
 #define _XOPEN_SOURCE 700
 #include "wire.h"

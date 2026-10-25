@@ -17,3 +17,5 @@ cookie value.
 Cookie JSON uses the contract's field names (`http_only`, `same_site_policy`,
 `has_cross_site_ancestor`, `partition_key`). An `expiry` of 0 is a session
 cookie and 1 is already expired.
+
+The Swift module (`res/web/ios`) and the Java module (`res/web/android`) run these files too.

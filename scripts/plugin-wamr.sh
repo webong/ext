@@ -18,7 +18,7 @@ if [[ ! -d "$wamr_root/.git" && -z "${EXT_WAMR_ROOT:-}" ]]; then
 fi
 if [[ -z "${EXT_WAMR_ROOT:-}" ]]; then git -C "$wamr_root" checkout --quiet "$WAMR_COMMIT"; fi
 CARGO_TARGET_DIR="$build_dir/cargo" cargo build --release --locked \
-  --manifest-path pkg/plugin-rust/Cargo.toml --target wasm32-wasip1 --example shared
+  --manifest-path pkg/ext-rust/Cargo.toml --target wasm32-wasip1 --example shared
 reactor="$build_dir/cargo/wasm32-wasip1/release/examples/shared.wasm"
 cmake -S lib/plugin -B "$build_dir/engine" -DCMAKE_BUILD_TYPE=Release \
   -DEXT_WITH_WAMR=ON -DEXT_WAMR_ROOT="$wamr_root" -DEXT_WAMR_TEST_REACTOR="$reactor"

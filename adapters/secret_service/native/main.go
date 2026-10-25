@@ -5,7 +5,7 @@ import (
 	"os"
 
 	"github.com/webong/ext/adapters/secret_service/store"
-	"github.com/webong/ext/pkg/plugin-go/cgoengine"
+	"github.com/webong/ext/pkg/ext-go/cgoengine"
 	"github.com/webong/ext/res/credential/adapterkit"
 )
 

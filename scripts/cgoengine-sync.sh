@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Regenerates pkg/plugin-go/cgoengine/_csrc from lib/plugin.
+# Regenerates pkg/ext-go/cgoengine/_csrc from lib/plugin.
 #
 # A published Go module contains only its own directory, so the module that binds
 # the C engine carries the sources it is built from. lib/plugin stays the canonical
@@ -8,7 +8,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 src=lib/plugin
-dst=pkg/plugin-go/cgoengine/_csrc
+dst=pkg/ext-go/cgoengine/_csrc
 rm -rf "$dst"
 mkdir -p "$dst"
 # Build outputs and editor files are not sources.

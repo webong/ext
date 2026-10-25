@@ -1,5 +1,5 @@
 {
-  "description": "Conformance cases for loopback data endpoints (pkg/plugin-go/engine/endpoint). Every case names an endpoint and a policy; 'check' is the outcome of endpoint.check (the shape rules alone) and 'validate' of endpoint.validate (the shape rules and the policy). Outcomes: ok, invalid, denied, expired. A binding passes when it reproduces every outcome. The policy's now is fixed so the cases do not age.",
+  "description": "Conformance cases for loopback data endpoints (pkg/ext-go/engine/endpoint). Every case names an endpoint and a policy; 'check' is the outcome of endpoint.check (the shape rules alone) and 'validate' of endpoint.validate (the shape rules and the policy). Outcomes: ok, invalid, denied, expired. A binding passes when it reproduces every outcome. The policy's now is fixed so the cases do not age.",
   "outcomes": ["ok", "invalid", "denied", "expired"],
   "cases": [
     {"name":"a complete endpoint","endpoint":{"scheme":"ws","address":"127.0.0.1:8080","path":"/stream/abc","token":"t0k3n","expiresAt":"2030-01-01T00:30:00Z"},"policy":{"schemes":["ws","wss","http","https","tcp"],"maxLifetimeMilliseconds":3600000,"now":"2030-01-01T00:00:00Z"},"check":"ok","validate":"ok"},

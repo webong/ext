@@ -26,20 +26,20 @@ jobs:
           node-version: '22'
       - name: Test plugin library modules
         run: |
-          for module in pkg/plugin-go pkg/plugin-go/engine pkg/plugin-go/cgoengine pkg/plugin-go/hashicorp pkg/plugin-go/wasm; do
+          for module in pkg/ext-go pkg/ext-go/engine pkg/ext-go/cgoengine pkg/ext-go/hashicorp pkg/ext-go/wasm; do
             (cd "$module" && go test -race ./...) || exit 1
           done
-      - run: go test -race ./pkg/plugin-go/hashicorp/cmd/ext-plugin
-      - run: node --test pkg/plugin-ts/test.mjs pkg/plugin-ts/frames.test.mjs pkg/plugin-ts/router.test.mjs
-      - run: python3 -I -m unittest discover -s pkg/plugin-python/tests
+      - run: go test -race ./pkg/ext-go/hashicorp/cmd/ext-plugin
+      - run: node --test pkg/ext-ts/test.mjs pkg/ext-ts/frames.test.mjs pkg/ext-ts/router.test.mjs
+      - run: python3 -I -m unittest discover -s pkg/ext-python/tests
       - name: Check TypeScript declarations
-        run: npx --yes --package typescript@5.8.3 tsc --noEmit --strict --module NodeNext --moduleResolution NodeNext --target ES2022 pkg/plugin-ts/typecheck.mts
-      - run: go run ./pkg/plugin-go/examples/plugin-sdk --backend jsonline
-      - run: go run ./pkg/plugin-go/examples/plugin-sdk --backend inprocess
-      - run: go run ./pkg/plugin-go/examples/plugin-typescript
-      - run: go build -o /tmp/ext-plugin-example ./pkg/plugin-go/examples/plugin-typescript
-      - run: node pkg/plugin-go/examples/plugin-typescript/host.mjs /tmp/ext-plugin-example
-      - run: go run ./pkg/plugin-go/hashicorp/cmd/ext-plugin inspect --root pkg/plugin-go/examples/plugin-package --entry main pkg/plugin-go/examples/plugin-package/plugin.json
+        run: npx --yes --package typescript@5.8.3 tsc --noEmit --strict --module NodeNext --moduleResolution NodeNext --target ES2022 pkg/ext-ts/typecheck.mts
+      - run: go run ./pkg/ext-go/examples/plugin-sdk --backend jsonline
+      - run: go run ./pkg/ext-go/examples/plugin-sdk --backend inprocess
+      - run: go run ./pkg/ext-go/examples/plugin-typescript
+      - run: go build -o /tmp/ext-plugin-example ./pkg/ext-go/examples/plugin-typescript
+      - run: node pkg/ext-go/examples/plugin-typescript/host.mjs /tmp/ext-plugin-example
+      - run: go run ./pkg/ext-go/hashicorp/cmd/ext-plugin inspect --root pkg/ext-go/examples/plugin-package --entry main pkg/ext-go/examples/plugin-package/plugin.json
 
   foreign-sdks:
     strategy:
@@ -123,3 +123,30 @@ jobs:
           EXT_CENGINE_BUILD_DIR: ${{ runner.temp }}/ext-cengine-proof
           EXT_INTEROP_REUSE_CENGINE: '1'
         run: scripts/plugin-interop.sh
+
+  # The Swift and Java modules of the web rules (res/web/ios, res/web/android) against res/web/testdata
+  # and against what the Go module answers for a generated corpus. Neither needs the engine, so this
+  # does not wait for the C builds.
+  web-ports:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-14]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.27.x'  # the version the ports were checked against; net/url changes between releases
+          cache: true
+          cache-dependency-path: |
+            **/go.sum
+            go.work.sum
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - run: go test ./res/web/...
+        working-directory: res/web
+      - name: Swift and Java ports against Go
+        run: scripts/web-differential.sh

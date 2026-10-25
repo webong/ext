@@ -7,7 +7,7 @@ only on `golang.org/x/sys`.
 
 | Module | Import path | Contents |
 | --- | --- | --- |
-| [`web`](web/README.md) | `github.com/webong/ext/res/web` | Portable web contracts and workflows: browser cookies, extensions, userscripts and sessions, and the web engine |
+| [`web`](web/README.md) | `github.com/webong/ext/res/web` | Portable web contracts and workflows: browser cookies, extensions, userscripts and sessions, and the web engine. Also the iOS (`web/ios`) and Android (`web/android`) modules of the cookie, userscript and bookmarklet rules |
 | [`credential`](credential/README.md) | `github.com/webong/ext/res/credential` | Portable credential serving (`adapterkit`) and CTX credential client |
 | [`system`](system/README.md) | `github.com/webong/ext/res/system` | Observing the machine: host, shell, file system and web view discovery and process inspection (`system`), a namespaced graph store they record into (`system/graph`), and process supervision and recovery (`system/supervisor`). Depends only on `golang.org/x/sys` |
 

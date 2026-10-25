@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/webong/ext/ctx/internal/config"
-	modpkg "github.com/webong/ext/pkg/plugin-go/engine/host/adapter"
+	modpkg "github.com/webong/ext/pkg/ext-go/engine/host/adapter"
 )
 
 func managerAppAdapter(candidate *modpkg.Adapter) bool {

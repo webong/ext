@@ -3,7 +3,7 @@
 #
 # A release round is described by a versions file: one "module version" pair per
 # line, the module as a directory path relative to the repository root (for
-# example "pkg/plugin-go/engine v0.4.0"). Blank lines and "#" comments are
+# example "pkg/ext-go/engine v0.4.0"). Blank lines and "#" comments are
 # ignored. The scripts need only bash (3.2 or later), git, awk, sed and Go.
 #
 # The module path prefix is github.com/webong/ext; set EXT_MODULE_PREFIX to use

@@ -1,0 +1,128 @@
+{
+  "cases": [
+    {
+      "name": "baseline",
+      "id": "demo",
+      "revision": "sha256:7443a61d70e39e9c2e0d0f04f58784af3fbcc0f3c5caa9f10f12f6cfa1092eb3",
+      "source": "console.log(1);\n",
+      "matches": [
+        "https://example.com/*"
+      ],
+      "excludeMatches": [],
+      "expect": "(() => {\n const [id, revision, source, matches, excludes] = [\"demo\",\"sha256:7443a61d70e39e9c2e0d0f04f58784af3fbcc0f3c5caa9f10f12f6cfa1092eb3\",\"console.log(1);\\n\",[\"https://example.com/*\"],[]];\n const glob = value => new RegExp('^' + value.replace(/[.+?^${}()|[\\]\\\\]/g, '\\\\$&').replaceAll('*', '.*') + '$');\n const allowed = pattern => {\n  const parts = pattern.match(/^(\\*|https?|file):\\/\\/([^/]+)\\/(.*)$/);\n  if (!parts) return false;\n  const url = new URL(location.href);\n  if (parts[1] === '*' ? !['http:', 'https:'].includes(url.protocol) : url.protocol !== parts[1]+':') return false;\n  const host = parts[2];\n  if (host !== '*' && !(host.startsWith('*.') ? url.hostname === host.slice(2) || url.hostname.endsWith(host.slice(1)) : url.hostname === host)) return false;\n  return glob('/'+parts[3]).test(url.pathname+url.search);\n };\n if (!matches.some(allowed) || (excludes || []).some(allowed)) return;\n const applied = globalThis[Symbol.for('ctx.userscripts.applied')] ||= new Map();\n if (applied.get(id) === revision) return;\n applied.set(id, revision);\n (0, eval)(source);\n})()"
+    },
+    {
+      "name": "exclusions absent are null",
+      "id": "demo",
+      "revision": "sha256:7443a61d70e39e9c2e0d0f04f58784af3fbcc0f3c5caa9f10f12f6cfa1092eb3",
+      "source": "console.log(1);\n",
+      "matches": [
+        "https://example.com/*"
+      ],
+      "excludeMatches": null,
+      "expect": "(() => {\n const [id, revision, source, matches, excludes] = [\"demo\",\"sha256:7443a61d70e39e9c2e0d0f04f58784af3fbcc0f3c5caa9f10f12f6cfa1092eb3\",\"console.log(1);\\n\",[\"https://example.com/*\"],null];\n const glob = value => new RegExp('^' + value.replace(/[.+?^${}()|[\\]\\\\]/g, '\\\\$&').replaceAll('*', '.*') + '$');\n const allowed = pattern => {\n  const parts = pattern.match(/^(\\*|https?|file):\\/\\/([^/]+)\\/(.*)$/);\n  if (!parts) return false;\n  const url = new URL(location.href);\n  if (parts[1] === '*' ? !['http:', 'https:'].includes(url.protocol) : url.protocol !== parts[1]+':') return false;\n  const host = parts[2];\n  if (host !== '*' && !(host.startsWith('*.') ? url.hostname === host.slice(2) || url.hostname.endsWith(host.slice(1)) : url.hostname === host)) return false;\n  return glob('/'+parts[3]).test(url.pathname+url.search);\n };\n if (!matches.some(allowed) || (excludes || []).some(allowed)) return;\n const applied = globalThis[Symbol.for('ctx.userscripts.applied')] ||= new Map();\n if (applied.get(id) === revision) return;\n applied.set(id, revision);\n (0, eval)(source);\n})()"
+    },
+    {
+      "name": "exclusions and several matches",
+      "id": "my.script-1",
+      "revision": "sha256:7443a61d70e39e9c2e0d0f04f58784af3fbcc0f3c5caa9f10f12f6cfa1092eb3",
+      "source": "console.log(1);\n",
+      "matches": [
+        "https://example.com/*",
+        "*://*.example.org/a/*",
+        "file://*/tmp/*"
+      ],
+      "excludeMatches": [
+        "https://example.com/private/*"
+      ],
+      "expect": "(() => {\n const [id, revision, source, matches, excludes] = [\"my.script-1\",\"sha256:7443a61d70e39e9c2e0d0f04f58784af3fbcc0f3c5caa9f10f12f6cfa1092eb3\",\"console.log(1);\\n\",[\"https://example.com/*\",\"*://*.example.org/a/*\",\"file://*/tmp/*\"],[\"https://example.com/private/*\"]];\n const glob = value => new RegExp('^' + value.replace(/[.+?^${}()|[\\]\\\\]/g, '\\\\$&').replaceAll('*', '.*') + '$');\n const allowed = pattern => {\n  const parts = pattern.match(/^(\\*|https?|file):\\/\\/([^/]+)\\/(.*)$/);\n  if (!parts) return false;\n  const url = new URL(location.href);\n  if (parts[1] === '*' ? !['http:', 'https:'].includes(url.protocol) : url.protocol !== parts[1]+':') return false;\n  const host = parts[2];\n  if (host !== '*' && !(host.startsWith('*.') ? url.hostname === host.slice(2) || url.hostname.endsWith(host.slice(1)) : url.hostname === host)) return false;\n  return glob('/'+parts[3]).test(url.pathname+url.search);\n };\n if (!matches.some(allowed) || (excludes || []).some(allowed)) return;\n const applied = globalThis[Symbol.for('ctx.userscripts.applied')] ||= new Map();\n if (applied.get(id) === revision) return;\n applied.set(id, revision);\n (0, eval)(source);\n})()"
+    },
+    {
+      "name": "markup and separators in the source",
+      "id": "demo",
+      "revision": "sha256:7443a61d70e39e9c2e0d0f04f58784af3fbcc0f3c5caa9f10f12f6cfa1092eb3",
+      "source": "if (a < b && c > d) { alert(\"x\\n\\t\"); } // \u2028 \u2029 </script> \b \f  \u0001\n",
+      "matches": [
+        "https://example.com/*"
+      ],
+      "excludeMatches": [],
+      "expect": "(() => {\n const [id, revision, source, matches, excludes] = [\"demo\",\"sha256:7443a61d70e39e9c2e0d0f04f58784af3fbcc0f3c5caa9f10f12f6cfa1092eb3\",\"if (a \\u003c b \\u0026\\u0026 c \\u003e d) { alert(\\\"x\\\\n\\\\t\\\"); } // \\u2028 \\u2029 \\u003c/script\\u003e \\b \\f  \\u0001\\n\",[\"https://example.com/*\"],[]];\n const glob = value => new RegExp('^' + value.replace(/[.+?^${}()|[\\]\\\\]/g, '\\\\$&').replaceAll('*', '.*') + '$');\n const allowed = pattern => {\n  const parts = pattern.match(/^(\\*|https?|file):\\/\\/([^/]+)\\/(.*)$/);\n  if (!parts) return false;\n  const url = new URL(location.href);\n  if (parts[1] === '*' ? !['http:', 'https:'].includes(url.protocol) : url.protocol !== parts[1]+':') return false;\n  const host = parts[2];\n  if (host !== '*' && !(host.startsWith('*.') ? url.hostname === host.slice(2) || url.hostname.endsWith(host.slice(1)) : url.hostname === host)) return false;\n  return glob('/'+parts[3]).test(url.pathname+url.search);\n };\n if (!matches.some(allowed) || (excludes || []).some(allowed)) return;\n const applied = globalThis[Symbol.for('ctx.userscripts.applied')] ||= new Map();\n if (applied.get(id) === revision) return;\n applied.set(id, revision);\n (0, eval)(source);\n})()"
+    },
+    {
+      "name": "non-ASCII source",
+      "id": "demo",
+      "revision": "sha256:7443a61d70e39e9c2e0d0f04f58784af3fbcc0f3c5caa9f10f12f6cfa1092eb3",
+      "source": "const s = 'héllo wörld 日本語 😀';\n",
+      "matches": [
+        "https://example.com/*"
+      ],
+      "excludeMatches": [],
+      "expect": "(() => {\n const [id, revision, source, matches, excludes] = [\"demo\",\"sha256:7443a61d70e39e9c2e0d0f04f58784af3fbcc0f3c5caa9f10f12f6cfa1092eb3\",\"const s = 'héllo wörld 日本語 😀';\\n\",[\"https://example.com/*\"],[]];\n const glob = value => new RegExp('^' + value.replace(/[.+?^${}()|[\\]\\\\]/g, '\\\\$&').replaceAll('*', '.*') + '$');\n const allowed = pattern => {\n  const parts = pattern.match(/^(\\*|https?|file):\\/\\/([^/]+)\\/(.*)$/);\n  if (!parts) return false;\n  const url = new URL(location.href);\n  if (parts[1] === '*' ? !['http:', 'https:'].includes(url.protocol) : url.protocol !== parts[1]+':') return false;\n  const host = parts[2];\n  if (host !== '*' && !(host.startsWith('*.') ? url.hostname === host.slice(2) || url.hostname.endsWith(host.slice(1)) : url.hostname === host)) return false;\n  return glob('/'+parts[3]).test(url.pathname+url.search);\n };\n if (!matches.some(allowed) || (excludes || []).some(allowed)) return;\n const applied = globalThis[Symbol.for('ctx.userscripts.applied')] ||= new Map();\n if (applied.get(id) === revision) return;\n applied.set(id, revision);\n (0, eval)(source);\n})()"
+    },
+    {
+      "name": "header in the source",
+      "id": "demo",
+      "revision": "sha256:7443a61d70e39e9c2e0d0f04f58784af3fbcc0f3c5caa9f10f12f6cfa1092eb3",
+      "source": "// ==UserScript==\n// @name Demo\n// @match https://example.com/*\n// ==/UserScript==\nconsole.log(2);\n",
+      "matches": [
+        "https://example.com/*"
+      ],
+      "excludeMatches": [],
+      "expect": "(() => {\n const [id, revision, source, matches, excludes] = [\"demo\",\"sha256:7443a61d70e39e9c2e0d0f04f58784af3fbcc0f3c5caa9f10f12f6cfa1092eb3\",\"// ==UserScript==\\n// @name Demo\\n// @match https://example.com/*\\n// ==/UserScript==\\nconsole.log(2);\\n\",[\"https://example.com/*\"],[]];\n const glob = value => new RegExp('^' + value.replace(/[.+?^${}()|[\\]\\\\]/g, '\\\\$&').replaceAll('*', '.*') + '$');\n const allowed = pattern => {\n  const parts = pattern.match(/^(\\*|https?|file):\\/\\/([^/]+)\\/(.*)$/);\n  if (!parts) return false;\n  const url = new URL(location.href);\n  if (parts[1] === '*' ? !['http:', 'https:'].includes(url.protocol) : url.protocol !== parts[1]+':') return false;\n  const host = parts[2];\n  if (host !== '*' && !(host.startsWith('*.') ? url.hostname === host.slice(2) || url.hostname.endsWith(host.slice(1)) : url.hostname === host)) return false;\n  return glob('/'+parts[3]).test(url.pathname+url.search);\n };\n if (!matches.some(allowed) || (excludes || []).some(allowed)) return;\n const applied = globalThis[Symbol.for('ctx.userscripts.applied')] ||= new Map();\n if (applied.get(id) === revision) return;\n applied.set(id, revision);\n (0, eval)(source);\n})()"
+    },
+    {
+      "name": "reject empty revision",
+      "id": "demo",
+      "revision": "",
+      "source": "console.log(1);\n",
+      "matches": [
+        "https://example.com/*"
+      ],
+      "excludeMatches": [],
+      "error": "-"
+    },
+    {
+      "name": "reject invalid id",
+      "id": "-bad",
+      "revision": "sha256:7443a61d70e39e9c2e0d0f04f58784af3fbcc0f3c5caa9f10f12f6cfa1092eb3",
+      "source": "console.log(1);\n",
+      "matches": [
+        "https://example.com/*"
+      ],
+      "excludeMatches": [],
+      "error": "invalid_id"
+    },
+    {
+      "name": "reject no matches",
+      "id": "demo",
+      "revision": "sha256:7443a61d70e39e9c2e0d0f04f58784af3fbcc0f3c5caa9f10f12f6cfa1092eb3",
+      "source": "console.log(1);\n",
+      "matches": null,
+      "excludeMatches": [],
+      "error": "invalid_matches"
+    },
+    {
+      "name": "reject unsupported grant",
+      "id": "demo",
+      "revision": "sha256:7443a61d70e39e9c2e0d0f04f58784af3fbcc0f3c5caa9f10f12f6cfa1092eb3",
+      "source": "// @grant GM_setValue\nconsole.log(1);\n",
+      "matches": [
+        "https://example.com/*"
+      ],
+      "excludeMatches": [],
+      "error": "unsupported_grant"
+    },
+    {
+      "name": "reject empty source",
+      "id": "demo",
+      "revision": "sha256:7443a61d70e39e9c2e0d0f04f58784af3fbcc0f3c5caa9f10f12f6cfa1092eb3",
+      "source": "",
+      "matches": [
+        "https://example.com/*"
+      ],
+      "excludeMatches": [],
+      "error": "invalid_source_size"
+    }
+  ],
+  "doc": "ReplaySource(id, revision, source, matches, excludeMatches): the page-world registration script, byte for byte, or the rejection. error is the userscript error code, or \"-\" for a failure that is not a record rule (an empty revision). The revision is only checked for being non-empty, and it appears in the script as given. A null excludeMatches stays null in the script's values, and an empty one stays []."
+}

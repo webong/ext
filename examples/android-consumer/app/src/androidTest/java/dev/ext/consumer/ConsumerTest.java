@@ -25,6 +25,12 @@ public class ConsumerTest {
     }
 
     @Test
+    public void webRulesAnswerAsGoDoesUnderArtAndR8() throws Exception {
+        java.util.List<String> failures = WebRoundtrips.run();
+        assertTrue(failures.toString(), failures.isEmpty());
+    }
+
+    @Test
     public void packagedNativeLibrariesMatchTheDeviceAbi() {
         ApplicationInfo info = context.getApplicationInfo();
         File libraries = new File(info.nativeLibraryDir);

@@ -27,7 +27,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/vm/runtime"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/holiman/uint256"
-	"github.com/webong/ext/pkg/plugin-go/cgoengine"
+	"github.com/webong/ext/pkg/ext-go/cgoengine"
 )
 
 const (

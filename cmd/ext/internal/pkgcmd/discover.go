@@ -4,8 +4,8 @@ import (
 	"fmt"
 
 	"github.com/webong/ext/cmd/ext/internal/registry"
-	"github.com/webong/ext/pkg/plugin-go/engine/host"
-	"github.com/webong/ext/pkg/plugin-go/engine/host/store"
+	"github.com/webong/ext/pkg/ext-go/engine/host"
+	"github.com/webong/ext/pkg/ext-go/engine/host/store"
 )
 
 // Discover registers the commands of every installed, verified, trusted package as

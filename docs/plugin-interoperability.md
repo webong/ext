@@ -80,7 +80,7 @@ where callers have different authority.
 
 ## HashiCorp bridge executable
 
-`pkg/plugin-go/cmd/ext-plugin-bridge` exposes a reviewed CTX guest through a JSON-line or
+`pkg/ext-go/cmd/ext-plugin-bridge` exposes a reviewed CTX guest through a JSON-line or
 HashiCorp frontend. Its default exposes a HashiCorp CTX guest as a JSON-line command. A Rust, Zig, JS, C or Go host uses its normal CTX JSON-line binding.
 The bridge contains Go and runs in its own process; the host does not need to
 embed the Go runtime. Both HashiCorp gRPC and net/rpc are supported explicitly.
@@ -96,7 +96,7 @@ Host in any language
 Build and invoke:
 
 ```sh
-go build -o /tmp/ext-plugin-bridge ./pkg/plugin-go/cmd/ext-plugin-bridge
+go build -o /tmp/ext-plugin-bridge ./pkg/ext-go/cmd/ext-plugin-bridge
 /tmp/ext-plugin-bridge --config /absolute/path/bridge.json
 ```
 

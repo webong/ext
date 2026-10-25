@@ -249,8 +249,8 @@ carry:
 ### The C engine and other SDKs
 
 **Status in v0.5.0: the Go side ships; the C engine refuses.** The pure-Go
-baseline in `pkg/plugin-go/contract` implements everything above, and the
-pure-Go build of `pkg/plugin-go/cengine` (the build used without cgo or without
+baseline in `pkg/ext-go/contract` implements everything above, and the
+pure-Go build of `pkg/ext-go/cengine` (the build used without cgo or without
 the `ext_cengine` tag) inherits it because it opens sessions through `contract`.
 `cengine/host` mirrors `contract/host` exactly (`Options.Reverse`,
 `Process.CallProgress`), as the architecture test requires.

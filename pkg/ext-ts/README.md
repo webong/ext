@@ -111,9 +111,9 @@ From the repository root:
 ```sh
 node --test pkg/ext-ts/test.mjs pkg/ext-ts/frames.test.mjs pkg/ext-ts/router.test.mjs
 tsc --noEmit --strict --module NodeNext --moduleResolution NodeNext --target ES2022 pkg/ext-ts/typecheck.mts
-go run ./pkg/plugin-go/examples/plugin-typescript
-go build -o /tmp/ext-plugin-example ./pkg/plugin-go/examples/plugin-typescript
-node pkg/plugin-go/examples/plugin-typescript/host.mjs /tmp/ext-plugin-example
+go run ./pkg/ext-go/examples/plugin-typescript
+go build -o /tmp/ext-plugin-example ./pkg/ext-go/examples/plugin-typescript
+node pkg/ext-go/examples/plugin-typescript/host.mjs /tmp/ext-plugin-example
 ```
 
 Use a platform-appropriate executable path on Windows. The two process examples

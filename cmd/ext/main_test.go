@@ -11,9 +11,9 @@ import (
 	"testing"
 
 	"github.com/webong/ext/cmd/ext/internal/pkgcmd"
-	plugin "github.com/webong/ext/pkg/plugin-go/engine"
-	"github.com/webong/ext/pkg/plugin-go/engine/host/store"
-	packagekit "github.com/webong/ext/pkg/plugin-go/engine/package"
+	plugin "github.com/webong/ext/pkg/ext-go/engine"
+	"github.com/webong/ext/pkg/ext-go/engine/host/store"
+	packagekit "github.com/webong/ext/pkg/ext-go/engine/package"
 )
 
 func goBuild(t *testing.T, out, pkg string) {

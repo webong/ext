@@ -83,7 +83,7 @@ scripts/web-android.sh        # javac -Xlint:all -Werror and the tests of res/we
 
 ## What a JVM guest cannot do
 
-The `ext_plugin_*` C ABI that `pkg/plugin-go/cgoengine/cshared` loads would need a JVM inside
+The `ext_plugin_*` C ABI that `pkg/ext-go/cgoengine/cshared` loads would need a JVM inside
 the host process, so a Java library cannot be loaded that way. A JVM guest speaks
 JSON lines in its own process, or runs inside an application that provides the
 transport. Kotlin/Native, which compiles to a native library, could export that
@@ -267,5 +267,5 @@ code, so a native plugin must ship inside the signed app bundle or package.
   chooses, including the iOS Simulator and Android devices. It does not author plugins.
 - A WASM interpreter reachable from the C engine exists as the optional WAMR host
   (`lib/plugin/wamr`, `WamrPluginHost` here), run on an Android emulator; it has not run on a
-  physical device. `pkg/plugin-go/wasm`, which is Go and wazero, is the separate Go route.
+  physical device. `pkg/ext-go/wasm`, which is Go and wazero, is the separate Go route.
 - [`res/web`](../../res/web/README.md) is the Go home of the rules the web package ports.

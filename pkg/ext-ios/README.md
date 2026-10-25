@@ -51,7 +51,7 @@ public func ext_plugin_guest_factory() -> UnsafeMutableRawPointer? {
 Build it as a `.library(type: .dynamic, ...)` product that depends on
 `ExtPluginGuest` and `ExtPluginExports`. The library then exports the four
 `ext_plugin_*` symbols of [`ext_plugin.h`](../../lib/plugin/include/ext_plugin.h), so any
-`pkg/plugin-go/cgoengine/cshared` host can load it. Forgetting `ext_plugin_guest_factory` is a
+`pkg/ext-go/cgoengine/cshared` host can load it. Forgetting `ext_plugin_guest_factory` is a
 link error, not a run-time surprise.
 
 Use `ExtPluginGuest` alone, with `Guest.invoke`, to run a guest inside a process
@@ -290,5 +290,5 @@ macOS. It is not run in the iOS Simulator.
   chooses, including the iOS Simulator and Android devices. It does not author plugins.
 - A WASM interpreter reachable from the C engine exists as the optional WAMR host
   (`lib/plugin/wamr`, `ExtPluginWamr` here), built for and run on the iOS Simulator; it has not
-  run on a physical device. `pkg/plugin-go/wasm`, which is Go and wazero, is the separate Go route.
+  run on a physical device. `pkg/ext-go/wasm`, which is Go and wazero, is the separate Go route.
 - [`res/web`](../../res/web/README.md) is the Go home of the rules `ExtWeb` ports.

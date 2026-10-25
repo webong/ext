@@ -32,7 +32,7 @@ a bridge is considered only when declared, with exact common protocol and the
 intersection of all four endpoint feature sets. This performs no discovery or
 version translation.
 
-Endpoints are the loopback listeners a plugin's result declares (`pkg/plugin-go/
+Endpoints are the loopback listeners a plugin's result declares (`pkg/ext-go/
 engine/endpoint`). `endpoint.check` reads one strictly (unknown and duplicate
 fields and wrong types are refused) and applies the rules no policy changes: a
 scheme of `ws`, `wss`, `http`, `https` or `tcp`; an address that is a host and a
@@ -70,7 +70,7 @@ C. Integer-valued schema bounds must use integer JSON syntax and fit int64.
 Artifact paths reject traversal, empty components, backslashes, colons, NUL,
 line breaks, Windows device names, and trailing dots/spaces. Duplicate paths use
 Unicode 17.0.0 simple lowercase, pinned in `src/unicode_lower.h`; the Go module
-owns the generator, `pkg/plugin-go/cgoengine/tools/unicode_lower.go`. Unicode versions
+owns the generator, `pkg/ext-go/cgoengine/tools/unicode_lower.go`. Unicode versions
 in older Go toolchains can differ.
 Do not interpret a validated path or checksum as a trust grant.
 

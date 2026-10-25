@@ -1,6 +1,6 @@
 // The capability contracts (ext.health, ext.configuration and ext.stream) served as a command, for
 // the cross-language test that calls them with the Go library's own clients
-// (pkg/plugin-go/crosslang/capability_test.go). It serves standard input and output, natively or as
+// (pkg/ext-go/crosslang/capability_test.go). It serves standard input and output, natively or as
 // a WASI command.
 const std = @import("std");
 const sdk = @import("ext_plugin");

@@ -432,7 +432,7 @@ and [Neura Local settings](https://www.neurarelay.com/operators#neura-local-sett
 ## Process protocol
 
 CTX adapters also expose a shared library descriptor through
-`github.com/webong/ext/pkg/plugin-go.AdapterDescriptor`, using the `ext.adapter`
+`github.com/webong/ext/pkg/ext-go.AdapterDescriptor`, using the `ext.adapter`
 contract and their native API version. CTX uses the public `plugin` package
 for capability lookup and package integrity checking. The argv and stream
 binding below remains the adapter transport; it does not require a JSON-line
@@ -529,7 +529,7 @@ adapter's `native` directory; it is included in the adapter checksum and runs
 as a separate process. External adapters implement the same protocol in their own
 executable. The helper receives the same invocation as every adapter,
 `share <profile> -- <resource> <operation>` (or `-- management <kind> <action>`),
-and parses it with `plugin.ParseAdapterInvocation` from `pkg/plugin-go`; the
+and parses it with `plugin.ParseAdapterInvocation` from `pkg/ext-go`; the
 adapter's shell or PowerShell entry point passes its argv through unchanged.
 CTX core has no browser-specific storage code or provider dispatch.
 Maintained adapters use `res/web/contract` for versioned request, cookie,
@@ -684,7 +684,7 @@ digests or are not listed, and checksum mismatches.
 It installs the package untrusted; review it and run `ctx adapter trust <name>`
 before using it.
 
-Go authors can use the public `github.com/webong/ext/pkg/plugin-go` package to parse
+Go authors can use the public `github.com/webong/ext/pkg/ext-go` package to parse
 the versioned process invocation. Browser authors can also import
 `github.com/webong/ext/res/web/contract` for the cookie and policy bridge
 types, and `github.com/webong/ext/res/web/guest` for serving helpers, while
@@ -717,7 +717,7 @@ ctx adapter trust example
 
 `ctx adapter build` requires Go and emits one archive per target. Cross builds
 default to `CGO_ENABLED=0` unless the author sets it explicitly. The example
-under `pkg/plugin-go/examples/adapters/go_echo` shows the public parser and a complete Go
+under `pkg/ext-go/examples/adapters/go_echo` shows the public parser and a complete Go
 adapter. An adapter written in another language can prepare a package directory
 and use `ctx adapter pack` without Go. `pack` seals and includes every regular file in the
 given directory, so use a directory containing only runtime files.

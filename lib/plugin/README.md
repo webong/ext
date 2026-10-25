@@ -31,7 +31,7 @@ protocol and existing language guest implementations remain unchanged.
 - Instance leases and replacement, scoped pull-stream lifecycle and expiry.
 - Metadata-only observation and typed Go registry integration.
 - C-owned result buffers returned to the caller and freed through the same ABI.
-- Bindings in [Go](../../pkg/plugin-go/README.md), [Rust](../../pkg/ext-rust/engine/README.md),
+- Bindings in [Go](../../pkg/ext-go/README.md), [Rust](../../pkg/ext-rust/engine/README.md),
   [Zig](../../pkg/ext-zig/engine/README.md) and [Node](../../pkg/ext-ts/engine/README.md).
   They are additive while the existing language SDKs remain the reference.
   Each binding's glue lives with the binding: the Go package carries its own cgo
@@ -115,7 +115,7 @@ Go integration is opt-in and excluded from ordinary Go builds:
 
 ```sh
 CGO_LDFLAGS='-L/tmp/ext-cengine' \
-  go build -tags ext_cengine ./pkg/plugin-go/cgoengine/examples/host
+  go build -tags ext_cengine ./pkg/ext-go/cgoengine/examples/host
 ```
 
 For shared linkage, add the `ext_cengine_shared` build tag and the appropriate

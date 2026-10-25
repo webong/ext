@@ -26,20 +26,20 @@ jobs:
           node-version: '22'
       - name: Test plugin library modules
         run: |
-          for module in pkg/plugin-go pkg/plugin-go/engine pkg/plugin-go/cgoengine pkg/plugin-go/hashicorp pkg/plugin-go/wasm; do
+          for module in pkg/ext-go pkg/ext-go/engine pkg/ext-go/cgoengine pkg/ext-go/hashicorp pkg/ext-go/wasm; do
             (cd "$module" && go test -race ./...) || exit 1
           done
-      - run: go test -race ./pkg/plugin-go/hashicorp/cmd/ext-plugin
+      - run: go test -race ./pkg/ext-go/hashicorp/cmd/ext-plugin
       - run: node --test pkg/ext-ts/test.mjs pkg/ext-ts/frames.test.mjs pkg/ext-ts/router.test.mjs
       - run: python3 -I -m unittest discover -s pkg/ext-python/tests
       - name: Check TypeScript declarations
         run: npx --yes --package typescript@5.8.3 tsc --noEmit --strict --module NodeNext --moduleResolution NodeNext --target ES2022 pkg/ext-ts/typecheck.mts
-      - run: go run ./pkg/plugin-go/examples/plugin-sdk --backend jsonline
-      - run: go run ./pkg/plugin-go/examples/plugin-sdk --backend inprocess
-      - run: go run ./pkg/plugin-go/examples/plugin-typescript
-      - run: go build -o /tmp/ext-plugin-example ./pkg/plugin-go/examples/plugin-typescript
-      - run: node pkg/plugin-go/examples/plugin-typescript/host.mjs /tmp/ext-plugin-example
-      - run: go run ./pkg/plugin-go/hashicorp/cmd/ext-plugin inspect --root pkg/plugin-go/examples/plugin-package --entry main pkg/plugin-go/examples/plugin-package/plugin.json
+      - run: go run ./pkg/ext-go/examples/plugin-sdk --backend jsonline
+      - run: go run ./pkg/ext-go/examples/plugin-sdk --backend inprocess
+      - run: go run ./pkg/ext-go/examples/plugin-typescript
+      - run: go build -o /tmp/ext-plugin-example ./pkg/ext-go/examples/plugin-typescript
+      - run: node pkg/ext-go/examples/plugin-typescript/host.mjs /tmp/ext-plugin-example
+      - run: go run ./pkg/ext-go/hashicorp/cmd/ext-plugin inspect --root pkg/ext-go/examples/plugin-package --entry main pkg/ext-go/examples/plugin-package/plugin.json
 
   foreign-sdks:
     strategy:

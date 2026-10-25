@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	adapter "github.com/webong/ext/pkg/plugin-go/engine/host/adapter"
+	adapter "github.com/webong/ext/pkg/ext-go/engine/host/adapter"
 )
 
 // Every adapter in the repository is an ext package: a plugin.json template
@@ -14,7 +14,7 @@ import (
 func TestEveryAdapterSourceLoadsOnEveryPlatform(t *testing.T) {
 	root := repoRoot(t)
 	var directories []string
-	for _, pattern := range []string{"adapters/*/plugin.json", "examples/adapters/*/plugin.json", "pkg/plugin-go/examples/adapters/*/plugin.json"} {
+	for _, pattern := range []string{"adapters/*/plugin.json", "examples/adapters/*/plugin.json", "pkg/ext-go/examples/adapters/*/plugin.json"} {
 		matches, err := filepath.Glob(filepath.Join(root, pattern))
 		if err != nil {
 			t.Fatal(err)

@@ -45,7 +45,7 @@ for dir in $modules; do
   checked=$((checked + 1))
   ok=1
   for goos in $systems; do
-    # The translation of the C engine (pkg/plugin-go/c2goengine/internal/ccgo) is written by ccgo and
+    # The translation of the C engine (pkg/ext-go/c2goengine/internal/ccgo) is written by ccgo and
     # reports thousands of vet diagnostics that are not ours to fix; every other package is vetted.
     if ! (cd "$dir" && export GOWORK=off GOPROXY=https://proxy.golang.org,direct GOFLAGS=-mod=readonly GOOS=$goos && pkgs=$(go list ./...) && go vet $(printf '%s\n' "$pkgs" | grep -v '/internal/ccgo$') >/tmp/standalone.$$ 2>&1); then
       echo "FAIL $dir: go vet (GOOS=$goos)"; sed 's/^/    /' /tmp/standalone.$$ | head -8; ok=0; break

@@ -160,7 +160,7 @@ try registry.register(cap.stream.CloseRequest, cap.stream.Empty, cap.stream.clos
 A request that does not satisfy a method never reaches the handler. `src/capability_tests.zig`
 pins the limits and the wire shapes (the cases the Rust, Python and TypeScript SDKs check too), and
 `examples/capability.zig` and `examples/capability-host.zig` take part in
-`pkg/plugin-go/crosslang/capability_test.go`: the Go library's own methods and stream client call the
+`pkg/ext-go/crosslang/capability_test.go`: the Go library's own methods and stream client call the
 Zig guest (natively and as a WASI command), and the Zig host calls a guest the Go library serves
 (`stream.Service`, `RegisterConfiguration`, `RegisterHealth`).
 

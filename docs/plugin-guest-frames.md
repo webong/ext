@@ -73,7 +73,7 @@ Go's `plugin.ProgressFrom` and `ReverseFrom` behave there.
 
 ## Fixtures
 
-The Go contract is the oracle. `pkg/plugin-go/engine/sdk_fixtures_test.go`
+The Go contract is the oracle. `pkg/ext-go/engine/sdk_fixtures_test.go`
 computes these files from it, checks the committed copies against them, and rewrites
 them with `EXT_UPDATE_FIXTURES=1`. Each SDK reproduces every outcome, as for
 `endpoint-cases.json`; the C engine does too (`lib/plugin/tests/fixtures.c`).
@@ -89,7 +89,7 @@ them with `EXT_UPDATE_FIXTURES=1`. Each SDK reproduces every outcome, as for
 `lib/plugin/testdata/v1/frames-descriptor.json` is the descriptor every language's
 frames guest serves (identity `ctx/frames`, revision `fixture-1`); `plugintest.FramesGuest`
 is the reference. `plugintest.RunFrames` hosts a guest process through the Go session,
-and `pkg/plugin-go/crosslang` runs the same suite through the C engine too, over a Go
+and `pkg/ext-go/crosslang` runs the same suite through the C engine too, over a Go
 client and with the engine owning the process (`TestFramesGuests`; a language
 joins by setting `EXT_<LANGUAGE>_FRAMES_GUEST` to its guest process). Results are JSON;
 key order does not matter.

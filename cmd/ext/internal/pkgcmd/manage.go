@@ -6,7 +6,7 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	"github.com/webong/ext/pkg/plugin-go/engine/host/store"
+	"github.com/webong/ext/pkg/ext-go/engine/host/store"
 )
 
 // Manager installs, trusts and removes the packages that provide commands.

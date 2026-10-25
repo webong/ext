@@ -7,13 +7,13 @@ on:
     branches: [main, 'plugin-engine/**']
     paths:
       - 'lib/plugin/**'
-      - 'pkg/plugin-go/**'
+      - 'pkg/ext-go/**'
       - 'scripts/plugin-engine-test.sh'
       - '.github/workflows/plugin-engine.yml'
   pull_request:
     paths:
       - 'lib/plugin/**'
-      - 'pkg/plugin-go/**'
+      - 'pkg/ext-go/**'
       - 'scripts/plugin-engine-test.sh'
       - '.github/workflows/plugin-engine.yml'
   workflow_dispatch:

@@ -8,7 +8,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/webong/ext/pkg/plugin-go/engine/host/store"
+	"github.com/webong/ext/pkg/ext-go/engine/host/store"
 )
 
 // TrustFile is the name of the trust record inside the ext home.

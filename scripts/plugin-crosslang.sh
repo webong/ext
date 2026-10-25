@@ -47,10 +47,10 @@ case "$(uname -s)" in
   Linux) extension=so ;;
   *) echo 'The cross-language native runner currently supports Linux and macOS.' >&2; exit 1 ;;
 esac
-go build -o "$build_dir/go-guest" ./pkg/plugin-go/crosslang/testdata/go-guest
+go build -o "$build_dir/go-guest" ./pkg/ext-go/crosslang/testdata/go-guest
 # The reference guest of the frames suite (progress events and reverse calls); a
 # language's guest joins it by setting EXT_<LANGUAGE>_FRAMES_GUEST.
-go build -o "$build_dir/go-frames-guest" ./pkg/plugin-go/crosslang/testdata/frames-guest
+go build -o "$build_dir/go-frames-guest" ./pkg/ext-go/crosslang/testdata/frames-guest
 export EXT_GO_FRAMES_GUEST="$build_dir/go-frames-guest"
 export EXT_RUST_FRAMES_GUEST="$CARGO_TARGET_DIR/debug/examples/frames"
 export EXT_RUST_INLINE_FRAMES_GUEST="$CARGO_TARGET_DIR/debug/examples/frames_inline"
@@ -67,7 +67,7 @@ LAUNCHER
   export EXT_TS_FRAMES_GUEST="$build_dir/ext-ts-frames-guest"
   EXT_FRAMES_REQUIRED="$EXT_FRAMES_REQUIRED TS"
 fi
-go build -buildmode=c-shared -o "$build_dir/go-shared.$extension" ./pkg/plugin-go/crosslang/testdata/go-shared
+go build -buildmode=c-shared -o "$build_dir/go-shared.$extension" ./pkg/ext-go/crosslang/testdata/go-shared
 export EXT_GO_GUEST="$build_dir/go-guest" EXT_GO_SHARED="$build_dir/go-shared.$extension"
 export EXT_RUST_GUEST="$CARGO_TARGET_DIR/debug/examples/guest" EXT_RUST_HOST="$CARGO_TARGET_DIR/debug/examples/host"
 export EXT_RUST_SHARED="$CARGO_TARGET_DIR/debug/examples/libshared.$extension"
@@ -123,6 +123,6 @@ LAUNCHER
   EXT_FRAMES_REQUIRED="$EXT_FRAMES_REQUIRED PYTHON"
 fi
 export EXT_CROSSLANG_REQUIRED=1
-go build -race -buildmode=plugin -o "$build_dir/go-native.so" ./pkg/plugin-go/crosslang/testdata/go-native
+go build -race -buildmode=plugin -o "$build_dir/go-native.so" ./pkg/ext-go/crosslang/testdata/go-native
 export EXT_GO_NATIVE="$build_dir/go-native.so"
-go test "${go_tags[@]}" -race -count=1 -timeout=180s -v ./pkg/plugin-go/crosslang
+go test "${go_tags[@]}" -race -count=1 -timeout=180s -v ./pkg/ext-go/crosslang

@@ -2,7 +2,7 @@
  * scripted guest that calls it back. The guest is this program started with
  * --guest <mode> (--descriptor prints the descriptor it serves); each mode asks for one thing, so every refusal code, every way
  * a handler can answer and every framing violation has a case. The Go
- * differential tests in pkg/plugin-go/cgoengine run the same behavior through the
+ * differential tests in pkg/ext-go/cgoengine run the same behavior through the
  * pure-Go session and compare. */
 #define _XOPEN_SOURCE 700 /* realpath, under -std=c11 on glibc */
 #include "progress.h"

@@ -1,4 +1,4 @@
-github.com/webong/ext/pkg/plugin-go/cgoengine v0.1.0 h1:2gXJtXRy8H0Ku6xnicLnXQ3EdAxmTfzBumGWKdRtPsM=
-github.com/webong/ext/pkg/plugin-go/cgoengine v0.1.0/go.mod h1:o7Lg03SwEv8nKXJ58MaQXJnWO1+gsKjUx/f14D2Pha4=
-github.com/webong/ext/pkg/plugin-go/engine v0.1.0 h1:9trJr/fIH/n+5Go//cw9yOfjJbbOY+20wZEIlrkNwgQ=
-github.com/webong/ext/pkg/plugin-go/engine v0.1.0/go.mod h1:7kwTFoT8X3W2rP8NZFXHT3rcur7M7FndSULxFjBgZJc=
+github.com/webong/ext/pkg/ext-go/cgoengine v0.1.0 h1:2gXJtXRy8H0Ku6xnicLnXQ3EdAxmTfzBumGWKdRtPsM=
+github.com/webong/ext/pkg/ext-go/cgoengine v0.1.0/go.mod h1:o7Lg03SwEv8nKXJ58MaQXJnWO1+gsKjUx/f14D2Pha4=
+github.com/webong/ext/pkg/ext-go/engine v0.1.0 h1:9trJr/fIH/n+5Go//cw9yOfjJbbOY+20wZEIlrkNwgQ=
+github.com/webong/ext/pkg/ext-go/engine v0.1.0/go.mod h1:7kwTFoT8X3W2rP8NZFXHT3rcur7M7FndSULxFjBgZJc=

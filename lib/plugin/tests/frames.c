@@ -2,7 +2,7 @@
  * host's frame loop against a scripted guest. The guest is this program started
  * with --guest <mode>; each mode misbehaves in one way, so every protocol
  * violation the host must refuse has a case. The Go differential tests in
- * pkg/plugin-go/cgoengine compare the same behavior with the pure-Go session. */
+ * pkg/ext-go/cgoengine compare the same behavior with the pure-Go session. */
 #define _XOPEN_SOURCE 700 /* realpath, under -std=c11 on glibc */
 #include "progress.h"
 #include "wire.h"

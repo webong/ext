@@ -3,7 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/webong/ext/pkg/plugin-go/cgoengine"
+	"github.com/webong/ext/pkg/ext-go/cgoengine"
 	"io"
 	"net/url"
 	"os"

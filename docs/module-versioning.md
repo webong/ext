@@ -65,7 +65,7 @@ The CLI modules `src/ctx` (module path `github.com/webong/ext/ctx`) and `src/ctn
 `replace` directives, but only for the sibling modules they require, because they are the modules
 developers build and run. Those are what let `go build ./...` use local module code. Adapters are
 ext packages that `ctx` loads, not Go imports, so neither module lists or replaces them. The Go
-examples live in the library they show (for example `pkg/plugin-go/examples`) and need no module
+examples live in the library they show (for example `pkg/ext-go/examples`) and need no module
 of their own. The repository root is not a module: it
 holds `go.work` only, so it has no `go.mod` and Go resolves no module there.
 
@@ -155,6 +155,25 @@ A module path and its tags are a pair, so this is a new module, not a new versio
   pushed. The published `v0.1.0` tags of the adapters still require `res/browser`
   and remain valid; their next release requires `res/web`.
 
+## `pkg/plugin-go` became `pkg/ext-go`
+
+The Go plugin library is `pkg/ext-go`, to match the other language packages (`pkg/ext-rust`, `ext-zig`,
+`ext-ts`, `ext-python`, `ext-ios`, `ext-android`). A module in a subdirectory carries the directory in its
+path, so all seven modules changed path, as `cengine` and `contract` did before them: `pkg/ext-go` (the
+umbrella), `pkg/ext-go/engine`, `cgoengine`, `c2goengine` (and its `tools` module), `hashicorp` and `wasm`.
+Each is a new module, not a new version:
+
+- The tags under `pkg/plugin-go/...` are immutable and stay resolvable for anything that requires the old
+  paths; they are the last versions of those paths. Nothing is tagged under the new paths until a release
+  round cuts them, on a tree whose `go.mod` files declare them.
+- Every import path, `require`, `replace`, `go.work` entry, script, workflow and document that named
+  `pkg/plugin-go` now names `pkg/ext-go`. The history in the sections below keeps the old names, because
+  those are the paths the tags carry.
+- The `go.sum` records of the renamed modules still hold the hashes of the old paths. A module zip's hash
+  covers its path, so they are wrong for the new ones; `scripts/release-pins.sh` recomputes them for the
+  round's versions file and `scripts/release-rehearse.sh` fails on any that is not right, so none can be
+  tagged by mistake.
+
 ## `pkg/plugin-go/cengine` became `pkg/plugin-go/cgoengine`
 
 The Go binding of the C engine was renamed because it is now one of three engines (the pure-Go
@@ -232,8 +251,8 @@ Before tagging, confirm each module builds and tests on its own with the
 workspace active, and that `src/ctx` resolves the intended versions:
 
 ```bash
-for module in src/ctx src/ctn pkg/plugin-go pkg/plugin-go/engine pkg/plugin-go/cgoengine \
-              pkg/plugin-go/hashicorp pkg/plugin-go/wasm res/system adapters/wasm adapters/evm \
+for module in src/ctx src/ctn pkg/ext-go pkg/ext-go/engine pkg/ext-go/cgoengine \
+              pkg/ext-go/hashicorp pkg/ext-go/wasm res/system adapters/wasm adapters/evm \
               res/web res/credential; do
   (cd "$module" && go build ./... && go test ./...) || exit 1
 done
@@ -243,10 +262,10 @@ done
 
 Each module's `go` line is the oldest Go that builds it, so it must be at least what its own
 dependencies require; `go mod tidy` raises it when it is not. The light libraries
-(`pkg/plugin-go/engine`, `pkg/plugin-go/cgoengine`, `pkg/plugin-go/wasm`, `res/*` and the adapters) declare `go 1.23.0` and their dependencies allow it. Four modules declare
+(`pkg/ext-go/engine`, `pkg/ext-go/cgoengine`, `pkg/ext-go/wasm`, `res/*` and the adapters) declare `go 1.23.0` and their dependencies allow it. Four modules declare
 `go 1.26.0` because `golang.org/x/net`, `x/sys` and `x/text` at the versions they use require it:
-`pkg/plugin-go/hashicorp` (gRPC), the umbrella `pkg/plugin-go` (it requires `hashicorp`), `src/ctx`
-and `src/ctn`. A fifth, `pkg/plugin-go/c2goengine`, declares `go 1.26.0` because the runtime library the
+`pkg/ext-go/hashicorp` (gRPC), the umbrella `pkg/ext-go` (it requires `hashicorp`), `src/ctx`
+and `src/ctn`. A fifth, `pkg/ext-go/c2goengine`, declares `go 1.26.0` because the runtime library the
 translated code links against (`modernc.org/libc`) requires it. The workspace file
 `go.work` declares the highest of them, and CI runs Go 1.26.x.
 
@@ -258,17 +277,17 @@ older Go should require v0.1.1 or newer, and the v0.1.0 tag stays as published.
 
 ## The plugin library is a tree of modules
 
-`pkg/plugin-go/` is a directory tree in which each heavy part is its own module,
+`pkg/ext-go/` is a directory tree in which each heavy part is its own module,
 so an application imports only what it needs and stacks the rest:
 
 | Module | Contents | Requires |
 | --- | --- | --- |
-| `pkg/plugin-go/engine` | the pure-Go engine (the oracle): the contract, sessions, guests, packages, the package store and host, bridges and tooling (the old `pkg/plugin`); standard library only | nothing |
-| `pkg/plugin-go/cgoengine` | the Go binding of the C engine, a pure-Go build of the same API, engine-routed variants of `store` and `host` with the same API as the ones in `engine`, the C ABI loader (the old `pkg/plugin-cshared`) and a generated copy of the C sources | `contract` |
-| `pkg/plugin-go/c2goengine` | the C engine's portable core translated to Go by ccgo (`modernc.org/ccgo`), with no cgo and no C compiler: one generated file per platform, made on that platform (see its README) | `engine` |
-| `pkg/plugin-go/wasm` | the wazero backend (the old `pkg/plugin-wasm`) | `engine` |
-| `pkg/plugin-go/hashicorp` | the go-plugin (gRPC) backend (the old `pkg/plugin-hashicorp`) | `engine` |
-| `pkg/plugin-go` | the umbrella: requires every module above at matching versions and holds what needs several of them (`PlanGraph`, the `core` package that chooses between `engine`, `cgoengine` and `c2goengine`, the bridge command, the cross-language tests) | all of the above, `res/system` |
+| `pkg/ext-go/engine` | the pure-Go engine (the oracle): the contract, sessions, guests, packages, the package store and host, bridges and tooling (the old `pkg/plugin`); standard library only | nothing |
+| `pkg/ext-go/cgoengine` | the Go binding of the C engine, a pure-Go build of the same API, engine-routed variants of `store` and `host` with the same API as the ones in `engine`, the C ABI loader (the old `pkg/plugin-cshared`) and a generated copy of the C sources | `contract` |
+| `pkg/ext-go/c2goengine` | the C engine's portable core translated to Go by ccgo (`modernc.org/ccgo`), with no cgo and no C compiler: one generated file per platform, made on that platform (see its README) | `engine` |
+| `pkg/ext-go/wasm` | the wazero backend (the old `pkg/plugin-wasm`) | `engine` |
+| `pkg/ext-go/hashicorp` | the go-plugin (gRPC) backend (the old `pkg/plugin-hashicorp`) | `engine` |
+| `pkg/ext-go` | the umbrella: requires every module above at matching versions and holds what needs several of them (`PlanGraph`, the `core` package that chooses between `engine`, `cgoengine` and `c2goengine`, the bridge command, the cross-language tests) | all of the above, `res/system` |
 
 The module was called `contract` until v0.8.0 because it is the contract plus tooling that needs
 nothing beyond the standard library, not a runtime; it became `engine` once it was the oracle
@@ -283,7 +302,7 @@ generated, one file per platform (`internal/ccgo/generated_<goos>_<goarch>.go`),
 in its `tools` directory, which pins ccgo and runs only on the platform it writes for. A published
 module contains only its own directory, and the generated files are that directory's copy of the C,
 so no C sources travel with it. The `c2goengine` workflow regenerates the file for each platform and
-fails when it differs from the one checked in. Tags follow the usual rule: `pkg/plugin-go/c2goengine/vX.Y.Z`,
+fails when it differs from the one checked in. Tags follow the usual rule: `pkg/ext-go/c2goengine/vX.Y.Z`,
 with an `engine` release that holds the `plugintest/enginetest` checks it runs below it (`engine` v0.1.0; `contract` v0.8.0 has the service checks only, and the instance, session and process checks came after).
 
 ### The C sources

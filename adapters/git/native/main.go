@@ -3,7 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
-	"github.com/webong/ext/pkg/plugin-go/cgoengine"
+	"github.com/webong/ext/pkg/ext-go/cgoengine"
 	"io"
 	"os"
 	"os/exec"

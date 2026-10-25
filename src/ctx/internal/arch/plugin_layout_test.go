@@ -16,7 +16,7 @@ import (
 	"testing"
 )
 
-// pkg/plugin-go is a tree of modules, not one module. Each heavy part is its own
+// pkg/ext-go is a tree of modules, not one module. Each heavy part is its own
 // module so an application imports only what it needs:
 //
 //	engine      the pure-Go engine, the oracle and the shared data model; standard library only
@@ -24,18 +24,18 @@ import (
 //	c2goengine  the C engine's portable core translated to Go; needs engine
 //	wasm        the wazero backend; needs engine only, never cgoengine
 //	hashicorp   the gRPC backend; needs engine only, never cgoengine
-//	(umbrella)  pkg/plugin-go itself, the one module that may require them all; its core package
+//	(umbrella)  pkg/ext-go itself, the one module that may require them all; its core package
 //	            chooses between engine, cgoengine and c2goengine
-const pluginPrefix = "github.com/webong/ext/pkg/plugin-go"
+const pluginPrefix = "github.com/webong/ext/pkg/ext-go"
 
 // A module's allowed requirements among the repository's own modules.
 var pluginRequires = map[string][]string{
-	"pkg/plugin-go/engine":     {},
-	"pkg/plugin-go/cgoengine":  {"pkg/plugin-go/engine"},
-	"pkg/plugin-go/c2goengine": {"pkg/plugin-go/engine"},
-	"pkg/plugin-go/wasm":       {"pkg/plugin-go/engine"},
-	"pkg/plugin-go/hashicorp":  {"pkg/plugin-go/engine"},
-	"pkg/plugin-go":            {"pkg/plugin-go/engine", "pkg/plugin-go/cgoengine", "pkg/plugin-go/c2goengine", "pkg/plugin-go/wasm", "pkg/plugin-go/hashicorp", "res/system"},
+	"pkg/ext-go/engine":     {},
+	"pkg/ext-go/cgoengine":  {"pkg/ext-go/engine"},
+	"pkg/ext-go/c2goengine": {"pkg/ext-go/engine"},
+	"pkg/ext-go/wasm":       {"pkg/ext-go/engine"},
+	"pkg/ext-go/hashicorp":  {"pkg/ext-go/engine"},
+	"pkg/ext-go":            {"pkg/ext-go/engine", "pkg/ext-go/cgoengine", "pkg/ext-go/c2goengine", "pkg/ext-go/wasm", "pkg/ext-go/hashicorp", "res/system"},
 }
 
 var requireLine = regexp.MustCompile(`(?m)^\s*(?:require\s+)?(github\.com/webong/ext/\S+)\s+v\S+`)
@@ -69,7 +69,7 @@ func TestPluginGoModulesRequireOnlyTheirParts(t *testing.T) {
 // engine binding in the module graph.
 func TestBackendsNeverImportTheCEngine(t *testing.T) {
 	root := repoRoot(t)
-	for _, dir := range []string{"pkg/plugin-go/wasm", "pkg/plugin-go/hashicorp"} {
+	for _, dir := range []string{"pkg/ext-go/wasm", "pkg/ext-go/hashicorp"} {
 		forbidden := []string{pluginPrefix + "/cgoengine", pluginPrefix + "/c2goengine", pluginPrefix + "/core", pluginPrefix}
 		err := filepath.WalkDir(filepath.Join(root, dir), func(path string, entry fs.DirEntry, walkErr error) error {
 			if walkErr != nil || entry.IsDir() || filepath.Ext(path) != ".go" {
@@ -84,7 +84,7 @@ func TestBackendsNeverImportTheCEngine(t *testing.T) {
 				for _, f := range forbidden {
 					if name == f || strings.HasPrefix(name, f+"/") && f != pluginPrefix {
 						rel, _ := filepath.Rel(root, path)
-						t.Errorf("%s imports %s; a backend depends on pkg/plugin-go/engine only", filepath.ToSlash(rel), name)
+						t.Errorf("%s imports %s; a backend depends on pkg/ext-go/engine only", filepath.ToSlash(rel), name)
 					}
 				}
 			}
@@ -96,10 +96,10 @@ func TestBackendsNeverImportTheCEngine(t *testing.T) {
 	}
 }
 
-// pkg/plugin-go/engine is the lean choice: standard library only.
+// pkg/ext-go/engine is the lean choice: standard library only.
 func TestEngineModuleUsesOnlyTheStandardLibrary(t *testing.T) {
 	root := repoRoot(t)
-	err := filepath.WalkDir(filepath.Join(root, "pkg/plugin-go/engine"), func(path string, entry fs.DirEntry, walkErr error) error {
+	err := filepath.WalkDir(filepath.Join(root, "pkg/ext-go/engine"), func(path string, entry fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
 		}
@@ -138,8 +138,8 @@ func TestEngineModuleUsesOnlyTheStandardLibrary(t *testing.T) {
 func TestEngineVariantsKeepTheSameAPI(t *testing.T) {
 	root := repoRoot(t)
 	for _, name := range []string{"host", "host/store"} {
-		pure := exportedAPI(t, filepath.Join(root, "pkg/plugin-go/engine", name))
-		engine := exportedAPI(t, filepath.Join(root, "pkg/plugin-go/cgoengine", name))
+		pure := exportedAPI(t, filepath.Join(root, "pkg/ext-go/engine", name))
+		engine := exportedAPI(t, filepath.Join(root, "pkg/ext-go/cgoengine", name))
 		for line := range pure {
 			if !engine[line] {
 				t.Errorf("%s: in engine but not in cgoengine: %s", name, line)
@@ -245,7 +245,7 @@ func TestEngineGroupsKeepTheirLayering(t *testing.T) {
 	for group, others := range forbidden {
 		for _, other := range others {
 			banned := pluginPrefix + "/engine/" + other
-			err := filepath.WalkDir(filepath.Join(root, "pkg/plugin-go/engine", group), func(path string, entry fs.DirEntry, walkErr error) error {
+			err := filepath.WalkDir(filepath.Join(root, "pkg/ext-go/engine", group), func(path string, entry fs.DirEntry, walkErr error) error {
 				if walkErr != nil || entry.IsDir() || filepath.Ext(path) != ".go" {
 					return walkErr
 				}

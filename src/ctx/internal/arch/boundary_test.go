@@ -25,7 +25,7 @@ var forbiddenPrefixes = []string{
 // expected to stay free of implementation imports so it can back its own module.
 var libraryRoots = []string{
 	"res",
-	"pkg/plugin-go",
+	"pkg/ext-go",
 }
 
 // repoRoot walks up from the test's directory to the workspace root, the

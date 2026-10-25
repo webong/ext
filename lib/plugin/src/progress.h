@@ -5,7 +5,7 @@
 /* Progress events of a call, shared by every side that carries them: the frame
  * validator, the token-bucket rate limit and the host-side sink. The reference
  * is plugin.Progress, plugin.Limiter and the host's callback sink in
- * pkg/plugin-go/engine (reverse.go). */
+ * pkg/ext-go/engine (reverse.go). */
 
 #define EXT_PROGRESS_TEXT_MAX 2048u
 #define EXT_PROGRESS_DEFAULT_EVENTS 50

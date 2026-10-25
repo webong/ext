@@ -4,7 +4,7 @@ CTX owns the reusable plugin library alongside and `res/system` (including `res/
 Hosts and guests share one protocol and can select a supported transport.
 Adapters and applications own their domain contracts, grants, native behavior,
 distribution and activation. HashiCorp go-plugin remains a dependency of
-`pkg/plugin-go/hashicorp` inside the library.
+`pkg/ext-go/hashicorp` inside the library.
 
 This change is entirely within CTX. Migration of other consumers is deferred.
 Their existing native protocols are not automatically compatible with CTX.
@@ -14,27 +14,27 @@ Their existing native protocols are not automatically compatible with CTX.
 | Package | Responsibility |
 | --- | --- |
 | `plugin` | Immutable descriptors, exact selection, verification, per-call admission, lifecycle, compatibility preflight and metadata observation |
-| `pkg/plugin-go/engine/guest/author` | Typed methods, runtime validation, descriptor generation and frozen guest dispatch |
-| `pkg/plugin-go/engine/validate/schema` | Bounded `ext.schema/v1` payload/configuration schemas |
-| `pkg/plugin-go/engine/transport/inprocess` | Trusted endpoints with connection lifetime cancellation |
-| `pkg/plugin-go/engine/transport/jsonline` | Bounded JSON-line transport on a supplied duplex connection |
-| `pkg/plugin-go/hashicorp` | Native go-plugin startup and net/rpc or gRPC bindings |
-| `pkg/plugin-go/engine/host/nativego` | Dynamic Go `.so` loading through a standard guest factory |
-| `pkg/plugin-go/wasm` | Embedded wazero execution of WASI Preview 1 command guests |
-| `pkg/plugin-go/cgoengine/cshared` | Dynamic C ABI loading with separate guest handles and owned buffers |
-| `pkg/plugin-go/cgoengine/cshared/guest` | Go guest lifecycle and cgo export bridge for C shared libraries |
-| `pkg/plugin-go/engine/guest/instance` | Configuration revisions, resource leases, replacement and disposal |
-| `pkg/plugin-go/engine/guest/capability` | Optional health and configuration contracts |
-| `pkg/plugin-go/engine/guest/stream` | Optional, scoped, bounded pull streams |
-| `pkg/plugin-go/engine/package` | Portable manifests, artifact verification, preflight and graph projection |
-| `pkg/plugin-go/engine/plugintest` | Reusable backend conformance tests |
-| `pkg/plugin-go` | Go binding to the C engine; static by default, shared optional |
+| `pkg/ext-go/engine/guest/author` | Typed methods, runtime validation, descriptor generation and frozen guest dispatch |
+| `pkg/ext-go/engine/validate/schema` | Bounded `ext.schema/v1` payload/configuration schemas |
+| `pkg/ext-go/engine/transport/inprocess` | Trusted endpoints with connection lifetime cancellation |
+| `pkg/ext-go/engine/transport/jsonline` | Bounded JSON-line transport on a supplied duplex connection |
+| `pkg/ext-go/hashicorp` | Native go-plugin startup and net/rpc or gRPC bindings |
+| `pkg/ext-go/engine/host/nativego` | Dynamic Go `.so` loading through a standard guest factory |
+| `pkg/ext-go/wasm` | Embedded wazero execution of WASI Preview 1 command guests |
+| `pkg/ext-go/cgoengine/cshared` | Dynamic C ABI loading with separate guest handles and owned buffers |
+| `pkg/ext-go/cgoengine/cshared/guest` | Go guest lifecycle and cgo export bridge for C shared libraries |
+| `pkg/ext-go/engine/guest/instance` | Configuration revisions, resource leases, replacement and disposal |
+| `pkg/ext-go/engine/guest/capability` | Optional health and configuration contracts |
+| `pkg/ext-go/engine/guest/stream` | Optional, scoped, bounded pull streams |
+| `pkg/ext-go/engine/package` | Portable manifests, artifact verification, preflight and graph projection |
+| `pkg/ext-go/engine/plugintest` | Reusable backend conformance tests |
+| `pkg/ext-go` | Go binding to the C engine; static by default, shared optional |
 | `pkg/ext-python` | Standard-library guest SDK (`ext_plugin`) serving JSON lines on stdin and stdout |
 | `pkg/ext-ts` | Portable JavaScript runtime and TypeScript declarations for hosts and guests |
 | `pkg/ext-rust` | Rust typed registry, host sessions, JSON-line/WASI guests and C ABI host/guest bindings |
 | `pkg/ext-zig` | Zig typed registry, host sessions, JSON-line/WASI guests, C ABI host/guest bindings, and the health, configuration and stream contracts with a stream client |
-| `pkg/plugin-go/crosslang` | Real Rust/Zig/Go host and guest interoperability tests |
-| `pkg/plugin-go/hashicorp/cmd/ext-plugin` | Read-only package inspection and dependency resolution |
+| `pkg/ext-go/crosslang` | Real Rust/Zig/Go host and guest interoperability tests |
+| `pkg/ext-go/hashicorp/cmd/ext-plugin` | Read-only package inspection and dependency resolution |
 
 ## Compatibility policy
 
@@ -131,12 +131,12 @@ version. The host must bind the reviewed metadata to installed artifacts.
 Runnable template:
 
 ```sh
-go run ./pkg/plugin-go/examples/plugin-sdk --backend jsonline
-go run ./pkg/plugin-go/examples/plugin-sdk --backend inprocess
+go run ./pkg/ext-go/examples/plugin-sdk --backend jsonline
+go run ./pkg/ext-go/examples/plugin-sdk --backend inprocess
 ```
 
 Both print the configured echo, health and a three-item stream. The existing
-`pkg/plugin-go/examples/plugin-hashicorp` shows native subprocess ownership for both RPCs.
+`pkg/ext-go/examples/plugin-hashicorp` shows native subprocess ownership for both RPCs.
 
 ## Instances and configuration
 
@@ -229,8 +229,8 @@ remain host-owned. Graph records do not grant permissions; restart generations,
 transactional activation and rollback remain part of the host's composition.
 
 ```sh
-go run ./pkg/plugin-go/hashicorp/cmd/ext-plugin inspect --entry main pkg/plugin-go/examples/plugin-package/plugin.json
-go run ./pkg/plugin-go/hashicorp/cmd/ext-plugin resolve pkg/plugin-go/examples/plugin-package/plugin.json
+go run ./pkg/ext-go/hashicorp/cmd/ext-plugin inspect --entry main pkg/ext-go/examples/plugin-package/plugin.json
+go run ./pkg/ext-go/hashicorp/cmd/ext-plugin resolve pkg/ext-go/examples/plugin-package/plugin.json
 ```
 
 Add `--root DIR` to verify artifact contents. `inspect` reports `trusted: false`
@@ -255,14 +255,14 @@ specific process cleanup remains covered by each runtime's own tests. Parser
 fixtures and domain/schema tests complement the behavioral backend suite.
 
 ```sh
-go test -race ./pkg/plugin-go/hashicorp/... ./pkg/plugin-go/hashicorp/cmd/ext-plugin
+go test -race ./pkg/ext-go/hashicorp/... ./pkg/ext-go/hashicorp/cmd/ext-plugin
 node --test pkg/ext-ts/test.mjs
-go run ./pkg/plugin-go/examples/plugin-typescript
+go run ./pkg/ext-go/examples/plugin-typescript
 ```
 
 The cross-language example runs a real JavaScript guest from a Go host. The
 reverse direction is available by building that Go example and passing the
-executable to `pkg/plugin-go/examples/plugin-typescript/host.mjs`. Type declarations have a
+executable to `pkg/ext-go/examples/plugin-typescript/host.mjs`. Type declarations have a
 separate `typecheck.mts` fixture. CI exercises both directions and the native
 backend conformance suite.
 
@@ -319,8 +319,8 @@ tradeoffs. Ordinary Go builds do not depend on this C engine.
 ### Interoperability across implementations
 
 Go, C and language-native SDK hosts can coexist behind the same contract.
-`pkg/plugin-go/engine/host/interop` plans explicit direct/bridged routes; `pkg/plugin-go/engine/transport/bridge` exposes a
-verified backend as an Endpoint. `pkg/plugin-go/cmd/ext-plugin-bridge` connects JSON-line hosts
+`pkg/ext-go/engine/host/interop` plans explicit direct/bridged routes; `pkg/ext-go/engine/transport/bridge` exposes a
+verified backend as an Endpoint. `pkg/ext-go/cmd/ext-plugin-bridge` connects JSON-line hosts
 to HashiCorp gRPC/net/rpc guests, while HashiCorp servers can expose relay
 Endpoints in the reverse direction. See [interoperability](plugin-interoperability.md)
 for configuration, ownership and the tested host/guest matrix. This extends

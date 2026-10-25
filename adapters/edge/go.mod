@@ -3,7 +3,7 @@ module github.com/webong/ext/adapters/edge
 go 1.23.0
 
 require (
-	github.com/webong/ext/adapters/chromium v0.4.0
+	github.com/webong/ext/adapters/chromium v0.4.1
 	github.com/webong/ext/res/web v0.5.0
 )
 

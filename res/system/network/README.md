@@ -1,6 +1,6 @@
-# network
+# system/network
 
-`github.com/webong/ext/res/network` observes networking supplied by the local
+`github.com/webong/ext/res/system/network` observes networking supplied by the local
 operating system: interfaces, assigned addresses, route tables, and resolver
 configuration. It opens no sockets, performs no lookup, sends no traffic, and
 does not mutate network configuration.

@@ -165,7 +165,7 @@ reference. CTX invokes `share "" -- credential get <item>` to receive up to
 `--replace` is present and must not print the value in diagnostics. Its item
 syntax and native lookup behavior are adapter-owned. See
 [native credentials](credentials.md) for the CLI and security contract.
-Browser adapters can use `res/credential/client.GetDeclared` to request an item
+Browser adapters can use `res/system/credential/client.GetDeclared` to request an item
 through CTX rather than importing a store implementation package. The host
 checks the installed adapter's trust and API before dispatching.
 

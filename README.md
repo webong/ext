@@ -11,6 +11,8 @@ resources) and two binaries:
 | `ctn` | `src/ctn` | Content management: `ctn verify` runs content through a sandboxed engine ([docs](docs/ctn-verify.md)); `ctn adapter ls` lists installed adapters |
 
 New here? [Using ext](docs/guide.md) is organised by what you want to do, with recipes that run.
+The reusable local graphical/textual shell boundary is described in
+[the system shell library](docs/system-shell.md).
 
 Reusable libraries live in [`pkg/`](pkg/README.md) and [`res/`](res/README.md);
 product-specific behavior lives in [`adapters/`](adapters/README.md). A product
@@ -297,9 +299,16 @@ and [the graph design](docs/adr-graph-runtime.md).
 
 CTX and its ecosystem share public Go libraries:
 
-- `github.com/webong/ext/res/system` supplies generic graph storage, host and
-  process discovery, and read-only local surface, accessibility and permission
-  observation. Its Apple and Android bindings ship through the native SDKs.
+- `github.com/webong/ext/res/system` supplies the local graphical/textual shell
+  substrate: graph storage, host and process discovery, surfaces,
+  accessibility, permissions, bounded capture and input, media primitives,
+  volume snapshot/restore, local interface/address/route/resolver observation,
+  and supervision. Consumers own authorization, remote control and product
+  policy. Its Apple and Android bindings ship
+  through the native SDKs, with additional Windows-native libraries in
+  `res/system/windows`. Clipboard and credential integration are the
+  `res/system/clipboard` and `res/system/credential` packages; bounded local
+  network observation is `res/system/network`.
 - `github.com/webong/ext/pkg/ext-go` supplies the shared host/guest contract,
   validation, selection, admission, and session lifecycle. Its implementations
   include `pkg/ext-go/engine/transport/inprocess`, `pkg/ext-go/engine/transport/jsonline`, `pkg/ext-go/hashicorp` (net/rpc and
@@ -308,17 +317,10 @@ CTX and its ecosystem share public Go libraries:
 - `github.com/webong/ext/res/system/supervisor` supplies local process supervision when
   the selected plugin backend does not already own its process lifecycle.
 - `github.com/webong/ext/res/web` supplies portable browser contracts,
-  workflows, extension and userscript handling.
-- `github.com/webong/ext/res/clipboard` supplies bounded clipboard contracts
-  and native Apple and Android bindings without remote routing or approval UI.
-- `github.com/webong/ext/res/network` supplies bounded, read-only observation of
-  local interfaces, assigned addresses, routes and resolver configuration. It
-  does not open network connections or implement remote discovery or routing.
-- `github.com/webong/ext/res/credential` supplies portable credential serving and
-  the CTX credential client.
-
-`res/web`, `res/clipboard`, `res/network`, `res/credential`, and `pkg/ext-go` depend only on the
-Go standard library, so
+  workflows, extension and userscript handling, plus application-hosted
+  WKWebView, Android WebView and WebView2 implementations.
+`res/web` and `pkg/ext-go` depend only on the Go standard library;
+`res/system` depends only on `golang.org/x/sys`, so
 consumers that do not need a runtime backend never download the HashiCorp or
 WASI stacks.
 

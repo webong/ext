@@ -87,7 +87,7 @@ import (
 	"path/filepath"
 	"unsafe"
 
-	"github.com/webong/ext/res/credential/adapterkit"
+	"github.com/webong/ext/res/system/credential/adapterkit"
 )
 
 func (keychain Keychain) Check(context.Context) error {

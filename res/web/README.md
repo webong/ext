@@ -15,7 +15,8 @@ without pulling an adapter, a browser engine, or any CTX application code.
 | `sqlite` | Read-only SQLite reader for browser cookie stores (standard library only, no sqlite3 program) and the sqlite3 helper used by cookie import |
 | `userscript` | Userscript metadata, storage and replay, with language-neutral fixtures in `testdata/userscript` |
 | `bookmarklet` | Bookmarklet generation, with language-neutral fixtures in `testdata/bookmarklet` |
-| `ios`, `android` | Not Go packages: the Swift and Java modules of the userscript, cookie and bookmarklet rules (see Three modules) |
+| `ios`, `android` | Not Go packages: the Swift and Java modules of the userscript, cookie and bookmarklet rules (see Platform modules) |
+| `windows` | The .NET WebView2 workspace for prepared userscripts and profile-extension mechanics |
 
 `browser` itself parses and combines cookies. `Get` and `Normalize` require an
 injected `browser.Backend` for source operations; `InlineOnly`, the parsers and
@@ -25,7 +26,7 @@ Native storage, discovery and tooling belong under `adapters/<name>/`. No
 package here chooses a browser implementation by name — hosts supply selection
 and authorization policy.
 
-## Three modules
+## Platform modules
 
 `res/web` is a Go module, and also the iOS module and the Android module of the cookie, userscript and
 bookmarklet rules. Each is the same rules written out for its platform, so a phone app needs no Go runtime and
@@ -36,12 +37,18 @@ no native library for them.
 | this directory | the Go module `github.com/webong/ext/res/web` | `go test ./...` |
 | [`ios`](ios/README.md) | the SwiftPM package `ExtWeb` (macOS 12, iOS 13) | `scripts/web-ios.sh` (Swift only) |
 | [`android`](android/README.md) | the Java package `io.github.webong.ext.web` | `scripts/web-android.sh` (a JDK only) |
+| [`windows`](windows/README.md) | the .NET library `Ext.Web.Windows` | `dotnet build` and its console test project |
 
 All three run the fixtures in `testdata`, and `scripts/web-differential.sh` compares the Swift and Java
 modules with the Go one on a corpus that `internal/portcorpus` writes. A change to these rules lands in all
 three, with a fixture. The mobile modules are not Go and are not versioned as part of the Go module: apps take
 them through [`pkg/ext-ios`](../../pkg/ext-ios/README.md) and [`pkg/ext-android`](../../pkg/ext-android/README.md),
 which ship them beside their plugin code and release under their own tags.
+
+The WebView2 target accepts reviewed source already prepared by the portable
+userscript workflow. It does not choose a browser profile or authorize
+extension changes; an application owns those decisions and the CoreWebView2
+lifetime.
 
 See [browser profile and page management](../../docs/browser-management.md),
 [browser cookies and automation input](../../docs/browser-cookies.md), and the

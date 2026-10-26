@@ -1,10 +1,10 @@
 module github.com/webong/ext/adapters/keychain
 
-go 1.23.0
+go 1.25.0
 
 require (
 	github.com/webong/ext/pkg/ext-go/cgoengine v0.1.0
-	github.com/webong/ext/res/credential v0.1.0
+	github.com/webong/ext/res/system v0.2.0
 )
 
 require github.com/webong/ext/pkg/ext-go/engine v0.1.0 // indirect

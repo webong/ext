@@ -25,10 +25,14 @@ jobs:
           cache-dependency-path: |
             **/go.sum
             go.work.sum
+      - uses: actions/setup-dotnet@v4
+        if: runner.os == 'Windows'
+        with:
+          dotnet-version: '8.0.x'
       - name: Test library modules
         shell: bash # the loop is bash; Windows runners default to PowerShell
         run: |
-          for module in cmd/ext src/ctx src/ctn res/system res/network pkg/ext-go pkg/ext-go/engine pkg/ext-go/cgoengine pkg/ext-go/hashicorp pkg/ext-go/wasm adapters/wasm adapters/evm res/web res/clipboard res/credential; do
+          for module in cmd/ext src/ctx src/ctn res/system pkg/ext-go pkg/ext-go/engine pkg/ext-go/cgoengine pkg/ext-go/hashicorp pkg/ext-go/wasm adapters/wasm adapters/evm res/web; do
             (cd "$module" && go test ./...) || exit 1
           done
       - name: Validate isolated native graph processes
@@ -39,9 +43,16 @@ jobs:
       - name: Validate portable Android system contracts
         if: runner.os != 'Windows'
         run: scripts/system-android.sh
-      - name: Validate portable Android network contracts
+      - name: Validate Android system network contracts
         if: runner.os != 'Windows'
         run: scripts/network-android.sh
+      - name: Validate Windows system and WebView2 libraries
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          dotnet build res/system/windows/Ext.System.Windows.csproj
+          dotnet build res/web/windows/Ext.Web.Windows.csproj
+          dotnet run --project res/web/windows/Tests/Ext.Web.Windows.Tests.csproj
       - name: Validate isolated native cookie credentials
         if: runner.os == 'macOS' || runner.os == 'Windows'
         env:

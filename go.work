@@ -29,13 +29,10 @@ use (
 	./adapters/firefox
 	./adapters/safari
 	./res/system
-	./res/network
 	./pkg/ext-go
 	./pkg/ext-go/hashicorp
 	./pkg/ext-go/wasm
 	./res/web
-	./res/clipboard
-	./res/credential
 	./pkg/ext-go/engine
 	./pkg/ext-go/cgoengine
 	./pkg/ext-go/c2goengine

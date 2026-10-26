@@ -31,7 +31,7 @@ func TestLGPLDependenciesStayInsideTheirAdapter(t *testing.T) {
 		relative = filepath.ToSlash(relative)
 		if entry.IsDir() {
 			switch entry.Name() {
-			case ".git", "node_modules", "target", "dist", "testdata":
+			case ".git", ".claude", "node_modules", "target", "dist", "testdata":
 				return filepath.SkipDir
 			}
 			return nil

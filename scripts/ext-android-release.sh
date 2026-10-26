@@ -3,7 +3,7 @@
 # ext-android-<version>.aar, or ext-android-wamr-<version>.aar with --with-wamr. The two builds
 # share the directory, so a release stages both in turn.
 # The AAR holds the guest SDK, WebView host, web rules, native clipboard binding,
-# and system observation (classes.jar), plus libextjni for arm64-v8a and
+# and local system shell support (classes.jar), plus libextjni for arm64-v8a and
 # x86_64. It publishes nothing. Needs the Android SDK (platform, build-tools, NDK), a JDK, cmake.
 #
 # --with-wamr also builds the optional WAMR host: libextwamrjni for the same ABIs and the
@@ -49,9 +49,9 @@ done
 mkdir -p "$work/classes"
 # The plugin code and the WebView host are this package's; the web rules are res/web/android's.
 sources=($(find "$pkg/src/main/java" "$pkg/src/android/java" res/web/android/src/main/java res/web/android/src/android/java \
-  res/clipboard/android/src/main/java res/clipboard/android/src/android/java \
+  res/system/clipboard/android/src/main/java res/system/clipboard/android/src/android/java \
   res/system/android/src/main/java res/system/android/src/android/java \
-  res/network/android/src/main/java res/network/android/src/android/java -name '*.java' | grep -v '/Wamr[A-Za-z]*\.java$'))
+  res/system/network/android/src/main/java res/system/network/android/src/android/java -name '*.java' | grep -v '/Wamr[A-Za-z]*\.java$'))
 [[ -z "$with_wamr" ]] || sources+=($(find "$pkg/src/main/java" -name 'Wamr*.java'))
 javac -Xlint:all --release 17 -classpath "$jar" -d "$work/classes" "${sources[@]}"
 ( cd "$work/classes" && jar cf "$work/aar/classes.jar" . )
@@ -97,6 +97,8 @@ grep -qx 'io/github/webong/ext/clipboard/android/SystemClipboard.class' <<<"$cla
 grep -qx 'io/github/webong/ext/system/SurfaceSnapshot.class' <<<"$classes" || { echo 'classes.jar is missing system observation contracts' >&2; exit 1; }
 grep -qx 'io/github/webong/ext/system/android/SystemSurfaceObserver.class' <<<"$classes" || { echo 'classes.jar is missing native system observation' >&2; exit 1; }
 grep -qx 'io/github/webong/ext/system/android/SystemAccessibilityObserver.class' <<<"$classes" || { echo 'classes.jar is missing native accessibility observation' >&2; exit 1; }
+grep -qx 'io/github/webong/ext/system/android/SystemMediaProjection.class' <<<"$classes" || { echo 'classes.jar is missing Android media capture' >&2; exit 1; }
+grep -qx 'io/github/webong/ext/system/android/SystemAudioPlayback.class' <<<"$classes" || { echo 'classes.jar is missing Android audio playback' >&2; exit 1; }
 grep -qx 'io/github/webong/ext/network/NetworkSnapshot.class' <<<"$classes" || { echo 'classes.jar is missing network observation contracts' >&2; exit 1; }
 grep -qx 'io/github/webong/ext/network/android/SystemNetworkObserver.class' <<<"$classes" || { echo 'classes.jar is missing native network observation' >&2; exit 1; }
 if [[ -z "$with_wamr" ]] && grep -q Wamr <<<"$classes"; then

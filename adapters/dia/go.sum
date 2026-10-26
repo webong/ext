@@ -6,7 +6,5 @@ github.com/webong/ext/pkg/ext-go/cgoengine v0.1.0 h1:2gXJtXRy8H0Ku6xnicLnXQ3EdAx
 github.com/webong/ext/pkg/ext-go/cgoengine v0.1.0/go.mod h1:o7Lg03SwEv8nKXJ58MaQXJnWO1+gsKjUx/f14D2Pha4=
 github.com/webong/ext/pkg/ext-go/engine v0.1.0 h1:9trJr/fIH/n+5Go//cw9yOfjJbbOY+20wZEIlrkNwgQ=
 github.com/webong/ext/pkg/ext-go/engine v0.1.0/go.mod h1:7kwTFoT8X3W2rP8NZFXHT3rcur7M7FndSULxFjBgZJc=
-github.com/webong/ext/res/credential v0.1.0 h1:aeINsDKrFuxvjPHGq1QwbZhhBOkU6Lf1WlGE2l7LvVk=
-github.com/webong/ext/res/credential v0.1.0/go.mod h1:HIKj1culv/BFo+MtX9vTL6y7cG4BQ9tnMW3FgUiZR18=
 github.com/webong/ext/res/web v0.5.0 h1:FCD4435Xi4M4g8d66rBNoBEE1wuHgGGvXhI3kpL2WYk=
 github.com/webong/ext/res/web v0.5.0/go.mod h1:DoAk6ydqtqqC21xr+XbngXzx2Br5J6DRXvACQx7DC5I=

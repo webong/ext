@@ -66,11 +66,11 @@ jobs:
       # The web rules need a JDK only; fail before any native build if they drift from res/web.
       - name: Web rules against the fixtures
         run: scripts/web-android.sh
-      - name: Clipboard contracts
+      - name: System clipboard contracts
         run: scripts/clipboard-android.sh
-      - name: System observation contracts
+      - name: System shell contracts
         run: scripts/system-android.sh
-      - name: Network observation contracts
+      - name: System network observation contracts
         run: scripts/network-android.sh
       - name: Build both AARs
         env:

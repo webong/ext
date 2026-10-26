@@ -92,7 +92,7 @@ public final class SystemAccessibilityObserver {
     }
 }
 
-private func accessibilityID(_ pid: Int, _ generation: String, _ path: String) -> String {
+func accessibilityID(_ pid: Int, _ generation: String, _ path: String) -> String {
     let digest = SHA256.hash(data: Data("accessibility\0\(pid)\0\(generation)\0\(path)".utf8)).prefix(12)
     return "accessibility:" + digest.map { String(format: "%02x", $0) }.joined()
 }
@@ -164,32 +164,32 @@ extension SystemAccessibilityObserver {
     }
 }
 
-private func stringAttribute(_ element: AXUIElement, _ attribute: String) -> String? {
+func stringAttribute(_ element: AXUIElement, _ attribute: String) -> String? {
     var value: CFTypeRef?
     guard AXUIElementCopyAttributeValue(element, attribute as CFString, &value) == .success else { return nil }
     return value as? String
 }
 
-private func boolAttribute(_ element: AXUIElement, _ attribute: String) -> Bool? {
+func boolAttribute(_ element: AXUIElement, _ attribute: String) -> Bool? {
     var value: CFTypeRef?
     guard AXUIElementCopyAttributeValue(element, attribute as CFString, &value) == .success else { return nil }
     return value as? Bool
 }
 
-private func elementChildren(_ element: AXUIElement) -> [AXUIElement] {
+func elementChildren(_ element: AXUIElement) -> [AXUIElement] {
     var value: CFTypeRef?
     guard AXUIElementCopyAttributeValue(element, kAXChildrenAttribute as CFString, &value) == .success,
           let children = value as? [AXUIElement] else { return [] }
     return children
 }
 
-private func actionNames(_ element: AXUIElement) -> [String] {
+func actionNames(_ element: AXUIElement) -> [String] {
     var values: CFArray?
     guard AXUIElementCopyActionNames(element, &values) == .success else { return [] }
     return values as? [String] ?? []
 }
 
-private func elementBounds(_ element: AXUIElement) -> SurfaceBounds? {
+func elementBounds(_ element: AXUIElement) -> SurfaceBounds? {
     var positionValue: CFTypeRef?
     var sizeValue: CFTypeRef?
     guard AXUIElementCopyAttributeValue(element, kAXPositionAttribute as CFString, &positionValue) == .success,

@@ -22,7 +22,7 @@ import (
 	"time"
 	"unicode/utf8"
 
-	credentialclient "github.com/webong/ext/res/credential/client"
+	credentialclient "github.com/webong/ext/res/system/credential/client"
 	share "github.com/webong/ext/res/web/contract"
 	"github.com/webong/ext/res/web/sqlite"
 )

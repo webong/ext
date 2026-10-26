@@ -1,8 +1,8 @@
-# res/credential
+# system/credential
 
-`github.com/webong/ext/res/credential` holds CTX's portable credential code. It
-depends only on the Go standard library, so a host can consume it without a
-native store implementation.
+`github.com/webong/ext/res/system/credential` holds the portable credential
+integration inside the system shell module. It depends only on the Go standard
+library, so a host can consume it without a native store implementation.
 
 | Package | Contents |
 | --- | --- |
@@ -17,5 +17,5 @@ native mechanism, such as `adapters/keychain`, `adapters/credman`, or
 `client` talks to CTX's credential process protocol and has no dependency on a
 native store; using it requires a CTX host.
 
-See [native credentials](../../docs/credentials.md) and the
-[adapter API](../../docs/adapter-api.md).
+See [native credentials](../../../docs/credentials.md) and the
+[adapter API](../../../docs/adapter-api.md).

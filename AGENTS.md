@@ -51,8 +51,8 @@ paths and directories match; they are built from source and released as binaries
 `res/` is a container for reusable modules rather than a package. Each
 subdirectory is its own Go module, and nothing lives at that level: no Go package
 and no repository-wide policy. Keep container directories free of shared logic
-and keep repo-wide tests in `src/ctx/internal/arch`. `res/web`, `res/clipboard`, `res/network`, and `res/credential`
-depend only on the standard library; `res/system` depends on `golang.org/x/sys`.
+and keep repo-wide tests in `src/ctx/internal/arch`. `res/web` depends only on
+the standard library; `res/system` depends on `golang.org/x/sys`.
 
 `lib/` is a container for native libraries that several language bindings
 share. Nothing lives at that level. `lib/plugin` is the portable C plugin
@@ -104,12 +104,9 @@ named for each module path.
 
 The reusable libraries are:
 
-- `res/web` for portable web contracts and workflows: browsers, and the web engine that runs web content through them. It is also the iOS and Android module of the cookie, userscript and bookmarklet rules (`res/web/ios`, `res/web/android`), which `pkg/ext-ios` and `pkg/ext-android` ship.
-- `res/clipboard` for bounded, transport-free clipboard contracts and the Apple and Android native implementations shipped by the platform SDKs.
-- `res/network` for bounded, read-only observation of local interfaces, assigned addresses, routes, and resolver configuration. It opens no connection and provides no remote discovery or routing service.
-- `res/credential` for portable credential serving and client code.
+- `res/web` for portable web contracts and workflows: browsers, and the web engine that runs web content through them. It is also the iOS and Android module of the cookie, userscript and bookmarklet rules (`res/web/ios`, `res/web/android`), which `pkg/ext-ios` and `pkg/ext-android` ship, and owns the application-hosted WebView2 implementation in `res/web/windows`.
 - `lib/plugin` for the portable C plugin engine shared by the language bindings under `pkg/` (`ext-go`, `ext-rust`, `ext-zig`, `ext-ts`, `ext-python`) and the mobile SDKs.
-- `res/system` for observing the machine: host, shell, file system, web view, native surface, accessibility and permission-state discovery and process inspection, with `res/system/graph` (the namespaced graph store and its transactions) and `res/system/supervisor` (process supervision and recovery).
+- `res/system` for the local operating-system substrate used to extend graphical and textual shells: host, shell, filesystem and volume mechanics, clipboard, credential integration, local interface/address/route/resolver observation, web view and process discovery, native surfaces, accessibility, permission state, bounded capture and media playback/capture, and atomic native input. It owns mechanisms, not authorization, remote control, routing services or consumer policy. Its subpackages include `res/system/clipboard`, `res/system/credential`, `res/system/graph`, `res/system/media`, `res/system/network`, `res/system/supervisor`, and `res/system/volume`.
 - `pkg/ext-go/engine` for the pure-Go engine, the oracle: the plugin contract, sessions, guests, packages, bridges and tooling (standard library only).
 - `pkg/ext-go/c2goengine` for the C engine's portable core translated to Go by ccgo (no cgo, no C compiler). The translation is generated per platform by its `tools` module and held against the pure-Go engine, the oracle, by `engine/plugintest/enginetest`; it depends on `engine` only.
 - `pkg/ext-go/cgoengine` for the Go binding of the C engine, with a pure-Go build of the same API and the C ABI loader.
@@ -177,14 +174,17 @@ the plugin code or the C engine and build and test with Swift or a JDK/Android S
 reaches `res/web/ios` through the links `Sources/ExtWeb` and `Sources/ExtWebKit` (a release stages
 real copies), and `pkg/ext-android` compiles the portable and Android source sets from
 `res/web/android` into its AAR. Edit web code in `res/web`, never in
-the SDKs. `res/clipboard` follows the same ownership model: its Swift target is
-linked into `pkg/ext-ios`, and its portable and Android Java source sets are
-compiled into the `pkg/ext-android` AAR. Edit clipboard code in `res/clipboard`.
-`res/system` and `res/network` follow that ownership model for local OS
-observation: their Swift targets are linked into `pkg/ext-ios`, and their Java
-source sets are compiled into the `pkg/ext-android` AAR. Edit those observers in
-their owning `res/` modules. They expose local state only; remote clients,
-service discovery, routing services, authorization and policy belong to consumers.
+the SDKs. `res/system/clipboard` follows the same ownership model: its Swift
+target is linked into `pkg/ext-ios`, and its portable and Android Java source
+sets are compiled into the `pkg/ext-android` AAR. Edit clipboard code in
+`res/system/clipboard`. `res/system/network` follows that ownership model: its
+Swift target is linked into `pkg/ext-ios`, and its Java source sets are compiled
+into the `pkg/ext-android` AAR. Edit those implementations in `res/system`.
+`res/system/network` exposes local state only.
+`res/system` may also perform bounded local shell mechanisms such as capture,
+media playback/capture and portable media framing, native input, volume snapshot/restore, and process
+supervision. Remote clients, service discovery, routing services, authorization,
+approval UI and consumer policy belong to consumers.
 Keep
 `pkg/ext-go` focused on the contract, the engine API and runtime backends. The Go-to-C guest binding belongs in
 `pkg/ext-go/cgoengine/cshared/guest`. The language-neutral C ABI header
@@ -205,3 +205,8 @@ into the `pkg/ext-android` AAR. Portable reviewed-userscript preparation stays i
 the portable targets and source sets. Keep Expo, app identity, storage policy,
 and UI out of these libraries. Native changes are tested with
 `scripts/web-workspace-ios.sh` and `scripts/web-workspace-android.sh`.
+
+The same rule applies to an application-owned WebView2: its document-script and
+profile-extension implementation lives in `res/web/windows`, not in an Edge or
+Chromium product adapter. The caller supplies source already prepared by the
+portable userscript tooling and owns persistence, profile choice and approval.

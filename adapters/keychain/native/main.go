@@ -6,7 +6,7 @@ import (
 
 	"github.com/webong/ext/adapters/keychain/store"
 	"github.com/webong/ext/pkg/ext-go/cgoengine"
-	"github.com/webong/ext/res/credential/adapterkit"
+	"github.com/webong/ext/res/system/credential/adapterkit"
 )
 
 func main() {

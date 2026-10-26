@@ -86,7 +86,7 @@ scripts/web-ios.sh            # swift test of res/web/ios; needs Swift, not the 
 ## Clipboard
 
 `ExtClipboard` ships the bounded clipboard values and caller-owned Apple native
-binding from [`res/clipboard`](../../res/clipboard/README.md). It supports macOS
+binding from [`res/system/clipboard`](../../res/system/clipboard/README.md). It supports macOS
 and iOS, requires an explicit format and byte policy, and performs no remote
 routing or approval UI.
 
@@ -101,7 +101,7 @@ native handles, captures pixels, sends input, prompts, opens settings, or routes
 
 ## Network observation
 
-`ExtNetwork` ships [`res/network`](../../res/network/README.md)'s bounded local
+`ExtNetwork` ships [`res/system/network`](../../res/system/network/README.md)'s bounded local
 interface and assigned-address observation. Apple route-table and resolver
 collection currently report `unsupported`. It performs no lookup, opens no
 connection, and provides no remote discovery or routing service.

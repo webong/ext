@@ -124,7 +124,8 @@ public enum SurfaceObservationError: Error, Equatable {
 }
 
 /// A caller-owned observer for local display and window metadata. IDs are
-/// opaque and cannot be passed to capture or input APIs.
+/// opaque. The macOS surface controller accepts the complete WindowInfo value
+/// and revalidates its ID and process generation before acting on it.
 @MainActor
 public final class SystemSurfaceObserver {
     private let options: SurfaceOptions
@@ -144,7 +145,7 @@ public final class SystemSurfaceObserver {
     }
 }
 
-private func opaqueSurfaceID(_ kind: String, _ components: String...) -> String {
+func opaqueSurfaceID(_ kind: String, _ components: String...) -> String {
     let source = ([kind] + components).joined(separator: "\0")
     let digest = SHA256.hash(data: Data(source.utf8)).prefix(12)
     return "\(kind):" + digest.map { String(format: "%02x", $0) }.joined()

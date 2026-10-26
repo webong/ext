@@ -106,14 +106,15 @@ module zip carries their files, which Go never reads, and a change to them needs
 They reach apps through `pkg/ext-ios` and `pkg/ext-android`, so they are released with those, under
 `ext-ios-vX.Y.Z` and `ext-android-vX.Y.Z`.
 
-`res/clipboard` is independently tagged as a Go module. Its Apple and Android
-source sets also reach applications through `pkg/ext-ios` and `pkg/ext-android`,
-so native-source changes are included in the corresponding mobile SDK releases.
-
-`res/network` is independently tagged as a Go module. Its `ExtNetwork` Swift
-target and Android Java source sets reach applications through the same native
-SDK releases. The library observes local OS network state only; connection and
-remote-service features are outside its contract.
+Clipboard, credential and local network-observation code were consolidated into
+the `res/system` module as `res/system/clipboard`, `res/system/credential` and
+`res/system/network`. The historical `res/clipboard`, `res/credential` and
+`res/network` module paths are retired rather than reused. Clipboard and
+network Apple and Android source sets still reach applications through
+`pkg/ext-ios` and `pkg/ext-android`, so native-source changes are included in
+the corresponding mobile SDK releases. `ExtNetwork` and the Java
+`io.github.webong.ext.network` namespace remain stable even though their source
+is owned by `res/system/network`.
 
 The iOS SDK's engine and WAMR archives are released under that same tag; see
 [`pkg/ext-ios`](../pkg/ext-ios/README.md) and `scripts/ext-ios-release.sh`. It is
@@ -247,8 +248,8 @@ The pure-Go module is the oracle the other two engines are held against, and the
 | `v0.1.1` | `pkg/plugin-hashicorp` | only its `go` line: it now declares `go 1.26.0`, which its dependencies already required |
 | `v0.1.1` | `adapters/chromium`, `adapters/firefox`, `adapters/safari` and the other 15 browser adapters | they now require `res/web` instead of `res/browser` |
 
-Modules that did not change keep `v0.1.0`: `pkg/graph`, `pkg/plugin-go`, `pkg/plugin-cshared`,
-`res/credential`, and the `credman`, `git`, `keychain` and
+Modules that did not change in that release kept `v0.1.0`: `pkg/graph`,
+`pkg/plugin-go`, `pkg/plugin-cshared`, the former `res/credential` module, and the `credman`, `git`, `keychain` and
 `secret_service` adapters. Every tagged module requires the new versions of the modules it
 uses. The first `res/web/v0.1.0` tag was local only, so it was re-cut at the release commit.
 
@@ -265,7 +266,7 @@ workspace active, and that `src/ctx` resolves the intended versions:
 ```bash
 for module in src/ctx src/ctn pkg/ext-go pkg/ext-go/engine pkg/ext-go/cgoengine \
               pkg/ext-go/hashicorp pkg/ext-go/wasm res/system adapters/wasm adapters/evm \
-              res/web res/clipboard res/network res/credential; do
+              res/web; do
   (cd "$module" && go build ./... && go test ./...) || exit 1
 done
 ```
@@ -273,9 +274,13 @@ done
 ## The Go version floor
 
 Each module's `go` line is the oldest Go that builds it, so it must be at least what its own
-dependencies require; `go mod tidy` raises it when it is not. The light libraries
-(`pkg/ext-go/engine`, `pkg/ext-go/cgoengine`, `pkg/ext-go/wasm`, `res/*` and the adapters) declare `go 1.23.0` and their dependencies allow it. Four modules declare
-`go 1.26.0` because `golang.org/x/net`, `x/sys` and `x/text` at the versions they use require it:
+dependencies require; `go mod tidy` raises it when it is not. Most light libraries
+(`pkg/ext-go/engine`, `pkg/ext-go/cgoengine`, `pkg/ext-go/wasm`, and the
+`res/*` modules other than `res/system`) declare `go 1.23.0` and their
+dependencies allow it. `res/system` declares `go 1.25.0` because its bounded
+volume operations use `os.Root`; adapters that import its credential packages
+therefore declare at least Go 1.25. Four modules declare `go 1.26.0` because
+`golang.org/x/net`, `x/sys` and `x/text` at the versions they use require it:
 `pkg/ext-go/hashicorp` (gRPC), the umbrella `pkg/ext-go` (it requires `hashicorp`), `src/ctx`
 and `src/ctn`. A fifth, `pkg/ext-go/c2goengine`, declares `go 1.26.0` because the runtime library the
 translated code links against (`modernc.org/libc`) requires it. The workspace file

@@ -5,16 +5,16 @@ to do. Every Go recipe here was run from a scratch module outside this repositor
 no workspace and no `replace`, against the published tags, and its output is shown. If a
 recipe does not work for you, that is a bug in this page.
 
-The libraries need Go 1.23 or newer, except `pkg/ext-go/hashicorp`, which needs Go 1.26
-(its gRPC dependencies require it). Each library is its own module, so you depend on only
-what you use:
+The libraries need Go 1.23 or newer, except `res/system`, which needs Go 1.25
+for pinned-root volume operations, and `pkg/ext-go/hashicorp`, which needs Go
+1.26 (its gRPC dependencies require it). Each library is its own module, so you
+depend on only what you use:
 
 | You want to | Module (version used here) |
 | --- | --- |
 | host or write a plugin | `github.com/webong/ext/pkg/ext-go` (v0.2.0) |
 | run WebAssembly in a sandbox | `github.com/webong/ext/pkg/ext-go/wasm` (v0.2.0) |
-| discover the machine | `github.com/webong/ext/res/system` (v0.1.0) |
-| observe the local network stack | `github.com/webong/ext/res/network` (unreleased) |
+| extend or inspect the local system shell, including local network state | `github.com/webong/ext/res/system` (next release) |
 | run web content in a browser | `github.com/webong/ext/res/web` (v0.1.1) |
 
 ```sh

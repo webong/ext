@@ -34,11 +34,15 @@ public final class WorkspaceManagement {
             try await workspace.inject(input.source)
             status = "injected"; result = selected
         case ("session", "replay"), ("userscript", "activate"):
-            let records = request.kind == "userscript"
-                ? try UserscriptManagement.activationRecords(input, target: workspace.target, store: store) : input.records
-            try workspace.replaceUserscripts(records)
+            let count: Int
+            if request.kind == "userscript" {
+                count = try workspace.activateUserscripts(store: store, id: input.id)
+            } else {
+                try workspace.replaceUserscripts(input.records)
+                count = input.records.filter { $0.enabled }.count
+            }
             status = "activated"
-            result = "{\"target\":\(selected),\"registered\":\(records.filter { $0.enabled }.count),\"lifetime\":\"workspace\",\"scope\":\"future-documents\"}"
+            result = "{\"target\":\(selected),\"registered\":\(count),\"lifetime\":\"workspace\",\"scope\":\"future-documents\"}"
         default: throw ManagementError.invalidRequest
         }
         let response = BrowserManagement.Response(request: request, status: status, result: result)

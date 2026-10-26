@@ -8,6 +8,29 @@ final class UserscriptStoreTests: XCTestCase {
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         addTeardownBlock { try? FileManager.default.removeItem(at: root) }; return root
     }
+    func testChangeObservation() throws {
+        let root = try temporary(), otherRoot = try temporary()
+        let store = UserscriptStore(directory: root), writer = UserscriptStore(directory: root)
+        let r = try Fixtures.load("userscript/store/record.json", as: UserscriptRecord.self)
+        var events = 0
+        let observation = try store.observe(target: r.target) {
+            events += 1
+            let read = DispatchSemaphore(value: 0)
+            DispatchQueue.global().async { _ = try? writer.list(target: r.target); read.signal() }
+            XCTAssertEqual(read.wait(timeout: .now() + 2), .success, "callback must not hold the store lock")
+        }
+        defer { observation.cancel() }
+        try writer.save(r); XCTAssertEqual(events, 1)
+        XCTAssertThrowsError(try writer.save(r)); XCTAssertEqual(events, 1)
+        _ = try writer.setEnabled(target: r.target, id: r.id, enabled: false); XCTAssertEqual(events, 2)
+        var unrelated = r; unrelated.target = "other"; unrelated.revision = Userscript.revision(of: unrelated)
+        try writer.save(unrelated)
+        try UserscriptStore(directory: otherRoot).save(r)
+        XCTAssertEqual(events, 2)
+        try writer.remove(target: r.target, id: r.id); XCTAssertEqual(events, 3)
+        observation.cancel(); observation.cancel()
+        try writer.save(r); XCTAssertEqual(events, 3)
+    }
     func testGoRecordLifecycleAndIsolation() throws {
         let root = try temporary()
         let r = try Fixtures.load("userscript/store/record.json", as: UserscriptRecord.self)

@@ -19,6 +19,25 @@ final class UserscriptStoreTests {
             String fixtures = System.getenv("EXT_WEB_TESTDATA");
             UserscriptRecord r = UserscriptRecord.fromJson(Files.readString(Paths.get(fixtures == null ? "res/web/testdata" : fixtures,"userscript/store/record.json")));
             UserscriptStore store = new UserscriptStore(root.toFile());
+            UserscriptStore writer = new UserscriptStore(root.toFile());
+            int[] events = {0};
+            UserscriptStore.Observation observation = store.observe(r.target, () -> {
+                events[0]++;
+                Thread reader = new Thread(() -> { try { writer.list(r.target); } catch (Exception e) { throw new AssertionError(e); } });
+                reader.start();
+                try { reader.join(2000); } catch (InterruptedException e) { throw new AssertionError(e); }
+                WebTests.check(!reader.isAlive(), "store observers run outside lock");
+            });
+            try {
+                writer.save(r,false); WebTests.eq(1,events[0],"cross-instance event");
+                rejects(() -> writer.save(r,false),"failed mutation has no event");
+                WebTests.eq(1,events[0],"failed mutation event count");
+                writer.setEnabled(r.target,r.id,false); WebTests.eq(2,events[0],"enable event once");
+                writer.remove(r.target,r.id); WebTests.eq(3,events[0],"remove event");
+                observation.close();
+                writer.save(r,false); WebTests.eq(3,events[0],"cancel observer");
+                writer.remove(r.target,r.id);
+            } finally { observation.close(); }
             WebTests.eq(0,store.list(r.target).size(),"empty store");
             rejects(() -> store.save(r,true),"update missing"); store.save(r,false);
             WebTests.eq(r,new UserscriptStore(root.toFile()).load(r.target,r.id),"Go fixture round trip after reopen");

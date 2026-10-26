@@ -13,6 +13,7 @@ import java.util.Collections;
 public final class TestActivity extends Activity {
     private BrowserWorkspace workspace;
     private BundleChecks bundles;
+    private LiveUserscriptChecks liveChecks;
     private io.github.webong.ext.web.android.WorkspaceManagement router;
     private io.github.webong.ext.web.UserscriptStore store;
     private int phase, passed, failed;
@@ -59,7 +60,7 @@ public final class TestActivity extends Activity {
             testCookies();
             new Handler(Looper.getMainLooper()).postDelayed(() -> {
                 if (!done) { check(false, "test timeout"); finishTests(); }
-            }, 30000);
+            }, 60000);
         } catch (Exception failure) { fail(failure); }
     }
 
@@ -220,10 +221,17 @@ public final class TestActivity extends Activity {
                 io.github.webong.ext.web.CookieQueryChecks.run(this::check);
             }
             catch (Exception error) { check(false, "artifact/query checks failed"); Log.e("EXTWORKSPACE", "artifact/query failure", error); }
-            bundles = new BundleChecks(this, this::check, this::reportDone);
-            bundles.start();
+            if (expectDocumentStart && liveChecks == null) {
+                liveChecks = new LiveUserscriptChecks(this, this::check, this::startBundles);
+                liveChecks.start();
+            } else startBundles();
         } else reportDone();
     }
+    private void startBundles() {
+        if (failed != 0) { reportDone(); return; }
+        bundles = new BundleChecks(this, this::check, this::reportDone);
+        bundles.start();
+    }
     private void reportDone() { done = true; Log.i("EXTWORKSPACE", "DONE passed=" + passed + " failed=" + failed); }
-    @Override public void onDestroy() { done = true; if (bundles != null) bundles.close(); if (workspace != null) workspace.close(); super.onDestroy(); }
+    @Override public void onDestroy() { done = true; if (bundles != null) bundles.close(); if (liveChecks != null) liveChecks.close(); if (workspace != null) workspace.close(); super.onDestroy(); }
 }

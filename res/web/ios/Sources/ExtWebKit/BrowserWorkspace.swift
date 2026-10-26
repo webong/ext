@@ -23,6 +23,19 @@ public final class BrowserWorkspace: NSObject, WKNavigationDelegate, WKUIDelegat
     public var onVisit: ((State) -> Void)?
     /// Non-HTTP navigation is denied; only user-clicked links are offered to the app.
     public var onExternalURL: ((URL) -> Void)?
+    /// Reports a queued store reconciliation on the main actor. False means the previous
+    /// registrations were retained; no script source or underlying error is exposed.
+    public var onUserscriptsReconciled: ((Bool) -> Void)?
+    public var isReconcilingUserscripts: Bool { liveScripts != nil }
+    private final class LiveScripts {
+        let token: UUID, store: UserscriptStore, id: String, observation: UserscriptStore.Observation
+        var records: [UserscriptRecord]
+        var pending = false
+        init(token: UUID, store: UserscriptStore, id: String, observation: UserscriptStore.Observation, records: [UserscriptRecord]) {
+            self.token = token; self.store = store; self.id = id; self.observation = observation; self.records = records
+        }
+    }
+    private var liveScripts: LiveScripts?
     private var observations: [NSKeyValueObservation] = []
     private var closed = false
     private var lastError: String?
@@ -98,6 +111,10 @@ public final class BrowserWorkspace: NSObject, WKNavigationDelegate, WKUIDelegat
     /// Removing a script cannot undo its effects in an already-loaded document.
     public func replaceUserscripts(_ records: [UserscriptRecord]) throws {
         try requireOpen()
+        try applyUserscripts(records)
+        stopUserscriptReconciliation()
+    }
+    private func applyUserscripts(_ records: [UserscriptRecord]) throws {
         let sources = try WorkspaceScripts.prepare(records, target: target)
         let controller = webView.configuration.userContentController
         controller.removeAllUserScripts()
@@ -107,9 +124,51 @@ public final class BrowserWorkspace: NSObject, WKNavigationDelegate, WKUIDelegat
         }
     }
 
+    /// Registers the selected enabled scripts and observes subsequent store API writes.
+    /// Initial selection/registration failure leaves the previous binding and scripts intact.
+    @discardableResult public func activateUserscripts(store: UserscriptStore, id: String = "") throws -> Int {
+        try requireOpen()
+        let token = UUID()
+        let observation = try store.observe(target: target) { [weak self] in
+            DispatchQueue.main.async { [weak self] in self?.scheduleReconciliation(token) }
+        }
+        do {
+            let records = try selectedRecords(store, id: id)
+            guard id.isEmpty || !records.isEmpty else { throw WorkspaceError.invalidUserscriptSelection }
+            try applyUserscripts(records)
+            stopUserscriptReconciliation()
+            liveScripts = LiveScripts(token: token, store: store, id: id, observation: observation, records: records)
+            return records.count
+        } catch { observation.cancel(); throw error }
+    }
+    /// Stops synchronization, retaining the current registrations until replaced or closed.
+    public func stopUserscriptReconciliation() {
+        liveScripts?.observation.cancel()
+        liveScripts = nil
+    }
+    private func selectedRecords(_ store: UserscriptStore, id: String) throws -> [UserscriptRecord] {
+        try store.list(target: target).filter { $0.enabled && (id.isEmpty || $0.id == id) }
+    }
+    private func scheduleReconciliation(_ token: UUID) {
+        guard !closed, let live = liveScripts, live.token == token, !live.pending else { return }
+        live.pending = true
+        DispatchQueue.main.async { [weak self] in self?.reconcile(token) }
+    }
+    private func reconcile(_ token: UUID) {
+        guard !closed, let live = liveScripts, live.token == token else { return }
+        live.pending = false
+        do {
+            let records = try selectedRecords(live.store, id: live.id)
+            if records != live.records { try applyUserscripts(records); live.records = records }
+        } catch { onUserscriptsReconciled?(false); return }
+        onUserscriptsReconciled?(true)
+    }
+
     public func close() {
         guard !closed else { return }
         closed = true
+        stopUserscriptReconciliation()
+        onUserscriptsReconciled = nil
         let pending = Array(injections.values); injections.removeAll()
         pending.forEach { $0.resume(throwing: WorkspaceError.closed) }
         observations.forEach { $0.invalidate() }
@@ -179,5 +238,5 @@ public final class BrowserWorkspace: NSObject, WKNavigationDelegate, WKUIDelegat
         }
     }
     private func requireOpen() throws { if closed { throw WorkspaceError.closed } }
-    public enum WorkspaceError: Error { case closed, invalidURL, injectionFailed }
+    public enum WorkspaceError: Error { case closed, invalidURL, injectionFailed, invalidUserscriptSelection }
 }

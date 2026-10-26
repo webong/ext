@@ -8,6 +8,34 @@ public final class UserscriptStore {
     public enum StoreError: Error { case invalidIdentity, unsafeFile, missing, exists, oversized }
     public static let maxRecordBytes = 8 << 20
     private static let lock = NSRecursiveLock()
+    private struct Watch { let folder: URL; let changed: () -> Void }
+    private static var watches: [UUID: Watch] = [:]
+    public final class Observation {
+        private let id: UUID
+        fileprivate init(_ id: UUID) { self.id = id }
+        public func cancel() {
+            UserscriptStore.lock.lock(); defer { UserscriptStore.lock.unlock() }
+            UserscriptStore.watches.removeValue(forKey: id)
+        }
+        deinit { cancel() }
+    }
+    /// Observe successful in-process writes to this directory/target, across store instances.
+    /// Callbacks run on the writer's thread, outside the store lock; dispatch UI work yourself.
+    /// Cancellation can race an already-dispatched callback. No file contents are delivered.
+    public func observe(target: String, onChange: @escaping () -> Void) throws -> Observation {
+        try locked {
+            let id = UUID()
+            Self.watches[id] = Watch(folder: try folder(target), changed: onChange)
+            return Observation(id)
+        }
+    }
+    private func publish(_ target: String) {
+        let callbacks: [() -> Void] = locked {
+            guard let folder = try? folder(target) else { return [] }
+            return Self.watches.values.filter { $0.folder == folder }.map { $0.changed }
+        }
+        callbacks.forEach { $0() }
+    }
     private let directory: URL
     public init(directory: URL) { self.directory = directory.standardizedFileURL.resolvingSymlinksInPath() }
     private func locked<T>(_ body: () throws -> T) rethrows -> T {
@@ -59,47 +87,51 @@ public final class UserscriptStore {
         }
     }
     public func save(_ record: UserscriptRecord, replace: Bool = false) throws {
-        try locked {
-            try Userscript.validate(record)
-            let file = try path(record.target, record.id)
-            let folder = file.deletingLastPathComponent()
-            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
-            _ = try check(directory, directory: true)
-            if !(try check(folder, directory: true, missing: true)) {
-                try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: false, attributes: [.posixPermissions: 0o700])
-            }
-            let exists = try check(file, directory: false, missing: true)
-            if exists && !replace { throw StoreError.exists }
-            if !exists && replace { throw StoreError.missing }
-            let data = try JSONEncoder().encode(record)
-            guard data.count <= Self.maxRecordBytes else { throw StoreError.oversized }
-            let temporary = folder.appendingPathComponent(".userscript-" + UUID().uuidString)
-            defer { try? FileManager.default.removeItem(at: temporary) }
-            let descriptor = open(temporary.path, O_WRONLY | O_CREAT | O_EXCL, 0o600)
-            guard descriptor >= 0 else { throw StoreError.unsafeFile }
-            do {
-                try data.withUnsafeBytes { buffer in
-                    var offset = 0
-                    while offset < buffer.count {
-                        let count = Darwin.write(descriptor, buffer.baseAddress!.advanced(by: offset), buffer.count - offset)
-                        if count < 0 && errno == EINTR { continue }
-                        guard count > 0 else { throw StoreError.unsafeFile }; offset += count
-                    }
-                }
-                guard fsync(descriptor) == 0 else { throw StoreError.unsafeFile }
-            } catch { close(descriptor); throw error }
-            guard close(descriptor) == 0 else { throw StoreError.unsafeFile }
-            // rename is atomic on the local filesystems supported by Apple platforms.
-            guard rename(temporary.path, file.path) == 0 else { throw StoreError.unsafeFile }
+        try locked { try persist(record, replace: replace) }
+        publish(record.target)
+    }
+    private func persist(_ record: UserscriptRecord, replace: Bool) throws {
+        try Userscript.validate(record)
+        let file = try path(record.target, record.id)
+        let folder = file.deletingLastPathComponent()
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
+        _ = try check(directory, directory: true)
+        if !(try check(folder, directory: true, missing: true)) {
+            try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: false, attributes: [.posixPermissions: 0o700])
         }
+        let exists = try check(file, directory: false, missing: true)
+        if exists && !replace { throw StoreError.exists }
+        if !exists && replace { throw StoreError.missing }
+        let data = try JSONEncoder().encode(record)
+        guard data.count <= Self.maxRecordBytes else { throw StoreError.oversized }
+        let temporary = folder.appendingPathComponent(".userscript-" + UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: temporary) }
+        let descriptor = open(temporary.path, O_WRONLY | O_CREAT | O_EXCL, 0o600)
+        guard descriptor >= 0 else { throw StoreError.unsafeFile }
+        do {
+            try data.withUnsafeBytes { buffer in
+                var offset = 0
+                while offset < buffer.count {
+                    let count = Darwin.write(descriptor, buffer.baseAddress!.advanced(by: offset), buffer.count - offset)
+                    if count < 0 && errno == EINTR { continue }
+                    guard count > 0 else { throw StoreError.unsafeFile }; offset += count
+                }
+            }
+            guard fsync(descriptor) == 0 else { throw StoreError.unsafeFile }
+        } catch { close(descriptor); throw error }
+        guard close(descriptor) == 0 else { throw StoreError.unsafeFile }
+        // rename is atomic on the local filesystems supported by Apple platforms.
+        guard rename(temporary.path, file.path) == 0 else { throw StoreError.unsafeFile }
     }
     @discardableResult public func setEnabled(target: String, id: String, enabled: Bool) throws -> UserscriptRecord {
-        try locked {
+        let record = try locked {
             var record = try load(target: target, id: id); record.enabled = enabled
-            try save(record, replace: true); return record
+            try persist(record, replace: true); return record
         }
+        publish(target); return record
     }
     public func remove(target: String, id: String) throws {
         try locked { _ = try load(target: target, id: id); try FileManager.default.removeItem(at: path(target, id)) }
+        publish(target)
     }
 }

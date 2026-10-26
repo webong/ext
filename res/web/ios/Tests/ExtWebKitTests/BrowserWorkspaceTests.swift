@@ -124,6 +124,87 @@ final class BrowserWorkspaceTests: XCTestCase {
         do { _ = try await call("session", "targets"); XCTFail("closed workspace accepted") } catch {}
     }
 
+    func testLiveUserscriptReconciliation() async throws {
+        let workspace = BrowserWorkspace(target: "test")
+        attach(workspace)
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { workspace.close(); detach(); try? FileManager.default.removeItem(at: root) }
+        let store = UserscriptStore(directory: root), writer = UserscriptStore(directory: root)
+        let router = WorkspaceManagement(workspace: workspace, store: store, profile: "profile")
+        try store.save(record())
+        _ = try await router.manage(profile: "profile", request: .init(kind: "userscript", action: "activate", input: "{}"))
+        XCTAssertTrue(workspace.isReconcilingUserscripts)
+        func changed(success: Bool = true, _ mutation: () async throws -> Void) async throws {
+            let event = expectation(description: "reconciled")
+            workspace.onUserscriptsReconciled = { ok in XCTAssertEqual(ok, success); event.fulfill() }
+            try await mutation()
+            await fulfillment(of: [event], timeout: 3)
+            workspace.onUserscriptsReconciled = nil
+        }
+        func runs(_ expected: Int) async throws {
+            let value = try await load(workspace, path: "/" + UUID().uuidString)
+            XCTAssertEqual(value as? Int, expected)
+        }
+        try await runs(1)
+        let updated = record("globalThis.runs = 2;")
+        try await changed {
+            try await Task.detached { try writer.save(updated, replace: true) }.value
+        }
+        try await runs(2)
+        try await changed { _ = try writer.setEnabled(target: "test", id: "script", enabled: false) }
+        try await runs(0)
+        try await changed { _ = try writer.setEnabled(target: "test", id: "script", enabled: true) }
+        try await runs(2)
+        try await changed { try writer.remove(target: "test", id: "script") }
+        try await runs(0)
+        try await changed { try writer.save(record()) }
+        try await runs(1)
+
+        // A selected-ID binding remains live through disable/removal and reinstatement.
+        XCTAssertEqual(try workspace.activateUserscripts(store: store, id: "script"), 1)
+        var other = record("globalThis.runs = 100;"); other.id = "other"; other.revision = Userscript.revision(of: other)
+        try await changed { try writer.save(other) }
+        try await runs(1)
+        try await changed { _ = try writer.setEnabled(target: "test", id: "script", enabled: false) }
+        try await runs(0)
+        try await changed { try writer.remove(target: "test", id: "script") }
+        try await runs(0)
+        try await changed { try writer.save(record()) }
+        try await runs(1)
+        XCTAssertThrowsError(try workspace.activateUserscripts(store: store, id: "missing"))
+        var invalid = record(); invalid.source = "tampered"
+        XCTAssertThrowsError(try workspace.replaceUserscripts([invalid]))
+        XCTAssertTrue(workspace.isReconcilingUserscripts)
+
+        // A corrupt disk record discovered on the next notification fails without replacing
+        // the working registration. A subsequent valid write recovers the same binding.
+        let folder = try XCTUnwrap(FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: nil).first)
+        try Data("{}".utf8).write(to: folder.appendingPathComponent("script.json"))
+        try await changed(success: false) { try writer.save(other, replace: true) }
+        try await runs(1)
+        try await changed { try writer.save(updated, replace: true) }
+        try await runs(2)
+
+        let stale = expectation(description: "stopped notifications")
+        stale.isInverted = true
+        workspace.onUserscriptsReconciled = { _ in stale.fulfill() }
+        try writer.save(record(), replace: true) // notification queued before explicit replay
+        try workspace.replaceUserscripts([])
+        XCTAssertFalse(workspace.isReconcilingUserscripts)
+        await fulfillment(of: [stale], timeout: 0.2)
+        try await runs(0)
+        let closedEvent = expectation(description: "closed notifications")
+        closedEvent.isInverted = true
+        workspace.onUserscriptsReconciled = { _ in closedEvent.fulfill() }
+        try workspace.activateUserscripts(store: store, id: "script")
+        try writer.save(updated, replace: true)
+        workspace.close()
+        XCTAssertFalse(workspace.isReconcilingUserscripts)
+        XCTAssertThrowsError(try workspace.activateUserscripts(store: store))
+        try writer.save(record(), replace: true)
+        await fulfillment(of: [closedEvent], timeout: 0.2)
+    }
+
     func testCloseRejectsPendingInjection() async throws {
         let workspace = BrowserWorkspace(target: "closing")
         var closed = false

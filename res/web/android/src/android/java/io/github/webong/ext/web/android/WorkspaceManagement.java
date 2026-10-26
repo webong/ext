@@ -5,7 +5,6 @@ import io.github.webong.ext.web.UserscriptManagement;
 import io.github.webong.ext.web.UserscriptRecord;
 import io.github.webong.ext.web.UserscriptStore;
 import io.github.webong.ext.web.WorkspaceInput;
-import java.util.List;
 import java.util.Objects;
 
 /** Host-bound native management backend. All calls and completions use the UI thread.
@@ -46,9 +45,12 @@ public final class WorkspaceManagement {
                     response.validate(request); completion.complete(response,null);
                 }); return;
             case "session.replay": case "userscript.activate":
-                List<UserscriptRecord> records = request.kind.equals("userscript") ? UserscriptManagement.activationRecords(input,target,store) : input.records;
-                workspace.replaceUserscripts(records);
-                int count = 0; for (UserscriptRecord record : records) if (record.enabled) count++;
+                int count;
+                if (request.kind.equals("userscript")) count = workspace.activateUserscripts(store, input.id);
+                else {
+                    workspace.replaceUserscripts(input.records);
+                    count = 0; for (UserscriptRecord record : input.records) if (record.enabled) count++;
+                }
                 status = "activated";
                 result = "{\"target\":" + selected + ",\"registered\":" + count + ",\"lifetime\":\"workspace\",\"scope\":\"future-documents\"}"; break;
             default: throw new UnsupportedOperationException("unsupported workspace operation");

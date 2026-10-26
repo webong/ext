@@ -17,6 +17,36 @@ import java.util.List;
 public final class UserscriptStore {
     public static final int MAX_RECORD_BYTES = 8 << 20;
     private static final Object LOCK = new Object();
+    private static final java.util.Map<Object, Watch> WATCHES = new java.util.HashMap<>();
+    private static final class Watch {
+        final File folder; final Runnable changed;
+        Watch(File folder, Runnable changed) { this.folder = folder; this.changed = changed; }
+    }
+    public static final class Observation implements AutoCloseable {
+        private final Object id;
+        private Observation(Object id) { this.id = id; }
+        @Override public void close() { synchronized (LOCK) { WATCHES.remove(id); } }
+    }
+    /** Successful in-process writes across instances of this directory/target.
+     * Callbacks run outside the store lock on the writer thread; dispatch UI work yourself.
+     * Closing may race a dispatched callback. Listener exceptions do not undo committed writes. */
+    public Observation observe(String target, Runnable onChange) throws IOException {
+        synchronized (LOCK) {
+            Object id = new Object();
+            WATCHES.put(id, new Watch(folder(target), java.util.Objects.requireNonNull(onChange)));
+            return new Observation(id);
+        }
+    }
+    private void publish(String target) throws IOException {
+        List<Runnable> callbacks = new ArrayList<>();
+        synchronized (LOCK) {
+            File folder = folder(target);
+            for (Watch watch : WATCHES.values()) if (watch.folder.equals(folder)) callbacks.add(watch.changed);
+        }
+        for (Runnable callback : callbacks) {
+            try { callback.run(); } catch (RuntimeException ignored) { /* Persistence already succeeded. */ }
+        }
+    }
     private final File directory;
     public UserscriptStore(File directory) throws IOException { this.directory = directory.getCanonicalFile(); }
     private File folder(String target) throws IOException {
@@ -84,31 +114,36 @@ public final class UserscriptStore {
             throw new IOException("cannot protect userscript directory");
     }
     public void save(UserscriptRecord record, boolean replace) throws IOException, UserscriptException {
-        synchronized (LOCK) {
-            Userscript.validate(record);
-            File file = path(record.target, record.id);
-            privateDirectory(directory); privateDirectory(file.getParentFile());
-            boolean exists = check(file, false, true);
-            if (exists != replace) throw new IOException(exists ? "userscript already installed" : "userscript not installed");
-            byte[] bytes = record.toJson().getBytes(StandardCharsets.UTF_8);
-            if (bytes.length > MAX_RECORD_BYTES) throw new IOException("userscript record exceeds bound");
-            File temporary = File.createTempFile(".userscript-", ".tmp", file.getParentFile());
-            try {
-                if (!temporary.setReadable(false, false) || !temporary.setWritable(false, false)
-                    || !temporary.setReadable(true, true) || !temporary.setWritable(true, true)) throw new IOException("cannot protect userscript record");
-                try (FileOutputStream output = new FileOutputStream(temporary)) { output.write(bytes); output.getFD().sync(); }
-                if (!temporary.renameTo(file)) throw new IOException("cannot atomically save userscript");
-            } finally { if (temporary.exists() && !temporary.delete()) temporary.deleteOnExit(); }
-        }
+        synchronized (LOCK) { persist(record, replace); }
+        publish(record.target);
+    }
+    private void persist(UserscriptRecord record, boolean replace) throws IOException, UserscriptException {
+        Userscript.validate(record);
+        File file = path(record.target, record.id);
+        privateDirectory(directory); privateDirectory(file.getParentFile());
+        boolean exists = check(file, false, true);
+        if (exists != replace) throw new IOException(exists ? "userscript already installed" : "userscript not installed");
+        byte[] bytes = record.toJson().getBytes(StandardCharsets.UTF_8);
+        if (bytes.length > MAX_RECORD_BYTES) throw new IOException("userscript record exceeds bound");
+        File temporary = File.createTempFile(".userscript-", ".tmp", file.getParentFile());
+        try {
+            if (!temporary.setReadable(false, false) || !temporary.setWritable(false, false)
+                || !temporary.setReadable(true, true) || !temporary.setWritable(true, true)) throw new IOException("cannot protect userscript record");
+            try (FileOutputStream output = new FileOutputStream(temporary)) { output.write(bytes); output.getFD().sync(); }
+            if (!temporary.renameTo(file)) throw new IOException("cannot atomically save userscript");
+        } finally { if (temporary.exists() && !temporary.delete()) temporary.deleteOnExit(); }
     }
     public UserscriptRecord setEnabled(String target, String id, boolean enabled) throws IOException, UserscriptException {
+        UserscriptRecord next;
         synchronized (LOCK) {
             UserscriptRecord r = load(target, id);
-            UserscriptRecord next = new UserscriptRecord(r.target, r.id, r.name, r.revision, r.matches, r.excludeMatches, enabled, r.source);
-            save(next, true); return next;
+            next = new UserscriptRecord(r.target, r.id, r.name, r.revision, r.matches, r.excludeMatches, enabled, r.source);
+            persist(next, true);
         }
+        publish(target); return next;
     }
     public void remove(String target, String id) throws IOException, UserscriptException {
         synchronized (LOCK) { load(target, id); if (!path(target, id).delete()) throw new IOException("cannot remove userscript"); }
+        publish(target);
     }
 }

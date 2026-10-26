@@ -44,12 +44,29 @@ public final class BrowserWorkspace implements AutoCloseable {
 
     public interface Listener {
         default void onStateChange(State state) {}
+        /** UI-thread store reconciliation result; false retains prior registrations.
+         * No script source or underlying error is exposed. */
+        default void onUserscriptsReconciled(boolean success) {}
         /** Completed main-page visits; the host chooses storage and retention. */
         default void onVisit(State state) {}
         /** Denied non-HTTP main-frame navigation with a user gesture; never launched automatically. */
         default void onExternalURL(Uri url) {}
     }
 
+    private final android.os.Handler reconciliationHandler = new android.os.Handler(Looper.getMainLooper());
+    private static final class LiveScripts {
+        final Object token;
+        final io.github.webong.ext.web.UserscriptStore store;
+        final String id;
+        final io.github.webong.ext.web.UserscriptStore.Observation observation;
+        List<UserscriptRecord> records;
+        boolean pending;
+        LiveScripts(Object token, io.github.webong.ext.web.UserscriptStore store, String id,
+                io.github.webong.ext.web.UserscriptStore.Observation observation, List<UserscriptRecord> records) {
+            this.token = token; this.store = store; this.id = id; this.observation = observation; this.records = records;
+        }
+    }
+    private LiveScripts liveScripts;
     private final WebView view;
     private final String target;
     private final DocumentStart documentStart = new DocumentStart();
@@ -114,6 +131,10 @@ public final class BrowserWorkspace implements AutoCloseable {
     /** Replaces registrations for future documents; cannot undo effects on the current page. */
     public void replaceUserscripts(List<UserscriptRecord> records) throws UserscriptException {
         requireOpen();
+        applyUserscripts(records);
+        stopUserscriptReconciliation();
+    }
+    private void applyUserscripts(List<UserscriptRecord> records) throws UserscriptException {
         List<String> sources = WorkspaceScripts.prepare(records, target);
         if (!sources.isEmpty() && !documentStart.available()) {
             throw new UnsupportedOperationException("Document-start scripts require AndroidX WebKit and WebView support");
@@ -129,10 +150,63 @@ public final class BrowserWorkspace implements AutoCloseable {
         scripts = next;
     }
 
+    /** Registers and observes enabled scripts. Empty id selects all. Failure preserves
+     * the previous binding/registrations. Subsequent disable/removal clears the selected script. */
+    public int activateUserscripts(io.github.webong.ext.web.UserscriptStore store, String id)
+            throws java.io.IOException, UserscriptException {
+        requireOpen(); Objects.requireNonNull(store); Objects.requireNonNull(id);
+        Object token = new Object();
+        java.lang.ref.WeakReference<BrowserWorkspace> weak = new java.lang.ref.WeakReference<>(this);
+        android.os.Handler handler = reconciliationHandler;
+        io.github.webong.ext.web.UserscriptStore.Observation observation = store.observe(target, () ->
+            handler.post(() -> { BrowserWorkspace workspace = weak.get(); if (workspace != null) workspace.scheduleReconciliation(token); }));
+        boolean complete = false;
+        try {
+            List<UserscriptRecord> records = selectedRecords(store, id);
+            if (!id.isEmpty() && records.isEmpty()) throw new IllegalArgumentException("selected userscript is missing or disabled");
+            applyUserscripts(records);
+            // Do not remove the new observation's already-queued change notification.
+            if (liveScripts != null) liveScripts.observation.close();
+            liveScripts = new LiveScripts(token, store, id, observation, records);
+            complete = true; return records.size();
+        } finally { if (!complete) observation.close(); }
+    }
+    public boolean isReconcilingUserscripts() { requireUI(); return liveScripts != null; }
+    /** Retains registrations while detaching from the store. UI thread only. */
+    public void stopUserscriptReconciliation() {
+        requireUI();
+        if (liveScripts != null) liveScripts.observation.close();
+        liveScripts = null;
+        reconciliationHandler.removeCallbacksAndMessages(null);
+    }
+    private List<UserscriptRecord> selectedRecords(io.github.webong.ext.web.UserscriptStore store, String id)
+            throws java.io.IOException, UserscriptException {
+        List<UserscriptRecord> records = new ArrayList<>();
+        for (UserscriptRecord record : store.list(target))
+            if (record.enabled && (id.isEmpty() || record.id.equals(id))) records.add(record);
+        return records;
+    }
+    private void scheduleReconciliation(Object token) {
+        if (closed || liveScripts == null || liveScripts.token != token || liveScripts.pending) return;
+        liveScripts.pending = true;
+        java.lang.ref.WeakReference<BrowserWorkspace> weak = new java.lang.ref.WeakReference<>(this);
+        reconciliationHandler.post(() -> { BrowserWorkspace workspace = weak.get(); if (workspace != null) workspace.reconcile(token); });
+    }
+    private void reconcile(Object token) {
+        if (closed || liveScripts == null || liveScripts.token != token) return;
+        LiveScripts live = liveScripts; live.pending = false;
+        try {
+            List<UserscriptRecord> records = selectedRecords(live.store, live.id);
+            if (!records.equals(live.records)) { applyUserscripts(records); live.records = records; }
+        } catch (Exception failure) { listener.onUserscriptsReconciled(false); return; }
+        listener.onUserscriptsReconciled(true);
+    }
+
     @Override public void close() {
         requireUI();
         if (closed) return;
         closed = true;
+        stopUserscriptReconciliation();
         view.stopLoading();
         for (Object handler : scripts) documentStart.remove(handler);
         scripts.clear();

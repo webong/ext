@@ -79,3 +79,6 @@ all eight document-start/lifecycle checks passed with R8 and AndroidX WebKit
 See [mobile cookie workflows](../COOKIE_WORKFLOWS.md) for portable import/export and native workspace cookie access.
 
 `WorkspaceManagement` routes validated session/userscript requests into this workspace and a host-owned `UserscriptStore`; see [management and persistence](../WORKSPACE_MANAGEMENT.md).
+
+Stored scripts can stay synchronized through `activateUserscripts`; the workspace owns
+the subscription until close or explicit replacement. See [live reconciliation](../WORKSPACE_MANAGEMENT.md#live-userscript-reconciliation).

@@ -40,11 +40,9 @@ String source = Bookmarklet.decode(url);                        // back to sourc
   `res/web/testdata` (`cookie/v2`, `userscript/v1alpha1`, `bookmarklet/v1alpha1`), which the Go tests run too,
   and `scripts/web-differential.sh`, which compares the module with Go on about 94,000 generated URLs,
   cookie domains, names and bookmarklet strings (all agree; Go 1.27 with `GODEBUG=urlstrictcolons=1`).
-- Not ported: the userscript file store (`Load`, `Save`, `List`; an app owns its storage) and the SQLite
-  cookie readers and extension packaging, which read desktop browser profiles. Also different on purpose:
-  the wording of `toString()`, JSON member names match exactly where Go ignores case, and a host with
-  several colons is refused (Go's default for that follows the consuming module's `go` line). Text must be
-  well-formed UTF-16; an unpaired surrogate is rejected where the rules ask for UTF-8.
+- Desktop SQLite cookie readers, native extension signing/installation and browser profile tooling remain host/adapter responsibilities.
+  Mobile JSON member names match exactly where Go ignores case.
+  Userscript persistence is covered in [workspace management](../WORKSPACE_MANAGEMENT.md).
 
 ```sh
 scripts/web-android.sh        # javac -Xlint:all -Werror and the tests; needs a JDK only
@@ -61,3 +59,5 @@ live in `src/androidTest`. See [workspace usage](WORKSPACE.md).
 See [local web bundle runners](../BUNDLE_RUNNER.md) for native HTML/module execution, CSP, console events, host messaging and lifecycle handling.
 
 See [mobile cookie queries](../COOKIE_QUERY.md) for host-authorized source ordering, merge/first modes, fallback, provenance and cancellation.
+
+See [mobile extension artifacts](../EXTENSION_ARTIFACTS.md) for inspection, unsigned ZIP packaging, revision-checked staging and artifact helpers.

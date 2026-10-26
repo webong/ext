@@ -1,0 +1,122 @@
+[
+  {
+    "file": "stored.zip",
+    "valid": true,
+    "mobileOnly": false
+  },
+  {
+    "file": "mobile.zip",
+    "valid": true,
+    "mobileOnly": false
+  },
+  {
+    "file": "deflated.XPI",
+    "valid": true,
+    "mobileOnly": false
+  },
+  {
+    "file": "wrapped.zip",
+    "valid": true,
+    "mobileOnly": false
+  },
+  {
+    "file": "unsafe-4.zip",
+    "valid": false,
+    "mobileOnly": false
+  },
+  {
+    "file": "unsafe-5.zip",
+    "valid": false,
+    "mobileOnly": false
+  },
+  {
+    "file": "unsafe-6.zip",
+    "valid": false,
+    "mobileOnly": false
+  },
+  {
+    "file": "unsafe-7.zip",
+    "valid": false,
+    "mobileOnly": false
+  },
+  {
+    "file": "unsafe-8.zip",
+    "valid": false,
+    "mobileOnly": false
+  },
+  {
+    "file": "unsafe-9.zip",
+    "valid": false,
+    "mobileOnly": false
+  },
+  {
+    "file": "unsafe-10.zip",
+    "valid": false,
+    "mobileOnly": false
+  },
+  {
+    "file": "symlink.zip",
+    "valid": false,
+    "mobileOnly": false
+  },
+  {
+    "file": "special.zip",
+    "valid": false,
+    "mobileOnly": false
+  },
+  {
+    "file": "duplicate.zip",
+    "valid": false,
+    "mobileOnly": false
+  },
+  {
+    "file": "missing.zip",
+    "valid": false,
+    "mobileOnly": false
+  },
+  {
+    "file": "bad-manifest.zip",
+    "valid": false,
+    "mobileOnly": false
+  },
+  {
+    "file": "bad-permissions.zip",
+    "valid": false,
+    "mobileOnly": false
+  },
+  {
+    "file": "bad-key.zip",
+    "valid": false,
+    "mobileOnly": false
+  },
+  {
+    "file": "encrypted.zip",
+    "valid": false,
+    "mobileOnly": false
+  },
+  {
+    "file": "oversize.zip",
+    "valid": false,
+    "mobileOnly": false
+  },
+  {
+    "file": "bad-crc.zip",
+    "valid": false,
+    "mobileOnly": false
+  },
+  {
+    "file": "truncated.zip",
+    "valid": false,
+    "mobileOnly": false
+  },
+  {
+    "file": "local-name.zip",
+    "valid": false,
+    "mobileOnly": true
+  },
+  {
+    "file": "collision.zip",
+    "valid": false,
+    "mobileOnly": true
+  }
+]

@@ -557,6 +557,7 @@ public final class WebTests {
 
     public static void main(String[] args) {
         test("query fixtures", WebTests::queryFixtures);
+        test("extension artifacts", () -> ExtensionArtifactChecks.run(testdata().resolve("extension").toFile(), new java.io.File(System.getProperty("java.io.tmpdir")), (link, target) -> Files.createSymbolicLink(link.toPath(), target.toPath()), WebTests::check));
         test("query behavior", () -> CookieQueryChecks.run(WebTests::check));
         test("bundle policy", () -> {
             for (Map<String, Object> c : cases(load("bundle/policy.json"), "cases")) {

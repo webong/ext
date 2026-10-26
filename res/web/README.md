@@ -63,3 +63,5 @@ See [workspace management and persistence](WORKSPACE_MANAGEMENT.md) for native m
 See [local web bundle runners](BUNDLE_RUNNER.md) for native HTML/module execution, CSP, console events, host messaging and lifecycle handling.
 
 See [mobile cookie queries](COOKIE_QUERY.md) for host-authorized source ordering, merge/first modes, fallback, provenance and cancellation.
+
+See [mobile extension artifacts](EXTENSION_ARTIFACTS.md) for inspection, unsigned ZIP packaging, revision-checked staging and artifact helpers.

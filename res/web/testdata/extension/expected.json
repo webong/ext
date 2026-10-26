@@ -1,0 +1,16 @@
+{
+  "name": "Example",
+  "version": "1.0",
+  "manifestVersion": 3,
+  "id": "jpignaibiiemhngfjkcpokkamffknabf",
+  "permissions": [
+    "storage",
+    "tabs"
+  ],
+  "hostPermissions": [
+    "https://example.test/*"
+  ],
+  "files": 4,
+  "bytes": 191,
+  "revision": "sha256:b776215ec7940c0082f6f7c0aa23e6586284bb332881008c72483600756f6315"
+}

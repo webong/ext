@@ -204,8 +204,22 @@ public final class TestActivity extends Activity {
             catch (Exception unexpected) { check(false, "closed workspace cookie error"); }
         }
         if (bundles == null && failed == 0) {
-            try { io.github.webong.ext.web.CookieQueryChecks.run(this::check); }
-            catch (Exception error) { check(false, "query checks failed"); Log.e("EXTWORKSPACE", "query failure", error); }
+            try {
+                java.io.File fixtures = new java.io.File(getCacheDir(), "extension-fixtures");
+                fixtures.mkdirs();
+                for (String name : getAssets().list("")) {
+                    if (!name.endsWith(".zip") && !name.endsWith(".XPI") && !name.endsWith(".json")) continue;
+                    try (java.io.InputStream in = getAssets().open(name);
+                         java.io.OutputStream out = new java.io.FileOutputStream(new java.io.File(fixtures, name))) {
+                        byte[] buffer = new byte[8192]; int n;
+                        while ((n = in.read(buffer)) != -1) out.write(buffer, 0, n);
+                    }
+                }
+                io.github.webong.ext.web.ExtensionArtifactChecks.run(fixtures, getCacheDir(),
+                    (link, target) -> android.system.Os.symlink(target.getPath(), link.getPath()), this::check);
+                io.github.webong.ext.web.CookieQueryChecks.run(this::check);
+            }
+            catch (Exception error) { check(false, "artifact/query checks failed"); Log.e("EXTWORKSPACE", "artifact/query failure", error); }
             bundles = new BundleChecks(this, this::check, this::reportDone);
             bundles.start();
         } else reportDone();

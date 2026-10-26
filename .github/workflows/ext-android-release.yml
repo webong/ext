@@ -68,6 +68,8 @@ jobs:
         run: scripts/web-android.sh
       - name: Clipboard contracts
         run: scripts/clipboard-android.sh
+      - name: System observation contracts
+        run: scripts/system-android.sh
       - name: Build both AARs
         env:
           VERSION: ${{ steps.version.outputs.version }}

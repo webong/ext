@@ -37,7 +37,7 @@ func graphCommand(args []string, stdout, stderr io.Writer) int {
 	switch args[0] {
 	case "processes", "process":
 		return graphProcessCommand(ctx, system, args[0], args[1:], stdout, stderr)
-	case "shells", "filesystems", "webviews":
+	case "shells", "filesystems", "webviews", "surfaces":
 		if len(args) != 1 {
 			fmt.Fprintf(stderr, "ctx: graph %s takes no arguments\n", args[0])
 			return 2
@@ -54,6 +54,11 @@ func graphCommand(args []string, stdout, stderr io.Writer) int {
 		case "webviews":
 			inventory.Webviews, err = systemgraph.DiscoverWebviews(ctx)
 			result = inventory.Webviews
+		case "surfaces":
+			surfaces, surfaceErr := systemgraph.DiscoverSurfaces(ctx, systemgraph.SurfaceOptions{})
+			err = surfaceErr
+			inventory.Surfaces = &surfaces
+			result = surfaces
 		}
 		if err != nil {
 			return reportError(stderr, err)
@@ -95,6 +100,9 @@ func graphCommand(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stdout, "observed %d adapters and %d contexts\n", len(adapters), count)
 		fmt.Fprintf(stdout, "observed %d shells and %d mounted filesystems\n", len(host.Shells), len(host.Filesystems))
 		fmt.Fprintf(stdout, "observed %d shared webview runtimes\n", len(host.Webviews))
+		if host.Surfaces != nil {
+			fmt.Fprintf(stdout, "observed %d displays (%s) and %d windows (%s)\n", len(host.Surfaces.Displays), host.Surfaces.DisplayStatus.State, len(host.Surfaces.Windows), host.Surfaces.WindowStatus.State)
+		}
 		fmt.Fprintf(stdout, "observed %d processes (%s)\n", len(processes.Processes), processes.Enumeration.State)
 		return 0
 	case "resolve":

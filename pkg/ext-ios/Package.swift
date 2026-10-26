@@ -32,6 +32,7 @@ let package = Package(
         .library(name: "ExtWeb", targets: ["ExtWeb"]),
         .library(name: "ExtWebKit", targets: ["ExtWebKit"]),
         .library(name: "ExtClipboard", targets: ["ExtClipboard"]),
+        .library(name: "ExtSystem", targets: ["ExtSystem"]),
     ],
     targets: [
         .binaryTarget(name: "CExtEngine", path: "Frameworks/CExtEngine.xcframework"),
@@ -45,6 +46,7 @@ let package = Package(
         .target(name: "ExtWeb"),
         .target(name: "ExtWebKit", dependencies: ["ExtWeb"]),
         .target(name: "ExtClipboard"),
+        .target(name: "ExtSystem"),
         .testTarget(name: "ExtPluginGuestTests", dependencies: ["ExtPluginGuest", "ExtPluginExports", "CExtEngine"]),
     ],
     swiftLanguageVersions: [.v5]

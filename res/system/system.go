@@ -46,7 +46,7 @@ func New(store graph.Store) (*Graph, error) {
 
 func validateSchema(view graph.View, tx graph.Transaction) error {
 	allowedKinds := map[string]bool{Namespace + "/machine": true, Namespace + "/shell-session": true, Namespace + "/directory": true, Namespace + "/project": true, Namespace + "/profile": true, Namespace + "/selection": true, Namespace + "/browser-context": true, Namespace + "/inventory": true, Namespace + "/adapter": true, Namespace + "/capability": true, Namespace + "/support": true, Namespace + "/context": true, Namespace + "/resource": true, Namespace + "/alias": true,
-		Namespace + "/host-inventory": true, Namespace + "/shell": true, Namespace + "/filesystem": true, Namespace + "/webview": true, Namespace + "/desktop": true, Namespace + "/process": true, Namespace + "/executable": true, Namespace + "/application": true, Namespace + "/process-resource": true}
+		Namespace + "/host-inventory": true, Namespace + "/shell": true, Namespace + "/filesystem": true, Namespace + "/webview": true, Namespace + "/desktop": true, Namespace + "/display": true, Namespace + "/window": true, Namespace + "/process": true, Namespace + "/executable": true, Namespace + "/application": true, Namespace + "/process-resource": true}
 	for _, vertex := range tx.Vertices {
 		if !allowedKinds[vertex.Kind] {
 			return fmt.Errorf("unsupported ext.system kind %q", vertex.Kind)
@@ -63,6 +63,8 @@ func validateSchema(view graph.View, tx graph.Transaction) error {
 		Namespace + "/has-filesystem":         {Namespace + "/machine", Namespace + "/filesystem"},
 		Namespace + "/has-webview":            {Namespace + "/machine", Namespace + "/webview"},
 		Namespace + "/has-desktop":            {Namespace + "/machine", Namespace + "/desktop"},
+		Namespace + "/has-display":            {Namespace + "/machine", Namespace + "/display"},
+		Namespace + "/has-window":             {Namespace + "/machine", Namespace + "/window"},
 		Namespace + "/has-host-inventory":     {Namespace + "/machine", Namespace + "/host-inventory"},
 		Namespace + "/working-in":             {Namespace + "/shell-session", Namespace + "/directory"},
 		Namespace + "/within":                 {Namespace + "/directory", Namespace + "/project"},

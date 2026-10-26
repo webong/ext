@@ -29,3 +29,15 @@ func TestClipboardSDKSourceOwnership(t *testing.T) {
 		t.Fatalf("ExtClipboard source = %s, want %s", got, want)
 	}
 }
+
+func TestSystemSDKSourceOwnership(t *testing.T) {
+	root := repoRoot(t)
+	got, err := filepath.EvalSymlinks(filepath.Join(root, "pkg", "ext-ios", "Sources", "ExtSystem"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := filepath.Join(root, "res", "system", "ios", "Sources", "ExtSystem")
+	if got != want {
+		t.Fatalf("ExtSystem source = %s, want %s", got, want)
+	}
+}

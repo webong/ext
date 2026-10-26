@@ -1,7 +1,8 @@
-# Android SDK (plugin and web)
+# Android SDK
 
-`pkg/ext-android` is the ext SDK for Android: one library with two parts that do not depend on
-each other. Java is the API, and Kotlin calls it directly.
+`pkg/ext-android` is the ext SDK for Android. Its plugin, web, clipboard, and
+system-observation packages do not depend on each other. Java is the API, and
+Kotlin calls it directly.
 
 - **Plugin** (`io.github.webong.ext.plugin`): author an `ext.plugin/v1` guest on the JVM over a small JNI
   library that binds the guest half of the shared [C engine](../../lib/plugin/README.md), and host a
@@ -9,6 +10,9 @@ each other. Java is the API, and Kotlin calls it directly.
 - **Web** (`io.github.webong.ext.web`): the cookie, userscript and bookmarklet rules of
   [`res/web`](../../res/web/README.md), in plain Java with no native code, run against the same fixtures as
   Go. The code is `res/web/android`; this AAR ships it. See Web rules.
+- **System** (`io.github.webong.ext.system`): bounded display metadata and the
+  calling application's visible window from `res/system/android`, without capture,
+  input, permission prompts, or remote routing.
 
 The web package lives in [`res/web/android`](../../res/web/android/README.md), imports nothing of the plugin
 package and loads no native library. It is still in the same AAR as the plugin code, so an app that wants only
@@ -24,6 +28,8 @@ the web rules takes the native libraries and the minimum SDK with it.
   `WebRoundtrips` (examples/android-consumer) on an emulator under R8, with answers Go gave, because Android's
   `Character` case tables come from ICU; that job has not run yet, so check id derivation and the lower-casing
   of non-ASCII hosts on a device before relying on them.
+- The system contracts run on a desktop JDK, compile against `android.jar`, and
+  the release consumer test observes the emulator display and app window.
 
 The application supplies a descriptor and a `Handler`. The engine does the strict JSON parsing, request
 validation against the descriptor, deadlines and error sanitizing.
@@ -159,6 +165,11 @@ The AAR ships `io.github.webong.ext.clipboard` and
 [`res/clipboard`](../../res/clipboard/README.md). The binding provides bounded,
 generation-checked access to the app-visible Android system clipboard without
 transport or approval UI.
+
+The AAR also ships `io.github.webong.ext.system` and
+`io.github.webong.ext.system.android.SystemSurfaceObserver`. Android public APIs
+expose displays and the calling app's window; the observer does not enumerate
+other applications.
 
 The script builds the JNI library with CMake, compiles the classes with
 `javac -Xlint:all -Werror`, runs the tests with `java -ea` (no test framework is

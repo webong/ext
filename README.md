@@ -297,7 +297,9 @@ and [the graph design](docs/adr-graph-runtime.md).
 
 CTX and its ecosystem share public Go libraries:
 
-- `github.com/webong/ext/res/system` supplies generic graph storage and transactions.
+- `github.com/webong/ext/res/system` supplies generic graph storage, host and
+  process discovery, and read-only local display/window observation. Its Apple
+  and Android bindings ship through the native SDKs.
 - `github.com/webong/ext/pkg/ext-go` supplies the shared host/guest contract,
   validation, selection, admission, and session lifecycle. Its implementations
   include `pkg/ext-go/engine/transport/inprocess`, `pkg/ext-go/engine/transport/jsonline`, `pkg/ext-go/hashicorp` (net/rpc and

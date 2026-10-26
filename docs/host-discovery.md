@@ -8,16 +8,21 @@ Adapter inventory describes provider capabilities and contexts separately.
 ctx graph shells
 ctx graph filesystems
 ctx graph webviews
+ctx graph surfaces
 ctx graph scan
 ctx graph vertices shell
 ctx graph vertices filesystem
 ctx graph vertices webview
+ctx graph vertices display
+ctx graph vertices window
 ctx graph edges has-shell
 ctx graph edges has-filesystem
 ctx graph edges has-webview
+ctx graph edges has-display
+ctx graph edges has-window
 ```
 
-`shells`, `filesystems`, and `webviews` discover the host, emit JSON, and refresh
+`shells`, `filesystems`, `webviews`, and `surfaces` discover the host, emit JSON, and refresh
 only their corresponding graph records. `scan` refreshes all host inventories and adapter
 inventory. Removed executables and mounts are removed from the next observation.
 Stored snapshots are observations, not authorization or a guarantee that an
@@ -121,23 +126,38 @@ alias keeps it from colliding with a variable of your own called `system`:
 
 ```go
 inventory, err := systemgraph.DiscoverHost(ctx)
-// inventory.Shells, inventory.Filesystems, inventory.Webviews, and inventory.Desktop are typed observations.
+// Shells, Filesystems, Webviews, Desktop, and Surfaces are typed observations.
 
 inventory, err = system.ScanHost(ctx)
 // ScanHost discovers and atomically projects all host inventories into the graph.
 ```
 
-`DiscoverShells`, `DiscoverFilesystems`, `DiscoverWebviews`, and `DiscoverDesktop` can be called
+`DiscoverShells`, `DiscoverFilesystems`, `DiscoverWebviews`, `DiscoverDesktop`, and `DiscoverSurfaces` can be called
 independently.
-`Graph.ObserveHost` accepts a `HostInventory`; a nil slice preserves that part
-of the existing inventory, while a non-nil empty slice removes its old entries.
-The schema uses `shell`, `filesystem`, `webview`, `desktop`, and `host-inventory` vertices
+`Graph.ObserveHost` accepts a `HostInventory`; a nil slice or pointer preserves
+that part of the existing inventory, while a non-nil empty slice removes its old entries.
+The schema uses `shell`, `filesystem`, `webview`, `desktop`, `display`, `window`, and `host-inventory` vertices
 linked to `machine/local`. The generic graph store owns persistence and transactions;
 `res/system` owns host discovery and its vocabulary.
 
 Desktop discovery is a local, read-only observation. It reports whether this process can see an
 interactive native desktop, local X11 or Wayland endpoints, and recording prerequisites. It does
 not connect to remote displays, request capture permission, open settings, or start recording.
+
+Surface discovery reports display and visible-window geometry with separate
+collection statuses. Window titles, application names, pixels, and native
+handles are omitted. Window identities include an opaque digest bound to the
+owning PID's process generation, so a reused PID or native window number cannot
+silently keep the same identity. The observation cannot be used to capture a
+window or send input.
+
+The Go collector uses Core Graphics on cgo-enabled macOS builds and User32 on
+Windows. A no-cgo macOS build and other desktop platforms return an explicit
+`unsupported` status rather than an empty-success claim. `ExtSystem` in the
+Apple SDK provides the same observation directly on macOS and app-visible
+screens and windows on iOS. The Android binding reports `DisplayManager`
+displays and an optional calling-app `Activity` window; Android public APIs do
+not expose other applications' windows.
 
 ## Operation requirements and preparation
 

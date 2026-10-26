@@ -11,6 +11,8 @@ import io.github.webong.ext.clipboard.ClipboardPolicy;
 import io.github.webong.ext.clipboard.ClipboardRepresentation;
 import io.github.webong.ext.clipboard.ClipboardSnapshot;
 import io.github.webong.ext.clipboard.android.SystemClipboard;
+import io.github.webong.ext.system.SurfaceSnapshot;
+import io.github.webong.ext.system.android.SystemSurfaceObserver;
 import java.io.File;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
@@ -69,6 +71,32 @@ public class ConsumerTest {
             });
         }
         if (failure.get() != null) throw new AssertionError("native clipboard round trip", failure.get());
+    }
+
+    @Test
+    public void nativeSystemObservationIsAppScoped() {
+        AtomicReference<Throwable> failure = new AtomicReference<>();
+        try (ActivityScenario<ClipboardActivity> scenario = ActivityScenario.launch(ClipboardActivity.class)) {
+            scenario.onActivity(activity -> {
+                try {
+                    SurfaceSnapshot snapshot = new SystemSurfaceObserver(activity).observe(activity);
+                    assertTrue(snapshot.displayStatus().state(), !snapshot.displayStatus().state().isEmpty());
+                    assertTrue("expected an app-visible display", !snapshot.displays().isEmpty());
+                    snapshot.displays().forEach(display -> {
+                        assertTrue(display.id(), display.id().startsWith("display:"));
+                        assertTrue("display width", display.bounds().width() > 0);
+                        assertTrue("display height", display.bounds().height() > 0);
+                    });
+                    snapshot.windows().forEach(window -> {
+                        assertTrue(window.id(), window.id().startsWith("window:"));
+                        assertTrue(window.processStartId(), !window.processStartId().isEmpty());
+                    });
+                } catch (Throwable error) {
+                    failure.set(error);
+                }
+            });
+        }
+        if (failure.get() != null) throw new AssertionError("native system observation", failure.get());
     }
 
     @Test

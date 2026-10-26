@@ -1,7 +1,7 @@
-# iOS SDK (plugin and web)
+# Apple SDK
 
-`pkg/ext-ios` is the ext SDK for Apple platforms: one Swift package with two parts that
-do not depend on each other.
+`pkg/ext-ios` is the ext SDK for Apple platforms. Its plugin, web, clipboard, and
+system-observation libraries do not depend on each other.
 
 - **Plugin** (`ExtPluginGuest`, `ExtPluginExports`, `ExtPluginWebView`, `ExtPluginWamr`): author an
   `ext.plugin/v1` plugin in Swift, and Objective-C through the C headers, on the guest half of the
@@ -89,6 +89,14 @@ scripts/web-ios.sh            # swift test of res/web/ios; needs Swift, not the 
 binding from [`res/clipboard`](../../res/clipboard/README.md). It supports macOS
 and iOS, requires an explicit format and byte policy, and performs no remote
 routing or approval UI.
+
+## System observation
+
+`ExtSystem` ships the local display and window observation model from
+[`res/system`](../../res/system/README.md). macOS reports visible desktop windows;
+iOS reports only the calling application's windows. Both expose opaque identities
+and geometry without titles, native handles, capture, input, permission prompts,
+or remote routing.
 
 ## Hosting a plugin in a web view
 

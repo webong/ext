@@ -1,12 +1,12 @@
 # system
 
 `github.com/webong/ext/res/system` is how CTX observes the machine it runs on: the operating
-system, its native desktop, file systems, shells and web views, and the processes running on it. It reports
+system, its native desktop displays and windows, file systems, shells and web views, and the processes running on it. It reports
 what is there without starting anything, and can record it in a graph.
 
 | Package | What it is |
 | --- | --- |
-| `system` (the module root) | Host, native desktop, shell, filesystem and web view discovery, process inspection, and the requirements a host has to meet |
+| `system` (the module root) | Host, native desktop, display/window, shell, filesystem and web view discovery, process inspection, and the requirements a host has to meet |
 | `system/graph` | A generic, namespaced, directed graph store with transactions, in memory or in a file |
 | `system/supervisor` | Process supervision and recovery |
 
@@ -16,6 +16,11 @@ library rather than each implementing their own.
 
 Product-specific provider discovery belongs in the owning adapter under `adapters/<name>/`. This
 module supplies the portable collectors and vocabulary only.
+
+The Apple and Android bindings live under `ios/` and `android/` and ship as the
+`ExtSystem` and `io.github.webong.ext.system` products in the native SDKs. They
+observe geometry only: no titles, native handles, capture, input, permission
+prompts, approval UI, or remote routing.
 
 The module was called `res/graph` until it was renamed to say what it is for. The generic store
 is now `res/system/graph`, the discovery package that lived in `res/graph/system` is now the

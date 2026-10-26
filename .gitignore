@@ -10,6 +10,8 @@
 /pkg/ext-ios/Frameworks/
 /pkg/ext-ios/.build/
 /res/web/ios/.build/
+/res/system/ios/.build/
+/res/system/ios/.swiftpm/
 
 .DS_Store
 __pycache__/

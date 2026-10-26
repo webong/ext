@@ -148,6 +148,23 @@ func (g *Graph) ReadHost(ctx context.Context) (HostSnapshot, error) {
 			}
 			result.ObservedAt[kind] = observed
 			result.environment[kind], _ = vertex.Attributes["environment"].(string)
+			if kind == "surface" {
+				if result.Surfaces == nil {
+					result.Surfaces = &SurfaceSnapshot{Displays: []DisplayInfo{}, Windows: []WindowInfo{}}
+				}
+				result.Surfaces.ObservedAt = observed
+				result.Surfaces.Platform, _ = vertex.Attributes["platform"].(string)
+				result.Surfaces.CoordinateSpace, _ = vertex.Attributes["coordinate_space"].(string)
+				for key, target := range map[string]*CollectionStatus{"display_status": &result.Surfaces.DisplayStatus, "window_status": &result.Surfaces.WindowStatus} {
+					data, err := json.Marshal(vertex.Attributes[key])
+					if err != nil {
+						return HostSnapshot{}, fmt.Errorf("read host surface %s: %w", key, err)
+					}
+					if err := json.Unmarshal(data, target); err != nil {
+						return HostSnapshot{}, fmt.Errorf("read host surface %s: %w", key, err)
+					}
+				}
+			}
 			continue
 		case Namespace + "/shell":
 			result.Shells = append(result.Shells, ShellInfo{})
@@ -161,6 +178,18 @@ func (g *Graph) ReadHost(ctx context.Context) (HostSnapshot, error) {
 		case Namespace + "/desktop":
 			result.Desktop = &DesktopInfo{}
 			target = result.Desktop
+		case Namespace + "/display":
+			if result.Surfaces == nil {
+				result.Surfaces = &SurfaceSnapshot{Displays: []DisplayInfo{}, Windows: []WindowInfo{}}
+			}
+			result.Surfaces.Displays = append(result.Surfaces.Displays, DisplayInfo{})
+			target = &result.Surfaces.Displays[len(result.Surfaces.Displays)-1]
+		case Namespace + "/window":
+			if result.Surfaces == nil {
+				result.Surfaces = &SurfaceSnapshot{Displays: []DisplayInfo{}, Windows: []WindowInfo{}}
+			}
+			result.Surfaces.Windows = append(result.Surfaces.Windows, WindowInfo{})
+			target = &result.Surfaces.Windows[len(result.Surfaces.Windows)-1]
 		default:
 			continue
 		}
@@ -177,6 +206,10 @@ func (g *Graph) ReadHost(ctx context.Context) (HostSnapshot, error) {
 		return hostPathKey(result.Filesystems[i].MountPoint) < hostPathKey(result.Filesystems[j].MountPoint)
 	})
 	sort.Slice(result.Webviews, func(i, j int) bool { return webviewIdentity(result.Webviews[i]) < webviewIdentity(result.Webviews[j]) })
+	if result.Surfaces != nil {
+		sort.Slice(result.Surfaces.Displays, func(i, j int) bool { return result.Surfaces.Displays[i].ID < result.Surfaces.Displays[j].ID })
+		sort.Slice(result.Surfaces.Windows, func(i, j int) bool { return result.Surfaces.Windows[i].ID < result.Surfaces.Windows[j].ID })
+	}
 	return result, nil
 }
 

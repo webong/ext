@@ -70,6 +70,8 @@ jobs:
         run: scripts/web-differential.sh
       - name: Clipboard contracts and native binding
         run: swift test --package-path res/clipboard/ios
+      - name: System observation contracts and native binding
+        run: swift test --package-path res/system/ios
       # The release carries the WAMR host: its xcframework is a second asset, and its license ships
       # beside it and inside the package.
       - name: Stage the release
@@ -106,6 +108,13 @@ jobs:
           [[ -n "$device" ]] || { echo 'no iPhone simulator is installed' >&2; exit 1; }
           cd res/clipboard/ios
           xcodebuild test -scheme ExtClipboard -destination "platform=iOS Simulator,id=$device"
+      - name: System observation in an iOS Simulator
+        run: |
+          set -euo pipefail
+          device="$(xcrun simctl list devices available | grep -m1 -E 'iPhone' | sed -E 's/^ *(.*) \(([0-9A-F-]{36})\).*/\2/')"
+          [[ -n "$device" ]] || { echo 'no iPhone simulator is installed' >&2; exit 1; }
+          cd res/system/ios
+          xcodebuild test -scheme ExtSystem -destination "platform=iOS Simulator,id=$device"
       - name: Checksums
         env:
           VERSION: ${{ steps.version.outputs.version }}

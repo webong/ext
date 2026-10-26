@@ -50,13 +50,14 @@ type FilesystemInfo struct {
 }
 
 // HostInventory is discovered directly by the graph library, independently of
-// adapters. Nil slices in ObserveHost preserve the corresponding inventory;
-// non-nil empty slices remove previously observed entries of that kind.
+// adapters. Nil slices and pointers in ObserveHost preserve the corresponding
+// inventory; non-nil empty slices remove previously observed entries of that kind.
 type HostInventory struct {
 	Shells          []ShellInfo      `json:"shells"`
 	Filesystems     []FilesystemInfo `json:"filesystems"`
 	Webviews        []WebviewInfo    `json:"webviews"`
 	Desktop         *DesktopInfo     `json:"desktop,omitempty"`
+	Surfaces        *SurfaceSnapshot `json:"surfaces,omitempty"`
 	shellSearchPath *string
 }
 
@@ -172,7 +173,11 @@ func DiscoverHost(ctx context.Context) (HostInventory, error) {
 	if err != nil {
 		return HostInventory{}, err
 	}
-	return HostInventory{Shells: shells, Filesystems: filesystems, Webviews: webviews, Desktop: &desktop}, nil
+	surfaces, err := DiscoverSurfaces(ctx, SurfaceOptions{})
+	if err != nil {
+		return HostInventory{}, err
+	}
+	return HostInventory{Shells: shells, Filesystems: filesystems, Webviews: webviews, Desktop: &desktop, Surfaces: &surfaces}, nil
 }
 
 // ScanHost refreshes all host inventories in the graph and returns the facts.
@@ -187,7 +192,7 @@ func (g *Graph) ScanHost(ctx context.Context) (HostInventory, error) {
 // ObserveHost reconciles host-owned records and their machine relationships.
 // Adapter inventory, shell sessions, and other namespaces are preserved.
 func (g *Graph) ObserveHost(ctx context.Context, inventory HostInventory) error {
-	if inventory.Shells == nil && inventory.Filesystems == nil && inventory.Webviews == nil && inventory.Desktop == nil {
+	if inventory.Shells == nil && inventory.Filesystems == nil && inventory.Webviews == nil && inventory.Desktop == nil && inventory.Surfaces == nil {
 		return nil
 	}
 	now := time.Now().UTC()
@@ -276,6 +281,53 @@ func (g *Graph) ObserveHost(ctx context.Context, inventory HostInventory) error 
 			return err
 		}
 		add("host-desktop/local", "desktop", "has-desktop", attributes)
+	}
+	if inventory.Surfaces != nil {
+		surfaces := *inventory.Surfaces
+		if surfaces.Platform == "" || surfaces.CoordinateSpace == "" || surfaces.ObservedAt.IsZero() || surfaces.DisplayStatus.State == "" || surfaces.WindowStatus.State == "" {
+			return errors.New("host surface observation is incomplete")
+		}
+		managedKinds[Namespace+"/display"] = true
+		managedKinds[Namespace+"/window"] = true
+		managedTypes[Namespace+"/has-display"] = true
+		managedTypes[Namespace+"/has-window"] = true
+		inventoryAttributes := map[string]any{
+			"kind": "surface", "count": len(surfaces.Displays) + len(surfaces.Windows),
+			"display_count": len(surfaces.Displays), "window_count": len(surfaces.Windows),
+			"platform": surfaces.Platform, "coordinate_space": surfaces.CoordinateSpace,
+			"observed_at": surfaces.ObservedAt.Format(time.RFC3339Nano), "environment": hostEnvironment(),
+		}
+		displayStatus, err := jsonAttributes(surfaces.DisplayStatus)
+		if err != nil {
+			return err
+		}
+		windowStatus, err := jsonAttributes(surfaces.WindowStatus)
+		if err != nil {
+			return err
+		}
+		inventoryAttributes["display_status"] = displayStatus
+		inventoryAttributes["window_status"] = windowStatus
+		add("host-inventory/surfaces", "host-inventory", "has-host-inventory", inventoryAttributes)
+		for _, display := range surfaces.Displays {
+			if display.ID == "" || display.Bounds.Width <= 0 || display.Bounds.Height <= 0 {
+				return errors.New("host display requires an opaque ID and positive bounds")
+			}
+			attributes, err := jsonAttributes(display)
+			if err != nil {
+				return err
+			}
+			add("host-display/"+digest(display.ID), "display", "has-display", attributes)
+		}
+		for _, window := range surfaces.Windows {
+			if window.ID == "" || window.PID <= 0 || window.ProcessStartID == "" || window.Bounds.Width <= 0 || window.Bounds.Height <= 0 {
+				return errors.New("host window requires an opaque ID, process generation, and positive bounds")
+			}
+			attributes, err := jsonAttributes(window)
+			if err != nil {
+				return err
+			}
+			add("host-window/"+digest(window.ID), "window", "has-window", attributes)
+		}
 	}
 	for attempt := 0; attempt < 3; attempt++ {
 		snapshot, err := g.Store.Snapshot(ctx, Namespace)

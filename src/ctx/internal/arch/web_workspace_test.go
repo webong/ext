@@ -17,3 +17,15 @@ func TestWebKitSDKSourceOwnership(t *testing.T) {
 		t.Fatalf("ExtWebKit source = %s, want %s", got, want)
 	}
 }
+
+func TestClipboardSDKSourceOwnership(t *testing.T) {
+	root := repoRoot(t)
+	got, err := filepath.EvalSymlinks(filepath.Join(root, "pkg", "ext-ios", "Sources", "ExtClipboard"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := filepath.Join(root, "res", "clipboard", "ios", "Sources", "ExtClipboard")
+	if got != want {
+		t.Fatalf("ExtClipboard source = %s, want %s", got, want)
+	}
+}

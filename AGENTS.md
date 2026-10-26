@@ -51,7 +51,7 @@ paths and directories match; they are built from source and released as binaries
 `res/` is a container for reusable modules rather than a package. Each
 subdirectory is its own Go module, and nothing lives at that level: no Go package
 and no repository-wide policy. Keep container directories free of shared logic
-and keep repo-wide tests in `src/ctx/internal/arch`. `res/web` and `res/credential`
+and keep repo-wide tests in `src/ctx/internal/arch`. `res/web`, `res/clipboard`, and `res/credential`
 depend only on the standard library; `res/system` depends on `golang.org/x/sys`.
 
 `lib/` is a container for native libraries that several language bindings
@@ -105,6 +105,7 @@ named for each module path.
 The reusable libraries are:
 
 - `res/web` for portable web contracts and workflows: browsers, and the web engine that runs web content through them. It is also the iOS and Android module of the cookie, userscript and bookmarklet rules (`res/web/ios`, `res/web/android`), which `pkg/ext-ios` and `pkg/ext-android` ship.
+- `res/clipboard` for bounded, transport-free clipboard contracts and the Apple and Android native implementations shipped by the platform SDKs.
 - `res/credential` for portable credential serving and client code.
 - `lib/plugin` for the portable C plugin engine shared by the language bindings under `pkg/` (`ext-go`, `ext-rust`, `ext-zig`, `ext-ts`, `ext-python`) and the mobile SDKs.
 - `res/system` for observing the machine: host, shell, file system and web view discovery and process inspection, with `res/system/graph` (the namespaced graph store and its transactions) and `res/system/supervisor` (process supervision and recovery).
@@ -175,7 +176,10 @@ the plugin code or the C engine and build and test with Swift or a JDK/Android S
 reaches `res/web/ios` through the links `Sources/ExtWeb` and `Sources/ExtWebKit` (a release stages
 real copies), and `pkg/ext-android` compiles the portable and Android source sets from
 `res/web/android` into its AAR. Edit web code in `res/web`, never in
-the SDKs. Keep
+the SDKs. `res/clipboard` follows the same ownership model: its Swift target is
+linked into `pkg/ext-ios`, and its portable and Android Java source sets are
+compiled into the `pkg/ext-android` AAR. Edit clipboard code in `res/clipboard`.
+Keep
 `pkg/ext-go` focused on the contract, the engine API and runtime backends. The Go-to-C guest binding belongs in
 `pkg/ext-go/cgoengine/cshared/guest`. The language-neutral C ABI header
 (`lib/plugin/include/ext_plugin.h`) belongs to the engine; its constants and wire

@@ -68,6 +68,8 @@ jobs:
       # The web rules need Swift only; fail before the engine builds if they drift from res/web.
       - name: Web rules against the fixtures and against Go
         run: scripts/web-differential.sh
+      - name: Clipboard contracts and native binding
+        run: swift test --package-path res/clipboard/ios
       # The release carries the WAMR host: its xcframework is a second asset, and its license ships
       # beside it and inside the package.
       - name: Stage the release
@@ -97,6 +99,13 @@ jobs:
           [[ -n "$device" ]] || { echo 'no iPhone simulator is installed' >&2; exit 1; }
           cd res/web/ios
           xcodebuild test -scheme ExtWeb -destination "platform=iOS Simulator,id=$device"
+      - name: Clipboard binding in an iOS Simulator
+        run: |
+          set -euo pipefail
+          device="$(xcrun simctl list devices available | grep -m1 -E 'iPhone' | sed -E 's/^ *(.*) \(([0-9A-F-]{36})\).*/\2/')"
+          [[ -n "$device" ]] || { echo 'no iPhone simulator is installed' >&2; exit 1; }
+          cd res/clipboard/ios
+          xcodebuild test -scheme ExtClipboard -destination "platform=iOS Simulator,id=$device"
       - name: Checksums
         env:
           VERSION: ${{ steps.version.outputs.version }}

@@ -152,6 +152,14 @@ scripts/ext-android.sh          # the plugin part; needs a JDK and CMake
 scripts/web-android.sh          # the web part (res/web/android); needs a JDK only
 ```
 
+## Clipboard
+
+The AAR ships `io.github.webong.ext.clipboard` and
+`io.github.webong.ext.clipboard.android.SystemClipboard` from
+[`res/clipboard`](../../res/clipboard/README.md). The binding provides bounded,
+generation-checked access to the app-visible Android system clipboard without
+transport or approval UI.
+
 The script builds the JNI library with CMake, compiles the classes with
 `javac -Xlint:all -Werror`, runs the tests with `java -ea` (no test framework is
 assumed), and writes launchers for `ConformanceGuest`, the shared

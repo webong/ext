@@ -4,8 +4,17 @@ import static org.junit.Assert.assertTrue;
 
 import android.content.Context;
 import android.content.pm.ApplicationInfo;
+import androidx.test.core.app.ActivityScenario;
 import androidx.test.platform.app.InstrumentationRegistry;
+import io.github.webong.ext.clipboard.ClipboardItem;
+import io.github.webong.ext.clipboard.ClipboardPolicy;
+import io.github.webong.ext.clipboard.ClipboardRepresentation;
+import io.github.webong.ext.clipboard.ClipboardSnapshot;
+import io.github.webong.ext.clipboard.android.SystemClipboard;
 import java.io.File;
+import java.nio.charset.StandardCharsets;
+import java.util.Collections;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.Test;
 
 public class ConsumerTest {
@@ -28,6 +37,38 @@ public class ConsumerTest {
     public void webRulesAnswerAsGoDoesUnderArtAndR8() throws Exception {
         java.util.List<String> failures = WebRoundtrips.run();
         assertTrue(failures.toString(), failures.isEmpty());
+    }
+
+    @Test
+    public void nativeClipboardRoundTrip() {
+        AtomicReference<Throwable> failure = new AtomicReference<>();
+        try (ActivityScenario<ClipboardActivity> scenario = ActivityScenario.launch(ClipboardActivity.class)) {
+            scenario.onActivity(activity -> {
+                try (SystemClipboard clipboard = new SystemClipboard(activity,
+                        new ClipboardPolicy(1024, Collections.singletonList(SystemClipboard.TEXT), true, true))) {
+                    String initial = clipboard.currentGeneration();
+                    ClipboardItem item = new ClipboardItem(Collections.singletonList(
+                            new ClipboardRepresentation(SystemClipboard.TEXT,
+                                    "ext clipboard".getBytes(StandardCharsets.UTF_8))));
+                    String written = clipboard.write(initial, Collections.singletonList(item)).generation;
+                    ClipboardSnapshot snapshot = clipboard.read();
+                    assertTrue(snapshot.generation, snapshot.generation.equals(written));
+                    assertTrue(new String(snapshot.items.get(0).representations.get(0).data,
+                            StandardCharsets.UTF_8).equals("ext clipboard"));
+                    try {
+                        clipboard.write(initial, Collections.singletonList(item));
+                        throw new AssertionError("stale generation was accepted");
+                    } catch (io.github.webong.ext.clipboard.ClipboardException expected) {
+                        assertTrue(expected.code, expected.code.equals("changed"));
+                    }
+                    clipboard.clear(snapshot.generation);
+                    assertTrue(clipboard.read().items.isEmpty());
+                } catch (Throwable error) {
+                    failure.set(error);
+                }
+            });
+        }
+        if (failure.get() != null) throw new AssertionError("native clipboard round trip", failure.get());
     }
 
     @Test

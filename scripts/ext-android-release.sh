@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Stage a release of the Android SDK (plugin code and web code) as an AAR under dist/ext-android-<version>/:
+# Stage a release of the Android SDK (plugin, web, and clipboard code) as an AAR under dist/ext-android-<version>/:
 # ext-android-<version>.aar, or ext-android-wamr-<version>.aar with --with-wamr. The two builds
 # share the directory, so a release stages both in turn.
-# The AAR holds the guest SDK, the WebView host and the web rules (classes.jar) and libextjni for arm64-v8a and
+# The AAR holds the guest SDK, the WebView host, web rules and native clipboard binding (classes.jar), and libextjni for arm64-v8a and
 # x86_64. It publishes nothing. Needs the Android SDK (platform, build-tools, NDK), a JDK, cmake.
 #
 # --with-wamr also builds the optional WAMR host: libextwamrjni for the same ABIs and the
@@ -44,10 +44,11 @@ for abi in arm64-v8a x86_64; do
   for target in "${targets[@]}"; do cp "$work/native-$abi/lib$target.so" "$work/aar/jni/$abi/"; done
 done
 
-# classes.jar (Java 17, which the guest SDK uses; the app's D8 desugars it): the guest SDK and the WebView host, plus the WAMR host classes when requested.
+# classes.jar (Java 17, which the guest SDK uses; the app's D8 desugars it): the guest SDK, WebView host, web rules and clipboard binding, plus the WAMR host classes when requested.
 mkdir -p "$work/classes"
 # The plugin code and the WebView host are this package's; the web rules are res/web/android's.
-sources=($(find "$pkg/src/main/java" "$pkg/src/android/java" res/web/android/src/main/java res/web/android/src/android/java -name '*.java' | grep -v '/Wamr[A-Za-z]*\.java$'))
+sources=($(find "$pkg/src/main/java" "$pkg/src/android/java" res/web/android/src/main/java res/web/android/src/android/java \
+  res/clipboard/android/src/main/java res/clipboard/android/src/android/java -name '*.java' | grep -v '/Wamr[A-Za-z]*\.java$'))
 [[ -z "$with_wamr" ]] || sources+=($(find "$pkg/src/main/java" -name 'Wamr*.java'))
 javac -Xlint:all --release 17 -classpath "$jar" -d "$work/classes" "${sources[@]}"
 ( cd "$work/classes" && jar cf "$work/aar/classes.jar" . )
@@ -87,6 +88,8 @@ for entry in BundleRunner BundleServer BundleAssets; do
 done
 grep -qx 'io/github/webong/ext/web/BundlePolicy.class' <<<"$classes" || { echo 'classes.jar is missing BundlePolicy' >&2; exit 1; }
 grep -qx 'io/github/webong/ext/web/Cookie.class' <<<"$classes" || { echo 'classes.jar is missing the web rules' >&2; exit 1; }
+grep -qx 'io/github/webong/ext/clipboard/ClipboardPolicy.class' <<<"$classes" || { echo 'classes.jar is missing clipboard contracts' >&2; exit 1; }
+grep -qx 'io/github/webong/ext/clipboard/android/SystemClipboard.class' <<<"$classes" || { echo 'classes.jar is missing native clipboard support' >&2; exit 1; }
 if [[ -z "$with_wamr" ]] && grep -q Wamr <<<"$classes"; then
   echo 'classes.jar contains WAMR classes' >&2; exit 1
 fi

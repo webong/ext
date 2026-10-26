@@ -106,6 +106,10 @@ module zip carries their files, which Go never reads, and a change to them needs
 They reach apps through `pkg/ext-ios` and `pkg/ext-android`, so they are released with those, under
 `ext-ios-vX.Y.Z` and `ext-android-vX.Y.Z`.
 
+`res/clipboard` is independently tagged as a Go module. Its Apple and Android
+source sets also reach applications through `pkg/ext-ios` and `pkg/ext-android`,
+so native-source changes are included in the corresponding mobile SDK releases.
+
 The iOS SDK's engine and WAMR archives are released under that same tag; see
 [`pkg/ext-ios`](../pkg/ext-ios/README.md) and `scripts/ext-ios-release.sh`. It is
 not a Go module version either.
@@ -256,7 +260,7 @@ workspace active, and that `src/ctx` resolves the intended versions:
 ```bash
 for module in src/ctx src/ctn pkg/ext-go pkg/ext-go/engine pkg/ext-go/cgoengine \
               pkg/ext-go/hashicorp pkg/ext-go/wasm res/system adapters/wasm adapters/evm \
-              res/web res/credential; do
+              res/web res/clipboard res/credential; do
   (cd "$module" && go build ./... && go test ./...) || exit 1
 done
 ```

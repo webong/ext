@@ -24,7 +24,7 @@ done
 sdk="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-$HOME/Library/Android/sdk}}"
 export ANDROID_HOME="$sdk"
 adb="$sdk/platform-tools/adb"
-gradle="${GRADLE:-$(command -v gradle || ls -d "$HOME"/.gradle/wrapper/dists/gradle-8.*-bin/*/gradle-8.*/bin/gradle 2>/dev/null | sort -V | tail -1)}"
+gradle="${GRADLE:-$(command -v gradle || find "$HOME/.gradle/wrapper/dists" -type f -path '*/gradle-8.*/bin/gradle' 2>/dev/null | sort -V | tail -1)}"
 [[ -x "$gradle" ]] || { echo 'need Gradle: set GRADLE or put gradle on PATH' >&2; exit 1; }
 version=0.0.1
 work="$(mktemp -d "${TMPDIR:-/tmp}/ext-android-consumer.XXXXXX")"

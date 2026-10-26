@@ -83,6 +83,13 @@ let url = try Bookmarklet.encode("alert(document.title)")
 scripts/web-ios.sh            # swift test of res/web/ios; needs Swift, not the engine xcframework
 ```
 
+## Clipboard
+
+`ExtClipboard` ships the bounded clipboard values and caller-owned Apple native
+binding from [`res/clipboard`](../../res/clipboard/README.md). It supports macOS
+and iOS, requires an explicit format and byte policy, and performs no remote
+routing or approval UI.
+
 ## Hosting a plugin in a web view
 
 `ExtPluginWebView` runs a WebAssembly reactor ([the ABI](../../docs/plugin-reactor-abi.md))

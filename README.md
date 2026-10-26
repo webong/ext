@@ -307,10 +307,13 @@ CTX and its ecosystem share public Go libraries:
   the selected plugin backend does not already own its process lifecycle.
 - `github.com/webong/ext/res/web` supplies portable browser contracts,
   workflows, extension and userscript handling.
+- `github.com/webong/ext/res/clipboard` supplies bounded clipboard contracts
+  and native Apple and Android bindings without remote routing or approval UI.
 - `github.com/webong/ext/res/credential` supplies portable credential serving and
   the CTX credential client.
 
-Both `res` modules and `pkg/ext-go` depend only on the Go standard library, so
+`res/web`, `res/clipboard`, `res/credential`, and `pkg/ext-go` depend only on the
+Go standard library, so
 consumers that do not need a runtime backend never download the HashiCorp or
 WASI stacks.
 

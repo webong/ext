@@ -51,6 +51,7 @@ for source in BundleRunner BundleServer BundleAssets; do
   [[ -f "$dist/Sources/ExtWebKit/$source.swift" ]] || { echo "distribution is missing $source" >&2; exit 1; }
 done
 [[ -f "$dist/Sources/ExtWeb/BundlePolicy.swift" ]] || { echo 'distribution is missing BundlePolicy' >&2; exit 1; }
+[[ -f "$dist/Sources/ExtClipboard/Clipboard.swift" ]] || { echo 'distribution is missing ExtClipboard' >&2; exit 1; }
 rm -rf "$dist/Sources/ExtConformancePlugin" "$dist/Sources/ExtFramesGuest"
 cp "$sdk/README.md" "$dist/README.md"
 cp LICENSE "$dist/LICENSE"

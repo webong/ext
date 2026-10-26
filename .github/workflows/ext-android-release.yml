@@ -66,6 +66,8 @@ jobs:
       # The web rules need a JDK only; fail before any native build if they drift from res/web.
       - name: Web rules against the fixtures
         run: scripts/web-android.sh
+      - name: Clipboard contracts
+        run: scripts/clipboard-android.sh
       - name: Build both AARs
         env:
           VERSION: ${{ steps.version.outputs.version }}

@@ -265,6 +265,22 @@ public final class WebTests {
             eq(Json.strings(want, "matches"), got.matches, str(c, "name"));
             eq(Json.strings(want, "excludeMatches"), got.excludeMatches, str(c, "name"));
         }
+        for (Map<String, Object> c : cases(load(dir + "compatibility.json"), "cases")) {
+            UserscriptCompatibilityReport got = Userscript.compatibility(str(c, "source"));
+            Map<String, Object> want = map(c.get("expect"));
+            eq(str(want, "name"), got.name, str(c, "name"));
+            eq(Json.strings(want, "grants"), got.grants, str(c, "name"));
+            eq(Json.strings(want, "matches"), got.matches, str(c, "name"));
+            eq(Json.strings(want, "excludeMatches"), got.excludeMatches, str(c, "name"));
+            eq(Json.strings(want, "includes"), got.includes, str(c, "name"));
+            eq(Json.strings(want, "excludes"), got.excludes, str(c, "name"));
+            eq(str(want, "runAt"), got.runAt, str(c, "name"));
+            eq(str(want, "world"), got.world, str(c, "name"));
+            eq(want.get("allFrames"), got.allFrames, str(c, "name"));
+            eq(Json.strings(want, "blockers"), got.blockers, str(c, "name"));
+            eq(Json.strings(want, "notes"), got.notes, str(c, "name"));
+            eq(Boolean.valueOf(got.blockers.isEmpty()), Boolean.valueOf(got.runnable()), str(c, "name"));
+        }
         List<Map<String, Object>> revisions = cases(load(dir + "revision.json"), "cases");
         check(revisions.size() >= 4, "enough revision vectors");
         Map<String, String> seen = new HashMap<>();

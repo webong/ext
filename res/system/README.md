@@ -1,12 +1,12 @@
 # system
 
 `github.com/webong/ext/res/system` is how CTX observes the machine it runs on: the operating
-system, its file systems, its shells and web views, and the processes running on it. It reports
+system, its native desktop, file systems, shells and web views, and the processes running on it. It reports
 what is there without starting anything, and can record it in a graph.
 
 | Package | What it is |
 | --- | --- |
-| `system` (the module root) | Host, shell, filesystem and web view discovery, process inspection, and the requirements a host has to meet |
+| `system` (the module root) | Host, native desktop, shell, filesystem and web view discovery, process inspection, and the requirements a host has to meet |
 | `system/graph` | A generic, namespaced, directed graph store with transactions, in memory or in a file |
 | `system/supervisor` | Process supervision and recovery |
 

@@ -69,8 +69,79 @@ public struct UserscriptError: Error, Equatable, CustomStringConvertible {
     public var description: String { message }
 }
 
+/// Import-time metadata assessment. Unsupported requirements remain visible as
+/// stable blocker codes; inspection does not install or execute the source.
+public struct UserscriptCompatibilityReport: Equatable, Sendable, Codable {
+    public var name: String
+    public var grants: [String]
+    public var matches: [String]
+    public var excludeMatches: [String]
+    public var includes: [String]
+    public var excludes: [String]
+    public var runAt: String
+    public var world: String
+    public var allFrames: Bool
+    public var blockers: [String]
+    public var notes: [String]
+    public var runnable: Bool { blockers.isEmpty }
+}
+
 public enum Userscript {
     private static let maxSourceBytes = 1024 * 1024
+    private static let maxMetadataBytes = 64 * 1024
+    private static let descriptiveDirectives: Set<String> = [
+        "antifeature", "author", "copyright", "defaulticon", "description", "homepage",
+        "homepageurl", "icon", "icon64", "icon64url", "iconurl", "license", "namespace",
+        "source", "supporturl", "tag", "version", "website",
+    ]
+
+    /// Reads Greasemonkey-family metadata without weakening unsupported requirements.
+    public static func compatibility(of source: String) -> UserscriptCompatibilityReport {
+        var report = UserscriptCompatibilityReport(
+            name: "", grants: [], matches: [], excludeMatches: [], includes: [], excludes: [],
+            runAt: "", world: "", allFrames: true, blockers: [], notes: [])
+        var seen = Set<String>()
+        func block(_ code: String) {
+            if seen.insert(code).inserted { report.blockers.append(code) }
+        }
+        if source.isEmpty || source.utf8.count > maxSourceBytes { block("invalid_source_size") }
+        var inBlock = false, found = false, ended = false, headerBytes = 0
+        for rawLine in GoText.split(source, on: 0x0A) {
+            let line = GoText.trimSpace(rawLine)
+            if line == "// ==UserScript==" { inBlock = true; found = true; continue }
+            if line == "// ==/UserScript==" && inBlock { ended = true; break }
+            if !inBlock { continue }
+            headerBytes += rawLine.utf8.count + 1
+            if headerBytes > maxMetadataBytes { block("metadata_too_large"); break }
+            guard let directive = metadataDirective(line) else { continue }
+            let name = directive.name.lowercased()
+            switch name {
+            case "name": report.name = directive.value
+            case "grant":
+                report.grants.append(directive.value)
+                if directive.value != "none" { block("unsupported_grant") }
+            case "match": report.matches.append(directive.value)
+            case "exclude-match": report.excludeMatches.append(directive.value)
+            case "include": report.includes.append(directive.value); block("unsupported_include")
+            case "exclude": report.excludes.append(directive.value); block("unsupported_exclude")
+            case "noframes": report.allFrames = false; block("unsupported_noframes")
+            case "run-at":
+                report.runAt = directive.value
+                if directive.value != "document-start" { block("unsupported_run_at") }
+            case "inject-into":
+                report.world = directive.value
+                if directive.value != "page" { block("unsupported_world") }
+            case "require": block("unsupported_require")
+            case "resource": block("unsupported_resource")
+            case "connect", "run-in", "sandbox", "unwrap", "top-level-await", "webrequest":
+                block("unsupported_directive")
+            default:
+                if !descriptiveDirectives.contains(name) { block("unsupported_directive") }
+            }
+        }
+        if !found || !ended { block("missing_header") }
+        return report
+    }
 
     /// `userscript.Revision`: `sha256:` and the digest of the compact JSON object
     /// `{"target","id","name","matches","excludeMatches","source"}`, written as Go writes it.
@@ -203,6 +274,14 @@ public enum Userscript {
 
     private static func reject(_ code: String, _ message: String) -> UserscriptError {
         UserscriptError(code: code, message: message)
+    }
+
+    private static func metadataDirective(_ line: String) -> (name: String, value: String)? {
+        guard let body = GoText.cutPrefix(line, "// @") else { return nil }
+        let value = GoText.trimSpace(body)
+        guard !value.isEmpty else { return nil }
+        guard let space = value.firstIndex(where: { $0 == " " || $0 == "\t" }) else { return (value, "") }
+        return (String(value[..<space]), GoText.trimSpace(String(value[value.index(after: space)...])))
     }
 
     /// `^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$`, with `$` meaning the end of the text.

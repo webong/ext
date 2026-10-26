@@ -37,6 +37,20 @@ final class BrowserWorkspaceTests: XCTestCase {
         return r
     }
 
+    func testScriptCapabilitiesAndNavigationGeneration() throws {
+        let workspace = BrowserWorkspace(target: "capabilities")
+        defer { workspace.close() }
+        let capabilities = workspace.scriptCapabilities
+        XCTAssertEqual(capabilities.currentPage.frames, ["main"])
+        XCTAssertEqual(capabilities.currentPage.runAt, ["now"])
+        XCTAssertTrue(capabilities.currentPage.rejectsStaleNavigation)
+        XCTAssertEqual(capabilities.futureDocuments.frames, ["all"])
+        XCTAssertEqual(capabilities.futureDocuments.runAt, ["document-start"])
+        let before = workspace.state.navigationGeneration
+        try workspace.navigate("https://example.com/")
+        XCTAssertGreaterThan(workspace.state.navigationGeneration, before)
+    }
+
     private func load(_ workspace: BrowserWorkspace, path: String) async throws -> Any? {
         workspace.webView.loadHTMLString("<html><script>window.atStart = window.runs || 0; window.ready = true;</script></html>",
             baseURL: URL(string: "https://example.com" + path))

@@ -14,6 +14,7 @@ public final class BrowserWorkspace: NSObject, WKNavigationDelegate, WKUIDelegat
         public let canGoBack: Bool
         public let canGoForward: Bool
         public let error: String?
+        public let navigationGeneration: UInt64
     }
 
     public let webView: WKWebView
@@ -39,7 +40,12 @@ public final class BrowserWorkspace: NSObject, WKNavigationDelegate, WKUIDelegat
     private var observations: [NSKeyValueObservation] = []
     private var closed = false
     private var lastError: String?
-    private var injections: [UUID: CheckedContinuation<Void, Error>] = [:]
+    private struct PendingInjection {
+        let generation: UInt64
+        let continuation: CheckedContinuation<Void, Error>
+    }
+    private var navigationGeneration: UInt64 = 0
+    private var injections: [UUID: PendingInjection] = [:]
 
     public init(target: String, dataStore: WKWebsiteDataStore? = nil) {
         self.target = target
@@ -64,18 +70,27 @@ public final class BrowserWorkspace: NSObject, WKNavigationDelegate, WKUIDelegat
     public var state: State {
         State(url: webView.url?.absoluteString ?? "", title: webView.title ?? "",
             loading: webView.isLoading, progress: webView.estimatedProgress,
-            canGoBack: webView.canGoBack, canGoForward: webView.canGoForward, error: lastError)
+            canGoBack: webView.canGoBack, canGoForward: webView.canGoForward, error: lastError,
+            navigationGeneration: navigationGeneration)
+    }
+
+    public var scriptCapabilities: WebViewCapabilities {
+        WebViewCapabilities(
+            currentPage: ScriptExecutionCapability(supported: true, frames: ["main"], runAt: ["now"],
+                worlds: ["page"], rejectsStaleNavigation: true),
+            futureDocuments: ScriptExecutionCapability(supported: true, frames: ["all"],
+                runAt: ["document-start"], worlds: ["page"]))
     }
 
     public func navigate(_ address: String) throws {
         try requireOpen()
         _ = try parseSite(address)
         guard let url = URL(string: address) else { throw WorkspaceError.invalidURL }
-        webView.load(URLRequest(url: url))
+        beginNavigation(); webView.load(URLRequest(url: url))
     }
-    public func back() throws { try requireOpen(); webView.goBack() }
-    public func forward() throws { try requireOpen(); webView.goForward() }
-    public func reload() throws { try requireOpen(); webView.reload() }
+    public func back() throws { try requireOpen(); if webView.canGoBack { beginNavigation(); webView.goBack() } }
+    public func forward() throws { try requireOpen(); if webView.canGoForward { beginNavigation(); webView.goForward() } }
+    public func reload() throws { try requireOpen(); beginNavigation(); webView.reload() }
     public func stop() throws { try requireOpen(); webView.stopLoading(); emit() }
 
     /// Reads WebKit's native records for a request URL, including HttpOnly cookies.
@@ -170,7 +185,7 @@ public final class BrowserWorkspace: NSObject, WKNavigationDelegate, WKUIDelegat
         stopUserscriptReconciliation()
         onUserscriptsReconciled = nil
         let pending = Array(injections.values); injections.removeAll()
-        pending.forEach { $0.resume(throwing: WorkspaceError.closed) }
+        pending.forEach { $0.continuation.resume(throwing: WorkspaceError.closed) }
         observations.forEach { $0.invalidate() }
         observations.removeAll()
         webView.stopLoading()
@@ -183,7 +198,7 @@ public final class BrowserWorkspace: NSObject, WKNavigationDelegate, WKUIDelegat
     }
 
     public func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
-        lastError = nil; emit()
+        beginNavigation(); lastError = nil; emit()
     }
     public func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) { emit() }
     public func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
@@ -200,7 +215,7 @@ public final class BrowserWorkspace: NSObject, WKNavigationDelegate, WKUIDelegat
         lastError = error.localizedDescription; emit()
     }
     public func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
-        lastError = "Web content process terminated"; emit()
+        beginNavigation(); lastError = "Web content process terminated"; emit()
     }
     public func webView(_ webView: WKWebView, decidePolicyFor action: WKNavigationAction,
                         decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
@@ -229,14 +244,25 @@ public final class BrowserWorkspace: NSObject, WKNavigationDelegate, WKUIDelegat
         guard !source.isEmpty, source.utf8.count <= 1 << 20 else { throw WorkspaceError.injectionFailed }
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             let id = UUID()
-            injections[id] = continuation
+            let generation = navigationGeneration
+            injections[id] = PendingInjection(generation: generation, continuation: continuation)
             webView.evaluateJavaScript(source + "\n;void 0;") { [weak self] _, error in
                 guard let self, let pending = self.injections.removeValue(forKey: id) else { return }
-                if error != nil { pending.resume(throwing: WorkspaceError.injectionFailed) }
-                else { pending.resume() }
+                if pending.generation != self.navigationGeneration {
+                    pending.continuation.resume(throwing: WorkspaceError.staleNavigation)
+                } else if error != nil {
+                    pending.continuation.resume(throwing: WorkspaceError.injectionFailed)
+                } else {
+                    pending.continuation.resume()
+                }
             }
         }
     }
+    private func beginNavigation() {
+        navigationGeneration &+= 1
+        let pending = Array(injections.values); injections.removeAll()
+        pending.forEach { $0.continuation.resume(throwing: WorkspaceError.staleNavigation) }
+    }
     private func requireOpen() throws { if closed { throw WorkspaceError.closed } }
-    public enum WorkspaceError: Error { case closed, invalidURL, injectionFailed, invalidUserscriptSelection }
+    public enum WorkspaceError: Error { case closed, invalidURL, injectionFailed, staleNavigation, invalidUserscriptSelection }
 }

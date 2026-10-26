@@ -1,0 +1,107 @@
+{
+  "doc": "Import-time userscript compatibility. Blockers are stable codes; source remains available for review even when runnable is false.",
+  "cases": [
+    {
+      "name": "portable page script",
+      "source": "// ==UserScript==\n// @name Portable\n// @match https://example.com/*\n// @exclude-match https://example.com/private/*\n// @grant none\n// @run-at document-start\n// @inject-into page\n// ==/UserScript==\nconsole.log(1);\n",
+      "expect": {
+        "name": "Portable",
+        "grants": ["none"],
+        "matches": ["https://example.com/*"],
+        "excludeMatches": ["https://example.com/private/*"],
+        "includes": [],
+        "excludes": [],
+        "runAt": "document-start",
+        "world": "page",
+        "allFrames": true,
+        "blockers": [],
+        "notes": []
+      }
+    },
+    {
+      "name": "legacy URL rules and noframes",
+      "source": "// ==UserScript==\n// @name Legacy\n// @include https://example.com/*\n// @exclude https://example.com/private/*\n// @noframes\n// ==/UserScript==\n",
+      "expect": {
+        "name": "Legacy",
+        "grants": [],
+        "matches": [],
+        "excludeMatches": [],
+        "includes": ["https://example.com/*"],
+        "excludes": ["https://example.com/private/*"],
+        "runAt": "",
+        "world": "",
+        "allFrames": false,
+        "blockers": ["unsupported_include", "unsupported_exclude", "unsupported_noframes"],
+        "notes": []
+      }
+    },
+    {
+      "name": "privileged grant",
+      "source": "// ==UserScript==\n// @name Privileged\n// @match https://example.com/*\n// @grant GM_getValue\n// ==/UserScript==\n",
+      "expect": {
+        "name": "Privileged",
+        "grants": ["GM_getValue"],
+        "matches": ["https://example.com/*"],
+        "excludeMatches": [],
+        "includes": [],
+        "excludes": [],
+        "runAt": "",
+        "world": "",
+        "allFrames": true,
+        "blockers": ["unsupported_grant"],
+        "notes": []
+      }
+    },
+    {
+      "name": "external resources and unsupported execution",
+      "source": "// ==UserScript==\n// @name External\n// @match https://example.com/*\n// @require https://example.com/lib.js\n// @resource css https://example.com/a.css\n// @run-at document-idle\n// @inject-into content\n// ==/UserScript==\n",
+      "expect": {
+        "name": "External",
+        "grants": [],
+        "matches": ["https://example.com/*"],
+        "excludeMatches": [],
+        "includes": [],
+        "excludes": [],
+        "runAt": "document-idle",
+        "world": "content",
+        "allFrames": true,
+        "blockers": ["unsupported_require", "unsupported_resource", "unsupported_run_at", "unsupported_world"],
+        "notes": []
+      }
+    },
+    {
+      "name": "plain source is inspectable but not importable",
+      "source": "console.log(1);\n",
+      "expect": {
+        "name": "",
+        "grants": [],
+        "matches": [],
+        "excludeMatches": [],
+        "includes": [],
+        "excludes": [],
+        "runAt": "",
+        "world": "",
+        "allFrames": true,
+        "blockers": ["missing_header"],
+        "notes": []
+      }
+    },
+    {
+      "name": "whitespace and unknown directive",
+      "source": "// ==UserScript==\n// @name\tTabbed\n// @description Display text only\n// @match\thttps://example.com/*\n// @unknown-mode strict\n// ==/UserScript==\n",
+      "expect": {
+        "name": "Tabbed",
+        "grants": [],
+        "matches": ["https://example.com/*"],
+        "excludeMatches": [],
+        "includes": [],
+        "excludes": [],
+        "runAt": "",
+        "world": "",
+        "allFrames": true,
+        "blockers": ["unsupported_directive"],
+        "notes": []
+      }
+    }
+  ]
+}

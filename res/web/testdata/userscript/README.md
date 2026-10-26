@@ -17,6 +17,7 @@ the scope is an additive `v1alpha2`.
 | `v1alpha1/match-patterns.json` | Match and exclude patterns: schemes, hosts, `file://` host rule, length bounds |
 | `v1alpha1/directives.json` | Unsupported header directives, `@run-at`, `@inject-into`, `@grant`, header/record match agreement |
 | `v1alpha1/metadata.json` | Name, match and exclude inference from a header, and id derivation |
+| `v1alpha1/compatibility.json` | Import-time metadata reporting, including legacy URL rules, frame scope, external resources, grants, timing and worlds |
 | `v1alpha1/record.json` | Whole-record validation: target, id, name, source size, revision, match counts |
 | `v1alpha1/revision.json` | Revision digest vectors |
 | `v1alpha1/replay.json` | `ReplaySource`: the registration script byte for byte, and its rejections (`"-"` is a failure with no error code) |
@@ -26,6 +27,12 @@ Error codes: `invalid_target`, `invalid_id`, `invalid_name`, `invalid_source_siz
 `invalid_file_host`, `unsupported_grant`, `unsupported_require`,
 `unsupported_directive`, `unsupported_run_at`, `unsupported_world`,
 `match_metadata_mismatch`.
+
+Compatibility blocker codes are reports rather than `Record` validation errors:
+`missing_header`, `metadata_too_large`, `unsupported_include`, `unsupported_exclude`,
+`unsupported_noframes`, `unsupported_grant`, `unsupported_require`,
+`unsupported_resource`, `unsupported_directive`, `unsupported_run_at`, and
+`unsupported_world`.
 
 ## Revision
 

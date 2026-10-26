@@ -33,8 +33,15 @@ public final class TestActivity extends Activity {
             });
             setContentView(workspace.view());
             check(workspace.supportsDocumentStartScripts() == expectDocumentStart, "document-start capability");
+            io.github.webong.ext.web.WebViewCapabilities capabilities = workspace.scriptCapabilities();
+            check(capabilities.currentPage.supported && capabilities.currentPage.frames.equals(Collections.singletonList("main"))
+                    && capabilities.currentPage.runAt.equals(Collections.singletonList("now"))
+                    && capabilities.currentPage.rejectsStaleNavigation, "current-page capability contract");
+            check(capabilities.futureDocuments.supported == expectDocumentStart, "future-document capability contract");
+            long generation = workspace.state().navigationGeneration;
             try { workspace.navigate("file:///etc/passwd"); check(false, "file navigation rejected"); }
             catch (Exception expected) { check(true, "file navigation rejected"); }
+            check(workspace.state().navigationGeneration == generation, "rejected navigation preserves generation");
             java.io.File directory = new java.io.File(getFilesDir(), "scripts-" + java.util.UUID.randomUUID());
             store = new io.github.webong.ext.web.UserscriptStore(directory);
             router = new io.github.webong.ext.web.android.WorkspaceManagement(workspace, store, "profile");

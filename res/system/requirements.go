@@ -158,6 +158,9 @@ func (g *Graph) ReadHost(ctx context.Context) (HostSnapshot, error) {
 		case Namespace + "/webview":
 			result.Webviews = append(result.Webviews, WebviewInfo{})
 			target = &result.Webviews[len(result.Webviews)-1]
+		case Namespace + "/desktop":
+			result.Desktop = &DesktopInfo{}
+			target = result.Desktop
 		default:
 			continue
 		}

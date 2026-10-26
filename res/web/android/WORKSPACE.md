@@ -13,6 +13,7 @@ BrowserWorkspace page = new BrowserWorkspace(activity, "checkout", new BrowserWo
     @Override public void onStateChange(BrowserWorkspace.State state) { /* app UI */ }
     @Override public void onVisit(BrowserWorkspace.State state) { /* optional history */ }
 });
+WebViewCapabilities capabilities = page.scriptCapabilities();
 container.addView(page.view());
 if (page.supportsDocumentStartScripts()) page.replaceUserscripts(reviewedRecords);
 page.navigate("https://example.com");
@@ -40,6 +41,10 @@ replace them. File and content access are disabled. HTTP(S) and `about:blank` ar
 allowed; other schemes are blocked. Main-frame requests with a user gesture are
 offered to `onExternalURL`, never launched automatically. `close()` removes the view
 from its parent and destroys it. Temporary view detachment does not close it.
+
+`scriptCapabilities()` reports current-page evaluation independently from optional AndroidX
+future-document registration. `State.navigationGeneration` changes when navigation begins, and a
+pending current-page injection completes unsuccessfully if the generation changes.
 
 Android WebView's app-level cookie/storage profile is shared: this is not an
 incognito or isolated per-workspace profile. App lifecycle, permission prompts,

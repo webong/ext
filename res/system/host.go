@@ -2,6 +2,7 @@ package system
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -55,6 +56,7 @@ type HostInventory struct {
 	Shells          []ShellInfo      `json:"shells"`
 	Filesystems     []FilesystemInfo `json:"filesystems"`
 	Webviews        []WebviewInfo    `json:"webviews"`
+	Desktop         *DesktopInfo     `json:"desktop,omitempty"`
 	shellSearchPath *string
 }
 
@@ -166,7 +168,11 @@ func DiscoverHost(ctx context.Context) (HostInventory, error) {
 	if err != nil {
 		return HostInventory{}, err
 	}
-	return HostInventory{Shells: shells, Filesystems: filesystems, Webviews: webviews}, nil
+	desktop, err := DiscoverDesktop(ctx)
+	if err != nil {
+		return HostInventory{}, err
+	}
+	return HostInventory{Shells: shells, Filesystems: filesystems, Webviews: webviews, Desktop: &desktop}, nil
 }
 
 // ScanHost refreshes all host inventories in the graph and returns the facts.
@@ -181,7 +187,7 @@ func (g *Graph) ScanHost(ctx context.Context) (HostInventory, error) {
 // ObserveHost reconciles host-owned records and their machine relationships.
 // Adapter inventory, shell sessions, and other namespaces are preserved.
 func (g *Graph) ObserveHost(ctx context.Context, inventory HostInventory) error {
-	if inventory.Shells == nil && inventory.Filesystems == nil && inventory.Webviews == nil {
+	if inventory.Shells == nil && inventory.Filesystems == nil && inventory.Webviews == nil && inventory.Desktop == nil {
 		return nil
 	}
 	now := time.Now().UTC()
@@ -257,6 +263,20 @@ func (g *Graph) ObserveHost(ctx context.Context, inventory HostInventory) error 
 			add("host-webview/"+digest(webviewIdentity(webview)), "webview", "has-webview", attributes)
 		}
 	}
+	if inventory.Desktop != nil {
+		desktop := *inventory.Desktop
+		if desktop.Platform == "" || desktop.ObservedAt.IsZero() || desktop.Recording.Status == "" || desktop.Recording.CheckedAt.IsZero() {
+			return errors.New("host desktop observation is incomplete")
+		}
+		managedKinds[Namespace+"/desktop"] = true
+		managedTypes[Namespace+"/has-desktop"] = true
+		add("host-inventory/desktop", "host-inventory", "has-host-inventory", map[string]any{"kind": "desktop", "count": 1, "observed_at": desktop.ObservedAt.Format(time.RFC3339Nano), "environment": hostEnvironment()})
+		attributes, err := jsonAttributes(desktop)
+		if err != nil {
+			return err
+		}
+		add("host-desktop/local", "desktop", "has-desktop", attributes)
+	}
 	for attempt := 0; attempt < 3; attempt++ {
 		snapshot, err := g.Store.Snapshot(ctx, Namespace)
 		if err != nil {
@@ -290,6 +310,18 @@ func (g *Graph) ObserveHost(ctx context.Context, inventory HostInventory) error 
 		return err
 	}
 	return fmt.Errorf("host inventory changed during observation")
+}
+
+func jsonAttributes(value any) (map[string]any, error) {
+	data, err := json.Marshal(value)
+	if err != nil {
+		return nil, err
+	}
+	var attributes map[string]any
+	if err := json.Unmarshal(data, &attributes); err != nil {
+		return nil, err
+	}
+	return attributes, nil
 }
 
 func redactFilesystemSource(source string) string {

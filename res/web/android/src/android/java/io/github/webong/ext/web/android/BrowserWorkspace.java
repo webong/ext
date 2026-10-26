@@ -18,6 +18,8 @@ import io.github.webong.ext.web.Site;
 import io.github.webong.ext.web.SiteException;
 import io.github.webong.ext.web.UserscriptException;
 import io.github.webong.ext.web.UserscriptRecord;
+import io.github.webong.ext.web.ScriptExecutionCapability;
+import io.github.webong.ext.web.WebViewCapabilities;
 import io.github.webong.ext.web.WorkspaceScripts;
 import java.util.ArrayList;
 import java.util.List;
@@ -33,12 +35,14 @@ public final class BrowserWorkspace implements AutoCloseable {
         public final String url, title, error;
         public final boolean loading, canGoBack, canGoForward;
         public final double progress;
-        private State(WebView view, boolean loading, String error) {
+        public final long navigationGeneration;
+        private State(WebView view, boolean loading, String error, long navigationGeneration) {
             url = view.getUrl() == null ? "" : view.getUrl();
             title = view.getTitle() == null ? "" : view.getTitle();
             this.loading = loading; this.error = error;
             progress = view.getProgress() / 100.0;
             canGoBack = view.canGoBack(); canGoForward = view.canGoForward();
+            this.navigationGeneration = navigationGeneration;
         }
     }
 
@@ -74,8 +78,15 @@ public final class BrowserWorkspace implements AutoCloseable {
     private Listener listener;
     private boolean closed, loading, failed;
     private String error;
-    private long injectionID;
-    private final java.util.Map<Long, android.webkit.ValueCallback<Boolean>> injections = new java.util.LinkedHashMap<>();
+    private long injectionID, navigationGeneration;
+    private static final class PendingInjection {
+        final long generation;
+        final android.webkit.ValueCallback<Boolean> completion;
+        PendingInjection(long generation, android.webkit.ValueCallback<Boolean> completion) {
+            this.generation = generation; this.completion = completion;
+        }
+    }
+    private final java.util.Map<Long, PendingInjection> injections = new java.util.LinkedHashMap<>();
 
     @SuppressLint("SetJavaScriptEnabled")
     public BrowserWorkspace(Context context, String target, Listener listener) {
@@ -98,7 +109,7 @@ public final class BrowserWorkspace implements AutoCloseable {
     }
 
     public WebView view() { requireOpen(); return view; }
-    public State state() { requireOpen(); return new State(view, loading, error); }
+    public State state() { requireOpen(); return new State(view, loading, error, navigationGeneration); }
     /** Native request header, including HttpOnly cookies. No domain/expiry metadata is
      * available through CookieManager; do not treat this as a portable cookie export.
      * Android's app-level WebView cookie store is shared across workspaces. */
@@ -120,12 +131,24 @@ public final class BrowserWorkspace implements AutoCloseable {
     }
 
     public boolean supportsDocumentStartScripts() { requireOpen(); return documentStart.available(); }
-    public void navigate(String url) throws SiteException {
-        requireOpen(); Site.parse(url); view.loadUrl(url);
+    public WebViewCapabilities scriptCapabilities() {
+        requireOpen();
+        ScriptExecutionCapability current = new ScriptExecutionCapability(true,
+                java.util.Collections.singletonList("main"), java.util.Collections.singletonList("now"),
+                java.util.Collections.singletonList("page"), true);
+        ScriptExecutionCapability future = documentStart.available()
+                ? new ScriptExecutionCapability(true, java.util.Collections.singletonList("all"),
+                    java.util.Collections.singletonList("document-start"), java.util.Collections.singletonList("page"), false)
+                : new ScriptExecutionCapability(false, java.util.Collections.<String>emptyList(),
+                    java.util.Collections.<String>emptyList(), java.util.Collections.<String>emptyList(), false);
+        return new WebViewCapabilities(current, future);
     }
-    public void back() { requireOpen(); if (view.canGoBack()) view.goBack(); }
-    public void forward() { requireOpen(); if (view.canGoForward()) view.goForward(); }
-    public void reload() { requireOpen(); view.reload(); }
+    public void navigate(String url) throws SiteException {
+        requireOpen(); Site.parse(url); beginNavigation(); view.loadUrl(url);
+    }
+    public void back() { requireOpen(); if (view.canGoBack()) { beginNavigation(); view.goBack(); } }
+    public void forward() { requireOpen(); if (view.canGoForward()) { beginNavigation(); view.goForward(); } }
+    public void reload() { requireOpen(); beginNavigation(); view.reload(); }
     public void stop() { requireOpen(); view.stopLoading(); loading = false; emit(); }
 
     /** Replaces registrations for future documents; cannot undo effects on the current page. */
@@ -215,12 +238,12 @@ public final class BrowserWorkspace implements AutoCloseable {
         if (view.getParent() instanceof ViewGroup) ((ViewGroup) view.getParent()).removeView(view);
         view.destroy();
         listener = null;
-        List<android.webkit.ValueCallback<Boolean>> pending = new ArrayList<>(injections.values());
+        List<PendingInjection> pending = new ArrayList<>(injections.values());
         injections.clear();
-        for (android.webkit.ValueCallback<Boolean> completion : pending) completion.onReceiveValue(false);
+        for (PendingInjection injection : pending) injection.completion.onReceiveValue(false);
     }
 
-    private void emit() { if (!closed) listener.onStateChange(new State(view, loading, error)); }
+    private void emit() { if (!closed) listener.onStateChange(new State(view, loading, error, navigationGeneration)); }
     String managementTarget() { requireOpen(); return target; }
     void checkOpen() { requireOpen(); }
     /** Executes in the current main frame's page world. The callback reports synchronous
@@ -232,13 +255,21 @@ public final class BrowserWorkspace implements AutoCloseable {
         String script = "(function(){try{(0,eval)(" + io.github.webong.ext.web.WorkspaceInput.quote(source)
             + ");return true;}catch(_){return false;}})()";
         long id = ++injectionID;
-        injections.put(id, completion);
+        long generation = navigationGeneration;
+        injections.put(id, new PendingInjection(generation, completion));
         try {
             view.evaluateJavascript(script, value -> {
-                android.webkit.ValueCallback<Boolean> pending = injections.remove(id);
-                if (pending != null) pending.onReceiveValue(!closed && "true".equals(value));
+                PendingInjection pending = injections.remove(id);
+                if (pending != null) pending.completion.onReceiveValue(!closed
+                        && pending.generation == navigationGeneration && "true".equals(value));
             });
         } catch (RuntimeException failure) { injections.remove(id); throw failure; }
+    }
+    private void beginNavigation() {
+        navigationGeneration++;
+        List<PendingInjection> pending = new ArrayList<>(injections.values());
+        injections.clear();
+        for (PendingInjection injection : pending) injection.completion.onReceiveValue(false);
     }
     private void requireOpen() { requireUI(); if (closed) throw new IllegalStateException("workspace is closed"); }
     private static void requireUI() {
@@ -250,12 +281,12 @@ public final class BrowserWorkspace implements AutoCloseable {
 
     private final class Client extends WebViewClient {
         @Override public void onPageStarted(WebView webView, String url, Bitmap icon) {
-            loading = true; failed = false; error = null; emit();
+            beginNavigation(); loading = true; failed = false; error = null; emit();
         }
         @Override public void onPageFinished(WebView webView, String url) {
             loading = false; emit();
             if (!closed && !failed && url != null && http(Uri.parse(url))) {
-                listener.onVisit(new State(view, loading, error));
+                listener.onVisit(new State(view, loading, error, navigationGeneration));
             }
         }
         @Override public void onReceivedError(WebView webView, WebResourceRequest request, WebResourceError failure) {

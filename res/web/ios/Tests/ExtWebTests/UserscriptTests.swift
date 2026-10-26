@@ -92,6 +92,18 @@ final class UserscriptFixtureTests: XCTestCase {
         }
     }
 
+    func testCompatibility() throws {
+        struct Case: Decodable { var name: String; var source: String; var expect: UserscriptCompatibilityReport }
+        struct File: Decodable { var cases: [Case] }
+        let file: File = try Fixtures.load(dir + "compatibility.json")
+        XCTAssertFalse(file.cases.isEmpty)
+        for c in file.cases {
+            let got = Userscript.compatibility(of: c.source)
+            XCTAssertEqual(got, c.expect, c.name)
+            XCTAssertEqual(got.runnable, got.blockers.isEmpty, c.name)
+        }
+    }
+
     func testRevision() throws {
         struct Case: Decodable { var name: String; var record: FixtureRecord; var revision: String }
         struct File: Decodable { var cases: [Case] }

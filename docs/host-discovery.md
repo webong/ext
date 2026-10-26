@@ -121,19 +121,23 @@ alias keeps it from colliding with a variable of your own called `system`:
 
 ```go
 inventory, err := systemgraph.DiscoverHost(ctx)
-// inventory.Shells, inventory.Filesystems, and inventory.Webviews are typed observations.
+// inventory.Shells, inventory.Filesystems, inventory.Webviews, and inventory.Desktop are typed observations.
 
 inventory, err = system.ScanHost(ctx)
 // ScanHost discovers and atomically projects all host inventories into the graph.
 ```
 
-`DiscoverShells`, `DiscoverFilesystems`, and `DiscoverWebviews` can be called
+`DiscoverShells`, `DiscoverFilesystems`, `DiscoverWebviews`, and `DiscoverDesktop` can be called
 independently.
 `Graph.ObserveHost` accepts a `HostInventory`; a nil slice preserves that part
 of the existing inventory, while a non-nil empty slice removes its old entries.
-The schema uses `shell`, `filesystem`, `webview`, and `host-inventory` vertices
+The schema uses `shell`, `filesystem`, `webview`, `desktop`, and `host-inventory` vertices
 linked to `machine/local`. The generic graph store owns persistence and transactions;
 `res/system` owns host discovery and its vocabulary.
+
+Desktop discovery is a local, read-only observation. It reports whether this process can see an
+interactive native desktop, local X11 or Wayland endpoints, and recording prerequisites. It does
+not connect to remote displays, request capture permission, open settings, or start recording.
 
 ## Operation requirements and preparation
 

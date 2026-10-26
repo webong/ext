@@ -14,6 +14,54 @@ public final class Userscript {
     private Userscript() {}
 
     private static final int MAX_SOURCE_BYTES = 1024 * 1024;
+    private static final int MAX_METADATA_BYTES = 64 * 1024;
+    private static final Set<String> DESCRIPTIVE_DIRECTIVES = new HashSet<>(java.util.Arrays.asList(
+            "antifeature", "author", "copyright", "defaulticon", "description", "homepage",
+            "homepageurl", "icon", "icon64", "icon64url", "iconurl", "license", "namespace",
+            "source", "supporturl", "tag", "version", "website"));
+
+    /** Reads Greasemonkey-family metadata without weakening unsupported requirements. */
+    public static UserscriptCompatibilityReport compatibility(String source) {
+        String name = "", runAt = "", world = "";
+        List<String> grants = new ArrayList<>(), matches = new ArrayList<>(), excludeMatches = new ArrayList<>();
+        List<String> includes = new ArrayList<>(), excludes = new ArrayList<>(), blockers = new ArrayList<>();
+        Set<String> seenBlockers = new HashSet<>();
+        boolean allFrames = true, inBlock = false, found = false, ended = false;
+        int headerBytes = 0;
+        if (source.isEmpty() || GoText.utf8Length(source) > MAX_SOURCE_BYTES) block(blockers, seenBlockers, "invalid_source_size");
+        for (String raw : GoText.split(source, '\n')) {
+            String line = GoText.trimSpace(raw);
+            if (line.equals("// ==UserScript==")) { inBlock = true; found = true; continue; }
+            if (line.equals("// ==/UserScript==") && inBlock) { ended = true; break; }
+            if (!inBlock) continue;
+            headerBytes += GoText.utf8Length(raw) + 1;
+            if (headerBytes > MAX_METADATA_BYTES) { block(blockers, seenBlockers, "metadata_too_large"); break; }
+            String[] directive = metadataDirective(line);
+            if (directive == null) continue;
+            String directiveName = directive[0].toLowerCase(java.util.Locale.ROOT);
+            switch (directiveName) {
+                case "name": name = directive[1]; break;
+                case "grant": grants.add(directive[1]); if (!directive[1].equals("none")) block(blockers, seenBlockers, "unsupported_grant"); break;
+                case "match": matches.add(directive[1]); break;
+                case "exclude-match": excludeMatches.add(directive[1]); break;
+                case "include": includes.add(directive[1]); block(blockers, seenBlockers, "unsupported_include"); break;
+                case "exclude": excludes.add(directive[1]); block(blockers, seenBlockers, "unsupported_exclude"); break;
+                case "noframes": allFrames = false; block(blockers, seenBlockers, "unsupported_noframes"); break;
+                case "run-at": runAt = directive[1]; if (!runAt.equals("document-start")) block(blockers, seenBlockers, "unsupported_run_at"); break;
+                case "inject-into": world = directive[1]; if (!world.equals("page")) block(blockers, seenBlockers, "unsupported_world"); break;
+                case "require": block(blockers, seenBlockers, "unsupported_require"); break;
+                case "resource": block(blockers, seenBlockers, "unsupported_resource"); break;
+                case "connect": case "run-in": case "sandbox": case "unwrap": case "top-level-await": case "webrequest":
+                    block(blockers, seenBlockers, "unsupported_directive"); break;
+                default: if (!DESCRIPTIVE_DIRECTIVES.contains(directiveName)) {
+                    block(blockers, seenBlockers, "unsupported_directive");
+                }
+            }
+        }
+        if (!found || !ended) block(blockers, seenBlockers, "missing_header");
+        return new UserscriptCompatibilityReport(name, grants, matches, excludeMatches, includes, excludes,
+                runAt, world, allFrames, blockers, Collections.<String>emptyList());
+    }
 
     /**
      * {@code userscript.Revision}: {@code sha256:} and the digest of the compact JSON object
@@ -178,6 +226,23 @@ public final class Userscript {
 
     private static UserscriptException reject(String code, String message) {
         return new UserscriptException(code, message);
+    }
+
+    private static void block(List<String> blockers, Set<String> seen, String code) {
+        if (seen.add(code)) blockers.add(code);
+    }
+
+    private static String[] metadataDirective(String line) {
+        String body = GoText.cutPrefix(line, "// @");
+        if (body == null) return null;
+        body = GoText.trimSpace(body);
+        if (body.isEmpty()) return null;
+        int space = -1;
+        for (int i = 0; i < body.length(); i++) {
+            if (Character.isWhitespace(body.charAt(i))) { space = i; break; }
+        }
+        return space < 0 ? new String[] {body, ""}
+                : new String[] {body.substring(0, space), GoText.trimSpace(body.substring(space + 1))};
     }
 
     private static List<String> append(List<String> list, String item) {

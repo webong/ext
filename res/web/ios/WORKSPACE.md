@@ -15,6 +15,7 @@ import ExtWebKit
 
 // Main actor; embed page.webView in your app's UI.
 let page = BrowserWorkspace(target: "checkout")
+let capabilities = page.scriptCapabilities
 page.onStateChange = { state in /* update UI */ }
 page.onVisit = { state in /* optional history persistence */ }
 page.onExternalURL = { url in /* app decides whether to launch */ }
@@ -44,6 +45,10 @@ external links offered to the app callback. Nothing opens an external app itself
 host removes the view from its UI. App lifecycle, incoming URLs, storage,
 permissions and record retention remain host choices. This is a browser page,
 not a sandbox for untrusted applications or the hidden Wasm plugin host.
+
+`scriptCapabilities` describes current-page evaluation separately from future-document
+registration. `State.navigationGeneration` changes when navigation begins. Pending current-page
+injections fail with `staleNavigation` if that generation changes before native evaluation finishes.
 
 `scripts/web-workspace-ios.sh` tests document-start execution, exclusions,
 rejected updates, removal, and closure in real WKWebView on macOS. Sources also

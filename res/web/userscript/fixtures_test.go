@@ -126,6 +126,31 @@ func TestFixtureMetadata(t *testing.T) {
 	}
 }
 
+func TestFixtureCompatibility(t *testing.T) {
+	var fixture struct {
+		Cases []struct {
+			Name   string              `json:"name"`
+			Source string              `json:"source"`
+			Expect CompatibilityReport `json:"expect"`
+		} `json:"cases"`
+	}
+	load(t, "compatibility.json", &fixture)
+	if len(fixture.Cases) == 0 {
+		t.Fatal("no cases")
+	}
+	for _, test := range fixture.Cases {
+		t.Run(test.Name, func(t *testing.T) {
+			got := InspectCompatibility(test.Source)
+			if !reflect.DeepEqual(got, test.Expect) {
+				t.Fatalf("got %+v\nwant %+v", got, test.Expect)
+			}
+			if got.Runnable() != (len(got.Blockers) == 0) {
+				t.Fatal("runnable disagrees with blockers")
+			}
+		})
+	}
+}
+
 type fixtureRecord struct {
 	Target         string   `json:"target"`
 	ID             string   `json:"id"`

@@ -7,7 +7,7 @@ without pulling an adapter, a browser engine, or any CTX application code.
 
 | Package | Contents |
 | --- | --- |
-| `contract` | Request, response, cookie, policy and session types with their validation; cookie fixtures in `testdata/cookie`; `session.endpoint` result validation and redaction (`EndpointResult`) |
+| `contract` | Request, response, cookie, policy and session types with their validation; native WebView script capability contracts; cookie fixtures in `testdata/cookie`; `session.endpoint` result validation and redaction (`EndpointResult`) |
 | `guest` | Portable browser workflows served through adapter-provided backends |
 | `extension` | Extension artifact discovery, packaging and install targets |
 | `bundle` | The web engine: serves a web bundle from loopback under a content security policy and runs it in a browser the host opens, reporting console output and the exit code |
@@ -59,6 +59,15 @@ See [mobile cookie workflows](COOKIE_WORKFLOWS.md) for portable import/export an
 See [mobile browser-management protocol](MANAGEMENT.md) for Swift/Java envelopes, validation, endpoint safety and backend dispatch.
 
 See [workspace management and persistence](WORKSPACE_MANAGEMENT.md) for native management routing and Go-compatible userscript storage.
+
+`userscript.InspectCompatibility`, `Userscript.compatibility(of:)`, and
+`Userscript.compatibility` inspect Greasemonkey-family metadata before installation. They report
+unsupported grants, external resources, legacy include/exclude rules, frame scope and execution
+timing as stable blocker codes; unsupported requirements are never silently discarded.
+
+Native workspaces expose separate current-page and future-document script capabilities. Current-page
+evaluation is tied to a navigation generation so an operation cannot report success after the page
+has changed underneath it.
 
 See [local web bundle runners](BUNDLE_RUNNER.md) for native HTML/module execution, CSP, console events, host messaging and lifecycle handling.
 

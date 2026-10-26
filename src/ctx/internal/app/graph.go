@@ -37,7 +37,7 @@ func graphCommand(args []string, stdout, stderr io.Writer) int {
 	switch args[0] {
 	case "processes", "process":
 		return graphProcessCommand(ctx, system, args[0], args[1:], stdout, stderr)
-	case "shells", "filesystems", "webviews", "surfaces":
+	case "shells", "filesystems", "webviews", "surfaces", "accessibility", "permissions":
 		if len(args) != 1 {
 			fmt.Fprintf(stderr, "ctx: graph %s takes no arguments\n", args[0])
 			return 2
@@ -59,6 +59,16 @@ func graphCommand(args []string, stdout, stderr io.Writer) int {
 			err = surfaceErr
 			inventory.Surfaces = &surfaces
 			result = surfaces
+		case "accessibility":
+			accessibility, accessibilityErr := systemgraph.DiscoverAccessibility(ctx, systemgraph.AccessibilityOptions{})
+			err = accessibilityErr
+			inventory.Accessibility = &accessibility
+			result = accessibility
+		case "permissions":
+			permissions, permissionErr := systemgraph.DiscoverPermissions(ctx)
+			err = permissionErr
+			inventory.Permissions = &permissions
+			result = permissions
 		}
 		if err != nil {
 			return reportError(stderr, err)
@@ -102,6 +112,12 @@ func graphCommand(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stdout, "observed %d shared webview runtimes\n", len(host.Webviews))
 		if host.Surfaces != nil {
 			fmt.Fprintf(stdout, "observed %d displays (%s) and %d windows (%s)\n", len(host.Surfaces.Displays), host.Surfaces.DisplayStatus.State, len(host.Surfaces.Windows), host.Surfaces.WindowStatus.State)
+		}
+		if host.Accessibility != nil {
+			fmt.Fprintf(stdout, "observed %d accessibility elements (%s)\n", len(host.Accessibility.Elements), host.Accessibility.Status.State)
+		}
+		if host.Permissions != nil {
+			fmt.Fprintf(stdout, "observed accessibility permission %s and screen recording permission %s\n", host.Permissions.Accessibility.State, host.Permissions.ScreenRecording.State)
 		}
 		fmt.Fprintf(stdout, "observed %d processes (%s)\n", len(processes.Processes), processes.Enumeration.State)
 		return 0

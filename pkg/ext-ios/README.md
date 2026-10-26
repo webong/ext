@@ -1,7 +1,7 @@
 # Apple SDK
 
-`pkg/ext-ios` is the ext SDK for Apple platforms. Its plugin, web, clipboard, and
-system-observation libraries do not depend on each other.
+`pkg/ext-ios` is the ext SDK for Apple platforms. Its plugin, web, clipboard,
+system-observation, and network-observation libraries do not depend on each other.
 
 - **Plugin** (`ExtPluginGuest`, `ExtPluginExports`, `ExtPluginWebView`, `ExtPluginWamr`): author an
   `ext.plugin/v1` plugin in Swift, and Objective-C through the C headers, on the guest half of the
@@ -93,10 +93,18 @@ routing or approval UI.
 ## System observation
 
 `ExtSystem` ships the local display and window observation model from
-[`res/system`](../../res/system/README.md). macOS reports visible desktop windows;
-iOS reports only the calling application's windows. Both expose opaque identities
-and geometry without titles, native handles, capture, input, permission prompts,
-or remote routing.
+[`res/system`](../../res/system/README.md). It also observes read-only native UI
+structure and accessibility/screen-recording permission state. macOS reports the
+focused accessible application and visible desktop windows; iOS reports only the
+calling application's views and windows. Text is opt-in. Neither binding exposes
+native handles, captures pixels, sends input, prompts, opens settings, or routes remotely.
+
+## Network observation
+
+`ExtNetwork` ships [`res/network`](../../res/network/README.md)'s bounded local
+interface and assigned-address observation. Apple route-table and resolver
+collection currently report `unsupported`. It performs no lookup, opens no
+connection, and provides no remote discovery or routing service.
 
 ## Hosting a plugin in a web view
 

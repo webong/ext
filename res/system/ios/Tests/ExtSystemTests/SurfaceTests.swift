@@ -41,4 +41,41 @@ final class SurfaceTests: XCTestCase {
             XCTAssertGreaterThan(window.bounds.height, 0)
         }
     }
+
+    func testAccessibilityWireNamesAndTextIsOptIn() throws {
+        XCTAssertThrowsError(try AccessibilityOptions(maxElements: 0))
+        let now = "1970-01-01T00:16:40.000Z"
+        let element = AccessibilityElement(
+            id: "accessibility:opaque", parentID: "accessibility:parent", pid: 42,
+            processStartID: "42:1", role: "button", identifier: "save",
+            bounds: SurfaceBounds(x: 1, y: 2, width: 30, height: 40), actions: ["press"]
+        )
+        let value = AccessibilitySnapshot(
+            platform: "fixture", observedAt: now,
+            status: SurfaceCollectionStatus(state: "complete", observedAt: now), elements: [element]
+        )
+        let data = try JSONEncoder().encode(value)
+        let encoded = String(decoding: data, as: UTF8.self)
+        XCTAssertTrue(encoded.contains("\"parent_id\""))
+        XCTAssertTrue(encoded.contains("\"process_start_id\""))
+        XCTAssertFalse(encoded.contains("\"label\""))
+        XCTAssertFalse(encoded.contains("\"value\""))
+        XCTAssertEqual(try JSONDecoder().decode(AccessibilitySnapshot.self, from: data), value)
+    }
+
+    @MainActor
+    func testNativePermissionAndAccessibilityObservationDoNotPrompt() throws {
+        let permissions = SystemPermissionObserver.observe()
+        XCTAssertFalse(permissions.platform.isEmpty)
+        XCTAssertFalse(permissions.accessibility.state.isEmpty)
+        XCTAssertFalse(permissions.screenRecording.state.isEmpty)
+
+        let snapshot = SystemAccessibilityObserver(options: try AccessibilityOptions(maxElements: 64, maxDepth: 8)).observe()
+        XCTAssertFalse(snapshot.status.state.isEmpty)
+        for element in snapshot.elements {
+            XCTAssertTrue(element.id.hasPrefix("accessibility:"))
+            XCTAssertNil(element.label)
+            XCTAssertNil(element.value)
+        }
+    }
 }

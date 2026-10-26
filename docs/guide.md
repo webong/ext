@@ -14,6 +14,7 @@ what you use:
 | host or write a plugin | `github.com/webong/ext/pkg/ext-go` (v0.2.0) |
 | run WebAssembly in a sandbox | `github.com/webong/ext/pkg/ext-go/wasm` (v0.2.0) |
 | discover the machine | `github.com/webong/ext/res/system` (v0.1.0) |
+| observe the local network stack | `github.com/webong/ext/res/network` (unreleased) |
 | run web content in a browser | `github.com/webong/ext/res/web` (v0.1.1) |
 
 ```sh

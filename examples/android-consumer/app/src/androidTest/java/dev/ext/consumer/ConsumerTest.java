@@ -12,7 +12,13 @@ import io.github.webong.ext.clipboard.ClipboardRepresentation;
 import io.github.webong.ext.clipboard.ClipboardSnapshot;
 import io.github.webong.ext.clipboard.android.SystemClipboard;
 import io.github.webong.ext.system.SurfaceSnapshot;
+import io.github.webong.ext.system.AccessibilitySnapshot;
+import io.github.webong.ext.system.PermissionSnapshot;
+import io.github.webong.ext.system.android.SystemAccessibilityObserver;
+import io.github.webong.ext.system.android.SystemPermissionObserver;
 import io.github.webong.ext.system.android.SystemSurfaceObserver;
+import io.github.webong.ext.network.NetworkSnapshot;
+import io.github.webong.ext.network.android.SystemNetworkObserver;
 import java.io.File;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
@@ -98,6 +104,33 @@ public class ConsumerTest {
         }
         if (failure.get() != null) throw new AssertionError("native system observation", failure.get());
     }
+
+	@Test
+	public void nativeAccessibilityPermissionsAndNetworkRemainObservations() {
+		AtomicReference<Throwable> failure = new AtomicReference<>();
+		try (ActivityScenario<ClipboardActivity> scenario = ActivityScenario.launch(ClipboardActivity.class)) {
+			scenario.onActivity(activity -> {
+				try {
+					AccessibilitySnapshot accessibility = new SystemAccessibilityObserver().observe(activity);
+					assertTrue(accessibility.status().state(), !accessibility.status().state().isEmpty());
+					accessibility.elements().forEach(element -> {
+						assertTrue(element.id(), element.id().startsWith("accessibility:"));
+						assertTrue("text is opt-in", element.label() == null && element.value() == null);
+					});
+					PermissionSnapshot permissions = SystemPermissionObserver.observe();
+					assertTrue(permissions.accessibility().state(), !permissions.accessibility().state().isEmpty());
+					assertTrue(permissions.screenRecording().state(), !permissions.screenRecording().state().isEmpty());
+					NetworkSnapshot network = new SystemNetworkObserver().observe(activity);
+					assertTrue(network.interfaceStatus().state(), !network.interfaceStatus().state().isEmpty());
+					assertTrue(network.routeStatus().state(), !network.routeStatus().state().isEmpty());
+					assertTrue(network.resolverStatus().state(), !network.resolverStatus().state().isEmpty());
+				} catch (Throwable error) {
+					failure.set(error);
+				}
+			});
+		}
+		if (failure.get() != null) throw new AssertionError("native observation", failure.get());
+	}
 
     @Test
     public void packagedNativeLibrariesMatchTheDeviceAbi() {

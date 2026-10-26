@@ -17,6 +17,21 @@ public final class SurfaceTests {
         assert snapshot.displays().equals(List.of(display));
         assert snapshot.windows().equals(List.of(window));
         assert snapshot.windows().get(0).processStartId().equals("42:1");
+
+		AccessibilityOptions accessibilityOptions = new AccessibilityOptions();
+		assert !accessibilityOptions.includeText();
+		AccessibilityElement element = new AccessibilityElement("accessibility:opaque", null, 42,
+				"42:1", "button", "save", null, null, bounds, List.of("activate"), true, false);
+		AccessibilitySnapshot accessibility = new AccessibilitySnapshot("fixture", "2026-10-26T00:00:00.000Z",
+				status, List.of(element));
+		assert accessibility.elements().get(0).label() == null;
+		assert accessibility.elements().get(0).value() == null;
+		assert accessibility.elements().get(0).processStartId().equals("42:1");
+
+		PermissionInfo ready = new PermissionInfo("ready", "fixture.scope", null);
+		PermissionSnapshot permissions = new PermissionSnapshot("fixture", "2026-10-26T00:00:00.000Z", ready, ready);
+		assert permissions.accessibility().equals(ready);
+		assert permissions.screenRecording().equals(ready);
     }
 
     private SurfaceTests() {}

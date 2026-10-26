@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Stage a release of the Apple SDK (plugin, web, clipboard, and system code). SwiftPM resolves a package from a repository
+# Stage a release of the Apple SDK (plugin, web, clipboard, system, and network code). SwiftPM resolves a package from a repository
 # root and this monorepo's root is not a package, so a release is two pieces:
 #   1. CExtEngine.xcframework.zip, the engine's guest core for macOS, iOS and the
 #      iOS Simulator, attached to a GitHub release of this repository, and
@@ -53,6 +53,8 @@ done
 [[ -f "$dist/Sources/ExtWeb/BundlePolicy.swift" ]] || { echo 'distribution is missing BundlePolicy' >&2; exit 1; }
 [[ -f "$dist/Sources/ExtClipboard/Clipboard.swift" ]] || { echo 'distribution is missing ExtClipboard' >&2; exit 1; }
 [[ -f "$dist/Sources/ExtSystem/Surface.swift" ]] || { echo 'distribution is missing ExtSystem' >&2; exit 1; }
+[[ -f "$dist/Sources/ExtSystem/Accessibility.swift" ]] || { echo 'distribution is missing ExtSystem accessibility observation' >&2; exit 1; }
+[[ -f "$dist/Sources/ExtNetwork/Network.swift" ]] || { echo 'distribution is missing ExtNetwork' >&2; exit 1; }
 rm -rf "$dist/Sources/ExtConformancePlugin" "$dist/Sources/ExtFramesGuest"
 cp "$sdk/README.md" "$dist/README.md"
 cp LICENSE "$dist/LICENSE"

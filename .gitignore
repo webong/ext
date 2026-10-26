@@ -12,6 +12,8 @@
 /res/web/ios/.build/
 /res/system/ios/.build/
 /res/system/ios/.swiftpm/
+/res/network/ios/.build/
+/res/network/ios/.swiftpm/
 
 .DS_Store
 __pycache__/

@@ -29,6 +29,7 @@ use (
 	./adapters/firefox
 	./adapters/safari
 	./res/system
+	./res/network
 	./pkg/ext-go
 	./pkg/ext-go/hashicorp
 	./pkg/ext-go/wasm

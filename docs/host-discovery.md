@@ -9,20 +9,27 @@ ctx graph shells
 ctx graph filesystems
 ctx graph webviews
 ctx graph surfaces
+ctx graph accessibility
+ctx graph permissions
 ctx graph scan
 ctx graph vertices shell
 ctx graph vertices filesystem
 ctx graph vertices webview
 ctx graph vertices display
 ctx graph vertices window
+ctx graph vertices accessibility-element
+ctx graph vertices permission
 ctx graph edges has-shell
 ctx graph edges has-filesystem
 ctx graph edges has-webview
 ctx graph edges has-display
 ctx graph edges has-window
+ctx graph edges has-accessibility-element
+ctx graph edges has-permission
 ```
 
-`shells`, `filesystems`, `webviews`, and `surfaces` discover the host, emit JSON, and refresh
+`shells`, `filesystems`, `webviews`, `surfaces`, `accessibility`, and `permissions`
+discover the host, emit JSON, and refresh
 only their corresponding graph records. `scan` refreshes all host inventories and adapter
 inventory. Removed executables and mounts are removed from the next observation.
 Stored snapshots are observations, not authorization or a guarantee that an
@@ -126,17 +133,20 @@ alias keeps it from colliding with a variable of your own called `system`:
 
 ```go
 inventory, err := systemgraph.DiscoverHost(ctx)
-// Shells, Filesystems, Webviews, Desktop, and Surfaces are typed observations.
+// Shells, Filesystems, Webviews, Desktop, Surfaces, Accessibility, and
+// Permissions are typed observations.
 
 inventory, err = system.ScanHost(ctx)
 // ScanHost discovers and atomically projects all host inventories into the graph.
 ```
 
-`DiscoverShells`, `DiscoverFilesystems`, `DiscoverWebviews`, `DiscoverDesktop`, and `DiscoverSurfaces` can be called
+`DiscoverShells`, `DiscoverFilesystems`, `DiscoverWebviews`, `DiscoverDesktop`,
+`DiscoverSurfaces`, `DiscoverAccessibility`, and `DiscoverPermissions` can be called
 independently.
 `Graph.ObserveHost` accepts a `HostInventory`; a nil slice or pointer preserves
 that part of the existing inventory, while a non-nil empty slice removes its old entries.
-The schema uses `shell`, `filesystem`, `webview`, `desktop`, `display`, `window`, and `host-inventory` vertices
+The schema uses `shell`, `filesystem`, `webview`, `desktop`, `display`, `window`,
+`accessibility-element`, `permission`, and `host-inventory` vertices
 linked to `machine/local`. The generic graph store owns persistence and transactions;
 `res/system` owns host discovery and its vocabulary.
 
@@ -151,13 +161,24 @@ owning PID's process generation, so a reused PID or native window number cannot
 silently keep the same identity. The observation cannot be used to capture a
 window or send input.
 
-The Go collector uses Core Graphics on cgo-enabled macOS builds and User32 on
-Windows. A no-cgo macOS build and other desktop platforms return an explicit
-`unsupported` status rather than an empty-success claim. `ExtSystem` in the
+The Go collector uses Core Graphics on cgo-enabled macOS builds, User32 on
+Windows, and dynamically loaded X11 on cgo-enabled Linux builds. X11 reports
+root geometry and visible windows; its display collection is partial because
+the root does not describe monitor partitions. A Wayland-only session and a
+no-cgo desktop build return an explicit `unsupported` status rather than an
+empty-success claim. `ExtSystem` in the
 Apple SDK provides the same observation directly on macOS and app-visible
 screens and windows on iOS. The Android binding reports `DisplayManager`
 displays and an optional calling-app `Activity` window; Android public APIs do
 not expose other applications' windows.
+
+Accessibility discovery is also read-only. macOS observes the focused
+application through the Accessibility API when access is already granted;
+Windows exposes structural window/control metadata; iOS and Android expose only
+the calling application's view tree. Text is omitted by default and native
+element handles are never returned. Permission discovery reports current
+accessibility and screen-recording state without requesting access or opening
+settings.
 
 ## Operation requirements and preparation
 

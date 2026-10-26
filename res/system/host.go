@@ -53,11 +53,13 @@ type FilesystemInfo struct {
 // adapters. Nil slices and pointers in ObserveHost preserve the corresponding
 // inventory; non-nil empty slices remove previously observed entries of that kind.
 type HostInventory struct {
-	Shells          []ShellInfo      `json:"shells"`
-	Filesystems     []FilesystemInfo `json:"filesystems"`
-	Webviews        []WebviewInfo    `json:"webviews"`
-	Desktop         *DesktopInfo     `json:"desktop,omitempty"`
-	Surfaces        *SurfaceSnapshot `json:"surfaces,omitempty"`
+	Shells          []ShellInfo            `json:"shells"`
+	Filesystems     []FilesystemInfo       `json:"filesystems"`
+	Webviews        []WebviewInfo          `json:"webviews"`
+	Desktop         *DesktopInfo           `json:"desktop,omitempty"`
+	Surfaces        *SurfaceSnapshot       `json:"surfaces,omitempty"`
+	Accessibility   *AccessibilitySnapshot `json:"accessibility,omitempty"`
+	Permissions     *PermissionSnapshot    `json:"permissions,omitempty"`
 	shellSearchPath *string
 }
 
@@ -177,7 +179,15 @@ func DiscoverHost(ctx context.Context) (HostInventory, error) {
 	if err != nil {
 		return HostInventory{}, err
 	}
-	return HostInventory{Shells: shells, Filesystems: filesystems, Webviews: webviews, Desktop: &desktop, Surfaces: &surfaces}, nil
+	accessibility, err := DiscoverAccessibility(ctx, AccessibilityOptions{})
+	if err != nil {
+		return HostInventory{}, err
+	}
+	permissions, err := DiscoverPermissions(ctx)
+	if err != nil {
+		return HostInventory{}, err
+	}
+	return HostInventory{Shells: shells, Filesystems: filesystems, Webviews: webviews, Desktop: &desktop, Surfaces: &surfaces, Accessibility: &accessibility, Permissions: &permissions}, nil
 }
 
 // ScanHost refreshes all host inventories in the graph and returns the facts.
@@ -192,7 +202,7 @@ func (g *Graph) ScanHost(ctx context.Context) (HostInventory, error) {
 // ObserveHost reconciles host-owned records and their machine relationships.
 // Adapter inventory, shell sessions, and other namespaces are preserved.
 func (g *Graph) ObserveHost(ctx context.Context, inventory HostInventory) error {
-	if inventory.Shells == nil && inventory.Filesystems == nil && inventory.Webviews == nil && inventory.Desktop == nil && inventory.Surfaces == nil {
+	if inventory.Shells == nil && inventory.Filesystems == nil && inventory.Webviews == nil && inventory.Desktop == nil && inventory.Surfaces == nil && inventory.Accessibility == nil && inventory.Permissions == nil {
 		return nil
 	}
 	now := time.Now().UTC()
@@ -327,6 +337,52 @@ func (g *Graph) ObserveHost(ctx context.Context, inventory HostInventory) error 
 				return err
 			}
 			add("host-window/"+digest(window.ID), "window", "has-window", attributes)
+		}
+	}
+	if inventory.Accessibility != nil {
+		accessibility := *inventory.Accessibility
+		if accessibility.Platform == "" || accessibility.ObservedAt.IsZero() || accessibility.Status.State == "" {
+			return errors.New("host accessibility observation is incomplete")
+		}
+		managedKinds[Namespace+"/accessibility-element"] = true
+		managedTypes[Namespace+"/has-accessibility-element"] = true
+		status, err := jsonAttributes(accessibility.Status)
+		if err != nil {
+			return err
+		}
+		add("host-inventory/accessibility", "host-inventory", "has-host-inventory", map[string]any{
+			"kind": "accessibility", "count": len(accessibility.Elements), "platform": accessibility.Platform,
+			"status": status, "observed_at": accessibility.ObservedAt.Format(time.RFC3339Nano), "environment": hostEnvironment(),
+		})
+		for _, element := range accessibility.Elements {
+			if element.ID == "" || element.PID <= 0 || element.ProcessStartID == "" || element.Role == "" {
+				return errors.New("host accessibility element requires an opaque ID, process generation, and role")
+			}
+			attributes, err := jsonAttributes(element)
+			if err != nil {
+				return err
+			}
+			add("host-accessibility/"+digest(element.ID), "accessibility-element", "has-accessibility-element", attributes)
+		}
+	}
+	if inventory.Permissions != nil {
+		permissions := *inventory.Permissions
+		if permissions.Platform == "" || permissions.ObservedAt.IsZero() || permissions.Accessibility.State == "" || permissions.ScreenRecording.State == "" {
+			return errors.New("host permission observation is incomplete")
+		}
+		managedKinds[Namespace+"/permission"] = true
+		managedTypes[Namespace+"/has-permission"] = true
+		add("host-inventory/permissions", "host-inventory", "has-host-inventory", map[string]any{
+			"kind": "permission", "count": 2, "platform": permissions.Platform,
+			"observed_at": permissions.ObservedAt.Format(time.RFC3339Nano), "environment": hostEnvironment(),
+		})
+		for name, permission := range map[string]PermissionInfo{"accessibility": permissions.Accessibility, "screen-recording": permissions.ScreenRecording} {
+			attributes, err := jsonAttributes(permission)
+			if err != nil {
+				return err
+			}
+			attributes["name"] = name
+			add("host-permission/"+name, "permission", "has-permission", attributes)
 		}
 	}
 	for attempt := 0; attempt < 3; attempt++ {

@@ -2,8 +2,8 @@
 
 Reusable libraries live here so ctx, ctn and the wider ecosystem share one
 public surface. Product implementation packages stay private to each product,
-and [`res/`](../res/README.md) is a separate container for the browser and
-credential modules. Every library in both containers is its own Go module.
+and [`res/`](../res/README.md) is a separate container for reusable resource
+libraries. Every library in both containers is its own Go module.
 
 Each library here is its own Go module rather than a package inside one
 repository-wide module. The root `go.work` lists them so the repository still
@@ -42,8 +42,8 @@ headers live in [`lib/plugin`](../lib/plugin/README.md); these packages bind to 
 | [`ext-zig`](ext-zig/README.md) | Zig SDK and header-generated C engine binding |
 | [`ext-ts`](ext-ts/README.md) | JavaScript SDK, TypeScript declarations and async Node C engine binding |
 | [`ext-python`](ext-python/README.md) | Standard-library Python guest SDK (`ext_plugin`) serving JSON lines |
-| [`ext-ios`](ext-ios/README.md) | Swift SDK for iOS and macOS: plugin guest and hosts (web view, WAMR) over the C engine, plus `ExtWeb`, the cookie, userscript and bookmarklet rules (the code is `res/web/ios`) |
-| [`ext-android`](ext-android/README.md) | Java SDK for Android: plugin guest and hosts (WebView, WAMR) over the C engine, plus the same web rules in `io.github.webong.ext.web` (the code is `res/web/android`) |
+| [`ext-ios`](ext-ios/README.md) | Swift SDK for iOS and macOS: plugin guest and hosts, web and clipboard libraries, and local system and network observation |
+| [`ext-android`](ext-android/README.md) | Java SDK for Android: plugin guest and hosts, web and clipboard libraries, and app-scoped system and local network observation |
 
 The Go host binding import is `github.com/webong/ext/pkg/ext-go/cgoengine`; its package
 name is `cgoengine`. Go guest C exports use

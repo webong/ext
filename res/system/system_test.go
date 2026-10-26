@@ -16,7 +16,7 @@ func TestSchemaRejectsUnknownCTXKindsAndInvalidRelationshipMeaning(t *testing.T)
 		t.Fatal(err)
 	}
 	defer g.Close()
-	_, err = g.Store.Apply(context.Background(), graph.Transaction{Namespace: Namespace, Vertices: []graph.Vertex{{ID: "bad", Kind: Namespace + "/permission"}}})
+	_, err = g.Store.Apply(context.Background(), graph.Transaction{Namespace: Namespace, Vertices: []graph.Vertex{{ID: "bad", Kind: Namespace + "/unknown-kind"}}})
 	if err == nil {
 		t.Fatal("unknown CTX system kind accepted")
 	}

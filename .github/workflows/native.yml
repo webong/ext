@@ -28,7 +28,7 @@ jobs:
       - name: Test library modules
         shell: bash # the loop is bash; Windows runners default to PowerShell
         run: |
-          for module in cmd/ext src/ctx src/ctn res/system pkg/ext-go pkg/ext-go/engine pkg/ext-go/cgoengine pkg/ext-go/hashicorp pkg/ext-go/wasm adapters/wasm adapters/evm res/web res/clipboard res/credential; do
+          for module in cmd/ext src/ctx src/ctn res/system res/network pkg/ext-go pkg/ext-go/engine pkg/ext-go/cgoengine pkg/ext-go/hashicorp pkg/ext-go/wasm adapters/wasm adapters/evm res/web res/clipboard res/credential; do
             (cd "$module" && go test ./...) || exit 1
           done
       - name: Validate isolated native graph processes
@@ -39,6 +39,9 @@ jobs:
       - name: Validate portable Android system contracts
         if: runner.os != 'Windows'
         run: scripts/system-android.sh
+      - name: Validate portable Android network contracts
+        if: runner.os != 'Windows'
+        run: scripts/network-android.sh
       - name: Validate isolated native cookie credentials
         if: runner.os == 'macOS' || runner.os == 'Windows'
         env:

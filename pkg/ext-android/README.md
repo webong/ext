@@ -1,7 +1,7 @@
 # Android SDK
 
-`pkg/ext-android` is the ext SDK for Android. Its plugin, web, clipboard, and
-system-observation packages do not depend on each other. Java is the API, and
+`pkg/ext-android` is the ext SDK for Android. Its plugin, web, clipboard, system,
+and network-observation packages do not depend on each other. Java is the API, and
 Kotlin calls it directly.
 
 - **Plugin** (`io.github.webong.ext.plugin`): author an `ext.plugin/v1` guest on the JVM over a small JNI
@@ -11,8 +11,10 @@ Kotlin calls it directly.
   [`res/web`](../../res/web/README.md), in plain Java with no native code, run against the same fixtures as
   Go. The code is `res/web/android`; this AAR ships it. See Web rules.
 - **System** (`io.github.webong.ext.system`): bounded display metadata and the
-  calling application's visible window from `res/system/android`, without capture,
-  input, permission prompts, or remote routing.
+  calling application's visible window and view structure, plus permission-state
+  observation, from `res/system/android`.
+- **Network** (`io.github.webong.ext.network`): bounded local interfaces,
+  assigned addresses, routes and DNS configuration from `res/network/android`.
 
 The web package lives in [`res/web/android`](../../res/web/android/README.md), imports nothing of the plugin
 package and loads no native library. It is still in the same AAR as the plugin code, so an app that wants only
@@ -28,8 +30,9 @@ the web rules takes the native libraries and the minimum SDK with it.
   `WebRoundtrips` (examples/android-consumer) on an emulator under R8, with answers Go gave, because Android's
   `Character` case tables come from ICU; that job has not run yet, so check id derivation and the lower-casing
   of non-ASCII hosts on a device before relying on them.
-- The system contracts run on a desktop JDK, compile against `android.jar`, and
-  the release consumer test observes the emulator display and app window.
+- The system and network contracts run on a desktop JDK, compile against
+  `android.jar`, and the release consumer test observes the emulator's app-owned
+  UI and local network state.
 
 The application supplies a descriptor and a `Handler`. The engine does the strict JSON parsing, request
 validation against the descriptor, deadlines and error sanitizing.
@@ -167,9 +170,18 @@ generation-checked access to the app-visible Android system clipboard without
 transport or approval UI.
 
 The AAR also ships `io.github.webong.ext.system` and
-`io.github.webong.ext.system.android.SystemSurfaceObserver`. Android public APIs
-expose displays and the calling app's window; the observer does not enumerate
-other applications.
+its native surface, accessibility, and permission observers. Android public APIs
+expose displays and the calling app's window and view tree; these observers do
+not enumerate other applications, prompt, capture, or send input.
+
+## Network observation
+
+The AAR ships `io.github.webong.ext.network` and
+`io.github.webong.ext.network.android.SystemNetworkObserver` from
+[`res/network`](../../res/network/README.md). It reads interfaces and assigned
+addresses through the runtime, and reads local routes and DNS configuration
+through `ConnectivityManager` when `ACCESS_NETWORK_STATE` is granted. It does
+not use `INTERNET`, perform a lookup, or open a connection.
 
 The script builds the JNI library with CMake, compiles the classes with
 `javac -Xlint:all -Werror`, runs the tests with `java -ea` (no test framework is

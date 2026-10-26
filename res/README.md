@@ -2,16 +2,18 @@
 
 `res/` is a container for reusable modules. Each subdirectory is its own Go
 module, and nothing lives at this level: no Go package, no repository-wide
-policy. `web` and `credential` depend only on the standard library; `system` depends
+policy. `web`, `clipboard`, `network`, and `credential` depend only on the standard library; `system` depends
 only on `golang.org/x/sys`.
 
 | Module | Import path | Contents |
 | --- | --- | --- |
 | [`web`](web/README.md) | `github.com/webong/ext/res/web` | Portable web contracts and workflows: browser cookies, extensions, userscripts and sessions, and the web engine. Also the iOS (`web/ios`) and Android (`web/android`) modules of the cookie, userscript and bookmarklet rules |
+| [`clipboard`](clipboard/README.md) | `github.com/webong/ext/res/clipboard` | Bounded clipboard contracts and native Apple and Android bindings |
+| [`network`](network/README.md) | `github.com/webong/ext/res/network` | Read-only local interface, address, route, and resolver observation, plus native Apple and Android bindings; no connections or remote services |
 | [`credential`](credential/README.md) | `github.com/webong/ext/res/credential` | Portable credential serving (`adapterkit`) and CTX credential client |
-| [`system`](system/README.md) | `github.com/webong/ext/res/system` | Observing the machine: host, shell, file system and web view discovery and process inspection (`system`), a namespaced graph store they record into (`system/graph`), and process supervision and recovery (`system/supervisor`). Depends only on `golang.org/x/sys` |
+| [`system`](system/README.md) | `github.com/webong/ext/res/system` | Observing the machine: host, shell, file system, web view, native surface, accessibility and permission-state discovery and process inspection (`system`), a namespaced graph store (`system/graph`), and process supervision (`system/supervisor`). Depends only on `golang.org/x/sys` |
 
-All three are listed in the root `go.work`, so the repository still builds as one
+All resource modules are listed in the root `go.work`, so the repository still builds as one
 workspace while each module stays independently consumable.
 
 Resources expose contracts and workflows that CTX, adapters, and other hosts can

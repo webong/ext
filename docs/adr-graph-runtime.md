@@ -88,11 +88,13 @@ PowerShell prompt hooks refresh shell location after directory changes.
 Successful browser opens add the provider, profile, and URL origin. URL paths,
 query strings, fragments, arbitrary environment values, and shell history are
 not collected. Host shell executables, mounted filesystems, and shared webview
-runtimes are discovered directly by the public system graph package,
+runtimes, local surfaces, accessibility structure, and permission state are
+discovered directly by the public system graph package,
 independently of adapters.
-`ctx graph shells`, `ctx graph filesystems`, and `ctx graph webviews` refresh and
+`ctx graph shells`, `ctx graph filesystems`, `ctx graph webviews`,
+`ctx graph surfaces`, `ctx graph accessibility`, and `ctx graph permissions` refresh and
 expose those host inventories, including executable paths, mounted filesystem
-space, and evidence of shared web rendering runtimes. Native
+space, shared web rendering runtimes, and bounded native observations. Native
 host discovery stays in `res/system`; product-specific provider discovery
 stays in adapters. `ctx graph scan` records all host inventories and installed
 adapters, their declared capabilities and surfaces, and versioned observations

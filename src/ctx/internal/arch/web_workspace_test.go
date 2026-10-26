@@ -41,3 +41,15 @@ func TestSystemSDKSourceOwnership(t *testing.T) {
 		t.Fatalf("ExtSystem source = %s, want %s", got, want)
 	}
 }
+
+func TestNetworkSDKSourceOwnership(t *testing.T) {
+	root := repoRoot(t)
+	got, err := filepath.EvalSymlinks(filepath.Join(root, "pkg", "ext-ios", "Sources", "ExtNetwork"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := filepath.Join(root, "res", "network", "ios", "Sources", "ExtNetwork")
+	if got != want {
+		t.Fatalf("ExtNetwork source = %s, want %s", got, want)
+	}
+}

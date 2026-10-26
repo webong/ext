@@ -165,6 +165,27 @@ func (g *Graph) ReadHost(ctx context.Context) (HostSnapshot, error) {
 					}
 				}
 			}
+			if kind == "accessibility" {
+				if result.Accessibility == nil {
+					result.Accessibility = &AccessibilitySnapshot{Elements: []AccessibilityElement{}}
+				}
+				result.Accessibility.ObservedAt = observed
+				result.Accessibility.Platform, _ = vertex.Attributes["platform"].(string)
+				data, err := json.Marshal(vertex.Attributes["status"])
+				if err != nil {
+					return HostSnapshot{}, fmt.Errorf("read host accessibility status: %w", err)
+				}
+				if err := json.Unmarshal(data, &result.Accessibility.Status); err != nil {
+					return HostSnapshot{}, fmt.Errorf("read host accessibility status: %w", err)
+				}
+			}
+			if kind == "permission" {
+				if result.Permissions == nil {
+					result.Permissions = &PermissionSnapshot{}
+				}
+				result.Permissions.ObservedAt = observed
+				result.Permissions.Platform, _ = vertex.Attributes["platform"].(string)
+			}
 			continue
 		case Namespace + "/shell":
 			result.Shells = append(result.Shells, ShellInfo{})
@@ -190,6 +211,25 @@ func (g *Graph) ReadHost(ctx context.Context) (HostSnapshot, error) {
 			}
 			result.Surfaces.Windows = append(result.Surfaces.Windows, WindowInfo{})
 			target = &result.Surfaces.Windows[len(result.Surfaces.Windows)-1]
+		case Namespace + "/accessibility-element":
+			if result.Accessibility == nil {
+				result.Accessibility = &AccessibilitySnapshot{Elements: []AccessibilityElement{}}
+			}
+			result.Accessibility.Elements = append(result.Accessibility.Elements, AccessibilityElement{})
+			target = &result.Accessibility.Elements[len(result.Accessibility.Elements)-1]
+		case Namespace + "/permission":
+			if result.Permissions == nil {
+				result.Permissions = &PermissionSnapshot{}
+			}
+			name, _ := vertex.Attributes["name"].(string)
+			switch name {
+			case "accessibility":
+				target = &result.Permissions.Accessibility
+			case "screen-recording":
+				target = &result.Permissions.ScreenRecording
+			default:
+				continue
+			}
 		default:
 			continue
 		}
@@ -209,6 +249,9 @@ func (g *Graph) ReadHost(ctx context.Context) (HostSnapshot, error) {
 	if result.Surfaces != nil {
 		sort.Slice(result.Surfaces.Displays, func(i, j int) bool { return result.Surfaces.Displays[i].ID < result.Surfaces.Displays[j].ID })
 		sort.Slice(result.Surfaces.Windows, func(i, j int) bool { return result.Surfaces.Windows[i].ID < result.Surfaces.Windows[j].ID })
+	}
+	if result.Accessibility != nil {
+		sort.Slice(result.Accessibility.Elements, func(i, j int) bool { return result.Accessibility.Elements[i].ID < result.Accessibility.Elements[j].ID })
 	}
 	return result, nil
 }

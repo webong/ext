@@ -298,8 +298,8 @@ and [the graph design](docs/adr-graph-runtime.md).
 CTX and its ecosystem share public Go libraries:
 
 - `github.com/webong/ext/res/system` supplies generic graph storage, host and
-  process discovery, and read-only local display/window observation. Its Apple
-  and Android bindings ship through the native SDKs.
+  process discovery, and read-only local surface, accessibility and permission
+  observation. Its Apple and Android bindings ship through the native SDKs.
 - `github.com/webong/ext/pkg/ext-go` supplies the shared host/guest contract,
   validation, selection, admission, and session lifecycle. Its implementations
   include `pkg/ext-go/engine/transport/inprocess`, `pkg/ext-go/engine/transport/jsonline`, `pkg/ext-go/hashicorp` (net/rpc and
@@ -311,10 +311,13 @@ CTX and its ecosystem share public Go libraries:
   workflows, extension and userscript handling.
 - `github.com/webong/ext/res/clipboard` supplies bounded clipboard contracts
   and native Apple and Android bindings without remote routing or approval UI.
+- `github.com/webong/ext/res/network` supplies bounded, read-only observation of
+  local interfaces, assigned addresses, routes and resolver configuration. It
+  does not open network connections or implement remote discovery or routing.
 - `github.com/webong/ext/res/credential` supplies portable credential serving and
   the CTX credential client.
 
-`res/web`, `res/clipboard`, `res/credential`, and `pkg/ext-go` depend only on the
+`res/web`, `res/clipboard`, `res/network`, `res/credential`, and `pkg/ext-go` depend only on the
 Go standard library, so
 consumers that do not need a runtime backend never download the HashiCorp or
 WASI stacks.

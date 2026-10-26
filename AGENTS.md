@@ -51,7 +51,7 @@ paths and directories match; they are built from source and released as binaries
 `res/` is a container for reusable modules rather than a package. Each
 subdirectory is its own Go module, and nothing lives at that level: no Go package
 and no repository-wide policy. Keep container directories free of shared logic
-and keep repo-wide tests in `src/ctx/internal/arch`. `res/web`, `res/clipboard`, and `res/credential`
+and keep repo-wide tests in `src/ctx/internal/arch`. `res/web`, `res/clipboard`, `res/network`, and `res/credential`
 depend only on the standard library; `res/system` depends on `golang.org/x/sys`.
 
 `lib/` is a container for native libraries that several language bindings
@@ -106,9 +106,10 @@ The reusable libraries are:
 
 - `res/web` for portable web contracts and workflows: browsers, and the web engine that runs web content through them. It is also the iOS and Android module of the cookie, userscript and bookmarklet rules (`res/web/ios`, `res/web/android`), which `pkg/ext-ios` and `pkg/ext-android` ship.
 - `res/clipboard` for bounded, transport-free clipboard contracts and the Apple and Android native implementations shipped by the platform SDKs.
+- `res/network` for bounded, read-only observation of local interfaces, assigned addresses, routes, and resolver configuration. It opens no connection and provides no remote discovery or routing service.
 - `res/credential` for portable credential serving and client code.
 - `lib/plugin` for the portable C plugin engine shared by the language bindings under `pkg/` (`ext-go`, `ext-rust`, `ext-zig`, `ext-ts`, `ext-python`) and the mobile SDKs.
-- `res/system` for observing the machine: host, shell, file system and web view discovery and process inspection, with `res/system/graph` (the namespaced graph store and its transactions) and `res/system/supervisor` (process supervision and recovery).
+- `res/system` for observing the machine: host, shell, file system, web view, native surface, accessibility and permission-state discovery and process inspection, with `res/system/graph` (the namespaced graph store and its transactions) and `res/system/supervisor` (process supervision and recovery).
 - `pkg/ext-go/engine` for the pure-Go engine, the oracle: the plugin contract, sessions, guests, packages, bridges and tooling (standard library only).
 - `pkg/ext-go/c2goengine` for the C engine's portable core translated to Go by ccgo (no cgo, no C compiler). The translation is generated per platform by its `tools` module and held against the pure-Go engine, the oracle, by `engine/plugintest/enginetest`; it depends on `engine` only.
 - `pkg/ext-go/cgoengine` for the Go binding of the C engine, with a pure-Go build of the same API and the C ABI loader.
@@ -179,6 +180,11 @@ real copies), and `pkg/ext-android` compiles the portable and Android source set
 the SDKs. `res/clipboard` follows the same ownership model: its Swift target is
 linked into `pkg/ext-ios`, and its portable and Android Java source sets are
 compiled into the `pkg/ext-android` AAR. Edit clipboard code in `res/clipboard`.
+`res/system` and `res/network` follow that ownership model for local OS
+observation: their Swift targets are linked into `pkg/ext-ios`, and their Java
+source sets are compiled into the `pkg/ext-android` AAR. Edit those observers in
+their owning `res/` modules. They expose local state only; remote clients,
+service discovery, routing services, authorization and policy belong to consumers.
 Keep
 `pkg/ext-go` focused on the contract, the engine API and runtime backends. The Go-to-C guest binding belongs in
 `pkg/ext-go/cgoengine/cshared/guest`. The language-neutral C ABI header

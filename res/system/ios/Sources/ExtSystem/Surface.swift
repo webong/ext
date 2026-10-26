@@ -150,12 +150,12 @@ private func opaqueSurfaceID(_ kind: String, _ components: String...) -> String 
     return "\(kind):" + digest.map { String(format: "%02x", $0) }.joined()
 }
 
-private func surfaceBounds(_ rectangle: CGRect) -> SurfaceBounds {
+func surfaceBounds(_ rectangle: CGRect) -> SurfaceBounds {
     SurfaceBounds(x: Int(rectangle.origin.x), y: Int(rectangle.origin.y),
                   width: Int(rectangle.width), height: Int(rectangle.height))
 }
 
-private func surfaceTimestamp(_ date: Date) -> String {
+func surfaceTimestamp(_ date: Date) -> String {
     let formatter = ISO8601DateFormatter()
     formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
     return formatter.string(from: date)
@@ -234,7 +234,7 @@ extension SystemSurfaceObserver {
     }
 }
 #elseif os(iOS)
-private let iosProcessGeneration = UUID().uuidString.lowercased()
+let iosProcessGeneration = UUID().uuidString.lowercased()
 
 extension SystemSurfaceObserver {
     private func observeIOS() -> SurfaceSnapshot {

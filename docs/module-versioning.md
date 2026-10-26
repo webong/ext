@@ -110,6 +110,11 @@ They reach apps through `pkg/ext-ios` and `pkg/ext-android`, so they are release
 source sets also reach applications through `pkg/ext-ios` and `pkg/ext-android`,
 so native-source changes are included in the corresponding mobile SDK releases.
 
+`res/network` is independently tagged as a Go module. Its `ExtNetwork` Swift
+target and Android Java source sets reach applications through the same native
+SDK releases. The library observes local OS network state only; connection and
+remote-service features are outside its contract.
+
 The iOS SDK's engine and WAMR archives are released under that same tag; see
 [`pkg/ext-ios`](../pkg/ext-ios/README.md) and `scripts/ext-ios-release.sh`. It is
 not a Go module version either.
@@ -260,7 +265,7 @@ workspace active, and that `src/ctx` resolves the intended versions:
 ```bash
 for module in src/ctx src/ctn pkg/ext-go pkg/ext-go/engine pkg/ext-go/cgoengine \
               pkg/ext-go/hashicorp pkg/ext-go/wasm res/system adapters/wasm adapters/evm \
-              res/web res/clipboard res/credential; do
+              res/web res/clipboard res/network res/credential; do
   (cd "$module" && go build ./... && go test ./...) || exit 1
 done
 ```

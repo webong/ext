@@ -1,12 +1,13 @@
 # system
 
 `github.com/webong/ext/res/system` is how CTX observes the machine it runs on: the operating
-system, its native desktop displays and windows, file systems, shells and web views, and the processes running on it. It reports
+system, its native desktop displays and windows, accessibility structure,
+permission state, file systems, shells and web views, and the processes running on it. It reports
 what is there without starting anything, and can record it in a graph.
 
 | Package | What it is |
 | --- | --- |
-| `system` (the module root) | Host, native desktop, display/window, shell, filesystem and web view discovery, process inspection, and the requirements a host has to meet |
+| `system` (the module root) | Host, native desktop, display/window, accessibility, permission-state, shell, filesystem and web view discovery, process inspection, and the requirements a host has to meet |
 | `system/graph` | A generic, namespaced, directed graph store with transactions, in memory or in a file |
 | `system/supervisor` | Process supervision and recovery |
 
@@ -19,8 +20,16 @@ module supplies the portable collectors and vocabulary only.
 
 The Apple and Android bindings live under `ios/` and `android/` and ship as the
 `ExtSystem` and `io.github.webong.ext.system` products in the native SDKs. They
-observe geometry only: no titles, native handles, capture, input, permission
-prompts, approval UI, or remote routing.
+observe surfaces, app-visible accessibility structure and permission state.
+Accessibility text is opt-in and native handles are never exposed. The library
+does not capture pixels, send input, prompt for permission, open settings, show
+approval UI, or provide remote routing.
+
+The Go surface collector uses Core Graphics on macOS and User32 on Windows.
+Linux X11 builds dynamically inspect root geometry and visible windows without
+a link-time X11 dependency; monitor partitions are reported as partial. A
+Wayland-only session reports global surface observation as unsupported because
+the compositor does not expose that state to arbitrary clients.
 
 The module was called `res/graph` until it was renamed to say what it is for. The generic store
 is now `res/system/graph`, the discovery package that lived in `res/graph/system` is now the

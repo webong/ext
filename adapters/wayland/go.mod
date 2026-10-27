@@ -7,4 +7,7 @@ require (
 	github.com/webong/ext/res/system v0.2.0
 )
 
-require github.com/webong/ext/pkg/ext-go/engine v0.1.0 // indirect
+require (
+	github.com/webong/ext/pkg/ext-go/engine v0.1.0 // indirect
+	golang.org/x/sys v0.29.0 // indirect
+)

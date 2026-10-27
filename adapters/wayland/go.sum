@@ -2,3 +2,7 @@ github.com/webong/ext/pkg/ext-go/cgoengine v0.1.0 h1:2gXJtXRy8H0Ku6xnicLnXQ3EdAx
 github.com/webong/ext/pkg/ext-go/cgoengine v0.1.0/go.mod h1:o7Lg03SwEv8nKXJ58MaQXJnWO1+gsKjUx/f14D2Pha4=
 github.com/webong/ext/pkg/ext-go/engine v0.1.0 h1:9trJr/fIH/n+5Go//cw9yOfjJbbOY+20wZEIlrkNwgQ=
 github.com/webong/ext/pkg/ext-go/engine v0.1.0/go.mod h1:7kwTFoT8X3W2rP8NZFXHT3rcur7M7FndSULxFjBgZJc=
+github.com/webong/ext/res/system v0.2.0 h1:A4Disa9vbgZnmfHVH+dIPa7SF52HAuRXt1n2H0TCeOI=
+github.com/webong/ext/res/system v0.2.0/go.mod h1:ChrugLedXqBaKX9eYWBh9oCUkbTyUec/uV7Df4SF1XA=
+golang.org/x/sys v0.29.0 h1:TPYlXGxvx1MGTn2GiZDhnjPA9wZzZeGKHHmKhHYvgaU=
+golang.org/x/sys v0.29.0/go.mod h1:/VUhepiaJMQUp4+oa/7Zr1D23ma6VTLIYjOOTFZPUcA=

@@ -19,6 +19,7 @@ and product policy.
 | `system/graph` | A generic, namespaced, directed graph store with transactions, in memory or in a file |
 | `system/media` | Bounded PCM16 and RIFF/WAVE framing; image sampling/change detection, crop, annotation and contact sheets; caller-supplied video frame sampling |
 | `system/network` | Bounded, read-only local interface, assigned-address, route and resolver observation; opens no connection and supplies no remote service |
+| `system/service` | Portable per-user service definitions (launchd, systemd, Task Scheduler), non-overwriting publication, registration, start/stop and status through a caller-selected manager; no product identity, layout, port, or health protocol |
 | `system/share` | Bounded, transport-free share and keyboard-extension model: text, links, and attachment references; no extension registry, event schema, inbox, or application identity |
 | `system/supervisor` | Process supervision and recovery |
 | `system/volume` | Bounded local snapshot, restore and archive digest mechanics for a caller-selected volume or directory |

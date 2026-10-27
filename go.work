@@ -9,6 +9,7 @@ use (
 	./adapters/credman
 	./adapters/keychain
 	./adapters/git
+	./adapters/systemd
 	./adapters/wasm
 	./adapters/evm
 	./adapters/zen

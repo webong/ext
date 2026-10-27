@@ -61,6 +61,24 @@ copy of the native implementation.
 | credential framing/client contract | yes | yes | — | — | — |
 | local interface/address/route/resolver observation | yes | yes | interfaces and addresses | — | yes |
 | share and keyboard-extension normalization | contract | — | iOS | — | yes |
+| per-user service definitions and lifecycle | launchd | Task Scheduler | — | — | systemd adapter |
+
+## Per-user services
+
+`res/system/service` renders and publishes per-user launchd property lists,
+systemd units, and Task Scheduler XML. Publication stages a complete file and
+links it into place, so an existing file is never replaced silently and a
+filesystem without hard links fails closed. Registration, unregistration,
+start, stop, and status go through a `service.Manager` the consumer selects;
+the shared package never picks a backend by name.
+
+launchd and Task Scheduler are the operating system's own mechanism and ship in
+`res/system/service/launchd` and `res/system/service/taskscheduler`. systemd's
+`systemctl --user` is a selectable native tool, so its backend lives in
+`adapters/systemd`. The consumer supplies the service name, executable,
+arguments, environment, working directory, restart policy, definition
+directory, and an optional readiness callback; the library supplies no product
+name, installation layout, port, or health endpoint.
 
 Missing cells are implementation gaps, not a reason to place the mechanism in
 a consumer. New native implementations should preserve the same bounded,

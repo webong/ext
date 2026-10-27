@@ -404,12 +404,11 @@ func Publish(def Definition, directory string) (Publication, error) {
 	if err := validateDefinition(def); err != nil {
 		return Publication{}, err
 	}
-	root, info, err := openServiceDirectory(directory)
+	root, err := openServiceDirectory(directory)
 	if err != nil {
 		return Publication{}, err
 	}
 	defer root.Close()
-	_ = info
 	publication := Publication{Path: filepath.Join(directory, def.FileName)}
 	if existing, err := inspectRoot(root, def); err != nil {
 		return publication, err
@@ -461,7 +460,7 @@ func Inspect(def Definition, directory string) (Inspection, error) {
 	if err := validateDefinition(def); err != nil {
 		return Inspection{}, err
 	}
-	root, _, err := openServiceDirectory(directory)
+	root, err := openServiceDirectory(directory)
 	if err != nil {
 		return Inspection{}, err
 	}
@@ -474,7 +473,7 @@ func Remove(def Definition, directory string) error {
 	if err := validateDefinition(def); err != nil {
 		return err
 	}
-	root, _, err := openServiceDirectory(directory)
+	root, err := openServiceDirectory(directory)
 	if err != nil {
 		return err
 	}
@@ -503,27 +502,27 @@ func validateDefinition(def Definition) error {
 	return nil
 }
 
-func openServiceDirectory(directory string) (*os.Root, os.FileInfo, error) {
+func openServiceDirectory(directory string) (*os.Root, error) {
 	if directory == "" || !filepath.IsAbs(directory) {
-		return nil, nil, fmt.Errorf("%w: service directory must be absolute", ErrInvalid)
+		return nil, fmt.Errorf("%w: service directory must be absolute", ErrInvalid)
 	}
 	info, err := os.Lstat(directory)
 	if err != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
-		return nil, nil, fmt.Errorf("%w: service directory must be an existing non-symlink directory", ErrUnsafe)
+		return nil, fmt.Errorf("%w: service directory must be an existing non-symlink directory", ErrUnsafe)
 	}
 	if os.PathSeparator == '/' && info.Mode().Perm()&0o022 != 0 {
-		return nil, nil, fmt.Errorf("%w: service directory must not be writable by other users", ErrUnsafe)
+		return nil, fmt.Errorf("%w: service directory must not be writable by other users", ErrUnsafe)
 	}
 	root, err := os.OpenRoot(directory)
 	if err != nil {
-		return nil, nil, fmt.Errorf("%w: cannot open service directory", ErrUnsafe)
+		return nil, fmt.Errorf("%w: cannot open service directory", ErrUnsafe)
 	}
 	opened, err := root.Stat(".")
 	if err != nil || !os.SameFile(info, opened) {
 		root.Close()
-		return nil, nil, fmt.Errorf("%w: service directory changed during inspection", ErrUnsafe)
+		return nil, fmt.Errorf("%w: service directory changed during inspection", ErrUnsafe)
 	}
-	return root, opened, nil
+	return root, nil
 }
 
 func inspectRoot(root *os.Root, def Definition) (Inspection, error) {

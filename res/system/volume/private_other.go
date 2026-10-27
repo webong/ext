@@ -9,3 +9,5 @@ func isReparsePoint(_ string, info os.FileInfo) bool {
 }
 
 func isMountRoot(string) bool { return false }
+
+func verifyPrivatePermissions(string, os.FileInfo) error { return nil }

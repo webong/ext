@@ -147,8 +147,8 @@ func InspectPrivate(ctx context.Context, path string, limits PrivateLimits) (Pri
 	if isReparsePoint(absolute, info) {
 		return PrivateVolume{}, fmt.Errorf("%w: private volume is a reparse point", ErrUnsafePath)
 	}
-	if os.PathSeparator == '/' && info.Mode().Perm()&0o077 != 0 {
-		return PrivateVolume{}, fmt.Errorf("%w: private volume must not be accessible to other users", ErrUnsafePath)
+	if err := verifyPrivatePermissions(absolute, info); err != nil {
+		return PrivateVolume{}, err
 	}
 	root, err := os.OpenRoot(absolute)
 	if err != nil {

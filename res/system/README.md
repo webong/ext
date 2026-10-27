@@ -26,7 +26,7 @@ and product policy.
 | `system/volume` | Bounded local snapshot, restore, archive digest, and pinned private-directory creation/removal for a caller-selected volume or directory |
 | `ios/` (`ExtSystem`) | Apple share-extension normalization and keyboard-extension editing helpers, surface/accessibility/permission APIs, macOS capture and input, Accessibility actions, typed Apple Events, ScreenCaptureKit and ReplayKit capture, and bounded PCM playback |
 | `android/` | App-visible share-intent and `InputMethodService` helpers, surface/accessibility/permission APIs, MediaProjection capture, and bounded PCM playback |
-| `windows/` (`Ext.System.Windows`) | Windows WASAPI endpoint discovery, capture and bounded PCM playback for .NET consumers |
+| `windows/` (`Ext.System.Windows`) | Windows WASAPI endpoint discovery, capture, bounded PCM playback, and generation-checked Win32 clipboard access for .NET consumers |
 
 The graph store is domain-neutral: callers own their node and edge vocabulary, and the discovery
 code in the module root records what it finds through it. CTX and other consumers share this

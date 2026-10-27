@@ -1,6 +1,6 @@
 // Package audio defines bounded, transport-free audio device observation and
 // caller-selected capture or playback. It opens no device, process, or
-// connection itself: a backend such as the PulseAudio adapter implements the
+// connection itself: a backend such as the PulseAudio or ALSA adapter implements the
 // interfaces, and the consumer selects the device and grants access.
 package audio
 

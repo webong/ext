@@ -3,6 +3,7 @@
 package volume
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"syscall"
@@ -10,6 +11,13 @@ import (
 
 func isReparsePoint(_ string, info os.FileInfo) bool {
 	return info.Mode()&os.ModeSymlink != 0
+}
+
+func verifyPrivatePermissions(_ string, info os.FileInfo) error {
+	if info.Mode().Perm()&0o077 != 0 {
+		return fmt.Errorf("%w: private volume must not be accessible to other users", ErrUnsafePath)
+	}
+	return nil
 }
 
 // isMountRoot reports a path whose native device differs from its parent's, so

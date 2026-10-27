@@ -280,7 +280,7 @@ workspace active, and that `src/ctx` resolves the intended versions:
 ```bash
 for module in src/ctx src/ctn pkg/ext-go pkg/ext-go/engine pkg/ext-go/cgoengine \
               pkg/ext-go/hashicorp pkg/ext-go/wasm res/system adapters/wasm adapters/evm \
-              adapters/systemd adapters/pulseaudio adapters/x11 adapters/wayland res/web; do
+              adapters/systemd adapters/pulseaudio adapters/alsa adapters/x11 adapters/wayland res/web; do
   (cd "$module" && go build ./... && go test ./...) || exit 1
 done
 ```

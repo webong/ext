@@ -11,6 +11,7 @@ use (
 	./adapters/git
 	./adapters/systemd
 	./adapters/pulseaudio
+	./adapters/alsa
 	./adapters/x11
 	./adapters/wayland
 	./adapters/wasm

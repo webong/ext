@@ -53,6 +53,7 @@ func (o *Observer) Observe(ctx context.Context, limits audio.Limits) (audio.Snap
 		return snapshot, fmt.Errorf("%w: pactl failed", audio.ErrUnavailable)
 	}
 	var skipped int
+	reasons := []string{}
 	for _, parse := range []struct {
 		payload []byte
 		err     error
@@ -62,17 +63,22 @@ func (o *Observer) Observe(ctx context.Context, limits audio.Limits) (audio.Snap
 		{sources, sourceErr, audio.KindInput},
 	} {
 		if parse.err != nil {
-			snapshot.Status = audio.Status{State: "partial", Detail: "one PulseAudio device class is unavailable"}
+			reasons = append(reasons, "one PulseAudio device class is unavailable")
 			continue
 		}
-		devices, malformed := parsePulseDevices(string(parse.payload), parse.kind, limits, len(snapshot.Devices))
+		devices, malformed, limited := parsePulseDevices(string(parse.payload), parse.kind, limits, len(snapshot.Devices))
 		skipped += malformed
 		snapshot.Devices = append(snapshot.Devices, devices...)
+		if limited {
+			reasons = append(reasons, "PulseAudio device list exceeded the bound")
+		}
 	}
-	if skipped > 0 && snapshot.Status.State == "" {
-		snapshot.Status = audio.Status{State: "partial", Detail: fmt.Sprintf("%d malformed PulseAudio records", skipped)}
+	if skipped > 0 {
+		reasons = append(reasons, fmt.Sprintf("%d malformed PulseAudio records", skipped))
 	}
-	if snapshot.Status.State == "" {
+	if len(reasons) > 0 {
+		snapshot.Status = audio.Status{State: "partial", Detail: strings.Join(reasons, "; ")}
+	} else {
 		snapshot.Status = audio.Status{State: "complete"}
 	}
 	if err := audio.ValidateSnapshot(snapshot, limits); err != nil {
@@ -81,9 +87,10 @@ func (o *Observer) Observe(ctx context.Context, limits audio.Limits) (audio.Snap
 	return snapshot, nil
 }
 
-func parsePulseDevices(payload string, kind audio.Kind, limits audio.Limits, used int) ([]audio.Device, int) {
+func parsePulseDevices(payload string, kind audio.Kind, limits audio.Limits, used int) ([]audio.Device, int, bool) {
 	devices := []audio.Device{}
 	malformed := 0
+	limited := false
 	for _, line := range strings.Split(payload, "\n") {
 		line = strings.TrimSpace(line)
 		if line == "" {
@@ -100,6 +107,7 @@ func parsePulseDevices(payload string, kind audio.Kind, limits audio.Limits, use
 			continue
 		}
 		if used+len(devices) >= limits.MaxDevices {
+			limited = true
 			break
 		}
 		deviceKind := kind
@@ -117,7 +125,7 @@ func parsePulseDevices(payload string, kind audio.Kind, limits audio.Limits, use
 		}
 		devices = append(devices, device)
 	}
-	return devices, malformed
+	return devices, malformed, limited
 }
 
 func defaultRunner(ctx context.Context, name string, args ...string) ([]byte, error) {

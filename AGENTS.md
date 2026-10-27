@@ -198,9 +198,9 @@ publication; the macOS launchd and Windows Task Scheduler backends are platform
 implementations in `res/system/service`, while `systemctl --user` is a
 selectable native tool owned by `adapters/systemd`.
 `res/system/audio` owns portable device observation and bounded PCM stream
-contracts; `pactl`/`parec`/`pacat`, `grim`/`wtype`, `import`/`xdotool`, and
-`ffmpeg` are selectable native tools owned by `adapters/pulseaudio`,
-`adapters/wayland`, and `adapters/x11`. `res/system.DesktopDriver` is the
+contracts; `pactl`/`parec`/`pacat`, `aplay`/`arecord`, `grim`/`wtype`/`ydotool`, `import`/`xdotool`,
+and `ffmpeg` are selectable native tools owned by `adapters/pulseaudio`,
+`adapters/alsa`, `adapters/wayland`, and `adapters/x11`. `res/system.DesktopDriver` is the
 portable seam those adapters implement, and the shared library never selects a
 driver by name.
 `res/system` may also perform bounded local shell mechanisms such as capture,

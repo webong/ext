@@ -271,3 +271,18 @@ func TestPrivateLimitsAndCancellation(t *testing.T) {
 		t.Fatalf("canceled inspect = %v", err)
 	}
 }
+
+func TestBroadWindowsWriteSIDs(t *testing.T) {
+	for _, sid := range []string{
+		"S-1-1-0", "S-1-5-7", "S-1-5-11", "S-1-5-32-545", "S-1-5-32-546",
+	} {
+		if !broadWriteSID(sid) {
+			t.Errorf("%s was not treated as a broad writer", sid)
+		}
+	}
+	for _, sid := range []string{"S-1-5-18", "S-1-5-32-544", "S-1-5-21-1-2-3-1001"} {
+		if broadWriteSID(sid) {
+			t.Errorf("%s was treated as a broad writer", sid)
+		}
+	}
+}

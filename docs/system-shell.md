@@ -35,7 +35,7 @@ Local actions are intentionally narrower than a control product:
 - media playback reports backpressure;
 - media framing and capture processing impose byte, pixel, frame and time limits;
 - archive restore uses a pinned empty destination and decompression limits;
-- private-directory removal revalidates the inspected native identity and refuses links, reparse points, roots, home/temp/system directories, and mounted volume roots;
+- private-directory removal revalidates the inspected native identity and refuses links, reparse points, roots, home/temp/system directories, and mounted volume roots; on Windows it also refuses a DACL that grants write access to Everyone, Authenticated Users, Users, Guests, or Anonymous;
 - network observation opens no connection, performs no lookup and sends no traffic;
 - native bytes are returned directly, without a base64 or network envelope;
 - libraries never add allowlists, remote endpoints, approval UI or grants.
@@ -59,7 +59,7 @@ copy of the native implementation.
 | bounded image crop, annotation and contact sheets | yes | yes | through Go consumers | — | — |
 | bounded volume snapshot/restore | yes | yes | through Go consumers | — | — |
 | bounded private-directory create/remove | yes | yes | through Go consumers | — | — |
-| bounded clipboard contracts and native access | contract | Win32 backend | macOS and iOS | — | yes |
+| bounded clipboard contracts and native access | contract | Win32 backend | macOS and iOS | Win32 | yes |
 | credential framing/client contract | yes | yes | — | — | — |
 | local interface/address/route/resolver observation | yes | yes | interfaces and addresses | — | yes |
 | share and keyboard-extension normalization | contract | — | iOS | — | yes |
@@ -88,16 +88,19 @@ name, installation layout, port, or health endpoint.
 
 `res/system/audio` defines device observation and bounded PCM16 capture and
 playback interfaces. `adapters/pulseaudio` implements them with `pactl`,
-`parec`, and `pacat`; it selects no device and adds no routing, mixing, or
-transport policy. PipeWire's PulseAudio compatibility presents the same
-protocol, while a native PipeWire (or native ALSA) backend would be a separate
-adapter.
+`parec`, and `pacat`; `adapters/alsa` implements them with `aplay -L`,
+`arecord -L`, `aplay`, and `arecord`. Neither selects a device or adds routing,
+mixing, or transport policy. PipeWire's PulseAudio compatibility presents the
+PulseAudio protocol; a native PipeWire backend would be a separate adapter.
 
 `res/system.DesktopDriver` is the portable seam for desktop-scoped operations by
 external tools. `adapters/x11` implements capture, keyboard and pointer input,
 and bounded `ffmpeg` recording with `import` and `xdotool`; `adapters/wayland`
-implements capture and keyboard input with `grim` and `wtype` and refuses
-pointer input, window targeting, and recording explicitly. Window-scoped
+implements capture, keyboard input, and optional pointer input through an
+explicitly configured `ydotool` (`ydotoold`/uinput). Wayland window targeting
+and recording stay explicit gaps: targeting is denied to arbitrary clients, and
+recording needs a compositor recorder or an XDG portal approval flow that
+belongs to the consumer. Window-scoped
 capture and input remain in `res/system` because command-line tools cannot
 address its opaque window identities.
 

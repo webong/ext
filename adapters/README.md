@@ -73,10 +73,10 @@ parsing, and the closed set of forwarded user-manager operations; the shared
 system library never selects it by name. A Linux host that uses another service
 manager supplies its own backend.
 
-`pulseaudio`, `x11`, and `wayland` implement `res/system` audio and desktop
-contracts with their native tools. PulseAudio owns `pactl`, `parec`, and `pacat`
-invocation; X11 owns `import`, `xdotool`, and bounded `ffmpeg` recording;
-Wayland owns `grim` and `wtype`. Each adapter is selected explicitly and
+`pulseaudio`, `alsa`, `x11`, and `wayland` implement `res/system` audio and
+desktop contracts with their native tools. PulseAudio owns `pactl`, `parec`, and
+`pacat`; ALSA owns `aplay`/`arecord`; X11 owns `import`, `xdotool`, and bounded `ffmpeg` recording;
+Wayland owns `grim`, `wtype`, and optional `ydotool` pointer input. Each adapter is selected explicitly and
 publishes no device, display, or approval policy.
 
 `keychain`, `secret_service`, and `credman` are separate, nonselectable

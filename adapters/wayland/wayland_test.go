@@ -102,3 +102,76 @@ func TestRecordingIsExplicitlyUnavailable(t *testing.T) {
 		t.Fatalf("name = %q", driver.Name())
 	}
 }
+
+func TestConfiguredYdotoolHandlesPointerInput(t *testing.T) {
+	runner := &fakeRunner{}
+	driver := New(Config{Run: runner.run, Pointer: "ydotool"})
+	options := system.InputOptions{}
+	if err := driver.Input(context.Background(), system.SurfaceInput{
+		Kind: system.SurfaceInputMove, Point: system.SurfacePoint{X: 10, Y: 20},
+	}, options); err != nil {
+		t.Fatal(err)
+	}
+	if err := driver.Input(context.Background(), system.SurfaceInput{
+		Kind: system.SurfaceInputClick, Point: system.SurfacePoint{X: 1, Y: 2}, Button: "right",
+	}, options); err != nil {
+		t.Fatal(err)
+	}
+	if err := driver.Input(context.Background(), system.SurfaceInput{
+		Kind: system.SurfaceInputDrag, Point: system.SurfacePoint{X: 3, Y: 4}, End: system.SurfacePoint{X: 5, Y: 6},
+	}, options); err != nil {
+		t.Fatal(err)
+	}
+	joined := strings.Join(runner.calls, "\n")
+	for _, fragment := range []string{
+		"ydotool mousemove --absolute 10 20",
+		"ydotool click 0xC1",
+		"ydotool click 0x40",
+		"ydotool mousemove --absolute 5 6",
+		"ydotool click 0x80",
+	} {
+		if !strings.Contains(joined, fragment) {
+			t.Errorf("pointer calls are missing %q:\n%s", fragment, joined)
+		}
+	}
+	if err := driver.Input(context.Background(), system.SurfaceInput{
+		Kind: system.SurfaceInputScroll, Point: system.SurfacePoint{X: 0, Y: 0}, DeltaY: -120,
+	}, options); !errors.Is(err, system.ErrDesktopUnavailable) {
+		t.Fatalf("scroll = %v", err)
+	}
+}
+
+func TestPointerRequiresExplicitDriver(t *testing.T) {
+	driver := New(Config{})
+	err := driver.Input(context.Background(), system.SurfaceInput{
+		Kind: system.SurfaceInputMove, Point: system.SurfacePoint{X: 1, Y: 1},
+	}, system.InputOptions{})
+	if !errors.Is(err, system.ErrDesktopUnavailable) {
+		t.Fatalf("unconfigured pointer = %v", err)
+	}
+}
+
+func TestYdotoolDragReleasesTheButtonOnFailure(t *testing.T) {
+	calls := []string{}
+	driver := New(Config{
+		Run: func(_ context.Context, name string, arguments ...string) ([]byte, error) {
+			value := name + " " + strings.Join(arguments, " ")
+			calls = append(calls, value)
+			if strings.Contains(value, "mousemove --absolute 5 6") {
+				return nil, errors.New("move failed")
+			}
+			return nil, nil
+		},
+		Pointer: "ydotool",
+	})
+	err := driver.Input(context.Background(), system.SurfaceInput{
+		Kind: system.SurfaceInputDrag, Point: system.SurfacePoint{X: 3, Y: 4}, End: system.SurfacePoint{X: 5, Y: 6},
+	}, system.InputOptions{})
+	if !errors.Is(err, system.ErrDesktopUnavailable) {
+		t.Fatalf("failed drag = %v", err)
+	}
+	joined := strings.Join(calls, "\n")
+	if !strings.Contains(joined, "ydotool click 0x80") {
+		t.Fatalf("drag did not release the button:\n%s", joined)
+	}
+}

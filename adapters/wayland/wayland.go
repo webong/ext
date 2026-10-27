@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"image/png"
 	"os/exec"
+	"strconv"
 	"strings"
 	"time"
 
@@ -22,12 +23,17 @@ type Config struct {
 	Run     CommandRunner
 	Capture string
 	Input   string
+	// Pointer is optional. When set to "ydotool", pointer operations are
+	// forwarded to ydotool, which requires a running ydotoold daemon and
+	// /dev/uinput access. Empty keeps pointer operations explicitly unavailable.
+	Pointer string
 }
 
 type Driver struct {
 	run     CommandRunner
 	capture string
 	input   string
+	pointer string
 }
 
 func New(config Config) *Driver {
@@ -42,7 +48,7 @@ func New(config Config) *Driver {
 	if config.Input == "" {
 		config.Input = "wtype"
 	}
-	return &Driver{run: config.Run, capture: config.Capture, input: config.Input}
+	return &Driver{run: config.Run, capture: config.Capture, input: config.Input, pointer: config.Pointer}
 }
 
 func (d *Driver) Name() string { return "wayland" }
@@ -87,10 +93,68 @@ func (d *Driver) Input(ctx context.Context, input system.SurfaceInput, options s
 		}
 		_, err := d.run(ctx, d.input, arguments...)
 		return wrapInputError(err)
-	case system.SurfaceInputMove, system.SurfaceInputClick, system.SurfaceInputDrag, system.SurfaceInputScroll:
-		return fmt.Errorf("%w: wtype does not provide pointer input", system.ErrDesktopUnavailable)
+	case system.SurfaceInputMove, system.SurfaceInputClick, system.SurfaceInputDrag:
+		return d.pointerInput(ctx, input)
+	case system.SurfaceInputScroll:
+		return fmt.Errorf("%w: ydotool has no wheel operation; Wayland scroll is unavailable", system.ErrDesktopUnavailable)
 	}
 	return fmt.Errorf("%w: unsupported Wayland input kind %q", system.ErrDesktopUnavailable, input.Kind)
+}
+
+func (d *Driver) pointerInput(ctx context.Context, input system.SurfaceInput) error {
+	if d.pointer == "" {
+		return fmt.Errorf("%w: Wayland pointer input requires an explicitly configured ydotool driver", system.ErrDesktopUnavailable)
+	}
+	button := waylandButton(input.Button)
+	if _, err := d.run(ctx, d.pointer, "mousemove", "--absolute", strconv.Itoa(input.Point.X), strconv.Itoa(input.Point.Y)); err != nil {
+		return wrapPointerError(err)
+	}
+	switch input.Kind {
+	case system.SurfaceInputMove:
+		return nil
+	case system.SurfaceInputClick:
+		_, err := d.run(ctx, d.pointer, "click", fmt.Sprintf("0x%02X", 0xC0|button))
+		return wrapPointerError(err)
+	case system.SurfaceInputDrag:
+		down := fmt.Sprintf("0x%02X", 0x40|button)
+		up := fmt.Sprintf("0x%02X", 0x80|button)
+		if _, err := d.run(ctx, d.pointer, "click", down); err != nil {
+			return wrapPointerError(err)
+		}
+		released := false
+		defer func() {
+			if !released {
+				_, _ = d.run(ctx, d.pointer, "click", up)
+			}
+		}()
+		if _, err := d.run(ctx, d.pointer, "mousemove", "--absolute", strconv.Itoa(input.End.X), strconv.Itoa(input.End.Y)); err != nil {
+			return wrapPointerError(err)
+		}
+		_, err := d.run(ctx, d.pointer, "click", up)
+		if err == nil {
+			released = true
+		}
+		return wrapPointerError(err)
+	}
+	return fmt.Errorf("%w: unsupported Wayland pointer kind %q", system.ErrDesktopUnavailable, input.Kind)
+}
+
+func waylandButton(button string) int {
+	switch button {
+	case "right":
+		return 0x01
+	case "middle":
+		return 0x02
+	default:
+		return 0x00
+	}
+}
+
+func wrapPointerError(err error) error {
+	if err == nil {
+		return nil
+	}
+	return fmt.Errorf("%w: ydotool failed: %v", system.ErrDesktopUnavailable, err)
 }
 
 // Record is an explicit gap: Wayland recording requires a compositor-specific

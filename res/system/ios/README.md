@@ -14,5 +14,13 @@ capture, window screenshots, atomic pointer/keyboard input against a
 revalidated opaque `WindowInfo`, Accessibility actions against revalidated
 elements, and typed Apple Event dispatch. The caller chooses targets and event
 mappings and owns grants, permission prompting, encoding, transport and policy.
+`ExtSystem` also provides mobile extension helpers: `ShareExtensionLoader`
+normalizes `NSExtensionItem` text, links, and file attachments through a
+caller-supplied `ShareAttachmentSink` (or an `AppGroupAttachmentSink` with an
+explicit app-group identifier), and `KeyboardEditor` bounds selection, context,
+insertion, deletion, editor submission, and keyboard switching. It ships no
+extension registry, capability inbox, projected action, app launch, or
+application identity.
+
 `ExtSystem` does not open settings, present approval UI, or provide remote
 access.

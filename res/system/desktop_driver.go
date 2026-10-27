@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/webong/ext/res/system/media"
 )
@@ -48,6 +49,9 @@ func CaptureDesktop(ctx context.Context, driver DesktopDriver, options CaptureOp
 	}
 	if result.Width > options.MaxPixels/result.Height || len(result.Data) > options.MaxBytes {
 		return SurfaceCapture{}, errors.New("desktop capture exceeded configured limits")
+	}
+	if result.CapturedAt.IsZero() {
+		result.CapturedAt = time.Now().UTC()
 	}
 	return result, nil
 }

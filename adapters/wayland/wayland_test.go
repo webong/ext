@@ -76,7 +76,7 @@ func TestInputUsesWtypeAndRefusesPointer(t *testing.T) {
 	}
 	joined := strings.Join(runner.calls, "\n")
 	for _, fragment := range []string{
-		"wtype hello",
+		"wtype -- hello",
 		"wtype -M logo -M shift -k Return -m logo -m shift",
 		"wtype -k BackSpace",
 	} {

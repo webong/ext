@@ -57,8 +57,12 @@ public final class SystemShare {
 
         List<ShareAttachment> attachments = new ArrayList<>();
         List<Uri> streams = sharedStreams(intent);
+        if (streams.size() > limits.maxItems) {
+            throw new ShareException("limit",
+                    "share has " + streams.size() + " attachments, above the bound of " + limits.maxItems);
+        }
         long copied = 0;
-        for (int index = 0; index < streams.size() && index < limits.maxItems; index++) {
+        for (int index = 0; index < streams.size(); index++) {
             Uri uri = streams.get(index);
             String name = portableName(queryDisplayName(uri), index);
             String mimeType = contentType(uri, intent.getType());

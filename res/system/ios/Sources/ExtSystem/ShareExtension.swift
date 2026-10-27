@@ -1,5 +1,9 @@
 import Foundation
 
+#if canImport(CryptoKit)
+import CryptoKit
+#endif
+
 #if canImport(UniformTypeIdentifiers)
 import UniformTypeIdentifiers
 #endif
@@ -103,7 +107,7 @@ public struct SharePayload: Codable, Equatable, Sendable {
 /// A caller-configured destination for copied attachments. The extension
 /// container, app group, and directory layout are never chosen here; the
 /// application supplies them explicitly.
-public protocol ShareAttachmentSink {
+public protocol ShareAttachmentSink: Sendable {
     /// Copies a readable source into the destination and returns its location.
     /// The source URL is valid only for the duration of the call.
     func storeAttachment(_ source: URL, name: String, mimeType: String, index: Int) throws -> URL
@@ -252,7 +256,11 @@ public enum ShareNormalizer {
     static func attachmentKey(_ attachment: ShareAttachment) -> String {
         let content: String
         if let data = attachment.data {
+#if canImport(CryptoKit)
+            content = SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+#else
             content = String(data.hashValue)
+#endif
         } else if let fileURL = attachment.fileURL {
             content = fileURL.path
         } else {
@@ -325,7 +333,7 @@ public enum ShareExtensionLoader {
     static func loadItem(_ provider: NSItemProvider, typeIdentifier: String) async -> NSSecureCoding? {
         await withCheckedContinuation { continuation in
             provider.loadItem(forTypeIdentifier: typeIdentifier, options: nil) { value, _ in
-                continuation.resume(returning: value as? NSSecureCoding)
+                continuation.resume(returning: value)
             }
         }
     }

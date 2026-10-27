@@ -98,8 +98,8 @@ func TestInputMapsOperationsToXdotool(t *testing.T) {
 	}
 	joined := strings.Join(values, "\n")
 	for _, fragment := range []string{
-		"type --clearmodifiers hello",
-		"key --clearmodifiers super+shift+t",
+		"type --clearmodifiers -- hello",
+		"key --clearmodifiers -- super+shift+t",
 		"mousemove 3 4",
 		"click 3",
 		"mousedown 1",

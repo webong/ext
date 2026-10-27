@@ -71,9 +71,12 @@ func (d *Driver) Capture(ctx context.Context, options system.CaptureOptions) (sy
 func (d *Driver) Input(ctx context.Context, input system.SurfaceInput, options system.InputOptions) error {
 	switch input.Kind {
 	case system.SurfaceInputText:
-		_, err := d.run(ctx, d.input, input.Text)
+		_, err := d.run(ctx, d.input, "--", input.Text)
 		return wrapInputError(err)
 	case system.SurfaceInputKey:
+		if strings.HasPrefix(input.Key, "-") || strings.Contains(input.Key, " ") {
+			return fmt.Errorf("%w: wtype key must be a key name", system.ErrDesktopUnavailable)
+		}
 		arguments := make([]string, 0, len(input.Modifiers)*2+3)
 		for _, modifier := range input.Modifiers {
 			arguments = append(arguments, "-M", waylandModifier(modifier))
@@ -109,6 +112,9 @@ func waylandModifier(modifier string) string {
 }
 
 func waylandKey(key string) string {
+	if key == "" {
+		return key
+	}
 	switch key {
 	case "return", "enter":
 		return "Return"

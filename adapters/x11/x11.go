@@ -102,11 +102,11 @@ func (d *Driver) Capture(ctx context.Context, options system.CaptureOptions) (sy
 func (d *Driver) Input(ctx context.Context, input system.SurfaceInput, options system.InputOptions) error {
 	switch input.Kind {
 	case system.SurfaceInputText:
-		_, err := d.run(ctx, d.input, "type", "--clearmodifiers", input.Text)
+		_, err := d.run(ctx, d.input, "type", "--clearmodifiers", "--", input.Text)
 		return wrapInputError(err)
 	case system.SurfaceInputKey:
 		combo := x11Combo(input)
-		_, err := d.run(ctx, d.input, "key", "--clearmodifiers", combo)
+		_, err := d.run(ctx, d.input, "key", "--clearmodifiers", "--", combo)
 		return wrapInputError(err)
 	case system.SurfaceInputMove:
 		_, err := d.run(ctx, d.input, "mousemove", strconv.Itoa(input.Point.X), strconv.Itoa(input.Point.Y))

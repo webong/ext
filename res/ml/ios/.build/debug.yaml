@@ -1,0 +1,112 @@
+client:
+  name: basic
+  file-system: device-agnostic
+tools: {}
+targets:
+  "ExtML-arm64-apple-macosx15.0-debug.module": ["<ExtML-arm64-apple-macosx15.0-debug.module>"]
+  "ExtMLPackageTests-arm64-apple-macosx15.0-debug.module": ["<ExtMLPackageTests-arm64-apple-macosx15.0-debug.module>"]
+  "ExtMLPackageTests-arm64-apple-macosx15.0-debug.test": ["<ExtMLPackageTests-arm64-apple-macosx15.0-debug.test>"]
+  "ExtMLTests-arm64-apple-macosx15.0-debug.module": ["<ExtMLTests-arm64-apple-macosx15.0-debug.module>"]
+  "PackageStructure": ["<PackageStructure>"]
+  "main": ["<ExtML-arm64-apple-macosx15.0-debug.module>"]
+  "test": ["<ExtML-arm64-apple-macosx15.0-debug.module>","<ExtMLPackageTests-arm64-apple-macosx15.0-debug.test>","<ExtMLTests-arm64-apple-macosx15.0-debug.module>"]
+default: "main"
+nodes:
+  "/Users/webong/Workspace/Utils/ext/res/ml/ios/Sources/ExtML/":
+    is-directory-structure: true
+    content-exclusion-patterns: [".git",".build"]
+  "/Users/webong/Workspace/Utils/ext/res/ml/ios/Tests/ExtMLTests/":
+    is-directory-structure: true
+    content-exclusion-patterns: [".git",".build"]
+commands:
+  "/Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/ExtML.build/sources":
+    tool: write-auxiliary-file
+    inputs: ["<sources-file-list>","/Users/webong/Workspace/Utils/ext/res/ml/ios/Sources/ExtML/CoreMLProvider.swift","/Users/webong/Workspace/Utils/ext/res/ml/ios/Sources/ExtML/MLProvider.swift","/Users/webong/Workspace/Utils/ext/res/ml/ios/Sources/ExtML/MLStore.swift","/Users/webong/Workspace/Utils/ext/res/ml/ios/Sources/ExtML/MLTypes.swift"]
+    outputs: ["/Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/ExtML.build/sources"]
+    description: "Write auxiliary file /Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/ExtML.build/sources"
+
+  "/Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/ExtMLPackageTests.build/sources":
+    tool: write-auxiliary-file
+    inputs: ["<sources-file-list>","/Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/ExtMLPackageTests.derived/runner.swift"]
+    outputs: ["/Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/ExtMLPackageTests.build/sources"]
+    description: "Write auxiliary file /Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/ExtMLPackageTests.build/sources"
+
+  "/Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/ExtMLPackageTests.derived/runner.swift":
+    tool: test-entry-point-tool
+    inputs: []
+    outputs: ["/Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/ExtMLPackageTests.derived/runner.swift"]
+
+  "/Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/ExtMLPackageTests.product/Objects.LinkFileList":
+    tool: write-auxiliary-file
+    inputs: ["<link-file-list>","/Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/ExtML.build/CoreMLProvider.swift.o","/Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/ExtML.build/MLProvider.swift.o","/Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/ExtML.build/MLStore.swift.o","/Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/ExtML.build/MLTypes.swift.o","/Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/ExtMLPackageTests.build/runner.swift.o","/Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/ExtMLTests.build/MLTests.swift.o"]
+    outputs: ["/Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/ExtMLPackageTests.product/Objects.LinkFileList"]
+    description: "Write auxiliary file /Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/ExtMLPackageTests.product/Objects.LinkFileList"
+
+  "/Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/ExtMLTests.build/sources":
+    tool: write-auxiliary-file
+    inputs: ["<sources-file-list>","/Users/webong/Workspace/Utils/ext/res/ml/ios/Tests/ExtMLTests/MLTests.swift"]
+    outputs: ["/Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/ExtMLTests.build/sources"]
+    description: "Write auxiliary file /Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/ExtMLTests.build/sources"
+
+  "/Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/swift-version--58304C5D6DBC2206.txt":
+    tool: write-auxiliary-file
+    inputs: ["<swift-get-version>","/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc"]
+    outputs: ["/Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/swift-version--58304C5D6DBC2206.txt"]
+    always-out-of-date: "true"
+    description: "Write auxiliary file /Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/swift-version--58304C5D6DBC2206.txt"
+
+  "<ExtML-arm64-apple-macosx15.0-debug.module>":
+    tool: phony
+    inputs: ["/Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/ExtML.build/CoreMLProvider.swift.o","/Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/ExtML.build/MLProvider.swift.o","/Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/ExtML.build/MLStore.swift.o","/Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/ExtML.build/MLTypes.swift.o","/Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/Modules/ExtML.swiftmodule"]
+    outputs: ["<ExtML-arm64-apple-macosx15.0-debug.module>"]
+
+  "<ExtMLPackageTests-arm64-apple-macosx15.0-debug.module>":
+    tool: phony
+    inputs: ["/Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/ExtMLPackageTests.build/runner.swift.o","/Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/Modules/ExtMLPackageTests.swiftmodule"]
+    outputs: ["<ExtMLPackageTests-arm64-apple-macosx15.0-debug.module>"]
+
+  "<ExtMLPackageTests-arm64-apple-macosx15.0-debug.test>":
+    tool: phony
+    inputs: ["/Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/ExtMLPackageTests.xctest/Contents/MacOS/ExtMLPackageTests"]
+    outputs: ["<ExtMLPackageTests-arm64-apple-macosx15.0-debug.test>"]
+
+  "<ExtMLTests-arm64-apple-macosx15.0-debug.module>":
+    tool: phony
+    inputs: ["/Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/ExtMLTests.build/MLTests.swift.o","/Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/Modules/ExtMLTests.swiftmodule"]
+    outputs: ["<ExtMLTests-arm64-apple-macosx15.0-debug.module>"]
+
+  "C.ExtML-arm64-apple-macosx15.0-debug.module":
+    tool: shell
+    inputs: ["/Users/webong/Workspace/Utils/ext/res/ml/ios/Sources/ExtML/CoreMLProvider.swift","/Users/webong/Workspace/Utils/ext/res/ml/ios/Sources/ExtML/MLProvider.swift","/Users/webong/Workspace/Utils/ext/res/ml/ios/Sources/ExtML/MLStore.swift","/Users/webong/Workspace/Utils/ext/res/ml/ios/Sources/ExtML/MLTypes.swift","/Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/swift-version--58304C5D6DBC2206.txt","/Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/ExtML.build/sources"]
+    outputs: ["/Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/ExtML.build/CoreMLProvider.swift.o","/Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/ExtML.build/MLProvider.swift.o","/Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/ExtML.build/MLStore.swift.o","/Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/ExtML.build/MLTypes.swift.o","/Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/Modules/ExtML.swiftmodule"]
+    description: "Compiling Swift Module 'ExtML' (4 sources)"
+    args: ["/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc","-module-name","ExtML","-emit-dependencies","-emit-module","-emit-module-path","/Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/Modules/ExtML.swiftmodule","-output-file-map","/Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/ExtML.build/output-file-map.json","-parse-as-library","-incremental","-c","@/Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/ExtML.build/sources","-I","/Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/Modules","-target","arm64-apple-macosx12.0","-enable-batch-mode","-index-store-path","/Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/index/store","-Onone","-enable-testing","-j8","-DSWIFT_PACKAGE","-DDEBUG","-module-cache-path","/Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/ModuleCache","-parseable-output","-parse-as-library","-emit-objc-header","-emit-objc-header-path","/Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/ExtML.build/ExtML-Swift.h","-swift-version","5","-sdk","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk","-F","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks","-I","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib","-L","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib","-g","-Xcc","-isysroot","-Xcc","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk","-Xcc","-F","-Xcc","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks","-Xcc","-fPIC","-Xcc","-g","-package-name","ios"]
+
+  "C.ExtMLPackageTests-arm64-apple-macosx15.0-debug.module":
+    tool: shell
+    inputs: ["/Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/ExtMLPackageTests.derived/runner.swift","/Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/swift-version--58304C5D6DBC2206.txt","/Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/Modules/ExtMLTests.swiftmodule","/Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/ExtMLPackageTests.build/sources"]
+    outputs: ["/Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/ExtMLPackageTests.build/runner.swift.o","/Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/Modules/ExtMLPackageTests.swiftmodule"]
+    description: "Compiling Swift Module 'ExtMLPackageTests' (1 sources)"
+    args: ["/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc","-module-name","ExtMLPackageTests","-emit-dependencies","-emit-module","-emit-module-path","/Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/Modules/ExtMLPackageTests.swiftmodule","-output-file-map","/Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/ExtMLPackageTests.build/output-file-map.json","-parse-as-library","-incremental","-c","@/Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/ExtMLPackageTests.build/sources","-I","/Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/Modules","-target","arm64-apple-macosx12.0","-enable-batch-mode","-index-store-path","/Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/index/store","-Onone","-enable-testing","-j8","-DSWIFT_PACKAGE","-DDEBUG","-module-cache-path","/Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/ModuleCache","-parseable-output","-parse-as-library","-emit-objc-header","-emit-objc-header-path","/Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/ExtMLPackageTests.build/ExtMLPackageTests-Swift.h","-sdk","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk","-F","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks","-I","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib","-L","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib","-g","-Xcc","-isysroot","-Xcc","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk","-Xcc","-F","-Xcc","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks","-Xcc","-fPIC","-Xcc","-g","-package-name","ios"]
+
+  "C.ExtMLPackageTests-arm64-apple-macosx15.0-debug.test":
+    tool: shell
+    inputs: ["/Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/ExtML.build/CoreMLProvider.swift.o","/Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/ExtML.build/MLProvider.swift.o","/Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/ExtML.build/MLStore.swift.o","/Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/ExtML.build/MLTypes.swift.o","/Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/ExtMLPackageTests.build/runner.swift.o","/Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/ExtMLTests.build/MLTests.swift.o","/Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/ExtMLPackageTests.product/Objects.LinkFileList"]
+    outputs: ["/Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/ExtMLPackageTests.xctest/Contents/MacOS/ExtMLPackageTests"]
+    description: "Linking ./.build/arm64-apple-macosx/debug/ExtMLPackageTests.xctest/Contents/MacOS/ExtMLPackageTests"
+    args: ["/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc","-L","/Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug","-o","/Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/ExtMLPackageTests.xctest/Contents/MacOS/ExtMLPackageTests","-module-name","ExtMLPackageTests","-Xlinker","-no_warn_duplicate_libraries","-Xlinker","-bundle","-Xlinker","-rpath","-Xlinker","@loader_path/../../../","@/Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/ExtMLPackageTests.product/Objects.LinkFileList","-target","arm64-apple-macosx13.0","-Xlinker","-add_ast_path","-Xlinker","/Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/Modules/ExtML.swiftmodule","-Xlinker","-add_ast_path","-Xlinker","/Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/Modules/ExtMLPackageTests.swiftmodule","-Xlinker","-add_ast_path","-Xlinker","/Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/Modules/ExtMLTests.swiftmodule","-sdk","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk","-F","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks","-I","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib","-L","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib","-g"]
+
+  "C.ExtMLTests-arm64-apple-macosx15.0-debug.module":
+    tool: shell
+    inputs: ["/Users/webong/Workspace/Utils/ext/res/ml/ios/Tests/ExtMLTests/MLTests.swift","/Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/swift-version--58304C5D6DBC2206.txt","/Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/Modules/ExtML.swiftmodule","/Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/ExtMLTests.build/sources"]
+    outputs: ["/Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/ExtMLTests.build/MLTests.swift.o","/Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/Modules/ExtMLTests.swiftmodule"]
+    description: "Compiling Swift Module 'ExtMLTests' (1 sources)"
+    args: ["/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc","-module-name","ExtMLTests","-emit-dependencies","-emit-module","-emit-module-path","/Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/Modules/ExtMLTests.swiftmodule","-output-file-map","/Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/ExtMLTests.build/output-file-map.json","-parse-as-library","-incremental","-c","@/Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/ExtMLTests.build/sources","-I","/Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/Modules","-target","arm64-apple-macosx13.0","-enable-batch-mode","-index-store-path","/Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/index/store","-Onone","-enable-testing","-j8","-DSWIFT_PACKAGE","-DDEBUG","-module-cache-path","/Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/ModuleCache","-parseable-output","-parse-as-library","-swift-version","5","-sdk","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk","-F","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks","-I","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib","-L","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib","-g","-Xcc","-isysroot","-Xcc","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk","-Xcc","-F","-Xcc","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks","-Xcc","-fPIC","-Xcc","-g","-package-name","ios"]
+
+  "PackageStructure":
+    tool: package-structure-tool
+    inputs: ["/Users/webong/Workspace/Utils/ext/res/ml/ios/Sources/ExtML/","/Users/webong/Workspace/Utils/ext/res/ml/ios/Tests/ExtMLTests/","/Users/webong/Workspace/Utils/ext/res/ml/ios/Package.swift","/Users/webong/Workspace/Utils/ext/res/ml/ios/Package.resolved"]
+    outputs: ["<PackageStructure>"]
+    description: "Planning build"
+    allow-missing-inputs: true
+

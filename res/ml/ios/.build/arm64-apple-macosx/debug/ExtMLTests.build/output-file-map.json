@@ -1,0 +1,11 @@
+{
+  "": {
+    "swift-dependencies": "/Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/ExtMLTests.build/master.swiftdeps"
+  },
+  "/Users/webong/Workspace/Utils/ext/res/ml/ios/Tests/ExtMLTests/MLTests.swift": {
+    "dependencies": "/Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/ExtMLTests.build/MLTests.d",
+    "object": "/Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/ExtMLTests.build/MLTests.swift.o",
+    "swiftmodule": "/Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/ExtMLTests.build/MLTests~partial.swiftmodule",
+    "swift-dependencies": "/Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/ExtMLTests.build/MLTests.swiftdeps"
+  }
+}

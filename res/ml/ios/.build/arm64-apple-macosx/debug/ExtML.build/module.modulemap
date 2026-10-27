@@ -1,0 +1,4 @@
+module ExtML {
+    header "/Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/ExtML.build/ExtML-Swift.h"
+    requires objc
+}

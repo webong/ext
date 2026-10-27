@@ -1,0 +1,29 @@
+{
+  "": {
+    "swift-dependencies": "/Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/ExtML.build/master.swiftdeps"
+  },
+  "/Users/webong/Workspace/Utils/ext/res/ml/ios/Sources/ExtML/CoreMLProvider.swift": {
+    "dependencies": "/Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/ExtML.build/CoreMLProvider.d",
+    "object": "/Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/ExtML.build/CoreMLProvider.swift.o",
+    "swiftmodule": "/Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/ExtML.build/CoreMLProvider~partial.swiftmodule",
+    "swift-dependencies": "/Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/ExtML.build/CoreMLProvider.swiftdeps"
+  },
+  "/Users/webong/Workspace/Utils/ext/res/ml/ios/Sources/ExtML/MLProvider.swift": {
+    "dependencies": "/Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/ExtML.build/MLProvider.d",
+    "object": "/Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/ExtML.build/MLProvider.swift.o",
+    "swiftmodule": "/Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/ExtML.build/MLProvider~partial.swiftmodule",
+    "swift-dependencies": "/Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/ExtML.build/MLProvider.swiftdeps"
+  },
+  "/Users/webong/Workspace/Utils/ext/res/ml/ios/Sources/ExtML/MLStore.swift": {
+    "dependencies": "/Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/ExtML.build/MLStore.d",
+    "object": "/Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/ExtML.build/MLStore.swift.o",
+    "swiftmodule": "/Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/ExtML.build/MLStore~partial.swiftmodule",
+    "swift-dependencies": "/Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/ExtML.build/MLStore.swiftdeps"
+  },
+  "/Users/webong/Workspace/Utils/ext/res/ml/ios/Sources/ExtML/MLTypes.swift": {
+    "dependencies": "/Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/ExtML.build/MLTypes.d",
+    "object": "/Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/ExtML.build/MLTypes.swift.o",
+    "swiftmodule": "/Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/ExtML.build/MLTypes~partial.swiftmodule",
+    "swift-dependencies": "/Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/ExtML.build/MLTypes.swiftdeps"
+  }
+}

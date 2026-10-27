@@ -174,6 +174,17 @@ its native surface, accessibility, and permission observers. Android public APIs
 expose displays and the calling app's window and view tree; these observers do
 not enumerate other applications, prompt, capture, or send input.
 
+## Share and keyboard extensions
+
+The AAR ships `io.github.webong.ext.system.share` and
+`io.github.webong.ext.system.keyboard`, with the
+`io.github.webong.ext.system.android.SystemShare` and `SystemKeyboard` bindings
+from [`res/system/android`](../../res/system/android/README.md). `SystemShare`
+normalizes `ACTION_SEND` and `ACTION_SEND_MULTIPLE` intents and copies
+attachments into a caller-supplied directory; `SystemKeyboard` adapts an
+`InputMethodService` connection. The SDK ships no input view, capability inbox,
+event schema, extension registry, application identity, or launch policy.
+
 ## Network observation
 
 The AAR ships `io.github.webong.ext.network` and

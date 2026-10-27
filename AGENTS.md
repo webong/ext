@@ -109,7 +109,7 @@ The reusable libraries are:
 
 - `res/web` for portable web contracts and workflows: browsers, WebAssembly inspection/execution through wazero (`res/web/wasm`), and the web engine that runs web content through browsers. It is also the iOS and Android module of the cookie, userscript and bookmarklet rules (`res/web/ios`, `res/web/android`), which `pkg/ext-ios` and `pkg/ext-android` ship, and owns the application-hosted WebView2 implementation in `res/web/windows`.
 - `lib/plugin` for the portable C plugin engine shared by the language bindings under `pkg/` (`ext-go`, `ext-rust`, `ext-zig`, `ext-ts`, `ext-python`) and the mobile SDKs.
-- `res/system` for the local operating-system substrate used to extend graphical and textual shells: host, shell, filesystem and volume mechanics, clipboard, credential integration, local interface/address/route/resolver observation, web view and process discovery, native surfaces, accessibility, permission state, bounded capture and media playback/capture, and atomic native input. It owns mechanisms, not authorization, remote control, routing services or consumer policy. Its subpackages include `res/system/clipboard`, `res/system/credential`, `res/system/graph`, `res/system/media`, `res/system/network`, `res/system/service`, `res/system/share`, `res/system/supervisor`, and `res/system/volume`.
+- `res/system` for the local operating-system substrate used to extend graphical and textual shells: host, shell, filesystem and volume mechanics, clipboard, credential integration, local interface/address/route/resolver observation, web view and process discovery, native surfaces, accessibility, permission state, bounded capture and media playback/capture, and atomic native input. It owns mechanisms, not authorization, remote control, routing services or consumer policy. Its subpackages include `res/system/clipboard`, `res/system/credential`, `res/system/graph`, `res/system/media`, `res/system/audio`, `res/system/network`, `res/system/service`, `res/system/share`, `res/system/supervisor`, and `res/system/volume`.
 - `pkg/ext-go/engine` for the pure-Go engine, the oracle: the plugin contract, sessions, guests, packages, bridges and tooling (standard library only).
 - `pkg/ext-go/c2goengine` for the C engine's portable core translated to Go by ccgo (no cgo, no C compiler). The translation is generated per platform by its `tools` module and held against the pure-Go engine, the oracle, by `engine/plugintest/enginetest`; it depends on `engine` only.
 - `pkg/ext-go/cgoengine` for the Go binding of the C engine, with a pure-Go build of the same API and the C ABI loader.
@@ -197,6 +197,12 @@ owns portable per-user service definitions and their non-overwriting
 publication; the macOS launchd and Windows Task Scheduler backends are platform
 implementations in `res/system/service`, while `systemctl --user` is a
 selectable native tool owned by `adapters/systemd`.
+`res/system/audio` owns portable device observation and bounded PCM stream
+contracts; `pactl`/`parec`/`pacat`, `grim`/`wtype`, `import`/`xdotool`, and
+`ffmpeg` are selectable native tools owned by `adapters/pulseaudio`,
+`adapters/wayland`, and `adapters/x11`. `res/system.DesktopDriver` is the
+portable seam those adapters implement, and the shared library never selects a
+driver by name.
 `res/system` may also perform bounded local shell mechanisms such as capture,
 media playback/capture and portable media framing, native input, volume snapshot/restore, and process
 supervision. Remote clients, service discovery, routing services, authorization,

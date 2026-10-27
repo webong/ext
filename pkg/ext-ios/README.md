@@ -99,6 +99,18 @@ focused accessible application and visible desktop windows; iOS reports only the
 calling application's views and windows. Text is opt-in. Neither binding exposes
 native handles, captures pixels, sends input, prompts, opens settings, or routes remotely.
 
+### Share and keyboard extensions
+
+`ExtSystem` also ships the bounded share model from
+[`res/system/share`](../../res/system/share/README.md) and its iOS bindings:
+`ShareExtensionLoader` normalizes `NSExtensionItem` text, links, and file
+attachments, and `KeyboardEditor` reads selection and context, inserts and
+deletes text, submits the editor action, and advances keyboards. Attachment
+storage requires a caller-configured `ShareAttachmentSink`; `AppGroupAttachmentSink`
+takes an explicit app-group identifier. The library supplies no extension
+registry, capability inbox, event schema, projected action, app launch, or
+application identifier.
+
 ## Network observation
 
 `ExtNetwork` ships [`res/system/network`](../../res/system/network/README.md)'s bounded local

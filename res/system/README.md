@@ -13,11 +13,12 @@ and product policy.
 
 | Package | What it is |
 | --- | --- |
-| `system` (the module root) | Host resource capacity and container state, native desktop, display/window, accessibility, permission-state, shell, filesystem and web view discovery; process inspection; bounded window capture and atomic input |
-| `system/clipboard` | Bounded, transport-free clipboard contracts and the Apple and Android native implementations shipped by the platform SDKs |
+| `system` (the module root) | Host resource capacity and container state, native desktop, display/window, accessibility, permission-state, shell, filesystem and web view discovery; process inspection; bounded window or caller-selected driver capture and atomic input |
+| `system/audio` | Bounded, transport-free audio-device observation and caller-selected PCM16 capture/playback interfaces; native PulseAudio, WASAPI, and platform playback implementations select no device |
+| `system/clipboard` | Bounded, transport-free clipboard contracts, the Apple and Android native implementations shipped by the platform SDKs, and the Win32 backend for Go consumers |
 | `system/credential` | Portable credential-store adapter framing and the local CTX credential client; native stores remain product adapters |
 | `system/graph` | A generic, namespaced, directed graph store with transactions, in memory or in a file |
-| `system/media` | Bounded PCM16 and RIFF/WAVE framing; image sampling/change detection, crop, annotation and contact sheets; caller-supplied video frame sampling |
+| `system/media` | Bounded PCM16 and RIFF/WAVE framing; image sampling/change detection, crop, annotation and contact sheets; caller-supplied video frame sampling; recording options and stream contract |
 | `system/network` | Bounded, read-only local interface, assigned-address, route and resolver observation; opens no connection and supplies no remote service |
 | `system/service` | Portable per-user service definitions (launchd, systemd, Task Scheduler), non-overwriting publication, registration, start/stop and status through a caller-selected manager; no product identity, layout, port, or health protocol |
 | `system/share` | Bounded, transport-free share and keyboard-extension model: text, links, and attachment references; no extension registry, event schema, inbox, or application identity |

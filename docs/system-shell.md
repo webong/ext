@@ -59,11 +59,13 @@ copy of the native implementation.
 | bounded image crop, annotation and contact sheets | yes | yes | through Go consumers | — | — |
 | bounded volume snapshot/restore | yes | yes | through Go consumers | — | — |
 | bounded private-directory create/remove | yes | yes | through Go consumers | — | — |
-| bounded clipboard contracts and native access | contract | contract | macOS and iOS | — | yes |
+| bounded clipboard contracts and native access | contract | Win32 backend | macOS and iOS | — | yes |
 | credential framing/client contract | yes | yes | — | — | — |
 | local interface/address/route/resolver observation | yes | yes | interfaces and addresses | — | yes |
 | share and keyboard-extension normalization | contract | — | iOS | — | yes |
 | per-user service definitions and lifecycle | launchd | Task Scheduler | — | — | systemd adapter |
+| audio-device observation and bounded PCM streams | contract | — | playback | WASAPI audio | playback |
+| desktop capture, input, recording via external tools | — | — | — | — | X11 and Wayland adapters |
 
 ## Per-user services
 
@@ -81,6 +83,23 @@ launchd and Task Scheduler are the operating system's own mechanism and ship in
 arguments, environment, working directory, restart policy, definition
 directory, and an optional readiness callback; the library supplies no product
 name, installation layout, port, or health endpoint.
+
+## Linux audio and desktop tools
+
+`res/system/audio` defines device observation and bounded PCM16 capture and
+playback interfaces. `adapters/pulseaudio` implements them with `pactl`,
+`parec`, and `pacat`; it selects no device and adds no routing, mixing, or
+transport policy. PipeWire's PulseAudio compatibility presents the same
+protocol, while a native PipeWire (or native ALSA) backend would be a separate
+adapter.
+
+`res/system.DesktopDriver` is the portable seam for desktop-scoped operations by
+external tools. `adapters/x11` implements capture, keyboard and pointer input,
+and bounded `ffmpeg` recording with `import` and `xdotool`; `adapters/wayland`
+implements capture and keyboard input with `grim` and `wtype` and refuses
+pointer input, window targeting, and recording explicitly. Window-scoped
+capture and input remain in `res/system` because command-line tools cannot
+address its opaque window identities.
 
 Missing cells are implementation gaps, not a reason to place the mechanism in
 a consumer. New native implementations should preserve the same bounded,

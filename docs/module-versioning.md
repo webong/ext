@@ -191,8 +191,11 @@ Each is a new module, not a new version:
   paths; they are the last versions of those paths. Nothing is tagged under the new paths until a release
   round cuts them, on a tree whose `go.mod` files declare them.
 - `v0.8.0` is the last version of the old ways (`pkg/plugin-go/contract`, `cengine` and the umbrella). The
-  v0.9.0 round that was prepared under the old layout is not cut; the next round is considered only after
-  this rename is on `main`, and the versions of the new paths are chosen then.
+  round prepared under the old layout was cut under the new paths as `v0.9.0`: `pkg/ext-go` v0.9.0,
+  `engine`/`cgoengine`/`c2goengine` v0.1.0, `hashicorp` v0.3.1, `wasm` v0.3.0, `res/web` v0.6.0,
+  `res/system` v0.2.0, the five new system adapters v0.1.0, `chromium` v0.4.1, `firefox` v0.3.1 and the
+  remaining adapters as patch releases. `scripts/release-pins.sh` recomputed every sum, and
+  `release-rehearse.sh`, `release-treehash.sh` and `release-standalone.sh` checked them.
 - Every import path, `require`, `replace`, `go.work` entry, script, workflow and document that named
   `pkg/plugin-go` now names `pkg/ext-go`. The history in the sections below keeps the old names, because
   those are the paths the tags carry.
@@ -393,7 +396,7 @@ later rounds followed for new content.
 | API additions (`v0.6.0`) | `pkg/plugin-go/contract`, `pkg/plugin-go/cengine` and `pkg/plugin-go` at v0.6.0; no other module |
 | Engine parity (`v0.7.0`) | `pkg/plugin-go/contract`, `pkg/plugin-go/cengine` and `pkg/plugin-go` at v0.7.0; no other module |
 | Engine test harness (`v0.8.0`) | `pkg/plugin-go/contract`, `pkg/plugin-go/cengine` and `pkg/plugin-go` at v0.8.0; no other module |
-| Three engines (`v0.9.0`), prepared and **not cut**: superseded by the `pkg/ext-go` rename, which is merged first and tags the next round under the new paths | `pkg/plugin-go` at v0.9.0; `pkg/plugin-go/engine`, `pkg/plugin-go/cgoengine` and `pkg/plugin-go/c2goengine` at v0.1.0 (new modules); `hashicorp` v0.3.1, `wasm` v0.2.2 and the 24 adapters as patch releases |
+| Three engines (`v0.9.0`), cut under the new paths after the `pkg/ext-go` rename | `pkg/ext-go` v0.9.0; `pkg/ext-go/engine`, `pkg/ext-go/cgoengine` and `pkg/ext-go/c2goengine` v0.1.0 (new modules); `hashicorp` v0.3.1, `wasm` v0.3.0, `res/web` v0.6.0 and `res/system` v0.2.0; `adapters/systemd`, `adapters/pulseaudio`, `adapters/alsa`, `adapters/x11` and `adapters/wayland` v0.1.0 (new modules); `adapters/chromium` v0.4.1, `adapters/firefox` v0.3.1 and the other adapters as patch releases |
 
 `v0.3.0` is a minor version because `Store.ListUnverified` and `Layered.ListUnverified` are new API in
 both `contract/host/store` and `cengine/host/store`. It also bounds the cost of validating and resolving

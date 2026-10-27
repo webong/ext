@@ -1,4 +1,0 @@
-module ExtMLPackageTests {
-    header "/Users/webong/Workspace/Utils/ext/res/ml/ios/.build/arm64-apple-macosx/debug/ExtMLPackageTests.build/ExtMLPackageTests-Swift.h"
-    requires objc
-}

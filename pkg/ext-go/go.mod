@@ -8,8 +8,7 @@ require (
 	github.com/webong/ext/pkg/ext-go/engine v0.1.0
 	github.com/webong/ext/pkg/ext-go/hashicorp v0.3.1
 	github.com/webong/ext/pkg/ext-go/wasm v0.3.0
-	github.com/webong/ext/res/system v0.1.1
-	github.com/webong/ext/res/web v0.6.0
+	github.com/webong/ext/res/system v0.2.0
 )
 
 require (
@@ -26,6 +25,7 @@ require (
 	github.com/oklog/run v1.0.0 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
 	github.com/tetratelabs/wazero v1.10.1 // indirect
+	github.com/webong/ext/res/web v0.6.0 // indirect
 	golang.org/x/net v0.60.0 // indirect
 	golang.org/x/sys v0.49.0 // indirect
 	golang.org/x/text v0.42.0 // indirect

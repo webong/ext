@@ -19,8 +19,10 @@ The boundary is local mechanism, not model policy:
 | Package | What it is |
 | --- | --- |
 | `ml` (module root) | Model manifest types, verified artifact store, model inspection, and bounded inference interfaces |
-| `ios/` (`ExtML`) | Apple CoreML-backed model provider shipped through `pkg/ext-ios` |
+| `ios/` (`ExtML`) | Apple CoreML-backed model provider shipped through `pkg/ext-ios` (macOS and iOS) |
 | `android/` | Android NNAPI/TensorFlow Lite model provider compiled into the `pkg/ext-android` AAR |
+| `windows/` | Windows ML (WinML) C# binding in `res/ml/windows` |
+| `linux/` | ONNX Runtime stub; native binding belongs in a product adapter |
 
 Product-specific model registries, provider contracts, event schemas, inference
 schemas, and model download belong to the consumer (for example Cymonkey's

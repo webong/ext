@@ -35,6 +35,7 @@ Local actions are intentionally narrower than a control product:
 - media playback reports backpressure;
 - media framing and capture processing impose byte, pixel, frame and time limits;
 - archive restore uses a pinned empty destination and decompression limits;
+- private-directory removal revalidates the inspected native identity and refuses links, reparse points, roots, home/temp/system directories, and mounted volume roots;
 - network observation opens no connection, performs no lookup and sends no traffic;
 - native bytes are returned directly, without a base64 or network envelope;
 - libraries never add allowlists, remote endpoints, approval UI or grants.
@@ -57,6 +58,7 @@ copy of the native implementation.
 | PCM playback | — | — | macOS and iOS | WASAPI | yes |
 | bounded image crop, annotation and contact sheets | yes | yes | through Go consumers | — | — |
 | bounded volume snapshot/restore | yes | yes | through Go consumers | — | — |
+| bounded private-directory create/remove | yes | yes | through Go consumers | — | — |
 | bounded clipboard contracts and native access | contract | contract | macOS and iOS | — | yes |
 | credential framing/client contract | yes | yes | — | — | — |
 | local interface/address/route/resolver observation | yes | yes | interfaces and addresses | — | yes |

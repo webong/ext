@@ -22,7 +22,7 @@ and product policy.
 | `system/service` | Portable per-user service definitions (launchd, systemd, Task Scheduler), non-overwriting publication, registration, start/stop and status through a caller-selected manager; no product identity, layout, port, or health protocol |
 | `system/share` | Bounded, transport-free share and keyboard-extension model: text, links, and attachment references; no extension registry, event schema, inbox, or application identity |
 | `system/supervisor` | Process supervision and recovery |
-| `system/volume` | Bounded local snapshot, restore and archive digest mechanics for a caller-selected volume or directory |
+| `system/volume` | Bounded local snapshot, restore, archive digest, and pinned private-directory creation/removal for a caller-selected volume or directory |
 | `ios/` (`ExtSystem`) | Apple share-extension normalization and keyboard-extension editing helpers, surface/accessibility/permission APIs, macOS capture and input, Accessibility actions, typed Apple Events, ScreenCaptureKit and ReplayKit capture, and bounded PCM playback |
 | `android/` | App-visible share-intent and `InputMethodService` helpers, surface/accessibility/permission APIs, MediaProjection capture, and bounded PCM playback |
 | `windows/` (`Ext.System.Windows`) | Windows WASAPI endpoint discovery, capture and bounded PCM playback for .NET consumers |

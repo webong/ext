@@ -300,10 +300,16 @@ public enum ShareExtensionLoader {
             for provider in item.attachments ?? [] where attachmentIndex < limits.maxItems {
                 if provider.hasItemConformingToTypeIdentifier("public.plain-text") {
                     if let value = await loadItem(provider, typeIdentifier: "public.plain-text") {
-                        if let text = value as? String {
-                            loaded.text = text
+                        let text: String?
+                        if let value = value as? String {
+                            text = value
                         } else if let attributed = value as? NSAttributedString {
-                            loaded.text = attributed.string
+                            text = attributed.string
+                        } else {
+                            text = nil
+                        }
+                        if let text {
+                            loaded.text = [loaded.text, text].compactMap { $0 }.joined(separator: "\n")
                         }
                     }
                 } else if provider.hasItemConformingToTypeIdentifier("public.url") {

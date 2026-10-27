@@ -11,6 +11,7 @@ ctx graph webviews
 ctx graph surfaces
 ctx graph accessibility
 ctx graph permissions
+ctx graph resources
 ctx graph scan
 ctx graph vertices shell
 ctx graph vertices filesystem
@@ -30,9 +31,9 @@ ctx graph edges has-permission
 ctx graph edges has-host-resource
 ```
 
-`shells`, `filesystems`, `webviews`, `surfaces`, `accessibility`, and `permissions`
-discover the host, emit JSON, and refresh
-only their corresponding graph records. `scan` refreshes all host inventories and adapter
+`shells`, `filesystems`, `webviews`, `surfaces`, `accessibility`, `permissions`,
+and `resources` discover the host, emit JSON, and refresh only their
+corresponding graph records. `scan` refreshes all host inventories and adapter
 inventory. Removed executables and mounts are removed from the next observation.
 Stored snapshots are observations, not authorization or a guarantee that an
 executable or mount will still be available when another command uses it.

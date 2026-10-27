@@ -37,7 +37,7 @@ func graphCommand(args []string, stdout, stderr io.Writer) int {
 	switch args[0] {
 	case "processes", "process":
 		return graphProcessCommand(ctx, system, args[0], args[1:], stdout, stderr)
-	case "shells", "filesystems", "webviews", "surfaces", "accessibility", "permissions":
+	case "shells", "filesystems", "webviews", "surfaces", "accessibility", "permissions", "resources":
 		if len(args) != 1 {
 			fmt.Fprintf(stderr, "ctx: graph %s takes no arguments\n", args[0])
 			return 2
@@ -69,6 +69,11 @@ func graphCommand(args []string, stdout, stderr io.Writer) int {
 			err = permissionErr
 			inventory.Permissions = &permissions
 			result = permissions
+		case "resources":
+			resources, resourceErr := systemgraph.DiscoverResources(ctx)
+			err = resourceErr
+			inventory.Resources = &resources
+			result = resources
 		}
 		if err != nil {
 			return reportError(stderr, err)
@@ -118,6 +123,10 @@ func graphCommand(args []string, stdout, stderr io.Writer) int {
 		}
 		if host.Permissions != nil {
 			fmt.Fprintf(stdout, "observed accessibility permission %s and screen recording permission %s\n", host.Permissions.Accessibility.State, host.Permissions.ScreenRecording.State)
+		}
+		if host.Resources != nil {
+			fmt.Fprintf(stdout, "observed %d logical CPUs (%.2f effective) and %d memory bytes (%s)\n",
+				host.Resources.LogicalCPUs, host.Resources.CPUCapacity, host.Resources.MemoryCapacityBytes, host.Resources.MemoryStatus.State)
 		}
 		fmt.Fprintf(stdout, "observed %d processes (%s)\n", len(processes.Processes), processes.Enumeration.State)
 		return 0

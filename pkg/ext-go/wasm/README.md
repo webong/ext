@@ -1,24 +1,17 @@
-# WASI plugin backend
+# WebAssembly plugin backend
 
-`github.com/webong/ext/pkg/ext-go/wasm` runs guests compiled to WASI Preview 1
-through wazero. A guest is a command that speaks the CTX JSON-line protocol on
-its standard input and output; an arbitrary `.wasm` file is not automatically a
-CTX plugin.
+`github.com/webong/ext/pkg/ext-go/wasm` binds the protocol-neutral WebAssembly
+runtime in `github.com/webong/ext/res/web/wasm` to the ext plugin engine. It owns
+the `engine.Backend` implementations, JSON-line transport, plugin reactor ABI,
+profiles, and engine error mapping.
 
-This is a separate Go module so consumers that do not need an in-process WASI
-runtime never download wazero. Native and portable C guests can also be built
-for `wasm32-wasip1` and run through the same protocol.
+Generic WebAssembly inspection, WASI command execution, persistent byte streams,
+and raw reactor hosting live in `res/web/wasm`. That package does not import the
+plugin engine. Applications that only need WebAssembly can use it directly;
+plugin hosts use this module.
 
-## Cross-language conformance
-
-`crosslang` in this module holds the interoperability tests that build real
-foreign artifacts: Rust, Zig, and Go guests and hosts, native C ABI guests, and
-WASI modules. Run them with `scripts/plugin-crosslang.sh` from the repository
-root; they build artifacts the tests then execute, so a plain `go test ./...`
-does not exercise them.
-
-`cmd/wasirun` checks a portable C guest core compiled to WASI. Use it through
-`scripts/plugin-wasi-core.sh`.
+Cross-language interoperability tests live in the `pkg/ext-go` umbrella module.
+Run them with `scripts/plugin-crosslang.sh` from the repository root.
 
 See the [interoperability guide](../../../docs/plugin-interoperability.md) and
 the [runtime authoring guide](../../../docs/plugin-runtimes.md).

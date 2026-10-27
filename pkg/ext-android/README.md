@@ -298,7 +298,7 @@ code, so a native plugin must ship inside the signed app bundle or package.
   chooses, including the iOS Simulator and Android devices. It does not author plugins.
 - A WASM interpreter reachable from the C engine exists as the optional WAMR host
   (`lib/plugin/wamr`, `WamrPluginHost` here), run on an Android emulator; it has not run on a
-  physical device. `pkg/ext-go/wasm`, which is Go and wazero, is the separate Go route.
+  physical device. `res/web/wasm`, which is Go and wazero, is the separate Go route.
 - [`res/web`](../../res/web/README.md) is the Go home of the rules the web package ports.
 
 ## Browser workspace

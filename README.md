@@ -317,12 +317,13 @@ CTX and its ecosystem share public Go libraries:
 - `github.com/webong/ext/res/system/supervisor` supplies local process supervision when
   the selected plugin backend does not already own its process lifecycle.
 - `github.com/webong/ext/res/web` supplies portable browser contracts,
-  workflows, extension and userscript handling, plus application-hosted
-  WKWebView, Android WebView and WebView2 implementations.
-`res/web` and `pkg/ext-go` depend only on the Go standard library;
-`res/system` depends only on `golang.org/x/sys`, so
-consumers that do not need a runtime backend never download the HashiCorp or
-WASI stacks.
+  workflows, extension and userscript handling, WebAssembly inspection and
+  execution and raw reactor hosting through wazero, plus application-hosted
+  WKWebView, Android WebView and WebView2 implementations. It contains no plugin
+  engine dependency; `pkg/ext-go/wasm` supplies that binding.
+`res/system` depends only on `golang.org/x/sys`; `pkg/ext-go/engine` remains
+standard-library only. Consumers that do not need WebAssembly or another runtime
+backend can keep the wazero and HashiCorp stacks out of their module graph.
 
 CTX adapters and other applications can build on these
 libraries. Each is published as its own Go module under a shared major version;

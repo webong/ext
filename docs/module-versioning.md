@@ -106,6 +106,20 @@ module zip carries their files, which Go never reads, and a change to them needs
 They reach apps through `pkg/ext-ios` and `pkg/ext-android`, so they are released with those, under
 `ext-ios-vX.Y.Z` and `ext-android-vX.Y.Z`.
 
+## WebAssembly mechanics moved into `res/web`
+
+Protocol-neutral WebAssembly inspection, WASI command execution, persistent byte
+streams and raw reactor hosting live at `res/web/wasm` inside the
+`github.com/webong/ext/res/web` module. That reusable module depends on wazero
+but never on the plugin engine.
+
+The `github.com/webong/ext/pkg/ext-go/wasm` module remains the engine-facing
+binding. It depends on `res/web` and adapts the raw runtime to `engine.Backend`,
+the JSON-line transport and the ext plugin reactor ABI. The first split releases
+are `res/web/v0.6.0` and `pkg/ext-go/wasm/v0.3.0`; existing plugin callers keep
+the `pkg/ext-go/wasm` import while protocol-neutral consumers import
+`github.com/webong/ext/res/web/wasm`.
+
 Clipboard, credential and local network-observation code were consolidated into
 the `res/system` module as `res/system/clipboard`, `res/system/credential` and
 `res/system/network`. The historical `res/clipboard`, `res/credential` and
@@ -169,7 +183,7 @@ A module path and its tags are a pair, so this is a new module, not a new versio
 
 The Go plugin library is `pkg/ext-go`, to match the other language packages (`pkg/ext-rust`, `ext-zig`,
 `ext-ts`, `ext-python`, `ext-ios`, `ext-android`). A module in a subdirectory carries the directory in its
-path, so all seven modules changed path, as `cengine` and `contract` did before them: `pkg/ext-go` (the
+path, so seven modules changed path, as `cengine` and `contract` did before them: `pkg/ext-go` (the
 umbrella), `pkg/ext-go/engine`, `cgoengine`, `c2goengine` (and its `tools` module), `hashicorp` and `wasm`.
 Each is a new module, not a new version:
 
@@ -275,9 +289,9 @@ done
 
 Each module's `go` line is the oldest Go that builds it, so it must be at least what its own
 dependencies require; `go mod tidy` raises it when it is not. Most light libraries
-(`pkg/ext-go/engine`, `pkg/ext-go/cgoengine`, `pkg/ext-go/wasm`, and the
-`res/*` modules other than `res/system`) declare `go 1.23.0` and their
-dependencies allow it. `res/system` declares `go 1.25.0` because its bounded
+(`pkg/ext-go/engine`, `pkg/ext-go/cgoengine`, `pkg/ext-go/wasm`, and the `res/*`
+modules other than `res/system`) declare `go 1.23.0`; `res/web` additionally
+pins wazero at a version with that floor. `res/system` declares `go 1.25.0` because its bounded
 volume operations use `os.Root`; adapters that import its credential packages
 therefore declare at least Go 1.25. Four modules declare `go 1.26.0` because
 `golang.org/x/net`, `x/sys` and `x/text` at the versions they use require it:
@@ -302,13 +316,14 @@ so an application imports only what it needs and stacks the rest:
 | `pkg/ext-go/engine` | the pure-Go engine (the oracle): the contract, sessions, guests, packages, the package store and host, bridges and tooling (the old `pkg/plugin`); standard library only | nothing |
 | `pkg/ext-go/cgoengine` | the Go binding of the C engine, a pure-Go build of the same API, engine-routed variants of `store` and `host` with the same API as the ones in `engine`, the C ABI loader (the old `pkg/plugin-cshared`) and a generated copy of the C sources | `contract` |
 | `pkg/ext-go/c2goengine` | the C engine's portable core translated to Go by ccgo (`modernc.org/ccgo`), with no cgo and no C compiler: one generated file per platform, made on that platform (see its README) | `engine` |
-| `pkg/ext-go/wasm` | the wazero backend (the old `pkg/plugin-wasm`) | `engine` |
+| `res/web` | portable web tooling, including protocol-neutral WebAssembly inspection, execution and raw reactor hosting | nothing inside ext; third-party wazero only |
+| `pkg/ext-go/wasm` | the plugin-engine binding for `res/web/wasm` (the old `pkg/plugin-wasm`) | `engine`, `res/web` |
 | `pkg/ext-go/hashicorp` | the go-plugin (gRPC) backend (the old `pkg/plugin-hashicorp`) | `engine` |
-| `pkg/ext-go` | the umbrella: requires every module above at matching versions and holds what needs several of them (`PlanGraph`, the `core` package that chooses between `engine`, `cgoengine` and `c2goengine`, the bridge command, the cross-language tests) | all of the above, `res/system` |
+| `pkg/ext-go` | the umbrella: requires every plugin module above and holds what needs several of them (`PlanGraph`, the `core` package that chooses between `engine`, `cgoengine` and `c2goengine`, the bridge command, the cross-language tests) | the plugin modules above, `res/system`, `res/web` |
 
 The module was called `contract` until v0.8.0 because it is the contract plus tooling that needs
 nothing beyond the standard library, not a runtime; it became `engine` once it was the oracle
-among three engines (see above), and `core` is the package that chooses between them. `wasm` and `hashicorp`
+among three engines (see above), and `core` is the package that chooses between them. `pkg/ext-go/wasm` and `hashicorp`
 never depend on `cgoengine`, in code, tests or `go.mod`, so a wazero or gRPC user needs
 no C toolchain; `src/ctx/internal/arch` enforces this.
 
@@ -339,7 +354,7 @@ from `_csrc` and links the engine library, which is built from `_csrc` with CMak
 | `pkg/plugin-go` root, the engine API (`pkg/plugin-go`, up to v0.1.1) | `pkg/plugin-go/cengine` (`pkg/plugin-go/cengine`) |
 | `pkg/plugin-go/cshared`, `.../cshared/abi`, `.../cshared/guest` | `pkg/plugin-go/cengine/cshared`, `.../abi`, `.../guest` (`pkg/plugin-go/cengine`) |
 | `pkg/plugin-cshared` (up to v0.1.0) | `pkg/plugin-go/cengine/cshared` (`pkg/plugin-go/cengine`) |
-| `pkg/plugin-wasm` (up to v0.2.1) | `pkg/plugin-go/wasm` (`pkg/plugin-go/wasm`) |
+| `pkg/plugin-wasm` (up to v0.2.1), later `pkg/plugin-go/wasm` | `pkg/ext-go/wasm` (`pkg/ext-go/wasm`); its reusable mechanics are `res/web/wasm` |
 | `pkg/plugin-hashicorp` (up to v0.1.1) | `pkg/plugin-go/hashicorp` (`pkg/plugin-go/hashicorp`) |
 | `pkg/plugin-hashicorp/cmd/ext-plugin-bridge` | `pkg/plugin-go/cmd/ext-plugin-bridge` (`pkg/plugin-go`) |
 | `pkg/graph` (v0.1.0) | the generic store is `res/system/graph`, in module `res/system` (see below) |

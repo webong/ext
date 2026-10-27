@@ -313,7 +313,7 @@ macOS. It is not run in the iOS Simulator.
   chooses, including the iOS Simulator and Android devices. It does not author plugins.
 - A WASM interpreter reachable from the C engine exists as the optional WAMR host
   (`lib/plugin/wamr`, `ExtPluginWamr` here), built for and run on the iOS Simulator; it has not
-  run on a physical device. `pkg/ext-go/wasm`, which is Go and wazero, is the separate Go route.
+  run on a physical device. `res/web/wasm`, which is Go and wazero, is the separate Go route.
 - [`res/web`](../../res/web/README.md) is the Go home of the rules `ExtWeb` ports.
 
 ## Browser workspace

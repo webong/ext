@@ -55,10 +55,11 @@ and `NewLaunch` are engine-only and need the C engine build.
 | `plugintest` | Shared conformance fixtures |
 | `cshared` | The C plugin ABI in Go: the loader that opens such libraries as a backend (cgo; the header is `lib/plugin/include/ext_plugin.h`), `cshared/abi` (the envelope's constants and wire types, no cgo) and `cshared/guest` (the Go guest lifecycle that exports it) |
 
-Runtime backends that own a heavy runtime are separate modules:
-[`pkg/ext-go/hashicorp`](../plugin-hashicorp/README.md) (go-plugin, net/rpc and
-gRPC) and [`pkg/ext-go/wasm`](../plugin-wasm/README.md) (wazero; guests in other
-languages run through it). The portable C engine is [`lib/plugin`](../../../lib/plugin/README.md), and the shared conformance
+Runtime backends that own a heavy runtime stay outside the engine module:
+[`pkg/ext-go/hashicorp`](../hashicorp/README.md) owns go-plugin, net/rpc and
+gRPC, while [`pkg/ext-go/wasm`](../wasm/README.md) binds the reusable
+[`res/web/wasm`](../../../res/web/wasm/README.md) wazero runtime to the engine.
+The portable C engine is [`lib/plugin`](../../../lib/plugin/README.md), and the shared conformance
 fixtures are in `lib/plugin/testdata`.
 
 ## Building with the C engine

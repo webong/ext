@@ -4,7 +4,7 @@
 //
 //	github.com/webong/ext/pkg/ext-go/engine   contract, sessions, packages, bridges (standard library only)
 //	github.com/webong/ext/pkg/ext-go/cgoengine    the C engine binding, with a pure-Go build of the same API
-//	github.com/webong/ext/pkg/ext-go/wasm       the WebAssembly (wazero) backend
+//	github.com/webong/ext/pkg/ext-go/wasm       the engine binding for res/web/wasm
 //	github.com/webong/ext/pkg/ext-go/hashicorp  the HashiCorp go-plugin (gRPC) backend
 //
 // What lives here, rather than in a part, is whatever needs more than one of

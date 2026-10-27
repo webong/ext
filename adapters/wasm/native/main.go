@@ -9,7 +9,7 @@ import (
 	"flag"
 	"fmt"
 	"github.com/webong/ext/pkg/ext-go/cgoengine"
-	wasm "github.com/webong/ext/pkg/ext-go/wasm"
+	wasm "github.com/webong/ext/res/web/wasm"
 	"io"
 	"os"
 	"path/filepath"

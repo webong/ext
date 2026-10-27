@@ -2,8 +2,11 @@
 
 `github.com/webong/ext/res/web` holds ext's portable web contracts and workflows:
 browsers (cookies, extensions, userscripts, sessions) today, and the web engine
-that runs web content through them. Any ext product or other program can use it. It depends only on the Go standard library, so a host can consume it
-without pulling an adapter, a browser engine, or any CTX application code.
+that runs web content through them. It also owns bounded WebAssembly inspection,
+WASI command execution, persistent byte streams and raw reactor hosting through
+wazero. Any ext product or other program can use it. The Go module does not
+depend on the plugin engine, an adapter, a browser engine, or any CTX application
+code. `pkg/ext-go/wasm` adds the ext plugin binding.
 
 | Package | Contents |
 | --- | --- |
@@ -11,7 +14,7 @@ without pulling an adapter, a browser engine, or any CTX application code.
 | `guest` | Portable browser workflows served through adapter-provided backends |
 | `extension` | Extension artifact discovery, packaging and install targets |
 | `bundle` | The web engine: serves a web bundle from loopback under a content security policy and runs it in a browser the host opens, reporting console output and the exit code |
-| `wasm` | `reactor.js`, the page side of hosting a WebAssembly reactor in a web view (a hidden `WKWebView`, an Android `WebView` or a browser). Not a Go package: a shared asset that `scripts/plugin-mobile-assets.sh` embeds in the iOS and Android hosts, written against the page API of `bundle/shim.js` |
+| `wasm` | Protocol-neutral Go APIs for module inspection, bounded WASI command execution, persistent byte streams and raw reactor hosting through wazero; also `reactor.js`, the shared page-side reactor glue embedded in the iOS and Android WebView hosts |
 | `sqlite` | Read-only SQLite reader for browser cookie stores (standard library only, no sqlite3 program) and the sqlite3 helper used by cookie import |
 | `userscript` | Userscript metadata, storage and replay, with language-neutral fixtures in `testdata/userscript` |
 | `bookmarklet` | Bookmarklet generation, with language-neutral fixtures in `testdata/bookmarklet` |

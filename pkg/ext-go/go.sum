@@ -55,8 +55,6 @@ github.com/webong/ext/pkg/ext-go/engine v0.1.0 h1:9trJr/fIH/n+5Go//cw9yOfjJbbOY+
 github.com/webong/ext/pkg/ext-go/engine v0.1.0/go.mod h1:7kwTFoT8X3W2rP8NZFXHT3rcur7M7FndSULxFjBgZJc=
 github.com/webong/ext/pkg/ext-go/hashicorp v0.3.1 h1:157jHAom8tlE90eXU9GmYzJqePLKEtQR4Ajcilr+1Fk=
 github.com/webong/ext/pkg/ext-go/hashicorp v0.3.1/go.mod h1:+SdDK91nn9Sh4xFZSTafzHhblota4O0XnEE4yCrRXeE=
-github.com/webong/ext/pkg/ext-go/wasm v0.2.2 h1:BOFdHT2A5vAmuLG4AC3+9vqXRFnWTNtAs/PeYPMAGfk=
-github.com/webong/ext/pkg/ext-go/wasm v0.2.2/go.mod h1:t7sxN133PSkguQbSKaoa79jToCyDcpwG2Oi+w1gMMTs=
 github.com/webong/ext/res/system v0.1.1 h1:ocYB1lmbhdUWBnKuI7zoIF6Tp51K7XTa9XBsF8/KNaU=
 github.com/webong/ext/res/system v0.1.1/go.mod h1:eITLqdPHfYfsCccu+GShYumMGGe5V01tygeCBKDqwS0=
 go.opentelemetry.io/auto/sdk v1.2.1 h1:jXsnJ4Lmnqd11kwkBV2LgLoFMZKizbCi5fNZ/ipaZ64=

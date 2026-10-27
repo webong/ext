@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/tetratelabs/wazero"
-	plugin "github.com/webong/ext/pkg/ext-go/engine"
 )
 
 // Target classifies what a module needs from its host.
@@ -46,7 +45,7 @@ var wasiModules = map[string]bool{"wasi_snapshot_preview1": true}
 // instantiate or run it.
 func Inspect(ctx context.Context, module []byte) (Inspection, error) {
 	if len(module) == 0 || len(module) > MaxModuleBytes {
-		return Inspection{}, plugin.ErrInvalid
+		return Inspection{}, ErrInvalid
 	}
 	if isComponent(module) {
 		return Inspection{Target: TargetComponent, Imports: []string{}}, nil
@@ -55,7 +54,7 @@ func Inspect(ctx context.Context, module []byte) (Inspection, error) {
 	defer runtime.Close(context.Background())
 	compiled, err := runtime.CompileModule(ctx, module)
 	if err != nil {
-		return Inspection{}, fmt.Errorf("%w: %v", plugin.ErrInvalid, err)
+		return Inspection{}, fmt.Errorf("%w: %v", ErrInvalid, err)
 	}
 	defer compiled.Close(context.Background())
 	seen, unsupported := map[string]bool{}, map[string]bool{}

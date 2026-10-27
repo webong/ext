@@ -51,8 +51,9 @@ paths and directories match; they are built from source and released as binaries
 `res/` is a container for reusable modules rather than a package. Each
 subdirectory is its own Go module, and nothing lives at that level: no Go package
 and no repository-wide policy. Keep container directories free of shared logic
-and keep repo-wide tests in `src/ctx/internal/arch`. `res/web` depends only on
-the standard library; `res/system` depends on `golang.org/x/sys`.
+and keep repo-wide tests in `src/ctx/internal/arch`. `res/web` depends on wazero
+for its protocol-neutral WebAssembly runtime and never on the plugin engine;
+`res/system` depends on `golang.org/x/sys`.
 
 `lib/` is a container for native libraries that several language bindings
 share. Nothing lives at that level. `lib/plugin` is the portable C plugin
@@ -73,18 +74,20 @@ library's dependencies pointing inward so it never depends back on its consumers
 
 `pkg/ext-go/` is a tree of modules, not one module, so an application takes
 only the parts it needs: `engine` (standard library only), `cgoengine` (the C
-engine binding, with a pure-Go build of the same API), `wasm` (wazero) and
-`hashicorp` (go-plugin, grpc), plus `pkg/ext-go` itself as a thin umbrella
-module that requires them all at matching versions. Nested modules are excluded
+engine binding, with a pure-Go build of the same API), `wasm` (the plugin binding
+for `res/web/wasm`) and `hashicorp` (go-plugin, grpc), plus `pkg/ext-go` itself
+as a thin umbrella module that requires them at matching versions. Nested
+modules are excluded
 from the module that contains them, so an import path must belong to exactly one
 module and never move between modules at a version a consumer may still resolve;
 published paths are not reused by a different module.
 
-Runtime backends that own a heavy runtime are separate modules:
-`pkg/ext-go/hashicorp` (go-plugin, grpc) and `pkg/ext-go/wasm` (wazero).
-A backend depends on `pkg/ext-go/engine` only, in code, tests and `go.mod`,
-and never on `pkg/ext-go/cgoengine`, so a wazero or grpc user needs no C
-toolchain and the engine binding is not in their module graph. Tests that need
+Runtime backends that own a heavy runtime stay outside the engine module:
+`pkg/ext-go/hashicorp` is a separate module for go-plugin/grpc, while
+`pkg/ext-go/wasm` binds the protocol-neutral wazero runtime in `res/web/wasm`
+to `engine.Backend`. A backend never depends on `pkg/ext-go/cgoengine`, so a
+wazero or grpc user needs no C toolchain and the engine binding is not in their
+module graph. Tests that need
 a backend belong in that backend's module, and tests or commands that need both
 a backend and the engine belong in the umbrella module, not in `engine`, so
 the core stays free of every runtime. `pkg/ext-go/engine` uses the standard
@@ -104,20 +107,22 @@ named for each module path.
 
 The reusable libraries are:
 
-- `res/web` for portable web contracts and workflows: browsers, and the web engine that runs web content through them. It is also the iOS and Android module of the cookie, userscript and bookmarklet rules (`res/web/ios`, `res/web/android`), which `pkg/ext-ios` and `pkg/ext-android` ship, and owns the application-hosted WebView2 implementation in `res/web/windows`.
+- `res/web` for portable web contracts and workflows: browsers, WebAssembly inspection/execution through wazero (`res/web/wasm`), and the web engine that runs web content through browsers. It is also the iOS and Android module of the cookie, userscript and bookmarklet rules (`res/web/ios`, `res/web/android`), which `pkg/ext-ios` and `pkg/ext-android` ship, and owns the application-hosted WebView2 implementation in `res/web/windows`.
 - `lib/plugin` for the portable C plugin engine shared by the language bindings under `pkg/` (`ext-go`, `ext-rust`, `ext-zig`, `ext-ts`, `ext-python`) and the mobile SDKs.
 - `res/system` for the local operating-system substrate used to extend graphical and textual shells: host, shell, filesystem and volume mechanics, clipboard, credential integration, local interface/address/route/resolver observation, web view and process discovery, native surfaces, accessibility, permission state, bounded capture and media playback/capture, and atomic native input. It owns mechanisms, not authorization, remote control, routing services or consumer policy. Its subpackages include `res/system/clipboard`, `res/system/credential`, `res/system/graph`, `res/system/media`, `res/system/network`, `res/system/supervisor`, and `res/system/volume`.
 - `pkg/ext-go/engine` for the pure-Go engine, the oracle: the plugin contract, sessions, guests, packages, bridges and tooling (standard library only).
 - `pkg/ext-go/c2goengine` for the C engine's portable core translated to Go by ccgo (no cgo, no C compiler). The translation is generated per platform by its `tools` module and held against the pure-Go engine, the oracle, by `engine/plugintest/enginetest`; it depends on `engine` only.
 - `pkg/ext-go/cgoengine` for the Go binding of the C engine, with a pure-Go build of the same API and the C ABI loader.
-- `pkg/ext-go/wasm` and `pkg/ext-go/hashicorp` for the WebAssembly and HashiCorp go-plugin backends.
-- `pkg/ext-go` for the umbrella module that requires all of the above and holds code that needs several of them, such as `pkg/ext-go/core`, which chooses between the pure-Go `engine`, `cgoengine` and `c2goengine` (the only place that knows all three).
+- `pkg/ext-go/wasm` for the engine-facing WebAssembly backend; it depends on `pkg/ext-go/engine` and the reusable runtime in `res/web/wasm`.
+- `pkg/ext-go/hashicorp` for the HashiCorp go-plugin backend.
+- `pkg/ext-go` for the umbrella module that requires the plugin engines, `res/web` and `res/system`; it holds code that needs several engines, such as `pkg/ext-go/core`, which chooses between the pure-Go `engine`, `cgoengine` and `c2goengine` (the only place that knows all three).
 
-Plugin runtime backends, including HashiCorp go-plugin, belong inside the
-plugin library (for example `pkg/ext-go/hashicorp`), together with their
-dependencies. They are not CTX product adapters. Keep the shared host/guest
-contract independent of backend choice so existing and future plugin
-implementations can use it.
+Plugin-specific runtime bindings, including HashiCorp go-plugin and the
+WebAssembly `engine.Backend`, belong inside the plugin library
+(`pkg/ext-go/hashicorp`, `pkg/ext-go/wasm`). The reusable WebAssembly mechanism
+belongs to `res/web/wasm` and never imports the plugin engine; `pkg/ext-go/wasm`
+adapts it. Neither is a CTX product adapter. Keep the shared host/guest contract
+independent of backend choice so existing and future plugin implementations can use it.
 
 Product adapter engines and stores that are reused across adapters
 (`adapters/chromium` module, engine code in `adapters/chromium/engine`, `adapters/firefox/engine`, `adapters/safari/native`,
@@ -170,7 +175,9 @@ and `ExtWebKit`) and the Android module (`res/web/android`, the Java packages
 Portable rules are checked against one set of fixtures; native workspace targets and source sets
 remain separate from those portable rules. The mobile modules in `res/web` import nothing of
 the plugin code or the C engine and build and test with Swift or a JDK/Android SDK
-(`scripts/web-ios.sh`, `scripts/web-android.sh`, `scripts/web-differential.sh`); `pkg/ext-ios`
+(`scripts/web-ios.sh`, `scripts/web-android.sh`, `scripts/web-differential.sh`).
+The Go-only `res/web/wasm` package imports wazero but no plugin code;
+`pkg/ext-go/wasm` supplies that binding. `pkg/ext-ios`
 reaches `res/web/ios` through the links `Sources/ExtWeb` and `Sources/ExtWebKit` (a release stages
 real copies), and `pkg/ext-android` compiles the portable and Android source sets from
 `res/web/android` into its AAR. Edit web code in `res/web`, never in
@@ -190,8 +197,10 @@ Keep
 `pkg/ext-go/cgoengine/cshared/guest`. The language-neutral C ABI header
 (`lib/plugin/include/ext_plugin.h`) belongs to the engine; its constants and wire
 envelope (`cshared/abi`) and the runtime loader (`cshared`) live under
-`pkg/ext-go/cgoengine/cshared`, inside the `cgoengine` module. `pkg/ext-go/wasm`
-stays its own module because guests in other languages run through it.
+`pkg/ext-go/cgoengine/cshared`, inside the `cgoengine` module. `res/web/wasm`
+is a package of the `res/web` module, not a nested module. `pkg/ext-go/wasm`
+remains a separate module because it binds that reusable runtime to the plugin
+engine without reversing the dependency into `res/`.
 
 Moving a library into or out of `pkg/` changes public import paths. Update
 `AGENTS.md`, the docs, and the language SDKs together, and verify with

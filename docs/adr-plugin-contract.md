@@ -6,11 +6,12 @@ wire protocols do not become compatible merely by importing this package.
 
 ## Ownership
 
-CTX supplies `github.com/webong/ext/pkg/ext-go`, alongside `graph` and `supervisor`.
+CTX supplies `github.com/webong/ext/pkg/ext-go`, alongside `res/web` and `res/system`.
 Its implementations include `pkg/ext-go/engine/transport/inprocess`, `pkg/ext-go/engine/transport/jsonline`,
 `pkg/ext-go/hashicorp`, `pkg/ext-go/engine/host/nativego`, `pkg/ext-go/wasm`, and `pkg/ext-go/cgoengine/cshared`, with
 additional backends able to implement the same public interface. HashiCorp
-go-plugin is a dependency of the plugin library, not a CTX product adapter.
+go-plugin is a dependency of the plugin library, while `pkg/ext-go/wasm` binds
+the protocol-neutral runtime in `res/web/wasm`; neither is a CTX product adapter.
 CTX adapters and ecosystem applications are consumers of these libraries.
 The plugin library owns generic declarations, validation, exact selection,
 admission sequencing, handshake checking, bounded invocation, and draining.

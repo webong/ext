@@ -7,8 +7,9 @@ require (
 	github.com/webong/ext/pkg/ext-go/cgoengine v0.1.0
 	github.com/webong/ext/pkg/ext-go/engine v0.1.0
 	github.com/webong/ext/pkg/ext-go/hashicorp v0.3.1
-	github.com/webong/ext/pkg/ext-go/wasm v0.2.2
+	github.com/webong/ext/pkg/ext-go/wasm v0.3.0
 	github.com/webong/ext/res/system v0.1.1
+	github.com/webong/ext/res/web v0.6.0
 )
 
 require (

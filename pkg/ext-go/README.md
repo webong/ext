@@ -9,14 +9,18 @@ module of its own and a program that wants less takes less:
 | [`engine`](engine) | the pure-Go engine: the contract, sessions, guests, packages, bridges (standard library only) |
 | [`cgoengine`](cgoengine) | the C engine binding, with a pure-Go build of the same API |
 | [`c2goengine`](c2goengine) | the C engine's portable core translated to Go by ccgo (no cgo, no C compiler) |
-| [`wasm`](wasm) | the WebAssembly (wazero) backend |
 | [`hashicorp`](hashicorp) | the HashiCorp go-plugin (gRPC) backend |
+| [`wasm`](wasm) | the engine-facing WebAssembly backend, built on the reusable `res/web/wasm` runtime |
 
 The umbrella package itself, `plugingo`, holds what needs more than one part:
 `PlanGraph` joins a package plan to the host graph (`res/system`). The `core` package
 chooses between the three engines (see below). The `cmd/ext-plugin-bridge`
 command and the cross-language conformance tests (`crosslang`, `bench`) also live
 here, because they need the engine and a backend together.
+
+The `wasm` module requires `res/web` for protocol-neutral WebAssembly inspection,
+WASI execution and reactor hosting, then binds those mechanisms to
+`engine.Backend`. `res/web` never imports the plugin engine.
 
 ## Choosing an engine
 

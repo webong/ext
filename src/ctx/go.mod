@@ -3,8 +3,8 @@ module github.com/webong/ext/ctx
 go 1.26.0
 
 require (
-	github.com/webong/ext/res/system v0.1.1
-	github.com/webong/ext/res/web v0.5.1
+	github.com/webong/ext/res/system v0.2.0
+	github.com/webong/ext/res/web v0.6.0
 )
 
 require (

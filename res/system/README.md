@@ -19,10 +19,11 @@ and product policy.
 | `system/graph` | A generic, namespaced, directed graph store with transactions, in memory or in a file |
 | `system/media` | Bounded PCM16 and RIFF/WAVE framing; image sampling/change detection, crop, annotation and contact sheets; caller-supplied video frame sampling |
 | `system/network` | Bounded, read-only local interface, assigned-address, route and resolver observation; opens no connection and supplies no remote service |
+| `system/share` | Bounded, transport-free share and keyboard-extension model: text, links, and attachment references; no extension registry, event schema, inbox, or application identity |
 | `system/supervisor` | Process supervision and recovery |
 | `system/volume` | Bounded local snapshot, restore and archive digest mechanics for a caller-selected volume or directory |
-| `ios/` (`ExtSystem`) | Apple surface/accessibility/permission APIs, macOS capture and input, Accessibility actions, typed Apple Events, ScreenCaptureKit and ReplayKit capture, and bounded PCM playback |
-| `android/` | App-visible surface/accessibility/permission APIs, MediaProjection capture, and bounded PCM playback |
+| `ios/` (`ExtSystem`) | Apple share-extension normalization and keyboard-extension editing helpers, surface/accessibility/permission APIs, macOS capture and input, Accessibility actions, typed Apple Events, ScreenCaptureKit and ReplayKit capture, and bounded PCM playback |
+| `android/` | App-visible share-intent and `InputMethodService` helpers, surface/accessibility/permission APIs, MediaProjection capture, and bounded PCM playback |
 | `windows/` (`Ext.System.Windows`) | Windows WASAPI endpoint discovery, capture and bounded PCM playback for .NET consumers |
 
 The graph store is domain-neutral: callers own their node and edge vocabulary, and the discovery

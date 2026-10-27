@@ -99,6 +99,10 @@ grep -qx 'io/github/webong/ext/system/android/SystemSurfaceObserver.class' <<<"$
 grep -qx 'io/github/webong/ext/system/android/SystemAccessibilityObserver.class' <<<"$classes" || { echo 'classes.jar is missing native accessibility observation' >&2; exit 1; }
 grep -qx 'io/github/webong/ext/system/android/SystemMediaProjection.class' <<<"$classes" || { echo 'classes.jar is missing Android media capture' >&2; exit 1; }
 grep -qx 'io/github/webong/ext/system/android/SystemAudioPlayback.class' <<<"$classes" || { echo 'classes.jar is missing Android audio playback' >&2; exit 1; }
+grep -qx 'io/github/webong/ext/system/android/SystemShare.class' <<<"$classes" || { echo 'classes.jar is missing Android share normalization' >&2; exit 1; }
+grep -qx 'io/github/webong/ext/system/android/SystemKeyboard.class' <<<"$classes" || { echo 'classes.jar is missing Android keyboard helpers' >&2; exit 1; }
+grep -qx 'io/github/webong/ext/system/share/SharePayload.class' <<<"$classes" || { echo 'classes.jar is missing share contracts' >&2; exit 1; }
+grep -qx 'io/github/webong/ext/system/keyboard/KeyboardEditor.class' <<<"$classes" || { echo 'classes.jar is missing keyboard contracts' >&2; exit 1; }
 grep -qx 'io/github/webong/ext/network/NetworkSnapshot.class' <<<"$classes" || { echo 'classes.jar is missing network observation contracts' >&2; exit 1; }
 grep -qx 'io/github/webong/ext/network/android/SystemNetworkObserver.class' <<<"$classes" || { echo 'classes.jar is missing native network observation' >&2; exit 1; }
 if [[ -z "$with_wamr" ]] && grep -q Wamr <<<"$classes"; then

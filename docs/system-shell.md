@@ -59,6 +59,7 @@ copy of the native implementation.
 | bounded clipboard contracts and native access | contract | contract | macOS and iOS | — | yes |
 | credential framing/client contract | yes | yes | — | — | — |
 | local interface/address/route/resolver observation | yes | yes | interfaces and addresses | — | yes |
+| share and keyboard-extension normalization | contract | — | iOS | — | yes |
 
 Missing cells are implementation gaps, not a reason to place the mechanism in
 a consumer. New native implementations should preserve the same bounded,

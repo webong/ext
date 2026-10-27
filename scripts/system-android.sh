@@ -10,12 +10,18 @@ platform="$(ls -d "$sdk"/platforms/android-*/android.jar 2>/dev/null | sort -V |
 mkdir -p "$build/portable" "$build/android"
 javac -Xlint:all -Werror -d "$build/portable" \
   res/system/android/src/main/java/io/github/webong/ext/system/*.java \
+  res/system/android/src/main/java/io/github/webong/ext/system/share/*.java \
+  res/system/android/src/main/java/io/github/webong/ext/system/keyboard/*.java \
   res/system/android/src/test/java/io/github/webong/ext/system/*.java \
+  res/system/android/src/test/java/io/github/webong/ext/system/share/*.java \
+  res/system/android/src/test/java/io/github/webong/ext/system/keyboard/*.java \
   res/system/clipboard/android/src/main/java/io/github/webong/ext/clipboard/*.java \
   res/system/clipboard/android/src/test/java/io/github/webong/ext/clipboard/*.java \
   res/system/network/android/src/main/java/io/github/webong/ext/network/*.java \
   res/system/network/android/src/test/java/io/github/webong/ext/network/*.java
 java -ea -cp "$build/portable" io.github.webong.ext.system.SurfaceTests
+java -ea -cp "$build/portable" io.github.webong.ext.system.share.ShareTests
+java -ea -cp "$build/portable" io.github.webong.ext.system.keyboard.KeyboardTests
 java -ea -cp "$build/portable" io.github.webong.ext.clipboard.ClipboardTests
 java -ea -cp "$build/portable" io.github.webong.ext.network.NetworkTests
 javac -Xlint:all -Werror -classpath "$platform:$build/portable" -d "$build/android" \

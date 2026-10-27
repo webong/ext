@@ -71,6 +71,15 @@ func Run(args []string, stdout, stderr io.Writer) int {
 	if args[0] == "graph" {
 		return graphCommand(args[1:], stdout, stderr)
 	}
+	if args[0] == "service" {
+		return serviceCommand(args[1:], stdout, stderr)
+	}
+	if args[0] == "clipboard" {
+		return clipboardCommand(args[1:], stdout, stderr)
+	}
+	if args[0] == "desktop" {
+		return desktopCommand(args[1:], stdout, stderr)
+	}
 	resolver, err := newResolver()
 	if err != nil {
 		fmt.Fprintf(stderr, "ctx: %v\n", err)
@@ -238,6 +247,17 @@ usage:
   ctx graph resolve shell [--name <name>] [--select <executable>]
   ctx graph resolve filesystem [--path <path>] [--type <type>] [--writable] [--min-free <bytes>] [--select <mount>]
   ctx graph resolve webview [--engine <engine>] [--api <api>] [--abi <generation>] [--version <version>] [--arch <architecture>] [--select <location>]
+  ctx service <render|status|register|unregister|start|stop> --name <name> --executable <path>
+      [--arg <value>]... [--env KEY=VALUE]... [--workdir <path>] [--description <text>]
+      [--restart never|on-failure|always] [--restart-seconds <n>] [--user <id>]
+      [--dir <definition-directory>] [--platform darwin|linux|windows] [--json]
+  ctx clipboard <generation|read|write|clear> [--format <name>] [--generation <g>]
+      [--text <value>|--file <path>] [--max-bytes <n>] [--json]
+  ctx desktop capture --window <id> --out <path|-> [--max-pixels <n>] [--max-bytes <n>]
+      [--timeout <duration>] [--json]
+  ctx desktop input --window <id> (--text <value>|--key <key> [--modifier <name>]...
+      |--move <x,y>|--click <x,y> [--button <name>]|--drag <x1,y1,x2,y2>
+      |--scroll <x,y,dx,dy>) [--max-text-runes <n>] [--timeout <duration>] [--json]
   ctx graph <scan|shells|filesystems|webviews|surfaces|accessibility|permissions|resources|processes|process|status|vertices|edges|snapshot|changes> [arguments...]
   ctx version`)
 }

@@ -19,7 +19,7 @@ Register-ArgumentCompleter -Native -CommandName ctx -ScriptBlock {
     param($wordToComplete, $commandAst, $cursorPosition)
 
     $words = @($commandAst.CommandElements | ForEach-Object { $_.Extent.Text })
-    $commands = @('status', 'resolve', 'explain', 'env', 'set', 'clear', 'profile', 'adapter', 'computer', 'manager', 'browser', 'credential', 'setup', 'ls', 'open', 'doctor', 'build', 'share:manager', 'share:browser', 'share:computer', 'share:credential', 'graph', 'hook', 'plugin', 'run', 'shell', 'real', 'completion', 'version')
+    $commands = @('status', 'resolve', 'explain', 'env', 'set', 'clear', 'profile', 'adapter', 'computer', 'manager', 'browser', 'credential', 'setup', 'ls', 'open', 'doctor', 'build', 'share:manager', 'share:browser', 'share:computer', 'share:credential', 'graph', 'service', 'clipboard', 'desktop', 'hook', 'plugin', 'run', 'shell', 'real', 'completion', 'version')
 
     function Emit-CtxCompletion([string[]]$values) {
         $values | Where-Object { $_ -and $_ -like "$wordToComplete*" } | Sort-Object -Unique | ForEach-Object {

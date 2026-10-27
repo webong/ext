@@ -104,6 +104,29 @@ belongs to the consumer. Window-scoped
 capture and input remain in `res/system` because command-line tools cannot
 address its opaque window identities.
 
+## Commands
+
+`ctx` exposes the contracts that are available to a Go program:
+
+```sh
+ctx service render --platform linux --name example-agent --executable /usr/local/bin/agent
+ctx service status --name com.example.agent --executable /usr/local/bin/agent --dir ~/Library/LaunchAgents
+ctx desktop capture --window window:<opaque-id> --out capture.png
+ctx desktop input --window window:<opaque-id> --text "hello"
+ctx clipboard generation
+ctx clipboard read --format CF_UNICODETEXT --json
+ctx clipboard write --generation <generation> --format CF_UNICODETEXT --text "hello"
+```
+
+`ctx service` renders every platform and runs the lifecycle on macOS and Windows,
+where launchd and Task Scheduler are the operating system mechanisms. Linux
+lifecycle is intentionally not linked into `ctx`: the `systemctl --user` backend
+is `adapters/systemd`, and a product may depend on it without ctx core choosing
+a native tool. `ctx desktop` uses window-scoped native capture and input where
+`res/system` implements them; Linux desktop tools are the X11 and Wayland
+adapters. `ctx clipboard` currently has only the Windows Go backend; the Apple
+and Android bindings ship in the SDKs.
+
 Missing cells are implementation gaps, not a reason to place the mechanism in
 a consumer. New native implementations should preserve the same bounded,
 transport-free contract. Credential-store implementations are deliberately not

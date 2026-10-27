@@ -51,7 +51,8 @@ mkdir -p "$work/classes"
 sources=($(find "$pkg/src/main/java" "$pkg/src/android/java" res/web/android/src/main/java res/web/android/src/android/java \
   res/system/clipboard/android/src/main/java res/system/clipboard/android/src/android/java \
   res/system/android/src/main/java res/system/android/src/android/java \
-  res/system/network/android/src/main/java res/system/network/android/src/android/java -name '*.java' | grep -v '/Wamr[A-Za-z]*\.java$'))
+  res/system/network/android/src/main/java res/system/network/android/src/android/java \
+  res/ml/android/src/main/java res/ml/android/src/android/java -name '*.java' | grep -v '/Wamr[A-Za-z]*\.java$'))
 [[ -z "$with_wamr" ]] || sources+=($(find "$pkg/src/main/java" -name 'Wamr*.java'))
 javac -Xlint:all --release 17 -classpath "$jar" -d "$work/classes" "${sources[@]}"
 ( cd "$work/classes" && jar cf "$work/aar/classes.jar" . )
@@ -99,6 +100,8 @@ grep -qx 'io/github/webong/ext/system/android/SystemSurfaceObserver.class' <<<"$
 grep -qx 'io/github/webong/ext/system/android/SystemAccessibilityObserver.class' <<<"$classes" || { echo 'classes.jar is missing native accessibility observation' >&2; exit 1; }
 grep -qx 'io/github/webong/ext/system/android/SystemMediaProjection.class' <<<"$classes" || { echo 'classes.jar is missing Android media capture' >&2; exit 1; }
 grep -qx 'io/github/webong/ext/system/android/SystemAudioPlayback.class' <<<"$classes" || { echo 'classes.jar is missing Android audio playback' >&2; exit 1; }
+grep -qx 'io/github/webong/ext/ml/MlStore.class' <<<"$classes" || { echo 'classes.jar is missing ML store' >&2; exit 1; }
+grep -qx 'io/github/webong/ext/ml/MlProvider.class' <<<"$classes" || { echo 'classes.jar is missing ML provider contract' >&2; exit 1; }
 grep -qx 'io/github/webong/ext/system/android/SystemShare.class' <<<"$classes" || { echo 'classes.jar is missing Android share normalization' >&2; exit 1; }
 grep -qx 'io/github/webong/ext/system/android/SystemKeyboard.class' <<<"$classes" || { echo 'classes.jar is missing Android keyboard helpers' >&2; exit 1; }
 grep -qx 'io/github/webong/ext/system/share/SharePayload.class' <<<"$classes" || { echo 'classes.jar is missing share contracts' >&2; exit 1; }

@@ -33,6 +33,7 @@ let package = Package(
         .library(name: "ExtWebKit", targets: ["ExtWebKit"]),
         .library(name: "ExtClipboard", targets: ["ExtClipboard"]),
         .library(name: "ExtSystem", targets: ["ExtSystem"]),
+        .library(name: "ExtML", targets: ["ExtML"]),
         .library(name: "ExtNetwork", targets: ["ExtNetwork"]),
     ],
     targets: [
@@ -48,6 +49,7 @@ let package = Package(
         .target(name: "ExtWebKit", dependencies: ["ExtWeb"]),
         .target(name: "ExtClipboard"),
         .target(name: "ExtSystem"),
+        .target(name: "ExtML"),
         .target(name: "ExtNetwork"),
         .testTarget(name: "ExtPluginGuestTests", dependencies: ["ExtPluginGuest", "ExtPluginExports", "CExtEngine"]),
     ],

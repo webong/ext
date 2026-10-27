@@ -127,6 +127,15 @@ a native tool. `ctx desktop` uses window-scoped native capture and input where
 adapters. `ctx clipboard` currently has only the Windows Go backend; the Apple
 and Android bindings ship in the SDKs.
 
+## On-device models
+
+`res/ml` defines portable model manifests, verified artifact installation,
+model inspection, and bounded inference through a caller-selected provider.
+The iOS CoreML binding ships through `ExtML` in `pkg/ext-ios`; the Android
+NNAPI/TensorFlow Lite binding compiles into the `pkg/ext-android` AAR. The
+shared library owns no model download, provider selection, authorization, or
+remote protocol.
+
 Missing cells are implementation gaps, not a reason to place the mechanism in
 a consumer. New native implementations should preserve the same bounded,
 transport-free contract. Credential-store implementations are deliberately not

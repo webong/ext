@@ -34,6 +34,7 @@ use (
 	./adapters/firefox
 	./adapters/safari
 	./res/system
+	./res/ml
 	./pkg/ext-go
 	./pkg/ext-go/hashicorp
 	./pkg/ext-go/wasm

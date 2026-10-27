@@ -49,6 +49,7 @@ copy of the native implementation.
 | Mechanism | Go/macOS | Go/Windows | Apple SDK | .NET/Windows | Android |
 | --- | --- | --- | --- | --- | --- |
 | host/process/filesystem observation | yes | yes | platform subset | — | platform subset |
+| host resource capacity, container, uptime | yes | yes | — | — | — |
 | surface/accessibility/permission observation | yes | yes | yes | — | app-visible subset |
 | window capture and atomic input | yes, where the legacy Core Graphics symbol remains | yes | macOS, ScreenCaptureKit/Accessibility | — | — |
 | accessibility actions and typed Apple Events | — | — | macOS | — | — |

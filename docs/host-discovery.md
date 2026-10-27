@@ -19,6 +19,7 @@ ctx graph vertices display
 ctx graph vertices window
 ctx graph vertices accessibility-element
 ctx graph vertices permission
+ctx graph vertices host-resource
 ctx graph edges has-shell
 ctx graph edges has-filesystem
 ctx graph edges has-webview
@@ -26,6 +27,7 @@ ctx graph edges has-display
 ctx graph edges has-window
 ctx graph edges has-accessibility-element
 ctx graph edges has-permission
+ctx graph edges has-host-resource
 ```
 
 `shells`, `filesystems`, `webviews`, `surfaces`, `accessibility`, and `permissions`
@@ -133,22 +135,30 @@ alias keeps it from colliding with a variable of your own called `system`:
 
 ```go
 inventory, err := systemgraph.DiscoverHost(ctx)
-// Shells, Filesystems, Webviews, Desktop, Surfaces, Accessibility, and
-// Permissions are typed observations.
+// Shells, Filesystems, Webviews, Desktop, Surfaces, Accessibility,
+// Permissions, and Resources are typed observations.
 
 inventory, err = system.ScanHost(ctx)
 // ScanHost discovers and atomically projects all host inventories into the graph.
 ```
 
 `DiscoverShells`, `DiscoverFilesystems`, `DiscoverWebviews`, `DiscoverDesktop`,
-`DiscoverSurfaces`, `DiscoverAccessibility`, and `DiscoverPermissions` can be called
-independently.
+`DiscoverSurfaces`, `DiscoverAccessibility`, `DiscoverPermissions`, and
+`DiscoverResources` can be called independently.
 `Graph.ObserveHost` accepts a `HostInventory`; a nil slice or pointer preserves
 that part of the existing inventory, while a non-nil empty slice removes its old entries.
 The schema uses `shell`, `filesystem`, `webview`, `desktop`, `display`, `window`,
-`accessibility-element`, `permission`, and `host-inventory` vertices
-linked to `machine/local`. The generic graph store owns persistence and transactions;
+`accessibility-element`, `permission`, `host-resource`, and `host-inventory`
+vertices linked to `machine/local`. The generic graph store owns persistence and transactions;
 `res/system` owns host discovery and its vocabulary.
+
+Resource discovery is a local, read-only observation of OS and architecture,
+logical CPUs, effective CPU and memory capacity, container markers, and uptime
+or boot time. Linux applies cgroup v2 and v1 CPU and memory quotas; a missing or
+malformed cgroup file leaves the host value in place with an explicit
+`complete` or `partial` status. A platform that exposes no safe source reports
+`unsupported` instead of inventing a value. Network shape stays in
+`res/system/network` and is not repeated in the resource projection.
 
 Desktop discovery is a local, read-only observation. It reports whether this process can see an
 interactive native desktop, local X11 or Wayland endpoints, and recording prerequisites. It does

@@ -13,7 +13,7 @@ and product policy.
 
 | Package | What it is |
 | --- | --- |
-| `system` (the module root) | Host, native desktop, display/window, accessibility, permission-state, shell, filesystem and web view discovery; process inspection; bounded window capture and atomic input |
+| `system` (the module root) | Host resource capacity and container state, native desktop, display/window, accessibility, permission-state, shell, filesystem and web view discovery; process inspection; bounded window capture and atomic input |
 | `system/clipboard` | Bounded, transport-free clipboard contracts and the Apple and Android native implementations shipped by the platform SDKs |
 | `system/credential` | Portable credential-store adapter framing and the local CTX credential client; native stores remain product adapters |
 | `system/graph` | A generic, namespaced, directed graph store with transactions, in memory or in a file |

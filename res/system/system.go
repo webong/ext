@@ -46,7 +46,7 @@ func New(store graph.Store) (*Graph, error) {
 
 func validateSchema(view graph.View, tx graph.Transaction) error {
 	allowedKinds := map[string]bool{Namespace + "/machine": true, Namespace + "/shell-session": true, Namespace + "/directory": true, Namespace + "/project": true, Namespace + "/profile": true, Namespace + "/selection": true, Namespace + "/browser-context": true, Namespace + "/inventory": true, Namespace + "/adapter": true, Namespace + "/capability": true, Namespace + "/support": true, Namespace + "/context": true, Namespace + "/resource": true, Namespace + "/alias": true,
-		Namespace + "/host-inventory": true, Namespace + "/shell": true, Namespace + "/filesystem": true, Namespace + "/webview": true, Namespace + "/desktop": true, Namespace + "/display": true, Namespace + "/window": true, Namespace + "/accessibility-element": true, Namespace + "/permission": true, Namespace + "/process": true, Namespace + "/executable": true, Namespace + "/application": true, Namespace + "/process-resource": true}
+		Namespace + "/host-inventory": true, Namespace + "/shell": true, Namespace + "/filesystem": true, Namespace + "/webview": true, Namespace + "/desktop": true, Namespace + "/display": true, Namespace + "/window": true, Namespace + "/accessibility-element": true, Namespace + "/permission": true, Namespace + "/process": true, Namespace + "/executable": true, Namespace + "/application": true, Namespace + "/process-resource": true, Namespace + "/host-resource": true}
 	for _, vertex := range tx.Vertices {
 		if !allowedKinds[vertex.Kind] {
 			return fmt.Errorf("unsupported ext.system kind %q", vertex.Kind)
@@ -68,6 +68,7 @@ func validateSchema(view graph.View, tx graph.Transaction) error {
 		Namespace + "/has-accessibility-element": {Namespace + "/machine", Namespace + "/accessibility-element"},
 		Namespace + "/has-permission":            {Namespace + "/machine", Namespace + "/permission"},
 		Namespace + "/has-host-inventory":        {Namespace + "/machine", Namespace + "/host-inventory"},
+		Namespace + "/has-host-resource":         {Namespace + "/machine", Namespace + "/host-resource"},
 		Namespace + "/working-in":                {Namespace + "/shell-session", Namespace + "/directory"},
 		Namespace + "/within":                    {Namespace + "/directory", Namespace + "/project"},
 		Namespace + "/uses-profile":              {Namespace + "/shell-session", Namespace + "/profile"},

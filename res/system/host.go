@@ -60,6 +60,7 @@ type HostInventory struct {
 	Surfaces        *SurfaceSnapshot       `json:"surfaces,omitempty"`
 	Accessibility   *AccessibilitySnapshot `json:"accessibility,omitempty"`
 	Permissions     *PermissionSnapshot    `json:"permissions,omitempty"`
+	Resources       *ResourceInfo          `json:"resources,omitempty"`
 	shellSearchPath *string
 }
 
@@ -187,7 +188,11 @@ func DiscoverHost(ctx context.Context) (HostInventory, error) {
 	if err != nil {
 		return HostInventory{}, err
 	}
-	return HostInventory{Shells: shells, Filesystems: filesystems, Webviews: webviews, Desktop: &desktop, Surfaces: &surfaces, Accessibility: &accessibility, Permissions: &permissions}, nil
+	resources, err := DiscoverResources(ctx)
+	if err != nil {
+		return HostInventory{}, err
+	}
+	return HostInventory{Shells: shells, Filesystems: filesystems, Webviews: webviews, Desktop: &desktop, Surfaces: &surfaces, Accessibility: &accessibility, Permissions: &permissions, Resources: &resources}, nil
 }
 
 // ScanHost refreshes all host inventories in the graph and returns the facts.
@@ -202,7 +207,7 @@ func (g *Graph) ScanHost(ctx context.Context) (HostInventory, error) {
 // ObserveHost reconciles host-owned records and their machine relationships.
 // Adapter inventory, shell sessions, and other namespaces are preserved.
 func (g *Graph) ObserveHost(ctx context.Context, inventory HostInventory) error {
-	if inventory.Shells == nil && inventory.Filesystems == nil && inventory.Webviews == nil && inventory.Desktop == nil && inventory.Surfaces == nil && inventory.Accessibility == nil && inventory.Permissions == nil {
+	if inventory.Shells == nil && inventory.Filesystems == nil && inventory.Webviews == nil && inventory.Desktop == nil && inventory.Surfaces == nil && inventory.Accessibility == nil && inventory.Permissions == nil && inventory.Resources == nil {
 		return nil
 	}
 	now := time.Now().UTC()
@@ -364,6 +369,26 @@ func (g *Graph) ObserveHost(ctx context.Context, inventory HostInventory) error 
 			}
 			add("host-accessibility/"+digest(element.ID), "accessibility-element", "has-accessibility-element", attributes)
 		}
+	}
+	if inventory.Resources != nil {
+		resources := *inventory.Resources
+		if resources.OS == "" || resources.Architecture == "" || resources.ObservedAt.IsZero() ||
+			resources.LogicalCPUs <= 0 || resources.CPUStatus.State == "" ||
+			resources.MemoryStatus.State == "" || resources.UptimeStatus.State == "" ||
+			resources.Container.State == "" {
+			return errors.New("host resource observation is incomplete")
+		}
+		managedKinds[Namespace+"/host-resource"] = true
+		managedTypes[Namespace+"/has-host-resource"] = true
+		add("host-inventory/resources", "host-inventory", "has-host-inventory", map[string]any{
+			"kind": "resource", "count": 1, "platform": resources.OS,
+			"observed_at": resources.ObservedAt.Format(time.RFC3339Nano), "environment": hostEnvironment(),
+		})
+		attributes, err := jsonAttributes(resources)
+		if err != nil {
+			return err
+		}
+		add("host-resources/local", "host-resource", "has-host-resource", attributes)
 	}
 	if inventory.Permissions != nil {
 		permissions := *inventory.Permissions

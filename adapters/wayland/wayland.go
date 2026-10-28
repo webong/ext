@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"image/png"
 	"io"
+	"os"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -182,9 +183,25 @@ func wrapPointerError(err error) error {
 	return fmt.Errorf("%w: ydotool failed: %v", system.ErrDesktopUnavailable, err)
 }
 
+// codecAndMuxer maps a recording container format to the wf-recorder codec and
+// muxer names. mp4 to a non-seekable stdout pipe is not supported by
+// wf-recorder's interface; webm is the recommended streaming container.
+func codecAndMuxer(format string) (codec, muxer string, err error) {
+	switch format {
+	case "webm":
+		return "libvpx-vp9", "webm", nil
+	case "mp4":
+		return "libx264", "mp4", nil
+	default:
+		return "", "", fmt.Errorf("unsupported recording format %q", format)
+	}
+}
+
 // Record starts a bounded recording through the configured recorder. Wayland
 // recording requires a compositor recorder (wf-recorder); this adapter does not
 // select one and reports ErrDesktopUnavailable when none is configured.
+// Window-scoped recording is not supported; output-scoped capture is the only
+// desktop-scoped mechanism. No desktop portal or approval flow is used.
 func (d *Driver) Record(ctx context.Context, options media.RecordingOptions) (media.Recording, error) {
 	if d.recorder == "" {
 		return nil, fmt.Errorf("%w: Wayland recording requires a compositor recorder or portal, which this adapter does not select",
@@ -194,10 +211,15 @@ func (d *Driver) Record(ctx context.Context, options media.RecordingOptions) (me
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", system.ErrInvalidRecording, err)
 	}
+	codec, muxer, err := codecAndMuxer(options.Format)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", system.ErrInvalidRecording, err)
+	}
 	arguments := []string{
-		"--fps", strconv.Itoa(options.FrameRate),
-		"--codec", options.Format,
-		"--file", "-",
+		"--framerate", strconv.Itoa(options.FrameRate),
+		"--codec", codec,
+		"--muxer", muxer,
+		"--file", "pipe:1",
 	}
 	if d.output != "" {
 		arguments = append([]string{"--output", d.output}, arguments...)
@@ -206,40 +228,98 @@ func (d *Driver) Record(ctx context.Context, options media.RecordingOptions) (me
 	if err != nil {
 		return nil, fmt.Errorf("%w: %s failed to start: %v", system.ErrDesktopUnavailable, d.recorder, err)
 	}
-	return &recording{process: process, output: process.Stdout()}, nil
+	return &recording{
+		process:     process,
+		output:      process.Stdout(),
+		maxBytes:    options.MaxBytes,
+		maxDuration: options.MaxDuration,
+		started:     time.Now(),
+		done:        make(chan struct{}),
+	}, nil
 }
 
 type recording struct {
-	process Process
-	output  io.ReadCloser
-	once    sync.Once
+	process     Process
+	output      io.ReadCloser
+	maxBytes    int64
+	maxDuration time.Duration
+	started     time.Time
+	bytesRead   int64
+	stopped     bool
+	limitErr    error
+	done        chan struct{}
+	mu          sync.Mutex
+	once        sync.Once
 }
 
-func (r *recording) Read(buffer []byte) (int, error) { return r.output.Read(buffer) }
+func (r *recording) Read(p []byte) (int, error) {
+	r.mu.Lock()
+	if r.stopped {
+		r.mu.Unlock()
+		return 0, io.EOF
+	}
+	if time.Since(r.started) >= r.maxDuration {
+		r.stopped = true
+		r.limitErr = media.ErrRecordingLimit
+		r.mu.Unlock()
+		return 0, media.ErrRecordingLimit
+	}
+	reader := r.output
+	r.mu.Unlock()
+
+	n, err := reader.Read(p)
+
+	r.mu.Lock()
+	r.bytesRead += int64(n)
+	if r.bytesRead >= r.maxBytes {
+		r.stopped = true
+		r.limitErr = media.ErrRecordingLimit
+		r.mu.Unlock()
+		if err == nil || err == io.EOF {
+			err = media.ErrRecordingLimit
+		}
+		return n, err
+	}
+	r.mu.Unlock()
+	return n, err
+}
 
 func (r *recording) Close() error { return r.Stop(context.Background()) }
 
+// Stop ends the recording gracefully: SIGINT to the recorder, then a bounded
+// forced kill if it does not exit. It is safe to call after an error and after
+// Close; only the first call has an effect.
 func (r *recording) Stop(ctx context.Context) error {
-	var err error
+	var stopErr error
 	r.once.Do(func() {
-		_ = r.output.Close()
-		_ = r.process.Kill()
-		done := make(chan error, 1)
-		go func() { done <- r.process.Wait() }()
-		select {
-		case waitErr := <-done:
-			err = waitErr
-		case <-ctx.Done():
-			err = ctx.Err()
+		close(r.done)
+		// Graceful: ask the recorder to finish writing its trailer.
+		if sigErr := r.process.Signal(os.Interrupt); sigErr == nil {
+			done := make(chan error, 1)
+			go func() { done <- r.process.Wait() }()
+			select {
+			case stopErr = <-done:
+			case <-time.After(2 * time.Second):
+				_ = r.process.Kill()
+				stopErr = <-done
+			case <-ctx.Done():
+				_ = r.process.Kill()
+				stopErr = ctx.Err()
+			}
+		} else {
+			_ = r.process.Kill()
+			stopErr = r.process.Wait()
 		}
+		_ = r.output.Close()
 	})
-	return err
+	return stopErr
 }
 
 type Process interface {
 	Stdout() io.ReadCloser
 	Wait() error
 	Kill() error
+	Signal(os.Signal) error
 }
 
 type Starter func(context.Context, string, ...string) (Process, error)
@@ -268,6 +348,12 @@ func (p *execProcess) Kill() error {
 		return nil
 	}
 	return p.command.Process.Kill()
+}
+func (p *execProcess) Signal(sig os.Signal) error {
+	if p.command.Process == nil {
+		return nil
+	}
+	return p.command.Process.Signal(sig)
 }
 
 var _ system.DesktopDriver = (*Driver)(nil)

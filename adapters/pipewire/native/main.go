@@ -26,10 +26,10 @@ func run(args []string) int {
 	case "validate":
 		return 0
 	case "doctor":
-		command := exec.Command("pw-cli", "--version")
+		command := exec.Command("pw-dump", "--version")
 		command.Stdout, command.Stderr = os.Stdout, os.Stderr
 		if err := command.Run(); err != nil {
-			fmt.Fprintf(os.Stderr, "pipewire: pw-cli is unavailable: %v\n", err)
+			fmt.Fprintf(os.Stderr, "pipewire: pw-dump is unavailable: %v\n", err)
 			return 127
 		}
 		return 0

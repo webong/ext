@@ -93,14 +93,16 @@ func (windowsClipboard) Read(ctx context.Context, maxBytes int64, formats []stri
 		var err error
 		if identifier == standardClipboardFormats["CF_BITMAP"] {
 			// CF_BITMAP is an HBITMAP handle, not a global memory object. Copy
-			// its pixels into a DIB block and release the borrowed handle.
-			data, err = bitmapToDIB(handle)
+			// its pixels into a DIB block and release the borrowed handle. The
+			// HBITMAP is borrowed from the clipboard and is never released or
+			// retained.
+			data, err = bitmapToDIB(handle, maxBytes-total)
 			if err != nil {
 				return Snapshot{}, err
 			}
 			name = "CF_DIB"
 		} else {
-			data, err = globalMemoryBytes(handle)
+			data, err = globalMemoryBytes(handle, maxBytes-total)
 			if err != nil {
 				return Snapshot{}, err
 			}
@@ -166,7 +168,7 @@ func (windowsClipboard) Write(ctx context.Context, request WriteRequest, maxByte
 				// CF_BITMAP is handle-backed: convert the DIB bytes into an
 				// HBITMAP and hand ownership to the clipboard. On failure the
 				// newly created bitmap is freed so nothing leaks.
-				hbitmap, err := dibToBitmap(data)
+				hbitmap, err := dibToBitmap(data, maxBytes-int64(len(data)))
 				if err != nil {
 					return Receipt{}, err
 				}
@@ -237,10 +239,13 @@ func clipboardFormatIdentifier(name string) (uint32, error) {
 	return uint32(identifier), nil
 }
 
-func globalMemoryBytes(handle uintptr) ([]byte, error) {
+func globalMemoryBytes(handle uintptr, maxBytes int64) ([]byte, error) {
 	size, _, _ := procGlobalSize.Call(handle)
 	if size == 0 {
 		return nil, fmt.Errorf("%w: clipboard memory has no size", ErrInvalid)
+	}
+	if int64(size) > maxBytes {
+		return nil, fmt.Errorf("%w: clipboard memory of %d bytes exceeds the %d byte bound", ErrLimit, size, maxBytes)
 	}
 	pointer, _, lockErr := procGlobalLock.Call(handle)
 	if pointer == 0 {
@@ -287,20 +292,6 @@ type bitmap struct {
 	bmBits       unsafe.Pointer
 }
 
-type bitmapInfoHeader struct {
-	biSize          uint32
-	biWidth         int32
-	biHeight        int32
-	biPlanes        uint16
-	biBitCount      uint16
-	biCompression   uint32
-	biSizeImage     uint32
-	biXPelsPerMeter int32
-	biYPelsPerMeter int32
-	biClrUsed       uint32
-	biClrImportant  uint32
-}
-
 type bitmapInfo struct {
 	bmiHeader bitmapInfoHeader
 	bmiColors [4]uint32
@@ -308,8 +299,9 @@ type bitmapInfo struct {
 
 // bitmapToDIB copies an HBITMAP's pixels into a device-independent bitmap (DIB)
 // block. The HBITMAP is borrowed from the clipboard and is never released or
-// retained; only its pixel bytes are copied out.
-func bitmapToDIB(hbitmap uintptr) ([]byte, error) {
+// retained; only its pixel bytes are copied out. maxBytes bounds the total DIB
+// size before any allocation.
+func bitmapToDIB(hbitmap uintptr, maxBytes int64) ([]byte, error) {
 	var source bitmap
 	size := uintptr(unsafe.Sizeof(source))
 	if result, _, _ := procGetObject.Call(hbitmap, size, uintptr(unsafe.Pointer(&source))); result == 0 {
@@ -320,12 +312,25 @@ func bitmapToDIB(hbitmap uintptr) ([]byte, error) {
 	if width <= 0 || height <= 0 {
 		return nil, fmt.Errorf("%w: clipboard bitmap has empty dimensions", ErrInvalid)
 	}
+	// Checked arithmetic: width*32 cannot overflow int on 64-bit platforms,
+	// but validate defensively.
+	if width > 1<<22 || height > 1<<22 {
+		return nil, fmt.Errorf("%w: clipboard bitmap dimensions are implausible", ErrInvalid)
+	}
+	rowBytes := ((width*32 + 31) / 32) * 4
+	imageSize := int64(rowBytes) * int64(height)
+	if imageSize < 0 || imageSize > maxBytes {
+		return nil, fmt.Errorf("%w: clipboard bitmap pixel data of %d bytes exceeds the %d byte bound", ErrLimit, imageSize, maxBytes)
+	}
+	headerSize := int64(unsafe.Sizeof(bitmapInfoHeader{}))
+	if headerSize+imageSize > maxBytes {
+		return nil, fmt.Errorf("%w: clipboard bitmap DIB of %d bytes exceeds the %d byte bound", ErrLimit, headerSize+imageSize, maxBytes)
+	}
 
 	hwnd, _, _ := procGetDesktopWindow.Call()
 	hdc, _, _ := procGetDC.Call(hwnd)
 	defer procReleaseDC.Call(hwnd, hdc)
 
-	rowBytes := ((width*32 + 31) / 32) * 4
 	header := bitmapInfoHeader{
 		biSize:        uint32(unsafe.Sizeof(bitmapInfoHeader{})),
 		biWidth:       int32(width),
@@ -333,9 +338,9 @@ func bitmapToDIB(hbitmap uintptr) ([]byte, error) {
 		biPlanes:      1,
 		biBitCount:    32,
 		biCompression: 0, // BI_RGB
-		biSizeImage:   uint32(rowBytes * height),
+		biSizeImage:   uint32(imageSize),
 	}
-	bits := make([]byte, header.biSizeImage)
+	bits := make([]byte, imageSize)
 	if result, _, _ := procGetDIBits.Call(hdc, hbitmap, 0, uintptr(height),
 		uintptr(unsafe.Pointer(&bits[0])), uintptr(unsafe.Pointer(&header)), 0); result == 0 {
 		return nil, fmt.Errorf("%w: cannot copy clipboard bitmap bits", ErrInvalid)
@@ -350,19 +355,25 @@ func bitmapToDIB(hbitmap uintptr) ([]byte, error) {
 
 // dibToBitmap creates an HBITMAP from a DIB block and transfers ownership to
 // the caller. The clipboard takes ownership once SetClipboardData succeeds.
-func dibToBitmap(dib []byte) (uintptr, error) {
-	if len(dib) < int(unsafe.Sizeof(bitmapInfoHeader{})) {
-		return 0, fmt.Errorf("%w: clipboard DIB is too small", ErrInvalid)
+// On failure the newly created bitmap is freed so nothing leaks. maxBytes
+// bounds the DIB size before any GDI allocation.
+func dibToBitmap(dib []byte, maxBytes int64) (uintptr, error) {
+	if int64(len(dib)) > maxBytes {
+		return 0, fmt.Errorf("%w: clipboard DIB of %d bytes exceeds the %d byte bound", ErrLimit, len(dib), maxBytes)
 	}
-	header := (*bitmapInfoHeader)(unsafe.Pointer(&dib[0]))
-	if header.biSize != uint32(unsafe.Sizeof(bitmapInfoHeader{})) {
-		return 0, fmt.Errorf("%w: clipboard DIB header is malformed", ErrInvalid)
+	_, _, bitsOffset, err := validateDIBHeader(dib)
+	if err != nil {
+		return 0, err
 	}
-	bits := dib[unsafe.Sizeof(bitmapInfoHeader{}):]
-	bi := bitmapInfo{bmiHeader: *header}
+	bits := dib[bitsOffset:]
+
 	hwnd, _, _ := procGetDesktopWindow.Call()
 	hdc, _, _ := procGetDC.Call(hwnd)
 	defer procReleaseDC.Call(hwnd, hdc)
+
+	// Re-read the header after validation; it is known to be well-formed.
+	header := (*bitmapInfoHeader)(unsafe.Pointer(&dib[0]))
+	bi := bitmapInfo{bmiHeader: *header}
 	hbitmap, _, _ := procCreateDIBitmap.Call(
 		hdc, uintptr(unsafe.Pointer(header)), 1, // CBM_INIT
 		uintptr(unsafe.Pointer(&bits[0])), uintptr(unsafe.Pointer(&bi)), 0, // DIB_RGB_COLORS

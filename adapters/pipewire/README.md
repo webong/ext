@@ -1,7 +1,7 @@
 # PipeWire audio adapter
 
 `github.com/webong/ext/adapters/pipewire` implements `res/system/audio` with
-`pw-cli`, `pw-record`, and `pw-play`. It owns PipeWire PCM device listing,
+`pw-dump`, `pw-record`, and `pw-play`. It owns PipeWire PCM device listing,
 direction-prefixed device identities, and bounded S16_LE streaming.
 
 The caller selects the device and supplies the packet bounds; the adapter

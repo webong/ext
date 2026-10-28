@@ -9,9 +9,14 @@ pointer input. A caller may explicitly configure `Pointer: "ydotool"` to route
 move, click, and drag through `ydotool`; that requires a running `ydotoold`
 daemon with `/dev/uinput` access, and the caller owns that privilege. Without
 it, pointer operations fail explicitly. `ydotool` has no wheel operation, so
-scroll is unavailable. Recording is an explicit gap: it requires a
-compositor-specific recorder or an XDG desktop portal approval flow, which
-belongs to the consumer; the adapter does not select one.
+scroll is unavailable.
+
+A caller may explicitly configure `Recorder: "wf-recorder"` for bounded
+desktop-scoped recording. The adapter maps `webm` to `libvpx-vp9`/`webm` and
+`mp4` to `libx264`/`mp4`, uses `--framerate`, `--muxer`, and `--file pipe:1`,
+and enforces `MaxDuration`/`MaxBytes` while reading. Stop sends SIGINT, then
+forcibly kills after a bounded grace period. Window-scoped recording is not
+supported; no desktop portal or approval flow is used.
 
 The caller selects this driver and every bound. The adapter chooses no product
 identity, output, or approval flow.

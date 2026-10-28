@@ -32,7 +32,7 @@ jobs:
       - name: Test library modules
         shell: bash # the loop is bash; Windows runners default to PowerShell
         run: |
-          for module in cmd/ext src/ctx src/ctn res/system pkg/ext-go pkg/ext-go/engine pkg/ext-go/cgoengine pkg/ext-go/hashicorp pkg/ext-go/wasm adapters/wasm adapters/evm adapters/systemd adapters/pulseaudio adapters/alsa adapters/x11 adapters/wayland res/web; do
+          for module in cmd/ext src/ctx src/ctn res/system pkg/ext-go pkg/ext-go/engine pkg/ext-go/cgoengine pkg/ext-go/hashicorp pkg/ext-go/wasm adapters/wasm adapters/evm adapters/systemd adapters/pulseaudio adapters/alsa adapters/x11 adapters/wayland adapters/pipewire res/web; do
             (cd "$module" && go test ./...) || exit 1
           done
       - name: Validate isolated native graph processes
@@ -46,6 +46,23 @@ jobs:
       - name: Validate Android system network contracts
         if: runner.os != 'Windows'
         run: scripts/network-android.sh
+      - name: PipeWire native integration (Linux, opt-in)
+        if: runner.os == 'Linux'
+        env:
+          EXT_PIPEWIRE_NATIVE_TESTS: '1'
+        run: go test -v ./adapters/pipewire -run '^TestNativePipeWire' -count=1
+      - name: Generic iOS ExtSystem build
+        if: runner.os == 'macOS'
+        run: swift build --target ExtSystem --destination 'generic/platform=iOS'
+        working-directory: res/system/ios
+      - name: Generic iOS ExtNetwork build
+        if: runner.os == 'macOS'
+        run: swift build --target ExtNetwork --destination 'generic/platform=iOS'
+        working-directory: res/system/network/ios
+      - name: Swift tests
+        if: runner.os == 'macOS'
+        run: swift test
+        working-directory: res/system/network/ios
       - name: Validate Windows system and WebView2 libraries
         if: runner.os == 'Windows'
         shell: pwsh

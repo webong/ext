@@ -97,6 +97,7 @@ grep -qx 'io/github/webong/ext/clipboard/ClipboardPolicy.class' <<<"$classes" ||
 grep -qx 'io/github/webong/ext/clipboard/android/SystemClipboard.class' <<<"$classes" || { echo 'classes.jar is missing native clipboard support' >&2; exit 1; }
 grep -qx 'io/github/webong/ext/system/SurfaceSnapshot.class' <<<"$classes" || { echo 'classes.jar is missing system observation contracts' >&2; exit 1; }
 grep -qx 'io/github/webong/ext/system/android/SystemSurfaceObserver.class' <<<"$classes" || { echo 'classes.jar is missing native system observation' >&2; exit 1; }
+grep -qx 'io/github/webong/ext/system/android/SystemResourcesObserver.class' <<<"$classes" || { echo 'classes.jar is missing native resource observation' >&2; exit 1; }
 grep -qx 'io/github/webong/ext/system/android/SystemAccessibilityObserver.class' <<<"$classes" || { echo 'classes.jar is missing native accessibility observation' >&2; exit 1; }
 grep -qx 'io/github/webong/ext/system/android/SystemMediaProjection.class' <<<"$classes" || { echo 'classes.jar is missing Android media capture' >&2; exit 1; }
 grep -qx 'io/github/webong/ext/system/android/SystemAudioPlayback.class' <<<"$classes" || { echo 'classes.jar is missing Android audio playback' >&2; exit 1; }

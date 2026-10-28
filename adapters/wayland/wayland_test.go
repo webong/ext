@@ -7,7 +7,9 @@ import (
 	"image"
 	"image/png"
 	"io"
+	"os"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -140,7 +142,7 @@ func TestRecordingUsesConfiguredRecorder(t *testing.T) {
 		t.Fatal(err)
 	}
 	joined := strings.Join(runner.calls, " ")
-	for _, fragment := range []string{"wf-recorder --fps 30 --codec webm --file -"} {
+	for _, fragment := range []string{"wf-recorder --framerate 30 --codec libvpx-vp9 --muxer webm --file pipe:1"} {
 		if !strings.Contains(joined, fragment) {
 			t.Errorf("recording arguments are missing %q:\n%s", fragment, joined)
 		}
@@ -150,6 +152,146 @@ func TestRecordingUsesConfiguredRecorder(t *testing.T) {
 	}
 	if _, err := recording.Read(make([]byte, 16)); err != nil && err != io.EOF {
 		t.Fatalf("read = %v", err)
+	}
+}
+
+func TestRecordingMapsFormatToCodecAndMuxer(t *testing.T) {
+	for _, tc := range []struct {
+		format, codec, muxer string
+	}{
+		{"webm", "libvpx-vp9", "webm"},
+		{"mp4", "libx264", "mp4"},
+	} {
+		var received []string
+		process := &fakeProcess{out: bytes.NewBuffer(nil), in: bytes.NewBuffer(nil)}
+		driver := New(Config{Recorder: "wf-recorder",
+			Start: func(ctx context.Context, name string, arguments ...string) (Process, error) {
+				received = append([]string(nil), arguments...)
+				return process, nil
+			}})
+		_, err := driver.Record(context.Background(), media.RecordingOptions{Format: tc.format, FrameRate: 30})
+		if err != nil {
+			t.Fatalf("%s = %v", tc.format, err)
+		}
+		for _, fragment := range []string{"--framerate", "30", "--codec", tc.codec, "--muxer", tc.muxer, "--file", "pipe:1"} {
+			found := false
+			for _, arg := range received {
+				if arg == fragment {
+					found = true
+					break
+				}
+			}
+			if !found {
+				t.Errorf("%s recording args missing %q: %#v", tc.format, fragment, received)
+			}
+		}
+	}
+}
+
+func TestRecordingRejectsUnsupportedFormat(t *testing.T) {
+	driver := New(Config{Recorder: "wf-recorder"})
+	if _, err := driver.Record(context.Background(), media.RecordingOptions{Format: "avi"}); err == nil {
+		t.Fatal("unsupported format was accepted")
+	}
+}
+
+func TestRecordingEnforcesByteLimit(t *testing.T) {
+	process := &fakeProcess{out: bytes.NewBufferString(strings.Repeat("x", 500)), in: bytes.NewBuffer(nil)}
+	driver := New(Config{Recorder: "wf-recorder",
+		Start: func(ctx context.Context, name string, arguments ...string) (Process, error) {
+			return process, nil
+		}})
+	recording, err := driver.Record(context.Background(), media.RecordingOptions{Format: "webm", FrameRate: 30, MaxDuration: time.Minute, MaxBytes: 256})
+	if err != nil {
+		t.Fatal(err)
+	}
+	buf := make([]byte, 256)
+	total := 0
+	var limitErr error
+	for {
+		n, err := recording.Read(buf[total:])
+		total += n
+		if err != nil {
+			limitErr = err
+			break
+		}
+		if total >= len(buf) {
+			break
+		}
+	}
+	if !errors.Is(limitErr, media.ErrRecordingLimit) {
+		t.Fatalf("byte limit error = %v", limitErr)
+	}
+	// A subsequent read after the limit reports EOF.
+	if _, err := recording.Read(buf); err != io.EOF {
+		t.Fatalf("read after limit = %v", err)
+	}
+	// Stop is idempotent and not fatal after the limit.
+	if err := recording.Stop(context.Background()); err != nil {
+		t.Fatalf("stop after byte limit = %v", err)
+	}
+	if err := recording.Stop(context.Background()); err != nil {
+		t.Fatalf("second stop = %v", err)
+	}
+	if err := recording.Close(); err != nil {
+		t.Fatalf("close after stop = %v", err)
+	}
+}
+
+func TestRecordingEnforcesDurationLimit(t *testing.T) {
+	// A recording whose start time is already past its duration bound reports
+	// the limit without calling the underlying reader.
+	recording := &recording{
+		process:     &fakeProcess{out: bytes.NewBuffer(nil), in: bytes.NewBuffer(nil)},
+		output:      io.NopCloser(bytes.NewBuffer(nil)),
+		maxBytes:    1 << 30,
+		maxDuration: 0,
+		started:     time.Now().Add(-time.Hour),
+		done:        make(chan struct{}),
+	}
+	if _, err := recording.Read(make([]byte, 16)); !errors.Is(err, media.ErrRecordingLimit) {
+		t.Fatalf("duration limit error = %v", err)
+	}
+	if err := recording.Stop(context.Background()); err != nil {
+		t.Fatalf("stop after duration limit = %v", err)
+	}
+}
+
+func TestRecordingHonorsContextCancellation(t *testing.T) {
+	process := &fakeProcess{out: &blockingReader{closed: make(chan struct{})}, in: bytes.NewBuffer(nil)}
+	driver := New(Config{Recorder: "wf-recorder",
+		Start: func(ctx context.Context, name string, arguments ...string) (Process, error) {
+			return process, nil
+		}})
+	recording, err := driver.Record(context.Background(), media.RecordingOptions{Format: "webm", FrameRate: 30, MaxDuration: time.Minute, MaxBytes: 1 << 30})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if err := recording.Stop(ctx); !errors.Is(err, context.Canceled) {
+		t.Fatalf("cancelled stop = %v", err)
+	}
+}
+
+func TestRecordingStopIsIdempotent(t *testing.T) {
+	process := &fakeProcess{out: bytes.NewBuffer(nil), in: bytes.NewBuffer(nil)}
+	driver := New(Config{Recorder: "wf-recorder",
+		Start: func(ctx context.Context, name string, arguments ...string) (Process, error) {
+			return process, nil
+		}})
+	recording, err := driver.Record(context.Background(), media.RecordingOptions{Format: "webm", FrameRate: 30})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := recording.Stop(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if err := recording.Stop(context.Background()); err != nil {
+		t.Fatalf("second stop = %v", err)
+	}
+	if err := recording.Close(); err != nil {
+		t.Fatalf("close after stop = %v", err)
 	}
 }
 
@@ -227,15 +369,32 @@ func TestYdotoolDragReleasesTheButtonOnFailure(t *testing.T) {
 }
 
 type fakeProcess struct {
-	out *bytes.Buffer
+	out io.Reader
 	in  *bytes.Buffer
 }
 
-func (f *fakeProcess) Stdout() io.ReadCloser { return io.NopCloser(f.out) }
-func (f *fakeProcess) Stdin() io.WriteCloser { return nopWriteCloser{Writer: f.in} }
-func (f *fakeProcess) Wait() error           { return nil }
-func (f *fakeProcess) Kill() error           { return nil }
+func (f *fakeProcess) Stdout() io.ReadCloser  { return io.NopCloser(f.out) }
+func (f *fakeProcess) Stdin() io.WriteCloser  { return nopWriteCloser{Writer: f.in} }
+func (f *fakeProcess) Wait() error            { return nil }
+func (f *fakeProcess) Kill() error            { return nil }
+func (f *fakeProcess) Signal(os.Signal) error { return nil }
 
 type nopWriteCloser struct{ io.Writer }
 
 func (nopWriteCloser) Close() error { return nil }
+
+// blockingReader blocks until Close is called.
+type blockingReader struct {
+	closed chan struct{}
+	once   sync.Once
+}
+
+func (r *blockingReader) Read(buffer []byte) (int, error) {
+	<-r.closed
+	return 0, io.EOF
+}
+
+func (r *blockingReader) Close() error {
+	r.once.Do(func() { close(r.closed) })
+	return nil
+}

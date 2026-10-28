@@ -40,12 +40,16 @@ public final class SystemResourcesObserver {
         ContainerInfo container = new ContainerInfo(false, "unsupported", new ArrayList<>());
         Double uptime = platformUptime();
 
+        boolean memoryAvailable = memory[1] > 0;
+        String memoryState = memoryAvailable ? "complete" : "unavailable";
+        String memoryDetail = memoryAvailable ? null : "ActivityManager memory info is unavailable";
+
         return new ResourceInfo(
                 "android", architecture(), now,
                 logicalCPUs, (double) logicalCPUs,
                 new ResourceCollectionStatus("complete", "logical CPU count", now),
                 memory[0], memory[1],
-                new ResourceCollectionStatus("complete", "physical memory capacity", now),
+                new ResourceCollectionStatus(memoryState, memoryDetail, now),
                 storage, power, container, uptime, null,
                 new ResourceCollectionStatus(uptime == null ? "unsupported" : "complete",
                         uptime == null ? "boot time is unavailable" : null, now));
@@ -62,11 +66,11 @@ public final class SystemResourcesObserver {
         if (manager == null) return new long[]{0, 0};
         ActivityManager.MemoryInfo info = new ActivityManager.MemoryInfo();
         manager.getMemoryInfo(info);
-        // totalMem is capacity; used is total minus available.
-        long capacity = info.totalMem;
-        long used = capacity - info.availMem;
-        if (used < 0) used = 0;
-        return new long[]{used, capacity};
+        // totalMem is physical memory; effective capacity equals physical on
+        // Android since there is no container memory limit at this level.
+        long physical = info.totalMem;
+        long effective = physical;
+        return new long[]{physical, effective};
     }
 
     private List<StorageInfo> platformStorage() {

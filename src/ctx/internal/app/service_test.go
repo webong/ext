@@ -2,6 +2,7 @@ package app
 
 import (
 	"bytes"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -61,8 +62,12 @@ func TestServiceCommandRejectsMalformedInput(t *testing.T) {
 }
 
 func TestServiceCommandLifecycleNeedsDirectory(t *testing.T) {
+	executable := "/bin/true"
+	if runtime.GOOS == "windows" {
+		executable = `C:\Windows\System32\cmd.exe`
+	}
 	var stdout, stderr bytes.Buffer
-	code := serviceCommand([]string{"status", "--name", "agent", "--executable", "/bin/true"}, &stdout, &stderr)
+	code := serviceCommand([]string{"status", "--name", "agent", "--executable", executable}, &stdout, &stderr)
 	if code != 2 || !strings.Contains(stderr.String(), "--dir") {
 		t.Fatalf("status without directory = %d: %s", code, stderr.String())
 	}

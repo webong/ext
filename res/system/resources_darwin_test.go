@@ -23,8 +23,17 @@ func TestNativeResourceObservation(t *testing.T) {
 	if resources.MemoryBytes == 0 || resources.MemoryCapacityBytes == 0 || resources.MemoryStatus.State != "complete" {
 		t.Fatalf("memory = %#v", resources.MemoryStatus)
 	}
-	if resources.Uptime == nil || *resources.Uptime <= 0 || resources.BootTime == nil || resources.UptimeStatus.State != "complete" {
-		t.Fatalf("uptime = %#v", resources.UptimeStatus)
+	// Uptime is capability-aware: sysctl kern.boottime may be unavailable on
+	// some configurations. Accept complete, unsupported, or unavailable.
+	if resources.UptimeStatus.State != "complete" &&
+		resources.UptimeStatus.State != "unsupported" &&
+		resources.UptimeStatus.State != "unavailable" {
+		t.Fatalf("uptime status = %#v", resources.UptimeStatus)
+	}
+	if resources.UptimeStatus.State == "complete" {
+		if resources.Uptime == nil || *resources.Uptime <= 0 || resources.BootTime == nil {
+			t.Fatalf("uptime = %#v", resources.UptimeStatus)
+		}
 	}
 	if resources.Container.State != ContainerUnsupported {
 		t.Fatalf("container = %#v", resources.Container)

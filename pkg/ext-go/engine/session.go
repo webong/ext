@@ -248,7 +248,7 @@ func (s *Session) callProgress(ctx context.Context, contract ContractRef, operat
 		ctx = WithSessionReverse(ctx, reverseCaller{s: s})
 	}
 	if err := ValidateRequest(s.descriptor, request); err != nil {
-		return nil, err
+		return nil, &RemoteError{Code: "invalid_input", Message: err.Error()}
 	}
 	if err := s.authorize(ctx, request.Clone()); err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrDenied, err)

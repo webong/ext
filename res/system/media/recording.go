@@ -18,6 +18,9 @@ const (
 	MaxRecordingBytes int64 = 1 << 30
 )
 
+// ErrRecordingLimit reports that a recording hit its duration or byte bound.
+var ErrRecordingLimit = errors.New("recording limit exceeded")
+
 // RecordingOptions selects a caller-owned recording. Format names a container;
 // the backend rejects a format it cannot produce rather than substituting one.
 type RecordingOptions struct {

@@ -16,28 +16,51 @@ var (
 	procGetNetworkParams = networkIphlpapi.NewProc("GetNetworkParams")
 )
 
-// MAX_HOST_NAME_LEN and MAX_DOMAIN_NAME_LEN are the Windows SDK limits for the
-// FIXED_INFO structure used by GetNetworkParams. The native struct reserves 4
-// spare bytes after each name field.
+// Windows SDK constants for FIXED_INFO.
 const (
-	networkMaxHostNameLen   = 128
-	networkMaxDomainNameLen = 128
+	networkMaxHostNameLen   = 128 // MAX_HOST_NAME_LEN
+	networkMaxDomainNameLen = 128 // MAX_DOMAIN_NAME_LEN
 )
 
-// networkFixedInfoFieldOffsets describes the FIXED_INFO layout used to locate
-// the domain name and the DnsServerList pointer without importing the full
-// Windows SDK struct.
+// Windows error codes returned by GetNetworkParams and related IP helper APIs.
 const (
-	networkFixedInfoDomainNameOffset    = networkMaxHostNameLen + 4
-	networkFixedInfoDnsServerListOffset = networkFixedInfoDomainNameOffset + (networkMaxDomainNameLen + 4)
+	networkErrBufferOverflow = 111 // ERROR_BUFFER_OVERFLOW
+	networkErrNoData         = 232 // ERROR_NO_DATA
+	networkErrNotSupported   = 50  // ERROR_NOT_SUPPORTED
 )
 
+// maxResolverEntries bounds the number of DnsServerList entries walked, so a
+// corrupt linked list cannot cause unbounded traversal.
+const maxResolverEntries = 64
+
+// networkIPAddrString matches the Windows SDK IP_ADDR_STRING structure. The
+// Next field is a raw uintptr rather than a Go pointer, so no Go pointer is
+// retained in native memory and the garbage collector cannot scan it.
 type networkIPAddrString struct {
-	next      *networkIPAddrString
+	next      uintptr
 	ipAddress [16]byte
 	ipMask    [16]byte
 	context   uint32
-	_         [4]byte
+}
+
+// fixedInfoOffsets returns the offsets of DomainName and DnsServerList within
+// FIXED_INFO for the current pointer size. FIXED_INFO lays out as:
+//
+//	HostName[132] (offset 0)
+//	DomainName[132] (offset 132)
+//	CurrentDnsServer pointer (offset 264, 4 bytes x86 / 8 bytes x64)
+//	DnsServerList embedded IP_ADDR_STRING (offset 268 x86 / 272 x64)
+func fixedInfoOffsets() (domainName, dnsServerList int) {
+	domainName = networkMaxHostNameLen + 4 // 132
+	dnsServerList = domainName + (networkMaxDomainNameLen + 4) + networkPtrSize()
+	return
+}
+
+func networkPtrSize() int {
+	if unsafe.Sizeof(uintptr(0)) == 8 {
+		return 8
+	}
+	return 4
 }
 
 // platformResolver observes the local resolver configuration on Windows
@@ -49,19 +72,27 @@ func platformResolver(ctx context.Context) (Resolver, CollectionStatus, error) {
 	}
 	var size uint32
 	result, _, callErr := procGetNetworkParams.Call(0, uintptr(unsafe.Pointer(&size)))
-	if result != 0 || size == 0 {
-		return Resolver{Servers: []string{}, Search: []string{}, Options: []string{}},
-			status("unsupported", fmt.Sprintf("GetNetworkParams is unavailable: %v", callErr)), nil
+	// The first call with a NULL buffer is a size probe. GetNetworkParams
+	// returns ERROR_BUFFER_OVERFLOW and fills size with the required buffer
+	// length. Any other failure is a genuine error.
+	if result != 0 {
+		if errno, ok := callErr.(windows.Errno); ok && errno == networkErrBufferOverflow && size > 0 {
+			// Proceed with the allocated buffer.
+		} else {
+			return Resolver{}, status("unavailable", fmt.Sprintf("GetNetworkParams size probe failed: %v", callErr)), nil
+		}
+	}
+	if size == 0 {
+		return Resolver{}, status("unavailable", "GetNetworkParams returned zero size"), nil
 	}
 	buf := make([]byte, int(size))
 	result, _, callErr = procGetNetworkParams.Call(uintptr(unsafe.Pointer(&buf[0])), uintptr(unsafe.Pointer(&size)))
 	if result != 0 {
-		return Resolver{Servers: []string{}, Search: []string{}, Options: []string{}},
-			status("unsupported", fmt.Sprintf("GetNetworkParams failed: %v", callErr)), nil
+		return Resolver{}, status("unavailable", fmt.Sprintf("GetNetworkParams failed: %v", callErr)), nil
 	}
-	servers := dnsServersFromFixedInfo(buf)
+	servers, domain := dnsServersFromFixedInfo(buf)
 	search := []string{}
-	if domain := fixedInfoDomain(buf); domain != "" {
+	if domain != "" {
 		search = append(search, domain)
 	}
 	if err := ctx.Err(); err != nil {
@@ -75,34 +106,56 @@ func platformResolver(ctx context.Context) (Resolver, CollectionStatus, error) {
 		status(state, ""), nil
 }
 
-// dnsServersFromFixedInfo walks the DnsServerList linked list embedded in the
-// FIXED_INFO buffer and returns the configured DNS server addresses.
-func dnsServersFromFixedInfo(buf []byte) []string {
-	needed := int(networkFixedInfoDnsServerListOffset) + int(unsafe.Sizeof(networkIPAddrString{}))
+// dnsServersFromFixedInfo walks the embedded DnsServerList in FIXED_INFO and
+// returns the configured DNS server addresses and the primary DNS domain name.
+// Traversal is bounded and cycle-safe: native next pointers are validated to
+// remain within the buffer and to move forward, and iteration stops after
+// maxResolverEntries entries.
+func dnsServersFromFixedInfo(buf []byte) ([]string, string) {
+	_, dnsServerListOffset := fixedInfoOffsets()
+	entrySize := unsafe.Sizeof(networkIPAddrString{})
+	needed := dnsServerListOffset + int(entrySize)
 	if len(buf) < needed {
-		return nil
+		return nil, ""
 	}
+	domain := fixedInfoDomain(buf)
 	result := []string{}
-	for current := (*networkIPAddrString)(unsafe.Pointer(&buf[networkFixedInfoDnsServerListOffset])); current != nil; current = current.next {
-		ip := net.ParseIP(cString16(current.ipAddress[:]))
-		if ip == nil {
-			continue
+	seen := map[string]bool{}
+	bufPtr := unsafe.Pointer(&buf[0])
+	for offset := dnsServerListOffset; offset+int(entrySize) <= len(buf); {
+		entry := (*networkIPAddrString)(unsafe.Add(bufPtr, uintptr(offset)))
+		ip := net.ParseIP(cString16(entry.ipAddress[:]))
+		if ip != nil && !seen[ip.String()] {
+			seen[ip.String()] = true
+			result = append(result, ip.String())
 		}
-		result = append(result, ip.String())
+		if entry.next == 0 {
+			break
+		}
+		// next is a native address; validate it points within buf and moves
+		// forward to prevent walking a corrupt or cyclic list.
+		nextOffset := int(entry.next) - int(uintptr(bufPtr))
+		if nextOffset < 0 || nextOffset >= len(buf) || nextOffset <= offset {
+			break
+		}
+		offset = nextOffset
+		if len(result) >= maxResolverEntries {
+			break
+		}
 	}
-	return result
+	return result, domain
 }
 
 // fixedInfoDomain reads the DomainName field of FIXED_INFO, located immediately
-// before DnsServerList.
+// before the CurrentDnsServer pointer.
 func fixedInfoDomain(buf []byte) string {
-	start := networkFixedInfoDomainNameOffset
-	end := start + (networkMaxDomainNameLen + 4)
+	domainOffset := networkMaxHostNameLen + 4 // 132
+	end := domainOffset + (networkMaxDomainNameLen + 4)
 	if end > len(buf) {
 		return ""
 	}
 	var field [networkMaxDomainNameLen + 4]byte
-	copy(field[:], buf[start:end])
+	copy(field[:], buf[domainOffset:end])
 	return cString16(field[:])
 }
 

@@ -9,10 +9,14 @@ import (
 	"io"
 	"os/exec"
 	"sync"
+	"time"
 
 	"github.com/webong/ext/res/system/audio"
 	"github.com/webong/ext/res/system/media"
 )
+
+// stopTimeout bounds a normal stream shutdown before the process is killed.
+const stopTimeout = 500 * time.Millisecond
 
 // Format is the caller's PCM16 stream format. PipeWire tools accept these
 // values explicitly; no format is inferred from a device name.
@@ -43,12 +47,15 @@ func (f Format) packetBytes() int {
 	return f.SampleRate * f.Channels * 2 * f.PacketMillis / 1_000
 }
 
+// arguments is the shared pw-record/pw-play interface. Both tools select the
+// target with --target, take the PipeWire sample format name (s16), and read or
+// write the stream on the explicit '-' path. pw-play needs no mode flag.
 func (f Format) arguments(deviceID string) []string {
-	arguments := []string{
-		"--device=" + deviceID, "--format=s16le",
-		fmt.Sprintf("--rate=%d", f.SampleRate), fmt.Sprintf("--channels=%d", f.Channels), "--raw",
+	return []string{
+		"--target=" + deviceID, "--format=s16",
+		fmt.Sprintf("--rate=%d", f.SampleRate), fmt.Sprintf("--channels=%d", f.Channels),
+		"--raw", "-",
 	}
-	return arguments
 }
 
 // Process is the native stream boundary.
@@ -100,12 +107,16 @@ func (b *Backend) open(ctx context.Context, deviceID string, limits audio.Limits
 		return nil, err
 	}
 	executable := b.captureExecutable
-	arguments := format.arguments(deviceID)
+	if executable == "" {
+		executable = "pw-record"
+	}
 	if playback {
 		executable = b.playbackExecutable
-		arguments = append([]string{"--playback"}, arguments...)
+		if executable == "" {
+			executable = "pw-play"
+		}
 	}
-	process, err := b.start(ctx, executable, arguments...)
+	process, err := b.start(ctx, executable, format.arguments(deviceID)...)
 	if err != nil {
 		return nil, fmt.Errorf("%w: cannot start %s: %v", audio.ErrUnavailable, executable, err)
 	}
@@ -125,8 +136,13 @@ type stream struct {
 	format         Format
 	maxPacketBytes int
 	playback       bool
-	mu             sync.Mutex
-	closed         bool
+
+	mu          sync.Mutex
+	closed      bool
+	interrupted bool
+	forced      bool
+	closeOnce   sync.Once
+	closeErr    error
 }
 
 func (s *stream) Read(ctx context.Context) (media.PCM16, error) {
@@ -137,10 +153,12 @@ func (s *stream) Read(ctx context.Context) (media.PCM16, error) {
 		return media.PCM16{}, err
 	}
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	if s.closed {
+		s.mu.Unlock()
 		return media.PCM16{}, io.EOF
 	}
+	reader := s.reader
+	s.mu.Unlock()
 	size := s.format.packetBytes()
 	if size > s.maxPacketBytes {
 		size = s.maxPacketBytes - s.maxPacketBytes%(2*s.format.Channels)
@@ -148,9 +166,20 @@ func (s *stream) Read(ctx context.Context) (media.PCM16, error) {
 	if size <= 0 {
 		return media.PCM16{}, audio.ErrLimit
 	}
+	stop := s.watch(ctx)
+	defer stop()
 	data := make([]byte, size)
-	read, err := io.ReadFull(s.reader, data)
+	read, err := io.ReadFull(reader, data)
 	if err != nil && read == 0 {
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return media.PCM16{}, ctxErr
+		}
+		s.mu.Lock()
+		interrupted := s.interrupted
+		s.mu.Unlock()
+		if interrupted {
+			return media.PCM16{}, io.EOF
+		}
 		return media.PCM16{}, err
 	}
 	if err != nil && !errors.Is(err, io.ErrUnexpectedEOF) {
@@ -173,29 +202,100 @@ func (s *stream) Write(ctx context.Context, packet media.PCM16) error {
 		return fmt.Errorf("%w: packet format does not match the stream", audio.ErrInvalid)
 	}
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	if s.closed {
+		s.mu.Unlock()
 		return errors.New("playback stream is closed")
 	}
-	_, err := s.writer.Write(packet.Data)
+	writer := s.writer
+	s.mu.Unlock()
+	stop := s.watch(ctx)
+	defer stop()
+	_, err := writer.Write(packet.Data)
+	if err != nil {
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return ctxErr
+		}
+	}
 	return err
 }
 
+// watch interrupts blocked native I/O when the caller's context ends. A
+// cancelled stream is permanently closed.
+func (s *stream) watch(ctx context.Context) func() {
+	done := make(chan struct{})
+	go func() {
+		select {
+		case <-ctx.Done():
+			s.interrupt()
+		case <-done:
+		}
+	}()
+	return func() { close(done) }
+}
+
+func (s *stream) interrupt() {
+	s.mu.Lock()
+	if s.interrupted || s.closed {
+		s.mu.Unlock()
+		return
+	}
+	s.interrupted = true
+	s.forced = true
+	reader, writer, process := s.reader, s.writer, s.process
+	s.mu.Unlock()
+	if writer != nil {
+		_ = writer.Close()
+	}
+	if reader != nil {
+		_ = reader.Close()
+	}
+	_ = process.Kill()
+}
+
 func (s *stream) Close() error {
+	s.closeOnce.Do(func() {
+		s.mu.Lock()
+		s.closed = true
+		reader, writer, process := s.reader, s.writer, s.process
+		s.mu.Unlock()
+		done := make(chan error, 1)
+		go func() { done <- process.Wait() }()
+		// A child that had already exited on its own reports its status. Once
+		// Close stops the stream, the exit status is a consequence of that
+		// deliberate stop and is not surfaced as a failure.
+		select {
+		case err := <-done:
+			s.recordExit(err)
+			return
+		default:
+		}
+		if writer != nil {
+			_ = writer.Close()
+		}
+		if reader != nil {
+			_ = reader.Close()
+		}
+		timer := time.NewTimer(stopTimeout)
+		defer timer.Stop()
+		select {
+		case <-done:
+		case <-timer.C:
+			s.mu.Lock()
+			s.forced = true
+			s.mu.Unlock()
+			_ = process.Kill()
+			<-done
+		}
+	})
+	return s.closeErr
+}
+
+func (s *stream) recordExit(err error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if s.closed {
-		return nil
+	if !s.interrupted && !s.forced {
+		s.closeErr = err
 	}
-	s.closed = true
-	if s.writer != nil {
-		_ = s.writer.Close()
-	}
-	if s.reader != nil {
-		_ = s.reader.Close()
-	}
-	_ = s.process.Kill()
-	return s.process.Wait()
 }
 
 type execProcess struct {
@@ -224,6 +324,7 @@ func startProcess(ctx context.Context, name string, arguments ...string) (Proces
 	if err != nil {
 		return nil, err
 	}
+	command.Stderr = io.Discard
 	if err = command.Start(); err != nil {
 		return nil, err
 	}

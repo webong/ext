@@ -89,18 +89,22 @@ name, installation layout, port, or health endpoint.
 `res/system/audio` defines device observation and bounded PCM16 capture and
 playback interfaces. `adapters/pulseaudio` implements them with `pactl`,
 `parec`, and `pacat`; `adapters/alsa` implements them with `aplay -L`,
-`arecord -L`, `aplay`, and `arecord`. Neither selects a device or adds routing,
-mixing, or transport policy. PipeWire's PulseAudio compatibility presents the
-PulseAudio protocol; a native PipeWire backend would be a separate adapter.
+`arecord -L`, `aplay`, and `arecord`. `adapters/pipewire` implements them with
+`pw-dump`, `pw-record`, and `pw-play`. Neither selects a device or adds routing,
+mixing, or transport policy. PipeWire and PulseAudio are separate adapters; no
+library selects between them by name.
 
 `res/system.DesktopDriver` is the portable seam for desktop-scoped operations by
 external tools. `adapters/x11` implements capture, keyboard and pointer input,
 and bounded `ffmpeg` recording with `import` and `xdotool`; `adapters/wayland`
 implements capture, keyboard input, and optional pointer input through an
-explicitly configured `ydotool` (`ydotoold`/uinput). Wayland window targeting
-and recording stay explicit gaps: targeting is denied to arbitrary clients, and
-recording needs a compositor recorder or an XDG portal approval flow that
-belongs to the consumer. Window-scoped
+explicitly configured `ydotool` (`ydotoold`/uinput), and optional bounded
+recording through an explicitly configured `wf-recorder`. Wayland window
+targeting stays an explicit gap: targeting is denied to arbitrary clients.
+Recording uses `--framerate`, explicit codec/muxer mapping, and `--file pipe:1`,
+enforces `MaxDuration`/`MaxBytes` while reading, and stops gracefully with
+SIGINT followed by a bounded forced kill. No desktop portal or approval flow
+is used. Window-scoped
 capture and input remain in `res/system` because command-line tools cannot
 address its opaque window identities.
 

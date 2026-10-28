@@ -134,7 +134,7 @@ public final class SystemNetworkObserver: @unchecked Sendable {
         guard getifaddrs(&first) == 0, let first else {
             return NetworkSnapshot(platform: networkPlatform, observedAt: now, interfaces: [], routes: [], resolver: NetworkResolver(),
                 interfaceStatus: NetworkCollectionStatus(state: "unavailable", detail: "network interface enumeration failed", observedAt: now),
-                routeStatus: unsupportedRoutes(now), resolverStatus: unsupportedResolver(now))
+                routeStatus: routeUnsupported(now), resolverStatus: resolverUnsupported(now))
         }
         defer { freeifaddrs(first) }
         struct Builder { var index: Int; var flags: [String]; var addresses: [NetworkAddress] }
@@ -157,16 +157,12 @@ public final class SystemNetworkObserver: @unchecked Sendable {
             NetworkInterface(index: builder.index, name: name, flags: builder.flags.sorted(),
                 addresses: builder.addresses.sorted { $0.ip < $1.ip })
         }.sorted { $0.index < $1.index }
-        let routes = platformRoutes(now, limit: options.maxRoutes)
-        let routePartial = routes.1
-        let resolver = platformResolver(now)
-        return NetworkSnapshot(platform: networkPlatform, observedAt: now, interfaces: interfaces, routes: routes.0, resolver: resolver.0,
+        let (routes, routeStatus) = platformRoutes(now, limit: options.maxRoutes)
+        let (resolver, resolverStatus) = platformResolver(now)
+        return NetworkSnapshot(platform: networkPlatform, observedAt: now, interfaces: interfaces, routes: routes, resolver: resolver,
             interfaceStatus: NetworkCollectionStatus(state: partial ? "partial" : "complete",
                 detail: partial ? "interface or address limit reached" : nil, observedAt: now),
-            routeStatus: NetworkCollectionStatus(state: routePartial ? "partial" : "complete",
-                detail: routePartial ? "route limit reached" : nil, observedAt: now),
-            resolverStatus: NetworkCollectionStatus(state: resolver.1 ? "partial" : "complete",
-                detail: resolver.1 ? "resolver limit reached" : nil, observedAt: now))
+            routeStatus: routeStatus, resolverStatus: resolverStatus)
     }
 }
 
@@ -183,9 +179,13 @@ private func networkTimestamp(_ date: Date) -> String {
     return formatter.string(from: date)
 }
 
-private func platformRoutes(_ now: String, limit: Int) -> ([NetworkRoute], Bool) {
+// Route-table observation is available on macOS through netstat. On iOS it is
+// explicitly unsupported: the adapter does not shell out and no public API
+// exposes the route table to apps.
+#if os(macOS)
+private func platformRoutes(_ now: String, limit: Int) -> ([NetworkRoute], NetworkCollectionStatus) {
     guard let output = runCommand("netstat", arguments: ["-rn"]) else {
-        return ([], true)
+        return ([], NetworkCollectionStatus(state: "unavailable", detail: "netstat is unavailable", observedAt: now))
     }
     var routes: [NetworkRoute] = []
     var partial = false
@@ -206,8 +206,14 @@ private func platformRoutes(_ now: String, limit: Int) -> ([NetworkRoute], Bool)
         routes.append(NetworkRoute(destination: cidr, gateway: routeGateway(gateway) ?? "", interface: netif,
             metric: 0, default: isDefault))
     }
-    return (routes, partial)
+    let state = partial ? "partial" : "complete"
+    return (routes, NetworkCollectionStatus(state: state, detail: partial ? "route limit reached" : nil, observedAt: now))
 }
+#else
+private func platformRoutes(_ now: String, limit: Int) -> ([NetworkRoute], NetworkCollectionStatus) {
+    return ([], routeUnsupported(now))
+}
+#endif
 
 // destinationToCIDR converts a netstat destination to CIDR. Network
 // destinations without an explicit prefix are skipped rather than guessed.
@@ -229,9 +235,13 @@ private func routeGateway(_ gateway: String) -> String? {
     return nil // link-layer or link#N: on-link
 }
 
-private func platformResolver(_ now: String) -> (NetworkResolver, Bool) {
+// Resolver observation on macOS uses scutil --dns through a guarded command.
+// On iOS it is explicitly unsupported: no DNS configuration is exposed to apps
+// and the adapter does not perform DNS queries or shell out.
+#if os(macOS)
+private func platformResolver(_ now: String) -> (NetworkResolver, NetworkCollectionStatus) {
     guard let output = runCommand("scutil", arguments: ["--dns"]) else {
-        return (NetworkResolver(), true)
+        return (NetworkResolver(), NetworkCollectionStatus(state: "unavailable", detail: "scutil is unavailable", observedAt: now))
     }
     var servers: [String] = []
     var search: [String] = []
@@ -249,9 +259,21 @@ private func platformResolver(_ now: String) -> (NetworkResolver, Bool) {
             search.append(value)
         }
     }
-    return (NetworkResolver(servers: servers, search: search, options: []), servers.isEmpty && search.isEmpty)
+    let empty = servers.isEmpty && search.isEmpty
+    return (NetworkResolver(servers: servers, search: search, options: []),
+            NetworkCollectionStatus(state: empty ? "partial" : "complete",
+                                    detail: empty ? "no DNS servers or search domains configured" : nil,
+                                    observedAt: now))
 }
+#else
+private func platformResolver(_ now: String) -> (NetworkResolver, NetworkCollectionStatus) {
+    return (NetworkResolver(), resolverUnsupported(now))
+}
+#endif
 
+// runCommand shells out to a macOS system binary. It is only used on macOS,
+// never on iOS.
+#if os(macOS)
 private func runCommand(_ executable: String, arguments: [String]) -> String? {
     let process = Process()
     process.executableURL = URL(fileURLWithPath: "/usr/bin/\(executable)")
@@ -264,6 +286,7 @@ private func runCommand(_ executable: String, arguments: [String]) -> String? {
     let data = pipe.fileHandleForReading.readDataToEndOfFile()
     return String(data: data, encoding: .utf8)
 }
+#endif
 
 private struct IPAddress {
     let string: String
@@ -282,12 +305,12 @@ private struct IPAddress {
     }
 }
 
-private func unsupportedRoutes(_ now: String) -> NetworkCollectionStatus {
-    NetworkCollectionStatus(state: "unsupported", detail: "native route-table observation is unavailable through this Apple binding", observedAt: now)
+private func routeUnsupported(_ now: String) -> NetworkCollectionStatus {
+    NetworkCollectionStatus(state: "unsupported", detail: "route-table observation is unavailable on this Apple platform", observedAt: now)
 }
 
-private func unsupportedResolver(_ now: String) -> NetworkCollectionStatus {
-    NetworkCollectionStatus(state: "unsupported", detail: "native resolver configuration is unavailable through this Apple binding", observedAt: now)
+private func resolverUnsupported(_ now: String) -> NetworkCollectionStatus {
+    NetworkCollectionStatus(state: "unsupported", detail: "DNS resolver configuration is unavailable on this Apple platform", observedAt: now)
 }
 
 private func networkFlags(_ raw: UInt32) -> [String] {

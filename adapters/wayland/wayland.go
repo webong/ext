@@ -1,6 +1,11 @@
 // Package wayland implements the res/system desktop-driver contract with the
-// Wayland command-line tools. It owns grim, wtype, and compositor interaction;
-// the caller selects this driver and the bounds.
+// Wayland command-line tools. It owns grim, wtype, ydotool, and compositor
+// interaction; the caller selects this driver and the bounds.
+//
+// Wayland denies arbitrary window targeting to arbitrary clients, so this
+// adapter only supports output-scoped capture (grim -o <output>) and refuses
+// window-scoped operations explicitly. Recording requires a compositor
+// recorder (wf-recorder) which the caller must explicitly configure.
 package wayland
 
 import (
@@ -8,9 +13,11 @@ import (
 	"context"
 	"fmt"
 	"image/png"
+	"io"
 	"os/exec"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/webong/ext/res/system"
@@ -27,13 +34,24 @@ type Config struct {
 	// forwarded to ydotool, which requires a running ydotoold daemon and
 	// /dev/uinput access. Empty keeps pointer operations explicitly unavailable.
 	Pointer string
+	// Output is optional. When set, grim captures only this output
+	// (grim -o <output>). Empty captures the whole desktop.
+	Output string
+	// Recorder is optional. When set to "wf-recorder", recording is forwarded
+	// to wf-recorder. Empty keeps recording explicitly unavailable.
+	Recorder string
+	// Start launches a native recording process.
+	Start Starter
 }
 
 type Driver struct {
-	run     CommandRunner
-	capture string
-	input   string
-	pointer string
+	run      CommandRunner
+	capture  string
+	input    string
+	pointer  string
+	output   string
+	recorder string
+	starter  Starter
 }
 
 func New(config Config) *Driver {
@@ -48,13 +66,20 @@ func New(config Config) *Driver {
 	if config.Input == "" {
 		config.Input = "wtype"
 	}
-	return &Driver{run: config.Run, capture: config.Capture, input: config.Input, pointer: config.Pointer}
+	if config.Start == nil {
+		config.Start = startProcess
+	}
+	return &Driver{run: config.Run, capture: config.Capture, input: config.Input, pointer: config.Pointer, output: config.Output, recorder: config.Recorder, starter: config.Start}
 }
 
 func (d *Driver) Name() string { return "wayland" }
 
 func (d *Driver) Capture(ctx context.Context, options system.CaptureOptions) (system.SurfaceCapture, error) {
-	data, err := d.run(ctx, d.capture, "-")
+	arguments := []string{"-"}
+	if d.output != "" {
+		arguments = append([]string{"-o", d.output}, arguments...)
+	}
+	data, err := d.run(ctx, d.capture, arguments...)
 	if err != nil {
 		return system.SurfaceCapture{}, fmt.Errorf("%w: grim failed: %v", system.ErrDesktopUnavailable, err)
 	}
@@ -157,12 +182,95 @@ func wrapPointerError(err error) error {
 	return fmt.Errorf("%w: ydotool failed: %v", system.ErrDesktopUnavailable, err)
 }
 
-// Record is an explicit gap: Wayland recording requires a compositor-specific
-// recorder or an XDG desktop portal, and this adapter does not select one.
-func (d *Driver) Record(context.Context, media.RecordingOptions) (media.Recording, error) {
-	return nil, fmt.Errorf("%w: Wayland recording requires a compositor recorder or portal, which this adapter does not select",
-		system.ErrDesktopUnavailable)
+// Record starts a bounded recording through the configured recorder. Wayland
+// recording requires a compositor recorder (wf-recorder); this adapter does not
+// select one and reports ErrDesktopUnavailable when none is configured.
+func (d *Driver) Record(ctx context.Context, options media.RecordingOptions) (media.Recording, error) {
+	if d.recorder == "" {
+		return nil, fmt.Errorf("%w: Wayland recording requires a compositor recorder or portal, which this adapter does not select",
+			system.ErrDesktopUnavailable)
+	}
+	options, err := options.Normalize()
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", system.ErrInvalidRecording, err)
+	}
+	arguments := []string{
+		"--fps", strconv.Itoa(options.FrameRate),
+		"--codec", options.Format,
+		"--file", "-",
+	}
+	if d.output != "" {
+		arguments = append([]string{"--output", d.output}, arguments...)
+	}
+	process, err := d.starter(ctx, d.recorder, arguments...)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %s failed to start: %v", system.ErrDesktopUnavailable, d.recorder, err)
+	}
+	return &recording{process: process, output: process.Stdout()}, nil
 }
+
+type recording struct {
+	process Process
+	output  io.ReadCloser
+	once    sync.Once
+}
+
+func (r *recording) Read(buffer []byte) (int, error) { return r.output.Read(buffer) }
+
+func (r *recording) Close() error { return r.Stop(context.Background()) }
+
+func (r *recording) Stop(ctx context.Context) error {
+	var err error
+	r.once.Do(func() {
+		_ = r.output.Close()
+		_ = r.process.Kill()
+		done := make(chan error, 1)
+		go func() { done <- r.process.Wait() }()
+		select {
+		case waitErr := <-done:
+			err = waitErr
+		case <-ctx.Done():
+			err = ctx.Err()
+		}
+	})
+	return err
+}
+
+type Process interface {
+	Stdout() io.ReadCloser
+	Wait() error
+	Kill() error
+}
+
+type Starter func(context.Context, string, ...string) (Process, error)
+
+func startProcess(ctx context.Context, name string, arguments ...string) (Process, error) {
+	command := exec.CommandContext(ctx, name, arguments...)
+	stdout, err := command.StdoutPipe()
+	if err != nil {
+		return nil, err
+	}
+	if err = command.Start(); err != nil {
+		return nil, err
+	}
+	return &execProcess{command: command, stdout: stdout}, nil
+}
+
+type execProcess struct {
+	command *exec.Cmd
+	stdout  io.ReadCloser
+}
+
+func (p *execProcess) Stdout() io.ReadCloser { return p.stdout }
+func (p *execProcess) Wait() error           { return p.command.Wait() }
+func (p *execProcess) Kill() error {
+	if p.command.Process == nil {
+		return nil
+	}
+	return p.command.Process.Kill()
+}
+
+var _ system.DesktopDriver = (*Driver)(nil)
 
 func waylandModifier(modifier string) string {
 	switch modifier {
@@ -204,5 +312,3 @@ func wrapInputError(err error) error {
 	}
 	return fmt.Errorf("%w: wtype failed: %v", system.ErrDesktopUnavailable, err)
 }
-
-var _ system.DesktopDriver = (*Driver)(nil)

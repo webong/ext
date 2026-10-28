@@ -6,8 +6,10 @@ import (
 	"errors"
 	"image"
 	"image/png"
+	"io"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/webong/ext/res/system"
 	"github.com/webong/ext/res/system/media"
@@ -58,6 +60,21 @@ func TestCaptureUsesGrimAndBounds(t *testing.T) {
 	}
 }
 
+func TestCaptureSelectsOutput(t *testing.T) {
+	runner := &fakeRunner{output: pngFixture(t, 4, 3)}
+	driver := New(Config{Run: runner.run, Output: "HDMI-A-1"})
+	capture, err := driver.Capture(context.Background(), system.CaptureOptions{MaxPixels: 1024, MaxBytes: 1 << 20})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if capture.Width != 4 || capture.Height != 3 {
+		t.Fatalf("capture = %#v", capture)
+	}
+	if len(runner.calls) != 1 || runner.calls[0] != "grim -o HDMI-A-1 -" {
+		t.Fatalf("calls = %#v", runner.calls)
+	}
+}
+
 func TestInputUsesWtypeAndRefusesPointer(t *testing.T) {
 	runner := &fakeRunner{}
 	driver := New(Config{Run: runner.run})
@@ -100,6 +117,39 @@ func TestRecordingIsExplicitlyUnavailable(t *testing.T) {
 	}
 	if !strings.Contains(driver.Name(), "wayland") {
 		t.Fatalf("name = %q", driver.Name())
+	}
+}
+
+func TestRecordingRequiresExplicitRecorder(t *testing.T) {
+	driver := New(Config{Run: (&fakeRunner{}).run})
+	if _, err := driver.Record(context.Background(), media.RecordingOptions{Format: "webm"}); !errors.Is(err, system.ErrDesktopUnavailable) {
+		t.Fatalf("wayland recording without recorder = %v", err)
+	}
+}
+
+func TestRecordingUsesConfiguredRecorder(t *testing.T) {
+	runner := &fakeRunner{output: []byte("webm-frames")}
+	process := &fakeProcess{out: bytes.NewBuffer(nil), in: bytes.NewBuffer(nil)}
+	driver := New(Config{Run: runner.run, Recorder: "wf-recorder",
+		Start: func(ctx context.Context, name string, arguments ...string) (Process, error) {
+			runner.calls = append(runner.calls, name+" "+strings.Join(arguments, " "))
+			return process, nil
+		}})
+	recording, err := driver.Record(context.Background(), media.RecordingOptions{Format: "webm", FrameRate: 30, MaxDuration: time.Minute, MaxBytes: 1024})
+	if err != nil {
+		t.Fatal(err)
+	}
+	joined := strings.Join(runner.calls, " ")
+	for _, fragment := range []string{"wf-recorder --fps 30 --codec webm --file -"} {
+		if !strings.Contains(joined, fragment) {
+			t.Errorf("recording arguments are missing %q:\n%s", fragment, joined)
+		}
+	}
+	if err := recording.Stop(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := recording.Read(make([]byte, 16)); err != nil && err != io.EOF {
+		t.Fatalf("read = %v", err)
 	}
 }
 
@@ -175,3 +225,17 @@ func TestYdotoolDragReleasesTheButtonOnFailure(t *testing.T) {
 		t.Fatalf("drag did not release the button:\n%s", joined)
 	}
 }
+
+type fakeProcess struct {
+	out *bytes.Buffer
+	in  *bytes.Buffer
+}
+
+func (f *fakeProcess) Stdout() io.ReadCloser { return io.NopCloser(f.out) }
+func (f *fakeProcess) Stdin() io.WriteCloser { return nopWriteCloser{Writer: f.in} }
+func (f *fakeProcess) Wait() error           { return nil }
+func (f *fakeProcess) Kill() error           { return nil }
+
+type nopWriteCloser struct{ io.Writer }
+
+func (nopWriteCloser) Close() error { return nil }

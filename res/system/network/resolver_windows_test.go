@@ -482,9 +482,12 @@ func TestPlatformResolverSecondCallError(t *testing.T) {
 func TestPlatformResolverNoServers(t *testing.T) {
 	orig := getNetworkParamsCall
 	defer func() { getNetworkParamsCall = orig }()
-	// Buffer with domain but no DNS server entries (empty DnsServerList).
+	// Buffer with domain but an empty embedded DnsServerList entry. Allocate
+	// the fixed-info prefix plus a complete zero-valued IP_ADDR_STRING so the
+	// parser sees a complete entry with next == 0.
 	_, dnsServerListOffset := fixedInfoOffsets()
-	bufSize := dnsServerListOffset
+	entrySize := int(unsafe.Sizeof(networkIPAddrString{}))
+	bufSize := dnsServerListOffset + entrySize
 	buf := make([]byte, bufSize)
 	copy(buf[132:], "example.com")
 
@@ -507,7 +510,7 @@ func TestPlatformResolverNoServers(t *testing.T) {
 	if len(resolver.Servers) != 0 {
 		t.Fatalf("servers = %v, want empty", resolver.Servers)
 	}
-	if resolver.Search[0] != "example.com" {
+	if len(resolver.Search) != 1 || resolver.Search[0] != "example.com" {
 		t.Fatalf("search = %v, want [example.com]", resolver.Search)
 	}
 }

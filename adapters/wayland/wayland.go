@@ -250,12 +250,22 @@ type recording struct {
 	maxDuration time.Duration
 	started     time.Time
 	bytesRead   int64
-	stopped     bool
-	limitErr    error
-	done        chan struct{}
-	mu          sync.Mutex
-	once        sync.Once
+
+	state   recordingState
+	terminalErr error
+
+	done         chan struct{}
+	shutdownOnce sync.Once
+	mu           sync.Mutex
 }
+
+// recordingState tracks the lifecycle of a recording.
+type recordingState int
+
+const (
+	recordingOpen recordingState = iota
+	recordingTerminal
+)
 
 // watchDuration actively stops the recorder when MaxDuration elapses, even if
 // a Read is blocked on the native pipe. It fires once and is idempotent.
@@ -264,19 +274,38 @@ func (r *recording) watchDuration(ctx context.Context) {
 	defer timer.Stop()
 	select {
 	case <-timer.C:
-		r.stop(media.ErrRecordingLimit)
+		r.markTerminal(media.ErrRecordingLimit)
 	case <-ctx.Done():
-		r.stop(ctx.Err())
+		r.markTerminal(ctx.Err())
 	case <-r.done:
 	}
 }
 
-// stop is the single idempotent shutdown path used by both automatic limit
-// enforcement and Stop/Close. It signals the recorder gracefully first, then
-// uses a bounded forced kill if it does not exit.
-func (r *recording) stop(limitErr error) {
-	r.once.Do(func() {
-		close(r.done)
+// markTerminal atomically selects and records the first terminal state. The
+// first caller wins; all subsequent callers observe the same result. Returns
+// the terminal error that applies to this recording (nil for a normal stop,
+// which Read reports as io.EOF).
+func (r *recording) markTerminal(err error) error {
+	r.mu.Lock()
+	if r.state == recordingTerminal {
+		err = r.terminalErr
+		r.mu.Unlock()
+		return err
+	}
+	r.state = recordingTerminal
+	r.terminalErr = err
+	r.mu.Unlock()
+	// Initiate shutdown in the background so the caller is not blocked on
+	// native process exit. Stop() waits for completion synchronously.
+	go r.shutdown()
+	return err
+}
+
+// shutdown performs the actual native process shutdown: graceful SIGINT first,
+// then a bounded forced kill. Runs exactly once via shutdownOnce.
+func (r *recording) shutdown() {
+	r.shutdownOnce.Do(func() {
+		defer close(r.done)
 		// Graceful: ask the recorder to finish writing its trailer.
 		if sigErr := r.process.Signal(os.Interrupt); sigErr == nil {
 			done := make(chan error, 1)
@@ -285,46 +314,52 @@ func (r *recording) stop(limitErr error) {
 			case <-done:
 			case <-time.After(2 * time.Second):
 				_ = r.process.Kill()
-				<-done
+				select {
+				case <-done:
+				case <-time.After(2 * time.Second):
+				}
 			}
 		} else {
 			_ = r.process.Kill()
-			_ = r.process.Wait()
+			done := make(chan error, 1)
+			go func() { done <- r.process.Wait() }()
+			select {
+			case <-done:
+			case <-time.After(2 * time.Second):
+			}
 		}
 		_ = r.output.Close()
 	})
-	// Capture the terminal result from the first caller; subsequent calls
-	// return their own context error if any, but never overwrite a recorded
-	// terminal result.
-	r.mu.Lock()
-	if r.limitErr == nil && limitErr != nil {
-		r.limitErr = limitErr
-	}
-	r.stopped = true
-	r.mu.Unlock()
 }
 
+// Read reads up to len(p) bytes of encoded output, never exceeding the
+// remaining MaxBytes allowance. If a duration or byte limit has been reached,
+// Read returns the terminal error (ErrRecordingLimit) without delivering data.
+// After a normal Stop, Read returns io.EOF.
 func (r *recording) Read(p []byte) (int, error) {
 	r.mu.Lock()
-	if r.stopped {
+	if r.state == recordingTerminal {
+		terminalErr := r.terminalErr
 		r.mu.Unlock()
-		// After a normal stop, report EOF. After a limit, report the limit
-		// error. After cancellation, report the context error.
-		if r.limitErr != nil {
-			return 0, r.limitErr
+		if terminalErr != nil {
+			return 0, terminalErr
 		}
 		return 0, io.EOF
 	}
 	if time.Since(r.started) >= r.maxDuration {
+		r.state = recordingTerminal
+		r.terminalErr = media.ErrRecordingLimit
 		r.mu.Unlock()
-		r.stop(media.ErrRecordingLimit)
+		go r.shutdown()
 		return 0, media.ErrRecordingLimit
 	}
 	// Never read more than the remaining byte allowance.
 	remaining := r.maxBytes - r.bytesRead
 	if remaining <= 0 {
+		r.state = recordingTerminal
+		r.terminalErr = media.ErrRecordingLimit
 		r.mu.Unlock()
-		r.stop(media.ErrRecordingLimit)
+		go r.shutdown()
 		return 0, media.ErrRecordingLimit
 	}
 	if int64(len(p)) > remaining {
@@ -333,60 +368,52 @@ func (r *recording) Read(p []byte) (int, error) {
 	reader := r.output
 	r.mu.Unlock()
 
-	n, err := reader.Read(p)
+	n, readErr := reader.Read(p)
 
 	r.mu.Lock()
-	r.bytesRead += int64(n)
-	// If the watchdog or another Read already stopped this recording, report
-	// the terminal result even if the underlying reader returned data.
-	if r.stopped {
-		if r.limitErr != nil {
-			r.mu.Unlock()
-			return 0, r.limitErr
-		}
+	// If a terminal state was recorded while the read was blocked, report it
+	// and discard any data that was read.
+	if r.state == recordingTerminal {
+		terminalErr := r.terminalErr
 		r.mu.Unlock()
+		if terminalErr != nil {
+			return 0, terminalErr
+		}
 		return 0, io.EOF
 	}
+	r.bytesRead += int64(n)
+
 	if r.bytesRead >= r.maxBytes {
-		limitErr := media.ErrRecordingLimit
-		r.stopped = true
-		r.limitErr = limitErr
+		r.state = recordingTerminal
+		r.terminalErr = media.ErrRecordingLimit
 		r.mu.Unlock()
-		// Actively stop the recorder now that the byte bound is reached.
-		r.stop(limitErr)
-		if err == nil || err == io.EOF {
-			err = limitErr
+		go r.shutdown()
+		if readErr == nil || readErr == io.EOF {
+			readErr = media.ErrRecordingLimit
 		}
-		return n, err
+		return n, readErr
 	}
 	r.mu.Unlock()
-	return n, err
+	return n, readErr
 }
 
+// Close ends the recording. It is safe to call after an error and after Stop;
+// repeated calls are idempotent.
 func (r *recording) Close() error { return r.Stop(context.Background()) }
 
 // Stop ends the recording gracefully: SIGINT to the recorder, then a bounded
 // forced kill if it does not exit. It is safe to call after an error and after
-// Close; repeated calls are idempotent. If a limit was already reached, that
-// limit error is returned rather than the child's exit status from the
-// deliberate stop.
+// Close; repeated calls return the same result. If a limit was already
+// reached, that limit error is returned rather than the child's exit status
+// from the deliberate stop. Cancellation that occurs while waiting is honored.
 func (r *recording) Stop(ctx context.Context) error {
-	r.mu.Lock()
-	limitErr := r.limitErr
-	alreadyStopped := r.stopped
-	r.mu.Unlock()
-	if alreadyStopped {
-		return limitErr
+	err := r.markTerminal(ctx.Err())
+	select {
+	case <-r.done:
+	case <-ctx.Done():
+		return ctx.Err()
 	}
-	// Only the first Stop/Close performs the actual shutdown; concurrent or
-	// later calls wait for it and return the recorded result.
-	r.stop(ctx.Err())
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	if r.limitErr != nil {
-		return r.limitErr
-	}
-	return nil
+	return err
 }
 
 type Process interface {

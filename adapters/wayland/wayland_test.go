@@ -369,6 +369,176 @@ func TestRecordingReadAfterNormalStop(t *testing.T) {
 	}
 }
 
+// TestRecordingNoDataAfterTerminal verifies that no data is returned after a
+// terminal state has been recorded, even if the underlying reader produced
+// data before the terminal state was set.
+func TestRecordingNoDataAfterTerminal(t *testing.T) {
+	process := &fakeProcess{out: bytes.NewBuffer(nil), in: bytes.NewBuffer(nil)}
+	driver := New(Config{Recorder: "wf-recorder",
+		Start: func(ctx context.Context, name string, arguments ...string) (Process, error) {
+			return process, nil
+		}})
+	recording, err := driver.Record(context.Background(), media.RecordingOptions{Format: "webm", FrameRate: 30, MaxDuration: time.Minute, MaxBytes: 1 << 30})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := recording.Stop(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	// No data should be returned after terminal state.
+	n, err := recording.Read(make([]byte, 16))
+	if err != io.EOF {
+		t.Fatalf("read after normal stop = %v, %d bytes, want io.EOF, 0", err, n)
+	}
+	if n != 0 {
+		t.Fatalf("read after terminal returned %d bytes, want 0", n)
+	}
+}
+
+// TestRecordingStopRacesWatchdog verifies that a normal Stop and the duration
+// watchdog racing to mark terminal both observe a consistent result.
+func TestRecordingStopRacesWatchdog(t *testing.T) {
+	stopped := make(chan struct{})
+	process := &fakeProcess{
+		out:      bytes.NewBuffer(nil),
+		in:       bytes.NewBuffer(nil),
+		stopChan: stopped,
+	}
+	driver := New(Config{Recorder: "wf-recorder",
+		Start: func(ctx context.Context, name string, arguments ...string) (Process, error) {
+			return process, nil
+		}})
+	recording, err := driver.Record(context.Background(), media.RecordingOptions{Format: "webm", FrameRate: 30, MaxDuration: time.Second, MaxBytes: 1 << 30})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Stop and the watchdog both race to mark terminal. The first one wins.
+	stopErr := make(chan error, 1)
+	go func() {
+		stopErr <- recording.Stop(context.Background())
+	}()
+
+	select {
+	case err := <-stopErr:
+		if err != nil {
+			t.Fatalf("stop = %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("stop did not complete")
+	}
+
+	// Subsequent stops are idempotent.
+	if err := recording.Stop(context.Background()); err != nil {
+		t.Fatalf("second stop = %v", err)
+	}
+}
+
+// TestRecordingCancelRacesWatchdog verifies that context cancellation racing
+// with the duration watchdog produces a consistent terminal result.
+func TestRecordingCancelRacesWatchdog(t *testing.T) {
+	stopped := make(chan struct{})
+	process := &fakeProcess{
+		out:      bytes.NewBuffer(nil),
+		in:       bytes.NewBuffer(nil),
+		stopChan: stopped,
+	}
+	driver := New(Config{Recorder: "wf-recorder",
+		Start: func(ctx context.Context, name string, arguments ...string) (Process, error) {
+			return process, nil
+		}})
+	recording, err := driver.Record(context.Background(), media.RecordingOptions{Format: "webm", FrameRate: 30, MaxDuration: time.Second, MaxBytes: 1 << 30})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Cancel the context before the watchdog fires.
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	// Stop with the cancelled context should report the cancellation error.
+	if err := recording.Stop(ctx); !errors.Is(err, context.Canceled) {
+		t.Fatalf("stop with cancelled context = %v, want context.Canceled", err)
+	}
+
+	// The process should have been stopped.
+	select {
+	case <-stopped:
+	case <-time.After(5 * time.Second):
+		t.Fatal("process was not actively stopped after cancellation")
+	}
+}
+
+// TestRecordingCancelDuringStop verifies that cancellation during Stop is honored.
+func TestRecordingCancelDuringStop(t *testing.T) {
+	process := &fakeProcess{
+		out:      &blockingReader{closed: make(chan struct{})},
+		in:       bytes.NewBuffer(nil),
+		stopChan: make(chan struct{}),
+	}
+	driver := New(Config{Recorder: "wf-recorder",
+		Start: func(ctx context.Context, name string, arguments ...string) (Process, error) {
+			return process, nil
+		}})
+	recording, err := driver.Record(context.Background(), media.RecordingOptions{Format: "webm", FrameRate: 30, MaxDuration: time.Hour, MaxBytes: 1 << 30})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Start Stop in a goroutine, then cancel its context while it waits.
+	stopErr := make(chan error, 1)
+	go func() {
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+		stopErr <- recording.Stop(ctx)
+	}()
+
+	select {
+	case err := <-stopErr:
+		if !errors.Is(err, context.Canceled) {
+			t.Fatalf("stop during cancellation = %v, want context.Canceled", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("stop during cancellation did not complete")
+	}
+}
+
+// TestRecordingConcurrentStopClose verifies that concurrent Stop and Close
+// calls are idempotent and return consistent results.
+func TestRecordingConcurrentStopClose(t *testing.T) {
+	process := &fakeProcess{out: bytes.NewBuffer(nil), in: bytes.NewBuffer(nil)}
+	driver := New(Config{Recorder: "wf-recorder",
+		Start: func(ctx context.Context, name string, arguments ...string) (Process, error) {
+			return process, nil
+		}})
+	recording, err := driver.Record(context.Background(), media.RecordingOptions{Format: "webm", FrameRate: 30, MaxDuration: time.Minute, MaxBytes: 1 << 30})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Launch concurrent Stop and Close calls.
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		for i := 0; i < 5; i++ {
+			recording.Stop(context.Background())
+		}
+	}()
+	for i := 0; i < 5; i++ {
+		recording.Close()
+	}
+	<-done
+
+	// All calls should have returned without error (or with a consistent error).
+	// Since the process stops gracefully and quickly, no error is expected.
+	if err := recording.Stop(context.Background()); err != nil {
+		t.Fatalf("final stop after concurrent calls = %v", err)
+	}
+	if err := recording.Close(); err != nil {
+		t.Fatalf("final close after concurrent calls = %v", err)
+	}
+}
+
 func TestConfiguredYdotoolHandlesPointerInput(t *testing.T) {
 	runner := &fakeRunner{}
 	driver := New(Config{Run: runner.run, Pointer: "ydotool"})

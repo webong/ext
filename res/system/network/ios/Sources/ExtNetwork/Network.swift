@@ -107,12 +107,13 @@ public struct NetworkSnapshot: Codable, Equatable, Sendable {
 public struct NetworkOptions: Equatable, Sendable {
     public let maxInterfaces: Int
     public let maxAddresses: Int
+    public let maxRoutes: Int
 
-    public init(maxInterfaces: Int = 256, maxAddresses: Int = 256) throws {
-        guard (1...65_536).contains(maxInterfaces), (1...65_536).contains(maxAddresses) else {
+    public init(maxInterfaces: Int = 256, maxAddresses: Int = 256, maxRoutes: Int = 4096) throws {
+        guard (1...65_536).contains(maxInterfaces), (1...65_536).contains(maxAddresses), (1...65_536).contains(maxRoutes) else {
             throw NetworkObservationError.invalidLimit
         }
-        self.maxInterfaces = maxInterfaces; self.maxAddresses = maxAddresses
+        self.maxInterfaces = maxInterfaces; self.maxAddresses = maxAddresses; self.maxRoutes = maxRoutes
     }
 }
 
@@ -156,10 +157,16 @@ public final class SystemNetworkObserver: @unchecked Sendable {
             NetworkInterface(index: builder.index, name: name, flags: builder.flags.sorted(),
                 addresses: builder.addresses.sorted { $0.ip < $1.ip })
         }.sorted { $0.index < $1.index }
-        return NetworkSnapshot(platform: networkPlatform, observedAt: now, interfaces: interfaces, routes: [], resolver: NetworkResolver(),
+        let routes = platformRoutes(now, limit: options.maxRoutes)
+        let routePartial = routes.1
+        let resolver = platformResolver(now)
+        return NetworkSnapshot(platform: networkPlatform, observedAt: now, interfaces: interfaces, routes: routes.0, resolver: resolver.0,
             interfaceStatus: NetworkCollectionStatus(state: partial ? "partial" : "complete",
                 detail: partial ? "interface or address limit reached" : nil, observedAt: now),
-            routeStatus: unsupportedRoutes(now), resolverStatus: unsupportedResolver(now))
+            routeStatus: NetworkCollectionStatus(state: routePartial ? "partial" : "complete",
+                detail: routePartial ? "route limit reached" : nil, observedAt: now),
+            resolverStatus: NetworkCollectionStatus(state: resolver.1 ? "partial" : "complete",
+                detail: resolver.1 ? "resolver limit reached" : nil, observedAt: now))
     }
 }
 
@@ -174,6 +181,105 @@ private var networkPlatform: String {
 private func networkTimestamp(_ date: Date) -> String {
     let formatter = ISO8601DateFormatter(); formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
     return formatter.string(from: date)
+}
+
+private func platformRoutes(_ now: String, limit: Int) -> ([NetworkRoute], Bool) {
+    guard let output = runCommand("netstat", arguments: ["-rn"]) else {
+        return ([], true)
+    }
+    var routes: [NetworkRoute] = []
+    var partial = false
+    var section = ""
+    for line in output.split(separator: "\n", omittingEmptySubsequences: true) {
+        let trimmed = line.trimmingCharacters(in: .whitespaces)
+        if trimmed == "Internet:" { section = "inet"; continue }
+        if trimmed == "Internet6:" { section = "inet6"; continue }
+        if trimmed.hasPrefix("Routing tables") || trimmed.isEmpty { continue }
+        let fields = trimmed.split(separator: " ", omittingEmptySubsequences: true)
+        if fields.count < 4 { continue }
+        if routes.count >= limit { partial = true; continue }
+        let destination = String(fields[0])
+        let gateway = String(fields[1])
+        let netif = fields.count > 3 ? String(fields[3]) : ""
+        guard let cidr = destinationToCIDR(destination, section: section) else { continue }
+        let isDefault = cidr == "0.0.0.0/0" || cidr == "::/0"
+        routes.append(NetworkRoute(destination: cidr, gateway: routeGateway(gateway) ?? "", interface: netif,
+            metric: 0, default: isDefault))
+    }
+    return (routes, partial)
+}
+
+// destinationToCIDR converts a netstat destination to CIDR. Network
+// destinations without an explicit prefix are skipped rather than guessed.
+private func destinationToCIDR(_ destination: String, section: String) -> String? {
+    if destination == "default" {
+        return section == "inet6" ? "::/0" : "0.0.0.0/0"
+    }
+    if destination.contains("/") { return destination }
+    if let ip = IPAddress(destination) {
+        return ip.isIPv4 ? "\(destination)/32" : "\(destination)/128"
+    }
+    return nil
+}
+
+// routeGateway returns the gateway address, or nil for on-link routes.
+private func routeGateway(_ gateway: String) -> String? {
+    if gateway.isEmpty || gateway == "*" || gateway == "default" { return nil }
+    if IPAddress(gateway) != nil { return gateway }
+    return nil // link-layer or link#N: on-link
+}
+
+private func platformResolver(_ now: String) -> (NetworkResolver, Bool) {
+    guard let output = runCommand("scutil", arguments: ["--dns"]) else {
+        return (NetworkResolver(), true)
+    }
+    var servers: [String] = []
+    var search: [String] = []
+    for line in output.split(separator: "\n", omittingEmptySubsequences: true) {
+        let trimmed = line.trimmingCharacters(in: .whitespaces)
+        guard trimmed.hasPrefix("nameserver[") || trimmed.hasPrefix("domain") else { continue }
+        guard let colon = trimmed.firstIndex(of: ":") else { continue }
+        let key = String(trimmed[trimmed.startIndex..<colon]).trimmingCharacters(in: .whitespaces)
+        let value = String(trimmed[trimmed.index(after: colon)...]).trimmingCharacters(in: .whitespaces)
+        if key.hasPrefix("nameserver") {
+            if let ip = IPAddress(value), !servers.contains(ip.string) {
+                servers.append(ip.string)
+            }
+        } else if key == "domain" && !search.contains(value) {
+            search.append(value)
+        }
+    }
+    return (NetworkResolver(servers: servers, search: search, options: []), servers.isEmpty && search.isEmpty)
+}
+
+private func runCommand(_ executable: String, arguments: [String]) -> String? {
+    let process = Process()
+    process.executableURL = URL(fileURLWithPath: "/usr/bin/\(executable)")
+    process.arguments = arguments
+    let pipe = Pipe()
+    process.standardOutput = pipe
+    process.standardError = nil
+    do { try process.run() } catch { return nil }
+    process.waitUntilExit()
+    let data = pipe.fileHandleForReading.readDataToEndOfFile()
+    return String(data: data, encoding: .utf8)
+}
+
+private struct IPAddress {
+    let string: String
+    let isIPv4: Bool
+    init?(_ value: String) {
+        // IPv4 dotted-decimal.
+        let parts = value.split(separator: ".", omittingEmptySubsequences: true)
+        if parts.count == 4, parts.allSatisfy({ Int($0) != nil && (0...255).contains(Int($0)!) }) {
+            self.string = value; self.isIPv4 = true; return
+        }
+        // IPv6 (very permissive: contains colons and is not a MAC address).
+        if value.contains(":") && !value.contains("-") && !value.hasPrefix("link#") {
+            self.string = value; self.isIPv4 = false; return
+        }
+        return nil
+    }
 }
 
 private func unsupportedRoutes(_ now: String) -> NetworkCollectionStatus {

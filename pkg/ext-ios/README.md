@@ -114,9 +114,13 @@ application identifier.
 ## Network observation
 
 `ExtNetwork` ships [`res/system/network`](../../res/system/network/README.md)'s bounded local
-interface and assigned-address observation. Apple route-table and resolver
-collection currently report `unsupported`. It performs no lookup, opens no
-connection, and provides no remote discovery or routing service.
+interface and assigned-address observation. On macOS, route-table observation
+uses `netstat -rn` and DNS resolver observation uses `scutil --dns`; both are
+local-only and report `unsupported` when the system binary is unavailable. On
+iOS, route-table and resolver collection report `unsupported` because public
+APIs do not expose them to apps and the binding does not shell out. It performs
+no lookup, opens no connection, and provides no remote discovery or routing
+service.
 
 ## Hosting a plugin in a web view
 

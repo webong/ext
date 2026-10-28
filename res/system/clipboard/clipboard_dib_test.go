@@ -175,3 +175,104 @@ func TestMakeDIBHeaderBitCounts(t *testing.T) {
 		}
 	}
 }
+
+func TestValidateDIBHeaderRejectsBadPlanes(t *testing.T) {
+	dib := append(makeDIBHeader(100, 100, 24, 0), make([]byte, 100)...)
+	h := (*bitmapInfoHeader)(unsafe.Pointer(&dib[0]))
+	h.biPlanes = 2
+	if _, _, _, err := validateDIBHeader(dib); err == nil {
+		t.Fatal("bad biPlanes was accepted")
+	}
+}
+
+func TestValidateDIBHeaderRejectsExcessiveClrUsed(t *testing.T) {
+	// 4-bit DIB can have at most 16 colors.
+	dib := append(makeDIBHeader(100, 100, 4, 0), make([]byte, 100)...)
+	h := (*bitmapInfoHeader)(unsafe.Pointer(&dib[0]))
+	h.biClrUsed = 32 // exceeds 16 for 4-bit
+	if _, _, _, err := validateDIBHeader(dib); err == nil {
+		t.Fatal("excessive biClrUsed was accepted")
+	}
+}
+
+func TestValidateDIBHeaderRejectsBitfields16Bit(t *testing.T) {
+	// BI_BITFIELDS with 16-bit should be accepted.
+	dib := append(makeDIBHeader(100, 100, 16, 3), make([]byte, 100)...)
+	if _, _, _, err := validateDIBHeader(dib); err != nil {
+		t.Fatalf("BI_BITFIELDS 16-bit rejected: %v", err)
+	}
+}
+
+func TestValidateDIBHeaderRejectsBitfields24Bit(t *testing.T) {
+	// BI_BITFIELDS with 24-bit should be rejected.
+	dib := append(makeDIBHeader(100, 100, 24, 3), make([]byte, 100)...)
+	if _, _, _, err := validateDIBHeader(dib); err == nil {
+		t.Fatal("BI_BITFIELDS 24-bit was accepted")
+	}
+}
+
+func TestValidateDIBHeaderRejectsTruncatedPalette(t *testing.T) {
+	// Build a valid 8-bit DIB, then truncate below the required palette size.
+	full := makeDIBHeader(100, 100, 8, 0)
+	// Keep header + partial palette (less than the 1024 bytes needed).
+	truncated := full[:int(unsafe.Sizeof(bitmapInfoHeader{}))+200]
+	if _, _, _, err := validateDIBHeader(truncated); err == nil {
+		t.Fatal("truncated palette was accepted")
+	}
+}
+
+func TestValidateDIBHeaderRejectsTruncatedPixels(t *testing.T) {
+	// Build a valid 24-bit DIB, then truncate below the required pixel size.
+	full := makeDIBHeader(100, 100, 24, 0)
+	// Keep header + partial pixels (less than the 30000 bytes needed).
+	truncated := full[:int(unsafe.Sizeof(bitmapInfoHeader{}))+100]
+	if _, _, _, err := validateDIBHeader(truncated); err == nil {
+		t.Fatal("truncated pixels was accepted")
+	}
+}
+
+func TestValidateDIBHeaderBitsOffset24Bit(t *testing.T) {
+	dib := append(makeDIBHeader(100, 100, 24, 0), make([]byte, 30000)...)
+	w, _, bitsOffset, err := validateDIBHeader(dib)
+	if err != nil {
+		t.Fatalf("valid 24-bit DIB rejected: %v", err)
+	}
+	if w != 100 {
+		t.Fatalf("width = %d, want 100", w)
+	}
+	if bitsOffset != int(unsafe.Sizeof(bitmapInfoHeader{})) {
+		t.Fatalf("bitsOffset = %d, want %d (header only for 24-bit BI_RGB)", bitsOffset, unsafe.Sizeof(bitmapInfoHeader{}))
+	}
+}
+
+func TestValidateDIBHeaderBitsOffset8Bit(t *testing.T) {
+	// 8-bit DIB: header + 256-color palette = 40 + 1024 = 1064 bytes offset.
+	dib := append(makeDIBHeader(100, 100, 8, 0), make([]byte, 10000)...)
+	w, _, bitsOffset, err := validateDIBHeader(dib)
+	if err != nil {
+		t.Fatalf("valid 8-bit DIB rejected: %v", err)
+	}
+	if w != 100 {
+		t.Fatalf("width = %d, want 100", w)
+	}
+	expectedOffset := int(unsafe.Sizeof(bitmapInfoHeader{})) + 256*4
+	if bitsOffset != expectedOffset {
+		t.Fatalf("bitsOffset = %d, want %d (header + 256-color palette)", bitsOffset, expectedOffset)
+	}
+}
+
+func TestValidateDIBHeaderBitsOffset32BitBitfields(t *testing.T) {
+	// 32-bit BI_BITFIELDS: header + 3 masks = 40 + 12 = 52 bytes offset.
+	dib := append(makeDIBHeader(100, 100, 32, 3), make([]byte, 10000)...)
+	w, _, bitsOffset, err := validateDIBHeader(dib)
+	if err != nil {
+		t.Fatalf("valid 32-bit BI_BITFIELDS DIB rejected: %v", err)
+	}
+	if w != 100 {
+		t.Fatalf("width = %d, want 100", w)
+	}
+	expectedOffset := int(unsafe.Sizeof(bitmapInfoHeader{})) + 12
+	if bitsOffset != expectedOffset {
+		t.Fatalf("bitsOffset = %d, want %d (header + 3 bitfield masks)", bitsOffset, expectedOffset)
+	}
+}

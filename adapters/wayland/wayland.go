@@ -235,10 +235,10 @@ func (d *Driver) Record(ctx context.Context, options media.RecordingOptions) (me
 		maxDuration: options.MaxDuration,
 		started:     time.Now(),
 		done:        make(chan struct{}),
-		limitCh:     make(chan struct{}, 1),
 	}
 	// A blocked read can exceed MaxDuration, so start a watchdog that actively
-	// stops the recorder when the duration bound is crossed.
+	// stops the recorder when the duration bound is crossed. The watchdog
+	// fires once and is idempotent.
 	go r.watchDuration(ctx)
 	return r, nil
 }
@@ -253,7 +253,6 @@ type recording struct {
 	stopped     bool
 	limitErr    error
 	done        chan struct{}
-	limitCh     chan struct{}
 	mu          sync.Mutex
 	once        sync.Once
 }
@@ -294,8 +293,9 @@ func (r *recording) stop(limitErr error) {
 		}
 		_ = r.output.Close()
 	})
-	// Capture the limit error from the first caller; subsequent calls return
-	// their own context error if any, but never overwrite a recorded limit.
+	// Capture the terminal result from the first caller; subsequent calls
+	// return their own context error if any, but never overwrite a recorded
+	// terminal result.
 	r.mu.Lock()
 	if r.limitErr == nil && limitErr != nil {
 		r.limitErr = limitErr
@@ -308,7 +308,12 @@ func (r *recording) Read(p []byte) (int, error) {
 	r.mu.Lock()
 	if r.stopped {
 		r.mu.Unlock()
-		return 0, r.limitErr
+		// After a normal stop, report EOF. After a limit, report the limit
+		// error. After cancellation, report the context error.
+		if r.limitErr != nil {
+			return 0, r.limitErr
+		}
+		return 0, io.EOF
 	}
 	if time.Since(r.started) >= r.maxDuration {
 		r.mu.Unlock()
@@ -333,10 +338,14 @@ func (r *recording) Read(p []byte) (int, error) {
 	r.mu.Lock()
 	r.bytesRead += int64(n)
 	// If the watchdog or another Read already stopped this recording, report
-	// the limit error even if the underlying reader returned EOF.
-	if r.stopped && r.limitErr != nil {
+	// the terminal result even if the underlying reader returned data.
+	if r.stopped {
+		if r.limitErr != nil {
+			r.mu.Unlock()
+			return 0, r.limitErr
+		}
 		r.mu.Unlock()
-		return 0, r.limitErr
+		return 0, io.EOF
 	}
 	if r.bytesRead >= r.maxBytes {
 		limitErr := media.ErrRecordingLimit

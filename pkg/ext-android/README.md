@@ -12,7 +12,13 @@ Kotlin calls it directly.
   Go. The code is `res/web/android`; this AAR ships it. See Web rules.
 - **System** (`io.github.webong.ext.system`): bounded display metadata and the
   calling application's visible window and view structure, plus permission-state
-  observation, from `res/system/android`.
+  observation, from `res/system/android`. Memory observation distinguishes
+  physical memory (`memory_bytes`, from `ActivityManager.MemoryInfo.totalMem`)
+  from effective capacity (`memory_capacity_bytes`, equal to physical on Android
+  because no container memory limit is exposed at this level). Missing
+  `ActivityManager` or zero total memory yields a non-complete memory status
+  rather than guessing host values. Storage and battery absence are reported
+  explicitly.
 - **Network** (`io.github.webong.ext.network`): bounded local interfaces,
   assigned addresses, routes and DNS configuration from `res/system/network/android`.
 

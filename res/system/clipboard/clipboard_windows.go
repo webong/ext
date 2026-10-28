@@ -369,16 +369,21 @@ func dibToBitmap(dib []byte, maxBytes int64) (uintptr, error) {
 	}
 	bits := dib[bitsOffset:]
 
+	// Build a complete BITMAPINFO: header + color table / bitfield masks, so
+	// that CreateDIBITMAP reads a correctly sized structure. The fixed
+	// bitmapInfo type only holds 4 color entries, which is insufficient for
+	// palettes (4/8-bit) or BI_BITFIELDS masks.
+	infoBuf := make([]byte, bitsOffset)
+	copy(infoBuf, dib[:bitsOffset])
+	biPtr := unsafe.Pointer(&infoBuf[0])
+
 	hwnd, _, _ := procGetDesktopWindow.Call()
 	hdc, _, _ := procGetDC.Call(hwnd)
 	defer procReleaseDC.Call(hwnd, hdc)
 
-	// Re-read the header after validation; it is known to be well-formed.
-	header := (*bitmapInfoHeader)(unsafe.Pointer(&dib[0]))
-	bi := bitmapInfo{bmiHeader: *header}
 	hbitmap, _, _ := procCreateDIBitmap.Call(
-		hdc, uintptr(unsafe.Pointer(header)), 1, // CBM_INIT
-		uintptr(unsafe.Pointer(&bits[0])), uintptr(unsafe.Pointer(&bi)), 0, // DIB_RGB_COLORS
+		hdc, uintptr(biPtr), 1, // CBM_INIT
+		uintptr(unsafe.Pointer(&bits[0])), uintptr(biPtr), 0, // DIB_RGB_COLORS
 	)
 	if hbitmap == 0 {
 		return 0, fmt.Errorf("%w: cannot create clipboard bitmap from DIB", ErrInvalid)

@@ -16,6 +16,14 @@ var (
 	procGetNetworkParams = networkIphlpapi.NewProc("GetNetworkParams")
 )
 
+// getNetworkParamsCall is the injectable seam for GetNetworkParams. Tests can
+// replace it to exercise the complete two-call orchestration without invoking
+// the real global procedure.
+var getNetworkParamsCall = func(buf *byte, size *uint32) (result uintptr, callErr error) {
+	r1, _, err := procGetNetworkParams.Call(uintptr(unsafe.Pointer(buf)), uintptr(unsafe.Pointer(size)))
+	return r1, err
+}
+
 // Windows SDK constants for FIXED_INFO.
 const (
 	networkMaxHostNameLen   = 128 // MAX_HOST_NAME_LEN
@@ -71,11 +79,10 @@ func platformResolver(ctx context.Context) (Resolver, CollectionStatus, error) {
 		return Resolver{}, CollectionStatus{}, err
 	}
 	var size uint32
-	result, _, callErr := procGetNetworkParams.Call(0, uintptr(unsafe.Pointer(&size)))
-	// The first call with a NULL buffer is a size probe. GetNetworkParams
-	// returns ERROR_BUFFER_OVERFLOW (111) directly in its return value during
-	// the normal size probe; callErr is not set for this expected path.
-	// Compare result to networkErrBufferOverflow, not callErr.
+	// First call: size probe with NULL buffer. GetNetworkParams returns
+	// ERROR_BUFFER_OVERFLOW (111) directly in its return value; callErr is
+	// not set for this expected path. Compare the result code, not callErr.
+	result, callErr := getNetworkParamsCall(nil, &size)
 	if result != 0 {
 		if errno, ok := callErr.(windows.Errno); ok && errno == networkErrBufferOverflow && size > 0 {
 			// Proceed with the allocated buffer.
@@ -87,9 +94,11 @@ func platformResolver(ctx context.Context) (Resolver, CollectionStatus, error) {
 		return Resolver{}, status("unavailable", "GetNetworkParams returned zero size"), nil
 	}
 	buf := make([]byte, int(size))
-	result, _, callErr = procGetNetworkParams.Call(uintptr(unsafe.Pointer(&buf[0])), uintptr(unsafe.Pointer(&size)))
+	result, callErr = getNetworkParamsCall(&buf[0], &size)
 	if result != 0 {
-		return Resolver{}, status("unavailable", fmt.Sprintf("GetNetworkParams failed: %v", callErr)), nil
+		// Report the returned Win32 result code, not callErr which may be
+		// stale or zero.
+		return Resolver{}, status("unavailable", fmt.Sprintf("GetNetworkParams failed: result=%d err=%v", result, callErr)), nil
 	}
 	servers, domain := dnsServersFromFixedInfo(buf)
 	search := []string{}

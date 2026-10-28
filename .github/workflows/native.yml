@@ -29,6 +29,10 @@ jobs:
         if: runner.os == 'Windows'
         with:
           dotnet-version: '8.0.x'
+      - name: Validate Windows system library
+        if: runner.os == 'Windows'
+        shell: bash
+        run: go test -v ./res/system/... -timeout 5m
       - name: Test library modules
         shell: bash # the loop is bash; Windows runners default to PowerShell
         run: |
@@ -46,6 +50,12 @@ jobs:
       - name: Validate Android system network contracts
         if: runner.os != 'Windows'
         run: scripts/network-android.sh
+      - name: Stage Android SDK release (non-publishing)
+        if: runner.os != 'Windows'
+        run: scripts/ext-android-release.sh 0.0.0-ci
+      - name: Stage iOS SDK release (non-publishing)
+        if: runner.os == 'macOS'
+        run: scripts/ext-ios-release.sh 0.0.0-ci
       - name: PipeWire native integration (Linux, opt-in)
         if: runner.os == 'Linux'
         env:
@@ -53,13 +63,17 @@ jobs:
         run: go test -v ./adapters/pipewire -run '^TestNativePipeWire' -count=1
       - name: Generic iOS ExtSystem build
         if: runner.os == 'macOS'
-        run: swift build --target ExtSystem --destination 'generic/platform=iOS'
+        run: xcodebuild -scheme ExtSystem -destination 'generic/platform=iOS' -sdk iphoneos CODE_SIGNING_ALLOWED=NO build
         working-directory: res/system/ios
       - name: Generic iOS ExtNetwork build
         if: runner.os == 'macOS'
-        run: swift build --target ExtNetwork --destination 'generic/platform=iOS'
+        run: xcodebuild -scheme ExtNetwork -destination 'generic/platform=iOS' -sdk iphoneos CODE_SIGNING_ALLOWED=NO build
         working-directory: res/system/network/ios
-      - name: Swift tests
+      - name: Swift tests (ExtSystem)
+        if: runner.os == 'macOS'
+        run: swift test
+        working-directory: res/system/ios
+      - name: Swift tests (ExtNetwork)
         if: runner.os == 'macOS'
         run: swift test
         working-directory: res/system/network/ios

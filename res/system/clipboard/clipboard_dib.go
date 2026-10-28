@@ -29,6 +29,9 @@ type bitmapInfoHeader struct {
 // All arithmetic is overflow-safe. Returns an error if the layout is invalid.
 func dibLayout(header *bitmapInfoHeader) (headerSize, colorTableSize, rowStride, pixelDataSize, totalSize int64, err error) {
 	headerSize = int64(unsafe.Sizeof(*header))
+	if header.biPlanes != 1 {
+		return 0, 0, 0, 0, 0, fmt.Errorf("%w: clipboard DIB biPlanes must be 1, got %d", ErrInvalid, header.biPlanes)
+	}
 	if header.biWidth <= 0 || header.biHeight == 0 {
 		return 0, 0, 0, 0, 0, fmt.Errorf("%w: clipboard DIB has empty dimensions", ErrInvalid)
 	}
@@ -43,6 +46,10 @@ func dibLayout(header *bitmapInfoHeader) (headerSize, colorTableSize, rowStride,
 	switch header.biCompression {
 	case 0: // BI_RGB
 	case 3: // BI_BITFIELDS
+		// BI_BITFIELDS is only supported for 16- and 32-bit DIBs by Win32.
+		if header.biBitCount != 16 && header.biBitCount != 32 {
+			return 0, 0, 0, 0, 0, fmt.Errorf("%w: clipboard DIB BI_BITFIELDS is only supported for 16- and 32-bit, got %d-bit", ErrInvalid, header.biBitCount)
+		}
 	default:
 		return 0, 0, 0, 0, 0, fmt.Errorf("%w: clipboard DIB compression %d is unsupported", ErrInvalid, header.biCompression)
 	}
@@ -65,6 +72,11 @@ func dibLayout(header *bitmapInfoHeader) (headerSize, colorTableSize, rowStride,
 			clrUsed := int64(header.biClrUsed)
 			if clrUsed == 0 {
 				clrUsed = int64(1) << bitsPerPixel
+			}
+			// Clamp to the maximum meaningful palette size for the bit depth.
+			maxColors := int64(1) << bitsPerPixel
+			if clrUsed > maxColors {
+				return 0, 0, 0, 0, 0, fmt.Errorf("%w: clipboard DIB biClrUsed %d exceeds %d colors for %d-bit", ErrInvalid, clrUsed, maxColors, header.biBitCount)
 			}
 			colorTableSize = clrUsed * 4 // RGBQUAD entries
 		}
@@ -97,7 +109,7 @@ func validateDIBHeader(dib []byte) (width, height, bitsOffset int, err error) {
 		return 0, 0, 0, fmt.Errorf("%w: BITMAPV5HEADER DIBs are not accepted for clipboard creation", ErrInvalid)
 	}
 
-	hdrSize, _, _, _, totalSize, err := dibLayout(header)
+	hdrSize, colorTableSize, _, _, totalSize, err := dibLayout(header)
 	if err != nil {
 		return 0, 0, 0, err
 	}
@@ -109,6 +121,8 @@ func validateDIBHeader(dib []byte) (width, height, bitsOffset int, err error) {
 	if height < 0 {
 		height = -height
 	}
-	bitsOffset = int(hdrSize)
+	// bitsOffset includes the header plus any color table or bitfield masks,
+	// so that pixel data starts at the correct offset.
+	bitsOffset = int(hdrSize + colorTableSize)
 	return int(header.biWidth), height, bitsOffset, nil
 }

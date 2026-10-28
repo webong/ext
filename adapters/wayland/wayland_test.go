@@ -348,6 +348,27 @@ func TestRecordingStopIsIdempotent(t *testing.T) {
 	}
 }
 
+func TestRecordingReadAfterNormalStop(t *testing.T) {
+	process := &fakeProcess{out: bytes.NewBuffer(nil), in: bytes.NewBuffer(nil)}
+	driver := New(Config{Recorder: "wf-recorder",
+		Start: func(ctx context.Context, name string, arguments ...string) (Process, error) {
+			return process, nil
+		}})
+	recording, err := driver.Record(context.Background(), media.RecordingOptions{Format: "webm", FrameRate: 30, MaxDuration: time.Minute, MaxBytes: 1 << 30})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := recording.Stop(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := recording.Read(make([]byte, 16)); err != io.EOF {
+		t.Fatalf("read after normal stop = %v, want io.EOF", err)
+	}
+	if err := recording.Stop(context.Background()); err != nil {
+		t.Fatalf("second stop after read = %v", err)
+	}
+}
+
 func TestConfiguredYdotoolHandlesPointerInput(t *testing.T) {
 	runner := &fakeRunner{}
 	driver := New(Config{Run: runner.run, Pointer: "ydotool"})

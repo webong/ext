@@ -12,6 +12,7 @@ use (
 	./adapters/systemd
 	./adapters/pulseaudio
 	./adapters/alsa
+	./adapters/pipewire
 	./adapters/x11
 	./adapters/wayland
 	./adapters/wasm

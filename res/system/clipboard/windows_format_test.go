@@ -27,10 +27,16 @@ func TestStandardClipboardFormatNames(t *testing.T) {
 	if standardClipboardFormats["CF_UNICODETEXT"] != 13 {
 		t.Fatalf("unicode text identifier = %d", standardClipboardFormats["CF_UNICODETEXT"])
 	}
+	if standardClipboardFormats["CF_BITMAP"] != 2 {
+		t.Fatalf("bitmap identifier = %d", standardClipboardFormats["CF_BITMAP"])
+	}
 	if standardClipboardFormatNames[8] != "CF_DIB" {
 		t.Fatalf("DIB name = %q", standardClipboardFormatNames[8])
 	}
-	if !supportedClipboardFormat("CF_DIBV5") || !supportedClipboardFormat("PNG") {
+	if standardClipboardFormatNames[2] != "CF_BITMAP" {
+		t.Fatalf("bitmap name = %q", standardClipboardFormatNames[2])
+	}
+	if !supportedClipboardFormat("CF_DIBV5") || !supportedClipboardFormat("CF_BITMAP") || !supportedClipboardFormat("PNG") {
 		t.Fatal("supported format was refused")
 	}
 	if supportedClipboardFormat("") || supportedClipboardFormat(strings.Repeat("x", 256)) {

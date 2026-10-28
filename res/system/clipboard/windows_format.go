@@ -5,11 +5,14 @@ import (
 	"unicode/utf16"
 )
 
-// CF_TEXT, CF_DIB, CF_UNICODETEXT, and CF_DIBV5 are the standard Windows
-// clipboard formats this backend exposes. Registered formats keep their own
-// names. Bitmap and metafile handles are refused rather than guessed.
+// CF_TEXT, CF_BITMAP, CF_DIB, CF_UNICODETEXT, and CF_DIBV5 are the standard
+// Windows clipboard formats this backend exposes. CF_BITMAP is handle-backed
+// and is copied into DIB bytes rather than retaining the handle. Registered
+// formats keep their own names. CF_ENHMETAFILE and other handle-only formats
+// remain explicit gaps.
 var standardClipboardFormats = map[string]uint32{
 	"CF_TEXT":        1,
+	"CF_BITMAP":      2,
 	"CF_DIB":         8,
 	"CF_UNICODETEXT": 13,
 	"CF_DIBV5":       17,
@@ -17,6 +20,7 @@ var standardClipboardFormats = map[string]uint32{
 
 var standardClipboardFormatNames = map[uint32]string{
 	1:  "CF_TEXT",
+	2:  "CF_BITMAP",
 	8:  "CF_DIB",
 	13: "CF_UNICODETEXT",
 	17: "CF_DIBV5",

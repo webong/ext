@@ -23,6 +23,9 @@ func Run(args []string, stdout, stderr io.Writer) int {
 	if args[0] == "verify" {
 		return verifyCommand(args[1:], stdout, stderr)
 	}
+	if args[0] == "model" {
+		return modelCommand(args[1:], stdout, stderr)
+	}
 	fmt.Fprintf(stderr, "ctn: unknown command %q\n", args[0])
 	usage(stderr)
 	return 2
@@ -34,6 +37,9 @@ func usage(w io.Writer) {
 	fmt.Fprintln(w, "Usage:")
 	fmt.Fprintln(w, "  ctn adapter ls")
 	fmt.Fprintln(w, "  ctn verify [--engine NAME] [--selection SEL] [--timeout D] [--json] FILE [ARGUMENTS...]")
+	fmt.Fprintln(w, "  ctn model list <root-dir>")
+	fmt.Fprintln(w, "  ctn model inspect <root-dir> <provider/name@version>")
+	fmt.Fprintln(w, "  ctn model run <root-dir> <provider/name@version> <input-file>")
 	fmt.Fprintln(w, "  ctn help")
 	fmt.Fprintln(w, "  ctn version")
 }

@@ -73,13 +73,14 @@ func platformResolver(ctx context.Context) (Resolver, CollectionStatus, error) {
 	var size uint32
 	result, _, callErr := procGetNetworkParams.Call(0, uintptr(unsafe.Pointer(&size)))
 	// The first call with a NULL buffer is a size probe. GetNetworkParams
-	// returns ERROR_BUFFER_OVERFLOW and fills size with the required buffer
-	// length. Any other failure is a genuine error.
+	// returns ERROR_BUFFER_OVERFLOW (111) directly in its return value during
+	// the normal size probe; callErr is not set for this expected path.
+	// Compare result to networkErrBufferOverflow, not callErr.
 	if result != 0 {
 		if errno, ok := callErr.(windows.Errno); ok && errno == networkErrBufferOverflow && size > 0 {
 			// Proceed with the allocated buffer.
-		} else {
-			return Resolver{}, status("unavailable", fmt.Sprintf("GetNetworkParams size probe failed: %v", callErr)), nil
+		} else if uintptr(result) != uintptr(networkErrBufferOverflow) || size == 0 {
+			return Resolver{}, status("unavailable", fmt.Sprintf("GetNetworkParams size probe failed: result=%d err=%v", result, callErr)), nil
 		}
 	}
 	if size == 0 {

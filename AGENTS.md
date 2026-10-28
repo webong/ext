@@ -201,9 +201,11 @@ selectable native tool owned by `adapters/systemd`.
 `res/system/audio` owns portable device observation and bounded PCM stream
 contracts; `pactl`/`parec`/`pacat`, `aplay`/`arecord`, `grim`/`wtype`/`ydotool`, `import`/`xdotool`,
 and `ffmpeg` are selectable native tools owned by `adapters/pulseaudio`,
-`adapters/alsa`, `adapters/wayland`, and `adapters/x11`. `res/system.DesktopDriver` is the
-portable seam those adapters implement, and the shared library never selects a
-driver by name.
+`adapters/alsa`, `adapters/wayland`, and `adapters/x11`. `adapters/pipewire`
+implements the same contract with `pw-dump`, `pw-record`, and `pw-play`.
+PipeWire and PulseAudio are separate adapters; no library selects between them
+by name. `res/system.DesktopDriver` is the portable seam those adapters
+implement, and the shared library never selects a driver by name.
 `res/system` may also perform bounded local shell mechanisms such as capture,
 media playback/capture and portable media framing, native input, volume snapshot/restore, and process
 supervision. Remote clients, service discovery, routing services, authorization,

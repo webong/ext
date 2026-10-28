@@ -22,18 +22,22 @@ func testFixedInfoBuffer(domain string, entries [][16]byte) []byte {
 	// Layout: HostName[132] + DomainName[132] + CurrentDnsServer ptr + entries
 	bufSize := dnsServerListOffset + len(entries)*entrySize
 	buf := make([]byte, bufSize)
+	bufPtr := unsafe.Pointer(&buf[0])
 
 	// Copy domain into DomainName field.
 	domainBytes := []byte(domain)
 	copy(buf[132:132+len(domainBytes)], domainBytes)
 
-	// Write entries and set up next pointers.
+	// Populate all entry addresses first, then write entries and links.
+	// Writing entry.next before the target address is known leaves the first
+	// link zero, which breaks multi-entry lists.
 	addresses := make([]uintptr, len(entries))
-	bufPtr := unsafe.Pointer(&buf[0])
-	for i, ipBytes := range entries {
+	for i := range entries {
 		entryOffset := dnsServerListOffset + i*entrySize
-		entryPtr := unsafe.Add(bufPtr, entryOffset)
-		addresses[i] = uintptr(entryPtr)
+		addresses[i] = uintptr(unsafe.Add(bufPtr, uintptr(entryOffset)))
+	}
+	for i, ipBytes := range entries {
+		entryPtr := unsafe.Add(bufPtr, uintptr(dnsServerListOffset+i*entrySize))
 		entry := (*networkIPAddrString)(entryPtr)
 		copy(entry.ipAddress[:], ipBytes[:])
 		if i+1 < len(entries) {
@@ -233,5 +237,100 @@ func TestPtrSizeMatchesArch(t *testing.T) {
 	}
 	if bits.UintSize == 32 && ptrSize != 4 {
 		t.Fatalf("x86 ptrSize = %d, want 4", ptrSize)
+	}
+}
+
+func TestStatusClassification(t *testing.T) {
+	// No servers => unavailable state.
+	s := status("unavailable", "no servers")
+	if s.State != "unavailable" || s.Detail != "no servers" {
+		t.Fatalf("unavailable status = %#v", s)
+	}
+	// Complete state.
+	s = status("complete", "")
+	if s.State != "complete" || s.Detail != "" {
+		t.Fatalf("complete status = %#v", s)
+	}
+}
+
+func TestCleanResolverDeduplicatesAndSorts(t *testing.T) {
+	got := cleanResolver([]string{"10.0.0.2", "10.0.0.1", "10.0.0.2", "10.0.0.3"})
+	want := []string{"10.0.0.1", "10.0.0.2", "10.0.0.3"}
+	if len(got) != len(want) {
+		t.Fatalf("cleanResolver = %v, want %v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("cleanResolver[%d] = %q, want %q", i, got[i], want[i])
+		}
+	}
+}
+
+func TestCleanResolverEmpty(t *testing.T) {
+	got := cleanResolver(nil)
+	if len(got) != 0 {
+		t.Fatalf("cleanResolver(nil) = %v, want empty", got)
+	}
+}
+
+func TestDNSServersFromFixedInfoMixedValidInvalid(t *testing.T) {
+	valid := net.ParseIP("10.0.0.1").To4()
+	// Mix of valid and invalid: 0.0.0.0 parses as valid IP, but we test with
+	// all-zero bytes which ParseIP treats as 0.0.0.0.
+	buf := testFixedInfoBuffer("example.com", [][16]byte{
+		{0, 0, 0, 0},          // 0.0.0.0 - parses as valid
+		{valid[0], valid[1], valid[2], valid[3]}, // 10.0.0.1
+		{255, 255, 255, 255},  // 255.255.255.255 - parses as valid
+	})
+	servers, _ := dnsServersFromFixedInfo(buf)
+	// All non-nil ParseIP results are included; 0.0.0.0 is valid.
+	if len(servers) < 1 {
+		t.Fatalf("expected at least one server, got %v", servers)
+	}
+	found := false
+	for _, s := range servers {
+		if s == "10.0.0.1" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("10.0.0.1 not in %v", servers)
+	}
+}
+
+func TestDNSServersFromFixedInfoNextZeroStops(t *testing.T) {
+	// Single entry with next=0 should stop after one entry.
+	_, dnsServerListOffset := fixedInfoOffsets()
+	entrySize := int(unsafe.Sizeof(networkIPAddrString{}))
+	bufSize := dnsServerListOffset + entrySize
+	buf := make([]byte, bufSize)
+	ip := net.ParseIP("10.0.0.1").To4()
+	bufPtr := unsafe.Pointer(&buf[0])
+	entry := (*networkIPAddrString)(unsafe.Add(bufPtr, uintptr(dnsServerListOffset)))
+	copy(entry.ipAddress[:], ip[:])
+	entry.next = 0 // explicit end of list
+
+	servers, _ := dnsServersFromFixedInfo(buf)
+	if len(servers) != 1 || servers[0] != "10.0.0.1" {
+		t.Fatalf("single entry = %v", servers)
+	}
+}
+
+func TestDNSServersFromFixedInfoNonForwardingPointerStops(t *testing.T) {
+	// next pointer that doesn't move forward should stop traversal.
+	_, dnsServerListOffset := fixedInfoOffsets()
+	entrySize := int(unsafe.Sizeof(networkIPAddrString{}))
+	bufSize := dnsServerListOffset + 2*entrySize
+	buf := make([]byte, bufSize)
+	ip := net.ParseIP("10.0.0.1").To4()
+	bufPtr := unsafe.Pointer(&buf[0])
+	entry0 := (*networkIPAddrString)(unsafe.Add(bufPtr, uintptr(dnsServerListOffset)))
+	copy(entry0.ipAddress[:], ip[:])
+	// next points to itself (not forward) - should stop.
+	entry0.next = uintptr(unsafe.Add(bufPtr, uintptr(dnsServerListOffset)))
+
+	servers, _ := dnsServersFromFixedInfo(buf)
+	if len(servers) != 1 || servers[0] != "10.0.0.1" {
+		t.Fatalf("non-forwarding pointer = %v", servers)
 	}
 }

@@ -5,7 +5,8 @@ import (
 	"unsafe"
 )
 
-// makeDIBHeader builds a minimal BITMAPINFOHEADER with the given values.
+// makeDIBHeader builds a minimal BITMAPINFOHEADER with the given values,
+// followed by enough zero pixel data to satisfy the complete DIB layout.
 func makeDIBHeader(width, height int32, bitCount uint16, compression uint32) []byte {
 	h := bitmapInfoHeader{
 		biSize:          uint32(unsafe.Sizeof(bitmapInfoHeader{})),
@@ -20,7 +21,29 @@ func makeDIBHeader(width, height int32, bitCount uint16, compression uint32) []b
 		biClrUsed:       0,
 		biClrImportant:  0,
 	}
-	return unsafe.Slice((*byte)(unsafe.Pointer(&h)), unsafe.Sizeof(h))
+	headerBytes := unsafe.Slice((*byte)(unsafe.Pointer(&h)), unsafe.Sizeof(h))
+	// Compute required pixel data size.
+	bpp := int64(bitCount)
+	rowStride := ((int64(width)*bpp + 31) / 32) * 4
+	hgt := int64(height)
+	if hgt < 0 {
+		hgt = -hgt
+	}
+	pixelDataSize := rowStride * hgt
+	var colorTableSize int64
+	if compression == 0 && bitCount <= 8 {
+		clrUsed := int64(h.biClrUsed)
+		if clrUsed == 0 {
+			clrUsed = int64(1) << bpp
+		}
+		colorTableSize = clrUsed * 4
+	} else if compression == 3 {
+		colorTableSize = 12
+	}
+	total := int64(len(headerBytes)) + colorTableSize + pixelDataSize
+	dib := make([]byte, total)
+	copy(dib, headerBytes)
+	return dib
 }
 
 func TestValidateDIBHeaderAcceptsValidDIB(t *testing.T) {

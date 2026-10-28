@@ -93,14 +93,14 @@ func (windowsClipboard) Read(ctx context.Context, maxBytes int64, formats []stri
 		var err error
 		if identifier == standardClipboardFormats["CF_BITMAP"] {
 			// CF_BITMAP is an HBITMAP handle, not a global memory object. Copy
-			// its pixels into a DIB block and release the borrowed handle. The
-			// HBITMAP is borrowed from the clipboard and is never released or
-			// retained.
+			// its pixels into a DIB block. The returned format stays CF_BITMAP
+			// so the caller's format policy is honored; the data is the DIB
+			// representation of the bitmap. The HBITMAP is borrowed from the
+			// clipboard and is never released or retained.
 			data, err = bitmapToDIB(handle, maxBytes-total)
 			if err != nil {
 				return Snapshot{}, err
 			}
-			name = "CF_DIB"
 		} else {
 			data, err = globalMemoryBytes(handle, maxBytes-total)
 			if err != nil {
@@ -167,8 +167,10 @@ func (windowsClipboard) Write(ctx context.Context, request WriteRequest, maxByte
 			if representation.Format == "CF_BITMAP" {
 				// CF_BITMAP is handle-backed: convert the DIB bytes into an
 				// HBITMAP and hand ownership to the clipboard. On failure the
-				// newly created bitmap is freed so nothing leaks.
-				hbitmap, err := dibToBitmap(data, maxBytes-int64(len(data)))
+				// newly created bitmap is freed so nothing leaks. The limit is
+				// the full maxBytes for the DIB itself, not reduced by prior
+				// representations.
+				hbitmap, err := dibToBitmap(data, maxBytes)
 				if err != nil {
 					return Receipt{}, err
 				}

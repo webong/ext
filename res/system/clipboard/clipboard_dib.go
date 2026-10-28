@@ -24,10 +24,65 @@ type bitmapInfoHeader struct {
 	biClrImportant  uint32
 }
 
-// validateDIBHeader checks a DIB block's BITMAPINFOHEADER for well-formedness.
-// It rejects zero or impossible dimensions, unsupported compression, invalid
-// bit counts, and headers that overlap pixel data. It is portable and performs
-// no native calls.
+// dibLayout computes the required layout for a DIB block: header size, color
+// table or bitfield mask size, row stride, pixel data size, and total size.
+// All arithmetic is overflow-safe. Returns an error if the layout is invalid.
+func dibLayout(header *bitmapInfoHeader) (headerSize, colorTableSize, rowStride, pixelDataSize, totalSize int64, err error) {
+	headerSize = int64(unsafe.Sizeof(*header))
+	if header.biWidth <= 0 || header.biHeight == 0 {
+		return 0, 0, 0, 0, 0, fmt.Errorf("%w: clipboard DIB has empty dimensions", ErrInvalid)
+	}
+	width := int64(header.biWidth)
+	height := int64(header.biHeight)
+	if height < 0 {
+		height = -height
+	}
+	if width > 1<<22 || height > 1<<22 {
+		return 0, 0, 0, 0, 0, fmt.Errorf("%w: clipboard DIB dimensions are implausible", ErrInvalid)
+	}
+	switch header.biCompression {
+	case 0: // BI_RGB
+	case 3: // BI_BITFIELDS
+	default:
+		return 0, 0, 0, 0, 0, fmt.Errorf("%w: clipboard DIB compression %d is unsupported", ErrInvalid, header.biCompression)
+	}
+	switch header.biBitCount {
+	case 1, 4, 8, 16, 24, 32:
+	default:
+		return 0, 0, 0, 0, 0, fmt.Errorf("%w: clipboard DIB bit count %d is unsupported", ErrInvalid, header.biBitCount)
+	}
+	bitsPerPixel := int64(header.biBitCount)
+	// Row stride with overflow-safe arithmetic: round up to 32-bit boundary.
+	rowStride = ((width*bitsPerPixel + 31) / 32) * 4
+	pixelDataSize = rowStride * height
+
+	// Color table or bitfield masks.
+	switch header.biCompression {
+	case 3: // BI_BITFIELDS
+		colorTableSize = 12 // 3 DWORD masks
+	case 0: // BI_RGB
+		if header.biBitCount <= 8 {
+			clrUsed := int64(header.biClrUsed)
+			if clrUsed == 0 {
+				clrUsed = int64(1) << bitsPerPixel
+			}
+			colorTableSize = clrUsed * 4 // RGBQUAD entries
+		}
+	}
+
+	totalSize = headerSize + colorTableSize + pixelDataSize
+
+	// biSizeImage consistency where applicable.
+	if header.biSizeImage != 0 && int64(header.biSizeImage) != pixelDataSize {
+		return 0, 0, 0, 0, 0, fmt.Errorf("%w: clipboard DIB biSizeImage %d does not match pixel data size %d", ErrInvalid, header.biSizeImage, pixelDataSize)
+	}
+	return headerSize, colorTableSize, rowStride, pixelDataSize, totalSize, nil
+}
+
+// validateDIBHeader checks a DIB block's BITMAPINFOHEADER for well-formedness
+// and verifies that the buffer contains enough data for the complete layout
+// (header, color table/bitfield masks, and pixel data). It is portable and
+// performs no native calls.
 func validateDIBHeader(dib []byte) (width, height, bitsOffset int, err error) {
 	if len(dib) < int(unsafe.Sizeof(bitmapInfoHeader{})) {
 		return 0, 0, 0, fmt.Errorf("%w: clipboard DIB is too small", ErrInvalid)
@@ -41,43 +96,19 @@ func validateDIBHeader(dib []byte) (width, height, bitsOffset int, err error) {
 	if header.biSize == bitmapV5HeaderSize {
 		return 0, 0, 0, fmt.Errorf("%w: BITMAPV5HEADER DIBs are not accepted for clipboard creation", ErrInvalid)
 	}
-	if header.biWidth <= 0 || header.biHeight == 0 {
-		return 0, 0, 0, fmt.Errorf("%w: clipboard DIB has empty dimensions", ErrInvalid)
+
+	hdrSize, _, _, _, totalSize, err := dibLayout(header)
+	if err != nil {
+		return 0, 0, 0, err
 	}
-	if header.biWidth > 1<<22 {
-		h := int32(header.biHeight)
-		if h < 0 {
-			h = -h
-		}
-		if int(h) > 1<<22 {
-			return 0, 0, 0, fmt.Errorf("%w: clipboard DIB dimensions are implausible", ErrInvalid)
-		}
-		return 0, 0, 0, fmt.Errorf("%w: clipboard DIB dimensions are implausible", ErrInvalid)
+	if int64(len(dib)) < totalSize {
+		return 0, 0, 0, fmt.Errorf("%w: clipboard DIB buffer has %d bytes, need %d for complete layout", ErrInvalid, len(dib), totalSize)
 	}
-	switch header.biCompression {
-	case 0: // BI_RGB
-	case 3: // BI_BITFIELDS
-	default:
-		return 0, 0, 0, fmt.Errorf("%w: clipboard DIB compression %d is unsupported", ErrInvalid, header.biCompression)
-	}
-	switch header.biBitCount {
-	case 1, 4, 8, 16, 24, 32:
-	default:
-		return 0, 0, 0, fmt.Errorf("%w: clipboard DIB bit count %d is unsupported", ErrInvalid, header.biBitCount)
-	}
+
 	height = int(header.biHeight)
 	if height < 0 {
 		height = -height
 	}
-	if height > 1<<22 {
-		return 0, 0, 0, fmt.Errorf("%w: clipboard DIB dimensions are implausible", ErrInvalid)
-	}
-	bitsOffset = int(unsafe.Sizeof(bitmapInfoHeader{}))
-	if header.biSize == bitmapV5HeaderSize {
-		bitsOffset = bitmapV5HeaderSize
-	}
-	if bitsOffset > len(dib) {
-		return 0, 0, 0, fmt.Errorf("%w: clipboard DIB header overlaps pixel data", ErrInvalid)
-	}
+	bitsOffset = int(hdrSize)
 	return int(header.biWidth), height, bitsOffset, nil
 }

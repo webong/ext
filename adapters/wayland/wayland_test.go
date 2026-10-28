@@ -160,7 +160,6 @@ func TestRecordingMapsFormatToCodecAndMuxer(t *testing.T) {
 		format, codec, muxer string
 	}{
 		{"webm", "libvpx-vp9", "webm"},
-		{"mp4", "libx264", "mp4"},
 	} {
 		var received []string
 		process := &fakeProcess{out: bytes.NewBuffer(nil), in: bytes.NewBuffer(nil)}
@@ -188,6 +187,13 @@ func TestRecordingMapsFormatToCodecAndMuxer(t *testing.T) {
 	}
 }
 
+func TestRecordingRejectsMP4ForPipedOutput(t *testing.T) {
+	driver := New(Config{Recorder: "wf-recorder"})
+	if _, err := driver.Record(context.Background(), media.RecordingOptions{Format: "mp4", FrameRate: 30}); err == nil {
+		t.Fatal("mp4 piped recording was accepted")
+	}
+}
+
 func TestRecordingRejectsUnsupportedFormat(t *testing.T) {
 	driver := New(Config{Recorder: "wf-recorder"})
 	if _, err := driver.Record(context.Background(), media.RecordingOptions{Format: "avi"}); err == nil {
@@ -195,8 +201,13 @@ func TestRecordingRejectsUnsupportedFormat(t *testing.T) {
 	}
 }
 
-func TestRecordingEnforcesByteLimit(t *testing.T) {
-	process := &fakeProcess{out: bytes.NewBufferString(strings.Repeat("x", 500)), in: bytes.NewBuffer(nil)}
+func TestRecordingEnforcesByteLimitActivelyStops(t *testing.T) {
+	stopped := make(chan struct{})
+	process := &fakeProcess{
+		out:      bytes.NewBufferString(strings.Repeat("x", 500)),
+		in:       bytes.NewBuffer(nil),
+		stopChan: stopped,
+	}
 	driver := New(Config{Recorder: "wf-recorder",
 		Start: func(ctx context.Context, name string, arguments ...string) (Process, error) {
 			return process, nil
@@ -222,38 +233,80 @@ func TestRecordingEnforcesByteLimit(t *testing.T) {
 	if !errors.Is(limitErr, media.ErrRecordingLimit) {
 		t.Fatalf("byte limit error = %v", limitErr)
 	}
-	// A subsequent read after the limit reports EOF.
-	if _, err := recording.Read(buf); err != io.EOF {
-		t.Fatalf("read after limit = %v", err)
+	// Verify the process was actively stopped.
+	select {
+	case <-stopped:
+	case <-time.After(5 * time.Second):
+		t.Fatal("process was not actively stopped at byte limit")
 	}
-	// Stop is idempotent and not fatal after the limit.
-	if err := recording.Stop(context.Background()); err != nil {
-		t.Fatalf("stop after byte limit = %v", err)
+	// A subsequent read after the limit reports the limit error, not EOF.
+	if _, err := recording.Read(buf); !errors.Is(err, media.ErrRecordingLimit) {
+		t.Fatalf("read after limit = %v, want ErrRecordingLimit", err)
 	}
-	if err := recording.Stop(context.Background()); err != nil {
-		t.Fatalf("second stop = %v", err)
+	// Stop is idempotent and consistent after the limit.
+	if err := recording.Stop(context.Background()); !errors.Is(err, media.ErrRecordingLimit) {
+		t.Fatalf("stop after byte limit = %v, want ErrRecordingLimit", err)
 	}
-	if err := recording.Close(); err != nil {
-		t.Fatalf("close after stop = %v", err)
+	if err := recording.Stop(context.Background()); !errors.Is(err, media.ErrRecordingLimit) {
+		t.Fatalf("second stop = %v, want ErrRecordingLimit", err)
+	}
+	if err := recording.Close(); !errors.Is(err, media.ErrRecordingLimit) {
+		t.Fatalf("close after stop = %v, want ErrRecordingLimit", err)
 	}
 }
 
-func TestRecordingEnforcesDurationLimit(t *testing.T) {
-	// A recording whose start time is already past its duration bound reports
-	// the limit without calling the underlying reader.
-	recording := &recording{
-		process:     &fakeProcess{out: bytes.NewBuffer(nil), in: bytes.NewBuffer(nil)},
-		output:      io.NopCloser(bytes.NewBuffer(nil)),
-		maxBytes:    1 << 30,
-		maxDuration: 0,
-		started:     time.Now().Add(-time.Hour),
-		done:        make(chan struct{}),
+func TestRecordingReadLimitedToRemainingBytes(t *testing.T) {
+	process := &fakeProcess{out: bytes.NewBufferString(strings.Repeat("y", 1000)), in: bytes.NewBuffer(nil)}
+	driver := New(Config{Recorder: "wf-recorder",
+		Start: func(ctx context.Context, name string, arguments ...string) (Process, error) {
+			return process, nil
+		}})
+	recording, err := driver.Record(context.Background(), media.RecordingOptions{Format: "webm", FrameRate: 30, MaxDuration: time.Minute, MaxBytes: 100})
+	if err != nil {
+		t.Fatal(err)
 	}
+	// Ask for 1000 bytes but only 100 remain; read must not exceed the bound.
+	buf := make([]byte, 1000)
+	n, err := recording.Read(buf)
+	if err == nil {
+		t.Fatalf("read of 1000 bytes with 100 byte limit did not return limit error")
+	}
+	if !errors.Is(err, media.ErrRecordingLimit) {
+		t.Fatalf("read error = %v, want ErrRecordingLimit", err)
+	}
+	if n != 100 {
+		t.Fatalf("read %d bytes, want exactly 100 (remaining bound)", n)
+	}
+}
+
+func TestRecordingEnforcesDurationLimitWithoutRead(t *testing.T) {
+	// A blocked reader: duration enforcement must happen without a read call.
+	stopped := make(chan struct{})
+	process := &fakeProcess{
+		out:      &blockingReader{closed: make(chan struct{})},
+		in:       bytes.NewBuffer(nil),
+		stopChan: stopped,
+	}
+	driver := New(Config{Recorder: "wf-recorder",
+		Start: func(ctx context.Context, name string, arguments ...string) (Process, error) {
+			return process, nil
+		}})
+	recording, err := driver.Record(context.Background(), media.RecordingOptions{Format: "webm", FrameRate: 30, MaxDuration: time.Second, MaxBytes: 1 << 30})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The watchdog fires based on wall time, not on a read call.
 	if _, err := recording.Read(make([]byte, 16)); !errors.Is(err, media.ErrRecordingLimit) {
-		t.Fatalf("duration limit error = %v", err)
+		t.Fatalf("duration limit error = %v, want ErrRecordingLimit", err)
 	}
-	if err := recording.Stop(context.Background()); err != nil {
-		t.Fatalf("stop after duration limit = %v", err)
+	// Verify the process was actively stopped by the duration watchdog.
+	select {
+	case <-stopped:
+	case <-time.After(5 * time.Second):
+		t.Fatal("process was not actively stopped at duration limit")
+	}
+	if err := recording.Stop(context.Background()); !errors.Is(err, media.ErrRecordingLimit) {
+		t.Fatalf("stop after duration limit = %v, want ErrRecordingLimit", err)
 	}
 }
 
@@ -369,14 +422,32 @@ func TestYdotoolDragReleasesTheButtonOnFailure(t *testing.T) {
 }
 
 type fakeProcess struct {
-	out io.Reader
-	in  *bytes.Buffer
+	out      io.Reader
+	in       *bytes.Buffer
+	stopChan chan struct{}
 }
 
-func (f *fakeProcess) Stdout() io.ReadCloser  { return io.NopCloser(f.out) }
-func (f *fakeProcess) Stdin() io.WriteCloser  { return nopWriteCloser{Writer: f.in} }
-func (f *fakeProcess) Wait() error            { return nil }
-func (f *fakeProcess) Kill() error            { return nil }
+func (f *fakeProcess) Stdout() io.ReadCloser {
+	if rc, ok := f.out.(io.ReadCloser); ok {
+		return rc
+	}
+	return io.NopCloser(f.out)
+}
+func (f *fakeProcess) Stdin() io.WriteCloser { return nopWriteCloser{Writer: f.in} }
+func (f *fakeProcess) Wait() error {
+	// Block until Kill is called, so the graceful shutdown path times out and
+	// actually invokes Kill.
+	if f.stopChan != nil {
+		<-f.stopChan
+	}
+	return nil
+}
+func (f *fakeProcess) Kill() error {
+	if f.stopChan != nil {
+		close(f.stopChan)
+	}
+	return nil
+}
 func (f *fakeProcess) Signal(os.Signal) error { return nil }
 
 type nopWriteCloser struct{ io.Writer }

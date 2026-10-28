@@ -50,7 +50,7 @@ copy of the native implementation.
 | Mechanism | Go/macOS | Go/Windows | Apple SDK | .NET/Windows | Android |
 | --- | --- | --- | --- | --- | --- |
 | host/process/filesystem observation | yes | yes | platform subset | — | platform subset |
-| host resource capacity, container, uptime | yes | yes | — | — | — |
+| host resource capacity, container, uptime | yes | yes | macOS sysctl | — | physical + effective capacity |
 | surface/accessibility/permission observation | yes | yes | yes | — | app-visible subset |
 | window capture and atomic input | yes, where the legacy Core Graphics symbol remains | yes | macOS, ScreenCaptureKit/Accessibility | — | — |
 | accessibility actions and typed Apple Events | — | — | macOS | — | — |
@@ -61,11 +61,13 @@ copy of the native implementation.
 | bounded private-directory create/remove | yes | yes | through Go consumers | — | — |
 | bounded clipboard contracts and native access | contract | Win32 backend | macOS and iOS | Win32 | yes |
 | credential framing/client contract | yes | yes | — | — | — |
-| local interface/address/route/resolver observation | yes | yes | interfaces and addresses | — | yes |
+| local interface/address/route/resolver observation | yes | yes | interfaces and addresses, macOS DNS via scutil | — | yes |
 | share and keyboard-extension normalization | contract | — | iOS | — | yes |
 | per-user service definitions and lifecycle | launchd | Task Scheduler | — | — | systemd adapter |
 | audio-device observation and bounded PCM streams | contract | — | playback | WASAPI audio | playback |
-| desktop capture, input, recording via external tools | — | — | — | — | X11 and Wayland adapters |
+| PipeWire audio device observation and PCM streams | contract (Linux adapter) | — | — | — | — |
+| desktop capture, input, recording via external tools | X11 and Wayland adapters | — | — | — | — |
+| Wayland bounded recording | explicit wf-recorder adapter | — | — | — | — |
 
 ## Per-user services
 
@@ -103,8 +105,9 @@ recording through an explicitly configured `wf-recorder`. Wayland window
 targeting stays an explicit gap: targeting is denied to arbitrary clients.
 Recording uses `--framerate`, explicit codec/muxer mapping, and `--file pipe:1`,
 enforces `MaxDuration`/`MaxBytes` while reading, and stops gracefully with
-SIGINT followed by a bounded forced kill. No desktop portal or approval flow
-is used. Window-scoped
+SIGINT followed by a bounded forced kill. Only webm is supported for piped
+output; mp4 is explicitly rejected because it requires a seekable output. No
+desktop portal or approval flow is used. Window-scoped
 capture and input remain in `res/system` because command-line tools cannot
 address its opaque window identities.
 

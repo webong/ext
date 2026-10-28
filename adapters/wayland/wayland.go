@@ -184,16 +184,16 @@ func wrapPointerError(err error) error {
 }
 
 // codecAndMuxer maps a recording container format to the wf-recorder codec and
-// muxer names. mp4 to a non-seekable stdout pipe is not supported by
-// wf-recorder's interface; webm is the recommended streaming container.
+// muxer names. mp4 cannot be written to the non-seekable stdout pipe
+// (pipe:1) because MP4 requires a seekable output for its moov atom, so only
+// webm is supported for piped output. This is an explicit rejection, not a
+// silent substitution.
 func codecAndMuxer(format string) (codec, muxer string, err error) {
 	switch format {
 	case "webm":
 		return "libvpx-vp9", "webm", nil
-	case "mp4":
-		return "libx264", "mp4", nil
 	default:
-		return "", "", fmt.Errorf("unsupported recording format %q", format)
+		return "", "", fmt.Errorf("unsupported recording format %q; only webm to stdout is supported", format)
 	}
 }
 
@@ -228,14 +228,19 @@ func (d *Driver) Record(ctx context.Context, options media.RecordingOptions) (me
 	if err != nil {
 		return nil, fmt.Errorf("%w: %s failed to start: %v", system.ErrDesktopUnavailable, d.recorder, err)
 	}
-	return &recording{
+	r := &recording{
 		process:     process,
 		output:      process.Stdout(),
 		maxBytes:    options.MaxBytes,
 		maxDuration: options.MaxDuration,
 		started:     time.Now(),
 		done:        make(chan struct{}),
-	}, nil
+		limitCh:     make(chan struct{}, 1),
+	}
+	// A blocked read can exceed MaxDuration, so start a watchdog that actively
+	// stops the recorder when the duration bound is crossed.
+	go r.watchDuration(ctx)
+	return r, nil
 }
 
 type recording struct {
@@ -248,21 +253,77 @@ type recording struct {
 	stopped     bool
 	limitErr    error
 	done        chan struct{}
+	limitCh     chan struct{}
 	mu          sync.Mutex
 	once        sync.Once
+}
+
+// watchDuration actively stops the recorder when MaxDuration elapses, even if
+// a Read is blocked on the native pipe. It fires once and is idempotent.
+func (r *recording) watchDuration(ctx context.Context) {
+	timer := time.NewTimer(time.Until(r.started.Add(r.maxDuration)))
+	defer timer.Stop()
+	select {
+	case <-timer.C:
+		r.stop(media.ErrRecordingLimit)
+	case <-ctx.Done():
+		r.stop(ctx.Err())
+	case <-r.done:
+	}
+}
+
+// stop is the single idempotent shutdown path used by both automatic limit
+// enforcement and Stop/Close. It signals the recorder gracefully first, then
+// uses a bounded forced kill if it does not exit.
+func (r *recording) stop(limitErr error) {
+	r.once.Do(func() {
+		close(r.done)
+		// Graceful: ask the recorder to finish writing its trailer.
+		if sigErr := r.process.Signal(os.Interrupt); sigErr == nil {
+			done := make(chan error, 1)
+			go func() { done <- r.process.Wait() }()
+			select {
+			case <-done:
+			case <-time.After(2 * time.Second):
+				_ = r.process.Kill()
+				<-done
+			}
+		} else {
+			_ = r.process.Kill()
+			_ = r.process.Wait()
+		}
+		_ = r.output.Close()
+	})
+	// Capture the limit error from the first caller; subsequent calls return
+	// their own context error if any, but never overwrite a recorded limit.
+	r.mu.Lock()
+	if r.limitErr == nil && limitErr != nil {
+		r.limitErr = limitErr
+	}
+	r.stopped = true
+	r.mu.Unlock()
 }
 
 func (r *recording) Read(p []byte) (int, error) {
 	r.mu.Lock()
 	if r.stopped {
 		r.mu.Unlock()
-		return 0, io.EOF
+		return 0, r.limitErr
 	}
 	if time.Since(r.started) >= r.maxDuration {
-		r.stopped = true
-		r.limitErr = media.ErrRecordingLimit
 		r.mu.Unlock()
+		r.stop(media.ErrRecordingLimit)
 		return 0, media.ErrRecordingLimit
+	}
+	// Never read more than the remaining byte allowance.
+	remaining := r.maxBytes - r.bytesRead
+	if remaining <= 0 {
+		r.mu.Unlock()
+		r.stop(media.ErrRecordingLimit)
+		return 0, media.ErrRecordingLimit
+	}
+	if int64(len(p)) > remaining {
+		p = p[:remaining]
 	}
 	reader := r.output
 	r.mu.Unlock()
@@ -271,12 +332,21 @@ func (r *recording) Read(p []byte) (int, error) {
 
 	r.mu.Lock()
 	r.bytesRead += int64(n)
-	if r.bytesRead >= r.maxBytes {
-		r.stopped = true
-		r.limitErr = media.ErrRecordingLimit
+	// If the watchdog or another Read already stopped this recording, report
+	// the limit error even if the underlying reader returned EOF.
+	if r.stopped && r.limitErr != nil {
 		r.mu.Unlock()
+		return 0, r.limitErr
+	}
+	if r.bytesRead >= r.maxBytes {
+		limitErr := media.ErrRecordingLimit
+		r.stopped = true
+		r.limitErr = limitErr
+		r.mu.Unlock()
+		// Actively stop the recorder now that the byte bound is reached.
+		r.stop(limitErr)
 		if err == nil || err == io.EOF {
-			err = media.ErrRecordingLimit
+			err = limitErr
 		}
 		return n, err
 	}
@@ -288,31 +358,26 @@ func (r *recording) Close() error { return r.Stop(context.Background()) }
 
 // Stop ends the recording gracefully: SIGINT to the recorder, then a bounded
 // forced kill if it does not exit. It is safe to call after an error and after
-// Close; only the first call has an effect.
+// Close; repeated calls are idempotent. If a limit was already reached, that
+// limit error is returned rather than the child's exit status from the
+// deliberate stop.
 func (r *recording) Stop(ctx context.Context) error {
-	var stopErr error
-	r.once.Do(func() {
-		close(r.done)
-		// Graceful: ask the recorder to finish writing its trailer.
-		if sigErr := r.process.Signal(os.Interrupt); sigErr == nil {
-			done := make(chan error, 1)
-			go func() { done <- r.process.Wait() }()
-			select {
-			case stopErr = <-done:
-			case <-time.After(2 * time.Second):
-				_ = r.process.Kill()
-				stopErr = <-done
-			case <-ctx.Done():
-				_ = r.process.Kill()
-				stopErr = ctx.Err()
-			}
-		} else {
-			_ = r.process.Kill()
-			stopErr = r.process.Wait()
-		}
-		_ = r.output.Close()
-	})
-	return stopErr
+	r.mu.Lock()
+	limitErr := r.limitErr
+	alreadyStopped := r.stopped
+	r.mu.Unlock()
+	if alreadyStopped {
+		return limitErr
+	}
+	// Only the first Stop/Close performs the actual shutdown; concurrent or
+	// later calls wait for it and return the recorded result.
+	r.stop(ctx.Err())
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.limitErr != nil {
+		return r.limitErr
+	}
+	return nil
 }
 
 type Process interface {

@@ -109,6 +109,12 @@ grep -qx 'io/github/webong/ext/system/share/SharePayload.class' <<<"$classes" ||
 grep -qx 'io/github/webong/ext/system/keyboard/KeyboardEditor.class' <<<"$classes" || { echo 'classes.jar is missing keyboard contracts' >&2; exit 1; }
 grep -qx 'io/github/webong/ext/network/NetworkSnapshot.class' <<<"$classes" || { echo 'classes.jar is missing network observation contracts' >&2; exit 1; }
 grep -qx 'io/github/webong/ext/network/android/SystemNetworkObserver.class' <<<"$classes" || { echo 'classes.jar is missing native network observation' >&2; exit 1; }
+grep -qx 'io/github/webong/ext/system/ResourceInfo.class' <<<"$classes" || { echo 'classes.jar is missing ResourceInfo' >&2; exit 1; }
+grep -qx 'io/github/webong/ext/system/ResourceCollectionStatus.class' <<<"$classes" || { echo 'classes.jar is missing ResourceCollectionStatus' >&2; exit 1; }
+grep -qx 'io/github/webong/ext/system/StorageInfo.class' <<<"$classes" || { echo 'classes.jar is missing StorageInfo' >&2; exit 1; }
+grep -qx 'io/github/webong/ext/system/PowerInfo.class' <<<"$classes" || { echo 'classes.jar is missing PowerInfo' >&2; exit 1; }
+grep -qx 'io/github/webong/ext/system/ContainerInfo.class' <<<"$classes" || { echo 'classes.jar is missing ContainerInfo' >&2; exit 1; }
+grep -qx 'io/github/webong/ext/system/DisplayInfo.class' <<<"$classes" || { echo 'classes.jar is missing DisplayInfo' >&2; exit 1; }
 if [[ -z "$with_wamr" ]] && grep -q Wamr <<<"$classes"; then
   echo 'classes.jar contains WAMR classes' >&2; exit 1
 fi

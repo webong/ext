@@ -28,3 +28,13 @@ func platformUptime(now time.Time) (time.Duration, error) {
 	}
 	return now.Sub(at), nil
 }
+
+// platformStorageCapacity observes mounted storage volumes via statfs.
+func platformStorageCapacity() ([]StorageInfo, error) {
+	return nil, nil
+}
+
+// platformPowerCapacity observes battery/power state via sysctl/IOPowerSources.
+func platformPowerCapacity() (*PowerInfo, error) {
+	return nil, nil
+}

@@ -19,6 +19,8 @@ type fakeResourceProbe struct {
 	now     time.Time
 	goos    string
 	cpus    int
+	storage []StorageInfo
+	power   *PowerInfo
 }
 
 func (f fakeResourceProbe) probe() resourceProbe {
@@ -53,6 +55,15 @@ func (f fakeResourceProbe) probe() resourceProbe {
 				return 0, errResourceUnsupported
 			}
 			return f.uptime, nil
+		},
+		storageCapacity: func() ([]StorageInfo, error) {
+			if f.storage == nil {
+				return nil, nil
+			}
+			return f.storage, nil
+		},
+		powerCapacity: func() (*PowerInfo, error) {
+			return f.power, nil
 		},
 	}
 }
@@ -299,4 +310,8 @@ func TestLinuxCPUCapacityNeverExceedsHost(t *testing.T) {
 	if _, _, err := linuxCPUCapacity(read, 4); err == nil {
 		t.Fatal("unreadable cgroup accepted")
 	}
+}
+
+func probeStorage(p fakeResourceProbe) ([]StorageInfo, error) {
+	return p.probe().storageCapacity()
 }

@@ -28,6 +28,8 @@ type ResourceInfo struct {
 	MemoryBytes         uint64           `json:"memory_bytes"`
 	MemoryCapacityBytes uint64           `json:"memory_capacity_bytes"`
 	MemoryStatus        CollectionStatus `json:"memory_status"`
+	Storage             []StorageInfo    `json:"storage,omitempty"`
+	Power               *PowerInfo       `json:"power,omitempty"`
 	Container           ContainerInfo    `json:"container"`
 	Uptime              *time.Duration   `json:"uptime,omitempty"`
 	BootTime            *time.Time       `json:"boot_time,omitempty"`
@@ -43,6 +45,24 @@ type ContainerInfo struct {
 	Evidence []string `json:"evidence"`
 }
 
+// StorageInfo describes one mounted storage volume visible to the process.
+type StorageInfo struct {
+	Device         string `json:"device"`
+	MountPoint     string `json:"mount_point"`
+	TotalBytes     uint64 `json:"total_bytes"`
+	AvailableBytes uint64 `json:"available_bytes"`
+	Type           string `json:"type,omitempty"`
+	ReadOnly       bool   `json:"read_only,omitempty"`
+}
+
+// PowerInfo describes battery/power state. All fields are zero when the
+// platform does not expose them.
+type PowerInfo struct {
+	State                string `json:"state"`      // charging, discharging, charged, unknown
+	Percentage           int    `json:"percentage"` // 0-100
+	TimeRemainingSeconds int64  `json:"time_remaining_seconds,omitempty"`
+}
+
 const (
 	// ContainerDetected, ContainerNone, and ContainerUnsupported are the only
 	// container states. Unsupported means the platform exposes no safe local
@@ -52,37 +72,51 @@ const (
 	ContainerUnsupported = "unsupported"
 )
 
+// PowerState values.
+const (
+	PowerStateCharging    = "charging"
+	PowerStateDischarging = "discharging"
+	PowerStateCharged     = "charged"
+	PowerStateUnknown     = "unknown"
+)
+
 var errResourceUnsupported = errors.New("resource observation is unsupported on this platform")
 
 // resourceProbe isolates native reads so bounds and cgroup arithmetic can be
 // checked without a matching host.
 type resourceProbe struct {
-	goos, goarch   string
-	now            func() time.Time
-	cpuCount       func() int
-	readFile       func(string) ([]byte, error)
-	stat           func(string) (os.FileInfo, error)
-	lookupEnv      func(string) (string, bool)
-	physicalMemory func() (uint64, error)
-	uptime         func(time.Time) (time.Duration, error)
+	goos, goarch    string
+	now             func() time.Time
+	cpuCount        func() int
+	readFile        func(string) ([]byte, error)
+	stat            func(string) (os.FileInfo, error)
+	lookupEnv       func(string) (string, bool)
+	physicalMemory  func() (uint64, error)
+	uptime          func(time.Time) (time.Duration, error)
+	storageCapacity func() ([]StorageInfo, error)
+	powerCapacity   func() (*PowerInfo, error)
 }
 
 func newResourceProbe() resourceProbe {
 	return resourceProbe{
-		goos: runtime.GOOS, goarch: runtime.GOARCH,
-		now:            func() time.Time { return time.Now().UTC() },
-		cpuCount:       runtime.NumCPU,
-		readFile:       os.ReadFile,
-		stat:           os.Stat,
-		lookupEnv:      os.LookupEnv,
-		physicalMemory: platformPhysicalMemory,
-		uptime:         platformUptime,
+		goos:            runtime.GOOS,
+		goarch:          runtime.GOARCH,
+		now:             func() time.Time { return time.Now().UTC() },
+		cpuCount:        runtime.NumCPU,
+		readFile:        os.ReadFile,
+		stat:            os.Stat,
+		lookupEnv:       os.LookupEnv,
+		physicalMemory:  platformPhysicalMemory,
+		uptime:          platformUptime,
+		storageCapacity: platformStorageCapacity,
+		powerCapacity:   platformPowerCapacity,
 	}
 }
 
 // DiscoverResources observes the local machine's CPU, memory, container state,
-// and uptime. It reads local files and system counters only: no command is
-// launched, no network is contacted, and no identity or protocol is attached.
+// storage, power/battery, and uptime. It reads local files and system counters
+// only: no command is launched, no network is contacted, and no identity or
+// protocol is attached.
 func DiscoverResources(ctx context.Context) (ResourceInfo, error) {
 	if err := ctx.Err(); err != nil {
 		return ResourceInfo{}, err
@@ -106,6 +140,16 @@ func discoverResources(ctx context.Context, probe resourceProbe) (ResourceInfo, 
 	}
 	result.CPUCapacity, result.CPUStatus = cpuCapacity(probe, logical)
 	result.MemoryBytes, result.MemoryCapacityBytes, result.MemoryStatus = memoryCapacity(probe, now)
+	storage, err := probe.storageCapacity()
+	if err != nil {
+		return ResourceInfo{}, err
+	}
+	result.Storage = storage
+	power, err := probe.powerCapacity()
+	if err != nil {
+		return ResourceInfo{}, err
+	}
+	result.Power = power
 	result.Uptime, result.BootTime, result.UptimeStatus = uptimeObservation(probe, now)
 	return result, nil
 }

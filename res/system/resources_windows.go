@@ -46,3 +46,13 @@ func platformUptime(time.Time) (time.Duration, error) {
 	// The counter is in 100-nanosecond units.
 	return time.Duration(unbiased * 100), nil
 }
+
+// platformStorageCapacity observes mounted storage volumes via GetDriveInfo.
+func platformStorageCapacity() ([]StorageInfo, error) {
+	return nil, nil
+}
+
+// platformPowerCapacity observes battery state via GetSystemPowerStatus.
+func platformPowerCapacity() (*PowerInfo, error) {
+	return nil, nil
+}

@@ -11,28 +11,24 @@ public final class CoreMLProvider: MLProvider {
     public let name = "coreml"
     public let capabilities: [String]
 
-    private let modelURL: URL
-
-    public init(bundleDirectory: String, capabilities: [String] = []) throws {
+    public init(capabilities: [String] = []) {
         self.capabilities = capabilities
-        let url = URL(fileURLWithPath: bundleDirectory)
-        // Prefer a compiled model directory; fall back to an uncompiled model file.
-        let compiled = url.appendingPathComponent("model.mlmodelc")
-        let uncompiled = url.appendingPathComponent("model.mlmodel")
-        if FileManager.default.fileExists(atPath: compiled.path) {
-            self.modelURL = compiled
-        } else if FileManager.default.fileExists(atPath: uncompiled.path) {
-            self.modelURL = uncompiled
-        } else {
-            throw MLError.notFound
-        }
     }
 
     public func load(model: MLInstalledModel) throws -> MLSession {
-        guard model.directory.hasPrefix(URL(fileURLWithPath: model.directory).path) else {
-            throw MLError.invalidValue
+        let modelURL = URL(fileURLWithPath: model.directory)
+        // Prefer a compiled model directory; fall back to an uncompiled model file.
+        let compiled = modelURL.appendingPathComponent("model.mlmodelc")
+        let uncompiled = modelURL.appendingPathComponent("model.mlmodel")
+        let resolvedURL: URL
+        if FileManager.default.fileExists(atPath: compiled.path) {
+            resolvedURL = compiled
+        } else if FileManager.default.fileExists(atPath: uncompiled.path) {
+            resolvedURL = uncompiled
+        } else {
+            throw MLError.notFound
         }
-        let model = try MLModel(contentsOf: modelURL, configuration: MLModelConfiguration())
+        let model = try MLModel(contentsOf: resolvedURL, configuration: MLModelConfiguration())
         return CoreMLSession(model: model)
     }
 }
@@ -70,7 +66,7 @@ public final class CoreMLSession: MLSession {
         var data = Data(count: outputCount * 4)
         data.withUnsafeMutableBytes { buffer in
             let floatBuffer = buffer.bindMemory(to: Float.self)
-            for index in 0..<count {
+            for index in 0..<outputCount {
                 floatBuffer[index] = Float(truncating: multiArrayOutput[index])
             }
         }

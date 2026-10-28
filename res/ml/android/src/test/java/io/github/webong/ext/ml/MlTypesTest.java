@@ -100,7 +100,7 @@ public class MlTypesTest {
                             MlDigest.sha256("model bytes".getBytes()))));
             Map<String, byte[]> files = Map.of("model.tflite", "model bytes".getBytes());
 
-            MlInstalledModel installed = store.install(manifest, files);
+            MlInstalledModel installed = store.installFromBytes(manifest, files);
             check("example-model".equals(installed.manifest.name), "installed name");
 
             MlReference ref = new MlReference("nnapi", "example-model", "v1.2.3");
@@ -138,7 +138,7 @@ public class MlTypesTest {
                     List.of(new MlArtifact("model", "model.tflite",
                             MlDigest.sha256("model".getBytes()))));
             try {
-                store.install(manifest, Map.of("model.tflite", "tampered".getBytes()));
+                store.installFromBytes(manifest, Map.of("model.tflite", "tampered".getBytes()));
                 check(false, "digest mismatch should be rejected");
             } catch (MlException e) {
                 check(e.kind == MlException.Kind.DIGEST_MISMATCH, "digest mismatch kind");

@@ -1,7 +1,6 @@
 package io.github.webong.ext.ml;
 
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
@@ -53,7 +52,7 @@ public final class MlStore {
 
     public Path root() { return root; }
 
-    public MlInstalledModel install(MlManifest manifest, Map<String, byte[]> files) throws MlException {
+    public MlInstalledModel install(MlManifest manifest, Map<String, ArtifactSource> files) throws MlException {
         manifest.validate();
         if (files.size() != manifest.artifacts.size()) {
             throw new MlException(MlException.Kind.INVALID, "artifact count mismatch");
@@ -70,21 +69,49 @@ public final class MlStore {
             Files.createDirectories(temporary);
             long total = 0;
             for (MlArtifact artifact : manifest.artifacts) {
-                byte[] data = files.get(artifact.file);
-                if (data == null) {
+                ArtifactSource source = files.get(artifact.file);
+                if (source == null) {
                     throw new MlException(MlException.Kind.INVALID, "missing artifact: " + artifact.file);
                 }
-                if (data.length > maxArtifactBytes) {
+                long declaredSize = source.size();
+                if (declaredSize >= 0 && declaredSize > maxArtifactBytes) {
                     throw new MlException(MlException.Kind.INVALID, "artifact too large: " + artifact.file);
                 }
-                total += data.length;
-                if (total > maxTotalBytes) {
-                    throw new MlException(MlException.Kind.INVALID, "bundle too large");
+
+                try (InputStream in = source.open()) {
+                    if (in == null) {
+                        throw new MlException(MlException.Kind.INVALID, "null stream for artifact: " + artifact.file);
+                    }
+                    Path artifactPath = temporary.resolve(artifact.file);
+                    java.security.MessageDigest digest;
+                    try {
+                        digest = java.security.MessageDigest.getInstance("SHA-256");
+                    } catch (java.security.NoSuchAlgorithmException e) {
+                        throw new MlException(MlException.Kind.NATIVE_FAILURE, "SHA-256 unavailable", e);
+                    }
+                    long artifactBytes = 0;
+                    byte[] buf = new byte[64 * 1024];
+                    int read;
+                    while ((read = in.read(buf)) >= 0) {
+                        if (read == 0) continue;
+                        digest.update(buf, 0, read);
+                        artifactBytes += read;
+                        if (artifactBytes > maxArtifactBytes) {
+                            throw new MlException(MlException.Kind.INVALID, "artifact too large: " + artifact.file);
+                        }
+                        total += read;
+                        if (total > maxTotalBytes) {
+                            throw new MlException(MlException.Kind.INVALID, "bundle too large");
+                        }
+                        try (java.io.OutputStream out = new java.io.FileOutputStream(artifactPath.toFile(), true)) {
+                            out.write(buf, 0, read);
+                        }
+                    }
+                    String hexDigest = toHex(digest.digest());
+                    if (!hexDigest.equals(artifact.sha256)) {
+                        throw new MlException(MlException.Kind.DIGEST_MISMATCH, "digest mismatch: " + artifact.file);
+                    }
                 }
-                if (!MlDigest.sha256(data).equals(artifact.sha256)) {
-                    throw new MlException(MlException.Kind.DIGEST_MISMATCH, "digest mismatch: " + artifact.file);
-                }
-                Files.write(temporary.resolve(artifact.file), data);
             }
 
             String manifestJson = new String(manifestToJson(manifest), java.nio.charset.StandardCharsets.UTF_8);
@@ -102,6 +129,25 @@ public final class MlStore {
         }
 
         return new MlInstalledModel(manifest, targetDir.toString());
+    }
+
+    /**
+     * Convenience wrapper for small artifacts already in memory. Delegates to
+     * {@link #install(MlManifest, Map)} by wrapping each byte array in an
+     * {@link InMemoryArtifactSource}.
+     */
+    public MlInstalledModel installFromBytes(MlManifest manifest, Map<String, byte[]> files) throws MlException {
+        java.util.Map<String, ArtifactSource> sources = new java.util.HashMap<>();
+        for (java.util.Map.Entry<String, byte[]> entry : files.entrySet()) {
+            sources.put(entry.getKey(), new InMemoryArtifactSource(entry.getValue()));
+        }
+        return install(manifest, sources);
+    }
+
+    private static String toHex(byte[] bytes) {
+        StringBuilder sb = new StringBuilder(bytes.length * 2);
+        for (byte b : bytes) sb.append(String.format("%02x", b));
+        return sb.toString();
     }
 
     public MlInstalledModel resolve(MlReference reference) throws MlException {

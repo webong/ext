@@ -36,6 +36,7 @@ use (
 	./adapters/safari
 	./res/system
 	./res/ml
+	./res/content
 	./pkg/ext-go
 	./pkg/ext-go/hashicorp
 	./pkg/ext-go/wasm

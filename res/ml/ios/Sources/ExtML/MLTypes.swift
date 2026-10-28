@@ -148,3 +148,33 @@ public enum MLDigest {
         return digest.map { String(format: "%02x", $0) }.joined()
     }
 }
+
+/// A bounded, readable source for one model artifact. The primary installation
+/// API accepts streaming sources so that large artifacts can be hashed and
+/// staged without ever being held entirely in memory.
+public protocol ArtifactSource: Sendable {
+    /// Opens a readable stream for the artifact. The caller must close the
+    /// returned stream. Open is called once per artifact.
+    func open() throws -> InputStream
+    /// Returns the declared byte size of the artifact, or -1 if unknown.
+    func size() -> Int64
+}
+
+/// An in-memory artifact source wrapping a Data value. A convenience wrapper
+/// for small artifacts; large artifacts should use a streaming source that
+/// reads from disk or network.
+public struct InMemoryArtifactSource: ArtifactSource {
+    private let data: Data
+
+    public init(_ data: Data) {
+        self.data = data
+    }
+
+    public func open() throws -> InputStream {
+        return InputStream(data: data)
+    }
+
+    public func size() -> Int64 {
+        return Int64(data.count)
+    }
+}

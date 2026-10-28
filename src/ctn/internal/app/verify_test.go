@@ -63,7 +63,7 @@ const (
 	mixed     = `{"version":1,"contexts":[{"selection":"embedded","attributes":{"isolation":"sandboxed"}},{"selection":"loose","attributes":{"isolation":"host"}}]}`
 )
 
-func content(t *testing.T, name, data string) string {
+func contentFile(t *testing.T, name, data string) string {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), name)
 	if err := os.WriteFile(path, []byte(data), 0o644); err != nil {
@@ -87,7 +87,7 @@ func ran(log string) bool {
 func TestVerifyPassesContentThatRunsCleanlyInASandbox(t *testing.T) {
 	_, install := engineStore(t)
 	log := install("wasm", "wasm", sandboxed, "exit 0", true)
-	file := content(t, "ok.wasm", "payload")
+	file := contentFile(t, "ok.wasm", "payload")
 	code, stdout, stderr := verify(t, "--timeout", "10s", file)
 	if code != exitPass || !strings.HasPrefix(stdout, "PASS ") || !strings.Contains(stdout, "isolation=sandboxed") || !strings.Contains(stdout, "engine=wasm") {
 		t.Fatalf("%d %q %q", code, stdout, stderr)
@@ -97,7 +97,7 @@ func TestVerifyPassesContentThatRunsCleanlyInASandbox(t *testing.T) {
 		t.Fatalf("the digest is missing: %q", stdout)
 	}
 	data, _ := os.ReadFile(log)
-	if !strings.Contains(string(data), "run -- --timeout 10s "+file) {
+	if !strings.Contains(string(data), "run -- "+file+" --timeout 10s") {
 		t.Fatalf("the engine got %q", data)
 	}
 }
@@ -105,7 +105,7 @@ func TestVerifyPassesContentThatRunsCleanlyInASandbox(t *testing.T) {
 func TestVerifyJSONCarriesTheVerdictAndTheDigest(t *testing.T) {
 	_, install := engineStore(t)
 	install("wasm", "wasm", sandboxed, "exit 0", true)
-	code, stdout, _ := verify(t, "--json", content(t, "a.wasm", "payload"))
+	code, stdout, _ := verify(t, "--json", contentFile(t, "a.wasm", "payload"))
 	var v verdict
 	if err := json.Unmarshal([]byte(stdout), &v); err != nil || code != 0 || v.Verdict != "PASS" || v.Isolation != "sandboxed" ||
 		!strings.HasPrefix(v.SHA256, "239f59ed55e7") || len(v.SHA256) != 64 {
@@ -116,11 +116,11 @@ func TestVerifyJSONCarriesTheVerdictAndTheDigest(t *testing.T) {
 func TestVerifyReportsContentThatFailsWithItsOwnExitStatus(t *testing.T) {
 	_, install := engineStore(t)
 	install("wasm", "wasm", sandboxed, "echo boom >&2; exit 7", true)
-	code, stdout, _ := verify(t, content(t, "bad.wasm", "x"))
+	code, stdout, _ := verify(t, contentFile(t, "bad.wasm", "x"))
 	if code != exitFail || !strings.HasPrefix(stdout, "FAIL ") || !strings.Contains(stdout, "boom") {
 		t.Fatalf("%d %q", code, stdout)
 	}
-	code, stdout, _ = verify(t, "--json", content(t, "bad2.wasm", "x"))
+	code, stdout, _ = verify(t, "--json", contentFile(t, "bad2.wasm", "x"))
 	var v verdict
 	if json.Unmarshal([]byte(stdout), &v); v.ExitCode != 7 || code != exitFail {
 		t.Fatalf("the content's own status must be reported: %d %+v", code, v)
@@ -131,7 +131,7 @@ func TestVerifyNeverRunsContentInAnEngineThatDoesNotConfineIt(t *testing.T) {
 	for name, observe := range map[string]string{"host": hostOnly, "mixed without a selection": mixed, "no isolation reported": `{"version":1,"contexts":[{"selection":"a","attributes":{}}]}`, "garbage": "not json"} {
 		_, install := engineStore(t)
 		log := install("wasm", "wasm", observe, "exit 0", true)
-		code, stdout, _ := verify(t, content(t, "x.wasm", "x"))
+		code, stdout, _ := verify(t, contentFile(t, "x.wasm", "x"))
 		if code != exitUnverified || !strings.HasPrefix(stdout, "UNSUPPORTED ") {
 			t.Errorf("%s: %d %q", name, code, stdout)
 		}
@@ -144,16 +144,16 @@ func TestVerifyNeverRunsContentInAnEngineThatDoesNotConfineIt(t *testing.T) {
 func TestVerifyChecksTheSelectedContextOnly(t *testing.T) {
 	_, install := engineStore(t)
 	log := install("wasm", "wasm", mixed, "exit 0", true)
-	if code, stdout, _ := verify(t, "--selection", "embedded", content(t, "x.wasm", "x")); code != exitPass {
+	if code, stdout, _ := verify(t, "--selection", "embedded", contentFile(t, "x.wasm", "x")); code != exitPass {
 		t.Fatalf("a sandboxed selection of a mixed engine may run: %d %q", code, stdout)
 	}
 	if !ran(log) {
 		t.Fatal("the engine did not run")
 	}
-	if code, _, _ := verify(t, "--selection", "loose", content(t, "y.wasm", "y")); code != exitUnverified {
+	if code, _, _ := verify(t, "--selection", "loose", contentFile(t, "y.wasm", "y")); code != exitUnverified {
 		t.Fatalf("the host-isolated selection must not run: %d", code)
 	}
-	if code, _, _ := verify(t, "--selection", "missing", content(t, "z.wasm", "z")); code != exitUnverified {
+	if code, _, _ := verify(t, "--selection", "missing", contentFile(t, "z.wasm", "z")); code != exitUnverified {
 		t.Fatalf("an unknown selection must not run: %d", code)
 	}
 }
@@ -161,7 +161,7 @@ func TestVerifyChecksTheSelectedContextOnly(t *testing.T) {
 func TestVerifyRefusesAnUntrustedEngine(t *testing.T) {
 	_, install := engineStore(t)
 	log := install("wasm", "wasm", sandboxed, "exit 0", false)
-	code, stdout, _ := verify(t, content(t, "x.wasm", "x"))
+	code, stdout, _ := verify(t, contentFile(t, "x.wasm", "x"))
 	if code != exitUnverified || !strings.Contains(stdout, "not trusted") || ran(log) {
 		t.Fatalf("%d %q ran=%v", code, stdout, ran(log))
 	}
@@ -170,7 +170,7 @@ func TestVerifyRefusesAnUntrustedEngine(t *testing.T) {
 func TestVerifyTreatsAnEngineThatCannotRunTheInputAsUnverifiedNotFailed(t *testing.T) {
 	_, install := engineStore(t)
 	install("wasm", "wasm", sandboxed, "echo 'is a web module' >&2; exit 126", true)
-	code, stdout, _ := verify(t, content(t, "web.wasm", "x"))
+	code, stdout, _ := verify(t, contentFile(t, "web.wasm", "x"))
 	if code != exitUnverified || !strings.HasPrefix(stdout, "UNSUPPORTED ") || !strings.Contains(stdout, "web module") {
 		t.Fatalf("%d %q", code, stdout)
 	}
@@ -179,7 +179,7 @@ func TestVerifyTreatsAnEngineThatCannotRunTheInputAsUnverifiedNotFailed(t *testi
 func TestVerifyReportsATimeout(t *testing.T) {
 	_, install := engineStore(t)
 	install("wasm", "wasm", sandboxed, "exit 124", true)
-	code, stdout, _ := verify(t, "--timeout", "1s", content(t, "slow.wasm", "x"))
+	code, stdout, _ := verify(t, "--timeout", "1s", contentFile(t, "slow.wasm", "x"))
 	if code != exitTimeout || !strings.HasPrefix(stdout, "TIMEOUT ") {
 		t.Fatalf("%d %q", code, stdout)
 	}
@@ -189,21 +189,21 @@ func TestVerifyChoosesTheEngineByExtensionAndNamesTheFileForEvm(t *testing.T) {
 	_, install := engineStore(t)
 	wasmLog := install("wasm", "wasm", sandboxed, "exit 0", true)
 	evmLog := install("evm", "evm", `{"version":1,"contexts":[{"selection":"prague","attributes":{"isolation":"sandboxed"}}]}`, "exit 0", true)
-	hexFile := content(t, "code.hex", "602a")
+	hexFile := contentFile(t, "code.hex", "602a")
 	if code, stdout, _ := verify(t, hexFile); code != exitPass || !strings.Contains(stdout, "engine=evm") {
 		t.Fatalf("%d %q", code, stdout)
 	}
 	data, _ := os.ReadFile(evmLog)
-	if !strings.Contains(string(data), "-- --timeout 30s @"+hexFile) {
+	if !strings.Contains(string(data), "-- @"+hexFile) {
 		t.Fatalf("the evm engine reads a file given as @path: %q", data)
 	}
 	if ran(wasmLog) {
 		t.Fatal("the wasm engine must not run evm content")
 	}
-	if code, _, stderr := verify(t, content(t, "notes.txt", "x")); code != exitUsage || !strings.Contains(stderr, "--engine") {
+	if code, _, stderr := verify(t, contentFile(t, "notes.txt", "x")); code != exitUsage || !strings.Contains(stderr, "--engine") {
 		t.Fatalf("an unknown extension needs --engine: %d %q", code, stderr)
 	}
-	if code, _, _ := verify(t, "--engine", "wasm", content(t, "notes.bin", "x")); code != exitPass {
+	if code, _, _ := verify(t, "--engine", "wasm", contentFile(t, "notes.bin", "x")); code != exitPass {
 		t.Fatalf("--engine overrides the extension: %d", code)
 	}
 }
@@ -216,10 +216,10 @@ func TestVerifyUsageAndMissingEngine(t *testing.T) {
 	if code, _, _ := verify(t, filepath.Join(t.TempDir(), "absent.wasm")); code != exitUsage {
 		t.Fatalf("a missing file: %d", code)
 	}
-	if code, _, stderr := verify(t, content(t, "x.wasm", "x")); code != exitUsage || !strings.Contains(stderr, "no engine adapter") {
+	if code, _, stderr := verify(t, contentFile(t, "x.wasm", "x")); code != exitUsage || !strings.Contains(stderr, "no engine adapter") {
 		t.Fatalf("no engine installed: %d %q", code, stderr)
 	}
-	if code, _, _ := verify(t, "--timeout", "0s", content(t, "y.wasm", "y")); code != exitUsage {
+	if code, _, _ := verify(t, "--timeout", "0s", contentFile(t, "y.wasm", "y")); code != exitUsage {
 		t.Fatalf("a zero timeout: %d", code)
 	}
 }

@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 
 /// Bounded, caller-selected model artifact store. Bundles are stored under
@@ -35,10 +36,15 @@ public final class MLStore {
 
     public var rootPath: String { rootURL.path }
 
-    /// Installs one model bundle. Never replaces an existing bundle: an
-    /// identical manifest is returned as already installed; a different one
-    /// throws `MLError.alreadyExists`.
-    public func install(manifest: MLManifest, files: [String: Data]) throws -> MLInstalledModel {
+    /// Installs one model bundle from streaming artifact sources. Never
+    /// replaces an existing bundle: an identical manifest is returned as
+    /// already installed; a different one throws `MLError.alreadyExists`.
+    ///
+    /// Each artifact is streamed through a SHA-256 hash and size check as it
+    /// is copied into the staging directory, so large bundles never need to be
+    /// held entirely in memory. If any check fails, the staging directory is
+    /// removed and no partial bundle is visible at the target path.
+    public func install(manifest: MLManifest, files: [String: ArtifactSource]) throws -> MLInstalledModel {
         try manifest.validate()
         guard files.count == manifest.artifacts.count else {
             throw MLError.invalidValue
@@ -66,21 +72,54 @@ public final class MLStore {
 
         var total: Int64 = 0
         for artifact in manifest.artifacts {
-            guard let data = files[artifact.file] else {
+            guard let source = files[artifact.file] else {
                 throw MLError.invalidValue
             }
-            guard data.count <= Int(maxArtifactBytes) else {
+            guard source.size() < 0 || Int64(source.size()) <= maxArtifactBytes else {
                 throw MLError.invalidValue
             }
-            total += Int64(data.count)
-            guard total <= maxTotalBytes else {
+            let stream = try source.open()
+            stream.open()
+            defer { stream.close() }
+
+            let artifactURL = temporary.appendingPathComponent(artifact.file)
+            guard let output = OutputStream(url: artifactURL, append: false) else {
                 throw MLError.invalidValue
             }
-            guard MLDigest.sha256(data) == artifact.sha256 else {
+            output.open()
+            defer { output.close() }
+
+            var hasher = CryptoKit.SHA256()
+            var artifactBytes: Int64 = 0
+            let bufferSize = 64 * 1024
+            let buffer = UnsafeMutablePointer<UInt8>.allocate(capacity: bufferSize)
+            defer { buffer.deallocate() }
+
+            while true {
+                let read = stream.read(buffer, maxLength: bufferSize)
+                if read < 0 {
+                    throw MLError.nativeFailure
+                }
+                if read == 0 {
+                    break
+                }
+                let slice = UnsafeBufferPointer(start: buffer, count: read)
+                hasher.update(bufferPointer: UnsafeRawBufferPointer(slice))
+                artifactBytes += Int64(read)
+                if artifactBytes > maxArtifactBytes {
+                    throw MLError.invalidValue
+                }
+                total += Int64(read)
+                if total > maxTotalBytes {
+                    throw MLError.invalidValue
+                }
+                _ = output.write(buffer, maxLength: read)
+            }
+
+            let digest = hasher.finalize().compactMap { String(format: "%02x", $0) }.joined()
+            guard digest == artifact.sha256 else {
                 throw MLError.digestMismatch
             }
-            let artifactURL = temporary.appendingPathComponent(artifact.file)
-            try data.write(to: artifactURL)
         }
 
         let encoder = JSONEncoder()
@@ -94,6 +133,17 @@ public final class MLStore {
         try FileManager.default.moveItem(at: temporary, to: targetURL)
 
         return MLInstalledModel(manifest: manifest, directory: targetURL.path)
+    }
+
+    /// Convenience wrapper for small artifacts already in memory. Delegates to
+    /// `install(manifest:files:)` by wrapping each `Data` value in an
+    /// `InMemoryArtifactSource`.
+    public func installFromBytes(manifest: MLManifest, files: [String: Data]) throws -> MLInstalledModel {
+        var sources: [String: ArtifactSource] = [:]
+        for (name, data) in files {
+            sources[name] = InMemoryArtifactSource(data)
+        }
+        return try install(manifest: manifest, files: sources)
     }
 
     /// Loads one installed model and re-verifies every artifact digest.

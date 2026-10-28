@@ -18,7 +18,7 @@ func TestStoreInstallResolveListRemove(t *testing.T) {
 	files := map[string][]byte{
 		"model.onnx": []byte("model bytes"),
 	}
-	installed, err := store.Install(context.Background(), manifest, files)
+	installed, err := store.InstallFromBytes(context.Background(), manifest, files)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -70,7 +70,7 @@ func TestStoreInstallRejectsDigestMismatch(t *testing.T) {
 	files := map[string][]byte{
 		"model.onnx": []byte("tampered bytes"),
 	}
-	if _, err := store.Install(context.Background(), manifest, files); !errors.Is(err, ErrDigest) {
+	if _, err := store.InstallFromBytes(context.Background(), manifest, files); !errors.Is(err, ErrDigest) {
 		t.Fatalf("digest mismatch = %v", err)
 	}
 }
@@ -82,7 +82,7 @@ func TestStoreInstallRejectsMissingArtifact(t *testing.T) {
 		t.Fatal(err)
 	}
 	manifest := validManifest()
-	if _, err := store.Install(context.Background(), manifest, map[string][]byte{}); !errors.Is(err, ErrInvalid) {
+	if _, err := store.InstallFromBytes(context.Background(), manifest, map[string][]byte{}); !errors.Is(err, ErrInvalid) {
 		t.Fatalf("missing artifact = %v", err)
 	}
 }
@@ -95,12 +95,12 @@ func TestStoreInstallReportsIdenticalAndRejectsDifferent(t *testing.T) {
 	}
 	manifest := validManifest()
 	files := map[string][]byte{"model.onnx": []byte("model bytes")}
-	first, err := store.Install(context.Background(), manifest, files)
+	first, err := store.InstallFromBytes(context.Background(), manifest, files)
 	if err != nil {
 		t.Fatal(err)
 	}
 	// Identical reinstall is reported as already installed.
-	second, err := store.Install(context.Background(), manifest, files)
+	second, err := store.InstallFromBytes(context.Background(), manifest, files)
 	if err != nil || second.Directory != first.Directory {
 		t.Fatalf("identical reinstall = %+v, %v", second, err)
 	}
@@ -112,7 +112,7 @@ func TestStoreInstallReportsIdenticalAndRejectsDifferent(t *testing.T) {
 		{Role: "model", File: "model.onnx", SHA256: sha256Of("different bytes")},
 		{Role: "labels", File: "labels.txt", SHA256: sha256Of("labels")},
 	}
-	if _, err := store.Install(context.Background(), different, differentFiles); !errors.Is(err, ErrExist) {
+	if _, err := store.InstallFromBytes(context.Background(), different, differentFiles); !errors.Is(err, ErrExist) {
 		t.Fatalf("different manifest = %v", err)
 	}
 }
@@ -125,7 +125,7 @@ func TestStoreTamperDetection(t *testing.T) {
 	}
 	manifest := validManifest()
 	files := map[string][]byte{"model.onnx": []byte("model bytes")}
-	installed, err := store.Install(context.Background(), manifest, files)
+	installed, err := store.InstallFromBytes(context.Background(), manifest, files)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -163,7 +163,7 @@ func TestStoreRemovesEmptyParentDirectories(t *testing.T) {
 		t.Fatal(err)
 	}
 	manifest := validManifest()
-	if _, err := store.Install(context.Background(), manifest, map[string][]byte{"model.onnx": []byte("model bytes")}); err != nil {
+	if _, err := store.InstallFromBytes(context.Background(), manifest, map[string][]byte{"model.onnx": []byte("model bytes")}); err != nil {
 		t.Fatal(err)
 	}
 	if err := store.Remove(context.Background(), "onnxruntime", "example-model", "v1.2.3"); err != nil {

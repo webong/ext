@@ -39,7 +39,10 @@ func usage(w io.Writer) {
 	fmt.Fprintln(w, "  ctn verify [--engine NAME] [--selection SEL] [--timeout D] [--json] FILE [ARGUMENTS...]")
 	fmt.Fprintln(w, "  ctn model list <root-dir>")
 	fmt.Fprintln(w, "  ctn model inspect <root-dir> <provider/name@version>")
-	fmt.Fprintln(w, "  ctn model run <root-dir> <provider/name@version> <input-file>")
+	fmt.Fprintln(w, "  ctn model install <root-dir> <manifest-file> <artifacts-dir>")
+	fmt.Fprintln(w, "  ctn model remove <root-dir> <provider/name@version>")
+	fmt.Fprintln(w, "  ctn model verify <root-dir> <provider/name@version>")
+	fmt.Fprintln(w, "  ctn model run --provider NAME --timeout D <root-dir> <provider/name@version> <input-file>")
 	fmt.Fprintln(w, "  ctn help")
 	fmt.Fprintln(w, "  ctn version")
 }

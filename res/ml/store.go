@@ -5,6 +5,7 @@
 package ml
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
@@ -12,6 +13,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"hash"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -71,6 +74,40 @@ type Store struct {
 	path string
 }
 
+// ArtifactSource is a bounded, readable source for one model artifact. It is
+// the primary installation API: callers supply streaming sources so that large
+// artifacts can be hashed and staged without ever being held entirely in
+// memory.
+type ArtifactSource interface {
+	// Open returns a readable stream for the artifact. The caller must close
+	// the returned reader. Open is called once per artifact.
+	Open(ctx context.Context) (io.ReadCloser, error)
+	// Size returns the declared byte size of the artifact, or -1 if unknown.
+	Size() int64
+}
+
+// InMemoryArtifactSource wraps an in-memory byte slice as an ArtifactSource.
+// It is a convenience wrapper for small artifacts; large artifacts should use
+// a streaming source that reads from disk or network.
+type InMemoryArtifactSource struct {
+	data []byte
+	size int64
+}
+
+// NewInMemoryArtifactSource wraps data as an ArtifactSource.
+func NewInMemoryArtifactSource(data []byte) *InMemoryArtifactSource {
+	return &InMemoryArtifactSource{data: data, size: int64(len(data))}
+}
+
+func (s *InMemoryArtifactSource) Open(ctx context.Context) (io.ReadCloser, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	return io.NopCloser(bytes.NewReader(s.data)), nil
+}
+
+func (s *InMemoryArtifactSource) Size() int64 { return s.size }
+
 // OpenStore opens an existing caller-selected model root directory. It refuses
 // non-directories, symlinks, and broadly writable directories.
 func OpenStore(root string) (*Store, error) {
@@ -106,10 +143,15 @@ func OpenStore(root string) (*Store, error) {
 // Path returns the absolute model root path.
 func (s *Store) Path() string { return s.path }
 
-// Install stages and installs one model bundle. It never replaces an existing
-// bundle: an identical manifest is reported as already installed; a different
-// one fails with ErrExist.
-func (s *Store) Install(ctx context.Context, manifest Manifest, files map[string][]byte) (*InstalledModel, error) {
+// Install stages and installs one model bundle from streaming artifact
+// sources. It never replaces an existing bundle: an identical manifest is
+// reported as already installed; a different one fails with ErrExist.
+//
+// Each artifact is streamed through a hash and size check as it is copied into
+// the staging directory, so large bundles never need to be held entirely in
+// memory. If any check fails, the staging directory is removed and no partial
+// bundle is visible at the target path.
+func (s *Store) Install(ctx context.Context, manifest Manifest, files map[string]ArtifactSource) (*InstalledModel, error) {
 	limits, err := (StoreLimits{}).normalize()
 	if err != nil {
 		return nil, err
@@ -121,7 +163,7 @@ func (s *Store) Install(ctx context.Context, manifest Manifest, files map[string
 		return nil, err
 	}
 	if len(files) != len(manifest.Artifacts) {
-		return nil, fmt.Errorf("%w: manifest declares %d artifacts but %d files were provided", ErrInvalid, len(manifest.Artifacts), len(files))
+		return nil, fmt.Errorf("%w: manifest declares %d artifacts but %d sources were provided", ErrInvalid, len(manifest.Artifacts), len(files))
 	}
 	reference := Reference{Provider: manifest.Provider, Name: manifest.Name, Version: manifest.Version}
 	targetDir := filepath.Join(s.path, reference.Provider, reference.Name, reference.Version)
@@ -142,9 +184,8 @@ func (s *Store) Install(ctx context.Context, manifest Manifest, files map[string
 	} else if !errors.Is(lookupErr, ErrNotFound) {
 		return nil, lookupErr
 	}
-	// Stage into a temporary sibling directory, verify every artifact, then
-	// atomically rename into place. A failure at any stage leaves no partial
-	// bundle behind.
+	// Stage into a temporary sibling directory, hash and size-check every
+	// artifact while streaming, then atomically rename into place.
 	var total int64
 	temporary := ".ml-install-" + randText()
 	if err := s.root.Mkdir(temporary, 0o700); err != nil {
@@ -160,27 +201,52 @@ func (s *Store) Install(ctx context.Context, manifest Manifest, files map[string
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
-		data, ok := files[artifact.File]
+		source, ok := files[artifact.File]
 		if !ok {
 			return nil, fmt.Errorf("%w: artifact file %q is missing", ErrInvalid, artifact.File)
 		}
-		if int64(len(data)) > limits.MaxArtifactBytes {
+		if size := source.Size(); size >= 0 && size > limits.MaxArtifactBytes {
 			return nil, fmt.Errorf("%w: artifact %q exceeds the artifact byte bound of %d", ErrInvalid, artifact.File, limits.MaxArtifactBytes)
-		}
-		total += int64(len(data))
-		if total > limits.MaxTotalBytes {
-			return nil, fmt.Errorf("%w: model bundle exceeds the total byte bound of %d", ErrInvalid, limits.MaxTotalBytes)
 		}
 		digest, err := parseUnsignedHex(artifact.SHA256)
 		if err != nil {
 			return nil, err
 		}
-		actual := sha256.Sum256(data)
-		if !bytesEqual(digest, actual[:]) {
-			return nil, fmt.Errorf("%w: artifact %q digest does not match manifest", ErrDigest, artifact.File)
+		reader, err := source.Open(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("open artifact source %q: %w", artifact.File, err)
 		}
-		if err := stage.WriteFile(artifact.File, data, 0o600); err != nil {
-			return nil, fmt.Errorf("stage model bundle: %w", err)
+		// Create the staged file and stream through a TeeReader that hashes
+	 // every byte as it is written. A LimitReader enforces the per-artifact
+		// byte bound without buffering the whole artifact.
+		out, err := stage.Create(artifact.File)
+		if err != nil {
+			_ = reader.Close()
+			return nil, fmt.Errorf("create staged artifact %q: %w", artifact.File, err)
+		}
+		hw := &hashWriter{hash: sha256.New()}
+		tee := io.TeeReader(io.LimitReader(reader, limits.MaxArtifactBytes+1), hw)
+		if _, err := io.Copy(out, tee); err != nil {
+			_ = out.Close()
+			_ = reader.Close()
+			return nil, fmt.Errorf("stream artifact %q: %w", artifact.File, err)
+		}
+		if err := out.Close(); err != nil {
+			_ = reader.Close()
+			return nil, fmt.Errorf("close staged artifact %q: %w", artifact.File, err)
+		}
+		_ = reader.Close()
+		// If LimitReader stopped early, the artifact is too large.
+		if hw.bytes > limits.MaxArtifactBytes {
+			return nil, fmt.Errorf("%w: artifact %q exceeds the artifact byte bound of %d", ErrInvalid, artifact.File, limits.MaxArtifactBytes)
+		}
+		total += hw.bytes
+		if total > limits.MaxTotalBytes {
+			return nil, fmt.Errorf("%w: model bundle exceeds the total byte bound of %d", ErrInvalid, limits.MaxTotalBytes)
+		}
+		sum := hw.finish()
+		if !bytesEqual(digest, sum[:]) {
+			return nil, fmt.Errorf("%w: artifact %q digest does not match manifest", ErrDigest, artifact.File)
 		}
 	}
 	manifestBytes, err := marshalManifest(manifest)
@@ -190,16 +256,11 @@ func (s *Store) Install(ctx context.Context, manifest Manifest, files map[string
 	if err := stage.WriteFile("manifest.json", manifestBytes, 0o600); err != nil {
 		return nil, fmt.Errorf("stage model bundle: %w", err)
 	}
-	// Atomic rename into place. On filesystems without hard-link/rename
-	// atomicity this still fails closed: the staged directory is removed and
-	// no partial bundle is visible at the target path.
+	// Atomic rename into place.
 	relative := filepath.Join(reference.Provider, reference.Name, reference.Version)
 	if err := s.root.MkdirAll(filepath.Dir(relative), 0o700); err != nil {
 		return nil, fmt.Errorf("create model bundle directory: %w", err)
 	}
-	// Atomic rename into place. On filesystems without hard-link/rename
-	// atomicity this still fails closed: the staged directory is removed and
-	// no partial bundle is visible at the target path.
 	if err := s.root.Rename(temporary, relative); err != nil {
 		return nil, fmt.Errorf("publish model bundle: %w", err)
 	}
@@ -207,6 +268,36 @@ func (s *Store) Install(ctx context.Context, manifest Manifest, files map[string
 		Manifest:  manifest,
 		Directory: filepath.Join(s.path, relative),
 	}, nil
+}
+
+// InstallFromBytes is a convenience wrapper around Install for small artifacts
+// that are already in memory. It delegates to Install by wrapping each byte
+// slice in an InMemoryArtifactSource.
+func (s *Store) InstallFromBytes(ctx context.Context, manifest Manifest, files map[string][]byte) (*InstalledModel, error) {
+	sources := make(map[string]ArtifactSource, len(files))
+	for name, data := range files {
+		sources[name] = NewInMemoryArtifactSource(data)
+	}
+	return s.Install(ctx, manifest, sources)
+}
+
+// hashWriter writes bytes to a staging file while computing their SHA-256
+// digest and tracking the byte count.
+type hashWriter struct {
+	hash  hash.Hash
+	sum   [sha256.Size]byte
+	bytes int64
+}
+
+func (w *hashWriter) Write(p []byte) (int, error) {
+	n, err := w.hash.Write(p)
+	w.bytes += int64(n)
+	return n, err
+}
+
+func (w *hashWriter) finish() [sha256.Size]byte {
+	copy(w.sum[:], w.hash.Sum(nil))
+	return w.sum
 }
 
 // Resolve loads one installed model and re-verifies every artifact digest

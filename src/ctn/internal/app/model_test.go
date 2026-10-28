@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -32,7 +33,7 @@ func modelStoreTestHelper(t *testing.T) string {
 		},
 	}
 	files := map[string][]byte{"model.onnx": []byte("model bytes")}
-	if _, err := store.Install(context.Background(), manifest, files); err != nil {
+	if _, err := store.InstallFromBytes(context.Background(), manifest, files); err != nil {
 		t.Fatal(err)
 	}
 	return root
@@ -83,30 +84,97 @@ func TestModelCommandInspectMissingModel(t *testing.T) {
 	}
 }
 
-func TestModelCommandRun(t *testing.T) {
+func TestModelCommandRunRequiresProvider(t *testing.T) {
 	root := modelStoreTestHelper(t)
-	// Create an input file.
-	inputFile := filepath.Join(t.TempDir(), "input.bin")
-	if err := os.WriteFile(inputFile, []byte{1, 2, 3, 4}, 0o600); err != nil {
-		t.Fatal(err)
-	}
+	inputFile := writeTensorInput(t, []mlTensorInput{{
+		Shape:  []int{1, 4},
+		Format: "float32",
+		Data:   []byte{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+	}})
 	var stdout, stderr bytes.Buffer
-	if code := modelCommand([]string{"run", root, "onnxruntime/example-model@v1.2.3", inputFile}, &stdout, &stderr); code != 0 {
-		t.Fatalf("model run = %d: %s", code, stderr.String())
+	if code := modelCommand([]string{"run", root, "onnxruntime/example-model@v1.2.3", inputFile}, &stdout, &stderr); code == 0 {
+		t.Fatal("model run without --provider should fail")
 	}
-	if !strings.Contains(stdout.String(), "onnxruntime/example-model@v1.2.3") {
-		t.Fatalf("run output = %q", stdout.String())
+}
+
+func TestModelCommandRunNoProviderAvailable(t *testing.T) {
+	root := modelStoreTestHelper(t)
+	inputFile := writeTensorInput(t, []mlTensorInput{{
+		Shape:  []int{1, 4},
+		Format: "float32",
+		Data:   []byte{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+	}})
+	var stdout, stderr bytes.Buffer
+	if code := modelCommand([]string{"run", "--provider", "nonexistent", root, "onnxruntime/example-model@v1.2.3", inputFile}, &stdout, &stderr); code == 0 {
+		t.Fatal("model run with missing provider should fail")
 	}
-	if !strings.Contains(stdout.String(), "4 bytes") {
-		t.Fatalf("run output missing byte count = %q", stdout.String())
+	if !strings.Contains(stderr.String(), "no provider registered") {
+		t.Fatalf("expected 'no provider registered' error, got: %q", stderr.String())
 	}
 }
 
 func TestModelCommandRunMissingInput(t *testing.T) {
 	root := modelStoreTestHelper(t)
 	var stdout, stderr bytes.Buffer
-	if code := modelCommand([]string{"run", root, "onnxruntime/example-model@v1.2.3", "/nonexistent.bin"}, &stdout, &stderr); code == 0 {
+	if code := modelCommand([]string{"run", "--provider", "onnxruntime", root, "onnxruntime/example-model@v1.2.3", "/nonexistent.bin"}, &stdout, &stderr); code == 0 {
 		t.Fatal("model run with missing input should fail")
+	}
+}
+
+func TestModelCommandInstall(t *testing.T) {
+	root := t.TempDir()
+	manifestFile := filepath.Join(t.TempDir(), "manifest.json")
+	manifest := ml.Manifest{
+		APIVersion:   ml.ManifestAPIVersion,
+		Name:         "test-model",
+		Version:      "v1.0.0",
+		Provider:     "test-provider",
+		Capabilities: []string{"test"},
+		Artifacts: []ml.Artifact{
+			{Role: "model", File: "model.bin", SHA256: sha256Hex("test data")},
+		},
+	}
+	manifestData, _ := json.Marshal(manifest)
+	if err := os.WriteFile(manifestFile, manifestData, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	artifactsDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(artifactsDir, "model.bin"), []byte("test data"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	var stdout, stderr bytes.Buffer
+	if code := modelCommand([]string{"install", root, manifestFile, artifactsDir}, &stdout, &stderr); code != 0 {
+		t.Fatalf("model install = %d: %s", code, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "test-provider/test-model@v1.0.0") {
+		t.Fatalf("install output = %q", stdout.String())
+	}
+}
+
+func TestModelCommandRemove(t *testing.T) {
+	root := modelStoreTestHelper(t)
+	var stdout, stderr bytes.Buffer
+	if code := modelCommand([]string{"remove", root, "onnxruntime/example-model@v1.2.3"}, &stdout, &stderr); code != 0 {
+		t.Fatalf("model remove = %d: %s", code, stderr.String())
+	}
+	if _, err := ml.OpenStore(root); err != nil {
+		t.Fatal(err)
+	}
+	// Verify it's gone.
+	store, _ := ml.OpenStore(root)
+	if _, err := store.Resolve(context.Background(), "onnxruntime", "example-model", "v1.2.3"); err == nil {
+		t.Fatal("removed model still found")
+	}
+}
+
+func TestModelCommandVerify(t *testing.T) {
+	root := modelStoreTestHelper(t)
+	var stdout, stderr bytes.Buffer
+	if code := modelCommand([]string{"verify", root, "onnxruntime/example-model@v1.2.3"}, &stdout, &stderr); code != 0 {
+		t.Fatalf("model verify = %d: %s", code, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "verified") {
+		t.Fatalf("verify output = %q", stdout.String())
 	}
 }
 
@@ -118,4 +186,18 @@ func TestModelCommandUsage(t *testing.T) {
 	if code := modelCommand([]string{"bogus"}, &stdout, &stderr); code != 2 {
 		t.Fatalf("model with bogus action = %d", code)
 	}
+}
+
+func writeTensorInput(t *testing.T, tensors []mlTensorInput) string {
+	t.Helper()
+	input := map[string]interface{}{"tensors": tensors}
+	data, err := json.Marshal(input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(t.TempDir(), "input.json")
+	if err := os.WriteFile(path, data, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	return path
 }

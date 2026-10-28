@@ -93,8 +93,8 @@ final class MLStoreTests: XCTestCase {
                                   capabilities: ["image.classify"],
                                   artifacts: [MLArtifact(role: "model", file: "model.mlmodelc",
                                                          sha256: MLDigest.sha256(Data("model bytes".utf8)))])
-        let installed = try store.install(manifest: manifest,
-                                          files: ["model.mlmodelc": Data("model bytes".utf8)])
+        let installed = try store.installFromBytes(manifest: manifest,
+                                           files: ["model.mlmodelc": Data("model bytes".utf8)])
         XCTAssertEqual(installed.manifest.name, "example-model")
 
         // Resolve re-verifies digests.
@@ -125,7 +125,7 @@ final class MLStoreTests: XCTestCase {
                                   capabilities: [],
                                   artifacts: [MLArtifact(role: "model", file: "model.mlmodelc",
                                                          sha256: MLDigest.sha256(Data("model".utf8)))])
-        XCTAssertThrowsError(try store.install(manifest: manifest,
+        XCTAssertThrowsError(try store.installFromBytes(manifest: manifest,
                                                files: ["model.mlmodelc": Data("tampered".utf8)]))
     }
 }

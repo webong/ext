@@ -9,8 +9,6 @@ require (
 	golang.org/x/sys v0.48.0 // indirect
 )
 
-require github.com/webong/ext/res/ml v0.1.0 // indirect
-
 replace github.com/webong/ext/res/ml => ../../res/ml
 replace github.com/webong/ext/res/system => ../../res/system
 

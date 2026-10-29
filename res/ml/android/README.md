@@ -4,11 +4,12 @@ The portable Java model contracts live under `res/ml/android/src/main/java/io/gi
 and compile into the `pkg/ext-android` AAR as `io.github.webong.ext.ml`.
 
 The Android-native binding lives under `src/android/java/io/github/webong/ext/ml/android/`
-and is compiled into the same AAR. It currently contains an NNAPI provider stub;
-native model backends (NNAPI, TensorFlow Lite) belong here as platform
-implementations of the portable `MlProvider` contract.
+and is compiled into the same AAR. `TfliteProvider` runs verified `.tflite`
+artifacts with float32 tensors when the host app supplies the optional
+`org.tensorflow.lite.Interpreter` runtime. It does not bundle or select that
+runtime. It checks the artifact digest on load and bounds input and output
+tensor sizes. The NNAPI provider remains an unavailable stub.
 
 The library owns manifest parsing, verified artifact installation, model
-inspection, and bounded inference interfaces only. It never downloads a model,
-selects a provider, runs inference, authorizes access, or exposes a remote
-protocol.
+inspection, and bounded inference. It never downloads a model, selects a
+provider, authorizes access, or exposes a remote protocol.

@@ -10,6 +10,8 @@ public let mlMaxManifestBytes = 64 * 1024
 public let mlMaxArtifacts = 64
 /// Maximum artifact file size in bytes.
 public let mlMaxArtifactBytes = 64 * 1024 * 1024
+/// Default maximum bytes in one float32 inference tensor.
+public let mlMaxTensorBytes = 64 * 1024 * 1024
 /// Maximum name length for model names, providers, roles, and file names.
 public let mlMaxNameLength = 128
 /// Maximum number of declared capabilities.
@@ -74,12 +76,15 @@ public struct MLTensor: Codable, Equatable, Sendable {
     /// Returns the tensor data as little-endian float32 values.
     public func float32Values() -> [Float] {
         guard data.count % 4 == 0 else { return [] }
-        var values = [Float](repeating: 0, count: data.count / 4)
-        data.withUnsafeBytes { buffer in
-            let floatBuffer = buffer.bindMemory(to: Float.self)
-            for index in 0..<values.count {
-                values[index] = floatBuffer[index]
-            }
+        let bytes = [UInt8](data)
+        var values = [Float]()
+        values.reserveCapacity(bytes.count / 4)
+        for offset in stride(from: 0, to: bytes.count, by: 4) {
+            let bits = UInt32(bytes[offset]) |
+                (UInt32(bytes[offset + 1]) << 8) |
+                (UInt32(bytes[offset + 2]) << 16) |
+                (UInt32(bytes[offset + 3]) << 24)
+            values.append(Float(bitPattern: bits))
         }
         return values
     }

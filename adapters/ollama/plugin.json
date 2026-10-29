@@ -1,0 +1,109 @@
+{
+  "apiVersion": "ext.package/v1",
+  "descriptor": {
+    "apiVersion": "ext.plugin/v1",
+    "identity": {
+      "id": "ollama",
+      "revision": "",
+      "version": "1.0.0"
+    },
+    "contracts": [
+      {
+        "name": "inference.provider",
+        "version": "v1",
+        "operations": [
+          {
+            "name": "capabilities",
+            "surface": "observation"
+          },
+          {
+            "name": "health",
+            "surface": "observation"
+          },
+          {
+            "name": "generate",
+            "surface": "action"
+          },
+          {
+            "name": "stream",
+            "surface": "action",
+            "progress": true
+          },
+          {
+            "name": "embed",
+            "surface": "action"
+          },
+          {
+            "name": "transcribe",
+            "surface": "action"
+          },
+          {
+            "name": "synthesize",
+            "surface": "action",
+            "progress": true
+          },
+          {
+            "name": "models",
+            "surface": "observation"
+          },
+          {
+            "name": "close",
+            "surface": "action"
+          }
+        ]
+      },
+      {
+        "name": "ext.stream",
+        "version": "v1",
+        "operations": [
+          {
+            "name": "open"
+          },
+          {
+            "name": "read"
+          },
+          {
+            "name": "close"
+          }
+        ]
+      }
+    ]
+  },
+  "artifacts": [
+    {
+      "name": "main",
+      "path": "ctx-ollama",
+      "sha256": ""
+    },
+    {
+      "name": "main-windows",
+      "path": "ctx-ollama.exe",
+      "sha256": ""
+    }
+  ],
+  "entrypoints": [
+    {
+      "name": "main",
+      "runtime": "argv",
+      "artifact": "main",
+      "protocols": [
+        "inference.provider/v1"
+      ]
+    },
+    {
+      "name": "main.windows",
+      "runtime": "argv",
+      "artifact": "main-windows",
+      "protocols": [
+        "inference.provider/v1"
+      ]
+    }
+  ],
+  "metadata": {
+    "inference.provider/v1": {
+      "description": "Ollama-compatible inference provider (chat completions, embeddings)",
+      "display_name": "Ollama",
+      "go_entry": "."
+    }
+  }
+}

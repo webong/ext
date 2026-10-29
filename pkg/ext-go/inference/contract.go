@@ -9,7 +9,9 @@
 package inference
 
 import (
+	"context"
 	plugin "github.com/webong/ext/pkg/ext-go/engine"
+	"github.com/webong/ext/pkg/ext-go/engine/guest/stream"
 	"github.com/webong/ext/res/inference"
 )
 
@@ -21,6 +23,19 @@ const ContractVersion = "v1"
 
 // ContractRef is the exact contract reference for inference.provider/v1.
 var ContractRef = plugin.ContractRef{Name: ContractName, Version: ContractVersion}
+
+// Host and guest construction types are re-exported here so inference programs
+// depend on the integration module instead of importing the engine directly.
+type Identity = plugin.Identity
+type DescriptorType = plugin.Descriptor
+type Session = plugin.Session
+type Options = plugin.Options
+type Request = plugin.Request
+type Backend = plugin.Backend
+
+func Open(ctx context.Context, d plugin.Descriptor, opts plugin.Options) (*plugin.Session, error) {
+	return plugin.Open(ctx, d, opts)
+}
 
 // Operation names for the inference.provider/v1 contract. Surfaces are
 // admission classifications with no built-in authority.
@@ -64,6 +79,7 @@ func Descriptor(id plugin.Identity) plugin.Descriptor {
 		Identity:   id,
 		Contracts: []plugin.Contract{
 			{ContractRef: ContractRef, Operations: Operations()},
+			{ContractRef: stream.Contract(), Operations: []plugin.Operation{{Name: "open"}, {Name: "read"}, {Name: "close"}}},
 		},
 	}
 }

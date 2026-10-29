@@ -69,6 +69,9 @@ final class MLTypesTests: XCTestCase {
         let data = Data([Float](repeating: 1.0, count: 12).withUnsafeBytes { Data($0) })
         let tensor = MLTensor(shape: [1, 3, 2, 2], data: data, format: "float32")
         XCTAssertNoThrow(try MLTensorValidation.validate(tensor))
+        XCTAssertEqual(tensor.float32Values(), [Float](repeating: 1, count: 12))
+        let littleEndian = MLTensor(shape: [1], data: Data([0, 0, 128, 63]), format: "float32")
+        XCTAssertEqual(littleEndian.float32Values(), [1])
 
         // Bad format rejected.
         let bad = MLTensor(shape: [1, 2], data: data, format: "float64")

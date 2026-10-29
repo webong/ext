@@ -19,10 +19,8 @@ import (
 	"log/slog"
 	"os"
 
-	plugin "github.com/webong/ext/pkg/ext-go/engine"
+	"github.com/webong/ext/adapters/openai/client"
 	ginference "github.com/webong/ext/pkg/ext-go/inference"
-	"github.com/webong/ext/pkg/ext-go/engine/guest/author"
-	"github.com/webong/ext/pkg/ext-go/engine/transport/jsonline"
 )
 
 func main() {
@@ -68,33 +66,16 @@ func serve() error {
 		return errors.New("api key is required (set EXT_ADAPTER_VALUE_api_key)")
 	}
 
-	provider, err := NewProvider(endpoint, apiKey)
+	provider, err := client.NewProvider(endpoint, apiKey)
 	if err != nil {
 		return fmt.Errorf("create provider: %w", err)
 	}
 	defer provider.Close()
 
-	registry, err := author.New(plugin.Identity{ID: "openai", Revision: "", Version: "1.0.0"})
-	if err != nil {
-		return fmt.Errorf("create registry: %w", err)
-	}
-	_, err = ginference.RegisterProvider(registry, provider, authorize)
-	if err != nil {
-		return fmt.Errorf("register provider: %w", err)
-	}
-
-	guest, err := registry.Guest(author.Options{
-		Authorize:       authorize,
-		MaxCallDuration: 0, // default 30s
-	})
-	if err != nil {
-		return fmt.Errorf("create guest: %w", err)
-	}
-
-	return jsonline.ServeStdio(ctx, guest)
+	return ginference.ServeCurrentExecutable(ctx, "openai", "1.0.0", provider, authorize)
 }
 
-func authorize(ctx context.Context, req plugin.Request) error {
+func authorize(ctx context.Context, req ginference.Request) error {
 	if err := ctx.Err(); err != nil {
 		return ctx.Err()
 	}

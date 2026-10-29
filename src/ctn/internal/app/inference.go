@@ -5,17 +5,20 @@ package app
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 
-	plugin "github.com/webong/ext/pkg/ext-go/engine"
+	"github.com/webong/ext/pkg/ext-go/engine/host/home"
 	"github.com/webong/ext/pkg/ext-go/engine/host/process"
+	"github.com/webong/ext/pkg/ext-go/engine/host/store"
 	ginference "github.com/webong/ext/pkg/ext-go/inference"
 	inference "github.com/webong/ext/res/inference"
 )
@@ -24,10 +27,14 @@ import (
 // explicitly selected provider plugin.
 func inferenceCommand(args []string, stdout, stderr io.Writer) int {
 	if len(args) == 0 {
-		fmt.Fprintln(stderr, "ctn: inference needs one of providers, capabilities, health, generate, stream, embed, transcribe, synthesize, or models")
+		fmt.Fprintln(stderr, "ctn: inference needs one of package, install, providers, capabilities, health, generate, stream, embed, transcribe, synthesize, or models")
 		return 2
 	}
 	switch args[0] {
+	case "package":
+		return inferencePackageCommand(args[1:], stdout, stderr)
+	case "install":
+		return inferenceInstallCommand(args[1:], stdout, stderr)
 	case "providers":
 		return inferenceProvidersCommand(args[1:], stdout, stderr)
 	case "capabilities":
@@ -52,11 +59,69 @@ func inferenceCommand(args []string, stdout, stderr io.Writer) int {
 	}
 }
 
+func inferencePackageCommand(args []string, stdout, stderr io.Writer) int {
+	flags := flag.NewFlagSet("ctn inference package", flag.ContinueOnError)
+	flags.SetOutput(stderr)
+	goos := flags.String("os", "", "target operating system (default: current OS)")
+	goarch := flags.String("arch", "", "target architecture (default: current architecture)")
+	if err := flags.Parse(args); err != nil {
+		return 2
+	}
+	values := flags.Args()
+	if len(values) != 4 {
+		fmt.Fprintln(stderr, "ctn: inference package requires ID VERSION BINARY OUTPUT_DIR")
+		return 2
+	}
+	manifest, err := ginference.PackageExecutable(ginference.ExecutablePackage{ID: values[0], Version: values[1], Binary: values[2], OutputDir: values[3], OS: *goos, Arch: *goarch})
+	if err != nil {
+		fmt.Fprintln(stderr, err)
+		return 1
+	}
+	fmt.Fprintf(stdout, "%s\t%s\n", manifest.Name(), values[3])
+	return 0
+}
+
+func inferenceInstallCommand(args []string, stdout, stderr io.Writer) int {
+	if len(args) != 1 {
+		fmt.Fprintln(stderr, "ctn: inference install requires one sealed package directory")
+		return 2
+	}
+	s, err := store.New(inferencePackageRoot(), store.Limits{})
+	if err != nil {
+		fmt.Fprintln(stderr, err)
+		return 1
+	}
+	installed, err := s.Install(args[0])
+	if err != nil {
+		fmt.Fprintln(stderr, err)
+		return 1
+	}
+	if !installed.Supports(ginference.ContractName, ginference.ContractVersion) {
+		_ = s.Remove(installed.Name())
+		fmt.Fprintln(stderr, "ctn: package does not declare inference.provider/v1")
+		return 1
+	}
+	digest, err := installed.Digest()
+	if err != nil {
+		fmt.Fprintln(stderr, err)
+		return 1
+	}
+	fmt.Fprintf(stdout, "%s\t%s\n", installed.Name(), digest)
+	return 0
+}
+
 // providerConfig describes how to connect to an inference provider.
 type providerConfig struct {
-	ID    string // provider identity
-	Path  string // executable path (for local plugins)
-	Args  []string // extra arguments
+	ID       string
+	Root     string
+	Path     string
+	Artifact string
+	Digest   string
+	Version  string
+}
+
+func inferencePackageRoot() string {
+	return home.Inference()
 }
 
 // checkError converts an error to a ctn exit code, printing the error to stderr.
@@ -69,68 +134,89 @@ func checkError(err error) int {
 }
 
 // resolveProvider resolves a provider by ID. The provider ID maps to an
-// installed inference-provider package executable. For now, the provider path
-// is taken from the EXT_INFERENCE_PROVIDER_<ID> environment variable.
+// installed and explicitly trusted inference-provider package executable.
 func resolveProvider(id string) (providerConfig, error) {
 	if id == "" {
 		return providerConfig{}, fmt.Errorf("%w: provider ID is required", inference.ErrInvalidRequest)
 	}
-	envKey := "EXT_INFERENCE_PROVIDER_" + strings.ToUpper(strings.ReplaceAll(id, "-", "_"))
-	path := os.Getenv(envKey)
-	if path == "" {
-		// Fall back to looking up the provider as a direct executable path.
-		if _, err := os.Stat(id); err == nil {
-			return providerConfig{ID: id, Path: id}, nil
-		}
-		return providerConfig{}, fmt.Errorf("%w: provider %q not found (set %s)", inference.ErrUnavailable, id, envKey)
+	root := inferencePackageRoot()
+	s, err := store.New(root, store.Limits{})
+	if err != nil {
+		return providerConfig{}, err
 	}
-	return providerConfig{ID: id, Path: path}, nil
+	trustKey := "EXT_INFERENCE_TRUST_" + strings.ToUpper(strings.NewReplacer("-", "_", ".", "_", "/", "_").Replace(id))
+	want := os.Getenv(trustKey)
+	if len(want) != 64 {
+		return providerConfig{}, fmt.Errorf("%w: explicit package digest required in %s", inference.ErrAuthorization, trustKey)
+	}
+	selected, err := s.ResolveEntrypoint(id, ginference.ContractName, ginference.ContractVersion, "inference.provider/v1", want)
+	if err != nil {
+		return providerConfig{}, err
+	}
+	return providerConfig{ID: id, Root: root, Path: selected.Path, Artifact: selected.Artifact, Digest: selected.Digest, Version: selected.Package.Version()}, nil
 }
 
 // openProviderSession starts the provider plugin executable and opens a plugin
 // session to it. The caller must close the returned session.
-func openProviderSession(ctx context.Context, cfg providerConfig) (*plugin.Session, error) {
-	cmd := exec.CommandContext(ctx, cfg.Path, "run")
-	cmd.Stderr = os.Stderr
-	backend, err := process.Start(ctx, process.Command{
-		Path:  cmd.Path,
-		Args:  cmd.Args[1:],
-		Env:   os.Environ(),
-	})
+func openProviderSession(ctx context.Context, cfg providerConfig) (*ginference.Session, error) {
+	digest, err := executableDigest(cfg.Path)
 	if err != nil {
-		return nil, fmt.Errorf("start provider %q: %w", cfg.ID, err)
+		return nil, err
 	}
-
 	// The provider serves inference.provider/v1. Open a session to it.
-	descriptor := ginference.Descriptor(plugin.Identity{ID: cfg.ID, Revision: "", Version: "1.0.0"})
-	session, err := plugin.Open(ctx, descriptor, plugin.Options{
-		Verify: func(ctx context.Context, d plugin.Descriptor) error {
-			// Verify the provider declares the inference contract.
-			for _, c := range d.Contracts {
-				if c.Name == ginference.ContractName && c.Version == ginference.ContractVersion {
-					return nil
-				}
+	descriptor := ginference.Descriptor(ginference.Identity{ID: cfg.ID, Revision: digest, Version: cfg.Version})
+	session, err := ginference.Open(ctx, descriptor, ginference.Options{
+		Verify: func(ctx context.Context, d ginference.DescriptorType) error {
+			s, err := store.New(cfg.Root, store.Limits{})
+			if err != nil {
+				return err
 			}
-			return fmt.Errorf("%w: provider does not declare inference.provider/v1", inference.ErrUnavailable)
+			selected, err := s.ResolveEntrypoint(cfg.ID, ginference.ContractName, ginference.ContractVersion, "inference.provider/v1", cfg.Digest)
+			if err != nil {
+				return err
+			}
+			if selected.Artifact != cfg.Artifact || filepath.Clean(selected.Path) != filepath.Clean(cfg.Path) {
+				return inference.ErrAuthorization
+			}
+			actual, err := executableDigest(selected.Path)
+			if err != nil {
+				return err
+			}
+			if actual != d.Identity.Revision {
+				return inference.ErrAuthorization
+			}
+			return nil
 		},
-		Connect: func(ctx context.Context, d plugin.Descriptor) (plugin.Backend, error) {
-			return backend, nil
+		Connect: func(ctx context.Context, d ginference.DescriptorType) (ginference.Backend, error) {
+			return process.Start(ctx, process.Command{Path: cfg.Path, Args: []string{"run"}, Env: os.Environ()})
 		},
-		Authorize: func(ctx context.Context, req plugin.Request) error {
+		Authorize: func(ctx context.Context, req ginference.Request) error {
 			return ctx.Err()
 		},
 		Timeout: 30 * time.Second,
 	})
 	if err != nil {
-		_ = backend.Close()
 		return nil, fmt.Errorf("open provider session: %w", err)
 	}
 	return session, nil
 }
 
+func executableDigest(path string) (string, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+	h := sha256.New()
+	if _, err := io.Copy(h, f); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(h.Sum(nil)), nil
+}
+
 // withProviderClient opens a provider session, creates an inference client,
 // and calls fn. The session is closed when fn returns.
-func withProviderClient(ctx context.Context, providerID string, fn func(*ginference.Client, *plugin.Session) error) error {
+func withProviderClient(ctx context.Context, providerID string, fn func(*ginference.Client, *ginference.Session) error) error {
 	cfg, err := resolveProvider(providerID)
 	if err != nil {
 		return err
@@ -150,15 +236,31 @@ func inferenceProvidersCommand(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stderr, "ctn: inference providers takes no arguments")
 		return 2
 	}
-	// List providers from environment variables.
-	for _, env := range os.Environ() {
-		key, value, ok := strings.Cut(env, "=")
-		if !ok || !strings.HasPrefix(key, "EXT_INFERENCE_PROVIDER_") {
+	root := inferencePackageRoot()
+	s, err := store.New(root, store.Limits{})
+	if err != nil {
+		fmt.Fprintln(stderr, err)
+		return 1
+	}
+	installed, err := s.List()
+	if err != nil {
+		fmt.Fprintln(stderr, err)
+		return 1
+	}
+	for _, p := range installed {
+		if !p.Supports(ginference.ContractName, ginference.ContractVersion) {
 			continue
 		}
-		id := strings.ToLower(strings.TrimPrefix(key, "EXT_INFERENCE_PROVIDER_"))
-		id = strings.ReplaceAll(id, "_", "-")
-		fmt.Fprintf(stdout, "%s\t%s\n", id, value)
+		digest, err := p.Digest()
+		if err != nil {
+			fmt.Fprintln(stderr, err)
+			return 1
+		}
+		state := "untrusted"
+		if _, err := resolveProvider(p.Name()); err == nil {
+			state = "trusted"
+		}
+		fmt.Fprintf(stdout, "%s\t%s\t%s\n", p.Name(), state, digest)
 	}
 	return 0
 }
@@ -177,7 +279,7 @@ func inferenceCapabilitiesCommand(args []string, stdout, stderr io.Writer) int {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	return checkError(withProviderClient(ctx, *provider, func(client *ginference.Client, _ *plugin.Session) error {
+	return checkError(withProviderClient(ctx, *provider, func(client *ginference.Client, _ *ginference.Session) error {
 		info, err := client.Capabilities(ctx)
 		if err != nil {
 			fmt.Fprintf(stderr, "ctn: %v\n", err)
@@ -207,7 +309,7 @@ func inferenceHealthCommand(args []string, stdout, stderr io.Writer) int {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	return checkError(withProviderClient(ctx, *provider, func(client *ginference.Client, _ *plugin.Session) error {
+	return checkError(withProviderClient(ctx, *provider, func(client *ginference.Client, _ *ginference.Session) error {
 		h, err := client.Health(ctx)
 		if err != nil {
 			fmt.Fprintf(stderr, "ctn: %v\n", err)
@@ -260,7 +362,7 @@ func inferenceGenerateCommand(args []string, stdout, stderr io.Writer) int {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Second)
 	defer cancel()
-	return checkError(withProviderClient(ctx, *provider, func(client *ginference.Client, _ *plugin.Session) error {
+	return checkError(withProviderClient(ctx, *provider, func(client *ginference.Client, _ *ginference.Session) error {
 		resp, err := client.Generate(ctx, req)
 		if err != nil {
 			fmt.Fprintf(stderr, "ctn: %v\n", err)
@@ -305,7 +407,7 @@ func inferenceStreamCommand(args []string, stdout, stderr io.Writer) int {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Second)
 	defer cancel()
-	return checkError(withProviderClient(ctx, *provider, func(client *ginference.Client, _ *plugin.Session) error {
+	return checkError(withProviderClient(ctx, *provider, func(client *ginference.Client, _ *ginference.Session) error {
 		stream, err := client.Stream(ctx, req)
 		if err != nil {
 			fmt.Fprintf(stderr, "ctn: %v\n", err)
@@ -368,7 +470,7 @@ func inferenceEmbedCommand(args []string, stdout, stderr io.Writer) int {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Second)
 	defer cancel()
-	return checkError(withProviderClient(ctx, *provider, func(client *ginference.Client, _ *plugin.Session) error {
+	return checkError(withProviderClient(ctx, *provider, func(client *ginference.Client, _ *ginference.Session) error {
 		resp, err := client.Embed(ctx, req)
 		if err != nil {
 			fmt.Fprintf(stderr, "ctn: %v\n", err)
@@ -413,7 +515,7 @@ func inferenceTranscribeCommand(args []string, stdout, stderr io.Writer) int {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Second)
 	defer cancel()
-	return checkError(withProviderClient(ctx, *provider, func(client *ginference.Client, _ *plugin.Session) error {
+	return checkError(withProviderClient(ctx, *provider, func(client *ginference.Client, _ *ginference.Session) error {
 		resp, err := client.Transcribe(ctx, req)
 		if err != nil {
 			fmt.Fprintf(stderr, "ctn: %v\n", err)
@@ -459,7 +561,7 @@ func inferenceSynthesizeCommand(args []string, stdout, stderr io.Writer) int {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Second)
 	defer cancel()
-	return checkError(withProviderClient(ctx, *provider, func(client *ginference.Client, _ *plugin.Session) error {
+	return checkError(withProviderClient(ctx, *provider, func(client *ginference.Client, _ *ginference.Session) error {
 		stream, err := client.Synthesize(ctx, req)
 		if err != nil {
 			fmt.Fprintf(stderr, "ctn: %v\n", err)
@@ -514,7 +616,7 @@ func inferenceModelsCommand(args []string, stdout, stderr io.Writer) int {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	return checkError(withProviderClient(ctx, *provider, func(client *ginference.Client, _ *plugin.Session) error {
+	return checkError(withProviderClient(ctx, *provider, func(client *ginference.Client, _ *ginference.Session) error {
 		models, err := client.Models(ctx)
 		if err != nil {
 			fmt.Fprintf(stderr, "ctn: %v\n", err)

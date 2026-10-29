@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"io"
 	"sync"
 	"time"
 
@@ -39,8 +40,8 @@ type Provider struct {
 	provider inference.Provider
 	streams  *stream.Service
 
-	mu          sync.Mutex
-	genStreams  map[string]*genReader
+	mu           sync.Mutex
+	genStreams   map[string]*genReader
 	synthStreams map[string]*synthReader
 }
 
@@ -62,7 +63,7 @@ func RegisterProvider(r *author.Registry, p inference.Provider, authorize func(c
 		Capacity: 128,
 		MaxAge:   5 * time.Minute,
 		Scope: func(ctx context.Context, r plugin.Request) (string, error) {
-			return r.Contract.Name + "/" + r.Operation, nil
+			return "inference.provider/v1", nil
 		},
 		Open: g.openReader,
 	})
@@ -121,12 +122,16 @@ func (g *Provider) openReader(ctx context.Context, r plugin.Request, params json
 		if !ok {
 			return nil, &plugin.RemoteError{Code: "not_found", Message: "generation stream not found"}
 		}
+		delete(g.genStreams, op.ID)
+		go reader.run(ctx)
 		return reader, nil
 	case OpSynthesize:
 		reader, ok := g.synthStreams[op.ID]
 		if !ok {
 			return nil, &plugin.RemoteError{Code: "not_found", Message: "synthesis stream not found"}
 		}
+		delete(g.synthStreams, op.ID)
+		go reader.run(ctx)
 		return reader, nil
 	default:
 		return nil, &plugin.RemoteError{Code: "invalid_input", Message: "stream op must be stream or synthesize"}
@@ -144,17 +149,21 @@ func (g *Provider) openStream(ctx context.Context, _ plugin.Request, req inferen
 	}
 	reader := newGenReader()
 	id := newStreamID()
-	go func() {
+	reader.run = func(ctx context.Context) {
 		sink := inference.SinkFunc(func(ctx context.Context, ev inference.GenerationEvent) error {
-			reader.push(ev)
-			return nil
+			return reader.push(ctx, ev)
 		})
 		_, err := str.Stream(ctx, req, sink)
-		reader.finish(err)
-	}()
+		reader.finish(pluginError(err))
+	}
 	g.mu.Lock()
+	if len(g.genStreams) >= 128 {
+		g.mu.Unlock()
+		return stream.OpenResponse{}, inference.ErrResourceExhausted
+	}
 	g.genStreams[id] = reader
 	g.mu.Unlock()
+	time.AfterFunc(5*time.Minute, func() { g.mu.Lock(); delete(g.genStreams, id); g.mu.Unlock() })
 	return stream.OpenResponse{ID: id}, nil
 }
 
@@ -167,29 +176,44 @@ func (g *Provider) openSynthesize(ctx context.Context, _ plugin.Request, req inf
 	if !ok {
 		return stream.OpenResponse{}, inference.ErrUnsupported
 	}
-	ss, err := syn.Synthesize(ctx, req)
-	if err != nil {
-		return stream.OpenResponse{}, err
-	}
 	reader := newSynthReader()
 	id := newStreamID()
-	go func() {
+	reader.run = func(ctx context.Context) {
+		ss, err := syn.Synthesize(ctx, req)
+		if err != nil {
+			reader.finish(pluginError(err))
+			return
+		}
+		defer ss.Close()
+		stop := context.AfterFunc(ctx, func() { _ = ss.Close() })
+		defer stop()
 		buf := make([]byte, 64<<10)
 		for {
 			n, err := ss.Read(buf)
 			if n > 0 {
-				reader.push(buf[:n])
+				if pushErr := reader.push(ctx, buf[:n]); pushErr != nil {
+					reader.finish(pushErr)
+					return
+				}
 			}
 			if err != nil {
-				reader.finish(err)
-				_ = ss.Close()
+				if errors.Is(err, io.EOF) {
+					reader.finish(nil)
+				} else {
+					reader.finish(pluginError(err))
+				}
 				return
 			}
 		}
-	}()
+	}
 	g.mu.Lock()
+	if len(g.synthStreams) >= 128 {
+		g.mu.Unlock()
+		return stream.OpenResponse{}, inference.ErrResourceExhausted
+	}
 	g.synthStreams[id] = reader
 	g.mu.Unlock()
+	time.AfterFunc(5*time.Minute, func() { g.mu.Lock(); delete(g.synthStreams, id); g.mu.Unlock() })
 	return stream.OpenResponse{ID: id}, nil
 }
 
@@ -219,7 +243,8 @@ func (g *Provider) generate(ctx context.Context, _ plugin.Request, req inference
 	if !ok {
 		return inference.GenerationResponse{}, inference.ErrUnsupported
 	}
-	return gen.Generate(ctx, req)
+	resp, err := gen.Generate(ctx, req)
+	return resp, pluginError(err)
 }
 
 func (g *Provider) embed(ctx context.Context, _ plugin.Request, req inference.EmbeddingRequest) (inference.EmbeddingResponse, error) {
@@ -229,7 +254,8 @@ func (g *Provider) embed(ctx context.Context, _ plugin.Request, req inference.Em
 	if !ok {
 		return inference.EmbeddingResponse{}, inference.ErrUnsupported
 	}
-	return emb.Embed(ctx, req)
+	resp, err := emb.Embed(ctx, req)
+	return resp, pluginError(err)
 }
 
 func (g *Provider) transcribe(ctx context.Context, _ plugin.Request, req inference.TranscriptionRequest) (inference.TranscriptionResponse, error) {
@@ -239,7 +265,8 @@ func (g *Provider) transcribe(ctx context.Context, _ plugin.Request, req inferen
 	if !ok {
 		return inference.TranscriptionResponse{}, inference.ErrUnsupported
 	}
-	return tr.Transcribe(ctx, req)
+	resp, err := tr.Transcribe(ctx, req)
+	return resp, pluginError(err)
 }
 
 func (g *Provider) models(ctx context.Context, _ plugin.Request, _ struct{}) ([]inference.ModelInfo, error) {
@@ -249,10 +276,38 @@ func (g *Provider) models(ctx context.Context, _ plugin.Request, _ struct{}) ([]
 	if !ok {
 		return nil, inference.ErrUnsupported
 	}
-	return ml.ListModels(ctx)
+	resp, err := ml.ListModels(ctx)
+	return resp, pluginError(err)
+}
+
+func pluginError(err error) error {
+	if err == nil {
+		return nil
+	}
+	var remote *inference.RemoteError
+	if errors.As(err, &remote) {
+		return &plugin.RemoteError{Code: remote.Code, Message: remote.Message}
+	}
+	for _, category := range []struct {
+		err  error
+		code string
+	}{
+		{inference.ErrAuthentication, "authentication"}, {inference.ErrAuthorization, "authorization"},
+		{inference.ErrRateLimit, "rateLimit"}, {inference.ErrTimeout, "timeout"},
+		{inference.ErrCanceled, "canceled"}, {inference.ErrUnavailable, "unavailable"},
+		{inference.ErrUnsupported, "unsupported"}, {inference.ErrInvalidRequest, "invalidRequest"},
+		{inference.ErrInvalidResponse, "invalidResponse"}, {inference.ErrResourceExhausted, "resourceExhausted"},
+		{inference.ErrIncompatibleModel, "incompatibleModel"}, {inference.ErrTransientNative, "transientNative"},
+	} {
+		if errors.Is(err, category.err) {
+			return &plugin.RemoteError{Code: category.code, Message: category.err.Error()}
+		}
+	}
+	return &plugin.RemoteError{Code: "unavailable", Message: "provider operation failed"}
 }
 
 func (g *Provider) closeOp(ctx context.Context, _ plugin.Request, _ struct{}) (struct{}, error) {
+	_ = g.streams.Close()
 	if err := g.provider.Close(); err != nil {
 		return struct{}{}, err
 	}

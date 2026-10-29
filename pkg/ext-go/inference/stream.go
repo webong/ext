@@ -19,22 +19,40 @@ import (
 type genReader struct {
 	mu     sync.Mutex
 	events []inference.GenerationEvent
+	run    func(context.Context)
+	slots  chan struct{}
+	stop   chan struct{}
 	notify chan struct{} // signaled when events arrive, generation completes, or close
 	done   bool
 	err    error
 	closed bool
 }
 
-func newGenReader() *genReader { return &genReader{notify: make(chan struct{}, 1)} }
+func newGenReader() *genReader {
+	return &genReader{notify: make(chan struct{}, 1), slots: make(chan struct{}, 64), stop: make(chan struct{})}
+}
 
-func (r *genReader) push(event inference.GenerationEvent) {
+func (r *genReader) push(ctx context.Context, event inference.GenerationEvent) error {
+	select {
+	case r.slots <- struct{}{}:
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-r.stop:
+		return plugin.ErrClosed
+	}
 	r.mu.Lock()
+	if r.closed {
+		r.mu.Unlock()
+		<-r.slots
+		return plugin.ErrClosed
+	}
 	r.events = append(r.events, event)
 	r.mu.Unlock()
 	select {
 	case r.notify <- struct{}{}:
 	default:
 	}
+	return nil
 }
 
 func (r *genReader) finish(err error) {
@@ -77,6 +95,9 @@ func (r *genReader) Read(ctx context.Context, limit int) ([]json.RawMessage, boo
 		batch = append(batch, data)
 	}
 	r.events = r.events[n:]
+	for i := 0; i < n; i++ {
+		<-r.slots
+	}
 	done := r.done && len(r.events) == 0
 	finalErr := r.err
 	r.mu.Unlock()
@@ -88,7 +109,10 @@ func (r *genReader) Read(ctx context.Context, limit int) ([]json.RawMessage, boo
 
 func (r *genReader) Close() error {
 	r.mu.Lock()
-	r.closed = true
+	if !r.closed {
+		r.closed = true
+		close(r.stop)
+	}
 	r.mu.Unlock()
 	select {
 	case r.notify <- struct{}{}:
@@ -102,22 +126,40 @@ func (r *genReader) Close() error {
 type synthReader struct {
 	mu     sync.Mutex
 	chunks [][]byte
+	run    func(context.Context)
+	slots  chan struct{}
+	stop   chan struct{}
 	notify chan struct{}
 	done   bool
 	err    error
 	closed bool
 }
 
-func newSynthReader() *synthReader { return &synthReader{notify: make(chan struct{}, 1)} }
+func newSynthReader() *synthReader {
+	return &synthReader{notify: make(chan struct{}, 1), slots: make(chan struct{}, 64), stop: make(chan struct{})}
+}
 
-func (r *synthReader) push(chunk []byte) {
+func (r *synthReader) push(ctx context.Context, chunk []byte) error {
+	select {
+	case r.slots <- struct{}{}:
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-r.stop:
+		return plugin.ErrClosed
+	}
 	r.mu.Lock()
+	if r.closed {
+		r.mu.Unlock()
+		<-r.slots
+		return plugin.ErrClosed
+	}
 	r.chunks = append(r.chunks, append([]byte(nil), chunk...))
 	r.mu.Unlock()
 	select {
 	case r.notify <- struct{}{}:
 	default:
 	}
+	return nil
 }
 
 func (r *synthReader) finish(err error) {
@@ -155,6 +197,9 @@ func (r *synthReader) Read(ctx context.Context, limit int) ([]json.RawMessage, b
 		batch = append(batch, r.chunks[i])
 	}
 	r.chunks = r.chunks[n:]
+	for i := 0; i < n; i++ {
+		<-r.slots
+	}
 	done := r.done && len(r.chunks) == 0
 	finalErr := r.err
 	r.mu.Unlock()
@@ -166,7 +211,10 @@ func (r *synthReader) Read(ctx context.Context, limit int) ([]json.RawMessage, b
 
 func (r *synthReader) Close() error {
 	r.mu.Lock()
-	r.closed = true
+	if !r.closed {
+		r.closed = true
+		close(r.stop)
+	}
 	r.mu.Unlock()
 	select {
 	case r.notify <- struct{}{}:

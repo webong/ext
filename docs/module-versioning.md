@@ -282,9 +282,10 @@ workspace active, and that `src/ctx` resolves the intended versions:
 
 ```bash
 for module in src/ctx src/ctn pkg/ext-go pkg/ext-go/engine pkg/ext-go/cgoengine \
-              pkg/ext-go/hashicorp pkg/ext-go/wasm pkg/ext-go/inference res/system res/inference \
+              pkg/ext-go/hashicorp pkg/ext-go/wasm pkg/ext-go/inference res/system res/ml res/inference \
               adapters/wasm adapters/evm adapters/systemd adapters/pulseaudio adapters/alsa \
-              adapters/x11 adapters/wayland adapters/pipewire adapters/openai res/web; do
+              adapters/x11 adapters/wayland adapters/pipewire adapters/openai \
+              adapters/ollama adapters/anthropic adapters/gemini res/web; do
   (cd "$module" && go build ./... && go test ./...) || exit 1
 done
 ```

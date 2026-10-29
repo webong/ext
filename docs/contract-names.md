@@ -53,7 +53,7 @@ and cannot be declared.
 | `content.provider` | `v1` | Cymonkey | in use | Go constants and doc comments in `lib/blockade/plugin/adapter.go`; JSON schemas for its documents in `lib/blockade/protocol/v1alpha1/` |
 | `device.provider` | `v1` | Cymonkey | in use | Go constants and doc comments in `lib/board/plugin/provider.go` |
 | `display.engine` | `v1` | Cymonkey | in use | Go constants and doc comments in `lib/jangolova/plugin/adapter.go` |
-| `inference.provider` | `v1` | Ext (`res/inference`) | proposed | JSON schemas and fixtures in `res/inference/testdata/` |
+| `inference.provider` | `v1` | Ext (`res/inference`) | implemented in Ext | JSON schemas and fixtures in `res/inference/testdata/`; Go bridge in `pkg/ext-go/inference` |
 
 The owner's repository is `github.com/webong/cymonkey`. Its operations, as
 declared by the owner: `content.provider` has `start`, `observe`, `interpret`,

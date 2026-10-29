@@ -28,11 +28,11 @@ const siblingPrefix = "github.com/webong/ext/"
 var productModules = map[string]bool{"src/ctx": true, "src/ctn": true}
 
 type workspaceModule struct {
-	dir     string
-	path    string          // module path without the repository prefix
-	listed  map[string]bool // sibling modules named in go.mod requires
-	hasReqs bool
-	imports map[string]bool // sibling packages imported by this module's own files, tests included
+	dir             string
+	path            string          // module path without the repository prefix
+	listed          map[string]bool // sibling modules named in go.mod requires
+	hasExternalReqs bool
+	imports         map[string]bool // sibling packages imported by this module's own files, tests included
 	// packages maps each package path in the module to the sibling packages its
 	// non-test files import; a dependent's build reaches these, not test imports.
 	packages map[string]map[string]bool
@@ -149,9 +149,10 @@ func (m *workspaceModule) noteRequire(spec string) {
 	if len(fields) < 2 {
 		return
 	}
-	m.hasReqs = true
 	if rest, ok := strings.CutPrefix(fields[0], siblingPrefix); ok {
 		m.listed[rest] = true
+	} else {
+		m.hasExternalReqs = true
 	}
 }
 
@@ -215,7 +216,7 @@ func TestModulesRequireWhatTheyImport(t *testing.T) {
 				t.Errorf("%s: go.mod does not require %s, which its build reaches", module.dir, dep)
 			}
 		}
-		if module.hasReqs {
+		if module.hasExternalReqs {
 			info, err := os.Stat(filepath.Join(repoRoot(t), module.dir, "go.sum"))
 			if err != nil || info.Size() == 0 {
 				t.Errorf("%s: go.mod has requirements but there is no go.sum", module.dir)

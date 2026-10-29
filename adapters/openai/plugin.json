@@ -12,15 +12,59 @@
         "name": "inference.provider",
         "version": "v1",
         "operations": [
-          { "name": "capabilities", "surface": "observation" },
-          { "name": "health", "surface": "observation" },
-          { "name": "generate", "surface": "action" },
-          { "name": "stream", "surface": "action", "progress": true },
-          { "name": "embed", "surface": "action" },
-          { "name": "transcribe", "surface": "action" },
-          { "name": "synthesize", "surface": "action", "progress": true },
-          { "name": "models", "surface": "observation" },
-          { "name": "close", "surface": "action" }
+          {
+            "name": "capabilities",
+            "surface": "observation"
+          },
+          {
+            "name": "health",
+            "surface": "observation"
+          },
+          {
+            "name": "generate",
+            "surface": "action"
+          },
+          {
+            "name": "stream",
+            "surface": "action",
+            "progress": true
+          },
+          {
+            "name": "embed",
+            "surface": "action"
+          },
+          {
+            "name": "transcribe",
+            "surface": "action"
+          },
+          {
+            "name": "synthesize",
+            "surface": "action",
+            "progress": true
+          },
+          {
+            "name": "models",
+            "surface": "observation"
+          },
+          {
+            "name": "close",
+            "surface": "action"
+          }
+        ]
+      },
+      {
+        "name": "ext.stream",
+        "version": "v1",
+        "operations": [
+          {
+            "name": "open"
+          },
+          {
+            "name": "read"
+          },
+          {
+            "name": "close"
+          }
         ]
       }
     ]
@@ -56,21 +100,10 @@
     }
   ],
   "metadata": {
-    "ctx.adapter/v1": {
+    "inference.provider/v1": {
       "description": "OpenAI-compatible inference provider (chat completions, embeddings)",
       "display_name": "OpenAI",
-      "go_entry": ".",
-      "runtime": "computer",
-      "selectable": true,
-      "supports": [
-        "text",
-        "image",
-        "audio",
-        "file"
-      ],
-      "surfaces": [
-        "inference"
-      ]
+      "go_entry": "."
     }
   }
 }

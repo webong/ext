@@ -1,0 +1,70 @@
+# Inference provider packages
+
+`res/inference` defines the portable provider contract. The reusable plugin
+integration in `pkg/ext-go/inference` serves a provider guest and packages its
+executable. The package store in `pkg/ext-go/engine/host/store` verifies sealed
+packages, matches contracts, pins a reviewed digest, and selects the executable
+for the current platform. CTN uses this discovery path; CTX's existing adapters
+also verify sealed packages through the same store while retaining their
+adapter-specific trust records and commands.
+
+## Build, install, and trust
+
+The bundled Go guests are `adapters/openai`, `adapters/ollama`,
+`adapters/anthropic`, and `adapters/gemini`. Build one for the machine where it
+will run, then create and install a sealed package:
+
+```sh
+go build -o /tmp/ext-openai ./adapters/openai
+go build -o /tmp/ext-ctn ./src/ctn/cmd/ctn
+/tmp/ext-ctn inference package openai 1.0.0 /tmp/ext-openai /tmp/openai-package
+/tmp/ext-ctn inference install /tmp/openai-package
+/tmp/ext-ctn inference providers
+```
+
+`package` refuses to replace an existing output directory. `install` refuses
+to replace an installed package and prints its package digest. The default
+store is `<EXT_HOME>/commands` (or the shared Ext config home); set
+`EXT_INFERENCE_PACKAGE_ROOT` to use another store. Installation alone grants no
+execution authority. After reviewing the package, pin the digest printed by
+`install` or `providers`:
+
+```sh
+export EXT_INFERENCE_TRUST_OPENAI=<64-character-package-digest>
+export EXT_ADAPTER_VALUE_endpoint=https://api.openai.com/v1
+export EXT_ADAPTER_VALUE_api_key=<provider-key>
+/tmp/ext-ctn inference capabilities --provider openai
+```
+
+The trust variable is `EXT_INFERENCE_TRUST_<ID>` with uppercase ID and `/`,
+`.`, and `-` replaced by `_`. CTN rechecks the package and executable digest
+immediately before launching the guest. The provider endpoint is explicit;
+none of the guests silently selects a remote service. Ollama accepts an empty
+API key and an OpenAI-compatible endpoint such as
+`http://127.0.0.1:11434/v1`. A changed package needs a newly reviewed digest.
+
+The guest interfaces are portable. A non-Go guest can serve the same
+`inference.provider/v1` operations and Ext JSON-line process transport; the Go
+package helper is only a convenience for Go-built executables. The package
+manifest, not the implementation language, controls discovery.
+
+## Current adapters
+
+| Guest | Implemented operations |
+| --- | --- |
+| OpenAI-compatible, Ollama | generation, streaming, embeddings, model listing, tool proposals through chat completions |
+| Anthropic | text generation through Messages |
+| Gemini | text generation through `generateContent` |
+
+Unsupported operations return a typed `ErrUnsupported` response. The
+Anthropic and Gemini guests deliberately reject multimodal, tool, and
+structured-output requests until those mappings are implemented and tested.
+
+## Native model backends
+
+`res/ml/ios` contains a CoreML backend for verified `.mlmodel` artifacts and
+float32 multi-array tensors. Android has an optional TensorFlow Lite backend
+for verified `.tflite` artifacts; the host app supplies its interpreter
+runtime. Windows has an optional bounded ONNX Runtime CPU backend. The Android
+NNAPI class remains an unavailable stub, and Linux has no built-in ONNX
+runtime. CTN does not select a native provider automatically.

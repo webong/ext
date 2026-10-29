@@ -1,6 +1,6 @@
-// Package openai implements the inference.provider/v1 contract for the
-// OpenAI API.
-package main
+// Package client implements the OpenAI-compatible HTTP inference provider
+// shared by the OpenAI and Ollama adapter guests.
+package client
 
 import (
 	"context"
@@ -17,6 +17,8 @@ import (
 
 // Provider is an OpenAI-compatible inference provider.
 type Provider struct {
+	id       string
+	name     string
 	endpoint string
 	apiKey   string
 	client   *http.Client
@@ -25,18 +27,29 @@ type Provider struct {
 // NewProvider creates an OpenAI provider. endpoint is the base URL (for
 // example "https://api.openai.com/v1"). apiKey is the bearer token.
 func NewProvider(endpoint, apiKey string) (*Provider, error) {
+	return NewCompatibleProvider("openai", "OpenAI", endpoint, apiKey)
+}
+
+// NewCompatibleProvider constructs an explicitly configured OpenAI-compatible
+// provider. The caller selects its identity and whether it uses a bearer key.
+func NewCompatibleProvider(id, name, endpoint, apiKey string) (*Provider, error) {
+	if id == "" || name == "" {
+		return nil, inference.ErrInvalidRequest
+	}
 	u, err := url.Parse(endpoint)
 	if err != nil {
 		return nil, fmt.Errorf("%w: invalid endpoint %q", inference.ErrInvalidRequest, endpoint)
 	}
-	if u.Scheme != "https" && u.Scheme != "http" {
+	if (u.Scheme != "https" && u.Scheme != "http") || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" {
 		return nil, fmt.Errorf("%w: endpoint scheme must be https or http", inference.ErrInvalidRequest)
 	}
 	return &Provider{
+		id:       id,
+		name:     name,
 		endpoint: strings.TrimRight(endpoint, "/"),
 		apiKey:   apiKey,
 		client: &http.Client{
-			Timeout:   120 * time.Second,
+			Timeout: 120 * time.Second,
 			CheckRedirect: func(req *http.Request, via []*http.Request) error {
 				return http.ErrUseLastResponse // redirects disabled by default
 			},
@@ -50,17 +63,16 @@ func (p *Provider) Info(ctx context.Context) (inference.ProviderInfo, error) {
 		return inference.ProviderInfo{}, err
 	}
 	return inference.ProviderInfo{
-		ID:          "openai",
-		Name:        "OpenAI",
-		Version:     "1.0.0",
-		Stability:   inference.StabilityStable,
-		Modalities:  []inference.Modality{inference.ModalityText, inference.ModalityImage, inference.ModalityAudio, inference.ModalityFile},
+		ID:         p.id,
+		Name:       p.name,
+		Version:    "1.0.0",
+		Stability:  inference.StabilityStable,
+		Modalities: []inference.Modality{inference.ModalityText},
 		Capabilities: []inference.Capability{
 			inference.CapabilityGenerate,
 			inference.CapabilityStream,
 			inference.CapabilityEmbed,
 			inference.CapabilityToolProposal,
-			inference.CapabilityStructuredOutput,
 			inference.CapabilityModelListing,
 		},
 		Limits: inference.Limits{
@@ -68,10 +80,7 @@ func (p *Provider) Info(ctx context.Context) (inference.ProviderInfo, error) {
 			MaxInputTokens:  128000,
 			MaxBytes:        32 << 20,
 		},
-		Protocol: map[string]string{
-			"endpoint": p.endpoint,
-			"auth":     "bearer",
-		},
+		Protocol: map[string]string{"endpoint": p.endpoint, "auth": p.authKind()},
 	}, nil
 }
 
@@ -142,7 +151,7 @@ func (p *Provider) Transcribe(ctx context.Context, req inference.TranscriptionRe
 }
 
 // Models lists OpenAI models.
-func (p *Provider) Models(ctx context.Context) ([]inference.ModelInfo, error) {
+func (p *Provider) ListModels(ctx context.Context) ([]inference.ModelInfo, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
@@ -169,7 +178,9 @@ func (p *Provider) do(ctx context.Context, method, path string, body []byte) ([]
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", inference.ErrInvalidRequest, err)
 	}
-	req.Header.Set("Authorization", "Bearer "+redact(p.apiKey))
+	if p.apiKey != "" {
+		req.Header.Set("Authorization", "Bearer "+p.apiKey)
+	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
 
@@ -182,9 +193,12 @@ func (p *Provider) do(ctx context.Context, method, path string, body []byte) ([]
 	}
 	defer resp.Body.Close()
 
-	raw, err := io.ReadAll(resp.Body)
+	raw, err := io.ReadAll(io.LimitReader(resp.Body, 32<<20+1))
 	if err != nil {
 		return nil, inference.NewRemoteError(inference.ErrInvalidResponse, "failed to read response", "openai")
+	}
+	if len(raw) > 32<<20 {
+		return nil, inference.NewRemoteError(inference.ErrResourceExhausted, "response too large", "openai")
 	}
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
@@ -193,18 +207,17 @@ func (p *Provider) do(ctx context.Context, method, path string, body []byte) ([]
 	return raw, nil
 }
 
+func (p *Provider) authKind() string {
+	if p.apiKey == "" {
+		return "none"
+	}
+	return "bearer"
+}
+
 // bytesReader returns an io.Reader for body, or nil if body is empty.
 func bytesReader(body []byte) io.Reader {
 	if len(body) == 0 {
 		return nil
 	}
 	return strings.NewReader(string(body))
-}
-
-// redact returns a placeholder for logging; credentials never appear in output.
-func redact(s string) string {
-	if s == "" {
-		return ""
-	}
-	return "REDACTED"
 }

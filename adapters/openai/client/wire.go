@@ -1,6 +1,6 @@
 // Package openai implements the inference.provider/v1 contract for the
 // OpenAI API. wire.go handles OpenAI-specific request/response encoding.
-package main
+package client
 
 import (
 	"bufio"
@@ -16,16 +16,16 @@ import (
 
 // chatMessage maps an inference.Message to an OpenAI chat message.
 type chatMessage struct {
-	Role     string             `json:"role"`
-	Content  json.RawMessage    `json:"content,omitempty"`
+	Role      string             `json:"role"`
+	Content   json.RawMessage    `json:"content,omitempty"`
 	ToolCalls []chatToolCallResp `json:"tool_calls,omitempty"`
 }
 
 // chatToolCallResp maps an OpenAI tool call response.
 type chatToolCallResp struct {
-	ID       string             `json:"id"`
-	Type     string             `json:"type"`
-	Function chatToolFunction   `json:"function"`
+	ID       string           `json:"id"`
+	Type     string           `json:"type"`
+	Function chatToolFunction `json:"function"`
 }
 
 // chatToolFunction maps a tool definition/call to OpenAI format.
@@ -37,19 +37,19 @@ type chatToolFunction struct {
 
 // chatToolDef is an OpenAI tool definition in a request.
 type chatToolDef struct {
-	Type     string             `json:"type"`
-	Function chatToolFunction   `json:"function"`
+	Type     string           `json:"type"`
+	Function chatToolFunction `json:"function"`
 }
 
 // chatRequest is the OpenAI chat completions request.
 type chatRequest struct {
-	Model      string         `json:"model"`
-	Messages   []chatMessage  `json:"messages"`
-	Tools      []chatToolDef  `json:"tools,omitempty"`
-	ToolChoice json.RawMessage `json:"tool_choice,omitempty"`
-	MaxTokens  int            `json:"max_tokens,omitempty"`
-	Temperature *float64      `json:"temperature,omitempty"`
-	Stream     bool           `json:"stream,omitempty"`
+	Model       string          `json:"model"`
+	Messages    []chatMessage   `json:"messages"`
+	Tools       []chatToolDef   `json:"tools,omitempty"`
+	ToolChoice  json.RawMessage `json:"tool_choice,omitempty"`
+	MaxTokens   int             `json:"max_tokens,omitempty"`
+	Temperature *float64        `json:"temperature,omitempty"`
+	Stream      bool            `json:"stream,omitempty"`
 }
 
 // chatResponse is the OpenAI chat completions response.
@@ -82,16 +82,16 @@ type embedRequest struct {
 
 // embedResponse is the OpenAI embeddings response.
 type embedResponse struct {
-	Object string        `json:"object"`
-	Model  string        `json:"model"`
-	Data   []embedDatum  `json:"data"`
-	Usage  usage         `json:"usage"`
+	Object string       `json:"object"`
+	Model  string       `json:"model"`
+	Data   []embedDatum `json:"data"`
+	Usage  usage        `json:"usage"`
 }
 
 // embedDatum is one embedding result.
 type embedDatum struct {
-	Object   string    `json:"object"`
-	Index    int       `json:"index"`
+	Object    string    `json:"object"`
+	Index     int       `json:"index"`
 	Embedding []float64 `json:"embedding"`
 }
 
@@ -103,8 +103,8 @@ type modelListResponse struct {
 
 // modelDatum is one model entry.
 type modelDatum struct {
-	ID     string `json:"id"`
-	Object string `json:"object"`
+	ID      string `json:"id"`
+	Object  string `json:"object"`
 	OwnedBy string `json:"owned_by"`
 }
 
@@ -123,6 +123,9 @@ type openAIErrorResponse struct {
 // marshalChatRequest converts an inference.GenerationRequest to an OpenAI
 // chat completions request body.
 func marshalChatRequest(req inference.GenerationRequest, stream bool) ([]byte, error) {
+	if len(req.OutputSchema) != 0 {
+		return nil, inference.ErrUnsupported
+	}
 	messages := make([]chatMessage, 0, len(req.Messages))
 	for _, m := range req.Messages {
 		content, err := marshalContent(m.Parts)
@@ -135,8 +138,8 @@ func marshalChatRequest(req inference.GenerationRequest, stream bool) ([]byte, e
 				ID:   tc.ID,
 				Type: "function",
 				Function: chatToolFunction{
-					Name:        tc.Name,
-					Parameters:  tc.Arguments,
+					Name:       tc.Name,
+					Parameters: tc.Arguments,
 				},
 			})
 		}
@@ -178,9 +181,10 @@ func marshalChatRequest(req inference.GenerationRequest, stream bool) ([]byte, e
 func marshalContent(parts []inference.Part) (json.RawMessage, error) {
 	textParts := make([]string, 0)
 	for _, part := range parts {
-		if part.Kind == inference.PartKindText {
-			textParts = append(textParts, part.Text)
+		if part.Kind != inference.PartKindText {
+			return nil, inference.ErrUnsupported
 		}
+		textParts = append(textParts, part.Text)
 	}
 	if len(textParts) == 0 {
 		return json.RawMessage(`""`), nil
@@ -205,9 +209,9 @@ func parseChatResponse(raw []byte) (inference.GenerationResponse, error) {
 		Model:   cr.Model,
 		Message: inference.Message{Role: inference.RoleAssistant},
 		Usage: inference.TokenUsage{
-			Input:      int64(cr.Usage.PromptTokens),
-			Output:     int64(cr.Usage.CompletionTokens),
-			Total:      int64(cr.Usage.TotalTokens),
+			Input:  int64(cr.Usage.PromptTokens),
+			Output: int64(cr.Usage.CompletionTokens),
+			Total:  int64(cr.Usage.TotalTokens),
 		},
 		StopReason: finishReason(choice.FinishReason),
 	}
@@ -250,16 +254,16 @@ func parseEmbedResponse(raw []byte) (inference.EmbeddingResponse, error) {
 	embeddings := make([]inference.Embedding, 0, len(er.Data))
 	for _, d := range er.Data {
 		embeddings = append(embeddings, inference.Embedding{
-			Index:   d.Index,
-			Vector:  d.Embedding,
+			Index:  d.Index,
+			Vector: d.Embedding,
 		})
 	}
 	return inference.EmbeddingResponse{
 		Model:      er.Model,
 		Embeddings: embeddings,
 		Usage: inference.TokenUsage{
-			Input:  int64(er.Usage.PromptTokens),
-			Total:  int64(er.Usage.TotalTokens),
+			Input: int64(er.Usage.PromptTokens),
+			Total: int64(er.Usage.TotalTokens),
 		},
 	}, nil
 }
@@ -274,8 +278,8 @@ func parseModelList(raw []byte) ([]inference.ModelInfo, error) {
 	models := make([]inference.ModelInfo, 0, len(ml.Data))
 	for _, d := range ml.Data {
 		models = append(models, inference.ModelInfo{
-			ID:      d.ID,
-			Name:    d.ID,
+			ID:       d.ID,
+			Name:     d.ID,
 			Provider: "openai",
 		})
 	}
@@ -318,7 +322,7 @@ func mapOpenAIError(raw []byte, statusCode int) error {
 	case "not_found_error":
 		code = inference.ErrUnavailable
 	}
-	return inference.NewRemoteError(code, oerr.Error.Message, "openai")
+	return inference.NewRemoteError(code, code.Error(), "openai")
 }
 
 // mapStatusCode maps an HTTP status code to an inference error category.
@@ -348,9 +352,9 @@ type chatChunk struct {
 
 // chunkChoice is one choice in a streaming chunk.
 type chunkChoice struct {
-	Index        int           `json:"index"`
-	Delta        chatMessage   `json:"delta"`
-	FinishReason string        `json:"finish_reason"`
+	Index        int         `json:"index"`
+	Delta        chatMessage `json:"delta"`
+	FinishReason string      `json:"finish_reason"`
 }
 
 // streamEvents streams generation events from OpenAI's SSE stream.
@@ -359,7 +363,9 @@ func (p *Provider) streamEvents(ctx context.Context, path string, body []byte, s
 	if err != nil {
 		return inference.GenerationResponse{}, err
 	}
-	req.Header.Set("Authorization", "Bearer "+p.apiKey)
+	if p.apiKey != "" {
+		req.Header.Set("Authorization", "Bearer "+p.apiKey)
+	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "text/event-stream")
 	req.Header.Set("Cache-Control", "no-cache")
@@ -374,14 +380,15 @@ func (p *Provider) streamEvents(ctx context.Context, path string, body []byte, s
 			inference.ErrUnavailable, "request failed", "openai")
 	}
 	defer resp.Body.Close()
-	reader := bufio.NewReader(resp.Body)
+	reader := bufio.NewReader(io.LimitReader(resp.Body, (32<<20)+1))
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		raw, _ := io.ReadAll(resp.Body)
+		raw, _ := io.ReadAll(io.LimitReader(resp.Body, (1<<20)+1))
 		return inference.GenerationResponse{}, mapOpenAIError(raw, resp.StatusCode)
 	}
 
 	var final inference.GenerationResponse
+	completed := false
 	final.Message.Role = inference.RoleAssistant
 
 	for {
@@ -402,11 +409,12 @@ func (p *Provider) streamEvents(ctx context.Context, path string, body []byte, s
 		data := strings.TrimPrefix(line, "data:")
 		data = strings.TrimSpace(data)
 		if data == "[DONE]" {
+			completed = true
 			break
 		}
 		var chunk chatChunk
 		if err := json.Unmarshal([]byte(data), &chunk); err != nil {
-			continue
+			return final, inference.NewRemoteError(inference.ErrInvalidResponse, "malformed stream event", "openai")
 		}
 		if chunk.ID != "" && final.ID == "" {
 			final.ID = chunk.ID
@@ -435,5 +443,8 @@ func (p *Provider) streamEvents(ctx context.Context, path string, body []byte, s
 		}
 	}
 
+	if !completed {
+		return final, inference.NewRemoteError(inference.ErrInvalidResponse, "stream ended before completion", "openai")
+	}
 	return final, nil
 }

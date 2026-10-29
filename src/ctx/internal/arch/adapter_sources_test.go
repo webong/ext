@@ -1,6 +1,7 @@
 package arch_test
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
@@ -27,6 +28,29 @@ func TestEveryAdapterSourceLoadsOnEveryPlatform(t *testing.T) {
 		t.Fatalf("found %d adapter manifests, expected at least 40", len(directories))
 	}
 	for _, directory := range directories {
+		data, err := os.ReadFile(filepath.Join(directory, "plugin.json"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		var source struct {
+			Descriptor struct {
+				Contracts []struct {
+					Name string `json:"name"`
+				} `json:"contracts"`
+			} `json:"descriptor"`
+		}
+		if err := json.Unmarshal(data, &source); err != nil {
+			t.Fatal(err)
+		}
+		isCTXAdapter := false
+		for _, contract := range source.Descriptor.Contracts {
+			if contract.Name == "ext.adapter" {
+				isCTXAdapter = true
+			}
+		}
+		if !isCTXAdapter {
+			continue
+		} // Other plugin kinds use their own host and protocol.
 		for _, goos := range []string{"linux", "darwin", "windows"} {
 			if _, err := adapter.LoadSource(directory, goos); err != nil {
 				t.Errorf("%s on %s: %v", directory, goos, err)

@@ -9,5 +9,8 @@ platform="$(ls -d "$sdk"/platforms/android-*/android.jar 2>/dev/null | sort -V |
 
 javac -Xlint:all -Werror -d "$build" \
   res/ml/android/src/main/java/io/github/webong/ext/ml/*.java \
+  res/ml/android/src/android/java/io/github/webong/ext/ml/android/*.java \
+  res/ml/android/src/test/java/org/tensorflow/lite/*.java \
   res/ml/android/src/test/java/io/github/webong/ext/ml/*.java
 java -ea -cp "$build" io.github.webong.ext.ml.MlTypesTest
+java -ea -cp "$build" io.github.webong.ext.ml.TfliteProviderTest

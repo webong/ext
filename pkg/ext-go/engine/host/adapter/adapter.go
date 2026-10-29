@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	plugin "github.com/webong/ext/pkg/ext-go/engine"
+	"github.com/webong/ext/pkg/ext-go/engine/host/store"
 	"github.com/webong/ext/pkg/ext-go/engine/package"
 	"io"
 	"io/fs"
@@ -262,6 +263,17 @@ func (s *Store) Load(name string) (*Adapter, error) {
 	}
 	if loaded.Manifest.Name != name {
 		return nil, fmt.Errorf("adapter directory %s contains manifest for %s", name, loaded.Manifest.Name)
+	}
+	// Installed adapters and other executable packages use the same sealed
+	// package verifier. Adapter-specific manifest and trust rules remain here.
+	if sealed(loaded.Package) {
+		packages, err := store.New(s.Home, store.Limits{})
+		if err != nil {
+			return nil, err
+		}
+		if _, err := packages.Load(name); err != nil && !errors.Is(err, plugin.ErrMismatch) {
+			return nil, err
+		}
 	}
 	return loaded, nil
 }

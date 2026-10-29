@@ -1,13 +1,15 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Linq;
 using System.Runtime.InteropServices;
-using System.Text;
+using Microsoft.ML.OnnxRuntime;
 
-namespace Webong.Ext.System.Windows
+namespace Webong.Ext.ML.Windows
 {
     /// <summary>
     /// Bounds and permissions fixed by the embedding application before native
-    /// Windows ML (WinML) access. The caller selects the model file and device
+    /// Windows ONNX Runtime access. The caller selects the model file and device
     /// kind; the library does not choose a model, download weights, or select a
     /// device.
     /// </summary>
@@ -22,14 +24,14 @@ namespace Webong.Ext.System.Windows
         {
             if (string.IsNullOrEmpty(ModelFile))
                 throw new MlException(MlExceptionKind.Invalid, "model file is required");
-            if (!System.IO.File.Exists(ModelFile))
+            if (!File.Exists(ModelFile))
                 throw new MlException(MlExceptionKind.Invalid, $"model file not found: {ModelFile}");
             if (MaxInputTensors < 1 || MaxInputTensors > 256)
                 throw new MlException(MlExceptionKind.Invalid, "max input tensors must be 1-256");
             if (MaxOutputTensors < 1 || MaxOutputTensors > 256)
                 throw new MlException(MlExceptionKind.Invalid, "max output tensors must be 1-256");
-            if (MaxTensorBytes < 1 || MaxTensorBytes > (1L << 40))
-                throw new MlException(MlExceptionKind.Invalid, "max tensor bytes must be 1-1TiB");
+            if (MaxTensorBytes < 1)
+                throw new MlException(MlExceptionKind.Invalid, "max tensor bytes must be positive");
             return this;
         }
     }
@@ -40,46 +42,47 @@ namespace Webong.Ext.System.Windows
     {
         public MlExceptionKind Kind { get; }
         public MlException(MlExceptionKind kind, string message) : base(message) { Kind = kind; }
+        public MlException(MlExceptionKind kind, string message, Exception cause) : base(message, cause) { Kind = kind; }
     }
 
     /// <summary>
-    /// Bounded Windows ML (WinML) inference for local callers. Loads an ONNX
-    /// model from a caller-selected file and runs inference through the
-    /// Windows.AI.MachineLearning API. The caller selects the model, device,
+    /// Bounded ONNX inference for local Windows callers. The caller selects the model, device,
     /// and input tensors; the library does not download models, select devices,
     /// authorize access, or expose a remote protocol.
     ///
-    /// Windows ML is available on Windows 10 (1809+) and Windows Server
-    /// 2019+. On older Windows versions, all operations fail with
-    /// <see cref="MlExceptionKind.Unavailable"/>.
+    /// This target uses the optional Microsoft.ML.OnnxRuntime CPU package.
     /// </summary>
     public sealed class SystemMl : IDisposable
     {
         private readonly string modelFile;
-        private readonly MlPolicy policy;
+        internal readonly MlPolicy policy;
         private bool disposed;
 
         /// <summary>
-        /// Creates a WinML backend bound to a caller-selected model file. The
+        /// Creates an ONNX backend bound to a caller-selected model file. The
         /// model is not loaded until <see cref="LoadSession"/> is called.
         /// </summary>
         public SystemMl(string modelFile, MlPolicy? policy = null)
         {
             if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-                throw new MlException(MlExceptionKind.Unavailable, "Windows ML is only available on Windows");
+                throw new MlException(MlExceptionKind.Unavailable, "this ONNX backend is only available on Windows");
             this.modelFile = modelFile ?? throw new ArgumentNullException(nameof(modelFile));
             this.policy = policy ?? new MlPolicy(modelFile);
             this.policy.Validate();
+            if (!string.Equals(this.policy.ModelFile, modelFile, StringComparison.Ordinal) ||
+                !string.Equals(this.policy.DeviceKind, "cpu", StringComparison.OrdinalIgnoreCase))
+                throw new MlException(MlExceptionKind.Invalid, "this backend requires the selected model and cpu device");
         }
 
         /// <summary>
-        /// Loads the ONNX model into a WinML session. The session is bound to
+        /// Loads the ONNX model into an inference session. The session is bound to
         /// the exact model file supplied at construction.
         /// </summary>
         public MlSession LoadSession()
         {
             if (disposed) throw new ObjectDisposedException(nameof(SystemMl));
-            return new MlSession(this);
+            try { return new MlSession(new InferenceSession(modelFile), policy); }
+            catch (OnnxRuntimeException e) { throw new MlException(MlExceptionKind.NativeFailure, "load ONNX model failed", e); }
         }
 
         /// <summary>
@@ -102,14 +105,15 @@ namespace Webong.Ext.System.Windows
     }
 
     /// <summary>
-    /// One WinML inference session bound to a loaded model.
+    /// One ONNX inference session bound to a loaded model.
     /// </summary>
     public sealed class MlSession : IDisposable
     {
-        private readonly SystemMl backend;
+        private readonly InferenceSession session;
+        private readonly MlPolicy policy;
         private bool disposed;
 
-        internal MlSession(SystemMl backend) { this.backend = backend; }
+        internal MlSession(InferenceSession session, MlPolicy policy) { this.session = session; this.policy = policy; }
 
         /// <summary>
         /// Runs one inference pass. Input tensors must be float32 with shapes
@@ -121,17 +125,78 @@ namespace Webong.Ext.System.Windows
             if (disposed) throw new ObjectDisposedException(nameof(MlSession));
             if (inputs == null || inputs.Length == 0)
                 throw new MlException(MlExceptionKind.Invalid, "at least one input tensor is required");
-            if (inputs.Length > backend.policy.MaxInputTensors)
-                throw new MlException(MlExceptionKind.Invalid, $"input tensor count exceeds {backend.policy.MaxInputTensors}");
+            if (inputs.Length > policy.MaxInputTensors || inputs.Length != session.InputNames.Count ||
+                session.OutputNames.Count < 1 || session.OutputNames.Count > policy.MaxOutputTensors)
+                throw new MlException(MlExceptionKind.Invalid, "model tensor count exceeds policy or does not match inputs");
+            foreach (var name in session.OutputNames)
+            {
+                var metadata = session.OutputMetadata[name];
+                if (!metadata.IsTensor || metadata.ElementType != typeof(float) ||
+                    metadata.Dimensions.Length < 1 || metadata.Dimensions.Length > 8)
+                    throw new MlException(MlExceptionKind.Invalid, "output tensor type or rank is unsupported");
+                long elements = 1;
+                foreach (int dim in metadata.Dimensions)
+                {
+                    // Dynamic output dimensions cannot be bounded before the native run.
+                    if (dim < 1 || elements > policy.MaxTensorBytes / 4L / dim)
+                        throw new MlException(MlExceptionKind.Invalid, "output tensor shape is dynamic or exceeds size limit");
+                    elements *= dim;
+                }
+            }
+            var nativeInputs = new Dictionary<string, OrtValue>(inputs.Length);
+            try
+            {
+                for (int i = 0; i < inputs.Length; i++)
+                {
+                    var input = inputs[i];
+                    ValidateTensor(input, policy.MaxTensorBytes);
+                    var metadata = session.InputMetadata[session.InputNames[i]];
+                    if (!metadata.IsTensor || metadata.ElementType != typeof(float) ||
+                        metadata.Dimensions.Length != input.Shape.Length ||
+                        metadata.Dimensions.Where((dim, index) => dim > 0 && dim != input.Shape[index]).Any())
+                        throw new MlException(MlExceptionKind.Invalid, "input tensor shape or type does not match model");
+                    nativeInputs.Add(session.InputNames[i], OrtValue.CreateTensorValueFromMemory(
+                        input.Float32Values(), input.Shape.Select(dim => (long)dim).ToArray()));
+                }
+                using var options = new RunOptions();
+                using var outputs = session.Run(options, nativeInputs, session.OutputNames);
+                var result = new List<MlTensor>(outputs.Count);
+                foreach (var output in outputs)
+                {
+                    var shape = output.GetTensorTypeAndShape().Shape;
+                    if (shape.Length < 1 || shape.Length > 8 || shape.Any(dim => dim < 1 || dim > int.MaxValue))
+                        throw new MlException(MlExceptionKind.Invalid, "output tensor shape is unsupported");
+                    var values = output.GetTensorDataAsSpan<float>();
+                    if ((long)values.Length * 4 > policy.MaxTensorBytes)
+                        throw new MlException(MlExceptionKind.Invalid, "output tensor exceeds size limit");
+                    result.Add(MlTensor.FromFloat32(shape.Select(dim => (int)dim).ToArray(), values.ToArray()));
+                }
+                return result.ToArray();
+            }
+            catch (OnnxRuntimeException e)
+            {
+                throw new MlException(MlExceptionKind.NativeFailure, "ONNX inference failed", e);
+            }
+            finally
+            {
+                foreach (var value in nativeInputs.Values) value.Dispose();
+            }
+        }
 
-            // WinML is a COM/WinRT API. On .NET it is accessed through the
-            // Windows.AI.MachineLearning namespace. This binding is declared
-            // here; the P/Invoke interop to the WinML API is implemented by the
-            // caller's host or by a product adapter that references the
-            // Windows SDK. The library does not select a device or download a
-            // model.
-            throw new MlException(MlExceptionKind.Unavailable,
-                "WinML interop is not implemented in this stub; bind Windows.AI.MachineLearning in the host");
+        private static void ValidateTensor(MlTensor tensor, int maxBytes)
+        {
+            if (tensor.Format != "float32" || tensor.Shape.Length < 1 || tensor.Shape.Length > 8 ||
+                tensor.Data.Length < 4 || tensor.Data.Length > maxBytes)
+                throw new MlException(MlExceptionKind.Invalid, "input tensor format or size is invalid");
+            long elements = 1;
+            foreach (int dim in tensor.Shape)
+            {
+                if (dim < 1 || elements > maxBytes / 4L / dim)
+                    throw new MlException(MlExceptionKind.Invalid, "input tensor shape exceeds size limit");
+                elements *= dim;
+            }
+            if (elements * 4 != tensor.Data.Length)
+                throw new MlException(MlExceptionKind.Invalid, "input tensor shape and bytes differ");
         }
 
         public void Dispose()
@@ -139,12 +204,13 @@ namespace Webong.Ext.System.Windows
             if (!disposed)
             {
                 disposed = true;
+                session.Dispose();
             }
         }
     }
 
     /// <summary>
-    /// One multi-dimensional tensor for WinML inference.
+    /// One multi-dimensional float32 tensor for ONNX inference.
     /// </summary>
     public sealed class MlTensor
     {

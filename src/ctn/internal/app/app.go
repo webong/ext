@@ -46,6 +46,8 @@ func usage(w io.Writer) {
 	fmt.Fprintln(w, "  ctn model remove <root-dir> <provider/name@version>")
 	fmt.Fprintln(w, "  ctn model verify <root-dir> <provider/name@version>")
 	fmt.Fprintln(w, "  ctn model run --provider NAME --timeout D <root-dir> <provider/name@version> <input-file>")
+	fmt.Fprintln(w, "  ctn inference package [--os OS --arch ARCH] <id> <version> <binary> <output-dir>")
+	fmt.Fprintln(w, "  ctn inference install <sealed-package-dir>")
 	fmt.Fprintln(w, "  ctn inference providers")
 	fmt.Fprintln(w, "  ctn inference capabilities --provider ID")
 	fmt.Fprintln(w, "  ctn inference health --provider ID")

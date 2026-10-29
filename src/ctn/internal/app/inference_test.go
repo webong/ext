@@ -31,6 +31,7 @@ func TestInferenceProviderRequiresTrustedPackage(t *testing.T) {
 	}
 	root := filepath.Join(t.TempDir(), "packages")
 	t.Setenv("EXT_INFERENCE_PACKAGE_ROOT", root)
+	t.Setenv("EXT_HOME", t.TempDir())
 	var output, diagnostics bytes.Buffer
 	if code := inferenceInstallCommand([]string{source}, &output, &diagnostics); code != 0 {
 		t.Fatalf("install exit %d: %s", code, diagnostics.String())
@@ -52,6 +53,20 @@ func TestInferenceProviderRequiresTrustedPackage(t *testing.T) {
 	digest, err := installed.Digest()
 	if err != nil {
 		t.Fatal(err)
+	}
+	output.Reset()
+	diagnostics.Reset()
+	if code := inferenceTrustCommand([]string{"review"}, &output, &diagnostics); code != 0 {
+		t.Fatalf("trust exit %d: %s", code, diagnostics.String())
+	}
+	if _, err := resolveProvider("review"); err != nil {
+		t.Fatalf("scoped trust did not authorize provider: %v", err)
+	}
+	if code := inferenceUntrustCommand([]string{"review"}, &output, &diagnostics); code != 0 {
+		t.Fatalf("untrust exit %d: %s", code, diagnostics.String())
+	}
+	if _, err := resolveProvider("review"); err == nil {
+		t.Fatal("revoked provider was accepted")
 	}
 	t.Setenv("EXT_INFERENCE_TRUST_REVIEW", digest)
 	cfg, err := resolveProvider("review")

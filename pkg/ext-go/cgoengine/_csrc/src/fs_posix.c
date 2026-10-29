@@ -223,6 +223,56 @@ ext_status ext_fs_hash_file(ext_fs *fs, const char *path, uint8_t out[32]) {
   free(storage);
   return s;
 }
+ext_status ext_fs_read_file(ext_fs *fs, const char *path, size_t limit,
+                            ext_buffer *out) {
+  if (!fs || !path || !*path || !out || !limit)
+    return EXT_INVALID;
+  *out = (ext_buffer){0};
+  int dir = -1;
+  char *leaf = NULL, *storage = NULL;
+  ext_status s = descend(fs->fd, path, 1, &dir, &leaf, &storage);
+  if (s)
+    return s;
+  int fd = openat(dir, leaf, O_RDONLY | O_NOFOLLOW | O_NONBLOCK | O_CLOEXEC);
+  if (fd < 0)
+    s = errno == ELOOP ? EXT_INVALID : EXT_IO;
+  struct stat st;
+  if (!s && (fstat(fd, &st) || !S_ISREG(st.st_mode)))
+    s = EXT_INVALID;
+  if (!s && ((uint64_t)st.st_size > limit || st.st_size < 0))
+    s = EXT_INVALID;
+  uint8_t *data = NULL;
+  if (!s) {
+    data = malloc((size_t)st.st_size ? (size_t)st.st_size : 1);
+    if (!data)
+      s = EXT_NOMEM;
+  }
+  size_t used = 0;
+  while (!s && used < (size_t)st.st_size) {
+    ssize_t n = read(fd, data + used, (size_t)st.st_size - used);
+    if (n > 0)
+      used += (size_t)n;
+    else if (!n)
+      s = EXT_IO;
+    else if (errno != EINTR)
+      s = EXT_IO;
+  }
+  if (!s) {
+    uint8_t extra;
+    ssize_t n = read(fd, &extra, 1);
+    if (n != 0)
+      s = n > 0 ? EXT_INVALID : EXT_IO;
+  }
+  if (fd >= 0 && close(fd) && !s)
+    s = EXT_IO;
+  close(dir);
+  free(storage);
+  if (s)
+    free(data);
+  else
+    *out = (ext_buffer){data, used};
+  return s;
+}
 ext_status ext_fs_walk(ext_fs *fs, const char *path, ext_fs_visit visit,
                        void *user) {
   int dir = -1;

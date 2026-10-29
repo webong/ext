@@ -21,6 +21,10 @@ void ext_fs_close(ext_fs *fs);
  * refusing a link at any component. EXT_IO when missing, EXT_INVALID when a
  * component is a link or the final one is not a regular file. */
 ext_status ext_fs_hash_file(ext_fs *fs, const char *path, uint8_t out[32]);
+/* Reads one regular file without following a link at any path component.
+ * At most limit bytes are returned in an owned ext_buffer. */
+ext_status ext_fs_read_file(ext_fs *fs, const char *path, size_t limit,
+                            ext_buffer *out);
 /* Calls visit for every regular file below the directory at path ("" is the
  * root itself) with its slash-separated path relative to that directory and its
  * SHA-256. Every component of path must be a plain directory. Links and

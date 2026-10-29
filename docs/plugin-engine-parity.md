@@ -105,6 +105,14 @@ choice for consumers of the C engine*; it is not a completed SDK migration.
 
 ## Evidence for the current increment
 
+The C engine verifies installed package entries through `ext_store_digest` and
+persists scoped trust records through `ext_trust_state_of`, `ext_trust_record`,
+and `ext_trust_revoke`. The Go binding and the pure-Go reference share the file
+format. CTX adapters migrate their legacy trust records once; Ext commands and
+CTN inference providers use separate scopes. Install, upgrade, list, remove,
+and transaction recovery still live in Go stores, so package lifecycle parity
+remains open.
+
 The C-backed Go session runs the reference session tests. Contract/schema,
 package/route and filesystem checks compare results against Go. The reference
 instance and stream tests run against C lifecycle implementations. Additional

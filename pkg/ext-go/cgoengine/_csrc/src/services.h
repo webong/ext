@@ -8,4 +8,6 @@ int ext_schema_check(yyjson_val *, yyjson_val *);
 ext_status ext_package_service(const char *, yyjson_val *, ext_buffer *);
 int ext_portable_path(const char *s, size_t n);
 ext_status ext_manifest_valid(yyjson_val *);
+int ext_path_fold_equal(const char *a, const char *b);
+int ext_path_fold_tree_contains(const char *tree, const char *path);
 #endif

@@ -104,6 +104,50 @@ static uint32_t lower_rune(const uint8_t **p) {
     return ext_lower[lo][1];
   return c;
 }
+/* The store uses the same Unicode simple-lower comparison as manifest
+ * duplicate and overlap checks. Invalid filesystem names never match a
+ * declared artifact and are therefore rejected as unlisted content. */
+static int valid_utf8(const uint8_t *p) {
+  while (*p) {
+    uint32_t c = *p++;
+    if (c < 0x80)
+      continue;
+    unsigned more;
+    uint32_t min;
+    if (c >= 0xc2 && c <= 0xdf) { more = 1; min = 0x80; c &= 0x1f; }
+    else if (c >= 0xe0 && c <= 0xef) { more = 2; min = 0x800; c &= 0x0f; }
+    else if (c >= 0xf0 && c <= 0xf4) { more = 3; min = 0x10000; c &= 0x07; }
+    else return 0;
+    while (more--) {
+      if (!*p || (*p & 0xc0) != 0x80)
+        return 0;
+      c = (c << 6) | (*p++ & 0x3f);
+    }
+    if (c < min || c > 0x10ffff || (c >= 0xd800 && c <= 0xdfff))
+      return 0;
+  }
+  return 1;
+}
+int ext_path_fold_equal(const char *a, const char *b) {
+  if (!a || !b || !valid_utf8((const uint8_t *)a) ||
+      !valid_utf8((const uint8_t *)b))
+    return 0;
+  const uint8_t *x = (const uint8_t *)a, *y = (const uint8_t *)b;
+  while (*x && *y)
+    if (lower_rune(&x) != lower_rune(&y))
+      return 0;
+  return !*x && !*y;
+}
+int ext_path_fold_tree_contains(const char *tree, const char *path) {
+  if (!tree || !path || !valid_utf8((const uint8_t *)tree) ||
+      !valid_utf8((const uint8_t *)path))
+    return 0;
+  const uint8_t *x = (const uint8_t *)tree, *y = (const uint8_t *)path;
+  while (*x && *y)
+    if (lower_rune(&x) != lower_rune(&y))
+      return 0;
+  return !*x && *y == '/';
+}
 /* Optional SPDX license expression: 1 to 128 characters, starting with a
  * letter, digit or "(", using letters, digits and ". + ( ) -" and single interior
  * spaces. It is recorded and never interpreted. Matches packagekit. */

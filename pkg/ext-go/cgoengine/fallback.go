@@ -10,6 +10,8 @@ import (
 	"github.com/webong/ext/pkg/ext-go/engine/guest/author"
 	"github.com/webong/ext/pkg/ext-go/engine/host/interop"
 	"github.com/webong/ext/pkg/ext-go/engine/host/process"
+	"github.com/webong/ext/pkg/ext-go/engine/host/store"
+	hosttrust "github.com/webong/ext/pkg/ext-go/engine/host/trust"
 	"github.com/webong/ext/pkg/ext-go/engine/validate/schema"
 	"strings"
 )
@@ -21,6 +23,41 @@ import (
 
 // CEngine reports whether this build runs on the shared C engine.
 const CEngine = false
+
+// StoreDigest verifies one installed package using the pure-Go reference.
+func StoreDigest(root, id string) (string, error) {
+	s, err := store.New(root, store.Limits{})
+	if err != nil {
+		return "", err
+	}
+	p, err := s.Load(id)
+	if err != nil {
+		return "", err
+	}
+	return p.Digest()
+}
+
+func TrustStateOf(path, scope, id, digest string) (hosttrust.State, error) {
+	t, err := hosttrust.New(path)
+	if err != nil {
+		return hosttrust.Untrusted, err
+	}
+	return t.StateOf(scope, id, digest)
+}
+func TrustRecord(path, scope, id, digest string) error {
+	t, err := hosttrust.New(path)
+	if err != nil {
+		return err
+	}
+	return t.Record(scope, id, digest)
+}
+func TrustRevoke(path, scope, id string) error {
+	t, err := hosttrust.New(path)
+	if err != nil {
+		return err
+	}
+	return t.Revoke(scope, id)
+}
 
 // Guest serves a descriptor and handler. Destroy is a no-op in this build.
 type Guest struct{ *plugin.Guest }

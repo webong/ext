@@ -3,10 +3,10 @@
 `res/inference` defines the portable provider contract. The reusable plugin
 integration in `pkg/ext-go/inference` serves a provider guest and packages its
 executable. The package store in `pkg/ext-go/engine/host/store` verifies sealed
-packages, matches contracts, pins a reviewed digest, and selects the executable
-for the current platform. CTN uses this discovery path; CTX's existing adapters
-also verify sealed packages through the same store while retaining their
-adapter-specific trust records and commands.
+packages, matches contracts, and selects the executable for the current
+platform. The scoped trust ledger in `pkg/ext-go/engine/host/trust` pins reviewed
+digests; `lib/plugin` implements the same format for other host languages.
+CTX adapters, CTN inference providers, and Ext commands use separate scopes.
 
 ## Build, install, and trust
 
@@ -26,19 +26,20 @@ go build -o /tmp/ext-ctn ./src/ctn/cmd/ctn
 to replace an installed package and prints its package digest. The default
 store is `<EXT_HOME>/commands` (or the shared Ext config home); set
 `EXT_INFERENCE_PACKAGE_ROOT` to use another store. Installation alone grants no
-execution authority. After reviewing the package, pin the digest printed by
-`install` or `providers`:
+execution authority. After reviewing the package, record its exact digest:
 
 ```sh
-export EXT_INFERENCE_TRUST_OPENAI=<64-character-package-digest>
+/tmp/ext-ctn inference trust openai
 export EXT_ADAPTER_VALUE_endpoint=https://api.openai.com/v1
 export EXT_ADAPTER_VALUE_api_key=<provider-key>
 /tmp/ext-ctn inference capabilities --provider openai
 ```
 
-The trust variable is `EXT_INFERENCE_TRUST_<ID>` with uppercase ID and `/`,
-`.`, and `-` replaced by `_`. CTN rechecks the package and executable digest
-immediately before launching the guest. The provider endpoint is explicit;
+`ctn inference untrust openai` revokes the stored grant. Existing deployments
+can still use `EXT_INFERENCE_TRUST_<ID>` with uppercase ID and `/`, `.`, and `-`
+replaced by `_`; its value must equal the current package digest. CTN rechecks
+the package, trust record, and executable digest immediately before launching
+the guest. The provider endpoint is explicit;
 none of the guests silently selects a remote service. Ollama accepts an empty
 API key and an OpenAI-compatible endpoint such as
 `http://127.0.0.1:11434/v1`. A changed package needs a newly reviewed digest.

@@ -61,6 +61,8 @@ cmake --build "$build_dir/sanitize" -j 4
 "$build_dir/sanitize/ext_endpoint_test" lib/plugin/testdata/v1/endpoint-cases.json
 "$build_dir/sanitize/ext_fixtures_test" lib/plugin/testdata/v1
 "$build_dir/sanitize/ext_host_native_test" "$EXT_CENGINE_GUEST" "$build_dir/descriptor.json" "$build_dir/echo.json" "$build_dir/wait.json"
+"$build_dir/sanitize/ext_store_test" "$build_dir/sanitize/store-package"
+"$build_dir/sanitize/ext_trust_test" "$build_dir/sanitize/trust.json"
 cmake -S lib/plugin -B "$build_dir/thread-sanitize" -DCMAKE_BUILD_TYPE=Debug -DEXT_THREAD_SANITIZE=ON
 cmake --build "$build_dir/thread-sanitize" -j 4
 "$build_dir/thread-sanitize/ext_guest_core_test"
@@ -73,6 +75,8 @@ cmake --build "$build_dir/thread-sanitize" -j 4
 "$build_dir/thread-sanitize/ext_endpoint_test" lib/plugin/testdata/v1/endpoint-cases.json
 "$build_dir/thread-sanitize/ext_fixtures_test" lib/plugin/testdata/v1
 "$build_dir/thread-sanitize/ext_host_native_test" "$EXT_CENGINE_GUEST" "$build_dir/descriptor.json" "$build_dir/echo.json" "$build_dir/wait.json"
+"$build_dir/thread-sanitize/ext_store_test" "$build_dir/thread-sanitize/store-package"
+"$build_dir/thread-sanitize/ext_trust_test" "$build_dir/thread-sanitize/trust.json"
 for foreign in "${EXT_CENGINE_RUST_GUEST:-}" "${EXT_CENGINE_ZIG_GUEST:-}"; do
   if [[ -n "$foreign" ]]; then
     EXT_CENGINE_GUEST="$foreign" go test -tags "$go_tags" -race -count=1 -run '^TestConformance$' ./pkg/ext-go/cgoengine

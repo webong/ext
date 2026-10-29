@@ -12,6 +12,7 @@ import (
 	"encoding/json"
 	plugin "github.com/webong/ext/pkg/ext-go/engine"
 	"github.com/webong/ext/pkg/ext-go/engine/host/interop"
+	hosttrust "github.com/webong/ext/pkg/ext-go/engine/host/trust"
 	"github.com/webong/ext/pkg/ext-go/engine/validate/schema"
 	"strings"
 	"unicode/utf8"
@@ -27,6 +28,73 @@ func SHA256(input []byte) [32]byte {
 	}
 	C.ext_engine_sha256(p, C.size_t(len(input)), (*C.uint8_t)(unsafe.Pointer(&out[0])))
 	return out
+}
+
+// StoreDigest verifies one installed package in the C engine and returns the
+// exact directory digest used by a trust record.
+func StoreDigest(root, id string) (string, error) {
+	if root == "" || strings.IndexByte(root, 0) >= 0 || strings.IndexByte(id, 0) >= 0 {
+		return "", plugin.ErrInvalid
+	}
+	croot, cid := C.CString(root), C.CString(id)
+	defer C.free(unsafe.Pointer(croot))
+	defer C.free(unsafe.Pointer(cid))
+	var sum [32]byte
+	if err := status(C.ext_store_digest(croot, cid, (*C.uint8_t)(unsafe.Pointer(&sum[0])))); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(sum[:]), nil
+}
+
+func trustInputs(path, scope, id, digest string) ([]byte, error) {
+	if path == "" || strings.IndexByte(path, 0) >= 0 || strings.IndexByte(scope, 0) >= 0 || strings.IndexByte(id, 0) >= 0 || len(digest) != 64 || strings.ToLower(digest) != digest {
+		return nil, plugin.ErrInvalid
+	}
+	data, err := hex.DecodeString(digest)
+	if err != nil {
+		return nil, plugin.ErrInvalid
+	}
+	return data, nil
+}
+
+// TrustStateOf compares one verified digest with a scoped trust record.
+func TrustStateOf(path, scope, id, digest string) (hosttrust.State, error) {
+	data, err := trustInputs(path, scope, id, digest)
+	if err != nil {
+		return hosttrust.Untrusted, err
+	}
+	cp, cs, ci := C.CString(path), C.CString(scope), C.CString(id)
+	defer C.free(unsafe.Pointer(cp))
+	defer C.free(unsafe.Pointer(cs))
+	defer C.free(unsafe.Pointer(ci))
+	var state C.ext_trust_state
+	err = status(C.ext_trust_state_of(cp, cs, ci, (*C.uint8_t)(unsafe.Pointer(&data[0])), &state))
+	return hosttrust.State(state), err
+}
+
+// TrustRecord persists only a digest the caller has explicitly reviewed.
+func TrustRecord(path, scope, id, digest string) error {
+	data, err := trustInputs(path, scope, id, digest)
+	if err != nil {
+		return err
+	}
+	cp, cs, ci := C.CString(path), C.CString(scope), C.CString(id)
+	defer C.free(unsafe.Pointer(cp))
+	defer C.free(unsafe.Pointer(cs))
+	defer C.free(unsafe.Pointer(ci))
+	return status(C.ext_trust_record(cp, cs, ci, (*C.uint8_t)(unsafe.Pointer(&data[0]))))
+}
+
+// TrustRevoke removes one scope's grant without changing other scopes.
+func TrustRevoke(path, scope, id string) error {
+	if path == "" || strings.IndexByte(path, 0) >= 0 || strings.IndexByte(scope, 0) >= 0 || strings.IndexByte(id, 0) >= 0 {
+		return plugin.ErrInvalid
+	}
+	cp, cs, ci := C.CString(path), C.CString(scope), C.CString(id)
+	defer C.free(unsafe.Pointer(cp))
+	defer C.free(unsafe.Pointer(cs))
+	defer C.free(unsafe.Pointer(ci))
+	return status(C.ext_trust_revoke(cp, cs, ci))
 }
 func engineValue(operation string, input any, output any) error {
 	data, err := json.Marshal(input)

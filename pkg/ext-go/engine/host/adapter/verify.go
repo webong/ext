@@ -24,7 +24,7 @@ const (
 // reports only match or no match; this separates an adapter nobody reviewed
 // from one that was reviewed and has since been modified.
 func (s *Store) TrustState(a *Adapter) (TrustState, error) {
-	trust, err := readTrust(s.TrustFile)
+	trust, err := s.readTrust()
 	if err != nil {
 		return "", err
 	}
@@ -79,7 +79,7 @@ func (s *Store) Verify(names ...string) ([]Check, error) {
 			}
 		}
 	}
-	trust, err := readTrust(s.TrustFile)
+	trust, err := s.readTrust()
 	if err != nil {
 		return nil, fmt.Errorf("reading trust records: %w", err)
 	}

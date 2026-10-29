@@ -7,6 +7,7 @@ import (
 	"fmt"
 	plugin "github.com/webong/ext/pkg/ext-go/engine"
 	"github.com/webong/ext/pkg/ext-go/engine/host/store"
+	hosttrust "github.com/webong/ext/pkg/ext-go/engine/host/trust"
 	"github.com/webong/ext/pkg/ext-go/engine/package"
 	"io"
 	"io/fs"
@@ -117,7 +118,7 @@ type Store struct {
 }
 
 func NewStore(home string) *Store {
-	return &Store{Home: home, TrustFile: filepath.Join(home, "trust")}
+	return &Store{Home: home, TrustFile: filepath.Join(home, "package-trust.json")}
 }
 
 func LoadDirectory(directory string) (*Adapter, error) {
@@ -391,7 +392,7 @@ func (s *Store) IsTrusted(a *Adapter) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	trust, err := readTrust(s.TrustFile)
+	trust, err := s.readTrust()
 	if err != nil {
 		return false, err
 	}
@@ -414,21 +415,22 @@ func (s *Store) Trust(a *Adapter) error {
 	if err != nil {
 		return err
 	}
-	trust, err := readTrust(s.TrustFile)
+	if err := os.MkdirAll(filepath.Dir(s.TrustFile), 0o700); err != nil {
+		return err
+	}
+	file, err := s.trustFile()
 	if err != nil {
 		return err
 	}
-	trust[a.Manifest.Name] = checksum
-	return writeTrust(s.TrustFile, trust)
+	return file.Record(adapterTrustScope, a.Manifest.Name, checksum)
 }
 
 func (s *Store) RemoveTrust(name string) error {
-	trust, err := readTrust(s.TrustFile)
+	file, err := s.trustFile()
 	if err != nil {
 		return err
 	}
-	delete(trust, name)
-	return writeTrust(s.TrustFile, trust)
+	return file.Revoke(adapterTrustScope, name)
 }
 
 func (s *Store) Install(source string) (*Adapter, error) {
@@ -842,7 +844,52 @@ func copyDirectory(source, target string) error {
 	})
 }
 
-func readTrust(path string) (map[string]string, error) {
+const adapterTrustScope = "ctx.adapter/v2"
+
+// trustFile migrates the old adapter-only ledger once. The scoped ledger is
+// authoritative thereafter, including after a record is revoked.
+func (s *Store) trustFile() (*hosttrust.File, error) {
+	file, err := hosttrust.New(s.TrustFile)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := os.Stat(s.TrustFile); err == nil {
+		return file, nil
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return nil, err
+	}
+	legacy, err := readLegacyTrust(filepath.Join(s.Home, "trust"))
+	if err != nil {
+		return nil, err
+	}
+	if len(legacy) > 0 {
+		if err := os.MkdirAll(filepath.Dir(s.TrustFile), 0o700); err != nil {
+			return nil, err
+		}
+		if err := file.ImportLegacy(adapterTrustScope, legacy); err != nil {
+			return nil, err
+		}
+	}
+	return file, nil
+}
+
+func (s *Store) readTrust() (map[string]string, error) {
+	file, err := s.trustFile()
+	if err != nil {
+		return nil, err
+	}
+	records, err := file.Records(adapterTrustScope)
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[string]string, len(records))
+	for _, record := range records {
+		out[record.ID] = record.Digest
+	}
+	return out, nil
+}
+
+func readLegacyTrust(path string) (map[string]string, error) {
 	result := map[string]string{}
 	input, err := os.Open(path)
 	if errors.Is(err, os.ErrNotExist) {
@@ -860,37 +907,6 @@ func readTrust(path string) (map[string]string, error) {
 		}
 	}
 	return result, scanner.Err()
-}
-
-func writeTrust(path string, trust map[string]string) error {
-	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
-		return err
-	}
-	temporary, err := os.CreateTemp(filepath.Dir(path), ".trust-")
-	if err != nil {
-		return err
-	}
-	temporaryPath := temporary.Name()
-	defer os.Remove(temporaryPath)
-	if err := temporary.Chmod(0o600); err != nil {
-		temporary.Close()
-		return err
-	}
-	names := make([]string, 0, len(trust))
-	for name := range trust {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-	for _, name := range names {
-		if _, err := fmt.Fprintf(temporary, "%s %s\n", name, trust[name]); err != nil {
-			temporary.Close()
-			return err
-		}
-	}
-	if err := temporary.Close(); err != nil {
-		return err
-	}
-	return replaceFile(temporaryPath, path)
 }
 
 func splitList(value string) []string {

@@ -357,6 +357,67 @@ ext_status ext_fs_hash_file(ext_fs *fs, const char *path, uint8_t out[32]) {
   free(full);
   return s;
 }
+ext_status ext_fs_read_file(ext_fs *fs, const char *path, size_t limit,
+                            ext_buffer *out) {
+  if (!fs || !path || !*path || !out || !limit)
+    return EXT_INVALID;
+  *out = (ext_buffer){0};
+  ext_status s = check_components(fs->root, path, 1);
+  if (s)
+    return s;
+  wchar_t *full = join(fs->root, path);
+  if (!full)
+    return EXT_NOMEM;
+  HANDLE h = CreateFileW(full, GENERIC_READ,
+                         FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                         NULL, OPEN_EXISTING,
+                         FILE_FLAG_OPEN_REPARSE_POINT | FILE_FLAG_SEQUENTIAL_SCAN,
+                         NULL);
+  if (h == INVALID_HANDLE_VALUE) {
+    free(full);
+    return EXT_IO;
+  }
+  BY_HANDLE_FILE_INFORMATION info;
+  LARGE_INTEGER size;
+  where w = {fs->root, fs->canonical};
+  if (!GetFileInformationByHandle(h, &info) ||
+      info.dwFileAttributes & (FILE_ATTRIBUTE_REPARSE_POINT | FILE_ATTRIBUTE_DIRECTORY) ||
+      !resolves_to(h, full, &w))
+    s = EXT_INVALID;
+  if (!s && (!GetFileSizeEx(h, &size) || size.QuadPart < 0 ||
+             (uint64_t)size.QuadPart > limit))
+    s = EXT_INVALID;
+  uint8_t *data = NULL;
+  if (!s) {
+    data = malloc(size.QuadPart ? (size_t)size.QuadPart : 1);
+    if (!data)
+      s = EXT_NOMEM;
+  }
+  size_t used = 0;
+  while (!s && used < (size_t)size.QuadPart) {
+    DWORD n = 0;
+    DWORD want = (size_t)size.QuadPart - used > 65536 ? 65536 : (DWORD)((size_t)size.QuadPart - used);
+    if (!ReadFile(h, data + used, want, &n, NULL) || !n)
+      s = EXT_IO;
+    else
+      used += n;
+  }
+  if (!s) {
+    uint8_t extra;
+    DWORD n = 0;
+    if (!ReadFile(h, &extra, 1, &n, NULL))
+      s = EXT_IO;
+    else if (n)
+      s = EXT_INVALID;
+  }
+  CloseHandle(h);
+  free(full);
+  if (s)
+    free(data);
+  else
+    *out = (ext_buffer){data, used};
+  return s;
+}
 ext_status ext_fs_walk(ext_fs *fs, const char *path, ext_fs_visit visit,
                        void *user) {
   ext_status s = *path ? check_components(fs->root, path, 0) : EXT_OK;

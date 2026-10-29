@@ -397,6 +397,31 @@ EXT_HOST_API ext_status ext_directory_digest(const char *root, uint8_t out[32]);
  * nonzero the directory digest of a tree that holds at least one file. */
 EXT_HOST_API ext_status ext_artifact_digest(const char *root, const char *path,
                                             int tree, uint8_t out[32]);
+/* Package trust is scoped by a host-defined purpose (for example one
+ * contract). Installing a package never records trust. A changed digest is
+ * distinct from a package that has never been reviewed. The host owns the
+ * trust-file path and must serialize writers across processes. The parent
+ * directory must exist and be protected from untrusted local writers. */
+typedef enum {
+  EXT_TRUST_UNTRUSTED = 0,
+  EXT_TRUST_TRUSTED = 1,
+  EXT_TRUST_CHANGED = 2
+} ext_trust_state;
+EXT_HOST_API ext_status ext_trust_state_of(const char *path, const char *scope,
+                                          const char *id,
+                                          const uint8_t current[32],
+                                          ext_trust_state *out);
+EXT_HOST_API ext_status ext_trust_record(const char *path, const char *scope,
+                                         const char *id,
+                                         const uint8_t reviewed[32]);
+EXT_HOST_API ext_status ext_trust_revoke(const char *path, const char *scope,
+                                         const char *id);
+/* Verify one installed ext.package/v1 directory below root. Its directory is
+ * named by the package id with '/' encoded as "%2f". The manifest id must
+ * agree with that name, every listed artifact must match, and no unlisted
+ * file may appear. On success out is the directory digest used for trust. */
+EXT_HOST_API ext_status ext_store_digest(const char *root, const char *id,
+                                         uint8_t out[32]);
 /* Pure engine services: strict bounded JSON input/output, no runtime callbacks,
  * filesystem access, discovery or authorization. Returns an owned JSON value.
  * See services.md for operations and schemas. Free output with ext_buffer_free.

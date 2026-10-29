@@ -19,6 +19,7 @@ import (
 	"github.com/webong/ext/pkg/ext-go/engine/host/home"
 	"github.com/webong/ext/pkg/ext-go/engine/host/process"
 	"github.com/webong/ext/pkg/ext-go/engine/host/store"
+	hosttrust "github.com/webong/ext/pkg/ext-go/engine/host/trust"
 	ginference "github.com/webong/ext/pkg/ext-go/inference"
 	inference "github.com/webong/ext/res/inference"
 )
@@ -27,7 +28,7 @@ import (
 // explicitly selected provider plugin.
 func inferenceCommand(args []string, stdout, stderr io.Writer) int {
 	if len(args) == 0 {
-		fmt.Fprintln(stderr, "ctn: inference needs one of package, install, providers, capabilities, health, generate, stream, embed, transcribe, synthesize, or models")
+		fmt.Fprintln(stderr, "ctn: inference needs one of package, install, trust, untrust, providers, capabilities, health, generate, stream, embed, transcribe, synthesize, or models")
 		return 2
 	}
 	switch args[0] {
@@ -35,6 +36,10 @@ func inferenceCommand(args []string, stdout, stderr io.Writer) int {
 		return inferencePackageCommand(args[1:], stdout, stderr)
 	case "install":
 		return inferenceInstallCommand(args[1:], stdout, stderr)
+	case "trust":
+		return inferenceTrustCommand(args[1:], stdout, stderr)
+	case "untrust":
+		return inferenceUntrustCommand(args[1:], stdout, stderr)
 	case "providers":
 		return inferenceProvidersCommand(args[1:], stdout, stderr)
 	case "capabilities":
@@ -124,6 +129,97 @@ func inferencePackageRoot() string {
 	return home.Inference()
 }
 
+const inferenceTrustScope = "inference.provider/v1"
+
+func inferenceTrustFile() (*hosttrust.File, error) {
+	return hosttrust.New(filepath.Join(home.Config(), "package-trust.json"))
+}
+
+func inferenceTrustCommand(args []string, stdout, stderr io.Writer) int {
+	if len(args) != 1 {
+		fmt.Fprintln(stderr, "ctn: inference trust requires one installed provider ID")
+		return 2
+	}
+	s, err := store.New(inferencePackageRoot(), store.Limits{})
+	if err != nil {
+		fmt.Fprintln(stderr, err)
+		return 1
+	}
+	installed, err := s.Load(args[0])
+	if err != nil {
+		fmt.Fprintln(stderr, err)
+		return 1
+	}
+	if !installed.Supports(ginference.ContractName, ginference.ContractVersion) {
+		fmt.Fprintln(stderr, "ctn: package does not declare inference.provider/v1")
+		return 1
+	}
+	digest, err := installed.Digest()
+	if err != nil {
+		fmt.Fprintln(stderr, err)
+		return 1
+	}
+	file, err := inferenceTrustFile()
+	if err == nil {
+		err = os.MkdirAll(filepath.Dir(file.Path), 0o700)
+	}
+	if err == nil {
+		err = file.Record(inferenceTrustScope, args[0], digest)
+	}
+	if err != nil {
+		fmt.Fprintln(stderr, err)
+		return 1
+	}
+	fmt.Fprintf(stdout, "%s\t%s\n", args[0], digest)
+	return 0
+}
+
+func inferenceUntrustCommand(args []string, stdout, stderr io.Writer) int {
+	if len(args) != 1 {
+		fmt.Fprintln(stderr, "ctn: inference untrust requires one provider ID")
+		return 2
+	}
+	file, err := inferenceTrustFile()
+	if err == nil {
+		err = file.Revoke(inferenceTrustScope, args[0])
+	}
+	if err != nil {
+		fmt.Fprintln(stderr, err)
+		return 1
+	}
+	fmt.Fprintln(stdout, args[0])
+	return 0
+}
+
+func trustedProviderDigest(id string, s *store.Store) (string, error) {
+	installed, err := s.Load(id)
+	if err != nil {
+		return "", err
+	}
+	digest, err := installed.Digest()
+	if err != nil {
+		return "", err
+	}
+	file, err := inferenceTrustFile()
+	if err != nil {
+		return "", err
+	}
+	state, err := file.StateOf(inferenceTrustScope, id, digest)
+	if err != nil {
+		return "", err
+	}
+	if state == hosttrust.Trusted {
+		return digest, nil
+	}
+	// Existing explicit grants remain accepted while callers migrate to the
+	// persistent scoped ledger.
+	trustKey := "EXT_INFERENCE_TRUST_" + strings.ToUpper(strings.NewReplacer("-", "_", ".", "_", "/", "_").Replace(id))
+	if os.Getenv(trustKey) == digest {
+		return digest, nil
+	}
+	return "", fmt.Errorf("%w: package %s requires explicit trust", inference.ErrAuthorization, id)
+}
+
 // checkError converts an error to a ctn exit code, printing the error to stderr.
 func checkError(err error) int {
 	if err != nil {
@@ -144,10 +240,9 @@ func resolveProvider(id string) (providerConfig, error) {
 	if err != nil {
 		return providerConfig{}, err
 	}
-	trustKey := "EXT_INFERENCE_TRUST_" + strings.ToUpper(strings.NewReplacer("-", "_", ".", "_", "/", "_").Replace(id))
-	want := os.Getenv(trustKey)
-	if len(want) != 64 {
-		return providerConfig{}, fmt.Errorf("%w: explicit package digest required in %s", inference.ErrAuthorization, trustKey)
+	want, err := trustedProviderDigest(id, s)
+	if err != nil {
+		return providerConfig{}, err
 	}
 	selected, err := s.ResolveEntrypoint(id, ginference.ContractName, ginference.ContractVersion, "inference.provider/v1", want)
 	if err != nil {
@@ -170,6 +265,10 @@ func openProviderSession(ctx context.Context, cfg providerConfig) (*ginference.S
 			s, err := store.New(cfg.Root, store.Limits{})
 			if err != nil {
 				return err
+			}
+			want, err := trustedProviderDigest(cfg.ID, s)
+			if err != nil || want != cfg.Digest {
+				return inference.ErrAuthorization
 			}
 			selected, err := s.ResolveEntrypoint(cfg.ID, ginference.ContractName, ginference.ContractVersion, "inference.provider/v1", cfg.Digest)
 			if err != nil {

@@ -95,9 +95,16 @@ Go store replaces `/` with `%2f`) and must not join it into a path as written.
 - `ext_package_verify`: validate a manifest and hash its listed artifacts.
 - `ext_directory_digest`: hash sorted slash-relative file paths and file digests
   using the existing CTX trust-record format.
+- `ext_store_digest`: verify one installed package under a caller-supplied store
+  root, reject unlisted files, and return its directory digest.
+- `ext_trust_state_of`, `ext_trust_record`, `ext_trust_revoke`: persist scoped
+  reviews of exact package digests in a caller-selected trust file. The host
+  serializes writers and protects the file's parent directory; installation
+  does not grant trust.
 
-Filesystem functions currently use POSIX descriptor-relative opens and reject
-symlinks and special files. Directory traversal is bounded to 1024 nested levels,
+POSIX filesystem functions use descriptor-relative opens. Windows functions
+validate opened paths and reject reparse points. Both reject links and special
+files. Directory traversal is bounded to 1024 nested levels,
 and one directory digest to 250,000 files (the Go store's default `MaxTreeFiles`)
 and 64 MiB of path text; beyond either it fails with `EXT_INVALID` instead of
 holding every path in memory. The Go store applies its own configurable limits

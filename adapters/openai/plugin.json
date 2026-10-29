@@ -1,0 +1,76 @@
+{
+  "apiVersion": "ext.package/v1",
+  "descriptor": {
+    "apiVersion": "ext.plugin/v1",
+    "identity": {
+      "id": "openai",
+      "revision": "",
+      "version": "1.0.0"
+    },
+    "contracts": [
+      {
+        "name": "inference.provider",
+        "version": "v1",
+        "operations": [
+          { "name": "capabilities", "surface": "observation" },
+          { "name": "health", "surface": "observation" },
+          { "name": "generate", "surface": "action" },
+          { "name": "stream", "surface": "action", "progress": true },
+          { "name": "embed", "surface": "action" },
+          { "name": "transcribe", "surface": "action" },
+          { "name": "synthesize", "surface": "action", "progress": true },
+          { "name": "models", "surface": "observation" },
+          { "name": "close", "surface": "action" }
+        ]
+      }
+    ]
+  },
+  "artifacts": [
+    {
+      "name": "main",
+      "path": "ctx-openai",
+      "sha256": ""
+    },
+    {
+      "name": "main-windows",
+      "path": "ctx-openai.exe",
+      "sha256": ""
+    }
+  ],
+  "entrypoints": [
+    {
+      "name": "main",
+      "runtime": "argv",
+      "artifact": "main",
+      "protocols": [
+        "inference.provider/v1"
+      ]
+    },
+    {
+      "name": "main.windows",
+      "runtime": "argv",
+      "artifact": "main-windows",
+      "protocols": [
+        "inference.provider/v1"
+      ]
+    }
+  ],
+  "metadata": {
+    "ctx.adapter/v1": {
+      "description": "OpenAI-compatible inference provider (chat completions, embeddings)",
+      "display_name": "OpenAI",
+      "go_entry": ".",
+      "runtime": "computer",
+      "selectable": true,
+      "supports": [
+        "text",
+        "image",
+        "audio",
+        "file"
+      ],
+      "surfaces": [
+        "inference"
+      ]
+    }
+  }
+}

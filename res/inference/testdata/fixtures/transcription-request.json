@@ -1,0 +1,7 @@
+{
+  "model": "whisper-1",
+  "audio": "UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQQAAA==",
+  "mediaType": "audio/wav",
+  "language": "en",
+  "timestamps": ["word", "segment"]
+}

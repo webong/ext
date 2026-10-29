@@ -1,0 +1,13 @@
+{
+  "model": "gpt-4o",
+  "messages": [
+    { "role": "system", "parts": [{ "kind": "text", "text": "You are a helpful assistant." }] },
+    { "role": "user", "parts": [
+      { "kind": "text", "text": "What is in this image?" },
+      { "kind": "image", "mediaType": "image/png", "data": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==" }
+    ]}
+  ],
+  "maxOutputTokens": 512,
+  "temperature": 0.7,
+  "limits": { "maxOutputTokens": 512 }
+}

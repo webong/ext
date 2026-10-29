@@ -1,0 +1,13 @@
+{
+  "id": "chatcmpl-123",
+  "model": "gpt-4o",
+  "message": {
+    "role": "assistant",
+    "parts": [{ "kind": "text", "text": "Here are three prime numbers." }],
+    "toolCalls": [
+      { "id": "call_1", "name": "get_primes", "arguments": { "count": 3 } }
+    ]
+  },
+  "stopReason": "toolCalls",
+  "usage": { "input": 20, "output": 10, "total": 30 }
+}

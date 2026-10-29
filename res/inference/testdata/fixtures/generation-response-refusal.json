@@ -1,0 +1,10 @@
+{
+  "id": "chatcmpl-125",
+  "model": "gpt-4o",
+  "message": {
+    "role": "assistant",
+    "parts": [{ "kind": "refusal", "text": "I cannot help with that." }]
+  },
+  "stopReason": "refusal",
+  "usage": { "input": 15, "output": 6, "total": 21 }
+}

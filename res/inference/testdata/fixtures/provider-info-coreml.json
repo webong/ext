@@ -1,0 +1,17 @@
+{
+  "id": "coreml",
+  "name": "Core ML",
+  "version": "1.0.0",
+  "stability": "stable",
+  "modalities": ["text", "image", "audio"],
+  "capabilities": ["generate", "embed", "transcribe", "synthesize"],
+  "devices": ["cpu", "gpu", "neuralEngine"],
+  "limits": {
+    "maxOutputTokens": 2048,
+    "maxInputTokens": 4096
+  },
+  "protocol": {
+    "runtime": "coreml",
+    "device": "neuralEngine"
+  }
+}

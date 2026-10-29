@@ -1,0 +1,18 @@
+{
+  "id": "openai",
+  "name": "OpenAI",
+  "version": "1.0.0",
+  "stability": "stable",
+  "modalities": ["text", "image", "audio", "file"],
+  "capabilities": ["generate", "stream", "embed", "structuredOutput", "toolProposal", "modelListing"],
+  "devices": [],
+  "limits": {
+    "maxOutputTokens": 4096,
+    "maxInputTokens": 128000,
+    "maxBytes": 33554432
+  },
+  "protocol": {
+    "endpoint": "https://api.openai.com/v1",
+    "auth": "bearer"
+  }
+}

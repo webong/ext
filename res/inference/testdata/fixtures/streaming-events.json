@@ -1,0 +1,7 @@
+[
+  { "kind": "started" },
+  { "kind": "text.delta", "text": "Hello", "index": 0 },
+  { "kind": "text.delta", "text": " world", "index": 0 },
+  { "kind": "usage", "usage": { "input": 5, "output": 2, "total": 7 } },
+  { "kind": "completed", "response": { "model": "gpt-4o", "message": { "role": "assistant", "parts": [{ "kind": "text", "text": "Hello world" }] }, "stopReason": "stop", "usage": { "input": 5, "output": 2, "total": 7 } } }
+]

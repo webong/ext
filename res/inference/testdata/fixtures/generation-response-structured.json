@@ -1,0 +1,10 @@
+{
+  "id": "chatcmpl-124",
+  "model": "gpt-4o",
+  "message": {
+    "role": "assistant",
+    "parts": [{ "kind": "text", "text": "{\"primes\":[2,3,5]}" }]
+  },
+  "stopReason": "stop",
+  "usage": { "input": 18, "output": 12, "total": 30 }
+}

@@ -1,0 +1,12 @@
+{
+  "model": "gpt-4o",
+  "messages": [
+    { "role": "system", "parts": [{ "kind": "text", "text": "You are a helpful assistant." }] },
+    { "role": "user", "parts": [{ "kind": "text", "text": "List three prime numbers as JSON." }] }
+  ],
+  "tools": [
+    { "name": "get_primes", "description": "Return prime numbers", "inputSchema": { "type": "object", "properties": { "count": { "type": "integer" } }, "required": ["count"] } }
+  ],
+  "outputSchema": { "type": "object", "properties": { "primes": { "type": "array", "items": { "type": "integer" } } }, "required": ["primes"] },
+  "maxOutputTokens": 256
+}

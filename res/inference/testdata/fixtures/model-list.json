@@ -1,0 +1,4 @@
+[
+  { "id": "gpt-4o", "name": "GPT-4o", "provider": "openai", "capabilities": ["generate", "stream"], "modalities": ["text", "image"], "stability": "stable" },
+  { "id": "text-embedding-3-small", "name": "Text Embedding 3 Small", "provider": "openai", "capabilities": ["embed"], "modalities": ["text"], "stability": "stable" }
+]

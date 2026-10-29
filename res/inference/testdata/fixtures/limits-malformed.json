@@ -1,0 +1,5 @@
+{
+  "model": "gpt-4o",
+  "maxOutputTokens": -1,
+  "description": "negative maxOutputTokens is invalid"
+}

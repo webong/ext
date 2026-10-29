@@ -1,0 +1,10 @@
+[
+  { "code": "authentication", "message": "Invalid API key", "provider": "openai" },
+  { "code": "rateLimit", "message": "Too many requests", "retryAfter": { "delay": 60, "source": "header" }, "provider": "openai" },
+  { "code": "unavailable", "message": "Provider temporarily unavailable", "provider": "openai" },
+  { "code": "unsupported", "message": "Modality video not supported", "provider": "openai" },
+  { "code": "invalidRequest", "message": "Model is required", "provider": "openai" },
+  { "code": "resourceExhausted", "message": "Output token limit exceeded", "provider": "openai" },
+  { "code": "incompatibleModel", "message": "Model does not support structured output", "provider": "openai" },
+  { "code": "transientNative", "message": "CoreML session failed", "provider": "coreml" }
+]

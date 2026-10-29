@@ -34,12 +34,15 @@ use (
 	./adapters/chrome
 	./adapters/firefox
 	./adapters/safari
+	./adapters/openai
 	./res/system
 	./res/ml
+	./res/inference
 	./res/content
 	./pkg/ext-go
 	./pkg/ext-go/hashicorp
 	./pkg/ext-go/wasm
+	./pkg/ext-go/inference
 	./res/web
 	./pkg/ext-go/engine
 	./pkg/ext-go/cgoengine

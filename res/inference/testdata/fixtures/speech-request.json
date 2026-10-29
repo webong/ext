@@ -1,0 +1,6 @@
+{
+  "model": "tts-1",
+  "input": "Hello world.",
+  "voice": "alloy",
+  "format": "mp3"
+}

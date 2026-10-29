@@ -1,0 +1,5 @@
+{
+  "model": "text-embedding-3-small",
+  "inputs": ["hello world", "inference resource"],
+  "options": { "encodingFormat": "float" }
+}

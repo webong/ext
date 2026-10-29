@@ -1,0 +1,12 @@
+{
+  "text": "Hello world.",
+  "language": "en",
+  "durationSeconds": 2.5,
+  "segments": [
+    { "id": 0, "text": "Hello world.", "start": 0.0, "end": 2.5 }
+  ],
+  "words": [
+    { "word": "Hello", "start": 0.0, "end": 0.8 },
+    { "word": "world", "start": 0.8, "end": 2.5 }
+  ]
+}

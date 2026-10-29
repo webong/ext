@@ -1,0 +1,42 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/webong/ext/res/inference/schemas/provider-info.v1.json",
+  "title": "ProviderInfo",
+  "description": "Protocol metadata about an inference provider. No credentials.",
+  "type": "object",
+  "required": ["id"],
+  "properties": {
+    "id": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "name": { "type": "string", "maxLength": 256 },
+    "version": { "type": "string", "maxLength": 128 },
+    "stability": { "type": "string", "enum": ["experimental", "stable", "legacy", "deprecated"] },
+    "modalities": {
+      "type": "array",
+      "items": { "type": "string", "enum": ["text", "image", "audio", "video", "file"] },
+      "uniqueItems": true
+    },
+    "capabilities": {
+      "type": "array",
+      "items": { "type": "string", "enum": ["generate", "stream", "embed", "transcribe", "synthesize", "structuredOutput", "toolProposal", "modelListing"] },
+      "uniqueItems": true
+    },
+    "devices": {
+      "type": "array",
+      "items": { "type": "string", "enum": ["cpu", "gpu", "npu", "neuralEngine"] },
+      "uniqueItems": true
+    },
+    "limits": {
+      "type": "object",
+      "properties": {
+        "maxOutputTokens": { "type": "integer", "minimum": 0 },
+        "maxInputTokens": { "type": "integer", "minimum": 0 },
+        "maxBytes": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "protocol": {
+      "type": "object",
+      "additionalProperties": { "type": "string" }
+    }
+  },
+  "additionalProperties": false
+}

@@ -26,6 +26,9 @@ func Run(args []string, stdout, stderr io.Writer) int {
 	if args[0] == "model" {
 		return modelCommand(args[1:], stdout, stderr)
 	}
+	if args[0] == "inference" {
+		return inferenceCommand(args[1:], stdout, stderr)
+	}
 	fmt.Fprintf(stderr, "ctn: unknown command %q\n", args[0])
 	usage(stderr)
 	return 2
@@ -43,6 +46,15 @@ func usage(w io.Writer) {
 	fmt.Fprintln(w, "  ctn model remove <root-dir> <provider/name@version>")
 	fmt.Fprintln(w, "  ctn model verify <root-dir> <provider/name@version>")
 	fmt.Fprintln(w, "  ctn model run --provider NAME --timeout D <root-dir> <provider/name@version> <input-file>")
+	fmt.Fprintln(w, "  ctn inference providers")
+	fmt.Fprintln(w, "  ctn inference capabilities --provider ID")
+	fmt.Fprintln(w, "  ctn inference health --provider ID")
+	fmt.Fprintln(w, "  ctn inference generate --provider ID [--model M] [--max-tokens N] [--input FILE]")
+	fmt.Fprintln(w, "  ctn inference stream --provider ID [--model M] [--input FILE]")
+	fmt.Fprintln(w, "  ctn inference embed --provider ID --model M --input FILE")
+	fmt.Fprintln(w, "  ctn inference transcribe --provider ID --model M --input FILE")
+	fmt.Fprintln(w, "  ctn inference synthesize --provider ID --model M --input FILE")
+	fmt.Fprintln(w, "  ctn inference models --provider ID")
 	fmt.Fprintln(w, "  ctn help")
 	fmt.Fprintln(w, "  ctn version")
 }

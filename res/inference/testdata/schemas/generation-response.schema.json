@@ -1,0 +1,73 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/webong/ext/res/inference/schemas/generation-response.v1.json",
+  "title": "GenerationResponse",
+  "type": "object",
+  "required": ["model", "message"],
+  "properties": {
+    "id": { "type": "string" },
+    "model": { "type": "string", "minLength": 1 },
+    "message": { "$ref": "#/definitions/message" },
+    "stopReason": { "type": "string", "enum": ["stop", "length", "toolCalls", "contentFilter", "refusal"] },
+    "usage": { "$ref": "#/definitions/tokenUsage" },
+    "providerMetadata": {},
+    "reasoningContext": {}
+  },
+  "additionalProperties": false,
+  "definitions": {
+    "tokenUsage": {
+      "type": "object",
+      "properties": {
+        "input": { "type": "integer", "minimum": 0 },
+        "output": { "type": "integer", "minimum": 0 },
+        "total": { "type": "integer", "minimum": 0 },
+        "cachedInput": { "type": "integer", "minimum": 0 },
+        "reasoning": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "message": {
+      "type": "object",
+      "required": ["role"],
+      "properties": {
+        "role": { "type": "string", "enum": ["assistant"] },
+        "parts": { "type": "array", "items": { "$ref": "#/definitions/part" } },
+        "toolCalls": { "type": "array", "items": { "$ref": "#/definitions/toolCall" } }
+      },
+      "additionalProperties": false
+    },
+    "part": {
+      "type": "object",
+      "required": ["kind"],
+      "properties": {
+        "kind": { "type": "string", "enum": ["text", "reasoning", "refusal", "image", "audio", "video", "file", "context"] },
+        "text": { "type": "string" },
+        "mediaType": { "type": "string" },
+        "data": { "type": "string", "contentEncoding": "base64" },
+        "reference": { "$ref": "#/definitions/mediaReference" },
+        "providerData": {}
+      },
+      "additionalProperties": false
+    },
+    "mediaReference": {
+      "type": "object",
+      "required": ["kind", "uri"],
+      "properties": {
+        "kind": { "type": "string", "enum": ["url", "file"] },
+        "uri": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "toolCall": {
+      "type": "object",
+      "required": ["id", "name", "arguments"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "name": { "type": "string", "minLength": 1 },
+        "arguments": { "type": "object" },
+        "providerData": {}
+      },
+      "additionalProperties": false
+    }
+  }
+}

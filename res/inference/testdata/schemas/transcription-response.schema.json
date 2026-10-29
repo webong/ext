@@ -1,0 +1,42 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/webong/ext/res/inference/schemas/transcription-response.v1.json",
+  "title": "TranscriptionResponse",
+  "type": "object",
+  "required": ["text"],
+  "properties": {
+    "text": { "type": "string", "maxLength": 33554432 },
+    "language": { "type": "string", "maxLength": 128 },
+    "durationSeconds": { "type": "number", "minimum": 0 },
+    "segments": {
+      "type": "array",
+      "maxItems": 100000,
+      "items": {
+        "type": "object",
+        "required": ["id", "text", "start", "end"],
+        "properties": {
+          "id": { "type": "integer", "minimum": 0 },
+          "text": { "type": "string" },
+          "start": { "type": "number", "minimum": 0 },
+          "end": { "type": "number", "minimum": 0 }
+        },
+        "additionalProperties": false
+      }
+    },
+    "words": {
+      "type": "array",
+      "maxItems": 100000,
+      "items": {
+        "type": "object",
+        "required": ["word", "start", "end"],
+        "properties": {
+          "word": { "type": "string" },
+          "start": { "type": "number", "minimum": 0 },
+          "end": { "type": "number", "minimum": 0 }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

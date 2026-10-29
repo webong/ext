@@ -36,7 +36,7 @@ jobs:
       - name: Test library modules
         shell: bash # the loop is bash; Windows runners default to PowerShell
         run: |
-          for module in cmd/ext src/ctx src/ctn res/system res/ml res/inference pkg/ext-go pkg/ext-go/engine pkg/ext-go/cgoengine pkg/ext-go/hashicorp pkg/ext-go/wasm pkg/ext-go/inference adapters/wasm adapters/evm adapters/systemd adapters/pulseaudio adapters/alsa adapters/x11 adapters/wayland adapters/pipewire adapters/openai adapters/ollama adapters/anthropic adapters/gemini res/web; do
+          for module in cmd/ext src/ctx src/ctn res/system res/ml res/inference res/content pkg/ext-go pkg/ext-go/engine pkg/ext-go/cgoengine pkg/ext-go/hashicorp pkg/ext-go/wasm pkg/ext-go/inference pkg/ext-go/ml adapters/wasm adapters/evm adapters/systemd adapters/pulseaudio adapters/alsa adapters/x11 adapters/wayland adapters/pipewire adapters/openai adapters/ollama adapters/anthropic adapters/gemini res/web; do
             (cd "$module" && go test ./...) || exit 1
           done
       - name: Test inference module with race detector
@@ -86,6 +86,14 @@ jobs:
         if: runner.os == 'macOS'
         run: swift test
         working-directory: res/ml/ios
+      - name: Validate native CoreML guest through CTN
+        if: runner.os == 'macOS'
+        run: |
+          swift build --product ext-coreml-guest --package-path res/ml/ios
+          EXT_COREML_GUEST_BINARY="$PWD/res/ml/ios/.build/debug/ext-coreml-guest" go test ./src/ctn/internal/app -run '^TestModelRunThroughCoreMLGuest$' -count=1
+          cmake -S pkg/ext-go/cgoengine/_csrc -B "$RUNNER_TEMP/ext-model-cengine" -DCMAKE_BUILD_TYPE=Release
+          cmake --build "$RUNNER_TEMP/ext-model-cengine" --target ext_host_static -j 4
+          EXT_COREML_GUEST_BINARY="$PWD/res/ml/ios/.build/debug/ext-coreml-guest" CGO_LDFLAGS="-L$RUNNER_TEMP/ext-model-cengine" go test -tags ext_cengine ./src/ctn/internal/app -run '^TestModelRunThroughCoreMLGuest$' -count=1
       - name: Validate Windows system and WebView2 libraries
         if: runner.os == 'Windows'
         shell: pwsh

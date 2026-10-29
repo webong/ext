@@ -1,0 +1,1 @@
+{"root":"/models","reference":"onnxruntime/identity@v1","inputs":[{"shape":[1,2],"format":"float32","data":"AAAAQAAAQEA="}]}

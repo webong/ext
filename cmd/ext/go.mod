@@ -6,7 +6,9 @@ require (
 	github.com/webong/ext/ctn v0.0.0
 	github.com/webong/ext/ctx v0.0.0
 	github.com/webong/ext/pkg/ext-go/engine v0.1.0
+	github.com/webong/ext/pkg/ext-go/cgoengine v0.1.0
 	github.com/webong/ext/pkg/ext-go/inference v0.1.0
+	github.com/webong/ext/pkg/ext-go/ml v0.1.0
 	github.com/webong/ext/res/inference v0.1.0
 )
 
@@ -29,5 +31,7 @@ replace github.com/webong/ext/res/system => ../../res/system
 replace github.com/webong/ext/res/web => ../../res/web
 
 replace github.com/webong/ext/pkg/ext-go/engine => ../../pkg/ext-go/engine
+replace github.com/webong/ext/pkg/ext-go/cgoengine => ../../pkg/ext-go/cgoengine
 replace github.com/webong/ext/pkg/ext-go/inference => ../../pkg/ext-go/inference
+replace github.com/webong/ext/pkg/ext-go/ml => ../../pkg/ext-go/ml
 replace github.com/webong/ext/res/inference => ../../res/inference

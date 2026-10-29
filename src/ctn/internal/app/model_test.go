@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -98,6 +99,8 @@ func TestModelCommandRunRequiresProvider(t *testing.T) {
 }
 
 func TestModelCommandRunNoProviderAvailable(t *testing.T) {
+	t.Setenv("EXT_HOME", t.TempDir())
+	t.Setenv("EXT_INFERENCE_PACKAGE_ROOT", filepath.Join(t.TempDir(), "packages"))
 	root := modelStoreTestHelper(t)
 	inputFile := writeTensorInput(t, []mlTensorInput{{
 		Shape:  []int{1, 4},
@@ -108,8 +111,136 @@ func TestModelCommandRunNoProviderAvailable(t *testing.T) {
 	if code := modelCommand([]string{"run", "--provider", "nonexistent", root, "onnxruntime/example-model@v1.2.3", inputFile}, &stdout, &stderr); code == 0 {
 		t.Fatal("model run with missing provider should fail")
 	}
-	if !strings.Contains(stderr.String(), "no provider registered") {
-		t.Fatalf("expected 'no provider registered' error, got: %q", stderr.String())
+	if !strings.Contains(stderr.String(), "not installed") && !strings.Contains(stderr.String(), "no such file") {
+		t.Fatalf("expected missing provider package, got: %q", stderr.String())
+	}
+}
+
+func TestModelRunThroughTrustedProviderPackage(t *testing.T) {
+	modelRoot := modelStoreTestHelper(t)
+	config := t.TempDir()
+	t.Setenv("EXT_HOME", config)
+	t.Setenv("EXT_INFERENCE_PACKAGE_ROOT", filepath.Join(config, "packages"))
+	binary := filepath.Join(t.TempDir(), "modelguest")
+	build := exec.Command("go", "build", "-o", binary, "./testdata/modelguest")
+	if out, err := build.CombinedOutput(); err != nil {
+		t.Fatalf("build model guest: %v\n%s", err, out)
+	}
+	packageDir := filepath.Join(t.TempDir(), "package")
+	var stdout, stderr bytes.Buffer
+	if code := modelProviderCommand([]string{"package", "onnxruntime", "1.0.0", binary, packageDir}, &stdout, &stderr); code != 0 {
+		t.Fatalf("package = %d: %s", code, stderr.String())
+	}
+	stdout.Reset()
+	stderr.Reset()
+	if code := modelProviderCommand([]string{"install", packageDir}, &stdout, &stderr); code != 0 {
+		t.Fatalf("install = %d: %s", code, stderr.String())
+	}
+	stdout.Reset()
+	stderr.Reset()
+	if code := modelProviderCommand([]string{"list"}, &stdout, &stderr); code != 0 || !strings.Contains(stdout.String(), "onnxruntime\t1.0.0\tuntrusted\t") {
+		t.Fatalf("untrusted provider list = %d, %q, %q", code, stdout.String(), stderr.String())
+	}
+	input := writeTensorInput(t, []mlTensorInput{{Shape: []int{1}, Format: "float32", Data: []byte{0, 0, 128, 63}}})
+	run := []string{"run", "--provider", "onnxruntime", modelRoot, "onnxruntime/example-model@v1.2.3", input}
+	stdout.Reset()
+	stderr.Reset()
+	if code := modelCommand(run, &stdout, &stderr); code == 0 || !strings.Contains(stderr.String(), "not trusted") {
+		t.Fatalf("untrusted run = %d, %q", code, stderr.String())
+	}
+	stdout.Reset()
+	stderr.Reset()
+	if code := modelProviderCommand([]string{"trust", "onnxruntime"}, &stdout, &stderr); code != 0 {
+		t.Fatalf("trust = %d: %s", code, stderr.String())
+	}
+	stdout.Reset()
+	stderr.Reset()
+	if code := modelProviderCommand([]string{"list"}, &stdout, &stderr); code != 0 || !strings.Contains(stdout.String(), "onnxruntime\t1.0.0\ttrusted\t") {
+		t.Fatalf("trusted provider list = %d, %q, %q", code, stdout.String(), stderr.String())
+	}
+	stdout.Reset()
+	stderr.Reset()
+	if code := modelCommand(run, &stdout, &stderr); code != 0 {
+		t.Fatalf("run = %d: %s", code, stderr.String())
+	}
+	var result struct {
+		Tensors []ml.Tensor `json:"tensors"`
+	}
+	if err := json.Unmarshal(stdout.Bytes(), &result); err != nil || len(result.Tensors) != 1 || len(result.Tensors[0].Data) != 4 {
+		t.Fatalf("output = %s, %v", stdout.String(), err)
+	}
+	outputFile := filepath.Join(t.TempDir(), "output.json")
+	fileRun := []string{"run", "--provider", "onnxruntime", "--output", outputFile,
+		modelRoot, "onnxruntime/example-model@v1.2.3", input}
+	stdout.Reset()
+	stderr.Reset()
+	if code := modelCommand(fileRun, &stdout, &stderr); code != 0 {
+		t.Fatalf("file output = %d: %s", code, stderr.String())
+	}
+	if data, err := os.ReadFile(outputFile); err != nil || json.Unmarshal(data, &result) != nil {
+		t.Fatalf("output file: %s, %v", data, err)
+	}
+	stdout.Reset()
+	stderr.Reset()
+	if code := modelCommand(fileRun, &stdout, &stderr); code == 0 {
+		t.Fatal("existing output file was overwritten")
+	}
+	stdout.Reset()
+	stderr.Reset()
+	if code := modelProviderCommand([]string{"untrust", "onnxruntime"}, &stdout, &stderr); code != 0 {
+		t.Fatalf("untrust = %d: %s", code, stderr.String())
+	}
+	stdout.Reset()
+	stderr.Reset()
+	if code := modelCommand(run, &stdout, &stderr); code == 0 {
+		t.Fatal("revoked provider was accepted")
+	}
+}
+
+// The macOS CI job supplies the Swift executable. A deliberately invalid
+// .mlmodel proves the call crossed the Go host/Swift guest boundary and reached
+// CoreML, without requiring a large model fixture in this repository.
+func TestModelRunThroughCoreMLGuest(t *testing.T) {
+	binary := os.Getenv("EXT_COREML_GUEST_BINARY")
+	if binary == "" {
+		t.Skip("set EXT_COREML_GUEST_BINARY to the built Swift guest")
+	}
+	config := t.TempDir()
+	t.Setenv("EXT_HOME", config)
+	t.Setenv("EXT_INFERENCE_PACKAGE_ROOT", filepath.Join(config, "packages"))
+	modelRoot := t.TempDir()
+	modelStore, err := ml.OpenStore(modelRoot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer modelStore.Close()
+	manifest := ml.Manifest{APIVersion: ml.ManifestAPIVersion, Provider: "coreml", Name: "invalid-model", Version: "v1",
+		Artifacts: []ml.Artifact{{Role: "model", File: "invalid.mlmodel", SHA256: sha256Hex("invalid CoreML model")}}}
+	if _, err := modelStore.InstallFromBytes(context.Background(), manifest,
+		map[string][]byte{"invalid.mlmodel": []byte("invalid CoreML model")}); err != nil {
+		t.Fatal(err)
+	}
+	packageDir := filepath.Join(t.TempDir(), "package")
+	var stdout, stderr bytes.Buffer
+	if code := modelProviderCommand([]string{"package", "coreml", "1.0.0", binary, packageDir}, &stdout, &stderr); code != 0 {
+		t.Fatalf("package Swift guest = %d: %s", code, stderr.String())
+	}
+	stdout.Reset()
+	stderr.Reset()
+	if code := modelProviderCommand([]string{"install", packageDir}, &stdout, &stderr); code != 0 {
+		t.Fatalf("install Swift guest = %d: %s", code, stderr.String())
+	}
+	stdout.Reset()
+	stderr.Reset()
+	if code := modelProviderCommand([]string{"trust", "coreml"}, &stdout, &stderr); code != 0 {
+		t.Fatalf("trust Swift guest = %d: %s", code, stderr.String())
+	}
+	input := writeTensorInput(t, []mlTensorInput{{Shape: []int{1}, Format: "float32", Data: []byte{0, 0, 128, 63}}})
+	stdout.Reset()
+	stderr.Reset()
+	code := modelCommand([]string{"run", "--provider", "coreml", modelRoot, "coreml/invalid-model@v1", input}, &stdout, &stderr)
+	if code == 0 || !strings.Contains(stderr.String(), "CoreML model inference failed") {
+		t.Fatalf("Swift guest call = %d, %q", code, stderr.String())
 	}
 }
 

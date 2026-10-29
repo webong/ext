@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -34,6 +35,8 @@ func modelCommand(args []string, stdout, stderr io.Writer) int {
 		return modelVerifyCommand(args[1:], stdout, stderr)
 	case "run":
 		return modelRunCommand(args[1:], stdout, stderr)
+	case "provider":
+		return modelProviderCommand(args[1:], stdout, stderr)
 	default:
 		fmt.Fprintf(stderr, "ctn: unknown model action %s\n", args[0])
 		return 2
@@ -50,6 +53,7 @@ func modelListCommand(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "ctn: %v\n", err)
 		return 1
 	}
+	defer store.Close()
 	models, err := store.List(context.Background())
 	if err != nil {
 		fmt.Fprintf(stderr, "ctn: %v\n", err)
@@ -71,6 +75,7 @@ func modelInspectCommand(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "ctn: %v\n", err)
 		return 1
 	}
+	defer store.Close()
 	ref, err := ml.ReferenceFrom(args[1])
 	if err != nil {
 		fmt.Fprintf(stderr, "ctn: %v\n", err)
@@ -102,6 +107,7 @@ func modelInstallCommand(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "ctn: %v\n", err)
 		return 1
 	}
+	defer store.Close()
 	manifestData, err := os.ReadFile(args[1])
 	if err != nil {
 		fmt.Fprintf(stderr, "ctn: %v\n", err)
@@ -141,6 +147,7 @@ func modelRemoveCommand(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "ctn: %v\n", err)
 		return 1
 	}
+	defer store.Close()
 	ref, err := ml.ReferenceFrom(args[1])
 	if err != nil {
 		fmt.Fprintf(stderr, "ctn: %v\n", err)
@@ -164,6 +171,7 @@ func modelVerifyCommand(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "ctn: %v\n", err)
 		return 1
 	}
+	defer store.Close()
 	ref, err := ml.ReferenceFrom(args[1])
 	if err != nil {
 		fmt.Fprintf(stderr, "ctn: %v\n", err)
@@ -189,13 +197,14 @@ type mlTensorInput struct {
 	Data   []byte `json:"data"` // base64-encoded
 }
 
-// modelRunCommand resolves a model, selects a provider from the registry,
-// loads a session, runs inference, and closes the session reliably.
+// modelRunCommand resolves a model and calls an explicitly trusted provider
+// plugin. The guest verifies the model independently before native inference.
 func modelRunCommand(args []string, stdout, stderr io.Writer) int {
 	flags := flag.NewFlagSet("ctn model run", flag.ContinueOnError)
 	flags.SetOutput(stderr)
 	provider := flags.String("provider", "", "provider name (required)")
 	timeout := flags.Duration("timeout", 30*time.Second, "inference timeout")
+	outputPath := flags.String("output", "", "write output tensors as JSON to this file")
 	if err := flags.Parse(args); err != nil {
 		return 2
 	}
@@ -214,6 +223,7 @@ func modelRunCommand(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "ctn: %v\n", err)
 		return 1
 	}
+	defer store.Close()
 	ref, err := ml.ReferenceFrom(rest[1])
 	if err != nil {
 		fmt.Fprintf(stderr, "ctn: %v\n", err)
@@ -221,9 +231,15 @@ func modelRunCommand(args []string, stdout, stderr io.Writer) int {
 	}
 
 	// Read input file with tensor descriptions.
-	inputData, err := os.ReadFile(rest[2])
+	file, err := os.Open(rest[2])
 	if err != nil {
 		fmt.Fprintf(stderr, "ctn: %v\n", err)
+		return 1
+	}
+	inputData, err := io.ReadAll(io.LimitReader(file, 18<<20))
+	_ = file.Close()
+	if err != nil || len(inputData) >= 18<<20 {
+		fmt.Fprintln(stderr, "ctn: input tensor file exceeds the wire limit")
 		return 1
 	}
 	var input modelRunInput
@@ -245,16 +261,41 @@ func modelRunCommand(args []string, stdout, stderr io.Writer) int {
 		tensors = append(tensors, tensor)
 	}
 
-	reg := ml.NewRegistry()
 	ctx, cancel := context.WithTimeout(context.Background(), *timeout)
 	defer cancel()
-	outputs, err := ml.RunModel(ctx, reg, store, ref, tensors)
+	if _, err := store.Resolve(ctx, ref.Provider, ref.Name, ref.Version); err != nil {
+		fmt.Fprintf(stderr, "ctn: %v\n", err)
+		return 1
+	}
+	outputs, err := runTensorProvider(ctx, *provider, rest[0], ref, tensors)
 	if err != nil {
 		fmt.Fprintf(stderr, "ctn: %v\n", err)
 		return 1
 	}
-	for i, out := range outputs {
-		fmt.Fprintf(stdout, "output %d: shape=%v format=%s size=%d bytes\n", i, out.Shape, out.Format, len(out.Data))
+	encoded, err := json.MarshalIndent(struct {
+		Tensors []ml.Tensor `json:"tensors"`
+	}{Tensors: outputs}, "", "  ")
+	if err != nil {
+		fmt.Fprintf(stderr, "ctn: %v\n", err)
+		return 1
 	}
+	encoded = append(encoded, '\n')
+	if *outputPath == "" {
+		_, _ = stdout.Write(encoded)
+		return 0
+	}
+	file, err = os.OpenFile(*outputPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
+	if err != nil {
+		fmt.Fprintf(stderr, "ctn: %v\n", err)
+		return 1
+	}
+	_, writeErr := file.Write(encoded)
+	closeErr := file.Close()
+	if writeErr != nil || closeErr != nil {
+		_ = os.Remove(*outputPath)
+		fmt.Fprintf(stderr, "ctn: %v\n", errors.Join(writeErr, closeErr))
+		return 1
+	}
+	fmt.Fprintln(stdout, *outputPath)
 	return 0
 }

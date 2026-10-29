@@ -27,3 +27,8 @@ The boundary is local mechanism, not model policy:
 The shared provider contract and inference schemas live in `res/inference`.
 Product-specific model registries, download policy, and content adapters belong
 to each consumer. `res/ml` owns none of them.
+
+`pkg/ext-go/ml` exposes a language-neutral `model.tensor/v1` process contract
+for a caller-selected `ml.Provider`. CTN installs and trusts those provider
+packages before `ctn model run` calls them. The native Swift, Java, and C#
+backends need guest executables that serve this contract to run from CTN.

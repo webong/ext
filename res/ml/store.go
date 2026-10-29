@@ -143,6 +143,10 @@ func OpenStore(root string) (*Store, error) {
 // Path returns the absolute model root path.
 func (s *Store) Path() string { return s.path }
 
+// Close releases the directory handle held by the store. Callers should close
+// each store they open after its operations and sessions have finished.
+func (s *Store) Close() error { return s.root.Close() }
+
 // Install stages and installs one model bundle from streaming artifact
 // sources. It never replaces an existing bundle: an identical manifest is
 // reported as already installed; a different one fails with ErrExist.
@@ -217,7 +221,7 @@ func (s *Store) Install(ctx context.Context, manifest Manifest, files map[string
 			return nil, fmt.Errorf("open artifact source %q: %w", artifact.File, err)
 		}
 		// Create the staged file and stream through a TeeReader that hashes
-	 // every byte as it is written. A LimitReader enforces the per-artifact
+		// every byte as it is written. A LimitReader enforces the per-artifact
 		// byte bound without buffering the whole artifact.
 		out, err := stage.Create(artifact.File)
 		if err != nil {

@@ -54,6 +54,7 @@ and cannot be declared.
 | `device.provider` | `v1` | Cymonkey | in use | Go constants and doc comments in `lib/board/plugin/provider.go` |
 | `display.engine` | `v1` | Cymonkey | in use | Go constants and doc comments in `lib/jangolova/plugin/adapter.go` |
 | `inference.provider` | `v1` | Ext (`res/inference`) | implemented in Ext | JSON schemas and fixtures in `res/inference/testdata/`; Go bridge in `pkg/ext-go/inference` |
+| `model.tensor` | `v1` | Ext (`res/ml`) | implemented in Ext | JSON request/response fixtures in `pkg/ext-go/ml/testdata/v1`; Go bridge and CTN package host |
 
 The owner's repository is `github.com/webong/cymonkey`. Its operations, as
 declared by the owner: `content.provider` has `start`, `observe`, `interpret`,

@@ -46,6 +46,7 @@ use (
 	./pkg/ext-go/hashicorp
 	./pkg/ext-go/wasm
 	./pkg/ext-go/inference
+	./pkg/ext-go/ml
 	./res/web
 	./pkg/ext-go/engine
 	./pkg/ext-go/cgoengine

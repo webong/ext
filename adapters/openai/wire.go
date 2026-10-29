@@ -7,7 +7,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -438,6 +437,3 @@ func (p *Provider) streamEvents(ctx context.Context, path string, body []byte, s
 
 	return final, nil
 }
-
-var _ = errors.Is
-var _ = fmt.Sprintf

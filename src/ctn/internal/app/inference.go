@@ -70,12 +70,12 @@ func checkError(err error) int {
 
 // resolveProvider resolves a provider by ID. The provider ID maps to an
 // installed inference-provider package executable. For now, the provider path
-// is taken from the CTX_INFERENCE_PROVIDER_<ID> environment variable.
+// is taken from the EXT_INFERENCE_PROVIDER_<ID> environment variable.
 func resolveProvider(id string) (providerConfig, error) {
 	if id == "" {
 		return providerConfig{}, fmt.Errorf("%w: provider ID is required", inference.ErrInvalidRequest)
 	}
-	envKey := "CTX_INFERENCE_PROVIDER_" + strings.ToUpper(strings.ReplaceAll(id, "-", "_"))
+	envKey := "EXT_INFERENCE_PROVIDER_" + strings.ToUpper(strings.ReplaceAll(id, "-", "_"))
 	path := os.Getenv(envKey)
 	if path == "" {
 		// Fall back to looking up the provider as a direct executable path.
@@ -153,10 +153,10 @@ func inferenceProvidersCommand(args []string, stdout, stderr io.Writer) int {
 	// List providers from environment variables.
 	for _, env := range os.Environ() {
 		key, value, ok := strings.Cut(env, "=")
-		if !ok || !strings.HasPrefix(key, "CTX_INFERENCE_PROVIDER_") {
+		if !ok || !strings.HasPrefix(key, "EXT_INFERENCE_PROVIDER_") {
 			continue
 		}
-		id := strings.ToLower(strings.TrimPrefix(key, "CTX_INFERENCE_PROVIDER_"))
+		id := strings.ToLower(strings.TrimPrefix(key, "EXT_INFERENCE_PROVIDER_"))
 		id = strings.ReplaceAll(id, "_", "-")
 		fmt.Fprintf(stdout, "%s\t%s\n", id, value)
 	}

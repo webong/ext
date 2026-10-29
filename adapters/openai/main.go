@@ -58,14 +58,14 @@ func serve() error {
 
 	// The OpenAI provider is constructed with configuration from the
 	// environment. Credentials are supplied through an explicit secret
-	// resolver (CTX_ADAPTER_VALUE_api_key). No implicit discovery.
-	apiKey := os.Getenv("CTX_ADAPTER_VALUE_api_key")
-	endpoint := os.Getenv("CTX_ADAPTER_VALUE_endpoint")
+	// resolver (EXT_ADAPTER_VALUE_api_key). No implicit discovery.
+	apiKey := os.Getenv("EXT_ADAPTER_VALUE_api_key")
+	endpoint := os.Getenv("EXT_ADAPTER_VALUE_endpoint")
 	if endpoint == "" {
-		return errors.New("endpoint is required (set CTX_ADAPTER_VALUE_endpoint)")
+		return errors.New("endpoint is required (set EXT_ADAPTER_VALUE_endpoint)")
 	}
 	if apiKey == "" {
-		return errors.New("api key is required (set CTX_ADAPTER_VALUE_api_key)")
+		return errors.New("api key is required (set EXT_ADAPTER_VALUE_api_key)")
 	}
 
 	provider, err := NewProvider(endpoint, apiKey)

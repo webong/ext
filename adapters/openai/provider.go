@@ -208,5 +208,3 @@ func redact(s string) string {
 	}
 	return "REDACTED"
 }
-
-var _ = errors.Is

@@ -26,7 +26,7 @@ jobs:
             **/go.sum
             go.work.sum
       - uses: actions/setup-dotnet@v4
-        if: runner.os == 'Windows'
+        if: runner.os == 'Windows' || runner.os == 'Linux'
         with:
           dotnet-version: '8.0.x'
       - name: Validate Windows system library
@@ -103,6 +103,19 @@ jobs:
           dotnet run --project res/ml/windows/Tests/Ext.ML.Windows.Tests.csproj
           dotnet build res/web/windows/Ext.Web.Windows.csproj
           dotnet run --project res/web/windows/Tests/Ext.Web.Windows.Tests.csproj
+      - name: Validate native ONNX guest through CTN
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          dotnet publish res/ml/windows/Guest/Ext.ML.Windows.Guest.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o "$env:RUNNER_TEMP/onnx-guest"
+          $env:EXT_ONNX_GUEST_BINARY = Join-Path $env:RUNNER_TEMP 'onnx-guest/Ext.ML.Windows.Guest.exe'
+          go test ./src/ctn/internal/app -run '^TestModelRunThroughONNXGuest$' -count=1
+      - name: Validate Linux ONNX guest through CTN
+        if: runner.os == 'Linux'
+        run: |
+          dotnet run --project res/ml/windows/Tests/Ext.ML.Windows.Tests.csproj
+          dotnet publish res/ml/linux/Guest/Ext.ML.Linux.Guest.csproj -c Release -r linux-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o "$RUNNER_TEMP/onnx-guest"
+          EXT_ONNX_GUEST_BINARY="$RUNNER_TEMP/onnx-guest/Ext.ML.Linux.Guest" go test ./src/ctn/internal/app -run '^TestModelRunThroughONNXGuest$' -count=1
       - name: Validate isolated native cookie credentials
         if: runner.os == 'macOS' || runner.os == 'Windows'
         env:

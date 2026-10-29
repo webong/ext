@@ -34,5 +34,8 @@ transport, model verification, and tensor output end to end. Platform SDKs
 provide CoreML, TensorFlow Lite, and ONNX Runtime implementations. On macOS,
 `res/ml/ios` also builds `ext-coreml-guest`, a Swift guest that connects the
 CoreML backend to this contract. Package it as ID `coreml`, version `1.0.0`.
-The Android and Windows native backends still need process guests to run under
-CTN.
+`res/ml/windows/Guest` publishes a self-contained Windows ONNX guest as ID
+`onnxruntime`, version `1.0.0`; `res/ml/linux/Guest` publishes the same protocol
+for Linux. `pkg/ext-android` offers `ModelTensorGuest.create` to bind a
+caller-selected `MlProvider` to this contract in an app-hosted guest. CTN can
+launch it when an Android application supplies a process entry point.

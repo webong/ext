@@ -9,7 +9,7 @@ namespace Webong.Ext.ML.Windows
 {
     /// <summary>
     /// Bounds and permissions fixed by the embedding application before native
-    /// Windows ONNX Runtime access. The caller selects the model file and device
+    /// ONNX Runtime access. The caller selects the model file and device
     /// kind; the library does not choose a model, download weights, or select a
     /// device.
     /// </summary>
@@ -46,7 +46,7 @@ namespace Webong.Ext.ML.Windows
     }
 
     /// <summary>
-    /// Bounded ONNX inference for local Windows callers. The caller selects the model, device,
+    /// Bounded ONNX inference for local Windows and Linux callers. The caller selects the model, device,
     /// and input tensors; the library does not download models, select devices,
     /// authorize access, or expose a remote protocol.
     ///
@@ -64,8 +64,9 @@ namespace Webong.Ext.ML.Windows
         /// </summary>
         public SystemMl(string modelFile, MlPolicy? policy = null)
         {
-            if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-                throw new MlException(MlExceptionKind.Unavailable, "this ONNX backend is only available on Windows");
+            if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows) &&
+                !RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+                throw new MlException(MlExceptionKind.Unavailable, "this ONNX backend is available on Windows and Linux");
             this.modelFile = modelFile ?? throw new ArgumentNullException(nameof(modelFile));
             this.policy = policy ?? new MlPolicy(modelFile);
             this.policy.Validate();

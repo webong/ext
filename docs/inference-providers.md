@@ -54,18 +54,18 @@ manifest, not the implementation language, controls discovery.
 | Guest | Implemented operations |
 | --- | --- |
 | OpenAI-compatible, Ollama | generation, streaming, embeddings, model listing, tool proposals through chat completions |
-| Anthropic | text generation through Messages |
-| Gemini | text generation through `generateContent` |
+| Anthropic | generation, inline images, tool proposals and results, JSON Schema output through Messages |
+| Gemini | generation, inline images, function proposals and results, JSON Schema output through `generateContent` |
 
-Unsupported operations return a typed `ErrUnsupported` response. The
-Anthropic and Gemini guests deliberately reject multimodal, tool, and
-structured-output requests until those mappings are implemented and tested.
+Unsupported operations and media types return a typed `ErrUnsupported`
+response. Anthropic and Gemini mappings are covered by local wire tests;
+provider credentials are required for live API verification.
 
 ## Native model backends
 
 `res/ml/ios` contains a CoreML backend for verified `.mlmodel` artifacts and
 float32 multi-array tensors. Android has an optional TensorFlow Lite backend
 for verified `.tflite` artifacts; the host app supplies its interpreter
-runtime. Windows has an optional bounded ONNX Runtime CPU backend. The Android
-NNAPI class remains an unavailable stub, and Linux has no built-in ONNX
-runtime. CTN does not select a native provider automatically.
+runtime. Windows and Linux have an optional bounded ONNX Runtime CPU backend
+with self-contained CTN guests. The Android NNAPI class remains an unavailable
+stub. CTN does not select a native provider automatically.

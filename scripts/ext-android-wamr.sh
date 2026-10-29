@@ -19,6 +19,7 @@ cmake --build "$build_dir/native" --target extwamrjni -j 4 >/dev/null
 mkdir -p "$build_dir/classes"
 javac -Xlint:all -Werror -d "$build_dir/classes" \
   "$sdk"/src/main/java/io/github/webong/ext/plugin/*.java \
+  res/ml/android/src/main/java/io/github/webong/ext/ml/*.java \
   "$sdk"/src/test/java/io/github/webong/ext/plugin/WamrPluginHostTests.java
 java -ea -Djava.library.path="$build_dir/native" -cp "$build_dir/classes" \
   io.github.webong.ext.plugin.WamrPluginHostTests "$build_dir/cargo/wasm32-wasip1/release/examples/shared.wasm"

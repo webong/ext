@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -33,7 +34,7 @@ func (p *provider) Info(ctx context.Context) (inference.ProviderInfo, error) {
 	if err := ctx.Err(); err != nil {
 		return inference.ProviderInfo{}, err
 	}
-	return inference.ProviderInfo{ID: "anthropic", Name: "Anthropic", Version: "1.0.0", Stability: inference.StabilityStable, Modalities: []inference.Modality{inference.ModalityText}, Capabilities: []inference.Capability{inference.CapabilityGenerate}, Limits: inference.Limits{MaxBytes: 32 << 20}, Protocol: map[string]string{"endpoint": p.endpoint, "auth": "x-api-key"}}, nil
+	return inference.ProviderInfo{ID: "anthropic", Name: "Anthropic", Version: "1.0.0", Stability: inference.StabilityStable, Modalities: []inference.Modality{inference.ModalityText, inference.ModalityImage}, Capabilities: []inference.Capability{inference.CapabilityGenerate, inference.CapabilityToolProposal, inference.CapabilityStructuredOutput}, Limits: inference.Limits{MaxBytes: 32 << 20}, Protocol: map[string]string{"endpoint": p.endpoint, "auth": "x-api-key"}}, nil
 }
 func (p *provider) Close() error { return nil }
 
@@ -44,31 +45,55 @@ func (p *provider) Generate(ctx context.Context, r inference.GenerationRequest) 
 	if r.MaxOutputTokens <= 0 {
 		return inference.GenerationResponse{}, inference.ErrInvalidRequest
 	}
-	if len(r.Tools) > 0 || len(r.OutputSchema) > 0 || len(r.Options) > 0 {
+	if len(r.Options) > 0 {
 		return inference.GenerationResponse{}, inference.ErrUnsupported
 	}
 	type msg struct {
-		Role    string `json:"role"`
-		Content string `json:"content"`
+		Role    string           `json:"role"`
+		Content []map[string]any `json:"content"`
 	}
 	var system []string
 	messages := make([]msg, 0, len(r.Messages))
 	for _, m := range r.Messages {
-		if len(m.ToolCalls) > 0 {
-			return inference.GenerationResponse{}, inference.ErrUnsupported
-		}
-		var text strings.Builder
+		content := make([]map[string]any, 0, len(m.Parts)+len(m.ToolCalls))
 		for _, part := range m.Parts {
-			if part.Kind != inference.PartKindText {
+			switch part.Kind {
+			case inference.PartKindText:
+				content = append(content, map[string]any{"type": "text", "text": part.Text})
+			case inference.PartKindImage:
+				if m.Role != inference.RoleUser || part.Reference != nil || !supportedImage(part.MediaType) {
+					return inference.GenerationResponse{}, inference.ErrUnsupported
+				}
+				content = append(content, map[string]any{"type": "image", "source": map[string]any{"type": "base64", "media_type": part.MediaType, "data": base64.StdEncoding.EncodeToString(part.Data)}})
+			default:
 				return inference.GenerationResponse{}, inference.ErrUnsupported
 			}
-			text.WriteString(part.Text)
 		}
 		switch m.Role {
 		case inference.RoleSystem:
-			system = append(system, text.String())
+			for _, part := range content {
+				if part["type"] != "text" {
+					return inference.GenerationResponse{}, inference.ErrUnsupported
+				}
+				system = append(system, part["text"].(string))
+			}
 		case inference.RoleUser, inference.RoleAssistant:
-			messages = append(messages, msg{Role: string(m.Role), Content: text.String()})
+			for _, call := range m.ToolCalls {
+				content = append(content, map[string]any{"type": "tool_use", "id": call.ID, "name": call.Name, "input": call.Arguments})
+			}
+			messages = append(messages, msg{Role: string(m.Role), Content: content})
+		case inference.RoleTool:
+			for _, part := range m.Parts {
+				if part.Kind != inference.PartKindText {
+					return inference.GenerationResponse{}, inference.ErrUnsupported
+				}
+			}
+			if m.ToolError {
+				content = []map[string]any{{"type": "tool_result", "tool_use_id": m.ToolCallID, "content": textParts(m.Parts), "is_error": true}}
+			} else {
+				content = []map[string]any{{"type": "tool_result", "tool_use_id": m.ToolCallID, "content": textParts(m.Parts)}}
+			}
+			messages = append(messages, msg{Role: "user", Content: content})
 		default:
 			return inference.GenerationResponse{}, inference.ErrUnsupported
 		}
@@ -76,12 +101,23 @@ func (p *provider) Generate(ctx context.Context, r inference.GenerationRequest) 
 	if len(messages) == 0 {
 		return inference.GenerationResponse{}, inference.ErrInvalidRequest
 	}
-	payload := struct {
-		Model     string `json:"model"`
-		MaxTokens int    `json:"max_tokens"`
-		System    string `json:"system,omitempty"`
-		Messages  []msg  `json:"messages"`
-	}{r.Model, r.MaxOutputTokens, strings.Join(system, "\n"), messages}
+	payload := map[string]any{"model": r.Model, "max_tokens": r.MaxOutputTokens, "messages": messages}
+	if len(system) > 0 {
+		payload["system"] = strings.Join(system, "\n")
+	}
+	if r.Temperature != nil {
+		payload["temperature"] = *r.Temperature
+	}
+	if len(r.Tools) > 0 {
+		tools := make([]map[string]any, 0, len(r.Tools))
+		for _, tool := range r.Tools {
+			tools = append(tools, map[string]any{"name": tool.Name, "description": tool.Description, "input_schema": tool.InputSchema})
+		}
+		payload["tools"] = tools
+	}
+	if len(r.OutputSchema) > 0 {
+		payload["output_config"] = map[string]any{"format": map[string]any{"type": "json_schema", "schema": r.OutputSchema}}
+	}
 	body, err := json.Marshal(payload)
 	if err != nil {
 		return inference.GenerationResponse{}, err
@@ -91,6 +127,8 @@ func (p *provider) Generate(ctx context.Context, r inference.GenerationRequest) 
 		return inference.GenerationResponse{}, inference.ErrInvalidRequest
 	}
 	req.Header.Set("x-api-key", p.key)
+	// The newer 2026-10-21 version removes temperature; keep the compatible
+	// version while the neutral generation contract still exposes it.
 	req.Header.Set("anthropic-version", "2023-06-01")
 	req.Header.Set("content-type", "application/json")
 	reply, err := p.client.Do(req)
@@ -112,8 +150,11 @@ func (p *provider) Generate(ctx context.Context, r inference.GenerationRequest) 
 		ID      string `json:"id"`
 		Model   string `json:"model"`
 		Content []struct {
-			Type string `json:"type"`
-			Text string `json:"text"`
+			Type  string          `json:"type"`
+			Text  string          `json:"text"`
+			ID    string          `json:"id"`
+			Name  string          `json:"name"`
+			Input json.RawMessage `json:"input"`
 		} `json:"content"`
 		StopReason string `json:"stop_reason"`
 		Usage      struct {
@@ -126,22 +167,45 @@ func (p *provider) Generate(ctx context.Context, r inference.GenerationRequest) 
 	}
 	out := inference.GenerationResponse{ID: result.ID, Model: result.Model, Message: inference.Message{Role: inference.RoleAssistant}, Usage: inference.TokenUsage{Input: result.Usage.Input, Output: result.Usage.Output, Total: result.Usage.Input + result.Usage.Output}}
 	for _, part := range result.Content {
-		if part.Type != "text" {
+		switch part.Type {
+		case "text":
+			out.Message.Parts = append(out.Message.Parts, inference.Part{Kind: inference.PartKindText, Text: part.Text})
+		case "tool_use":
+			out.Message.ToolCalls = append(out.Message.ToolCalls, inference.ToolCall{ID: part.ID, Name: part.Name, Arguments: part.Input})
+		default:
 			return inference.GenerationResponse{}, inference.ErrUnsupported
 		}
-		out.Message.Parts = append(out.Message.Parts, inference.Part{Kind: inference.PartKindText, Text: part.Text})
 	}
 	switch result.StopReason {
 	case "end_turn", "stop_sequence":
 		out.StopReason = inference.FinishReasonStop
 	case "max_tokens":
 		out.StopReason = inference.FinishReasonLength
+	case "tool_use":
+		out.StopReason = inference.FinishReasonToolCalls
 	case "refusal":
 		out.StopReason = inference.FinishReasonRefusal
 	default:
 		return inference.GenerationResponse{}, inference.ErrInvalidResponse
 	}
 	return out, out.Validate()
+}
+func supportedImage(mediaType string) bool {
+	switch mediaType {
+	case "image/png", "image/jpeg", "image/gif", "image/webp":
+		return true
+	default:
+		return false
+	}
+}
+func textParts(parts []inference.Part) string {
+	var text strings.Builder
+	for _, part := range parts {
+		if part.Kind == inference.PartKindText {
+			text.WriteString(part.Text)
+		}
+	}
+	return text.String()
 }
 func statusError(code int) error {
 	switch code {

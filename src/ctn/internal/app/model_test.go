@@ -197,9 +197,9 @@ func TestModelRunThroughTrustedProviderPackage(t *testing.T) {
 	}
 }
 
-// The macOS CI job supplies the Swift executable. A deliberately invalid
-// .mlmodel proves the call crossed the Go host/Swift guest boundary and reached
-// CoreML, without requiring a large model fixture in this repository.
+// The macOS CI job supplies the Swift executable. The tiny CoreML Copy
+// model proves the whole Go host/Swift guest/native prediction path without
+// downloading model weights or adding a binary fixture to this repository.
 func TestModelRunThroughCoreMLGuest(t *testing.T) {
 	binary := os.Getenv("EXT_COREML_GUEST_BINARY")
 	if binary == "" {
@@ -214,10 +214,12 @@ func TestModelRunThroughCoreMLGuest(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer modelStore.Close()
-	manifest := ml.Manifest{APIVersion: ml.ManifestAPIVersion, Provider: "coreml", Name: "invalid-model", Version: "v1",
-		Artifacts: []ml.Artifact{{Role: "model", File: "invalid.mlmodel", SHA256: sha256Hex("invalid CoreML model")}}}
+	modelBytes := coreMLCopyModel()
+	modelHash := sha256.Sum256(modelBytes)
+	manifest := ml.Manifest{APIVersion: ml.ManifestAPIVersion, Provider: "coreml", Name: "identity", Version: "v1",
+		Artifacts: []ml.Artifact{{Role: "model", File: "identity.mlmodel", SHA256: hex.EncodeToString(modelHash[:])}}}
 	if _, err := modelStore.InstallFromBytes(context.Background(), manifest,
-		map[string][]byte{"invalid.mlmodel": []byte("invalid CoreML model")}); err != nil {
+		map[string][]byte{"identity.mlmodel": modelBytes}); err != nil {
 		t.Fatal(err)
 	}
 	packageDir := filepath.Join(t.TempDir(), "package")
@@ -235,13 +237,141 @@ func TestModelRunThroughCoreMLGuest(t *testing.T) {
 	if code := modelProviderCommand([]string{"trust", "coreml"}, &stdout, &stderr); code != 0 {
 		t.Fatalf("trust Swift guest = %d: %s", code, stderr.String())
 	}
-	input := writeTensorInput(t, []mlTensorInput{{Shape: []int{1}, Format: "float32", Data: []byte{0, 0, 128, 63}}})
+	inputBytes := []byte{0, 0, 128, 63, 0, 0, 0, 64}
+	input := writeTensorInput(t, []mlTensorInput{{Shape: []int{1, 2}, Format: "float32", Data: inputBytes}})
 	stdout.Reset()
 	stderr.Reset()
-	code := modelCommand([]string{"run", "--provider", "coreml", modelRoot, "coreml/invalid-model@v1", input}, &stdout, &stderr)
-	if code == 0 || !strings.Contains(stderr.String(), "CoreML model inference failed") {
+	code := modelCommand([]string{"run", "--provider", "coreml", modelRoot, "coreml/identity@v1", input}, &stdout, &stderr)
+	if code != 0 {
 		t.Fatalf("Swift guest call = %d, %q", code, stderr.String())
 	}
+	var result struct {
+		Tensors []ml.Tensor `json:"tensors"`
+	}
+	if err := json.Unmarshal(stdout.Bytes(), &result); err != nil || len(result.Tensors) != 1 ||
+		!bytes.Equal(result.Tensors[0].Data, inputBytes) {
+		t.Fatalf("CoreML copy output = %q, %v", stdout.String(), err)
+	}
+}
+
+// CoreML Model.proto defines NeuralNetwork at field 500, and NeuralNetwork.proto
+// defines Copy at field 600. FeatureTypes.proto defines float32 arrays. This
+// fixture uses those public wire fields directly to keep it small and stable.
+func coreMLCopyModel() []byte {
+	var number func(int, uint64) []byte
+	varint := func(value uint64) []byte {
+		var out []byte
+		for value >= 0x80 {
+			out = append(out, byte(value)|0x80)
+			value >>= 7
+		}
+		return append(out, byte(value))
+	}
+	number = func(field int, value uint64) []byte {
+		return append(varint(uint64(field)<<3), varint(value)...)
+	}
+	field := func(field int, value []byte) []byte {
+		out := append(varint(uint64(field)<<3|2), varint(uint64(len(value)))...)
+		return append(out, value...)
+	}
+	feature := func(name string) []byte {
+		array := append(append(number(1, 1), number(1, 2)...), number(2, 65568)...)
+		return append(field(1, []byte(name)), field(3, field(5, array))...)
+	}
+	description := append(field(1, feature("x")), field(10, feature("y"))...)
+	layer := append(field(1, []byte("copy")), field(2, []byte("x"))...)
+	layer = append(layer, field(3, []byte("y"))...)
+	layer = append(layer, field(600, nil)...)
+	network := append(field(1, layer), number(5, 1)...)
+	model := append(number(1, 4), field(2, description)...)
+	return append(model, field(500, network)...)
+}
+
+// Windows and Linux CI publish a self-contained ONNX guest. A tiny Identity graph
+// exercises package trust, the .NET process, ONNX Runtime, and tensor output.
+func TestModelRunThroughONNXGuest(t *testing.T) {
+	binary := os.Getenv("EXT_ONNX_GUEST_BINARY")
+	if binary == "" {
+		t.Skip("set EXT_ONNX_GUEST_BINARY to the published .NET guest")
+	}
+	config := t.TempDir()
+	t.Setenv("EXT_HOME", config)
+	t.Setenv("EXT_INFERENCE_PACKAGE_ROOT", filepath.Join(config, "packages"))
+	modelRoot := t.TempDir()
+	modelStore, err := ml.OpenStore(modelRoot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer modelStore.Close()
+	modelBytes := onnxIdentityModel()
+	modelHash := sha256.Sum256(modelBytes)
+	manifest := ml.Manifest{APIVersion: ml.ManifestAPIVersion, Provider: "onnxruntime", Name: "identity", Version: "v1",
+		Artifacts: []ml.Artifact{{Role: "model", File: "identity.onnx", SHA256: hex.EncodeToString(modelHash[:])}}}
+	if _, err := modelStore.InstallFromBytes(context.Background(), manifest,
+		map[string][]byte{"identity.onnx": modelBytes}); err != nil {
+		t.Fatal(err)
+	}
+	packageDir := filepath.Join(t.TempDir(), "package")
+	var stdout, stderr bytes.Buffer
+	if code := modelProviderCommand([]string{"package", "onnxruntime", "1.0.0", binary, packageDir}, &stdout, &stderr); code != 0 {
+		t.Fatalf("package .NET guest = %d: %s", code, stderr.String())
+	}
+	stdout.Reset()
+	stderr.Reset()
+	if code := modelProviderCommand([]string{"install", packageDir}, &stdout, &stderr); code != 0 {
+		t.Fatalf("install .NET guest = %d: %s", code, stderr.String())
+	}
+	stdout.Reset()
+	stderr.Reset()
+	if code := modelProviderCommand([]string{"trust", "onnxruntime"}, &stdout, &stderr); code != 0 {
+		t.Fatalf("trust .NET guest = %d: %s", code, stderr.String())
+	}
+	inputBytes := []byte{0, 0, 0, 64, 0, 0, 64, 64}
+	input := writeTensorInput(t, []mlTensorInput{{Shape: []int{1, 2}, Format: "float32", Data: inputBytes}})
+	stdout.Reset()
+	stderr.Reset()
+	code := modelCommand([]string{"run", "--provider", "onnxruntime", modelRoot, "onnxruntime/identity@v1", input}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf(".NET guest call = %d, %q", code, stderr.String())
+	}
+	var result struct {
+		Tensors []ml.Tensor `json:"tensors"`
+	}
+	if err := json.Unmarshal(stdout.Bytes(), &result); err != nil || len(result.Tensors) != 1 ||
+		!bytes.Equal(result.Tensors[0].Data, inputBytes) {
+		t.Fatalf("ONNX identity output = %q, %v", stdout.String(), err)
+	}
+}
+
+func onnxIdentityModel() []byte {
+	varint := func(value uint64) []byte {
+		var out []byte
+		for value >= 0x80 {
+			out = append(out, byte(value)|0x80)
+			value >>= 7
+		}
+		return append(out, byte(value))
+	}
+	number := func(field int, value uint64) []byte {
+		return append(varint(uint64(field)<<3), varint(value)...)
+	}
+	field := func(field int, value []byte) []byte {
+		out := append(varint(uint64(field)<<3|2), varint(uint64(len(value)))...)
+		return append(out, value...)
+	}
+	valueInfo := func(name string) []byte {
+		shape := append(field(1, number(1, 1)), field(1, number(1, 2))...)
+		tensor := append(number(1, 1), field(2, shape)...)
+		return append(field(1, []byte(name)), field(2, field(1, tensor))...)
+	}
+	node := append(field(1, []byte("x")), field(2, []byte("y"))...)
+	node = append(node, field(4, []byte("Identity"))...)
+	graph := append(field(1, node), field(2, []byte("identity"))...)
+	graph = append(graph, field(11, valueInfo("x"))...)
+	graph = append(graph, field(12, valueInfo("y"))...)
+	model := append(number(1, 8), field(2, []byte("ext-test"))...)
+	model = append(model, field(7, graph)...)
+	return append(model, field(8, number(2, 13))...)
 }
 
 func TestModelCommandRunMissingInput(t *testing.T) {

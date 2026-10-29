@@ -80,10 +80,10 @@ errors.
 
 | Platform | Native support | Status |
 |----------|---------------|--------|
-| Apple | CoreML | `.mlmodel` float32 multi-array backend implemented; integration with a real model is still pending |
-| Windows | ONNX Runtime CPU | optional C# backend implemented; Windows build and model integration remain to be verified on a Windows runner |
-| Android | TensorFlow Lite | optional float32 backend implemented; host supplies the runtime; NNAPI remains a stub |
-| Linux | external runtimes via adapters | portable contract; no built-in runtime |
+| Apple | CoreML | `.mlmodel` float32 multi-array backend and CTN guest verified with a real Copy model on macOS |
+| Windows | ONNX Runtime CPU | optional .NET backend and CTN guest; Windows CI publishes and runs an Identity model |
+| Android | TensorFlow Lite | optional float32 backend and `ModelTensorGuest` binding; host supplies the runtime; NNAPI remains a stub |
+| Linux | ONNX Runtime CPU | optional .NET guest uses the shared backend; Linux CI publishes and runs an Identity model |
 
 No provider is documented as implemented unless it performs real inference.
 Tools are proposed, never executed automatically.

@@ -43,6 +43,6 @@ try
         bounded.Infer(new[] { MlTensor.FromFloat32(new[] { 1, 2 }, new[] { 2f, 3f }) });
         throw new Exception("input bound was not enforced");
     } catch (MlException e) when (e.Kind == MlExceptionKind.Invalid) { }
-    Console.WriteLine("Windows ONNX inference passed");
+    Console.WriteLine("ONNX inference passed");
 }
 finally { File.Delete(path); }

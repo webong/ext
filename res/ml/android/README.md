@@ -12,4 +12,8 @@ tensor sizes. The NNAPI provider remains an unavailable stub.
 
 The library owns manifest parsing, verified artifact installation, model
 inspection, and bounded inference. It never downloads a model, selects a
-provider, authorizes access, or exposes a remote protocol.
+provider, or authorizes access. `pkg/ext-android` includes
+`io.github.webong.ext.plugin.ModelTensorGuest`, which binds a caller-selected
+`MlProvider` to the shared `model.tensor/v1` guest contract. Applications supply
+the plugin identity, authorization predicate, and optional JSON-line process
+entry point.

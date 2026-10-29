@@ -282,8 +282,9 @@ workspace active, and that `src/ctx` resolves the intended versions:
 
 ```bash
 for module in src/ctx src/ctn pkg/ext-go pkg/ext-go/engine pkg/ext-go/cgoengine \
-              pkg/ext-go/hashicorp pkg/ext-go/wasm res/system adapters/wasm adapters/evm \
-              adapters/systemd adapters/pulseaudio adapters/alsa adapters/x11 adapters/wayland res/web; do
+              pkg/ext-go/hashicorp pkg/ext-go/wasm pkg/ext-go/inference res/system res/inference \
+              adapters/wasm adapters/evm adapters/systemd adapters/pulseaudio adapters/alsa \
+              adapters/x11 adapters/wayland adapters/pipewire adapters/openai res/web; do
   (cd "$module" && go build ./... && go test ./...) || exit 1
 done
 ```
@@ -319,10 +320,13 @@ so an application imports only what it needs and stacks the rest:
 | `pkg/ext-go/engine` | the pure-Go engine (the oracle): the contract, sessions, guests, packages, the package store and host, bridges and tooling (the old `pkg/plugin`); standard library only | nothing |
 | `pkg/ext-go/cgoengine` | the Go binding of the C engine, a pure-Go build of the same API, engine-routed variants of `store` and `host` with the same API as the ones in `engine`, the C ABI loader (the old `pkg/plugin-cshared`) and a generated copy of the C sources | `contract` |
 | `pkg/ext-go/c2goengine` | the C engine's portable core translated to Go by ccgo (`modernc.org/ccgo`), with no cgo and no C compiler: one generated file per platform, made on that platform (see its README) | `engine` |
+| `pkg/ext-go/inference` | bridges `res/inference` to the Ext plugin engine: declares `inference.provider/v1`, registers `res/inference.Provider` as a plugin guest, and supplies a host client for plugin sessions | `engine`, `res/inference` |
 | `res/web` | portable web tooling, including protocol-neutral WebAssembly inspection, execution and raw reactor hosting | nothing inside ext; third-party wazero only |
 | `pkg/ext-go/wasm` | the plugin-engine binding for `res/web/wasm` (the old `pkg/plugin-wasm`) | `engine`, `res/web` |
 | `pkg/ext-go/hashicorp` | the go-plugin (gRPC) backend (the old `pkg/plugin-hashicorp`) | `engine` |
 | `pkg/ext-go` | the umbrella: requires every plugin module above and holds what needs several of them (`PlanGraph`, the `core` package that chooses between `engine`, `cgoengine` and `c2goengine`, the bridge command, the cross-language tests) | the plugin modules above, `res/system`, `res/web` |
+| `res/inference` | provider-neutral inference contract: generation, streaming, embeddings, transcription, speech synthesis, capabilities, typed errors; standard library only | nothing |
+| `res/ml` | low-level local model support: manifests, verified installation, tensors, native compute devices, provider/session lifecycle | `golang.org/x/sys` |
 
 The module was called `contract` until v0.8.0 because it is the contract plus tooling that needs
 nothing beyond the standard library, not a runtime; it became `engine` once it was the oracle

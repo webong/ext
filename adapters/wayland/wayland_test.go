@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"image"
 	"image/png"
 	"io"
@@ -11,6 +12,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/webong/ext/res/system"
@@ -369,173 +371,242 @@ func TestRecordingReadAfterNormalStop(t *testing.T) {
 	}
 }
 
-// TestRecordingNoDataAfterTerminal verifies that no data is returned after a
-// terminal state has been recorded, even if the underlying reader produced
-// data before the terminal state was set.
+// Closing the output during shutdown must release an in-flight Read, and any
+// bytes returned by that read must be discarded after the terminal transition.
 func TestRecordingNoDataAfterTerminal(t *testing.T) {
-	process := &fakeProcess{out: bytes.NewBuffer(nil), in: bytes.NewBuffer(nil)}
-	driver := New(Config{Recorder: "wf-recorder",
-		Start: func(ctx context.Context, name string, arguments ...string) (Process, error) {
-			return process, nil
-		}})
-	recording, err := driver.Record(context.Background(), media.RecordingOptions{Format: "webm", FrameRate: 30, MaxDuration: time.Minute, MaxBytes: 1 << 30})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := recording.Stop(context.Background()); err != nil {
-		t.Fatal(err)
-	}
-	// No data should be returned after terminal state.
-	n, err := recording.Read(make([]byte, 16))
-	if err != io.EOF {
-		t.Fatalf("read after normal stop = %v, %d bytes, want io.EOF, 0", err, n)
-	}
-	if n != 0 {
-		t.Fatalf("read after terminal returned %d bytes, want 0", n)
-	}
+	synctest.Test(t, func(t *testing.T) {
+		reader := &lateReader{blockingReader: blockingReader{closed: make(chan struct{})}}
+		r := testRecording(&fakeProcess{out: reader})
+		result := make(chan error, 1)
+		go func() {
+			n, err := r.Read(make([]byte, 16))
+			if n != 0 || err != io.EOF {
+				result <- fmt.Errorf("read = %d, %v; want 0, EOF", n, err)
+				return
+			}
+			result <- nil
+		}()
+		synctest.Wait() // Read has entered the underlying reader and is blocked.
+		if err := r.Stop(context.Background()); err != nil {
+			t.Fatal(err)
+		}
+		if err := <-result; err != nil {
+			t.Fatal(err)
+		}
+	})
 }
 
-// TestRecordingStopRacesWatchdog verifies that a normal Stop and the duration
-// watchdog racing to mark terminal both observe a consistent result.
 func TestRecordingStopRacesWatchdog(t *testing.T) {
-	stopped := make(chan struct{})
-	process := &fakeProcess{
-		out:      bytes.NewBuffer(nil),
-		in:       bytes.NewBuffer(nil),
-		stopChan: stopped,
-	}
-	driver := New(Config{Recorder: "wf-recorder",
-		Start: func(ctx context.Context, name string, arguments ...string) (Process, error) {
-			return process, nil
-		}})
-	recording, err := driver.Record(context.Background(), media.RecordingOptions{Format: "webm", FrameRate: 30, MaxDuration: time.Second, MaxBytes: 1 << 30})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// Stop and the watchdog both race to mark terminal. The first one wins.
-	stopErr := make(chan error, 1)
-	go func() {
-		stopErr <- recording.Stop(context.Background())
-	}()
-
-	select {
-	case err := <-stopErr:
-		if err != nil {
-			t.Fatalf("stop = %v", err)
-		}
-	case <-time.After(5 * time.Second):
-		t.Fatal("stop did not complete")
-	}
-
-	// Subsequent stops are idempotent.
-	if err := recording.Stop(context.Background()); err != nil {
-		t.Fatalf("second stop = %v", err)
+	for _, stopFirst := range []bool{true, false} {
+		t.Run(fmt.Sprintf("stopFirst=%t", stopFirst), func(t *testing.T) {
+			synctest.Test(t, func(t *testing.T) {
+				p := &fakeProcess{out: bytes.NewBuffer(nil), stopChan: make(chan struct{}), signalled: make(chan struct{})}
+				r := testRecording(p)
+				r.maxDuration = time.Second
+				go r.watchDuration(context.Background())
+				result := make(chan error, 1)
+				var want error
+				if stopFirst {
+					go func() { result <- r.Stop(context.Background()) }()
+					<-p.signalled // Stop is waiting for exit when the watchdog fires.
+					time.Sleep(time.Second)
+				} else {
+					time.Sleep(time.Second)
+					<-p.signalled // Watchdog selected the terminal state first.
+					want = media.ErrRecordingLimit
+					go func() { result <- r.Stop(context.Background()) }()
+				}
+				if err := <-result; !errors.Is(err, want) {
+					t.Fatalf("stop = %v, want %v", err, want)
+				}
+				if err := r.Close(); !errors.Is(err, want) {
+					t.Fatalf("close = %v, want %v", err, want)
+				}
+			})
+		})
 	}
 }
 
-// TestRecordingCancelRacesWatchdog verifies that context cancellation racing
-// with the duration watchdog produces a consistent terminal result.
 func TestRecordingCancelRacesWatchdog(t *testing.T) {
-	stopped := make(chan struct{})
-	process := &fakeProcess{
-		out:      bytes.NewBuffer(nil),
-		in:       bytes.NewBuffer(nil),
-		stopChan: stopped,
-	}
-	driver := New(Config{Recorder: "wf-recorder",
-		Start: func(ctx context.Context, name string, arguments ...string) (Process, error) {
-			return process, nil
-		}})
-	recording, err := driver.Record(context.Background(), media.RecordingOptions{Format: "webm", FrameRate: 30, MaxDuration: time.Second, MaxBytes: 1 << 30})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// Cancel the context before the watchdog fires.
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel()
-
-	// Stop with the cancelled context should report the cancellation error.
-	if err := recording.Stop(ctx); !errors.Is(err, context.Canceled) {
-		t.Fatalf("stop with cancelled context = %v, want context.Canceled", err)
-	}
-
-	// The process should have been stopped.
-	select {
-	case <-stopped:
-	case <-time.After(5 * time.Second):
-		t.Fatal("process was not actively stopped after cancellation")
+	for _, cancelFirst := range []bool{true, false} {
+		t.Run(fmt.Sprintf("cancelFirst=%t", cancelFirst), func(t *testing.T) {
+			synctest.Test(t, func(t *testing.T) {
+				p := &fakeProcess{out: bytes.NewBuffer(nil), stopChan: make(chan struct{}), signalled: make(chan struct{})}
+				r := testRecording(p)
+				r.maxDuration = time.Second
+				ctx, cancel := context.WithCancel(context.Background())
+				defer cancel()
+				go r.watchDuration(ctx)
+				want := media.ErrRecordingLimit
+				if cancelFirst {
+					cancel()
+					<-p.signalled
+					want = context.Canceled
+					time.Sleep(time.Second)
+				} else {
+					time.Sleep(time.Second)
+					<-p.signalled
+					cancel()
+				}
+				if err := r.Stop(context.Background()); !errors.Is(err, want) {
+					t.Fatalf("stop = %v, want %v", err, want)
+				}
+				if _, err := r.Read(make([]byte, 1)); !errors.Is(err, want) {
+					t.Fatalf("read = %v, want %v", err, want)
+				}
+			})
+		})
 	}
 }
 
-// TestRecordingCancelDuringStop verifies that cancellation during Stop is honored.
 func TestRecordingCancelDuringStop(t *testing.T) {
-	process := &fakeProcess{
-		out:      &blockingReader{closed: make(chan struct{})},
-		in:       bytes.NewBuffer(nil),
-		stopChan: make(chan struct{}),
-	}
-	driver := New(Config{Recorder: "wf-recorder",
-		Start: func(ctx context.Context, name string, arguments ...string) (Process, error) {
-			return process, nil
-		}})
-	recording, err := driver.Record(context.Background(), media.RecordingOptions{Format: "webm", FrameRate: 30, MaxDuration: time.Hour, MaxBytes: 1 << 30})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// Start Stop in a goroutine, then cancel its context while it waits.
-	stopErr := make(chan error, 1)
-	go func() {
+	synctest.Test(t, func(t *testing.T) {
+		p := &fakeProcess{out: &blockingReader{closed: make(chan struct{})}, stopChan: make(chan struct{}), signalled: make(chan struct{})}
+		r := testRecording(p)
 		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		result := make(chan error, 1)
+		go func() { result <- r.Stop(ctx) }()
+		<-p.signalled // Shutdown has started and the child has not exited.
 		cancel()
-		stopErr <- recording.Stop(ctx)
-	}()
-
-	select {
-	case err := <-stopErr:
-		if !errors.Is(err, context.Canceled) {
-			t.Fatalf("stop during cancellation = %v, want context.Canceled", err)
+		if err := <-result; !errors.Is(err, context.Canceled) {
+			t.Fatalf("cancelled wait = %v", err)
 		}
-	case <-time.After(5 * time.Second):
-		t.Fatal("stop during cancellation did not complete")
+		// Cancellation of this wait does not replace the normal terminal state.
+		if err := r.Close(); err != nil {
+			t.Fatalf("cleanup = %v", err)
+		}
+		select {
+		case <-p.Done():
+		default:
+			t.Fatal("cleanup returned before the child was reaped")
+		}
+	})
+}
+
+func TestRecordingShutdownNeverExits(t *testing.T) {
+	for _, killErr := range []error{nil, errors.New("kill denied")} {
+		t.Run(fmt.Sprint(killErr), func(t *testing.T) {
+			synctest.Test(t, func(t *testing.T) {
+				p := &fakeProcess{out: &blockingReader{closed: make(chan struct{})}, stopChan: make(chan struct{}), noExit: true, killErr: killErr}
+				r := testRecording(p)
+				start := time.Now()
+				err := r.Stop(context.Background())
+				if !errors.Is(err, ErrRecordingShutdown) || (killErr != nil && !errors.Is(err, killErr)) {
+					t.Fatalf("shutdown = %v", err)
+				}
+				if elapsed := time.Since(start); elapsed != 2*r.shutdownTimeout {
+					t.Fatalf("shutdown took %v", elapsed)
+				}
+				if again := r.Close(); !errors.Is(again, ErrRecordingShutdown) {
+					t.Fatalf("repeat shutdown = %v", again)
+				}
+				// Leave Done open: synctest rejects any abandoned goroutine
+				// waiting on it when this bubble finishes.
+			})
+		})
 	}
 }
 
-// TestRecordingConcurrentStopClose verifies that concurrent Stop and Close
-// calls are idempotent and return consistent results.
+func TestRecordingSignalFailureForcesKill(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		p := &fakeProcess{
+			out: bytes.NewBuffer(nil), stopChan: make(chan struct{}),
+			signalErr: errors.New("interrupt unsupported"),
+		}
+		r := testRecording(p)
+		start := time.Now()
+		if err := r.Stop(context.Background()); err != nil {
+			t.Fatal(err)
+		}
+		if time.Since(start) != 0 {
+			t.Fatal("waited for grace after interrupt failed")
+		}
+		select {
+		case <-p.Done():
+		default:
+			t.Fatal("child was not killed and reaped")
+		}
+	})
+}
+
 func TestRecordingConcurrentStopClose(t *testing.T) {
-	process := &fakeProcess{out: bytes.NewBuffer(nil), in: bytes.NewBuffer(nil)}
-	driver := New(Config{Recorder: "wf-recorder",
-		Start: func(ctx context.Context, name string, arguments ...string) (Process, error) {
-			return process, nil
-		}})
-	recording, err := driver.Record(context.Background(), media.RecordingOptions{Format: "webm", FrameRate: 30, MaxDuration: time.Minute, MaxBytes: 1 << 30})
+	synctest.Test(t, func(t *testing.T) {
+		r := testRecording(&fakeProcess{out: bytes.NewBuffer(nil)})
+		results := make(chan error, 10)
+		for i := 0; i < 5; i++ {
+			go func() { results <- r.Stop(context.Background()) }()
+			go func() { results <- r.Close() }()
+		}
+		for i := 0; i < 10; i++ {
+			if err := <-results; err != nil {
+				t.Fatalf("concurrent stop/close = %v", err)
+			}
+		}
+	})
+}
+
+func testRecording(p Process) *recording {
+	return &recording{
+		process: p, output: p.Stdout(), maxBytes: 1024,
+		maxDuration: time.Hour, started: time.Now(),
+		done: make(chan struct{}), shutdownTimeout: 2 * time.Second,
+	}
+}
+
+type lateReader struct{ blockingReader }
+
+func (r *lateReader) Read(p []byte) (int, error) {
+	<-r.closed
+	return copy(p, "late frames"), nil
+}
+
+func TestNativeProcessCompletion(t *testing.T) {
+	executable, err := os.Executable()
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	// Launch concurrent Stop and Close calls.
-	done := make(chan struct{})
-	go func() {
-		defer close(done)
-		for i := 0; i < 5; i++ {
-			recording.Stop(context.Background())
-		}
-	}()
-	for i := 0; i < 5; i++ {
-		recording.Close()
+	for _, mode := range []string{"output", "cancel"} {
+		t.Run(mode, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			p, err := startProcess(ctx, executable, "-test.run=^TestWaylandProcessHelper$", "--", "wayland-helper", mode)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer p.Stdout().Close()
+			if mode == "cancel" {
+				buf := make([]byte, len("ready"))
+				if _, err := io.ReadFull(p.Stdout(), buf); err != nil {
+					t.Fatal(err)
+				}
+				cancel()
+			}
+			if !waitProcess(p.Done(), 10*time.Second) {
+				t.Fatal("child was not reaped")
+			}
+			if mode == "output" {
+				output, err := io.ReadAll(p.Stdout())
+				if err != nil || string(output) != "frames" {
+					t.Fatalf("buffered output after exit = %q, %v", output, err)
+				}
+			}
+		})
 	}
-	<-done
+}
 
-	// All calls should have returned without error (or with a consistent error).
-	// Since the process stops gracefully and quickly, no error is expected.
-	if err := recording.Stop(context.Background()); err != nil {
-		t.Fatalf("final stop after concurrent calls = %v", err)
+func TestWaylandProcessHelper(t *testing.T) {
+	args := os.Args
+	if len(args) < 3 || args[len(args)-2] != "wayland-helper" {
+		return
 	}
-	if err := recording.Close(); err != nil {
-		t.Fatalf("final close after concurrent calls = %v", err)
+	if args[len(args)-1] == "output" {
+		_, _ = os.Stdout.WriteString("frames")
+		os.Exit(0)
+	}
+	_, _ = os.Stdout.WriteString("ready")
+	for {
+		time.Sleep(time.Hour)
 	}
 }
 
@@ -613,9 +684,13 @@ func TestYdotoolDragReleasesTheButtonOnFailure(t *testing.T) {
 }
 
 type fakeProcess struct {
-	out      io.Reader
-	in       *bytes.Buffer
-	stopChan chan struct{}
+	out       io.Reader
+	in        *bytes.Buffer
+	stopChan  chan struct{}
+	signalled chan struct{}
+	noExit    bool
+	killErr   error
+	signalErr error
 }
 
 func (f *fakeProcess) Stdout() io.ReadCloser {
@@ -625,21 +700,31 @@ func (f *fakeProcess) Stdout() io.ReadCloser {
 	return io.NopCloser(f.out)
 }
 func (f *fakeProcess) Stdin() io.WriteCloser { return nopWriteCloser{Writer: f.in} }
-func (f *fakeProcess) Wait() error {
-	// Block until Kill is called, so the graceful shutdown path times out and
-	// actually invokes Kill.
+
+var exitedProcess = func() <-chan struct{} {
+	done := make(chan struct{})
+	close(done)
+	return done
+}()
+
+func (f *fakeProcess) Done() <-chan struct{} {
 	if f.stopChan != nil {
-		<-f.stopChan
+		return f.stopChan
 	}
-	return nil
+	return exitedProcess
 }
 func (f *fakeProcess) Kill() error {
-	if f.stopChan != nil {
+	if f.stopChan != nil && !f.noExit {
 		close(f.stopChan)
 	}
-	return nil
+	return f.killErr
 }
-func (f *fakeProcess) Signal(os.Signal) error { return nil }
+func (f *fakeProcess) Signal(os.Signal) error {
+	if f.signalled != nil {
+		close(f.signalled)
+	}
+	return f.signalErr
+}
 
 type nopWriteCloser struct{ io.Writer }
 

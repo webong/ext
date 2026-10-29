@@ -11,6 +11,7 @@ package wayland
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"image/png"
 	"io"
@@ -229,12 +230,13 @@ func (d *Driver) Record(ctx context.Context, options media.RecordingOptions) (me
 		return nil, fmt.Errorf("%w: %s failed to start: %v", system.ErrDesktopUnavailable, d.recorder, err)
 	}
 	r := &recording{
-		process:     process,
-		output:      process.Stdout(),
-		maxBytes:    options.MaxBytes,
-		maxDuration: options.MaxDuration,
-		started:     time.Now(),
-		done:        make(chan struct{}),
+		process:         process,
+		output:          process.Stdout(),
+		maxBytes:        options.MaxBytes,
+		maxDuration:     options.MaxDuration,
+		started:         time.Now(),
+		done:            make(chan struct{}),
+		shutdownTimeout: 2 * time.Second,
 	}
 	// A blocked read can exceed MaxDuration, so start a watchdog that actively
 	// stops the recorder when the duration bound is crossed. The watchdog
@@ -251,8 +253,10 @@ type recording struct {
 	started     time.Time
 	bytesRead   int64
 
-	state   recordingState
-	terminalErr error
+	state           recordingState
+	terminalErr     error
+	shutdownErr     error
+	shutdownTimeout time.Duration
 
 	done         chan struct{}
 	shutdownOnce sync.Once
@@ -306,30 +310,36 @@ func (r *recording) markTerminal(err error) error {
 func (r *recording) shutdown() {
 	r.shutdownOnce.Do(func() {
 		defer close(r.done)
-		// Graceful: ask the recorder to finish writing its trailer.
-		if sigErr := r.process.Signal(os.Interrupt); sigErr == nil {
-			done := make(chan error, 1)
-			go func() { done <- r.process.Wait() }()
-			select {
-			case <-done:
-			case <-time.After(2 * time.Second):
-				_ = r.process.Kill()
-				select {
-				case <-done:
-				case <-time.After(2 * time.Second):
-				}
-			}
-		} else {
-			_ = r.process.Kill()
-			done := make(chan error, 1)
-			go func() { done <- r.process.Wait() }()
-			select {
-			case <-done:
-			case <-time.After(2 * time.Second):
-			}
-		}
+		// Terminal reads cannot deliver more data. Close the pipe now to
+		// release a blocked Read even if the child never acknowledges exit.
 		_ = r.output.Close()
+		done := r.process.Done()
+		if r.process.Signal(os.Interrupt) == nil && waitProcess(done, r.shutdownTimeout) {
+			return
+		}
+		killErr := r.process.Kill()
+		if waitProcess(done, r.shutdownTimeout) {
+			return // A concurrent exit can make Kill report os.ErrProcessDone.
+		}
+		r.mu.Lock()
+		r.shutdownErr = errors.Join(ErrRecordingShutdown, killErr)
+		r.mu.Unlock()
 	})
+}
+
+// ErrRecordingShutdown means the recorder did not confirm exit within the
+// bounded shutdown interval. It may still be running if the native kill failed.
+var ErrRecordingShutdown = errors.New("wayland recorder did not exit after shutdown")
+
+func waitProcess(done <-chan struct{}, timeout time.Duration) bool {
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
+	select {
+	case <-done:
+		return true
+	case <-timer.C:
+		return false
+	}
 }
 
 // Read reads up to len(p) bytes of encoded output, never exceeding the
@@ -405,7 +415,9 @@ func (r *recording) Close() error { return r.Stop(context.Background()) }
 // forced kill if it does not exit. It is safe to call after an error and after
 // Close; repeated calls return the same result. If a limit was already
 // reached, that limit error is returned rather than the child's exit status
-// from the deliberate stop. Cancellation that occurs while waiting is honored.
+// from the deliberate stop. An unconfirmed exit also returns
+// ErrRecordingShutdown. Cancellation while waiting releases that caller; it
+// does not replace the terminal state or stop background cleanup.
 func (r *recording) Stop(ctx context.Context) error {
 	err := r.markTerminal(ctx.Err())
 	select {
@@ -413,12 +425,19 @@ func (r *recording) Stop(ctx context.Context) error {
 	case <-ctx.Done():
 		return ctx.Err()
 	}
-	return err
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return errors.Join(err, r.shutdownErr)
 }
 
+// Process exposes nonblocking observation of child exit. Done must return a
+// stable, non-nil channel that closes after the child is reaped. The starter
+// owns reaping; the recording never launches a waiter for an injected process.
+// Signal, Kill and the stdout reader's Close must return promptly; Close must
+// unblock Read. A shutdown timeout reports failure, not confirmed process exit.
 type Process interface {
 	Stdout() io.ReadCloser
-	Wait() error
+	Done() <-chan struct{}
 	Kill() error
 	Signal(os.Signal) error
 }
@@ -427,23 +446,35 @@ type Starter func(context.Context, string, ...string) (Process, error)
 
 func startProcess(ctx context.Context, name string, arguments ...string) (Process, error) {
 	command := exec.CommandContext(ctx, name, arguments...)
-	stdout, err := command.StdoutPipe()
+	// Own the read end so the reaper cannot close it before buffered output
+	// has been consumed, as Cmd.Wait would do with Cmd.StdoutPipe.
+	stdout, writer, err := os.Pipe()
 	if err != nil {
 		return nil, err
 	}
+	command.Stdout = writer
 	if err = command.Start(); err != nil {
+		_ = writer.Close()
+		_ = stdout.Close()
 		return nil, err
 	}
-	return &execProcess{command: command, stdout: stdout}, nil
+	_ = writer.Close()
+	p := &execProcess{command: command, stdout: stdout, done: make(chan struct{})}
+	go func() {
+		_ = command.Wait()
+		close(p.done)
+	}()
+	return p, nil
 }
 
 type execProcess struct {
 	command *exec.Cmd
 	stdout  io.ReadCloser
+	done    chan struct{}
 }
 
 func (p *execProcess) Stdout() io.ReadCloser { return p.stdout }
-func (p *execProcess) Wait() error           { return p.command.Wait() }
+func (p *execProcess) Done() <-chan struct{} { return p.done }
 func (p *execProcess) Kill() error {
 	if p.command.Process == nil {
 		return nil

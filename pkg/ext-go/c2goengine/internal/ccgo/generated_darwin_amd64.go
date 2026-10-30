@@ -1,5 +1,5 @@
 // Code generated for darwin/amd64 by 'ccgo -o engine.go --package-name ccgo -I csrc/shim -I csrc/src -I csrc/vendor -I csrc/include -DEXT_HOST_STATIC -DEXT_HOST_BUILD -Dyyjson_align(x)= -Dyyjson_inline= -Dyyjson_noinline= -U__SIZEOF_INT128__ -include csrc/shim/compat_core.h -include csrc/shim/compat.h csrc/src/common.c csrc/src/wire.c csrc/src/progress.c csrc/src/reverse.c csrc/src/endpoint.c csrc/src/services.c csrc/src/guest.c csrc/src/sha256.c csrc/src/packages.c csrc/vendor/yyjson.c csrc/src/host.c csrc/src/fs_posix.c csrc/src/random_posix.c csrc/src/integrity.c csrc/src/instances.c csrc/src/streams.c csrc/shim/channel_go.c csrc/shim/missing.c', DO NOT EDIT.
-// c2goengine inputs sha256:2d211141de1ddc87be613642dc03b55fca074b70f547caffbb77ca89d5b7100f
+// c2goengine inputs sha256:83851f552f2731616cb9de954fac6b2f27a83e9a514e0bfabb7dec2665386bbc
 
 //go:build darwin && amd64
 
@@ -652,8 +652,8 @@ const __DRIVERKIT_24_1 = 240100
 const __DRIVERKIT_24_2 = 240200
 const __DYNAMIC__ = 1
 const __ENABLE_LEGACY_MAC_AVAILABILITY = 1
-const __ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__ = 120000
-const __ENVIRONMENT_OS_VERSION_MIN_REQUIRED__ = 120000
+const __ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__ = 150000
+const __ENVIRONMENT_OS_VERSION_MIN_REQUIRED__ = 150000
 const __FINITE_MATH_ONLY__ = 0
 const __FLT16_DECIMAL_DIG__ = 5
 const __FLT16_DENORM_MIN__ = 5.9604644775390625e-8

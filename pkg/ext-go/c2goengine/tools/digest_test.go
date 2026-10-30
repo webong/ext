@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -70,17 +71,38 @@ func TestDigestIgnoresCommentsAndDocs(t *testing.T) {
 	if got := digestOf(t, same); got != want {
 		t.Errorf("comment and doc edits changed the digest: %s != %s", got, want)
 	}
+	// A source the translator is not given is not one of its inputs: the store and trust code is
+	// built into the C engine and never translated.
+	untranslated := map[string]string{"src/a.c": base["src/a.c"], "src/a.h": base["src/a.h"], "src/store.c": "int s;\n"}
+	if got := digestOf(t, untranslated); got != want {
+		t.Errorf("a source that is not listed changed the digest: %s != %s", got, want)
+	}
 	for name, changed := range map[string]map[string]string{
 		"code":                        {"src/a.c": "#include \"a.h\"\nint f(void) { return 2; }\n", "src/a.h": base["src/a.h"]},
 		"header":                      {"src/a.c": base["src/a.c"], "src/a.h": "int f(int);\n"},
 		"string":                      {"src/a.c": "#include \"a.h\"\nconst char *u = \"//x\";\nint f(void) { return 1; }\n", "src/a.h": base["src/a.h"]},
-		"another source":              {"src/a.c": base["src/a.c"], "src/a.h": base["src/a.h"], "src/b.c": "int g;\n"},
+		"another header":              {"src/a.c": base["src/a.c"], "src/a.h": base["src/a.h"], "src/b.h": "int g;\n"},
 		"preprocessor":                {"src/a.c": "#include \"a.h\"\n#define N 2\nint f(void) { return 1; }\n", "src/a.h": base["src/a.h"]},
 		"code swallowed by a comment": {"src/a.c": "#include \"a.h\"\nint f(void) { /* return 1; }\n", "src/a.h": base["src/a.h"]},
 	} {
 		if got := digestOf(t, changed); got == want {
 			t.Errorf("a %s edit did not change the digest", name)
 		}
+	}
+}
+
+// A listed source that is not in the copied tree is an error, not a smaller digest: the generator
+// would otherwise name inputs it did not read.
+func TestDigestNeedsEveryListedSource(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, "src"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "src", "a.c"), []byte("int a;\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := inputsDigest(dir, []string{"src/a.c", "src/gone.c"}); err == nil || !strings.Contains(err.Error(), "src/gone.c") {
+		t.Fatalf("inputsDigest with a missing listed source = %v, want an error naming src/gone.c", err)
 	}
 }
 

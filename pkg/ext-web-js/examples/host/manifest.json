@@ -1,0 +1,8 @@
+{
+  "manifest_version": 3,
+  "name": "Ext Peer Host Example",
+  "version": "0.1.0",
+  "permissions": ["storage"],
+  "background": { "service_worker": "background.mjs", "type": "module" },
+  "action": { "default_popup": "popup.html" }
+}

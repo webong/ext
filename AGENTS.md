@@ -26,11 +26,22 @@ and Chrome integration belongs in their adapters, while the WKWebView and
 Android WebView implementations of the public `res/web` workspace API belong in
 `res/web/ios` and `res/web/android`.
 
+The same distinction applies to `pkg/ext-web-js`, the standalone browser
+extension peer library. Its extension-embedded runtime messaging, ports, sender
+context, discovery interfaces, lifecycle, and `chrome`/`browser` compatibility
+implement its public host/guest API and belong inside `pkg/ext-web-js`. Builders do
+not need CTX adapters or the plugin engine. External browser installation,
+profile discovery, signing, and management remain adapter-owned. See
+[the ext-web-js plan](docs/ext-web-js-plan.md).
+
 # Public libraries
 
 `pkg/` is the home for reusable libraries. CTX adapters and other
 ecosystem consumers build on them; `internal/` stays private to CTX and
 must not be imported by consumers.
+`pkg/ext-web-js` is the standalone JavaScript/TypeScript package
+for browser extension host/guest peers. Its independently buildable host and
+guest examples live inside that package.
 
 The repository root is only the workspace: it holds `go.work` and no Go module or
 package. Binary releases use product tags, `ctx-vX.Y.Z` and `ctn-vX.Y.Z`; those are not Go

@@ -1245,6 +1245,176 @@ static napi_value lease_info(napi_env env, napi_callback_info info) {
   napi_set_named_property(env, out, "id", id);
   return out;
 }
+/* The package store (ext_store_*). A store is an external; its calls run on libuv
+ * workers, since they read and write files, and resolve with the installed
+ * manifest or the id list as a string. A job holds a reference to the store's
+ * external, so the store cannot be collected while one runs; closing a store
+ * with jobs outstanding lets the last of them close it. */
+static const napi_type_tag store_tag = {0x5b1d9e3a07c24f86ULL,
+                                        0xa3f60d82e91b7c45ULL};
+typedef struct {
+  ext_store *store;
+  size_t jobs;
+  int closing, finalized;
+} store_box;
+typedef struct {
+  napi_async_work work;
+  napi_deferred deferred;
+  napi_ref owner;
+  store_box *box;
+  char *operation, *argument;
+  uint32_t flags;
+  ext_buffer output;
+  ext_status status;
+} store_job;
+static void settle_store(store_box *box) {
+  if (box->jobs)
+    return;
+  if ((box->closing || box->finalized) && box->store) {
+    ext_store_close(box->store);
+    box->store = NULL;
+  }
+  if (box->finalized)
+    free(box);
+}
+static void destroy_store_external(napi_env env, void *data, void *hint) {
+  (void)env;
+  (void)hint;
+  store_box *box = data;
+  box->finalized = 1;
+  settle_store(box);
+}
+static napi_value open_store(napi_env env, napi_callback_info info) {
+  size_t count = 4, rn = 0;
+  napi_value args[4], out;
+  int64_t artifact = 0, tree_bytes = 0;
+  uint32_t tree_files = 0;
+  if (napi_get_cb_info(env, info, &count, args, NULL, NULL) != napi_ok ||
+      count != 4)
+    return failure(env, "invalid store arguments");
+  char *root = string(env, args[0], &rn);
+  if (!root || strlen(root) != rn || !rn ||
+      napi_get_value_int64(env, args[1], &artifact) != napi_ok || artifact < 0 ||
+      napi_get_value_uint32(env, args[2], &tree_files) != napi_ok ||
+      napi_get_value_int64(env, args[3], &tree_bytes) != napi_ok ||
+      tree_bytes < 0) {
+    free(root);
+    return failure(env, "invalid store arguments");
+  }
+  store_box *box = calloc(1, sizeof(*box));
+  ext_store_limits limits = {(uint64_t)artifact, tree_files,
+                             (uint64_t)tree_bytes};
+  ext_status status = box ? ext_store_open(root, &limits, &box->store) : EXT_NOMEM;
+  free(root);
+  if (status) {
+    free(box);
+    return failure_status(env, status);
+  }
+  if (napi_create_external(env, box, destroy_store_external, NULL, &out) !=
+      napi_ok) {
+    ext_store_close(box->store);
+    free(box);
+    return failure(env, "allocation failed");
+  }
+  /* The external owns the box from here on. */
+  if (napi_type_tag_object(env, out, &store_tag) != napi_ok)
+    return failure(env, "allocation failed");
+  return out;
+}
+static void store_execute(napi_env env, void *data) {
+  (void)env;
+  store_job *j = data;
+  ext_store *s = j->box->store;
+  if (!strcmp(j->operation, "install"))
+    j->status = ext_store_install(s, j->argument, j->flags, &j->output);
+  else if (!strcmp(j->operation, "upgrade"))
+    j->status = ext_store_upgrade(s, j->argument, j->flags, &j->output);
+  else if (!strcmp(j->operation, "replace"))
+    j->status = ext_store_replace(s, j->argument, j->flags, &j->output);
+  else if (!strcmp(j->operation, "remove"))
+    j->status = ext_store_remove(s, j->argument);
+  else if (!strcmp(j->operation, "load"))
+    j->status = ext_store_load(s, j->argument, &j->output);
+  else if (!strcmp(j->operation, "ids"))
+    j->status = ext_store_ids(s, &j->output);
+  else
+    j->status = EXT_INVALID;
+}
+static void free_store_job(napi_env env, store_job *j) {
+  if (j->owner)
+    napi_delete_reference(env, j->owner);
+  if (j->work)
+    napi_delete_async_work(env, j->work);
+  free(j->operation);
+  free(j->argument);
+  ext_buffer_free(&j->output);
+  free(j);
+}
+static void store_complete(napi_env env, napi_status code, void *data) {
+  store_job *j = data;
+  store_box *box = j->box;
+  napi_value value;
+  if (code != napi_ok && !j->status)
+    j->status = EXT_IO;
+  if (j->status) {
+    napi_value message, status;
+    napi_create_string_utf8(env, ext_host_status_string(j->status),
+                            NAPI_AUTO_LENGTH, &message);
+    napi_create_error(env, NULL, message, &value);
+    napi_create_int32(env, j->status, &status);
+    napi_set_named_property(env, value, "status", status);
+    napi_reject_deferred(env, j->deferred, value);
+  } else {
+    napi_create_string_utf8(env,
+                            j->output.data ? (char *)j->output.data : "null",
+                            j->output.data ? j->output.len : 4, &value);
+    napi_resolve_deferred(env, j->deferred, value);
+  }
+  free_store_job(env, j);
+  box->jobs--;
+  settle_store(box);
+}
+static napi_value store_request(napi_env env, napi_callback_info info) {
+  size_t count = 4, on = 0, an = 0;
+  napi_value args[4], promise, name;
+  if (napi_get_cb_info(env, info, &count, args, NULL, NULL) != napi_ok ||
+      count != 4)
+    return failure(env, "invalid store call");
+  store_job *j = calloc(1, sizeof(*j));
+  if (!j)
+    return failure(env, "allocation failed");
+  if (!external(env, args[0], &store_tag, (void **)&j->box) ||
+      !j->box->store || j->box->closing ||
+      !(j->operation = string(env, args[1], &on)) ||
+      strlen(j->operation) != on ||
+      !(j->argument = string(env, args[2], &an)) || strlen(j->argument) != an ||
+      napi_get_value_uint32(env, args[3], &j->flags) != napi_ok)
+    goto invalid;
+  if (napi_create_reference(env, args[0], 1, &j->owner) != napi_ok ||
+      napi_create_promise(env, &j->deferred, &promise) != napi_ok)
+    goto invalid;
+  napi_create_string_utf8(env, "ext-engine-store", NAPI_AUTO_LENGTH, &name);
+  if (napi_create_async_work(env, NULL, name, store_execute, store_complete, j,
+                             &j->work) != napi_ok ||
+      napi_queue_async_work(env, j->work) != napi_ok)
+    goto invalid;
+  j->box->jobs++;
+  return promise;
+invalid:
+  free_store_job(env, j);
+  return failure(env, "invalid store call or allocation failure");
+}
+static napi_value close_store(napi_env env, napi_callback_info info) {
+  size_t count = 1;
+  napi_value arg;
+  store_box *box = NULL;
+  if (napi_get_cb_info(env, info, &count, &arg, NULL, NULL) != napi_ok ||
+      count != 1 || !external(env, arg, &store_tag, (void **)&box))
+    return failure(env, "invalid store");
+  box->closing = 1;
+  settle_store(box);
+  return undefined(env);
+}
 static napi_value init(napi_env env, napi_value exports) {
   const napi_property_descriptor properties[] = {
       {"createHost", NULL, create_host, NULL, NULL, NULL, napi_default, NULL},
@@ -1261,7 +1431,11 @@ static napi_value init(napi_env env, napi_value exports) {
        NULL},
       {"managerRequest", NULL, manager_request, NULL, NULL, NULL, napi_default,
        NULL},
-      {"leaseInfo", NULL, lease_info, NULL, NULL, NULL, napi_default, NULL}};
+      {"leaseInfo", NULL, lease_info, NULL, NULL, NULL, napi_default, NULL},
+      {"openStore", NULL, open_store, NULL, NULL, NULL, napi_default, NULL},
+      {"storeRequest", NULL, store_request, NULL, NULL, NULL, napi_default,
+       NULL},
+      {"closeStore", NULL, close_store, NULL, NULL, NULL, napi_default, NULL}};
   napi_define_properties(
       env, exports, sizeof(properties) / sizeof(properties[0]), properties);
   return exports;

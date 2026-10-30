@@ -17,7 +17,7 @@ export interface ReverseOptions {
  /** Milliseconds; zero or absent uses 30000. */
  timeout?: number; maxPayloadBytes?: number; maxInFlight?: number;
 }
-export const status: Readonly<{ INVALID: 1; DENIED: 2; PROTOCOL: 16; EXPIRED: 17 }>;
+export const status: Readonly<{ INVALID: 1; DENIED: 2; MISMATCH: 3; NOT_FOUND: 10; PROTOCOL: 16; EXPIRED: 17; EXISTS: 18 }>;
 export interface CallbackContext { timeout: number; signal: AbortSignal }
 export interface GuestReply { payload?: unknown; error?: { code: string; message: string; retryAfterMilliseconds?: number } }
 export interface HostOptions {
@@ -64,11 +64,39 @@ export interface Streams {
  remove(scope: string, id: string): Promise<void>;
  close(options?: CallOptions): Promise<void>;
 }
+/** Bounds on a package store; zero or absent takes the default (4 GiB, 250000 files, 16 GiB). */
+export interface PackageStoreLimits { maxArtifactBytes?: number; maxTreeFiles?: number; maxTreeBytes?: number }
+export interface PackageStoreCopyOptions {
+ /** Keep the execute bit of a file artifact that has one in the source. Entrypoints and executable files in trees always keep it. */
+ preserveExecutable?: boolean;
+}
+/**
+ * The engine's package store. Every call rejects with an Error whose `status` is INVALID (a package, id or
+ * directory that is not valid, or an artifact over a limit), MISMATCH (a digest that differs, or an upgrade
+ * that changes the id or contracts), EXISTS (an install over an installed id) or NOT_FOUND. A missing root is
+ * an empty store, made by the first install. Calls on one store are serialized; several processes mutating one
+ * root are the caller's to serialize.
+ */
+export interface PackageStore {
+ /** Copies the package in the directory `source`, never over an installed id; resolves with the installed plugin.json, as the source had it. */
+ install(source: string, options?: PackageStoreCopyOptions): Promise<string>;
+ /** Replaces an installed package with a new revision of the same id and contracts. */
+ upgrade(source: string, options?: PackageStoreCopyOptions): Promise<string>;
+ /** Installs or replaces the package of the source's id, whatever its contracts. */
+ replace(source: string, options?: PackageStoreCopyOptions): Promise<string>;
+ remove(id: string): Promise<void>;
+ /** Reads and verifies one installed package; resolves with its plugin.json. */
+ load(id: string): Promise<string>;
+ /** The installed ids in byte order, without reading any package. */
+ ids(): Promise<string[]>;
+ close(): void;
+}
 export function loadEngine(addonPath: string): {
  Host: { new(options: HostOptions): Host; open(options: HostOptions, callOptions?: CallOptions): Promise<Host> };
  Guest: { new(options: GuestOptions): Guest };
  Instances: { new<T>(options: InstanceOptions<T>): Instances<T> };
  Streams: { new(options: StreamOptions): Streams };
+ PackageStore: { new(root: string, limits?: PackageStoreLimits): PackageStore };
  service(operation: string, input: unknown): unknown;
  /** Each throws an Error whose `status` is INVALID, DENIED or EXPIRED when the endpoint is not admitted. */
  endpoint: { check(endpoint: unknown): void; validate(endpoint: unknown, policy?: { schemes?: string[]; maxLifetimeMilliseconds?: number; now?: string }): void };

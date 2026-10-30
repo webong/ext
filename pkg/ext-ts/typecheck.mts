@@ -17,6 +17,15 @@ await nativeHost.call({name:'example.echo',version:'v1'},'echo',{value:'ok'},{ti
 await engine.directoryDigest('/absolute/path/package');
 await engine.verifyArtifacts({},'/absolute/path/package');
 nativeHost.close();
+const packageStore=new engine.PackageStore('/absolute/path/store',{maxArtifactBytes:1<<20,maxTreeFiles:100});
+const installed:string=await packageStore.install('/absolute/path/package',{preserveExecutable:true});
+await packageStore.upgrade('/absolute/path/package');
+await packageStore.replace('/absolute/path/package');
+const stored:string=await packageStore.load('example/a');
+const installedIds:string[]=await packageStore.ids();
+await packageStore.remove('example/a');
+packageStore.close();
+void installed;void stored;void installedIds;
 
 import { FrameError, Limiter, splitProgressText, type CallFrames } from './index.mjs';
 const withFrames = new Registry({id:'example/frames',revision:'r1'})

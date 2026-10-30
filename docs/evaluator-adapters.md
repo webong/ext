@@ -35,7 +35,7 @@ capabilities = "list,observe,validate,run,doctor"
 
 An evaluator provides the `evaluator` engine, plays the `virtualizer` role and any
 other roles that describe what it does with code (`interpreter`, `compiler`,
-`transpiler`, `bundler`), and supports exactly one kind (`jvm`, `wasm`, `evm`, `php`).
+`transpiler`, `bundler`, `renderer`), and supports exactly one kind (`jvm`, `wasm`, `evm`, `php`).
 With `ctx graph resolve all --engine evaluator` a tool finds every evaluator,
 `--role virtualizer` finds every virtualizer of any engine, and `--supports <kind>`
 narrows to one. A built-in evaluator has no native executable

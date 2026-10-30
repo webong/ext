@@ -54,10 +54,15 @@ OrbStack and Podman Machine provide an emulator (the VM) and an executor (the co
 in it).
 
 **Roles** say what a program is or does: `virtualizer`, `interpreter`, `compiler`,
-`transpiler` and probably `bundler`. `virtualizer` is the role of every program that
+`transpiler`, `bundler` and `renderer`. `virtualizer` is the role of every program that
 provides an engine, so `--role virtualizer` lists all of them and `--engine` narrows
 the list. The other roles have no boundary: `javac` is a compiler and provides no
 engine, while PHP is a virtualizer, an interpreter and provides the evaluator engine.
+
+A web engine (WebKit, Blink, Gecko) is an executor whose role is `renderer`: it runs web
+content on the host's kernel and draws it. The `--engine` value is the boundary
+(`executor`) and the product is a program, so `ctx graph resolve webview` keeps its own
+`--engine webkit` flag for choosing among web engines.
 
 Examples:
 
@@ -183,7 +188,7 @@ visible.
 Decided in the spike:
 
 - Two axes, each its own manifest field: `engine` (`evaluator`, `executor`, `emulator`)
-  and `role` (`virtualizer`, `interpreter`, `compiler`, `transpiler`, `bundler`,
+  and `role` (`virtualizer`, `interpreter`, `compiler`, `transpiler`, `bundler`, `renderer`,
   `installer`). Both are multi-valued, and `supports` keeps only resource kinds.
   `ctx graph resolve` filters with `--engine` and `--role`. The word
   "level" and the earlier meaning of `engine`, an adapter that ran programs, are gone,

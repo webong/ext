@@ -236,7 +236,7 @@ plays. An engine virtualizes some boundary, and its type names the boundary: an
 runtime, an EVM, PHP), an **executor** (the operating system, with a shared kernel:
 Docker) or an **emulator** (a whole system: QEMU, VMware ESXi). A role says what the
 program does: `virtualizer` (it provides an engine), `interpreter`, `compiler`,
-`transpiler`, `bundler` or `installer`. They are separate manifest fields, each a list:
+`transpiler`, `bundler`, `renderer` or `installer`. They are separate manifest fields, each a list:
 `engine` and `role`, while `supports` keeps the resource kinds. For example the `jvm`
 adapter declares `engine = ["evaluator"]`, `role = ["virtualizer", "compiler"]` and
 `supports = ["jvm"]`, so `ctx graph resolve all --role virtualizer` lists every

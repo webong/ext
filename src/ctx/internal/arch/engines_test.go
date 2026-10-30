@@ -79,7 +79,7 @@ func splitList(value string) []string {
 // defines the vocabulary, which core does not enumerate.
 var (
 	engineNames = map[string]bool{"evaluator": true, "executor": true, "emulator": true}
-	roleNames   = map[string]bool{"virtualizer": true, "interpreter": true, "compiler": true, "transpiler": true, "bundler": true, "installer": true}
+	roleNames   = map[string]bool{"virtualizer": true, "interpreter": true, "compiler": true, "transpiler": true, "bundler": true, "renderer": true, "installer": true}
 )
 
 // TestEngineAndRoleFields checks that every shipped adapter uses known values in

@@ -1,9 +1,10 @@
 name: Plugin SDK
 
+# Runs on pushes to main and on demand (gh workflow run plugin-sdk.yml --ref <branch>). Branches and
+# pull requests do not start it, to save runner time.
 on:
   push:
     branches: [main]
-  pull_request:
   workflow_dispatch:
 
 permissions:

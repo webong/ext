@@ -4,15 +4,11 @@ name: c2goengine
 # platform it runs on, so every platform generates its own file here. A platform whose translation is
 # checked in must find the inputs digest unchanged (a stale translation fails the job); one without is
 # a probe: it generates, tests the result and uploads it, so it can be committed. A probe never blocks.
+# Runs on pushes to main and on demand (gh workflow run c2goengine.yml --ref <branch>). Branches and
+# pull requests do not start it, to save runner time.
 on:
   push:
-    branches: [main, 'engine/**']
-    paths:
-      - 'lib/plugin/**'
-      - 'pkg/ext-go/c2goengine/**'
-      - 'pkg/ext-go/engine/plugintest/enginetest/**'
-      - '.github/workflows/c2goengine.yml'
-  pull_request:
+    branches: [main]
     paths:
       - 'lib/plugin/**'
       - 'pkg/ext-go/c2goengine/**'

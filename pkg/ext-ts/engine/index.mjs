@@ -46,7 +46,7 @@ const natural=(value,name)=>{
   return value;
 };
 /** The statuses the engine reports in the `status` of a rejection. */
-export const status=Object.freeze({INVALID:1,DENIED:2,PROTOCOL:16,EXPIRED:17});
+export const status=Object.freeze({INVALID:1,DENIED:2,MISMATCH:3,NOT_FOUND:10,PROTOCOL:16,EXPIRED:17,EXISTS:18});
 /** Load a caller-selected addon built from this package and the C engine. */
 export function loadEngine(addonPath){
  const native=require(addonPath);
@@ -184,6 +184,33 @@ export function loadEngine(addonPath){
    }
    close(){if(!this.#closed){this.#closed=true;native.closeHost(this.#handle);this.#handle=null;}}
  }
+ // The package store of the C engine: install, upgrade, replace, remove and load reviewed
+ // packages under a root, as pkg/ext-go/engine/host/store does. A call settles with the
+ // installed plugin.json as text, or rejects with the engine's status.
+ const size=(value,name)=>{
+   if(value===undefined)return 0;
+   if(!Number.isSafeInteger(value)||value<0)throw new TypeError(name+' must be a non-negative integer');
+   return value;
+ };
+ class PackageStore{
+   #handle;#closed=false;
+   constructor(root,limits={}){
+     if(typeof root!=='string'||root==='')throw new TypeError('root required');
+     this.#handle=native.openStore(root,size(limits.maxArtifactBytes,'maxArtifactBytes'),natural(limits.maxTreeFiles,'maxTreeFiles'),size(limits.maxTreeBytes,'maxTreeBytes'));
+   }
+   #call(operation,argument,flags=0){
+     if(this.#closed)return Promise.reject(Object.assign(new Error('store closed'),{status:5}));
+     if(typeof argument!=='string')return Promise.reject(new TypeError('a string is required'));
+     return native.storeRequest(this.#handle,operation,argument,flags);
+   }
+   install(source,options){return this.#call('install',source,options?.preserveExecutable?1:0);}
+   upgrade(source,options){return this.#call('upgrade',source,options?.preserveExecutable?1:0);}
+   replace(source,options){return this.#call('replace',source,options?.preserveExecutable?1:0);}
+   async remove(id){await this.#call('remove',id);}
+   load(id){return this.#call('load',id);}
+   async ids(){return JSON.parse(await this.#call('ids',''));}
+   close(){if(!this.#closed){this.#closed=true;native.closeStore(this.#handle);this.#handle=null;}}
+ }
  // Loopback data endpoints. An outcome is a status and never text, because an
  // endpoint is a credential: a rejection carries status INVALID (malformed),
  // DENIED (the policy does not admit it) or EXPIRED, and nothing of the endpoint.
@@ -191,7 +218,7 @@ export function loadEngine(addonPath){
    check:value=>{native.service('endpoint.check',json(value));},
    validate:(value,policy)=>{native.service('endpoint.validate',json({endpoint:value,policy}));},
  };
- return {Host,Guest,Instances,Streams,endpoint,service:(operation,input)=>JSON.parse(native.service(operation,json(input))),
+ return {Host,Guest,Instances,Streams,PackageStore,endpoint,service:(operation,input)=>JSON.parse(native.service(operation,json(input))),
    directoryDigest:async root=>JSON.parse(await native.integrity('digest',root,'null')),
    verifyArtifacts:async(manifest,root)=>{await native.integrity('verify',root,json(manifest));}};
 }

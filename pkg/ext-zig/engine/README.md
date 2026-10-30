@@ -28,6 +28,16 @@ never text; `error.Protocol` is a plugin that broke the framing. The tests of th
 read `EXT_REVERSE_TEST_GUEST`, `EXT_REVERSE_TEST_DESCRIPTOR` and
 `EXT_ENDPOINT_CASES` (see `scripts/plugin-cengine.sh`) and are skipped without them.
 
+`Store` is the engine's package store (`ext_store_*`): `install`, `upgrade`, `replace`,
+`remove`, `load` and `ids` over reviewed `ext.package/v1` packages under a root you
+supply, as the Go store does. Failures are `error.Invalid` (not a valid package, id or
+directory, or an artifact over a `StoreLimits` bound), `error.Mismatch` (a digest that
+differs, or an upgrade that changes the id or contracts), `error.Exists` (an install over
+an installed id) and `error.NotFound`. `install`, `upgrade`, `replace`, `load` and `ids`
+return a `Buffer` that is freed with `deinit`; `ids` is a JSON array of strings. A missing
+root is an empty store, made by the first install; calls on one `Store` are serialized by
+the engine, several processes mutating one root are yours to serialize.
+
 The guest handler uses the C copying result sink. It must cooperate with its
 remaining time and must not retain borrowed pointers. Instance/stream APIs are
 available through both ownership wrappers and `ffi`. Release all leases and join

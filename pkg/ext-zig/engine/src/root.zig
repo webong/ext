@@ -3,7 +3,7 @@
 //! call deinit exactly once after all concurrent uses have joined. No Go runtime.
 const std = @import("std");
 pub const ffi = @import("ffi");
-pub const Error = error{ Invalid, Denied, Mismatch, Unsupported, Closed, Timeout, IO, OutOfMemory, Draining, NotFound, Ambiguous, Canceled, Updating, Capacity, Sequence, Protocol, Expired, UnknownStatus };
+pub const Error = error{ Invalid, Denied, Mismatch, Unsupported, Closed, Timeout, IO, OutOfMemory, Draining, NotFound, Ambiguous, Canceled, Updating, Capacity, Sequence, Protocol, Expired, Exists, UnknownStatus };
 pub fn check(status: ffi.ext_status) Error!void {
     return switch (status) {
         ffi.EXT_OK => {},
@@ -24,6 +24,7 @@ pub fn check(status: ffi.ext_status) Error!void {
         ffi.EXT_SEQUENCE => error.Sequence,
         ffi.EXT_PROTOCOL => error.Protocol,
         ffi.EXT_EXPIRED => error.Expired,
+        ffi.EXT_EXISTS => error.Exists,
         else => error.UnknownStatus,
     };
 }
@@ -199,6 +200,82 @@ pub fn service(operation: [:0]const u8, input: []const u8) Error!Buffer {
     try check(ffi.ext_engine_call(operation.ptr, input.ptr, input.len, &out.raw));
     return out;
 }
+/// Bounds on a package store: one artifact file (a file inside a tree counts
+/// too), the files in one tree and the bytes of one tree. Zero takes the default:
+/// 4 GiB, 250000 files and 16 GiB.
+pub const StoreLimits = struct { max_artifact_bytes: u64 = 0, max_tree_files: u32 = 0, max_tree_bytes: u64 = 0 };
+/// Keep the execute bit of a file artifact that has one in the source.
+/// Entrypoints and executable files in trees always keep it.
+pub const StoreOptions = struct { preserve_executable: bool = false };
+/// The engine's package store: install, upgrade, replace, remove and load
+/// reviewed `ext.package/v1` packages under a root the caller supplies, as the Go
+/// store does. A missing root is an empty store, made by the first install. The
+/// engine serializes calls on one store; several processes mutating one root are
+/// the caller's to serialize. Failures are statuses: `error.Invalid` for a
+/// package, id or directory that is not valid or an artifact over a limit,
+/// `error.Mismatch` for a digest that differs or an upgrade that changes the id
+/// or the contracts, `error.Exists` for an install over an installed id and
+/// `error.NotFound` for an id that is not installed. The buffers returned are
+/// owned and freed with `deinit`.
+pub const Store = struct {
+    raw: ?*ffi.ext_store,
+    pub fn init(root: [:0]const u8, limits: StoreLimits) Error!Store {
+        var raw: ?*ffi.ext_store = null;
+        const c_limits: ffi.ext_store_limits = .{ .max_artifact_bytes = limits.max_artifact_bytes, .max_tree_files = limits.max_tree_files, .max_tree_bytes = limits.max_tree_bytes };
+        try check(ffi.ext_store_open(root.ptr, &c_limits, &raw));
+        return .{ .raw = raw };
+    }
+    pub fn deinit(self: *Store) void {
+        ffi.ext_store_close(self.raw);
+        self.raw = null;
+    }
+    fn flags(options: StoreOptions) u32 {
+        return if (options.preserve_executable) @as(u32, ffi.EXT_STORE_PRESERVE_EXECUTABLE) else 0;
+    }
+    /// Copies the package in the directory `source`, never over an installed id,
+    /// and returns the installed `plugin.json`, byte for byte as the source had it.
+    pub fn install(self: *const Store, source: [:0]const u8, options: StoreOptions) Error!Buffer {
+        var out: Buffer = .{};
+        errdefer out.deinit();
+        try check(ffi.ext_store_install(self.raw, source.ptr, flags(options), &out.raw));
+        return out;
+    }
+    /// Replaces an installed package with a new revision of the same id and
+    /// contracts. The previous installation survives any failure.
+    pub fn upgrade(self: *const Store, source: [:0]const u8, options: StoreOptions) Error!Buffer {
+        var out: Buffer = .{};
+        errdefer out.deinit();
+        try check(ffi.ext_store_upgrade(self.raw, source.ptr, flags(options), &out.raw));
+        return out;
+    }
+    /// Installs or replaces the package of the source's id, whatever its contracts.
+    pub fn replace(self: *const Store, source: [:0]const u8, options: StoreOptions) Error!Buffer {
+        var out: Buffer = .{};
+        errdefer out.deinit();
+        try check(ffi.ext_store_replace(self.raw, source.ptr, flags(options), &out.raw));
+        return out;
+    }
+    /// Deletes one installed package.
+    pub fn remove(self: *const Store, id: [:0]const u8) Error!void {
+        try check(ffi.ext_store_remove(self.raw, id.ptr));
+    }
+    /// Reads and verifies one installed package and returns its `plugin.json`.
+    pub fn load(self: *const Store, id: [:0]const u8) Error!Buffer {
+        var out: Buffer = .{};
+        errdefer out.deinit();
+        try check(ffi.ext_store_load(self.raw, id.ptr, &out.raw));
+        return out;
+    }
+    /// The installed ids as a JSON array of strings in byte order, without reading
+    /// or verifying any package. Staging directories are skipped; any other entry
+    /// that is not a package directory is `error.Invalid`.
+    pub fn ids(self: *const Store) Error!Buffer {
+        var out: Buffer = .{};
+        errdefer out.deinit();
+        try check(ffi.ext_store_ids(self.raw, &out.raw));
+        return out;
+    }
+};
 /// Loopback data endpoints: the engine's rules for admitting an endpoint a host
 /// hands a plugin. An outcome is a status and never text, because an endpoint is a
 /// credential: `error.Invalid` for a malformed one, `error.Denied` for one the
@@ -505,6 +582,10 @@ const libc = struct {
     extern fn fopen([*c]const u8, [*c]const u8) ?*FILE;
     extern fn fclose(*FILE) c_int;
     extern fn fread([*c]u8, usize, usize, *FILE) usize;
+    extern fn fwrite([*c]const u8, usize, usize, *FILE) usize;
+    extern fn mkdir([*c]const u8, c_uint) c_int;
+    extern fn mkdtemp([*c]u8) ?[*:0]u8;
+    extern fn system([*c]const u8) c_int;
 };
 fn environment(name: [*:0]const u8) ?[:0]const u8 {
     const value = libc.getenv(name) orelse return null;
@@ -741,4 +822,114 @@ test "data endpoints reproduce every outcome of the shared fixture" {
         total += 1;
     }
     try std.testing.expectEqual(@as(usize, 213), total);
+}
+
+fn writeFile(path: [:0]const u8, body: []const u8) !void {
+    const file = libc.fopen(path.ptr, "wb") orelse return error.WriteFailed;
+    defer _ = libc.fclose(file);
+    if (body.len != 0 and libc.fwrite(body.ptr, 1, body.len, file) != body.len) return error.WriteFailed;
+}
+fn printZ(a: std.mem.Allocator, comptime format: []const u8, args: anytype) ![:0]u8 {
+    const text = try std.fmt.allocPrint(a, format ++ "\x00", args);
+    return text[0 .. text.len - 1 :0];
+}
+/// A source package at `dir`: src/main.py holding `body`, under `id` at `revision`.
+fn writePackage(a: std.mem.Allocator, dir: [:0]const u8, id: []const u8, revision: []const u8, contract: []const u8, body: []const u8) !void {
+    _ = libc.mkdir(dir.ptr, 0o700);
+    try std.testing.expectEqual(@as(c_int, 0), libc.mkdir((try printZ(a, "{s}/src", .{dir})).ptr, 0o700));
+    try writeFile(try printZ(a, "{s}/src/main.py", .{dir}), body);
+    const digest = sha256(body);
+    var hex: [64]u8 = undefined;
+    const digits = "0123456789abcdef";
+    for (digest, 0..) |byte, i| {
+        hex[2 * i] = digits[byte >> 4];
+        hex[2 * i + 1] = digits[byte & 15];
+    }
+    const manifest = try std.fmt.allocPrint(a, "{{\"apiVersion\":\"ext.package/v1\",\"descriptor\":{{\"apiVersion\":\"ext.plugin/v1\",\"identity\":{{\"id\":\"{s}\",\"revision\":\"{s}\"}},\"contracts\":[{{\"name\":\"{s}\",\"version\":\"v1\",\"operations\":[{{\"name\":\"read\"}}]}}]}},\"artifacts\":[{{\"name\":\"main\",\"path\":\"src/main.py\",\"sha256\":\"{s}\"}}]}}", .{ id, revision, contract, hex });
+    try writeFile(try printZ(a, "{s}/plugin.json", .{dir}), manifest);
+}
+test "the package store installs, upgrades, replaces and removes" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const a = arena.allocator();
+    var template = "/tmp/ext-zig-store-XXXXXX".*;
+    const base = std.mem.span(libc.mkdtemp(&template) orelse return error.SkipZigTest);
+    const cleanup = try printZ(a, "rm -rf '{s}'", .{base});
+    defer _ = libc.system(cleanup.ptr);
+    const root = try printZ(a, "{s}/store", .{base});
+    var store = try Store.init(root, .{});
+    defer store.deinit();
+
+    // an empty store has nothing to find, and a failed call does not make the root
+    var ids = try store.ids();
+    try std.testing.expectEqualStrings("[]", ids.bytes());
+    ids.deinit();
+    try std.testing.expectError(error.NotFound, store.load("example/a"));
+    try std.testing.expectError(error.NotFound, store.remove("example/a"));
+    try std.testing.expectError(error.Invalid, store.load("../bad"));
+    try std.testing.expectError(error.Invalid, store.remove("Bad"));
+    const first = try printZ(a, "{s}/s1", .{base});
+    try writePackage(a, first, "example/a", "r1", "example.read", "one");
+    try std.testing.expectError(error.NotFound, store.upgrade(first, .{}));
+
+    // install returns plugin.json as the source had it, and never replaces
+    var source: [4096]u8 = undefined;
+    const written = try readFile(try printZ(a, "{s}/plugin.json", .{first}), &source);
+    var installed = try store.install(first, .{});
+    try std.testing.expectEqualStrings(written, installed.bytes());
+    installed.deinit();
+    try std.testing.expectError(error.Exists, store.install(first, .{}));
+    ids = try store.ids();
+    try std.testing.expectEqualStrings("[\"example/a\"]", ids.bytes());
+    ids.deinit();
+    var loaded = try store.load("example/a");
+    try std.testing.expectEqualStrings(written, loaded.bytes());
+    loaded.deinit();
+    var copy: [16]u8 = undefined;
+    const main_py = try readFile(try printZ(a, "{s}/example%2fa/src/main.py", .{root}), &copy);
+    try std.testing.expectEqualStrings("one", main_py);
+
+    // upgrade keeps the id and contracts and needs a new revision
+    const second = try printZ(a, "{s}/s2", .{base});
+    try writePackage(a, second, "example/a", "r2", "example.read", "two");
+    var upgraded = try store.upgrade(second, .{});
+    upgraded.deinit();
+    try std.testing.expectEqualStrings("two", try readFile(try printZ(a, "{s}/example%2fa/src/main.py", .{root}), &copy));
+    try std.testing.expectError(error.Invalid, store.upgrade(second, .{}));
+    const other = try printZ(a, "{s}/s3", .{base});
+    try writePackage(a, other, "example/a", "r3", "example.write", "three");
+    try std.testing.expectError(error.Mismatch, store.upgrade(other, .{}));
+    try std.testing.expectEqualStrings("two", try readFile(try printZ(a, "{s}/example%2fa/src/main.py", .{root}), &copy));
+    // replace may change the contracts
+    var replaced = try store.replace(other, .{});
+    replaced.deinit();
+    try std.testing.expectEqualStrings("three", try readFile(try printZ(a, "{s}/example%2fa/src/main.py", .{root}), &copy));
+
+    // a source that is not what its manifest says is not installed
+    const bad = try printZ(a, "{s}/s4", .{base});
+    try writePackage(a, bad, "example/b", "r1", "example.read", "bee");
+    try writeFile(try printZ(a, "{s}/src/main.py", .{bad}), "changed");
+    try std.testing.expectError(error.Mismatch, store.install(bad, .{}));
+    try std.testing.expectError(error.NotFound, store.load("example/b"));
+
+    try store.remove("example/a");
+    try std.testing.expectError(error.NotFound, store.remove("example/a"));
+    ids = try store.ids();
+    try std.testing.expectEqualStrings("[]", ids.bytes());
+    ids.deinit();
+}
+test "the package store bounds an artifact" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const a = arena.allocator();
+    var template = "/tmp/ext-zig-store-XXXXXX".*;
+    const base = std.mem.span(libc.mkdtemp(&template) orelse return error.SkipZigTest);
+    const cleanup = try printZ(a, "rm -rf '{s}'", .{base});
+    defer _ = libc.system(cleanup.ptr);
+    var store = try Store.init(try printZ(a, "{s}/store", .{base}), .{ .max_artifact_bytes = 2 });
+    defer store.deinit();
+    const dir = try printZ(a, "{s}/s", .{base});
+    try writePackage(a, dir, "example/f", "r1", "example.read", "three bytes");
+    try std.testing.expectError(error.Invalid, store.install(dir, .{}));
+    try std.testing.expectError(error.Invalid, Store.init("", .{}));
 }

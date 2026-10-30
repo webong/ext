@@ -35,6 +35,17 @@ throw an error whose `status` is `status.INVALID`, `status.DENIED` or
 `status.EXPIRED`, never text. A plugin that breaks the framing rejects with
 `status.PROTOCOL`.
 
+`new engine.PackageStore(root, limits)` is the engine's package store: `install`,
+`upgrade`, `replace`, `remove`, `load` and `ids` over reviewed `ext.package/v1` packages
+under a root you supply, as the Go store does. Each call returns a promise and runs on a
+libuv worker. `install`, `upgrade` and `replace` resolve with the installed `plugin.json`
+as text, as the source had it; a rejection carries `status`: `status.INVALID` (not a
+valid package, id or directory, or an artifact over a limit), `status.MISMATCH` (a digest
+that differs, or an upgrade that changes the id or contracts), `status.EXISTS` (an install
+over an installed id) or `status.NOT_FOUND`. A missing root is an empty store, made by
+the first install; calls on one store are serialized by the engine, several processes
+mutating one root are yours to serialize. `close()` lets calls in flight finish.
+
 Call `close` explicitly. It stops new work and disposes native resources after
 outstanding calls finish; GC finalizers and environment cleanup are fallbacks.
 Guest close allows active calls to finish within their budgets. Pure shared

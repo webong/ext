@@ -5,6 +5,8 @@ pub mod endpoint;
 pub mod ffi;
 #[cfg(not(feature = "guest-only"))]
 pub mod resources;
+#[cfg(not(feature = "guest-only"))]
+pub mod store;
 use std::{
     ffi::{c_void, CStr, CString},
     fmt,
@@ -30,11 +32,17 @@ impl std::error::Error for Error {}
 impl Error {
     pub const INVALID: Error = Error(1);
     pub const DENIED: Error = Error(2);
+    /// A digest, identity or contract differs from what was expected.
+    pub const MISMATCH: Error = Error(3);
+    /// What was asked for is not there: a package that is not installed.
+    pub const NOT_FOUND: Error = Error(10);
     /// The peer broke the framing rules (a frame that is not valid, or that the
     /// call did not allow); the session is closed.
     pub const PROTOCOL: Error = Error(16);
     /// A time has run out: an endpoint whose expiry is already past.
     pub const EXPIRED: Error = Error(17);
+    /// What was to be created is already there: a package already installed.
+    pub const EXISTS: Error = Error(18);
 }
 fn check(s: i32) -> Result<(), Error> {
     if s == 0 {

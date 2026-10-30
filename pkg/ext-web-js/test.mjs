@@ -60,3 +60,28 @@ test('authorization, cancellation, and timeout keep the session usable', async (
   assert.equal(await guest.call('host.echo', 'still ready'), 'still ready');
   guest.stop(); host.stop();
 });
+
+test('invalid and oversized peer frames close the connection', async () => {
+  const runtime = browserPair(); const host = createHost({ runtime, admit: () => true }); host.start();
+  const port = runtime.connect('host', { name: 'ext.web.peer' });
+  port.postMessage({ version: 'wrong', type: 'hello', methods: [] });
+  await until(() => host.peers().length === 0);
+  const second = runtime.connect('host', { name: 'ext.web.peer' });
+  second.postMessage({ version: 'ext.web.peer/v1', type: 'hello', methods: [] });
+  await until(() => host.peers().length === 1);
+  second.postMessage({ version: 'ext.web.peer/v1', type: 'state', value: 'x'.repeat(1024 * 1024) });
+  await until(() => host.peers().length === 0);
+  host.stop();
+});
+
+test('new registration replaces a stale connection from the same extension', async () => {
+  const runtime = browserPair(); const host = createHost({ runtime, admit: () => true }); host.start();
+  const first = runtime.connect('host', { name: 'ext.web.peer' });
+  let disconnected = false; first.onDisconnect.addListener(() => { disconnected = true; });
+  first.postMessage({ version: 'ext.web.peer/v1', type: 'hello', methods: ['old.method'] });
+  await until(() => host.peers()[0]?.methods[0] === 'old.method');
+  const second = runtime.connect('host', { name: 'ext.web.peer' });
+  second.postMessage({ version: 'ext.web.peer/v1', type: 'hello', methods: ['new.method'] });
+  await until(() => disconnected && host.peers()[0]?.methods[0] === 'new.method');
+  second.disconnect(); host.stop();
+});

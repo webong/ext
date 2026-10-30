@@ -12,6 +12,10 @@ function checkMessage(value) {
   let bytes;
   try { bytes = encoder.encode(JSON.stringify(value)).length; } catch { throw new PeerError('protocol', 'Message is not JSON serializable'); }
   if (bytes > MAX_BYTES) throw new PeerError('too_large', 'Peer message exceeds 1 MiB');
+  if (value.type === 'hello' && (!Array.isArray(value.methods) || value.methods.length > 256 || value.methods.some(name => typeof name !== 'string' || !/^[a-z][a-z0-9.-]{0,127}$/.test(name)))) throw new PeerError('protocol', 'Invalid peer methods');
+  if (['call', 'result', 'cancel'].includes(value.type) && (typeof value.id !== 'string' || value.id.length < 1 || value.id.length > 128)) throw new PeerError('protocol', 'Invalid call ID');
+  if (value.type === 'call' && (typeof value.method !== 'string' || !/^[a-z][a-z0-9.-]{0,127}$/.test(value.method))) throw new PeerError('protocol', 'Invalid method name');
+  if (value.type === 'result' && value.error && (typeof value.error.code !== 'string' || typeof value.error.message !== 'string')) throw new PeerError('protocol', 'Invalid remote error');
   return value;
 }
 
@@ -32,7 +36,7 @@ class Connection {
     this.onEvent = onEvent; this.onState = onState; this.onDisconnect = onDisconnect;
     this.timeoutMs = timeoutMs; this.pending = new Map(); this.running = new Map();
     this.closed = false; this.ready = false; this.remoteMethods = [];
-    this.messageListener = message => { void this.receive(message); };
+    this.messageListener = message => { queueMicrotask(() => { if (!this.closed) void this.receive(message); }); };
     this.disconnectListener = () => this.close();
     port.onMessage.addListener(this.messageListener);
     port.onDisconnect.addListener(this.disconnectListener);
@@ -45,7 +49,7 @@ class Connection {
     let message;
     try { message = checkMessage(raw); } catch { this.close(); return; }
     if (message.type === 'hello') {
-      if (this.ready || !Array.isArray(message.methods) || message.methods.some(x => typeof x !== 'string')) { this.close(); return; }
+      if (this.ready) { this.close(); return; }
       this.remoteMethods = [...new Set(message.methods)]; this.ready = true;
       this.onState?.(this, 'connected'); return;
     }

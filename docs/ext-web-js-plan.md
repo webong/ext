@@ -1,7 +1,9 @@
 # ext-web-js browser extension peer library plan
 
 Status: initial package and Chromium examples implemented; browser smoke tests,
-Firefox validation, and Xallet migration remain.
+Firefox validation, and Xallet migration remain. The local Chrome command-line
+smoke attempt opened an isolated profile, but Chrome did not register either
+unpacked example extension, so it did not verify browser messaging.
 
 `pkg/ext-web-js` will be a standalone JavaScript/TypeScript package for browser
 extension builders. It lets independently built extensions act as hosts,

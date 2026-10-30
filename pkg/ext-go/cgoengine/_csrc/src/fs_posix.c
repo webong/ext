@@ -212,6 +212,7 @@ void ext_fs_close(ext_fs *fs) {
   close(fs->fd);
   free(fs);
 }
+int ext_fs_fd(ext_fs *fs) { return fs->fd; }
 ext_status ext_fs_hash_file(ext_fs *fs, const char *path, uint8_t out[32]) {
   int dir = -1;
   char *leaf = NULL, *storage = NULL;

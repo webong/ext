@@ -104,6 +104,8 @@ Go store replaces `/` with `%2f`) and must not join it into a path as written.
   moves the installed directory aside first and puts it back if the new one
   cannot take its place. `plugin.json` is copied byte for byte. `EXT_EXISTS` is
   an install over an installed id, `EXT_NOT_FOUND` an id that is not installed,
+  `EXT_MISSING` a source, manifest or artifact that is not there (the file layer's
+  reads give it for a name that does not exist and `EXT_IO` for anything else),
   `EXT_MISMATCH` an upgrade that changes the id or contracts or an artifact that
   differs from its digest, and `EXT_INVALID` anything that is not a valid package,
   id or directory. The limits (one artifact, one tree's files and bytes) default

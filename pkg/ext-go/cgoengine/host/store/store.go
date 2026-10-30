@@ -6,8 +6,6 @@
 package store
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -15,10 +13,8 @@ import (
 	"github.com/webong/ext/pkg/ext-go/cgoengine/packages"
 	plugin "github.com/webong/ext/pkg/ext-go/engine"
 	"github.com/webong/ext/pkg/ext-go/engine/package"
-	"io"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 	"sync"
 )
@@ -32,8 +28,6 @@ const ManifestName = "plugin.json"
 
 // DefaultMaxArtifactBytes bounds one artifact when Limits does not.
 const DefaultMaxArtifactBytes int64 = 4 << 30
-
-const maxManifestBytes = 16 << 20
 
 var (
 	ErrExists   = errors.New("plugin package already installed")
@@ -119,103 +113,13 @@ func (s *Store) Load(id string) (Installed, error) {
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.load(id)
-}
-
-func (s *Store) load(id string) (Installed, error) {
-	p, err := s.loadManifest(id)
-	if err != nil {
-		return Installed{}, err
-	}
-	if err := p.Verify(); err != nil {
-		return Installed{}, err
-	}
-	return p, nil
-}
-
-// loadManifest reads and validates one package's manifest and checks that the
-// directory matches it. It does not read, hash or walk any content: the result
-// is unverified. The caller holds s.mu.
-func (s *Store) loadManifest(id string) (Installed, error) {
-	dir := s.dir(id)
-	info, err := os.Lstat(dir)
-	if errors.Is(err, os.ErrNotExist) {
-		return Installed{}, ErrNotFound
-	}
-	if err != nil {
-		return Installed{}, err
-	}
-	if !info.IsDir() {
-		return Installed{}, fmt.Errorf("%w: package directory is not a directory", plugin.ErrInvalid)
-	}
-	m, err := readManifest(dir)
-	if err != nil {
-		return Installed{}, err
-	}
-	if m.Descriptor.Identity.ID != id {
-		return Installed{}, fmt.Errorf("%w: directory does not match manifest", plugin.ErrMismatch)
-	}
-	return Installed{Manifest: m, Directory: dir, limits: s.limits}, nil
-}
-
-// entry is one name found directly under a store root.
-type entry struct {
-	name string // directory name as stored
-	id   string // package ID when name is a valid package directory
-	err  error  // why name is not a package directory
-}
-
-// scan lists the names under the root without reading or verifying any
-// package. A missing root has none. Staging directories (leading ".") are
-// skipped. The caller holds s.mu.
-func (s *Store) scan() ([]entry, error) {
-	entries, err := os.ReadDir(s.root)
-	if errors.Is(err, os.ErrNotExist) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-	var out []entry
-	for _, e := range entries {
-		if strings.HasPrefix(e.Name(), ".") {
-			continue
+	return s.engine(func(e *cgoengine.PackageStore) (Installed, error) {
+		manifest, err := e.Load(id)
+		if err != nil {
+			return Installed{}, storeError(err)
 		}
-		item := entry{name: e.Name()}
-		if !e.IsDir() {
-			item.err = fmt.Errorf("%w: unexpected entry %q", plugin.ErrInvalid, e.Name())
-		} else if id := strings.ReplaceAll(e.Name(), "%2f", "/"); !validID(id) {
-			item.err = fmt.Errorf("%w: invalid package directory %q", plugin.ErrInvalid, e.Name())
-		} else {
-			item.id = id
-		}
-		out = append(out, item)
-	}
-	return out, nil
-}
-
-// entryIDs returns the package IDs named by the root's directories without
-// reading or verifying their content. It fails on an entry that is not a
-// package directory. The caller holds s.mu.
-func (s *Store) entryIDs() ([]string, error) {
-	entries, err := s.scan()
-	if err != nil {
-		return nil, err
-	}
-	ids := make([]string, 0, len(entries))
-	for _, e := range entries {
-		if e.err != nil {
-			return nil, e.err
-		}
-		ids = append(ids, e.id)
-	}
-	return ids, nil
-}
-
-func (s *Store) listIDs() ([]string, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return s.entryIDs()
+		return s.installed(manifest)
+	})
 }
 
 // List verifies every installed package and fails closed on the first bad one.
@@ -223,22 +127,11 @@ func (s *Store) listIDs() ([]string, error) {
 func (s *Store) List() ([]Installed, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	ids, err := s.entryIDs()
+	records, err := s.records(func(e *cgoengine.PackageStore) ([]cgoengine.PackageRecord, error) { return e.List() })
 	if err != nil {
 		return nil, err
 	}
-	var out []Installed
-	for _, id := range ids {
-		p, err := s.load(id)
-		if err != nil {
-			return nil, fmt.Errorf("package %s: %w", id, err)
-		}
-		out = append(out, p)
-	}
-	sort.Slice(out, func(i, j int) bool {
-		return out[i].Manifest.Descriptor.Identity.ID < out[j].Manifest.Descriptor.Identity.ID
-	})
-	return out, nil
+	return s.installedAll(records)
 }
 
 // ListUnverified returns every installed package's manifest and directory
@@ -275,44 +168,17 @@ func (s *Store) List() ([]Installed, error) {
 func (s *Store) ListUnverified() ([]Installed, []Check, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	installed, problems, _, err := s.manifestsAll(nil)
-	return installed, problems, err
-}
-
-// manifestsAll reads the manifest of each entry, skipping any ID for which skip
-// returns true. It returns the packages read, a Check for each entry that could
-// not be read, and every valid package ID found, skipped or not. The caller
-// holds s.mu.
-func (s *Store) manifestsAll(skip func(id string) bool) ([]Installed, []Check, []string, error) {
-	entries, err := s.scan()
+	e, err := s.open()
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
-	var installed []Installed
-	var problems []Check
-	var ids []string
-	for _, e := range entries {
-		dir := filepath.Join(s.root, e.name)
-		if e.err != nil {
-			problems = append(problems, Check{ID: e.name, Directory: dir, Err: e.err})
-			continue
-		}
-		ids = append(ids, e.id)
-		if skip != nil && skip(e.id) {
-			continue
-		}
-		p, err := s.loadManifest(e.id)
-		if err != nil {
-			problems = append(problems, Check{ID: e.id, Directory: dir, Err: err})
-			continue
-		}
-		installed = append(installed, p)
+	defer e.Close()
+	records, checks, err := e.ListUnverified()
+	if err != nil {
+		return nil, nil, storeError(err)
 	}
-	sort.Slice(installed, func(i, j int) bool {
-		return installed[i].Manifest.Descriptor.Identity.ID < installed[j].Manifest.Descriptor.Identity.ID
-	})
-	sort.Slice(problems, func(i, j int) bool { return problems[i].ID < problems[j].ID })
-	return installed, problems, ids, nil
+	installed, err := s.installedAll(records)
+	return installed, packageChecks(checks), err
 }
 
 // Install copies the package in source (a directory holding ManifestName and
@@ -325,18 +191,7 @@ func (s *Store) Install(source string) (Installed, error) {
 func (s *Store) InstallWithOptions(source string, options CopyOptions) (Installed, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	m, data, err := s.checkSource(source)
-	if err != nil {
-		return Installed{}, err
-	}
-	id := m.Descriptor.Identity.ID
-	dest := s.dir(id)
-	if _, err := os.Lstat(dest); err == nil {
-		return Installed{}, fmt.Errorf("%w: %s", ErrExists, id)
-	} else if !errors.Is(err, os.ErrNotExist) {
-		return Installed{}, err
-	}
-	return s.stage(source, m, data, dest, options)
+	return s.put(source, options, (*cgoengine.PackageStore).Install)
 }
 
 // Upgrade replaces an installed package with a new revision of the same ID.
@@ -350,26 +205,7 @@ func (s *Store) Upgrade(source string) (Installed, error) {
 func (s *Store) UpgradeWithOptions(source string, options CopyOptions) (Installed, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	m, data, err := s.checkSource(source)
-	if err != nil {
-		return Installed{}, err
-	}
-	id := m.Descriptor.Identity.ID
-	dest := s.dir(id)
-	old, err := readManifest(dest)
-	if errors.Is(err, os.ErrNotExist) {
-		return Installed{}, ErrNotFound
-	}
-	if err != nil {
-		return Installed{}, err
-	}
-	if old.Descriptor.Identity.ID != id || !sameContracts(old.Descriptor, m.Descriptor) {
-		return Installed{}, fmt.Errorf("%w: upgrade must keep ID and contracts", plugin.ErrMismatch)
-	}
-	if old.Descriptor.Identity.Revision == m.Descriptor.Identity.Revision {
-		return Installed{}, fmt.Errorf("%w: upgrade requires a new revision", plugin.ErrInvalid)
-	}
-	return s.replaceInstalled(source, m, data, dest, options)
+	return s.put(source, options, (*cgoengine.PackageStore).Upgrade)
 }
 
 // Replace installs or replaces a package of the same ID, including changes to
@@ -382,48 +218,7 @@ func (s *Store) Replace(source string) (Installed, error) {
 func (s *Store) ReplaceWithOptions(source string, options CopyOptions) (Installed, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	m, data, err := s.checkSource(source)
-	if err != nil {
-		return Installed{}, err
-	}
-	dest := s.dir(m.Descriptor.Identity.ID)
-	info, err := os.Lstat(dest)
-	if errors.Is(err, os.ErrNotExist) {
-		return s.stage(source, m, data, dest, options)
-	}
-	if err != nil {
-		return Installed{}, err
-	}
-	if !info.IsDir() {
-		return Installed{}, fmt.Errorf("%w: package directory is not a directory", plugin.ErrInvalid)
-	}
-	return s.replaceInstalled(source, m, data, dest, options)
-}
-
-// replaceInstalled stages and verifies the new package before swapping it
-// into place. The caller holds s.mu and has checked the existing directory.
-func (s *Store) replaceInstalled(source string, m packagekit.Manifest, data []byte, dest string, options CopyOptions) (Installed, error) {
-	backupRoot, err := s.tempDir(".backup-")
-	if err != nil {
-		return Installed{}, err
-	}
-	defer os.RemoveAll(backupRoot)
-	staged, err := s.stage(source, m, data, filepath.Join(backupRoot, "new"), options)
-	if err != nil {
-		return Installed{}, err
-	}
-	backup := filepath.Join(backupRoot, "old")
-	if err := os.Rename(dest, backup); err != nil {
-		return Installed{}, err
-	}
-	if err := os.Rename(staged.Directory, dest); err != nil {
-		if restore := os.Rename(backup, dest); restore != nil {
-			return Installed{}, errors.Join(err, fmt.Errorf("previous package retained at %s: %w", backup, restore))
-		}
-		return Installed{}, err
-	}
-	staged.Directory = dest
-	return staged, nil
+	return s.put(source, options, (*cgoengine.PackageStore).Replace)
 }
 
 // Remove deletes one installed package directory. It never follows links.
@@ -433,188 +228,12 @@ func (s *Store) Remove(id string) error {
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	dir := s.dir(id)
-	info, err := os.Lstat(dir)
-	if errors.Is(err, os.ErrNotExist) {
-		return ErrNotFound
-	}
+	e, err := s.open()
 	if err != nil {
 		return err
 	}
-	if !info.IsDir() {
-		return fmt.Errorf("%w: package directory is not a directory", plugin.ErrInvalid)
-	}
-	m, err := readManifest(dir)
-	if err != nil {
-		return err
-	}
-	if m.Descriptor.Identity.ID != id {
-		return fmt.Errorf("%w: directory does not match manifest", plugin.ErrMismatch)
-	}
-	return os.RemoveAll(dir)
-}
-
-func (s *Store) checkSource(source string) (packagekit.Manifest, []byte, error) {
-	if info, err := os.Lstat(source); err == nil && !info.IsDir() {
-		return packagekit.Manifest{}, nil, fmt.Errorf("%w: package source is not a directory", plugin.ErrInvalid)
-	}
-	m, data, err := readManifestBytes(source)
-	if err != nil {
-		return m, nil, err
-	}
-	for _, a := range m.Artifacts {
-		if strings.EqualFold(a.Path, ManifestName) {
-			return m, nil, fmt.Errorf("%w: artifact path %q is reserved", plugin.ErrInvalid, ManifestName)
-		}
-	}
-	if err := (Installed{Manifest: m, Directory: source, limits: s.limits}).Verify(); err != nil {
-		return m, nil, err
-	}
-	return m, data, nil
-}
-
-func (s *Store) tempDir(prefix string) (string, error) {
-	if err := os.MkdirAll(s.root, 0o700); err != nil {
-		return "", err
-	}
-	return os.MkdirTemp(s.root, prefix)
-}
-
-// stage copies into a fresh directory, verifies it, then renames it to dest. data
-// is the source's manifest, as read.
-func (s *Store) stage(source string, m packagekit.Manifest, data []byte, dest string, options CopyOptions) (Installed, error) {
-	staging, err := s.tempDir(".install-")
-	if err != nil {
-		return Installed{}, err
-	}
-	defer os.RemoveAll(staging)
-	executable := map[string]bool{}
-	for _, e := range m.Entrypoints {
-		executable[e.Artifact] = true
-	}
-	for _, a := range m.Artifacts {
-		mode := os.FileMode(0o600)
-		if executable[a.Name] {
-			mode = 0o700
-		} else if options.PreserveExecutableArtifacts && a.Kind != packagekit.ArtifactTree {
-			path, err := securePath(source, a.Path)
-			if err != nil {
-				return Installed{}, err
-			}
-			info, err := os.Lstat(path)
-			if err != nil {
-				return Installed{}, err
-			}
-			if info.Mode().Perm()&0o111 != 0 {
-				mode = 0o700
-			}
-		}
-		if err := copyArtifact(source, staging, a, s.limits, mode); err != nil {
-			return Installed{}, fmt.Errorf("artifact %s: %w", a.Name, err)
-		}
-	}
-	// The manifest is copied as it was read: the bytes are what a trust record's
-	// digest covers, so they are not re-encoded.
-	if err := os.WriteFile(filepath.Join(staging, ManifestName), data, 0o600); err != nil {
-		return Installed{}, err
-	}
-	p := Installed{Manifest: m, Directory: staging, limits: s.limits}
-	if err := p.Verify(); err != nil {
-		return Installed{}, err
-	}
-	if err := os.MkdirAll(filepath.Dir(dest), 0o700); err != nil {
-		return Installed{}, err
-	}
-	if err := os.Rename(staging, dest); err != nil {
-		return Installed{}, err
-	}
-	p.Directory = dest
-	return p, nil
-}
-
-func copyArtifact(srcRoot, dstRoot string, a packagekit.Artifact, limits Limits, mode os.FileMode) error {
-	if a.Kind == packagekit.ArtifactTree {
-		return copyTree(srcRoot, dstRoot, a, limits)
-	}
-	max := limits.MaxArtifactBytes
-	src, err := securePath(srcRoot, a.Path)
-	if err != nil {
-		return err
-	}
-	dst := filepath.Join(dstRoot, filepath.FromSlash(a.Path))
-	if err := os.MkdirAll(filepath.Dir(dst), 0o700); err != nil {
-		return err
-	}
-	in, err := os.Open(src)
-	if err != nil {
-		return err
-	}
-	defer in.Close()
-	out, err := os.OpenFile(dst, os.O_WRONLY|os.O_CREATE|os.O_EXCL, mode)
-	if err != nil {
-		return err
-	}
-	h := sha256.New()
-	n, copyErr := io.Copy(out, io.TeeReader(io.LimitReader(in, max+1), h))
-	closeErr := out.Close()
-	if copyErr != nil || closeErr != nil {
-		return errors.Join(copyErr, closeErr)
-	}
-	if n > max {
-		return fmt.Errorf("%w: exceeds size limit", plugin.ErrInvalid)
-	}
-	if hex.EncodeToString(h.Sum(nil)) != a.SHA256 {
-		return fmt.Errorf("%w: changed during install", plugin.ErrMismatch)
-	}
-	return nil
-}
-
-func readManifest(dir string) (packagekit.Manifest, error) {
-	m, _, err := readManifestBytes(dir)
-	return m, err
-}
-
-// readManifestBytes is readManifest that also returns the bytes it read, which an
-// install copies as they are.
-func readManifestBytes(dir string) (packagekit.Manifest, []byte, error) {
-	path, err := securePath(dir, ManifestName)
-	if err != nil {
-		return packagekit.Manifest{}, nil, err
-	}
-	f, err := os.Open(path)
-	if err != nil {
-		return packagekit.Manifest{}, nil, err
-	}
-	defer f.Close()
-	data, err := io.ReadAll(io.LimitReader(f, maxManifestBytes+1))
-	if err != nil {
-		return packagekit.Manifest{}, nil, err
-	}
-	if len(data) > maxManifestBytes {
-		return packagekit.Manifest{}, nil, fmt.Errorf("%w: manifest exceeds 16 MiB", plugin.ErrInvalid)
-	}
-	var m packagekit.Manifest
-	if err := plugin.Decode(data, &m); err != nil {
-		return m, nil, err
-	}
-	return m, data, packages.ValidateManifest(m)
-}
-
-func sameContracts(a, b plugin.Descriptor) bool {
-	if len(a.Contracts) != len(b.Contracts) {
-		return false
-	}
-	seen := map[plugin.ContractRef]int{}
-	for _, c := range a.Contracts {
-		seen[c.ContractRef]++
-	}
-	for _, c := range b.Contracts {
-		seen[c.ContractRef]--
-		if seen[c.ContractRef] < 0 {
-			return false
-		}
-	}
-	return true
+	defer e.Close()
+	return storeError(e.Remove(id))
 }
 
 // securePath resolves a slash path under root, refusing symbolic links and
@@ -859,74 +478,6 @@ func verifyTree(dir, digest string, limits Limits) error {
 	return nil
 }
 
-// copyTree copies a tree artifact into dstRoot, enforcing the bounds while it
-// copies. Directories are created 0700 and files 0600, or 0700 when the source
-// file has its owner-execute bit (modes are not covered by the digest). The
-// caller verifies the staged copy against the manifest digest afterwards.
-func copyTree(srcRoot, dstRoot string, a packagekit.Artifact, limits Limits) error {
-	source, err := secureDirectory(srcRoot, a.Path)
-	if err != nil {
-		return err
-	}
-	destination := filepath.Join(dstRoot, filepath.FromSlash(a.Path))
-	files, total := 0, int64(0)
-	return filepath.WalkDir(source, func(path string, d os.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		relative, err := filepath.Rel(source, path)
-		if err != nil {
-			return err
-		}
-		target := filepath.Join(destination, relative)
-		if d.IsDir() {
-			return os.MkdirAll(target, 0o700)
-		}
-		if !d.Type().IsRegular() {
-			return fmt.Errorf("%w: trees may hold only regular files", plugin.ErrInvalid)
-		}
-		files++
-		if files > limits.MaxTreeFiles {
-			return fmt.Errorf("%w: tree exceeds its file limit", plugin.ErrInvalid)
-		}
-		linkInfo, err := os.Lstat(path)
-		if err != nil {
-			return err
-		}
-		in, err := os.Open(path)
-		if err != nil {
-			return err
-		}
-		defer in.Close()
-		info, err := in.Stat()
-		if err != nil {
-			return err
-		}
-		if !info.Mode().IsRegular() || !os.SameFile(linkInfo, info) {
-			return fmt.Errorf("%w: file changed while copying", plugin.ErrInvalid)
-		}
-		mode := os.FileMode(0o600)
-		if info.Mode().Perm()&0o100 != 0 {
-			mode = 0o700
-		}
-		out, err := os.OpenFile(target, os.O_WRONLY|os.O_CREATE|os.O_EXCL, mode)
-		if err != nil {
-			return err
-		}
-		n, copyErr := io.Copy(out, io.LimitReader(in, limits.MaxArtifactBytes+1))
-		closeErr := out.Close()
-		if copyErr != nil || closeErr != nil {
-			return errors.Join(copyErr, closeErr)
-		}
-		total += n
-		if n > limits.MaxArtifactBytes || total > limits.MaxTreeBytes {
-			return fmt.Errorf("%w: tree exceeds its size limits", plugin.ErrInvalid)
-		}
-		// Keep the owner-execute bit even under a restrictive umask.
-		return os.Chmod(target, mode)
-	})
-}
-
 // Check is the verification result for one entry under a store root.
 type Check struct {
 	// ID is the package ID, or the directory name when it is not a valid one.
@@ -950,33 +501,14 @@ func (c Check) OK() bool { return c.Err == nil }
 func (s *Store) Verify() ([]Check, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	checks, _, err := s.verifyAll(nil)
-	return checks, err
-}
-
-// verifyAll verifies each entry, skipping any ID for which skip returns true.
-// It also returns every valid package ID found, skipped or not. The caller
-// holds s.mu.
-func (s *Store) verifyAll(skip func(id string) bool) ([]Check, []string, error) {
-	entries, err := s.scan()
+	e, err := s.open()
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
-	var ids []string
-	out := make([]Check, 0, len(entries))
-	for _, e := range entries {
-		dir := filepath.Join(s.root, e.name)
-		if e.err != nil {
-			out = append(out, Check{ID: e.name, Directory: dir, Err: e.err})
-			continue
-		}
-		ids = append(ids, e.id)
-		if skip != nil && skip(e.id) {
-			continue
-		}
-		_, err := s.load(e.id)
-		out = append(out, Check{ID: e.id, Directory: dir, Err: err})
+	defer e.Close()
+	checks, err := e.Verify()
+	if err != nil {
+		return nil, storeError(err)
 	}
-	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
-	return out, ids, nil
+	return packageChecks(checks), nil
 }

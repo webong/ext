@@ -10,6 +10,13 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+/* The status of a failed file operation: a name that is not there is
+ * EXT_MISSING, anything else EXT_IO. Call it before anything else can change
+ * errno. */
+static ext_status failed(void) {
+  return errno == ENOENT ? EXT_MISSING : EXT_IO;
+}
+
 struct ext_fs {
   int fd;
 };
@@ -27,13 +34,13 @@ static ext_status root_open(const char *root, int *fd) {
   struct stat st;
   ext_status s = EXT_OK;
   if (lstat(path, &st))
-    s = EXT_IO;
+    s = failed();
   else if (!S_ISDIR(st.st_mode))
     s = EXT_INVALID;
   if (!s) {
     *fd = open(path, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
     if (*fd < 0)
-      s = EXT_IO;
+      s = failed();
   }
   free(path);
   return s;
@@ -41,12 +48,12 @@ static ext_status root_open(const char *root, int *fd) {
 static ext_status file_hash(int dir, const char *name, uint8_t out[32]) {
   struct stat st;
   if (fstatat(dir, name, &st, AT_SYMLINK_NOFOLLOW))
-    return EXT_IO;
+    return failed();
   if (!S_ISREG(st.st_mode))
     return EXT_INVALID;
   int fd = openat(dir, name, O_RDONLY | O_NOFOLLOW | O_NONBLOCK | O_CLOEXEC);
   if (fd < 0)
-    return errno == ELOOP ? EXT_INVALID : EXT_IO;
+    return errno == ELOOP ? EXT_INVALID : failed();
   ext_status s = EXT_OK;
   if (fstat(fd, &st))
     s = EXT_IO;
@@ -93,7 +100,7 @@ static ext_status descend(int root, const char *path, int want_file, int *out,
       *slash = 0;
     struct stat st;
     if (fstatat(fd, part, &st, AT_SYMLINK_NOFOLLOW)) {
-      s = EXT_IO;
+      s = failed();
       break;
     }
     if (!S_ISDIR(st.st_mode)) {
@@ -103,7 +110,7 @@ static ext_status descend(int root, const char *path, int want_file, int *out,
     int next =
         openat(fd, part, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
     if (next < 0) {
-      s = EXT_IO;
+      s = failed();
       break;
     }
     close(fd);
@@ -168,12 +175,12 @@ static ext_status walk(int fd, const char *prefix, ext_fs_visit visit,
     memcpy(path + base, entry->d_name, name + 1);
     struct stat st;
     if (fstatat(fd, entry->d_name, &st, AT_SYMLINK_NOFOLLOW))
-      s = EXT_IO;
+      s = failed();
     else if (S_ISDIR(st.st_mode)) {
       int child = openat(fd, entry->d_name,
                          O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
       if (child < 0)
-        s = EXT_IO;
+        s = failed();
       else {
         s = walk(child, path, visit, user, depth + 1);
         close(child);
@@ -239,7 +246,7 @@ ext_status ext_fs_read_file(ext_fs *fs, const char *path, size_t limit,
     return s;
   int fd = openat(dir, leaf, O_RDONLY | O_NOFOLLOW | O_NONBLOCK | O_CLOEXEC);
   if (fd < 0)
-    s = errno == ELOOP ? EXT_INVALID : EXT_IO;
+    s = errno == ELOOP ? EXT_INVALID : failed();
   struct stat st;
   if (!s && (fstat(fd, &st) || !S_ISREG(st.st_mode)))
     s = EXT_INVALID;

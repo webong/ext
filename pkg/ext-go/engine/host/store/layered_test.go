@@ -145,6 +145,13 @@ func TestLayeredRejectsBadConstruction(t *testing.T) {
 	if len(roots) != 1 || roots[0] != s.Root() {
 		t.Fatal(roots)
 	}
+	other, err := store.New(filepath.Join(t.TempDir(), "other"), store.Limits{MaxTreeFiles: 7})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.NewLayered(s, other); !errors.Is(err, plugin.ErrInvalid) {
+		t.Fatal("stores with different limits accepted:", err)
+	}
 }
 
 func TestLayeredListFailsOnUnexpectedEntry(t *testing.T) {

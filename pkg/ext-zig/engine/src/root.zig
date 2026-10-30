@@ -3,7 +3,7 @@
 //! call deinit exactly once after all concurrent uses have joined. No Go runtime.
 const std = @import("std");
 pub const ffi = @import("ffi");
-pub const Error = error{ Invalid, Denied, Mismatch, Unsupported, Closed, Timeout, IO, OutOfMemory, Draining, NotFound, Ambiguous, Canceled, Updating, Capacity, Sequence, Protocol, Expired, Exists, UnknownStatus };
+pub const Error = error{ Invalid, Denied, Mismatch, Unsupported, Closed, Timeout, IO, OutOfMemory, Draining, NotFound, Ambiguous, Canceled, Updating, Capacity, Sequence, Protocol, Expired, Exists, Missing, UnknownStatus };
 pub fn check(status: ffi.ext_status) Error!void {
     return switch (status) {
         ffi.EXT_OK => {},
@@ -25,6 +25,7 @@ pub fn check(status: ffi.ext_status) Error!void {
         ffi.EXT_PROTOCOL => error.Protocol,
         ffi.EXT_EXPIRED => error.Expired,
         ffi.EXT_EXISTS => error.Exists,
+        ffi.EXT_MISSING => error.Missing,
         else => error.UnknownStatus,
     };
 }

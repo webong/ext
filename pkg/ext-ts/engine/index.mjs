@@ -46,7 +46,7 @@ const natural=(value,name)=>{
   return value;
 };
 /** The statuses the engine reports in the `status` of a rejection. */
-export const status=Object.freeze({INVALID:1,DENIED:2,MISMATCH:3,NOT_FOUND:10,PROTOCOL:16,EXPIRED:17,EXISTS:18});
+export const status=Object.freeze({INVALID:1,DENIED:2,MISMATCH:3,NOT_FOUND:10,PROTOCOL:16,EXPIRED:17,EXISTS:18,MISSING:19});
 /** Load a caller-selected addon built from this package and the C engine. */
 export function loadEngine(addonPath){
  const native=require(addonPath);

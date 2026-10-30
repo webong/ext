@@ -3,12 +3,13 @@
 Reusable libraries live here so ctx, ctn and the wider ecosystem share one
 public surface. Product implementation packages stay private to each product,
 and [`res/`](../res/README.md) is a separate container for reusable resource
-libraries. Every library in both containers is its own Go module.
+libraries. Go libraries in both containers are separate Go modules; language
+packages such as `ext-ts` and `ext-web-js` use their own toolchains.
 
-Each library here is its own Go module rather than a package inside one
-repository-wide module. The root `go.work` lists them so the repository still
-builds and tests as a single workspace, while each module stays independently
-buildable and publishable.
+Each Go library here is its own module rather than a package inside one
+repository-wide module. The root `go.work` lists those modules so the repository
+still builds and tests as a single Go workspace. Other language packages remain
+independently buildable and publishable through their own toolchains.
 
 Keep dependencies pointing inward so a library never depends back on its
 consumers.
@@ -28,6 +29,7 @@ depends on `cgoengine`.
 | Library | Contents |
 | --- | --- |
 | [`ext-go`](ext-go/README.md) | The Go plugin library: the contract, C engine bindings and plugin-specific backends; its WASM binding uses `res/web` |
+| [`ext-web-js`](ext-web-js/README.md) | Browser extension host/guest peer library with browser messaging and lifecycle; see the [plan](../docs/ext-web-js-plan.md) |
 
 ## Plugin language SDKs and bindings
 

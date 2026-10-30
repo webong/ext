@@ -1,0 +1,14 @@
+{
+  "name": "@ext/web-js",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": { "types": "./index.d.mts", "default": "./index.mjs" }
+  },
+  "scripts": {
+    "test": "node --test test.mjs",
+    "build:examples": "node examples/build.mjs"
+  },
+  "engines": { "node": ">=22" }
+}

@@ -301,6 +301,17 @@ if ctx run echo changed >/dev/null 2>&1; then
   printf 'changed adapter retained trust\n' >&2
   exit 1
 fi
+# Trust approves a verified package; it must not reseal modified installed bytes.
+if ctx adapter trust echo >/dev/null 2>&1; then
+  printf 'native core trusted a damaged sealed adapter\n' >&2
+  exit 1
+fi
+ctx adapter remove echo >/dev/null
+ctx adapter install "$ROOT/examples/adapters/echo" >/dev/null
+if ctx run echo reinstalled >/dev/null 2>&1; then
+  printf 'reinstalled adapter retained trust\n' >&2
+  exit 1
+fi
 ctx adapter trust echo >/dev/null
 test "$(ctx run echo trusted-again)" = 'run[local] trusted-again'
 ctx clear echo >/dev/null

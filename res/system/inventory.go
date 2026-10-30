@@ -22,6 +22,7 @@ type AdapterObservation struct {
 	Name, Runtime, Selector                          string
 	DiscoveryStatus                                  string
 	Surfaces, Capabilities, Supports                 []string
+	Engine, Role                                     []string
 	BrowserShare                                     []string
 	Trusted, ListSupported, ObserveSupported, Listed bool
 	Contexts                                         []ContextObservation
@@ -55,6 +56,12 @@ type AliasObservation struct {
 	Metadata                        map[string]string
 }
 
+func sortedCopy(values []string) []string {
+	copied := append([]string(nil), values...)
+	sort.Strings(copied)
+	return copied
+}
+
 var graphContextName = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._ +-]{0,127}$`)
 
 func contextID(adapter, selection string) string {
@@ -84,7 +91,7 @@ func (g *Graph) ObserveInventory(ctx context.Context, adapters []AdapterObservat
 		sort.Strings(capabilities)
 		sort.Strings(supports)
 		sort.Strings(surfaces)
-		vertices[adapterID] = graph.Vertex{ID: adapterID, Kind: Namespace + "/adapter", Attributes: map[string]any{"name": adapter.Name, "runtime": adapter.Runtime, "surfaces": surfaces, "supports": supports, "browser_share": adapter.BrowserShare, "selector": adapter.Selector, "trusted": adapter.Trusted, "list_supported": adapter.ListSupported, "observe_supported": adapter.ObserveSupported, "listed": adapter.Listed, "discovery_status": adapter.DiscoveryStatus}, Provenance: graph.Provenance{Source: "ctx", Operation: "adapter-inventory", At: now}}
+		vertices[adapterID] = graph.Vertex{ID: adapterID, Kind: Namespace + "/adapter", Attributes: map[string]any{"name": adapter.Name, "runtime": adapter.Runtime, "surfaces": surfaces, "supports": supports, "engine": sortedCopy(adapter.Engine), "role": sortedCopy(adapter.Role), "browser_share": adapter.BrowserShare, "selector": adapter.Selector, "trusted": adapter.Trusted, "list_supported": adapter.ListSupported, "observe_supported": adapter.ObserveSupported, "listed": adapter.Listed, "discovery_status": adapter.DiscoveryStatus}, Provenance: graph.Provenance{Source: "ctx", Operation: "adapter-inventory", At: now}}
 		edgeID := "machine-adapter/" + adapter.Name
 		edges[edgeID] = graph.Edge{ID: edgeID, From: "machine/local", To: adapterID, Type: Namespace + "/has-adapter"}
 		for _, capability := range capabilities {

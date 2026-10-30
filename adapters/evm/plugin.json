@@ -77,13 +77,17 @@
       ],
       "description": "Built-in sandboxed EVM bytecode engine; runs bytecode in memory with no blockchain",
       "display_name": "EVM",
+      "engine": [
+        "evaluator"
+      ],
       "go_entry": "./native",
+      "role": [
+        "virtualizer"
+      ],
       "runtime": "computer",
       "selector_key": "evm",
       "self_contained": true,
       "supports": [
-        "virtualizer",
-        "evaluator",
         "evm"
       ],
       "surfaces": [

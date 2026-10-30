@@ -66,8 +66,10 @@ Register-ArgumentCompleter -Native -CommandName ctx -ScriptBlock {
                 if ($words[3] -eq 'shell') { Emit-CtxCompletion @('--name', '--select', '--max-age'); return }
                 if ($words[3] -eq 'filesystem') { Emit-CtxCompletion @('--path', '--type', '--writable', '--min-free', '--select', '--max-age'); return }
                 if ($words[3] -eq 'webview') { Emit-CtxCompletion @('--engine', '--api', '--abi', '--version', '--arch', '--select', '--max-age'); return }
-                if ($words[-2] -eq '--supports') { Emit-CtxCompletion @('virtualizer', 'evaluator', 'executor', 'emulator', 'container', 'installer', 'interpreter', 'compiler'); return }
-                Emit-CtxCompletion @('--supports'); return
+                if ($words[-2] -eq '--supports') { Emit-CtxCompletion @('container'); return }
+                if ($words[-2] -eq '--engine') { Emit-CtxCompletion @('evaluator', 'executor', 'emulator'); return }
+                if ($words[-2] -eq '--role') { Emit-CtxCompletion @('virtualizer', 'installer', 'interpreter', 'compiler', 'transpiler', 'bundler'); return }
+                Emit-CtxCompletion @('--supports', '--engine', '--role'); return
             }
         }
         'hook' {

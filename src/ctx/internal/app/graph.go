@@ -140,6 +140,8 @@ func graphCommand(args []string, stdout, stderr io.Writer) int {
 		runtimeName := ""
 		capabilities := []string(nil)
 		supports := []string(nil)
+		engines := []string(nil)
+		roles := []string(nil)
 		shareReady := []string(nil)
 		if len(args) > 1 {
 			runtimeName = args[1]
@@ -154,6 +156,20 @@ func graphCommand(args []string, stdout, stderr io.Writer) int {
 					}
 					index++
 					supports = append(supports, args[index])
+					continue
+				}
+				if args[index] == "--engine" || args[index] == "--role" {
+					flag := args[index]
+					if index+1 >= len(args) || args[index+1] == "" || strings.HasPrefix(args[index+1], "--") {
+						fmt.Fprintf(stderr, "ctx: graph resolve %s needs a name\n", flag)
+						return 2
+					}
+					index++
+					if flag == "--engine" {
+						engines = append(engines, args[index])
+					} else {
+						roles = append(roles, args[index])
+					}
 					continue
 				}
 				if args[index] == "--share" {
@@ -177,7 +193,7 @@ func graphCommand(args []string, stdout, stderr io.Writer) int {
 		}
 		selected := inventory.Contexts[:0]
 		for _, candidate := range inventory.Contexts {
-			if candidateOffers(candidate, capabilities...) && candidateSupports(candidate, supports...) && candidateShareReady(candidate, shareReady...) {
+			if candidateOffers(candidate, capabilities...) && candidateSupports(candidate, supports...) && hasAll(candidate.Engine, engines) && hasAll(candidate.Role, roles) && candidateShareReady(candidate, shareReady...) {
 				selected = append(selected, candidate)
 			}
 		}
@@ -289,7 +305,7 @@ func graphCommand(args []string, stdout, stderr io.Writer) int {
 		return 0
 	default:
 		fmt.Fprintf(stderr, "ctx: unknown graph command %s\n", args[0])
-		fmt.Fprintln(stderr, "ctx: use graph scan, shells, filesystems, webviews, processes, process <pid>, resolve [runtime|all] [capability...] [--supports kind] [--share resource.operation], status, vertices, edges, snapshot, or changes [cursor]")
+		fmt.Fprintln(stderr, "ctx: use graph scan, shells, filesystems, webviews, processes, process <pid>, resolve [runtime|all] [capability...] [--supports kind] [--engine name] [--role name] [--share resource.operation], status, vertices, edges, snapshot, or changes [cursor]")
 		return 2
 	}
 }
@@ -299,6 +315,22 @@ func candidateOffers(candidate systemgraph.ContextCandidate, required ...string)
 		found := false
 		for _, offered := range candidate.Capabilities {
 			if capability == offered {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return false
+		}
+	}
+	return true
+}
+
+func hasAll(have, required []string) bool {
+	for _, name := range required {
+		found := false
+		for _, value := range have {
+			if value == name {
 				found = true
 				break
 			}

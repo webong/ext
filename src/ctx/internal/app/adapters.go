@@ -107,6 +107,12 @@ func adapterCommand(resolver *config.Resolver, args []string, stdout, stderr io.
 			fmt.Fprintf(stdout, "computer capabilities: %s\n", strings.Join(candidate.Manifest.ComputerCapabilities, ","))
 		}
 		fmt.Fprintf(stdout, "capabilities: %s\n", strings.Join(candidate.Manifest.Capabilities, ","))
+		if len(candidate.Manifest.Engine) > 0 {
+			fmt.Fprintf(stdout, "engine:       %s\n", strings.Join(candidate.Manifest.Engine, ","))
+		}
+		if len(candidate.Manifest.Role) > 0 {
+			fmt.Fprintf(stdout, "role:         %s\n", strings.Join(candidate.Manifest.Role, ","))
+		}
 		if len(candidate.Manifest.Supports) > 0 {
 			fmt.Fprintf(stdout, "supports:     %s\n", strings.Join(candidate.Manifest.Supports, ","))
 		}

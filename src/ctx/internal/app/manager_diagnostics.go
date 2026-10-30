@@ -13,12 +13,7 @@ func managerAppAdapter(candidate *modpkg.Adapter) bool {
 	if !candidate.IsRuntime("manager") || !candidate.Manifest.SelfContained || !candidate.HasCapability("run") || !candidate.HasCapability("doctor") {
 		return false
 	}
-	for _, kind := range candidate.Manifest.Supports {
-		if kind == "virtualizer" {
-			return true
-		}
-	}
-	return false
+	return candidate.HasRole("virtualizer")
 }
 
 func managerAppCommand(resolver *config.Resolver, name, action string, stdout, stderr io.Writer) int {

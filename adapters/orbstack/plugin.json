@@ -60,13 +60,17 @@
   "metadata": {
     "ctx.adapter/v1": {
       "description": "OrbStack lifecycle and diagnostics",
+      "engine": [
+        "emulator",
+        "executor"
+      ],
+      "role": [
+        "virtualizer"
+      ],
       "runtime": "manager",
       "selector_key": "orbstack",
       "self_contained": true,
       "supports": [
-        "virtualizer",
-        "emulator",
-        "executor",
         "container"
       ],
       "surfaces": [

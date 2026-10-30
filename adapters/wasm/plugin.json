@@ -67,13 +67,17 @@
       ],
       "description": "Built-in sandboxed WebAssembly (WASI Preview 1) engine",
       "display_name": "WebAssembly",
+      "engine": [
+        "evaluator"
+      ],
       "go_entry": "./native",
+      "role": [
+        "virtualizer"
+      ],
       "runtime": "computer",
       "selector_key": "wasm",
       "self_contained": true,
       "supports": [
-        "virtualizer",
-        "evaluator",
         "wasm"
       ],
       "surfaces": [

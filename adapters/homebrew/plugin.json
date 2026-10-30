@@ -70,14 +70,14 @@
       ],
       "description": "Homebrew installer: reports the programs it installed",
       "runtime": "computer",
-      "supports": [
-        "installer"
-      ],
       "surfaces": [
         "shell"
       ],
       "display_name": "Homebrew",
-      "selectable": false
+      "selectable": false,
+      "role": [
+        "installer"
+      ]
     }
   }
 }

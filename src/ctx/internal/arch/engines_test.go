@@ -72,17 +72,20 @@ func splitList(value string) []string {
 	return out
 }
 
-// A program answers two questions: which engine it provides (the boundary it
-// virtualizes) and which roles it plays. "virtualizer" is a role: the one a program
-// plays when it provides an engine. docs/adr-program-discovery.md defines both.
+// A program answers two questions: which engines it provides (the boundary it
+// virtualizes) and which roles it plays. They are the manifest fields "engine" and
+// "role", both lists; "supports" keeps the resource kinds. "virtualizer" is the
+// role of a program that provides an engine. docs/adr-program-discovery.md
+// defines the vocabulary, which core does not enumerate.
 var (
-	engineTypes = map[string]bool{"evaluator": true, "executor": true, "emulator": true}
-	roles       = map[string]bool{"virtualizer": true, "interpreter": true, "compiler": true, "transpiler": true, "bundler": true}
+	engineNames = map[string]bool{"evaluator": true, "executor": true, "emulator": true}
+	roleNames   = map[string]bool{"virtualizer": true, "interpreter": true, "compiler": true, "transpiler": true, "bundler": true, "installer": true}
 )
 
-// TestEngineVocabulary checks that an adapter providing an engine also plays the
-// virtualizer role, and that a virtualizer provides an engine.
-func TestEngineVocabulary(t *testing.T) {
+// TestEngineAndRoleFields checks that every shipped adapter uses known values in
+// the right field, that a virtualizer provides an engine and the reverse, and that
+// the old flat declaration is gone from "supports".
+func TestEngineAndRoleFields(t *testing.T) {
 	root := repoRoot(t)
 	manifests, err := filepath.Glob(filepath.Join(root, "adapters", "*", "plugin.json"))
 	if err != nil {
@@ -91,15 +94,28 @@ func TestEngineVocabulary(t *testing.T) {
 	for _, path := range manifests {
 		values := manifestValues(t, path)
 		name := values["name"]
-		hasType, isVirtualizer := false, false
+		engines, roles := splitList(values["engine"]), splitList(values["role"])
+		for _, engine := range engines {
+			if !engineNames[engine] {
+				t.Errorf("%s: engine %q is not evaluator, executor or emulator", name, engine)
+			}
+		}
+		isVirtualizer := false
+		for _, role := range roles {
+			if !roleNames[role] {
+				t.Errorf("%s: role %q is not a known role", name, role)
+			}
+			isVirtualizer = isVirtualizer || role == "virtualizer"
+		}
 		for _, kind := range splitList(values["supports"]) {
-			hasType = hasType || engineTypes[kind]
-			isVirtualizer = isVirtualizer || kind == "virtualizer"
+			if engineNames[kind] || roleNames[kind] {
+				t.Errorf("%s: %q belongs in the engine or role field, not supports", name, kind)
+			}
 		}
-		if hasType && !isVirtualizer {
-			t.Errorf("%s: an adapter that provides an evaluator, executor or emulator must also declare the virtualizer role", name)
+		if len(engines) > 0 && !isVirtualizer {
+			t.Errorf("%s: an adapter that provides an engine must play the virtualizer role", name)
 		}
-		if isVirtualizer && !hasType {
+		if isVirtualizer && len(engines) == 0 {
 			t.Errorf("%s: a virtualizer must provide an engine: evaluator, executor or emulator", name)
 		}
 	}
@@ -118,8 +134,8 @@ func TestEvaluatorAdaptersFollowTheContract(t *testing.T) {
 		values := manifestValues(t, path)
 		supports := splitList(values["supports"])
 		isEvaluator := false
-		for _, kind := range supports {
-			isEvaluator = isEvaluator || kind == "evaluator"
+		for _, engine := range splitList(values["engine"]) {
+			isEvaluator = isEvaluator || engine == "evaluator"
 		}
 		if !isEvaluator {
 			continue
@@ -129,14 +145,9 @@ func TestEvaluatorAdaptersFollowTheContract(t *testing.T) {
 		if values["runtime"] != "computer" {
 			t.Errorf("%s: an evaluator uses the computer runtime, not %q", name, values["runtime"])
 		}
-		var kinds []string
-		for _, kind := range supports {
-			if !engineTypes[kind] && !roles[kind] {
-				kinds = append(kinds, kind)
-			}
-		}
+		kinds := supports
 		if len(kinds) != 1 {
-			t.Errorf("%s: supports must be virtualizer, evaluator, any roles and exactly one kind, got %q", name, values["supports"])
+			t.Errorf("%s: supports must name exactly one kind, got %q", name, values["supports"])
 			continue
 		}
 		if values["selector_key"] != kinds[0] {

@@ -32,11 +32,12 @@ bundler or runtime. A **runtime adapter** owns one family of programs (`php`, la
 An **installer** is the tool that put a program on the machine or that owns where
 it lives: Homebrew, asdf, nvm, pyenv, SDKMAN, uv, rustup, apt, winget, scoop. The
 word `manager` is taken: a `manager` runtime means a workload manager such as
-Docker or Podman. An installer adapter declares `supports = "installer"`.
+Docker or Podman. An installer adapter declares the role `installer`.
 
 A program answers two questions: **which engines do you provide**, and **which roles do
-you play**. Both are multi-valued, both are values of `supports`, and an adapter
-declares as many of each as apply, followed by its kind.
+you play**. Both are multi-valued and are separate manifest fields, `engine` and
+`role`; an adapter declares as many of each as apply. The kind it supports (`php`,
+`jvm`, `docker`) stays in `supports`.
 
 **Engines** say what boundary a program virtualizes. The engines are defined by the
 boundary, not by the mechanism:
@@ -54,19 +55,20 @@ in it).
 
 **Roles** say what a program is or does: `virtualizer`, `interpreter`, `compiler`,
 `transpiler` and probably `bundler`. `virtualizer` is the role of every program that
-provides an engine, so `--supports virtualizer` lists all of them and an engine narrows
+provides an engine, so `--role virtualizer` lists all of them and `--engine` narrows
 the list. The other roles have no boundary: `javac` is a compiler and provides no
 engine, while PHP is a virtualizer, an interpreter and provides the evaluator engine.
 
-The kind (`php`, `jvm`, `docker`) comes last, as it does today. Examples:
+Examples:
 
-| Adapter | `supports` |
-| --- | --- |
-| `php` | `virtualizer,evaluator,interpreter,php` |
-| `jvm` | `virtualizer,evaluator,compiler,jvm` |
-| `docker` | `virtualizer,executor,container,docker` |
-| `qemu` | `virtualizer,emulator,qemu` |
-| `orbstack`, `rancher_desktop` | `virtualizer,emulator,executor,container` |
+| Adapter | `engine` | `role` | `supports` |
+| --- | --- | --- | --- |
+| `php` | `evaluator` | `virtualizer`, `interpreter` | `php` |
+| `jvm` | `evaluator` | `virtualizer`, `compiler` | `jvm` |
+| `docker` | `executor` | `virtualizer` | `container`, `docker` |
+| `qemu` | `emulator` | `virtualizer` | |
+| `orbstack`, `rancher_desktop` | `emulator`, `executor` | `virtualizer` | `container` |
+| `homebrew` | | `installer` | |
 
 The vocabulary is open: core does not enumerate it.
 
@@ -180,8 +182,10 @@ visible.
 
 Decided in the spike:
 
-- Two axes: engines (`evaluator`, `executor`, `emulator`) and roles (`virtualizer`,
-  `interpreter`, `compiler`, `transpiler`, `bundler`). Both are multi-valued. The word
+- Two axes, each its own manifest field: `engine` (`evaluator`, `executor`, `emulator`)
+  and `role` (`virtualizer`, `interpreter`, `compiler`, `transpiler`, `bundler`,
+  `installer`). Both are multi-valued, and `supports` keeps only resource kinds.
+  `ctx graph resolve` filters with `--engine` and `--role`. The word
   "level" and the earlier meaning of `engine`, an adapter that ran programs, are gone,
   with no alias. `jvm`, `wasm`, `evm` and `php` are evaluators; `docker` and `nerdctl`
   are executors; `podman`, `docker_desktop`, `orbstack`, `rancher_desktop` and `apple`

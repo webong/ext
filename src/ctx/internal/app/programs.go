@@ -29,7 +29,7 @@ var programCache struct {
 // or nil when it declares none. Installers are never given candidates: they are
 // the source of them.
 func adapterPrograms(resolver *config.Resolver, candidate *modpkg.Adapter) []program.Candidate {
-	if len(candidate.Manifest.ComputerCommands) == 0 || candidate.HasSupport("installer") {
+	if len(candidate.Manifest.ComputerCommands) == 0 || candidate.HasRole("installer") {
 		return nil
 	}
 	return discoverPrograms(resolver, candidate.Manifest.ComputerCommands)
@@ -52,7 +52,7 @@ func discoverPrograms(resolver *config.Resolver, names []string) []program.Candi
 	store := adapterStore()
 	if installed, err := store.List(); err == nil {
 		for _, installer := range installed {
-			if !installer.HasSupport("installer") || !installer.HasCapability("programs") {
+			if !installer.HasRole("installer") || !installer.HasCapability("programs") {
 				continue
 			}
 			if trusted, err := store.IsTrusted(installer); err != nil || !trusted {

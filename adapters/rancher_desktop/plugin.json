@@ -60,13 +60,17 @@
   "metadata": {
     "ctx.adapter/v1": {
       "description": "Rancher Desktop lifecycle and read-only diagnostics",
+      "engine": [
+        "emulator",
+        "executor"
+      ],
+      "role": [
+        "virtualizer"
+      ],
       "runtime": "manager",
       "selector_key": "rancher_desktop",
       "self_contained": true,
       "supports": [
-        "virtualizer",
-        "emulator",
-        "executor",
         "container"
       ],
       "surfaces": [

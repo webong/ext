@@ -63,11 +63,15 @@
         "aws"
       ],
       "description": "First-party AWS CLI profile adapter",
+      "engine": [
+        "emulator"
+      ],
+      "role": [
+        "virtualizer"
+      ],
       "runtime": "computer",
       "selector_key": "aws_profile",
       "supports": [
-        "virtualizer",
-        "emulator",
         "container"
       ],
       "surfaces": [

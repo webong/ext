@@ -168,16 +168,13 @@ func chooseEvaluator(store *adapter.Store, name, file string) (*adapter.Adapter,
 		return nil, "", fmt.Errorf("cannot tell which evaluator runs %s; name one with --engine", file)
 	}
 	for _, candidate := range installed {
-		isEvaluator, matches := false, false
+		matches := false
 		for _, support := range candidate.Manifest.Supports {
-			if support == "evaluator" {
-				isEvaluator = true
-			}
 			if name == "" && support == entry.kind {
 				matches = true
 			}
 		}
-		if !isEvaluator {
+		if !candidate.HasEngine("evaluator") {
 			continue
 		}
 		if name != "" && candidate.Manifest.Name == name {

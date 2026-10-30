@@ -94,15 +94,19 @@
       ],
       "default_provider": true,
       "description": "First-party Docker manager provider",
+      "engine": [
+        "executor"
+      ],
       "override_env": [
         "DOCKER_CONTEXT",
         "DOCKER_HOST"
       ],
+      "role": [
+        "virtualizer"
+      ],
       "runtime": "manager",
       "selector_key": "docker",
       "supports": [
-        "virtualizer",
-        "executor",
         "container",
         "docker"
       ],

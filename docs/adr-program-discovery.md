@@ -34,37 +34,39 @@ it lives: Homebrew, asdf, nvm, pyenv, SDKMAN, uv, rustup, apt, winget, scoop. Th
 word `manager` is taken: a `manager` runtime means a workload manager such as
 Docker or Podman. An installer adapter declares `supports = "installer"`.
 
-A program answers two questions: **which engine do you provide**, and **which roles do
-you play**. Both are values of `supports`, and an adapter declares as many as apply,
-followed by its kind.
+A program answers two questions: **which engines do you provide**, and **which roles do
+you play**. Both are multi-valued, both are values of `supports`, and an adapter
+declares as many of each as apply, followed by its kind.
 
-**Engines** say what boundary a program virtualizes. `engine` is the umbrella, and
-every adapter that provides an engine also declares its type, so `--supports engine`
-lists all of them and a type narrows the list. The types are defined by the boundary,
-not by the mechanism:
+**Engines** say what boundary a program virtualizes. The engines are defined by the
+boundary, not by the mechanism:
 
-| Engine type | Boundary | Examples |
+| Engine | Boundary | Examples |
 | --- | --- | --- |
 | `evaluator` | a process or a language | V8, Zend PHP, Wasm, the JVM |
 | `executor` | the operating system, with a shared kernel | Docker, LXC |
 | `emulator` | a whole system | QEMU, RVVM, VMware ESXi, KVM |
 
-KVM and ESXi are hypervisors and not strict emulators; the type names the boundary
-they virtualize, which is the whole machine.
+KVM and ESXi are hypervisors and not strict emulators; the engine names the boundary
+they virtualize, which is the whole machine. A program can provide more than one:
+OrbStack and Podman Machine provide an emulator (the VM) and an executor (the containers
+in it).
 
-**Roles** say what a program does with code: `interpreter`, `compiler`,
-`transpiler` and probably `bundler`. A role has no boundary: `javac` is a
-compiler and provides no engine, while PHP is both an interpreter and an evaluator.
+**Roles** say what a program is or does: `virtualizer`, `interpreter`, `compiler`,
+`transpiler` and probably `bundler`. `virtualizer` is the role of every program that
+provides an engine, so `--supports virtualizer` lists all of them and an engine narrows
+the list. The other roles have no boundary: `javac` is a compiler and provides no
+engine, while PHP is a virtualizer, an interpreter and provides the evaluator engine.
 
 The kind (`php`, `jvm`, `docker`) comes last, as it does today. Examples:
 
 | Adapter | `supports` |
 | --- | --- |
-| `php` | `engine,evaluator,interpreter,php` |
-| `jvm` | `engine,evaluator,compiler,jvm` |
-| `docker` | `engine,executor,container,docker` |
-| `qemu` | `engine,emulator,qemu` |
-| `orbstack`, `rancher_desktop` | `engine,emulator,executor,container` |
+| `php` | `virtualizer,evaluator,interpreter,php` |
+| `jvm` | `virtualizer,evaluator,compiler,jvm` |
+| `docker` | `virtualizer,executor,container,docker` |
+| `qemu` | `virtualizer,emulator,qemu` |
+| `orbstack`, `rancher_desktop` | `virtualizer,emulator,executor,container` |
 
 The vocabulary is open: core does not enumerate it.
 
@@ -178,13 +180,14 @@ visible.
 
 Decided in the spike:
 
-- `engine` is the umbrella for the evaluator, executor and emulator types, replacing
-  the short-lived `virtualizer` and the word "level"; roles are the second axis.
-  `jvm`, `wasm`, `evm` and `php` are evaluators; `docker` and `nerdctl` are
-  executors; `podman`, `docker_desktop`, `orbstack`, `rancher_desktop` and `apple` are
-  emulators and executors; `aws` and `gcloud` are emulators; `kube` provides no
-  engine. There is no alias for the earlier meaning of `engine`, an adapter that ran
-  programs. `engines_test.go` checks the vocabulary. `ctn verify --engine` accepts an
+- Two axes: engines (`evaluator`, `executor`, `emulator`) and roles (`virtualizer`,
+  `interpreter`, `compiler`, `transpiler`, `bundler`). Both are multi-valued. The word
+  "level" and the earlier meaning of `engine`, an adapter that ran programs, are gone,
+  with no alias. `jvm`, `wasm`, `evm` and `php` are evaluators; `docker` and `nerdctl`
+  are executors; `podman`, `docker_desktop`, `orbstack`, `rancher_desktop` and `apple`
+  provide an emulator and an executor; `aws` and `gcloud` provide an emulator; `kube`
+  provides no engine and is not a virtualizer. `engines_test.go` checks the vocabulary:
+  a virtualizer provides an engine and the reverse. `ctn verify --engine` accepts an
   evaluator, and its JSON field and output line say `engine`.
   `docs/engine-adapters.md` is `docs/evaluator-adapters.md`.
 Still open:

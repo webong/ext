@@ -26,16 +26,16 @@ there). There is no `adapter.toml`.
 
 ```toml
 runtime = "computer"
-supports = "engine,evaluator,<role>...,<kind>"   # for example engine,evaluator,compiler,jvm
+supports = "virtualizer,evaluator,<role>...,<kind>"   # for example virtualizer,evaluator,compiler,jvm
 selector_key = "<kind>"
 capabilities = "list,observe,validate,run,doctor"
 ```
 
-An evaluator declares `engine` and `evaluator`, any roles that describe what
+An evaluator declares the `virtualizer` role, the `evaluator` engine, any other roles that describe what
 it does with code (`interpreter`, `compiler`, `transpiler`, `bundler`), and one
 specific kind last (`jvm`, `wasm`, `evm`, `php`). With
 `ctx graph resolve all --supports evaluator` a tool finds every evaluator,
-`--supports engine` finds every engine of any type, and
+`--supports virtualizer` finds every virtualizer of any engine, and
 `--supports <kind>` narrows to one. A built-in evaluator has no native executable
 to find, so it also sets `self_contained = "true"` and names its command in
 `computer_commands`.

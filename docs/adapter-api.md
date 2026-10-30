@@ -226,7 +226,7 @@ the selected context with its trusted adapter before acting.
 `run` and command shims; `web` permits `open`. An adapter may expose both.
 `capabilities` names executable operations such as `run`, `build`, and
 `image_save`. `supports` names resource kinds that the native tool can manage,
-such as `engine`, `container`, and `interpreter`. A tool may declare both regardless of
+such as `virtualizer`, `container`, and `interpreter`. A tool may declare both regardless of
 its runtime. Support declarations aid discovery; they do not add transfer or
 invocation operations. API v2.0 does not accept `kind`.
 
@@ -235,11 +235,11 @@ plays. An engine virtualizes some boundary, and its type names the boundary: an
 **evaluator** (a process or a language: a Java virtual machine, a WebAssembly
 runtime, an EVM, PHP), an **executor** (the operating system, with a shared kernel:
 Docker) or an **emulator** (a whole system: QEMU, VMware ESXi). A role says what the
-program does with code: `interpreter`, `compiler`, `transpiler` or `bundler`. An
-adapter declares `engine`, the engine type, its roles and its kind last, for example
-`supports = "engine,evaluator,compiler,jvm"`, so
-`ctx graph resolve all --supports engine` lists every engine,
-`--supports evaluator` narrows to one engine type and `--supports jvm` to one kind. The
+program does: `virtualizer` (it provides an engine), `interpreter`, `compiler`,
+`transpiler` or `bundler`. An adapter declares its roles, the engine type and its kind
+last, for example `supports = "virtualizer,evaluator,compiler,jvm"`, so
+`ctx graph resolve all --supports virtualizer` lists every virtualizer,
+`--supports evaluator` narrows to one engine and `--supports jvm` to one kind. The
 adapter's `list` output names the installed evaluators (a major version for the JVM),
 `observe` reports their version, location and source as attributes, and `run`
 executes the requested command with the selected evaluator. Discovery conventions such as `JAVA_HOME`
@@ -338,7 +338,7 @@ a native executable of that name. The built-in `wasm` evaluator works this way.
 An API v2.0 manager adapter may set `self_contained = "true"` and omit
 `commands` when its executable handles its own native CLI discovery. Without
 this opt-in, `commands` still defaults to the adapter name. Manager-app adapters declare
-`supports = "engine"` and implement `list`, `validate`, `run`, and
+`supports = "virtualizer"` and implement `list`, `validate`, `run`, and
 `doctor`; `ctx manager app <adapter> <status|start|stop|doctor>` routes these
 operations generically. The maintained Rancher Desktop, OrbStack, and Docker
 Desktop packages own their product-specific status and diagnostic logic. The

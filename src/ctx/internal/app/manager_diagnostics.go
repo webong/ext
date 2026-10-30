@@ -14,7 +14,7 @@ func managerAppAdapter(candidate *modpkg.Adapter) bool {
 		return false
 	}
 	for _, kind := range candidate.Manifest.Supports {
-		if kind == "engine" {
+		if kind == "virtualizer" {
 			return true
 		}
 	}

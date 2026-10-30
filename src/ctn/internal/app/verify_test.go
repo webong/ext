@@ -32,7 +32,7 @@ func evaluatorStore(t *testing.T) (string, func(name, kind, observe, run string,
 		}
 		log := filepath.Join(home, name+".log")
 		manifest := "api_version = \"2.0\"\nname = \"" + name + "\"\nruntime = \"computer\"\nsurfaces = \"shell\"\nexecutable = \"ctx-" + name + "\"\n" +
-			"capabilities = \"list,observe,validate,run,doctor\"\nsupports = \"engine,evaluator," + kind + "\"\nselector_key = \"" + kind + "\"\n" +
+			"capabilities = \"list,observe,validate,run,doctor\"\nsupports = \"virtualizer,evaluator," + kind + "\"\nselector_key = \"" + kind + "\"\n" +
 			"computer_commands = \"" + name + "\"\nself_contained = \"true\"\n"
 		script := "#!/bin/sh\necho \"$*\" >> '" + log + "'\ncase \"$1\" in\n" +
 			"observe) echo '" + observe + "'; exit 0;;\nrun) " + run + ";;\n*) exit 0;;\nesac\n"

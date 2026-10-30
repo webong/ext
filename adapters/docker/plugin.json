@@ -101,7 +101,7 @@
       "runtime": "manager",
       "selector_key": "docker",
       "supports": [
-        "engine",
+        "virtualizer",
         "executor",
         "container",
         "docker"

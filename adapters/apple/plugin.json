@@ -84,7 +84,7 @@
       "runtime": "manager",
       "selector_key": "apple_container",
       "supports": [
-        "engine",
+        "virtualizer",
         "emulator",
         "executor",
         "container"

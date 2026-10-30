@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"runtime"
 	"testing"
 
 	plugin "github.com/webong/ext/pkg/ext-go/engine"
@@ -64,6 +65,14 @@ func TestWireFixtures(t *testing.T) {
 	var request bridge.InferRequest
 	if err := plugin.Decode(requestBytes, &request); err != nil {
 		t.Fatal(err)
+	}
+	// The fixture records a POSIX root. A host checks roots in its own path
+	// convention, and "/models" has no drive letter on Windows.
+	if request.Root != "/models" {
+		t.Fatalf("fixture root: %q", request.Root)
+	}
+	if runtime.GOOS == "windows" {
+		request.Root = `C:\models`
 	}
 	if err := request.Validate(); err != nil {
 		t.Fatal(err)

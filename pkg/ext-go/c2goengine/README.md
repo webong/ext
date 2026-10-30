@@ -66,15 +66,17 @@ newer (ccgo's floor), a C compiler on the path for the preprocessor, and `gofmt`
 few edits ccgo needs (listed in `tools/main.go`, each checked to match exactly once, none to the
 repository's files), and runs ccgo there with relative paths, so the output is the same bytes
 wherever it runs. It also writes `internal/ccgo/inputs.sha256`, a digest of what the translation is
-made from (the C sources and headers as ccgo sees them, the flags, and the ccgo and libc versions),
-the same on every platform, and each generated file names the digest it was made from. The bytes of a
-platform's file also follow its system headers, so they are not compared; the digest is. The digest
-reads the C files without their comments, trailing whitespace and blank lines (`tools/digest.go`), and
-ignores files that are not C (a README, a license), so rewording a comment or a document does not
-make a translation stale; any change to the code does. The `c2goengine` workflow does this on every
-supported platform and fails when a checked-in translation is stale; run it, on every supported
-platform, after changing the code under `lib/plugin/src`, `include` or `vendor` (the artifacts of the
-failed run have the files for the platforms you cannot run).
+made from (the sources it is given and every header, as ccgo sees them, the flags, and the ccgo and
+libc versions), the same on every platform, and each generated file names the digest it was made from.
+The bytes of a platform's file also follow its system headers, so they are not compared; the digest is.
+The digest reads the C files without their comments, trailing whitespace and blank lines
+(`tools/digest.go`), ignores files that are not C (a README, a license) and `.c` files the translator
+is not given (`store.c` and `trust.c`, which are built into the C engine but not translated), so
+rewording a comment or a document, or adding a source the translation never reads, does not make a
+translation stale; any change to a translated source or a header does. The `c2goengine` workflow does
+this on every supported platform and fails when a checked-in translation is stale; run it, on every
+supported platform, after changing a translated source or a header under `lib/plugin/src`, `include`
+or `vendor` (the artifacts of the failed run have the files for the platforms you cannot run).
 
 `GOWORK=off go run . -sync` only brings the build constraints of the hand-written files in line with the
 generated files that exist (the workflow's artifact for a new platform has the file; commit it, then sync).

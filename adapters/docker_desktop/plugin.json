@@ -64,7 +64,7 @@
       "selector_key": "docker_desktop",
       "self_contained": true,
       "supports": [
-        "virtualizer",
+        "engine",
         "emulator",
         "executor",
         "container"

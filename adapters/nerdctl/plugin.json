@@ -97,7 +97,7 @@
       "runtime": "manager",
       "selector_key": "nerdctl",
       "supports": [
-        "virtualizer",
+        "engine",
         "executor",
         "container",
         "nerdctl"

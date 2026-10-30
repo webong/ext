@@ -7,11 +7,10 @@ another tool can treat any evaluator the same way. It builds on the
 [adapter API](adapter-api.md); the maintained evaluators are `jvm`, `wasm`, `evm`
 and `php`.
 
-An evaluator is one level of virtualizer, defined by the boundary it virtualizes (see
+An evaluator is one type of **engine**, defined by the boundary it virtualizes (see
 [Program discovery](adr-program-discovery.md#vocabulary)). The others are the
 `executor` (the operating system, with a shared kernel: Docker) and the `emulator` (a
-whole system: QEMU, VMware ESXi). The word **engine** no longer names an adapter
-role. The **plugin engine**, `lib/plugin`, is the shared C library that the language
+whole system: QEMU, VMware ESXi). The **plugin engine**, `lib/plugin`, is the shared C library that the language
 SDKs bind to host or author `ext.plugin/v1` plugins; it is not an adapter. Mobile
 support belongs to it: see [`pkg/ext-ios`](../pkg/ext-ios/README.md) and
 [`pkg/ext-android`](../pkg/ext-android/README.md).
@@ -27,16 +26,16 @@ there). There is no `adapter.toml`.
 
 ```toml
 runtime = "computer"
-supports = "virtualizer,evaluator,<function>...,<kind>"   # for example virtualizer,evaluator,compiler,jvm
+supports = "engine,evaluator,<role>...,<kind>"   # for example engine,evaluator,compiler,jvm
 selector_key = "<kind>"
 capabilities = "list,observe,validate,run,doctor"
 ```
 
-An evaluator declares `virtualizer` and `evaluator`, any functions that describe what
+An evaluator declares `engine` and `evaluator`, any roles that describe what
 it does with code (`interpreter`, `compiler`, `transpiler`, `bundler`), and one
 specific kind last (`jvm`, `wasm`, `evm`, `php`). With
 `ctx graph resolve all --supports evaluator` a tool finds every evaluator,
-`--supports virtualizer` finds every virtualizer of any level, and
+`--supports engine` finds every engine of any type, and
 `--supports <kind>` narrows to one. A built-in evaluator has no native executable
 to find, so it also sets `self_contained = "true"` and names its command in
 `computer_commands`.

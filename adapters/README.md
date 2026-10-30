@@ -14,7 +14,7 @@ build behavior, and supported image and volume operations. The ctx core sees
 only the common capability protocol.
 Manifest `supports` declarations describe resource kinds independently of
 runtime. For example, the Podman manager and AWS computer adapters both
-declare `virtualizer` and `container`, each with the level it virtualizes
+declare `engine` and `container`, each with the engine type it provides
 (`executor` and `emulator` for Podman, `emulator` for AWS; see
 [Program discovery](../docs/adr-program-discovery.md#vocabulary)).
 Docker also implements the versioned `observe` operation for the system graph;
@@ -30,7 +30,7 @@ The `internal/mod` Go package manages these ctx modifications: manifests,
 installation, trust, and invocation. Provider behavior stays in `adapters/`.
 
 `rancher_desktop`, `orbstack`, and `docker_desktop` are manager-app adapters.
-They declare `supports = "virtualizer,emulator,executor,container"` and implement app status, explicit
+They declare `supports = "engine,emulator,executor,container"` and implement app status, explicit
 start/stop, and read-only diagnostics through each product's own CLI. They do
 not replace the `docker` or `nerdctl` adapters, and they never claim
 ownership of the global Docker CLI plugin links. The generic
@@ -90,7 +90,7 @@ browser adapters declare platform-specific credential dependencies and request
 supported cookie keys through CTX's trusted adapter protocol. They retain
 browser-specific identities without importing store implementation packages.
 
-`php` is the PHP interpreter adapter. It declares `supports = "virtualizer,evaluator,interpreter,php"`,
+`php` is the PHP interpreter adapter. It declares `supports = "engine,evaluator,interpreter,php"`,
 observes every PHP that CTX found (`CTX_PROGRAMS`, from `PATH` and from installer
 adapters) as graph contexts, and runs the selected version for the current project
 without relinking the host's global `php` command. It knows no installer.
@@ -100,7 +100,7 @@ operation reports the executables Homebrew kegs hold for the names CTX asks abou
 linked or keg-only, from `<prefix>/opt/*/bin` without starting `brew`. `run` runs
 `brew`. See [Program discovery](../docs/adr-program-discovery.md).
 
-`jvm` is the Java evaluator adapter. It declares `supports = "virtualizer,evaluator,compiler,jvm"`, finds JDKs
+`jvm` is the Java evaluator adapter. It declares `supports = "engine,evaluator,compiler,jvm"`, finds JDKs
 from `JAVA_HOME`, SDKMAN, `~/.jdks`, asdf, Homebrew and the system locations
 (user-level installs before system ones), and selects one by major version
 (`ctx set jvm 21`). It runs `java`, `javac` or `jar` from the selected

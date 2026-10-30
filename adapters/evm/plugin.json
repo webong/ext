@@ -82,7 +82,7 @@
       "selector_key": "evm",
       "self_contained": true,
       "supports": [
-        "virtualizer",
+        "engine",
         "evaluator",
         "evm"
       ],

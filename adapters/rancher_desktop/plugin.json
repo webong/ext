@@ -64,7 +64,7 @@
       "selector_key": "rancher_desktop",
       "self_contained": true,
       "supports": [
-        "virtualizer",
+        "engine",
         "emulator",
         "executor",
         "container"

@@ -22,7 +22,7 @@ type verdict struct {
 	Verdict   string `json:"verdict"`
 	File      string `json:"file"`
 	SHA256    string `json:"sha256"`
-	Evaluator string `json:"evaluator,omitempty"`
+	Engine    string `json:"engine,omitempty"`
 	Selection string `json:"selection,omitempty"`
 	Isolation string `json:"isolation,omitempty"`
 	ExitCode  int    `json:"exitCode"`
@@ -54,7 +54,7 @@ var kinds = map[string]struct{ kind, prefix string }{
 func verifyCommand(args []string, stdout, stderr io.Writer) int {
 	flags := flag.NewFlagSet("ctn verify", flag.ContinueOnError)
 	flags.SetOutput(stderr)
-	evaluatorName := flags.String("evaluator", "", "the evaluator adapter to use (default: chosen by the file's extension)")
+	engineName := flags.String("engine", "", "the evaluator engine adapter to use (default: chosen by the file's extension)")
 	selection := flags.String("selection", "", "the evaluator selection to use (for example a rule set or a runtime)")
 	timeout := flags.Duration("timeout", 30*time.Second, "stop the content after this long")
 	asJSON := flags.Bool("json", false, "print the verdict as one JSON object")
@@ -63,7 +63,7 @@ func verifyCommand(args []string, stdout, stderr io.Writer) int {
 	}
 	rest := flags.Args()
 	if len(rest) == 0 || *timeout <= 0 {
-		fmt.Fprintln(stderr, "ctn: usage: ctn verify [--evaluator NAME] [--selection SEL] [--timeout D] [--json] FILE [ARGUMENTS...]")
+		fmt.Fprintln(stderr, "ctn: usage: ctn verify [--engine NAME] [--selection SEL] [--timeout D] [--json] FILE [ARGUMENTS...]")
 		return exitUsage
 	}
 	file := rest[0]
@@ -83,7 +83,7 @@ func verifyCommand(args []string, stdout, stderr io.Writer) int {
 
 	// Choose the evaluator adapter.
 	store := adapter.NewStore(adapter.Home())
-	chosen, prefix, err := chooseEvaluator(store, *evaluatorName, file)
+	chosen, prefix, err := chooseEvaluator(store, *engineName, file)
 	if err != nil {
 		fmt.Fprintf(stderr, "ctn: %v\n", err)
 		return exitUsage
@@ -108,7 +108,7 @@ func verifyCommand(args []string, stdout, stderr io.Writer) int {
 		Verdict:   string(result.Verdict),
 		File:      file,
 		SHA256:    sha256Hex,
-		Evaluator: result.Backend,
+		Engine:    result.Backend,
 		Selection: *selection,
 		Isolation: result.Isolation,
 		ExitCode:  result.ExitCode,
@@ -141,8 +141,8 @@ func printVerdict(w io.Writer, v verdict, asJSON bool) {
 		return
 	}
 	line := fmt.Sprintf("%s %s sha256:%s", v.Verdict, v.File, v.SHA256[:12])
-	if v.Evaluator != "" {
-		line += fmt.Sprintf(" evaluator=%s", v.Evaluator)
+	if v.Engine != "" {
+		line += fmt.Sprintf(" engine=%s", v.Engine)
 	}
 	if v.Isolation != "" {
 		line += fmt.Sprintf(" isolation=%s", v.Isolation)
@@ -165,7 +165,7 @@ func chooseEvaluator(store *adapter.Store, name, file string) (*adapter.Adapter,
 	}
 	entry, known := kinds[strings.ToLower(filepath.Ext(file))]
 	if name == "" && !known {
-		return nil, "", fmt.Errorf("cannot tell which evaluator runs %s; name one with --evaluator", file)
+		return nil, "", fmt.Errorf("cannot tell which evaluator runs %s; name one with --engine", file)
 	}
 	for _, candidate := range installed {
 		isEvaluator, matches := false, false

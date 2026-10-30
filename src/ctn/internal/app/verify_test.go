@@ -32,7 +32,7 @@ func evaluatorStore(t *testing.T) (string, func(name, kind, observe, run string,
 		}
 		log := filepath.Join(home, name+".log")
 		manifest := "api_version = \"2.0\"\nname = \"" + name + "\"\nruntime = \"computer\"\nsurfaces = \"shell\"\nexecutable = \"ctx-" + name + "\"\n" +
-			"capabilities = \"list,observe,validate,run,doctor\"\nsupports = \"virtualizer,evaluator," + kind + "\"\nselector_key = \"" + kind + "\"\n" +
+			"capabilities = \"list,observe,validate,run,doctor\"\nsupports = \"engine,evaluator," + kind + "\"\nselector_key = \"" + kind + "\"\n" +
 			"computer_commands = \"" + name + "\"\nself_contained = \"true\"\n"
 		script := "#!/bin/sh\necho \"$*\" >> '" + log + "'\ncase \"$1\" in\n" +
 			"observe) echo '" + observe + "'; exit 0;;\nrun) " + run + ";;\n*) exit 0;;\nesac\n"
@@ -89,7 +89,7 @@ func TestVerifyPassesContentThatRunsCleanlyInASandbox(t *testing.T) {
 	log := install("wasm", "wasm", sandboxed, "exit 0", true)
 	file := contentFile(t, "ok.wasm", "payload")
 	code, stdout, stderr := verify(t, "--timeout", "10s", file)
-	if code != exitPass || !strings.HasPrefix(stdout, "PASS ") || !strings.Contains(stdout, "isolation=sandboxed") || !strings.Contains(stdout, "evaluator=wasm") {
+	if code != exitPass || !strings.HasPrefix(stdout, "PASS ") || !strings.Contains(stdout, "isolation=sandboxed") || !strings.Contains(stdout, "engine=wasm") {
 		t.Fatalf("%d %q %q", code, stdout, stderr)
 	}
 	// sha256("payload"), so the verdict names exactly what was checked.
@@ -190,7 +190,7 @@ func TestVerifyChoosesTheEvaluatorByExtensionAndNamesTheFileForEvm(t *testing.T)
 	wasmLog := install("wasm", "wasm", sandboxed, "exit 0", true)
 	evmLog := install("evm", "evm", `{"version":1,"contexts":[{"selection":"prague","attributes":{"isolation":"sandboxed"}}]}`, "exit 0", true)
 	hexFile := contentFile(t, "code.hex", "602a")
-	if code, stdout, _ := verify(t, hexFile); code != exitPass || !strings.Contains(stdout, "evaluator=evm") {
+	if code, stdout, _ := verify(t, hexFile); code != exitPass || !strings.Contains(stdout, "engine=evm") {
 		t.Fatalf("%d %q", code, stdout)
 	}
 	data, _ := os.ReadFile(evmLog)
@@ -200,11 +200,11 @@ func TestVerifyChoosesTheEvaluatorByExtensionAndNamesTheFileForEvm(t *testing.T)
 	if ran(wasmLog) {
 		t.Fatal("the wasm evaluator must not run evm content")
 	}
-	if code, _, stderr := verify(t, contentFile(t, "notes.txt", "x")); code != exitUsage || !strings.Contains(stderr, "--evaluator") {
-		t.Fatalf("an unknown extension needs --evaluator: %d %q", code, stderr)
+	if code, _, stderr := verify(t, contentFile(t, "notes.txt", "x")); code != exitUsage || !strings.Contains(stderr, "--engine") {
+		t.Fatalf("an unknown extension needs --engine: %d %q", code, stderr)
 	}
-	if code, _, _ := verify(t, "--evaluator", "wasm", contentFile(t, "notes.bin", "x")); code != exitPass {
-		t.Fatalf("--evaluator overrides the extension: %d", code)
+	if code, _, _ := verify(t, "--engine", "wasm", contentFile(t, "notes.bin", "x")); code != exitPass {
+		t.Fatalf("--engine overrides the extension: %d", code)
 	}
 }
 

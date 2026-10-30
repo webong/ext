@@ -72,17 +72,17 @@ func splitList(value string) []string {
 	return out
 }
 
-// Levels say what boundary a program virtualizes, functions say what it does with
-// code. docs/adr-program-discovery.md defines both.
+// A program answers two questions: which engine it provides (what boundary it
+// virtualizes) and which roles it plays (what it does with code).
+// docs/adr-program-discovery.md defines both.
 var (
-	virtualizerLevels = map[string]bool{"evaluator": true, "executor": true, "emulator": true}
-	codeFunctions     = map[string]bool{"interpreter": true, "compiler": true, "transpiler": true, "bundler": true}
+	engineTypes = map[string]bool{"evaluator": true, "executor": true, "emulator": true}
+	codeRoles   = map[string]bool{"interpreter": true, "compiler": true, "transpiler": true, "bundler": true}
 )
 
-// TestVirtualizerLevels checks the vocabulary: no adapter declares the retired
-// "engine" role, every adapter with a level also declares virtualizer, and every
-// virtualizer has a level.
-func TestVirtualizerLevels(t *testing.T) {
+// TestEngineVocabulary checks that an adapter providing an engine type also
+// declares the umbrella "engine", and that "engine" names a type.
+func TestEngineVocabulary(t *testing.T) {
 	root := repoRoot(t)
 	manifests, err := filepath.Glob(filepath.Join(root, "adapters", "*", "plugin.json"))
 	if err != nil {
@@ -91,19 +91,16 @@ func TestVirtualizerLevels(t *testing.T) {
 	for _, path := range manifests {
 		values := manifestValues(t, path)
 		name := values["name"]
-		hasLevel, isVirtualizer := false, false
+		hasType, isEngine := false, false
 		for _, kind := range splitList(values["supports"]) {
-			if kind == "engine" {
-				t.Errorf("%s: \"engine\" is retired; declare virtualizer and a level (evaluator, executor or emulator)", name)
-			}
-			hasLevel = hasLevel || virtualizerLevels[kind]
-			isVirtualizer = isVirtualizer || kind == "virtualizer"
+			hasType = hasType || engineTypes[kind]
+			isEngine = isEngine || kind == "engine"
 		}
-		if hasLevel && !isVirtualizer {
-			t.Errorf("%s: an adapter with a level must also declare virtualizer", name)
+		if hasType && !isEngine {
+			t.Errorf("%s: an adapter that provides an evaluator, executor or emulator must also declare engine", name)
 		}
-		if isVirtualizer && !hasLevel {
-			t.Errorf("%s: a virtualizer must declare a level: evaluator, executor or emulator", name)
+		if isEngine && !hasType {
+			t.Errorf("%s: an engine must declare its type: evaluator, executor or emulator", name)
 		}
 	}
 }
@@ -134,12 +131,12 @@ func TestEvaluatorAdaptersFollowTheContract(t *testing.T) {
 		}
 		var kinds []string
 		for _, kind := range supports {
-			if kind != "virtualizer" && !virtualizerLevels[kind] && !codeFunctions[kind] {
+			if kind != "engine" && !engineTypes[kind] && !codeRoles[kind] {
 				kinds = append(kinds, kind)
 			}
 		}
 		if len(kinds) != 1 {
-			t.Errorf("%s: supports must be virtualizer, evaluator, any functions and exactly one kind, got %q", name, values["supports"])
+			t.Errorf("%s: supports must be engine, evaluator, any roles and exactly one kind, got %q", name, values["supports"])
 			continue
 		}
 		if values["selector_key"] != kinds[0] {

@@ -34,39 +34,39 @@ it lives: Homebrew, asdf, nvm, pyenv, SDKMAN, uv, rustup, apt, winget, scoop. Th
 word `manager` is taken: a `manager` runtime means a workload manager such as
 Docker or Podman. An installer adapter declares `supports = "installer"`.
 
-Roles are values of `supports`. They come on two independent axes, and an adapter
-declares as many as apply, followed by its kind.
+A program answers two questions: **which engine do you provide**, and **which roles do
+you play**. Both are values of `supports`, and an adapter declares as many as apply,
+followed by its kind.
 
-**Levels** say what boundary a program virtualizes. `virtualizer` is the umbrella,
-and every adapter that has a level also declares `virtualizer`, so
-`--supports virtualizer` lists all of them and a level narrows the list. The levels
-are defined by the boundary, not by the mechanism:
+**Engines** say what boundary a program virtualizes. `engine` is the umbrella, and
+every adapter that provides an engine also declares its type, so `--supports engine`
+lists all of them and a type narrows the list. The types are defined by the boundary,
+not by the mechanism:
 
-| Level | Boundary | Examples |
+| Engine type | Boundary | Examples |
 | --- | --- | --- |
 | `evaluator` | a process or a language | V8, Zend PHP, Wasm, the JVM |
 | `executor` | the operating system, with a shared kernel | Docker, LXC |
 | `emulator` | a whole system | QEMU, RVVM, VMware ESXi, KVM |
 
-KVM and ESXi are hypervisors and not strict emulators; the level names the boundary
+KVM and ESXi are hypervisors and not strict emulators; the type names the boundary
 they virtualize, which is the whole machine.
 
-**Functions** say what a program does with code: `interpreter`, `compiler`,
-`transpiler` and probably `bundler`. A function has no boundary: `javac` is a
-compiler and virtualizes nothing, while PHP is both an interpreter and an evaluator.
+**Roles** say what a program does with code: `interpreter`, `compiler`,
+`transpiler` and probably `bundler`. A role has no boundary: `javac` is a
+compiler and provides no engine, while PHP is both an interpreter and an evaluator.
 
 The kind (`php`, `jvm`, `docker`) comes last, as it does today. Examples:
 
 | Adapter | `supports` |
 | --- | --- |
-| `php` | `virtualizer,evaluator,interpreter,php` |
-| `jvm` | `virtualizer,evaluator,compiler,jvm` |
-| `docker` | `virtualizer,executor,container,docker` |
-| `qemu` | `virtualizer,emulator,qemu` |
-| `orbstack`, `rancher_desktop` | `virtualizer,emulator,executor,container` |
+| `php` | `engine,evaluator,interpreter,php` |
+| `jvm` | `engine,evaluator,compiler,jvm` |
+| `docker` | `engine,executor,container,docker` |
+| `qemu` | `engine,emulator,qemu` |
+| `orbstack`, `rancher_desktop` | `engine,emulator,executor,container` |
 
-This replaces `engine` and the draft's "mirroring `engine,jvm`" wording. The
-vocabulary is open: core does not enumerate it.
+The vocabulary is open: core does not enumerate it.
 
 ## Decisions
 
@@ -178,12 +178,14 @@ visible.
 
 Decided in the spike:
 
-- The `engine` role is gone, as a hard cut with no alias. `jvm`, `wasm`, `evm` and
-  `php` are evaluators; `docker` and `nerdctl` are executors; `podman`,
-  `docker_desktop`, `orbstack`, `rancher_desktop` and `apple` are emulators and
-  executors; `aws` and `gcloud` are emulators; `kube` declares no level and is not a
-  virtualizer. `engines_test.go` now checks the vocabulary. The `--engine` flag of
-  `ctn verify` is `--evaluator`, and its JSON field and output line say `evaluator`.
+- `engine` is the umbrella for the evaluator, executor and emulator types, replacing
+  the short-lived `virtualizer` and the word "level"; roles are the second axis.
+  `jvm`, `wasm`, `evm` and `php` are evaluators; `docker` and `nerdctl` are
+  executors; `podman`, `docker_desktop`, `orbstack`, `rancher_desktop` and `apple` are
+  emulators and executors; `aws` and `gcloud` are emulators; `kube` provides no
+  engine. There is no alias for the earlier meaning of `engine`, an adapter that ran
+  programs. `engines_test.go` checks the vocabulary. `ctn verify --engine` accepts an
+  evaluator, and its JSON field and output line say `engine`.
   `docs/engine-adapters.md` is `docs/evaluator-adapters.md`.
 Still open:
 

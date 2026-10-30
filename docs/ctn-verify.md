@@ -7,7 +7,7 @@ evaluator's reported `isolation` to decide whether the content may run at all.
 ```sh
 ctn verify module.wasm
 ctn verify --timeout 5s --json contract.hex
-ctn verify --evaluator wasm --selection wasmtime component.wasm
+ctn verify --engine wasm --selection wasmtime component.wasm
 ```
 
 ## Rules
@@ -20,7 +20,7 @@ ctn verify --evaluator wasm --selection wasmtime component.wasm
   read all mean the content is not run.
 - **The evaluator must be trusted**, with `ctx adapter trust NAME`, like any adapter.
 - **The evaluator is chosen by the file's extension** (`.wasm` is `wasm`; `.evm` and `.hex`
-  are `evm`), or named with `--evaluator`. Anything else needs `--evaluator`.
+  are `evm`), or named with `--engine`. Anything else needs `--engine`.
 - **`--timeout`** (default 30 seconds) is passed to the evaluator, and `ctn` adds its own
   outer limit a few seconds longer, so an evaluator that ignores its timeout cannot hang
   the check.
@@ -39,7 +39,7 @@ ctn verify --evaluator wasm --selection wasmtime component.wasm
 module, says nothing about whether the content is good.
 
 Every verdict carries the SHA-256 of the file, so a result names exactly what was
-checked. With `--json` it is one object: `verdict`, `file`, `sha256`, `evaluator`,
+checked. With `--json` it is one object: `verdict`, `file`, `sha256`, `engine`,
 `selection`, `isolation`, `exitCode`, `millis` and `reason`.
 
 ## What it does not do

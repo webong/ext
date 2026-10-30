@@ -23,6 +23,11 @@ func modelStoreTestHelper(t *testing.T) string {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer func() {
+		if err := store.Close(); err != nil {
+			t.Errorf("close model fixture store: %v", err)
+		}
+	}()
 	manifest := ml.Manifest{
 		APIVersion:   ml.ManifestAPIVersion,
 		Name:         "example-model",
@@ -418,11 +423,16 @@ func TestModelCommandRemove(t *testing.T) {
 	if code := modelCommand([]string{"remove", root, "onnxruntime/example-model@v1.2.3"}, &stdout, &stderr); code != 0 {
 		t.Fatalf("model remove = %d: %s", code, stderr.String())
 	}
-	if _, err := ml.OpenStore(root); err != nil {
+	// Verify it's gone, then release the directory handle before TempDir cleanup.
+	store, err := ml.OpenStore(root)
+	if err != nil {
 		t.Fatal(err)
 	}
-	// Verify it's gone.
-	store, _ := ml.OpenStore(root)
+	defer func() {
+		if err := store.Close(); err != nil {
+			t.Errorf("close model verification store: %v", err)
+		}
+	}()
 	if _, err := store.Resolve(context.Background(), "onnxruntime", "example-model", "v1.2.3"); err == nil {
 		t.Fatal("removed model still found")
 	}

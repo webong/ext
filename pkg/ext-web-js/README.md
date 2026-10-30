@@ -150,8 +150,9 @@ by the selected browser adapter; the embedded JavaScript peer library does not
 call those Go APIs.
 
 The package accepts either `browser.runtime` or `chrome.runtime`, or an injected
-runtime. The Firefox examples were exercised with temporary add-ons in Firefox
-157; Chromium still needs a completed browser smoke test. See the
+runtime. The current examples passed automated host/guest checks in Firefox 159
+and Chrome for Testing 156, including host and guest background restarts. See
+the [browser compatibility checks](COMPATIBILITY.md) and the
 [implementation plan](../../docs/ext-web-js-plan.md).
 
 This is a private staging package. Cymonkey will own and distribute the library

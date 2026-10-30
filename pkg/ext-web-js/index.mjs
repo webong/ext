@@ -31,10 +31,10 @@ function remoteError(error) {
 }
 
 class Connection {
-  constructor(port, methods, authorize, onEvent, onState, onDisconnect, timeoutMs) {
+  constructor(port, methods, authorize, onEvent, onState, onDisconnect, timeoutMs, helloReplyMethods) {
     this.port = port; this.methods = methods; this.authorize = authorize;
     this.onEvent = onEvent; this.onState = onState; this.onDisconnect = onDisconnect;
-    this.timeoutMs = timeoutMs; this.pending = new Map(); this.running = new Map();
+    this.timeoutMs = timeoutMs; this.helloReplyMethods = helloReplyMethods; this.pending = new Map(); this.running = new Map();
     this.closed = false; this.ready = false; this.remoteMethods = [];
     this.messageListener = message => { queueMicrotask(() => { if (!this.closed) void this.receive(message); }); };
     this.disconnectListener = () => this.close();
@@ -50,7 +50,12 @@ class Connection {
     try { message = checkMessage(raw); } catch { this.close(); return; }
     if (message.type === 'hello') {
       if (this.ready) { this.close(); return; }
-      this.remoteMethods = [...new Set(message.methods)]; this.ready = true;
+      this.remoteMethods = [...new Set(message.methods)];
+      if (this.helloReplyMethods) {
+        try { this.send({ type: 'hello', methods: this.helloReplyMethods }); }
+        catch { this.close(); return; }
+      }
+      this.ready = true;
       this.onState?.(this, 'connected'); return;
     }
     if (!this.ready) { this.close(); return; }
@@ -166,8 +171,7 @@ export function createGuest({ runtime, hostId, methods = {}, authorize, onEvent,
       const port = browserRuntime(runtime).connect(hostId, { name: PORT_NAME });
       connection = new Connection(port, methods, (_c, name) => authorize?.(name),
         (_c, event) => onEvent?.(event), (_c, kind, state) => { if (kind === 'connected') onChange?.(true); else onState?.(state); },
-        closed => { if (connection === closed) { connection = undefined; onChange?.(false); if (active) timer = setTimeout(connect, reconnectMs); } }, timeoutMs);
-      connection.send({ type: 'hello', methods: names });
+        closed => { if (connection === closed) { connection = undefined; onChange?.(false); if (active) timer = setTimeout(connect, reconnectMs); } }, timeoutMs, names);
     } catch { if (active) timer = setTimeout(connect, reconnectMs); }
   }
   return api;

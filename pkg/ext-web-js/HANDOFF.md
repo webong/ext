@@ -12,8 +12,8 @@ engine.
 2. Choose the package name, version, publication metadata, and release process
    there. The staging package intentionally remains `private: true`.
 3. Run JavaScript tests, TypeScript checks, and example builds in the new
-   location. Repeat Firefox host/guest and theme checks, and complete a Chromium
-   browser smoke test before claiming that browser's support.
+   location. Repeat the Firefox and Chromium host/guest smoke commands, and
+   perform the separate theme browser check before claiming theme support.
 4. Move or rewrite the relevant docs, then remove this staging package and its
    ext-specific references.
 

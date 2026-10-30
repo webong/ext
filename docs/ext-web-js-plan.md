@@ -1,12 +1,12 @@
 # ext-web-js browser extension peer library plan
 
 Status: peer, hub, spoke, in-browser management, tab messaging, scoped workspace,
-userscript registration, bridge, and theme APIs implemented. Firefox host/guest
-smoke testing passed; Chromium browser smoke testing remains. This is staging
-work for [Cymonkey ownership](../pkg/ext-web-js/HANDOFF.md), not an ext release.
-The local Chrome command-line
-smoke attempt opened an isolated profile, but Chrome did not register either
-unpacked example extension, so it did not verify browser messaging.
+userscript registration, bridge, and theme APIs implemented. Chromium host/guest
+smoke testing passed in Chrome for Testing 156 and Firefox 159 with the current
+handshake. This is staging work for
+[Cymonkey ownership](../pkg/ext-web-js/HANDOFF.md), not an ext release.
+Branded Chrome 137+ ignores command-line unpacked extension loading; the
+[repeatable checks](../pkg/ext-web-js/COMPATIBILITY.md) use Chrome for Testing.
 
 `pkg/ext-web-js` is a standalone JavaScript/TypeScript staging package for browser
 extension builders. It lets independently built extensions act as hosts,
@@ -67,7 +67,10 @@ The Chromium and Firefox MV3 examples build from the same host/guest behavior.
 Firefox uses background modules and fixed Gecko IDs. In Firefox 157, both
 temporary add-ons loaded; the guest connected and registered with the host,
 calls worked in both directions, the denied method returned `denied`, and the
-guest reconnected and called the host after a host reload.
+guest reconnected and called the host after a host reload. The current protocol
+waits for the admitted host's hello before the guest replies, avoiding loss of
+the guest hello during asynchronous admission. Firefox 159 and Chrome for
+Testing 156 passed the current bidirectional and restart checks.
 
 The browser-native helper entry point offers read-only extension inventory and
 change watching, plus in-extension management operations for explicit IDs:
@@ -154,8 +157,8 @@ required. WXT may consume the library but is not a runtime dependency.
 Both examples build independently against the library and produce separately
 loadable extension artifacts. Supply target-specific manifests and reproducible
 instructions for selecting development extension IDs. Chromium and Firefox
-targets now build; Firefox host/guest behavior was smoke tested. Chromium and
-Safari still require their own browser validation.
+targets now build; Chromium and Firefox host/guest behavior passed the automated
+browser checks. Safari remains unchecked.
 
 The host example:
 

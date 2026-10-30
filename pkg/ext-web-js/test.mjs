@@ -3,13 +3,13 @@ import assert from 'node:assert/strict';
 import { createHost, createGuest, createHub, createSpoke, discoverExtension, PeerError } from './index.mjs';
 
 function event() { const listeners = new Set(); return { addListener: x => listeners.add(x), removeListener: x => listeners.delete(x), emit: x => { for (const listener of [...listeners]) listener(x); } }; }
-function messages() { const listeners = new Set(); const queued = []; return { addListener(listener) { listeners.add(listener); for (const value of queued.splice(0)) listener(value); }, removeListener: listener => listeners.delete(listener), emit(value) { if (!listeners.size) queued.push(value); else for (const listener of [...listeners]) listener(value); } }; }
-function browserPair() {
+function messages(buffer = true) { const listeners = new Set(); const queued = []; return { addListener(listener) { listeners.add(listener); for (const value of queued.splice(0)) listener(value); }, removeListener: listener => listeners.delete(listener), emit(value) { if (!listeners.size) { if (buffer) queued.push(value); } else for (const listener of [...listeners]) listener(value); } }; }
+function browserPair({ bufferMessages = true } = {}) {
   const onConnectExternal = event();
   const runtime = { onConnectExternal, connect(id, { name }) {
     assert.equal(id, 'host');
-    const a = { name, sender: { id: 'guest' }, onMessage: messages(), onDisconnect: event(), postMessage(value) { queueMicrotask(() => b.onMessage.emit(value)); }, disconnect() { queueMicrotask(() => { a.onDisconnect.emit(); b.onDisconnect.emit(); }); } };
-    const b = { name, onMessage: messages(), onDisconnect: event(), postMessage(value) { queueMicrotask(() => a.onMessage.emit(value)); }, disconnect: a.disconnect };
+    const a = { name, sender: { id: 'guest' }, onMessage: messages(bufferMessages), onDisconnect: event(), postMessage(value) { queueMicrotask(() => b.onMessage.emit(value)); }, disconnect() { queueMicrotask(() => { a.onDisconnect.emit(); b.onDisconnect.emit(); }); } };
+    const b = { name, onMessage: messages(bufferMessages), onDisconnect: event(), postMessage(value) { queueMicrotask(() => a.onMessage.emit(value)); }, disconnect: a.disconnect };
     queueMicrotask(() => onConnectExternal.emit(a)); return b;
   } };
   return runtime;
@@ -32,6 +32,15 @@ test('bidirectional calls, sender admission, state, events, and reconnection', a
   host.stop(); await until(() => !guest.connected());
   host.start(); await until(() => guest.connected() && host.peers().length === 1);
   assert.equal(await host.call('guest', 'guest.echo', 'again'), 'again');
+  guest.stop(); host.stop();
+});
+
+test('asynchronous admission works when the runtime drops messages sent before listeners attach', async () => {
+  const runtime = browserPair({ bufferMessages: false });
+  const host = createHost({ runtime, admit: async () => { await new Promise(resolve => setTimeout(resolve, 5)); return true; } });
+  const guest = createGuest({ runtime, hostId: 'host', reconnectMs: 1 });
+  host.start(); guest.start();
+  await until(() => guest.connected() && host.peers().length === 1);
   guest.stop(); host.stop();
 });
 

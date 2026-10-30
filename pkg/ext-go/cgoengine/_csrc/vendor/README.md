@@ -9,7 +9,7 @@ SHA-256:
 - `yyjson.h`: `175867c5493a5df648cec566717fa1c29aa2f6096f5f0cf1efad0b65e1f6d7b3`
 - `LICENSE`: `45e384d3d52c73cba3a64d6e6c25d47cd738cd8a55c30629e3201046eda62947`
 
-CTX uses strict UTF-8 parsing and preserves JSON number text. CTX's own wire
+The engine uses strict UTF-8 parsing and preserves JSON number text. Its wire
 layer adds duplicate-key checks, envelope validation and depth/frame limits.
 
 CMake force-includes a generated private namespace header for every engine

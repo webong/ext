@@ -111,3 +111,156 @@ func (g *goPackageStore) IDs() ([]string, error) {
 	sort.Strings(ids)
 	return ids, nil
 }
+
+// PackageRecord is one package a store or layered view serves: its id, the directory it lives in,
+// the position of the root that serves it (always 0 for a single store) and its plugin.json.
+type PackageRecord struct {
+	ID        string
+	Directory string
+	Layer     int
+	Manifest  []byte
+}
+
+// PackageCheck is the result of verifying one entry below a root: a package id, or the directory
+// name when it is not a package directory. Err is nil when the entry verified.
+type PackageCheck struct {
+	ID        string
+	Directory string
+	Layer     int
+	Err       error
+}
+
+func (g *goPackageStore) records(installed []store.Installed, layerOf func(string) int) ([]PackageRecord, error) {
+	out := make([]PackageRecord, 0, len(installed))
+	for _, p := range installed {
+		manifest, err := os.ReadFile(filepath.Join(p.Directory, store.ManifestName))
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, PackageRecord{ID: p.Manifest.Descriptor.Identity.ID, Directory: p.Directory, Layer: layerOf(p.Directory), Manifest: manifest})
+	}
+	return out, nil
+}
+
+func packageChecks(checks []store.Check, layerOf func(string) int) []PackageCheck {
+	out := make([]PackageCheck, 0, len(checks))
+	for _, c := range checks {
+		out = append(out, PackageCheck{ID: c.ID, Directory: c.Directory, Layer: layerOf(c.Directory), Err: packageStoreError(c.Err)})
+	}
+	return out
+}
+
+func layerZero(string) int { return 0 }
+
+// List verifies every installed package and returns them sorted by id. It fails on the first entry
+// that is not a package directory and on the first package that does not verify.
+func (g *goPackageStore) List() ([]PackageRecord, error) {
+	installed, err := g.s.List()
+	if err != nil {
+		return nil, packageStoreError(err)
+	}
+	return g.records(installed, layerZero)
+}
+
+// Verify checks every entry below the root and reports each, sorted by id.
+func (g *goPackageStore) Verify() ([]PackageCheck, error) {
+	checks, err := g.s.Verify()
+	if err != nil {
+		return nil, packageStoreError(err)
+	}
+	return packageChecks(checks, layerZero), nil
+}
+
+// ListUnverified returns the packages whose manifest reads and the entries that could not be read,
+// without reading any artifact. The packages are unverified.
+func (g *goPackageStore) ListUnverified() ([]PackageRecord, []PackageCheck, error) {
+	installed, problems, err := g.s.ListUnverified()
+	if err != nil {
+		return nil, nil, packageStoreError(err)
+	}
+	records, err := g.records(installed, layerZero)
+	return records, packageChecks(problems, layerZero), err
+}
+
+// goLayeredPackageStore is a read-only view over several package roots of the pure-Go engine, the
+// LayeredPackageStore of a build without the C engine and the baseline the C view is held to.
+type goLayeredPackageStore struct {
+	view  *store.Layered
+	roots []string
+	one   goPackageStore
+}
+
+func openGoLayeredPackageStore(roots []string, limits PackageStoreLimits) (*goLayeredPackageStore, error) {
+	stores := make([]*store.Store, 0, len(roots))
+	for _, root := range roots {
+		s, err := store.New(root, store.Limits{MaxArtifactBytes: limits.MaxArtifactBytes, MaxTreeFiles: limits.MaxTreeFiles, MaxTreeBytes: limits.MaxTreeBytes})
+		if err != nil {
+			return nil, err
+		}
+		stores = append(stores, s)
+	}
+	view, err := store.NewLayered(stores...)
+	if err != nil {
+		return nil, err
+	}
+	return &goLayeredPackageStore{view: view, roots: append([]string(nil), roots...)}, nil
+}
+
+// Close releases the view. The pure-Go view holds nothing.
+func (g *goLayeredPackageStore) Close() {}
+
+// Roots returns the roots in priority order, as they were given.
+func (g *goLayeredPackageStore) Roots() []string { return append([]string(nil), g.roots...) }
+
+func (g *goLayeredPackageStore) layerOf(dir string) int {
+	parent := filepath.Dir(dir)
+	for i, root := range g.roots {
+		if filepath.Clean(root) == parent {
+			return i
+		}
+	}
+	return -1
+}
+
+// Load reads and verifies the package from the first root that holds id. plugin.ErrNotFound means
+// no root does. A damaged winning copy is an error, never a fall back to a lower root.
+func (g *goLayeredPackageStore) Load(id string) (PackageRecord, error) {
+	p, err := g.view.Load(id)
+	if err != nil {
+		return PackageRecord{}, packageStoreError(err)
+	}
+	records, err := g.one.records([]store.Installed{p}, g.layerOf)
+	if err != nil {
+		return PackageRecord{}, err
+	}
+	return records[0], nil
+}
+
+// List verifies and returns one package per id from the highest root that holds it.
+func (g *goLayeredPackageStore) List() ([]PackageRecord, error) {
+	installed, err := g.view.List()
+	if err != nil {
+		return nil, packageStoreError(err)
+	}
+	return g.one.records(installed, g.layerOf)
+}
+
+// Verify checks what Load and List would serve and reports every failure.
+func (g *goLayeredPackageStore) Verify() ([]PackageCheck, error) {
+	checks, err := g.view.Verify()
+	if err != nil {
+		return nil, packageStoreError(err)
+	}
+	return packageChecks(checks, g.layerOf), nil
+}
+
+// ListUnverified returns the manifests of the packages each root serves without reading any
+// artifact, and the entries that could not be read. The packages are unverified.
+func (g *goLayeredPackageStore) ListUnverified() ([]PackageRecord, []PackageCheck, error) {
+	installed, problems, err := g.view.ListUnverified()
+	if err != nil {
+		return nil, nil, packageStoreError(err)
+	}
+	records, err := g.one.records(installed, g.layerOf)
+	return records, packageChecks(problems, g.layerOf), err
+}

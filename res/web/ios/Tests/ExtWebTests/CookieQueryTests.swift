@@ -58,7 +58,7 @@ final class CookieQueryTests: XCTestCase {
             }; XCTFail("timeout accepted")
         } catch let e as CookieQuery.Failure { XCTAssertEqual(e.kind, .timeout); XCTAssertEqual(e.partial.cookies.count, 1) }
         o.timeout = 0
-        let cancelled = Task { try await CookieQuery.get(o) { _, _ in
+        let cancelled = Task { [o] in try await CookieQuery.get(o) { _, _ in
             try await Task.sleep(nanoseconds: 1_000_000_000); return .init(sources: [])
         } }
         cancelled.cancel()

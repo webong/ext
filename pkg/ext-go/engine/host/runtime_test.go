@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -24,7 +25,11 @@ func TestReviewedRuntimeLaunchesSourceGuest(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(runtimeSource, "vendor"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	runner := filepath.Join(runtimeSource, "vendor", "runner")
+	runnerName := "runner"
+	if runtime.GOOS == "windows" {
+		runnerName += ".exe"
+	}
+	runner := filepath.Join(runtimeSource, "vendor", runnerName)
 	if err := copyRuntimeTestBinary(runner); err != nil {
 		t.Fatal(err)
 	}
@@ -64,10 +69,10 @@ func TestReviewedRuntimeLaunchesSourceGuest(t *testing.T) {
 	}
 	options := host.RuntimeOptions{
 		Runtime: runtimePackage, ReviewedDigest: reviewed,
-		RuntimeArtifact: "vendor", Executable: "runner", ScriptArtifact: "script.py",
+		RuntimeArtifact: "vendor", Executable: runnerName, ScriptArtifact: "script.py",
 		Options: host.Options{Env: []string{"HOST_TEST_CHILD=1"}},
 	}
-	if _, err := host.OpenRuntime(context.Background(), installed, host.RuntimeOptions{Runtime: runtimePackage, RuntimeArtifact: "vendor", Executable: "runner", ScriptArtifact: "script.py"}); !errors.Is(err, plugin.ErrInvalid) {
+	if _, err := host.OpenRuntime(context.Background(), installed, host.RuntimeOptions{Runtime: runtimePackage, RuntimeArtifact: "vendor", Executable: runnerName, ScriptArtifact: "script.py"}); !errors.Is(err, plugin.ErrInvalid) {
 		t.Fatalf("unreviewed runtime accepted: %v", err)
 	}
 	process, err := host.OpenRuntime(context.Background(), installed, options)
@@ -90,7 +95,7 @@ func TestReviewedRuntimeLaunchesSourceGuest(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(base, "runner"), []byte("changed"), 0o700); err != nil {
+	if err := os.WriteFile(filepath.Join(base, runnerName), []byte("changed"), 0o700); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := host.OpenRuntime(context.Background(), installed, options); err == nil {

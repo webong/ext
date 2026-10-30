@@ -3,6 +3,7 @@
 package pipewire
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -315,6 +316,18 @@ func (p *execProcess) Kill() error {
 }
 
 func startProcess(ctx context.Context, name string, arguments ...string) (Process, error) {
+	// pw-cat releases differ: older builds infer raw pipes, while newer
+	// builds require --raw for headerless playback. Probe the selected tool,
+	// rather than assuming a distribution or choosing a different backend.
+	probeCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	help, err := exec.CommandContext(probeCtx, name, "--help").Output()
+	cancel()
+	if err != nil {
+		return nil, fmt.Errorf("inspect %s options: %w", name, err)
+	}
+	if bytes.Contains(help, []byte("--raw")) {
+		arguments = append([]string{"--raw"}, arguments...)
+	}
 	command := exec.CommandContext(ctx, name, arguments...)
 	stdin, err := command.StdinPipe()
 	if err != nil {

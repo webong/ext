@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
@@ -27,7 +28,7 @@ func TestCreateInspectAndRemovePrivateVolume(t *testing.T) {
 	if err != nil || !info.IsDir() {
 		t.Fatalf("volume is not a directory: %v", err)
 	}
-	if info.Mode().Perm() != 0o700 {
+	if runtime.GOOS != "windows" && info.Mode().Perm() != 0o700 {
 		t.Fatalf("volume mode = %o", info.Mode().Perm())
 	}
 	if err = os.MkdirAll(filepath.Join(path, "nested"), 0o700); err != nil {
@@ -78,7 +79,7 @@ func TestCreateRejectsBroadAndRelativeTargets(t *testing.T) {
 			t.Errorf("%s target = %v", name, err)
 		}
 	}
-	if _, err := CreatePrivate(context.Background(), "/Users/../etc/../", PrivateLimits{}); !errors.Is(err, ErrUnsafePath) {
+	if _, err := CreatePrivate(context.Background(), filepath.VolumeName(t.TempDir())+string(filepath.Separator)+"Users/../etc/../", PrivateLimits{}); !errors.Is(err, ErrUnsafePath) {
 		t.Fatalf("traversal target = %v", err)
 	}
 }
@@ -117,7 +118,7 @@ func TestInspectRejectsBroadPermissionsAndFiles(t *testing.T) {
 	if err := os.Mkdir(open, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.Chmod(open, 0o755); err != nil {
+	if err := broadenPermissionsForTest(open); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := InspectPrivate(context.Background(), open, PrivateLimits{}); !errors.Is(err, ErrUnsafePath) {
@@ -236,7 +237,7 @@ func TestRemoveRevalidatesPathAfterInspection(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	volume.Path = "/"
+	volume.Path = filepath.VolumeName(path) + string(filepath.Separator)
 	if err = RemovePrivate(context.Background(), volume, PrivateLimits{}); !errors.Is(err, ErrUnsafePath) {
 		t.Fatalf("broad path after inspection = %v", err)
 	}

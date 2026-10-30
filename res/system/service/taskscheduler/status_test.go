@@ -2,6 +2,7 @@ package taskscheduler
 
 import (
 	"errors"
+	"runtime"
 	"testing"
 )
 
@@ -20,7 +21,13 @@ func TestTaskStatusParsesNativeListOutput(t *testing.T) {
 	}
 }
 
-func TestNewFailsExplicitlyWithoutWindows(t *testing.T) {
+func TestNewPlatformAvailability(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		if _, err := New(Config{Directory: t.TempDir()}); err != nil {
+			t.Fatal(err)
+		}
+		return
+	}
 	if _, err := New(Config{Directory: t.TempDir()}); !errors.Is(err, ErrUnsupported) {
 		t.Fatalf("non-Windows taskscheduler = %v", err)
 	}

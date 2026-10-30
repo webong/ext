@@ -216,6 +216,10 @@ func RemovePrivate(ctx context.Context, volume PrivateVolume, limits PrivateLimi
 	if err = removeContents(ctx, root, absolute); err != nil {
 		return err
 	}
+	// Windows refuses to remove a directory while its traversal handle is open.
+	if err = root.Close(); err != nil {
+		return fmt.Errorf("close private volume: %w", err)
+	}
 	// Revalidate immediately before the final native removal.
 	current, err = os.Lstat(absolute)
 	if err != nil || !os.SameFile(volume.info, current) {
@@ -368,6 +372,13 @@ func removeWithin(ctx context.Context, root *os.Root, name, absolute string) err
 			if err := removeWithin(ctx, child, entry.Name(), filepath.Join(absolute, entry.Name())); err != nil {
 				return err
 			}
+		}
+		if err := child.Close(); err != nil {
+			return err
+		}
+		current, err := root.Lstat(name)
+		if err != nil || !os.SameFile(info, current) {
+			return fmt.Errorf("%w: private directory changed during removal", ErrStale)
 		}
 		return root.Remove(name)
 	}

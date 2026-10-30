@@ -35,6 +35,7 @@ jobs:
           - {os: ubuntu-latest, goos: linux, goarch: amd64, required: true, race: '-race'}
           - {os: ubuntu-24.04-arm, goos: linux, goarch: arm64, required: true, race: '-race'}
           - {os: macos-latest, goos: darwin, goarch: arm64, required: true, race: ''}
+          - {os: macos-15-intel, goos: darwin, goarch: amd64, required: true, race: ''}
           - {os: windows-latest, goos: windows, goarch: amd64, required: true, race: '', msystem: MINGW64, packages: 'mingw-w64-x86_64-gcc'}
           - {os: windows-11-arm, goos: windows, goarch: arm64, required: true, race: '', msystem: CLANGARM64, packages: 'mingw-w64-clang-aarch64-clang', cc: clang}
     steps:

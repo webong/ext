@@ -1,5 +1,5 @@
 // Code generated for linux/amd64 by 'ccgo -o engine.go --package-name ccgo -I csrc/shim -I csrc/src -I csrc/vendor -I csrc/include -DEXT_HOST_STATIC -DEXT_HOST_BUILD -Dyyjson_align(x)= -Dyyjson_inline= -Dyyjson_noinline= -U__SIZEOF_INT128__ -include csrc/shim/compat_core.h -include csrc/shim/compat.h csrc/src/common.c csrc/src/wire.c csrc/src/progress.c csrc/src/reverse.c csrc/src/endpoint.c csrc/src/services.c csrc/src/guest.c csrc/src/sha256.c csrc/src/packages.c csrc/vendor/yyjson.c csrc/src/host.c csrc/src/fs_posix.c csrc/src/random_posix.c csrc/src/integrity.c csrc/src/instances.c csrc/src/streams.c csrc/shim/channel_go.c csrc/shim/missing.c', DO NOT EDIT.
-// c2goengine inputs sha256:f6e2fd94e2fc86f0bbe8d942d2be5b97e429c4c09f1498b515f0112b34f2795c
+// c2goengine inputs sha256:2d211141de1ddc87be613642dc03b55fca074b70f547caffbb77ca89d5b7100f
 
 //go:build linux && amd64
 
@@ -331,6 +331,8 @@ const __ATOMIC_HLE_RELEASE = 131072
 const __ATOMIC_RELAXED = 0
 const __ATOMIC_RELEASE = 3
 const __ATOMIC_SEQ_CST = 5
+const __AVX2__ = 1
+const __AVX__ = 1
 const __BFLT16_DECIMAL_DIG__ = 4
 const __BFLT16_DENORM_MIN__ = "9.18354961579912115600575419704879436e-41B"
 const __BFLT16_DIG__ = 2
@@ -345,13 +347,17 @@ const __BFLT16_MAX_EXP__ = 128
 const __BFLT16_MAX__ = "3.38953138925153547590470800371487867e+38B"
 const __BFLT16_MIN__ = "1.17549435082228750796873653722224568e-38B"
 const __BFLT16_NORM_MAX__ = "3.38953138925153547590470800371487867e+38B"
-const __BIGGEST_ALIGNMENT__ = 16
+const __BIGGEST_ALIGNMENT__ = 32
 const __BIG_ENDIAN = 4321
+const __BITINT_MAXWIDTH__ = 65535
+const __BMI2__ = 1
+const __BMI__ = 1
 const __BYTE_ORDER = 1234
 const __BYTE_ORDER__ = "__ORDER_LITTLE_ENDIAN__"
 const __CCGO__ = 1
 const __CET__ = 3
 const __CHAR_BIT__ = 8
+const __CRC32__ = 1
 const __DBL_DECIMAL_DIG__ = 17
 const __DBL_DIG__ = 15
 const __DBL_HAS_DENORM__ = 1
@@ -373,6 +379,12 @@ const __DEC32_MAX_EXP__ = 97
 const __DEC32_MAX__ = 9.999999e96
 const __DEC32_MIN__ = 1e-95
 const __DEC32_SUBNORMAL_MIN__ = 0.000001e-95
+const __DEC64X_EPSILON__ = "1E-33D64x"
+const __DEC64X_MANT_DIG__ = 34
+const __DEC64X_MAX_EXP__ = 6145
+const __DEC64X_MAX__ = "9.999999999999999999999999999999999E6144D64x"
+const __DEC64X_MIN__ = "1E-6143D64x"
+const __DEC64X_SUBNORMAL_MIN__ = "0.000000000000000000000000000000001E-6143D64x"
 const __DEC64_EPSILON__ = 1e-15
 const __DEC64_MANT_DIG__ = 16
 const __DEC64_MAX_EXP__ = 385
@@ -383,6 +395,7 @@ const __DECIMAL_BID_FORMAT__ = 1
 const __DECIMAL_DIG__ = 17
 const __DEC_EVAL_METHOD__ = 2
 const __ELF__ = 1
+const __F16C__ = 1
 const __FINITE_MATH_ONLY__ = 0
 const __FLOAT_WORD_ORDER__ = "__ORDER_LITTLE_ENDIAN__"
 const __FLT128_DECIMAL_DIG__ = 36
@@ -486,12 +499,20 @@ const __FLT_MAX__ = 3.40282346638528859811704183484516925e+38
 const __FLT_MIN__ = 1.17549435082228750796873653722224568e-38
 const __FLT_NORM_MAX__ = 3.40282346638528859811704183484516925e+38
 const __FLT_RADIX__ = 2
+const __FMA__ = 1
+const __FP_FAST_FMA = 1
+const __FP_FAST_FMAF = 1
+const __FP_FAST_FMAF32 = 1
+const __FP_FAST_FMAF32x = 1
+const __FP_FAST_FMAF64 = 1
+const __FP_FAST_FMAL = 1
 const __FUNCTION__ = "__func__"
 const __FXSR__ = 1
 const __GCC_ASM_FLAG_OUTPUTS__ = 1
 const __GCC_ATOMIC_BOOL_LOCK_FREE = 2
 const __GCC_ATOMIC_CHAR16_T_LOCK_FREE = 2
 const __GCC_ATOMIC_CHAR32_T_LOCK_FREE = 2
+const __GCC_ATOMIC_CHAR8_T_LOCK_FREE = 2
 const __GCC_ATOMIC_CHAR_LOCK_FREE = 2
 const __GCC_ATOMIC_INT_LOCK_FREE = 2
 const __GCC_ATOMIC_LLONG_LOCK_FREE = 2
@@ -504,18 +525,19 @@ const __GCC_CONSTRUCTIVE_SIZE = 64
 const __GCC_DESTRUCTIVE_SIZE = 64
 const __GCC_HAVE_DWARF2_CFI_ASM = 1
 const __GCC_HAVE_SYNC_COMPARE_AND_SWAP_1 = 1
+const __GCC_HAVE_SYNC_COMPARE_AND_SWAP_16 = 1
 const __GCC_HAVE_SYNC_COMPARE_AND_SWAP_2 = 1
 const __GCC_HAVE_SYNC_COMPARE_AND_SWAP_4 = 1
 const __GCC_HAVE_SYNC_COMPARE_AND_SWAP_8 = 1
 const __GCC_IEC_559 = 2
 const __GCC_IEC_559_COMPLEX = 2
 const __GNUC_EXECUTION_CHARSET_NAME = "UTF-8"
-const __GNUC_MINOR__ = 3
+const __GNUC_MINOR__ = 2
 const __GNUC_PATCHLEVEL__ = 0
 const __GNUC_STDC_INLINE__ = 1
 const __GNUC_WIDE_EXECUTION_CHARSET_NAME = "UTF-32LE"
-const __GNUC__ = 13
-const __GXX_ABI_VERSION = 1018
+const __GNUC__ = 15
+const __GXX_ABI_VERSION = 1020
 const __HAVE_SPECULATION_SAFE_VALUE = 1
 const __INT16_MAX__ = 0x7fff
 const __INT32_MAX__ = 0x7fffffff
@@ -545,6 +567,7 @@ const __INT_LEAST8_MAX__ = 0x7f
 const __INT_LEAST8_WIDTH__ = 8
 const __INT_MAX__ = 0x7fffffff
 const __INT_WIDTH__ = 32
+const __LAHF_SAHF__ = 1
 const __LDBL_DECIMAL_DIG__ = 17
 const __LDBL_DENORM_MIN__ = 4.94065645841246544176568792868221372e-324
 const __LDBL_DIG__ = 15
@@ -567,14 +590,17 @@ const __LONG_MAX = 0x7fffffffffffffff
 const __LONG_MAX__ = 0x7fffffffffffffff
 const __LONG_WIDTH__ = 64
 const __LP64__ = 1
+const __LZCNT__ = 1
 const __MMX_WITH_SSE__ = 1
 const __MMX__ = 1
+const __MOVBE__ = 1
 const __NO_INLINE__ = 1
 const __ORDER_BIG_ENDIAN__ = 4321
 const __ORDER_LITTLE_ENDIAN__ = 1234
 const __ORDER_PDP_ENDIAN__ = 3412
 const __PIC__ = 2
 const __PIE__ = 2
+const __POPCNT__ = 1
 const __PRAGMA_REDEFINE_EXTNAME = 1
 const __PRETTY_FUNCTION__ = "__func__"
 const __PTRDIFF_MAX__ = 0x7fffffffffffffff
@@ -606,9 +632,16 @@ const __SIZE_MAX__ = 0xffffffffffffffff
 const __SIZE_WIDTH__ = 64
 const __SSE2_MATH__ = 1
 const __SSE2__ = 1
+const __SSE3__ = 1
+const __SSE4_1__ = 1
+const __SSE4_2__ = 1
 const __SSE_MATH__ = 1
 const __SSE__ = 1
 const __SSP_STRONG__ = 3
+const __SSSE3__ = 1
+const __STDC_EMBED_EMPTY__ = 2
+const __STDC_EMBED_FOUND__ = 1
+const __STDC_EMBED_NOT_FOUND__ = 0
 const __STDC_HOSTED__ = 1
 const __STDC_IEC_559_COMPLEX__ = 1
 const __STDC_IEC_559__ = 1
@@ -617,7 +650,7 @@ const __STDC_IEC_60559_COMPLEX__ = 201404
 const __STDC_ISO_10646__ = 201706
 const __STDC_UTF_16__ = 1
 const __STDC_UTF_32__ = 1
-const __STDC_VERSION__ = 201710
+const __STDC_VERSION__ = 202311
 const __STDC__ = 1
 const __UINT16_MAX__ = 0xffff
 const __UINT32_MAX__ = 0xffffffff
@@ -634,13 +667,14 @@ const __UINT_LEAST32_MAX__ = 0xffffffff
 const __UINT_LEAST64_MAX__ = 0xffffffffffffffff
 const __UINT_LEAST8_MAX__ = 0xff
 const __USE_TIME_BITS64 = 1
-const __VERSION__ = "13.3.0"
+const __VERSION__ = "15.2.0"
 const __WCHAR_MAX__ = 0x7fffffff
 const __WCHAR_TYPE__ = "int"
 const __WCHAR_WIDTH__ = 32
 const __WINT_MAX__ = 0xffffffff
 const __WINT_MIN__ = 0
 const __WINT_WIDTH__ = 32
+const __XSAVE__ = 1
 const __amd64 = 1
 const __amd64__ = 1
 const __bool_true_false_are_defined = 1
@@ -667,6 +701,8 @@ const false1 = 0
 const linux = 1
 const true1 = 1
 const unix = 1
+
+/* C23 keywords, no longer defined as macros by <stdbool.h> and <stddef.h>. */
 
 type __builtin_va_list = uintptr
 
@@ -1016,6 +1052,12 @@ const EXT_HOST_READY = 1
 const EXT_HOST_DRAINING = 2
 const EXT_HOST_CLOSED = 3
 const EXT_HOST_FAILED = 4
+
+type ext_trust_state = int32
+
+const EXT_TRUST_UNTRUSTED = 0
+const EXT_TRUST_TRUSTED = 1
+const EXT_TRUST_CHANGED = 2
 
 type ssize_t = int64
 
@@ -29505,6 +29547,9 @@ const EXT_ENDPOINT_MAX_ADDRESS1 = "255u"
 const EXT_ENDPOINT_MAX_PATH1 = "1024u"
 const EXT_ENDPOINT_MAX_TOKEN1 = "512u"
 const EXT_PROGRESS_TEXT_MAX1 = "2048u"
+const FP_FAST_FMA = 1
+const FP_FAST_FMAF = 1
+const FP_FAST_FMAL = 1
 const FP_ILOGB0 = "FP_ILOGBNAN"
 const FP_INFINITE = 1
 const FP_NAN = 0
@@ -52848,6 +52893,98 @@ func lower_rune(tls *libc.TLS, p uintptr) (r uint32_t) {
 		return *(*uint32_t)(unsafe.Add(nil, uintptr(unsafe.Pointer(&ext_lower))+uintptr(lo)*8+1*4))
 	}
 	return c
+}
+
+// C documentation
+//
+//	/* The store uses the same Unicode simple-lower comparison as manifest
+//	 * duplicate and overlap checks. Invalid filesystem names never match a
+//	 * declared artifact and are therefore rejected as unlisted content. */
+func valid_utf8(tls *libc.TLS, p uintptr) (r int32) {
+	var c, min uint32_t
+	var more, v2 uint32
+	var v1 uintptr
+	_, _, _, _, _ = c, min, more, v1, v2
+	for *(*uint8_t)(unsafe.Add(nil, p)) != 0 {
+		v1 = p
+		p = p + 1
+		c = uint32(*(*uint8_t)(unsafe.Add(nil, v1)))
+		if c < uint32(0x80) {
+			continue
+		}
+		if c >= uint32(0xc2) && c <= uint32(0xdf) {
+			more = uint32(1)
+			min = uint32(0x80)
+			c = c & uint32(0x1f)
+		} else {
+			if c >= uint32(0xe0) && c <= uint32(0xef) {
+				more = uint32(2)
+				min = uint32(0x800)
+				c = c & uint32(0x0f)
+			} else {
+				if c >= uint32(0xf0) && c <= uint32(0xf4) {
+					more = uint32(3)
+					min = uint32(0x10000)
+					c = c & uint32(0x07)
+				} else {
+					return 0
+				}
+			}
+		}
+		for {
+			v2 = more
+			more = more - 1
+			if !(v2 != 0) {
+				break
+			}
+			if !(*(*uint8_t)(unsafe.Add(nil, p)) != 0) || libc.Int32FromUint8(*(*uint8_t)(unsafe.Add(nil, p)))&int32(0xc0) != int32(0x80) {
+				return 0
+			}
+			v1 = p
+			p = p + 1
+			c = c<<libc.Int32FromInt32(6) | libc.Uint32FromInt32(libc.Int32FromUint8(*(*uint8_t)(unsafe.Add(nil, v1)))&libc.Int32FromInt32(0x3f))
+		}
+		if c < min || c > uint32(0x10ffff) || c >= uint32(0xd800) && c <= uint32(0xdfff) {
+			return 0
+		}
+	}
+	return int32(1)
+}
+
+func ext_path_fold_equal(tls *libc.TLS, a uintptr, b uintptr) (r int32) {
+	bp := tls.Alloc(16)
+	defer tls.Free(16)
+	var _ /* x at bp+0 */ uintptr
+	var _ /* y at bp+8 */ uintptr
+	if !(a != 0) || !(b != 0) || !(valid_utf8(tls, a) != 0) || !(valid_utf8(tls, b) != 0) {
+		return 0
+	}
+	*(*uintptr)(unsafe.Add(nil, bp)) = a
+	*(*uintptr)(unsafe.Add(nil, bp+8)) = b
+	for *(*uint8_t)(unsafe.Add(nil, *(*uintptr)(unsafe.Add(nil, bp)))) != 0 && *(*uint8_t)(unsafe.Add(nil, *(*uintptr)(unsafe.Add(nil, bp+8)))) != 0 {
+		if lower_rune(tls, bp) != lower_rune(tls, bp+8) {
+			return 0
+		}
+	}
+	return libc.BoolInt32(!(*(*uint8_t)(unsafe.Add(nil, *(*uintptr)(unsafe.Add(nil, bp)))) != 0) && !(*(*uint8_t)(unsafe.Add(nil, *(*uintptr)(unsafe.Add(nil, bp+8)))) != 0))
+}
+
+func ext_path_fold_tree_contains(tls *libc.TLS, tree uintptr, path uintptr) (r int32) {
+	bp := tls.Alloc(16)
+	defer tls.Free(16)
+	var _ /* x at bp+0 */ uintptr
+	var _ /* y at bp+8 */ uintptr
+	if !(tree != 0) || !(path != 0) || !(valid_utf8(tls, tree) != 0) || !(valid_utf8(tls, path) != 0) {
+		return 0
+	}
+	*(*uintptr)(unsafe.Add(nil, bp)) = tree
+	*(*uintptr)(unsafe.Add(nil, bp+8)) = path
+	for *(*uint8_t)(unsafe.Add(nil, *(*uintptr)(unsafe.Add(nil, bp)))) != 0 && *(*uint8_t)(unsafe.Add(nil, *(*uintptr)(unsafe.Add(nil, bp+8)))) != 0 {
+		if lower_rune(tls, bp) != lower_rune(tls, bp+8) {
+			return 0
+		}
+	}
+	return libc.BoolInt32(!(*(*uint8_t)(unsafe.Add(nil, *(*uintptr)(unsafe.Add(nil, bp)))) != 0) && libc.Int32FromUint8(*(*uint8_t)(unsafe.Add(nil, *(*uintptr)(unsafe.Add(nil, bp+8))))) == int32('/'))
 }
 
 // C documentation
@@ -89509,6 +89646,101 @@ func ext_fs_hash_file(tls *libc.TLS, fs uintptr, path uintptr, out uintptr) (r e
 	s = file_hash(tls, *(*int32)(unsafe.Add(nil, bp)), *(*uintptr)(unsafe.Add(nil, bp+8)), out)
 	libc.Xclose(tls, *(*int32)(unsafe.Add(nil, bp)))
 	libc.Xfree(tls, *(*uintptr)(unsafe.Add(nil, bp+16)))
+	return s
+}
+
+func ext_fs_read_file(tls *libc.TLS, fs uintptr, path uintptr, limit size_t, out uintptr) (r ext_status) {
+	bp := tls.Alloc(176)
+	defer tls.Free(176)
+	var data uintptr
+	var fd, v1 int32
+	var n, n1 ssize_t
+	var s ext_status
+	var used size_t
+	var v2 uint64
+	var _ /* dir at bp+0 */ int32
+	var _ /* extra at bp+168 */ uint8_t
+	var _ /* leaf at bp+8 */ uintptr
+	var _ /* st at bp+24 */ stat1
+	var _ /* storage at bp+16 */ uintptr
+	_, _, _, _, _, _, _, _ = data, fd, n, n1, s, used, v1, v2
+	if !(fs != 0) || !(path != 0) || !(*(*int8)(unsafe.Add(nil, path)) != 0) || !(out != 0) || !(limit != 0) {
+		return int32(EXT_INVALID)
+	}
+	*(*ext_buffer)(unsafe.Add(nil, out)) = ext_buffer{}
+	*(*int32)(unsafe.Add(nil, bp)) = -int32(1)
+	*(*uintptr)(unsafe.Add(nil, bp+8)) = libc.UintptrFromInt32(0)
+	*(*uintptr)(unsafe.Add(nil, bp+16)) = libc.UintptrFromInt32(0)
+	s = descend(tls, (*ext_fs)(unsafe.Pointer(fs)).Ffd, path, int32(1), bp, bp+8, bp+16)
+	if s != 0 {
+		return s
+	}
+	fd = libc.Xopenat(tls, *(*int32)(unsafe.Add(nil, bp)), *(*uintptr)(unsafe.Add(nil, bp+8)), libc.Int32FromInt32(O_RDONLY)|libc.Int32FromInt32(O_NOFOLLOW)|libc.Int32FromInt32(O_NONBLOCK)|libc.Int32FromInt32(O_CLOEXEC), 0)
+	if fd < 0 {
+		if *(*int32)(unsafe.Add(nil, libc.X__errno_location(tls))) == int32(ELOOP) {
+			v1 = int32(EXT_INVALID)
+		} else {
+			v1 = int32(EXT_IO)
+		}
+		s = v1
+	}
+	if !(s != 0) && (libc.Xfstat(tls, fd, bp+24) != 0 || !((*(*stat1)(unsafe.Add(nil, bp+24))).Fst_mode&libc.Uint32FromInt32(S_IFMT) == libc.Uint32FromInt32(S_IFREG))) {
+		s = int32(EXT_INVALID)
+	}
+	if !(s != 0) && (libc.Uint64FromInt64((*(*stat1)(unsafe.Add(nil, bp+24))).Fst_size) > limit || (*(*stat1)(unsafe.Add(nil, bp+24))).Fst_size < 0) {
+		s = int32(EXT_INVALID)
+	}
+	data = libc.UintptrFromInt32(0)
+	if !(s != 0) {
+		if libc.Uint64FromInt64((*(*stat1)(unsafe.Add(nil, bp+24))).Fst_size) != 0 {
+			v2 = libc.Uint64FromInt64((*(*stat1)(unsafe.Add(nil, bp+24))).Fst_size)
+		} else {
+			v2 = uint64(1)
+		}
+		data = libc.Xmalloc(tls, v2)
+		if !(data != 0) {
+			s = int32(EXT_NOMEM)
+		}
+	}
+	used = uint64(0)
+	for !(s != 0) && used < libc.Uint64FromInt64((*(*stat1)(unsafe.Add(nil, bp+24))).Fst_size) {
+		n = libc.Xread(tls, fd, data+uintptr(used), libc.Uint64FromInt64((*(*stat1)(unsafe.Add(nil, bp+24))).Fst_size)-used)
+		if n > 0 {
+			used = used + libc.Uint64FromInt64(n)
+		} else {
+			if !(n != 0) {
+				s = int32(EXT_IO)
+			} else {
+				if *(*int32)(unsafe.Add(nil, libc.X__errno_location(tls))) != int32(EINTR) {
+					s = int32(EXT_IO)
+				}
+			}
+		}
+	}
+	if !(s != 0) {
+		n1 = libc.Xread(tls, fd, bp+168, uint64(1))
+		if n1 != 0 {
+			if n1 > 0 {
+				v1 = int32(EXT_INVALID)
+			} else {
+				v1 = int32(EXT_IO)
+			}
+			s = v1
+		}
+	}
+	if fd >= 0 && libc.Xclose(tls, fd) != 0 && !(s != 0) {
+		s = int32(EXT_IO)
+	}
+	libc.Xclose(tls, *(*int32)(unsafe.Add(nil, bp)))
+	libc.Xfree(tls, *(*uintptr)(unsafe.Add(nil, bp+16)))
+	if s != 0 {
+		libc.Xfree(tls, data)
+	} else {
+		*(*ext_buffer)(unsafe.Add(nil, out)) = ext_buffer{
+			Fdata: data,
+			Flen1: used,
+		}
+	}
 	return s
 }
 

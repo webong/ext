@@ -1,5 +1,5 @@
 // Code generated for windows/amd64 by 'ccgo -o engine.go --package-name ccgo -I csrc/shim -I csrc/src -I csrc/vendor -I csrc/include -DEXT_HOST_STATIC -DEXT_HOST_BUILD -Dyyjson_align(x)= -Dyyjson_inline= -Dyyjson_noinline= -U__SIZEOF_INT128__ -include csrc/shim/compat_core.h csrc/src/common.c csrc/src/wire.c csrc/src/progress.c csrc/src/reverse.c csrc/src/endpoint.c csrc/src/services.c csrc/src/guest.c csrc/src/sha256.c csrc/src/packages.c csrc/vendor/yyjson.c csrc/shim/windows.c', DO NOT EDIT.
-// c2goengine inputs sha256:f6e2fd94e2fc86f0bbe8d942d2be5b97e429c4c09f1498b515f0112b34f2795c
+// c2goengine inputs sha256:2d211141de1ddc87be613642dc03b55fca074b70f547caffbb77ca89d5b7100f
 
 //go:build windows && amd64
 
@@ -994,6 +994,12 @@ const EXT_HOST_READY = 1
 const EXT_HOST_DRAINING = 2
 const EXT_HOST_CLOSED = 3
 const EXT_HOST_FAILED = 4
+
+type ext_trust_state = int32
+
+const EXT_TRUST_UNTRUSTED = 0
+const EXT_TRUST_TRUSTED = 1
+const EXT_TRUST_CHANGED = 2
 
 type _iobuf = struct {
 	F_ptr      uintptr
@@ -53461,6 +53467,98 @@ func lower_rune(tls *libc.TLS, p uintptr) (r uint32_t) {
 		return *(*uint32_t)(unsafe.Add(nil, uintptr(unsafe.Pointer(&ext_lower))+uintptr(lo)*8+1*4))
 	}
 	return c
+}
+
+// C documentation
+//
+//	/* The store uses the same Unicode simple-lower comparison as manifest
+//	 * duplicate and overlap checks. Invalid filesystem names never match a
+//	 * declared artifact and are therefore rejected as unlisted content. */
+func valid_utf8(tls *libc.TLS, p uintptr) (r int32) {
+	var c, min uint32_t
+	var more, v2 uint32
+	var v1 uintptr
+	_, _, _, _, _ = c, min, more, v1, v2
+	for *(*uint8_t)(unsafe.Add(nil, p)) != 0 {
+		v1 = p
+		p = p + 1
+		c = uint32(*(*uint8_t)(unsafe.Add(nil, v1)))
+		if c < uint32(0x80) {
+			continue
+		}
+		if c >= uint32(0xc2) && c <= uint32(0xdf) {
+			more = uint32(1)
+			min = uint32(0x80)
+			c = c & uint32(0x1f)
+		} else {
+			if c >= uint32(0xe0) && c <= uint32(0xef) {
+				more = uint32(2)
+				min = uint32(0x800)
+				c = c & uint32(0x0f)
+			} else {
+				if c >= uint32(0xf0) && c <= uint32(0xf4) {
+					more = uint32(3)
+					min = uint32(0x10000)
+					c = c & uint32(0x07)
+				} else {
+					return 0
+				}
+			}
+		}
+		for {
+			v2 = more
+			more = more - 1
+			if !(v2 != 0) {
+				break
+			}
+			if !(*(*uint8_t)(unsafe.Add(nil, p)) != 0) || int32(*(*uint8_t)(unsafe.Add(nil, p)))&int32(0xc0) != int32(0x80) {
+				return 0
+			}
+			v1 = p
+			p = p + 1
+			c = c<<libc.Int32FromInt32(6) | uint32(int32(*(*uint8_t)(unsafe.Add(nil, v1)))&libc.Int32FromInt32(0x3f))
+		}
+		if c < min || c > uint32(0x10ffff) || c >= uint32(0xd800) && c <= uint32(0xdfff) {
+			return 0
+		}
+	}
+	return int32(1)
+}
+
+func ext_path_fold_equal(tls *libc.TLS, a uintptr, b uintptr) (r int32) {
+	bp := tls.Alloc(16)
+	defer tls.Free(16)
+	var _ /* x at bp+0 */ uintptr
+	var _ /* y at bp+8 */ uintptr
+	if !(a != 0) || !(b != 0) || !(valid_utf8(tls, a) != 0) || !(valid_utf8(tls, b) != 0) {
+		return 0
+	}
+	*(*uintptr)(unsafe.Add(nil, bp)) = a
+	*(*uintptr)(unsafe.Add(nil, bp+8)) = b
+	for *(*uint8_t)(unsafe.Add(nil, *(*uintptr)(unsafe.Add(nil, bp)))) != 0 && *(*uint8_t)(unsafe.Add(nil, *(*uintptr)(unsafe.Add(nil, bp+8)))) != 0 {
+		if lower_rune(tls, bp) != lower_rune(tls, bp+8) {
+			return 0
+		}
+	}
+	return libc.BoolInt32(!(*(*uint8_t)(unsafe.Add(nil, *(*uintptr)(unsafe.Add(nil, bp)))) != 0) && !(*(*uint8_t)(unsafe.Add(nil, *(*uintptr)(unsafe.Add(nil, bp+8)))) != 0))
+}
+
+func ext_path_fold_tree_contains(tls *libc.TLS, tree uintptr, path uintptr) (r int32) {
+	bp := tls.Alloc(16)
+	defer tls.Free(16)
+	var _ /* x at bp+0 */ uintptr
+	var _ /* y at bp+8 */ uintptr
+	if !(tree != 0) || !(path != 0) || !(valid_utf8(tls, tree) != 0) || !(valid_utf8(tls, path) != 0) {
+		return 0
+	}
+	*(*uintptr)(unsafe.Add(nil, bp)) = tree
+	*(*uintptr)(unsafe.Add(nil, bp+8)) = path
+	for *(*uint8_t)(unsafe.Add(nil, *(*uintptr)(unsafe.Add(nil, bp)))) != 0 && *(*uint8_t)(unsafe.Add(nil, *(*uintptr)(unsafe.Add(nil, bp+8)))) != 0 {
+		if lower_rune(tls, bp) != lower_rune(tls, bp+8) {
+			return 0
+		}
+	}
+	return libc.BoolInt32(!(*(*uint8_t)(unsafe.Add(nil, *(*uintptr)(unsafe.Add(nil, bp)))) != 0) && int32(*(*uint8_t)(unsafe.Add(nil, *(*uintptr)(unsafe.Add(nil, bp+8))))) == int32('/'))
 }
 
 // C documentation

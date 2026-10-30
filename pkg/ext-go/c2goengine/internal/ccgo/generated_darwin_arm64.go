@@ -1,5 +1,5 @@
 // Code generated for darwin/arm64 by 'ccgo -o engine.go --package-name ccgo -I csrc/shim -I csrc/src -I csrc/vendor -I csrc/include -DEXT_HOST_STATIC -DEXT_HOST_BUILD -Dyyjson_align(x)= -Dyyjson_inline= -Dyyjson_noinline= -U__SIZEOF_INT128__ -include csrc/shim/compat_core.h -include csrc/shim/compat.h csrc/src/common.c csrc/src/wire.c csrc/src/progress.c csrc/src/reverse.c csrc/src/endpoint.c csrc/src/services.c csrc/src/guest.c csrc/src/sha256.c csrc/src/packages.c csrc/vendor/yyjson.c csrc/src/host.c csrc/src/fs_posix.c csrc/src/random_posix.c csrc/src/integrity.c csrc/src/instances.c csrc/src/streams.c csrc/shim/channel_go.c csrc/shim/missing.c', DO NOT EDIT.
-// c2goengine inputs sha256:f6e2fd94e2fc86f0bbe8d942d2be5b97e429c4c09f1498b515f0112b34f2795c
+// c2goengine inputs sha256:2d211141de1ddc87be613642dc03b55fca074b70f547caffbb77ca89d5b7100f
 
 //go:build darwin && arm64
 
@@ -49,6 +49,20 @@ const CLOCK_UPTIME_RAW = "_CLOCK_UPTIME_RAW"
 const CLOCK_UPTIME_RAW_APPROX = "_CLOCK_UPTIME_RAW_APPROX"
 const COLL_WEIGHTS_MAX = 2
 const CPUMON_MAKE_FATAL = 0x1000
+const DBL_DECIMAL_DIG = "__DBL_DECIMAL_DIG__"
+const DBL_DIG = "__DBL_DIG__"
+const DBL_EPSILON = "__DBL_EPSILON__"
+const DBL_HAS_SUBNORM = "__DBL_HAS_DENORM__"
+const DBL_MANT_DIG = "__DBL_MANT_DIG__"
+const DBL_MAX = "__DBL_MAX__"
+const DBL_MAX_10_EXP = "__DBL_MAX_10_EXP__"
+const DBL_MAX_EXP = "__DBL_MAX_EXP__"
+const DBL_MIN = "__DBL_MIN__"
+const DBL_MIN_10_EXP = "__DBL_MIN_10_EXP__"
+const DBL_MIN_EXP = "__DBL_MIN_EXP__"
+const DBL_NORM_MAX = "__DBL_NORM_MAX__"
+const DBL_TRUE_MIN = "__DBL_DENORM_MIN__"
+const DECIMAL_DIG = "__DECIMAL_DIG__"
 const EQUIV_CLASS_MAX = 2
 const EXIT_FAILURE = 1
 const EXIT_SUCCESS = 0
@@ -75,6 +89,21 @@ const EXT_REVERSE_TOO_LARGE = "too_large"
 const EXT_REVERSE_UNAVAILABLE = "reverse_unavailable"
 const EXT_REVERSE_UNDECLARED = "reverse_undeclared"
 const FILENAME_MAX = 1024
+const FLT_DECIMAL_DIG = "__FLT_DECIMAL_DIG__"
+const FLT_DIG = "__FLT_DIG__"
+const FLT_EPSILON = "__FLT_EPSILON__"
+const FLT_EVAL_METHOD = "__FLT_EVAL_METHOD__"
+const FLT_HAS_SUBNORM = "__FLT_HAS_DENORM__"
+const FLT_MANT_DIG = "__FLT_MANT_DIG__"
+const FLT_MAX = "__FLT_MAX__"
+const FLT_MAX_10_EXP = "__FLT_MAX_10_EXP__"
+const FLT_MAX_EXP = "__FLT_MAX_EXP__"
+const FLT_MIN = "__FLT_MIN__"
+const FLT_MIN_10_EXP = "__FLT_MIN_10_EXP__"
+const FLT_MIN_EXP = "__FLT_MIN_EXP__"
+const FLT_NORM_MAX = "__FLT_NORM_MAX__"
+const FLT_RADIX = "__FLT_RADIX__"
+const FLT_TRUE_MIN = "__FLT_DENORM_MIN__"
 const FOOTPRINT_INTERVAL_RESET = 0x1
 const FOPEN_MAX = 20
 const FPE_FLTDIV = 1
@@ -122,9 +151,11 @@ const IOPOL_ATIME_UPDATES_DEFAULT = 0
 const IOPOL_ATIME_UPDATES_OFF = 1
 const IOPOL_DEFAULT = 0
 const IOPOL_IMPORTANT = 1
+const IOPOL_MATERIALIZE_DATALESS_FILES_BASIC_MASK = 3
 const IOPOL_MATERIALIZE_DATALESS_FILES_DEFAULT = 0
 const IOPOL_MATERIALIZE_DATALESS_FILES_OFF = 1
 const IOPOL_MATERIALIZE_DATALESS_FILES_ON = 2
+const IOPOL_MATERIALIZE_DATALESS_FILES_ORIG = 4
 const IOPOL_NORMAL = "IOPOL_IMPORTANT"
 const IOPOL_PASSIVE = 2
 const IOPOL_SCOPE_DARWIN_BG = 2
@@ -136,6 +167,7 @@ const IOPOL_TYPE_DISK = 0
 const IOPOL_TYPE_VFS_ALLOW_LOW_SPACE_WRITES = 9
 const IOPOL_TYPE_VFS_ATIME_UPDATES = 2
 const IOPOL_TYPE_VFS_DISALLOW_RW_FOR_O_EVTONLY = 10
+const IOPOL_TYPE_VFS_ENTITLED_RESERVE_ACCESS = 14
 const IOPOL_TYPE_VFS_IGNORE_CONTENT_PROTECTION = 6
 const IOPOL_TYPE_VFS_IGNORE_PERMISSIONS = 7
 const IOPOL_TYPE_VFS_MATERIALIZE_DATALESS_FILES = 3
@@ -149,10 +181,13 @@ const IOPOL_VFS_CONTENT_PROTECTION_DEFAULT = 0
 const IOPOL_VFS_CONTENT_PROTECTION_IGNORE = 1
 const IOPOL_VFS_DISALLOW_RW_FOR_O_EVTONLY_DEFAULT = 0
 const IOPOL_VFS_DISALLOW_RW_FOR_O_EVTONLY_ON = 1
+const IOPOL_VFS_ENTITLED_RESERVE_ACCESS_OFF = 0
+const IOPOL_VFS_ENTITLED_RESERVE_ACCESS_ON = 1
 const IOPOL_VFS_IGNORE_PERMISSIONS_OFF = 0
 const IOPOL_VFS_IGNORE_PERMISSIONS_ON = 1
 const IOPOL_VFS_NOCACHE_WRITE_FS_BLKSIZE_DEFAULT = 0
 const IOPOL_VFS_NOCACHE_WRITE_FS_BLKSIZE_ON = 1
+const IOPOL_VFS_SKIP_MTIME_UPDATE_IGNORE = 2
 const IOPOL_VFS_SKIP_MTIME_UPDATE_OFF = 0
 const IOPOL_VFS_SKIP_MTIME_UPDATE_ON = 1
 const IOPOL_VFS_STATFS_FORCE_NO_DATA_VOLUME = 1
@@ -160,6 +195,19 @@ const IOPOL_VFS_STATFS_NO_DATA_VOLUME_DEFAULT = 0
 const IOPOL_VFS_TRIGGER_RESOLVE_DEFAULT = 0
 const IOPOL_VFS_TRIGGER_RESOLVE_OFF = 1
 const IOV_MAX = 1024
+const LDBL_DECIMAL_DIG = "__LDBL_DECIMAL_DIG__"
+const LDBL_DIG = "__LDBL_DIG__"
+const LDBL_EPSILON = "__LDBL_EPSILON__"
+const LDBL_HAS_SUBNORM = "__LDBL_HAS_DENORM__"
+const LDBL_MANT_DIG = "__LDBL_MANT_DIG__"
+const LDBL_MAX = "__LDBL_MAX__"
+const LDBL_MAX_10_EXP = "__LDBL_MAX_10_EXP__"
+const LDBL_MAX_EXP = "__LDBL_MAX_EXP__"
+const LDBL_MIN = "__LDBL_MIN__"
+const LDBL_MIN_10_EXP = "__LDBL_MIN_10_EXP__"
+const LDBL_MIN_EXP = "__LDBL_MIN_EXP__"
+const LDBL_NORM_MAX = "__LDBL_NORM_MAX__"
+const LDBL_TRUE_MIN = "__LDBL_DENORM_MIN__"
 const LINE_MAX = 2048
 const LINK_MAX = 32767
 const LITTLE_ENDIAN = "__DARWIN_LITTLE_ENDIAN"
@@ -187,15 +235,29 @@ const MAC_OS_VERSION_13_3 = "__MAC_13_3"
 const MAC_OS_VERSION_13_4 = "__MAC_13_4"
 const MAC_OS_VERSION_13_5 = "__MAC_13_5"
 const MAC_OS_VERSION_13_6 = "__MAC_13_6"
+const MAC_OS_VERSION_13_7 = "__MAC_13_7"
 const MAC_OS_VERSION_14_0 = "__MAC_14_0"
 const MAC_OS_VERSION_14_1 = "__MAC_14_1"
 const MAC_OS_VERSION_14_2 = "__MAC_14_2"
 const MAC_OS_VERSION_14_3 = "__MAC_14_3"
 const MAC_OS_VERSION_14_4 = "__MAC_14_4"
 const MAC_OS_VERSION_14_5 = "__MAC_14_5"
+const MAC_OS_VERSION_14_6 = "__MAC_14_6"
+const MAC_OS_VERSION_14_7 = "__MAC_14_7"
 const MAC_OS_VERSION_15_0 = "__MAC_15_0"
 const MAC_OS_VERSION_15_1 = "__MAC_15_1"
 const MAC_OS_VERSION_15_2 = "__MAC_15_2"
+const MAC_OS_VERSION_15_3 = "__MAC_15_3"
+const MAC_OS_VERSION_15_4 = "__MAC_15_4"
+const MAC_OS_VERSION_15_5 = "__MAC_15_5"
+const MAC_OS_VERSION_15_6 = "__MAC_15_6"
+const MAC_OS_VERSION_16_0 = "__MAC_16_0"
+const MAC_OS_VERSION_26_0 = "__MAC_26_0"
+const MAC_OS_VERSION_26_1 = "__MAC_26_1"
+const MAC_OS_VERSION_26_2 = "__MAC_26_2"
+const MAC_OS_VERSION_26_3 = "__MAC_26_3"
+const MAC_OS_VERSION_26_4 = "__MAC_26_4"
+const MAC_OS_VERSION_26_5 = "__MAC_26_5"
 const MAC_OS_X_VERSION_10_0 = "__MAC_10_0"
 const MAC_OS_X_VERSION_10_1 = "__MAC_10_1"
 const MAC_OS_X_VERSION_10_10 = "__MAC_10_10"
@@ -298,6 +360,7 @@ const RAND_MAX = 0x7fffffff
 const RENAME_EXCL = 0x00000004
 const RENAME_NOFOLLOW_ANY = 0x00000010
 const RENAME_RESERVED1 = 0x00000008
+const RENAME_RESOLVE_BENEATH = 0x00000020
 const RENAME_SECLUDE = 0x00000001
 const RENAME_SWAP = 0x00000002
 const RE_DUP_MAX = 255
@@ -354,6 +417,7 @@ const SIGBUS = 10
 const SIGCHLD = 20
 const SIGCONT = 19
 const SIGEMT = 7
+const SIGEV_KEVENT = 4
 const SIGEV_NONE = 0
 const SIGEV_SIGNAL = 1
 const SIGEV_THREAD = 3
@@ -405,6 +469,29 @@ const SV_NODEFER = "SA_NODEFER"
 const SV_ONSTACK = "SA_ONSTACK"
 const SV_RESETHAND = "SA_RESETHAND"
 const SV_SIGINFO = "SA_SIGINFO"
+const TARGET_IPHONE_SIMULATOR = 0
+const TARGET_OS_ARROW = 1
+const TARGET_OS_BRIDGE = 0
+const TARGET_OS_DRIVERKIT = 0
+const TARGET_OS_EMBEDDED = 0
+const TARGET_OS_IOS = 0
+const TARGET_OS_IOSMAC = 0
+const TARGET_OS_IPHONE = 0
+const TARGET_OS_LINUX = 0
+const TARGET_OS_MAC = 1
+const TARGET_OS_MACCATALYST = 0
+const TARGET_OS_NANO = 0
+const TARGET_OS_OSX = 1
+const TARGET_OS_SIMULATOR = 0
+const TARGET_OS_TV = 0
+const TARGET_OS_UEFI = 0
+const TARGET_OS_UIKITFORMAC = 0
+const TARGET_OS_UNIX = 0
+const TARGET_OS_VISION = 0
+const TARGET_OS_WATCH = 0
+const TARGET_OS_WIN32 = 0
+const TARGET_OS_WINDOWS = 0
+const TARGET_OS_XR = 0
 const TIME_UTC = 1
 const TMP_MAX = 308915776
 const TRAP_BRKPT = 1
@@ -463,10 +550,14 @@ const _DARWIN_FEATURE_ONLY_UNIX_CONFORMANCE = 1
 const _DARWIN_FEATURE_ONLY_VERS_1050 = 1
 const _DARWIN_FEATURE_UNIX_CONFORMANCE = 3
 const _FORTIFY_SOURCE = 2
+const _HAS_BUILTIN_AVAILABLE_FEATS = 1
 const _IOFBF = 0
 const _IOLBF = 1
 const _IONBF = 2
+const _LIBC_COUNT__MB_LEN_MAX = "_LIBC_UNSAFE_INDEXABLE"
+const _LIBC_COUNT__PATH_MAX = "_LIBC_UNSAFE_INDEXABLE"
 const _LP64 = 1
+const _MALLOC_TYPE_MALLOC_BACKDEPLOY_PUBLIC = 1
 const _POSIX2_BC_BASE_MAX = 99
 const _POSIX2_BC_DIM_MAX = 2048
 const _POSIX2_BC_SCALE_MAX = 99
@@ -536,18 +627,26 @@ const __AARCH64_SIMD__ = 1
 const __API_TO_BE_DEPRECATED = 100000
 const __API_TO_BE_DEPRECATED_DRIVERKIT = 100000
 const __API_TO_BE_DEPRECATED_IOS = 100000
+const __API_TO_BE_DEPRECATED_IOSAPPLICATIONEXTENSION = 100000
+const __API_TO_BE_DEPRECATED_KERNELKIT = 100000
 const __API_TO_BE_DEPRECATED_MACCATALYST = 100000
+const __API_TO_BE_DEPRECATED_MACCATALYSTAPPLICATIONEXTENSION = 100000
 const __API_TO_BE_DEPRECATED_MACOS = 100000
+const __API_TO_BE_DEPRECATED_MACOSAPPLICATIONEXTENSION = 100000
 const __API_TO_BE_DEPRECATED_TVOS = 100000
+const __API_TO_BE_DEPRECATED_TVOSAPPLICATIONEXTENSION = 100000
 const __API_TO_BE_DEPRECATED_VISIONOS = 100000
+const __API_TO_BE_DEPRECATED_VISIONOSAPPLICATIONEXTENSION = 100000
 const __API_TO_BE_DEPRECATED_WATCHOS = 100000
+const __API_TO_BE_DEPRECATED_WATCHOSAPPLICATIONEXTENSION = 100000
 const __APPLE_CC__ = 6000
 const __APPLE__ = 1
 const __ARM64_ARCH_8__ = 1
 const __ARM_64BIT_STATE = 1
-const __ARM_ACLE = 200
+const __ARM_ACLE = 202420
 const __ARM_ALIGN_MAX_STACK_PWR = 4
 const __ARM_ARCH = 8
+const __ARM_ARCH_8_2__ = 1
 const __ARM_ARCH_8_3__ = 1
 const __ARM_ARCH_8_4__ = 1
 const __ARM_ARCH_8_5__ = 1
@@ -584,20 +683,32 @@ const __ARM_FP16_ARGS = 1
 const __ARM_FP16_FORMAT_IEEE = 1
 const __ARM_NEON = 1
 const __ARM_NEON_FP = 0xE
+const __ARM_NEON_SVE_BRIDGE = 1
 const __ARM_NEON__ = 1
 const __ARM_PCS_AAPCS64 = 1
 const __ARM_SIZEOF_MINIMAL_ENUM = 4
 const __ARM_SIZEOF_WCHAR_T = 4
+const __ARM_STATE_ZA = 1
+const __ARM_STATE_ZT0 = 1
 const __ATOMIC_ACQUIRE = 2
 const __ATOMIC_ACQ_REL = 4
 const __ATOMIC_CONSUME = 1
 const __ATOMIC_RELAXED = 0
 const __ATOMIC_RELEASE = 3
 const __ATOMIC_SEQ_CST = 5
+const __AVAILABILITY_FILE = "AvailabilityVersions.h"
+const __AVAILABILITY_VERSIONS_VERSION_HASH = 93585900
+const __AVAILABILITY_VERSIONS_VERSION_STRING = "Local"
 const __BIGGEST_ALIGNMENT__ = 8
 const __BITINT_MAXWIDTH__ = 128
 const __BLOCKS__ = 1
-const __BOOL_WIDTH__ = 8
+const __BOOL_WIDTH__ = 1
+const __BRIDGEOS_10_0 = 100000
+const __BRIDGEOS_10_1 = 100100
+const __BRIDGEOS_10_2 = 100200
+const __BRIDGEOS_10_3 = 100300
+const __BRIDGEOS_10_4 = 100400
+const __BRIDGEOS_26_5 = 260500
 const __BRIDGEOS_2_0 = 20000
 const __BRIDGEOS_3_0 = 30000
 const __BRIDGEOS_3_1 = 30100
@@ -624,9 +735,14 @@ const __BRIDGEOS_8_2 = 80200
 const __BRIDGEOS_8_3 = 80300
 const __BRIDGEOS_8_4 = 80400
 const __BRIDGEOS_8_5 = 80500
+const __BRIDGEOS_8_6 = 80600
 const __BRIDGEOS_9_0 = 90000
 const __BRIDGEOS_9_1 = 90100
 const __BRIDGEOS_9_2 = 90200
+const __BRIDGEOS_9_3 = 90300
+const __BRIDGEOS_9_4 = 90400
+const __BRIDGEOS_9_5 = 90500
+const __BRIDGEOS_9_6 = 90600
 const __BYTE_ORDER__ = "__ORDER_LITTLE_ENDIAN__"
 const __CCGO__ = 1
 const __CHAR_BIT__ = 8
@@ -673,6 +789,7 @@ const __DBL_MAX_10_EXP__ = 308
 const __DBL_MAX_EXP__ = 1024
 const __DBL_MAX__ = 1.7976931348623157e+308
 const __DBL_MIN__ = 2.2250738585072014e-308
+const __DBL_NORM_MAX__ = 1.7976931348623157e+308
 const __DECIMAL_DIG__ = "__LDBL_DECIMAL_DIG__"
 const __DRIVERKIT_19_0 = 190000
 const __DRIVERKIT_20_0 = 200000
@@ -687,13 +804,24 @@ const __DRIVERKIT_23_2 = 230200
 const __DRIVERKIT_23_3 = 230300
 const __DRIVERKIT_23_4 = 230400
 const __DRIVERKIT_23_5 = 230500
+const __DRIVERKIT_23_6 = 230600
 const __DRIVERKIT_24_0 = 240000
 const __DRIVERKIT_24_1 = 240100
 const __DRIVERKIT_24_2 = 240200
+const __DRIVERKIT_24_3 = 240300
+const __DRIVERKIT_24_4 = 240400
+const __DRIVERKIT_24_5 = 240500
+const __DRIVERKIT_24_6 = 240600
+const __DRIVERKIT_25_0 = 250000
+const __DRIVERKIT_25_1 = 250100
+const __DRIVERKIT_25_2 = 250200
+const __DRIVERKIT_25_3 = 250300
+const __DRIVERKIT_25_4 = 250400
+const __DRIVERKIT_25_5 = 250500
 const __DYNAMIC__ = 1
 const __ENABLE_LEGACY_MAC_AVAILABILITY = 1
-const __ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__ = 150000
-const __ENVIRONMENT_OS_VERSION_MIN_REQUIRED__ = 150000
+const __ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__ = 260000
+const __ENVIRONMENT_OS_VERSION_MIN_REQUIRED__ = 260000
 const __FINITE_MATH_ONLY__ = 0
 const __FLT16_DECIMAL_DIG__ = 5
 const __FLT16_DENORM_MIN__ = 5.9604644775390625e-8
@@ -707,6 +835,7 @@ const __FLT16_MAX_10_EXP__ = 4
 const __FLT16_MAX_EXP__ = 16
 const __FLT16_MAX__ = 6.5504e+4
 const __FLT16_MIN__ = 6.103515625e-5
+const __FLT16_NORM_MAX__ = 6.5504e+4
 const __FLT_DECIMAL_DIG__ = 9
 const __FLT_DENORM_MIN__ = 1.40129846e-45
 const __FLT_DIG__ = 6
@@ -719,6 +848,7 @@ const __FLT_MAX_10_EXP__ = 38
 const __FLT_MAX_EXP__ = 128
 const __FLT_MAX__ = 3.40282347e+38
 const __FLT_MIN__ = 1.17549435e-38
+const __FLT_NORM_MAX__ = 3.40282347e+38
 const __FLT_RADIX__ = 2
 const __FPCLASS_NEGINF = 0x0004
 const __FPCLASS_NEGNORMAL = 0x0008
@@ -732,6 +862,7 @@ const __FPCLASS_QNAN = 0x0002
 const __FPCLASS_SNAN = 0x0001
 const __FP_FAST_FMA = 1
 const __FP_FAST_FMAF = 1
+const __FUNCTION_MULTI_VERSIONING_SUPPORT_LEVEL = 202430
 const __FUNCTION__ = "__func__"
 const __GCC_ASM_FLAG_OUTPUTS__ = 1
 const __GCC_ATOMIC_BOOL_LOCK_FREE = 2
@@ -745,8 +876,11 @@ const __GCC_ATOMIC_POINTER_LOCK_FREE = 2
 const __GCC_ATOMIC_SHORT_LOCK_FREE = 2
 const __GCC_ATOMIC_TEST_AND_SET_TRUEVAL = 1
 const __GCC_ATOMIC_WCHAR_T_LOCK_FREE = 2
+const __GCC_CONSTRUCTIVE_SIZE = 64
+const __GCC_DESTRUCTIVE_SIZE = 256
 const __GCC_HAVE_DWARF2_CFI_ASM = 1
 const __GCC_HAVE_SYNC_COMPARE_AND_SWAP_1 = 1
+const __GCC_HAVE_SYNC_COMPARE_AND_SWAP_16 = 1
 const __GCC_HAVE_SYNC_COMPARE_AND_SWAP_2 = 1
 const __GCC_HAVE_SYNC_COMPARE_AND_SWAP_4 = 1
 const __GCC_HAVE_SYNC_COMPARE_AND_SWAP_8 = 1
@@ -844,7 +978,6 @@ const __IPHONE_14_0 = 140000
 const __IPHONE_14_1 = 140100
 const __IPHONE_14_2 = 140200
 const __IPHONE_14_3 = 140300
-const __IPHONE_14_4 = 140400
 const __IPHONE_14_5 = 140500
 const __IPHONE_14_6 = 140600
 const __IPHONE_14_7 = 140700
@@ -872,9 +1005,22 @@ const __IPHONE_17_2 = 170200
 const __IPHONE_17_3 = 170300
 const __IPHONE_17_4 = 170400
 const __IPHONE_17_5 = 170500
+const __IPHONE_17_6 = 170600
+const __IPHONE_17_7 = 170700
 const __IPHONE_18_0 = 180000
 const __IPHONE_18_1 = 180100
 const __IPHONE_18_2 = 180200
+const __IPHONE_18_3 = 180300
+const __IPHONE_18_4 = 180400
+const __IPHONE_18_5 = 180500
+const __IPHONE_18_6 = 180600
+const __IPHONE_19_0 = 190000
+const __IPHONE_26_0 = 260000
+const __IPHONE_26_1 = 260100
+const __IPHONE_26_2 = 260200
+const __IPHONE_26_3 = 260300
+const __IPHONE_26_4 = 260400
+const __IPHONE_26_5 = 260500
 const __IPHONE_2_0 = 20000
 const __IPHONE_2_1 = 20100
 const __IPHONE_2_2 = 20200
@@ -912,6 +1058,7 @@ const __LDBL_MAX_10_EXP__ = 308
 const __LDBL_MAX_EXP__ = 1024
 const __LDBL_MAX__ = 1.7976931348623157e+308
 const __LDBL_MIN__ = 2.2250738585072014e-308
+const __LDBL_NORM_MAX__ = 1.7976931348623157e+308
 const __LITTLE_ENDIAN__ = 1
 const __LLONG_WIDTH__ = 64
 const __LONG_LONG_MAX__ = 9223372036854775807
@@ -974,17 +1121,34 @@ const __MAC_13_3 = 130300
 const __MAC_13_4 = 130400
 const __MAC_13_5 = 130500
 const __MAC_13_6 = 130600
+const __MAC_13_7 = 130700
 const __MAC_14_0 = 140000
 const __MAC_14_1 = 140100
 const __MAC_14_2 = 140200
 const __MAC_14_3 = 140300
 const __MAC_14_4 = 140400
 const __MAC_14_5 = 140500
+const __MAC_14_6 = 140600
+const __MAC_14_7 = 140700
 const __MAC_15_0 = 150000
 const __MAC_15_1 = 150100
 const __MAC_15_2 = 150200
-const __MAC_OS_X_VERSION_MAX_ALLOWED = "__MAC_15_2"
-const __MAC_OS_X_VERSION_MIN_REQUIRED = "__ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__"
+const __MAC_15_3 = 150300
+const __MAC_15_4 = 150400
+const __MAC_15_5 = 150500
+const __MAC_15_6 = 150600
+const __MAC_16_0 = 160000
+const __MAC_26_0 = 260000
+const __MAC_26_1 = 260100
+const __MAC_26_2 = 260200
+const __MAC_26_3 = 260300
+const __MAC_26_4 = 260400
+const __MAC_26_5 = 260500
+const __MEMORY_SCOPE_DEVICE = 1
+const __MEMORY_SCOPE_SINGLE = 4
+const __MEMORY_SCOPE_SYSTEM = 0
+const __MEMORY_SCOPE_WRKGRP = 2
+const __MEMORY_SCOPE_WVFRNT = 3
 const __NO_INLINE__ = 1
 const __NO_MATH_ERRNO__ = 1
 const __OBJC_BOOL_IS_BOOL = 1
@@ -1053,6 +1217,9 @@ const __SRD = 0x0004
 const __SRW = 0x0010
 const __SSP__ = 1
 const __SSTR = 0x0200
+const __STDC_EMBED_EMPTY__ = 2
+const __STDC_EMBED_FOUND__ = 1
+const __STDC_EMBED_NOT_FOUND__ = 0
 const __STDC_HOSTED__ = 1
 const __STDC_NO_THREADS__ = 1
 const __STDC_UTF_16__ = 1
@@ -1106,9 +1273,21 @@ const __TVOS_17_2 = 170200
 const __TVOS_17_3 = 170300
 const __TVOS_17_4 = 170400
 const __TVOS_17_5 = 170500
+const __TVOS_17_6 = 170600
 const __TVOS_18_0 = 180000
 const __TVOS_18_1 = 180100
 const __TVOS_18_2 = 180200
+const __TVOS_18_3 = 180300
+const __TVOS_18_4 = 180400
+const __TVOS_18_5 = 180500
+const __TVOS_18_6 = 180600
+const __TVOS_19_0 = 190000
+const __TVOS_26_0 = 260000
+const __TVOS_26_1 = 260100
+const __TVOS_26_2 = 260200
+const __TVOS_26_3 = 260300
+const __TVOS_26_4 = 260400
+const __TVOS_26_5 = 260500
 const __TVOS_9_0 = 90000
 const __TVOS_9_1 = 90100
 const __TVOS_9_2 = 90200
@@ -1188,23 +1367,48 @@ const __UINT_LEAST8_FMTu__ = "hhu"
 const __UINT_LEAST8_FMTx__ = "hhx"
 const __UINT_LEAST8_MAX__ = 255
 const __USER_LABEL_PREFIX__ = "_"
-const __VERSION__ = "Apple LLVM 16.0.0 (clang-1600.0.26.6)"
+const __VERSION__ = "Apple LLVM 21.0.0 (clang-2100.1.1.101)"
 const __VISIONOS_1_0 = 10000
 const __VISIONOS_1_1 = 10100
 const __VISIONOS_1_2 = 10200
+const __VISIONOS_1_3 = 10300
+const __VISIONOS_26_0 = 260000
+const __VISIONOS_26_1 = 260100
+const __VISIONOS_26_2 = 260200
+const __VISIONOS_26_3 = 260300
+const __VISIONOS_26_4 = 260400
+const __VISIONOS_26_5 = 260500
 const __VISIONOS_2_0 = 20000
 const __VISIONOS_2_1 = 20100
 const __VISIONOS_2_2 = 20200
+const __VISIONOS_2_3 = 20300
+const __VISIONOS_2_4 = 20400
+const __VISIONOS_2_5 = 20500
+const __VISIONOS_2_6 = 20600
+const __VISIONOS_3_0 = 30000
 const __WATCHOS_10_0 = 100000
 const __WATCHOS_10_1 = 100100
 const __WATCHOS_10_2 = 100200
 const __WATCHOS_10_3 = 100300
 const __WATCHOS_10_4 = 100400
 const __WATCHOS_10_5 = 100500
+const __WATCHOS_10_6 = 100600
+const __WATCHOS_10_7 = 100700
 const __WATCHOS_11_0 = 110000
 const __WATCHOS_11_1 = 110100
 const __WATCHOS_11_2 = 110200
+const __WATCHOS_11_3 = 110300
+const __WATCHOS_11_4 = 110400
+const __WATCHOS_11_5 = 110500
+const __WATCHOS_11_6 = 110600
+const __WATCHOS_12_0 = 120000
 const __WATCHOS_1_0 = 10000
+const __WATCHOS_26_0 = 260000
+const __WATCHOS_26_1 = 260100
+const __WATCHOS_26_2 = 260200
+const __WATCHOS_26_3 = 260300
+const __WATCHOS_26_4 = 260400
+const __WATCHOS_26_5 = 260500
 const __WATCHOS_2_0 = 20000
 const __WATCHOS_2_1 = 20100
 const __WATCHOS_2_2 = 20200
@@ -1253,18 +1457,20 @@ const __WINT_TYPE__ = "int"
 const __WINT_WIDTH__ = 32
 const __WORDSIZE = 64
 const __aarch64__ = 1
-const __apple_build_version__ = 16000026
+const __apple_build_version__ = 21000101
 const __arm64 = 1
 const __arm64__ = 1
 const __bool_true_false_are_defined = 1
 const __clang__ = 1
 const __clang_literal_encoding__ = "UTF-8"
-const __clang_major__ = 16
+const __clang_major__ = 21
 const __clang_minor__ = 0
 const __clang_patchlevel__ = 0
-const __clang_version__ = "16.0.0 (clang-1600.0.26.6)"
+const __clang_version__ = "21.0.0 (clang-2100.1.1.101)"
 const __clang_wide_literal_encoding__ = "UTF-32"
 const __const = "const"
+const __exported_hidden = "__private_extern__"
+const __has_bounds_safety_attributes = 0
 const __has_ptrcheck = 0
 const __has_safe_buffers = 0
 const __header_inline = "inline"
@@ -1555,7 +1761,7 @@ type tm = struct {
 	Ftm_isdst  int32
 	Ftm_gmtoff int64
 	Ftm_zone   uintptr
-} //TODO "timezone" // _time.h:103:13:
+} //TODO "timezone" // _time.h:106:13:
 
 type clockid_t = int32
 
@@ -1829,6 +2035,12 @@ const EXT_HOST_DRAINING = 2
 const EXT_HOST_CLOSED = 3
 const EXT_HOST_FAILED = 4
 
+type ext_trust_state = int32
+
+const EXT_TRUST_UNTRUSTED = 0
+const EXT_TRUST_TRUSTED = 1
+const EXT_TRUST_CHANGED = 2
+
 type va_list = uintptr
 
 type fpos_t = int64
@@ -1921,6 +2133,32 @@ type __darwin_arm_vfp_state = struct {
 
 type __arm_pagein_state = struct {
 	F__pagein_error int32
+}
+
+type __darwin_arm_sme_state = struct {
+	F__svcr       __uint64_t
+	F__tpidr2_el0 __uint64_t
+	F__svl_b      __uint16_t
+}
+
+type __darwin_arm_sve_z_state = struct {
+	F__ccgo_align [0]uint32
+	F__z          [16][256]int8
+}
+
+type __darwin_arm_sve_p_state = struct {
+	F__ccgo_align [0]uint32
+	F__p          [16][32]int8
+}
+
+type __darwin_arm_sme_za_state = struct {
+	F__ccgo_align [0]uint32
+	F__za         [4096]int8
+}
+
+type __darwin_arm_sme2_state = struct {
+	F__ccgo_align [0]uint32
+	F__zt0        [64]int8
 }
 
 type __arm_legacy_debug_state = struct {
@@ -32086,7 +32324,6 @@ const FP_SUBNORMAL = 5
 const FP_SUPERNORMAL = 6
 const FP_ZERO = 3
 const HUGE = "MAXFLOAT"
-const INFINITY = "HUGE_VALF"
 const MATH_ERREXCEPT = 2
 const MATH_ERRNO = 1
 const MAXFLOAT = "0x1.fffffep+127f"
@@ -44208,6 +44445,7 @@ type ext_hash = struct {
  * @APPLE_LICENSE_HEADER_END@
  */
 
+// This is explicitly outside the header guard
 /*
  * Copyright (c) 2007, 2008 Apple Inc. All rights reserved.
  *
@@ -44375,6 +44613,7 @@ type ext_hash = struct {
  * @APPLE_LICENSE_HEADER_END@
  */
 
+// This is explicitly outside the header guard
 /*
  * Copyright (c) 2007, 2008 Apple Inc. All rights reserved.
  *
@@ -44398,28 +44637,44 @@ type ext_hash = struct {
  * @APPLE_LICENSE_HEADER_END@
  */
 
-/* <rdar://problem/12622659> */
+/* __is_gcc(gcc_major, gcc_minor)
+* Special values:
+* 10.0 means "test should always fail when __has_builtin isn't supported"
+  (because gcc got __has_builtin in version 10.0); this is used for builtins
+  that gcc did not support yet at the time __has_builtin was introduced, so
+  there is no point checking the compiler version.
+* 0.0 means that we did not research when gcc started supporting this builtin,
+  but it's believed to have been the case at least since gcc 4.0, which came
+  out in 2005. (Hello from 2025! What year is it now? Can't believe we're still
+  using C!)
+*/
 
 /* memccpy, memcpy, mempcpy, memmove, memset, strcpy, strlcpy, stpcpy,
    strncpy, stpncpy, strcat, strlcat, and strncat */
 
-/* void *memcpy(void *dst, const void *src, size_t n) */
-
-/* void *memmove(void *dst, const void *src, size_t len) */
-
-/* void *memset(void *b, int c, size_t len) */
-
-/* char *strcpy(char *dst, const char *src) */
-
-/* char *stpcpy(char *dst, const char *src) */
-
-/* char *stpncpy(char *dst, const char *src, size_t n) */
-
-/* char *strncpy(char *dst, const char *src, size_t n) */
-
-/* char *strcat(char *s1, const char *s2) */
-
-/* char *strncat(char *s1, const char *s2, size_t n) */
+/* The use of .../__VA_ARGS__ is load-bearing. If the macros take fixed
+ * arguments, they are unable to themselves accept macros that expand to
+ * multiple arguments, like this:
+ *  #define memcpy(a, b, c) ...
+ *  #define FOO(data) get_bytes(data), get_length(data)
+ *  memcpy(bar, FOO(d));
+ * This will fail because the preprocessor only sees two arguments on the first
+ * expansion of memcpy, when 3 are required.
+ * This is also required to support syntaxes that embed commas. The preprocessor
+ * recognizes parentheses for the isolation of arguments but not brackets. This
+ * expands to 3 arguments:
+ *  strcpy(destination, [NSString stringWithFormat:@"%i", 4].UTF8String);
+ *         ^            ^                                 ^
+ *         |destination |                                 |
+ *                      |[NSString stringWithFormat:@"%i" |
+ *							  |4].UTF8String
+ * This expands to 4 arguments:
+ *  memcpy(destination, (uint8_t[]) { 1, 2 }, 2);
+ *         ^            ^                ^    ^
+ * To work correctly under these hostile circumstances, chk_func macros
+ * need to expand to a bare identifier (like #define memcpy_chk_func __memcpy)
+ * or to a macro that also takes variadic arguments.
+ */
 
 func rotr(tls *libc.TLS, x uint32_t, n uint32) (r uint32_t) {
 	return x>>n | x<<(libc.Uint32FromInt32(32)-n)
@@ -56351,6 +56606,98 @@ func lower_rune(tls *libc.TLS, p uintptr) (r uint32_t) {
 
 // C documentation
 //
+//	/* The store uses the same Unicode simple-lower comparison as manifest
+//	 * duplicate and overlap checks. Invalid filesystem names never match a
+//	 * declared artifact and are therefore rejected as unlisted content. */
+func valid_utf8(tls *libc.TLS, p uintptr) (r int32) {
+	var c, min uint32_t
+	var more, v2 uint32
+	var v1 uintptr
+	_, _, _, _, _ = c, min, more, v1, v2
+	for *(*uint8_t)(unsafe.Add(nil, p)) != 0 {
+		v1 = p
+		p = p + 1
+		c = uint32(*(*uint8_t)(unsafe.Add(nil, v1)))
+		if c < uint32(0x80) {
+			continue
+		}
+		if c >= uint32(0xc2) && c <= uint32(0xdf) {
+			more = uint32(1)
+			min = uint32(0x80)
+			c = c & uint32(0x1f)
+		} else {
+			if c >= uint32(0xe0) && c <= uint32(0xef) {
+				more = uint32(2)
+				min = uint32(0x800)
+				c = c & uint32(0x0f)
+			} else {
+				if c >= uint32(0xf0) && c <= uint32(0xf4) {
+					more = uint32(3)
+					min = uint32(0x10000)
+					c = c & uint32(0x07)
+				} else {
+					return 0
+				}
+			}
+		}
+		for {
+			v2 = more
+			more = more - 1
+			if !(v2 != 0) {
+				break
+			}
+			if !(*(*uint8_t)(unsafe.Add(nil, p)) != 0) || libc.Int32FromUint8(*(*uint8_t)(unsafe.Add(nil, p)))&int32(0xc0) != int32(0x80) {
+				return 0
+			}
+			v1 = p
+			p = p + 1
+			c = c<<libc.Int32FromInt32(6) | libc.Uint32FromInt32(libc.Int32FromUint8(*(*uint8_t)(unsafe.Add(nil, v1)))&libc.Int32FromInt32(0x3f))
+		}
+		if c < min || c > uint32(0x10ffff) || c >= uint32(0xd800) && c <= uint32(0xdfff) {
+			return 0
+		}
+	}
+	return int32(1)
+}
+
+func ext_path_fold_equal(tls *libc.TLS, a uintptr, b uintptr) (r int32) {
+	bp := tls.Alloc(16)
+	defer tls.Free(16)
+	var _ /* x at bp+0 */ uintptr
+	var _ /* y at bp+8 */ uintptr
+	if !(a != 0) || !(b != 0) || !(valid_utf8(tls, a) != 0) || !(valid_utf8(tls, b) != 0) {
+		return 0
+	}
+	*(*uintptr)(unsafe.Add(nil, bp)) = a
+	*(*uintptr)(unsafe.Add(nil, bp+8)) = b
+	for *(*uint8_t)(unsafe.Add(nil, *(*uintptr)(unsafe.Add(nil, bp)))) != 0 && *(*uint8_t)(unsafe.Add(nil, *(*uintptr)(unsafe.Add(nil, bp+8)))) != 0 {
+		if lower_rune(tls, bp) != lower_rune(tls, bp+8) {
+			return 0
+		}
+	}
+	return libc.BoolInt32(!(*(*uint8_t)(unsafe.Add(nil, *(*uintptr)(unsafe.Add(nil, bp)))) != 0) && !(*(*uint8_t)(unsafe.Add(nil, *(*uintptr)(unsafe.Add(nil, bp+8)))) != 0))
+}
+
+func ext_path_fold_tree_contains(tls *libc.TLS, tree uintptr, path uintptr) (r int32) {
+	bp := tls.Alloc(16)
+	defer tls.Free(16)
+	var _ /* x at bp+0 */ uintptr
+	var _ /* y at bp+8 */ uintptr
+	if !(tree != 0) || !(path != 0) || !(valid_utf8(tls, tree) != 0) || !(valid_utf8(tls, path) != 0) {
+		return 0
+	}
+	*(*uintptr)(unsafe.Add(nil, bp)) = tree
+	*(*uintptr)(unsafe.Add(nil, bp+8)) = path
+	for *(*uint8_t)(unsafe.Add(nil, *(*uintptr)(unsafe.Add(nil, bp)))) != 0 && *(*uint8_t)(unsafe.Add(nil, *(*uintptr)(unsafe.Add(nil, bp+8)))) != 0 {
+		if lower_rune(tls, bp) != lower_rune(tls, bp+8) {
+			return 0
+		}
+	}
+	return libc.BoolInt32(!(*(*uint8_t)(unsafe.Add(nil, *(*uintptr)(unsafe.Add(nil, bp)))) != 0) && libc.Int32FromUint8(*(*uint8_t)(unsafe.Add(nil, *(*uintptr)(unsafe.Add(nil, bp+8))))) == int32('/'))
+}
+
+// C documentation
+//
 //	/* Optional SPDX license expression: 1 to 128 characters, starting with a
 //	 * letter, digit or "(", using letters, digits and ". + ( ) -" and single interior
 //	 * spaces. It is recorded and never interpreted. Matches packagekit. */
@@ -63157,37 +63504,6 @@ type fd_mask = int32
 type fsblkcnt_t = uint32
 
 type fsfilcnt_t = uint32
-
-/*
- * Copyright (c) 2000-2007 Apple Inc. All rights reserved.
- *
- * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
- *
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. The rights granted to you under the License
- * may not be used to create, or enable the creation or redistribution of,
- * unlawful or unlicensed copies of an Apple operating system, or to
- * circumvent, violate, or enable the circumvention or violation of, any
- * terms of an Apple operating system software license agreement.
- *
- * Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this file.
- *
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
- * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
- * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
- *
- * @APPLE_OSREFERENCE_LICENSE_HEADER_END@
- */
-/*
- * Copyright 1995 NeXT Computer, Inc. All rights reserved.
- */
 
 /*
  This macro controls how yyjson handles unaligned memory accesses.
@@ -83831,7 +84147,7 @@ const EINVAL = 22
 const EIO = 5
 const EISCONN = 56
 const EISDIR = 21
-const ELAST = 106
+const ELAST = 107
 const ELOOP = 62
 const EMFILE = 24
 const EMLINK = 31
@@ -83860,6 +84176,7 @@ const ENOSR = 98
 const ENOSTR = 99
 const ENOSYS = 78
 const ENOTBLK = 15
+const ENOTCAPABLE = 107
 const ENOTCONN = 57
 const ENOTDIR = 20
 const ENOTEMPTY = 66
@@ -92649,11 +92966,14 @@ const ACCESSX_MAX_DESCRIPTORS = 100
 const ATTRIBUTION_NAME_MAX = 255
 const AT_EACCESS = 0x0010
 const AT_FDONLY = 0x0400
+const AT_NODELETEBUSY = 0x4000
 const AT_REALDEV = 0x0200
 const AT_REMOVEDIR = 0x0080
+const AT_RESOLVE_BENEATH = 0x2000
 const AT_SYMLINK_FOLLOW = 0x0040
 const AT_SYMLINK_NOFOLLOW = 32
 const AT_SYMLINK_NOFOLLOW_ANY = 0x0800
+const AT_UNIQUE = 0x8000
 const CLOCK_MONOTONIC6 = "_CLOCK_MONOTONIC"
 const CPF_IGNORE_MODE = 0x0002
 const CPF_OVERWRITE = 0x0001
@@ -92738,6 +93058,7 @@ const F_LOCK = 1
 const F_LOG2PHYS = 49
 const F_LOG2PHYS_EXT = 65
 const F_NOCACHE = 48
+const F_NOCACHE_EXT = 112
 const F_NODIRECT = 62
 const F_OFD_GETLK = 92
 const F_OFD_SETLK = 90
@@ -92808,10 +93129,12 @@ const O_NONBLOCK = 4
 const O_POPUP = 0x80000000
 const O_RDONLY = 0
 const O_RDWR = 0x0002
+const O_RESOLVE_BENEATH = 0x00001000
 const O_SHLOCK = 0x00000010
 const O_SYMLINK = 0x00200000
 const O_SYNC = 0x0080
 const O_TRUNC = 0x00000400
+const O_UNIQUE = 0x00002000
 const O_WRONLY = 0x0001
 const SF_APPEND = 0x00040000
 const SF_ARCHIVED = 0x00010000
@@ -93131,8 +93454,8 @@ type dirent = struct {
 
 type DIR = struct {
 	F__dd_fd    int32
-	F__dd_loc   int64
-	F__dd_size  int64
+	F__dd_loc   size_t
+	F__dd_size  size_t
 	F__dd_buf   uintptr
 	F__dd_len   int32
 	F__dd_seek  int64
@@ -93605,6 +93928,101 @@ func ext_fs_hash_file(tls *libc.TLS, fs uintptr, path uintptr, out uintptr) (r e
 	s = file_hash(tls, *(*int32)(unsafe.Add(nil, bp)), *(*uintptr)(unsafe.Add(nil, bp+8)), out)
 	libc.Xclose(tls, *(*int32)(unsafe.Add(nil, bp)))
 	libc.Xfree(tls, *(*uintptr)(unsafe.Add(nil, bp+16)))
+	return s
+}
+
+func ext_fs_read_file(tls *libc.TLS, fs uintptr, path uintptr, limit size_t, out uintptr) (r ext_status) {
+	bp := tls.Alloc(176)
+	defer tls.Free(176)
+	var data uintptr
+	var fd, v1 int32
+	var n, n1 ssize_t
+	var s ext_status
+	var used size_t
+	var v2 uint64
+	var _ /* dir at bp+0 */ int32
+	var _ /* extra at bp+168 */ uint8_t
+	var _ /* leaf at bp+8 */ uintptr
+	var _ /* st at bp+24 */ stat1
+	var _ /* storage at bp+16 */ uintptr
+	_, _, _, _, _, _, _, _ = data, fd, n, n1, s, used, v1, v2
+	if !(fs != 0) || !(path != 0) || !(*(*int8)(unsafe.Add(nil, path)) != 0) || !(out != 0) || !(limit != 0) {
+		return int32(EXT_INVALID)
+	}
+	*(*ext_buffer)(unsafe.Add(nil, out)) = ext_buffer{}
+	*(*int32)(unsafe.Add(nil, bp)) = -int32(1)
+	*(*uintptr)(unsafe.Add(nil, bp+8)) = libc.UintptrFromInt32(0)
+	*(*uintptr)(unsafe.Add(nil, bp+16)) = libc.UintptrFromInt32(0)
+	s = descend(tls, (*ext_fs)(unsafe.Pointer(fs)).Ffd, path, int32(1), bp, bp+8, bp+16)
+	if s != 0 {
+		return s
+	}
+	fd = libc.Xopenat(tls, *(*int32)(unsafe.Add(nil, bp)), *(*uintptr)(unsafe.Add(nil, bp+8)), libc.Int32FromInt32(O_RDONLY)|libc.Int32FromInt32(O_NOFOLLOW)|libc.Int32FromInt32(O_NONBLOCK)|libc.Int32FromInt32(O_CLOEXEC), 0)
+	if fd < 0 {
+		if *(*int32)(unsafe.Add(nil, libc.X__error(tls))) == int32(ELOOP) {
+			v1 = int32(EXT_INVALID)
+		} else {
+			v1 = int32(EXT_IO)
+		}
+		s = v1
+	}
+	if !(s != 0) && (libc.Xfstat(tls, fd, bp+24) != 0 || !(libc.Int32FromUint16((*(*stat1)(unsafe.Add(nil, bp+24))).Fst_mode)&libc.Int32FromInt32(S_IFMT) == libc.Int32FromInt32(S_IFREG))) {
+		s = int32(EXT_INVALID)
+	}
+	if !(s != 0) && (libc.Uint64FromInt64((*(*stat1)(unsafe.Add(nil, bp+24))).Fst_size) > limit || (*(*stat1)(unsafe.Add(nil, bp+24))).Fst_size < 0) {
+		s = int32(EXT_INVALID)
+	}
+	data = libc.UintptrFromInt32(0)
+	if !(s != 0) {
+		if libc.Uint64FromInt64((*(*stat1)(unsafe.Add(nil, bp+24))).Fst_size) != 0 {
+			v2 = libc.Uint64FromInt64((*(*stat1)(unsafe.Add(nil, bp+24))).Fst_size)
+		} else {
+			v2 = uint64(1)
+		}
+		data = libc.Xmalloc(tls, v2)
+		if !(data != 0) {
+			s = int32(EXT_NOMEM)
+		}
+	}
+	used = uint64(0)
+	for !(s != 0) && used < libc.Uint64FromInt64((*(*stat1)(unsafe.Add(nil, bp+24))).Fst_size) {
+		n = libc.Xread(tls, fd, data+uintptr(used), libc.Uint64FromInt64((*(*stat1)(unsafe.Add(nil, bp+24))).Fst_size)-used)
+		if n > 0 {
+			used = used + libc.Uint64FromInt64(n)
+		} else {
+			if !(n != 0) {
+				s = int32(EXT_IO)
+			} else {
+				if *(*int32)(unsafe.Add(nil, libc.X__error(tls))) != int32(EINTR) {
+					s = int32(EXT_IO)
+				}
+			}
+		}
+	}
+	if !(s != 0) {
+		n1 = libc.Xread(tls, fd, bp+168, uint64(1))
+		if n1 != 0 {
+			if n1 > 0 {
+				v1 = int32(EXT_INVALID)
+			} else {
+				v1 = int32(EXT_IO)
+			}
+			s = v1
+		}
+	}
+	if fd >= 0 && libc.Xclose(tls, fd) != 0 && !(s != 0) {
+		s = int32(EXT_IO)
+	}
+	libc.Xclose(tls, *(*int32)(unsafe.Add(nil, bp)))
+	libc.Xfree(tls, *(*uintptr)(unsafe.Add(nil, bp+16)))
+	if s != 0 {
+		libc.Xfree(tls, data)
+	} else {
+		*(*ext_buffer)(unsafe.Add(nil, out)) = ext_buffer{
+			Fdata: data,
+			Flen1: used,
+		}
+	}
 	return s
 }
 

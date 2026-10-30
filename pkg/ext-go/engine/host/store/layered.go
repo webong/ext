@@ -26,7 +26,8 @@ type Layered struct {
 }
 
 // NewLayered returns a view over stores in priority order, highest first. It
-// needs at least one store and rejects nil entries and repeated roots.
+// needs at least one store and rejects nil entries, repeated roots and stores
+// whose limits differ: the view applies one set of limits to all its roots.
 func NewLayered(stores ...*Store) (*Layered, error) {
 	if len(stores) == 0 {
 		return nil, plugin.ErrInvalid
@@ -41,6 +42,9 @@ func NewLayered(stores ...*Store) (*Layered, error) {
 			return nil, fmt.Errorf("%w: store root %q repeated", plugin.ErrInvalid, s.root)
 		}
 		seen[root] = true
+		if s.limits != stores[0].limits {
+			return nil, fmt.Errorf("%w: store %q has other limits than the first", plugin.ErrInvalid, s.root)
+		}
 	}
 	return &Layered{stores: append([]*Store(nil), stores...)}, nil
 }

@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # Build the optional WAMR host (the engine's host half, the WAMR reactor backend and
 # WAMR's interpreter) as an Apple xcframework for pkg/ext-ios: macOS, iOS and iOS
-# Simulator. It carries the host half only; the guest core stays in CExtEngine, so the
-# two do not define the same symbols. It ships no headers: CExtEngine declares the
-# CExtWamr module and header, because two xcframeworks must not ship the same header or
-# module map. WAMR is fetched at the pinned commit by plugin-wamr-source.sh. Its license goes
+# Simulator. It carries the host half only; the guest core and the package store stay in
+# CExtEngine, so the two do not define the same symbols. It ships no headers: CExtEngine
+# declares the CExtWamr module and header, because two xcframeworks must not ship the same
+# header or module map. WAMR is fetched at the pinned commit by plugin-wamr-source.sh. Its license goes
 # beside the framework and must ship with any binary that links it.
 # Output: pkg/ext-ios/Frameworks/CExtWamr.xcframework
 set -euo pipefail
@@ -14,7 +14,10 @@ wamr="$(scripts/plugin-wamr-source.sh)"
 out="${EXT_SWIFT_FRAMEWORKS:-pkg/ext-ios/Frameworks}"
 work="$(mktemp -d "${TMPDIR:-/tmp}/ext-wamr-xcframework.XXXXXX")"
 trap 'rm -rf "$work"' EXIT
-core=(common.c.o wire.c.o progress.c.o reverse.c.o endpoint.c.o services.c.o guest.c.o sha256.c.o packages.c.o yyjson.c.o)
+# Objects CExtEngine already carries (scripts/ext-ios-xcframework.sh: the guest core and the
+# package store with the file layer under it), so the two frameworks never define a symbol twice.
+core=(common.c.o wire.c.o progress.c.o reverse.c.o endpoint.c.o services.c.o guest.c.o sha256.c.o packages.c.o yyjson.c.o
+  fs_posix.c.o fs_write_posix.c.o random_posix.c.o integrity.c.o store.c.o)
 
 # slice | sdk | architecture | deployment target | system name
 slices=(

@@ -34,7 +34,7 @@ jobs:
   # Stages the release and tests it, on the host and in an iOS Simulator, before anything is
   # published. Read-only: it has no token that can write.
   build:
-    runs-on: macos-14
+    runs-on: macos-15
     timeout-minutes: 60
     outputs:
       version: ${{ steps.version.outputs.version }}

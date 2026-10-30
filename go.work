@@ -40,7 +40,6 @@ use (
 	./adapters/gemini
 	./res/system
 	./res/int
-	./res/content
 	./pkg/ext-go
 	./pkg/ext-go/hashicorp
 	./pkg/ext-go/wasm

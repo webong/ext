@@ -7,14 +7,12 @@ require (
 	github.com/webong/ext/pkg/ext-go/cgoengine v0.1.0
 	github.com/webong/ext/pkg/ext-go/model v0.1.0
 	github.com/webong/ext/pkg/ext-go/perception v0.1.0
-	github.com/webong/ext/res/content v0.1.0
 	github.com/webong/ext/res/int v0.1.0
 	github.com/webong/ext/res/system v0.2.0 // indirect
 	golang.org/x/sys v0.48.0 // indirect
 )
 
 replace github.com/webong/ext/res/int => ../../res/int
-replace github.com/webong/ext/res/content => ../../res/content
 replace github.com/webong/ext/res/system => ../../res/system
 
 replace github.com/webong/ext/pkg/ext-go/engine => ../../pkg/ext-go/engine

@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/webong/ext/res/content"
+	"github.com/webong/ext/ctn/internal/content"
 )
 
 // contentCommand exposes the portable local catalog without selecting a root

@@ -18,8 +18,9 @@ same JSON contracts through the Ext plugin engine.
 The previous `res/ml` and `res/inference` Go modules are combined into this
 module. Their packages are now `res/int/model` and `res/int/inference`; the
 existing `model.tensor/v1`, `inference.provider/v1`, and `content.model/v1`
-wire names remain stable. `res/content` continues to own the verified file
-catalog because file storage does not require an intelligence provider.
+wire names remain stable. CTN owns its verified file catalog in
+`src/ctn/internal/content`; it is private product code and does not require an
+intelligence provider.
 
 Product-specific provider wire mappings belong in `adapters/`. The plugin
 engine owns package integrity and trust mechanics. CTN selects installed

@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/webong/ext/res/content"
+	"github.com/webong/ext/ctn/internal/content"
 )
 
 func TestContentCatalogCLI(t *testing.T) {

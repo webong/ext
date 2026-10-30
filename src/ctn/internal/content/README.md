@@ -1,8 +1,9 @@
-# Local content catalog
+# CTN content verification and catalog
 
-`res/content` owns reusable local content verification and a durable file
-catalog. The caller chooses an existing protected root, or creates one with
-`InitCatalog`. The library does not select a home directory, network service,
+`src/ctn/internal/content` owns CTN's content verification workflow and durable
+file catalog. It is private to CTN, not a separately versioned library. The app
+chooses an existing protected root, or creates one with `InitCatalog`. This
+package does not select a home directory, network service,
 backend, or content policy.
 
 An import streams a regular local file into a private staging directory, records

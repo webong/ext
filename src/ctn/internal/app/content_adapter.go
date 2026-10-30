@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/webong/ext/pkg/ext-go/engine/host/adapter"
-	"github.com/webong/ext/res/content"
+	"github.com/webong/ext/ctn/internal/content"
 )
 
 // engineBackend wraps an engine adapter as a content.Backend.

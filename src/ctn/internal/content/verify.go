@@ -1,8 +1,5 @@
-// Package content provides reusable content verification mechanics. It owns
-// the verdict types, policy and backend interfaces, and the core verification
-// loop. It never inspects CTX's home directory, chooses installed adapters,
-// or produces CLI output. Consumers (such as ctn) adapt their own backend
-// and policy implementations to these interfaces.
+// Package content implements CTN's verification workflow and durable file catalog.
+// The app package supplies adapter selection, trust policy, and CLI output.
 package content
 
 import (

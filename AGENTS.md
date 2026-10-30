@@ -118,13 +118,15 @@ module in the current directory. Versioning follows [module versioning](docs/mod
 one shared `MAJOR` across all modules, independent `MINOR` and `PATCH`, and tags
 named for each module path.
 
+CTN owns its content verification workflow and durable file catalog in
+`src/ctn/internal/content`. They are private product code, not a reusable module.
+
 The reusable libraries are:
 
 - `res/web` for portable web contracts and workflows: browsers, WebAssembly inspection/execution through wazero (`res/web/wasm`), and the web engine that runs web content through browsers. It is also the iOS and Android module of the cookie, userscript and bookmarklet rules (`res/web/ios`, `res/web/android`), which `pkg/ext-ios` and `pkg/ext-android` ship, and owns the application-hosted WebView2 implementation in `res/web/windows`.
 - `lib/plugin` for the portable C plugin engine shared by the language bindings under `pkg/` (`ext-go`, `ext-rust`, `ext-zig`, `ext-ts`, `ext-python`) and the mobile SDKs.
 - `res/system` for the local operating-system substrate used to extend graphical and textual shells: host, shell, filesystem and volume mechanics, clipboard, credential integration, local interface/address/route/resolver observation, web view and process discovery, native surfaces, accessibility, permission state, bounded capture and media playback/capture, and atomic native input. It owns mechanisms, not authorization, remote control, routing services or consumer policy. Its subpackages include `res/system/clipboard`, `res/system/credential`, `res/system/graph`, `res/system/media`, `res/system/audio`, `res/system/network`, `res/system/service`, `res/system/share`, `res/system/supervisor`, and `res/system/volume`.
 - `res/int` for portable intelligence contracts and mechanisms: `model` owns verified local model bundles, tensors, and native backends; `inference` owns generation, embedding, transcription, speech, and provider contracts; `perception` owns interpretation and observation types; `realtime` owns duplex session types. Providers, models, credentials, and policy are chosen by consumers.
-- `res/content` for local content verification and a caller-rooted durable file catalog; it selects no home directory, backend, or policy.
 - `pkg/ext-go/engine` for the pure-Go engine, the oracle: the plugin contract, sessions, guests, packages, bridges and tooling (standard library only).
 - `pkg/ext-go/c2goengine` for the C engine's portable core translated to Go by ccgo (no cgo, no C compiler). The translation is generated per platform by its `tools` module and held against the pure-Go engine, the oracle, by `engine/plugintest/enginetest`; it depends on `engine` only.
 - `pkg/ext-go/cgoengine` for the Go binding of the C engine, with a pure-Go build of the same API and the C ABI loader.

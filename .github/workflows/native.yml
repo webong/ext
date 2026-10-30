@@ -37,7 +37,7 @@ jobs:
       - name: Test library modules
         shell: bash # the loop is bash; Windows runners default to PowerShell
         run: |
-          for module in cmd/ext src/ctx src/ctn res/system res/int res/content pkg/ext-go pkg/ext-go/engine pkg/ext-go/cgoengine pkg/ext-go/hashicorp pkg/ext-go/wasm pkg/ext-go/inference pkg/ext-go/model pkg/ext-go/perception pkg/ext-go/realtime adapters/wasm adapters/evm adapters/systemd adapters/pulseaudio adapters/alsa adapters/x11 adapters/wayland adapters/pipewire adapters/openai adapters/ollama adapters/anthropic adapters/gemini res/web; do
+          for module in cmd/ext src/ctx src/ctn res/system res/int pkg/ext-go pkg/ext-go/engine pkg/ext-go/cgoengine pkg/ext-go/hashicorp pkg/ext-go/wasm pkg/ext-go/inference pkg/ext-go/model pkg/ext-go/perception pkg/ext-go/realtime adapters/wasm adapters/evm adapters/systemd adapters/pulseaudio adapters/alsa adapters/x11 adapters/wayland adapters/pipewire adapters/openai adapters/ollama adapters/anthropic adapters/gemini res/web; do
             (cd "$module" && go test ./...) || exit 1
           done
       - name: Test intelligence contracts with race detector

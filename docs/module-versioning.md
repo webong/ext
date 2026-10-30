@@ -330,7 +330,6 @@ so an application imports only what it needs and stacks the rest:
 | `pkg/ext-go/hashicorp` | the go-plugin (gRPC) backend (the old `pkg/plugin-hashicorp`) | `engine` |
 | `pkg/ext-go` | the umbrella: requires every plugin module above and holds what needs several of them (`PlanGraph`, the `core` package that chooses between `engine`, `cgoengine` and `c2goengine`, the bridge command, the cross-language tests) | the plugin modules above, `res/system`, `res/web` |
 | `res/int` | portable model, inference, perception, and real-time contracts and mechanisms; standard library only | nothing |
-| `res/content` | local content verification and a caller-rooted durable file catalog | nothing |
 
 The module was called `contract` until v0.8.0 because it is the contract plus tooling that needs
 nothing beyond the standard library, not a runtime; it became `engine` once it was the oracle

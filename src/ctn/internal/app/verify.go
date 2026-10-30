@@ -14,7 +14,7 @@ import (
 	"time"
 
 	"github.com/webong/ext/pkg/ext-go/engine/host/adapter"
-	"github.com/webong/ext/res/content"
+	"github.com/webong/ext/ctn/internal/content"
 )
 
 // verdict is what verify reports.

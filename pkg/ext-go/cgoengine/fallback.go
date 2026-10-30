@@ -24,6 +24,15 @@ import (
 // CEngine reports whether this build runs on the shared C engine.
 const CEngine = false
 
+// PackageStore is the package store of the pure-Go engine in this build; the C engine build serves
+// the same methods from the C store.
+type PackageStore = goPackageStore
+
+// OpenPackageStore returns a store rooted at root.
+func OpenPackageStore(root string, limits PackageStoreLimits) (*PackageStore, error) {
+	return openGoPackageStore(root, limits)
+}
+
 // StoreDigest verifies one installed package using the pure-Go reference.
 func StoreDigest(root, id string) (string, error) {
 	s, err := store.New(root, store.Limits{})

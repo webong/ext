@@ -62,6 +62,8 @@ cmake --build "$build_dir/sanitize" -j 4
 "$build_dir/sanitize/ext_fixtures_test" lib/plugin/testdata/v1
 "$build_dir/sanitize/ext_host_native_test" "$EXT_CENGINE_GUEST" "$build_dir/descriptor.json" "$build_dir/echo.json" "$build_dir/wait.json"
 "$build_dir/sanitize/ext_store_test" "$build_dir/sanitize/store-package"
+"$build_dir/sanitize/ext_fs_write_test" "$build_dir/sanitize/fs-write"
+"$build_dir/sanitize/ext_store_lifecycle_test" "$build_dir/sanitize/store-lifecycle"
 "$build_dir/sanitize/ext_trust_test" "$build_dir/sanitize/trust.json"
 cmake -S lib/plugin -B "$build_dir/thread-sanitize" -DCMAKE_BUILD_TYPE=Debug -DEXT_THREAD_SANITIZE=ON
 cmake --build "$build_dir/thread-sanitize" -j 4
@@ -76,6 +78,8 @@ cmake --build "$build_dir/thread-sanitize" -j 4
 "$build_dir/thread-sanitize/ext_fixtures_test" lib/plugin/testdata/v1
 "$build_dir/thread-sanitize/ext_host_native_test" "$EXT_CENGINE_GUEST" "$build_dir/descriptor.json" "$build_dir/echo.json" "$build_dir/wait.json"
 "$build_dir/thread-sanitize/ext_store_test" "$build_dir/thread-sanitize/store-package"
+"$build_dir/thread-sanitize/ext_fs_write_test" "$build_dir/thread-sanitize/fs-write"
+"$build_dir/thread-sanitize/ext_store_lifecycle_test" "$build_dir/thread-sanitize/store-lifecycle"
 "$build_dir/thread-sanitize/ext_trust_test" "$build_dir/thread-sanitize/trust.json"
 for foreign in "${EXT_CENGINE_RUST_GUEST:-}" "${EXT_CENGINE_ZIG_GUEST:-}"; do
   if [[ -n "$foreign" ]]; then

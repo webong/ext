@@ -137,6 +137,9 @@ static ext_status walk(int fd, const char *prefix, ext_fs_visit visit,
     close(copy);
     return EXT_IO;
   }
+  /* The copy shares its read position with fd, which an earlier walk of the
+   * same directory may have left at the end. */
+  rewinddir(dir);
   ext_status s = EXT_OK;
   struct dirent *entry;
   for (;;) {
@@ -212,6 +215,7 @@ void ext_fs_close(ext_fs *fs) {
   close(fs->fd);
   free(fs);
 }
+int ext_fs_fd(ext_fs *fs) { return fs->fd; }
 ext_status ext_fs_hash_file(ext_fs *fs, const char *path, uint8_t out[32]) {
   int dir = -1;
   char *leaf = NULL, *storage = NULL;

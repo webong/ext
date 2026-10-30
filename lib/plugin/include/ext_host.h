@@ -46,7 +46,9 @@ enum {
    * host does not know. The session is closed. */
   EXT_PROTOCOL,
   /* A time has run out: an endpoint whose expiry is already past. */
-  EXT_EXPIRED
+  EXT_EXPIRED,
+  /* What was to be created is already there: a package already installed. */
+  EXT_EXISTS
 };
 typedef struct ext_cancel ext_cancel;
 EXT_HOST_API ext_status ext_cancel_create(ext_cancel **out);
@@ -422,6 +424,57 @@ EXT_HOST_API ext_status ext_trust_revoke(const char *path, const char *scope,
  * file may appear. On success out is the directory digest used for trust. */
 EXT_HOST_API ext_status ext_store_digest(const char *root, const char *id,
                                          uint8_t out[32]);
+/* The package store: install, upgrade, replace, remove and load reviewed
+ * ext.package/v1 packages under a root the application supplies. A package is
+ * its plugin.json manifest and the artifacts it lists, in a directory named by
+ * the package id with '/' encoded as "%2f". The store copies and re-verifies
+ * content; it never runs it or grants authority, and it has no default
+ * location. A missing root is an empty store and is made (owner-only) by the
+ * first install. One store serializes its own calls; several processes
+ * mutating one root are the application's to serialize.
+ *
+ * Statuses: EXT_INVALID for a package or id that is not valid, a directory that
+ * is not a package, or an artifact over a limit; EXT_MISMATCH for an artifact
+ * whose digest differs, a directory that does not match its manifest, or an
+ * upgrade that changes the id or the contracts; EXT_EXISTS for an install over
+ * an installed id; EXT_NOT_FOUND for an id that is not installed. The manifest
+ * returned is the installed plugin.json, verbatim. */
+typedef struct ext_store ext_store;
+typedef struct {
+  /* Bounds on one artifact file (a file inside a tree counts too), on the files
+   * in one tree and on the bytes of one tree. Zero takes the default: 4 GiB,
+   * 250000 files and 16 GiB. */
+  uint64_t max_artifact_bytes;
+  uint32_t max_tree_files;
+  uint64_t max_tree_bytes;
+} ext_store_limits;
+/* Keep the owner-execute bit of a file artifact (not a tree's files, which
+ * always keep it) that has any execute bit in the source. The default installs
+ * only entrypoints as executable. */
+#define EXT_STORE_PRESERVE_EXECUTABLE 1u
+EXT_HOST_API ext_status ext_store_open(const char *root,
+                                       const ext_store_limits *limits,
+                                       ext_store **out);
+EXT_HOST_API void ext_store_close(ext_store *store);
+/* Copy the package in the directory source into the store. install never
+ * replaces an installed id; upgrade replaces an installed package with a new
+ * revision of the same id and contracts (the previous installation survives any
+ * failure); replace installs or replaces whatever contracts it has. On success
+ * *manifest is the installed plugin.json, to be freed with ext_buffer_free. */
+EXT_HOST_API ext_status ext_store_install(ext_store *store, const char *source,
+                                          uint32_t flags, ext_buffer *manifest);
+EXT_HOST_API ext_status ext_store_upgrade(ext_store *store, const char *source,
+                                          uint32_t flags, ext_buffer *manifest);
+EXT_HOST_API ext_status ext_store_replace(ext_store *store, const char *source,
+                                          uint32_t flags, ext_buffer *manifest);
+EXT_HOST_API ext_status ext_store_remove(ext_store *store, const char *id);
+/* Read and verify one installed package, returning its plugin.json. */
+EXT_HOST_API ext_status ext_store_load(ext_store *store, const char *id,
+                                       ext_buffer *manifest);
+/* The ids of the installed packages as a JSON array of strings in byte order.
+ * Staging directories (a leading ".") are skipped; any other entry that is not a
+ * package directory is EXT_INVALID. Nothing is read or verified. */
+EXT_HOST_API ext_status ext_store_ids(ext_store *store, ext_buffer *ids);
 /* Pure engine services: strict bounded JSON input/output, no runtime callbacks,
  * filesystem access, discovery or authorization. Returns an owned JSON value.
  * See services.md for operations and schemas. Free output with ext_buffer_free.

@@ -51,6 +51,8 @@ echo "== native tests"
 "$build/engine/ext_fixtures_test$exe" "$(winpath "$root/lib/plugin/testdata/v1")"
 "$build/engine/ext_host_native_test$exe" "$(winpath "$guest")" "$(winpath "$build/descriptor.json")" "$(winpath "$build/echo.json")" "$(winpath "$build/wait.json")"
 "$build/engine/ext_store_test$exe" "$(winpath "$build/store-package")"
+"$build/engine/ext_fs_write_test$exe" "$(winpath "$build/fs-write")"
+"$build/engine/ext_store_lifecycle_test$exe" "$(winpath "$build/store-lifecycle")"
 "$build/engine/ext_trust_test$exe" "$(winpath "$build/trust.json")"
 
 if [ -n "${EXT_ENGINE_C_ONLY:-}" ]; then

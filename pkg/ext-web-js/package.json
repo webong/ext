@@ -4,10 +4,11 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": { "types": "./index.d.mts", "default": "./index.mjs" }
+    ".": { "types": "./index.d.mts", "default": "./index.mjs" },
+    "./native": { "types": "./native.d.mts", "default": "./native.mjs" }
   },
   "scripts": {
-    "test": "node --test test.mjs",
+    "test": "node --test test.mjs native.test.mjs",
     "build:examples": "node examples/build.mjs"
   },
   "engines": { "node": ">=22" }

@@ -28,6 +28,31 @@ extension ID; disconnected spokes leave the registry. Host and spoke methods
 remain available for bidirectional calls. A product such as Xallet or Cymonkey
 can wrap these APIs with its own identity, permissions, UI, and event routing.
 
+## Browser-native helpers
+
+Import `createExtensionCatalog` and `createTabMessenger` from
+`@ext/web-js/native`. The catalog uses an extension-supplied `management` API
+to list and describe extensions and watch installed, enabled, disabled, and
+uninstalled changes. It is read-only and requires the browser's `management`
+permission. Watchers return a cleanup function.
+
+The tab messenger sends a bounded JSON message to an explicit tab ID. Builders
+may supply `attach(tabId)` and `isMissingReceiver(error)` to install their own
+content receiver and retry once when it is absent. Attachment is limited to
+HTTP(S) tabs. The builder decides which tab to target, which content script to
+attach, and which methods to expose. These helpers do not select an active tab
+or grant permissions.
+
+```js
+import { createExtensionCatalog, createTabMessenger } from '@ext/web-js/native';
+
+const catalog = createExtensionCatalog(browser.management);
+const stopWatching = catalog.watch(change => console.log(change));
+const tabs = createTabMessenger({ tabs: browser.tabs });
+const reply = await tabs.send(tabId, { channel: 'my-extension', type: 'ping' });
+stopWatching();
+```
+
 Run `npm test` for the protocol harness and `npm run build:examples` to create
 independent unpacked Chromium examples in `dist/host` and `dist/guest`. Load both
 in `chrome://extensions` with Developer mode. Copy each extension ID into the

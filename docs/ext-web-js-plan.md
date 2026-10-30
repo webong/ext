@@ -1,7 +1,8 @@
 # ext-web-js browser extension peer library plan
 
-Status: peer, hub, and spoke APIs and Chromium examples implemented; browser smoke
-tests and Firefox validation remain. Xallet will adopt the shared library later.
+Status: peer, hub, spoke, extension inventory, and tab messaging APIs
+implemented; browser smoke tests and Firefox validation remain. Xallet and
+Cymonkey can adopt the shared library later.
 The local Chrome command-line
 smoke attempt opened an isolated profile, but Chrome did not register either
 unpacked example extension, so it did not verify browser messaging.
@@ -61,6 +62,13 @@ detached snapshots rather than mutable internal state.
 | Extension-local contexts | Background, popup, side panel, options page, and content-script communication with distinct authorization boundaries |
 | Manifest integration | Target-specific examples and documentation of required messaging declarations and permissions |
 
+The browser-native helper entry point now also offers read-only extension
+inventory/change watching and explicit-tab messaging. Those mechanisms were
+informed by Cymonkey's `lib/browser-helper`; its application commands, active
+tab selection, package policy, and installation actions remain outside this
+library. Optional receiver attachment requires a caller-supplied missing-receiver
+classifier and is limited to HTTP(S) tabs.
+
 Persistent configuration and browser storage helpers are optional. Constructors
 must not start polling, enroll peers, or grant access. Do not rely on a permanent
 background process or uninterrupted timers for correctness.
@@ -99,7 +107,10 @@ pkg/ext-web-js/
   package.json
   index.mjs
   index.d.mts
+  native.mjs
+  native.d.mts
   test.mjs
+  native.test.mjs
   examples/
     host/
     guest/

@@ -42,7 +42,8 @@ type Config struct {
 	// Recorder is optional. When set to "wf-recorder", recording is forwarded
 	// to wf-recorder. Empty keeps recording explicitly unavailable.
 	Recorder string
-	// Start launches a native recording process.
+	// Start launches a native recording process. The recorder writes encoded
+	// video to descriptor 3 (pipe:3); stdout contains native diagnostics.
 	Start Starter
 }
 
@@ -185,8 +186,8 @@ func wrapPointerError(err error) error {
 }
 
 // codecAndMuxer maps a recording container format to the wf-recorder codec and
-// muxer names. mp4 cannot be written to the non-seekable stdout pipe
-// (pipe:1) because MP4 requires a seekable output for its moov atom, so only
+// muxer names. mp4 cannot be written to the non-seekable video pipe
+// (pipe:3) because MP4 requires a seekable output for its moov atom, so only
 // webm is supported for piped output. This is an explicit rejection, not a
 // silent substitution.
 func codecAndMuxer(format string) (codec, muxer string, err error) {
@@ -194,7 +195,7 @@ func codecAndMuxer(format string) (codec, muxer string, err error) {
 	case "webm":
 		return "libvpx-vp9", "webm", nil
 	default:
-		return "", "", fmt.Errorf("unsupported recording format %q; only webm to stdout is supported", format)
+		return "", "", fmt.Errorf("unsupported recording format %q; only piped webm is supported", format)
 	}
 }
 
@@ -217,10 +218,14 @@ func (d *Driver) Record(ctx context.Context, options media.RecordingOptions) (me
 		return nil, fmt.Errorf("%w: %v", system.ErrInvalidRecording, err)
 	}
 	arguments := []string{
-		"--framerate", strconv.Itoa(options.FrameRate),
+		// The fps filter also works with wf-recorder releases predating --framerate.
+		"--filter", "fps=" + strconv.Itoa(options.FrameRate),
 		"--codec", codec,
+		"--no-damage",
+		"--codec-param", "deadline=realtime",
+		"--codec-param", "lag-in-frames=0",
 		"--muxer", muxer,
-		"--file", "pipe:1",
+		"--file", "pipe:3",
 	}
 	if d.output != "" {
 		arguments = append([]string{"--output", d.output}, arguments...)
@@ -446,13 +451,20 @@ type Starter func(context.Context, string, ...string) (Process, error)
 
 func startProcess(ctx context.Context, name string, arguments ...string) (Process, error) {
 	command := exec.CommandContext(ctx, name, arguments...)
+	return startCommand(command)
+}
+
+func startCommand(command *exec.Cmd) (Process, error) {
 	// Own the read end so the reaper cannot close it before buffered output
 	// has been consumed, as Cmd.Wait would do with Cmd.StdoutPipe.
 	stdout, writer, err := os.Pipe()
 	if err != nil {
 		return nil, err
 	}
-	command.Stdout = writer
+	// wf-recorder writes informational messages to stdout even without --log.
+	// Keep them out of the encoded stream by giving FFmpeg a dedicated fd.
+	command.ExtraFiles = []*os.File{writer}
+	command.Stdout = command.Stderr
 	if err = command.Start(); err != nil {
 		_ = writer.Close()
 		_ = stdout.Close()

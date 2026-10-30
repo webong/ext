@@ -224,13 +224,15 @@ func TestPublishRejectsUnsafeLocations(t *testing.T) {
 	if _, err = Publish(def, link); !errors.Is(err, ErrUnsafe) {
 		t.Fatalf("symlink directory = %v", err)
 	}
-	open := t.TempDir()
-	if err := os.Chmod(open, 0o777); err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = os.Chmod(open, 0o700) })
-	if _, err = Publish(def, open); !errors.Is(err, ErrUnsafe) {
-		t.Fatalf("world-writable directory = %v", err)
+	if os.PathSeparator == '/' {
+		open := t.TempDir()
+		if err := os.Chmod(open, 0o777); err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { _ = os.Chmod(open, 0o700) })
+		if _, err = Publish(def, open); !errors.Is(err, ErrUnsafe) {
+			t.Fatalf("world-writable directory = %v", err)
+		}
 	}
 	if _, err = Publish(Definition{Platform: PlatformLinux, FileName: "../escape", Content: "value"}, t.TempDir()); !errors.Is(err, ErrInvalid) {
 		t.Fatalf("traversal definition = %v", err)

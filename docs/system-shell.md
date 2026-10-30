@@ -61,7 +61,7 @@ copy of the native implementation.
 | bounded private-directory create/remove | yes | yes | through Go consumers | — | — |
 | bounded clipboard contracts and native access | contract | Win32 backend | macOS and iOS | Win32 | yes |
 | credential framing/client contract | yes | yes | — | — | — |
-| local interface/address/route/resolver observation | yes | yes | interfaces and addresses, macOS DNS via scutil | — | yes |
+| local interface/address/route/resolver observation | native routes; DNS with cgo | yes | interfaces and addresses; macOS native routes and partial DNS state | — | yes |
 | share and keyboard-extension normalization | contract | — | iOS | — | yes |
 | per-user service definitions and lifecycle | launchd | Task Scheduler | — | — | systemd adapter |
 | audio-device observation and bounded PCM streams | contract | — | playback | WASAPI audio | playback |

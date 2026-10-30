@@ -2,4 +2,5 @@
 # see. Nothing here keeps the SDK; the AAR must carry the rules its native code needs.
 -keep class dev.ext.consumer.Roundtrips { *; }
 -keep class dev.ext.consumer.WebRoundtrips { *; }
+-keep class dev.ext.consumer.ShellRoundtrips { *; }
 -keep class dev.ext.consumer.WamrRoundtrip { *; }

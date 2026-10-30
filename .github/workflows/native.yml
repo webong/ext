@@ -61,11 +61,6 @@ jobs:
       - name: Validate Android ML contracts and optional TensorFlow Lite backend
         if: runner.os != 'Windows'
         run: scripts/ml-android.sh
-      - name: PipeWire native integration (Linux, opt-in)
-        if: runner.os == 'Linux'
-        env:
-          EXT_PIPEWIRE_NATIVE_TESTS: '1'
-        run: go test -v ./adapters/pipewire -run '^TestNativePipeWire' -count=1
       - name: Generic iOS ExtSystem build
         if: runner.os == 'macOS'
         run: xcodebuild -scheme ExtSystem -destination 'generic/platform=iOS' -sdk iphoneos CODE_SIGNING_ALLOWED=NO build
@@ -154,6 +149,8 @@ jobs:
           distribution: temurin
           java-version: '17'
       - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
       - name: Install Android packaging toolchain
         run: |
           sdkmanager 'platforms;android-35' 'build-tools;35.0.0' 'ndk;27.2.12479018' 'cmake;3.22.1'
@@ -173,6 +170,21 @@ jobs:
           cmake --version
       - name: Stage iOS SDK release (non-publishing)
         run: scripts/ext-ios-release.sh 0.0.0
+
+  linux-desktop:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.x'
+      - name: Install isolated native desktop test dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pipewire pipewire-bin wireplumber dbus-x11 sway grim wf-recorder
+      - name: Verify real PipeWire and Wayland sessions
+        run: scripts/verify-linux-desktop.sh
 
   native-integration:
     strategy:

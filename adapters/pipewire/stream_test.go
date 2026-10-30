@@ -168,7 +168,7 @@ func TestDeviceValidation(t *testing.T) {
 
 func TestStreamArgumentsUseDocumentedInterface(t *testing.T) {
 	format := Format{SampleRate: 8_000, Channels: 1, PacketMillis: 10}
-	want := []string{"--target=microphone", "--format=s16", "--rate=8000", "--channels=1", "--raw", "-"}
+	want := []string{"--target=microphone", "--format=s16", "--rate=8000", "--channels=1", "-"}
 	arguments := format.arguments("microphone")
 	if strings.Join(arguments, "\x00") != strings.Join(want, "\x00") {
 		t.Fatalf("arguments = %#v", arguments)

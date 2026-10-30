@@ -9,6 +9,7 @@ import (
 	"image/png"
 	"io"
 	"os"
+	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -144,7 +145,7 @@ func TestRecordingUsesConfiguredRecorder(t *testing.T) {
 		t.Fatal(err)
 	}
 	joined := strings.Join(runner.calls, " ")
-	for _, fragment := range []string{"wf-recorder --framerate 30 --codec libvpx-vp9 --muxer webm --file pipe:1"} {
+	for _, fragment := range []string{"wf-recorder --filter fps=30 --codec libvpx-vp9 --no-damage --codec-param deadline=realtime --codec-param lag-in-frames=0 --muxer webm --file pipe:3"} {
 		if !strings.Contains(joined, fragment) {
 			t.Errorf("recording arguments are missing %q:\n%s", fragment, joined)
 		}
@@ -174,7 +175,7 @@ func TestRecordingMapsFormatToCodecAndMuxer(t *testing.T) {
 		if err != nil {
 			t.Fatalf("%s = %v", tc.format, err)
 		}
-		for _, fragment := range []string{"--framerate", "30", "--codec", tc.codec, "--muxer", tc.muxer, "--file", "pipe:1"} {
+		for _, fragment := range []string{"--filter", "fps=30", "--codec", tc.codec, "--muxer", tc.muxer, "--file", "pipe:3"} {
 			found := false
 			for _, arg := range received {
 				if arg == fragment {
@@ -562,6 +563,9 @@ func (r *lateReader) Read(p []byte) (int, error) {
 }
 
 func TestNativeProcessCompletion(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("wf-recorder uses a Unix inherited descriptor")
+	}
 	executable, err := os.Executable()
 	if err != nil {
 		t.Fatal(err)
@@ -601,10 +605,11 @@ func TestWaylandProcessHelper(t *testing.T) {
 		return
 	}
 	if args[len(args)-1] == "output" {
-		_, _ = os.Stdout.WriteString("frames")
+		_, _ = os.Stdout.WriteString("native diagnostic must not enter video")
+		_, _ = os.NewFile(3, "video").WriteString("frames")
 		os.Exit(0)
 	}
-	_, _ = os.Stdout.WriteString("ready")
+	_, _ = os.NewFile(3, "video").WriteString("ready")
 	for {
 		time.Sleep(time.Hour)
 	}

@@ -1,73 +1,102 @@
-//go:build darwin
+//go:build darwin && cgo
 
 package network
 
+/*
+#cgo LDFLAGS: -framework CoreFoundation -framework SystemConfiguration
+#include <CoreFoundation/CoreFoundation.h>
+#include <SystemConfiguration/SystemConfiguration.h>
+#include <stdlib.h>
+#include <string.h>
+
+static void appendDNS(CFMutableStringRef output, CFDictionaryRef dns, CFStringRef key, CFStringRef prefix) {
+    CFTypeRef raw = CFDictionaryGetValue(dns, key);
+    if (!raw || CFGetTypeID(raw) != CFArrayGetTypeID()) return;
+    CFArrayRef values = (CFArrayRef)raw;
+    CFIndex count = CFArrayGetCount(values);
+    if (count > 256) count = 256;
+    for (CFIndex i = 0; i < count; i++) {
+        CFTypeRef item = CFArrayGetValueAtIndex(values, i);
+        char text[256];
+        if (!item || CFGetTypeID(item) != CFStringGetTypeID() ||
+            !CFStringGetCString((CFStringRef)item, text, sizeof(text), kCFStringEncodingUTF8) ||
+            strchr(text, '\n') || strchr(text, '\r')) continue;
+        CFStringAppend(output, prefix);
+        CFStringAppend(output, (CFStringRef)item);
+        CFStringAppend(output, CFSTR("\n"));
+    }
+}
+static char *copyDNSState(void) {
+    SCDynamicStoreRef store = SCDynamicStoreCreate(NULL, CFSTR("ExtNetwork"), NULL, NULL);
+    if (!store) return NULL;
+    const void *key = CFSTR("State:/Network/Global/DNS");
+    const void *pattern = CFSTR("State:/Network/Service/[^/]+/DNS");
+    CFArrayRef keys = CFArrayCreate(NULL, &key, 1, &kCFTypeArrayCallBacks);
+    CFArrayRef patterns = CFArrayCreate(NULL, &pattern, 1, &kCFTypeArrayCallBacks);
+    CFDictionaryRef all = SCDynamicStoreCopyMultiple(store, keys, patterns);
+    CFRelease(keys); CFRelease(patterns); CFRelease(store);
+    if (!all) return NULL;
+    CFIndex count = CFDictionaryGetCount(all);
+    if (count > 256) { CFRelease(all); return NULL; }
+    const void *values[256];
+    CFDictionaryGetKeysAndValues(all, NULL, values);
+    CFMutableStringRef output = CFStringCreateMutable(NULL, 0);
+    for (CFIndex i = 0; i < count; i++) {
+        if (CFGetTypeID(values[i]) != CFDictionaryGetTypeID()) continue;
+        CFDictionaryRef dns = (CFDictionaryRef)values[i];
+        appendDNS(output, dns, CFSTR("ServerAddresses"), CFSTR("S\t"));
+        appendDNS(output, dns, CFSTR("SearchDomains"), CFSTR("D\t"));
+    }
+    CFRelease(all);
+    CFIndex size = CFStringGetMaximumSizeForEncoding(CFStringGetLength(output), kCFStringEncodingUTF8) + 1;
+    char *result = malloc((size_t)size);
+    if (result && !CFStringGetCString(output, result, size, kCFStringEncodingUTF8)) { free(result); result = NULL; }
+    CFRelease(output);
+    return result;
+}
+*/
+import "C"
+
 import (
-	"bufio"
 	"context"
-	"fmt"
 	"net"
-	"os/exec"
 	"strings"
+	"unsafe"
 )
 
-// platformResolver observes the local resolver configuration on Apple
-// platforms through scutil, a stable system-owned source. It performs no
-// DNS lookup.
 func platformResolver(ctx context.Context) (Resolver, CollectionStatus, error) {
 	if err := ctx.Err(); err != nil {
 		return Resolver{}, CollectionStatus{}, err
 	}
-	command := exec.CommandContext(ctx, "scutil", "--dns")
-	output, err := command.Output()
-	if err != nil {
-		return Resolver{Servers: []string{}, Search: []string{}, Options: []string{}},
-			status("unavailable", fmt.Sprintf("scutil is unavailable: %v", err)), nil
+	raw := C.copyDNSState()
+	if raw == nil {
+		return Resolver{}, status("unavailable", "SystemConfiguration DNS state unavailable"), nil
 	}
-	servers, search, options, err := parseScutilDNS(output)
-	if err != nil {
-		return Resolver{Servers: []string{}, Search: []string{}, Options: []string{}},
-			status("unavailable", fmt.Sprintf("resolver configuration could not be parsed: %v", err)), nil
-	}
+	defer C.free(unsafe.Pointer(raw))
+	result := parseNativeDNS(C.GoString(raw))
 	if err := ctx.Err(); err != nil {
 		return Resolver{}, CollectionStatus{}, err
 	}
-	state := "complete"
-	if len(servers) == 0 && len(search) == 0 {
-		state = "unavailable"
-	}
-	return Resolver{Servers: cleanResolver(servers), Search: cleanResolver(search), Options: cleanResolver(options)},
-		status(state, ""), nil
+	return result, status("partial", "SystemConfiguration DNS state; supplemental resolver policy is not represented"), nil
 }
 
-// parseScutilDNS parses the output of scutil --dns. It collects nameserver
-// entries as servers, domain entries as search domains, and options as
-// resolver options.
-func parseScutilDNS(payload []byte) (servers, search, options []string, err error) {
-	scanner := bufio.NewScanner(strings.NewReader(string(payload)))
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if !strings.HasPrefix(line, "nameserver[") && !strings.HasPrefix(line, "domain") && !strings.HasPrefix(line, "options") {
+func parseNativeDNS(text string) Resolver {
+	result := Resolver{Servers: []string{}, Search: []string{}, Options: []string{}}
+	for _, line := range strings.Split(text, "\n") {
+		kind, value, ok := strings.Cut(line, "\t")
+		if !ok || value == "" || len(value) > 253 {
 			continue
 		}
-		parts := strings.SplitN(line, ":", 2)
-		if len(parts) != 2 {
-			continue
-		}
-		key := strings.TrimSpace(parts[0])
-		value := strings.TrimSpace(parts[1])
-		switch {
-		case strings.HasPrefix(key, "nameserver"):
-			ip := net.ParseIP(value)
-			if ip == nil {
-				continue
+		switch kind {
+		case "S":
+			if ip := net.ParseIP(value); ip != nil {
+				result.Servers = append(result.Servers, ip.String())
 			}
-			servers = append(servers, ip.String())
-		case key == "domain":
-			search = append(search, value)
-		case key == "options":
-			options = append(options, strings.Fields(value)...)
+		case "D":
+			result.Search = append(result.Search, value)
 		}
 	}
-	return servers, search, options, scanner.Err()
+	result.Servers = cleanResolver(result.Servers)
+	result.Search = cleanResolver(result.Search)
+	return result
 }

@@ -121,8 +121,8 @@ public enum NetworkObservationError: Error, Equatable {
     case invalidLimit
 }
 
-/// Observes interfaces and assigned addresses only. It performs no lookup and
-/// creates no network connection.
+/// Observes local interfaces and assigned addresses, plus native route and DNS
+/// state on macOS. It performs no lookup and creates no network connection.
 public final class SystemNetworkObserver: @unchecked Sendable {
     private let options: NetworkOptions
 
@@ -179,131 +179,15 @@ private func networkTimestamp(_ date: Date) -> String {
     return formatter.string(from: date)
 }
 
-// Route-table observation is available on macOS through netstat. On iOS it is
-// explicitly unsupported: the adapter does not shell out and no public API
-// exposes the route table to apps.
-#if os(macOS)
+#if !os(macOS)
 private func platformRoutes(_ now: String, limit: Int) -> ([NetworkRoute], NetworkCollectionStatus) {
-    guard let output = runCommand("netstat", arguments: ["-rn"]) else {
-        return ([], NetworkCollectionStatus(state: "unavailable", detail: "netstat is unavailable", observedAt: now))
-    }
-    var routes: [NetworkRoute] = []
-    var partial = false
-    var section = ""
-    for line in output.split(separator: "\n", omittingEmptySubsequences: true) {
-        let trimmed = line.trimmingCharacters(in: .whitespaces)
-        if trimmed == "Internet:" { section = "inet"; continue }
-        if trimmed == "Internet6:" { section = "inet6"; continue }
-        if trimmed.hasPrefix("Routing tables") || trimmed.isEmpty { continue }
-        let fields = trimmed.split(separator: " ", omittingEmptySubsequences: true)
-        if fields.count < 4 { continue }
-        if routes.count >= limit { partial = true; continue }
-        let destination = String(fields[0])
-        let gateway = String(fields[1])
-        let netif = fields.count > 3 ? String(fields[3]) : ""
-        guard let cidr = destinationToCIDR(destination, section: section) else { continue }
-        let isDefault = cidr == "0.0.0.0/0" || cidr == "::/0"
-        routes.append(NetworkRoute(destination: cidr, gateway: routeGateway(gateway) ?? "", interface: netif,
-            metric: 0, default: isDefault))
-    }
-    let state = partial ? "partial" : "complete"
-    return (routes, NetworkCollectionStatus(state: state, detail: partial ? "route limit reached" : nil, observedAt: now))
-}
-#else
-private func platformRoutes(_ now: String, limit: Int) -> ([NetworkRoute], NetworkCollectionStatus) {
-    return ([], routeUnsupported(now))
-}
-#endif
-
-// destinationToCIDR converts a netstat destination to CIDR. Network
-// destinations without an explicit prefix are skipped rather than guessed.
-private func destinationToCIDR(_ destination: String, section: String) -> String? {
-    if destination == "default" {
-        return section == "inet6" ? "::/0" : "0.0.0.0/0"
-    }
-    if destination.contains("/") { return destination }
-    if let ip = IPAddress(destination) {
-        return ip.isIPv4 ? "\(destination)/32" : "\(destination)/128"
-    }
-    return nil
+    ([], routeUnsupported(now))
 }
 
-// routeGateway returns the gateway address, or nil for on-link routes.
-private func routeGateway(_ gateway: String) -> String? {
-    if gateway.isEmpty || gateway == "*" || gateway == "default" { return nil }
-    if IPAddress(gateway) != nil { return gateway }
-    return nil // link-layer or link#N: on-link
-}
-
-// Resolver observation on macOS uses scutil --dns through a guarded command.
-// On iOS it is explicitly unsupported: no DNS configuration is exposed to apps
-// and the adapter does not perform DNS queries or shell out.
-#if os(macOS)
 private func platformResolver(_ now: String) -> (NetworkResolver, NetworkCollectionStatus) {
-    guard let output = runCommand("scutil", arguments: ["--dns"]) else {
-        return (NetworkResolver(), NetworkCollectionStatus(state: "unavailable", detail: "scutil is unavailable", observedAt: now))
-    }
-    var servers: [String] = []
-    var search: [String] = []
-    for line in output.split(separator: "\n", omittingEmptySubsequences: true) {
-        let trimmed = line.trimmingCharacters(in: .whitespaces)
-        guard trimmed.hasPrefix("nameserver[") || trimmed.hasPrefix("domain") else { continue }
-        guard let colon = trimmed.firstIndex(of: ":") else { continue }
-        let key = String(trimmed[trimmed.startIndex..<colon]).trimmingCharacters(in: .whitespaces)
-        let value = String(trimmed[trimmed.index(after: colon)...]).trimmingCharacters(in: .whitespaces)
-        if key.hasPrefix("nameserver") {
-            if let ip = IPAddress(value), !servers.contains(ip.string) {
-                servers.append(ip.string)
-            }
-        } else if key == "domain" && !search.contains(value) {
-            search.append(value)
-        }
-    }
-    let empty = servers.isEmpty && search.isEmpty
-    return (NetworkResolver(servers: servers, search: search, options: []),
-            NetworkCollectionStatus(state: empty ? "partial" : "complete",
-                                    detail: empty ? "no DNS servers or search domains configured" : nil,
-                                    observedAt: now))
-}
-#else
-private func platformResolver(_ now: String) -> (NetworkResolver, NetworkCollectionStatus) {
-    return (NetworkResolver(), resolverUnsupported(now))
+    (NetworkResolver(), resolverUnsupported(now))
 }
 #endif
-
-// runCommand shells out to a macOS system binary. It is only used on macOS,
-// never on iOS.
-#if os(macOS)
-private func runCommand(_ executable: String, arguments: [String]) -> String? {
-    let process = Process()
-    process.executableURL = URL(fileURLWithPath: "/usr/bin/\(executable)")
-    process.arguments = arguments
-    let pipe = Pipe()
-    process.standardOutput = pipe
-    process.standardError = nil
-    do { try process.run() } catch { return nil }
-    process.waitUntilExit()
-    let data = pipe.fileHandleForReading.readDataToEndOfFile()
-    return String(data: data, encoding: .utf8)
-}
-#endif
-
-private struct IPAddress {
-    let string: String
-    let isIPv4: Bool
-    init?(_ value: String) {
-        // IPv4 dotted-decimal.
-        let parts = value.split(separator: ".", omittingEmptySubsequences: true)
-        if parts.count == 4, parts.allSatisfy({ Int($0) != nil && (0...255).contains(Int($0)!) }) {
-            self.string = value; self.isIPv4 = true; return
-        }
-        // IPv6 (very permissive: contains colons and is not a MAC address).
-        if value.contains(":") && !value.contains("-") && !value.hasPrefix("link#") {
-            self.string = value; self.isIPv4 = false; return
-        }
-        return nil
-    }
-}
 
 private func routeUnsupported(_ now: String) -> NetworkCollectionStatus {
     NetworkCollectionStatus(state: "unsupported", detail: "route-table observation is unavailable on this Apple platform", observedAt: now)

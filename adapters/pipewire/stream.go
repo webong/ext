@@ -54,7 +54,7 @@ func (f Format) arguments(deviceID string) []string {
 	return []string{
 		"--target=" + deviceID, "--format=s16",
 		fmt.Sprintf("--rate=%d", f.SampleRate), fmt.Sprintf("--channels=%d", f.Channels),
-		"--raw", "-",
+		"-", // Explicit format selects raw pipes, including older pw-cat versions without --raw.
 	}
 }
 

@@ -35,11 +35,11 @@ func testDesktopProbe(platform string, environment map[string]string, paths map[
 }
 
 func TestDesktopProbeObservesLocalLinuxEndpoints(t *testing.T) {
-	runtimeDirectory := filepath.Join(string(filepath.Separator), "run", "user", "1000")
+	runtimeDirectory := t.TempDir()
 	probe := testDesktopProbe("linux", map[string]string{
 		"DISPLAY": ":2.0", "WAYLAND_DISPLAY": "wayland-1", "XDG_RUNTIME_DIR": runtimeDirectory,
 	}, map[string]bool{
-		"/tmp/.X11-unix/X2":                          true,
+		filepath.Join("/tmp/.X11-unix", "X2"):        true,
 		filepath.Join(runtimeDirectory, "wayland-1"): true,
 		"ffmpeg": true,
 	})

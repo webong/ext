@@ -9,3 +9,7 @@ chooses no card, default device, mixer state, or routing policy. PipeWire is a
 selectable native audio stack, so this backend is an adapter. The shared
 `res/system/audio` contract and the PulseAudio adapter remain separate, and no
 library selects among them by name.
+
+Run `scripts/verify-linux-desktop.sh` on Linux to verify capture and playback
+against isolated virtual PipeWire endpoints. Opt-in native tests fail when a
+required tool, service, or caller-supplied test endpoint is missing.

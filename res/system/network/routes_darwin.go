@@ -3,145 +3,136 @@
 package network
 
 import (
-	"bufio"
 	"context"
 	"fmt"
 	"net"
-	"os/exec"
-	"sort"
-	"strconv"
-	"strings"
+	"syscall"
+	"unsafe"
+
+	"golang.org/x/sys/unix"
 )
 
-// platformRoutes observes the local route table on Apple platforms through
-// netstat, a stable system-owned source. It performs no routing change.
+// Read the kernel routing MIB directly; no selectable command-line tool is
+// invoked. Bounds apply before allocation, with limited retries for table growth.
 func platformRoutes(ctx context.Context, limit int) ([]Route, CollectionStatus, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, CollectionStatus{}, err
 	}
-	command := exec.CommandContext(ctx, "netstat", "-rn")
-	output, err := command.Output()
-	if err != nil {
-		return nil, status("unavailable", fmt.Sprintf("netstat is unavailable: %v", err)), nil
+	mib := [6]int32{unix.CTL_NET, unix.AF_ROUTE, 0, unix.AF_UNSPEC, unix.NET_RT_DUMP, 0}
+	for attempt := 0; attempt < 3; attempt++ {
+		var size uintptr
+		if err := routeSysctl(&mib, nil, &size); err != 0 || size > 16<<20 {
+			return nil, status("unavailable", "route snapshot unavailable or exceeds byte bound"), nil
+		}
+		if size == 0 {
+			return []Route{}, status("complete", ""), nil
+		}
+		data := make([]byte, int(size))
+		if err := routeSysctl(&mib, &data[0], &size); err != 0 {
+			if err == syscall.ENOMEM {
+				continue
+			}
+			return nil, status("unavailable", fmt.Sprintf("route snapshot: %v", err)), nil
+		}
+		if size > uintptr(len(data)) {
+			continue
+		}
+		routes, partial := parseNativeRoutes(data[:size], limit)
+		if err := ctx.Err(); err != nil {
+			return nil, CollectionStatus{}, err
+		}
+		if partial {
+			return routes, status("partial", "route snapshot truncated, malformed, or limited"), nil
+		}
+		return routes, status("complete", ""), nil
 	}
-	result, partial, err := parseNetstatRoutes(output, limit)
-	if err != nil {
-		return nil, status("unavailable", fmt.Sprintf("route table could not be parsed: %v", err)), nil
-	}
-	state := "complete"
-	detail := ""
-	if partial {
-		state = "partial"
-		detail = "one or more route entries were truncated or could not be interpreted"
-	}
-	if err := ctx.Err(); err != nil {
-		return nil, CollectionStatus{}, err
-	}
-	return result, status(state, detail), nil
+	return nil, status("unavailable", "route snapshot kept growing"), nil
 }
 
-// parseNetstatRoutes parses the output of netstat -rn. Only entries whose
-// destination can be converted to a reliable CIDR are reported; network
-// destinations without an explicit prefix length are skipped rather than
-// guessing a prefix.
-func parseNetstatRoutes(payload []byte, limit int) ([]Route, bool, error) {
-	scanner := bufio.NewScanner(strings.NewReader(string(payload)))
-	result := []Route{}
+func routeSysctl(mib *[6]int32, data *byte, size *uintptr) syscall.Errno {
+	_, _, err := syscall.Syscall6(syscall.SYS___SYSCTL, uintptr(unsafe.Pointer(mib)), 6,
+		uintptr(unsafe.Pointer(data)), uintptr(unsafe.Pointer(size)), 0, 0)
+	return err
+}
+
+func parseNativeRoutes(data []byte, limit int) ([]Route, bool) {
+	routes := []Route{}
 	partial := false
-	section := "" // "inet" or "inet6"
-	for scanner.Scan() {
-		if err := context.Background().Err(); err != nil {
-			return result, partial, err
+	for len(data) > 0 {
+		if len(data) < syscall.SizeofRtMsghdr {
+			return routes, true
 		}
-		line := strings.TrimSpace(scanner.Text())
-		if line == "" || strings.HasPrefix(line, "Routing tables") {
-			continue
+		// Copy into an aligned Go value; kernel messages need only 4-byte alignment.
+		var h syscall.RtMsghdr
+		copy(unsafe.Slice((*byte)(unsafe.Pointer(&h)), syscall.SizeofRtMsghdr), data)
+		n := int(h.Msglen)
+		if n < syscall.SizeofRtMsghdr || n > len(data) {
+			return routes, true
 		}
-		switch line {
-		case "Internet:":
-			section = "inet"
-			continue
-		case "Internet6:":
-			section = "inet6"
-			continue
-		}
-		fields := strings.Fields(line)
-		if len(fields) < 4 {
-			continue
-		}
-		if len(result) >= limit {
+		message := data[:n]
+		data = data[n:]
+		if h.Version != syscall.RTM_VERSION {
 			partial = true
 			continue
 		}
-		destination := fields[0]
-		gateway := fields[1]
-		netif := fields[3]
-		cidr, ok := destinationToCIDR(destination, section)
-		if !ok {
+		// Construct the aligned header ourselves: ParseRoutingMessage casts
+		// the 4-byte-aligned kernel payload to an 8-byte-aligned Go header.
+		addrs, err := syscall.ParseRoutingSockaddr(&syscall.RouteMessage{Header: h, Data: message[syscall.SizeofRtMsghdr:]})
+		if err != nil || len(addrs) <= syscall.RTAX_DST {
+			partial = true
 			continue
 		}
-		metric := 0
-		if len(fields) > 4 {
-			if m, err := strconv.Atoi(fields[4]); err == nil {
-				metric = m
+		ip := routeIP(addrs[syscall.RTAX_DST])
+		if ip == nil {
+			continue
+		}
+		var mask net.IPMask
+		if len(addrs) > syscall.RTAX_NETMASK && addrs[syscall.RTAX_NETMASK] != nil {
+			mask = net.IPMask(routeIP(addrs[syscall.RTAX_NETMASK]))
+		} else if h.Flags&syscall.RTF_HOST != 0 {
+			mask = net.CIDRMask(len(ip)*8, len(ip)*8)
+		} else if ip.IsUnspecified() {
+			mask = net.CIDRMask(0, len(ip)*8)
+		}
+		if len(mask) != len(ip) {
+			partial = true
+			continue
+		}
+		ones, bits := mask.Size()
+		if bits == 0 {
+			partial = true
+			continue
+		}
+		gateway := ""
+		if len(addrs) > syscall.RTAX_GATEWAY {
+			if gw := routeIP(addrs[syscall.RTAX_GATEWAY]); gw != nil {
+				gateway = gw.String()
 			}
 		}
-		defaultRoute := false
-		if _, net, err := net.ParseCIDR(cidr); err == nil {
-			if ones, _ := net.Mask.Size(); ones == 0 {
-				defaultRoute = true
-			}
+		name := ""
+		if iface, err := net.InterfaceByIndex(int(h.Index)); err == nil {
+			name = iface.Name
 		}
-		result = append(result, Route{
-			Destination: cidr,
-			Gateway:     routeGateway(gateway),
-			Interface:   netif,
-			Metric:      metric,
-			Default:     defaultRoute,
-		})
+		if len(routes) >= limit {
+			partial = true
+			continue
+		}
+		routes = append(routes, Route{Destination: (&net.IPNet{IP: ip.Mask(mask), Mask: mask}).String(),
+			Gateway: gateway, Interface: name, Default: ones == 0})
 	}
-	return result, partial, scanner.Err()
+	return routes, partial
 }
 
-func destinationToCIDR(destination, section string) (string, bool) {
-	if destination == "default" {
-		if section == "inet6" {
-			return "::/0", true
+func routeIP(address syscall.Sockaddr) net.IP {
+	switch a := address.(type) {
+	case *syscall.SockaddrInet4:
+		return net.IP(append([]byte(nil), a.Addr[:]...))
+	case *syscall.SockaddrInet6:
+		ip := net.IP(append([]byte(nil), a.Addr[:]...))
+		if ip.IsLinkLocalUnicast() {
+			ip[2], ip[3] = 0, 0
 		}
-		return "0.0.0.0/0", true
+		return ip
 	}
-	if strings.Contains(destination, "/") {
-		return destination, true
-	}
-	if ip := net.ParseIP(destination); ip != nil {
-		if ip.To4() != nil {
-			return destination + "/32", true
-		}
-		return destination + "/128", true
-	}
-	// Network destinations without an explicit prefix (for example
-	// "192.168.100") cannot be interpreted reliably, so they are skipped.
-	return "", false
-}
-
-func routeGateway(gateway string) string {
-	if gateway == "" || gateway == "*" || gateway == "default" {
-		return ""
-	}
-	if ip := net.ParseIP(gateway); ip != nil {
-		return ip.String()
-	}
-	// Link-layer (MAC) or link#N gateway: on-link, no gateway address.
-	if strings.Contains(gateway, ":") || strings.HasPrefix(gateway, "link#") {
-		return ""
-	}
-	return gateway
-}
-
-// sortRoutes is used by tests to observe a deterministic ordering.
-func sortRoutes(routes []Route) {
-	sort.Slice(routes, func(i, j int) bool {
-		a, b := routes[i], routes[j]
-		return a.Destination+"\x00"+a.Gateway+"\x00"+a.Interface < b.Destination+"\x00"+b.Gateway+"\x00"+b.Interface
-	})
+	return nil
 }

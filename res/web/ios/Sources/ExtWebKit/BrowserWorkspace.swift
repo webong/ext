@@ -59,10 +59,10 @@ public final class BrowserWorkspace: NSObject, WKNavigationDelegate, WKUIDelegat
         webView.allowsBackForwardNavigationGestures = true
         observations = [
             webView.observe(\.estimatedProgress, options: [.new]) { [weak self] _, _ in
-                Task { @MainActor in self?.emit() }
+                Task { @MainActor [weak self] in self?.emit() }
             },
             webView.observe(\.title, options: [.new]) { [weak self] _, _ in
-                Task { @MainActor in self?.emit() }
+                Task { @MainActor [weak self] in self?.emit() }
             },
         ]
     }

@@ -1,7 +1,12 @@
 # ext-web-js browser extension peer library plan
 
-Status: initial package and Chromium examples implemented; browser smoke tests,
-Firefox validation, and Xallet migration remain.
+Status: peer, hub, spoke, extension inventory, tab messaging, scoped workspace,
+userscript registration, and bridge APIs implemented; browser smoke tests and
+Firefox validation remain. Xallet and Cymonkey can adopt the shared library
+later.
+The local Chrome command-line
+smoke attempt opened an isolated profile, but Chrome did not register either
+unpacked example extension, so it did not verify browser messaging.
 
 `pkg/ext-web-js` will be a standalone JavaScript/TypeScript package for browser
 extension builders. It lets independently built extensions act as hosts,
@@ -58,6 +63,20 @@ detached snapshots rather than mutable internal state.
 | Extension-local contexts | Background, popup, side panel, options page, and content-script communication with distinct authorization boundaries |
 | Manifest integration | Target-specific examples and documentation of required messaging declarations and permissions |
 
+The browser-native helper entry point now also offers read-only extension
+inventory/change watching and explicit-tab messaging. Those mechanisms were
+informed by Cymonkey's `lib/browser-helper`; its application commands, active
+tab selection, package policy, and installation actions remain outside this
+library. Optional receiver attachment requires a caller-supplied missing-receiver
+classifier and is limited to HTTP(S) tabs.
+
+Additional entry points provide namespaced extension storage, packaged
+content-script registration, dynamic network-rule ownership, browser-native
+userscript reconciliation, sandbox `MessagePort` handshakes, and a page-visible
+allowlisted message bridge. Consumers supply permissions, reviewed content,
+policy, and page-safe operations. These mechanisms were informed by Cymonkey's
+browser helper without importing its app-specific commands or catalogs.
+
 Persistent configuration and browser storage helpers are optional. Constructors
 must not start polling, enroll peers, or grant access. Do not rely on a permanent
 background process or uninterrupted timers for correctness.
@@ -96,7 +115,16 @@ pkg/ext-web-js/
   package.json
   index.mjs
   index.d.mts
+  native.mjs
+  native.d.mts
+  workspace.mjs
+  workspace.d.mts
+  userscripts.mjs
+  userscripts.d.mts
+  bridge.mjs
+  bridge.d.mts
   test.mjs
+  native.test.mjs
   examples/
     host/
     guest/
@@ -154,9 +182,9 @@ as they are added.
 5. Build the host and guest examples and exercise bidirectional calls, state,
    events, denial, timeout, cancellation, disconnection, and background restart
    in real browsers. Publish repeatable local build and smoke-test instructions.
-6. Migrate Xallet through a temporary `XalletHubSDK`/`XalletSpokeSDK` compatibility
-   wrapper, keeping product policy and remote-host integration in Xallet.
-   Migrate spokes incrementally after the standalone examples pass.
+6. Later, migrate Xallet through a temporary `XalletHubSDK`/`XalletSpokeSDK`
+   compatibility wrapper, keeping product policy and remote-host integration
+   in Xallet. Cymonkey can build on the same peer and spoke APIs.
 
 ## Acceptance
 

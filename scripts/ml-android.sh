@@ -8,9 +8,9 @@ platform="$(ls -d "$sdk"/platforms/android-*/android.jar 2>/dev/null | sort -V |
 [[ -f "$platform" ]] || { echo "need an Android platform under $sdk" >&2; exit 1; }
 
 javac -Xlint:all -Werror -d "$build" \
-  res/ml/android/src/main/java/io/github/webong/ext/ml/*.java \
-  res/ml/android/src/android/java/io/github/webong/ext/ml/android/*.java \
-  res/ml/android/src/test/java/org/tensorflow/lite/*.java \
-  res/ml/android/src/test/java/io/github/webong/ext/ml/*.java
+  res/int/model/android/src/main/java/io/github/webong/ext/ml/*.java \
+  res/int/model/android/src/android/java/io/github/webong/ext/ml/android/*.java \
+  res/int/model/android/src/test/java/org/tensorflow/lite/*.java \
+  res/int/model/android/src/test/java/io/github/webong/ext/ml/*.java
 java -ea -cp "$build" io.github.webong.ext.ml.MlTypesTest
 java -ea -cp "$build" io.github.webong.ext.ml.TfliteProviderTest

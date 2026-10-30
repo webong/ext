@@ -9,6 +9,8 @@ policy. `web` depends only on the standard library; `system` depends only on
 | --- | --- | --- |
 | [`web`](web/README.md) | `github.com/webong/ext/res/web` | Portable web contracts and workflows: browser cookies, extensions, userscripts and sessions, the web engine, and protocol-neutral WebAssembly execution. Also the iOS (`web/ios`) and Android (`web/android`) modules of the cookie, userscript and bookmarklet rules |
 | [`system`](system/README.md) | `github.com/webong/ext/res/system` | Local graphical and textual shell substrate: surfaces, capture, media, volumes, clipboard, credential integration, network-state observation, process supervision, and system observation. Depends only on `golang.org/x/sys` |
+| [`int`](int/README.md) | `github.com/webong/ext/res/int` | Portable model, inference, perception, and real-time intelligence contracts and mechanisms |
+| [`content`](content/README.md) | `github.com/webong/ext/res/content` | Verified local content and durable file catalog |
 
 All resource modules are listed in the root `go.work`, so the repository still builds as one
 workspace while each module stays independently consumable.

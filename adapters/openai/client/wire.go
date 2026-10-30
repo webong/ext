@@ -11,7 +11,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/webong/ext/res/inference"
+	"github.com/webong/ext/res/int/inference"
 )
 
 // chatMessage maps an inference.Message to an OpenAI chat message.

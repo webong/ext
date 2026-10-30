@@ -7,7 +7,10 @@ require (
 	github.com/webong/ext/pkg/ext-go/cgoengine v0.1.0
 	github.com/webong/ext/pkg/ext-go/engine v0.1.0
 	github.com/webong/ext/pkg/ext-go/hashicorp v0.3.1
-	github.com/webong/ext/pkg/ext-go/ml v0.1.0
+	github.com/webong/ext/pkg/ext-go/inference v0.1.0
+	github.com/webong/ext/pkg/ext-go/model v0.1.0
+	github.com/webong/ext/pkg/ext-go/perception v0.1.0
+	github.com/webong/ext/pkg/ext-go/realtime v0.1.0
 	github.com/webong/ext/pkg/ext-go/wasm v0.3.0
 	github.com/webong/ext/res/system v0.2.0
 )

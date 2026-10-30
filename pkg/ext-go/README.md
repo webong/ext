@@ -11,6 +11,10 @@ module of its own and a program that wants less takes less:
 | [`c2goengine`](c2goengine) | the C engine's portable core translated to Go by ccgo (no cgo, no C compiler) |
 | [`hashicorp`](hashicorp) | the HashiCorp go-plugin (gRPC) backend |
 | [`wasm`](wasm) | the engine-facing WebAssembly backend, built on the reusable `res/web/wasm` runtime |
+| [`inference`](inference) | Go host and guest bindings for `inference.provider/v1` |
+| [`model`](model) | Go host and guest bindings for `model.tensor/v1` |
+| [`perception`](perception) | Go host and guest bindings for `intelligence.perception/v1` |
+| [`realtime`](realtime) | Go host and guest bindings for `intelligence.realtime/v1` |
 
 The umbrella package itself, `plugingo`, holds what needs more than one part:
 `PlanGraph` joins a package plan to the host graph (`res/system`). The `core` package

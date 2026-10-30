@@ -76,7 +76,8 @@ library's dependencies pointing inward so it never depends back on its consumers
 only the parts it needs: `engine` (standard library only), `cgoengine` (the C
 engine binding, with a pure-Go build of the same API), `wasm` (the plugin binding
 for `res/web/wasm`), `hashicorp` (go-plugin, grpc), `inference` (the provider
-bridge), and `ml` (the tensor-provider bridge), plus `pkg/ext-go` itself
+bridge), `model` (the tensor-provider bridge), `perception` (the content
+understanding bridge), and `realtime` (the duplex-session bridge), plus `pkg/ext-go` itself
 as a thin umbrella module that requires them at matching versions. Nested
 modules are excluded
 from the module that contains them, so an import path must belong to exactly one
@@ -111,15 +112,17 @@ The reusable libraries are:
 - `res/web` for portable web contracts and workflows: browsers, WebAssembly inspection/execution through wazero (`res/web/wasm`), and the web engine that runs web content through browsers. It is also the iOS and Android module of the cookie, userscript and bookmarklet rules (`res/web/ios`, `res/web/android`), which `pkg/ext-ios` and `pkg/ext-android` ship, and owns the application-hosted WebView2 implementation in `res/web/windows`.
 - `lib/plugin` for the portable C plugin engine shared by the language bindings under `pkg/` (`ext-go`, `ext-rust`, `ext-zig`, `ext-ts`, `ext-python`) and the mobile SDKs.
 - `res/system` for the local operating-system substrate used to extend graphical and textual shells: host, shell, filesystem and volume mechanics, clipboard, credential integration, local interface/address/route/resolver observation, web view and process discovery, native surfaces, accessibility, permission state, bounded capture and media playback/capture, and atomic native input. It owns mechanisms, not authorization, remote control, routing services or consumer policy. Its subpackages include `res/system/clipboard`, `res/system/credential`, `res/system/graph`, `res/system/media`, `res/system/audio`, `res/system/network`, `res/system/service`, `res/system/share`, `res/system/supervisor`, and `res/system/volume`.
-- `res/ml` for portable on-device model support: model manifests, verified artifact installation, model inspection, and bounded inference through a caller-selected provider. Native model backends (CoreML on Apple platforms, NNAPI/TensorFlow Lite on Android, ONNX Runtime/DirectML on Windows/Linux) ship beside this contract as platform implementations or product adapters.
+- `res/int` for portable intelligence contracts and mechanisms: `model` owns verified local model bundles, tensors, and native backends; `inference` owns generation, embedding, transcription, speech, and provider contracts; `perception` owns interpretation and observation types; `realtime` owns duplex session types. Providers, models, credentials, and policy are chosen by consumers.
 - `res/content` for local content verification and a caller-rooted durable file catalog; it selects no home directory, backend, or policy.
 - `pkg/ext-go/engine` for the pure-Go engine, the oracle: the plugin contract, sessions, guests, packages, bridges and tooling (standard library only).
 - `pkg/ext-go/c2goengine` for the C engine's portable core translated to Go by ccgo (no cgo, no C compiler). The translation is generated per platform by its `tools` module and held against the pure-Go engine, the oracle, by `engine/plugintest/enginetest`; it depends on `engine` only.
 - `pkg/ext-go/cgoengine` for the Go binding of the C engine, with a pure-Go build of the same API and the C ABI loader.
 - `pkg/ext-go/wasm` for the engine-facing WebAssembly backend; it depends on `pkg/ext-go/engine` and the reusable runtime in `res/web/wasm`.
 - `pkg/ext-go/hashicorp` for the HashiCorp go-plugin backend.
-- `pkg/ext-go/inference` for the `res/inference` provider contract over the Ext plugin engine.
-- `pkg/ext-go/ml` for the `res/ml` tensor-provider contract over the Ext plugin engine.
+- `pkg/ext-go/inference` for the `res/int/inference` provider contract over the Ext plugin engine.
+- `pkg/ext-go/model` for the `res/int/model` tensor-provider contract over the Ext plugin engine.
+- `pkg/ext-go/perception` for the `res/int/perception` host and guest contract over the Ext plugin engine.
+- `pkg/ext-go/realtime` for the `res/int/realtime` duplex session contract over the Ext plugin engine.
 - `pkg/ext-go` for the umbrella module that requires the plugin engines, `res/web` and `res/system`; it holds code that needs several engines, such as `pkg/ext-go/core`, which chooses between the pure-Go `engine`, `cgoengine` and `c2goengine` (the only place that knows all three).
 
 Plugin-specific runtime bindings, including HashiCorp go-plugin and the

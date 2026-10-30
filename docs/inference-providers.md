@@ -1,6 +1,6 @@
 # Inference provider packages
 
-`res/inference` defines the portable provider contract. The reusable plugin
+`res/int/inference` defines the portable provider contract. The reusable plugin
 integration in `pkg/ext-go/inference` serves a provider guest and packages its
 executable. The package store in `pkg/ext-go/engine/host/store` verifies sealed
 packages, matches contracts, and selects the executable for the current
@@ -25,7 +25,8 @@ go build -o /tmp/ext-ctn ./src/ctn/cmd/ctn
 `package` refuses to replace an existing output directory. `install` refuses
 to replace an installed package and prints its package digest. The default
 store is `<EXT_HOME>/commands` (or the shared Ext config home); set
-`EXT_INFERENCE_PACKAGE_ROOT` to use another store. Installation alone grants no
+`EXT_INT_PACKAGE_ROOT` to use another store. The previous
+`EXT_INFERENCE_PACKAGE_ROOT` override remains a fallback. Installation alone grants no
 execution authority. After reviewing the package, record its exact digest:
 
 ```sh
@@ -63,7 +64,7 @@ provider credentials are required for live API verification.
 
 ## Native model backends
 
-`res/ml/ios` contains a CoreML backend for verified `.mlmodel` artifacts and
+`res/int/model/ios` contains a CoreML backend for verified `.mlmodel` artifacts and
 float32 multi-array tensors. Android has an optional TensorFlow Lite backend
 for verified `.tflite` artifacts; the host app supplies its interpreter
 runtime. Windows and Linux have an optional bounded ONNX Runtime CPU backend

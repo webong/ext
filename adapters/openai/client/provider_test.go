@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"github.com/webong/ext/res/inference"
+	"github.com/webong/ext/res/int/inference"
 	"net/http"
 	"net/http/httptest"
 	"testing"

@@ -7,6 +7,12 @@ data model, host sessions and guests, `ext.package/v1` manifests and the install
 package store's building blocks, JSON-line and bridge transports, process launching,
 schemas and typed authoring, instances and streams, and the conformance suite.
 
+`host.OpenRuntime` starts a source plugin under a separately installed runtime
+package. The caller supplies the reviewed runtime digest and explicit runtime
+and script artifacts; both packages are reverified immediately before launch.
+`cgoengine/host.OpenRuntime` exposes the same API. A runtime tree can include
+an interpreter and its dependencies without creating another package store.
+
 Two packages sit at the top level because they belong to no single side: `package` (the package
 manifest and dependency model) and `plugintest` (the conformance suite). `package` is a Go
 keyword, so the import path is `.../engine/package` and the declared package name stays

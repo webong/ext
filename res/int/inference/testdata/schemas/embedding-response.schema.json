@@ -1,0 +1,35 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/webong/ext/res/int/inference/schemas/embedding-response.v1.json",
+  "title": "EmbeddingResponse",
+  "type": "object",
+  "required": ["model", "embeddings"],
+  "properties": {
+    "model": { "type": "string", "minLength": 1 },
+    "embeddings": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["index", "vector"],
+        "properties": {
+          "index": { "type": "integer", "minimum": 0 },
+          "vector": { "type": "array", "items": { "type": "number" } }
+        },
+        "additionalProperties": false
+      }
+    },
+    "usage": { "$ref": "#/definitions/tokenUsage" }
+  },
+  "additionalProperties": false,
+  "definitions": {
+    "tokenUsage": {
+      "type": "object",
+      "properties": {
+        "input": { "type": "integer", "minimum": 0 },
+        "total": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    }
+  }
+}

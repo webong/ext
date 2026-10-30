@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	inference "github.com/webong/ext/res/inference"
+	inference "github.com/webong/ext/res/int/inference"
 )
 
 // Provider is an OpenAI-compatible inference provider.

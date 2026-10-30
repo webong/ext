@@ -29,6 +29,9 @@ type ReverseOptions = plugin.ReverseOptions
 
 // Options supplies the admission policy and launch choice.
 type Options struct {
+	// Verify runs after package verification and before process launch. Use it
+	// to recheck caller-owned trust or a separately installed runtime package.
+	Verify func(context.Context) error
 	// Launch overrides how the package starts, for example to run source files
 	// under a runtime the consumer manages (Path is that runtime, Args begin
 	// with the script). Dir defaults to the package directory, not the caller's
@@ -98,7 +101,15 @@ func Open(ctx context.Context, installed store.Installed, options Options) (*Pro
 	}
 	result := &Process{}
 	session, err := plugin.Open(ctx, installed.Manifest.Descriptor, plugin.Options{
-		Verify: func(context.Context, plugin.Descriptor) error { return installed.Verify() },
+		Verify: func(ctx context.Context, _ plugin.Descriptor) error {
+			if err := installed.Verify(); err != nil {
+				return err
+			}
+			if options.Verify != nil {
+				return options.Verify(ctx)
+			}
+			return nil
+		},
 		Connect: func(ctx context.Context, _ plugin.Descriptor) (plugin.Backend, error) {
 			proc, err := process.Start(ctx, launch)
 			if err != nil {

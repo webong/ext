@@ -39,14 +39,15 @@ use (
 	./adapters/anthropic
 	./adapters/gemini
 	./res/system
-	./res/ml
-	./res/inference
+	./res/int
 	./res/content
 	./pkg/ext-go
 	./pkg/ext-go/hashicorp
 	./pkg/ext-go/wasm
 	./pkg/ext-go/inference
-	./pkg/ext-go/ml
+	./pkg/ext-go/model
+	./pkg/ext-go/perception
+	./pkg/ext-go/realtime
 	./res/web
 	./pkg/ext-go/engine
 	./pkg/ext-go/cgoengine
@@ -59,6 +60,15 @@ use (
 replace github.com/webong/ext/pkg/ext-go/cgoengine v0.1.0 => ./pkg/ext-go/cgoengine
 
 replace github.com/webong/ext/pkg/ext-go/c2goengine v0.1.0 => ./pkg/ext-go/c2goengine
+
+// New intelligence modules are used by the umbrella before their first tags.
+replace github.com/webong/ext/res/int v0.1.0 => ./res/int
+
+replace github.com/webong/ext/pkg/ext-go/model v0.1.0 => ./pkg/ext-go/model
+
+replace github.com/webong/ext/pkg/ext-go/perception v0.1.0 => ./pkg/ext-go/perception
+
+replace github.com/webong/ext/pkg/ext-go/realtime v0.1.0 => ./pkg/ext-go/realtime
 
 // The modules of the v0.9.0 round that other modules of the round require are not tagged yet: the
 // backends (hashicorp v0.3.1, wasm v0.3.0) and the adapters the browser adapters build on (chromium

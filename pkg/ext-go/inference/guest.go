@@ -1,4 +1,4 @@
-// Package inference guest-side helpers register a res/inference.Provider as an
+// Package inference guest-side helpers register a res/int/inference.Provider as an
 // Ext plugin guest serving inference.provider/v1.
 package inference
 
@@ -15,7 +15,7 @@ import (
 	plugin "github.com/webong/ext/pkg/ext-go/engine"
 	"github.com/webong/ext/pkg/ext-go/engine/guest/author"
 	"github.com/webong/ext/pkg/ext-go/engine/guest/stream"
-	"github.com/webong/ext/res/inference"
+	"github.com/webong/ext/res/int/inference"
 )
 
 // health is the provider health report.
@@ -32,7 +32,7 @@ type streamOpenParams struct {
 	Data json.RawMessage `json:"data"` // request payload (generation or speech request)
 }
 
-// Provider adapts a res/inference.Provider to the plugin guest contract. The
+// Provider adapts a res/int/inference.Provider to the plugin guest contract. The
 // guest declares the full inference.provider/v1 surface and routes each
 // operation to the provider. A provider returns inference.ErrUnsupported for
 // any operation it does not advertise.

@@ -5,7 +5,7 @@ import (
 	plugin "github.com/webong/ext/pkg/ext-go/engine"
 	"github.com/webong/ext/pkg/ext-go/engine/guest/author"
 	"github.com/webong/ext/pkg/ext-go/engine/guest/stream"
-	"github.com/webong/ext/res/inference"
+	"github.com/webong/ext/res/int/inference"
 )
 
 func capabilitiesMethod() author.Method[struct{}, inference.ProviderInfo] {

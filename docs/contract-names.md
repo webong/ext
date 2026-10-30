@@ -53,8 +53,10 @@ and cannot be declared.
 | `content.provider` | `v1` | Cymonkey | in use | Go constants and doc comments in `lib/blockade/plugin/adapter.go`; JSON schemas for its documents in `lib/blockade/protocol/v1alpha1/` |
 | `device.provider` | `v1` | Cymonkey | in use | Go constants and doc comments in `lib/board/plugin/provider.go` |
 | `display.engine` | `v1` | Cymonkey | in use | Go constants and doc comments in `lib/jangolova/plugin/adapter.go` |
-| `inference.provider` | `v1` | Ext (`res/inference`) | implemented in Ext | JSON schemas and fixtures in `res/inference/testdata/`; Go bridge in `pkg/ext-go/inference` |
-| `model.tensor` | `v1` | Ext (`res/ml`) | implemented in Ext | JSON request/response fixtures in `pkg/ext-go/ml/testdata/v1`; Go bridge and CTN package host |
+| `inference.provider` | `v1` | Ext (`res/int`) | implemented in Ext | JSON schemas and fixtures in `res/int/inference/testdata/`; Go bridge in `pkg/ext-go/inference` |
+| `model.tensor` | `v1` | Ext (`res/int`) | implemented in Ext | JSON request/response fixtures in `pkg/ext-go/model/testdata/v1`; Go bridge and CTN package host |
+| `intelligence.perception` | `v1` | Ext (`res/int`) | implemented in Ext | JSON fixtures in `pkg/ext-go/perception/testdata/v1`; Go bridge and CTN package host |
+| `intelligence.realtime` | `v1` | Ext (`res/int`) | implemented in Ext | Session types in `res/int/realtime`, JSON fixtures in `pkg/ext-go/realtime/testdata/v1`, and Go bridge in `pkg/ext-go/realtime` |
 
 The owner's repository is `github.com/webong/cymonkey`. Its operations, as
 declared by the owner: `content.provider` has `start`, `observe`, `interpret`,

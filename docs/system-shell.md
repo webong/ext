@@ -136,7 +136,7 @@ and Android bindings ship in the SDKs.
 
 ## On-device models
 
-`res/ml` defines portable model manifests, verified artifact installation,
+`res/int/model` defines portable model manifests, verified artifact installation,
 model inspection, and bounded inference through a caller-selected provider.
 The iOS CoreML binding ships through `ExtML` in `pkg/ext-ios`; the Android
 NNAPI/TensorFlow Lite binding compiles into the `pkg/ext-android` AAR. The

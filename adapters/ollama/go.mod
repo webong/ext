@@ -6,5 +6,5 @@ require (
 	github.com/webong/ext/adapters/openai v0.1.0
 	github.com/webong/ext/pkg/ext-go/engine v0.1.0
 	github.com/webong/ext/pkg/ext-go/inference v0.1.0
-	github.com/webong/ext/res/inference v0.1.0
+	github.com/webong/ext/res/int v0.1.0
 )

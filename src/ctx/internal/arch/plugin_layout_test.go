@@ -36,9 +36,13 @@ var pluginRequires = map[string][]string{
 	"pkg/ext-go/c2goengine": {"pkg/ext-go/engine"},
 	"pkg/ext-go/wasm":       {"pkg/ext-go/engine", "res/web"},
 	"pkg/ext-go/hashicorp":  {"pkg/ext-go/engine"},
-	"pkg/ext-go/ml":         {"pkg/ext-go/engine", "res/ml"},
+	"pkg/ext-go/model":      {"pkg/ext-go/engine", "res/int"},
+	"pkg/ext-go/inference":  {"pkg/ext-go/engine", "res/int"},
+	"pkg/ext-go/perception": {"pkg/ext-go/engine", "res/int"},
+	"pkg/ext-go/realtime":   {"pkg/ext-go/engine", "res/int"},
+	"res/int":               {},
 	"res/web":               {},
-	"pkg/ext-go":            {"pkg/ext-go/engine", "pkg/ext-go/cgoengine", "pkg/ext-go/c2goengine", "pkg/ext-go/wasm", "pkg/ext-go/hashicorp", "pkg/ext-go/ml", "res/system", "res/web"},
+	"pkg/ext-go":            {"pkg/ext-go/engine", "pkg/ext-go/cgoengine", "pkg/ext-go/c2goengine", "pkg/ext-go/wasm", "pkg/ext-go/hashicorp", "pkg/ext-go/inference", "pkg/ext-go/model", "pkg/ext-go/perception", "pkg/ext-go/realtime", "res/system", "res/web"},
 }
 
 var requireLine = regexp.MustCompile(`(?m)^\s*(?:require\s+)?(github\.com/webong/ext/\S+)\s+v\S+`)
@@ -72,7 +76,7 @@ func TestPluginGoModulesRequireOnlyTheirParts(t *testing.T) {
 // have the engine binding in the module graph.
 func TestBackendsNeverImportTheCEngine(t *testing.T) {
 	root := repoRoot(t)
-	for _, dir := range []string{"pkg/ext-go/wasm", "pkg/ext-go/hashicorp", "pkg/ext-go/ml"} {
+	for _, dir := range []string{"pkg/ext-go/wasm", "pkg/ext-go/hashicorp", "pkg/ext-go/inference", "pkg/ext-go/model", "pkg/ext-go/perception", "pkg/ext-go/realtime"} {
 		forbidden := []string{pluginPrefix + "/cgoengine", pluginPrefix + "/c2goengine", pluginPrefix + "/core", pluginPrefix}
 		err := filepath.WalkDir(filepath.Join(root, dir), func(path string, entry fs.DirEntry, walkErr error) error {
 			if walkErr != nil || entry.IsDir() || filepath.Ext(path) != ".go" {

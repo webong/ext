@@ -7,7 +7,7 @@ import (
 	"github.com/webong/ext/pkg/ext-go/engine/guest/author"
 	"github.com/webong/ext/pkg/ext-go/engine/transport/inprocess"
 	bridge "github.com/webong/ext/pkg/ext-go/inference"
-	domain "github.com/webong/ext/res/inference"
+	domain "github.com/webong/ext/res/int/inference"
 	"testing"
 )
 

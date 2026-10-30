@@ -1,0 +1,1 @@
+{"apiVersion":"intelligence.perception/v1","requestId":"interpret-1","model":"example-model","parts":[{"kind":"text","text":"a cat"},{"kind":"image","mediaType":"image/png","data":"AQ=="}],"prompt":"Describe the content"}

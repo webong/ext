@@ -21,7 +21,7 @@ import (
 	"github.com/webong/ext/pkg/ext-go/engine/host/store"
 	hosttrust "github.com/webong/ext/pkg/ext-go/engine/host/trust"
 	ginference "github.com/webong/ext/pkg/ext-go/inference"
-	inference "github.com/webong/ext/res/inference"
+	inference "github.com/webong/ext/res/int/inference"
 )
 
 // inferenceCommand lists providers and runs inference operations through an

@@ -16,7 +16,7 @@ import (
 	"time"
 
 	ginference "github.com/webong/ext/pkg/ext-go/inference"
-	"github.com/webong/ext/res/inference"
+	"github.com/webong/ext/res/int/inference"
 )
 
 var modelName = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,255}$`)

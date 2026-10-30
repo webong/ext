@@ -32,6 +32,9 @@ func Run(args []string, stdout, stderr io.Writer) int {
 	if args[0] == "inference" {
 		return inferenceCommand(args[1:], stdout, stderr)
 	}
+	if args[0] == "perception" {
+		return perceptionCommand(args[1:], stdout, stderr)
+	}
 	fmt.Fprintf(stderr, "ctn: unknown command %q\n", args[0])
 	usage(stderr)
 	return 2
@@ -68,6 +71,12 @@ func usage(w io.Writer) {
 	fmt.Fprintln(w, "  ctn inference transcribe --provider ID --model M --input FILE")
 	fmt.Fprintln(w, "  ctn inference synthesize --provider ID --model M --input FILE")
 	fmt.Fprintln(w, "  ctn inference models --provider ID")
+	fmt.Fprintln(w, "  ctn perception package [--os OS --arch ARCH] ID VERSION BINARY OUTPUT_DIR")
+	fmt.Fprintln(w, "  ctn perception install PACKAGE_DIR")
+	fmt.Fprintln(w, "  ctn perception trust|untrust ID")
+	fmt.Fprintln(w, "  ctn perception providers")
+	fmt.Fprintln(w, "  ctn perception capabilities --provider ID")
+	fmt.Fprintln(w, "  ctn perception observe|interpret --provider ID --model M --input FILE")
 	fmt.Fprintln(w, "  ctn help")
 	fmt.Fprintln(w, "  ctn version")
 }

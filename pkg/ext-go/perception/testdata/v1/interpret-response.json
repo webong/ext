@@ -1,0 +1,1 @@
+{"apiVersion":"intelligence.perception/v1","requestId":"interpret-1","findings":[{"kind":"description","text":"a cat","sourceParts":[0,1],"confidence":0.95}]}

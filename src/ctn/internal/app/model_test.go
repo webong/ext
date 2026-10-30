@@ -12,7 +12,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/webong/ext/res/ml"
+	ml "github.com/webong/ext/res/int/model"
 )
 
 // modelStoreTestHelper creates a temp store with one installed model.

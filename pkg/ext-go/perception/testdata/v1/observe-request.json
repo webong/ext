@@ -1,0 +1,1 @@
+{"apiVersion":"intelligence.perception/v1","requestId":"observe-1","model":"example-model","mediaType":"image/png","image":"AQ==","prompt":"Find objects"}

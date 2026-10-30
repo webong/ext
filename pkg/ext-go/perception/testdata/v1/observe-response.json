@@ -1,0 +1,1 @@
+{"apiVersion":"intelligence.perception/v1","requestId":"observe-1","observations":[{"kind":"object","label":"cat","confidence":0.9,"region":{"x":0,"y":0,"width":10,"height":10},"evidence":"visible outline"}]}

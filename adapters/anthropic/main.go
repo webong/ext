@@ -15,7 +15,7 @@ import (
 	"time"
 
 	ginference "github.com/webong/ext/pkg/ext-go/inference"
-	"github.com/webong/ext/res/inference"
+	"github.com/webong/ext/res/int/inference"
 )
 
 type provider struct {

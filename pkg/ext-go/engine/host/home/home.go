@@ -42,13 +42,20 @@ func Adapters() string {
 	return filepath.Join(Config(), "adapters")
 }
 
-// Inference is the default CTN inference package substore.
-func Inference() string {
+// Intelligence is the shared CTN intelligence-provider package substore.
+// The former inference override remains a migration fallback.
+func Intelligence() string {
+	if value := os.Getenv("EXT_INT_PACKAGE_ROOT"); value != "" {
+		return value
+	}
 	if value := os.Getenv("EXT_INFERENCE_PACKAGE_ROOT"); value != "" {
 		return value
 	}
 	return filepath.Join(Config(), "commands")
 }
+
+// Inference is retained for callers using the original CTN name.
+func Inference() string { return Intelligence() }
 
 func candidates() (shared, legacy string) {
 	if runtime.GOOS == "windows" {

@@ -19,4 +19,4 @@
 
 .DS_Store
 __pycache__/
-/res/ml/ios/.build/
+/res/int/model/ios/.build/

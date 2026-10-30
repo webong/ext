@@ -325,7 +325,7 @@ func (s *Store) Install(source string) (Installed, error) {
 func (s *Store) InstallWithOptions(source string, options CopyOptions) (Installed, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	m, err := s.checkSource(source)
+	m, data, err := s.checkSource(source)
 	if err != nil {
 		return Installed{}, err
 	}
@@ -336,7 +336,7 @@ func (s *Store) InstallWithOptions(source string, options CopyOptions) (Installe
 	} else if !errors.Is(err, os.ErrNotExist) {
 		return Installed{}, err
 	}
-	return s.stage(source, m, dest, options)
+	return s.stage(source, m, data, dest, options)
 }
 
 // Upgrade replaces an installed package with a new revision of the same ID.
@@ -350,7 +350,7 @@ func (s *Store) Upgrade(source string) (Installed, error) {
 func (s *Store) UpgradeWithOptions(source string, options CopyOptions) (Installed, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	m, err := s.checkSource(source)
+	m, data, err := s.checkSource(source)
 	if err != nil {
 		return Installed{}, err
 	}
@@ -369,7 +369,7 @@ func (s *Store) UpgradeWithOptions(source string, options CopyOptions) (Installe
 	if old.Descriptor.Identity.Revision == m.Descriptor.Identity.Revision {
 		return Installed{}, fmt.Errorf("%w: upgrade requires a new revision", plugin.ErrInvalid)
 	}
-	return s.replaceInstalled(source, m, dest, options)
+	return s.replaceInstalled(source, m, data, dest, options)
 }
 
 // Replace installs or replaces a package of the same ID, including changes to
@@ -382,14 +382,14 @@ func (s *Store) Replace(source string) (Installed, error) {
 func (s *Store) ReplaceWithOptions(source string, options CopyOptions) (Installed, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	m, err := s.checkSource(source)
+	m, data, err := s.checkSource(source)
 	if err != nil {
 		return Installed{}, err
 	}
 	dest := s.dir(m.Descriptor.Identity.ID)
 	info, err := os.Lstat(dest)
 	if errors.Is(err, os.ErrNotExist) {
-		return s.stage(source, m, dest, options)
+		return s.stage(source, m, data, dest, options)
 	}
 	if err != nil {
 		return Installed{}, err
@@ -397,18 +397,18 @@ func (s *Store) ReplaceWithOptions(source string, options CopyOptions) (Installe
 	if !info.IsDir() {
 		return Installed{}, fmt.Errorf("%w: package directory is not a directory", plugin.ErrInvalid)
 	}
-	return s.replaceInstalled(source, m, dest, options)
+	return s.replaceInstalled(source, m, data, dest, options)
 }
 
 // replaceInstalled stages and verifies the new package before swapping it
 // into place. The caller holds s.mu and has checked the existing directory.
-func (s *Store) replaceInstalled(source string, m packagekit.Manifest, dest string, options CopyOptions) (Installed, error) {
+func (s *Store) replaceInstalled(source string, m packagekit.Manifest, data []byte, dest string, options CopyOptions) (Installed, error) {
 	backupRoot, err := s.tempDir(".backup-")
 	if err != nil {
 		return Installed{}, err
 	}
 	defer os.RemoveAll(backupRoot)
-	staged, err := s.stage(source, m, filepath.Join(backupRoot, "new"), options)
+	staged, err := s.stage(source, m, data, filepath.Join(backupRoot, "new"), options)
 	if err != nil {
 		return Installed{}, err
 	}
@@ -454,20 +454,23 @@ func (s *Store) Remove(id string) error {
 	return os.RemoveAll(dir)
 }
 
-func (s *Store) checkSource(source string) (packagekit.Manifest, error) {
-	m, err := readManifest(source)
+func (s *Store) checkSource(source string) (packagekit.Manifest, []byte, error) {
+	if info, err := os.Lstat(source); err == nil && !info.IsDir() {
+		return packagekit.Manifest{}, nil, fmt.Errorf("%w: package source is not a directory", plugin.ErrInvalid)
+	}
+	m, data, err := readManifestBytes(source)
 	if err != nil {
-		return m, err
+		return m, nil, err
 	}
 	for _, a := range m.Artifacts {
 		if strings.EqualFold(a.Path, ManifestName) {
-			return m, fmt.Errorf("%w: artifact path %q is reserved", plugin.ErrInvalid, ManifestName)
+			return m, nil, fmt.Errorf("%w: artifact path %q is reserved", plugin.ErrInvalid, ManifestName)
 		}
 	}
 	if err := (Installed{Manifest: m, Directory: source, limits: s.limits}).Verify(); err != nil {
-		return m, err
+		return m, nil, err
 	}
-	return m, nil
+	return m, data, nil
 }
 
 func (s *Store) tempDir(prefix string) (string, error) {
@@ -477,8 +480,9 @@ func (s *Store) tempDir(prefix string) (string, error) {
 	return os.MkdirTemp(s.root, prefix)
 }
 
-// stage copies into a fresh directory, verifies it, then renames it to dest.
-func (s *Store) stage(source string, m packagekit.Manifest, dest string, options CopyOptions) (Installed, error) {
+// stage copies into a fresh directory, verifies it, then renames it to dest. data
+// is the source's manifest, as read.
+func (s *Store) stage(source string, m packagekit.Manifest, data []byte, dest string, options CopyOptions) (Installed, error) {
 	staging, err := s.tempDir(".install-")
 	if err != nil {
 		return Installed{}, err
@@ -509,11 +513,9 @@ func (s *Store) stage(source string, m packagekit.Manifest, dest string, options
 			return Installed{}, fmt.Errorf("artifact %s: %w", a.Name, err)
 		}
 	}
-	encoded, err := json.MarshalIndent(m, "", "  ")
-	if err != nil {
-		return Installed{}, err
-	}
-	if err := os.WriteFile(filepath.Join(staging, ManifestName), append(encoded, '\n'), 0o600); err != nil {
+	// The manifest is copied as it was read: the bytes are what a trust record's
+	// digest covers, so they are not re-encoded.
+	if err := os.WriteFile(filepath.Join(staging, ManifestName), data, 0o600); err != nil {
 		return Installed{}, err
 	}
 	p := Installed{Manifest: m, Directory: staging, limits: s.limits}
@@ -568,27 +570,34 @@ func copyArtifact(srcRoot, dstRoot string, a packagekit.Artifact, limits Limits,
 }
 
 func readManifest(dir string) (packagekit.Manifest, error) {
+	m, _, err := readManifestBytes(dir)
+	return m, err
+}
+
+// readManifestBytes is readManifest that also returns the bytes it read, which an
+// install copies as they are.
+func readManifestBytes(dir string) (packagekit.Manifest, []byte, error) {
 	path, err := securePath(dir, ManifestName)
 	if err != nil {
-		return packagekit.Manifest{}, err
+		return packagekit.Manifest{}, nil, err
 	}
 	f, err := os.Open(path)
 	if err != nil {
-		return packagekit.Manifest{}, err
+		return packagekit.Manifest{}, nil, err
 	}
 	defer f.Close()
 	data, err := io.ReadAll(io.LimitReader(f, maxManifestBytes+1))
 	if err != nil {
-		return packagekit.Manifest{}, err
+		return packagekit.Manifest{}, nil, err
 	}
 	if len(data) > maxManifestBytes {
-		return packagekit.Manifest{}, fmt.Errorf("%w: manifest exceeds 16 MiB", plugin.ErrInvalid)
+		return packagekit.Manifest{}, nil, fmt.Errorf("%w: manifest exceeds 16 MiB", plugin.ErrInvalid)
 	}
 	var m packagekit.Manifest
 	if err := plugin.Decode(data, &m); err != nil {
-		return m, err
+		return m, nil, err
 	}
-	return m, packages.ValidateManifest(m)
+	return m, data, packages.ValidateManifest(m)
 }
 
 func sameContracts(a, b plugin.Descriptor) bool {

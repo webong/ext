@@ -112,6 +112,8 @@ func status(s C.ext_status) error {
 		return plugin.ErrProtocol
 	case C.EXT_EXPIRED:
 		return endpoint.ErrExpired
+	case C.EXT_EXISTS:
+		return ErrPackageExists
 	case C.EXT_CANCELED:
 		return context.Canceled
 	case C.EXT_TIMEOUT:

@@ -11,6 +11,23 @@ receives the browser-supplied sender ID and must explicitly accept it.
 Methods provide `validateInput`, `validateOutput`, and `handle` functions.
 `authorize` can reject individual calls with `PeerError('denied', message)`.
 
+`createSpoke({ name, hostId })` adds extension registration and state replay to
+the guest connection. It sends a `register` state message when connected and an
+`update` message after `updateState(patch)`. The host receives both through
+`onState(sender, value)`, with the browser-supplied sender ID. Builders can pass
+`discover()` instead of `hostId`; the spoke periodically checks for a new host
+and reconnects when it changes. `discoverExtension(match)` is an optional helper
+for applications that have requested the browser's `management` permission.
+The application supplies the match rule, admission policy, and event meaning.
+For an acknowledged event, expose a host method and call it with `spoke.call()`;
+`spoke.event()` is one-way.
+
+`createHub({ admit })` maintains a registry from those registration and update
+messages. `hub.spokes()` returns detached snapshots keyed by browser-supplied
+extension ID; disconnected spokes leave the registry. Host and spoke methods
+remain available for bidirectional calls. A product such as Xallet or Cymonkey
+can wrap these APIs with its own identity, permissions, UI, and event routing.
+
 Run `npm test` for the protocol harness and `npm run build:examples` to create
 independent unpacked Chromium examples in `dist/host` and `dist/guest`. Load both
 in `chrome://extensions` with Developer mode. Copy each extension ID into the

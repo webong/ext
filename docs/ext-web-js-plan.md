@@ -1,7 +1,8 @@
 # ext-web-js browser extension peer library plan
 
-Status: initial package and Chromium examples implemented; browser smoke tests,
-Firefox validation, and Xallet migration remain. The local Chrome command-line
+Status: peer, hub, and spoke APIs and Chromium examples implemented; browser smoke
+tests and Firefox validation remain. Xallet will adopt the shared library later.
+The local Chrome command-line
 smoke attempt opened an isolated profile, but Chrome did not register either
 unpacked example extension, so it did not verify browser messaging.
 
@@ -156,9 +157,9 @@ as they are added.
 5. Build the host and guest examples and exercise bidirectional calls, state,
    events, denial, timeout, cancellation, disconnection, and background restart
    in real browsers. Publish repeatable local build and smoke-test instructions.
-6. Migrate Xallet through a temporary `XalletHubSDK`/`XalletSpokeSDK` compatibility
-   wrapper, keeping product policy and remote-host integration in Xallet.
-   Migrate spokes incrementally after the standalone examples pass.
+6. Later, migrate Xallet through a temporary `XalletHubSDK`/`XalletSpokeSDK`
+   compatibility wrapper, keeping product policy and remote-host integration
+   in Xallet. Cymonkey can build on the same peer and spoke APIs.
 
 ## Acceptance
 

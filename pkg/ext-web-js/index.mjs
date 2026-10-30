@@ -135,6 +135,7 @@ export function createHost({ runtime, methods = {}, admit, authorize, onEvent, o
           const connection = new Connection(port, methods, (_c, name) => authorize?.(sender, name),
             (_c, event) => onEvent?.(sender, event), (_c, kind, state) => { if (kind === 'connected') onChange?.(api.peers()); else onState?.(sender, state); },
             () => { if (peers.get(id) === connection) { peers.delete(id); onChange?.(api.peers()); } }, timeoutMs);
+          connection.id = id;
           peers.set(id, connection); connection.send({ type: 'hello', methods: names });
         }).catch(() => port.disconnect());
       };
@@ -170,4 +171,92 @@ export function createGuest({ runtime, hostId, methods = {}, authorize, onEvent,
     } catch { if (active) timer = setTimeout(connect, reconnectMs); }
   }
   return api;
+}
+
+/** Optional discovery for builders that already request the management permission. */
+export async function discoverExtension(match, management = globalThis.browser?.management ?? globalThis.chrome?.management) {
+  if (typeof match !== 'function' || !management?.getAll) throw new PeerError('unavailable', 'Extension discovery is unavailable');
+  const extensions = await management.getAll();
+  const found = extensions.find(extension => extension.enabled && match(extension));
+  return found?.id ?? null;
+}
+
+/** A guest with registration, state replay, and optional host discovery. */
+export function createSpoke({ runtime, hostId, discover, name, initialState = {}, uiPath, methods = {}, authorize, onEvent, onState, onChange, timeoutMs, reconnectMs, discoveryMs = 10000 } = {}) {
+  if (typeof name !== 'string' || !name || name.length > 128) throw new PeerError('invalid', 'Spoke requires a short name');
+  if (!hostId && typeof discover !== 'function') throw new PeerError('invalid', 'Spoke requires hostId or discover');
+  if (typeof initialState !== 'object' || initialState === null || Array.isArray(initialState)) throw new PeerError('invalid', 'Initial state must be an object');
+  let state = { ...initialState }; let currentId = null; let guest = null; let active = false; let discoveryTimer; let discoveryGeneration = 0;
+  const api = {
+    start() {
+      if (active) return;
+      active = true;
+      if (hostId) attach(hostId);
+      else { void refresh(); discoveryTimer = setInterval(() => void refresh(), discoveryMs); }
+    },
+    stop() { active = false; discoveryGeneration++; clearInterval(discoveryTimer); guest?.stop(); guest = null; currentId = null; },
+    connected() { return guest?.connected() ?? false; },
+    hostId() { return currentId; },
+    register() { if (!guest?.connected()) return false; guest.state({ type: 'register', name, state: { ...state }, uiPath }); return true; },
+    updateState(patch) {
+      if (typeof patch !== 'object' || patch === null || Array.isArray(patch)) throw new PeerError('invalid', 'State update must be an object');
+      state = { ...state, ...patch };
+      if (!guest?.connected()) return false;
+      guest.state({ type: 'update', state: patch }); return true;
+    },
+    state() { return { ...state }; },
+    event(value) { if (!guest?.connected()) return false; guest.event(value); return true; },
+    call(method, value, options) { return guest ? guest.call(method, value, options) : Promise.reject(new PeerError('unavailable', 'Host not connected')); },
+    async refresh() { await refresh(); },
+  };
+  function attach(id) {
+    if (id === currentId && guest) return;
+    guest?.stop(); guest = null; currentId = id;
+    if (!id || !active) return;
+    guest = createGuest({ runtime, hostId: id, methods, authorize, onEvent, onState, timeoutMs, reconnectMs, onChange: connected => {
+      if (connected) api.register();
+      onChange?.(connected, currentId);
+    } });
+    guest.start();
+  }
+  async function refresh() {
+    if (!active || !discover) return;
+    const generation = ++discoveryGeneration;
+    try { const id = await discover(); if (active && generation === discoveryGeneration) attach(id); }
+    catch { /* A transient discovery failure preserves the current connection. */ }
+  }
+  return api;
+}
+
+/** A host registry for createSpoke registration and state messages. */
+export function createHub({ runtime, admit, methods = {}, authorize, onEvent, onSpokesChange, timeoutMs } = {}) {
+  const spokes = new Map();
+  const snapshot = () => [...spokes.values()].map(value => structuredClone(value));
+  const changed = () => onSpokesChange?.(snapshot());
+  const host = createHost({ runtime, admit, methods, authorize, onEvent, timeoutMs,
+    onState(sender, value) {
+      if (!value || typeof value !== 'object' || Array.isArray(value)) return;
+      if (value.type === 'register') {
+        if (typeof value.name !== 'string' || !value.name || value.name.length > 128 || (value.uiPath !== undefined && typeof value.uiPath !== 'string') || !value.state || typeof value.state !== 'object' || Array.isArray(value.state)) return;
+        spokes.set(sender.id, { id: sender.id, name: value.name, uiPath: value.uiPath, state: structuredClone(value.state) }); changed();
+      } else if (value.type === 'update') {
+        const spoke = spokes.get(sender.id);
+        if (!spoke || !value.state || typeof value.state !== 'object' || Array.isArray(value.state)) return;
+        spoke.state = { ...spoke.state, ...structuredClone(value.state) }; changed();
+      }
+    },
+    onChange(peers) {
+      const connected = new Set(peers.map(peer => peer.id));
+      let removed = false;
+      for (const id of spokes.keys()) if (!connected.has(id)) { spokes.delete(id); removed = true; }
+      if (removed) changed();
+    },
+  });
+  return {
+    start: () => host.start(),
+    stop: () => host.stop(),
+    spokes: snapshot,
+    call: (id, method, value, options) => host.call(id, method, value, options),
+    event: (id, value) => host.event(id, value),
+  };
 }

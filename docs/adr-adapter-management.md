@@ -1,7 +1,7 @@
 # ext adapter management and product consumption
 
-Status: accepted ownership model. The direct `ext adapter` command remains
-planned; the current routes below are implemented.
+Status: implemented. `ext adapter` and standalone `ctx adapter` use the same
+shared library management command.
 
 ## Ownership
 
@@ -18,12 +18,12 @@ calling it from CTN does not turn it into a separate CTN adapter.
 ## Current commands
 
 `ext` is the main installer and combined entry point. Adapter management is
-currently exposed through its embedded CTX command:
+exposed directly through the `adapter` builtin:
 
 | Entry point | Responsibility |
 | --- | --- |
-| `ext ctx adapter install <source>` | Install an ext adapter |
-| `ext ctx adapter build`, `pack`, `inspect`, `trust`, `verify`, `remove` | Build, package, review, and manage ext adapters |
+| `ext adapter install <source>` | Install an ext adapter |
+| `ext adapter build`, `pack`, `inspect`, `trust`, `verify`, `remove` | Build, package, review, and manage ext adapters |
 | `ctx adapter …` | The same management commands when CTX runs standalone |
 | `ext ctx …` or `ctx …` | Consume capabilities for project contexts |
 | `ext ctn …` or `ctn …` | Consume capabilities for content workflows |
@@ -33,10 +33,10 @@ currently exposed through its embedded CTX command:
 For example, with a ready-to-run evaluator package:
 
 ```sh
-ext ctx adapter install ./my-evaluator
-ext ctx adapter inspect my_evaluator
+ext adapter install ./my-evaluator
+ext adapter inspect my_evaluator
 # Review the installed files before trusting the package.
-ext ctx adapter trust my_evaluator
+ext adapter trust my_evaluator
 ext ctn adapter ls
 ext ctn verify --engine my_evaluator example.wasm
 ```
@@ -63,17 +63,28 @@ The contract is `ext.adapter/2.0`. Existing `ctx.adapter/v1` metadata,
 remain compatible. Their spelling does not imply CTX ownership. This terminology
 change does not rename serialized fields or invalidate existing packages.
 
-## Planned direct management entry point
+## Shared implementation
 
-`ext adapter …` should expose shared adapter management directly. It is not
-registered by `cmd/ext` today. There is also no implemented `USED BY` column;
-capability compatibility must not be presented as evidence of actual usage.
+`pkg/ext-go/engine/host/adapter/adaptercmd` owns the management command,
+catalog activation and refresh, and declared launcher installation. It is part
+of the standard-library-only engine module and imports no product code.
+`cmd/ext` registers it as the `adapter` builtin. Standalone CTX calls the same
+implementation with CTX diagnostics and its project-aware doctor callback.
+`ext ctx adapter` also remains available through the embedded product.
 
-Any extraction of reusable management logic belongs in an Ext library, not
-`src/ctx/internal`: other consumers cannot import a product's private packages.
-Standalone CTX must keep its management route, and CTN must remain independently
-runnable. A direct entry point must preserve package validation, trust, home
-resolution, and capability-based consumption.
+`ext adapter doctor NAME` uses the adapter's default selection. CTX supplies
+its own selection and invocation policy for `ctx adapter doctor NAME`. Both
+paths enforce trust before invoking the installed adapter. CTN continues to
+read the shared store and apply its evaluator and isolation policy.
+
+`ext adapter` follows the command registry's normal builtin precedence and
+explicit source selection rules. There is no `USED BY` column: capability
+compatibility is not evidence of actual usage.
+
+The cross-product acceptance test in `cmd/ext/adapter_test.go` builds all three
+binaries, installs through ext, trusts through standalone ctx, and verifies
+content through standalone ctn. It also checks that untrusted and changed
+packages are refused, and that removal through ctx is visible through ext.
 
 ## Related
 

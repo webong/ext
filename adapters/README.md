@@ -8,8 +8,8 @@ Go authors can use `ParseAdapterInvocation` from
 `github.com/webong/ext/pkg/ext-go/engine`. Ship a platform-specific `.ctxadapter`
 archive with its executable and runtime assets.
 
-`ext` is the main installer: use `ext ctx adapter install` for adapters today,
-and `ext ctx adapter build` for Go source builds. Standalone `ctx adapter`
+`ext` is the main installer: use `ext adapter install` for adapters today,
+and `ext adapter build` for Go source builds. Standalone `ctx adapter`
 provides the same management commands. CTX and CTN consume the capabilities
 available to them from the shared adapter home, including when running
 standalone; `ctn adapter ls` is read-only. An adapter can serve both products.

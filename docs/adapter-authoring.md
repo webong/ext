@@ -6,8 +6,7 @@ adapter needs a manifest, an executable for the target OS, and any runtime
 assets or dependencies that executable uses.
 
 Use `ext` as the main installation entry point. The commands below use
-`ext ctx adapter`, the currently implemented adapter-management route. With
-standalone `ctx`, omit the `ext` prefix. CTN can consume installed adapters
+`ext adapter`. With standalone `ctx`, use `ctx adapter` instead. CTN can consume installed adapters
 without running CTX; its `ctn adapter ls` command is read-only.
 
 Adapters belong to Ext, not to the interface that invokes them. CTX and CTN
@@ -193,9 +192,9 @@ compiled package does not need the source checkout or this replacement.
 Build a package for your current machine, or select an explicit target:
 
 ```sh
-ext ctx adapter build ./my-adapter
-ext ctx adapter build ./my-adapter --os darwin --arch arm64
-ext ctx adapter build ./my-adapter --os windows --arch amd64
+ext adapter build ./my-adapter
+ext adapter build ./my-adapter --os darwin --arch arm64
+ext adapter build ./my-adapter --os windows --arch amd64
 ```
 
 The default output is `my-adapter/dist/my_tool-<os>-<arch>.ctxadapter`.
@@ -207,7 +206,7 @@ author; native libraries may require a suitable target toolchain.
 To build the repository's complete example, run this from the CTX checkout:
 
 ```sh
-ext ctx adapter build ./pkg/ext-go/examples/adapters/go_echo
+ext adapter build ./pkg/ext-go/examples/adapters/go_echo
 ```
 
 ### Other languages or an already-built executable
@@ -223,7 +222,7 @@ ready-package/
 
 ```sh
 chmod +x ./ready-package/ctx-my-tool
-ext ctx adapter pack ./ready-package --os darwin --arch arm64 \
+ext adapter pack ./ready-package --os darwin --arch arm64 \
   --output ./my_tool-darwin-arm64.ctxadapter
 ```
 
@@ -236,13 +235,13 @@ Windows entry point. Interpreted adapters still need their interpreter installed
 On a matching platform:
 
 ```sh
-ext ctx adapter install ./my-adapter/dist/my_tool-darwin-arm64.ctxadapter
-ext ctx adapter inspect my_tool
+ext adapter install ./my-adapter/dist/my_tool-darwin-arm64.ctxadapter
+ext adapter inspect my_tool
 # Review the installed manifest, executable, and runtime files.
-ext ctx adapter trust my_tool
+ext adapter trust my_tool
 ctx ls my_tool
 ctx set my_tool local
-ext ctx adapter doctor my_tool
+ext adapter doctor my_tool
 ```
 
 Use a selection your implementation actually returns; `local` is an example.
@@ -254,7 +253,7 @@ files requires reviewing and trusting the changed content again. Trust allows
 the adapter to execute with the user's permissions; it is not an OS sandbox.
 
 For a ready directory containing the host executable,
-`ext ctx adapter test ./ready-package` validates the package and runs its `doctor`
+`ext adapter test ./ready-package` validates the package and runs its `doctor`
 operation. It executes adapter code and does not check every declared operation.
 Authors should also exercise discovery, invalid selections, argument forwarding,
 missing dependencies, and the native operations they declare.

@@ -23,7 +23,7 @@ capabilities when installed, trusted, and available to the product, including in
 standalone mode. One adapter may serve both products.
 
 `ext` is the main installer and combined entry point. Adapter management currently
-uses `ext ctx adapter install|build|pack|trust …`; standalone `ctx adapter …`
+uses `ext adapter install|build|pack|trust …`; standalone `ctx adapter …`
 provides the same commands. CTN consumes installed adapters and exposes the
 read-only `ctn adapter ls`. `ext package install` manages command packages, not
 the adapter store. See [adapter management](docs/adr-adapter-management.md).

@@ -2,8 +2,8 @@
 
 Status: command composition is implemented. `ext` is the main installation and
 combined command entry point; CTX and CTN remain standalone products. See
-[adapter management](adr-adapter-management.md) for current routes and the
-remaining direct `ext adapter` work. Release and installer rollout steps below
+[adapter management](adr-adapter-management.md) for the shared direct `ext adapter`
+command and standalone product routes. Release and installer rollout steps below
 record the original plan.
 
 `ctx` and `ctn` are products under `src/`: modules that nothing may import, whose

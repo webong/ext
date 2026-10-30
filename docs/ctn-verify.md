@@ -13,7 +13,7 @@ ctn verify --engine wasm --selection wasmtime component.wasm
 CTN consumes evaluator capabilities from ext adapters. `ext ctn verify` and
 standalone `ctn verify` use the same implementation and configured adapter home;
 CTX does not need to be running. `ext` is the main installation entry point,
-currently through `ext ctx adapter install`. `ctn adapter ls` lists installed
+currently through `ext adapter install`. `ctn adapter ls` lists installed
 adapters; CTN still applies its own capability and isolation checks before use.
 
 ## Rules
@@ -24,7 +24,7 @@ adapters; CTN still applies its own capability and isolation checks before use.
   the evaluator offers must be, because the adapter chooses which runs. A `host` evaluator such
   as `jvm`, a `restricted` one, an evaluator that reports nothing, and output that cannot be
   read all mean the content is not run.
-- **The evaluator must be trusted**, with `ext ctx adapter trust NAME` (or standalone
+- **The evaluator must be trusted**, with `ext adapter trust NAME` (or standalone
   `ctx adapter trust NAME`), like any ext adapter.
 - **The evaluator is chosen by the file's extension** (`.wasm` is `wasm`; `.evm` and `.hex`
   are `evm`), or named with `--engine`. Anything else needs `--engine`.

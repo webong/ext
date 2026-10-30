@@ -10,8 +10,9 @@ invocation. CTX and CTN are products built on Ext and can run standalone; each
 product owns its own selection and command dispatch. Adapters are ext adapters,
 not owned by the interface invoking them. `ext` is the main installer and combined
 entry point; CTX and CTN consume the declared capabilities available to them,
-including in standalone mode. Current adapter management uses `ext ctx adapter`
-or standalone `ctx adapter`; `ctn adapter ls` is read-only. See
+including in standalone mode. Current adapter management uses `ext adapter`
+or standalone `ctx adapter`, both backed by
+`pkg/ext-go/engine/host/adapter/adaptercmd`; `ctn adapter ls` is read-only. See
 [adapter management](docs/adr-adapter-management.md).
 
 Shared libraries may

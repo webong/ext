@@ -24,6 +24,7 @@ import (
 	plugin "github.com/webong/ext/pkg/ext-go/engine"
 	"github.com/webong/ext/pkg/ext-go/engine/endpoint"
 	"math"
+	"os"
 	"regexp"
 	"runtime/cgo"
 	"strings"
@@ -114,6 +115,8 @@ func status(s C.ext_status) error {
 		return endpoint.ErrExpired
 	case C.EXT_EXISTS:
 		return ErrPackageExists
+	case C.EXT_MISSING:
+		return fmt.Errorf("a file or directory is missing: %w", os.ErrNotExist)
 	case C.EXT_CANCELED:
 		return context.Canceled
 	case C.EXT_TIMEOUT:

@@ -90,10 +90,11 @@ static char *narrow(const wchar_t *w) {
   }
   return s;
 }
-/* A missing path and any other failure are both EXT_IO, as on POSIX. */
+/* A name that is not there is EXT_MISSING, any other failure EXT_IO, as on POSIX. */
 static ext_status win_error(DWORD error) {
-  (void)error;
-  return EXT_IO;
+  return error == ERROR_FILE_NOT_FOUND || error == ERROR_PATH_NOT_FOUND
+             ? EXT_MISSING
+             : EXT_IO;
 }
 /* Attributes of path without following a link. */
 static ext_status attributes(const wchar_t *path, DWORD *out) {
@@ -325,9 +326,10 @@ ext_status ext_fs_open(const char *root, ext_fs **out) {
                             FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT,
                             NULL);
   if (dir == INVALID_HANDLE_VALUE) {
+    DWORD error = GetLastError();
     free(fs->root);
     free(fs);
-    return EXT_IO;
+    return win_error(error);
   }
   fs->canonical = final_path(dir);
   CloseHandle(dir);
@@ -375,8 +377,9 @@ ext_status ext_fs_read_file(ext_fs *fs, const char *path, size_t limit,
                          FILE_FLAG_OPEN_REPARSE_POINT | FILE_FLAG_SEQUENTIAL_SCAN,
                          NULL);
   if (h == INVALID_HANDLE_VALUE) {
+    DWORD error = GetLastError();
     free(full);
-    return EXT_IO;
+    return win_error(error);
   }
   BY_HANDLE_FILE_INFORMATION info;
   LARGE_INTEGER size;

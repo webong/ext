@@ -1,8 +1,8 @@
 package store
 
 import (
-	"errors"
 	"fmt"
+	"github.com/webong/ext/pkg/ext-go/cgoengine"
 	plugin "github.com/webong/ext/pkg/ext-go/engine"
 	"path/filepath"
 	"sort"
@@ -26,7 +26,8 @@ type Layered struct {
 }
 
 // NewLayered returns a view over stores in priority order, highest first. It
-// needs at least one store and rejects nil entries and repeated roots.
+// needs at least one store and rejects nil entries, repeated roots and stores
+// whose limits differ: the view applies one set of limits to all its roots.
 func NewLayered(stores ...*Store) (*Layered, error) {
 	if len(stores) == 0 {
 		return nil, plugin.ErrInvalid
@@ -41,6 +42,9 @@ func NewLayered(stores ...*Store) (*Layered, error) {
 			return nil, fmt.Errorf("%w: store root %q repeated", plugin.ErrInvalid, s.root)
 		}
 		seen[root] = true
+		if s.limits != stores[0].limits {
+			return nil, fmt.Errorf("%w: store %q has other limits than the first", plugin.ErrInvalid, s.root)
+		}
 	}
 	return &Layered{stores: append([]*Store(nil), stores...)}, nil
 }
@@ -55,52 +59,60 @@ func (l *Layered) Roots() []string {
 	return roots
 }
 
+// view runs call on the engine's layered view over the roots. The stores' locks are held, in the
+// order of their roots whatever the priority, so that two views over the same stores cannot wait on
+// each other, and a Store's installs and removals in this process do not interleave with the read.
+func (l *Layered) view(call func(*cgoengine.LayeredPackageStore) error) error {
+	order := append([]*Store(nil), l.stores...)
+	sort.Slice(order, func(i, j int) bool { return order[i].root < order[j].root })
+	for _, s := range order {
+		s.mu.Lock()
+		defer s.mu.Unlock()
+	}
+	v, err := cgoengine.OpenLayeredPackageStore(l.Roots(), packageLimits(l.stores[0].limits))
+	if err != nil {
+		return err
+	}
+	defer v.Close()
+	return call(v)
+}
+
 // Load returns the verified package from the first store that holds id.
 // ErrNotFound means no store holds it.
 func (l *Layered) Load(id string) (Installed, error) {
 	if !validID(id) {
 		return Installed{}, plugin.ErrInvalid
 	}
-	for _, s := range l.stores {
-		p, err := s.Load(id)
-		if errors.Is(err, ErrNotFound) {
-			continue
+	var out Installed
+	err := l.view(func(v *cgoengine.LayeredPackageStore) error {
+		record, err := v.Load(id)
+		if err != nil {
+			return storeError(err)
 		}
-		return p, err
-	}
-	return Installed{}, ErrNotFound
+		installed, err := installedRecords([]cgoengine.PackageRecord{record}, l.stores[0].limits)
+		if err != nil {
+			return err
+		}
+		out = installed[0]
+		return nil
+	})
+	return out, err
 }
 
 // List verifies and returns one package per ID, sorted by ID, each from the
 // highest-priority store that holds it. It fails closed on the first bad
 // package or unexpected entry in any store. A missing root is empty.
 func (l *Layered) List() ([]Installed, error) {
-	winner := map[string]*Store{}
-	for _, s := range l.stores {
-		ids, err := s.listIDs()
+	var out []Installed
+	err := l.view(func(v *cgoengine.LayeredPackageStore) error {
+		records, err := v.List()
 		if err != nil {
-			return nil, err
+			return storeError(err)
 		}
-		for _, id := range ids {
-			if _, taken := winner[id]; !taken {
-				winner[id] = s
-			}
-		}
-	}
-	ids := make([]string, 0, len(winner))
-	for id := range winner {
-		ids = append(ids, id)
-	}
-	sort.Strings(ids)
-	out := make([]Installed, 0, len(ids))
-	for _, id := range ids {
-		p, err := winner[id].Load(id)
-		if err != nil {
-			return nil, fmt.Errorf("package %s: %w", id, err)
-		}
-		out = append(out, p)
-	}
-	return out, nil
+		out, err = installedRecords(records, l.stores[0].limits)
+		return err
+	})
+	return out, err
 }
 
 // Verify checks what Load and List would serve and reports every failure
@@ -110,22 +122,16 @@ func (l *Layered) List() ([]Installed, error) {
 // and changes nothing. Results are sorted by ID, then by store priority. The
 // error is only for a root that cannot be read.
 func (l *Layered) Verify() ([]Check, error) {
-	claimed := map[string]bool{}
 	var out []Check
-	for _, s := range l.stores {
-		s.mu.Lock()
-		checks, ids, err := s.verifyAll(func(id string) bool { return claimed[id] })
-		s.mu.Unlock()
+	err := l.view(func(v *cgoengine.LayeredPackageStore) error {
+		checks, err := v.Verify()
 		if err != nil {
-			return nil, err
+			return storeError(err)
 		}
-		for _, id := range ids {
-			claimed[id] = true
-		}
-		out = append(out, checks...)
-	}
-	sort.SliceStable(out, func(i, j int) bool { return out[i].ID < out[j].ID })
-	return out, nil
+		out = packageChecks(checks)
+		return nil
+	})
+	return out, err
 }
 
 // ListUnverified returns one package's manifest per ID, each from the
@@ -140,25 +146,16 @@ func (l *Layered) Verify() ([]Check, error) {
 // directory is reported in the store it sits in. Results are sorted by ID. The
 // error is only for a root that cannot be read.
 func (l *Layered) ListUnverified() ([]Installed, []Check, error) {
-	claimed := map[string]bool{}
 	var installed []Installed
 	var problems []Check
-	for _, s := range l.stores {
-		s.mu.Lock()
-		got, bad, ids, err := s.manifestsAll(func(id string) bool { return claimed[id] })
-		s.mu.Unlock()
+	err := l.view(func(v *cgoengine.LayeredPackageStore) error {
+		records, checks, err := v.ListUnverified()
 		if err != nil {
-			return nil, nil, err
+			return storeError(err)
 		}
-		for _, id := range ids {
-			claimed[id] = true
-		}
-		installed = append(installed, got...)
-		problems = append(problems, bad...)
-	}
-	sort.SliceStable(installed, func(i, j int) bool {
-		return installed[i].Manifest.Descriptor.Identity.ID < installed[j].Manifest.Descriptor.Identity.ID
+		installed, err = installedRecords(records, l.stores[0].limits)
+		problems = packageChecks(checks)
+		return err
 	})
-	sort.SliceStable(problems, func(i, j int) bool { return problems[i].ID < problems[j].ID })
-	return installed, problems, nil
+	return installed, problems, err
 }

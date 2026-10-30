@@ -48,7 +48,10 @@ enum {
   /* A time has run out: an endpoint whose expiry is already past. */
   EXT_EXPIRED,
   /* What was to be created is already there: a package already installed. */
-  EXT_EXISTS
+  EXT_EXISTS,
+  /* A file or directory that is not there: a package source, its manifest or an
+   * artifact it lists. Other failures to read are EXT_IO. */
+  EXT_MISSING
 };
 typedef struct ext_cancel ext_cancel;
 EXT_HOST_API ext_status ext_cancel_create(ext_cancel **out);

@@ -163,6 +163,12 @@ int main(int argc, char **argv) {
   assert(ext_store_remove(store, "Bad") == EXT_INVALID);
   assert(ext_store_install(store, "", 0, &manifest) == EXT_INVALID);
   assert(ext_store_install(store, s1, 2u, &manifest) == EXT_INVALID);
+  {
+    char *nowhere = join(base, "no-such-source");
+    assert(ext_store_install(store, nowhere, 0, &manifest) == EXT_MISSING);
+    assert(ext_store_replace(store, nowhere, 0, &manifest) == EXT_MISSING);
+    free(nowhere);
+  }
   ext_fs_kind none;
   assert(ext_fs_probe(root, &none) == EXT_OK && none == EXT_FS_NONE);
 
@@ -249,7 +255,7 @@ int main(int argc, char **argv) {
     put(src, "src/main.py", "changed", 0);
     assert(ext_store_install(store, s2, 0, &manifest) == EXT_MISMATCH);
     assert(ext_fs_remove_all(src, "src/main.py") == EXT_OK);
-    assert(ext_store_install(store, s2, 0, &manifest) != EXT_OK); /* missing */
+    assert(ext_store_install(store, s2, 0, &manifest) == EXT_MISSING); /* an artifact */
     put(src, "src/main.py", "cee", 0);
     assert(ext_fs_remove_all(src, "data/sub/y.txt") == EXT_OK);
     assert(ext_store_install(store, s2, 0, &manifest) == EXT_MISMATCH); /* tree */
@@ -261,6 +267,7 @@ int main(int argc, char **argv) {
     ext_fs *src = NULL;
     assert(ext_fs_make_root(s3) == EXT_OK && ext_fs_open(s3, &src) == EXT_OK);
     assert(ext_fs_remove_all(src, "plugin.json") == EXT_OK);
+    assert(ext_store_install(store, s3, 0, &manifest) == EXT_MISSING); /* no manifest */
     char sum[65];
     sha("{}", sum);
     char text[1024];
@@ -294,6 +301,7 @@ int main(int argc, char **argv) {
     char *p = join(root, "example%2fa");
     assert(ext_fs_open(p, &pkg) == EXT_OK);
     assert(ext_fs_remove_all(pkg, "src/main.py") == EXT_OK);
+    assert(ext_store_load(store, "example/a", &loaded) == EXT_MISSING);
     put(pkg, "src/main.py", "tampered", 0);
     assert(ext_store_load(store, "example/a", &loaded) == EXT_MISMATCH);
     put(pkg, "stray", "x", 0);

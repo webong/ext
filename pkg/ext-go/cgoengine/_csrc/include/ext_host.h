@@ -475,6 +475,59 @@ EXT_HOST_API ext_status ext_store_load(ext_store *store, const char *id,
  * Staging directories (a leading ".") are skipped; any other entry that is not a
  * package directory is EXT_INVALID. Nothing is read or verified. */
 EXT_HOST_API ext_status ext_store_ids(ext_store *store, ext_buffer *ids);
+/* Whole-root reports, as JSON. Every line has "id" (the directory name when
+ * that is not a valid package id), "directory" (the root joined with the
+ * entry's name, lexically cleaned) and "layer" (0 for a store; the position of
+ * the root in a layered view). Lines are sorted by id, then layer. Staging
+ * directories (a leading ".") are skipped and a missing root is empty. The
+ * status is only for a root that cannot be read, or for the failure that stops
+ * a list.
+ *
+ * ext_store_list reads and verifies every package and returns an array of
+ * {id, directory, layer, manifest}, the manifest being plugin.json as an
+ * embedded value. It fails with the status of the first entry that is not a
+ * package directory and of the first package that does not verify.
+ *
+ * ext_store_verify checks every entry and does not stop at a bad one: an array
+ * of {id, directory, layer, status}, where status is the ext_status verifying
+ * it gave (0, EXT_OK, verified; EXT_INVALID for an entry that is not a package
+ * directory). It runs nothing and changes nothing.
+ *
+ * ext_store_list_unverified reads only the manifests and checks them against
+ * their directory names; no artifact is read or hashed, so THE RESULT IS
+ * UNVERIFIED and must not be launched or trusted as it stands. It returns
+ * {"packages": [{id, directory, layer, manifest}], "problems": [{id, directory,
+ * layer, status}]}; a package that cannot be read does not hide the others. */
+EXT_HOST_API ext_status ext_store_list(ext_store *store, ext_buffer *packages);
+EXT_HOST_API ext_status ext_store_verify(ext_store *store, ext_buffer *checks);
+EXT_HOST_API ext_status ext_store_list_unverified(ext_store *store,
+                                                  ext_buffer *listing);
+/* A read-only view over several roots in priority order, highest first, such as
+ * a user root before a system root. An id is served from the first root that
+ * holds it; a copy in a lower root is shadowed and never read. If the winning
+ * copy does not verify, load and list fail instead of falling back to a lower
+ * one. The view never writes, so a system root is never created or modified
+ * through it; install, upgrade and remove stay with the ext_store the caller
+ * owns. It has no default roots. Roots are compared as cleaned paths: a repeated
+ * root, an empty one, or no root at all is EXT_INVALID. Reports are those of
+ * ext_store_list, ext_store_verify and ext_store_list_unverified over all the
+ * roots, one line per id from the root that serves it. */
+typedef struct ext_layered ext_layered;
+EXT_HOST_API ext_status ext_layered_open(const char *const *roots, size_t count,
+                                         const ext_store_limits *limits,
+                                         ext_layered **out);
+EXT_HOST_API void ext_layered_close(ext_layered *layered);
+/* Read and verify the package from the first root that holds id, returning its
+ * plugin.json and, when layer is not NULL, the position of that root.
+ * EXT_NOT_FOUND means no root holds it. */
+EXT_HOST_API ext_status ext_layered_load(ext_layered *layered, const char *id,
+                                         ext_buffer *manifest, size_t *layer);
+EXT_HOST_API ext_status ext_layered_list(ext_layered *layered,
+                                         ext_buffer *packages);
+EXT_HOST_API ext_status ext_layered_verify(ext_layered *layered,
+                                           ext_buffer *checks);
+EXT_HOST_API ext_status ext_layered_list_unverified(ext_layered *layered,
+                                                    ext_buffer *listing);
 /* Pure engine services: strict bounded JSON input/output, no runtime callbacks,
  * filesystem access, discovery or authorization. Returns an owned JSON value.
  * See services.md for operations and schemas. Free output with ext_buffer_free.

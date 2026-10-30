@@ -4,10 +4,14 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": { "types": "./index.d.mts", "default": "./index.mjs" }
+    ".": { "types": "./index.d.mts", "default": "./index.mjs" },
+    "./native": { "types": "./native.d.mts", "default": "./native.mjs" },
+    "./workspace": { "types": "./workspace.d.mts", "default": "./workspace.mjs" },
+    "./userscripts": { "types": "./userscripts.d.mts", "default": "./userscripts.mjs" },
+    "./bridge": { "types": "./bridge.d.mts", "default": "./bridge.mjs" }
   },
   "scripts": {
-    "test": "node --test test.mjs",
+    "test": "node --test test.mjs *.test.mjs",
     "build:examples": "node examples/build.mjs"
   },
   "engines": { "node": ">=22" }

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createHost, createGuest, PeerError } from './index.mjs';
+import { createHost, createGuest, createHub, createSpoke, discoverExtension, PeerError } from './index.mjs';
 
 function event() { const listeners = new Set(); return { addListener: x => listeners.add(x), removeListener: x => listeners.delete(x), emit: x => { for (const listener of [...listeners]) listener(x); } }; }
 function messages() { const listeners = new Set(); const queued = []; return { addListener(listener) { listeners.add(listener); for (const value of queued.splice(0)) listener(value); }, removeListener: listener => listeners.delete(listener), emit(value) { if (!listeners.size) queued.push(value); else for (const listener of [...listeners]) listener(value); } }; }
@@ -59,4 +59,79 @@ test('authorization, cancellation, and timeout keep the session usable', async (
   await assert.rejects(guest.call('host.slow', 'x', { timeoutMs: 5 }), { code: 'timeout' });
   assert.equal(await guest.call('host.echo', 'still ready'), 'still ready');
   guest.stop(); host.stop();
+});
+
+test('invalid and oversized peer frames close the connection', async () => {
+  const runtime = browserPair(); const host = createHost({ runtime, admit: () => true }); host.start();
+  const port = runtime.connect('host', { name: 'ext.web.peer' });
+  port.postMessage({ version: 'wrong', type: 'hello', methods: [] });
+  await until(() => host.peers().length === 0);
+  const second = runtime.connect('host', { name: 'ext.web.peer' });
+  second.postMessage({ version: 'ext.web.peer/v1', type: 'hello', methods: [] });
+  await until(() => host.peers().length === 1);
+  second.postMessage({ version: 'ext.web.peer/v1', type: 'state', value: 'x'.repeat(1024 * 1024) });
+  await until(() => host.peers().length === 0);
+  host.stop();
+});
+
+test('new registration replaces a stale connection from the same extension', async () => {
+  const runtime = browserPair(); const host = createHost({ runtime, admit: () => true }); host.start();
+  const first = runtime.connect('host', { name: 'ext.web.peer' });
+  let disconnected = false; first.onDisconnect.addListener(() => { disconnected = true; });
+  first.postMessage({ version: 'ext.web.peer/v1', type: 'hello', methods: ['old.method'] });
+  await until(() => host.peers()[0]?.methods[0] === 'old.method');
+  const second = runtime.connect('host', { name: 'ext.web.peer' });
+  second.postMessage({ version: 'ext.web.peer/v1', type: 'hello', methods: ['new.method'] });
+  await until(() => disconnected && host.peers()[0]?.methods[0] === 'new.method');
+  second.disconnect(); host.stop();
+});
+
+test('spoke registers, updates state, and replays its snapshot after host restart', async () => {
+  const runtime = browserPair(); const states = [];
+  const host = createHost({ runtime, admit: () => true, onState: (_sender, state) => states.push(state) });
+  const spoke = createSpoke({ runtime, hostId: 'host', name: 'Example', initialState: { count: 1 }, uiPath: 'popup.html', reconnectMs: 1 });
+  host.start(); spoke.start();
+  await until(() => states.length === 1);
+  assert.deepEqual(states[0], { type: 'register', name: 'Example', state: { count: 1 }, uiPath: 'popup.html' });
+  assert.equal(spoke.updateState({ count: 2 }), true);
+  await until(() => states.length === 2);
+  host.stop(); host.start();
+  await until(() => states.length === 3);
+  assert.deepEqual(states[2].state, { count: 2 });
+  spoke.stop(); host.stop();
+});
+
+test('optional discovery selects an enabled extension and changes hosts', async () => {
+  const selected = await discoverExtension(ext => ext.name === 'Host', { getAll: async () => [{ id: 'off', name: 'Host', enabled: false }, { id: 'host', name: 'Host', enabled: true }] });
+  assert.equal(selected, 'host');
+  const runtime = browserPair(); const host = createHost({ runtime, admit: () => true });
+  let found = null; const spoke = createSpoke({ runtime, name: 'Example', discover: async () => found, discoveryMs: 100000 });
+  host.start(); spoke.start();
+  found = 'host'; await spoke.refresh(); await until(() => spoke.connected());
+  found = null; await spoke.refresh(); assert.equal(spoke.connected(), false);
+  spoke.stop(); host.stop();
+});
+
+test('hub registry uses browser sender IDs and detached state snapshots', async () => {
+  const runtime = browserPair(); const changes = [];
+  const hub = createHub({ runtime, admit: sender => sender.id === 'guest', onSpokesChange: spokes => changes.push(spokes) });
+  const spoke = createSpoke({ runtime, hostId: 'host', name: 'Notes', initialState: { notes: [] } });
+  hub.start(); spoke.start(); await until(() => hub.spokes().length === 1);
+  assert.equal(hub.spokes()[0].id, 'guest');
+  const detached = hub.spokes(); detached[0].state.notes.push('fake');
+  assert.deepEqual(hub.spokes()[0].state, { notes: [] });
+  spoke.updateState({ notes: ['real'] }); await until(() => changes.length === 2);
+  assert.deepEqual(hub.spokes()[0].state, { notes: ['real'] });
+  spoke.stop(); await until(() => hub.spokes().length === 0); hub.stop();
+});
+
+test('late discovery cannot reconnect a stopped spoke', async () => {
+  const runtime = browserPair(); const host = createHost({ runtime, admit: () => true }); host.start();
+  let resolveDiscovery;
+  const spoke = createSpoke({ runtime, name: 'Late', discover: () => new Promise(resolve => { resolveDiscovery = resolve; }), discoveryMs: 100000 });
+  spoke.start(); await until(() => !!resolveDiscovery);
+  spoke.stop(); resolveDiscovery('host');
+  await new Promise(resolve => setTimeout(resolve, 1));
+  assert.equal(spoke.hostId(), null); assert.equal(host.peers().length, 0);
+  host.stop();
 });

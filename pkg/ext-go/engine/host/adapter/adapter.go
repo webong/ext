@@ -272,6 +272,8 @@ func (s *Store) Load(name string) (*Adapter, error) {
 		if err != nil {
 			return nil, err
 		}
+		// A changed artifact must remain loadable so Verify can report the
+		// distinct "changed" trust state; invocation still requires trust.
 		if _, err := packages.Load(name); err != nil && !errors.Is(err, plugin.ErrMismatch) {
 			return nil, err
 		}
@@ -407,10 +409,13 @@ func (s *Store) AssertTrusted(a *Adapter) error {
 	if !trusted {
 		return fmt.Errorf("adapter %s is not trusted or changed; run ctx adapter trust %s after reviewing it", a.Manifest.Name, a.Manifest.Name)
 	}
-	return nil
+	return s.verifySealedEntrypoint(a)
 }
 
 func (s *Store) Trust(a *Adapter) error {
+	if err := s.verifySealedEntrypoint(a); err != nil {
+		return err
+	}
 	checksum, err := a.Checksum()
 	if err != nil {
 		return err
@@ -423,6 +428,30 @@ func (s *Store) Trust(a *Adapter) error {
 		return err
 	}
 	return file.Record(adapterTrustScope, a.Manifest.Name, checksum)
+}
+
+// verifySealedEntrypoint binds an adapter's argv launcher to the reviewed
+// package. Legacy hand-copied templates remain loadable for migration.
+func (s *Store) verifySealedEntrypoint(a *Adapter) error {
+	if !sealed(a.Package) {
+		return nil
+	}
+	packages, err := store.New(s.Home, store.Limits{})
+	if err != nil {
+		return err
+	}
+	digest, err := a.Checksum()
+	if err != nil {
+		return err
+	}
+	selected, err := packages.ResolveEntrypoint(a.Manifest.Name, "ext.adapter", APIVersion, Protocol, digest)
+	if err != nil {
+		return err
+	}
+	if filepath.Clean(selected.Path) != filepath.Clean(a.ExecutablePath()) {
+		return plugin.ErrMismatch
+	}
+	return nil
 }
 
 func (s *Store) RemoveTrust(name string) error {
@@ -441,13 +470,7 @@ func (s *Store) Install(source string) (*Adapter, error) {
 	if err := os.MkdirAll(s.Home, 0o700); err != nil {
 		return nil, err
 	}
-	target := filepath.Join(s.Home, loaded.Manifest.Name)
-	if _, err := os.Lstat(target); err == nil {
-		return nil, fmt.Errorf("adapter %s is already installed", loaded.Manifest.Name)
-	} else if !errors.Is(err, os.ErrNotExist) {
-		return nil, err
-	}
-	staging, err := os.MkdirTemp(s.Home, ".install-")
+	staging, err := os.MkdirTemp(s.Home, ".prepare-")
 	if err != nil {
 		return nil, err
 	}
@@ -455,7 +478,11 @@ func (s *Store) Install(source string) (*Adapter, error) {
 	if err := stageForInstall(loaded, staging); err != nil {
 		return nil, err
 	}
-	if err := os.Rename(staging, target); err != nil {
+	packages, err := store.New(s.Home, store.Limits{})
+	if err != nil {
+		return nil, err
+	}
+	if _, err := packages.InstallWithOptions(staging, store.CopyOptions{PreserveExecutableArtifacts: true}); err != nil {
 		return nil, err
 	}
 	return s.Load(loaded.Manifest.Name)
@@ -495,8 +522,8 @@ func stageForInstall(loaded *Adapter, staging string) error {
 	return verifyPackage(staged.Directory, staged.Package)
 }
 
-// Replace validates and stages an adapter before swapping it into the store.
-// If the final rename fails, the previous adapter is restored.
+// Replace validates and seals an adapter, then delegates the atomic swap to
+// the shared package store. The previous package survives a failed swap.
 func (s *Store) Replace(source string) (*Adapter, error) {
 	loaded, err := LoadDirectory(source)
 	if err != nil {
@@ -505,7 +532,7 @@ func (s *Store) Replace(source string) (*Adapter, error) {
 	if err := os.MkdirAll(s.Home, 0o700); err != nil {
 		return nil, err
 	}
-	staging, err := os.MkdirTemp(s.Home, ".replace-")
+	staging, err := os.MkdirTemp(s.Home, ".prepare-")
 	if err != nil {
 		return nil, err
 	}
@@ -516,44 +543,14 @@ func (s *Store) Replace(source string) (*Adapter, error) {
 	if _, err := LoadDirectory(staging); err != nil {
 		return nil, err
 	}
-
-	target := filepath.Join(s.Home, loaded.Manifest.Name)
-	backupRoot, err := os.MkdirTemp(s.Home, ".backup-")
+	packages, err := store.New(s.Home, store.Limits{})
 	if err != nil {
 		return nil, err
 	}
-	defer os.RemoveAll(backupRoot)
-	backup := filepath.Join(backupRoot, loaded.Manifest.Name)
-	hadTarget := false
-	if _, err := os.Lstat(target); err == nil {
-		if err := os.Rename(target, backup); err != nil {
-			return nil, err
-		}
-		hadTarget = true
-	} else if !errors.Is(err, os.ErrNotExist) {
+	if _, err := packages.ReplaceWithOptions(staging, store.CopyOptions{PreserveExecutableArtifacts: true}); err != nil {
 		return nil, err
 	}
-	if err := os.Rename(staging, target); err != nil {
-		if hadTarget {
-			if restoreErr := os.Rename(backup, target); restoreErr != nil {
-				return nil, errors.Join(err, fmt.Errorf("restore previous adapter: %w", restoreErr))
-			}
-		}
-		return nil, err
-	}
-	replaced, err := s.Load(loaded.Manifest.Name)
-	if err == nil {
-		return replaced, nil
-	}
-	if removeErr := os.RemoveAll(target); removeErr != nil {
-		return nil, errors.Join(err, fmt.Errorf("remove invalid replacement: %w", removeErr))
-	}
-	if hadTarget {
-		if restoreErr := os.Rename(backup, target); restoreErr != nil {
-			return nil, errors.Join(err, fmt.Errorf("restore previous adapter: %w", restoreErr))
-		}
-	}
-	return nil, err
+	return s.Load(loaded.Manifest.Name)
 }
 
 func (s *Store) Remove(name string) error {
@@ -564,7 +561,15 @@ func (s *Store) Remove(name string) error {
 	if filepath.Clean(loaded.Directory) != filepath.Join(filepath.Clean(s.Home), name) {
 		return errors.New("refusing to remove adapter outside adapter home")
 	}
-	if err := os.RemoveAll(loaded.Directory); err != nil {
+	if sealed(loaded.Package) {
+		packages, err := store.New(s.Home, store.Limits{})
+		if err != nil {
+			return err
+		}
+		if err := packages.Remove(name); err != nil {
+			return err
+		}
+	} else if err := os.RemoveAll(loaded.Directory); err != nil {
 		return err
 	}
 	return s.RemoveTrust(name)

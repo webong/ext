@@ -15,6 +15,7 @@ import (
 	"testing"
 
 	plugin "github.com/webong/ext/pkg/ext-go/engine"
+	sharedstore "github.com/webong/ext/pkg/ext-go/engine/host/store"
 	packagekit "github.com/webong/ext/pkg/ext-go/engine/package"
 )
 
@@ -155,9 +156,22 @@ func TestInstallSealsForThisPlatformAndKeepsHelpers(t *testing.T) {
 	if err := verifyPackage(installed.Directory, installed.Package); err != nil {
 		t.Fatal(err)
 	}
+	packages, err := sharedstore.New(store.Home, sharedstore.Limits{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := packages.Load("echo"); err != nil {
+		t.Fatalf("shared store cannot load installed adapter: %v", err)
+	}
 	for _, kept := range []string{"ctx-echo-share", filepath.Join("assets", "policy.json")} {
 		if _, err := os.Stat(filepath.Join(installed.Directory, kept)); err != nil {
 			t.Errorf("installed adapter lacks %s: %v", kept, err)
+		}
+	}
+	if runtime.GOOS != "windows" {
+		info, err := os.Stat(filepath.Join(installed.Directory, "ctx-echo-share"))
+		if err != nil || info.Mode().Perm()&0o111 == 0 {
+			t.Fatalf("executable helper lost its mode: %v, %v", info, err)
 		}
 	}
 	_, err = os.Stat(filepath.Join(installed.Directory, "ctx-echo.ps1"))
@@ -197,6 +211,24 @@ func TestInstallSealsForThisPlatformAndKeepsHelpers(t *testing.T) {
 	}
 	if state, err := store.TrustState(copied); err != nil || state != TrustTrusted {
 		t.Fatalf("trust state %v %v", state, err)
+	}
+}
+
+func TestTrustRejectsDamagedSealedAdapter(t *testing.T) {
+	root := t.TempDir()
+	s := NewStore(filepath.Join(root, "installed"))
+	installed, err := s.Install(scriptSource(t, filepath.Join(root, "source"), "echo"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(installed.ExecutablePath(), []byte("tampered\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Trust(installed); err == nil {
+		t.Fatal("damaged sealed package was trusted")
+	}
+	if trusted, err := s.IsTrusted(installed); err != nil || trusted {
+		t.Fatalf("damaged package trust: %v, %v", trusted, err)
 	}
 }
 

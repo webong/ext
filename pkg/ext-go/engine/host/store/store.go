@@ -56,6 +56,13 @@ type Limits struct {
 	MaxTreeBytes int64
 }
 
+// CopyOptions lets a consumer retain executable helper artifacts in addition
+// to declared entrypoints. The default install keeps non-entrypoint files
+// non-executable; hosts using this option must authorize those helpers.
+type CopyOptions struct {
+	PreserveExecutableArtifacts bool
+}
+
 func (l Limits) normalize() Limits {
 	if l.MaxArtifactBytes == 0 {
 		l.MaxArtifactBytes = DefaultMaxArtifactBytes
@@ -309,6 +316,11 @@ func (s *Store) manifestsAll(skip func(id string) bool) ([]Installed, []Check, [
 // Install copies the package in source (a directory holding ManifestName and
 // the listed artifacts) into the store. It never replaces an existing package.
 func (s *Store) Install(source string) (Installed, error) {
+	return s.InstallWithOptions(source, CopyOptions{})
+}
+
+// InstallWithOptions installs a verified package using explicit copy policy.
+func (s *Store) InstallWithOptions(source string, options CopyOptions) (Installed, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	m, err := s.checkSource(source)
@@ -322,13 +334,18 @@ func (s *Store) Install(source string) (Installed, error) {
 	} else if !errors.Is(err, os.ErrNotExist) {
 		return Installed{}, err
 	}
-	return s.stage(source, m, dest)
+	return s.stage(source, m, dest, options)
 }
 
 // Upgrade replaces an installed package with a new revision of the same ID.
 // Contract names and versions must match; operations may change, so the caller
 // must re-review authority. The previous installation survives any failure.
 func (s *Store) Upgrade(source string) (Installed, error) {
+	return s.UpgradeWithOptions(source, CopyOptions{})
+}
+
+// UpgradeWithOptions upgrades a package using explicit copy policy.
+func (s *Store) UpgradeWithOptions(source string, options CopyOptions) (Installed, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	m, err := s.checkSource(source)
@@ -350,12 +367,46 @@ func (s *Store) Upgrade(source string) (Installed, error) {
 	if old.Descriptor.Identity.Revision == m.Descriptor.Identity.Revision {
 		return Installed{}, fmt.Errorf("%w: upgrade requires a new revision", plugin.ErrInvalid)
 	}
+	return s.replaceInstalled(source, m, dest, options)
+}
+
+// Replace installs or replaces a package of the same ID, including changes to
+// its contracts or assets. Consumers must re-review trust after replacement.
+func (s *Store) Replace(source string) (Installed, error) {
+	return s.ReplaceWithOptions(source, CopyOptions{})
+}
+
+// ReplaceWithOptions is Replace with explicit copy policy.
+func (s *Store) ReplaceWithOptions(source string, options CopyOptions) (Installed, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	m, err := s.checkSource(source)
+	if err != nil {
+		return Installed{}, err
+	}
+	dest := s.dir(m.Descriptor.Identity.ID)
+	info, err := os.Lstat(dest)
+	if errors.Is(err, os.ErrNotExist) {
+		return s.stage(source, m, dest, options)
+	}
+	if err != nil {
+		return Installed{}, err
+	}
+	if !info.IsDir() {
+		return Installed{}, fmt.Errorf("%w: package directory is not a directory", plugin.ErrInvalid)
+	}
+	return s.replaceInstalled(source, m, dest, options)
+}
+
+// replaceInstalled stages and verifies the new package before swapping it
+// into place. The caller holds s.mu and has checked the existing directory.
+func (s *Store) replaceInstalled(source string, m packagekit.Manifest, dest string, options CopyOptions) (Installed, error) {
 	backupRoot, err := s.tempDir(".backup-")
 	if err != nil {
 		return Installed{}, err
 	}
 	defer os.RemoveAll(backupRoot)
-	staged, err := s.stage(source, m, filepath.Join(backupRoot, "new"))
+	staged, err := s.stage(source, m, filepath.Join(backupRoot, "new"), options)
 	if err != nil {
 		return Installed{}, err
 	}
@@ -425,7 +476,7 @@ func (s *Store) tempDir(prefix string) (string, error) {
 }
 
 // stage copies into a fresh directory, verifies it, then renames it to dest.
-func (s *Store) stage(source string, m packagekit.Manifest, dest string) (Installed, error) {
+func (s *Store) stage(source string, m packagekit.Manifest, dest string, options CopyOptions) (Installed, error) {
 	staging, err := s.tempDir(".install-")
 	if err != nil {
 		return Installed{}, err
@@ -439,6 +490,18 @@ func (s *Store) stage(source string, m packagekit.Manifest, dest string) (Instal
 		mode := os.FileMode(0o600)
 		if executable[a.Name] {
 			mode = 0o700
+		} else if options.PreserveExecutableArtifacts && a.Kind != packagekit.ArtifactTree {
+			path, err := securePath(source, a.Path)
+			if err != nil {
+				return Installed{}, err
+			}
+			info, err := os.Lstat(path)
+			if err != nil {
+				return Installed{}, err
+			}
+			if info.Mode().Perm()&0o111 != 0 {
+				mode = 0o700
+			}
 		}
 		if err := copyArtifact(source, staging, a, s.limits, mode); err != nil {
 			return Installed{}, fmt.Errorf("artifact %s: %w", a.Name, err)

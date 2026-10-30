@@ -98,6 +98,62 @@ func TestLifecycle(t *testing.T) {
 	}
 }
 
+func TestReplacePreservesReviewedExecutableHelpers(t *testing.T) {
+	s := newStore(t)
+	first := source(t, "example/helper", "r1", "one")
+	if err := os.Chmod(filepath.Join(first, "src", "main.py"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	installed, err := s.InstallWithOptions(first, store.CopyOptions{PreserveExecutableArtifacts: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	before, err := installed.Digest()
+	if err != nil {
+		t.Fatal(err)
+	}
+	second := source(t, "example/helper", "r1", "two")
+	if err := os.Chmod(filepath.Join(second, "src", "main.py"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	replaced, err := s.ReplaceWithOptions(second, store.CopyOptions{PreserveExecutableArtifacts: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if after, err := replaced.Digest(); err != nil || after == before {
+		t.Fatalf("replacement digest: %q, %v", after, err)
+	}
+	path, err := replaced.ArtifactPath("main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if runtime.GOOS != "windows" && info.Mode().Perm()&0o100 == 0 {
+		t.Fatal("executable helper lost its owner execute bit")
+	}
+	broken := source(t, "example/helper", "r1", "three")
+	if err := os.WriteFile(filepath.Join(broken, "src", "main.py"), []byte("changed after sealing"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.ReplaceWithOptions(broken, store.CopyOptions{PreserveExecutableArtifacts: true}); err == nil {
+		t.Fatal("corrupt replacement accepted")
+	}
+	retained, err := s.Load("example/helper")
+	if err != nil {
+		t.Fatal(err)
+	}
+	path, err = retained.ArtifactPath("main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if body, err := os.ReadFile(path); err != nil || string(body) != "two" {
+		t.Fatalf("previous package not retained: %q, %v", body, err)
+	}
+}
+
 func TestUpgradeRejectsContractChange(t *testing.T) {
 	s := newStore(t)
 	if _, err := s.Install(source(t, "example/a", "r1", "one")); err != nil {

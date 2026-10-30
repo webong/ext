@@ -37,6 +37,12 @@ four groups:
 The [`cgoengine`](../cgoengine) module has engine-routed variants of `host` and `host/store` with an
 identical API.
 
+Both stores own installation, replacement, removal, and verification for sealed
+packages. `CopyOptions.PreserveExecutableArtifacts` is an explicit option for
+hosts whose packages include executable helpers outside the declared entrypoint;
+ordinary installs keep those files non-executable. CTX seals adapter templates
+with adapter-specific metadata, then uses this store for the package lifecycle.
+
 ## The package manifest
 
 A package directory holds `plugin.json`, the `ext.package/v1` manifest, and exactly the artifacts it lists

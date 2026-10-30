@@ -6,10 +6,11 @@ for the current operating system. It can be distributed as a platform-specific
 ctx installs adapters under `$EXT_HOME/adapters`; it never discovers or sources
 code from the current directory or arbitrary `PATH` entries.
 
-The home is shared by every ext product, so an adapter installed and trusted
-once is available to ctx and ctn alike; trust is global to the user, not per
-product. `EXT_HOME` sets the home and `EXT_ADAPTER_HOME` sets just the adapter
-directory. `CTX_HOME` and `CTX_ADAPTER_HOME` are still honored for existing
+The home is shared by every ext product. CTX's adapter trust record is scoped
+to the adapter protocol and its exact installed package digest; CTN's provider
+trust records have separate scopes. `EXT_HOME` sets the home and
+`EXT_ADAPTER_HOME` sets just the adapter directory. `CTX_HOME` and
+`CTX_ADAPTER_HOME` are still honored for existing
 installations, and an existing `~/.config/ctx` directory keeps being used until
 `~/.config/ext` is created. A product that does not understand an adapter's
 runtime ignores it.
@@ -48,9 +49,11 @@ the files the adapter needs but not their digests, which do not exist until the
 executable is built. `ctx adapter install`, `build` and `pack` seal it: they add
 the digest of every file, the platform of the launcher, and a revision, then write
 the sealed `plugin.json` that an installed adapter carries and that ctx's trust
-digest covers. A sealed manifest lists exactly the files in the directory. A directory copied into
-the adapter home by hand keeps its template; it loads, and the trust digest of its files covers it
-like any other adapter.
+digest covers. The shared Ext package store performs the final install,
+replacement, removal, and verification. A sealed manifest lists exactly the
+files in the directory. A directory copied into the adapter home by hand keeps
+its template; it loads, and the trust digest of its files covers it like any
+other adapter.
 
 ~~~json
 {

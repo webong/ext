@@ -830,7 +830,8 @@ fn writeFile(path: [:0]const u8, body: []const u8) !void {
     if (body.len != 0 and libc.fwrite(body.ptr, 1, body.len, file) != body.len) return error.WriteFailed;
 }
 fn printZ(a: std.mem.Allocator, comptime format: []const u8, args: anytype) ![:0]u8 {
-    return a.dupeZ(u8, try std.fmt.allocPrint(a, format, args));
+    const text = try std.fmt.allocPrint(a, format ++ "\x00", args);
+    return text[0 .. text.len - 1 :0];
 }
 /// A source package at `dir`: src/main.py holding `body`, under `id` at `revision`.
 fn writePackage(a: std.mem.Allocator, dir: [:0]const u8, id: []const u8, revision: []const u8, contract: []const u8, body: []const u8) !void {

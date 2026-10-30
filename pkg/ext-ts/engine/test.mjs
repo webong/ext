@@ -345,3 +345,89 @@ test('C package store serializes concurrent calls and refuses calls once closed'
   await rejectsWith(store.ids(),5); // closed
  }finally{store.close();await rm(base,{recursive:true,force:true});}
 });
+// The reports and the layered view: the Go store is the baseline, and this checks the addon reaches the same behavior.
+test('C package store reports cover every entry',async()=>{
+ const base=await mkdtemp(join(tmpdir(),'ext-node-store-'));
+ const root=join(base,'store');
+ const store=new engine.PackageStore(root);
+ try{
+  // a missing root is empty, and asking does not make it
+  assert.deepEqual(await store.list(),[]);
+  assert.deepEqual(await store.verify(),[]);
+  assert.deepEqual(await store.listUnverified(),{packages:[],problems:[]});
+  await assert.rejects(stat(root),{code:'ENOENT'});
+  const a=await storePackage(join(base,'s1'),{id:'example/a',revision:'r1',body:'one'});
+  const b=await storePackage(join(base,'s2'),{id:'example/b',revision:'r1',body:'two',tree:true});
+  await store.install(a);await store.install(b);
+  const aDir=join(root,'example%2fa'),bDir=join(root,'example%2fb'); // the engine's cleaned path is what join gives
+  const manifest=async dir=>JSON.parse(await readFile(join(dir,'plugin.json'),'utf8'));
+  assert.deepEqual(await store.list(),[
+   {id:'example/a',directory:aDir,layer:0,manifest:await manifest(a)},
+   {id:'example/b',directory:bDir,layer:0,manifest:await manifest(b)}]);
+  assert.deepEqual(await store.verify(),[
+   {id:'example/a',directory:aDir,layer:0,status:0},
+   {id:'example/b',directory:bDir,layer:0,status:0}]);
+  // verify reports a bad entry and goes on; list fails closed; the unverified listing reads no artifact
+  await writeFile(join(bDir,'src','main.py'),'tampered');
+  assert.deepEqual(await store.verify(),[
+   {id:'example/a',directory:aDir,layer:0,status:0},
+   {id:'example/b',directory:bDir,layer:0,status:status.MISMATCH}]);
+  await rejectsWith(store.list(),status.MISMATCH);
+  const unverified=await store.listUnverified();
+  assert.deepEqual(unverified.packages.map(p=>p.id),['example/a','example/b']);
+  assert.deepEqual(unverified.problems,[]);
+  // an entry that is not a package is a problem, an error in list and a status in verify; staging is skipped
+  await writeFile(join(root,'stray'),'x');await mkdir(join(root,'.install-left'));
+  await rejectsWith(store.list(),status.INVALID);
+  const strays=await store.listUnverified();
+  assert.deepEqual(strays.packages.map(p=>p.id),['example/a','example/b']);
+  assert.deepEqual(strays.problems,[{id:'stray',directory:join(root,'stray'),layer:0,status:status.INVALID}]);
+  assert.ok((await store.verify()).some(c=>c.id==='stray'&&c.status===status.INVALID));
+ }finally{store.close();await rm(base,{recursive:true,force:true});}
+});
+test('C layered view serves the highest root and never writes',async()=>{
+ const base=await mkdtemp(join(tmpdir(),'ext-node-store-'));
+ const high=join(base,'user'),low=join(base,'system'),absent=join(base,'absent');
+ const top=new engine.PackageStore(high),bottom=new engine.PackageStore(low);
+ let view;
+ try{
+  const winner=await top.install(await storePackage(join(base,'s1'),{id:'example/a',revision:'r1',body:'high'}));
+  await bottom.install(await storePackage(join(base,'s2'),{id:'example/a',revision:'r1',body:'low'}));
+  const lone=await bottom.install(await storePackage(join(base,'s3'),{id:'example/c',revision:'r1',body:'cee'}));
+  view=new engine.LayeredPackageStore([high,low,absent]);
+  assert.deepEqual(await view.load('example/a'),{manifest:winner,layer:0});
+  assert.deepEqual(await view.load('example/c'),{manifest:lone,layer:1});
+  await rejectsWith(view.load('example/none'),status.NOT_FOUND);
+  await rejectsWith(view.load('../bad'),status.INVALID);
+  const listed=await view.list();
+  assert.deepEqual(listed.map(p=>[p.id,p.layer,p.directory]),[
+   ['example/a',0,join(high,'example%2fa')],['example/c',1,join(low,'example%2fc')]],'one line per id, from the root that serves it');
+  await assert.rejects(stat(absent),{code:'ENOENT'});
+  // a shadowed copy is never read
+  await writeFile(join(low,'example%2fa','src','main.py'),'tampered');
+  await view.load('example/a');await view.list();
+  // a damaged winner fails closed instead of falling back to the copy below
+  await writeFile(join(high,'example%2fa','src','main.py'),'tampered');
+  await rejectsWith(view.load('example/a'),status.MISMATCH);
+  await rejectsWith(view.list(),status.MISMATCH);
+  assert.ok((await view.verify()).some(c=>c.id==='example/a'&&c.layer===0&&c.status===status.MISMATCH));
+  assert.deepEqual((await view.listUnverified()).packages.map(p=>[p.id,p.layer]),[['example/a',0],['example/c',1]]);
+  // a closed view refuses, but lets a call in flight finish
+  const pending=view.list().catch(error=>error.status);view.close();
+  assert.equal(await pending,status.MISMATCH);
+  await rejectsWith(view.list(),5);
+ }finally{view?.close();top.close();bottom.close();await rm(base,{recursive:true,force:true});}
+});
+test('C layered view refuses what is not a set of roots',async()=>{
+ const base=await mkdtemp(join(tmpdir(),'ext-node-store-'));
+ try{
+  const one=join(base,'one');
+  assert.throws(()=>new engine.LayeredPackageStore([]),TypeError);
+  assert.throws(()=>new engine.LayeredPackageStore(['']),TypeError);
+  assert.throws(()=>new engine.LayeredPackageStore('not an array'),TypeError);
+  assert.throws(()=>new engine.LayeredPackageStore([one],{maxTreeFiles:-1}),TypeError);
+  assert.throws(()=>new engine.LayeredPackageStore([one,one]),e=>e.status===status.INVALID);
+  assert.throws(()=>new engine.LayeredPackageStore([one,one+'/./']),e=>e.status===status.INVALID,'the same root spelled differently');
+  new engine.LayeredPackageStore([one,join(base,'two')]).close();
+ }finally{await rm(base,{recursive:true,force:true});}
+});

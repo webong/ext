@@ -10,7 +10,7 @@ await call(session,healthMethod,{});
 await call(session,method,{value:123});
 void output;
 
-import {loadEngine} from './engine/index.mjs';
+import {loadEngine, type PackageRecord, type PackageCheck, type UnverifiedListing} from './engine/index.mjs';
 const engine=loadEngine('/absolute/path/ext_engine.node');
 const nativeHost=await engine.Host.open({executable:'/absolute/path/guest',descriptor:{},verify:()=>true,authorize:async()=>true,observe:event=>{void event.stage;}});
 await nativeHost.call({name:'example.echo',version:'v1'},'echo',{value:'ok'},{timeout:1000});
@@ -23,9 +23,16 @@ await packageStore.upgrade('/absolute/path/package');
 await packageStore.replace('/absolute/path/package');
 const stored:string=await packageStore.load('example/a');
 const installedIds:string[]=await packageStore.ids();
+const listed:PackageRecord[]=await packageStore.list();
+const checked:PackageCheck[]=await packageStore.verify();
+const unverified:UnverifiedListing=await packageStore.listUnverified();
 await packageStore.remove('example/a');
 packageStore.close();
-void installed;void stored;void installedIds;
+const layered=new engine.LayeredPackageStore(['/absolute/path/user','/absolute/path/system'],{maxTreeFiles:100});
+const served:{manifest:string;layer:number}=await layered.load('example/a');
+await layered.list();await layered.verify();await layered.listUnverified();
+layered.close();
+void installed;void stored;void installedIds;void listed;void checked;void unverified;void served;
 
 import { FrameError, Limiter, splitProgressText, type CallFrames } from './index.mjs';
 const withFrames = new Registry({id:'example/frames',revision:'r1'})

@@ -1245,15 +1245,18 @@ static napi_value lease_info(napi_env env, napi_callback_info info) {
   napi_set_named_property(env, out, "id", id);
   return out;
 }
-/* The package store (ext_store_*). A store is an external; its calls run on libuv
+/* The package store (ext_store_*) and the read-only layered view over several
+ * stores (ext_layered_*). Either is an external; its calls run on libuv
  * workers, since they read and write files, and resolve with the installed
- * manifest or the id list as a string. A job holds a reference to the store's
- * external, so the store cannot be collected while one runs; closing a store
- * with jobs outstanding lets the last of them close it. */
+ * manifest, the id list or a report as a string (a layered load resolves with
+ * the manifest and the layer that served it). A job holds a reference to the
+ * external, so it cannot be collected while one runs; closing with jobs
+ * outstanding lets the last of them close it. */
 static const napi_type_tag store_tag = {0x5b1d9e3a07c24f86ULL,
                                         0xa3f60d82e91b7c45ULL};
 typedef struct {
   ext_store *store;
+  ext_layered *layered;
   size_t jobs;
   int closing, finalized;
 } store_box;
@@ -1265,14 +1268,20 @@ typedef struct {
   char *operation, *argument;
   uint32_t flags;
   ext_buffer output;
+  size_t layer;
+  int with_layer;
   ext_status status;
 } store_job;
 static void settle_store(store_box *box) {
   if (box->jobs)
     return;
-  if ((box->closing || box->finalized) && box->store) {
-    ext_store_close(box->store);
+  if (box->closing || box->finalized) {
+    if (box->store)
+      ext_store_close(box->store);
     box->store = NULL;
+    if (box->layered)
+      ext_layered_close(box->layered);
+    box->layered = NULL;
   }
   if (box->finalized)
     free(box);
@@ -1321,10 +1330,75 @@ static napi_value open_store(napi_env env, napi_callback_info info) {
     return failure(env, "allocation failed");
   return out;
 }
+static napi_value open_layered(napi_env env, napi_callback_info info) {
+  size_t count = 4;
+  napi_value args[4], out;
+  int64_t artifact = 0, tree_bytes = 0;
+  uint32_t tree_files = 0, length = 0;
+  bool is_array = false;
+  if (napi_get_cb_info(env, info, &count, args, NULL, NULL) != napi_ok ||
+      count != 4 || napi_is_array(env, args[0], &is_array) != napi_ok ||
+      !is_array || napi_get_array_length(env, args[0], &length) != napi_ok ||
+      !length || napi_get_value_int64(env, args[1], &artifact) != napi_ok ||
+      artifact < 0 || napi_get_value_uint32(env, args[2], &tree_files) != napi_ok ||
+      napi_get_value_int64(env, args[3], &tree_bytes) != napi_ok ||
+      tree_bytes < 0)
+    return failure(env, "invalid layered store arguments");
+  char **roots = calloc(length, sizeof(*roots));
+  store_box *box = calloc(1, sizeof(*box));
+  ext_status status = roots && box ? EXT_OK : EXT_NOMEM;
+  for (uint32_t i = 0; !status && i < length; i++) {
+    napi_value item;
+    size_t n = 0;
+    if (napi_get_element(env, args[0], i, &item) != napi_ok ||
+        !(roots[i] = string(env, item, &n)) || strlen(roots[i]) != n || !n)
+      status = EXT_INVALID;
+  }
+  ext_store_limits limits = {(uint64_t)artifact, tree_files,
+                             (uint64_t)tree_bytes};
+  if (!status)
+    status = ext_layered_open((const char *const *)roots, length, &limits,
+                              &box->layered);
+  for (uint32_t i = 0; roots && i < length; i++)
+    free(roots[i]);
+  free(roots);
+  if (status) {
+    free(box);
+    return failure_status(env, status);
+  }
+  if (napi_create_external(env, box, destroy_store_external, NULL, &out) !=
+      napi_ok) {
+    ext_layered_close(box->layered);
+    free(box);
+    return failure(env, "allocation failed");
+  }
+  /* The external owns the box from here on. */
+  if (napi_type_tag_object(env, out, &store_tag) != napi_ok)
+    return failure(env, "allocation failed");
+  return out;
+}
+static void layered_execute(store_job *j) {
+  ext_layered *l = j->box->layered;
+  if (!strcmp(j->operation, "load")) {
+    j->with_layer = 1;
+    j->status = ext_layered_load(l, j->argument, &j->output, &j->layer);
+  } else if (!strcmp(j->operation, "list"))
+    j->status = ext_layered_list(l, &j->output);
+  else if (!strcmp(j->operation, "verify"))
+    j->status = ext_layered_verify(l, &j->output);
+  else if (!strcmp(j->operation, "listUnverified"))
+    j->status = ext_layered_list_unverified(l, &j->output);
+  else
+    j->status = EXT_INVALID;
+}
 static void store_execute(napi_env env, void *data) {
   (void)env;
   store_job *j = data;
   ext_store *s = j->box->store;
+  if (j->box->layered) {
+    layered_execute(j);
+    return;
+  }
   if (!strcmp(j->operation, "install"))
     j->status = ext_store_install(s, j->argument, j->flags, &j->output);
   else if (!strcmp(j->operation, "upgrade"))
@@ -1337,6 +1411,12 @@ static void store_execute(napi_env env, void *data) {
     j->status = ext_store_load(s, j->argument, &j->output);
   else if (!strcmp(j->operation, "ids"))
     j->status = ext_store_ids(s, &j->output);
+  else if (!strcmp(j->operation, "list"))
+    j->status = ext_store_list(s, &j->output);
+  else if (!strcmp(j->operation, "verify"))
+    j->status = ext_store_verify(s, &j->output);
+  else if (!strcmp(j->operation, "listUnverified"))
+    j->status = ext_store_list_unverified(s, &j->output);
   else
     j->status = EXT_INVALID;
 }
@@ -1368,6 +1448,14 @@ static void store_complete(napi_env env, napi_status code, void *data) {
     napi_create_string_utf8(env,
                             j->output.data ? (char *)j->output.data : "null",
                             j->output.data ? j->output.len : 4, &value);
+    if (j->with_layer) {
+      napi_value result, layer;
+      napi_create_object(env, &result);
+      napi_set_named_property(env, result, "manifest", value);
+      napi_create_double(env, (double)j->layer, &layer);
+      napi_set_named_property(env, result, "layer", layer);
+      value = result;
+    }
     napi_resolve_deferred(env, j->deferred, value);
   }
   free_store_job(env, j);
@@ -1384,7 +1472,7 @@ static napi_value store_request(napi_env env, napi_callback_info info) {
   if (!j)
     return failure(env, "allocation failed");
   if (!external(env, args[0], &store_tag, (void **)&j->box) ||
-      !j->box->store || j->box->closing ||
+      !(j->box->store || j->box->layered) || j->box->closing ||
       !(j->operation = string(env, args[1], &on)) ||
       strlen(j->operation) != on ||
       !(j->argument = string(env, args[2], &an)) || strlen(j->argument) != an ||
@@ -1433,6 +1521,8 @@ static napi_value init(napi_env env, napi_value exports) {
        NULL},
       {"leaseInfo", NULL, lease_info, NULL, NULL, NULL, napi_default, NULL},
       {"openStore", NULL, open_store, NULL, NULL, NULL, napi_default, NULL},
+      {"openLayered", NULL, open_layered, NULL, NULL, NULL, napi_default,
+       NULL},
       {"storeRequest", NULL, store_request, NULL, NULL, NULL, napi_default,
        NULL},
       {"closeStore", NULL, close_store, NULL, NULL, NULL, napi_default, NULL}};

@@ -38,6 +38,15 @@ return a `Buffer` that is freed with `deinit`; `ids` is a JSON array of strings.
 root is an empty store, made by the first install; calls on one `Store` are serialized by
 the engine, several processes mutating one root are yours to serialize.
 
+`Store.list`, `verify` and `listUnverified` are the whole-root reports, and `Layered` is
+the read-only view over several roots in priority order (`init` with a slice of
+`[*:0]const u8` roots, then `load`, which returns a `Served` with the manifest and the
+layer, `list`, `verify` and `listUnverified`). Each report is a `Buffer` of the engine's
+JSON, freed with `deinit`; the shapes are in `ext_store_list` of
+`lib/plugin/include/ext_host.h`. `listUnverified` reads no artifact: its result is
+unverified and must not be launched or trusted as it stands. A damaged winner in a layered
+view fails closed instead of falling back to a lower root.
+
 The guest handler uses the C copying result sink. It must cooperate with its
 remaining time and must not retain borrowed pointers. Instance/stream APIs are
 available through both ownership wrappers and `ffi`. Release all leases and join

@@ -89,6 +89,32 @@ export interface PackageStore {
  load(id: string): Promise<string>;
  /** The installed ids in byte order, without reading any package. */
  ids(): Promise<string[]>;
+ /** Reads and verifies every package. Rejects with the status of the first entry that is not a package directory and of the first package that does not verify. */
+ list(): Promise<PackageRecord[]>;
+ /** Checks every entry and does not stop at a bad one; each `status` is the engine status verifying it gave (0 verified). Runs nothing and changes nothing. */
+ verify(): Promise<PackageCheck[]>;
+ /** Reads only the manifests and checks them against their directory names. No artifact is read or hashed, so THE RESULT IS UNVERIFIED and must not be launched or trusted as it stands. */
+ listUnverified(): Promise<UnverifiedListing>;
+ close(): void;
+}
+/** One installed package in a report: the entry's id, its directory (the root joined with the entry's name, cleaned), the position of the root that serves it (0 for a store) and its plugin.json as a value. */
+export interface PackageRecord { id: string; directory: string; layer: number; manifest: unknown }
+/** One entry checked by `verify`, or a problem found by `listUnverified`. */
+export interface PackageCheck { id: string; directory: string; layer: number; status: number }
+export interface UnverifiedListing { packages: PackageRecord[]; problems: PackageCheck[] }
+/**
+ * A read-only view over several roots in priority order, highest first, such as a user root before a system
+ * root. An id is served from the first root that holds it; a copy in a lower root is shadowed and never read.
+ * If the winning copy does not verify, `load` and `list` reject instead of falling back to a lower one. The
+ * view never writes, so a system root is never created or modified through it. Roots are compared as cleaned
+ * paths: a repeated root throws an Error whose `status` is INVALID from the constructor.
+ */
+export interface LayeredPackageStore {
+ /** Reads and verifies the package from the first root that holds `id`; resolves with its plugin.json and the position of that root. Rejects with NOT_FOUND when no root holds it. */
+ load(id: string): Promise<{ manifest: string; layer: number }>;
+ list(): Promise<PackageRecord[]>;
+ verify(): Promise<PackageCheck[]>;
+ listUnverified(): Promise<UnverifiedListing>;
  close(): void;
 }
 export function loadEngine(addonPath: string): {
@@ -97,6 +123,7 @@ export function loadEngine(addonPath: string): {
  Instances: { new<T>(options: InstanceOptions<T>): Instances<T> };
  Streams: { new(options: StreamOptions): Streams };
  PackageStore: { new(root: string, limits?: PackageStoreLimits): PackageStore };
+ LayeredPackageStore: { new(roots: string[], limits?: PackageStoreLimits): LayeredPackageStore };
  service(operation: string, input: unknown): unknown;
  /** Each throws an Error whose `status` is INVALID, DENIED or EXPIRED when the endpoint is not admitted. */
  endpoint: { check(endpoint: unknown): void; validate(endpoint: unknown, policy?: { schemes?: string[]; maxLifetimeMilliseconds?: number; now?: string }): void };

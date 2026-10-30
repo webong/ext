@@ -39,6 +39,15 @@ over an installed id) and `Error::NOT_FOUND`. A missing root is an empty store, 
 by the first install; calls on one `Store` are serialized by the engine, several
 processes mutating one root are yours to serialize. `tests/store.rs` covers it.
 
+`Store::list`, `verify` and `list_unverified` are the whole-root reports, and
+`store::Layered` is the read-only view over several roots in priority order (`open`,
+`load`, `list`, `verify`, `list_unverified`). They return the engine's JSON bytes as
+`load` returns `plugin.json`, so you parse them with your own JSON library (the crate has
+no dependencies); the shapes are in `ext_store_list` of `lib/plugin/include/ext_host.h`.
+`list_unverified` reads no artifact: its result is unverified and must not be launched or
+trusted as it stands. A damaged winner in a layered view fails closed instead of falling
+back to a lower root.
+
 `Guest` snapshots its descriptor and dispatches through a Rust handler. Handlers
 receive borrowed requests, remaining time and optional cancellation. Public
 errors are explicit; panics/private failures are sanitized by the engine. Native

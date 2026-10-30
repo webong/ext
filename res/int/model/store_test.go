@@ -8,12 +8,23 @@ import (
 	"testing"
 )
 
-func TestStoreInstallResolveListRemove(t *testing.T) {
-	root := t.TempDir()
+func openStoreForTest(t *testing.T, root string) *Store {
+	t.Helper()
 	store, err := OpenStore(root)
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(func() {
+		if err := store.Close(); err != nil {
+			t.Errorf("close model store: %v", err)
+		}
+	})
+	return store
+}
+
+func TestStoreInstallResolveListRemove(t *testing.T) {
+	root := t.TempDir()
+	store := openStoreForTest(t, root)
 	manifest := validManifest()
 	files := map[string][]byte{
 		"model.onnx": []byte("model bytes"),
@@ -62,10 +73,7 @@ func TestStoreInstallResolveListRemove(t *testing.T) {
 
 func TestStoreInstallRejectsDigestMismatch(t *testing.T) {
 	root := t.TempDir()
-	store, err := OpenStore(root)
-	if err != nil {
-		t.Fatal(err)
-	}
+	store := openStoreForTest(t, root)
 	manifest := validManifest()
 	files := map[string][]byte{
 		"model.onnx": []byte("tampered bytes"),
@@ -77,10 +85,7 @@ func TestStoreInstallRejectsDigestMismatch(t *testing.T) {
 
 func TestStoreInstallRejectsMissingArtifact(t *testing.T) {
 	root := t.TempDir()
-	store, err := OpenStore(root)
-	if err != nil {
-		t.Fatal(err)
-	}
+	store := openStoreForTest(t, root)
 	manifest := validManifest()
 	if _, err := store.InstallFromBytes(context.Background(), manifest, map[string][]byte{}); !errors.Is(err, ErrInvalid) {
 		t.Fatalf("missing artifact = %v", err)
@@ -89,10 +94,7 @@ func TestStoreInstallRejectsMissingArtifact(t *testing.T) {
 
 func TestStoreInstallReportsIdenticalAndRejectsDifferent(t *testing.T) {
 	root := t.TempDir()
-	store, err := OpenStore(root)
-	if err != nil {
-		t.Fatal(err)
-	}
+	store := openStoreForTest(t, root)
 	manifest := validManifest()
 	files := map[string][]byte{"model.onnx": []byte("model bytes")}
 	first, err := store.InstallFromBytes(context.Background(), manifest, files)
@@ -119,10 +121,7 @@ func TestStoreInstallReportsIdenticalAndRejectsDifferent(t *testing.T) {
 
 func TestStoreTamperDetection(t *testing.T) {
 	root := t.TempDir()
-	store, err := OpenStore(root)
-	if err != nil {
-		t.Fatal(err)
-	}
+	store := openStoreForTest(t, root)
 	manifest := validManifest()
 	files := map[string][]byte{"model.onnx": []byte("model bytes")}
 	installed, err := store.InstallFromBytes(context.Background(), manifest, files)
@@ -158,10 +157,7 @@ func TestStoreRejectsRelativeAndSymlinkRoot(t *testing.T) {
 
 func TestStoreRemovesEmptyParentDirectories(t *testing.T) {
 	root := t.TempDir()
-	store, err := OpenStore(root)
-	if err != nil {
-		t.Fatal(err)
-	}
+	store := openStoreForTest(t, root)
 	manifest := validManifest()
 	if _, err := store.InstallFromBytes(context.Background(), manifest, map[string][]byte{"model.onnx": []byte("model bytes")}); err != nil {
 		t.Fatal(err)
@@ -174,5 +170,48 @@ func TestStoreRemovesEmptyParentDirectories(t *testing.T) {
 	}
 	if _, err := os.Stat(root); os.IsNotExist(err) {
 		t.Fatal("root directory was pruned")
+	}
+}
+
+func TestStorePruningPreservesSiblingModelsAndVersions(t *testing.T) {
+	root := t.TempDir()
+	store := openStoreForTest(t, root)
+	first := validManifest()
+	newer := first
+	newer.Version = "v2.0.0"
+	sibling := first
+	sibling.Name = "other-model"
+	otherProvider := first
+	otherProvider.Provider = "other-provider"
+	ctx := context.Background()
+	for _, manifest := range []Manifest{first, newer, sibling, otherProvider} {
+		if _, err := store.InstallFromBytes(ctx, manifest, map[string][]byte{"model.onnx": []byte("model bytes")}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for step, removed := range []Manifest{first, newer, sibling} {
+		if err := store.Remove(ctx, removed.Provider, removed.Name, removed.Version); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := store.Resolve(ctx, otherProvider.Provider, otherProvider.Name, otherProvider.Version); err != nil {
+			t.Fatalf("other provider was affected: %v", err)
+		}
+		switch step {
+		case 0:
+			if _, err := store.Resolve(ctx, newer.Provider, newer.Name, newer.Version); err != nil {
+				t.Fatalf("sibling version was affected: %v", err)
+			}
+		case 1:
+			if _, err := os.Stat(filepath.Join(root, first.Provider, first.Name)); !os.IsNotExist(err) {
+				t.Fatalf("empty model directory not pruned: %v", err)
+			}
+			if _, err := store.Resolve(ctx, sibling.Provider, sibling.Name, sibling.Version); err != nil {
+				t.Fatalf("sibling model was affected: %v", err)
+			}
+		case 2:
+			if _, err := os.Stat(filepath.Join(root, first.Provider)); !os.IsNotExist(err) {
+				t.Fatalf("empty provider directory not pruned: %v", err)
+			}
+		}
 	}
 }

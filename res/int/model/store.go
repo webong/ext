@@ -412,7 +412,8 @@ func (s *Store) Remove(ctx context.Context, provider, name, version string) erro
 	nameDir := filepath.Join(reference.Provider, reference.Name)
 	providerDir := reference.Provider
 	for _, dir := range []string{nameDir, providerDir} {
-		entries, listErr := fs.ReadDir(s.root.FS(), dir)
+		// io/fs names use forward slashes even when os.Root paths use backslashes.
+		entries, listErr := fs.ReadDir(s.root.FS(), filepath.ToSlash(dir))
 		if listErr != nil || len(entries) != 0 {
 			continue
 		}

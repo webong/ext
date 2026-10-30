@@ -223,7 +223,7 @@ Browser-API cookie export, permission requests, user interaction, and export
 delivery belong to the exporting application or extension. CTX consumes the
 supplied payload through its portable inline/fallback APIs. Native store, container,
 and partition fields that require browser-specific interpretation are
-normalized by the owning CTX adapter before entering the portable pipeline.
+normalized by the owning ext adapter before entering the portable pipeline.
 
 Windows Chromium App-Bound `v20` cookies cannot be decrypted by the maintained
 standalone adapter. Safari reads its accessible disk cookie store and can miss

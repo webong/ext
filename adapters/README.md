@@ -1,11 +1,19 @@
-# Adapters
+# ext adapters
 
-This directory contains every tool-specific integration maintained in the ctx
+This directory contains every tool-specific integration maintained in the ext
 repository.
 
-External Go adapters can use the public `github.com/webong/ext/adapter` process
-parser and ship a platform-specific `.ctxadapter` archive. A bare ctx binary
-installs that archive without Go; source builds use `ctx adapter build`.
+Adapters can be written in any language that implements `ext.adapter/2.0`.
+Go authors can use `ParseAdapterInvocation` from
+`github.com/webong/ext/pkg/ext-go/engine`. Ship a platform-specific `.ctxadapter`
+archive with its executable and runtime assets.
+
+`ext` is the main installer: use `ext ctx adapter install` for adapters today,
+and `ext ctx adapter build` for Go source builds. Standalone `ctx adapter`
+provides the same management commands. CTX and CTN consume the capabilities
+available to them from the shared adapter home, including when running
+standalone; `ctn adapter ls` is read-only. An adapter can serve both products.
+See [adapter management](../docs/adr-adapter-management.md).
 
 `docker`, `podman`, `nerdctl`, and `apple` are maintained manager providers.
 Their manifests declare `runtime = "manager"` and `surfaces = "shell"`;
@@ -26,7 +34,7 @@ explicit adapter installation copies those launcher files into the binary
 directory under the native command names so ordinary commands can be context-aware. The provider
 implementations themselves remain installed and trusted under
 `$EXT_HOME/adapters`.
-The `internal/mod` Go package manages these ctx modifications: manifests,
+The `pkg/ext-go/engine/host/adapter` library owns adapter manifests,
 installation, trust, and invocation. Provider behavior stays in `adapters/`.
 
 `rancher_desktop`, `orbstack`, and `docker_desktop` are manager-app adapters.
@@ -61,7 +69,7 @@ adapters with the packaged helper. A core-only update leaves installed browser
 adapters in place; refresh the optional catalog when updating their helpers.
 
 `kube`, `aws`, `gcloud`, `postgres`, `mysql`, and `php` are maintained computer-runtime
-adapters. Every adapter has a `plugin.json` manifest (an ext package template) and implements ctx adapter
+adapters. Every adapter has a `plugin.json` manifest (an ext package template) and implements the ext adapter
 API v2.0. Only explicit adapter selection downloads or prepares maintained
 packages in `$EXT_HOME/catalog/adapters`; `ctx setup` or `ctx adapter add` activates selected
 packages under `$EXT_HOME/adapters` and records their checksum trust. A package

@@ -1,11 +1,19 @@
-# Build an adapter
+# Build an ext adapter
 
-An adapter is a separate process that implements the shared adapter contract. It
+An ext adapter is a separate process that implements the shared adapter contract. It
 can be written in Go, a shell language, or another language. A ready-to-run
 adapter needs a manifest, an executable for the target OS, and any runtime
 assets or dependencies that executable uses.
 
-Have `ctx` installed before using the build, pack, or install commands below.
+Use `ext` as the main installation entry point. The commands below use
+`ext ctx adapter`, the currently implemented adapter-management route. With
+standalone `ctx`, omit the `ext` prefix. CTN can consume installed adapters
+without running CTX; its `ctn adapter ls` command is read-only.
+
+Adapters belong to Ext, not to the interface that invokes them. CTX and CTN
+consume the declared capabilities they understand and permit, provided the
+adapter is installed, trusted, and available in their configured home. One
+adapter can serve both products. See [adapter management](adr-adapter-management.md).
 
 ## Required pieces
 
@@ -78,7 +86,7 @@ selectable Go CLI adapter can start with:
 }
 ```
 
-This is a **template**: leave `sha256` and `revision` empty. CTX fills them in
+This is a **template**: leave `sha256` and `revision` empty. The adapter management command fills them in
 when it installs, builds or packs the adapter (it seals the manifest), lists the
 other files in the directory too, and records the platform on the launcher.
 [The manifest reference](adapter-api.md#manifest) maps every adapter field to its
@@ -185,9 +193,9 @@ compiled package does not need the source checkout or this replacement.
 Build a package for your current machine, or select an explicit target:
 
 ```sh
-ctx adapter build ./my-adapter
-ctx adapter build ./my-adapter --os darwin --arch arm64
-ctx adapter build ./my-adapter --os windows --arch amd64
+ext ctx adapter build ./my-adapter
+ext ctx adapter build ./my-adapter --os darwin --arch arm64
+ext ctx adapter build ./my-adapter --os windows --arch amd64
 ```
 
 The default output is `my-adapter/dist/my_tool-<os>-<arch>.ctxadapter`.
@@ -199,7 +207,7 @@ author; native libraries may require a suitable target toolchain.
 To build the repository's complete example, run this from the CTX checkout:
 
 ```sh
-ctx adapter build ./pkg/ext-go/examples/adapters/go_echo
+ext ctx adapter build ./pkg/ext-go/examples/adapters/go_echo
 ```
 
 ### Other languages or an already-built executable
@@ -215,7 +223,7 @@ ready-package/
 
 ```sh
 chmod +x ./ready-package/ctx-my-tool
-ctx adapter pack ./ready-package --os darwin --arch arm64 \
+ext ctx adapter pack ./ready-package --os darwin --arch arm64 \
   --output ./my_tool-darwin-arm64.ctxadapter
 ```
 
@@ -228,13 +236,13 @@ Windows entry point. Interpreted adapters still need their interpreter installed
 On a matching platform:
 
 ```sh
-ctx adapter install ./my-adapter/dist/my_tool-darwin-arm64.ctxadapter
-ctx adapter inspect my_tool
+ext ctx adapter install ./my-adapter/dist/my_tool-darwin-arm64.ctxadapter
+ext ctx adapter inspect my_tool
 # Review the installed manifest, executable, and runtime files.
-ctx adapter trust my_tool
+ext ctx adapter trust my_tool
 ctx ls my_tool
 ctx set my_tool local
-ctx adapter doctor my_tool
+ext ctx adapter doctor my_tool
 ```
 
 Use a selection your implementation actually returns; `local` is an example.
@@ -246,7 +254,7 @@ files requires reviewing and trusting the changed content again. Trust allows
 the adapter to execute with the user's permissions; it is not an OS sandbox.
 
 For a ready directory containing the host executable,
-`ctx adapter test ./ready-package` validates the package and runs its `doctor`
+`ext ctx adapter test ./ready-package` validates the package and runs its `doctor`
 operation. It executes adapter code and does not check every declared operation.
 Authors should also exercise discovery, invalid selections, argument forwarding,
 missing dependencies, and the native operations they declare.

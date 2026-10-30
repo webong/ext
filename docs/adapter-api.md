@@ -1,12 +1,12 @@
-# ctx adapter API v2.0
+# ext adapter API v2.0
 
 An external adapter is a directory containing `plugin.json` and an executable
 for the current operating system. It can be distributed as a platform-specific
 `.ctxadapter` archive or through a platform index.
-ctx installs adapters under `$EXT_HOME/adapters`; it never discovers or sources
+The adapter management commands install ext adapters under `$EXT_HOME/adapters`; hosts never discover or source
 code from the current directory or arbitrary `PATH` entries.
 
-The home is shared by every ext product. CTX's adapter trust record is scoped
+The home is shared by every ext product. The adapter trust record is scoped
 to the adapter protocol and its exact installed package digest; CTN's provider
 trust records have separate scopes. `EXT_HOME` sets the home and
 `EXT_ADAPTER_HOME` sets just the adapter directory. `CTX_HOME` and
@@ -15,17 +15,35 @@ installations, and an existing `~/.config/ctx` directory keeps being used until
 `~/.config/ext` is created. A product that does not understand an adapter's
 runtime ignores it.
 
-Start with [Build a CTX adapter](adapter-authoring.md) for required files,
+Start with [Build an ext adapter](adapter-authoring.md) for required files,
 operation handlers, source builds, packaging, and installation. This page is
 the detailed API reference.
+
+## Entry points and compatibility
+
+`ext` is the main installer and combined entry point. Today adapter management
+runs through `ext ctx adapter …`; standalone `ctx adapter …` exposes the same
+commands. `ext ctn …` and standalone `ctn …` consume installed capabilities;
+`ctn adapter ls` lists adapters but does not install them. A direct `ext adapter`
+command is planned, not currently implemented.
+
+These are ext adapters regardless of which product invokes them. Availability
+requires a compatible declared capability, the configured adapter home, package
+trust, and the consuming product's policy. Installation does not make every
+capability usable by every product, or authorize invocation.
+
+The protocol is `ext.adapter/2.0`. Existing `ctx.adapter/v1` metadata,
+`CTX_ADAPTER_*` invocation variables, and `.ctxadapter` archive/index suffixes
+remain compatibility spellings; they do not restrict an adapter to CTX.
 
 ## Architecture and ownership
 
 Anything specific to a product, provider, browser, or native tool belongs in its
 adapter package. The adapter owns native protocols, installation and activation,
 discovery conventions, storage formats, signing tools, store URLs, settings
-paths, and diagnostics. CTX core owns generic contracts, validation, trust,
-selection, and dispatch through declared capabilities.
+paths, and diagnostics. Ext libraries own generic contracts, validation, package
+trust, and invocation. CTX and CTN each own their selection and command dispatch
+through the capabilities available to them, including when running standalone.
 
 Shared libraries provide portable workflows and utilities without choosing
 native behavior by adapter name or supplying a product-specific fallback.
@@ -46,9 +64,9 @@ exist. A `plugin.json` is told apart from any other file of that name by its
 
 The `plugin.json` in an adapter's source directory is a **template**: it lists
 the files the adapter needs but not their digests, which do not exist until the
-executable is built. `ctx adapter install`, `build` and `pack` seal it: they add
+executable is built. `ext ctx adapter install`, `build` and `pack` seal it: they add
 the digest of every file, the platform of the launcher, and a revision, then write
-the sealed `plugin.json` that an installed adapter carries and that ctx's trust
+the sealed `plugin.json` that an installed adapter carries and that the adapter trust
 digest covers. The shared Ext package store performs the final install,
 replacement, removal, and verification. A sealed manifest lists exactly the
 files in the directory. A directory copied into the adapter home by hand keeps
@@ -121,7 +139,7 @@ ctx and is closed: an unknown key is an error, so a typo is not ignored. Its key
 | `computer_commands`, `computer_capabilities`, `computer_hook_events`, `computer_hook_default_events` | list | computer endpoint integrations |
 | `computer_hook_settings_file`, `computer_hook_template` | string | computer hook setup |
 | `dependencies_darwin`, `dependencies_linux`, `dependencies_windows` | list | `space:adapter@api` strings |
-| `go_entry` | string | the Go package `ctx adapter build` compiles, default `.` |
+| `go_entry` | string | the Go package `ext ctx adapter build` compiles, default `.` |
 
 To stay short, the rest of this page writes a field in the compact notation
 `key = "value"`, where a list is comma separated: `capabilities = "list,run"` means
@@ -134,7 +152,7 @@ runtime, surface, or ctx command.
 
 `display_name` is optional, user-facing adapter metadata (up to 80 Unicode
 characters, without control characters). CTX falls back to `name` when it is
-absent. It appears in `ctx adapter inspect` and CTX's credential-request notice
+absent. It appears in `ext ctx adapter inspect` and CTX's credential-request notice
 when this trusted adapter declares the selected credential-store dependency.
 The label is not an authentication identity and does not change native OS
 permission dialogs. An adapter changing its manifest needs to be trusted again.
@@ -153,7 +171,7 @@ share space and remain trusted. Manual package installation does not silently
 add dependencies. CTX passes a declared dependency to the child process as
 `CTX_DEPENDENCY_<UPPERCASE_SPACE>`; operations that use it fail if the store is
 missing or untrusted, without blocking unrelated adapter operations.
-`ctx adapter remove` refuses to remove a dependency while an installed adapter
+`ext ctx adapter remove` refuses to remove a dependency while an installed adapter
 declares it; `--force` is available when intentionally breaking that feature.
 
 ### Credential stores
@@ -462,7 +480,7 @@ and [Neura Local settings](https://www.neurarelay.com/operators#neura-local-sett
 
 ## Process protocol
 
-CTX adapters also expose a shared library descriptor through
+ext adapters also expose a shared library descriptor through
 `github.com/webong/ext/pkg/ext-go.AdapterDescriptor`, using the `ext.adapter`
 contract and their native API version. CTX uses the public `plugin` package
 for capability lookup and package integrity checking. The argv and stream
@@ -692,27 +710,27 @@ context when launching their underlying tool.
 ## Lifecycle
 
 ~~~sh
-ctx adapter available
-ctx adapter add example
-ctx adapter refresh
-ctx adapter test ./example
-ctx adapter install ./example
-ctx adapter inspect example
-ctx adapter trust example
-ctx adapter doctor example
-ctx adapter remove example
+ext ctx adapter available
+ext ctx adapter add example
+ext ctx adapter refresh
+ext ctx adapter test ./example
+ext ctx adapter install ./example
+ext ctx adapter inspect example
+ext ctx adapter trust example
+ext ctx adapter doctor example
+ext ctx adapter remove example
 ~~~
 
 ### Binary packages and Go builds
 
-`ctx adapter install` accepts a ready-to-run directory, a local `.ctxadapter`
+`ext ctx adapter install` accepts a ready-to-run directory, a local `.ctxadapter`
 archive, or an HTTPS archive with `--sha256 <digest>`. Installation never runs
 Go or executes the adapter. The archive has the sealed
 `plugin.json`, the platform's executable, and optional runtime assets: exactly the files the
 manifest lists, with the platform recorded on the launcher. ctx rejects archives for another
 platform, unsafe paths, links, oversized contents, files that do not match their
 digests or are not listed, and checksum mismatches.
-It installs the package untrusted; review it and run `ctx adapter trust <name>`
+It installs the package untrusted; review it and run `ext ctx adapter trust <name>`
 before using it.
 
 Go authors can use the public `github.com/webong/ext/pkg/ext-go` package to parse
@@ -739,25 +757,25 @@ package_files = "policy.json,templates"
 ~~~
 
 ~~~sh
-ctx adapter build ./example
-ctx adapter build ./example --os linux --arch amd64
-ctx adapter pack ./ready-package --os linux --arch amd64 --output ./example-linux-amd64.ctxadapter
-ctx adapter install ./example/dist/example-darwin-arm64.ctxadapter
-ctx adapter trust example
+ext ctx adapter build ./example
+ext ctx adapter build ./example --os linux --arch amd64
+ext ctx adapter pack ./ready-package --os linux --arch amd64 --output ./example-linux-amd64.ctxadapter
+ext ctx adapter install ./example/dist/example-darwin-arm64.ctxadapter
+ext ctx adapter trust example
 ~~~
 
-`ctx adapter build` requires Go and emits one archive per target. Cross builds
+`ext ctx adapter build` requires Go and emits one archive per target. Cross builds
 default to `CGO_ENABLED=0` unless the author sets it explicitly. The example
 under `pkg/ext-go/examples/adapters/go_echo` shows the public parser and a complete Go
 adapter. An adapter written in another language can prepare a package directory
-and use `ctx adapter pack` without Go. `pack` seals and includes every regular file in the
+and use `ext ctx adapter pack` without Go. `pack` seals and includes every regular file in the
 given directory, so use a directory containing only runtime files.
 
 Publishers may provide a `.ctxadapter.json` index so users need one install
 reference across platforms. Each package entry includes its own SHA-256 digest;
 an HTTPS index itself also requires `--sha256` on install. Relative package URLs
 are resolved against the index URL. Place the platform archives in one directory
-and run `ctx adapter index ./dist/example.ctxadapter.json ./dist/example-*.ctxadapter`
+and run `ext ctx adapter index ./dist/example.ctxadapter.json ./dist/example-*.ctxadapter`
 to generate the index and its package checksums. The command prints the index
 SHA-256 to give installers out of band.
 
@@ -773,26 +791,26 @@ SHA-256 to give installers out of band.
 ~~~
 
 ~~~sh
-ctx adapter install https://example.com/example.ctxadapter.json --sha256 "$INDEX_SHA256"
-ctx adapter trust example
+ext ctx adapter install https://example.com/example.ctxadapter.json --sha256 "$INDEX_SHA256"
+ext ctx adapter trust example
 ~~~
 
 The optional installer-provided catalog lives under `$EXT_HOME/catalog/adapters`
 (or `CTX_CATALOG_HOME`). A default core-only installation has no catalog.
 Request adapter selection with the installer to obtain it; `ctx setup` and
-`ctx adapter add` then copy selected catalog packages into the active adapter
+`ext ctx adapter add` then copy selected catalog packages into the active adapter
 store and trust their checksums. Catalog membership is installer metadata, not
 a privilege or manifest property.
 
-Direct `ctx adapter install ./directory` installation does not imply trust. Trust
+Direct `ext ctx adapter install ./directory` installation does not imply trust. Trust
 records a checksum over every file in the adapter directory. Any subsequent
 change makes the adapter untrusted until the user reviews and trusts it again.
 
-`ctx adapter verify [name...]` checks installed adapters without running any of
+`ext ctx adapter verify [name...]` checks installed adapters without running any of
 them. It loads each one with the validation an install applies and compares its
 content with the recorded checksum. Each adapter is reported as `trusted`;
 `untrusted` (never trusted); `changed` (trusted once, modified since); or
-`invalid` (it fails to load, which `ctx adapter ls` would silently omit). With no
+`invalid` (it fails to load, which `ext ctx adapter ls` would silently omit). With no
 names it checks every adapter directory. The exit status is 0 only when every
 checked adapter is trusted. It is read-only: it does not change trust, create the
 adapter store, or run an adapter. It is unrelated to `ctn verify`, which runs

@@ -1,7 +1,10 @@
 # One `ext` command, with ctx and ctn as libraries
 
-Status: proposed. Nothing here is implemented; this page records the intended
-design so it can be reviewed before any code moves.
+Status: command composition is implemented. `ext` is the main installation and
+combined command entry point; CTX and CTN remain standalone products. See
+[adapter management](adr-adapter-management.md) for current routes and the
+remaining direct `ext adapter` work. Release and installer rollout steps below
+record the original plan.
 
 `ctx` and `ctn` are products under `src/`: modules that nothing may import, whose
 module paths omit `src/` and so cannot be fetched with `go get`, released only as
@@ -111,9 +114,10 @@ These were open in the first draft and are settled the following way:
 - **`ext` forwards only declared commands.** A name runs only if a builtin or a
   package declares it. Unknown names are an error with the closest match, and are
   never passed to an adapter, so a typo cannot run something.
-- **`ext` is an addition.** `ctx` and `ctn` stay the documented entry points and keep
-  shipping standalone; `ext` is documented as the way to run them together with other
-  commands. This can be revisited once `ext` has shipped.
+- **`ext` is the main entry point.** It provides installation and runs CTX, CTN,
+  and installed commands. CTX and CTN keep shipping standalone and consume the
+  ext adapter capabilities available to them. Product selection and dispatch
+  remain product-owned; generic adapter contracts and trust remain library-owned.
 - **Release order.** The pending `contract` release (v0.8.0: the `instance.Manager`
   disposal ordering and `plugintest/enginetest`) is independent of this work, because
   nothing here moves or renames a module. It can ship before, during or after any step.

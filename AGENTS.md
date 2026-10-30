@@ -7,7 +7,14 @@ storage formats, signing tools, store URLs, settings paths, and diagnostics.
 
 Ext libraries own generic adapter contracts, validation, package trust, and
 invocation. CTX and CTN are products built on Ext and can run standalone; each
-product owns its own selection and command dispatch. Shared libraries may
+product owns its own selection and command dispatch. Adapters are ext adapters,
+not owned by the interface invoking them. `ext` is the main installer and combined
+entry point; CTX and CTN consume the declared capabilities available to them,
+including in standalone mode. Current adapter management uses `ext ctx adapter`
+or standalone `ctx adapter`; `ctn adapter ls` is read-only. See
+[adapter management](docs/adr-adapter-management.md).
+
+Shared libraries may
 implement portable workflows and utilities, but must not choose native behavior
 by adapter name or supply a browser-specific fallback. Adapters provide that
 behavior through declared capabilities and backends.

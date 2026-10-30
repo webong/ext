@@ -108,7 +108,7 @@ choice for consumers of the C engine*; it is not a completed SDK migration.
 The C engine verifies installed package entries through `ext_store_digest` and
 persists scoped trust records through `ext_trust_state_of`, `ext_trust_record`,
 and `ext_trust_revoke`. The Go binding and the pure-Go reference share the file
-format. CTX adapters migrate their legacy trust records once; Ext commands and
+format. ext adapters migrate their legacy trust records once; Ext commands and
 CTN inference providers use separate scopes. Install, upgrade, replace, remove and
 load, whole-root list, verify and unverified listing, and layered roots now also exist in the C store (see
 the Packages and trust row), and the engine-routed Go store (`cgoengine/host/store`) runs on it; the pure-Go

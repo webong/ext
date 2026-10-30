@@ -307,7 +307,7 @@ func adapterCommand(resolver *config.Resolver, args []string, stdout, stderr io.
 		if code := runPrepared(invocation, stdout, stderr); code != 0 {
 			return code
 		}
-		fmt.Fprintf(stdout, "adapter %s satisfies ctx adapter API v%s\n", candidate.Manifest.Name, candidate.Manifest.APIVersion)
+		fmt.Fprintf(stdout, "adapter %s satisfies ext adapter API v%s\n", candidate.Manifest.Name, candidate.Manifest.APIVersion)
 		return 0
 	case "doctor":
 		if len(args) != 2 {

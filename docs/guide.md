@@ -1,6 +1,9 @@
 # Using ext
 
-ext is a set of Go libraries and two binaries. This page is organised by what you want
+ext provides libraries, the main `ext` installation and command entry point, and
+standalone `ctx` and `ctn` products. They consume ext adapter capabilities
+available in their configured home; adapters can serve more than one product.
+See [adapter management](adr-adapter-management.md) for installation and standalone usage. This page is organised by what you want
 to do. Every Go recipe here was run from a scratch module outside this repository, with
 no workspace and no `replace`, against the published tags, and its output is shown. If a
 recipe does not work for you, that is a bug in this page.

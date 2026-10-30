@@ -4,7 +4,7 @@ CTX provides build artifacts and browser adapter installation routes. A service
 can build a catalog, private store, or web install interface on top of those
 routes. The service owns its catalog, hosting, publisher accounts, approval UI,
 and download delivery. Browser-specific formats and installation rules stay in
-the selected CTX adapter.
+the selected ext adapter.
 
 ## Publishing a Chrome extension
 

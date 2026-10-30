@@ -26,7 +26,7 @@ type WebviewInfo struct {
 }
 
 // DiscoverWebviews inventories host webview runtimes without launching a
-// browser, reading app profiles, or depending on installed CTX adapters.
+// browser, reading app profiles, or depending on installed ext adapters.
 func DiscoverWebviews(ctx context.Context) ([]WebviewInfo, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err

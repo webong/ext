@@ -12,5 +12,5 @@ selectable native tool: a Linux host may run another service manager. No shared
 library selects this backend by name.
 
 The package never chooses a product identity, installation layout, port, key
-provider, endpoint, or health protocol. The companion ctx adapter entry point
+provider, endpoint, or health protocol. The companion ext adapter entry point
 only validates and reports whether `systemctl` is installed.

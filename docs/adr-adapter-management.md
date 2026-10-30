@@ -1,101 +1,83 @@
-# Adapter Management in the ext Composition Root
+# ext adapter management and product consumption
 
-Status: accepted. This ADR documents the implemented design.
+Status: accepted ownership model. The direct `ext adapter` command remains
+planned; the current routes below are implemented.
 
-## Context
+## Ownership
 
-Adapters are external products, providers, browsers, or native services that `ext` subsystems (`ctx`, `ctn`, `ctr`, `cvt`, ...) discover, install, trust, and invoke. The adapter store (`pkg/ext-go/engine/host/adapter`) is a shared library with a single on-disk home (`~/.config/ext/adapters/`).
+Adapters are **ext adapters**, regardless of whether they are invoked through
+`ext`, standalone `ctx`, standalone `ctn`, or another consumer. An adapter owns
+integration with an external product, provider, browser, or native tool.
 
-Historically, `ctx` owned the full adapter management CLI (`ctx adapter ls|available|add|install|trust|doctor|remove...`) because it was the first and primary subsystem. As `ext` evolved into a composition root hosting multiple subsystems, this created tension:
+Ext libraries own generic adapter contracts, validation, package trust, and
+invocation. CTX and CTN own their selection, policy, and command dispatch. They
+consume only capabilities they understand and allow, from adapters installed
+and available in their configured home. An adapter can serve both products;
+calling it from CTN does not turn it into a separate CTN adapter.
 
-- `ctx` standalone binary includes full adapter management (correct for a standalone product).
-- `ext` composes `ctx` and `ctn` as libraries, but `ext` has no `adapter` command — users must know to run `ctx adapter` even under `ext`.
-- `ctn` exposes only `ctn adapter ls` (read-only).
-- Future subsystems (`ctr`, `cvt`, ...) would each need adapter commands or delegate, leading to duplication.
+## Current commands
 
-An adapter is a **platform capability**, not a `ctx` capability. The subsystem that composes others (`ext`) should own adapter management.
+`ext` is the main installer and combined entry point. Adapter management is
+currently exposed through its embedded CTX command:
 
-## Decision
+| Entry point | Responsibility |
+| --- | --- |
+| `ext ctx adapter install <source>` | Install an ext adapter |
+| `ext ctx adapter build`, `pack`, `inspect`, `trust`, `verify`, `remove` | Build, package, review, and manage ext adapters |
+| `ctx adapter …` | The same management commands when CTX runs standalone |
+| `ext ctx …` or `ctx …` | Consume capabilities for project contexts |
+| `ext ctn …` or `ctn …` | Consume capabilities for content workflows |
+| `ext ctn adapter ls` or `ctn adapter ls` | List installed adapters and their trust state; read-only |
+| `ext package install <source>` | Install command packages in the command store, not the adapter store |
 
-**Adapter management moves to `ext` as a builtin command.** The implementation is extracted to a shared internal package (`src/ctx/internal/adaptercmd`) so both standalone `ctx` and `ext` use the exact same code.
+For example, with a ready-to-run evaluator package:
 
-### Architecture
-
-```
-pkg/ext-go/engine/host/adapter/          ← shared store library (no CLI)
-src/ctx/internal/adaptercmd/             ← NEW: shared CLI implementation
-  ├── run.go                 ← entry point: Run(args, stdout, stderr) int
-  ├── list.go
-  ├── install.go
-  ├── trust.go
-  ├── doctor.go
-  ├── remove.go
-  └── ...
-
-src/ctx/internal/app/app.go              ← registers "adapter" → adaptercmd.Run
-cmd/ext/internal/adaptercmd/adapter.go   ← registers "ext adapter" → adaptercmd.Run
-```
-
-### Command Mapping
-
-| User Invocation | Implementation |
-|-----------------|----------------|
-| `ctx adapter <sub> ...` | `adaptercmd.Run(sub, ...)` |
-| `ext adapter <sub> ...` | `adaptercmd.Run(sub, ...)` |
-| `ctn adapter ls` | unchanged (read-only, uses store directly) |
-
-### Cross-Subsystem Visibility
-
-`ext adapter ls` (and `ctx adapter ls`) shows which subsystems use each adapter:
-
-```bash
-$ ext adapter ls
-NAME        RUNTIME     TRUSTED   USED BY
-chromium    browser     yes       ctx, ctn
-keychain    credential  yes       ctx
-wasm        engine      yes       ctn
-docker      container   no        ctr
+```sh
+ext ctx adapter install ./my-evaluator
+ext ctx adapter inspect my_evaluator
+# Review the installed files before trusting the package.
+ext ctx adapter trust my_evaluator
+ext ctn adapter ls
+ext ctn verify --engine my_evaluator example.wasm
 ```
 
-The `USED BY` column is derived from each subsystem's declared adapter requirements (in its manifest or config).
+The evaluator must expose the capabilities and sandbox isolation CTN requires.
+Installation and trust do not bypass those product checks.
 
-### Subsystem Responsibilities
+Standalone CTX and CTN use the same library mechanisms and configured adapter
+home as their embedded counterparts. CTN does not need CTX running to consume
+an installed adapter, and does not currently provide installation commands.
+With the same home configuration, an adapter installed through either management
+entry point is visible to both products. Different home overrides may deliberately
+isolate installations.
 
-| Subsystem | Adapter Management | Adapter Usage |
-|-----------|-------------------|---------------|
-| `ctx` (standalone) | Via shared `adaptercmd` | Uses store library |
-| `ext` | Via shared `adaptercmd` (builtin) | — |
-| `ctn` | Read-only (`ctn adapter ls`) | Uses store library |
-| `ctr`, `cvt`, ... (future) | None | Uses store library |
+## Storage and compatibility
 
-Only the **composition root** (`ext` or standalone `ctx`) exposes adapter management to users.
+The shared library is `pkg/ext-go/engine/host/adapter`. The default adapter
+store is under `$EXT_HOME/adapters`, with `EXT_ADAPTER_HOME` as an adapter-only
+override and legacy CTX home settings retained. See the
+[API reference](adapter-api.md) for home resolution and scoped trust.
 
-## Consequences
+The contract is `ext.adapter/2.0`. Existing `ctx.adapter/v1` metadata,
+`CTX_ADAPTER_*` environment variables, and `.ctxadapter` archive/index suffixes
+remain compatible. Their spelling does not imply CTX ownership. This terminology
+change does not rename serialized fields or invalidate existing packages.
 
-### Positive
+## Planned direct management entry point
 
-- **Single source of truth** — adapters installed once, visible to all subsystems.
-- **No duplication** — one CLI implementation shared by `ctx` and `ext`.
-- **Unified CLI** — `ext adapter` works regardless of which subsystem you use.
-- **Future-proof** — add `ctr`, `cvt` without adapter CLI duplication.
-- **Cross-subsystem visibility** — see which adapters serve which subsystems.
+`ext adapter …` should expose shared adapter management directly. It is not
+registered by `cmd/ext` today. There is also no implemented `USED BY` column;
+capability compatibility must not be presented as evidence of actual usage.
 
-### Negative
-
-- `ctx` standalone binary grows slightly (adds `adaptercmd` package).
-- `ext` gains a new builtin command (`adapter`).
-- Migration required: move `ctx adapter` implementation to shared package.
-
-### Migration
-
-1. Create `src/ctx/internal/adaptercmd/` with all `ctx adapter *` logic extracted from `app.go` and `adapters.go`.
-2. Update `src/ctx/internal/app/app.go` to call `adaptercmd.Run()`.
-3. Add `cmd/ext/internal/adaptercmd/adapter.go` proxying to `adaptercmd.Run()`.
-4. Register `adapter` builtin in `cmd/ext/main.go`.
-5. `ctn adapter ls` remains unchanged (uses store directly).
+Any extraction of reusable management logic belongs in an Ext library, not
+`src/ctx/internal`: other consumers cannot import a product's private packages.
+Standalone CTX must keep its management route, and CTN must remain independently
+runnable. A direct entry point must preserve package validation, trust, home
+resolution, and capability-based consumption.
 
 ## Related
 
-- [ADR: One `ext` command, with ctx and ctn as libraries](adr-ext-command.md)
-- [Adapter ownership](AGENTS.md#adapter-ownership) — "Anything specific to a product, provider, browser, or native tool belongs in its adapter package under `adapters/<name>/`"
-- [Platform implementation rule](AGENTS.md#a-platform-implementation-of-a-portable-public-library-api-is-not-an-adapter-merely-because-it-calls-a-native-framework) — "An adapter represents a selectable external product... A platform implementation of a portable public-library API is not an adapter"
+- [Adapter API](adapter-api.md)
+- [Build an ext adapter](adapter-authoring.md)
+- [The ext command](adr-ext-command.md)
+- [Ownership rules](../AGENTS.md#adapter-ownership)

@@ -7,14 +7,14 @@ import (
 	"strings"
 )
 
-// AdapterAPIVersion is the version of CTX's adapter process protocol.
+// AdapterAPIVersion is the version of Ext's adapter process protocol.
 const AdapterAPIVersion = "2.0"
 
-// AdapterContractName identifies CTX's argv/stream adapter binding. Its
+// AdapterContractName identifies Ext's argv/stream adapter binding. Its
 // version is the adapter API, independently of the plugin envelope API.
 const AdapterContractName = "ext.adapter"
 
-// AdapterInvocation is one operation delivered by ctx to an adapter
+// AdapterInvocation is one operation delivered by an Ext host to an adapter
 // executable.
 type AdapterInvocation struct {
 	Operation   string
@@ -29,8 +29,8 @@ type AdapterInvocation struct {
 	Values      map[string]string
 }
 
-// ParseAdapterInvocation reads the versioned ctx process invocation. Call it
-// with os.Args[1:]. It also accepts direct invocations without ctx
+// ParseAdapterInvocation reads the versioned ext adapter process invocation. Call it
+// with os.Args[1:]. It also accepts direct invocations without the legacy CTX_*
 // environment variables, which makes an adapter executable easy to inspect
 // during development.
 func ParseAdapterInvocation(args []string) (AdapterInvocation, error) {
@@ -48,7 +48,7 @@ func ParseAdapterInvocation(args []string) (AdapterInvocation, error) {
 		Values:      map[string]string{},
 	}
 	if request.API != "" && request.API != AdapterAPIVersion {
-		return AdapterInvocation{}, fmt.Errorf("unsupported ctx adapter API %s", request.API)
+		return AdapterInvocation{}, fmt.Errorf("unsupported ext adapter API %s", request.API)
 	}
 	for _, entry := range os.Environ() {
 		key, value, ok := strings.Cut(entry, "=")

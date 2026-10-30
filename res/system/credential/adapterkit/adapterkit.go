@@ -28,7 +28,7 @@ type Invocation struct {
 	Arguments []string
 }
 
-// Run executes one CTX adapter protocol request. Values flow only through
+// Run executes one ext adapter protocol request. Values flow only through
 // stdin/stdout, never through command arguments or environment variables.
 func Run(request Invocation, input io.Reader, output, diagnostics io.Writer, store Store) int {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)

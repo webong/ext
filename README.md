@@ -3,10 +3,11 @@
 ext is a toolkit for building local developer tools, plus the products built on
 it. It provides portable libraries (a plugin contract with several runtimes, a
 graph store with host and process discovery, and browser and credential
-resources) and two binaries:
+resources), the `ext` entry point, and standalone products:
 
 | Binary | Module | Purpose |
 | --- | --- | --- |
+| `ext` | `cmd/ext` | Main installation and combined command entry point for Ext packages, ctx, and ctn |
 | [`ctx`](#ctx) | `src/ctx` | Project-local contexts for the tools you already use |
 | `ctn` | `src/ctn` | Content management: `ctn verify` runs content through a sandboxed engine ([docs](docs/ctn-verify.md)); `ctn adapter ls` lists installed adapters |
 
@@ -16,7 +17,17 @@ The reusable local graphical/textual shell boundary is described in
 
 Reusable libraries live in [`pkg/`](pkg/README.md) and [`res/`](res/README.md);
 product-specific behavior lives in [`adapters/`](adapters/README.md). A product
-never imports another product. The rest of this file describes `ctx`.
+never imports another product except `cmd/ext`, which composes their root entry
+points. Adapters are **ext adapters**: CTX and CTN consume their declared
+capabilities when installed, trusted, and available to the product, including in
+standalone mode. One adapter may serve both products.
+
+`ext` is the main installer and combined entry point. Adapter management currently
+uses `ext ctx adapter install|build|pack|trust …`; standalone `ctx adapter …`
+provides the same commands. CTN consumes installed adapters and exposes the
+read-only `ctn adapter ls`. `ext package install` manages command packages, not
+the adapter store. See [adapter management](docs/adr-adapter-management.md).
+The rest of this file describes `ctx`.
 
 # ctx
 
@@ -53,7 +64,7 @@ non-secret profile values; credentials remain with the native tools.
 
 The core does not ship with an active adapter or a bundled adapter catalog. An
 adapter owns its product-specific behavior; ctx only invokes its declared
-capabilities. See [Build an adapter](docs/adapter-authoring.md) to build one.
+capabilities. See [Build an ext adapter](docs/adapter-authoring.md) to build one.
 
 ## Install
 
@@ -340,7 +351,7 @@ as a Go plugin, a WASI command, or a C shared library.
 - [Browser profile and page management](docs/browser-management.md)
 - [Native credentials](docs/credentials.md)
 - [Extension distribution](docs/extension-distribution.md)
-- [Build an adapter](docs/adapter-authoring.md)
+- [Build an ext adapter](docs/adapter-authoring.md)
 - [Adapter API and packaging](docs/adapter-api.md)
 - [Cross-platform support](docs/cross-platform.md)
 - [System graph design](docs/adr-graph-runtime.md)

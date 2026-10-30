@@ -314,7 +314,7 @@ ctx graph edges uses-resource
 `processes` collects caller-visible process identities, parents, executable
 paths, and owners. `process <pid>` additionally collects resource evidence and
 usage. Process names are supplied by the OS; arbitrary applications can be
-identified without installing their CTX adapters. On macOS, an executable's
+identified without installing their ext adapters. On macOS, an executable's
 outer `.app` bundle is also recorded as its owning application, including nested
 helpers. On Linux and Windows the executable identity is reported; desktop-file,
 package, and installer ownership are not inferred from executable basenames.

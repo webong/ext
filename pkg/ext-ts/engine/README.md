@@ -46,6 +46,16 @@ over an installed id) or `status.NOT_FOUND`. A missing root is an empty store, m
 the first install; calls on one store are serialized by the engine, several processes
 mutating one root are yours to serialize. `close()` lets calls in flight finish.
 
+`list()`, `verify()` and `listUnverified()` are the whole-root reports; each resolves with
+the engine's JSON parsed (`PackageRecord[]`, `PackageCheck[]` and
+`{packages, problems}`). `listUnverified()` reads no artifact: its result is unverified and
+must not be launched or trusted as it stands. `new engine.LayeredPackageStore(roots,
+limits)` is the read-only view over several roots in priority order, highest first: `load`
+resolves with `{manifest, layer}` and the reports are those of the store over every root.
+An id is served from the first root that holds it, a damaged winner rejects instead of
+falling back to a lower copy, and the view never writes. A repeated root throws an error
+whose `status` is `status.INVALID`.
+
 Call `close` explicitly. It stops new work and disposes native resources after
 outstanding calls finish; GC finalizers and environment cleanup are fallbacks.
 Guest close allows active calls to finish within their budgets. Pure shared

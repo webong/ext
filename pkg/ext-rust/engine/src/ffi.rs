@@ -249,6 +249,25 @@ extern "C" {
     pub fn ext_store_remove(s: *mut c_void, id: *const c_char) -> Status;
     pub fn ext_store_load(s: *mut c_void, id: *const c_char, manifest: *mut Buffer) -> Status;
     pub fn ext_store_ids(s: *mut c_void, ids: *mut Buffer) -> Status;
+    pub fn ext_store_list(s: *mut c_void, packages: *mut Buffer) -> Status;
+    pub fn ext_store_verify(s: *mut c_void, checks: *mut Buffer) -> Status;
+    pub fn ext_store_list_unverified(s: *mut c_void, listing: *mut Buffer) -> Status;
+    pub fn ext_layered_open(
+        roots: *const *const c_char,
+        count: usize,
+        limits: *const StoreLimits,
+        out: *mut *mut c_void,
+    ) -> Status;
+    pub fn ext_layered_close(l: *mut c_void);
+    pub fn ext_layered_load(
+        l: *mut c_void,
+        id: *const c_char,
+        manifest: *mut Buffer,
+        layer: *mut usize,
+    ) -> Status;
+    pub fn ext_layered_list(l: *mut c_void, packages: *mut Buffer) -> Status;
+    pub fn ext_layered_verify(l: *mut c_void, checks: *mut Buffer) -> Status;
+    pub fn ext_layered_list_unverified(l: *mut c_void, listing: *mut Buffer) -> Status;
     pub fn ext_guest_create(o: *const GuestOptions, out: *mut *mut c_void) -> Status;
     pub fn ext_guest_descriptor(g: *mut c_void, out: *mut Buffer) -> Status;
     pub fn ext_guest_invoke(

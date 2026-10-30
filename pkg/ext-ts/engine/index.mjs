@@ -209,6 +209,29 @@ export function loadEngine(addonPath){
    async remove(id){await this.#call('remove',id);}
    load(id){return this.#call('load',id);}
    async ids(){return JSON.parse(await this.#call('ids',''));}
+   // Whole-root reports; each resolves with the engine's JSON parsed (see ext_store_list in ext_host.h).
+   async list(){return JSON.parse(await this.#call('list',''));}
+   async verify(){return JSON.parse(await this.#call('verify',''));}
+   async listUnverified(){return JSON.parse(await this.#call('listUnverified',''));}
+   close(){if(!this.#closed){this.#closed=true;native.closeStore(this.#handle);this.#handle=null;}}
+ }
+ // A read-only view over several roots in priority order, highest first. An id is served from the first
+ // root that holds it; a damaged winner fails closed instead of falling back to a lower copy.
+ class LayeredPackageStore{
+   #handle;#closed=false;
+   constructor(roots,limits={}){
+     if(!Array.isArray(roots)||roots.length===0||roots.some(root=>typeof root!=='string'||root===''))throw new TypeError('roots required');
+     this.#handle=native.openLayered(roots,size(limits.maxArtifactBytes,'maxArtifactBytes'),natural(limits.maxTreeFiles,'maxTreeFiles'),size(limits.maxTreeBytes,'maxTreeBytes'));
+   }
+   #call(operation,argument){
+     if(this.#closed)return Promise.reject(Object.assign(new Error('store closed'),{status:5}));
+     if(typeof argument!=='string')return Promise.reject(new TypeError('a string is required'));
+     return native.storeRequest(this.#handle,operation,argument,0);
+   }
+   load(id){return this.#call('load',id);}
+   async list(){return JSON.parse(await this.#call('list',''));}
+   async verify(){return JSON.parse(await this.#call('verify',''));}
+   async listUnverified(){return JSON.parse(await this.#call('listUnverified',''));}
    close(){if(!this.#closed){this.#closed=true;native.closeStore(this.#handle);this.#handle=null;}}
  }
  // Loopback data endpoints. An outcome is a status and never text, because an
@@ -218,7 +241,7 @@ export function loadEngine(addonPath){
    check:value=>{native.service('endpoint.check',json(value));},
    validate:(value,policy)=>{native.service('endpoint.validate',json({endpoint:value,policy}));},
  };
- return {Host,Guest,Instances,Streams,PackageStore,endpoint,service:(operation,input)=>JSON.parse(native.service(operation,json(input))),
+ return {Host,Guest,Instances,Streams,PackageStore,LayeredPackageStore,endpoint,service:(operation,input)=>JSON.parse(native.service(operation,json(input))),
    directoryDigest:async root=>JSON.parse(await native.integrity('digest',root,'null')),
    verifyArtifacts:async(manifest,root)=>{await native.integrity('verify',root,json(manifest));}};
 }

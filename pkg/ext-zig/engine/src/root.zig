@@ -276,6 +276,87 @@ pub const Store = struct {
         try check(ffi.ext_store_ids(self.raw, &out.raw));
         return out;
     }
+    /// Reads and verifies every package and returns a JSON array of `{id,
+    /// directory, layer, manifest}` sorted by id, the manifest being `plugin.json`
+    /// as an embedded value. It fails with the status of the first entry that is
+    /// not a package directory and of the first package that does not verify.
+    pub fn list(self: *const Store) Error!Buffer {
+        var out: Buffer = .{};
+        errdefer out.deinit();
+        try check(ffi.ext_store_list(self.raw, &out.raw));
+        return out;
+    }
+    /// Checks every entry without stopping at a bad one and returns a JSON array of
+    /// `{id, directory, layer, status}`, where `status` is the engine status
+    /// verifying it gave (0 for verified). It runs nothing and changes nothing.
+    pub fn verify(self: *const Store) Error!Buffer {
+        var out: Buffer = .{};
+        errdefer out.deinit();
+        try check(ffi.ext_store_verify(self.raw, &out.raw));
+        return out;
+    }
+    /// Reads only the manifests and checks them against their directory names; no
+    /// artifact is read or hashed, so THE RESULT IS UNVERIFIED and must not be
+    /// launched or trusted as it stands. Returns `{"packages": [...], "problems":
+    /// [...]}` as JSON; a package that cannot be read does not hide the others.
+    pub fn listUnverified(self: *const Store) Error!Buffer {
+        var out: Buffer = .{};
+        errdefer out.deinit();
+        try check(ffi.ext_store_list_unverified(self.raw, &out.raw));
+        return out;
+    }
+};
+/// A package served by a `Layered` view: its `plugin.json` and the position of the
+/// root that holds it.
+pub const Served = struct { manifest: Buffer, layer: usize };
+/// A read-only view over several roots in priority order, highest first, such as a
+/// user root before a system root. An id is served from the first root that holds
+/// it; a copy in a lower root is shadowed and never read. If the winning copy does
+/// not verify, `load` and the reports fail instead of falling back to a lower one.
+/// The view never writes, so a system root is never created or modified through
+/// it. Roots are compared as cleaned paths: a repeated root, an empty one, or no
+/// root at all is `error.Invalid`. The reports are those of `Store` over every
+/// root, one line per id from the root that serves it.
+pub const Layered = struct {
+    raw: ?*ffi.ext_layered,
+    pub fn init(roots: []const [*:0]const u8, limits: StoreLimits) Error!Layered {
+        var raw: ?*ffi.ext_layered = null;
+        const c_limits: ffi.ext_store_limits = .{ .max_artifact_bytes = limits.max_artifact_bytes, .max_tree_files = limits.max_tree_files, .max_tree_bytes = limits.max_tree_bytes };
+        try check(ffi.ext_layered_open(@ptrCast(roots.ptr), roots.len, &c_limits, &raw));
+        return .{ .raw = raw };
+    }
+    pub fn deinit(self: *Layered) void {
+        ffi.ext_layered_close(self.raw);
+        self.raw = null;
+    }
+    /// Reads and verifies the package from the first root that holds `id`.
+    /// `error.NotFound` means no root holds it.
+    pub fn load(self: *const Layered, id: [:0]const u8) Error!Served {
+        var out: Buffer = .{};
+        errdefer out.deinit();
+        var layer: usize = 0;
+        try check(ffi.ext_layered_load(self.raw, id.ptr, &out.raw, &layer));
+        return .{ .manifest = out, .layer = layer };
+    }
+    pub fn list(self: *const Layered) Error!Buffer {
+        var out: Buffer = .{};
+        errdefer out.deinit();
+        try check(ffi.ext_layered_list(self.raw, &out.raw));
+        return out;
+    }
+    pub fn verify(self: *const Layered) Error!Buffer {
+        var out: Buffer = .{};
+        errdefer out.deinit();
+        try check(ffi.ext_layered_verify(self.raw, &out.raw));
+        return out;
+    }
+    /// As `Store.listUnverified` over every root; the result is unverified.
+    pub fn listUnverified(self: *const Layered) Error!Buffer {
+        var out: Buffer = .{};
+        errdefer out.deinit();
+        try check(ffi.ext_layered_list_unverified(self.raw, &out.raw));
+        return out;
+    }
 };
 /// Loopback data endpoints: the engine's rules for admitting an endpoint a host
 /// hands a plugin. An outcome is a status and never text, because an endpoint is a
@@ -918,6 +999,152 @@ test "the package store installs, upgrades, replaces and removes" {
     ids = try store.ids();
     try std.testing.expectEqualStrings("[]", ids.bytes());
     ids.deinit();
+}
+test "the package store reports every entry" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const a = arena.allocator();
+    var template = "/tmp/ext-zig-store-XXXXXX".*;
+    const base = std.mem.span(libc.mkdtemp(&template) orelse return error.SkipZigTest);
+    const cleanup = try printZ(a, "rm -rf '{s}'", .{base});
+    defer _ = libc.system(cleanup.ptr);
+    const root = try printZ(a, "{s}/store", .{base});
+    var store = try Store.init(root, .{});
+    defer store.deinit();
+
+    // a missing root is empty, and asking does not make it
+    var report = try store.list();
+    try std.testing.expectEqualStrings("[]", report.bytes());
+    report.deinit();
+    report = try store.verify();
+    try std.testing.expectEqualStrings("[]", report.bytes());
+    report.deinit();
+    report = try store.listUnverified();
+    try std.testing.expectEqualStrings("{\"packages\":[],\"problems\":[]}", report.bytes());
+    report.deinit();
+    try std.testing.expectEqual(@as(c_int, 0), libc.mkdir(root.ptr, 0o700));
+    try std.testing.expectEqual(@as(c_int, 0), libc.system((try printZ(a, "rmdir '{s}'", .{root})).ptr));
+
+    const first = try printZ(a, "{s}/s1", .{base});
+    try writePackage(a, first, "example/a", "r1", "example.read", "one");
+    const second = try printZ(a, "{s}/s2", .{base});
+    try writePackage(a, second, "example/b", "r1", "example.read", "two");
+    var installed = try store.install(first, .{});
+    installed.deinit();
+    installed = try store.install(second, .{});
+    installed.deinit();
+
+    const clean = try printZ(a, "[{{\"id\":\"example/a\",\"directory\":\"{s}/example%2fa\",\"layer\":0,\"status\":0}},{{\"id\":\"example/b\",\"directory\":\"{s}/example%2fb\",\"layer\":0,\"status\":0}}]", .{ root, root });
+    report = try store.verify();
+    try std.testing.expectEqualStrings(clean, report.bytes());
+    report.deinit();
+    report = try store.list();
+    try std.testing.expect(std.mem.startsWith(u8, report.bytes(), (try printZ(a, "[{{\"id\":\"example/a\",\"directory\":\"{s}/example%2fa\",\"layer\":0,\"manifest\":{{", .{root}))));
+    try std.testing.expect(std.mem.indexOf(u8, report.bytes(), "\"id\":\"example/b\",\"directory\"") != null);
+    report.deinit();
+
+    // verify reports a bad entry and goes on; list fails closed; the unverified
+    // listing reads no artifact, so it still has both
+    try writeFile(try printZ(a, "{s}/example%2fb/src/main.py", .{root}), "tampered");
+    const damaged = try printZ(a, "\"id\":\"example/b\",\"directory\":\"{s}/example%2fb\",\"layer\":0,\"status\":{d}", .{ root, ffi.EXT_MISMATCH });
+    report = try store.verify();
+    try std.testing.expect(std.mem.indexOf(u8, report.bytes(), damaged) != null);
+    report.deinit();
+    try std.testing.expectError(error.Mismatch, store.list());
+    report = try store.listUnverified();
+    try std.testing.expect(std.mem.indexOf(u8, report.bytes(), "\"id\":\"example/b\",\"directory\"") != null);
+    try std.testing.expect(std.mem.indexOf(u8, report.bytes(), "\"problems\":[]}") != null);
+    report.deinit();
+
+    // an entry that is not a package is a problem there, an error in list;
+    // staging directories are skipped
+    try writeFile(try printZ(a, "{s}/stray", .{root}), "x");
+    try std.testing.expectEqual(@as(c_int, 0), libc.mkdir((try printZ(a, "{s}/.install-left", .{root})).ptr, 0o700));
+    try std.testing.expectError(error.Invalid, store.list());
+    report = try store.listUnverified();
+    try std.testing.expect(std.mem.indexOf(u8, report.bytes(), "\"id\":\"stray\"") != null);
+    try std.testing.expect(std.mem.indexOf(u8, report.bytes(), "install-left") == null);
+    report.deinit();
+}
+test "a layered view serves the highest root and never writes" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const a = arena.allocator();
+    var template = "/tmp/ext-zig-store-XXXXXX".*;
+    const base = std.mem.span(libc.mkdtemp(&template) orelse return error.SkipZigTest);
+    const cleanup = try printZ(a, "rm -rf '{s}'", .{base});
+    defer _ = libc.system(cleanup.ptr);
+    const high = try printZ(a, "{s}/user", .{base});
+    const low = try printZ(a, "{s}/system", .{base});
+    const absent = try printZ(a, "{s}/absent", .{base});
+    var top = try Store.init(high, .{});
+    defer top.deinit();
+    var bottom = try Store.init(low, .{});
+    defer bottom.deinit();
+    const s1 = try printZ(a, "{s}/s1", .{base});
+    try writePackage(a, s1, "example/a", "r1", "example.read", "high");
+    const s2 = try printZ(a, "{s}/s2", .{base});
+    try writePackage(a, s2, "example/a", "r1", "example.read", "low");
+    const s3 = try printZ(a, "{s}/s3", .{base});
+    try writePackage(a, s3, "example/c", "r1", "example.read", "cee");
+    var winner = try top.install(s1, .{});
+    defer winner.deinit();
+    var shadowed = try bottom.install(s2, .{});
+    shadowed.deinit();
+    var lone = try bottom.install(s3, .{});
+    defer lone.deinit();
+
+    const roots = [_][*:0]const u8{ high.ptr, low.ptr, absent.ptr };
+    var view = try Layered.init(&roots, .{});
+    defer view.deinit();
+
+    var served = try view.load("example/a");
+    try std.testing.expectEqualStrings(winner.bytes(), served.manifest.bytes());
+    try std.testing.expectEqual(@as(usize, 0), served.layer);
+    served.manifest.deinit();
+    served = try view.load("example/c");
+    try std.testing.expectEqualStrings(lone.bytes(), served.manifest.bytes());
+    try std.testing.expectEqual(@as(usize, 1), served.layer);
+    served.manifest.deinit();
+    try std.testing.expectError(error.NotFound, view.load("example/none"));
+    try std.testing.expectError(error.Invalid, view.load("../bad"));
+    var report = try view.list();
+    try std.testing.expect(std.mem.indexOf(u8, report.bytes(), (try printZ(a, "\"id\":\"example/a\",\"directory\":\"{s}/example%2fa\",\"layer\":0", .{high}))) != null);
+    try std.testing.expect(std.mem.indexOf(u8, report.bytes(), (try printZ(a, "\"id\":\"example/c\",\"directory\":\"{s}/example%2fc\",\"layer\":1", .{low}))) != null);
+    // one line for the id, from the root that serves it, not one per copy
+    const line = "\"id\":\"example/a\",\"directory\"";
+    const first_line = std.mem.indexOf(u8, report.bytes(), line) orelse return error.TestUnexpectedResult;
+    try std.testing.expect(std.mem.indexOf(u8, report.bytes()[first_line + line.len ..], line) == null);
+    report.deinit();
+    // the view made no root: creating it still works
+    try std.testing.expectEqual(@as(c_int, 0), libc.mkdir(absent.ptr, 0o700));
+
+    // a shadowed copy is never read
+    try writeFile(try printZ(a, "{s}/example%2fa/src/main.py", .{low}), "tampered");
+    served = try view.load("example/a");
+    served.manifest.deinit();
+    report = try view.list();
+    report.deinit();
+
+    // a damaged winner fails closed instead of falling back to the copy below
+    try writeFile(try printZ(a, "{s}/example%2fa/src/main.py", .{high}), "tampered");
+    try std.testing.expectError(error.Mismatch, view.load("example/a"));
+    try std.testing.expectError(error.Mismatch, view.list());
+    report = try view.verify();
+    try std.testing.expect(std.mem.indexOf(u8, report.bytes(), (try printZ(a, "\"id\":\"example/a\",\"directory\":\"{s}/example%2fa\",\"layer\":0,\"status\":{d}", .{ high, ffi.EXT_MISMATCH }))) != null);
+    report.deinit();
+    report = try view.listUnverified();
+    try std.testing.expect(std.mem.indexOf(u8, report.bytes(), "\"problems\":[]}") != null);
+    report.deinit();
+}
+test "a layered view refuses what is not a set of roots" {
+    const one: [*:0]const u8 = "/tmp/ext-zig-layered-one";
+    const spelled: [*:0]const u8 = "/tmp/ext-zig-layered-one/./";
+    const none = [_][*:0]const u8{};
+    try std.testing.expectError(error.Invalid, Layered.init(&none, .{}));
+    try std.testing.expectError(error.Invalid, Layered.init(&[_][*:0]const u8{""}, .{}));
+    try std.testing.expectError(error.Invalid, Layered.init(&[_][*:0]const u8{ one, one }, .{}));
+    try std.testing.expectError(error.Invalid, Layered.init(&[_][*:0]const u8{ one, spelled }, .{}));
 }
 test "the package store bounds an artifact" {
     var arena = std.heap.ArenaAllocator.init(std.testing.allocator);

@@ -5,7 +5,7 @@
 #![cfg(not(feature = "guest-only"))]
 use ext_plugin_engine::{
     directory_digest, sha256,
-    store::{Limits, Store},
+    store::{Layered, Limits, Store},
     Error,
 };
 use std::{
@@ -374,4 +374,167 @@ fn a_store_is_shared_between_threads() {
         store.ids().unwrap(),
         ["example/t0", "example/t1", "example/t2", "example/t3"]
     );
+}
+
+/// A path as the engine's JSON writes it.
+fn quoted(path: &Path) -> String {
+    format!(
+        "\"{}\"",
+        path.to_str()
+            .unwrap()
+            .replace('\\', "\\\\")
+            .replace('"', "\\\"")
+    )
+}
+fn text(bytes: Vec<u8>) -> String {
+    String::from_utf8(bytes).unwrap()
+}
+/// The part of a report line that names an entry.
+fn entry(id: &str, directory: &Path, layer: usize) -> String {
+    format!(
+        r#""id":"{id}","directory":{},"layer":{layer}"#,
+        quoted(directory)
+    )
+}
+fn install(root: &Path, scratch: &Scratch, name: &str, id: &str, body: &str) -> Vec<u8> {
+    let source = package(&scratch.0.join(name), id, "r1", "example.read", body, false);
+    Store::open(root.to_str().unwrap(), Limits::default())
+        .unwrap()
+        .install(&source, false)
+        .unwrap()
+}
+
+#[test]
+fn reports_cover_every_entry() {
+    let scratch = Scratch::new();
+    let root = scratch.0.join("store");
+    let store = Store::open(&scratch.join("store"), Limits::default()).unwrap();
+
+    // a missing root is empty, and asking does not make it
+    assert_eq!(text(store.list().unwrap()), "[]");
+    assert_eq!(text(store.verify().unwrap()), "[]");
+    assert_eq!(
+        text(store.list_unverified().unwrap()),
+        r#"{"packages":[],"problems":[]}"#
+    );
+    assert!(!root.exists(), "a report made the root");
+
+    let a = install(&root, &scratch, "s1", "example/a", "one");
+    let b = install(&root, &scratch, "s2", "example/b", "two");
+    let a_dir = root.join("example%2fa");
+    let b_dir = root.join("example%2fb");
+    let manifest = |m: &[u8]| format!(r#""manifest":{}"#, std::str::from_utf8(m).unwrap());
+
+    let listed = text(store.list().unwrap());
+    assert!(listed.starts_with(&format!("[{{{}", entry("example/a", &a_dir, 0))));
+    assert!(listed.contains(&entry("example/b", &b_dir, 0)));
+    assert!(listed.contains(&manifest(&a)) && listed.contains(&manifest(&b)));
+    assert_eq!(
+        text(store.verify().unwrap()),
+        format!(
+            "[{{{},\"status\":0}},{{{},\"status\":0}}]",
+            entry("example/a", &a_dir, 0),
+            entry("example/b", &b_dir, 0)
+        )
+    );
+
+    // verify reports a bad entry and goes on; list fails closed
+    fs::write(b_dir.join("src/main.py"), "tampered").unwrap();
+    let checks = text(store.verify().unwrap());
+    assert!(checks.contains(&format!("{},\"status\":0", entry("example/a", &a_dir, 0))));
+    assert!(checks.contains(&format!(
+        "{},\"status\":{}",
+        entry("example/b", &b_dir, 0),
+        Error::MISMATCH.0
+    )));
+    assert_eq!(store.list(), Err(Error::MISMATCH));
+    // the unverified listing reads no artifact, so it still has both
+    let unverified = text(store.list_unverified().unwrap());
+    assert!(unverified.contains(&entry("example/a", &a_dir, 0)));
+    assert!(unverified.contains(&entry("example/b", &b_dir, 0)));
+    assert!(unverified.ends_with(r#""problems":[]}"#));
+
+    // an entry that is not a package is a problem there, an error in list, and
+    // a status in verify; staging directories are skipped
+    fs::write(root.join("stray"), "x").unwrap();
+    fs::create_dir(root.join(".install-left")).unwrap();
+    assert_eq!(store.list(), Err(Error::INVALID));
+    let unverified = text(store.list_unverified().unwrap());
+    assert!(unverified.contains(r#""id":"stray""#) && !unverified.contains("install-left"));
+    assert!(unverified.contains(&entry("example/a", &a_dir, 0)));
+    assert!(text(store.verify().unwrap()).contains(&format!(
+        "{},\"status\":{}",
+        entry("stray", &root.join("stray"), 0),
+        Error::INVALID.0
+    )));
+}
+
+#[test]
+fn a_layered_view_serves_the_highest_root_and_never_writes() {
+    let scratch = Scratch::new();
+    let high = scratch.0.join("user");
+    let low = scratch.0.join("system");
+    let kept = install(&high, &scratch, "s1", "example/a", "high");
+    install(&low, &scratch, "s2", "example/a", "low");
+    let only_low = install(&low, &scratch, "s3", "example/c", "cee");
+    let absent = scratch.0.join("absent");
+    let roots = [
+        high.to_str().unwrap(),
+        low.to_str().unwrap(),
+        absent.to_str().unwrap(),
+    ];
+    let view = Layered::open(&roots, Limits::default()).unwrap();
+
+    assert_eq!(view.load("example/a").unwrap(), (kept, 0));
+    assert_eq!(view.load("example/c").unwrap(), (only_low, 1));
+    assert_eq!(view.load("example/none"), Err(Error::NOT_FOUND));
+    assert_eq!(view.load("../bad"), Err(Error::INVALID));
+    let listed = text(view.list().unwrap());
+    assert!(listed.contains(&entry("example/a", &high.join("example%2fa"), 0)));
+    assert!(listed.contains(&entry("example/c", &low.join("example%2fc"), 1)));
+    // the manifest repeats the id, so count the report lines, not the id
+    assert_eq!(
+        listed.matches(r#""id":"example/a","directory""#).count(),
+        1,
+        "shadowed"
+    );
+    assert!(!absent.exists(), "the view made a root");
+
+    // a shadowed copy is never read
+    fs::write(low.join("example%2fa/src/main.py"), "tampered").unwrap();
+    assert!(view.load("example/a").is_ok());
+    assert!(view.list().is_ok());
+
+    // a damaged winner fails closed instead of falling back to the copy below
+    fs::write(high.join("example%2fa/src/main.py"), "tampered").unwrap();
+    assert_eq!(view.load("example/a"), Err(Error::MISMATCH));
+    assert_eq!(view.list(), Err(Error::MISMATCH));
+    assert!(text(view.verify().unwrap()).contains(&format!(
+        "{},\"status\":{}",
+        entry("example/a", &high.join("example%2fa"), 0),
+        Error::MISMATCH.0
+    )));
+    let unverified = text(view.list_unverified().unwrap());
+    assert!(unverified.contains(&entry("example/c", &low.join("example%2fc"), 1)));
+    assert!(unverified.ends_with(r#""problems":[]}"#));
+}
+
+#[test]
+fn a_layered_view_refuses_what_is_not_a_set_of_roots() {
+    let scratch = Scratch::new();
+    let one = scratch.join("one");
+    let limits = Limits::default();
+    assert_eq!(Layered::open(&[], limits).err(), Some(Error::INVALID));
+    assert_eq!(Layered::open(&[""], limits).err(), Some(Error::INVALID));
+    assert_eq!(
+        Layered::open(&[&one, &one], limits).err(),
+        Some(Error::INVALID)
+    );
+    let spelled = format!("{}/./", one);
+    assert_eq!(
+        Layered::open(&[&one, &spelled], limits).err(),
+        Some(Error::INVALID),
+        "the same root spelled differently"
+    );
+    assert!(Layered::open(&[&one, &scratch.join("two")], limits).is_ok());
 }

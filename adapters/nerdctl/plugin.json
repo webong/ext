@@ -97,7 +97,10 @@
       "runtime": "manager",
       "selector_key": "nerdctl",
       "supports": [
-        "container"
+        "virtualizer",
+        "executor",
+        "container",
+        "nerdctl"
       ],
       "surfaces": [
         "shell"

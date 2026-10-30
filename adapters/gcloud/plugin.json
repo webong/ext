@@ -67,6 +67,7 @@
       "selector_key": "gcloud_configuration",
       "supports": [
         "virtualizer",
+        "emulator",
         "container"
       ],
       "surfaces": [

@@ -71,7 +71,9 @@
       "runtime": "computer",
       "selector_key": "jvm",
       "supports": [
-        "engine",
+        "virtualizer",
+        "evaluator",
+        "compiler",
         "jvm"
       ],
       "surfaces": [

@@ -230,18 +230,43 @@ such as `virtualizer`, `container`, and `interpreter`. A tool may declare both r
 its runtime. Support declarations aid discovery; they do not add transfer or
 invocation operations. API v2.0 does not accept `kind`.
 
-An **engine** is a runtime that executes programs, such as a Java virtual machine,
-a WebAssembly runtime, or an EVM node. An adapter that provides one declares
-`supports = "engine,<kind>"`, for example `engine,jvm`, so
-`ctx graph resolve all --supports engine` lists every engine and
-`--supports jvm` narrows to one kind. The adapter's `list` output names the
-installed engines (a major version for the JVM), `observe` reports their
-version, location and source as attributes, and `run` executes the requested
-command with the selected engine. Discovery conventions such as `JAVA_HOME`
+A **virtualizer** is a runtime that virtualizes some boundary, and it has a level that
+names the boundary: an **evaluator** (a process or a language: a Java virtual machine,
+a WebAssembly runtime, an EVM, PHP), an **executor** (the operating system, with a
+shared kernel: Docker) or an **emulator** (a whole system: QEMU, VMware ESXi). An
+adapter that provides one declares `virtualizer`, its level, any functions
+(`interpreter`, `compiler`, `transpiler`, `bundler`) and its kind last, for example
+`supports = "virtualizer,evaluator,compiler,jvm"`, so
+`ctx graph resolve all --supports virtualizer` lists every virtualizer,
+`--supports evaluator` narrows to one level and `--supports jvm` to one kind. The
+adapter's `list` output names the installed evaluators (a major version for the JVM),
+`observe` reports their version, location and source as attributes, and `run`
+executes the requested command with the selected evaluator. Discovery conventions such as `JAVA_HOME`
 belong to the adapter, not to the host.
 
-Engine adapters follow a shared contract for selections, flags, exit statuses and
-isolation: see [Engine adapters](engine-adapters.md).
+An **installer** is an adapter that installed or owns programs for other
+adapters: Homebrew, asdf, nvm, apt. It declares `supports = "installer"` and the
+optional `programs` capability. CTX calls `programs NAME...`, where the names are
+the `computer_commands` of the installed adapters, and expects one object on stdout
+with the same limits as `observe`:
+
+~~~json
+{"version": 1, "programs": [
+  {"name": "php", "path": "/opt/homebrew/opt/php@8.3/bin/php",
+   "version": "8.3.12", "attributes": {"formula": "php@8.3"}}
+]}
+~~~
+
+CTX keeps only records for names it asked about and only paths that are existing
+executables, joins them with a scan of `PATH` by resolved path
+(`res/system/program`), and gives each adapter that declares `computer_commands`
+the candidates for its commands in `CTX_PROGRAMS`: one line per candidate with
+tab-separated `name`, `path`, `realpath`, `version`, `installers` and `on_path`.
+The adapter decides what each one is and whether it is usable. See
+[Program discovery](adr-program-discovery.md).
+
+Evaluator adapters follow a shared contract for selections, flags, exit statuses and
+isolation: see [Evaluator adapters](evaluator-adapters.md).
 
 A browser adapter normally uses `selector_key = "browser"`. Its `list` output
 uses `name:profile` values, while `validate`, `doctor`, and `open` receive only
@@ -307,7 +332,7 @@ manager issues without changing any configuration.
 
 A computer adapter may also set `self_contained = "true"` while declaring
 `computer_commands`: it is then its own implementation, and ctx does not look for
-a native executable of that name. The built-in `wasm` engine works this way.
+a native executable of that name. The built-in `wasm` evaluator works this way.
 
 An API v2.0 manager adapter may set `self_contained = "true"` and omit
 `commands` when its executable handles its own native CLI discovery. Without

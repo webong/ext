@@ -69,7 +69,10 @@
       "runtime": "computer",
       "selector_key": "php",
       "supports": [
-        "interpreter"
+        "virtualizer",
+        "evaluator",
+        "interpreter",
+        "php"
       ],
       "surfaces": [
         "shell"

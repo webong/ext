@@ -321,6 +321,10 @@ func ValidateDependency(dependency Dependency, target *Adapter) error {
 	return nil
 }
 
+// HasSupport reports whether the manifest declares the resource kind in
+// supports, such as "installer" or "interpreter".
+func (a *Adapter) HasSupport(kind string) bool { return contains(a.Manifest.Supports, kind) }
+
 func (a *Adapter) HasBrowserShare(operation string) bool {
 	return a.IsRuntime("browser") && contains(a.Manifest.BrowserShare, operation)
 }
@@ -761,7 +765,7 @@ func validateManifest(manifest Manifest, directory, goos string, requireExecutab
 	}
 	for _, capability := range manifest.Capabilities {
 		switch capability {
-		case "list", "observe", "configure", "validate", "run", "doctor", "open", "build", "share",
+		case "list", "observe", "programs", "configure", "validate", "run", "doctor", "open", "build", "share",
 			"image_push", "image_pull", "image_save", "image_load",
 			"volume_exists", "volume_create", "volume_export", "volume_import":
 		default:

@@ -45,7 +45,7 @@ func usage(w io.Writer) {
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "Usage:")
 	fmt.Fprintln(w, "  ctn adapter ls")
-	fmt.Fprintln(w, "  ctn verify [--engine NAME] [--selection SEL] [--timeout D] [--json] FILE [ARGUMENTS...]")
+	fmt.Fprintln(w, "  ctn verify [--evaluator NAME] [--selection SEL] [--timeout D] [--json] FILE [ARGUMENTS...]")
 	fmt.Fprintln(w, "  ctn content init ROOT")
 	fmt.Fprintln(w, "  ctn content import ROOT FILE")
 	fmt.Fprintln(w, "  ctn content list|inspect|verify|remove ROOT [ID]")

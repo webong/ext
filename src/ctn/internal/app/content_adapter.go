@@ -8,29 +8,29 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/webong/ext/pkg/ext-go/engine/host/adapter"
 	"github.com/webong/ext/ctn/internal/content"
+	"github.com/webong/ext/pkg/ext-go/engine/host/adapter"
 )
 
-// engineBackend wraps an engine adapter as a content.Backend.
-type engineBackend struct {
+// evaluatorBackend wraps an evaluator adapter as a content.Backend.
+type evaluatorBackend struct {
 	adapter *adapter.Adapter
 	prefix  string
 }
 
-func (b *engineBackend) Name() string {
+func (b *evaluatorBackend) Name() string {
 	return b.adapter.Manifest.Name
 }
 
-func (b *engineBackend) Run(ctx context.Context, arguments []string) (int, []byte, error) {
+func (b *evaluatorBackend) Run(ctx context.Context, arguments []string) (int, []byte, error) {
 	// Prepend the prefix (for example "@" for evm) to the file argument,
 	// which is always the first argument.
 	if len(arguments) > 0 && b.prefix != "" {
 		arguments[0] = b.prefix + arguments[0]
 	}
 	command, err := b.adapter.CommandContext(ctx, adapter.Invocation{
-		Operation:   "run",
-		Arguments:   arguments,
+		Operation: "run",
+		Arguments: arguments,
 	})
 	if err != nil {
 		return 0, nil, err
@@ -50,12 +50,12 @@ func (b *engineBackend) Run(ctx context.Context, arguments []string) (int, []byt
 	return 0, []byte(out.String()), nil
 }
 
-// enginePolicy wraps trust and isolation checks from the engine adapter store.
-type enginePolicy struct {
+// evaluatorPolicy wraps trust and isolation checks from the evaluator adapter store.
+type evaluatorPolicy struct {
 	store *adapter.Store
 }
 
-func (p *enginePolicy) IsTrusted(backend content.Backend) bool {
+func (p *evaluatorPolicy) IsTrusted(backend content.Backend) bool {
 	installed, err := p.store.List()
 	if err != nil {
 		return false
@@ -69,7 +69,7 @@ func (p *enginePolicy) IsTrusted(backend content.Backend) bool {
 	return false
 }
 
-func (p *enginePolicy) Isolation(backend content.Backend, selection string) (string, string, bool) {
+func (p *evaluatorPolicy) Isolation(backend content.Backend, selection string) (string, string, bool) {
 	installed, err := p.store.List()
 	if err != nil {
 		return "unknown", err.Error(), false

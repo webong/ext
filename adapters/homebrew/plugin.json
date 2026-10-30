@@ -1,0 +1,83 @@
+{
+  "apiVersion": "ext.package/v1",
+  "descriptor": {
+    "apiVersion": "ext.plugin/v1",
+    "identity": {
+      "id": "homebrew",
+      "revision": ""
+    },
+    "contracts": [
+      {
+        "name": "ext.adapter",
+        "version": "2.0",
+        "operations": [
+          {
+            "name": "list"
+          },
+          {
+            "name": "observe"
+          },
+          {
+            "name": "programs"
+          },
+          {
+            "name": "validate"
+          },
+          {
+            "name": "run"
+          },
+          {
+            "name": "doctor"
+          }
+        ]
+      }
+    ]
+  },
+  "artifacts": [
+    {
+      "name": "main",
+      "path": "ctx-homebrew",
+      "sha256": ""
+    },
+    {
+      "name": "main-windows",
+      "path": "ctx-homebrew.ps1",
+      "sha256": ""
+    }
+  ],
+  "entrypoints": [
+    {
+      "name": "main",
+      "runtime": "argv",
+      "artifact": "main",
+      "protocols": [
+        "ext.adapter/2.0"
+      ]
+    },
+    {
+      "name": "main.windows",
+      "runtime": "argv",
+      "artifact": "main-windows",
+      "protocols": [
+        "ext.adapter/2.0"
+      ]
+    }
+  ],
+  "metadata": {
+    "ctx.adapter/v1": {
+      "computer_commands": [
+        "brew"
+      ],
+      "description": "Homebrew installer: reports the programs it installed",
+      "runtime": "computer",
+      "supports": [
+        "installer"
+      ],
+      "surfaces": [
+        "shell"
+      ],
+      "display_name": "Homebrew",
+      "selectable": false
+    }
+  }
+}

@@ -231,9 +231,9 @@ engine's limits, including that it is not a complete sandbox, are in
 
 ## Check content from the command line
 
-`ctn verify` runs a file through an engine and reports `PASS`, `FAIL`, `TIMEOUT` or
-`UNSUPPORTED` with the file's SHA-256, and only when the engine reports that it confines
-its content. It needs an engine adapter installed and trusted through `ctx`.
+`ctn verify` runs a file through an evaluator and reports `PASS`, `FAIL`, `TIMEOUT` or
+`UNSUPPORTED` with the file's SHA-256, and only when the evaluator reports that it confines
+its content. It needs an evaluator adapter installed and trusted through `ctx`.
 
 ```sh
 ctn verify module.wasm
@@ -244,6 +244,6 @@ See [ctn verify](ctn-verify.md) for the rules, verdicts and exit statuses.
 
 ## Where to go next
 
-- [Engine adapters](engine-adapters.md): the contract for the `jvm`, `wasm` and `evm` engines.
+- [Evaluator adapters](evaluator-adapters.md): the contract for the `jvm`, `wasm`, `evm` and `php` evaluators.
 - [Adapter API](adapter-api.md): write an adapter for a tool.
 - [Mobile WebAssembly](adr-mobile-wasm.md): hosting plugins on a phone, and what is and is not verified.

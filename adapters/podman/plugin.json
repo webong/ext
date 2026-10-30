@@ -98,6 +98,8 @@
       "selector_key": "podman",
       "supports": [
         "virtualizer",
+        "emulator",
+        "executor",
         "container"
       ],
       "surfaces": [

@@ -64,7 +64,10 @@
       "selector_key": "rancher_desktop",
       "self_contained": true,
       "supports": [
-        "virtualizer"
+        "virtualizer",
+        "emulator",
+        "executor",
+        "container"
       ],
       "surfaces": [
         "shell"

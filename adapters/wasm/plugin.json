@@ -72,7 +72,8 @@
       "selector_key": "wasm",
       "self_contained": true,
       "supports": [
-        "engine",
+        "virtualizer",
+        "evaluator",
         "wasm"
       ],
       "surfaces": [

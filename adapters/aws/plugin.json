@@ -67,6 +67,7 @@
       "selector_key": "aws_profile",
       "supports": [
         "virtualizer",
+        "emulator",
         "container"
       ],
       "surfaces": [

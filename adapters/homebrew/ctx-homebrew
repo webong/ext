@@ -1,0 +1,83 @@
+#!/bin/sh
+set -eu
+
+operation=${1:-}
+[ "$#" -gt 0 ] && shift
+
+# Homebrew prefixes that exist on this machine, user-chosen first.
+prefixes() {
+  if [ -n "${HOMEBREW_PREFIX:-}" ] && [ -x "$HOMEBREW_PREFIX/bin/brew" ]; then
+    printf '%s\n' "$HOMEBREW_PREFIX"
+  fi
+  for prefix in /opt/homebrew /usr/local /home/linuxbrew/.linuxbrew; do
+    [ "$prefix" = "${HOMEBREW_PREFIX:-}" ] && continue
+    [ -x "$prefix/bin/brew" ] && printf '%s\n' "$prefix"
+  done
+  return 0
+}
+
+
+json_escape() {
+  printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g'
+}
+
+# programs NAME...: every kegged executable called NAME, linked or not. Each
+# formula's stable path is <prefix>/opt/<formula>/bin/NAME, which survives
+# upgrades and also exists for keg-only formulae. No brew process is started.
+programs() {
+  printf '{"version":1,"programs":['
+  separator=
+  for prefix in $(prefixes); do
+    for name in "$@"; do
+      case "$name" in ''|*[!A-Za-z0-9._+-]*) continue ;; esac
+      for path in "$prefix"/opt/*/bin/"$name"; do
+        [ -x "$path" ] || continue
+        formula=${path#"$prefix"/opt/}
+        formula=${formula%%/*}
+        keg=$(cd "$prefix/opt/$formula" 2>/dev/null && pwd -P || true)
+        version=${keg##*/}
+        linked=false
+        if [ "$prefix/bin/$name" -ef "$keg/bin/$name" ]; then linked=true; fi
+        printf '%s{"name":"%s","path":"%s","version":"%s","attributes":{"formula":"%s","linked":%s}}' \
+          "$separator" "$(json_escape "$name")" "$(json_escape "$path")" "$(json_escape "$version")" "$(json_escape "$formula")" "$linked"
+        separator=,
+      done
+    done
+  done
+  printf ']}\n'
+}
+
+have() { [ -n "$(prefixes)" ]; }
+
+case "$operation" in
+  list)
+    have && printf 'default\n'
+    exit 0
+    ;;
+  observe)
+    if have; then
+      printf '{"version":1,"contexts":[{"selection":"default","attributes":{"prefix_count":"%s"}}]}\n' "$(prefixes | wc -l | tr -d ' ')"
+    else
+      printf '{"version":1,"contexts":[]}\n'
+    fi
+    ;;
+  programs) programs "$@" ;;
+  validate)
+    selection=${1:-}
+    { [ -z "$selection" ] || [ "$selection" = default ]; } && have || { printf 'homebrew: Homebrew is not installed\n' >&2; exit 1; }
+    ;;
+  doctor)
+    brew=$(prefixes | head -n 1)
+    [ -n "$brew" ] || { printf 'homebrew: Homebrew is not installed\n' >&2; exit 127; }
+    "$brew/bin/brew" --version
+    ;;
+  run)
+    selection=
+    if [ "$#" -gt 0 ] && [ "$1" != "--" ]; then selection=$1; shift; fi
+    [ "${1:-}" = "--" ] && shift
+    brew=$(prefixes | head -n 1)
+    [ -n "$brew" ] || { printf 'homebrew: Homebrew is not installed\n' >&2; exit 127; }
+    exec "$brew/bin/brew" "$@"
+    ;;
+  *) exit 2 ;;
+esac

@@ -72,42 +72,78 @@ func splitList(value string) []string {
 	return out
 }
 
-// TestEngineAdaptersFollowTheContract checks the parts of docs/engine-adapters.md
-// that a manifest can show: the declaration and the required operations.
-func TestEngineAdaptersFollowTheContract(t *testing.T) {
+// Levels say what boundary a program virtualizes, functions say what it does with
+// code. docs/adr-program-discovery.md defines both.
+var (
+	virtualizerLevels = map[string]bool{"evaluator": true, "executor": true, "emulator": true}
+	codeFunctions     = map[string]bool{"interpreter": true, "compiler": true, "transpiler": true, "bundler": true}
+)
+
+// TestVirtualizerLevels checks the vocabulary: no adapter declares the retired
+// "engine" role, every adapter with a level also declares virtualizer, and every
+// virtualizer has a level.
+func TestVirtualizerLevels(t *testing.T) {
 	root := repoRoot(t)
 	manifests, err := filepath.Glob(filepath.Join(root, "adapters", "*", "plugin.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	var engines []string
+	for _, path := range manifests {
+		values := manifestValues(t, path)
+		name := values["name"]
+		hasLevel, isVirtualizer := false, false
+		for _, kind := range splitList(values["supports"]) {
+			if kind == "engine" {
+				t.Errorf("%s: \"engine\" is retired; declare virtualizer and a level (evaluator, executor or emulator)", name)
+			}
+			hasLevel = hasLevel || virtualizerLevels[kind]
+			isVirtualizer = isVirtualizer || kind == "virtualizer"
+		}
+		if hasLevel && !isVirtualizer {
+			t.Errorf("%s: an adapter with a level must also declare virtualizer", name)
+		}
+		if isVirtualizer && !hasLevel {
+			t.Errorf("%s: a virtualizer must declare a level: evaluator, executor or emulator", name)
+		}
+	}
+}
+
+// TestEvaluatorAdaptersFollowTheContract checks the parts of docs/evaluator-adapters.md
+// that a manifest can show: the declaration and the required operations.
+func TestEvaluatorAdaptersFollowTheContract(t *testing.T) {
+	root := repoRoot(t)
+	manifests, err := filepath.Glob(filepath.Join(root, "adapters", "*", "plugin.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var evaluators []string
 	for _, path := range manifests {
 		values := manifestValues(t, path)
 		supports := splitList(values["supports"])
-		isEngine := false
+		isEvaluator := false
 		for _, kind := range supports {
-			isEngine = isEngine || kind == "engine"
+			isEvaluator = isEvaluator || kind == "evaluator"
 		}
-		if !isEngine {
+		if !isEvaluator {
 			continue
 		}
 		name := values["name"]
-		engines = append(engines, name)
+		evaluators = append(evaluators, name)
 		if values["runtime"] != "computer" {
-			t.Errorf("%s: an engine uses the computer runtime, not %q", name, values["runtime"])
+			t.Errorf("%s: an evaluator uses the computer runtime, not %q", name, values["runtime"])
 		}
 		var kinds []string
 		for _, kind := range supports {
-			if kind != "engine" {
+			if kind != "virtualizer" && !virtualizerLevels[kind] && !codeFunctions[kind] {
 				kinds = append(kinds, kind)
 			}
 		}
 		if len(kinds) != 1 {
-			t.Errorf("%s: supports must be \"engine,<kind>\" with exactly one kind, got %q", name, values["supports"])
+			t.Errorf("%s: supports must be virtualizer, evaluator, any functions and exactly one kind, got %q", name, values["supports"])
 			continue
 		}
 		if values["selector_key"] != kinds[0] {
-			t.Errorf("%s: selector_key must be the engine kind %q, got %q", name, kinds[0], values["selector_key"])
+			t.Errorf("%s: selector_key must be the evaluator kind %q, got %q", name, kinds[0], values["selector_key"])
 		}
 		capabilities := map[string]bool{}
 		for _, capability := range splitList(values["capabilities"]) {
@@ -115,16 +151,16 @@ func TestEngineAdaptersFollowTheContract(t *testing.T) {
 		}
 		for _, required := range []string{"list", "observe", "validate", "run", "doctor"} {
 			if !capabilities[required] {
-				t.Errorf("%s: an engine must implement %s (capabilities = %q)", name, required, values["capabilities"])
+				t.Errorf("%s: an evaluator must implement %s (capabilities = %q)", name, required, values["capabilities"])
 			}
 		}
 		if values["computer_commands"] == "" {
-			t.Errorf("%s: an engine must name the command it answers to in computer_commands", name)
+			t.Errorf("%s: an evaluator must name the command it answers to in computer_commands", name)
 		}
 	}
-	sort.Strings(engines)
-	// The maintained engines. Adding one means deciding it belongs here.
-	if got := strings.Join(engines, ","); got != "evm,jvm,wasm" {
-		t.Errorf("engine adapters are %q, want evm,jvm,wasm: update this list and the docs together", got)
+	sort.Strings(evaluators)
+	// The maintained evaluators. Adding one means deciding it belongs here.
+	if got := strings.Join(evaluators, ","); got != "evm,jvm,php,wasm" {
+		t.Errorf("evaluator adapters are %q, want evm,jvm,php,wasm: update this list and the docs together", got)
 	}
 }

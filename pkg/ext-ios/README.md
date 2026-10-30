@@ -321,8 +321,8 @@ macOS. It is not run in the iOS Simulator.
 
 ## Related
 
-- [Engine adapters](../../docs/engine-adapters.md) are adapters that run programs
-  (`jvm`, `wasm`, `evm`). They are a different thing from this SDK, which binds the
+- [Evaluator adapters](../../docs/evaluator-adapters.md) are adapters that run programs
+  (`jvm`, `wasm`, `evm`, `php`). They are a different thing from this SDK, which binds the
   shared plugin engine, `lib/plugin`; the page explains the two senses of
   "engine".
 - [The web engine](../../docs/web-engine.md) runs web content in a browser the host

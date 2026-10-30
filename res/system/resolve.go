@@ -19,6 +19,8 @@ type ContextCandidate struct {
 	SelectionRedacted bool              `json:"selection_redacted,omitempty"`
 	Capabilities      []string          `json:"capabilities"`
 	Supports          []string          `json:"supports,omitempty"`
+	Engine            []string          `json:"engine,omitempty"`
+	Role              []string          `json:"role,omitempty"`
 	BrowserShare      map[string]string `json:"browser_share,omitempty"`
 	ObservedAt        time.Time         `json:"observed_at"`
 }
@@ -119,7 +121,7 @@ func (g *Graph) ResolveInventory(ctx context.Context, runtimeName string) (Inven
 				}
 			}
 		}
-		result.Contexts = append(result.Contexts, ContextCandidate{Adapter: adapter, Runtime: runtimeValue, Selection: selection, SelectionDigest: selectionDigest, SelectionRedacted: selection == "", Capabilities: capabilities, Supports: supports, BrowserShare: browserShare, ObservedAt: vertex.Provenance.At})
+		result.Contexts = append(result.Contexts, ContextCandidate{Adapter: adapter, Runtime: runtimeValue, Selection: selection, SelectionDigest: selectionDigest, SelectionRedacted: selection == "", Capabilities: capabilities, Supports: supports, Engine: sortedCopy(stringList(adapterVertex.Attributes["engine"])), Role: sortedCopy(stringList(adapterVertex.Attributes["role"])), BrowserShare: browserShare, ObservedAt: vertex.Provenance.At})
 	}
 	sort.Slice(result.Contexts, func(i, j int) bool {
 		if result.Contexts[i].Adapter == result.Contexts[j].Adapter {

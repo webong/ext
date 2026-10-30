@@ -67,6 +67,8 @@ type Manifest struct {
 	DisplayName          string
 	Capabilities         []string
 	Supports             []string
+	Engine               []string
+	Role                 []string
 	SelectorKey          string
 	Selectable           bool
 	ExtraKeys            []string
@@ -174,6 +176,8 @@ func adapterFromValues(values map[string]string, pm packagekit.Manifest, absolut
 		DisplayName:          values["display_name"],
 		Capabilities:         splitList(values["capabilities"]),
 		Supports:             splitList(values["supports"]),
+		Engine:               splitList(values["engine"]),
+		Role:                 splitList(values["role"]),
 		SelectorKey:          values["selector_key"],
 		Selectable:           values["selectable"] != "false",
 		ExtraKeys:            splitList(values["extra_keys"]),
@@ -320,6 +324,16 @@ func ValidateDependency(dependency Dependency, target *Adapter) error {
 	}
 	return nil
 }
+
+// HasSupport reports whether the manifest declares the resource kind in
+// supports, such as "container" or "jvm".
+func (a *Adapter) HasSupport(kind string) bool { return contains(a.Manifest.Supports, kind) }
+
+// HasEngine reports whether the manifest declares an engine, such as "evaluator".
+func (a *Adapter) HasEngine(engine string) bool { return contains(a.Manifest.Engine, engine) }
+
+// HasRole reports whether the manifest declares a role, such as "installer".
+func (a *Adapter) HasRole(role string) bool { return contains(a.Manifest.Role, role) }
 
 func (a *Adapter) HasBrowserShare(operation string) bool {
 	return a.IsRuntime("browser") && contains(a.Manifest.BrowserShare, operation)
@@ -761,7 +775,7 @@ func validateManifest(manifest Manifest, directory, goos string, requireExecutab
 	}
 	for _, capability := range manifest.Capabilities {
 		switch capability {
-		case "list", "observe", "configure", "validate", "run", "doctor", "open", "build", "share",
+		case "list", "observe", "programs", "configure", "validate", "run", "doctor", "open", "build", "share",
 			"image_push", "image_pull", "image_save", "image_load",
 			"volume_exists", "volume_create", "volume_export", "volume_import":
 		default:
@@ -774,6 +788,15 @@ func validateManifest(manifest Manifest, directory, goos string, requireExecutab
 			return fmt.Errorf("adapter %s declares invalid or duplicate support %s", manifest.Name, kind)
 		}
 		seenSupports[kind] = true
+	}
+	for field, values := range map[string][]string{"engine": manifest.Engine, "role": manifest.Role} {
+		seen := map[string]bool{}
+		for _, value := range values {
+			if !validName.MatchString(value) || seen[value] {
+				return fmt.Errorf("adapter %s declares invalid or duplicate %s %s", manifest.Name, field, value)
+			}
+			seen[value] = true
+		}
 	}
 	return nil
 }

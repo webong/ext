@@ -81,6 +81,13 @@
         "container"
       ],
       "description": "First-party Apple Container provider",
+      "engine": [
+        "emulator",
+        "executor"
+      ],
+      "role": [
+        "virtualizer"
+      ],
       "runtime": "manager",
       "selector_key": "apple_container",
       "supports": [

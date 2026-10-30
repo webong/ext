@@ -68,10 +68,16 @@
         "jar"
       ],
       "description": "Java virtual machine selector and version-aware command adapter",
+      "engine": [
+        "evaluator"
+      ],
+      "role": [
+        "virtualizer",
+        "compiler"
+      ],
       "runtime": "computer",
       "selector_key": "jvm",
       "supports": [
-        "engine",
         "jvm"
       ],
       "surfaces": [

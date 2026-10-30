@@ -114,7 +114,7 @@ ctx and is closed: an unknown key is an error, so a typo is not ignored. Its key
 | `display_name`, `description` | string | presentation |
 | `runtime` | string | `computer`, `manager`, `browser`, `credential`, or a runtime a product defines |
 | `surfaces` | list | `shell`, `web` |
-| `supports`, `extra_keys`, `commands`, `share_spaces`, `override_env` | list | as described below |
+| `supports`, `engine`, `role`, `extra_keys`, `commands`, `share_spaces`, `override_env` | list | as described below |
 | `selector_key` | string | the key that selects this adapter |
 | `selectable`, `self_contained`, `default_provider`, `browser_query_auto` | boolean | as described below |
 | `browser_query_priority` | integer | 0 to 1000 |
@@ -208,7 +208,7 @@ line-oriented `list` behavior documented below.
 
 The public `github.com/webong/ext/res/system` package exposes
 `ObserveInventory`, `ResolveInventory`, and `Inventory.Find` for other Go
-consumers. `ctx graph resolve [runtime|all] [capability...] [--supports <kind>] [--share <resource.operation>]`
+consumers. `ctx graph resolve [runtime|all] [capability...] [--supports <kind>] [--engine <name>] [--role <name>] [--share <resource.operation>]`
 shows the same candidate view as JSON. `ctx graph vertices support` and
 `ctx graph edges supports-kind` expose declarations even for adapters that
 have not listed a context. These are observations; the caller must validate
@@ -226,22 +226,50 @@ the selected context with its trusted adapter before acting.
 `run` and command shims; `web` permits `open`. An adapter may expose both.
 `capabilities` names executable operations such as `run`, `build`, and
 `image_save`. `supports` names resource kinds that the native tool can manage,
-such as `virtualizer`, `container`, and `interpreter`. A tool may declare both regardless of
+such as `container` and `php`. A tool may declare both regardless of
 its runtime. Support declarations aid discovery; they do not add transfer or
 invocation operations. API v2.0 does not accept `kind`.
 
-An **engine** is a runtime that executes programs, such as a Java virtual machine,
-a WebAssembly runtime, or an EVM node. An adapter that provides one declares
-`supports = "engine,<kind>"`, for example `engine,jvm`, so
-`ctx graph resolve all --supports engine` lists every engine and
-`--supports jvm` narrows to one kind. The adapter's `list` output names the
-installed engines (a major version for the JVM), `observe` reports their
-version, location and source as attributes, and `run` executes the requested
-command with the selected engine. Discovery conventions such as `JAVA_HOME`
+A program answers two questions: which **engine** it provides and which **roles** it
+plays. An engine virtualizes some boundary, and its type names the boundary: an
+**evaluator** (a process or a language: a Java virtual machine, a WebAssembly
+runtime, an EVM, PHP), an **executor** (the operating system, with a shared kernel:
+Docker) or an **emulator** (a whole system: QEMU, VMware ESXi). A role says what the
+program does: `virtualizer` (it provides an engine), `interpreter`, `compiler`,
+`transpiler`, `bundler`, `renderer` or `installer`. They are separate manifest fields, each a list:
+`engine` and `role`, while `supports` keeps the resource kinds. For example the `jvm`
+adapter declares `engine = ["evaluator"]`, `role = ["virtualizer", "compiler"]` and
+`supports = ["jvm"]`, so `ctx graph resolve all --role virtualizer` lists every
+virtualizer, `--engine evaluator` narrows to one engine, `--role compiler` to one role
+and `--supports jvm` to one kind. The
+adapter's `list` output names the installed evaluators (a major version for the JVM),
+`observe` reports their version, location and source as attributes, and `run`
+executes the requested command with the selected evaluator. Discovery conventions such as `JAVA_HOME`
 belong to the adapter, not to the host.
 
-Engine adapters follow a shared contract for selections, flags, exit statuses and
-isolation: see [Engine adapters](engine-adapters.md).
+An **installer** is an adapter that installed or owns programs for other
+adapters: Homebrew, asdf, nvm, apt. It declares `role = ["installer"]` and the
+optional `programs` capability. CTX calls `programs NAME...`, where the names are
+the `computer_commands` of the installed adapters, and expects one object on stdout
+with the same limits as `observe`:
+
+~~~json
+{"version": 1, "programs": [
+  {"name": "php", "path": "/opt/homebrew/opt/php@8.3/bin/php",
+   "version": "8.3.12", "attributes": {"formula": "php@8.3"}}
+]}
+~~~
+
+CTX keeps only records for names it asked about and only paths that are existing
+executables, joins them with a scan of `PATH` by resolved path
+(`res/system/program`), and gives each adapter that declares `computer_commands`
+the candidates for its commands in `CTX_PROGRAMS`: one line per candidate with
+tab-separated `name`, `path`, `realpath`, `version`, `installers` and `on_path`.
+The adapter decides what each one is and whether it is usable. See
+[Program discovery](adr-program-discovery.md).
+
+Evaluator adapters follow a shared contract for selections, flags, exit statuses and
+isolation: see [Evaluator adapters](evaluator-adapters.md).
 
 A browser adapter normally uses `selector_key = "browser"`. Its `list` output
 uses `name:profile` values, while `validate`, `doctor`, and `open` receive only
@@ -307,12 +335,12 @@ manager issues without changing any configuration.
 
 A computer adapter may also set `self_contained = "true"` while declaring
 `computer_commands`: it is then its own implementation, and ctx does not look for
-a native executable of that name. The built-in `wasm` engine works this way.
+a native executable of that name. The built-in `wasm` evaluator works this way.
 
 An API v2.0 manager adapter may set `self_contained = "true"` and omit
 `commands` when its executable handles its own native CLI discovery. Without
 this opt-in, `commands` still defaults to the adapter name. Manager-app adapters declare
-`supports = "virtualizer"` and implement `list`, `validate`, `run`, and
+`role = ["virtualizer"]` and implement `list`, `validate`, `run`, and
 `doctor`; `ctx manager app <adapter> <status|start|stop|doctor>` routes these
 operations generically. The maintained Rancher Desktop, OrbStack, and Docker
 Desktop packages own their product-specific status and diagnostic logic. The

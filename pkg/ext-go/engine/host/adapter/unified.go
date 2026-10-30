@@ -75,7 +75,7 @@ var metadataKinds = map[string]valueKind{
 	"display_name": kindText, "description": kindText, "runtime": kindText,
 	"selector_key": kindText, "computer_hook_settings_file": kindText,
 	"computer_hook_template": kindText, "go_entry": kindText,
-	"surfaces": kindList, "supports": kindList, "extra_keys": kindList,
+	"surfaces": kindList, "supports": kindList, "engine": kindList, "role": kindList, "extra_keys": kindList,
 	"commands": kindList, "computer_commands": kindList,
 	"computer_capabilities": kindList, "computer_hook_events": kindList,
 	"computer_hook_default_events": kindList, "share_spaces": kindList,

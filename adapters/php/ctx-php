@@ -27,49 +27,33 @@ real_php() {
   command -v php 2>/dev/null || true
 }
 
-inventory() {
-  if command -v brew >/dev/null 2>&1; then
-    brew list --formula --versions 2>/dev/null | while read -r formula version rest; do
-      [ -n "${version:-}" ] || continue
-      base=${formula##*/}
-      case "$base" in
-        php) selection=$(printf '%s\n' "$version" | awk -F. '{print $1 "." $2}') ;;
-        php@*) selection=${base#php@} ;;
-        *) continue ;;
-      esac
-      prefix=$(brew --prefix "$formula" 2>/dev/null || true)
-      executable=$prefix/bin/php
-      [ -x "$executable" ] || continue
-      printf '%s\t%s\t%s\thomebrew\t%s\n' "$selection" "$executable" "$version" "$formula"
-    done
+# One line per usable PHP: selection, executable, version, installers.
+# CTX passes every copy it found in CTX_PROGRAMS (see the adapter API); outside
+# CTX only the PHP on PATH is known. A copy whose version cannot be read is not
+# usable and is left out.
+candidates() {
+  tab=$(printf '\t')
+  if [ "${CTX_PROGRAMS+set}" = set ]; then
+    printf '%s\n' "$CTX_PROGRAMS" | awk -F '\t' '$1 == "php" && $2 != "" { print ($6 == 1 ? 0 : 1) "\t" $2 "\t" $5 }' | sort -s -k1,1n |
+      while IFS="$tab" read -r rank executable installers; do
+        printf '%s\t%s\n' "$executable" "$installers"
+      done
+    return
   fi
   executable=$(real_php)
-  if [ -n "$executable" ] && [ -x "$executable" ]; then
-    version=$("$executable" -r 'echo PHP_VERSION;' 2>/dev/null || true)
-    if [ -n "$version" ]; then
-      selection=$(printf '%s\n' "$version" | awk -F. '{print $1 "." $2}')
-      existing=$(inventory_homebrew_selection "$selection")
-      if [ -z "$existing" ]; then
-        printf '%s\t%s\t%s\tpath\t\n' "$selection" "$executable" "$version"
-      fi
-    fi
-  fi
+  [ -n "$executable" ] && printf '%s\t\n' "$executable"
+  return 0
 }
 
-inventory_homebrew_selection() {
-  wanted=$1
-  if command -v brew >/dev/null 2>&1; then
-    brew list --formula --versions 2>/dev/null | while read -r formula version rest; do
-      [ -n "${version:-}" ] || continue
-      base=${formula##*/}
-      case "$base" in
-        php) selection=$(printf '%s\n' "$version" | awk -F. '{print $1 "." $2}') ;;
-        php@*) selection=${base#php@} ;;
-        *) continue ;;
-      esac
-      if [ "$selection" = "$wanted" ]; then printf '%s\n' "$formula"; break; fi
-    done
-  fi
+inventory() {
+  tab=$(printf '\t')
+  candidates | while IFS="$tab" read -r executable installers; do
+    [ -x "$executable" ] || continue
+    version=$("$executable" -r 'echo PHP_VERSION;' 2>/dev/null || true)
+    [ -n "$version" ] || continue
+    selection=$(printf '%s\n' "$version" | awk -F. '{print $1 "." $2}')
+    printf '%s\t%s\t%s\t%s\n' "$selection" "$executable" "$version" "${installers:-path}"
+  done | awk -F '\t' '!seen[$1]++'
 }
 
 find_record() {
@@ -85,11 +69,9 @@ case "$operation" in
     tab=$(printf '\t')
     separator=
     printf '{"version":1,"contexts":['
-    inventory | while IFS="$tab" read -r selection executable version manager formula; do
+    inventory | while IFS="$tab" read -r selection executable version manager; do
       [ -n "$selection" ] || continue
-      printf '%s{"selection":"%s","attributes":{"version":"%s","manager":"%s"' "$separator" "$selection" "$version" "$manager"
-      if [ -n "$formula" ]; then printf ',"formula":"%s"' "$formula"; fi
-      printf '}}'
+      printf '%s{"selection":"%s","attributes":{"kind":"php","version":"%s","isolation":"host","manager":"%s"}}' "$separator" "$selection" "$version" "$manager"
       separator=,
     done
     printf ']}\n'

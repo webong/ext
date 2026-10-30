@@ -90,14 +90,20 @@
         "podman"
       ],
       "description": "First-party Podman manager provider",
+      "engine": [
+        "emulator",
+        "executor"
+      ],
       "override_env": [
         "CONTAINER_CONNECTION",
         "CONTAINER_HOST"
       ],
+      "role": [
+        "virtualizer"
+      ],
       "runtime": "manager",
       "selector_key": "podman",
       "supports": [
-        "virtualizer",
         "container"
       ],
       "surfaces": [

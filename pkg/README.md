@@ -29,7 +29,7 @@ depends on `cgoengine`.
 | Library | Contents |
 | --- | --- |
 | [`ext-go`](ext-go/README.md) | The Go plugin library: the contract, C engine bindings and plugin-specific backends; its WASM binding uses `res/web` |
-| [`ext-web-js`](ext-web-js/README.md) | Browser extension host/guest peer library with browser messaging and lifecycle; see the [plan](../docs/ext-web-js-plan.md) |
+| [`ext-web-js`](ext-web-js/README.md) | Private staging copy of the browser extension peer and theme library; [Cymonkey handoff](ext-web-js/HANDOFF.md) |
 
 ## Plugin language SDKs and bindings
 

@@ -37,6 +37,9 @@ func (a *Adapter) command(ctx context.Context, invocation Invocation) (*exec.Cmd
 	switch invocation.Operation {
 	case "list", "observe":
 		args = []string{invocation.Operation}
+	case "programs":
+		// The arguments are the program names to look for.
+		args = append([]string{invocation.Operation}, invocation.Arguments...)
 	case "validate", "doctor":
 		args = []string{invocation.Operation, invocation.Selection}
 	default:

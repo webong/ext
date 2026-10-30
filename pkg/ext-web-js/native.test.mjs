@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createExtensionCatalog, createTabMessenger } from './native.mjs';
+import { createExtensionCatalog, createExtensionManager, createTabMessenger } from './native.mjs';
 
 function event() { const listeners = new Set(); return { addListener: x => listeners.add(x), removeListener: x => listeners.delete(x), emit: value => { for (const listener of listeners) listener(value); }, count: () => listeners.size }; }
 
@@ -15,6 +15,24 @@ test('extension inventory filters browser items and disposes change listeners', 
   enabled.emit(items[0]); uninstalled.emit('a');
   assert.deepEqual(changes.map(change => change.type), ['enabled', 'uninstalled']);
   stop(); assert.equal(enabled.count(), 0); assert.equal(uninstalled.count(), 0);
+});
+
+test('extension manager invokes browser operations synchronously and preserves browser decisions', async () => {
+  const calls = [];
+  const manager = createExtensionManager({
+    setEnabled(id, enabled) { calls.push(['setEnabled', id, enabled]); return Promise.resolve(); },
+    uninstall(id, options) { calls.push(['uninstall', id, options]); return Promise.reject(new Error('user cancelled')); },
+    getPermissionWarningsById(id) { calls.push(['warnings', id]); return Promise.resolve(['Read tabs']); },
+  });
+  const enabled = manager.setEnabled('guest@example.org', false);
+  assert.deepEqual(calls, [['setEnabled', 'guest@example.org', false]]);
+  await enabled;
+  assert.deepEqual(await manager.permissionWarnings('guest@example.org'), ['Read tabs']);
+  await assert.rejects(manager.uninstall('guest@example.org'), /user cancelled/);
+  assert.deepEqual(calls[2], ['uninstall', 'guest@example.org', { showConfirmDialog: true }]);
+  assert.throws(() => manager.setEnabled('../bad', true), { code: 'invalid' });
+  assert.throws(() => manager.setEnabled('guest@example.org', 1), { code: 'invalid' });
+  assert.throws(() => createExtensionManager({}).uninstall('guest@example.org'), { code: 'unavailable' });
 });
 
 test('tab messaging retries only a declared missing receiver on an HTTP page', async () => {

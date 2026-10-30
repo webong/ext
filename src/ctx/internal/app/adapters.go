@@ -107,6 +107,12 @@ func adapterCommand(resolver *config.Resolver, args []string, stdout, stderr io.
 			fmt.Fprintf(stdout, "computer capabilities: %s\n", strings.Join(candidate.Manifest.ComputerCapabilities, ","))
 		}
 		fmt.Fprintf(stdout, "capabilities: %s\n", strings.Join(candidate.Manifest.Capabilities, ","))
+		if len(candidate.Manifest.Engine) > 0 {
+			fmt.Fprintf(stdout, "engine:       %s\n", strings.Join(candidate.Manifest.Engine, ","))
+		}
+		if len(candidate.Manifest.Role) > 0 {
+			fmt.Fprintf(stdout, "role:         %s\n", strings.Join(candidate.Manifest.Role, ","))
+		}
 		if len(candidate.Manifest.Supports) > 0 {
 			fmt.Fprintf(stdout, "supports:     %s\n", strings.Join(candidate.Manifest.Supports, ","))
 		}
@@ -720,6 +726,9 @@ func invokeAdapterIOWithEnv(resolver *config.Resolver, candidate *modpkg.Adapter
 	if candidate.IsRuntime("manager") {
 		command.Env = setEnvironment(command.Env, "CTX_MANAGER_ADDRESS", "")
 	}
+	if programs := adapterPrograms(resolver, candidate); programs != nil {
+		command.Env = setEnvironment(command.Env, programsEnvironment, programsEnvironmentValue(programs))
+	}
 	for key, value := range extraEnv {
 		command.Env = setEnvironment(command.Env, key, value)
 	}
@@ -727,7 +736,7 @@ func invokeAdapterIOWithEnv(resolver *config.Resolver, candidate *modpkg.Adapter
 	for space, dependency := range candidate.Manifest.Dependencies {
 		command.Env = setEnvironment(command.Env, "CTX_DEPENDENCY_"+strings.ToUpper(space), dependency.Adapter)
 	}
-	if operation == "list" || operation == "observe" || (candidate.IsRuntime("browser") && operation == "share" && len(args) == 2 && args[0] == "status" && args[1] == "probe") {
+	if operation == "list" || operation == "observe" || operation == "programs" || (candidate.IsRuntime("browser") && operation == "share" && len(args) == 2 && args[0] == "status" && args[1] == "probe") {
 		return runPreparedDiscovery(command, stdout, stderr)
 	}
 	return runPreparedIO(command, stdin, stdout, stderr)

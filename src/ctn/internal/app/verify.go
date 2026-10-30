@@ -13,8 +13,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/webong/ext/pkg/ext-go/engine/host/adapter"
 	"github.com/webong/ext/ctn/internal/content"
+	"github.com/webong/ext/pkg/ext-go/engine/host/adapter"
 )
 
 // verdict is what verify reports.
@@ -41,21 +41,21 @@ const (
 	maxContentBytes = 256 << 20
 )
 
-// kinds maps a file extension to the engine kind that runs it, and says how the
-// engine wants the file named: the evm engine reads a file given as @path.
+// kinds maps a file extension to the evaluator kind that runs it, and says how the
+// evaluator wants the file named: the evm evaluator reads a file given as @path.
 var kinds = map[string]struct{ kind, prefix string }{
 	".wasm": {"wasm", ""},
 	".evm":  {"evm", "@"},
 	".hex":  {"evm", "@"},
 }
 
-// verifyCommand runs content through a sandboxed engine and reports whether it
-// ran cleanly. The content is never run by an engine that does not confine it.
+// verifyCommand runs content through a sandboxed evaluator and reports whether it
+// ran cleanly. The content is never run by an evaluator that does not confine it.
 func verifyCommand(args []string, stdout, stderr io.Writer) int {
 	flags := flag.NewFlagSet("ctn verify", flag.ContinueOnError)
 	flags.SetOutput(stderr)
-	engineName := flags.String("engine", "", "the engine adapter to use (default: chosen by the file's extension)")
-	selection := flags.String("selection", "", "the engine selection to use (for example a rule set or a runtime)")
+	engineName := flags.String("engine", "", "the evaluator engine adapter to use (default: chosen by the file's extension)")
+	selection := flags.String("selection", "", "the evaluator selection to use (for example a rule set or a runtime)")
 	timeout := flags.Duration("timeout", 30*time.Second, "stop the content after this long")
 	asJSON := flags.Bool("json", false, "print the verdict as one JSON object")
 	if err := flags.Parse(args); err != nil {
@@ -81,17 +81,17 @@ func verifyCommand(args []string, stdout, stderr io.Writer) int {
 	sum := sha256.Sum256(data)
 	sha256Hex := hex.EncodeToString(sum[:])
 
-	// Choose the engine adapter.
+	// Choose the evaluator adapter.
 	store := adapter.NewStore(adapter.Home())
-	chosen, prefix, err := chooseEngine(store, *engineName, file)
+	chosen, prefix, err := chooseEvaluator(store, *engineName, file)
 	if err != nil {
 		fmt.Fprintf(stderr, "ctn: %v\n", err)
 		return exitUsage
 	}
 
-	// Build the content backend and policy from the engine adapter.
-	backend := &engineBackend{adapter: chosen, prefix: prefix}
-	policy := &enginePolicy{store: store}
+	// Build the content backend and policy from the evaluator adapter.
+	backend := &evaluatorBackend{adapter: chosen, prefix: prefix}
+	policy := &evaluatorPolicy{store: store}
 
 	// Run verification through the reusable content module.
 	ctx, cancel := context.WithTimeout(context.Background(), *timeout)
@@ -156,28 +156,25 @@ func printVerdict(w io.Writer, v verdict, asJSON bool) {
 	}
 }
 
-// chooseEngine finds the engine adapter for the content: the named one, or the
+// chooseEvaluator finds the evaluator adapter for the content: the named one, or the
 // one whose kind the file's extension implies.
-func chooseEngine(store *adapter.Store, name, file string) (*adapter.Adapter, string, error) {
+func chooseEvaluator(store *adapter.Store, name, file string) (*adapter.Adapter, string, error) {
 	installed, err := store.List()
 	if err != nil {
 		return nil, "", err
 	}
 	entry, known := kinds[strings.ToLower(filepath.Ext(file))]
 	if name == "" && !known {
-		return nil, "", fmt.Errorf("cannot tell which engine runs %s; name one with --engine", file)
+		return nil, "", fmt.Errorf("cannot tell which evaluator runs %s; name one with --engine", file)
 	}
 	for _, candidate := range installed {
-		isEngine, matches := false, false
+		matches := false
 		for _, support := range candidate.Manifest.Supports {
-			if support == "engine" {
-				isEngine = true
-			}
 			if name == "" && support == entry.kind {
 				matches = true
 			}
 		}
-		if !isEngine {
+		if !candidate.HasEngine("evaluator") {
 			continue
 		}
 		if name != "" && candidate.Manifest.Name == name {
@@ -196,7 +193,7 @@ func chooseEngine(store *adapter.Store, name, file string) (*adapter.Adapter, st
 		}
 	}
 	if name != "" {
-		return nil, "", fmt.Errorf("engine %s is not installed (see ctn adapter ls)", name)
+		return nil, "", fmt.Errorf("evaluator %s is not installed (see ctn adapter ls)", name)
 	}
-	return nil, "", fmt.Errorf("no engine adapter for %s content is installed", entry.kind)
+	return nil, "", fmt.Errorf("no evaluator adapter for %s content is installed", entry.kind)
 }

@@ -90,14 +90,21 @@
         "nerdctl"
       ],
       "description": "First-party nerdctl/containerd provider",
+      "engine": [
+        "executor"
+      ],
       "override_env": [
         "CONTAINERD_NAMESPACE",
         "CONTAINERD_ADDRESS"
       ],
+      "role": [
+        "virtualizer"
+      ],
       "runtime": "manager",
       "selector_key": "nerdctl",
       "supports": [
-        "container"
+        "container",
+        "nerdctl"
       ],
       "surfaces": [
         "shell"

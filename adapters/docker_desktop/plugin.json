@@ -60,11 +60,18 @@
   "metadata": {
     "ctx.adapter/v1": {
       "description": "Docker Desktop lifecycle and status diagnostics",
+      "engine": [
+        "emulator",
+        "executor"
+      ],
+      "role": [
+        "virtualizer"
+      ],
       "runtime": "manager",
       "selector_key": "docker_desktop",
       "self_contained": true,
       "supports": [
-        "virtualizer"
+        "container"
       ],
       "surfaces": [
         "shell"

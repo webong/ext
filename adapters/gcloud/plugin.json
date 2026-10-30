@@ -63,10 +63,15 @@
         "gcloud"
       ],
       "description": "First-party Google Cloud configuration adapter",
+      "engine": [
+        "emulator"
+      ],
+      "role": [
+        "virtualizer"
+      ],
       "runtime": "computer",
       "selector_key": "gcloud_configuration",
       "supports": [
-        "virtualizer",
         "container"
       ],
       "surfaces": [

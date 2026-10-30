@@ -12,12 +12,12 @@ import (
 	"github.com/webong/ext/pkg/ext-go/engine/host/adapter"
 )
 
-// engineStore installs a fake engine adapter into a temporary shared store and
-// returns the path of a log that records every operation the engine receives.
-func engineStore(t *testing.T) (string, func(name, kind, observe, run string, trust bool) string) {
+// evaluatorStore installs a fake evaluator adapter into a temporary shared store and
+// returns the path of a log that records every operation the evaluator receives.
+func evaluatorStore(t *testing.T) (string, func(name, kind, observe, run string, trust bool) string) {
 	t.Helper()
 	if runtime.GOOS == "windows" {
-		t.Skip("the fake engines are shell scripts")
+		t.Skip("the fake evaluators are shell scripts")
 	}
 	home := t.TempDir()
 	for _, key := range []string{"EXT_ADAPTER_HOME", "CTX_HOME", "CTX_ADAPTER_HOME"} {
@@ -32,7 +32,7 @@ func engineStore(t *testing.T) (string, func(name, kind, observe, run string, tr
 		}
 		log := filepath.Join(home, name+".log")
 		manifest := "api_version = \"2.0\"\nname = \"" + name + "\"\nruntime = \"computer\"\nsurfaces = \"shell\"\nexecutable = \"ctx-" + name + "\"\n" +
-			"capabilities = \"list,observe,validate,run,doctor\"\nsupports = \"engine," + kind + "\"\nselector_key = \"" + kind + "\"\n" +
+			"capabilities = \"list,observe,validate,run,doctor\"\nengine = \"evaluator\"\nrole = \"virtualizer\"\nsupports = \"" + kind + "\"\nselector_key = \"" + kind + "\"\n" +
 			"computer_commands = \"" + name + "\"\nself_contained = \"true\"\n"
 		script := "#!/bin/sh\necho \"$*\" >> '" + log + "'\ncase \"$1\" in\n" +
 			"observe) echo '" + observe + "'; exit 0;;\nrun) " + run + ";;\n*) exit 0;;\nesac\n"
@@ -85,7 +85,7 @@ func ran(log string) bool {
 }
 
 func TestVerifyPassesContentThatRunsCleanlyInASandbox(t *testing.T) {
-	_, install := engineStore(t)
+	_, install := evaluatorStore(t)
 	log := install("wasm", "wasm", sandboxed, "exit 0", true)
 	file := contentFile(t, "ok.wasm", "payload")
 	code, stdout, stderr := verify(t, "--timeout", "10s", file)
@@ -98,12 +98,12 @@ func TestVerifyPassesContentThatRunsCleanlyInASandbox(t *testing.T) {
 	}
 	data, _ := os.ReadFile(log)
 	if !strings.Contains(string(data), "run -- "+file+" --timeout 10s") {
-		t.Fatalf("the engine got %q", data)
+		t.Fatalf("the evaluator got %q", data)
 	}
 }
 
 func TestVerifyJSONCarriesTheVerdictAndTheDigest(t *testing.T) {
-	_, install := engineStore(t)
+	_, install := evaluatorStore(t)
 	install("wasm", "wasm", sandboxed, "exit 0", true)
 	code, stdout, _ := verify(t, "--json", contentFile(t, "a.wasm", "payload"))
 	var v verdict
@@ -114,7 +114,7 @@ func TestVerifyJSONCarriesTheVerdictAndTheDigest(t *testing.T) {
 }
 
 func TestVerifyReportsContentThatFailsWithItsOwnExitStatus(t *testing.T) {
-	_, install := engineStore(t)
+	_, install := evaluatorStore(t)
 	install("wasm", "wasm", sandboxed, "echo boom >&2; exit 7", true)
 	code, stdout, _ := verify(t, contentFile(t, "bad.wasm", "x"))
 	if code != exitFail || !strings.HasPrefix(stdout, "FAIL ") || !strings.Contains(stdout, "boom") {
@@ -127,28 +127,28 @@ func TestVerifyReportsContentThatFailsWithItsOwnExitStatus(t *testing.T) {
 	}
 }
 
-func TestVerifyNeverRunsContentInAnEngineThatDoesNotConfineIt(t *testing.T) {
+func TestVerifyNeverRunsContentInAnEvaluatorThatDoesNotConfineIt(t *testing.T) {
 	for name, observe := range map[string]string{"host": hostOnly, "mixed without a selection": mixed, "no isolation reported": `{"version":1,"contexts":[{"selection":"a","attributes":{}}]}`, "garbage": "not json"} {
-		_, install := engineStore(t)
+		_, install := evaluatorStore(t)
 		log := install("wasm", "wasm", observe, "exit 0", true)
 		code, stdout, _ := verify(t, contentFile(t, "x.wasm", "x"))
 		if code != exitUnverified || !strings.HasPrefix(stdout, "UNSUPPORTED ") {
 			t.Errorf("%s: %d %q", name, code, stdout)
 		}
 		if ran(log) {
-			t.Errorf("%s: the engine was run although it does not confine its content", name)
+			t.Errorf("%s: the evaluator was run although it does not confine its content", name)
 		}
 	}
 }
 
 func TestVerifyChecksTheSelectedContextOnly(t *testing.T) {
-	_, install := engineStore(t)
+	_, install := evaluatorStore(t)
 	log := install("wasm", "wasm", mixed, "exit 0", true)
 	if code, stdout, _ := verify(t, "--selection", "embedded", contentFile(t, "x.wasm", "x")); code != exitPass {
-		t.Fatalf("a sandboxed selection of a mixed engine may run: %d %q", code, stdout)
+		t.Fatalf("a sandboxed selection of a mixed evaluator may run: %d %q", code, stdout)
 	}
 	if !ran(log) {
-		t.Fatal("the engine did not run")
+		t.Fatal("the evaluator did not run")
 	}
 	if code, _, _ := verify(t, "--selection", "loose", contentFile(t, "y.wasm", "y")); code != exitUnverified {
 		t.Fatalf("the host-isolated selection must not run: %d", code)
@@ -158,8 +158,8 @@ func TestVerifyChecksTheSelectedContextOnly(t *testing.T) {
 	}
 }
 
-func TestVerifyRefusesAnUntrustedEngine(t *testing.T) {
-	_, install := engineStore(t)
+func TestVerifyRefusesAnUntrustedEvaluator(t *testing.T) {
+	_, install := evaluatorStore(t)
 	log := install("wasm", "wasm", sandboxed, "exit 0", false)
 	code, stdout, _ := verify(t, contentFile(t, "x.wasm", "x"))
 	if code != exitUnverified || !strings.Contains(stdout, "not trusted") || ran(log) {
@@ -167,8 +167,8 @@ func TestVerifyRefusesAnUntrustedEngine(t *testing.T) {
 	}
 }
 
-func TestVerifyTreatsAnEngineThatCannotRunTheInputAsUnverifiedNotFailed(t *testing.T) {
-	_, install := engineStore(t)
+func TestVerifyTreatsAnEvaluatorThatCannotRunTheInputAsUnverifiedNotFailed(t *testing.T) {
+	_, install := evaluatorStore(t)
 	install("wasm", "wasm", sandboxed, "echo 'is a web module' >&2; exit 126", true)
 	code, stdout, _ := verify(t, contentFile(t, "web.wasm", "x"))
 	if code != exitUnverified || !strings.HasPrefix(stdout, "UNSUPPORTED ") || !strings.Contains(stdout, "web module") {
@@ -177,7 +177,7 @@ func TestVerifyTreatsAnEngineThatCannotRunTheInputAsUnverifiedNotFailed(t *testi
 }
 
 func TestVerifyReportsATimeout(t *testing.T) {
-	_, install := engineStore(t)
+	_, install := evaluatorStore(t)
 	install("wasm", "wasm", sandboxed, "exit 124", true)
 	code, stdout, _ := verify(t, "--timeout", "1s", contentFile(t, "slow.wasm", "x"))
 	if code != exitTimeout || !strings.HasPrefix(stdout, "TIMEOUT ") {
@@ -185,8 +185,8 @@ func TestVerifyReportsATimeout(t *testing.T) {
 	}
 }
 
-func TestVerifyChoosesTheEngineByExtensionAndNamesTheFileForEvm(t *testing.T) {
-	_, install := engineStore(t)
+func TestVerifyChoosesTheEvaluatorByExtensionAndNamesTheFileForEvm(t *testing.T) {
+	_, install := evaluatorStore(t)
 	wasmLog := install("wasm", "wasm", sandboxed, "exit 0", true)
 	evmLog := install("evm", "evm", `{"version":1,"contexts":[{"selection":"prague","attributes":{"isolation":"sandboxed"}}]}`, "exit 0", true)
 	hexFile := contentFile(t, "code.hex", "602a")
@@ -195,10 +195,10 @@ func TestVerifyChoosesTheEngineByExtensionAndNamesTheFileForEvm(t *testing.T) {
 	}
 	data, _ := os.ReadFile(evmLog)
 	if !strings.Contains(string(data), "-- @"+hexFile) {
-		t.Fatalf("the evm engine reads a file given as @path: %q", data)
+		t.Fatalf("the evm evaluator reads a file given as @path: %q", data)
 	}
 	if ran(wasmLog) {
-		t.Fatal("the wasm engine must not run evm content")
+		t.Fatal("the wasm evaluator must not run evm content")
 	}
 	if code, _, stderr := verify(t, contentFile(t, "notes.txt", "x")); code != exitUsage || !strings.Contains(stderr, "--engine") {
 		t.Fatalf("an unknown extension needs --engine: %d %q", code, stderr)
@@ -208,16 +208,16 @@ func TestVerifyChoosesTheEngineByExtensionAndNamesTheFileForEvm(t *testing.T) {
 	}
 }
 
-func TestVerifyUsageAndMissingEngine(t *testing.T) {
-	engineStore(t)
+func TestVerifyUsageAndMissingEvaluator(t *testing.T) {
+	evaluatorStore(t)
 	if code, _, stderr := verify(t); code != exitUsage || !strings.Contains(stderr, "usage") {
 		t.Fatalf("%d %q", code, stderr)
 	}
 	if code, _, _ := verify(t, filepath.Join(t.TempDir(), "absent.wasm")); code != exitUsage {
 		t.Fatalf("a missing file: %d", code)
 	}
-	if code, _, stderr := verify(t, contentFile(t, "x.wasm", "x")); code != exitUsage || !strings.Contains(stderr, "no engine adapter") {
-		t.Fatalf("no engine installed: %d %q", code, stderr)
+	if code, _, stderr := verify(t, contentFile(t, "x.wasm", "x")); code != exitUsage || !strings.Contains(stderr, "no evaluator adapter") {
+		t.Fatalf("no evaluator installed: %d %q", code, stderr)
 	}
 	if code, _, _ := verify(t, "--timeout", "0s", contentFile(t, "y.wasm", "y")); code != exitUsage {
 		t.Fatalf("a zero timeout: %d", code)

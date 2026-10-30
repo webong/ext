@@ -79,6 +79,8 @@ func observeAdapterCandidate(resolver *config.Resolver, store *modpkg.Store, can
 		Surfaces:         append([]string(nil), candidate.Manifest.Surfaces...),
 		Capabilities:     append([]string(nil), candidate.Manifest.Capabilities...),
 		Supports:         append([]string(nil), candidate.Manifest.Supports...),
+		Engine:           append([]string(nil), candidate.Manifest.Engine...),
+		Role:             append([]string(nil), candidate.Manifest.Role...),
 		BrowserShare:     append([]string(nil), candidate.Manifest.BrowserShare...),
 		Trusted:          trusted,
 		ListSupported:    candidate.HasCapability("list"),

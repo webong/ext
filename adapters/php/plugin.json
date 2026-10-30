@@ -66,10 +66,17 @@
         "php"
       ],
       "description": "PHP CLI interpreter selector and version-aware command adapter",
+      "engine": [
+        "evaluator"
+      ],
+      "role": [
+        "virtualizer",
+        "interpreter"
+      ],
       "runtime": "computer",
       "selector_key": "php",
       "supports": [
-        "interpreter"
+        "php"
       ],
       "surfaces": [
         "shell"

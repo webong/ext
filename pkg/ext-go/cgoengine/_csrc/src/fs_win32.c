@@ -989,3 +989,38 @@ ext_status ext_fs_make_root(const char *path) {
   free(full);
   return s;
 }
+ext_status ext_fs_probe(const char *path, ext_fs_kind *out) {
+  if (!path || !*path || !out)
+    return EXT_INVALID;
+  wchar_t *wide = widen(path);
+  if (!wide)
+    return EXT_INVALID;
+  DWORD a = GetFileAttributesW(wide);
+  DWORD error = a == INVALID_FILE_ATTRIBUTES ? GetLastError() : 0;
+  free(wide);
+  if (a == INVALID_FILE_ATTRIBUTES) {
+    if (!is_missing(error))
+      return EXT_IO;
+    *out = EXT_FS_NONE;
+  } else if (a & FILE_ATTRIBUTE_REPARSE_POINT)
+    *out = EXT_FS_OTHER;
+  else if (a & FILE_ATTRIBUTE_DIRECTORY)
+    *out = EXT_FS_DIR;
+  else
+    *out = EXT_FS_FILE;
+  return EXT_OK;
+}
+ext_status ext_fs_mode_bits(ext_fs *fs, const char *path, uint32_t *mode) {
+  if (!fs || !mode)
+    return EXT_INVALID;
+  ext_fs_kind kind;
+  ext_status s = ext_fs_kind_of(fs, path, &kind);
+  if (s)
+    return s;
+  if (kind == EXT_FS_NONE)
+    return EXT_NOT_FOUND;
+  if (kind != EXT_FS_FILE)
+    return EXT_INVALID;
+  *mode = 0;
+  return EXT_OK;
+}

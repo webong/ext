@@ -175,6 +175,8 @@ ext_status ext_fs_list(ext_fs *fs, const char *path, ext_fs_entry **out,
     close(dir);
     return EXT_IO;
   }
+  /* A duplicate of the root shares its read position with every other listing. */
+  rewinddir(handle);
   ext_fs_entry *entries = NULL;
   size_t used = 0, cap = 0;
   for (;;) {
@@ -440,6 +442,7 @@ static ext_status remove_at(int dir, const char *name, unsigned depth) {
     close(child);
     return EXT_IO;
   }
+  rewinddir(handle);
   char **names = NULL;
   size_t used = 0, cap = 0;
   ext_status s = EXT_OK;
@@ -520,5 +523,49 @@ ext_status ext_fs_make_root(const char *path) {
     copy[i] = saved;
   }
   free(copy);
+  return s;
+}
+ext_status ext_fs_probe(const char *path, ext_fs_kind *out) {
+  if (!path || !*path || !out)
+    return EXT_INVALID;
+  char *copy = strdup(path);
+  if (!copy)
+    return EXT_NOMEM;
+  size_t n = strlen(copy);
+  while (n > 1 && copy[n - 1] == '/')
+    copy[--n] = 0;
+  struct stat st;
+  ext_status s = EXT_OK;
+  if (lstat(copy, &st)) {
+    if (errno == ENOENT)
+      *out = EXT_FS_NONE;
+    else
+      s = EXT_IO;
+  } else
+    *out = kind_of_mode(st.st_mode);
+  free(copy);
+  return s;
+}
+ext_status ext_fs_mode_bits(ext_fs *fs, const char *path, uint32_t *mode) {
+  if (!fs || !mode)
+    return EXT_INVALID;
+  char *storage = NULL;
+  const char *parent, *leaf;
+  ext_status s = split(path, &storage, &parent, &leaf);
+  if (s)
+    return s;
+  int dir = -1;
+  s = open_dir(ext_fs_fd(fs), parent, 0, &dir);
+  if (!s) {
+    struct stat st;
+    if (fstatat(dir, leaf, &st, AT_SYMLINK_NOFOLLOW))
+      s = errno == ENOENT ? EXT_NOT_FOUND : EXT_IO;
+    else if (!S_ISREG(st.st_mode))
+      s = EXT_INVALID;
+    else
+      *mode = (uint32_t)(st.st_mode & 0777);
+    close(dir);
+  }
+  free(storage);
   return s;
 }

@@ -87,6 +87,13 @@ ext_status ext_fs_remove_all(ext_fs *fs, const char *path);
  * the way a store's root comes to exist. The path is a native path and is
  * resolved by the operating system. */
 ext_status ext_fs_make_root(const char *path);
+/* The kind of the entry at a native path, as ext_fs_kind_of reports it for a
+ * path below a root: a missing path is EXT_FS_NONE and a link is EXT_FS_OTHER. */
+ext_status ext_fs_probe(const char *path, ext_fs_kind *out);
+/* The permission bits (0777 mask) of the regular file at path, which the store
+ * reads to decide what stays executable; always 0 on Windows, which has none.
+ * EXT_INVALID when it is not a regular file. */
+ext_status ext_fs_mode_bits(ext_fs *fs, const char *path, uint32_t *mode);
 /* The descriptor behind a root, for the write side of the same platform (the
  * Windows implementation shares fs_win32.c and needs none). */
 #ifndef _WIN32

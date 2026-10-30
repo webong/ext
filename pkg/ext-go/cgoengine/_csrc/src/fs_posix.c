@@ -137,6 +137,9 @@ static ext_status walk(int fd, const char *prefix, ext_fs_visit visit,
     close(copy);
     return EXT_IO;
   }
+  /* The copy shares its read position with fd, which an earlier walk of the
+   * same directory may have left at the end. */
+  rewinddir(dir);
   ext_status s = EXT_OK;
   struct dirent *entry;
   for (;;) {

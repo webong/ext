@@ -43,6 +43,8 @@ impl Error {
     pub const EXPIRED: Error = Error(17);
     /// What was to be created is already there: a package already installed.
     pub const EXISTS: Error = Error(18);
+    /// A file or directory that is not there: a package source, its manifest or an artifact it lists.
+    pub const MISSING: Error = Error(19);
 }
 fn check(s: i32) -> Result<(), Error> {
     if s == 0 {

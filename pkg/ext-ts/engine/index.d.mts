@@ -17,7 +17,7 @@ export interface ReverseOptions {
  /** Milliseconds; zero or absent uses 30000. */
  timeout?: number; maxPayloadBytes?: number; maxInFlight?: number;
 }
-export const status: Readonly<{ INVALID: 1; DENIED: 2; MISMATCH: 3; NOT_FOUND: 10; PROTOCOL: 16; EXPIRED: 17; EXISTS: 18 }>;
+export const status: Readonly<{ INVALID: 1; DENIED: 2; MISMATCH: 3; NOT_FOUND: 10; PROTOCOL: 16; EXPIRED: 17; EXISTS: 18; MISSING: 19 }>;
 export interface CallbackContext { timeout: number; signal: AbortSignal }
 export interface GuestReply { payload?: unknown; error?: { code: string; message: string; retryAfterMilliseconds?: number } }
 export interface HostOptions {

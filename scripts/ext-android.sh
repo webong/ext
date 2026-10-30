@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Build and test the Java plugin SDK: the JNI library over the guest core of the
-# shared C engine, the Java classes, and the conformance guest launcher.
+# Build and test the Java plugin SDK: the JNI library over the guest core and the package
+# store of the shared C engine, the Java classes, and the conformance guest launcher.
 # Usage: scripts/ext-android.sh [build-dir]
 # Leaves <build-dir>/ext-java-guest and <build-dir>/ext-java-frames-guest, launchers the Go
 # cross-language suite runs (the second is the frames guest of docs/plugin-guest-frames.md).

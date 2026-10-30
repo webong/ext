@@ -180,9 +180,9 @@ Decided in the spike:
 
 - The `engine` role is gone, as a hard cut with no alias. `jvm`, `wasm`, `evm` and
   `php` are evaluators; `docker` and `nerdctl` are executors; `podman`,
-  `docker_desktop`, `orbstack` and `rancher_desktop` are emulators and executors;
-  `aws` and `gcloud` are emulators; `apple` and `kube` declare no level and are not
-  virtualizers. `engines_test.go` now checks the vocabulary. The `--engine` flag of
+  `docker_desktop`, `orbstack`, `rancher_desktop` and `apple` are emulators and
+  executors; `aws` and `gcloud` are emulators; `kube` declares no level and is not a
+  virtualizer. `engines_test.go` now checks the vocabulary. The `--engine` flag of
   `ctn verify` is `--evaluator`, and its JSON field and output line say `evaluator`.
   `docs/engine-adapters.md` is `docs/evaluator-adapters.md`.
 Still open:

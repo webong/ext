@@ -42,6 +42,30 @@ export function createExtensionCatalog(management = globalThis.browser?.manageme
   };
 }
 
+/** Manage installed extensions from an extension context. Requires management permission. */
+export function createExtensionManager(management = globalThis.browser?.management ?? globalThis.chrome?.management) {
+  if (!management) throw new PeerError('unavailable', 'Extension management API unavailable');
+  return {
+    setEnabled(id, enabled) {
+      const selected = extensionId(id);
+      if (typeof enabled !== 'boolean') throw new PeerError('invalid', 'Enabled must be a boolean');
+      if (!management.setEnabled) throw new PeerError('unavailable', 'Enable/disable unavailable');
+      // Call the native API before yielding: browsers may require a user gesture.
+      return management.setEnabled(selected, enabled);
+    },
+    uninstall(id) {
+      const selected = extensionId(id);
+      if (!management.uninstall) throw new PeerError('unavailable', 'Uninstall unavailable');
+      return management.uninstall(selected, { showConfirmDialog: true });
+    },
+    permissionWarnings(id) {
+      const selected = extensionId(id);
+      if (!management.getPermissionWarningsById) throw new PeerError('unavailable', 'Permission warnings unavailable');
+      return management.getPermissionWarningsById(selected);
+    },
+  };
+}
+
 /** Send to an explicit tab, optionally attaching a caller-owned receiver once. */
 export function createTabMessenger({ tabs, attach, isMissingReceiver } = {}) {
   if (!tabs?.get || !tabs?.sendMessage) throw new PeerError('unavailable', 'Tab messaging API unavailable');

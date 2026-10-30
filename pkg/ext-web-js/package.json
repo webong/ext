@@ -3,9 +3,16 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "files": [
+    "index.mjs", "index.d.mts", "native.mjs", "native.d.mts",
+    "workspace.mjs", "workspace.d.mts", "userscripts.mjs", "userscripts.d.mts",
+    "bridge.mjs", "bridge.d.mts", "themes.mjs", "themes.d.mts",
+    "README.md"
+  ],
   "exports": {
     ".": { "types": "./index.d.mts", "default": "./index.mjs" },
     "./native": { "types": "./native.d.mts", "default": "./native.mjs" },
+    "./themes": { "types": "./themes.d.mts", "default": "./themes.mjs" },
     "./workspace": { "types": "./workspace.d.mts", "default": "./workspace.mjs" },
     "./userscripts": { "types": "./userscripts.d.mts", "default": "./userscripts.mjs" },
     "./bridge": { "types": "./bridge.d.mts", "default": "./bridge.mjs" }

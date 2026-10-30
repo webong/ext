@@ -49,11 +49,11 @@ non-secret profile values; credentials remain with the native tools.
 | Desktop managers | Inspect and explicitly start or stop Rancher Desktop, OrbStack, and Docker Desktop through separate app adapters. Rancher diagnostics distinguish VM, k3s, and Docker-plugin issues. |
 | Computer tools | Route Kubernetes, AWS, gcloud, PostgreSQL, MySQL, and PHP. The optional Git adapter manages project hooks; Claude Code and Codex adapters add CLI shims and project hooks. |
 | Browsers | Open a selected profile; query and share supported cookies and other browser resources; prepare extensions and userscripts; and attach to supported live pages. Capabilities vary by browser and OS. |
-| Extensibility | Install trusted adapters on demand. The core provides selection, validation, trust, dispatch, and a graph of discovered contexts and capabilities. |
+| Extensibility | Install trusted adapters on demand. Shared Ext libraries validate packages and enforce trust; ctx selects and dispatches capabilities for its contexts and graph. |
 
 The core does not ship with an active adapter or a bundled adapter catalog. An
 adapter owns its product-specific behavior; ctx only invokes its declared
-capabilities. See [Build a CTX adapter](docs/adapter-authoring.md) to build one.
+capabilities. See [Build an adapter](docs/adapter-authoring.md) to build one.
 
 ## Install
 
@@ -325,7 +325,7 @@ CTX and its ecosystem share public Go libraries:
 standard-library only. Consumers that do not need WebAssembly or another runtime
 backend can keep the wazero and HashiCorp stacks out of their module graph.
 
-CTX adapters and other applications can build on these
+Adapters, CTX, CTN, and other applications can build on these
 libraries. Each is published as its own Go module under a shared major version;
 see [module versioning](docs/module-versioning.md). Domain behavior and
 authorization remain with each consumer.
@@ -340,7 +340,7 @@ as a Go plugin, a WASI command, or a C shared library.
 - [Browser profile and page management](docs/browser-management.md)
 - [Native credentials](docs/credentials.md)
 - [Extension distribution](docs/extension-distribution.md)
-- [Build a CTX adapter](docs/adapter-authoring.md)
+- [Build an adapter](docs/adapter-authoring.md)
 - [Adapter API and packaging](docs/adapter-api.md)
 - [Cross-platform support](docs/cross-platform.md)
 - [System graph design](docs/adr-graph-runtime.md)
@@ -363,5 +363,5 @@ go run ./pkg/ext-go/examples/plugin-typescript
 go run ./pkg/ext-go/hashicorp/cmd/ext-plugin inspect --root pkg/ext-go/examples/plugin-package --entry main pkg/ext-go/examples/plugin-package/plugin.json
 ```
 
-Inspection validates metadata and content without starting plugins. CTX adapters
+Inspection validates metadata and content without starting plugins. Adapters
 retain their native bindings. Adoption by other consumers is separate work.

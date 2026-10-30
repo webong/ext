@@ -5,16 +5,18 @@ adapter package under `adapters/<name>/`. This includes native protocols,
 installation and activation, executable and profile discovery conventions,
 storage formats, signing tools, store URLs, settings paths, and diagnostics.
 
-CTX core owns generic contracts, validation, trust, selection, and dispatch.
-Shared libraries may implement portable workflows and utilities, but must not
-choose native behavior by adapter name or supply a browser-specific fallback.
-Adapters provide that behavior through declared capabilities and backends.
+Ext libraries own generic adapter contracts, validation, package trust, and
+invocation. CTX and CTN are products built on Ext and can run standalone; each
+product owns its own selection and command dispatch. Shared libraries may
+implement portable workflows and utilities, but must not choose native behavior
+by adapter name or supply a browser-specific fallback. Adapters provide that
+behavior through declared capabilities and backends.
 
 Related adapters may reuse an engine from the adapter that owns the native
 mechanism, such as `adapters/chromium/engine`. Each product adapter supplies its
 own paths, identifiers, capabilities, and policy through configuration.
 
-Apply this boundary when bringing code into CTX: move provider-specific behavior
+Apply this boundary when bringing code into Ext: move provider-specific behavior
 into the owning adapter before wiring it into shared workflows.
 
 A platform implementation of a portable public-library API is not an adapter
@@ -26,22 +28,21 @@ and Chrome integration belongs in their adapters, while the WKWebView and
 Android WebView implementations of the public `res/web` workspace API belong in
 `res/web/ios` and `res/web/android`.
 
-The same distinction applies to `pkg/ext-web-js`, the standalone browser
-extension peer library. Its extension-embedded runtime messaging, ports, sender
-context, discovery interfaces, lifecycle, and `chrome`/`browser` compatibility
-implement its public host/guest API and belong inside `pkg/ext-web-js`. Builders do
-not need CTX adapters or the plugin engine. External browser installation,
-profile discovery, signing, and management remain adapter-owned. See
-[the ext-web-js plan](docs/ext-web-js-plan.md).
+`pkg/ext-web-js` is a private staging copy for a library Cymonkey will own and
+distribute. Its extension-embedded runtime messaging, in-browser management,
+themes, and `chrome`/`browser` compatibility are not adapters. External
+browser installation, profile discovery, signing, and management remain
+adapter-owned in ext. See [the handoff](pkg/ext-web-js/HANDOFF.md).
 
 # Public libraries
 
-`pkg/` is the home for reusable libraries. CTX adapters and other
-ecosystem consumers build on them; `internal/` stays private to CTX and
-must not be imported by consumers.
-`pkg/ext-web-js` is the standalone JavaScript/TypeScript package
-for browser extension host/guest peers. Its independently buildable host and
-guest examples live inside that package.
+`pkg/` is the home for reusable libraries. Adapters, CTX, CTN, and other
+ecosystem consumers build on them; `internal/` stays private to its owning
+product and must not be imported by consumers.
+`pkg/ext-web-js` temporarily holds the standalone JavaScript/TypeScript browser
+extension peer and theme library while it is prepared for Cymonkey ownership.
+It is not distributed from ext. Its independently buildable examples live inside
+that package until transfer.
 
 The repository root is only the workspace: it holds `go.work` and no Go module or
 package. Binary releases use product tags, `ctx-vX.Y.Z` and `ctn-vX.Y.Z`; those are not Go
@@ -142,7 +143,7 @@ Plugin-specific runtime bindings, including HashiCorp go-plugin and the
 WebAssembly `engine.Backend`, belong inside the plugin library
 (`pkg/ext-go/hashicorp`, `pkg/ext-go/wasm`). The reusable WebAssembly mechanism
 belongs to `res/web/wasm` and never imports the plugin engine; `pkg/ext-go/wasm`
-adapts it. Neither is a CTX product adapter. Keep the shared host/guest contract
+adapts it. Neither is a product adapter. Keep the shared host/guest contract
 independent of backend choice so existing and future plugin implementations can use it.
 
 Product adapter engines and stores that are reused across adapters

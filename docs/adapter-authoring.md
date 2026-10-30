@@ -1,6 +1,6 @@
-# Build a CTX adapter
+# Build an adapter
 
-An adapter is a separate process that implements CTX's invocation contract. It
+An adapter is a separate process that implements the shared adapter contract. It
 can be written in Go, a shell language, or another language. A ready-to-run
 adapter needs a manifest, an executable for the target OS, and any runtime
 assets or dependencies that executable uses.
@@ -19,11 +19,12 @@ Have `ctx` installed before using the build, pack, or install commands below.
 
 For Go source builds, also supply a Go `main` package and a module context:
 either your own `go.mod`, or an enclosing module such as this repository. Go
-1.23 or newer is needed when using the current public CTX SDK. Users installing
+1.23 or newer is needed when using the current public Ext SDK. Users installing
 prebuilt packages do not need Go.
 
-Product-specific behavior belongs in the adapter. CTX core handles generic
-selection, validation, trust, and dispatch. Related adapters can reuse an engine
+Product-specific behavior belongs in the adapter. Ext libraries handle generic
+contracts, validation, package trust, and invocation; a product handles its own
+selection and command dispatch. Related adapters can reuse an engine
 owned by their family adapter, with each product supplying its own configuration.
 See [architecture and ownership](adapter-api.md#architecture-and-ownership).
 

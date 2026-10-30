@@ -1,0 +1,9 @@
+{
+  "manifest_version": 3,
+  "name": "Ext Peer Host Example (Firefox)",
+  "version": "0.1.0",
+  "browser_specific_settings": { "gecko": { "id": "ext-peer-host@example.org" } },
+  "permissions": ["storage"],
+  "background": { "scripts": ["background.mjs"], "type": "module" },
+  "action": { "default_popup": "popup.html" }
+}

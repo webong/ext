@@ -1,14 +1,14 @@
 # ext-web-js browser extension peer library plan
 
-Status: peer, hub, spoke, extension inventory, tab messaging, scoped workspace,
-userscript registration, and bridge APIs implemented; browser smoke tests and
-Firefox validation remain. Xallet and Cymonkey can adopt the shared library
-later.
+Status: peer, hub, spoke, in-browser management, tab messaging, scoped workspace,
+userscript registration, bridge, and theme APIs implemented. Firefox host/guest
+smoke testing passed; Chromium browser smoke testing remains. This is staging
+work for [Cymonkey ownership](../pkg/ext-web-js/HANDOFF.md), not an ext release.
 The local Chrome command-line
 smoke attempt opened an isolated profile, but Chrome did not register either
 unpacked example extension, so it did not verify browser messaging.
 
-`pkg/ext-web-js` will be a standalone JavaScript/TypeScript package for browser
+`pkg/ext-web-js` is a standalone JavaScript/TypeScript staging package for browser
 extension builders. It lets independently built extensions act as hosts,
 guests, or both, without requiring Xallet, CTX, the ext plugin engine, or a
 particular extension framework. The first deliverable includes working host
@@ -19,7 +19,7 @@ and guest extension examples.
 `pkg/ext-web-js` owns the peer contract, host and guest APIs, validation, lifecycle,
 and implementations of browser extension APIs. Browser-specific compatibility
 code stays beside that portable contract inside the library. Builders do not
-install CTX adapters to use it.
+install adapters to use it.
 
 Existing `adapters/<browser>` continue to own external browser installation,
 profile discovery, signing, and extension management. `res/web/extension`
@@ -63,11 +63,21 @@ detached snapshots rather than mutable internal state.
 | Extension-local contexts | Background, popup, side panel, options page, and content-script communication with distinct authorization boundaries |
 | Manifest integration | Target-specific examples and documentation of required messaging declarations and permissions |
 
-The browser-native helper entry point now also offers read-only extension
-inventory/change watching and explicit-tab messaging. Those mechanisms were
-informed by Cymonkey's `lib/browser-helper`; its application commands, active
-tab selection, package policy, and installation actions remain outside this
-library. Optional receiver attachment requires a caller-supplied missing-receiver
+The Chromium and Firefox MV3 examples build from the same host/guest behavior.
+Firefox uses background modules and fixed Gecko IDs. In Firefox 157, both
+temporary add-ons loaded; the guest connected and registered with the host,
+calls worked in both directions, the denied method returned `denied`, and the
+guest reconnected and called the host after a host reload.
+
+The browser-native helper entry point offers read-only extension inventory and
+change watching, plus in-extension management operations for explicit IDs:
+enable/disable, uninstall, and permission warnings. It calls the browser's
+`management` API in the user-gesture stack and leaves browser confirmation and
+product authorization to the caller. It does not install arbitrary extensions.
+These mechanisms were informed by Cymonkey's `lib/browser-helper`; its
+application commands, active-tab selection, package policy, and external
+installation actions remain outside this library. Explicit-tab messaging also
+supports optional receiver attachment with a caller-supplied missing-receiver
 classifier and is limited to HTTP(S) tabs.
 
 Additional entry points provide namespaced extension storage, packaged
@@ -123,11 +133,15 @@ pkg/ext-web-js/
   userscripts.d.mts
   bridge.mjs
   bridge.d.mts
+  themes.mjs
+  themes.d.mts
   test.mjs
   native.test.mjs
   examples/
     host/
     guest/
+    firefox-host/
+    firefox-guest/
 ```
 
 Ship browser-consumable JavaScript and TypeScript declarations. Keep browser
@@ -139,9 +153,9 @@ required. WXT may consume the library but is not a runtime dependency.
 
 Both examples build independently against the library and produce separately
 loadable extension artifacts. Supply target-specific manifests and reproducible
-instructions for selecting development extension IDs. Start with Chromium;
-validate a Firefox build separately before claiming support. Document unsupported
-features explicitly; Safari support requires its own validation milestone.
+instructions for selecting development extension IDs. Chromium and Firefox
+targets now build; Firefox host/guest behavior was smoke tested. Chromium and
+Safari still require their own browser validation.
 
 The host example:
 
@@ -182,9 +196,9 @@ as they are added.
 5. Build the host and guest examples and exercise bidirectional calls, state,
    events, denial, timeout, cancellation, disconnection, and background restart
    in real browsers. Publish repeatable local build and smoke-test instructions.
-6. Later, migrate Xallet through a temporary `XalletHubSDK`/`XalletSpokeSDK`
-   compatibility wrapper, keeping product policy and remote-host integration
-   in Xallet. Cymonkey can build on the same peer and spoke APIs.
+6. Hand the standalone JavaScript package to Cymonkey for ownership and
+   distribution. Later, Xallet may adopt it through a product-specific
+   compatibility wrapper, keeping pairing and remote-host policy in Xallet.
 
 ## Acceptance
 

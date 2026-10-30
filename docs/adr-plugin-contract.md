@@ -1,18 +1,18 @@
 # ADR: Shared plugin contract
 
-Status: implemented initial v1 contract in the CTX library. Consumer migrations
+Status: implemented initial v1 contract in the Ext library. Consumer migrations
 to the JSON binding require explicit integration; existing consumer
 wire protocols do not become compatible merely by importing this package.
 
 ## Ownership
 
-CTX supplies `github.com/webong/ext/pkg/ext-go`, alongside `res/web` and `res/system`.
+Ext supplies `github.com/webong/ext/pkg/ext-go`, alongside `res/web` and `res/system`.
 Its implementations include `pkg/ext-go/engine/transport/inprocess`, `pkg/ext-go/engine/transport/jsonline`,
 `pkg/ext-go/hashicorp`, `pkg/ext-go/engine/host/nativego`, `pkg/ext-go/wasm`, and `pkg/ext-go/cgoengine/cshared`, with
 additional backends able to implement the same public interface. HashiCorp
 go-plugin is a dependency of the plugin library, while `pkg/ext-go/wasm` binds
-the protocol-neutral runtime in `res/web/wasm`; neither is a CTX product adapter.
-CTX adapters and ecosystem applications are consumers of these libraries.
+the protocol-neutral runtime in `res/web/wasm`; neither is a product adapter.
+Adapters and ecosystem applications are consumers of these libraries.
 The plugin library owns generic declarations, validation, exact selection,
 admission sequencing, handshake checking, bounded invocation, and draining.
 It has no product catalog, default installation location, native command map,
@@ -23,7 +23,7 @@ discovery, package distribution, trust decisions, and endpoint authentication.
 The library supplies the generic mechanics around them: `pkg/ext-go/cgoengine/host/store`
 installs, upgrades, lists, removes and re-verifies packages, and
 `pkg/ext-go/engine/host/process` launches process plugins (see below).
-Product and native mechanisms in CTX belong under `adapters/<name>/`.
+Product and native mechanisms selected through Ext belong under `adapters/<name>/`.
 Portable integrity and plugin runtime implementations belong in the library.
 A descriptor, graph
 record, matching checksum, or successful handshake never grants authority.
@@ -386,7 +386,7 @@ selected adapter's product-specific plugin operation.
 
 | Consumer | Shared mechanics | Consumer-owned contract and policy |
 | --- | --- | --- |
-| CTX adapters | Descriptor validation, operation lookup, directory integrity; library backends when needed | `ext.adapter`, argv/stream binding, context selection, native behavior in adapters |
+| Adapters | Descriptor validation, operation lookup, directory integrity; library backends when needed | `ext.adapter`, argv/stream binding, context selection, native behavior in adapters |
 | Application plugin packages | Selection, handshake, admission sequencing, call envelopes, draining | Roles, package and worker identities, surfaces, permits, approval, secrets, reconciliation |
 | Application platform extensions | The same host mechanics where applicable | Contribution points, route mounting, schema restrictions, generations and composition rollback |
 | Device-facing plugins | Selection, verified package identity, bounded transport, structured errors | Display/content/device methods, domain adapters, device grants, runtime choices |

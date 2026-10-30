@@ -109,6 +109,22 @@ Go store replaces `/` with `%2f`) and must not join it into a path as written.
   id or directory. The limits (one artifact, one tree's files and bytes) default
   to the Go store's. A store serializes its own calls; several processes mutating
   one root are the application's to serialize. It makes no trust decision.
+- `ext_store_list`, `ext_store_verify`, `ext_store_list_unverified`: whole-root
+  reports as JSON. `list` verifies every package and fails closed on the first
+  entry that is not a package directory or does not verify; `verify` checks every
+  entry and reports each one's status, so a caller can show everything that is
+  wrong; `list_unverified` reads only the manifests (no artifact is read or
+  hashed, so what it returns is not trusted) and reports the entries it could not
+  read separately. A staging directory (a leading ".") is skipped and a missing
+  root is empty.
+- `ext_layered_open`, `ext_layered_close`, `ext_layered_load`, `ext_layered_list`,
+  `ext_layered_verify`, `ext_layered_list_unverified`: a read-only view over
+  several roots in priority order, such as a user root before a system root. An
+  id is served from the first root that holds it and a shadowed copy is never
+  read. A damaged winning copy fails closed instead of falling back to a lower
+  one, and an entry that is not a package in any root fails `list`. The view
+  never writes and has no default roots; a repeated root (compared as a cleaned
+  path), an empty one or none at all is `EXT_INVALID`.
 - `ext_trust_state_of`, `ext_trust_record`, `ext_trust_revoke`: persist scoped
   reviews of exact package digests in a caller-selected trust file. The host
   serializes writers and protects the file's parent directory; installation

@@ -33,6 +33,15 @@ func OpenPackageStore(root string, limits PackageStoreLimits) (*PackageStore, er
 	return openGoPackageStore(root, limits)
 }
 
+// LayeredPackageStore is a read-only view over several package roots in priority order; the C engine
+// build serves the same methods from the C view.
+type LayeredPackageStore = goLayeredPackageStore
+
+// OpenLayeredPackageStore returns a view over roots, highest priority first.
+func OpenLayeredPackageStore(roots []string, limits PackageStoreLimits) (*LayeredPackageStore, error) {
+	return openGoLayeredPackageStore(roots, limits)
+}
+
 // StoreDigest verifies one installed package using the pure-Go reference.
 func StoreDigest(root, id string) (string, error) {
 	s, err := store.New(root, store.Limits{})

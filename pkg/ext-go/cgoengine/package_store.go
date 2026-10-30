@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	plugin "github.com/webong/ext/pkg/ext-go/engine"
 	"math"
+	"path/filepath"
 	"strings"
 	"sync"
 	"unsafe"
@@ -175,4 +176,242 @@ func (s *PackageStore) IDs() ([]string, error) {
 		ids = []string{}
 	}
 	return ids, nil
+}
+
+// reportLine is one line of a store report: a package (with its plugin.json) or an entry that
+// failed (with the engine status it failed with).
+type reportLine struct {
+	ID        string          `json:"id"`
+	Directory string          `json:"directory"`
+	Layer     int             `json:"layer"`
+	Manifest  json.RawMessage `json:"manifest"`
+	Status    int             `json:"status"`
+}
+
+func (l reportLine) record() PackageRecord {
+	return PackageRecord{ID: l.ID, Directory: l.Directory, Layer: l.Layer, Manifest: append([]byte(nil), l.Manifest...)}
+}
+
+func (l reportLine) check() PackageCheck {
+	return PackageCheck{ID: l.ID, Directory: l.Directory, Layer: l.Layer, Err: status(C.ext_status(l.Status))}
+}
+
+func decodeRecords(raw []byte) ([]PackageRecord, error) {
+	var lines []reportLine
+	if err := json.Unmarshal(raw, &lines); err != nil {
+		return nil, err
+	}
+	out := make([]PackageRecord, 0, len(lines))
+	for _, l := range lines {
+		out = append(out, l.record())
+	}
+	return out, nil
+}
+
+func decodeChecks(raw []byte) ([]PackageCheck, error) {
+	var lines []reportLine
+	if err := json.Unmarshal(raw, &lines); err != nil {
+		return nil, err
+	}
+	out := make([]PackageCheck, 0, len(lines))
+	for _, l := range lines {
+		out = append(out, l.check())
+	}
+	return out, nil
+}
+
+func decodeUnverified(raw []byte) ([]PackageRecord, []PackageCheck, error) {
+	var listing struct {
+		Packages []reportLine `json:"packages"`
+		Problems []reportLine `json:"problems"`
+	}
+	if err := json.Unmarshal(raw, &listing); err != nil {
+		return nil, nil, err
+	}
+	records := make([]PackageRecord, 0, len(listing.Packages))
+	for _, l := range listing.Packages {
+		records = append(records, l.record())
+	}
+	checks := make([]PackageCheck, 0, len(listing.Problems))
+	for _, l := range listing.Problems {
+		checks = append(checks, l.check())
+	}
+	return records, checks, nil
+}
+
+// report runs one of the store's whole-root reports and returns its JSON.
+func (s *PackageStore) report(call func(*C.ext_store, *C.ext_buffer) C.ext_status) ([]byte, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if s.ptr == nil {
+		return nil, plugin.ErrClosed
+	}
+	var buf C.ext_buffer
+	if err := status(call(s.ptr, &buf)); err != nil {
+		return nil, err
+	}
+	return takeBuffer(&buf), nil
+}
+
+// List reads and verifies every installed package and returns them sorted by id. It fails on the
+// first entry that is not a package directory and on the first package that does not verify.
+func (s *PackageStore) List() ([]PackageRecord, error) {
+	raw, err := s.report(func(p *C.ext_store, b *C.ext_buffer) C.ext_status { return C.ext_store_list(p, b) })
+	if err != nil {
+		return nil, err
+	}
+	return decodeRecords(raw)
+}
+
+// Verify checks every entry below the root and reports each one, sorted by id, instead of stopping
+// at the first bad one. It runs nothing and changes nothing.
+func (s *PackageStore) Verify() ([]PackageCheck, error) {
+	raw, err := s.report(func(p *C.ext_store, b *C.ext_buffer) C.ext_status { return C.ext_store_verify(p, b) })
+	if err != nil {
+		return nil, err
+	}
+	return decodeChecks(raw)
+}
+
+// ListUnverified returns the packages whose manifest reads and checks against its directory, and
+// separately the entries that could not be read. No artifact is read or hashed: THE PACKAGES ARE
+// UNVERIFIED and must not be launched or trusted until Load or a host verifies them.
+func (s *PackageStore) ListUnverified() ([]PackageRecord, []PackageCheck, error) {
+	raw, err := s.report(func(p *C.ext_store, b *C.ext_buffer) C.ext_status { return C.ext_store_list_unverified(p, b) })
+	if err != nil {
+		return nil, nil, err
+	}
+	return decodeUnverified(raw)
+}
+
+// LayeredPackageStore is a read-only view over several package roots in priority order, the way
+// pkg/ext-go/engine/host/store.Layered is: an id is served from the first root that holds it, so a
+// user root can override a system one, and a damaged winning copy fails closed instead of falling
+// back to a lower root. It never writes. In a build without the C engine the same type is served
+// by the pure-Go view.
+type LayeredPackageStore struct {
+	mu    sync.RWMutex
+	ptr   *C.ext_layered
+	roots []string
+}
+
+// OpenLayeredPackageStore returns a view over roots, highest priority first. It needs at least one
+// root and rejects an empty root and a repeated one.
+func OpenLayeredPackageStore(roots []string, limits PackageStoreLimits) (*LayeredPackageStore, error) {
+	if len(roots) == 0 || limits.MaxArtifactBytes < 0 || limits.MaxTreeFiles < 0 || limits.MaxTreeBytes < 0 ||
+		int64(limits.MaxTreeFiles) > math.MaxUint32 {
+		return nil, plugin.ErrInvalid
+	}
+	for _, root := range roots {
+		if root == "" || strings.IndexByte(root, 0) >= 0 {
+			return nil, plugin.ErrInvalid
+		}
+	}
+	array := C.malloc(C.size_t(len(roots)) * C.size_t(unsafe.Sizeof((*C.char)(nil))))
+	if array == nil {
+		return nil, plugin.ErrInvalid
+	}
+	defer C.free(array)
+	cs := unsafe.Slice((**C.char)(array), len(roots))
+	for i, root := range roots {
+		cs[i] = C.CString(root)
+	}
+	defer func() {
+		for _, c := range cs {
+			C.free(unsafe.Pointer(c))
+		}
+	}()
+	cl := C.ext_store_limits{
+		max_artifact_bytes: C.uint64_t(limits.MaxArtifactBytes),
+		max_tree_files:     C.uint32_t(limits.MaxTreeFiles),
+		max_tree_bytes:     C.uint64_t(limits.MaxTreeBytes),
+	}
+	var ptr *C.ext_layered
+	if err := status(C.ext_layered_open((**C.char)(array), C.size_t(len(roots)), &cl, &ptr)); err != nil {
+		return nil, err
+	}
+	return &LayeredPackageStore{ptr: ptr, roots: append([]string(nil), roots...)}, nil
+}
+
+// Close releases the view. A closed view refuses every call with plugin.ErrClosed.
+func (l *LayeredPackageStore) Close() {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if l.ptr != nil {
+		C.ext_layered_close(l.ptr)
+		l.ptr = nil
+	}
+}
+
+// Roots returns the roots in priority order, as they were given.
+func (l *LayeredPackageStore) Roots() []string { return append([]string(nil), l.roots...) }
+
+// Load reads and verifies the package from the first root that holds id. plugin.ErrNotFound means
+// no root does.
+func (l *LayeredPackageStore) Load(id string) (PackageRecord, error) {
+	if strings.IndexByte(id, 0) >= 0 {
+		return PackageRecord{}, plugin.ErrInvalid
+	}
+	l.mu.RLock()
+	defer l.mu.RUnlock()
+	if l.ptr == nil {
+		return PackageRecord{}, plugin.ErrClosed
+	}
+	cid := C.CString(id)
+	defer C.free(unsafe.Pointer(cid))
+	var manifest C.ext_buffer
+	layer := C.size_t(0)
+	if err := status(C.ext_layered_load(l.ptr, cid, &manifest, &layer)); err != nil {
+		return PackageRecord{}, err
+	}
+	return PackageRecord{
+		ID:        id,
+		Directory: filepath.Join(l.roots[int(layer)], strings.ReplaceAll(id, "/", "%2f")),
+		Layer:     int(layer),
+		Manifest:  takeBuffer(&manifest),
+	}, nil
+}
+
+func (l *LayeredPackageStore) report(call func(*C.ext_layered, *C.ext_buffer) C.ext_status) ([]byte, error) {
+	l.mu.RLock()
+	defer l.mu.RUnlock()
+	if l.ptr == nil {
+		return nil, plugin.ErrClosed
+	}
+	var buf C.ext_buffer
+	if err := status(call(l.ptr, &buf)); err != nil {
+		return nil, err
+	}
+	return takeBuffer(&buf), nil
+}
+
+// List verifies and returns one package per id from the highest root that holds it, sorted by id.
+// It fails on the first entry that is not a package directory in any root and on the first package
+// that does not verify.
+func (l *LayeredPackageStore) List() ([]PackageRecord, error) {
+	raw, err := l.report(func(p *C.ext_layered, b *C.ext_buffer) C.ext_status { return C.ext_layered_list(p, b) })
+	if err != nil {
+		return nil, err
+	}
+	return decodeRecords(raw)
+}
+
+// Verify checks what Load and List would serve and reports every failure. A shadowed copy is not
+// checked.
+func (l *LayeredPackageStore) Verify() ([]PackageCheck, error) {
+	raw, err := l.report(func(p *C.ext_layered, b *C.ext_buffer) C.ext_status { return C.ext_layered_verify(p, b) })
+	if err != nil {
+		return nil, err
+	}
+	return decodeChecks(raw)
+}
+
+// ListUnverified returns the manifests of the packages each root serves, and the entries that could
+// not be read, without reading any artifact. THE PACKAGES ARE UNVERIFIED.
+func (l *LayeredPackageStore) ListUnverified() ([]PackageRecord, []PackageCheck, error) {
+	raw, err := l.report(func(p *C.ext_layered, b *C.ext_buffer) C.ext_status { return C.ext_layered_list_unverified(p, b) })
+	if err != nil {
+		return nil, nil, err
+	}
+	return decodeUnverified(raw)
 }

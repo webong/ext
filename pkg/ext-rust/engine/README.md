@@ -28,6 +28,17 @@ answer with `Error::INVALID`, `Error::DENIED` or `Error::EXPIRED`, never text.
 `EXT_REVERSE_TEST_GUEST` to the built `ext_reverse_test`) and the shared endpoint
 fixture.
 
+`store::Store` is the engine's package store (`ext_store_*`): `install`, `upgrade`,
+`replace`, `remove`, `load` and `ids` over reviewed `ext.package/v1` packages under a
+root you supply, as the Go store does. `install`, `upgrade` and `replace` copy the
+package, verify it at the source and again once copied, and return the installed
+`plugin.json` byte for byte. Failures are `Error::INVALID` (not a valid package, id or
+directory, or an artifact over a `Limits` bound), `Error::MISMATCH` (a digest that
+differs, or an upgrade that changes the id or contracts), `Error::EXISTS` (an install
+over an installed id) and `Error::NOT_FOUND`. A missing root is an empty store, made
+by the first install; calls on one `Store` are serialized by the engine, several
+processes mutating one root are yours to serialize. `tests/store.rs` covers it.
+
 `Guest` snapshots its descriptor and dispatches through a Rust handler. Handlers
 receive borrowed requests, remaining time and optional cancellation. Public
 errors are explicit; panics/private failures are sanitized by the engine. Native

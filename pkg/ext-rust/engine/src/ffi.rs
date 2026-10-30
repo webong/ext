@@ -70,6 +70,15 @@ pub struct Extension {
     pub close: unsafe extern "C" fn(*mut c_void),
     pub release: unsafe extern "C" fn(*mut c_void),
 }
+/// Bounds on one package store (`ext_store_limits`); zero takes the default.
+#[repr(C)]
+pub struct StoreLimits {
+    pub max_artifact_bytes: u64,
+    pub max_tree_files: u32,
+    pub max_tree_bytes: u64,
+}
+/// Keep the execute bit of a file artifact that has one in the source.
+pub const STORE_PRESERVE_EXECUTABLE: u32 = 1;
 /// Progress events of a call: `deliver` receives the JSON of one event.
 #[repr(C)]
 pub struct ProgressOptions {
@@ -213,6 +222,33 @@ extern "C" {
     pub fn ext_engine_sha256(p: *const u8, n: usize, out: *mut u8) -> Status;
     pub fn ext_package_verify(p: *const u8, n: usize, root: *const c_char) -> Status;
     pub fn ext_directory_digest(root: *const c_char, out: *mut u8) -> Status;
+    pub fn ext_store_open(
+        root: *const c_char,
+        limits: *const StoreLimits,
+        out: *mut *mut c_void,
+    ) -> Status;
+    pub fn ext_store_close(s: *mut c_void);
+    pub fn ext_store_install(
+        s: *mut c_void,
+        source: *const c_char,
+        flags: u32,
+        manifest: *mut Buffer,
+    ) -> Status;
+    pub fn ext_store_upgrade(
+        s: *mut c_void,
+        source: *const c_char,
+        flags: u32,
+        manifest: *mut Buffer,
+    ) -> Status;
+    pub fn ext_store_replace(
+        s: *mut c_void,
+        source: *const c_char,
+        flags: u32,
+        manifest: *mut Buffer,
+    ) -> Status;
+    pub fn ext_store_remove(s: *mut c_void, id: *const c_char) -> Status;
+    pub fn ext_store_load(s: *mut c_void, id: *const c_char, manifest: *mut Buffer) -> Status;
+    pub fn ext_store_ids(s: *mut c_void, ids: *mut Buffer) -> Status;
     pub fn ext_guest_create(o: *const GuestOptions, out: *mut *mut c_void) -> Status;
     pub fn ext_guest_descriptor(g: *mut c_void, out: *mut Buffer) -> Status;
     pub fn ext_guest_invoke(

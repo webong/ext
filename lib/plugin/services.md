@@ -97,6 +97,18 @@ Go store replaces `/` with `%2f`) and must not join it into a path as written.
   using the existing CTX trust-record format.
 - `ext_store_digest`: verify one installed package under a caller-supplied store
   root, reject unlisted files, and return its directory digest.
+- `ext_store_open`, `ext_store_close`, `ext_store_install`, `ext_store_upgrade`,
+  `ext_store_replace`, `ext_store_remove`, `ext_store_load`, `ext_store_ids`: the
+  package store. A package is verified at its source, copied into a staging
+  directory below the root, verified again, and renamed into place; an upgrade
+  moves the installed directory aside first and puts it back if the new one
+  cannot take its place. `plugin.json` is copied byte for byte. `EXT_EXISTS` is
+  an install over an installed id, `EXT_NOT_FOUND` an id that is not installed,
+  `EXT_MISMATCH` an upgrade that changes the id or contracts or an artifact that
+  differs from its digest, and `EXT_INVALID` anything that is not a valid package,
+  id or directory. The limits (one artifact, one tree's files and bytes) default
+  to the Go store's. A store serializes its own calls; several processes mutating
+  one root are the application's to serialize. It makes no trust decision.
 - `ext_trust_state_of`, `ext_trust_record`, `ext_trust_revoke`: persist scoped
   reviews of exact package digests in a caller-selected trust file. The host
   serializes writers and protects the file's parent directory; installation

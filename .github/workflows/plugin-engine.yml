@@ -2,15 +2,11 @@ name: Plugin engine
 
 # Builds the portable C plugin engine in lib/plugin and runs its native tests and
 # the Go suites that link against it, on Linux, macOS and Windows (MinGW-w64).
+# Runs on pushes to main and on demand (gh workflow run plugin-engine.yml --ref <branch>). Branches and
+# pull requests do not start it, to save runner time.
 on:
   push:
-    branches: [main, 'plugin-engine/**']
-    paths:
-      - 'lib/plugin/**'
-      - 'pkg/ext-go/**'
-      - 'scripts/plugin-engine-test.sh'
-      - '.github/workflows/plugin-engine.yml'
-  pull_request:
+    branches: [main]
     paths:
       - 'lib/plugin/**'
       - 'pkg/ext-go/**'

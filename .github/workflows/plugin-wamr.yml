@@ -11,6 +11,8 @@ name: Plugin WAMR host
 #   emulator Android emulator suite (Linux, KVM)
 #   apple    macOS Swift tests and the iOS Simulator suite, together (macOS, the costly one)
 # For example, skip macOS: gh workflow run plugin-wamr.yml -f apple=false
+# Runs on pushes to main and on demand (gh workflow run plugin-wamr.yml --ref <branch>). Branches and
+# pull requests do not start it, to save runner time.
 on:
   workflow_dispatch:
     inputs:
@@ -28,22 +30,6 @@ on:
         default: true
   push:
     branches: [main]
-    paths:
-      - '.github/workflows/plugin-wamr.yml'
-      - 'scripts/plugin-*wamr*.sh'
-      - 'scripts/ext-*wamr*.sh'
-      - 'scripts/ext-ios-xcframework.sh'
-      - 'scripts/ext-android-release.sh'
-      - 'scripts/ext-android-consumer.sh'
-      - 'examples/android-consumer/**'
-      - 'pkg/ext-android/**'
-      - 'pkg/ext-ios/**'
-      - 'res/web/android/**'
-      - 'res/web/ios/**'
-      - 'pkg/ext-go/cgoengine/cshared/**'
-      - 'lib/plugin/**'
-      - 'pkg/ext-rust/**'
-  pull_request:
     paths:
       - '.github/workflows/plugin-wamr.yml'
       - 'scripts/plugin-*wamr*.sh'

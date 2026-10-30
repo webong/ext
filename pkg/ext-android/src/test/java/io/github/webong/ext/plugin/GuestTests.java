@@ -45,6 +45,18 @@ public final class GuestTests {
         run("router: the hello may leave out the plugin, contract and surface", RouterTests::bareHello);
         run("data endpoints reproduce the shared fixture", EndpointTests::fixture);
         run("data endpoint inputs and statuses", EndpointTests::inputs);
+        run("package store: statuses are the engine's", StoreTests::statuses);
+        run("package store: an empty or missing root has nothing to find", StoreTests::emptyAndMissing);
+        run("package store: install, upgrade, replace and remove", StoreTests::lifecycle);
+        run("package store: a source that is not what its manifest says is not installed", StoreTests::defects);
+        run("package store: directories that are not what their name says", StoreTests::names);
+        run("package store: limits bound an artifact and a tree", StoreTests::limits);
+        run("package store: preserveExecutable keeps the execute bit of a file artifact", StoreTests::preserveExecutable);
+        run("package store: paths reach the engine as UTF-8", StoreTests::utf8Paths);
+        run("package store: shared between threads, and close waits for calls", StoreTests::threads);
+        run("package store: reports cover every entry", StoreTests::reports);
+        run("layered store: the highest root serves, a damaged winner fails closed", StoreTests::layered);
+        run("layered store: refuses what is not a set of roots", StoreTests::layeredRefusals);
         System.out.println(failures == 0 ? "all Java plugin tests passed" : failures + " Java plugin tests FAILED");
         System.exit(failures == 0 ? 0 : 1);
     }

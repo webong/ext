@@ -5,8 +5,9 @@ and network-observation packages do not depend on each other. Java is the API, a
 Kotlin calls it directly.
 
 - **Plugin** (`io.github.webong.ext.plugin`): author an `ext.plugin/v1` guest on the JVM over a small JNI
-  library that binds the guest half of the shared [C engine](../../lib/plugin/README.md), and host a
-  WebAssembly reactor in a WebView or in WAMR.
+  library that binds the guest half of the shared [C engine](../../lib/plugin/README.md), keep reviewed
+  `ext.package/v1` packages in the engine's package store, and host a WebAssembly reactor in a WebView or
+  in WAMR.
 - **Web** (`io.github.webong.ext.web`): the cookie, userscript and bookmarklet rules of
   [`res/web`](../../res/web/README.md), in plain Java with no native code, run against the same fixtures as
   Go. The code is `res/web/android`; this AAR ships it. See Web rules.
@@ -28,6 +29,9 @@ the web rules takes the native libraries and the minimum SDK with it.
 
 **Status:** verified in three ways.
 - The guest SDK is plain JVM and JNI; its tests run on a desktop JDK 17.
+- The package store runs the same way, on a desktop JDK against the host build of the C engine. Its JNI
+  code cross-compiles with the NDK for arm64-v8a and x86_64 against API 24, but it has not run on an
+  emulator or a device.
 - The JNI library is built with the NDK for arm64-v8a and x86_64 by `scripts/ext-android-release.sh`,
   and the release workflow tests each AAR as shipped, in an app with R8 on, on an emulator.
 - The WebView host (`WebViewPluginHost`) is plain Java built against `android.jar` and has run in a
@@ -111,6 +115,61 @@ a host hands a plugin (see `lib/plugin/services.md`): a plugin checks what it re
 before dialing, a host validates what it grants. A refusal is a `GuestException` whose
 `status()` is `Endpoint.INVALID`, `Endpoint.DENIED` or `Endpoint.EXPIRED`, and nothing of
 the endpoint, which is a credential.
+
+## Package store
+
+`PackageStore` and `LayeredPackageStore` bind the engine's package store (`ext_store_*` and
+`ext_layered_*` in [`ext_host.h`](../../lib/plugin/include/ext_host.h)): the same store the Go, Rust,
+Node and Zig bindings use, held to the pure-Go store by the differential tests described in
+[the parity page](../../docs/plugin-engine-parity.md). A package is its `plugin.json` manifest and the
+artifacts it lists, in a directory named by the package id with `/` encoded as `%2f`. The store copies and
+re-verifies content; it never runs it or grants authority, and it has no default location, so the app
+supplies the root (for example under `Context.getFilesDir()`).
+
+```java
+try (PackageStore store = new PackageStore(new File(context.getFilesDir(), "packages").getPath())) {
+    byte[] manifest = store.install(sourceDir);          // plugin.json, byte for byte as the source had it
+    store.upgrade(newerDir);                             // same id and contracts; the old copy survives a failure
+    store.replace(otherDir);                             // installs or replaces, whatever the contracts
+    List<String> ids = store.ids();                      // byte order; nothing is read or verified
+    byte[] loaded = store.load("com.example/greeter");   // reads, verifies, returns plugin.json
+    store.remove("com.example/greeter");
+}
+
+// A read-only view, highest root first. It never writes, so a system root is never created through it.
+try (LayeredPackageStore view = new LayeredPackageStore(List.of(userRoot, systemRoot))) {
+    LayeredPackageStore.Loaded found = view.load("com.example/greeter");   // found.layer() is 0 for userRoot
+}
+```
+
+- A failure is a `GuestException`; `status()` is one of the constants of `PackageStore`: `INVALID` (a package,
+  id or directory that is not valid, a directory that is not a package, an artifact over a limit), `MISMATCH`
+  (a changed artifact, a directory that is not what its name says, an upgrade that changes the id or the
+  contracts), `EXISTS` (an install over an installed id), `NOT_FOUND`, `MISSING` (a source directory, a manifest
+  or a listed artifact that is not there), `CLOSED`, `IO` and `NOMEM`. A `null` argument is a
+  `NullPointerException`; a string with no UTF-8 spelling (a lone surrogate) or with a NUL is `INVALID`.
+- `StoreLimits` bounds one artifact file, the files in a tree and the bytes of a tree; zero takes the engine's
+  default (4 GiB, 250000 files, 16 GiB). The install and upgrade calls take a `preserveExecutable` flag: a
+  file artifact keeps its execute bit only when asked, while entrypoints and the files of a tree always do.
+- Manifests and the reports come back as the engine's bytes, not as a Java model. `load` returns `plugin.json`
+  verbatim, which is what a trust record's digest covers, and `list()`, `verify()` and `listUnverified()`
+  return the JSON of `ext_store_list`, `ext_store_verify` and `ext_store_list_unverified` as UTF-8, to be read
+  with `org.json` or any parser the app already has; the SDK has no JSON model of its own to commit to.
+  Only `ids()` is parsed, into a `List<String>`. `listUnverified()` reads manifests alone, so its result must
+  not be launched or trusted as it stands.
+- A missing root is an empty store, made (owner-only) by the first install; asking a store or a view for ids or
+  a report never creates it. In a layered view an id is served from the first root that holds it, a shadowed
+  copy is never read, and a winner that does not verify fails the call instead of falling back to the copy
+  below. A repeated root (however spelled), an empty root, or no root at all is `INVALID`.
+- Both classes are safe to share between threads: the engine serializes calls on one store, and `close()` waits
+  for calls in flight, is idempotent, and makes later calls fail with `CLOSED`. Several processes mutating one
+  root are the app's to serialize.
+- Paths reach the engine as UTF-8, not as the modified UTF-8 of a JNI `jstring`, so a name with an emoji in it
+  is the name on disk. `libextjni` carries the store: it links the host half of the engine as a static archive,
+  so only the objects the store needs come with it (the file layer, integrity checks and SHA-256, about 50 KB
+  per ABI), and no process or WebAssembly hosting code.
+- The store holds reviewed content; it does not make downloaded native code launchable. See the store rules
+  under Kotlin and Android.
 
 ## Report progress and call the host
 
@@ -202,7 +261,7 @@ not use `INTERNET`, perform a lookup, or open a connection.
 
 The script builds the JNI library with CMake, compiles the classes with
 `javac -Xlint:all -Werror`, runs the tests with `java -ea` (no test framework is
-assumed), and writes launchers for `ConformanceGuest`, the shared
+assumed; `StoreTests` is the package store's, run from `GuestTests`), and writes launchers for `ConformanceGuest`, the shared
 `ext.conformance/v1` fixture, and `FramesGuest` (each names `java` by absolute path,
 since the engine starts a guest with an empty environment). `scripts/plugin-crosslang.sh`
 runs them through the same Go suite as the Rust and Zig guests, and requires them when a
@@ -244,8 +303,8 @@ disk.
 
 `WamrPluginHost` runs a reactor in-process on WAMR's interpreter, through the engine's host
 half and a second JNI library, `libextwamrjni`, which is built only when `EXT_WAMR_ROOT` names
-a WAMR checkout. The default `libextjni` and its guest SDK carry neither the host nor an
-interpreter. It needs API 28 or later.
+a WAMR checkout. The default `libextjni` and its guest SDK carry no interpreter and none of the host's
+process or WebAssembly hosting code (only the package store, see Package store). It needs API 28 or later.
 
 ```java
 byte[] descriptor = WamrPluginHost.descriptorOf(module, 30_000, null);   // inspection only
@@ -273,8 +332,8 @@ try (WamrPluginHost host = new WamrPluginHost(module, descriptor)) {
 Releases are GitHub releases tagged `ext-android-vX.Y.Z` (a dash form, not a Go module tag;
 see [module versioning](../../docs/module-versioning.md)). Each carries:
 
-- `ext-android-X.Y.Z.aar`: the guest SDK, the WebView host and the web rules as `classes.jar` (Java 17, which the
-  app's D8 desugars), `libextjni` for arm64-v8a and x86_64, and consumer R8 rules (`proguard.txt`).
+- `ext-android-X.Y.Z.aar`: the guest SDK, the package store, the WebView host and the web rules as `classes.jar`
+  (Java 17, which the app's D8 desugars), `libextjni` for arm64-v8a and x86_64, and consumer R8 rules (`proguard.txt`).
   Minimum SDK 24.
 - `ext-android-wamr-X.Y.Z.aar`: the same plus `libextwamrjni` and the `WamrPluginHost` classes.
   Minimum SDK 28. WAMR's license is inside it (`META-INF/WAMR-LICENSE`) and beside it

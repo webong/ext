@@ -1,26 +1,29 @@
 cmake_minimum_required(VERSION 3.18)
 project(ext_plugin_java C)
 
-# JNI binding over the guest half of the shared C engine. The same file builds on
+# JNI binding over the guest half of the shared C engine, and over its package store
+# (ext_store_* and ext_layered_*, which live in the host half). The same files build on
 # a desktop JDK and, unchanged, with the Android NDK toolchain file.
+#
+# libextjni links the host half as a static archive, so it carries only the objects the
+# guest core and the store reference (the file layer, integrity checks and SHA-256); the
+# process and WebAssembly hosting code is never linked into it.
 #
 # EXT_WAMR_ROOT (a WAMR checkout, see scripts/plugin-wamr-source.sh) also builds
 # libextwamrjni: the host half of the engine with the WAMR reactor backend, a separate
-# library so the default guest SDK carries neither the host nor an interpreter.
+# library so the default guest SDK carries no interpreter.
 set(EXT_WAMR_ROOT "" CACHE PATH "A WAMR checkout; builds the optional extwamrjni host")
+set(EXT_BUILD_HOST ON CACHE BOOL "The package store needs the host half" FORCE)
 if(EXT_WAMR_ROOT)
   # WAMR's hardware bound checks install signal handlers and probe the native stack, which the
   # JVM and ART own (the JVM aborts with SIGILL at first use), so check in software here.
   set(EXT_WAMR_DISABLE_HW_BOUND_CHECK ON CACHE BOOL "Software bound checks inside a JVM or ART" FORCE)
-  set(EXT_BUILD_HOST ON CACHE BOOL "The WAMR host needs the host half" FORCE)
   set(EXT_WITH_WAMR ON CACHE BOOL "The WAMR reactor backend" FORCE)
-else()
-  set(EXT_BUILD_HOST OFF CACHE BOOL "The JNI binding needs only the guest core" FORCE)
 endif()
 add_subdirectory(../../lib/plugin plugin-engine EXCLUDE_FROM_ALL)
 
-add_library(extjni SHARED src/main/native/ext_jni.c)
-target_link_libraries(extjni PRIVATE ext_guest_static)
+add_library(extjni SHARED src/main/native/ext_jni.c src/main/native/ext_store_jni.c)
+target_link_libraries(extjni PRIVATE ext_host_static)
 set_target_properties(extjni PROPERTIES C_STANDARD 11 POSITION_INDEPENDENT_CODE ON)
 if(NOT ANDROID)
   find_package(JNI REQUIRED)

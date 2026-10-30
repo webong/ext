@@ -1,0 +1,5 @@
+export type MessageWindow = { addEventListener(type: 'message', listener: (event: any) => void): void; removeEventListener(type: 'message', listener: (event: any) => void): void; postMessage(message: unknown, targetOrigin: string, transfer?: Transferable[]): void };
+export function connectSandboxHost(options: { host: MessageWindow; guest: MessageWindow; nonce: string; context?: Record<string, unknown>; createChannel?: () => MessageChannel; timeoutMs?: number }): Promise<MessagePort>;
+export function startSandboxGuest(options: { self: MessageWindow; parent: MessageWindow; nonce: string; load?: () => void | Promise<void>; connect(context: Record<string, unknown>, port: MessagePort): void | Promise<void> }): () => void;
+export function createPageBridgeClient(options: { target: MessageWindow; channel: string; timeoutMs?: number }): { call<T = unknown>(method: string, value?: unknown): Promise<T>; close(): void };
+export function createPageBridgeReceiver(options: { target: MessageWindow; channel: string; allowedMethods: Set<string>; dispatch(method: string, value: unknown): unknown | Promise<unknown> }): () => void;

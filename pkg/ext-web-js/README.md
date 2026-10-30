@@ -53,6 +53,41 @@ const reply = await tabs.send(tabId, { channel: 'my-extension', type: 'ping' });
 stopWatching();
 ```
 
+## Extension workspace mechanisms
+
+`@ext/web-js/workspace` provides three independent native helpers. Each accepts
+browser APIs supplied by the integrating extension:
+
+- `createScopedStorage({storage, namespace})` isolates keys for independent
+  features sharing an extension's storage area.
+- `createScriptRegistry({scripting, namespace, assetPrefix})` registers and
+  removes packaged content scripts under collision-resistant scoped IDs. Files
+  must stay under the supplied asset prefix.
+- `createRuleRegistry({network, storage, namespace})` records ownership of
+  dynamic network-rule IDs and refuses changes by another namespace. It reads
+  the current rules before mutation so a failed ownership save can restore the
+  previous browser rules.
+
+The caller owns permission requests, manifest declarations, asset review,
+rule meaning, and selecting which pages or tabs receive behavior. The helpers
+do not run scripts from remote URLs.
+
+## Userscripts and bridges
+
+`@ext/web-js/userscripts` reconciles browser-native userscript registrations
+with a caller-owned catalog. `createUserscriptRegistry` requires `prepare` to
+produce a reviewed registration plan and `authorize` before changes. It binds
+registration IDs to a namespace and restores missing registrations after a
+browser restart. Portable userscript metadata and preparation remain in
+`res/web/userscript`.
+
+`@ext/web-js/bridge` provides a nonce-bound `MessagePort` handshake for a
+caller-created sandbox page, plus a page-visible request bridge. The sandbox
+caller creates the frame, supplies a fresh random nonce, and owns its content
+and permission policy. The page bridge exposes only methods in the caller's
+allowlist; any script on that page can invoke those methods, so they must be
+safe for page use. These APIs carry no Cymonkey or Xallet command vocabulary.
+
 Run `npm test` for the protocol harness and `npm run build:examples` to create
 independent unpacked Chromium examples in `dist/host` and `dist/guest`. Load both
 in `chrome://extensions` with Developer mode. Copy each extension ID into the

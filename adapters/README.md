@@ -89,6 +89,11 @@ desktop contracts with their native tools. PulseAudio owns `pactl`, `parec`, and
 Wayland owns `grim`, `wtype`, and optional `ydotool` pointer input. Each adapter is selected explicitly and
 publishes no device, display, or approval policy.
 
+`ffmpeg` implements `media.Recorder` for macOS and Windows with the `ffmpeg` tool (`avfoundation`, `gdigrab`). It
+is an adapter because `ffmpeg` is an external tool; capture and input on those platforms need none and are
+`surface.NativeDesktop` in `res/system`, which takes this recorder for recording. The caller names the capture
+source.
+
 `keychain`, `secret_service`, and `credman` are separate, nonselectable
 credential-store adapters for macOS, Linux, and Windows. They register the
 `credential` share space and own their native store APIs and item identities.

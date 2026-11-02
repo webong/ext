@@ -31,7 +31,7 @@ it from there.
 
 | Package | What it is |
 | --- | --- |
-| `capture/surface` | Displays, windows, accessibility structure and permission state; window capture and atomic input; the `DesktopDriver` seam that caller-selected tools implement |
+| `capture/surface` | Displays, windows, accessibility structure and permission state; window capture and atomic input; the `DesktopDriver` seam that caller-selected tools implement; `NativeDesktop`, the macOS and Windows implementation of that seam with the OS's own APIs (whole-desktop capture, input, held-button `PointerSession`) |
 | `capture/audio` | Bounded, transport-free audio-device observation and caller-selected PCM16 capture/playback interfaces; native implementations select no device |
 | `capture/clipboard` | Bounded, transport-free clipboard contracts, the Apple and Android native implementations shipped by the platform SDKs, and the Win32 backend for Go consumers |
 | `capture/share` | Bounded, transport-free share and keyboard-extension model: text, links, and attachment references; no extension registry, event schema, inbox, or application identity |

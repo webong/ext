@@ -233,7 +233,8 @@ selectable native tool owned by `adapters/systemd`.
 `res/system/capture/audio` owns portable device observation and bounded PCM stream
 contracts; `pactl`/`parec`/`pacat`, `aplay`/`arecord`, `grim`/`wtype`/`ydotool`, `import`/`xdotool`,
 and `ffmpeg` are selectable native tools owned by `adapters/pulseaudio`,
-`adapters/alsa`, `adapters/wayland`, and `adapters/x11`. `adapters/pipewire`
+`adapters/alsa`, `adapters/wayland`, and `adapters/x11`; `adapters/ffmpeg` owns recording on
+macOS and Windows, where capture and input need no tool and are `surface.NativeDesktop`. `adapters/pipewire`
 implements the same contract with `pw-dump`, `pw-record`, and `pw-play`.
 PipeWire and PulseAudio are separate adapters; no library selects between them
 by name. `res/system/capture/surface.DesktopDriver` is the portable seam those adapters

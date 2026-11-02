@@ -67,6 +67,8 @@ copy of the native implementation.
 | audio-device observation and bounded PCM streams | contract | — | playback | WASAPI audio | playback |
 | PipeWire audio device observation and PCM streams | contract (Linux adapter) | — | — | — | — |
 | desktop capture, input, recording via external tools | X11 and Wayland adapters | — | — | — | — |
+| whole-desktop capture, input and held-button pointer sessions | native (Go) | native (Go) | macOS pointer (`ExtSystem`) | — | — |
+| desktop recording on macOS and Windows | `ffmpeg` adapter | `ffmpeg` adapter | — | — | — |
 | Wayland bounded recording | explicit wf-recorder adapter | — | — | — | — |
 
 ## Per-user services
@@ -96,8 +98,16 @@ playback interfaces. `adapters/pulseaudio` implements them with `pactl`,
 mixing, or transport policy. PipeWire and PulseAudio are separate adapters; no
 library selects between them by name.
 
-`res/system.DesktopDriver` is the portable seam for desktop-scoped operations by
-external tools. `adapters/x11` implements capture, keyboard and pointer input,
+`res/system/capture/surface.DesktopDriver` is the portable seam for desktop-scoped operations by
+external tools. On macOS and Windows the operating system itself provides them, so
+`surface.NativeDesktop` is a platform implementation of that seam and not an adapter: it captures
+every display and sends pointer and keyboard input with Core Graphics, GDI and `SendInput`, in
+desktop coordinates that start at the top-left of all displays combined. Holding a pointer button
+across calls is possible only inside a `PointerSession`, which releases every held button on close, on
+its time limit and when its context ends; `SystemDesktopPointer` in `ExtSystem` does the same on
+macOS for Swift hosts. Recording needs an encoder, so `NativeDesktop` takes a `media.Recorder`;
+`adapters/ffmpeg` is one for macOS and Windows. The tool-based drivers below are for the platforms and
+sessions where the OS gives no such API. `adapters/x11` implements capture, keyboard and pointer input,
 and bounded `ffmpeg` recording with `import` and `xdotool`; `adapters/wayland`
 implements capture, keyboard input, and optional pointer input through an
 explicitly configured `ydotool` (`ydotoold`/uinput), and optional bounded

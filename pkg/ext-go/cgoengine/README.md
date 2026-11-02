@@ -51,7 +51,7 @@ and `NewLaunch` are engine-only and need the C engine build.
 | `author`, `schema`, `jsonschema`, `stream`, `instance`, `capability` | Typed authoring, the manifest schema vocabulary, bounded JSON Schema validation, pull streams, instances and the configuration and health helpers |
 | `process`, `jsonline`, `inprocess`, `nativego` | Runtime backends: child process over JSON lines, the JSON-line transport, trusted in-process endpoints, native Go plugins |
 | `interop`, `bridge` | Route resolution and bridges between backends |
-| `adapter` | Host side of ctx adapters: manifests, the installed store, packaging, trust and invocation |
+| `adapter` | Host side of ext adapters: manifests, the installed store, packaging, trust and invocation |
 | `plugintest` | Shared conformance fixtures |
 | `cshared` | The C plugin ABI in Go: the loader that opens such libraries as a backend (cgo; the header is `lib/plugin/include/ext_plugin.h`), `cshared/abi` (the envelope's constants and wire types, no cgo) and `cshared/guest` (the Go guest lifecycle that exports it) |
 

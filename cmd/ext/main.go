@@ -15,12 +15,14 @@ import (
 	"github.com/webong/ext/ctx"
 	"github.com/webong/ext/pkg/ext-go/engine/host"
 	"github.com/webong/ext/pkg/ext-go/engine/host/adapter"
+	"github.com/webong/ext/pkg/ext-go/engine/host/adapter/adaptercmd"
 	"github.com/webong/ext/pkg/ext-go/engine/host/store"
 )
 
 func main() {
 	reg := registry.New()
 	for _, c := range []registry.Command{
+		{Name: "adapter", Source: registry.Builtin, Version: ctx.Version(), Run: adaptercmd.Run},
 		{Name: "ctx", Source: registry.Builtin, Version: ctx.Version(), Run: ctx.Run},
 		{Name: "ctn", Source: registry.Builtin, Version: ctn.Version(), Run: ctn.Run},
 	} {

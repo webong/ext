@@ -360,7 +360,7 @@ interface currently exposes unary handshake/invocation. See
 [`pkg/ext-go/hashicorp/README.md`](../pkg/ext-go/hashicorp/README.md) for host and guest
 usage and process examples.
 
-## CTX adapter adoption
+## ext adapter adoption
 
 `plugin.AdapterDescriptor` maps existing adapters to `ext.adapter@2.0`.
 The internal binding preserves legacy adapters' declared native API versions.
@@ -368,7 +368,7 @@ Capabilities, computer hook/plugin capabilities, and declared browser management
 support become operations. Installed identity is `ext.adapter/<name>` with a
 `sha256:<directory digest>` revision.
 
-The CTX adapter loader's capability queries use the shared contract lookup.
+The ext adapter loader's capability queries use the shared contract lookup.
 Trust checks validate the shared descriptor and use the shared directory
 digest implementation. The sorted path/file-hash format is unchanged, so
 existing trust records remain usable. Special files and paths with line breaks

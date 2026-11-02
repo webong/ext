@@ -32,7 +32,7 @@ func Config() string {
 	return shared
 }
 
-// Adapters is the existing CTX adapter substore, including legacy overrides.
+// Adapters is the existing ext adapter substore, including legacy overrides.
 func Adapters() string {
 	for _, name := range []string{"EXT_ADAPTER_HOME", "CTX_ADAPTER_HOME"} {
 		if value := os.Getenv(name); value != "" {

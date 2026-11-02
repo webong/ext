@@ -6,7 +6,7 @@ executable. The package store in `pkg/ext-go/engine/host/store` verifies sealed
 packages, matches contracts, and selects the executable for the current
 platform. The scoped trust ledger in `pkg/ext-go/engine/host/trust` pins reviewed
 digests; `lib/plugin` implements the same format for other host languages.
-CTX adapters, CTN inference providers, and Ext commands use separate scopes.
+ext adapters, CTN inference providers, and Ext commands use separate scopes.
 
 ## Build, install, and trust
 

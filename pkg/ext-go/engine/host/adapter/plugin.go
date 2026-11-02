@@ -2,7 +2,7 @@ package adapter
 
 import plugin "github.com/webong/ext/pkg/ext-go/engine"
 
-// PluginDescriptor gives CTX adapters the same immutable selection contract
+// PluginDescriptor gives ext adapters the same immutable selection contract
 // used by library consumers. The directory digest covers all adapter assets.
 func (a *Adapter) PluginDescriptor() (plugin.Descriptor, error) {
 	digest, err := a.Checksum()

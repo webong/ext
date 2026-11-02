@@ -20,6 +20,10 @@ let package = Package(
         // Export the four ext_plugin_* C symbols so any ext-go/cshared host can
         // load the plugin. Needs one ext_plugin_guest_factory definition.
         .library(name: "ExtPluginExports", targets: ["ExtPluginExports"]),
+        // The engine's package store: install, upgrade, replace, remove and load reviewed
+        // ext.package/v1 packages under a root the app supplies, and read several roots as one.
+        // Host side, but it spawns nothing, so it ships in CExtEngine.
+        .library(name: "ExtPluginStore", targets: ["ExtPluginStore"]),
         // Host a WebAssembly reactor in a hidden web view (docs/plugin-reactor-abi.md).
         .library(name: "ExtPluginWebView", targets: ["ExtPluginWebView"]),
         // Test fixture for the cross-language conformance suite.
@@ -43,6 +47,8 @@ let package = Package(
         .target(name: "ExtPluginExports", dependencies: ["ExtPluginGuest", "CExtPluginShim", "CExtEngine"]),
         .target(name: "ExtConformancePlugin", dependencies: ["ExtPluginGuest", "ExtPluginExports"]),
         .executableTarget(name: "ExtFramesGuest", dependencies: ["ExtPluginGuest"]),
+        .target(name: "ExtPluginStore", dependencies: ["CExtEngine"]),
+        .testTarget(name: "ExtPluginStoreTests", dependencies: ["ExtPluginStore", "CExtEngine"]),
         .target(name: "ExtPluginWebView"),
         .testTarget(name: "ExtPluginWebViewTests", dependencies: ["ExtPluginWebView"]),
         .target(name: "ExtWeb"),

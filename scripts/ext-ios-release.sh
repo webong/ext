@@ -54,16 +54,16 @@ done
 [[ -f "$dist/Sources/ExtPluginStore/PackageStore.swift" ]] || { echo 'distribution is missing ExtPluginStore' >&2; exit 1; }
 [[ -f "$dist/Sources/ExtClipboard/Clipboard.swift" ]] || { echo 'distribution is missing ExtClipboard' >&2; exit 1; }
 [[ -f "$dist/Sources/ExtSystem/Surface.swift" ]] || { echo 'distribution is missing ExtSystem' >&2; exit 1; }
-[[ -f "$dist/Sources/ExtSystem/Resources.swift" ]] || { echo 'distribution is missing ExtSystem resources' >&2; exit 1; }
+[[ -f "$dist/Sources/ExtHost/Resources.swift" ]] || { echo 'distribution is missing ExtHost resources' >&2; exit 1; }
 [[ -f "$dist/Sources/ExtSystem/Accessibility.swift" ]] || { echo 'distribution is missing ExtSystem accessibility observation' >&2; exit 1; }
 [[ -f "$dist/Sources/ExtNetwork/Network.swift" ]] || { echo 'distribution is missing ExtNetwork' >&2; exit 1; }
 [[ -f "$dist/Sources/ExtSystem/AccessibilityControl.swift" ]] || { echo 'distribution is missing ExtSystem accessibility control' >&2; exit 1; }
 [[ -f "$dist/Sources/ExtSystem/AppleEvent.swift" ]] || { echo 'distribution is missing ExtSystem Apple events' >&2; exit 1; }
-[[ -f "$dist/Sources/ExtSystem/AudioPlayback.swift" ]] || { echo 'distribution is missing ExtSystem audio playback' >&2; exit 1; }
-[[ -f "$dist/Sources/ExtSystem/KeyboardExtension.swift" ]] || { echo 'distribution is missing ExtSystem keyboard extension' >&2; exit 1; }
+[[ -f "$dist/Sources/ExtAudio/AudioPlayback.swift" ]] || { echo 'distribution is missing ExtAudio playback' >&2; exit 1; }
+[[ -f "$dist/Sources/ExtShare/KeyboardExtension.swift" ]] || { echo 'distribution is missing ExtShare keyboard extension' >&2; exit 1; }
 [[ -f "$dist/Sources/ExtSystem/MediaCapture.swift" ]] || { echo 'distribution is missing ExtSystem media capture' >&2; exit 1; }
 [[ -f "$dist/Sources/ExtSystem/Permission.swift" ]] || { echo 'distribution is missing ExtSystem permission' >&2; exit 1; }
-[[ -f "$dist/Sources/ExtSystem/ShareExtension.swift" ]] || { echo 'distribution is missing ExtSystem share extension' >&2; exit 1; }
+[[ -f "$dist/Sources/ExtShare/ShareExtension.swift" ]] || { echo 'distribution is missing ExtShare share extension' >&2; exit 1; }
 [[ -f "$dist/Sources/ExtSystem/SurfaceControl.swift" ]] || { echo 'distribution is missing ExtSystem surface control' >&2; exit 1; }
 rm -rf "$dist/Sources/ExtConformancePlugin" "$dist/Sources/ExtFramesGuest"
 cp "$sdk/README.md" "$dist/README.md"

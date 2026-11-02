@@ -33,11 +33,11 @@ jobs:
       - name: Validate Windows system library
         if: runner.os == 'Windows'
         shell: bash
-        run: go test -v ./res/system/... -timeout 5m
+        run: go test -v ./res/system/... ./res/graph/... -timeout 5m
       - name: Test library modules
         shell: bash # the loop is bash; Windows runners default to PowerShell
         run: |
-          for module in cmd/ext src/ctx src/ctn res/system res/int pkg/ext-go pkg/ext-go/engine pkg/ext-go/cgoengine pkg/ext-go/hashicorp pkg/ext-go/wasm pkg/ext-go/inference pkg/ext-go/model pkg/ext-go/perception pkg/ext-go/realtime adapters/wasm adapters/evm adapters/systemd adapters/pulseaudio adapters/alsa adapters/x11 adapters/wayland adapters/pipewire adapters/openai adapters/ollama adapters/anthropic adapters/gemini res/web; do
+          for module in cmd/ext src/ctx src/ctn res/system res/graph res/int pkg/ext-go pkg/ext-go/engine pkg/ext-go/cgoengine pkg/ext-go/hashicorp pkg/ext-go/wasm pkg/ext-go/inference pkg/ext-go/model pkg/ext-go/perception pkg/ext-go/realtime adapters/wasm adapters/evm adapters/systemd adapters/pulseaudio adapters/alsa adapters/x11 adapters/wayland adapters/pipewire adapters/openai adapters/ollama adapters/anthropic adapters/gemini res/web; do
             (cd "$module" && go test ./...) || exit 1
           done
       - name: Test intelligence contracts with race detector
@@ -48,11 +48,16 @@ jobs:
           for module in adapters/openai adapters/ollama adapters/anthropic adapters/gemini; do
             GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -o "$RUNNER_TEMP/$(basename "$module").exe" "./$module"
           done
-      - name: Validate isolated native graph processes
+      - name: Validate isolated native processes
         working-directory: res/system
         env:
           EXT_GRAPH_PROCESS_NATIVE_TESTS: '1'
-        run: go test -race -v . -run '^(TestNativeProcess|TestProcess)' -count=3 -timeout=5m
+        run: go test -race -v ./service/process -run '^(TestNativeProcess|TestProcess)' -count=3 -timeout=5m
+      - name: Validate native process projection in the graph
+        working-directory: res/graph
+        env:
+          EXT_GRAPH_PROCESS_NATIVE_TESTS: '1'
+        run: go test -race -v . -run '^(TestLiveProcess|TestProcess)' -count=3 -timeout=5m
       - name: Validate portable Android system contracts
         if: runner.os != 'Windows'
         run: scripts/system-android.sh
@@ -65,7 +70,13 @@ jobs:
       - name: Generic iOS ExtSystem build
         if: runner.os == 'macOS'
         run: xcodebuild -scheme ExtSystem -destination 'generic/platform=iOS' -sdk iphoneos CODE_SIGNING_ALLOWED=NO build
-        working-directory: res/system/ios
+        working-directory: res/system/capture/surface/ios
+      - name: Generic iOS ExtHost, ExtShare and ExtAudio builds
+        if: runner.os == 'macOS'
+        run: |
+          for package in service/host/ios:ExtHost capture/share/ios:ExtShare capture/audio/ios:ExtAudio; do
+            (cd "res/system/${package%%:*}" && xcodebuild -scheme "${package##*:}" -destination 'generic/platform=iOS' -sdk iphoneos CODE_SIGNING_ALLOWED=NO build)
+          done
       - name: Generic iOS ExtNetwork build
         if: runner.os == 'macOS'
         run: xcodebuild -scheme ExtNetwork -destination 'generic/platform=iOS' -sdk iphoneos CODE_SIGNING_ALLOWED=NO build
@@ -73,7 +84,13 @@ jobs:
       - name: Swift tests (ExtSystem)
         if: runner.os == 'macOS'
         run: swift test
-        working-directory: res/system/ios
+        working-directory: res/system/capture/surface/ios
+      - name: Swift tests (ExtHost, ExtShare and ExtAudio)
+        if: runner.os == 'macOS'
+        run: |
+          for package in service/host/ios capture/share/ios capture/audio/ios; do
+            swift test --package-path "res/system/$package"
+          done
       - name: Swift tests (ExtNetwork)
         if: runner.os == 'macOS'
         run: swift test

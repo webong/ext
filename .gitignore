@@ -10,8 +10,14 @@
 /pkg/ext-ios/Frameworks/
 /pkg/ext-ios/.build/
 /res/web/ios/.build/
-/res/system/ios/.build/
-/res/system/ios/.swiftpm/
+/res/system/capture/surface/ios/.build/
+/res/system/capture/surface/ios/.swiftpm/
+/res/system/capture/share/ios/.build/
+/res/system/capture/share/ios/.swiftpm/
+/res/system/capture/audio/ios/.build/
+/res/system/capture/audio/ios/.swiftpm/
+/res/system/service/host/ios/.build/
+/res/system/service/host/ios/.swiftpm/
 /res/system/capture/clipboard/ios/.build/
 /res/system/capture/clipboard/ios/.swiftpm/
 /res/system/service/network/ios/.build/

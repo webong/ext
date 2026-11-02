@@ -9,12 +9,14 @@ platform="$(ls -d "$sdk"/platforms/android-*/android.jar 2>/dev/null | sort -V |
 
 mkdir -p "$build/portable" "$build/android"
 javac -Xlint:all -Werror -d "$build/portable" \
-  res/system/android/src/main/java/io/github/webong/ext/system/*.java \
-  res/system/android/src/main/java/io/github/webong/ext/system/share/*.java \
-  res/system/android/src/main/java/io/github/webong/ext/system/keyboard/*.java \
-  res/system/android/src/test/java/io/github/webong/ext/system/*.java \
-  res/system/android/src/test/java/io/github/webong/ext/system/share/*.java \
-  res/system/android/src/test/java/io/github/webong/ext/system/keyboard/*.java \
+  res/system/capture/surface/android/src/main/java/io/github/webong/ext/system/*.java \
+  res/system/service/host/android/src/main/java/io/github/webong/ext/system/*.java \
+  res/system/capture/share/android/src/main/java/io/github/webong/ext/system/share/*.java \
+  res/system/capture/share/android/src/main/java/io/github/webong/ext/system/keyboard/*.java \
+  res/system/capture/surface/android/src/test/java/io/github/webong/ext/system/*.java \
+  res/system/service/host/android/src/test/java/io/github/webong/ext/system/*.java \
+  res/system/capture/share/android/src/test/java/io/github/webong/ext/system/share/*.java \
+  res/system/capture/share/android/src/test/java/io/github/webong/ext/system/keyboard/*.java \
   res/system/capture/clipboard/android/src/main/java/io/github/webong/ext/clipboard/*.java \
   res/system/capture/clipboard/android/src/test/java/io/github/webong/ext/clipboard/*.java \
   res/system/service/network/android/src/main/java/io/github/webong/ext/network/*.java \
@@ -26,6 +28,9 @@ java -ea -cp "$build/portable" io.github.webong.ext.system.keyboard.KeyboardTest
 java -ea -cp "$build/portable" io.github.webong.ext.clipboard.ClipboardTests
 java -ea -cp "$build/portable" io.github.webong.ext.network.NetworkTests
 javac -Xlint:all -Werror -classpath "$platform:$build/portable" -d "$build/android" \
-  res/system/android/src/android/java/io/github/webong/ext/system/android/*.java \
+  res/system/capture/surface/android/src/android/java/io/github/webong/ext/system/android/*.java \
+  res/system/service/host/android/src/android/java/io/github/webong/ext/system/android/*.java \
+  res/system/capture/share/android/src/android/java/io/github/webong/ext/system/android/*.java \
+  res/system/capture/audio/android/src/android/java/io/github/webong/ext/system/android/*.java \
   res/system/capture/clipboard/android/src/android/java/io/github/webong/ext/clipboard/android/*.java \
   res/system/service/network/android/src/android/java/io/github/webong/ext/network/android/*.java

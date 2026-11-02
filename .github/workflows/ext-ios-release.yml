@@ -102,7 +102,7 @@ jobs:
           device="$(xcrun simctl list devices available | grep -m1 -E 'iPhone' | sed -E 's/^ *(.*) \(([0-9A-F-]{36})\).*/\2/')"
           [[ -n "$device" ]] || { echo 'no iPhone simulator is installed' >&2; exit 1; }
           cd res/web/ios
-          xcodebuild test -scheme ExtWeb -destination "platform=iOS Simulator,id=$device"
+          xcodebuild test -scheme ExtWeb-Package -destination "platform=iOS Simulator,id=$device"
       - name: Clipboard binding in an iOS Simulator
         run: |
           set -euo pipefail

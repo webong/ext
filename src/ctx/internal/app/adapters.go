@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/webong/ext/ctx/internal/config"
-	"github.com/webong/ext/ctx/internal/launch"
 	modpkg "github.com/webong/ext/pkg/ext-go/engine/host/adapter"
 	"github.com/webong/ext/pkg/ext-go/engine/host/adapter/adaptercmd"
 )
@@ -369,7 +368,8 @@ func invokeAdapterIOWithEnv(resolver *config.Resolver, candidate *modpkg.Adapter
 			// A self-contained computer adapter is the implementation, so there is
 			// no native executable to locate.
 			var err error
-			realCommand, err = launch.FindReal(commandName)
+			declared := append(append([]string(nil), candidate.Manifest.Commands...), candidate.Manifest.ComputerCommands...)
+			realCommand, err = locateRealCommand(commandName, declared, len(adapterPrograms(resolver, candidate)) > 0)
 			if err != nil {
 				return reportErrorCode(stderr, err, 127)
 			}

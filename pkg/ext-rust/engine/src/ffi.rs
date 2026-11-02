@@ -252,6 +252,17 @@ extern "C" {
     pub fn ext_store_list(s: *mut c_void, packages: *mut Buffer) -> Status;
     pub fn ext_store_verify(s: *mut c_void, checks: *mut Buffer) -> Status;
     pub fn ext_store_list_unverified(s: *mut c_void, listing: *mut Buffer) -> Status;
+    pub fn ext_store_resolve_entrypoint(
+        s: *mut c_void,
+        id: *const c_char,
+        contract: *const c_char,
+        version: *const c_char,
+        protocol: *const c_char,
+        reviewed_digest: *const c_char,
+        os: *const c_char,
+        arch: *const c_char,
+        entrypoint: *mut Buffer,
+    ) -> Status;
     pub fn ext_layered_open(
         roots: *const *const c_char,
         count: usize,

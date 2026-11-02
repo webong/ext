@@ -56,6 +56,16 @@ An id is served from the first root that holds it, a damaged winner rejects inst
 falling back to a lower copy, and the view never writes. A repeated root throws an error
 whose `status` is `status.INVALID`.
 
+`store.resolveEntrypoint({id, contract, version, protocol, reviewedDigest, os?, arch?})` is
+the discovery of what a reviewed package runs. It reads and verifies the whole package,
+requires that it serves the exact contract name and version, compares its directory digest
+with `reviewedDigest` (lowercase hex, as recorded at review) and resolves with `{name,
+artifact, path, digest}` of the best `argv` entrypoint that lists the protocol on the
+platform (`os` and `arch` are Go's `GOOS` and `GOARCH` names and default to the platform the
+engine was built for). An empty or changed digest rejects with `status.DENIED`, so an
+installed package is never trusted for being installed; a package that does not serve the
+contract, or has no entrypoint that fits, rejects with `status.UNSUPPORTED`. Nothing is run.
+
 Call `close` explicitly. It stops new work and disposes native resources after
 outstanding calls finish; GC finalizers and environment cleanup are fallbacks.
 Guest close allows active calls to finish within their budgets. Pure shared

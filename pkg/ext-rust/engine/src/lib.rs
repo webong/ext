@@ -34,6 +34,9 @@ impl Error {
     pub const DENIED: Error = Error(2);
     /// A digest, identity or contract differs from what was expected.
     pub const MISMATCH: Error = Error(3);
+    /// What was asked for is not offered: a package that does not serve a contract or has no
+    /// entrypoint that fits.
+    pub const UNSUPPORTED: Error = Error(4);
     /// What was asked for is not there: a package that is not installed.
     pub const NOT_FOUND: Error = Error(10);
     /// The peer broke the framing rules (a frame that is not valid, or that the

@@ -5,7 +5,7 @@
 #![cfg(not(feature = "guest-only"))]
 use ext_plugin_engine::{
     directory_digest, sha256,
-    store::{Layered, Limits, Store},
+    store::{Layered, Limits, Platform, Store},
     Error,
 };
 use std::{
@@ -537,4 +537,130 @@ fn a_layered_view_refuses_what_is_not_a_set_of_roots() {
         "the same root spelled differently"
     );
     assert!(Layered::open(&[&one, &scratch.join("two")], limits).is_ok());
+}
+
+/// A source package at `dir` serving contract `example` `v1`: one file artifact per
+/// `(name, os, arch)` under `bin/` and the entrypoints `(name, runtime, artifact, protocol)`.
+fn runnable(
+    dir: &Path,
+    id: &str,
+    artifacts: &[(&str, &str, &str)],
+    entrypoints: &[(&str, &str, &str, &str)],
+) -> String {
+    let _ = fs::remove_dir_all(dir);
+    let mut listed = Vec::new();
+    for (name, os, arch) in artifacts {
+        write(dir, &format!("bin/{name}"), name, false);
+        let mut platform = String::new();
+        if !os.is_empty() {
+            platform.push_str(&format!(r#","os":"{os}""#));
+        }
+        if !arch.is_empty() {
+            platform.push_str(&format!(r#","arch":"{arch}""#));
+        }
+        listed.push(format!(
+            r#"{{"name":"{name}","path":"bin/{name}","sha256":"{}"{platform}}}"#,
+            hex(&sha256(name.as_bytes()))
+        ));
+    }
+    let mut entries = Vec::new();
+    for (name, runtime, artifact, protocol) in entrypoints {
+        entries.push(format!(
+            r#"{{"name":"{name}","runtime":"{runtime}","artifact":"{artifact}","protocols":["{protocol}"]}}"#
+        ));
+    }
+    let manifest = format!(
+        r#"{{"apiVersion":"ext.package/v1","descriptor":{{"apiVersion":"ext.plugin/v1","identity":{{"id":"{id}","revision":"r1"}},"contracts":[{{"name":"example","version":"v1","operations":[{{"name":"read"}}]}}]}},"artifacts":[{}],"entrypoints":[{}]}}"#,
+        listed.join(","),
+        entries.join(",")
+    );
+    write(dir, "plugin.json", &manifest, false);
+    dir.to_str().unwrap().to_owned()
+}
+
+#[test]
+fn an_entrypoint_is_resolved_for_a_reviewed_package_on_a_platform() {
+    const PROTOCOL: &str = "example/v1";
+    let scratch = Scratch::new();
+    let root = scratch.0.join("store");
+    let store = Store::open(&scratch.join("store"), Limits::default()).unwrap();
+    let source = runnable(
+        &scratch.0.join("source"),
+        "example/run",
+        &[
+            ("generic", "", ""),
+            ("linux", "linux", ""),
+            ("linux-arm", "linux", "arm64"),
+            ("mac", "darwin", ""),
+        ],
+        &[
+            ("main", "argv", "generic", PROTOCOL),
+            ("main.linux", "argv", "linux", PROTOCOL),
+            ("fast", "argv", "linux-arm", PROTOCOL),
+            ("main.darwin", "argv", "mac", PROTOCOL),
+            ("wasm", "wasm", "generic", PROTOCOL),
+            ("other", "argv", "generic", "other/v1"),
+        ],
+    );
+    store.install(&source, false).unwrap();
+    let dir = root.join("example%2frun");
+    let reviewed = hex(&directory_digest(dir.to_str().unwrap()).unwrap());
+
+    let resolve = |digest: &str, os: &str, arch: &str| {
+        let platform = Platform {
+            os: Some(os),
+            arch: Some(arch),
+        };
+        store.resolve_entrypoint("example/run", "example", "v1", PROTOCOL, digest, platform)
+    };
+    let chosen = |name: &str, artifact: &str| {
+        format!(
+            r#"{{"name":"{name}","artifact":"{artifact}","path":{},"digest":"{reviewed}"}}"#,
+            quoted(&dir.join("bin").join(artifact))
+        )
+    };
+    let got = |os: &str, arch: &str| text(resolve(&reviewed, os, arch).unwrap());
+
+    // the platform decides: a name or an artifact for another one is never chosen, and
+    // an entrypoint named for this operating system and an artifact for it outscore the rest
+    assert_eq!(got("linux", "arm64"), chosen("main.linux", "linux"));
+    assert_eq!(got("linux", "amd64"), chosen("main.linux", "linux"));
+    assert_eq!(got("darwin", "arm64"), chosen("main.darwin", "mac"));
+    assert_eq!(got("windows", "amd64"), chosen("main", "generic"));
+
+    // a platform left out is the one the engine was built for
+    let ask = |contract: &str, version: &str, protocol: &str| {
+        store.resolve_entrypoint(
+            "example/run",
+            contract,
+            version,
+            protocol,
+            &reviewed,
+            Platform::default(),
+        )
+    };
+    let own = text(ask("example", "v1", PROTOCOL).unwrap());
+    assert!(own.ends_with(&format!(r#","digest":"{reviewed}"}}"#)));
+
+    // nothing is chosen without the digest the caller reviewed
+    assert_eq!(resolve("", "linux", "arm64"), Err(Error::DENIED));
+    assert_eq!(resolve("wrong", "linux", "arm64"), Err(Error::DENIED));
+    assert_eq!(resolve(&reviewed.to_uppercase(), "linux", "arm64"), Err(Error::DENIED));
+
+    // what the package does not serve is unsupported
+    assert_eq!(ask("different", "v1", PROTOCOL), Err(Error::UNSUPPORTED));
+    assert_eq!(ask("example", "v2", PROTOCOL), Err(Error::UNSUPPORTED));
+    assert_eq!(ask("example", "v1", "none/v1"), Err(Error::UNSUPPORTED));
+
+    // an id that is not installed or not valid, and a NUL in any argument
+    let by_id = |id: &str| {
+        store.resolve_entrypoint(id, "example", "v1", PROTOCOL, &reviewed, Platform::default())
+    };
+    assert_eq!(by_id("example/absent"), Err(Error::NOT_FOUND));
+    assert_eq!(by_id("../bad"), Err(Error::INVALID));
+    assert_eq!(by_id("a\0b"), Err(Error::INVALID));
+
+    // a package changed behind the store's back is read first, so it is never chosen
+    fs::write(dir.join("bin/linux"), "tampered").unwrap();
+    assert_eq!(resolve(&reviewed, "linux", "arm64"), Err(Error::MISMATCH));
 }

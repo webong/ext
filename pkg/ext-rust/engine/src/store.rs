@@ -18,6 +18,9 @@
 //! engine's JSON as it is, as `load` returns `plugin.json`, so a caller parses
 //! it with its own JSON library; the shapes are in `ext_store_list` of
 //! lib/plugin/include/ext_host.h.
+//!
+//! [`Store::resolve_entrypoint`] is the discovery of a reviewed package's entrypoint,
+//! returning the same kind of JSON.
 use crate::{check, cstring, ffi, output, Error};
 use std::{
     ffi::{c_char, c_void, CString},
@@ -32,6 +35,15 @@ pub struct Limits {
     pub max_artifact_bytes: u64,
     pub max_tree_files: u32,
     pub max_tree_bytes: u64,
+}
+
+/// The platform an entrypoint is chosen for, named as Go's `runtime.GOOS` and
+/// `runtime.GOARCH` are (`linux`, `darwin`, `windows`, `arm64`, `amd64`, ...). A name left
+/// `None` is that of the platform the engine was built for.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct Platform<'a> {
+    pub os: Option<&'a str>,
+    pub arch: Option<&'a str>,
 }
 
 /// An open package store. Dropping it releases the engine's handle.
@@ -134,6 +146,49 @@ impl Store {
     /// [...]}` as JSON; a package that cannot be read does not hide the others.
     pub fn list_unverified(&self) -> Result<Vec<u8>, Error> {
         output(|listing| unsafe { ffi::ext_store_list_unverified(self.0, listing) })
+    }
+    /// Chooses the entrypoint the installed package `id` offers for `protocol` on
+    /// `platform`, for a package the caller has reviewed, and returns the JSON
+    /// `{"name","artifact","path","digest"}`: the entrypoint, its artifact, the
+    /// artifact's path under the store and the package digest. The package is read and
+    /// verified whole and must serve the exact `contract` and `version`
+    /// ([`Error::UNSUPPORTED`] otherwise, as when no entrypoint fits). It is chosen only
+    /// when the package digest equals `reviewed_digest` (lowercase hex, as recorded at
+    /// review): an empty or changed digest is [`Error::DENIED`], so an installed package is
+    /// never trusted for being installed. Nothing is run. The rules, including the score
+    /// that picks between entrypoints, are in `ext_store_resolve_entrypoint` of
+    /// lib/plugin/include/ext_host.h.
+    pub fn resolve_entrypoint(
+        &self,
+        id: &str,
+        contract: &str,
+        version: &str,
+        protocol: &str,
+        reviewed_digest: &str,
+        platform: Platform<'_>,
+    ) -> Result<Vec<u8>, Error> {
+        let id = cstring(id)?;
+        let contract = cstring(contract)?;
+        let version = cstring(version)?;
+        let protocol = cstring(protocol)?;
+        let digest = cstring(reviewed_digest)?;
+        let os = platform.os.map(cstring).transpose()?;
+        let arch = platform.arch.map(cstring).transpose()?;
+        let os = os.as_ref().map_or(ptr::null(), |name| name.as_ptr());
+        let arch = arch.as_ref().map_or(ptr::null(), |name| name.as_ptr());
+        output(|entrypoint| unsafe {
+            ffi::ext_store_resolve_entrypoint(
+                self.0,
+                id.as_ptr(),
+                contract.as_ptr(),
+                version.as_ptr(),
+                protocol.as_ptr(),
+                digest.as_ptr(),
+                os,
+                arch,
+                entrypoint,
+            )
+        })
     }
 }
 impl Drop for Store {

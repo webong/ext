@@ -345,6 +345,66 @@ test('C package store serializes concurrent calls and refuses calls once closed'
   await rejectsWith(store.ids(),5); // closed
  }finally{store.close();await rm(base,{recursive:true,force:true});}
 });
+// A package serving example/v1 with one file artifact per {name,os,arch} and the entrypoints [name,runtime,artifact,protocol].
+async function runnablePackage(dir,{id,artifacts,entrypoints}){
+ const {mkdir}=await import('node:fs/promises');
+ await rm(dir,{recursive:true,force:true});
+ await mkdir(join(dir,'bin'),{recursive:true});
+ const listed=[];
+ for(const {name,os,arch} of artifacts){
+  await writeFile(join(dir,'bin',name),name);
+  listed.push({name,path:'bin/'+name,sha256:createHash('sha256').update(name).digest('hex'),...(os&&{os}),...(arch&&{arch})});
+ }
+ const manifest=JSON.stringify({apiVersion:'ext.package/v1',descriptor:{apiVersion:'ext.plugin/v1',identity:{id,revision:'r1'},contracts:[{name:'example',version:'v1',operations:[{name:'read'}]}]},artifacts:listed,
+  entrypoints:entrypoints.map(([name,runtime,artifact,protocol])=>({name,runtime,artifact,protocols:[protocol]}))});
+ await writeFile(join(dir,'plugin.json'),manifest);
+ return dir;
+}
+test('C package store resolves the entrypoint of a reviewed package for a platform',async()=>{
+ const base=await mkdtemp(join(tmpdir(),'ext-node-store-'));
+ const root=join(base,'store');
+ const store=new engine.PackageStore(root);
+ const protocol='example/v1';
+ try{
+  const source=await runnablePackage(join(base,'source'),{id:'example/run',
+   artifacts:[{name:'generic'},{name:'linux',os:'linux'},{name:'linux-arm',os:'linux',arch:'arm64'},{name:'mac',os:'darwin'}],
+   entrypoints:[['main','argv','generic',protocol],['main.linux','argv','linux',protocol],['fast','argv','linux-arm',protocol],
+    ['main.darwin','argv','mac',protocol],['wasm','wasm','generic',protocol],['other','argv','generic','other/v1']]});
+  await store.install(source);
+  const dir=join(root,'example%2frun');
+  const reviewed=await engine.directoryDigest(dir);
+  const ask=(extra={})=>store.resolveEntrypoint({id:'example/run',contract:'example',version:'v1',protocol,reviewedDigest:reviewed,...extra});
+  const chosen=(name,artifact)=>({name,artifact,path:join(dir,'bin',artifact),digest:reviewed});
+  // the platform decides: a name or an artifact for another one is never chosen, and an entrypoint named
+  // for this operating system with an artifact for it outscores the rest
+  assert.deepEqual(await ask({os:'linux',arch:'arm64'}),chosen('main.linux','linux'));
+  assert.deepEqual(await ask({os:'linux',arch:'amd64'}),chosen('main.linux','linux'));
+  assert.deepEqual(await ask({os:'darwin',arch:'arm64'}),chosen('main.darwin','mac'));
+  assert.deepEqual(await ask({os:'windows',arch:'amd64'}),chosen('main','generic'));
+  // a platform left out is the one the engine was built for
+  assert.equal((await ask()).digest,reviewed);
+  // nothing is chosen without the digest the caller reviewed
+  await rejectsWith(ask({reviewedDigest:''}),status.DENIED);
+  await rejectsWith(ask({reviewedDigest:'wrong'}),status.DENIED);
+  await rejectsWith(ask({reviewedDigest:reviewed.toUpperCase()}),status.DENIED);
+  // what the package does not serve is unsupported
+  await rejectsWith(ask({contract:'different'}),status.UNSUPPORTED);
+  await rejectsWith(ask({version:'v2'}),status.UNSUPPORTED);
+  await rejectsWith(ask({protocol:'none/v1'}),status.UNSUPPORTED);
+  // an id that is not installed or not valid, and arguments that are not strings
+  await rejectsWith(ask({id:'example/absent'}),status.NOT_FOUND);
+  await rejectsWith(ask({id:'../bad'}),status.INVALID);
+  await assert.rejects(ask({id:'a\0b'}));
+  await assert.rejects(ask({id:5}),TypeError);
+  await assert.rejects(ask({os:5}),TypeError);
+  await assert.rejects(store.resolveEntrypoint(),TypeError);
+  // a package changed behind the store's back is read first, so it is never chosen
+  await writeFile(join(dir,'bin','linux'),'tampered');
+  await rejectsWith(ask({os:'linux',arch:'arm64'}),status.MISMATCH);
+  store.close();
+  await rejectsWith(ask(),5); // closed
+ }finally{store.close();await rm(base,{recursive:true,force:true});}
+});
 // The reports and the layered view: the Go store is the baseline, and this checks the addon reaches the same behavior.
 test('C package store reports cover every entry',async()=>{
  const base=await mkdtemp(join(tmpdir(),'ext-node-store-'));

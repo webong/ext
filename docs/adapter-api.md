@@ -288,7 +288,9 @@ executables, joins them with a scan of `PATH` by resolved path
 the candidates for its commands in `CTX_PROGRAMS`: one line per candidate with
 tab-separated `name`, `path`, `realpath`, `version`, `installers` and `on_path`.
 The adapter decides what each one is and whether it is usable. See
-[Program discovery](adr-program-discovery.md).
+[Program discovery](adr-program-discovery.md). A runtime adapter that reports an `executable` attribute
+for a context (the file it would run) gets that context linked to the program in the
+graph, with its installers.
 
 Evaluator adapters follow a shared contract for selections, flags, exit statuses and
 isolation: see [Evaluator adapters](evaluator-adapters.md).

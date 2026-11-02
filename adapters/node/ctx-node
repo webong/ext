@@ -4,6 +4,10 @@ set -eu
 operation=${1:-}
 [ "$#" -gt 0 ] && shift
 
+json_escape() {
+  printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g'
+}
+
 real_node() {
   if [ -n "${CTX_ADAPTER_REAL_COMMAND:-}" ] && [ -x "$CTX_ADAPTER_REAL_COMMAND" ]; then
     printf '%s\n' "$CTX_ADAPTER_REAL_COMMAND"
@@ -72,7 +76,7 @@ case "$operation" in
     printf '{"version":1,"contexts":['
     inventory | while IFS="$tab" read -r selection executable version manager; do
       [ -n "$selection" ] || continue
-      printf '%s{"selection":"%s","attributes":{"kind":"node","version":"%s","isolation":"host","manager":"%s"}}' "$separator" "$selection" "$version" "$manager"
+      printf '%s{"selection":"%s","attributes":{"kind":"node","version":"%s","isolation":"host","manager":"%s","executable":"%s"}}' "$separator" "$selection" "$version" "$manager" "$(json_escape "$executable")"
       separator=,
     done
     printf ']}\n'

@@ -45,7 +45,7 @@ func New(store graph.Store) (*Graph, error) {
 }
 
 func validateSchema(view graph.View, tx graph.Transaction) error {
-	allowedKinds := map[string]bool{Namespace + "/machine": true, Namespace + "/shell-session": true, Namespace + "/directory": true, Namespace + "/project": true, Namespace + "/profile": true, Namespace + "/selection": true, Namespace + "/browser-context": true, Namespace + "/inventory": true, Namespace + "/adapter": true, Namespace + "/capability": true, Namespace + "/support": true, Namespace + "/context": true, Namespace + "/resource": true, Namespace + "/alias": true,
+	allowedKinds := map[string]bool{Namespace + "/machine": true, Namespace + "/shell-session": true, Namespace + "/directory": true, Namespace + "/project": true, Namespace + "/profile": true, Namespace + "/selection": true, Namespace + "/browser-context": true, Namespace + "/inventory": true, Namespace + "/adapter": true, Namespace + "/capability": true, Namespace + "/support": true, Namespace + "/context": true, Namespace + "/resource": true, Namespace + "/alias": true, Namespace + "/program": true,
 		Namespace + "/host-inventory": true, Namespace + "/shell": true, Namespace + "/filesystem": true, Namespace + "/webview": true, Namespace + "/desktop": true, Namespace + "/display": true, Namespace + "/window": true, Namespace + "/accessibility-element": true, Namespace + "/permission": true, Namespace + "/process": true, Namespace + "/executable": true, Namespace + "/application": true, Namespace + "/process-resource": true, Namespace + "/host-resource": true}
 	for _, vertex := range tx.Vertices {
 		if !allowedKinds[vertex.Kind] {
@@ -81,6 +81,9 @@ func validateSchema(view graph.View, tx graph.Transaction) error {
 		Namespace + "/contains":                  {Namespace + "/context", Namespace + "/resource"},
 		Namespace + "/relates":                   {Namespace + "/resource", Namespace + "/resource"},
 		Namespace + "/resolves-to":               {Namespace + "/alias", Namespace + "/context"},
+		Namespace + "/has-program":               {Namespace + "/machine", Namespace + "/program"},
+		Namespace + "/installed-by":              {Namespace + "/program", Namespace + "/adapter"},
+		Namespace + "/uses-program":              {Namespace + "/context", Namespace + "/program"},
 	}
 	for _, edge := range tx.Edges {
 		expected, ok := allowedRelations[edge.Type]

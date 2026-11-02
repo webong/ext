@@ -86,6 +86,7 @@ func observeAdapterCandidate(resolver *config.Resolver, store *modpkg.Store, can
 		ListSupported:    candidate.HasCapability("list"),
 		ObserveSupported: candidate.HasCapability("observe"),
 		DiscoveryStatus:  "not-supported",
+		Programs:         adapterPrograms(resolver, candidate),
 	}
 	if !trusted {
 		observation.DiscoveryStatus = "untrusted"

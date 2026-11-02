@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/webong/ext/res/system/graph"
+	"github.com/webong/ext/res/system/program"
 )
 
 // AdapterObservation describes an installed adapter and any contexts it listed.
@@ -26,8 +27,12 @@ type AdapterObservation struct {
 	BrowserShare                                     []string
 	Trusted, ListSupported, ObserveSupported, Listed bool
 	Contexts                                         []ContextObservation
-	Resources                                        []ResourceObservation
-	Relations                                        []RelationObservation
+	// Programs are the executables CTX found for the commands this adapter
+	// declares. They are machine facts: the graph holds one vertex per file, however
+	// many adapters were given it.
+	Programs  []program.Candidate
+	Resources []ResourceObservation
+	Relations []RelationObservation
 }
 
 // ContextObservation is a native adapter selection with optional narrower
@@ -161,6 +166,7 @@ func (g *Graph) ObserveInventory(ctx context.Context, adapters []AdapterObservat
 			edges[edgeID] = graph.Edge{ID: edgeID, From: from, To: to, Type: Namespace + "/relates", Attributes: map[string]any{"kind": relation.Kind}}
 		}
 	}
+	observeInventoryPrograms(adapters, vertices, edges, now)
 	for _, alias := range aliases {
 		if alias.Name == "" || alias.Space == "" {
 			continue
@@ -228,9 +234,93 @@ func (g *Graph) ObserveInventory(ctx context.Context, adapters []AdapterObservat
 	return fmt.Errorf("system inventory changed during observation")
 }
 
+// observeInventoryPrograms projects the programs adapters were given. A program
+// is one vertex per real file, joined to the machine that has it and to the
+// installer adapters that report it, and a context that names the file it runs
+// in its "executable" attribute is joined to it. A program found only on PATH has
+// no installer edge: the absence is the fact. An installer that is not an observed
+// adapter stays in the "installers" attribute only.
+func observeInventoryPrograms(adapters []AdapterObservation, vertices map[string]graph.Vertex, edges map[string]graph.Edge, now time.Time) {
+	type merged struct {
+		candidate program.Candidate
+		names     map[string]bool
+		installer map[string]bool
+	}
+	byFile := map[string]*merged{}
+	for _, adapter := range adapters {
+		for _, candidate := range adapter.Programs {
+			file := candidate.RealPath
+			if file == "" {
+				file = candidate.Path
+			}
+			if file == "" {
+				continue
+			}
+			entry := byFile[file]
+			if entry == nil {
+				entry = &merged{candidate: candidate, names: map[string]bool{}, installer: map[string]bool{}}
+				entry.candidate.RealPath = file
+				byFile[file] = entry
+			}
+			entry.names[candidate.Name] = true
+			for _, installer := range candidate.Installers {
+				entry.installer[installer] = true
+			}
+			entry.candidate.OnPath = entry.candidate.OnPath || candidate.OnPath
+			if entry.candidate.Version == "" {
+				entry.candidate.Version = candidate.Version
+			}
+		}
+	}
+	programIDs := map[string]string{}
+	for file, entry := range byFile {
+		id := "program/" + digest(file)
+		names, installers := sortedKeys(entry.names), sortedKeys(entry.installer)
+		attributes := map[string]any{"names": names, "path": entry.candidate.Path, "realpath": file, "on_path": entry.candidate.OnPath, "installers": installers}
+		if entry.candidate.Version != "" {
+			attributes["version"] = entry.candidate.Version
+		}
+		vertices[id] = graph.Vertex{ID: id, Kind: Namespace + "/program", Attributes: attributes, Provenance: graph.Provenance{Source: "ctx", Operation: "program-discovered", At: now}}
+		edgeID := "machine-program/" + digest(file)
+		edges[edgeID] = graph.Edge{ID: edgeID, From: "machine/local", To: id, Type: Namespace + "/has-program"}
+		for _, installer := range installers {
+			installerID := "adapter/" + installer
+			if _, ok := vertices[installerID]; !ok {
+				continue
+			}
+			edgeID := "program-installer/" + digest(file+"\x00"+installer)
+			edges[edgeID] = graph.Edge{ID: edgeID, From: id, To: installerID, Type: Namespace + "/installed-by"}
+		}
+		programIDs[file] = id
+		programIDs[entry.candidate.Path] = id
+	}
+	for id, vertex := range vertices {
+		if vertex.Kind != Namespace+"/context" {
+			continue
+		}
+		metadata, _ := vertex.Attributes["metadata"].(map[string]any)
+		executable, _ := metadata["executable"].(string)
+		programID := programIDs[executable]
+		if executable == "" || programID == "" {
+			continue
+		}
+		edgeID := "context-program/" + digest(id)
+		edges[edgeID] = graph.Edge{ID: edgeID, From: id, To: programID, Type: Namespace + "/uses-program"}
+	}
+}
+
+func sortedKeys(set map[string]bool) []string {
+	keys := make([]string, 0, len(set))
+	for key := range set {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	return keys
+}
+
 func isInventoryVertex(vertex graph.Vertex) bool {
 	switch vertex.Kind {
-	case Namespace + "/inventory", Namespace + "/adapter", Namespace + "/capability", Namespace + "/support", Namespace + "/context", Namespace + "/resource", Namespace + "/alias":
+	case Namespace + "/inventory", Namespace + "/adapter", Namespace + "/capability", Namespace + "/support", Namespace + "/context", Namespace + "/resource", Namespace + "/alias", Namespace + "/program":
 		return true
 	}
 	return false
@@ -238,7 +328,7 @@ func isInventoryVertex(vertex graph.Vertex) bool {
 
 func isInventoryEdge(edge graph.Edge) bool {
 	switch edge.Type {
-	case Namespace + "/has-adapter", Namespace + "/supports", Namespace + "/supports-kind", Namespace + "/offers", Namespace + "/contains", Namespace + "/relates", Namespace + "/resolves-to":
+	case Namespace + "/has-adapter", Namespace + "/supports", Namespace + "/supports-kind", Namespace + "/offers", Namespace + "/contains", Namespace + "/relates", Namespace + "/resolves-to", Namespace + "/has-program", Namespace + "/installed-by", Namespace + "/uses-program":
 		return true
 	}
 	return false

@@ -1,10 +1,10 @@
 # ADR: Program discovery and installers
 
-Status: proposed. A spike on the `program-discovery` branch builds `res/system/program`,
-the `programs` operation in `ctx`, one installer adapter (`homebrew`) and the `php`
-migration, and was run end to end: with only those two adapters trusted, `php`'s
-context reports `manager = homebrew` and the `php` adapter contains no Homebrew code.
-`ctx graph programs` is not built yet.
+Status: accepted and built. `res/system/program`, the `programs` operation in `ctx`, the
+`homebrew` installer adapter and the `php`, `python` and `node` runtime adapters were run
+end to end, and the system graph records each program, its installer and the contexts
+that use it. There is deliberately no command that lists programs: other programs read
+the graph.
 
 ## Problem
 
@@ -141,10 +141,31 @@ is dropped from `CTX_PROGRAMS` rather than escaped.
 There is no second discovery path hidden in the adapter and no installer-specific
 fallback.
 
-Graph relations stay adapter-local, so attribution is an attribute, not an edge:
-a runtime context has `manager = "homebrew"` (several installers are joined with a
-comma, and `path` means none claimed it). A later `ctx graph programs [NAME]
-[--installer NAME]` could show the merged view; the spike leaves it out.
+The merged candidates are also written to the system graph (`ext.system`), so any
+program that reads the graph can see which copies exist and what installed them,
+without running a CLI or an adapter:
+
+```
+machine ──has-program──▶ program ──installed-by──▶ adapter (an installer)
+context ──uses-program──▶ program
+```
+
+- A **program** vertex is one real file (keyed by its resolved path), with `names`,
+  `path`, `realpath`, `version`, `on_path` and `installers`. Several names or reports
+  for the same file are one vertex.
+- `installed-by` points at the installer adapter that reported the file. A file found
+  only on `PATH` has no such edge, which is the fact: nothing claimed it. An installer
+  that is not an observed adapter stays in the `installers` attribute only.
+- A runtime adapter links its context to the file it would run by reporting an
+  `executable` attribute in `observe`. The graph matches it against a program's
+  `path` or `realpath` and adds `uses-program`; the adapter name is never consulted.
+  `ctx graph resolve` returns the result as `program` on each candidate.
+- The runtime adapter's own `manager` attribute is unchanged and remains for shell
+  adapters that read it directly. The graph edge is the authoritative source.
+- The graph records observations. A file may have been replaced since the scan, and
+  nothing here authorizes running it.
+
+There is no command that lists programs: the graph is the interface.
 
 ### Trust and safety
 
@@ -170,8 +191,9 @@ visible.
   for the user.
 - Changing the user's global `php`, `node` or `python`, or installing shims for
   discovered programs.
-- Cross-adapter graph edges. If a later feature needs them, they belong in a
-  separate decision about the relation model.
+- Edges between adapters' own records. The graph relates a context to a program and a
+  program to its installer; adapters still do not relate their resources to each other
+  beyond what `observe` reports.
 
 ## Consequences
 

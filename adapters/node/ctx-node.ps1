@@ -60,7 +60,7 @@ switch ($operation) {
         exit 0
     }
     'observe' {
-        $contexts = @(Get-NodeStates | ForEach-Object { @{ selection = $_.selection; attributes = @{ kind = 'node'; version = $_.version; isolation = 'host'; manager = $_.manager } } })
+        $contexts = @(Get-NodeStates | ForEach-Object { @{ selection = $_.selection; attributes = @{ kind = 'node'; version = $_.version; isolation = 'host'; manager = $_.manager; executable = $_.executable } } })
         @{ version = 1; contexts = $contexts } | ConvertTo-Json -Compress -Depth 5
         exit 0
     }

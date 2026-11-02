@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
-# Build the guest core of the shared C engine as an Apple xcframework for
-# pkg/ext-ios: macOS (arm64, x86_64), iOS (arm64) and iOS Simulator
-# (arm64, x86_64). The host half (posix_spawn, pthreads) is not built, because
-# iOS cannot spawn processes. Output: pkg/ext-ios/Frameworks/CExtEngine.xcframework
+# Build the guest core of the shared C engine, and the package store beside it, as an
+# Apple xcframework for pkg/ext-ios: macOS (arm64, x86_64), iOS (arm64) and iOS
+# Simulator (arm64, x86_64). The store (store.c over the POSIX file layer and the
+# integrity checks) spawns nothing and needs only a mutex, so it ships here. The rest of
+# the host half (sessions, processes, trust files, instances, streams) is not built,
+# because iOS cannot spawn processes; the optional CExtWamr framework carries it.
+# Output: pkg/ext-ios/Frameworks/CExtEngine.xcframework
 set -euo pipefail
 cd "$(dirname "$0")/.."
 [[ "$(uname -s)" == Darwin ]] || { echo "ext-ios-xcframework.sh needs macOS and Xcode" >&2; exit 1; }
@@ -14,7 +17,10 @@ trap 'rm -rf "$work"' EXIT
 # The engine renames its vendored parser symbols through a header CMake generates.
 cmake -S "$engine" -B "$work/gen" -DEXT_BUILD_HOST=OFF >/dev/null
 namespace="$work/gen/parser_namespace.h"
-sources=(src/common.c src/wire.c src/progress.c src/reverse.c src/endpoint.c src/services.c src/guest.c src/sha256.c src/packages.c vendor/yyjson.c)
+# The guest core, then the package store and what it stands on. scripts/ext-ios-wamr-xcframework.sh
+# leaves out of CExtWamr every object named here, so keep the two lists together.
+sources=(src/common.c src/wire.c src/progress.c src/reverse.c src/endpoint.c src/services.c src/guest.c src/sha256.c src/packages.c vendor/yyjson.c
+  src/fs_posix.c src/fs_write_posix.c src/random_posix.c src/integrity.c src/store.c)
 
 # slice name | sdk | clang target
 slices=(

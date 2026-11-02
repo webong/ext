@@ -3,9 +3,10 @@
 `pkg/ext-ios` is the ext SDK for Apple platforms. Its plugin, web, clipboard,
 system-observation, and network-observation libraries do not depend on each other.
 
-- **Plugin** (`ExtPluginGuest`, `ExtPluginExports`, `ExtPluginWebView`, `ExtPluginWamr`): author an
+- **Plugin** (`ExtPluginGuest`, `ExtPluginExports`, `ExtPluginWebView`, `ExtPluginWamr`, `ExtPluginStore`): author an
   `ext.plugin/v1` plugin in Swift, and Objective-C through the C headers, on the guest half of the
-  shared [C engine](../../lib/plugin/README.md); host a WebAssembly reactor in a web view or in WAMR.
+  shared [C engine](../../lib/plugin/README.md); host a WebAssembly reactor in a web view or in WAMR;
+  keep installed `ext.package/v1` packages in the engine's package store.
 - **Web** (`ExtWeb`): the cookie, userscript and bookmarklet rules of [`res/web`](../../res/web/README.md),
   in Swift, run against the same fixtures as Go. The code is `res/web/ios`; this package ships it. See Web rules.
 
@@ -188,8 +189,8 @@ xcodebuild test -scheme Ext-Package \
 scripts/web-ios.sh                    # just ExtWeb (res/web/ios), without the xcframework
 ```
 
-`scripts/ext-ios-xcframework.sh` compiles the engine's guest core (no
-pthreads, no `posix_spawn`) with the repository's strict flags and writes
+`scripts/ext-ios-xcframework.sh` compiles the engine's guest core and the package store (a mutex and
+POSIX file calls; no `posix_spawn`) with the repository's strict flags and writes
 `Frameworks/CExtEngine.xcframework`, which is not committed. `ExtConformancePlugin`
 is the shared `ext.conformance/v1` fixture. `scripts/plugin-crosslang.sh` loads
 its dynamic library through the Go `cshared` host, with the same suite that checks
@@ -253,6 +254,64 @@ what it receives before dialing, a host validates what it grants. A refusal is a
 `EndpointError` (`invalid`, `denied` or `expired`) and never carries the endpoint, which
 is a credential.
 
+## Package store
+
+`ExtPluginStore` binds the engine's package store (`ext_store_*` and `ext_layered_*` in
+[`ext_host.h`](../../lib/plugin/include/ext_host.h)), the one the Go, Rust, Node and Zig bindings use:
+install, upgrade, replace, remove and load reviewed `ext.package/v1` packages under a root the app
+supplies. A package is its `plugin.json` and the artifacts it lists, in a directory named by the package
+id with `/` written `%2f`. The store copies and re-verifies content; it never runs it or grants authority,
+and it has no default location.
+
+```swift
+import ExtPluginStore
+
+let store = try PackageStore(root: packagesDirectory.path)   // need not exist yet
+let manifest = try store.install(downloaded.path)             // plugin.json, byte for byte
+do {
+    try store.upgrade(newer.path)                             // same id and contracts, a new revision
+} catch PackageStoreError.mismatch {
+    // the id or the contracts changed; replace(_:) takes any contracts
+}
+let ids = try store.ids()                                     // ["com.example/greeter"]
+let verified = try store.load("com.example/greeter")          // reads and verifies, returns plugin.json
+
+// Read several roots as one, highest first. It never writes.
+let view = try LayeredPackageStore(roots: [userRoot.path, systemRoot.path])
+let served = try view.load("com.example/greeter")             // ServedPackage(manifest:, layer:)
+```
+
+- A missing root is an empty store, and asking never creates it; the first install makes it, owner-only.
+  `install` never replaces an installed id (`exists`), `upgrade` keeps the previous installation through any
+  failure, and the one option is `preserveExecutable:` (keep the execute bit of a file artifact;
+  entrypoints and files in trees always keep it).
+- A failure is a `PackageStoreError` and never text: `invalid` (not a package, id or directory, an artifact
+  over a limit, a root set the view refuses), `mismatch` (a digest that differs, a directory that is not what
+  its name says, an upgrade that changes the id or contracts), `notFound`, `exists`, `missing` (a source,
+  manifest or artifact that is not there), `io`, and `engine(_:)` for any other status.
+  `PackageStoreError(status:)` names the `status` of a `verify` entry.
+- `list()`, `verify()` and `listUnverified()` are the whole-root reports and return the engine's JSON as
+  `Data`, as `load` returns `plugin.json`, because `manifest` is an embedded `plugin.json` that the caller
+  decodes with its own types: `list` is `[{id, directory, layer, manifest}]`, `verify` is
+  `[{id, directory, layer, status}]` (it does not stop at a bad entry), and `listUnverified` is
+  `{"packages": [...], "problems": [...]}`, read from manifests alone, so **unverified**: do not launch or
+  trust it as it stands. `layer` is 0 for a store and the position of the root in a view.
+- In a view an id is served from the first root that holds it, a shadowed copy in a lower root is never
+  read, and a damaged winner fails closed instead of falling back to the copy below. A repeated, empty or
+  missing set of roots, or the same root spelled two ways, is `invalid`.
+- `PackageStoreLimits` (zero takes the default: 4 GiB per artifact, 250000 files and 16 GiB per tree) bound
+  what `install`, `upgrade` and `replace` copy. One store serializes its own calls; several processes
+  mutating one root are the app's to serialize.
+- The store verifies bytes, never who published them (trust is separate, `ext_trust_*`), and the app must
+  keep the root out of reach of other writers. It is host-side code, but it spawns nothing and takes only a
+  mutex, so it ships in `CExtEngine`; the rest of the host (sessions, processes) does not. The tests run
+  on macOS and in the iOS Simulator, not on a physical device. What an app may run from a package is
+  still the policy below.
+
+```sh
+swift test --package-path pkg/ext-ios --filter ExtPluginStoreTests
+```
+
 ## Platform and policy limits
 
 Apple's App Store rule 2.5.2 and Google Play policy forbid downloading executable
@@ -267,7 +326,7 @@ Releases are GitHub releases tagged `ext-ios-vX.Y.Z` (a dash form, not a Go modu
 the release with `scripts/ext-ios-release.sh --with-wamr`, runs the web checks, the Swift tests on the
 host and the same tests in an iOS Simulator, and only then publishes. Each release carries:
 
-- `CExtEngine.xcframework.zip`, the engine's guest core for macOS, iOS and the iOS Simulator;
+- `CExtEngine.xcframework.zip`, the engine's guest core and package store for macOS, iOS and the iOS Simulator;
 - `CExtWamr.xcframework.zip` and `WAMR-LICENSE`, the optional WAMR host. WAMR is Apache-2.0 with the
   LLVM exception; its license must ship with any binary that links it, and the package carries it in
   `LICENSES/`;
@@ -292,7 +351,7 @@ A consumer then writes:
 
 ```swift
 .package(url: "https://github.com/<distribution repository>", from: "0.1.0")
-// and depends on the products it uses: ExtWeb, ExtPluginGuest, ExtPluginExports, ExtPluginWebView, ExtPluginWamr
+// and depends on the products it uses: ExtWeb, ExtPluginGuest, ExtPluginExports, ExtPluginStore, ExtPluginWebView, ExtPluginWamr
 ```
 
 The archives are not byte-reproducible, so their checksums change with every run: the manifest and

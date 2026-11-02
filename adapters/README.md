@@ -99,13 +99,13 @@ supported cookie keys through CTX's trusted adapter protocol. They retain
 browser-specific identities without importing store implementation packages.
 
 `php` is the PHP interpreter adapter. It declares `engine = ["evaluator"]`, `role = ["virtualizer", "interpreter"]` and `supports = ["php"]`,
-observes every PHP that CTX found (`CTX_PROGRAMS`, from `PATH` and from installer
+observes every PHP that CTX found (`EXT_PROGRAMS`, from `PATH` and from installer
 adapters) as graph contexts, and runs the selected version for the current project
 without relinking the host's global `php` command. It knows no installer.
 
 `python` and `node` are the Python and Node.js evaluator adapters, built the same way as
 `php`. Each declares `engine = ["evaluator"]`, `role = ["virtualizer", "interpreter"]` and its
-own `supports` kind, and observes every copy CTX found (`CTX_PROGRAMS`, from `PATH` and from
+own `supports` kind, and observes every copy CTX found (`EXT_PROGRAMS`, from `PATH` and from
 installer adapters) as a graph context with its version and the installer that provided it.
 A selection is a major.minor version for `python` (`ctx set python 3.12`) and a major version
 for `node` (`ctx set node 22`); the default is the copy on `PATH`. `python` answers to
@@ -191,7 +191,7 @@ commands remain provider-specific. See [the adapter API](../docs/adapter-api.md#
 The maintained `claude_code` and `codex` packages are available in the optional
 installer catalog. Their shims route launches through ctx, hooks forward JSON stdin to
 the project-resolved `computer_hook_command` (or the fallback environment
-variable `CTX_COMPUTER_HOOK_COMMAND`) with the event name, and plugin operations
+variable `EXT_COMPUTER_HOOK_COMMAND`) with the event name, and plugin operations
 delegate to each CLI's native plugin subcommand. `ctx computer hooks install`
 writes the CLI's project settings and records the selected handler and events
 in the local `.ctx` file.

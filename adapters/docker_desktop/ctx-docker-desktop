@@ -7,14 +7,14 @@ selection=${1:-}
 [ "$#" -eq 0 ] || shift
 [ "${1:-}" != -- ] || shift
 
-docker=${CTX_DOCKER_DESKTOP_CLI:-}
+docker=${EXT_DOCKER_DESKTOP_CLI:-}
 if [ -z "$docker" ] && [ -x /Applications/Docker.app/Contents/Resources/bin/docker ]; then
   docker=/Applications/Docker.app/Contents/Resources/bin/docker
 fi
-if [ -z "$docker" ] && [ -n "${CTX_EXECUTABLE:-}" ]; then
-  docker=$("$CTX_EXECUTABLE" real docker 2>/dev/null || :)
+if [ -z "$docker" ] && [ -n "${EXT_EXECUTABLE:-}" ]; then
+  docker=$("$EXT_EXECUTABLE" real docker 2>/dev/null || :)
 fi
-if [ -z "$docker" ] && [ -z "${CTX_EXECUTABLE:-}" ]; then docker=$(command -v docker 2>/dev/null || :); fi
+if [ -z "$docker" ] && [ -z "${EXT_EXECUTABLE:-}" ]; then docker=$(command -v docker 2>/dev/null || :); fi
 desktop_available() { [ -n "$docker" ] && "$docker" desktop version >/dev/null 2>&1; }
 
 case "$operation" in

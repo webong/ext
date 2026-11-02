@@ -6,9 +6,9 @@ operation=${1:-}
 selection=${1:-}
 [ "$#" -eq 0 ] || shift
 [ "${1:-}" != -- ] || shift
-platform=${CTX_PLATFORM:-$(uname -s)}
+platform=${EXT_PLATFORM:-$(uname -s)}
 
-rdctl=${CTX_RANCHER_RDCTL:-}
+rdctl=${EXT_RANCHER_RDCTL:-}
 if [ -z "$rdctl" ] && [ -x "$HOME/.rd/bin/rdctl" ]; then rdctl="$HOME/.rd/bin/rdctl"; fi
 if [ -z "$rdctl" ]; then rdctl=$(command -v rdctl 2>/dev/null || :); fi
 engine_from_json() {

@@ -349,7 +349,7 @@ func observedStatus(selector, value string, inventory systemgraph.Inventory) str
 func environmentOverride(selector string, providerVariables []string) (string, string) {
 	checks := providerVariables
 	if selector == "browser" {
-		checks = append([]string{"CTX_BROWSER"}, checks...)
+		checks = append([]string{"EXT_BROWSER"}, checks...)
 	}
 	for _, key := range checks {
 		if value := os.Getenv(key); value != "" {
@@ -469,7 +469,7 @@ func shell(resolver *config.Resolver, args []string, stdout, stderr io.Writer) i
 		return reportError(stderr, err)
 	}
 	if shellName == "" {
-		shellName = values["CTX_SHELL"]
+		shellName = values["EXT_SHELL"]
 		if shellName == "" {
 			shellName = platform.DefaultShell()
 		}

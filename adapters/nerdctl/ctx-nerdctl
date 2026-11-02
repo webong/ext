@@ -1,15 +1,15 @@
 #!/usr/bin/env sh
 set -eu
 
-nerdctl=${CTX_ADAPTER_REAL_COMMAND:-}
+nerdctl=${EXT_ADAPTER_REAL_COMMAND:-}
 [ -n "$nerdctl" ] && [ -x "$nerdctl" ] || { printf 'nerdctl: nerdctl is not installed\n' >&2; exit 127; }
 operation=${1:-}
 if [ "$#" -gt 0 ]; then shift; fi
 selection=${1:-}
 if [ "$#" -gt 0 ]; then shift; fi
 if [ "${1:-}" = -- ]; then shift; fi
-volume_image=${CTX_VOLUME_IMAGE:-alpine:3.21}
-address=${CTX_MANAGER_ADDRESS:-}
+volume_image=${EXT_VOLUME_IMAGE:-alpine:3.21}
+address=${EXT_MANAGER_ADDRESS:-}
 
 run_nerdctl() {
   if [ -n "$address" ]; then "$nerdctl" --address "$address" "$@"

@@ -14,8 +14,8 @@ import (
 )
 
 func TestNativeKeychainCredentialRoundTrip(t *testing.T) {
-	if os.Getenv("CTX_CREDENTIAL_NATIVE_TESTS") != "1" {
-		t.Skip("set CTX_CREDENTIAL_NATIVE_TESTS=1 for an isolated Keychain fixture")
+	if os.Getenv("EXT_CREDENTIAL_NATIVE_TESTS") != "1" {
+		t.Skip("set EXT_CREDENTIAL_NATIVE_TESTS=1 for an isolated Keychain fixture")
 	}
 	path := filepath.Join(t.TempDir(), "ctx-credential-test.keychain-db")
 	ctx := context.Background()

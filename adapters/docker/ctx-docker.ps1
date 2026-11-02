@@ -5,10 +5,10 @@ param(
     [Parameter(Position = 2, ValueFromRemainingArguments = $true)][string[]]$Arguments
 )
 
-$docker = $env:CTX_ADAPTER_REAL_COMMAND
+$docker = $env:EXT_ADAPTER_REAL_COMMAND
 if (-not $docker -or -not (Test-Path -LiteralPath $docker -PathType Leaf)) { [Console]::Error.WriteLine('docker: Docker CLI is not installed'); exit 127 }
 if ($Arguments.Count -gt 0 -and $Arguments[0] -eq '--') { $Arguments = @($Arguments | Select-Object -Skip 1) }
-$volumeImage = if ($env:CTX_VOLUME_IMAGE) { $env:CTX_VOLUME_IMAGE } else { 'alpine:3.21' }
+$volumeImage = if ($env:EXT_VOLUME_IMAGE) { $env:EXT_VOLUME_IMAGE } else { 'alpine:3.21' }
 
 function Invoke-Docker([string[]]$CommandArguments) { & $docker @CommandArguments; exit $LASTEXITCODE }
 function Has-RunOverride {

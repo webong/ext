@@ -127,7 +127,7 @@ adapter. For `homebrew`, `run` runs `brew`.
    installer carries that adapter's name in `installers`. A program found only on
    `PATH` carries no installer and `source = "path"`.
 5. For each runtime adapter, CTX passes the merged candidates whose name matches one
-   of its `computer_commands` in `CTX_PROGRAMS`, on every operation. The value is one
+   of its `computer_commands` in `EXT_PROGRAMS`, on every operation. The value is one
    line per candidate with tab-separated `name`, `path`, `realpath`, `version`,
    `installers` (comma-joined) and `on_path` (`1` or `0`), so a shell adapter reads
    it without a JSON tool. The variable is set whenever CTX looked, and empty when
@@ -137,7 +137,7 @@ adapter. For `homebrew`, `run` runs `brew`.
 
 Run outside CTX, with the variable unset, a runtime adapter looks at `PATH` only.
 Because the spike's installer is a shell script, a field with a control character
-is dropped from `CTX_PROGRAMS` rather than escaped.
+is dropped from `EXT_PROGRAMS` rather than escaped.
 There is no second discovery path hidden in the adapter and no installer-specific
 fallback.
 

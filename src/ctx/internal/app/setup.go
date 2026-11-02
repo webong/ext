@@ -48,7 +48,7 @@ func setupCommand(args []string, input io.Reader, stdout, stderr io.Writer) int 
 		return reportError(stderr, err)
 	}
 	if len(available) == 0 {
-		fmt.Fprintln(stderr, "ctx: adapter catalog is empty; rerun the installer with adapter selection or set CTX_CATALOG_HOME")
+		fmt.Fprintln(stderr, "ctx: adapter catalog is empty; rerun the installer with adapter selection or set EXT_CATALOG_HOME")
 		return 1
 	}
 	if mode == "interactive" {

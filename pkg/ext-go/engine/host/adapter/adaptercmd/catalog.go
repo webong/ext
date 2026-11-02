@@ -25,7 +25,7 @@ func sortedDependencySpaces(dependencies map[string]modpkg.Dependency) []string 
 
 // CatalogStore opens the configured local adapter catalog without creating it.
 func CatalogStore() *modpkg.Store {
-	home := os.Getenv("CTX_CATALOG_HOME")
+	home := os.Getenv("EXT_CATALOG_HOME")
 	if home == "" {
 		home = filepath.Join(modpkg.ConfigHome(), "catalog", "adapters")
 	}
@@ -167,7 +167,7 @@ func RefreshCatalogAdapters(stdout io.Writer) error {
 }
 
 func binaryDirectory() string {
-	if directory := os.Getenv("CTX_BIN_DIR"); directory != "" {
+	if directory := os.Getenv("EXT_BIN_DIR"); directory != "" {
 		return directory
 	}
 	executable, err := os.Executable()

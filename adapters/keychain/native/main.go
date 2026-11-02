@@ -15,5 +15,5 @@ func main() {
 		fmt.Fprintf(os.Stderr, "ctx: %v\n", err)
 		os.Exit(2)
 	}
-	os.Exit(adapterkit.Run(adapterkit.Invocation{Operation: request.Operation, Selection: request.Selection, Arguments: request.Arguments}, os.Stdin, os.Stdout, os.Stderr, store.Keychain{Path: os.Getenv("CTX_KEYCHAIN_PATH")}))
+	os.Exit(adapterkit.Run(adapterkit.Invocation{Operation: request.Operation, Selection: request.Selection, Arguments: request.Arguments}, os.Stdin, os.Stdout, os.Stderr, store.Keychain{Path: os.Getenv("EXT_KEYCHAIN_PATH")}))
 }

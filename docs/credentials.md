@@ -31,7 +31,7 @@ credential operations do not add a CTX-controlled prompt.
 The Linux adapter requires `secret-tool` and a running Secret Service provider
 in the user's desktop session. The macOS adapter uses Security.framework and
 needs a native macOS build when installing from source; prebuilt releases carry
-that executable separately from the core. `CTX_KEYCHAIN_PATH` can select an
+that executable separately from the core. `EXT_KEYCHAIN_PATH` can select an
 absolute path to a caller-owned non-default keychain; otherwise the default
 keychain is used.
 Windows DPAPI browser-cookie decryption is separate from Credential Manager;

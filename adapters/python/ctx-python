@@ -9,13 +9,13 @@ json_escape() {
 }
 
 real_python() {
-  if [ -n "${CTX_ADAPTER_REAL_COMMAND:-}" ] && [ -x "$CTX_ADAPTER_REAL_COMMAND" ]; then
-    printf '%s\n' "$CTX_ADAPTER_REAL_COMMAND"
+  if [ -n "${EXT_ADAPTER_REAL_COMMAND:-}" ] && [ -x "$EXT_ADAPTER_REAL_COMMAND" ]; then
+    printf '%s\n' "$EXT_ADAPTER_REAL_COMMAND"
     return
   fi
   for name in python3 python; do
-    if [ -n "${CTX_EXECUTABLE:-}" ] && [ -x "$CTX_EXECUTABLE" ]; then
-      resolved=$("$CTX_EXECUTABLE" real "$name" 2>/dev/null || true)
+    if [ -n "${EXT_EXECUTABLE:-}" ] && [ -x "$EXT_EXECUTABLE" ]; then
+      resolved=$("$EXT_EXECUTABLE" real "$name" 2>/dev/null || true)
       if [ -n "$resolved" ] && [ -x "$resolved" ]; then
         printf '%s\n' "$resolved"
         return
@@ -52,12 +52,12 @@ usable() {
 }
 
 # One line per candidate: executable, installers. CTX passes every copy it found
-# in CTX_PROGRAMS (see the adapter API), preferring the one on PATH; outside CTX
+# in EXT_PROGRAMS (see the adapter API), preferring the one on PATH; outside CTX
 # only the Python on PATH is known.
 candidates() {
   tab=$(printf '\t')
-  if [ "${CTX_PROGRAMS+set}" = set ]; then
-    printf '%s\n' "$CTX_PROGRAMS" | awk -F '\t' '($1 == "python3" || $1 == "python") && $2 != "" { print ($6 == 1 ? 0 : 1) "\t" $2 "\t" $5 }' | sort -s -k1,1n |
+  if [ "${EXT_PROGRAMS+set}" = set ]; then
+    printf '%s\n' "$EXT_PROGRAMS" | awk -F '\t' '($1 == "python3" || $1 == "python") && $2 != "" { print ($6 == 1 ? 0 : 1) "\t" $2 "\t" $5 }' | sort -s -k1,1n |
       while IFS="$tab" read -r rank executable installers; do
         printf '%s\t%s\n' "$executable" "$installers"
       done

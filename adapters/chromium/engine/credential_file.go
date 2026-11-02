@@ -21,7 +21,7 @@ func configuredSafeStoragePassword(provider Config) (string, bool, error) {
 			return "", false, errors.New("invalid Chromium adapter name for credential file")
 		}
 	}
-	variable := "CTX_BROWSER_" + name + "_SAFE_STORAGE_PASSWORD_FILE"
+	variable := "EXT_BROWSER_" + name + "_SAFE_STORAGE_PASSWORD_FILE"
 	path := os.Getenv(variable)
 	if path == "" {
 		return "", false, nil

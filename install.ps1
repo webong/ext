@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
-    [string]$BinDir = $(if ($env:CTX_BIN_DIR) { $env:CTX_BIN_DIR } else { Join-Path $env:LOCALAPPDATA 'Programs\ctx\bin' }),
-    [string]$ConfigDir = $(if ($env:EXT_HOME) { $env:EXT_HOME } elseif ($env:CTX_HOME) { $env:CTX_HOME } elseif ((Test-Path (Join-Path $env:APPDATA 'ext')) -or -not (Test-Path (Join-Path $env:APPDATA 'ctx'))) { Join-Path $env:APPDATA 'ext' } else { Join-Path $env:APPDATA 'ctx' }),
+    [string]$BinDir = $(if ($env:EXT_BIN_DIR) { $env:EXT_BIN_DIR } else { Join-Path $env:LOCALAPPDATA 'Programs\ctx\bin' }),
+    [string]$ConfigDir = $(if ($env:EXT_HOME) { $env:EXT_HOME } elseif ((Test-Path (Join-Path $env:APPDATA 'ext')) -or -not (Test-Path (Join-Path $env:APPDATA 'ctx'))) { Join-Path $env:APPDATA 'ext' } else { Join-Path $env:APPDATA 'ctx' }),
     [string]$Version = 'latest',
     [string]$Adapters,
     [switch]$AllAdapters,
@@ -199,10 +199,10 @@ if ($needCatalog) {
 }
 
 $previousExtHome = $env:EXT_HOME
-$previousBinDir = $env:CTX_BIN_DIR
+$previousBinDir = $env:EXT_BIN_DIR
 try {
     $env:EXT_HOME = $ConfigDir
-    $env:CTX_BIN_DIR = $BinDir
+    $env:EXT_BIN_DIR = $BinDir
     if ($needCatalog) {
         & $ctxTarget adapter refresh | Out-Null
         if ($LASTEXITCODE -ne 0) { throw 'Failed to refresh installed adapters.' }
@@ -218,7 +218,7 @@ try {
 }
 finally {
     $env:EXT_HOME = $previousExtHome
-    $env:CTX_BIN_DIR = $previousBinDir
+    $env:EXT_BIN_DIR = $previousBinDir
 }
 
 $configFile = Join-Path $ConfigDir 'config.toml'

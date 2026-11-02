@@ -9,10 +9,9 @@ code from the current directory or arbitrary `PATH` entries.
 The home is shared by every ext product. The adapter trust record is scoped
 to the adapter protocol and its exact installed package digest; CTN's provider
 trust records have separate scopes. `EXT_HOME` sets the home and
-`EXT_ADAPTER_HOME` sets just the adapter directory. `CTX_HOME` and
-`CTX_ADAPTER_HOME` are still honored for existing
-installations, and an existing `~/.config/ctx` directory keeps being used until
-`~/.config/ext` is created. A product that does not understand an adapter's
+`EXT_ADAPTER_HOME` sets just the adapter directory. An existing `~/.config/ctx`
+directory keeps being used until `~/.config/ext` is created. The old `CTX_HOME`
+and `CTX_ADAPTER_HOME` names are no longer read. A product that does not understand an adapter's
 runtime ignores it.
 
 Start with [Build an ext adapter](adapter-authoring.md) for required files,
@@ -37,7 +36,7 @@ trust, and the consuming product's policy. Installation does not make every
 capability usable by every product, or authorize invocation.
 
 The protocol is `ext.adapter/2.0`. Existing `ctx.adapter/v1` metadata,
-`CTX_ADAPTER_*` invocation variables, and `.ctxadapter` archive/index suffixes
+`EXT_ADAPTER_*` invocation variables, and `.ctxadapter` archive/index suffixes
 remain compatibility spellings; they do not restrict an adapter to CTX.
 
 ## Architecture and ownership
@@ -173,7 +172,7 @@ the dependency's adapter API exactly. Catalog installation installs and trusts
 missing dependencies; an already installed dependency must satisfy the declared
 share space and remain trusted. Manual package installation does not silently
 add dependencies. CTX passes a declared dependency to the child process as
-`CTX_DEPENDENCY_<UPPERCASE_SPACE>`; operations that use it fail if the store is
+`EXT_DEPENDENCY_<UPPERCASE_SPACE>`; operations that use it fail if the store is
 missing or untrusted, without blocking unrelated adapter operations.
 `ext adapter remove` refuses to remove a dependency while an installed adapter
 declares it; `--force` is available when intentionally breaking that feature.
@@ -285,7 +284,7 @@ with the same limits as `observe`:
 CTX keeps only records for names it asked about and only paths that are existing
 executables, joins them with a scan of `PATH` by resolved path
 (`res/system/program`), and gives each adapter that declares `computer_commands`
-the candidates for its commands in `CTX_PROGRAMS`: one line per candidate with
+the candidates for its commands in `EXT_PROGRAMS`: one line per candidate with
 tab-separated `name`, `path`, `realpath`, `version`, `installers` and `on_path`.
 The adapter decides what each one is and whether it is usable. See
 [Program discovery](adr-program-discovery.md). A runtime adapter that reports an `executable` attribute
@@ -343,14 +342,14 @@ explicitly passes `--offline` to register an unavailable engine. ctx displays th
 resolved instance before a transfer. The product and machine are user-declared
 labels; the adapter remains responsible for routing to the selected engine.
 For nerdctl, registration can include `--address`, which ctx passes as
-`CTX_MANAGER_ADDRESS` to adapter invocations. The maintained nerdctl
+`EXT_MANAGER_ADDRESS` to adapter invocations. The maintained nerdctl
 adapter passes this value as its native `--address` flag for validation,
 transfer, and build operations. Other manager adapters need no new
 capability: their native selection already identifies the engine connection.
 Instances may also pin `--command` to an absolute executable. Docker instances
 can provide `--plugin-dir` and repeat `--plugin buildx=/absolute/path` or
 `--plugin compose=/absolute/path`. ctx passes the selected CLI as
-`CTX_ADAPTER_REAL_COMMAND` and gives that invocation a temporary `DOCKER_CONFIG`
+`EXT_ADAPTER_REAL_COMMAND` and gives that invocation a temporary `DOCKER_CONFIG`
 with isolated plugins. Existing contexts and credentials remain available;
 global Docker plugin links are not rewritten. The core resolves `@instance`
 selectors before calling the adapter, so adapters continue to receive their
@@ -415,7 +414,7 @@ commands.
 The package includes a `claude` launcher file that delegates to
 `ctx run claude "$@"`. When trusted, ctx installs that launcher beside `ctx`.
 It locates the real CLI with the shim directory excluded from `PATH` and passes
-its absolute path in `CTX_ADAPTER_REAL_COMMAND`, preventing recursive shim
+its absolute path in `EXT_ADAPTER_REAL_COMMAND`, preventing recursive shim
 calls. Computer commands do not require a project selection; the adapter still
 receives the active project and profile environment.
 For a Codex integration, declare `computer_commands = "codex"` and include the
@@ -698,11 +697,11 @@ adapter's `share` operation with the resolved selection. The first argument
 after `--` is the space, followed by the user's remaining arguments; the
 adapter owns their meaning.
 
-The process receives `CTX_ADAPTER_API`, `CTX_ADAPTER_NAME`,
-`CTX_ADAPTER_COMMAND`, `CTX_ADAPTER_REAL_COMMAND`, `CTX_PROJECT_DIR`, and
-`CTX_PROFILE`. For manager providers, `CTX_ADAPTER_REAL_COMMAND` is the
+The process receives `EXT_ADAPTER_API`, `EXT_ADAPTER_NAME`,
+`EXT_ADAPTER_COMMAND`, `EXT_ADAPTER_REAL_COMMAND`, `EXT_PROJECT_DIR`, and
+`EXT_PROFILE`. For manager providers, `EXT_ADAPTER_REAL_COMMAND` is the
 resolved underlying CLI path with ctx's transparent shim excluded. Values for declared
-keys are exported as `CTX_ADAPTER_VALUE_<UPPERCASE_KEY>`. A `configure` operation
+keys are exported as `EXT_ADAPTER_VALUE_<UPPERCASE_KEY>`. A `configure` operation
 prints tab-separated `key<TAB>value` records for declared keys; ctx validates and
 writes them to `.ctx`. Selections are identifiers, never credentials. Exit status 0
 means success, 1 means validation or runtime failure, 2 means adapter usage error,
@@ -802,7 +801,7 @@ ext adapter trust example
 ~~~
 
 The optional installer-provided catalog lives under `$EXT_HOME/catalog/adapters`
-(or `CTX_CATALOG_HOME`). A default core-only installation has no catalog.
+(or `EXT_CATALOG_HOME`). A default core-only installation has no catalog.
 Request adapter selection with the installer to obtain it; `ctx setup` and
 `ext adapter add` then copy selected catalog packages into the active adapter
 store and trust their checksums. Catalog membership is installer metadata, not

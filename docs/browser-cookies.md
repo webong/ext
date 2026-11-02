@@ -238,7 +238,7 @@ the request. Separate requests attempt credential access again.
 
 Linux v11 credentials use `secret-tool` or `kwallet-query`. Secret Service tries
 the adapter's application identity, then its service/account identity. KWallet
-uses `CTX_KWALLET_NAME` when set; otherwise `dbus-send` discovers the network
+uses `EXT_KWALLET_NAME` when set; otherwise `dbus-send` discovers the network
 wallet from KDE 6, KDE 5, or the older service, with bounded timeouts and a
 `kdewallet` fallback. Browser credentials and wallet conventions stay in the
 Chromium adapter engine. These are external helper backends; no direct Go
@@ -265,8 +265,8 @@ in-memory cookies.
 Additional opt-in tests exercise the real OS credential API with dummy data:
 
 ```sh
-# Run on macOS or Windows; PowerShell users set $env:CTX_COOKIE_NATIVE_CREDENTIAL_TESTS = '1'.
-CTX_COOKIE_NATIVE_CREDENTIAL_TESTS=1 go test -v ./adapters/chromium/engine \
+# Run on macOS or Windows; PowerShell users set $env:EXT_COOKIE_NATIVE_CREDENTIAL_TESTS = '1'.
+EXT_COOKIE_NATIVE_CREDENTIAL_TESTS=1 go test -v ./adapters/chromium/engine \
   -run '^TestNativeCookieCredentials' -count=1
 ```
 

@@ -17,8 +17,8 @@ import (
 )
 
 func TestNativeCredentialManagerRoundTrip(t *testing.T) {
-	if os.Getenv("CTX_CREDENTIAL_NATIVE_TESTS") != "1" {
-		t.Skip("set CTX_CREDENTIAL_NATIVE_TESTS=1 for a synthetic Credential Manager fixture")
+	if os.Getenv("EXT_CREDENTIAL_NATIVE_TESTS") != "1" {
+		t.Skip("set EXT_CREDENTIAL_NATIVE_TESTS=1 for a synthetic Credential Manager fixture")
 	}
 	target := fmt.Sprintf("ctx/synthetic/%d/%d", os.Getpid(), time.Now().UnixNano())
 	name, err := syscall.UTF16PtrFromString(target)

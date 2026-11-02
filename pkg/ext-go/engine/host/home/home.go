@@ -8,13 +8,11 @@ import (
 	"runtime"
 )
 
-// Config returns Ext's per-user state root. CTX_HOME remains a migration
-// fallback for installations created before EXT_HOME existed.
+// Config returns Ext's per-user state root. EXT_HOME overrides it. Without it, an
+// installation made before ~/.config/ext existed keeps being used from its old
+// directory.
 func Config() string {
 	if value := os.Getenv("EXT_HOME"); value != "" {
-		return value
-	}
-	if value := os.Getenv("CTX_HOME"); value != "" {
 		return value
 	}
 	shared, legacy := candidates()
@@ -32,12 +30,10 @@ func Config() string {
 	return shared
 }
 
-// Adapters is the existing ext adapter substore, including legacy overrides.
+// Adapters is the ext adapter substore. EXT_ADAPTER_HOME overrides it.
 func Adapters() string {
-	for _, name := range []string{"EXT_ADAPTER_HOME", "CTX_ADAPTER_HOME"} {
-		if value := os.Getenv(name); value != "" {
-			return value
-		}
+	if value := os.Getenv("EXT_ADAPTER_HOME"); value != "" {
+		return value
 	}
 	return filepath.Join(Config(), "adapters")
 }

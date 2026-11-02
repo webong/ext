@@ -11,7 +11,7 @@ import (
 
 func TestCookieQueryOutputFormats(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CTX_HOME", filepath.Join(root, "state"))
+	t.Setenv("EXT_HOME", filepath.Join(root, "state"))
 	input := filepath.Join(root, "input.json")
 	if err := os.WriteFile(input, []byte(`[{"name":"session","value":"synthetic-value","domain":"example.test","path":"/","secure":true,"httpOnly":true}]`), 0o600); err != nil {
 		t.Fatal(err)
@@ -44,7 +44,7 @@ func TestCookieQueryOutputFormats(t *testing.T) {
 
 func TestCookieQueryRejectsInvalidOrLossyOutputBeforeWriting(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CTX_HOME", filepath.Join(root, "state"))
+	t.Setenv("EXT_HOME", filepath.Join(root, "state"))
 	input := filepath.Join(root, "input.json")
 	if err := os.WriteFile(input, []byte(`[{"name":"session","value":"synthetic-secret","domain":"example.test","path":"/","attributes":{"fixture.container":"work"}}]`), 0o600); err != nil {
 		t.Fatal(err)

@@ -15,10 +15,10 @@ func TestCredentialCLIUsesTrustedAdapterAndPrivateOutputs(t *testing.T) {
 		t.Skip("shell fixture uses a Unix host")
 	}
 	root := t.TempDir()
-	t.Setenv("CTX_HOME", filepath.Join(root, "state"))
-	t.Setenv("CTX_ADAPTER_HOME", filepath.Join(root, "state", "adapters"))
-	t.Setenv("CTX_ADAPTER_NAME", "")
-	t.Setenv("CTX_TEST_VAULT_DIR", filepath.Join(root, "vault"))
+	t.Setenv("EXT_HOME", filepath.Join(root, "state"))
+	t.Setenv("EXT_ADAPTER_HOME", filepath.Join(root, "state", "adapters"))
+	t.Setenv("EXT_ADAPTER_NAME", "")
+	t.Setenv("EXT_TEST_VAULT_DIR", filepath.Join(root, "vault"))
 	if err := os.MkdirAll(filepath.Join(root, "vault"), 0o700); err != nil {
 		t.Fatal(err)
 	}
@@ -39,7 +39,7 @@ self_contained = "true"
 	command := `#!/bin/sh
 set -eu
 [ "$1" = share ] && [ "$3" = -- ] && [ "$4" = credential ] || exit 2
-target="$CTX_TEST_VAULT_DIR/$6"
+target="$EXT_TEST_VAULT_DIR/$6"
 case "$5" in
   get) [ "$#" -eq 6 ] || exit 2; cat "$target" ;;
   put)
@@ -127,16 +127,16 @@ dependencies_linux = "credential:vault@2.0"
 	if err := store.Trust(requester); err != nil {
 		t.Fatal(err)
 	}
-	t.Setenv("CTX_ADAPTER_NAME", "caller")
+	t.Setenv("EXT_ADAPTER_NAME", "caller")
 	if code, out, errText := run("get", "vault:alpha", "--stdout"); code != 0 || out != "private-value" ||
 		!strings.Contains(errText, "reported requester Example App (caller) is accessing credentials through vault") {
 		t.Fatalf("requester notice code=%d output=%q diagnostics=%q", code, out, errText)
 	}
-	t.Setenv("CTX_ADAPTER_NAME", "missing")
+	t.Setenv("EXT_ADAPTER_NAME", "missing")
 	if code, _, errText := run("get", "vault:alpha", "--stdout"); code != 0 || errText != "" {
 		t.Fatalf("undeclared requester code=%d diagnostics=%q", code, errText)
 	}
-	t.Setenv("CTX_ADAPTER_NAME", "")
+	t.Setenv("EXT_ADAPTER_NAME", "")
 	if code, _, errText := run("get", "vault:alpha", "--to-file", output); code == 0 || !strings.Contains(errText, "already exists") {
 		t.Fatalf("existing output code=%d diagnostics=%q", code, errText)
 	}

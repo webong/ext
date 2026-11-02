@@ -460,11 +460,11 @@ func chromiumUserDataRootFromDatabase(database string) string {
 }
 
 func windowsDPAPIUnprotect(ciphertext []byte) ([]byte, error) {
-	const script = `Add-Type -AssemblyName System.Security; $raw=[Convert]::FromBase64String($env:CTX_DPAPI_DATA); $clear=[Security.Cryptography.ProtectedData]::Unprotect($raw,$null,[Security.Cryptography.DataProtectionScope]::CurrentUser); [Console]::Out.Write([Convert]::ToBase64String($clear))`
+	const script = `Add-Type -AssemblyName System.Security; $raw=[Convert]::FromBase64String($env:EXT_DPAPI_DATA); $clear=[Security.Cryptography.ProtectedData]::Unprotect($raw,$null,[Security.Cryptography.DataProtectionScope]::CurrentUser); [Console]::Out.Write([Convert]::ToBase64String($clear))`
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	command := exec.CommandContext(ctx, "powershell.exe", "-NoProfile", "-NonInteractive", "-Command", script)
-	command.Env = append(os.Environ(), "CTX_DPAPI_DATA="+base64.StdEncoding.EncodeToString(ciphertext))
+	command.Env = append(os.Environ(), "EXT_DPAPI_DATA="+base64.StdEncoding.EncodeToString(ciphertext))
 	output, err := command.Output()
 	if err != nil {
 		return nil, errors.New("Windows DPAPI could not unlock this Chromium cookie for the current user")
@@ -507,7 +507,7 @@ func chromiumMacKeychainPassword(provider Config) (string, error) {
 		if !filepath.IsAbs(provider.KeychainPath) {
 			return "", errors.New("macOS keychain path must be absolute")
 		}
-		extra["CTX_KEYCHAIN_PATH"] = provider.KeychainPath
+		extra["EXT_KEYCHAIN_PATH"] = provider.KeychainPath
 	}
 	value, err := credentialclient.GetDeclaredWithEnv(ctx, "credential", item, extra)
 	if err != nil {
@@ -570,7 +570,7 @@ func chromiumSecretServiceSecret(provider Config) (string, error) {
 func chromiumKWalletSecret(provider Config) (string, error) {
 	if _, err := exec.LookPath("kwallet-query"); err == nil {
 		folder, key := provider.WalletFolder, provider.WalletKey
-		wallet := os.Getenv("CTX_KWALLET_NAME")
+		wallet := os.Getenv("EXT_KWALLET_NAME")
 		if wallet == "" {
 			wallet = chromiumNetworkWallet()
 		}

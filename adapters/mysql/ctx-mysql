@@ -8,7 +8,7 @@ case "$operation" in
   validate|doctor) : ;;
   run)
     shift 2; [ "${1:-}" = -- ] && shift
-    command_name=${CTX_ADAPTER_COMMAND:-mysql}
+    command_name=${EXT_ADAPTER_COMMAND:-mysql}
     client=$(command -v "$command_name" 2>/dev/null || true)
     [ -n "$client" ] || { printf 'mysql: %s is not installed\n' "$command_name" >&2; exit 127; }
     for arg in "$@"; do case "$arg" in --login-path|--login-path=*) "$client" "$@"; exit;; esac; done

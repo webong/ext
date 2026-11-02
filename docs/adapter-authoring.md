@@ -137,9 +137,9 @@ profile portion as the selection. Set `selector_key = "browser"` for this route.
 Browser sharing and management use their documented JSON protocols in addition
 to the process arguments.
 
-CTX provides `CTX_ADAPTER_API`, `CTX_ADAPTER_NAME`, `CTX_ADAPTER_COMMAND`,
-`CTX_ADAPTER_REAL_COMMAND`, `CTX_PROJECT_DIR`, `CTX_PROFILE`, and declared values
-through `CTX_ADAPTER_VALUE_<UPPERCASE_KEY>`. Use the provided real command path
+CTX provides `EXT_ADAPTER_API`, `EXT_ADAPTER_NAME`, `EXT_ADAPTER_COMMAND`,
+`EXT_ADAPTER_REAL_COMMAND`, `EXT_PROJECT_DIR`, `EXT_PROFILE`, and declared values
+through `EXT_ADAPTER_VALUE_<UPPERCASE_KEY>`. Use the provided real command path
 when routing a native CLI behind a CTX shim, and honor native CLI/environment
 overrides. Forward arguments as individual arguments, without constructing a
 shell command from user input.

@@ -34,7 +34,7 @@ func sortedDependencySpaces(dependencies map[string]modpkg.Dependency) []string 
 func stripDependencyEnvironment(values []string) []string {
 	filtered := values[:0]
 	for _, value := range values {
-		if !strings.HasPrefix(strings.ToUpper(value), "CTX_DEPENDENCY_") {
+		if !strings.HasPrefix(strings.ToUpper(value), "EXT_DEPENDENCY_") {
 			filtered = append(filtered, value)
 		}
 	}
@@ -215,7 +215,7 @@ func openBrowser(resolver *config.Resolver, args []string, stdout, stderr io.Wri
 	if err != nil {
 		return reportError(stderr, err)
 	}
-	choice := os.Getenv("CTX_BROWSER")
+	choice := os.Getenv("EXT_BROWSER")
 	if choice == "" {
 		choice = resolved.Value
 	}
@@ -360,7 +360,7 @@ func invokeAdapterIOWithEnv(resolver *config.Resolver, candidate *modpkg.Adapter
 		} else if len(candidate.Manifest.ComputerCommands) > 0 {
 			commandName = candidate.Manifest.ComputerCommands[0]
 		}
-		if override := extraEnv["CTX_MANAGER_COMMAND"]; override != "" {
+		if override := extraEnv["EXT_MANAGER_COMMAND"]; override != "" {
 			if err := validateManagerExecutable(override); err != nil {
 				return reportErrorCode(stderr, err, 127)
 			}
@@ -375,14 +375,14 @@ func invokeAdapterIOWithEnv(resolver *config.Resolver, candidate *modpkg.Adapter
 			}
 		}
 	}
-	if pluginName := dockerInvokedPlugin(operation, args); candidate.Manifest.Name == "docker" && pluginName != "" && (extraEnv["CTX_MANAGER_PLUGIN_DIR"] != "" || extraEnv["CTX_MANAGER_PLUGIN_BUILDX"] != "" || extraEnv["CTX_MANAGER_PLUGIN_COMPOSE"] != "") {
+	if pluginName := dockerInvokedPlugin(operation, args); candidate.Manifest.Name == "docker" && pluginName != "" && (extraEnv["EXT_MANAGER_PLUGIN_DIR"] != "" || extraEnv["EXT_MANAGER_PLUGIN_BUILDX"] != "" || extraEnv["EXT_MANAGER_PLUGIN_COMPOSE"] != "") {
 		plugins := map[string]string{}
 		for _, name := range []string{"buildx", "compose"} {
-			if path := extraEnv["CTX_MANAGER_PLUGIN_"+strings.ToUpper(name)]; path != "" {
+			if path := extraEnv["EXT_MANAGER_PLUGIN_"+strings.ToUpper(name)]; path != "" {
 				plugins[name] = path
 			}
 		}
-		overlay, cleanup, err := dockerConfigOverlay(extraEnv["CTX_MANAGER_PLUGIN_DIR"], plugins)
+		overlay, cleanup, err := dockerConfigOverlay(extraEnv["EXT_MANAGER_PLUGIN_DIR"], plugins)
 		if err != nil {
 			return reportError(stderr, fmt.Errorf("prepare Docker plugins: %w", err))
 		}
@@ -405,7 +405,7 @@ func invokeAdapterIOWithEnv(resolver *config.Resolver, candidate *modpkg.Adapter
 		return reportError(stderr, err)
 	}
 	if executable, err := os.Executable(); err == nil {
-		command.Env = setEnvironment(command.Env, "CTX_EXECUTABLE", executable)
+		command.Env = setEnvironment(command.Env, "EXT_EXECUTABLE", executable)
 	}
 	profileValues, err := profileEnvironment(resolver)
 	if err != nil {
@@ -415,7 +415,7 @@ func invokeAdapterIOWithEnv(resolver *config.Resolver, candidate *modpkg.Adapter
 		command.Env = setEnvironment(command.Env, key, value)
 	}
 	if candidate.IsRuntime("manager") {
-		command.Env = setEnvironment(command.Env, "CTX_MANAGER_ADDRESS", "")
+		command.Env = setEnvironment(command.Env, "EXT_MANAGER_ADDRESS", "")
 	}
 	if programs := adapterPrograms(resolver, candidate); programs != nil {
 		command.Env = setEnvironment(command.Env, programsEnvironment, programsEnvironmentValue(programs))
@@ -425,7 +425,7 @@ func invokeAdapterIOWithEnv(resolver *config.Resolver, candidate *modpkg.Adapter
 	}
 	command.Env = stripDependencyEnvironment(command.Env)
 	for space, dependency := range candidate.Manifest.Dependencies {
-		command.Env = setEnvironment(command.Env, "CTX_DEPENDENCY_"+strings.ToUpper(space), dependency.Adapter)
+		command.Env = setEnvironment(command.Env, "EXT_DEPENDENCY_"+strings.ToUpper(space), dependency.Adapter)
 	}
 	if operation == "list" || operation == "observe" || operation == "programs" || (candidate.IsRuntime("browser") && operation == "share" && len(args) == 2 && args[0] == "status" && args[1] == "probe") {
 		return runPreparedDiscovery(command, stdout, stderr)

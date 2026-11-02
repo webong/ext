@@ -20,7 +20,7 @@ func evaluatorStore(t *testing.T) (string, func(name, kind, observe, run string,
 		t.Skip("the fake evaluators are shell scripts")
 	}
 	home := t.TempDir()
-	for _, key := range []string{"EXT_ADAPTER_HOME", "CTX_HOME", "CTX_ADAPTER_HOME"} {
+	for _, key := range []string{"EXT_ADAPTER_HOME", "EXT_HOME"} {
 		t.Setenv(key, "")
 	}
 	t.Setenv("EXT_HOME", home)

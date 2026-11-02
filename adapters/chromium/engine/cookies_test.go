@@ -40,7 +40,7 @@ func TestChromiumCookieEncryptedImportAndQuery(t *testing.T) {
 	if err := os.WriteFile(password, []byte("fixture-key\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	t.Setenv("CTX_BROWSER_FIXTURE_SAFE_STORAGE_PASSWORD_FILE", password)
+	t.Setenv("EXT_BROWSER_FIXTURE_SAFE_STORAGE_PASSWORD_FILE", password)
 	config := Config{Name: "fixture"}
 	cookie := share.Cookie{Name: "session", Value: "fixture-secret", Domain: ".example.test", Path: "/", Secure: true, HTTPOnly: true, SameSitePolicy: "lax", PartitionKey: "https://top.test", CrossSiteAncestor: true}
 	if err := importChromiumCookie(config, profile, cookie, false); err != nil {
@@ -92,7 +92,7 @@ func TestChromiumCredentialFile(t *testing.T) {
 	}
 	root := t.TempDir()
 	path := filepath.Join(root, "key")
-	t.Setenv("CTX_BROWSER_FIXTURE_SAFE_STORAGE_PASSWORD_FILE", path)
+	t.Setenv("EXT_BROWSER_FIXTURE_SAFE_STORAGE_PASSWORD_FILE", path)
 	config := Config{Name: "fixture"}
 	for _, test := range []struct {
 		mode  os.FileMode
@@ -113,7 +113,7 @@ func TestChromiumCredentialFile(t *testing.T) {
 		if err := os.Symlink(path, link); err != nil {
 			t.Fatal(err)
 		}
-		t.Setenv("CTX_BROWSER_FIXTURE_SAFE_STORAGE_PASSWORD_FILE", link)
+		t.Setenv("EXT_BROWSER_FIXTURE_SAFE_STORAGE_PASSWORD_FILE", link)
 		if _, _, err := configuredSafeStoragePassword(config); err == nil {
 			t.Fatal("symlink credential accepted")
 		}

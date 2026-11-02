@@ -2,12 +2,12 @@ param([Parameter(ValueFromRemainingArguments = $true)][string[]]$Arguments)
 $ErrorActionPreference = 'Stop'
 
 function Get-RealNode {
-    if ($env:CTX_ADAPTER_REAL_COMMAND -and (Test-Path -LiteralPath $env:CTX_ADAPTER_REAL_COMMAND -PathType Leaf)) {
-        return $env:CTX_ADAPTER_REAL_COMMAND
+    if ($env:EXT_ADAPTER_REAL_COMMAND -and (Test-Path -LiteralPath $env:EXT_ADAPTER_REAL_COMMAND -PathType Leaf)) {
+        return $env:EXT_ADAPTER_REAL_COMMAND
     }
     foreach ($name in @('node')) {
-        if ($env:CTX_EXECUTABLE -and (Test-Path -LiteralPath $env:CTX_EXECUTABLE -PathType Leaf)) {
-            $resolved = & $env:CTX_EXECUTABLE real $name 2>$null
+        if ($env:EXT_EXECUTABLE -and (Test-Path -LiteralPath $env:EXT_EXECUTABLE -PathType Leaf)) {
+            $resolved = & $env:EXT_EXECUTABLE real $name 2>$null
             if ($LASTEXITCODE -eq 0 -and $resolved -and (Test-Path -LiteralPath $resolved -PathType Leaf)) { return $resolved }
         }
         $command = Get-Command $name -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
@@ -16,12 +16,12 @@ function Get-RealNode {
     return $null
 }
 
-# CTX passes every copy it found in CTX_PROGRAMS, one tab-separated line each:
+# CTX passes every copy it found in EXT_PROGRAMS, one tab-separated line each:
 # name, path, realpath, version, installers, on_path. Outside CTX only the copy
 # on PATH is known.
 function Get-NodeCandidates {
-    if ($null -ne $env:CTX_PROGRAMS) {
-        $rows = foreach ($line in ($env:CTX_PROGRAMS -split "`n")) {
+    if ($null -ne $env:EXT_PROGRAMS) {
+        $rows = foreach ($line in ($env:EXT_PROGRAMS -split "`n")) {
             $f = $line.TrimEnd("`r") -split "`t"
             if ($f.Count -ge 6 -and @('node') -contains $f[0] -and $f[1]) {
                 [pscustomobject]@{ rank = $(if ($f[5] -eq '1') { 0 } else { 1 }); executable = $f[1]; manager = $(if ($f[4]) { $f[4] } else { 'path' }) }

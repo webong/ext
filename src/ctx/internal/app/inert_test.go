@@ -14,8 +14,8 @@ import (
 // trustable but must never be executed by the host's own loops.
 func TestInertAdapterIsNeverExecutedByInventoryOrDoctor(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CTX_HOME", filepath.Join(root, "state"))
-	t.Setenv("CTX_ADAPTER_HOME", filepath.Join(root, "state", "adapters"))
+	t.Setenv("EXT_HOME", filepath.Join(root, "state"))
+	t.Setenv("EXT_ADAPTER_HOME", filepath.Join(root, "state", "adapters"))
 	log := filepath.Join(root, "invoked.log")
 	source := filepath.Join(root, "src")
 	if err := os.MkdirAll(source, 0o700); err != nil {

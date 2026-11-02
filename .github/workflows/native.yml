@@ -115,12 +115,12 @@ jobs:
       - name: Validate isolated native cookie credentials
         if: runner.os == 'macOS' || runner.os == 'Windows'
         env:
-          CTX_COOKIE_NATIVE_CREDENTIAL_TESTS: '1'
+          EXT_COOKIE_NATIVE_CREDENTIAL_TESTS: '1'
         run: go test -v ./adapters/chromium/engine -run '^TestNativeCookieCredentials' -count=1
       - name: Validate isolated native credential store
         if: runner.os == 'macOS' || runner.os == 'Windows'
         env:
-          CTX_CREDENTIAL_NATIVE_TESTS: '1'
+          EXT_CREDENTIAL_NATIVE_TESTS: '1'
         run: go test -v ./adapters/keychain/store ./adapters/credman/store -run '^TestNative(KeychainCredential|CredentialManager)RoundTrip$' -count=1
       - run: go build ./src/ctx/cmd/ctx
       - name: Test Windows source installer

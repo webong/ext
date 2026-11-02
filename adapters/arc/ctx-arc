@@ -1,6 +1,6 @@
 #!/usr/bin/env sh
 set -eu
-platform=${CTX_PLATFORM:-$(uname -s)}
+platform=${EXT_PLATFORM:-$(uname -s)}
 profiles_root() {
   case "$platform" in
     Darwin) printf '%s\n' "$HOME/Library/Application Support/Arc/User Data" ;;

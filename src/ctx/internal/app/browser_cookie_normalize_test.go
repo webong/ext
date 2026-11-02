@@ -14,10 +14,10 @@ import (
 
 func TestCookieNormalizeCLIContractAndPipe(t *testing.T) {
 	root := cookieCLIAdapter(t, "cookie.normalize", `test "$1" = share && test "$2" = default && test "$4" = cookie && test "$5" = normalize || exit 2
-cat > "$CTX_NORMALIZE_REQUEST"
+cat > "$EXT_NORMALIZE_REQUEST"
 printf '%s' '{"store_id":"0","cookies":[{"name":"session","value":"synthetic-secret","domain":"example.test","path":"/","attributes":{"fixture.webextension_store_id":"0"}}]}'`)
 	capture := filepath.Join(root, "request")
-	t.Setenv("CTX_NORMALIZE_REQUEST", capture)
+	t.Setenv("EXT_NORMALIZE_REQUEST", capture)
 	input := filepath.Join(root, "input.json")
 	raw := `{"selection":{"browser":"fixture","profile":"default","storeId":"0"},"cookies":[]}`
 	if err := os.WriteFile(input, []byte(raw), 0600); err != nil {

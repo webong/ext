@@ -36,7 +36,7 @@ func TestObserveShellAndWebContextWithoutEnvironmentSecrets(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Setenv("PATH", "sensitive-path-value")
-	t.Setenv("CTX_PROFILE", "profile-demo")
+	t.Setenv("EXT_PROFILE", "profile-demo")
 	g, err := Open(filepath.Join(root, "state"))
 	if err != nil {
 		t.Fatal(err)

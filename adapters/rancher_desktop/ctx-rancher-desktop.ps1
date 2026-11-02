@@ -6,7 +6,7 @@ param(
 )
 
 if ($Arguments.Count -gt 0 -and $Arguments[0] -eq '--') { $Arguments = @($Arguments | Select-Object -Skip 1) }
-$rdctl = $env:CTX_RANCHER_RDCTL
+$rdctl = $env:EXT_RANCHER_RDCTL
 if (-not $rdctl) {
     $found = Get-Command rdctl -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
     if ($found) { $rdctl = $found.Source }

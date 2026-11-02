@@ -43,16 +43,16 @@ switch ($Operation) {
         if ($kubeconfig) { "kubeconfig`t$kubeconfig" }
     }
     'validate' {
-        if (-not (Test-Context $Selection $env:CTX_ADAPTER_VALUE_KUBECONFIG)) { [Console]::Error.WriteLine("kube: unknown context $Selection"); exit 1 }
+        if (-not (Test-Context $Selection $env:EXT_ADAPTER_VALUE_KUBECONFIG)) { [Console]::Error.WriteLine("kube: unknown context $Selection"); exit 1 }
     }
     'doctor' {
-        if ($Selection -and -not (Test-Context $Selection $env:CTX_ADAPTER_VALUE_KUBECONFIG)) { [Console]::Error.WriteLine("kube: unknown context $Selection"); exit 1 }
+        if ($Selection -and -not (Test-Context $Selection $env:EXT_ADAPTER_VALUE_KUBECONFIG)) { [Console]::Error.WriteLine("kube: unknown context $Selection"); exit 1 }
     }
     'run' {
         if ($Arguments.Count -gt 0 -and $Arguments[0] -eq '--') { $Arguments = @($Arguments | Select-Object -Skip 1) }
-        $context = if ($env:CTX_ADAPTER_VALUE_KUBE_CONTEXT) { $env:CTX_ADAPTER_VALUE_KUBE_CONTEXT } else { $Selection }
-        $namespace = $env:CTX_ADAPTER_VALUE_KUBE_NAMESPACE
-        $kubeconfig = $env:CTX_ADAPTER_VALUE_KUBECONFIG
+        $context = if ($env:EXT_ADAPTER_VALUE_KUBE_CONTEXT) { $env:EXT_ADAPTER_VALUE_KUBE_CONTEXT } else { $Selection }
+        $namespace = $env:EXT_ADAPTER_VALUE_KUBE_NAMESPACE
+        $kubeconfig = $env:EXT_ADAPTER_VALUE_KUBECONFIG
         $hasContext = $false; $hasNamespace = $false
         foreach ($argument in $Arguments) {
             if ($argument -eq '--context' -or $argument -like '--context=*') { $hasContext = $true }

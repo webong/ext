@@ -8,7 +8,7 @@ import (
 )
 
 func DefaultShell() string {
-	if shell := os.Getenv("CTX_SHELL"); shell != "" {
+	if shell := os.Getenv("EXT_SHELL"); shell != "" {
 		return shell
 	}
 	for _, shell := range []string{"pwsh.exe", "powershell.exe"} {

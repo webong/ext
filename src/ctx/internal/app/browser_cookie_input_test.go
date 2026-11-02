@@ -17,9 +17,9 @@ func cookieCLIAdapter(t *testing.T, operations, script string) string {
 		t.Skip("fixture uses a POSIX shell")
 	}
 	root := t.TempDir()
-	t.Setenv("CTX_HOME", filepath.Join(root, "state"))
-	t.Setenv("CTX_ADAPTER_HOME", filepath.Join(root, "state", "adapters"))
-	t.Setenv("CTX_BROWSER", "")
+	t.Setenv("EXT_HOME", filepath.Join(root, "state"))
+	t.Setenv("EXT_ADAPTER_HOME", filepath.Join(root, "state", "adapters"))
+	t.Setenv("EXT_BROWSER", "")
 	source := filepath.Join(root, "adapter")
 	if err := os.Mkdir(source, 0o700); err != nil {
 		t.Fatal(err)
@@ -43,9 +43,9 @@ func cookieCLIAdapter(t *testing.T, operations, script string) string {
 }
 
 func TestCookieImportQueryAndNetscapeSelection(t *testing.T) {
-	root := cookieCLIAdapter(t, "cookie.import", `if [ "$1" = list ]; then printf '%s\n' fixture:default; elif [ "$5" = import ]; then cat > "$CTX_TEST_COOKIE_REQUEST"; else exit 2; fi`)
+	root := cookieCLIAdapter(t, "cookie.import", `if [ "$1" = list ]; then printf '%s\n' fixture:default; elif [ "$5" = import ]; then cat > "$EXT_TEST_COOKIE_REQUEST"; else exit 2; fi`)
 	captured := filepath.Join(root, "request.json")
-	t.Setenv("CTX_TEST_COOKIE_REQUEST", captured)
+	t.Setenv("EXT_TEST_COOKIE_REQUEST", captured)
 	run := func(input, name string) (int, string) {
 		t.Helper()
 		file := filepath.Join(root, "input")

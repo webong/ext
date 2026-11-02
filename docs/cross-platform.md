@@ -30,7 +30,7 @@ PowerShell implementations where Windows needs them.
 - Checksum-verified, core-only macOS, Linux, and Windows release bundles with
   separate opt-in adapter catalog assets, GitHub build provenance attestations,
   and source installers for each platform.
-- Explicit `CTX_SHELL`/`--shell` selection and dynamic PowerShell completion for
+- Explicit `EXT_SHELL`/`--shell` selection and dynamic PowerShell completion for
   commands, adapters, profiles, selectors, and discovered context values.
 - An optional cross-platform adapter catalog and `ctx setup` selection flow.
   Installers default to the core alone; `--adapters`, `--all`, or `--interactive`

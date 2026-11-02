@@ -18,7 +18,7 @@ import (
 // programsEnvironment is the variable a runtime adapter reads to learn which
 // copies of its programs exist on the machine, as lines described at
 // programsEnvironmentValue. Unset, an adapter looks at PATH only.
-const programsEnvironment = "CTX_PROGRAMS"
+const programsEnvironment = "EXT_PROGRAMS"
 
 var programCache struct {
 	sync.Mutex
@@ -140,7 +140,7 @@ func uniqueSorted(values []string) []string {
 	return out
 }
 
-// programsEnvironmentValue is the value of CTX_PROGRAMS: one line per candidate
+// programsEnvironmentValue is the value of EXT_PROGRAMS: one line per candidate
 // with tab-separated name, path, realpath, version, installers (comma-joined)
 // and on_path (1 or 0), so a shell adapter can read it with no JSON tool. A
 // candidate with a control character in any field is left out. The value is

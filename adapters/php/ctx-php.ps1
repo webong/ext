@@ -2,11 +2,11 @@ param([Parameter(ValueFromRemainingArguments = $true)][string[]]$Arguments)
 $ErrorActionPreference = 'Stop'
 
 function Get-RealPhp {
-    if ($env:CTX_ADAPTER_REAL_COMMAND -and (Test-Path -LiteralPath $env:CTX_ADAPTER_REAL_COMMAND -PathType Leaf)) {
-        return $env:CTX_ADAPTER_REAL_COMMAND
+    if ($env:EXT_ADAPTER_REAL_COMMAND -and (Test-Path -LiteralPath $env:EXT_ADAPTER_REAL_COMMAND -PathType Leaf)) {
+        return $env:EXT_ADAPTER_REAL_COMMAND
     }
-    if ($env:CTX_EXECUTABLE -and (Test-Path -LiteralPath $env:CTX_EXECUTABLE -PathType Leaf)) {
-        $resolved = & $env:CTX_EXECUTABLE real php 2>$null
+    if ($env:EXT_EXECUTABLE -and (Test-Path -LiteralPath $env:EXT_EXECUTABLE -PathType Leaf)) {
+        $resolved = & $env:EXT_EXECUTABLE real php 2>$null
         if ($LASTEXITCODE -eq 0 -and $resolved -and (Test-Path -LiteralPath $resolved -PathType Leaf)) { return $resolved }
     }
     $command = Get-Command php -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1

@@ -40,14 +40,14 @@ func GetDeclaredWithEnv(ctx context.Context, space, item string, extra map[strin
 	if !validName.MatchString(space) {
 		return nil, errors.New("invalid credential dependency space")
 	}
-	name := os.Getenv("CTX_DEPENDENCY_" + strings.ToUpper(space))
+	name := os.Getenv("EXT_DEPENDENCY_" + strings.ToUpper(space))
 	if !validName.MatchString(name) {
 		return nil, fmt.Errorf("%s credential dependency is not declared; install the store adapter and run through ctx", space)
 	}
 	if item == "" || len(item) > 2048 || strings.ContainsAny(item, "\x00\r\n") {
 		return nil, errors.New("invalid credential item")
 	}
-	executable := os.Getenv("CTX_EXECUTABLE")
+	executable := os.Getenv("EXT_EXECUTABLE")
 	if executable == "" {
 		var err error
 		executable, err = exec.LookPath("ctx")
@@ -59,8 +59,8 @@ func GetDeclaredWithEnv(ctx context.Context, space, item string, extra map[strin
 	if len(extra) > 0 {
 		command.Env = os.Environ()
 		for key, value := range extra {
-			if !validEnvironment.MatchString(key) || key == "CTX_EXECUTABLE" ||
-				strings.HasPrefix(key, "CTX_DEPENDENCY_") || strings.ContainsRune(value, 0) {
+			if !validEnvironment.MatchString(key) || key == "EXT_EXECUTABLE" ||
+				strings.HasPrefix(key, "EXT_DEPENDENCY_") || strings.ContainsRune(value, 0) {
 				return nil, errors.New("invalid credential lookup environment")
 			}
 			command.Env = append(command.Env, key+"="+value)

@@ -20,13 +20,13 @@ func TestGetDeclaredUsesHostProtocol(t *testing.T) {
 	if err := os.WriteFile(host, []byte(script), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	t.Setenv("CTX_EXECUTABLE", host)
-	t.Setenv("CTX_DEPENDENCY_CREDENTIAL", "fixture")
+	t.Setenv("EXT_EXECUTABLE", host)
+	t.Setenv("EXT_DEPENDENCY_CREDENTIAL", "fixture")
 	value, err := GetDeclared(context.Background(), "credential", "service=ctx&account=work")
 	if err != nil || string(value) != "synthetic-secret" {
 		t.Fatalf("credential=%q err=%v", value, err)
 	}
-	t.Setenv("CTX_DEPENDENCY_CREDENTIAL", "")
+	t.Setenv("EXT_DEPENDENCY_CREDENTIAL", "")
 	if _, err := GetDeclared(context.Background(), "credential", "service=ctx&account=work"); err == nil || !strings.Contains(err.Error(), "not declared") {
 		t.Fatalf("missing dependency: %v", err)
 	}

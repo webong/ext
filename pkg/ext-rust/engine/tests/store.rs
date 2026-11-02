@@ -645,7 +645,10 @@ fn an_entrypoint_is_resolved_for_a_reviewed_package_on_a_platform() {
     // nothing is chosen without the digest the caller reviewed
     assert_eq!(resolve("", "linux", "arm64"), Err(Error::DENIED));
     assert_eq!(resolve("wrong", "linux", "arm64"), Err(Error::DENIED));
-    assert_eq!(resolve(&reviewed.to_uppercase(), "linux", "arm64"), Err(Error::DENIED));
+    assert_eq!(
+        resolve(&reviewed.to_uppercase(), "linux", "arm64"),
+        Err(Error::DENIED)
+    );
 
     // what the package does not serve is unsupported
     assert_eq!(ask("different", "v1", PROTOCOL), Err(Error::UNSUPPORTED));
@@ -654,7 +657,14 @@ fn an_entrypoint_is_resolved_for_a_reviewed_package_on_a_platform() {
 
     // an id that is not installed or not valid, and a NUL in any argument
     let by_id = |id: &str| {
-        store.resolve_entrypoint(id, "example", "v1", PROTOCOL, &reviewed, Platform::default())
+        store.resolve_entrypoint(
+            id,
+            "example",
+            "v1",
+            PROTOCOL,
+            &reviewed,
+            Platform::default(),
+        )
     };
     assert_eq!(by_id("example/absent"), Err(Error::NOT_FOUND));
     assert_eq!(by_id("../bad"), Err(Error::INVALID));

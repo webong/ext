@@ -22,10 +22,45 @@ final class WebViewPluginHostTests: XCTestCase {
         return try Data(contentsOf: URL(fileURLWithPath: path))
     }
 
+    /// A valid module exporting only _start: a command, which the page refuses.
+    private static let command = Data([0, 97, 115, 109, 1, 0, 0, 0, 1, 4, 1, 96, 0, 0, 3, 2, 1, 0, 7, 10, 1, 6, 95, 115, 116, 97, 114, 116, 0, 0, 10, 4, 1, 2, 0, 11])
+
+    private static var webEngineIsWarm = false
+
+    /// Starts one throwaway web view before the first test uses one. The first web view in a
+    /// freshly booted simulator can take tens of seconds to start (32 s cold, about 3 s warm,
+    /// on a development machine), and on a hosted macOS 15 runner (Xcode 16.4, iOS 18.5) the
+    /// first two starts each overran 120 s before the third answered at once. The probe is a
+    /// command module, which the page refuses with its reason, so it proves the page ran
+    /// without needing the reactor. The first wait is long and the retries are short, and the
+    /// time is printed so a slow image shows in the log instead of as a failed test.
+    private func warmUp() async throws {
+        guard !Self.webEngineIsWarm else { return }
+        let began = Date()
+        var timeouts = 0
+        for timeout in [360.0, 120, 120] {
+            let probe = WebViewPluginHost(module: Self.command, bridge: try shim())
+            defer { probe.close() }
+            do {
+                try await probe.start(timeout: timeout)
+            } catch WebViewPluginHost.Failure.page(_) {
+                // The page ran and refused the command: the web engine is up.
+            } catch WebViewPluginHost.Failure.timeout {
+                timeouts += 1
+                print("web engine warm-up: start \(timeouts) overran \(Int(timeout)) s after \(Int(Date().timeIntervalSince(began))) s")
+                continue
+            }
+            Self.webEngineIsWarm = true
+            print("web engine warm-up: ready after \(Int(Date().timeIntervalSince(began))) s, \(timeouts) overrun(s)")
+            return
+        }
+        XCTFail("the web engine did not start after \(Int(Date().timeIntervalSince(began))) s")
+        throw WebViewPluginHost.Failure.timeout
+    }
+
     private func host() async throws -> WebViewPluginHost {
+        try await warmUp()
         let host = WebViewPluginHost(module: try reactor(), bridge: try shim())
-        // The first web view in a freshly launched app can take tens of seconds to
-        // start in the simulator (32 s cold, about 3 s warm), so this is generous.
         try await host.start(timeout: 120)
         return host
     }
@@ -49,7 +84,9 @@ final class WebViewPluginHostTests: XCTestCase {
     }
 
     func testTheDefaultBridgeWorksWithoutPassingTheShim() async throws {
-        let host = WebViewPluginHost(module: try reactor())
+        let module = try reactor()
+        try await warmUp()
+        let host = WebViewPluginHost(module: module)
         try await host.start(timeout: 120)
         defer { host.close() }
         let descriptor = String(decoding: try await host.handshake(deadline: Date().addingTimeInterval(10)), as: UTF8.self)
@@ -150,9 +187,8 @@ final class WebViewPluginHostTests: XCTestCase {
     }
 
     func testAModuleThatIsNotAReactorFailsToStart() async throws {
-        // A valid module exporting only _start: a command, which the page refuses.
-        let command = Data([0, 97, 115, 109, 1, 0, 0, 0, 1, 4, 1, 96, 0, 0, 3, 2, 1, 0, 7, 10, 1, 6, 95, 115, 116, 97, 114, 116, 0, 0, 10, 4, 1, 2, 0, 11])
-        let host = WebViewPluginHost(module: command, bridge: try shim())
+        try await warmUp()
+        let host = WebViewPluginHost(module: Self.command, bridge: try shim())
         do {
             try await host.start(timeout: 120)
             XCTFail("a command must not start as a reactor")

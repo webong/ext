@@ -72,10 +72,3 @@ replace github.com/webong/ext/adapters/firefox v0.3.1 => ./adapters/firefox
 
 // Ollama reuses the OpenAI-compatible client before its first module tag is published.
 replace github.com/webong/ext/adapters/openai v0.1.0 => ./adapters/openai
-
-// res/graph v0.2.0 (the recorder, with the graph store and the supervisor, reusing the old res/graph path) and
-// res/system v0.3.0 (the regrouped packages) are not tagged yet. These resolve those versions to the workspace
-// copies; delete each once its tag exists.
-replace github.com/webong/ext/res/graph v0.2.0 => ./res/graph
-
-replace github.com/webong/ext/res/system v0.3.0 => ./res/system

@@ -12,6 +12,7 @@ import (
 	plugin "github.com/webong/ext/pkg/ext-go/engine"
 	"math"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"unsafe"
@@ -154,6 +155,36 @@ func (s *PackageStore) Load(id string) ([]byte, error) {
 		return nil, err
 	}
 	return takeBuffer(&manifest), nil
+}
+
+// ResolveEntrypoint reads and verifies a package, checks that it serves the exact contract and that its
+// directory digest is the one the caller reviewed (an empty or changed digest is plugin.ErrDenied), then
+// selects the entrypoint for protocol that best matches this platform (plugin.ErrUnsupported when the
+// package serves no such contract or protocol here). The platform is runtime.GOOS and runtime.GOARCH.
+func (s *PackageStore) ResolveEntrypoint(id, contract, version, protocol, reviewedDigest string) (PackageEntrypoint, error) {
+	args := []string{id, contract, version, protocol, reviewedDigest, runtime.GOOS, runtime.GOARCH}
+	cargs := make([]*C.char, len(args))
+	for i, a := range args {
+		if strings.IndexByte(a, 0) >= 0 {
+			return PackageEntrypoint{}, plugin.ErrInvalid
+		}
+		cargs[i] = C.CString(a)
+		defer C.free(unsafe.Pointer(cargs[i]))
+	}
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if s.ptr == nil {
+		return PackageEntrypoint{}, plugin.ErrClosed
+	}
+	var out C.ext_buffer
+	if err := status(C.ext_store_resolve_entrypoint(s.ptr, cargs[0], cargs[1], cargs[2], cargs[3], cargs[4], cargs[5], cargs[6], &out)); err != nil {
+		return PackageEntrypoint{}, err
+	}
+	var selected PackageEntrypoint
+	if err := json.Unmarshal(takeBuffer(&out), &selected); err != nil {
+		return PackageEntrypoint{}, err
+	}
+	return selected, nil
 }
 
 // IDs lists the installed package ids in byte order, without reading or verifying any package.

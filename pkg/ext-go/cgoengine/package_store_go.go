@@ -85,6 +85,27 @@ func (g *goPackageStore) Remove(id string) error { return packageStoreError(g.s.
 // Load reads and verifies one installed package and returns its plugin.json.
 func (g *goPackageStore) Load(id string) ([]byte, error) { return g.manifest(g.s.Load(id)) }
 
+// PackageEntrypoint is the executable ResolveEntrypoint selects: the entrypoint's name, the name and
+// path of its artifact (the package directory joined with the artifact's path) and the package digest.
+type PackageEntrypoint struct {
+	Name     string `json:"name"`
+	Artifact string `json:"artifact"`
+	Path     string `json:"path"`
+	Digest   string `json:"digest"`
+}
+
+// ResolveEntrypoint reads and verifies a package, checks that it serves the exact contract and that its
+// directory digest is the one the caller reviewed (an empty or changed digest is plugin.ErrDenied), then
+// selects the entrypoint for protocol that best matches this platform (plugin.ErrUnsupported when the
+// package serves no such contract or protocol here).
+func (g *goPackageStore) ResolveEntrypoint(id, contract, version, protocol, reviewedDigest string) (PackageEntrypoint, error) {
+	selected, err := g.s.ResolveEntrypoint(id, contract, version, protocol, reviewedDigest)
+	if err != nil {
+		return PackageEntrypoint{}, packageStoreError(err)
+	}
+	return PackageEntrypoint{Name: selected.Name, Artifact: selected.Artifact, Path: selected.Path, Digest: selected.Digest}, nil
+}
+
 // IDs lists the installed package ids in byte order, without reading or verifying any package.
 func (g *goPackageStore) IDs() ([]string, error) {
 	entries, err := os.ReadDir(g.root)

@@ -311,7 +311,7 @@ func TestManagerProviderCommandProtocol(t *testing.T) {
 	if got := strings.Join(command.Args, " "); !strings.Contains(got, "image_save remote -- image.tar example:dev") {
 		t.Fatalf("unexpected command arguments: %q", got)
 	}
-	if environment := strings.Join(command.Env, "\n"); !strings.Contains(environment, "CTX_ADAPTER_REAL_COMMAND=/usr/bin/engine") {
+	if environment := strings.Join(command.Env, "\n"); !strings.Contains(environment, "EXT_ADAPTER_REAL_COMMAND=/usr/bin/engine") {
 		t.Fatalf("missing real command in environment: %q", environment)
 	}
 }
@@ -360,7 +360,7 @@ func TestCommandProtocol(t *testing.T) {
 		t.Fatalf("unexpected command arguments: %q", joined)
 	}
 	environment := strings.Join(command.Env, "\n")
-	for _, expected := range []string{"CTX_ADAPTER_API=2.0", "CTX_ADAPTER_NAME=echo", "CTX_ADAPTER_COMMAND=echoctl", "CTX_ADAPTER_VALUE_ECHO=staging"} {
+	for _, expected := range []string{"EXT_ADAPTER_API=2.0", "EXT_ADAPTER_NAME=echo", "EXT_ADAPTER_COMMAND=echoctl", "EXT_ADAPTER_VALUE_ECHO=staging"} {
 		if !strings.Contains(environment, expected) {
 			t.Fatalf("missing %s", expected)
 		}

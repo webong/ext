@@ -1,7 +1,7 @@
 #!/usr/bin/env sh
 set -eu
 
-platform=${CTX_PLATFORM:-$(uname -s)}
+platform=${EXT_PLATFORM:-$(uname -s)}
 
 find_edge() {
   case "$platform" in

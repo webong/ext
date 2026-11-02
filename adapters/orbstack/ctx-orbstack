@@ -7,7 +7,7 @@ selection=${1:-}
 [ "$#" -eq 0 ] || shift
 [ "${1:-}" != -- ] || shift
 
-orbctl=${CTX_ORBSTACK_CLI:-}
+orbctl=${EXT_ORBSTACK_CLI:-}
 if [ -z "$orbctl" ] && [ -x "$HOME/.orbstack/bin/orbctl" ]; then orbctl="$HOME/.orbstack/bin/orbctl"; fi
 if [ -z "$orbctl" ]; then orbctl=$(command -v orbctl 2>/dev/null || :); fi
 

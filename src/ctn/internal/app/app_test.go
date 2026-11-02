@@ -41,8 +41,6 @@ func TestAdapterListSharesTheInstalledStore(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("EXT_HOME", home)
 	t.Setenv("EXT_ADAPTER_HOME", "")
-	t.Setenv("CTX_HOME", "")
-	t.Setenv("CTX_ADAPTER_HOME", "")
 	directory := filepath.Join(home, "adapters", "notes")
 	if err := os.MkdirAll(directory, 0o755); err != nil {
 		t.Fatal(err)

@@ -30,7 +30,7 @@ type AdapterInvocation struct {
 }
 
 // ParseAdapterInvocation reads the versioned ext adapter process invocation. Call it
-// with os.Args[1:]. It also accepts direct invocations without the legacy CTX_*
+// with os.Args[1:]. It also accepts direct invocations without the legacy EXT_*
 // environment variables, which makes an adapter executable easy to inspect
 // during development.
 func ParseAdapterInvocation(args []string) (AdapterInvocation, error) {
@@ -39,12 +39,12 @@ func ParseAdapterInvocation(args []string) (AdapterInvocation, error) {
 	}
 	request := AdapterInvocation{
 		Operation:   args[0],
-		API:         os.Getenv("CTX_ADAPTER_API"),
-		Name:        os.Getenv("CTX_ADAPTER_NAME"),
-		Command:     os.Getenv("CTX_ADAPTER_COMMAND"),
-		RealCommand: os.Getenv("CTX_ADAPTER_REAL_COMMAND"),
-		Project:     os.Getenv("CTX_PROJECT_DIR"),
-		Profile:     os.Getenv("CTX_PROFILE"),
+		API:         os.Getenv("EXT_ADAPTER_API"),
+		Name:        os.Getenv("EXT_ADAPTER_NAME"),
+		Command:     os.Getenv("EXT_ADAPTER_COMMAND"),
+		RealCommand: os.Getenv("EXT_ADAPTER_REAL_COMMAND"),
+		Project:     os.Getenv("EXT_PROJECT_DIR"),
+		Profile:     os.Getenv("EXT_PROFILE"),
 		Values:      map[string]string{},
 	}
 	if request.API != "" && request.API != AdapterAPIVersion {
@@ -52,8 +52,8 @@ func ParseAdapterInvocation(args []string) (AdapterInvocation, error) {
 	}
 	for _, entry := range os.Environ() {
 		key, value, ok := strings.Cut(entry, "=")
-		if ok && strings.HasPrefix(key, "CTX_ADAPTER_VALUE_") {
-			request.Values[strings.ToLower(strings.TrimPrefix(key, "CTX_ADAPTER_VALUE_"))] = value
+		if ok && strings.HasPrefix(key, "EXT_ADAPTER_VALUE_") {
+			request.Values[strings.ToLower(strings.TrimPrefix(key, "EXT_ADAPTER_VALUE_"))] = value
 		}
 	}
 	switch request.Operation {

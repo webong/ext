@@ -1,14 +1,14 @@
 #!/usr/bin/env sh
 set -eu
 
-docker=${CTX_ADAPTER_REAL_COMMAND:-}
+docker=${EXT_ADAPTER_REAL_COMMAND:-}
 [ -n "$docker" ] && [ -x "$docker" ] || { printf 'docker: Docker CLI is not installed\n' >&2; exit 127; }
 operation=${1:-}
 if [ "$#" -gt 0 ]; then shift; fi
 selection=${1:-}
 if [ "$#" -gt 0 ]; then shift; fi
 if [ "${1:-}" = -- ]; then shift; fi
-volume_image=${CTX_VOLUME_IMAGE:-alpine:3.21}
+volume_image=${EXT_VOLUME_IMAGE:-alpine:3.21}
 
 has_run_override() {
   if [ -n "${DOCKER_CONTEXT:-}" ] || [ -n "${DOCKER_HOST:-}" ] || [ "${1:-}" = context ]; then return 0; fi

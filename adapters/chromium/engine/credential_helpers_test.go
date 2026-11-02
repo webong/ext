@@ -25,17 +25,17 @@ func cookieCredentialHelper(t *testing.T, name, script string) string {
 }
 
 func TestChromiumKWalletNetworkDiscoveryAndOverride(t *testing.T) {
-	root := cookieCredentialHelper(t, "dbus-send", `printf '%s\n' "$*" >> "$CTX_TEST_CREDENTIAL_CALLS"
+	root := cookieCredentialHelper(t, "dbus-send", `printf '%s\n' "$*" >> "$EXT_TEST_CREDENTIAL_CALLS"
 case "$*" in
   *org.kde.kwalletd6*) printf '%s\n' 'Work Wallet';;
   *) exit 1;;
 esac
 `)
 	calls := filepath.Join(root, "calls")
-	t.Setenv("CTX_TEST_CREDENTIAL_CALLS", calls)
-	t.Setenv("CTX_KWALLET_NAME", "")
+	t.Setenv("EXT_TEST_CREDENTIAL_CALLS", calls)
+	t.Setenv("EXT_KWALLET_NAME", "")
 	t.Setenv("KDE_SESSION_VERSION", "6")
-	cookieCredentialHelper(t, "kwallet-query", `printf '%s\n' "$*" >> "$CTX_TEST_CREDENTIAL_CALLS"
+	cookieCredentialHelper(t, "kwallet-query", `printf '%s\n' "$*" >> "$EXT_TEST_CREDENTIAL_CALLS"
 printf '%s\n' fixture-password
 `)
 	config := Config{WalletFolder: "Fixture Keys", WalletKey: "Fixture Safe Storage"}
@@ -49,7 +49,7 @@ printf '%s\n' fixture-password
 	if err := os.Remove(calls); err != nil {
 		t.Fatal(err)
 	}
-	t.Setenv("CTX_KWALLET_NAME", "Explicit Wallet")
+	t.Setenv("EXT_KWALLET_NAME", "Explicit Wallet")
 	if _, err := chromiumKWalletSecret(config); err != nil {
 		t.Fatal(err)
 	}
@@ -57,7 +57,7 @@ printf '%s\n' fixture-password
 	if err != nil || strings.Contains(string(data), "dbus-send") || strings.Contains(string(data), "networkWallet") || !strings.Contains(string(data), "Explicit Wallet") {
 		t.Fatal("explicit wallet was not used directly")
 	}
-	t.Setenv("CTX_KWALLET_NAME", "-invalid")
+	t.Setenv("EXT_KWALLET_NAME", "-invalid")
 	if _, err := chromiumKWalletSecret(config); err == nil {
 		t.Fatal("option-like wallet accepted")
 	}
@@ -65,7 +65,7 @@ printf '%s\n' fixture-password
 
 func TestChromiumKWalletDiscoveryFallbackAndFalseSuccess(t *testing.T) {
 	cookieCredentialHelper(t, "dbus-send", "exit 1\n")
-	t.Setenv("CTX_KWALLET_NAME", "")
+	t.Setenv("EXT_KWALLET_NAME", "")
 	if wallet := chromiumNetworkWallet(); wallet != "kdewallet" {
 		t.Fatal("default wallet fallback failed")
 	}
@@ -82,8 +82,8 @@ func TestChromiumSecretServiceIdentityFallback(t *testing.T) {
   *) exit 2;;
 esac
 `)
-	t.Setenv("CTX_EXECUTABLE", filepath.Join(root, "ctx"))
-	t.Setenv("CTX_DEPENDENCY_CREDENTIAL", "secret_service")
+	t.Setenv("EXT_EXECUTABLE", filepath.Join(root, "ctx"))
+	t.Setenv("EXT_DEPENDENCY_CREDENTIAL", "secret_service")
 	config := Config{SecretApplication: "fixture", KeychainService: "Fixture Safe Storage", KeychainAccount: "Fixture"}
 	if secret, err := chromiumSecretServiceSecret(config); err != nil || secret != "fixture-password" {
 		t.Fatalf("service/account fallback failed: %v", err)
@@ -116,7 +116,7 @@ func TestChromiumCredentialCacheIsRequestScoped(t *testing.T) {
 		}
 	}
 	write()
-	t.Setenv("CTX_BROWSER_FIXTURE_SAFE_STORAGE_PASSWORD_FILE", path)
+	t.Setenv("EXT_BROWSER_FIXTURE_SAFE_STORAGE_PASSWORD_FILE", path)
 	config := Config{Name: "fixture"}
 	iterations, version := 1003, "v10"
 	if runtime.GOOS == "linux" {
@@ -151,7 +151,7 @@ func TestChromiumMalformedCiphertextDoesNotAccessCredentials(t *testing.T) {
 		t.Skip("Safe Storage uses macOS/Linux")
 	}
 	path := filepath.Join(t.TempDir(), "password")
-	t.Setenv("CTX_BROWSER_FIXTURE_SAFE_STORAGE_PASSWORD_FILE", path)
+	t.Setenv("EXT_BROWSER_FIXTURE_SAFE_STORAGE_PASSWORD_FILE", path)
 	decryptor := newChromiumCookieDecryptor(Config{Name: "fixture"})
 	version, iterations := "v10", 1003
 	if runtime.GOOS == "linux" {

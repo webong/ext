@@ -88,7 +88,7 @@ the difference is visible.
 
 `install.sh` and `install.ps1` keep installing `ctx` as today. They gain an `ext`
 binary next to it (`--ext` first, then by default once `ext` ships), installed to the
-same `CTX_BIN_DIR`. Configuration already has one home for every ext product
+same `EXT_BIN_DIR`. Configuration already has one home for every ext product
 (`EXT_HOME`), and `ext` uses it, so the registry choices live beside the adapter
 trust state. Nothing about an existing `ctx` installation changes.
 

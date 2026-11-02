@@ -55,13 +55,23 @@ isolate installations.
 
 The shared library is `pkg/ext-go/engine/host/adapter`. The default adapter
 store is under `$EXT_HOME/adapters`, with `EXT_ADAPTER_HOME` as an adapter-only
-override and legacy CTX home settings retained. See the
+override. An existing `~/.config/ctx` directory keeps being used until
+`~/.config/ext` exists. See the
 [API reference](adapter-api.md) for home resolution and scoped trust.
 
-The contract is `ext.adapter/2.0`. Existing `ctx.adapter/v1` metadata,
-`CTX_ADAPTER_*` environment variables, and `.ctxadapter` archive/index suffixes
-remain compatible. Their spelling does not imply CTX ownership. This terminology
-change does not rename serialized fields or invalidate existing packages.
+The contract is `ext.adapter/2.0`. Every variable the host passes to an adapter or
+reads for itself uses the `EXT_` prefix (`EXT_ADAPTER_API`, `EXT_ADAPTER_NAME`,
+`EXT_ADAPTER_REAL_COMMAND`, `EXT_PROGRAMS`, `EXT_EXECUTABLE`, `EXT_HOME`, and so on),
+because an adapter is an ext adapter and the product that invokes it is only one of
+its hosts. CTX and CTN provide their own hooks and listen; they define no `CTX_`
+binding of their own. This is a hard cut: the former `CTX_` names are not read, so an
+adapter installed before the change must be reinstalled. Standalone `ctx` and `ctn`
+behave the same as `ext ctx` and `ext ctn`: they run the same library, use the same
+home and set the same variables, and `EXT_EXECUTABLE` names whichever binary hosted
+the adapter. The release labels `CTX_VERSION`, `CTX_RELEASE_BASE`, `CTX_INSTALL_URL`
+and the `CTX_KEYCHAIN_*` build variables name ctx's own releases and are not
+bindings, so they keep their names. `ctx.adapter/v1` metadata and `.ctxadapter`
+suffixes are serialized names and are unchanged.
 
 ## Shared implementation
 

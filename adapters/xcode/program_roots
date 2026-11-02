@@ -1,0 +1,5 @@
+# The tools Apple's installers put on a Mac. CTX looks in these directories
+# itself; this adapter has no executable. Directories that do not exist on this
+# machine match nothing.
+/Library/Developer/CommandLineTools/usr/bin
+/Applications/Xcode*.app/Contents/Developer/usr/bin

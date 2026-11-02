@@ -6,10 +6,10 @@ TEST_ROOT=$(mktemp -d)
 trap 'rm -rf "$TEST_ROOT"' EXIT HUP INT TERM
 
 export HOME="$TEST_ROOT/home"
-export CTX_HOME="$HOME/.config/ctx"
-export CTX_BIN_DIR="$TEST_ROOT/bin"
-export CTX_PLATFORM=Darwin
-mkdir -p "$HOME" "$CTX_BIN_DIR" "$TEST_ROOT/fake-bin" "$TEST_ROOT/project" \
+export EXT_HOME="$HOME/.config/ctx"
+export EXT_BIN_DIR="$TEST_ROOT/bin"
+export EXT_PLATFORM=Darwin
+mkdir -p "$HOME" "$EXT_BIN_DIR" "$TEST_ROOT/fake-bin" "$TEST_ROOT/project" \
   "$TEST_ROOT/mapped" "$HOME/Library/Application Support/Google/Chrome/Default" \
   "$HOME/Library/Application Support/Google/Chrome/Profile 1"
 printf '{}\n' > "$HOME/Library/Application Support/Google/Chrome/Default/Preferences"
@@ -26,29 +26,29 @@ mv "$TEST_ROOT/fake-bin/shell" "$TEST_ROOT/fake-bin/custom-shell"
 cp "$ROOT/tests/fake-postgres" "$TEST_ROOT/fake-bin/psql"
 cp "$ROOT/tests/fake-mysql" "$TEST_ROOT/fake-bin/mysql"
 chmod +x "$TEST_ROOT/fake-bin"/*
-export PATH="$CTX_BIN_DIR:$TEST_ROOT/fake-bin:$PATH"
-export CTX_RANCHER_RDCTL="$TEST_ROOT/fake-bin/rdctl"
-export CTX_ORBSTACK_CLI="$TEST_ROOT/fake-bin/orbctl"
-export CTX_DOCKER_DESKTOP_CLI="$TEST_ROOT/fake-bin/docker-desktop-cli"
+export PATH="$EXT_BIN_DIR:$TEST_ROOT/fake-bin:$PATH"
+export EXT_RANCHER_RDCTL="$TEST_ROOT/fake-bin/rdctl"
+export EXT_ORBSTACK_CLI="$TEST_ROOT/fake-bin/orbctl"
+export EXT_DOCKER_DESKTOP_CLI="$TEST_ROOT/fake-bin/docker-desktop-cli"
 
 GOCACHE=${GOCACHE:-/tmp/ctx-go-build-cache} GOMODCACHE=${GOMODCACHE:-/tmp/ctx-go-mod-cache} \
-  go build -o "$CTX_BIN_DIR/ctx" "$ROOT/src/ctx/cmd/ctx"
+  go build -o "$EXT_BIN_DIR/ctx" "$ROOT/src/ctx/cmd/ctx"
 
-mkdir -p "$CTX_HOME/catalog/adapters"
+mkdir -p "$EXT_HOME/catalog/adapters"
 for adapter in docker podman nerdctl apple rancher_desktop orbstack docker_desktop firefox chrome kube aws gcloud postgres mysql git; do
-  cp -R "$ROOT/adapters/$adapter" "$CTX_HOME/catalog/adapters/$adapter"
+  cp -R "$ROOT/adapters/$adapter" "$EXT_HOME/catalog/adapters/$adapter"
 done
 GOCACHE=${GOCACHE:-/tmp/ctx-go-build-cache} GOMODCACHE=${GOMODCACHE:-/tmp/ctx-go-mod-cache} \
-  go build -o "$CTX_HOME/catalog/adapters/git/ctx-git" "$ROOT/adapters/git/native"
+  go build -o "$EXT_HOME/catalog/adapters/git/ctx-git" "$ROOT/adapters/git/native"
 case "$(uname -s)" in
   Darwin) credential_adapter=keychain; credential_executable=ctx-keychain ;;
   Linux) credential_adapter=secret_service; credential_executable=ctx-secret-service ;;
   *) credential_adapter= ;;
 esac
 if [ -n "$credential_adapter" ]; then
-  cp -R "$ROOT/adapters/$credential_adapter" "$CTX_HOME/catalog/adapters/$credential_adapter"
+  cp -R "$ROOT/adapters/$credential_adapter" "$EXT_HOME/catalog/adapters/$credential_adapter"
   GOCACHE=${GOCACHE:-/tmp/ctx-go-build-cache} GOMODCACHE=${GOMODCACHE:-/tmp/ctx-go-mod-cache} \
-    go build -o "$CTX_HOME/catalog/adapters/$credential_adapter/$credential_executable" "$ROOT/adapters/$credential_adapter/native"
+    go build -o "$EXT_HOME/catalog/adapters/$credential_adapter/$credential_executable" "$ROOT/adapters/$credential_adapter/native"
 fi
 ctx adapter available | grep -Eq '^docker[[:space:]]+manager[[:space:]]+available'
 ctx setup --adapters docker,podman,nerdctl,apple,rancher_desktop,orbstack,docker_desktop,firefox,chrome,kube,aws,gcloud,postgres,mysql,git >/dev/null
@@ -58,15 +58,15 @@ done
 if [ -n "$credential_adapter" ]; then
   ctx adapter ls | grep -Eq "^${credential_adapter}[[:space:]]+trusted"
 fi
-for engine in docker podman nerdctl; do test -x "$CTX_BIN_DIR/$engine"; done
+for engine in docker podman nerdctl; do test -x "$EXT_BIN_DIR/$engine"; done
 ctx adapter available | grep -Eq '^docker[[:space:]]+manager[[:space:]]+installed'
 ctx adapter remove nerdctl >/dev/null
-test ! -e "$CTX_BIN_DIR/nerdctl"
+test ! -e "$EXT_BIN_DIR/nerdctl"
 ctx adapter add nerdctl >/dev/null
-test -x "$CTX_BIN_DIR/nerdctl"
+test -x "$EXT_BIN_DIR/nerdctl"
 ctx adapter refresh >/dev/null
 
-ctx adapter test "$ROOT/examples/adapters/echo" | grep -Fq 'adapter echo satisfies ctx adapter API v2.0'
+ctx adapter test "$ROOT/examples/adapters/echo" | grep -Fq 'adapter echo satisfies ext adapter API v2.0'
 ctx adapter install "$ROOT/examples/adapters/echo" >/dev/null
 if ctx adapter doctor echo >/dev/null 2>&1; then
   printf 'native core executed an untrusted adapter\n' >&2
@@ -103,7 +103,7 @@ grep -Fxq 'nerdctl = "k8s.io"' .ctx
 git check-ignore -q .ctx
 
 test "$(ctx real docker)" = "$TEST_ROOT/fake-bin/docker"
-test "$(CTX_SHELL=custom-shell ctx shell)" = 'custom shell'
+test "$(EXT_SHELL=custom-shell ctx shell)" = 'custom shell'
 test "$(ctx shell --shell custom-shell)" = 'custom shell'
 ctx completion powershell | grep -Fq 'Register-ArgumentCompleter'
 test "$(ctx run docker ps)" = '--context alpha ps'
@@ -228,7 +228,7 @@ printf '%s\n' "$image_copy_output" | grep -Eq '^--namespace k8s.io load -i .+$'
 image_copy_output=$(ctx share:manager image copy nerdctl:k8s.io apple:local registry.example/app:dev)
 printf '%s\n' "$image_copy_output" | grep -Eq '^--namespace k8s.io save -o .+ registry.example/app:dev$'
 printf '%s\n' "$image_copy_output" | grep -Eq '^image load --input .+$'
-if CTX_TEST_APPLE_VERSION=1.2.0 ctx share:manager image copy docker:alpha apple:local registry.example/app:dev >/dev/null 2>&1; then
+if EXT_TEST_APPLE_VERSION=1.2.0 ctx share:manager image copy docker:alpha apple:local registry.example/app:dev >/dev/null 2>&1; then
   printf 'native core allowed an unsafe Apple Container image import\n' >&2
   exit 1
 fi
@@ -250,7 +250,7 @@ fi
 ctx profile set client-b aws_profile default >/dev/null
 ctx profile set client-b shell_path /client/bin >/dev/null
 ctx profile env client-b APP_ENV development >/dev/null
-ctx profile env client-b CTX_SHELL custom-shell >/dev/null
+ctx profile env client-b EXT_SHELL custom-shell >/dev/null
 ctx profile show client-b | grep -Fq 'aws_profile = "default"'
 ctx profile show client-b | grep -Fq '[env]'
 ctx profile use client-b >/dev/null
@@ -266,7 +266,7 @@ ctx profile clear >/dev/null
 
 # Central mappings and global fallbacks remain compatible with the shell-era
 # configuration format.
-printf '\n[projects."%s"]\ndocker = "beta"\npodman = "blue"\nnerdctl = "default"\n' "$TEST_ROOT/mapped" >> "$CTX_HOME/config.toml"
+printf '\n[projects."%s"]\ndocker = "beta"\npodman = "blue"\nnerdctl = "default"\n' "$TEST_ROOT/mapped" >> "$EXT_HOME/config.toml"
 cd "$TEST_ROOT/mapped"
 test "$(docker ps)" = '--context beta ps'
 test "$(podman ps)" = '--connection blue ps'
@@ -296,7 +296,7 @@ if ctx set nerdctl missing >/dev/null 2>&1; then
 fi
 
 ctx set echo local >/dev/null
-printf '\n# changed after trust\n' >> "$CTX_HOME/adapters/echo/ctx-echo"
+printf '\n# changed after trust\n' >> "$EXT_HOME/adapters/echo/ctx-echo"
 if ctx run echo changed >/dev/null 2>&1; then
   printf 'changed adapter retained trust\n' >&2
   exit 1
@@ -316,6 +316,6 @@ ctx adapter trust echo >/dev/null
 test "$(ctx run echo trusted-again)" = 'run[local] trusted-again'
 ctx clear echo >/dev/null
 ctx adapter remove echo >/dev/null
-test ! -e "$CTX_HOME/adapters/echo"
+test ! -e "$EXT_HOME/adapters/echo"
 
 printf 'ctx native adapter tests passed\n'

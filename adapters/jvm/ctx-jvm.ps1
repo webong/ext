@@ -83,7 +83,7 @@ switch ($operation) {
         $record = if ($selection) { Find-Record $selection } else { $distinct | Select-Object -First 1 }
         if ($selection -and -not $record) { [Console]::Error.WriteLine("jvm: Java $selection is not installed (installed: $(Get-InstalledList))"); exit 1 }
         if (-not $record) { [Console]::Error.WriteLine('jvm: no Java installation found'); exit 127 }
-        $tool = if ($env:CTX_ADAPTER_COMMAND -in @('javac', 'jar')) { $env:CTX_ADAPTER_COMMAND } else { 'java' }
+        $tool = if ($env:EXT_ADAPTER_COMMAND -in @('javac', 'jar')) { $env:EXT_ADAPTER_COMMAND } else { 'java' }
         $executable = Join-Path $record.home "bin\$tool.exe"
         if (-not (Test-Path -LiteralPath $executable -PathType Leaf)) { [Console]::Error.WriteLine("jvm: $tool is not part of the selected installation"); exit 127 }
         $env:JAVA_HOME = $record.home

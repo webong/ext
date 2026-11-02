@@ -29,10 +29,10 @@ func TestParseAdapterSelectionNamesAndNumbers(t *testing.T) {
 
 func TestCatalogAddInstallsDeclaredDependency(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("CTX_HOME", filepath.Join(root, "state"))
-	t.Setenv("CTX_ADAPTER_HOME", filepath.Join(root, "state", "adapters"))
-	t.Setenv("CTX_CATALOG_HOME", filepath.Join(root, "catalog"))
-	t.Setenv("CTX_BIN_DIR", filepath.Join(root, "bin"))
+	t.Setenv("EXT_HOME", filepath.Join(root, "state"))
+	t.Setenv("EXT_ADAPTER_HOME", filepath.Join(root, "state", "adapters"))
+	t.Setenv("EXT_CATALOG_HOME", filepath.Join(root, "catalog"))
+	t.Setenv("EXT_BIN_DIR", filepath.Join(root, "bin"))
 	write := func(name, manifest string) {
 		t.Helper()
 		directory := filepath.Join(root, "catalog", name)
@@ -44,7 +44,7 @@ func TestCatalogAddInstallsDeclaredDependency(t *testing.T) {
 		}
 		command := "#!/bin/sh\nexit 0\n"
 		if name == "chrome" {
-			command = "#!/bin/sh\nprintf '%s\\n' \"$CTX_DEPENDENCY_CREDENTIAL\"\n"
+			command = "#!/bin/sh\nprintf '%s\\n' \"$EXT_DEPENDENCY_CREDENTIAL\"\n"
 		}
 		if err := os.WriteFile(filepath.Join(directory, "ctx-"+name), []byte(command), 0o700); err != nil {
 			t.Fatal(err)
@@ -106,7 +106,7 @@ dependencies_`+runtime.GOOS+` = "credential:vault@2.0"
 		t.Fatal("removed a store adapter still required by the browser")
 	}
 	if runtime.GOOS != "windows" {
-		t.Setenv("CTX_DEPENDENCY_CREDENTIAL", "forged")
+		t.Setenv("EXT_DEPENDENCY_CREDENTIAL", "forged")
 		var stdout, stderr bytes.Buffer
 		if code := invokeAdapterIO(resolver, installed, "share", "", []string{"cookie", "read"}, "", bytes.NewReader(nil), &stdout, &stderr); code != 0 || stdout.String() != "vault\n" {
 			t.Fatalf("dependency environment code=%d output=%q diagnostics=%q", code, stdout.String(), stderr.String())
@@ -120,7 +120,7 @@ dependencies_`+runtime.GOOS+` = "credential:vault@2.0"
 }
 
 func TestSetupMinimalDoesNotRequireCatalog(t *testing.T) {
-	t.Setenv("CTX_HOME", t.TempDir())
+	t.Setenv("EXT_HOME", t.TempDir())
 	var stdout, stderr bytes.Buffer
 	if code := setupCommand([]string{"--minimal"}, bytes.NewReader(nil), &stdout, &stderr); code != 0 {
 		t.Fatalf("setup minimal returned %d: %s", code, stderr.String())

@@ -14,8 +14,8 @@ import (
 // This opt-in test creates its own keychain and dummy item. It does not read
 // browser credentials. Run it on a disposable CI host or explicitly opt in.
 func TestNativeCookieCredentialsMacOSKeychain(t *testing.T) {
-	if os.Getenv("CTX_COOKIE_NATIVE_CREDENTIAL_TESTS") != "1" {
-		t.Skip("set CTX_COOKIE_NATIVE_CREDENTIAL_TESTS=1 for isolated OS credential fixtures")
+	if os.Getenv("EXT_COOKIE_NATIVE_CREDENTIAL_TESTS") != "1" {
+		t.Skip("set EXT_COOKIE_NATIVE_CREDENTIAL_TESTS=1 for isolated OS credential fixtures")
 	}
 	keychain := filepath.Join(t.TempDir(), "ctx-fixture.keychain-db")
 	run := func(args ...string) {
@@ -71,9 +71,9 @@ func TestNativeCookieCredentialsMacOSKeychain(t *testing.T) {
 		command := exec.Command(ctxBinary, args...)
 		command.Dir = root
 		command.Env = append(os.Environ(),
-			"CTX_HOME="+filepath.Join(fixture, "state"),
-			"CTX_ADAPTER_HOME="+adapterHome,
-			"CTX_EXECUTABLE="+ctxBinary,
+			"EXT_HOME="+filepath.Join(fixture, "state"),
+			"EXT_ADAPTER_HOME="+adapterHome,
+			"EXT_EXECUTABLE="+ctxBinary,
 		)
 		if output, err := command.CombinedOutput(); err != nil {
 			t.Fatalf("ctx %v: %v: %s", args, err, output)
@@ -96,12 +96,12 @@ func TestNativeCookieCredentialsMacOSKeychain(t *testing.T) {
 	}
 	run("add-generic-password", "-s", "CTX Synthetic Safe Storage", "-a", "CTX Synthetic",
 		"-w", "ctx-synthetic-safe-storage-password", "-T", "/usr/bin/security", "-T", executable, keychain)
-	t.Setenv("CTX_HOME", filepath.Join(fixture, "state"))
-	t.Setenv("CTX_ADAPTER_HOME", adapterHome)
-	t.Setenv("CTX_EXECUTABLE", ctxBinary)
-	t.Setenv("CTX_DEPENDENCY_CREDENTIAL", "keychain")
+	t.Setenv("EXT_HOME", filepath.Join(fixture, "state"))
+	t.Setenv("EXT_ADAPTER_HOME", adapterHome)
+	t.Setenv("EXT_EXECUTABLE", ctxBinary)
+	t.Setenv("EXT_DEPENDENCY_CREDENTIAL", "keychain")
 	config := Config{Name: "fixture", KeychainService: "CTX Synthetic Safe Storage", KeychainAccount: "CTX Synthetic", KeychainPath: keychain}
-	t.Setenv("CTX_BROWSER_FIXTURE_SAFE_STORAGE_PASSWORD_FILE", "")
+	t.Setenv("EXT_BROWSER_FIXTURE_SAFE_STORAGE_PASSWORD_FILE", "")
 	password, err := chromiumMacKeychainPassword(config)
 	if err != nil || password != "ctx-synthetic-safe-storage-password" {
 		t.Fatalf("isolated Keychain lookup failed: %v", err)

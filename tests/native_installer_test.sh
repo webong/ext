@@ -12,68 +12,68 @@ GOMODCACHE=$(go env GOMODCACHE)
 export GOCACHE GOMODCACHE
 
 export HOME="$TEST_ROOT/home"
-export CTX_HOME="$TEST_ROOT/config"
-export CTX_BIN_DIR="$TEST_ROOT/bin"
-mkdir -p "$HOME" "$CTX_HOME/adapters" "$CTX_BIN_DIR" "$TEST_ROOT/project"
+export EXT_HOME="$TEST_ROOT/config"
+export EXT_BIN_DIR="$TEST_ROOT/bin"
+mkdir -p "$HOME" "$EXT_HOME/adapters" "$EXT_BIN_DIR" "$TEST_ROOT/project"
 
 # Simulate an existing 0.7 shell installation. The native installer must replace
 # the core while preserving configuration, projects, external adapters, and
 # ctx-managed shims.
-cat > "$CTX_BIN_DIR/ctx" <<'SH'
+cat > "$EXT_BIN_DIR/ctx" <<'SH'
 #!/usr/bin/env sh
 [ "${1:-}" = version ] && { printf 'ctx 0.7.0\n'; exit 0; }
 exit 2
 SH
-chmod +x "$CTX_BIN_DIR/ctx"
+chmod +x "$EXT_BIN_DIR/ctx"
 for engine in docker podman nerdctl; do
-  cp "$ROOT/adapters/$engine/$engine" "$CTX_BIN_DIR/$engine"
-  chmod +x "$CTX_BIN_DIR/$engine"
+  cp "$ROOT/adapters/$engine/$engine" "$EXT_BIN_DIR/$engine"
+  chmod +x "$EXT_BIN_DIR/$engine"
 done
-cp -R "$ROOT/examples/adapters/echo" "$CTX_HOME/adapters/echo"
-cp -R "$ROOT/adapters/kube" "$CTX_HOME/adapters/kube"
-cat > "$CTX_HOME/config.toml" <<'TOML'
+cp -R "$ROOT/examples/adapters/echo" "$EXT_HOME/adapters/echo"
+cp -R "$ROOT/adapters/kube" "$EXT_HOME/adapters/kube"
+cat > "$EXT_HOME/config.toml" <<'TOML'
 docker_default = "alpha"
 
 [profiles."client-a"]
 aws_profile = "client-a"
 TOML
-cp "$CTX_HOME/config.toml" "$TEST_ROOT/config.before.toml"
+cp "$EXT_HOME/config.toml" "$TEST_ROOT/config.before.toml"
 printf '%s\n' 'profile = "client-a"' > "$TEST_ROOT/project/.ctx"
 
 output=$("$ROOT/install.sh" </dev/null)
 printf '%s\n' "$output" | grep -Fq 'no adapter catalog downloaded'
 
-test -x "$CTX_BIN_DIR/ctx"
-test "$("$CTX_BIN_DIR/ctx" version)" = 'ctx 0.9.0-dev'
+test -x "$EXT_BIN_DIR/ctx"
+test "$("$EXT_BIN_DIR/ctx" version)" = 'ctx 0.9.0-dev'
 for engine in docker podman nerdctl; do
-  test -x "$CTX_BIN_DIR/$engine"
-  test ! -e "$CTX_HOME/adapters/$engine"
+  test -x "$EXT_BIN_DIR/$engine"
+  test ! -e "$EXT_HOME/adapters/$engine"
 done
-test -d "$CTX_HOME/adapters/kube"
-test -d "$CTX_HOME/adapters/echo"
-test ! -e "$CTX_HOME/catalog/adapters/podman"
-cmp "$TEST_ROOT/config.before.toml" "$CTX_HOME/config.toml"
+test -d "$EXT_HOME/adapters/kube"
+test -d "$EXT_HOME/adapters/echo"
+test ! -e "$EXT_HOME/catalog/adapters/podman"
+cmp "$TEST_ROOT/config.before.toml" "$EXT_HOME/config.toml"
 grep -Fxq 'profile = "client-a"' "$TEST_ROOT/project/.ctx"
 
 "$ROOT/install.sh" --adapters docker,git >/dev/null
 for engine in docker podman nerdctl; do
-  test -d "$CTX_HOME/adapters/$engine"
-  CTX_HOME="$CTX_HOME" "$CTX_BIN_DIR/ctx" adapter ls manager | grep -Eq "^${engine}[[:space:]]+trusted"
+  test -d "$EXT_HOME/adapters/$engine"
+  EXT_HOME="$EXT_HOME" "$EXT_BIN_DIR/ctx" adapter ls manager | grep -Eq "^${engine}[[:space:]]+trusted"
 done
-test -d "$CTX_HOME/catalog/adapters/podman"
-test -x "$CTX_HOME/adapters/git/ctx-git"
-test ! -e "$CTX_BIN_DIR/git"
-CTX_HOME="$CTX_HOME" "$CTX_BIN_DIR/ctx" adapter available | grep -Eq '^podman[[:space:]]+manager[[:space:]]+installed'
+test -d "$EXT_HOME/catalog/adapters/podman"
+test -x "$EXT_HOME/adapters/git/ctx-git"
+test ! -e "$EXT_BIN_DIR/git"
+EXT_HOME="$EXT_HOME" "$EXT_BIN_DIR/ctx" adapter available | grep -Eq '^podman[[:space:]]+manager[[:space:]]+installed'
 "$ROOT/install.sh" --minimal >/dev/null
-test -d "$CTX_HOME/adapters/docker"
-test -d "$CTX_HOME/catalog/adapters/docker"
+test -d "$EXT_HOME/adapters/docker"
+test -d "$EXT_HOME/catalog/adapters/docker"
 
 # A non-interactive install keeps the complete catalog but selects no adapters.
 minimal_home="$TEST_ROOT/minimal-home"
 minimal_config="$TEST_ROOT/minimal-config"
 minimal_bin="$TEST_ROOT/minimal-bin"
 mkdir -p "$minimal_home"
-output=$(HOME="$minimal_home" CTX_HOME="$minimal_config" CTX_BIN_DIR="$minimal_bin" \
+output=$(HOME="$minimal_home" EXT_HOME="$minimal_config" EXT_BIN_DIR="$minimal_bin" \
   "$ROOT/install.sh" </dev/null)
 printf '%s\n' "$output" | grep -Fq 'no adapter catalog downloaded'
 test -x "$minimal_bin/ctx"
@@ -85,7 +85,7 @@ test ! -e "$minimal_config/adapters/docker"
 release_dir="$TEST_ROOT/release"
 bundle_stage="$TEST_ROOT/bundle-stage"
 mkdir -p "$release_dir" "$bundle_stage/ctx/bin"
-cp "$CTX_BIN_DIR/ctx" "$bundle_stage/ctx/bin/ctx"
+cp "$EXT_BIN_DIR/ctx" "$bundle_stage/ctx/bin/ctx"
 os=$(uname -s)
 case "$os" in Darwin) os=darwin;; Linux) os=linux;; *) exit 1;; esac
 arch=$(uname -m)
@@ -93,7 +93,7 @@ case "$arch" in x86_64|amd64) arch=amd64;; arm64|aarch64) arch=arm64;; *) exit 1
 asset="ctx-$os-$arch.tar.gz"
 tar -C "$bundle_stage" -czf "$release_dir/$asset" ctx
 mkdir -p "$bundle_stage/ctx/adapters"
-for adapter in docker podman nerdctl apple rancher_desktop orbstack docker_desktop firefox zen floorp waterfox librewolf chrome chromium edge brave safari vivaldi opera whale arc comet dia atlas helium kube aws gcloud postgres mysql php jvm wasm evm claude_code codex git; do
+for adapter in docker podman nerdctl apple rancher_desktop orbstack docker_desktop firefox zen floorp waterfox librewolf chrome chromium edge brave safari vivaldi opera whale arc comet dia atlas helium kube aws gcloud postgres mysql php python node homebrew nvm xcode jvm wasm evm claude_code codex git; do
   cp -R "$ROOT/adapters/$adapter" "$bundle_stage/ctx/adapters/$adapter"
 done
 go build -o "$bundle_stage/ctx/adapters/git/ctx-git" "$ROOT/adapters/git/native"
@@ -115,12 +115,12 @@ release_home="$TEST_ROOT/release-home"
 release_config="$TEST_ROOT/release-config"
 release_bin="$TEST_ROOT/release-bin"
 mkdir -p "$release_home"
-HOME="$release_home" CTX_HOME="$release_config" CTX_BIN_DIR="$release_bin" \
+HOME="$release_home" EXT_HOME="$release_config" EXT_BIN_DIR="$release_bin" \
   CTX_RELEASE_BASE="file://$release_dir" "$ROOT/install.sh" --minimal >/dev/null
 test "$("$release_bin/ctx" version)" = 'ctx 0.9.0-dev'
 test ! -e "$release_config/catalog/adapters/docker"
 test ! -e "$release_config/adapters/docker"
-HOME="$release_home" CTX_HOME="$release_config" CTX_BIN_DIR="$release_bin" \
+HOME="$release_home" EXT_HOME="$release_config" EXT_BIN_DIR="$release_bin" \
   CTX_RELEASE_BASE="file://$release_dir" "$ROOT/install.sh" --adapters docker >/dev/null
 test -d "$release_config/catalog/adapters/docker"
 test -d "$release_config/adapters/docker"
@@ -137,7 +137,7 @@ expect_refusal() {
   refuse_config="$TEST_ROOT/refuse-$label-config"
   refuse_bin="$TEST_ROOT/refuse-$label-bin"
   mkdir -p "$refuse_home"
-  if HOME="$refuse_home" CTX_HOME="$refuse_config" CTX_BIN_DIR="$refuse_bin" \
+  if HOME="$refuse_home" EXT_HOME="$refuse_config" EXT_BIN_DIR="$refuse_bin" \
     CTX_RELEASE_BASE="file://$release" "$ROOT/install.sh" "$@" >"$TEST_ROOT/refuse-$label.out" 2>&1; then
     printf 'installer accepted a bad release (%s)\n' "$label" >&2
     exit 1
@@ -177,7 +177,7 @@ compat_home="$TEST_ROOT/compat-home"
 compat_config="$TEST_ROOT/compat-config"
 compat_bin="$TEST_ROOT/compat-bin"
 mkdir -p "$compat_home"
-HOME="$compat_home" CTX_HOME="$compat_config" CTX_BIN_DIR="$compat_bin" \
+HOME="$compat_home" EXT_HOME="$compat_config" EXT_BIN_DIR="$compat_bin" \
   CTX_RELEASE_BASE="file://$release_dir" CTX_INSTALL_URL="file://$ROOT/install.sh" \
   sh -s -- --minimal < "$ROOT/install-native.sh" >/dev/null
 test "$("$compat_bin/ctx" version)" = 'ctx 0.9.0-dev'
@@ -188,7 +188,7 @@ ext_home="$TEST_ROOT/ext-home"
 ext_config="$TEST_ROOT/ext-config"
 ext_bin="$TEST_ROOT/ext-bin"
 mkdir -p "$ext_home"
-HOME="$ext_home" CTX_HOME="$ext_config" CTX_BIN_DIR="$ext_bin" "$ROOT/install.sh" --ext --minimal >/dev/null
+HOME="$ext_home" EXT_HOME="$ext_config" EXT_BIN_DIR="$ext_bin" "$ROOT/install.sh" --ext --minimal >/dev/null
 test -x "$ext_bin/ext"
 "$ext_bin/ext" version | head -n 1 | grep -Eq '^ext '
 test "$("$ext_bin/ext" ctx version)" = 'ctx 0.9.0-dev'
@@ -207,7 +207,7 @@ fi
 ext_release_home="$TEST_ROOT/ext-release-home"
 ext_release_bin="$TEST_ROOT/ext-release-bin"
 mkdir -p "$ext_release_home"
-HOME="$ext_release_home" CTX_HOME="$TEST_ROOT/ext-release-config" CTX_BIN_DIR="$ext_release_bin" \
+HOME="$ext_release_home" EXT_HOME="$TEST_ROOT/ext-release-config" EXT_BIN_DIR="$ext_release_bin" \
   CTX_RELEASE_BASE="file://$release_dir" "$ROOT/install.sh" --ext --minimal >/dev/null
 "$ext_release_bin/ext" version | head -n 1 | grep -Eq '^ext '
 

@@ -114,6 +114,8 @@ func Run(args []string, stdout, stderr io.Writer) int {
 		return computerCommand(args[1:], stdout, stderr)
 	case "manager":
 		return managerCommand(resolver, args[1:], stdout, stderr)
+	case "program":
+		return programCommand(resolver, args[1:], stdout, stderr)
 	case "plugin":
 		if len(args) < 2 || args[1] != "computer" {
 			fmt.Fprintln(stderr, "ctx: plugin requires computer <adapter> [arguments...]")
@@ -205,6 +207,11 @@ usage:
       [--offline]
   ctx manager <ls|show|doctor|remove> [name]
   ctx manager apps
+  ctx program <recognise|forget> <path> [installer]
+      recognise records that you know which installer put a program there; with no
+      installer it takes the one an adapter suggested
+  ctx program installer <add <name> <pattern>...|remove <name>|ls>
+      describe an installer yourself by the directories it keeps programs in
   ctx manager app <adapter> <status|start|stop|doctor>
   ctx setup [adapters] [--all|--minimal|--adapters <name,...>]
   ctx ls <selector>
@@ -349,7 +356,7 @@ func observedStatus(selector, value string, inventory systemgraph.Inventory) str
 func environmentOverride(selector string, providerVariables []string) (string, string) {
 	checks := providerVariables
 	if selector == "browser" {
-		checks = append([]string{"CTX_BROWSER"}, checks...)
+		checks = append([]string{"EXT_BROWSER"}, checks...)
 	}
 	for _, key := range checks {
 		if value := os.Getenv(key); value != "" {
@@ -469,7 +476,7 @@ func shell(resolver *config.Resolver, args []string, stdout, stderr io.Writer) i
 		return reportError(stderr, err)
 	}
 	if shellName == "" {
-		shellName = values["CTX_SHELL"]
+		shellName = values["EXT_SHELL"]
 		if shellName == "" {
 			shellName = platform.DefaultShell()
 		}

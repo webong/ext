@@ -1,16 +1,15 @@
 #!/usr/bin/env sh
 set -eu
 
-DST_BIN=${CTX_BIN_DIR:-$HOME/.local/bin}
-# One home for every ext product. CTX_HOME is still honored, and an existing
+DST_BIN=${EXT_BIN_DIR:-$HOME/.local/bin}
+# One home for every ext product. EXT_HOME overrides it, and an existing
 # ~/.config/ctx installation keeps being used until ~/.config/ext exists.
 if [ -n "${EXT_HOME:-}" ]; then CONFIG_DIR=$EXT_HOME
-elif [ -n "${CTX_HOME:-}" ]; then CONFIG_DIR=$CTX_HOME
 elif [ -d "$HOME/.config/ext" ] || [ ! -d "$HOME/.config/ctx" ]; then CONFIG_DIR=$HOME/.config/ext
 else CONFIG_DIR=$HOME/.config/ctx
 fi
 VERSION=${CTX_VERSION:-latest}
-CATALOG_ADAPTERS='docker podman nerdctl apple rancher_desktop orbstack docker_desktop firefox zen floorp waterfox librewolf chrome chromium edge brave safari vivaldi opera whale arc comet dia atlas helium kube aws gcloud postgres mysql php jvm wasm evm claude_code codex git'
+CATALOG_ADAPTERS='docker podman nerdctl apple rancher_desktop orbstack docker_desktop firefox zen floorp waterfox librewolf chrome chromium edge brave safari vivaldi opera whale arc comet dia atlas helium kube aws gcloud postgres mysql php python node homebrew nvm xcode jvm wasm evm claude_code codex git'
 case "$(uname -s)" in
   Darwin) CREDENTIAL_ADAPTER=keychain ;;
   Linux) CREDENTIAL_ADAPTER=secret_service ;;
@@ -88,7 +87,7 @@ fi
 if [ "$INSTALL_EXT" = 1 ]; then
   ext_target="$DST_BIN/ext"
   if [ -e "$ext_target" ] || [ -L "$ext_target" ]; then
-    "$ext_target" version 2>/dev/null | grep -Eq '^ext ' || { printf 'ext: %s exists; choose another CTX_BIN_DIR\n' "$ext_target" >&2; exit 1; }
+    "$ext_target" version 2>/dev/null | grep -Eq '^ext ' || { printf 'ext: %s exists; choose another EXT_BIN_DIR\n' "$ext_target" >&2; exit 1; }
   fi
   if [ -n "$ROOT" ]; then
     (cd "$ROOT" && go build -o "$temporary/ext-binary" ./cmd/ext)
@@ -158,7 +157,7 @@ fi
 [ -x "$bundle/bin/ctx" ] || { printf 'ctx: native bundle is missing ctx\n' >&2; exit 1; }
 target="$DST_BIN/ctx"
 if [ -e "$target" ] || [ -L "$target" ]; then
-  "$target" version 2>/dev/null | grep -Eq '^ctx ' || { printf 'ctx: %s exists; choose another CTX_BIN_DIR\n' "$target" >&2; exit 1; }
+  "$target" version 2>/dev/null | grep -Eq '^ctx ' || { printf 'ctx: %s exists; choose another EXT_BIN_DIR\n' "$target" >&2; exit 1; }
 fi
 
 MIGRATE_ADAPTERS=
@@ -187,21 +186,21 @@ if [ "$SETUP_MODE" != minimal ]; then
     if [ -e "$target_adapter" ]; then rm -rf "$target_adapter"; fi
     cp -R "$source_adapter" "$target_adapter"
   done
-  EXT_HOME="$CONFIG_DIR" CTX_BIN_DIR="$DST_BIN" "$DST_BIN/ctx" adapter refresh >/dev/null
+  EXT_HOME="$CONFIG_DIR" EXT_BIN_DIR="$DST_BIN" "$DST_BIN/ctx" adapter refresh >/dev/null
   for adapter in $MIGRATE_ADAPTERS; do
     rm -f "$DST_BIN/$adapter"
-    EXT_HOME="$CONFIG_DIR" CTX_BIN_DIR="$DST_BIN" "$DST_BIN/ctx" adapter add "$adapter" >/dev/null
+    EXT_HOME="$CONFIG_DIR" EXT_BIN_DIR="$DST_BIN" "$DST_BIN/ctx" adapter add "$adapter" >/dev/null
   done
 elif [ -n "$MIGRATE_ADAPTERS" ]; then
   printf 'Legacy shims were preserved; rerun with --adapters to migrate them.\n'
 fi
 
 case "$SETUP_MODE" in
-  all) EXT_HOME="$CONFIG_DIR" CTX_BIN_DIR="$DST_BIN" "$DST_BIN/ctx" setup --all ;;
+  all) EXT_HOME="$CONFIG_DIR" EXT_BIN_DIR="$DST_BIN" "$DST_BIN/ctx" setup --all ;;
   minimal) : ;;
-  selected) EXT_HOME="$CONFIG_DIR" CTX_BIN_DIR="$DST_BIN" "$DST_BIN/ctx" setup --adapters "$SETUP_ADAPTERS" ;;
+  selected) EXT_HOME="$CONFIG_DIR" EXT_BIN_DIR="$DST_BIN" "$DST_BIN/ctx" setup --adapters "$SETUP_ADAPTERS" ;;
   interactive)
-    EXT_HOME="$CONFIG_DIR" CTX_BIN_DIR="$DST_BIN" "$DST_BIN/ctx" setup </dev/tty >/dev/tty
+    EXT_HOME="$CONFIG_DIR" EXT_BIN_DIR="$DST_BIN" "$DST_BIN/ctx" setup </dev/tty >/dev/tty
     ;;
 esac
 

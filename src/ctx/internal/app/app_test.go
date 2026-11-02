@@ -33,8 +33,8 @@ func TestMissingRunCommand(t *testing.T) {
 func TestBrowserManagementCLIRequiresDeclaredOperation(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("HOME", filepath.Join(root, "home"))
-	t.Setenv("CTX_HOME", filepath.Join(root, "state"))
-	t.Setenv("CTX_ADAPTER_HOME", filepath.Join(root, "state", "adapters"))
+	t.Setenv("EXT_HOME", filepath.Join(root, "state"))
+	t.Setenv("EXT_ADAPTER_HOME", filepath.Join(root, "state", "adapters"))
 	adapterDir := filepath.Join(root, "browser-adapter")
 	if err := os.MkdirAll(adapterDir, 0o700); err != nil {
 		t.Fatal(err)
@@ -88,7 +88,7 @@ printf '%s\n' '{"version":"1.0","kind":"extension","action":"prepare","status":"
 
 func TestCTXRecordsSystemContextAndGraphCommandReadsIt(t *testing.T) {
 	stateDir := filepath.Join(t.TempDir(), "ctx-state")
-	t.Setenv("CTX_HOME", stateDir)
+	t.Setenv("EXT_HOME", stateDir)
 	var stdout, stderr bytes.Buffer
 	if code := Run([]string{"resolve", "browser"}, &stdout, &stderr); code != 0 {
 		t.Fatalf("resolve failed: %d %s", code, stderr.String())

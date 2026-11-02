@@ -9,27 +9,19 @@ import (
 
 func clearHomeEnvironment(t *testing.T) {
 	t.Helper()
-	for _, name := range []string{"EXT_HOME", "EXT_ADAPTER_HOME", "CTX_HOME", "CTX_ADAPTER_HOME"} {
+	for _, name := range []string{"EXT_HOME", "EXT_ADAPTER_HOME"} {
 		t.Setenv(name, "")
 	}
 }
 
 func TestHomePrecedence(t *testing.T) {
 	clearHomeEnvironment(t)
-	t.Setenv("CTX_HOME", "/legacy")
-	if got := ConfigHome(); got != "/legacy" {
-		t.Fatalf("legacy CTX_HOME: %q", got)
-	}
 	t.Setenv("EXT_HOME", "/shared")
 	if got := ConfigHome(); got != "/shared" {
-		t.Fatalf("EXT_HOME must win over CTX_HOME: %q", got)
+		t.Fatalf("EXT_HOME: %q", got)
 	}
 	if got, want := Home(), filepath.Join("/shared", "adapters"); got != want {
 		t.Fatalf("Home under EXT_HOME: %q, want %q", got, want)
-	}
-	t.Setenv("CTX_ADAPTER_HOME", "/legacy-adapters")
-	if got := Home(); got != "/legacy-adapters" {
-		t.Fatalf("explicit legacy adapter home: %q", got)
 	}
 	t.Setenv("EXT_ADAPTER_HOME", "/ext-adapters")
 	if got := Home(); got != "/ext-adapters" {

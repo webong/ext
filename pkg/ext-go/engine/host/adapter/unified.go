@@ -74,7 +74,7 @@ const (
 var metadataKinds = map[string]valueKind{
 	"display_name": kindText, "description": kindText, "runtime": kindText,
 	"selector_key": kindText, "computer_hook_settings_file": kindText,
-	"computer_hook_template": kindText, "go_entry": kindText,
+	"computer_hook_template": kindText, "go_entry": kindText, "program_roots": kindText,
 	"surfaces": kindList, "supports": kindList, "engine": kindList, "role": kindList, "extra_keys": kindList,
 	"commands": kindList, "computer_commands": kindList,
 	"computer_capabilities": kindList, "computer_hook_events": kindList,
@@ -503,11 +503,23 @@ func Seal(directory string, target Target) (packagekit.Manifest, error) {
 		}
 		pm.Artifacts = append(pm.Artifacts, packagekit.Artifact{Name: "extra-" + strconv.Itoa(index+1), Path: name, SHA256: digest})
 	}
-	if len(pm.Entrypoints) == 0 {
+	// An adapter is identified by the digest of what it runs; a declarative one
+	// runs nothing, so the file of patterns it is made of stands in for it.
+	revisionPath := ""
+	switch {
+	case len(pm.Entrypoints) > 0:
+		for _, artifact := range pm.Artifacts {
+			if artifact.Name == pm.Entrypoints[0].Artifact {
+				revisionPath = artifact.Path
+			}
+		}
+	case metadataProgramRoots(pm) != "":
+		revisionPath = metadataProgramRoots(pm)
+	default:
 		return pm, errors.New("adapter declares no executable")
 	}
 	for _, artifact := range pm.Artifacts {
-		if artifact.Name == pm.Entrypoints[0].Artifact {
+		if artifact.Path == revisionPath {
 			pm.Descriptor.Identity.Revision = "sha256:" + artifact.SHA256
 		}
 	}
@@ -611,4 +623,18 @@ func verifyPackage(directory string, pm packagekit.Manifest) error {
 		return fmt.Errorf("%w: adapter directory holds files its manifest does not list: %s", plugin.ErrInvalid, strings.Join(extra, ", "))
 	}
 	return nil
+}
+
+// metadataProgramRoots is the file a declarative adapter names in its
+// program_roots metadata, or "" for an adapter with an executable.
+func metadataProgramRoots(pm packagekit.Manifest) string {
+	var object map[string]json.RawMessage
+	if raw, ok := pm.Metadata[MetadataKey]; !ok || json.Unmarshal(raw, &object) != nil {
+		return ""
+	}
+	var file string
+	if json.Unmarshal(object["program_roots"], &file) != nil {
+		return ""
+	}
+	return file
 }

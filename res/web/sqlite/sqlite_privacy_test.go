@@ -34,8 +34,8 @@ func TestSQLiteNormalizesEmptyJSONOutput(t *testing.T) {
 	t.Setenv("PATH", root+string(os.PathListSeparator)+os.Getenv("PATH"))
 	for _, output := range []string{"", " \n\t", "[]\n", "[{\"value\":\"fixture\"}]\n"} {
 		t.Run(strings.TrimSpace(output), func(t *testing.T) {
-			t.Setenv("CTX_TEST_SQLITE_OUTPUT", output)
-			script := "#!/bin/sh\ncat >/dev/null\nprintf '%s' \"$CTX_TEST_SQLITE_OUTPUT\"\n"
+			t.Setenv("EXT_TEST_SQLITE_OUTPUT", output)
+			script := "#!/bin/sh\ncat >/dev/null\nprintf '%s' \"$EXT_TEST_SQLITE_OUTPUT\"\n"
 			if err := os.WriteFile(filepath.Join(root, "sqlite3"), []byte(script), 0o700); err != nil {
 				t.Fatal(err)
 			}
@@ -59,12 +59,12 @@ func TestSQLiteKeepsCookieValuesOffProcessArgumentsAndErrors(t *testing.T) {
 	}
 	root := t.TempDir()
 	arguments, input := filepath.Join(root, "arguments"), filepath.Join(root, "input")
-	t.Setenv("CTX_TEST_SQLITE_ARGUMENTS", arguments)
-	t.Setenv("CTX_TEST_SQLITE_INPUT", input)
+	t.Setenv("EXT_TEST_SQLITE_ARGUMENTS", arguments)
+	t.Setenv("EXT_TEST_SQLITE_INPUT", input)
 	t.Setenv("PATH", root+string(os.PathListSeparator)+os.Getenv("PATH"))
 	script := `#!/bin/sh
-printf '%s\n' "$@" > "$CTX_TEST_SQLITE_ARGUMENTS"
-cat > "$CTX_TEST_SQLITE_INPUT"
+printf '%s\n' "$@" > "$EXT_TEST_SQLITE_ARGUMENTS"
+cat > "$EXT_TEST_SQLITE_INPUT"
 printf '%s' 'parse error: fixture-secret' >&2
 exit 1
 `

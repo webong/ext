@@ -540,7 +540,7 @@ func (value endpoint) environment() map[string]string {
 		environment[key] = ""
 	}
 	if value.Instance != nil && value.Instance.Address != "" {
-		environment["CTX_MANAGER_ADDRESS"] = value.Instance.Address
+		environment["EXT_MANAGER_ADDRESS"] = value.Instance.Address
 	}
 	if value.Instance != nil {
 		for key, val := range managerInstanceEnvironment(*value.Instance) {

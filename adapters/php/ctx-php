@@ -4,13 +4,17 @@ set -eu
 operation=${1:-}
 [ "$#" -gt 0 ] && shift
 
+json_escape() {
+  printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g'
+}
+
 real_php() {
-  if [ -n "${CTX_ADAPTER_REAL_COMMAND:-}" ] && [ -x "$CTX_ADAPTER_REAL_COMMAND" ]; then
-    printf '%s\n' "$CTX_ADAPTER_REAL_COMMAND"
+  if [ -n "${EXT_ADAPTER_REAL_COMMAND:-}" ] && [ -x "$EXT_ADAPTER_REAL_COMMAND" ]; then
+    printf '%s\n' "$EXT_ADAPTER_REAL_COMMAND"
     return
   fi
-  if [ -n "${CTX_EXECUTABLE:-}" ] && [ -x "$CTX_EXECUTABLE" ]; then
-    resolved=$("$CTX_EXECUTABLE" real php 2>/dev/null || true)
+  if [ -n "${EXT_EXECUTABLE:-}" ] && [ -x "$EXT_EXECUTABLE" ]; then
+    resolved=$("$EXT_EXECUTABLE" real php 2>/dev/null || true)
     if [ -n "$resolved" ] && [ -x "$resolved" ]; then
       printf '%s\n' "$resolved"
       return
@@ -28,13 +32,13 @@ real_php() {
 }
 
 # One line per usable PHP: selection, executable, version, installers.
-# CTX passes every copy it found in CTX_PROGRAMS (see the adapter API); outside
+# CTX passes every copy it found in EXT_PROGRAMS (see the adapter API); outside
 # CTX only the PHP on PATH is known. A copy whose version cannot be read is not
 # usable and is left out.
 candidates() {
   tab=$(printf '\t')
-  if [ "${CTX_PROGRAMS+set}" = set ]; then
-    printf '%s\n' "$CTX_PROGRAMS" | awk -F '\t' '$1 == "php" && $2 != "" { print ($6 == 1 ? 0 : 1) "\t" $2 "\t" $5 }' | sort -s -k1,1n |
+  if [ "${EXT_PROGRAMS+set}" = set ]; then
+    printf '%s\n' "$EXT_PROGRAMS" | awk -F '\t' '$1 == "php" && $2 != "" { print ($6 == 1 ? 0 : 1) "\t" $2 "\t" $5 }' | sort -s -k1,1n |
       while IFS="$tab" read -r rank executable installers; do
         printf '%s\t%s\n' "$executable" "$installers"
       done
@@ -71,7 +75,7 @@ case "$operation" in
     printf '{"version":1,"contexts":['
     inventory | while IFS="$tab" read -r selection executable version manager; do
       [ -n "$selection" ] || continue
-      printf '%s{"selection":"%s","attributes":{"kind":"php","version":"%s","isolation":"host","manager":"%s"}}' "$separator" "$selection" "$version" "$manager"
+      printf '%s{"selection":"%s","attributes":{"kind":"php","version":"%s","isolation":"host","manager":"%s","executable":"%s"}}' "$separator" "$selection" "$version" "$manager" "$(json_escape "$executable")"
       separator=,
     done
     printf ']}\n'

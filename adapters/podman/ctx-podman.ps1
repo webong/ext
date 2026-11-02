@@ -5,10 +5,10 @@ param(
     [Parameter(Position = 2, ValueFromRemainingArguments = $true)][string[]]$Arguments
 )
 
-$podman = $env:CTX_ADAPTER_REAL_COMMAND
+$podman = $env:EXT_ADAPTER_REAL_COMMAND
 if (-not $podman -or -not (Test-Path -LiteralPath $podman -PathType Leaf)) { [Console]::Error.WriteLine('podman: Podman CLI is not installed'); exit 127 }
 if ($Arguments.Count -gt 0 -and $Arguments[0] -eq '--') { $Arguments = @($Arguments | Select-Object -Skip 1) }
-$volumeImage = if ($env:CTX_VOLUME_IMAGE) { $env:CTX_VOLUME_IMAGE } else { 'alpine:3.21' }
+$volumeImage = if ($env:EXT_VOLUME_IMAGE) { $env:EXT_VOLUME_IMAGE } else { 'alpine:3.21' }
 
 function Invoke-Podman([string[]]$CommandArguments) { & $podman @CommandArguments; exit $LASTEXITCODE }
 function Get-Connections { @(& $podman system connection list --format '{{.Name}}') }

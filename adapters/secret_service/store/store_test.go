@@ -19,12 +19,12 @@ func TestSecretToolCredentialRoundTrip(t *testing.T) {
 	root := t.TempDir()
 	helper := `#!/bin/sh
 set -eu
-printf '%s\n' "$*" >> "$CTX_TEST_SECRET_CALLS"
+printf '%s\n' "$*" >> "$EXT_TEST_SECRET_CALLS"
 case "$1" in
   lookup)
-    [ -f "$CTX_TEST_SECRET_VALUE" ] || exit 1
-    cat "$CTX_TEST_SECRET_VALUE" ;;
-  store) cat > "$CTX_TEST_SECRET_VALUE" ;;
+    [ -f "$EXT_TEST_SECRET_VALUE" ] || exit 1
+    cat "$EXT_TEST_SECRET_VALUE" ;;
+  store) cat > "$EXT_TEST_SECRET_VALUE" ;;
   *) exit 2 ;;
 esac
 `
@@ -32,8 +32,8 @@ esac
 		t.Fatal(err)
 	}
 	t.Setenv("PATH", root+string(os.PathListSeparator)+os.Getenv("PATH"))
-	t.Setenv("CTX_TEST_SECRET_VALUE", filepath.Join(root, "value"))
-	t.Setenv("CTX_TEST_SECRET_CALLS", filepath.Join(root, "calls"))
+	t.Setenv("EXT_TEST_SECRET_VALUE", filepath.Join(root, "value"))
+	t.Setenv("EXT_TEST_SECRET_CALLS", filepath.Join(root, "calls"))
 	store := SecretService{}
 	ctx := context.Background()
 	item := "service=ctx&account=work"

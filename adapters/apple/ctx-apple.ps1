@@ -5,10 +5,10 @@ param(
     [Parameter(Position = 2, ValueFromRemainingArguments = $true)][string[]]$Arguments
 )
 
-$container = $env:CTX_ADAPTER_REAL_COMMAND
+$container = $env:EXT_ADAPTER_REAL_COMMAND
 if (-not $container -or -not (Test-Path -LiteralPath $container -PathType Leaf)) { [Console]::Error.WriteLine('apple: container CLI is not installed'); exit 127 }
 if ($Arguments.Count -gt 0 -and $Arguments[0] -eq '--') { $Arguments = @($Arguments | Select-Object -Skip 1) }
-$volumeImage = if ($env:CTX_VOLUME_IMAGE) { $env:CTX_VOLUME_IMAGE } else { 'alpine:3.21' }
+$volumeImage = if ($env:EXT_VOLUME_IMAGE) { $env:EXT_VOLUME_IMAGE } else { 'alpine:3.21' }
 
 function Invoke-Container([string[]]$CommandArguments) { & $container @CommandArguments; exit $LASTEXITCODE }
 function Test-Available { & $container system version *> $null; return $LASTEXITCODE -eq 0 }

@@ -1,10 +1,10 @@
 # ADR: Program discovery and installers
 
-Status: proposed. A spike on the `program-discovery` branch builds `res/system/program`,
-the `programs` operation in `ctx`, one installer adapter (`homebrew`) and the `php`
-migration, and was run end to end: with only those two adapters trusted, `php`'s
-context reports `manager = homebrew` and the `php` adapter contains no Homebrew code.
-`ctx graph programs` is not built yet.
+Status: accepted and built. `res/system/program`, the `programs` operation in `ctx`, the
+`homebrew` installer adapter and the `php`, `python` and `node` runtime adapters were run
+end to end, and the system graph records each program, its installer and the contexts
+that use it. There is deliberately no command that lists programs: other programs read
+the graph.
 
 ## Problem
 
@@ -127,7 +127,7 @@ adapter. For `homebrew`, `run` runs `brew`.
    installer carries that adapter's name in `installers`. A program found only on
    `PATH` carries no installer and `source = "path"`.
 5. For each runtime adapter, CTX passes the merged candidates whose name matches one
-   of its `computer_commands` in `CTX_PROGRAMS`, on every operation. The value is one
+   of its `computer_commands` in `EXT_PROGRAMS`, on every operation. The value is one
    line per candidate with tab-separated `name`, `path`, `realpath`, `version`,
    `installers` (comma-joined) and `on_path` (`1` or `0`), so a shell adapter reads
    it without a JSON tool. The variable is set whenever CTX looked, and empty when
@@ -137,14 +137,95 @@ adapter. For `homebrew`, `run` runs `brew`.
 
 Run outside CTX, with the variable unset, a runtime adapter looks at `PATH` only.
 Because the spike's installer is a shell script, a field with a control character
-is dropped from `CTX_PROGRAMS` rather than escaped.
+is dropped from `EXT_PROGRAMS` rather than escaped.
 There is no second discovery path hidden in the adapter and no installer-specific
 fallback.
 
-Graph relations stay adapter-local, so attribution is an attribute, not an edge:
-a runtime context has `manager = "homebrew"` (several installers are joined with a
-comma, and `path` means none claimed it). A later `ctx graph programs [NAME]
-[--installer NAME]` could show the merged view; the spike leaves it out.
+The merged candidates are also written to the system graph (`ext.system`), so any
+program that reads the graph can see which copies exist and what installed them,
+without running a CLI or an adapter:
+
+```
+machine ──has-program──▶ program ──installed-by──▶ installer ──implemented-by──▶ adapter
+context ──uses-program──▶ program
+```
+
+- A **program** vertex is one real file (keyed by its resolved path), with `names`,
+  `path`, `realpath`, `version`, `on_path` and `installers`. Several names or reports
+  for the same file are one vertex.
+- An **installer** vertex is a name with `sources`: `adapter` (an installer adapter,
+  scripted or declarative), `config` (the user described it, see below) and `recognised`
+  (only the user's recognition names it). `implemented-by` joins an installer that is an
+  adapter to that adapter vertex. An installer is a vertex whatever its source, so no
+  edge ever dangles.
+- `installed-by` points at the installer that reported the file or that the user
+  recognised. A file found only on `PATH` has no such edge, which is the fact: nothing
+  claimed it.
+- A runtime adapter links its context to the file it would run by reporting an
+  `executable` attribute in `observe`. The graph matches it against a program's
+  `path` or `realpath` and adds `uses-program`; the adapter name is never consulted.
+  `ctx graph resolve` returns the result as `program` on each candidate.
+- The runtime adapter's own `manager` attribute is unchanged and remains for shell
+  adapters that read it directly. The graph edge is the authoritative source.
+- The graph records observations. A file may have been replaced since the scan, and
+  nothing here authorizes running it.
+
+There is no command that lists programs: the graph is the interface.
+
+### Declarative installers
+
+Most installers are a place on disk with a naming convention, and writing a script and
+a PowerShell twin for each one only to run `ls` is more code than the fact it
+reports. An installer can therefore be declarative: a package with no executable, a
+`program_roots` file of directory patterns, `role = ["installer"]` and the single
+capability `programs`. CTX expands the patterns and looks for the asked names in the
+directories that match, with `program.ScanRoots` in `res/system/program`. The
+mechanism never recognises a tool by name: the patterns are data from a trusted
+package, as an installer's script output is.
+
+The package format already allows this: it needs one artifact and no entrypoint, so
+the pattern file is the artifact, and the package revision is its digest. A script
+installer is still the right tool when it needs logic (`homebrew` asks whether a keg
+is linked). `nvm` and `xcode` are declarative.
+
+### Installers you declare
+
+An installer does not have to be an adapter. A user whose tools live in a layout only they
+use describes it in `installers.json` in the CTX home, with the same directory patterns a
+declarative installer adapter carries:
+
+```json
+{"version": 1, "installers": [{"name": "mytools", "roots": ["~/tools/*/bin"]}]}
+```
+
+`ctx program installer add NAME PATTERN...`, `remove NAME` and `ls` edit it. Discovery
+scans the patterns with `program.ScanRoots` and joins the results like any installer's
+report, so a program found there is attributed to `mytools` in the graph (an installer
+vertex with `sources = ["config"]`). The file is the user's own, in the user's own home, so
+it has no trust step: unlike an adapter package it did not come from anywhere else. A name
+shared with an installer adapter is one installer with both sources. A file that cannot
+be read declares no installers; discovery never fails because of it. Installers that need
+logic, and installers meant to be shared, remain adapters.
+
+A suggestion matches by name: a runtime adapter that suggests `nvm` is not satisfied by
+an installer the user named `mynvm`, so name it what the adapters say if you want the
+suggestion to resolve.
+
+### Suggestions and recognition
+
+A runtime adapter knows its language's conventions, so it may notice that a file
+sits under `~/.nvm` or `~/.pyenv`. It reports that as a `suggested_installer`
+attribute. The graph records it as `suggested_installers` on the program, apart from
+`installers`, and never as an `installed-by` edge: a guess must not read as a fact,
+and a suggestion is dropped once an installer reports the file.
+
+The user settles it: `ctx program recognise PATH [INSTALLER]` records that the real
+file was installed by that installer (with no installer name it takes the one suggestion
+there is). The record is local, in `programs.json` in the CTX home, and discovery adds
+the installer to the candidate the way it adds a reporting installer, so the graph gets
+the `installed-by` edge even when no adapter or configuration declares that installer
+(its vertex has `sources = ["recognised"]`). `ctx program forget PATH [INSTALLER]` takes it back. Nothing is recognised
+that the user did not ask for.
 
 ### Trust and safety
 
@@ -170,8 +251,9 @@ visible.
   for the user.
 - Changing the user's global `php`, `node` or `python`, or installing shims for
   discovered programs.
-- Cross-adapter graph edges. If a later feature needs them, they belong in a
-  separate decision about the relation model.
+- Edges between adapters' own records. The graph relates a context to a program and a
+  program to its installer; adapters still do not relate their resources to each other
+  beyond what `observe` reports.
 
 ## Consequences
 
@@ -192,7 +274,7 @@ Decided in the spike:
   `installer`). Both are multi-valued, and `supports` keeps only resource kinds.
   `ctx graph resolve` filters with `--engine` and `--role`. The word
   "level" and the earlier meaning of `engine`, an adapter that ran programs, are gone,
-  with no alias. `jvm`, `wasm`, `evm` and `php` are evaluators; `docker` and `nerdctl`
+  with no alias. `jvm`, `wasm`, `evm`, `php`, `python` and `node` are evaluators; `docker` and `nerdctl`
   are executors; `podman`, `docker_desktop`, `orbstack`, `rancher_desktop` and `apple`
   provide an emulator and an executor; `aws` and `gcloud` provide an emulator; `kube`
   provides no engine and is not a virtualizer. `engines_test.go` checks the vocabulary:

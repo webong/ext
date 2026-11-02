@@ -38,17 +38,17 @@ case "$operation" in
     if [ -n "$kubeconfig" ]; then printf 'kubeconfig\t%s\n' "$kubeconfig"; fi
     ;;
   validate)
-    validate_context "$selection" "${CTX_ADAPTER_VALUE_KUBECONFIG:-}" || { printf 'kube: unknown context %s\n' "$selection" >&2; exit 1; }
+    validate_context "$selection" "${EXT_ADAPTER_VALUE_KUBECONFIG:-}" || { printf 'kube: unknown context %s\n' "$selection" >&2; exit 1; }
     ;;
   doctor)
-    [ -z "$selection" ] || validate_context "$selection" "${CTX_ADAPTER_VALUE_KUBECONFIG:-}" || { printf 'kube: unknown context %s\n' "$selection" >&2; exit 1; }
+    [ -z "$selection" ] || validate_context "$selection" "${EXT_ADAPTER_VALUE_KUBECONFIG:-}" || { printf 'kube: unknown context %s\n' "$selection" >&2; exit 1; }
     ;;
   run)
     shift 2
     [ "${1:-}" = -- ] && shift
-    context=${CTX_ADAPTER_VALUE_KUBE_CONTEXT:-$selection}
-    namespace=${CTX_ADAPTER_VALUE_KUBE_NAMESPACE:-}
-    kubeconfig=${CTX_ADAPTER_VALUE_KUBECONFIG:-}
+    context=${EXT_ADAPTER_VALUE_KUBE_CONTEXT:-$selection}
+    namespace=${EXT_ADAPTER_VALUE_KUBE_NAMESPACE:-}
+    kubeconfig=${EXT_ADAPTER_VALUE_KUBECONFIG:-}
     if [ -n "$namespace" ] && ! has_namespace "$@"; then set -- --namespace "$namespace" "$@"; fi
     if [ -n "$context" ] && ! has_context "$@"; then set -- --context "$context" "$@"; fi
     if [ -n "$kubeconfig" ] && [ -z "${KUBECONFIG:-}" ]; then KUBECONFIG="$kubeconfig" "$kubectl" "$@"

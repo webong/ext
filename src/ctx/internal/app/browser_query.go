@@ -82,7 +82,7 @@ func shareBrowserCookieQuery(resolver *config.Resolver, args []string, stdout, s
 		options.Origins = append([]string(nil), sites[1:]...)
 	}
 	if len(sources) == 0 && len(browsers) == 0 && !*inlineOnly {
-		options.PreferredSource = os.Getenv("CTX_BROWSER")
+		options.PreferredSource = os.Getenv("EXT_BROWSER")
 		if options.PreferredSource == "" {
 			if resolver != nil {
 				if selected, err := resolver.Resolve("browser"); err == nil {

@@ -1,7 +1,7 @@
 #!/usr/bin/env sh
 set -eu
 
-codex=${CTX_ADAPTER_REAL_COMMAND:-}
+codex=${EXT_ADAPTER_REAL_COMMAND:-}
 operation=${1:-}
 if [ "$#" -gt 0 ]; then shift; fi
 if [ "${1:-}" = -- ]; then shift; fi
@@ -19,8 +19,8 @@ case "$operation" in
   hook)
     event=${1:-}
     [ -n "$event" ] || { printf 'codex: hook needs an event name\n' >&2; exit 2; }
-    handler=${CTX_ADAPTER_VALUE_COMPUTER_HOOK_COMMAND:-${CTX_COMPUTER_HOOK_COMMAND:-}}
-    [ -n "$handler" ] || { printf 'codex: set CTX_COMPUTER_HOOK_COMMAND to a hook handler executable\n' >&2; exit 127; }
+    handler=${EXT_ADAPTER_VALUE_COMPUTER_HOOK_COMMAND:-${EXT_COMPUTER_HOOK_COMMAND:-}}
+    [ -n "$handler" ] || { printf 'codex: set EXT_COMPUTER_HOOK_COMMAND to a hook handler executable\n' >&2; exit 127; }
     exec "$handler" "$event"
     ;;
   plugin)

@@ -28,13 +28,13 @@ switch ($Operation) {
     { $_ -eq 'validate' -or $_ -eq 'doctor' } { exit 0 }
     'run' {
         if ($Arguments.Count -gt 0 -and $Arguments[0] -eq '--') { $Arguments = @($Arguments | Select-Object -Skip 1) }
-        $commandName = if ($env:CTX_ADAPTER_COMMAND) { $env:CTX_ADAPTER_COMMAND } else { 'psql' }
+        $commandName = if ($env:EXT_ADAPTER_COMMAND) { $env:EXT_ADAPTER_COMMAND } else { 'psql' }
         if ($commandName -eq 'postgres') { $commandName = 'psql' }
         $client = Get-Command $commandName -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
         if (-not $client) { [Console]::Error.WriteLine("postgres: $commandName is not installed"); exit 127 }
         if (-not $env:PGSERVICE) { $env:PGSERVICE = $Selection }
-        if (-not $env:PGSERVICEFILE -and $env:CTX_ADAPTER_VALUE_POSTGRES_SERVICE_FILE) {
-            $env:PGSERVICEFILE = $env:CTX_ADAPTER_VALUE_POSTGRES_SERVICE_FILE
+        if (-not $env:PGSERVICEFILE -and $env:EXT_ADAPTER_VALUE_POSTGRES_SERVICE_FILE) {
+            $env:PGSERVICEFILE = $env:EXT_ADAPTER_VALUE_POSTGRES_SERVICE_FILE
         }
         & $client.Source @Arguments
         exit $LASTEXITCODE

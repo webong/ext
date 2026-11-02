@@ -385,7 +385,7 @@ func cookieBundleSite(site *url.URL) string {
 
 func resolveBrowserSource(resolver *config.Resolver, choice string) (browserEndpoint, error) {
 	if choice == "" {
-		choice = os.Getenv("CTX_BROWSER")
+		choice = os.Getenv("EXT_BROWSER")
 		if choice == "" {
 			resolved, err := resolver.Resolve("browser")
 			if err != nil {

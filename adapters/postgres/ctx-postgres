@@ -21,12 +21,12 @@ case "$operation" in
   validate|doctor) : ;;
   run)
     shift 2; [ "${1:-}" = -- ] && shift
-    command_name=${CTX_ADAPTER_COMMAND:-psql}
+    command_name=${EXT_ADAPTER_COMMAND:-psql}
     [ "$command_name" = postgres ] && command_name=psql
     client=$(command -v "$command_name" 2>/dev/null || true)
     [ -n "$client" ] || { printf 'postgres: %s is not installed\n' "$command_name" >&2; exit 127; }
     service=${PGSERVICE:-$selection}
-    service_file=${PGSERVICEFILE:-${CTX_ADAPTER_VALUE_POSTGRES_SERVICE_FILE:-}}
+    service_file=${PGSERVICEFILE:-${EXT_ADAPTER_VALUE_POSTGRES_SERVICE_FILE:-}}
     if [ -n "$service_file" ]; then PGSERVICE="$service" PGSERVICEFILE="$service_file" "$client" "$@"
     else PGSERVICE="$service" "$client" "$@"
     fi

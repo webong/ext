@@ -75,6 +75,159 @@ func Scan(names []string, pathList string) []Candidate {
 	return found
 }
 
+const maxRootDirectories = 1024
+
+// ExpandRoot turns a directory pattern from a declarative installer into an
+// absolute glob pattern. It understands a leading ~, $NAME, ${NAME} and
+// ${NAME:-default}, where the default may itself start with ~. A value taken from
+// the environment is matched literally, never as a glob. It returns false when a
+// variable without a default is unset or the result is not absolute, so a
+// pattern never depends on the working directory.
+func ExpandRoot(pattern string, env func(string) string) (string, bool) {
+	var out strings.Builder
+	literal := func(value string) {
+		if runtime.GOOS == "windows" {
+			out.WriteString(value)
+			return
+		}
+		for _, r := range value {
+			if strings.ContainsRune(`*?[\`, r) {
+				out.WriteByte('\\')
+			}
+			out.WriteRune(r)
+		}
+	}
+	home := func() (string, bool) {
+		value := env("HOME")
+		if value == "" {
+			value = env("USERPROFILE")
+		}
+		return value, value != ""
+	}
+	if pattern == "~" || strings.HasPrefix(pattern, "~/") || strings.HasPrefix(pattern, `~\`) {
+		dir, ok := home()
+		if !ok {
+			return "", false
+		}
+		literal(dir)
+		pattern = pattern[1:]
+	}
+	for len(pattern) > 0 {
+		index := strings.IndexByte(pattern, '$')
+		if index < 0 {
+			out.WriteString(pattern)
+			break
+		}
+		out.WriteString(pattern[:index])
+		pattern = pattern[index+1:]
+		var name, fallback string
+		hasFallback := false
+		if strings.HasPrefix(pattern, "{") {
+			end := strings.IndexByte(pattern, '}')
+			if end < 0 {
+				return "", false
+			}
+			name = pattern[1:end]
+			pattern = pattern[end+1:]
+			if cut := strings.Index(name, ":-"); cut >= 0 {
+				name, fallback, hasFallback = name[:cut], name[cut+2:], true
+			}
+		} else {
+			end := 0
+			for end < len(pattern) && (pattern[end] == '_' || pattern[end] >= 'A' && pattern[end] <= 'Z' || pattern[end] >= 'a' && pattern[end] <= 'z' || end > 0 && pattern[end] >= '0' && pattern[end] <= '9') {
+				end++
+			}
+			name, pattern = pattern[:end], pattern[end:]
+		}
+		if name == "" {
+			return "", false
+		}
+		value := env(name)
+		if value == "" && hasFallback {
+			if strings.HasPrefix(fallback, "~") {
+				dir, ok := home()
+				if !ok {
+					return "", false
+				}
+				fallback = dir + fallback[1:]
+			}
+			value = fallback
+		}
+		if value == "" {
+			return "", false
+		}
+		literal(value)
+	}
+	expanded := out.String()
+	if !filepath.IsAbs(expanded) {
+		return "", false
+	}
+	return expanded, true
+}
+
+// ScanRoots looks for the named programs in the directories that patterns match.
+// A pattern is expanded with ExpandRoot and matched with filepath.Glob; only
+// directories count, at most maxRootDirectories of them. It stats files and never
+// runs them. Candidates carry no version: the installer's directories do not say
+// more than the layout allows, and the runtime adapter that asked probes the file.
+func ScanRoots(names, patterns []string, env func(string) string) []Candidate {
+	wanted := map[string]bool{}
+	for _, name := range names {
+		if name != "" && !strings.ContainsAny(name, `/\`) {
+			wanted[name] = true
+		}
+	}
+	var files []string
+	for name := range wanted {
+		files = append(files, name)
+		if runtime.GOOS == "windows" {
+			for _, ext := range strings.Split(strings.TrimPrefix(os.Getenv("PATHEXT"), ";"), ";") {
+				if ext != "" {
+					files = append(files, name+ext)
+				}
+			}
+		}
+	}
+	sort.Strings(files)
+	var found []Candidate
+	seen := map[string]bool{}
+	directories := 0
+	for _, pattern := range patterns {
+		expanded, ok := ExpandRoot(pattern, env)
+		if !ok {
+			continue
+		}
+		matches, err := filepath.Glob(expanded)
+		if err != nil {
+			continue
+		}
+		sort.Strings(matches)
+		for _, dir := range matches {
+			if info, err := os.Stat(dir); err != nil || !info.IsDir() {
+				continue
+			}
+			if directories++; directories > maxRootDirectories {
+				return found
+			}
+			for _, file := range files {
+				path := filepath.Join(dir, file)
+				name := commandName(file)
+				if !wanted[name] {
+					continue
+				}
+				candidate, ok := inspect(name, path)
+				if !ok || seen[candidate.RealPath+"\x00"+name] {
+					continue
+				}
+				seen[candidate.RealPath+"\x00"+name] = true
+				candidate.Source = SourceInstaller
+				found = append(found, candidate)
+			}
+		}
+	}
+	return found
+}
+
 // Inspect reports a file named by an installer as a candidate. It returns false
 // for a path that is not an existing regular executable, so an installer cannot
 // claim a file that is not there.

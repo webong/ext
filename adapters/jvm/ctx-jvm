@@ -117,8 +117,8 @@ case "$operation" in
     fi
     [ -n "$home" ] && [ -x "$home/bin/java" ] || { printf 'jvm: no Java installation found\n' >&2; exit 127; }
     # The requested command decides which tool of the selected JDK runs.
-    case "${CTX_ADAPTER_COMMAND:-java}" in
-      javac|jar) tool=$CTX_ADAPTER_COMMAND ;;
+    case "${EXT_ADAPTER_COMMAND:-java}" in
+      javac|jar) tool=$EXT_ADAPTER_COMMAND ;;
       *) tool=java ;;
     esac
     [ -x "$home/bin/$tool" ] || { printf 'jvm: %s is not part of the selected installation\n' "$tool" >&2; exit 127; }

@@ -105,9 +105,9 @@ func safariCookieStorePaths(profile string) ([]string, error) {
 		}
 		return []string{profile}, nil
 	}
-	if override := os.Getenv("CTX_SAFARI_COOKIE_FILE"); override != "" {
+	if override := os.Getenv("EXT_SAFARI_COOKIE_FILE"); override != "" {
 		if !filepath.IsAbs(override) {
-			return nil, errors.New("CTX_SAFARI_COOKIE_FILE must be an absolute path")
+			return nil, errors.New("EXT_SAFARI_COOKIE_FILE must be an absolute path")
 		}
 		return []string{override}, nil
 	}

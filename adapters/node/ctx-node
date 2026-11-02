@@ -1,0 +1,135 @@
+#!/bin/sh
+set -eu
+
+operation=${1:-}
+[ "$#" -gt 0 ] && shift
+
+json_escape() {
+  printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g'
+}
+
+real_node() {
+  if [ -n "${EXT_ADAPTER_REAL_COMMAND:-}" ] && [ -x "$EXT_ADAPTER_REAL_COMMAND" ]; then
+    printf '%s\n' "$EXT_ADAPTER_REAL_COMMAND"
+    return
+  fi
+  if [ -n "${EXT_EXECUTABLE:-}" ] && [ -x "$EXT_EXECUTABLE" ]; then
+    resolved=$("$EXT_EXECUTABLE" real node 2>/dev/null || true)
+    if [ -n "$resolved" ] && [ -x "$resolved" ]; then
+      printf '%s\n' "$resolved"
+      return
+    fi
+  fi
+  ctx_command=$(command -v ctx 2>/dev/null || true)
+  if [ -n "$ctx_command" ] && [ -x "$ctx_command" ]; then
+    resolved=$("$ctx_command" real node 2>/dev/null || true)
+    if [ -n "$resolved" ] && [ -x "$resolved" ]; then
+      printf '%s\n' "$resolved"
+      return
+    fi
+  fi
+  command -v node 2>/dev/null || true
+}
+
+# Where Node.js usually comes from, guessed from where the file sits. This is a
+# suggestion, not a fact: CTX records it apart from what an installer reported and
+# the user decides whether to recognise it.
+suggest() {
+  case "$1" in
+    */.nvm/*) printf 'nvm' ;;
+    */.fnm/*|*/fnm/node-versions/*|*/fnm_multishells/*) printf 'fnm' ;;
+    */.volta/*) printf 'volta' ;;
+    */.asdf/installs/*|*/.asdf/shims/*) printf 'asdf' ;;
+    */mise/installs/*|*/mise/shims/*) printf 'mise' ;;
+  esac
+}
+
+# One line per candidate: executable, installers. CTX passes every copy it found
+# in EXT_PROGRAMS (see the adapter API), preferring the one on PATH; outside CTX
+# only the Node.js on PATH is known.
+candidates() {
+  tab=$(printf '\t')
+  if [ "${EXT_PROGRAMS+set}" = set ]; then
+    printf '%s\n' "$EXT_PROGRAMS" | awk -F '\t' '$1 == "node" && $2 != "" { print ($6 == 1 ? 0 : 1) "\t" $2 "\t" $5 }' | sort -s -k1,1n |
+      while IFS="$tab" read -r rank executable installers; do
+        printf '%s\t%s\n' "$executable" "$installers"
+      done
+    return
+  fi
+  executable=$(real_node)
+  [ -n "$executable" ] && printf '%s\t\n' "$executable"
+  return 0
+}
+
+# One line per usable Node.js: selection (major), executable, version, installers.
+# A copy whose version cannot be read is left out.
+inventory() {
+  tab=$(printf '\t')
+  candidates | while IFS="$tab" read -r executable installers; do
+    [ -x "$executable" ] || continue
+    version=$("$executable" -p 'process.versions.node' 2>/dev/null || true)
+    [ -n "$version" ] || continue
+    selection=${version%%.*}
+    printf '%s\t%s\t%s\t%s\n' "$selection" "$executable" "$version" "${installers:-path}"
+  done | awk -F '\t' '!seen[$1]++'
+}
+
+find_record() {
+  wanted=$1
+  inventory | awk -F '\t' -v wanted="$wanted" '$1 == wanted { print; exit }'
+}
+
+# The suggested_installer attribute, or nothing.
+hint() {
+  suggestion=$(suggest "$1")
+  [ -n "$suggestion" ] && printf ',"suggested_installer":"%s"' "$suggestion"
+  return 0
+}
+
+case "$operation" in
+  list)
+    inventory | awk -F '\t' 'NF >= 4 && !seen[$1]++ { print $1 }'
+    ;;
+  observe)
+    tab=$(printf '\t')
+    separator=
+    printf '{"version":1,"contexts":['
+    inventory | while IFS="$tab" read -r selection executable version manager; do
+      [ -n "$selection" ] || continue
+      printf '%s{"selection":"%s","attributes":{"kind":"node","version":"%s","isolation":"host","manager":"%s","executable":"%s"%s}}' "$separator" "$selection" "$version" "$manager" "$(json_escape "$executable")" "$(hint "$executable")"
+      separator=,
+    done
+    printf ']}\n'
+    ;;
+  validate)
+    selection=${1:-}
+    [ -n "$selection" ] && [ -n "$(find_record "$selection")" ] || { printf 'node: Node.js %s is not installed\n' "${selection:-<empty>}" >&2; exit 1; }
+    ;;
+  doctor)
+    selection=${1:-}
+    if [ -n "$selection" ]; then
+      record=$(find_record "$selection")
+      [ -n "$record" ] || { printf 'node: Node.js %s is not installed\n' "$selection" >&2; exit 1; }
+      executable=$(printf '%s\n' "$record" | awk -F '\t' '{print $2}')
+    else
+      executable=$(real_node)
+    fi
+    [ -n "$executable" ] && [ -x "$executable" ] || { printf 'node: Node.js is not installed\n' >&2; exit 127; }
+    "$executable" -p '"node ok"' && "$executable" --version
+    ;;
+  run)
+    selection=
+    if [ "$#" -gt 0 ] && [ "$1" != "--" ]; then selection=$1; shift; fi
+    [ "${1:-}" = "--" ] && shift
+    if [ -n "$selection" ]; then
+      record=$(find_record "$selection")
+      [ -n "$record" ] || { printf 'node: Node.js %s is not installed\n' "$selection" >&2; exit 1; }
+      executable=$(printf '%s\n' "$record" | awk -F '\t' '{print $2}')
+    else
+      executable=$(real_node)
+    fi
+    [ -n "$executable" ] && [ -x "$executable" ] || { printf 'node: Node.js is not installed\n' >&2; exit 127; }
+    exec "$executable" "$@"
+    ;;
+  *) exit 2 ;;
+esac

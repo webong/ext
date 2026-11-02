@@ -30,6 +30,9 @@ func (a *Adapter) CommandContext(ctx context.Context, invocation Invocation) (*e
 }
 
 func (a *Adapter) command(ctx context.Context, invocation Invocation) (*exec.Cmd, error) {
+	if a.Declarative() {
+		return nil, fmt.Errorf("adapter %s is declarative and has no executable", a.Manifest.Name)
+	}
 	if !a.HasCapability(invocation.Operation) {
 		return nil, fmt.Errorf("adapter %s does not support %s", a.Manifest.Name, invocation.Operation)
 	}
@@ -52,18 +55,18 @@ func (a *Adapter) command(ctx context.Context, invocation Invocation) (*exec.Cmd
 	}
 	command := adapterCommandContext(ctx, a.ExecutablePath(), args)
 	command.Env = os.Environ()
-	command.Env = setEnvironment(command.Env, "CTX_ADAPTER_API", a.Manifest.APIVersion)
-	command.Env = setEnvironment(command.Env, "CTX_ADAPTER_NAME", a.Manifest.Name)
+	command.Env = setEnvironment(command.Env, "EXT_ADAPTER_API", a.Manifest.APIVersion)
+	command.Env = setEnvironment(command.Env, "EXT_ADAPTER_NAME", a.Manifest.Name)
 	requestedCommand := invocation.Command
 	if requestedCommand == "" {
 		requestedCommand = a.Manifest.Name
 	}
-	command.Env = setEnvironment(command.Env, "CTX_ADAPTER_COMMAND", requestedCommand)
-	command.Env = setEnvironment(command.Env, "CTX_ADAPTER_REAL_COMMAND", invocation.RealCommand)
-	command.Env = setEnvironment(command.Env, "CTX_PROJECT_DIR", invocation.Project)
-	command.Env = setEnvironment(command.Env, "CTX_PROFILE", invocation.Profile)
+	command.Env = setEnvironment(command.Env, "EXT_ADAPTER_COMMAND", requestedCommand)
+	command.Env = setEnvironment(command.Env, "EXT_ADAPTER_REAL_COMMAND", invocation.RealCommand)
+	command.Env = setEnvironment(command.Env, "EXT_PROJECT_DIR", invocation.Project)
+	command.Env = setEnvironment(command.Env, "EXT_PROFILE", invocation.Profile)
 	for key, value := range invocation.Values {
-		environmentKey := "CTX_ADAPTER_VALUE_" + strings.ToUpper(key)
+		environmentKey := "EXT_ADAPTER_VALUE_" + strings.ToUpper(key)
 		command.Env = setEnvironment(command.Env, environmentKey, value)
 	}
 	return command, nil

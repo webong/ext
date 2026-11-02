@@ -55,8 +55,8 @@ func TestFirefoxCookieSharingDestinations(t *testing.T) {
 	// Build with the caller's Go environment before isolating browser state.
 	// Module downloads under a fake HOME are read-only and break TempDir cleanup.
 	t.Setenv("HOME", filepath.Join(root, "home"))
-	t.Setenv("CTX_HOME", filepath.Join(root, "state"))
-	t.Setenv("CTX_ADAPTER_HOME", filepath.Join(root, "state", "adapters"))
+	t.Setenv("EXT_HOME", filepath.Join(root, "state"))
+	t.Setenv("EXT_ADAPTER_HOME", filepath.Join(root, "state", "adapters"))
 	t.Setenv("APPDATA", filepath.Join(root, "home", "AppData", "Roaming"))
 	profilesRoot := filepath.Join(root, "home", ".mozilla", "firefox")
 	if runtime.GOOS == "darwin" {
@@ -139,7 +139,7 @@ func TestFirefoxCookieSharingDestinations(t *testing.T) {
 	if code, output, diagnostics := run("share:browser", "cookie", "list", "--from", "firefox:source", "--site", "https://example.test"); code != 0 || !strings.Contains(output, "session\t.example.test") || strings.Contains(output, "fixture-secret") {
 		t.Fatalf("list: exit=%d output=%q diagnostics=%q", code, output, diagnostics)
 	}
-	t.Setenv("CTX_BROWSER", "firefox:source")
+	t.Setenv("EXT_BROWSER", "firefox:source")
 	if code, output, diagnostics := run("share:browser", "cookie", "list", "--site", "https://example.test"); code != 0 || !strings.Contains(output, "session\t.example.test") {
 		t.Fatalf("selected profile: exit=%d output=%q diagnostics=%q", code, output, diagnostics)
 	}

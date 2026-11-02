@@ -41,10 +41,8 @@ commands = "` + name + `"
 func TestAdapterVerifyCommand(t *testing.T) {
 	root := t.TempDir()
 	home := filepath.Join(root, "state", "adapters")
-	t.Setenv("CTX_HOME", filepath.Join(root, "state"))
-	t.Setenv("CTX_ADAPTER_HOME", home)
-	t.Setenv("EXT_HOME", "")
-	t.Setenv("EXT_ADAPTER_HOME", "")
+	t.Setenv("EXT_HOME", filepath.Join(root, "state"))
+	t.Setenv("EXT_ADAPTER_HOME", home)
 
 	run := func(args ...string) (int, string) {
 		var stdout, stderr bytes.Buffer

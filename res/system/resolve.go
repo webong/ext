@@ -22,7 +22,22 @@ type ContextCandidate struct {
 	Engine            []string          `json:"engine,omitempty"`
 	Role              []string          `json:"role,omitempty"`
 	BrowserShare      map[string]string `json:"browser_share,omitempty"`
+	Program           *ContextProgram   `json:"program,omitempty"`
 	ObservedAt        time.Time         `json:"observed_at"`
+}
+
+// ContextProgram is the executable a context runs, as observed. Installers names
+// the installer adapters that reported the file; it is empty when the file was
+// found on PATH alone. The file may have been replaced since the scan.
+type ContextProgram struct {
+	Path       string   `json:"path"`
+	RealPath   string   `json:"realpath"`
+	Version    string   `json:"version,omitempty"`
+	OnPath     bool     `json:"on_path,omitempty"`
+	Installers []string `json:"installers,omitempty"`
+	// Suggested names installers the adapter that runs the file guessed from its
+	// location. It is not a fact; see "installers".
+	Suggested []string `json:"suggested_installers,omitempty"`
 }
 
 // Inventory is the latest reconciled adapter view. ObservedAt is refreshed on
@@ -46,6 +61,7 @@ func (g *Graph) ResolveInventory(ctx context.Context, runtimeName string) (Inven
 	adapterCapabilities := map[string][]string{}
 	supportNames := map[string]string{}
 	adapterSupports := map[string][]string{}
+	programs := map[string]graph.Vertex{}
 	for _, vertex := range snapshot.Vertices {
 		switch vertex.Kind {
 		case Namespace + "/inventory":
@@ -58,6 +74,8 @@ func (g *Graph) ResolveInventory(ctx context.Context, runtimeName string) (Inven
 			if name, ok := vertex.Attributes["name"].(string); ok {
 				adapters[name] = vertex
 			}
+		case Namespace + "/program":
+			programs[vertex.ID] = vertex
 		case Namespace + "/capability":
 			if name, ok := vertex.Attributes["name"].(string); ok {
 				capabilityNames[vertex.ID] = name
@@ -68,7 +86,17 @@ func (g *Graph) ResolveInventory(ctx context.Context, runtimeName string) (Inven
 			}
 		}
 	}
+	contextPrograms := map[string]*ContextProgram{}
 	for _, edge := range snapshot.Edges {
+		if edge.Type == Namespace+"/uses-program" {
+			if vertex, ok := programs[edge.To]; ok {
+				path, _ := vertex.Attributes["path"].(string)
+				realPath, _ := vertex.Attributes["realpath"].(string)
+				version, _ := vertex.Attributes["version"].(string)
+				onPath, _ := vertex.Attributes["on_path"].(bool)
+				contextPrograms[edge.From] = &ContextProgram{Path: path, RealPath: realPath, Version: version, OnPath: onPath, Installers: sortedCopy(stringList(vertex.Attributes["installers"])), Suggested: sortedCopy(stringList(vertex.Attributes["suggested_installers"]))}
+			}
+		}
 		if edge.Type == Namespace+"/supports" {
 			if name := capabilityNames[edge.To]; name != "" {
 				adapterCapabilities[edge.From] = append(adapterCapabilities[edge.From], name)
@@ -121,7 +149,7 @@ func (g *Graph) ResolveInventory(ctx context.Context, runtimeName string) (Inven
 				}
 			}
 		}
-		result.Contexts = append(result.Contexts, ContextCandidate{Adapter: adapter, Runtime: runtimeValue, Selection: selection, SelectionDigest: selectionDigest, SelectionRedacted: selection == "", Capabilities: capabilities, Supports: supports, Engine: sortedCopy(stringList(adapterVertex.Attributes["engine"])), Role: sortedCopy(stringList(adapterVertex.Attributes["role"])), BrowserShare: browserShare, ObservedAt: vertex.Provenance.At})
+		result.Contexts = append(result.Contexts, ContextCandidate{Adapter: adapter, Runtime: runtimeValue, Selection: selection, SelectionDigest: selectionDigest, SelectionRedacted: selection == "", Capabilities: capabilities, Supports: supports, Engine: sortedCopy(stringList(adapterVertex.Attributes["engine"])), Role: sortedCopy(stringList(adapterVertex.Attributes["role"])), BrowserShare: browserShare, Program: contextPrograms[vertex.ID], ObservedAt: vertex.Provenance.At})
 	}
 	sort.Slice(result.Contexts, func(i, j int) bool {
 		if result.Contexts[i].Adapter == result.Contexts[j].Adapter {

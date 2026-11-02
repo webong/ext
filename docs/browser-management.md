@@ -79,8 +79,8 @@ validation.
 4. Build the command with `Adapter.CommandContext(ctx, adapter.Invocation{
    Operation: "share", Selection: profile, Arguments: []string{"management",
    kind, action}})`. The process runs as `<adapter> share <profile> -- management
-   <kind> <action>` with the `CTX_ADAPTER_*` environment, plus one
-   `CTX_ADAPTER_VALUE_<KEY>` per key in `Adapter.ConfigKeys()` that the host
+   <kind> <action>` with the `EXT_ADAPTER_*` environment, plus one
+   `EXT_ADAPTER_VALUE_<KEY>` per key in `Adapter.ConfigKeys()` that the host
    supplies through `Invocation.Values`.
 5. Write the encoded request to stdin and close it. Read the single JSON
    `contract.Response` from stdout, but stop reading beyond

@@ -173,7 +173,7 @@ func loadCredentialEndpoint(ref string) (credentialEndpoint, error) {
 // The inherited adapter name is only an informational hint. The display label
 // comes from a trusted manifest and never changes authorization or native UI.
 func reportCredentialRequester(endpoint credentialEndpoint, stderr io.Writer) {
-	name := os.Getenv("CTX_ADAPTER_NAME")
+	name := os.Getenv("EXT_ADAPTER_NAME")
 	if name == "" || name == endpoint.adapter.Manifest.Name {
 		return
 	}

@@ -131,10 +131,10 @@ func computerHooksCommand(args []string, stdout, stderr io.Writer) int {
 			handler = value.Value
 		}
 		if handler == "" {
-			handler = os.Getenv("CTX_COMPUTER_HOOK_COMMAND")
+			handler = os.Getenv("EXT_COMPUTER_HOOK_COMMAND")
 		}
 		if handler == "" {
-			fmt.Fprintln(stderr, "ctx: hooks install needs --handler <executable> or CTX_COMPUTER_HOOK_COMMAND")
+			fmt.Fprintln(stderr, "ctx: hooks install needs --handler <executable> or EXT_COMPUTER_HOOK_COMMAND")
 			return 2
 		}
 		handler, err = resolveComputerHookHandler(root, handler)

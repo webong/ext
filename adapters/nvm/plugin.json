@@ -1,0 +1,43 @@
+{
+  "apiVersion": "ext.package/v1",
+  "descriptor": {
+    "apiVersion": "ext.plugin/v1",
+    "identity": {
+      "id": "nvm",
+      "revision": ""
+    },
+    "contracts": [
+      {
+        "name": "ext.adapter",
+        "version": "2.0",
+        "operations": [
+          {
+            "name": "programs"
+          }
+        ]
+      }
+    ]
+  },
+  "artifacts": [
+    {
+      "name": "roots",
+      "path": "program_roots",
+      "sha256": ""
+    }
+  ],
+  "metadata": {
+    "ctx.adapter/v1": {
+      "description": "Node Version Manager installer: reports the Node.js versions nvm installed",
+      "display_name": "nvm",
+      "program_roots": "program_roots",
+      "role": [
+        "installer"
+      ],
+      "runtime": "computer",
+      "selectable": false,
+      "surfaces": [
+        "shell"
+      ]
+    }
+  }
+}

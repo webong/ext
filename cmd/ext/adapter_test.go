@@ -15,12 +15,12 @@ import (
 // TestAdapterAcrossProducts exercises real binaries against one isolated home.
 // No CTX process participates in standalone CTN's evaluator invocation.
 func TestAdapterAcrossProducts(t *testing.T) {
-	for _, key := range []string{"EXT_ADAPTER_HOME", "CTX_ADAPTER_HOME", "CTX_HOME"} {
+	for _, key := range []string{"EXT_ADAPTER_HOME", "EXT_HOME"} {
 		t.Setenv(key, "")
 	}
 	home, bin := t.TempDir(), t.TempDir()
 	t.Setenv("EXT_HOME", home)
-	t.Setenv("CTX_BIN_DIR", bin)
+	t.Setenv("EXT_BIN_DIR", bin)
 	suffix := ""
 	if runtime.GOOS == "windows" {
 		suffix = ".exe"

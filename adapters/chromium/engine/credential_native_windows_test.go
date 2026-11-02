@@ -18,11 +18,11 @@ import (
 
 func fixtureWindowsProtect(t *testing.T, data []byte) []byte {
 	t.Helper()
-	const script = `Add-Type -AssemblyName System.Security; $raw=[Convert]::FromBase64String($env:CTX_TEST_DPAPI_DATA); $protected=[Security.Cryptography.ProtectedData]::Protect($raw,$null,[Security.Cryptography.DataProtectionScope]::CurrentUser); [Console]::Out.Write([Convert]::ToBase64String($protected))`
+	const script = `Add-Type -AssemblyName System.Security; $raw=[Convert]::FromBase64String($env:EXT_TEST_DPAPI_DATA); $protected=[Security.Cryptography.ProtectedData]::Protect($raw,$null,[Security.Cryptography.DataProtectionScope]::CurrentUser); [Console]::Out.Write([Convert]::ToBase64String($protected))`
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	command := exec.CommandContext(ctx, "powershell.exe", "-NoProfile", "-NonInteractive", "-Command", script)
-	command.Env = append(os.Environ(), "CTX_TEST_DPAPI_DATA="+base64.StdEncoding.EncodeToString(data))
+	command.Env = append(os.Environ(), "EXT_TEST_DPAPI_DATA="+base64.StdEncoding.EncodeToString(data))
 	output, err := command.Output()
 	if err != nil {
 		t.Fatalf("protect synthetic Windows credential: %v", err)
@@ -35,8 +35,8 @@ func fixtureWindowsProtect(t *testing.T, data []byte) []byte {
 }
 
 func TestNativeCookieCredentialsWindowsDPAPI(t *testing.T) {
-	if os.Getenv("CTX_COOKIE_NATIVE_CREDENTIAL_TESTS") != "1" {
-		t.Skip("set CTX_COOKIE_NATIVE_CREDENTIAL_TESTS=1 for isolated OS credential fixtures")
+	if os.Getenv("EXT_COOKIE_NATIVE_CREDENTIAL_TESTS") != "1" {
+		t.Skip("set EXT_COOKIE_NATIVE_CREDENTIAL_TESTS=1 for isolated OS credential fixtures")
 	}
 	plaintext := []byte("ctx-synthetic-cookie-value")
 	protected := fixtureWindowsProtect(t, plaintext)

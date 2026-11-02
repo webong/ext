@@ -5,12 +5,12 @@ param(
     [Parameter(Position = 2, ValueFromRemainingArguments = $true)][string[]]$Arguments
 )
 
-$nerdctl = $env:CTX_ADAPTER_REAL_COMMAND
+$nerdctl = $env:EXT_ADAPTER_REAL_COMMAND
 if (-not $nerdctl -or -not (Test-Path -LiteralPath $nerdctl -PathType Leaf)) { [Console]::Error.WriteLine('nerdctl: nerdctl is not installed'); exit 127 }
 if ($Arguments.Count -gt 0 -and $Arguments[0] -eq '--') { $Arguments = @($Arguments | Select-Object -Skip 1) }
-$volumeImage = if ($env:CTX_VOLUME_IMAGE) { $env:CTX_VOLUME_IMAGE } else { 'alpine:3.21' }
+$volumeImage = if ($env:EXT_VOLUME_IMAGE) { $env:EXT_VOLUME_IMAGE } else { 'alpine:3.21' }
 
-function Get-AddressPrefix { if ($env:CTX_MANAGER_ADDRESS) { return @('--address', $env:CTX_MANAGER_ADDRESS) }; return @() }
+function Get-AddressPrefix { if ($env:EXT_MANAGER_ADDRESS) { return @('--address', $env:EXT_MANAGER_ADDRESS) }; return @() }
 function Invoke-Nerdctl([string[]]$CommandArguments) { $prefix = @(Get-AddressPrefix); & $nerdctl @prefix @CommandArguments; exit $LASTEXITCODE }
 function Get-Namespaces { $prefix = @(Get-AddressPrefix); @(& $nerdctl @prefix namespace ls --quiet) }
 function Has-RunOverride {

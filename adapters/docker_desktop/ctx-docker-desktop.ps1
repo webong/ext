@@ -6,15 +6,15 @@ param(
 )
 
 if ($Arguments.Count -gt 0 -and $Arguments[0] -eq '--') { $Arguments = @($Arguments | Select-Object -Skip 1) }
-$docker = $env:CTX_DOCKER_DESKTOP_CLI
+$docker = $env:EXT_DOCKER_DESKTOP_CLI
 if (-not $docker -and $env:ProgramFiles) {
     $bundled = Join-Path $env:ProgramFiles 'Docker\Docker\resources\bin\docker.exe'
     if (Test-Path -LiteralPath $bundled -PathType Leaf) { $docker = $bundled }
 }
-if (-not $docker -and $env:CTX_EXECUTABLE) {
-    $docker = @(& $env:CTX_EXECUTABLE real docker 2>$null) | Select-Object -First 1
+if (-not $docker -and $env:EXT_EXECUTABLE) {
+    $docker = @(& $env:EXT_EXECUTABLE real docker 2>$null) | Select-Object -First 1
 }
-if (-not $docker -and -not $env:CTX_EXECUTABLE) {
+if (-not $docker -and -not $env:EXT_EXECUTABLE) {
     $found = Get-Command docker -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
     if ($found) { $docker = $found.Source }
 }

@@ -12,7 +12,7 @@ switch ($Operation) {
     { $_ -eq 'validate' -or $_ -eq 'doctor' } { exit 0 }
     'run' {
         if ($Arguments.Count -gt 0 -and $Arguments[0] -eq '--') { $Arguments = @($Arguments | Select-Object -Skip 1) }
-        $commandName = if ($env:CTX_ADAPTER_COMMAND) { $env:CTX_ADAPTER_COMMAND } else { 'mysql' }
+        $commandName = if ($env:EXT_ADAPTER_COMMAND) { $env:EXT_ADAPTER_COMMAND } else { 'mysql' }
         $client = Get-Command $commandName -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
         if (-not $client) { [Console]::Error.WriteLine("mysql: $commandName is not installed"); exit 127 }
         $hasLoginPath = $false

@@ -18,7 +18,7 @@ import (
 // programsEnvironment is the variable a runtime adapter reads to learn which
 // copies of its programs exist on the machine, as lines described at
 // programsEnvironmentValue. Unset, an adapter looks at PATH only.
-const programsEnvironment = "CTX_PROGRAMS"
+const programsEnvironment = "EXT_PROGRAMS"
 
 var programCache struct {
 	sync.Mutex
@@ -58,12 +58,22 @@ func discoverPrograms(resolver *config.Resolver, names []string) []program.Candi
 			if trusted, err := store.IsTrusted(installer); err != nil || !trusted {
 				continue
 			}
+			if installer.Declarative() {
+				// Data only: CTX looks in the directories the package names. Nothing runs.
+				reports[installer.Manifest.Name] = program.ScanRoots(names, installer.Manifest.ProgramRoots, os.Getenv)
+				continue
+			}
 			if reported, ok := installerPrograms(resolver, installer, names); ok {
 				reports[installer.Manifest.Name] = reported
 			}
 		}
 	}
-	merged := program.Merge(scanned, reports)
+	// Installers the user described in installers.json join the adapters' reports; a
+	// name both give is one installer.
+	for name, found := range configuredInstallerReports(readConfiguredInstallers(), names, os.Getenv) {
+		reports[name] = append(reports[name], found...)
+	}
+	merged := applyRecognised(program.Merge(scanned, reports), readRecognised())
 	if programCache.byNames == nil {
 		programCache.byNames = map[string][]program.Candidate{}
 	}
@@ -140,7 +150,7 @@ func uniqueSorted(values []string) []string {
 	return out
 }
 
-// programsEnvironmentValue is the value of CTX_PROGRAMS: one line per candidate
+// programsEnvironmentValue is the value of EXT_PROGRAMS: one line per candidate
 // with tab-separated name, path, realpath, version, installers (comma-joined)
 // and on_path (1 or 0), so a shell adapter can read it with no JSON tool. A
 // candidate with a control character in any field is left out. The value is

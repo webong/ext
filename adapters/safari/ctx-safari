@@ -2,7 +2,7 @@
 set -eu
 
 find_safari() {
-  [ "${CTX_PLATFORM:-$(uname -s)}" = Darwin ] || return 1
+  [ "${EXT_PLATFORM:-$(uname -s)}" = Darwin ] || return 1
   opener=$(command -v open 2>/dev/null || true)
   [ -n "$opener" ] || return 1
   if "$opener" -Ra Safari >/dev/null 2>&1; then SAFARI_APP=Safari; return 0; fi

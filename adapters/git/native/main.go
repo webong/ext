@@ -45,7 +45,7 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 }
 
 func gitExecutable() (string, error) {
-	if real := os.Getenv("CTX_ADAPTER_REAL_COMMAND"); real != "" {
+	if real := os.Getenv("EXT_ADAPTER_REAL_COMMAND"); real != "" {
 		info, err := os.Stat(real)
 		if err != nil || !info.Mode().IsRegular() {
 			return "", errors.New("native Git executable is unavailable")

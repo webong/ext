@@ -103,8 +103,8 @@ echo %*
         Copy-Item (Join-Path $bin 'ctx.exe') (Join-Path $fallbackBin "$command.exe")
     }
 
-    $env:CTX_HOME = $config
-    $env:CTX_BIN_DIR = $bin
+    $env:EXT_HOME = $config
+    $env:EXT_BIN_DIR = $bin
     $env:APPDATA = Join-Path $testRoot 'AppData\Roaming'
     $env:LOCALAPPDATA = Join-Path $testRoot 'AppData\Local'
     $env:PATH = "$bin;$fakeBin;$fallbackBin;$env:PATH"

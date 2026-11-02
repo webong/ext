@@ -247,6 +247,6 @@ See [ctn verify](ctn-verify.md) for the rules, verdicts and exit statuses.
 
 ## Where to go next
 
-- [Evaluator adapters](evaluator-adapters.md): the contract for the `jvm`, `wasm`, `evm` and `php` evaluators.
+- [Evaluator adapters](evaluator-adapters.md): the contract for the `jvm`, `wasm`, `evm`, `php`, `python` and `node` evaluators.
 - [Adapter API](adapter-api.md): write an adapter for a tool.
 - [Mobile WebAssembly](adr-mobile-wasm.md): hosting plugins on a phone, and what is and is not verified.

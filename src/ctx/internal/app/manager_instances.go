@@ -30,15 +30,15 @@ type managerInstance struct {
 }
 
 func managerInstanceEnvironment(instance managerInstance) map[string]string {
-	environment := map[string]string{"CTX_MANAGER_ADDRESS": instance.Address}
+	environment := map[string]string{"EXT_MANAGER_ADDRESS": instance.Address}
 	if instance.Command != "" {
-		environment["CTX_MANAGER_COMMAND"] = instance.Command
+		environment["EXT_MANAGER_COMMAND"] = instance.Command
 	}
 	if instance.PluginDir != "" {
-		environment["CTX_MANAGER_PLUGIN_DIR"] = instance.PluginDir
+		environment["EXT_MANAGER_PLUGIN_DIR"] = instance.PluginDir
 	}
 	for name, path := range instance.Plugins {
-		environment["CTX_MANAGER_PLUGIN_"+strings.ToUpper(name)] = path
+		environment["EXT_MANAGER_PLUGIN_"+strings.ToUpper(name)] = path
 	}
 	return environment
 }

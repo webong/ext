@@ -280,7 +280,7 @@ the owning adapter/backend's responsibility.
 
 CTX now uses preparation before interactive `ctx shell` launches, protected
 cookie/policy/credential file outputs, and manager image archive staging.
-Shell selection preserves `--shell`, `CTX_SHELL`, profile configuration, and
+Shell selection preserves `--shell`, `EXT_SHELL`, profile configuration, and
 the existing platform default precedence, and resolves names using the effective
 profile PATH. Explicit output paths and `TMPDIR`/platform temporary directories
 remain the selected destinations. JSON exports declare their encoded byte

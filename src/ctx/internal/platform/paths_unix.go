@@ -7,7 +7,7 @@ import (
 )
 
 func DefaultShell() string {
-	if shell := os.Getenv("CTX_SHELL"); shell != "" {
+	if shell := os.Getenv("EXT_SHELL"); shell != "" {
 		return shell
 	}
 	if shell := os.Getenv("SHELL"); shell != "" {

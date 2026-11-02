@@ -51,9 +51,9 @@ func normalizeFixture(t *testing.T, operation, response string) (string, *modpkg
 func TestNormalizeDispatchAndPortableRoundTrip(t *testing.T) {
 	root := t.TempDir()
 	captured := filepath.Join(root, "request")
-	t.Setenv("CTX_NORMALIZE_REQUEST", captured)
+	t.Setenv("EXT_NORMALIZE_REQUEST", captured)
 	home, store := normalizeFixture(t, "cookie.normalize", `test "$1" = share && test "$2" = Default && test "$4" = cookie && test "$5" = normalize || exit 2
-cat > "$CTX_NORMALIZE_REQUEST"
+cat > "$EXT_NORMALIZE_REQUEST"
 printf '%s' '{"store_id":"0","cookies":[{"name":"session","value":"synthetic-secret","domain":"example.test","path":"/","attributes":{"fixture.webextension_store_id":"0"}}]}'`)
 	options := browser.NormalizeOptions{Source: "fixture:Default", StoreID: "0", Export: json.RawMessage(`{"selection":{"storeId":"0"},"cookies":[]}`), Backend: Provider{AdapterHome: home}}
 	result, err := browser.Normalize(context.Background(), options)

@@ -505,6 +505,33 @@ EXT_HOST_API ext_status ext_store_list(ext_store *store, ext_buffer *packages);
 EXT_HOST_API ext_status ext_store_verify(ext_store *store, ext_buffer *checks);
 EXT_HOST_API ext_status ext_store_list_unverified(ext_store *store,
                                                   ext_buffer *listing);
+/* Entrypoint resolution: pick the executable that serves a contract and a
+ * protocol on a platform, for a package the caller has reviewed. It reads and
+ * verifies the whole package (as ext_store_load does), requires that the
+ * package serves the exact contract name and version, compares the directory
+ * digest of the package with reviewed_digest (lowercase hex, the digest the
+ * caller recorded when it reviewed the package) and then selects an entrypoint.
+ * No package is trusted merely because it is installed: an empty or changed
+ * digest is EXT_DENIED, and nothing is selected without it.
+ *
+ * Only entrypoints with runtime "argv" that list protocol are considered. One
+ * whose name ends in ".windows", ".linux", ".darwin", ".freebsd" or ".android"
+ * is for that platform alone. Its artifact must have no os or arch, or the
+ * given ones. The best match scores 2 for an artifact that names an os, 1 for
+ * one that names an arch and 2 for an entrypoint name with the platform
+ * suffix; the first entrypoint, in manifest order, with the highest score wins.
+ * os and arch are Go's runtime.GOOS and runtime.GOARCH names; NULL takes those
+ * of the platform the engine was built for. EXT_UNSUPPORTED means the package
+ * does not serve the contract or has no compatible entrypoint.
+ *
+ * On success *entrypoint is the JSON {"name","artifact","path","digest"}: the
+ * entrypoint's name, its artifact's name, the artifact's path (the cleaned
+ * package directory joined with the artifact's path; for a tree artifact, the
+ * directory) and the package digest. */
+EXT_HOST_API ext_status ext_store_resolve_entrypoint(
+    ext_store *store, const char *id, const char *contract, const char *version,
+    const char *protocol, const char *reviewed_digest, const char *os,
+    const char *arch, ext_buffer *entrypoint);
 /* A read-only view over several roots in priority order, highest first, such as
  * a user root before a system root. An id is served from the first root that
  * holds it; a copy in a lower root is shadowed and never read. If the winning

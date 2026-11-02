@@ -5,6 +5,9 @@
 #include "sync.h"
 #include <stdlib.h>
 #include <string.h>
+#ifdef __APPLE__
+#include <TargetConditionals.h>
+#endif
 
 /* The package store: install, upgrade, replace, remove and load. The rules are
  * those of the Go store (engine/host/store) and the two are held together by
@@ -1140,6 +1143,197 @@ ext_status ext_store_list_unverified(ext_store *store, ext_buffer *listing) {
     return EXT_INVALID;
   *listing = (ext_buffer){0};
   return report(&store, 1, 2, listing);
+}
+
+/* Entrypoint resolution (ext_store_resolve_entrypoint). The rules are those of
+ * the Go store's ResolveEntrypoint (engine/host/store/discovery.go), which the
+ * differential tests hold this to. The platform is named as Go names it: a
+ * manifest's artifact "os" and "arch" and the ".<os>" suffix of an entrypoint
+ * name use runtime.GOOS and runtime.GOARCH values. */
+static const char *build_os(void) {
+#if defined(__ANDROID__)
+  return "android";
+#elif defined(__APPLE__) && TARGET_OS_IPHONE
+  return "ios";
+#elif defined(__APPLE__)
+  return "darwin";
+#elif defined(_WIN32)
+  return "windows";
+#elif defined(__linux__)
+  return "linux";
+#elif defined(__FreeBSD__)
+  return "freebsd";
+#else
+  return "unknown";
+#endif
+}
+static const char *build_arch(void) {
+#if defined(__x86_64__) || defined(_M_X64)
+  return "amd64";
+#elif defined(__aarch64__) || defined(_M_ARM64)
+  return "arm64";
+#elif defined(__i386__) || defined(_M_IX86)
+  return "386";
+#elif defined(__arm__) || defined(_M_ARM)
+  return "arm";
+#else
+  return "unknown";
+#endif
+}
+static const char *text_of(yyjson_val *v) {
+  const char *text = yyjson_get_str(v);
+  return text ? text : "";
+}
+/* Whether name ends in "." followed by os, as strings.HasSuffix(name, "."+os). */
+static int has_platform_suffix(const char *name, const char *os) {
+  size_t n = strlen(name), m = strlen(os);
+  return n > m && name[n - m - 1] == '.' && !memcmp(name + n - m, os, m);
+}
+/* An entrypoint named for one operating system is for that one alone. */
+static int entry_matches_os(const char *name, const char *os) {
+  static const char *const known[] = {"windows", "linux", "darwin", "freebsd",
+                                      "android"};
+  for (size_t i = 0; i < sizeof(known) / sizeof(known[0]); i++)
+    if (has_platform_suffix(name, known[i]))
+      return !strcmp(known[i], os);
+  return 1;
+}
+static int lists_protocol(yyjson_val *protocols, const char *protocol) {
+  size_t i, n;
+  yyjson_val *v;
+  yyjson_arr_foreach(protocols, i, n, v) {
+    if (yyjson_is_str(v) && !strcmp(yyjson_get_str(v), protocol))
+      return 1;
+  }
+  return 0;
+}
+static int serves_contract(yyjson_val *m, const char *name, const char *version) {
+  size_t i, n;
+  yyjson_val *c;
+  yyjson_arr_foreach(yyjson_obj_get(yyjson_obj_get(m, "descriptor"), "contracts"),
+                     i, n, c) {
+    if (!strcmp(text_of(yyjson_obj_get(c, "name")), name) &&
+        !strcmp(text_of(yyjson_obj_get(c, "version")), version))
+      return 1;
+  }
+  return 0;
+}
+/* The entrypoint and artifact the Go store would select, or EXT_UNSUPPORTED. */
+static ext_status select_entrypoint(yyjson_val *m, const char *protocol,
+                                    const char *os, const char *arch,
+                                    yyjson_val **entry_out,
+                                    yyjson_val **artifact_out) {
+  int best_score = -1;
+  size_t i, n;
+  yyjson_val *entry;
+  yyjson_arr_foreach(yyjson_obj_get(m, "entrypoints"), i, n, entry) {
+    const char *name = text_of(yyjson_obj_get(entry, "name"));
+    if (strcmp(text_of(yyjson_obj_get(entry, "runtime")), "argv") ||
+        !lists_protocol(yyjson_obj_get(entry, "protocols"), protocol) ||
+        !entry_matches_os(name, os))
+      continue;
+    size_t j, k;
+    yyjson_val *artifact;
+    yyjson_arr_foreach(yyjson_obj_get(m, "artifacts"), j, k, artifact) {
+      const char *artifact_os = text_of(yyjson_obj_get(artifact, "os"));
+      const char *artifact_arch = text_of(yyjson_obj_get(artifact, "arch"));
+      if (strcmp(text_of(yyjson_obj_get(artifact, "name")),
+                 text_of(yyjson_obj_get(entry, "artifact"))) ||
+          (*artifact_os && strcmp(artifact_os, os)) ||
+          (*artifact_arch && strcmp(artifact_arch, arch)))
+        continue;
+      int score = (*artifact_os ? 2 : 0) + (*artifact_arch ? 1 : 0) +
+                  (has_platform_suffix(name, os) ? 2 : 0);
+      if (score <= best_score)
+        continue;
+      best_score = score;
+      *entry_out = entry;
+      *artifact_out = artifact;
+    }
+  }
+  return best_score < 0 ? EXT_UNSUPPORTED : EXT_OK;
+}
+static ext_status entrypoint_json(yyjson_val *entry, yyjson_val *artifact,
+                                  const char *path, const char *digest,
+                                  ext_buffer *out) {
+  yyjson_mut_doc *d = yyjson_mut_doc_new(NULL);
+  if (!d)
+    return EXT_NOMEM;
+  yyjson_mut_val *o = yyjson_mut_obj(d);
+  yyjson_mut_doc_set_root(d, o);
+  int ok = o &&
+           yyjson_mut_obj_add_strcpy(d, o, "name",
+                                     text_of(yyjson_obj_get(entry, "name"))) &&
+           yyjson_mut_obj_add_strcpy(
+               d, o, "artifact", text_of(yyjson_obj_get(artifact, "name"))) &&
+           yyjson_mut_obj_add_strcpy(d, o, "path", path) &&
+           yyjson_mut_obj_add_strcpy(d, o, "digest", digest);
+  if (ok)
+    out->data = (uint8_t *)yyjson_mut_write(d, 0, &out->len);
+  yyjson_mut_doc_free(d);
+  return out->data ? EXT_OK : EXT_NOMEM;
+}
+ext_status ext_store_resolve_entrypoint(
+    ext_store *store, const char *id, const char *contract, const char *version,
+    const char *protocol, const char *reviewed_digest, const char *os,
+    const char *arch, ext_buffer *entrypoint) {
+  if (entrypoint)
+    *entrypoint = (ext_buffer){0};
+  if (!store || !contract || !version || !protocol || !entrypoint)
+    return EXT_INVALID;
+  if (!reviewed_digest || !*reviewed_digest)
+    return EXT_DENIED;
+  if (!valid_id(id))
+    return EXT_INVALID;
+  if (!os)
+    os = build_os();
+  if (!arch)
+    arch = build_arch();
+  ext_buffer bytes = {0};
+  yyjson_doc *doc = NULL;
+  char *name = NULL, *dir = NULL, *clean_dir = NULL, *path = NULL;
+  pthread_mutex_lock(&store->mu);
+  ext_status s = read_package(store, id, 1, &bytes);
+  if (!s) {
+    doc = ext_parse(bytes.data, bytes.len);
+    name = dir_name(id);
+    dir = name ? join(store->root, name) : NULL;
+    clean_dir = name ? entry_path(store->root, name) : NULL;
+    s = doc && dir && clean_dir ? EXT_OK : EXT_NOMEM;
+  }
+  yyjson_val *m = doc ? yyjson_doc_get_root(doc) : NULL;
+  char digest[65];
+  if (!s && !serves_contract(m, contract, version))
+    s = EXT_UNSUPPORTED;
+  if (!s) {
+    uint8_t raw[32];
+    s = ext_directory_digest(dir, raw);
+    if (!s) {
+      for (size_t i = 0; i < 32; i++) {
+        digest[2 * i] = "0123456789abcdef"[raw[i] >> 4];
+        digest[2 * i + 1] = "0123456789abcdef"[raw[i] & 15];
+      }
+      digest[64] = 0;
+      if (strcmp(digest, reviewed_digest))
+        s = EXT_DENIED;
+    }
+  }
+  yyjson_val *entry = NULL, *artifact = NULL;
+  if (!s)
+    s = select_entrypoint(m, protocol, os, arch, &entry, &artifact);
+  if (!s) {
+    path = entry_path(clean_dir, text_of(yyjson_obj_get(artifact, "path")));
+    s = path ? entrypoint_json(entry, artifact, path, digest, entrypoint)
+             : EXT_NOMEM;
+  }
+  pthread_mutex_unlock(&store->mu);
+  free(path);
+  free(clean_dir);
+  free(dir);
+  free(name);
+  yyjson_doc_free(doc);
+  ext_buffer_free(&bytes);
+  return s;
 }
 
 /* A read-only view over several stores, the first holding an id serving it. */

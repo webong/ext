@@ -119,6 +119,19 @@ Go store replaces `/` with `%2f`) and must not join it into a path as written.
   hashed, so what it returns is not trusted) and reports the entries it could not
   read separately. A staging directory (a leading ".") is skipped and a missing
   root is empty.
+- `ext_store_resolve_entrypoint`: entrypoint resolution (the Go store's
+  `ResolveEntrypoint`, "discovery"). It reads and verifies the whole package,
+  requires that it serves the exact contract name and version, compares its
+  directory digest with the digest the caller reviewed (an empty or changed one
+  is `EXT_DENIED`, so nothing is selected without a trust decision) and then
+  selects, among the `argv` entrypoints that list the protocol and are not named
+  for another operating system, the one whose artifact fits the platform best
+  (2 for an artifact that names an `os`, 1 for an `arch`, 2 for a ".`<os>`"
+  entrypoint name; the first in manifest order wins a tie). `os` and `arch` are
+  Go's `runtime.GOOS` and `runtime.GOARCH` names, and `NULL` takes those of the
+  platform the engine was built for. It answers `{"name","artifact","path",
+  "digest"}`; `EXT_UNSUPPORTED` means no served contract or no compatible
+  entrypoint.
 - `ext_layered_open`, `ext_layered_close`, `ext_layered_load`, `ext_layered_list`,
   `ext_layered_verify`, `ext_layered_list_unverified`: a read-only view over
   several roots in priority order, such as a user root before a system root. An

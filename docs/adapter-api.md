@@ -229,11 +229,23 @@ line-oriented `list` behavior documented below.
 
 The public `github.com/webong/ext/res/system` package exposes
 `ObserveInventory`, `ResolveInventory`, and `Inventory.Find` for other Go
-consumers. `ctx graph resolve [runtime|all] [capability...] [--supports <kind>] [--engine <name>] [--role <name>] [--share <resource.operation>]`
+consumers. `ctx graph resolve [runtime|all] [capability...] [--supports <kind>] [--engine <name>] [--role <name>] [--share <resource.operation>] [--pick]`
 shows the same candidate view as JSON. `ctx graph vertices support` and
 `ctx graph edges supports-kind` expose declarations even for adapters that
 have not listed a context. These are observations; the caller must validate
 the selected context with its trusted adapter before acting.
+
+Several adapters can support one kind. Nothing ranks them; the user states a
+preference with `ctx default <kind> <adapter>`, which writes `prefer_<kind>` to the
+project's `.ctx` file, or to `config.toml` as `prefer_<kind>_default` with
+`--global`. The nearest `.ctx` wins, then a project map entry or profile, then the
+user default, the same order as every other setting. With `--supports <kind>`,
+resolve marks the contexts of that adapter `"default": true` and removes nothing, so a
+consumer can still see every candidate. `--pick` (one `--supports` kind) returns only
+the preferred adapter's contexts, or the only adapter that offers the kind. It fails
+rather than guess when several adapters offer the kind and none is preferred, when
+none offers it, or when the preferred adapter is not among them. `ctx default ls`
+shows each kind that has a preference or more than one adapter.
 
 `runtime` identifies the adapter's role, not whether it uses virtualization:
 

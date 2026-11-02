@@ -38,7 +38,8 @@ other roles that describe what it does with code (`interpreter`, `compiler`,
 `transpiler`, `bundler`, `renderer`), and supports exactly one kind (`jvm`, `wasm`, `evm`, `php`, `python`, `node`).
 With `ctx graph resolve all --engine evaluator` a tool finds every evaluator,
 `--role virtualizer` finds every virtualizer of any engine, and `--supports <kind>`
-narrows to one. A built-in evaluator has no native executable
+narrows to one. When two adapters support the same kind, `ctx default <kind> <adapter>`
+states which one `--pick` returns (see [the adapter API](adapter-api.md)). A built-in evaluator has no native executable
 to find, so it also sets `self_contained = "true"` and names its command in
 `computer_commands`.
 

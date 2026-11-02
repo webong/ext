@@ -210,6 +210,17 @@ func (r *Resolver) Resolve(key string) (Resolution, error) {
 	return Resolution{Source: key + " default"}, nil
 }
 
+// KindKey is the setting that names the adapter preferred for a kind (php, jvm).
+// A .ctx file, a project map entry or a profile holds it as prefer_<kind>; the
+// user-wide fallback is prefer_<kind>_default, like the manager fallbacks.
+func KindKey(kind string) string { return "prefer_" + kind }
+
+// ResolveKind returns the adapter chosen for a kind, from the nearest .ctx file
+// outward, then the user default. The value is empty when none is set.
+func (r *Resolver) ResolveKind(kind string) (Resolution, error) {
+	return r.Resolve(KindKey(kind))
+}
+
 func (r *Resolver) fromProfile(name, key, source string) (Resolution, bool) {
 	if name == "" || r.Config.Profiles[name] == nil {
 		return Resolution{}, false

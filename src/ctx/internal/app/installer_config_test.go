@@ -23,12 +23,17 @@ func TestInstallerCommandAddRemoveLs(t *testing.T) {
 	if code, out, errOut := run("add", "mytools", "~/tools/*/bin", "${MYTOOLS_HOME:-~/mytools}/v/*/bin"); code != 0 {
 		t.Fatalf("add = %d %q %q", code, out, errOut)
 	}
-	// Adding again extends the installer and does not repeat a pattern.
-	if code, _, errOut := run("add", "mytools", "~/tools/*/bin", "/opt/mytools/*/bin"); code != 0 {
+	// Adding again extends the installer and does not repeat a pattern. A path with
+	// no drive letter is not absolute on Windows.
+	opt := "/opt/mytools/*/bin"
+	if runtime.GOOS == "windows" {
+		opt = "C:" + opt
+	}
+	if code, _, errOut := run("add", "mytools", "~/tools/*/bin", opt); code != 0 {
 		t.Fatalf("extend = %d %q", code, errOut)
 	}
 	got := readConfiguredInstallers()
-	want := []configuredInstaller{{Name: "mytools", Roots: []string{"~/tools/*/bin", "${MYTOOLS_HOME:-~/mytools}/v/*/bin", "/opt/mytools/*/bin"}}}
+	want := []configuredInstaller{{Name: "mytools", Roots: []string{"~/tools/*/bin", "${MYTOOLS_HOME:-~/mytools}/v/*/bin", opt}}}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("installers = %#v, want %#v", got, want)
 	}

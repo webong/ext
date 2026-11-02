@@ -23,8 +23,8 @@ jobs:
             arch: arm64
     runs-on: ${{ matrix.runner }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
         with:
           go-version: '1.26.x'
           cache: true
@@ -35,7 +35,7 @@ jobs:
       - run: go test ./credential/...
         working-directory: res/system
       - run: mkdir -p keychain && go build -trimpath -ldflags '-s -w' -o keychain/ctx-keychain ./adapters/keychain/native
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: keychain-${{ matrix.arch }}
           path: keychain/ctx-keychain
@@ -46,16 +46,16 @@ jobs:
     if: startsWith(github.ref_name, 'ctx-v')
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v7
         with:
           name: keychain-amd64
           path: native-keychain/amd64
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v7
         with:
           name: keychain-arm64
           path: native-keychain/arm64
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
           go-version: '1.26.x'
           cache: true
@@ -88,8 +88,8 @@ jobs:
     if: startsWith(github.ref_name, 'ctn-v')
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
         with:
           go-version: '1.26.x'
           cache: true
@@ -117,10 +117,10 @@ jobs:
     if: startsWith(github.ref_name, 'ext-v')
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0 # the embedded ctx and ctn versions are read from tags
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
           go-version: '1.26.x'
           cache: true

@@ -5,6 +5,14 @@ import UIKit
 import ExtWeb
 @testable import ExtWebKit
 
+/// A flag one task sets while another reads it.
+private final class Flag: @unchecked Sendable {
+    private let lock = NSLock()
+    private var value = false
+    var isSet: Bool { lock.lock(); defer { lock.unlock() }; return value }
+    func set() { lock.lock(); value = true; lock.unlock() }
+}
+
 @MainActor
 final class BrowserWorkspaceTests: XCTestCase {
     #if canImport(UIKit)
@@ -221,13 +229,13 @@ final class BrowserWorkspaceTests: XCTestCase {
 
     func testCloseRejectsPendingInjection() async throws {
         let workspace = BrowserWorkspace(target: "closing")
-        var closed = false
+        let closed = Flag()
         let injection = Task {
             try await workspace.inject("window.pending = true;")
-            return !closed
+            return !closed.isSet
         }
         await Task.yield()
-        closed = true; workspace.close()
+        closed.set(); workspace.close()
         // Evaluation may finish before close, but can never succeed afterwards.
         do { let finishedBeforeClose = try await injection.value; XCTAssertTrue(finishedBeforeClose) } catch {}
     }

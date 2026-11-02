@@ -31,5 +31,5 @@ func conformanceHandle(_ call: Call) throws -> Data {
 
 @_cdecl("ext_plugin_guest_factory")
 public func ext_plugin_guest_factory() -> UnsafeMutableRawPointer? {
-    exportGuest { try Guest(descriptor: conformanceDescriptor, handler: conformanceHandle) }
+    exportGuest { try Guest(descriptor: conformanceDescriptor, handler: { try conformanceHandle($0) }) }
 }

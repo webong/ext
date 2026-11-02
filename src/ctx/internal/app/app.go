@@ -210,6 +210,8 @@ usage:
   ctx program <recognise|forget> <path> [installer]
       recognise records that you know which installer put a program there; with no
       installer it takes the one an adapter suggested
+  ctx program installer <add <name> <pattern>...|remove <name>|ls>
+      describe an installer yourself by the directories it keeps programs in
   ctx manager app <adapter> <status|start|stop|doctor>
   ctx setup [adapters] [--all|--minimal|--adapters <name,...>]
   ctx ls <selector>

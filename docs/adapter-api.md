@@ -303,6 +303,10 @@ the package digest and by trust, and a changed file is untrusted like a changed
 script. A declarative adapter cannot also have an executable, commands, `supports`, an
 `engine` or a selector. `nvm` and `xcode` are declarative.
 
+A user can also declare an installer without an adapter, in `installers.json` in the
+home (`ctx program installer add NAME PATTERN...`), with the same patterns. See
+[Program discovery](adr-program-discovery.md#installers-you-declare).
+
 A runtime adapter can **suggest** where a program came from by adding a
 `suggested_installer` attribute (an installer name) next to `executable` in `observe`,
 for example from the directory the file sits in. A suggestion is a guess by the

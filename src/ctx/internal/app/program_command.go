@@ -14,13 +14,16 @@ import (
 // Adapters only suggest; recognise turns a suggestion into a recognition that
 // discovery applies, and forget takes it back.
 func programCommand(resolver *config.Resolver, args []string, stdout, stderr io.Writer) int {
+	if len(args) > 0 && args[0] == "installer" {
+		return installerCommand(args[1:], stdout, stderr)
+	}
 	if len(args) < 2 {
-		fmt.Fprintln(stderr, "ctx: program needs recognise <path> [installer] or forget <path> [installer]")
+		fmt.Fprintln(stderr, "ctx: program needs recognise <path> [installer], forget <path> [installer] or installer <add|remove|ls>")
 		return 2
 	}
 	action, rawPath, rest := args[0], args[1], args[2:]
 	if (action != "recognise" && action != "forget") || len(rest) > 1 {
-		fmt.Fprintln(stderr, "ctx: program needs recognise <path> [installer] or forget <path> [installer]")
+		fmt.Fprintln(stderr, "ctx: program needs recognise <path> [installer], forget <path> [installer] or installer <add|remove|ls>")
 		return 2
 	}
 	installer := ""

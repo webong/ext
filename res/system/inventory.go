@@ -35,6 +35,13 @@ type AdapterObservation struct {
 	Relations []RelationObservation
 }
 
+// InstallerObservation declares an installer that is not an adapter, such as one
+// the user described in their own configuration. Installers that are adapters
+// (role "installer") need no entry here.
+type InstallerObservation struct {
+	Name, Source string
+}
+
 // ContextObservation is a native adapter selection with optional narrower
 // capabilities and resource support, plus ordinary non-secret metadata.
 type ContextObservation struct {
@@ -76,7 +83,7 @@ func contextID(adapter, selection string) string {
 // ObserveInventory replaces CTX's adapter inventory projection while leaving
 // shell and web observations intact. It records only ordinary metadata and
 // redacts context names that resemble paths, URLs, or opaque values.
-func (g *Graph) ObserveInventory(ctx context.Context, adapters []AdapterObservation, aliases []AliasObservation) error {
+func (g *Graph) ObserveInventory(ctx context.Context, adapters []AdapterObservation, aliases []AliasObservation, installers ...InstallerObservation) error {
 	now := time.Now().UTC()
 	host, _ := os.Hostname()
 	vertices := map[string]graph.Vertex{
@@ -166,7 +173,7 @@ func (g *Graph) ObserveInventory(ctx context.Context, adapters []AdapterObservat
 			edges[edgeID] = graph.Edge{ID: edgeID, From: from, To: to, Type: Namespace + "/relates", Attributes: map[string]any{"kind": relation.Kind}}
 		}
 	}
-	observeInventoryPrograms(adapters, vertices, edges, now)
+	observeInventoryPrograms(adapters, installers, vertices, edges, now)
 	for _, alias := range aliases {
 		if alias.Name == "" || alias.Space == "" {
 			continue
@@ -240,7 +247,7 @@ func (g *Graph) ObserveInventory(ctx context.Context, adapters []AdapterObservat
 // in its "executable" attribute is joined to it. A program found only on PATH has
 // no installer edge: the absence is the fact. An installer that is not an observed
 // adapter stays in the "installers" attribute only.
-func observeInventoryPrograms(adapters []AdapterObservation, vertices map[string]graph.Vertex, edges map[string]graph.Edge, now time.Time) {
+func observeInventoryPrograms(adapters []AdapterObservation, declared []InstallerObservation, vertices map[string]graph.Vertex, edges map[string]graph.Edge, now time.Time) {
 	type merged struct {
 		candidate program.Candidate
 		names     map[string]bool
@@ -272,6 +279,33 @@ func observeInventoryPrograms(adapters []AdapterObservation, vertices map[string
 			}
 		}
 	}
+	// Installers: every installer adapter and every declared installer is a vertex,
+	// and so is any other name a program points at, so an edge never dangles.
+	installerSources := map[string]map[string]bool{}
+	installerAdapter := map[string]bool{}
+	addSource := func(name, source string) {
+		if name == "" {
+			return
+		}
+		if installerSources[name] == nil {
+			installerSources[name] = map[string]bool{}
+		}
+		installerSources[name][source] = true
+	}
+	for _, adapter := range adapters {
+		if contains(adapter.Role, "installer") && adapter.Name != "" {
+			addSource(adapter.Name, "adapter")
+			installerAdapter[adapter.Name] = true
+		}
+	}
+	for _, item := range declared {
+		source := item.Source
+		if source == "" {
+			source = "config"
+		}
+		addSource(item.Name, source)
+	}
+	seenInstaller := map[string]bool{}
 	programIDs := map[string]string{}
 	for file, entry := range byFile {
 		id := "program/" + digest(file)
@@ -284,15 +318,33 @@ func observeInventoryPrograms(adapters []AdapterObservation, vertices map[string
 		edgeID := "machine-program/" + digest(file)
 		edges[edgeID] = graph.Edge{ID: edgeID, From: "machine/local", To: id, Type: Namespace + "/has-program"}
 		for _, installer := range installers {
-			installerID := "adapter/" + installer
-			if _, ok := vertices[installerID]; !ok {
-				continue
+			if !seenInstaller[installer] {
+				seenInstaller[installer] = true
+				if _, known := installerSources[installer]; !known {
+					// Reported by neither an adapter nor the configuration: the user
+					// recognised it.
+					installerSources[installer] = map[string]bool{"recognised": true}
+				}
 			}
 			edgeID := "program-installer/" + digest(file+"\x00"+installer)
-			edges[edgeID] = graph.Edge{ID: edgeID, From: id, To: installerID, Type: Namespace + "/installed-by"}
+			edges[edgeID] = graph.Edge{ID: edgeID, From: id, To: installerID(installer), Type: Namespace + "/installed-by"}
 		}
 		programIDs[file] = id
 		programIDs[entry.candidate.Path] = id
+	}
+	for name, sources := range installerSources {
+		id := installerID(name)
+		attributes := map[string]any{"name": name, "sources": sortedKeys(sources)}
+		if installerAdapter[name] {
+			attributes["adapter"] = name
+		}
+		vertices[id] = graph.Vertex{ID: id, Kind: Namespace + "/installer", Attributes: attributes, Provenance: graph.Provenance{Source: "ctx", Operation: "installer-declared", At: now}}
+		if installerAdapter[name] {
+			if _, ok := vertices["adapter/"+name]; ok {
+				edgeID := "installer-adapter/" + digest(name)
+				edges[edgeID] = graph.Edge{ID: edgeID, From: id, To: "adapter/" + name, Type: Namespace + "/implemented-by"}
+			}
+		}
 	}
 	suggested := map[string]map[string]bool{}
 	for id, vertex := range vertices {
@@ -345,6 +397,8 @@ func contains(list []string, value string) bool {
 	return false
 }
 
+func installerID(name string) string { return "installer/" + digest(name) }
+
 func sortedKeys(set map[string]bool) []string {
 	keys := make([]string, 0, len(set))
 	for key := range set {
@@ -356,7 +410,7 @@ func sortedKeys(set map[string]bool) []string {
 
 func isInventoryVertex(vertex graph.Vertex) bool {
 	switch vertex.Kind {
-	case Namespace + "/inventory", Namespace + "/adapter", Namespace + "/capability", Namespace + "/support", Namespace + "/context", Namespace + "/resource", Namespace + "/alias", Namespace + "/program":
+	case Namespace + "/inventory", Namespace + "/adapter", Namespace + "/capability", Namespace + "/support", Namespace + "/context", Namespace + "/resource", Namespace + "/alias", Namespace + "/program", Namespace + "/installer":
 		return true
 	}
 	return false
@@ -364,7 +418,7 @@ func isInventoryVertex(vertex graph.Vertex) bool {
 
 func isInventoryEdge(edge graph.Edge) bool {
 	switch edge.Type {
-	case Namespace + "/has-adapter", Namespace + "/supports", Namespace + "/supports-kind", Namespace + "/offers", Namespace + "/contains", Namespace + "/relates", Namespace + "/resolves-to", Namespace + "/has-program", Namespace + "/installed-by", Namespace + "/uses-program":
+	case Namespace + "/has-adapter", Namespace + "/supports", Namespace + "/supports-kind", Namespace + "/offers", Namespace + "/contains", Namespace + "/relates", Namespace + "/resolves-to", Namespace + "/has-program", Namespace + "/installed-by", Namespace + "/implemented-by", Namespace + "/uses-program":
 		return true
 	}
 	return false

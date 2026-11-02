@@ -34,7 +34,7 @@ func TestInventoryProjectsPrograms(t *testing.T) {
 		t.Fatal(err)
 	}
 	ctx := context.Background()
-	if err := g.ObserveInventory(ctx, programAdapters(), nil); err != nil {
+	if err := g.ObserveInventory(ctx, programAdapters(), nil, InstallerObservation{Name: "mytools", Source: "config"}); err != nil {
 		t.Fatal(err)
 	}
 	snapshot, err := g.Store.Snapshot(ctx, Namespace)
@@ -67,10 +67,46 @@ func TestInventoryProjectsPrograms(t *testing.T) {
 			uses = append(uses, edge)
 		}
 	}
-	// asdf is not an observed adapter, so only homebrew gets an edge; the system
-	// Python has none because only PATH reported it.
-	if len(installedBy) != 1 || installedBy[0].From != brew.ID || installedBy[0].To != "adapter/homebrew" {
+	// Every installer a program points at is a vertex, so no edge dangles: homebrew is
+	// an adapter, asdf is a name nobody declared (the user recognised it), and the
+	// system Python has none because only PATH reported it.
+	if len(installedBy) != 2 {
 		t.Fatalf("installed-by = %#v", installedBy)
+	}
+	for _, edge := range installedBy {
+		if edge.From != brew.ID {
+			t.Fatalf("installed-by from %s, want only the Homebrew-reported file", edge.From)
+		}
+	}
+	wantSources := map[string][]string{"homebrew": {"adapter"}, "asdf": {"recognised"}, "mytools": {"config"}}
+	installers := map[string]graph.Vertex{}
+	for _, vertex := range snapshot.Vertices {
+		if vertex.Kind == Namespace+"/installer" {
+			installers[vertex.Attributes["name"].(string)] = vertex
+		}
+	}
+	if len(installers) != len(wantSources) {
+		t.Fatalf("installer vertices = %d, want %d", len(installers), len(wantSources))
+	}
+	for name, want := range wantSources {
+		if got := stringList(installers[name].Attributes["sources"]); !reflect.DeepEqual(got, want) {
+			t.Fatalf("installer %s sources = %v, want %v", name, got, want)
+		}
+	}
+	var implementedBy int
+	for _, edge := range snapshot.Edges {
+		if edge.Type == Namespace+"/implemented-by" {
+			implementedBy++
+			if edge.From != installerID("homebrew") || edge.To != "adapter/homebrew" {
+				t.Fatalf("implemented-by = %#v", edge)
+			}
+		}
+	}
+	if implementedBy != 1 {
+		t.Fatalf("implemented-by edges = %d, want one (only an adapter installer has an adapter)", implementedBy)
+	}
+	if !reflect.DeepEqual(stringList(installers["homebrew"].Attributes["sources"]), []string{"adapter"}) || installers["homebrew"].Attributes["adapter"] != "homebrew" {
+		t.Fatalf("homebrew = %#v", installers["homebrew"].Attributes)
 	}
 	if len(hasProgram) != 2 || len(uses) != 2 {
 		t.Fatalf("has-program = %d, uses-program = %d, want 2 and 2 (the context for /gone/python has no program)", len(hasProgram), len(uses))
@@ -120,6 +156,12 @@ func TestInventoryProjectsPrograms(t *testing.T) {
 	for _, edge := range snapshot.Edges {
 		if edge.Type == Namespace+"/installed-by" || edge.To == brew.ID {
 			t.Fatalf("edge %s remained for a removed program", edge.ID)
+		}
+	}
+	// A name only a program pointed at goes with it; the declared and adapter ones stay.
+	for _, vertex := range snapshot.Vertices {
+		if vertex.Kind == Namespace+"/installer" && vertex.Attributes["name"] == "asdf" {
+			t.Fatal("the recognised-only installer remained after its program went")
 		}
 	}
 }

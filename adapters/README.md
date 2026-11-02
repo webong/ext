@@ -123,7 +123,9 @@ executable. CTX looks in `${NVM_DIR:-~/.nvm}/versions/node/*/bin` and in the Com
 Tools and Xcode developer directories for the programs runtime adapters ask about, so a Node.js
 from nvm is attributed to `nvm` without nvm being run. `python` and `node` also suggest an
 installer from where a file sits (`~/.pyenv`, `~/.nvm`, the system `python3` on macOS); a
-suggestion becomes a fact with `ctx program recognise <path>`.
+suggestion becomes a fact with `ctx program recognise <path>`. A layout only you use needs no
+adapter: `ctx program installer add mytools '~/tools/*/bin'` describes it in your own
+`installers.json`.
 
 `jvm` is the Java evaluator adapter. It declares `engine = ["evaluator"]`, `role = ["virtualizer", "compiler"]` and `supports = ["jvm"]`, finds JDKs
 from `JAVA_HOME`, SDKMAN, `~/.jdks`, asdf, Homebrew and the system locations

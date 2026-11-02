@@ -146,16 +146,21 @@ program that reads the graph can see which copies exist and what installed them,
 without running a CLI or an adapter:
 
 ```
-machine ──has-program──▶ program ──installed-by──▶ adapter (an installer)
+machine ──has-program──▶ program ──installed-by──▶ installer ──implemented-by──▶ adapter
 context ──uses-program──▶ program
 ```
 
 - A **program** vertex is one real file (keyed by its resolved path), with `names`,
   `path`, `realpath`, `version`, `on_path` and `installers`. Several names or reports
   for the same file are one vertex.
-- `installed-by` points at the installer adapter that reported the file. A file found
-  only on `PATH` has no such edge, which is the fact: nothing claimed it. An installer
-  that is not an observed adapter stays in the `installers` attribute only.
+- An **installer** vertex is a name with `sources`: `adapter` (an installer adapter,
+  scripted or declarative), `config` (the user described it, see below) and `recognised`
+  (only the user's recognition names it). `implemented-by` joins an installer that is an
+  adapter to that adapter vertex. An installer is a vertex whatever its source, so no
+  edge ever dangles.
+- `installed-by` points at the installer that reported the file or that the user
+  recognised. A file found only on `PATH` has no such edge, which is the fact: nothing
+  claimed it.
 - A runtime adapter links its context to the file it would run by reporting an
   `executable` attribute in `observe`. The graph matches it against a program's
   `path` or `realpath` and adds `uses-program`; the adapter name is never consulted.
@@ -183,6 +188,29 @@ the pattern file is the artifact, and the package revision is its digest. A scri
 installer is still the right tool when it needs logic (`homebrew` asks whether a keg
 is linked). `nvm` and `xcode` are declarative.
 
+### Installers you declare
+
+An installer does not have to be an adapter. A user whose tools live in a layout only they
+use describes it in `installers.json` in the CTX home, with the same directory patterns a
+declarative installer adapter carries:
+
+```json
+{"version": 1, "installers": [{"name": "mytools", "roots": ["~/tools/*/bin"]}]}
+```
+
+`ctx program installer add NAME PATTERN...`, `remove NAME` and `ls` edit it. Discovery
+scans the patterns with `program.ScanRoots` and joins the results like any installer's
+report, so a program found there is attributed to `mytools` in the graph (an installer
+vertex with `sources = ["config"]`). The file is the user's own, in the user's own home, so
+it has no trust step: unlike an adapter package it did not come from anywhere else. A name
+shared with an installer adapter is one installer with both sources. A file that cannot
+be read declares no installers; discovery never fails because of it. Installers that need
+logic, and installers meant to be shared, remain adapters.
+
+A suggestion matches by name: a runtime adapter that suggests `nvm` is not satisfied by
+an installer the user named `mynvm`, so name it what the adapters say if you want the
+suggestion to resolve.
+
 ### Suggestions and recognition
 
 A runtime adapter knows its language's conventions, so it may notice that a file
@@ -195,8 +223,8 @@ The user settles it: `ctx program recognise PATH [INSTALLER]` records that the r
 file was installed by that installer (with no installer name it takes the one suggestion
 there is). The record is local, in `programs.json` in the CTX home, and discovery adds
 the installer to the candidate the way it adds a reporting installer, so the graph gets
-the `installed-by` edge when the installer is an observed adapter and the attribute
-otherwise. `ctx program forget PATH [INSTALLER]` takes it back. Nothing is recognised
+the `installed-by` edge even when no adapter or configuration declares that installer
+(its vertex has `sources = ["recognised"]`). `ctx program forget PATH [INSTALLER]` takes it back. Nothing is recognised
 that the user did not ask for.
 
 ### Trust and safety

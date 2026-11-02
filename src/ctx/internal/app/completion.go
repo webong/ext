@@ -119,7 +119,10 @@ Register-ArgumentCompleter -Native -CommandName ctx -ScriptBlock {
             if ($words[2] -eq 'app' -and $words.Count -le 4) { Emit-CtxCompletion @('status', 'start', 'stop', 'doctor'); return }
             if ($words[2] -eq 'add' -and $words.Count -ge 4) { Emit-CtxCompletion @('--virtualizer', '--machine', '--provider', '--selection', '--address', '--command', '--plugin-dir', '--plugin', '--offline'); return }
         }
-        'program' { if ($words.Count -le 2) { Emit-CtxCompletion @('recognise', 'forget'); return } }
+        'program' {
+            if ($words.Count -le 2) { Emit-CtxCompletion @('recognise', 'forget', 'installer'); return }
+            if ($words[2] -eq 'installer' -and $words.Count -le 3) { Emit-CtxCompletion @('add', 'remove', 'ls'); return }
+        }
         'profile' {
             $operations = @('ls', 'show', 'use', 'set', 'unset', 'env', 'env-unset', 'clear')
             if ($words.Count -le 2) { Emit-CtxCompletion $operations; return }

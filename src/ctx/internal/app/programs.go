@@ -68,6 +68,11 @@ func discoverPrograms(resolver *config.Resolver, names []string) []program.Candi
 			}
 		}
 	}
+	// Installers the user described in installers.json join the adapters' reports; a
+	// name both give is one installer.
+	for name, found := range configuredInstallerReports(readConfiguredInstallers(), names, os.Getenv) {
+		reports[name] = append(reports[name], found...)
+	}
 	merged := applyRecognised(program.Merge(scanned, reports), readRecognised())
 	if programCache.byNames == nil {
 		programCache.byNames = map[string][]program.Candidate{}

@@ -65,7 +65,11 @@ func scanMachineInventory(resolver *config.Resolver, system *systemgraph.Graph) 
 			Selection: instance.Selection, Metadata: metadata,
 		})
 	}
-	return observations, system.ObserveInventory(context.Background(), observations, aliases)
+	var configured []systemgraph.InstallerObservation
+	for _, item := range readConfiguredInstallers() {
+		configured = append(configured, systemgraph.InstallerObservation{Name: item.Name, Source: "config"})
+	}
+	return observations, system.ObserveInventory(context.Background(), observations, aliases, configured...)
 }
 
 func observeAdapterCandidate(resolver *config.Resolver, store *modpkg.Store, candidate *modpkg.Adapter) (systemgraph.AdapterObservation, error) {

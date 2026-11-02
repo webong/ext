@@ -48,6 +48,15 @@ no dependencies); the shapes are in `ext_store_list` of `lib/plugin/include/ext_
 trusted as it stands. A damaged winner in a layered view fails closed instead of falling
 back to a lower root.
 
+`Store::resolve_entrypoint` is the discovery of what a reviewed package runs: it reads and
+verifies the whole package, requires that it serves the exact contract name and version,
+compares its directory digest with the `reviewed_digest` the caller recorded (an empty or
+changed digest is `Error::DENIED`, so an installed package is never trusted for being
+installed) and returns the JSON `{"name","artifact","path","digest"}` of the best `argv`
+entrypoint that lists the protocol for a `store::Platform` (Go's `GOOS` and `GOARCH`
+names; `Platform::default()` is the platform the engine was built for). A package that
+does not serve the contract, or has no entrypoint that fits, is `Error::UNSUPPORTED`.
+
 `Guest` snapshots its descriptor and dispatches through a Rust handler. Handlers
 receive borrowed requests, remaining time and optional cancellation. Public
 errors are explicit; panics/private failures are sanitized by the engine. Native

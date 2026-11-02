@@ -208,6 +208,18 @@ pub const StoreLimits = struct { max_artifact_bytes: u64 = 0, max_tree_files: u3
 /// Keep the execute bit of a file artifact that has one in the source.
 /// Entrypoints and executable files in trees always keep it.
 pub const StoreOptions = struct { preserve_executable: bool = false };
+/// What `Store.resolveEntrypoint` is asked: the installed package, the contract and
+/// protocol it must serve and the digest the caller reviewed. `os` and `arch` are
+/// Go's GOOS and GOARCH names; null is the platform the engine was built for.
+pub const EntrypointRequest = struct {
+    id: [:0]const u8,
+    contract: [:0]const u8,
+    version: [:0]const u8,
+    protocol: [:0]const u8,
+    reviewed_digest: [:0]const u8,
+    os: ?[:0]const u8 = null,
+    arch: ?[:0]const u8 = null,
+};
 /// The engine's package store: install, upgrade, replace, remove and load
 /// reviewed `ext.package/v1` packages under a root the caller supplies, as the Go
 /// store does. A missing root is an empty store, made by the first install. The
@@ -303,6 +315,25 @@ pub const Store = struct {
         var out: Buffer = .{};
         errdefer out.deinit();
         try check(ffi.ext_store_list_unverified(self.raw, &out.raw));
+        return out;
+    }
+    /// Chooses the entrypoint the installed package `request.id` offers for
+    /// `request.protocol` on the requested platform, for a package the caller has
+    /// reviewed, and returns the JSON `{"name","artifact","path","digest"}`: the
+    /// entrypoint, its artifact, the artifact's path under the store and the package
+    /// digest. The package is read and verified whole and must serve the exact
+    /// contract and version (`error.Unsupported` otherwise, as when no entrypoint
+    /// fits). It is chosen only when the package digest equals `reviewed_digest`
+    /// (lowercase hex, as recorded at review): an empty or changed digest is
+    /// `error.Denied`, so an installed package is never trusted for being installed.
+    /// Nothing is run. The rules, including the score that picks between entrypoints,
+    /// are in `ext_store_resolve_entrypoint` of lib/plugin/include/ext_host.h.
+    pub fn resolveEntrypoint(self: *const Store, request: EntrypointRequest) Error!Buffer {
+        var out: Buffer = .{};
+        errdefer out.deinit();
+        const os: [*c]const u8 = if (request.os) |name| name.ptr else null;
+        const arch: [*c]const u8 = if (request.arch) |name| name.ptr else null;
+        try check(ffi.ext_store_resolve_entrypoint(self.raw, request.id.ptr, request.contract.ptr, request.version.ptr, request.protocol.ptr, request.reviewed_digest.ptr, os, arch, &out.raw));
         return out;
     }
 };
@@ -1065,6 +1096,117 @@ test "the package store reports every entry" {
     try std.testing.expect(std.mem.indexOf(u8, report.bytes(), "\"id\":\"stray\"") != null);
     try std.testing.expect(std.mem.indexOf(u8, report.bytes(), "install-left") == null);
     report.deinit();
+}
+fn hexDigest(digest: [32]u8) [64]u8 {
+    var hex: [64]u8 = undefined;
+    const digits = "0123456789abcdef";
+    for (digest, 0..) |byte, i| {
+        hex[2 * i] = digits[byte >> 4];
+        hex[2 * i + 1] = digits[byte & 15];
+    }
+    return hex;
+}
+/// A source package at `dir` serving example/v1 with the artifacts and entrypoints the
+/// discovery test chooses between: generic, linux, linux-arm (linux on arm64) and mac.
+fn writeRunnable(a: std.mem.Allocator, dir: [:0]const u8, id: []const u8) !void {
+    _ = libc.mkdir(dir.ptr, 0o700);
+    try std.testing.expectEqual(@as(c_int, 0), libc.mkdir((try printZ(a, "{s}/bin", .{dir})).ptr, 0o700));
+    const names = [_][]const u8{ "generic", "linux", "linux-arm", "mac" };
+    const platforms = [_][]const u8{ "", ",\"os\":\"linux\"", ",\"os\":\"linux\",\"arch\":\"arm64\"", ",\"os\":\"darwin\"" };
+    var artifacts: []const u8 = "";
+    for (names, platforms, 0..) |name, platform, i| {
+        try writeFile(try printZ(a, "{s}/bin/{s}", .{ dir, name }), name);
+        const digest = hexDigest(sha256(name));
+        const separator: []const u8 = if (i == 0) "" else ",";
+        artifacts = try std.fmt.allocPrint(a, "{s}{s}{{\"name\":\"{s}\",\"path\":\"bin/{s}\",\"sha256\":\"{s}\"{s}}}", .{ artifacts, separator, name, name, digest, platform });
+    }
+    const entrypoints = "{\"name\":\"main\",\"runtime\":\"argv\",\"artifact\":\"generic\",\"protocols\":[\"example/v1\"]}," ++
+        "{\"name\":\"main.linux\",\"runtime\":\"argv\",\"artifact\":\"linux\",\"protocols\":[\"example/v1\"]}," ++
+        "{\"name\":\"fast\",\"runtime\":\"argv\",\"artifact\":\"linux-arm\",\"protocols\":[\"example/v1\"]}," ++
+        "{\"name\":\"main.darwin\",\"runtime\":\"argv\",\"artifact\":\"mac\",\"protocols\":[\"example/v1\"]}," ++
+        "{\"name\":\"wasm\",\"runtime\":\"wasm\",\"artifact\":\"generic\",\"protocols\":[\"example/v1\"]}," ++
+        "{\"name\":\"other\",\"runtime\":\"argv\",\"artifact\":\"generic\",\"protocols\":[\"other/v1\"]}";
+    const manifest = try std.fmt.allocPrint(a, "{{\"apiVersion\":\"ext.package/v1\",\"descriptor\":{{\"apiVersion\":\"ext.plugin/v1\",\"identity\":{{\"id\":\"{s}\",\"revision\":\"r1\"}},\"contracts\":[{{\"name\":\"example\",\"version\":\"v1\",\"operations\":[{{\"name\":\"read\"}}]}}]}},\"artifacts\":[{s}],\"entrypoints\":[{s}]}}", .{ id, artifacts, entrypoints });
+    try writeFile(try printZ(a, "{s}/plugin.json", .{dir}), manifest);
+}
+/// Resolves `request` and expects the entrypoint `name` with its artifact under `dir`/bin.
+fn expectEntrypoint(a: std.mem.Allocator, store: *const Store, request: EntrypointRequest, dir: []const u8, name: []const u8, artifact: []const u8) !void {
+    var out = try store.resolveEntrypoint(request);
+    defer out.deinit();
+    const want = try std.fmt.allocPrint(a, "{{\"name\":\"{s}\",\"artifact\":\"{s}\",\"path\":\"{s}/bin/{s}\",\"digest\":\"{s}\"}}", .{ name, artifact, dir, artifact, request.reviewed_digest });
+    try std.testing.expectEqualStrings(want, out.bytes());
+}
+test "the package store resolves the entrypoint of a reviewed package for a platform" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const a = arena.allocator();
+    var template = "/tmp/ext-zig-store-XXXXXX".*;
+    const base = std.mem.span(libc.mkdtemp(&template) orelse return error.SkipZigTest);
+    const cleanup = try printZ(a, "rm -rf '{s}'", .{base});
+    defer _ = libc.system(cleanup.ptr);
+    const root = try printZ(a, "{s}/store", .{base});
+    var store = try Store.init(root, .{});
+    defer store.deinit();
+    const source = try printZ(a, "{s}/source", .{base});
+    try writeRunnable(a, source, "example/run");
+    var installed = try store.install(source, .{});
+    installed.deinit();
+    const dir = try printZ(a, "{s}/example%2frun", .{root});
+    const reviewed = try printZ(a, "{s}", .{hexDigest(try directoryDigest(dir))});
+    const request: EntrypointRequest = .{ .id = "example/run", .contract = "example", .version = "v1", .protocol = "example/v1", .reviewed_digest = reviewed };
+
+    // the platform decides: a name or an artifact for another one is never chosen, and an
+    // entrypoint named for this operating system with an artifact for it outscores the rest
+    var linux_arm = request;
+    linux_arm.os = "linux";
+    linux_arm.arch = "arm64";
+    try expectEntrypoint(a, &store, linux_arm, dir, "main.linux", "linux");
+    var linux_x86 = request;
+    linux_x86.os = "linux";
+    linux_x86.arch = "amd64";
+    try expectEntrypoint(a, &store, linux_x86, dir, "main.linux", "linux");
+    var mac = request;
+    mac.os = "darwin";
+    mac.arch = "arm64";
+    try expectEntrypoint(a, &store, mac, dir, "main.darwin", "mac");
+    var windows = request;
+    windows.os = "windows";
+    windows.arch = "amd64";
+    try expectEntrypoint(a, &store, windows, dir, "main", "generic");
+
+    // a platform left out is the one the engine was built for
+    var own = try store.resolveEntrypoint(request);
+    try std.testing.expect(std.mem.endsWith(u8, own.bytes(), (try printZ(a, ",\"digest\":\"{s}\"}}", .{reviewed}))));
+    own.deinit();
+
+    // nothing is chosen without the digest the caller reviewed
+    var unreviewed = linux_arm;
+    unreviewed.reviewed_digest = "";
+    try std.testing.expectError(error.Denied, store.resolveEntrypoint(unreviewed));
+    unreviewed.reviewed_digest = "wrong";
+    try std.testing.expectError(error.Denied, store.resolveEntrypoint(unreviewed));
+
+    // what the package does not serve is unsupported
+    var other = request;
+    other.contract = "different";
+    try std.testing.expectError(error.Unsupported, store.resolveEntrypoint(other));
+    other = request;
+    other.version = "v2";
+    try std.testing.expectError(error.Unsupported, store.resolveEntrypoint(other));
+    other = request;
+    other.protocol = "none/v1";
+    try std.testing.expectError(error.Unsupported, store.resolveEntrypoint(other));
+
+    // an id that is not installed or not valid
+    other = request;
+    other.id = "example/absent";
+    try std.testing.expectError(error.NotFound, store.resolveEntrypoint(other));
+    other.id = "../bad";
+    try std.testing.expectError(error.Invalid, store.resolveEntrypoint(other));
+
+    // a package changed behind the store's back is read first, so it is never chosen
+    try writeFile(try printZ(a, "{s}/bin/linux", .{dir}), "tampered");
+    try std.testing.expectError(error.Mismatch, store.resolveEntrypoint(linux_arm));
 }
 test "a layered view serves the highest root and never writes" {
     var arena = std.heap.ArenaAllocator.init(std.testing.allocator);

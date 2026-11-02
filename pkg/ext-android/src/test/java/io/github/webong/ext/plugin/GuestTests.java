@@ -55,6 +55,7 @@ public final class GuestTests {
         run("package store: paths reach the engine as UTF-8", StoreTests::utf8Paths);
         run("package store: shared between threads, and close waits for calls", StoreTests::threads);
         run("package store: reports cover every entry", StoreTests::reports);
+        run("package store: an entrypoint is resolved for a reviewed package on a platform", StoreTests::discovery);
         run("layered store: the highest root serves, a damaged winner fails closed", StoreTests::layered);
         run("layered store: refuses what is not a set of roots", StoreTests::layeredRefusals);
         System.out.println(failures == 0 ? "all Java plugin tests passed" : failures + " Java plugin tests FAILED");

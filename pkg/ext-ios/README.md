@@ -287,8 +287,10 @@ let served = try view.load("com.example/greeter")             // ServedPackage(m
   entrypoints and files in trees always keep it).
 - A failure is a `PackageStoreError` and never text: `invalid` (not a package, id or directory, an artifact
   over a limit, a root set the view refuses), `mismatch` (a digest that differs, a directory that is not what
-  its name says, an upgrade that changes the id or contracts), `notFound`, `exists`, `missing` (a source,
-  manifest or artifact that is not there), `io`, and `engine(_:)` for any other status.
+  its name says, an upgrade that changes the id or contracts), `denied` (a package the caller has not
+  reviewed), `unsupported` (a package that does not serve the contract or has no entrypoint that fits),
+  `notFound`, `exists`, `missing` (a source, manifest or artifact that is not there), `io`, and `engine(_:)`
+  for any other status.
   `PackageStoreError(status:)` names the `status` of a `verify` entry.
 - `list()`, `verify()` and `listUnverified()` are the whole-root reports and return the engine's JSON as
   `Data`, as `load` returns `plugin.json`, because `manifest` is an embedded `plugin.json` that the caller
@@ -296,6 +298,13 @@ let served = try view.load("com.example/greeter")             // ServedPackage(m
   `[{id, directory, layer, status}]` (it does not stop at a bad entry), and `listUnverified` is
   `{"packages": [...], "problems": [...]}`, read from manifests alone, so **unverified**: do not launch or
   trust it as it stands. `layer` is 0 for a store and the position of the root in a view.
+- `resolveEntrypoint(id:contract:version:protocol:reviewedDigest:os:arch:)` is the discovery of what a
+  reviewed package runs. It reads and verifies the whole package, requires that it serves the exact contract
+  name and version, compares its directory digest with `reviewedDigest` (lowercase hex, as recorded at review;
+  an empty or changed one is `denied`, so an installed package is never trusted for being installed) and
+  returns the `ResolvedEntrypoint` (`name`, `artifact`, `path` under the store, `digest`) of the best `argv`
+  entrypoint that lists the protocol. `os` and `arch` are Go's `GOOS` and `GOARCH` names; nil is the platform
+  the engine was built for. Nothing is run.
 - In a view an id is served from the first root that holds it, a shadowed copy in a lower root is never
   read, and a damaged winner fails closed instead of falling back to the copy below. A repeated, empty or
   missing set of roots, or the same root spelled two ways, is `invalid`.

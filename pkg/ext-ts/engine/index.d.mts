@@ -17,7 +17,7 @@ export interface ReverseOptions {
  /** Milliseconds; zero or absent uses 30000. */
  timeout?: number; maxPayloadBytes?: number; maxInFlight?: number;
 }
-export const status: Readonly<{ INVALID: 1; DENIED: 2; MISMATCH: 3; NOT_FOUND: 10; PROTOCOL: 16; EXPIRED: 17; EXISTS: 18; MISSING: 19 }>;
+export const status: Readonly<{ INVALID: 1; DENIED: 2; MISMATCH: 3; UNSUPPORTED: 4; NOT_FOUND: 10; PROTOCOL: 16; EXPIRED: 17; EXISTS: 18; MISSING: 19 }>;
 export interface CallbackContext { timeout: number; signal: AbortSignal }
 export interface GuestReply { payload?: unknown; error?: { code: string; message: string; retryAfterMilliseconds?: number } }
 export interface HostOptions {
@@ -95,8 +95,22 @@ export interface PackageStore {
  verify(): Promise<PackageCheck[]>;
  /** Reads only the manifests and checks them against their directory names. No artifact is read or hashed, so THE RESULT IS UNVERIFIED and must not be launched or trusted as it stands. */
  listUnverified(): Promise<UnverifiedListing>;
+ /**
+  * Chooses the entrypoint the installed package `id` offers for `protocol` on a platform, for a package the
+  * caller has reviewed. The package is read and verified whole and must serve the exact `contract` and
+  * `version`; it is chosen only when its directory digest equals `reviewedDigest` (lowercase hex, as recorded
+  * at review), so an empty or changed digest rejects with DENIED and an installed package is never trusted for
+  * being installed. Nothing is run. UNSUPPORTED means the package does not serve the contract or has no
+  * entrypoint that fits. `os` and `arch` are Go's GOOS and GOARCH names and default to the platform the
+  * engine was built for.
+  */
+ resolveEntrypoint(request: EntrypointRequest): Promise<ResolvedEntrypoint>;
  close(): void;
 }
+/** What `resolveEntrypoint` is asked: the package, the contract and protocol it must serve, and the digest the caller reviewed. */
+export interface EntrypointRequest { id: string; contract: string; version: string; protocol: string; reviewedDigest: string; os?: string; arch?: string }
+/** The entrypoint chosen: its name, its artifact's name, the artifact's path under the store and the package digest. */
+export interface ResolvedEntrypoint { name: string; artifact: string; path: string; digest: string }
 /** One installed package in a report: the entry's id, its directory (the root joined with the entry's name, cleaned), the position of the root that serves it (0 for a store) and its plugin.json as a value. */
 export interface PackageRecord { id: string; directory: string; layer: number; manifest: unknown }
 /** One entry checked by `verify`, or a problem found by `listUnverified`. */

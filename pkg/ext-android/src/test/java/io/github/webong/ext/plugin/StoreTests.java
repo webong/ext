@@ -217,7 +217,9 @@ final class StoreTests {
     static void statuses() {
         // The values are the engine's ext_status (lib/plugin/include/ext_host.h).
         same(1, PackageStore.INVALID, "INVALID");
+        same(2, PackageStore.DENIED, "DENIED");
         same(3, PackageStore.MISMATCH, "MISMATCH");
+        same(4, PackageStore.UNSUPPORTED, "UNSUPPORTED");
         same(5, PackageStore.CLOSED, "CLOSED");
         same(7, PackageStore.IO, "IO");
         same(8, PackageStore.NOMEM, "NOMEM");
@@ -519,6 +521,107 @@ final class StoreTests {
                 require(text(store.verify()).contains(line("stray", root.resolve("stray"), 0, PackageStore.INVALID)),
                         "stray is INVALID in verify");
             }
+        }
+    }
+
+    /**
+     * A source package at {@code dir} serving example/v1 with the artifacts and entrypoints discovery
+     * chooses between: generic, linux, linux-arm (linux on arm64) and mac.
+     */
+    static String runnable(Path dir, String id) throws Exception {
+        remove(dir);
+        String[][] artifacts = {{"generic", ""}, {"linux", ",\"os\":\"linux\""},
+            {"linux-arm", ",\"os\":\"linux\",\"arch\":\"arm64\""}, {"mac", ",\"os\":\"darwin\""}};
+        StringBuilder listed = new StringBuilder();
+        for (String[] artifact : artifacts) {
+            write(dir, "bin/" + artifact[0], artifact[0], false);
+            if (listed.length() > 0) listed.append(',');
+            listed.append("{\"name\":\"").append(artifact[0]).append("\",\"path\":\"bin/").append(artifact[0])
+                    .append("\",\"sha256\":\"").append(sha256(artifact[0].getBytes(StandardCharsets.UTF_8)))
+                    .append('"').append(artifact[1]).append('}');
+        }
+        String[][] entrypoints = {{"main", "argv", "generic", "example/v1"}, {"main.linux", "argv", "linux", "example/v1"},
+            {"fast", "argv", "linux-arm", "example/v1"}, {"main.darwin", "argv", "mac", "example/v1"},
+            {"wasm", "wasm", "generic", "example/v1"}, {"other", "argv", "generic", "other/v1"}};
+        StringBuilder entries = new StringBuilder();
+        for (String[] e : entrypoints) {
+            if (entries.length() > 0) entries.append(',');
+            entries.append("{\"name\":\"").append(e[0]).append("\",\"runtime\":\"").append(e[1])
+                    .append("\",\"artifact\":\"").append(e[2]).append("\",\"protocols\":[\"").append(e[3]).append("\"]}");
+        }
+        String manifest = "{\"apiVersion\":\"ext.package/v1\",\"descriptor\":{\"apiVersion\":\"ext.plugin/v1\","
+                + "\"identity\":{\"id\":\"" + id + "\",\"revision\":\"r1\"},"
+                + "\"contracts\":[{\"name\":\"example\",\"version\":\"v1\",\"operations\":[{\"name\":\"read\"}]}]},"
+                + "\"artifacts\":[" + listed + "],\"entrypoints\":[" + entries + "]}";
+        write(dir, "plugin.json", manifest, false);
+        return dir.toString();
+    }
+
+    /** The entrypoint JSON the engine writes for {@code name}, whose artifact lives under {@code dir}/bin. */
+    static String chosen(Path dir, String reviewed, String name, String artifact) {
+        String path = dir.resolve("bin").resolve(artifact).toString().replace("\\", "\\\\");
+        return "{\"name\":\"" + name + "\",\"artifact\":\"" + artifact + "\",\"path\":\"" + path
+                + "\",\"digest\":\"" + reviewed + "\"}";
+    }
+
+    static void discovery() throws Exception {
+        final String protocol = "example/v1";
+        try (Scratch scratch = new Scratch()) {
+            Path root = scratch.path("store");
+            try (PackageStore store = new PackageStore(root.toString())) {
+                store.install(runnable(scratch.path("source"), "example/run"));
+                Path dir = root.resolve("example%2frun");
+                String reviewed = treeDigest(dir);
+
+                // the platform decides: a name or an artifact for another one is never chosen, and an
+                // entrypoint named for this operating system with an artifact for it outscores the rest
+                same(chosen(dir, reviewed, "main.linux", "linux"),
+                        text(store.resolveEntrypoint("example/run", "example", "v1", protocol, reviewed, "linux", "arm64")),
+                        "linux arm64");
+                same(chosen(dir, reviewed, "main.linux", "linux"),
+                        text(store.resolveEntrypoint("example/run", "example", "v1", protocol, reviewed, "linux", "amd64")),
+                        "linux amd64");
+                same(chosen(dir, reviewed, "main.darwin", "mac"),
+                        text(store.resolveEntrypoint("example/run", "example", "v1", protocol, reviewed, "darwin", "arm64")),
+                        "darwin arm64");
+                same(chosen(dir, reviewed, "main", "generic"),
+                        text(store.resolveEntrypoint("example/run", "example", "v1", protocol, reviewed, "windows", "amd64")),
+                        "windows amd64");
+                // a platform left out is the one the engine was built for
+                String own = text(store.resolveEntrypoint("example/run", "example", "v1", protocol, reviewed));
+                require(own.endsWith("\"digest\":\"" + reviewed + "\"}"), "the built platform: " + own);
+
+                // nothing is chosen without the digest the caller reviewed
+                fails(PackageStore.DENIED, () -> store.resolveEntrypoint("example/run", "example", "v1", protocol, ""), "no digest");
+                fails(PackageStore.DENIED, () -> store.resolveEntrypoint("example/run", "example", "v1", protocol, "wrong"), "another digest");
+                fails(PackageStore.DENIED, () -> store.resolveEntrypoint("example/run", "example", "v1", protocol,
+                        reviewed.toUpperCase()), "the digest in capitals");
+                // what the package does not serve is unsupported
+                fails(PackageStore.UNSUPPORTED, () -> store.resolveEntrypoint("example/run", "different", "v1", protocol, reviewed),
+                        "another contract");
+                fails(PackageStore.UNSUPPORTED, () -> store.resolveEntrypoint("example/run", "example", "v2", protocol, reviewed),
+                        "another version");
+                fails(PackageStore.UNSUPPORTED, () -> store.resolveEntrypoint("example/run", "example", "v1", "none/v1", reviewed),
+                        "another protocol");
+                // an id that is not installed or not valid, and a NUL that would cut a string short
+                fails(PackageStore.NOT_FOUND, () -> store.resolveEntrypoint("example/absent", "example", "v1", protocol, reviewed),
+                        "an id that is not installed");
+                fails(PackageStore.INVALID, () -> store.resolveEntrypoint("../bad", "example", "v1", protocol, reviewed),
+                        "an id that is not valid");
+                fails(PackageStore.INVALID, () -> store.resolveEntrypoint("example/run\0x", "example", "v1", protocol, reviewed),
+                        "a NUL in the id");
+
+                // a package changed behind the store's back is read first, so it is never chosen
+                tamper(dir.resolve("bin/linux"));
+                fails(PackageStore.MISMATCH,
+                        () -> store.resolveEntrypoint("example/run", "example", "v1", protocol, reviewed, "linux", "arm64"),
+                        "a changed artifact");
+            }
+            fails(PackageStore.CLOSED, () -> {
+                PackageStore closed = new PackageStore(root.toString());
+                closed.close();
+                closed.resolveEntrypoint("example/run", "example", "v1", protocol, "x");
+            }, "a closed store");
         }
     }
 

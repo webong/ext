@@ -1260,12 +1260,17 @@ typedef struct {
   size_t jobs;
   int closing, finalized;
 } store_box;
+/* The arguments of resolveEntrypoint, in the order of ext_store_resolve_entrypoint:
+ * id, contract, version, protocol, reviewed digest, os and arch, the last two
+ * NULL for the platform the engine was built for. */
+#define STORE_FIELDS 7
 typedef struct {
   napi_async_work work;
   napi_deferred deferred;
   napi_ref owner;
   store_box *box;
   char *operation, *argument;
+  char *fields[STORE_FIELDS];
   uint32_t flags;
   ext_buffer output;
   size_t layer;
@@ -1417,6 +1422,10 @@ static void store_execute(napi_env env, void *data) {
     j->status = ext_store_verify(s, &j->output);
   else if (!strcmp(j->operation, "listUnverified"))
     j->status = ext_store_list_unverified(s, &j->output);
+  else if (!strcmp(j->operation, "resolveEntrypoint"))
+    j->status = ext_store_resolve_entrypoint(
+        s, j->fields[0], j->fields[1], j->fields[2], j->fields[3], j->fields[4],
+        j->fields[5], j->fields[6], &j->output);
   else
     j->status = EXT_INVALID;
 }
@@ -1427,8 +1436,33 @@ static void free_store_job(napi_env env, store_job *j) {
     napi_delete_async_work(env, j->work);
   free(j->operation);
   free(j->argument);
+  for (size_t i = 0; i < STORE_FIELDS; i++)
+    free(j->fields[i]);
   ext_buffer_free(&j->output);
   free(j);
+}
+/* Reads the STORE_FIELDS strings of a resolveEntrypoint call; null or undefined
+ * leaves a field NULL. */
+static int store_fields(napi_env env, napi_value list, char **fields) {
+  bool is_array = false;
+  uint32_t length = 0;
+  if (napi_is_array(env, list, &is_array) != napi_ok || !is_array ||
+      napi_get_array_length(env, list, &length) != napi_ok ||
+      length != STORE_FIELDS)
+    return 0;
+  for (uint32_t i = 0; i < length; i++) {
+    napi_value item;
+    napi_valuetype type;
+    size_t n = 0;
+    if (napi_get_element(env, list, i, &item) != napi_ok ||
+        napi_typeof(env, item, &type) != napi_ok)
+      return 0;
+    if (type == napi_null || type == napi_undefined)
+      continue;
+    if (!(fields[i] = string(env, item, &n)) || strlen(fields[i]) != n)
+      return 0;
+  }
+  return 1;
 }
 static void store_complete(napi_env env, napi_status code, void *data) {
   store_job *j = data;
@@ -1463,10 +1497,10 @@ static void store_complete(napi_env env, napi_status code, void *data) {
   settle_store(box);
 }
 static napi_value store_request(napi_env env, napi_callback_info info) {
-  size_t count = 4, on = 0, an = 0;
-  napi_value args[4], promise, name;
+  size_t count = 5, on = 0, an = 0;
+  napi_value args[5], promise, name;
   if (napi_get_cb_info(env, info, &count, args, NULL, NULL) != napi_ok ||
-      count != 4)
+      (count != 4 && count != 5))
     return failure(env, "invalid store call");
   store_job *j = calloc(1, sizeof(*j));
   if (!j)
@@ -1476,7 +1510,8 @@ static napi_value store_request(napi_env env, napi_callback_info info) {
       !(j->operation = string(env, args[1], &on)) ||
       strlen(j->operation) != on ||
       !(j->argument = string(env, args[2], &an)) || strlen(j->argument) != an ||
-      napi_get_value_uint32(env, args[3], &j->flags) != napi_ok)
+      napi_get_value_uint32(env, args[3], &j->flags) != napi_ok ||
+      (count == 5 && !store_fields(env, args[4], j->fields)))
     goto invalid;
   if (napi_create_reference(env, args[0], 1, &j->owner) != napi_ok ||
       napi_create_promise(env, &j->deferred, &promise) != napi_ok)

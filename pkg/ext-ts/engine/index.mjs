@@ -46,7 +46,7 @@ const natural=(value,name)=>{
   return value;
 };
 /** The statuses the engine reports in the `status` of a rejection. */
-export const status=Object.freeze({INVALID:1,DENIED:2,MISMATCH:3,NOT_FOUND:10,PROTOCOL:16,EXPIRED:17,EXISTS:18,MISSING:19});
+export const status=Object.freeze({INVALID:1,DENIED:2,MISMATCH:3,UNSUPPORTED:4,NOT_FOUND:10,PROTOCOL:16,EXPIRED:17,EXISTS:18,MISSING:19});
 /** Load a caller-selected addon built from this package and the C engine. */
 export function loadEngine(addonPath){
  const native=require(addonPath);
@@ -198,9 +198,10 @@ export function loadEngine(addonPath){
      if(typeof root!=='string'||root==='')throw new TypeError('root required');
      this.#handle=native.openStore(root,size(limits.maxArtifactBytes,'maxArtifactBytes'),natural(limits.maxTreeFiles,'maxTreeFiles'),size(limits.maxTreeBytes,'maxTreeBytes'));
    }
-   #call(operation,argument,flags=0){
+   #call(operation,argument,flags=0,fields){
      if(this.#closed)return Promise.reject(Object.assign(new Error('store closed'),{status:5}));
      if(typeof argument!=='string')return Promise.reject(new TypeError('a string is required'));
+     if(fields!==undefined)return native.storeRequest(this.#handle,operation,argument,flags,fields);
      return native.storeRequest(this.#handle,operation,argument,flags);
    }
    install(source,options){return this.#call('install',source,options?.preserveExecutable?1:0);}
@@ -213,6 +214,17 @@ export function loadEngine(addonPath){
    async list(){return JSON.parse(await this.#call('list',''));}
    async verify(){return JSON.parse(await this.#call('verify',''));}
    async listUnverified(){return JSON.parse(await this.#call('listUnverified',''));}
+   // The entrypoint a reviewed package offers for a protocol on a platform (see ext_store_resolve_entrypoint in
+   // ext_host.h); resolves with {name,artifact,path,digest}. `os` and `arch` are Go's GOOS and GOARCH names and
+   // default to the platform the engine was built for.
+   async resolveEntrypoint(request){
+     const {id,contract,version,protocol,reviewedDigest,os,arch}=request??{};
+     for(const [name,value] of Object.entries({id,contract,version,protocol,reviewedDigest}))
+       if(typeof value!=='string')throw new TypeError(name+' must be a string');
+     for(const [name,value] of Object.entries({os,arch}))
+       if(value!==undefined&&typeof value!=='string')throw new TypeError(name+' must be a string');
+     return JSON.parse(await this.#call('resolveEntrypoint','',0,[id,contract,version,protocol,reviewedDigest,os??null,arch??null]));
+   }
    close(){if(!this.#closed){this.#closed=true;native.closeStore(this.#handle);this.#handle=null;}}
  }
  // A read-only view over several roots in priority order, highest first. An id is served from the first

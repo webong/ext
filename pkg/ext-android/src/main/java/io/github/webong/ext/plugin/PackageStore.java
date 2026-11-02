@@ -28,7 +28,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
  * whose digest differs, a directory that does not match its manifest, or an upgrade that changes
  * the id or the contracts; {@link #EXISTS} for an install over an installed id; {@link #NOT_FOUND}
  * for an id that is not installed; {@link #MISSING} for a source directory or a file it lists that
- * is not there.
+ * is not there; {@link #DENIED} and {@link #UNSUPPORTED} come from {@link #resolveEntrypoint}.
  *
  * <p>The manifest a call returns is the installed {@code plugin.json}, byte for byte. The whole-root
  * reports ({@link #list()}, {@link #verify()}, {@link #listUnverified()}) are the engine's JSON as
@@ -38,8 +38,12 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 public final class PackageStore implements AutoCloseable {
     /** A package, id or directory that is not valid, or an artifact over a limit. */
     public static final int INVALID = 1;
+    /** A package the caller has not reviewed: an empty digest, or one that is not the package's. */
+    public static final int DENIED = 2;
     /** An artifact whose digest differs, a directory that is not what its name says, or an upgrade that changes the id or contracts. */
     public static final int MISMATCH = 3;
+    /** A package that does not serve the contract asked for, or has no entrypoint that fits the protocol and the platform. */
+    public static final int UNSUPPORTED = 4;
     /** The store was closed. */
     public static final int CLOSED = 5;
     /** The operating system refused a read or a write. */
@@ -173,6 +177,45 @@ public final class PackageStore implements AutoCloseable {
      */
     public byte[] listUnverified() throws GuestException {
         return report(NativeEngine.REPORT_UNVERIFIED);
+    }
+
+    /**
+     * As {@link #resolveEntrypoint(String, String, String, String, String, String, String)} for the
+     * platform the engine was built for.
+     */
+    public byte[] resolveEntrypoint(String id, String contract, String version, String protocol,
+            String reviewedDigest) throws GuestException {
+        return resolveEntrypoint(id, contract, version, protocol, reviewedDigest, null, null);
+    }
+
+    /**
+     * Chooses the entrypoint the installed package {@code id} offers for {@code protocol} on a
+     * platform, for a package the caller has reviewed, and returns the JSON {@code {"name",
+     * "artifact","path","digest"}}: the entrypoint, its artifact, the artifact's path under the store
+     * and the package digest. The package is read and verified whole and must serve the exact
+     * {@code contract} and {@code version}; it is chosen only when its directory digest equals
+     * {@code reviewedDigest} (lowercase hex, as recorded at review), so an empty or changed digest is
+     * {@link #DENIED} and an installed package is never trusted for being installed. {@link
+     * #UNSUPPORTED} means the package does not serve the contract or has no entrypoint that fits.
+     * Nothing is run. {@code os} and {@code arch} are Go's GOOS and GOARCH names; null is the
+     * platform the engine was built for. The rules, including the score that picks between
+     * entrypoints, are in {@code ext_store_resolve_entrypoint} of lib/plugin/include/ext_host.h.
+     */
+    public byte[] resolveEntrypoint(String id, String contract, String version, String protocol,
+            String reviewedDigest, String os, String arch) throws GuestException {
+        byte[] name = text(Objects.requireNonNull(id, "id"));
+        byte[] contractName = text(Objects.requireNonNull(contract, "contract"));
+        byte[] contractVersion = text(Objects.requireNonNull(version, "version"));
+        byte[] wire = text(Objects.requireNonNull(protocol, "protocol"));
+        byte[] digest = text(Objects.requireNonNull(reviewedDigest, "reviewedDigest"));
+        byte[] system = os == null ? null : text(os);
+        byte[] machine = arch == null ? null : text(arch);
+        lock.readLock().lock();
+        try {
+            return NativeEngine.storeResolve(live(), name, contractName, contractVersion, wire, digest, system, machine);
+        } finally {
+            lock.readLock().unlock();
+        }
     }
 
     /** Waits for the calls in flight, then releases the store. Idempotent; later calls fail with {@link #CLOSED}. */

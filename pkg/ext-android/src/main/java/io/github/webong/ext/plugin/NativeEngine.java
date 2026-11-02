@@ -62,6 +62,10 @@ final class NativeEngine {
 
     static native byte[] storeReport(long handle, int kind) throws GuestException;
 
+    /** The discovery of a reviewed package's entrypoint; {@code os} and {@code arch} may be null. */
+    static native byte[] storeResolve(long handle, byte[] id, byte[] contract, byte[] version, byte[] protocol,
+            byte[] reviewedDigest, byte[] os, byte[] arch) throws GuestException;
+
     static native long layeredOpen(byte[][] roots, long maxArtifactBytes, int maxTreeFiles, long maxTreeBytes)
             throws GuestException;
 

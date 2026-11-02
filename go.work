@@ -55,13 +55,6 @@ use (
 	./pkg/ext-go/c2goengine
 )
 
-// cgoengine v0.1.0 and c2goengine v0.1.0, the first tags of two modules, are not published yet, and the
-// umbrella and the adapters require them. These resolve those versions to the workspace copies; delete
-// each once its tag exists.
-replace github.com/webong/ext/pkg/ext-go/cgoengine v0.1.0 => ./pkg/ext-go/cgoengine
-
-replace github.com/webong/ext/pkg/ext-go/c2goengine v0.1.0 => ./pkg/ext-go/c2goengine
-
 // New intelligence modules are used by the umbrella before their first tags.
 replace github.com/webong/ext/res/int v0.1.0 => ./res/int
 
@@ -71,13 +64,8 @@ replace github.com/webong/ext/pkg/ext-go/perception v0.1.0 => ./pkg/ext-go/perce
 
 replace github.com/webong/ext/pkg/ext-go/realtime v0.1.0 => ./pkg/ext-go/realtime
 
-// The modules of the v0.9.0 round that other modules of the round require are not tagged yet: the
-// backends (hashicorp v0.3.1, wasm v0.3.0) and the adapters the browser adapters build on (chromium
-// v0.4.1, firefox v0.3.1). Until their tags exist these resolve those versions to the workspace copies.
-replace github.com/webong/ext/pkg/ext-go/hashicorp v0.3.1 => ./pkg/ext-go/hashicorp
-
-replace github.com/webong/ext/pkg/ext-go/wasm v0.3.0 => ./pkg/ext-go/wasm
-
+// chromium v0.4.1 and firefox v0.3.1, which the browser adapters require, exist only as local tags and
+// were never pushed. Until they are published these resolve those versions to the workspace copies.
 replace github.com/webong/ext/adapters/chromium v0.4.1 => ./adapters/chromium
 
 replace github.com/webong/ext/adapters/firefox v0.3.1 => ./adapters/firefox

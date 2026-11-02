@@ -1,2 +1,4 @@
+github.com/webong/ext/res/system v0.3.0 h1:8QWtKVUYSDlA512A2zi96u6LKXicT3Fa1xGvffXpuVA=
+github.com/webong/ext/res/system v0.3.0/go.mod h1:ChrugLedXqBaKX9eYWBh9oCUkbTyUec/uV7Df4SF1XA=
 golang.org/x/sys v0.29.0 h1:TPYlXGxvx1MGTn2GiZDhnjPA9wZzZeGKHHmKhHYvgaU=
 golang.org/x/sys v0.29.0/go.mod h1:/VUhepiaJMQUp4+oa/7Zr1D23ma6VTLIYjOOTFZPUcA=

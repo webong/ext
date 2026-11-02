@@ -152,14 +152,19 @@ func envOf(values map[string]string) func(string) string {
 }
 
 func TestExpandRoot(t *testing.T) {
-	env := envOf(map[string]string{"HOME": "/home/u", "NVM_DIR": "/opt/nvm", "EMPTY": ""})
+	// A path with no drive letter is not absolute on Windows.
+	root := ""
+	if runtime.GOOS == "windows" {
+		root = "C:"
+	}
+	env := envOf(map[string]string{"HOME": root + "/home/u", "NVM_DIR": root + "/opt/nvm", "EMPTY": ""})
 	for pattern, want := range map[string]string{
-		"/usr/lib/x/*/bin":                  "/usr/lib/x/*/bin",
-		"~/.nvm/versions/node/*/bin":        "/home/u/.nvm/versions/node/*/bin",
-		"${NVM_DIR:-~/.nvm}/versions/*/bin": "/opt/nvm/versions/*/bin",
-		"${MISSING:-~/.nvm}/versions/*/bin": "/home/u/.nvm/versions/*/bin",
-		"${EMPTY:-/fallback}/bin":           "/fallback/bin",
-		"$NVM_DIR/v/*":                      "/opt/nvm/v/*",
+		root + "/usr/lib/x/*/bin":             root + "/usr/lib/x/*/bin",
+		"~/.nvm/versions/node/*/bin":          root + "/home/u/.nvm/versions/node/*/bin",
+		"${NVM_DIR:-~/.nvm}/versions/*/bin":   root + "/opt/nvm/versions/*/bin",
+		"${MISSING:-~/.nvm}/versions/*/bin":   root + "/home/u/.nvm/versions/*/bin",
+		"${EMPTY:-" + root + "/fallback}/bin": root + "/fallback/bin",
+		"$NVM_DIR/v/*":                        root + "/opt/nvm/v/*",
 	} {
 		got, ok := ExpandRoot(pattern, env)
 		if !ok || got != want {

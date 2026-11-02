@@ -19,7 +19,7 @@ Register-ArgumentCompleter -Native -CommandName ctx -ScriptBlock {
     param($wordToComplete, $commandAst, $cursorPosition)
 
     $words = @($commandAst.CommandElements | ForEach-Object { $_.Extent.Text })
-    $commands = @('status', 'resolve', 'explain', 'env', 'set', 'clear', 'profile', 'adapter', 'computer', 'manager', 'program', 'browser', 'credential', 'setup', 'ls', 'open', 'doctor', 'build', 'share:manager', 'share:browser', 'share:computer', 'share:credential', 'graph', 'service', 'clipboard', 'desktop', 'hook', 'plugin', 'run', 'shell', 'real', 'completion', 'version')
+    $commands = @('status', 'resolve', 'explain', 'env', 'set', 'clear', 'profile', 'adapter', 'computer', 'manager', 'program', 'default', 'browser', 'credential', 'setup', 'ls', 'open', 'doctor', 'build', 'share:manager', 'share:browser', 'share:computer', 'share:credential', 'graph', 'service', 'clipboard', 'desktop', 'hook', 'plugin', 'run', 'shell', 'real', 'completion', 'version')
 
     function Emit-CtxCompletion([string[]]$values) {
         $values | Where-Object { $_ -and $_ -like "$wordToComplete*" } | Sort-Object -Unique | ForEach-Object {
@@ -69,7 +69,7 @@ Register-ArgumentCompleter -Native -CommandName ctx -ScriptBlock {
                 if ($words[-2] -eq '--supports') { Emit-CtxCompletion @('container'); return }
                 if ($words[-2] -eq '--engine') { Emit-CtxCompletion @('evaluator', 'executor', 'emulator'); return }
                 if ($words[-2] -eq '--role') { Emit-CtxCompletion @('virtualizer', 'installer', 'interpreter', 'compiler', 'transpiler', 'bundler', 'renderer'); return }
-                Emit-CtxCompletion @('--supports', '--engine', '--role'); return
+                Emit-CtxCompletion @('--supports', '--engine', '--role', '--pick'); return
             }
         }
         'hook' {
@@ -118,6 +118,10 @@ Register-ArgumentCompleter -Native -CommandName ctx -ScriptBlock {
             if ($words[2] -eq 'app' -and $words.Count -le 3) { Emit-CtxCompletion @(& ctx manager apps 2>$null); return }
             if ($words[2] -eq 'app' -and $words.Count -le 4) { Emit-CtxCompletion @('status', 'start', 'stop', 'doctor'); return }
             if ($words[2] -eq 'add' -and $words.Count -ge 4) { Emit-CtxCompletion @('--virtualizer', '--machine', '--provider', '--selection', '--address', '--command', '--plugin-dir', '--plugin', '--offline'); return }
+        }
+        'default' {
+            if ($words.Count -le 2) { Emit-CtxCompletion @('ls'); return }
+            if ($words.Count -le 3) { Emit-CtxCompletion @('--clear', '--global'); return }
         }
         'program' {
             if ($words.Count -le 2) { Emit-CtxCompletion @('recognise', 'forget', 'installer'); return }

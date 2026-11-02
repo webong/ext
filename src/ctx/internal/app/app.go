@@ -114,6 +114,8 @@ func Run(args []string, stdout, stderr io.Writer) int {
 		return computerCommand(args[1:], stdout, stderr)
 	case "manager":
 		return managerCommand(resolver, args[1:], stdout, stderr)
+	case "default":
+		return kindDefaultCommand(resolver, args[1:], stdout, stderr)
 	case "program":
 		return programCommand(resolver, args[1:], stdout, stderr)
 	case "plugin":
@@ -207,6 +209,10 @@ usage:
       [--offline]
   ctx manager <ls|show|doctor|remove> [name]
   ctx manager apps
+  ctx default <kind> <adapter> [--global] | <kind> --clear [--global] | ls
+      prefer one adapter for a kind several adapters support: in this project's .ctx,
+      or for you with --global; graph resolve --supports <kind> marks it and --pick
+      returns only it
   ctx program <recognise|forget> <path> [installer]
       recognise records that you know which installer put a program there; with no
       installer it takes the one an adapter suggested
@@ -250,7 +256,7 @@ usage:
   ctx graph resources
   ctx graph processes [--limit 4096] [--timeout 10s]
   ctx graph process <pid> [--resource-limit 1024] [--timeout 10s]
-  ctx graph resolve [runtime|all] [capability...] [--supports <kind>] [--engine <name>] [--role <name>] [--share <resource.operation>]
+  ctx graph resolve [runtime|all] [capability...] [--supports <kind>] [--engine <name>] [--role <name>] [--share <resource.operation>] [--pick]
   ctx graph resolve shell [--name <name>] [--select <executable>]
   ctx graph resolve filesystem [--path <path>] [--type <type>] [--writable] [--min-free <bytes>] [--select <mount>]
   ctx graph resolve webview [--engine <engine>] [--api <api>] [--abi <generation>] [--version <version>] [--arch <architecture>] [--select <location>]

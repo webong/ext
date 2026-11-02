@@ -143,6 +143,7 @@ func graphCommand(args []string, stdout, stderr io.Writer) int {
 		engines := []string(nil)
 		roles := []string(nil)
 		shareReady := []string(nil)
+		pick := false
 		if len(args) > 1 {
 			runtimeName = args[1]
 			if runtimeName == "all" {
@@ -172,6 +173,10 @@ func graphCommand(args []string, stdout, stderr io.Writer) int {
 					}
 					continue
 				}
+				if args[index] == "--pick" {
+					pick = true
+					continue
+				}
 				if args[index] == "--share" {
 					if index+1 >= len(args) || args[index+1] == "" || strings.HasPrefix(args[index+1], "--") {
 						fmt.Fprintln(stderr, "ctx: graph resolve --share needs a browser resource.operation")
@@ -198,6 +203,16 @@ func graphCommand(args []string, stdout, stderr io.Writer) int {
 			}
 		}
 		inventory.Contexts = selected
+		if err := markKindDefaults(resolver, supports, inventory.Contexts); err != nil {
+			return reportError(stderr, err)
+		}
+		if pick {
+			picked, err := pickAdapter(resolver, supports, inventory.Contexts)
+			if err != nil {
+				return reportError(stderr, err)
+			}
+			inventory.Contexts = picked
+		}
 		if err := encoder.Encode(inventory); err != nil {
 			return reportError(stderr, err)
 		}

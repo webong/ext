@@ -23,7 +23,10 @@ type ContextCandidate struct {
 	Role              []string          `json:"role,omitempty"`
 	BrowserShare      map[string]string `json:"browser_share,omitempty"`
 	Program           *ContextProgram   `json:"program,omitempty"`
-	ObservedAt        time.Time         `json:"observed_at"`
+	// Default marks the adapter the user prefers for the kind a resolve asked for.
+	// It filters nothing; a caller that wants one adapter asks for a pick.
+	Default    bool      `json:"default,omitempty"`
+	ObservedAt time.Time `json:"observed_at"`
 }
 
 // ContextProgram is the executable a context runs, as observed. Installers names

@@ -6,13 +6,13 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/webong/ext/res/system/graph"
+	"github.com/webong/ext/res/graph/store"
 )
 
 func main() {
-	store := graph.NewMemory()
-	defer store.Close()
-	validate := func(view graph.View, tx graph.Transaction) error {
+	memory := store.NewMemory()
+	defer memory.Close()
+	validate := func(view store.View, tx store.Transaction) error {
 		for _, edge := range tx.Edges {
 			if edge.Type == "example.io/observes" {
 				from, _ := view.Vertex("example.io", edge.From)
@@ -24,17 +24,17 @@ func main() {
 		}
 		return nil
 	}
-	if err := store.Register(graph.Schema{Namespace: "example.io", Version: "1", Validate: validate}); err != nil {
+	if err := memory.Register(store.Schema{Namespace: "example.io", Version: "1", Validate: validate}); err != nil {
 		panic(err)
 	}
-	_, err := store.Apply(context.Background(), graph.Transaction{Namespace: "example.io", Vertices: []graph.Vertex{
+	_, err := memory.Apply(context.Background(), store.Transaction{Namespace: "example.io", Vertices: []store.Vertex{
 		{ID: "coordinator/primary", Kind: "example.io/coordinator"},
 		{ID: "resource/network", Kind: "example.io/resource"},
-	}, Edges: []graph.Edge{{ID: "observes/network", From: "coordinator/primary", To: "resource/network", Type: "example.io/observes"}}})
+	}, Edges: []store.Edge{{ID: "observes/network", From: "coordinator/primary", To: "resource/network", Type: "example.io/observes"}}})
 	if err != nil {
 		panic(err)
 	}
-	snapshot, err := store.Snapshot(context.Background(), "example.io")
+	snapshot, err := memory.Snapshot(context.Background(), "example.io")
 	if err != nil {
 		panic(err)
 	}

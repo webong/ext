@@ -10,9 +10,9 @@ import (
 	"time"
 
 	"github.com/webong/ext/ctx/internal/config"
-	systemgraph "github.com/webong/ext/res/system"
+	systemgraph "github.com/webong/ext/res/graph"
 	systemsurface "github.com/webong/ext/res/system/capture/surface"
-	"github.com/webong/ext/res/system/graph"
+	"github.com/webong/ext/res/graph/store"
 	systemhost "github.com/webong/ext/res/system/service/host"
 	systemprocess "github.com/webong/ext/res/system/service/process"
 )
@@ -251,7 +251,7 @@ func graphCommand(args []string, stdout, stderr io.Writer) int {
 				kind = systemgraph.Namespace + "/" + kind
 			}
 		}
-		values, err := system.Store.QueryVertices(ctx, graph.VertexQuery{Namespace: systemgraph.Namespace, Kind: kind, Limit: 1000})
+		values, err := system.Store.QueryVertices(ctx, store.VertexQuery{Namespace: systemgraph.Namespace, Kind: kind, Limit: 1000})
 		if err != nil {
 			fmt.Fprintf(stderr, "ctx: %v\n", err)
 			return 1
@@ -273,7 +273,7 @@ func graphCommand(args []string, stdout, stderr io.Writer) int {
 				relationship = systemgraph.Namespace + "/" + relationship
 			}
 		}
-		values, err := system.Store.QueryEdges(ctx, graph.EdgeQuery{Namespace: systemgraph.Namespace, Type: relationship, Limit: 1000})
+		values, err := system.Store.QueryEdges(ctx, store.EdgeQuery{Namespace: systemgraph.Namespace, Type: relationship, Limit: 1000})
 		if err != nil {
 			fmt.Fprintf(stderr, "ctx: %v\n", err)
 			return 1

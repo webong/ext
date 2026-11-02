@@ -1,9 +1,9 @@
-package system
+package graph
 
 import (
 	"context"
 	"errors"
-	"github.com/webong/ext/res/system/graph"
+	"github.com/webong/ext/res/graph/store"
 	"os"
 	"testing"
 	"time"
@@ -14,7 +14,7 @@ import (
 
 func processTestGraph(t *testing.T) *Graph {
 	t.Helper()
-	g, err := New(graph.NewMemory())
+	g, err := New(store.NewMemory())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -22,7 +22,7 @@ func processTestGraph(t *testing.T) *Graph {
 	return g
 }
 
-func processTestStoreSnapshot(t *testing.T, g *Graph) graph.Snapshot {
+func processTestStoreSnapshot(t *testing.T, g *Graph) store.Snapshot {
 	t.Helper()
 	s, err := g.Store.Snapshot(context.Background(), Namespace)
 	if err != nil {
@@ -31,7 +31,7 @@ func processTestStoreSnapshot(t *testing.T, g *Graph) graph.Snapshot {
 	return s
 }
 
-func processTestCount(s graph.Snapshot, kind string) int {
+func processTestCount(s store.Snapshot, kind string) int {
 	n := 0
 	for _, v := range s.Vertices {
 		if v.Kind == Namespace+"/"+kind {
@@ -60,7 +60,7 @@ func TestProcessProjectionLifecycle(t *testing.T) {
 	if processTestCount(s, "process") != 2 || processTestCount(s, "process-resource") != 1 {
 		t.Fatalf("unexpected records: %+v", s)
 	}
-	edges, err := g.Store.QueryEdges(ctx, graph.EdgeQuery{Namespace: Namespace, Type: Namespace + "/parent-of", Limit: 10})
+	edges, err := g.Store.QueryEdges(ctx, store.EdgeQuery{Namespace: Namespace, Type: Namespace + "/parent-of", Limit: 10})
 	if err != nil || len(edges) != 1 {
 		t.Fatalf("parent edges: %+v %v", edges, err)
 	}
@@ -103,7 +103,7 @@ func TestProcessProjectionLifecycle(t *testing.T) {
 	// PID reuse is a new graph identity with no inherited resource nodes.
 	replacement := processTestInfo(20, 10, "201")
 	observe(processTestSnapshot(at.Add(6*time.Second), "process", "complete", replacement))
-	if _, err := g.Store.GetVertex(ctx, Namespace, proc.InstanceID("fixture-boot", child)); !errors.Is(err, graph.ErrNotFound) {
+	if _, err := g.Store.GetVertex(ctx, Namespace, proc.InstanceID("fixture-boot", child)); !errors.Is(err, store.ErrNotFound) {
 		t.Fatalf("old instance retained: %v", err)
 	}
 	if processTestCount(processTestStoreSnapshot(t, g), "process-resource") != 0 {

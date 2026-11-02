@@ -367,9 +367,9 @@ from `_csrc` and links the engine library, which is built from `_csrc` with CMak
 | `pkg/plugin-wasm` (up to v0.2.1), later `pkg/plugin-go/wasm` | `pkg/ext-go/wasm` (`pkg/ext-go/wasm`); its reusable mechanics are `res/web/wasm` |
 | `pkg/plugin-hashicorp` (up to v0.1.1) | `pkg/plugin-go/hashicorp` (`pkg/plugin-go/hashicorp`) |
 | `pkg/plugin-hashicorp/cmd/ext-plugin-bridge` | `pkg/plugin-go/cmd/ext-plugin-bridge` (`pkg/plugin-go`) |
-| `pkg/graph` (v0.1.0) | the generic store is `res/system/graph`, in module `res/system` (see below) |
-| `res/graph` (v0.1.0, published for a short time) | `res/system` (module `res/system`): the discovery package that lived in `res/graph/system` (declared name `systemgraph`) is now the module root, package `system`; the store, `res/graph`'s own package, is `res/system/graph`; `res/graph/supervisor` is `res/system/supervisor` |
-| `packagekit.Plan.Graph(namespace)` | `plugingo.PlanGraph(plan, namespace)` in `pkg/plugin-go`; `packagekit.IdentityKey` is now exported. The conversion lives in the umbrella so `contract` has no `res/system` dependency; the transaction it returns is `res/system/graph`'s. No caller in this repository other than the method's own test used it, and the consumer repository calls neither it nor `res/graph` |
+| `pkg/graph` (v0.1.0) | the generic store is `res/graph/store`, in module `res/system` (see below) |
+| `res/graph` (v0.1.0, published for a short time) | `res/system` (module `res/system`): the discovery package that lived in `res/graph/system` (declared name `systemgraph`) is now the module root, package `system`; the store, `res/graph`'s own package, is `res/graph/store`; `res/graph/supervisor` is `res/graph/supervisor` |
+| `packagekit.Plan.Graph(namespace)` | `plugingo.PlanGraph(plan, namespace)` in `pkg/plugin-go`; `packagekit.IdentityKey` is now exported. The conversion lives in the umbrella so `contract` has no `res/system` dependency; the transaction it returns is `res/graph/store`'s. No caller in this repository other than the method's own test used it, and the consumer repository calls neither it nor `res/graph` |
 
 Subpackages of the old `pkg/plugin-go` and `pkg/plugin` that move under `contract`:
 `package` (the old `packagekit`: its import path is `contract/package`, and because `package` is a Go

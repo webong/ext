@@ -1,11 +1,11 @@
-package system
+package graph
 
 import (
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/webong/ext/res/system/graph"
+	"github.com/webong/ext/res/graph/store"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -84,16 +84,16 @@ func (g *Graph) ObserveHost(ctx context.Context, inventory HostInventory) error 
 	}
 	now := time.Now().UTC()
 	hostname, _ := os.Hostname()
-	vertices := map[string]graph.Vertex{
-		"machine/local": {ID: "machine/local", Kind: Namespace + "/machine", Attributes: map[string]any{"hostname": hostname, "os": runtime.GOOS, "architecture": runtime.GOARCH}, Provenance: graph.Provenance{Source: "ctx", Operation: "host-observed", At: now}},
+	vertices := map[string]store.Vertex{
+		"machine/local": {ID: "machine/local", Kind: Namespace + "/machine", Attributes: map[string]any{"hostname": hostname, "os": runtime.GOOS, "architecture": runtime.GOARCH}, Provenance: store.Provenance{Source: "ctx", Operation: "host-observed", At: now}},
 	}
-	edges := map[string]graph.Edge{}
+	edges := map[string]store.Edge{}
 	managedKinds := map[string]bool{}
 	managedTypes := map[string]bool{}
 	add := func(id, kind, relation string, attributes map[string]any) {
-		vertices[id] = graph.Vertex{ID: id, Kind: Namespace + "/" + kind, Attributes: attributes, Provenance: graph.Provenance{Source: "ctx", Operation: "host-observed", At: now}}
+		vertices[id] = store.Vertex{ID: id, Kind: Namespace + "/" + kind, Attributes: attributes, Provenance: store.Provenance{Source: "ctx", Operation: "host-observed", At: now}}
 		edgeID := "machine-" + id
-		edges[edgeID] = graph.Edge{ID: edgeID, From: "machine/local", To: id, Type: Namespace + "/" + relation}
+		edges[edgeID] = store.Edge{ID: edgeID, From: "machine/local", To: id, Type: Namespace + "/" + relation}
 	}
 	if inventory.Shells != nil {
 		managedKinds[Namespace+"/shell"] = true
@@ -287,18 +287,18 @@ func (g *Graph) ObserveHost(ctx context.Context, inventory HostInventory) error 
 		if err != nil {
 			return err
 		}
-		tx := graph.Transaction{Namespace: Namespace, ExpectedRevision: &snapshot.Revision, DeleteIncidentEdges: true}
+		tx := store.Transaction{Namespace: Namespace, ExpectedRevision: &snapshot.Revision, DeleteIncidentEdges: true}
 		for _, vertex := range snapshot.Vertices {
 			if managedKinds[vertex.Kind] {
 				if _, keep := vertices[vertex.ID]; !keep {
-					tx.DeleteVertices = append(tx.DeleteVertices, graph.VertexRef{Namespace: Namespace, ID: vertex.ID})
+					tx.DeleteVertices = append(tx.DeleteVertices, store.VertexRef{Namespace: Namespace, ID: vertex.ID})
 				}
 			}
 		}
 		for _, edge := range snapshot.Edges {
 			if managedTypes[edge.Type] {
 				if _, keep := edges[edge.ID]; !keep {
-					tx.DeleteEdges = append(tx.DeleteEdges, graph.EdgeRef{Namespace: Namespace, ID: edge.ID})
+					tx.DeleteEdges = append(tx.DeleteEdges, store.EdgeRef{Namespace: Namespace, ID: edge.ID})
 				}
 			}
 		}
@@ -309,7 +309,7 @@ func (g *Graph) ObserveHost(ctx context.Context, inventory HostInventory) error 
 			tx.Edges = append(tx.Edges, edge)
 		}
 		_, err = g.Store.Apply(ctx, tx)
-		if errors.Is(err, graph.ErrConflict) {
+		if errors.Is(err, store.ErrConflict) {
 			continue
 		}
 		return err

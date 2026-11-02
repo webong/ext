@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/webong/ext/res/system/graph"
+	"github.com/webong/ext/res/graph/store"
 )
 
 func TestHelperProcess(t *testing.T) {
@@ -35,9 +35,9 @@ func TestHelperProcess(t *testing.T) {
 }
 
 func TestCrashRestartAndBoundedLogs(t *testing.T) {
-	store := graph.NewMemory()
-	defer store.Close()
-	sup, err := New(Options{Graph: store, LogLimit: 128})
+	memory := store.NewMemory()
+	defer memory.Close()
+	sup, err := New(Options{Graph: memory, LogLimit: 128})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -61,7 +61,7 @@ func TestCrashRestartAndBoundedLogs(t *testing.T) {
 	if len(logs) > 128 {
 		t.Fatalf("log tail exceeded limit: %d", len(logs))
 	}
-	process, err := store.GetVertex(context.Background(), RuntimeNamespace, "process/"+instance.ID)
+	process, err := memory.GetVertex(context.Background(), RuntimeNamespace, "process/"+instance.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -72,8 +72,8 @@ func TestCrashRestartAndBoundedLogs(t *testing.T) {
 
 func TestLifecycleFactsAndSecretReferences(t *testing.T) {
 	ctx := context.Background()
-	store := graph.NewMemory()
-	defer store.Close()
+	memory := store.NewMemory()
+	defer memory.Close()
 	secret := "never-project-this-value"
 	payload, err := os.ReadFile(os.Args[0])
 	if err != nil {
@@ -81,7 +81,7 @@ func TestLifecycleFactsAndSecretReferences(t *testing.T) {
 	}
 	sum := sha256.Sum256(payload)
 	checksum := "sha256:" + hex.EncodeToString(sum[:])
-	sup, err := New(Options{Graph: store, SecretResolver: func(context.Context, SecretReference) (string, error) { return secret, nil }, LogLimit: 128})
+	sup, err := New(Options{Graph: memory, SecretResolver: func(context.Context, SecretReference) (string, error) { return secret, nil }, LogLimit: 128})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -95,7 +95,7 @@ func TestLifecycleFactsAndSecretReferences(t *testing.T) {
 	if err != nil || logs != "" {
 		t.Fatalf("secret-bearing process output must be discarded: %q, %v", logs, err)
 	}
-	process, err := store.GetVertex(ctx, RuntimeNamespace, "process/"+instance.ID)
+	process, err := memory.GetVertex(ctx, RuntimeNamespace, "process/"+instance.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -105,7 +105,7 @@ func TestLifecycleFactsAndSecretReferences(t *testing.T) {
 	if _, ok := process.Attributes["authorized"]; ok {
 		t.Fatal("runtime fact implies domain authority")
 	}
-	snapshot, err := store.Snapshot(ctx, RuntimeNamespace)
+	snapshot, err := memory.Snapshot(ctx, RuntimeNamespace)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -122,18 +122,18 @@ func TestLifecycleFactsAndSecretReferences(t *testing.T) {
 	if strings.Contains(serialized, secret) {
 		t.Fatal("secret value was projected into graph")
 	}
-	if _, err = store.GetEdge(ctx, RuntimeNamespace, "spawned-by/"+instance.ID); err != nil {
+	if _, err = memory.GetEdge(ctx, RuntimeNamespace, "spawned-by/"+instance.ID); err != nil {
 		t.Fatalf("missing generic spawned-by relationship: %v", err)
 	}
-	if _, err = store.GetEdge(ctx, RuntimeNamespace, "connected-to/link-1"); err != nil {
+	if _, err = memory.GetEdge(ctx, RuntimeNamespace, "connected-to/link-1"); err != nil {
 		t.Fatalf("missing generic IPC connection fact: %v", err)
 	}
 }
 
 func TestStopAndHealthProjection(t *testing.T) {
-	store := graph.NewMemory()
-	defer store.Close()
-	sup, err := New(Options{Graph: store})
+	memory := store.NewMemory()
+	defer memory.Close()
+	sup, err := New(Options{Graph: memory})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -154,7 +154,7 @@ func TestStopAndHealthProjection(t *testing.T) {
 	if err != nil || i.State != StateStopped {
 		t.Fatalf("stop lifecycle: %+v %v", i, err)
 	}
-	process, err := store.GetVertex(context.Background(), RuntimeNamespace, "process/"+instance.ID)
+	process, err := memory.GetVertex(context.Background(), RuntimeNamespace, "process/"+instance.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -167,11 +167,11 @@ func TestStopAndHealthProjection(t *testing.T) {
 // changing state and its graph fact landing from microseconds to a fixed gap
 // that a poller cannot miss.
 type slowGraph struct {
-	graph.Store
+	store.Store
 	delay time.Duration
 }
 
-func (g slowGraph) Apply(ctx context.Context, tx graph.Transaction) (graph.Commit, error) {
+func (g slowGraph) Apply(ctx context.Context, tx store.Transaction) (store.Commit, error) {
 	time.Sleep(g.delay)
 	return g.Store.Apply(ctx, tx)
 }
@@ -181,9 +181,9 @@ func (g slowGraph) Apply(ctx context.Context, tx graph.Transaction) (graph.Commi
 // still says "ready" lets a caller act on a state the graph has not recorded.
 func TestInstanceNeverLeadsGraph(t *testing.T) {
 	ctx := context.Background()
-	store := graph.NewMemory()
-	defer store.Close()
-	sup, err := New(Options{Graph: slowGraph{Store: store, delay: 20 * time.Millisecond}})
+	memory := store.NewMemory()
+	defer memory.Close()
+	sup, err := New(Options{Graph: slowGraph{Store: memory, delay: 20 * time.Millisecond}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -207,7 +207,7 @@ func TestInstanceNeverLeadsGraph(t *testing.T) {
 			t.Fatal(err)
 		}
 		if want, watched := allowed[seen.State]; watched {
-			vertex, err := store.GetVertex(ctx, RuntimeNamespace, "process/"+instance.ID)
+			vertex, err := memory.GetVertex(ctx, RuntimeNamespace, "process/"+instance.ID)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -233,9 +233,9 @@ func TestInstanceNeverLeadsGraph(t *testing.T) {
 }
 
 func TestArtifactChecksumRejectedBeforeStart(t *testing.T) {
-	store := graph.NewMemory()
-	defer store.Close()
-	sup, err := New(Options{Graph: store, RequireChecksum: true})
+	memory := store.NewMemory()
+	defer memory.Close()
+	sup, err := New(Options{Graph: memory, RequireChecksum: true})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -254,9 +254,9 @@ func TestArtifactChecksumRejectedBeforeStart(t *testing.T) {
 }
 
 func TestEndpointAndHandshakeGateReadiness(t *testing.T) {
-	store := graph.NewMemory()
-	defer store.Close()
-	sup, err := New(Options{Graph: store})
+	memory := store.NewMemory()
+	defer memory.Close()
+	sup, err := New(Options{Graph: memory})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -313,16 +313,16 @@ func TestEndpointAndHandshakeGateReadiness(t *testing.T) {
 }
 
 func TestExpiredLeaseMarksOrphanAndBlocksStart(t *testing.T) {
-	store := graph.NewMemory()
-	defer store.Close()
-	if err := store.Register(graph.Schema{Namespace: RuntimeNamespace, Version: "1"}); err != nil {
+	memory := store.NewMemory()
+	defer memory.Close()
+	if err := memory.Register(store.Schema{Namespace: RuntimeNamespace, Version: "1"}); err != nil {
 		t.Fatal(err)
 	}
-	_, err := store.Apply(context.Background(), graph.Transaction{Namespace: RuntimeNamespace, Vertices: []graph.Vertex{{ID: "process/old", Kind: RuntimeNamespace + "/process-instance", Attributes: map[string]any{"runtime_id": "test-runtime", "state": string(StateRunning), "pid": os.Getpid(), "lease_until": time.Now().Add(-time.Minute).Format(time.RFC3339Nano)}}}})
+	_, err := memory.Apply(context.Background(), store.Transaction{Namespace: RuntimeNamespace, Vertices: []store.Vertex{{ID: "process/old", Kind: RuntimeNamespace + "/process-instance", Attributes: map[string]any{"runtime_id": "test-runtime", "state": string(StateRunning), "pid": os.Getpid(), "lease_until": time.Now().Add(-time.Minute).Format(time.RFC3339Nano)}}}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	sup, err := New(Options{Graph: store, RuntimeID: "test-runtime", OrphanPolicy: OrphanMark})
+	sup, err := New(Options{Graph: memory, RuntimeID: "test-runtime", OrphanPolicy: OrphanMark})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -333,32 +333,32 @@ func TestExpiredLeaseMarksOrphanAndBlocksStart(t *testing.T) {
 	if _, err := sup.Start(context.Background(), Spec{Artifact: Artifact{ID: "new", Revision: "1"}, Command: os.Args[0]}); err == nil {
 		t.Fatal("new start bypassed unresolved orphan")
 	}
-	vertex, err := store.GetVertex(context.Background(), RuntimeNamespace, "process/old")
+	vertex, err := memory.GetVertex(context.Background(), RuntimeNamespace, "process/old")
 	if err != nil || vertex.Attributes["state"] != string(StateOrphaned) {
 		t.Fatalf("orphan graph state: %+v, %v", vertex, err)
 	}
 }
 
 func TestActiveLeaseRejectsSecondSupervisor(t *testing.T) {
-	store := graph.NewMemory()
-	defer store.Close()
-	if err := store.Register(graph.Schema{Namespace: RuntimeNamespace, Version: "1"}); err != nil {
+	memory := store.NewMemory()
+	defer memory.Close()
+	if err := memory.Register(store.Schema{Namespace: RuntimeNamespace, Version: "1"}); err != nil {
 		t.Fatal(err)
 	}
-	_, err := store.Apply(context.Background(), graph.Transaction{Namespace: RuntimeNamespace, Vertices: []graph.Vertex{{ID: "process/live", Kind: RuntimeNamespace + "/process-instance", Attributes: map[string]any{"runtime_id": "test-runtime", "state": string(StateRunning), "pid": os.Getpid(), "lease_until": time.Now().Add(time.Minute).Format(time.RFC3339Nano)}}}})
+	_, err := memory.Apply(context.Background(), store.Transaction{Namespace: RuntimeNamespace, Vertices: []store.Vertex{{ID: "process/live", Kind: RuntimeNamespace + "/process-instance", Attributes: map[string]any{"runtime_id": "test-runtime", "state": string(StateRunning), "pid": os.Getpid(), "lease_until": time.Now().Add(time.Minute).Format(time.RFC3339Nano)}}}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = New(Options{Graph: store, RuntimeID: "test-runtime"})
+	_, err = New(Options{Graph: memory, RuntimeID: "test-runtime"})
 	if !errors.Is(err, ErrRuntimeLeased) {
 		t.Fatalf("active lease: %v", err)
 	}
 }
 
 func TestTerminalInstanceRetentionBoundsGraph(t *testing.T) {
-	store := graph.NewMemory()
-	defer store.Close()
-	sup, err := New(Options{Graph: store, RetainTerminal: 1})
+	memory := store.NewMemory()
+	defer memory.Close()
+	sup, err := New(Options{Graph: memory, RetainTerminal: 1})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -369,12 +369,12 @@ func TestTerminalInstanceRetentionBoundsGraph(t *testing.T) {
 			t.Fatal(err)
 		}
 		waitFor(t, func() bool {
-			vertex, err := store.GetVertex(context.Background(), RuntimeNamespace, "process/"+instance.ID)
+			vertex, err := memory.GetVertex(context.Background(), RuntimeNamespace, "process/"+instance.ID)
 			return err == nil && vertex.Attributes["state"] == string(StateStopped)
 		})
 	}
 	waitFor(t, func() bool {
-		snapshot, err := store.Snapshot(context.Background(), RuntimeNamespace)
+		snapshot, err := memory.Snapshot(context.Background(), RuntimeNamespace)
 		if err != nil {
 			return false
 		}

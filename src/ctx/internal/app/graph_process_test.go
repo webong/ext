@@ -3,13 +3,13 @@ package app
 import (
 	"bytes"
 	"context"
-	systemgraph "github.com/webong/ext/res/system"
-	"github.com/webong/ext/res/system/graph"
+	systemgraph "github.com/webong/ext/res/graph"
+	"github.com/webong/ext/res/graph/store"
 	"testing"
 )
 
 func TestGraphProcessCLIValidation(t *testing.T) {
-	g, err := systemgraph.New(graph.NewMemory())
+	g, err := systemgraph.New(store.NewMemory())
 	if err != nil {
 		t.Fatal(err)
 	}

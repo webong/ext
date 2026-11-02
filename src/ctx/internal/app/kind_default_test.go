@@ -10,7 +10,7 @@ import (
 
 	"github.com/webong/ext/ctx/internal/config"
 	modpkg "github.com/webong/ext/pkg/ext-go/engine/host/adapter"
-	"github.com/webong/ext/res/system"
+	systemgraph "github.com/webong/ext/res/graph"
 )
 
 func installKindFixture(t *testing.T, name string, supports string) {
@@ -110,10 +110,10 @@ func TestKindDefaultCommandProjectAndUser(t *testing.T) {
 	}
 }
 
-func candidates(adapters ...string) []system.ContextCandidate {
-	var result []system.ContextCandidate
+func candidates(adapters ...string) []systemgraph.ContextCandidate {
+	var result []systemgraph.ContextCandidate
 	for _, adapter := range adapters {
-		result = append(result, system.ContextCandidate{Adapter: adapter, Selection: "s", Supports: []string{"jvm"}})
+		result = append(result, systemgraph.ContextCandidate{Adapter: adapter, Selection: "s", Supports: []string{"jvm"}})
 	}
 	return result
 }

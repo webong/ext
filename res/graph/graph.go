@@ -1,7 +1,7 @@
 // Package system projects CTX machine inventory, shell, and browser
 // observations onto the public generic graph API. It owns the ext.system
 // vocabulary; the base graph package remains product-neutral.
-package system
+package graph
 
 import (
 	"context"
@@ -15,36 +15,36 @@ import (
 	"strings"
 	"time"
 
-	"github.com/webong/ext/res/system/graph"
+	"github.com/webong/ext/res/graph/store"
 )
 
 const Namespace = "ext.system"
 
-type Graph struct{ Store graph.Store }
+type Graph struct{ Store store.Store }
 
 func Open(configHome string) (*Graph, error) {
-	store, err := graph.OpenFile(filepath.Join(configHome, "graph.json"))
+	backing, err := store.OpenFile(filepath.Join(configHome, "graph.json"))
 	if err != nil {
 		return nil, err
 	}
-	projected, err := New(store)
+	projected, err := New(backing)
 	if err != nil {
-		_ = store.Close()
+		_ = backing.Close()
 		return nil, err
 	}
 	return projected, nil
 }
 
-// New registers the CTX system vocabulary on any graph.Store. Other services
+// New registers the CTX system vocabulary on any store.Store. Other services
 // may keep their own namespaces in the same store.
-func New(store graph.Store) (*Graph, error) {
-	if err := store.Register(graph.Schema{Namespace: Namespace, Version: "1", Validate: validateSchema}); err != nil {
+func New(backing store.Store) (*Graph, error) {
+	if err := backing.Register(store.Schema{Namespace: Namespace, Version: "1", Validate: validateSchema}); err != nil {
 		return nil, err
 	}
-	return &Graph{Store: store}, nil
+	return &Graph{Store: backing}, nil
 }
 
-func validateSchema(view graph.View, tx graph.Transaction) error {
+func validateSchema(view store.View, tx store.Transaction) error {
 	allowedKinds := map[string]bool{Namespace + "/machine": true, Namespace + "/shell-session": true, Namespace + "/directory": true, Namespace + "/project": true, Namespace + "/profile": true, Namespace + "/selection": true, Namespace + "/browser-context": true, Namespace + "/inventory": true, Namespace + "/adapter": true, Namespace + "/capability": true, Namespace + "/support": true, Namespace + "/context": true, Namespace + "/resource": true, Namespace + "/alias": true, Namespace + "/program": true, Namespace + "/installer": true,
 		Namespace + "/host-inventory": true, Namespace + "/shell": true, Namespace + "/filesystem": true, Namespace + "/webview": true, Namespace + "/desktop": true, Namespace + "/display": true, Namespace + "/window": true, Namespace + "/accessibility-element": true, Namespace + "/permission": true, Namespace + "/process": true, Namespace + "/executable": true, Namespace + "/application": true, Namespace + "/process-resource": true, Namespace + "/host-resource": true}
 	for _, vertex := range tx.Vertices {
@@ -94,7 +94,7 @@ func validateSchema(view graph.View, tx graph.Transaction) error {
 		from, fromOK := view.Vertex(Namespace, edge.From)
 		to, toOK := view.Vertex(Namespace, edge.To)
 		if !fromOK || !toOK {
-			return graph.ErrDanglingEdge
+			return store.ErrDanglingEdge
 		}
 		if from.Kind != expected.from || to.Kind != expected.to {
 			return fmt.Errorf("invalid endpoints for ext.system relationship %q", edge.Type)
@@ -122,23 +122,23 @@ func (g *Graph) ObserveShell(ctx context.Context, cwd, profile string, selection
 	sessionID := "shell/" + itoa(parent)
 	host, _ := os.Hostname()
 	now := time.Now().UTC()
-	vertices := []graph.Vertex{
-		{ID: "machine/local", Kind: Namespace + "/machine", Attributes: map[string]any{"hostname": host, "os": runtime.GOOS, "architecture": runtime.GOARCH}, Provenance: graph.Provenance{Source: "ctx", Operation: "shell-observed", At: now}},
-		{ID: sessionID, Kind: Namespace + "/shell-session", Attributes: map[string]any{"parent_pid": float64(parent), "shell": shell, "terminal": terminal, "working_directory": cwd, "active_profile": profile, "observed_at": now.Format(time.RFC3339Nano)}, Provenance: graph.Provenance{Source: "ctx", Operation: "shell-observed", At: now}},
-		{ID: "directory/" + digest(cwd), Kind: Namespace + "/directory", Attributes: map[string]any{"path": cwd}, Provenance: graph.Provenance{Source: "ctx", Operation: "directory-observed", At: now}},
-		{ID: "project/" + digest(project), Kind: Namespace + "/project", Attributes: map[string]any{"path": project}, Provenance: graph.Provenance{Source: "ctx", Operation: "project-observed", At: now}},
+	vertices := []store.Vertex{
+		{ID: "machine/local", Kind: Namespace + "/machine", Attributes: map[string]any{"hostname": host, "os": runtime.GOOS, "architecture": runtime.GOARCH}, Provenance: store.Provenance{Source: "ctx", Operation: "shell-observed", At: now}},
+		{ID: sessionID, Kind: Namespace + "/shell-session", Attributes: map[string]any{"parent_pid": float64(parent), "shell": shell, "terminal": terminal, "working_directory": cwd, "active_profile": profile, "observed_at": now.Format(time.RFC3339Nano)}, Provenance: store.Provenance{Source: "ctx", Operation: "shell-observed", At: now}},
+		{ID: "directory/" + digest(cwd), Kind: Namespace + "/directory", Attributes: map[string]any{"path": cwd}, Provenance: store.Provenance{Source: "ctx", Operation: "directory-observed", At: now}},
+		{ID: "project/" + digest(project), Kind: Namespace + "/project", Attributes: map[string]any{"path": project}, Provenance: store.Provenance{Source: "ctx", Operation: "project-observed", At: now}},
 	}
-	edges := []graph.Edge{
+	edges := []store.Edge{
 		{ID: "machine-shell/" + itoa(parent), From: "machine/local", To: sessionID, Type: Namespace + "/hosts"},
 		{ID: "shell-directory/" + itoa(parent), From: sessionID, To: "directory/" + digest(cwd), Type: Namespace + "/working-in"},
 		{ID: "directory-project/" + digest(cwd), From: "directory/" + digest(cwd), To: "project/" + digest(project), Type: Namespace + "/within"},
 	}
 	if profile != "" {
-		vertices = append(vertices, graph.Vertex{ID: "profile/" + digest(profile), Kind: Namespace + "/profile", Attributes: map[string]any{"name": profile}, Provenance: graph.Provenance{Source: "ctx", Operation: "profile-observed", At: now}})
-		edges = append(edges, graph.Edge{ID: "shell-profile/" + itoa(parent), From: sessionID, To: "profile/" + digest(profile), Type: Namespace + "/uses-profile"})
+		vertices = append(vertices, store.Vertex{ID: "profile/" + digest(profile), Kind: Namespace + "/profile", Attributes: map[string]any{"name": profile}, Provenance: store.Provenance{Source: "ctx", Operation: "profile-observed", At: now}})
+		edges = append(edges, store.Edge{ID: "shell-profile/" + itoa(parent), From: sessionID, To: "profile/" + digest(profile), Type: Namespace + "/uses-profile"})
 	}
 
-	selectionEdges := []graph.Edge{}
+	selectionEdges := []store.Edge{}
 	for key, value := range selections {
 		if key == "" || key == "profile" || value == "" {
 			continue
@@ -150,17 +150,17 @@ func (g *Graph) ObserveShell(ctx context.Context, cwd, profile string, selection
 		} else {
 			attributes["value_redacted"] = true
 		}
-		vertices = append(vertices, graph.Vertex{ID: selectionID, Kind: Namespace + "/selection", Attributes: attributes, Provenance: graph.Provenance{Source: "ctx", Operation: "selection-observed", At: now}})
-		selectionEdges = append(selectionEdges, graph.Edge{ID: "shell-selection/" + itoa(parent) + "/" + digest(key), From: sessionID, To: selectionID, Type: Namespace + "/selects"})
+		vertices = append(vertices, store.Vertex{ID: selectionID, Kind: Namespace + "/selection", Attributes: attributes, Provenance: store.Provenance{Source: "ctx", Operation: "selection-observed", At: now}})
+		selectionEdges = append(selectionEdges, store.Edge{ID: "shell-selection/" + itoa(parent) + "/" + digest(key), From: sessionID, To: selectionID, Type: Namespace + "/selects"})
 	}
 	edges = append(edges, selectionEdges...)
-	tx := graph.Transaction{Namespace: Namespace, Vertices: vertices, Edges: edges}
+	tx := store.Transaction{Namespace: Namespace, Vertices: vertices, Edges: edges}
 	if profile == "" {
 		if _, err := g.Store.GetEdge(ctx, Namespace, "shell-profile/"+itoa(parent)); err == nil {
-			tx.DeleteEdges = []graph.EdgeRef{{Namespace: Namespace, ID: "shell-profile/" + itoa(parent)}}
+			tx.DeleteEdges = []store.EdgeRef{{Namespace: Namespace, ID: "shell-profile/" + itoa(parent)}}
 		}
 	}
-	oldSelections, err := g.Store.QueryEdges(ctx, graph.EdgeQuery{Namespace: Namespace, Type: Namespace + "/selects", From: sessionID, Limit: 256})
+	oldSelections, err := g.Store.QueryEdges(ctx, store.EdgeQuery{Namespace: Namespace, Type: Namespace + "/selects", From: sessionID, Limit: 256})
 	if err != nil {
 		return err
 	}
@@ -170,7 +170,7 @@ func (g *Graph) ObserveShell(ctx context.Context, cwd, profile string, selection
 	}
 	for _, edge := range oldSelections {
 		if !current[edge.ID] {
-			tx.DeleteEdges = append(tx.DeleteEdges, graph.EdgeRef{Namespace: Namespace, ID: edge.ID})
+			tx.DeleteEdges = append(tx.DeleteEdges, store.EdgeRef{Namespace: Namespace, ID: edge.ID})
 		}
 	}
 	if existing, err := g.Store.GetVertex(ctx, Namespace, sessionID); err == nil && equalAttributes(existing.Attributes, vertices[1].Attributes) {
@@ -210,15 +210,15 @@ func (g *Graph) ObserveWeb(ctx context.Context, provider, profile, scheme, host 
 	}
 	now := time.Now().UTC()
 	id := "browser/current"
-	vertices := []graph.Vertex{{ID: id, Kind: Namespace + "/browser-context", Attributes: map[string]any{"provider": provider, "profile": profile, "scheme": scheme, "host": host, "observed_at": now.Format(time.RFC3339Nano)}, Provenance: graph.Provenance{Source: "ctx", Operation: "web-origin-observed", At: now}}}
+	vertices := []store.Vertex{{ID: id, Kind: Namespace + "/browser-context", Attributes: map[string]any{"provider": provider, "profile": profile, "scheme": scheme, "host": host, "observed_at": now.Format(time.RFC3339Nano)}, Provenance: store.Provenance{Source: "ctx", Operation: "web-origin-observed", At: now}}}
 	parent := os.Getppid()
-	edge := graph.Edge{ID: "shell-browser/" + itoa(parent), From: "shell/" + itoa(parent), To: id, Type: Namespace + "/opened"}
+	edge := store.Edge{ID: "shell-browser/" + itoa(parent), From: "shell/" + itoa(parent), To: id, Type: Namespace + "/opened"}
 	if existing, err := g.Store.GetVertex(ctx, Namespace, id); err == nil && equalAttributes(existing.Attributes, vertices[0].Attributes) {
 		if old, edgeErr := g.Store.GetEdge(ctx, Namespace, edge.ID); edgeErr == nil && old.From == edge.From && old.To == edge.To {
 			return nil
 		}
 	}
-	_, err := g.Store.Apply(ctx, graph.Transaction{Namespace: Namespace, Vertices: vertices, Edges: []graph.Edge{edge}})
+	_, err := g.Store.Apply(ctx, store.Transaction{Namespace: Namespace, Vertices: vertices, Edges: []store.Edge{edge}})
 	return err
 }
 

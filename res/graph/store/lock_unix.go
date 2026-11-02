@@ -1,6 +1,6 @@
 //go:build !windows
 
-package graph
+package store
 
 import (
 	"os"

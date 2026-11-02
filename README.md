@@ -325,7 +325,7 @@ CTX and its ecosystem share public Go libraries:
   include `pkg/ext-go/engine/transport/inprocess`, `pkg/ext-go/engine/transport/jsonline`, `pkg/ext-go/hashicorp` (net/rpc and
   gRPC), `pkg/ext-go/engine/host/nativego`, `pkg/ext-go/wasm` (WASI Preview 1), and `pkg/ext-go/cgoengine/cshared`
   (versioned C ABI). All use the same typed authoring and host session APIs.
-- `github.com/webong/ext/res/system/supervisor` supplies local process supervision when
+- `github.com/webong/ext/res/graph/supervisor` supplies local process supervision when
   the selected plugin backend does not already own its process lifecycle.
 - `github.com/webong/ext/res/web` supplies portable browser contracts,
   workflows, extension and userscript handling, WebAssembly inspection and

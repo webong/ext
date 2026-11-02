@@ -1,4 +1,4 @@
-package system
+package graph
 
 import (
 	"context"
@@ -9,7 +9,7 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/webong/ext/res/system/graph"
+	"github.com/webong/ext/res/graph/store"
 
 	proc "github.com/webong/ext/res/system/service/process"
 )
@@ -70,7 +70,7 @@ func (g *Graph) ObserveProcesses(ctx context.Context, observation proc.ProcessSn
 			return err
 		}
 		_, err = g.Store.Apply(ctx, tx)
-		if errors.Is(err, graph.ErrConflict) {
+		if errors.Is(err, store.ErrConflict) {
 			continue
 		}
 		return err
@@ -92,14 +92,14 @@ func processResourceKind(kind string) bool {
 	return false
 }
 
-func processTransaction(snapshot graph.Snapshot, observation proc.ProcessSnapshot) (graph.Transaction, error) {
-	tx := graph.Transaction{Namespace: Namespace, ExpectedRevision: &snapshot.Revision, DeleteIncidentEdges: true}
-	vertices := map[string]graph.Vertex{}
-	edges := map[string]graph.Edge{}
-	oldVertices := map[string]graph.Vertex{}
-	oldEdges := map[string]graph.Edge{}
-	edgesByProcess := map[string][]graph.Edge{}
-	resourcesByProcess := map[string][]graph.Vertex{}
+func processTransaction(snapshot store.Snapshot, observation proc.ProcessSnapshot) (store.Transaction, error) {
+	tx := store.Transaction{Namespace: Namespace, ExpectedRevision: &snapshot.Revision, DeleteIncidentEdges: true}
+	vertices := map[string]store.Vertex{}
+	edges := map[string]store.Edge{}
+	oldVertices := map[string]store.Vertex{}
+	oldEdges := map[string]store.Edge{}
+	edgesByProcess := map[string][]store.Edge{}
+	resourcesByProcess := map[string][]store.Vertex{}
 	for _, v := range snapshot.Vertices {
 		oldVertices[v.ID] = v
 		if owner := v.Labels["process_id"]; owner != "" {
@@ -114,22 +114,22 @@ func processTransaction(snapshot graph.Snapshot, observation proc.ProcessSnapsho
 			edgesByProcess[e.From] = append(edgesByProcess[e.From], e)
 		}
 	}
-	provenance := graph.Provenance{Source: "host-process", Operation: "process-observed", At: observation.ObservedAt}
+	provenance := store.Provenance{Source: "host-process", Operation: "process-observed", At: observation.ObservedAt}
 	addVertex := func(id, kind string, attrs map[string]any, owner string) {
 		labels := map[string]string{"collector": "process", "host_id": observation.HostID}
 		if owner != "" {
 			labels["process_id"] = owner
 		}
-		vertices[id] = graph.Vertex{ID: id, Kind: Namespace + "/" + kind, Attributes: attrs, Labels: labels, Provenance: provenance}
+		vertices[id] = store.Vertex{ID: id, Kind: Namespace + "/" + kind, Attributes: attrs, Labels: labels, Provenance: provenance}
 	}
 	addEdge := func(from, to, relation string) {
 		id := "process-edge/" + digest(from+"\x00"+relation+"\x00"+to)
-		edges[id] = graph.Edge{ID: id, From: from, To: to, Type: Namespace + "/" + relation, Provenance: provenance}
+		edges[id] = store.Edge{ID: id, From: from, To: to, Type: Namespace + "/" + relation, Provenance: provenance}
 	}
 	// Keep the machine's existing attributes and provenance.
 	if _, ok := oldVertices["machine/local"]; !ok {
 		hostname, _ := os.Hostname()
-		vertices["machine/local"] = graph.Vertex{ID: "machine/local", Kind: Namespace + "/machine", Attributes: map[string]any{"hostname": hostname, "os": runtime.GOOS, "architecture": runtime.GOARCH}, Provenance: provenance}
+		vertices["machine/local"] = store.Vertex{ID: "machine/local", Kind: Namespace + "/machine", Attributes: map[string]any{"hostname": hostname, "os": runtime.GOOS, "architecture": runtime.GOARCH}, Provenance: provenance}
 	}
 	marker := "host-inventory/processes"
 	if old, ok := oldVertices[marker]; ok && observation.ObservedAt.Before(old.Provenance.At) {
@@ -308,11 +308,11 @@ func processTransaction(snapshot graph.Snapshot, observation proc.ProcessSnapsho
 		}
 	}
 	for id := range remove {
-		tx.DeleteVertices = append(tx.DeleteVertices, graph.VertexRef{Namespace: Namespace, ID: id})
+		tx.DeleteVertices = append(tx.DeleteVertices, store.VertexRef{Namespace: Namespace, ID: id})
 	}
 	for _, e := range snapshot.Edges {
 		if _, keep := oldEdges[e.ID]; !keep {
-			tx.DeleteEdges = append(tx.DeleteEdges, graph.EdgeRef{Namespace: Namespace, ID: e.ID})
+			tx.DeleteEdges = append(tx.DeleteEdges, store.EdgeRef{Namespace: Namespace, ID: e.ID})
 		}
 	}
 	for _, v := range vertices {

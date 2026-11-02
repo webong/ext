@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/webong/ext/res/system/graph"
+	"github.com/webong/ext/res/graph/store"
 )
 
 func TestProcessTreeHelper(t *testing.T) {
@@ -27,7 +27,7 @@ func TestProcessTreeHelper(t *testing.T) {
 }
 
 func TestStopTerminatesDescendantProcesses(t *testing.T) {
-	store := graph.NewMemory()
+	store := store.NewMemory()
 	defer store.Close()
 	sup, err := New(Options{Graph: store})
 	if err != nil {

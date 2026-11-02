@@ -10,7 +10,7 @@ import (
 
 	"github.com/webong/ext/ctx/internal/config"
 	modpkg "github.com/webong/ext/pkg/ext-go/engine/host/adapter"
-	systemgraph "github.com/webong/ext/res/system"
+	systemgraph "github.com/webong/ext/res/graph"
 )
 
 type endpoint struct {

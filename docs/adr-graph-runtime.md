@@ -5,7 +5,7 @@ Status: accepted for the CTX library.
 ## Ownership boundary
 
 CTX supplies reusable mechanics through the public `github.com/webong/ext/res/system`
-and `github.com/webong/ext/res/system/supervisor` packages. CTX graph records are generic
+and `github.com/webong/ext/res/graph/supervisor` packages. CTX graph records are generic
 vertices and directed edges. A consumer registers a namespace and schema version,
 supplies an optional validation callback, and owns its kind and relationship
 vocabulary. Namespace-qualified names use the form `<namespace>/<name>`.
@@ -181,7 +181,7 @@ after stopping, crashing, or process exit, even without a custom probe.
 A consumer registers its own schema, a namespace and version with its kinds and
 exact relationship vocabulary. Its validator enforces those semantics using the
 proposed transaction and `View`. Authorization and product decisions remain in
-the consumer. See `res/system/examples/consumer-shaped` for a small consumer-owned example.
+the consumer. See `res/graph/examples/consumer-shaped` for a small consumer-owned example.
 
 The integration boundary is:
 

@@ -15,19 +15,19 @@ import (
 	"fmt"
 
 	"github.com/webong/ext/pkg/ext-go/engine/package"
-	"github.com/webong/ext/res/system/graph"
+	"github.com/webong/ext/res/graph/store"
 )
 
 // PlanGraph creates a graph transaction for the caller's namespace from a
 // resolved plan. Apply it through the host's graph policy. Records express
 // dependencies, never permissions.
-func PlanGraph(p packagekit.Plan, namespace string) graph.Transaction {
-	tx := graph.Transaction{Namespace: namespace}
+func PlanGraph(p packagekit.Plan, namespace string) store.Transaction {
+	tx := store.Transaction{Namespace: namespace}
 	for _, id := range p.Order {
-		tx.Vertices = append(tx.Vertices, graph.Vertex{Namespace: namespace, ID: packagekit.IdentityKey(id), Kind: "plugin", Attributes: map[string]any{"package": id.ID, "revision": id.Revision, "version": id.Version}})
+		tx.Vertices = append(tx.Vertices, store.Vertex{Namespace: namespace, ID: packagekit.IdentityKey(id), Kind: "plugin", Attributes: map[string]any{"package": id.ID, "revision": id.Revision, "version": id.Version}})
 	}
 	for i, b := range p.Bindings {
-		tx.Edges = append(tx.Edges, graph.Edge{Namespace: namespace, ID: fmt.Sprintf("requires-%s-%d", packagekit.IdentityKey(b.Consumer), i), From: packagekit.IdentityKey(b.Consumer), To: packagekit.IdentityKey(b.Provider), Type: "requires", Attributes: map[string]any{"contract": b.Requirement.Contract.Name, "version": b.Requirement.Contract.Version, "operation": b.Requirement.Operation}})
+		tx.Edges = append(tx.Edges, store.Edge{Namespace: namespace, ID: fmt.Sprintf("requires-%s-%d", packagekit.IdentityKey(b.Consumer), i), From: packagekit.IdentityKey(b.Consumer), To: packagekit.IdentityKey(b.Provider), Type: "requires", Attributes: map[string]any{"contract": b.Requirement.Contract.Name, "version": b.Requirement.Contract.Version, "operation": b.Requirement.Operation}})
 	}
 	return tx
 }

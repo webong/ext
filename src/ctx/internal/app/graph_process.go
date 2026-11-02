@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"time"
 
-	systemgraph "github.com/webong/ext/res/system"
+	systemgraph "github.com/webong/ext/res/graph"
 
 	systemprocess "github.com/webong/ext/res/system/service/process"
 )

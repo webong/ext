@@ -1,4 +1,4 @@
-package system
+package graph
 
 import (
 	"context"
@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/webong/ext/res/system/graph"
+	"github.com/webong/ext/res/graph/store"
 )
 
 func TestSchemaRejectsUnknownCTXKindsAndInvalidRelationshipMeaning(t *testing.T) {
@@ -16,12 +16,12 @@ func TestSchemaRejectsUnknownCTXKindsAndInvalidRelationshipMeaning(t *testing.T)
 		t.Fatal(err)
 	}
 	defer g.Close()
-	_, err = g.Store.Apply(context.Background(), graph.Transaction{Namespace: Namespace, Vertices: []graph.Vertex{{ID: "bad", Kind: Namespace + "/unknown-kind"}}})
+	_, err = g.Store.Apply(context.Background(), store.Transaction{Namespace: Namespace, Vertices: []store.Vertex{{ID: "bad", Kind: Namespace + "/unknown-kind"}}})
 	if err == nil {
 		t.Fatal("unknown CTX system kind accepted")
 	}
-	_, err = g.Store.Apply(context.Background(), graph.Transaction{Namespace: Namespace, Vertices: []graph.Vertex{{ID: "machine", Kind: Namespace + "/machine"}, {ID: "project", Kind: Namespace + "/project"}}, Edges: []graph.Edge{{ID: "wrong", From: "machine", To: "project", Type: Namespace + "/hosts"}}})
-	if err == nil || errors.Is(err, graph.ErrDanglingEdge) {
+	_, err = g.Store.Apply(context.Background(), store.Transaction{Namespace: Namespace, Vertices: []store.Vertex{{ID: "machine", Kind: Namespace + "/machine"}, {ID: "project", Kind: Namespace + "/project"}}, Edges: []store.Edge{{ID: "wrong", From: "machine", To: "project", Type: Namespace + "/hosts"}}})
+	if err == nil || errors.Is(err, store.ErrDanglingEdge) {
 		t.Fatalf("invalid CTX semantic relationship not rejected by schema: %v", err)
 	}
 }

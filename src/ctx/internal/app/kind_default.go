@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/webong/ext/ctx/internal/config"
-	"github.com/webong/ext/res/system"
+	systemgraph "github.com/webong/ext/res/graph"
 )
 
 // A kind (php, jvm) can be supported by several adapters. Which one a caller
@@ -131,7 +131,7 @@ func listKindDefaults(resolver *config.Resolver, stdout, stderr io.Writer) int {
 
 // markKindDefaults flags the candidates that belong to the preferred adapter of
 // every kind the resolve asked for. It removes nothing.
-func markKindDefaults(resolver *config.Resolver, kinds []string, contexts []system.ContextCandidate) error {
+func markKindDefaults(resolver *config.Resolver, kinds []string, contexts []systemgraph.ContextCandidate) error {
 	if len(kinds) == 0 {
 		return nil
 	}
@@ -159,7 +159,7 @@ func markKindDefaults(resolver *config.Resolver, kinds []string, contexts []syst
 // adapter: the preferred one, or the only one there is. It never chooses between
 // several adapters on its own, and it does not fall back from a preference that
 // names an adapter that is gone.
-func pickAdapter(resolver *config.Resolver, kinds []string, contexts []system.ContextCandidate) ([]system.ContextCandidate, error) {
+func pickAdapter(resolver *config.Resolver, kinds []string, contexts []systemgraph.ContextCandidate) ([]systemgraph.ContextCandidate, error) {
 	if len(kinds) != 1 {
 		return nil, fmt.Errorf("graph resolve --pick needs exactly one --supports kind")
 	}

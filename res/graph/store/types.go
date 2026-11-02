@@ -2,7 +2,7 @@
 //
 // Kinds and relationship types are opaque consumer vocabulary. A store never
 // assigns product meaning or authority to graph records.
-package graph
+package store
 
 import (
 	"context"

@@ -20,7 +20,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/webong/ext/res/system/graph"
+	"github.com/webong/ext/res/graph/store"
 )
 
 const RuntimeNamespace = "ext.runtime"
@@ -100,7 +100,7 @@ type Instance struct {
 	Dependencies    []string     `json:"dependencies,omitempty"`
 }
 type Options struct {
-	Graph           graph.Store
+	Graph           store.Store
 	SecretResolver  func(context.Context, SecretReference) (string, error)
 	LogLimit        int
 	RuntimeID       string
@@ -142,7 +142,7 @@ type Orphan struct {
 }
 type Supervisor struct {
 	mu              sync.RWMutex
-	graph           graph.Store
+	graph           store.Store
 	resolver        func(context.Context, SecretReference) (string, error)
 	logLimit        int
 	runtimeID       string
@@ -198,7 +198,7 @@ func New(opts Options) (*Supervisor, error) {
 	if opts.OrphanPolicy != OrphanMark && opts.OrphanPolicy != OrphanTerminate {
 		return nil, errors.New("invalid orphan policy")
 	}
-	if err := opts.Graph.Register(graph.Schema{Namespace: RuntimeNamespace, Version: "1"}); err != nil {
+	if err := opts.Graph.Register(store.Schema{Namespace: RuntimeNamespace, Version: "1"}); err != nil {
 		return nil, err
 	}
 	ownerID, err := newID()
@@ -840,24 +840,24 @@ func (s *Supervisor) applyProjection(ctx context.Context, m *managed) error {
 	if !inst.StartedAt.IsZero() {
 		attrs["started_at"] = inst.StartedAt.Format(time.RFC3339Nano)
 	}
-	vertices := []graph.Vertex{{ID: "artifact/" + inst.Artifact.ID, Kind: RuntimeNamespace + "/artifact", Attributes: map[string]any{"revision": inst.Artifact.Revision, "checksum": inst.Artifact.Checksum}, Provenance: graph.Provenance{Source: "ext.supervisor", Operation: "artifact-observed"}}, {ID: "process/" + inst.ID, Kind: RuntimeNamespace + "/process-instance", Attributes: attrs, Provenance: graph.Provenance{Source: "ext.supervisor", Operation: "lifecycle-observed"}}, {ID: "runtime/" + s.runtimeID, Kind: RuntimeNamespace + "/runtime", Attributes: map[string]any{"runtime_id": s.runtimeID}, Provenance: graph.Provenance{Source: "ext.supervisor", Operation: "runtime-observed"}}}
-	edges := []graph.Edge{{ID: "spawned-by/" + inst.ID, From: "process/" + inst.ID, To: "artifact/" + inst.Artifact.ID, Type: RuntimeNamespace + "/spawned-by"}, {ID: "supervises/" + inst.ID, From: "runtime/" + s.runtimeID, To: "process/" + inst.ID, Type: RuntimeNamespace + "/supervises"}}
+	vertices := []store.Vertex{{ID: "artifact/" + inst.Artifact.ID, Kind: RuntimeNamespace + "/artifact", Attributes: map[string]any{"revision": inst.Artifact.Revision, "checksum": inst.Artifact.Checksum}, Provenance: store.Provenance{Source: "ext.supervisor", Operation: "artifact-observed"}}, {ID: "process/" + inst.ID, Kind: RuntimeNamespace + "/process-instance", Attributes: attrs, Provenance: store.Provenance{Source: "ext.supervisor", Operation: "lifecycle-observed"}}, {ID: "runtime/" + s.runtimeID, Kind: RuntimeNamespace + "/runtime", Attributes: map[string]any{"runtime_id": s.runtimeID}, Provenance: store.Provenance{Source: "ext.supervisor", Operation: "runtime-observed"}}}
+	edges := []store.Edge{{ID: "spawned-by/" + inst.ID, From: "process/" + inst.ID, To: "artifact/" + inst.Artifact.ID, Type: RuntimeNamespace + "/spawned-by"}, {ID: "supervises/" + inst.ID, From: "runtime/" + s.runtimeID, To: "process/" + inst.ID, Type: RuntimeNamespace + "/supervises"}}
 	for _, dep := range spec.Dependencies {
-		vertices = append(vertices, graph.Vertex{ID: "dependency/" + dep, Kind: RuntimeNamespace + "/component", Attributes: map[string]any{"component_id": dep}, Provenance: graph.Provenance{Source: "ext.supervisor", Operation: "dependency-declared"}})
-		edges = append(edges, graph.Edge{ID: "depends-on/" + inst.ID + "/" + dep, From: "process/" + inst.ID, To: "dependency/" + dep, Type: RuntimeNamespace + "/depends-on"})
+		vertices = append(vertices, store.Vertex{ID: "dependency/" + dep, Kind: RuntimeNamespace + "/component", Attributes: map[string]any{"component_id": dep}, Provenance: store.Provenance{Source: "ext.supervisor", Operation: "dependency-declared"}})
+		edges = append(edges, store.Edge{ID: "depends-on/" + inst.ID + "/" + dep, From: "process/" + inst.ID, To: "dependency/" + dep, Type: RuntimeNamespace + "/depends-on"})
 	}
 	for _, endpoint := range spec.Endpoints {
-		vertices = append(vertices, graph.Vertex{ID: "endpoint/" + endpoint.ID, Kind: RuntimeNamespace + "/endpoint", Attributes: map[string]any{"address": endpoint.Address, "transport": endpoint.Transport, "direction": endpoint.Direction}, Provenance: graph.Provenance{Source: "ext.supervisor", Operation: "endpoint-observed"}})
-		edges = append(edges, graph.Edge{ID: "exposes-endpoint/" + inst.ID + "/" + endpoint.ID, From: "process/" + inst.ID, To: "endpoint/" + endpoint.ID, Type: RuntimeNamespace + "/exposes-endpoint"})
+		vertices = append(vertices, store.Vertex{ID: "endpoint/" + endpoint.ID, Kind: RuntimeNamespace + "/endpoint", Attributes: map[string]any{"address": endpoint.Address, "transport": endpoint.Transport, "direction": endpoint.Direction}, Provenance: store.Provenance{Source: "ext.supervisor", Operation: "endpoint-observed"}})
+		edges = append(edges, store.Edge{ID: "exposes-endpoint/" + inst.ID + "/" + endpoint.ID, From: "process/" + inst.ID, To: "endpoint/" + endpoint.ID, Type: RuntimeNamespace + "/exposes-endpoint"})
 	}
 	for _, connection := range spec.Connections {
 		attrs := map[string]any{}
 		for k, v := range connection.Metadata {
 			attrs[k] = v
 		}
-		edges = append(edges, graph.Edge{ID: "connected-to/" + connection.ID, From: "endpoint/" + connection.SourceEndpoint, To: "endpoint/" + connection.TargetEndpoint, Type: RuntimeNamespace + "/connected-to", Attributes: attrs})
+		edges = append(edges, store.Edge{ID: "connected-to/" + connection.ID, From: "endpoint/" + connection.SourceEndpoint, To: "endpoint/" + connection.TargetEndpoint, Type: RuntimeNamespace + "/connected-to", Attributes: attrs})
 	}
-	_, err := s.graph.Apply(ctx, graph.Transaction{Namespace: RuntimeNamespace, Vertices: vertices, Edges: edges})
+	_, err := s.graph.Apply(ctx, store.Transaction{Namespace: RuntimeNamespace, Vertices: vertices, Edges: edges})
 	return err
 }
 

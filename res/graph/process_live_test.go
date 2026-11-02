@@ -1,6 +1,6 @@
 //go:build darwin || linux || windows
 
-package system
+package graph
 
 import (
 	"context"

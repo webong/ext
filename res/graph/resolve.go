@@ -1,4 +1,4 @@
-package system
+package graph
 
 import (
 	"context"
@@ -6,7 +6,7 @@ import (
 	"sort"
 	"time"
 
-	"github.com/webong/ext/res/system/graph"
+	"github.com/webong/ext/res/graph/store"
 )
 
 // ContextCandidate is a graph observation, not authorization to run an
@@ -59,12 +59,12 @@ func (g *Graph) ResolveInventory(ctx context.Context, runtimeName string) (Inven
 		return Inventory{}, err
 	}
 	result := Inventory{}
-	adapters := map[string]graph.Vertex{}
+	adapters := map[string]store.Vertex{}
 	capabilityNames := map[string]string{}
 	adapterCapabilities := map[string][]string{}
 	supportNames := map[string]string{}
 	adapterSupports := map[string][]string{}
-	programs := map[string]graph.Vertex{}
+	programs := map[string]store.Vertex{}
 	for _, vertex := range snapshot.Vertices {
 		switch vertex.Kind {
 		case Namespace + "/inventory":

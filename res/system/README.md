@@ -65,8 +65,8 @@ Wayland-only session reports global surface observation as unsupported because
 the compositor does not expose that state to arbitrary clients.
 
 The module was called `res/graph` until it was renamed to say what it is for. The generic store
-is now `res/system/graph`, the discovery package that lived in `res/graph/system` is now the
-module root, and `res/system/supervisor` is unchanged. See the migration table in
+is now `res/graph/store`, the discovery package that lived in `res/graph/system` is now the
+module root, and `res/graph/supervisor` is unchanged. See the migration table in
 [module versioning](../../docs/module-versioning.md).
 
 See [host discovery](../../docs/host-discovery.md) and the

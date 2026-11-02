@@ -1,11 +1,11 @@
-package system
+package graph
 
 import (
 	"context"
 	"reflect"
 	"testing"
 
-	"github.com/webong/ext/res/system/graph"
+	"github.com/webong/ext/res/graph/store"
 	"github.com/webong/ext/res/system/service/program"
 )
 
@@ -41,7 +41,7 @@ func TestInventoryProjectsPrograms(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	vertices := map[string]graph.Vertex{}
+	vertices := map[string]store.Vertex{}
 	programs := 0
 	for _, vertex := range snapshot.Vertices {
 		vertices[vertex.ID] = vertex
@@ -56,7 +56,7 @@ func TestInventoryProjectsPrograms(t *testing.T) {
 	if !reflect.DeepEqual(stringList(brew.Attributes["names"]), []string{"python3", "python3.14"}) || !reflect.DeepEqual(stringList(brew.Attributes["installers"]), []string{"asdf", "homebrew"}) {
 		t.Fatalf("merged program = %#v", brew.Attributes)
 	}
-	var installedBy, hasProgram, uses []graph.Edge
+	var installedBy, hasProgram, uses []store.Edge
 	for _, edge := range snapshot.Edges {
 		switch edge.Type {
 		case Namespace + "/installed-by":
@@ -79,7 +79,7 @@ func TestInventoryProjectsPrograms(t *testing.T) {
 		}
 	}
 	wantSources := map[string][]string{"homebrew": {"adapter"}, "asdf": {"recognised"}, "mytools": {"config"}}
-	installers := map[string]graph.Vertex{}
+	installers := map[string]store.Vertex{}
 	for _, vertex := range snapshot.Vertices {
 		if vertex.Kind == Namespace+"/installer" {
 			installers[vertex.Attributes["name"].(string)] = vertex

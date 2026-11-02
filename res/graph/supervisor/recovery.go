@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/webong/ext/res/system/graph"
+	"github.com/webong/ext/res/graph/store"
 )
 
 func activeState(state State) bool {
@@ -75,7 +75,7 @@ func intAttribute(value any) int {
 	}
 }
 
-func (s *Supervisor) markRecovered(ctx context.Context, vertex graph.Vertex, state State, alive bool) error {
+func (s *Supervisor) markRecovered(ctx context.Context, vertex store.Vertex, state State, alive bool) error {
 	vertex.Attributes["state"] = string(state)
 	vertex.Attributes["health"] = "unhealthy"
 	vertex.Attributes["supervisor_owner"] = s.ownerID
@@ -84,7 +84,7 @@ func (s *Supervisor) markRecovered(ctx context.Context, vertex graph.Vertex, sta
 		delete(vertex.Attributes, "pid")
 		delete(vertex.Attributes, "process_identity")
 	}
-	_, err := s.graph.Apply(ctx, graph.Transaction{Namespace: RuntimeNamespace, Vertices: []graph.Vertex{vertex}})
+	_, err := s.graph.Apply(ctx, store.Transaction{Namespace: RuntimeNamespace, Vertices: []store.Vertex{vertex}})
 	return err
 }
 
@@ -139,7 +139,7 @@ func (s *Supervisor) pruneTerminals(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	terminal := []graph.Vertex{}
+	terminal := []store.Vertex{}
 	for _, vertex := range snapshot.Vertices {
 		if vertex.Kind != RuntimeNamespace+"/process-instance" || vertex.Attributes["runtime_id"] != s.runtimeID {
 			continue
@@ -155,10 +155,10 @@ func (s *Supervisor) pruneTerminals(ctx context.Context) error {
 		return nil
 	}
 	deleted := map[string]bool{}
-	tx := graph.Transaction{Namespace: RuntimeNamespace, ExpectedRevision: &snapshot.Revision, DeleteIncidentEdges: true}
+	tx := store.Transaction{Namespace: RuntimeNamespace, ExpectedRevision: &snapshot.Revision, DeleteIncidentEdges: true}
 	for _, vertex := range terminal[:remove] {
 		deleted[vertex.ID] = true
-		tx.DeleteVertices = append(tx.DeleteVertices, graph.VertexRef{Namespace: RuntimeNamespace, ID: vertex.ID})
+		tx.DeleteVertices = append(tx.DeleteVertices, store.VertexRef{Namespace: RuntimeNamespace, ID: vertex.ID})
 	}
 	for _, vertex := range snapshot.Vertices {
 		if vertex.Kind != RuntimeNamespace+"/artifact" && vertex.Kind != RuntimeNamespace+"/endpoint" && vertex.Kind != RuntimeNamespace+"/component" {
@@ -175,11 +175,11 @@ func (s *Supervisor) pruneTerminals(ctx context.Context) error {
 			}
 		}
 		if !used {
-			tx.DeleteVertices = append(tx.DeleteVertices, graph.VertexRef{Namespace: RuntimeNamespace, ID: vertex.ID})
+			tx.DeleteVertices = append(tx.DeleteVertices, store.VertexRef{Namespace: RuntimeNamespace, ID: vertex.ID})
 		}
 	}
 	_, err = s.graph.Apply(ctx, tx)
-	if errors.Is(err, graph.ErrConflict) || errors.Is(err, graph.ErrNotFound) {
+	if errors.Is(err, store.ErrConflict) || errors.Is(err, store.ErrNotFound) {
 		return nil // Another writer will cause the next terminal transition to retry.
 	}
 	return err

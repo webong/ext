@@ -28,3 +28,15 @@ using var ml = new SystemMl(policy.ModelFile, policy);
 using var session = ml.LoadSession();
 var outputs = ml.Infer(new[] { MlTensor.FromFloat32(new[] { 1, 3, 224, 224 }, input) });
 ```
+
+## Install
+
+`Ext.ML.Windows` is released as a NuGet package of that name, at the version of the `ext-dotnet-vX.Y.Z` tag
+(see [module versioning](https://github.com/webong/ext/blob/main/docs/module-versioning.md)). The types are in the namespace `Webong.Ext.ML.Windows`.
+
+```powershell
+dotnet add package Ext.ML.Windows
+```
+
+The package is attached to the GitHub release of its tag with a checksum file and a provenance
+attestation, and is pushed to a NuGet feed when the repository is configured with one.

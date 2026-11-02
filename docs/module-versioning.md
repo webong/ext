@@ -82,6 +82,17 @@ The mobile SDKs follow the same dash form: `ext-android-vX.Y.Z` releases the And
 (`.github/workflows/ext-android-release.yml`, published with `--latest=false`) and `ext-ios-vX.Y.Z` releases the iOS
 SDK (`.github/workflows/ext-ios-release.yml`, same form). Their `MINOR` and `PATCH` move
 independently; their `MAJOR` follows the repository-wide `MAJOR`.
+The Windows-native .NET libraries follow the same form: `ext-dotnet-vX.Y.Z` releases the NuGet packages
+`Ext.Audio.Windows` (`res/system/capture/audio/windows`), `Ext.Clipboard.Windows`
+(`res/system/capture/clipboard/windows`), `Ext.Web.Windows` (`res/web/windows`) and `Ext.ML.Windows`
+(`res/int/model/windows`), all at one version, through `.github/workflows/ext-dotnet-release.yml`
+(published with `--latest=false`). The workflow builds, tests and packs on Windows, attaches the packages
+with their checksums and a provenance attestation to the GitHub release, and pushes them to a NuGet feed only
+when the repository variable `EXT_NUGET_SOURCE` names one and the secret `EXT_NUGET_API_KEY` can push to it.
+The version is the tag's; a local build is `0.0.0-dev`, and a pull request packs at `0.0.0-ci` to check the
+package definitions. The C# namespaces did not change when the code moved beside its Go packages, so only
+project and package references change for a consumer. The shared package metadata is
+`scripts/dotnet/Ext.Package.props`.
 Library modules never use these tags, and bare `vX.Y.Z` tags are not used.
 
 `pkg/ext-ios` and `pkg/ext-android` were `pkg/plugin-ios` and `pkg/plugin-android` until they

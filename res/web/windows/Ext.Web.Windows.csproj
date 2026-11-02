@@ -1,4 +1,5 @@
 <Project Sdk="Microsoft.NET.Sdk">
+  <Import Project="../../../scripts/dotnet/Ext.Package.props" />
   <PropertyGroup>
     <TargetFramework>net8.0-windows</TargetFramework>
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
@@ -6,6 +7,9 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>Ext.Web.Windows</AssemblyName>
     <RootNamespace>Webong.Ext.Web.Windows</RootNamespace>
+    <PackageId>Ext.Web.Windows</PackageId>
+    <Description>WebView2 workspace for Ext: document scripts and profile extensions for an application-owned WebView2, with the script policy left to the caller.</Description>
+    <PackageTags>ext;windows;webview2;userscript;browser</PackageTags>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.3537.50" />

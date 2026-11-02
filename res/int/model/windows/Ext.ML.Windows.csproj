@@ -1,10 +1,14 @@
 <Project Sdk="Microsoft.NET.Sdk">
+  <Import Project="../../../../scripts/dotnet/Ext.Package.props" />
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>Ext.ML.Windows</AssemblyName>
     <RootNamespace>Webong.Ext.ML.Windows</RootNamespace>
+    <PackageId>Ext.ML.Windows</PackageId>
+    <Description>ONNX Runtime binding for the Ext model contract: verified local model bundles and tensors for .NET.</Description>
+    <PackageTags>ext;onnx;onnxruntime;model;tensor</PackageTags>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.31.0" />

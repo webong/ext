@@ -1,6 +1,6 @@
-// Package system projects CTX machine inventory, shell, and browser
+// Package graph projects CTX machine inventory, shell, and browser
 // observations onto the public generic graph API. It owns the ext.system
-// vocabulary; the base graph package remains product-neutral.
+// vocabulary; the store package remains product-neutral.
 package graph
 
 import (

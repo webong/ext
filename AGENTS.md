@@ -73,7 +73,8 @@ subdirectory is its own Go module, and nothing lives at that level: no Go packag
 and no repository-wide policy. Keep container directories free of shared logic
 and keep repo-wide tests in `src/ctx/internal/arch`. `res/web` depends on wazero
 for its protocol-neutral WebAssembly runtime and never on the plugin engine;
-`res/system` depends on `golang.org/x/sys`.
+`res/system` depends on `golang.org/x/sys`. `res/graph` requires `res/system` for the collector types; `res/system` never requires
+`res/graph` (`src/ctx/internal/arch` enforces it).
 
 `lib/` is a container for native libraries that several language bindings
 share. Nothing lives at that level. `lib/plugin` is the portable C plugin
@@ -134,7 +135,8 @@ The reusable libraries are:
 
 - `res/web` for portable web contracts and workflows: browsers, WebAssembly inspection/execution through wazero (`res/web/wasm`), and the web engine that runs web content through browsers. It is also the iOS and Android module of the cookie, userscript and bookmarklet rules (`res/web/ios`, `res/web/android`), which `pkg/ext-ios` and `pkg/ext-android` ship, and owns the application-hosted WebView2 implementation in `res/web/windows`.
 - `lib/plugin` for the portable C plugin engine shared by the language bindings under `pkg/` (`ext-go`, `ext-rust`, `ext-zig`, `ext-ts`, `ext-python`) and the mobile SDKs.
-- `res/system` for the local operating-system substrate used to extend graphical and textual shells: host, shell, filesystem and volume mechanics, clipboard, credential integration, local interface/address/route/resolver observation, web view and process discovery, native surfaces, accessibility, permission state, bounded capture and media playback/capture, and atomic native input. It owns mechanisms, not authorization, remote control, routing services or consumer policy. Its subpackages include `res/system/capture/clipboard`, `res/system/service/credential`, `res/graph/store`, `res/system/capture/media`, `res/system/capture/audio`, `res/system/service/network`, `res/system/service/user`, `res/system/capture/share`, `res/graph/supervisor`, and `res/system/device/volume`.
+- `res/system` for the local operating-system substrate used to extend graphical and textual shells: host, shell, filesystem and volume mechanics, clipboard, credential integration, local interface/address/route/resolver observation, web view and process discovery, native surfaces, accessibility, permission state, bounded capture and media playback/capture, and atomic native input. It owns mechanisms, not authorization, remote control, routing services or consumer policy. The module has no root package; its packages sit in three groups, which are plain directories: `service` (what the host provides, looked up and used: `host` for shells, filesystems, web views and resource capacity, `network`, `process`, `program`, `credential` and `user` for per-user service definitions), `capture` (content and events crossing the device edge: `surface` for displays, windows, accessibility, permission, capture and input, `audio`, `clipboard`, `share` and `media`) and `device` (`volume` for snapshots and private directories, `image` for snapshot archives). Each package owns its own iOS, Android and Windows code; the .NET library for audio and clipboard still sits in `res/system/windows`.
+- `res/graph` for the graph store (`res/graph/store`), the recorder that projects what is observed about the machine, its adapters and its shell sessions onto the `ext.system` vocabulary (the module's root package), and the process supervisor (`res/graph/supervisor`). It requires `res/system`; nothing in `res/system` depends on it.
 - `res/int` for portable intelligence contracts and mechanisms: `model` owns verified local model bundles, tensors, and native backends; `inference` owns generation, embedding, transcription, speech, and provider contracts; `perception` owns interpretation and observation types; `realtime` owns duplex session types. Providers, models, credentials, and policy are chosen by consumers.
 - `pkg/ext-go/engine` for the pure-Go engine, the oracle: the plugin contract, sessions, guests, packages, bridges and tooling (standard library only).
 - `pkg/ext-go/c2goengine` for the C engine's portable core translated to Go by ccgo (no cgo, no C compiler). The translation is generated per platform by its `tools` module and held against the pure-Go engine, the oracle, by `engine/plugintest/enginetest`; it depends on `engine` only.
@@ -145,7 +147,7 @@ The reusable libraries are:
 - `pkg/ext-go/model` for the `res/int/model` tensor-provider contract over the Ext plugin engine.
 - `pkg/ext-go/perception` for the `res/int/perception` host and guest contract over the Ext plugin engine.
 - `pkg/ext-go/realtime` for the `res/int/realtime` duplex session contract over the Ext plugin engine.
-- `pkg/ext-go` for the umbrella module that requires the plugin engines, `res/web` and `res/system`; it holds code that needs several engines, such as `pkg/ext-go/core`, which chooses between the pure-Go `engine`, `cgoengine` and `c2goengine` (the only place that knows all three).
+- `pkg/ext-go` for the umbrella module that requires the plugin engines, `res/web` and `res/graph`; it holds code that needs several engines, such as `pkg/ext-go/core`, which chooses between the pure-Go `engine`, `cgoengine` and `c2goengine` (the only place that knows all three).
 
 Plugin-specific runtime bindings, including HashiCorp go-plugin and the
 WebAssembly `engine.Backend`, belong inside the plugin library
@@ -178,7 +180,7 @@ the top because both sides use them. `cgoengine/packages` covers manifests over 
 engine, and `cgoengine/host` and `cgoengine/host/store` are engine-routed variants of `engine/host` and
 `engine/host/store` with an identical exported API (a rule `src/ctx/internal/arch` enforces), so
 swapping the import never needs a code change.
-`packagekit` has no dependency on `res/system`; joining a package plan to the host
+`packagekit` has no dependency on `res/graph`; joining a package plan to the host
 graph is `plugingo.PlanGraph` in the umbrella module. Runtime backends
 (`pkg/ext-go/hashicorp`, `pkg/ext-go/wasm`) and the C ABI loader in
 `pkg/ext-go/cgoengine/cshared` implement `engine.Backend` and import
@@ -216,13 +218,14 @@ target is linked into `pkg/ext-ios`, and its portable and Android Java source
 sets are compiled into the `pkg/ext-android` AAR. Edit clipboard code in
 `res/system/capture/clipboard`. `res/system/service/network` follows that ownership model: its
 Swift target is linked into `pkg/ext-ios`, and its Java source sets are compiled
-into the `pkg/ext-android` AAR. Edit those implementations in `res/system`.
+into the `pkg/ext-android` AAR. Edit those implementations in `res/system/service/network`.
 `res/system/service/network` exposes local state only.
 `res/system/capture/share` follows the same ownership model for mobile share and
-keyboard extensions: its Swift target ships through `pkg/ext-ios` as part of
-`ExtSystem`, and its Java source sets compile into the `pkg/ext-android` AAR.
+keyboard extensions: its Swift target ships through `pkg/ext-ios` as `ExtShare`, and its Java source sets compile into the `pkg/ext-android` AAR.
 The Android share and keyboard binding classes live in
-`res/system/android/src/android`, beside the portable model. `res/system/service/user`
+`res/system/capture/share/android/src/android`, beside the portable model.
+`capture/surface` (`ExtSystem`), `service/host` (`ExtHost`) and `capture/audio` (`ExtAudio`) follow the same
+model: each owns the Swift and Java code for its own Go package. `res/system/service/user`
 owns portable per-user service definitions and their non-overwriting
 publication; the macOS launchd and Windows Task Scheduler backends are platform
 implementations in `res/system/service/user`, while `systemctl --user` is a
@@ -233,11 +236,11 @@ and `ffmpeg` are selectable native tools owned by `adapters/pulseaudio`,
 `adapters/alsa`, `adapters/wayland`, and `adapters/x11`. `adapters/pipewire`
 implements the same contract with `pw-dump`, `pw-record`, and `pw-play`.
 PipeWire and PulseAudio are separate adapters; no library selects between them
-by name. `res/system.DesktopDriver` is the portable seam those adapters
+by name. `res/system/capture/surface.DesktopDriver` is the portable seam those adapters
 implement, and the shared library never selects a driver by name.
 `res/system` may also perform bounded local shell mechanisms such as capture,
-media playback/capture and portable media framing, native input, volume snapshot/restore, and process
-supervision. Remote clients, service discovery, routing services, authorization,
+media playback/capture and portable media framing, native input, and volume snapshot/restore; process
+supervision is `res/graph/supervisor`. Remote clients, service discovery, routing services, authorization,
 approval UI and consumer policy belong to consumers.
 Keep
 `pkg/ext-go` focused on the contract, the engine API and runtime backends. The Go-to-C guest binding belongs in

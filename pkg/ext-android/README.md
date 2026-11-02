@@ -13,7 +13,7 @@ Kotlin calls it directly.
   Go. The code is `res/web/android`; this AAR ships it. See Web rules.
 - **System** (`io.github.webong.ext.system`): bounded display metadata and the
   calling application's visible window and view structure, plus permission-state
-  observation, from `res/system/android`. Memory observation distinguishes
+  observation, from `res/system/capture/surface/android` and `res/system/service/host/android`. Memory observation distinguishes
   physical memory (`memory_bytes`, from `ActivityManager.MemoryInfo.totalMem`)
   from effective capacity (`memory_capacity_bytes`, equal to physical on Android
   because no container memory limit is exposed at this level). Missing
@@ -253,7 +253,7 @@ not enumerate other applications, prompt, capture, or send input.
 The AAR ships `io.github.webong.ext.system.share` and
 `io.github.webong.ext.system.keyboard`, with the
 `io.github.webong.ext.system.android.SystemShare` and `SystemKeyboard` bindings
-from [`res/system/android`](../../res/system/android/README.md). `SystemShare`
+from [`res/system/capture/share/android`](../../res/system/capture/share/android/README.md). `SystemShare`
 normalizes `ACTION_SEND` and `ACTION_SEND_MULTIPLE` intents and copies
 attachments into a caller-supplied directory; `SystemKeyboard` adapts an
 `InputMethodService` connection. The SDK ships no input view, capability inbox,

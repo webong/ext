@@ -367,9 +367,24 @@ from `_csrc` and links the engine library, which is built from `_csrc` with CMak
 | `pkg/plugin-wasm` (up to v0.2.1), later `pkg/plugin-go/wasm` | `pkg/ext-go/wasm` (`pkg/ext-go/wasm`); its reusable mechanics are `res/web/wasm` |
 | `pkg/plugin-hashicorp` (up to v0.1.1) | `pkg/plugin-go/hashicorp` (`pkg/plugin-go/hashicorp`) |
 | `pkg/plugin-hashicorp/cmd/ext-plugin-bridge` | `pkg/plugin-go/cmd/ext-plugin-bridge` (`pkg/plugin-go`) |
-| `pkg/graph` (v0.1.0) | the generic store is `res/graph/store`, in module `res/system` (see below) |
-| `res/graph` (v0.1.0, published for a short time) | `res/system` (module `res/system`): the discovery package that lived in `res/graph/system` (declared name `systemgraph`) is now the module root, package `system`; the store, `res/graph`'s own package, is `res/graph/store`; `res/graph/supervisor` is `res/graph/supervisor` |
-| `packagekit.Plan.Graph(namespace)` | `plugingo.PlanGraph(plan, namespace)` in `pkg/plugin-go`; `packagekit.IdentityKey` is now exported. The conversion lives in the umbrella so `contract` has no `res/system` dependency; the transaction it returns is `res/graph/store`'s. No caller in this repository other than the method's own test used it, and the consumer repository calls neither it nor `res/graph` |
+| `pkg/graph` (v0.1.0) | the generic store, first `res/system/graph` in module `res/system` (v0.1.0 to v0.2.1), now `res/graph/store` in module `res/graph` (from v0.2.0; see below) |
+| `res/graph` (v0.1.0, published for a short time) | `res/system` (module `res/system`): the discovery package that lived in `res/graph/system` (declared name `systemgraph`) became the module root, package `system`; the store, `res/graph`'s own package, became `res/system/graph`, and `res/graph/supervisor` became `res/system/supervisor`. Both have since moved back under `res/graph` (next rows) |
+| `res/system/graph`, `res/system/supervisor` and the recorder in the root package of `res/system` (`Graph`, `Open`, `New`, `Scan*`, `Observe*`, `ResolveInventory`, `ReadHost`, `ResolveHost`, `PrepareHost`) (`res/system`, up to v0.2.1) | `res/graph/store`, `res/graph/supervisor` and the root package `res/graph` (module `res/graph`, from v0.2.0) |
+| the collectors in the root package of `res/system` (`DiscoverShells`, `DiscoverFilesystems`, `DiscoverWebviews`, `DiscoverResources`, `DiscoverProcesses`, `InspectProcess`, `DiscoverSurfaces`, `DiscoverDesktop`, `DiscoverAccessibility`, `DiscoverPermissions`, window capture and input, `DesktopDriver`) | `res/system/service/host`, `.../service/process`, `.../capture/surface` (`res/system`, from v0.3.0) |
+| `res/system/audio`, `res/system/clipboard`, `res/system/share`, `res/system/media` | `res/system/capture/audio`, `.../clipboard`, `.../share`, `.../media` (`res/system`, from v0.3.0) |
+| `res/system/network`, `res/system/program`, `res/system/credential/...`, `res/system/service` | `res/system/service/network`, `.../program`, `.../credential/...`, `.../user` (`res/system`, from v0.3.0) |
+| `res/system/volume` | `res/system/device/volume` (private directories) and `res/system/device/image` (snapshot archives) (`res/system`, from v0.3.0) |
+| `packagekit.Plan.Graph(namespace)` | `plugingo.PlanGraph(plan, namespace)` in `pkg/plugin-go`; `packagekit.IdentityKey` is now exported. The conversion lives in the umbrella so `contract` has no `res/graph` dependency; the transaction it returns is `res/graph/store`'s. No caller in this repository other than the method's own test used it, and the consumer repository calls neither it nor `res/graph` |
+
+`res/graph` is the one path of this repository that is reused by a different module. Its tags v0.1.0
+and v0.1.1 (v0.1.1 carries `// Deprecated: use github.com/webong/ext/res/system.`) belong to a module that was
+renamed to `res/system` before anyone used it, which is why the rule that a published path is not reused
+protects no consumer here. The new module starts at v0.2.0, above the old tags, and its `go.mod` carries no
+`Deprecated` line (Go reads deprecation from the latest version). The same happened to `pkg/plugin-go`, whose
+v0.2.0 is the umbrella. `res/graph` v0.2.0 and `res/system` v0.3.0 (the regrouped packages; breaking import
+paths) are not tagged yet; until they are, `go.work` resolves those two versions to the workspace copies.
+`res/graph` requires `res/system` and `res/system` never requires `res/graph`, so the layers are `res/system`
+first, then `res/graph`, and `release-layers.sh` stops on a cycle.
 
 Subpackages of the old `pkg/plugin-go` and `pkg/plugin` that move under `contract`:
 `package` (the old `packagekit`: its import path is `contract/package`, and because `package` is a Go

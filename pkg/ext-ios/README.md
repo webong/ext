@@ -94,7 +94,7 @@ routing or approval UI.
 ## System observation
 
 `ExtSystem` ships the local display and window observation model from
-[`res/system`](../../res/system/README.md). It also observes read-only native UI
+[`res/system/capture/surface`](../../res/system/capture/surface/ios). It also observes read-only native UI
 structure and accessibility/screen-recording permission state. macOS reports the
 focused accessible application and visible desktop windows; iOS reports only the
 calling application's views and windows. Text is opt-in. Neither binding exposes
@@ -102,8 +102,8 @@ native handles, captures pixels, sends input, prompts, opens settings, or routes
 
 ### Share and keyboard extensions
 
-`ExtSystem` also ships the bounded share model from
-[`res/system/capture/share`](../../res/system/capture/share/README.md) and its iOS bindings:
+`ExtShare` ships the bounded share model from
+[`res/system/capture/share`](../../res/system/capture/share) and its iOS bindings:
 `ShareExtensionLoader` normalizes `NSExtensionItem` text, links, and file
 attachments, and `KeyboardEditor` reads selection and context, inserts and
 deletes text, submits the editor action, and advances keyboards. Attachment
@@ -111,6 +111,13 @@ storage requires a caller-configured `ShareAttachmentSink`; `AppGroupAttachmentS
 takes an explicit app-group identifier. The library supplies no extension
 registry, capability inbox, event schema, projected action, app launch, or
 application identifier.
+
+### Host resources and audio playback
+
+`ExtHost` ships the bounded host-resource observation (memory, storage, power, container state) of
+[`res/system/service/host`](../../res/system/service/host/ios), and `ExtAudio` ships bounded PCM
+playback for [`res/system/capture/audio`](../../res/system/capture/audio/ios). Each is its own SwiftPM
+product, built from the package that owns it.
 
 ## Network observation
 

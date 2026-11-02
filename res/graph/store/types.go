@@ -1,4 +1,4 @@
-// Package graph provides a generic, namespaced, directed graph store.
+// Package store provides a generic, namespaced, directed graph store.
 //
 // Kinds and relationship types are opaque consumer vocabulary. A store never
 // assigns product meaning or authority to graph records.

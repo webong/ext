@@ -137,9 +137,10 @@ inspect: none imports: 0 err <nil>
 
 ## Discover the machine
 
-Collectors report shells, filesystems and webviews without starting anything. The package is
-`system` (`github.com/webong/ext/res/system`). The examples import it as `systemgraph` so a
-variable of your own named `system` does not hide it, which is what the CTX app does.
+Collectors report shells, filesystems and webviews without starting anything. They are in
+`github.com/webong/ext/res/system` (here `service/host`), and `github.com/webong/ext/res/graph` adds the
+whole-host inventory and records it. The examples import the recorder as `systemgraph`, which is what the
+CTX app does.
 
 ```go
 // Discover what the machine has, without starting anything.
@@ -149,16 +150,17 @@ import (
 	"context"
 	"fmt"
 
-	systemgraph "github.com/webong/ext/res/system"
+	systemgraph "github.com/webong/ext/res/graph"
+	"github.com/webong/ext/res/system/service/host"
 )
 
 func main() {
-	host, err := systemgraph.DiscoverHost(context.Background())
+	inventory, err := systemgraph.DiscoverHost(context.Background())
 	if err != nil {
 		panic(err)
 	}
-	fmt.Printf("shells: %d, filesystems: %d\n", len(host.Shells), len(host.Filesystems))
-	webviews, err := systemgraph.DiscoverWebviews(context.Background())
+	fmt.Printf("shells: %d, filesystems: %d\n", len(inventory.Shells), len(inventory.Filesystems))
+	webviews, err := host.DiscoverWebviews(context.Background())
 	fmt.Printf("webviews found: %d (err: %v)\n", len(webviews), err)
 }
 ```

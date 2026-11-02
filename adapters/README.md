@@ -118,6 +118,13 @@ operation reports the executables Homebrew kegs hold for the names CTX asks abou
 linked or keg-only, from `<prefix>/opt/*/bin` without starting `brew`. `run` runs
 `brew`. See [Program discovery](../docs/adr-program-discovery.md).
 
+`nvm` and `xcode` are declarative installers: packages with a `program_roots` file and no
+executable. CTX looks in `${NVM_DIR:-~/.nvm}/versions/node/*/bin` and in the Command Line
+Tools and Xcode developer directories for the programs runtime adapters ask about, so a Node.js
+from nvm is attributed to `nvm` without nvm being run. `python` and `node` also suggest an
+installer from where a file sits (`~/.pyenv`, `~/.nvm`, the system `python3` on macOS); a
+suggestion becomes a fact with `ctx program recognise <path>`.
+
 `jvm` is the Java evaluator adapter. It declares `engine = ["evaluator"]`, `role = ["virtualizer", "compiler"]` and `supports = ["jvm"]`, finds JDKs
 from `JAVA_HOME`, SDKMAN, `~/.jdks`, asdf, Homebrew and the system locations
 (user-level installs before system ones), and selects one by major version

@@ -146,3 +146,76 @@ func TestForCommands(t *testing.T) {
 		t.Fatalf("ForCommands = %#v", got)
 	}
 }
+
+func envOf(values map[string]string) func(string) string {
+	return func(name string) string { return values[name] }
+}
+
+func TestExpandRoot(t *testing.T) {
+	env := envOf(map[string]string{"HOME": "/home/u", "NVM_DIR": "/opt/nvm", "EMPTY": ""})
+	for pattern, want := range map[string]string{
+		"/usr/lib/x/*/bin":                  "/usr/lib/x/*/bin",
+		"~/.nvm/versions/node/*/bin":        "/home/u/.nvm/versions/node/*/bin",
+		"${NVM_DIR:-~/.nvm}/versions/*/bin": "/opt/nvm/versions/*/bin",
+		"${MISSING:-~/.nvm}/versions/*/bin": "/home/u/.nvm/versions/*/bin",
+		"${EMPTY:-/fallback}/bin":           "/fallback/bin",
+		"$NVM_DIR/v/*":                      "/opt/nvm/v/*",
+	} {
+		got, ok := ExpandRoot(pattern, env)
+		if !ok || got != want {
+			t.Errorf("ExpandRoot(%q) = %q, %v; want %q", pattern, got, ok, want)
+		}
+	}
+	for _, pattern := range []string{"relative/bin", "$MISSING/bin", "${MISSING}/bin", "${NVM_DIR", "$/bin", "~user/bin"} {
+		if got, ok := ExpandRoot(pattern, env); ok {
+			t.Errorf("ExpandRoot(%q) = %q, want it refused", pattern, got)
+		}
+	}
+	if _, ok := ExpandRoot("~/x", envOf(nil)); ok {
+		t.Error("~ without a home directory must be refused")
+	}
+	if runtime.GOOS != "windows" {
+		got, _ := ExpandRoot("$ODD/bin", envOf(map[string]string{"ODD": "/a[b]*/c"}))
+		if got != `/a\[b]\*/c/bin` {
+			t.Errorf("a value from the environment must be literal, got %q", got)
+		}
+	}
+}
+
+func TestScanRoots(t *testing.T) {
+	root := t.TempDir()
+	writeProgram(t, filepath.Join(root, "versions", "v20", "bin", "node"))
+	writeProgram(t, filepath.Join(root, "versions", "v22", "bin", "node"))
+	writeProgram(t, filepath.Join(root, "versions", "v22", "bin", "npm"))
+	if err := os.WriteFile(filepath.Join(root, "versions", "v18-notes"), []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	env := envOf(map[string]string{"NVM_DIR": root})
+	found := ScanRoots([]string{"node", "missing"}, []string{"${NVM_DIR:-~/.nvm}/versions/*/bin", "relative/*"}, env)
+	if len(found) != 2 {
+		t.Fatalf("found %#v, want the two node files", found)
+	}
+	for _, candidate := range found {
+		if candidate.Name != "node" || candidate.Source != SourceInstaller || candidate.OnPath || candidate.Version != "" {
+			t.Errorf("candidate = %#v", candidate)
+		}
+	}
+	if found[0].Path >= found[1].Path {
+		t.Errorf("results must be ordered: %v, %v", found[0].Path, found[1].Path)
+	}
+	// With nothing configured nothing is invented.
+	if got := ScanRoots([]string{"node"}, []string{"${NVM_DIR}/versions/*/bin"}, envOf(nil)); len(got) != 0 {
+		t.Errorf("unset variable matched %#v", got)
+	}
+	// Joined with a PATH scan, a file both found is one candidate that names the installer.
+	onPath := filepath.Join(root, "versions", "v22", "bin")
+	merged := Merge(Scan([]string{"node"}, onPath), map[string][]Candidate{"nvm": found})
+	if len(merged) != 2 {
+		t.Fatalf("merged = %#v", merged)
+	}
+	for _, candidate := range merged {
+		if len(candidate.Installers) != 1 || candidate.Installers[0] != "nvm" {
+			t.Errorf("installers = %v", candidate.Installers)
+		}
+	}
+}

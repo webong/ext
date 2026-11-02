@@ -35,6 +35,9 @@ type ContextProgram struct {
 	Version    string   `json:"version,omitempty"`
 	OnPath     bool     `json:"on_path,omitempty"`
 	Installers []string `json:"installers,omitempty"`
+	// Suggested names installers the adapter that runs the file guessed from its
+	// location. It is not a fact; see "installers".
+	Suggested []string `json:"suggested_installers,omitempty"`
 }
 
 // Inventory is the latest reconciled adapter view. ObservedAt is refreshed on
@@ -91,7 +94,7 @@ func (g *Graph) ResolveInventory(ctx context.Context, runtimeName string) (Inven
 				realPath, _ := vertex.Attributes["realpath"].(string)
 				version, _ := vertex.Attributes["version"].(string)
 				onPath, _ := vertex.Attributes["on_path"].(bool)
-				contextPrograms[edge.From] = &ContextProgram{Path: path, RealPath: realPath, Version: version, OnPath: onPath, Installers: sortedCopy(stringList(vertex.Attributes["installers"]))}
+				contextPrograms[edge.From] = &ContextProgram{Path: path, RealPath: realPath, Version: version, OnPath: onPath, Installers: sortedCopy(stringList(vertex.Attributes["installers"])), Suggested: sortedCopy(stringList(vertex.Attributes["suggested_installers"]))}
 			}
 		}
 		if edge.Type == Namespace+"/supports" {

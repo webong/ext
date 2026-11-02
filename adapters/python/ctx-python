@@ -51,6 +51,21 @@ usable() {
   [ -x "$1" ]
 }
 
+# Where Python usually comes from, guessed from where the file sits. This is a
+# suggestion, not a fact: CTX records it apart from what an installer reported and
+# the user decides whether to recognise it.
+suggest() {
+  case "$1" in
+    */.pyenv/*) printf 'pyenv' ;;
+    */.asdf/installs/*|*/.asdf/shims/*) printf 'asdf' ;;
+    */mise/installs/*|*/mise/shims/*) printf 'mise' ;;
+    */miniconda*/*|*/anaconda*/*|*/miniforge*/*|*/mambaforge/*|*/.conda/*) printf 'conda' ;;
+    /usr/bin/python|/usr/bin/python3|/Library/Developer/CommandLineTools/*|/Applications/Xcode*.app/*)
+      [ "$(uname -s)" = Darwin ] && printf 'xcode' ;;
+  esac
+  return 0
+}
+
 # One line per candidate: executable, installers. CTX passes every copy it found
 # in EXT_PROGRAMS (see the adapter API), preferring the one on PATH; outside CTX
 # only the Python on PATH is known.
@@ -86,6 +101,13 @@ find_record() {
   inventory | awk -F '\t' -v wanted="$wanted" '$1 == wanted { print; exit }'
 }
 
+# The suggested_installer attribute, or nothing.
+hint() {
+  suggestion=$(suggest "$1")
+  [ -n "$suggestion" ] && printf ',"suggested_installer":"%s"' "$suggestion"
+  return 0
+}
+
 case "$operation" in
   list)
     inventory | awk -F '\t' 'NF >= 4 && !seen[$1]++ { print $1 }'
@@ -96,7 +118,7 @@ case "$operation" in
     printf '{"version":1,"contexts":['
     inventory | while IFS="$tab" read -r selection executable version manager; do
       [ -n "$selection" ] || continue
-      printf '%s{"selection":"%s","attributes":{"kind":"python","version":"%s","isolation":"host","manager":"%s","executable":"%s"}}' "$separator" "$selection" "$version" "$manager" "$(json_escape "$executable")"
+      printf '%s{"selection":"%s","attributes":{"kind":"python","version":"%s","isolation":"host","manager":"%s","executable":"%s"%s}}' "$separator" "$selection" "$version" "$manager" "$(json_escape "$executable")" "$(hint "$executable")"
       separator=,
     done
     printf ']}\n'

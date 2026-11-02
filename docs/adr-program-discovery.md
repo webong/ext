@@ -167,6 +167,38 @@ context ──uses-program──▶ program
 
 There is no command that lists programs: the graph is the interface.
 
+### Declarative installers
+
+Most installers are a place on disk with a naming convention, and writing a script and
+a PowerShell twin for each one only to run `ls` is more code than the fact it
+reports. An installer can therefore be declarative: a package with no executable, a
+`program_roots` file of directory patterns, `role = ["installer"]` and the single
+capability `programs`. CTX expands the patterns and looks for the asked names in the
+directories that match, with `program.ScanRoots` in `res/system/program`. The
+mechanism never recognises a tool by name: the patterns are data from a trusted
+package, as an installer's script output is.
+
+The package format already allows this: it needs one artifact and no entrypoint, so
+the pattern file is the artifact, and the package revision is its digest. A script
+installer is still the right tool when it needs logic (`homebrew` asks whether a keg
+is linked). `nvm` and `xcode` are declarative.
+
+### Suggestions and recognition
+
+A runtime adapter knows its language's conventions, so it may notice that a file
+sits under `~/.nvm` or `~/.pyenv`. It reports that as a `suggested_installer`
+attribute. The graph records it as `suggested_installers` on the program, apart from
+`installers`, and never as an `installed-by` edge: a guess must not read as a fact,
+and a suggestion is dropped once an installer reports the file.
+
+The user settles it: `ctx program recognise PATH [INSTALLER]` records that the real
+file was installed by that installer (with no installer name it takes the one suggestion
+there is). The record is local, in `programs.json` in the CTX home, and discovery adds
+the installer to the candidate the way it adds a reporting installer, so the graph gets
+the `installed-by` edge when the installer is an observed adapter and the attribute
+otherwise. `ctx program forget PATH [INSTALLER]` takes it back. Nothing is recognised
+that the user did not ask for.
+
 ### Trust and safety
 
 A candidate is an observation, not permission to run it, the same rule as

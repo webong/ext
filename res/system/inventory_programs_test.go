@@ -15,8 +15,8 @@ func programAdapters() []AdapterObservation {
 		{
 			Name: "python", Runtime: "computer", Trusted: true, Listed: true, Supports: []string{"python"},
 			Contexts: []ContextObservation{
-				{Selection: "3.14", Attributes: map[string]any{"executable": "/opt/homebrew/opt/python@3.14/bin/python3.14"}},
-				{Selection: "3.9", Attributes: map[string]any{"executable": "/usr/bin/python3"}},
+				{Selection: "3.14", Attributes: map[string]any{"executable": "/opt/homebrew/opt/python@3.14/bin/python3.14", "suggested_installer": "homebrew"}},
+				{Selection: "3.9", Attributes: map[string]any{"executable": "/usr/bin/python3", "suggested_installer": "xcode"}},
 				{Selection: "2.7", Attributes: map[string]any{"executable": "/gone/python"}},
 			},
 			Programs: []program.Candidate{
@@ -89,6 +89,14 @@ func TestInventoryProjectsPrograms(t *testing.T) {
 	}
 	if p := found["3.9"]; p == nil || len(p.Installers) != 0 || !p.OnPath {
 		t.Fatalf("3.9 program = %#v, want a PATH-only program with no installer", p)
+	}
+	// A suggestion is kept apart from the facts, and one already confirmed by an
+	// installer is not repeated. It never becomes an edge.
+	if p := found["3.9"]; !reflect.DeepEqual(p.Suggested, []string{"xcode"}) {
+		t.Fatalf("3.9 suggested = %v, want [xcode]", p.Suggested)
+	}
+	if p := found["3.14"]; len(p.Suggested) != 0 {
+		t.Fatalf("3.14 suggested = %v, want none: homebrew already reported it", p.Suggested)
 	}
 	if found["2.7"] != nil {
 		t.Fatalf("2.7 program = %#v, want none", found["2.7"])

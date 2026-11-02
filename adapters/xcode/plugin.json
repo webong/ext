@@ -1,0 +1,43 @@
+{
+  "apiVersion": "ext.package/v1",
+  "descriptor": {
+    "apiVersion": "ext.plugin/v1",
+    "identity": {
+      "id": "xcode",
+      "revision": ""
+    },
+    "contracts": [
+      {
+        "name": "ext.adapter",
+        "version": "2.0",
+        "operations": [
+          {
+            "name": "programs"
+          }
+        ]
+      }
+    ]
+  },
+  "artifacts": [
+    {
+      "name": "roots",
+      "path": "program_roots",
+      "sha256": ""
+    }
+  ],
+  "metadata": {
+    "ctx.adapter/v1": {
+      "description": "Xcode and Command Line Tools installer: reports the developer tools Apple's tools installed",
+      "display_name": "Xcode",
+      "program_roots": "program_roots",
+      "role": [
+        "installer"
+      ],
+      "runtime": "computer",
+      "selectable": false,
+      "surfaces": [
+        "shell"
+      ]
+    }
+  }
+}

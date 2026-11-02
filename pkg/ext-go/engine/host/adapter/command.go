@@ -30,6 +30,9 @@ func (a *Adapter) CommandContext(ctx context.Context, invocation Invocation) (*e
 }
 
 func (a *Adapter) command(ctx context.Context, invocation Invocation) (*exec.Cmd, error) {
+	if a.Declarative() {
+		return nil, fmt.Errorf("adapter %s is declarative and has no executable", a.Manifest.Name)
+	}
 	if !a.HasCapability(invocation.Operation) {
 		return nil, fmt.Errorf("adapter %s does not support %s", a.Manifest.Name, invocation.Operation)
 	}

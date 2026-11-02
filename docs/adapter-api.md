@@ -291,6 +291,25 @@ The adapter decides what each one is and whether it is usable. See
 for a context (the file it would run) gets that context linked to the program in the
 graph, with its installers.
 
+An installer can also be **declarative**: a package with no executable that only says
+where an installer keeps programs. It declares `role = ["installer"]`,
+`selectable = false`, the single capability `programs` and a `program_roots` metadata
+key naming a file in the package. The file holds one directory pattern per line (`#`
+starts a comment). A pattern is absolute after `~`, `$NAME`, `${NAME}` and
+`${NAME:-default}` are expanded, and may use `*` and `?` in a path component. CTX
+matches the patterns itself, looks for the names it was asked about in each directory
+that matches, and runs nothing. The file is a package artifact, so it is covered by
+the package digest and by trust, and a changed file is untrusted like a changed
+script. A declarative adapter cannot also have an executable, commands, `supports`, an
+`engine` or a selector. `nvm` and `xcode` are declarative.
+
+A runtime adapter can **suggest** where a program came from by adding a
+`suggested_installer` attribute (an installer name) next to `executable` in `observe`,
+for example from the directory the file sits in. A suggestion is a guess by the
+adapter that owns the language. The graph keeps it apart from the installers that
+reported the file, and it becomes a fact only when the user records it with
+`ctx program recognise`.
+
 Evaluator adapters follow a shared contract for selections, flags, exit statuses and
 isolation: see [Evaluator adapters](evaluator-adapters.md).
 

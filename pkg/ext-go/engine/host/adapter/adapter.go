@@ -57,12 +57,17 @@ var knownRuntimes = map[string]bool{"computer": true, "manager": true, "browser"
 func IsKnownRuntime(runtime string) bool { return knownRuntimes[runtime] }
 
 type Manifest struct {
-	APIVersion           string
-	Name                 string
-	Runtime              string
-	Surfaces             []string
-	Executable           string
-	ExecutableWindows    string
+	APIVersion        string
+	Name              string
+	Runtime           string
+	Surfaces          []string
+	Executable        string
+	ExecutableWindows string
+	// ProgramRoots are the directory patterns of a declarative installer: it has
+	// no executable, and CTX looks for programs in these directories itself. They
+	// come from the package file named by the program_roots metadata key, so they
+	// are sealed and trusted with the package.
+	ProgramRoots         []string
 	Description          string
 	DisplayName          string
 	Capabilities         []string
@@ -238,6 +243,13 @@ func adapterFromValues(values map[string]string, pm packagekit.Manifest, absolut
 		manifest.ShareSpaces = []string{manifest.Name}
 	}
 	manifest.BrowserManagement = splitList(values["browser_management"])
+	if file := values["program_roots"]; file != "" {
+		roots, err := readProgramRoots(absolute, file)
+		if err != nil {
+			return nil, fmt.Errorf("adapter %s: %w", manifest.Name, err)
+		}
+		manifest.ProgramRoots = roots
+	}
 	if err := validateManifest(manifest, absolute, goos, requireExecutable); err != nil {
 		return nil, err
 	}
@@ -387,6 +399,10 @@ func (a *Adapter) ConfigKeys() []string {
 	return keys
 }
 
+// Declarative reports whether the adapter is data only: it names directories to
+// look in and has no executable. CTX never runs it.
+func (a *Adapter) Declarative() bool { return len(a.Manifest.ProgramRoots) > 0 }
+
 func (a *Adapter) ExecutablePath() string {
 	return a.ExecutablePathForOS(runtime.GOOS)
 }
@@ -447,7 +463,7 @@ func (s *Store) Trust(a *Adapter) error {
 // verifySealedEntrypoint binds an adapter's argv launcher to the reviewed
 // package. Legacy hand-copied templates remain loadable for migration.
 func (s *Store) verifySealedEntrypoint(a *Adapter) error {
-	if !sealed(a.Package) {
+	if a.Declarative() || !sealed(a.Package) {
 		return nil
 	}
 	packages, err := store.New(s.Home, store.Limits{})
@@ -737,6 +753,9 @@ func validateManifest(manifest Manifest, directory, goos string, requireExecutab
 			return fmt.Errorf("adapter %s has invalid override environment variable %s", manifest.Name, key)
 		}
 	}
+	if len(manifest.ProgramRoots) > 0 {
+		return validateDeclarative(manifest)
+	}
 	if !validExecutableName(manifest.Executable) ||
 		(manifest.ExecutableWindows != "" && !validExecutableName(manifest.ExecutableWindows)) {
 		return fmt.Errorf("adapter %s has an invalid executable name", manifest.Name)
@@ -799,6 +818,71 @@ func validateManifest(manifest Manifest, directory, goos string, requireExecutab
 		}
 	}
 	return nil
+}
+
+// validateDeclarative checks an adapter that is data only. It can describe where
+// an installer keeps programs and nothing else: with no executable it cannot list,
+// observe, validate, run or take part in any other operation.
+func validateDeclarative(manifest Manifest) error {
+	if manifest.Executable != "" || manifest.ExecutableWindows != "" {
+		return fmt.Errorf("adapter %s has program roots and an executable; a declarative adapter has no executable", manifest.Name)
+	}
+	if !contains(manifest.Role, "installer") {
+		return fmt.Errorf("adapter %s has program roots but is not an installer", manifest.Name)
+	}
+	if len(manifest.Capabilities) != 1 || manifest.Capabilities[0] != "programs" {
+		return fmt.Errorf("adapter %s is declarative and may declare only the programs capability", manifest.Name)
+	}
+	if len(manifest.Commands) > 0 || len(manifest.ComputerCommands) > 0 || len(manifest.Supports) > 0 || len(manifest.Engine) > 0 || manifest.SelectorKey != "" || manifest.Selectable {
+		return fmt.Errorf("adapter %s is declarative and may not declare commands, supports, engine or a selector (set selectable to false)", manifest.Name)
+	}
+	return nil
+}
+
+const (
+	maxProgramRootsBytes = 64 << 10
+	maxProgramRoots      = 256
+)
+
+// readProgramRoots reads the patterns of a declarative installer: one per line,
+// blank lines and lines that start with # ignored. The file is a package
+// artifact, so it is covered by the package digest and by trust.
+func readProgramRoots(directory, name string) ([]string, error) {
+	if name == "" || strings.ContainsAny(name, `/\`) || name == "." || name == ".." {
+		return nil, fmt.Errorf("program_roots must name a file in the package, not %q", name)
+	}
+	path := filepath.Join(directory, name)
+	info, err := os.Lstat(path)
+	if err != nil || !info.Mode().IsRegular() {
+		return nil, fmt.Errorf("program_roots file %s is missing", name)
+	}
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+	data, err := io.ReadAll(io.LimitReader(file, maxProgramRootsBytes+1))
+	if err != nil {
+		return nil, err
+	}
+	if len(data) > maxProgramRootsBytes {
+		return nil, fmt.Errorf("program_roots file %s exceeds %d bytes", name, maxProgramRootsBytes)
+	}
+	var roots []string
+	for _, line := range strings.Split(string(data), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		if strings.ContainsRune(line, 0) {
+			return nil, fmt.Errorf("program_roots file %s has a NUL byte", name)
+		}
+		roots = append(roots, line)
+	}
+	if len(roots) == 0 || len(roots) > maxProgramRoots {
+		return nil, fmt.Errorf("program_roots file %s must hold 1 to %d patterns", name, maxProgramRoots)
+	}
+	return roots, nil
 }
 
 func validExecutableName(name string) bool {

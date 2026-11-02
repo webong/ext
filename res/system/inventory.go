@@ -294,6 +294,7 @@ func observeInventoryPrograms(adapters []AdapterObservation, vertices map[string
 		programIDs[file] = id
 		programIDs[entry.candidate.Path] = id
 	}
+	suggested := map[string]map[string]bool{}
 	for id, vertex := range vertices {
 		if vertex.Kind != Namespace+"/context" {
 			continue
@@ -306,7 +307,42 @@ func observeInventoryPrograms(adapters []AdapterObservation, vertices map[string
 		}
 		edgeID := "context-program/" + digest(id)
 		edges[edgeID] = graph.Edge{ID: edgeID, From: id, To: programID, Type: Namespace + "/uses-program"}
+		if hint, _ := metadata["suggested_installer"].(string); hint != "" {
+			if suggested[programID] == nil {
+				suggested[programID] = map[string]bool{}
+			}
+			suggested[programID][hint] = true
+		}
 	}
+	// A suggestion is a guess by the adapter that runs the file. It is kept on the
+	// program, apart from "installers", and is never an edge: only an installer that
+	// reported the file, or that the user recognised, is a fact. A suggestion already
+	// confirmed is dropped.
+	for programID, hints := range suggested {
+		vertex := vertices[programID]
+		confirmed := stringList(vertex.Attributes["installers"])
+		var open []string
+		for hint := range hints {
+			if !contains(confirmed, hint) {
+				open = append(open, hint)
+			}
+		}
+		if len(open) == 0 {
+			continue
+		}
+		sort.Strings(open)
+		vertex.Attributes["suggested_installers"] = open
+		vertices[programID] = vertex
+	}
+}
+
+func contains(list []string, value string) bool {
+	for _, item := range list {
+		if item == value {
+			return true
+		}
+	}
+	return false
 }
 
 func sortedKeys(set map[string]bool) []string {

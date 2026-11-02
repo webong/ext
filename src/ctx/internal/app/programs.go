@@ -58,12 +58,17 @@ func discoverPrograms(resolver *config.Resolver, names []string) []program.Candi
 			if trusted, err := store.IsTrusted(installer); err != nil || !trusted {
 				continue
 			}
+			if installer.Declarative() {
+				// Data only: CTX looks in the directories the package names. Nothing runs.
+				reports[installer.Manifest.Name] = program.ScanRoots(names, installer.Manifest.ProgramRoots, os.Getenv)
+				continue
+			}
 			if reported, ok := installerPrograms(resolver, installer, names); ok {
 				reports[installer.Manifest.Name] = reported
 			}
 		}
 	}
-	merged := program.Merge(scanned, reports)
+	merged := applyRecognised(program.Merge(scanned, reports), readRecognised())
 	if programCache.byNames == nil {
 		programCache.byNames = map[string][]program.Candidate{}
 	}

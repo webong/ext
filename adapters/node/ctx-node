@@ -31,6 +31,19 @@ real_node() {
   command -v node 2>/dev/null || true
 }
 
+# Where Node.js usually comes from, guessed from where the file sits. This is a
+# suggestion, not a fact: CTX records it apart from what an installer reported and
+# the user decides whether to recognise it.
+suggest() {
+  case "$1" in
+    */.nvm/*) printf 'nvm' ;;
+    */.fnm/*|*/fnm/node-versions/*|*/fnm_multishells/*) printf 'fnm' ;;
+    */.volta/*) printf 'volta' ;;
+    */.asdf/installs/*|*/.asdf/shims/*) printf 'asdf' ;;
+    */mise/installs/*|*/mise/shims/*) printf 'mise' ;;
+  esac
+}
+
 # One line per candidate: executable, installers. CTX passes every copy it found
 # in EXT_PROGRAMS (see the adapter API), preferring the one on PATH; outside CTX
 # only the Node.js on PATH is known.
@@ -66,6 +79,13 @@ find_record() {
   inventory | awk -F '\t' -v wanted="$wanted" '$1 == wanted { print; exit }'
 }
 
+# The suggested_installer attribute, or nothing.
+hint() {
+  suggestion=$(suggest "$1")
+  [ -n "$suggestion" ] && printf ',"suggested_installer":"%s"' "$suggestion"
+  return 0
+}
+
 case "$operation" in
   list)
     inventory | awk -F '\t' 'NF >= 4 && !seen[$1]++ { print $1 }'
@@ -76,7 +96,7 @@ case "$operation" in
     printf '{"version":1,"contexts":['
     inventory | while IFS="$tab" read -r selection executable version manager; do
       [ -n "$selection" ] || continue
-      printf '%s{"selection":"%s","attributes":{"kind":"node","version":"%s","isolation":"host","manager":"%s","executable":"%s"}}' "$separator" "$selection" "$version" "$manager" "$(json_escape "$executable")"
+      printf '%s{"selection":"%s","attributes":{"kind":"node","version":"%s","isolation":"host","manager":"%s","executable":"%s"%s}}' "$separator" "$selection" "$version" "$manager" "$(json_escape "$executable")" "$(hint "$executable")"
       separator=,
     done
     printf ']}\n'

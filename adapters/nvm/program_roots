@@ -1,0 +1,3 @@
+# nvm keeps one directory per Node.js version under $NVM_DIR (default ~/.nvm).
+# CTX looks in these directories itself; this adapter has no executable.
+${NVM_DIR:-~/.nvm}/versions/node/*/bin

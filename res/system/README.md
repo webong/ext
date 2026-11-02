@@ -12,7 +12,7 @@ target and own authorization, approval UI, remote protocols, routing, retention
 and product policy.
 
 The module has no root package. Its packages sit in three groups, which are plain
-directories, plus the .NET library. Each package owns its native Swift, Java and
+directories. Each package owns its native Swift, Java and
 Windows code beside its Go code, and the SDKs (`pkg/ext-ios`, `pkg/ext-android`) ship
 it from there.
 
@@ -56,7 +56,8 @@ it from there.
 | `capture/audio/ios` (`ExtAudio`) | Bounded PCM playback |
 | `capture/clipboard/ios`, `service/network/ios` | `ExtClipboard`, `ExtNetwork` |
 | `*/android` beside each package | App-visible share-intent and `InputMethodService` helpers, surface/accessibility/permission/resource APIs, MediaProjection capture, bounded PCM playback, clipboard and network observation. Java packages stay `io.github.webong.ext.system.*`, `...clipboard`, `...network` |
-| `windows/` (`Ext.System.Windows`) | Windows WASAPI endpoint discovery, capture, bounded PCM playback, and generation-checked Win32 clipboard access for .NET consumers. It still serves two packages (`capture/audio`, `capture/clipboard`) from one assembly |
+| `capture/audio/windows` (`Ext.Audio.Windows`) | Windows WASAPI endpoint discovery, system or microphone capture and bounded PCM playback for .NET consumers (NAudio) |
+| `capture/clipboard/windows` (`Ext.Clipboard.Windows`) | Generation-checked Win32 clipboard access for .NET consumers, with no package dependencies |
 
 Android observes app-visible surfaces, accessibility structure and permission
 state and exposes caller-consented MediaProjection capture and bounded PCM

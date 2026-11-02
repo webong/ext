@@ -3,7 +3,7 @@
     <TargetFramework>net8.0-windows</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <AssemblyName>Ext.System.Windows</AssemblyName>
+    <AssemblyName>Ext.Audio.Windows</AssemblyName>
     <RootNamespace>Webong.Ext.System.Windows</RootNamespace>
   </PropertyGroup>
   <ItemGroup>

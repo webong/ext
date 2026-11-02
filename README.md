@@ -318,7 +318,7 @@ CTX and its ecosystem share public Go libraries:
   media primitives) and `device` (volume and disk-image snapshot/restore).
   Consumers own authorization, remote control and product policy. Its Apple and
   Android bindings ship through the native SDKs, with additional Windows-native
-  libraries in `res/system/windows`.
+  libraries beside `capture/audio` and `capture/clipboard`.
 - `github.com/webong/ext/res/graph` supplies graph storage, the recorder that writes
   what the `res/system` collectors find into the graph, and local process
   supervision.

@@ -111,7 +111,8 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          dotnet build res/system/windows/Ext.System.Windows.csproj
+          dotnet build res/system/capture/audio/windows/Ext.Audio.Windows.csproj
+          dotnet build res/system/capture/clipboard/windows/Ext.Clipboard.Windows.csproj
           dotnet build res/int/model/windows/Ext.ML.Windows.csproj
           dotnet run --project res/int/model/windows/Tests/Ext.ML.Windows.Tests.csproj
           dotnet build res/web/windows/Ext.Web.Windows.csproj

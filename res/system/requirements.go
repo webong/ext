@@ -11,6 +11,10 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/webong/ext/res/system/capture/surface"
+	"github.com/webong/ext/res/system/service/host"
+	proc "github.com/webong/ext/res/system/service/process"
 )
 
 // OperationRequirements describes host resources needed by a caller. Non-nil
@@ -56,26 +60,26 @@ type HostSnapshot struct {
 }
 
 type HostCandidates struct {
-	Operation   string               `json:"operation"`
-	Shells      []ShellInfo          `json:"shells,omitempty"`
-	Filesystems []FilesystemInfo     `json:"filesystems,omitempty"`
-	Webviews    []WebviewInfo        `json:"webviews,omitempty"`
-	ObservedAt  map[string]time.Time `json:"observed_at"`
+	Operation   string                `json:"operation"`
+	Shells      []host.ShellInfo      `json:"shells,omitempty"`
+	Filesystems []host.FilesystemInfo `json:"filesystems,omitempty"`
+	Webviews    []host.WebviewInfo    `json:"webviews,omitempty"`
+	ObservedAt  map[string]time.Time  `json:"observed_at"`
 }
 
 // PreparedHost contains one validated resource per requirement. This does not
 // authorize execution, reserve capacity, or eliminate races with OS changes.
 type PreparedHost struct {
-	Operation   string          `json:"operation"`
-	Shell       *ShellInfo      `json:"shell,omitempty"`
-	Filesystem  *FilesystemInfo `json:"filesystem,omitempty"`
-	Webview     *WebviewInfo    `json:"webview,omitempty"`
-	ValidatedAt time.Time       `json:"validated_at"`
+	Operation   string               `json:"operation"`
+	Shell       *host.ShellInfo      `json:"shell,omitempty"`
+	Filesystem  *host.FilesystemInfo `json:"filesystem,omitempty"`
+	Webview     *host.WebviewInfo    `json:"webview,omitempty"`
+	ValidatedAt time.Time            `json:"validated_at"`
 }
 
 // WebviewValidator belongs to the embedding backend. It must establish that
 // this backend can use the selected runtime, including its ABI and dependencies.
-type WebviewValidator func(context.Context, WebviewInfo) error
+type WebviewValidator func(context.Context, host.WebviewInfo) error
 
 // HostRequirementError identifies a failed operation requirement. Cause, when
 // present, preserves OS, context, and backend errors for errors.Is/errors.As.
@@ -100,33 +104,11 @@ func (err *HostRequirementError) Error() string {
 func (err *HostRequirementError) Unwrap() error { return err.Cause }
 
 func shellEnvironment(searchPath string) string {
-	return digest(hostEnvironment() + "\x00" + searchPath + "\x00" + os.Getenv("SHELL") + "\x00" + os.Getenv("ComSpec"))
+	return digest(host.Environment() + "\x00" + searchPath + "\x00" + os.Getenv("SHELL") + "\x00" + os.Getenv("ComSpec"))
 }
 
 func webviewEnvironment() string {
-	return digest(hostEnvironment() + "\x00" + os.Getenv("LD_LIBRARY_PATH"))
-}
-
-func hostEnvironment() string {
-	hostname, err := os.Hostname()
-	if err != nil {
-		hostname = "hostname-unavailable"
-	}
-	home, err := os.UserHomeDir()
-	if err != nil {
-		home = "home-unavailable"
-	}
-	identity := fmt.Sprintf("%s\x00%s\x00%s\x00%d\x00%s", hostname, runtime.GOOS, runtime.GOARCH, os.Getuid(), home)
-	if runtime.GOOS == "linux" {
-		for _, path := range []string{"/proc/self/ns/mnt", "/proc/self/ns/user"} {
-			namespace, err := os.Readlink(path)
-			if err != nil {
-				namespace = "namespace-unavailable"
-			}
-			identity += "\x00" + namespace
-		}
-	}
-	return digest(identity)
+	return digest(host.Environment() + "\x00" + os.Getenv("LD_LIBRARY_PATH"))
 }
 
 // ReadHost reads host observations without refreshing or probing the OS.
@@ -135,7 +117,7 @@ func (g *Graph) ReadHost(ctx context.Context) (HostSnapshot, error) {
 	if err != nil {
 		return HostSnapshot{}, err
 	}
-	result := HostSnapshot{HostInventory: HostInventory{Shells: []ShellInfo{}, Filesystems: []FilesystemInfo{}, Webviews: []WebviewInfo{}}, ObservedAt: map[string]time.Time{}, environment: map[string]string{}}
+	result := HostSnapshot{HostInventory: HostInventory{Shells: []host.ShellInfo{}, Filesystems: []host.FilesystemInfo{}, Webviews: []host.WebviewInfo{}}, ObservedAt: map[string]time.Time{}, environment: map[string]string{}}
 	for _, vertex := range snapshot.Vertices {
 		var target any
 		switch vertex.Kind {
@@ -150,12 +132,12 @@ func (g *Graph) ReadHost(ctx context.Context) (HostSnapshot, error) {
 			result.environment[kind], _ = vertex.Attributes["environment"].(string)
 			if kind == "surface" {
 				if result.Surfaces == nil {
-					result.Surfaces = &SurfaceSnapshot{Displays: []DisplayInfo{}, Windows: []WindowInfo{}}
+					result.Surfaces = &surface.SurfaceSnapshot{Displays: []surface.DisplayInfo{}, Windows: []surface.WindowInfo{}}
 				}
 				result.Surfaces.ObservedAt = observed
 				result.Surfaces.Platform, _ = vertex.Attributes["platform"].(string)
 				result.Surfaces.CoordinateSpace, _ = vertex.Attributes["coordinate_space"].(string)
-				for key, target := range map[string]*CollectionStatus{"display_status": &result.Surfaces.DisplayStatus, "window_status": &result.Surfaces.WindowStatus} {
+				for key, target := range map[string]*proc.CollectionStatus{"display_status": &result.Surfaces.DisplayStatus, "window_status": &result.Surfaces.WindowStatus} {
 					data, err := json.Marshal(vertex.Attributes[key])
 					if err != nil {
 						return HostSnapshot{}, fmt.Errorf("read host surface %s: %w", key, err)
@@ -167,7 +149,7 @@ func (g *Graph) ReadHost(ctx context.Context) (HostSnapshot, error) {
 			}
 			if kind == "accessibility" {
 				if result.Accessibility == nil {
-					result.Accessibility = &AccessibilitySnapshot{Elements: []AccessibilityElement{}}
+					result.Accessibility = &surface.AccessibilitySnapshot{Elements: []surface.AccessibilityElement{}}
 				}
 				result.Accessibility.ObservedAt = observed
 				result.Accessibility.Platform, _ = vertex.Attributes["platform"].(string)
@@ -181,45 +163,45 @@ func (g *Graph) ReadHost(ctx context.Context) (HostSnapshot, error) {
 			}
 			if kind == "permission" {
 				if result.Permissions == nil {
-					result.Permissions = &PermissionSnapshot{}
+					result.Permissions = &surface.PermissionSnapshot{}
 				}
 				result.Permissions.ObservedAt = observed
 				result.Permissions.Platform, _ = vertex.Attributes["platform"].(string)
 			}
 			continue
 		case Namespace + "/shell":
-			result.Shells = append(result.Shells, ShellInfo{})
+			result.Shells = append(result.Shells, host.ShellInfo{})
 			target = &result.Shells[len(result.Shells)-1]
 		case Namespace + "/filesystem":
-			result.Filesystems = append(result.Filesystems, FilesystemInfo{})
+			result.Filesystems = append(result.Filesystems, host.FilesystemInfo{})
 			target = &result.Filesystems[len(result.Filesystems)-1]
 		case Namespace + "/webview":
-			result.Webviews = append(result.Webviews, WebviewInfo{})
+			result.Webviews = append(result.Webviews, host.WebviewInfo{})
 			target = &result.Webviews[len(result.Webviews)-1]
 		case Namespace + "/desktop":
-			result.Desktop = &DesktopInfo{}
+			result.Desktop = &surface.DesktopInfo{}
 			target = result.Desktop
 		case Namespace + "/display":
 			if result.Surfaces == nil {
-				result.Surfaces = &SurfaceSnapshot{Displays: []DisplayInfo{}, Windows: []WindowInfo{}}
+				result.Surfaces = &surface.SurfaceSnapshot{Displays: []surface.DisplayInfo{}, Windows: []surface.WindowInfo{}}
 			}
-			result.Surfaces.Displays = append(result.Surfaces.Displays, DisplayInfo{})
+			result.Surfaces.Displays = append(result.Surfaces.Displays, surface.DisplayInfo{})
 			target = &result.Surfaces.Displays[len(result.Surfaces.Displays)-1]
 		case Namespace + "/window":
 			if result.Surfaces == nil {
-				result.Surfaces = &SurfaceSnapshot{Displays: []DisplayInfo{}, Windows: []WindowInfo{}}
+				result.Surfaces = &surface.SurfaceSnapshot{Displays: []surface.DisplayInfo{}, Windows: []surface.WindowInfo{}}
 			}
-			result.Surfaces.Windows = append(result.Surfaces.Windows, WindowInfo{})
+			result.Surfaces.Windows = append(result.Surfaces.Windows, surface.WindowInfo{})
 			target = &result.Surfaces.Windows[len(result.Surfaces.Windows)-1]
 		case Namespace + "/accessibility-element":
 			if result.Accessibility == nil {
-				result.Accessibility = &AccessibilitySnapshot{Elements: []AccessibilityElement{}}
+				result.Accessibility = &surface.AccessibilitySnapshot{Elements: []surface.AccessibilityElement{}}
 			}
-			result.Accessibility.Elements = append(result.Accessibility.Elements, AccessibilityElement{})
+			result.Accessibility.Elements = append(result.Accessibility.Elements, surface.AccessibilityElement{})
 			target = &result.Accessibility.Elements[len(result.Accessibility.Elements)-1]
 		case Namespace + "/permission":
 			if result.Permissions == nil {
-				result.Permissions = &PermissionSnapshot{}
+				result.Permissions = &surface.PermissionSnapshot{}
 			}
 			name, _ := vertex.Attributes["name"].(string)
 			switch name {
@@ -241,11 +223,13 @@ func (g *Graph) ReadHost(ctx context.Context) (HostSnapshot, error) {
 			return HostSnapshot{}, fmt.Errorf("read host record %s: %w", vertex.ID, err)
 		}
 	}
-	sort.Slice(result.Shells, func(i, j int) bool { return hostPathKey(result.Shells[i].Path) < hostPathKey(result.Shells[j].Path) })
+	sort.Slice(result.Shells, func(i, j int) bool { return host.PathKey(result.Shells[i].Path) < host.PathKey(result.Shells[j].Path) })
 	sort.Slice(result.Filesystems, func(i, j int) bool {
-		return hostPathKey(result.Filesystems[i].MountPoint) < hostPathKey(result.Filesystems[j].MountPoint)
+		return host.PathKey(result.Filesystems[i].MountPoint) < host.PathKey(result.Filesystems[j].MountPoint)
 	})
-	sort.Slice(result.Webviews, func(i, j int) bool { return webviewIdentity(result.Webviews[i]) < webviewIdentity(result.Webviews[j]) })
+	sort.Slice(result.Webviews, func(i, j int) bool {
+		return host.WebviewIdentity(result.Webviews[i]) < host.WebviewIdentity(result.Webviews[j])
+	})
 	if result.Surfaces != nil {
 		sort.Slice(result.Surfaces.Displays, func(i, j int) bool { return result.Surfaces.Displays[i].ID < result.Surfaces.Displays[j].ID })
 		sort.Slice(result.Surfaces.Windows, func(i, j int) bool { return result.Surfaces.Windows[i].ID < result.Surfaces.Windows[j].ID })
@@ -283,21 +267,21 @@ func (g *Graph) hostForRequirements(ctx context.Context, requirements OperationR
 			searchPath = *requirements.Shell.SearchPath
 		}
 		if stale("shell") || snapshot.environment["shell"] != shellEnvironment(searchPath) {
-			refresh.Shells, err = discoverShells(ctx, searchPath)
+			refresh.Shells, err = host.DiscoverShellsOnPath(ctx, searchPath)
 			if err != nil {
 				return HostSnapshot{}, err
 			}
 			refresh.shellSearchPath = &searchPath
 		}
 	}
-	if requirements.Filesystem != nil && (stale("filesystem") || snapshot.environment["filesystem"] != hostEnvironment()) {
-		refresh.Filesystems, err = DiscoverFilesystems(ctx)
+	if requirements.Filesystem != nil && (stale("filesystem") || snapshot.environment["filesystem"] != host.Environment()) {
+		refresh.Filesystems, err = host.DiscoverFilesystems(ctx)
 		if err != nil {
 			return HostSnapshot{}, err
 		}
 	}
 	if requirements.Webview != nil && (stale("webview") || snapshot.environment["webview"] != webviewEnvironment()) {
-		refresh.Webviews, err = DiscoverWebviews(ctx)
+		refresh.Webviews, err = host.DiscoverWebviews(ctx)
 		if err != nil {
 			return HostSnapshot{}, err
 		}
@@ -334,12 +318,12 @@ func (g *Graph) ResolveHost(ctx context.Context, requirements OperationRequireme
 				return HostCandidates{}, requirementError(requirements, "shell", "explicit executable does not match requested shell name")
 			}
 			for _, observed := range snapshot.Shells {
-				if hostPathKey(observed.Path) == hostPathKey(selected.Path) {
+				if host.PathKey(observed.Path) == host.PathKey(selected.Path) {
 					selected.Sources = observed.Sources
 					selected.ConfiguredDefault = observed.ConfiguredDefault
 				}
 			}
-			result.Shells = []ShellInfo{selected}
+			result.Shells = []host.ShellInfo{selected}
 		} else {
 			for _, shell := range snapshot.Shells {
 				if required.Name == "" || sameShellName(shell.Name, required.Name) {
@@ -359,12 +343,12 @@ func (g *Graph) ResolveHost(ctx context.Context, requirements OperationRequireme
 			if err != nil {
 				return HostCandidates{}, requirementCause(requirements, "filesystem", "", err)
 			}
-			filesystem, err := platformFilesystemAt(ctx, path)
+			filesystem, err := host.FilesystemAt(ctx, path)
 			if err != nil {
 				return HostCandidates{}, requirementCause(requirements, "filesystem", "", err)
 			}
-			filesystem.Source = redactFilesystemSource(filesystem.Source)
-			items = []FilesystemInfo{filesystem}
+			filesystem.Source = host.RedactSource(filesystem.Source)
+			items = []host.FilesystemInfo{filesystem}
 		}
 		for _, filesystem := range items {
 			if required.Select != "" {
@@ -372,7 +356,7 @@ func (g *Graph) ResolveHost(ctx context.Context, requirements OperationRequireme
 				if err != nil {
 					return HostCandidates{}, err
 				}
-				if hostPathKey(filesystem.MountPoint) != hostPathKey(selected) {
+				if host.PathKey(filesystem.MountPoint) != host.PathKey(selected) {
 					continue
 				}
 			}
@@ -420,7 +404,7 @@ func (g *Graph) PrepareHost(ctx context.Context, requirements OperationRequireme
 		if err != nil {
 			return PreparedHost{}, requirementCause(requirements, "shell", "", err)
 		}
-		if hostPathKey(live.ResolvedPath) != hostPathKey(selected.ResolvedPath) {
+		if host.PathKey(live.ResolvedPath) != host.PathKey(selected.ResolvedPath) {
 			return PreparedHost{}, requirementError(requirements, "shell", "executable changed during preparation")
 		}
 		result.Shell = &selected
@@ -438,11 +422,11 @@ func (g *Graph) PrepareHost(ctx context.Context, requirements OperationRequireme
 		if err != nil {
 			return PreparedHost{}, requirementCause(requirements, "filesystem", "", err)
 		}
-		live, err := platformFilesystemAt(ctx, path)
+		live, err := host.FilesystemAt(ctx, path)
 		if err != nil {
 			return PreparedHost{}, requirementCause(requirements, "filesystem", "", err)
 		}
-		live.Source = redactFilesystemSource(live.Source)
+		live.Source = host.RedactSource(live.Source)
 		if !sameFilesystem(live, selected) || !filesystemMatches(live, *required) {
 			return PreparedHost{}, requirementError(requirements, "filesystem", "mount or available space changed during preparation")
 		}
@@ -454,7 +438,7 @@ func (g *Graph) PrepareHost(ctx context.Context, requirements OperationRequireme
 			if !info.IsDir() {
 				path = filepath.Dir(path)
 			}
-			if err := hostDirectoryWritable(path); err != nil {
+			if err := host.DirectoryWritable(path); err != nil {
 				return PreparedHost{}, requirementCause(requirements, "filesystem", "directory is not writable", err)
 			}
 		}
@@ -492,29 +476,29 @@ func sameShellName(left, right string) bool {
 	return left == right
 }
 
-func inspectShellExecutable(path string) (ShellInfo, error) {
+func inspectShellExecutable(path string) (host.ShellInfo, error) {
 	path, err := filepath.Abs(path)
 	if err != nil {
-		return ShellInfo{}, err
+		return host.ShellInfo{}, err
 	}
-	if !hostExecutable(path) {
-		return ShellInfo{}, fmt.Errorf("shell executable is unavailable: %s", path)
+	if !host.IsExecutable(path) {
+		return host.ShellInfo{}, fmt.Errorf("shell executable is unavailable: %s", path)
 	}
-	if err := hostExecutableAccess(path); err != nil {
-		return ShellInfo{}, fmt.Errorf("shell executable access: %w", err)
+	if err := host.ExecutableAccess(path); err != nil {
+		return host.ShellInfo{}, fmt.Errorf("shell executable access: %w", err)
 	}
 	resolved, err := filepath.EvalSymlinks(path)
 	if err != nil {
-		return ShellInfo{}, err
+		return host.ShellInfo{}, err
 	}
 	name := filepath.Base(path)
 	if runtime.GOOS == "windows" {
 		name = strings.TrimSuffix(name, filepath.Ext(name))
 	}
-	return ShellInfo{Name: name, Path: path, ResolvedPath: resolved, Sources: []string{"explicit-selection"}}, nil
+	return host.ShellInfo{Name: name, Path: path, ResolvedPath: resolved, Sources: []string{"explicit-selection"}}, nil
 }
 
-func resolveShellExecutable(selection, searchPath string) (ShellInfo, error) {
+func resolveShellExecutable(selection, searchPath string) (host.ShellInfo, error) {
 	if filepath.IsAbs(selection) || strings.ContainsAny(selection, `/\`) {
 		return inspectShellExecutable(selection)
 	}
@@ -528,15 +512,15 @@ func resolveShellExecutable(selection, searchPath string) (ShellInfo, error) {
 		}
 		for _, name := range names {
 			path := filepath.Join(directory, name)
-			if hostExecutable(path) {
+			if host.IsExecutable(path) {
 				return inspectShellExecutable(path)
 			}
 		}
 	}
-	return ShellInfo{}, fmt.Errorf("shell %q is not executable on the effective PATH", selection)
+	return host.ShellInfo{}, fmt.Errorf("shell %q is not executable on the effective PATH", selection)
 }
 
-func chooseShell(items []ShellInfo, required ShellRequirement) (ShellInfo, error) {
+func chooseShell(items []host.ShellInfo, required ShellRequirement) (host.ShellInfo, error) {
 	if len(items) == 1 {
 		return items[0], nil
 	}
@@ -547,17 +531,17 @@ func chooseShell(items []ShellInfo, required ShellRequirement) (ShellInfo, error
 		}
 		if first, err := resolveShellExecutable(required.Name, searchPath); err == nil {
 			for _, item := range items {
-				if hostPathKey(first.Path) == hostPathKey(item.Path) {
+				if host.PathKey(first.Path) == host.PathKey(item.Path) {
 					return item, nil
 				}
 			}
 		}
 	}
-	var configured *ShellInfo
+	var configured *host.ShellInfo
 	for i := range items {
 		if items[i].ConfiguredDefault {
 			if configured != nil {
-				return ShellInfo{}, errors.New("multiple configured shells match; specify an executable")
+				return host.ShellInfo{}, errors.New("multiple configured shells match; specify an executable")
 			}
 			configured = &items[i]
 		}
@@ -565,10 +549,10 @@ func chooseShell(items []ShellInfo, required ShellRequirement) (ShellInfo, error
 	if configured != nil {
 		return *configured, nil
 	}
-	return ShellInfo{}, errors.New("multiple shells match; specify a name or executable")
+	return host.ShellInfo{}, errors.New("multiple shells match; specify a name or executable")
 }
 
-func filesystemMatches(item FilesystemInfo, required FilesystemRequirement) bool {
+func filesystemMatches(item host.FilesystemInfo, required FilesystemRequirement) bool {
 	if required.Writable && (item.ReadOnly || item.Type == "") {
 		return false
 	}
@@ -589,12 +573,12 @@ func filesystemMatches(item FilesystemInfo, required FilesystemRequirement) bool
 	return true
 }
 
-func sameFilesystem(left, right FilesystemInfo) bool {
-	return hostPathKey(left.MountPoint) == hostPathKey(right.MountPoint) && left.Source == right.Source && left.Type == right.Type
+func sameFilesystem(left, right host.FilesystemInfo) bool {
+	return host.PathKey(left.MountPoint) == host.PathKey(right.MountPoint) && left.Source == right.Source && left.Type == right.Type
 }
 
-func webviewMatches(item WebviewInfo, required WebviewRequirement) bool {
-	return (required.Select == "" || hostPathKey(required.Select) == hostPathKey(item.Location)) &&
+func webviewMatches(item host.WebviewInfo, required WebviewRequirement) bool {
+	return (required.Select == "" || host.PathKey(required.Select) == host.PathKey(item.Location)) &&
 		(required.Engine == "" || item.Engine == required.Engine) && (required.API == "" || item.API == required.API) &&
 		(required.ABIVersion == "" || item.ABIVersion == required.ABIVersion) && (required.Version == "" || item.Version == required.Version) &&
 		(required.Architecture == "" || item.Architecture == required.Architecture)

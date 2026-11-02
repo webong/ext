@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/webong/ext/res/system"
 	"github.com/webong/ext/res/system/capture/media"
+	"github.com/webong/ext/res/system/capture/surface"
 )
 
 func pngFixture(t *testing.T, width, height int) []byte {
@@ -42,7 +42,7 @@ func (f *fakeRunner) run(_ context.Context, name string, arguments ...string) ([
 func TestCaptureUsesImportAndBounds(t *testing.T) {
 	runner := &fakeRunner{output: pngFixture(t, 8, 6)}
 	driver := New(Config{Run: runner.run})
-	capture, err := driver.Capture(context.Background(), system.CaptureOptions{MaxPixels: 1024, MaxBytes: 1 << 20})
+	capture, err := driver.Capture(context.Background(), surface.CaptureOptions{MaxPixels: 1024, MaxBytes: 1 << 20})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -53,14 +53,14 @@ func TestCaptureUsesImportAndBounds(t *testing.T) {
 		runner.calls[0].arguments != "-window root png:-" {
 		t.Fatalf("calls = %#v", runner.calls)
 	}
-	if _, err = driver.Capture(context.Background(), system.CaptureOptions{MaxPixels: 16, MaxBytes: 1 << 20}); err == nil {
+	if _, err = driver.Capture(context.Background(), surface.CaptureOptions{MaxPixels: 16, MaxBytes: 1 << 20}); err == nil {
 		t.Fatal("pixel bound was not enforced")
 	}
-	if _, err = driver.Capture(context.Background(), system.CaptureOptions{MaxPixels: 1024, MaxBytes: 8}); err == nil {
+	if _, err = driver.Capture(context.Background(), surface.CaptureOptions{MaxPixels: 1024, MaxBytes: 8}); err == nil {
 		t.Fatal("byte bound was not enforced")
 	}
 	runner.failed = true
-	if _, err = driver.Capture(context.Background(), system.CaptureOptions{}); !errors.Is(err, system.ErrDesktopUnavailable) {
+	if _, err = driver.Capture(context.Background(), surface.CaptureOptions{}); !errors.Is(err, surface.ErrDesktopUnavailable) {
 		t.Fatalf("tool failure = %v", err)
 	}
 }
@@ -68,27 +68,27 @@ func TestCaptureUsesImportAndBounds(t *testing.T) {
 func TestInputMapsOperationsToXdotool(t *testing.T) {
 	runner := &fakeRunner{}
 	driver := New(Config{Run: runner.run})
-	options := system.InputOptions{MaxTextRunes: 128}
-	if err := driver.Input(context.Background(), system.SurfaceInput{Kind: system.SurfaceInputText, Text: "hello"}, options); err != nil {
+	options := surface.InputOptions{MaxTextRunes: 128}
+	if err := driver.Input(context.Background(), surface.SurfaceInput{Kind: surface.SurfaceInputText, Text: "hello"}, options); err != nil {
 		t.Fatal(err)
 	}
-	if err := driver.Input(context.Background(), system.SurfaceInput{
-		Kind: system.SurfaceInputKey, Key: "t", Modifiers: []string{"command", "shift"},
+	if err := driver.Input(context.Background(), surface.SurfaceInput{
+		Kind: surface.SurfaceInputKey, Key: "t", Modifiers: []string{"command", "shift"},
 	}, options); err != nil {
 		t.Fatal(err)
 	}
-	if err := driver.Input(context.Background(), system.SurfaceInput{
-		Kind: system.SurfaceInputClick, Point: system.SurfacePoint{X: 3, Y: 4}, Button: "right",
+	if err := driver.Input(context.Background(), surface.SurfaceInput{
+		Kind: surface.SurfaceInputClick, Point: surface.SurfacePoint{X: 3, Y: 4}, Button: "right",
 	}, options); err != nil {
 		t.Fatal(err)
 	}
-	if err := driver.Input(context.Background(), system.SurfaceInput{
-		Kind: system.SurfaceInputDrag, Point: system.SurfacePoint{X: 1, Y: 2}, End: system.SurfacePoint{X: 5, Y: 6},
+	if err := driver.Input(context.Background(), surface.SurfaceInput{
+		Kind: surface.SurfaceInputDrag, Point: surface.SurfacePoint{X: 1, Y: 2}, End: surface.SurfacePoint{X: 5, Y: 6},
 	}, options); err != nil {
 		t.Fatal(err)
 	}
-	if err := driver.Input(context.Background(), system.SurfaceInput{
-		Kind: system.SurfaceInputScroll, Point: system.SurfacePoint{X: 0, Y: 0}, DeltaY: -360,
+	if err := driver.Input(context.Background(), surface.SurfaceInput{
+		Kind: surface.SurfaceInputScroll, Point: surface.SurfacePoint{X: 0, Y: 0}, DeltaY: -360,
 	}, options); err != nil {
 		t.Fatal(err)
 	}
@@ -111,7 +111,7 @@ func TestInputMapsOperationsToXdotool(t *testing.T) {
 			t.Errorf("input commands are missing %q:\n%s", fragment, joined)
 		}
 	}
-	if err := driver.Input(context.Background(), system.SurfaceInput{Kind: "unknown"}, options); !errors.Is(err, system.ErrDesktopUnavailable) {
+	if err := driver.Input(context.Background(), surface.SurfaceInput{Kind: "unknown"}, options); !errors.Is(err, surface.ErrDesktopUnavailable) {
 		t.Fatalf("unknown input = %v", err)
 	}
 }
@@ -119,9 +119,9 @@ func TestInputMapsOperationsToXdotool(t *testing.T) {
 func TestScrollIsBounded(t *testing.T) {
 	runner := &fakeRunner{}
 	driver := New(Config{Run: runner.run})
-	if err := driver.Input(context.Background(), system.SurfaceInput{
-		Kind: system.SurfaceInputScroll, DeltaY: -100_000,
-	}, system.InputOptions{}); err != nil {
+	if err := driver.Input(context.Background(), surface.SurfaceInput{
+		Kind: surface.SurfaceInputScroll, DeltaY: -100_000,
+	}, surface.InputOptions{}); err != nil {
 		t.Fatal(err)
 	}
 	clicks := 0
@@ -140,7 +140,7 @@ func TestRecordRequiresDisplayAndBuildsBoundedFfmpeg(t *testing.T) {
 	starter := &fakeStarter{output: bytes.NewBuffer(nil)}
 	driver := New(Config{Run: runner.run, Start: starter.start})
 	t.Setenv("DISPLAY", "")
-	if _, err := driver.Record(context.Background(), media.RecordingOptions{Format: "webm", FrameRate: 30, MaxDuration: time.Minute, MaxBytes: 1024}); !errors.Is(err, system.ErrDesktopUnavailable) {
+	if _, err := driver.Record(context.Background(), media.RecordingOptions{Format: "webm", FrameRate: 30, MaxDuration: time.Minute, MaxBytes: 1024}); !errors.Is(err, surface.ErrDesktopUnavailable) {
 		t.Fatalf("missing DISPLAY = %v", err)
 	}
 	t.Setenv("DISPLAY", ":1")

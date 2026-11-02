@@ -46,7 +46,7 @@ func New(config Config) (*Manager, error) {
 }
 
 func (m *Manager) Platform() user.Platform { return user.PlatformDarwin }
-func (m *Manager) Name() string               { return "launchd" }
+func (m *Manager) Name() string            { return "launchd" }
 
 func (m *Manager) Register(ctx context.Context, spec user.Spec) (user.Registration, error) {
 	def, err := user.Render(spec, user.PlatformDarwin)

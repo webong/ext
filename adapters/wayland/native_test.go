@@ -12,8 +12,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/webong/ext/res/system"
 	"github.com/webong/ext/res/system/capture/media"
+	"github.com/webong/ext/res/system/capture/surface"
 )
 
 func TestNativeWaylandCaptureAndRecording(t *testing.T) {
@@ -45,7 +45,7 @@ func TestNativeWaylandCaptureAndRecording(t *testing.T) {
 		cmd.Stderr = diagnostics
 		return startCommand(cmd)
 	}})
-	capture, err := driver.Capture(ctx, system.CaptureOptions{MaxPixels: 1024 * 1024, MaxBytes: 4 << 20})
+	capture, err := driver.Capture(ctx, surface.CaptureOptions{MaxPixels: 1024 * 1024, MaxBytes: 4 << 20})
 	if err != nil || capture.Width == 0 || capture.Height == 0 {
 		t.Fatalf("capture = %#v, %v", capture, err)
 	}

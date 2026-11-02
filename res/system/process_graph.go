@@ -10,11 +10,13 @@ import (
 	"time"
 
 	"github.com/webong/ext/res/system/graph"
+
+	proc "github.com/webong/ext/res/system/service/process"
 )
 
 // ScanProcesses discovers and reconciles the caller-visible process inventory.
-func (g *Graph) ScanProcesses(ctx context.Context, options ProcessOptions) (ProcessSnapshot, error) {
-	snapshot, err := DiscoverProcesses(ctx, options)
+func (g *Graph) ScanProcesses(ctx context.Context, options proc.ProcessOptions) (proc.ProcessSnapshot, error) {
+	snapshot, err := proc.DiscoverProcesses(ctx, options)
 	if err != nil {
 		return snapshot, err
 	}
@@ -25,7 +27,7 @@ func (g *Graph) ScanProcesses(ctx context.Context, options ProcessOptions) (Proc
 // missing process instances. Partial inventories retain unseen instances. A
 // targeted observation only replaces that PID and its inspected resource kinds.
 // Resource nodes retain their own timestamps across later identity-only scans.
-func (g *Graph) ObserveProcesses(ctx context.Context, observation ProcessSnapshot) error {
+func (g *Graph) ObserveProcesses(ctx context.Context, observation proc.ProcessSnapshot) error {
 	if observation.HostID == "" || observation.ObservedAt.IsZero() {
 		return errors.New("process observation requires host identity and time")
 	}
@@ -90,7 +92,7 @@ func processResourceKind(kind string) bool {
 	return false
 }
 
-func processTransaction(snapshot graph.Snapshot, observation ProcessSnapshot) (graph.Transaction, error) {
+func processTransaction(snapshot graph.Snapshot, observation proc.ProcessSnapshot) (graph.Transaction, error) {
 	tx := graph.Transaction{Namespace: Namespace, ExpectedRevision: &snapshot.Revision, DeleteIncidentEdges: true}
 	vertices := map[string]graph.Vertex{}
 	edges := map[string]graph.Edge{}
@@ -135,10 +137,10 @@ func processTransaction(snapshot graph.Snapshot, observation ProcessSnapshot) (g
 	}
 	if observation.Scope == "all" {
 		attrs, err := processAttributes(struct {
-			HostID      string           `json:"host_id"`
-			Enumeration CollectionStatus `json:"enumeration"`
-			Count       int              `json:"count"`
-			ObservedAt  time.Time        `json:"observed_at"`
+			HostID      string                `json:"host_id"`
+			Enumeration proc.CollectionStatus `json:"enumeration"`
+			Count       int                   `json:"count"`
+			ObservedAt  time.Time             `json:"observed_at"`
 		}{observation.HostID, observation.Enumeration, len(observation.Processes), observation.ObservedAt})
 		if err != nil {
 			return tx, err
@@ -163,11 +165,11 @@ func processTransaction(snapshot graph.Snapshot, observation ProcessSnapshot) (g
 		addEdge("machine/local", marker, "has-host-inventory")
 	}
 	ids := map[int]string{}
-	reported := map[int]ProcessInfo{}
+	reported := map[int]proc.ProcessInfo{}
 	for _, p := range observation.Processes {
 		reported[p.PID] = p
 		if p.StartID != "" {
-			ids[p.PID] = processInstanceID(observation.HostID, p)
+			ids[p.PID] = proc.InstanceID(observation.HostID, p)
 		}
 	}
 	remove := map[string]bool{}

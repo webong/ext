@@ -20,7 +20,7 @@ type Manager struct{}
 func New(Config) (*Manager, error) { return nil, ErrUnsupported }
 
 func (*Manager) Platform() user.Platform { return user.PlatformWindows }
-func (*Manager) Name() string               { return "taskscheduler" }
+func (*Manager) Name() string            { return "taskscheduler" }
 
 func (*Manager) Register(context.Context, user.Spec) (user.Registration, error) {
 	return user.Registration{}, ErrUnsupported

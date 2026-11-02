@@ -11,12 +11,14 @@ import (
 	"time"
 
 	systemgraph "github.com/webong/ext/res/system"
+
+	systemprocess "github.com/webong/ext/res/system/service/process"
 )
 
 func graphProcessCommand(ctx context.Context, system *systemgraph.Graph, command string, args []string, stdout, stderr io.Writer) int {
 	flags := flag.NewFlagSet("graph "+command, flag.ContinueOnError)
 	flags.SetOutput(stderr)
-	options := systemgraph.ProcessOptions{MaxProcesses: 4096, MaxResources: 1024}
+	options := systemprocess.ProcessOptions{MaxProcesses: 4096, MaxResources: 1024}
 	if command == "process" {
 		flags.IntVar(&options.MaxResources, "resource-limit", 1024, "maximum records per resource category")
 	} else {
@@ -57,12 +59,12 @@ func graphProcessCommand(ctx context.Context, system *systemgraph.Graph, command
 		fmt.Fprintln(stderr, "ctx: process limits must be between 1 and 65536, timeout must be positive, and extra arguments are not accepted")
 		return 2
 	}
-	var observation systemgraph.ProcessSnapshot
+	var observation systemprocess.ProcessSnapshot
 	var err error
 	if command == "process" {
-		observation, err = systemgraph.InspectProcess(ctx, pid, options)
+		observation, err = systemprocess.InspectProcess(ctx, pid, options)
 	} else {
-		observation, err = systemgraph.DiscoverProcesses(ctx, options)
+		observation, err = systemprocess.DiscoverProcesses(ctx, options)
 	}
 	if err != nil {
 		return reportError(stderr, err)

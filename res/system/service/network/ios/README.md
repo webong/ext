@@ -1,6 +1,6 @@
 # ExtNetwork
 
-`ExtNetwork` is the Apple binding for `res/system/network`. It observes local network
+`ExtNetwork` is the Apple binding for `res/system/service/network`. It observes local network
 interfaces and assigned addresses without opening a connection. On macOS it
 reads the kernel routing MIB and SystemConfiguration DNS state directly, with
 bounded route allocation and parsing. DNS is reported as partial because the

@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/webong/ext/res/system/media"
+	"github.com/webong/ext/res/system/capture/media"
 )
 
 // ErrDesktopUnavailable means a selected desktop mechanism cannot perform the

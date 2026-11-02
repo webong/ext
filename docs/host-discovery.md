@@ -159,7 +159,7 @@ or boot time. Linux applies cgroup v2 and v1 CPU and memory quotas; a missing or
 malformed cgroup file leaves the host value in place with an explicit
 `complete` or `partial` status. A platform that exposes no safe source reports
 `unsupported` instead of inventing a value. Network shape stays in
-`res/system/network` and is not repeated in the resource projection.
+`res/system/service/network` and is not repeated in the resource projection.
 
 Desktop discovery is a local, read-only observation. It reports whether this process can see an
 interactive native desktop, local X11 or Wayland endpoints, and recording prerequisites. It does

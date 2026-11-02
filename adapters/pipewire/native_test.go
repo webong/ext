@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/webong/ext/res/system/audio"
-	"github.com/webong/ext/res/system/media"
+	"github.com/webong/ext/res/system/capture/audio"
+	"github.com/webong/ext/res/system/capture/media"
 )
 
 // Opt-in means prerequisites and both streams are required, never silently

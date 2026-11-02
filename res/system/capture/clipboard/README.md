@@ -1,6 +1,6 @@
 # clipboard
 
-`github.com/webong/ext/res/system/clipboard` is the reusable, transport-free
+`github.com/webong/ext/res/system/capture/clipboard` is the reusable, transport-free
 system clipboard package inside the system shell module.
 It defines bounded multi-format snapshots, opaque generations, and conditional write and clear
 operations. The embedding application supplies a policy and native backend.

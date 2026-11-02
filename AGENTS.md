@@ -134,7 +134,7 @@ The reusable libraries are:
 
 - `res/web` for portable web contracts and workflows: browsers, WebAssembly inspection/execution through wazero (`res/web/wasm`), and the web engine that runs web content through browsers. It is also the iOS and Android module of the cookie, userscript and bookmarklet rules (`res/web/ios`, `res/web/android`), which `pkg/ext-ios` and `pkg/ext-android` ship, and owns the application-hosted WebView2 implementation in `res/web/windows`.
 - `lib/plugin` for the portable C plugin engine shared by the language bindings under `pkg/` (`ext-go`, `ext-rust`, `ext-zig`, `ext-ts`, `ext-python`) and the mobile SDKs.
-- `res/system` for the local operating-system substrate used to extend graphical and textual shells: host, shell, filesystem and volume mechanics, clipboard, credential integration, local interface/address/route/resolver observation, web view and process discovery, native surfaces, accessibility, permission state, bounded capture and media playback/capture, and atomic native input. It owns mechanisms, not authorization, remote control, routing services or consumer policy. Its subpackages include `res/system/clipboard`, `res/system/credential`, `res/system/graph`, `res/system/media`, `res/system/audio`, `res/system/network`, `res/system/service`, `res/system/share`, `res/system/supervisor`, and `res/system/volume`.
+- `res/system` for the local operating-system substrate used to extend graphical and textual shells: host, shell, filesystem and volume mechanics, clipboard, credential integration, local interface/address/route/resolver observation, web view and process discovery, native surfaces, accessibility, permission state, bounded capture and media playback/capture, and atomic native input. It owns mechanisms, not authorization, remote control, routing services or consumer policy. Its subpackages include `res/system/capture/clipboard`, `res/system/service/credential`, `res/system/graph`, `res/system/capture/media`, `res/system/capture/audio`, `res/system/service/network`, `res/system/service/user`, `res/system/capture/share`, `res/system/supervisor`, and `res/system/device/volume`.
 - `res/int` for portable intelligence contracts and mechanisms: `model` owns verified local model bundles, tensors, and native backends; `inference` owns generation, embedding, transcription, speech, and provider contracts; `perception` owns interpretation and observation types; `realtime` owns duplex session types. Providers, models, credentials, and policy are chosen by consumers.
 - `pkg/ext-go/engine` for the pure-Go engine, the oracle: the plugin contract, sessions, guests, packages, bridges and tooling (standard library only).
 - `pkg/ext-go/c2goengine` for the C engine's portable core translated to Go by ccgo (no cgo, no C compiler). The translation is generated per platform by its `tools` module and held against the pure-Go engine, the oracle, by `engine/plugintest/enginetest`; it depends on `engine` only.
@@ -211,23 +211,23 @@ The Go-only `res/web/wasm` package imports wazero but no plugin code;
 reaches `res/web/ios` through the links `Sources/ExtWeb` and `Sources/ExtWebKit` (a release stages
 real copies), and `pkg/ext-android` compiles the portable and Android source sets from
 `res/web/android` into its AAR. Edit web code in `res/web`, never in
-the SDKs. `res/system/clipboard` follows the same ownership model: its Swift
+the SDKs. `res/system/capture/clipboard` follows the same ownership model: its Swift
 target is linked into `pkg/ext-ios`, and its portable and Android Java source
 sets are compiled into the `pkg/ext-android` AAR. Edit clipboard code in
-`res/system/clipboard`. `res/system/network` follows that ownership model: its
+`res/system/capture/clipboard`. `res/system/service/network` follows that ownership model: its
 Swift target is linked into `pkg/ext-ios`, and its Java source sets are compiled
 into the `pkg/ext-android` AAR. Edit those implementations in `res/system`.
-`res/system/network` exposes local state only.
-`res/system/share` follows the same ownership model for mobile share and
+`res/system/service/network` exposes local state only.
+`res/system/capture/share` follows the same ownership model for mobile share and
 keyboard extensions: its Swift target ships through `pkg/ext-ios` as part of
 `ExtSystem`, and its Java source sets compile into the `pkg/ext-android` AAR.
 The Android share and keyboard binding classes live in
-`res/system/android/src/android`, beside the portable model. `res/system/service`
+`res/system/android/src/android`, beside the portable model. `res/system/service/user`
 owns portable per-user service definitions and their non-overwriting
 publication; the macOS launchd and Windows Task Scheduler backends are platform
-implementations in `res/system/service`, while `systemctl --user` is a
+implementations in `res/system/service/user`, while `systemctl --user` is a
 selectable native tool owned by `adapters/systemd`.
-`res/system/audio` owns portable device observation and bounded PCM stream
+`res/system/capture/audio` owns portable device observation and bounded PCM stream
 contracts; `pactl`/`parec`/`pacat`, `aplay`/`arecord`, `grim`/`wtype`/`ydotool`, `import`/`xdotool`,
 and `ffmpeg` are selectable native tools owned by `adapters/pulseaudio`,
 `adapters/alsa`, `adapters/wayland`, and `adapters/x11`. `adapters/pipewire`

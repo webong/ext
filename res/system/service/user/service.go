@@ -6,7 +6,7 @@
 // The package owns no product name, installation layout, data directory, port,
 // key provider, endpoint, or readiness protocol. The consumer supplies every
 // value that identifies its service.
-package service
+package user
 
 import (
 	"context"

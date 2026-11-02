@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"github.com/webong/ext/res/system/graph"
-	"github.com/webong/ext/res/system/program"
+	"github.com/webong/ext/res/system/service/program"
 )
 
 // AdapterObservation describes an installed adapter and any contexts it listed.

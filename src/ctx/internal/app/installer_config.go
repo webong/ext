@@ -10,7 +10,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/webong/ext/res/system/program"
+	"github.com/webong/ext/res/system/service/program"
 )
 
 // A configured installer is one the user described in their own home instead of

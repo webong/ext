@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/webong/ext/res/system/service"
+	"github.com/webong/ext/res/system/service/user"
 )
 
 type call struct {
@@ -74,13 +74,13 @@ func testManager(t *testing.T, run *fakeRunner) (*Manager, string) {
 	return manager, directory
 }
 
-func testSpec() service.Spec {
-	return service.Spec{
+func testSpec() user.Spec {
+	return user.Spec{
 		Name: "com.example.agent", Description: "Example agent",
 		Executable:       "/usr/local/bin/example-agent",
 		Arguments:        []string{"--serve"},
 		Environment:      map[string]string{"EXAMPLE_ROOT": "/var/lib/example"},
-		WorkingDirectory: "/var/lib/example", Restart: service.RestartOnFailure,
+		WorkingDirectory: "/var/lib/example", Restart: user.RestartOnFailure,
 	}
 }
 
@@ -102,7 +102,7 @@ func TestRegisterPublishesAndBootstraps(t *testing.T) {
 	}
 
 	repeated, err := manager.Register(context.Background(), testSpec())
-	if !errors.Is(err, service.ErrRegistered) || repeated.Registered {
+	if !errors.Is(err, user.ErrRegistered) || repeated.Registered {
 		t.Fatalf("repeated registration = %#v, %v", repeated, err)
 	}
 	if len(runner.fields) != 3 {
@@ -165,13 +165,13 @@ func TestStaleDefinitionIsRefused(t *testing.T) {
 	if err != nil || !status.Stale {
 		t.Fatalf("stale status = %#v, %v", status, err)
 	}
-	if err = manager.Start(context.Background(), testSpec()); !errors.Is(err, service.ErrStale) {
+	if err = manager.Start(context.Background(), testSpec()); !errors.Is(err, user.ErrStale) {
 		t.Fatalf("stale start = %v", err)
 	}
-	if err = manager.Stop(context.Background(), testSpec()); !errors.Is(err, service.ErrStale) {
+	if err = manager.Stop(context.Background(), testSpec()); !errors.Is(err, user.ErrStale) {
 		t.Fatalf("stale stop = %v", err)
 	}
-	if err = manager.Unregister(context.Background(), testSpec()); !errors.Is(err, service.ErrStale) {
+	if err = manager.Unregister(context.Background(), testSpec()); !errors.Is(err, user.ErrStale) {
 		t.Fatalf("stale unregister = %v", err)
 	}
 }
@@ -179,10 +179,10 @@ func TestStaleDefinitionIsRefused(t *testing.T) {
 func TestLifecycleRequiresPublishedDefinition(t *testing.T) {
 	runner := &fakeRunner{}
 	manager, _ := testManager(t, runner)
-	if err := manager.Start(context.Background(), testSpec()); !errors.Is(err, service.ErrNotInstalled) {
+	if err := manager.Start(context.Background(), testSpec()); !errors.Is(err, user.ErrNotInstalled) {
 		t.Fatalf("start without definition = %v", err)
 	}
-	if err := manager.Stop(context.Background(), testSpec()); !errors.Is(err, service.ErrNotInstalled) {
+	if err := manager.Stop(context.Background(), testSpec()); !errors.Is(err, user.ErrNotInstalled) {
 		t.Fatalf("stop without definition = %v", err)
 	}
 	status, err := manager.Status(context.Background(), testSpec())
@@ -210,10 +210,10 @@ func TestUnregisterKeepsDefinitionWhenManagerRejects(t *testing.T) {
 }
 
 func TestNewRejectsUnsafeConfiguration(t *testing.T) {
-	if _, err := New(Config{Directory: "relative", UID: 501}); !errors.Is(err, service.ErrInvalid) {
+	if _, err := New(Config{Directory: "relative", UID: 501}); !errors.Is(err, user.ErrInvalid) {
 		t.Fatalf("relative directory = %v", err)
 	}
-	if _, err := New(Config{Directory: t.TempDir(), UID: 0}); !errors.Is(err, service.ErrInvalid) {
+	if _, err := New(Config{Directory: t.TempDir(), UID: 0}); !errors.Is(err, user.ErrInvalid) {
 		t.Fatalf("root user = %v", err)
 	}
 }

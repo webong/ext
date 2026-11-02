@@ -121,14 +121,14 @@ the `pkg/ext-go/wasm` import while protocol-neutral consumers import
 `github.com/webong/ext/res/web/wasm`.
 
 Clipboard, credential and local network-observation code were consolidated into
-the `res/system` module as `res/system/clipboard`, `res/system/credential` and
-`res/system/network`. The historical `res/clipboard`, `res/credential` and
+the `res/system` module as `res/system/capture/clipboard`, `res/system/service/credential` and
+`res/system/service/network`. The historical `res/clipboard`, `res/credential` and
 `res/network` module paths are retired rather than reused. Clipboard and
 network Apple and Android source sets still reach applications through
 `pkg/ext-ios` and `pkg/ext-android`, so native-source changes are included in
 the corresponding mobile SDK releases. `ExtNetwork` and the Java
 `io.github.webong.ext.network` namespace remain stable even though their source
-is owned by `res/system/network`.
+is owned by `res/system/service/network`.
 
 The iOS SDK's engine and WAMR archives are released under that same tag; see
 [`pkg/ext-ios`](../pkg/ext-ios/README.md) and `scripts/ext-ios-release.sh`. It is

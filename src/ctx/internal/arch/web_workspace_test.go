@@ -24,7 +24,7 @@ func TestClipboardSDKSourceOwnership(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := filepath.Join(root, "res", "system", "clipboard", "ios", "Sources", "ExtClipboard")
+	want := filepath.Join(root, "res", "system", "capture", "clipboard", "ios", "Sources", "ExtClipboard")
 	if got != want {
 		t.Fatalf("ExtClipboard source = %s, want %s", got, want)
 	}
@@ -48,7 +48,7 @@ func TestNetworkSDKSourceOwnership(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := filepath.Join(root, "res", "system", "network", "ios", "Sources", "ExtNetwork")
+	want := filepath.Join(root, "res", "system", "service", "network", "ios", "Sources", "ExtNetwork")
 	if got != want {
 		t.Fatalf("ExtNetwork source = %s, want %s", got, want)
 	}

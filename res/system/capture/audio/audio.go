@@ -12,7 +12,7 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/webong/ext/res/system/media"
+	"github.com/webong/ext/res/system/capture/media"
 )
 
 const (

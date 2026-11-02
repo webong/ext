@@ -14,7 +14,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/webong/ext/res/system/service"
+	"github.com/webong/ext/res/system/service/user"
 )
 
 type Config struct {
@@ -23,41 +23,41 @@ type Config struct {
 	// UID is the non-root user whose GUI domain owns the agent.
 	UID int
 	// Run is optional; the default captures bounded native command output.
-	Run service.CommandRunner
+	Run user.CommandRunner
 }
 
 type Manager struct {
 	directory string
 	uid       int
-	run       service.CommandRunner
+	run       user.CommandRunner
 }
 
 func New(config Config) (*Manager, error) {
 	if !filepath.IsAbs(config.Directory) {
-		return nil, fmt.Errorf("%w: launch agent directory must be absolute", service.ErrInvalid)
+		return nil, fmt.Errorf("%w: launch agent directory must be absolute", user.ErrInvalid)
 	}
 	if config.UID <= 0 {
-		return nil, fmt.Errorf("%w: launch agents require a non-root user", service.ErrInvalid)
+		return nil, fmt.Errorf("%w: launch agents require a non-root user", user.ErrInvalid)
 	}
 	if config.Run == nil {
-		config.Run = service.ExecRunner
+		config.Run = user.ExecRunner
 	}
 	return &Manager{directory: filepath.Clean(config.Directory), uid: config.UID, run: config.Run}, nil
 }
 
-func (m *Manager) Platform() service.Platform { return service.PlatformDarwin }
+func (m *Manager) Platform() user.Platform { return user.PlatformDarwin }
 func (m *Manager) Name() string               { return "launchd" }
 
-func (m *Manager) Register(ctx context.Context, spec service.Spec) (service.Registration, error) {
-	def, err := service.Render(spec, service.PlatformDarwin)
+func (m *Manager) Register(ctx context.Context, spec user.Spec) (user.Registration, error) {
+	def, err := user.Render(spec, user.PlatformDarwin)
 	if err != nil {
-		return service.Registration{}, err
+		return user.Registration{}, err
 	}
 	if _, printErr := m.print(ctx, def.Identity); printErr == nil {
-		return service.Registration{Definition: def}, service.ErrRegistered
+		return user.Registration{Definition: def}, user.ErrRegistered
 	}
-	publication, err := service.Publish(def, m.directory)
-	registration := service.Registration{Definition: def, Publication: publication}
+	publication, err := user.Publish(def, m.directory)
+	registration := user.Registration{Definition: def, Publication: publication}
 	if err != nil {
 		return registration, err
 	}
@@ -69,12 +69,12 @@ func (m *Manager) Register(ctx context.Context, spec service.Spec) (service.Regi
 	return registration, nil
 }
 
-func (m *Manager) Unregister(ctx context.Context, spec service.Spec) error {
-	def, err := service.Render(spec, service.PlatformDarwin)
+func (m *Manager) Unregister(ctx context.Context, spec user.Spec) error {
+	def, err := user.Render(spec, user.PlatformDarwin)
 	if err != nil {
 		return err
 	}
-	if _, err = service.CheckDefinition(def, m.directory); err != nil {
+	if _, err = user.CheckDefinition(def, m.directory); err != nil {
 		return err
 	}
 	if _, bootErr := m.run(ctx, "", "/bin/launchctl", "bootout", m.domain()+"/"+def.Identity); bootErr != nil {
@@ -82,10 +82,10 @@ func (m *Manager) Unregister(ctx context.Context, spec service.Spec) error {
 			return fmt.Errorf("unregister launch agent: %w", bootErr)
 		}
 	}
-	return service.Remove(def, m.directory)
+	return user.Remove(def, m.directory)
 }
 
-func (m *Manager) Start(ctx context.Context, spec service.Spec) error {
+func (m *Manager) Start(ctx context.Context, spec user.Spec) error {
 	def, err := m.requireDefinition(spec)
 	if err != nil {
 		return err
@@ -96,7 +96,7 @@ func (m *Manager) Start(ctx context.Context, spec service.Spec) error {
 	return nil
 }
 
-func (m *Manager) Stop(ctx context.Context, spec service.Spec) error {
+func (m *Manager) Stop(ctx context.Context, spec user.Spec) error {
 	def, err := m.requireDefinition(spec)
 	if err != nil {
 		return err
@@ -110,16 +110,16 @@ func (m *Manager) Stop(ctx context.Context, spec service.Spec) error {
 	return nil
 }
 
-func (m *Manager) Status(ctx context.Context, spec service.Spec) (service.Status, error) {
-	def, err := service.Render(spec, service.PlatformDarwin)
+func (m *Manager) Status(ctx context.Context, spec user.Spec) (user.Status, error) {
+	def, err := user.Render(spec, user.PlatformDarwin)
 	if err != nil {
-		return service.Status{}, err
+		return user.Status{}, err
 	}
-	inspection, err := service.Inspect(def, m.directory)
+	inspection, err := user.Inspect(def, m.directory)
 	if err != nil {
-		return service.Status{}, err
+		return user.Status{}, err
 	}
-	status := service.Status{
+	status := user.Status{
 		Name: spec.Name, Manager: m.Name(), CheckedAt: time.Now().UTC(),
 		DefinitionPath: inspection.Path, DefinitionDigest: inspection.Digest,
 		Installed: inspection.Installed, Stale: inspection.Installed && !inspection.Matches,
@@ -128,7 +128,7 @@ func (m *Manager) Status(ctx context.Context, spec service.Spec) (service.Status
 	if printErr == nil {
 		status.Registered = true
 		status.Active = strings.Contains(strings.ToLower(string(output)), "state = running")
-		status.Detail = service.OutputText(output)
+		status.Detail = user.OutputText(output)
 	} else if status.Installed {
 		status.Detail = "service definition is installed but not registered"
 	} else {
@@ -137,17 +137,17 @@ func (m *Manager) Status(ctx context.Context, spec service.Spec) (service.Status
 	return status, nil
 }
 
-func (m *Manager) requireDefinition(spec service.Spec) (service.Definition, error) {
-	def, err := service.Render(spec, service.PlatformDarwin)
+func (m *Manager) requireDefinition(spec user.Spec) (user.Definition, error) {
+	def, err := user.Render(spec, user.PlatformDarwin)
 	if err != nil {
 		return def, err
 	}
-	inspection, err := service.CheckDefinition(def, m.directory)
+	inspection, err := user.CheckDefinition(def, m.directory)
 	if err != nil {
 		return def, err
 	}
 	if !inspection.Installed {
-		return def, service.ErrNotInstalled
+		return def, user.ErrNotInstalled
 	}
 	return def, nil
 }
@@ -158,4 +158,4 @@ func (m *Manager) print(ctx context.Context, label string) ([]byte, error) {
 
 func (m *Manager) domain() string { return "gui/" + strconv.Itoa(m.uid) }
 
-var _ service.Manager = (*Manager)(nil)
+var _ user.Manager = (*Manager)(nil)

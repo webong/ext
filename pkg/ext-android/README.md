@@ -21,7 +21,7 @@ Kotlin calls it directly.
   rather than guessing host values. Storage and battery absence are reported
   explicitly.
 - **Network** (`io.github.webong.ext.network`): bounded local interfaces,
-  assigned addresses, routes and DNS configuration from `res/system/network/android`.
+  assigned addresses, routes and DNS configuration from `res/system/service/network/android`.
 
 The web package lives in [`res/web/android`](../../res/web/android/README.md), imports nothing of the plugin
 package and loads no native library. It is still in the same AAR as the plugin code, so an app that wants only
@@ -239,7 +239,7 @@ scripts/web-android.sh          # the web part (res/web/android); needs a JDK on
 
 The AAR ships `io.github.webong.ext.clipboard` and
 `io.github.webong.ext.clipboard.android.SystemClipboard` from
-[`res/system/clipboard`](../../res/system/clipboard/README.md). The binding provides bounded,
+[`res/system/capture/clipboard`](../../res/system/capture/clipboard/README.md). The binding provides bounded,
 generation-checked access to the app-visible Android system clipboard without
 transport or approval UI.
 
@@ -263,7 +263,7 @@ event schema, extension registry, application identity, or launch policy.
 
 The AAR ships `io.github.webong.ext.network` and
 `io.github.webong.ext.network.android.SystemNetworkObserver` from
-[`res/system/network`](../../res/system/network/README.md). It reads interfaces and assigned
+[`res/system/service/network`](../../res/system/service/network/README.md). It reads interfaces and assigned
 addresses through the runtime, and reads local routes and DNS configuration
 through `ConnectivityManager` when `ACCESS_NETWORK_STATE` is granted. It does
 not use `INTERNET`, perform a lookup, or open a connection.

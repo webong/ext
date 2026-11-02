@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/webong/ext/res/system/media"
+	"github.com/webong/ext/res/system/capture/media"
 )
 
 func validSnapshot() Snapshot {

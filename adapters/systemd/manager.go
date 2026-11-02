@@ -1,5 +1,5 @@
 // Package systemd owns the native `systemctl --user` behavior behind the
-// portable res/system/service contract. It is not a res/system platform
+// portable res/system/service/user contract. It is not a res/system platform
 // implementation: Linux hosts may run a different service manager, so a
 // consumer selects this backend explicitly.
 package systemd
@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/webong/ext/res/system/service"
+	"github.com/webong/ext/res/system/service/user"
 )
 
 // Config names the caller's definition directory and, optionally, the systemctl
@@ -22,41 +22,41 @@ type Config struct {
 	// Executable defaults to "systemctl" on PATH.
 	Executable string
 	// Run is optional; the default captures bounded native command output.
-	Run service.CommandRunner
+	Run user.CommandRunner
 }
 
 type Manager struct {
 	directory  string
 	executable string
-	run        service.CommandRunner
+	run        user.CommandRunner
 }
 
 func New(config Config) (*Manager, error) {
 	if !filepath.IsAbs(config.Directory) {
-		return nil, fmt.Errorf("%w: systemd unit directory must be absolute", service.ErrInvalid)
+		return nil, fmt.Errorf("%w: systemd unit directory must be absolute", user.ErrInvalid)
 	}
 	if config.Executable == "" {
 		config.Executable = "systemctl"
 	}
 	if config.Run == nil {
-		config.Run = service.ExecRunner
+		config.Run = user.ExecRunner
 	}
 	return &Manager{directory: filepath.Clean(config.Directory), executable: config.Executable, run: config.Run}, nil
 }
 
-func (m *Manager) Platform() service.Platform { return service.PlatformLinux }
+func (m *Manager) Platform() user.Platform { return user.PlatformLinux }
 func (m *Manager) Name() string               { return "systemd" }
 
-func (m *Manager) Register(ctx context.Context, spec service.Spec) (service.Registration, error) {
-	def, err := service.Render(spec, service.PlatformLinux)
+func (m *Manager) Register(ctx context.Context, spec user.Spec) (user.Registration, error) {
+	def, err := user.Render(spec, user.PlatformLinux)
 	if err != nil {
-		return service.Registration{}, err
+		return user.Registration{}, err
 	}
 	if registered, _ := m.registered(ctx, def.Identity); registered {
-		return service.Registration{Definition: def}, service.ErrRegistered
+		return user.Registration{Definition: def}, user.ErrRegistered
 	}
-	publication, err := service.Publish(def, m.directory)
-	registration := service.Registration{Definition: def, Publication: publication}
+	publication, err := user.Publish(def, m.directory)
+	registration := user.Registration{Definition: def, Publication: publication}
 	if err != nil {
 		return registration, err
 	}
@@ -71,12 +71,12 @@ func (m *Manager) Register(ctx context.Context, spec service.Spec) (service.Regi
 	return registration, nil
 }
 
-func (m *Manager) Unregister(ctx context.Context, spec service.Spec) error {
-	def, err := service.Render(spec, service.PlatformLinux)
+func (m *Manager) Unregister(ctx context.Context, spec user.Spec) error {
+	def, err := user.Render(spec, user.PlatformLinux)
 	if err != nil {
 		return err
 	}
-	if _, err = service.CheckDefinition(def, m.directory); err != nil {
+	if _, err = user.CheckDefinition(def, m.directory); err != nil {
 		return err
 	}
 	registered, stateErr := m.registered(ctx, def.Identity)
@@ -88,14 +88,14 @@ func (m *Manager) Unregister(ctx context.Context, spec service.Spec) error {
 			return fmt.Errorf("unregister user unit: %w", err)
 		}
 	}
-	if err = service.Remove(def, m.directory); err != nil {
+	if err = user.Remove(def, m.directory); err != nil {
 		return err
 	}
 	_, reloadErr := m.run(ctx, "", m.executable, "--user", "daemon-reload")
 	return reloadErr
 }
 
-func (m *Manager) Start(ctx context.Context, spec service.Spec) error {
+func (m *Manager) Start(ctx context.Context, spec user.Spec) error {
 	def, err := m.requireDefinition(spec)
 	if err != nil {
 		return err
@@ -106,7 +106,7 @@ func (m *Manager) Start(ctx context.Context, spec service.Spec) error {
 	return nil
 }
 
-func (m *Manager) Stop(ctx context.Context, spec service.Spec) error {
+func (m *Manager) Stop(ctx context.Context, spec user.Spec) error {
 	def, err := m.requireDefinition(spec)
 	if err != nil {
 		return err
@@ -117,16 +117,16 @@ func (m *Manager) Stop(ctx context.Context, spec service.Spec) error {
 	return nil
 }
 
-func (m *Manager) Status(ctx context.Context, spec service.Spec) (service.Status, error) {
-	def, err := service.Render(spec, service.PlatformLinux)
+func (m *Manager) Status(ctx context.Context, spec user.Spec) (user.Status, error) {
+	def, err := user.Render(spec, user.PlatformLinux)
 	if err != nil {
-		return service.Status{}, err
+		return user.Status{}, err
 	}
-	inspection, err := service.Inspect(def, m.directory)
+	inspection, err := user.Inspect(def, m.directory)
 	if err != nil {
-		return service.Status{}, err
+		return user.Status{}, err
 	}
-	status := service.Status{
+	status := user.Status{
 		Name: spec.Name, Manager: m.Name(), CheckedAt: time.Now().UTC(),
 		DefinitionPath: inspection.Path, DefinitionDigest: inspection.Digest,
 		Installed: inspection.Installed, Stale: inspection.Installed && !inspection.Matches,
@@ -159,17 +159,17 @@ func (m *Manager) registered(ctx context.Context, unit string) (bool, error) {
 	return properties["LoadState"] != "not-found", nil
 }
 
-func (m *Manager) requireDefinition(spec service.Spec) (service.Definition, error) {
-	def, err := service.Render(spec, service.PlatformLinux)
+func (m *Manager) requireDefinition(spec user.Spec) (user.Definition, error) {
+	def, err := user.Render(spec, user.PlatformLinux)
 	if err != nil {
 		return def, err
 	}
-	inspection, err := service.CheckDefinition(def, m.directory)
+	inspection, err := user.CheckDefinition(def, m.directory)
 	if err != nil {
 		return def, err
 	}
 	if !inspection.Installed {
-		return def, service.ErrNotInstalled
+		return def, user.ErrNotInstalled
 	}
 	return def, nil
 }
@@ -185,7 +185,7 @@ func parseProperties(output []byte) map[string]string {
 	return properties
 }
 
-var _ service.Manager = (*Manager)(nil)
+var _ user.Manager = (*Manager)(nil)
 
 // ErrUnsupported reports a host without a systemd user manager.
 var ErrUnsupported = errors.New("systemd user services are unavailable")

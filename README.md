@@ -318,8 +318,8 @@ CTX and its ecosystem share public Go libraries:
   policy. Its Apple and Android bindings ship
   through the native SDKs, with additional Windows-native libraries in
   `res/system/windows`. Clipboard and credential integration are the
-  `res/system/clipboard` and `res/system/credential` packages; bounded local
-  network observation is `res/system/network`.
+  `res/system/capture/clipboard` and `res/system/service/credential` packages; bounded local
+  network observation is `res/system/service/network`.
 - `github.com/webong/ext/pkg/ext-go` supplies the shared host/guest contract,
   validation, selection, admission, and session lifecycle. Its implementations
   include `pkg/ext-go/engine/transport/inprocess`, `pkg/ext-go/engine/transport/jsonline`, `pkg/ext-go/hashicorp` (net/rpc and

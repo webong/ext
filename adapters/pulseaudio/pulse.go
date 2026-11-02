@@ -17,7 +17,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/webong/ext/res/system/audio"
+	"github.com/webong/ext/res/system/capture/audio"
 )
 
 // CommandRunner is the native command boundary. Output is captured and bounded

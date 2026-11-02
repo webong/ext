@@ -87,7 +87,7 @@ scripts/web-ios.sh            # swift test of res/web/ios; needs Swift, not the 
 ## Clipboard
 
 `ExtClipboard` ships the bounded clipboard values and caller-owned Apple native
-binding from [`res/system/clipboard`](../../res/system/clipboard/README.md). It supports macOS
+binding from [`res/system/capture/clipboard`](../../res/system/capture/clipboard/README.md). It supports macOS
 and iOS, requires an explicit format and byte policy, and performs no remote
 routing or approval UI.
 
@@ -103,7 +103,7 @@ native handles, captures pixels, sends input, prompts, opens settings, or routes
 ### Share and keyboard extensions
 
 `ExtSystem` also ships the bounded share model from
-[`res/system/share`](../../res/system/share/README.md) and its iOS bindings:
+[`res/system/capture/share`](../../res/system/capture/share/README.md) and its iOS bindings:
 `ShareExtensionLoader` normalizes `NSExtensionItem` text, links, and file
 attachments, and `KeyboardEditor` reads selection and context, inserts and
 deletes text, submits the editor action, and advances keyboards. Attachment
@@ -114,7 +114,7 @@ application identifier.
 
 ## Network observation
 
-`ExtNetwork` ships [`res/system/network`](../../res/system/network/README.md)'s bounded local
+`ExtNetwork` ships [`res/system/service/network`](../../res/system/service/network/README.md)'s bounded local
 interface and assigned-address observation. On macOS, route-table observation
 uses `netstat -rn` and DNS resolver observation uses `scutil --dns`; both are
 local-only and report `unsupported` when the system binary is unavailable. On

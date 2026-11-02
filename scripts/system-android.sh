@@ -15,10 +15,10 @@ javac -Xlint:all -Werror -d "$build/portable" \
   res/system/android/src/test/java/io/github/webong/ext/system/*.java \
   res/system/android/src/test/java/io/github/webong/ext/system/share/*.java \
   res/system/android/src/test/java/io/github/webong/ext/system/keyboard/*.java \
-  res/system/clipboard/android/src/main/java/io/github/webong/ext/clipboard/*.java \
-  res/system/clipboard/android/src/test/java/io/github/webong/ext/clipboard/*.java \
-  res/system/network/android/src/main/java/io/github/webong/ext/network/*.java \
-  res/system/network/android/src/test/java/io/github/webong/ext/network/*.java
+  res/system/capture/clipboard/android/src/main/java/io/github/webong/ext/clipboard/*.java \
+  res/system/capture/clipboard/android/src/test/java/io/github/webong/ext/clipboard/*.java \
+  res/system/service/network/android/src/main/java/io/github/webong/ext/network/*.java \
+  res/system/service/network/android/src/test/java/io/github/webong/ext/network/*.java
 java -ea -cp "$build/portable" io.github.webong.ext.system.SurfaceTests
 java -ea -cp "$build/portable" io.github.webong.ext.system.ResourceTests
 java -ea -cp "$build/portable" io.github.webong.ext.system.share.ShareTests
@@ -27,5 +27,5 @@ java -ea -cp "$build/portable" io.github.webong.ext.clipboard.ClipboardTests
 java -ea -cp "$build/portable" io.github.webong.ext.network.NetworkTests
 javac -Xlint:all -Werror -classpath "$platform:$build/portable" -d "$build/android" \
   res/system/android/src/android/java/io/github/webong/ext/system/android/*.java \
-  res/system/clipboard/android/src/android/java/io/github/webong/ext/clipboard/android/*.java \
-  res/system/network/android/src/android/java/io/github/webong/ext/network/android/*.java
+  res/system/capture/clipboard/android/src/android/java/io/github/webong/ext/clipboard/android/*.java \
+  res/system/service/network/android/src/android/java/io/github/webong/ext/network/android/*.java

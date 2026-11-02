@@ -77,7 +77,7 @@ can declare `executable_windows` alongside its default executable; the native
 core selects the platform implementation at runtime while keeping one manifest,
 capability set, and trust record.
 
-`systemd` implements the `res/system/service` contract for a per-user
+`systemd` implements the `res/system/service/user` contract for a per-user
 `systemctl --user` manager. It owns unit naming, registration ordering, status
 parsing, and the closed set of forwarded user-manager operations; the shared
 system library never selects it by name. A Linux host that uses another service

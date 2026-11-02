@@ -189,7 +189,7 @@ reference. CTX invokes `share "" -- credential get <item>` to receive up to
 `--replace` is present and must not print the value in diagnostics. Its item
 syntax and native lookup behavior are adapter-owned. See
 [native credentials](credentials.md) for the CLI and security contract.
-Browser adapters can use `res/system/credential/client.GetDeclared` to request an item
+Browser adapters can use `res/system/service/credential/client.GetDeclared` to request an item
 through CTX rather than importing a store implementation package. The host
 checks the installed adapter's trust and API before dispatching.
 
@@ -295,7 +295,7 @@ with the same limits as `observe`:
 
 CTX keeps only records for names it asked about and only paths that are existing
 executables, joins them with a scan of `PATH` by resolved path
-(`res/system/program`), and gives each adapter that declares `computer_commands`
+(`res/system/service/program`), and gives each adapter that declares `computer_commands`
 the candidates for its commands in `EXT_PROGRAMS`: one line per candidate with
 tab-separated `name`, `path`, `realpath`, `version`, `installers` and `on_path`.
 The adapter decides what each one is and whether it is usable. See

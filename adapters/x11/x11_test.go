@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/webong/ext/res/system"
-	"github.com/webong/ext/res/system/media"
+	"github.com/webong/ext/res/system/capture/media"
 )
 
 func pngFixture(t *testing.T, width, height int) []byte {

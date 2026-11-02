@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/webong/ext/res/system/media"
+	"github.com/webong/ext/res/system/capture/media"
 )
 
 type fakeDesktopDriver struct {

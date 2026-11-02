@@ -1,7 +1,7 @@
 // Package volume provides bounded snapshot and restore mechanics for a
 // caller-selected local volume or directory. Identity, authorization,
 // retention, and transport policy belong to the caller.
-package volume
+package image
 
 import (
 	"archive/tar"

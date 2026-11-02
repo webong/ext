@@ -2,7 +2,7 @@
 
 package app
 
-import "github.com/webong/ext/res/system/clipboard"
+import "github.com/webong/ext/res/system/capture/clipboard"
 
 func nativeClipboardBackend() (clipboard.Backend, bool) {
 	return clipboard.WindowsBackend(), true

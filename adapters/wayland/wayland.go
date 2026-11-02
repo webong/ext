@@ -23,7 +23,7 @@ import (
 	"time"
 
 	"github.com/webong/ext/res/system"
-	"github.com/webong/ext/res/system/media"
+	"github.com/webong/ext/res/system/capture/media"
 )
 
 type CommandRunner func(context.Context, string, ...string) ([]byte, error)

@@ -12,44 +12,44 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/webong/ext/res/system/service"
+	"github.com/webong/ext/res/system/service/user"
 )
 
 type Config struct {
 	// Directory is the caller-selected directory for the task XML definition.
 	Directory string
 	// Run is optional; the default captures bounded native command output.
-	Run service.CommandRunner
+	Run user.CommandRunner
 }
 
 type Manager struct {
 	directory string
-	run       service.CommandRunner
+	run       user.CommandRunner
 }
 
 func New(config Config) (*Manager, error) {
 	if !filepath.IsAbs(config.Directory) {
-		return nil, fmt.Errorf("%w: task definition directory must be absolute", service.ErrInvalid)
+		return nil, fmt.Errorf("%w: task definition directory must be absolute", user.ErrInvalid)
 	}
 	if config.Run == nil {
-		config.Run = service.ExecRunner
+		config.Run = user.ExecRunner
 	}
 	return &Manager{directory: filepath.Clean(config.Directory), run: config.Run}, nil
 }
 
-func (m *Manager) Platform() service.Platform { return service.PlatformWindows }
+func (m *Manager) Platform() user.Platform { return user.PlatformWindows }
 func (m *Manager) Name() string               { return "taskscheduler" }
 
-func (m *Manager) Register(ctx context.Context, spec service.Spec) (service.Registration, error) {
-	def, err := service.Render(spec, service.PlatformWindows)
+func (m *Manager) Register(ctx context.Context, spec user.Spec) (user.Registration, error) {
+	def, err := user.Render(spec, user.PlatformWindows)
 	if err != nil {
-		return service.Registration{}, err
+		return user.Registration{}, err
 	}
 	if _, queryErr := m.query(ctx, def.Identity); queryErr == nil {
-		return service.Registration{Definition: def}, service.ErrRegistered
+		return user.Registration{Definition: def}, user.ErrRegistered
 	}
-	publication, err := service.Publish(def, m.directory)
-	registration := service.Registration{Definition: def, Publication: publication}
+	publication, err := user.Publish(def, m.directory)
+	registration := user.Registration{Definition: def, Publication: publication}
 	if err != nil {
 		return registration, err
 	}
@@ -62,12 +62,12 @@ func (m *Manager) Register(ctx context.Context, spec service.Spec) (service.Regi
 	return registration, nil
 }
 
-func (m *Manager) Unregister(ctx context.Context, spec service.Spec) error {
-	def, err := service.Render(spec, service.PlatformWindows)
+func (m *Manager) Unregister(ctx context.Context, spec user.Spec) error {
+	def, err := user.Render(spec, user.PlatformWindows)
 	if err != nil {
 		return err
 	}
-	if _, err = service.CheckDefinition(def, m.directory); err != nil {
+	if _, err = user.CheckDefinition(def, m.directory); err != nil {
 		return err
 	}
 	if _, deleteErr := m.run(ctx, "", "schtasks.exe", "/Delete", "/TN", def.Identity, "/F"); deleteErr != nil {
@@ -75,10 +75,10 @@ func (m *Manager) Unregister(ctx context.Context, spec service.Spec) error {
 			return fmt.Errorf("unregister scheduled task: %w", deleteErr)
 		}
 	}
-	return service.Remove(def, m.directory)
+	return user.Remove(def, m.directory)
 }
 
-func (m *Manager) Start(ctx context.Context, spec service.Spec) error {
+func (m *Manager) Start(ctx context.Context, spec user.Spec) error {
 	def, err := m.requireDefinition(spec)
 	if err != nil {
 		return err
@@ -89,7 +89,7 @@ func (m *Manager) Start(ctx context.Context, spec service.Spec) error {
 	return nil
 }
 
-func (m *Manager) Stop(ctx context.Context, spec service.Spec) error {
+func (m *Manager) Stop(ctx context.Context, spec user.Spec) error {
 	def, err := m.requireDefinition(spec)
 	if err != nil {
 		return err
@@ -102,16 +102,16 @@ func (m *Manager) Stop(ctx context.Context, spec service.Spec) error {
 	return nil
 }
 
-func (m *Manager) Status(ctx context.Context, spec service.Spec) (service.Status, error) {
-	def, err := service.Render(spec, service.PlatformWindows)
+func (m *Manager) Status(ctx context.Context, spec user.Spec) (user.Status, error) {
+	def, err := user.Render(spec, user.PlatformWindows)
 	if err != nil {
-		return service.Status{}, err
+		return user.Status{}, err
 	}
-	inspection, err := service.Inspect(def, m.directory)
+	inspection, err := user.Inspect(def, m.directory)
 	if err != nil {
-		return service.Status{}, err
+		return user.Status{}, err
 	}
-	status := service.Status{
+	status := user.Status{
 		Name: spec.Name, Manager: m.Name(), CheckedAt: time.Now().UTC(),
 		DefinitionPath: inspection.Path, DefinitionDigest: inspection.Digest,
 		Installed: inspection.Installed, Stale: inspection.Installed && !inspection.Matches,
@@ -120,7 +120,7 @@ func (m *Manager) Status(ctx context.Context, spec service.Spec) (service.Status
 	if queryErr == nil {
 		status.Registered = true
 		status.Active = taskStatus(output)
-		status.Detail = service.OutputText(output)
+		status.Detail = user.OutputText(output)
 	} else if status.Installed {
 		status.Detail = "service definition is installed but not registered"
 	} else {
@@ -129,17 +129,17 @@ func (m *Manager) Status(ctx context.Context, spec service.Spec) (service.Status
 	return status, nil
 }
 
-func (m *Manager) requireDefinition(spec service.Spec) (service.Definition, error) {
-	def, err := service.Render(spec, service.PlatformWindows)
+func (m *Manager) requireDefinition(spec user.Spec) (user.Definition, error) {
+	def, err := user.Render(spec, user.PlatformWindows)
 	if err != nil {
 		return def, err
 	}
-	inspection, err := service.CheckDefinition(def, m.directory)
+	inspection, err := user.CheckDefinition(def, m.directory)
 	if err != nil {
 		return def, err
 	}
 	if !inspection.Installed {
-		return def, service.ErrNotInstalled
+		return def, user.ErrNotInstalled
 	}
 	return def, nil
 }
@@ -148,4 +148,4 @@ func (m *Manager) query(ctx context.Context, name string) ([]byte, error) {
 	return m.run(ctx, "", "schtasks.exe", "/Query", "/TN", name, "/FO", "LIST", "/V")
 }
 
-var _ service.Manager = (*Manager)(nil)
+var _ user.Manager = (*Manager)(nil)

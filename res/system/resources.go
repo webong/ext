@@ -16,7 +16,7 @@ import (
 // resources. Container-adjusted values never guess: a field whose native source
 // is unavailable carries a non-complete status instead of the host value.
 //
-// It is local host state only. Network shape stays in res/system/network and is
+// It is local host state only. Network shape stays in res/system/service/network and is
 // never duplicated here.
 type ResourceInfo struct {
 	OS                  string           `json:"os"`

@@ -9,7 +9,7 @@ import (
 
 	"github.com/webong/ext/adapters/pulseaudio"
 	"github.com/webong/ext/pkg/ext-go/cgoengine"
-	"github.com/webong/ext/res/system/audio"
+	"github.com/webong/ext/res/system/capture/audio"
 )
 
 func main() {

@@ -2,7 +2,7 @@
 # Stage a release of the Android SDK (plugin, web, clipboard, system, and network code) as an AAR under dist/ext-android-<version>/:
 # ext-android-<version>.aar, or ext-android-wamr-<version>.aar with --with-wamr. The two builds
 # share the directory, so a release stages both in turn.
-# The AAR holds the guest SDK, WebView host, web rules, native clipboard binding,
+# The AAR holds the guest SDK, package store, WebView host, web rules, native clipboard binding,
 # and local system shell support (classes.jar), plus libextjni for arm64-v8a and
 # x86_64. It publishes nothing. Needs the Android SDK (platform, build-tools, NDK), a JDK, cmake.
 #
@@ -87,6 +87,8 @@ elif [[ "$wamr_entries" != 0 ]]; then
 fi
 unzip -p "$out/$aar_name" classes.jar >"$work/check.jar"
 classes="$(unzip -Z1 "$work/check.jar")"
+grep -qx 'io/github/webong/ext/plugin/PackageStore.class' <<<"$classes" || { echo 'classes.jar is missing the package store' >&2; exit 1; }
+grep -qx 'io/github/webong/ext/plugin/LayeredPackageStore.class' <<<"$classes" || { echo 'classes.jar is missing the layered package store' >&2; exit 1; }
 grep -qx 'io/github/webong/ext/web/android/BrowserWorkspace.class' <<<"$classes" || { echo 'classes.jar is missing the browser workspace'; exit 1; }
 for entry in BundleRunner BundleServer BundleAssets; do
   grep -qx "io/github/webong/ext/web/android/$entry.class" <<<"$classes" || { echo "classes.jar is missing $entry" >&2; exit 1; }

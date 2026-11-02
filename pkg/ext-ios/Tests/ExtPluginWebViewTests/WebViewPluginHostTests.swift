@@ -30,15 +30,17 @@ final class WebViewPluginHostTests: XCTestCase {
     /// Starts one throwaway web view before the first test uses one. The first web view in a
     /// freshly booted simulator can take tens of seconds to start (32 s cold, about 3 s warm,
     /// on a development machine), and on a hosted macOS 15 runner (Xcode 16.4, iOS 18.5) the
-    /// first two starts each overran 120 s before the third answered at once. The probe is a
-    /// command module, which the page refuses with its reason, so it proves the page ran
-    /// without needing the reactor. The first wait is long and the retries are short, and the
-    /// time is printed so a slow image shows in the log instead of as a failed test.
+    /// first two starts each overran 120 s before the third answered at once. In two later
+    /// runs the engine answered after 385 s, and after 453 s (a 360 s wait overran and the
+    /// retry answered 91 s later). The probe is a command module, which the page refuses with
+    /// its reason, so it proves the page ran without needing the reactor. The first wait is
+    /// long and the retries shorter, and the time is printed so a slow image shows in the log
+    /// instead of as a failed test.
     private func warmUp() async throws {
         guard !Self.webEngineIsWarm else { return }
         let began = Date()
         var timeouts = 0
-        for timeout in [360.0, 120, 120] {
+        for timeout in [600.0, 180, 180] {
             let probe = WebViewPluginHost(module: Self.command, bridge: try shim())
             defer { probe.close() }
             do {

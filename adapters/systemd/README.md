@@ -1,7 +1,7 @@
 # systemd service adapter
 
 `github.com/webong/ext/adapters/systemd` implements the portable
-`res/system/service` contract for a per-user systemd manager. It owns
+`res/system/service/user` contract for a per-user systemd manager. It owns
 `systemctl --user` invocation, unit naming, status parsing, and registration
 ordering; the caller supplies the unit directory, service name, executable,
 arguments, environment, working directory, restart policy, and any readiness

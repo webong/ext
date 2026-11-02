@@ -8,8 +8,8 @@ import (
 	"os/exec"
 	"sync"
 
-	"github.com/webong/ext/res/system/audio"
-	"github.com/webong/ext/res/system/media"
+	"github.com/webong/ext/res/system/capture/audio"
+	"github.com/webong/ext/res/system/capture/media"
 )
 
 // Format is the caller's PCM16 stream format. PulseAudio tools accept the same

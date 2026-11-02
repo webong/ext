@@ -13,7 +13,7 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/webong/ext/res/system/credential/adapterkit"
+	"github.com/webong/ext/res/system/service/credential/adapterkit"
 )
 
 func TestNativeCredentialManagerRoundTrip(t *testing.T) {

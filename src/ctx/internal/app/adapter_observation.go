@@ -7,8 +7,8 @@ import (
 	"io"
 	"strings"
 
-	systemgraph "github.com/webong/ext/res/system"
-	"github.com/webong/ext/res/system/graph"
+	systemgraph "github.com/webong/ext/res/graph"
+	"github.com/webong/ext/res/graph/store"
 )
 
 const maxAdapterObservationBytes = 1 << 20
@@ -67,7 +67,7 @@ func parseAdapterObservation(data []byte, declaredCapabilities, declaredSupports
 			return nil, nil, nil, fmt.Errorf("adapter observation has an invalid or duplicate context")
 		}
 		contexts[item.Selection] = true
-		if err := graph.ValidateAttributes(item.Attributes); err != nil {
+		if err := store.ValidateAttributes(item.Attributes); err != nil {
 			return nil, nil, nil, fmt.Errorf("adapter context metadata is invalid: %w", err)
 		}
 		for _, capability := range item.Capabilities {
@@ -95,7 +95,7 @@ func parseAdapterObservation(data []byte, declaredCapabilities, declaredSupports
 			return nil, nil, nil, fmt.Errorf("adapter observation has an invalid or duplicate resource")
 		}
 		resourceIDs[item.ID] = true
-		if err := graph.ValidateAttributes(item.Attributes); err != nil {
+		if err := store.ValidateAttributes(item.Attributes); err != nil {
 			return nil, nil, nil, fmt.Errorf("adapter resource metadata is invalid: %w", err)
 		}
 		resources = append(resources, systemgraph.ResourceObservation{ID: item.ID, Kind: item.Kind, Context: item.Context, Attributes: item.Attributes})

@@ -10,8 +10,11 @@ import (
 	"time"
 
 	"github.com/webong/ext/ctx/internal/config"
-	systemgraph "github.com/webong/ext/res/system"
-	"github.com/webong/ext/res/system/graph"
+	systemgraph "github.com/webong/ext/res/graph"
+	systemsurface "github.com/webong/ext/res/system/capture/surface"
+	"github.com/webong/ext/res/graph/store"
+	systemhost "github.com/webong/ext/res/system/service/host"
+	systemprocess "github.com/webong/ext/res/system/service/process"
 )
 
 func graphCommand(args []string, stdout, stderr io.Writer) int {
@@ -46,31 +49,31 @@ func graphCommand(args []string, stdout, stderr io.Writer) int {
 		var result any
 		switch args[0] {
 		case "shells":
-			inventory.Shells, err = systemgraph.DiscoverShells(ctx)
+			inventory.Shells, err = systemhost.DiscoverShells(ctx)
 			result = inventory.Shells
 		case "filesystems":
-			inventory.Filesystems, err = systemgraph.DiscoverFilesystems(ctx)
+			inventory.Filesystems, err = systemhost.DiscoverFilesystems(ctx)
 			result = inventory.Filesystems
 		case "webviews":
-			inventory.Webviews, err = systemgraph.DiscoverWebviews(ctx)
+			inventory.Webviews, err = systemhost.DiscoverWebviews(ctx)
 			result = inventory.Webviews
 		case "surfaces":
-			surfaces, surfaceErr := systemgraph.DiscoverSurfaces(ctx, systemgraph.SurfaceOptions{})
+			surfaces, surfaceErr := systemsurface.DiscoverSurfaces(ctx, systemsurface.SurfaceOptions{})
 			err = surfaceErr
 			inventory.Surfaces = &surfaces
 			result = surfaces
 		case "accessibility":
-			accessibility, accessibilityErr := systemgraph.DiscoverAccessibility(ctx, systemgraph.AccessibilityOptions{})
+			accessibility, accessibilityErr := systemsurface.DiscoverAccessibility(ctx, systemsurface.AccessibilityOptions{})
 			err = accessibilityErr
 			inventory.Accessibility = &accessibility
 			result = accessibility
 		case "permissions":
-			permissions, permissionErr := systemgraph.DiscoverPermissions(ctx)
+			permissions, permissionErr := systemsurface.DiscoverPermissions(ctx)
 			err = permissionErr
 			inventory.Permissions = &permissions
 			result = permissions
 		case "resources":
-			resources, resourceErr := systemgraph.DiscoverResources(ctx)
+			resources, resourceErr := systemhost.DiscoverResources(ctx)
 			err = resourceErr
 			inventory.Resources = &resources
 			result = resources
@@ -94,7 +97,7 @@ func graphCommand(args []string, stdout, stderr io.Writer) int {
 		if err != nil {
 			return reportError(stderr, err)
 		}
-		processes, err := system.ScanProcesses(ctx, systemgraph.ProcessOptions{})
+		processes, err := system.ScanProcesses(ctx, systemprocess.ProcessOptions{})
 		if err != nil {
 			return reportError(stderr, err)
 		}
@@ -248,7 +251,7 @@ func graphCommand(args []string, stdout, stderr io.Writer) int {
 				kind = systemgraph.Namespace + "/" + kind
 			}
 		}
-		values, err := system.Store.QueryVertices(ctx, graph.VertexQuery{Namespace: systemgraph.Namespace, Kind: kind, Limit: 1000})
+		values, err := system.Store.QueryVertices(ctx, store.VertexQuery{Namespace: systemgraph.Namespace, Kind: kind, Limit: 1000})
 		if err != nil {
 			fmt.Fprintf(stderr, "ctx: %v\n", err)
 			return 1
@@ -270,7 +273,7 @@ func graphCommand(args []string, stdout, stderr io.Writer) int {
 				relationship = systemgraph.Namespace + "/" + relationship
 			}
 		}
-		values, err := system.Store.QueryEdges(ctx, graph.EdgeQuery{Namespace: systemgraph.Namespace, Type: relationship, Limit: 1000})
+		values, err := system.Store.QueryEdges(ctx, store.EdgeQuery{Namespace: systemgraph.Namespace, Type: relationship, Limit: 1000})
 		if err != nil {
 			fmt.Fprintf(stderr, "ctx: %v\n", err)
 			return 1

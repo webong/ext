@@ -5,44 +5,44 @@ import (
 	"strings"
 	"testing"
 
-	systemgraph "github.com/webong/ext/res/system"
+	systemsurface "github.com/webong/ext/res/system/capture/surface"
 )
 
 func TestParseDesktopInputShapes(t *testing.T) {
 	cases := map[string]struct {
 		args  []string
-		kind  systemgraph.SurfaceInputKind
-		check func(systemgraph.SurfaceInput) bool
+		kind  systemsurface.SurfaceInputKind
+		check func(systemsurface.SurfaceInput) bool
 	}{
 		"text": {
-			args: []string{"--text=--value"}, kind: systemgraph.SurfaceInputText,
-			check: func(input systemgraph.SurfaceInput) bool { return input.Text == "--value" },
+			args: []string{"--text=--value"}, kind: systemsurface.SurfaceInputText,
+			check: func(input systemsurface.SurfaceInput) bool { return input.Text == "--value" },
 		},
 		"key": {
 			args: []string{"--key", "t", "--modifier", "command", "--modifier", "shift"},
-			kind: systemgraph.SurfaceInputKey,
-			check: func(input systemgraph.SurfaceInput) bool {
+			kind: systemsurface.SurfaceInputKey,
+			check: func(input systemsurface.SurfaceInput) bool {
 				return input.Key == "t" && len(input.Modifiers) == 2
 			},
 		},
 		"click": {
 			args: []string{"--click", "10,20", "--button", "right"},
-			kind: systemgraph.SurfaceInputClick,
-			check: func(input systemgraph.SurfaceInput) bool {
-				return input.Point == (systemgraph.SurfacePoint{X: 10, Y: 20}) && input.Button == "right"
+			kind: systemsurface.SurfaceInputClick,
+			check: func(input systemsurface.SurfaceInput) bool {
+				return input.Point == (systemsurface.SurfacePoint{X: 10, Y: 20}) && input.Button == "right"
 			},
 		},
 		"drag": {
-			args: []string{"--drag", "1,2,3,4"}, kind: systemgraph.SurfaceInputDrag,
-			check: func(input systemgraph.SurfaceInput) bool {
-				return input.Point == (systemgraph.SurfacePoint{X: 1, Y: 2}) &&
-					input.End == (systemgraph.SurfacePoint{X: 3, Y: 4})
+			args: []string{"--drag", "1,2,3,4"}, kind: systemsurface.SurfaceInputDrag,
+			check: func(input systemsurface.SurfaceInput) bool {
+				return input.Point == (systemsurface.SurfacePoint{X: 1, Y: 2}) &&
+					input.End == (systemsurface.SurfacePoint{X: 3, Y: 4})
 			},
 		},
 		"scroll": {
-			args: []string{"--scroll", "5,6,-120,240"}, kind: systemgraph.SurfaceInputScroll,
-			check: func(input systemgraph.SurfaceInput) bool {
-				return input.Point == (systemgraph.SurfacePoint{X: 5, Y: 6}) &&
+			args: []string{"--scroll", "5,6,-120,240"}, kind: systemsurface.SurfaceInputScroll,
+			check: func(input systemsurface.SurfaceInput) bool {
+				return input.Point == (systemsurface.SurfacePoint{X: 5, Y: 6}) &&
 					input.DeltaX == -120 && input.DeltaY == 240
 			},
 		},

@@ -71,7 +71,7 @@ copy of the native implementation.
 
 ## Per-user services
 
-`res/system/service` renders and publishes per-user launchd property lists,
+`res/system/service/user` renders and publishes per-user launchd property lists,
 systemd units, and Task Scheduler XML. Publication stages a complete file and
 links it into place, so an existing file is never replaced silently and a
 filesystem without hard links fails closed. Registration, unregistration,
@@ -79,7 +79,7 @@ start, stop, and status go through a `service.Manager` the consumer selects;
 the shared package never picks a backend by name.
 
 launchd and Task Scheduler are the operating system's own mechanism and ship in
-`res/system/service/launchd` and `res/system/service/taskscheduler`. systemd's
+`res/system/service/user/launchd` and `res/system/service/user/taskscheduler`. systemd's
 `systemctl --user` is a selectable native tool, so its backend lives in
 `adapters/systemd`. The consumer supplies the service name, executable,
 arguments, environment, working directory, restart policy, definition
@@ -88,7 +88,7 @@ name, installation layout, port, or health endpoint.
 
 ## Linux audio and desktop tools
 
-`res/system/audio` defines device observation and bounded PCM16 capture and
+`res/system/capture/audio` defines device observation and bounded PCM16 capture and
 playback interfaces. `adapters/pulseaudio` implements them with `pactl`,
 `parec`, and `pacat`; `adapters/alsa` implements them with `aplay -L`,
 `arecord -L`, `aplay`, and `arecord`. `adapters/pipewire` implements them with

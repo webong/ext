@@ -42,7 +42,9 @@ var pluginRequires = map[string][]string{
 	"pkg/ext-go/realtime":   {"pkg/ext-go/engine", "res/int"},
 	"res/int":               {},
 	"res/web":               {},
-	"pkg/ext-go":            {"pkg/ext-go/engine", "pkg/ext-go/cgoengine", "pkg/ext-go/c2goengine", "pkg/ext-go/wasm", "pkg/ext-go/hashicorp", "pkg/ext-go/inference", "pkg/ext-go/model", "pkg/ext-go/perception", "pkg/ext-go/realtime", "res/system", "res/web"},
+	"res/system":            {},
+	"res/graph":             {"res/system"},
+	"pkg/ext-go":            {"pkg/ext-go/engine", "pkg/ext-go/cgoengine", "pkg/ext-go/c2goengine", "pkg/ext-go/wasm", "pkg/ext-go/hashicorp", "pkg/ext-go/inference", "pkg/ext-go/model", "pkg/ext-go/perception", "pkg/ext-go/realtime", "res/graph", "res/web"},
 }
 
 var requireLine = regexp.MustCompile(`(?m)^\s*(?:require\s+)?(github\.com/webong/ext/\S+)\s+v\S+`)

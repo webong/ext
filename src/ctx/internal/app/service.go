@@ -11,9 +11,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/webong/ext/res/system/service"
-	"github.com/webong/ext/res/system/service/launchd"
-	"github.com/webong/ext/res/system/service/taskscheduler"
+	"github.com/webong/ext/res/system/service/user"
+	"github.com/webong/ext/res/system/service/user/launchd"
+	"github.com/webong/ext/res/system/service/user/taskscheduler"
 )
 
 func serviceCommand(args []string, stdout, stderr io.Writer) int {
@@ -33,16 +33,16 @@ func serviceCommand(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "ctx: %v\n", err)
 		return 2
 	}
-	platform := service.Platform(runtime.GOOS)
+	platform := user.Platform(runtime.GOOS)
 	if options.platform != "" {
-		platform = service.Platform(options.platform)
+		platform = user.Platform(options.platform)
 	}
-	spec, err := service.ValidateSpec(options.spec, platform)
+	spec, err := user.ValidateSpec(options.spec, platform)
 	if err != nil {
 		return reportError(stderr, err)
 	}
 	if action == "render" {
-		definition, err := service.Render(spec, platform)
+		definition, err := user.Render(spec, platform)
 		if err != nil {
 			return reportError(stderr, err)
 		}
@@ -52,7 +52,7 @@ func serviceCommand(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprint(stdout, definition.Content)
 		return 0
 	}
-	if options.platform != "" && service.Platform(options.platform) != service.Platform(runtime.GOOS) {
+	if options.platform != "" && user.Platform(options.platform) != user.Platform(runtime.GOOS) {
 		fmt.Fprintf(stderr, "ctx: service lifecycle runs on %s; render a %s definition instead\n", runtime.GOOS, options.platform)
 		return 2
 	}
@@ -111,7 +111,7 @@ func serviceCommand(args []string, stdout, stderr io.Writer) int {
 }
 
 type serviceOptions struct {
-	spec      service.Spec
+	spec      user.Spec
 	directory string
 	platform  string
 	json      bool
@@ -181,7 +181,7 @@ func parseServiceOptions(args []string) (serviceOptions, error) {
 			if err != nil {
 				return options, err
 			}
-			options.spec.Restart = service.RestartPolicy(value)
+			options.spec.Restart = user.RestartPolicy(value)
 		case "--restart-seconds":
 			value, err := value()
 			if err != nil {
@@ -226,7 +226,7 @@ func parseServiceOptions(args []string) (serviceOptions, error) {
 // systemd is a selectable native tool delivered as adapters/systemd, which ctx
 // core does not link; render a unit with --platform linux and register it with
 // that library or the system's own tooling.
-func currentServiceManager(directory string) (service.Manager, error) {
+func currentServiceManager(directory string) (user.Manager, error) {
 	switch runtime.GOOS {
 	case "darwin":
 		return launchd.New(launchd.Config{Directory: directory, UID: os.Getuid()})

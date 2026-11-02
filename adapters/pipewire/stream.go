@@ -12,8 +12,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/webong/ext/res/system/audio"
-	"github.com/webong/ext/res/system/media"
+	"github.com/webong/ext/res/system/capture/audio"
+	"github.com/webong/ext/res/system/capture/media"
 )
 
 // stopTimeout bounds a normal stream shutdown before the process is killed.

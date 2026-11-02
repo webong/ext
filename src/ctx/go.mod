@@ -9,6 +9,7 @@ require (
 
 require (
 	github.com/webong/ext/pkg/ext-go/engine v0.1.0
+	github.com/webong/ext/res/graph v0.2.0
 	golang.org/x/sys v0.48.0 // indirect
 )
 
@@ -17,3 +18,5 @@ replace github.com/webong/ext/res/system => ../../res/system
 replace github.com/webong/ext/res/web => ../../res/web
 
 replace github.com/webong/ext/pkg/ext-go/engine => ../../pkg/ext-go/engine
+
+replace github.com/webong/ext/res/graph => ../../res/graph

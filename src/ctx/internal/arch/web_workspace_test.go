@@ -24,7 +24,7 @@ func TestClipboardSDKSourceOwnership(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := filepath.Join(root, "res", "system", "clipboard", "ios", "Sources", "ExtClipboard")
+	want := filepath.Join(root, "res", "system", "capture", "clipboard", "ios", "Sources", "ExtClipboard")
 	if got != want {
 		t.Fatalf("ExtClipboard source = %s, want %s", got, want)
 	}
@@ -36,7 +36,7 @@ func TestSystemSDKSourceOwnership(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := filepath.Join(root, "res", "system", "ios", "Sources", "ExtSystem")
+	want := filepath.Join(root, "res", "system", "capture", "surface", "ios", "Sources", "ExtSystem")
 	if got != want {
 		t.Fatalf("ExtSystem source = %s, want %s", got, want)
 	}
@@ -48,8 +48,44 @@ func TestNetworkSDKSourceOwnership(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := filepath.Join(root, "res", "system", "network", "ios", "Sources", "ExtNetwork")
+	want := filepath.Join(root, "res", "system", "service", "network", "ios", "Sources", "ExtNetwork")
 	if got != want {
 		t.Fatalf("ExtNetwork source = %s, want %s", got, want)
+	}
+}
+
+func TestHostSDKSourceOwnership(t *testing.T) {
+	root := repoRoot(t)
+	got, err := filepath.EvalSymlinks(filepath.Join(root, "pkg", "ext-ios", "Sources", "ExtHost"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := filepath.Join(root, "res", "system", "service", "host", "ios", "Sources", "ExtHost")
+	if got != want {
+		t.Fatalf("ExtHost source = %s, want %s", got, want)
+	}
+}
+
+func TestShareSDKSourceOwnership(t *testing.T) {
+	root := repoRoot(t)
+	got, err := filepath.EvalSymlinks(filepath.Join(root, "pkg", "ext-ios", "Sources", "ExtShare"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := filepath.Join(root, "res", "system", "capture", "share", "ios", "Sources", "ExtShare")
+	if got != want {
+		t.Fatalf("ExtShare source = %s, want %s", got, want)
+	}
+}
+
+func TestAudioSDKSourceOwnership(t *testing.T) {
+	root := repoRoot(t)
+	got, err := filepath.EvalSymlinks(filepath.Join(root, "pkg", "ext-ios", "Sources", "ExtAudio"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := filepath.Join(root, "res", "system", "capture", "audio", "ios", "Sources", "ExtAudio")
+	if got != want {
+		t.Fatalf("ExtAudio source = %s, want %s", got, want)
 	}
 }

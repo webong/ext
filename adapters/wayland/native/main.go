@@ -9,7 +9,7 @@ import (
 
 	"github.com/webong/ext/adapters/wayland"
 	"github.com/webong/ext/pkg/ext-go/cgoengine"
-	"github.com/webong/ext/res/system"
+	"github.com/webong/ext/res/system/capture/surface"
 )
 
 func main() {
@@ -40,7 +40,7 @@ func run(args []string) int {
 		}
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
-		capture, err := system.CaptureDesktop(ctx, wayland.New(wayland.Config{}), system.CaptureOptions{})
+		capture, err := surface.CaptureDesktop(ctx, wayland.New(wayland.Config{}), surface.CaptureOptions{})
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "wayland: %v\n", err)
 			return 1

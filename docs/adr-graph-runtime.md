@@ -4,8 +4,8 @@ Status: accepted for the CTX library.
 
 ## Ownership boundary
 
-CTX supplies reusable mechanics through the public `github.com/webong/ext/res/system`
-and `github.com/webong/ext/res/system/supervisor` packages. CTX graph records are generic
+CTX supplies reusable mechanics through the public `github.com/webong/ext/res/graph`
+module: its `store` and `supervisor` packages and its recorder. CTX graph records are generic
 vertices and directed edges. A consumer registers a namespace and schema version,
 supplies an optional validation callback, and owns its kind and relationship
 vocabulary. Namespace-qualified names use the form `<namespace>/<name>`.
@@ -80,7 +80,7 @@ use a backend with indexed persistence behind the same interface.
 
 ## CTX system context
 
-The public `github.com/webong/ext/res/system` package owns the `ext.system`
+The public `github.com/webong/ext/res/graph` package owns the `ext.system`
 namespace. Short-lived CTX
 commands record the invoking shell session, current directory, detected project,
 active profile, and selected adapter context IDs. Optional Bash, Zsh, and
@@ -89,8 +89,8 @@ Successful browser opens add the provider, profile, and URL origin. URL paths,
 query strings, fragments, arbitrary environment values, and shell history are
 not collected. Host shell executables, mounted filesystems, and shared webview
 runtimes, local surfaces, accessibility structure, and permission state are
-discovered directly by the public system graph package,
-independently of adapters.
+discovered directly by the `res/system` collectors, which the
+`res/graph` recorder stores, independently of adapters.
 `ctx graph shells`, `ctx graph filesystems`, `ctx graph webviews`,
 `ctx graph surfaces`, `ctx graph accessibility`, and `ctx graph permissions` refresh and
 expose those host inventories, including executable paths, mounted filesystem
@@ -181,7 +181,7 @@ after stopping, crashing, or process exit, even without a custom probe.
 A consumer registers its own schema, a namespace and version with its kinds and
 exact relationship vocabulary. Its validator enforces those semantics using the
 proposed transaction and `View`. Authorization and product decisions remain in
-the consumer. See `res/system/examples/consumer-shaped` for a small consumer-owned example.
+the consumer. See `res/graph/examples/consumer-shaped` for a small consumer-owned example.
 
 The integration boundary is:
 

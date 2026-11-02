@@ -15,8 +15,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/webong/ext/res/system"
-	"github.com/webong/ext/res/system/media"
+	"github.com/webong/ext/res/system/capture/media"
+	"github.com/webong/ext/res/system/capture/surface"
 )
 
 type CommandRunner func(context.Context, string, ...string) ([]byte, error)
@@ -78,46 +78,46 @@ func New(config Config) *Driver {
 
 func (d *Driver) Name() string { return "x11" }
 
-func (d *Driver) Capture(ctx context.Context, options system.CaptureOptions) (system.SurfaceCapture, error) {
+func (d *Driver) Capture(ctx context.Context, options surface.CaptureOptions) (surface.SurfaceCapture, error) {
 	data, err := d.run(ctx, d.screenshot, "-window", "root", "png:-")
 	if err != nil {
-		return system.SurfaceCapture{}, fmt.Errorf("%w: import failed: %v", system.ErrDesktopUnavailable, err)
+		return surface.SurfaceCapture{}, fmt.Errorf("%w: import failed: %v", surface.ErrDesktopUnavailable, err)
 	}
 	if len(data) == 0 || len(data) > options.MaxBytes {
-		return system.SurfaceCapture{}, fmt.Errorf("%w: capture bytes exceed the bound", system.ErrDesktopUnavailable)
+		return surface.SurfaceCapture{}, fmt.Errorf("%w: capture bytes exceed the bound", surface.ErrDesktopUnavailable)
 	}
 	config, err := png.DecodeConfig(bytes.NewReader(data))
 	if err != nil || config.Width < 1 || config.Height < 1 {
-		return system.SurfaceCapture{}, fmt.Errorf("%w: import did not return a PNG", system.ErrDesktopUnavailable)
+		return surface.SurfaceCapture{}, fmt.Errorf("%w: import did not return a PNG", surface.ErrDesktopUnavailable)
 	}
 	if config.Width > options.MaxPixels/config.Height {
-		return system.SurfaceCapture{}, fmt.Errorf("%w: capture pixels exceed the bound", system.ErrDesktopUnavailable)
+		return surface.SurfaceCapture{}, fmt.Errorf("%w: capture pixels exceed the bound", surface.ErrDesktopUnavailable)
 	}
-	return system.SurfaceCapture{
+	return surface.SurfaceCapture{
 		Format: "image/png", Width: config.Width, Height: config.Height,
 		Data: data, CapturedAt: time.Now().UTC(),
 	}, nil
 }
 
-func (d *Driver) Input(ctx context.Context, input system.SurfaceInput, options system.InputOptions) error {
+func (d *Driver) Input(ctx context.Context, input surface.SurfaceInput, options surface.InputOptions) error {
 	switch input.Kind {
-	case system.SurfaceInputText:
+	case surface.SurfaceInputText:
 		_, err := d.run(ctx, d.input, "type", "--clearmodifiers", "--", input.Text)
 		return wrapInputError(err)
-	case system.SurfaceInputKey:
+	case surface.SurfaceInputKey:
 		combo := x11Combo(input)
 		_, err := d.run(ctx, d.input, "key", "--clearmodifiers", "--", combo)
 		return wrapInputError(err)
-	case system.SurfaceInputMove:
+	case surface.SurfaceInputMove:
 		_, err := d.run(ctx, d.input, "mousemove", strconv.Itoa(input.Point.X), strconv.Itoa(input.Point.Y))
 		return wrapInputError(err)
-	case system.SurfaceInputClick:
+	case surface.SurfaceInputClick:
 		if _, err := d.run(ctx, d.input, "mousemove", strconv.Itoa(input.Point.X), strconv.Itoa(input.Point.Y)); err != nil {
 			return wrapInputError(err)
 		}
 		_, err := d.run(ctx, d.input, "click", strconv.Itoa(x11Button(input.Button)))
 		return wrapInputError(err)
-	case system.SurfaceInputDrag:
+	case surface.SurfaceInputDrag:
 		button := strconv.Itoa(x11Button(input.Button))
 		if _, err := d.run(ctx, d.input, "mousemove", strconv.Itoa(input.Point.X), strconv.Itoa(input.Point.Y)); err != nil {
 			return wrapInputError(err)
@@ -130,16 +130,16 @@ func (d *Driver) Input(ctx context.Context, input system.SurfaceInput, options s
 		}
 		_, err := d.run(ctx, d.input, "mouseup", button)
 		return wrapInputError(err)
-	case system.SurfaceInputScroll:
+	case surface.SurfaceInputScroll:
 		if _, err := d.run(ctx, d.input, "mousemove", strconv.Itoa(input.Point.X), strconv.Itoa(input.Point.Y)); err != nil {
 			return wrapInputError(err)
 		}
 		return d.scroll(ctx, input)
 	}
-	return fmt.Errorf("%w: unsupported X11 input kind %q", system.ErrDesktopUnavailable, input.Kind)
+	return fmt.Errorf("%w: unsupported X11 input kind %q", surface.ErrDesktopUnavailable, input.Kind)
 }
 
-func (d *Driver) scroll(ctx context.Context, input system.SurfaceInput) error {
+func (d *Driver) scroll(ctx context.Context, input surface.SurfaceInput) error {
 	steps := func(delta int) int {
 		value := delta / 120
 		if value < 0 {
@@ -179,7 +179,7 @@ func (d *Driver) scroll(ctx context.Context, input system.SurfaceInput) error {
 func (d *Driver) Record(ctx context.Context, options media.RecordingOptions) (media.Recording, error) {
 	display := strings.TrimSpace(os.Getenv("DISPLAY"))
 	if display == "" {
-		return nil, fmt.Errorf("%w: X11 recording requires DISPLAY", system.ErrDesktopUnavailable)
+		return nil, fmt.Errorf("%w: X11 recording requires DISPLAY", surface.ErrDesktopUnavailable)
 	}
 	codec := []string{"-c:v", "libx264", "-movflags", "frag_keyframe+empty_moov", "-f", "mp4"}
 	if options.Format == "webm" {
@@ -194,7 +194,7 @@ func (d *Driver) Record(ctx context.Context, options media.RecordingOptions) (me
 	arguments = append(arguments, codec...)
 	process, err := d.start(ctx, d.record, append(arguments, "pipe:1")...)
 	if err != nil {
-		return nil, fmt.Errorf("%w: ffmpeg failed to start: %v", system.ErrDesktopUnavailable, err)
+		return nil, fmt.Errorf("%w: ffmpeg failed to start: %v", surface.ErrDesktopUnavailable, err)
 	}
 	return &recording{process: process, output: process.Stdout()}, nil
 }
@@ -226,7 +226,7 @@ func (r *recording) Stop(ctx context.Context) error {
 	return err
 }
 
-func x11Combo(input system.SurfaceInput) string {
+func x11Combo(input surface.SurfaceInput) string {
 	parts := make([]string, 0, len(input.Modifiers)+1)
 	for _, modifier := range input.Modifiers {
 		switch modifier {
@@ -255,7 +255,7 @@ func wrapInputError(err error) error {
 	if err == nil {
 		return nil
 	}
-	return fmt.Errorf("%w: xdotool failed: %v", system.ErrDesktopUnavailable, err)
+	return fmt.Errorf("%w: xdotool failed: %v", surface.ErrDesktopUnavailable, err)
 }
 
 type execProcess struct {
@@ -284,4 +284,4 @@ func startProcess(ctx context.Context, name string, arguments ...string) (Proces
 	return &execProcess{command: command, stdout: output}, nil
 }
 
-var _ system.DesktopDriver = (*Driver)(nil)
+var _ surface.DesktopDriver = (*Driver)(nil)

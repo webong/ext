@@ -1,6 +1,6 @@
 # ADR: Program discovery and installers
 
-Status: accepted and built. `res/system/program`, the `programs` operation in `ctx`, the
+Status: accepted and built. `res/system/service/program`, the `programs` operation in `ctx`, the
 `homebrew` installer adapter and the `php`, `python` and `node` runtime adapters were run
 end to end, and the system graph records each program, its installer and the contexts
 that use it. There is deliberately no command that lists programs: other programs read
@@ -83,7 +83,7 @@ The vocabulary is open: core does not enumerate it.
 
 | Concern | Owner |
 | --- | --- |
-| Candidate type, scanning `PATH` for given names, resolving links, merging records for one executable | `res/system/program`. Mechanism only: it never branches on a program or installer name. |
+| Candidate type, scanning `PATH` for given names, resolving links, merging records for one executable | `res/system/service/program`. Mechanism only: it never branches on a program or installer name. |
 | Where an installer keeps programs, and what it installed | the installer adapter, through a new `programs` operation |
 | What a program is: its version, its selection name (`8.3`), whether it is usable | the runtime adapter, which owns the language |
 
@@ -120,7 +120,7 @@ adapter. For `homebrew`, `run` runs `brew`.
 ### Data flow
 
 1. CTX builds the list of names from every adapter's `computer_commands`.
-2. It scans `PATH` for those names with `res/system/program`. This only stats
+2. It scans `PATH` for those names with `res/system/service/program`. This only stats
    files; it executes nothing.
 3. It calls `programs NAME...` on each trusted installer adapter.
 4. `program.Merge` joins both lists by resolved path. A program found by an
@@ -179,7 +179,7 @@ a PowerShell twin for each one only to run `ls` is more code than the fact it
 reports. An installer can therefore be declarative: a package with no executable, a
 `program_roots` file of directory patterns, `role = ["installer"]` and the single
 capability `programs`. CTX expands the patterns and looks for the asked names in the
-directories that match, with `program.ScanRoots` in `res/system/program`. The
+directories that match, with `program.ScanRoots` in `res/system/service/program`. The
 mechanism never recognises a tool by name: the patterns are data from a trusted
 package, as an installer's script output is.
 

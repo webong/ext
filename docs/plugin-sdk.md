@@ -1,7 +1,7 @@
 # CTX plugin SDK
 
 CTX owns the reusable plugin library alongside `res/web` and `res/system`
-(including `res/system/supervisor`). `res/web/wasm` owns the protocol-neutral
+(including `res/graph/supervisor`). `res/web/wasm` owns the protocol-neutral
 wazero runtime; `pkg/ext-go/wasm` binds it to the plugin engine.
 Hosts and guests share one protocol and can select a supported transport.
 Adapters and applications own their domain contracts, grants, native behavior,

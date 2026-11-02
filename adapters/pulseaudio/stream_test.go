@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/webong/ext/res/system/audio"
-	"github.com/webong/ext/res/system/media"
+	"github.com/webong/ext/res/system/capture/audio"
+	"github.com/webong/ext/res/system/capture/media"
 )
 
 const sinkOutput = "0\tsink-one\tPipeWire\ts16le 2ch 48000Hz\tRUNNING\n" +

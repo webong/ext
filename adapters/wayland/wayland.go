@@ -22,8 +22,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/webong/ext/res/system"
-	"github.com/webong/ext/res/system/media"
+	"github.com/webong/ext/res/system/capture/media"
+	"github.com/webong/ext/res/system/capture/surface"
 )
 
 type CommandRunner func(context.Context, string, ...string) ([]byte, error)
@@ -77,39 +77,39 @@ func New(config Config) *Driver {
 
 func (d *Driver) Name() string { return "wayland" }
 
-func (d *Driver) Capture(ctx context.Context, options system.CaptureOptions) (system.SurfaceCapture, error) {
+func (d *Driver) Capture(ctx context.Context, options surface.CaptureOptions) (surface.SurfaceCapture, error) {
 	arguments := []string{"-"}
 	if d.output != "" {
 		arguments = append([]string{"-o", d.output}, arguments...)
 	}
 	data, err := d.run(ctx, d.capture, arguments...)
 	if err != nil {
-		return system.SurfaceCapture{}, fmt.Errorf("%w: grim failed: %v", system.ErrDesktopUnavailable, err)
+		return surface.SurfaceCapture{}, fmt.Errorf("%w: grim failed: %v", surface.ErrDesktopUnavailable, err)
 	}
 	if len(data) == 0 || len(data) > options.MaxBytes {
-		return system.SurfaceCapture{}, fmt.Errorf("%w: capture bytes exceed the bound", system.ErrDesktopUnavailable)
+		return surface.SurfaceCapture{}, fmt.Errorf("%w: capture bytes exceed the bound", surface.ErrDesktopUnavailable)
 	}
 	config, err := png.DecodeConfig(bytes.NewReader(data))
 	if err != nil || config.Width < 1 || config.Height < 1 {
-		return system.SurfaceCapture{}, fmt.Errorf("%w: grim did not return a PNG", system.ErrDesktopUnavailable)
+		return surface.SurfaceCapture{}, fmt.Errorf("%w: grim did not return a PNG", surface.ErrDesktopUnavailable)
 	}
 	if config.Width > options.MaxPixels/config.Height {
-		return system.SurfaceCapture{}, fmt.Errorf("%w: capture pixels exceed the bound", system.ErrDesktopUnavailable)
+		return surface.SurfaceCapture{}, fmt.Errorf("%w: capture pixels exceed the bound", surface.ErrDesktopUnavailable)
 	}
-	return system.SurfaceCapture{
+	return surface.SurfaceCapture{
 		Format: "image/png", Width: config.Width, Height: config.Height,
 		Data: data, CapturedAt: time.Now().UTC(),
 	}, nil
 }
 
-func (d *Driver) Input(ctx context.Context, input system.SurfaceInput, options system.InputOptions) error {
+func (d *Driver) Input(ctx context.Context, input surface.SurfaceInput, options surface.InputOptions) error {
 	switch input.Kind {
-	case system.SurfaceInputText:
+	case surface.SurfaceInputText:
 		_, err := d.run(ctx, d.input, "--", input.Text)
 		return wrapInputError(err)
-	case system.SurfaceInputKey:
+	case surface.SurfaceInputKey:
 		if strings.HasPrefix(input.Key, "-") || strings.Contains(input.Key, " ") {
-			return fmt.Errorf("%w: wtype key must be a key name", system.ErrDesktopUnavailable)
+			return fmt.Errorf("%w: wtype key must be a key name", surface.ErrDesktopUnavailable)
 		}
 		arguments := make([]string, 0, len(input.Modifiers)*2+3)
 		for _, modifier := range input.Modifiers {
@@ -121,29 +121,29 @@ func (d *Driver) Input(ctx context.Context, input system.SurfaceInput, options s
 		}
 		_, err := d.run(ctx, d.input, arguments...)
 		return wrapInputError(err)
-	case system.SurfaceInputMove, system.SurfaceInputClick, system.SurfaceInputDrag:
+	case surface.SurfaceInputMove, surface.SurfaceInputClick, surface.SurfaceInputDrag:
 		return d.pointerInput(ctx, input)
-	case system.SurfaceInputScroll:
-		return fmt.Errorf("%w: ydotool has no wheel operation; Wayland scroll is unavailable", system.ErrDesktopUnavailable)
+	case surface.SurfaceInputScroll:
+		return fmt.Errorf("%w: ydotool has no wheel operation; Wayland scroll is unavailable", surface.ErrDesktopUnavailable)
 	}
-	return fmt.Errorf("%w: unsupported Wayland input kind %q", system.ErrDesktopUnavailable, input.Kind)
+	return fmt.Errorf("%w: unsupported Wayland input kind %q", surface.ErrDesktopUnavailable, input.Kind)
 }
 
-func (d *Driver) pointerInput(ctx context.Context, input system.SurfaceInput) error {
+func (d *Driver) pointerInput(ctx context.Context, input surface.SurfaceInput) error {
 	if d.pointer == "" {
-		return fmt.Errorf("%w: Wayland pointer input requires an explicitly configured ydotool driver", system.ErrDesktopUnavailable)
+		return fmt.Errorf("%w: Wayland pointer input requires an explicitly configured ydotool driver", surface.ErrDesktopUnavailable)
 	}
 	button := waylandButton(input.Button)
 	if _, err := d.run(ctx, d.pointer, "mousemove", "--absolute", strconv.Itoa(input.Point.X), strconv.Itoa(input.Point.Y)); err != nil {
 		return wrapPointerError(err)
 	}
 	switch input.Kind {
-	case system.SurfaceInputMove:
+	case surface.SurfaceInputMove:
 		return nil
-	case system.SurfaceInputClick:
+	case surface.SurfaceInputClick:
 		_, err := d.run(ctx, d.pointer, "click", fmt.Sprintf("0x%02X", 0xC0|button))
 		return wrapPointerError(err)
-	case system.SurfaceInputDrag:
+	case surface.SurfaceInputDrag:
 		down := fmt.Sprintf("0x%02X", 0x40|button)
 		up := fmt.Sprintf("0x%02X", 0x80|button)
 		if _, err := d.run(ctx, d.pointer, "click", down); err != nil {
@@ -164,7 +164,7 @@ func (d *Driver) pointerInput(ctx context.Context, input system.SurfaceInput) er
 		}
 		return wrapPointerError(err)
 	}
-	return fmt.Errorf("%w: unsupported Wayland pointer kind %q", system.ErrDesktopUnavailable, input.Kind)
+	return fmt.Errorf("%w: unsupported Wayland pointer kind %q", surface.ErrDesktopUnavailable, input.Kind)
 }
 
 func waylandButton(button string) int {
@@ -182,7 +182,7 @@ func wrapPointerError(err error) error {
 	if err == nil {
 		return nil
 	}
-	return fmt.Errorf("%w: ydotool failed: %v", system.ErrDesktopUnavailable, err)
+	return fmt.Errorf("%w: ydotool failed: %v", surface.ErrDesktopUnavailable, err)
 }
 
 // codecAndMuxer maps a recording container format to the wf-recorder codec and
@@ -207,15 +207,15 @@ func codecAndMuxer(format string) (codec, muxer string, err error) {
 func (d *Driver) Record(ctx context.Context, options media.RecordingOptions) (media.Recording, error) {
 	if d.recorder == "" {
 		return nil, fmt.Errorf("%w: Wayland recording requires a compositor recorder or portal, which this adapter does not select",
-			system.ErrDesktopUnavailable)
+			surface.ErrDesktopUnavailable)
 	}
 	options, err := options.Normalize()
 	if err != nil {
-		return nil, fmt.Errorf("%w: %v", system.ErrInvalidRecording, err)
+		return nil, fmt.Errorf("%w: %v", surface.ErrInvalidRecording, err)
 	}
 	codec, muxer, err := codecAndMuxer(options.Format)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %v", system.ErrInvalidRecording, err)
+		return nil, fmt.Errorf("%w: %v", surface.ErrInvalidRecording, err)
 	}
 	arguments := []string{
 		// The fps filter also works with wf-recorder releases predating --framerate.
@@ -232,7 +232,7 @@ func (d *Driver) Record(ctx context.Context, options media.RecordingOptions) (me
 	}
 	process, err := d.starter(ctx, d.recorder, arguments...)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %s failed to start: %v", system.ErrDesktopUnavailable, d.recorder, err)
+		return nil, fmt.Errorf("%w: %s failed to start: %v", surface.ErrDesktopUnavailable, d.recorder, err)
 	}
 	r := &recording{
 		process:         process,
@@ -500,7 +500,7 @@ func (p *execProcess) Signal(sig os.Signal) error {
 	return p.command.Process.Signal(sig)
 }
 
-var _ system.DesktopDriver = (*Driver)(nil)
+var _ surface.DesktopDriver = (*Driver)(nil)
 
 func waylandModifier(modifier string) string {
 	switch modifier {
@@ -540,5 +540,5 @@ func wrapInputError(err error) error {
 	if err == nil {
 		return nil
 	}
-	return fmt.Errorf("%w: wtype failed: %v", system.ErrDesktopUnavailable, err)
+	return fmt.Errorf("%w: wtype failed: %v", surface.ErrDesktopUnavailable, err)
 }

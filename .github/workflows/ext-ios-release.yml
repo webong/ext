@@ -69,11 +69,14 @@ jobs:
       - name: Web rules against the fixtures and against Go
         run: scripts/web-differential.sh
       - name: Clipboard contracts and native binding
-        run: swift test --package-path res/system/clipboard/ios
+        run: swift test --package-path res/system/capture/clipboard/ios
       - name: System shell contracts and native binding
-        run: swift test --package-path res/system/ios
+        run: |
+          for package in capture/surface/ios service/host/ios capture/share/ios capture/audio/ios; do
+            swift test --package-path "res/system/$package"
+          done
       - name: System network observation contracts and native binding
-        run: swift test --package-path res/system/network/ios
+        run: swift test --package-path res/system/service/network/ios
       # The release carries the WAMR host: its xcframework is a second asset, and its license ships
       # beside it and inside the package.
       - name: Stage the release
@@ -108,21 +111,22 @@ jobs:
           set -euo pipefail
           device="$(xcrun simctl list devices available | grep -m1 -E 'iPhone' | sed -E 's/^ *(.*) \(([0-9A-F-]{36})\).*/\2/')"
           [[ -n "$device" ]] || { echo 'no iPhone simulator is installed' >&2; exit 1; }
-          cd res/system/clipboard/ios
+          cd res/system/capture/clipboard/ios
           xcodebuild test -scheme ExtClipboard -destination "platform=iOS Simulator,id=$device"
       - name: System shell library in an iOS Simulator
         run: |
           set -euo pipefail
           device="$(xcrun simctl list devices available | grep -m1 -E 'iPhone' | sed -E 's/^ *(.*) \(([0-9A-F-]{36})\).*/\2/')"
           [[ -n "$device" ]] || { echo 'no iPhone simulator is installed' >&2; exit 1; }
-          cd res/system/ios
-          xcodebuild test -scheme ExtSystem -destination "platform=iOS Simulator,id=$device"
+          for package in capture/surface/ios:ExtSystem service/host/ios:ExtHost capture/share/ios:ExtShare capture/audio/ios:ExtAudio; do
+            (cd "res/system/${package%%:*}" && xcodebuild test -scheme "${package##*:}" -destination "platform=iOS Simulator,id=$device")
+          done
       - name: System network observation in an iOS Simulator
         run: |
           set -euo pipefail
           device="$(xcrun simctl list devices available | grep -m1 -E 'iPhone' | sed -E 's/^ *(.*) \(([0-9A-F-]{36})\).*/\2/')"
           [[ -n "$device" ]] || { echo 'no iPhone simulator is installed' >&2; exit 1; }
-          cd res/system/network/ios
+          cd res/system/service/network/ios
           xcodebuild test -scheme ExtNetwork -destination "platform=iOS Simulator,id=$device"
       - name: Checksums
         env:

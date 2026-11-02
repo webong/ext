@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>Ext.Clipboard.Windows</AssemblyName>
+    <RootNamespace>Webong.Ext.System.Windows</RootNamespace>
+  </PropertyGroup>
+</Project>

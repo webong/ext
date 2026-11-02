@@ -12,7 +12,7 @@ import (
 
 	"github.com/webong/ext/ctx/internal/config"
 	modpkg "github.com/webong/ext/pkg/ext-go/engine/host/adapter"
-	"github.com/webong/ext/res/system/program"
+	"github.com/webong/ext/res/system/service/program"
 )
 
 // programsEnvironment is the variable a runtime adapter reads to learn which

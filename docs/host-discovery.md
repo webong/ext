@@ -1,7 +1,8 @@
 # Host discovery
 
-Host inventory belongs to the public `github.com/webong/ext/res/system`
-package. It works in a standalone CTX installation without adapter packages.
+Host inventory is discovered by the collectors of `github.com/webong/ext/res/system`
+(`service/host`, `service/process`, `capture/surface`) and recorded by `github.com/webong/ext/res/graph`.
+It works in a standalone CTX installation without adapter packages.
 Adapter inventory describes provider capabilities and contexts separately.
 
 ```sh
@@ -130,28 +131,29 @@ and [Qt WebEngine](https://doc.qt.io/qt-6/qtwebengine-overview.html).
 ## Library API
 
 Use discovery without a store, or persist the result in an existing system
-graph. The examples below import the package as
-`systemgraph "github.com/webong/ext/res/system"`; its declared name is `system`, and the
-alias keeps it from colliding with a variable of your own called `system`:
+graph. The examples below import the recorder as
+`systemgraph "github.com/webong/ext/res/graph"`; its declared name is `graph`, and the
+alias keeps it from colliding with a variable of your own called `graph`. The collectors are
+imported from `res/system` (`host`, `process` and `surface` below):
 
 ```go
 inventory, err := systemgraph.DiscoverHost(ctx)
 // Shells, Filesystems, Webviews, Desktop, Surfaces, Accessibility,
 // Permissions, and Resources are typed observations.
 
-inventory, err = system.ScanHost(ctx)
+inventory, err = g.ScanHost(ctx) // g is a *systemgraph.Graph
 // ScanHost discovers and atomically projects all host inventories into the graph.
 ```
 
-`DiscoverShells`, `DiscoverFilesystems`, `DiscoverWebviews`, `DiscoverDesktop`,
-`DiscoverSurfaces`, `DiscoverAccessibility`, `DiscoverPermissions`, and
-`DiscoverResources` can be called independently.
+`host.DiscoverShells`, `host.DiscoverFilesystems`, `host.DiscoverWebviews`, `surface.DiscoverDesktop`,
+`surface.DiscoverSurfaces`, `surface.DiscoverAccessibility`, `surface.DiscoverPermissions`, and
+`host.DiscoverResources` can be called independently.
 `Graph.ObserveHost` accepts a `HostInventory`; a nil slice or pointer preserves
 that part of the existing inventory, while a non-nil empty slice removes its old entries.
 The schema uses `shell`, `filesystem`, `webview`, `desktop`, `display`, `window`,
 `accessibility-element`, `permission`, `host-resource`, and `host-inventory`
 vertices linked to `machine/local`. The generic graph store owns persistence and transactions;
-`res/system` owns host discovery and its vocabulary.
+`res/system` owns host discovery; `res/graph` owns the `ext.system` vocabulary that records it.
 
 Resource discovery is a local, read-only observation of OS and architecture,
 logical CPUs, effective CPU and memory capacity, container markers, and uptime
@@ -159,7 +161,7 @@ or boot time. Linux applies cgroup v2 and v1 CPU and memory quotas; a missing or
 malformed cgroup file leaves the host value in place with an explicit
 `complete` or `partial` status. A platform that exposes no safe source reports
 `unsupported` instead of inventing a value. Network shape stays in
-`res/system/network` and is not repeated in the resource projection.
+`res/system/service/network` and is not repeated in the resource projection.
 
 Desktop discovery is a local, read-only observation. It reports whether this process can see an
 interactive native desktop, local X11 or Wayland endpoints, and recording prerequisites. It does
@@ -295,7 +297,7 @@ protection. Direct `ctx shell -- <command>` execution retains its command mode.
 
 ## Running processes and resources
 
-Process discovery is another capability of the graph library itself. It works
+Process discovery is another capability of the `res/system` collectors (`service/process`). It works
 without adapters and does not contain product-name dispatch or a browser list.
 These commands take one snapshot and exit:
 
@@ -368,14 +370,14 @@ Product-specific interpretation belongs to the corresponding adapter.
 ### Process library API and reconciliation
 
 ```go
-options := systemgraph.ProcessOptions{
+options := process.ProcessOptions{
     MaxProcesses: 4096,
     MaxResources: 1024,
     Timeout: 10 * time.Second,
 }
 
-inventory, err := systemgraph.DiscoverProcesses(ctx, options)
-inspection, err := systemgraph.InspectProcess(ctx, pid, options)
+inventory, err := process.DiscoverProcesses(ctx, options)
+inspection, err := process.InspectProcess(ctx, pid, options)
 
 // Discovery does not require a store. Persist either result explicitly:
 err = system.ObserveProcesses(ctx, inventory)
@@ -442,15 +444,15 @@ layout. Real PID reuse is not forced, and a passing build is not a native test.
 Run ordinary contract/parser tests with:
 
 ```sh
-(cd res/system && go test ./...) && (cd src/ctx && go test ./internal/app)
+(cd res/system && go test ./...) && (cd res/graph && go test ./...) && (cd src/ctx && go test ./internal/app)
 ```
 
 Enable native fixtures explicitly (the shell must permit subprocess inspection
 and binding temporary loopback sockets):
 
 ```sh
-EXT_GRAPH_PROCESS_NATIVE_TESTS=1 go test -race -v ./res/system \
-  -run '^(TestNativeProcess|TestProcess)' -count=3 -timeout=5m
+EXT_GRAPH_PROCESS_NATIVE_TESTS=1 go test -race -v ./res/system/service/process ./res/graph \
+  -run '^(TestNativeProcess|TestProcess|TestLiveProcess)' -count=3 -timeout=5m
 ```
 
 On PowerShell, set `$env:EXT_GRAPH_PROCESS_NATIVE_TESTS = '1'` before the same

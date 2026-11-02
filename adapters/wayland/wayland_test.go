@@ -16,8 +16,8 @@ import (
 	"testing/synctest"
 	"time"
 
-	"github.com/webong/ext/res/system"
-	"github.com/webong/ext/res/system/media"
+	"github.com/webong/ext/res/system/capture/media"
+	"github.com/webong/ext/res/system/capture/surface"
 )
 
 func pngFixture(t *testing.T, width, height int) []byte {
@@ -46,7 +46,7 @@ func (f *fakeRunner) run(_ context.Context, name string, arguments ...string) ([
 func TestCaptureUsesGrimAndBounds(t *testing.T) {
 	runner := &fakeRunner{output: pngFixture(t, 4, 3)}
 	driver := New(Config{Run: runner.run})
-	capture, err := driver.Capture(context.Background(), system.CaptureOptions{MaxPixels: 1024, MaxBytes: 1 << 20})
+	capture, err := driver.Capture(context.Background(), surface.CaptureOptions{MaxPixels: 1024, MaxBytes: 1 << 20})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -56,11 +56,11 @@ func TestCaptureUsesGrimAndBounds(t *testing.T) {
 	if len(runner.calls) != 1 || runner.calls[0] != "grim -" {
 		t.Fatalf("calls = %#v", runner.calls)
 	}
-	if _, err = driver.Capture(context.Background(), system.CaptureOptions{MaxPixels: 4, MaxBytes: 1 << 20}); err == nil {
+	if _, err = driver.Capture(context.Background(), surface.CaptureOptions{MaxPixels: 4, MaxBytes: 1 << 20}); err == nil {
 		t.Fatal("pixel bound was not enforced")
 	}
 	runner.failed = true
-	if _, err = driver.Capture(context.Background(), system.CaptureOptions{}); !errors.Is(err, system.ErrDesktopUnavailable) {
+	if _, err = driver.Capture(context.Background(), surface.CaptureOptions{}); !errors.Is(err, surface.ErrDesktopUnavailable) {
 		t.Fatalf("tool failure = %v", err)
 	}
 }
@@ -68,7 +68,7 @@ func TestCaptureUsesGrimAndBounds(t *testing.T) {
 func TestCaptureSelectsOutput(t *testing.T) {
 	runner := &fakeRunner{output: pngFixture(t, 4, 3)}
 	driver := New(Config{Run: runner.run, Output: "HDMI-A-1"})
-	capture, err := driver.Capture(context.Background(), system.CaptureOptions{MaxPixels: 1024, MaxBytes: 1 << 20})
+	capture, err := driver.Capture(context.Background(), surface.CaptureOptions{MaxPixels: 1024, MaxBytes: 1 << 20})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -83,17 +83,17 @@ func TestCaptureSelectsOutput(t *testing.T) {
 func TestInputUsesWtypeAndRefusesPointer(t *testing.T) {
 	runner := &fakeRunner{}
 	driver := New(Config{Run: runner.run})
-	if err := driver.Input(context.Background(), system.SurfaceInput{Kind: system.SurfaceInputText, Text: "hello"}, system.InputOptions{}); err != nil {
+	if err := driver.Input(context.Background(), surface.SurfaceInput{Kind: surface.SurfaceInputText, Text: "hello"}, surface.InputOptions{}); err != nil {
 		t.Fatal(err)
 	}
-	if err := driver.Input(context.Background(), system.SurfaceInput{
-		Kind: system.SurfaceInputKey, Key: "enter", Modifiers: []string{"command", "shift"},
-	}, system.InputOptions{}); err != nil {
+	if err := driver.Input(context.Background(), surface.SurfaceInput{
+		Kind: surface.SurfaceInputKey, Key: "enter", Modifiers: []string{"command", "shift"},
+	}, surface.InputOptions{}); err != nil {
 		t.Fatal(err)
 	}
-	if err := driver.Input(context.Background(), system.SurfaceInput{
-		Kind: system.SurfaceInputKey, Key: "backspace",
-	}, system.InputOptions{}); err != nil {
+	if err := driver.Input(context.Background(), surface.SurfaceInput{
+		Kind: surface.SurfaceInputKey, Key: "backspace",
+	}, surface.InputOptions{}); err != nil {
 		t.Fatal(err)
 	}
 	joined := strings.Join(runner.calls, "\n")
@@ -106,10 +106,10 @@ func TestInputUsesWtypeAndRefusesPointer(t *testing.T) {
 			t.Errorf("input calls are missing %q:\n%s", fragment, joined)
 		}
 	}
-	for _, kind := range []system.SurfaceInputKind{
-		system.SurfaceInputMove, system.SurfaceInputClick, system.SurfaceInputDrag, system.SurfaceInputScroll,
+	for _, kind := range []surface.SurfaceInputKind{
+		surface.SurfaceInputMove, surface.SurfaceInputClick, surface.SurfaceInputDrag, surface.SurfaceInputScroll,
 	} {
-		if err := driver.Input(context.Background(), system.SurfaceInput{Kind: kind}, system.InputOptions{}); !errors.Is(err, system.ErrDesktopUnavailable) {
+		if err := driver.Input(context.Background(), surface.SurfaceInput{Kind: kind}, surface.InputOptions{}); !errors.Is(err, surface.ErrDesktopUnavailable) {
 			t.Errorf("%s = %v", kind, err)
 		}
 	}
@@ -117,7 +117,7 @@ func TestInputUsesWtypeAndRefusesPointer(t *testing.T) {
 
 func TestRecordingIsExplicitlyUnavailable(t *testing.T) {
 	driver := New(Config{})
-	if _, err := driver.Record(context.Background(), media.RecordingOptions{Format: "webm"}); !errors.Is(err, system.ErrDesktopUnavailable) {
+	if _, err := driver.Record(context.Background(), media.RecordingOptions{Format: "webm"}); !errors.Is(err, surface.ErrDesktopUnavailable) {
 		t.Fatalf("wayland recording = %v", err)
 	}
 	if !strings.Contains(driver.Name(), "wayland") {
@@ -127,7 +127,7 @@ func TestRecordingIsExplicitlyUnavailable(t *testing.T) {
 
 func TestRecordingRequiresExplicitRecorder(t *testing.T) {
 	driver := New(Config{Run: (&fakeRunner{}).run})
-	if _, err := driver.Record(context.Background(), media.RecordingOptions{Format: "webm"}); !errors.Is(err, system.ErrDesktopUnavailable) {
+	if _, err := driver.Record(context.Background(), media.RecordingOptions{Format: "webm"}); !errors.Is(err, surface.ErrDesktopUnavailable) {
 		t.Fatalf("wayland recording without recorder = %v", err)
 	}
 }
@@ -618,19 +618,19 @@ func TestWaylandProcessHelper(t *testing.T) {
 func TestConfiguredYdotoolHandlesPointerInput(t *testing.T) {
 	runner := &fakeRunner{}
 	driver := New(Config{Run: runner.run, Pointer: "ydotool"})
-	options := system.InputOptions{}
-	if err := driver.Input(context.Background(), system.SurfaceInput{
-		Kind: system.SurfaceInputMove, Point: system.SurfacePoint{X: 10, Y: 20},
+	options := surface.InputOptions{}
+	if err := driver.Input(context.Background(), surface.SurfaceInput{
+		Kind: surface.SurfaceInputMove, Point: surface.SurfacePoint{X: 10, Y: 20},
 	}, options); err != nil {
 		t.Fatal(err)
 	}
-	if err := driver.Input(context.Background(), system.SurfaceInput{
-		Kind: system.SurfaceInputClick, Point: system.SurfacePoint{X: 1, Y: 2}, Button: "right",
+	if err := driver.Input(context.Background(), surface.SurfaceInput{
+		Kind: surface.SurfaceInputClick, Point: surface.SurfacePoint{X: 1, Y: 2}, Button: "right",
 	}, options); err != nil {
 		t.Fatal(err)
 	}
-	if err := driver.Input(context.Background(), system.SurfaceInput{
-		Kind: system.SurfaceInputDrag, Point: system.SurfacePoint{X: 3, Y: 4}, End: system.SurfacePoint{X: 5, Y: 6},
+	if err := driver.Input(context.Background(), surface.SurfaceInput{
+		Kind: surface.SurfaceInputDrag, Point: surface.SurfacePoint{X: 3, Y: 4}, End: surface.SurfacePoint{X: 5, Y: 6},
 	}, options); err != nil {
 		t.Fatal(err)
 	}
@@ -646,19 +646,19 @@ func TestConfiguredYdotoolHandlesPointerInput(t *testing.T) {
 			t.Errorf("pointer calls are missing %q:\n%s", fragment, joined)
 		}
 	}
-	if err := driver.Input(context.Background(), system.SurfaceInput{
-		Kind: system.SurfaceInputScroll, Point: system.SurfacePoint{X: 0, Y: 0}, DeltaY: -120,
-	}, options); !errors.Is(err, system.ErrDesktopUnavailable) {
+	if err := driver.Input(context.Background(), surface.SurfaceInput{
+		Kind: surface.SurfaceInputScroll, Point: surface.SurfacePoint{X: 0, Y: 0}, DeltaY: -120,
+	}, options); !errors.Is(err, surface.ErrDesktopUnavailable) {
 		t.Fatalf("scroll = %v", err)
 	}
 }
 
 func TestPointerRequiresExplicitDriver(t *testing.T) {
 	driver := New(Config{})
-	err := driver.Input(context.Background(), system.SurfaceInput{
-		Kind: system.SurfaceInputMove, Point: system.SurfacePoint{X: 1, Y: 1},
-	}, system.InputOptions{})
-	if !errors.Is(err, system.ErrDesktopUnavailable) {
+	err := driver.Input(context.Background(), surface.SurfaceInput{
+		Kind: surface.SurfaceInputMove, Point: surface.SurfacePoint{X: 1, Y: 1},
+	}, surface.InputOptions{})
+	if !errors.Is(err, surface.ErrDesktopUnavailable) {
 		t.Fatalf("unconfigured pointer = %v", err)
 	}
 }
@@ -676,10 +676,10 @@ func TestYdotoolDragReleasesTheButtonOnFailure(t *testing.T) {
 		},
 		Pointer: "ydotool",
 	})
-	err := driver.Input(context.Background(), system.SurfaceInput{
-		Kind: system.SurfaceInputDrag, Point: system.SurfacePoint{X: 3, Y: 4}, End: system.SurfacePoint{X: 5, Y: 6},
-	}, system.InputOptions{})
-	if !errors.Is(err, system.ErrDesktopUnavailable) {
+	err := driver.Input(context.Background(), surface.SurfaceInput{
+		Kind: surface.SurfaceInputDrag, Point: surface.SurfacePoint{X: 3, Y: 4}, End: surface.SurfacePoint{X: 5, Y: 6},
+	}, surface.InputOptions{})
+	if !errors.Is(err, surface.ErrDesktopUnavailable) {
 		t.Fatalf("failed drag = %v", err)
 	}
 	joined := strings.Join(calls, "\n")

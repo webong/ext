@@ -311,28 +311,30 @@ and [the graph design](docs/adr-graph-runtime.md).
 CTX and its ecosystem share public Go libraries:
 
 - `github.com/webong/ext/res/system` supplies the local graphical/textual shell
-  substrate: graph storage, host and process discovery, surfaces,
-  accessibility, permissions, bounded capture and input, media primitives,
-  volume snapshot/restore, local interface/address/route/resolver observation,
-  and supervision. Consumers own authorization, remote control and product
-  policy. Its Apple and Android bindings ship
-  through the native SDKs, with additional Windows-native libraries in
-  `res/system/windows`. Clipboard and credential integration are the
-  `res/system/clipboard` and `res/system/credential` packages; bounded local
-  network observation is `res/system/network`.
+  substrate, in three groups of packages: `service` (host, process and program
+  discovery, local interface/address/route/resolver observation, credential
+  integration, per-user service definitions), `capture` (surfaces,
+  accessibility, permissions, bounded capture and input, audio, clipboard, share,
+  media primitives) and `device` (volume and disk-image snapshot/restore).
+  Consumers own authorization, remote control and product policy. Its Apple and
+  Android bindings ship through the native SDKs, with additional Windows-native
+  libraries beside `capture/audio` and `capture/clipboard`.
+- `github.com/webong/ext/res/graph` supplies graph storage, the recorder that writes
+  what the `res/system` collectors find into the graph, and local process
+  supervision.
 - `github.com/webong/ext/pkg/ext-go` supplies the shared host/guest contract,
   validation, selection, admission, and session lifecycle. Its implementations
   include `pkg/ext-go/engine/transport/inprocess`, `pkg/ext-go/engine/transport/jsonline`, `pkg/ext-go/hashicorp` (net/rpc and
   gRPC), `pkg/ext-go/engine/host/nativego`, `pkg/ext-go/wasm` (WASI Preview 1), and `pkg/ext-go/cgoengine/cshared`
   (versioned C ABI). All use the same typed authoring and host session APIs.
-- `github.com/webong/ext/res/system/supervisor` supplies local process supervision when
+- `github.com/webong/ext/res/graph/supervisor` supplies local process supervision when
   the selected plugin backend does not already own its process lifecycle.
 - `github.com/webong/ext/res/web` supplies portable browser contracts,
   workflows, extension and userscript handling, WebAssembly inspection and
   execution and raw reactor hosting through wazero, plus application-hosted
   WKWebView, Android WebView and WebView2 implementations. It contains no plugin
   engine dependency; `pkg/ext-go/wasm` supplies that binding.
-`res/system` depends only on `golang.org/x/sys`; `pkg/ext-go/engine` remains
+`res/system` depends only on `golang.org/x/sys`, `res/graph` only on `res/system`; `pkg/ext-go/engine` remains
 standard-library only. Consumers that do not need WebAssembly or another runtime
 backend can keep the wazero and HashiCorp stacks out of their module graph.
 

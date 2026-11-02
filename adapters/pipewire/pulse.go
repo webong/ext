@@ -21,7 +21,7 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/webong/ext/res/system/audio"
+	"github.com/webong/ext/res/system/capture/audio"
 )
 
 const (

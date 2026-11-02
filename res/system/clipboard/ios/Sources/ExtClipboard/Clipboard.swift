@@ -94,11 +94,27 @@ public enum ClipboardValidation {
 public final class SystemClipboard {
     private let policy: ClipboardPolicy
     private let producerID = UUID().uuidString.lowercased()
+#if os(iOS)
+    private let board: UIPasteboard
 
+    public convenience init(policy: ClipboardPolicy) throws {
+        try self.init(policy: policy, board: .general)
+    }
+
+    /// Binds another pasteboard than the general one. Reading the general pasteboard
+    /// waits for a paste permission that a test runner without a host application
+    /// never gets, so the iOS tests use a private named pasteboard.
+    init(policy: ClipboardPolicy, board: UIPasteboard) throws {
+        try policy.validate()
+        self.policy = policy
+        self.board = board
+    }
+#else
     public init(policy: ClipboardPolicy) throws {
         try policy.validate()
         self.policy = policy
     }
+#endif
 
     /// Returns mutation metadata without reading clipboard contents. This is
     /// available to write-only policies so they can make a conditional write.
@@ -106,7 +122,7 @@ public final class SystemClipboard {
 #if os(macOS)
         return generation(NSPasteboard.general)
 #elseif os(iOS)
-        return generation(UIPasteboard.general)
+        return generation(board)
 #else
         throw ClipboardError.nativeFailure
 #endif
@@ -186,7 +202,6 @@ public final class SystemClipboard {
     private func generation(_ board: UIPasteboard) -> String { "\(producerID):\(board.changeCount)" }
 
     private func readIOS() throws -> ClipboardSnapshot {
-        let board = UIPasteboard.general
         let before = generation(board)
         let nativeItems = board.items
         guard nativeItems.count <= clipboardMaximumItems else { throw ClipboardError.limitExceeded }
@@ -211,7 +226,6 @@ public final class SystemClipboard {
     }
 
     private func writeIOS(expectedGeneration: String, items: [ClipboardItem]) throws -> ClipboardReceipt {
-        let board = UIPasteboard.general
         guard generation(board) == expectedGeneration else { throw ClipboardError.changed }
         let nativeItems: [[String: Any]] = items.map { item in
             Dictionary(uniqueKeysWithValues: item.representations.map { ($0.format, $0.data as Any) })

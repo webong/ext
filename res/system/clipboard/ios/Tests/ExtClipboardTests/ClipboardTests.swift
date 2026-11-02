@@ -1,5 +1,8 @@
 import XCTest
 @testable import ExtClipboard
+#if os(iOS)
+import UIKit
+#endif
 
 final class ClipboardTests: XCTestCase {
     func testPolicyAndBounds() throws {
@@ -21,15 +24,21 @@ final class ClipboardTests: XCTestCase {
     }
 
 #if os(iOS)
+    /// Runs over a private named pasteboard. Reading the general pasteboard blocks in a test
+    /// runner that has no host application (the Simulator's xctest tool), which is how these
+    /// tests run, so the general pasteboard binding is not exercised here.
     @MainActor
     func testNativeClipboardRoundTrip() throws {
         let format = "public.utf8-plain-text"
+        let name = UIPasteboard.Name(rawValue: "io.github.webong.ext.clipboard.tests")
+        let board = try XCTUnwrap(UIPasteboard(name: name, create: true))
+        defer { UIPasteboard.remove(withName: name) }
         let clipboard = try SystemClipboard(policy: ClipboardPolicy(
             maxBytes: 1024,
             allowedFormats: [format],
             allowRead: true,
             allowWrite: true
-        ))
+        ), board: board)
         let initial = try clipboard.currentGeneration()
         let item = ClipboardItem(representations: [
             ClipboardRepresentation(format: format, data: Data("ext clipboard".utf8))

@@ -44,7 +44,13 @@ final class ResourcesTests: XCTestCase {
         XCTAssertGreaterThan(value.memoryBytes, 0)
         XCTAssertEqual(value.memoryBytes, value.memoryCapacityBytes)
         XCTAssertEqual(value.storage.count, 1)
-        XCTAssertEqual(value.storage[0].mountPoint, "/")
+#if os(iOS)
+        // The volume holding the app's container is reported by the path of its Documents directory.
+        let mountPoint = try XCTUnwrap(FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first).path
+#else
+        let mountPoint = "/"
+#endif
+        XCTAssertEqual(value.storage[0].mountPoint, mountPoint)
         XCTAssertEqual(value.container.state, "unsupported")
         XCTAssertFalse(value.uptimeStatus.state.isEmpty)
         let data = try JSONEncoder().encode(value)

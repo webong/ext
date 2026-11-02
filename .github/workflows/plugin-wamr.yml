@@ -127,7 +127,7 @@ jobs:
   # the Swift tests on the host, then the same tests in an iOS Simulator.
   apple:
     if: github.event_name != 'workflow_dispatch' || inputs.apple
-    runs-on: macos-14
+    runs-on: macos-15
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4

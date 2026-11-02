@@ -138,7 +138,7 @@ final class RouterTests: XCTestCase {
         private var closedInput = false
 
         init(hello: Bool = true) throws {
-            let guest = try Guest(descriptor: RouterTests.descriptor, handler: RouterTests.handle)
+            let guest = try Guest(descriptor: RouterTests.descriptor, handler: { try RouterTests.handle($0) })
             let toGuestRead = toGuest.read
             let fromGuestWrite = fromGuest.write
             Thread { [self] in
@@ -458,7 +458,7 @@ final class RouterTests: XCTestCase {
     }
 
     func testWithoutAFrameChannelProgressIsUnsupportedAndThereIsNoCaller() throws {
-        let guest = try Guest(descriptor: Self.descriptor, handler: Self.handle)
+        let guest = try Guest(descriptor: Self.descriptor, handler: { try Self.handle($0) })
         func request(_ operation: String, progress: Bool) -> Data {
             Data(
                 ("{\"apiVersion\":\"ext.plugin/v1\",\"id\":\"1\",\"plugin\":{\"id\":\"swift/frames\",\"revision\":\"r1\"},"

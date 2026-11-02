@@ -174,7 +174,7 @@ let descriptor = Descriptor(
     ])
 
 do {
-    let guest = try Guest(descriptor: descriptor, handler: handle)
+    let guest = try Guest(descriptor: descriptor, handler: { try handle($0) })
     try JSONLine.serveStandardIO(guest)
 } catch {
     FileHandle.standardError.write(Data("ext-frames-guest: \(error)\n".utf8))

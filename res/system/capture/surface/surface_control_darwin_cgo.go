@@ -24,6 +24,11 @@ typedef struct {
     double height;
 } ext_control_window;
 
+// A positive pid delivers an event to that process only; otherwise it goes to the whole desktop.
+static void ext_post(int32_t pid, CGEventRef event) {
+    if (pid > 0) CGEventPostToPid(pid, event); else CGEventPost(kCGHIDEventTap, event);
+}
+
 static int ext_control_windows(ext_control_window **output, int *written) {
     CFArrayRef list = CGWindowListCopyWindowInfo(
         kCGWindowListOptionOnScreenOnly | kCGWindowListExcludeDesktopElements,
@@ -60,17 +65,10 @@ static int ext_control_windows(ext_control_window **output, int *written) {
     return 0;
 }
 
-static int ext_control_capture(uint32_t identifier, size_t max_bytes,
-                               uint8_t **output, size_t *length,
-                               size_t *width, size_t *height) {
-    if (!CGPreflightScreenCaptureAccess()) return -6;
-    typedef CGImageRef (*ext_window_image_fn)(CGRect, CGWindowListOption, CGWindowID, CGWindowImageOption);
-    ext_window_image_fn create_image = (ext_window_image_fn)dlsym(RTLD_DEFAULT, "CGWindowListCreateImage");
-    if (create_image == NULL) return -5;
-    CGImageRef image = create_image(
-        CGRectNull, kCGWindowListOptionIncludingWindow, identifier,
-        kCGWindowImageBoundsIgnoreFraming | kCGWindowImageBestResolution);
-    if (image == NULL) return -1;
+// Encodes the image as PNG and releases it.
+static int ext_encode_png(CGImageRef image, size_t max_bytes,
+                          uint8_t **output, size_t *length,
+                          size_t *width, size_t *height) {
     *width = CGImageGetWidth(image);
     *height = CGImageGetHeight(image);
     CFMutableDataRef data = CFDataCreateMutable(kCFAllocatorDefault, 0);
@@ -92,6 +90,21 @@ static int ext_control_capture(uint32_t identifier, size_t max_bytes,
     *output = bytes;
     *length = (size_t)count;
     return 0;
+}
+
+typedef CGImageRef (*ext_window_image_fn)(CGRect, CGWindowListOption, CGWindowID, CGWindowImageOption);
+
+static int ext_control_capture(uint32_t identifier, size_t max_bytes,
+                               uint8_t **output, size_t *length,
+                               size_t *width, size_t *height) {
+    if (!CGPreflightScreenCaptureAccess()) return -6;
+    ext_window_image_fn create_image = (ext_window_image_fn)dlsym(RTLD_DEFAULT, "CGWindowListCreateImage");
+    if (create_image == NULL) return -5;
+    CGImageRef image = create_image(
+        CGRectNull, kCGWindowListOptionIncludingWindow, identifier,
+        kCGWindowImageBoundsIgnoreFraming | kCGWindowImageBestResolution);
+    if (image == NULL) return -1;
+    return ext_encode_png(image, max_bytes, output, length, width, height);
 }
 
 static bool ext_control_copy_point(AXUIElementRef element, CFStringRef name, CGPoint *point) {
@@ -144,36 +157,42 @@ static int ext_control_pointer(int32_t pid, int operation, int button,
                                int32_t delta_x, int32_t delta_y) {
     CGMouseButton resolved = ext_control_button(button);
     CGPoint start = CGPointMake(x, y);
+    CGEventType down_type = resolved == kCGMouseButtonLeft ? kCGEventLeftMouseDown :
+        resolved == kCGMouseButtonRight ? kCGEventRightMouseDown : kCGEventOtherMouseDown;
+    CGEventType up_type = resolved == kCGMouseButtonLeft ? kCGEventLeftMouseUp :
+        resolved == kCGMouseButtonRight ? kCGEventRightMouseUp : kCGEventOtherMouseUp;
+    CGEventType drag_type = resolved == kCGMouseButtonLeft ? kCGEventLeftMouseDragged :
+        resolved == kCGMouseButtonRight ? kCGEventRightMouseDragged : kCGEventOtherMouseDragged;
     if (operation == 0) {
         CGEventRef event = CGEventCreateMouseEvent(NULL, kCGEventMouseMoved, start, resolved);
         if (event == NULL) return -1;
-        CGEventPostToPid(pid, event); CFRelease(event); return 0;
+        ext_post(pid, event); CFRelease(event); return 0;
     }
     if (operation == 3) {
         CGEventRef event = CGEventCreateScrollWheelEvent(NULL, kCGScrollEventUnitPixel, 2, delta_y, delta_x);
         if (event == NULL) return -1;
         CGEventSetLocation(event, start);
-        CGEventPostToPid(pid, event); CFRelease(event); return 0;
+        ext_post(pid, event); CFRelease(event); return 0;
     }
-    CGEventType down_type = resolved == kCGMouseButtonLeft ? kCGEventLeftMouseDown :
-        resolved == kCGMouseButtonRight ? kCGEventRightMouseDown : kCGEventOtherMouseDown;
-    CGEventType up_type = resolved == kCGMouseButtonLeft ? kCGEventLeftMouseUp :
-        resolved == kCGMouseButtonRight ? kCGEventRightMouseUp : kCGEventOtherMouseUp;
+    if (operation >= 4 && operation <= 6) {
+        CGEventRef event = CGEventCreateMouseEvent(
+            NULL, operation == 4 ? down_type : operation == 5 ? up_type : drag_type, start, resolved);
+        if (event == NULL) return -1;
+        ext_post(pid, event); CFRelease(event); return 0;
+    }
     CGEventRef down = CGEventCreateMouseEvent(NULL, down_type, start, resolved);
     CGEventRef up = CGEventCreateMouseEvent(NULL, up_type,
         operation == 2 ? CGPointMake(end_x, end_y) : start, resolved);
     if (down == NULL || up == NULL) {
         if (down != NULL) CFRelease(down); if (up != NULL) CFRelease(up); return -1;
     }
-    CGEventPostToPid(pid, down);
+    ext_post(pid, down);
     if (operation == 2) {
-        CGEventType drag_type = resolved == kCGMouseButtonLeft ? kCGEventLeftMouseDragged :
-            resolved == kCGMouseButtonRight ? kCGEventRightMouseDragged : kCGEventOtherMouseDragged;
         CGEventRef drag = CGEventCreateMouseEvent(NULL, drag_type, CGPointMake(end_x, end_y), resolved);
-        if (drag == NULL) { CGEventPostToPid(pid, up); CFRelease(down); CFRelease(up); return -1; }
-        CGEventPostToPid(pid, drag); CFRelease(drag);
+        if (drag == NULL) { ext_post(pid, up); CFRelease(down); CFRelease(up); return -1; }
+        ext_post(pid, drag); CFRelease(drag);
     }
-    CGEventPostToPid(pid, up);
+    ext_post(pid, up);
     CFRelease(down); CFRelease(up); return 0;
 }
 
@@ -185,7 +204,7 @@ static int ext_control_text(int32_t pid, const uint16_t *characters, size_t coun
     }
     CGEventKeyboardSetUnicodeString(down, count, characters);
     CGEventKeyboardSetUnicodeString(up, count, characters);
-    CGEventPostToPid(pid, down); CGEventPostToPid(pid, up);
+    ext_post(pid, down); ext_post(pid, up);
     CFRelease(down); CFRelease(up); return 0;
 }
 
@@ -196,9 +215,47 @@ static int ext_control_key(int32_t pid, uint16_t code, uint64_t flags) {
         if (down != NULL) CFRelease(down); if (up != NULL) CFRelease(up); return -1;
     }
     CGEventSetFlags(down, flags); CGEventSetFlags(up, flags);
-    CGEventPostToPid(pid, down); CGEventPostToPid(pid, up);
+    ext_post(pid, down); ext_post(pid, up);
     CFRelease(down); CFRelease(up); return 0;
 }
+
+// The union of the active displays in global display coordinates.
+static bool ext_desktop_union(CGRect *bounds) {
+    CGDirectDisplayID displays[16];
+    uint32_t count = 0;
+    if (CGGetActiveDisplayList(16, displays, &count) != kCGErrorSuccess || count == 0) return false;
+    CGRect combined = CGRectNull;
+    for (uint32_t index = 0; index < count; index++) {
+        combined = CGRectUnion(combined, CGDisplayBounds(displays[index]));
+    }
+    if (CGRectIsNull(combined) || CGRectIsEmpty(combined)) return false;
+    *bounds = combined;
+    return true;
+}
+
+static int ext_desktop_bounds(double *x, double *y, double *width, double *height) {
+    CGRect bounds;
+    if (!ext_desktop_union(&bounds)) return -1;
+    *x = bounds.origin.x; *y = bounds.origin.y;
+    *width = bounds.size.width; *height = bounds.size.height;
+    return 0;
+}
+
+// One image pixel is one point, so a position in the capture is the position to send input to.
+static int ext_desktop_capture(size_t max_bytes, uint8_t **output, size_t *length,
+                               size_t *width, size_t *height) {
+    if (!CGPreflightScreenCaptureAccess()) return -6;
+    CGRect bounds;
+    if (!ext_desktop_union(&bounds)) return -1;
+    ext_window_image_fn create_image = (ext_window_image_fn)dlsym(RTLD_DEFAULT, "CGWindowListCreateImage");
+    if (create_image == NULL) return -5;
+    CGImageRef image = create_image(bounds, kCGWindowListOptionOnScreenOnly, kCGNullWindowID,
+                                    kCGWindowImageNominalResolution);
+    if (image == NULL) return -1;
+    return ext_encode_png(image, max_bytes, output, length, width, height);
+}
+
+static bool ext_input_trusted(void) { return AXIsProcessTrusted(); }
 */
 import "C"
 
@@ -230,6 +287,11 @@ func platformCaptureWindow(ctx context.Context, target WindowInfo, options Captu
 	var output *C.uint8_t
 	var length, width, height C.size_t
 	code := C.ext_control_capture(C.uint32_t(surface.identifier), C.size_t(options.MaxBytes), &output, &length, &width, &height)
+	return finishDarwinCapture(code, output, length, width, height, options)
+}
+
+// finishDarwinCapture turns the result of a C capture call into a SurfaceCapture and frees its buffer.
+func finishDarwinCapture(code C.int, output *C.uint8_t, length, width, height C.size_t, options CaptureOptions) (SurfaceCapture, error) {
 	if output != nil {
 		defer C.free(unsafe.Pointer(output))
 	}
@@ -302,12 +364,7 @@ func platformSendWindowInput(ctx context.Context, target WindowInfo, input Surfa
 		if !ok {
 			return errors.New("unsupported keyboard key")
 		}
-		var flags uint64
-		for _, modifier := range input.Modifiers {
-			flags |= map[string]uint64{
-				"command": 1 << 20, "control": 1 << 18, "alt": 1 << 19, "shift": 1 << 17,
-			}[modifier]
-		}
+		flags := darwinModifierFlags(input.Modifiers)
 		if code := C.ext_control_key(C.int32_t(surface.pid), C.uint16_t(key), C.uint64_t(flags)); code != 0 {
 			return fmt.Errorf("%w: Core Graphics keyboard event", ErrSurfaceUnavailable)
 		}
@@ -365,4 +422,87 @@ func darwinKeyCode(key string) (uint16, bool) {
 	}
 	value, ok := keys[key]
 	return value, ok
+}
+
+func darwinModifierFlags(modifiers []string) uint64 {
+	var flags uint64
+	for _, modifier := range modifiers {
+		flags |= map[string]uint64{
+			"command": 1 << 20, "control": 1 << 18, "alt": 1 << 19, "shift": 1 << 17,
+		}[modifier]
+	}
+	return flags
+}
+
+// darwinDesktop drives the whole desktop with Core Graphics: events go to the HID tap, not to a
+// process, and capture covers all active displays at one pixel per point.
+type darwinDesktop struct{}
+
+func newNativeDesktopBackend() (nativeDesktopBackend, error) { return darwinDesktop{}, nil }
+
+func (darwinDesktop) name() string { return "native-macos" }
+
+func (darwinDesktop) bounds(context.Context) (SurfaceBounds, error) {
+	var x, y, width, height C.double
+	if C.ext_desktop_bounds(&x, &y, &width, &height) != 0 {
+		return SurfaceBounds{}, fmt.Errorf("%w: Core Graphics display enumeration failed", ErrSurfaceUnavailable)
+	}
+	return SurfaceBounds{X: int(x), Y: int(y), Width: int(width), Height: int(height)}, nil
+}
+
+func (d darwinDesktop) capture(ctx context.Context, options CaptureOptions) (SurfaceCapture, error) {
+	bounds, err := d.bounds(ctx)
+	if err != nil {
+		return SurfaceCapture{}, err
+	}
+	if bounds.Width > options.MaxPixels/bounds.Height {
+		return SurfaceCapture{}, errors.New("desktop exceeds capture pixel limit")
+	}
+	var output *C.uint8_t
+	var length, width, height C.size_t
+	code := C.ext_desktop_capture(C.size_t(options.MaxBytes), &output, &length, &width, &height)
+	return finishDarwinCapture(code, output, length, width, height, options)
+}
+
+func (darwinDesktop) pointer(_ context.Context, event nativePointer) error {
+	if !bool(C.ext_input_trusted()) {
+		return ErrSurfacePermission
+	}
+	operation := map[nativePointerOp]int{
+		pointerMove: 0, pointerClick: 1, pointerDrag: 2, pointerScroll: 3, pointerDown: 4, pointerUp: 5, pointerHeldMove: 6,
+	}[event.op]
+	button := map[string]int{"left": 0, "right": 1, "middle": 2}[event.button]
+	if code := C.ext_control_pointer(0, C.int(operation), C.int(button), C.double(event.x), C.double(event.y),
+		C.double(event.endX), C.double(event.endY), C.int32_t(event.deltaX), C.int32_t(event.deltaY)); code != 0 {
+		return fmt.Errorf("%w: Core Graphics pointer event", ErrSurfaceUnavailable)
+	}
+	return nil
+}
+
+func (darwinDesktop) text(_ context.Context, text string) error {
+	if !bool(C.ext_input_trusted()) {
+		return ErrSurfacePermission
+	}
+	characters := utf16.Encode([]rune(text))
+	if len(characters) == 0 {
+		return errors.New("keyboard text must not be empty")
+	}
+	if code := C.ext_control_text(0, (*C.uint16_t)(unsafe.Pointer(&characters[0])), C.size_t(len(characters))); code != 0 {
+		return fmt.Errorf("%w: Core Graphics keyboard event", ErrSurfaceUnavailable)
+	}
+	return nil
+}
+
+func (darwinDesktop) key(_ context.Context, key string, modifiers []string) error {
+	code, ok := darwinKeyCode(key)
+	if !ok {
+		return errors.New("unsupported keyboard key")
+	}
+	if !bool(C.ext_input_trusted()) {
+		return ErrSurfacePermission
+	}
+	if status := C.ext_control_key(0, C.uint16_t(code), C.uint64_t(darwinModifierFlags(modifiers))); status != 0 {
+		return fmt.Errorf("%w: Core Graphics keyboard event", ErrSurfaceUnavailable)
+	}
+	return nil
 }

@@ -103,6 +103,16 @@ observes every PHP that CTX found (`CTX_PROGRAMS`, from `PATH` and from installe
 adapters) as graph contexts, and runs the selected version for the current project
 without relinking the host's global `php` command. It knows no installer.
 
+`python` and `node` are the Python and Node.js evaluator adapters, built the same way as
+`php`. Each declares `engine = ["evaluator"]`, `role = ["virtualizer", "interpreter"]` and its
+own `supports` kind, and observes every copy CTX found (`CTX_PROGRAMS`, from `PATH` and from
+installer adapters) as a graph context with its version and the installer that provided it.
+A selection is a major.minor version for `python` (`ctx set python 3.12`) and a major version
+for `node` (`ctx set node 22`); the default is the copy on `PATH`. `python` answers to
+`python3` and `python`. On macOS the `/usr/bin/python3` stub only counts when the Command Line
+Tools are installed, because running it otherwise opens an installer dialog. Neither knows
+any installer.
+
 `homebrew` is an installer adapter (`role = ["installer"]`). Its `programs`
 operation reports the executables Homebrew kegs hold for the names CTX asks about,
 linked or keg-only, from `<prefix>/opt/*/bin` without starting `brew`. `run` runs

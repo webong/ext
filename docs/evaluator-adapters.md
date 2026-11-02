@@ -4,8 +4,8 @@ An **evaluator** is an adapter that executes programs at the boundary of a proce
 a language: a Java virtual machine, a WebAssembly runtime, an EVM, a PHP interpreter.
 This page is the contract every evaluator adapter follows, so a user, ctx, ctn or
 another tool can treat any evaluator the same way. It builds on the
-[adapter API](adapter-api.md); the maintained evaluators are `jvm`, `wasm`, `evm`
-and `php`.
+[adapter API](adapter-api.md); the maintained evaluators are `jvm`, `wasm`, `evm`, `php`, `python`
+and `node`.
 
 An evaluator is one type of **engine**, defined by the boundary it virtualizes (see
 [Program discovery](adr-program-discovery.md#vocabulary)). The others are the
@@ -35,7 +35,7 @@ capabilities = "list,observe,validate,run,doctor"
 
 An evaluator provides the `evaluator` engine, plays the `virtualizer` role and any
 other roles that describe what it does with code (`interpreter`, `compiler`,
-`transpiler`, `bundler`, `renderer`), and supports exactly one kind (`jvm`, `wasm`, `evm`, `php`).
+`transpiler`, `bundler`, `renderer`), and supports exactly one kind (`jvm`, `wasm`, `evm`, `php`, `python`, `node`).
 With `ctx graph resolve all --engine evaluator` a tool finds every evaluator,
 `--role virtualizer` finds every virtualizer of any engine, and `--supports <kind>`
 narrows to one. A built-in evaluator has no native executable
@@ -50,6 +50,8 @@ The selection names the one thing that varies between installations of the evalu
 | --- | --- | --- |
 | `jvm` | a major Java version (`21`) | the first installation found |
 | `php` | a major.minor version (`8.3`) | the PHP on `PATH` |
+| `python` | a major.minor version (`3.12`) | the Python on `PATH` |
+| `node` | a major version (`22`) | the Node.js on `PATH` |
 | `wasm` | an engine (`embedded`, or an installed `wasmtime` or `wasmer`) | `embedded` |
 | `evm` | a rule set (`cancun`) | the newest (`prague`) |
 

@@ -192,7 +192,7 @@ Decided in the spike:
   `installer`). Both are multi-valued, and `supports` keeps only resource kinds.
   `ctx graph resolve` filters with `--engine` and `--role`. The word
   "level" and the earlier meaning of `engine`, an adapter that ran programs, are gone,
-  with no alias. `jvm`, `wasm`, `evm` and `php` are evaluators; `docker` and `nerdctl`
+  with no alias. `jvm`, `wasm`, `evm`, `php`, `python` and `node` are evaluators; `docker` and `nerdctl`
   are executors; `podman`, `docker_desktop`, `orbstack`, `rancher_desktop` and `apple`
   provide an emulator and an executor; `aws` and `gcloud` provide an emulator; `kube`
   provides no engine and is not a virtualizer. `engines_test.go` checks the vocabulary:

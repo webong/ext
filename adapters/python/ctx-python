@@ -1,0 +1,131 @@
+#!/bin/sh
+set -eu
+
+operation=${1:-}
+[ "$#" -gt 0 ] && shift
+
+real_python() {
+  if [ -n "${CTX_ADAPTER_REAL_COMMAND:-}" ] && [ -x "$CTX_ADAPTER_REAL_COMMAND" ]; then
+    printf '%s\n' "$CTX_ADAPTER_REAL_COMMAND"
+    return
+  fi
+  for name in python3 python; do
+    if [ -n "${CTX_EXECUTABLE:-}" ] && [ -x "$CTX_EXECUTABLE" ]; then
+      resolved=$("$CTX_EXECUTABLE" real "$name" 2>/dev/null || true)
+      if [ -n "$resolved" ] && [ -x "$resolved" ]; then
+        printf '%s\n' "$resolved"
+        return
+      fi
+    fi
+    ctx_command=$(command -v ctx 2>/dev/null || true)
+    if [ -n "$ctx_command" ] && [ -x "$ctx_command" ]; then
+      resolved=$("$ctx_command" real "$name" 2>/dev/null || true)
+      if [ -n "$resolved" ] && [ -x "$resolved" ]; then
+        printf '%s\n' "$resolved"
+        return
+      fi
+    fi
+    resolved=$(command -v "$name" 2>/dev/null || true)
+    if [ -n "$resolved" ]; then
+      printf '%s\n' "$resolved"
+      return
+    fi
+  done
+}
+
+# macOS ships /usr/bin/python3 as a stub that opens an installer dialog when the
+# Command Line Tools are missing. Running it to read a version would trigger that
+# dialog, so the stub only counts when the tools are installed.
+usable() {
+  case "$(uname -s)" in
+    Darwin)
+      case "$1" in
+        /usr/bin/python3|/usr/bin/python) xcode-select -p >/dev/null 2>&1 || return 1 ;;
+      esac
+      ;;
+  esac
+  [ -x "$1" ]
+}
+
+# One line per candidate: executable, installers. CTX passes every copy it found
+# in CTX_PROGRAMS (see the adapter API), preferring the one on PATH; outside CTX
+# only the Python on PATH is known.
+candidates() {
+  tab=$(printf '\t')
+  if [ "${CTX_PROGRAMS+set}" = set ]; then
+    printf '%s\n' "$CTX_PROGRAMS" | awk -F '\t' '($1 == "python3" || $1 == "python") && $2 != "" { print ($6 == 1 ? 0 : 1) "\t" $2 "\t" $5 }' | sort -s -k1,1n |
+      while IFS="$tab" read -r rank executable installers; do
+        printf '%s\t%s\n' "$executable" "$installers"
+      done
+    return
+  fi
+  executable=$(real_python)
+  [ -n "$executable" ] && printf '%s\t\n' "$executable"
+  return 0
+}
+
+# One line per usable Python: selection (major.minor), executable, version,
+# installers. A copy whose version cannot be read is left out.
+inventory() {
+  tab=$(printf '\t')
+  candidates | while IFS="$tab" read -r executable installers; do
+    usable "$executable" || continue
+    version=$("$executable" -c 'import platform; print(platform.python_version())' 2>/dev/null || true)
+    [ -n "$version" ] || continue
+    selection=$(printf '%s\n' "$version" | awk -F. '{print $1 "." $2}')
+    printf '%s\t%s\t%s\t%s\n' "$selection" "$executable" "$version" "${installers:-path}"
+  done | awk -F '\t' '!seen[$1]++'
+}
+
+find_record() {
+  wanted=$1
+  inventory | awk -F '\t' -v wanted="$wanted" '$1 == wanted { print; exit }'
+}
+
+case "$operation" in
+  list)
+    inventory | awk -F '\t' 'NF >= 4 && !seen[$1]++ { print $1 }'
+    ;;
+  observe)
+    tab=$(printf '\t')
+    separator=
+    printf '{"version":1,"contexts":['
+    inventory | while IFS="$tab" read -r selection executable version manager; do
+      [ -n "$selection" ] || continue
+      printf '%s{"selection":"%s","attributes":{"kind":"python","version":"%s","isolation":"host","manager":"%s"}}' "$separator" "$selection" "$version" "$manager"
+      separator=,
+    done
+    printf ']}\n'
+    ;;
+  validate)
+    selection=${1:-}
+    [ -n "$selection" ] && [ -n "$(find_record "$selection")" ] || { printf 'python: Python %s is not installed\n' "${selection:-<empty>}" >&2; exit 1; }
+    ;;
+  doctor)
+    selection=${1:-}
+    if [ -n "$selection" ]; then
+      record=$(find_record "$selection")
+      [ -n "$record" ] || { printf 'python: Python %s is not installed\n' "$selection" >&2; exit 1; }
+      executable=$(printf '%s\n' "$record" | awk -F '\t' '{print $2}')
+    else
+      executable=$(real_python)
+    fi
+    [ -n "$executable" ] && usable "$executable" || { printf 'python: Python is not installed\n' >&2; exit 127; }
+    "$executable" -c 'print("python ok")' && "$executable" --version
+    ;;
+  run)
+    selection=
+    if [ "$#" -gt 0 ] && [ "$1" != "--" ]; then selection=$1; shift; fi
+    [ "${1:-}" = "--" ] && shift
+    if [ -n "$selection" ]; then
+      record=$(find_record "$selection")
+      [ -n "$record" ] || { printf 'python: Python %s is not installed\n' "$selection" >&2; exit 1; }
+      executable=$(printf '%s\n' "$record" | awk -F '\t' '{print $2}')
+    else
+      executable=$(real_python)
+    fi
+    [ -n "$executable" ] && usable "$executable" || { printf 'python: Python is not installed\n' >&2; exit 127; }
+    exec "$executable" "$@"
+    ;;
+  *) exit 2 ;;
+esac

@@ -168,7 +168,7 @@ func TestEvaluatorAdaptersFollowTheContract(t *testing.T) {
 	}
 	sort.Strings(evaluators)
 	// The maintained evaluators. Adding one means deciding it belongs here.
-	if got := strings.Join(evaluators, ","); got != "evm,jvm,php,wasm" {
-		t.Errorf("evaluator adapters are %q, want evm,jvm,php,wasm: update this list and the docs together", got)
+	if got := strings.Join(evaluators, ","); got != "evm,jvm,node,php,python,wasm" {
+		t.Errorf("evaluator adapters are %q, want evm,jvm,node,php,python,wasm: update this list and the docs together", got)
 	}
 }

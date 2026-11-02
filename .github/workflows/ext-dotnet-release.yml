@@ -1,0 +1,138 @@
+name: Release .NET libraries
+
+# Releases the Windows-native .NET libraries of ext as NuGet packages: Ext.Audio.Windows,
+# Ext.Clipboard.Windows, Ext.Web.Windows and Ext.ML.Windows, all at one version. It runs only for
+# ext-dotnet-vX.Y.Z tags, and by hand for a dry run that builds, tests and packs but publishes
+# nothing. The tag is not a Go module tag; see docs/module-versioning.md.
+#
+# Pushing to a NuGet feed is the last step and runs only when the repository variable
+# EXT_NUGET_SOURCE names a feed, for example https://api.nuget.org/v3/index.json, and the secret
+# EXT_NUGET_API_KEY can push to it. Without the variable the release is the GitHub release alone,
+# with the packages attached, and the job is skipped.
+on:
+  push:
+    tags: ['ext-dotnet-v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version to build for the dry run, for example 0.1.0
+        type: string
+        default: 0.0.0
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ext-dotnet-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # Builds, tests and packs before anything is published. Read-only: it has no token that can write.
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Version
+        id: version
+        shell: bash
+        env:
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          if [[ "$REF_TYPE" == tag ]]; then version="${REF_NAME#ext-dotnet-v}"; else version="$INPUT_VERSION"; fi
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "version '$version' must look like 0.1.0" >&2; exit 1; }
+          echo "version=$version" >>"$GITHUB_OUTPUT"
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '8.0.x'
+      - name: Tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          dotnet run --project res/int/model/windows/Tests/Ext.ML.Windows.Tests.csproj
+          dotnet run --project res/web/windows/Tests/Ext.Web.Windows.Tests.csproj
+      - name: Pack
+        shell: bash
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          out="dist/ext-dotnet-$VERSION"
+          mkdir -p "$out"
+          for project in \
+            res/system/capture/audio/windows/Ext.Audio.Windows.csproj \
+            res/system/capture/clipboard/windows/Ext.Clipboard.Windows.csproj \
+            res/web/windows/Ext.Web.Windows.csproj \
+            res/int/model/windows/Ext.ML.Windows.csproj; do
+            dotnet pack "$project" -c Release -p:Version="$VERSION" -o "$out"
+          done
+          [[ "$(ls "$out"/*.nupkg | wc -l)" -eq 4 ]] || { echo 'expected four packages' >&2; ls "$out" >&2; exit 1; }
+      - name: Checksums
+        shell: bash
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          cd "dist/ext-dotnet-$VERSION"
+          sha256sum *.nupkg *.snupkg | tee checksums.txt
+      - uses: actions/upload-artifact@v6
+        with:
+          name: ext-dotnet-${{ steps.version.outputs.version }}
+          path: dist/ext-dotnet-${{ steps.version.outputs.version }}/*
+          if-no-files-found: error
+
+  # Publishes. Only a pushed ext-dotnet-v tag gets here (never a manual run, even on a tag), and
+  # only after the build job passed. It builds nothing: it attaches the exact files that were tested.
+  publish:
+    needs: build
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/ext-dotnet-v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v7
+        with:
+          name: ext-dotnet-${{ needs.build.outputs.version }}
+          path: dist
+      - name: Verify checksums
+        run: (cd dist && sha256sum -c checksums.txt)
+      - name: Attest release provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: 'dist/*'
+      # Not "latest": install.sh and install.ps1 resolve the newest ctx-v release by tag.
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist/* --verify-tag --generate-notes --latest=false --title "$GITHUB_REF_NAME"
+
+  # Pushes the packages to a NuGet feed. It runs after the release exists, and is skipped unless
+  # EXT_NUGET_SOURCE is set. --skip-duplicate makes a rerun safe: a published version is immutable.
+  nuget:
+    needs: [build, publish]
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/ext-dotnet-v') && vars.EXT_NUGET_SOURCE != ''
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v7
+        with:
+          name: ext-dotnet-${{ needs.build.outputs.version }}
+          path: dist
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '8.0.x'
+      - name: Check the configuration
+        env:
+          KEY: ${{ secrets.EXT_NUGET_API_KEY }}
+        run: '[[ -n "$KEY" ]] || { echo "EXT_NUGET_SOURCE is set but the secret EXT_NUGET_API_KEY is not" >&2; exit 1; }'
+      - name: Push the packages
+        env:
+          SOURCE: ${{ vars.EXT_NUGET_SOURCE }}
+          KEY: ${{ secrets.EXT_NUGET_API_KEY }}
+        run: dotnet nuget push 'dist/*.nupkg' --source "$SOURCE" --api-key "$KEY" --skip-duplicate

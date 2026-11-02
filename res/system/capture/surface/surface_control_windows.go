@@ -83,6 +83,11 @@ func platformCaptureWindow(ctx context.Context, target WindowInfo, options Captu
 	if width <= 0 || height <= 0 || int(width) > options.MaxPixels/int(height) {
 		return SurfaceCapture{}, errors.New("surface exceeds capture pixel limit")
 	}
+	return captureWindowsRect(ctx, surface.bounds.Left, surface.bounds.Top, width, height, options)
+}
+
+// captureWindowsRect copies a rectangle of the screen, in virtual-screen coordinates, to a PNG.
+func captureWindowsRect(ctx context.Context, left, top, width, height int32, options CaptureOptions) (SurfaceCapture, error) {
 	screenDC, _, _ := controlGetDC.Call(0)
 	if screenDC == 0 {
 		return SurfaceCapture{}, fmt.Errorf("%w: GetDC", ErrSurfaceUnavailable)
@@ -104,7 +109,7 @@ func platformCaptureWindow(ctx context.Context, target WindowInfo, options Captu
 	}
 	defer controlSelectObject.Call(memoryDC, previous)
 	if result, _, _ := controlBitBlt.Call(memoryDC, 0, 0, uintptr(width), uintptr(height), screenDC,
-		uintptr(surface.bounds.Left), uintptr(surface.bounds.Top), controlSourceCopy); result == 0 {
+		uintptr(left), uintptr(top), controlSourceCopy); result == 0 {
 		return SurfaceCapture{}, fmt.Errorf("%w: BitBlt", ErrSurfaceUnavailable)
 	}
 	if err := ctx.Err(); err != nil {
@@ -147,12 +152,21 @@ func platformSendWindowInput(ctx context.Context, target WindowInfo, input Surfa
 		if value.X < 0 || value.Y < 0 || value.X >= width || value.Y >= height {
 			return errors.New("surface coordinates exceed current window bounds")
 		}
-		result, _, _ := controlSetCursorPosition.Call(uintptr(int(surface.bounds.Left)+value.X), uintptr(int(surface.bounds.Top)+value.Y))
-		if result == 0 {
-			return fmt.Errorf("%w: SetCursorPos", ErrSurfaceUnavailable)
-		}
-		return nil
+		return setWindowsCursor(int(surface.bounds.Left)+value.X, int(surface.bounds.Top)+value.Y)
 	}
+	return sendWindowsInput(ctx, input, point)
+}
+
+func setWindowsCursor(x, y int) error {
+	if result, _, _ := controlSetCursorPosition.Call(uintptr(x), uintptr(y)); result == 0 {
+		return fmt.Errorf("%w: SetCursorPos", ErrSurfaceUnavailable)
+	}
+	return nil
+}
+
+// sendWindowsInput performs one input operation. point moves the cursor to a position
+// given in the coordinates of the caller's target; keyboard operations do not use it.
+func sendWindowsInput(ctx context.Context, input SurfaceInput, point func(SurfacePoint) error) error {
 	switch input.Kind {
 	case SurfaceInputMove:
 		return point(input.Point)

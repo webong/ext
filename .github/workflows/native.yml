@@ -37,7 +37,7 @@ jobs:
       - name: Test library modules
         shell: bash # the loop is bash; Windows runners default to PowerShell
         run: |
-          for module in cmd/ext src/ctx src/ctn res/system res/graph res/int pkg/ext-go pkg/ext-go/engine pkg/ext-go/cgoengine pkg/ext-go/hashicorp pkg/ext-go/wasm pkg/ext-go/inference pkg/ext-go/model pkg/ext-go/perception pkg/ext-go/realtime adapters/wasm adapters/evm adapters/systemd adapters/pulseaudio adapters/alsa adapters/x11 adapters/wayland adapters/pipewire adapters/openai adapters/ollama adapters/anthropic adapters/gemini res/web; do
+          for module in cmd/ext src/ctx src/ctn res/system res/graph res/int pkg/ext-go pkg/ext-go/engine pkg/ext-go/cgoengine pkg/ext-go/hashicorp pkg/ext-go/wasm pkg/ext-go/inference pkg/ext-go/model pkg/ext-go/perception pkg/ext-go/realtime adapters/wasm adapters/evm adapters/systemd adapters/pulseaudio adapters/alsa adapters/x11 adapters/ffmpeg adapters/wayland adapters/pipewire adapters/openai adapters/ollama adapters/anthropic adapters/gemini res/web; do
             (cd "$module" && go test ./...) || exit 1
           done
       - name: Test intelligence contracts with race detector
@@ -117,6 +117,20 @@ jobs:
           dotnet run --project res/int/model/windows/Tests/Ext.ML.Windows.Tests.csproj
           dotnet build res/web/windows/Ext.Web.Windows.csproj
           dotnet run --project res/web/windows/Tests/Ext.Web.Windows.Tests.csproj
+      - name: Pack the .NET libraries
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $out = Join-Path $env:RUNNER_TEMP 'nupkg'
+          foreach ($project in @(
+              'res/system/capture/audio/windows/Ext.Audio.Windows.csproj',
+              'res/system/capture/clipboard/windows/Ext.Clipboard.Windows.csproj',
+              'res/web/windows/Ext.Web.Windows.csproj',
+              'res/int/model/windows/Ext.ML.Windows.csproj')) {
+            dotnet pack $project -c Release -p:Version=0.0.0-ci -o $out
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+          if ((Get-ChildItem $out -Filter *.nupkg).Count -ne 4) { throw 'expected four packages' }
       - name: Validate native ONNX guest through CTN
         if: runner.os == 'Windows'
         shell: pwsh

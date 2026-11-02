@@ -75,6 +75,32 @@ public final class SystemAccessibilityController {
         }
     }
 
+    /// Reads one attribute of an element returned by SystemAccessibilityObserver and
+    /// returns it as a typed value, or nil when the element does not have the attribute or
+    /// it has no value. It applies the same re-walk and process-generation checks as
+    /// `perform` and `set`. Attributes whose value is another element, a list or a URL are
+    /// unsupported: the controller never returns native references. It owns no allowlist,
+    /// so which attributes a caller may read is the caller's policy.
+    public func read(element target: AccessibilityElement, attribute: String) throws -> AccessibilityAttributeValue? {
+        guard attribute.hasPrefix("AX"), !attribute.contains("\n"), attribute.count <= 128 else {
+            throw AccessibilityControlError.invalidInput
+        }
+        let native = try resolve(target)
+        var value: CFTypeRef?
+        switch AXUIElementCopyAttributeValue(native, attribute as CFString, &value) {
+        case .success:
+            break
+        case .noValue, .attributeUnsupported:
+            return nil
+        case .apiDisabled:
+            throw AccessibilityControlError.permissionDenied
+        default:
+            throw AccessibilityControlError.nativeFailure
+        }
+        guard let value else { return nil }
+        return try decodeAccessibilityAttribute(value)
+    }
+
     private func resolve(_ target: AccessibilityElement) throws -> AXUIElement {
         guard AXIsProcessTrusted() else { throw AccessibilityControlError.permissionDenied }
         guard target.pid > 0, !target.processStartID.isEmpty,
@@ -159,5 +185,46 @@ public final class SystemAccessibilityController {
             return encoded
         }
     }
+}
+
+/// Converts a native attribute value into a typed value. Values that are not plain data
+/// (element references, arrays, URLs, other AXValue kinds) are unsupported.
+func decodeAccessibilityAttribute(_ value: CFTypeRef) throws -> AccessibilityAttributeValue {
+    let kind = CFGetTypeID(value)
+    if kind == CFStringGetTypeID() {
+        let text = value as! String
+        guard text.utf8.count <= 1_048_576 else { throw AccessibilityControlError.unsupported }
+        return .string(text)
+    }
+    if kind == CFBooleanGetTypeID() {
+        return .boolean(CFBooleanGetValue((value as! CFBoolean)))
+    }
+    if kind == CFNumberGetTypeID() {
+        var number = 0.0
+        guard CFNumberGetValue((value as! CFNumber), .doubleType, &number), number.isFinite else {
+            throw AccessibilityControlError.unsupported
+        }
+        return .number(number)
+    }
+    if kind == AXValueGetTypeID() {
+        let native = value as! AXValue
+        switch AXValueGetType(native) {
+        case .cgPoint:
+            var point = CGPoint.zero
+            guard AXValueGetValue(native, .cgPoint, &point) else { throw AccessibilityControlError.nativeFailure }
+            return .point(x: Double(point.x), y: Double(point.y))
+        case .cgSize:
+            var size = CGSize.zero
+            guard AXValueGetValue(native, .cgSize, &size) else { throw AccessibilityControlError.nativeFailure }
+            return .size(width: Double(size.width), height: Double(size.height))
+        case .cfRange:
+            var range = CFRange(location: 0, length: 0)
+            guard AXValueGetValue(native, .cfRange, &range) else { throw AccessibilityControlError.nativeFailure }
+            return .range(location: range.location, length: range.length)
+        default:
+            throw AccessibilityControlError.unsupported
+        }
+    }
+    throw AccessibilityControlError.unsupported
 }
 #endif

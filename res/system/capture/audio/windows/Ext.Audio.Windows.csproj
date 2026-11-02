@@ -1,10 +1,14 @@
 <Project Sdk="Microsoft.NET.Sdk">
+  <Import Project="../../../../../scripts/dotnet/Ext.Package.props" />
   <PropertyGroup>
     <TargetFramework>net8.0-windows</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>Ext.Audio.Windows</AssemblyName>
     <RootNamespace>Webong.Ext.System.Windows</RootNamespace>
+    <PackageId>Ext.Audio.Windows</PackageId>
+    <Description>Bounded WASAPI endpoint discovery, capture and PCM playback for Windows, the .NET binding of the Ext capture/audio contract.</Description>
+    <PackageTags>ext;windows;audio;wasapi;capture;pcm</PackageTags>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="NAudio" Version="2.2.1" />

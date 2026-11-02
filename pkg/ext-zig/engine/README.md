@@ -47,6 +47,15 @@ JSON, freed with `deinit`; the shapes are in `ext_store_list` of
 unverified and must not be launched or trusted as it stands. A damaged winner in a layered
 view fails closed instead of falling back to a lower root.
 
+`Store.resolveEntrypoint` is the discovery of what a reviewed package runs. Given an
+`EntrypointRequest` (the id, the contract name and version and the protocol it must serve,
+the `reviewed_digest` the caller recorded, and an optional `os` and `arch` in Go's `GOOS` and
+`GOARCH` names, the platform the engine was built for when null) it reads and verifies the
+whole package and returns a `Buffer` of the JSON `{"name","artifact","path","digest"}` of the
+best `argv` entrypoint that lists the protocol. A changed or empty digest is `error.Denied`,
+so an installed package is never trusted for being installed; a package that does not serve
+the contract, or has no entrypoint that fits the platform, is `error.Unsupported`.
+
 The guest handler uses the C copying result sink. It must cooperate with its
 remaining time and must not retain borrowed pointers. Instance/stream APIs are
 available through both ownership wrappers and `ffi`. Release all leases and join

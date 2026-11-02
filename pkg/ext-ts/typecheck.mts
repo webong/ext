@@ -10,7 +10,7 @@ await call(session,healthMethod,{});
 await call(session,method,{value:123});
 void output;
 
-import {loadEngine, type PackageRecord, type PackageCheck, type UnverifiedListing} from './engine/index.mjs';
+import {loadEngine, type PackageRecord, type PackageCheck, type UnverifiedListing, type ResolvedEntrypoint} from './engine/index.mjs';
 const engine=loadEngine('/absolute/path/ext_engine.node');
 const nativeHost=await engine.Host.open({executable:'/absolute/path/guest',descriptor:{},verify:()=>true,authorize:async()=>true,observe:event=>{void event.stage;}});
 await nativeHost.call({name:'example.echo',version:'v1'},'echo',{value:'ok'},{timeout:1000});
@@ -26,13 +26,14 @@ const installedIds:string[]=await packageStore.ids();
 const listed:PackageRecord[]=await packageStore.list();
 const checked:PackageCheck[]=await packageStore.verify();
 const unverified:UnverifiedListing=await packageStore.listUnverified();
+const entrypoint:ResolvedEntrypoint=await packageStore.resolveEntrypoint({id:'example/a',contract:'example',version:'v1',protocol:'example/v1',reviewedDigest:'00',os:'linux',arch:'arm64'});
 await packageStore.remove('example/a');
 packageStore.close();
 const layered=new engine.LayeredPackageStore(['/absolute/path/user','/absolute/path/system'],{maxTreeFiles:100});
 const served:{manifest:string;layer:number}=await layered.load('example/a');
 await layered.list();await layered.verify();await layered.listUnverified();
 layered.close();
-void installed;void stored;void installedIds;void listed;void checked;void unverified;void served;
+void installed;void stored;void installedIds;void listed;void checked;void unverified;void entrypoint;void served;
 
 import { FrameError, Limiter, splitProgressText, type CallFrames } from './index.mjs';
 const withFrames = new Registry({id:'example/frames',revision:'r1'})

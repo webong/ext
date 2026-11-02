@@ -145,8 +145,10 @@ try (LayeredPackageStore view = new LayeredPackageStore(List.of(userRoot, system
 - A failure is a `GuestException`; `status()` is one of the constants of `PackageStore`: `INVALID` (a package,
   id or directory that is not valid, a directory that is not a package, an artifact over a limit), `MISMATCH`
   (a changed artifact, a directory that is not what its name says, an upgrade that changes the id or the
-  contracts), `EXISTS` (an install over an installed id), `NOT_FOUND`, `MISSING` (a source directory, a manifest
-  or a listed artifact that is not there), `CLOSED`, `IO` and `NOMEM`. A `null` argument is a
+  contracts), `DENIED` (a package the caller has not reviewed) and `UNSUPPORTED` (a package that does not serve
+  the contract or has no entrypoint that fits), both from `resolveEntrypoint`, `EXISTS` (an install over an
+  installed id), `NOT_FOUND`, `MISSING` (a source directory, a manifest or a listed artifact that is not there),
+  `CLOSED`, `IO` and `NOMEM`. A `null` argument is a
   `NullPointerException`; a string with no UTF-8 spelling (a lone surrogate) or with a NUL is `INVALID`.
 - `StoreLimits` bounds one artifact file, the files in a tree and the bytes of a tree; zero takes the engine's
   default (4 GiB, 250000 files, 16 GiB). The install and upgrade calls take a `preserveExecutable` flag: a
@@ -157,6 +159,13 @@ try (LayeredPackageStore view = new LayeredPackageStore(List.of(userRoot, system
   with `org.json` or any parser the app already has; the SDK has no JSON model of its own to commit to.
   Only `ids()` is parsed, into a `List<String>`. `listUnverified()` reads manifests alone, so its result must
   not be launched or trusted as it stands.
+- `resolveEntrypoint(id, contract, version, protocol, reviewedDigest[, os, arch])` is the discovery of what a
+  reviewed package runs. It reads and verifies the whole package, requires that it serves the exact contract
+  name and version, compares its directory digest with `reviewedDigest` (lowercase hex, as recorded at review;
+  an empty or changed one is `DENIED`, so an installed package is never trusted for being installed) and returns
+  the engine's JSON `{"name","artifact","path","digest"}` of the best `argv` entrypoint that lists the protocol.
+  `os` and `arch` are Go's `GOOS` and `GOARCH` names; `null` is the platform the engine was built for. Nothing
+  is run.
 - A missing root is an empty store, made (owner-only) by the first install; asking a store or a view for ids or
   a report never creates it. In a layered view an id is served from the first root that holds it, a shadowed
   copy is never read, and a winner that does not verify fails the call instead of falling back to the copy

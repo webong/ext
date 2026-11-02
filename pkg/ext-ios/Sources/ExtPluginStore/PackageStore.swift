@@ -7,9 +7,15 @@ public enum PackageStoreError: Error, Equatable {
     /// A package, id or directory that is not valid, a source that is not a package,
     /// an artifact over a limit, or a root set the layered view does not accept.
     case invalid
+    /// A package the caller has not reviewed: an empty digest, or one that is not the
+    /// package's.
+    case denied
     /// An artifact whose digest differs, a directory that does not match its
     /// manifest, or an upgrade that changes the id or the contracts.
     case mismatch
+    /// A package that does not serve the contract asked for, or has no entrypoint that
+    /// fits the protocol and the platform.
+    case unsupported
     /// An id that is not installed.
     case notFound
     /// An install over an installed id.
@@ -28,7 +34,9 @@ public enum PackageStoreError: Error, Equatable {
         switch status {
         case ext_status(EXT_OK): return nil
         case ext_status(EXT_INVALID): self = .invalid
+        case ext_status(EXT_DENIED): self = .denied
         case ext_status(EXT_MISMATCH): self = .mismatch
+        case ext_status(EXT_UNSUPPORTED): self = .unsupported
         case ext_status(EXT_NOT_FOUND): self = .notFound
         case ext_status(EXT_EXISTS): self = .exists
         case ext_status(EXT_MISSING): self = .missing
@@ -55,6 +63,22 @@ public struct PackageStoreLimits: Equatable {
 
     fileprivate var raw: ext_store_limits {
         ext_store_limits(max_artifact_bytes: maxArtifactBytes, max_tree_files: maxTreeFiles, max_tree_bytes: maxTreeBytes)
+    }
+}
+
+/// The entrypoint `PackageStore.resolveEntrypoint` chose: the entrypoint's name, its
+/// artifact's name, the artifact's path under the store and the package digest.
+public struct ResolvedEntrypoint: Equatable, Decodable {
+    public let name: String
+    public let artifact: String
+    public let path: String
+    public let digest: String
+
+    public init(name: String, artifact: String, path: String, digest: String) {
+        self.name = name
+        self.artifact = artifact
+        self.path = path
+        self.digest = digest
     }
 }
 
@@ -157,6 +181,28 @@ public final class PackageStore: @unchecked Sendable {
     public func listUnverified() throws -> Data {
         try output { ext_store_list_unverified(handle, $0) }
     }
+
+    /// Chooses the entrypoint the installed package `id` offers for `protocol` on a
+    /// platform, for a package the caller has reviewed (see `ext_store_resolve_entrypoint`
+    /// in lib/plugin/include/ext_host.h for the rules). The package is read and verified
+    /// whole and must serve the exact `contract` and `version`; it is chosen only when its
+    /// directory digest equals `reviewedDigest` (lowercase hex, as recorded at review), so
+    /// an empty or changed digest is `PackageStoreError.denied` and an installed package is
+    /// never trusted for being installed. `PackageStoreError.unsupported` means the package
+    /// does not serve the contract or has no entrypoint that fits. Nothing is run. `os` and
+    /// `arch` are Go's `GOOS` and `GOARCH` names; nil is the platform the engine was built
+    /// for.
+    public func resolveEntrypoint(id: String, contract: String, version: String, protocol wireProtocol: String,
+                                  reviewedDigest: String, os: String? = nil,
+                                  arch: String? = nil) throws -> ResolvedEntrypoint {
+        let json = try withEngineStrings([id, contract, version, wireProtocol, reviewedDigest, os, arch]) { s in
+            try output { ext_store_resolve_entrypoint(handle, s[0], s[1], s[2], s[3], s[4], s[5], s[6], $0) }
+        }
+        guard let entrypoint = try? JSONDecoder().decode(ResolvedEntrypoint.self, from: json) else {
+            throw PackageStoreError.invalid
+        }
+        return entrypoint
+    }
 }
 
 /// A package served by a `LayeredPackageStore`: its `plugin.json` and the position of
@@ -245,4 +291,14 @@ private func output(_ call: (UnsafeMutablePointer<ext_buffer>) -> ext_status) th
 private func withEngineString<R>(_ string: String, _ body: (UnsafePointer<CChar>) throws -> R) throws -> R {
     guard !string.utf8.contains(0) else { throw PackageStoreError.invalid }
     return try string.withCString(body)
+}
+
+/// C strings for the engine, in order; a nil string is a NULL pointer.
+private func withEngineStrings<R>(_ strings: [String?], _ body: ([UnsafePointer<CChar>?]) throws -> R) throws -> R {
+    func walk(_ index: Int, _ pointers: [UnsafePointer<CChar>?]) throws -> R {
+        guard index < strings.count else { return try body(pointers) }
+        guard let string = strings[index] else { return try walk(index + 1, pointers + [nil]) }
+        return try withEngineString(string) { try walk(index + 1, pointers + [$0]) }
+    }
+    return try walk(0, [])
 }

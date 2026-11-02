@@ -147,6 +147,35 @@ JNIEXPORT jbyteArray JNICALL Java_io_github_webong_ext_plugin_NativeEngine_store
   return take(env, status, &out);
 }
 
+/* os and arch may be NULL: the platform the engine was built for. */
+JNIEXPORT jbyteArray JNICALL Java_io_github_webong_ext_plugin_NativeEngine_storeResolve(
+    JNIEnv *env, jclass cls, jlong handle, jbyteArray id, jbyteArray contract, jbyteArray version,
+    jbyteArray protocol, jbyteArray reviewed_digest, jbyteArray os, jbyteArray arch) {
+  (void)cls;
+  jbyteArray args[] = {id, contract, version, protocol, reviewed_digest, os, arch};
+  char *text[7] = {0};
+  int failed = 0;
+  for (int i = 0; i < 7; i++) {
+    if (!args[i] && i >= 5) continue;
+    if (!args[i]) {
+      throw_status(env, EXT_INVALID);
+      failed = 1;
+    } else if (!(text[i] = c_string(env, args[i]))) {
+      failed = 1;
+    }
+    if (failed) break;
+  }
+  ext_buffer out = {0};
+  ext_status status = EXT_OK;
+  if (!failed) {
+    status = ext_store_resolve_entrypoint((ext_store *)(intptr_t)handle, text[0], text[1], text[2],
+                                          text[3], text[4], text[5], text[6], &out);
+  }
+  for (int i = 0; i < 7; i++) free(text[i]);
+  if (failed) return NULL; /* the exception is pending */
+  return take(env, status, &out);
+}
+
 JNIEXPORT jlong JNICALL Java_io_github_webong_ext_plugin_NativeEngine_layeredOpen(
     JNIEnv *env, jclass cls, jobjectArray roots, jlong max_artifact_bytes, jint max_tree_files,
     jlong max_tree_bytes) {

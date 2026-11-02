@@ -99,7 +99,9 @@ final class PackageStoreTests: XCTestCase {
     func testEveryEngineStatusHasAnError() {
         XCTAssertNil(PackageStoreError(status: ext_status(EXT_OK)))
         XCTAssertEqual(PackageStoreError(status: ext_status(EXT_INVALID)), .invalid)
+        XCTAssertEqual(PackageStoreError(status: ext_status(EXT_DENIED)), .denied)
         XCTAssertEqual(PackageStoreError(status: ext_status(EXT_MISMATCH)), .mismatch)
+        XCTAssertEqual(PackageStoreError(status: ext_status(EXT_UNSUPPORTED)), .unsupported)
         XCTAssertEqual(PackageStoreError(status: ext_status(EXT_NOT_FOUND)), .notFound)
         XCTAssertEqual(PackageStoreError(status: ext_status(EXT_EXISTS)), .exists)
         XCTAssertEqual(PackageStoreError(status: ext_status(EXT_MISSING)), .missing)
@@ -107,8 +109,8 @@ final class PackageStoreTests: XCTestCase {
         XCTAssertEqual(PackageStoreError(status: ext_status(EXT_NOMEM)), .engine(ext_status(EXT_NOMEM)))
         // the numbers other languages use for the statuses of a store
         XCTAssertEqual(
-            [EXT_INVALID, EXT_MISMATCH, EXT_NOT_FOUND, EXT_EXISTS, EXT_MISSING].map { Int($0) },
-            [1, 3, 10, 18, 19])
+            [EXT_INVALID, EXT_DENIED, EXT_MISMATCH, EXT_UNSUPPORTED, EXT_NOT_FOUND, EXT_EXISTS, EXT_MISSING].map { Int($0) },
+            [1, 2, 3, 4, 10, 18, 19])
     }
 
     // MARK: Lifecycle
@@ -448,5 +450,87 @@ final class PackageStoreTests: XCTestCase {
         XCTAssertEqual(try PackageStore(root: root.path, limits: limits).ids(), ["example/a"])
         XCTAssertEqual(try lines(try PackageStore(root: root.path, limits: limits).verify()).map(status), [0])
         XCTAssertEqual(try LayeredPackageStore(roots: [root.path], limits: limits).load("example/a").layer, 0)
+    }
+
+    // MARK: Discovery
+
+    /// A source package at `dir` serving example/v1 with the artifacts and entrypoints discovery
+    /// chooses between: generic, linux, linux-arm (linux on arm64) and mac.
+    @discardableResult
+    private func runnable(_ dir: URL, _ id: String) throws -> String {
+        try? FileManager.default.removeItem(at: dir)
+        let artifacts: [(name: String, platform: String)] = [
+            ("generic", ""),
+            ("linux", ",\"os\":\"linux\""),
+            ("linux-arm", ",\"os\":\"linux\",\"arch\":\"arm64\""),
+            ("mac", ",\"os\":\"darwin\""),
+        ]
+        var listed: [String] = []
+        for (name, platform) in artifacts {
+            try write(dir, "bin/\(name)", name)
+            listed.append(#"{"name":"\#(name)","path":"bin/\#(name)","sha256":"\#(sha256(name))"\#(platform)}"#)
+        }
+        let entrypoints: [(name: String, runtime: String, artifact: String, wire: String)] = [
+            ("main", "argv", "generic", "example/v1"),
+            ("main.linux", "argv", "linux", "example/v1"),
+            ("fast", "argv", "linux-arm", "example/v1"),
+            ("main.darwin", "argv", "mac", "example/v1"),
+            ("wasm", "wasm", "generic", "example/v1"),
+            ("other", "argv", "generic", "other/v1"),
+        ]
+        let entries = entrypoints.map {
+            #"{"name":"\#($0.name)","runtime":"\#($0.runtime)","artifact":"\#($0.artifact)","protocols":["\#($0.wire)"]}"#
+        }
+        let manifest = #"{"apiVersion":"ext.package/v1","descriptor":{"apiVersion":"ext.plugin/v1","identity":{"id":"\#(id)","revision":"r1"},"contracts":[{"name":"example","version":"v1","operations":[{"name":"read"}]}]},"artifacts":[\#(listed.joined(separator: ","))],"entrypoints":[\#(entries.joined(separator: ","))]}"#
+        try write(dir, "plugin.json", manifest)
+        return dir.path
+    }
+
+    func testAnEntrypointIsResolvedForAReviewedPackageOnAPlatform() throws {
+        let scratch = try scratch()
+        let root = scratch.url("store")
+        let store = try PackageStore(root: root.path)
+        try store.install(try runnable(scratch.url("source"), "example/run"))
+        let dir = root.appendingPathComponent("example%2frun")
+        let reviewed = directoryDigest(dir.path)
+
+        func resolve(_ os: String? = nil, _ arch: String? = nil, id: String = "example/run", contract: String = "example",
+                     version: String = "v1", protocol wire: String = "example/v1",
+                     digest: String? = nil) throws -> ResolvedEntrypoint {
+            try store.resolveEntrypoint(id: id, contract: contract, version: version, protocol: wire,
+                                        reviewedDigest: digest ?? reviewed, os: os, arch: arch)
+        }
+        func chosen(_ name: String, _ artifact: String) -> ResolvedEntrypoint {
+            ResolvedEntrypoint(name: name, artifact: artifact,
+                               path: dir.appendingPathComponent("bin").appendingPathComponent(artifact).path,
+                               digest: reviewed)
+        }
+
+        // the platform decides: a name or an artifact for another one is never chosen, and an
+        // entrypoint named for this operating system with an artifact for it outscores the rest
+        XCTAssertEqual(try resolve("linux", "arm64"), chosen("main.linux", "linux"))
+        XCTAssertEqual(try resolve("linux", "amd64"), chosen("main.linux", "linux"))
+        XCTAssertEqual(try resolve("darwin", "arm64"), chosen("main.darwin", "mac"))
+        XCTAssertEqual(try resolve("windows", "amd64"), chosen("main", "generic"))
+        // a platform left out is the one the engine was built for
+        XCTAssertEqual(try resolve().digest, reviewed)
+
+        // nothing is chosen without the digest the caller reviewed
+        assertFails(.denied, try resolve(digest: ""), "no digest")
+        assertFails(.denied, try resolve(digest: "wrong"), "another digest")
+        assertFails(.denied, try resolve(digest: reviewed.uppercased()), "the digest spelled in capitals")
+        // what the package does not serve is unsupported
+        assertFails(.unsupported, try resolve(contract: "different"), "another contract")
+        assertFails(.unsupported, try resolve(version: "v2"), "another version")
+        assertFails(.unsupported, try resolve(protocol: "none/v1"), "another protocol")
+        // an id that is not installed or not valid, and a NUL that would cut a string short
+        assertFails(.notFound, try resolve(id: "example/absent"), "an id that is not installed")
+        assertFails(.invalid, try resolve(id: "../bad"), "an id that is not valid")
+        assertFails(.invalid, try resolve(id: "example/run\u{0}x"), "a NUL in the id")
+        assertFails(.invalid, try resolve("linux\u{0}x", "arm64"), "a NUL in the os")
+
+        // a package changed behind the store's back is read first, so it is never chosen
+        try tamper(dir.appendingPathComponent("bin/linux"))
+        assertFails(.mismatch, try resolve("linux", "arm64"), "a changed artifact")
     }
 }

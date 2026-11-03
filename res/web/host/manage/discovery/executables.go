@@ -1,3 +1,7 @@
+// Package discovery finds the native executables a browser adapter declares,
+// in the standard application directories on Darwin and Windows and on PATH on
+// Linux. It only checks paths and never launches anything; the adapter owns the
+// names.
 package discovery
 
 import (

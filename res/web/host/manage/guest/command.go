@@ -1,3 +1,10 @@
+// Package guest runs the adapter side of the browser protocols. Each Run
+// function reads one bounded request, validates it against contract, calls the
+// backend a browser adapter supplies and writes the response, returning the
+// process exit code. RunCookie serves cookie operations. RunManagement serves
+// browser management through the adapter's backend, and RunLocalManagement
+// handles extension, userscript and bookmarklet artifacts itself and hands the
+// native operations to that backend. The package never chooses a browser.
 package guest
 
 import (

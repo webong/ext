@@ -1,3 +1,8 @@
+// Package sqlite reads browser cookie stores. Open and OpenBytes return a
+// read-only reader for the part of the SQLite file format those stores use; it
+// bounds every size it reads, so a corrupt file produces an error, not a panic.
+// The remaining functions build queries and private snapshots of a database for
+// the sqlite3 shell.
 package sqlite
 
 import (

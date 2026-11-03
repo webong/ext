@@ -1,3 +1,7 @@
+// Package policy exports the enterprise policy a browser has applied. An
+// adapter declares the policy files, the directories of JSON policies and an
+// optional registry key; the package reads them into a contract.PolicyBundle and
+// does not decide which browser they belong to.
 package policy
 
 import (

@@ -4,8 +4,8 @@
 #   1. CExtEngine.xcframework.zip, the engine's guest core and package store for macOS,
 #      iOS and the iOS Simulator, attached to a GitHub release of this repository, and
 #   2. a distribution package (Package.swift plus the Swift sources) whose binary
-#      target points at that archive by URL and checksum, to publish at a repository
-#      root that SwiftPM can resolve.
+#      target points at that archive by URL and checksum, to publish at the root of the
+#      dist/ext-ios branch (scripts/dist-branch.sh), where SwiftPM can resolve it.
 # This script builds both under dist/ext-ios-<version>/ and checks the distribution
 # package compiles against the archive. It publishes nothing.
 #

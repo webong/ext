@@ -6,10 +6,10 @@ name: Release iOS SDK
 # module tag; see docs/module-versioning.md.
 #
 # SwiftPM resolves a package from a repository root and this monorepo's root is not a package, so
-# the staged package also has to land in a repository of its own. That last step (the "distribute"
-# job) runs only when the repository variable EXT_IOS_DISTRIBUTION_REPO names one, for example
-# webong/ext-ios, and the secret EXT_IOS_DISTRIBUTION_TOKEN can push to it. Without the variable
-# the release is the GitHub release alone and the job is skipped.
+# the staged package also lands at the root of the dist/ext-ios branch of this repository, tagged
+# with the bare version (SwiftPM reads semver tags, and ext-ios-vX.Y.Z is not one). That last step
+# (the "distribute" job) needs no variable or secret: it pushes with the workflow's own token. See
+# "Distribution branches" in docs/module-versioning.md.
 on:
   push:
     tags: ['ext-ios-v*']
@@ -174,42 +174,29 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: gh release create "$GITHUB_REF_NAME" dist/* --verify-tag --generate-notes --latest=false --title "$GITHUB_REF_NAME"
 
-  # Puts the staged package at the root of a repository SwiftPM can resolve, tagged with the
-  # version. It runs after the release exists, because the package's binary targets point at the
-  # release's assets by URL and checksum. Skipped unless EXT_IOS_DISTRIBUTION_REPO is set.
+  # Puts the staged package at the root of the dist/ext-ios branch, one commit per release, and
+  # tags that commit with the bare version. It runs after the release exists, because the
+  # package's binary targets point at the release's assets by URL and checksum. The branch has one
+  # writer, this job, so two releases never run it at once.
   distribute:
     needs: [build, publish]
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/ext-ios-v') && vars.EXT_IOS_DISTRIBUTION_REPO != ''
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/ext-ios-v')
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    concurrency:
+      group: dist-ext-ios
+      cancel-in-progress: false
     steps:
+      - uses: actions/checkout@v5
       - uses: actions/download-artifact@v7
         with:
           name: ext-ios-${{ needs.build.outputs.version }}
           path: dist
-      - name: Check the configuration
-        env:
-          TOKEN: ${{ secrets.EXT_IOS_DISTRIBUTION_TOKEN }}
-        run: '[[ -n "$TOKEN" ]] || { echo "EXT_IOS_DISTRIBUTION_REPO is set but the secret EXT_IOS_DISTRIBUTION_TOKEN is not" >&2; exit 1; }'
-      - uses: actions/checkout@v5
-        with:
-          repository: ${{ vars.EXT_IOS_DISTRIBUTION_REPO }}
-          token: ${{ secrets.EXT_IOS_DISTRIBUTION_TOKEN }}
-          path: distribution
       - name: Push the package
         env:
           VERSION: ${{ needs.build.outputs.version }}
         run: |
-          set -euo pipefail
-          cd distribution
-          if git rev-parse -q --verify "refs/tags/$VERSION" >/dev/null; then
-            echo "the distribution repository already has the tag $VERSION" >&2
-            exit 1
-          fi
-          find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
-          tar -xzf "../dist/ext-ios-$VERSION-package.tar.gz" -C .
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add -A
-          git commit -m "ext-ios $VERSION" -m "Staged by $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID from $GITHUB_REF_NAME."
-          git tag "$VERSION"
-          git push origin HEAD "refs/tags/$VERSION"
+          scripts/dist-branch.sh dist/ext-ios "$VERSION" "dist/ext-ios-$VERSION-package.tar.gz" \
+            "ext-ios $VERSION" \
+            "Staged by $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID from $GITHUB_REF_NAME."

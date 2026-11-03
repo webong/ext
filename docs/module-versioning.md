@@ -93,7 +93,8 @@ The version is the tag's; a local build is `0.0.0-dev`, and a pull request packs
 package definitions. The C# namespaces did not change when the code moved beside its Go packages, so only
 project and package references change for a consumer. The shared package metadata is
 `scripts/dotnet/Ext.Package.props`.
-Library modules never use these tags, and bare `vX.Y.Z` tags are not used.
+Library modules never use these tags, and bare `vX.Y.Z` tags are not used. The only bare tags are the
+`X.Y.Z` tags of a [distribution branch](#distribution-branches), which are not Go versions.
 
 `pkg/ext-ios` and `pkg/ext-android` were `pkg/plugin-ios` and `pkg/plugin-android` until they
 also carried the web code (cookie, userscript and bookmarklet rules) beside the plugin code. This
@@ -116,6 +117,35 @@ Python package `ext-plugin` and the Zig package `ext_plugin`. None of the four i
 module zip carries their files, which Go never reads, and a change to them needs no `res/web/vX.Y.Z` tag.
 They reach apps through `pkg/ext-ios` and `pkg/ext-android`, so they are released with those, under
 `ext-ios-vX.Y.Z` and `ext-android-vX.Y.Z`.
+
+## Distribution branches
+
+Some consumers resolve a release from a repository root, and this repository's root is not a package
+(SwiftPM is the first: it reads `Package.swift` at the root of a tagged commit, and only tags that
+parse as semver, so `ext-ios-vX.Y.Z` is invisible to it). A release like that gets a distribution
+branch, `dist/<name>`, that holds the staged tree at its root:
+
+- **Name.** `dist/<name>`, one branch per ecosystem that needs its own root layout. `dist/` is not
+  `release/`: a `release/<topic>` branch prepares a release through a pull request into `main` and is deleted
+  afterwards, while a `dist/` branch is permanent and is never merged.
+- **Writer.** Only the release workflow, through `scripts/dist-branch.sh`, which builds the commit from
+  the release's staged archive and pushes the branch and the tag together or not at all. Nobody edits the branch
+  by hand, it is not merged into `main`, and the script never force-pushes. A branch ruleset on `dist/*` that
+  allows only GitHub Actions to push, and blocks deletion and force-push, is the intended protection; it is a
+  repository setting, not part of the code.
+- **History.** The first release creates the branch with no history from `main`. Every later release adds one
+  commit on top of the previous one, replacing the whole tree, so every earlier tag stays reachable.
+- **Tags.** The release keeps its dash-form tag on `main` (`ext-ios-vX.Y.Z`, which builds and attaches
+  the assets). The ecosystem's own tag goes on the `dist/` commit. SwiftPM needs a bare `X.Y.Z`; Go ignores a
+  tag without a `v`, so it cannot be read as a module version. That namespace is single for the repository, so a
+  second ecosystem that needs bare tags needs its own repository.
+
+`dist/ext-ios` is the first: `ext-ios-release.yml` publishes the GitHub release, and once it exists (the staged
+package's binary targets are the release's assets, by URL and checksum) its last job puts
+`ext-ios-X.Y.Z-package.tar.gz` on `dist/ext-ios` and tags the commit `X.Y.Z`. An app adds
+`.package(url: "https://github.com/webong/ext", from: "0.1.1")`, for example. `ext-ios-v0.1.0` predates the branch
+and has no bare tag; the next release is the first on SwiftPM. `scripts/dist-branch-test.sh` checks the script
+against a throwaway remote.
 
 ## WebAssembly mechanics moved into `res/web`
 

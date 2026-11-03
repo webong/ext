@@ -353,20 +353,21 @@ host and the same tests in an iOS Simulator, and only then publishes. Each relea
 Verify a download with `shasum -a 256 -c checksums.txt` and
 `gh attestation verify <file> --repo webong/ext`.
 
-**SwiftPM needs a repository root.** It resolves a package from a repository root, which this
-monorepo's root is not, so the manifest in this directory is for development against the local
-xcframework, and a consumer needs the staged package at the root of a repository of its own. The
-workflow's last job does that, but only when the repository variable `EXT_IOS_DISTRIBUTION_REPO` names
-one (for example `webong/ext-ios`) and the secret `EXT_IOS_DISTRIBUTION_TOKEN` can push to it: it
-replaces that repository's contents with the staged package, commits `ext-ios X.Y.Z` and tags `X.Y.Z`,
-after the release exists, because the manifest's binary targets are the release's assets. Until that
-variable is set, a release is the GitHub release alone and an app takes the package from
-`ext-ios-X.Y.Z-package.tar.gz` (or builds from source). Nothing creates that repository.
+**SwiftPM needs a repository root.** It resolves a package from the root of a tagged commit, and only
+from tags that parse as semver, which this monorepo's root and its `ext-ios-vX.Y.Z` tags are not. So the
+manifest in this directory is for development against the local xcframework, and a consumer resolves the
+staged package from the `dist/ext-ios` branch of this repository. The workflow's last job puts the
+package there once the release exists (the manifest's binary targets are the release's assets), as one
+commit `ext-ios X.Y.Z` on top of the previous release, and tags that commit `X.Y.Z`. It pushes with the
+workflow's own token, so nothing has to be configured. The branch is written only by that job and is never
+merged into `main`; see [distribution branches](../../docs/module-versioning.md#distribution-branches). A
+release made before the branch existed (`ext-ios-v0.1.0`) has no `X.Y.Z` tag: an app takes its package from
+`ext-ios-0.1.0-package.tar.gz`, or from the next release.
 
 A consumer then writes:
 
 ```swift
-.package(url: "https://github.com/<distribution repository>", from: "0.1.0")
+.package(url: "https://github.com/webong/ext", from: "0.1.1")
 // and depends on the products it uses: ExtWeb, ExtPluginGuest, ExtPluginExports, ExtPluginStore, ExtPluginWebView, ExtPluginWamr
 ```
 

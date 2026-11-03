@@ -258,3 +258,10 @@ jobs:
           # Development main may contain dependencies awaiting a release round.
           # Release checks use the script's strict default instead.
           STANDALONE_ALLOW_SKIPS: '1'
+
+  # The release scripts that publish to a dist/ branch, against a throwaway remote.
+  dist-branch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - run: ./scripts/dist-branch-test.sh

@@ -4,8 +4,8 @@
        (dotnet pack -p:Version=X.Y.Z); a local build is 0.0.0-dev. -->
   <PropertyGroup>
     <Version Condition="'$(Version)' == ''">0.0.0-dev</Version>
-    <Authors>ctx contributors</Authors>
-    <Copyright>Copyright (c) 2026 ctx contributors</Copyright>
+    <Authors>Wisdom Ebong and ext contributors</Authors>
+    <Copyright>Copyright (c) 2026 Wisdom Ebong and ext contributors</Copyright>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageProjectUrl>https://github.com/webong/ext</PackageProjectUrl>
     <RepositoryUrl>https://github.com/webong/ext</RepositoryUrl>

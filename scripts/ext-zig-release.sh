@@ -49,12 +49,14 @@ if [[ -n "${ZIG_BIN:-}" ]]; then
   trap 'rm -rf "$work"' EXIT
   mkdir "$work/unpacked"
   tar -xzf "$out/$archive" -C "$work/unpacked"
+  # Fresh caches through the environment: `zig build` rejects --global-cache-dir (Zig 0.17.0).
+  export ZIG_LOCAL_CACHE_DIR="$work/cache" ZIG_GLOBAL_CACHE_DIR="$work/global"
   (
     cd "$work/unpacked"
-    "$ZIG_BIN" build test --cache-dir "$work/cache" --global-cache-dir "$work/global"
-    "$ZIG_BIN" build --prefix "$work/prefix" --cache-dir "$work/cache" --global-cache-dir "$work/global"
+    "$ZIG_BIN" build test
+    "$ZIG_BIN" build --prefix "$work/prefix"
   )
-  hash="$("$ZIG_BIN" fetch --global-cache-dir "$work/global" "$PWD/$out/$archive")"
+  hash="$("$ZIG_BIN" fetch "$PWD/$out/$archive")"
   [[ -n "$hash" ]] || { echo 'zig fetch printed no hash' >&2; exit 1; }
   echo "$hash" >"$out/ext-zig-$version-package-hash.txt"
   files+=("ext-zig-$version-package-hash.txt")

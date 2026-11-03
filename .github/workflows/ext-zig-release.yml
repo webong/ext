@@ -129,7 +129,7 @@ jobs:
           expected="$(cat "dist/ext-zig-$VERSION-package-hash.txt")"
           actual=""
           for attempt in 1 2 3 4 5; do
-            if actual="$("$ZIG_BIN" fetch --global-cache-dir "$RUNNER_TEMP/zig-global" "$url")"; then break; fi
+            if actual="$(ZIG_GLOBAL_CACHE_DIR="$RUNNER_TEMP/zig-global" "$ZIG_BIN" fetch "$url")"; then break; fi
             actual=""
             sleep 10
           done

@@ -2,7 +2,7 @@
 //! docs/plugin-guest-frames.md): reports progress and calls its host. It serves
 //! standard input and output, natively or as a WASI module; without threads it
 //! answers the operations that need them with the public error "unsupported".
-use ext_plugin::{
+use ext_io::plugin::{
     frames::{split_progress_text, Progress, ProgressOutcome},
     guest::{serve_with, Registry},
     Mode, *,

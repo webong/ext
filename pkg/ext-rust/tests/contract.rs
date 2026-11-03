@@ -1,4 +1,4 @@
-use ext_plugin::{
+use ext_io::plugin::{
     guest,
     host::{Backend, Session},
     wire, *,

@@ -10,8 +10,8 @@ import unittest
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, ".."))
-import ext_plugin  # noqa: E402
-from ext_plugin import frames  # noqa: E402
+from ext_io import plugin  # noqa: E402
+from ext_io.plugin import frames  # noqa: E402
 
 IDENT = {"id": "py/frames", "revision": "r1"}
 CONTRACT = ("test.frames", "v1")
@@ -43,48 +43,48 @@ kept = []
 
 
 def handler(contract, operation, payload):
-    call = ext_plugin.current_call()
+    call = plugin.current_call()
     if operation == "events":
-        first = call.progress(ext_plugin.Progress.log("a"))
-        second = call.progress(ext_plugin.Progress.fraction(1, 2))
-        return {"sent": [first == ext_plugin.SENT, second == ext_plugin.SENT]}
+        first = call.progress(plugin.Progress.log("a"))
+        second = call.progress(plugin.Progress.fraction(1, 2))
+        return {"sent": [first == plugin.SENT, second == plugin.SENT]}
     if operation == "flood":
         dropped = 0
         for _ in range(300):
-            if call.progress(ext_plugin.Progress.log("x")) == ext_plugin.DROPPED:
+            if call.progress(plugin.Progress.log("x")) == plugin.DROPPED:
                 dropped += 1
         return {"dropped": dropped}
     if operation == "quiet":
         try:
-            call.progress(ext_plugin.Progress.log("x"))
-        except ext_plugin.FrameError as exc:
+            call.progress(plugin.Progress.log("x"))
+        except plugin.FrameError as exc:
             return {"unsupported": exc.code == "unsupported"}
         return {"unsupported": False}
     if operation == "invalid":
         codes = []
         for event in (
-            ext_plugin.Progress("mystery"),
-            ext_plugin.Progress.fraction(3, 2),
-            ext_plugin.Progress.log("x" * 2049),
-            ext_plugin.Progress("log", "both"),
-            ext_plugin.Progress.log("\ud800"),
-            ext_plugin.Progress("progress", "out"),
-            ext_plugin.Progress.fraction(-1, 0),
-            ext_plugin.Progress.fraction(True, 2),
+            plugin.Progress("mystery"),
+            plugin.Progress.fraction(3, 2),
+            plugin.Progress.log("x" * 2049),
+            plugin.Progress("log", "both"),
+            plugin.Progress.log("\ud800"),
+            plugin.Progress("progress", "out"),
+            plugin.Progress.fraction(-1, 0),
+            plugin.Progress.fraction(True, 2),
             None,
         ):
             try:
                 call.progress(event)
                 codes.append("sent")
-            except ext_plugin.FrameError as exc:
+            except plugin.FrameError as exc:
                 codes.append(exc.code)
         return {"codes": codes}
     if operation == "ask":
         try:
             return {"result": call.reverse.call(HOST, payload.get("op", "sign"), payload.get("payload"))}
-        except ext_plugin.RemoteError as exc:
+        except plugin.RemoteError as exc:
             return {"code": exc.code}
-        except ext_plugin.FrameError as exc:
+        except plugin.FrameError as exc:
             return {"frame": exc.code}
     if operation == "session":
         return {"session": call.session_reverse is not None, "reverse": call.reverse is not None,
@@ -105,9 +105,9 @@ def _attempt(caller):
     try:
         caller.call(HOST, "sign", None)
         return "ok"
-    except ext_plugin.FrameError as exc:
+    except plugin.FrameError as exc:
         return exc.code
-    except ext_plugin.RemoteError as exc:
+    except plugin.RemoteError as exc:
         return exc.code
 
 
@@ -127,7 +127,7 @@ class Host:
     """Serves a guest on pipes and reads what it writes."""
 
     def __init__(self, first=True):
-        self.guest = ext_plugin.Guest(DESC, handler, redact_errors=True)
+        self.guest = plugin.Guest(DESC, handler, redact_errors=True)
         to_read, to_write = os.pipe()
         from_read, from_write = os.pipe()
         self._to = os.fdopen(to_write, "wb", buffering=0)
@@ -140,7 +140,7 @@ class Host:
             guest_in = os.fdopen(to_read, "rb")
             guest_out = os.fdopen(from_write, "wb", buffering=0)
             try:
-                ext_plugin.serve(self.guest, guest_in, guest_out)
+                plugin.serve(self.guest, guest_in, guest_out)
             except BaseException as exc:  # noqa: BLE001 - the test reads what ended the session
                 self.outcome = exc
             finally:
@@ -309,7 +309,7 @@ class ServeFramesTest(unittest.TestCase):
         request_id = host.request("stale")
         host.until_response(request_id)
         # A request names the call it belongs to, so a caller kept past the call writes nothing.
-        with self.assertRaises(ext_plugin.FrameError) as raised:
+        with self.assertRaises(plugin.FrameError) as raised:
             kept[-1].call(HOST, "sign", None)
         self.assertEqual(raised.exception.code, "closed")
         self.assertIsNone(host.recv(0.1))
@@ -335,7 +335,7 @@ class ServeFramesTest(unittest.TestCase):
             else:
                 host.send(frame)
             failure = host.finish()
-            self.assertIsInstance(failure, ext_plugin.ProtocolError, what)
+            self.assertIsInstance(failure, plugin.ProtocolError, what)
             # The call that was in flight is never answered.
             while True:
                 left = host.recv(0.05)
@@ -357,7 +357,7 @@ class ServeFramesTest(unittest.TestCase):
         self.assertIsNone(host.outcome)
 
     def test_a_guest_invoked_directly_has_no_frames(self):
-        guest = ext_plugin.Guest(DESC, handler, redact_errors=True)
+        guest = plugin.Guest(DESC, handler, redact_errors=True)
 
         def request(operation):
             return {
@@ -374,17 +374,17 @@ class ServeFramesTest(unittest.TestCase):
         for extra in ({"progress": {}}, {"parent": "1"}):
             host = Host(first=False)
             host.send(hello(**extra))
-            self.assertIsInstance(host.finish(), ext_plugin.ProtocolError, extra)
+            self.assertIsInstance(host.finish(), plugin.ProtocolError, extra)
             self.assertIsNone(host.recv(0.05))
 
 
 class SplitTest(unittest.TestCase):
     def test_text_is_cut_on_characters(self):
-        pieces = ext_plugin.split_progress_text("é" * 1500 + "\ud800")  # 3000 bytes, then a replacement
+        pieces = plugin.split_progress_text("é" * 1500 + "\ud800")  # 3000 bytes, then a replacement
         self.assertEqual("".join(pieces), "é" * 1500 + "�")
         self.assertTrue(all(len(p.encode("utf-8")) <= 2048 for p in pieces))
         self.assertEqual(len(pieces), 2)
-        self.assertEqual(ext_plugin.split_progress_text(""), [])
+        self.assertEqual(plugin.split_progress_text(""), [])
 
 
 if __name__ == "__main__":

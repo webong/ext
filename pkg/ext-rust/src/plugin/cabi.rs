@@ -1,6 +1,6 @@
 //! Guest C ABI v1. Buffers remain owned by the foreign caller. Use export_guest!
 //! from a cdylib crate. No allocator-owned pointer is returned to the caller.
-use crate::{wire, Error, Guest, Result, MAX_FRAME};
+use crate::plugin::{wire, Error, Guest, Result, MAX_FRAME};
 use serde::Deserialize;
 use std::{
     collections::HashMap,
@@ -176,22 +176,24 @@ pub unsafe fn reactor_free(ptr: *mut u8, size: u32) {
 /// Export the four ext C ABI symbols. The factory returns an independent Guest.
 /// For wasm32 targets it also exports `ext_plugin_alloc` and `ext_plugin_free`,
 /// which make the module a WebAssembly reactor; see docs/plugin-reactor-abi.md.
+#[doc(hidden)]
 #[macro_export]
-macro_rules! export_guest {
+macro_rules! __plugin_export_guest {
     ($factory:path) => {
         #[cfg(target_arch = "wasm32")]
         #[unsafe(no_mangle)]
         pub extern "C" fn ext_plugin_alloc(size: u32) -> u32 {
-            $crate::cabi::reactor_alloc(size) as usize as u32
+            $crate::plugin::cabi::reactor_alloc(size) as usize as u32
         }
         #[cfg(target_arch = "wasm32")]
         #[unsafe(no_mangle)]
         pub unsafe extern "C" fn ext_plugin_free(ptr: u32, size: u32) {
-            unsafe { $crate::cabi::reactor_free(ptr as usize as *mut u8, size) }
+            unsafe { $crate::plugin::cabi::reactor_free(ptr as usize as *mut u8, size) }
         }
-        fn ext_server() -> &'static $crate::cabi::Server {
-            static SERVER: std::sync::OnceLock<$crate::cabi::Server> = std::sync::OnceLock::new();
-            SERVER.get_or_init(|| $crate::cabi::Server::new($factory, 64))
+        fn ext_server() -> &'static $crate::plugin::cabi::Server {
+            static SERVER: std::sync::OnceLock<$crate::plugin::cabi::Server> =
+                std::sync::OnceLock::new();
+            SERVER.get_or_init(|| $crate::plugin::cabi::Server::new($factory, 64))
         }
         #[unsafe(no_mangle)]
         pub extern "C" fn ext_plugin_abi_version() -> u32 {
@@ -219,3 +221,5 @@ macro_rules! export_guest {
         }
     };
 }
+#[doc(inline)]
+pub use __plugin_export_guest as export_guest;

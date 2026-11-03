@@ -1,4 +1,4 @@
-use crate::{Error, Result, MAX_FRAME, VERSION};
+use crate::plugin::{Error, Result, MAX_FRAME, VERSION};
 use serde::{
     de::{self, DeserializeSeed, MapAccess, SeqAccess, Visitor},
     Deserialize, Serialize,

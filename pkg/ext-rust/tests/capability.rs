@@ -1,5 +1,5 @@
-use ext_plugin::capability::{self, stream, Configuration, Health, HealthRequest};
-use ext_plugin::Error;
+use ext_io::plugin::capability::{self, stream, Configuration, Health, HealthRequest};
+use ext_io::plugin::Error;
 use serde_json::json;
 
 // The JSON below is what the Go library puts on the wire for the same values.

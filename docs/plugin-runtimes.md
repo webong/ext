@@ -175,7 +175,7 @@ implementations can use the portable header directly. Both have the same ABI.
 A foreign host can load the Go-built library and use these four exports too;
 that host must implement CTX selection, validation and admission policy itself.
 
-Rust authors can use `ext_plugin::export_guest!(factory)` from the
+Rust authors can use `ext_io::plugin::export_guest!(factory)` from the
 [Rust SDK](../pkg/ext-rust/README.md). Zig authors can use
 `comptime { sdk.cabi.exportGuest(factory); }` from the
 [Zig SDK](../pkg/ext-zig/README.md). These helpers implement serialization,

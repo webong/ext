@@ -2,14 +2,14 @@ const std = @import("std");
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
-    const sdk = b.addModule("ext_plugin", .{ .root_source_file = b.path("src/root.zig"), .target = target, .optimize = optimize, .link_libc = true });
+    const sdk = b.addModule("ext_io", .{ .root_source_file = b.path("src/root.zig"), .target = target, .optimize = optimize, .link_libc = true });
     const tests = b.addTest(.{ .root_module = sdk });
     const run = b.addRunArtifact(tests);
     b.step("test", "Run SDK conformance tests").dependOn(&run.step);
     for ([_][]const u8{ "guest", "frames", "capability", "capability-host", "host", "shared" }) |name| {
         if (target.result.os.tag == .wasi and (std.mem.eql(u8, name, "host") or std.mem.eql(u8, name, "shared") or std.mem.eql(u8, name, "capability-host"))) continue;
         const module = b.createModule(.{ .root_source_file = b.path(b.fmt("examples/{s}.zig", .{name})), .target = target, .optimize = optimize, .link_libc = true });
-        module.addImport("ext_plugin", sdk);
+        module.addImport("ext_io", sdk);
         if (std.mem.eql(u8, name, "shared")) {
             b.installArtifact(b.addLibrary(.{ .name = "ext-zig-guest", .root_module = module, .linkage = .dynamic }));
         } else {

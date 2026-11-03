@@ -2,7 +2,7 @@
 //! wire shapes and validation as the Go library: `ext.health`,
 //! `ext.configuration` and `ext.stream`. A guest registers handlers for these
 //! methods; a host calls them through the same `Method` values.
-use crate::{ContractRef, Error, Method, Operation, Result};
+use crate::plugin::{ContractRef, Error, Method, Operation, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 

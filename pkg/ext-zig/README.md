@@ -1,4 +1,6 @@
-# ext plugin SDK for Zig
+# ext for Zig (`ext_io`): plugin SDK
+
+> **Why `ext_io`:** it matches the `ext-io` package of the other languages: one package for all of ext's APIs, one namespace per area. Only `plugin` is built so far; `system`, `web` and `int` are planned.
 
 This package implements typed guests and host sessions for `ext.plugin/v1`,
 including JSON-line and C ABI bindings. It targets **Zig 0.17.0**, pinned because
@@ -12,8 +14,8 @@ zig fetch --save https://github.com/webong/ext/archive/refs/tags/ext-zig-0.1.0.t
 ```
 
 ```zig
-const ext = b.dependency("ext_plugin", .{ .target = target, .optimize = optimize });
-exe.root_module.addImport("ext_plugin", ext.module("ext_plugin"));
+const ext = b.dependency("ext_io", .{ .target = target, .optimize = optimize });
+exe.root_module.addImport("ext_io", ext.module("ext_io"));
 ```
 
 Zig has no registry and `zig fetch` needs an archive whose root holds `build.zig.zon`, which this
@@ -28,7 +30,7 @@ checkout instead, point a path dependency at this directory.
 ## Typed authoring
 
 ```zig
-const sdk = @import("ext_plugin");
+const sdk = @import("ext_io");
 const Message = struct { text: []const u8 };
 const echo: sdk.author.Method(Message, Message) = .{
     .contract = .{ .name = "example.echo", .version = "v1" },

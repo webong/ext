@@ -1,7 +1,7 @@
 .{
-    .name = .ext_plugin,
+    .name = .ext_io,
     .version = "0.1.0",
-    .fingerprint = 0x3a14468c8fd6821f,
+    .fingerprint = 0xcad666258fd6821f,
     .minimum_zig_version = "0.17.0",
     .paths = .{ "build.zig", "build.zig.zon", "src", "examples", "README.md" },
 }

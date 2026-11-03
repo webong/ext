@@ -1,4 +1,4 @@
-const sdk = @import("ext_plugin");
+const sdk = @import("ext_io");
 const w = sdk.wire;
 pub fn allow(_: w.Request) !void {}
 pub fn factory(a: w.Allocator) !sdk.author.Guest {

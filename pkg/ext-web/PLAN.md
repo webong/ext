@@ -1,14 +1,13 @@
-# ext-web-js browser extension peer library plan
+# pkg/ext-web browser extension library plan
 
 Status: peer, hub, spoke, in-browser management, tab messaging, scoped workspace,
 userscript registration, bridge, and theme APIs implemented. Chromium host/guest
 smoke testing passed in Chrome for Testing 156 and Firefox 159 with the current
-handshake. This is staging work for
-[Cymonkey ownership](../pkg/ext-web-js/HANDOFF.md), not an ext release.
+handshake. Ext owns this package; it is not yet released or published.
 Branded Chrome 137+ ignores command-line unpacked extension loading; the
-[repeatable checks](../pkg/ext-web-js/COMPATIBILITY.md) use Chrome for Testing.
+[repeatable checks](COMPATIBILITY.md) use Chrome for Testing.
 
-`pkg/ext-web-js` is a standalone JavaScript/TypeScript staging package for browser
+`pkg/ext-web` is a standalone JavaScript/TypeScript package for browser
 extension builders. It lets independently built extensions act as hosts,
 guests, or both, without requiring Xallet, CTX, the ext plugin engine, or a
 particular extension framework. The first deliverable includes working host
@@ -16,13 +15,13 @@ and guest extension examples.
 
 ## Ownership
 
-`pkg/ext-web-js` owns the peer contract, host and guest APIs, validation, lifecycle,
+`pkg/ext-web` owns the peer contract, host and guest APIs, validation, lifecycle,
 and implementations of browser extension APIs. Browser-specific compatibility
 code stays beside that portable contract inside the library. Builders do not
 install adapters to use it.
 
 Existing `adapters/<browser>` continue to own external browser installation,
-profile discovery, signing, and extension management. `res/web/extension`
+profile discovery, signing, and extension management. `res/web/host/artifact/extension`
 continues to own its artifact inspection and packaging workflows.
 
 Consumers choose permitted peers and capabilities, persistence policy, UI,
@@ -123,7 +122,7 @@ to settle before publishing; this plan does not rename existing SDK packages.
 ## Package layout
 
 ```text
-pkg/ext-web-js/
+pkg/ext-web/
   README.md
   package.json
   index.mjs
@@ -190,7 +189,7 @@ as they are added.
 2. Implement the framework-independent protocol and host/guest lifecycle with
    fake transport tests. Cover registration, duplicate/stale sessions, immutable
    snapshots, denied operations, malformed messages, and bounded queues.
-3. Implement runtime-message and port integration in `pkg/ext-web-js`, including
+3. Implement runtime-message and port integration in `pkg/ext-web`, including
    sender verification, serialization, API compatibility, and listener cleanup.
    Validate actual browser behavior before committing to transport assumptions.
 4. Implement restart recovery and explicit-ID discovery. Add optional management
@@ -199,14 +198,15 @@ as they are added.
 5. Build the host and guest examples and exercise bidirectional calls, state,
    events, denial, timeout, cancellation, disconnection, and background restart
    in real browsers. Publish repeatable local build and smoke-test instructions.
-6. Hand the standalone JavaScript package to Cymonkey for ownership and
-   distribution. Later, Xallet may adopt it through a product-specific
-   compatibility wrapper, keeping pairing and remote-host policy in Xallet.
+6. Choose the registry and the version, with a release tag of its own like
+   `pkg/ext-ios` and `pkg/ext-android`. The package name is `ext-web`. Later, Xallet or Cymonkey may
+   adopt it through a product-specific compatibility wrapper, keeping pairing
+   and remote-host policy in the product.
 
 ## Acceptance
 
 The first milestone is complete when two independently built extensions use
-only `pkg/ext-web-js` to establish an admitted connection, exchange validated calls
+only `pkg/ext-web` to establish an admitted connection, exchange validated calls
 in both directions, publish state and events, reject unauthorized operations,
 and recover after host or guest background restart without replaying actions.
 

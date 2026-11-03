@@ -1,5 +1,5 @@
 {
-  "name": "@ext/web-js",
+  "name": "ext-web",
   "version": "0.1.0",
   "private": true,
   "type": "module",

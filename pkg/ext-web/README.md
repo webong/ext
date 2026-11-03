@@ -1,6 +1,6 @@
-# ext-web-js
+# ext-web
 
-`@ext/web-js` is a standalone package for browser extension peers. An extension
+`ext-web` is a standalone package for browser extension peers. An extension
 can host methods, consume methods from another extension, or do both. It uses
 extension runtime ports and requires no framework or ext plugin engine.
 
@@ -31,7 +31,7 @@ can wrap these APIs with its own identity, permissions, UI, and event routing.
 ## Browser-native helpers
 
 Import `createExtensionCatalog`, `createExtensionManager`, and
-`createTabMessenger` from `@ext/web-js/native`. The catalog uses the in-browser
+`createTabMessenger` from `ext-web/native`. The catalog uses the in-browser
 `management` API
 to list and describe extensions and watch installed, enabled, disabled, and
 uninstalled changes. It is read-only and requires the browser's `management`
@@ -54,7 +54,7 @@ attach, and which methods to expose. These helpers do not select an active tab
 or grant permissions.
 
 ```js
-import { createExtensionCatalog, createExtensionManager, createTabMessenger } from '@ext/web-js/native';
+import { createExtensionCatalog, createExtensionManager, createTabMessenger } from 'ext-web/native';
 
 const catalog = createExtensionCatalog(browser.management);
 const manager = createExtensionManager(browser.management);
@@ -68,7 +68,7 @@ stopWatching();
 
 ## Extension workspace mechanisms
 
-`@ext/web-js/workspace` provides three independent native helpers. Each accepts
+`ext-web/workspace` provides three independent native helpers. Each accepts
 browser APIs supplied by the integrating extension:
 
 - `createScopedStorage({storage, namespace})` isolates keys for independent
@@ -87,13 +87,13 @@ do not run scripts from remote URLs.
 
 ## Themes
 
-`@ext/web-js/themes` creates a color-and-image theme object, builds a static
+`ext-web/themes` creates a color-and-image theme object, builds a static
 Manifest V3 theme manifest, and applies a live theme where the browser exposes
 `browser.theme`. Colors use RGB arrays and images use packaged relative paths.
 `npm run build:examples` creates a color-only static theme in `dist/theme`.
 
 ```js
-import { createThemeManifest, createThemeController } from '@ext/web-js/themes';
+import { createThemeManifest, createThemeController } from 'ext-web/themes';
 
 const manifest = createThemeManifest({
   name: 'Night', version: '1.0.0', geckoId: 'night@example.org',
@@ -109,14 +109,14 @@ needs signing and distribution.
 
 ## Userscripts and bridges
 
-`@ext/web-js/userscripts` reconciles browser-native userscript registrations
+`ext-web/userscripts` reconciles browser-native userscript registrations
 with a caller-owned catalog. `createUserscriptRegistry` requires `prepare` to
 produce a reviewed registration plan and `authorize` before changes. It binds
 registration IDs to a namespace and restores missing registrations after a
 browser restart. Portable userscript metadata and preparation remain in
-`res/web/userscript`.
+`res/web/host/artifact/userscript`.
 
-`@ext/web-js/bridge` provides a nonce-bound `MessagePort` handshake for a
+`ext-web/bridge` provides a nonce-bound `MessagePort` handshake for a
 caller-created sandbox page, plus a page-visible request bridge. The sandbox
 caller creates the frame, supplies a fresh random nonce, and owns its content
 and permission policy. The page bridge exposes only methods in the caller's
@@ -144,7 +144,7 @@ removed when Firefox restarts. The examples require no `management` permission.
 Reloading either extension exercises reconnection. Run `npm test` for the
 protocol harness. The examples use only the `storage` permission.
 
-`res/web/extension` can inspect and package these built directories for an
+`res/web/host/artifact/extension` can inspect and package these built directories for an
 external installation workflow. Browser installation and activation are supplied
 by the selected browser adapter; the embedded JavaScript peer library does not
 call those Go APIs.
@@ -153,7 +153,12 @@ The package accepts either `browser.runtime` or `chrome.runtime`, or an injected
 runtime. The current examples passed automated host/guest checks in Firefox 159
 and Chrome for Testing 156, including host and guest background restarts. See
 the [browser compatibility checks](COMPATIBILITY.md) and the
-[implementation plan](../../docs/ext-web-js-plan.md).
+[implementation plan](PLAN.md).
 
-This is a private staging package. Cymonkey will own and distribute the library
-after handoff; see [HANDOFF.md](HANDOFF.md).
+This package is owned by ext. It lives in `pkg/ext-web`, named for the platform it runs
+on the way `pkg/ext-ios` and `pkg/ext-android` are, and it is not a plugin SDK
+(`pkg/ext-ts` is). It is built and tested with Node, depends on no Go code and not on
+the plugin engine, and stays `private: true` under the name `ext-web` until a registry
+is chosen. The Go side that inspects and packages what it builds is
+[`res/web/host/artifact/extension`](../../res/web/host/artifact/extension). Products such
+as Cymonkey and Xallet consume it.

@@ -22,11 +22,11 @@ import (
 //	engine      the pure-Go engine, the oracle and the shared data model; standard library only
 //	cgoengine   the C engine binding and pure-Go build of the same API; needs engine
 //	c2goengine  the C engine's portable core translated to Go; needs engine
-//	wasm        the engine binding for res/web/wasm; needs engine and res/web
+//	wasm        the engine binding for res/web/host/engine/wasm; needs engine and res/web/host
 //	hashicorp   the gRPC backend; needs engine only, never cgoengine
 //	(umbrella)  pkg/ext-go itself, the one module that may require them all; its core package
 //	            chooses between engine, cgoengine and c2goengine
-//	res/web     portable web and WebAssembly tooling; never imports the plugin engine
+//	res/web/host  portable web and WebAssembly tooling; never imports the plugin engine
 const pluginPrefix = "github.com/webong/ext/pkg/ext-go"
 
 // A module's allowed requirements among the repository's own modules.
@@ -34,17 +34,17 @@ var pluginRequires = map[string][]string{
 	"pkg/ext-go/engine":     {},
 	"pkg/ext-go/cgoengine":  {"pkg/ext-go/engine"},
 	"pkg/ext-go/c2goengine": {"pkg/ext-go/engine"},
-	"pkg/ext-go/wasm":       {"pkg/ext-go/engine", "res/web"},
+	"pkg/ext-go/wasm":       {"pkg/ext-go/engine", "res/web/host"},
 	"pkg/ext-go/hashicorp":  {"pkg/ext-go/engine"},
 	"pkg/ext-go/model":      {"pkg/ext-go/engine", "res/int"},
 	"pkg/ext-go/inference":  {"pkg/ext-go/engine", "res/int"},
 	"pkg/ext-go/perception": {"pkg/ext-go/engine", "res/int"},
 	"pkg/ext-go/realtime":   {"pkg/ext-go/engine", "res/int"},
 	"res/int":               {},
-	"res/web":               {},
+	"res/web/host":          {},
 	"res/system":            {},
 	"res/graph":             {"res/system"},
-	"pkg/ext-go":            {"pkg/ext-go/engine", "pkg/ext-go/cgoengine", "pkg/ext-go/c2goengine", "pkg/ext-go/wasm", "pkg/ext-go/hashicorp", "pkg/ext-go/inference", "pkg/ext-go/model", "pkg/ext-go/perception", "pkg/ext-go/realtime", "res/graph", "res/web"},
+	"pkg/ext-go":            {"pkg/ext-go/engine", "pkg/ext-go/cgoengine", "pkg/ext-go/c2goengine", "pkg/ext-go/wasm", "pkg/ext-go/hashicorp", "pkg/ext-go/inference", "pkg/ext-go/model", "pkg/ext-go/perception", "pkg/ext-go/realtime", "res/graph", "res/web/host"},
 }
 
 var requireLine = regexp.MustCompile(`(?m)^\s*(?:require\s+)?(github\.com/webong/ext/\S+)\s+v\S+`)

@@ -2,7 +2,7 @@ module github.com/webong/ext/adapters/wasm
 
 go 1.23.0
 
-require github.com/webong/ext/res/web v0.6.0
+require github.com/webong/ext/res/web/host v0.1.0
 
 require github.com/webong/ext/pkg/ext-go/engine v0.2.0 // indirect
 

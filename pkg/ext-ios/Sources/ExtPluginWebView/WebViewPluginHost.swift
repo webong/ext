@@ -35,7 +35,7 @@ public final class WebViewPluginHost {
 
     /// - Parameters:
     ///   - module: the reactor module's bytes.
-    ///   - bridge: the page shim, `res/web/bundle/shim.js`, unchanged, with its
+    ///   - bridge: the page shim, `res/web/host/engine/bundle/shim.js`, unchanged, with its
     ///     `%TOKEN%` placeholder in place. Nil uses the copy this package embeds
     ///     (`scripts/plugin-mobile-assets.sh`); pass another to use a newer shim. It
     ///     runs at document start and defines

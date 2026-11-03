@@ -1,6 +1,6 @@
 import Foundation
 
-/// One browser cookie in the portable wire form (`res/web/contract`, wire version 2).
+/// One browser cookie in the portable wire form (`res/web/host/contract`, wire version 2).
 ///
 /// A cookie value is a credential. `description`, `debugDescription` and `dump` print the
 /// cookie's identity (name, domain, path) and never its value; JSON encoding keeps the real

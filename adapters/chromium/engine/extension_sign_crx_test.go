@@ -21,7 +21,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/webong/ext/res/web/extension"
+	"github.com/webong/ext/res/web/host/artifact/extension"
 )
 
 // This file builds genuine CRX3 artifacts in the test, so signing and

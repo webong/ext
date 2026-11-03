@@ -116,8 +116,8 @@ first four have since become `ext-io` (see [the `ext-io` language packages](#the
 `pkg/plugin-go` keeps its name for now, because renaming it changes published Go module paths.
 
 `res/web/ios` (the SwiftPM package `ExtWeb`) and `res/web/android` (the Java package
-`io.github.webong.ext.web`) live inside the Go module `res/web` but are not part of its version: the Go
-module zip carries their files, which Go never reads, and a change to them needs no `res/web/vX.Y.Z` tag.
+`io.github.webong.ext.web`) sit beside the Go module `res/web/host`, not inside it: its module zip does
+not carry them, and a change to them needs no `res/web/host/vX.Y.Z` tag.
 They reach apps through `pkg/ext-ios` and `pkg/ext-android`, so they are released with those, under
 `ext-ios-vX.Y.Z` and `ext-android-vX.Y.Z`.
 
@@ -185,16 +185,17 @@ are versioned separately and need not match: what lets a Rust host call a Python
 ## WebAssembly mechanics moved into `res/web`
 
 Protocol-neutral WebAssembly inspection, WASI command execution, persistent byte
-streams and raw reactor hosting live at `res/web/wasm` inside the
-`github.com/webong/ext/res/web` module. That reusable module depends on wazero
+streams and raw reactor hosting live at `res/web/host/engine/wasm` inside the
+`github.com/webong/ext/res/web/host` module (the module was `github.com/webong/ext/res/web`
+until it moved; see below). That reusable module depends on wazero
 but never on the plugin engine.
 
 The `github.com/webong/ext/pkg/ext-go/wasm` module remains the engine-facing
-binding. It depends on `res/web` and adapts the raw runtime to `engine.Backend`,
+binding. It depends on the web module (`res/web` through v0.6.0, `res/web/host` since) and adapts the raw runtime to `engine.Backend`,
 the JSON-line transport and the ext plugin reactor ABI. The first split releases
 are `res/web/v0.6.0` and `pkg/ext-go/wasm/v0.3.0`; existing plugin callers keep
 the `pkg/ext-go/wasm` import while protocol-neutral consumers import
-`github.com/webong/ext/res/web/wasm`.
+`github.com/webong/ext/res/web/host/engine/wasm`.
 
 Clipboard, credential and local network-observation code were consolidated into
 the `res/system` module as `res/system/capture/clipboard`, `res/system/service/credential` and
@@ -254,6 +255,42 @@ A module path and its tags are a pair, so this is a new module, not a new versio
 - A module that requires `res/web` cannot resolve it from the proxy until that tag is
   pushed. The published `v0.1.0` tags of the adapters still require `res/browser`
   and remain valid; their next release requires `res/web`.
+
+## `res/web` became a container; its Go module is `res/web/host`
+
+`res/web` is no longer a Go module. The Go module is `res/web/host`, with the module path
+`github.com/webong/ext/res/web/host`. `ios`, `android` and `windows` stay beside it as non-Go
+modules. `testdata` at the top holds the fixtures every runtime runs, and `docs` the guides
+for the mobile modules. As with the
+earlier renames, a module path and its tags are a pair, so this is a new module, not a new version:
+
+- `res/web/v0.1.0` to `res/web/v0.6.0` are immutable, stay resolvable, and are the last tags
+  `github.com/webong/ext/res/web` will ever have. Cut no further `res/web` tags. That path cannot be
+  marked deprecated either, because that needs a new tag of it.
+- `res/web/host/v0.1.0` is the planned first tag of the new path, and the placeholder version in
+  every `go.mod` that requires it. It is cut on a tree whose `go.mod` declares
+  `github.com/webong/ext/res/web/host`. A module that requires it cannot resolve it from the proxy until
+  that tag is pushed. `res/web/host` requires no other module of ext, so it is in layer 0 of the round;
+  the adapters, `pkg/ext-go/wasm` and `pkg/ext-go` come after it, and the product modules `src/ctx` and
+  `cmd/ext` (which build with `replace` directives) are bumped by hand, as before.
+- The published tags of the adapters still require `res/web` and remain valid; their next release
+  requires `res/web/host`. The release scripts take a module as a directory, so a round lists
+  `res/web/host` in its versions file and the scripts need no change.
+
+The packages moved with it, and their import paths changed:
+
+| Before (in `res/web`) | After (in `res/web/host`) |
+| --- | --- |
+| the root package, `package web`, imported by ctx as `browser` | `manage/cookie`, `package cookie` |
+| `contract` | `contract` |
+| `guest`, `sqlite`, `discovery`, `policy` | `manage/guest`, `manage/sqlite`, `manage/discovery`, `manage/policy` |
+| `extension`, `userscript`, `bookmarklet` | `artifact/extension`, `artifact/userscript`, `artifact/bookmarklet` |
+| `bundle`, `wasm` | `engine/bundle`, `engine/wasm` |
+
+`contract` imports nothing else in the module, so `ProgressPrefix`, `MaxProgressLineBytes`,
+`ProgressLine` and `ParseProgress` moved from `contract` to `artifact/extension`, next to the
+`InstallResult` they encode. The fixtures in `res/web/testdata` are outside the `host` module zip, so
+its Go tests find them by walking up and skip when the repository is absent.
 
 ## `pkg/plugin-go` became `pkg/ext-go`
 
@@ -361,7 +398,7 @@ for module in src/ctx src/ctn pkg/ext-go pkg/ext-go/engine pkg/ext-go/cgoengine 
               pkg/ext-go/hashicorp pkg/ext-go/wasm pkg/ext-go/inference pkg/ext-go/model pkg/ext-go/perception pkg/ext-go/realtime res/system res/int \
               adapters/wasm adapters/evm adapters/systemd adapters/pulseaudio adapters/alsa \
               adapters/x11 adapters/ffmpeg adapters/wayland adapters/pipewire adapters/openai \
-              adapters/ollama adapters/anthropic adapters/gemini res/web; do
+              adapters/ollama adapters/anthropic adapters/gemini res/web/host; do
   (cd "$module" && go build ./... && go test ./...) || exit 1
 done
 ```
@@ -371,7 +408,7 @@ done
 Each module's `go` line is the oldest Go that builds it, so it must be at least what its own
 dependencies require; `go mod tidy` raises it when it is not. Most light libraries
 (`pkg/ext-go/engine`, `pkg/ext-go/cgoengine`, `pkg/ext-go/wasm`, and the `res/*`
-modules other than `res/system`) declare `go 1.23.0`; `res/web` additionally
+modules other than `res/system`) declare `go 1.23.0`; `res/web/host` additionally
 pins wazero at a version with that floor. `res/system` declares `go 1.25.0` because its bounded
 volume operations use `os.Root`; adapters that import its credential packages
 therefore declare at least Go 1.25. Four modules declare `go 1.26.0` because
@@ -401,8 +438,8 @@ so an application imports only what it needs and stacks the rest:
 | `pkg/ext-go/model` | bridges `res/int/model` tensor providers to the Ext plugin engine through `model.tensor/v1` | `engine`, `res/int` |
 | `pkg/ext-go/perception` | bridges `res/int/perception` to the Ext plugin engine through `intelligence.perception/v1` | `engine`, `res/int` |
 | `pkg/ext-go/realtime` | bridges `res/int/realtime` to the Ext plugin engine through `intelligence.realtime/v1` | `engine`, `res/int` |
-| `res/web` | portable web tooling, including protocol-neutral WebAssembly inspection, execution and raw reactor hosting | nothing inside ext; third-party wazero only |
-| `pkg/ext-go/wasm` | the plugin-engine binding for `res/web/wasm` (the old `pkg/plugin-wasm`) | `engine`, `res/web` |
+| `res/web/host` | portable web tooling, including protocol-neutral WebAssembly inspection, execution and raw reactor hosting | nothing inside ext; third-party wazero only |
+| `pkg/ext-go/wasm` | the plugin-engine binding for `res/web/host/engine/wasm` (the old `pkg/plugin-wasm`) | `engine`, `res/web/host` |
 | `pkg/ext-go/hashicorp` | the go-plugin (gRPC) backend (the old `pkg/plugin-hashicorp`) | `engine` |
 | `pkg/ext-go` | the umbrella: requires every plugin module above and holds what needs several of them (`PlanGraph`, the `core` package that chooses between `engine`, `cgoengine` and `c2goengine`, the bridge command, the cross-language tests) | the plugin modules above, `res/system`, `res/web` |
 | `res/int` | portable model, inference, perception, and real-time contracts and mechanisms; standard library only | nothing |
@@ -440,7 +477,7 @@ from `_csrc` and links the engine library, which is built from `_csrc` with CMak
 | `pkg/plugin-go` root, the engine API (`pkg/plugin-go`, up to v0.1.1) | `pkg/plugin-go/cengine` (`pkg/plugin-go/cengine`) |
 | `pkg/plugin-go/cshared`, `.../cshared/abi`, `.../cshared/guest` | `pkg/plugin-go/cengine/cshared`, `.../abi`, `.../guest` (`pkg/plugin-go/cengine`) |
 | `pkg/plugin-cshared` (up to v0.1.0) | `pkg/plugin-go/cengine/cshared` (`pkg/plugin-go/cengine`) |
-| `pkg/plugin-wasm` (up to v0.2.1), later `pkg/plugin-go/wasm` | `pkg/ext-go/wasm` (`pkg/ext-go/wasm`); its reusable mechanics are `res/web/wasm` |
+| `pkg/plugin-wasm` (up to v0.2.1), later `pkg/plugin-go/wasm` | `pkg/ext-go/wasm` (`pkg/ext-go/wasm`); its reusable mechanics are `res/web/host/engine/wasm` |
 | `pkg/plugin-hashicorp` (up to v0.1.1) | `pkg/plugin-go/hashicorp` (`pkg/plugin-go/hashicorp`) |
 | `pkg/plugin-hashicorp/cmd/ext-plugin-bridge` | `pkg/plugin-go/cmd/ext-plugin-bridge` (`pkg/plugin-go`) |
 | `pkg/graph` (v0.1.0) | the generic store, first `res/system/graph` in module `res/system` (v0.1.0 to v0.2.1), now `res/graph/store` in module `res/graph` (from v0.2.0; see below) |

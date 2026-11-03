@@ -8,8 +8,8 @@ import (
 	"net/url"
 
 	"github.com/webong/ext/adapters/chromium/engine/webextension"
-	share "github.com/webong/ext/res/web/contract"
-	kit "github.com/webong/ext/res/web/guest"
+	share "github.com/webong/ext/res/web/host/contract"
+	kit "github.com/webong/ext/res/web/host/manage/guest"
 )
 
 // Run serves the versioned cookie protocol for a Chromium-family adapter.

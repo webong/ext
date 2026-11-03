@@ -63,9 +63,9 @@ the `ExtWebKit` product scheme has no test action. Both tests passed on an iPhon
 16 Pro simulator running iOS 18.3.1. The staged SDK also built for an iOS simulator
 consumer against the generated XCFramework archive.
 
-See [mobile cookie workflows](../COOKIE_WORKFLOWS.md) for portable import/export and native workspace cookie access.
+See [mobile cookie workflows](../docs/COOKIE_WORKFLOWS.md) for portable import/export and native workspace cookie access.
 
-`WorkspaceManagement` routes validated session/userscript requests into this workspace and a host-owned `UserscriptStore`; see [management and persistence](../WORKSPACE_MANAGEMENT.md).
+`WorkspaceManagement` routes validated session/userscript requests into this workspace and a host-owned `UserscriptStore`; see [management and persistence](../docs/WORKSPACE_MANAGEMENT.md).
 
 Stored scripts can stay synchronized through `activateUserscripts`; the workspace owns
-the subscription until close or explicit replacement. See [live reconciliation](../WORKSPACE_MANAGEMENT.md#live-userscript-reconciliation).
+the subscription until close or explicit replacement. See [live reconciliation](../docs/WORKSPACE_MANAGEMENT.md#live-userscript-reconciliation).

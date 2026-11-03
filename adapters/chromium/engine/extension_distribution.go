@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/webong/ext/res/web/extension"
+	"github.com/webong/ext/res/web/host/artifact/extension"
 )
 
 // UpdateManifestResult is a publishing artifact, never an installation result.

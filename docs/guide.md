@@ -16,9 +16,9 @@ depend on only what you use:
 | You want to | Module (version used here) |
 | --- | --- |
 | host or write a plugin | `github.com/webong/ext/pkg/ext-go` (v0.2.0) |
-| run WebAssembly in a sandbox | `github.com/webong/ext/res/web` (v0.6.0) |
+| run WebAssembly in a sandbox | `github.com/webong/ext/res/web/host` (next release) |
 | extend or inspect the local system shell, including local network state | `github.com/webong/ext/res/system` (next release) |
-| run web content in a browser | `github.com/webong/ext/res/web` (v0.6.0) |
+| run web content in a browser | `github.com/webong/ext/res/web/host` (next release) |
 
 ```sh
 go get github.com/webong/ext/pkg/ext-go@v0.2.0
@@ -104,7 +104,7 @@ import (
 	"fmt"
 	"time"
 
-	wasm "github.com/webong/ext/res/web/wasm"
+	wasm "github.com/webong/ext/res/web/host/engine/wasm"
 )
 
 // (module (func (export "_start")))
@@ -187,7 +187,7 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/webong/ext/res/web/bundle"
+	"github.com/webong/ext/res/web/host/engine/bundle"
 )
 
 func main() {

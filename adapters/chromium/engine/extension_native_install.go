@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/webong/ext/res/web/extension"
+	"github.com/webong/ext/res/web/host/artifact/extension"
 )
 
 // InstallWithNativeUI guides a persistent Load unpacked installation in the

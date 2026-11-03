@@ -9,7 +9,7 @@ import (
 	"net/url"
 	"time"
 
-	management "github.com/webong/ext/res/web/contract"
+	management "github.com/webong/ext/res/web/host/contract"
 )
 
 // EndpointProbeTimeout bounds the loopback connection that confirms a browser is

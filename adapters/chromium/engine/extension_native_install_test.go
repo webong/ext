@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/webong/ext/res/web/extension"
+	"github.com/webong/ext/res/web/host/artifact/extension"
 )
 
 func TestInstallWithNativeUIVerifiesRestart(t *testing.T) {

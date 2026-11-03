@@ -49,7 +49,7 @@ use (
 	./pkg/ext-go/model
 	./pkg/ext-go/perception
 	./pkg/ext-go/realtime
-	./res/web
+	./res/web/host
 	./pkg/ext-go/engine
 	./pkg/ext-go/cgoengine
 	./pkg/ext-go/c2goengine

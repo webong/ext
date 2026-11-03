@@ -4,7 +4,7 @@ go 1.26.0
 
 require (
 	github.com/webong/ext/res/system v0.3.0
-	github.com/webong/ext/res/web v0.6.0
+	github.com/webong/ext/res/web/host v0.1.0
 )
 
 require (
@@ -15,7 +15,7 @@ require (
 
 replace github.com/webong/ext/res/system => ../../res/system
 
-replace github.com/webong/ext/res/web => ../../res/web
+replace github.com/webong/ext/res/web/host => ../../res/web/host
 
 replace github.com/webong/ext/pkg/ext-go/engine => ../../pkg/ext-go/engine
 

@@ -20,7 +20,7 @@ public enum ObjCWebViewPluginHostError: Int {
 public final class ObjCWebViewPluginHost: NSObject {
     private let host: WebViewPluginHost
 
-    /// - Parameter bridge: the page shim (res/web/bundle/shim.js); nil uses the embedded copy.
+    /// - Parameter bridge: the page shim (res/web/host/engine/bundle/shim.js); nil uses the embedded copy.
     @objc public init(module: Data, bridge: String?, log: ((String) -> Void)?) {
         host = WebViewPluginHost(module: module, bridge: bridge, log: log)
     }

@@ -1,4 +1,4 @@
-// Package wasm binds the protocol-neutral res/web WebAssembly runtime to the
+// Package wasm binds the protocol-neutral res/web/host WebAssembly runtime to the
 // ext plugin engine.
 package wasm
 
@@ -7,7 +7,7 @@ import (
 
 	plugin "github.com/webong/ext/pkg/ext-go/engine"
 	"github.com/webong/ext/pkg/ext-go/engine/transport/jsonline"
-	webwasm "github.com/webong/ext/res/web/wasm"
+	webwasm "github.com/webong/ext/res/web/host/engine/wasm"
 )
 
 const MaxModuleBytes = webwasm.MaxModuleBytes

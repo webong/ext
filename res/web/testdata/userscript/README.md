@@ -1,6 +1,6 @@
 # ext.userscript/v1alpha1 fixtures
 
-Language-neutral test vectors for the userscript rules in `res/web/userscript`.
+Language-neutral test vectors for the userscript rules in `res/web/host/artifact/userscript`.
 The Go tests (`userscript/fixtures_test.go`) must pass them; any other
 implementation, such as a TypeScript parser, can run the same JSON files.
 A fixture with an `error` expects rejection with that stable code; messages are

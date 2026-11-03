@@ -7,7 +7,7 @@ import (
 	"time"
 
 	plugin "github.com/webong/ext/pkg/ext-go/engine"
-	webwasm "github.com/webong/ext/res/web/wasm"
+	webwasm "github.com/webong/ext/res/web/host/engine/wasm"
 )
 
 const (

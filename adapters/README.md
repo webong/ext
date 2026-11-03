@@ -54,10 +54,10 @@ profile discovery, validation, launching, and declared browser share operations.
 versioned JSON protocol in [the adapter API](../docs/adapter-api.md).
 The optional release catalog and explicit source-installer selection provide a
 separate share executable built from each browser adapter's `native` directory.
-Portable request handling lives in `res/web/guest`, with shared types and
-validation in `res/web/contract`. Shared policy export and executable
-discovery helpers live in `res/web/policy` and `res/web/discovery`.
-adapters provide SQLite access via `res/web/sqlite`. They are Go libraries used by
+Portable request handling lives in `res/web/host/manage/guest`, with shared types and
+validation in `res/web/host/contract`. Shared policy export and executable
+discovery helpers live in `res/web/host/manage/policy` and `res/web/host/manage/discovery`.
+adapters provide SQLite access via `res/web/host/manage/sqlite`. They are Go libraries used by
 adapters, not installable catalog entries. The browser-specific engines live in
 `adapters/chromium/engine` and `adapters/firefox/engine`; their respective
 families configure and reuse them.
@@ -151,7 +151,7 @@ or pure module runs here, always. A web module (one that imports JavaScript glue
 such as wasm-bindgen's `wbg`, Go's `gojs` or Emscripten's web runtime) cannot, and
 `ctx run wasm` stops with exit status 126 and says so, instead of failing on the
 first missing import. Web modules run in a browser through the ext web engine
-(`res/web/bundle`), not through an adapter. `--inspect` reports what a module imports and whether it can run, without
+(`res/web/host/engine/bundle`), not through an adapter. `--inspect` reports what a module imports and whether it can run, without
 running it.
 
 `wasm` can also use a WebAssembly runtime installed on the machine. `ctx ls wasm` lists

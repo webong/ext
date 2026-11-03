@@ -1,7 +1,7 @@
 import CryptoKit
 import Foundation
 
-/// A userscript the caller has reviewed, as `res/web/userscript` stores it
+/// A userscript the caller has reviewed, as `res/web/host/artifact/userscript` stores it
 /// (ext.userscript/v1alpha1).
 ///
 /// `matches` and `excludeMatches` are optional because the revision digest tells nil
@@ -373,7 +373,7 @@ public enum Userscript {
         return String(decoding: bytes[dot...], as: UTF8.self)
     }
 
-    // The registration script around the JSON values; the text of res/web/userscript/replay.go, which
+    // The registration script around the JSON values; the text of res/web/host/artifact/userscript/replay.go, which
     // the replay fixture checks.
     private static let replayPrefix = "(() => {\n const [id, revision, source, matches, excludes] = "
     private static let replaySuffix = #"""

@@ -10,7 +10,7 @@ import (
 	"regexp"
 
 	"github.com/webong/ext/ctx/internal/config"
-	browsershare "github.com/webong/ext/res/web/contract"
+	browsershare "github.com/webong/ext/res/web/host/contract"
 )
 
 var browserResourceName = regexp.MustCompile(`^[a-z][a-z0-9_]*$`)

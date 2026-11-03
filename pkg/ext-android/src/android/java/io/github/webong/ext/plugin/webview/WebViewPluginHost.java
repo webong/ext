@@ -26,7 +26,7 @@ import org.json.JSONObject;
  * a capability sandbox.
  *
  * <p>The page speaks through {@code window.ext.host}, the transport-neutral page API
- * of res/web/bundle. The host registers the {@code ExtHost} JavaScript interface that
+ * of res/web/host/engine/bundle. The host registers the {@code ExtHost} JavaScript interface that
  * the page shim's native transport posts to, and delivers frames with
  * {@code window.ext.host._deliver}.
  *
@@ -84,7 +84,7 @@ public final class WebViewPluginHost {
     /**
      * @param context an Activity or Application context
      * @param module the reactor module's bytes
-     * @param shim the page shim, res/web/bundle/shim.js unchanged; null uses the copy
+     * @param shim the page shim, res/web/host/engine/bundle/shim.js unchanged; null uses the copy
      *     this library embeds (scripts/plugin-mobile-assets.sh)
      * @param log may be null
      */

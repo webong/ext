@@ -13,7 +13,7 @@ import (
 	"time"
 
 	modpkg "github.com/webong/ext/pkg/ext-go/engine/host/adapter"
-	browser "github.com/webong/ext/res/web"
+	browser "github.com/webong/ext/res/web/host/manage/cookie"
 )
 
 func normalizeFixture(t *testing.T, operation, response string) (string, *modpkg.Store) {

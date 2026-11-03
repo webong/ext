@@ -27,7 +27,7 @@ jobs:
           node-version: '22'
       - name: Test plugin library modules
         run: |
-          for module in pkg/ext-go pkg/ext-go/engine pkg/ext-go/cgoengine pkg/ext-go/hashicorp pkg/ext-go/wasm res/web; do
+          for module in pkg/ext-go pkg/ext-go/engine pkg/ext-go/cgoengine pkg/ext-go/hashicorp pkg/ext-go/wasm res/web/host; do
             (cd "$module" && go test -race ./...) || exit 1
           done
       - run: go test -race ./pkg/ext-go/hashicorp/cmd/ext-plugin
@@ -152,7 +152,7 @@ jobs:
           distribution: temurin
           java-version: '17'
       - run: go test ./...
-        working-directory: res/web
+        working-directory: res/web/host
       - name: Swift and Java ports against Go
         run: scripts/web-differential.sh
       - name: Native WebKit workspace

@@ -4,7 +4,7 @@ import Foundation
 import XCTest
 
 /// Runs the shared ext.conformance/v1 reactor (the Rust SDK's shared guest built for
-/// wasm32-wasip1) inside a real web view, over the real page shim of res/web/bundle.
+/// wasm32-wasip1) inside a real web view, over the real page shim of res/web/host/engine/bundle.
 /// Set EXT_RUST_REACTOR to the module; scripts/ext-ios-webview.sh does.
 @MainActor
 final class WebViewPluginHostTests: XCTestCase {
@@ -12,7 +12,7 @@ final class WebViewPluginHostTests: XCTestCase {
         // pkg/ext-ios/Tests/ExtPluginWebViewTests/<this file> -> repository root.
         let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
             .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
-        return try String(contentsOf: root.appendingPathComponent("res/web/bundle/shim.js"), encoding: .utf8)
+        return try String(contentsOf: root.appendingPathComponent("res/web/host/engine/bundle/shim.js"), encoding: .utf8)
     }
 
     private func reactor() throws -> Data {

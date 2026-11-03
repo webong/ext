@@ -1,6 +1,6 @@
 # ext.bookmarklet/v1alpha1 fixtures
 
-Language-neutral vectors for `res/web/bookmarklet`. The Go tests
+Language-neutral vectors for `res/web/host/artifact/bookmarklet`. The Go tests
 (`bookmarklet/fixtures_test.go`) must pass them, and another implementation can
 run the same files.
 

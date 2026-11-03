@@ -8,7 +8,7 @@ import (
 )
 
 // These tests read a committed synthetic cookies.sqlite (made by
-// res/web/sqlite/testdata/make-fixtures.sh) with no sqlite3 binary on the PATH.
+// res/web/host/manage/sqlite/testdata/make-fixtures.sh) with no sqlite3 binary on the PATH.
 
 func TestFirefoxCookiesAreReadWithoutTheShell(t *testing.T) {
 	t.Setenv("PATH", t.TempDir())

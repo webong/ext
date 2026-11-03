@@ -16,8 +16,8 @@ import (
 	"strings"
 	"time"
 
-	browsershare "github.com/webong/ext/res/web/contract"
-	"github.com/webong/ext/res/web/sqlite"
+	browsershare "github.com/webong/ext/res/web/host/contract"
+	"github.com/webong/ext/res/web/host/manage/sqlite"
 )
 
 type firefoxCookieRow struct {

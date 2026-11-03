@@ -65,7 +65,7 @@ boundary validated by CTX.
 
 A host drives an installed browser adapter through one process per request. It
 needs no adapter code: `pkg/ext-go/engine/host/adapter` provides the store, trust check and
-command construction, and `res/web/contract` provides the envelope and its
+command construction, and `res/web/host/contract` provides the envelope and its
 validation.
 
 1. Load the adapter from the adapter store the host manages and run
@@ -98,7 +98,7 @@ ordinary diagnostics. Such an operation does not exit until it finishes. For
 session: cancel the context, or interrupt the process, to end it, and it
 cleans up its browser.
 
-Status values are descriptive. The constants in `res/web/contract` list those the
+Status values are descriptive. The constants in `res/web/host/contract` list those the
 first-party adapters report. Handle unknown values without failing, and show
 something as installed only when `contract.Persistent(status)` is true, which
 `ValidateResponse` already guards: an `extension.activate` response cannot
@@ -108,8 +108,8 @@ report `installed`, and an `extension.install` response cannot report
 
 ## Go adapter API
 
-`github.com/webong/ext/res/web/contract` exposes the request and response
-types, operation catalog, and validators. The sibling `res/web/guest`
+`github.com/webong/ext/res/web/host/contract` exposes the request and response
+types, operation catalog, and validators. The sibling `res/web/host/manage/guest`
 package provides `ManagementBackend` and `RunManagement`.
 Implement `ManageBrowser` to connect the protocol to browser-specific logic:
 
@@ -201,15 +201,15 @@ web install interfaces, request removal, and capability discovery.
 
 Adapters can use CTX's reusable local logic directly:
 
-- `github.com/webong/ext/res/web/extension` inspects extension directories,
+- `github.com/webong/ext/res/web/host/artifact/extension` inspects extension directories,
   ZIPs, and XPIs; creates deterministic ZIPs; stages validated files; and
   exposes portable artifact, capability, and target types and helpers. It
   contains no native browser driver or product discovery tables. Browser
   signing, installation, and activation live in the owning adapter packages.
-- `github.com/webong/ext/res/web/userscript` validates metadata and source,
+- `github.com/webong/ext/res/web/host/artifact/userscript` validates metadata and source,
   computes review revisions, and stores enabled state in the caller's CTX
   configuration directory. Activation remains session-scoped.
-- `github.com/webong/ext/res/web/bookmarklet` encodes and decodes bookmarklet
+- `github.com/webong/ext/res/web/host/artifact/bookmarklet` encodes and decodes bookmarklet
   URLs and creates a reviewable install page. It never executes source or
   edits browser bookmarks.
 

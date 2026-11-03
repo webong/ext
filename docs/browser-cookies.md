@@ -2,7 +2,7 @@
 
 Cookie storage, profile discovery, credentials, and native scope mapping belong
 to browser adapters. CTX supplies portable validation, source selection, and the
-bridge between files, processes, and profiles. The public `res/web` package
+bridge between files, processes, and profiles. The public `res/web/host/manage/cookie` package
 implements portable query and normalization workflows through an injected
 `browser.Backend`; CTX supplies the trusted-adapter backend for its CLI.
 
@@ -197,7 +197,7 @@ chooses a domain for every export.
 ## Reading cookie databases
 
 Chromium-family and Firefox-family adapters read `Cookies` and `cookies.sqlite`
-with a built-in, read-only SQLite reader in `res/web/sqlite` (`Open`,
+with a built-in, read-only SQLite reader in `res/web/host/manage/sqlite` (`Open`,
 `OpenShared`, `Database.Scan`, `Lookup`, `Columns`). No `sqlite3` program is
 needed, so reads work on Windows as well. The reader loads a consistent
 in-memory snapshot of the database and its `-wal` log (the pair is read again if

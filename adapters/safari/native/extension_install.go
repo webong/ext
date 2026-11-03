@@ -11,7 +11,7 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/webong/ext/res/web/extension"
+	"github.com/webong/ext/res/web/host/artifact/extension"
 )
 
 var safariCDHash = regexp.MustCompile(`(?m)^CDHash=([0-9a-fA-F]+)$`)

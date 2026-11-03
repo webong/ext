@@ -6,7 +6,7 @@ import java.util.Map;
 import java.util.Objects;
 
 /**
- * A userscript the caller has reviewed, as {@code res/web/userscript} stores it
+ * A userscript the caller has reviewed, as {@code res/web/host/artifact/userscript} stores it
  * (ext.userscript/v1alpha1).
  *
  * <p>{@link #matches} and {@link #excludeMatches} may be null because the revision digest tells

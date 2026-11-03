@@ -3,7 +3,7 @@ package wasm
 import (
 	"context"
 
-	webwasm "github.com/webong/ext/res/web/wasm"
+	webwasm "github.com/webong/ext/res/web/host/engine/wasm"
 )
 
 type CommandOptions = webwasm.CommandOptions

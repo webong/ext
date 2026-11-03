@@ -1,19 +1,29 @@
-# CTX plugin SDK for Zig
+# ext plugin SDK for Zig
 
 This package implements typed guests and host sessions for `ext.plugin/v1`,
 including JSON-line and C ABI bindings. It targets **Zig 0.17.0**, pinned because
 Zig's standard library and build APIs change between releases. It has no
 third-party dependencies and links libc for clocks and standalone stdio.
 
-Add a local path dependency in your `build.zig.zon`, then import its named module:
+Add the package to your `build.zig.zon` with `zig fetch`, then import its named module:
 
-```zig
-const ctx = b.dependency("ext_plugin", .{ .target = target, .optimize = optimize });
-exe.root_module.addImport("ext_plugin", ctx.module("ext_plugin"));
+```sh
+zig fetch --save https://github.com/webong/ext/archive/refs/tags/ext-zig-0.1.0.tar.gz
 ```
 
-The dependency path points to CTX's `pkg/ext-zig` directory. A future published
-package can use the same module name; no registry publication is included here.
+```zig
+const ext = b.dependency("ext_plugin", .{ .target = target, .optimize = optimize });
+exe.root_module.addImport("ext_plugin", ext.module("ext_plugin"));
+```
+
+Zig has no registry and `zig fetch` needs an archive whose root holds `build.zig.zon`, which this
+repository's root does not. So each release (`ext-zig-vX.Y.Z`, made by
+[`.github/workflows/ext-zig-release.yml`](../../.github/workflows/ext-zig-release.yml)) is also put at the
+root of the `dist/ext-zig` branch and tagged `ext-zig-X.Y.Z`; that tag's archive is the URL above. The
+workflow tests the package on its own, then fetches that URL and checks that Zig computes the hash it
+recorded, which the release page carries as `ext-zig-X.Y.Z-package-hash.txt`. See
+[distribution branches](../../docs/module-versioning.md#distribution-branches). To develop against a
+checkout instead, point a path dependency at this directory.
 
 ## Typed authoring
 

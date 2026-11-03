@@ -81,7 +81,9 @@ makes download URLs ambiguous. GitHub's "latest" release is repository-wide, so
 The mobile SDKs follow the same dash form: `ext-android-vX.Y.Z` releases the Android AARs
 (`.github/workflows/ext-android-release.yml`, published with `--latest=false`) and `ext-ios-vX.Y.Z` releases the iOS
 SDK (`.github/workflows/ext-ios-release.yml`, same form). Their `MINOR` and `PATCH` move
-independently; their `MAJOR` follows the repository-wide `MAJOR`.
+independently; their `MAJOR` follows the repository-wide `MAJOR`. `ext-zig-vX.Y.Z` releases the Zig package the same way
+(`.github/workflows/ext-zig-release.yml`, published with `--latest=false`); its version has to be the `.version` of
+`pkg/ext-zig/build.zig.zon`, and the staging script refuses any other.
 The Windows-native .NET libraries follow the same form: `ext-dotnet-vX.Y.Z` releases the NuGet packages
 `Ext.Audio.Windows` (`res/system/capture/audio/windows`), `Ext.Clipboard.Windows`
 (`res/system/capture/clipboard/windows`), `Ext.Web.Windows` (`res/web/windows`) and `Ext.ML.Windows`
@@ -136,9 +138,10 @@ branch, `dist/<name>`, that holds the staged tree at its root:
 - **History.** The first release creates the branch with no history from `main`. Every later release adds one
   commit on top of the previous one, replacing the whole tree, so every earlier tag stays reachable.
 - **Tags.** The release keeps its dash-form tag on `main` (`ext-ios-vX.Y.Z`, which builds and attaches
-  the assets). The ecosystem's own tag goes on the `dist/` commit. SwiftPM needs a bare `X.Y.Z`; Go ignores a
-  tag without a `v`, so it cannot be read as a module version. That namespace is single for the repository, so a
-  second ecosystem that needs bare tags needs its own repository.
+  the assets). The ecosystem's own tag goes on the `dist/` commit, in the form that ecosystem reads. SwiftPM
+  needs a bare `X.Y.Z`, and Go ignores a tag without a `v`, so it cannot be read as a module version. That bare
+  namespace is single for the repository: an ecosystem that reads no tag name, like Zig, uses a prefixed tag
+  (`ext-zig-X.Y.Z`), and a second one that needs bare tags needs its own repository.
 
 `dist/ext-ios` is the first: `ext-ios-release.yml` publishes the GitHub release, and once it exists (the staged
 package's binary targets are the release's assets, by URL and checksum) its last job puts
@@ -146,6 +149,14 @@ package's binary targets are the release's assets, by URL and checksum) its last
 `.package(url: "https://github.com/webong/ext", from: "0.1.1")`, for example. `ext-ios-v0.1.0` predates the branch
 and has no bare tag; the next release is the first on SwiftPM. `scripts/dist-branch-test.sh` checks the script
 against a throwaway remote.
+
+`dist/ext-zig` is the second. Zig has no registry and fetches an archive whose root holds `build.zig.zon`, so
+`ext-zig-release.yml` stages `pkg/ext-zig` (the files its manifest lists in `.paths`, plus `LICENSE`) with
+`scripts/ext-zig-release.sh`, builds and tests the staged package on its own, attaches it to the `ext-zig-vX.Y.Z`
+release with the hash Zig computed for it, puts it on `dist/ext-zig` tagged `ext-zig-X.Y.Z`, and then runs
+`zig fetch` on that tag's archive to check that the hash is the one it tested. A consumer runs
+`zig fetch --save https://github.com/webong/ext/archive/refs/tags/ext-zig-X.Y.Z.tar.gz`.
+`scripts/install-zig.sh` installs the pinned toolchain after checking its checksum.
 
 ## WebAssembly mechanics moved into `res/web`
 

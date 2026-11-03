@@ -1,9 +1,10 @@
-# CTX plugin SDK for Rust
+# ext plugin SDK for Rust
 
-`ext-plugin` is the Rust host/guest implementation of `ext.plugin/v1`. This
-development crate is part of CTX and is not published to crates.io. Use a path
-dependency pointing at this directory, or a pinned CTX Git revision. Rust 1.88+
-is required by the locked dependencies; CI and local examples use Rust 1.98.1.
+`ext-plugin` is the Rust host/guest implementation of `ext.plugin/v1`. It has not
+been published to crates.io yet: use a path dependency pointing at this directory,
+or a Git dependency pinned to a revision of
+[webong/ext](https://github.com/webong/ext). Rust 1.88+ is required by the locked
+dependencies; CI and local examples use Rust 1.98.1.
 
 ## Write a typed guest
 
@@ -94,7 +95,7 @@ the rules ends the session with `Error::Protocol`.
 ext_plugin::export_guest!(guest);
 ```
 
-The macro supplies the four exports from CTX's [C ABI](../../lib/plugin/include/ext_plugin.h).
+The macro supplies the four exports from the ext [C ABI](https://github.com/webong/ext/blob/main/lib/plugin/include/ext_plugin.h).
 Each `open` calls the factory for an independent guest; up to 64 handles are
 admitted. Handle removal releases the guest when outstanding references finish.
 Guest-owned closure state can use `Arc`/`Drop` for resources. Panics are caught
@@ -113,14 +114,14 @@ for contracts where the host has no typed wrapper. Public errors are
 
 Native host connections:
 
-- `native::Worker::process(path, args)` owns a child speaking CTX JSON lines.
+- `native::Worker::process(path, args)` owns a child speaking `ext.plugin/v1` JSON lines.
   It inherits the host process environment and stderr. For different launch
   policy or a supplied connection, implement `host::Backend` explicitly.
-- `native::Worker::cshared(absolute_path)` loads CTX C ABI v1. Verified immutable
+- `native::Worker::cshared(absolute_path)` loads the ext C ABI v1. Verified immutable
   paths are required; library constructors execute during connection. Images
   are cached by canonical path and remain resident even after ABI failures.
 - Custom `host::Backend` implementations receive operation `1` with
-  `{"deadline": ...}` for handshake, or operation `2` with the CTX request.
+  `{"deadline": ...}` for handshake, or operation `2` with the request.
   They return descriptor/response JSON and own transport deadlines and cleanup.
 
 Sessions are serial mutable APIs. Closing/dropping a session closes its backend
@@ -153,7 +154,7 @@ scripts/plugin-crosslang.sh
 ```
 
 `examples/frames` is the frames conformance guest of
-[docs/plugin-guest-frames.md](../../docs/plugin-guest-frames.md) (`frames_inline` is
+[docs/plugin-guest-frames.md](https://github.com/webong/ext/blob/main/docs/plugin-guest-frames.md) (`frames_inline` is
 the same guest forced into inline mode, and `--target wasm32-wasip1` builds it as a
 WASI command); the cross-language script runs all three through the Go session and
 the C engine. `tests/fixtures.rs` reproduces the shared frame, rate-limiter and model
@@ -170,4 +171,4 @@ trailing JSON, nesting beyond 64 and frames over 24 MiB. Rust JSON values use
 signed/unsigned 64-bit integers and finite floating-point numbers. Use decimal
 strings for larger exact numbers and integers outside JavaScript's safe range
 when a TypeScript peer is involved. ABI/version compatibility does not supply
-domain authorization or imply that arbitrary Rust libraries are CTX plugins.
+domain authorization or imply that arbitrary Rust libraries are ext plugins.

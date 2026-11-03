@@ -1,4 +1,4 @@
-# Rust binding to the CTX C engine
+# Rust binding to the ext C engine
 
 This development crate embeds the shared engine without a Go runtime or Rust
 protocol implementation. Build the C engine first, then set

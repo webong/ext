@@ -70,7 +70,7 @@ session ends. `Guest.invoke(request)` on its own has no frames: `call.reverse` i
 (`lib/plugin/testdata/v1/{frame-cases,progress-limiter-cases,model-cases}.json`, computed by the
 Go contract) with no exceptions, `tests/test_serve_frames.py` covers the router, and
 `tests/frames_guest.py` is the frames conformance guest of
-[docs/plugin-guest-frames.md](../../docs/plugin-guest-frames.md), which
+[docs/plugin-guest-frames.md](https://github.com/webong/ext/blob/main/docs/plugin-guest-frames.md), which
 `scripts/plugin-crosslang.sh` runs through the Go session and the C engine (it answers the
 operations that need a reader of its own with the public error `unsupported`).
 

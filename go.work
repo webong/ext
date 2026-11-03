@@ -64,8 +64,5 @@ replace github.com/webong/ext/pkg/ext-go/perception v0.1.0 => ./pkg/ext-go/perce
 
 replace github.com/webong/ext/pkg/ext-go/realtime v0.1.0 => ./pkg/ext-go/realtime
 
-// firefox v0.3.2, which floorp, librewolf, waterfox and zen require, is not tagged yet. Delete this line once it is.
-replace github.com/webong/ext/adapters/firefox v0.3.2 => ./adapters/firefox
-
 // Ollama reuses the OpenAI-compatible client before its first module tag is published.
 replace github.com/webong/ext/adapters/openai v0.1.0 => ./adapters/openai

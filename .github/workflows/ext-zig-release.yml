@@ -1,0 +1,145 @@
+name: Release Zig package
+
+# Releases pkg/ext-zig on a GitHub release (the staged package, its Zig package hash, checksums and a
+# build-provenance attestation) and at the root of the dist/ext-zig branch. Zig has no registry: a
+# consumer runs `zig fetch` on an archive whose root holds build.zig.zon, and this monorepo's root is
+# not a package, so the archive of the dist/ext-zig tag ext-zig-X.Y.Z is what they fetch. The workflow
+# publishes for ext-zig-vX.Y.Z tags only. A pull request that touches the package or these scripts, and a
+# manual run, stage, build and test the manifest's version and publish nothing. The tag is not a Go
+# module tag; see docs/module-versioning.md.
+on:
+  push:
+    tags: ['ext-zig-v*']
+  pull_request:
+    paths:
+      - 'pkg/ext-zig/**'
+      - 'scripts/ext-zig-release.sh'
+      - 'scripts/install-zig.sh'
+      - 'LICENSE'
+      - '.github/workflows/ext-zig-release.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ext-zig-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # Stages the package and tests it on its own, with fresh caches, before anything is published.
+  # Read-only: it has no token that can write.
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Version
+        id: version
+        env:
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          if [[ "$REF_TYPE" == tag ]]; then
+            version="${REF_NAME#ext-zig-v}"
+          else
+            version="$(sed -n 's/^[[:space:]]*\.version[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' pkg/ext-zig/build.zig.zon)"
+          fi
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "version '$version' must look like 0.1.0" >&2; exit 1; }
+          echo "version=$version" >>"$GITHUB_OUTPUT"
+      - name: Install Zig with a verified checksum
+        run: echo "ZIG_BIN=$(scripts/install-zig.sh "$RUNNER_TEMP/zig")" >>"$GITHUB_ENV"
+      - name: Stage, build and test the package
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: scripts/ext-zig-release.sh "$VERSION"
+      - uses: actions/upload-artifact@v6
+        with:
+          name: ext-zig-${{ steps.version.outputs.version }}
+          path: |
+            dist/ext-zig-${{ steps.version.outputs.version }}/*.tar.gz
+            dist/ext-zig-${{ steps.version.outputs.version }}/*.txt
+          if-no-files-found: error
+
+  # Publishes. Only a pushed ext-zig-v tag gets here (never a manual run, even on a tag), and only
+  # after the build job passed. It builds nothing: it attaches the exact files that were tested.
+  publish:
+    needs: build
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/ext-zig-v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v7
+        with:
+          name: ext-zig-${{ needs.build.outputs.version }}
+          path: dist
+      - name: Verify checksums
+        run: (cd dist && sha256sum -c checksums.txt)
+      - name: Attest release provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: 'dist/*'
+      # Not "latest": install.sh and install.ps1 resolve the newest ctx-v release by tag.
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist/* --verify-tag --generate-notes --latest=false --title "$GITHUB_REF_NAME"
+
+  # Puts the staged package at the root of the dist/ext-zig branch, one commit per release, and tags
+  # that commit ext-zig-X.Y.Z (Zig reads no tag, so the name is ours; it is not the ext-zig-vX.Y.Z of
+  # the release, which is on main). Then it fetches the archive of that tag the way a consumer does and
+  # checks that Zig computes the hash it recorded when it tested the package. The branch has one
+  # writer, this job, so two releases never run it at once.
+  distribute:
+    needs: [build, publish]
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/ext-zig-v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    concurrency:
+      group: dist-ext-zig
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v7
+        with:
+          name: ext-zig-${{ needs.build.outputs.version }}
+          path: dist
+      - name: Push the package
+        env:
+          VERSION: ${{ needs.build.outputs.version }}
+        run: |
+          scripts/dist-branch.sh dist/ext-zig "ext-zig-$VERSION" "dist/ext-zig-$VERSION-package.tar.gz" \
+            "ext-zig $VERSION" \
+            "Staged by $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID from $GITHUB_REF_NAME."
+      - name: Install Zig with a verified checksum
+        run: echo "ZIG_BIN=$(scripts/install-zig.sh "$RUNNER_TEMP/zig")" >>"$GITHUB_ENV"
+      - name: Fetch it the way a consumer does
+        env:
+          VERSION: ${{ needs.build.outputs.version }}
+        run: |
+          set -euo pipefail
+          url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/archive/refs/tags/ext-zig-$VERSION.tar.gz"
+          expected="$(cat "dist/ext-zig-$VERSION-package-hash.txt")"
+          actual=""
+          for attempt in 1 2 3 4 5; do
+            if actual="$(ZIG_GLOBAL_CACHE_DIR="$RUNNER_TEMP/zig-global" "$ZIG_BIN" fetch "$url")"; then break; fi
+            actual=""
+            sleep 10
+          done
+          [[ "$actual" == "$expected" ]] || { echo "zig fetch of $url gave '$actual', not '$expected'" >&2; exit 1; }
+          {
+            echo "### ext-zig $VERSION"
+            echo
+            echo '```'
+            echo "zig fetch --save $url"
+            echo '```'
+            echo
+            echo "Package hash: \`$actual\`"
+          } >>"$GITHUB_STEP_SUMMARY"

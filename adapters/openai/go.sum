@@ -1,0 +1,6 @@
+github.com/webong/ext/pkg/ext-go/engine v0.2.0 h1:PNx1wogQMNP/SPGrNma8tXTsqwu3eYmeglRmuz4QIlM=
+github.com/webong/ext/pkg/ext-go/engine v0.2.0/go.mod h1:lnYoMIb5lKAnz60k2oG47rhxxFqOLA5MT3IaU5rlU4s=
+github.com/webong/ext/pkg/ext-go/inference v0.1.0 h1:+HoaTzoS1Ei3yk7+L9/hSgC+Y0ptlG93733o+2etqRA=
+github.com/webong/ext/pkg/ext-go/inference v0.1.0/go.mod h1:iEvOsnW36GrkW6JoRM5sgBCzQ+bVBJtt9XE2NAafL1k=
+github.com/webong/ext/res/int v0.1.0 h1:OxxpESJPTy152dhoQWKoUGWHDGgrjv2Qokm9PG69OU0=
+github.com/webong/ext/res/int v0.1.0/go.mod h1:6nfdOsNf28H7XJqzalOZyWEUz0QLxEB075SN5TbVzDg=

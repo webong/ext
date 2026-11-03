@@ -66,3 +66,29 @@ replace github.com/webong/ext/pkg/ext-go/realtime v0.1.0 => ./pkg/ext-go/realtim
 
 // Ollama reuses the OpenAI-compatible client before its first module tag is published.
 replace github.com/webong/ext/adapters/openai v0.1.0 => ./adapters/openai
+
+// The umbrella round (engine v0.2.0 and the modules below) is not tagged yet. These resolve those versions to the
+// workspace copies; delete each once its tag exists.
+replace github.com/webong/ext/pkg/ext-go/engine v0.2.0 => ./pkg/ext-go/engine
+
+replace github.com/webong/ext/pkg/ext-go/cgoengine v0.2.0 => ./pkg/ext-go/cgoengine
+
+replace github.com/webong/ext/pkg/ext-go/c2goengine v0.2.0 => ./pkg/ext-go/c2goengine
+
+replace github.com/webong/ext/pkg/ext-go/hashicorp v0.3.2 => ./pkg/ext-go/hashicorp
+
+replace github.com/webong/ext/pkg/ext-go/inference v0.1.0 => ./pkg/ext-go/inference
+
+replace github.com/webong/ext/pkg/ext-go v0.10.0 => ./pkg/ext-go
+
+replace github.com/webong/ext/adapters/anthropic v0.1.0 => ./adapters/anthropic
+
+replace github.com/webong/ext/adapters/gemini v0.1.0 => ./adapters/gemini
+
+replace github.com/webong/ext/adapters/ollama v0.1.0 => ./adapters/ollama
+
+replace github.com/webong/ext/adapters/git v0.2.2 => ./adapters/git
+
+replace github.com/webong/ext/adapters/wasm v0.2.2 => ./adapters/wasm
+
+replace github.com/webong/ext/adapters/evm v0.2.2 => ./adapters/evm

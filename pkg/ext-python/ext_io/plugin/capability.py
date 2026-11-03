@@ -3,9 +3,9 @@ wire shapes and limits as the Go library: ``ext.health``, ``ext.configuration``
 and ``ext.stream``. ``Router`` is a handler for ``serve_stdio`` that checks each
 payload and result against them before and after your function runs.
 
-    router = ext_plugin.capability.Router()
+    router = plugin.capability.Router()
     router.health(lambda: {"status": "healthy", "ready": True})
-    ext_plugin.serve_stdio("plugin.json", router)
+    plugin.serve_stdio("plugin.json", router)
 """
 
 import json

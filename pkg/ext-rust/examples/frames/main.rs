@@ -2,5 +2,5 @@
 // where there are not (a WASI build).
 mod guest;
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    guest::run(ext_plugin::Mode::default())
+    guest::run(ext_io::plugin::Mode::default())
 }

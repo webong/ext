@@ -1,6 +1,6 @@
 //! Native host backends. Each worker serializes calls. Deadlines stop waiting;
 //! process close kills the owned child, while C cleanup waits for native return.
-use crate::{guest::read_frame, host::Backend, wire, Error, Result, MAX_FRAME, VERSION};
+use crate::plugin::{guest::read_frame, host::Backend, wire, Error, Result, MAX_FRAME, VERSION};
 use std::{
     collections::HashMap,
     io::{BufReader, Write},

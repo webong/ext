@@ -2,7 +2,7 @@
 //! sends and receives, the rules that judge them (the Go contract's, pinned by
 //! lib/plugin/testdata/v1/frame-cases.json) and the sender's rate limiter (pinned
 //! by progress-limiter-cases.json). The machinery that carries them is in `serve`.
-use crate::{
+use crate::plugin::{
     wire::{self, identifier, ProgressLimits, RemoteError},
     Error, Result, VERSION,
 };

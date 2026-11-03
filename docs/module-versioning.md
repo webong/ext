@@ -110,8 +110,9 @@ products keep their `ExtPlugin…` names.
 
 `pkg/plugin-rust`, `pkg/plugin-zig`, `pkg/plugin-ts` and `pkg/plugin-python` became `pkg/ext-rust`,
 `pkg/ext-zig`, `pkg/ext-ts` and `pkg/ext-python` (a hard cut, like the mobile SDKs). The names of the packages
-inside did not change: the crates `ext-plugin` and `ext-plugin-engine`, the npm package `@ctx/plugin`, the
-Python package `ext-plugin` and the Zig package `ext_plugin`. None of the four is a Go module, so no tag moved.
+inside did not change at that point: the crates `ext-plugin` and `ext-plugin-engine`, the npm package `@ctx/plugin`, the
+Python package `ext-plugin` and the Zig package `ext_plugin`. None of the four is a Go module, so no tag moved. The
+first four have since become `ext-io` (see [the `ext-io` language packages](#the-ext-io-language-packages)).
 `pkg/plugin-go` keeps its name for now, because renaming it changes published Go module paths.
 
 `res/web/ios` (the SwiftPM package `ExtWeb`) and `res/web/android` (the Java package
@@ -157,6 +158,29 @@ release with the hash Zig computed for it, puts it on `dist/ext-zig` tagged `ext
 `zig fetch` on that tag's archive to check that the hash is the one it tested. A consumer runs
 `zig fetch --save https://github.com/webong/ext/archive/refs/tags/ext-zig-X.Y.Z.tar.gz`.
 `scripts/install-zig.sh` installs the pinned toolchain after checking its checksum.
+
+## The `ext-io` language packages
+
+The Rust, TypeScript and Python SDKs are one package each, named `ext-io` (the bare `ext` is taken on
+crates.io, PyPI and npm); the Zig package is `ext_io`. Each offers one namespace per area: `ext_io::plugin`
+behind the Cargo feature `plugin` (on by default), `ext_io.plugin`, and the subpaths `ext-io/plugin`,
+`ext-io/plugin/node` and `ext-io/plugin/engine`. Only `plugin` is built. `system`, `web` and `int` are
+planned, and each will be a module of the same package (a Cargo feature, a Python extra, a subpath export)
+so that a plugin-only user pays nothing for them. The names replace the crate and PyPI package `ext-plugin`,
+the npm package `@ctx/plugin` and the Zig package `ext_plugin`; none of them was ever published, so there is
+no compatibility alias. The Zig fingerprint keeps its 32-bit id, and its checksum half follows the new name.
+
+Not renamed, because they name something else: the C ABI (the `ext_plugin_*` symbols and `ext_plugin.h`),
+the `ext.plugin/v1` protocol, the Go commands `ext-plugin` and `ext-plugin-bridge`, and the unpublished
+`ext-plugin-engine` crate.
+
+**One version per package.** Every area a package offers shares that package's version: `ext-io` 0.2.0 is
+the plugin area and, later, system, web and int, all at 0.2.0. Independent area versions would need
+independent packages, which is what a single package rules out. Before 1.0 a breaking change in any area is
+a minor bump of the whole package, so an area that needs its own release cadence leaves for a package of its
+own (for example `ext-io-web`) instead of versioning inside this one. The packages of different languages
+are versioned separately and need not match: what lets a Rust host call a Python guest is the
+`ext.plugin/v1` protocol version, not the package version.
 
 ## WebAssembly mechanics moved into `res/web`
 

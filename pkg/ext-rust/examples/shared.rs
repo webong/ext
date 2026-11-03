@@ -1,2 +1,2 @@
 mod common;
-ext_plugin::export_guest!(common::factory);
+ext_io::plugin::export_guest!(common::factory);

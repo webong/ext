@@ -1,5 +1,5 @@
-pub use crate::serve::{serve, serve_stdio, serve_with, Mode};
-use crate::{
+pub use crate::plugin::serve::{serve, serve_stdio, serve_with, Mode};
+use crate::plugin::{
     frames::{Progress, ProgressOutcome},
     serve::{CallFrames, Reverse},
     wire, ContractRef, Descriptor, Error, Identity, Operation, Policy, ProgressLimits, Request,
@@ -106,7 +106,7 @@ pub struct Registry {
 }
 
 fn invalid_input() -> Error {
-    Error::Remote(crate::RemoteError {
+    Error::Remote(crate::plugin::RemoteError {
         code: "invalid_input".into(),
         message: "request payload does not satisfy operation contract".into(),
         retry_after_milliseconds: 0,
@@ -220,7 +220,7 @@ impl Guest {
         if request.validate(&self.descriptor).is_err() {
             return wire::response(
                 &request.id,
-                Err(Error::Remote(crate::RemoteError {
+                Err(Error::Remote(crate::plugin::RemoteError {
                     code: "invalid_request".into(),
                     message: "request does not match selected contract".into(),
                     retry_after_milliseconds: 0,

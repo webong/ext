@@ -1,16 +1,18 @@
-# ext plugin SDK for TypeScript
+# ext for TypeScript (`ext-io`): plugin SDK
+
+> **Why `ext-io`:** the bare name `ext` is taken on crates.io, PyPI and npm, so `ext-io` is the one package for all of ext's APIs, one namespace per area. Only `plugin` is built so far; `system`, `web` and `int` are planned.
 
 Portable host and guest APIs for `ext.plugin/v1`. The runtime is dependency-free
 ES modules with `.d.mts` declarations; Node-specific stream wiring is a separate
 export. It has not been published to npm yet.
 
 Use a local `file:` dependency on this directory, or import `index.mjs` directly.
-The `@ctx/plugin` and `@ctx/plugin/node` export maps provide runtime and type
-entry points, and `@ctx/plugin/engine` binds the C engine (see below). Modern browser bundlers can use the portable entry point with a
+The `ext-io/plugin` and `ext-io/plugin/node` export maps provide runtime and type
+entry points, and `ext-io/plugin/engine` binds the C engine (see below). Modern browser bundlers can use the portable entry point with a
 caller-supplied authenticated duplex transport. Node examples require Node 22.
 
 ```ts
-import { Registry, schemaCodec, call, type Method } from '@ctx/plugin';
+import { Registry, schemaCodec, call, type Method } from 'ext-io/plugin';
 
 type Echo = { message: string };
 const codec = schemaCodec<Echo>({
@@ -104,10 +106,10 @@ is the frames conformance guest of
 [docs/plugin-guest-frames.md](https://github.com/webong/ext/blob/main/docs/plugin-guest-frames.md), which
 `scripts/plugin-crosslang.sh` runs through the Go session and the C engine.
 
-## Native engine (`@ctx/plugin/engine`)
+## Native engine (`ext-io/plugin/engine`)
 
-The portable entry point and `@ctx/plugin/node` are plain ES modules and need nothing native. The
-`@ctx/plugin/engine` subpath is different: `loadEngine(absoluteAddonPath)` loads a Node-API addon that
+The portable entry point and `ext-io/plugin/node` are plain ES modules and need nothing native. The
+`ext-io/plugin/engine` subpath is different: `loadEngine(absoluteAddonPath)` loads a Node-API addon that
 **you build yourself** from `engine/addon.c` (shipped in the package) against the ext engine headers,
 the Node headers and `libext_host_static` or `libext_host`. No prebuilt addons are published for any
 platform, so installing this package does not give you a working engine binding: `loadEngine` fails

@@ -1,7 +1,7 @@
 //! The router behind `serve`: progress events, reverse calls and the rules a host
 //! that breaks them meets, in threaded and in inline mode. The host is a test
 //! thread on in-memory pipes.
-use ext_plugin::{
+use ext_io::plugin::{
     frames::{check_progress_frame, check_reverse_request, Progress, ProgressOutcome},
     guest::{serve_with, Registry},
     ContractRef, Error, Guest, Identity, Method, Mode, Operation, RemoteError,
@@ -174,7 +174,7 @@ impl Host {
         let deadline = SystemTime::now() + Duration::from_secs(30);
         host.send(
             json!({"apiVersion":"ext.plugin/v1","id":"hello","operation":"plugin.hello",
-            "deadline": ext_plugin::wire::timestamp(deadline).unwrap()}),
+            "deadline": ext_io::plugin::wire::timestamp(deadline).unwrap()}),
         );
         host
     }
@@ -211,7 +211,7 @@ impl Host {
             "plugin":{"id":"test/frames","revision":"r1"},
             "contract":{"name":"test.frames","version":"v1"},
             "operation":operation,"payload":payload,
-            "deadline": ext_plugin::wire::timestamp(SystemTime::now() + Duration::from_secs(30)).unwrap(),
+            "deadline": ext_io::plugin::wire::timestamp(SystemTime::now() + Duration::from_secs(30)).unwrap(),
         });
         if progress {
             r["progress"] = json!({"eventsPerSecond": 5});
@@ -487,13 +487,13 @@ fn only_a_reader_thread_gives_a_session_scoped_caller() {
 #[test]
 fn a_transport_without_frames_gives_no_reverse_caller_and_no_reporter() {
     let g = guest();
-    let request = |op: &str| -> ext_plugin::Request {
+    let request = |op: &str| -> ext_io::plugin::Request {
         serde_json::from_value(json!({
             "apiVersion":"ext.plugin/v1","id":"1",
             "plugin":{"id":"test/frames","revision":"r1"},
             "contract":{"name":"test.frames","version":"v1"},
             "operation":op,"payload":{},
-            "deadline": ext_plugin::wire::timestamp(SystemTime::now() + Duration::from_secs(5)).unwrap(),
+            "deadline": ext_io::plugin::wire::timestamp(SystemTime::now() + Duration::from_secs(5)).unwrap(),
             "progress":{}
         }))
         .unwrap()

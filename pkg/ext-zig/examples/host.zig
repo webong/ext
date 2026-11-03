@@ -1,5 +1,5 @@
 const std = @import("std");
-const sdk = @import("ext_plugin");
+const sdk = @import("ext_io");
 const common = @import("common.zig");
 const w = sdk.wire;
 const Loader = struct {

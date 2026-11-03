@@ -1,7 +1,7 @@
 //! The language-neutral fixtures for progress events and reverse calls
 //! (lib/plugin/testdata/v1), which the Go contract computes and every SDK must
 //! reproduce: frames, the sender's rate limiter and the wire model.
-use ext_plugin::{
+use ext_io::plugin::{
     frames::{check_progress_frame, check_reverse_request, check_reverse_response, Limiter},
     wire, Descriptor, ProgressLimits, Request,
 };

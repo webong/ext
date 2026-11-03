@@ -108,7 +108,7 @@ func warmUpPython(t *testing.T, python, dir string) {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, python, "-I", "-c", "import sys; sys.path.insert(0, sys.argv[1]); import ext_plugin", dir)
+	cmd := exec.CommandContext(ctx, python, "-I", "-c", "import sys; sys.path.insert(0, sys.argv[1]); import ext_io.plugin", dir)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("python warm-up failed: %v\n%s", err, out)
 	}

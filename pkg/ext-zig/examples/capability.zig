@@ -3,7 +3,7 @@
 // (pkg/ext-go/crosslang/capability_test.go). It serves standard input and output, natively or as
 // a WASI command.
 const std = @import("std");
-const sdk = @import("ext_plugin");
+const sdk = @import("ext_io");
 const w = sdk.wire;
 const cap = sdk.capability;
 const stream = cap.stream;

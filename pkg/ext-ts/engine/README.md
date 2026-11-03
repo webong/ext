@@ -81,7 +81,7 @@ on application-selected roots; digests do not authenticate publishers.
 `HostOptions.observe` receives metadata only, asynchronously, with a bounded
 1024-event queue. Observation is best effort: saturated queues and shutdown may
 drop events, and observer exceptions never affect plugin calls. Use it for
-telemetry, not authorization or durable audit records. Import this module as `@ctx/plugin/engine`
+telemetry, not authorization or durable audit records. Import this module as `ext-io/plugin/engine`
 when consuming the package, and supply the explicitly selected addon path.
 
 ## Resource managers

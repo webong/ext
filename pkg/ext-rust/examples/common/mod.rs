@@ -1,4 +1,4 @@
-use ext_plugin::{guest::Registry, *};
+use ext_io::plugin::{guest::Registry, *};
 use serde_json::Value;
 use std::{sync::Arc, time::Duration};
 pub fn factory() -> Result<Guest> {

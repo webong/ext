@@ -7,8 +7,8 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, ".."))
-import ext_plugin  # noqa: E402
-from ext_plugin import FrameError, Progress, RemoteError  # noqa: E402
+from ext_io import plugin  # noqa: E402
+from ext_io.plugin import FrameError, Progress, RemoteError  # noqa: E402
 
 DESCRIPTOR = os.path.join(HERE, "..", "..", "..", "lib", "plugin", "testdata", "v1", "frames-descriptor.json")
 HOST = ("host.svc", "v1")
@@ -35,7 +35,7 @@ def report(call, event):
 
 
 def handler(contract, operation, payload):
-    call = ext_plugin.current_call()
+    call = plugin.current_call()
     payload = payload if isinstance(payload, dict) else {}
     if operation == "stream":
         report(call, Progress.fraction(1, 3))
@@ -45,7 +45,7 @@ def handler(contract, operation, payload):
     if operation == "flood":
         dropped = 0
         for _ in range(payload.get("count", 300)):
-            if report(call, Progress.log("x")) == ext_plugin.DROPPED:
+            if report(call, Progress.log("x")) == plugin.DROPPED:
                 dropped += 1
         return {"dropped": dropped}
     if operation == "limits":
@@ -56,7 +56,7 @@ def handler(contract, operation, payload):
             "bytes": limits.bytes_per_second if limits else 0,
         }
     if operation == "split":
-        pieces = ext_plugin.split_progress_text(payload["text"])
+        pieces = plugin.split_progress_text(payload["text"])
         for piece in pieces:
             report(call, Progress.out(piece))
         return {"pieces": len(pieces)}
@@ -84,4 +84,4 @@ def handler(contract, operation, payload):
 
 
 if __name__ == "__main__":
-    ext_plugin.serve_stdio(DESCRIPTOR, handler, redact_errors=True)
+    plugin.serve_stdio(DESCRIPTOR, handler, redact_errors=True)

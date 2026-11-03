@@ -1,15 +1,17 @@
-# ext plugin SDK for Rust
+# ext for Rust (`ext-io`): plugin SDK
 
-`ext-plugin` is the Rust host/guest implementation of `ext.plugin/v1`. It has not
-been published to crates.io yet: use a path dependency pointing at this directory,
-or a Git dependency pinned to a revision of
+> **Why `ext-io`:** the bare name `ext` is taken on crates.io, PyPI and npm, so `ext-io` is the one package for all of ext's APIs, one namespace per area. Only `plugin` is built so far; `system`, `web` and `int` are planned.
+
+`ext_io::plugin` is the Rust host/guest implementation of `ext.plugin/v1`. It is behind the `plugin`
+Cargo feature, which is on by default. The crate has not been published to crates.io yet: use a path
+dependency pointing at this directory, or a Git dependency pinned to a revision of
 [webong/ext](https://github.com/webong/ext). Rust 1.88+ is required by the locked
 dependencies; CI and local examples use Rust 1.98.1.
 
 ## Write a typed guest
 
 ```rust
-use ext_plugin::{ContractRef, Guest, Identity, Method, Operation, Registry, Result};
+use ext_io::plugin::{ContractRef, Guest, Identity, Method, Operation, Registry, Result};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
@@ -26,7 +28,7 @@ fn guest() -> Result<Guest> {
         Operation { name: "echo".into(), surface: "observation".into() },
     );
     echo.validate_input = |v| {
-        if v.text.len() > 256 { Err(ext_plugin::Error::Invalid) } else { Ok(()) }
+        if v.text.len() > 256 { Err(ext_io::plugin::Error::Invalid) } else { Ok(()) }
     };
     registry.register(echo, |context, _request, input| {
         context.check()?;
@@ -34,7 +36,7 @@ fn guest() -> Result<Guest> {
     })?;
     registry.guest(Arc::new(|request| {
         // Apply your domain authorization here. This local example allows echo.
-        if request.operation == "echo" { Ok(()) } else { Err(ext_plugin::Error::Denied) }
+        if request.operation == "echo" { Ok(()) } else { Err(ext_io::plugin::Error::Denied) }
     }))
 }
 ```
@@ -50,7 +52,7 @@ This crate does not implement the separate `ext.schema/v1` schema interpreter.
 **Standalone or WASI command:**
 
 ```rust,ignore
-ext_plugin::guest::serve_stdio(&guest()?)?;
+ext_io::plugin::guest::serve_stdio(&guest()?)?;
 ```
 
 `serve_stdio` is `serve` on standard input and output; `serve` and `serve_with` take
@@ -92,7 +94,7 @@ the rules ends the session with `Error::Protocol`.
 **C shared library:** configure `crate-type = ["cdylib"]`, then export:
 
 ```rust,ignore
-ext_plugin::export_guest!(guest);
+ext_io::plugin::export_guest!(guest);
 ```
 
 The macro supplies the four exports from the ext [C ABI](https://github.com/webong/ext/blob/main/lib/plugin/include/ext_plugin.h).

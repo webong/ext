@@ -1,9 +1,9 @@
 [package]
-name = "ext-plugin"
+name = "ext-io"
 version = "0.1.0"
 edition = "2021"
 rust-version = "1.88"
-description = "Typed host and guest SDK for the ext.plugin/v1 plugin protocol"
+description = "ext for Rust: the typed plugin host and guest SDK for ext.plugin/v1"
 license = "MIT"
 readme = "README.md"
 repository = "https://github.com/webong/ext"
@@ -11,13 +11,19 @@ homepage = "https://github.com/webong/ext/tree/main/pkg/ext-rust"
 keywords = ["plugin", "sdk", "ext", "ffi", "wasi"]
 categories = ["development-tools"]
 
+[features]
+default = ["plugin"]
+# `ext_io::plugin`: the ext.plugin/v1 host and guest SDK. The other areas (system, web, int) will get
+# features of their own, so a plugin-only build compiles none of their code or dependencies.
+plugin = ["dep:serde", "dep:serde_json", "dep:time", "dep:libloading"]
+
 [dependencies]
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
-time = { version = "0.3", features = ["formatting", "parsing"] }
+serde = { version = "1", features = ["derive"], optional = true }
+serde_json = { version = "1", optional = true }
+time = { version = "0.3", features = ["formatting", "parsing"], optional = true }
 
 [target.'cfg(not(target_os = "wasi"))'.dependencies]
-libloading = "0.8"
+libloading = { version = "0.8", optional = true }
 
 [[example]]
 name = "shared"

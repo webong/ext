@@ -44,7 +44,7 @@ headers live in [`lib/plugin`](../lib/plugin/README.md); these packages bind to 
 | [`ext-rust`](ext-rust/README.md) | Rust SDK and reusable C engine host/guest binding |
 | [`ext-zig`](ext-zig/README.md) | Zig SDK and header-generated C engine binding |
 | [`ext-ts`](ext-ts/README.md) | JavaScript SDK, TypeScript declarations and async Node C engine binding |
-| [`ext-python`](ext-python/README.md) | Standard-library Python guest SDK (`ext_plugin`) serving JSON lines |
+| [`ext-python`](ext-python/README.md) | Standard-library Python guest SDK (`ext_io.plugin`) serving JSON lines |
 | [`ext-ios`](ext-ios/README.md) | Swift SDK for iOS and macOS: plugin guest and hosts, web and clipboard libraries, and local system and network observation |
 | [`ext-android`](ext-android/README.md) | Java SDK for Android: plugin guest and hosts, web and clipboard libraries, and app-scoped system and local network observation |
 

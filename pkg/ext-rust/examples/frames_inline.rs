@@ -3,5 +3,5 @@
 #[path = "frames/guest.rs"]
 mod guest;
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    guest::run(ext_plugin::Mode::Inline)
+    guest::run(ext_io::plugin::Mode::Inline)
 }

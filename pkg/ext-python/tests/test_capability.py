@@ -4,8 +4,8 @@ import unittest
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, ".."))
-import ext_plugin  # noqa: E402
-from ext_plugin import capability as cap  # noqa: E402
+from ext_io import plugin  # noqa: E402
+from ext_io.plugin import capability as cap  # noqa: E402
 
 IDENT = {"id": "example/p", "revision": "r1"}
 DESC = {
@@ -46,7 +46,7 @@ class CapabilityTest(unittest.TestCase):
             lambda id_, seq, limit: {"items": [{"v": seq}] * min(limit, 2), "done": seq >= 2},
             lambda id_: self.closed.append(id_),
         )
-        self.guest = ext_plugin.Guest(DESC, self.router)
+        self.guest = plugin.Guest(DESC, self.router)
 
     def call(self, contract, operation, payload, surface=""):
         return self.guest.invoke(request(contract, operation, payload, surface))
@@ -59,7 +59,7 @@ class CapabilityTest(unittest.TestCase):
 
     def test_health_result_is_validated(self):
         bad = cap.Router().health(lambda: {"status": "great", "ready": True})
-        r = ext_plugin.Guest(DESC, bad).invoke(request("ext.health", "check", {}, "observation"))
+        r = plugin.Guest(DESC, bad).invoke(request("ext.health", "check", {}, "observation"))
         self.assertIn("error", r)
         self.assertNotEqual(r["error"]["code"], "invalid_request")
 
@@ -116,7 +116,7 @@ class CapabilityTest(unittest.TestCase):
 
     def test_unregistered_operation_and_duplicates(self):
         router = cap.Router()
-        with self.assertRaises(ext_plugin.RemoteError):
+        with self.assertRaises(plugin.RemoteError):
             router("ext.health", "check", {})
         router.health(lambda: {"status": "healthy", "ready": True})
         with self.assertRaises(ValueError):

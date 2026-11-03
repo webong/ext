@@ -1,40 +1,5 @@
-//! Typed ext hosts and guests. Domain policy is mandatory on both sides.
-pub mod cabi;
-pub mod capability;
-pub mod frames;
-pub mod guest;
-pub mod host;
-#[cfg(not(target_os = "wasi"))]
-pub mod native;
-pub mod serve;
-pub mod wire;
-pub use guest::{CallContext, Guest, Method, Registry};
-pub use serve::{serve, serve_stdio, serve_with, Mode, Reverse};
-pub use wire::{
-    ContractRef, Descriptor, Identity, Operation, ProgressLimits, RemoteError, Request,
-};
-pub const VERSION: &str = "ext.plugin/v1";
-pub const MAX_FRAME: usize = 24 << 20;
-pub const DEFAULT_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(30);
-#[derive(Debug)]
-pub enum Error {
-    Invalid,
-    Denied,
-    Mismatch,
-    Unsupported,
-    Closed,
-    Deadline,
-    Transport,
-    /// The peer broke the framing rules: a frame that is not valid, or one the
-    /// connection did not allow. The session is over.
-    Protocol,
-    Remote(RemoteError),
-}
-impl std::fmt::Display for Error {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{self:?}")
-    }
-}
-impl std::error::Error for Error {}
-pub type Result<T> = std::result::Result<T, Error>;
-pub type Policy = std::sync::Arc<dyn Fn(&Request) -> Result<()> + Send + Sync>;
+//! ext for Rust: one crate with a module per area, each behind a Cargo feature of the same name.
+//! Only `plugin` (the ext.plugin/v1 host and guest SDK) exists so far; `system`, `web` and `int`
+//! are planned. A build that enables one area compiles none of another area's code or dependencies.
+#[cfg(feature = "plugin")]
+pub mod plugin;

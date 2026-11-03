@@ -1,4 +1,6 @@
-use crate::{wire, Descriptor, Error, Method, Policy, Request, Result, DEFAULT_TIMEOUT, VERSION};
+use crate::plugin::{
+    wire, Descriptor, Error, Method, Policy, Request, Result, DEFAULT_TIMEOUT, VERSION,
+};
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::Value;
 use std::time::{Duration, SystemTime};
@@ -82,7 +84,7 @@ impl Session {
     }
     pub fn call_raw(
         &mut self,
-        contract: &crate::ContractRef,
+        contract: &crate::plugin::ContractRef,
         operation: &str,
         payload: Value,
         timeout: Duration,

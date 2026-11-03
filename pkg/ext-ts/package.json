@@ -1,7 +1,7 @@
 {
-  "name": "@ctx/plugin",
+  "name": "ext-io",
   "version": "0.1.0",
-  "description": "Portable host and guest SDK for the ext.plugin/v1 plugin protocol",
+  "description": "ext for TypeScript: the plugin host and guest SDK for ext.plugin/v1",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -10,7 +10,7 @@
   },
   "homepage": "https://github.com/webong/ext/tree/main/pkg/ext-ts#readme",
   "bugs": { "url": "https://github.com/webong/ext/issues" },
-  "keywords": ["ext", "plugin", "plugins", "sdk", "ext-plugin"],
+  "keywords": ["ext", "ext-io", "plugin", "plugins", "sdk"],
   "type": "module",
   "files": [
     "index.mjs",
@@ -23,9 +23,9 @@
     "engine/README.md"
   ],
   "exports": {
-    ".": { "types": "./index.d.mts", "default": "./index.mjs" },
-    "./node": { "types": "./node.d.mts", "default": "./node.mjs" },
-    "./engine": { "types": "./engine/index.d.mts", "default": "./engine/index.mjs" }
+    "./plugin": { "types": "./index.d.mts", "default": "./index.mjs" },
+    "./plugin/node": { "types": "./node.d.mts", "default": "./node.mjs" },
+    "./plugin/engine": { "types": "./engine/index.d.mts", "default": "./engine/index.mjs" }
   },
   "scripts": { "test": "node --test test.mjs frames.test.mjs router.test.mjs" },
   "engines": { "node": ">=22" }

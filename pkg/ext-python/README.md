@@ -1,24 +1,26 @@
-# ext_plugin (Python guest SDK)
+# ext for Python (`ext-io`): plugin guest SDK
+
+> **Why `ext-io`:** the bare name `ext` is taken on crates.io, PyPI and npm, so `ext-io` is the one package for all of ext's APIs, one namespace per area. Only `plugin` is built so far; `system`, `web` and `int` are planned.
 
 Standard-library-only guest for `ext.plugin/v1` over JSON lines (Python 3.8+).
 Hosts use the Go `pkg/ext-go/engine/host/process` backend (or any JSON-line client) to run it.
 
 ```python
-import ext_plugin
+from ext_io import plugin
 
 def handler(contract, operation, payload):
     if operation == "busy":
-        raise ext_plugin.RemoteError("busy", "try later", retry_after_ms=250)
+        raise plugin.RemoteError("busy", "try later", retry_after_ms=250)
     return payload                      # any JSON-serializable value
 
-ext_plugin.serve_stdio("plugin.json", handler)   # or a descriptor dict
+plugin.serve_stdio("plugin.json", handler)   # or a descriptor dict
 ```
 
 The manifest file is `plugin.json` (it was `package.json` before ext v0.4.0, which freed that name for
 npm and Node tooling). `serve_stdio` accepts the manifest or a bare descriptor file by structure, so only the
 file name in your code changes.
 
-Import `ext_plugin` from this directory (add it to `PYTHONPATH`, or `pip install` it).
+Import `ext_io.plugin` from this directory (add it to `PYTHONPATH`, or `pip install` it).
 
 - `serve_stdio(descriptor, handler, max_call_seconds=30, redact_errors=False)`:
   serves until EOF. `descriptor` is a dict or the path of an `ext.package/v1`
@@ -42,11 +44,11 @@ guest may call are the descriptor's `reverse` list. Both go through `current_cal
 
 ```python
 def handler(contract, operation, payload):
-    call = ext_plugin.current_call()
+    call = plugin.current_call()
     # Events reach the host in order, before the result. DROPPED is routine: the rate limit the
     # host set dropped it and counts it for the next event.
-    call.progress(ext_plugin.Progress.log("starting"))
-    call.progress(ext_plugin.Progress.fraction(1, 3))
+    call.progress(plugin.Progress.log("starting"))
+    call.progress(plugin.Progress.fraction(1, 3))
     # The host's refusal or error raises RemoteError with its code (denied, busy, too_large,
     # expired, ...).
     return call.reverse.call(("host.svc", "v1"), "sign", payload)

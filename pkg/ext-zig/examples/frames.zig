@@ -3,7 +3,7 @@
 // operations that need a reader of its own (idle, collect, burst) answer with the public error
 // "unsupported". It serves standard input and output, natively or as a WASI command.
 const std = @import("std");
-const sdk = @import("ext_plugin");
+const sdk = @import("ext_io");
 const w = sdk.wire;
 const f = sdk.frames;
 const host_ref: w.Ref = .{ .name = "host.svc", .version = "v1" };

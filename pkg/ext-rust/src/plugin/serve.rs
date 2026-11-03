@@ -12,7 +12,7 @@
 //!   a handler waiting for an answer. The host sends nothing but answers during a
 //!   call, so that is enough, and it works where there are no threads (WebAssembly).
 //!   It has no session-scoped caller, and one request outstanding at a time.
-use crate::{
+use crate::plugin::{
     frames::{self, Answer, Limiter, Progress, ProgressOutcome},
     guest::{self, read_frame, Guest},
     wire::{self, ContractRef, Descriptor, ProgressLimits, RemoteError, Request},

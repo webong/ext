@@ -9,9 +9,9 @@ import unittest
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, ".."))
-import ext_plugin  # noqa: E402
-from ext_plugin import frames  # noqa: E402
-from ext_plugin import guest as g  # noqa: E402
+from ext_io import plugin  # noqa: E402
+from ext_io.plugin import frames  # noqa: E402
+from ext_io.plugin import guest as g  # noqa: E402
 
 FIXTURES = os.path.join(HERE, "..", "..", "..", "lib", "plugin", "testdata", "v1")
 
@@ -25,7 +25,7 @@ def accepts(judge, *args):
     try:
         judge(*args)
         return True
-    except (ext_plugin.ProtocolError, ValueError):
+    except (plugin.ProtocolError, ValueError):
         return False
 
 
@@ -89,21 +89,21 @@ class FixtureTest(unittest.TestCase):
         for case in root["descriptors"]:
             got = True
             try:
-                ext_plugin.validate_descriptor(g.decode_frame(case["descriptor"].encode("utf-8")))
-            except (ext_plugin.ProtocolError, ValueError):
+                plugin.validate_descriptor(g.decode_frame(case["descriptor"].encode("utf-8")))
+            except (plugin.ProtocolError, ValueError):
                 got = False
             if got != case["valid"]:
                 bad.note("descriptor", case, "accepted %s: %s" % (got, case["descriptor"]))
         selected = root["requestDescriptor"]
-        ext_plugin.validate_descriptor(selected)
+        plugin.validate_descriptor(selected)
         self.assertGreater(len(root["requests"]), 100)
         for case in root["requests"]:
             ran = []
-            guest = ext_plugin.Guest(selected, lambda c, o, p: ran.append(ext_plugin.current_call()) or None)
+            guest = plugin.Guest(selected, lambda c, o, p: ran.append(plugin.current_call()) or None)
             link = frames.Link(io.BytesIO(), io.BytesIO())
             try:
                 guest.invoke(g.decode_frame(case["request"].encode("utf-8")), link)
-            except ext_plugin.ProtocolError:
+            except plugin.ProtocolError:
                 pass
             if bool(ran) != case["valid"]:
                 bad.note("request", case, "accepted %s: %s" % (bool(ran), case["request"]))

@@ -95,7 +95,7 @@ the rules ends the session with `Error::Protocol`.
 ext_plugin::export_guest!(guest);
 ```
 
-The macro supplies the four exports from the ext [C ABI](../../lib/plugin/include/ext_plugin.h).
+The macro supplies the four exports from the ext [C ABI](https://github.com/webong/ext/blob/main/lib/plugin/include/ext_plugin.h).
 Each `open` calls the factory for an independent guest; up to 64 handles are
 admitted. Handle removal releases the guest when outstanding references finish.
 Guest-owned closure state can use `Arc`/`Drop` for resources. Panics are caught
@@ -154,7 +154,7 @@ scripts/plugin-crosslang.sh
 ```
 
 `examples/frames` is the frames conformance guest of
-[docs/plugin-guest-frames.md](../../docs/plugin-guest-frames.md) (`frames_inline` is
+[docs/plugin-guest-frames.md](https://github.com/webong/ext/blob/main/docs/plugin-guest-frames.md) (`frames_inline` is
 the same guest forced into inline mode, and `--target wasm32-wasip1` builds it as a
 WASI command); the cross-language script runs all three through the Go session and
 the C engine. `tests/fixtures.rs` reproduces the shared frame, rate-limiter and model

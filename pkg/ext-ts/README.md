@@ -101,7 +101,7 @@ accepts it, and a count written `1.0` reads as `1`. The list of exceptions is
 checked in both directions, so a case that starts agreeing fails the test until it
 is removed. `router.test.mjs` covers the router itself, and `examples/frames/guest.mjs`
 is the frames conformance guest of
-[docs/plugin-guest-frames.md](../../docs/plugin-guest-frames.md), which
+[docs/plugin-guest-frames.md](https://github.com/webong/ext/blob/main/docs/plugin-guest-frames.md), which
 `scripts/plugin-crosslang.sh` runs through the Go session and the C engine.
 
 ## Native engine (`@ctx/plugin/engine`)

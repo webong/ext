@@ -51,9 +51,12 @@ if [[ -n "${ZIG_BIN:-}" ]]; then
   tar -xzf "$out/$archive" -C "$work/unpacked"
   # Fresh caches through the environment: `zig build` rejects --global-cache-dir (Zig 0.17.0).
   export ZIG_LOCAL_CACHE_DIR="$work/cache" ZIG_GLOBAL_CACHE_DIR="$work/global"
+  # The package does not carry the shared conformance fixtures, so its tests read them from the repository.
+  fixtures="$PWD/lib/plugin/testdata/v1"
+  [[ -d "$fixtures" ]] || { echo "$fixtures does not exist" >&2; exit 1; }
   (
     cd "$work/unpacked"
-    "$ZIG_BIN" build test
+    EXT_FIXTURES="$fixtures" "$ZIG_BIN" build test
     "$ZIG_BIN" build --prefix "$work/prefix"
   )
   hash="$("$ZIG_BIN" fetch "$PWD/$out/$archive")"

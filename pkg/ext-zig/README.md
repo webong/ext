@@ -74,7 +74,7 @@ then independently deinitialized.
 - Command or WASI: use `jsonline.Stdio.connection()` and
   `jsonline.serve(&guest, &connection, allocator)`. Stdout is protocol-only.
 - C shared library: `comptime { sdk.cabi.exportGuest(factory); }` supplies the
-  four CTX ABI exports. The factory creates an independent guest per handle.
+  four ext C ABI exports. The factory creates an independent guest per handle.
   The helper owns/deinitializes guests, admits up to 64 handles and serializes
   ABI calls. Its callback work must honor `Context.check()` deadlines.
 - Return `ctx.fail(.{ .code = "busy", .message = "try later" })` for a deliberate
@@ -189,7 +189,7 @@ are serial APIs requiring external synchronization if shared across threads.
 - `host.JSONLine` binds `jsonline.Connection` to the Session contract. Supply
   `jsonline.IO` callbacks for reads, writes, closure and enforced I/O deadlines.
 - A custom `host.Backend` receives ABI operation `1` (deadline-bearing hello)
-  or `2` (CTX request), and returns descriptor/response JSON.
+  or `2` (request), and returns descriptor/response JSON.
 
 **Cancellation is cooperative in the Zig host bindings.** C calls and the
 standalone libc stdio helper are synchronous. The host checks deadlines before

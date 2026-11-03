@@ -47,6 +47,6 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
         _ => return Err("public error mismatch".into()),
     }
     session.close_and_wait(Duration::from_secs(3))?;
-    println!("CTX host roundtrip OK");
+    println!("ext host roundtrip OK");
     Ok(())
 }

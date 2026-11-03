@@ -1,12 +1,12 @@
-# CTX plugin SDK for TypeScript
+# ext plugin SDK for TypeScript
 
 Portable host and guest APIs for `ext.plugin/v1`. The runtime is dependency-free
 ES modules with `.d.mts` declarations; Node-specific stream wiring is a separate
-export. The package is private and has not been published to npm.
+export. It has not been published to npm yet.
 
 Use a local `file:` dependency on this directory, or import `index.mjs` directly.
 The `@ctx/plugin` and `@ctx/plugin/node` export maps provide runtime and type
-entry points. Modern browser bundlers can use the portable entry point with a
+entry points, and `@ctx/plugin/engine` binds the C engine (see below). Modern browser bundlers can use the portable entry point with a
 caller-supplied authenticated duplex transport. Node examples require Node 22.
 
 ```ts
@@ -45,7 +45,7 @@ public guest errors; other errors become `operation_failed`.
 
 `Registry` freezes handlers for each created guest. Method codecs perform runtime
 validation; TypeScript types alone are insufficient. `schemaCodec` implements
-CTX's bounded schema vocabulary, with no external schema engine. Large exact
+ext's bounded schema vocabulary, with no external schema engine. Large exact
 integers and decimals should use strings and domain validators: JavaScript cannot
 preserve arbitrary JSON numeric precision. The parser rejects unsafe integers,
 nonfinite numbers, duplicate keys, invalid UTF-8, trailing values, excessive
@@ -103,6 +103,16 @@ is removed. `router.test.mjs` covers the router itself, and `examples/frames/gue
 is the frames conformance guest of
 [docs/plugin-guest-frames.md](../../docs/plugin-guest-frames.md), which
 `scripts/plugin-crosslang.sh` runs through the Go session and the C engine.
+
+## Native engine (`@ctx/plugin/engine`)
+
+The portable entry point and `@ctx/plugin/node` are plain ES modules and need nothing native. The
+`@ctx/plugin/engine` subpath is different: `loadEngine(absoluteAddonPath)` loads a Node-API addon that
+**you build yourself** from `engine/addon.c` (shipped in the package) against the ext engine headers,
+the Node headers and `libext_host_static` or `libext_host`. No prebuilt addons are published for any
+platform, so installing this package does not give you a working engine binding: `loadEngine` fails
+until you supply an addon. See [engine/README.md](engine/README.md); the repository's
+`scripts/plugin-cengine.sh` builds and exercises both link choices.
 
 ## Run
 

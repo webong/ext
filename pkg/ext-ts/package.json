@@ -1,8 +1,27 @@
 {
   "name": "@ctx/plugin",
   "version": "0.1.0",
-  "private": true,
+  "description": "Portable host and guest SDK for the ext.plugin/v1 plugin protocol",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/webong/ext.git",
+    "directory": "pkg/ext-ts"
+  },
+  "homepage": "https://github.com/webong/ext/tree/main/pkg/ext-ts#readme",
+  "bugs": { "url": "https://github.com/webong/ext/issues" },
+  "keywords": ["ext", "plugin", "plugins", "sdk", "ext-plugin"],
   "type": "module",
+  "files": [
+    "index.mjs",
+    "index.d.mts",
+    "node.mjs",
+    "node.d.mts",
+    "engine/index.mjs",
+    "engine/index.d.mts",
+    "engine/addon.c",
+    "engine/README.md"
+  ],
   "exports": {
     ".": { "types": "./index.d.mts", "default": "./index.mjs" },
     "./node": { "types": "./node.d.mts", "default": "./node.mjs" },

@@ -1,4 +1,4 @@
-// Portable CTX v1 host/guest SDK. No process discovery, ambient permissions,
+// Portable ext.plugin/v1 host/guest SDK. No process discovery, ambient permissions,
 // global registry, dependency loader, or implicit retry is installed.
 export const API_VERSION = 'ext.plugin/v1';
 export const MAX_FRAME_BYTES = 24 << 20;

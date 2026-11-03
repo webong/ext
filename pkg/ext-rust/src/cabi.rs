@@ -106,7 +106,7 @@ impl Server {
     /// # Safety
     /// Non-null pointers must refer to valid non-overlapping buffers of the
     /// declared lengths for the duration of this call. No pointer is retained.
-    #[allow(clippy::too_many_arguments)] // Mirrors the fixed CTX C ABI buffer signature.
+    #[allow(clippy::too_many_arguments)] // Mirrors the fixed ext C ABI buffer signature.
     pub unsafe fn call_into(
         &self,
         id: u64,
@@ -173,7 +173,7 @@ pub unsafe fn reactor_free(ptr: *mut u8, size: u32) {
     }
 }
 
-/// Export the four CTX C ABI symbols. The factory returns an independent Guest.
+/// Export the four ext C ABI symbols. The factory returns an independent Guest.
 /// For wasm32 targets it also exports `ext_plugin_alloc` and `ext_plugin_free`,
 /// which make the module a WebAssembly reactor; see docs/plugin-reactor-abi.md.
 #[macro_export]

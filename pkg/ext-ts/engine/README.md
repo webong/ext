@@ -1,4 +1,4 @@
-# Node binding to the CTX C engine
+# Node binding to the ext C engine
 
 `loadEngine(absoluteAddonPath)` loads an application-selected Node-API addon.
 Build `addon.c` against the installed engine headers, Node headers and

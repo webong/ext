@@ -1,6 +1,7 @@
 package arch_test
 
 import (
+	"bytes"
 	"go/parser"
 	"go/token"
 	"io/fs"
@@ -85,5 +86,28 @@ func TestTheLGPLAdapterShipsItsNotice(t *testing.T) {
 	}
 	if !strings.Contains(string(manifest), "NOTICE.md") || !strings.Contains(string(manifest), "third_party") {
 		t.Error("plugin.json must list NOTICE.md and third_party as artifacts so the notice travels with the binary")
+	}
+}
+
+// licensedPackages are the language packages a registry publishes from their own
+// directory: cargo package, npm pack and a Python build read only that directory,
+// so each one carries a copy of the root LICENSE.
+var licensedPackages = []string{"pkg/ext-rust", "pkg/ext-ts", "pkg/ext-python"}
+
+func TestPackageLicensesMatchTheRoot(t *testing.T) {
+	root := repoRoot(t)
+	want, err := os.ReadFile(filepath.Join(root, "LICENSE"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, dir := range licensedPackages {
+		got, err := os.ReadFile(filepath.Join(root, dir, "LICENSE"))
+		if err != nil {
+			t.Errorf("%s has no LICENSE: %v", dir, err)
+			continue
+		}
+		if !bytes.Equal(got, want) {
+			t.Errorf("%s/LICENSE differs from the root LICENSE; copy the root file over it", dir)
+		}
 	}
 }

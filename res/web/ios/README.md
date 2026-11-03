@@ -45,7 +45,7 @@ let source = try Bookmarklet.decode(url)                            // back to s
 - Desktop SQLite cookie readers, native extension signing/installation and browser profile tooling remain host/adapter responsibilities.
   Mobile JSON member names match exactly where Go ignores case, and a host with several
   colons is refused (Go's default follows the consuming module's `go` line).
-  Userscript persistence is covered in [workspace management](../WORKSPACE_MANAGEMENT.md).
+  Userscript persistence is covered in [workspace management](../docs/WORKSPACE_MANAGEMENT.md).
 
 ```sh
 scripts/web-ios.sh            # swift test of this package; needs Swift, not the engine xcframework
@@ -60,8 +60,8 @@ uses the portable `ExtWeb` userscript rules. Both products are shipped by
 `scripts/web-ios.sh` selects the portable rules tests;
 `scripts/web-workspace-ios.sh` selects the native WebKit integration tests.
 
-See [local web bundle runners](../BUNDLE_RUNNER.md) for native HTML/module execution, CSP, console events, host messaging and lifecycle handling.
+See [local web bundle runners](../docs/BUNDLE_RUNNER.md) for native HTML/module execution, CSP, console events, host messaging and lifecycle handling.
 
-See [mobile cookie queries](../COOKIE_QUERY.md) for host-authorized source ordering, merge/first modes, fallback, provenance and cancellation.
+See [mobile cookie queries](../docs/COOKIE_QUERY.md) for host-authorized source ordering, merge/first modes, fallback, provenance and cancellation.
 
-See [mobile extension artifacts](../EXTENSION_ARTIFACTS.md) for inspection, unsigned ZIP packaging, revision-checked staging and artifact helpers.
+See [mobile extension artifacts](../docs/EXTENSION_ARTIFACTS.md) for inspection, unsigned ZIP packaging, revision-checked staging and artifact helpers.

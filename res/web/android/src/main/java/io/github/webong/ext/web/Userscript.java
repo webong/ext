@@ -9,7 +9,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-/** The userscript rules of {@code res/web/userscript} (ext.userscript/v1alpha1). */
+/** The userscript rules of {@code res/web/host/artifact/userscript} (ext.userscript/v1alpha1). */
 public final class Userscript {
     private Userscript() {}
 
@@ -379,7 +379,7 @@ public final class Userscript {
         return dot >= 0 ? base.substring(dot) : "";
     }
 
-    // The registration script around the JSON values; the text of res/web/userscript/replay.go,
+    // The registration script around the JSON values; the text of res/web/host/artifact/userscript/replay.go,
     // which the replay fixture checks.
     private static final String REPLAY_PREFIX =
             "(() => {\n"

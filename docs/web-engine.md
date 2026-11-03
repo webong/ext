@@ -1,6 +1,6 @@
 # The web engine
 
-`res/web/bundle` runs web content, meaning an HTML page or a JavaScript entry with
+`res/web/host/engine/bundle` runs web content, meaning an HTML page or a JavaScript entry with
 its WebAssembly and assets, in a browser the **host** chooses, and reports what the
 page did. It is an ext library, not an adapter and not part of any one product: any
 program can use it. It depends only on the Go standard library.
@@ -50,12 +50,12 @@ require-corp` and `Cross-Origin-Resource-Policy: same-origin`. Browsers allow
 `SharedArrayBuffer`, and so WebAssembly threads or a worker blocking on a shared
 queue, only on pages that are cross-origin isolated. It is off by default because it
 also refuses cross-origin resources that do not opt in, which suits a bundle served
-from one origin but not every page. [`res/web/examples/plugin-webview`](../res/web/examples/plugin-webview)
+from one origin but not every page. [`res/web/host/examples/plugin-webview`](../res/web/host/examples/plugin-webview)
 uses it to host a WASI plugin guest in a browser.
 
 ## The page API and the host channel
 
-The page script is one file, `res/web/bundle/shim.js`, used the same way on every
+The page script is one file, `res/web/host/engine/bundle/shim.js`, used the same way on every
 transport. The Swift and Java hosts embed a generated copy of it, so after **any** change
 to `shim.js` run `scripts/plugin-mobile-assets.sh` and commit the two files it writes, or
 the Plugin SDK CI job fails (`--check` verifies them). A page sees:

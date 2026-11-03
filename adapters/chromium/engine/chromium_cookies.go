@@ -23,8 +23,8 @@ import (
 	"unicode/utf8"
 
 	credentialclient "github.com/webong/ext/res/system/service/credential/client"
-	share "github.com/webong/ext/res/web/contract"
-	"github.com/webong/ext/res/web/sqlite"
+	share "github.com/webong/ext/res/web/host/contract"
+	"github.com/webong/ext/res/web/host/manage/sqlite"
 )
 
 const chromiumEpochOffsetMicros = int64(11644473600000000)

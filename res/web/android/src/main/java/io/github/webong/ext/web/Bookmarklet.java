@@ -4,7 +4,7 @@ import java.io.ByteArrayOutputStream;
 import java.util.Arrays;
 
 /**
- * Portable, user-activated browser scripts ({@code res/web/bookmarklet}, ext.bookmarklet/v1alpha1).
+ * Portable, user-activated browser scripts ({@code res/web/host/artifact/bookmarklet}, ext.bookmarklet/v1alpha1).
  * Nothing here evaluates a script or touches a browser's bookmarks.
  */
 public final class Bookmarklet {

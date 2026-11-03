@@ -11,7 +11,7 @@ import (
 	"strings"
 
 	modpkg "github.com/webong/ext/pkg/ext-go/engine/host/adapter"
-	browser "github.com/webong/ext/res/web"
+	browser "github.com/webong/ext/res/web/host/manage/cookie"
 )
 
 type Provider struct{ AdapterHome string }

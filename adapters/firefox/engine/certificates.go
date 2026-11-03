@@ -15,7 +15,7 @@ import (
 	"strings"
 	"time"
 
-	share "github.com/webong/ext/res/web/contract"
+	share "github.com/webong/ext/res/web/host/contract"
 )
 
 type firefoxCertificatePayload struct {

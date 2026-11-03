@@ -1,7 +1,7 @@
 # CTX plugin SDK
 
 CTX owns the reusable plugin library alongside `res/web` and `res/system`
-(including `res/graph/supervisor`). `res/web/wasm` owns the protocol-neutral
+(including `res/graph/supervisor`). `res/web/host/engine/wasm` owns the protocol-neutral
 wazero runtime; `pkg/ext-go/wasm` binds it to the plugin engine.
 Hosts and guests share one protocol and can select a supported transport.
 Adapters and applications own their domain contracts, grants, native behavior,
@@ -22,8 +22,8 @@ Their existing native protocols are not automatically compatible with CTX.
 | `pkg/ext-go/engine/transport/jsonline` | Bounded JSON-line transport on a supplied duplex connection |
 | `pkg/ext-go/hashicorp` | Native go-plugin startup and net/rpc or gRPC bindings |
 | `pkg/ext-go/engine/host/nativego` | Dynamic Go `.so` loading through a standard guest factory |
-| `res/web/wasm` | Protocol-neutral WebAssembly inspection, WASI execution, byte streams and raw reactors through wazero |
-| `pkg/ext-go/wasm` | `engine.Backend`, JSON-line and plugin reactor bindings over `res/web/wasm` |
+| `res/web/host/engine/wasm` | Protocol-neutral WebAssembly inspection, WASI execution, byte streams and raw reactors through wazero |
+| `pkg/ext-go/wasm` | `engine.Backend`, JSON-line and plugin reactor bindings over `res/web/host/engine/wasm` |
 | `pkg/ext-go/cgoengine/cshared` | Dynamic C ABI loading with separate guest handles and owned buffers |
 | `pkg/ext-go/cgoengine/cshared/guest` | Go guest lifecycle and cgo export bridge for C shared libraries |
 | `pkg/ext-go/engine/guest/instance` | Configuration revisions, resource leases, replacement and disposal |

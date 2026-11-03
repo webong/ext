@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	management "github.com/webong/ext/res/web/contract"
+	management "github.com/webong/ext/res/web/host/contract"
 )
 
 const endpointGUID = "0f3c2b1a-9d4e-4a77-8c1d-5e6f7a8b9c0d"

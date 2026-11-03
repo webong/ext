@@ -17,7 +17,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	browsershare "github.com/webong/ext/res/web/contract"
+	browsershare "github.com/webong/ext/res/web/host/contract"
 )
 
 const maxSafariCookieStoreSize = 128 << 20

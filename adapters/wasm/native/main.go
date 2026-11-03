@@ -9,7 +9,7 @@ import (
 	"flag"
 	"fmt"
 	"github.com/webong/ext/pkg/ext-go/cgoengine"
-	wasm "github.com/webong/ext/res/web/wasm"
+	wasm "github.com/webong/ext/res/web/host/engine/wasm"
 	"io"
 	"os"
 	"path/filepath"
@@ -308,7 +308,7 @@ func refusal(path string, inspection wasm.Inspection) string {
 	modules := strings.Join(inspection.Unsupported, ", ")
 	if inspection.Web {
 		return fmt.Sprintf("%s is a web module: it imports JavaScript glue (%s). The engines here run WASI and pure modules only; "+
-			"web modules run in a browser through the ext web engine (res/web/bundle).", path, modules)
+			"web modules run in a browser through the ext web engine (res/web/host/engine/bundle).", path, modules)
 	}
 	return fmt.Sprintf("%s imports host functions no engine here provides (%s). "+
 		"They run WASI Preview 1 and pure modules only.", path, modules)

@@ -329,7 +329,7 @@ CTX and its ecosystem share public Go libraries:
   (versioned C ABI). All use the same typed authoring and host session APIs.
 - `github.com/webong/ext/res/graph/supervisor` supplies local process supervision when
   the selected plugin backend does not already own its process lifecycle.
-- `github.com/webong/ext/res/web` supplies portable browser contracts,
+- `github.com/webong/ext/res/web/host` supplies portable browser contracts,
   workflows, extension and userscript handling, WebAssembly inspection and
   execution and raw reactor hosting through wazero, plus application-hosted
   WKWebView, Android WebView and WebView2 implementations. It contains no plugin

@@ -58,7 +58,7 @@ and `NewLaunch` are engine-only and need the C engine build.
 Runtime backends that own a heavy runtime stay outside the engine module:
 [`pkg/ext-go/hashicorp`](../hashicorp/README.md) owns go-plugin, net/rpc and
 gRPC, while [`pkg/ext-go/wasm`](../wasm/README.md) binds the reusable
-[`res/web/wasm`](../../../res/web/wasm/README.md) wazero runtime to the engine.
+[`res/web/host/engine/wasm`](../../../res/web/host/engine/wasm/README.md) wazero runtime to the engine.
 The portable C engine is [`lib/plugin`](../../../lib/plugin/README.md), and the shared conformance
 fixtures are in `lib/plugin/testdata`.
 

@@ -1,6 +1,6 @@
 # Cookie contract fixtures (wire version 2)
 
-Language-neutral vectors for the portable cookie rules in `res/web/contract`.
+Language-neutral vectors for the portable cookie rules in `res/web/host/contract`.
 The Go tests (`contract/cookie_fixtures_test.go`) must pass them, and another
 implementation can run the same files. Cases give `valid` or `match` outcomes;
 error text is not part of the contract, except that it never contains the

@@ -17,7 +17,7 @@ import java.util.Objects;
  * Runs the language-neutral vectors of {@code res/web/testdata}, which the Go tests also run, and
  * the behavior of the port. No test framework is assumed: it exits non-zero on any failure.
  * {@code EXT_WEB_TESTDATA} names another copy of the vectors; {@code EXT_WEB_DIFF} names a corpus
- * the Go implementation wrote (see {@code res/web/internal/portcorpus}).
+ * the Go implementation wrote (see {@code res/web/host/internal/portcorpus}).
  */
 public final class WebTests {
     private WebTests() {}

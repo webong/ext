@@ -11,7 +11,7 @@ Its implementations include `pkg/ext-go/engine/transport/inprocess`, `pkg/ext-go
 `pkg/ext-go/hashicorp`, `pkg/ext-go/engine/host/nativego`, `pkg/ext-go/wasm`, and `pkg/ext-go/cgoengine/cshared`, with
 additional backends able to implement the same public interface. HashiCorp
 go-plugin is a dependency of the plugin library, while `pkg/ext-go/wasm` binds
-the protocol-neutral runtime in `res/web/wasm`; neither is a product adapter.
+the protocol-neutral runtime in `res/web/host/engine/wasm`; neither is a product adapter.
 Adapters and ecosystem applications are consumers of these libraries.
 The plugin library owns generic declarations, validation, exact selection,
 admission sequencing, handshake checking, bounded invocation, and draining.

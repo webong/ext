@@ -1,12 +1,12 @@
 # WebAssembly plugin backend
 
 `github.com/webong/ext/pkg/ext-go/wasm` binds the protocol-neutral WebAssembly
-runtime in `github.com/webong/ext/res/web/wasm` to the ext plugin engine. It owns
+runtime in `github.com/webong/ext/res/web/host/engine/wasm` to the ext plugin engine. It owns
 the `engine.Backend` implementations, JSON-line transport, plugin reactor ABI,
 profiles, and engine error mapping.
 
 Generic WebAssembly inspection, WASI command execution, persistent byte streams,
-and raw reactor hosting live in `res/web/wasm`. That package does not import the
+and raw reactor hosting live in `res/web/host/engine/wasm`. That package does not import the
 plugin engine. Applications that only need WebAssembly can use it directly;
 plugin hosts use this module.
 

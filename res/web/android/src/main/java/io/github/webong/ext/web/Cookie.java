@@ -7,7 +7,7 @@ import java.util.Objects;
 import java.util.TreeMap;
 
 /**
- * One browser cookie in the portable wire form ({@code res/web/contract}, wire version 2).
+ * One browser cookie in the portable wire form ({@code res/web/host/contract}, wire version 2).
  *
  * <p>A cookie value is a credential. {@link #toString()} prints the cookie's identity (name,
  * domain, path) and never its value; {@link #toJson()} keeps the real value because the protocol

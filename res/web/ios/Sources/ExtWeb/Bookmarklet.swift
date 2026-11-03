@@ -6,7 +6,7 @@ public struct BookmarkletError: Error, Equatable, CustomStringConvertible {
     public var description: String { message }
 }
 
-/// Portable, user-activated browser scripts (`res/web/bookmarklet`, ext.bookmarklet/v1alpha1).
+/// Portable, user-activated browser scripts (`res/web/host/artifact/bookmarklet`, ext.bookmarklet/v1alpha1).
 /// Nothing here evaluates a script or touches a browser's bookmarks.
 public enum Bookmarklet {
     /// Preparation is bounded; a browser's bookmark URL limit may be lower.

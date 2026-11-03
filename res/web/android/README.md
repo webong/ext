@@ -42,7 +42,7 @@ String source = Bookmarklet.decode(url);                        // back to sourc
   cookie domains, names and bookmarklet strings (all agree; Go 1.27 with `GODEBUG=urlstrictcolons=1`).
 - Desktop SQLite cookie readers, native extension signing/installation and browser profile tooling remain host/adapter responsibilities.
   Mobile JSON member names match exactly where Go ignores case.
-  Userscript persistence is covered in [workspace management](../WORKSPACE_MANAGEMENT.md).
+  Userscript persistence is covered in [workspace management](../docs/WORKSPACE_MANAGEMENT.md).
 
 ```sh
 scripts/web-android.sh        # javac -Xlint:all -Werror and the tests; needs a JDK only
@@ -56,8 +56,8 @@ portable rules in `src/main`. `pkg/ext-android` compiles both into its AAR.
 The JDK-only rules tests still build only `src/main` and `src/test`; native tests
 live in `src/androidTest`. See [workspace usage](WORKSPACE.md).
 
-See [local web bundle runners](../BUNDLE_RUNNER.md) for native HTML/module execution, CSP, console events, host messaging and lifecycle handling.
+See [local web bundle runners](../docs/BUNDLE_RUNNER.md) for native HTML/module execution, CSP, console events, host messaging and lifecycle handling.
 
-See [mobile cookie queries](../COOKIE_QUERY.md) for host-authorized source ordering, merge/first modes, fallback, provenance and cancellation.
+See [mobile cookie queries](../docs/COOKIE_QUERY.md) for host-authorized source ordering, merge/first modes, fallback, provenance and cancellation.
 
-See [mobile extension artifacts](../EXTENSION_ARTIFACTS.md) for inspection, unsigned ZIP packaging, revision-checked staging and artifact helpers.
+See [mobile extension artifacts](../docs/EXTENSION_ARTIFACTS.md) for inspection, unsigned ZIP packaging, revision-checked staging and artifact helpers.

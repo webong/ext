@@ -13,7 +13,7 @@ import (
 
 	"github.com/webong/ext/ctx/internal/app/browserhost"
 	"github.com/webong/ext/ctx/internal/config"
-	browser "github.com/webong/ext/res/web"
+	browser "github.com/webong/ext/res/web/host/manage/cookie"
 )
 
 type browserQueryList []string

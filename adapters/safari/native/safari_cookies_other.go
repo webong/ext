@@ -6,7 +6,7 @@ import (
 	"errors"
 	"net/url"
 
-	browsershare "github.com/webong/ext/res/web/contract"
+	browsershare "github.com/webong/ext/res/web/host/contract"
 )
 
 func safariShareStatus(string) map[string]string {

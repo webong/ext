@@ -1,8 +1,8 @@
 package main
 
 import (
-	share "github.com/webong/ext/res/web/contract"
-	"github.com/webong/ext/res/web/sqlite"
+	share "github.com/webong/ext/res/web/host/contract"
+	"github.com/webong/ext/res/web/host/manage/sqlite"
 )
 
 // These helpers keep the native package's existing fixture access while the

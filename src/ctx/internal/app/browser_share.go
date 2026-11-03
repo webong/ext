@@ -13,8 +13,8 @@ import (
 
 	"github.com/webong/ext/ctx/internal/config"
 	modpkg "github.com/webong/ext/pkg/ext-go/engine/host/adapter"
-	browser "github.com/webong/ext/res/web"
-	browsershare "github.com/webong/ext/res/web/contract"
+	browsershare "github.com/webong/ext/res/web/host/contract"
+	browser "github.com/webong/ext/res/web/host/manage/cookie"
 )
 
 type browserEndpoint struct {

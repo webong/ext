@@ -11,9 +11,9 @@ import (
 	"runtime"
 
 	"github.com/webong/ext/adapters/chromium/engine/webextension"
-	browsershare "github.com/webong/ext/res/web/contract"
-	kit "github.com/webong/ext/res/web/guest"
-	"github.com/webong/ext/res/web/policy"
+	browsershare "github.com/webong/ext/res/web/host/contract"
+	kit "github.com/webong/ext/res/web/host/manage/guest"
+	"github.com/webong/ext/res/web/host/manage/policy"
 )
 
 func main() { os.Exit(run(os.Args[1:], os.Stdin, os.Stdout, os.Stderr)) }

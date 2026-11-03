@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	browser "github.com/webong/ext/res/web"
+	browser "github.com/webong/ext/res/web/host/manage/cookie"
 )
 
 func TestCookieNormalizeCLIContractAndPipe(t *testing.T) {

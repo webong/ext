@@ -81,9 +81,9 @@ Verified on an Android 14 (API 34) arm64 emulator using the generated SDK AAR:
 all eight document-start/lifecycle checks passed with R8 and AndroidX WebKit
 1.9.0, and all four checks passed with R8 and no AndroidX dependency.
 
-See [mobile cookie workflows](../COOKIE_WORKFLOWS.md) for portable import/export and native workspace cookie access.
+See [mobile cookie workflows](../docs/COOKIE_WORKFLOWS.md) for portable import/export and native workspace cookie access.
 
-`WorkspaceManagement` routes validated session/userscript requests into this workspace and a host-owned `UserscriptStore`; see [management and persistence](../WORKSPACE_MANAGEMENT.md).
+`WorkspaceManagement` routes validated session/userscript requests into this workspace and a host-owned `UserscriptStore`; see [management and persistence](../docs/WORKSPACE_MANAGEMENT.md).
 
 Stored scripts can stay synchronized through `activateUserscripts`; the workspace owns
-the subscription until close or explicit replacement. See [live reconciliation](../WORKSPACE_MANAGEMENT.md#live-userscript-reconciliation).
+the subscription until close or explicit replacement. See [live reconciliation](../docs/WORKSPACE_MANAGEMENT.md#live-userscript-reconciliation).

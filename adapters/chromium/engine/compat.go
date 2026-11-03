@@ -5,8 +5,8 @@ import (
 	"os/exec"
 	"runtime"
 
-	share "github.com/webong/ext/res/web/contract"
-	"github.com/webong/ext/res/web/sqlite"
+	share "github.com/webong/ext/res/web/host/contract"
+	"github.com/webong/ext/res/web/host/manage/sqlite"
 )
 
 // Config contains browser identity and storage conventions supplied by its adapter.

@@ -12,8 +12,8 @@ import (
 	"time"
 
 	"github.com/webong/ext/adapters/chromium/engine/sessionrpc"
-	management "github.com/webong/ext/res/web/contract"
-	"github.com/webong/ext/res/web/userscript"
+	"github.com/webong/ext/res/web/host/artifact/userscript"
+	management "github.com/webong/ext/res/web/host/contract"
 )
 
 // NewPageSessionRuntime creates a WebDriver BiDi backend for a provider-supplied

@@ -20,7 +20,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/webong/ext/res/web/extension"
+	"github.com/webong/ext/res/web/host/artifact/extension"
 )
 
 const maxCRXBytes = 64 << 20

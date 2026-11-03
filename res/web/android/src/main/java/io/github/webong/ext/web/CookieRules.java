@@ -3,7 +3,7 @@ package io.github.webong.ext.web;
 import java.util.Arrays;
 import java.util.Map;
 
-/** The portable cookie rules of {@code res/web/contract}. */
+/** The portable cookie rules of {@code res/web/host/contract}. */
 public final class CookieRules {
     private CookieRules() {}
 

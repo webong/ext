@@ -1,0 +1,29 @@
+name: Web JS
+
+# Runs on pushes to main and on demand (gh workflow run web-js.yml --ref <branch>). Branches and
+# pull requests do not start it, to save runner time. The browser smoke tests need a browser and
+# are run by hand; see pkg/ext-web/COMPATIBILITY.md.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  extension-library:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      - name: Test
+        working-directory: pkg/ext-web
+        run: npm test
+      - name: Check TypeScript declarations
+        run: npx --yes --package typescript@5.8.3 tsc --noEmit --strict --module NodeNext --moduleResolution NodeNext --target ES2022 pkg/ext-web/typecheck.mts
+      - name: Build example extensions
+        working-directory: pkg/ext-web
+        run: npm run build:examples

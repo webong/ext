@@ -10,7 +10,7 @@ import (
 )
 
 // These tests read a committed synthetic Cookies database (made by
-// res/web/sqlite/testdata/make-fixtures.sh) and run with no sqlite3 binary on
+// res/web/host/manage/sqlite/testdata/make-fixtures.sh) and run with no sqlite3 binary on
 // the PATH, because the cookie readers use the built-in SQLite reader.
 
 func noShell(t *testing.T) string {

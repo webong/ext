@@ -10,7 +10,7 @@ module of its own and a program that wants less takes less:
 | [`cgoengine`](cgoengine) | the C engine binding, with a pure-Go build of the same API |
 | [`c2goengine`](c2goengine) | the C engine's portable core translated to Go by ccgo (no cgo, no C compiler) |
 | [`hashicorp`](hashicorp) | the HashiCorp go-plugin (gRPC) backend |
-| [`wasm`](wasm) | the engine-facing WebAssembly backend, built on the reusable `res/web/wasm` runtime |
+| [`wasm`](wasm) | the engine-facing WebAssembly backend, built on the reusable `res/web/host/engine/wasm` runtime |
 | [`inference`](inference) | Go host and guest bindings for `inference.provider/v1` |
 | [`model`](model) | Go host and guest bindings for `model.tensor/v1` |
 | [`perception`](perception) | Go host and guest bindings for `intelligence.perception/v1` |
@@ -22,9 +22,9 @@ chooses between the three engines (see below). The `cmd/ext-plugin-bridge`
 command and the cross-language conformance tests (`crosslang`, `bench`) also live
 here, because they need the engine and a backend together.
 
-The `wasm` module requires `res/web` for protocol-neutral WebAssembly inspection,
+The `wasm` module requires `res/web/host` for protocol-neutral WebAssembly inspection,
 WASI execution and reactor hosting, then binds those mechanisms to
-`engine.Backend`. `res/web` never imports the plugin engine.
+`engine.Backend`. `res/web/host` never imports the plugin engine.
 
 ## Choosing an engine
 

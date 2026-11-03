@@ -25,7 +25,7 @@ require (
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
 	github.com/tetratelabs/wazero v1.10.1 // indirect
 	github.com/webong/ext/res/graph v0.2.0
-	github.com/webong/ext/res/web v0.6.0 // indirect
+	github.com/webong/ext/res/web/host v0.1.0 // indirect
 	golang.org/x/net v0.60.0 // indirect
 	golang.org/x/sys v0.49.0 // indirect
 	golang.org/x/text v0.42.0 // indirect

@@ -27,3 +27,14 @@ jobs:
       - name: Build example extensions
         working-directory: pkg/ext-web
         run: npm run build:examples
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.26.x'
+          cache: false
+      # The built examples must pass the Go inspector and packager that ext uses for every extension.
+      # EXT_WEB_DIST makes a missing build a failure instead of a skip.
+      - name: Package the examples with the Go tooling
+        working-directory: res/web/host
+        env:
+          EXT_WEB_DIST: ${{ github.workspace }}/pkg/ext-web/dist
+        run: go test ./artifact/extension -run TestExtWebExamplesPackage -count=1 -v

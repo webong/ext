@@ -147,7 +147,9 @@ protocol harness. The examples use only the `storage` permission.
 `res/web/host/artifact/extension` can inspect and package these built directories for an
 external installation workflow. Browser installation and activation are supplied
 by the selected browser adapter; the embedded JavaScript peer library does not
-call those Go APIs.
+call those Go APIs. The `web-js` workflow builds the examples and runs
+`TestExtWebExamplesPackage` from that Go package against them; locally, run it from
+`res/web/host` after `npm run build:examples` with `go test ./artifact/extension -run TestExtWebExamplesPackage`.
 
 The package accepts either `browser.runtime` or `chrome.runtime`, or an injected
 runtime. The current examples passed automated host/guest checks in Firefox 159

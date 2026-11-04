@@ -2,3 +2,5 @@ github.com/tetratelabs/wazero v1.10.1 h1:2DugeJf6VVk58KTPszlNfeeN8AhhpwcZqkJj2ww
 github.com/tetratelabs/wazero v1.10.1/go.mod h1:DRm5twOQ5Gr1AoEdSi0CLjDQF1J9ZAuyqFIjl1KKfQU=
 github.com/webong/ext/pkg/ext-go/engine v0.1.0 h1:gB7N+C+GJYFOgQG7gFAMfAAn35E6otpBKUYyCxzW4JU=
 github.com/webong/ext/pkg/ext-go/engine v0.1.0/go.mod h1:lnYoMIb5lKAnz60k2oG47rhxxFqOLA5MT3IaU5rlU4s=
+github.com/webong/ext/res/web/host v0.1.0 h1:AoQIqYyIPnFm3oja3y47EF60PA2Nj2pufZ0o01xu2cc=
+github.com/webong/ext/res/web/host v0.1.0/go.mod h1:N2GxCcuJJDbfMR2dM6LPZXerj4gA8IY7NAzO4j62WH8=

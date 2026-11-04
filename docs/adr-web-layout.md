@@ -80,11 +80,11 @@ costs them nothing.
 
 ## Consequences
 
-- This is a release round. `res/web/host` is a new module with a planned first tag
-  `v0.1.0`; the 23 modules that required `res/web` now require `res/web/host` at that
-  placeholder, so a module cannot resolve it from the proxy until the tag is pushed.
-  The release scripts take modules as directories and need no change. See
-  [module versioning](module-versioning.md).
+- This is a release round. `res/web/host` is a new module whose first tag is
+  `v0.1.0`; the 23 modules that required `res/web` required `res/web/host` at that
+  version before it was tagged, so a module could not resolve it from the proxy until
+  the round pushed the tag. The release scripts take modules as directories and
+  needed no change. See [module versioning](module-versioning.md).
 - `src/ctx/internal/arch` checks the library's location and independence, the host
   module's path, its empty top and group directories, and the layering above.
 - A workflow runs the library's tests, TypeScript declaration check and example

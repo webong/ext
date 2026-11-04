@@ -54,3 +54,11 @@ use (
 	./pkg/ext-go/cgoengine
 	./pkg/ext-go/c2goengine
 )
+
+// Round modules that other workspace modules require at a version that is not tagged yet; without
+// these the go command cannot read their go.mod ("unknown revision"). Remove after the last layer is tagged.
+replace github.com/webong/ext/adapters/chromium v0.4.3 => ./adapters/chromium
+
+replace github.com/webong/ext/adapters/firefox v0.3.3 => ./adapters/firefox
+
+replace github.com/webong/ext/pkg/ext-go/wasm v0.4.0 => ./pkg/ext-go/wasm

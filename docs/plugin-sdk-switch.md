@@ -1,11 +1,10 @@
 # The SDK switch: scope and options
 
-Status: a scoping note, written against `main` at `846af9b9`. It decides nothing; the
-choices it needs are at the end. The parity checklist
-([plugin-engine-parity.md](plugin-engine-parity.md)) says the common Go implementation is not
-retired, and the independent language SDKs are not replaced, until the acceptance
-requirements are met. This note says what "replaced" would mean for each SDK, what the C
-engine can serve a guest today, and what each choice costs.
+Status: decided on 2026-11-04 (see [Decision](#decision)); written against `main` at
+`846af9b9`. The parity checklist ([plugin-engine-parity.md](plugin-engine-parity.md)) says the
+common Go implementation is not retired, and the independent language SDKs are not replaced,
+until the acceptance requirements are met. This note says what "replaced" means for each SDK,
+what the C engine can serve a guest today, what each choice costs, and which choice was made.
 
 ## Where each SDK stands
 
@@ -77,8 +76,10 @@ The code is the smaller part. The price is what an application needs to build or
   (`EXT_ENGINE_LIB_DIR`), and has a `guest-only` feature and a `wasm32-wasip1` build. Folding it
   in means either vendoring the C sources and compiling them from `build.rs` (a C toolchain for
   every user of `ext-io`) or shipping prebuilt libraries. Not tried.
-- **Zig.** `build.zig` can compile C itself, so this is the cheapest. The Zig package published
-  from `dist/ext-zig` (PR #82) would have to carry the C sources it builds.
+- **Zig.** `build.zig` can compile C itself and cross-compile it, WASI included, so this is the
+  cheapest. Today the engine package (`pkg/ext-zig/engine`) links a library built beforehand with
+  CMake (`-Dengine-lib=`), and the SDK (`pkg/ext-zig`) does not use the engine at all. The Zig
+  package published from `dist/ext-zig` (PR #82) would have to carry the C sources it builds.
 - **TypeScript.** Today there is nothing to build or install. The engine reaches JavaScript as a
   Node addon (a prebuilt binary per platform and Node version) or, as a candidate worth testing
   and not yet tried, the guest core compiled to WebAssembly, which would stay portable. Either
@@ -103,21 +104,46 @@ deleted: no flag, no second path, no staged loader. Before that change:
    guest today (Rust, Zig).
 5. The dependency and build cost above is documented in the SDK's README and agreed.
 
-## Suggested order
+## Decision
 
-1. Rust: most duplicated code, the engine binding is the most complete, and `guest-only` and
-   WASI builds already exist.
-2. Zig: `build.zig` compiles C, so packaging is straightforward.
-3. TypeScript: after the delivery question (addon or WebAssembly) is decided.
-4. Option B, only if the duplicated frame code keeps drifting.
-5. Python: only if the standard-library-only promise is dropped.
+The owner asked for the best call to be made. This is it, with what would change it.
 
-Each step is its own change with its own evidence, in the order above.
+1. **The end state is A** for Rust, Zig and TypeScript: validation and dispatch come from the C
+   engine, and the serve loop, frames and typed authoring stay in the language. The parity
+   checklist already names the C engine as the base with the pure-Go engine as the oracle; Swift
+   and Java already work this way; and it removes the rules that must change whenever the contract
+   does. **C is the state until a step lands, not a destination.**
+2. **B waits for evidence.** The parity doc records no case of a frame copy drifting, and B is an
+   ABI addition whose bug would reach every SDK. Revisit it if a frame rule changes in more than
+   two SDKs at once, or a fixture catches a divergence in one copy.
+3. **Python stays independent.** The standard-library-only promise is kept; the shared fixtures
+   and the frames suite are its guarantee.
+4. **Each other SDK switches only after its build gate passes, in one change, with its old
+   implementation deleted** (no flag, no second path):
+   - **Zig first.** Gate: `build.zig` compiles the C guest sources itself (the list in
+     `lib/plugin/CMakeLists.txt`, `core_sources`: ten portable files) for the host targets and
+     `wasm32-wasi`, with no prebuilt library and no CMake. Smallest gate, and no new requirement
+     for its users beyond Zig.
+   - **Rust second.** Gate: `ext-io` builds with a generated copy of the C sources vendored in the
+     crate (as `cgoengine` carries `_csrc`) and compiled from `build.rs`, on Linux, macOS, Windows
+     and `wasm32-wasip1` in CI. If the WASI build needs more than a documented compiler setting,
+     `ext-io` stays independent and the engine crate stays the C-backed path.
+   - **TypeScript last.** Gate: the guest core compiled to WebAssembly passes the shared fixtures
+     in Node with no native addon. The Node addon is rejected as the route: it would end the
+     no-import portable guest and add a binary per platform and Node version. If the WebAssembly
+     route fails, TypeScript stays independent.
+5. **A step that fails its gate is recorded as that SDK's final state** (independent, held by the
+   fixtures), not retried indefinitely.
 
-## What is needed from the owner
+## First step: Zig
 
-1. **A, B or C** for Rust, Zig and TypeScript.
-2. Whether `ext-io` (Rust, version 0.1.0) and the Zig package may start requiring a C
-   toolchain, or must stay buildable from their language's tools alone.
-3. For TypeScript, whether the portable no-import guest can go, or must be kept.
-4. Whether Python stays standard-library only.
+1. `pkg/ext-zig/build.zig` compiles the ten guest sources with `addCSourceFiles` and exposes the
+   engine services (`ext_engine_call`) to the SDK.
+2. `wire.zig` calls them for `descriptor.validate`, `descriptor.match`, `request.validate` and
+   `response.validate` in place of its own copies (`validate`, `match`, `validateRequest`); the
+   typed decoding it also holds stays.
+3. Acceptance as above: every shared fixture with no new exception, `TestFramesGuests`,
+   `TestCapabilityGuests` and `TestCapabilityHosts` unchanged, a mutation in `lib/plugin` that
+   fails the Zig tests, and the WASI guest still building.
+
+Building it locally needs Zig 0.17.0, pinned with its checksum in `plugin-sdk.yml`.

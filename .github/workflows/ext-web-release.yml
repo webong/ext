@@ -1,0 +1,121 @@
+name: Release ext-web
+
+# Releases the browser extension library pkg/ext-web as an npm tarball attached to a GitHub release.
+# It runs only for ext-web-vX.Y.Z tags, and by hand for a dry run that tests and packs but publishes
+# nothing. The tag is not a Go module tag; see docs/module-versioning.md.
+#
+# The package stays private: nothing is pushed to the npm registry. A consumer installs the tarball
+# from the release (npm install ./ext-web-X.Y.Z.tgz, or the release asset URL). Publishing to npm
+# later means removing "private" from pkg/ext-web/package.json and adding a job after publish, as
+# ext-dotnet-release.yml does for NuGet.
+#
+# The tag's version must equal the version in pkg/ext-web/package.json.
+on:
+  push:
+    tags: ['ext-web-v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version to build for the dry run; must equal the version in package.json
+        type: string
+        default: 0.1.0
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ext-web-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # Tests and packs before anything is published. Read-only: it has no token that can write.
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      - name: Version
+        id: version
+        env:
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          if [[ "$REF_TYPE" == tag ]]; then version="${REF_NAME#ext-web-v}"; else version="$INPUT_VERSION"; fi
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "version '$version' must look like 0.1.0" >&2; exit 1; }
+          declared=$(node -p "require('./pkg/ext-web/package.json').version")
+          [[ "$declared" == "$version" ]] || { echo "pkg/ext-web/package.json says $declared but the release is $version" >&2; exit 1; }
+          echo "version=$version" >>"$GITHUB_OUTPUT"
+      - name: Test
+        working-directory: pkg/ext-web
+        run: npm test
+      - name: Check TypeScript declarations
+        run: npx --yes --package typescript@5.8.3 tsc --noEmit --strict --module NodeNext --moduleResolution NodeNext --target ES2022 pkg/ext-web/typecheck.mts
+      - name: Pack
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          out="dist/ext-web-$VERSION"
+          mkdir -p "$out"
+          (cd pkg/ext-web && npm pack --pack-destination "../../$out")
+          [[ -f "$out/ext-web-$VERSION.tgz" ]] || { echo "expected ext-web-$VERSION.tgz" >&2; ls "$out" >&2; exit 1; }
+          # The tarball must hold exactly the files package.json lists, not the examples, tests or dist.
+          tar -tzf "$out/ext-web-$VERSION.tgz" | grep -E '(test|examples|dist|node_modules)' && { echo 'unexpected files in the tarball' >&2; exit 1; } || true
+      - name: Check that the tarball installs and imports
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          work="$(mktemp -d)"
+          cd "$work"
+          npm init -y >/dev/null
+          npm install "$GITHUB_WORKSPACE/dist/ext-web-$VERSION/ext-web-$VERSION.tgz" >/dev/null
+          for entry in ext-web ext-web/native ext-web/themes ext-web/workspace ext-web/userscripts ext-web/bridge; do
+            node --input-type=module -e "await import('$entry'); console.log('imports', '$entry')"
+          done
+      - name: Checksums
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          cd "dist/ext-web-$VERSION"
+          sha256sum ./*.tgz | tee checksums.txt
+      - uses: actions/upload-artifact@v6
+        with:
+          name: ext-web-${{ steps.version.outputs.version }}
+          path: dist/ext-web-${{ steps.version.outputs.version }}/*
+          if-no-files-found: error
+
+  # Publishes. Only a pushed ext-web-v tag gets here (never a manual run, even on a tag), and only
+  # after the build job passed. It builds nothing: it attaches the exact files that were tested.
+  publish:
+    needs: build
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/ext-web-v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v7
+        with:
+          name: ext-web-${{ needs.build.outputs.version }}
+          path: dist
+      - name: Verify checksums
+        run: (cd dist && sha256sum -c checksums.txt)
+      - name: Attest release provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: 'dist/*'
+      # Not "latest": install.sh and install.ps1 resolve the newest ctx-v release by tag.
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist/* --verify-tag --generate-notes --latest=false --title "$GITHUB_REF_NAME"

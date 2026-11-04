@@ -56,17 +56,16 @@ pub fn Exports(comptime factory: Factory) type {
             return 2;
         }
         fn dispatch(a: w.Allocator, s: *Slot, op: u32, bytes: []const u8) ![]u8 {
-            const v = try w.decode(a, bytes);
             return switch (op) {
                 1 => blk: {
-                    const h = try w.typed(struct { deadline: []const u8 }, a, v);
+                    const h = try w.typed(struct { deadline: []const u8 }, a, try w.decode(a, bytes));
                     if (w.now() >= try w.deadline(h.deadline)) return error.Deadline;
                     s.hello = true;
                     break :blk try w.encode(a, s.guest.?.descriptor);
                 },
                 2 => blk: {
                     if (!s.hello) return error.Invalid;
-                    break :blk try w.encode(a, try s.guest.?.invoke(a, try w.typed(w.Request, a, v)));
+                    break :blk try s.guest.?.invokeBytes(a, bytes, null);
                 },
                 else => error.Unsupported,
             };

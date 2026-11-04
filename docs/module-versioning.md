@@ -84,6 +84,12 @@ SDK (`.github/workflows/ext-ios-release.yml`, same form). Their `MINOR` and `PAT
 independently; their `MAJOR` follows the repository-wide `MAJOR`. `ext-zig-vX.Y.Z` releases the Zig package the same way
 (`.github/workflows/ext-zig-release.yml`, published with `--latest=false`); its version has to be the `.version` of
 `pkg/ext-zig/build.zig.zon`, and the staging script refuses any other.
+`ext-web-vX.Y.Z` releases the browser extension library `pkg/ext-web` the same way
+(`.github/workflows/ext-web-release.yml`, published with `--latest=false`); its version has to be the `version` of
+`pkg/ext-web/package.json`, and the workflow refuses any other. It tests and type-checks the library, packs
+`ext-web-X.Y.Z.tgz` with `npm pack`, checks that the tarball installs and that every entry point imports, and
+attaches the tarball with its checksum and a provenance attestation to the GitHub release. The package is
+private, so nothing is pushed to the npm registry; an app installs the tarball from the release.
 The Windows-native .NET libraries follow the same form: `ext-dotnet-vX.Y.Z` releases the NuGet packages
 `Ext.Audio.Windows` (`res/system/capture/audio/windows`), `Ext.Clipboard.Windows`
 (`res/system/capture/clipboard/windows`), `Ext.Web.Windows` (`res/web/windows`) and `Ext.ML.Windows`

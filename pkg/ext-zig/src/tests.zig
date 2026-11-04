@@ -188,3 +188,55 @@ test "a request must carry the surface of its operation" {
     unknown.operation = "missing";
     try std.testing.expectError(error.Unsupported, w.validateRequest(a, json, unknown));
 }
+
+fn boom(_: *author.Context, _: w.Request, _: Message) !Message {
+    return error.PrivateDetail;
+}
+fn slow(_: *author.Context, _: w.Request, m: Message) !Message {
+    const until = w.now() + 150_000_000;
+    while (w.now() < until) {}
+    return m;
+}
+fn errorOf(a: w.Allocator, response: w.Value) !w.RemoteError {
+    return w.typed(w.RemoteError, a, try w.field(response, "error"));
+}
+// What a caller gets back is the engine's: the answers for a request that does not match, a failure the
+// plugin keeps private and a handler that runs past its time, and the plugin's own public error.
+test "the engine answers for a mismatch, a failure, a late handler and a public error" {
+    var reg = try author.Registry.init(std.testing.allocator, .{ .id = "example/answers", .revision = "1" });
+    defer reg.deinit();
+    const ref: w.Ref = .{ .name = "example.answers", .version = "v1" };
+    try reg.register(Message, Message, .{ .contract = ref, .operation = .{ .name = "echo" }, .validate_input = check }, echo);
+    try reg.register(Message, Message, .{ .contract = ref, .operation = .{ .name = "boom" } }, boom);
+    try reg.register(Message, Message, .{ .contract = ref, .operation = .{ .name = "slow" } }, slow);
+    var g = try reg.guest(allow);
+    defer g.deinit();
+    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    defer arena.deinit();
+    const a = arena.allocator();
+    const base: w.Request = .{ .apiVersion = w.version, .id = "1", .plugin = g.descriptor.identity, .contract = ref, .operation = "echo", .deadline = try w.timestamp(a, w.now() + w.timeout_ns), .payload = try w.decode(a, "{\"text\":\"hi\"}") };
+
+    const ok = try g.invoke(a, base);
+    try std.testing.expectEqualStrings("hi", (try w.field(try w.field(ok, "payload"), "text")).string);
+
+    var other = base;
+    other.plugin = .{ .id = "example/other", .revision = "1" };
+    const mismatch = try errorOf(a, try g.invoke(a, other));
+    try std.testing.expectEqualStrings("invalid_request", mismatch.code);
+    try std.testing.expectEqualStrings("request does not match selected contract", mismatch.message);
+
+    var long = base;
+    long.payload = try w.decode(a, "{\"text\":\"far too long\"}");
+    try std.testing.expectEqualStrings("invalid_input", (try errorOf(a, try g.invoke(a, long))).code); // the plugin's own, public
+
+    var failing = base;
+    failing.operation = "boom";
+    const failed = try errorOf(a, try g.invoke(a, failing));
+    try std.testing.expectEqualStrings("operation_failed", failed.code);
+    try std.testing.expectEqualStrings("plugin operation failed", failed.message); // the detail stays private
+
+    var late = base;
+    late.operation = "slow";
+    late.deadline = try w.timestamp(a, w.now() + 60_000_000);
+    try std.testing.expectEqualStrings("operation_failed", (try errorOf(a, try g.invoke(a, late))).code);
+}

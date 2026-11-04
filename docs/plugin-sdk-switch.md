@@ -168,15 +168,35 @@ Done:
   declares a `surface`: the rule was untested in every language. `tests.zig` now holds a test for
   it, which fails under that mutation. The fixtures themselves still lack the case.
 
-Known cost and what is left:
+Second slice (dispatch on the engine's guest):
 
-- Each request is validated by sending the cached descriptor and the request to the service:
-  about 18 microseconds for a descriptor of 40 operations (release build, this machine), mostly
-  re-parsing the descriptor. The engine's guest (`ext_guest_create` and `ext_guest_invoke`)
-  snapshots the descriptor once; moving dispatch onto it is the next slice, and removes both the
-  cost and the context, deadline and error-sanitizing code the SDK keeps for itself.
-- Still Zig copies: `identifier` and `validateIdentity` (the frame ids and the registry identity),
-  the strict decoders that build typed values from JSON, and the frame limiter.
+- `Registry.guest` creates the engine's guest once (`ext_guest_create`, which validates the
+  descriptor), and every call goes through `ext_guest_invoke`. The engine matches the request to the
+  descriptor, bounds the call by time and builds the response. What the SDK keeps is the handler the
+  engine calls (`handle_call`): decode the typed request, set up the context and the progress
+  limiter, authorize, run the operation, and emit the payload or the operation's public error.
+  Any other failure is a status the engine turns into the sanitized `operation_failed`.
+- `Guest.invokeBytes` goes from the request line to the response line; the JSON-line server and
+  the C ABI use it, so a request is no longer decoded, re-encoded and decoded again around the call.
+  `invokeWith`, the SDK's deadline check after a handler and its per-request validation are gone.
+- **Cost.** For a guest of 40 operations (release build, this machine): the byte path the server
+  uses is 7.7 microseconds per call, against 18.3 for the previous `invoke` (and the previous server
+  decoded and encoded around that figure); the typed `invoke`, which now encodes the request and
+  decodes the response, is 13.6.
+- **Evidence.** 31 SDK tests and 55 Zig subtests of the cross-language suites pass. Three mutations
+  of `lib/plugin/src/guest.c` (the code of a failed validation, the sanitized message, the time bound
+  after a handler) pass the SDK tests *before* a test for the engine's answers existed; with
+  `the engine answers for a mismatch, a failure, a late handler and a public error` each fails them.
+  The SDK's own copy of the time bound hid the third until it was removed.
+- **A rule for the other SDKs.** The engine counts whole milliseconds and rounds a deadline up, so a
+  handler told how much time it has can bind a reverse call past the call's real deadline.
+  `TestFramesGuests/reverse-request-as-the-host-saw-it` caught it. The context's deadline is the
+  earlier of the request's own deadline (to the nanosecond) and the time the engine left.
+
+Left for the Zig SDK:
+
+- `identifier` and `validateIdentity` (the frame ids and the registry identity), the strict decoders
+  that build typed values from JSON, and the frame limiter are still Zig.
 - `dist/ext-zig` (PR #82) must carry the C sources, since a published package contains only its
   own directory; `-Dengine-src` points the build at them.
 

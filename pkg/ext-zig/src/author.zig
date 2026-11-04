@@ -1,6 +1,8 @@
 const std = @import("std");
 const w = @import("wire.zig");
 const f = @import("frames.zig");
+const ffi = @import("ffi");
+const engine = @import("engine.zig");
 const A = w.Allocator;
 // What a handler sees of its call. A call that came in on a connection that carries frames can also
 // report progress and call its host (docs/plugin-guest-frames.md); this guest reads inline, so it
@@ -8,7 +10,7 @@ const A = w.Allocator;
 pub const Context = struct {
     deadline: i128,
     remote: ?w.RemoteError = null,
-    // Set by Guest.invokeWith when the request came in on a connection that carries frames.
+    // Set by the guest's call handler when the request came in on a connection that carries frames.
     allocator: ?A = null,
     link: ?*f.Link = null,
     descriptor: ?*const w.Descriptor = null,
@@ -149,7 +151,8 @@ pub const Registry = struct {
         }
         return .{ .identity = self.identity, .contracts = contracts.items, .reverse = self.reverse.items };
     }
-    // Guest owns a deep snapshot. Registry storage may be freed immediately.
+    // Guest owns a deep snapshot. Registry storage may be freed immediately. The engine validates the
+    // descriptor once, here, and every request against it afterwards.
     pub fn guest(self: *const Registry, authorize: Policy) !Guest {
         const arena = try self.allocator.create(std.heap.ArenaAllocator);
         arena.* = std.heap.ArenaAllocator.init(self.allocator);
@@ -159,7 +162,6 @@ pub const Registry = struct {
         }
         const a = arena.allocator();
         const d = try w.typed(w.Descriptor, a, try w.decode(a, try w.encode(a, try self.descriptor(a))));
-        try w.validate(a, d);
         const json = try w.encode(a, d);
         const entries = try a.dupe(Entry, self.entries.items);
         for (entries) |*e| {
@@ -168,61 +170,113 @@ pub const Registry = struct {
             e.operation.name = try a.dupe(u8, e.operation.name);
             e.operation.surface = try a.dupe(u8, e.operation.surface);
         }
-        return .{ .arena = arena, .descriptor = d, .descriptor_json = json, .entries = entries, .authorize = authorize };
+        const state = try a.create(State);
+        state.* = .{ .descriptor = d, .entries = entries, .authorize = authorize };
+        var handle: ?*ffi.ext_guest = null;
+        const options: ffi.ext_guest_options = .{
+            .abi_version = ffi.EXT_HOST_ABI_VERSION,
+            .struct_size = @sizeOf(ffi.ext_guest_options),
+            .descriptor = json.ptr,
+            .descriptor_len = json.len,
+            .max_call_ms = call_limit_ms,
+            .user = state,
+            .handle = handle_call,
+        };
+        try engine.check(ffi.ext_guest_create(&options, &handle));
+        return .{ .arena = arena, .descriptor = d, .handle = handle.? };
     }
 };
+// The longest a call may run, as the engine bounds it; a request's own deadline can shorten it.
+const call_limit_ms = 30_000;
+
+// What the engine hands the handler as call_user: the one call being run.
+const Call = struct { allocator: A, link: ?*f.Link };
+
+// What the handler reaches from the engine's user pointer. It lives in the guest's arena, so the pointer
+// stays valid wherever the Guest value is moved to.
+const State = struct {
+    descriptor: w.Descriptor,
+    entries: []const Entry,
+    authorize: Policy,
+    fn dispatch(self: *const State, a: A, ctx: *Context, r: w.Request) !w.Value {
+        try ctx.check();
+        try self.authorize(r);
+        try ctx.check();
+        for (self.entries) |e| if (w.eq(u8, e.contract.name, r.contract.name) and w.eq(u8, e.contract.version, r.contract.version) and w.eq(u8, e.operation.name, r.operation)) {
+            // A handler that returns after its time is answered by the engine, not here.
+            return e.handler(ctx, r, a);
+        };
+        return error.Unsupported;
+    }
+};
+
+// The engine calls this for a request it has already matched to the descriptor, with the time the call
+// has left. It emits the payload or a public error; any other failure is a status the engine turns
+// into the sanitized operation_failed answer.
+fn handle_call(user: ?*anyopaque, call_user: ?*anyopaque, request: [*c]const u8, len: usize, remaining_ms: u32, emit: ffi.ext_guest_emit, sink: ?*anyopaque) callconv(.c) ffi.ext_status {
+    const state: *const State = @ptrCast(@alignCast(user.?));
+    const call: *const Call = @ptrCast(@alignCast(call_user.?));
+    return run(state, call, request[0..len], remaining_ms, emit.?, sink) catch ffi.EXT_IO;
+}
+fn run(state: *const State, call: *const Call, bytes: []const u8, remaining_ms: u32, emit: *const fn (?*anyopaque, u32, [*c]const u8, usize) callconv(.c) ffi.ext_status, sink: ?*anyopaque) !ffi.ext_status {
+    const a = call.allocator;
+    const r = try w.requestFromValue(try w.decode(a, bytes));
+    // The engine counts whole milliseconds and rounds up, so the request's own deadline, to the
+    // nanosecond, still bounds the call (a reverse call is never bound past it); the engine's time left
+    // can only shorten it.
+    var ctx: Context = .{ .deadline = @min(try w.deadline(r.deadline), w.now() + @as(i128, remaining_ms) * 1_000_000) };
+    // A marker for events never reported goes out before the response does.
+    defer ctx.finish();
+    if (call.link) |l| {
+        ctx.allocator = a;
+        ctx.link = l;
+        ctx.descriptor = &state.descriptor;
+        ctx.parent = r.id;
+        // A call reports progress when its operation declared it and the host asked for events.
+        if (r.progress) |rate| {
+            if ((try w.lookup(state.descriptor, r.contract, r.operation)).progress) {
+                const limits = f.limitsOf(rate);
+                ctx.limits = limits;
+                ctx.limiter = f.Limiter.init(limits.events_per_second, limits.bytes_per_second, w.now());
+            }
+        }
+    }
+    const value = state.dispatch(a, &ctx, r) catch |err| {
+        if (err == error.Public) if (ctx.remote) |remote| {
+            const body = try w.encode(a, remote);
+            return emit(sink, ffi.EXT_GUEST_PUBLIC_ERROR, body.ptr, body.len);
+        };
+        return ffi.EXT_IO;
+    };
+    const body = try w.encode(a, value);
+    return emit(sink, ffi.EXT_GUEST_PAYLOAD, body.ptr, body.len);
+}
+
 pub const Guest = struct {
     arena: *std.heap.ArenaAllocator,
     descriptor: w.Descriptor,
-    // The descriptor as the engine validates each request against it.
-    descriptor_json: []const u8,
-    entries: []const Entry,
-    authorize: Policy,
+    handle: *ffi.ext_guest,
     pub fn deinit(self: *Guest) void {
+        ffi.ext_guest_destroy(self.handle);
         const a = self.arena.child_allocator;
         self.arena.deinit();
         a.destroy(self.arena);
         self.* = undefined;
     }
+    // Runs one request, given as the JSON the host sent, and returns the response as JSON. The engine
+    // answers a request that does not match the descriptor with invalid_request, and one that failed
+    // or ran out of time with operation_failed. A request with no usable id has nothing to echo, so it
+    // is error.Invalid. link is the connection the request came in on, if it carries frames: the call can
+    // then report progress and call its host.
+    pub fn invokeBytes(self: *const Guest, a: A, request: []const u8, link: ?*f.Link) ![]u8 {
+        var call: Call = .{ .allocator = a, .link = link };
+        var out: ffi.ext_buffer = .{ .data = null, .len = 0 };
+        defer ffi.ext_buffer_free(&out);
+        try engine.check(ffi.ext_guest_invoke(self.handle, request.ptr, request.len, call_limit_ms, &call, &out));
+        return a.dupe(u8, if (out.len == 0) &.{} else out.data[0..out.len]);
+    }
+    // As invokeBytes, for a request already built and a response wanted as a tree.
     pub fn invoke(self: *const Guest, a: A, r: w.Request) !w.Value {
-        return self.invokeWith(a, r, null);
-    }
-    // As invoke, for a request that came in on a connection that carries frames, if there is one: the
-    // call can then report progress and call its host.
-    pub fn invokeWith(self: *const Guest, a: A, r: w.Request, link: ?*f.Link) !w.Value {
-        w.validateRequest(a, self.descriptor_json, r) catch return w.response(a, r.id, null, .{ .code = "invalid_request", .message = "request does not match selected contract" });
-        var ctx: Context = .{ .deadline = @min(try w.deadline(r.deadline), w.now() + w.timeout_ns) };
-        // A marker for events never reported goes out before the response does.
-        defer ctx.finish();
-        if (link) |l| {
-            ctx.allocator = a;
-            ctx.link = l;
-            ctx.descriptor = &self.descriptor;
-            ctx.parent = r.id;
-            // A call reports progress when its operation declared it and the host asked for events.
-            if (r.progress) |rate| {
-                if ((try w.lookup(self.descriptor, r.contract, r.operation)).progress) {
-                    const limits = f.limitsOf(rate);
-                    ctx.limits = limits;
-                    ctx.limiter = f.Limiter.init(limits.events_per_second, limits.bytes_per_second, w.now());
-                }
-            }
-        }
-        const value = self.dispatch(a, &ctx, r) catch |err| {
-            const remote = if (err == error.Public and ctx.remote != null) ctx.remote.? else w.RemoteError{ .code = "operation_failed", .message = "plugin operation failed" };
-            return w.response(a, r.id, null, remote);
-        };
-        return w.response(a, r.id, value, null);
-    }
-    fn dispatch(self: *const Guest, a: A, ctx: *Context, r: w.Request) !w.Value {
-        try ctx.check();
-        try self.authorize(r);
-        try ctx.check();
-        for (self.entries) |e| if (w.eq(u8, e.contract.name, r.contract.name) and w.eq(u8, e.contract.version, r.contract.version) and w.eq(u8, e.operation.name, r.operation)) {
-            const value = try e.handler(ctx, r, a);
-            try ctx.check();
-            return value;
-        };
-        return error.Unsupported;
+        return w.decode(a, try self.invokeBytes(a, try w.encode(a, r), null));
     }
 };

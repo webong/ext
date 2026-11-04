@@ -6,7 +6,7 @@ const ffi = @import("ffi");
 
 pub const Error = error{ Invalid, Denied, Mismatch, Unsupported, NotFound, OutOfMemory, Failed };
 
-fn check(status: ffi.ext_status) Error!void {
+pub fn check(status: ffi.ext_status) Error!void {
     return switch (status) {
         ffi.EXT_OK => {},
         ffi.EXT_INVALID => error.Invalid,

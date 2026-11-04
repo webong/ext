@@ -82,14 +82,13 @@ pub fn serve(guest: *const author.Guest, conn: *Connection, a: w.Allocator) !voi
         defer arena.deinit();
         const scratch = arena.allocator();
         const line = (try conn.readFrame(scratch, std.math.maxInt(i128))) orelse return;
-        const value = try w.decode(scratch, line);
-        const response = if (!hello) blk: {
-            try validateHello(scratch, value);
+        const bytes = if (!hello) blk: {
+            try validateHello(scratch, try w.decode(scratch, line));
             hello = true;
-            break :blk try w.response(scratch, "hello", try w.decode(scratch, try w.encode(scratch, guest.descriptor)), null);
-        } else try guest.invokeWith(scratch, try w.requestFromValue(value), &link);
+            break :blk try w.encode(scratch, try w.response(scratch, "hello", try w.decode(scratch, try w.encode(scratch, guest.descriptor)), null));
+        } else try guest.invokeBytes(scratch, line, &link);
         if (link.violated) return error.Protocol;
-        try conn.writeFrame(try w.encode(scratch, response), w.now() + w.timeout_ns);
+        try conn.writeFrame(bytes, w.now() + w.timeout_ns);
     }
 }
 fn validateHello(a: w.Allocator, value: w.Value) !void {

@@ -4,6 +4,18 @@
 can host methods, consume methods from another extension, or do both. It uses
 extension runtime ports and requires no framework or ext plugin engine.
 
+## Installing
+
+The package is private and is not on the npm registry. Each release `ext-web-vX.Y.Z` attaches
+`ext-web-X.Y.Z.tgz` and `checksums.txt` to its GitHub release. Install the downloaded file or its URL:
+
+```sh
+npm install https://github.com/webong/ext/releases/download/ext-web-vX.Y.Z/ext-web-X.Y.Z.tgz
+```
+
+Check the file against `checksums.txt` first. The entry points are `ext-web`, `ext-web/native`,
+`ext-web/themes`, `ext-web/workspace`, `ext-web/userscripts` and `ext-web/bridge`.
+
 `createHost({ admit, methods })` listens for external peers. `admit(sender)`
 receives the browser-supplied sender ID and must explicitly accept it.
 `createGuest({ hostId, methods })` connects to a configured host ID. Both return

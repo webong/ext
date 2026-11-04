@@ -113,8 +113,13 @@ needs signing and distribution.
 with a caller-owned catalog. `createUserscriptRegistry` requires `prepare` to
 produce a reviewed registration plan and `authorize` before changes. It binds
 registration IDs to a namespace and restores missing registrations after a
-browser restart. Portable userscript metadata and preparation remain in
-`res/web/host/artifact/userscript`.
+browser restart. A registration ID is the namespaced prefix followed by the
+script ID, with `.` and `_` escaped to three characters each, and is limited to
+128 characters. The portable rules allow a script ID of 128 characters, so the
+longest ID the registry can register depends on its namespace;
+`registrationId(id)` throws before anything is registered, and a `prepare`
+hook can call it to refuse such a script early. Portable userscript metadata
+and preparation remain in `res/web/host/artifact/userscript`.
 
 `ext-web/bridge` provides a nonce-bound `MessagePort` handshake for a
 caller-created sandbox page, plus a page-visible request bridge. The sandbox

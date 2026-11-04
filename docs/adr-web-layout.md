@@ -97,6 +97,9 @@ costs them nothing.
   cases of the shared `record.json` fixtures. The registry also bounds the browser
   registration ID, which is the ID behind a namespaced prefix, to 128 characters;
   the Go rule allows an ID of 128 characters, so the longest ID the registry can
-  register depends on its namespace.
+  register depends on its namespace. That limit is kept on purpose: it fails
+  closed before anything is registered, no check records what the browsers
+  accept, and a hashed ID would need a synchronous digest that the web platform
+  does not offer. It is documented in the library README and declarations.
 - Not done yet: installing the packaged examples through an adapter into a real
   browser, and a release tag, workflow, registry and version for `pkg/ext-web`.

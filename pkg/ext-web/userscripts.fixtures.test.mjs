@@ -32,9 +32,11 @@ test('the registry accepts and rejects userscript IDs as the shared fixtures do'
 });
 
 test('a registration ID is the ID behind a namespaced prefix and stays within 128 characters', () => {
-  // Known difference from the Go rule, which allows IDs of up to 128 characters: the browser registration
-  // ID derived from one has the prefix in front (and '.' and '_' take three characters each), so the
-  // longest ID the registry can register depends on its namespace.
+  // An intended limit, documented in the README and userscripts.d.mts. The Go rule allows IDs of up to 128
+  // characters, but the browser registration ID derived from one has the prefix in front (and '.' and '_'
+  // take three characters each), so the longest ID the registry can register depends on its namespace.
+  // The registry refuses an over-long one before registering anything; nothing records what the
+  // browsers accept, so the cap is kept until the loaded-extension checks show a larger one is safe.
   const prefix = registry.registrationId('x').length - 1;
   assert.equal(registry.registrationId('a'.repeat(128 - prefix)).length, 128);
   assert.throws(() => registry.registrationId('a'.repeat(129 - prefix)), { code: 'invalid' });

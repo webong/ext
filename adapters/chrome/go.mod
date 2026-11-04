@@ -3,7 +3,7 @@ module github.com/webong/ext/adapters/chrome
 go 1.25.0
 
 require (
-	github.com/webong/ext/adapters/chromium v0.4.2
+	github.com/webong/ext/adapters/chromium v0.4.3
 	github.com/webong/ext/res/web/host v0.1.0
 )
 

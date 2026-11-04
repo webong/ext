@@ -55,10 +55,12 @@ github.com/webong/ext/pkg/ext-go/engine v0.2.0 h1:PNx1wogQMNP/SPGrNma8tXTsqwu3eY
 github.com/webong/ext/pkg/ext-go/engine v0.2.0/go.mod h1:lnYoMIb5lKAnz60k2oG47rhxxFqOLA5MT3IaU5rlU4s=
 github.com/webong/ext/pkg/ext-go/hashicorp v0.3.2 h1:IogLKdLFGj5H22wSvFAnnkdJ2Z+MrCPJAoKe3SABYT8=
 github.com/webong/ext/pkg/ext-go/hashicorp v0.3.2/go.mod h1:n4v/KO8wV+KU+U1JT1N6kheorwQ47kSXrjostkK2dtE=
-github.com/webong/ext/pkg/ext-go/wasm v0.3.0 h1:WFS3C2VScGGYINsoRc6jAkTMwhExu2oBdrmnJDE5/3s=
-github.com/webong/ext/pkg/ext-go/wasm v0.3.0/go.mod h1:pJZlKSKPl0pybSaEloSSFGKcCZcBYbAr5PokxzzZ1JY=
+github.com/webong/ext/pkg/ext-go/wasm v0.4.0 h1:ztuLmQ8aMZcQ39m/rWpE/EyHYEEcJTsH/qRKVLAUo00=
+github.com/webong/ext/pkg/ext-go/wasm v0.4.0/go.mod h1:NcBLB2r2P8LtdDmdDkStyCFKOmqJNBrKtHC90Nowh3U=
 github.com/webong/ext/res/graph v0.2.0 h1:ZBCxezyTnIwqnnHJPRZK7+V0DB1y/+sTe8Um/chcMgQ=
 github.com/webong/ext/res/graph v0.2.0/go.mod h1:lyLmqdCTH9RAt45VdO+dm1neH8PNN+O2bSqBFMe/hZc=
+github.com/webong/ext/res/web/host v0.1.0 h1:AoQIqYyIPnFm3oja3y47EF60PA2Nj2pufZ0o01xu2cc=
+github.com/webong/ext/res/web/host v0.1.0/go.mod h1:N2GxCcuJJDbfMR2dM6LPZXerj4gA8IY7NAzO4j62WH8=
 go.opentelemetry.io/auto/sdk v1.2.1 h1:jXsnJ4Lmnqd11kwkBV2LgLoFMZKizbCi5fNZ/ipaZ64=
 go.opentelemetry.io/auto/sdk v1.2.1/go.mod h1:KRTj+aOaElaLi+wW1kO/DZRXwkF4C5xPbEe3ZiIhN7Y=
 go.opentelemetry.io/otel v1.44.0 h1:JjwHmHpA4iZ3wBxluu2fbbE7j4kqlE8jXyAyPXH7HqU=

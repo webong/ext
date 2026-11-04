@@ -4,3 +4,5 @@ github.com/webong/ext/pkg/ext-go/cgoengine v0.2.0 h1:L/BQKKUzG8WOBdXt9hOaw5zQbzV
 github.com/webong/ext/pkg/ext-go/cgoengine v0.2.0/go.mod h1:uqmULLlQ7eC9o+XauFNtujw+2PzSfzs1YTQ17WgX3cI=
 github.com/webong/ext/pkg/ext-go/engine v0.2.0 h1:PNx1wogQMNP/SPGrNma8tXTsqwu3eYmeglRmuz4QIlM=
 github.com/webong/ext/pkg/ext-go/engine v0.2.0/go.mod h1:lnYoMIb5lKAnz60k2oG47rhxxFqOLA5MT3IaU5rlU4s=
+github.com/webong/ext/res/web/host v0.1.0 h1:AoQIqYyIPnFm3oja3y47EF60PA2Nj2pufZ0o01xu2cc=
+github.com/webong/ext/res/web/host v0.1.0/go.mod h1:N2GxCcuJJDbfMR2dM6LPZXerj4gA8IY7NAzO4j62WH8=

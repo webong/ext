@@ -267,15 +267,35 @@ earlier renames, a module path and its tags are a pair, so this is a new module,
 - `res/web/v0.1.0` to `res/web/v0.6.0` are immutable, stay resolvable, and are the last tags
   `github.com/webong/ext/res/web` will ever have. Cut no further `res/web` tags. That path cannot be
   marked deprecated either, because that needs a new tag of it.
-- `res/web/host/v0.1.0` is the planned first tag of the new path, and the placeholder version in
-  every `go.mod` that requires it. It is cut on a tree whose `go.mod` declares
+- `res/web/host/v0.1.0` is the first tag of the new path, and the version every `go.mod` that
+  requires it already recorded before it was cut. It is cut on a tree whose `go.mod` declares
   `github.com/webong/ext/res/web/host`. A module that requires it cannot resolve it from the proxy until
   that tag is pushed. `res/web/host` requires no other module of ext, so it is in layer 0 of the round;
   the adapters, `pkg/ext-go/wasm` and `pkg/ext-go` come after it, and the product modules `src/ctx` and
-  `cmd/ext` (which build with `replace` directives) are bumped by hand, as before.
-- The published tags of the adapters still require `res/web` and remain valid; their next release
-  requires `res/web/host`. The release scripts take a module as a directory, so a round lists
-  `res/web/host` in its versions file and the scripts need no change.
+  `cmd/ext` (which build with `replace` directives) already pin `v0.1.0`, so they needed no bump.
+- The published tags of the adapters still require `res/web` and remain valid; the round below
+  releases them against `res/web/host`. The release scripts take a module as a directory, so a round
+  lists `res/web/host` in its versions file and the scripts need no change.
+
+The round that follows the move has four layers:
+
+| Layer | Modules | Version |
+| --- | --- | --- |
+| 0 | `res/web/host` | `v0.1.0`, new |
+| 1 | `adapters/chromium` | `v0.4.3` |
+| 1 | `adapters/wasm` | `v0.2.3` |
+| 1 | `pkg/ext-go/wasm` | `v0.4.0` |
+| 2 | `pkg/ext-go` | `v0.10.1` |
+| 2 | `adapters/chrome`, `adapters/edge`, `adapters/firefox` | `v0.3.3` |
+| 2 | `adapters/safari`, `adapters/brave`, `adapters/arc`, `adapters/atlas`, `adapters/comet`, `adapters/dia`, `adapters/helium`, `adapters/opera`, `adapters/vivaldi`, `adapters/whale` | `v0.2.3` |
+| 3 | `adapters/floorp`, `adapters/librewolf`, `adapters/waterfox`, `adapters/zen` | `v0.2.3` |
+
+The adapters and `pkg/ext-go` get patch versions: they only require the new path. `pkg/ext-go/wasm`
+gets a minor version because its `Options` type is an alias of a type in the moved module, so the type
+changes identity with the module path. The round tags no other module: `pkg/ext-go/engine` and `pkg/ext-go/cgoengine` changed only a test line and
+a README since their last tags, and no module needs them. Until the last layer is tagged, `go.work` carries
+version-pinned `replace` lines for `adapters/chromium`, `adapters/firefox` and `pkg/ext-go/wasm`, which other
+workspace modules require at versions that have no tag yet; a commit after the round removes them.
 
 The packages moved with it, and their import paths changed:
 

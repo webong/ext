@@ -46,7 +46,12 @@ pub fn build(b: *std.Build) void {
     const engine_dir = b.option([]const u8, "engine-src", "Directory of the C engine sources (default ../../lib/plugin)") orelse "../../lib/plugin";
 
     const include = enginePath(b, engine_dir, "include");
-    const engine = b.createModule(.{ .target = target, .optimize = optimize, .link_libc = true });
+    // The engine is built the way CMake builds it for release: optimized, without the undefined-behavior
+    // traps a safe Zig build adds to C (its own CI runs it under the sanitizers). A WebAssembly module is
+    // built for size, because the host that runs it compiles it on load. A Debug build stays Debug.
+    const engine_optimize: std.builtin.Optimize = if (optimize == .debug) .debug else if (target.result.cpu.arch.isWasm()) .small else .fast;
+    // Position independent, since a guest can be built as a shared library.
+    const engine = b.createModule(.{ .target = target, .optimize = engine_optimize, .link_libc = true, .pic = true });
     engine.addCSourceFiles(.{
         .root = enginePath(b, engine_dir, ""),
         .files = &core_sources,

@@ -193,6 +193,17 @@ Second slice (dispatch on the engine's guest):
   `TestFramesGuests/reverse-request-as-the-host-saw-it` caught it. The context's deadline is the
   earlier of the request's own deadline (to the nanosecond) and the time the engine left.
 
+- **Build mode.** The engine is compiled optimized without Zig's undefined-behavior traps
+  (CMake's release build, which its own CI also runs under the sanitizers), for size on
+  WebAssembly, and position independent. A first version built it in the caller's mode: the WASI
+  modules went from 1.9 to 3.6 MB, and on the Linux runner the harness's wazero compile of each
+  module (about 0.9 s on `main`) took 3.5 s and three `TestForeignGuests/ZIG/wasi` subtests passed
+  the harness's 3 s session limit. At 2.3 MB the module is 20 percent larger than before; a
+  shared library on `aarch64-linux-musl` also failed to link until the engine was position
+  independent. Both were found by CI and by building other targets, not on the macOS laptop.
+- The Windows `host` example does not build with Zig 0.17 (`std.DynLib` has no Windows
+  implementation), on `main` as well; the guests and the DLL do.
+
 Left for the Zig SDK:
 
 - `identifier` and `validateIdentity` (the frame ids and the registry identity), the strict decoders

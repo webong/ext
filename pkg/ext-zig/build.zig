@@ -13,7 +13,9 @@ const core_sources = [_][]const u8{
 /// application that has a parser of its own cannot collide: `lib/plugin/CMakeLists.txt` does the
 /// same with a generated header, and the vendored source stays unmodified.
 fn parserFlags(b: *std.Build, engine_dir: []const u8) []const []const u8 {
-    const path = b.pathJoin(&.{ engine_dir, "vendor/yyjson.h" });
+    const sub = b.pathJoin(&.{ engine_dir, "vendor/yyjson.h" });
+    // A relative directory is the build root's, wherever `zig build` was started from.
+    const path = if (std.fs.path.isAbsolute(sub)) sub else b.root.joinString(b.allocator, sub) catch @panic("OOM");
     const source = std.Io.Dir.cwd().readFileAlloc(b.graph.io, path, b.allocator, .limited(16 << 20)) catch |err|
         std.debug.panic("cannot read {s}: {s}", .{ path, @errorName(err) });
     var flags: std.ArrayList([]const u8) = .empty;
@@ -32,21 +34,27 @@ fn parserFlags(b: *std.Build, engine_dir: []const u8) []const []const u8 {
     return flags.items;
 }
 
+/// A path below the engine directory: the build root's when the directory is relative.
+fn enginePath(b: *std.Build, engine_dir: []const u8, sub: []const u8) std.Build.LazyPath {
+    const path = if (sub.len == 0) engine_dir else b.pathJoin(&.{ engine_dir, sub });
+    return if (std.fs.path.isAbsolute(path)) .{ .cwd_relative = path } else b.path(path);
+}
+
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
     const engine_dir = b.option([]const u8, "engine-src", "Directory of the C engine sources (default ../../lib/plugin)") orelse "../../lib/plugin";
 
-    const include: std.Build.LazyPath = .{ .cwd_relative = b.pathJoin(&.{ engine_dir, "include" }) };
+    const include = enginePath(b, engine_dir, "include");
     const engine = b.createModule(.{ .target = target, .optimize = optimize, .link_libc = true });
     engine.addCSourceFiles(.{
-        .root = .{ .cwd_relative = engine_dir },
+        .root = enginePath(b, engine_dir, ""),
         .files = &core_sources,
         .flags = parserFlags(b, engine_dir),
     });
     engine.addIncludePath(include);
-    engine.addIncludePath(.{ .cwd_relative = b.pathJoin(&.{ engine_dir, "src" }) });
-    engine.addIncludePath(.{ .cwd_relative = b.pathJoin(&.{ engine_dir, "vendor" }) });
+    engine.addIncludePath(enginePath(b, engine_dir, "src"));
+    engine.addIncludePath(enginePath(b, engine_dir, "vendor"));
     const engine_lib = b.addLibrary(.{ .name = "ext_guest", .linkage = .static, .root_module = engine });
 
     b.step("engine", "Compile the C engine core for the target").dependOn(&engine_lib.step);

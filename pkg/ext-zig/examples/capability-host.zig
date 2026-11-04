@@ -27,7 +27,9 @@ const Loader = struct {
     }
 };
 fn verify(d: w.Descriptor) !void {
-    try w.validate(d);
+    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    defer arena.deinit();
+    try w.validate(arena.allocator(), d);
 }
 fn allow(_: w.Request) !void {}
 fn expect(ok: bool) !void {

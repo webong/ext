@@ -146,4 +146,38 @@ The owner asked for the best call to be made. This is it, with what would change
    `TestCapabilityGuests` and `TestCapabilityHosts` unchanged, a mutation in `lib/plugin` that
    fails the Zig tests, and the WASI guest still building.
 
+### Status (2026-11-04, branch `engine/zig-switch`)
+
+Done:
+
+- **The gate passes.** `build.zig` compiles the ten sources itself and renames the vendored parser
+  with `-D` flags, as CMake does (checked by comparing the generated names with CMake's). The core
+  builds for `wasm32-wasi`, Linux (gnu x86_64, musl aarch64), Windows (x86_64, aarch64) and macOS.
+  It does not build for iOS (Zig has no iOS sysroot) or `wasm32-freestanding` (no libc); neither is
+  a Zig SDK target. The build works from the package and from the repository root
+  (`--build-file pkg/ext-zig/build.zig`, which is how `scripts/plugin-crosslang.sh` calls it).
+- **Descriptor and request validation come from the engine.** `wire.validate`, `wire.match` and
+  `wire.validateRequest` call `descriptor.validate`, `descriptor.match` and `request.validate`;
+  the Zig copies of those rules (about 70 lines) are deleted.
+- **Evidence.** The 31 SDK tests, with the shared descriptor and request fixtures judged by the
+  engine, pass. The cross-language suites pass against the Zig guest and host: 54 Zig subtests of
+  `TestFramesGuests`, `TestCapabilityGuests`, `TestForeignGuests` (JSON lines, C ABI, WASI),
+  `TestForeignMalformedFrames`, `TestForeignHosts` and `TestCapabilityHosts`.
+- **Mutation checks.** Removing the plugin-identity rule from `lib/plugin/src/wire.c` fails the
+  fixture test. Removing the surface rule did *not* fail anything, because no shared fixture
+  declares a `surface`: the rule was untested in every language. `tests.zig` now holds a test for
+  it, which fails under that mutation. The fixtures themselves still lack the case.
+
+Known cost and what is left:
+
+- Each request is validated by sending the cached descriptor and the request to the service:
+  about 18 microseconds for a descriptor of 40 operations (release build, this machine), mostly
+  re-parsing the descriptor. The engine's guest (`ext_guest_create` and `ext_guest_invoke`)
+  snapshots the descriptor once; moving dispatch onto it is the next slice, and removes both the
+  cost and the context, deadline and error-sanitizing code the SDK keeps for itself.
+- Still Zig copies: `identifier` and `validateIdentity` (the frame ids and the registry identity),
+  the strict decoders that build typed values from JSON, and the frame limiter.
+- `dist/ext-zig` (PR #82) must carry the C sources, since a published package contains only its
+  own directory; `-Dengine-src` points the build at them.
+
 Building it locally needs Zig 0.17.0, pinned with its checksum in `plugin-sdk.yml`.

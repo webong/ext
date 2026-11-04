@@ -32,7 +32,7 @@ test "strict decoding, deadlines, typed guest snapshot" {
     try std.testing.expectEqual(now, try w.deadline(stamp));
     var g = try factory(std.testing.allocator);
     defer g.deinit();
-    try w.validate(g.descriptor);
+    try w.validate(std.testing.allocator, g.descriptor);
     var r: w.Request = .{ .apiVersion = w.version, .id = "1", .plugin = g.descriptor.identity, .contract = .{ .name = "example.echo", .version = "v1" }, .operation = "echo", .deadline = try w.timestamp(a, now + w.timeout_ns), .payload = try w.decode(a, "{\"text\":\"hello\"}") };
     const response = try g.invoke(a, r);
     try w.validateResponse(a, response, "1");
@@ -62,7 +62,7 @@ test "C ABI handle ownership and malformed buffer rejection" {
     defer E.close(live);
     try std.testing.expect(live != id);
     try std.testing.expectEqual(@as(u32, 0), E.call(live, 1, hello.ptr, @intCast(hello.len), out.ptr, w.max_frame, &size));
-    try w.validate(try w.typed(w.Descriptor, a, try w.decode(a, out[0..size])));
+    try w.validate(a, try w.typed(w.Descriptor, a, try w.decode(a, out[0..size])));
 }
 
 const Local = struct {
@@ -152,4 +152,39 @@ test "JSON line fragmentation, EOF and truncated frame" {
     input = .{ .input = "{}" };
     conn.closed = false;
     try std.testing.expectError(error.Truncated, conn.readFrame(a, w.now() + w.timeout_ns));
+}
+// The shared fixtures declare no surface, so this is what holds the engine's surface rule: a request is
+// judged against the surface of the operation it names, and a missing one is not the same as a declared one.
+test "a request must carry the surface of its operation" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const a = arena.allocator();
+    const identity: w.Identity = .{ .id = "example/surface", .revision = "1" };
+    const d: w.Descriptor = .{ .identity = identity, .contracts = &.{.{ .name = "example.surface", .version = "v1", .operations = &.{
+        .{ .name = "plain" },
+        .{ .name = "scoped", .surface = "files" },
+    } }} };
+    try w.validate(a, d);
+    const json = try w.encode(a, d);
+    const deadline = try w.timestamp(a, w.now() + w.timeout_ns);
+    const ref: w.Ref = .{ .name = "example.surface", .version = "v1" };
+    const base: w.Request = .{ .apiVersion = w.version, .id = "1", .plugin = identity, .contract = ref, .operation = "plain", .deadline = deadline };
+    try w.validateRequest(a, json, base);
+    var scoped = base;
+    scoped.operation = "scoped";
+    scoped.surface = "files";
+    try w.validateRequest(a, json, scoped);
+    scoped.surface = "network";
+    try std.testing.expectError(error.Mismatch, w.validateRequest(a, json, scoped));
+    scoped.surface = "";
+    try std.testing.expectError(error.Mismatch, w.validateRequest(a, json, scoped));
+    var plain = base;
+    plain.surface = "files";
+    try std.testing.expectError(error.Mismatch, w.validateRequest(a, json, plain));
+    var other = base;
+    other.plugin = .{ .id = "example/other", .revision = "1" };
+    try std.testing.expectError(error.Mismatch, w.validateRequest(a, json, other));
+    var unknown = base;
+    unknown.operation = "missing";
+    try std.testing.expectError(error.Unsupported, w.validateRequest(a, json, unknown));
 }

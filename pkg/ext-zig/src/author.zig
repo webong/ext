@@ -110,7 +110,7 @@ pub const Registry = struct {
         errdefer _ = self.reverse.pop();
         var arena = std.heap.ArenaAllocator.init(self.allocator);
         defer arena.deinit();
-        try w.validate(try self.descriptor(arena.allocator()));
+        try w.validate(arena.allocator(), try self.descriptor(arena.allocator()));
     }
     pub fn register(self: *Registry, comptime Input: type, comptime Output: type, comptime method: Method(Input, Output), comptime handler: fn (*Context, w.Request, Input) anyerror!Output) !void {
         for (self.entries.items) |e| if (w.eq(u8, e.contract.name, method.contract.name) and w.eq(u8, e.contract.version, method.contract.version) and w.eq(u8, e.operation.name, method.operation.name)) return error.Invalid;
@@ -130,7 +130,7 @@ pub const Registry = struct {
         errdefer _ = self.entries.pop();
         var arena = std.heap.ArenaAllocator.init(self.allocator);
         defer arena.deinit();
-        try w.validate(try self.descriptor(arena.allocator()));
+        try w.validate(arena.allocator(), try self.descriptor(arena.allocator()));
     }
     pub fn descriptor(self: *const Registry, a: A) !w.Descriptor {
         var contracts: std.ArrayList(w.Contract) = .empty;
@@ -159,7 +159,8 @@ pub const Registry = struct {
         }
         const a = arena.allocator();
         const d = try w.typed(w.Descriptor, a, try w.decode(a, try w.encode(a, try self.descriptor(a))));
-        try w.validate(d);
+        try w.validate(a, d);
+        const json = try w.encode(a, d);
         const entries = try a.dupe(Entry, self.entries.items);
         for (entries) |*e| {
             e.contract.name = try a.dupe(u8, e.contract.name);
@@ -167,12 +168,14 @@ pub const Registry = struct {
             e.operation.name = try a.dupe(u8, e.operation.name);
             e.operation.surface = try a.dupe(u8, e.operation.surface);
         }
-        return .{ .arena = arena, .descriptor = d, .entries = entries, .authorize = authorize };
+        return .{ .arena = arena, .descriptor = d, .descriptor_json = json, .entries = entries, .authorize = authorize };
     }
 };
 pub const Guest = struct {
     arena: *std.heap.ArenaAllocator,
     descriptor: w.Descriptor,
+    // The descriptor as the engine validates each request against it.
+    descriptor_json: []const u8,
     entries: []const Entry,
     authorize: Policy,
     pub fn deinit(self: *Guest) void {
@@ -187,7 +190,7 @@ pub const Guest = struct {
     // As invoke, for a request that came in on a connection that carries frames, if there is one: the
     // call can then report progress and call its host.
     pub fn invokeWith(self: *const Guest, a: A, r: w.Request, link: ?*f.Link) !w.Value {
-        w.validateRequest(self.descriptor, r) catch return w.response(a, r.id, null, .{ .code = "invalid_request", .message = "request does not match selected contract" });
+        w.validateRequest(a, self.descriptor_json, r) catch return w.response(a, r.id, null, .{ .code = "invalid_request", .message = "request does not match selected contract" });
         var ctx: Context = .{ .deadline = @min(try w.deadline(r.deadline), w.now() + w.timeout_ns) };
         // A marker for events never reported goes out before the response does.
         defer ctx.finish();

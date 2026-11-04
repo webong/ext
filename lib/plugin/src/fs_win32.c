@@ -1,13 +1,19 @@
 /* Windows filesystem access for package integrity. Paths are UTF-16 with the
  * \\?\ prefix so long paths work. A symbolic link or junction is a reparse
- * point; every component of every path is checked and refused. Unlike the
- * POSIX implementation this is path-based rather than handle-relative, so the
+ * point and is refused wherever it is met.
+ *
+ * The read side (ext_fs_hash_file, ext_fs_read_file and ext_fs_walk) is
+ * handle-relative, as the POSIX one is: each component is opened relative to
+ * the handle of the directory above it, without following a link, and a
+ * directory is listed through its own handle. A path is never resolved a second
+ * time, so a directory swapped for a junction or symbolic link while a walk is
+ * under way cannot redirect the steps that follow.
+ *
+ * The write side, and the source of ext_fs_copy_file, are still path-based: the
  * application must keep the root and its files from being modified while they
- * are read, which is the documented contract. As a second line of defense, each
- * file is opened and then its final path, as the system resolved it, must be
- * the root's canonical path plus the lexical relative path: a directory swapped
- * for a junction or symbolic link after the component check changes where the
- * handle really points, and the file is refused. */
+ * are used, which is the documented contract. As a second line of defense, a
+ * file that copy opens is checked by its final path, as the system resolved it,
+ * which must be the root's canonical path plus the lexical relative path. */
 #define WIN32_LEAN_AND_MEAN
 #ifndef _WIN32_WINNT
 #define _WIN32_WINNT 0x0A00
@@ -125,103 +131,275 @@ static wchar_t *join(const wchar_t *root, const char *relative) {
   free(rel);
   return path;
 }
-/* Checks that every component of relative, below root, is a plain directory
- * (all of them, or all but the last when leaf_is_file). */
-static ext_status check_components(const wchar_t *root, const char *relative,
-                                   int leaf_is_file) {
-  char *copy = strdup(relative);
-  if (!copy)
-    return EXT_NOMEM;
-  ext_status s = EXT_OK;
-  char *end = copy;
-  for (;;) {
-    char *slash = strchr(end, '/');
-    int last = !slash;
-    if (slash)
-      *slash = 0;
-    wchar_t *path = join(root, copy);
-    if (slash)
-      *slash = '/';
-    if (!path) {
-      s = EXT_NOMEM;
-      break;
-    }
-    DWORD a = 0;
-    s = attributes(path, &a);
-    free(path);
-    if (s)
-      break;
-    if (a & FILE_ATTRIBUTE_REPARSE_POINT) {
-      s = EXT_INVALID;
-      break;
-    }
-    int directory = (a & FILE_ATTRIBUTE_DIRECTORY) != 0;
-    if (last && leaf_is_file ? directory : !directory) {
-      s = EXT_INVALID;
-      break;
-    }
-    if (last)
-      break;
-    end = slash + 1;
+/* ---- Read side: relative to open handles ----
+ * NtCreateFile with a RootDirectory is what openat is on POSIX. The name given
+ * is a single component, FILE_OPEN_REPARSE_POINT makes a link or junction open
+ * as itself instead of being followed, and the attributes of the handle that
+ * comes back then refuse it. The declarations are ntdll's, resolved at run time
+ * so that nothing links against it. */
+typedef struct {
+  USHORT length, maximum;
+  PWSTR buffer;
+} nt_name;
+typedef struct {
+  ULONG length;
+  HANDLE root;
+  nt_name *name;
+  ULONG attributes;
+  PVOID descriptor, quality;
+} nt_object;
+typedef struct {
+  union {
+    LONG status;
+    PVOID pointer;
+  } u;
+  ULONG_PTR information;
+} nt_io;
+typedef LONG(NTAPI *nt_create_file)(PHANDLE, ACCESS_MASK, nt_object *, nt_io *,
+                                    PLARGE_INTEGER, ULONG, ULONG, ULONG, ULONG,
+                                    PVOID, ULONG);
+#define NT_FILE_OPEN 1u             /* FILE_OPEN: it must exist */
+#define NT_SYNCHRONOUS 0x20u        /* FILE_SYNCHRONOUS_IO_NONALERT */
+#define NT_OPEN_REPARSE_POINT 0x200000u
+#define NT_CASE_INSENSITIVE 0x40u   /* OBJ_CASE_INSENSITIVE, as Win32 names are */
+#define NT_MAX_COMPONENT 32000u     /* UTF-16 units; the limit of a name is 255 */
+
+static nt_create_file nt_create(void) {
+  static nt_create_file volatile resolved;
+  nt_create_file fn = resolved;
+  if (!fn) {
+    HMODULE ntdll = GetModuleHandleW(L"ntdll.dll");
+    fn = ntdll ? (nt_create_file)(void (*)(void))GetProcAddress(ntdll, "NtCreateFile")
+               : NULL;
+    resolved = fn;
   }
-  free(copy);
-  return s;
+  return fn;
 }
-static ext_status hash_path(const wchar_t *path, const where *w, uint8_t out[32]) {
-  HANDLE h = CreateFileW(path, GENERIC_READ,
+/* The status of a failed NtCreateFile as ours: a name that is not there is
+ * EXT_MISSING, as on POSIX, and a name Windows will not take is EXT_INVALID. */
+static ext_status nt_error(LONG status) {
+  switch ((ULONG)status) {
+  case 0xC000000Fu: /* STATUS_NO_SUCH_FILE */
+  case 0xC0000034u: /* STATUS_OBJECT_NAME_NOT_FOUND */
+  case 0xC000003Au: /* STATUS_OBJECT_PATH_NOT_FOUND */
+    return EXT_MISSING;
+  case 0xC0000033u: /* STATUS_OBJECT_NAME_INVALID */
+  case 0xC0000039u: /* STATUS_OBJECT_PATH_INVALID */
+  case 0xC000003Bu: /* STATUS_OBJECT_PATH_SYNTAX_BAD */
+    return EXT_INVALID;
+  default:
+    return EXT_IO;
+  }
+}
+/* Opens the one component name below dir, without following a link. The handle
+ * can read the entry or, for a directory, list it. */
+static ext_status open_child(HANDLE dir, const wchar_t *name, HANDLE *out) {
+  nt_create_file create = nt_create();
+  size_t n = wcslen(name);
+  if (!create)
+    return EXT_IO;
+  if (!n || n > NT_MAX_COMPONENT)
+    return EXT_INVALID;
+  nt_name text = {(USHORT)(n * sizeof(wchar_t)), (USHORT)(n * sizeof(wchar_t)),
+                  (PWSTR)name};
+  nt_object object = {sizeof(object), dir, &text, NT_CASE_INSENSITIVE, NULL, NULL};
+  nt_io io;
+  memset(&io, 0, sizeof(io));
+  HANDLE h = NULL;
+  LONG status = create(&h, FILE_LIST_DIRECTORY | FILE_READ_ATTRIBUTES | SYNCHRONIZE,
+                       &object, &io, NULL, FILE_ATTRIBUTE_NORMAL,
+                       FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                       NT_FILE_OPEN, NT_OPEN_REPARSE_POINT | NT_SYNCHRONOUS, NULL, 0);
+  if (status < 0)
+    return nt_error(status);
+  *out = h;
+  return EXT_OK;
+}
+/* Whether the open handle is a directory. A reparse point (a symbolic link, a
+ * junction, a mount point) is EXT_INVALID. */
+static ext_status classify(HANDLE h, int *directory) {
+  BY_HANDLE_FILE_INFORMATION info;
+  if (!GetFileInformationByHandle(h, &info))
+    return EXT_IO;
+  if (info.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT)
+    return EXT_INVALID;
+  *directory = (info.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
+  return EXT_OK;
+}
+/* Opens the root, which must be a plain directory. */
+static ext_status open_root(const ext_fs *fs, HANDLE *out) {
+  HANDLE h = CreateFileW(fs->root, FILE_LIST_DIRECTORY | FILE_READ_ATTRIBUTES,
                          FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
                          NULL, OPEN_EXISTING,
-                         FILE_FLAG_OPEN_REPARSE_POINT | FILE_FLAG_SEQUENTIAL_SCAN,
+                         FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT,
                          NULL);
   if (h == INVALID_HANDLE_VALUE)
     return win_error(GetLastError());
-  BY_HANDLE_FILE_INFORMATION info;
-  ext_status s = EXT_OK;
-  if (!GetFileInformationByHandle(h, &info))
-    s = EXT_IO;
-  else if (info.dwFileAttributes &
-           (FILE_ATTRIBUTE_REPARSE_POINT | FILE_ATTRIBUTE_DIRECTORY))
+  int directory = 0;
+  ext_status s = classify(h, &directory);
+  if (!s && !directory)
     s = EXT_INVALID;
-  else if (!resolves_to(h, path, w))
-    s = EXT_INVALID;
+  if (s) {
+    CloseHandle(h);
+    return s;
+  }
+  *out = h;
+  return EXT_OK;
+}
+/* One component of a portable relative path, as UTF-16. A backslash or a colon
+ * would name another place on Windows (a parent, a stream), and a control
+ * character is not part of a name. */
+static ext_status component(const char *part, size_t n, wchar_t **out) {
+  if (!n || (n == 1 && part[0] == '.') || (n == 2 && part[0] == '.' && part[1] == '.'))
+    return EXT_INVALID;
+  for (size_t i = 0; i < n; i++) {
+    unsigned char c = (unsigned char)part[i];
+    if (c == '\\' || c == ':' || c < 0x20)
+      return EXT_INVALID;
+  }
+  char *copy = malloc(n + 1);
+  if (!copy)
+    return EXT_NOMEM;
+  memcpy(copy, part, n);
+  copy[n] = 0;
+  wchar_t *wide = widen(copy);
+  free(copy);
+  if (!wide)
+    return EXT_INVALID; /* not UTF-8 */
+  *out = wide;
+  return EXT_OK;
+}
+/* Opens the entry at the portable relative path below the root ("" is the root
+ * itself) and says whether it is a directory. Every directory above it is a
+ * plain one, opened from the one before; the caller closes the handle. A link
+ * at any component, or a non-directory above the last, is EXT_INVALID. */
+static ext_status open_below(const ext_fs *fs, const char *relative, HANDLE *out,
+                             int *directory) {
+  HANDLE current = INVALID_HANDLE_VALUE;
+  ext_status s = open_root(fs, &current);
+  *directory = 1;
+  const char *part = relative;
+  while (!s && *part) {
+    const char *end = strchr(part, '/');
+    size_t n = end ? (size_t)(end - part) : strlen(part);
+    if (!*directory || (end && !end[1])) { /* a file with something below it, or a trailing slash */
+      s = EXT_INVALID;
+      break;
+    }
+    wchar_t *name = NULL;
+    s = component(part, n, &name);
+    if (s)
+      break;
+    HANDLE next = INVALID_HANDLE_VALUE;
+    s = open_child(current, name, &next);
+    free(name);
+    if (s)
+      break;
+    CloseHandle(current);
+    current = next;
+    s = classify(current, directory);
+    part = end ? end + 1 : part + n;
+  }
+  if (s) {
+    if (current != INVALID_HANDLE_VALUE)
+      CloseHandle(current);
+    return s;
+  }
+  *out = current;
+  return EXT_OK;
+}
+/* SHA-256 of the file behind an open handle. */
+static ext_status hash_handle(HANDLE h, uint8_t out[32]) {
   ext_hash hash;
   ext_hash_init(&hash);
   uint8_t buffer[65536];
-  while (!s) {
+  ext_status s = EXT_OK;
+  for (;;) {
     DWORD n = 0;
-    if (!ReadFile(h, buffer, sizeof(buffer), &n, NULL))
+    if (!ReadFile(h, buffer, sizeof(buffer), &n, NULL)) {
       s = EXT_IO;
-    else if (!n)
       break;
-    else
-      ext_hash_update(&hash, buffer, n);
+    }
+    if (!n)
+      break;
+    ext_hash_update(&hash, buffer, n);
   }
-  CloseHandle(h);
   ext_hash_finish(&hash, out);
   return s;
 }
-static ext_status walk(const wchar_t *directory, const where *w, const char *prefix,
-                       ext_fs_visit visit, void *user, unsigned depth) {
+/* The names in the directory behind dir, except "." and "..", read through the
+ * handle and so from the directory the handle was opened on. */
+static ext_status read_names(HANDLE dir, wchar_t ***out, size_t *count) {
+  enum { BUFFER = 32768 };
+  *out = NULL;
+  *count = 0;
+  uint8_t *buffer = malloc(BUFFER);
+  if (!buffer)
+    return EXT_NOMEM;
+  wchar_t **names = NULL;
+  size_t used = 0, cap = 0;
+  ext_status s = EXT_OK;
+  FILE_INFO_BY_HANDLE_CLASS what = FileFullDirectoryRestartInfo;
+  while (!s) {
+    if (!GetFileInformationByHandleEx(dir, what, buffer, BUFFER)) {
+      if (GetLastError() != ERROR_NO_MORE_FILES)
+        s = EXT_IO;
+      break;
+    }
+    what = FileFullDirectoryInfo;
+    FILE_FULL_DIR_INFO *entry = (FILE_FULL_DIR_INFO *)buffer;
+    for (;;) {
+      size_t n = entry->FileNameLength / sizeof(wchar_t);
+      int dots = (n == 1 && entry->FileName[0] == L'.') ||
+                 (n == 2 && entry->FileName[0] == L'.' && entry->FileName[1] == L'.');
+      if (!dots) {
+        if (used == cap) {
+          size_t next = cap ? cap * 2 : 16;
+          wchar_t **grown = realloc(names, next * sizeof(*names));
+          if (!grown) {
+            s = EXT_NOMEM;
+            break;
+          }
+          names = grown;
+          cap = next;
+        }
+        wchar_t *name = malloc((n + 1) * sizeof(*name));
+        if (!name) {
+          s = EXT_NOMEM;
+          break;
+        }
+        memcpy(name, entry->FileName, n * sizeof(*name));
+        name[n] = 0;
+        names[used++] = name;
+      }
+      if (!entry->NextEntryOffset)
+        break;
+      entry = (FILE_FULL_DIR_INFO *)((uint8_t *)entry + entry->NextEntryOffset);
+    }
+  }
+  free(buffer);
+  if (s) {
+    for (size_t i = 0; i < used; i++)
+      free(names[i]);
+    free(names);
+    return s;
+  }
+  *out = names;
+  *count = used;
+  return EXT_OK;
+}
+/* Visits every regular file below the directory behind dir. Each entry is
+ * opened from dir, so what is hashed or entered is what dir held, never what a
+ * path would lead to now. */
+static ext_status walk(HANDLE dir, const char *prefix, ext_fs_visit visit,
+                       void *user, unsigned depth) {
   if (depth > 1024)
     return EXT_INVALID;
-  size_t length = wcslen(directory);
-  wchar_t *pattern = malloc((length + 3) * sizeof(*pattern));
-  if (!pattern)
-    return EXT_NOMEM;
-  memcpy(pattern, directory, length * sizeof(*pattern));
-  memcpy(pattern + length, L"\\*", 3 * sizeof(*pattern));
-  WIN32_FIND_DATAW data;
-  HANDLE find = FindFirstFileExW(pattern, FindExInfoBasic, &data,
-                                 FindExSearchNameMatch, NULL,
-                                 FIND_FIRST_EX_LARGE_FETCH);
-  free(pattern);
-  if (find == INVALID_HANDLE_VALUE)
-    return win_error(GetLastError());
-  ext_status s = EXT_OK;
-  do {
-    if (!wcscmp(data.cFileName, L".") || !wcscmp(data.cFileName, L".."))
-      continue;
-    char *name = narrow(data.cFileName);
+  wchar_t **names = NULL;
+  size_t count = 0;
+  ext_status s = read_names(dir, &names, &count);
+  for (size_t i = 0; i < count && !s; i++) {
+    char *name = narrow(names[i]);
     if (!name) {
       s = EXT_INVALID;
       break;
@@ -238,33 +416,32 @@ static ext_status walk(const wchar_t *directory, const where *w, const char *pre
       path[base++] = '/';
     memcpy(path + base, name, n + 1);
     free(name);
-    wchar_t *child = malloc((length + wcslen(data.cFileName) + 2) * sizeof(*child));
-    if (!child) {
-      free(path);
-      s = EXT_NOMEM;
-      break;
+    HANDLE child = INVALID_HANDLE_VALUE;
+    int directory = 0;
+    s = open_child(dir, names[i], &child);
+    if (!s) {
+      s = classify(child, &directory);
+      if (s) {
+        CloseHandle(child);
+      } else if (directory) {
+        s = walk(child, path, visit, user, depth + 1);
+        CloseHandle(child);
+      } else if (strchr(path, '\r') || strchr(path, '\n')) {
+        CloseHandle(child);
+        s = EXT_INVALID;
+      } else {
+        uint8_t sum[32];
+        s = hash_handle(child, sum);
+        CloseHandle(child);
+        if (!s)
+          s = visit(user, path, sum);
+      }
     }
-    memcpy(child, directory, length * sizeof(*child));
-    child[length] = L'\\';
-    wcscpy(child + length + 1, data.cFileName);
-    if (data.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT)
-      s = EXT_INVALID;
-    else if (data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
-      s = walk(child, w, path, visit, user, depth + 1);
-    else if (strchr(path, '\r') || strchr(path, '\n'))
-      s = EXT_INVALID;
-    else {
-      uint8_t sum[32];
-      s = hash_path(child, w, sum);
-      if (!s)
-        s = visit(user, path, sum);
-    }
-    free(child);
     free(path);
-  } while (!s && FindNextFileW(find, &data));
-  if (!s && GetLastError() != ERROR_NO_MORE_FILES && GetLastError() != ERROR_SUCCESS)
-    s = EXT_IO;
-  FindClose(find);
+  }
+  for (size_t i = 0; i < count; i++)
+    free(names[i]);
+  free(names);
   return s;
 }
 
@@ -349,15 +526,15 @@ void ext_fs_close(ext_fs *fs) {
   free(fs);
 }
 ext_status ext_fs_hash_file(ext_fs *fs, const char *path, uint8_t out[32]) {
-  ext_status s = check_components(fs->root, path, 1);
+  if (!fs || !path)
+    return EXT_INVALID;
+  HANDLE h = INVALID_HANDLE_VALUE;
+  int directory = 0;
+  ext_status s = open_below(fs, path, &h, &directory);
   if (s)
     return s;
-  wchar_t *full = join(fs->root, path);
-  if (!full)
-    return EXT_NOMEM;
-  where w = {fs->root, fs->canonical};
-  s = hash_path(full, &w, out);
-  free(full);
+  s = directory ? EXT_INVALID : hash_handle(h, out);
+  CloseHandle(h);
   return s;
 }
 ext_status ext_fs_read_file(ext_fs *fs, const char *path, size_t limit,
@@ -365,31 +542,15 @@ ext_status ext_fs_read_file(ext_fs *fs, const char *path, size_t limit,
   if (!fs || !path || !*path || !out || !limit)
     return EXT_INVALID;
   *out = (ext_buffer){0};
-  ext_status s = check_components(fs->root, path, 1);
+  HANDLE h = INVALID_HANDLE_VALUE;
+  int directory = 0;
+  ext_status s = open_below(fs, path, &h, &directory);
   if (s)
     return s;
-  wchar_t *full = join(fs->root, path);
-  if (!full)
-    return EXT_NOMEM;
-  HANDLE h = CreateFileW(full, GENERIC_READ,
-                         FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
-                         NULL, OPEN_EXISTING,
-                         FILE_FLAG_OPEN_REPARSE_POINT | FILE_FLAG_SEQUENTIAL_SCAN,
-                         NULL);
-  if (h == INVALID_HANDLE_VALUE) {
-    DWORD error = GetLastError();
-    free(full);
-    return win_error(error);
-  }
-  BY_HANDLE_FILE_INFORMATION info;
   LARGE_INTEGER size;
-  where w = {fs->root, fs->canonical};
-  if (!GetFileInformationByHandle(h, &info) ||
-      info.dwFileAttributes & (FILE_ATTRIBUTE_REPARSE_POINT | FILE_ATTRIBUTE_DIRECTORY) ||
-      !resolves_to(h, full, &w))
-    s = EXT_INVALID;
-  if (!s && (!GetFileSizeEx(h, &size) || size.QuadPart < 0 ||
-             (uint64_t)size.QuadPart > limit))
+  size.QuadPart = 0;
+  if (directory || !GetFileSizeEx(h, &size) || size.QuadPart < 0 ||
+      (uint64_t)size.QuadPart > limit)
     s = EXT_INVALID;
   uint8_t *data = NULL;
   if (!s) {
@@ -415,7 +576,6 @@ ext_status ext_fs_read_file(ext_fs *fs, const char *path, size_t limit,
       s = EXT_INVALID;
   }
   CloseHandle(h);
-  free(full);
   if (s)
     free(data);
   else
@@ -424,15 +584,15 @@ ext_status ext_fs_read_file(ext_fs *fs, const char *path, size_t limit,
 }
 ext_status ext_fs_walk(ext_fs *fs, const char *path, ext_fs_visit visit,
                        void *user) {
-  ext_status s = *path ? check_components(fs->root, path, 0) : EXT_OK;
+  if (!fs || !path || !visit)
+    return EXT_INVALID;
+  HANDLE h = INVALID_HANDLE_VALUE;
+  int directory = 0;
+  ext_status s = open_below(fs, path, &h, &directory);
   if (s)
     return s;
-  wchar_t *full = join(fs->root, path);
-  if (!full)
-    return EXT_NOMEM;
-  where w = {fs->root, fs->canonical};
-  s = walk(full, &w, "", visit, user, 0);
-  free(full);
+  s = directory ? walk(h, "", visit, user, 0) : EXT_INVALID;
+  CloseHandle(h);
   return s;
 }
 

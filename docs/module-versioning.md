@@ -293,9 +293,9 @@ The round that follows the move has four layers:
 The adapters and `pkg/ext-go` get patch versions: they only require the new path. `pkg/ext-go/wasm`
 gets a minor version because its `Options` type is an alias of a type in the moved module, so the type
 changes identity with the module path. The round tags no other module: `pkg/ext-go/engine` and `pkg/ext-go/cgoengine` changed only a test line and
-a README since their last tags, and no module needs them. Until the last layer is tagged, `go.work` carries
+a README since their last tags, and no module needs them. While the round was being tagged, `go.work` carried
 version-pinned `replace` lines for `adapters/chromium`, `adapters/firefox` and `pkg/ext-go/wasm`, which other
-workspace modules require at versions that have no tag yet; a commit after the round removes them.
+workspace modules required at versions that had no tag yet; a commit after the last layer removed them.
 
 The packages moved with it, and their import paths changed:
 

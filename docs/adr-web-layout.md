@@ -88,9 +88,18 @@ costs them nothing.
 - `src/ctx/internal/arch` checks the library's location and independence, the host
   module's path, its empty top and group directories, and the layering above.
 - A workflow runs the library's tests, TypeScript declaration check and example
-  build. Browser smoke tests need a browser and stay manual; see
+  build, then packages the built examples with `res/web/host/artifact/extension`
+  (`TestExtWebExamplesPackage`), so a manifest the Go tooling cannot read fails
+  there. The theme example is built by the library's own `createThemeManifest`, so
+  that test covers it. Browser smoke tests need a browser and stay manual; see
   [the compatibility checks](../pkg/ext-web/COMPATIBILITY.md).
-- Not done yet: shared theme and userscript fixtures between `pkg/ext-web` and the Go
-  packages, a CI step that packages the built examples with
-  `res/web/host/artifact/extension` and installs them through an adapter, and a
-  release tag, workflow, registry and version for `pkg/ext-web`.
+- The userscript registry repeats the Go rule for an ID, so its tests run the ID
+  cases of the shared `record.json` fixtures. The registry also bounds the browser
+  registration ID, which is the ID behind a namespaced prefix, to 128 characters;
+  the Go rule allows an ID of 128 characters, so the longest ID the registry can
+  register depends on its namespace. That limit is kept on purpose: it fails
+  closed before anything is registered, no check records what the browsers
+  accept, and a hashed ID would need a synchronous digest that the web platform
+  does not offer. It is documented in the library README and declarations.
+- Not done yet: installing the packaged examples through an adapter into a real
+  browser, and a release tag, workflow, registry and version for `pkg/ext-web`.

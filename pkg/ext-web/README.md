@@ -113,8 +113,13 @@ needs signing and distribution.
 with a caller-owned catalog. `createUserscriptRegistry` requires `prepare` to
 produce a reviewed registration plan and `authorize` before changes. It binds
 registration IDs to a namespace and restores missing registrations after a
-browser restart. Portable userscript metadata and preparation remain in
-`res/web/host/artifact/userscript`.
+browser restart. A registration ID is the namespaced prefix followed by the
+script ID, with `.` and `_` escaped to three characters each, and is limited to
+128 characters. The portable rules allow a script ID of 128 characters, so the
+longest ID the registry can register depends on its namespace;
+`registrationId(id)` throws before anything is registered, and a `prepare`
+hook can call it to refuse such a script early. Portable userscript metadata
+and preparation remain in `res/web/host/artifact/userscript`.
 
 `ext-web/bridge` provides a nonce-bound `MessagePort` handshake for a
 caller-created sandbox page, plus a page-visible request bridge. The sandbox
@@ -147,7 +152,9 @@ protocol harness. The examples use only the `storage` permission.
 `res/web/host/artifact/extension` can inspect and package these built directories for an
 external installation workflow. Browser installation and activation are supplied
 by the selected browser adapter; the embedded JavaScript peer library does not
-call those Go APIs.
+call those Go APIs. The `web-js` workflow builds the examples and runs
+`TestExtWebExamplesPackage` from that Go package against them; locally, run it from
+`res/web/host` after `npm run build:examples` with `go test ./artifact/extension -run TestExtWebExamplesPackage`.
 
 The package accepts either `browser.runtime` or `chrome.runtime`, or an injected
 runtime. The current examples passed automated host/guest checks in Firefox 159

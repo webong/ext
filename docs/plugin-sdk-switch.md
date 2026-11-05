@@ -79,7 +79,8 @@ The code is the smaller part. The price is what an application needs to build or
 - **Zig.** `build.zig` can compile C itself and cross-compile it, WASI included, so this is the
   cheapest. Today the engine package (`pkg/ext-zig/engine`) links a library built beforehand with
   CMake (`-Dengine-lib=`), and the SDK (`pkg/ext-zig`) does not use the engine at all. The Zig
-  package published from `dist/ext-zig` (PR #82) would have to carry the C sources it builds.
+  package published from `dist/ext-zig` (PR #82) has to carry the C sources it builds, which it now
+  does (`pkg/ext-zig/csrc`, see the status below).
 - **TypeScript.** Today there is nothing to build or install. The engine reaches JavaScript as a
   Node addon (a prebuilt binary per platform and Node version) or, as a candidate worth testing
   and not yet tried, the guest core compiled to WebAssembly, which would stay portable. Either
@@ -208,7 +209,14 @@ Left for the Zig SDK:
 
 - `identifier` and `validateIdentity` (the frame ids and the registry identity), the strict decoders
   that build typed values from JSON, and the frame limiter are still Zig.
-- `dist/ext-zig` (PR #82) must carry the C sources, since a published package contains only its
-  own directory; `-Dengine-src` points the build at them.
+- **The package carries the C sources it is built from** (`pkg/ext-zig/csrc`, 30 files and about
+  1 MB, nearly all of it the vendored parser), because a consumer fetches nothing outside the
+  package. `scripts/ext-zig-sync.sh` makes it from `lib/plugin` (the files `core_sources` names and
+  every header), `scripts/ext-zig-release.sh` refuses to stage a package whose copy differs, and
+  `-Dengine-src` still points a build elsewhere. The first version of the switch did not do this:
+  its package defaulted to `../../lib/plugin`, which a fetched package does not have, and the
+  `Release Zig package` check failed on PR #94 for that reason. That check is a separate workflow
+  from the seven that the pull request listed as pending, and it was not read before the merge.
+  It now also starts on a change to `lib/plugin`.
 
 Building it locally needs Zig 0.17.0, pinned with its checksum in `plugin-sdk.yml`.

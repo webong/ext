@@ -27,6 +27,12 @@ recorded, which the release page carries as `ext-zig-X.Y.Z-package-hash.txt`. Se
 [distribution branches](../../docs/module-versioning.md#distribution-branches). To develop against a
 checkout instead, point a path dependency at this directory.
 
+The package compiles the C engine's portable guest core (validation and dispatch) with Zig, so it
+needs no CMake and no prebuilt library. It carries the sources in [`csrc`](csrc), a generated copy of
+[`lib/plugin`](../../lib/plugin): after changing `lib/plugin`, run `scripts/ext-zig-sync.sh` and commit
+both (`scripts/ext-zig-release.sh` fails on a copy that differs). `-Dengine-src=<dir>` builds from
+another directory.
+
 ## Typed authoring
 
 ```zig

@@ -210,7 +210,9 @@ A published Go module contains only its own directory. `pkg/ext-go/cgoengine`
 therefore carries the C sources it is built from as `_csrc`, a generated copy of
 `lib/plugin` made by `scripts/cgoengine-sync.sh`; `TestCSourcesMatchCanonical`
 fails when the copy drifts. `lib/plugin` stays the canonical home that the iOS,
-Android, Rust and Zig bindings build from: edit it, run the script, commit both.
+Android, Rust and Zig bindings build from: edit it, run the script, commit both. The Zig package
+(`pkg/ext-zig`) carries the portable guest core the same way, as `csrc`, made by `scripts/ext-zig-sync.sh`;
+`scripts/ext-zig-release.sh` fails when that copy drifts.
 
 Language SDKs and bindings belong under `pkg/<language>/` (Go, Rust, Zig and
 TypeScript), with language-specific embedding examples alongside them. `pkg/ext-web`

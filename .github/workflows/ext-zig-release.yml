@@ -13,7 +13,9 @@ on:
   pull_request:
     paths:
       - 'pkg/ext-zig/**'
+      - 'lib/plugin/**'
       - 'scripts/ext-zig-release.sh'
+      - 'scripts/ext-zig-sync.sh'
       - 'scripts/install-zig.sh'
       - 'LICENSE'
       - '.github/workflows/ext-zig-release.yml'

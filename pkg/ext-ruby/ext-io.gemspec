@@ -22,6 +22,7 @@ Gem::Specification.new do |spec|
     "bug_tracker_uri" => "https://github.com/webong/ext/issues",
     "rubygems_mfa_required" => "true"
   }
-  spec.files = Dir.chdir(__dir__) { Dir["lib/**/*.rb"] + %w[README.md LICENSE] }
+  # The host (lib/ext_io/host.rb) is the ext-io-host gem.
+  spec.files = Dir.chdir(__dir__) { Dir["lib/**/*.rb"] - ["lib/ext_io/host.rb"] + %w[README.md LICENSE] }
   spec.require_paths = ["lib"]
 end

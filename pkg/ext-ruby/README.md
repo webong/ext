@@ -4,6 +4,7 @@
 
 Standard-library-only guest for `ext.plugin/v1` over JSON lines (Ruby 3.1+). It needs no C and no
 native build. Hosts use the Go `pkg/ext-go/engine/host/process` backend (or any JSON-line client) to run it.
+A Ruby program can also host plugins itself with the opt-in [host SDK](#host-sdk-extiohost) on the C engine.
 
 ```ruby
 require "ext_io/plugin"
@@ -87,6 +88,53 @@ frames are written compactly with everything outside printable ASCII escaped, by
 the Python SDK writes them. Standard output carries only protocol frames: file descriptor 1 (and
 so `$stdout`, `STDOUT` and child processes) is redirected to standard error.
 
+## Host SDK (`ExtIO::Host`)
+
+`ExtIO::Host` (`require "ext_io/host"`) runs plugins from Ruby through the C engine (`lib/plugin`),
+which does what a host must get right: admission, the handshake check against the descriptor,
+request and response validation, deadlines and the session's lifecycle. It is opt-in and separate
+from the guest, as the gem `ext-io-host` (`ext-io-host.gemspec`): one native extension,
+`ExtIO::Host::Native` (`ext/ext_io_host`), which loads the engine's shared library (`libext_host`,
+from an `ext-engine-vX.Y.Z` release or a CMake build of `lib/plugin`) at run time, so it is built
+against the Ruby headers and `ext_host.h` only. Outside a checkout, install it with
+`gem install ext-io-host -- --with-ext_host-dir=<unpacked ext-engine release>` (or set
+`EXT_HOST_INCLUDE`). `scripts/ext-ruby-host.sh <dir>` builds the extension into
+`<dir>/ext_io/host/native.<so|bundle>` for `-I <dir>`. Requiring `"ext_io/plugin"` loads neither.
+
+```ruby
+require "ext_io/host"
+
+engine = ExtIO::Host::Engine.new        # EXT_HOST_LIBRARY, or libext_host on the loader path
+engine.process(descriptor, "/opt/plugins/echo/1.0.0/echo") do |host|   # destroyed after the block
+  host.start
+  host.call({ "name" => "ext.echo", "version" => "v1" }, "echo", { "value" => 7 })  # => {"value"=>7}
+end
+```
+
+- `Engine.new(path = nil)`: the engine from `path`, `EXT_HOST_LIBRARY`, or `libext_host` on the
+  loader path; it must have host ABI 2 (`LoadError` otherwise). An engine is never unloaded.
+- `engine.process(descriptor, executable, arguments:, environment:, working_directory:, stderr_bytes:, verify:, authorize:)`:
+  a JSON-line guest started as `executable` (an absolute path, no shell); `environment` entries are
+  `NAME=value`, added to a scrubbed base of `PATH`.
+- `engine.shared_library(descriptor, path, verify:, authorize:)`: a guest library that exports the C
+  ABI of `ext_plugin.h`, loaded when the host starts, after `verify`, and never unloaded. Its
+  native code runs in this process with its full access.
+- `verify` and `authorize` are callables that receive the decoded JSON and return truthy to allow;
+  absent allows, and an exception denies. A policy may not use the host it decides for: a call to
+  it from inside the policy raises `HostError` `invalid`.
+- `start(timeout = 3.0)`, `call(contract, operation, payload = nil, timeout: 3.0)` (the payload),
+  `invoke(envelope, timeout: 3.0)` (JSON strings in and out), `drain(timeout)`, `close`, `state`,
+  `stderr`, `destroy`, `destroyed?`. With a block, `process` and `shared_library` yield the host and
+  destroy it afterwards; garbage collection frees an unreachable one.
+- A domain error raises `ExtIO::Plugin::RemoteError` (also `ExtIO::Host::RemoteError`); a host
+  failure raises `ExtIO::Host::HostError`, whose `status` is the engine's status by name
+  (`denied`, `closed`, `timeout` ...).
+
+Every call that can block runs without the global VM lock, so other threads keep running and may
+call the same host; the engine serializes a host's calls itself. An interrupt (`Thread#raise`,
+`Thread#kill`, Ctrl-C) cancels the call in progress through the engine. The engine runs policies
+on the thread making the call, so the extension takes the lock back to run them.
+
 ## Tests
 
 `ruby test/all.rb` here (Minitest, bundled with Ruby) runs:
@@ -96,7 +144,13 @@ so `$stdout`, `STDOUT` and child processes) is redirected to standard error.
   Go contract), with no exceptions;
 - `test/test_guest.rb`, `test/test_capability.rb`, `test/test_serve_frames.rb`: the cases of the
   Python SDK's tests, the router driven by a host on pipes;
-- `test/test_example.rb`: the example plugin and its manifest digest.
+- `test/test_example.rb`: the example plugin and its manifest digest;
+- `test/test_host.rb`: the host SDK, with every case of `lib/plugin/testdata/v1/host-cases.json`
+  on the reference guest as a process and as a C ABI library, then threads, interrupts, policies,
+  envelopes and ownership. It needs the extension on the load path, `EXT_HOST_LIBRARY`,
+  `EXT_GO_GUEST` and `EXT_GO_SHARED`, and is skipped without them (it fails instead with
+  `EXT_HOST_REQUIRED=1`); `scripts/host-cases.sh` builds them all and runs it, on Ruby 3.1, 3.4
+  and 4.0 in `.github/workflows/host-cases.yml`.
 
 `test/frames_guest.rb` is the frames conformance guest of
 [docs/plugin-guest-frames.md](https://github.com/webong/ext/blob/main/docs/plugin-guest-frames.md)

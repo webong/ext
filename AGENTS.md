@@ -56,7 +56,9 @@ package. Binary releases use product tags, `ctx-vX.Y.Z` and `ctn-vX.Y.Z`; those 
 module versions. Bare `vX.Y.Z` tags are not used. The only bare tags are the `X.Y.Z` tags of a
 distribution branch (`dist/ext-ios`, for SwiftPM; `dist/ext-zig` tags `ext-zig-X.Y.Z` instead), which only the
 release workflow writes and which is never merged; see [distribution branches](docs/module-versioning.md#distribution-branches).
-`src/` is a container like `res/`; the context manager is the module
+`tests/` is a container for test-only Go modules that belong to no single library: `tests/crosslang` runs
+every language's guests and hosts against each other, with `pkg/ext-go` as the host side. Its modules are
+listed in `go.work`, are never tagged or published, and no library imports them. `src/` is a container like `res/`; the context manager is the module
 `src/ctx` (`src/ctx/cmd/ctx`, with its private code in `src/ctx/internal`) and
 the content manager is `src/ctn`. This repository is ext: it provides libraries
 and binaries, and ctx and ctn are binaries built on those libraries. A product

@@ -118,5 +118,5 @@ on pipes, and `tests/frames_guest.php` is the frames conformance guest of
 [docs/plugin-guest-frames.md](https://github.com/webong/ext/blob/main/docs/plugin-guest-frames.md).
 The Go suites run this guest through `process.Start`: `TestPHPGuest` in
 `pkg/ext-go/engine/plugintest` against the shared conformance cases, and `TestPHPFramesGuest` in
-`pkg/ext-go/crosslang` through the frames suite (and the C engine under
+`tests/crosslang` through the frames suite (and the C engine under
 `scripts/plugin-crosslang.sh`); both skip when `php` is not installed.

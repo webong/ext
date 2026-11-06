@@ -48,7 +48,7 @@ jobs:
         working-directory: pkg/ext-go/engine
         run: go test -count=1 -v -run 'TestPHPGuest' ./plugintest
       - name: Go frames suite
-        working-directory: pkg/ext-go
+        working-directory: tests/crosslang
         env:
           EXT_FRAMES_REQUIRED: PHP
-        run: go test -count=1 -v -run 'TestPHPFramesGuest' ./crosslang
+        run: go test -count=1 -v -run 'TestPHPFramesGuest' .

@@ -12,7 +12,7 @@ on:
       - pkg/ext-lua/**
       - lib/plugin/testdata/**
       - pkg/ext-go/engine/**
-      - pkg/ext-go/crosslang/**
+      - tests/crosslang/**
       - scripts/ext-lua.sh
       - .github/workflows/ext-lua.yml
   workflow_dispatch:

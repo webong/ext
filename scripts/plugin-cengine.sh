@@ -32,7 +32,7 @@ cmake -S lib/plugin -B "$build_dir/release" -DCMAKE_BUILD_TYPE=Release -DEXT_BUI
 cmake --build "$build_dir/release" -j 4
 export CGO_LDFLAGS="${CGO_LDFLAGS:-} -L$build_dir/release -Wl,-rpath,$build_dir/release"
 export EXT_CENGINE_GUEST="$build_dir/go-guest" EXT_CENGINE_FAULT_GUEST="$build_dir/fault-guest"
-go build -o "$EXT_CENGINE_GUEST" ./pkg/ext-go/crosslang/testdata/go-guest
+go build -o "$EXT_CENGINE_GUEST" ./tests/crosslang/testdata/go-guest
 go build -o "$EXT_CENGINE_FAULT_GUEST" ./pkg/ext-go/cgoengine/testdata/faultguest
 go test -tags "$go_tags" -race -count=1 -timeout=90s ./pkg/ext-go/cgoengine
 python3 - "$build_dir" <<'PY'

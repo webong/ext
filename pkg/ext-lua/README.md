@@ -151,7 +151,7 @@ computed by the Go contract) with no exceptions, and cover the router with a scr
 coroutine. `scripts/ext-lua.sh` (with `EXT_LUA` naming the interpreter) runs them, then
 `TestLuaGuest` in `pkg/ext-go/engine/plugintest`, which runs `tests/conformance_guest.lua` through
 `process.Start` against the shared conformance suite, and `TestLuaFramesGuest` in
-`pkg/ext-go/crosslang`, which runs `tests/frames_guest.lua`, the frames conformance guest of
+`tests/crosslang`, which runs `tests/frames_guest.lua`, the frames conformance guest of
 [docs/plugin-guest-frames.md](https://github.com/webong/ext/blob/main/docs/plugin-guest-frames.md)
 (it answers the operations that need a reader of its own with the public error `unsupported`).
 `.github/workflows/ext-lua.yml` runs that script on Lua 5.1, 5.2, 5.3, 5.4, 5.5 and LuaJIT.

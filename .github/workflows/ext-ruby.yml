@@ -9,6 +9,7 @@ on:
     paths:
       - 'pkg/ext-ruby/**'
       - 'pkg/ext-go/engine/**'
+      - 'tests/crosslang/**'
       - 'lib/plugin/testdata/**'
       - '.github/workflows/ext-ruby.yml'
   workflow_dispatch:
@@ -48,3 +49,8 @@ jobs:
       - name: Conformance through the Go process host
         working-directory: pkg/ext-go/engine
         run: EXT_RUBY="$(command -v ruby)" go test -count=1 -run 'TestRuby' -v ./plugintest
+      - name: Frames suite through the Go session
+        working-directory: tests/crosslang
+        env:
+          EXT_FRAMES_REQUIRED: Ruby
+        run: EXT_RUBY="$(command -v ruby)" go test -count=1 -v -run 'TestRubyFramesGuest' .

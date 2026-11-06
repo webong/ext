@@ -53,4 +53,5 @@ use (
 	./pkg/ext-go/engine
 	./pkg/ext-go/cgoengine
 	./pkg/ext-go/c2goengine
+	./tests/crosslang
 )

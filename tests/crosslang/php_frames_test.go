@@ -39,7 +39,7 @@ func phpFramesLauncher(t *testing.T) string {
 		}
 		t.Skip("set EXT_PHP_FRAMES_GUEST or install php")
 	}
-	guest, err := filepath.Abs("../../ext-php/tests/frames_guest.php")
+	guest, err := filepath.Abs("../../pkg/ext-php/tests/frames_guest.php")
 	if err != nil {
 		t.Fatal(err)
 	}

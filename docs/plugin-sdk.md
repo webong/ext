@@ -39,7 +39,7 @@ Their existing native protocols are not automatically compatible with CTX.
 | `pkg/ext-ts` | Portable JavaScript runtime and TypeScript declarations for hosts and guests |
 | `pkg/ext-rust` | Rust typed registry, host sessions, JSON-line/WASI guests and C ABI host/guest bindings |
 | `pkg/ext-zig` | Zig typed registry, host sessions, JSON-line/WASI guests, C ABI host/guest bindings, and the health, configuration and stream contracts with a stream client |
-| `pkg/ext-go/crosslang` | Real Rust/Zig/Go host and guest interoperability tests |
+| `tests/crosslang` | Cross-language host and guest interoperability tests (Rust, Zig, Go, Swift, Java, Python, Ruby, PHP, Lua), hosted by `pkg/ext-go`; a test-only module, never tagged |
 | `pkg/ext-go/hashicorp/cmd/ext-plugin` | Read-only package inspection and dependency resolution |
 
 ## Compatibility policy

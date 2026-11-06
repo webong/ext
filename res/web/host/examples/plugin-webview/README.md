@@ -9,7 +9,7 @@ web engine every phone already has can host ext plugins. See
 # Build the repository's Go test guest as a WASI command (about 5.6 MB).
 GOOS=wasip1 GOARCH=wasm go build \
   -o res/web/host/examples/plugin-webview/site/guest.wasm \
-  ./pkg/ext-go/crosslang/testdata/go-guest
+  ./tests/crosslang/testdata/go-guest
 
 go run . -target Safari            # or "Google Chrome", Firefox, ios-simulator, android
 ```

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Runs the shared host cases (lib/plugin/testdata/v1/host-cases.json) on every host that has a
 # runner: the pure-Go host, the oracle (tests/crosslang TestHostCases), and the hosts that bind the
-# C engine (pkg/ext-python, ext_io.host). It builds the engine's shared library and the reference
+# C engine (pkg/ext-python ext_io.host, pkg/ext-ruby ExtIO::Host). It builds the engine's shared library and the reference
 # guest twice: as a JSON-line child process and as a C ABI library.
 #
 # It runs on Linux, macOS and Windows. On Windows it needs a bash with cygpath (an MSYS2 shell, or
@@ -11,6 +11,7 @@
 # Environment:
 #   EXT_HOST_CASES_BUILD_DIR  where to build (default: a new temporary directory)
 #   PYTHON                    the Python to run the Python host with (default: python3)
+#   EXT_RUBY                  the Ruby to run the Ruby host with (default: ruby)
 #   EXT_ENGINE_CC             the C compiler CMake builds the engine with (default: CMake's own
 #                             choice); Go's cgo does not read it, so cl can build the engine while
 #                             gcc builds the Go-built C ABI guest
@@ -23,14 +24,14 @@ mkdir -p "$build_dir"
 build_dir="$(cd "$build_dir" && pwd -P)"
 python="${PYTHON:-python3}"
 
-exe=""
+exe="" windows=""
 generator=()
 case "$(uname -s)" in
   Darwin) library=libext_host.dylib shared=dylib ;;
   MINGW*|MSYS*|CYGWIN*)
     # Go and Python are native programs: they get C:/ paths, which bash also accepts.
     build_dir="$(winpath "$build_dir")"
-    library="" shared=dll exe=.exe
+    library="" shared=dll exe=.exe windows=1
     if command -v ninja >/dev/null 2>&1; then generator=(-G Ninja); fi ;;
   *) library=libext_host.so shared=so ;;
 esac
@@ -84,3 +85,11 @@ echo "== the Go host (the oracle)"
 go test -count=1 -run 'TestHostCases$' ./tests/crosslang
 echo "== the Python host ($("$python" --version 2>&1))"
 "$python" -I -m unittest discover -s pkg/ext-python/tests -p 'test_host.py' -v
+if [[ -n "$windows" ]]; then
+  # The Ruby host's native extension has not been built on Windows yet.
+  echo "== the Ruby host: skipped on Windows"
+else
+  echo "== the Ruby host ($("${EXT_RUBY:-ruby}" -v))"
+  EXT_RUBY="${EXT_RUBY:-ruby}" scripts/ext-ruby-host.sh "$build_dir/ruby"
+  (cd pkg/ext-ruby && RUBYLIB="$build_dir/ruby" "${EXT_RUBY:-ruby}" -w test/test_host.rb)
+fi

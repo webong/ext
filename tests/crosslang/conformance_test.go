@@ -36,7 +36,7 @@ func TestForeignMalformedFrames(t *testing.T) {
 // every malformed first frame.
 func rejectMalformedFrames(t *testing.T, path string) {
 	t.Helper()
-	data, err := os.ReadFile("../../../lib/plugin/testdata/v1/invalid.json")
+	data, err := os.ReadFile("../../lib/plugin/testdata/v1/invalid.json")
 	if err != nil {
 		t.Fatal(err)
 	}

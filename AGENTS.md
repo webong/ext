@@ -56,7 +56,9 @@ package. Binary releases use product tags, `ctx-vX.Y.Z` and `ctn-vX.Y.Z`; those 
 module versions. Bare `vX.Y.Z` tags are not used. The only bare tags are the `X.Y.Z` tags of a
 distribution branch (`dist/ext-ios`, for SwiftPM; `dist/ext-zig` tags `ext-zig-X.Y.Z` instead), which only the
 release workflow writes and which is never merged; see [distribution branches](docs/module-versioning.md#distribution-branches).
-`src/` is a container like `res/`; the context manager is the module
+`tests/` is a container for test-only Go modules that belong to no single library: `tests/crosslang` runs
+every language's guests and hosts against each other, with `pkg/ext-go` as the host side. Its modules are
+listed in `go.work`, are never tagged or published, and no library imports them. `src/` is a container like `res/`; the context manager is the module
 `src/ctx` (`src/ctx/cmd/ctx`, with its private code in `src/ctx/internal`) and
 the content manager is `src/ctn`. This repository is ext: it provides libraries
 and binaries, and ctx and ctn are binaries built on those libraries. A product
@@ -98,6 +100,11 @@ share. Nothing lives at that level. `lib/plugin` is the portable C plugin
 engine, built with CMake: it is not a Go module, has no `go.mod` and is not
 listed in `go.work`. The language bindings (`pkg/ext-go`, `pkg/ext-rust`, `pkg/ext-zig`, `pkg/ext-ts`,
 `pkg/ext-python`) and the mobile SDKs (`pkg/ext-ios`, `pkg/ext-android`) build on it.
+The scripting guest SDKs (`pkg/ext-python`, `pkg/ext-ruby`, `pkg/ext-php`, `pkg/ext-lua`)
+are written in their own language only: they speak `ext.plugin/v1` as JSON lines over stdio,
+need no C or native build, and are checked against the same fixtures. A host binding for one of
+them, when it comes, binds `lib/plugin` through that language's own native extension
+mechanism, not a generated wrapper.
 Until it reaches parity, the pure-Go implementation in `pkg/ext-go/engine`
 (and the pure-Go build of `pkg/ext-go/cgoengine`) is the behavioral baseline; see `docs/plugin-engine-parity.md`. The shared conformance
 fixtures live in `lib/plugin/testdata`. A change to the plugin contract or the
@@ -152,7 +159,7 @@ The reusable libraries are:
 
 - `res/web` for portable web contracts and workflows: browsers, WebAssembly inspection/execution through wazero (`res/web/host/engine/wasm`), and the web engine that runs web content through browsers. It is also the iOS and Android module of the cookie, userscript and bookmarklet rules (`res/web/ios`, `res/web/android`), which `pkg/ext-ios` and `pkg/ext-android` ship, and owns the application-hosted WebView2 implementation in `res/web/windows`. Its Go module is `res/web/host`.
 - `pkg/ext-web` for the JavaScript/TypeScript library that runs inside a browser extension: peer messaging, in-browser management, workspace helpers, a userscript registry, a page bridge and themes. It is built and tested with Node, is `private: true` under the npm name `ext-web`, and depends on neither the plugin engine nor any Go code.
-- `lib/plugin` for the portable C plugin engine shared by the language bindings under `pkg/` (`ext-go`, `ext-rust`, `ext-zig`, `ext-ts`, `ext-python`) and the mobile SDKs.
+- `lib/plugin` for the portable C plugin engine shared by the language bindings under `pkg/` (`ext-go`, `ext-rust`, `ext-zig`, `ext-ts`) and the mobile SDKs. The JSON-line scripting guest SDKs (`ext-python`, `ext-ruby`, `ext-php`, `ext-lua`) do not link it.
 - `res/system` for the local operating-system substrate used to extend graphical and textual shells: host, shell, filesystem and volume mechanics, clipboard, credential integration, local interface/address/route/resolver observation, web view and process discovery, native surfaces, accessibility, permission state, bounded capture and media playback/capture, and atomic native input. It owns mechanisms, not authorization, remote control, routing services or consumer policy. The module has no root package; its packages sit in three groups, which are plain directories: `service` (what the host provides, looked up and used: `host` for shells, filesystems, web views and resource capacity, `network`, `process`, `program`, `credential` and `user` for per-user service definitions), `capture` (content and events crossing the device edge: `surface` for displays, windows, accessibility, permission, capture and input, `audio`, `clipboard`, `share` and `media`) and `device` (`volume` for snapshots and private directories, `image` for snapshot archives). Each package owns its own iOS, Android and Windows code (the .NET libraries are `capture/audio/windows` and `capture/clipboard/windows`). The Windows .NET libraries of `res/` (those two, `res/web/windows` and `res/int/model/windows`) ship as NuGet packages named like their assemblies, released together under the tag `ext-dotnet-vX.Y.Z`.
 - `res/graph` for the graph store (`res/graph/store`), the recorder that projects what is observed about the machine, its adapters and its shell sessions onto the `ext.system` vocabulary (the module's root package), and the process supervisor (`res/graph/supervisor`). It requires `res/system`; nothing in `res/system` depends on it.
 - `res/int` for portable intelligence contracts and mechanisms: `model` owns verified local model bundles, tensors, and native backends; `inference` owns generation, embedding, transcription, speech, and provider contracts; `perception` owns interpretation and observation types; `realtime` owns duplex session types. Providers, models, credentials, and policy are chosen by consumers.

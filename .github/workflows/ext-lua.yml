@@ -1,0 +1,68 @@
+name: Lua SDK
+
+# The Lua guest SDK (pkg/ext-lua) on every Lua it supports: its own tests, the conformance suite
+# through the Go process host and the frames suite through the Go session (scripts/ext-lua.sh).
+# Runs on pushes to main that touch it or what it is checked against, and on demand
+# (gh workflow run ext-lua.yml --ref <branch>). Branches and pull requests do not start it, to
+# save runner time.
+on:
+  push:
+    branches: [main]
+    paths:
+      - pkg/ext-lua/**
+      - lib/plugin/testdata/**
+      - pkg/ext-go/engine/**
+      - tests/crosslang/**
+      - scripts/ext-lua.sh
+      - .github/workflows/ext-lua.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  lua:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+        lua: ['5.1.5', '5.2.4', '5.3.6', '5.4.9', '5.5.1', 'luajit-2.1']
+        include:
+          - os: macos-15
+            lua: '5.4.9'
+          - os: macos-15
+            lua: 'luajit-2.1'
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.26.x'
+          cache: true
+          cache-dependency-path: |
+            **/go.sum
+            go.work.sum
+      - uses: leafo/gh-actions-lua@v13
+        with:
+          luaVersion: ${{ matrix.lua }}
+      - name: Test the SDK and run it under the Go hosts
+        env:
+          EXT_LUA: ${{ startsWith(matrix.lua, 'luajit') && 'luajit' || 'lua' }}
+        run: scripts/ext-lua.sh
+
+  rock:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: leafo/gh-actions-lua@v13
+        with:
+          luaVersion: '5.4.9'
+      - uses: leafo/gh-actions-luarocks@v6
+      - name: Lint and install the rockspec, then load the installed modules
+        working-directory: pkg/ext-lua
+        run: |
+          luarocks lint ext-io-0.1.0-1.rockspec
+          luarocks make --tree "$RUNNER_TEMP/rocks" ext-io-0.1.0-1.rockspec
+          cd "$RUNNER_TEMP"
+          LUA_PATH="$RUNNER_TEMP/rocks/share/lua/5.4/?.lua;$RUNNER_TEMP/rocks/share/lua/5.4/?/init.lua" \
+            lua -e 'local p = require("ext_io.plugin"); assert(p.API_VERSION == "ext.plugin/v1" and p.capability.Router)'

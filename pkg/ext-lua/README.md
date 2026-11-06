@@ -4,7 +4,8 @@
 
 Pure-Lua guest for `ext.plugin/v1` over JSON lines: no C modules and no native build, on Lua 5.1 to
 5.5 and LuaJIT. It brings its own strict JSON module (`ext_io.json`). Hosts use the Go
-`pkg/ext-go/engine/host/process` backend (or any JSON-line client) to run it.
+`pkg/ext-go/engine/host/process` backend (or any JSON-line client) to run it. A Lua program can
+also host plugins itself with the opt-in [host SDK](#host-sdk-ext_iohost) on the C engine.
 
 ```lua
 local plugin = require("ext_io.plugin")
@@ -135,6 +136,49 @@ epoch seconds.
 - On Lua 5.2+ and LuaJIT a frame is read as one line and then checked against the 24 MiB limit;
   Lua 5.1 has no `"*L"` read format, so it reads byte by byte, which is bounded but slower.
 
+## Host SDK (`ext_io.host`)
+
+`ext_io.host` runs plugins from Lua through the C engine (`lib/plugin`), which does what a host must
+get right: admission, the handshake check against the descriptor, request and response validation,
+deadlines and the session's lifecycle. It is opt-in and separate from the guest: one C module,
+`ext_io.host.core`, which loads the engine's shared library (`libext_host`, from an `ext-engine-vX.Y.Z`
+release or a CMake build of `lib/plugin`) at run time, so it is built against the Lua headers and
+`ext_host.h` only. Requiring `ext_io.plugin` loads neither. The rock is `ext-io-host`
+(`ext-io-host-0.1.0-1.rockspec`, built from a checkout); `scripts/ext-lua-host.sh <dir>` builds the
+module for one interpreter into `<dir>/ext_io/host/core.so`.
+
+```lua
+local host = require("ext_io.host")
+
+local engine = host.Engine()          -- EXT_HOST_LIBRARY, or libext_host on the loader path
+local h <close> = engine:process(descriptor, "/opt/plugins/echo/1.0.0/echo")   -- Lua 5.4+
+h:start()
+print(h:call({ name = "ext.echo", version = "v1" }, "echo", { value = 7 }).value)
+```
+
+- `Engine(path)`: the engine from `path`, `EXT_HOST_LIBRARY`, or `libext_host` on the loader path; it
+  must have host ABI 2. An engine is never unloaded.
+- `engine:process(descriptor, executable, opts)`: a JSON-line guest started as `executable` (an
+  absolute path, no shell). `opts` holds `arguments`, `environment` (`NAME=value` entries added to a
+  scrubbed base of `PATH`), `working_directory`, `stderr_bytes` (default 4096) and the policies.
+- `engine:shared_library(descriptor, path, opts)`: a guest library that exports the C ABI of
+  `ext_plugin.h`, loaded when the host starts, after `verify`, and never unloaded. Its native code
+  runs in this process with its full access.
+- `opts.verify(descriptor)` and `opts.authorize(request)` receive decoded JSON and return true to
+  allow; absent allows. An error denies, and so does a yield.
+- `h:start(timeout)`, `h:call(contract, operation, payload, timeout)` (the payload, or `nil`),
+  `h:invoke(envelope, timeout)` (JSON strings in and out), `h:drain(timeout)`, `h:close()`,
+  `h:state()`, `h:stderr()` and `h:destroy()`; timeouts are seconds (default 3). Garbage collection
+  and `<close>` destroy a host too.
+- A domain error raises the guest SDK's remote error (`host.is_remote_error`, with `code`, `message`
+  and `retry_after_ms`); a host failure raises a `HostError` (`host.is_host_error`) whose `status` is
+  the engine's status by name (`denied`, `closed`, `timeout` ...).
+
+The engine runs policies on the thread that makes the call, which is the Lua thread (or coroutine)
+calling `start` or `call`, so the module calls them there with `lua_pcall`. A policy may not use the
+host it decides for: a call to it from inside the policy raises `HostError` `invalid`. Lua has no
+threads, so calls are sequential; the engine still serializes a host's calls itself.
+
 ## Behavior
 
 Behavior matches the Go `jsonline` server: `plugin.hello` is required first and answered with the
@@ -155,3 +199,10 @@ coroutine. `scripts/ext-lua.sh` (with `EXT_LUA` naming the interpreter) runs the
 [docs/plugin-guest-frames.md](https://github.com/webong/ext/blob/main/docs/plugin-guest-frames.md)
 (it answers the operations that need a reader of its own with the public error `unsupported`).
 `.github/workflows/ext-lua.yml` runs that script on Lua 5.1, 5.2, 5.3, 5.4, 5.5 and LuaJIT.
+
+`tests/test_host.lua` checks the host SDK: every case of `lib/plugin/testdata/v1/host-cases.json` on
+the reference guest as a process and as a C ABI library, then policies, envelopes, reentry and
+ownership. It needs the C module on `package.cpath`, `EXT_HOST_LIBRARY`, `EXT_GO_GUEST` and
+`EXT_GO_SHARED`, and is skipped without them (it fails instead with `EXT_HOST_REQUIRED=1`).
+`scripts/host-cases.sh` builds them all and runs it, and `.github/workflows/host-cases.yml` runs that
+on Lua 5.1, 5.4, 5.5 and LuaJIT.

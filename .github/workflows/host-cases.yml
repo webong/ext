@@ -10,6 +10,8 @@ on:
     paths:
       - 'lib/plugin/**'
       - 'pkg/ext-python/**'
+      - 'pkg/ext-lua/**'
+      - 'scripts/ext-lua-host.sh'
       - 'pkg/ext-go/engine/**'
       - 'pkg/ext-go/cgoengine/cshared/**'
       - 'tests/crosslang/**'
@@ -26,10 +28,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - {os: ubuntu-22.04, python: '3.8'}
-          - {os: ubuntu-latest, python: '3.13'}
-          - {os: ubuntu-24.04-arm, python: '3.13'}
-          - {os: macos-15, python: '3.13'}
+          - {os: ubuntu-22.04, python: '3.8', lua: '5.1.5'}
+          - {os: ubuntu-latest, python: '3.13', lua: '5.4.9'}
+          - {os: ubuntu-24.04-arm, python: '3.13', lua: 'luajit-2.1'}
+          - {os: macos-15, python: '3.13', lua: '5.5.1'}
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v5
@@ -43,7 +45,14 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python }}
+      - uses: leafo/gh-actions-lua@v13
+        with:
+          luaVersion: ${{ matrix.lua }}
+          # The action's cache key names the OS and architecture but not the runner image, so a Lua
+          # built on ubuntu-latest (newer glibc) would be restored on ubuntu-22.04. It builds in seconds.
+          buildCache: 'false'
       - name: Host cases
         env:
           PYTHON: python
+          EXT_LUA: ${{ startsWith(matrix.lua, 'luajit') && 'luajit' || 'lua' }}
         run: scripts/host-cases.sh

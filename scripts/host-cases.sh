@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
 # Runs the shared host cases (lib/plugin/testdata/v1/host-cases.json) on every host that has a
 # runner: the pure-Go host, the oracle (tests/crosslang TestHostCases), and the hosts that bind the
-# C engine (pkg/ext-python, ext_io.host). It builds the engine's shared library and the reference
+# C engine (pkg/ext-python and pkg/ext-lua, ext_io.host). It builds the engine's shared library and the reference
 # guest twice: as a JSON-line child process and as a C ABI library.
 #
 # Environment:
 #   EXT_HOST_CASES_BUILD_DIR  where to build (default: a new temporary directory)
 #   PYTHON                    the Python to run the Python host with (default: python3)
+#   EXT_LUA                   the Lua to run the Lua host with (default: lua); LUA_INCDIR as for
+#                             scripts/ext-lua-host.sh
 set -euo pipefail
 cd "$(dirname "$0")/.."
 build_dir="${EXT_HOST_CASES_BUILD_DIR:-}"
@@ -32,3 +34,6 @@ echo "== the Go host (the oracle)"
 go test -count=1 -run 'TestHostCases$' ./tests/crosslang
 echo "== the Python host ($("$python" --version 2>&1))"
 "$python" -I -m unittest discover -s pkg/ext-python/tests -p 'test_host.py' -v
+echo "== the Lua host ($("${EXT_LUA:-lua}" -v 2>&1 | head -1))"
+scripts/ext-lua-host.sh "$build_dir/lua"
+LUA_CPATH="$build_dir/lua/?.so" "${EXT_LUA:-lua}" pkg/ext-lua/tests/run.lua test_host

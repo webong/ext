@@ -5,7 +5,7 @@ local root = here .. "/.."
 package.path = root .. "/?.lua;" .. root .. "/?/init.lua;" .. here .. "/?.lua;" .. package.path
 EXT_LUA_TESTS = here
 
-local files = { "test_json", "test_guest", "test_fixtures", "test_serve_frames", "test_capability" }
+local files = { "test_json", "test_guest", "test_fixtures", "test_serve_frames", "test_capability", "test_host" }
 local file_pattern, test_pattern = arg and arg[1], arg and arg[2]
 
 local clock = require("ext_io.plugin.clock")

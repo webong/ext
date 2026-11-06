@@ -68,7 +68,7 @@ and stream clients.
    | Language | Host part | Binds the engine through |
    | --- | --- | --- |
    | Python | `ext_io.host` | `ctypes` and the shared `libext_host` |
-   | Lua | `ext_io.host` | a C module (`luaopen_ext_io_host`) |
+   | Lua | `ext_io.host` | a C module (`ext_io.host.core`) that loads the shared `libext_host` |
    | Ruby | `ExtIO::Host` | a native extension that releases the global VM lock around blocking calls |
    | PHP | `ExtIO\Host` | PHP FFI first; a Zend extension only if callbacks under FFI prove unsafe |
    | .NET | `ExtIO.Host` | P/Invoke (`LibraryImport`), shipped like the `ext-dotnet` packages |

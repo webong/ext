@@ -1,0 +1,111 @@
+name: Release C engine
+
+# Releases the prebuilt C engine (lib/plugin) on a GitHub release: per platform, the shared and static
+# libraries, headers, CMake package and licenses (scripts/ext-engine-release.sh), with checksums and a
+# build-provenance attestation. Hosts that load the engine at run time (Python ctypes, PHP FFI, Ruby,
+# Lua, .NET) use it instead of building with CMake. It publishes for ext-engine-vX.Y.Z tags only, whose
+# version must be lib/plugin's project() VERSION. A pull request that touches the engine or these files,
+# and a manual run, build, test and stage every platform and publish nothing. The tag is not a Go module
+# tag; see docs/module-versioning.md.
+on:
+  push:
+    tags: ['ext-engine-v*']
+  pull_request:
+    paths:
+      - 'lib/plugin/**'
+      - 'scripts/ext-engine-release.sh'
+      - '.github/workflows/ext-engine-release.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ext-engine-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # Builds, tests and stages each platform. Read-only: it has no token that can write.
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # The oldest supported runner, so the library needs the oldest glibc we can give it.
+          - {platform: linux-x86_64, os: ubuntu-22.04}
+          - {platform: linux-aarch64, os: ubuntu-22.04-arm}
+          - {platform: macos-universal, os: macos-15}
+          - {platform: windows-x86_64, os: windows-latest, msvc: amd64}
+          - {platform: windows-aarch64, os: windows-11-arm, msvc: arm64}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Version
+        id: version
+        shell: bash
+        env:
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          if [[ "$REF_TYPE" == tag ]]; then
+            version="${REF_NAME#ext-engine-v}"
+          else
+            version="$(sed -n 's/^project(ext_host_prototype VERSION \([0-9.]*\) .*/\1/p' lib/plugin/CMakeLists.txt)"
+          fi
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "version '$version' must look like 0.2.0" >&2; exit 1; }
+          echo "version=$version" >>"$GITHUB_OUTPUT"
+      - uses: ilammy/msvc-dev-cmd@v1
+        if: matrix.msvc
+        with:
+          arch: ${{ matrix.msvc }}
+      - name: Build, test and stage
+        shell: bash
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          PLATFORM: ${{ matrix.platform }}
+        run: scripts/ext-engine-release.sh "$VERSION" "$PLATFORM" "$RUNNER_TEMP/engine"
+      - uses: actions/upload-artifact@v6
+        with:
+          name: ext-engine-${{ steps.version.outputs.version }}-${{ matrix.platform }}
+          path: |
+            dist/ext-engine-*.tar.gz
+            dist/ext-engine-*.sha256
+          if-no-files-found: error
+
+  # Publishes. Only a pushed ext-engine-v tag gets here (never a manual run, even on a tag), and only
+  # after every platform passed. It builds nothing: it attaches the exact files that were tested.
+  publish:
+    needs: build
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/ext-engine-v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v7
+        with:
+          pattern: ext-engine-${{ needs.build.outputs.version }}-*
+          merge-multiple: true
+          path: dist
+      - name: Verify and collect checksums
+        run: |
+          set -euo pipefail
+          cd dist
+          cat ./*.sha256 >checksums.txt
+          rm ./*.sha256
+          sha256sum -c checksums.txt
+          [ "$(ls ./*.tar.gz | wc -l)" -eq 5 ] || { echo "expected 5 platform archives" >&2; ls; exit 1; }
+      - name: Attest release provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: 'dist/*'
+      # Not "latest": install.sh and install.ps1 resolve the newest ctx-v release by tag.
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist/* --verify-tag --generate-notes --latest=false --title "$GITHUB_REF_NAME"

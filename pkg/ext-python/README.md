@@ -96,8 +96,10 @@ ext plugin, whatever language it is written in. The engine does what a host must
 admission, the handshake check against the descriptor, request and response validation,
 deadlines and the session's lifecycle. The module only moves bytes and policy decisions across
 `ctypes`, so it is still standard library only, but it needs the engine's shared library,
-`libext_host`. Build it with `cmake -S lib/plugin -B build -DEXT_BUILD_SHARED=ON` and point
-`EXT_HOST_LIBRARY` at it, or pass its path to `Engine`. Importing the guest (`ext_io.plugin`)
+`libext_host`. Take it from an `ext-engine-vX.Y.Z` release (`lib/libext_host.so`, `lib/libext_host.dylib`
+or `bin/ext_host.dll` in the archive for your platform), or build it with
+`cmake -S lib/plugin -B build -DEXT_BUILD_SHARED=ON`, and point `EXT_HOST_LIBRARY` at it, or pass its path
+to `Engine`. Importing the guest (`ext_io.plugin`)
 never loads the host.
 
 ```python

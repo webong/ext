@@ -112,6 +112,10 @@ be embedded in a Node addon. Manual C consumers define `EXT_HOST_STATIC` and
 link `-lext_host_static -pthread -lm`, plus `-ldl` on Linux. Parser symbols are privately prefixed
 at build time, allowing applications to link their own yyjson version.
 
+Prebuilt libraries are attached to each `ext-engine-vX.Y.Z` GitHub release, one archive per
+platform (`scripts/ext-engine-release.sh`, see [module versioning](../../docs/module-versioning.md)):
+a host that loads the engine at run time, such as the Python host, needs no C toolchain.
+
 Go integration is opt-in and excluded from ordinary Go builds:
 
 ```sh

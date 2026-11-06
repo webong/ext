@@ -4,7 +4,8 @@ Status: decided on 2026-11-04 (see [Decision](#decision)); written against `main
 `846af9b9`. The parity checklist ([plugin-engine-parity.md](plugin-engine-parity.md)) says the
 common Go implementation is not retired, and the independent language SDKs are not replaced,
 until the acceptance requirements are met. This note says what "replaced" means for each SDK,
-what the C engine can serve a guest today, what each choice costs, and which choice was made.
+what the C engine can serve a guest today, what each choice costs, and which choice was made. The host side is settled in
+[Hosts and guests in every language](adr-hosts-in-every-language.md).
 
 ## Where each SDK stands
 

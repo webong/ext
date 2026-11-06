@@ -45,6 +45,9 @@ headers live in [`lib/plugin`](../lib/plugin/README.md); these packages bind to 
 | [`ext-zig`](ext-zig/README.md) | Zig SDK and header-generated C engine binding |
 | [`ext-ts`](ext-ts/README.md) | JavaScript SDK, TypeScript declarations and async Node C engine binding |
 | [`ext-python`](ext-python/README.md) | Standard-library Python guest SDK (`ext_io.plugin`) serving JSON lines |
+| [`ext-ruby`](ext-ruby/README.md) | Standard-library Ruby guest SDK (`ExtIO::Plugin`, gem `ext-io`) serving JSON lines |
+| [`ext-php`](ext-php/README.md) | PHP guest SDK (`ExtIO\Plugin`, Composer `webong/ext-io`) serving JSON lines; needs only `ext-json` |
+| [`ext-lua`](ext-lua/README.md) | Pure-Lua guest SDK (`ext_io.plugin`, rock `ext-io`) serving JSON lines on Lua 5.1 to 5.5 and LuaJIT |
 | [`ext-ios`](ext-ios/README.md) | Swift SDK for iOS and macOS: plugin guest and hosts, web and clipboard libraries, and local system and network observation |
 | [`ext-android`](ext-android/README.md) | Java SDK for Android: plugin guest and hosts, web and clipboard libraries, and app-scoped system and local network observation |
 

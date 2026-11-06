@@ -1,0 +1,50 @@
+name: ext-ruby
+
+# The Ruby guest SDK (pkg/ext-ruby): its Minitest suite on every supported Ruby, the gem build,
+# and the Go conformance suite that runs it through the process host. Runs on pushes to main that
+# touch it and on demand (gh workflow run ext-ruby.yml --ref <branch>), like plugin-sdk.yml.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'pkg/ext-ruby/**'
+      - 'pkg/ext-go/engine/**'
+      - 'lib/plugin/testdata/**'
+      - '.github/workflows/ext-ruby.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ruby:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+        ruby: ['3.1', '3.2', '3.3', '3.4', '4.0']
+        include:
+          - os: macos-15
+            ruby: '3.4'
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: ${{ matrix.ruby }}
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.26.x'
+          cache: true
+          cache-dependency-path: |
+            **/go.sum
+            go.work.sum
+      - name: Minitest
+        working-directory: pkg/ext-ruby
+        run: ruby -w test/all.rb
+      - name: Build the gem
+        working-directory: pkg/ext-ruby
+        run: gem build ext-io.gemspec --output "$RUNNER_TEMP/ext-io.gem"
+      - name: Conformance through the Go process host
+        working-directory: pkg/ext-go/engine
+        run: EXT_RUBY="$(command -v ruby)" go test -count=1 -run 'TestRuby' -v ./plugintest

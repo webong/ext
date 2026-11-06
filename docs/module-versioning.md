@@ -103,7 +103,8 @@ The Windows-native .NET libraries follow the same form: `ext-dotnet-vX.Y.Z` rele
 (`res/int/model/windows`), all at one version, through `.github/workflows/ext-dotnet-release.yml`
 (published with `--latest=false`). The workflow builds, tests and packs on Windows, attaches the packages
 with their checksums and a provenance attestation to the GitHub release, and pushes them to a NuGet feed only
-when the repository variable `EXT_NUGET_SOURCE` names one and the secret `EXT_NUGET_API_KEY` can push to it.
+when the repository variable `EXT_NUGET_SOURCE` names one and the secret `EXT_NUGET_API_KEY` can push to it;
+that push job waits in the `nuget` environment for a required reviewer.
 The version is the tag's; a local build is `0.0.0-dev`, and a pull request packs at `0.0.0-ci` to check the
 package definitions. The C# namespaces did not change when the code moved beside its Go packages, so only
 project and package references change for a consumer. The shared package metadata is
@@ -194,6 +195,19 @@ a minor bump of the whole package, so an area that needs its own release cadence
 own (for example `ext-io-web`) instead of versioning inside this one. The packages of different languages
 are versioned separately and need not match: what lets a Rust host call a Python guest is the
 `ext.plugin/v1` protocol version, not the package version.
+
+**Releases.** Each package is released by its own tag and workflow: `ext-rust-vX.Y.Z`
+(`.github/workflows/ext-rust-release.yml`, crates.io), `ext-ts-vX.Y.Z` (`ext-ts-release.yml`, npm) and
+`ext-python-vX.Y.Z` (`ext-python-release.yml`, PyPI). The tag's version must equal the manifest's. A pull
+request or a manual run tests the package, builds what would be published and dry-runs the publish
+(`cargo publish --dry-run`, `npm publish --dry-run`, `twine check`); only a pushed tag publishes. The tagged
+run first attaches the tested files, their checksums and a provenance attestation to a GitHub release
+(`--latest=false`), then waits in the registry's environment (`crates`, `npm`, `pypi`) for a required
+reviewer before it uploads. crates.io and npm take a token from that environment (`CARGO_REGISTRY_TOKEN`,
+`NPM_TOKEN`) for the first publish and trusted publishing after it; PyPI uses trusted publishing only, with
+a pending publisher for the first release. Tags cannot be moved or deleted, so a version is tagged only after
+a manual run of its workflow on main has passed. `ext-plugin-engine` (`pkg/ext-rust/engine`) is never
+published.
 
 ## WebAssembly mechanics moved into `res/web`
 

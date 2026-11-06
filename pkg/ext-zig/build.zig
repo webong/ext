@@ -43,7 +43,9 @@ fn enginePath(b: *std.Build, engine_dir: []const u8, sub: []const u8) std.Build.
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
-    const engine_dir = b.option([]const u8, "engine-src", "Directory of the C engine sources (default ../../lib/plugin)") orelse "../../lib/plugin";
+    // The package carries the sources it is built from (scripts/ext-zig-sync.sh makes csrc from
+    // lib/plugin), because a consumer fetches nothing outside the package.
+    const engine_dir = b.option([]const u8, "engine-src", "Directory of the C engine sources (default csrc, the copy this package carries)") orelse "csrc";
 
     const include = enginePath(b, engine_dir, "include");
     // The engine is built the way CMake builds it for release: optimized, without the undefined-behavior

@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # Stage a release of the Zig package. Zig has no registry: a consumer runs `zig fetch` on an archive
 # whose root holds build.zig.zon, and this monorepo's root is not a package. So a release is the
-# package alone, as ext-zig-<version>-package.tar.gz: the files build.zig.zon lists in .paths, at
-# the archive root, plus the repository LICENSE. It goes on a GitHub release and at the root of the
+# package alone, as ext-zig-<version>-package.tar.gz: the files build.zig.zon lists in .paths (among
+# them csrc, the C engine sources it is built from; see scripts/ext-zig-sync.sh), at the archive root,
+# plus the repository LICENSE. It goes on a GitHub release and at the root of the
 # dist/ext-zig branch (scripts/dist-branch.sh).
 #
 # This script stages under dist/ext-zig-<version>/ and checks that the version is the manifest's.
@@ -20,6 +21,10 @@ sdk=pkg/ext-zig
 manifest="$sdk/build.zig.zon"
 declared="$(sed -n 's/^[[:space:]]*\.version[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' "$manifest")"
 [[ "$declared" == "$version" ]] || { echo "build.zig.zon is version '$declared', not $version" >&2; exit 1; }
+
+# The package builds the C engine from the copy it carries, so a copy that differs from lib/plugin
+# must not be released.
+scripts/ext-zig-sync.sh --check
 
 # What the package consists of is what its manifest says.
 paths="$(awk '/\.paths[[:space:]]*=/ { found = 1 } found { print } found && /\}/ { exit }' "$manifest" | grep -o '"[^"]*"' | tr -d '"')"

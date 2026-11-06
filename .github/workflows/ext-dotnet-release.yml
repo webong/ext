@@ -113,12 +113,14 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: gh release create "$GITHUB_REF_NAME" dist/* --verify-tag --generate-notes --latest=false --title "$GITHUB_REF_NAME"
 
-  # Pushes the packages to a NuGet feed. It runs after the release exists, and is skipped unless
-  # EXT_NUGET_SOURCE is set. --skip-duplicate makes a rerun safe: a published version is immutable.
+  # Pushes the packages to a NuGet feed. It runs after the release exists, is skipped unless
+  # EXT_NUGET_SOURCE is set, and waits in the `nuget` environment for a required reviewer, which also
+  # holds the secret EXT_NUGET_API_KEY. --skip-duplicate makes a rerun safe: a published version is immutable.
   nuget:
     needs: [build, publish]
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/ext-dotnet-v') && vars.EXT_NUGET_SOURCE != ''
     runs-on: ubuntu-latest
+    environment: nuget
     steps:
       - uses: actions/download-artifact@v7
         with:

@@ -217,6 +217,14 @@ zig build --build-file pkg/ext-zig/build.zig -Dtarget=wasm32-wasi --prefix /tmp/
 scripts/plugin-crosslang.sh
 ```
 
+The SDK runs the C engine's guest core (validation and dispatch), so a guest carries it. In a
+WASI module that is about 270 KB of code on top of the SDK's own: 175 KB became 445 KB, of which the
+vendored JSON parser is 165 KB. wazero compiles about 0.35 ms per KB of code, so a host that
+opens the module compiles it three times slower than before (54 ms became 154 ms on a laptop; the
+test harness measured 0.9 s become 2.9 s per session on a hosted Linux runner). A host that opens the same module more than once should share a
+compilation cache (`wasm.NewCompilationCache()` in `pkg/ext-go/wasm`): a later open then takes about
+3 ms. Debug information is most of the file's size (2.3 MB) and costs nothing to compile.
+
 `examples/common.zig` contains the shared conformance guest, `examples/frames.zig` the frames one, and
 `examples/capability.zig` and `examples/capability-host.zig` the capability ones. Native builds
 produce command/host executables and a C shared library. WASI builds produce

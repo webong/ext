@@ -15,6 +15,14 @@ const DefaultMemoryPages = webwasm.DefaultMemoryPages
 
 type Options = webwasm.Options
 
+// CompilationCache keeps compiled modules, so opening the same module again skips
+// compilation: set it in Options.CompilationCache. Share one among the sessions of a
+// process and Close it after they have closed.
+type CompilationCache = webwasm.CompilationCache
+
+// NewCompilationCache returns an empty cache that lives in memory.
+func NewCompilationCache() *CompilationCache { return webwasm.NewCompilationCache() }
+
 type Backend struct {
 	*jsonline.Client
 	command *webwasm.Command

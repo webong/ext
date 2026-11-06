@@ -205,6 +205,23 @@ Second slice (dispatch on the engine's guest):
 - The Windows `host` example does not build with Zig 0.17 (`std.DynLib` has no Windows
   implementation), on `main` as well; the guests and the DLL do.
 
+- **WASI start-up cost.** The engine adds about 270 KB of code to a Zig WASI guest (175 KB to
+  445 KB; the vendored parser is 165 KB of that, and `yyjson_read_opts` alone 76 KB), and wazero
+  compiles about 0.35 ms per KB of code: 54 ms became 154 ms on a laptop, and the harness's Zig WASI
+  subtests went from 0.9 s to 2.9 s on the Linux runner and from 1.5 s to 3.4 s on the macOS one.
+  The harness bounds a session to 3 s, compilation included, so #94 left the macOS Plugin SDK jobs
+  failing and Linux passing by about 0.1 s. This is acceptance criterion 4 failing on macOS, and
+  nothing at the time of the merge showed it: the local run was fast and the macOS jobs had been
+  cancelled for want of a runner. Measured by replacing groups of function bodies with `unreachable`
+  and timing wazero: the parser costs about 65 ms of the 100 ms added, the engine's own C 18 ms,
+  libc 9 ms. Build flags do little: `YYJSON_DISABLE_NON_STANDARD` saves 27 KB and 17 ms;
+  `YYJSON_DISABLE_FAST_FP_CONV` would change behavior (`services.c` reads a number with the
+  parser's own routine so as not to depend on `strtod` or the locale), so it is not an option. The
+  cost is the engine's and stays. What changed is that a host can now share a compilation cache
+  (`CompilationCache` in the options of `res/web/host/engine/wasm`, re-exported by
+  `pkg/ext-go/wasm`): a later open of the same module takes about 3 ms, and the cross-language tests
+  compile each WASI guest once, before the sessions that the harness times.
+
 Left for the Zig SDK:
 
 - `identifier` and `validateIdentity` (the frame ids and the registry identity), the strict decoders

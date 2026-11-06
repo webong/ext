@@ -66,8 +66,9 @@ func TestCapabilityGuests(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+			cache := warmedCache(t, data)
 			runCapability(t, func(ctx context.Context) (plugin.Backend, error) {
-				b, err := wasm.Open(ctx, data, wasm.Options{})
+				b, err := wasm.Open(ctx, data, wasm.Options{CompilationCache: cache})
 				if err != nil {
 					return nil, err
 				}

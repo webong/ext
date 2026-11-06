@@ -121,6 +121,13 @@ Defaults and limits:
 - `Options.MemoryLimitPages` may set a different linear memory bound up to
   65536 pages. This does not bound total host/compilation memory or provide fuel
   accounting. The host should also bound concurrent runtimes.
+- Every `wasm.Open` compiles the module unless `Options.CompilationCache` is set. A host
+  that opens the same module more than once creates one with `wasm.NewCompilationCache()`,
+  shares it among those sessions and closes it after they have closed. Compiling is most of
+  the cost of opening a large module (about 150 ms for the Zig guest on a laptop, 3 ms from
+  the cache). The cache keeps every module it compiles until it is closed, so it is not a bound
+  on distinct modules; a host that loads unrelated modules chooses which sessions share one.
+  The same field exists on `ReactorOptions` and `CommandOptions`.
 - No inherited environment, filesystem or sockets. `Args`, `Env` and `FS` are
   explicit grants. Clocks, interruptible sleep and system random bytes support
   normal Go/WASI execution. Filesystem implementations must confine access;

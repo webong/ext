@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
@@ -16,6 +17,7 @@ import (
 // The PHP guest SDK (pkg/ext-php) must pass the same suite through the process
 // backend. Skipped when no php is installed.
 func TestPHPGuest(t *testing.T) {
+	skipPHPOnWindows(t)
 	php, err := exec.LookPath("php")
 	if err != nil {
 		t.Skip("php not installed")
@@ -30,6 +32,7 @@ func TestPHPGuest(t *testing.T) {
 }
 
 func TestPHPUnitTests(t *testing.T) {
+	skipPHPOnWindows(t)
 	php, err := exec.LookPath("php")
 	if err != nil {
 		t.Skip("php not installed")
@@ -52,5 +55,15 @@ func TestPHPUnitTests(t *testing.T) {
 	}
 	if err != nil {
 		t.Fatalf("%v\n%s", err, out)
+	}
+}
+
+// skipPHPOnWindows skips on Windows, which the PHP SDK does not support yet: ext-php.yml tests it on
+// Linux and macOS only, its stdout claim relies on php://fd duplication, and on the Windows runners
+// GuestTest::testStdoutCarriesOnlyFrames and roundtrip-concurrent-errors-drain fail.
+func skipPHPOnWindows(t *testing.T) {
+	t.Helper()
+	if runtime.GOOS == "windows" {
+		t.Skip("the PHP SDK does not support Windows yet")
 	}
 }

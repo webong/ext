@@ -7,3 +7,7 @@ pkg/ext-go/cgoengine/_csrc/** linguist-generated=true
 # copies under _csrc, keep LF on every platform, whatever core.autocrlf says.
 lib/plugin/testdata/** text eol=lf
 pkg/ext-go/cgoengine/_csrc/testdata/** text eol=lf
+
+# Example plugins whose manifests pin their scripts by SHA-256 keep LF everywhere, so a Windows
+# checkout hashes the same bytes.
+pkg/ext-ruby/examples/** text eol=lf

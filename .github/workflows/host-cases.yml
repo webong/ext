@@ -1,0 +1,49 @@
+name: Host cases
+
+# The shared host cases (lib/plugin/testdata/v1/host-cases.json) on every host that has a runner:
+# the pure-Go host and the hosts that bind the C engine (scripts/host-cases.sh). Runs on pushes to
+# main that touch them and on demand (gh workflow run host-cases.yml --ref <branch>). Branches and
+# pull requests do not start it, to save runner time.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'lib/plugin/**'
+      - 'pkg/ext-python/**'
+      - 'pkg/ext-go/engine/**'
+      - 'pkg/ext-go/cgoengine/cshared/**'
+      - 'tests/crosslang/**'
+      - 'scripts/host-cases.sh'
+      - '.github/workflows/host-cases.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  hosts:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {os: ubuntu-22.04, python: '3.8'}
+          - {os: ubuntu-latest, python: '3.13'}
+          - {os: ubuntu-24.04-arm, python: '3.13'}
+          - {os: macos-15, python: '3.13'}
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.26.x'
+          cache: true
+          cache-dependency-path: |
+            **/go.sum
+            go.work.sum
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Host cases
+        env:
+          PYTHON: python
+        run: scripts/host-cases.sh

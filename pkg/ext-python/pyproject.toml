@@ -1,7 +1,7 @@
 [project]
 name = "ext-io"
 version = "0.1.0"
-description = "ext for Python: the plugin guest SDK for ext.plugin/v1 over JSON lines (standard library only)"
+description = "ext for Python: the plugin guest SDK for ext.plugin/v1 over JSON lines, and a host SDK on the C engine (standard library only)"
 readme = "README.md"
 requires-python = ">=3.8"
 license = "MIT"
@@ -25,4 +25,4 @@ requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-packages = ["ext_io", "ext_io.plugin"]
+packages = ["ext_io", "ext_io.plugin", "ext_io.host"]

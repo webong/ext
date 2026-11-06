@@ -86,19 +86,20 @@ and stream clients.
 Today the engine starts processes and runs reactors but cannot load a C-ABI guest. Go
 (`cgoengine/cshared`) and Rust (`plugin/native.rs`) each load one themselves, the other hosts
 cannot load one at all, and [plugin-runtimes.md](plugin-runtimes.md) tells any other host that it "must
-implement CTX selection, validation and admission policy itself". A new backend kind,
-`EXT_BACKEND_SHARED_LIBRARY`, closes that:
+implement CTX selection, validation and admission policy itself". A constructor,
+`ext_shared_library_backend_create`, closes that. It returns an `EXT_BACKEND_EXTENSION_CONTEXT`
+backend, as the WAMR backend does, so `ext_host_create` and `host.c` do not change:
 
-- it takes an absolute path to a verified library and loads it with `dlopen` or
-  `LoadLibraryW`;
+- it takes an absolute UTF-8 path to a verified library and loads it with `dlopen` or
+  `LoadLibraryExW` in connect, so only after the host's verify policy has approved it;
 - it checks `ext_plugin_abi_version`, then performs the handshake and invocations through
   `ext_plugin_open`, `ext_plugin_call` and `ext_plugin_close`, with the 24 MiB response capacity
   and the no-replay rule of the ABI;
-- it never unloads a library, as the Go loader does not.
+- it loads each canonical path once and never unloads a library, as the Go loader does not.
 
-It is additive to the ABI. The Go loader is the behaviour it must match, and the conformance
-fixtures gain cases that both run. After it lands, the per-language loaders go when their SDK
-switches.
+It is additive to the ABI. The Go loader is the behaviour it must match: `lib/plugin/tests/shared_library.c`
+runs C guests and the Go-built guest that `tests/crosslang` runs through the Go loader. After it
+lands, the per-language loaders go when their SDK switches.
 
 ### 2. A prebuilt engine library
 
@@ -128,7 +129,7 @@ A host is not released until it passes this suite on Linux, macOS and Windows.
 ## Order
 
 1. This record.
-2. `EXT_BACKEND_SHARED_LIBRARY` in `lib/plugin`, with fixtures the Go loader also runs.
+2. `ext_shared_library_backend_create` in `lib/plugin`, checked against the guest the Go loader runs.
 3. The prebuilt engine library on each engine release.
 4. The host conformance cases and the Go runner that shows they are complete.
 5. Hosts: Python, then Lua, Ruby, PHP and .NET, each passing the suite before release.

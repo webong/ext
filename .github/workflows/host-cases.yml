@@ -48,6 +48,9 @@ jobs:
       - uses: leafo/gh-actions-lua@v13
         with:
           luaVersion: ${{ matrix.lua }}
+          # The action's cache key names the OS and architecture but not the runner image, so a Lua
+          # built on ubuntu-latest (newer glibc) would be restored on ubuntu-22.04. It builds in seconds.
+          buildCache: 'false'
       - name: Host cases
         env:
           PYTHON: python

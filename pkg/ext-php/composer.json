@@ -1,0 +1,31 @@
+{
+    "name": "webong/ext-io",
+    "description": "ext for PHP: the plugin guest SDK for ext.plugin/v1 over JSON lines (needs only ext-json)",
+    "type": "library",
+    "license": "MIT",
+    "keywords": ["ext", "ext-io", "plugin", "sdk"],
+    "homepage": "https://github.com/webong/ext/tree/main/pkg/ext-php",
+    "support": {
+        "issues": "https://github.com/webong/ext/issues",
+        "source": "https://github.com/webong/ext"
+    },
+    "require": {
+        "php": ">=8.1",
+        "ext-json": "*"
+    },
+    "autoload": {
+        "psr-4": {
+            "ExtIO\\": "src/"
+        },
+        "files": [
+            "src/Plugin/functions.php"
+        ]
+    },
+    "scripts": {
+        "test": "@php tests/run.php"
+    },
+    "archive": {
+        "exclude": ["/tests", "/examples"]
+    },
+    "minimum-stability": "stable"
+}

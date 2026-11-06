@@ -1,0 +1,15 @@
+{
+  "apiVersion": "ext.package/v1",
+  "descriptor": {
+    "apiVersion": "ext.plugin/v1",
+    "identity": {"id": "example/php-echo", "revision": "1"},
+    "contracts": [
+      {
+        "name": "example.echo",
+        "version": "v1",
+        "operations": [{"name": "echo"}, {"name": "busy"}, {"name": "count", "progress": true}]
+      },
+      {"name": "ext.health", "version": "v1", "operations": [{"name": "check", "surface": "observation"}]}
+    ]
+  }
+}

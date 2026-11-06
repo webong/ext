@@ -1,0 +1,54 @@
+name: ext-php
+
+# The PHP guest SDK (pkg/ext-php). Runs on pushes to main and on demand
+# (gh workflow run ext-php.yml --ref <branch>). Branches and pull requests do not start it, to
+# save runner time.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  php:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+        php: ['8.1', '8.4']
+        include:
+          - os: macos-latest
+            php: '8.4'
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: json
+          coverage: none
+          tools: composer
+      - name: Validate composer.json
+        working-directory: pkg/ext-php
+        run: composer validate --strict
+      - name: Unit tests and the shared fixtures
+        working-directory: pkg/ext-php
+        run: php tests/run.php
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.26.x'
+          cache: true
+          cache-dependency-path: |
+            **/go.sum
+            go.work.sum
+      # The guest under the Go process host: the conformance cases and the frames suite.
+      - name: Go conformance suite
+        working-directory: pkg/ext-go/engine
+        run: go test -count=1 -v -run 'TestPHPGuest' ./plugintest
+      - name: Go frames suite
+        working-directory: tests/crosslang
+        env:
+          EXT_FRAMES_REQUIRED: PHP
+        run: go test -count=1 -v -run 'TestPHPFramesGuest' .

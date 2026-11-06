@@ -1,0 +1,58 @@
+{
+  "apiVersion": "ext.package/v1",
+  "descriptor": {
+    "apiVersion": "ext.plugin/v1",
+    "identity": {
+      "id": "example/ruby-echo",
+      "revision": "fixture-1"
+    },
+    "contracts": [
+      {
+        "name": "example.echo",
+        "version": "v1",
+        "operations": [
+          {
+            "name": "echo"
+          },
+          {
+            "name": "count",
+            "progress": true
+          }
+        ]
+      },
+      {
+        "name": "ext.health",
+        "version": "v1",
+        "operations": [
+          {
+            "name": "check",
+            "surface": "observation"
+          }
+        ]
+      }
+    ]
+  },
+  "artifacts": [
+    {
+      "name": "main",
+      "path": "main.rb",
+      "sha256": "690fd57393515e8d87c130a343e42fdfef7acbf188640f2a7cbd40c655fa8b7c"
+    }
+  ],
+  "entrypoints": [
+    {
+      "name": "main",
+      "runtime": "jsonline",
+      "artifact": "main",
+      "protocols": [
+        "ext.plugin/v1"
+      ]
+    }
+  ],
+  "assets": [
+    {
+      "artifact": "main",
+      "kind": "source"
+    }
+  ]
+}

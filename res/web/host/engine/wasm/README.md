@@ -12,7 +12,7 @@ protocol, and the ext plugin reactor ABI.
 
 ## Cross-language conformance
 
-`pkg/ext-go/crosslang` holds the interoperability tests that build real
+`tests/crosslang` holds the interoperability tests that build real
 foreign artifacts: Rust, Zig, and Go guests and hosts, native C ABI guests, and
 WASI modules. Run them with `scripts/plugin-crosslang.sh` from the repository
 root; they build artifacts the tests then execute, so a plain `go test ./...`

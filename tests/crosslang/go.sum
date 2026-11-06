@@ -1,0 +1,10 @@
+github.com/tetratelabs/wazero v1.10.1 h1:2DugeJf6VVk58KTPszlNfeeN8AhhpwcZqkJj2wwFuH8=
+github.com/tetratelabs/wazero v1.10.1/go.mod h1:DRm5twOQ5Gr1AoEdSi0CLjDQF1J9ZAuyqFIjl1KKfQU=
+github.com/webong/ext/pkg/ext-go/cgoengine v0.2.0 h1:L/BQKKUzG8WOBdXt9hOaw5zQbzVSFaDBsLF6Yd75cFE=
+github.com/webong/ext/pkg/ext-go/cgoengine v0.2.0/go.mod h1:uqmULLlQ7eC9o+XauFNtujw+2PzSfzs1YTQ17WgX3cI=
+github.com/webong/ext/pkg/ext-go/engine v0.2.0 h1:PNx1wogQMNP/SPGrNma8tXTsqwu3eYmeglRmuz4QIlM=
+github.com/webong/ext/pkg/ext-go/engine v0.2.0/go.mod h1:lnYoMIb5lKAnz60k2oG47rhxxFqOLA5MT3IaU5rlU4s=
+github.com/webong/ext/pkg/ext-go/wasm v0.4.0 h1:ztuLmQ8aMZcQ39m/rWpE/EyHYEEcJTsH/qRKVLAUo00=
+github.com/webong/ext/pkg/ext-go/wasm v0.4.0/go.mod h1:NcBLB2r2P8LtdDmdDkStyCFKOmqJNBrKtHC90Nowh3U=
+github.com/webong/ext/res/web/host v0.1.0 h1:AoQIqYyIPnFm3oja3y47EF60PA2Nj2pufZ0o01xu2cc=
+github.com/webong/ext/res/web/host v0.1.0/go.mod h1:N2GxCcuJJDbfMR2dM6LPZXerj4gA8IY7NAzO4j62WH8=

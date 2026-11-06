@@ -89,7 +89,7 @@ them with `EXT_UPDATE_FIXTURES=1`. Each SDK reproduces every outcome, as for
 `lib/plugin/testdata/v1/frames-descriptor.json` is the descriptor every language's
 frames guest serves (identity `ctx/frames`, revision `fixture-1`); `plugintest.FramesGuest`
 is the reference. `plugintest.RunFrames` hosts a guest process through the Go session,
-and `pkg/ext-go/crosslang` runs the same suite through the C engine too, over a Go
+and `tests/crosslang` runs the same suite through the C engine too, over a Go
 client and with the engine owning the process (`TestFramesGuests`; a language
 joins by setting `EXT_<LANGUAGE>_FRAMES_GUEST` to its guest process). Results are JSON;
 key order does not matter.

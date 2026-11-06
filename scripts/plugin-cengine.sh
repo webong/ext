@@ -17,6 +17,7 @@ linkage="${EXT_CENGINE_LINKAGE:-static}"
 go_tags=ext_cengine
 rust_features=(--no-default-features)
 engine_link=(-lext_host_static -lpthread -lm)
+if [[ "$(uname -s)" == Linux ]]; then engine_link+=(-ldl); fi
 engine_cflags=(-DEXT_HOST_STATIC)
 case "$linkage" in
   static) ;;
@@ -58,6 +59,11 @@ cmake --build "$build_dir/sanitize" -j 4
 "$build_dir/sanitize/ext_frames_test"
 "$build_dir/sanitize/ext_reverse_test"
 "$build_dir/sanitize/ext_backend_test"
+"$build_dir/sanitize/ext_shared_library_test"
+# The same Go-built C ABI guest the Go loader runs, through the engine's shared-library backend.
+case "$(uname -s)" in Darwin) shared_ext=dylib ;; *) shared_ext=so ;; esac
+go build -buildmode=c-shared -o "$build_dir/go-shared.$shared_ext" ./tests/crosslang/testdata/go-shared
+"$build_dir/sanitize/ext_shared_library_test" "$build_dir/go-shared.$shared_ext" lib/plugin/testdata/v1/descriptor.json
 "$build_dir/sanitize/ext_endpoint_test" lib/plugin/testdata/v1/endpoint-cases.json
 "$build_dir/sanitize/ext_fixtures_test" lib/plugin/testdata/v1
 "$build_dir/sanitize/ext_host_native_test" "$EXT_CENGINE_GUEST" "$build_dir/descriptor.json" "$build_dir/echo.json" "$build_dir/wait.json"
@@ -77,6 +83,7 @@ cmake --build "$build_dir/thread-sanitize" -j 4
 "$build_dir/thread-sanitize/ext_frames_test"
 "$build_dir/thread-sanitize/ext_reverse_test"
 "$build_dir/thread-sanitize/ext_backend_test"
+"$build_dir/thread-sanitize/ext_shared_library_test"
 "$build_dir/thread-sanitize/ext_endpoint_test" lib/plugin/testdata/v1/endpoint-cases.json
 "$build_dir/thread-sanitize/ext_fixtures_test" lib/plugin/testdata/v1
 "$build_dir/thread-sanitize/ext_host_native_test" "$EXT_CENGINE_GUEST" "$build_dir/descriptor.json" "$build_dir/echo.json" "$build_dir/wait.json"

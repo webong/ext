@@ -24,6 +24,7 @@ protocol and existing language guest implementations remain unchanged.
   escaped aliases), unknown envelope fields and exact number text preservation.
 - Serialized JSON-line execution; extensions may declare concurrent invocation.
 - Backend extension vtable with engine-owned result sinks, close and release.
+- Shared-library backend for C ABI guests ([`ext_plugin.h`](include/ext_plugin.h)).
 - Lifecycle state and bounded graceful drain; a drain timeout reopens admission.
 - Millisecond deadlines, monotonic I/O/queue waits, per-call cancellation and
   original binding context; cancellation after dispatch terminates the session.
@@ -108,8 +109,12 @@ target_link_libraries(my_app PRIVATE EXT::host) # static default
 The exported targets carry header paths, static API definitions and required
 system libraries. The static archive uses position-independent code so it can
 be embedded in a Node addon. Manual C consumers define `EXT_HOST_STATIC` and
-link `-lext_host_static -pthread -lm`. Parser symbols are privately prefixed
+link `-lext_host_static -pthread -lm`, plus `-ldl` on Linux. Parser symbols are privately prefixed
 at build time, allowing applications to link their own yyjson version.
+
+Prebuilt libraries are attached to each `ext-engine-vX.Y.Z` GitHub release, one archive per
+platform (`scripts/ext-engine-release.sh`, see [module versioning](../../docs/module-versioning.md)):
+a host that loads the engine at run time, such as the Python host, needs no C toolchain.
 
 Go integration is opt-in and excluded from ordinary Go builds:
 
@@ -172,6 +177,32 @@ with `ext_host_backend_progress`, `ext_host_backend_reverse_admit` and
 it does for a process it reads, and the backend keeps its transport and threads.
 Without the flag the engine refuses a descriptor that declares progress or reverse
 operations, since the backend could not carry them.
+
+### Shared-library guests
+
+`ext_shared_library_backend_create` turns an absolute path to a C ABI guest (the four
+`ext_plugin_*` exports of [`ext_plugin.h`](include/ext_plugin.h), from C, C++, Rust, Zig, Go
+`-buildmode=c-shared` or Swift) into an `EXT_BACKEND_EXTENSION_CONTEXT` backend, so any
+language that binds this engine can host one without a loader of its own:
+
+```c
+ext_shared_library_options library = {sizeof(library), "/opt/plugins/echo/1.0.0/libecho.so"};
+ext_backend_extension_context ext;
+ext_shared_library_backend_create(&library, &ext);
+ext_backend_options backend = {sizeof(backend), EXT_BACKEND_EXTENSION_CONTEXT, &ext, sizeof(ext)};
+ext_host_create(&host_options, &backend, &host);   /* then ext_host_start, ext_host_invoke ... */
+```
+
+It behaves as the Go loader in `pkg/ext-go/cgoengine/cshared` does. Nothing is loaded until
+connect, which runs after the host's verify policy. Each canonical path is loaded once and
+never unloaded. A library whose ABI version is not 1 or that lacks an export is refused.
+Calls are serialized, with the ABI's 24 MiB response capacity and no retry. A nonzero ABI
+status, an impossible length, or a call that outlives its deadline or cancellation ends the
+session. Native code cannot be interrupted, so close only refuses further calls, and the
+handle is closed in release. The C ABI has no frames, so a descriptor that declares progress
+or reverse operations is refused, as for any extension without `EXT_BACKEND_FRAMES`.
+`tests/shared_library.c` checks it against C guests and, given a path, against the Go-built
+guest that `tests/crosslang` runs through the Go loader.
 
 Go consumers use `cgoengine.NewWithBackend` with a reviewed `Connect` factory:
 

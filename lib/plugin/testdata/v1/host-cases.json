@@ -1,0 +1,67 @@
+{
+  "about": "What a host in any language must observe when it runs the reference conformance guest (descriptor.json). Every case runs once per guest: 'jsonline', the guest as a JSON-line child process (tests/crosslang/testdata/go-guest), and 'shared', the same guest as a C ABI library (tests/crosslang/testdata/go-shared). A case opens a host for the descriptor, changed as the case says, with the verify and authorize policies it names (allow when absent), starts it, expects 'start' (ok when absent), then runs its steps in order. A call step sends operation and payload (null when absent) to the contract, with timeoutMs (3000 when absent), and expects exactly one of: 'result', the payload returned; 'error', the remote error returned, compared field by field, a missing retryAfterMilliseconds meaning none; 'status', the host's failure, as one name or a list of acceptable names; or 'fails': true, which accepts any outcome but a result (a deadline can end in the host's timeout or the guest's own error, whichever comes first). Status names: ok, denied, mismatch, closed, timeout, canceled, invalid, unsupported, not_found. A state step expects the host's state: created, ready, draining, closed or failed. A close step closes the host.",
+  "descriptor": "descriptor.json",
+  "contract": {"name": "ext.conformance", "version": "v1"},
+  "guests": ["jsonline", "shared"],
+  "cases": [
+    {
+      "name": "echo-returns-the-payload",
+      "steps": [
+        {"call": "echo", "payload": {"value": 7}, "result": {"value": 7}},
+        {"call": "echo", "payload": {"nested": {"list": [1, 2.5, "three", true, null]}}, "result": {"nested": {"list": [1, 2.5, "three", true, null]}}}
+      ]
+    },
+    {
+      "name": "public-error-reaches-the-host",
+      "steps": [
+        {"call": "public-error", "error": {"code": "busy", "message": "try later", "retryAfterMilliseconds": 10}}
+      ]
+    },
+    {
+      "name": "private-error-is-sanitized",
+      "steps": [
+        {"call": "private-error", "error": {"code": "operation_failed", "message": "plugin operation failed"}}
+      ]
+    },
+    {
+      "name": "domain-errors-keep-the-session",
+      "steps": [
+        {"call": "public-error", "error": {"code": "busy", "message": "try later", "retryAfterMilliseconds": 10}},
+        {"call": "private-error", "error": {"code": "operation_failed", "message": "plugin operation failed"}},
+        {"state": "ready"},
+        {"call": "echo", "payload": {"value": 1}, "result": {"value": 1}}
+      ]
+    },
+    {
+      "name": "denied-call-keeps-the-session",
+      "authorize": "deny",
+      "steps": [
+        {"call": "echo", "payload": {"value": 7}, "status": "denied"},
+        {"state": "ready"}
+      ]
+    },
+    {
+      "name": "verify-runs-before-start",
+      "verify": "deny",
+      "start": "denied"
+    },
+    {
+      "name": "handshake-must-match",
+      "revision": "other",
+      "start": "mismatch"
+    },
+    {
+      "name": "late-call-fails",
+      "steps": [
+        {"call": "wait", "timeoutMs": 100, "fails": true}
+      ]
+    },
+    {
+      "name": "closed-host-refuses-calls",
+      "steps": [
+        {"close": true},
+        {"call": "echo", "payload": {"value": 7}, "status": "closed"}
+      ]
+    }
+  ]
+}

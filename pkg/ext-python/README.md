@@ -1,9 +1,10 @@
-# ext for Python (`ext-io`): plugin guest SDK
+# ext for Python (`ext-io`): plugin guest and host SDK
 
 > **Why `ext-io`:** the bare name `ext` is taken on crates.io, PyPI and npm, so `ext-io` is the one package for all of ext's APIs, one namespace per area. Only `plugin` is built so far; `system`, `web` and `int` are planned.
 
 Standard-library-only guest for `ext.plugin/v1` over JSON lines (Python 3.8+).
-Hosts use the Go `pkg/ext-go/engine/host/process` backend (or any JSON-line client) to run it.
+Any ext host runs it, including the Go `pkg/ext-go/engine/host/process` backend and the Python host
+below, or any JSON-line client.
 
 ```python
 from ext_io import plugin
@@ -87,3 +88,57 @@ protocol frames: file descriptor 1 and `sys.stdout` are redirected to stderr.
 Tests: `python3 -I -m unittest discover -s tests` here (CI runs it), and the Go suite in
 `pkg/ext-go/engine/plugintest` (`TestPythonGuest`) runs this guest through
 `process.Start` against the shared conformance fixtures.
+
+## Host plugins from Python
+
+`ext_io.host` runs plugins through the C engine (`lib/plugin`), so a Python program can host any
+ext plugin, whatever language it is written in. The engine does what a host must get right:
+admission, the handshake check against the descriptor, request and response validation,
+deadlines and the session's lifecycle. The module only moves bytes and policy decisions across
+`ctypes`, so it is still standard library only, but it needs the engine's shared library,
+`libext_host`. Take it from an `ext-engine-vX.Y.Z` release (`lib/libext_host.so`, `lib/libext_host.dylib`
+or `bin/ext_host.dll` in the archive for your platform), or build it with
+`cmake -S lib/plugin -B build -DEXT_BUILD_SHARED=ON`, and point `EXT_HOST_LIBRARY` at it, or pass its path
+to `Engine`. Importing the guest (`ext_io.plugin`)
+never loads the host.
+
+```python
+from ext_io import host, plugin
+
+engine = host.Engine()                                   # EXT_HOST_LIBRARY, or the loader path
+descriptor = plugin.load_descriptor("plugin.json")
+contract = {"name": "ext.echo", "version": "v1"}
+
+# A JSON-line guest, started as a child process (an absolute path, no shell).
+with engine.process(descriptor, "/opt/plugins/echo/1.0.0/echo",
+                    verify=lambda d: d["identity"]["id"] == "example/echo",
+                    authorize=lambda request: request["operation"] == "echo") as h:
+    h.start(timeout=3.0)
+    print(h.call(contract, "echo", {"value": 7}))         # {'value': 7}
+
+# A guest built as a C ABI library (ext_plugin.h): C, C++, Rust, Zig, Go c-shared or Swift.
+with engine.shared_library(descriptor, "/opt/plugins/echo/1.0.0/libecho.so") as h:
+    h.start()
+    try:
+        h.call(contract, "busy")
+    except plugin.RemoteError as e:                       # a domain error from the plugin
+        print(e.code, e.message)
+    except host.HostError as e:                           # a host failure: e.status is "denied", "closed" ...
+        print(e.status)
+```
+
+- `verify(descriptor)` runs before the guest starts and `authorize(request)` before each call;
+  each returns True to allow, gets the JSON as a dict, and an exception denies. They run on the
+  calling thread and must not call back into the host.
+- `call` returns the payload, or raises `plugin.RemoteError` for a domain error and
+  `host.HostError` for a host failure. `invoke` sends and returns complete envelopes as bytes.
+- Calls may come from several threads; the engine serializes them for a process or a shared
+  library, and `ctypes` releases the GIL while a call runs. `close` aborts, `drain` waits for the
+  calls in flight, and leaving the `with` block (or `destroy`) frees the host.
+- A shared library is loaded when the host starts, after `verify`, and is never unloaded. Its
+  code runs in this process with the process's full access.
+
+`tests/test_host.py` runs the shared host cases (`lib/plugin/testdata/v1/host-cases.json`), the
+same file the Go host is held to, on the reference guest as a child process and as a C ABI
+library. `scripts/host-cases.sh` builds the engine and both guests and runs it.
+

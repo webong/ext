@@ -90,6 +90,13 @@ independently; their `MAJOR` follows the repository-wide `MAJOR`. `ext-zig-vX.Y.
 `ext-web-X.Y.Z.tgz` with `npm pack`, checks that the tarball installs and that every entry point imports, and
 attaches the tarball with its checksum and a provenance attestation to the GitHub release. The package is
 private, so nothing is pushed to the npm registry; an app installs the tarball from the release.
+`ext-engine-vX.Y.Z` releases the prebuilt C engine (`lib/plugin`) the same way
+(`.github/workflows/ext-engine-release.yml`, published with `--latest=false`); its version has to be the
+`VERSION` of `project()` in `lib/plugin/CMakeLists.txt`, and the staging script refuses any other. For
+Linux (x86-64 and aarch64, built on Ubuntu 22.04), macOS (one universal library) and Windows (x86-64 and
+arm64, built with MSVC) it attaches `ext-engine-X.Y.Z-<platform>.tar.gz`, holding the shared and static
+libraries, headers, CMake package and licenses, with checksums and a provenance attestation. A host that
+loads the engine at run time, such as `ext_io.host`, uses it instead of building with CMake.
 The Windows-native .NET libraries follow the same form: `ext-dotnet-vX.Y.Z` releases the NuGet packages
 `Ext.Audio.Windows` (`res/system/capture/audio/windows`), `Ext.Clipboard.Windows`
 (`res/system/capture/clipboard/windows`), `Ext.Web.Windows` (`res/web/windows`) and `Ext.ML.Windows`

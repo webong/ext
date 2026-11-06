@@ -10,6 +10,7 @@ package cgoengine
 #cgo !ext_cengine_shared CFLAGS: -DEXT_HOST_STATIC
 #cgo !ext_cengine_shared LDFLAGS: -lext_host_static -lpthread -lm
 #cgo windows,!ext_cengine_shared LDFLAGS: -lbcrypt
+#cgo linux,!ext_cengine_shared LDFLAGS: -ldl
 #cgo ext_cengine_shared LDFLAGS: -lext_host
 #include "ext_go_bridge.h"
 #include <stdlib.h>

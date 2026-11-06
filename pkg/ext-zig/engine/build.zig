@@ -14,6 +14,8 @@ pub fn build(b: *std.Build) void {
     module.linkSystemLibrary(if (shared) "ext_host" else "ext_host_static", .{});
     module.linkSystemLibrary("pthread", .{});
     module.linkSystemLibrary("m", .{});
+    // The shared-library backend loads guests with dlopen, which older glibc keeps in libdl.
+    if (!shared and target.result.os.tag == .linux) module.linkSystemLibrary("dl", .{});
     const tests = b.addTest(.{ .root_module = module });
     const run = b.addRunArtifact(tests);
     b.step("test", "Check the C engine binding").dependOn(&run.step);

@@ -32,7 +32,7 @@ Their existing native protocols are not automatically compatible with CTX.
 | `pkg/ext-go/engine/package` | Portable manifests, artifact verification, preflight and graph projection |
 | `pkg/ext-go/engine/plugintest` | Reusable backend conformance tests |
 | `pkg/ext-go` | Go binding to the C engine; static by default, shared optional |
-| `pkg/ext-python` | Standard-library guest SDK (`ext_io.plugin`) serving JSON lines on stdin and stdout |
+| `pkg/ext-python` | Standard-library guest SDK (`ext_io.plugin`) serving JSON lines on stdin and stdout, and a host SDK (`ext_io.host`) that runs any plugin through the C engine with `ctypes` |
 | `pkg/ext-ruby` | Standard-library Ruby guest SDK (`ExtIO::Plugin`) serving JSON lines on stdin and stdout |
 | `pkg/ext-php` | PHP guest SDK (`ExtIO\Plugin`) serving JSON lines on stdin and stdout |
 | `pkg/ext-lua` | Pure-Lua guest SDK (`ext_io.plugin`) with its own JSON module, serving JSON lines on stdin and stdout |

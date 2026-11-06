@@ -57,6 +57,28 @@ func rejectMalformedFrames(t *testing.T, path string) {
 	}
 }
 
+// warmedCache returns a compilation cache that already holds module. The harness bounds a session
+// to 3 s, compilation included, and a WASI guest is opened once per subtest, so without a cache
+// each subtest compiles the module again; a large module on a shared runner then spends most of
+// the bound there. Compiling once here, outside every session, leaves the sessions to measure the
+// protocol.
+func warmedCache(t *testing.T, module []byte) *wasm.CompilationCache {
+	t.Helper()
+	cache := wasm.NewCompilationCache()
+	t.Cleanup(func() { _ = cache.Close(context.Background()) })
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+	b, err := wasm.Open(ctx, module, wasm.Options{CompilationCache: cache})
+	if err != nil {
+		t.Fatalf("compile the WASI guest: %v", err)
+	}
+	_ = b.Close()
+	wait, stop := context.WithTimeout(context.Background(), 4*time.Second)
+	defer stop()
+	_ = b.Wait(wait) // closing a running command ends it with an error
+	return cache
+}
+
 func artifact(t *testing.T, name string) string {
 	t.Helper()
 	p := os.Getenv("EXT_" + name)
@@ -205,8 +227,9 @@ func TestForeignGuests(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
+				cache := warmedCache(t, data)
 				runGuestConformance(t, func(ctx context.Context) (plugin.Backend, error) {
-					b, err := wasm.Open(ctx, data, wasm.Options{})
+					b, err := wasm.Open(ctx, data, wasm.Options{CompilationCache: cache})
 					if err != nil {
 						return nil, err
 					}
@@ -342,8 +365,9 @@ func TestFramesGuests(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+			cache := warmedCache(t, data)
 			runFrames(t, func(ctx context.Context) (plugin.Backend, error) {
-				b, err := wasm.Open(ctx, data, wasm.Options{})
+				b, err := wasm.Open(ctx, data, wasm.Options{CompilationCache: cache})
 				if err != nil {
 					return nil, err
 				}

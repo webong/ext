@@ -31,6 +31,9 @@ type CommandOptions struct {
 	// MemoryLimitPages bounds linear memory (64 KiB/page). Zero uses
 	// DefaultMemoryPages.
 	MemoryLimitPages uint32
+	// CompilationCache, when set, lets RunCommand reuse a module compiled by an
+	// earlier run. Nil compiles on every run.
+	CompilationCache *CompilationCache
 }
 
 // RunCommand compiles module and runs its _start function to completion. The
@@ -45,8 +48,7 @@ func RunCommand(ctx context.Context, module []byte, opts CommandOptions) (int, e
 	if pages == 0 {
 		pages = DefaultMemoryPages
 	}
-	runtime := wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfig().
-		WithMemoryLimitPages(pages).WithCloseOnContextDone(true))
+	runtime := wazero.NewRuntimeWithConfig(ctx, runtimeConfig(pages, opts.CompilationCache))
 	defer runtime.Close(context.Background())
 	if _, err := wasi_snapshot_preview1.Instantiate(ctx, runtime); err != nil {
 		return 0, err

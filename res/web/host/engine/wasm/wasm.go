@@ -40,6 +40,9 @@ type Options struct {
 	// MaxStderrBytes caps forwarded diagnostics for the guest lifetime. Zero
 	// defaults to 64 KiB. Additional output is discarded without blocking.
 	MaxStderrBytes int64
+	// CompilationCache, when set, lets Open reuse a module compiled by an earlier
+	// session. Nil compiles on every Open.
+	CompilationCache *CompilationCache
 }
 
 // Command is one persistent WASI command. Read and Write exchange raw bytes
@@ -82,7 +85,7 @@ func Open(ctx context.Context, module []byte, opts Options) (*Command, error) {
 			return nil, ErrInvalid
 		}
 	}
-	r := wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfig().WithMemoryLimitPages(opts.MemoryLimitPages).WithCloseOnContextDone(true))
+	r := wazero.NewRuntimeWithConfig(ctx, runtimeConfig(opts.MemoryLimitPages, opts.CompilationCache))
 	if _, err := wasi_snapshot_preview1.Instantiate(ctx, r); err != nil {
 		_ = r.Close(context.Background())
 		return nil, err

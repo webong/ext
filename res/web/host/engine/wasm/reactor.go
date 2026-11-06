@@ -50,6 +50,9 @@ type ReactorOptions struct {
 	Stderr io.Writer
 	// MaxStderrBytes caps forwarded diagnostics. Zero defaults to 64 KiB.
 	MaxStderrBytes int64
+	// CompilationCache, when set, lets OpenReactor reuse a module compiled by an
+	// earlier session. Nil compiles on every open.
+	CompilationCache *CompilationCache
 }
 
 // Reactor hosts one request/response WebAssembly reactor. Calls are serialized
@@ -92,7 +95,7 @@ func OpenReactor(ctx context.Context, module []byte, abi ReactorABI, opts Reacto
 	if opts.Stderr == nil {
 		opts.Stderr = io.Discard
 	}
-	runtime := wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfig().WithMemoryLimitPages(opts.MemoryLimitPages).WithCloseOnContextDone(true))
+	runtime := wazero.NewRuntimeWithConfig(ctx, runtimeConfig(opts.MemoryLimitPages, opts.CompilationCache))
 	fail := func(err error) (*Reactor, error) {
 		_ = runtime.Close(context.Background())
 		return nil, err

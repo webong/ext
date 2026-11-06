@@ -72,14 +72,7 @@ func TestCapabilityGuests(t *testing.T) {
 				if err != nil {
 					return nil, err
 				}
-				t.Cleanup(func() {
-					_ = b.Close()
-					ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
-					defer cancel()
-					if err := b.Wait(ctx); ctx.Err() != nil {
-						t.Errorf("WASI cleanup: %v", err)
-					}
-				})
+				closeWASIWhenDone(t, b)
 				return b, nil
 			})
 		})

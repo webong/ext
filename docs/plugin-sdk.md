@@ -35,7 +35,7 @@ Their existing native protocols are not automatically compatible with CTX.
 | `pkg/ext-python` | Standard-library guest SDK (`ext_io.plugin`) serving JSON lines on stdin and stdout, and a host SDK (`ext_io.host`) that runs any plugin through the C engine with `ctypes` |
 | `pkg/ext-ruby` | Standard-library Ruby guest SDK (`ExtIO::Plugin`) serving JSON lines on stdin and stdout |
 | `pkg/ext-php` | PHP guest SDK (`ExtIO\Plugin`) serving JSON lines on stdin and stdout |
-| `pkg/ext-lua` | Pure-Lua guest SDK (`ext_io.plugin`) with its own JSON module, serving JSON lines on stdin and stdout |
+| `pkg/ext-lua` | Pure-Lua guest SDK (`ext_io.plugin`) with its own JSON module, serving JSON lines on stdin and stdout, and an opt-in host SDK (`ext_io.host`) that runs any plugin through the C engine with a small C module |
 | `pkg/ext-ts` | Portable JavaScript runtime and TypeScript declarations for hosts and guests |
 | `pkg/ext-rust` | Rust typed registry, host sessions, JSON-line/WASI guests and C ABI host/guest bindings |
 | `pkg/ext-zig` | Zig typed registry, host sessions, JSON-line/WASI guests, C ABI host/guest bindings, and the health, configuration and stream contracts with a stream client |

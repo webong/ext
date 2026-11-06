@@ -61,6 +61,7 @@ jobs:
         run: |
           set -euo pipefail
           cargo package --locked --manifest-path pkg/ext-rust/Cargo.toml --list
+          cargo package --locked --manifest-path pkg/ext-rust/Cargo.toml
           cargo publish --dry-run --locked --manifest-path pkg/ext-rust/Cargo.toml
       - name: Checksums
         env:
@@ -69,7 +70,11 @@ jobs:
           set -euo pipefail
           out="dist/ext-rust-$VERSION"
           mkdir -p "$out"
-          cp "pkg/ext-rust/target/package/ext-io-$VERSION.crate" "$out/"
+          target=$(cargo metadata --no-deps --format-version 1 --manifest-path pkg/ext-rust/Cargo.toml |
+            python3 -c 'import json, sys; print(json.load(sys.stdin)["target_directory"])')
+          crate=$(find "$target/package" -maxdepth 1 -name "ext-io-$VERSION.crate" -print -quit)
+          [[ -n "$crate" ]] || { echo "no ext-io-$VERSION.crate under $target/package" >&2; ls -la "$target/package" >&2 || true; exit 1; }
+          cp "$crate" "$out/"
           (cd "$out" && sha256sum ./*.crate | tee checksums.txt)
       - uses: actions/upload-artifact@v6
         with:

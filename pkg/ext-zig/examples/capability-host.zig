@@ -1,7 +1,7 @@
 // Calls the capability contracts (ext.health, ext.configuration and ext.stream) of a guest on
 // standard input and output, with the SDK's methods and stream.Client, and exits with an error on the
 // first answer that is not the one the cross-language test expects of a Go guest
-// (pkg/ext-go/crosslang/capability_test.go: TestCapabilityHosts).
+// (tests/crosslang/capability_test.go: TestCapabilityHosts).
 const std = @import("std");
 const sdk = @import("ext_io");
 const w = sdk.wire;

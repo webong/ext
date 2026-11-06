@@ -157,7 +157,7 @@ export EXT_CENGINE_GUEST=/tmp/go-guest
 export EXT_CENGINE_FAULT_GUEST=/tmp/fault-guest
 
 go build -tags ext_cengine -o "$EXT_CENGINE_GUEST" \
-  ./pkg/ext-go/crosslang/testdata/go-guest
+  ./tests/crosslang/testdata/go-guest
 go build -tags ext_cengine -o "$EXT_CENGINE_FAULT_GUEST" \
   ./pkg/ext-go/cgoengine/testdata/faultguest
 

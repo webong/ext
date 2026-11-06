@@ -87,7 +87,22 @@ static int64_t mono_ms(void) {
 }
 
 #ifdef _WIN32
-static char *canonical(const char *path) { return strdup(path); }
+/* The path as given, once it names a file: LoadLibraryExW itself returns the
+ * module already loaded from the same file. */
+static char *canonical(const char *path) {
+  int count = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, path, -1, NULL, 0);
+  if (!count)
+    return NULL;
+  wchar_t *wide = malloc((size_t)count * sizeof(wchar_t));
+  if (!wide)
+    return NULL;
+  MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, path, -1, wide, count);
+  DWORD attributes = GetFileAttributesW(wide);
+  free(wide);
+  if (attributes == INVALID_FILE_ATTRIBUTES || (attributes & FILE_ATTRIBUTE_DIRECTORY))
+    return NULL;
+  return strdup(path);
+}
 static ext_status load(image *i) {
   int count = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, i->path, -1, NULL, 0);
   if (!count)

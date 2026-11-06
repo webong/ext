@@ -47,6 +47,7 @@ echo "== native tests"
 "$build/engine/ext_frames_test$exe"
 "$build/engine/ext_reverse_test$exe"
 "$build/engine/ext_backend_test$exe"
+"$build/engine/ext_shared_library_test$exe"
 "$build/engine/ext_endpoint_test$exe" "$(winpath "$root/lib/plugin/testdata/v1/endpoint-cases.json")"
 "$build/engine/ext_fixtures_test$exe" "$(winpath "$root/lib/plugin/testdata/v1")"
 "$build/engine/ext_host_native_test$exe" "$(winpath "$guest")" "$(winpath "$build/descriptor.json")" "$(winpath "$build/echo.json")" "$(winpath "$build/wait.json")"
@@ -62,6 +63,15 @@ if [ -n "${EXT_ENGINE_C_ONLY:-}" ]; then
   echo "native engine tests passed (EXT_ENGINE_C_ONLY: Go suites skipped)"
   exit 0
 fi
+
+echo "== the shared-library backend on the Go-built C ABI guest the Go loader runs"
+case "$(uname -s)" in
+  MINGW*|MSYS*|CYGWIN*) shared_ext=dll ;;
+  Darwin) shared_ext=dylib ;;
+  *) shared_ext=so ;;
+esac
+go build -buildmode=c-shared -o "$build/go-shared.$shared_ext" ./tests/crosslang/testdata/go-shared
+"$build/engine/ext_shared_library_test$exe" "$(winpath "$build/go-shared.$shared_ext")" "$(winpath "$root/lib/plugin/testdata/v1/descriptor.json")"
 
 echo "== Go suites linked against the engine (pkg/ext-go/cgoengine)"
 (cd pkg/ext-go/cgoengine

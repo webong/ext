@@ -65,8 +65,9 @@ jobs:
         shell: bash
         env:
           VERSION: ${{ steps.version.outputs.version }}
-          PLATFORM: ${{ matrix.platform }}
-        run: scripts/ext-engine-release.sh "$VERSION" "$PLATFORM" "$RUNNER_TEMP/engine"
+          # Not PLATFORM: MSVC's environment sets Platform, and Windows names ignore case.
+          ENGINE_PLATFORM: ${{ matrix.platform }}
+        run: scripts/ext-engine-release.sh "$VERSION" "$ENGINE_PLATFORM" "$RUNNER_TEMP/engine"
       - uses: actions/upload-artifact@v6
         with:
           name: ext-engine-${{ steps.version.outputs.version }}-${{ matrix.platform }}

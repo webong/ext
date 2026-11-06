@@ -85,6 +85,26 @@ func warmedCache(t *testing.T, module []byte) *webwasm.CompilationCache {
 	return cache
 }
 
+// closeWASIWhenDone ends a WASI guest when the test finishes and fails the test if the guest does
+// not stop within four seconds. The failure carries every goroutine's stack: the timeout has been
+// seen on hosted macOS runners with the race detector, and the stacks are what say whether the
+// wait is on the guest's exit, the pipes to it or the runtime closing. Closing a running command
+// ends it with an error, so only the deadline counts as a failure.
+func closeWASIWhenDone(t *testing.T, b *wasm.Backend) {
+	t.Helper()
+	t.Cleanup(func() {
+		_ = b.Close()
+		ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
+		defer cancel()
+		err := b.Wait(ctx)
+		if ctx.Err() != nil {
+			var stacks bytes.Buffer
+			_ = pprof.Lookup("goroutine").WriteTo(&stacks, 2)
+			t.Errorf("WASI cleanup: %v\n%s", err, stacks.String())
+		}
+	})
+}
+
 func artifact(t *testing.T, name string) string {
 	t.Helper()
 	p := os.Getenv("EXT_" + name)
@@ -239,17 +259,7 @@ func TestForeignGuests(t *testing.T) {
 					if err != nil {
 						return nil, err
 					}
-					t.Cleanup(func() {
-						_ = b.Close()
-						ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
-						defer cancel()
-						err := b.Wait(ctx)
-						if ctx.Err() != nil {
-							var stacks bytes.Buffer
-							_ = pprof.Lookup("goroutine").WriteTo(&stacks, 2)
-							t.Errorf("WASI cleanup: %v\n%s", err, stacks.String())
-						}
-					})
+					closeWASIWhenDone(t, b)
 					return b, nil
 				})
 			})
@@ -377,14 +387,7 @@ func TestFramesGuests(t *testing.T) {
 				if err != nil {
 					return nil, err
 				}
-				t.Cleanup(func() {
-					_ = b.Close()
-					ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
-					defer cancel()
-					if err := b.Wait(ctx); ctx.Err() != nil {
-						t.Errorf("WASI cleanup: %v", err)
-					}
-				})
+				closeWASIWhenDone(t, b)
 				return b, nil
 			}, "", plugintest.FramesOptions{Concurrent: false})
 		})

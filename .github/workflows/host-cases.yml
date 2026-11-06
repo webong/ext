@@ -1,9 +1,9 @@
 name: Host cases
 
 # The shared host cases (lib/plugin/testdata/v1/host-cases.json) on every host that has a runner:
-# the pure-Go host and the hosts that bind the C engine (scripts/host-cases.sh). Runs on pushes to
-# main that touch them and on demand (gh workflow run host-cases.yml --ref <branch>). Branches and
-# pull requests do not start it, to save runner time.
+# the pure-Go host and the hosts that bind the C engine (scripts/host-cases.sh), on Linux, macOS and
+# Windows. Runs on pushes to main that touch them and on demand (gh workflow run host-cases.yml
+# --ref <branch>). Branches and pull requests do not start it, to save runner time.
 on:
   push:
     branches: [main]
@@ -51,4 +51,53 @@ jobs:
       - name: Host cases
         env:
           PYTHON: python
+        run: scripts/host-cases.sh
+
+  # Windows: the engine built with MinGW-w64 (gcc, from MSYS2) or with MSVC (cl). Go's cgo cannot
+  # use cl, so the Go-built C ABI guest is built by the MinGW gcc either way; the MSVC variant
+  # shows that the engine's DLL, built by the other compiler, loads it and passes the same cases.
+  # MSVC is experimental, as in plugin-engine.yml, and reports without blocking.
+  windows:
+    name: hosts (windows, ${{ matrix.toolchain }})
+    strategy:
+      fail-fast: false
+      matrix:
+        toolchain: [mingw, msvc]
+    runs-on: windows-latest
+    continue-on-error: ${{ matrix.toolchain == 'msvc' }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.26.x'
+          cache: true
+          cache-dependency-path: |
+            **/go.sum
+            go.work.sum
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - uses: msys2/setup-msys2@v2
+        if: matrix.toolchain == 'mingw'
+        with:
+          msystem: MINGW64
+          path-type: inherit
+          install: >-
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-cmake
+            mingw-w64-x86_64-ninja
+      - uses: ilammy/msvc-dev-cmd@v1
+        if: matrix.toolchain == 'msvc'
+      - name: Host cases (MinGW-w64)
+        if: matrix.toolchain == 'mingw'
+        shell: msys2 {0}
+        env:
+          PYTHON: python
+        run: scripts/host-cases.sh
+      - name: Host cases (MSVC)
+        if: matrix.toolchain == 'msvc'
+        shell: bash
+        env:
+          PYTHON: python
+          EXT_ENGINE_CC: cl
         run: scripts/host-cases.sh

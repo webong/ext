@@ -140,5 +140,6 @@ with engine.shared_library(descriptor, "/opt/plugins/echo/1.0.0/libecho.so") as 
 
 `tests/test_host.py` runs the shared host cases (`lib/plugin/testdata/v1/host-cases.json`), the
 same file the Go host is held to, on the reference guest as a child process and as a C ABI
-library. `scripts/host-cases.sh` builds the engine and both guests and runs it.
+library. `scripts/host-cases.sh` builds the engine and both guests and runs it, on Linux, macOS and
+Windows (the engine built with MinGW-w64 or MSVC).
 

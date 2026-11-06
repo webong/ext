@@ -1,0 +1,147 @@
+name: Release ext-io (npm)
+
+# Releases the TypeScript package ext-io (pkg/ext-ts) to npm and attaches the packed tarball to a GitHub
+# release. It publishes for ext-ts-vX.Y.Z tags only, and the npm job waits in the `npm` environment for a
+# required reviewer. A pull request that touches the package and a manual run test, pack and dry-run the
+# publish, and publish nothing. The tag is not a Go module tag; see docs/module-versioning.md. The tag's
+# version must equal the version in pkg/ext-ts/package.json.
+#
+# npm credentials: npm trusted publishing (OIDC) once the package exists and names this workflow and the
+# `npm` environment, or, for the first publish, the `npm` environment secret NPM_TOKEN (a granular token
+# for ext-io). The token wins when both are present. Either way the package gets a provenance statement.
+# ext-io/plugin/engine needs an addon the consumer builds; nothing prebuilt is published.
+on:
+  push:
+    tags: ['ext-ts-v*']
+  pull_request:
+    paths:
+      - 'pkg/ext-ts/**'
+      - '.github/workflows/ext-ts-release.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ext-ts-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # Tests and packs before anything is published. Read-only: it has no token that can write.
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      - name: Version
+        id: version
+        env:
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          declared=$(node -p "require('./pkg/ext-ts/package.json').version")
+          if [[ "$REF_TYPE" == tag ]]; then version="${REF_NAME#ext-ts-v}"; else version="$declared"; fi
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "version '$version' must look like 0.1.0" >&2; exit 1; }
+          [[ "$declared" == "$version" ]] || { echo "pkg/ext-ts/package.json says $declared but the release is $version" >&2; exit 1; }
+          echo "version=$version" >>"$GITHUB_OUTPUT"
+      - name: Test
+        working-directory: pkg/ext-ts
+        run: npm test
+      - name: Check TypeScript declarations
+        run: npx --yes --package typescript@5.8.3 tsc --noEmit --strict --module NodeNext --moduleResolution NodeNext --target ES2022 pkg/ext-ts/typecheck.mts
+      - name: Pack
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          out="dist/ext-ts-$VERSION"
+          mkdir -p "$out"
+          (cd pkg/ext-ts && npm pack --pack-destination "../../$out")
+          [[ -f "$out/ext-io-$VERSION.tgz" ]] || { echo "expected ext-io-$VERSION.tgz" >&2; ls "$out" >&2; exit 1; }
+          # The tarball must hold exactly the files package.json lists, not the examples or tests.
+          tar -tzf "$out/ext-io-$VERSION.tgz" | grep -E '(test|examples|typecheck|node_modules)' && { echo 'unexpected files in the tarball' >&2; exit 1; } || true
+          (cd pkg/ext-ts && npm publish --dry-run)
+      - name: Check that the tarball installs and imports
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          work="$(mktemp -d)"
+          cd "$work"
+          npm init -y >/dev/null
+          npm install "$GITHUB_WORKSPACE/dist/ext-ts-$VERSION/ext-io-$VERSION.tgz" >/dev/null
+          # ext-io/plugin/engine loads a consumer-built addon on first use, so only its module is imported.
+          for entry in ext-io/plugin ext-io/plugin/node ext-io/plugin/engine; do
+            node --input-type=module -e "await import('$entry'); console.log('imports', '$entry')"
+          done
+      - name: Checksums
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: (cd "dist/ext-ts-$VERSION" && sha256sum ./*.tgz | tee checksums.txt)
+      - uses: actions/upload-artifact@v6
+        with:
+          name: ext-ts-${{ steps.version.outputs.version }}
+          path: dist/ext-ts-${{ steps.version.outputs.version }}/*
+          if-no-files-found: error
+
+  # Attaches the tested tarball to a GitHub release. Only a pushed ext-ts-v tag gets here.
+  release:
+    needs: build
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/ext-ts-v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v7
+        with:
+          name: ext-ts-${{ needs.build.outputs.version }}
+          path: dist
+      - name: Verify checksums
+        run: (cd dist && sha256sum -c checksums.txt)
+      - name: Attest release provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: 'dist/*'
+      # Not "latest": install.sh and install.ps1 resolve the newest ctx-v release by tag.
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist/* --verify-tag --generate-notes --latest=false --title "$GITHUB_REF_NAME"
+
+  # Publishes the exact tarball that was tested, after a reviewer approves the `npm` environment.
+  npm:
+    needs: [build, release]
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/ext-ts-v')
+    runs-on: ubuntu-latest
+    environment:
+      name: npm
+      url: https://www.npmjs.com/package/ext-io/v/${{ needs.build.outputs.version }}
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org'
+      # Trusted publishing needs npm 11.5.1 or later.
+      - run: npm install -g npm@11
+      - uses: actions/download-artifact@v7
+        with:
+          name: ext-ts-${{ needs.build.outputs.version }}
+          path: dist
+      - name: Verify checksums
+        run: (cd dist && sha256sum -c checksums.txt)
+      - name: Publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          VERSION: ${{ needs.build.outputs.version }}
+        run: npm publish "dist/ext-io-$VERSION.tgz" --access public --provenance

@@ -1,0 +1,136 @@
+name: Release ext-io (Rust)
+
+# Releases the Rust crate ext-io (pkg/ext-rust) to crates.io and attaches the packaged .crate to a GitHub
+# release. It publishes for ext-rust-vX.Y.Z tags only, and the crates.io job waits in the `crates`
+# environment for a required reviewer. A pull request that touches the crate and a manual run test it,
+# run `cargo publish --dry-run` and publish nothing. The tag is not a Go module tag; see
+# docs/module-versioning.md. The tag's version must equal the version in pkg/ext-rust/Cargo.toml.
+#
+# crates.io credentials: crates.io trusted publishing (rust-lang/crates-io-auth-action) once the crate
+# exists and lists this workflow and the `crates` environment, or, for the first publish, the
+# `crates` environment secret CARGO_REGISTRY_TOKEN. The token wins when both are present.
+# ext-plugin-engine (pkg/ext-rust/engine) links a prebuilt native library and is never published.
+on:
+  push:
+    tags: ['ext-rust-v*']
+  pull_request:
+    paths:
+      - 'pkg/ext-rust/Cargo.toml'
+      - 'pkg/ext-rust/Cargo.lock'
+      - 'pkg/ext-rust/src/**'
+      - 'pkg/ext-rust/README.md'
+      - 'pkg/ext-rust/LICENSE'
+      - '.github/workflows/ext-rust-release.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ext-rust-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # Tests and packages the crate before anything is published. Read-only: it has no token that can write.
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Version
+        id: version
+        env:
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          declared=$(cargo metadata --no-deps --format-version 1 --manifest-path pkg/ext-rust/Cargo.toml |
+            python3 -c 'import json, sys; print(next(p["version"] for p in json.load(sys.stdin)["packages"] if p["name"] == "ext-io"))')
+          if [[ "$REF_TYPE" == tag ]]; then version="${REF_NAME#ext-rust-v}"; else version="$declared"; fi
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "version '$version' must look like 0.1.0" >&2; exit 1; }
+          [[ "$declared" == "$version" ]] || { echo "pkg/ext-rust/Cargo.toml says $declared but the release is $version" >&2; exit 1; }
+          echo "version=$version" >>"$GITHUB_OUTPUT"
+      - name: Test
+        run: |
+          cargo fmt --manifest-path pkg/ext-rust/Cargo.toml -- --check
+          cargo clippy --locked --manifest-path pkg/ext-rust/Cargo.toml --all-targets -- -D warnings
+          cargo test --locked --manifest-path pkg/ext-rust/Cargo.toml
+      - name: Package and dry-run the publish
+        run: |
+          set -euo pipefail
+          cargo package --locked --manifest-path pkg/ext-rust/Cargo.toml --list
+          cargo package --locked --manifest-path pkg/ext-rust/Cargo.toml
+          cargo publish --dry-run --locked --manifest-path pkg/ext-rust/Cargo.toml
+      - name: Checksums
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          out="dist/ext-rust-$VERSION"
+          mkdir -p "$out"
+          target=$(cargo metadata --no-deps --format-version 1 --manifest-path pkg/ext-rust/Cargo.toml |
+            python3 -c 'import json, sys; print(json.load(sys.stdin)["target_directory"])')
+          crate=$(find "$target/package" -maxdepth 1 -name "ext-io-$VERSION.crate" -print -quit)
+          [[ -n "$crate" ]] || { echo "no ext-io-$VERSION.crate under $target/package" >&2; ls -la "$target/package" >&2 || true; exit 1; }
+          cp "$crate" "$out/"
+          (cd "$out" && sha256sum ./*.crate | tee checksums.txt)
+      - uses: actions/upload-artifact@v6
+        with:
+          name: ext-rust-${{ steps.version.outputs.version }}
+          path: dist/ext-rust-${{ steps.version.outputs.version }}/*
+          if-no-files-found: error
+
+  # Attaches the tested .crate to a GitHub release. Only a pushed ext-rust-v tag gets here.
+  release:
+    needs: build
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/ext-rust-v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v7
+        with:
+          name: ext-rust-${{ needs.build.outputs.version }}
+          path: dist
+      - name: Verify checksums
+        run: (cd dist && sha256sum -c checksums.txt)
+      - name: Attest release provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: 'dist/*'
+      # Not "latest": install.sh and install.ps1 resolve the newest ctx-v release by tag.
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist/* --verify-tag --generate-notes --latest=false --title "$GITHUB_REF_NAME"
+
+  # Publishes to crates.io from the tagged source after a reviewer approves the `crates` environment.
+  # A published version is immutable: a rerun after success fails on "already exists" and changes nothing.
+  crates:
+    needs: [build, release]
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/ext-rust-v')
+    runs-on: ubuntu-latest
+    environment:
+      name: crates
+      url: https://crates.io/crates/ext-io/${{ needs.build.outputs.version }}
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      HAS_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN != '' }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Trusted publishing token
+        id: auth
+        if: env.HAS_TOKEN != 'true'
+        uses: rust-lang/crates-io-auth-action@v1
+      - name: Publish
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN || steps.auth.outputs.token }}
+        run: cargo publish --locked --manifest-path pkg/ext-rust/Cargo.toml

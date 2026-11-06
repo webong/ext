@@ -1,6 +1,6 @@
 # Hosts and guests in every language
 
-Status: proposed on 2026-11-06, written against `main` at `6a77b803`. It extends
+Status: proposed on 2026-11-06, written against `main` at `47f31e50`. It extends
 [the SDK switch](plugin-sdk-switch.md), which settled how guest SDKs use the C engine, to the
 host side.
 
@@ -19,7 +19,7 @@ can write a host, without a second engine.
 | Swift (`pkg/ext-ios`) | Yes | WebView and WAMR hosts, store | The C engine |
 | Java (`pkg/ext-android`) | Yes | WAMR host, store | The C engine |
 | Python (`pkg/ext-python`) | Yes, standard library only | No | |
-| Ruby, PHP, Lua (`pkg/ext-ruby`, `pkg/ext-php`, `pkg/ext-lua`, in PR #97) | Yes, no native code | No | |
+| Ruby, PHP, Lua (`pkg/ext-ruby`, `pkg/ext-php`, `pkg/ext-lua`) | Yes, no native code | No | |
 | .NET | No | No | |
 
 Three languages carry a host of their own (Rust, Zig, TypeScript), and each also has a binding

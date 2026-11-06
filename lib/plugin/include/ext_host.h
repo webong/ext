@@ -184,6 +184,33 @@ typedef struct {
   const void *config;
   size_t config_size;
 } ext_backend_options;
+/* A guest built as a C ABI shared library (ext_plugin.h): C, C++, Rust, Zig, Go
+ * -buildmode=c-shared, Swift, or any code that exports the four ext_plugin_*
+ * functions. ext_shared_library_backend_create prepares a backend for
+ * ext_host_create (kind EXT_BACKEND_EXTENSION_CONTEXT, config = out,
+ * config_size = sizeof(*out)). It copies the path and loads nothing: the library
+ * is loaded, its ABI version checked and a handle opened in connect, so after the
+ * host's verify policy has approved the artifact, and the handshake follows.
+ * Ownership of out->user passes to the host on a successful ext_host_create; if
+ * that fails the caller must call out->release(out->user).
+ *
+ * path is an absolute UTF-8 path, at most 4096 bytes, to a verified library;
+ * use an immutable, revision-specific artifact path. A library is loaded once
+ * per canonical path and never unloaded, even when its ABI check fails, since
+ * its initializers have already run. Calls are serialized per backend, with the
+ * ABI's 24 MiB response capacity and no retry. A transport failure (a nonzero
+ * ABI status or an impossible response length) ends the session. close cannot
+ * interrupt native code: it refuses new calls, and the handle is closed in
+ * release, after every call has returned. Native code runs in the host process
+ * with its full access. Returns EXT_INVALID for a malformed path, EXT_NOMEM, or
+ * EXT_UNSUPPORTED where the platform cannot load libraries. */
+typedef struct {
+  uint32_t struct_size;
+  const char *path;
+} ext_shared_library_options;
+EXT_HOST_API ext_status
+ext_shared_library_backend_create(const ext_shared_library_options *options,
+                                  ext_backend_extension_context *out);
 EXT_HOST_API uint32_t ext_host_abi_version(void);
 /* Copies backend configuration and descriptor. Does not execute guest code.
  * Both policies required. */

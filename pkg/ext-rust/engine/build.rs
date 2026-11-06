@@ -15,6 +15,10 @@ fn main() {
         if std::env::var("CARGO_CFG_TARGET_FAMILY").as_deref() == Ok("unix") {
             if library == "ext_host" {
                 println!("cargo:rustc-link-lib=pthread");
+                // The shared-library backend loads guests with dlopen, which older glibc keeps in libdl.
+                if std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("linux") {
+                    println!("cargo:rustc-link-lib=dl");
+                }
             }
             println!("cargo:rustc-link-lib=m");
         }

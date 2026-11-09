@@ -1,0 +1,4 @@
+# What `luarocks make` of the host rock leaves beside its source.
+/ext_io/host/*.o
+/ext_io/host/*.so
+/ext_io/host/*.dll

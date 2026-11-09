@@ -62,6 +62,7 @@ jobs:
         working-directory: pkg/ext-lua
         run: |
           luarocks lint ext-io-0.1.0-1.rockspec
+          luarocks lint ext-io-host-0.1.0-1.rockspec
           luarocks make --tree "$RUNNER_TEMP/rocks" ext-io-0.1.0-1.rockspec
           cd "$RUNNER_TEMP"
           LUA_PATH="$RUNNER_TEMP/rocks/share/lua/5.4/?.lua;$RUNNER_TEMP/rocks/share/lua/5.4/?/init.lua" \

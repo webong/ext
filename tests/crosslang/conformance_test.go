@@ -13,7 +13,6 @@ import (
 	"github.com/webong/ext/pkg/ext-go/engine/plugintest"
 	"github.com/webong/ext/pkg/ext-go/engine/transport/jsonline"
 	"github.com/webong/ext/pkg/ext-go/wasm"
-	webwasm "github.com/webong/ext/res/web/host/engine/wasm"
 	"io"
 	"os"
 	"os/exec"
@@ -63,14 +62,9 @@ func rejectMalformedFrames(t *testing.T, path string) {
 // each subtest compiles the module again; a large module on a shared runner then spends most of
 // the bound there. Compiling once here, outside every session, leaves the sessions to measure the
 // protocol.
-//
-// The cache type comes from the host package, not from pkg/ext-go/wasm's re-export, which only a
-// release of that module that is not out yet has: this module is checked against the published
-// pkg/ext-go/wasm, whose Options is an alias of the host's, so the field is there once the host
-// requirement names the version that has it. After the release, either spelling works.
-func warmedCache(t *testing.T, module []byte) *webwasm.CompilationCache {
+func warmedCache(t *testing.T, module []byte) *wasm.CompilationCache {
 	t.Helper()
-	cache := webwasm.NewCompilationCache()
+	cache := wasm.NewCompilationCache()
 	t.Cleanup(func() { _ = cache.Close(context.Background()) })
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()

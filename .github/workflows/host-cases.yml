@@ -10,6 +10,8 @@ on:
     paths:
       - 'lib/plugin/**'
       - 'pkg/ext-python/**'
+      - 'pkg/ext-ruby/**'
+      - 'scripts/ext-ruby-host.sh'
       - 'pkg/ext-go/engine/**'
       - 'pkg/ext-go/cgoengine/cshared/**'
       - 'tests/crosslang/**'
@@ -26,10 +28,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - {os: ubuntu-22.04, python: '3.8'}
-          - {os: ubuntu-latest, python: '3.13'}
-          - {os: ubuntu-24.04-arm, python: '3.13'}
-          - {os: macos-15, python: '3.13'}
+          - {os: ubuntu-22.04, python: '3.8', ruby: '3.1'}
+          - {os: ubuntu-latest, python: '3.13', ruby: '3.4'}
+          - {os: ubuntu-24.04-arm, python: '3.13', ruby: '4.0'}
+          - {os: macos-15, python: '3.13', ruby: '3.4'}
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v5
@@ -43,6 +45,9 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python }}
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: ${{ matrix.ruby }}
       - name: Host cases
         env:
           PYTHON: python

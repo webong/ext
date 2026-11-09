@@ -45,7 +45,9 @@ jobs:
         run: ruby -w test/all.rb
       - name: Build the gem
         working-directory: pkg/ext-ruby
-        run: gem build ext-io.gemspec --output "$RUNNER_TEMP/ext-io.gem"
+        run: |
+          gem build ext-io.gemspec --output "$RUNNER_TEMP/ext-io.gem"
+          gem build ext-io-host.gemspec --output "$RUNNER_TEMP/ext-io-host.gem"
       - name: Conformance through the Go process host
         working-directory: pkg/ext-go/engine
         run: EXT_RUBY="$(command -v ruby)" go test -count=1 -run 'TestRuby' -v ./plugintest

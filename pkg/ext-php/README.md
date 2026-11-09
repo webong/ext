@@ -5,6 +5,7 @@
 A guest for `ext.plugin/v1` over JSON lines that needs only `ext-json` (PHP 8.1+), with no
 Composer dependencies and no native build.
 Hosts use the Go `pkg/ext-go/engine/host/process` backend (or any JSON-line client) to run it.
+A PHP program can also host plugins itself with the opt-in [host SDK](#host-sdk-extiohost) on the C engine.
 
 ```php
 use ExtIO\Plugin;
@@ -108,6 +109,48 @@ one 24 MiB frame is held several times over.
 - `RemoteError` and `FrameError` carry their string code in `getCode()`; a `RemoteError` message
   must be UTF-8.
 
+## Host SDK (`ExtIO\Host`)
+
+`ExtIO\Host` runs plugins from PHP through the C engine (`lib/plugin`), which does what a host must
+get right: admission, the handshake check against the descriptor, request and response validation,
+deadlines and the session's lifecycle. It is opt-in: it needs the FFI extension (`ext-ffi`, which
+the CLI may use with the default `ffi.enable=preload`; elsewhere set `ffi.enable=true`) and the
+engine's shared library (`libext_host`, from an `ext-engine-vX.Y.Z` release or a CMake build of
+`lib/plugin`), and no compiled extension of its own. Autoloading `ExtIO\Plugin` never loads it.
+
+```php
+use ExtIO\Host\Engine;
+
+$engine = new Engine();                 // EXT_HOST_LIBRARY, or libext_host on the loader path
+$host = $engine->process($descriptor, '/opt/plugins/echo/1.0.0/echo');
+$host->start();
+$host->call(['name' => 'ext.echo', 'version' => 'v1'], 'echo', ['value' => 7]);  // {"value":7}
+$host->destroy();
+```
+
+- `new Engine(?string $path)`: the engine from `$path`, `EXT_HOST_LIBRARY`, or `libext_host` on the
+  loader path; it must have host ABI 2 (`FFI\Exception` otherwise). An engine is never unloaded.
+- `$engine->process($descriptor, $executable, $arguments, $environment, $workingDirectory, $stderrBytes, $verify, $authorize)`:
+  a JSON-line guest started as `$executable` (an absolute path, no shell); `$environment` entries
+  are `NAME=value`, added to a scrubbed base of `PATH`.
+- `$engine->sharedLibrary($descriptor, $path, $verify, $authorize)`: a guest library that exports
+  the C ABI of `ext_plugin.h`, loaded when the host starts, after `$verify`, and never unloaded. Its
+  native code runs in this process with its full access.
+- `$verify` and `$authorize` are callables that receive the decoded JSON (as `Json::decode` gives
+  it) and return a truthy value to allow; `null` allows, and a throw denies. A policy may not use
+  the host it decides for: a call to it from inside the policy throws `HostError` `invalid`.
+- `start($timeout = 3.0)`, `call($contract, $operation, $payload = null, $timeout = 3.0)` (the
+  payload as `Json::decode` gives it), `invoke($envelope, $timeout)` (JSON strings in and out),
+  `drain($timeout)`, `close()`, `state()`, `stderr()`, `destroy()`, `destroyed()`. A host that goes
+  away is destroyed too.
+- A domain error throws `ExtIO\Plugin\RemoteError`; a host failure throws `ExtIO\Host\HostError`,
+  whose `status` is the engine's status by name (`denied`, `closed`, `timeout` ...).
+
+The engine runs policies on the thread making the call, which is PHP's own, inside the FFI call to
+`start()` or `call()`, so they are ordinary FFI callbacks. The declarations FFI needs are restated
+in `Engine` (FFI reads no headers); the ABI version check and the shared host cases hold them to
+`ext_host.h`. The host is not run on Windows yet, as the PHP SDK's tests are not.
+
 ## Tests
 
 `php tests/run.php` here (no dependencies; CI runs it on PHP 8.1 and the latest release).
@@ -120,3 +163,9 @@ The Go suites run this guest through `process.Start`: `TestPHPGuest` in
 `pkg/ext-go/engine/plugintest` against the shared conformance cases, and `TestPHPFramesGuest` in
 `tests/crosslang` through the frames suite (and the C engine under
 `scripts/plugin-crosslang.sh`); both skip when `php` is not installed.
+
+`tests/HostTest.php` checks the host SDK: every case of `lib/plugin/testdata/v1/host-cases.json` on
+the reference guest as a process and as a C ABI library, then policies, envelopes, reentry and
+ownership. It needs FFI, `EXT_HOST_LIBRARY`, `EXT_GO_GUEST` and `EXT_GO_SHARED`; without them it
+says so and runs nothing (it fails instead with `EXT_HOST_REQUIRED=1`). `scripts/host-cases.sh`
+builds them all and runs it, on PHP 8.1 and 8.4 in `.github/workflows/host-cases.yml`.

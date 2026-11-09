@@ -3,11 +3,11 @@ module github.com/webong/ext/pkg/ext-go
 go 1.26.0
 
 require (
-	github.com/webong/ext/pkg/ext-go/c2goengine v0.2.0
-	github.com/webong/ext/pkg/ext-go/cgoengine v0.2.0
+	github.com/webong/ext/pkg/ext-go/c2goengine v0.2.1
+	github.com/webong/ext/pkg/ext-go/cgoengine v0.2.1
 	github.com/webong/ext/pkg/ext-go/engine v0.2.0
 	github.com/webong/ext/pkg/ext-go/hashicorp v0.3.2
-	github.com/webong/ext/pkg/ext-go/wasm v0.4.0
+	github.com/webong/ext/pkg/ext-go/wasm v0.5.0
 )
 
 require (
@@ -25,7 +25,7 @@ require (
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
 	github.com/tetratelabs/wazero v1.10.1 // indirect
 	github.com/webong/ext/res/graph v0.2.0
-	github.com/webong/ext/res/web/host v0.1.0 // indirect
+	github.com/webong/ext/res/web/host v0.2.0 // indirect
 	golang.org/x/net v0.60.0 // indirect
 	golang.org/x/sys v0.49.0 // indirect
 	golang.org/x/text v0.42.0 // indirect

@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Runs the shared host cases (lib/plugin/testdata/v1/host-cases.json) on every host that has a
 # runner: the pure-Go host, the oracle (tests/crosslang TestHostCases), and the hosts that bind the
-# C engine (pkg/ext-python and pkg/ext-lua ext_io.host, pkg/ext-ruby ExtIO::Host, pkg/ext-dotnet ExtIO.Host). It builds the engine's shared library and the reference
+# C engine (pkg/ext-python and pkg/ext-lua ext_io.host, pkg/ext-ruby ExtIO::Host, pkg/ext-php ExtIO\Host,
+# pkg/ext-dotnet ExtIO.Host). It builds the engine's shared library and the reference
 # guest twice: as a JSON-line child process and as a C ABI library.
 #
 # It runs on Linux, macOS and Windows. On Windows it needs a bash with cygpath (an MSYS2 shell, or
@@ -12,6 +13,7 @@
 #   EXT_HOST_CASES_BUILD_DIR  where to build (default: a new temporary directory)
 #   PYTHON                    the Python to run the Python host with (default: python3)
 #   EXT_RUBY                  the Ruby to run the Ruby host with (default: ruby)
+#   EXT_PHP                   the PHP to run the PHP host with (default: php); it needs the FFI extension
 #   EXT_DOTNET                the dotnet to run the .NET host with (default: dotnet)
 #   EXT_LUA                   the Lua to run the Lua host with (default: lua); LUA_INCDIR as for
 #                             scripts/ext-lua-host.sh
@@ -91,6 +93,8 @@ echo "== the Python host ($("$python" --version 2>&1))"
 if [[ -n "$windows" ]]; then
   # The Ruby and Lua hosts' native modules have not been built on Windows yet.
   echo "== the Ruby and Lua hosts: skipped on Windows"
+  # So is the PHP host: the PHP SDK's tests are skipped on Windows (plugintest, #108).
+  echo "== the PHP host: skipped on Windows"
 else
   echo "== the Ruby host ($("${EXT_RUBY:-ruby}" -v))"
   EXT_RUBY="${EXT_RUBY:-ruby}" scripts/ext-ruby-host.sh "$build_dir/ruby"
@@ -98,6 +102,8 @@ else
   echo "== the Lua host ($("${EXT_LUA:-lua}" -v 2>&1 | head -1))"
   scripts/ext-lua-host.sh "$build_dir/lua"
   LUA_CPATH="$build_dir/lua/?.so" "${EXT_LUA:-lua}" pkg/ext-lua/tests/run.lua test_host
+  echo "== the PHP host ($("${EXT_PHP:-php}" -r 'echo PHP_VERSION;'))"
+  (cd pkg/ext-php && "${EXT_PHP:-php}" tests/run.php HostTest)
 fi
 echo "== the .NET host ($("${EXT_DOTNET:-dotnet}" --version))"
 "${EXT_DOTNET:-dotnet}" run --project pkg/ext-dotnet/ExtIO.Host.Tests -c Release -- "$(winpath "$PWD/lib/plugin/testdata/v1")"

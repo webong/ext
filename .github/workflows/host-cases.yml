@@ -14,6 +14,7 @@ on:
       - 'scripts/ext-ruby-host.sh'
       - 'pkg/ext-lua/**'
       - 'scripts/ext-lua-host.sh'
+      - 'pkg/ext-php/**'
       - 'pkg/ext-dotnet/**'
       - 'pkg/ext-go/engine/**'
       - 'pkg/ext-go/cgoengine/cshared/**'
@@ -31,10 +32,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - {os: ubuntu-22.04, python: '3.8', ruby: '3.1', lua: '5.1.5'}
-          - {os: ubuntu-latest, python: '3.13', ruby: '3.4', lua: '5.4.9'}
-          - {os: ubuntu-24.04-arm, python: '3.13', ruby: '4.0', lua: 'luajit-2.1'}
-          - {os: macos-15, python: '3.13', ruby: '3.4', lua: '5.5.1'}
+          - {os: ubuntu-22.04, python: '3.8', ruby: '3.1', lua: '5.1.5', php: '8.1'}
+          - {os: ubuntu-latest, python: '3.13', ruby: '3.4', lua: '5.4.9', php: '8.4'}
+          - {os: ubuntu-24.04-arm, python: '3.13', ruby: '4.0', lua: 'luajit-2.1', php: '8.4'}
+          - {os: macos-15, python: '3.13', ruby: '3.4', lua: '5.5.1', php: '8.4'}
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v5
@@ -57,6 +58,11 @@ jobs:
           # The action's cache key names the OS and architecture but not the runner image, so a Lua
           # built on ubuntu-latest (newer glibc) would be restored on ubuntu-22.04. It builds in seconds.
           buildCache: 'false'
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: ffi, json
+          coverage: none
       - uses: actions/setup-dotnet@v5
         with:
           dotnet-version: '8.0.x'

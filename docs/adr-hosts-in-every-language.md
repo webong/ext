@@ -70,7 +70,7 @@ and stream clients.
    | Python | `ext_io.host` | `ctypes` and the shared `libext_host` |
    | Lua | `ext_io.host` | a C module (`ext_io.host.core`) that loads the shared `libext_host` |
    | Ruby | `ExtIO::Host` | a native extension (`ExtIO::Host::Native`) that loads the shared `libext_host` and releases the global VM lock around blocking calls; Fiddle is no default gem from Ruby 4.0 |
-   | PHP | `ExtIO\Host` | PHP FFI first; a Zend extension only if callbacks under FFI prove unsafe |
+   | PHP | `ExtIO\Host` | PHP FFI and the shared `libext_host`; policies are safe as FFI callbacks, since the engine runs them on the calling thread (a Zend extension only if that changes) |
    | .NET | `ExtIO.Host` | P/Invoke through unmanaged function pointers that `NativeLibrary` resolves, so each engine binds the library it was given (`LibraryImport` names one library per assembly); a NuGet package like the `ext-dotnet` ones |
 
    Importing the guest never loads the host, so a guest-only user never needs the library.

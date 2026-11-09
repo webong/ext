@@ -14,6 +14,7 @@ on:
       - 'scripts/ext-ruby-host.sh'
       - 'pkg/ext-lua/**'
       - 'scripts/ext-lua-host.sh'
+      - 'pkg/ext-dotnet/**'
       - 'pkg/ext-go/engine/**'
       - 'pkg/ext-go/cgoengine/cshared/**'
       - 'tests/crosslang/**'
@@ -56,6 +57,9 @@ jobs:
           # The action's cache key names the OS and architecture but not the runner image, so a Lua
           # built on ubuntu-latest (newer glibc) would be restored on ubuntu-22.04. It builds in seconds.
           buildCache: 'false'
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '8.0.x'
       - name: Host cases
         env:
           PYTHON: python
@@ -86,6 +90,9 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: '3.13'
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '8.0.x'
       - uses: msys2/setup-msys2@v2
         if: matrix.toolchain == 'mingw'
         with:

@@ -20,7 +20,7 @@ can write a host, without a second engine.
 | Java (`pkg/ext-android`) | Yes | WAMR host, store | The C engine |
 | Python (`pkg/ext-python`) | Yes, standard library only | No | |
 | Ruby, PHP, Lua (`pkg/ext-ruby`, `pkg/ext-php`, `pkg/ext-lua`) | Yes, no native code | No | |
-| .NET | No | No | |
+| .NET (`pkg/ext-dotnet`) | No | Yes, on the C engine (`ExtIO.Host`) | |
 
 Three languages carry a host of their own (Rust, Zig, TypeScript), and each also has a binding
 to the C engine's host beside it. Four languages, the scripting ones, cannot host at all.
@@ -71,7 +71,7 @@ and stream clients.
    | Lua | `ext_io.host` | a C module (`ext_io.host.core`) that loads the shared `libext_host` |
    | Ruby | `ExtIO::Host` | a native extension (`ExtIO::Host::Native`) that loads the shared `libext_host` and releases the global VM lock around blocking calls; Fiddle is no default gem from Ruby 4.0 |
    | PHP | `ExtIO\Host` | PHP FFI first; a Zend extension only if callbacks under FFI prove unsafe |
-   | .NET | `ExtIO.Host` | P/Invoke (`LibraryImport`), shipped like the `ext-dotnet` packages |
+   | .NET | `ExtIO.Host` | P/Invoke through unmanaged function pointers that `NativeLibrary` resolves, so each engine binds the library it was given (`LibraryImport` names one library per assembly); a NuGet package like the `ext-dotnet` ones |
 
    Importing the guest never loads the host, so a guest-only user never needs the library.
 

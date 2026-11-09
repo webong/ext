@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <Import Project="../../../scripts/dotnet/Ext.Package.props" />
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <IsAotCompatible>true</IsAotCompatible>
+    <AssemblyName>ExtIO.Host</AssemblyName>
+    <RootNamespace>ExtIO.Host</RootNamespace>
+    <PackageId>ExtIO.Host</PackageId>
+    <Description>The ext plugin host for .NET: runs ext.plugin/v1 plugins (JSON-line processes and C ABI libraries) through the ext C engine, libext_host, loaded at run time.</Description>
+    <PackageTags>ext;ext-io;plugin;host</PackageTags>
+  </PropertyGroup>
+</Project>

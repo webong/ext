@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Runs the shared host cases (lib/plugin/testdata/v1/host-cases.json) on every host that has a
 # runner: the pure-Go host, the oracle (tests/crosslang TestHostCases), and the hosts that bind the
-# C engine (pkg/ext-python and pkg/ext-lua ext_io.host, pkg/ext-ruby ExtIO::Host). It builds the engine's shared library and the reference
+# C engine (pkg/ext-python and pkg/ext-lua ext_io.host, pkg/ext-ruby ExtIO::Host, pkg/ext-dotnet ExtIO.Host). It builds the engine's shared library and the reference
 # guest twice: as a JSON-line child process and as a C ABI library.
 #
 # It runs on Linux, macOS and Windows. On Windows it needs a bash with cygpath (an MSYS2 shell, or
@@ -12,6 +12,7 @@
 #   EXT_HOST_CASES_BUILD_DIR  where to build (default: a new temporary directory)
 #   PYTHON                    the Python to run the Python host with (default: python3)
 #   EXT_RUBY                  the Ruby to run the Ruby host with (default: ruby)
+#   EXT_DOTNET                the dotnet to run the .NET host with (default: dotnet)
 #   EXT_LUA                   the Lua to run the Lua host with (default: lua); LUA_INCDIR as for
 #                             scripts/ext-lua-host.sh
 #   EXT_ENGINE_CC             the C compiler CMake builds the engine with (default: CMake's own
@@ -98,3 +99,5 @@ else
   scripts/ext-lua-host.sh "$build_dir/lua"
   LUA_CPATH="$build_dir/lua/?.so" "${EXT_LUA:-lua}" pkg/ext-lua/tests/run.lua test_host
 fi
+echo "== the .NET host ($("${EXT_DOTNET:-dotnet}" --version))"
+"${EXT_DOTNET:-dotnet}" run --project pkg/ext-dotnet/ExtIO.Host.Tests -c Release -- "$(winpath "$PWD/lib/plugin/testdata/v1")"

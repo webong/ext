@@ -4,6 +4,9 @@
 # -I) to load it. It needs the Ruby headers and ext_host.h only: the extension loads the engine's
 # shared library at run time.
 #
+# On Windows it builds with the toolchain the Ruby was built by: RubyInstaller's MSYS2 devkit, or
+# MSYS2's own Ruby and gcc, from an MSYS2 shell or Git Bash with that make on the path.
+#
 # Usage: scripts/ext-ruby-host.sh <out-dir>
 # Environment:
 #   EXT_RUBY  the Ruby to build for (default: ruby on the path)
@@ -14,7 +17,10 @@ out="${1:?usage: ext-ruby-host.sh <out-dir>}"
 ruby="$(command -v "${EXT_RUBY:-ruby}")"
 mkdir -p "$out/build" "$out/ext_io/host"
 out="$(cd "$out" && pwd -P)"
-(cd "$out/build" && "$ruby" "$root/pkg/ext-ruby/ext/ext_io_host/extconf.rb" >/dev/null && make -s >/dev/null)
+extconf="$root/pkg/ext-ruby/ext/ext_io_host/extconf.rb"
+# Ruby is a native program on Windows: give it a C:/ path.
+if command -v cygpath >/dev/null 2>&1; then extconf="$(cygpath -m "$extconf")"; fi
+(cd "$out/build" && "$ruby" "$extconf" >/dev/null && make -s >/dev/null)
 dlext="$("$ruby" -rrbconfig -e 'print RbConfig::CONFIG["DLEXT"]')"
 cp "$out/build/native.$dlext" "$out/ext_io/host/native.$dlext"
 echo "built $out/ext_io/host/native.$dlext for $("$ruby" -v)"

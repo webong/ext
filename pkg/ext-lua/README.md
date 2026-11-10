@@ -145,7 +145,8 @@ deadlines and the session's lifecycle. It is opt-in and separate from the guest:
 release or a CMake build of `lib/plugin`) at run time, so it is built against the Lua headers and
 `ext_host.h` only. Requiring `ext_io.plugin` loads neither. The rock is `ext-io-host`
 (`ext-io-host-0.1.0-1.rockspec`, built from a checkout); `scripts/ext-lua-host.sh <dir>` builds the
-module for one interpreter into `<dir>/ext_io/host/core.so`.
+module for one interpreter into `<dir>/ext_io/host/core.so` (`core.dll` on Windows, where it links
+against the interpreter's Lua library and is built by gcc from MSYS2 or, with `CC=cl`, by MSVC).
 
 ```lua
 local host = require("ext_io.host")

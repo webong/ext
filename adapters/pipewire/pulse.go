@@ -78,7 +78,7 @@ func (o *Observer) Observe(ctx context.Context, limits audio.Limits) (audio.Snap
 			snapshot.Status = audio.Status{State: "partial", Detail: "pw-dump output exceeded the bound"}
 			return snapshot, fmt.Errorf("%w: pw-dump output exceeded the bound", audio.ErrLimit)
 		}
-		snapshot.Status = audio.Status{State: "unsupported", Detail: "pw-dump is unavailable"}
+		snapshot.Status = audio.Status{State: "unsupported", Reason: "tool_missing", Detail: "pw-dump is unavailable"}
 		return snapshot, fmt.Errorf("%w: pw-dump failed: %v", audio.ErrUnavailable, runErr)
 	}
 	if len(payload) > maxBytes {

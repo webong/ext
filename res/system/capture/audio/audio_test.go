@@ -50,6 +50,7 @@ func TestValidateSnapshot(t *testing.T) {
 	}
 	snapshot = validSnapshot()
 	snapshot.Status.State = "unsupported"
+	snapshot.Status.Reason = "unsupported"
 	snapshot.Devices = nil
 	if err := ValidateSnapshot(snapshot, Limits{}); err != nil {
 		t.Fatalf("explicit unsupported snapshot = %v", err)
@@ -80,7 +81,7 @@ func TestValidatePacketUsesMediaBounds(t *testing.T) {
 	if err := ValidatePacket(packet, Limits{MaxPacketBytes: 2}); !errors.Is(err, ErrLimit) {
 		t.Fatalf("packet bound = %v", err)
 	}
-	if err := ValidatePacket(media.PCM16{SampleRate: 48_000, Channels: 2, Data: []byte{1}}, Limits{}); !errors.Is(err, ErrLimit) {
+	if err := ValidatePacket(media.PCM16{SampleRate: 48_000, Channels: 2, Data: []byte{1}}, Limits{}); !errors.Is(err, ErrInvalid) {
 		t.Fatalf("misaligned packet = %v", err)
 	}
 }

@@ -258,7 +258,7 @@ func TestPlaybackWritesValidatedPackets(t *testing.T) {
 	if err = sink.Write(context.Background(), media.PCM16{SampleRate: 44_100, Channels: 1, Data: make([]byte, 160)}); !errors.Is(err, audio.ErrInvalid) {
 		t.Fatalf("format mismatch = %v", err)
 	}
-	if err = sink.Write(context.Background(), media.PCM16{SampleRate: 8_000, Channels: 1, Data: []byte{1}}); !errors.Is(err, audio.ErrLimit) {
+	if err = sink.Write(context.Background(), media.PCM16{SampleRate: 8_000, Channels: 1, Data: []byte{1}}); !errors.Is(err, audio.ErrInvalid) {
 		t.Fatalf("misaligned packet = %v", err)
 	}
 	if err = sink.Close(); err != nil {

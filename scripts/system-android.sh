@@ -18,6 +18,8 @@ javac -Xlint:all -Werror -d "$build/portable" \
   res/system/service/host/android/src/test/java/io/github/webong/ext/system/*.java \
   res/system/capture/share/android/src/test/java/io/github/webong/ext/system/share/*.java \
   res/system/capture/share/android/src/test/java/io/github/webong/ext/system/keyboard/*.java \
+  res/system/capture/audio/android/src/main/java/io/github/webong/ext/system/audio/*.java \
+  res/system/capture/audio/android/src/test/java/io/github/webong/ext/system/audio/*.java \
   res/system/capture/clipboard/android/src/main/java/io/github/webong/ext/clipboard/*.java \
   res/system/capture/clipboard/android/src/test/java/io/github/webong/ext/clipboard/*.java \
   res/system/service/network/android/src/main/java/io/github/webong/ext/network/*.java \
@@ -30,6 +32,7 @@ java -ea -cp "$build/portable" io.github.webong.ext.system.share.ShareTests
 java -ea -cp "$build/portable" io.github.webong.ext.system.share.ShareFixtureTests
 java -ea -cp "$build/portable" io.github.webong.ext.system.keyboard.KeyboardTests
 java -ea -cp "$build/portable" io.github.webong.ext.system.keyboard.KeyboardFixtureTests
+java -ea -cp "$build/portable" io.github.webong.ext.system.audio.AudioFixtureTests
 java -ea -cp "$build/portable" io.github.webong.ext.clipboard.ClipboardTests
 java -ea -cp "$build/portable" io.github.webong.ext.network.NetworkTests
 java -ea -cp "$build/portable" io.github.webong.ext.network.NetworkFixtureTests

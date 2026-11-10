@@ -3,9 +3,21 @@ import Foundation
 
 public enum SystemAudioPlaybackError: Error, Equatable {
     case invalidPacket
+    case packetTooLarge
     case bufferFull
     case closed
     case nativeFailure
+
+    /// The stable error code of `res/system/testdata/codes.json`.
+    public var code: String {
+        switch self {
+        case .invalidPacket: return "invalid"
+        case .packetTooLarge: return "too_large"
+        case .bufferFull: return "busy"
+        case .closed: return "canceled"
+        case .nativeFailure: return "io"
+        }
+    }
 }
 
 /// Bounded PCM16 little-endian stereo 48 kHz playback. On iOS, the caller owns
@@ -50,9 +62,7 @@ public final class SystemAudioPlayback: @unchecked Sendable {
     /// Queues one complete PCM packet or reports backpressure. Calls to write
     /// and close may come from different threads.
     public func write(_ pcm: Data) throws {
-        guard Self.validPacket(pcm, maxBytes: maxPacketBytes) else {
-            throw SystemAudioPlaybackError.invalidPacket
-        }
+        try Self.validate(pcm, maxBytes: maxPacketBytes)
         lock.lock()
         guard !closed else {
             lock.unlock()
@@ -101,8 +111,11 @@ public final class SystemAudioPlayback: @unchecked Sendable {
 
     deinit { close() }
 
-    static func validPacket(_ pcm: Data, maxBytes: Int) -> Bool {
-        !pcm.isEmpty && pcm.count <= maxBytes && pcm.count.isMultiple(of: bytesPerFrame)
+    /// Checks one packet (`testdata/audio/v1`): it is not empty and is whole frames (`invalidPacket`),
+    /// and is no larger than the ceiling (`packetTooLarge`); the frames are judged first.
+    static func validate(_ pcm: Data, maxBytes: Int) throws {
+        guard !pcm.isEmpty, pcm.count.isMultiple(of: bytesPerFrame) else { throw SystemAudioPlaybackError.invalidPacket }
+        guard pcm.count <= maxBytes else { throw SystemAudioPlaybackError.packetTooLarge }
     }
 
     private func decrementPending() {

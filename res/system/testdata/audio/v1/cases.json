@@ -1,0 +1,118 @@
+{
+  "version": 1,
+  "area": "audio",
+  "about": "The rules of the audio contract. A packet case builds a PCM16 packet of the given rate and channels and that many zero bytes and checks it against a ceiling: a packet with no data, a rate outside 8 to 192 kHz, 1 to 8 channels or a size that is not whole frames is invalid, a packet over the ceiling is too_large, and the format is judged before the size. A playback case is the same rule for the packet a playback sink takes (stereo, 48 kHz, 16 bits: a frame is 4 bytes). A limits case builds the observation limits (zero is not a case: Go reads it as the default). A devices case is a device snapshot in its wire form, and whether it is valid, under the case's device limit (default 64): only Go has such a snapshot today, and a status is complete, partial or unsupported. A select case picks a device of a kind from the standard device list (out-1, in-1, out-2, mon-1) by id, or the first of the kind when the id is empty, and expects the id or unavailable: a device of another kind or an unknown id is never a fallback. Timestamps are RFC 3339.",
+  "defaults": {
+    "maxDevices": 64,
+    "maxPacketBytes": 192000,
+    "playbackPacketBytes": 3840
+  },
+  "selectDevices": [
+    {
+      "id": "out-1",
+      "name": "Speakers",
+      "kind": "output"
+    },
+    {
+      "id": "in-1",
+      "name": "Speakers",
+      "kind": "input"
+    },
+    {
+      "id": "out-2",
+      "name": "Speakers",
+      "kind": "output"
+    },
+    {
+      "id": "mon-1",
+      "name": "Speakers",
+      "kind": "monitor"
+    }
+  ],
+  "packets": [
+    {"name": "twenty-milliseconds-of-stereo", "sampleRate": 48000, "channels": 2, "bytes": 3840, "maxBytes": 3840, "code": null},
+    {"name": "the-smallest-packet", "sampleRate": 8000, "channels": 1, "bytes": 2, "maxBytes": 2, "code": null},
+    {"name": "the-widest-format", "sampleRate": 192000, "channels": 8, "bytes": 16, "maxBytes": 16, "code": null},
+    {"name": "mono-at-sixteen-kilohertz", "sampleRate": 16000, "channels": 1, "bytes": 640, "maxBytes": 1000, "code": null},
+    {"name": "a-ceiling-of-one-mebibyte", "sampleRate": 48000, "channels": 2, "bytes": 1048576, "maxBytes": 1048576, "code": null},
+    {"name": "no-data", "sampleRate": 48000, "channels": 2, "bytes": 0, "maxBytes": 3840, "code": "invalid"},
+    {"name": "a-rate-below-eight-kilohertz", "sampleRate": 7999, "channels": 2, "bytes": 4, "maxBytes": 3840, "code": "invalid"},
+    {"name": "a-rate-above-192-kilohertz", "sampleRate": 192001, "channels": 2, "bytes": 4, "maxBytes": 3840, "code": "invalid"},
+    {"name": "no-channels", "sampleRate": 48000, "channels": 0, "bytes": 4, "maxBytes": 3840, "code": "invalid"},
+    {"name": "nine-channels", "sampleRate": 48000, "channels": 9, "bytes": 18, "maxBytes": 3840, "code": "invalid"},
+    {"name": "stereo-with-a-partial-frame", "sampleRate": 48000, "channels": 2, "bytes": 3, "maxBytes": 3840, "code": "invalid"},
+    {"name": "mono-with-an-odd-byte-count", "sampleRate": 48000, "channels": 1, "bytes": 3, "maxBytes": 3840, "code": "invalid"},
+    {"name": "eight-channels-with-a-partial-frame", "sampleRate": 48000, "channels": 8, "bytes": 17, "maxBytes": 3840, "code": "invalid"},
+    {"name": "one-frame-over-the-ceiling", "sampleRate": 48000, "channels": 2, "bytes": 3844, "maxBytes": 3840, "code": "too_large"},
+    {"name": "one-byte-over-the-ceiling-in-mono", "sampleRate": 48000, "channels": 1, "bytes": 4, "maxBytes": 3, "code": "too_large"},
+    {"name": "a-bad-format-is-judged-before-the-size", "sampleRate": 7999, "channels": 2, "bytes": 3844, "maxBytes": 3840, "code": "invalid"},
+    {"name": "a-partial-frame-is-judged-before-the-size", "sampleRate": 48000, "channels": 2, "bytes": 3841, "maxBytes": 3840, "code": "invalid"}
+  ],
+  "playback": [
+    {"name": "twenty-milliseconds", "bytes": 3840, "maxBytes": 3840, "code": null},
+    {"name": "one-frame", "bytes": 4, "maxBytes": 3840, "code": null},
+    {"name": "a-whole-number-of-frames-below-the-ceiling", "bytes": 1920, "maxBytes": 3840, "code": null},
+    {"name": "a-ceiling-of-one-frame", "bytes": 4, "maxBytes": 4, "code": null},
+    {"name": "the-largest-ceiling", "bytes": 192000, "maxBytes": 192000, "code": null},
+    {"name": "no-data", "bytes": 0, "maxBytes": 3840, "code": "invalid"},
+    {"name": "one-byte", "bytes": 1, "maxBytes": 3840, "code": "invalid"},
+    {"name": "a-partial-frame", "bytes": 3, "maxBytes": 3840, "code": "invalid"},
+    {"name": "a-frame-and-a-half", "bytes": 6, "maxBytes": 3840, "code": "invalid"},
+    {"name": "one-frame-over-the-ceiling", "bytes": 3844, "maxBytes": 3840, "code": "too_large"},
+    {"name": "two-frames-over-a-ceiling-of-one", "bytes": 8, "maxBytes": 4, "code": "too_large"},
+    {"name": "a-partial-frame-is-judged-before-the-size", "bytes": 3841, "maxBytes": 3840, "code": "invalid"},
+    {"name": "no-data-is-judged-before-the-size", "bytes": 0, "maxBytes": 4, "code": "invalid"}
+  ],
+  "limits": [
+    {"name": "the-smallest-limits", "maxDevices": 1, "maxPacketBytes": 1, "code": null},
+    {"name": "the-ceilings", "maxDevices": 1024, "maxPacketBytes": 1048576, "code": null},
+    {"name": "the-defaults-are-valid", "maxDevices": 64, "maxPacketBytes": 192000, "code": null},
+    {"name": "devices-above-the-ceiling", "maxDevices": 1025, "maxPacketBytes": 1, "code": "invalid"},
+    {"name": "packet-bytes-above-the-ceiling", "maxDevices": 1, "maxPacketBytes": 1048577, "code": "invalid"},
+    {"name": "devices-negative", "maxDevices": -1, "maxPacketBytes": 1, "code": "invalid"},
+    {"name": "packet-bytes-negative", "maxDevices": 1, "maxPacketBytes": -1, "code": "invalid"}
+  ],
+  "devices": [
+    {"name": "a-full-snapshot", "snapshot": {"backend": "pulseaudio", "observed_at": "2026-11-10T12:00:00Z", "devices": [{"id": "out-1", "name": "Speakers", "kind": "output"}, {"id": "in-1", "name": "Microphone", "kind": "input", "state": "running", "sample_format": "s16le", "sample_rate": 48000, "channels": 2}, {"id": "mon-1", "name": "Monitor", "kind": "monitor"}], "status": {"state": "complete"}}, "code": null},
+    {"name": "no-devices", "snapshot": {"backend": "pulseaudio", "observed_at": "2026-11-10T12:00:00Z", "devices": [], "status": {"state": "complete"}}, "code": null},
+    {"name": "a-partial-snapshot", "snapshot": {"backend": "pulseaudio", "observed_at": "2026-11-10T12:00:00Z", "devices": [{"id": "out-1", "name": "Speakers", "kind": "output"}, {"id": "in-1", "name": "Microphone", "kind": "input", "state": "running", "sample_format": "s16le", "sample_rate": 48000, "channels": 2}, {"id": "mon-1", "name": "Monitor", "kind": "monitor"}], "status": {"state": "partial", "detail": "limit reached"}}, "code": null},
+    {"name": "unsupported-because-a-tool-is-missing", "snapshot": {"backend": "pulseaudio", "observed_at": "2026-11-10T12:00:00Z", "devices": [], "status": {"state": "unsupported", "reason": "tool_missing", "detail": "pactl is unavailable"}}, "code": null},
+    {"name": "unsupported-on-this-platform", "snapshot": {"backend": "pulseaudio", "observed_at": "2026-11-10T12:00:00Z", "devices": [], "status": {"state": "unsupported", "reason": "unsupported"}}, "code": null},
+    {"name": "a-device-name-of-256-bytes", "snapshot": {"backend": "pulseaudio", "observed_at": "2026-11-10T12:00:00Z", "devices": [{"id": "out-1", "name": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "kind": "output"}], "status": {"state": "complete"}}, "code": null},
+    {"name": "an-id-of-256-bytes", "snapshot": {"backend": "pulseaudio", "observed_at": "2026-11-10T12:00:00Z", "devices": [{"id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "name": "Speakers", "kind": "output"}], "status": {"state": "complete"}}, "code": null},
+    {"name": "the-lowest-and-highest-rates", "snapshot": {"backend": "pulseaudio", "observed_at": "2026-11-10T12:00:00Z", "devices": [{"id": "a", "name": "Speakers", "kind": "output", "sample_rate": 8000}, {"id": "b", "name": "Speakers", "kind": "output", "sample_rate": 192000}], "status": {"state": "complete"}}, "code": null},
+    {"name": "one-and-eight-channels", "snapshot": {"backend": "pulseaudio", "observed_at": "2026-11-10T12:00:00Z", "devices": [{"id": "a", "name": "Speakers", "kind": "output", "channels": 1}, {"id": "b", "name": "Speakers", "kind": "output", "channels": 8}], "status": {"state": "complete"}}, "code": null},
+    {"name": "state-and-format-of-64-bytes", "snapshot": {"backend": "pulseaudio", "observed_at": "2026-11-10T12:00:00Z", "devices": [{"id": "out-1", "name": "Speakers", "kind": "output", "state": "ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss", "sample_format": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"}], "status": {"state": "complete"}}, "code": null},
+    {"name": "devices-at-the-limit", "snapshot": {"backend": "pulseaudio", "observed_at": "2026-11-10T12:00:00Z", "devices": [{"id": "a", "name": "Speakers", "kind": "output"}, {"id": "b", "name": "Speakers", "kind": "output"}], "status": {"state": "complete"}}, "code": null, "maxDevices": 2},
+    {"name": "no-backend", "snapshot": {"backend": "", "observed_at": "2026-11-10T12:00:00Z", "devices": [{"id": "out-1", "name": "Speakers", "kind": "output"}, {"id": "in-1", "name": "Microphone", "kind": "input", "state": "running", "sample_format": "s16le", "sample_rate": 48000, "channels": 2}, {"id": "mon-1", "name": "Monitor", "kind": "monitor"}], "status": {"state": "complete"}}, "code": "invalid"},
+    {"name": "a-backend-of-65-bytes", "snapshot": {"backend": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "observed_at": "2026-11-10T12:00:00Z", "devices": [{"id": "out-1", "name": "Speakers", "kind": "output"}, {"id": "in-1", "name": "Microphone", "kind": "input", "state": "running", "sample_format": "s16le", "sample_rate": 48000, "channels": 2}, {"id": "mon-1", "name": "Monitor", "kind": "monitor"}], "status": {"state": "complete"}}, "code": "invalid"},
+    {"name": "observed-at-is-not-a-timestamp", "snapshot": {"backend": "pulseaudio", "observed_at": "never", "devices": [{"id": "out-1", "name": "Speakers", "kind": "output"}, {"id": "in-1", "name": "Microphone", "kind": "input", "state": "running", "sample_format": "s16le", "sample_rate": 48000, "channels": 2}, {"id": "mon-1", "name": "Monitor", "kind": "monitor"}], "status": {"state": "complete"}}, "code": "invalid"},
+    {"name": "an-unknown-status", "snapshot": {"backend": "pulseaudio", "observed_at": "2026-11-10T12:00:00Z", "devices": [{"id": "out-1", "name": "Speakers", "kind": "output"}, {"id": "in-1", "name": "Microphone", "kind": "input", "state": "running", "sample_format": "s16le", "sample_rate": 48000, "channels": 2}, {"id": "mon-1", "name": "Monitor", "kind": "monitor"}], "status": {"state": "unavailable"}}, "code": "invalid"},
+    {"name": "a-reason-on-a-complete-status", "snapshot": {"backend": "pulseaudio", "observed_at": "2026-11-10T12:00:00Z", "devices": [{"id": "out-1", "name": "Speakers", "kind": "output"}, {"id": "in-1", "name": "Microphone", "kind": "input", "state": "running", "sample_format": "s16le", "sample_rate": 48000, "channels": 2}, {"id": "mon-1", "name": "Monitor", "kind": "monitor"}], "status": {"state": "complete", "reason": "unsupported"}}, "code": "invalid"},
+    {"name": "unsupported-without-a-reason", "snapshot": {"backend": "pulseaudio", "observed_at": "2026-11-10T12:00:00Z", "devices": [], "status": {"state": "unsupported"}}, "code": "invalid"},
+    {"name": "a-device-with-no-id", "snapshot": {"backend": "pulseaudio", "observed_at": "2026-11-10T12:00:00Z", "devices": [{"id": "", "name": "Speakers", "kind": "output"}], "status": {"state": "complete"}}, "code": "invalid"},
+    {"name": "an-id-of-257-bytes", "snapshot": {"backend": "pulseaudio", "observed_at": "2026-11-10T12:00:00Z", "devices": [{"id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "name": "Speakers", "kind": "output"}], "status": {"state": "complete"}}, "code": "invalid"},
+    {"name": "an-id-with-a-control-character", "snapshot": {"backend": "pulseaudio", "observed_at": "2026-11-10T12:00:00Z", "devices": [{"id": "a\u0001b", "name": "Speakers", "kind": "output"}], "status": {"state": "complete"}}, "code": "invalid"},
+    {"name": "an-id-with-edge-spaces", "snapshot": {"backend": "pulseaudio", "observed_at": "2026-11-10T12:00:00Z", "devices": [{"id": " a", "name": "Speakers", "kind": "output"}], "status": {"state": "complete"}}, "code": "invalid"},
+    {"name": "repeated-device-id", "snapshot": {"backend": "pulseaudio", "observed_at": "2026-11-10T12:00:00Z", "devices": [{"id": "out-1", "name": "Speakers", "kind": "output"}, {"id": "out-1", "name": "Other", "kind": "output"}], "status": {"state": "complete"}}, "code": "invalid"},
+    {"name": "a-device-with-no-name", "snapshot": {"backend": "pulseaudio", "observed_at": "2026-11-10T12:00:00Z", "devices": [{"id": "out-1", "name": "", "kind": "output"}], "status": {"state": "complete"}}, "code": "invalid"},
+    {"name": "a-name-of-257-bytes", "snapshot": {"backend": "pulseaudio", "observed_at": "2026-11-10T12:00:00Z", "devices": [{"id": "out-1", "name": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "kind": "output"}], "status": {"state": "complete"}}, "code": "invalid"},
+    {"name": "a-name-with-a-newline", "snapshot": {"backend": "pulseaudio", "observed_at": "2026-11-10T12:00:00Z", "devices": [{"id": "out-1", "name": "a\nb", "kind": "output"}], "status": {"state": "complete"}}, "code": "invalid"},
+    {"name": "an-unknown-kind", "snapshot": {"backend": "pulseaudio", "observed_at": "2026-11-10T12:00:00Z", "devices": [{"id": "out-1", "name": "Speakers", "kind": "line"}], "status": {"state": "complete"}}, "code": "invalid"},
+    {"name": "a-state-of-65-bytes", "snapshot": {"backend": "pulseaudio", "observed_at": "2026-11-10T12:00:00Z", "devices": [{"id": "out-1", "name": "Speakers", "kind": "output", "state": "sssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss"}], "status": {"state": "complete"}}, "code": "invalid"},
+    {"name": "a-format-of-65-bytes", "snapshot": {"backend": "pulseaudio", "observed_at": "2026-11-10T12:00:00Z", "devices": [{"id": "out-1", "name": "Speakers", "kind": "output", "sample_format": "fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"}], "status": {"state": "complete"}}, "code": "invalid"},
+    {"name": "a-rate-below-eight-kilohertz", "snapshot": {"backend": "pulseaudio", "observed_at": "2026-11-10T12:00:00Z", "devices": [{"id": "out-1", "name": "Speakers", "kind": "output", "sample_rate": 7999}], "status": {"state": "complete"}}, "code": "invalid"},
+    {"name": "a-rate-above-192-kilohertz", "snapshot": {"backend": "pulseaudio", "observed_at": "2026-11-10T12:00:00Z", "devices": [{"id": "out-1", "name": "Speakers", "kind": "output", "sample_rate": 192001}], "status": {"state": "complete"}}, "code": "invalid"},
+    {"name": "nine-channels", "snapshot": {"backend": "pulseaudio", "observed_at": "2026-11-10T12:00:00Z", "devices": [{"id": "out-1", "name": "Speakers", "kind": "output", "channels": 9}], "status": {"state": "complete"}}, "code": "invalid"},
+    {"name": "devices-over-the-limit", "snapshot": {"backend": "pulseaudio", "observed_at": "2026-11-10T12:00:00Z", "devices": [{"id": "a", "name": "Speakers", "kind": "output"}, {"id": "b", "name": "Speakers", "kind": "output"}], "status": {"state": "complete"}}, "code": "too_large", "maxDevices": 1}
+  ],
+  "select": [
+    {"name": "the-first-device-of-a-kind", "kind": "output", "id": "", "want": "out-1", "code": null},
+    {"name": "the-first-input", "kind": "input", "id": "", "want": "in-1", "code": null},
+    {"name": "the-monitor", "kind": "monitor", "id": "", "want": "mon-1", "code": null},
+    {"name": "a-named-device", "kind": "output", "id": "out-2", "want": "out-2", "code": null},
+    {"name": "a-named-input", "kind": "input", "id": "in-1", "want": "in-1", "code": null},
+    {"name": "a-name-of-another-kind-is-not-a-fallback", "kind": "input", "id": "out-1", "want": null, "code": "unavailable"},
+    {"name": "an-unknown-name", "kind": "output", "id": "missing", "want": null, "code": "unavailable"}
+  ]
+}

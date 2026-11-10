@@ -13,6 +13,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/webong/ext/res/system/capture/media"
+	"github.com/webong/ext/res/system/internal/capability"
 )
 
 const (
@@ -48,9 +49,13 @@ type Device struct {
 	Channels     int    `json:"channels,omitempty"`
 }
 
-// Status distinguishes an empty device list from an unavailable backend.
+// Status distinguishes an empty device list from an unavailable backend. State is complete,
+// partial or unsupported; an unsupported status says why in Reason, from the set every package
+// shares (testdata/capability/v1): unsupported on this platform, or tool_missing when the native
+// tool is not installed (the adapter that owns the tool reports that).
 type Status struct {
 	State  string `json:"state"`
+	Reason string `json:"reason,omitempty"`
 	Detail string `json:"detail,omitempty"`
 }
 
@@ -93,6 +98,20 @@ var (
 	// ErrUnavailable reports a backend that cannot observe or open the device.
 	ErrUnavailable = errors.New("audio backend is unavailable")
 )
+
+// Code is the stable error code of err for another language to match: invalid, too_large or
+// unavailable. It is empty for an error this package does not define.
+func Code(err error) string {
+	switch {
+	case errors.Is(err, ErrInvalid):
+		return "invalid"
+	case errors.Is(err, ErrLimit):
+		return "too_large"
+	case errors.Is(err, ErrUnavailable):
+		return "unavailable"
+	}
+	return ""
+}
 
 // Observer reports caller-visible local audio devices. It sends no audio and
 // starts no stream.
@@ -142,6 +161,9 @@ func ValidateSnapshot(snapshot Snapshot, limits Limits) error {
 	if snapshot.Status.State != "complete" && snapshot.Status.State != "partial" && snapshot.Status.State != "unsupported" {
 		return fmt.Errorf("%w: snapshot status must be complete, partial, or unsupported", ErrInvalid)
 	}
+	if !capability.Allowed(snapshot.Status.State, snapshot.Status.Reason) {
+		return fmt.Errorf("%w: status %q does not take reason %q", ErrInvalid, snapshot.Status.State, snapshot.Status.Reason)
+	}
 	if len(snapshot.Devices) > limits.MaxDevices {
 		return fmt.Errorf("%w: device bound exceeded", ErrLimit)
 	}
@@ -175,14 +197,20 @@ func ValidateSnapshot(snapshot Snapshot, limits Limits) error {
 	return nil
 }
 
-// ValidatePacket checks PCM format, alignment, and the caller's packet ceiling.
+// ValidatePacket checks PCM format, alignment, and the caller's packet ceiling: a packet with no
+// data, a rate outside 8 to 192 kHz, 1 to 8 channels or a size that is not whole frames is invalid, and
+// one over the ceiling is too large. The format is judged first.
 func ValidatePacket(packet media.PCM16, limits Limits) error {
 	limits, err := limits.Normalize()
 	if err != nil {
 		return err
 	}
-	if err = packet.Validate(limits.MaxPacketBytes); err != nil {
-		return fmt.Errorf("%w: %v", ErrLimit, err)
+	if len(packet.Data) == 0 || packet.SampleRate < 8_000 || packet.SampleRate > 192_000 || packet.Channels < 1 || packet.Channels > 8 ||
+		len(packet.Data)%(2*packet.Channels) != 0 {
+		return fmt.Errorf("%w: PCM16 format or frame alignment", ErrInvalid)
+	}
+	if len(packet.Data) > limits.MaxPacketBytes {
+		return fmt.Errorf("%w: packet exceeds %d bytes", ErrLimit, limits.MaxPacketBytes)
 	}
 	return nil
 }

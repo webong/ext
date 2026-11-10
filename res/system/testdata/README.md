@@ -45,4 +45,5 @@ case.
 | `network` | v1 | Go, Swift, Java |
 | `host` | v1 | Go, Swift, Java |
 | `surface` | v1 | Go, Swift, Java |
+| `audio` | v1 | Go (all sections); Swift, Java and C# (the playback packet rule) |
 | `capability` | v1 | the status of each package, so far network, host and surface |

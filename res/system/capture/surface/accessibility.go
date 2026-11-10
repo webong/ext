@@ -2,7 +2,7 @@ package surface
 
 import (
 	"context"
-	"errors"
+	"fmt"
 	"runtime"
 	"sort"
 	"time"
@@ -52,7 +52,7 @@ type AccessibilityOptions struct {
 
 func accessibilityOptions(options AccessibilityOptions) (AccessibilityOptions, error) {
 	if options.MaxElements < 0 || options.MaxDepth < 0 || options.Timeout < 0 {
-		return options, errors.New("accessibility limits and timeout must not be negative")
+		return options, fmt.Errorf("%w: accessibility limits and timeout must not be negative", ErrInvalid)
 	}
 	if options.MaxElements == 0 {
 		options.MaxElements = 1024
@@ -64,7 +64,7 @@ func accessibilityOptions(options AccessibilityOptions) (AccessibilityOptions, e
 		options.Timeout = 5 * time.Second
 	}
 	if options.MaxElements > 65536 || options.MaxDepth > 256 {
-		return options, errors.New("accessibility limits exceed the supported ceiling")
+		return options, fmt.Errorf("%w: accessibility limits exceed the supported ceiling", ErrInvalid)
 	}
 	return options, nil
 }

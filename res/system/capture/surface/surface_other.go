@@ -11,7 +11,7 @@ func platformSurfaces(ctx context.Context, _, _ int) ([]DisplayInfo, proc.Collec
 	if err := ctx.Err(); err != nil {
 		return nil, proc.CollectionStatus{}, nil, proc.CollectionStatus{}, "", err
 	}
-	displays := surfaceStatus("unsupported", "native display enumeration is unavailable on this platform")
-	windows := surfaceStatus("unsupported", "native window enumeration is unavailable on this platform")
+	displays := surfaceUnsupported("native display enumeration is unavailable on this platform")
+	windows := surfaceUnsupported("native window enumeration is unavailable on this platform")
 	return []DisplayInfo{}, displays, []WindowInfo{}, windows, "desktop-global", nil
 }

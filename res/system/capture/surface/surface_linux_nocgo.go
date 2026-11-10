@@ -11,7 +11,7 @@ func platformSurfaces(ctx context.Context, _, _ int) ([]DisplayInfo, proc.Collec
 	if err := ctx.Err(); err != nil {
 		return nil, proc.CollectionStatus{}, nil, proc.CollectionStatus{}, "", err
 	}
-	displays := surfaceStatus("unsupported", "Linux display enumeration requires cgo and libX11")
-	windows := surfaceStatus("unsupported", "Linux window enumeration requires cgo and libX11")
+	displays := surfaceUnsupported("Linux display enumeration requires cgo and libX11")
+	windows := surfaceUnsupported("Linux window enumeration requires cgo and libX11")
 	return []DisplayInfo{}, displays, []WindowInfo{}, windows, "desktop-global-pixels", nil
 }

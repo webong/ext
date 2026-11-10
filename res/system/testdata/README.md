@@ -44,4 +44,5 @@ case.
 | `keyboard` | v1 | Swift, Java |
 | `network` | v1 | Go, Swift, Java |
 | `host` | v1 | Go, Swift, Java |
-| `capability` | v1 | the status of each package, so far network and host |
+| `surface` | v1 | Go, Swift, Java |
+| `capability` | v1 | the status of each package, so far network, host and surface |

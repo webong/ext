@@ -10,8 +10,8 @@ public final class WindowInfo {
     private final boolean onScreen;
 
     public WindowInfo(String id, int pid, String processStartId, SurfaceBounds bounds, boolean onScreen) {
-        if (id == null || id.isEmpty() || pid <= 0 || processStartId == null || processStartId.isEmpty() || bounds == null) {
-            throw new IllegalArgumentException("window identity, process generation, and bounds are required");
+        if (id == null || id.isEmpty() || pid <= 0 || processStartId == null || bounds == null) {
+            throw new IllegalArgumentException("window identity, process and bounds are required (the process generation may be empty)");
         }
         this.id = id;
         this.pid = pid;

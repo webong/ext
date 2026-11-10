@@ -198,7 +198,7 @@ func platformSurfaces(ctx context.Context, maxDisplays, maxWindows int) ([]Displ
 		if strings.TrimSpace(os.Getenv("WAYLAND_DISPLAY")) != "" {
 			detail = "the Wayland compositor does not expose global display or window geometry"
 		}
-		return []DisplayInfo{}, surfaceStatus("unsupported", detail), []WindowInfo{}, surfaceStatus("unsupported", detail), "desktop-global-pixels", nil
+		return []DisplayInfo{}, surfaceUnsupported(detail), []WindowInfo{}, surfaceUnsupported(detail), "desktop-global-pixels", nil
 	}
 	var values *C.ext_linux_window
 	var written, total, width, height, screen, libraryState C.int

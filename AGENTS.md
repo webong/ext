@@ -71,6 +71,10 @@ consumer app). Go examples live in the library they show, as an `examples/` dire
 `src/`, so the products are not `go get`-resolvable from the repository until their
 paths and directories match; they are built from source and released as binaries.
 
+The layers, the rules every `res/` module follows (fixtures as the contract, capability
+reporting, one vocabulary of error codes, bounds) and the language support tiers are in
+[the architecture ADR](docs/adr-architecture.md).
+
 `res/` is a container for reusable modules rather than a package. Each
 subdirectory is its own Go module, except `res/web`, which is a container too,
 and nothing lives at that level: no Go package

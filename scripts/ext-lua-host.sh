@@ -16,6 +16,7 @@
 #   CC          the C compiler (default: cc; on Windows gcc, or cl)
 set -euo pipefail
 cd "$(dirname "$0")/.."
+root=$PWD
 out="${1:?usage: ext-lua-host.sh <out-dir>}"
 lua="$(command -v "${EXT_LUA:-lua}")"
 windows=""
@@ -54,6 +55,7 @@ fi
 [[ -n "$incdir" && -f "$incdir/lua.h" ]] || { echo "no lua.h for $("$lua" -v 2>&1); set LUA_INCDIR" >&2; exit 1; }
 
 mkdir -p "$out/ext_io/host"
+out="$(cd "$out" && pwd)"
 module="$out/ext_io/host/core.so"
 if [[ -n "$windows" ]]; then
   module="$out/ext_io/host/core.dll"
@@ -71,10 +73,11 @@ if [[ -n "$windows" ]]; then
   if [[ -n "$msvc" ]]; then
     # link.exe by its full path: an MSYS2 or Git Bash /usr/bin on the path has a link of its own.
     linker="$(dirname "$(command -v "$cc")")/link.exe"
-    { "$cc" -nologo -c -O2 -MD -W3 -WX -D_CRT_SECURE_NO_WARNINGS -I"$(winpath "$incdir")" \
-        -I"$(winpath "$PWD/lib/plugin/include")" "$(winpath "$PWD/pkg/ext-lua/ext_io/host/core.c")" \
-        -Fo"$(winpath "$scratch/core.obj")" &&
-      "$linker" -nologo -dll -out:"$(winpath "$module")" "$(winpath "$scratch/core.obj")" "$(winpath "$lib")"
+    # From the scratch directory, so the object file needs no path: cl misreads an -Fo path on
+    # another drive.
+    { (cd "$scratch" && "$cc" -nologo -c -O2 -MD -W3 -WX -D_CRT_SECURE_NO_WARNINGS -I"$(winpath "$incdir")" \
+        -I"$(winpath "$root/lib/plugin/include")" "$(winpath "$root/pkg/ext-lua/ext_io/host/core.c")" &&
+      "$linker" -nologo -dll -out:"$(winpath "$module")" core.obj "$(winpath "$lib")")
     } >"$scratch/cl.log" 2>&1 || { cat "$scratch/cl.log" >&2; exit 1; }
   else
     "$cc" -O2 -std=c99 -Wall -Wextra -Werror -shared -I"$(winpath "$incdir")" -Ilib/plugin/include \

@@ -50,9 +50,10 @@ public final class SystemResourcesObserver {
                 new ResourceCollectionStatus("complete", "logical CPU count", now),
                 memory[0], memory[1],
                 new ResourceCollectionStatus(memoryState, memoryDetail, now),
-                storage, power, container, uptime, null,
-                new ResourceCollectionStatus(uptime == null ? "unsupported" : "complete",
-                        uptime == null ? "boot time is unavailable" : null, now));
+                storage, power, container, uptime, uptime == null ? null : timestamp(System.currentTimeMillis() - (long) (uptime * 1000)),
+                uptime == null
+                        ? new ResourceCollectionStatus("unsupported", "unsupported", "boot time is unavailable", now)
+                        : new ResourceCollectionStatus("complete", null, null, now));
     }
 
     private String architecture() {
@@ -111,8 +112,12 @@ public final class SystemResourcesObserver {
     }
 
     private String timestamp() {
+        return timestamp(System.currentTimeMillis());
+    }
+
+    private static String timestamp(long millis) {
         SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.ROOT);
         format.setTimeZone(TimeZone.getTimeZone("UTC"));
-        return format.format(new Date());
+        return format.format(new Date(millis));
     }
 }

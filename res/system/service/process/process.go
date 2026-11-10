@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/webong/ext/res/system/internal/capability"
 	"github.com/webong/ext/res/system/internal/identity"
 )
 
@@ -19,9 +20,20 @@ const processCommandWait = 250 * time.Millisecond
 // State is complete, partial, permission-denied, unsupported, exited, or unavailable.
 // Detail is a diagnostic, never process arguments or environment contents.
 type CollectionStatus struct {
-	State      string     `json:"state"`
+	State string `json:"state"`
+	// Reason says why something is missing, from the set every package shares
+	// (testdata/capability/v1): unsupported, permission, no_device or tool_missing.
+	Reason     string     `json:"reason,omitempty"`
 	Detail     string     `json:"detail,omitempty"`
 	ObservedAt *time.Time `json:"observed_at,omitempty"`
+}
+
+// Validate checks that the state is known and the reason fits it (see the capability fixtures).
+func (s CollectionStatus) Validate() error {
+	if !capability.Allowed(s.State, s.Reason) {
+		return fmt.Errorf("collection state %q does not take reason %q", s.State, s.Reason)
+	}
+	return nil
 }
 
 // ProcessOptions bounds returned records and collection time. Zero values select
@@ -201,7 +213,7 @@ func limitedProcessStatus() CollectionStatus {
 	return CollectionStatus{State: "partial", Detail: "record limit reached"}
 }
 func unsupportedProcessStatus(detail string) CollectionStatus {
-	return CollectionStatus{State: "unsupported", Detail: detail}
+	return CollectionStatus{State: "unsupported", Reason: "unsupported", Detail: detail}
 }
 func newProcessInfo(pid int) ProcessInfo {
 	return ProcessInfo{PID: pid, Coverage: map[string]CollectionStatus{}}

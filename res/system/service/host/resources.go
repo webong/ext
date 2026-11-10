@@ -2,8 +2,10 @@ package host
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"os"
 	"runtime"
 	"sort"
@@ -33,9 +35,118 @@ type ResourceInfo struct {
 	Storage             []StorageInfo         `json:"storage,omitempty"`
 	Power               *PowerInfo            `json:"power,omitempty"`
 	Container           ContainerInfo         `json:"container"`
-	Uptime              *time.Duration        `json:"uptime,omitempty"`
+	Uptime              *time.Duration        `json:"-"` // on the wire: uptime_seconds, a number of seconds
 	BootTime            *time.Time            `json:"boot_time,omitempty"`
 	UptimeStatus        proc.CollectionStatus `json:"uptime_status"`
+}
+
+// ErrInvalid reports a resource snapshot that breaks the rules of testdata/host/v1.
+var ErrInvalid = errors.New("invalid resource snapshot")
+
+// Code is the stable error code of err for another language to match: invalid. It is empty for an
+// error this package does not define.
+func Code(err error) string {
+	if errors.Is(err, ErrInvalid) {
+		return "invalid"
+	}
+	return ""
+}
+
+// MarshalJSON writes the wire form every binding shares: uptime is uptime_seconds, a number.
+func (r ResourceInfo) MarshalJSON() ([]byte, error) {
+	type plain ResourceInfo
+	wire := struct {
+		plain
+		UptimeSeconds *float64 `json:"uptime_seconds,omitempty"`
+	}{plain: plain(r)}
+	if r.Uptime != nil {
+		seconds := r.Uptime.Seconds()
+		wire.UptimeSeconds = &seconds
+	}
+	return json.Marshal(wire)
+}
+
+// UnmarshalJSON reads the wire form MarshalJSON writes.
+func (r *ResourceInfo) UnmarshalJSON(data []byte) error {
+	type plain ResourceInfo
+	wire := struct {
+		*plain
+		UptimeSeconds *float64 `json:"uptime_seconds"`
+	}{plain: (*plain)(r)}
+	if err := json.Unmarshal(data, &wire); err != nil {
+		return err
+	}
+	r.Uptime = nil
+	if wire.UptimeSeconds != nil {
+		if *wire.UptimeSeconds > float64(math.MaxInt64)/float64(time.Second) {
+			return fmt.Errorf("uptime_seconds is out of range")
+		}
+		uptime := time.Duration(*wire.UptimeSeconds * float64(time.Second))
+		r.Uptime = &uptime
+	}
+	return nil
+}
+
+// Validate checks a snapshot against the rules of testdata/host/v1: the identity and time are set,
+// the CPU and memory figures agree, each status fits the capability rules, storage, power and
+// container are consistent, and uptime and boot time come together.
+func (r ResourceInfo) Validate() error {
+	invalid := func(format string, args ...any) error {
+		return fmt.Errorf("%w: "+format, append([]any{ErrInvalid}, args...)...)
+	}
+	if r.OS == "" || r.Architecture == "" {
+		return invalid("os and architecture are required")
+	}
+	if r.ObservedAt.IsZero() {
+		return invalid("observed_at is required")
+	}
+	if r.LogicalCPUs < 1 {
+		return invalid("logical_cpus must be at least one")
+	}
+	if !(r.CPUCapacity >= 0 && r.CPUCapacity <= float64(r.LogicalCPUs)) {
+		return invalid("cpu_capacity must be between zero and the logical CPU count")
+	}
+	if r.MemoryCapacityBytes > r.MemoryBytes {
+		return invalid("memory_capacity_bytes exceeds memory_bytes")
+	}
+	for name, status := range map[string]proc.CollectionStatus{"cpu_status": r.CPUStatus, "memory_status": r.MemoryStatus, "uptime_status": r.UptimeStatus} {
+		if err := status.Validate(); err != nil {
+			return invalid("%s: %v", name, err)
+		}
+	}
+	for _, volume := range r.Storage {
+		if volume.MountPoint == "" || volume.AvailableBytes > volume.TotalBytes {
+			return invalid("storage needs a mount point and no more available than total bytes")
+		}
+	}
+	if power := r.Power; power != nil {
+		switch power.State {
+		case PowerStateCharging, PowerStateDischarging, PowerStateCharged, PowerStateUnknown:
+		default:
+			return invalid("unknown power state %q", power.State)
+		}
+		if power.Percentage < 0 || power.Percentage > 100 || power.TimeRemainingSeconds < 0 {
+			return invalid("power percentage must be 0 to 100 and the time remaining not negative")
+		}
+	}
+	container := r.Container
+	switch container.State {
+	case ContainerDetected, ContainerNone, ContainerUnsupported:
+	default:
+		return invalid("unknown container state %q", container.State)
+	}
+	if container.Detected != (container.State == ContainerDetected) || container.Detected != (len(container.Evidence) > 0) {
+		return invalid("container detection, state and evidence disagree")
+	}
+	for index, name := range container.Evidence {
+		if name == "" || index > 0 && name <= container.Evidence[index-1] {
+			return invalid("container evidence must be non-empty names, sorted and unique")
+		}
+	}
+	if (r.Uptime == nil) != (r.BootTime == nil) || r.Uptime != nil && *r.Uptime < 0 {
+		return invalid("uptime and boot time come together, and uptime is not negative")
+	}
+	return nil
 }
 
 // ContainerInfo reports whether this process runs inside a container and which
@@ -176,7 +287,7 @@ func memoryCapacity(probe resourceProbe, now time.Time) (uint64, uint64, proc.Co
 			if err != nil {
 				detail = err.Error()
 			}
-			return 0, 0, proc.CollectionStatus{State: "unsupported", Detail: detail}
+			return 0, 0, proc.CollectionStatus{State: "unsupported", Reason: "unsupported", Detail: detail}
 		}
 		status := proc.CollectionStatus{State: "complete", Detail: source}
 		if err != nil {
@@ -190,7 +301,7 @@ func memoryCapacity(probe resourceProbe, now time.Time) (uint64, uint64, proc.Co
 		if err != nil {
 			detail = err.Error()
 		}
-		return 0, 0, proc.CollectionStatus{State: "unsupported", Detail: detail}
+		return 0, 0, proc.CollectionStatus{State: "unsupported", Reason: "unsupported", Detail: detail}
 	}
 	return physical, physical, proc.CollectionStatus{State: "complete", Detail: "physical memory capacity"}
 }
@@ -202,7 +313,7 @@ func uptimeObservation(probe resourceProbe, now time.Time) (*time.Duration, *tim
 		if err != nil {
 			detail = err.Error()
 		}
-		return nil, nil, proc.CollectionStatus{State: "unsupported", Detail: detail}
+		return nil, nil, proc.CollectionStatus{State: "unsupported", Reason: "unsupported", Detail: detail}
 	}
 	boot := now.Add(-uptime)
 	return &uptime, &boot, proc.CollectionStatus{State: "complete"}

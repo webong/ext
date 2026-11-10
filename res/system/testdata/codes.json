@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "about": "The error codes of res/system. A code enters this list only with a fixture that uses it. The first ten are the engine's vocabulary (docs/adr-architecture.md, rule 3).",
+  "codes": [
+    "invalid",
+    "denied",
+    "unsupported",
+    "not_found",
+    "exists",
+    "timeout",
+    "canceled",
+    "expired",
+    "busy",
+    "too_large",
+    "changed",
+    "unavailable",
+    "io"
+  ]
+}

@@ -9,6 +9,7 @@ platform="$(ls -d "$sdk"/platforms/android-*/android.jar 2>/dev/null | sort -V |
 
 mkdir -p "$build/portable" "$build/android"
 javac -Xlint:all -Werror -d "$build/portable" \
+  res/system/internal/fixtures/java/io/github/webong/ext/system/fixtures/*.java \
   res/system/capture/surface/android/src/main/java/io/github/webong/ext/system/*.java \
   res/system/service/host/android/src/main/java/io/github/webong/ext/system/*.java \
   res/system/capture/share/android/src/main/java/io/github/webong/ext/system/share/*.java \

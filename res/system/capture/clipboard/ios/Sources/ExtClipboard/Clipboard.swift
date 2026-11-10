@@ -16,6 +16,17 @@ public enum ClipboardError: Error, Equatable {
     case limitExceeded
     case changed
     case nativeFailure
+
+    /// The stable error code of `res/system/testdata/codes.json`.
+    public var code: String {
+        switch self {
+        case .invalidValue: return "invalid"
+        case .denied: return "denied"
+        case .limitExceeded: return "too_large"
+        case .changed: return "changed"
+        case .nativeFailure: return "io"
+        }
+    }
 }
 
 public struct ClipboardPolicy: Codable, Equatable, Sendable {
@@ -66,7 +77,10 @@ public struct ClipboardReceipt: Codable, Equatable, Sendable {
 
 public enum ClipboardValidation {
     public static func validate(items: [ClipboardItem], maxBytes: Int, formats: [String]) throws {
-        guard maxBytes > 0, maxBytes <= clipboardMaximumPolicyBytes, items.count <= clipboardMaximumItems else {
+        guard maxBytes > 0, maxBytes <= clipboardMaximumPolicyBytes else {
+            throw ClipboardError.invalidValue
+        }
+        guard items.count <= clipboardMaximumItems else {
             throw ClipboardError.limitExceeded
         }
         let allowed = Set(formats)

@@ -85,10 +85,10 @@ jobs:
         if: runner.os == 'macOS'
         run: swift test
         working-directory: res/system/capture/surface/ios
-      - name: Swift tests (ExtHost, ExtShare and ExtAudio)
+      - name: Swift tests (ExtHost, ExtShare, ExtAudio and ExtClipboard)
         if: runner.os == 'macOS'
         run: |
-          for package in service/host/ios capture/share/ios capture/audio/ios; do
+          for package in service/host/ios capture/share/ios capture/audio/ios capture/clipboard/ios; do
             swift test --package-path "res/system/$package"
           done
       - name: Swift tests (ExtNetwork)

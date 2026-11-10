@@ -10,4 +10,7 @@
     <Description>Generation-checked Win32 clipboard access with an explicit format, item and byte policy, the .NET binding of the Ext capture/clipboard contract.</Description>
     <PackageTags>ext;windows;clipboard</PackageTags>
   </PropertyGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Ext.Clipboard.Windows.Tests" />
+  </ItemGroup>
 </Project>

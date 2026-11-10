@@ -57,7 +57,10 @@ design obligation.
    codes start from the engine's statuses (`ext_status` in `lib/plugin/include/ext_host.h`) and
    remote error codes, in lowercase: `invalid`, `denied`, `unsupported`, `not_found`, `exists`,
    `timeout`, `canceled`, `expired`, `busy` and `too_large`. A module adds a code only through a
-   fixture.
+   fixture. `res/system/testdata/codes.json` lists the codes the fixtures use, and adds three:
+   `changed` (a compare-and-swap failed because the generation or state moved on, and the caller
+   retries), `unavailable` (supported here but not usable now; the capability reason says why) and
+   `io` (a native call failed; the engine's `EXT_IO`).
    Error text is never part of a contract and never carries a value it was given.
 4. **Bounded and cancellable.** Every operation that reads, waits or buffers has a stated bound on
    size, count and time, and can be cancelled. No package keeps hidden global state.

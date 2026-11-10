@@ -97,10 +97,11 @@ Linux (x86-64 and aarch64, built on Ubuntu 22.04), macOS (one universal library)
 arm64, built with MSVC) it attaches `ext-engine-X.Y.Z-<platform>.tar.gz`, holding the shared and static
 libraries, headers, CMake package and licenses, with checksums and a provenance attestation. A host that
 loads the engine at run time, such as `ext_io.host`, uses it instead of building with CMake.
-The Windows-native .NET libraries follow the same form: `ext-dotnet-vX.Y.Z` releases the NuGet packages
+The .NET libraries follow the same form: `ext-dotnet-vX.Y.Z` releases the NuGet packages
 `Ext.Audio.Windows` (`res/system/capture/audio/windows`), `Ext.Clipboard.Windows`
 (`res/system/capture/clipboard/windows`), `Ext.Web.Windows` (`res/web/windows`) and `Ext.ML.Windows`
-(`res/int/model/windows`), all at one version, through `.github/workflows/ext-dotnet-release.yml`
+(`res/int/model/windows`), which are Windows-only, and the cross-platform plugin host `ExtIO.Host`
+(`pkg/ext-dotnet/ExtIO.Host`), all at one version, through `.github/workflows/ext-dotnet-release.yml`
 (published with `--latest=false`). The workflow builds, tests and packs on Windows, attaches the packages
 with their checksums and a provenance attestation to the GitHub release, and pushes them to a NuGet feed only
 when the repository variable `EXT_NUGET_SOURCE` names one and the secret `EXT_NUGET_API_KEY` can push to it;

@@ -56,12 +56,21 @@ func TestRoundTrip(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	batch, e := stream.Read(ctx, 1)
-	if e != nil {
-		t.Fatal(e)
+	// The item and the end of the stream may arrive in one batch or in two.
+	var items int
+	for done := false; !done; {
+		batch, e := stream.Read(ctx, 1)
+		if e != nil {
+			t.Fatal(e)
+		}
+		items += len(batch.Items)
+		done = batch.Done
+		if items > 1 {
+			t.Fatalf("bad batch: %+v", batch)
+		}
 	}
-	if len(batch.Items) != 1 || !batch.Done {
-		t.Fatalf("bad batch: %+v", batch)
+	if items != 1 {
+		t.Fatalf("got %d items, want 1", items)
 	}
 	if e = stream.Close(ctx); e != nil {
 		t.Fatal(e)

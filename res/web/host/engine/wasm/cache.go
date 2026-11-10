@@ -29,10 +29,18 @@ func (c *CompilationCache) Close(ctx context.Context) error {
 	return c.cache.Close(ctx)
 }
 
-// runtimeConfig is the configuration every execution path uses: guest memory bounded, and a
-// running module stopped when its context is done.
+// runtimeConfig is the configuration every execution path uses: guest memory bounded, a running
+// module stopped when its context is done, and no DWARF.
+//
+// Stopping a running guest unwinds it with an error, and with debug information on (wazero's
+// default) the unwinding looks up a source line in the module's DWARF for every frame. Each lookup
+// reads the debug entries from the start, and the first one for a module reads its whole line
+// table, so a guest built with debug information (a Zig WASI command is) kept Close, and the
+// cleanup of the session around it, busy for seconds on a loaded runner. A trap still names the
+// functions it passed through; it just no longer names their source lines.
 func runtimeConfig(memoryLimitPages uint32, cache *CompilationCache) wazero.RuntimeConfig {
-	config := wazero.NewRuntimeConfig().WithMemoryLimitPages(memoryLimitPages).WithCloseOnContextDone(true)
+	config := wazero.NewRuntimeConfig().WithMemoryLimitPages(memoryLimitPages).WithCloseOnContextDone(true).
+		WithDebugInfoEnabled(false)
 	if cache != nil {
 		config = config.WithCompilationCache(cache.cache)
 	}

@@ -17,7 +17,6 @@ import (
 // The PHP guest SDK (pkg/ext-php) must pass the same suite through the process
 // backend. Skipped when no php is installed.
 func TestPHPGuest(t *testing.T) {
-	skipPHPOnWindows(t)
 	php, err := exec.LookPath("php")
 	if err != nil {
 		t.Skip("php not installed")
@@ -32,7 +31,6 @@ func TestPHPGuest(t *testing.T) {
 }
 
 func TestPHPUnitTests(t *testing.T) {
-	skipPHPOnWindows(t)
 	php, err := exec.LookPath("php")
 	if err != nil {
 		t.Skip("php not installed")

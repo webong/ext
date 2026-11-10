@@ -1,7 +1,8 @@
 name: Release .NET libraries
 
-# Releases the Windows-native .NET libraries of ext as NuGet packages: Ext.Audio.Windows,
-# Ext.Clipboard.Windows, Ext.Web.Windows and Ext.ML.Windows, all at one version. It runs only for
+# Releases the .NET libraries of ext as NuGet packages: the Windows-native Ext.Audio.Windows,
+# Ext.Clipboard.Windows, Ext.Web.Windows and Ext.ML.Windows, and the cross-platform plugin host
+# ExtIO.Host (pkg/ext-dotnet), all at one version. It runs only for
 # ext-dotnet-vX.Y.Z tags, and by hand for a dry run that builds, tests and packs but publishes
 # nothing. The tag is not a Go module tag; see docs/module-versioning.md.
 #
@@ -55,6 +56,9 @@ jobs:
           set -euo pipefail
           dotnet run --project res/int/model/windows/Tests/Ext.ML.Windows.Tests.csproj
           dotnet run --project res/web/windows/Tests/Ext.Web.Windows.Tests.csproj
+          # Without EXT_HOST_LIBRARY and the guests the host tests check what they can and say so; the
+          # host cases run against the engine in host-cases.yml.
+          dotnet run --project pkg/ext-dotnet/ExtIO.Host.Tests/ExtIO.Host.Tests.csproj -c Release
       - name: Pack
         shell: bash
         env:
@@ -67,10 +71,11 @@ jobs:
             res/system/capture/audio/windows/Ext.Audio.Windows.csproj \
             res/system/capture/clipboard/windows/Ext.Clipboard.Windows.csproj \
             res/web/windows/Ext.Web.Windows.csproj \
-            res/int/model/windows/Ext.ML.Windows.csproj; do
+            res/int/model/windows/Ext.ML.Windows.csproj \
+            pkg/ext-dotnet/ExtIO.Host/ExtIO.Host.csproj; do
             dotnet pack "$project" -c Release -p:Version="$VERSION" -o "$out"
           done
-          [[ "$(ls "$out"/*.nupkg | wc -l)" -eq 4 ]] || { echo 'expected four packages' >&2; ls "$out" >&2; exit 1; }
+          [[ "$(ls "$out"/*.nupkg | wc -l)" -eq 5 ]] || { echo 'expected five packages' >&2; ls "$out" >&2; exit 1; }
       - name: Checksums
         shell: bash
         env:

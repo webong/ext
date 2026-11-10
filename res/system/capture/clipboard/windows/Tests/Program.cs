@@ -1,5 +1,5 @@
-// Ext.Clipboard.Windows on the real Win32 clipboard: the policy checks, which need no clipboard,
-// and round trips of text, a DIB and a registered format, which replace the clipboard's content
+// Ext.Clipboard.Windows on the real Win32 clipboard: the policy checks and the shared fixtures
+// (Fixtures.cs), which need no clipboard, and round trips of text, a DIB and a registered format, which replace the clipboard's content
 // and restore nothing. When this session has no clipboard (OpenClipboard keeps failing, as in a
 // service session) the round trips say so and are skipped, or fail when
 // EXT_CLIPBOARD_REQUIRED=1. Run it with
@@ -112,6 +112,10 @@ Test("the generation names the Windows sequence number", () =>
     Check(generation.StartsWith("windows:", StringComparison.Ordinal) && uint.TryParse(generation["windows:".Length..], out _),
         $"generation {generation}");
 });
+
+// ---- the shared fixtures (res/system/testdata/clipboard/v1), which need no clipboard ----
+
+Fixtures.Clipboard(Test);
 
 // ---- round trips on the real clipboard ----
 

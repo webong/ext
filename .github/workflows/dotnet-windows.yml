@@ -1,9 +1,9 @@
 name: .NET Windows libraries
 
 # The tests of the Windows .NET libraries (the ext-dotnet-v packages): res/system audio and
-# clipboard, res/web WebView2 and res/int ONNX. Unlike the repository's other workflows it runs on
-# pull requests, but only those that touch these libraries, so a change to one is checked before it
-# merges; native.yml and ext-dotnet-release.yml run the same tests. Also on demand
+# clipboard, res/web WebView2 and res/int ONNX. It runs on pull requests that touch these
+# libraries, as ext-engine-release.yml and ext-zig-release.yml do for theirs, so a change to one
+# is checked before it merges; native.yml and ext-dotnet-release.yml run the same tests. Also on demand
 # (gh workflow run dotnet-windows.yml --ref <branch>).
 on:
   pull_request:

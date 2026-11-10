@@ -9,7 +9,7 @@ those sections are Go's and are written for the bindings that follow.
   caller's ceiling is `too_large`. The format is judged before the size.
 - **Playback**: the same rule for the packet a stereo, 48 kHz, 16-bit sink takes, whose frame is 4 bytes
   and whose default ceiling is 3,840 bytes (20 ms): Go through `ValidatePacket`, Swift
-  `SystemAudioPlayback.validate`, Java `PlaybackPacket.validate` and C# `SystemAudioPlayback.PacketCode`.
+  `SystemAudioPlayback.validate`, Java `PlaybackPacket.validate` and C# `SystemAudioPlayback.CheckPacket` (`AudioPacketException.Code`).
   An empty packet or a partial frame is `invalid` and a packet over the ceiling is `too_large`, frames
   first. A full playback buffer is `busy` (Swift `bufferFull`, C# `IOException`), a closed sink `canceled`,
   and a native failure `io`; none of those can be run without a device.

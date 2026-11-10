@@ -12,6 +12,22 @@ public enum AudioEndpointDirection
 public sealed record AudioEndpoint(string Id, string Name, AudioEndpointDirection Direction);
 
 /// <summary>
+/// A playback packet that breaks the packet rule of res/system/testdata/audio/v1. It is an
+/// <see cref="ArgumentException"/>, as Write threw before, and carries the rule's stable code.
+/// </summary>
+public sealed class AudioPacketException : ArgumentException
+{
+    /// <summary>"invalid" (no data, or not whole frames) or "too_large" (over the packet ceiling).</summary>
+    public string Code { get; }
+
+    public AudioPacketException(string code, string message, string? paramName = null)
+        : base(message, paramName)
+    {
+        Code = code;
+    }
+}
+
+/// <summary>
 /// Local WASAPI endpoint discovery, capture, and playback. Callers own endpoint
 /// selection, authorization, encoding, transport, and session policy.
 /// </summary>
@@ -155,16 +171,22 @@ public sealed class SystemAudioPlayback : IDisposable
         return length > maxBytes ? "too_large" : null;
     }
 
+    /// <summary>Throws the <see cref="AudioPacketException"/> of a packet that breaks the rule.</summary>
+    internal static void CheckPacket(int length, int maxBytes, string? paramName = null)
+    {
+        switch (PacketCode(length, maxBytes))
+        {
+            case "invalid":
+                throw new AudioPacketException("invalid", "Playback needs complete PCM frames", paramName);
+            case "too_large":
+                throw new AudioPacketException("too_large", "Playback packet is over the packet ceiling", paramName);
+        }
+    }
+
     public void Write(ReadOnlySpan<byte> bytes)
     {
         ObjectDisposedException.ThrowIf(disposed, this);
-        switch (PacketCode(bytes.Length, MaxPacketBytes))
-        {
-            case "invalid":
-                throw new ArgumentException("Playback needs complete PCM frames", nameof(bytes));
-            case "too_large":
-                throw new ArgumentException($"Playback packets are at most {MaxPacketBytes} bytes", nameof(bytes));
-        }
+        CheckPacket(bytes.Length, MaxPacketBytes, nameof(bytes));
         if (bytes.Length > buffer.BufferLength - buffer.BufferedBytes)
             throw new IOException("Playback buffer is full");
         var copy = bytes.ToArray();

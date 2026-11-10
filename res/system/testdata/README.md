@@ -30,7 +30,7 @@ current version.
 Every case states the error code it expects, or `null` when the input is accepted. Each binding
 keeps its native error type (a Go sentinel, a Swift enum, a Java exception, a C# kind) and maps it
 to the code: `clipboard.Code(err)` in Go, `ClipboardError.code` in Swift, `ClipboardException.code`
-in Java and `ClipboardException.Code` in C# (`ShareError.code`, `ShareException.kind()` and so on in
+in Java and `ClipboardException.Code` in C# (`ShareError.code`, `ShareException.kind()`, C# `AudioPacketException.Code` and so on in
 the other areas). The codes are the engine's vocabulary
 (`docs/adr-architecture.md`, rule 3) plus the ones `codes.json` adds. Error text is never part of a
 case.

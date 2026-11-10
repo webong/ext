@@ -137,12 +137,28 @@ func (windowsClipboard) Write(ctx context.Context, request WriteRequest, maxByte
 	if len(request.Items) > 1 {
 		return Receipt{}, fmt.Errorf("%w: the Windows clipboard holds one item", ErrInvalid)
 	}
-	if err = openClipboard(ctx); err != nil {
+	if err = writeOpenClipboard(ctx, request, maxBytes, formats); err != nil {
 		return Receipt{}, err
 	}
+	// After CloseClipboard: closing a clipboard that holds text adds CF_LOCALE and moves the
+	// sequence number on, so a generation read while it is open is already stale.
+	updated, err := windowsClipboard{}.Generation(ctx)
+	if err != nil {
+		return Receipt{}, err
+	}
+	return Receipt{Generation: updated, Dispatch: "dispatched"}, nil
+}
+
+// writeOpenClipboard opens the clipboard, replaces its content with the request's item and
+// closes it again.
+func writeOpenClipboard(ctx context.Context, request WriteRequest, maxBytes int64, formats []string) error {
+	if err := openClipboard(ctx); err != nil {
+		return err
+	}
 	defer procCloseClipboard.Call()
-	if _, _, callErr := procEmptyClipboard.Call(); callErr != nil {
-		return Receipt{}, fmt.Errorf("%w: cannot clear the clipboard: %v", ErrDenied, callErr)
+	// Call's error is never nil (it is the thread's last error), so the result decides.
+	if result, _, callErr := procEmptyClipboard.Call(); result == 0 {
+		return fmt.Errorf("%w: cannot clear the clipboard: %v", ErrDenied, callErr)
 	}
 	if len(request.Items) == 1 {
 		allowed := map[string]bool{}
@@ -151,18 +167,18 @@ func (windowsClipboard) Write(ctx context.Context, request WriteRequest, maxByte
 		}
 		for _, representation := range request.Items[0].Representations {
 			if !allowed[representation.Format] || !supportedClipboardFormat(representation.Format) {
-				return Receipt{}, ErrDenied
+				return ErrDenied
 			}
 			identifier, err := clipboardFormatIdentifier(representation.Format)
 			if err != nil {
-				return Receipt{}, err
+				return err
 			}
 			data := representation.Data
 			if representation.Format == "CF_UNICODETEXT" {
 				data = utf16LEBytes(string(representation.Data))
 			}
 			if int64(len(data)) > maxBytes {
-				return Receipt{}, ErrLimit
+				return ErrLimit
 			}
 			if representation.Format == "CF_BITMAP" {
 				// CF_BITMAP is handle-backed: convert the DIB bytes into an
@@ -172,24 +188,20 @@ func (windowsClipboard) Write(ctx context.Context, request WriteRequest, maxByte
 				// representations.
 				hbitmap, err := dibToBitmap(data, maxBytes)
 				if err != nil {
-					return Receipt{}, err
+					return err
 				}
 				if result, _, callErr := procSetClipboardData.Call(uintptr(identifier), hbitmap); result == 0 {
 					procDeleteObject.Call(hbitmap)
-					return Receipt{}, fmt.Errorf("%w: cannot set clipboard bitmap: %v", ErrDenied, callErr)
+					return fmt.Errorf("%w: cannot set clipboard bitmap: %v", ErrDenied, callErr)
 				}
 				continue
 			}
 			if err = setGlobalClipboardData(identifier, data); err != nil {
-				return Receipt{}, err
+				return err
 			}
 		}
 	}
-	updated, err := windowsClipboard{}.Generation(ctx)
-	if err != nil {
-		return Receipt{}, err
-	}
-	return Receipt{Generation: updated, Dispatch: "dispatched"}, nil
+	return nil
 }
 
 func openClipboard(ctx context.Context) error {

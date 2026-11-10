@@ -8,7 +8,7 @@ require (
 	github.com/webong/ext/pkg/ext-go/model v0.1.0
 	github.com/webong/ext/pkg/ext-go/perception v0.1.0
 	github.com/webong/ext/res/int v0.1.0
-	github.com/webong/ext/res/system v0.3.0 // indirect
+	github.com/webong/ext/res/system v0.4.0 // indirect
 	golang.org/x/sys v0.48.0 // indirect
 )
 

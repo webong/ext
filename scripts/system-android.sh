@@ -24,6 +24,7 @@ javac -Xlint:all -Werror -d "$build/portable" \
   res/system/service/network/android/src/test/java/io/github/webong/ext/network/*.java
 java -ea -cp "$build/portable" io.github.webong.ext.system.SurfaceTests
 java -ea -cp "$build/portable" io.github.webong.ext.system.ResourceTests
+java -ea -cp "$build/portable" io.github.webong.ext.system.ResourceFixtureTests
 java -ea -cp "$build/portable" io.github.webong.ext.system.share.ShareTests
 java -ea -cp "$build/portable" io.github.webong.ext.system.share.ShareFixtureTests
 java -ea -cp "$build/portable" io.github.webong.ext.system.keyboard.KeyboardTests

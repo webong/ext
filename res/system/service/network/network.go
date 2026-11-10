@@ -11,6 +11,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/webong/ext/res/system/internal/capability"
 )
 
 // ErrInvalid reports a malformed option, status or address.
@@ -40,27 +42,10 @@ type CollectionStatus struct {
 // permission or none for permission-denied, unsupported or tool_missing for unsupported, and none,
 // permission, no_device or tool_missing for unavailable (a failed native read has no reason).
 func (s CollectionStatus) Validate() error {
-	var allowed []string
-	switch s.State {
-	case "complete", "partial":
-	case "permission-denied":
-		allowed = []string{"", "permission"}
-	case "unsupported":
-		allowed = []string{"unsupported", "tool_missing"}
-	case "unavailable":
-		allowed = []string{"", "permission", "no_device", "tool_missing"}
-	default:
-		return fmt.Errorf("%w: unknown collection state %q", ErrInvalid, s.State)
+	if !capability.Allowed(s.State, s.Reason) || s.State == "exited" {
+		return fmt.Errorf("%w: state %q with reason %q", ErrInvalid, s.State, s.Reason)
 	}
-	if allowed == nil {
-		allowed = []string{""}
-	}
-	for _, reason := range allowed {
-		if s.Reason == reason {
-			return nil
-		}
-	}
-	return fmt.Errorf("%w: reason %q does not fit state %q", ErrInvalid, s.Reason, s.State)
+	return nil
 }
 
 // Address is an address assigned to a local interface.

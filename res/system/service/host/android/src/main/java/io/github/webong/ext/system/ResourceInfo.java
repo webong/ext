@@ -25,10 +25,22 @@ public final class ResourceInfo {
                         ResourceCollectionStatus memoryStatus, List<StorageInfo> storage, PowerInfo power,
                         ContainerInfo container, Double uptimeSeconds, String bootTime,
                         ResourceCollectionStatus uptimeStatus) {
-        if (os == null || os.isEmpty() || architecture == null || architecture.isEmpty() || observedAt == null || observedAt.isEmpty()) {
-            throw new IllegalArgumentException("resource identity and observation time are required");
+        if (os == null || os.isEmpty() || architecture == null || architecture.isEmpty()) {
+            throw new IllegalArgumentException("resource identity is required");
         }
-        if (logicalCPUs < 0) throw new IllegalArgumentException("logical CPU count must not be negative");
+        if (!timestamp(observedAt) || bootTime != null && !timestamp(bootTime)) {
+            throw new IllegalArgumentException("resource times must be RFC 3339 timestamps");
+        }
+        if (logicalCPUs < 1) throw new IllegalArgumentException("logical CPU count must be at least one");
+        if (!(cpuCapacity >= 0 && cpuCapacity <= logicalCPUs)) {
+            throw new IllegalArgumentException("CPU capacity must be between zero and the logical CPU count");
+        }
+        if (memoryBytes < 0 || memoryCapacityBytes < 0 || memoryCapacityBytes > memoryBytes) {
+            throw new IllegalArgumentException("memory capacity must not exceed memory");
+        }
+        if (uptimeSeconds != null && !(uptimeSeconds >= 0 && !uptimeSeconds.isInfinite()) || (uptimeSeconds == null) != (bootTime == null)) {
+            throw new IllegalArgumentException("uptime and boot time come together, and uptime is not negative");
+        }
         if (cpuStatus == null || memoryStatus == null || container == null || uptimeStatus == null) {
             throw new IllegalArgumentException("collection statuses are required");
         }
@@ -48,6 +60,13 @@ public final class ResourceInfo {
         this.uptimeSeconds = uptimeSeconds;
         this.bootTime = bootTime;
         this.uptimeStatus = uptimeStatus;
+    }
+
+    private static final java.util.regex.Pattern TIMESTAMP = java.util.regex.Pattern.compile(
+        "\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})");
+
+    private static boolean timestamp(String value) {
+        return value != null && TIMESTAMP.matcher(value).matches();
     }
 
     public String os() { return os; }

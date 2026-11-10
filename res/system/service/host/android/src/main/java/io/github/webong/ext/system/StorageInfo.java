@@ -12,8 +12,11 @@ public final class StorageInfo {
 
     public StorageInfo(String device, String mountPoint, long totalBytes, long availableBytes,
                        String type, boolean readOnly) {
-        if (device == null || device.isEmpty() || mountPoint == null || mountPoint.isEmpty()) {
-            throw new IllegalArgumentException("storage identity and mount point are required");
+        if (device == null || mountPoint == null || mountPoint.isEmpty()) {
+            throw new IllegalArgumentException("storage needs a device name (it may be empty) and a mount point");
+        }
+        if (totalBytes < 0 || availableBytes < 0 || availableBytes > totalBytes) {
+            throw new IllegalArgumentException("storage sizes must not be negative and available must not exceed total");
         }
         this.device = device;
         this.mountPoint = mountPoint;

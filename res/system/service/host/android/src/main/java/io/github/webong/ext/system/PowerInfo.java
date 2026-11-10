@@ -8,8 +8,11 @@ public final class PowerInfo {
     private final Long timeRemainingSeconds;
 
     public PowerInfo(String state, int percentage, Long timeRemainingSeconds) {
-        if (state == null || state.isEmpty()) throw new IllegalArgumentException("power state is required");
+        if (!"charging".equals(state) && !"discharging".equals(state) && !"charged".equals(state) && !"unknown".equals(state)) {
+            throw new IllegalArgumentException("power state must be charging, discharging, charged or unknown");
+        }
         if (percentage < 0 || percentage > 100) throw new IllegalArgumentException("power percentage must be between 0 and 100");
+        if (timeRemainingSeconds != null && timeRemainingSeconds < 0) throw new IllegalArgumentException("time remaining must not be negative");
         this.state = state;
         this.percentage = percentage;
         this.timeRemainingSeconds = timeRemainingSeconds;

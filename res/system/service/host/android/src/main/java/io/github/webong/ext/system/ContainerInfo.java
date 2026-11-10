@@ -9,11 +9,36 @@ public final class ContainerInfo {
     private final List<String> evidence;
 
     public ContainerInfo(boolean detected, String state, List<String> evidence) {
-        if (state == null || state.isEmpty()) throw new IllegalArgumentException("container state is required");
+        if (!"detected".equals(state) && !"none".equals(state) && !"unsupported".equals(state)) {
+            throw new IllegalArgumentException("container state must be detected, none or unsupported");
+        }
         if (evidence == null) throw new IllegalArgumentException("container evidence is required");
+        if (detected != "detected".equals(state) || detected != !evidence.isEmpty()) {
+            throw new IllegalArgumentException("container detection, state and evidence disagree");
+        }
+        for (int index = 0; index < evidence.size(); index++) {
+            String name = evidence.get(index);
+            if (name == null || name.isEmpty() || index > 0 && utf8Compare(name, evidence.get(index - 1)) <= 0) {
+                throw new IllegalArgumentException("container evidence must be non-empty names, sorted and unique");
+            }
+        }
         this.detected = detected;
         this.state = state;
         this.evidence = List.copyOf(evidence);
+    }
+
+    /** Compares by UTF-8 bytes (that is, by code point), as the other bindings sort. */
+    private static int utf8Compare(String a, String b) {
+        int i = 0;
+        int j = 0;
+        while (i < a.length() && j < b.length()) {
+            int x = a.codePointAt(i);
+            int y = b.codePointAt(j);
+            if (x != y) return Integer.compare(x, y);
+            i += Character.charCount(x);
+            j += Character.charCount(y);
+        }
+        return Integer.compare(a.length() - i, b.length() - j);
     }
 
     public boolean detected() { return detected; }

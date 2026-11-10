@@ -53,7 +53,7 @@ sources=($(find "$pkg/src/main/java" "$pkg/src/android/java" res/web/android/src
   res/system/capture/surface/android/src/main/java res/system/capture/surface/android/src/android/java \
   res/system/service/host/android/src/main/java res/system/service/host/android/src/android/java \
   res/system/capture/share/android/src/main/java res/system/capture/share/android/src/android/java \
-  res/system/capture/audio/android/src/android/java \
+  res/system/capture/audio/android/src/main/java res/system/capture/audio/android/src/android/java \
   res/system/service/network/android/src/main/java res/system/service/network/android/src/android/java \
   res/int/model/android/src/main/java res/int/model/android/src/android/java -name '*.java' | grep -v '/Wamr[A-Za-z]*\.java$'))
 [[ -z "$with_wamr" ]] || sources+=($(find "$pkg/src/main/java" -name 'Wamr*.java'))

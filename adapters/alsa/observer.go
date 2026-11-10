@@ -44,7 +44,7 @@ func (o *Observer) Observe(ctx context.Context, limits audio.Limits) (audio.Snap
 		Devices: []audio.Device{},
 	}
 	if playbackErr != nil && captureErr != nil {
-		snapshot.Status = audio.Status{State: "unsupported", Detail: "aplay and arecord are unavailable"}
+		snapshot.Status = audio.Status{State: "unsupported", Reason: "tool_missing", Detail: "aplay and arecord are unavailable"}
 		return snapshot, fmt.Errorf("%w: ALSA tools failed", audio.ErrUnavailable)
 	}
 	var malformed int

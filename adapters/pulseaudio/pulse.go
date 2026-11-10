@@ -49,7 +49,7 @@ func (o *Observer) Observe(ctx context.Context, limits audio.Limits) (audio.Snap
 		Devices: []audio.Device{},
 	}
 	if sinkErr != nil && sourceErr != nil {
-		snapshot.Status = audio.Status{State: "unsupported", Detail: "pactl is unavailable"}
+		snapshot.Status = audio.Status{State: "unsupported", Reason: "tool_missing", Detail: "pactl is unavailable"}
 		return snapshot, fmt.Errorf("%w: pactl failed", audio.ErrUnavailable)
 	}
 	var skipped int

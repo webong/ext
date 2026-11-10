@@ -3,6 +3,7 @@ package io.github.webong.ext.system.android;
 import android.media.AudioAttributes;
 import android.media.AudioFormat;
 import android.media.AudioTrack;
+import io.github.webong.ext.system.audio.PlaybackPacket;
 
 /**
  * Bounded PCM16 little-endian stereo 48 kHz playback. The caller owns audio
@@ -53,10 +54,7 @@ public final class SystemAudioPlayback implements AutoCloseable {
      */
     public synchronized int write(byte[] pcm, int offset, int count) {
         if (closed) throw new IllegalStateException("playback is closed");
-        if (pcm == null || offset < 0 || count <= 0 || offset > pcm.length - count
-                || count % BYTES_PER_FRAME != 0 || count > MAX_PACKET_BYTES) {
-            throw new IllegalArgumentException("invalid PCM packet");
-        }
+        PlaybackPacket.validate(pcm, offset, count, MAX_PACKET_BYTES);
         int written = track.write(pcm, offset, count, AudioTrack.WRITE_NON_BLOCKING);
         if (written < 0) throw new IllegalStateException("native playback failed: " + written);
         return written;

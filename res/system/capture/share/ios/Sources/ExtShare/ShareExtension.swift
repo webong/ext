@@ -47,6 +47,16 @@ public enum ShareError: Error, Equatable {
     case limitExceeded
     case loadFailed
     case containerUnavailable
+
+    /// The stable error code of `res/system/testdata/codes.json`.
+    public var code: String {
+        switch self {
+        case .invalidValue: return "invalid"
+        case .limitExceeded: return "too_large"
+        case .loadFailed: return "io"
+        case .containerUnavailable: return "unavailable"
+        }
+    }
 }
 
 /// One shared file. Exactly one of `data` and `fileURL` carries the content;
@@ -155,29 +165,50 @@ public enum ShareValidation {
         return value.unicodeScalars.allSatisfy { !CharacterSet.controlCharacters.contains($0) }
     }
 
+    /// Strips leading and trailing U+0009 to U+000D and U+0020, the rule of every binding of this
+    /// contract. Unicode spaces and the other control characters are content.
+    static func trim(_ value: String) -> String {
+        func space(_ scalar: Unicode.Scalar) -> Bool { scalar == " " || (9...13).contains(scalar.value) }
+        let scalars = value.unicodeScalars
+        guard let start = scalars.firstIndex(where: { !space($0) }),
+              let end = scalars.lastIndex(where: { !space($0) }) else { return "" }
+        return String(scalars[start...end])
+    }
+
     static func text(_ value: String?, limit: Int) throws -> String? {
         guard let value, !value.isEmpty else { return nil }
-        guard value.utf8.count <= limit, !value.contains("\0") else {
-            throw ShareError.limitExceeded
-        }
+        guard !value.unicodeScalars.contains("\0") else { throw ShareError.invalidValue }
+        guard value.utf8.count <= limit else { throw ShareError.limitExceeded }
         return value
     }
 
+    /// A link's normal form: trimmed, with its scheme lowercased and nothing else changed. It has
+    /// no spaces or control characters and starts with a scheme (a letter, then letters, digits,
+    /// plus, dot or dash, then a colon); parsing it is the embedding application's.
     static func link(_ value: String, limit: Int) throws -> String {
-        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty, trimmed.utf8.count <= limit, !trimmed.contains("\0"),
-              !trimmed.unicodeScalars.contains(where: { CharacterSet.controlCharacters.contains($0) }),
-              let url = URL(string: trimmed), let scheme = url.scheme else {
+        let trimmed = trim(value)
+        guard !trimmed.isEmpty else { throw ShareError.invalidValue }
+        guard trimmed.utf8.count <= limit else { throw ShareError.limitExceeded }
+        let scalars = trimmed.unicodeScalars
+        guard !scalars.contains(where: { $0 == " " || $0.properties.generalCategory == .control }),
+              let colon = scalars.firstIndex(of: ":"), colon != scalars.startIndex else {
             throw ShareError.invalidValue
         }
-        var components = URLComponents(url: url, resolvingAgainstBaseURL: false)
-        components?.scheme = scheme.lowercased()
-        return components?.url?.absoluteString ?? url.absoluteString
+        for (offset, scalar) in scalars[..<colon].enumerated() {
+            let letter = ("a"..."z").contains(scalar) || ("A"..."Z").contains(scalar)
+            let digit = ("0"..."9").contains(scalar)
+            guard offset == 0 ? letter : (letter || digit || scalar == "+" || scalar == "-" || scalar == ".") else {
+                throw ShareError.invalidValue
+            }
+        }
+        return String(scalars[..<colon]).lowercased() + String(scalars[colon...])
     }
 
     static func attachment(_ value: ShareAttachment) throws -> ShareAttachment {
-        guard isPortableName(value.name) else { throw ShareError.invalidValue }
-        let mimeType = value.mimeType.isEmpty ? "application/octet-stream" : value.mimeType
+        let name = trim(value.name)
+        guard isPortableName(name) else { throw ShareError.invalidValue }
+        let trimmedType = trim(value.mimeType)
+        let mimeType = trimmedType.isEmpty ? "application/octet-stream" : trimmedType
         guard mimeType.utf8.count <= ShareLimits.maxMIMETypeLength, !mimeType.contains("\0"),
               value.data == nil || value.fileURL == nil else {
             throw ShareError.invalidValue
@@ -186,14 +217,14 @@ public enum ShareValidation {
             guard value.byteCount == 0 || value.byteCount == data.count else {
                 throw ShareError.invalidValue
             }
-            return ShareAttachment(name: value.name, mimeType: mimeType,
+            return ShareAttachment(name: name, mimeType: mimeType,
                                    byteCount: data.count, data: data)
         }
         guard value.byteCount >= 0 else { throw ShareError.invalidValue }
         if let fileURL = value.fileURL, !fileURL.isFileURL {
             throw ShareError.invalidValue
         }
-        return ShareAttachment(name: value.name, mimeType: mimeType,
+        return ShareAttachment(name: name, mimeType: mimeType,
                                byteCount: value.byteCount, fileURL: value.fileURL)
     }
 }

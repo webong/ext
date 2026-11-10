@@ -1,0 +1,67 @@
+{
+  "version": 1,
+  "area": "keyboard",
+  "about": "The bounded text operations of a keyboard extension's editor. A character is a Unicode code point (not a UTF-16 unit and not a grapheme cluster). A limits case builds limits and reports invalid or accepts them; a selection case gives the editor a selected text and expects what selection() returns, with null for none; an insert case and a delete case expect a code or null; a context case expects the window of the text before or after the cursor. The trim rule is: strip leading and trailing U+0009 to U+000D and U+0020 (ASCII white space and the vertical controls).",
+  "ceilings": {
+    "maxSelection": 20000,
+    "maxInsert": 10000
+  },
+  "limits": [
+    {"name": "the-smallest-limits", "maxSelection": 1, "maxInsert": 1, "code": null},
+    {"name": "the-ceilings", "maxSelection": 20000, "maxInsert": 10000, "code": null},
+    {"name": "the-defaults-are-valid", "maxSelection": 20000, "maxInsert": 10000, "code": null},
+    {"name": "selection-limit-of-zero", "maxSelection": 0, "maxInsert": 1, "code": "invalid"},
+    {"name": "insert-limit-of-zero", "maxSelection": 1, "maxInsert": 0, "code": "invalid"},
+    {"name": "selection-limit-above-the-ceiling", "maxSelection": 20001, "maxInsert": 1, "code": "invalid"},
+    {"name": "insert-limit-above-the-ceiling", "maxSelection": 1, "maxInsert": 10001, "code": "invalid"},
+    {"name": "negative-limits", "maxSelection": -1, "maxInsert": -1, "code": "invalid"}
+  ],
+  "selection": [
+    {"name": "no-selection", "maxSelection": 8, "value": null, "want": null},
+    {"name": "empty-selection", "maxSelection": 8, "value": "", "want": null},
+    {"name": "blank-selection", "maxSelection": 8, "value": " \n\t ", "want": null},
+    {"name": "selection-is-trimmed", "maxSelection": 8, "value": "  value \n", "want": "value"},
+    {"name": "white-space-controls-at-the-edges-are-stripped", "maxSelection": 8, "value": "\u000bx\f", "want": "x"},
+    {"name": "no-break-spaces-are-not-trimmed", "maxSelection": 8, "value": " x ", "want": " x "},
+    {"name": "selection-of-exactly-the-limit", "maxSelection": 8, "value": "01234567", "want": "01234567"},
+    {"name": "selection-over-the-limit", "maxSelection": 8, "value": "012345678", "want": null},
+    {"name": "the-limit-counts-the-trimmed-text", "maxSelection": 8, "value": "  01234567  ", "want": "01234567"},
+    {"name": "the-limit-counts-code-points-not-utf-16-units", "maxSelection": 4, "value": "😀😀😀😀", "want": "😀😀😀😀"},
+    {"name": "code-points-over-the-limit", "maxSelection": 4, "value": "😀😀😀😀😀", "want": null},
+    {"name": "the-limit-counts-code-points-not-grapheme-clusters", "maxSelection": 5, "value": "ééé", "want": null},
+    {"name": "combining-marks-at-the-limit", "maxSelection": 4, "value": "éé", "want": "éé"},
+    {"name": "other-controls-are-not-trimmed", "maxSelection": 8, "value": "\u0001x", "want": "\u0001x"}
+  ],
+  "insert": [
+    {"name": "some-text", "maxInsert": 8, "text": "hello", "code": null},
+    {"name": "empty-text", "maxInsert": 8, "text": "", "code": "invalid"},
+    {"name": "text-with-nul", "maxInsert": 8, "text": "a\u0000b", "code": "invalid"},
+    {"name": "text-of-exactly-the-limit", "maxInsert": 8, "text": "01234567", "code": null},
+    {"name": "text-over-the-limit", "maxInsert": 8, "text": "012345678", "code": "too_large"},
+    {"name": "text-is-not-trimmed", "maxInsert": 8, "text": " a ", "code": null},
+    {"name": "the-limit-counts-code-points-not-utf-16-units", "maxInsert": 8, "text": "😀😀😀😀😀😀😀😀", "code": null},
+    {"name": "code-points-over-the-limit", "maxInsert": 8, "text": "😀😀😀😀😀😀😀😀😀", "code": "too_large"},
+    {"name": "the-limit-counts-code-points-not-grapheme-clusters", "maxInsert": 8, "text": "ééééé", "code": "too_large"}
+  ],
+  "delete": [
+    {"name": "zero", "maxInsert": 8, "count": 0, "code": null},
+    {"name": "one", "maxInsert": 8, "count": 1, "code": null},
+    {"name": "negative", "maxInsert": 8, "count": -1, "code": "invalid"},
+    {"name": "exactly-the-limit", "maxInsert": 8, "count": 8, "code": null},
+    {"name": "over-the-limit", "maxInsert": 8, "count": 9, "code": "too_large"}
+  ],
+  "context": [
+    {"name": "tail-of-the-text-before", "where": "before", "value": "0123456789", "limit": 4, "want": "6789"},
+    {"name": "head-of-the-text-after", "where": "after", "value": "abcdefghij", "limit": 4, "want": "abcd"},
+    {"name": "text-shorter-than-the-limit-is-whole", "where": "before", "value": "abc", "limit": 4, "want": "abc"},
+    {"name": "text-of-exactly-the-limit-is-whole", "where": "after", "value": "abcd", "limit": 4, "want": "abcd"},
+    {"name": "a-limit-of-zero", "where": "before", "value": "abc", "limit": 0, "want": null},
+    {"name": "a-negative-limit", "where": "after", "value": "abc", "limit": -1, "want": null},
+    {"name": "no-text", "where": "before", "value": null, "limit": 4, "want": null},
+    {"name": "empty-text", "where": "after", "value": "", "limit": 4, "want": null},
+    {"name": "before-counts-code-points", "where": "before", "value": "a😀b😀", "limit": 2, "want": "b😀"},
+    {"name": "after-counts-code-points", "where": "after", "value": "😀a😀b", "limit": 3, "want": "😀a😀"},
+    {"name": "before-may-cut-between-a-base-and-a-combining-mark", "where": "before", "value": "xé", "limit": 1, "want": "́"},
+    {"name": "after-may-cut-between-a-base-and-a-combining-mark", "where": "after", "value": "éx", "limit": 1, "want": "e"}
+  ]
+}

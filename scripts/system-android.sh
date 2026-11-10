@@ -25,7 +25,9 @@ javac -Xlint:all -Werror -d "$build/portable" \
 java -ea -cp "$build/portable" io.github.webong.ext.system.SurfaceTests
 java -ea -cp "$build/portable" io.github.webong.ext.system.ResourceTests
 java -ea -cp "$build/portable" io.github.webong.ext.system.share.ShareTests
+java -ea -cp "$build/portable" io.github.webong.ext.system.share.ShareFixtureTests
 java -ea -cp "$build/portable" io.github.webong.ext.system.keyboard.KeyboardTests
+java -ea -cp "$build/portable" io.github.webong.ext.system.keyboard.KeyboardFixtureTests
 java -ea -cp "$build/portable" io.github.webong.ext.clipboard.ClipboardTests
 java -ea -cp "$build/portable" io.github.webong.ext.network.NetworkTests
 javac -Xlint:all -Werror -classpath "$platform:$build/portable" -d "$build/android" \

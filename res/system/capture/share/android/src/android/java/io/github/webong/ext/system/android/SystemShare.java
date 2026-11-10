@@ -58,7 +58,7 @@ public final class SystemShare {
         List<ShareAttachment> attachments = new ArrayList<>();
         List<Uri> streams = sharedStreams(intent);
         if (streams.size() > limits.maxItems) {
-            throw new ShareException("limit",
+            throw new ShareException("too_large",
                     "share has " + streams.size() + " attachments, above the bound of " + limits.maxItems);
         }
         long copied = 0;
@@ -68,7 +68,7 @@ public final class SystemShare {
             String mimeType = contentType(uri, intent.getType());
             long remaining = limits.maxBytes - copied;
             if (remaining <= 0) {
-                throw new ShareException("limit", "attachment bytes exceed the bound of " + limits.maxBytes);
+                throw new ShareException("too_large", "attachment bytes exceed the bound of " + limits.maxBytes);
             }
             File target = copy(uri, destination, name, index, remaining);
             long size = target.length();
@@ -175,7 +175,7 @@ public final class SystemShare {
             ContentResolver resolver = context.getContentResolver();
             try (InputStream input = resolver.openInputStream(uri)) {
                 if (input == null) {
-                    throw new ShareException("load", "attachment could not be opened");
+                    throw new ShareException("io", "attachment could not be opened");
                 }
                 try (FileOutputStream output = new FileOutputStream(target)) {
                     byte[] buffer = new byte[COPY_BUFFER];
@@ -183,7 +183,7 @@ public final class SystemShare {
                     for (int read; (read = input.read(buffer)) != -1; ) {
                         written += read;
                         if (written > maximum) {
-                            throw new ShareException("limit",
+                            throw new ShareException("too_large",
                                     "attachment exceeds the remaining byte bound");
                         }
                         output.write(buffer, 0, read);
@@ -196,7 +196,7 @@ public final class SystemShare {
             throw error;
         } catch (IOException error) {
             deleteQuietly(target);
-            throw new ShareException("load", "attachment could not be copied", error);
+            throw new ShareException("io", "attachment could not be copied", error);
         }
     }
 

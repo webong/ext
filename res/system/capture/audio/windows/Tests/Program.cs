@@ -1,7 +1,7 @@
-// Ext.Audio.Windows on WASAPI: argument checks, endpoint listing, and, on the endpoints this
-// machine has, capture and playback format handling and playback backpressure. A hosted runner
-// usually has no audio endpoint (and may have no audio service), so what needs one says why and is
-// skipped, or fails when EXT_AUDIO_REQUIRED=1. Nothing is played aloud: playback writes silence.
+// Ext.Audio.Windows on WASAPI: argument checks, the shared playback fixtures (Fixtures.cs), endpoint
+// listing, and, on the endpoints this machine has, capture and playback format handling and
+// playback backpressure. A hosted runner usually has no audio endpoint (and may have no audio
+// service), so what needs one says why and is skipped, or fails when EXT_AUDIO_REQUIRED=1. Nothing is played aloud: playback writes silence.
 // Run it with dotnet run --project res/system/capture/audio/windows/Tests.
 using System.Runtime.InteropServices;
 using NAudio.Wave;
@@ -78,6 +78,17 @@ Test("playback is PCM16 stereo 48 kHz", () =>
         $"format {format}");
 });
 
+// The shared fixtures (res/system/testdata/audio/v1, the playback section) need no device.
+Fixtures.Playback(Test);
+
+Test("Write's packet errors are ArgumentExceptions with a code", () =>
+{
+    var e = Throws<AudioPacketException>(() => SystemAudioPlayback.CheckPacket(3, SystemAudioPlayback.MaxPacketBytes, "bytes"), "a partial frame");
+    Check(e.Code == "invalid" && e.ParamName == "bytes" && e is ArgumentException, $"{e.Code} {e.ParamName}");
+    e = Throws<AudioPacketException>(() => SystemAudioPlayback.CheckPacket(SystemAudioPlayback.MaxPacketBytes + 4, SystemAudioPlayback.MaxPacketBytes), "a large packet");
+    Check(e.Code == "too_large", e.Code);
+});
+
 IReadOnlyList<AudioEndpoint>? endpoints = null;
 string? noAudio = null;
 try
@@ -141,12 +152,12 @@ else
     Test("playback takes whole frames and reports backpressure", () =>
     {
         using var output = SystemAudio.Playback(playback.Id);
-        Throws<ArgumentException>(() => output.Write(ReadOnlySpan<byte>.Empty), "empty");
-        Throws<ArgumentException>(() => output.Write(new byte[3]), "a partial frame");
-        Throws<ArgumentException>(() => output.Write(new byte[6]), "a frame and a half");
+        Check(Throws<AudioPacketException>(() => output.Write(ReadOnlySpan<byte>.Empty), "empty").Code == "invalid", "the code of empty");
+        Check(Throws<AudioPacketException>(() => output.Write(new byte[3]), "a partial frame").Code == "invalid", "the code of a partial frame");
+        Check(Throws<AudioPacketException>(() => output.Write(new byte[6]), "a frame and a half").Code == "invalid", "the code of a frame and a half");
         output.Write(new byte[4 * 480]); // 10 ms of silence
         // A packet is at most 20 ms (3 840 bytes): larger is refused as too large.
-        Throws<ArgumentException>(() => output.Write(new byte[SystemAudioPlayback.MaxPacketBytes + SystemAudioPlayback.BytesPerFrame]), "more than a packet");
+        Check(Throws<AudioPacketException>(() => output.Write(new byte[SystemAudioPlayback.MaxPacketBytes + SystemAudioPlayback.BytesPerFrame]), "more than a packet").Code == "too_large", "the code of more than a packet");
         // The buffer holds 250 ms (48 000 bytes): what does not fit is refused, not queued.
         Throws<IOException>(() =>
         {

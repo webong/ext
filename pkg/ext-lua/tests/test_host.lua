@@ -19,7 +19,10 @@ case("requiring the guest never loads the host", function()
   local code = string.format(
     "package.path = %q .. package.path; require('ext_io.plugin'); io.write(tostring(package.loaded['ext_io.host'] ~= nil or package.loaded['ext_io.host.core'] ~= nil))",
     root .. "/?.lua;" .. root .. "/?/init.lua;")
-  local p = assert(io.popen(string.format("%q -e %q", lua, code)))
+  local command = string.format("%q -e %q", lua, code)
+  -- cmd /c drops the first and last quote of a line that starts with one: quote the whole line.
+  if package.config:sub(1, 1) == "\\" then command = '"' .. command .. '"' end
+  local p = assert(io.popen(command))
   local out = p:read("*a")
   p:close()
   t.eq(out, "false")

@@ -11,6 +11,9 @@
     <PackageTags>ext;windows;audio;wasapi;capture;pcm</PackageTags>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Remove="Tests/**/*.cs" />
+  </ItemGroup>
+  <ItemGroup>
     <PackageReference Include="NAudio" Version="2.2.1" />
   </ItemGroup>
 </Project>

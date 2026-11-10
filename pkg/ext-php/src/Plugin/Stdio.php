@@ -31,7 +31,8 @@ final class Stdio
             self::$held = $held === false ? false : $held;
         }
         if (!self::redirected()) {
-            // Without descriptor 1 on standard error, at least the output layer goes there.
+            // Without descriptor 1 on standard error, or where PHP does not write through it, at
+            // least the output layer goes there.
             ob_start(static function (string $buffer): string {
                 fwrite(\STDERR, $buffer);
                 return '';
@@ -64,6 +65,13 @@ final class Stdio
 
     private static function redirected(): bool
     {
+        if (\PHP_OS_FAMILY === 'Windows') {
+            // PHP for Windows writes echo and print through the C runtime's stdout stream, not
+            // descriptor 1, and closing STDOUT closed that stream: the next write fails and ends
+            // the script with status 255, whatever descriptor 1 now is. Only an output buffer
+            // keeps the output layer off it.
+            return false;
+        }
         if (!\is_resource(self::$held)) {
             return false;
         }

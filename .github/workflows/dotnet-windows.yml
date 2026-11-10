@@ -1,0 +1,51 @@
+name: .NET Windows libraries
+
+# The tests of the Windows .NET libraries (the ext-dotnet-v packages): res/system audio and
+# clipboard, res/web WebView2 and res/int ONNX. Unlike the repository's other workflows it runs on
+# pull requests, but only those that touch these libraries, so a change to one is checked before it
+# merges; native.yml and ext-dotnet-release.yml run the same tests. Also on demand
+# (gh workflow run dotnet-windows.yml --ref <branch>).
+on:
+  pull_request:
+    paths:
+      - 'res/system/capture/audio/windows/**'
+      - 'res/system/capture/clipboard/windows/**'
+      - 'res/web/windows/**'
+      - 'res/int/model/windows/**'
+      - 'scripts/dotnet/**'
+      - '.github/workflows/dotnet-windows.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '8.0.x'
+      - name: Tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          # The audio and clipboard tests skip, and say why, what needs a device or a clipboard.
+          dotnet run --project res/system/capture/audio/windows/Tests/Ext.Audio.Windows.Tests.csproj
+          dotnet run --project res/system/capture/clipboard/windows/Tests/Ext.Clipboard.Windows.Tests.csproj
+          dotnet run --project res/int/model/windows/Tests/Ext.ML.Windows.Tests.csproj
+          dotnet run --project res/web/windows/Tests/Ext.Web.Windows.Tests.csproj
+      - name: Pack
+        shell: bash
+        run: |
+          set -euo pipefail
+          for project in \
+            res/system/capture/audio/windows/Ext.Audio.Windows.csproj \
+            res/system/capture/clipboard/windows/Ext.Clipboard.Windows.csproj; do
+            dotnet pack "$project" -c Release -p:Version=0.0.0-ci -o "$RUNNER_TEMP/nupkg"
+          done
+          # The packages hold the libraries only, not their tests.
+          for package in "$RUNNER_TEMP"/nupkg/*.nupkg; do
+            if unzip -l "$package" | grep -q Tests; then echo "$package includes its tests" >&2; exit 1; fi
+          done

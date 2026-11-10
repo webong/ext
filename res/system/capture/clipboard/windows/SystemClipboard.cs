@@ -308,12 +308,14 @@ public static class SystemClipboard
                     WriteGlobal(identifier, data);
                 }
             }
-            return new ClipboardReceipt(Generation(), "dispatched");
         }
         finally
         {
             CloseClipboard();
         }
+        // After CloseClipboard: closing a clipboard that holds text adds CF_LOCALE and moves the
+        // sequence number on, so a generation read while it is open is already stale.
+        return new ClipboardReceipt(Generation(), "dispatched");
     }
 
     public static ClipboardReceipt Clear(ClipboardPolicy policy, string expectedGeneration) =>

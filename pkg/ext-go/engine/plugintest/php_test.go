@@ -5,7 +5,6 @@ import (
 	"errors"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"testing"
 	"time"
 
@@ -17,7 +16,6 @@ import (
 // The PHP guest SDK (pkg/ext-php) must pass the same suite through the process
 // backend. Skipped when no php is installed.
 func TestPHPGuest(t *testing.T) {
-	skipPHPOnWindows(t)
 	php, err := exec.LookPath("php")
 	if err != nil {
 		t.Skip("php not installed")
@@ -26,13 +24,14 @@ func TestPHPGuest(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	guest := filepath.Join(dir, "tests", "conformance_guest.php")
+	warmUp(t, php, guest)
 	plugintest.Run(t, func(ctx context.Context) (plugin.Backend, error) {
-		return process.Start(ctx, process.Command{Path: php, Args: []string{filepath.Join(dir, "tests", "conformance_guest.php")}, Dir: dir})
+		return process.Start(ctx, process.Command{Path: php, Args: []string{guest}, Dir: dir})
 	})
 }
 
 func TestPHPUnitTests(t *testing.T) {
-	skipPHPOnWindows(t)
 	php, err := exec.LookPath("php")
 	if err != nil {
 		t.Skip("php not installed")
@@ -41,6 +40,7 @@ func TestPHPUnitTests(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	warmUp(t, php, filepath.Join(dir, "tests", "conformance_guest.php"))
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, php, filepath.Join("tests", "run.php"))
@@ -58,12 +58,14 @@ func TestPHPUnitTests(t *testing.T) {
 	}
 }
 
-// skipPHPOnWindows skips on Windows, which the PHP SDK does not support yet: ext-php.yml tests it on
-// Linux and macOS only, its stdout claim relies on php://fd duplication, and on the Windows runners
-// GuestTest::testStdoutCarriesOnlyFrames and roundtrip-concurrent-errors-drain fail.
-func skipPHPOnWindows(t *testing.T) {
+// warmUp runs the guest once with its input already at its end, so that the suite's first session
+// does not pay for loading php, its extensions and the SDK from a cold disk. The suite gives a
+// session three seconds, and a first start on a Windows runner has taken that long.
+func warmUp(t *testing.T, php, guest string) {
 	t.Helper()
-	if runtime.GOOS == "windows" {
-		t.Skip("the PHP SDK does not support Windows yet")
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	if err := exec.CommandContext(ctx, php, guest).Run(); err != nil {
+		t.Logf("warm-up run of %s: %v", guest, err)
 	}
 }

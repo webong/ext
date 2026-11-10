@@ -54,6 +54,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          # The audio and clipboard tests skip, and say why, what needs a device or a clipboard.
+          dotnet run --project res/system/capture/audio/windows/Tests/Ext.Audio.Windows.Tests.csproj
+          dotnet run --project res/system/capture/clipboard/windows/Tests/Ext.Clipboard.Windows.Tests.csproj
           dotnet run --project res/int/model/windows/Tests/Ext.ML.Windows.Tests.csproj
           dotnet run --project res/web/windows/Tests/Ext.Web.Windows.Tests.csproj
           # Without EXT_HOST_LIBRARY and the guests the host tests check what they can and say so; the

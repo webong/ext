@@ -21,6 +21,8 @@ jobs:
         include:
           - os: macos-latest
             php: '8.4'
+          - os: windows-latest
+            php: '8.4'
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v5
@@ -34,7 +36,10 @@ jobs:
         working-directory: pkg/ext-php
         run: composer validate --strict
       - name: Unit tests and the shared fixtures
+        timeout-minutes: 8
         working-directory: pkg/ext-php
+        env:
+          EXT_PHP_TRACE: '1'
         run: php tests/run.php
       - uses: actions/setup-go@v6
         with:
@@ -45,9 +50,11 @@ jobs:
             go.work.sum
       # The guest under the Go process host: the conformance cases and the frames suite.
       - name: Go conformance suite
+        timeout-minutes: 8
         working-directory: pkg/ext-go/engine
         run: go test -count=1 -v -run 'TestPHPGuest' ./plugintest
       - name: Go frames suite
+        timeout-minutes: 8
         working-directory: tests/crosslang
         env:
           EXT_FRAMES_REQUIRED: PHP

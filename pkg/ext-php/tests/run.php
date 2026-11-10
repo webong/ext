@@ -19,6 +19,7 @@ set_error_handler(static function (int $severity, string $message, string $file,
 });
 
 $filter = $argv[1] ?? '';
+$trace = getenv('EXT_PHP_TRACE') === '1'; // name each test before it runs, to find one that hangs
 $failed = 0;
 $passed = 0;
 $started = microtime(true);
@@ -30,6 +31,9 @@ foreach (glob(__DIR__ . '/*Test.php') as $file) {
             continue;
         }
         $test = new $class();
+        if ($trace) {
+            fwrite(STDERR, sprintf("RUN %s::%s\n", basename($file, '.php'), $method));
+        }
         try {
             $test->setUp();
             $test->{$method}();

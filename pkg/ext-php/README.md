@@ -101,6 +101,11 @@ child processes write there. The `STDOUT` constant is closed: write diagnostics 
 `display_errors` goes to standard error, and a `memory_limit` below 512M is raised to 512M, since
 one 24 MiB frame is held several times over.
 
+On Windows PHP writes `echo` and `print` through the C runtime's stdout stream, which closing
+`STDOUT` closes, so descriptor 1 cannot be pointed at standard error for them: an output buffer
+forwards the output layer to standard error instead, and a handler must not end it. `php://stdout`
+and child processes still reach standard error through descriptor 1.
+
 ## Differences from the Python guest
 
 - No threads: a reverse call is made from the handler, so there is no "other thread" refusal.
@@ -149,11 +154,13 @@ $host->destroy();
 The engine runs policies on the thread making the call, which is PHP's own, inside the FFI call to
 `start()` or `call()`, so they are ordinary FFI callbacks. The declarations FFI needs are restated
 in `Engine` (FFI reads no headers); the ABI version check and the shared host cases hold them to
-`ext_host.h`. The host is not run on Windows yet, as the PHP SDK's tests are not.
+`ext_host.h`. On Windows PHP loads the library with a plain `LoadLibrary`, which finds the library's
+dependencies (the MinGW runtime) on `PATH` and not in its own directory, so put that directory on
+`PATH`; `scripts/host-cases.sh` does.
 
 ## Tests
 
-`php tests/run.php` here (no dependencies; CI runs it on PHP 8.1 and the latest release).
+`php tests/run.php` here (no dependencies; CI runs it on PHP 8.1 and the latest release on Linux, and on macOS and Windows).
 `tests/FixtureTest.php` reproduces the shared fixtures
 (`lib/plugin/testdata/v1/{frame-cases,progress-limiter-cases,model-cases,invalid}.json`, computed
 by the Go contract) with no exceptions, `tests/ServeFramesTest.php` covers the router as a host

@@ -59,9 +59,16 @@ final class HostTest extends TestCase
 
     public function testGuestNeverLoadsTheHost(): void
     {
-        $code = 'require ' . var_export(__DIR__ . '/../autoload.php', true) . '; ExtIO\Plugin\Json::encode(1);'
-            . ' echo json_encode(class_exists("ExtIO\\\\Host\\\\Engine", false));';
-        $out = shell_exec(escapeshellarg(PHP_BINARY) . ' -r ' . escapeshellarg($code));
+        // A script file and an argument list, not `php -r` through a shell: cmd.exe quotes differently.
+        $script = sys_get_temp_dir() . \DIRECTORY_SEPARATOR . 'ext-php-guest-' . bin2hex(random_bytes(6)) . '.php';
+        file_put_contents($script, '<?php require ' . var_export(__DIR__ . '/../autoload.php', true) . '; '
+            . 'ExtIO\\Plugin\\Json::encode(1); echo json_encode(class_exists("ExtIO\\\\Host\\\\Engine", false));');
+        try {
+            [$code, $out, $err] = Subprocess::run([\PHP_BINARY, $script], '');
+        } finally {
+            unlink($script);
+        }
+        self::assertSame(0, $code, $err);
         self::assertSame('false', $out);
     }
 

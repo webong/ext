@@ -101,12 +101,11 @@ EXT_RUBY="${EXT_RUBY:-ruby}" scripts/ext-ruby-host.sh "$build_dir/ruby"
 echo "== the Lua host ($("${EXT_LUA:-lua}" -v 2>&1 | head -1))"
 CC="${EXT_LUA_CC:-${CC:-}}" scripts/ext-lua-host.sh "$build_dir/lua"
 LUA_CPATH="$build_dir/lua/?.$([[ -n "$windows" ]] && echo dll || echo so)" "${EXT_LUA:-lua}" pkg/ext-lua/tests/run.lua test_host
-if [[ -n "$windows" ]]; then
-  # The PHP host: the PHP SDK's tests are skipped on Windows (plugintest, #108).
-  echo "== the PHP host: skipped on Windows"
-else
-  echo "== the PHP host ($("${EXT_PHP:-php}" -r 'echo PHP_VERSION;'))"
-  (cd pkg/ext-php && "${EXT_PHP:-php}" tests/run.php HostTest)
-fi
+echo "== the PHP host ($("${EXT_PHP:-php}" -r 'echo PHP_VERSION;'))"
+# PHP loads the library with a plain LoadLibrary, which finds its dependencies on PATH and not in
+# its own directory, so the directory goes on PATH (as the shell spells it).
+php_path="$PATH"
+if [[ -n "$windows" ]]; then php_path="$(cygpath -u "$(dirname "$EXT_HOST_LIBRARY")"):$PATH"; fi
+(cd pkg/ext-php && PATH="$php_path" "${EXT_PHP:-php}" tests/run.php HostTest)
 echo "== the .NET host ($("${EXT_DOTNET:-dotnet}" --version))"
 "${EXT_DOTNET:-dotnet}" run --project pkg/ext-dotnet/ExtIO.Host.Tests -c Release -- "$(winpath "$PWD/lib/plugin/testdata/v1")"

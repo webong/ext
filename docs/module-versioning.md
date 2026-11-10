@@ -179,9 +179,14 @@ release with the hash Zig computed for it, puts it on `dist/ext-zig` tagged `ext
 The Rust, TypeScript and Python SDKs are one package each, named `ext-io` (the bare `ext` is taken on
 crates.io, PyPI and npm); the Zig package is `ext_io`. Each offers one namespace per area: `ext_io::plugin`
 behind the Cargo feature `plugin` (on by default), `ext_io.plugin`, and the subpaths `ext-io/plugin`,
-`ext-io/plugin/node` and `ext-io/plugin/engine`. Only `plugin` is built. `system`, `web` and `int` are
-planned, and each will be a module of the same package (a Cargo feature, a Python extra, a subpath export)
-so that a plugin-only user pays nothing for them. The names replace the crate and PyPI package `ext-plugin`,
+`ext-io/plugin/node` and `ext-io/plugin/engine`. Only `plugin` is built. The names `system`, `web` and
+`int` are reserved for the other areas of ext, but none is scheduled: those libraries (`res/system`,
+`res/web/host`, `res/int`) are Go with Swift, Java and .NET platform code and export no C ABI, and their
+consumers use them through Go, NuGet, SwiftPM and the Android library. An area is added when a Rust,
+Python, TypeScript or Zig consumer needs it, preferably as the Go implementation served over
+`ext.plugin/v1` with a thin typed wrapper rather than a second implementation or a new C ABI. It would be a
+module of the same package (a Cargo feature, a Python extra, a subpath export), so that a plugin-only user
+pays nothing for it. The names replace the crate and PyPI package `ext-plugin`,
 the npm package `@ctx/plugin` and the Zig package `ext_plugin`; none of them was ever published, so there is
 no compatibility alias. The Zig fingerprint keeps its 32-bit id, and its checksum half follows the new name.
 
@@ -190,7 +195,7 @@ the `ext.plugin/v1` protocol, the Go commands `ext-plugin` and `ext-plugin-bridg
 `ext-plugin-engine` crate.
 
 **One version per package.** Every area a package offers shares that package's version: `ext-io` 0.2.0 is
-the plugin area and, later, system, web and int, all at 0.2.0. Independent area versions would need
+the plugin area and any other area added later, all at 0.2.0. Independent area versions would need
 independent packages, which is what a single package rules out. Before 1.0 a breaking change in any area is
 a minor bump of the whole package, so an area that needs its own release cadence leaves for a package of its
 own (for example `ext-io-web`) instead of versioning inside this one. The packages of different languages

@@ -1,6 +1,6 @@
 # ext for Python (`ext-io`): plugin guest and host SDK
 
-> **Why `ext-io`:** the bare name `ext` is taken on crates.io, PyPI and npm, so `ext-io` is the one package for all of ext's APIs, one namespace per area. Only `plugin` is built so far; `system`, `web` and `int` are planned.
+> **Why `ext-io`:** the bare name `ext` is taken on crates.io, PyPI and npm, so `ext-io` is the one package for all of ext's APIs, one namespace per area. Only `plugin` is built; `system`, `web` and `int` are reserved names, added when someone needs them.
 
 Standard-library-only guest for `ext.plugin/v1` over JSON lines (Python 3.8+).
 Any ext host runs it, including the Go `pkg/ext-go/engine/host/process` backend and the Python host

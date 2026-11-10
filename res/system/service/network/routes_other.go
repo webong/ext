@@ -8,5 +8,5 @@ func platformRoutes(ctx context.Context, _ int) ([]Route, CollectionStatus, erro
 	if err := ctx.Err(); err != nil {
 		return nil, CollectionStatus{}, err
 	}
-	return []Route{}, status("unsupported", "native route-table observation is unavailable on this platform"), nil
+	return []Route{}, unsupported("native route-table observation is unavailable on this platform"), nil
 }

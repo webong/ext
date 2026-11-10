@@ -1,0 +1,51 @@
+{
+  "version": 1,
+  "area": "capability",
+  "about": "What a package's collection status may say about why something is missing. Every observing package reports a state and, where something is missing, a reason from a fixed set. A case gives a state and a reason (left out when there is none) and whether the pair is valid;",
+  "states": [
+    "complete",
+    "partial",
+    "permission-denied",
+    "unsupported",
+    "unavailable"
+  ],
+  "reasons": [
+    "unsupported",
+    "permission",
+    "no_device",
+    "tool_missing"
+  ],
+  "cases": [
+    {"state": "complete", "code": null},
+    {"state": "complete", "reason": "unsupported", "code": "invalid"},
+    {"state": "complete", "reason": "permission", "code": "invalid"},
+    {"state": "complete", "reason": "no_device", "code": "invalid"},
+    {"state": "complete", "reason": "tool_missing", "code": "invalid"},
+    {"state": "partial", "code": null},
+    {"state": "partial", "reason": "unsupported", "code": "invalid"},
+    {"state": "partial", "reason": "permission", "code": "invalid"},
+    {"state": "partial", "reason": "no_device", "code": "invalid"},
+    {"state": "partial", "reason": "tool_missing", "code": "invalid"},
+    {"state": "permission-denied", "code": null},
+    {"state": "permission-denied", "reason": "permission", "code": null},
+    {"state": "permission-denied", "reason": "unsupported", "code": "invalid"},
+    {"state": "permission-denied", "reason": "no_device", "code": "invalid"},
+    {"state": "permission-denied", "reason": "tool_missing", "code": "invalid"},
+    {"state": "unsupported", "code": "invalid"},
+    {"state": "unsupported", "reason": "unsupported", "code": null},
+    {"state": "unsupported", "reason": "tool_missing", "code": null},
+    {"state": "unsupported", "reason": "permission", "code": "invalid"},
+    {"state": "unsupported", "reason": "no_device", "code": "invalid"},
+    {"state": "unavailable", "code": null},
+    {"state": "unavailable", "reason": "permission", "code": null},
+    {"state": "unavailable", "reason": "no_device", "code": null},
+    {"state": "unavailable", "reason": "tool_missing", "code": null},
+    {"state": "unavailable", "reason": "unsupported", "code": "invalid"},
+    {"state": "complete", "reason": "other", "code": "invalid"},
+    {"state": "unavailable", "reason": "other", "code": "invalid"},
+    {"state": "", "code": "invalid"},
+    {"state": "done", "code": "invalid"},
+    {"state": "Complete", "code": "invalid"},
+    {"state": "permission_denied", "code": "invalid"}
+  ]
+}

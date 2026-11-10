@@ -42,3 +42,5 @@ case.
 | `clipboard` | v1 | Go, Swift, Java, C# |
 | `share` | v1 | Go, Swift, Java |
 | `keyboard` | v1 | Swift, Java |
+| `network` | v1 | Go, Swift, Java |
+| `capability` | v1 | the status of each package, so far network |

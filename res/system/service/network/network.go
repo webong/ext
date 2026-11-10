@@ -5,6 +5,7 @@ package network
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net"
 	"runtime"
 	"sort"
@@ -12,13 +13,54 @@ import (
 	"time"
 )
 
+// ErrInvalid reports a malformed option, status or address.
+var ErrInvalid = errors.New("invalid network value")
+
+// Code is the stable error code of err for another language to match: invalid. It is empty for an
+// error this package does not define.
+func Code(err error) string {
+	if errors.Is(err, ErrInvalid) {
+		return "invalid"
+	}
+	return ""
+}
+
 // CollectionStatus distinguishes empty OS data from unavailable or unsupported
 // collection. State is complete, partial, permission-denied, unsupported, or
-// unavailable.
+// unavailable. Reason says why something is missing, from the same set in every package
+// (testdata/capability/v1): unsupported on this platform, permission, no_device or tool_missing.
 type CollectionStatus struct {
 	State      string     `json:"state"`
+	Reason     string     `json:"reason,omitempty"`
 	Detail     string     `json:"detail,omitempty"`
 	ObservedAt *time.Time `json:"observed_at,omitempty"`
+}
+
+// Validate checks that the state is known and the reason fits it: none for complete and partial,
+// permission or none for permission-denied, unsupported or tool_missing for unsupported, and none,
+// permission, no_device or tool_missing for unavailable (a failed native read has no reason).
+func (s CollectionStatus) Validate() error {
+	var allowed []string
+	switch s.State {
+	case "complete", "partial":
+	case "permission-denied":
+		allowed = []string{"", "permission"}
+	case "unsupported":
+		allowed = []string{"unsupported", "tool_missing"}
+	case "unavailable":
+		allowed = []string{"", "permission", "no_device", "tool_missing"}
+	default:
+		return fmt.Errorf("%w: unknown collection state %q", ErrInvalid, s.State)
+	}
+	if allowed == nil {
+		allowed = []string{""}
+	}
+	for _, reason := range allowed {
+		if s.Reason == reason {
+			return nil
+		}
+	}
+	return fmt.Errorf("%w: reason %q does not fit state %q", ErrInvalid, s.Reason, s.State)
 }
 
 // Address is an address assigned to a local interface.
@@ -80,7 +122,7 @@ type Options struct {
 
 func normalizeOptions(options Options) (Options, error) {
 	if options.MaxInterfaces < 0 || options.MaxAddresses < 0 || options.MaxRoutes < 0 || options.Timeout < 0 {
-		return options, errors.New("network limits and timeout must not be negative")
+		return options, fmt.Errorf("%w: network limits and timeout must not be negative", ErrInvalid)
 	}
 	if options.MaxInterfaces == 0 {
 		options.MaxInterfaces = 256
@@ -95,7 +137,7 @@ func normalizeOptions(options Options) (Options, error) {
 		options.Timeout = 5 * time.Second
 	}
 	if options.MaxInterfaces > 65536 || options.MaxAddresses > 65536 || options.MaxRoutes > 65536 {
-		return options, errors.New("network limits must not exceed 65536")
+		return options, fmt.Errorf("%w: network limits must not exceed 65536", ErrInvalid)
 	}
 	return options, nil
 }
@@ -131,9 +173,6 @@ func Discover(ctx context.Context, options Options) (Snapshot, error) {
 		a, b := result.Routes[i], result.Routes[j]
 		return a.Destination+"\x00"+a.Gateway+"\x00"+a.Interface < b.Destination+"\x00"+b.Gateway+"\x00"+b.Interface
 	})
-	sort.Strings(result.Resolver.Servers)
-	sort.Strings(result.Resolver.Search)
-	sort.Strings(result.Resolver.Options)
 	return result, ctx.Err()
 }
 
@@ -209,12 +248,16 @@ func interfaceFlags(flags net.Flags) []string {
 			result = append(result, name)
 		}
 	}
-	sort.Strings(result)
 	return result
 }
 
 func status(state, detail string) CollectionStatus {
 	return CollectionStatus{State: state, Detail: detail}
+}
+
+// unsupported reports a platform that cannot observe something at all.
+func unsupported(detail string) CollectionStatus {
+	return CollectionStatus{State: "unsupported", Reason: "unsupported", Detail: detail}
 }
 func stamp(value *CollectionStatus, observed time.Time) {
 	if value.State == "" {
@@ -226,11 +269,14 @@ func stamp(value *CollectionStatus, observed time.Time) {
 	}
 }
 
+// cleanResolver trims each entry (leading and trailing U+0009 to U+000D and U+0020) and drops empty
+// and repeated entries, keeping the first of each and the order the system reported, which is
+// meaningful for name servers and search domains: the rule of every binding (testdata/network/v1).
 func cleanResolver(values []string) []string {
 	result := make([]string, 0, len(values))
 	seen := map[string]bool{}
 	for _, value := range values {
-		value = strings.TrimSpace(value)
+		value = strings.TrimFunc(value, func(character rune) bool { return character == ' ' || character >= '\t' && character <= '\r' })
 		if value != "" && !seen[value] {
 			seen[value] = true
 			result = append(result, value)

@@ -14,7 +14,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"net/url"
 	"strings"
 	"unicode"
 	"unicode/utf8"
@@ -47,6 +46,18 @@ var (
 	// ErrLimit reports input beyond a caller-selected bound.
 	ErrLimit = errors.New("share limit exceeded")
 )
+
+// Code is the stable error code of err for another language to match: invalid or too_large. It is
+// empty for an error this package does not define.
+func Code(err error) string {
+	switch {
+	case errors.Is(err, ErrInvalid):
+		return "invalid"
+	case errors.Is(err, ErrLimit):
+		return "too_large"
+	}
+	return ""
+}
 
 // Limits are fixed by the embedding application before a native extension
 // loads any item. Zero fields select the defaults; every field has a library
@@ -214,31 +225,51 @@ func checkText(value string, limit int) error {
 	return nil
 }
 
+// trim strips leading and trailing U+0009 to U+000D and U+0020, the rule of every binding of this
+// contract. Unicode spaces and the other control characters are content.
+func trim(value string) string {
+	return strings.TrimFunc(value, func(character rune) bool { return character == ' ' || character >= '\t' && character <= '\r' })
+}
+
+// normalizeURL returns the link's normal form: trimmed, with its scheme lowercased and nothing else
+// changed. A link has no spaces or control characters and starts with a scheme (a letter, then
+// letters, digits, plus, dot or dash, then a colon); it is the embedding application's to parse.
 func normalizeURL(raw string, limit int) (string, error) {
-	link := strings.TrimSpace(raw)
+	link := trim(raw)
 	if link == "" {
 		return "", fmt.Errorf("%w: link must not be empty", ErrInvalid)
 	}
 	if len(link) > limit {
 		return "", fmt.Errorf("%w: link exceeds the bound of %d bytes", ErrLimit, limit)
 	}
-	if !utf8.ValidString(link) || strings.ContainsRune(link, 0) {
-		return "", fmt.Errorf("%w: link must be valid UTF-8 without NUL", ErrInvalid)
+	if !utf8.ValidString(link) {
+		return "", fmt.Errorf("%w: link must be valid UTF-8", ErrInvalid)
 	}
 	for _, character := range link {
-		if unicode.IsControl(character) {
-			return "", fmt.Errorf("%w: link must not contain control characters", ErrInvalid)
+		if character == ' ' || unicode.IsControl(character) {
+			return "", fmt.Errorf("%w: link must not contain spaces or control characters", ErrInvalid)
 		}
 	}
-	parsed, err := url.Parse(link)
-	if err != nil || parsed.Scheme == "" {
-		return "", fmt.Errorf("%w: link must be an absolute URL", ErrInvalid)
+	colon := strings.IndexByte(link, ':')
+	if colon < 1 || !validScheme(link[:colon]) {
+		return "", fmt.Errorf("%w: link must start with a scheme", ErrInvalid)
 	}
-	return parsed.String(), nil
+	return strings.ToLower(link[:colon]) + link[colon:], nil
+}
+
+func validScheme(scheme string) bool {
+	for index := 0; index < len(scheme); index++ {
+		character := scheme[index]
+		letter := character >= 'a' && character <= 'z' || character >= 'A' && character <= 'Z'
+		if index == 0 && !letter || !letter && !(character >= '0' && character <= '9') && character != '+' && character != '-' && character != '.' {
+			return false
+		}
+	}
+	return true
 }
 
 func normalizeAttachment(attachment Attachment) (Attachment, error) {
-	name := strings.TrimSpace(attachment.Name)
+	name := trim(attachment.Name)
 	if name == "" || !utf8.ValidString(name) || len(name) > MaxNameLength {
 		return Attachment{}, fmt.Errorf("%w: attachment requires a file name of at most %d bytes", ErrInvalid, MaxNameLength)
 	}
@@ -250,7 +281,7 @@ func normalizeAttachment(attachment Attachment) (Attachment, error) {
 			return Attachment{}, fmt.Errorf("%w: attachment name must not contain control characters", ErrInvalid)
 		}
 	}
-	mimeType := strings.TrimSpace(attachment.MIMEType)
+	mimeType := trim(attachment.MIMEType)
 	if mimeType == "" {
 		mimeType = "application/octet-stream"
 	}

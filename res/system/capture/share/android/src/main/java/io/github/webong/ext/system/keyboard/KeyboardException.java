@@ -4,6 +4,7 @@ package io.github.webong.ext.system.keyboard;
 public final class KeyboardException extends Exception {
     private static final long serialVersionUID = 1L;
 
+    /** invalid, too_large or unavailable: the codes of testdata/codes.json. */
     private final String kind;
 
     public KeyboardException(String kind, String message) {

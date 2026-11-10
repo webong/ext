@@ -28,6 +28,15 @@ public enum KeyboardError: Error, Equatable {
     case invalidValue
     case limitExceeded
     case unavailable
+
+    /// The stable error code of `res/system/testdata/codes.json`.
+    public var code: String {
+        switch self {
+        case .invalidValue: return "invalid"
+        case .limitExceeded: return "too_large"
+        case .unavailable: return "unavailable"
+        }
+    }
 }
 
 /// The text-document operations a keyboard extension can perform. UIKit's
@@ -49,7 +58,8 @@ public protocol KeyboardHost: AnyObject {
 
 /// Bounded helpers around a keyboard extension's text document and host.
 /// Selection is whitespace-trimmed and blank selections report `nil`; oversized
-/// selections report `nil` rather than copying unbounded text.
+/// selections report `nil` rather than copying unbounded text. A character is a
+/// Unicode scalar (a code point), not a grapheme cluster.
 public final class KeyboardEditor {
     private let proxy: KeyboardTextProxy
     private weak var host: KeyboardHost?
@@ -64,8 +74,8 @@ public final class KeyboardEditor {
 
     public func selection() -> String? {
         guard let value = proxy.keyboardSelectedText else { return nil }
-        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty, trimmed.count <= limits.maxSelectionCharacters else { return nil }
+        let trimmed = ShareValidation.trim(value)
+        guard !trimmed.isEmpty, trimmed.unicodeScalars.count <= limits.maxSelectionCharacters else { return nil }
         return trimmed
     }
 
@@ -81,8 +91,8 @@ public final class KeyboardEditor {
     /// bound fails instead of truncating silently.
     @discardableResult
     public func insert(_ text: String) throws -> Bool {
-        guard !text.isEmpty, !text.contains("\0") else { throw KeyboardError.invalidValue }
-        guard text.count <= limits.maxInsertCharacters else { throw KeyboardError.limitExceeded }
+        guard !text.isEmpty, !text.unicodeScalars.contains("\0") else { throw KeyboardError.invalidValue }
+        guard text.unicodeScalars.count <= limits.maxInsertCharacters else { throw KeyboardError.limitExceeded }
         proxy.insertKeyboardText(text)
         return true
     }
@@ -121,14 +131,16 @@ public final class KeyboardEditor {
 
     static func tail(_ value: String?, limit: Int) -> String? {
         guard let value, limit > 0, !value.isEmpty else { return nil }
-        guard value.count > limit else { return value }
-        return String(value.suffix(limit))
+        let scalars = value.unicodeScalars
+        guard scalars.count > limit else { return value }
+        return String(scalars.suffix(limit))
     }
 
     static func head(_ value: String?, limit: Int) -> String? {
         guard let value, limit > 0, !value.isEmpty else { return nil }
-        guard value.count > limit else { return value }
-        return String(value.prefix(limit))
+        let scalars = value.unicodeScalars
+        guard scalars.count > limit else { return value }
+        return String(scalars.prefix(limit))
     }
 }
 

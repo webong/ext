@@ -4,6 +4,7 @@ package io.github.webong.ext.system.share;
 public final class ShareException extends Exception {
     private static final long serialVersionUID = 1L;
 
+    /** invalid or too_large: the codes of testdata/codes.json. */
     private final String kind;
 
     public ShareException(String kind, String message) {

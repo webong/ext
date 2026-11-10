@@ -97,7 +97,7 @@ public final class ShareTests {
     private static void expectLimit(Check check) throws Exception {
         boolean limited = false;
         try { check.run(); }
-        catch (ShareException expected) { limited = "limit".equals(expected.kind()); }
+        catch (ShareException expected) { limited = "too_large".equals(expected.kind()); }
         assert limited;
     }
 

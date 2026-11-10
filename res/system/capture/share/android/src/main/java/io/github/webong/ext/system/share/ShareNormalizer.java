@@ -1,7 +1,5 @@
 package io.github.webong.ext.system.share;
 
-import java.net.URI;
-import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -65,7 +63,7 @@ public final class ShareNormalizer {
                 attachmentNames.put(folded, key);
                 byteCount += attachment.byteCount();
                 if (byteCount > limits.maxBytes) {
-                    throw new ShareException("limit",
+                    throw new ShareException("too_large",
                             "attachment bytes exceed the bound of " + limits.maxBytes);
                 }
                 attachments.add(attachment);
@@ -74,7 +72,7 @@ public final class ShareNormalizer {
         String mergedSubject = subjects.isEmpty() ? null : String.join("\n", subjects);
         String mergedText = texts.isEmpty() ? null : String.join("\n", texts);
         if (utf8(mergedSubject) > limits.maxTextBytes || utf8(mergedText) > limits.maxTextBytes) {
-            throw new ShareException("limit", "merged text exceeds the configured bound");
+            throw new ShareException("too_large", "merged text exceeds the configured bound");
         }
         return new SharePayload(mergedSubject, mergedText, urls, attachments, byteCount);
     }
@@ -89,37 +87,64 @@ public final class ShareNormalizer {
         return value.isEmpty() ? null : value;
     }
 
+    /**
+     * A link's normal form: trimmed, with its scheme lowercased and nothing else changed. It has no
+     * spaces or control characters and starts with a scheme (a letter, then letters, digits, plus,
+     * dot or dash, then a colon); parsing it is the embedding application's.
+     */
     static String link(String raw, int limit) throws ShareException {
-        String value = raw == null ? "" : raw.trim();
+        String value = raw == null ? "" : trim(raw);
         if (value.isEmpty()) throw new ShareException("invalid", "link must not be empty");
-        if (value.indexOf('\0') >= 0) throw new ShareException("invalid", "link must not contain NUL");
+        int bytes = utf8(value);
+        if (bytes > limit) throw limit("link bytes", bytes, limit);
         for (int index = 0; index < value.length(); index++) {
-            if (Character.isISOControl(value.charAt(index))) {
-                throw new ShareException("invalid", "link must not contain control characters");
+            char character = value.charAt(index);
+            if (character == ' ' || Character.isISOControl(character)) {
+                throw new ShareException("invalid", "link must not contain spaces or control characters");
             }
         }
-        if (value.getBytes(StandardCharsets.UTF_8).length > limit) throw limit("link bytes",
-                value.getBytes(StandardCharsets.UTF_8).length, limit);
-        final URI uri;
-        try {
-            uri = new URI(value);
-        } catch (URISyntaxException error) {
-            throw new ShareException("invalid", "link is not a valid URI", error);
+        int colon = value.indexOf(':');
+        if (colon < 1 || !validScheme(value, colon)) {
+            throw new ShareException("invalid", "link must start with a scheme");
         }
-        if (!uri.isAbsolute() || uri.getScheme() == null) {
-            throw new ShareException("invalid", "link must be an absolute URL");
+        return value.substring(0, colon).toLowerCase(Locale.ROOT) + value.substring(colon);
+    }
+
+    private static boolean validScheme(String value, int end) {
+        for (int index = 0; index < end; index++) {
+            char character = value.charAt(index);
+            boolean letter = character >= 'a' && character <= 'z' || character >= 'A' && character <= 'Z';
+            boolean digit = character >= '0' && character <= '9';
+            if (index == 0 ? !letter : !letter && !digit && character != '+' && character != '-' && character != '.') {
+                return false;
+            }
         }
-        String scheme = uri.getScheme();
-        return scheme.toLowerCase(Locale.ROOT) + value.substring(scheme.length());
+        return true;
+    }
+
+    /**
+     * Strips leading and trailing U+0009 to U+000D and U+0020, the rule of every binding of this
+     * contract. Unicode spaces and the other control characters are content.
+     */
+    static String trim(String value) {
+        int start = 0;
+        int end = value.length();
+        while (start < end && space(value.charAt(start))) start++;
+        while (end > start && space(value.charAt(end - 1))) end--;
+        return value.substring(start, end);
+    }
+
+    private static boolean space(char character) {
+        return character == ' ' || character >= '\t' && character <= '\r';
     }
 
     static ShareAttachment attachment(ShareAttachment value, ShareLimits limits) throws ShareException {
         if (value == null) throw new ShareException("invalid", "attachment is required");
-        String name = value.name() == null ? "" : value.name().trim();
+        String name = value.name() == null ? "" : trim(value.name());
         if (!portableName(name)) {
             throw new ShareException("invalid", "attachment name is not a portable file name");
         }
-        String mimeType = value.mimeType() == null ? "" : value.mimeType().trim();
+        String mimeType = value.mimeType() == null ? "" : trim(value.mimeType());
         if (mimeType.isEmpty()) mimeType = "application/octet-stream";
         if (mimeType.indexOf('\0') >= 0
                 || mimeType.getBytes(StandardCharsets.UTF_8).length > ShareLimits.MAX_MIME_TYPE_LENGTH) {
@@ -180,6 +205,6 @@ public final class ShareNormalizer {
     }
 
     private static ShareException limit(String field, long actual, long bound) {
-        return new ShareException("limit", field + " exceeded the bound of " + bound + ": " + actual);
+        return new ShareException("too_large", field + " exceeded the bound of " + bound + ": " + actual);
     }
 }

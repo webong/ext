@@ -46,7 +46,7 @@ public final class KeyboardTests {
     private static void expectLimit(Check check) throws Exception {
         boolean limited = false;
         try { check.run(); }
-        catch (KeyboardException expected) { limited = "limit".equals(expected.kind()); }
+        catch (KeyboardException expected) { limited = "too_large".equals(expected.kind()); }
         assert limited;
     }
 

@@ -76,6 +76,12 @@ jobs:
   # use cl, so the Go-built C ABI guest is built by the MinGW gcc either way; the MSVC variant
   # shows that the engine's DLL, built by the other compiler, loads it and passes the same cases.
   # MSVC is experimental, as in plugin-engine.yml, and reports without blocking.
+  #
+  # Ruby and Lua come from MSYS2 in the MinGW variant, so their native modules are built by the
+  # same gcc. The MSVC variant has RubyInstaller's Ruby (its extension built by the MSYS2 devkit
+  # setup-ruby installs) and a Lua the Lua action builds with cl, so ext_io.host.core is built by
+  # cl too. The Lua action runs after the MSVC environment is set and before setup-ruby, whose
+  # devkit /usr/bin (with a link of its own) it puts on the path.
   windows:
     name: hosts (windows, ${{ matrix.toolchain }})
     strategy:
@@ -113,8 +119,20 @@ jobs:
             mingw-w64-x86_64-gcc
             mingw-w64-x86_64-cmake
             mingw-w64-x86_64-ninja
+            mingw-w64-x86_64-ruby
+            mingw-w64-x86_64-lua
+            make
       - uses: ilammy/msvc-dev-cmd@v1
         if: matrix.toolchain == 'msvc'
+      - uses: leafo/gh-actions-lua@v13
+        if: matrix.toolchain == 'msvc'
+        with:
+          luaVersion: '5.4.9'
+          buildCache: 'false'
+      - uses: ruby/setup-ruby@v1
+        if: matrix.toolchain == 'msvc'
+        with:
+          ruby-version: '3.4'
       - name: Host cases (MinGW-w64)
         if: matrix.toolchain == 'mingw'
         shell: msys2 {0}
@@ -127,4 +145,5 @@ jobs:
         env:
           PYTHON: python
           EXT_ENGINE_CC: cl
+          EXT_LUA_CC: cl
         run: scripts/host-cases.sh

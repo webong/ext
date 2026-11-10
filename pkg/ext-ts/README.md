@@ -1,6 +1,6 @@
 # ext for TypeScript (`ext-io`): plugin SDK
 
-> **Why `ext-io`:** the bare name `ext` is taken on crates.io, PyPI and npm, so `ext-io` is the one package for all of ext's APIs, one namespace per area. Only `plugin` is built so far; `system`, `web` and `int` are planned.
+> **Why `ext-io`:** the bare name `ext` is taken on crates.io, PyPI and npm, so `ext-io` is the one package for all of ext's APIs, one namespace per area. Only `plugin` is built; `system`, `web` and `int` are reserved names, added when someone needs them.
 
 Portable host and guest APIs for `ext.plugin/v1`. The runtime is dependency-free
 ES modules with `.d.mts` declarations; Node-specific stream wiring is a separate

@@ -17,11 +17,11 @@ func TestSchemaRejectsUnknownCTXKindsAndInvalidRelationshipMeaning(t *testing.T)
 	}
 	defer g.Close()
 	_, err = g.Store.Apply(context.Background(), store.Transaction{Namespace: Namespace, Vertices: []store.Vertex{{ID: "bad", Kind: Namespace + "/unknown-kind"}}})
-	if err == nil {
-		t.Fatal("unknown CTX system kind accepted")
+	if !errors.Is(err, store.ErrSchemaViolation) {
+		t.Fatalf("unknown CTX system kind accepted: %v", err)
 	}
 	_, err = g.Store.Apply(context.Background(), store.Transaction{Namespace: Namespace, Vertices: []store.Vertex{{ID: "machine", Kind: Namespace + "/machine"}, {ID: "project", Kind: Namespace + "/project"}}, Edges: []store.Edge{{ID: "wrong", From: "machine", To: "project", Type: Namespace + "/hosts"}}})
-	if err == nil || errors.Is(err, store.ErrDanglingEdge) {
+	if !errors.Is(err, store.ErrSchemaViolation) {
 		t.Fatalf("invalid CTX semantic relationship not rejected by schema: %v", err)
 	}
 }

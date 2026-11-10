@@ -230,7 +230,7 @@ func graphCommand(args []string, stdout, stderr io.Writer) int {
 			fmt.Fprintf(stderr, "ctx: %v\n", err)
 			return 1
 		}
-		fmt.Fprintf(stdout, "store: %s/graph.json\nnamespace: %s\nrevision: %d\ncursor: %d\nvertices: %d\nedges: %d\n", configHomePath(), snapshot.Namespace, snapshot.Revision, snapshot.Cursor, len(snapshot.Vertices), len(snapshot.Edges))
+		fmt.Fprintf(stdout, "store: %s/graph.db\nnamespace: %s\nrevision: %d\ncursor: %d\nvertices: %d\nedges: %d\n", configHomePath(), snapshot.Namespace, snapshot.Revision, snapshot.Cursor, len(snapshot.Vertices), len(snapshot.Edges))
 		inventory, err := system.ResolveInventory(ctx, "")
 		if err != nil {
 			return reportError(stderr, err)

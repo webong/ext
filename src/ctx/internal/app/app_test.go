@@ -101,7 +101,7 @@ func TestCTXRecordsSystemContextAndGraphCommandReadsIt(t *testing.T) {
 	if !strings.Contains(stdout.String(), "ext.system/shell-session") {
 		t.Fatalf("shell facts missing from graph query: %s", stdout.String())
 	}
-	if _, err := os.Stat(filepath.Join(stateDir, "graph.json")); err != nil {
+	if _, err := os.Stat(filepath.Join(stateDir, "graph.db")); err != nil {
 		t.Fatalf("persistent CTX graph missing: %v", err)
 	}
 	store, err := systemgraph.Open(stateDir)

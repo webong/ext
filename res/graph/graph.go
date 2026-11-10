@@ -7,7 +7,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"fmt"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -16,14 +15,16 @@ import (
 	"time"
 
 	"github.com/webong/ext/res/graph/store"
+	"github.com/webong/ext/res/graph/store/sqlite"
 )
 
 const Namespace = "ext.system"
 
 type Graph struct{ Store store.Store }
 
+// Open opens the ext.system graph in configHome/graph.db, the SQLite store.
 func Open(configHome string) (*Graph, error) {
-	backing, err := store.OpenFile(filepath.Join(configHome, "graph.json"))
+	backing, err := sqlite.Open(context.Background(), filepath.Join(configHome, "graph.db"), store.Options{})
 	if err != nil {
 		return nil, err
 	}
@@ -38,70 +39,89 @@ func Open(configHome string) (*Graph, error) {
 // New registers the CTX system vocabulary on any store.Store. Other services
 // may keep their own namespaces in the same store.
 func New(backing store.Store) (*Graph, error) {
-	if err := backing.Register(store.Schema{Namespace: Namespace, Version: "1", Validate: validateSchema}); err != nil {
+	if err := backing.Register(context.Background(), Schema()); err != nil {
 		return nil, err
 	}
 	return &Graph{Store: backing}, nil
 }
 
-func validateSchema(view store.View, tx store.Transaction) error {
-	allowedKinds := map[string]bool{Namespace + "/machine": true, Namespace + "/shell-session": true, Namespace + "/directory": true, Namespace + "/project": true, Namespace + "/profile": true, Namespace + "/selection": true, Namespace + "/browser-context": true, Namespace + "/inventory": true, Namespace + "/adapter": true, Namespace + "/capability": true, Namespace + "/support": true, Namespace + "/context": true, Namespace + "/resource": true, Namespace + "/alias": true, Namespace + "/program": true, Namespace + "/installer": true,
-		Namespace + "/host-inventory": true, Namespace + "/shell": true, Namespace + "/filesystem": true, Namespace + "/webview": true, Namespace + "/desktop": true, Namespace + "/display": true, Namespace + "/window": true, Namespace + "/accessibility-element": true, Namespace + "/permission": true, Namespace + "/process": true, Namespace + "/executable": true, Namespace + "/application": true, Namespace + "/process-resource": true, Namespace + "/host-resource": true}
-	for _, vertex := range tx.Vertices {
-		if !allowedKinds[vertex.Kind] {
-			return fmt.Errorf("unsupported ext.system kind %q", vertex.Kind)
-		}
-	}
-	allowedRelations := map[string]struct{ from, to string }{
-		Namespace + "/runs":                      {Namespace + "/machine", Namespace + "/process"},
-		Namespace + "/parent-of":                 {Namespace + "/process", Namespace + "/process"},
-		Namespace + "/executes":                  {Namespace + "/process", Namespace + "/executable"},
-		Namespace + "/belongs-to-application":    {Namespace + "/process", Namespace + "/application"},
-		Namespace + "/uses-resource":             {Namespace + "/process", Namespace + "/process-resource"},
-		Namespace + "/hosts":                     {Namespace + "/machine", Namespace + "/shell-session"},
-		Namespace + "/has-shell":                 {Namespace + "/machine", Namespace + "/shell"},
-		Namespace + "/has-filesystem":            {Namespace + "/machine", Namespace + "/filesystem"},
-		Namespace + "/has-webview":               {Namespace + "/machine", Namespace + "/webview"},
-		Namespace + "/has-desktop":               {Namespace + "/machine", Namespace + "/desktop"},
-		Namespace + "/has-display":               {Namespace + "/machine", Namespace + "/display"},
-		Namespace + "/has-window":                {Namespace + "/machine", Namespace + "/window"},
-		Namespace + "/has-accessibility-element": {Namespace + "/machine", Namespace + "/accessibility-element"},
-		Namespace + "/has-permission":            {Namespace + "/machine", Namespace + "/permission"},
-		Namespace + "/has-host-inventory":        {Namespace + "/machine", Namespace + "/host-inventory"},
-		Namespace + "/has-host-resource":         {Namespace + "/machine", Namespace + "/host-resource"},
-		Namespace + "/working-in":                {Namespace + "/shell-session", Namespace + "/directory"},
-		Namespace + "/within":                    {Namespace + "/directory", Namespace + "/project"},
-		Namespace + "/uses-profile":              {Namespace + "/shell-session", Namespace + "/profile"},
-		Namespace + "/selects":                   {Namespace + "/shell-session", Namespace + "/selection"},
-		Namespace + "/opened":                    {Namespace + "/shell-session", Namespace + "/browser-context"},
-		Namespace + "/has-adapter":               {Namespace + "/machine", Namespace + "/adapter"},
-		Namespace + "/supports":                  {Namespace + "/adapter", Namespace + "/capability"},
-		Namespace + "/supports-kind":             {Namespace + "/adapter", Namespace + "/support"},
-		Namespace + "/offers":                    {Namespace + "/adapter", Namespace + "/context"},
-		Namespace + "/contains":                  {Namespace + "/context", Namespace + "/resource"},
-		Namespace + "/relates":                   {Namespace + "/resource", Namespace + "/resource"},
-		Namespace + "/resolves-to":               {Namespace + "/alias", Namespace + "/context"},
-		Namespace + "/has-program":               {Namespace + "/machine", Namespace + "/program"},
-		Namespace + "/installed-by":              {Namespace + "/program", Namespace + "/installer"},
-		Namespace + "/implemented-by":            {Namespace + "/installer", Namespace + "/adapter"},
-		Namespace + "/uses-program":              {Namespace + "/context", Namespace + "/program"},
-	}
-	for _, edge := range tx.Edges {
-		expected, ok := allowedRelations[edge.Type]
-		if !ok {
-			return fmt.Errorf("unsupported ext.system relationship %q", edge.Type)
-		}
-		from, fromOK := view.Vertex(Namespace, edge.From)
-		to, toOK := view.Vertex(Namespace, edge.To)
-		if !fromOK || !toOK {
-			return store.ErrDanglingEdge
-		}
-		if from.Kind != expected.from || to.Kind != expected.to {
-			return fmt.Errorf("invalid endpoints for ext.system relationship %q", edge.Type)
-		}
-	}
-	return nil
+// SchemaVersion changes whenever the kinds or relationships of Schema change.
+const SchemaVersion = "1"
+
+// Schema is the declarative ext.system vocabulary: every vertex kind, and
+// every relationship with the kinds of its endpoints.
+func Schema() store.Schema {
+	return store.Schema{Namespace: Namespace, Version: SchemaVersion, Kinds: append([]string(nil), systemKinds...), Relationships: append([]store.Relationship(nil), systemRelationships...)}
 }
+
+var systemKinds = []string{
+	Namespace + "/machine",
+	Namespace + "/shell-session",
+	Namespace + "/directory",
+	Namespace + "/project",
+	Namespace + "/profile",
+	Namespace + "/selection",
+	Namespace + "/browser-context",
+	Namespace + "/inventory",
+	Namespace + "/adapter",
+	Namespace + "/capability",
+	Namespace + "/support",
+	Namespace + "/context",
+	Namespace + "/resource",
+	Namespace + "/alias",
+	Namespace + "/program",
+	Namespace + "/installer",
+	Namespace + "/host-inventory",
+	Namespace + "/shell",
+	Namespace + "/filesystem",
+	Namespace + "/webview",
+	Namespace + "/desktop",
+	Namespace + "/display",
+	Namespace + "/window",
+	Namespace + "/accessibility-element",
+	Namespace + "/permission",
+	Namespace + "/process",
+	Namespace + "/executable",
+	Namespace + "/application",
+	Namespace + "/process-resource",
+	Namespace + "/host-resource",
+}
+
+var systemRelationships = []store.Relationship{
+	{Type: Namespace + "/runs", From: Namespace + "/machine", To: Namespace + "/process"},
+	{Type: Namespace + "/parent-of", From: Namespace + "/process", To: Namespace + "/process"},
+	{Type: Namespace + "/executes", From: Namespace + "/process", To: Namespace + "/executable"},
+	{Type: Namespace + "/belongs-to-application", From: Namespace + "/process", To: Namespace + "/application"},
+	{Type: Namespace + "/uses-resource", From: Namespace + "/process", To: Namespace + "/process-resource"},
+	{Type: Namespace + "/hosts", From: Namespace + "/machine", To: Namespace + "/shell-session"},
+	{Type: Namespace + "/has-shell", From: Namespace + "/machine", To: Namespace + "/shell"},
+	{Type: Namespace + "/has-filesystem", From: Namespace + "/machine", To: Namespace + "/filesystem"},
+	{Type: Namespace + "/has-webview", From: Namespace + "/machine", To: Namespace + "/webview"},
+	{Type: Namespace + "/has-desktop", From: Namespace + "/machine", To: Namespace + "/desktop"},
+	{Type: Namespace + "/has-display", From: Namespace + "/machine", To: Namespace + "/display"},
+	{Type: Namespace + "/has-window", From: Namespace + "/machine", To: Namespace + "/window"},
+	{Type: Namespace + "/has-accessibility-element", From: Namespace + "/machine", To: Namespace + "/accessibility-element"},
+	{Type: Namespace + "/has-permission", From: Namespace + "/machine", To: Namespace + "/permission"},
+	{Type: Namespace + "/has-host-inventory", From: Namespace + "/machine", To: Namespace + "/host-inventory"},
+	{Type: Namespace + "/has-host-resource", From: Namespace + "/machine", To: Namespace + "/host-resource"},
+	{Type: Namespace + "/working-in", From: Namespace + "/shell-session", To: Namespace + "/directory"},
+	{Type: Namespace + "/within", From: Namespace + "/directory", To: Namespace + "/project"},
+	{Type: Namespace + "/uses-profile", From: Namespace + "/shell-session", To: Namespace + "/profile"},
+	{Type: Namespace + "/selects", From: Namespace + "/shell-session", To: Namespace + "/selection"},
+	{Type: Namespace + "/opened", From: Namespace + "/shell-session", To: Namespace + "/browser-context"},
+	{Type: Namespace + "/has-adapter", From: Namespace + "/machine", To: Namespace + "/adapter"},
+	{Type: Namespace + "/supports", From: Namespace + "/adapter", To: Namespace + "/capability"},
+	{Type: Namespace + "/supports-kind", From: Namespace + "/adapter", To: Namespace + "/support"},
+	{Type: Namespace + "/offers", From: Namespace + "/adapter", To: Namespace + "/context"},
+	{Type: Namespace + "/contains", From: Namespace + "/context", To: Namespace + "/resource"},
+	{Type: Namespace + "/relates", From: Namespace + "/resource", To: Namespace + "/resource"},
+	{Type: Namespace + "/resolves-to", From: Namespace + "/alias", To: Namespace + "/context"},
+	{Type: Namespace + "/has-program", From: Namespace + "/machine", To: Namespace + "/program"},
+	{Type: Namespace + "/installed-by", From: Namespace + "/program", To: Namespace + "/installer"},
+	{Type: Namespace + "/implemented-by", From: Namespace + "/installer", To: Namespace + "/adapter"},
+	{Type: Namespace + "/uses-program", From: Namespace + "/context", To: Namespace + "/program"},
+}
+
 func (g *Graph) Close() error { return g.Store.Close() }
 
 // ObserveShell records the current shell session and its active directory.

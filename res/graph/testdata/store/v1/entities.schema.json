@@ -1,0 +1,176 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/webong/ext/res/graph/testdata/store/v1/entities.schema.json",
+  "title": "res/graph store entities, version 1",
+  "description": "The wire form of what the store holds and returns. Times are RFC 3339 strings; a store writes them in UTC. A field that is empty or zero is omitted. The naming, secret and size rules are in rules.json.",
+  "$defs": {
+    "name": {"type": "string", "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._/-]{0,254}$"},
+    "id": {"type": "string", "minLength": 1, "maxLength": 1024},
+    "time": {"type": "string", "format": "date-time"},
+    "cursor": {"type": "integer", "minimum": 0},
+    "labels": {"type": "object", "additionalProperties": {"type": "string", "maxLength": 4096}},
+    "attributes": {"type": "object", "description": "Any JSON object. Numbers are IEEE 754 doubles."},
+    "provenance": {
+      "description": "Who produced a fact. Descriptive only; it grants no authority.",
+      "type": "object",
+      "properties": {
+        "source": {"type": "string"},
+        "operation": {"type": "string"},
+        "at": {"$ref": "#/$defs/time"}
+      },
+      "additionalProperties": false
+    },
+    "vertex": {
+      "type": "object",
+      "required": ["id", "kind"],
+      "properties": {
+        "namespace": {"$ref": "#/$defs/name"},
+        "id": {"$ref": "#/$defs/id"},
+        "kind": {"$ref": "#/$defs/name", "description": "'<namespace>/<name>'"},
+        "revision": {"type": "integer", "minimum": 1, "description": "The namespace revision that last wrote the vertex. Set by the store."},
+        "created_at": {"$ref": "#/$defs/time", "description": "Kept from the first write. A transaction may supply it for a new vertex; the store sets it otherwise."},
+        "updated_at": {"$ref": "#/$defs/time", "description": "The commit time of the last write. Set by the store."},
+        "labels": {"$ref": "#/$defs/labels"},
+        "attributes": {"$ref": "#/$defs/attributes"},
+        "provenance": {"$ref": "#/$defs/provenance"}
+      },
+      "additionalProperties": false
+    },
+    "edge": {
+      "type": "object",
+      "required": ["id", "from", "to", "type"],
+      "properties": {
+        "namespace": {"$ref": "#/$defs/name"},
+        "id": {"$ref": "#/$defs/id"},
+        "from": {"$ref": "#/$defs/id"},
+        "to": {"$ref": "#/$defs/id"},
+        "type": {"$ref": "#/$defs/name", "description": "'<namespace>/<name>'"},
+        "revision": {"type": "integer", "minimum": 1},
+        "created_at": {"$ref": "#/$defs/time"},
+        "updated_at": {"$ref": "#/$defs/time"},
+        "labels": {"$ref": "#/$defs/labels"},
+        "attributes": {"$ref": "#/$defs/attributes"},
+        "provenance": {"$ref": "#/$defs/provenance"}
+      },
+      "additionalProperties": false
+    },
+    "reference": {
+      "type": "object",
+      "required": ["id"],
+      "properties": {"namespace": {"$ref": "#/$defs/name"}, "id": {"$ref": "#/$defs/id"}},
+      "additionalProperties": false
+    },
+    "relationship": {
+      "description": "Admits edges of type. A from or to also requires that endpoint's kind.",
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": {"$ref": "#/$defs/name"},
+        "from": {"$ref": "#/$defs/name"},
+        "to": {"$ref": "#/$defs/name"}
+      },
+      "additionalProperties": false
+    },
+    "schema": {
+      "description": "The rules of one namespace. No kinds admits every kind under the namespace; no relationships admits every type under it. An edge must match one relationship of its type.",
+      "type": "object",
+      "required": ["namespace", "version"],
+      "properties": {
+        "namespace": {"$ref": "#/$defs/name"},
+        "version": {"type": "string", "minLength": 1, "maxLength": 255},
+        "kinds": {"type": "array", "items": {"$ref": "#/$defs/name"}},
+        "relationships": {"type": "array", "items": {"$ref": "#/$defs/relationship"}}
+      },
+      "additionalProperties": false
+    },
+    "transaction": {
+      "type": "object",
+      "required": ["namespace"],
+      "properties": {
+        "namespace": {"$ref": "#/$defs/name"},
+        "idempotency_key": {"type": "string", "maxLength": 255},
+        "expected_revision": {"type": "integer", "minimum": 0},
+        "vertices": {"type": "array", "items": {"$ref": "#/$defs/vertex"}},
+        "edges": {"type": "array", "items": {"$ref": "#/$defs/edge"}},
+        "delete_vertices": {"type": "array", "items": {"$ref": "#/$defs/reference"}},
+        "delete_edges": {"type": "array", "items": {"$ref": "#/$defs/reference"}},
+        "delete_incident_edges": {"type": "boolean"}
+      },
+      "additionalProperties": false
+    },
+    "commit": {
+      "type": "object",
+      "required": ["namespace", "revision", "cursor", "committed_at"],
+      "properties": {
+        "namespace": {"$ref": "#/$defs/name"},
+        "revision": {"type": "integer", "minimum": 1},
+        "cursor": {"$ref": "#/$defs/cursor"},
+        "committed_at": {"$ref": "#/$defs/time"},
+        "replayed": {"type": "boolean", "description": "True when an idempotency key returned an earlier commit."}
+      },
+      "additionalProperties": false
+    },
+    "change": {
+      "description": "One commit as the history holds it. Vertices and edges are the records as written; deletions are IDs, edges detached by delete_incident_edges among them.",
+      "type": "object",
+      "required": ["cursor", "namespace", "revision", "committed_at"],
+      "properties": {
+        "cursor": {"$ref": "#/$defs/cursor"},
+        "namespace": {"$ref": "#/$defs/name"},
+        "revision": {"type": "integer", "minimum": 1},
+        "committed_at": {"$ref": "#/$defs/time"},
+        "vertices": {"type": "array", "items": {"$ref": "#/$defs/vertex"}},
+        "edges": {"type": "array", "items": {"$ref": "#/$defs/edge"}},
+        "deleted_vertices": {"type": "array", "items": {"$ref": "#/$defs/id"}},
+        "deleted_edges": {"type": "array", "items": {"$ref": "#/$defs/id"}}
+      },
+      "additionalProperties": false
+    },
+    "snapshot": {
+      "type": "object",
+      "required": ["namespace", "revision", "cursor", "vertices", "edges"],
+      "properties": {
+        "namespace": {"$ref": "#/$defs/name"},
+        "revision": {"type": "integer", "minimum": 0},
+        "cursor": {"$ref": "#/$defs/cursor"},
+        "history_floor": {"$ref": "#/$defs/cursor", "description": "The newest cursor no longer available from changes or watch."},
+        "vertices": {"type": "array", "items": {"$ref": "#/$defs/vertex"}, "description": "Ordered by ID."},
+        "edges": {"type": "array", "items": {"$ref": "#/$defs/edge"}, "description": "Ordered by ID."}
+      },
+      "additionalProperties": false
+    },
+    "path": {
+      "type": "object",
+      "required": ["vertices", "edges"],
+      "properties": {
+        "vertices": {"type": "array", "items": {"$ref": "#/$defs/vertex"}},
+        "edges": {"type": "array", "items": {"$ref": "#/$defs/edge"}}
+      },
+      "additionalProperties": false
+    },
+    "vertex_query": {
+      "type": "object",
+      "required": ["namespace", "limit"],
+      "properties": {"namespace": {"$ref": "#/$defs/name"}, "kind": {"$ref": "#/$defs/name"}, "limit": {"type": "integer"}},
+      "additionalProperties": false
+    },
+    "edge_query": {
+      "type": "object",
+      "required": ["namespace", "limit"],
+      "properties": {"namespace": {"$ref": "#/$defs/name"}, "type": {"$ref": "#/$defs/name"}, "from": {"$ref": "#/$defs/id"}, "to": {"$ref": "#/$defs/id"}, "limit": {"type": "integer"}},
+      "additionalProperties": false
+    },
+    "options": {
+      "type": "object",
+      "properties": {
+        "max_changes": {"type": "integer"},
+        "max_change_bytes": {"type": "integer"},
+        "max_transaction_records": {"type": "integer"},
+        "max_record_bytes": {"type": "integer"},
+        "max_results": {"type": "integer"},
+        "max_snapshot_records": {"type": "integer"}
+      },
+      "additionalProperties": false
+    }
+  }
+}

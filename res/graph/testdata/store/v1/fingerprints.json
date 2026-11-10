@@ -1,0 +1,48 @@
+{
+  "version": 1,
+  "about": "Canonical JSON and SHA-256 fingerprints of transactions. A transaction is decoded into the transaction entity, encoded in its wire form with empty and zero fields omitted (expected_revision is kept when present, even at 0) and then written as canonical JSON (README.md). An idempotency key binds to the fingerprint.",
+  "cases": [
+    {
+      "name": "the smallest transaction",
+      "transaction": {"namespace": "test.example"},
+      "canonical": "{\"namespace\":\"test.example\"}",
+      "sha256": "ffa0f502af1503ddffc8bfa1258cc65f62cd84d1d22deab162495f9dd4a9bcc1"
+    },
+    {
+      "name": "empty and zero fields are omitted, an expected revision of 0 is kept",
+      "transaction": {"namespace": "test.example", "idempotency_key": "", "expected_revision": 0, "vertices": [], "edges": [], "delete_vertices": [], "delete_edges": [], "delete_incident_edges": false},
+      "canonical": "{\"expected_revision\":0,\"namespace\":\"test.example\"}",
+      "sha256": "1221d49a227f1d532d82ebfaec0efdc6665732078d20646994723ba660239e72"
+    },
+    {
+      "name": "object keys are sorted at every depth",
+      "transaction": {"vertices": [{"kind": "test.example/node", "id": "a", "attributes": {"zeta": 1, "alpha": {"b": true, "a": null}}, "labels": {"z": "1", "a": "2"}}], "namespace": "test.example", "idempotency_key": "request-1"},
+      "canonical": "{\"idempotency_key\":\"request-1\",\"namespace\":\"test.example\",\"vertices\":[{\"attributes\":{\"alpha\":{\"a\":null,\"b\":true},\"zeta\":1},\"id\":\"a\",\"kind\":\"test.example/node\",\"labels\":{\"a\":\"2\",\"z\":\"1\"}}]}",
+      "sha256": "110228cd72f28ce9d39fa875eb290a1dc17925b1ade7b499769011b714b09edf"
+    },
+    {
+      "name": "numbers print in their shortest form",
+      "transaction": {"namespace": "test.example", "vertices": [{"id": "n", "kind": "test.example/node", "attributes": {"int": 1.0, "neg": -0.5, "big": 1e+21, "small": 1e-06, "tiny": 1e-07, "exp": 12345678901234567890}}]},
+      "canonical": "{\"namespace\":\"test.example\",\"vertices\":[{\"attributes\":{\"big\":1e+21,\"exp\":12345678901234567000,\"int\":1,\"neg\":-0.5,\"small\":0.000001,\"tiny\":1e-7},\"id\":\"n\",\"kind\":\"test.example/node\"}]}",
+      "sha256": "bcee030a9c0c3ea47d99f809a8375c388f6e977e97eef4c53cfe9c03441dd00c"
+    },
+    {
+      "name": "strings escape only quotes, backslashes and control characters",
+      "transaction": {"namespace": "test.example", "vertices": [{"id": "s", "kind": "test.example/node", "attributes": {"s": "quote \" slash \\ tab \t nl \n bell \u0007 html <&> unicode é  "}}]},
+      "canonical": "{\"namespace\":\"test.example\",\"vertices\":[{\"attributes\":{\"s\":\"quote \\\" slash \\\\ tab \\t nl \\n bell \\u0007 html <&> unicode é  \"},\"id\":\"s\",\"kind\":\"test.example/node\"}]}",
+      "sha256": "069a38252b3e8744474e69156d897eb164d9ffe76e38b6888dc16e435c1338a4"
+    },
+    {
+      "name": "times print in UTC or their given offset without trailing zeros",
+      "transaction": {"namespace": "test.example", "vertices": [{"id": "t", "kind": "test.example/node", "created_at": "2026-01-01T00:00:00.500000000Z", "provenance": {"source": "fixture", "at": "2026-01-01T02:00:00+02:00"}}]},
+      "canonical": "{\"namespace\":\"test.example\",\"vertices\":[{\"created_at\":\"2026-01-01T00:00:00.5Z\",\"id\":\"t\",\"kind\":\"test.example/node\",\"provenance\":{\"at\":\"2026-01-01T02:00:00+02:00\",\"source\":\"fixture\"}}]}",
+      "sha256": "f8f63509434a7c042c4046155966b759dd363079ba35f33ab7e94481d9c7d792"
+    },
+    {
+      "name": "edges and deletions",
+      "transaction": {"namespace": "test.example", "edges": [{"id": "ab", "from": "a", "to": "b", "type": "test.example/link"}], "delete_vertices": [{"id": "c"}], "delete_edges": [{"namespace": "test.example", "id": "cd"}], "delete_incident_edges": true},
+      "canonical": "{\"delete_edges\":[{\"id\":\"cd\",\"namespace\":\"test.example\"}],\"delete_incident_edges\":true,\"delete_vertices\":[{\"id\":\"c\"}],\"edges\":[{\"from\":\"a\",\"id\":\"ab\",\"to\":\"b\",\"type\":\"test.example/link\"}],\"namespace\":\"test.example\"}",
+      "sha256": "d7080c92c28f5dc77e805e608df96213249adf1c537b6bf365b3a6fc06fede01"
+    }
+  ]
+}

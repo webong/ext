@@ -6,15 +6,15 @@ Status: accepted for the CTX library.
 
 CTX supplies reusable mechanics through the public `github.com/webong/ext/res/graph`
 module: its `store` and `supervisor` packages and its recorder. CTX graph records are generic
-vertices and directed edges. A consumer registers a namespace and schema version,
-supplies an optional validation callback, and owns its kind and relationship
-vocabulary. Namespace-qualified names use the form `<namespace>/<name>`.
+vertices and directed edges. A consumer registers a namespace with a declarative
+schema (a version, the kinds it admits, and the relationships it admits with the
+kinds of their endpoints) and owns that vocabulary. Namespace-qualified names use
+the form `<namespace>/<name>`.
 
 CTX does not assign meaning, authority, permission, trust, or membership to a
-record or relationship. A schema callback may reject a proposed transaction
-based on a transaction-scoped read-only view. It must not be used to create a
-second authorization system inside CTX. Cycles are allowed unless a consumer
-validator rejects them.
+record or relationship. A schema only admits kinds and relationship shapes; it is
+data, stored with the graph, and cannot become a second authorization system
+inside CTX. Cycles are allowed.
 
 The `supervisor` package owns local process mechanics. Callers decide why a
 process may run and pass an already-approved `Spec`. The supervisor starts,
@@ -24,8 +24,13 @@ facts describe observations and never imply consumer authority.
 
 ## Graph API contract
 
-Consumers call `Register(Schema)` before use, then `Apply(Transaction)` to make
-an atomic change. All records in a transaction belong to one namespace. Vertices
+The contract is written as data in `res/graph/testdata/store/v1`: the entities,
+the naming, secret and size rules, the error codes, the SQLite layout and the
+operation cases every implementation runs. This section summarises it.
+
+Consumers call `Register(ctx, Schema)` before use, then `Apply(ctx, Transaction)` to make
+an atomic change. Registering the stored schema again is a no-op, a new version
+replaces it, and the same version with different rules is refused (`exists`). All records in a transaction belong to one namespace. Vertices
 must exist before edges can reference them; node and edge creation can happen in
 the same transaction. An invalid endpoint, name, secret-like field, or consumer
 constraint rejects the whole transaction without advancing its revision or
@@ -35,8 +40,9 @@ IDs are caller supplied and stable. Repeated IDs upsert records. `CreatedAt` is
 preserved on update and `UpdatedAt` plus `Revision` identify the commit that
 last changed the record. `ExpectedRevision` compares against that namespace's
 current revision. `IdempotencyKey` is scoped to a namespace and binds to the
-canonical JSON form of the transaction: replaying the same request returns its
-original commit cursor; reusing the key with a different request is an error.
+SHA-256 of the transaction's canonical JSON (RFC 8785 style; the fixtures pin
+it): replaying the same request returns its original commit cursor; reusing the
+key with a different request is an error.
 
 Edges cannot dangle. Deleting a vertex with incident edges fails unless the
 transaction sets `DeleteIncidentEdges`, which explicitly detaches all incident
@@ -44,7 +50,7 @@ edges. Deleting records and adding replacements in the same transaction is
 supported. Each successful transaction advances one namespace revision and one
 store-wide monotonically increasing change cursor.
 
-Queries require a positive result limit. Traversal is breadth first, follows
+Queries require a positive result limit no larger than `Options.MaxResults`. Traversal is breadth first, follows
 outgoing edges, and takes explicit maximum depth and vertex bounds. Results are
 deterministically ordered by IDs where ordering is not traversal order. A
 snapshot returns a consistent namespace view and its revision.
@@ -54,29 +60,31 @@ the cursor and then streams later commits in cursor order. An empty namespace
 watches all namespaces. If its bounded channel fills, the stream closes; the
 consumer should reconnect from the last cursor it processed. Stores retain at
 most 4096 commits or 16 MiB of serialized changes by default;
-`NewMemoryWithOptions` and `OpenFileWithOptions` can set `MaxChanges` and
-`MaxChangeBytes`. The latest commit is retained even if it alone exceeds the
+`store.Options` sets those and the other bounds (records per transaction, bytes
+per record, results per read, records per snapshot). The latest commit is retained even if it alone exceeds the
 byte limit. Expired cursors return `ErrCursorExpired`, so consumers
 must take a fresh snapshot. `Snapshot.HistoryFloor` reports the oldest valid
 resume point. Idempotency records expire with their commits.
 
 ## Persistence and limits
 
-`graph.NewMemory` is the reference implementation. `graph.OpenFile` stores the
-complete state as JSON and commits by writing a mode-0600 temporary file followed
-by atomic rename while holding an OS file lock. Every operation refreshes from
-the latest committed snapshot under that lock, so short-lived CTX commands and
-long-lived local consumers do not overwrite each other's commits. File-backed
-watches poll the durable cursor every 150 ms and publish changes in order.
-Callers register their schema callback each time a store is opened; the durable
-file remembers the namespace schema version and rejects a version mismatch.
-The backend does not provide replication. It compacts change history and
-idempotency records during commits; live graph records remain until deleted.
+`store.NewMemory` keeps the graph in memory. `res/graph/store/sqlite` is the
+durable store: one SQLite database through `modernc.org/sqlite`, so `res/graph`
+needs no cgo. The tables are created from the declarative layout in
+`res/graph/testdata/store/v1/tables.json` and are part of the contract, so any
+SQLite reader can read the graph. There are no migrations; a database with
+another layout is refused (`unsupported`). Commits take SQLite's write lock
+(`BEGIN IMMEDIATE`, WAL, a 5 s busy timeout), so short-lived CTX commands and
+long-lived local consumers do not overwrite each other's commits. Watches wake on
+commits through the same handle and poll the durable cursor every 150 ms for
+other handles and processes. Schemas are stored with the graph, so a reopened
+store applies them without registering again. The recorder opens
+`<config>/graph.db`; an earlier `graph.json` is not migrated, and the recorder
+rebuilds what it observes.
 
-The current implementation uses in-memory maps and bounded result slices, and
-rewrites the full JSON snapshot on every commit. It does not provide a
-distributed index or an unbounded query API. Large graph installations should
-use a backend with indexed persistence behind the same interface.
+The store does not provide replication. It compacts change history and
+idempotency records during commits; live graph records remain until deleted.
+Every read takes an explicit bound and a context.
 
 ## CTX system context
 

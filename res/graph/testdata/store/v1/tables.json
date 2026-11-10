@@ -1,0 +1,111 @@
+{
+  "version": 1,
+  "layout": "ext.graph.store/v1",
+  "about": "The SQLite layout of a durable store. A store creates these tables and indexes from this file when the database is new, and refuses a database whose store row names another layout. There are no migrations. Times are RFC 3339 text in UTC; JSON columns hold canonical JSON (README.md) or NULL when empty. Any SQLite reader can read the graph from these tables.",
+  "pragmas": {
+    "journal_mode": "WAL",
+    "foreign_keys": "ON",
+    "busy_timeout_ms": 5000
+  },
+  "tables": [
+    {
+      "name": "store",
+      "about": "One row: the layout and the store-wide change cursor and history floor.",
+      "columns": [
+        {"name": "id", "type": "INTEGER", "not_null": true, "check": "id = 1"},
+        {"name": "layout", "type": "TEXT", "not_null": true},
+        {"name": "cursor", "type": "INTEGER", "not_null": true},
+        {"name": "history_floor", "type": "INTEGER", "not_null": true}
+      ],
+      "primary_key": ["id"]
+    },
+    {
+      "name": "namespaces",
+      "about": "A registered namespace, its schema and its current revision.",
+      "columns": [
+        {"name": "namespace", "type": "TEXT", "not_null": true},
+        {"name": "schema_version", "type": "TEXT", "not_null": true},
+        {"name": "schema", "type": "TEXT", "not_null": true, "about": "canonical JSON of the normalized schema entity"},
+        {"name": "revision", "type": "INTEGER", "not_null": true}
+      ],
+      "primary_key": ["namespace"],
+      "without_rowid": true
+    },
+    {
+      "name": "vertices",
+      "columns": [
+        {"name": "namespace", "type": "TEXT", "not_null": true},
+        {"name": "id", "type": "TEXT", "not_null": true},
+        {"name": "kind", "type": "TEXT", "not_null": true},
+        {"name": "revision", "type": "INTEGER", "not_null": true},
+        {"name": "created_at", "type": "TEXT", "not_null": true},
+        {"name": "updated_at", "type": "TEXT", "not_null": true},
+        {"name": "labels", "type": "TEXT", "about": "JSON object"},
+        {"name": "attributes", "type": "TEXT", "about": "JSON object"},
+        {"name": "provenance", "type": "TEXT", "about": "JSON provenance entity"}
+      ],
+      "primary_key": ["namespace", "id"],
+      "foreign_keys": [
+        {"columns": ["namespace"], "references": "namespaces", "to": ["namespace"]}
+      ],
+      "without_rowid": true
+    },
+    {
+      "name": "edges",
+      "columns": [
+        {"name": "namespace", "type": "TEXT", "not_null": true},
+        {"name": "id", "type": "TEXT", "not_null": true},
+        {"name": "type", "type": "TEXT", "not_null": true},
+        {"name": "from_id", "type": "TEXT", "not_null": true},
+        {"name": "to_id", "type": "TEXT", "not_null": true},
+        {"name": "revision", "type": "INTEGER", "not_null": true},
+        {"name": "created_at", "type": "TEXT", "not_null": true},
+        {"name": "updated_at", "type": "TEXT", "not_null": true},
+        {"name": "labels", "type": "TEXT", "about": "JSON object"},
+        {"name": "attributes", "type": "TEXT", "about": "JSON object"},
+        {"name": "provenance", "type": "TEXT", "about": "JSON provenance entity"}
+      ],
+      "primary_key": ["namespace", "id"],
+      "foreign_keys": [
+        {"columns": ["namespace", "from_id"], "references": "vertices", "to": ["namespace", "id"]},
+        {"columns": ["namespace", "to_id"], "references": "vertices", "to": ["namespace", "id"]}
+      ],
+      "without_rowid": true
+    },
+    {
+      "name": "changes",
+      "about": "The retained history, oldest first by cursor.",
+      "columns": [
+        {"name": "cursor", "type": "INTEGER", "not_null": true},
+        {"name": "namespace", "type": "TEXT", "not_null": true},
+        {"name": "revision", "type": "INTEGER", "not_null": true},
+        {"name": "committed_at", "type": "TEXT", "not_null": true},
+        {"name": "size", "type": "INTEGER", "not_null": true, "about": "length of body in bytes"},
+        {"name": "body", "type": "TEXT", "not_null": true, "about": "canonical JSON of the change entity"}
+      ],
+      "primary_key": ["cursor"]
+    },
+    {
+      "name": "idempotency",
+      "about": "An idempotency key and the commit it produced. Deleted with that commit's history.",
+      "columns": [
+        {"name": "namespace", "type": "TEXT", "not_null": true},
+        {"name": "key", "type": "TEXT", "not_null": true},
+        {"name": "fingerprint", "type": "TEXT", "not_null": true, "about": "lowercase hex SHA-256 of the transaction's canonical JSON"},
+        {"name": "revision", "type": "INTEGER", "not_null": true},
+        {"name": "cursor", "type": "INTEGER", "not_null": true},
+        {"name": "committed_at", "type": "TEXT", "not_null": true}
+      ],
+      "primary_key": ["namespace", "key"],
+      "without_rowid": true
+    }
+  ],
+  "indexes": [
+    {"name": "vertices_by_kind", "table": "vertices", "columns": ["namespace", "kind", "id"]},
+    {"name": "edges_by_type", "table": "edges", "columns": ["namespace", "type", "id"]},
+    {"name": "edges_by_from", "table": "edges", "columns": ["namespace", "from_id", "id"]},
+    {"name": "edges_by_to", "table": "edges", "columns": ["namespace", "to_id", "id"]},
+    {"name": "changes_by_namespace", "table": "changes", "columns": ["namespace", "cursor"]},
+    {"name": "idempotency_by_cursor", "table": "idempotency", "columns": ["cursor"]}
+  ]
+}

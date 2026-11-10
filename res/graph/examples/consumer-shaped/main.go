@@ -1,5 +1,6 @@
 // This consumer-owned example uses consumer-shaped names to demonstrate that CTX
-// accepts arbitrary namespaces and leaves semantic validation to the consumer.
+// accepts arbitrary namespaces and leaves the vocabulary to the consumer, which
+// declares it as a schema.
 package main
 
 import (
@@ -10,31 +11,28 @@ import (
 )
 
 func main() {
+	ctx := context.Background()
 	memory := store.NewMemory()
 	defer memory.Close()
-	validate := func(view store.View, tx store.Transaction) error {
-		for _, edge := range tx.Edges {
-			if edge.Type == "example.io/observes" {
-				from, _ := view.Vertex("example.io", edge.From)
-				to, _ := view.Vertex("example.io", edge.To)
-				if from.Kind != "example.io/coordinator" || to.Kind != "example.io/resource" {
-					return fmt.Errorf("example.io/observes requires an coordinator and resource")
-				}
-			}
-		}
-		return nil
+	schema := store.Schema{
+		Namespace: "example.io",
+		Version:   "1",
+		Kinds:     []string{"example.io/coordinator", "example.io/resource"},
+		Relationships: []store.Relationship{
+			{Type: "example.io/observes", From: "example.io/coordinator", To: "example.io/resource"},
+		},
 	}
-	if err := memory.Register(store.Schema{Namespace: "example.io", Version: "1", Validate: validate}); err != nil {
+	if err := memory.Register(ctx, schema); err != nil {
 		panic(err)
 	}
-	_, err := memory.Apply(context.Background(), store.Transaction{Namespace: "example.io", Vertices: []store.Vertex{
+	_, err := memory.Apply(ctx, store.Transaction{Namespace: "example.io", Vertices: []store.Vertex{
 		{ID: "coordinator/primary", Kind: "example.io/coordinator"},
 		{ID: "resource/network", Kind: "example.io/resource"},
 	}, Edges: []store.Edge{{ID: "observes/network", From: "coordinator/primary", To: "resource/network", Type: "example.io/observes"}}})
 	if err != nil {
 		panic(err)
 	}
-	snapshot, err := memory.Snapshot(context.Background(), "example.io")
+	snapshot, err := memory.Snapshot(ctx, "example.io")
 	if err != nil {
 		panic(err)
 	}

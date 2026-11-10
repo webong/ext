@@ -1,0 +1,61 @@
+{
+  "version": 1,
+  "about": "The rules of the res/graph store that need no stored state. Every implementation applies them before it writes anything.",
+  "names": {
+    "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._/-]{0,254}$",
+    "forbidden": ["//"],
+    "applies_to": ["namespace", "kind", "relationship type", "schema kinds", "schema relationship types and endpoint kinds"],
+    "qualified": "A kind or relationship type is '<namespace>/<name>' with a non-empty name, and the whole value matches the pattern."
+  },
+  "secrets": {
+    "key_pattern": "(?i)(secret|password|passwd|token|credential|private.?key|api.?key)",
+    "value_prefixes": ["secret-value:", "private-key:"],
+    "value_prefixes_match": "case-insensitively, at the start of the string",
+    "key_pattern_applies_to": ["attribute keys, at any depth", "label keys"],
+    "value_prefixes_apply_to": ["string attribute values, at any depth", "label values", "provenance source", "provenance operation"],
+    "code": "denied"
+  },
+  "sizes": {
+    "max_string_bytes": 4096,
+    "max_string_bytes_applies_to": ["string attribute values, at any depth", "label values", "provenance source", "provenance operation"],
+    "max_id_bytes": 1024,
+    "max_idempotency_key_bytes": 255,
+    "max_schema_version_bytes": 255,
+    "record_bytes": "The length of the JSON encoding of a record's labels plus that of its attributes.",
+    "code": "too_large"
+  },
+  "options": {
+    "about": "The bounds a store is opened with. A value that is absent or not positive takes the default.",
+    "max_changes": {"default": 4096, "bounds": "retained commits in the change history"},
+    "max_change_bytes": {"default": 16777216, "bounds": "the summed size of retained commits; a commit's size is the length of its canonical JSON (README.md, Canonical JSON). The latest commit is always retained."},
+    "max_transaction_records": {"default": 65536, "bounds": "vertices + edges + delete_vertices + delete_edges in one transaction"},
+    "max_record_bytes": {"default": 1048576, "bounds": "record_bytes of one vertex or edge"},
+    "max_results": {"default": 65536, "bounds": "the limit of query_vertices, query_edges and changes, the buffer of watch and the max_vertices of traverse"},
+    "max_snapshot_records": {"default": 1048576, "bounds": "vertices + edges in one snapshot"}
+  },
+  "order": [
+    "context: a canceled or expired context fails first (canceled, timeout)",
+    "the rules in this file (invalid, denied, too_large)",
+    "the namespace is registered (not_found)",
+    "the idempotency key: a stored key with the same fingerprint replays its commit, with a different one fails (exists)",
+    "expected_revision (changed)",
+    "delete_edges, then delete_vertices, then vertices, then edges, against the committed state plus the earlier parts of the transaction (not_found, invalid)",
+    "the namespace schema, over the vertices and edges the transaction writes (invalid)"
+  ],
+  "codes": {
+    "about": "The codes a store returns, from res/system/testdata/codes.json. Error text is not part of the contract.",
+    "invalid": "a malformed name, record or transaction; a limit that is not positive; a schema rule the transaction breaks; deleting a vertex that still has incident edges without delete_incident_edges",
+    "not_found": "a record that does not exist; an unregistered namespace; an edge endpoint that does not exist",
+    "changed": "expected_revision is not the namespace's current revision",
+    "exists": "an idempotency key reused with a different transaction; a schema registered again at the same version with different rules",
+    "denied": "a secret-like key or marker",
+    "too_large": "a value, record, transaction, result limit, snapshot or watch backlog beyond its bound",
+    "expired": "a change cursor older than the history floor",
+    "unsupported": "a durable store whose layout is not this contract's",
+    "unavailable": "the store is closed",
+    "busy": "another writer held the database past the store's wait",
+    "canceled": "the context was canceled",
+    "timeout": "the context's deadline passed",
+    "io": "the storage failed"
+  }
+}

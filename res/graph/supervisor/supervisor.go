@@ -198,7 +198,7 @@ func New(opts Options) (*Supervisor, error) {
 	if opts.OrphanPolicy != OrphanMark && opts.OrphanPolicy != OrphanTerminate {
 		return nil, errors.New("invalid orphan policy")
 	}
-	if err := opts.Graph.Register(store.Schema{Namespace: RuntimeNamespace, Version: "1"}); err != nil {
+	if err := opts.Graph.Register(context.Background(), store.Schema{Namespace: RuntimeNamespace, Version: "1"}); err != nil {
 		return nil, err
 	}
 	ownerID, err := newID()

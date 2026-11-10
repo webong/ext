@@ -315,7 +315,7 @@ func TestEndpointAndHandshakeGateReadiness(t *testing.T) {
 func TestExpiredLeaseMarksOrphanAndBlocksStart(t *testing.T) {
 	memory := store.NewMemory()
 	defer memory.Close()
-	if err := memory.Register(store.Schema{Namespace: RuntimeNamespace, Version: "1"}); err != nil {
+	if err := memory.Register(context.Background(), store.Schema{Namespace: RuntimeNamespace, Version: "1"}); err != nil {
 		t.Fatal(err)
 	}
 	_, err := memory.Apply(context.Background(), store.Transaction{Namespace: RuntimeNamespace, Vertices: []store.Vertex{{ID: "process/old", Kind: RuntimeNamespace + "/process-instance", Attributes: map[string]any{"runtime_id": "test-runtime", "state": string(StateRunning), "pid": os.Getpid(), "lease_until": time.Now().Add(-time.Minute).Format(time.RFC3339Nano)}}}})
@@ -342,7 +342,7 @@ func TestExpiredLeaseMarksOrphanAndBlocksStart(t *testing.T) {
 func TestActiveLeaseRejectsSecondSupervisor(t *testing.T) {
 	memory := store.NewMemory()
 	defer memory.Close()
-	if err := memory.Register(store.Schema{Namespace: RuntimeNamespace, Version: "1"}); err != nil {
+	if err := memory.Register(context.Background(), store.Schema{Namespace: RuntimeNamespace, Version: "1"}); err != nil {
 		t.Fatal(err)
 	}
 	_, err := memory.Apply(context.Background(), store.Transaction{Namespace: RuntimeNamespace, Vertices: []store.Vertex{{ID: "process/live", Kind: RuntimeNamespace + "/process-instance", Attributes: map[string]any{"runtime_id": "test-runtime", "state": string(StateRunning), "pid": os.Getpid(), "lease_until": time.Now().Add(time.Minute).Format(time.RFC3339Nano)}}}})

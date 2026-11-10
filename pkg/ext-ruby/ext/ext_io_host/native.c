@@ -402,12 +402,14 @@ typedef struct {
   ext_call_options options;
   ext_buffer out;
   ext_status status;
+  int ran; /* set by blocking_run: rb_thread_call_without_gvl2 skips it when an interrupt is pending */
 } blocking_call;
 
 static void *blocking_run(void *arg) {
   blocking_call *c = (blocking_call *)arg;
   const engine_api *api = c->host->api;
   ext_host *handle = c->host->handle;
+  c->ran = 1;
   switch (c->op) {
   case OP_START: c->status = api->start(handle, &c->options); break;
   case OP_CALL: c->status = api->call(handle, c->data, c->len, &c->options, &c->out); break;
@@ -430,9 +432,18 @@ typedef struct {
 
 static VALUE blocking_body(VALUE arg) {
   blocking_frame *f = (blocking_frame *)arg;
-  /* without_gvl2 leaves a pending interrupt to Ruby's next check instead of raising it here,
-   * so the response buffer is always freed; one pending before the call skips it (canceled). */
-  rb_thread_call_without_gvl2(blocking_run, f->call, blocking_interrupt, f->call);
+  /* without_gvl2 leaves an interrupt that arrives during the call to Ruby's next check instead of
+   * raising it here, so the response buffer is always freed. It does not run the call at all when
+   * any interrupt is already pending, and most are not cancellations: a thread's time slice, a
+   * signal trap, finalizers or postponed jobs queued by a GC, and on Windows every tick of the VM
+   * clock (USE_VM_CLOCK, 100 ms) since the last check. So Ruby handles the pending interrupt
+   * (rb_thread_check_ints runs a trap or finalizer and returns, and raises for Thread#raise,
+   * Thread#kill or Ctrl-C) and the call is tried again; it is never reported as canceled unrun. */
+  for (;;) {
+    rb_thread_call_without_gvl2(blocking_run, f->call, blocking_interrupt, f->call);
+    if (f->call->ran) break;
+    rb_thread_check_ints();
+  }
   return Qnil;
 }
 
@@ -455,7 +466,6 @@ static VALUE blocking(VALUE self, int op, VALUE data, VALUE timeout, const char 
   memset(&c, 0, sizeof c);
   c.host = h;
   c.op = op;
-  c.status = EXT_CANCELED; /* what a call that never ran reports */
   c.options.struct_size = (uint32_t)sizeof c.options;
   c.options.timeout_ms = timeout_ms(timeout);
   if (!NIL_P(data)) {

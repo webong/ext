@@ -214,6 +214,30 @@ class HostTest < Minitest::Test
     end
   end
 
+  # An interrupt already pending when a call begins makes Ruby skip the native call, and most are
+  # not cancellations: another thread's time slice, a signal trap, a GC's finalizers, and on
+  # Windows every tick of the VM clock (100 ms). The call runs once Ruby has handled it, instead of
+  # ending as canceled without reaching the engine. The window is small, so this only makes the
+  # skip likely: quick calls for a second, beside a thread that wants the lock.
+  def test_a_pending_interrupt_does_not_cancel_the_call
+    @engine.process(@descriptor, @guest) do |h|
+      h.start
+      busy = Thread.new { loop { Thread.pass } }
+      calls = 0
+      begin
+        deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + 1.0
+        while Process.clock_gettime(Process::CLOCK_MONOTONIC) < deadline
+          assert_equal calls, h.call(@contract, "echo", { "value" => calls })["value"]
+          calls += 1
+        end
+      ensure
+        busy.kill
+        busy.join
+      end
+      assert_operator calls, :>, 0
+    end
+  end
+
   def test_an_interrupt_cancels_the_call
     @engine.process(@descriptor, @guest) do |h|
       h.start

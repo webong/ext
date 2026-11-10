@@ -28,9 +28,9 @@ public sealed record ClipboardPolicy(
         var seen = new HashSet<string>(StringComparer.Ordinal);
         foreach (var format in AllowedFormats)
         {
-            if (string.IsNullOrEmpty(format) || format.Length > 256 || !seen.Add(format))
+            if (string.IsNullOrEmpty(format) || Encoding.UTF8.GetByteCount(format) > 256 || !seen.Add(format))
             {
-                throw new ClipboardException("invalid", "clipboard formats must be unique names of at most 256 characters");
+                throw new ClipboardException("invalid", "clipboard formats must be unique names of at most 256 bytes");
             }
         }
         return this;
@@ -49,6 +49,15 @@ public sealed class ClipboardException : Exception
 {
     public ClipboardErrorKind Kind { get; }
 
+    /// <summary>The stable error code of res/system/testdata/codes.json.</summary>
+    public string Code => Kind switch
+    {
+        ClipboardErrorKind.Denied => "denied",
+        ClipboardErrorKind.Limit => "too_large",
+        ClipboardErrorKind.Changed => "changed",
+        _ => "invalid",
+    };
+
     public ClipboardException(ClipboardErrorKind kind, string message, Exception? inner = null)
         : base(message, inner)
     {
@@ -59,7 +68,7 @@ public sealed class ClipboardException : Exception
         : this(kind switch
         {
             "denied" => ClipboardErrorKind.Denied,
-            "limit" => ClipboardErrorKind.Limit,
+            "too_large" => ClipboardErrorKind.Limit,
             "changed" => ClipboardErrorKind.Changed,
             _ => ClipboardErrorKind.Invalid,
         }, message, inner)
@@ -74,6 +83,54 @@ public sealed record ClipboardItem(IReadOnlyList<ClipboardRepresentation> Repres
 public sealed record ClipboardSnapshot(string Generation, IReadOnlyList<ClipboardItem> Items);
 
 public sealed record ClipboardReceipt(string Generation, string Dispatch);
+
+/// <summary>
+/// The item rules every binding of the clipboard contract shares (testdata/clipboard/v1): the byte
+/// ceiling is judged first, then the item count, then each item in order.
+/// </summary>
+internal static class ClipboardValidation
+{
+    internal static void ValidateItems(
+        IReadOnlyList<ClipboardItem> items,
+        int maxBytes,
+        int maxItems,
+        int maxFormats,
+        IReadOnlyCollection<string> formats)
+    {
+        if (maxBytes <= 0 || maxBytes > 16 * 1024 * 1024)
+        {
+            throw new ClipboardException(ClipboardErrorKind.Invalid, "invalid clipboard byte ceiling");
+        }
+        if (items.Count > maxItems)
+        {
+            throw new ClipboardException(ClipboardErrorKind.Limit, "clipboard items exceed the policy");
+        }
+        var allowed = new HashSet<string>(formats, StringComparer.Ordinal);
+        var total = 0L;
+        foreach (var item in items)
+        {
+            if (item.Representations.Count < 1 || item.Representations.Count > maxFormats)
+            {
+                throw new ClipboardException(ClipboardErrorKind.Invalid,
+                    "clipboard item needs between one and the format ceiling");
+            }
+            var seen = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var representation in item.Representations)
+            {
+                if (!allowed.Contains(representation.Format) || !seen.Add(representation.Format))
+                {
+                    throw new ClipboardException(ClipboardErrorKind.Denied,
+                        "clipboard format is not allowed or is repeated");
+                }
+                total += representation.Data.Length;
+                if (total > maxBytes)
+                {
+                    throw new ClipboardException(ClipboardErrorKind.Limit, "clipboard bytes exceed the policy");
+                }
+            }
+        }
+    }
+}
 
 /// <summary>
 /// Bounded Win32 clipboard access for local consumers. It holds no history,
@@ -208,40 +265,11 @@ public static class SystemClipboard
             throw new ClipboardException(ClipboardErrorKind.Invalid,
                 "the Windows clipboard holds one item");
         }
-        if (items.Count > policy.MaxItems)
-        {
-            throw new ClipboardException(ClipboardErrorKind.Limit, "clipboard items exceed the policy");
-        }
+        ClipboardValidation.ValidateItems(items, policy.MaxBytes, policy.MaxItems, policy.MaxFormats, policy.AllowedFormats);
         if (Generation() != expectedGeneration)
         {
             throw new ClipboardException(ClipboardErrorKind.Changed,
                 "clipboard generation changed");
-        }
-        var allowed = new HashSet<string>(policy.AllowedFormats, StringComparer.Ordinal);
-        if (items.Count == 1)
-        {
-            var item = items[0];
-            if (item.Representations.Count < 1 || item.Representations.Count > policy.MaxFormats)
-            {
-                throw new ClipboardException(ClipboardErrorKind.Invalid,
-                    "clipboard item needs between one and the format ceiling");
-            }
-            var seen = new HashSet<string>(StringComparer.Ordinal);
-            var total = 0L;
-            foreach (var representation in item.Representations)
-            {
-                if (!allowed.Contains(representation.Format) || !seen.Add(representation.Format))
-                {
-                    throw new ClipboardException(ClipboardErrorKind.Denied,
-                        "clipboard format is not allowed or is repeated");
-                }
-                total += representation.Data.Length;
-                if (total > policy.MaxBytes)
-                {
-                    throw new ClipboardException(ClipboardErrorKind.Limit,
-                        "clipboard bytes exceed the policy");
-                }
-            }
         }
         OpenClipboard();
         try

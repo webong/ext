@@ -103,7 +103,10 @@ func ValidateSnapshot(snapshot Snapshot, maxBytes int64, formats []string) error
 }
 
 func ValidateItems(items []Item, maxBytes int64, formats []string) error {
-	if maxBytes <= 0 || maxBytes > MaxPolicyBytes || len(items) > MaxItems {
+	if maxBytes <= 0 || maxBytes > MaxPolicyBytes {
+		return fmt.Errorf("%w: byte ceiling", ErrInvalid)
+	}
+	if len(items) > MaxItems {
 		return ErrLimit
 	}
 	allowed := make(map[string]bool, len(formats))
@@ -128,6 +131,22 @@ func ValidateItems(items []Item, maxBytes int64, formats []string) error {
 		}
 	}
 	return nil
+}
+
+// Code is the stable error code of err for another language to match: invalid, denied, too_large
+// or changed. It is empty for an error this package does not define.
+func Code(err error) string {
+	switch {
+	case errors.Is(err, ErrInvalid):
+		return "invalid"
+	case errors.Is(err, ErrDenied):
+		return "denied"
+	case errors.Is(err, ErrLimit):
+		return "too_large"
+	case errors.Is(err, ErrChanged):
+		return "changed"
+	}
+	return ""
 }
 
 // Generation returns mutation metadata without reading clipboard contents. It

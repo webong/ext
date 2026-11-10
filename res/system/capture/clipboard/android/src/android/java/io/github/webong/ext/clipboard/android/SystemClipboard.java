@@ -62,7 +62,7 @@ public final class SystemClipboard implements AutoCloseable {
         ClipData clip = manager.getPrimaryClip();
         List<ClipboardItem> items = new ArrayList<>();
         if (clip != null) {
-            if (clip.getItemCount() > ClipboardPolicy.MAX_ITEMS) throw failure("limit", "clipboard item limit exceeded");
+            if (clip.getItemCount() > ClipboardPolicy.MAX_ITEMS) throw failure("too_large", "clipboard item limit exceeded");
             rejectUnsupportedDescription(clip.getDescription());
             for (int i = 0; i < clip.getItemCount(); i++) items.add(readItem(clip.getItemAt(i)));
         }

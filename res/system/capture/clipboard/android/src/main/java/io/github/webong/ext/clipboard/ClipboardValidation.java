@@ -9,8 +9,11 @@ public final class ClipboardValidation {
 
     public static void validateItems(List<ClipboardItem> items, int maxBytes, List<String> formats)
             throws ClipboardException {
-        if (maxBytes <= 0 || maxBytes > ClipboardPolicy.MAX_BYTES || items.size() > ClipboardPolicy.MAX_ITEMS) {
-            throw new ClipboardException("limit", "clipboard limit exceeded");
+        if (maxBytes <= 0 || maxBytes > ClipboardPolicy.MAX_BYTES) {
+            throw new ClipboardException("invalid", "invalid clipboard byte ceiling");
+        }
+        if (items.size() > ClipboardPolicy.MAX_ITEMS) {
+            throw new ClipboardException("too_large", "clipboard item limit exceeded");
         }
         Set<String> allowed = new HashSet<>(formats);
         long bytes = 0;
@@ -24,7 +27,7 @@ public final class ClipboardValidation {
                     throw new ClipboardException("denied", "clipboard format is not allowed or is repeated");
                 }
                 bytes += representation.data.length;
-                if (bytes > maxBytes) throw new ClipboardException("limit", "clipboard byte limit exceeded");
+                if (bytes > maxBytes) throw new ClipboardException("too_large", "clipboard byte limit exceeded");
             }
         }
     }

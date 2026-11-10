@@ -11,6 +11,7 @@
     <PackageTags>ext;windows;clipboard</PackageTags>
   </PropertyGroup>
   <ItemGroup>
+    <InternalsVisibleTo Include="Ext.Clipboard.Windows.Tests" />
     <Compile Remove="Tests/**/*.cs" />
   </ItemGroup>
 </Project>

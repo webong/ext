@@ -15,6 +15,7 @@ on:
       - 'pkg/ext-lua/**'
       - 'scripts/ext-lua-host.sh'
       - 'pkg/ext-php/**'
+      - 'pkg/ext-dotnet/**'
       - 'pkg/ext-go/engine/**'
       - 'pkg/ext-go/cgoengine/cshared/**'
       - 'tests/crosslang/**'
@@ -62,6 +63,9 @@ jobs:
           php-version: ${{ matrix.php }}
           extensions: ffi, json
           coverage: none
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '8.0.x'
       - name: Host cases
         env:
           PYTHON: python
@@ -92,6 +96,9 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: '3.13'
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '8.0.x'
       - uses: msys2/setup-msys2@v2
         if: matrix.toolchain == 'mingw'
         with:

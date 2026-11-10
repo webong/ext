@@ -35,11 +35,6 @@ jobs:
       - name: Validate composer.json
         working-directory: pkg/ext-php
         run: composer validate --strict
-      - name: Probe
-        if: runner.os == 'Windows'
-        continue-on-error: true
-        working-directory: pkg/ext-php
-        run: php tests/windows_probe.php
       - name: Unit tests and the shared fixtures
         timeout-minutes: 8
         continue-on-error: ${{ runner.os == 'Windows' }}

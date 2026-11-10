@@ -25,7 +25,7 @@ func TestPHPFramesGuest(t *testing.T) {
 	runFrames(t, func(context.Context) (plugin.Backend, error) { return process(path) }, path, plugintest.FramesOptions{Concurrent: false})
 }
 
-// phpFramesLauncher writes a script that starts the frames guest with the php on PATH,
+// phpFramesLauncher writes a script (a batch file on Windows) that starts the frames guest with the php on PATH,
 // named by absolute path, since the engine starts a guest with an empty environment.
 func phpFramesLauncher(t *testing.T) string {
 	t.Helper()
@@ -33,7 +33,7 @@ func phpFramesLauncher(t *testing.T) string {
 	if err == nil {
 		php, err = filepath.Abs(php)
 	}
-	if err != nil || runtime.GOOS == "windows" {
+	if err != nil {
 		if phpFramesRequired() {
 			t.Fatal("EXT_FRAMES_REQUIRED lists PHP, but no php launcher is available")
 		}
@@ -45,6 +45,11 @@ func phpFramesLauncher(t *testing.T) string {
 	}
 	launcher := filepath.Join(t.TempDir(), "ext-php-frames-guest")
 	script := "#!/bin/sh\nexec '" + php + "' '" + guest + "'\n"
+	if runtime.GOOS == "windows" {
+		// Windows runs a batch file where it would run a script; the paths hold no quote or percent sign.
+		launcher += ".cmd"
+		script = "@echo off\r\n\"" + php + "\" \"" + guest + "\"\r\n"
+	}
 	if err := os.WriteFile(launcher, []byte(script), 0o755); err != nil {
 		t.Fatal(err)
 	}

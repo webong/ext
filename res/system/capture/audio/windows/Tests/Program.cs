@@ -86,7 +86,9 @@ try
 }
 catch (COMException e)
 {
-    // No audio service (Audiosrv) or no MMDevice API in this session.
+    // No audio service (Audiosrv) or no MMDevice API in this session. The library has no capability
+    // report or error code of its own, so this is NAudio's COMException (docs/adr-architecture.md,
+    // rules 2 and 3).
     noAudio = $"no audio endpoints can be listed (0x{e.HResult:x8} {e.Message.Trim()})";
 }
 

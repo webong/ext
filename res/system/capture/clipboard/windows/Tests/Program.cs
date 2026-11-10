@@ -119,6 +119,8 @@ string? unavailable = null;
 try
 {
     // A refused read still opens the clipboard; only a clipboard that cannot be opened is missing.
+    // The library has no capability report and calls this Denied, like a refused permission, so
+    // only its text tells them apart (docs/adr-architecture.md, rules 2 and 3).
     SystemClipboard.Read(new ClipboardPolicy(new[] { Binary + ".Probe" }, AllowRead: true));
 }
 catch (ClipboardException e) when (e.Message.Contains("held by another process", StringComparison.Ordinal))

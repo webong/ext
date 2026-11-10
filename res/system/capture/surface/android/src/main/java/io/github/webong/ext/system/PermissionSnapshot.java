@@ -8,7 +8,7 @@ public final class PermissionSnapshot {
 
     public PermissionSnapshot(String platform, String observedAt, PermissionInfo accessibility,
             PermissionInfo screenRecording) {
-        if (platform == null || platform.isEmpty() || observedAt == null || observedAt.isEmpty()
+        if (platform == null || platform.isEmpty() || !SurfaceWire.timestamp(observedAt)
                 || accessibility == null || screenRecording == null) {
             throw new IllegalArgumentException("permission snapshot fields are required");
         }

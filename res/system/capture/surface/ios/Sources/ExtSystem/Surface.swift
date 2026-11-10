@@ -58,20 +58,39 @@ public struct WindowInfo: Codable, Equatable, Sendable {
     }
 }
 
+/// A state (complete, partial, permission-denied, unsupported or unavailable) and, where something
+/// is missing, why: unsupported, permission, no_device or tool_missing (`testdata/capability/v1`).
 public struct SurfaceCollectionStatus: Codable, Equatable, Sendable {
     public let state: String
+    public let reason: String?
     public let detail: String?
     public let observedAt: String?
 
-    public init(state: String, detail: String? = nil, observedAt: String? = nil) {
+    public init(state: String, reason: String? = nil, detail: String? = nil, observedAt: String? = nil) {
         self.state = state
+        self.reason = reason
         self.detail = detail
         self.observedAt = observedAt
     }
 
     enum CodingKeys: String, CodingKey {
-        case state, detail
+        case state, reason, detail
         case observedAt = "observed_at"
+    }
+
+    /// Checks that the state is known and the reason fits it: none for complete and partial,
+    /// permission or none for permission-denied, unsupported or tool_missing for unsupported, and
+    /// none, permission, no_device or tool_missing for unavailable (a failed native read has none).
+    public func validate() throws {
+        let allowed: [String?]
+        switch state {
+        case "complete", "partial": allowed = [nil]
+        case "permission-denied": allowed = [nil, "permission"]
+        case "unsupported": allowed = ["unsupported", "tool_missing"]
+        case "unavailable": allowed = [nil, "permission", "no_device", "tool_missing"]
+        default: throw SurfaceObservationError.invalidValue
+        }
+        guard allowed.contains(where: { $0 == reason }) else { throw SurfaceObservationError.invalidValue }
     }
 }
 
@@ -121,6 +140,58 @@ public struct SurfaceOptions: Equatable, Sendable {
 public enum SurfaceObservationError: Error, Equatable {
     case invalidLimit
     case nativeFailure
+    case invalidValue
+
+    /// The stable error code of `res/system/testdata/codes.json`.
+    public var code: String {
+        switch self {
+        case .invalidLimit, .invalidValue: return "invalid"
+        case .nativeFailure: return "io"
+        }
+    }
+}
+
+/// The wire rules the surface models share (`testdata/surface/v1`).
+enum SurfaceWire {
+    static func timestamp(_ value: String) -> Bool {
+        value.range(of: #"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$"#, options: .regularExpression) != nil
+    }
+
+    static func bounds(_ value: SurfaceBounds) throws {
+        guard value.width > 0, value.height > 0 else { throw SurfaceObservationError.invalidValue }
+    }
+}
+
+extension DisplayInfo {
+    /// Reads a display in its wire form: a missing `scale` is 0 (Go leaves it out when unknown).
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(id: try c.decode(String.self, forKey: .id), bounds: try c.decode(SurfaceBounds.self, forKey: .bounds),
+                  scale: try c.decodeIfPresent(Double.self, forKey: .scale) ?? 0, primary: try c.decode(Bool.self, forKey: .primary))
+    }
+}
+
+extension SurfaceSnapshot {
+    /// Checks a snapshot against the rules of `testdata/surface/v1`: the platform, coordinate space
+    /// and time are set; display and window ids are set and unique; bounds are positive; a scale is
+    /// not negative; at most one display is primary; a window has a process; each status fits the
+    /// capability rules.
+    public func validate() throws {
+        guard !platform.isEmpty, !coordinateSpace.isEmpty, SurfaceWire.timestamp(observedAt) else { throw SurfaceObservationError.invalidValue }
+        var ids = Set<String>()
+        for display in displays {
+            guard !display.id.isEmpty, ids.insert(display.id).inserted, display.scale >= 0, display.scale.isFinite else { throw SurfaceObservationError.invalidValue }
+            try SurfaceWire.bounds(display.bounds)
+        }
+        guard displays.filter(\.primary).count <= 1 else { throw SurfaceObservationError.invalidValue }
+        ids = []
+        for window in windows {
+            guard !window.id.isEmpty, ids.insert(window.id).inserted, window.pid >= 1 else { throw SurfaceObservationError.invalidValue }
+            try SurfaceWire.bounds(window.bounds)
+        }
+        try displayStatus.validate()
+        try windowStatus.validate()
+    }
 }
 
 /// A caller-owned observer for local display and window metadata. IDs are

@@ -11,7 +11,7 @@ func platformSurfaces(ctx context.Context, _, _ int) ([]DisplayInfo, proc.Collec
 	if err := ctx.Err(); err != nil {
 		return nil, proc.CollectionStatus{}, nil, proc.CollectionStatus{}, "", err
 	}
-	displays := surfaceStatus("unsupported", "native display enumeration needs the cgo build or the ExtSystem Apple binding")
-	windows := surfaceStatus("unsupported", "native window enumeration needs the cgo build or the ExtSystem Apple binding")
+	displays := surfaceUnsupported("native display enumeration needs the cgo build or the ExtSystem Apple binding")
+	windows := surfaceUnsupported("native window enumeration needs the cgo build or the ExtSystem Apple binding")
 	return []DisplayInfo{}, displays, []WindowInfo{}, windows, "desktop-global-points", nil
 }

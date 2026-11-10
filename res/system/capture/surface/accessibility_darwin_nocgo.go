@@ -11,7 +11,7 @@ func platformAccessibility(ctx context.Context, _ AccessibilityOptions) ([]Acces
 	if err := ctx.Err(); err != nil {
 		return nil, proc.CollectionStatus{}, err
 	}
-	return []AccessibilityElement{}, surfaceStatus("unsupported", "macOS Accessibility observation requires cgo or the ExtSystem Swift library"), nil
+	return []AccessibilityElement{}, surfaceUnsupported("macOS Accessibility observation requires cgo or the ExtSystem Swift library"), nil
 }
 
 func platformPermissions(ctx context.Context) (PermissionInfo, PermissionInfo, error) {

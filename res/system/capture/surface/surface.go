@@ -2,7 +2,7 @@ package surface
 
 import (
 	"context"
-	"errors"
+	"fmt"
 	"runtime"
 	"sort"
 	"strconv"
@@ -65,7 +65,7 @@ type SurfaceOptions struct {
 
 func surfaceOptions(options SurfaceOptions) (SurfaceOptions, error) {
 	if options.MaxDisplays < 0 || options.MaxWindows < 0 || options.Timeout < 0 {
-		return options, errors.New("surface limits and timeout must not be negative")
+		return options, fmt.Errorf("%w: surface limits and timeout must not be negative", ErrInvalid)
 	}
 	if options.MaxDisplays == 0 {
 		options.MaxDisplays = 64
@@ -77,7 +77,7 @@ func surfaceOptions(options SurfaceOptions) (SurfaceOptions, error) {
 		options.Timeout = 5 * time.Second
 	}
 	if options.MaxDisplays > 65536 || options.MaxWindows > 65536 {
-		return options, errors.New("surface limits must not exceed 65536")
+		return options, fmt.Errorf("%w: surface limits must not exceed 65536", ErrInvalid)
 	}
 	return options, nil
 }
@@ -128,6 +128,11 @@ func stampSurfaceStatus(status *proc.CollectionStatus, observed time.Time) {
 
 func surfaceStatus(state, detail string) proc.CollectionStatus {
 	return proc.CollectionStatus{State: state, Detail: detail}
+}
+
+// surfaceUnsupported reports a platform or build that cannot observe something at all.
+func surfaceUnsupported(detail string) proc.CollectionStatus {
+	return proc.CollectionStatus{State: "unsupported", Reason: "unsupported", Detail: detail}
 }
 
 func surfaceID(kind, native string) string {

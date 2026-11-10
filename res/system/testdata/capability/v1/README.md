@@ -18,4 +18,7 @@ cause is known. `cases.json` lists each pair and whether it is valid. A package 
 own status type: network has Go `CollectionStatus.Validate`, Swift `NetworkCollectionStatus.validate`
 and the Java `NetworkCollectionStatus` constructor; host and surface share Go's
 `process.CollectionStatus.Validate` and have Swift `ResourceCollectionStatus.validate` and the Java
-`ResourceCollectionStatus` constructor (host).
+`ResourceCollectionStatus` constructor (host), and Swift `SurfaceCollectionStatus.validate` with the
+Java `SurfaceCollectionStatus` constructor (surface). A permission state has its own list in
+`surface/v1`: `ready`, `denied`, `not-determined` and `not-required` take no reason, and
+`unsupported` and `unavailable` follow the table above.

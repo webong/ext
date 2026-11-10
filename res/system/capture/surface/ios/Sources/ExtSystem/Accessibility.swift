@@ -70,6 +70,49 @@ public struct AccessibilityOptions: Equatable, Sendable {
 
 public enum AccessibilityObservationError: Error, Equatable {
     case invalidLimit
+
+    /// The stable error code of `res/system/testdata/codes.json`.
+    public var code: String { "invalid" }
+}
+
+extension AccessibilityElement {
+    /// Reads an element in its wire form: missing `actions` is empty (Go leaves it out when empty).
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(id: try c.decode(String.self, forKey: .id), parentID: try c.decodeIfPresent(String.self, forKey: .parentID),
+                  pid: try c.decode(Int.self, forKey: .pid), processStartID: try c.decode(String.self, forKey: .processStartID),
+                  role: try c.decode(String.self, forKey: .role), identifier: try c.decodeIfPresent(String.self, forKey: .identifier),
+                  label: try c.decodeIfPresent(String.self, forKey: .label), value: try c.decodeIfPresent(String.self, forKey: .value),
+                  bounds: try c.decodeIfPresent(SurfaceBounds.self, forKey: .bounds), actions: try c.decodeIfPresent([String].self, forKey: .actions) ?? [],
+                  enabled: try c.decodeIfPresent(Bool.self, forKey: .enabled), focused: try c.decodeIfPresent(Bool.self, forKey: .focused))
+    }
+}
+
+extension AccessibilitySnapshot {
+    /// Checks a snapshot against the rules of `testdata/surface/v1`: the platform and time are set,
+    /// the status fits the capability rules, element ids are set and unique, a parent is another
+    /// element of the snapshot without a cycle, a process is named, a role is set, bounds are
+    /// positive and action names are not empty.
+    public func validate() throws {
+        guard !platform.isEmpty, SurfaceWire.timestamp(observedAt) else { throw SurfaceObservationError.invalidValue }
+        try status.validate()
+        var parents: [String: String?] = [:]
+        for element in elements {
+            guard !element.id.isEmpty, parents[element.id] == nil, element.pid >= 1, !element.role.isEmpty,
+                  !element.actions.contains(where: \.isEmpty) else { throw SurfaceObservationError.invalidValue }
+            if let bounds = element.bounds { try SurfaceWire.bounds(bounds) }
+            parents[element.id] = (element.parentID?.isEmpty ?? true) ? nil : element.parentID
+        }
+        for (id, first) in parents {
+            var parent = first
+            var steps = 0
+            while let current = parent {
+                guard let next = parents[current], current != id, steps <= parents.count else { throw SurfaceObservationError.invalidValue }
+                parent = next
+                steps += 1
+            }
+        }
+    }
 }
 
 /// Read-only observation of the focused native UI tree on macOS and the

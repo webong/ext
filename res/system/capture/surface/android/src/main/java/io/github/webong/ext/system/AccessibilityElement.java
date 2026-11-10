@@ -22,9 +22,12 @@ public final class AccessibilityElement {
     public AccessibilityElement(String id, String parentId, int pid, String processStartId,
             String role, String identifier, String label, String value, SurfaceBounds bounds,
             List<String> actions, Boolean enabled, Boolean focused) {
-        if (id == null || id.isEmpty() || pid <= 0 || processStartId == null || processStartId.isEmpty()
+        if (id == null || id.isEmpty() || pid <= 0 || processStartId == null
                 || role == null || role.isEmpty()) {
-            throw new IllegalArgumentException("accessibility identity, process generation, and role are required");
+            throw new IllegalArgumentException("accessibility identity, process and role are required (the process generation may be empty)");
+        }
+        for (String action : actions) {
+            if (action == null || action.isEmpty()) throw new IllegalArgumentException("an action name must not be empty");
         }
         this.id = id; this.parentId = parentId; this.pid = pid; this.processStartId = processStartId;
         this.role = role; this.identifier = identifier; this.label = label; this.value = value;

@@ -10,6 +10,7 @@ public final class DisplayInfo {
 
     public DisplayInfo(String id, SurfaceBounds bounds, double scale, boolean primary) {
         if (id == null || id.isEmpty() || bounds == null) throw new IllegalArgumentException("display identity and bounds are required");
+        if (!(scale >= 0) || Double.isInfinite(scale)) throw new IllegalArgumentException("display scale must not be negative");
         this.id = id;
         this.bounds = bounds;
         this.scale = scale;

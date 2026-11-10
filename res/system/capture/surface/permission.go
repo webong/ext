@@ -10,7 +10,10 @@ import (
 // for access. State is ready, denied, not-determined, not-required,
 // unsupported, or unavailable. Scope names the OS permission when one exists.
 type PermissionInfo struct {
-	State  string `json:"state"`
+	State string `json:"state"`
+	// Reason says why something is unsupported or unavailable, from the set every package
+	// shares (testdata/capability/v1): unsupported, permission, no_device or tool_missing.
+	Reason string `json:"reason,omitempty"`
 	Scope  string `json:"scope,omitempty"`
 	Detail string `json:"detail,omitempty"`
 }

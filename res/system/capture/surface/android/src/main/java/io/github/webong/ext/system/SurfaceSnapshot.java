@@ -16,8 +16,19 @@ public final class SurfaceSnapshot {
             List<DisplayInfo> displays, List<WindowInfo> windows,
             SurfaceCollectionStatus displayStatus, SurfaceCollectionStatus windowStatus) {
         if (platform == null || platform.isEmpty() || coordinateSpace == null || coordinateSpace.isEmpty()
-                || observedAt == null || displays == null || windows == null || displayStatus == null || windowStatus == null) {
+                || !SurfaceWire.timestamp(observedAt) || displays == null || windows == null || displayStatus == null || windowStatus == null) {
             throw new IllegalArgumentException("surface snapshot is incomplete");
+        }
+        java.util.Set<String> ids = new java.util.HashSet<>();
+        int primary = 0;
+        for (DisplayInfo display : displays) {
+            if (!ids.add(display.id())) throw new IllegalArgumentException("display ids must be unique");
+            if (display.primary()) primary++;
+        }
+        if (primary > 1) throw new IllegalArgumentException("at most one display is primary");
+        ids.clear();
+        for (WindowInfo window : windows) {
+            if (!ids.add(window.id())) throw new IllegalArgumentException("window ids must be unique");
         }
         this.platform = platform;
         this.coordinateSpace = coordinateSpace;

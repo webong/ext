@@ -1,6 +1,6 @@
 # ext for Rust (`ext-io`): plugin SDK
 
-> **Why `ext-io`:** the bare name `ext` is taken on crates.io, PyPI and npm, so `ext-io` is the one package for all of ext's APIs, one namespace per area. Only `plugin` is built so far; `system`, `web` and `int` are planned.
+> **Why `ext-io`:** the bare name `ext` is taken on crates.io, PyPI and npm, so `ext-io` is the one package for all of ext's APIs, one namespace per area. Only `plugin` is built; `system`, `web` and `int` are reserved names, added when someone needs them.
 
 `ext_io::plugin` is the Rust host/guest implementation of `ext.plugin/v1`. It is behind the `plugin`
 Cargo feature, which is on by default. The crate has not been published to crates.io yet: use a path

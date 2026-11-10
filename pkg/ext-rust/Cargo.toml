@@ -13,8 +13,8 @@ categories = ["development-tools"]
 
 [features]
 default = ["plugin"]
-# `ext_io::plugin`: the ext.plugin/v1 host and guest SDK. The other areas (system, web, int) will get
-# features of their own, so a plugin-only build compiles none of their code or dependencies.
+# `ext_io::plugin`: the ext.plugin/v1 host and guest SDK. An area added later (the names
+# system, web and int are reserved) gets a feature of its own, so a plugin-only build compiles none of it.
 plugin = ["dep:serde", "dep:serde_json", "dep:time", "dep:libloading"]
 
 [dependencies]

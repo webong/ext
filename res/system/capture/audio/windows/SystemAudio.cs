@@ -106,6 +106,10 @@ public sealed class SystemAudioPlayback : IDisposable
     public const int SampleRate = 48_000;
     public const int Channels = 2;
     public const int BitsPerSample = 16;
+    /// <summary>One frame: two channels of 16-bit samples.</summary>
+    public const int BytesPerFrame = Channels * BitsPerSample / 8;
+    /// <summary>The largest packet Write takes: twenty milliseconds.</summary>
+    public const int MaxPacketBytes = 3_840;
 
     private readonly MMDevice device;
     private readonly WasapiOut output;
@@ -141,11 +145,26 @@ public sealed class SystemAudioPlayback : IDisposable
         }
     }
 
+    /// <summary>
+    /// The packet rule of testdata/audio/v1: a packet is at least one frame and whole frames ("invalid"),
+    /// and at most maxBytes ("too_large"); the frames are judged first. Null when it is accepted.
+    /// </summary>
+    internal static string? PacketCode(int length, int maxBytes)
+    {
+        if (length <= 0 || length % BytesPerFrame != 0) return "invalid";
+        return length > maxBytes ? "too_large" : null;
+    }
+
     public void Write(ReadOnlySpan<byte> bytes)
     {
         ObjectDisposedException.ThrowIf(disposed, this);
-        if (bytes.IsEmpty || bytes.Length % buffer.WaveFormat.BlockAlign != 0)
-            throw new ArgumentException("Playback needs complete PCM frames", nameof(bytes));
+        switch (PacketCode(bytes.Length, MaxPacketBytes))
+        {
+            case "invalid":
+                throw new ArgumentException("Playback needs complete PCM frames", nameof(bytes));
+            case "too_large":
+                throw new ArgumentException($"Playback packets are at most {MaxPacketBytes} bytes", nameof(bytes));
+        }
         if (bytes.Length > buffer.BufferLength - buffer.BufferedBytes)
             throw new IOException("Playback buffer is full");
         var copy = bytes.ToArray();

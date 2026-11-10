@@ -145,8 +145,13 @@ else
         Throws<ArgumentException>(() => output.Write(new byte[3]), "a partial frame");
         Throws<ArgumentException>(() => output.Write(new byte[6]), "a frame and a half");
         output.Write(new byte[4 * 480]); // 10 ms of silence
-        // The buffer holds 250 ms (48 000 bytes): more than that at once is refused, not queued.
-        Throws<IOException>(() => output.Write(new byte[48_000 + 4]), "more than the buffer");
+        // A packet is at most 20 ms (3 840 bytes): larger is refused as too large.
+        Throws<ArgumentException>(() => output.Write(new byte[SystemAudioPlayback.MaxPacketBytes + SystemAudioPlayback.BytesPerFrame]), "more than a packet");
+        // The buffer holds 250 ms (48 000 bytes): what does not fit is refused, not queued.
+        Throws<IOException>(() =>
+        {
+            for (var i = 0; i < 20; i++) output.Write(new byte[SystemAudioPlayback.MaxPacketBytes]);
+        }, "more than the buffer");
         output.Dispose();
         output.Dispose();
         Throws<ObjectDisposedException>(() => output.Write(new byte[4]), "a write after dispose");

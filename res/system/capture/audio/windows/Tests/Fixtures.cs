@@ -1,6 +1,7 @@
 // The shared audio fixtures (res/system/testdata/audio/v1): the playback section, the packet rule the
 // Go, Swift and Java playback sinks share, through SystemAudioPlayback.CheckPacket (what Write runs),
-// each case's code against AudioPacketException.Code. The other sections are Go's (the README of
+// each case's code against AudioPacketException.Code, and capability/v1 through the AudioStatus
+// constructor, the capability report. The other sections are Go's (the README of
 // audio/v1). The testdata is EXT_SYSTEM_TESTDATA when set, else the res/system/testdata found by
 // walking up.
 using System.Text.Json.Nodes;
@@ -24,11 +25,39 @@ static class Fixtures
     static JsonNode Load(string dir, params string[] path) =>
         JsonNode.Parse(File.ReadAllText(Path.Combine(new[] { dir }.Concat(path).ToArray())))!;
 
+    public static HashSet<string> Codes() =>
+        Load(Dir(), "codes.json")["codes"]!.AsArray().Select(c => (string)c!).ToHashSet(StringComparer.Ordinal);
+
+    /// <summary>
+    /// Adds one test per capability/v1 case, named fixture capability/&lt;state&gt;+&lt;reason&gt;: a
+    /// valid pair makes an AudioStatus, an invalid one is refused with the case's code.
+    /// </summary>
+    public static void Capability(Action<string, Action> test)
+    {
+        var dir = Dir();
+        var codes = Codes();
+        var cases = Load(dir, "capability", "v1", "cases.json");
+        if ((int)cases["version"]! != 1) throw new Exception("capability/v1/cases.json is not version 1");
+        var all = cases["cases"]!.AsArray();
+        if (all.Count == 0) throw new Exception("capability/v1 has no cases");
+        foreach (var c in all)
+        {
+            var state = (string)c!["state"]!;
+            var reason = c["reason"]?.GetValue<string>();
+            test($"fixture capability/{state}+{reason ?? "none"}", () =>
+                Expect(codes, c, () =>
+                {
+                    var status = new AudioStatus(state, reason);
+                    if (status.State != state || status.Reason != reason) throw new Exception($"status {status}");
+                }));
+        }
+    }
+
     /// <summary>Adds one test per playback case, named fixture playback/&lt;name&gt;.</summary>
     public static void Playback(Action<string, Action> test)
     {
         var dir = Dir();
-        var codes = Load(dir, "codes.json")["codes"]!.AsArray().Select(c => (string)c!).ToHashSet(StringComparer.Ordinal);
+        var codes = Codes();
         var cases = Load(dir, "audio", "v1", "cases.json");
         if ((int)cases["version"]! != 1) throw new Exception("audio/v1/cases.json is not version 1");
         var defaults = cases["defaults"]!;
@@ -52,7 +81,7 @@ static class Fixtures
         {
             run();
         }
-        catch (AudioPacketException e)
+        catch (AudioArgumentException e)
         {
             if (want is null) throw new Exception($"rejected as {e.Code} ({e.Message}), want accepted");
             if (e.Code != want) throw new Exception($"code {e.Code} ({e.Message}), want {want}");

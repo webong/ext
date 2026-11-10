@@ -1,6 +1,7 @@
 // The shared clipboard fixtures (res/system/testdata/clipboard/v1), which the Go, Swift and Java
 // bindings run as well: the policy section through ClipboardPolicy.Validate and the items section
 // through ClipboardValidation.ValidateItems, each case's code against ClipboardException.Code.
+// capability/v1 runs through the ClipboardStatus constructor, the clipboard's capability report.
 // The testdata is EXT_SYSTEM_TESTDATA when set, else the res/system/testdata found by walking up.
 using System.Text;
 using System.Text.Json.Nodes;
@@ -24,11 +25,39 @@ static class Fixtures
     static JsonNode Load(string dir, params string[] path) =>
         JsonNode.Parse(File.ReadAllText(Path.Combine(new[] { dir }.Concat(path).ToArray())))!;
 
+    public static HashSet<string> Codes() =>
+        Load(Dir(), "codes.json")["codes"]!.AsArray().Select(c => (string)c!).ToHashSet(StringComparer.Ordinal);
+
+    /// <summary>
+    /// Adds one test per capability/v1 case, named fixture capability/&lt;state&gt;+&lt;reason&gt;: a
+    /// valid pair makes a ClipboardStatus, an invalid one is refused with the case's code.
+    /// </summary>
+    public static void Capability(Action<string, Action> test)
+    {
+        var dir = Dir();
+        var codes = Codes();
+        var cases = Load(dir, "capability", "v1", "cases.json");
+        if ((int)cases["version"]! != 1) throw new Exception("capability/v1/cases.json is not version 1");
+        var all = cases["cases"]!.AsArray();
+        if (all.Count == 0) throw new Exception("capability/v1 has no cases");
+        foreach (var c in all)
+        {
+            var state = (string)c!["state"]!;
+            var reason = c["reason"]?.GetValue<string>();
+            test($"fixture capability/{state}+{reason ?? "none"}", () =>
+                Expect(codes, c, () =>
+                {
+                    var status = new ClipboardStatus(state, reason);
+                    if (status.State != state || status.Reason != reason) throw new Exception($"status {status}");
+                }));
+        }
+    }
+
     /// <summary>Adds one test per case, named policy/&lt;name&gt; and items/&lt;name&gt;.</summary>
     public static void Clipboard(Action<string, Action> test)
     {
         var dir = Dir();
-        var codes = Load(dir, "codes.json")["codes"]!.AsArray().Select(c => (string)c!).ToHashSet(StringComparer.Ordinal);
+        var codes = Codes();
         var cases = Load(dir, "clipboard", "v1", "cases.json");
         if ((int)cases["version"]! != 1) throw new Exception("clipboard/v1/cases.json is not version 1");
         var limits = cases["limits"]!;

@@ -15,8 +15,9 @@
 #   EXT_RUBY                  the Ruby to run the Ruby host with (default: ruby)
 #   EXT_PHP                   the PHP to run the PHP host with (default: php); it needs the FFI extension
 #   EXT_DOTNET                the dotnet to run the .NET host with (default: dotnet)
-#   EXT_LUA                   the Lua to run the Lua host with (default: lua); LUA_INCDIR as for
-#                             scripts/ext-lua-host.sh
+#   EXT_LUA                   the Lua to run the Lua host with (default: lua); LUA_INCDIR, LUA_LIB
+#                             as for scripts/ext-lua-host.sh, and EXT_LUA_CC its compiler (CC
+#                             there: cl for a Lua built by MSVC)
 #   EXT_ENGINE_CC             the C compiler CMake builds the engine with (default: CMake's own
 #                             choice); Go's cgo does not read it, so cl can build the engine while
 #                             gcc builds the Go-built C ABI guest
@@ -59,7 +60,11 @@ stage_runtime() {
   local dir dependency
   dir="$(dirname "$1")"
   { ldd "$1" || true; } | awk '$3 ~ /^\/(mingw|ucrt|clang)[a-z0-9]*\/bin\// { print $3 }' |
-    while read -r dependency; do [[ -e "$dir/${dependency##*/}" ]] || cp "$dependency" "$dir/"; done
+    while read -r dependency; do
+      # An ldd of another MSYS2 on the path (RubyInstaller's devkit) names files this shell cannot see.
+      [[ -e "$dependency" && ! -e "$dir/${dependency##*/}" ]] || continue
+      cp "$dependency" "$dir/"
+    done
 }
 
 # ${array[@]+...} so an empty array is not an unbound variable in the bash 3.2 macOS ships.
@@ -90,18 +95,16 @@ echo "== the Go host (the oracle)"
 go test -count=1 -run 'TestHostCases$' ./tests/crosslang
 echo "== the Python host ($("$python" --version 2>&1))"
 "$python" -I -m unittest discover -s pkg/ext-python/tests -p 'test_host.py' -v
+echo "== the Ruby host ($("${EXT_RUBY:-ruby}" -v))"
+EXT_RUBY="${EXT_RUBY:-ruby}" scripts/ext-ruby-host.sh "$build_dir/ruby"
+(cd pkg/ext-ruby && RUBYLIB="$build_dir/ruby" "${EXT_RUBY:-ruby}" -w test/test_host.rb)
+echo "== the Lua host ($("${EXT_LUA:-lua}" -v 2>&1 | head -1))"
+CC="${EXT_LUA_CC:-${CC:-}}" scripts/ext-lua-host.sh "$build_dir/lua"
+LUA_CPATH="$build_dir/lua/?.$([[ -n "$windows" ]] && echo dll || echo so)" "${EXT_LUA:-lua}" pkg/ext-lua/tests/run.lua test_host
 if [[ -n "$windows" ]]; then
-  # The Ruby and Lua hosts' native modules have not been built on Windows yet.
-  echo "== the Ruby and Lua hosts: skipped on Windows"
-  # So is the PHP host: the PHP SDK's tests are skipped on Windows (plugintest, #108).
+  # The PHP host: the PHP SDK's tests are skipped on Windows (plugintest, #108).
   echo "== the PHP host: skipped on Windows"
 else
-  echo "== the Ruby host ($("${EXT_RUBY:-ruby}" -v))"
-  EXT_RUBY="${EXT_RUBY:-ruby}" scripts/ext-ruby-host.sh "$build_dir/ruby"
-  (cd pkg/ext-ruby && RUBYLIB="$build_dir/ruby" "${EXT_RUBY:-ruby}" -w test/test_host.rb)
-  echo "== the Lua host ($("${EXT_LUA:-lua}" -v 2>&1 | head -1))"
-  scripts/ext-lua-host.sh "$build_dir/lua"
-  LUA_CPATH="$build_dir/lua/?.so" "${EXT_LUA:-lua}" pkg/ext-lua/tests/run.lua test_host
   echo "== the PHP host ($("${EXT_PHP:-php}" -r 'echo PHP_VERSION;'))"
   (cd pkg/ext-php && "${EXT_PHP:-php}" tests/run.php HostTest)
 fi

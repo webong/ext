@@ -139,6 +139,11 @@ Defaults and limits:
 - Calls are serialized. Dispatch cancellation or `Close` closes both protocol
   pipes and terminates WASM execution, including compute loops. There is no
   retry or continuation of that session. `Wait(ctx)` observes actual exit/traps.
+- Runtimes are built without DWARF (`WithDebugInfoEnabled(false)`). Terminating a running
+  guest unwinds it, and wazero would look up a source line in the module's debug information
+  for every frame, reading the entries from the start each time; a Zig command built with debug
+  information then kept `Close` busy for seconds on a loaded CI runner. A trap still lists the
+  functions it passed through, but not their source lines.
 
 The implementation pins wazero v1.10.1 to retain its
 [Go 1.23 minimum](https://github.com/tetratelabs/wazero/blob/v1.10.1/go.mod).

@@ -30,6 +30,7 @@ java -ea -cp "$build/portable" io.github.webong.ext.system.keyboard.KeyboardTest
 java -ea -cp "$build/portable" io.github.webong.ext.system.keyboard.KeyboardFixtureTests
 java -ea -cp "$build/portable" io.github.webong.ext.clipboard.ClipboardTests
 java -ea -cp "$build/portable" io.github.webong.ext.network.NetworkTests
+java -ea -cp "$build/portable" io.github.webong.ext.network.NetworkFixtureTests
 javac -Xlint:all -Werror -classpath "$platform:$build/portable" -d "$build/android" \
   res/system/capture/surface/android/src/android/java/io/github/webong/ext/system/android/*.java \
   res/system/service/host/android/src/android/java/io/github/webong/ext/system/android/*.java \

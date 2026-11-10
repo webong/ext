@@ -13,7 +13,6 @@ import io.github.webong.ext.network.NetworkOptions;
 import io.github.webong.ext.network.NetworkResolver;
 import io.github.webong.ext.network.NetworkRoute;
 import io.github.webong.ext.network.NetworkSnapshot;
-import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.net.InterfaceAddress;
 import java.net.NetworkInterface;
@@ -51,8 +50,9 @@ public final class SystemNetworkObserver {
                     if (addresses.size() >= options.maxAddresses()) { interfacePartial = true; break; }
                     InetAddress address = assigned.getAddress();
                     int prefixLength = Math.max(0, assigned.getNetworkPrefixLength());
-                    addresses.add(new NetworkAddress(cleanAddress(address), prefixLength,
-                            address instanceof Inet4Address ? "ipv4" : "ipv6", scope(address)));
+                    try {
+                        addresses.add(NetworkAddress.of(cleanAddress(address), prefixLength));
+                    } catch (IllegalArgumentException invalid) { interfacePartial = true; }
                 }
                 addresses.sort(Comparator.comparing(NetworkAddress::ip));
                 interfaces.add(new NetworkInterfaceInfo(value.getIndex(), value.getName(), value.getMTU(),
@@ -72,7 +72,7 @@ public final class SystemNetworkObserver {
             for (Network network : manager.getAllNetworks()) {
                 LinkProperties links = manager.getLinkProperties(network);
                 if (links == null) continue;
-                for (InetAddress server : links.getDnsServers()) dns.add(cleanAddress(server));
+                for (InetAddress server : links.getDnsServers()) dns.add(canonical(server));
                 for (RouteInfo route : links.getRoutes()) {
                     if (routes.size() >= options.maxRoutes()) { routePartial = true; break; }
                     IpPrefix destination = route.getDestination();
@@ -85,31 +85,28 @@ public final class SystemNetworkObserver {
             routeStatus = new NetworkCollectionStatus(routePartial ? "partial" : "complete", routePartial ? "route limit reached" : null, now);
             resolverStatus = new NetworkCollectionStatus("complete", null, now);
         } catch (SecurityException exception) {
-            routeStatus = new NetworkCollectionStatus("permission-denied", "ACCESS_NETWORK_STATE is not granted", now);
-            resolverStatus = new NetworkCollectionStatus("permission-denied", "ACCESS_NETWORK_STATE is not granted", now);
+            routeStatus = new NetworkCollectionStatus("permission-denied", "permission", "ACCESS_NETWORK_STATE is not granted", now);
+            resolverStatus = new NetworkCollectionStatus("permission-denied", "permission", "ACCESS_NETWORK_STATE is not granted", now);
         } catch (RuntimeException exception) {
             routeStatus = new NetworkCollectionStatus("unavailable", "Android link properties are unavailable", now);
             resolverStatus = new NetworkCollectionStatus("unavailable", "Android resolver properties are unavailable", now);
         }
         return new NetworkSnapshot("android", now, interfaces, routes,
-                new NetworkResolver(new ArrayList<>(dns), Collections.emptyList(), Collections.emptyList()),
+                new NetworkResolver(NetworkResolver.clean(new ArrayList<>(dns)), Collections.emptyList(), Collections.emptyList()),
                 new NetworkCollectionStatus(interfacePartial ? "partial" : "complete",
                         interfacePartial ? "interface or address limit reached, or an interface could not be inspected" : null, now),
                 routeStatus, resolverStatus);
+    }
+
+    private static String canonical(InetAddress address) {
+        String value = cleanAddress(address);
+        try { return NetworkAddress.canonical(value); } catch (IllegalArgumentException invalid) { return value; }
     }
 
     private static String cleanAddress(InetAddress address) {
         String value = address.getHostAddress();
         int zone = value.indexOf('%');
         return zone < 0 ? value : value.substring(0, zone);
-    }
-    private static String scope(InetAddress value) {
-        if (value.isLoopbackAddress()) return "loopback";
-        if (value.isLinkLocalAddress()) return "link";
-        if (value.isSiteLocalAddress()) return "private";
-        if (value.isMulticastAddress()) return "multicast";
-        if (value.isAnyLocalAddress()) return "unspecified";
-        return "global";
     }
     private static String hardwareAddress(NetworkInterface value) {
         try {

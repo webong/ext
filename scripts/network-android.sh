@@ -4,6 +4,8 @@ cd "$(dirname "$0")/.."
 build="$(mktemp -d "${TMPDIR:-/tmp}/ext-network-android.XXXXXX")"
 trap 'rm -rf "$build"' EXIT
 javac -Xlint:all -Werror -d "$build" \
+  res/system/internal/fixtures/java/io/github/webong/ext/system/fixtures/*.java \
   res/system/service/network/android/src/main/java/io/github/webong/ext/network/*.java \
   res/system/service/network/android/src/test/java/io/github/webong/ext/network/*.java
 java -ea -cp "$build" io.github.webong.ext.network.NetworkTests
+java -ea -cp "$build" io.github.webong.ext.network.NetworkFixtureTests

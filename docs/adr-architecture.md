@@ -52,7 +52,10 @@ design obligation.
    supports and why something is missing. The reasons are fixed: unsupported on this platform,
    permission not granted, no device, or the native tool is not installed. A consumer asks once and
    never writes `if ios`. `res/system/capture/surface.DesktopDriver` is the model. A missing native
-   tool is reported by the adapter that owns the tool.
+   tool is reported by the adapter that owns the tool. A collection status keeps its state
+   (`complete`, `partial`, `permission-denied`, `unsupported`, `unavailable`) and adds a `reason`
+   where something is missing: `unsupported`, `permission`, `no_device` or `tool_missing`
+   (`res/system/testdata/capability`).
 3. **One vocabulary of error codes.** Errors that cross a language boundary carry a stable code. The
    codes start from the engine's statuses (`ext_status` in `lib/plugin/include/ext_host.h`) and
    remote error codes, in lowercase: `invalid`, `denied`, `unsupported`, `not_found`, `exists`,

@@ -15,8 +15,8 @@ public final class NetworkTests {
                 Collections.singletonList(item), Collections.emptyList(),
                 new NetworkResolver(Collections.emptyList(), Collections.emptyList(), Collections.emptyList()),
                 new NetworkCollectionStatus("complete", null, "2026-01-01T00:00:00Z"),
-                new NetworkCollectionStatus("unsupported", null, "2026-01-01T00:00:00Z"),
-                new NetworkCollectionStatus("unsupported", null, "2026-01-01T00:00:00Z"));
+                new NetworkCollectionStatus("unsupported", "unsupported", null, "2026-01-01T00:00:00Z"),
+                new NetworkCollectionStatus("unsupported", "unsupported", null, "2026-01-01T00:00:00Z"));
         assert snapshot.interfaces().size() == 1;
         assert snapshot.interfaces().get(0).addresses().get(0).scope().equals("loopback");
     }

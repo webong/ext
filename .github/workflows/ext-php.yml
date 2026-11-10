@@ -37,7 +37,6 @@ jobs:
         run: composer validate --strict
       - name: Unit tests and the shared fixtures
         timeout-minutes: 8
-        continue-on-error: ${{ runner.os == 'Windows' }}
         working-directory: pkg/ext-php
         env:
           EXT_PHP_TRACE: '1'
@@ -52,12 +51,10 @@ jobs:
       # The guest under the Go process host: the conformance cases and the frames suite.
       - name: Go conformance suite
         timeout-minutes: 8
-        continue-on-error: ${{ runner.os == 'Windows' }}
         working-directory: pkg/ext-go/engine
         run: go test -count=1 -v -run 'TestPHPGuest' ./plugintest
       - name: Go frames suite
         timeout-minutes: 8
-        continue-on-error: ${{ runner.os == 'Windows' }}
         working-directory: tests/crosslang
         env:
           EXT_FRAMES_REQUIRED: PHP

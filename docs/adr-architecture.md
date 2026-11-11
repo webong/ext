@@ -115,8 +115,8 @@ guarantees are narrower. A language moves up a tier when a consumer depends on i
 - Fixtures for `res/system` and tests for `Ext.Audio.Windows` and `Ext.Clipboard.Windows` are the
   first work under rules 1 and 4. Each later `res/` change brings its package in line with rules 2
   and 3.
-- The `res/graph` store contract and SQLite backend are the next graph work. `lib/ledger` waits for an
-  embedder.
+- The `res/graph` store contract (`res/graph/testdata/store/v1`) and the SQLite store
+  (`res/graph/store/sqlite`) are the first two steps above. `lib/ledger` waits for an embedder.
 - The Ruby and Lua hosts on Windows (#119), and the PHP SDK and host on Windows, which are in progress,
   go beyond what tier 3 requires. They are done because the gaps were small. They are not a precedent
   that tier 3 must run everywhere.

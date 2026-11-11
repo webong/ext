@@ -1,0 +1,415 @@
+{
+  "version": 1,
+  "about": "Operation cases of the res/graph store contract. Each case runs its steps in order against a new, empty store opened with the case's options; a durable case runs only on a durable store. See README.md for the step vocabulary.",
+  "cases": [
+    {
+      "name": "an upsert advances the revision and keeps created_at",
+      "steps": [
+        {"op": "register", "schema": {"namespace": "test.example", "version": "1"}},
+        {"op": "apply", "transaction": {"namespace": "test.example", "vertices": [{"id": "a", "kind": "test.example/node", "created_at": "2026-01-01T00:00:00Z", "attributes": {"n": 1}}]}, "expect": {"revision": 1, "cursor": 1, "replayed": false}},
+        {"op": "get_vertex", "namespace": "test.example", "id": "a", "expect": {"id": "a", "namespace": "test.example", "kind": "test.example/node", "revision": 1, "created_at": "2026-01-01T00:00:00Z", "attributes": {"n": 1}}},
+        {"op": "apply", "transaction": {"namespace": "test.example", "vertices": [{"id": "a", "kind": "test.example/node", "created_at": "2020-06-01T12:00:00Z", "attributes": {"n": 2}, "labels": {"tier": "gold"}}]}, "expect": {"revision": 2, "cursor": 2, "replayed": false}},
+        {"op": "get_vertex", "namespace": "test.example", "id": "a", "expect": {"revision": 2, "created_at": "2026-01-01T00:00:00Z", "attributes": {"n": 2}, "labels": {"tier": "gold"}}}
+      ]
+    },
+    {
+      "name": "an edge upsert keeps created_at and records provenance",
+      "steps": [
+        {"op": "register", "schema": {"namespace": "test.example", "version": "1"}},
+        {"op": "apply", "transaction": {"namespace": "test.example", "vertices": [{"id": "a", "kind": "test.example/node"}, {"id": "b", "kind": "test.example/node"}], "edges": [{"id": "ab", "from": "a", "to": "b", "type": "test.example/link", "created_at": "2026-01-01T00:00:00Z", "provenance": {"source": "fixture", "operation": "link-observed", "at": "2020-06-01T12:00:00Z"}}]}, "expect": {"revision": 1, "cursor": 1, "replayed": false}},
+        {"op": "get_edge", "namespace": "test.example", "id": "ab", "expect": {"id": "ab", "from": "a", "to": "b", "type": "test.example/link", "revision": 1, "created_at": "2026-01-01T00:00:00Z", "provenance": {"source": "fixture", "operation": "link-observed", "at": "2020-06-01T12:00:00Z"}}},
+        {"op": "apply", "transaction": {"namespace": "test.example", "edges": [{"id": "ab", "from": "a", "to": "b", "type": "test.example/link", "created_at": "2020-06-01T12:00:00Z"}]}, "expect": {"revision": 2, "cursor": 2, "replayed": false}},
+        {"op": "get_edge", "namespace": "test.example", "id": "ab", "expect": {"revision": 2, "created_at": "2026-01-01T00:00:00Z"}}
+      ]
+    },
+    {
+      "name": "a record that does not exist is not found",
+      "steps": [
+        {"op": "register", "schema": {"namespace": "test.example", "version": "1"}},
+        {"op": "get_vertex", "namespace": "test.example", "id": "missing", "error": "not_found"},
+        {"op": "get_edge", "namespace": "test.example", "id": "missing", "error": "not_found"},
+        {"op": "get_vertex", "namespace": "other.example", "id": "a", "error": "not_found"}
+      ]
+    },
+    {
+      "name": "a repeated ID in one transaction keeps the last record",
+      "steps": [
+        {"op": "register", "schema": {"namespace": "test.example", "version": "1"}},
+        {"op": "apply", "transaction": {"namespace": "test.example", "vertices": [{"id": "a", "kind": "test.example/node", "attributes": {"n": 1}}, {"id": "b", "kind": "test.example/node"}, {"id": "a", "kind": "test.example/node", "attributes": {"n": 2}}]}, "expect": {"revision": 1, "cursor": 1, "replayed": false}},
+        {"op": "get_vertex", "namespace": "test.example", "id": "a", "expect": {"attributes": {"n": 2}}},
+        {"op": "changes", "namespace": "test.example", "after": 0, "limit": 10, "expect": [{"cursor": 1, "namespace": "test.example", "revision": 1, "vertices": ["a", "b"]}]}
+      ]
+    },
+    {
+      "name": "apply needs a registered namespace",
+      "steps": [
+        {"op": "apply", "transaction": {"namespace": "test.example", "vertices": [{"id": "a", "kind": "test.example/node"}]}, "error": "not_found"},
+        {"op": "register", "schema": {"namespace": "test.example", "version": "1"}},
+        {"op": "apply", "transaction": {"namespace": "test.example", "vertices": [{"id": "a", "kind": "test.example/node"}]}, "expect": {"revision": 1, "cursor": 1, "replayed": false}}
+      ]
+    },
+    {
+      "name": "a transaction is atomic and an edge cannot dangle",
+      "steps": [
+        {"op": "register", "schema": {"namespace": "test.example", "version": "1"}},
+        {"op": "apply", "transaction": {"namespace": "test.example", "vertices": [{"id": "a", "kind": "test.example/node"}, {"id": "b", "kind": "test.example/node"}], "edges": [{"id": "ab", "from": "a", "to": "b", "type": "test.example/link"}]}, "expect": {"revision": 1, "cursor": 1, "replayed": false}},
+        {"op": "apply", "transaction": {"namespace": "test.example", "vertices": [{"id": "c", "kind": "test.example/node"}], "edges": [{"id": "bad", "from": "c", "to": "missing", "type": "test.example/link"}]}, "error": "not_found"},
+        {"op": "get_vertex", "namespace": "test.example", "id": "c", "error": "not_found"},
+        {"op": "snapshot", "namespace": "test.example", "expect": {"revision": 1, "cursor": 1, "vertices": ["a", "b"], "edges": ["ab"]}}
+      ]
+    },
+    {
+      "name": "deleting a vertex with incident edges needs delete_incident_edges",
+      "steps": [
+        {"op": "register", "schema": {"namespace": "test.example", "version": "1"}},
+        {"op": "apply", "transaction": {"namespace": "test.example", "vertices": [{"id": "a", "kind": "test.example/node"}, {"id": "b", "kind": "test.example/node"}, {"id": "c", "kind": "test.example/node"}], "edges": [{"id": "ab", "from": "a", "to": "b", "type": "test.example/link"}, {"id": "ca", "from": "c", "to": "a", "type": "test.example/link"}, {"id": "bc", "from": "b", "to": "c", "type": "test.example/link"}]}, "expect": {"revision": 1, "cursor": 1, "replayed": false}},
+        {"op": "apply", "transaction": {"namespace": "test.example", "delete_vertices": [{"id": "a"}]}, "error": "invalid"},
+        {"op": "apply", "transaction": {"namespace": "test.example", "delete_vertices": [{"id": "a"}], "delete_incident_edges": true}, "expect": {"revision": 2, "cursor": 2, "replayed": false}},
+        {"op": "get_edge", "namespace": "test.example", "id": "ab", "error": "not_found"},
+        {"op": "get_edge", "namespace": "test.example", "id": "ca", "error": "not_found"},
+        {"op": "changes", "namespace": "test.example", "after": 1, "limit": 10, "expect": [{"cursor": 2, "namespace": "test.example", "revision": 2, "deleted_vertices": ["a"], "deleted_edges": ["ab", "ca"]}]},
+        {"op": "snapshot", "namespace": "test.example", "expect": {"vertices": ["b", "c"], "edges": ["bc"]}}
+      ]
+    },
+    {
+      "name": "deleting the incident edges first lets the vertex go",
+      "steps": [
+        {"op": "register", "schema": {"namespace": "test.example", "version": "1"}},
+        {"op": "apply", "transaction": {"namespace": "test.example", "vertices": [{"id": "a", "kind": "test.example/node"}, {"id": "b", "kind": "test.example/node"}], "edges": [{"id": "ab", "from": "a", "to": "b", "type": "test.example/link"}]}, "expect": {"revision": 1, "cursor": 1, "replayed": false}},
+        {"op": "apply", "transaction": {"namespace": "test.example", "delete_edges": [{"id": "ab"}], "delete_vertices": [{"id": "a"}]}, "expect": {"revision": 2, "cursor": 2, "replayed": false}},
+        {"op": "snapshot", "namespace": "test.example", "expect": {"vertices": ["b"], "edges": []}}
+      ]
+    },
+    {
+      "name": "deleting a record that does not exist is not found",
+      "steps": [
+        {"op": "register", "schema": {"namespace": "test.example", "version": "1"}},
+        {"op": "apply", "transaction": {"namespace": "test.example", "vertices": [{"id": "a", "kind": "test.example/node"}]}, "expect": {"revision": 1, "cursor": 1, "replayed": false}},
+        {"op": "apply", "transaction": {"namespace": "test.example", "delete_edges": [{"id": "missing"}]}, "error": "not_found"},
+        {"op": "apply", "transaction": {"namespace": "test.example", "delete_vertices": [{"id": "missing"}]}, "error": "not_found"},
+        {"op": "apply", "transaction": {"namespace": "test.example", "delete_vertices": [{"id": "a"}, {"id": "a"}]}, "error": "not_found"},
+        {"op": "snapshot", "namespace": "test.example", "expect": {"revision": 1, "vertices": ["a"]}}
+      ]
+    },
+    {
+      "name": "records can be deleted and replaced in one transaction",
+      "steps": [
+        {"op": "register", "schema": {"namespace": "test.example", "version": "1"}},
+        {"op": "apply", "transaction": {"namespace": "test.example", "vertices": [{"id": "a", "kind": "test.example/node"}, {"id": "b", "kind": "test.example/node"}], "edges": [{"id": "ab", "from": "a", "to": "b", "type": "test.example/link"}]}, "expect": {"revision": 1, "cursor": 1, "replayed": false}},
+        {"op": "apply", "transaction": {"namespace": "test.example", "delete_edges": [{"id": "ab"}], "edges": [{"id": "ab2", "from": "a", "to": "b", "type": "test.example/link"}]}, "expect": {"revision": 2, "cursor": 2, "replayed": false}},
+        {"op": "apply", "transaction": {"namespace": "test.example", "delete_vertices": [{"id": "b"}], "delete_incident_edges": true, "vertices": [{"id": "b", "kind": "test.example/node", "created_at": "2020-06-01T12:00:00Z"}], "edges": [{"id": "ab3", "from": "a", "to": "b", "type": "test.example/link"}]}, "expect": {"revision": 3, "cursor": 3, "replayed": false}},
+        {"op": "get_vertex", "namespace": "test.example", "id": "b", "expect": {"created_at": "2020-06-01T12:00:00Z", "revision": 3}},
+        {"op": "query_edges", "query": {"namespace": "test.example", "limit": 10}, "expect": ["ab3"]}
+      ]
+    },
+    {
+      "name": "an edge to a vertex deleted in the same transaction dangles",
+      "steps": [
+        {"op": "register", "schema": {"namespace": "test.example", "version": "1"}},
+        {"op": "apply", "transaction": {"namespace": "test.example", "vertices": [{"id": "a", "kind": "test.example/node"}, {"id": "b", "kind": "test.example/node"}]}, "expect": {"revision": 1, "cursor": 1, "replayed": false}},
+        {"op": "apply", "transaction": {"namespace": "test.example", "delete_vertices": [{"id": "b"}], "edges": [{"id": "ab", "from": "a", "to": "b", "type": "test.example/link"}]}, "error": "not_found"}
+      ]
+    },
+    {
+      "name": "an idempotency key replays its commit and rejects a different transaction",
+      "steps": [
+        {"op": "register", "schema": {"namespace": "test.example", "version": "1"}},
+        {"op": "apply", "transaction": {"namespace": "test.example", "idempotency_key": "request-1", "expected_revision": 0, "vertices": [{"id": "a", "kind": "test.example/node"}]}, "expect": {"revision": 1, "cursor": 1, "replayed": false}},
+        {"op": "apply", "transaction": {"namespace": "test.example", "idempotency_key": "request-1", "expected_revision": 0, "vertices": [{"id": "a", "kind": "test.example/node"}]}, "expect": {"revision": 1, "cursor": 1, "replayed": true}},
+        {"op": "apply", "transaction": {"namespace": "test.example", "idempotency_key": "request-1", "expected_revision": 0, "vertices": [{"id": "b", "kind": "test.example/node"}]}, "error": "exists"},
+        {"op": "snapshot", "namespace": "test.example", "expect": {"revision": 1, "cursor": 1, "vertices": ["a"]}}
+      ]
+    },
+    {
+      "name": "idempotency keys are scoped to a namespace",
+      "steps": [
+        {"op": "register", "schema": {"namespace": "test.example", "version": "1"}},
+        {"op": "register", "schema": {"namespace": "other.example", "version": "1"}},
+        {"op": "apply", "transaction": {"namespace": "test.example", "idempotency_key": "k", "vertices": [{"id": "a", "kind": "test.example/node"}]}, "expect": {"revision": 1, "cursor": 1, "replayed": false}},
+        {"op": "apply", "transaction": {"namespace": "other.example", "idempotency_key": "k", "vertices": [{"id": "a", "kind": "other.example/node"}]}, "expect": {"revision": 1, "cursor": 2, "replayed": false}}
+      ]
+    },
+    {
+      "name": "expected_revision must match the namespace revision",
+      "steps": [
+        {"op": "register", "schema": {"namespace": "test.example", "version": "1"}},
+        {"op": "apply", "transaction": {"namespace": "test.example", "expected_revision": 0, "vertices": [{"id": "a", "kind": "test.example/node"}]}, "expect": {"revision": 1, "cursor": 1, "replayed": false}},
+        {"op": "apply", "transaction": {"namespace": "test.example", "expected_revision": 0, "vertices": [{"id": "b", "kind": "test.example/node"}]}, "error": "changed"},
+        {"op": "apply", "transaction": {"namespace": "test.example", "expected_revision": 1, "vertices": [{"id": "b", "kind": "test.example/node"}]}, "expect": {"revision": 2, "cursor": 2, "replayed": false}}
+      ]
+    },
+    {
+      "name": "idempotency records expire with their commit",
+      "options": {"max_changes": 1},
+      "steps": [
+        {"op": "register", "schema": {"namespace": "test.example", "version": "1"}},
+        {"op": "apply", "transaction": {"namespace": "test.example", "idempotency_key": "k", "vertices": [{"id": "a", "kind": "test.example/node"}]}, "expect": {"revision": 1, "cursor": 1, "replayed": false}},
+        {"op": "apply", "transaction": {"namespace": "test.example", "vertices": [{"id": "b", "kind": "test.example/node"}]}, "expect": {"revision": 2, "cursor": 2, "replayed": false}},
+        {"op": "apply", "transaction": {"namespace": "test.example", "idempotency_key": "k", "vertices": [{"id": "a", "kind": "test.example/node"}]}, "expect": {"revision": 3, "cursor": 3, "replayed": false}}
+      ]
+    },
+    {
+      "name": "namespaces are isolated and cursors are global",
+      "steps": [
+        {"op": "register", "schema": {"namespace": "test.example", "version": "1"}},
+        {"op": "register", "schema": {"namespace": "other.example", "version": "1"}},
+        {"op": "apply", "transaction": {"namespace": "test.example", "vertices": [{"id": "a", "kind": "test.example/node"}]}, "expect": {"revision": 1, "cursor": 1, "replayed": false}},
+        {"op": "apply", "transaction": {"namespace": "other.example", "vertices": [{"id": "a", "kind": "other.example/node"}]}, "expect": {"revision": 1, "cursor": 2, "replayed": false}},
+        {"op": "apply", "transaction": {"namespace": "test.example", "vertices": [{"id": "b", "kind": "test.example/node"}]}, "expect": {"revision": 2, "cursor": 3, "replayed": false}},
+        {"op": "snapshot", "namespace": "test.example", "expect": {"revision": 2, "cursor": 3, "vertices": ["a", "b"]}},
+        {"op": "snapshot", "namespace": "other.example", "expect": {"revision": 1, "cursor": 3, "vertices": ["a"]}},
+        {"op": "query_vertices", "query": {"namespace": "other.example", "limit": 10}, "expect": ["a"]},
+        {"op": "changes", "namespace": "test.example", "after": 0, "limit": 10, "expect": [{"cursor": 1, "namespace": "test.example", "revision": 1}, {"cursor": 3, "namespace": "test.example", "revision": 2}]},
+        {"op": "changes", "namespace": "other.example", "after": 0, "limit": 10, "expect": [{"cursor": 2, "namespace": "other.example", "revision": 1}]},
+        {"op": "changes", "namespace": "", "after": 0, "limit": 10, "expect": [{"cursor": 1, "namespace": "test.example", "revision": 1}, {"cursor": 2, "namespace": "other.example", "revision": 1}, {"cursor": 3, "namespace": "test.example", "revision": 2}]}
+      ]
+    },
+    {
+      "name": "a snapshot of an unknown namespace is empty",
+      "steps": [
+        {"op": "register", "schema": {"namespace": "test.example", "version": "1"}},
+        {"op": "apply", "transaction": {"namespace": "test.example", "vertices": [{"id": "a", "kind": "test.example/node"}]}, "expect": {"revision": 1, "cursor": 1, "replayed": false}},
+        {"op": "snapshot", "namespace": "unknown.example", "expect": {"revision": 0, "cursor": 1, "vertices": [], "edges": []}}
+      ]
+    },
+    {
+      "name": "names follow the naming rule",
+      "steps": [
+        {"op": "register", "schema": {"namespace": "bad//name", "version": "1"}, "error": "invalid"},
+        {"op": "register", "schema": {"namespace": "-leading", "version": "1"}, "error": "invalid"},
+        {"op": "register", "schema": {"namespace": "", "version": "1"}, "error": "invalid"},
+        {"op": "register", "schema": {"namespace": "has space", "version": "1"}, "error": "invalid"},
+        {"op": "register", "schema": {"namespace": "test.example", "version": ""}, "error": "invalid"},
+        {"op": "register", "schema": {"namespace": "test.example", "version": "1"}},
+        {"op": "apply", "transaction": {"namespace": "test.example", "vertices": [{"id": "a", "kind": "other.example/node"}]}, "error": "invalid"},
+        {"op": "apply", "transaction": {"namespace": "test.example", "vertices": [{"id": "a", "kind": "test.example/"}]}, "error": "invalid"},
+        {"op": "apply", "transaction": {"namespace": "test.example", "vertices": [{"id": "a", "kind": "test.example/bad//kind"}]}, "error": "invalid"},
+        {"op": "apply", "transaction": {"namespace": "test.example", "vertices": [{"id": "", "kind": "test.example/node"}]}, "error": "invalid"},
+        {"op": "apply", "transaction": {"namespace": "test.example", "vertices": [{"namespace": "other.example", "id": "a", "kind": "test.example/node"}]}, "error": "invalid"},
+        {"op": "apply", "transaction": {"namespace": "test.example", "vertices": [{"id": "a", "kind": "test.example/node"}, {"id": "b", "kind": "test.example/node"}], "edges": [{"id": "ab", "from": "a", "to": "b", "type": "other.example/link"}]}, "error": "invalid"},
+        {"op": "apply", "transaction": {"namespace": "test.example", "vertices": [{"id": "a", "kind": "test.example/node"}], "edges": [{"id": "aa", "from": "a", "to": "", "type": "test.example/link"}]}, "error": "invalid"},
+        {"op": "apply", "transaction": {"namespace": "test.example", "delete_vertices": [{"namespace": "other.example", "id": "a"}]}, "error": "invalid"},
+        {"op": "apply", "transaction": {"namespace": "bad//name", "vertices": []}, "error": "invalid"},
+        {"op": "apply", "transaction": {"namespace": "test.example", "vertices": [{"namespace": "test.example", "id": "a", "kind": "test.example/node.v2/sub-kind"}]}, "expect": {"revision": 1, "cursor": 1, "replayed": false}}
+      ]
+    },
+    {
+      "name": "secret-like keys and markers are refused",
+      "steps": [
+        {"op": "register", "schema": {"namespace": "test.example", "version": "1"}},
+        {"op": "apply", "transaction": {"namespace": "test.example", "vertices": [{"id": "a", "kind": "test.example/node", "attributes": {"password": "x"}}]}, "error": "denied"},
+        {"op": "apply", "transaction": {"namespace": "test.example", "vertices": [{"id": "a", "kind": "test.example/node", "attributes": {"API_Key": "x"}}]}, "error": "denied"},
+        {"op": "apply", "transaction": {"namespace": "test.example", "vertices": [{"id": "a", "kind": "test.example/node", "attributes": {"nested": {"private_key": "x"}}}]}, "error": "denied"},
+        {"op": "apply", "transaction": {"namespace": "test.example", "vertices": [{"id": "a", "kind": "test.example/node", "attributes": {"list": ["ok", "secret-value:abc"]}}]}, "error": "denied"},
+        {"op": "apply", "transaction": {"namespace": "test.example", "vertices": [{"id": "a", "kind": "test.example/node", "attributes": {"note": "PRIVATE-KEY:abc"}}]}, "error": "denied"},
+        {"op": "apply", "transaction": {"namespace": "test.example", "vertices": [{"id": "a", "kind": "test.example/node", "labels": {"access_token": "x"}}]}, "error": "denied"},
+        {"op": "apply", "transaction": {"namespace": "test.example", "vertices": [{"id": "a", "kind": "test.example/node", "labels": {"note": "secret-value:abc"}}]}, "error": "denied"},
+        {"op": "apply", "transaction": {"namespace": "test.example", "vertices": [{"id": "a", "kind": "test.example/node", "provenance": {"source": "secret-value:abc"}}]}, "error": "denied"},
+        {"op": "apply", "transaction": {"namespace": "test.example", "vertices": [{"id": "a", "kind": "test.example/node"}, {"id": "b", "kind": "test.example/node"}], "edges": [{"id": "ab", "from": "a", "to": "b", "type": "test.example/link", "attributes": {"credential": "x"}}]}, "error": "denied"},
+        {"op": "apply", "transaction": {"namespace": "test.example", "vertices": [{"id": "a", "kind": "test.example/node", "attributes": {"reference": "secret-ref:vault/a", "note": "a secret-value: in the middle"}}]}, "expect": {"revision": 1, "cursor": 1, "replayed": false}}
+      ]
+    },
+    {
+      "name": "a string attribute is at most 4096 bytes",
+      "steps": [
+        {"op": "register", "schema": {"namespace": "test.example", "version": "1"}},
+        {"op": "apply", "transaction": {"namespace": "test.example", "vertices": [{"id": "a", "kind": "test.example/node", "attributes": {"s": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"}}]}, "error": "too_large"},
+        {"op": "apply", "transaction": {"namespace": "test.example", "vertices": [{"id": "a", "kind": "test.example/node", "labels": {"s": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"}}]}, "error": "too_large"},
+        {"op": "apply", "transaction": {"namespace": "test.example", "vertices": [{"id": "a", "kind": "test.example/node", "attributes": {"s": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"}}]}, "expect": {"revision": 1, "cursor": 1, "replayed": false}}
+      ]
+    },
+    {
+      "name": "a transaction holds at most max_transaction_records records",
+      "options": {"max_transaction_records": 2},
+      "steps": [
+        {"op": "register", "schema": {"namespace": "test.example", "version": "1"}},
+        {"op": "apply", "transaction": {"namespace": "test.example", "vertices": [{"id": "a", "kind": "test.example/node"}, {"id": "b", "kind": "test.example/node"}], "edges": [{"id": "ab", "from": "a", "to": "b", "type": "test.example/link"}]}, "error": "too_large"},
+        {"op": "apply", "transaction": {"namespace": "test.example", "vertices": [{"id": "a", "kind": "test.example/node"}, {"id": "b", "kind": "test.example/node"}]}, "expect": {"revision": 1, "cursor": 1, "replayed": false}}
+      ]
+    },
+    {
+      "name": "a record's labels and attributes are at most max_record_bytes",
+      "options": {"max_record_bytes": 128},
+      "steps": [
+        {"op": "register", "schema": {"namespace": "test.example", "version": "1"}},
+        {"op": "apply", "transaction": {"namespace": "test.example", "vertices": [{"id": "a", "kind": "test.example/node", "attributes": {"s": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"}}]}, "error": "too_large"},
+        {"op": "apply", "transaction": {"namespace": "test.example", "vertices": [{"id": "a", "kind": "test.example/node", "attributes": {"s": "xxxxxxxxxx"}}]}, "expect": {"revision": 1, "cursor": 1, "replayed": false}}
+      ]
+    },
+    {
+      "name": "reads need a positive limit within max_results",
+      "options": {"max_results": 10},
+      "steps": [
+        {"op": "register", "schema": {"namespace": "test.example", "version": "1"}},
+        {"op": "apply", "transaction": {"namespace": "test.example", "vertices": [{"id": "a", "kind": "test.example/node"}, {"id": "b", "kind": "test.example/node"}], "edges": [{"id": "ab", "from": "a", "to": "b", "type": "test.example/link"}]}, "expect": {"revision": 1, "cursor": 1, "replayed": false}},
+        {"op": "query_vertices", "query": {"namespace": "test.example", "limit": 0}, "error": "invalid"},
+        {"op": "query_vertices", "query": {"namespace": "test.example", "limit": -1}, "error": "invalid"},
+        {"op": "query_vertices", "query": {"namespace": "test.example", "limit": 11}, "error": "too_large"},
+        {"op": "query_edges", "query": {"namespace": "test.example", "limit": 0}, "error": "invalid"},
+        {"op": "query_edges", "query": {"namespace": "test.example", "limit": 11}, "error": "too_large"},
+        {"op": "changes", "namespace": "test.example", "after": 0, "limit": 0, "error": "invalid"},
+        {"op": "changes", "namespace": "test.example", "after": 0, "limit": 11, "error": "too_large"},
+        {"op": "watch", "namespace": "test.example", "after": 0, "buffer": 0, "error": "invalid"},
+        {"op": "watch", "namespace": "test.example", "after": 0, "buffer": 11, "error": "too_large"},
+        {"op": "traverse", "namespace": "test.example", "start": "a", "max_depth": 1, "max_vertices": 0, "error": "invalid"},
+        {"op": "traverse", "namespace": "test.example", "start": "a", "max_depth": -1, "max_vertices": 2, "error": "invalid"},
+        {"op": "traverse", "namespace": "test.example", "start": "a", "max_depth": 1, "max_vertices": 11, "error": "too_large"},
+        {"op": "query_vertices", "query": {"namespace": "test.example", "limit": 10}, "expect": ["a", "b"]}
+      ]
+    },
+    {
+      "name": "a snapshot holds at most max_snapshot_records records",
+      "options": {"max_snapshot_records": 2},
+      "steps": [
+        {"op": "register", "schema": {"namespace": "test.example", "version": "1"}},
+        {"op": "apply", "transaction": {"namespace": "test.example", "vertices": [{"id": "a", "kind": "test.example/node"}, {"id": "b", "kind": "test.example/node"}]}, "expect": {"revision": 1, "cursor": 1, "replayed": false}},
+        {"op": "snapshot", "namespace": "test.example", "expect": {"vertices": ["a", "b"]}},
+        {"op": "apply", "transaction": {"namespace": "test.example", "edges": [{"id": "ab", "from": "a", "to": "b", "type": "test.example/link"}]}, "expect": {"revision": 2, "cursor": 2, "replayed": false}},
+        {"op": "snapshot", "namespace": "test.example", "error": "too_large"}
+      ]
+    },
+    {
+      "name": "queries filter and order by ID",
+      "steps": [
+        {"op": "register", "schema": {"namespace": "test.example", "version": "1"}},
+        {"op": "apply", "transaction": {"namespace": "test.example", "vertices": [{"id": "c", "kind": "test.example/node"}, {"id": "a", "kind": "test.example/node"}, {"id": "b", "kind": "test.example/other"}, {"id": "d", "kind": "test.example/node"}], "edges": [{"id": "e2", "from": "a", "to": "c", "type": "test.example/link"}, {"id": "e1", "from": "a", "to": "d", "type": "test.example/link"}, {"id": "e3", "from": "c", "to": "d", "type": "test.example/other"}, {"id": "e0", "from": "d", "to": "a", "type": "test.example/link"}]}, "expect": {"revision": 1, "cursor": 1, "replayed": false}},
+        {"op": "query_vertices", "query": {"namespace": "test.example", "limit": 10}, "expect": ["a", "b", "c", "d"]},
+        {"op": "query_vertices", "query": {"namespace": "test.example", "limit": 2}, "expect": ["a", "b"]},
+        {"op": "query_vertices", "query": {"namespace": "test.example", "kind": "test.example/node", "limit": 10}, "expect": ["a", "c", "d"]},
+        {"op": "query_vertices", "query": {"namespace": "test.example", "kind": "test.example/missing", "limit": 10}, "expect": []},
+        {"op": "query_edges", "query": {"namespace": "test.example", "limit": 10}, "expect": ["e0", "e1", "e2", "e3"]},
+        {"op": "query_edges", "query": {"namespace": "test.example", "from": "a", "limit": 10}, "expect": ["e1", "e2"]},
+        {"op": "query_edges", "query": {"namespace": "test.example", "to": "d", "limit": 10}, "expect": ["e1", "e3"]},
+        {"op": "query_edges", "query": {"namespace": "test.example", "type": "test.example/other", "limit": 10}, "expect": ["e3"]},
+        {"op": "query_edges", "query": {"namespace": "test.example", "from": "a", "to": "d", "limit": 10}, "expect": ["e1"]},
+        {"op": "query_edges", "query": {"namespace": "test.example", "limit": 1}, "expect": ["e0"]}
+      ]
+    },
+    {
+      "name": "traversal is breadth first along outgoing edges with bounds",
+      "steps": [
+        {"op": "register", "schema": {"namespace": "test.example", "version": "1"}},
+        {"op": "apply", "transaction": {"namespace": "test.example", "vertices": [{"id": "a", "kind": "test.example/node"}, {"id": "b", "kind": "test.example/node"}, {"id": "c", "kind": "test.example/node"}, {"id": "d", "kind": "test.example/node"}], "edges": [{"id": "ab", "from": "a", "to": "b", "type": "test.example/link"}, {"id": "ad", "from": "a", "to": "d", "type": "test.example/link"}, {"id": "bc", "from": "b", "to": "c", "type": "test.example/link"}, {"id": "ca", "from": "c", "to": "a", "type": "test.example/link"}, {"id": "db", "from": "d", "to": "b", "type": "test.example/link"}]}, "expect": {"revision": 1, "cursor": 1, "replayed": false}},
+        {"op": "traverse", "namespace": "test.example", "start": "a", "max_depth": 0, "max_vertices": 10, "expect": []},
+        {"op": "traverse", "namespace": "test.example", "start": "a", "max_depth": 1, "max_vertices": 10, "expect": [{"vertices": ["a", "b"], "edges": ["ab"]}, {"vertices": ["a", "d"], "edges": ["ad"]}]},
+        {"op": "traverse", "namespace": "test.example", "start": "a", "max_depth": 2, "max_vertices": 10, "expect": [{"vertices": ["a", "b"], "edges": ["ab"]}, {"vertices": ["a", "d"], "edges": ["ad"]}, {"vertices": ["a", "b", "c"], "edges": ["ab", "bc"]}]},
+        {"op": "traverse", "namespace": "test.example", "start": "a", "max_depth": 5, "max_vertices": 10, "expect": [{"vertices": ["a", "b"], "edges": ["ab"]}, {"vertices": ["a", "d"], "edges": ["ad"]}, {"vertices": ["a", "b", "c"], "edges": ["ab", "bc"]}]},
+        {"op": "traverse", "namespace": "test.example", "start": "a", "max_depth": 5, "max_vertices": 2, "expect": [{"vertices": ["a", "b"], "edges": ["ab"]}]},
+        {"op": "traverse", "namespace": "test.example", "start": "c", "max_depth": 1, "max_vertices": 10, "expect": [{"vertices": ["c", "a"], "edges": ["ca"]}]},
+        {"op": "traverse", "namespace": "test.example", "start": "missing", "max_depth": 1, "max_vertices": 10, "error": "not_found"}
+      ]
+    },
+    {
+      "name": "compacted history needs a new snapshot",
+      "options": {"max_changes": 2},
+      "steps": [
+        {"op": "register", "schema": {"namespace": "test.example", "version": "1"}},
+        {"op": "apply", "transaction": {"namespace": "test.example", "vertices": [{"id": "n0", "kind": "test.example/node"}]}, "expect": {"revision": 1, "cursor": 1, "replayed": false}},
+        {"op": "apply", "transaction": {"namespace": "test.example", "vertices": [{"id": "n1", "kind": "test.example/node"}]}, "expect": {"revision": 2, "cursor": 2, "replayed": false}},
+        {"op": "apply", "transaction": {"namespace": "test.example", "vertices": [{"id": "n2", "kind": "test.example/node"}]}, "expect": {"revision": 3, "cursor": 3, "replayed": false}},
+        {"op": "snapshot", "namespace": "test.example", "expect": {"cursor": 3, "history_floor": 1, "vertices": ["n0", "n1", "n2"]}},
+        {"op": "changes", "namespace": "test.example", "after": 0, "limit": 2, "error": "expired"},
+        {"op": "watch", "namespace": "test.example", "after": 0, "buffer": 2, "error": "expired"},
+        {"op": "changes", "namespace": "test.example", "after": 1, "limit": 2, "expect": [{"cursor": 2, "namespace": "test.example", "revision": 2, "vertices": ["n1"]}, {"cursor": 3, "namespace": "test.example", "revision": 3, "vertices": ["n2"]}]},
+        {"op": "changes", "namespace": "test.example", "after": 1, "limit": 1, "expect": [{"cursor": 2, "namespace": "test.example", "revision": 2}]},
+        {"op": "changes", "namespace": "test.example", "after": 3, "limit": 2, "expect": []}
+      ]
+    },
+    {
+      "name": "the byte bound keeps the latest commit",
+      "options": {"max_changes": 10, "max_change_bytes": 1},
+      "steps": [
+        {"op": "register", "schema": {"namespace": "test.example", "version": "1"}},
+        {"op": "apply", "transaction": {"namespace": "test.example", "vertices": [{"id": "n0", "kind": "test.example/node"}]}, "expect": {"revision": 1, "cursor": 1, "replayed": false}},
+        {"op": "apply", "transaction": {"namespace": "test.example", "vertices": [{"id": "n1", "kind": "test.example/node"}]}, "expect": {"revision": 2, "cursor": 2, "replayed": false}},
+        {"op": "apply", "transaction": {"namespace": "test.example", "vertices": [{"id": "n2", "kind": "test.example/node"}]}, "expect": {"revision": 3, "cursor": 3, "replayed": false}},
+        {"op": "snapshot", "namespace": "test.example", "expect": {"history_floor": 2}},
+        {"op": "changes", "namespace": "test.example", "after": 2, "limit": 10, "expect": [{"cursor": 3, "namespace": "test.example", "revision": 3}]}
+      ]
+    },
+    {
+      "name": "a failed transaction advances nothing",
+      "steps": [
+        {"op": "register", "schema": {"namespace": "test.example", "version": "1"}},
+        {"op": "apply", "transaction": {"namespace": "test.example", "vertices": [{"id": "a", "kind": "test.example/node"}]}, "expect": {"revision": 1, "cursor": 1, "replayed": false}},
+        {"op": "apply", "transaction": {"namespace": "test.example", "vertices": [{"id": "b", "kind": "test.example/node", "attributes": {"token": "x"}}]}, "error": "denied"},
+        {"op": "apply", "transaction": {"namespace": "test.example", "vertices": [{"id": "c", "kind": "test.example/node"}]}, "expect": {"revision": 2, "cursor": 2, "replayed": false}},
+        {"op": "changes", "namespace": "test.example", "after": 0, "limit": 10, "expect": [{"cursor": 1, "namespace": "test.example", "revision": 1}, {"cursor": 2, "namespace": "test.example", "revision": 2}]}
+      ]
+    },
+    {
+      "name": "a watch replays retained changes within its buffer",
+      "steps": [
+        {"op": "register", "schema": {"namespace": "test.example", "version": "1"}},
+        {"op": "apply", "transaction": {"namespace": "test.example", "vertices": [{"id": "n0", "kind": "test.example/node"}]}, "expect": {"revision": 1, "cursor": 1, "replayed": false}},
+        {"op": "apply", "transaction": {"namespace": "test.example", "vertices": [{"id": "n1", "kind": "test.example/node"}]}, "expect": {"revision": 2, "cursor": 2, "replayed": false}},
+        {"op": "apply", "transaction": {"namespace": "test.example", "vertices": [{"id": "n2", "kind": "test.example/node"}]}, "expect": {"revision": 3, "cursor": 3, "replayed": false}},
+        {"op": "watch", "namespace": "test.example", "after": 1, "buffer": 2, "expect": [{"cursor": 2, "namespace": "test.example", "revision": 2, "vertices": ["n1"]}, {"cursor": 3, "namespace": "test.example", "revision": 3, "vertices": ["n2"]}]},
+        {"op": "watch", "namespace": "test.example", "after": 0, "buffer": 2, "error": "too_large"},
+        {"op": "watch", "namespace": "test.example", "after": 3, "buffer": 1, "expect": []}
+      ]
+    },
+    {
+      "name": "a declarative schema limits kinds, relationships and endpoints",
+      "steps": [
+        {"op": "register", "schema": {"namespace": "test.example", "version": "1", "kinds": ["test.example/host", "test.example/process"], "relationships": [{"type": "test.example/runs", "from": "test.example/host", "to": "test.example/process"}, {"type": "test.example/parent-of", "from": "test.example/process", "to": "test.example/process"}, {"type": "test.example/near"}]}},
+        {"op": "apply", "transaction": {"namespace": "test.example", "vertices": [{"id": "h", "kind": "test.example/host"}, {"id": "p", "kind": "test.example/process"}, {"id": "q", "kind": "test.example/process"}], "edges": [{"id": "runs", "from": "h", "to": "p", "type": "test.example/runs"}, {"id": "parent", "from": "p", "to": "q", "type": "test.example/parent-of"}, {"id": "near", "from": "q", "to": "h", "type": "test.example/near"}]}, "expect": {"revision": 1, "cursor": 1, "replayed": false}},
+        {"op": "apply", "transaction": {"namespace": "test.example", "vertices": [{"id": "x", "kind": "test.example/thing"}]}, "error": "invalid"},
+        {"op": "apply", "transaction": {"namespace": "test.example", "edges": [{"id": "bad", "from": "h", "to": "p", "type": "test.example/owns"}]}, "error": "invalid"},
+        {"op": "apply", "transaction": {"namespace": "test.example", "edges": [{"id": "bad", "from": "p", "to": "h", "type": "test.example/runs"}]}, "error": "invalid"},
+        {"op": "apply", "transaction": {"namespace": "test.example", "vertices": [{"id": "h2", "kind": "test.example/host"}], "edges": [{"id": "runs2", "from": "h2", "to": "q", "type": "test.example/runs"}]}, "expect": {"revision": 2, "cursor": 2, "replayed": false}},
+        {"op": "apply", "transaction": {"namespace": "test.example", "vertices": [{"id": "h3", "kind": "test.example/process"}], "edges": [{"id": "runs3", "from": "h3", "to": "q", "type": "test.example/runs"}]}, "error": "invalid"}
+      ]
+    },
+    {
+      "name": "a schema's names are under its namespace",
+      "steps": [
+        {"op": "register", "schema": {"namespace": "test.example", "version": "1", "kinds": ["other.example/node"]}, "error": "invalid"},
+        {"op": "register", "schema": {"namespace": "test.example", "version": "1", "relationships": [{"type": "other.example/link"}]}, "error": "invalid"},
+        {"op": "register", "schema": {"namespace": "test.example", "version": "1", "relationships": [{"type": "test.example/link", "from": "other.example/node"}]}, "error": "invalid"}
+      ]
+    },
+    {
+      "name": "registering keeps, replaces or refuses a schema",
+      "steps": [
+        {"op": "register", "schema": {"namespace": "test.example", "version": "1", "kinds": ["test.example/a", "test.example/b"]}},
+        {"op": "register", "schema": {"namespace": "test.example", "version": "1", "kinds": ["test.example/b", "test.example/a", "test.example/a"]}},
+        {"op": "register", "schema": {"namespace": "test.example", "version": "1", "kinds": ["test.example/a"]}, "error": "exists"},
+        {"op": "apply", "transaction": {"namespace": "test.example", "vertices": [{"id": "x", "kind": "test.example/c"}]}, "error": "invalid"},
+        {"op": "register", "schema": {"namespace": "test.example", "version": "2", "kinds": ["test.example/a", "test.example/c"]}},
+        {"op": "apply", "transaction": {"namespace": "test.example", "vertices": [{"id": "x", "kind": "test.example/c"}]}, "expect": {"revision": 1, "cursor": 1, "replayed": false}}
+      ]
+    },
+    {
+      "name": "a durable store keeps records, schemas, history and idempotency across reopen",
+      "options": {"max_changes": 2},
+      "durable": true,
+      "steps": [
+        {"op": "register", "schema": {"namespace": "test.example", "version": "1", "kinds": ["test.example/node"]}},
+        {"op": "apply", "transaction": {"namespace": "test.example", "idempotency_key": "k", "vertices": [{"id": "a", "kind": "test.example/node", "created_at": "2026-01-01T00:00:00Z"}]}, "expect": {"revision": 1, "cursor": 1, "replayed": false}},
+        {"op": "apply", "transaction": {"namespace": "test.example", "vertices": [{"id": "b", "kind": "test.example/node"}], "edges": [{"id": "ab", "from": "a", "to": "b", "type": "test.example/link"}]}, "expect": {"revision": 2, "cursor": 2, "replayed": false}},
+        {"op": "apply", "transaction": {"namespace": "test.example", "vertices": [{"id": "c", "kind": "test.example/node"}]}, "expect": {"revision": 3, "cursor": 3, "replayed": false}},
+        {"op": "reopen"},
+        {"op": "snapshot", "namespace": "test.example", "expect": {"revision": 3, "cursor": 3, "history_floor": 1, "vertices": ["a", "b", "c"], "edges": ["ab"]}},
+        {"op": "get_vertex", "namespace": "test.example", "id": "a", "expect": {"created_at": "2026-01-01T00:00:00Z", "revision": 1}},
+        {"op": "changes", "namespace": "test.example", "after": 0, "limit": 10, "error": "expired"},
+        {"op": "changes", "namespace": "test.example", "after": 1, "limit": 10, "expect": [{"cursor": 2, "namespace": "test.example", "revision": 2, "vertices": ["b"], "edges": ["ab"]}, {"cursor": 3, "namespace": "test.example", "revision": 3, "vertices": ["c"]}]},
+        {"op": "apply", "transaction": {"namespace": "test.example", "vertices": [{"id": "x", "kind": "test.example/other"}]}, "error": "invalid"},
+        {"op": "apply", "transaction": {"namespace": "test.example", "vertices": [{"id": "d", "kind": "test.example/node"}]}, "expect": {"revision": 4, "cursor": 4, "replayed": false}},
+        {"op": "reopen"},
+        {"op": "apply", "transaction": {"namespace": "test.example", "idempotency_key": "k", "vertices": [{"id": "a", "kind": "test.example/node", "created_at": "2026-01-01T00:00:00Z"}]}, "expect": {"revision": 5, "cursor": 5, "replayed": false}}
+      ]
+    },
+    {
+      "name": "a durable store keeps idempotency records across reopen",
+      "durable": true,
+      "steps": [
+        {"op": "register", "schema": {"namespace": "test.example", "version": "1"}},
+        {"op": "apply", "transaction": {"namespace": "test.example", "idempotency_key": "k", "vertices": [{"id": "a", "kind": "test.example/node"}]}, "expect": {"revision": 1, "cursor": 1, "replayed": false}},
+        {"op": "reopen"},
+        {"op": "apply", "transaction": {"namespace": "test.example", "idempotency_key": "k", "vertices": [{"id": "a", "kind": "test.example/node"}]}, "expect": {"revision": 1, "cursor": 1, "replayed": true}},
+        {"op": "apply", "transaction": {"namespace": "test.example", "idempotency_key": "k", "vertices": [{"id": "b", "kind": "test.example/node"}]}, "error": "exists"}
+      ]
+    }
+  ]
+}

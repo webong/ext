@@ -140,8 +140,13 @@ dependencies_linux = "credential:vault@2.0"
 	if code, _, errText := run("get", "vault:alpha", "--to-file", output); code == 0 || !strings.Contains(errText, "already exists") {
 		t.Fatalf("existing output code=%d diagnostics=%q", code, errText)
 	}
-	graph, err := os.ReadFile(filepath.Join(root, "state", "graph.json"))
-	if err != nil || bytes.Contains(graph, []byte("private-value")) {
-		t.Fatalf("credential leaked to graph or graph unavailable: %v", err)
+	// The SQLite graph keeps recent pages in its write-ahead log, so read both.
+	graph, err := os.ReadFile(filepath.Join(root, "state", "graph.db"))
+	if err != nil {
+		t.Fatalf("graph unavailable: %v", err)
+	}
+	wal, _ := os.ReadFile(filepath.Join(root, "state", "graph.db-wal"))
+	if bytes.Contains(graph, []byte("private-value")) || bytes.Contains(wal, []byte("private-value")) {
+		t.Fatal("credential leaked to graph")
 	}
 }

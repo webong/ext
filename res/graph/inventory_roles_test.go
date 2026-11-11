@@ -11,6 +11,7 @@ func TestResolveInventoryCarriesEngineAndRole(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(func() { _ = g.Close() })
 	ctx := context.Background()
 	adapters := []AdapterObservation{{
 		Name: "jvm", Runtime: "computer", Trusted: true, Listed: true,

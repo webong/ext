@@ -158,7 +158,7 @@ func (s *Store) checkLimit(limit int) error {
 		return store.ErrLimitRequired
 	}
 	if limit > s.options.MaxResults {
-		return fmt.Errorf("%w: limit %d exceeds %d", store.ErrTooLarge, limit, s.options.MaxResults)
+		return fmt.Errorf("%w: the limit exceeds the result bound of %d", store.ErrTooLarge, s.options.MaxResults)
 	}
 	return nil
 }
@@ -210,7 +210,7 @@ func (s *Store) Register(ctx context.Context, schema store.Schema) error {
 	case stored == string(encoded):
 		return nil
 	case version == schema.Version:
-		return fmt.Errorf("%w: %s at version %s", store.ErrSchemaMismatch, schema.Namespace, schema.Version)
+		return store.ErrSchemaMismatch
 	default:
 		if _, err := tx.ExecContext(ctx, `UPDATE namespaces SET schema_version = ?, schema = ? WHERE namespace = ?`, schema.Version, string(encoded), schema.Namespace); err != nil {
 			return wrap(err)
@@ -245,13 +245,13 @@ func (s *Store) Apply(ctx context.Context, t store.Transaction) (store.Commit, e
 	var revision int64
 	err = tx.QueryRowContext(ctx, `SELECT schema, revision FROM namespaces WHERE namespace = ?`, t.Namespace).Scan(&encodedSchema, &revision)
 	if errors.Is(err, sql.ErrNoRows) {
-		return store.Commit{}, fmt.Errorf("%w: %s", store.ErrNotRegistered, t.Namespace)
+		return store.Commit{}, store.ErrNotRegistered
 	} else if err != nil {
 		return store.Commit{}, wrap(err)
 	}
 	var schema store.Schema
 	if err := json.Unmarshal([]byte(encodedSchema), &schema); err != nil {
-		return store.Commit{}, fmt.Errorf("stored schema of %s: %w", t.Namespace, err)
+		return store.Commit{}, fmt.Errorf("stored schema: %w", err)
 	}
 	if t.IdempotencyKey != "" {
 		var stored, committed string
@@ -272,7 +272,7 @@ func (s *Store) Apply(ctx context.Context, t store.Transaction) (store.Commit, e
 		}
 	}
 	if t.ExpectedRevision != nil && *t.ExpectedRevision != uint64(revision) {
-		return store.Commit{}, fmt.Errorf("%w: namespace %s expected %d, current %d", store.ErrConflict, t.Namespace, *t.ExpectedRevision, revision)
+		return store.Commit{}, fmt.Errorf("%w: the namespace is not at the expected revision", store.ErrConflict)
 	}
 	now := time.Now().UTC()
 	change, err := store.Prepare(ctx, txReader{tx: tx, ns: t.Namespace}, schema, uint64(revision)+1, now, t)
@@ -510,7 +510,7 @@ func (s *Store) Snapshot(ctx context.Context, ns string) (store.Snapshot, error)
 		return store.Snapshot{}, wrap(err)
 	}
 	if records > int64(s.options.MaxSnapshotRecords) {
-		return store.Snapshot{}, fmt.Errorf("%w: namespace %s holds %d records, the snapshot bound is %d", store.ErrTooLarge, ns, records, s.options.MaxSnapshotRecords)
+		return store.Snapshot{}, fmt.Errorf("%w: the namespace holds more records than the snapshot bound of %d", store.ErrTooLarge, s.options.MaxSnapshotRecords)
 	}
 	vertices, err := queryVertices(ctx, tx, `WHERE namespace = ? ORDER BY id`, ns)
 	if err != nil {
@@ -798,7 +798,7 @@ func formatTime(t time.Time) string { return t.UTC().Format(time.RFC3339Nano) }
 func parseTime(s string) (time.Time, error) {
 	t, err := time.Parse(time.RFC3339Nano, s)
 	if err != nil {
-		return time.Time{}, fmt.Errorf("stored time %q: %w", s, err)
+		return time.Time{}, fmt.Errorf("stored time: %w", err)
 	}
 	return t.UTC(), nil
 }

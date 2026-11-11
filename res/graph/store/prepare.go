@@ -28,16 +28,16 @@ func CheckTransaction(tx Transaction, o Options) error {
 		return fmt.Errorf("%w: idempotency key exceeds 255 bytes", ErrTooLarge)
 	}
 	if n := len(tx.Vertices) + len(tx.Edges) + len(tx.DeleteVertices) + len(tx.DeleteEdges); n > o.MaxTransactionRecords {
-		return fmt.Errorf("%w: transaction has %d records, the bound is %d", ErrTooLarge, n, o.MaxTransactionRecords)
+		return fmt.Errorf("%w: the transaction holds more than %d records", ErrTooLarge, o.MaxTransactionRecords)
 	}
 	for _, ref := range tx.DeleteVertices {
 		if (ref.Namespace != "" && ref.Namespace != tx.Namespace) || ref.ID == "" {
-			return fmt.Errorf("%w: vertex deletion outside namespace %s", ErrInvalid, tx.Namespace)
+			return fmt.Errorf("%w: a vertex deletion is outside the transaction namespace", ErrInvalid)
 		}
 	}
 	for _, ref := range tx.DeleteEdges {
 		if (ref.Namespace != "" && ref.Namespace != tx.Namespace) || ref.ID == "" {
-			return fmt.Errorf("%w: edge deletion outside namespace %s", ErrInvalid, tx.Namespace)
+			return fmt.Errorf("%w: an edge deletion is outside the transaction namespace", ErrInvalid)
 		}
 	}
 	for _, v := range tx.Vertices {
@@ -48,7 +48,7 @@ func CheckTransaction(tx Transaction, o Options) error {
 			return fmt.Errorf("%w: vertex requires an ID of at most 1024 bytes", ErrInvalid)
 		}
 		if !qualified(tx.Namespace, v.Kind) {
-			return fmt.Errorf("%w: vertex kind %q is not under %s", ErrInvalidName, v.Kind, tx.Namespace)
+			return fmt.Errorf("%w: a vertex kind is not under the transaction namespace", ErrInvalidName)
 		}
 		if err := checkRecord(v.Labels, v.Attributes, v.Provenance, o); err != nil {
 			return err
@@ -62,7 +62,7 @@ func CheckTransaction(tx Transaction, o Options) error {
 			return fmt.Errorf("%w: edge requires an ID and both endpoints", ErrInvalid)
 		}
 		if !qualified(tx.Namespace, e.Type) {
-			return fmt.Errorf("%w: relationship %q is not under %s", ErrInvalidName, e.Type, tx.Namespace)
+			return fmt.Errorf("%w: a relationship is not under the transaction namespace", ErrInvalidName)
 		}
 		if err := checkRecord(e.Labels, e.Attributes, e.Provenance, o); err != nil {
 			return err
@@ -122,12 +122,12 @@ func Prepare(ctx context.Context, r Reader, schema Schema, revision uint64, now 
 			return Change{}, err
 		}
 		if deletedEdges[ref.ID] {
-			return Change{}, fmt.Errorf("%w: edge %q", ErrNotFound, ref.ID)
+			return Change{}, fmt.Errorf("%w: an edge does not exist", ErrNotFound)
 		}
 		if _, ok, err := r.Edge(ctx, ref.ID); err != nil {
 			return Change{}, err
 		} else if !ok {
-			return Change{}, fmt.Errorf("%w: edge %q", ErrNotFound, ref.ID)
+			return Change{}, fmt.Errorf("%w: an edge does not exist", ErrNotFound)
 		}
 		deletedEdges[ref.ID] = true
 		change.DeletedEdges = append(change.DeletedEdges, ref.ID)
@@ -137,12 +137,12 @@ func Prepare(ctx context.Context, r Reader, schema Schema, revision uint64, now 
 			return Change{}, err
 		}
 		if deletedVertices[ref.ID] {
-			return Change{}, fmt.Errorf("%w: vertex %q", ErrNotFound, ref.ID)
+			return Change{}, fmt.Errorf("%w: a vertex does not exist", ErrNotFound)
 		}
 		if _, ok, err := r.Vertex(ctx, ref.ID); err != nil {
 			return Change{}, err
 		} else if !ok {
-			return Change{}, fmt.Errorf("%w: vertex %q", ErrNotFound, ref.ID)
+			return Change{}, fmt.Errorf("%w: a vertex does not exist", ErrNotFound)
 		}
 		incident, err := r.IncidentEdges(ctx, ref.ID, len(deletedEdges)+1)
 		if err != nil {
@@ -157,7 +157,7 @@ func Prepare(ctx context.Context, r Reader, schema Schema, revision uint64, now 
 		}
 		if attached {
 			if !tx.DeleteIncidentEdges {
-				return Change{}, fmt.Errorf("%w: vertex %q", ErrIncidentEdges, ref.ID)
+				return Change{}, ErrIncidentEdges
 			}
 			// Detach every incident edge. The bound is the store's record bound,
 			// which the backend enforces on what it returns.
@@ -200,7 +200,7 @@ func Prepare(ctx context.Context, r Reader, schema Schema, revision uint64, now 
 			if _, ok, err := vertexAt(end); err != nil {
 				return Change{}, err
 			} else if !ok {
-				return Change{}, fmt.Errorf("%w: %s", ErrDanglingEdge, end)
+				return Change{}, ErrDanglingEdge
 			}
 		}
 		var old Edge
@@ -242,7 +242,7 @@ func checkSchema(ctx context.Context, schema Schema, change Change, vertexAt fun
 		}
 		for _, v := range change.Vertices {
 			if !allowed[v.Kind] {
-				return fmt.Errorf("%w: kind %q is not declared by %s", ErrSchemaViolation, v.Kind, schema.Namespace)
+				return fmt.Errorf("%w: a vertex kind is not declared by the schema", ErrSchemaViolation)
 			}
 		}
 	}
@@ -259,7 +259,7 @@ func checkSchema(ctx context.Context, schema Schema, change Change, vertexAt fun
 		}
 		candidates, ok := rules[e.Type]
 		if !ok {
-			return fmt.Errorf("%w: relationship %q is not declared by %s", ErrSchemaViolation, e.Type, schema.Namespace)
+			return fmt.Errorf("%w: a relationship is not declared by the schema", ErrSchemaViolation)
 		}
 		from, _, err := vertexAt(e.From)
 		if err != nil {
@@ -277,7 +277,7 @@ func checkSchema(ctx context.Context, schema Schema, change Change, vertexAt fun
 			}
 		}
 		if !matched {
-			return fmt.Errorf("%w: invalid endpoints for relationship %q", ErrSchemaViolation, e.Type)
+			return fmt.Errorf("%w: an edge joins kinds its relationship does not allow", ErrSchemaViolation)
 		}
 	}
 	return nil

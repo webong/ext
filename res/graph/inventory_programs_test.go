@@ -33,6 +33,7 @@ func TestInventoryProjectsPrograms(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(func() { _ = g.Close() })
 	ctx := context.Background()
 	if err := g.ObserveInventory(ctx, programAdapters(), nil, InstallerObservation{Name: "mytools", Source: "config"}); err != nil {
 		t.Fatal(err)

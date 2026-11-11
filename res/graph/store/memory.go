@@ -83,7 +83,7 @@ func (s *memoryStore) Register(ctx context.Context, schema Schema) error {
 		return nil
 	}
 	if state.schema.Version == schema.Version && !SameSchema(state.schema, schema) {
-		return fmt.Errorf("%w: %s at version %s", ErrSchemaMismatch, schema.Namespace, schema.Version)
+		return ErrSchemaMismatch
 	}
 	state.schema = schema
 	return nil
@@ -134,7 +134,7 @@ func (s *memoryStore) Apply(ctx context.Context, tx Transaction) (Commit, error)
 	}
 	state, ok := s.namespaces[tx.Namespace]
 	if !ok {
-		return Commit{}, fmt.Errorf("%w: %s", ErrNotRegistered, tx.Namespace)
+		return Commit{}, ErrNotRegistered
 	}
 	idemKey := ""
 	if tx.IdempotencyKey != "" {
@@ -149,7 +149,7 @@ func (s *memoryStore) Apply(ctx context.Context, tx Transaction) (Commit, error)
 		}
 	}
 	if tx.ExpectedRevision != nil && *tx.ExpectedRevision != state.revision {
-		return Commit{}, fmt.Errorf("%w: namespace %s expected %d, current %d", ErrConflict, tx.Namespace, *tx.ExpectedRevision, state.revision)
+		return Commit{}, fmt.Errorf("%w: the namespace is not at the expected revision", ErrConflict)
 	}
 	now := time.Now().UTC()
 	change, err := Prepare(ctx, memoryReader{s: s, ns: tx.Namespace}, state.schema, state.revision+1, now, tx)
@@ -247,7 +247,7 @@ func (s *memoryStore) checkLimit(limit int) error {
 		return ErrLimitRequired
 	}
 	if limit > s.options.MaxResults {
-		return fmt.Errorf("%w: limit %d exceeds %d", ErrTooLarge, limit, s.options.MaxResults)
+		return fmt.Errorf("%w: the limit exceeds the result bound of %d", ErrTooLarge, s.options.MaxResults)
 	}
 	return nil
 }
@@ -378,7 +378,7 @@ func (s *memoryStore) Snapshot(ctx context.Context, ns string) (Snapshot, error)
 		}
 	}
 	if n := len(snap.Vertices) + len(snap.Edges); n > s.options.MaxSnapshotRecords {
-		return Snapshot{}, fmt.Errorf("%w: namespace %s holds %d records, the snapshot bound is %d", ErrTooLarge, ns, n, s.options.MaxSnapshotRecords)
+		return Snapshot{}, fmt.Errorf("%w: the namespace holds more records than the snapshot bound of %d", ErrTooLarge, s.options.MaxSnapshotRecords)
 	}
 	sort.Slice(snap.Vertices, func(i, j int) bool { return snap.Vertices[i].ID < snap.Vertices[j].ID })
 	sort.Slice(snap.Edges, func(i, j int) bool { return snap.Edges[i].ID < snap.Edges[j].ID })

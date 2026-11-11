@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
@@ -67,7 +68,8 @@ func TestDatabaseHasTheDocumentedTables(t *testing.T) {
 	}
 	_ = s.Close()
 	info, err := os.Stat(path)
-	if err != nil || info.Mode().Perm() != 0o600 {
+	// Windows has no POSIX mode bits; the file is created with 0600 everywhere else.
+	if err != nil || (runtime.GOOS != "windows" && info.Mode().Perm() != 0o600) {
 		t.Fatalf("database mode %v, %v", info.Mode(), err)
 	}
 	var layout struct {

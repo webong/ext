@@ -17,7 +17,7 @@ var secretKeyPattern = regexp.MustCompile(`(?i)(secret|password|passwd|token|cre
 
 func validateName(value string) error {
 	if !namePattern.MatchString(value) || strings.Contains(value, "//") {
-		return fmt.Errorf("%w: %q", ErrInvalidName, value)
+		return ErrInvalidName
 	}
 	return nil
 }
@@ -31,7 +31,7 @@ func qualified(namespace, name string) bool {
 func validateAttributes(attrs map[string]any) error {
 	for key, value := range attrs {
 		if secretKeyPattern.MatchString(key) {
-			return fmt.Errorf("%w: attribute %q", ErrSecretValue, key)
+			return fmt.Errorf("%w: an attribute holds a secret-like key or value", ErrSecretValue)
 		}
 		if err := inspectValue(value); err != nil {
 			return err
@@ -47,10 +47,10 @@ func ValidateAttributes(attrs map[string]any) error { return validateAttributes(
 func validateLabels(labels map[string]string) error {
 	for key, value := range labels {
 		if secretKeyPattern.MatchString(key) || isSecretMarker(value) {
-			return fmt.Errorf("%w: label %q", ErrSecretValue, key)
+			return fmt.Errorf("%w: a label holds a secret-like key or value", ErrSecretValue)
 		}
 		if len(value) > MaxStringBytes {
-			return fmt.Errorf("%w: label %q exceeds %d bytes", ErrTooLarge, key, MaxStringBytes)
+			return fmt.Errorf("%w: a label exceeds %d bytes", ErrTooLarge, MaxStringBytes)
 		}
 	}
 	return nil
@@ -121,16 +121,16 @@ func ValidateSchema(schema Schema) error {
 	}
 	for _, kind := range schema.Kinds {
 		if !qualified(schema.Namespace, kind) {
-			return fmt.Errorf("%w: kind %q is not under %s", ErrInvalidName, kind, schema.Namespace)
+			return fmt.Errorf("%w: a schema kind is not under its namespace", ErrInvalidName)
 		}
 	}
 	for _, rel := range schema.Relationships {
 		if !qualified(schema.Namespace, rel.Type) {
-			return fmt.Errorf("%w: relationship %q is not under %s", ErrInvalidName, rel.Type, schema.Namespace)
+			return fmt.Errorf("%w: a schema relationship is not under its namespace", ErrInvalidName)
 		}
 		for _, end := range []string{rel.From, rel.To} {
 			if end != "" && !qualified(schema.Namespace, end) {
-				return fmt.Errorf("%w: endpoint kind %q is not under %s", ErrInvalidName, end, schema.Namespace)
+				return fmt.Errorf("%w: a relationship endpoint kind is not under its namespace", ErrInvalidName)
 			}
 		}
 	}

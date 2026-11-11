@@ -21,7 +21,7 @@ func Traverse(ctx context.Context, t Traversal, start string, maxDepth, maxVerti
 	if _, ok, err := t.Vertex(ctx, start); err != nil {
 		return nil, err
 	} else if !ok {
-		return nil, fmt.Errorf("%w: vertex %q", ErrNotFound, start)
+		return nil, fmt.Errorf("%w: the start vertex does not exist", ErrNotFound)
 	}
 	type step struct {
 		ids   []string

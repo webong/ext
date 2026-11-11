@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -119,6 +120,11 @@ func Run(t *testing.T, b Backend) {
 				got, err := run(s, st)
 				if code := store.Code(err); code != st.Error {
 					t.Fatalf("step %d (%s): code %q, want %q (error: %v)", i, st.Op, code, st.Error, err)
+				}
+				if err != nil {
+					if given := echoedInput(st, err); given != "" {
+						t.Fatalf("step %d (%s): error text %q carries the given value %q", i, st.Op, err, given)
+					}
 				}
 				if err != nil || st.Expect == nil {
 					continue
@@ -310,4 +316,49 @@ func RunFingerprints(t *testing.T) {
 			}
 		})
 	}
+}
+
+// echoedInput returns a string the step was given that appears in err's text,
+// or "". Error text never carries a value it was given (ADR rule 3). Strings
+// shorter than four bytes are skipped, since they match ordinary words.
+func echoedInput(st step, err error) string {
+	in := st
+	in.Op, in.Error, in.Expect = "", "", nil
+	encoded, mErr := json.Marshal(in)
+	if mErr != nil {
+		return ""
+	}
+	var tree any
+	if json.Unmarshal(encoded, &tree) != nil {
+		return ""
+	}
+	text := err.Error()
+	var found string
+	check := func(v string) {
+		if found == "" && len(v) >= 4 && strings.Contains(text, v) {
+			found = v
+		}
+	}
+	// Field names are the wire vocabulary, not input; the keys of attribute
+	// and label maps are input.
+	var walk func(v any, data bool)
+	walk = func(v any, data bool) {
+		switch v := v.(type) {
+		case string:
+			check(v)
+		case []any:
+			for _, e := range v {
+				walk(e, false)
+			}
+		case map[string]any:
+			for k, e := range v {
+				if data {
+					check(k)
+				}
+				walk(e, k == "attributes" || k == "labels")
+			}
+		}
+	}
+	walk(tree, false)
+	return found
 }

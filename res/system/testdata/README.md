@@ -21,7 +21,7 @@ current version.
 | Go | `fixtures_test.go` of each package, helper in `internal/fixtures` | `go test ./res/system/...` finds `testdata` by walking up |
 | Swift | `Tests/*/FixtureTests.swift` of each `ios` package | `swift test --package-path res/system/<area>/ios` (macOS) |
 | Java | `src/test/java/...` of each `android` module, helper in `internal/fixtures/java` | `scripts/system-android.sh`, from the repository root |
-| C# | the `Ext.<Area>.Windows` tests | read the files the same way |
+| C# | `Tests/Fixtures.cs` of each `Ext.<Area>.Windows` library (`capture/clipboard/windows`, `capture/audio/windows`) | `dotnet run --project res/system/capture/<area>/windows/Tests` (Windows); the same file lookup |
 
 `EXT_SYSTEM_TESTDATA` points a runner at a copy elsewhere.
 
@@ -30,8 +30,8 @@ current version.
 Every case states the error code it expects, or `null` when the input is accepted. Each binding
 keeps its native error type (a Go sentinel, a Swift enum, a Java exception, a C# kind) and maps it
 to the code: `clipboard.Code(err)` in Go, `ClipboardError.code` in Swift, `ClipboardException.code`
-in Java and `ClipboardException.Code` in C# (`ShareError.code`, `ShareException.kind()`, C# `AudioPacketException.Code` and so on in
-the other areas). The codes are the engine's vocabulary
+in Java and `ClipboardException.Code` in C# (`ShareError.code`, `ShareException.kind()`, C# `AudioArgumentException.Code`
+and `AudioException.Code` and so on in the other areas). The codes are the engine's vocabulary
 (`docs/adr-architecture.md`, rule 3) plus the ones `codes.json` adds. Error text is never part of a
 case.
 
@@ -46,4 +46,4 @@ case.
 | `host` | v1 | Go, Swift, Java |
 | `surface` | v1 | Go, Swift, Java |
 | `audio` | v1 | Go (all sections); Swift, Java and C# (the playback packet rule) |
-| `capability` | v1 | the status of each package, so far network, host and surface |
+| `capability` | v1 | the status of each package, so far network, host and surface; C# `ClipboardStatus` and `AudioStatus` |

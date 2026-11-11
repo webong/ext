@@ -19,6 +19,8 @@ own status type: network has Go `CollectionStatus.Validate`, Swift `NetworkColle
 and the Java `NetworkCollectionStatus` constructor; host and surface share Go's
 `process.CollectionStatus.Validate` and have Swift `ResourceCollectionStatus.validate` and the Java
 `ResourceCollectionStatus` constructor (host), and Swift `SurfaceCollectionStatus.validate` with the
-Java `SurfaceCollectionStatus` constructor (surface). A permission state has its own list in
+Java `SurfaceCollectionStatus` constructor (surface). The C# Windows libraries run it through the
+`ClipboardStatus` constructor (`SystemClipboard.Status`) and the `AudioStatus` constructor
+(`SystemAudio.Status`). A permission state has its own list in
 `surface/v1`: `ready`, `denied`, `not-determined` and `not-required` take no reason, and
 `unsupported` and `unavailable` follow the table above.

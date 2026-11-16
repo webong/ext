@@ -21,12 +21,16 @@ import java.util.List;
  * reads audio on worker threads, and owns encoding, transport, and policy.
  */
 public final class SystemMediaProjection implements AutoCloseable {
+    /** Go's ceiling on a capture's MaxDuration. */
+    public static final long MAX_DURATION_MILLIS = 60L * 60 * 1000;
     private final MediaProjection projection;
     private final Runnable onStopped;
     private final List<AudioRecord> audio = new ArrayList<>();
     private final MediaProjection.Callback callback = new MediaProjection.Callback() {
         @Override public void onStop() { finish(false); }
     };
+    private final Handler main = new Handler(Looper.getMainLooper());
+    private final Runnable expire = () -> finish(true);
     private VirtualDisplay display;
     private boolean started;
     private boolean closed;
@@ -38,19 +42,28 @@ public final class SystemMediaProjection implements AutoCloseable {
         }
         this.projection = projection;
         this.onStopped = onStopped;
-        projection.registerCallback(callback, new Handler(Looper.getMainLooper()));
+        projection.registerCallback(callback, main);
     }
 
-    public void start(Surface surface, int width, int height, int densityDpi) {
+    /**
+     * Starts mirroring into {@code surface} for at most {@code maxDurationMillis} (1 ms to one hour, as
+     * Go's capture MaxDuration). When it passes, the projection stops as {@link #close()} does and the stop
+     * callback runs; closing earlier is the cancel.
+     */
+    public void start(Surface surface, int width, int height, int densityDpi, long maxDurationMillis) {
         checkMainThread();
         if (closed || started) throw new IllegalStateException("projection is closed or already used");
         validateDisplay(surface, width, height, densityDpi);
+        if (maxDurationMillis < 1 || maxDurationMillis > MAX_DURATION_MILLIS) {
+            throw new IllegalArgumentException("projection duration must be from 1 ms to one hour");
+        }
         started = true; // Android projection tokens are single-use, including failed starts.
         try {
             display = projection.createVirtualDisplay(
                     "Ext system capture", width, height, densityDpi,
                     DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR, surface, null, null);
             if (display == null) throw new IllegalStateException("virtual display is unavailable");
+            main.postDelayed(expire, maxDurationMillis);
         } catch (RuntimeException exception) {
             close();
             throw exception;
@@ -113,6 +126,7 @@ public final class SystemMediaProjection implements AutoCloseable {
         checkMainThread();
         if (closed) return;
         closed = true;
+        main.removeCallbacks(expire);
         for (AudioRecord recorder : audio) {
             try { recorder.stop(); } catch (RuntimeException ignored) { }
             recorder.release();

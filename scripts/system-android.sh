@@ -32,11 +32,13 @@ java -ea -cp "$build/portable" io.github.webong.ext.system.ResourceFixtureTests
 java -ea -cp "$build/portable" io.github.webong.ext.system.ResourceCancellationTests
 java -ea -cp "$build/portable" io.github.webong.ext.system.share.ShareTests
 java -ea -cp "$build/portable" io.github.webong.ext.system.share.ShareFixtureTests
+java -ea -cp "$build/portable" io.github.webong.ext.system.share.ShareCancellationTests
 java -ea -cp "$build/portable" io.github.webong.ext.system.keyboard.KeyboardTests
 java -ea -cp "$build/portable" io.github.webong.ext.system.keyboard.KeyboardFixtureTests
 java -ea -cp "$build/portable" io.github.webong.ext.system.audio.AudioFixtureTests
 java -ea -cp "$build/portable" io.github.webong.ext.system.audio.PlaybackSinkTests
 java -ea -cp "$build/portable" io.github.webong.ext.clipboard.ClipboardTests
+java -ea -cp "$build/portable" io.github.webong.ext.clipboard.ClipboardCancellationTests
 java -ea -cp "$build/portable" io.github.webong.ext.network.NetworkTests
 java -ea -cp "$build/portable" io.github.webong.ext.network.NetworkFixtureTests
 java -ea -cp "$build/portable" io.github.webong.ext.network.NetworkCancellationTests

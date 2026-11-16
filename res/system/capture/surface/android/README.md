@@ -13,6 +13,9 @@ default), and `observe(activity, cancellation)` takes a `SurfaceCancellation`, w
 observer checks before each display or view and at the end, and throws
 `SurfaceCancellationException` (a `CancellationException`) with the code `timeout` or `canceled`.
 The permission observer reads constants and waits on nothing, so it takes neither.
+`SystemMediaProjection.start` takes a maximum duration of 1 ms to one hour, Go's capture `MaxDuration`
+range; when it passes, the projection stops as `close()` does and the stop callback runs. Closing
+earlier is the cancel.
 
 Accessibility labels and values are opt-in. `SystemMediaProjection` wraps a
 fresh, caller-consented `MediaProjection` for display surfaces and optional

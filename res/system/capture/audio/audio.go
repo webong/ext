@@ -69,9 +69,9 @@ type Snapshot struct {
 	Status     Status    `json:"status"`
 }
 
-// Limits bound an observation and one PCM packet. In a Go literal a zero field is an absent one and
-// Normalize gives it the default. Limits that arrive as data are explicit: Validate and the JSON
-// form reject a zero (testdata/audio/v1).
+// Limits bound an observation and one PCM packet. Every field is explicit and a zero is invalid
+// (testdata/audio/v1); start from DefaultLimits and change what differs. In the JSON form a key
+// that is left out takes its default.
 type Limits struct {
 	MaxDevices     int `json:"max_devices"`
 	MaxPacketBytes int `json:"max_packet_bytes"`
@@ -82,7 +82,7 @@ func DefaultLimits() Limits {
 	return Limits{MaxDevices: DefaultMaxDevices, MaxPacketBytes: DefaultMaxPacketBytes}
 }
 
-// Validate checks explicit limits: every field is between 1 and its ceiling, so a zero is invalid.
+// Validate checks that every field is between 1 and its ceiling.
 func (l Limits) Validate() error {
 	if l.MaxDevices < 1 || l.MaxDevices > MaxDevices {
 		return fmt.Errorf("%w: device bound must be between 1 and %d", ErrInvalid, MaxDevices)
@@ -91,17 +91,6 @@ func (l Limits) Validate() error {
 		return fmt.Errorf("%w: packet bound must be between 1 and %d", ErrInvalid, MaxPacketBytes)
 	}
 	return nil
-}
-
-// Normalize gives the absent (zero) fields of a Go literal their defaults and validates the result.
-func (l Limits) Normalize() (Limits, error) {
-	if l.MaxDevices == 0 {
-		l.MaxDevices = DefaultMaxDevices
-	}
-	if l.MaxPacketBytes == 0 {
-		l.MaxPacketBytes = DefaultMaxPacketBytes
-	}
-	return l, l.Validate()
 }
 
 // UnmarshalJSON reads limits in their wire form: a key that is left out takes its default, and a
@@ -189,8 +178,7 @@ type Sink interface {
 
 // ValidateSnapshot checks identity, kind, format, and device bounds.
 func ValidateSnapshot(snapshot Snapshot, limits Limits) error {
-	limits, err := limits.Normalize()
-	if err != nil {
+	if err := limits.Validate(); err != nil {
 		return err
 	}
 	if snapshot.Backend == "" || len(snapshot.Backend) > 64 || snapshot.ObservedAt.IsZero() {
@@ -239,8 +227,7 @@ func ValidateSnapshot(snapshot Snapshot, limits Limits) error {
 // data, a rate outside 8 to 192 kHz, 1 to 8 channels or a size that is not whole frames is invalid, and
 // one over the ceiling is too large. The format is judged first.
 func ValidatePacket(packet media.PCM16, limits Limits) error {
-	limits, err := limits.Normalize()
-	if err != nil {
+	if err := limits.Validate(); err != nil {
 		return err
 	}
 	if len(packet.Data) == 0 || packet.SampleRate < 8_000 || packet.SampleRate > 192_000 || packet.Channels < 1 || packet.Channels > 8 ||

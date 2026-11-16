@@ -38,7 +38,7 @@ func run(args []string) int {
 			fmt.Fprintf(os.Stderr, "alsa: unsupported operation %s\n", request.Arguments[0])
 			return 2
 		}
-		snapshot, err := alsa.NewObserver(nil).Observe(context.Background(), audio.Limits{})
+		snapshot, err := alsa.NewObserver(nil).Observe(context.Background(), audio.DefaultLimits())
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "alsa: %v\n", err)
 			return 1

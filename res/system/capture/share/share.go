@@ -62,9 +62,9 @@ func Code(err error) string {
 
 // Limits are fixed by the embedding application before a native extension
 // loads any item; every field has a library ceiling so a caller cannot disable
-// bounding. In a Go literal a zero field is an absent one and Normalize gives it
-// the default. Limits that arrive as data are explicit: Validate and the JSON
-// form reject a zero, as the other bindings do (testdata/share/v1).
+// bounding. Every field is explicit and a zero is invalid, as in the other
+// bindings (testdata/share/v1); start from DefaultLimits and change what
+// differs. In the JSON form a key that is left out takes its default.
 type Limits struct {
 	MaxItems     int   `json:"max_items"`
 	MaxBytes     int64 `json:"max_bytes"`
@@ -77,8 +77,7 @@ func DefaultLimits() Limits {
 	return Limits{MaxItems: DefaultMaxItems, MaxBytes: DefaultMaxBytes, MaxTextBytes: DefaultMaxTextBytes, MaxURLLength: MaxURLLength}
 }
 
-// Validate checks explicit limits: every field is between 1 and its library
-// ceiling, so a zero is invalid.
+// Validate checks that every field is between 1 and its library ceiling.
 func (l Limits) Validate() error {
 	if l.MaxItems < 1 || l.MaxItems > MaxItems {
 		return fmt.Errorf("%w: item bound must be between 1 and %d", ErrInvalid, MaxItems)
@@ -93,27 +92,6 @@ func (l Limits) Validate() error {
 		return fmt.Errorf("%w: URL bound must be between 1 and %d", ErrInvalid, MaxURLLength)
 	}
 	return nil
-}
-
-// Normalize gives the absent (zero) fields of a Go literal their defaults and
-// validates the result.
-func (l Limits) Normalize() (Limits, error) {
-	if l.MaxItems == 0 {
-		l.MaxItems = DefaultMaxItems
-	}
-	if l.MaxBytes == 0 {
-		l.MaxBytes = DefaultMaxBytes
-	}
-	if l.MaxTextBytes == 0 {
-		l.MaxTextBytes = DefaultMaxTextBytes
-	}
-	if l.MaxURLLength == 0 {
-		l.MaxURLLength = MaxURLLength
-	}
-	if err := l.Validate(); err != nil {
-		return Limits{}, err
-	}
-	return l, nil
 }
 
 // UnmarshalJSON reads limits in their wire form: a key that is left out takes
@@ -188,8 +166,7 @@ type Payload struct {
 // with distinct names only when the caller can tell them apart; otherwise the
 // second is rejected.
 func Normalize(items []Item, limits Limits) (Payload, error) {
-	limits, err := limits.Normalize()
-	if err != nil {
+	if err := limits.Validate(); err != nil {
 		return Payload{}, err
 	}
 	if len(items) > limits.MaxItems {

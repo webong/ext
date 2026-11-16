@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/webong/ext/res/system/internal/fixtures"
 	proc "github.com/webong/ext/res/system/service/process"
@@ -82,12 +83,12 @@ func TestFixtures(t *testing.T) {
 	}
 	for _, c := range cases.SurfaceOptions {
 		t.Run("surfaceOptions/"+c.Name, func(t *testing.T) {
-			expectCode(t, codes, c.Code, SurfaceOptions{MaxDisplays: c.MaxDisplays, MaxWindows: c.MaxWindows}.Validate())
+			expectCode(t, codes, c.Code, SurfaceOptions{MaxDisplays: c.MaxDisplays, MaxWindows: c.MaxWindows, Timeout: time.Second}.Validate())
 		})
 	}
 	for _, c := range cases.AccessibilityOptions {
 		t.Run("accessibilityOptions/"+c.Name, func(t *testing.T) {
-			expectCode(t, codes, c.Code, AccessibilityOptions{MaxElements: c.MaxElements, MaxDepth: c.MaxDepth}.Validate())
+			expectCode(t, codes, c.Code, AccessibilityOptions{MaxElements: c.MaxElements, MaxDepth: c.MaxDepth, Timeout: time.Second}.Validate())
 		})
 	}
 }
@@ -95,7 +96,7 @@ func TestFixtures(t *testing.T) {
 // TestObserverProducesValidSnapshots checks the rules against what this machine reports.
 func TestObserverProducesValidSnapshots(t *testing.T) {
 	ctx := context.Background()
-	surfaces, err := DiscoverSurfaces(ctx, SurfaceOptions{})
+	surfaces, err := DiscoverSurfaces(ctx, DefaultSurfaceOptions())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -109,7 +110,7 @@ func TestObserverProducesValidSnapshots(t *testing.T) {
 	if err := permissions.Validate(); err != nil {
 		t.Fatalf("%v\n%+v", err, permissions)
 	}
-	tree, err := DiscoverAccessibility(ctx, AccessibilityOptions{})
+	tree, err := DiscoverAccessibility(ctx, DefaultAccessibilityOptions())
 	if err != nil {
 		t.Fatal(err)
 	}

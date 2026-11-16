@@ -31,7 +31,7 @@ func desktopCommand(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stderr, "ctx: desktop needs --window with an observed window ID")
 		return 2
 	}
-	surfaces, err := systemsurface.DiscoverSurfaces(context.Background(), systemsurface.SurfaceOptions{})
+	surfaces, err := systemsurface.DiscoverSurfaces(context.Background(), systemsurface.DefaultSurfaceOptions())
 	if err != nil {
 		return reportError(stderr, err)
 	}

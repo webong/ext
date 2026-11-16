@@ -56,10 +56,10 @@ type SurfaceSnapshot struct {
 	WindowStatus    proc.CollectionStatus `json:"window_status"`
 }
 
-// SurfaceOptions bounds returned metadata and collection time. In a Go literal
-// a zero field is an absent one and selects the default: 64 displays, 4096
-// windows, and a five-second deadline. Limits that arrive as data are explicit:
-// Validate rejects a zero, as the other bindings do (testdata/surface/v1).
+// SurfaceOptions bounds returned metadata and collection time. Every field is
+// explicit and a zero is invalid, as in the other bindings
+// (testdata/surface/v1); start from DefaultSurfaceOptions (64 displays, 4096
+// windows, five seconds) and change what differs.
 type SurfaceOptions struct {
 	MaxDisplays int
 	MaxWindows  int
@@ -71,37 +71,23 @@ func DefaultSurfaceOptions() SurfaceOptions {
 	return SurfaceOptions{MaxDisplays: 64, MaxWindows: 4096, Timeout: 5 * time.Second}
 }
 
-// Validate checks explicit options: every limit is between 1 and 65536, so a
-// zero is invalid, and the timeout is not negative (zero selects five seconds).
+// Validate checks that every limit is between 1 and 65536 and that the
+// timeout is positive.
 func (o SurfaceOptions) Validate() error {
 	if o.MaxDisplays < 1 || o.MaxDisplays > 65536 || o.MaxWindows < 1 || o.MaxWindows > 65536 {
 		return fmt.Errorf("%w: surface limits must be between 1 and 65536", ErrInvalid)
 	}
-	if o.Timeout < 0 {
-		return fmt.Errorf("%w: surface timeout must not be negative", ErrInvalid)
+	if o.Timeout <= 0 {
+		return fmt.Errorf("%w: surface timeout must be positive", ErrInvalid)
 	}
 	return nil
-}
-
-func surfaceOptions(options SurfaceOptions) (SurfaceOptions, error) {
-	defaults := DefaultSurfaceOptions()
-	if options.MaxDisplays == 0 {
-		options.MaxDisplays = defaults.MaxDisplays
-	}
-	if options.MaxWindows == 0 {
-		options.MaxWindows = defaults.MaxWindows
-	}
-	if options.Timeout == 0 {
-		options.Timeout = defaults.Timeout
-	}
-	return options, options.Validate()
 }
 
 // DiscoverSurfaces observes local display geometry and caller-visible windows.
 // It does not request permission, capture pixels, read window titles, expose
 // native handles, synthesize input, or contact a remote service.
 func DiscoverSurfaces(ctx context.Context, options SurfaceOptions) (SurfaceSnapshot, error) {
-	options, err := surfaceOptions(options)
+	err := options.Validate()
 	if err != nil {
 		return SurfaceSnapshot{}, err
 	}

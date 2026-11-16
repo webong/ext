@@ -6,13 +6,14 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestDiscoverIsBoundedAndDoesNotExposeRemoteActivity(t *testing.T) {
-	if _, err := Discover(context.Background(), Options{MaxRoutes: -1}); err == nil {
+	if _, err := Discover(context.Background(), Options{MaxInterfaces: 1, MaxAddresses: 1, MaxRoutes: -1, Timeout: time.Second}); err == nil {
 		t.Fatal("negative route limit was accepted")
 	}
-	snapshot, err := Discover(context.Background(), Options{})
+	snapshot, err := Discover(context.Background(), DefaultOptions())
 	if err != nil {
 		t.Fatal(err)
 	}

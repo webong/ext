@@ -32,7 +32,7 @@ func TestNativePipeWireRequiresOptIn(t *testing.T) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
-	snapshot, err := NewObserver(nil).Observe(ctx, audio.Limits{})
+	snapshot, err := NewObserver(nil).Observe(ctx, audio.DefaultLimits())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -45,7 +45,7 @@ func TestNativePipeWireRequiresOptIn(t *testing.T) {
 		t.Fatalf("test endpoints missing: %#v", snapshot)
 	}
 	backend := NewBackend(nil)
-	source, err := backend.OpenCapture(ctx, input, audio.Limits{})
+	source, err := backend.OpenCapture(ctx, input, audio.DefaultLimits())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -57,7 +57,7 @@ func TestNativePipeWireRequiresOptIn(t *testing.T) {
 	if err := source.Close(); err != nil {
 		t.Fatal(err)
 	}
-	sink, err := backend.OpenPlayback(ctx, output, audio.Limits{})
+	sink, err := backend.OpenPlayback(ctx, output, audio.DefaultLimits())
 	if err != nil {
 		t.Fatal(err)
 	}

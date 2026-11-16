@@ -4,9 +4,9 @@
 observe the machine their own way, so only what they should agree on is here.
 
 - **Options**: each of `maxInterfaces`, `maxAddresses` and `maxRoutes` is 1 to 65,536, else
-  `invalid`. The defaults are 256, 256 and 4096. A case is explicit, so a zero is `invalid` (Go
-  `Options.Validate`). A limit that is left out takes its default: Swift and Java from their default
-  constructor, and Go from a zero field of a literal, which is how Go writes an absent value.
+  `invalid`. The defaults are 256, 256 and 4096. A zero is `invalid` in every binding (Go
+  `Options.Validate`). The defaults come from the default constructor: Swift's and Java's, and Go's
+  `DefaultOptions`. A timeout is positive in Go and Java; it is not a case.
 - **Addresses**: an address is built from a literal IPv4 or IPv6 address and a prefix length. Its text
   is the canonical form: IPv4 as dotted decimal, IPv6 as RFC 5952 (lower case, no leading zeros,
   the longest run of two or more zero groups compressed, the first when they tie). A zone, a

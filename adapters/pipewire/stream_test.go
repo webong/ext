@@ -68,7 +68,7 @@ func TestObservePipewireDevices(t *testing.T) {
 		}
 		return []byte(pwDumpFixture), nil
 	})
-	snapshot, err := observer.Observe(context.Background(), audio.Limits{})
+	snapshot, err := observer.Observe(context.Background(), audio.DefaultLimits())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -101,7 +101,7 @@ func TestObserveReportsMalformedAndBoundedRecords(t *testing.T) {
           {"id":1,"type":"PipeWire:Interface:Node","info":{"state":"idle","props":{"media.class":"Audio/Sink"}}}
         ]`), nil
 	})
-	snapshot, err := observer.Observe(context.Background(), audio.Limits{MaxDevices: 1})
+	snapshot, err := observer.Observe(context.Background(), audio.Limits{MaxDevices: 1, MaxPacketBytes: audio.DefaultMaxPacketBytes})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -115,7 +115,7 @@ func TestObserveRejectsOversizedOutputBeforeDecoding(t *testing.T) {
 		return []byte(strings.Repeat(" ", 4096)), nil
 	})
 	observer.MaxOutputBytes = 32
-	snapshot, err := observer.Observe(context.Background(), audio.Limits{})
+	snapshot, err := observer.Observe(context.Background(), audio.DefaultLimits())
 	if !errors.Is(err, audio.ErrLimit) {
 		t.Fatalf("error = %v", err)
 	}
@@ -134,7 +134,7 @@ func TestObserveReportsMalformedAndEmptyPayloads(t *testing.T) {
 		observer := NewObserver(func(context.Context, string, ...string) ([]byte, error) {
 			return []byte(payload), nil
 		})
-		snapshot, err := observer.Observe(context.Background(), audio.Limits{})
+		snapshot, err := observer.Observe(context.Background(), audio.DefaultLimits())
 		if !errors.Is(err, audio.ErrUnavailable) {
 			t.Errorf("%s error = %v", name, err)
 		}
@@ -148,7 +148,7 @@ func TestObserveFailsExplicitlyWithoutPwDump(t *testing.T) {
 	observer := NewObserver(func(context.Context, string, ...string) ([]byte, error) {
 		return nil, errors.New("not found")
 	})
-	snapshot, err := observer.Observe(context.Background(), audio.Limits{})
+	snapshot, err := observer.Observe(context.Background(), audio.DefaultLimits())
 	if !errors.Is(err, audio.ErrUnavailable) {
 		t.Fatalf("error = %v", err)
 	}
@@ -160,7 +160,7 @@ func TestObserveFailsExplicitlyWithoutPwDump(t *testing.T) {
 func TestDeviceValidation(t *testing.T) {
 	backend := NewBackend(nil)
 	for _, id := range []string{"", "-bad", "../escape", "bad\x00id", strings.Repeat("x", 257)} {
-		if _, err := backend.OpenCapture(context.Background(), id, audio.Limits{}); !errors.Is(err, ErrInvalidDevice) {
+		if _, err := backend.OpenCapture(context.Background(), id, audio.DefaultLimits()); !errors.Is(err, ErrInvalidDevice) {
 			t.Errorf("%q = %v", id, err)
 		}
 	}
@@ -188,9 +188,9 @@ func TestStreamArgumentsUseDocumentedInterface(t *testing.T) {
 		backend.Format = format
 		var err error
 		if playback {
-			_, err = backend.OpenPlayback(context.Background(), "microphone", audio.Limits{})
+			_, err = backend.OpenPlayback(context.Background(), "microphone", audio.DefaultLimits())
 		} else {
-			_, err = backend.OpenCapture(context.Background(), "microphone", audio.Limits{})
+			_, err = backend.OpenCapture(context.Background(), "microphone", audio.DefaultLimits())
 		}
 		if err != nil {
 			t.Fatal(err)
@@ -212,7 +212,7 @@ func TestCaptureReadsBoundedPacket(t *testing.T) {
 	process := &fakeProcess{out: &blockingReader{closed: make(chan struct{}), data: bytes.Repeat([]byte{1}, 200)}, in: bytes.NewBuffer(nil)}
 	source, err := NewBackend(func(context.Context, string, ...string) (Process, error) {
 		return process, nil
-	}).OpenCapture(context.Background(), "microphone", audio.Limits{})
+	}).OpenCapture(context.Background(), "microphone", audio.DefaultLimits())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -244,7 +244,7 @@ func TestPlaybackWritesValidatedPackets(t *testing.T) {
 		return process, nil
 	})
 	backend.Format = Format{SampleRate: 8_000, Channels: 1, PacketMillis: 10}
-	sink, err := backend.OpenPlayback(context.Background(), "sink-one", audio.Limits{})
+	sink, err := backend.OpenPlayback(context.Background(), "sink-one", audio.DefaultLimits())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -271,7 +271,7 @@ func TestCaptureHonorsContextCancellation(t *testing.T) {
 	process := &fakeProcess{out: reader, in: bytes.NewBuffer(nil)}
 	source, err := NewBackend(func(context.Context, string, ...string) (Process, error) {
 		return process, nil
-	}).OpenCapture(context.Background(), "microphone", audio.Limits{})
+	}).OpenCapture(context.Background(), "microphone", audio.DefaultLimits())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -289,7 +289,7 @@ func TestCloseIgnoresIntentionalKill(t *testing.T) {
 	process := &stubbornProcess{closed: make(chan struct{})}
 	source, err := NewBackend(func(context.Context, string, ...string) (Process, error) {
 		return process, nil
-	}).OpenCapture(context.Background(), "microphone", audio.Limits{})
+	}).OpenCapture(context.Background(), "microphone", audio.DefaultLimits())
 	if err != nil {
 		t.Fatal(err)
 	}

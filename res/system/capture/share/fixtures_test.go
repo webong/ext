@@ -19,10 +19,9 @@ type limitsSpec struct {
 	MaxURLLength *int   `json:"maxUrlLength"`
 }
 
-// limits leaves a field a case leaves out at zero, which is how a Go literal writes an absent
-// limit; Normalize gives it the default.
+// limits gives a field a case leaves out its default.
 func (l *limitsSpec) limits() share.Limits {
-	var out share.Limits
+	out := share.DefaultLimits()
 	if l == nil {
 		return out
 	}
@@ -125,7 +124,8 @@ func TestFixtures(t *testing.T) {
 		t.Fatal("no cases")
 	}
 	t.Run("defaults", func(t *testing.T) {
-		got, err := (share.Limits{}).Normalize()
+		got := share.DefaultLimits()
+		err := got.Validate()
 		want := share.Limits{MaxItems: cases.Defaults.MaxItems, MaxBytes: cases.Defaults.MaxBytes, MaxTextBytes: cases.Defaults.MaxTextBytes, MaxURLLength: cases.Defaults.MaxURLLength}
 		if err != nil || got != want {
 			t.Fatalf("%+v, %v; want %+v", got, err, want)

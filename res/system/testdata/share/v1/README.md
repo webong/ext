@@ -4,10 +4,10 @@
 items into one bounded payload.
 
 - **Limits**: `maxItems` 1 to 128, `maxBytes` 1 to 64 MiB, `maxTextBytes` 1 to 1 MiB and
-  `maxUrlLength` 1 to 8192, else `invalid`. The defaults are in the file. A case is explicit, so a zero is
-  `invalid` (Go `Limits.Validate`). A limit that is left out takes its default: Swift and Java from
-  their default constructor, and Go from a zero field of a literal, which `Limits.Normalize` fills, or
-  from a missing key of its JSON form, where a key that is present with 0 is `invalid`.
+  `maxUrlLength` 1 to 8192, else `invalid`. The defaults are in the file. A zero is `invalid` in every
+  binding (Go `Limits.Validate`). The defaults come from the default constructor: Swift's and Java's,
+  and Go's `DefaultLimits`. In Go's JSON form a key that is left out takes its default and a key that
+  is present with 0 is `invalid`.
 - **Trim**: strip leading and trailing U+0009 to U+000D and U+0020. Unicode spaces and the other
   control characters are content.
 - **Order**: more items than `maxItems` is `too_large` before anything else. Then each item in

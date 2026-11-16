@@ -96,11 +96,10 @@ type Snapshot struct {
 	ResolverStatus  CollectionStatus `json:"resolver_status"`
 }
 
-// Options bounds records and collection time. In a Go literal a zero field is
-// an absent one and selects the default: 256 interfaces, 4096 routes, 256
-// addresses per interface, and five seconds. Limits that arrive as data are
-// explicit: Validate rejects a zero, as the other bindings do
-// (testdata/network/v1).
+// Options bounds records and collection time. Every field is explicit and a
+// zero is invalid, as in the other bindings (testdata/network/v1); start from
+// DefaultOptions (256 interfaces, 4096 routes, 256 addresses per interface,
+// five seconds) and change what differs.
 type Options struct {
 	MaxInterfaces int
 	MaxAddresses  int
@@ -113,41 +112,24 @@ func DefaultOptions() Options {
 	return Options{MaxInterfaces: 256, MaxAddresses: 256, MaxRoutes: 4096, Timeout: 5 * time.Second}
 }
 
-// Validate checks explicit options: every limit is between 1 and 65536, so a
-// zero is invalid, and the timeout is not negative (zero selects five seconds).
+// Validate checks that every limit is between 1 and 65536 and that the
+// timeout is positive.
 func (o Options) Validate() error {
 	for _, limit := range []int{o.MaxInterfaces, o.MaxAddresses, o.MaxRoutes} {
 		if limit < 1 || limit > 65536 {
 			return fmt.Errorf("%w: network limits must be between 1 and 65536", ErrInvalid)
 		}
 	}
-	if o.Timeout < 0 {
-		return fmt.Errorf("%w: network timeout must not be negative", ErrInvalid)
+	if o.Timeout <= 0 {
+		return fmt.Errorf("%w: network timeout must be positive", ErrInvalid)
 	}
 	return nil
-}
-
-func normalizeOptions(options Options) (Options, error) {
-	defaults := DefaultOptions()
-	if options.MaxInterfaces == 0 {
-		options.MaxInterfaces = defaults.MaxInterfaces
-	}
-	if options.MaxAddresses == 0 {
-		options.MaxAddresses = defaults.MaxAddresses
-	}
-	if options.MaxRoutes == 0 {
-		options.MaxRoutes = defaults.MaxRoutes
-	}
-	if options.Timeout == 0 {
-		options.Timeout = defaults.Timeout
-	}
-	return options, options.Validate()
 }
 
 // Discover observes local network interfaces, routes, and resolver settings.
 // It performs no DNS lookup and opens no network connection.
 func Discover(ctx context.Context, options Options) (Snapshot, error) {
-	options, err := normalizeOptions(options)
+	err := options.Validate()
 	if err != nil {
 		return Snapshot{}, err
 	}

@@ -41,7 +41,7 @@ func TestObserveALSADevices(t *testing.T) {
 		}
 		return nil, errors.New("unexpected executable")
 	})
-	snapshot, err := observer.Observe(context.Background(), audio.Limits{})
+	snapshot, err := observer.Observe(context.Background(), audio.DefaultLimits())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -68,7 +68,7 @@ func TestObserveALSABoundsAndPartialState(t *testing.T) {
 	observer := NewObserver(func(_ context.Context, _ string, _ ...string) ([]byte, error) {
 		return []byte("   orphan description\ndefault\n    Output\nsysdefault:CARD=PCH\n    Card\n"), nil
 	})
-	snapshot, err := observer.Observe(context.Background(), audio.Limits{MaxDevices: 1})
+	snapshot, err := observer.Observe(context.Background(), audio.Limits{MaxDevices: 1, MaxPacketBytes: audio.DefaultMaxPacketBytes})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -84,7 +84,7 @@ func TestObserveALSAFailsExplicitly(t *testing.T) {
 	observer := NewObserver(func(context.Context, string, ...string) ([]byte, error) {
 		return nil, errors.New("not found")
 	})
-	snapshot, err := observer.Observe(context.Background(), audio.Limits{})
+	snapshot, err := observer.Observe(context.Background(), audio.DefaultLimits())
 	if !errors.Is(err, audio.ErrUnavailable) || snapshot.Status.State != "unsupported" {
 		t.Fatalf("snapshot = %#v, %v", snapshot, err)
 	}
@@ -94,7 +94,7 @@ func TestObserveALSAFailsExplicitly(t *testing.T) {
 		}
 		return []byte("default\n    Output\n"), nil
 	})
-	snapshot, err = observer.Observe(context.Background(), audio.Limits{})
+	snapshot, err = observer.Observe(context.Background(), audio.DefaultLimits())
 	if err != nil || snapshot.Status.State != "partial" {
 		t.Fatalf("one-sided snapshot = %#v, %v", snapshot, err)
 	}
@@ -102,14 +102,14 @@ func TestObserveALSAFailsExplicitly(t *testing.T) {
 
 func TestDeviceIDsRequireDirection(t *testing.T) {
 	backend := NewBackend(nil)
-	if _, err := backend.OpenCapture(context.Background(), "output:default", audio.Limits{}); !errors.Is(err, ErrInvalidDevice) {
+	if _, err := backend.OpenCapture(context.Background(), "output:default", audio.DefaultLimits()); !errors.Is(err, ErrInvalidDevice) {
 		t.Fatalf("wrong capture direction = %v", err)
 	}
-	if _, err := backend.OpenPlayback(context.Background(), "input:default", audio.Limits{}); !errors.Is(err, ErrInvalidDevice) {
+	if _, err := backend.OpenPlayback(context.Background(), "input:default", audio.DefaultLimits()); !errors.Is(err, ErrInvalidDevice) {
 		t.Fatalf("wrong playback direction = %v", err)
 	}
 	for _, id := range []string{"input:", "input:-bad", "input:bad\x00name"} {
-		if _, err := backend.OpenCapture(context.Background(), id, audio.Limits{}); !errors.Is(err, ErrInvalidDevice) {
+		if _, err := backend.OpenCapture(context.Background(), id, audio.DefaultLimits()); !errors.Is(err, ErrInvalidDevice) {
 			t.Errorf("%q = %v", id, err)
 		}
 	}
@@ -130,7 +130,7 @@ func TestStreamArgumentsAndPackets(t *testing.T) {
 	captureProcess := &fakeProcess{out: bytes.NewBuffer(bytes.Repeat([]byte{1}, 200))}
 	source, err := NewBackend(func(context.Context, string, ...string) (Process, error) {
 		return captureProcess, nil
-	}).OpenCapture(context.Background(), "input:default", audio.Limits{})
+	}).OpenCapture(context.Background(), "input:default", audio.DefaultLimits())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -148,7 +148,7 @@ func TestStreamArgumentsAndPackets(t *testing.T) {
 		return playProcess, nil
 	})
 	backend.Format = format
-	sink, err := backend.OpenPlayback(context.Background(), "output:default", audio.Limits{})
+	sink, err := backend.OpenPlayback(context.Background(), "output:default", audio.DefaultLimits())
 	if err != nil {
 		t.Fatal(err)
 	}

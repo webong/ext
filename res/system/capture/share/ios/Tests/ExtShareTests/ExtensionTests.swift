@@ -10,6 +10,48 @@ final class ExtensionTests: XCTestCase {
         XCTAssertThrowsError(try ShareLimits(maxTextBytes: 0))
         XCTAssertThrowsError(try ShareLimits(maxURLLength: ShareLimits.maxURLLength + 1))
         XCTAssertEqual(ShareLimits.standard.maxItems, 32)
+        XCTAssertEqual(ShareLimits.standard.timeout, 30)
+        for timeout in [0, -1, 3_601, .infinity, .nan] as [TimeInterval] {
+            XCTAssertThrowsError(try ShareLimits(timeout: timeout), "timeout \(timeout)") { error in
+                XCTAssertEqual((error as? ShareError)?.code, "invalid")
+            }
+        }
+    }
+
+    /// An item whose text provider answers, or never answers when `answers` is false.
+    private func textItem(_ text: String, answers: Bool = true) -> NSExtensionItem {
+        let provider = NSItemProvider()
+        provider.registerItem(forTypeIdentifier: "public.plain-text") { completion, _, _ in
+            if answers { completion?(text as NSString, nil) }
+        }
+        let item = NSExtensionItem()
+        item.attachments = [provider]
+        return item
+    }
+
+    func testLoadReadsText() async throws {
+        let result = await ShareExtensionLoader.load(items: [textItem("hello")], limits: try ShareLimits(timeout: 5))
+        XCTAssertEqual(try result.get().text, "hello")
+    }
+
+    func testLoadAbandonsAProviderThatNeverAnswers() async throws {
+        let started = Date()
+        let result = await ShareExtensionLoader.load(items: [textItem("never", answers: false)], limits: try ShareLimits(timeout: 0.1))
+        guard case .failure(let error) = result else { return XCTFail("loaded \(result)") }
+        XCTAssertEqual(error, .timeout)
+        XCTAssertEqual(error.code, "timeout")
+        XCTAssertLessThan(Date().timeIntervalSince(started), 5)
+    }
+
+    func testLoadIsCanceledWithItsTask() async throws {
+        let limits = try ShareLimits(timeout: 60)
+        let item = textItem("never", answers: false)
+        let task = Task { await ShareExtensionLoader.load(items: [item], limits: limits) }
+        try await Task.sleep(nanoseconds: 50_000_000)
+        task.cancel()
+        guard case .failure(let error) = await task.value else { return XCTFail("loaded") }
+        XCTAssertEqual(error, .canceled)
+        XCTAssertEqual(error.code, "canceled")
     }
 
     func testNormalizeMergesAndDeduplicates() throws {

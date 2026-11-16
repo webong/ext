@@ -14,16 +14,21 @@ public enum SystemMediaCaptureError: Error, Equatable {
 import CoreGraphics
 import ScreenCaptureKit
 
+/// Bounds a display capture. `maxDuration` is the longest it runs, above zero and at most an hour
+/// (five minutes by default), as Go's `media.SampleOptions.MaxDuration`: when it passes, capture
+/// stops as `stop()` does and the sink is told `mediaStopped(error: nil)`.
 public struct MediaCaptureOptions: Equatable, Sendable {
     public let systemAudio: Bool
     public let framesPerSecond: Int
+    public let maxDuration: TimeInterval
 
-    public init(systemAudio: Bool = false, framesPerSecond: Int = 30) throws {
-        guard (1...60).contains(framesPerSecond) else {
+    public init(systemAudio: Bool = false, framesPerSecond: Int = 30, maxDuration: TimeInterval = 300) throws {
+        guard (1...60).contains(framesPerSecond), ObservationBound.valid(maxDuration) else {
             throw SystemMediaCaptureError.invalidConfiguration
         }
         self.systemAudio = systemAudio
         self.framesPerSecond = framesPerSecond
+        self.maxDuration = maxDuration
     }
 }
 
@@ -47,6 +52,7 @@ public final class SystemMediaCapture: NSObject, SCStreamOutput, SCStreamDelegat
     private var starting = false
     private var generation: UInt = 0
     private var microphone: AVAudioEngine?
+    private var microphoneGeneration: UInt = 0
     private let queue = DispatchQueue(label: "io.github.webong.ext.system.capture")
 
     public init(sink: SystemMediaSink) {
@@ -104,6 +110,7 @@ public final class SystemMediaCapture: NSObject, SCStreamOutput, SCStreamDelegat
                 try await capture.stopCapture()
                 throw CancellationError()
             }
+            stopAfter(options.maxDuration, generation: currentGeneration)
         } catch let error as SystemMediaCaptureError {
             if stream === capture { stream = nil }
             throw error
@@ -113,8 +120,22 @@ public final class SystemMediaCapture: NSObject, SCStreamOutput, SCStreamDelegat
         }
     }
 
+    /// Stops display capture once `seconds` pass, unless it was stopped or restarted before.
     @MainActor
-    public func startMicrophone() throws {
+    private func stopAfter(_ seconds: TimeInterval, generation expected: UInt) {
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
+            guard let self, self.generation == expected, self.stream != nil else { return }
+            try? await self.stop()
+        }
+    }
+
+    /// Starts the microphone for at most `maxDuration` seconds (above zero and at most an hour,
+    /// five minutes by default). When it passes the microphone stops, and when no display capture
+    /// is running either, the sink is told `mediaStopped(error: nil)`.
+    @MainActor
+    public func startMicrophone(maxDuration: TimeInterval = 300) throws {
+        guard ObservationBound.valid(maxDuration) else { throw SystemMediaCaptureError.invalidConfiguration }
         guard microphone == nil else { throw SystemMediaCaptureError.alreadyRunning }
         guard AVCaptureDevice.authorizationStatus(for: .audio) == .authorized else {
             throw SystemMediaCaptureError.permissionDenied
@@ -131,6 +152,16 @@ public final class SystemMediaCapture: NSObject, SCStreamOutput, SCStreamDelegat
         do {
             try engine.start()
             microphone = engine
+            microphoneGeneration &+= 1
+            let expected = microphoneGeneration
+            Task { @MainActor [weak self] in
+                try? await Task.sleep(nanoseconds: UInt64(maxDuration * 1_000_000_000))
+                guard let self, self.microphoneGeneration == expected, let engine = self.microphone else { return }
+                engine.inputNode.removeTap(onBus: 0)
+                engine.stop()
+                self.microphone = nil
+                if self.stream == nil, !self.starting { self.sink?.mediaStopped(error: nil) }
+            }
         } catch {
             input.removeTap(onBus: 0)
             throw SystemMediaCaptureError.nativeFailure
@@ -140,6 +171,7 @@ public final class SystemMediaCapture: NSObject, SCStreamOutput, SCStreamDelegat
     @MainActor
     public func stop() async throws {
         generation &+= 1
+        microphoneGeneration &+= 1
         microphone?.inputNode.removeTap(onBus: 0)
         microphone?.stop()
         microphone = nil
@@ -197,6 +229,7 @@ public protocol SystemDeviceCaptureSink: AnyObject {
     private let recorder: RPScreenRecorder
     private weak var sink: SystemDeviceCaptureSink?
     private var active = false
+    private var generation: UInt = 0
 
     public init(
         sink: SystemDeviceCaptureSink,
@@ -206,11 +239,17 @@ public protocol SystemDeviceCaptureSink: AnyObject {
         self.recorder = recorder
     }
 
-    public func start(systemAudio: Bool = false, microphone: Bool = false) async throws {
+    /// Starts capture for at most `maxDuration` seconds (above zero and at most an hour, five
+    /// minutes by default). When it passes, capture stops as `stop()` does and the sink is told
+    /// `mediaStopped(error: nil)`.
+    public func start(systemAudio: Bool = false, microphone: Bool = false, maxDuration: TimeInterval = 300) async throws {
+        guard ObservationBound.valid(maxDuration) else { throw SystemMediaCaptureError.invalidConfiguration }
         guard !active, recorder.isAvailable, !recorder.isRecording else {
             throw SystemMediaCaptureError.alreadyRunning
         }
         active = true
+        generation &+= 1
+        let expected = generation
         recorder.isMicrophoneEnabled = microphone
         let sink = self.sink
         do {
@@ -231,9 +270,14 @@ public protocol SystemDeviceCaptureSink: AnyObject {
                     else { continuation.resume() }
                 })
             }
-            if !active {
+            if !active || generation != expected {
                 try await stopRecorder()
                 throw CancellationError()
+            }
+            Task { @MainActor [weak self] in
+                try? await Task.sleep(nanoseconds: UInt64(maxDuration * 1_000_000_000))
+                guard let self, self.active, self.generation == expected else { return }
+                try? await self.stop()
             }
         } catch {
             active = false
@@ -244,6 +288,7 @@ public protocol SystemDeviceCaptureSink: AnyObject {
     public func stop() async throws {
         guard active else { return }
         active = false
+        generation &+= 1
         do {
             try await stopRecorder()
             sink?.mediaStopped(error: nil)

@@ -138,12 +138,27 @@ public struct ResourceInfo: Codable, Equatable, Sendable {
 public enum ResourceObservationError: Error, Equatable {
     case nativeFailure
     case invalidValue
+    /// The observation ran past its timeout (code `timeout`).
+    case timeout
+    /// The task running the observation was canceled (code `canceled`).
+    case canceled
+
+    /// Throws the error of a bound that has stopped.
+    static func check(_ bound: ObservationBound) throws {
+        switch bound.stop {
+        case .timeout?: throw ResourceObservationError.timeout
+        case .canceled?: throw ResourceObservationError.canceled
+        case nil: return
+        }
+    }
 
     /// The stable error code of `res/system/testdata/codes.json`.
     public var code: String {
         switch self {
         case .nativeFailure: return "io"
         case .invalidValue: return "invalid"
+        case .timeout: return "timeout"
+        case .canceled: return "canceled"
         }
     }
 }
@@ -216,6 +231,11 @@ extension ResourceInfo {
 /// read from the local process only: no command is launched, no network is
 /// contacted, and no identity is attached. Fields whose native source is
 /// unavailable carry a non-complete status instead of guessing.
+///
+/// An observation is bounded by the observer's timeout (five seconds by default, above zero and at
+/// most an hour) and stops when the task running it is canceled, throwing
+/// `ResourceObservationError.timeout` or `.canceled` (rule 4 of docs/adr-architecture.md), as Go's
+/// `host.DiscoverResources` returns its context's error.
 @MainActor
 public final class SystemResourceObserver {
     private static let logicalCPUs: Int = {
@@ -227,17 +247,27 @@ public final class SystemResourceObserver {
         return ProcessInfo.processInfo.processorCount
     }()
 
-    public init() {}
+    public let timeout: TimeInterval
+
+    public init(timeout: TimeInterval = 5) throws {
+        guard ObservationBound.valid(timeout) else { throw ResourceObservationError.invalidValue }
+        self.timeout = timeout
+    }
 
     public func observe() throws -> ResourceInfo {
+        let bound = ObservationBound(timeout: timeout)
+        try ResourceObservationError.check(bound)
         let now = resourceTimestamp(Date())
         let logical = Self.logicalCPUs
         let cpuCapacity = Double(max(logical, 1))
         let memory = platformMemory()
+        try ResourceObservationError.check(bound)
         let storage = platformStorage()
+        try ResourceObservationError.check(bound)
         let power = platformPower()
         let container = platformContainer()
         let uptime = platformUptime()
+        try ResourceObservationError.check(bound)
         return ResourceInfo(
             os: resourcePlatform, architecture: processorArchitecture,
             observedAt: now,

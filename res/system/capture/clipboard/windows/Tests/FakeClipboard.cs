@@ -71,6 +71,13 @@ sealed class FakeClipboard : IClipboardApi
     public long Size(IntPtr memory) => sizes.GetValueOrDefault(memory);
     public int LastError() => Error;
     public bool? Interactive() => InteractiveStation;
-    public void Sleep(int milliseconds) { }
+    /// <summary>Called on each wait between attempts to open, so a test can cancel during the retries.</summary>
+    public Action? OnSleep;
+    public int Sleeps;
+    public void Sleep(int milliseconds)
+    {
+        Sleeps++;
+        OnSleep?.Invoke();
+    }
     public int Allocated => sizes.Count;
 }

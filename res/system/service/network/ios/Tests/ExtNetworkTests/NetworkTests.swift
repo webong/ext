@@ -4,7 +4,7 @@ import Darwin
 
 final class NetworkTests: XCTestCase {
     func testWireNamesAndLocalObservation() throws {
-        let snapshot = SystemNetworkObserver().observe()
+        let snapshot = try SystemNetworkObserver().observe()
         XCTAssertFalse(snapshot.platform.isEmpty)
         XCTAssertFalse(snapshot.interfaceStatus.state.isEmpty)
         let object = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(snapshot)) as? [String: Any])
@@ -17,6 +17,33 @@ final class NetworkTests: XCTestCase {
     func testBoundsAreValidated() {
         XCTAssertThrowsError(try NetworkOptions(maxInterfaces: 0))
         XCTAssertThrowsError(try NetworkOptions(maxAddresses: 65_537))
+        for timeout in [0, -1, 3_601, .infinity, .nan] as [TimeInterval] {
+            XCTAssertThrowsError(try NetworkOptions(timeout: timeout), "timeout \(timeout)") { error in
+                XCTAssertEqual((error as? NetworkObservationError)?.code, "invalid")
+            }
+        }
+        XCTAssertEqual(try NetworkOptions().timeout, 5)
+        XCTAssertNoThrow(try NetworkOptions(timeout: 3_600))
+    }
+
+    func testObservationTimesOut() throws {
+        let observer = SystemNetworkObserver(options: try NetworkOptions(timeout: 1e-9))
+        XCTAssertThrowsError(try observer.observe()) { error in
+            XCTAssertEqual(error as? NetworkObservationError, .timeout)
+            XCTAssertEqual((error as? NetworkObservationError)?.code, "timeout")
+        }
+    }
+
+    func testObservationIsCanceledWithItsTask() async throws {
+        let observer = SystemNetworkObserver()
+        let task = Task { () -> Error? in
+            while !Task.isCancelled { await Task.yield() }
+            do { _ = try observer.observe(); return nil } catch { return error }
+        }
+        task.cancel()
+        let error = await task.value
+        XCTAssertEqual(error as? NetworkObservationError, .canceled)
+        XCTAssertEqual((error as? NetworkObservationError)?.code, "canceled")
     }
 
 #if os(macOS)
@@ -54,8 +81,8 @@ final class NetworkTests: XCTestCase {
         XCTAssertTrue(parseNativeRoutes(Data([0, 0]), limit: 1).1)
     }
 
-    func testNativeMacOSObservation() {
-        let snapshot = SystemNetworkObserver().observe()
+    func testNativeMacOSObservation() throws {
+        let snapshot = try SystemNetworkObserver().observe()
         XCTAssertTrue(["complete", "partial"].contains(snapshot.routeStatus.state), snapshot.routeStatus.detail ?? "")
         XCTAssertFalse(snapshot.routes.isEmpty)
         XCTAssertTrue(["partial", "unavailable"].contains(snapshot.resolverStatus.state))

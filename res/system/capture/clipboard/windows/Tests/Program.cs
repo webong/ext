@@ -127,6 +127,8 @@ Test("every error kind has its code", () =>
         [ClipboardErrorKind.Busy] = "busy",
         [ClipboardErrorKind.Io] = "io",
         [ClipboardErrorKind.Unavailable] = "unavailable",
+        [ClipboardErrorKind.Timeout] = "timeout",
+        [ClipboardErrorKind.Canceled] = "canceled",
     };
     Check(kinds.Count == Enum.GetValues<ClipboardErrorKind>().Length, "a kind has no code");
     var codes = Fixtures.Codes();
@@ -150,6 +152,50 @@ Test("a clipboard another process holds is busy", () =>
     // An unknown window station is not evidence of a missing clipboard.
     fake.InteractiveStation = null;
     Fails(ClipboardErrorKind.Busy, () => SystemClipboard.Clear(Policy("CF_UNICODETEXT"), SystemClipboard.Generation(fake), fake), "clear");
+});
+
+Test("a policy timeout is bounded", () =>
+{
+    Check(ClipboardPolicy.DefaultTimeout == TimeSpan.FromSeconds(5), "the default timeout is five seconds");
+    new ClipboardPolicy(new[] { "CF_TEXT" }, Timeout: TimeSpan.FromHours(1)).Validate();
+    new ClipboardPolicy(new[] { "CF_TEXT" }, Timeout: TimeSpan.FromTicks(1)).Validate();
+    foreach (var timeout in new[] { TimeSpan.Zero, TimeSpan.FromSeconds(-1), TimeSpan.FromHours(1) + TimeSpan.FromTicks(1), TimeSpan.MaxValue })
+        Fails(ClipboardErrorKind.Invalid, () => new ClipboardPolicy(new[] { "CF_TEXT" }, Timeout: timeout).Validate(), $"timeout {timeout}");
+});
+
+Test("a call past its timeout stops before the clipboard is opened", () =>
+{
+    var fake = new FakeClipboard();
+    var expired = new ClipboardBound(System.Diagnostics.Stopwatch.GetTimestamp() - 1, default);
+    var e = Fails(ClipboardErrorKind.Timeout, () => SystemClipboard.Read(Policy("CF_UNICODETEXT"), fake, expired), "read");
+    Check(e.Code == "timeout", $"code {e.Code}");
+    var before = SystemClipboard.Generation(fake);
+    Fails(ClipboardErrorKind.Timeout, () => SystemClipboard.Write(Policy("CF_UNICODETEXT"), before,
+        new[] { Item(("CF_UNICODETEXT", Utf8("x"))) }, fake, expired), "write");
+    Check(fake.Opens == 0 && SystemClipboard.Generation(fake) == before, "a stopped call opened or changed the clipboard");
+    // A one-tick timeout has passed by the first check: the deadline is the last tick inside it.
+    Fails(ClipboardErrorKind.Timeout, () => SystemClipboard.Read(Policy("CF_UNICODETEXT") with { Timeout = TimeSpan.FromTicks(1) }, fake), "a one-tick policy");
+});
+
+Test("a canceled call is canceled, also while another process holds the clipboard", () =>
+{
+    using var canceled = new CancellationTokenSource();
+    canceled.Cancel();
+    var fake = new FakeClipboard();
+    var before = SystemClipboard.Generation(fake);
+    var e = Fails(ClipboardErrorKind.Canceled, () => SystemClipboard.Clear(Policy("CF_UNICODETEXT"), before, fake, canceled.Token), "clear");
+    Check(e.Code == "canceled", $"code {e.Code}");
+    Check(fake.Opens == 0 && SystemClipboard.Generation(fake) == before, "a canceled clear opened or changed the clipboard");
+    // Canceled is judged first, as Go reports the parent context's error.
+    Fails(ClipboardErrorKind.Canceled, () => SystemClipboard.Read(Policy("CF_UNICODETEXT"), fake,
+        new ClipboardBound(System.Diagnostics.Stopwatch.GetTimestamp() - 1, canceled.Token)), "canceled and past the deadline");
+
+    using var later = new CancellationTokenSource();
+    var held = new FakeClipboard { Held = true };
+    held.OnSleep = () => { if (held.Sleeps == 3) later.Cancel(); };
+    Fails(ClipboardErrorKind.Canceled, () => SystemClipboard.Read(Policy("CF_UNICODETEXT"), held, later.Token), "read of a held clipboard");
+    Check(held.Opens == 3, $"{held.Opens} attempts after a cancel at the third wait, want 3");
+    Check(held.Closes == 0, "a clipboard that was never opened was closed");
 });
 
 Test("a session without an interactive desktop is unavailable", () =>

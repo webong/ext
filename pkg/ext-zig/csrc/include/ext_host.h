@@ -498,6 +498,47 @@ EXT_HOST_API ext_status ext_store_upgrade(ext_store *store, const char *source,
 EXT_HOST_API ext_status ext_store_replace(ext_store *store, const char *source,
                                           uint32_t flags, ext_buffer *manifest);
 EXT_HOST_API ext_status ext_store_remove(ext_store *store, const char *id);
+/* Install the package in a pinned archive, or upgrade the installed package of
+ * the same id to it (as ext_store_upgrade does). archive is the native path of
+ * a zip, a gzip-compressed tar or a plain tar, told apart by its content;
+ * sha256 is the digest the file must have, 64 hexadecimal characters in either
+ * case; id, when not NULL or empty, is the package the archive must hold;
+ * max_archive_bytes bounds the archive file, 512 MiB when zero. The file is
+ * checked against the digest before anything is extracted. Extraction is
+ * bounded by the store's limits (max_tree_files counts every entry,
+ * max_tree_bytes the extracted total, max_artifact_bytes one file) and writes
+ * only directories and regular files: a link or special entry, a path that is
+ * absolute, leaves the archive, repeats another whatever its case or could not
+ * exist on Windows, and an entry that is not what its header declares are
+ * EXT_INVALID. plugin.json is at the top of the archive or in its one top-level
+ * directory. What was extracted is installed like a directory, so the package
+ * is verified against its manifest. A package already installed at the
+ * archive's revision must have the archive's content.
+ *
+ * A successful install leaves a receipt: the archive digest and the revision
+ * it produced. When the receipt of an installed package names this digest and
+ * the revision installed now, and the package still verifies, the call returns
+ * it without opening the archive.
+ *
+ * Statuses, besides those of install and upgrade: EXT_MISMATCH for a digest
+ * that differs, an archive that holds another package than id, or other
+ * content at the installed revision; EXT_UNSUPPORTED for a format that is not
+ * read (zstd, xz and bzip2 are not, nor is a zip in the zip64 form, which is
+ * EXT_INVALID); EXT_MISSING for an archive that is not there. Downloading an
+ * archive is the application's. */
+EXT_HOST_API ext_status ext_store_install_archive(ext_store *store,
+                                                  const char *archive,
+                                                  const char *sha256,
+                                                  const char *id, uint32_t flags,
+                                                  uint64_t max_archive_bytes,
+                                                  ext_buffer *manifest);
+/* The receipt of an installed package as JSON: {"id", "revision",
+ * "artifact_sha256"}, the last in lower case. EXT_NOT_FOUND when no archive
+ * install recorded one. It describes the install that wrote it: compare its
+ * revision with the installed package before relying on it. ext_store_remove
+ * deletes it. */
+EXT_HOST_API ext_status ext_store_receipt(ext_store *store, const char *id,
+                                          ext_buffer *receipt);
 /* Read and verify one installed package, returning its plugin.json. */
 EXT_HOST_API ext_status ext_store_load(ext_store *store, const char *id,
                                        ext_buffer *manifest);

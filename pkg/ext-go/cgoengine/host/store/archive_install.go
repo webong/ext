@@ -10,12 +10,14 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/webong/ext/pkg/ext-go/cgoengine"
 	plugin "github.com/webong/ext/pkg/ext-go/engine"
-	packagekit "github.com/webong/ext/pkg/ext-go/engine/package"
 )
 
-// This file is the same in engine/host/store and cgoengine/host/store: it uses
-// only what both packages declare.
+// The install from an archive runs in the engine's package store, as every other operation of a
+// Store does: the digest check, the extraction, the install or upgrade and the receipt. What stays
+// here is what the engine leaves to its caller: fetching an HTTPS source, and looking for a receipt
+// first so that a repeated install downloads nothing.
 
 // receiptsName is the directory under the store root that holds install
 // receipts. Its leading "." keeps it out of every listing.
@@ -75,64 +77,40 @@ func (s *Store) InstallArchive(ctx context.Context, archive Archive, options Arc
 	if err := ctx.Err(); err != nil {
 		return Installed{}, err
 	}
-	if installed, ok := s.receipted(sum, archive.ID); ok {
-		return installed, nil
-	}
-	if err := os.MkdirAll(s.root, 0o700); err != nil {
-		return Installed{}, err
-	}
-	work, err := os.MkdirTemp(s.root, ".archive-")
-	if err != nil {
-		return Installed{}, err
-	}
-	defer os.RemoveAll(work)
 	path := archive.Source
 	switch {
 	case strings.HasPrefix(path, "https://"):
+		// The engine looks for a receipt before it opens a file; look before fetching one.
+		if installed, ok := s.receipted(sum, archive.ID); ok {
+			return installed, nil
+		}
+		if err := os.MkdirAll(s.root, 0o700); err != nil {
+			return Installed{}, err
+		}
+		work, err := os.MkdirTemp(s.root, ".archive-")
+		if err != nil {
+			return Installed{}, err
+		}
+		defer os.RemoveAll(work)
 		path = filepath.Join(work, "archive")
 		if err := Download(ctx, options.Client, archive.Source, path, s.limits.MaxArchiveBytes); err != nil {
+			return Installed{}, err
+		}
+		if err := ctx.Err(); err != nil {
 			return Installed{}, err
 		}
 	case strings.Contains(path, "://"):
 		return Installed{}, fmt.Errorf("%w: a remote archive requires an HTTPS URL", plugin.ErrInvalid)
 	}
-	root, err := ExtractArchive(path, sum, filepath.Join(work, "package"), s.limits)
-	if err != nil {
-		return Installed{}, err
-	}
-	if err := ctx.Err(); err != nil {
-		return Installed{}, err
-	}
-	identity, err := archiveIdentity(root)
-	if err != nil {
-		return Installed{}, err
-	}
-	if archive.ID != "" && identity.ID != archive.ID {
-		return Installed{}, fmt.Errorf("%w: archive holds another package", plugin.ErrMismatch)
-	}
-	installed, err := s.Load(identity.ID)
-	switch {
-	case errors.Is(err, ErrNotFound):
-		installed, err = s.InstallWithOptions(root, options.Copy)
-	case err != nil:
-	case installed.Manifest.Descriptor.Identity.Revision == identity.Revision:
-		var have, want string
-		if have, err = installed.Digest(); err == nil {
-			if want, err = plugin.DirectoryDigest(root); err == nil && have != want {
-				err = fmt.Errorf("%w: archive differs from the installed package of the same revision", plugin.ErrMismatch)
-			}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.engine(func(e *cgoengine.PackageStore) (Installed, error) {
+		manifest, err := e.InstallArchive(path, sum, archive.ID, options.Copy.PreserveExecutableArtifacts)
+		if err != nil {
+			return Installed{}, storeError(err)
 		}
-	default:
-		installed, err = s.UpgradeWithOptions(root, options.Copy)
-	}
-	if err != nil {
-		return Installed{}, err
-	}
-	receipt := Receipt{ID: identity.ID, Revision: installed.Manifest.Descriptor.Identity.Revision, SHA256: sum}
-	if err := s.writeReceipt(receipt); err != nil {
-		return Installed{}, err
-	}
-	return installed, nil
+		return s.installed(manifest)
+	})
 }
 
 // Receipt returns the install receipt of a package, or ErrNotFound when no
@@ -142,11 +120,22 @@ func (s *Store) Receipt(id string) (Receipt, error) {
 	if !validID(id) {
 		return Receipt{}, plugin.ErrInvalid
 	}
-	return s.readReceipt(dirName(id) + ".json")
-}
-
-func (s *Store) receiptPath(id string) string {
-	return filepath.Join(s.root, receiptsName, dirName(id)+".json")
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	e, err := s.open()
+	if err != nil {
+		return Receipt{}, err
+	}
+	defer e.Close()
+	data, err := e.Receipt(id)
+	if err != nil {
+		return Receipt{}, storeError(err)
+	}
+	var receipt Receipt
+	if err := json.Unmarshal(data, &receipt); err != nil || receipt.ID != id {
+		return Receipt{}, fmt.Errorf("%w: install receipt is not valid", plugin.ErrInvalid)
+	}
+	return receipt, nil
 }
 
 func (s *Store) readReceipt(name string) (Receipt, error) {
@@ -190,55 +179,4 @@ func (s *Store) receipted(sum, id string) (Installed, bool) {
 		}
 	}
 	return Installed{}, false
-}
-
-func (s *Store) writeReceipt(receipt Receipt) error {
-	directory := filepath.Join(s.root, receiptsName)
-	if err := os.MkdirAll(directory, 0o700); err != nil {
-		return err
-	}
-	data, err := json.Marshal(receipt)
-	if err != nil {
-		return err
-	}
-	temporary, err := os.CreateTemp(directory, ".receipt-")
-	if err != nil {
-		return err
-	}
-	name := temporary.Name()
-	defer os.Remove(name)
-	_, writeErr := temporary.Write(append(data, '\n'))
-	if closeErr := temporary.Close(); writeErr != nil || closeErr != nil {
-		return errors.Join(writeErr, closeErr)
-	}
-	return os.Rename(name, s.receiptPath(receipt.ID))
-}
-
-// dropReceipt forgets the receipt of a removed package.
-func (s *Store) dropReceipt(id string) { _ = os.Remove(s.receiptPath(id)) }
-
-// archiveIdentity reads the identity an extracted package claims. The install
-// that follows validates the manifest in full.
-func archiveIdentity(root string) (plugin.Identity, error) {
-	file, err := os.Open(filepath.Join(root, ManifestName))
-	if err != nil {
-		return plugin.Identity{}, err
-	}
-	defer file.Close()
-	data, err := io.ReadAll(io.LimitReader(file, 16<<20+1))
-	if err != nil {
-		return plugin.Identity{}, err
-	}
-	if len(data) > 16<<20 {
-		return plugin.Identity{}, fmt.Errorf("%w: manifest exceeds 16 MiB", plugin.ErrInvalid)
-	}
-	var manifest packagekit.Manifest
-	if err := plugin.Decode(data, &manifest); err != nil {
-		return plugin.Identity{}, err
-	}
-	identity := manifest.Descriptor.Identity
-	if err := identity.Validate(); err != nil {
-		return plugin.Identity{}, err
-	}
-	return identity, nil
 }

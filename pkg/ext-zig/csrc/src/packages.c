@@ -138,6 +138,37 @@ int ext_path_fold_equal(const char *a, const char *b) {
       return 0;
   return !*x && !*y;
 }
+char *ext_path_fold_key(const char *path) {
+  if (!path || !valid_utf8((const uint8_t *)path))
+    return NULL;
+  size_t n = strlen(path);
+  if (n > (SIZE_MAX - 1) / 4)
+    return NULL;
+  uint8_t *key = malloc(n * 4 + 1), *out = key;
+  if (!key)
+    return NULL;
+  const uint8_t *p = (const uint8_t *)path;
+  while (*p) {
+    uint32_t c = lower_rune(&p);
+    if (c < 0x80)
+      *out++ = (uint8_t)c;
+    else if (c < 0x800) {
+      *out++ = (uint8_t)(0xc0 | (c >> 6));
+      *out++ = (uint8_t)(0x80 | (c & 63));
+    } else if (c < 0x10000) {
+      *out++ = (uint8_t)(0xe0 | (c >> 12));
+      *out++ = (uint8_t)(0x80 | ((c >> 6) & 63));
+      *out++ = (uint8_t)(0x80 | (c & 63));
+    } else {
+      *out++ = (uint8_t)(0xf0 | (c >> 18));
+      *out++ = (uint8_t)(0x80 | ((c >> 12) & 63));
+      *out++ = (uint8_t)(0x80 | ((c >> 6) & 63));
+      *out++ = (uint8_t)(0x80 | (c & 63));
+    }
+  }
+  *out = 0;
+  return (char *)key;
+}
 int ext_path_fold_tree_contains(const char *tree, const char *path) {
   if (!tree || !path || !valid_utf8((const uint8_t *)tree) ||
       !valid_utf8((const uint8_t *)path))

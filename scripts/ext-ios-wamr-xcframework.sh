@@ -17,7 +17,7 @@ trap 'rm -rf "$work"' EXIT
 # Objects CExtEngine already carries (scripts/ext-ios-xcframework.sh: the guest core and the
 # package store with the file layer under it), so the two frameworks never define a symbol twice.
 core=(common.c.o wire.c.o progress.c.o reverse.c.o endpoint.c.o services.c.o guest.c.o sha256.c.o packages.c.o yyjson.c.o
-  fs_posix.c.o fs_write_posix.c.o random_posix.c.o integrity.c.o store.c.o)
+  fs_posix.c.o fs_write_posix.c.o random_posix.c.o integrity.c.o archive.c.o store.c.o)
 
 # slice | sdk | architecture | deployment target | system name
 slices=(

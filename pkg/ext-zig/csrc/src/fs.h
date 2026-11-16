@@ -94,6 +94,24 @@ ext_status ext_fs_probe(const char *path, ext_fs_kind *out);
  * reads to decide what stays executable; always 0 on Windows, which has none.
  * EXT_INVALID when it is not a regular file. */
 ext_status ext_fs_mode_bits(ext_fs *fs, const char *path, uint32_t *mode);
+/* A new file written in pieces, for content that is not held in memory: an
+ * archive entry being extracted. ext_fs_create is ext_fs_write_file without the
+ * data (EXT_INVALID when the path exists, missing parents are made).
+ * ext_fs_out_close releases the file whatever it returns. */
+typedef struct ext_fs_out ext_fs_out;
+ext_status ext_fs_create(ext_fs *fs, const char *path, int executable,
+                         ext_fs_out **out);
+ext_status ext_fs_out_write(ext_fs_out *out, const uint8_t *data, size_t len);
+ext_status ext_fs_out_close(ext_fs_out *out);
+/* A regular file at a native path, read at any offset: an archive. The path is
+ * resolved by the operating system, as a package source is. EXT_MISSING when
+ * it is not there, EXT_INVALID when it is not a regular file. ext_fs_in_read
+ * fills data unless the file ends first; *got is what it read. */
+typedef struct ext_fs_in ext_fs_in;
+ext_status ext_fs_in_open(const char *path, ext_fs_in **out, uint64_t *size);
+ext_status ext_fs_in_read(ext_fs_in *in, uint64_t offset, uint8_t *data,
+                          size_t len, size_t *got);
+void ext_fs_in_close(ext_fs_in *in);
 /* The descriptor behind a root, for the write side of the same platform (the
  * Windows implementation shares fs_win32.c and needs none). */
 #ifndef _WIN32

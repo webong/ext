@@ -81,8 +81,10 @@ milliseconds are rounded up; Go also enforces their original precision.
 
 Prerequisites: C11 compiler, CMake, pthreads/POSIX, Go with cgo, Rust/Cargo, Zig
 0.17.0, Python 3, Node.js with matching Node-API headers. No network fetches are
-needed by the C build or its Rust example. The pinned MIT-licensed JSON parser
-is vendored; see [provenance](vendor/README.md).
+needed by the C build or its Rust example. Two pinned MIT-licensed sources are
+vendored: the JSON parser (yyjson) and the inflate decoder of miniz, which the
+package store uses to read zip and gzip-compressed tar archives; see
+[provenance](vendor/README.md).
 
 ```sh
 cmake -S lib/plugin -B /tmp/ext-cengine -DCMAKE_BUILD_TYPE=Release
@@ -110,7 +112,8 @@ The exported targets carry header paths, static API definitions and required
 system libraries. The static archive uses position-independent code so it can
 be embedded in a Node addon. Manual C consumers define `EXT_HOST_STATIC` and
 link `-lext_host_static -pthread -lm`, plus `-ldl` on Linux. Parser symbols are privately prefixed
-at build time, allowing applications to link their own yyjson version.
+at build time, allowing applications to link their own yyjson version; the inflate
+decoder's functions are prefixed the same way, so an application's own miniz or zlib is untouched.
 
 Prebuilt libraries are attached to each `ext-engine-vX.Y.Z` GitHub release, one archive per
 platform (`scripts/ext-engine-release.sh`, see [module versioning](../../docs/module-versioning.md)):

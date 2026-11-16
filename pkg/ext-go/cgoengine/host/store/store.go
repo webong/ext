@@ -241,11 +241,7 @@ func (s *Store) Remove(id string) error {
 		return err
 	}
 	defer e.Close()
-	if err := storeError(e.Remove(id)); err != nil {
-		return err
-	}
-	s.dropReceipt(id)
-	return nil
+	return storeError(e.Remove(id))
 }
 
 // securePath resolves a slash path under root, refusing symbolic links and

@@ -114,7 +114,25 @@ load, whole-root list, verify and unverified listing, and layered roots now also
 the Packages and trust row), and the engine-routed Go store (`cgoengine/host/store`) runs on it; the pure-Go
 store stays the standard-library baseline, entrypoint resolution (`ResolveEntrypoint`, "discovery") runs in C and
 is bound in Go, and the Rust, Node, Zig, Swift and Java bindings bind the whole store: the lifecycle, the reports,
-the layered view and `ResolveEntrypoint`. The store itself has no open parity item.
+the layered view and `ResolveEntrypoint`.
+
+Install from a pinned archive is in both stores. The pure-Go store has `InstallArchive`, `ExtractArchive`,
+`Download` and `Receipt`; the C store has `ext_store_install_archive` and `ext_store_receipt` (`src/archive.c`
+reads zip, gzip-compressed tar and plain tar, one reader per format in front of one bounded extraction, with
+miniz's inflate decoder vendored in `lib/plugin/vendor/miniz`; `src/store.c` checks the digest, extracts below
+the root, installs or upgrades and writes the receipt, and `ext_store_remove` deletes it). Both are held to
+`testdata/v1/archive-cases.json` and the archives beside it: `TestArchiveCases` in Go, `tests/store_archive.c`
+in C under the address, undefined-behavior and thread sanitizers. The C store is bound as
+`cgoengine.PackageStore.InstallArchive` and `Receipt` (the pure-Go store behind the same methods in a build
+without the C engine), `cgoengine/host/store` runs its `InstallArchive` and `Receipt` on them, and
+`TestInstallArchiveMatchesGo` plays every fixture case through the C and the Go store and compares each
+outcome, the installed manifest bytes, the receipt and the directory left below the root. Downloading stays
+with the caller in every language, under the rules of `testdata/v1/download-cases.json`, which the Go stores
+run (`TestDownloadCases`). Open: the Rust, Node, Zig, Swift and Java bindings do not bind the two functions
+yet, and none has a download helper. Known differences: the C reader refuses a zip in the zip64 form
+(`EXT_INVALID`), which Go's `archive/zip` reads; a plain tar cut inside a header block is invalid in C and the
+end of the archive in Go's `archive/tar`; neither has a fixture. The Windows side of the streamed file layer
+(`ext_fs_create`, `ext_fs_in_open` in `fs_win32.c`) is exercised by CI only.
 
 The C-backed Go session runs the reference session tests. Contract/schema,
 package/route and filesystem checks compare results against Go. The reference

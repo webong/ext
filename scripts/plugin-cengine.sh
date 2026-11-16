@@ -73,6 +73,7 @@ go build -buildmode=c-shared -o "$build_dir/go-shared.$shared_ext" ./tests/cross
 "$build_dir/sanitize/ext_store_lifecycle_test" "$build_dir/sanitize/store-lifecycle"
 "$build_dir/sanitize/ext_store_roots_test" "$build_dir/sanitize/store-roots"
 "$build_dir/sanitize/ext_store_resolve_test" "$build_dir/sanitize/store-resolve"
+"$build_dir/sanitize/ext_store_archive_test" lib/plugin/testdata/v1 "$build_dir/sanitize/store-archive"
 "$build_dir/sanitize/ext_trust_test" "$build_dir/sanitize/trust.json"
 cmake -S lib/plugin -B "$build_dir/thread-sanitize" -DCMAKE_BUILD_TYPE=Debug -DEXT_THREAD_SANITIZE=ON
 cmake --build "$build_dir/thread-sanitize" -j 4
@@ -93,6 +94,7 @@ cmake --build "$build_dir/thread-sanitize" -j 4
 "$build_dir/thread-sanitize/ext_store_lifecycle_test" "$build_dir/thread-sanitize/store-lifecycle"
 "$build_dir/thread-sanitize/ext_store_roots_test" "$build_dir/thread-sanitize/store-roots"
 "$build_dir/thread-sanitize/ext_store_resolve_test" "$build_dir/thread-sanitize/store-resolve"
+"$build_dir/thread-sanitize/ext_store_archive_test" lib/plugin/testdata/v1 "$build_dir/thread-sanitize/store-archive"
 "$build_dir/thread-sanitize/ext_trust_test" "$build_dir/thread-sanitize/trust.json"
 for foreign in "${EXT_CENGINE_RUST_GUEST:-}" "${EXT_CENGINE_ZIG_GUEST:-}"; do
   if [[ -n "$foreign" ]]; then

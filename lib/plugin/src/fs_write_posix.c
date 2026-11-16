@@ -397,6 +397,101 @@ ext_status ext_fs_write_file(ext_fs *fs, const char *path, const uint8_t *data,
   free(storage);
   return s;
 }
+struct ext_fs_out {
+  int fd;
+};
+ext_status ext_fs_create(ext_fs *fs, const char *path, int executable,
+                         ext_fs_out **out) {
+  if (!fs || !out)
+    return EXT_INVALID;
+  *out = NULL;
+  char *storage = NULL;
+  const char *parent, *leaf;
+  ext_status s = split(path, &storage, &parent, &leaf);
+  if (s)
+    return s;
+  int dir = -1, fd = -1;
+  s = open_dir(ext_fs_fd(fs), parent, 1, &dir);
+  if (!s)
+    s = create_at(dir, leaf, executable, &fd);
+  if (dir >= 0)
+    close(dir);
+  free(storage);
+  if (s)
+    return s;
+  ext_fs_out *file = malloc(sizeof(*file));
+  if (!file) {
+    close(fd);
+    return EXT_NOMEM;
+  }
+  file->fd = fd;
+  *out = file;
+  return EXT_OK;
+}
+ext_status ext_fs_out_write(ext_fs_out *out, const uint8_t *data, size_t len) {
+  if (!out || (!data && len))
+    return EXT_INVALID;
+  return write_all(out->fd, data, len);
+}
+ext_status ext_fs_out_close(ext_fs_out *out) {
+  if (!out)
+    return EXT_OK;
+  ext_status s = close(out->fd) ? EXT_IO : EXT_OK;
+  free(out);
+  return s;
+}
+struct ext_fs_in {
+  int fd;
+};
+ext_status ext_fs_in_open(const char *path, ext_fs_in **out, uint64_t *size) {
+  if (!path || !*path || !out || !size)
+    return EXT_INVALID;
+  *out = NULL;
+  int fd = open(path, O_RDONLY | O_CLOEXEC);
+  if (fd < 0)
+    return errno == ENOENT ? EXT_MISSING : EXT_IO;
+  struct stat st;
+  if (fstat(fd, &st)) {
+    close(fd);
+    return EXT_IO;
+  }
+  if (!S_ISREG(st.st_mode) || st.st_size < 0) {
+    close(fd);
+    return EXT_INVALID;
+  }
+  ext_fs_in *in = malloc(sizeof(*in));
+  if (!in) {
+    close(fd);
+    return EXT_NOMEM;
+  }
+  in->fd = fd;
+  *out = in;
+  *size = (uint64_t)st.st_size;
+  return EXT_OK;
+}
+ext_status ext_fs_in_read(ext_fs_in *in, uint64_t offset, uint8_t *data,
+                          size_t len, size_t *got) {
+  if (!in || (!data && len) || !got)
+    return EXT_INVALID;
+  size_t total = 0;
+  while (total < len) {
+    ssize_t n = pread(in->fd, data + total, len - total, (off_t)(offset + total));
+    if (n > 0)
+      total += (size_t)n;
+    else if (n == 0)
+      break;
+    else if (errno != EINTR)
+      return EXT_IO;
+  }
+  *got = total;
+  return EXT_OK;
+}
+void ext_fs_in_close(ext_fs_in *in) {
+  if (!in)
+    return;
+  close(in->fd);
+  free(in);
+}
 ext_status ext_fs_rename(ext_fs *fs, const char *from, const char *to) {
   if (!fs)
     return EXT_INVALID;

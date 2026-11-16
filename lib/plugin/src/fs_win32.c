@@ -998,6 +998,122 @@ ext_status ext_fs_write_file(ext_fs *fs, const char *path, const uint8_t *data,
   free(storage);
   return s;
 }
+struct ext_fs_out {
+  HANDLE h;
+};
+ext_status ext_fs_create(ext_fs *fs, const char *path, int executable,
+                         ext_fs_out **out) {
+  (void)executable;
+  if (!fs || !out)
+    return EXT_INVALID;
+  *out = NULL;
+  char *storage = NULL;
+  const char *parent, *leaf;
+  ext_status s = split_rel(path, &storage, &parent, &leaf);
+  if (s)
+    return s;
+  s = prefixes(fs->root, parent, 1);
+  HANDLE h = INVALID_HANDLE_VALUE;
+  wchar_t *full = NULL;
+  if (!s) {
+    full = join(fs->root, path);
+    s = full ? create_new(full, &h) : EXT_NOMEM;
+  }
+  free(full);
+  free(storage);
+  if (s)
+    return s;
+  ext_fs_out *file = malloc(sizeof(*file));
+  if (!file) {
+    CloseHandle(h);
+    return EXT_NOMEM;
+  }
+  file->h = h;
+  *out = file;
+  return EXT_OK;
+}
+ext_status ext_fs_out_write(ext_fs_out *out, const uint8_t *data, size_t len) {
+  if (!out || (!data && len))
+    return EXT_INVALID;
+  return write_all(out->h, data, len);
+}
+ext_status ext_fs_out_close(ext_fs_out *out) {
+  if (!out)
+    return EXT_OK;
+  ext_status s = CloseHandle(out->h) ? EXT_OK : EXT_IO;
+  free(out);
+  return s;
+}
+struct ext_fs_in {
+  HANDLE h;
+};
+ext_status ext_fs_in_open(const char *path, ext_fs_in **out, uint64_t *size) {
+  if (!path || !*path || !out || !size)
+    return EXT_INVALID;
+  *out = NULL;
+  wchar_t *wide = widen(path);
+  if (!wide)
+    return EXT_INVALID;
+  HANDLE h = CreateFileW(wide, GENERIC_READ,
+                         FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                         NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+  DWORD error = h == INVALID_HANDLE_VALUE ? GetLastError() : 0;
+  if (h == INVALID_HANDLE_VALUE && error == ERROR_ACCESS_DENIED) {
+    /* A directory cannot be opened this way; say what it is. */
+    DWORD a = GetFileAttributesW(wide);
+    free(wide);
+    return a != INVALID_FILE_ATTRIBUTES && (a & FILE_ATTRIBUTE_DIRECTORY)
+               ? EXT_INVALID
+               : EXT_IO;
+  }
+  free(wide);
+  if (h == INVALID_HANDLE_VALUE)
+    return win_error(error);
+  LARGE_INTEGER length;
+  if (GetFileType(h) != FILE_TYPE_DISK || !GetFileSizeEx(h, &length) ||
+      length.QuadPart < 0) {
+    CloseHandle(h);
+    return EXT_INVALID;
+  }
+  ext_fs_in *in = malloc(sizeof(*in));
+  if (!in) {
+    CloseHandle(h);
+    return EXT_NOMEM;
+  }
+  in->h = h;
+  *out = in;
+  *size = (uint64_t)length.QuadPart;
+  return EXT_OK;
+}
+ext_status ext_fs_in_read(ext_fs_in *in, uint64_t offset, uint8_t *data,
+                          size_t len, size_t *got) {
+  if (!in || (!data && len) || !got)
+    return EXT_INVALID;
+  size_t total = 0;
+  while (total < len) {
+    OVERLAPPED at = {0};
+    uint64_t position = offset + total;
+    at.Offset = (DWORD)(position & 0xffffffffu);
+    at.OffsetHigh = (DWORD)(position >> 32);
+    DWORD want = len - total > 65536 ? 65536 : (DWORD)(len - total), n = 0;
+    if (!ReadFile(in->h, data + total, want, &n, &at)) {
+      if (GetLastError() == ERROR_HANDLE_EOF)
+        break;
+      return EXT_IO;
+    }
+    if (!n)
+      break;
+    total += n;
+  }
+  *got = total;
+  return EXT_OK;
+}
+void ext_fs_in_close(ext_fs_in *in) {
+  if (!in)
+    return;
+  CloseHandle(in->h);
+  free(in);
+}
 ext_status ext_fs_rename(ext_fs *fs, const char *from, const char *to) {
   if (!fs)
     return EXT_INVALID;

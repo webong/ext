@@ -59,9 +59,18 @@ func TestWriteArchiveFixtures(t *testing.T) {
 	for i := range stored {
 		stored[i].stored = true
 	}
+	gnu := members(t, deep, "")
+	for i := range gnu {
+		gnu[i].gnu = true
+	}
+	prefixed := strings.Repeat("d", 90) + "/" + strings.Repeat("f", 50) + ".py"
+	dos := append([]member{{name: "src/", dos: true}}, good...)
+	for i := range dos {
+		dos[i].dos = true
+	}
+	big := fixturePackage(t, id, "r1", map[string]string{"src/main.py": "print('one')\n", "zeros": string(make([]byte, 1<<20))})
 	whole := tarGz(t, good)
 	plain := tarred(t, good)
-	zeros := bytes.Repeat([]byte{0}, 1<<20)
 
 	put("tar-gz-top", whole)
 	put("tar-gz-directory", tarGz(t, inDirectory))
@@ -105,8 +114,14 @@ func TestWriteArchiveFixtures(t *testing.T) {
 	put("zip-size-overstated", rawZip(t, good, func(h *zip.FileHeader) { h.UncompressedSize64 += 100 }))
 	put("zip-bad-crc", rawZip(t, good, func(h *zip.FileHeader) { h.CRC32 ^= 1 }))
 	put("zip-unknown-method", rawZip(t, good, func(h *zip.FileHeader) { h.Method = 12 }))
-	put("zip-expands", zipped(t, with(member{name: "zeros", body: zeros})))
-	put("tar-gz-expands", tarGz(t, with(member{name: "zeros", body: zeros})))
+	put("zip-expands", zipped(t, members(t, big, "")))
+	put("tar-gz-expands", tarGz(t, members(t, big, "")))
+	put("tar-gz-header-fields", gzipNamed(t, plain))
+	put("tar-gnu-long-name", tarred(t, gnu))
+	put("tar-ustar-prefix", tarred(t, members(t, fixturePackage(t, id, "r1", map[string]string{prefixed: "pass\n"}), "")))
+	put("zip-dos-attributes", zipped(t, dos))
+	put("tar-invalid-utf8", tarred(t, with(member{name: "src/\xff\xfe.py", body: []byte("x")})))
+	put("zip-invalid-utf8", zipped(t, with(member{name: "src/\xc3.py", body: []byte("x")})))
 
 	text := func(value string) *string { return &value }
 	install := func(name, status, revision string) archiveStep {
@@ -127,7 +142,7 @@ func TestWriteArchiveFixtures(t *testing.T) {
 		return archiveCase{Name: name, Steps: []archiveStep{step}}
 	}
 	fixture := archiveCases{About: archiveAbout}
-	for _, name := range []string{"tar-gz-top", "tar-gz-directory", "tar-plain", "tar-pax-long-path", "tar-without-trailer", "zip-top", "zip-directory", "zip-stored"} {
+	for _, name := range []string{"tar-gz-top", "tar-gz-directory", "tar-plain", "tar-pax-long-path", "tar-without-trailer", "tar-gz-header-fields", "tar-gnu-long-name", "tar-ustar-prefix", "zip-top", "zip-directory", "zip-stored", "zip-dos-attributes", "zip-expands", "tar-gz-expands"} {
 		fixture.Cases = append(fixture.Cases, archiveCase{Name: name, Steps: []archiveStep{install(name, "", "r1"), receipt(name, "r1")}})
 	}
 	fixture.Cases = append(fixture.Cases,
@@ -176,7 +191,7 @@ func TestWriteArchiveFixtures(t *testing.T) {
 	for _, name := range []string{
 		"tar-symlink", "tar-hard-link", "tar-device", "tar-fifo", "zip-symlink",
 		"tar-parent-path", "tar-gz-inner-parent-path", "zip-parent-path", "tar-absolute-path", "zip-absolute-path",
-		"zip-backslash-path", "tar-device-name", "tar-trailing-dot", "tar-control-character",
+		"zip-backslash-path", "tar-device-name", "tar-trailing-dot", "tar-control-character", "tar-invalid-utf8", "zip-invalid-utf8",
 		"tar-case-duplicate", "zip-exact-duplicate", "tar-file-over-directory", "tar-entry-under-file",
 		"zip-two-directories", "tar-no-manifest", "tar-manifest-too-deep", "tar-unlisted-file",
 		"gzip-not-tar", "tar-gz-truncated", "tar-truncated", "zip-truncated",
@@ -246,6 +261,21 @@ func gzipped(t *testing.T, data []byte) []byte {
 	t.Helper()
 	var buffer bytes.Buffer
 	writer := gzip.NewWriter(&buffer)
+	if _, err := writer.Write(data); err != nil {
+		t.Fatal(err)
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatal(err)
+	}
+	return buffer.Bytes()
+}
+
+// gzipNamed compresses data with every optional field of the gzip header set.
+func gzipNamed(t *testing.T, data []byte) []byte {
+	t.Helper()
+	var buffer bytes.Buffer
+	writer := gzip.NewWriter(&buffer)
+	writer.Name, writer.Comment, writer.Extra = "package.tar", "a comment", []byte{1, 2, 3, 4}
 	if _, err := writer.Write(data); err != nil {
 		t.Fatal(err)
 	}

@@ -200,14 +200,19 @@ func processStatus(err error) CollectionStatus {
 	if err == nil {
 		return completeProcessStatus()
 	}
-	state := "unavailable"
-	if errors.Is(err, os.ErrPermission) {
-		state = "permission-denied"
-	}
 	if errors.Is(err, syscall.ESRCH) {
-		state = "exited"
+		return CollectionStatus{State: "exited", Detail: err.Error()}
 	}
-	return CollectionStatus{State: state, Detail: err.Error()}
+	if errors.Is(err, os.ErrPermission) {
+		return CollectionStatus{State: "permission-denied", Reason: capability.Permission, Detail: err.Error()}
+	}
+	return CollectionStatus{State: "unavailable", Reason: capability.Unavailable(err), Detail: err.Error()}
+}
+
+// unreadableProcessStatus reports a record the system returned in a form that could not be read,
+// which is what a process that went away during the read leaves behind.
+func unreadableProcessStatus(detail string) CollectionStatus {
+	return CollectionStatus{State: "unavailable", Reason: capability.NoDevice, Detail: detail}
 }
 func limitedProcessStatus() CollectionStatus {
 	return CollectionStatus{State: "partial", Detail: "record limit reached"}

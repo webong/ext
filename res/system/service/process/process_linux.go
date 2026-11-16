@@ -255,12 +255,12 @@ func linuxProcessUsage(p *ProcessInfo, root string) {
 	}
 	end := strings.LastIndexByte(string(data), ')')
 	if end < 0 {
-		p.Coverage["usage"] = CollectionStatus{State: "unavailable", Detail: "invalid process stat"}
+		p.Coverage["usage"] = unreadableProcessStatus("invalid process stat")
 		return
 	}
 	f := strings.Fields(string(data[end+1:]))
 	if len(f) < 22 {
-		p.Coverage["usage"] = CollectionStatus{State: "unavailable", Detail: "short process stat"}
+		p.Coverage["usage"] = unreadableProcessStatus("short process stat")
 		return
 	}
 	threads, e1 := strconv.ParseUint(f[17], 10, 32)

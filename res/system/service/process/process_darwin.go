@@ -250,7 +250,7 @@ func darwinProcessUsage(ctx context.Context, p *ProcessInfo) {
 	}
 	fields := strings.Fields(output.String())
 	if len(fields) != 3 {
-		p.Coverage["usage"] = CollectionStatus{State: "unavailable", Detail: "unexpected ps usage record"}
+		p.Coverage["usage"] = unreadableProcessStatus("unexpected ps usage record")
 		return
 	}
 	rss, e1 := strconv.ParseUint(fields[0], 10, 64)

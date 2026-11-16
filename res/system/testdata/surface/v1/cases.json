@@ -1,7 +1,7 @@
 {
   "version": 1,
   "area": "surface",
-  "about": "The observation of the local desktop in its wire form (the JSON every binding exchanges): a surface, permission or accessibility case gives one snapshot object and whether it is valid; a binding decodes it into its own model and validates it, and a snapshot that does not decode (a field of the wrong type) is invalid too. An options case builds the limits (zero is not a case: Go reads it as the default) and reports invalid or accepts them. Permission states are ready, denied, not-determined, not-required, unsupported and unavailable, and the reason rules of capability/v1 apply to unsupported and unavailable. Timestamps are RFC 3339. A display or window scale of 0 is written by leaving scale out.",
+  "about": "The observation of the local desktop in its wire form (the JSON every binding exchanges): a surface, permission or accessibility case gives one snapshot object and whether it is valid; a binding decodes it into its own model and validates it, and a snapshot that does not decode (a field of the wrong type) is invalid too. An options case builds the limits (the values are explicit, so a zero is invalid; a limit that is left out takes its default) and reports invalid or accepts them. Permission states are ready, denied, not-determined, not-required, unsupported and unavailable, and the reason rules of capability/v1 apply to unsupported and unavailable. Timestamps are RFC 3339. A display or window scale of 0 is written by leaving scale out.",
   "defaults": {
     "surface": {
       "maxDisplays": 64,
@@ -95,7 +95,10 @@
     {"name": "displays-above-the-ceiling", "maxDisplays": 65537, "maxWindows": 1, "code": "invalid"},
     {"name": "windows-above-the-ceiling", "maxDisplays": 1, "maxWindows": 65537, "code": "invalid"},
     {"name": "displays-negative", "maxDisplays": -1, "maxWindows": 1, "code": "invalid"},
-    {"name": "windows-negative", "maxDisplays": 1, "maxWindows": -1, "code": "invalid"}
+    {"name": "windows-negative", "maxDisplays": 1, "maxWindows": -1, "code": "invalid"},
+    {"name": "displays-zero", "maxDisplays": 0, "maxWindows": 1, "code": "invalid"},
+    {"name": "windows-zero", "maxDisplays": 1, "maxWindows": 0, "code": "invalid"},
+    {"name": "every-limit-zero", "maxDisplays": 0, "maxWindows": 0, "code": "invalid"}
   ],
   "accessibilityOptions": [
     {"name": "the-smallest-limits", "maxElements": 1, "maxDepth": 1, "code": null},
@@ -104,6 +107,9 @@
     {"name": "elements-above-the-ceiling", "maxElements": 65537, "maxDepth": 1, "code": "invalid"},
     {"name": "depth-above-the-ceiling", "maxElements": 1, "maxDepth": 257, "code": "invalid"},
     {"name": "elements-negative", "maxElements": -1, "maxDepth": 1, "code": "invalid"},
-    {"name": "depth-negative", "maxElements": 1, "maxDepth": -1, "code": "invalid"}
+    {"name": "depth-negative", "maxElements": 1, "maxDepth": -1, "code": "invalid"},
+    {"name": "elements-zero", "maxElements": 0, "maxDepth": 1, "code": "invalid"},
+    {"name": "depth-zero", "maxElements": 1, "maxDepth": 0, "code": "invalid"},
+    {"name": "every-limit-zero", "maxElements": 0, "maxDepth": 0, "code": "invalid"}
   ]
 }

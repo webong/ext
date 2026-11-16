@@ -118,7 +118,7 @@ func darwinDisplays(limit int) ([]DisplayInfo, proc.CollectionStatus) {
 		defer C.free(unsafe.Pointer(values))
 	}
 	if code != 0 {
-		return []DisplayInfo{}, surfaceStatus("unavailable", fmt.Sprintf("CoreGraphics display enumeration failed (%d)", int(code)))
+		return []DisplayInfo{}, surfaceUnavailable(nil, fmt.Sprintf("CoreGraphics display enumeration failed (%d)", int(code)))
 	}
 	result := make([]DisplayInfo, 0, int(written))
 	for _, value := range unsafe.Slice(values, int(written)) {
@@ -142,7 +142,7 @@ func darwinWindows(ctx context.Context, limit int) ([]WindowInfo, proc.Collectio
 		defer C.free(unsafe.Pointer(values))
 	}
 	if code != 0 {
-		return []WindowInfo{}, surfaceStatus("unavailable", fmt.Sprintf("CoreGraphics window enumeration failed (%d)", int(code))), nil
+		return []WindowInfo{}, surfaceUnavailable(nil, fmt.Sprintf("CoreGraphics window enumeration failed (%d)", int(code))), nil
 	}
 	starts := map[int]string{}
 	result := make([]WindowInfo, 0, int(written))

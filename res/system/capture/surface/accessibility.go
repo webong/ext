@@ -41,8 +41,10 @@ type AccessibilitySnapshot struct {
 }
 
 // AccessibilityOptions bounds traversal. Text is omitted by default because
-// labels and values may contain document or form contents. Zero bounds select
-// 1024 elements, depth 16, and a five-second deadline.
+// labels and values may contain document or form contents. In a Go literal a
+// zero bound is an absent one and selects the default: 1024 elements, depth 16,
+// and a five-second deadline. Limits that arrive as data are explicit: Validate
+// rejects a zero, as the other bindings do (testdata/surface/v1).
 type AccessibilityOptions struct {
 	MaxElements int
 	MaxDepth    int
@@ -50,23 +52,37 @@ type AccessibilityOptions struct {
 	IncludeText bool
 }
 
-func accessibilityOptions(options AccessibilityOptions) (AccessibilityOptions, error) {
-	if options.MaxElements < 0 || options.MaxDepth < 0 || options.Timeout < 0 {
-		return options, fmt.Errorf("%w: accessibility limits and timeout must not be negative", ErrInvalid)
+// DefaultAccessibilityOptions returns the default of every limit and the
+// default timeout, without text.
+func DefaultAccessibilityOptions() AccessibilityOptions {
+	return AccessibilityOptions{MaxElements: 1024, MaxDepth: 16, Timeout: 5 * time.Second}
+}
+
+// Validate checks explicit options: the element limit is between 1 and 65536
+// and the depth between 1 and 256, so a zero is invalid, and the timeout is not
+// negative (zero selects five seconds).
+func (o AccessibilityOptions) Validate() error {
+	if o.MaxElements < 1 || o.MaxElements > 65536 || o.MaxDepth < 1 || o.MaxDepth > 256 {
+		return fmt.Errorf("%w: accessibility limits are outside the supported range", ErrInvalid)
 	}
+	if o.Timeout < 0 {
+		return fmt.Errorf("%w: accessibility timeout must not be negative", ErrInvalid)
+	}
+	return nil
+}
+
+func accessibilityOptions(options AccessibilityOptions) (AccessibilityOptions, error) {
+	defaults := DefaultAccessibilityOptions()
 	if options.MaxElements == 0 {
-		options.MaxElements = 1024
+		options.MaxElements = defaults.MaxElements
 	}
 	if options.MaxDepth == 0 {
-		options.MaxDepth = 16
+		options.MaxDepth = defaults.MaxDepth
 	}
 	if options.Timeout == 0 {
-		options.Timeout = 5 * time.Second
+		options.Timeout = defaults.Timeout
 	}
-	if options.MaxElements > 65536 || options.MaxDepth > 256 {
-		return options, fmt.Errorf("%w: accessibility limits exceed the supported ceiling", ErrInvalid)
-	}
-	return options, nil
+	return options, options.Validate()
 }
 
 // DiscoverAccessibility observes the focused local application's native UI

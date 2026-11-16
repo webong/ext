@@ -1,7 +1,7 @@
 {
   "version": 1,
   "area": "network",
-  "about": "The pure rules of the network observation contract. An options case builds the three limits (zero is not a case: Go reads it as the default) and reports invalid or accepts them. An address case builds an address from a literal ip and a prefix length and expects its canonical form (RFC 5952 text, lower case), family and scope, or invalid. An IPv4-mapped IPv6 address and a zone are not cases. A resolver case cleans the three lists of a resolver: trim (strip leading and trailing U+0009 to U+000D and U+0020), drop empty entries, and drop repeated entries (the first stays). The order the system reported is kept, since the order of name servers and of search domains is meaningful. Scopes: loopback is 127.0.0.0/8 and ::1; unspecified is 0.0.0.0 and ::; link is 169.254.0.0/16, fe80::/10, 224.0.0.0/24 and an IPv6 multicast address with scope 2 (ffX2::); private is 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16 and fc00::/7; multicast is the rest of 224.0.0.0/4 and ff00::/8; everything else is global.",
+  "about": "The pure rules of the network observation contract. An options case builds the three limits (the values are explicit, so a zero is invalid; a limit that is left out takes its default) and reports invalid or accepts them. An address case builds an address from a literal ip and a prefix length and expects its canonical form (RFC 5952 text, lower case), family and scope, or invalid. An IPv4-mapped IPv6 address and a zone are not cases. A resolver case cleans the three lists of a resolver: trim (strip leading and trailing U+0009 to U+000D and U+0020), drop empty entries, and drop repeated entries (the first stays). The order the system reported is kept, since the order of name servers and of search domains is meaningful. Scopes: loopback is 127.0.0.0/8 and ::1; unspecified is 0.0.0.0 and ::; link is 169.254.0.0/16, fe80::/10, 224.0.0.0/24 and an IPv6 multicast address with scope 2 (ffX2::); private is 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16 and fc00::/7; multicast is the rest of 224.0.0.0/4 and ff00::/8; everything else is global.",
   "defaults": {
     "maxInterfaces": 256,
     "maxAddresses": 256,
@@ -16,7 +16,11 @@
     {"name": "maxAddresses-above-the-ceiling", "maxInterfaces": 256, "maxAddresses": 65537, "maxRoutes": 4096, "code": "invalid"},
     {"name": "maxAddresses-negative", "maxInterfaces": 256, "maxAddresses": -1, "maxRoutes": 4096, "code": "invalid"},
     {"name": "maxRoutes-above-the-ceiling", "maxInterfaces": 256, "maxAddresses": 256, "maxRoutes": 65537, "code": "invalid"},
-    {"name": "maxRoutes-negative", "maxInterfaces": 256, "maxAddresses": 256, "maxRoutes": -1, "code": "invalid"}
+    {"name": "maxRoutes-negative", "maxInterfaces": 256, "maxAddresses": 256, "maxRoutes": -1, "code": "invalid"},
+    {"name": "maxInterfaces-zero", "maxInterfaces": 0, "maxAddresses": 256, "maxRoutes": 4096, "code": "invalid"},
+    {"name": "maxAddresses-zero", "maxInterfaces": 256, "maxAddresses": 0, "maxRoutes": 4096, "code": "invalid"},
+    {"name": "maxRoutes-zero", "maxInterfaces": 256, "maxAddresses": 256, "maxRoutes": 0, "code": "invalid"},
+    {"name": "every-limit-zero", "maxInterfaces": 0, "maxAddresses": 0, "maxRoutes": 0, "code": "invalid"}
   ],
   "addresses": [
     {"name": "v4-loopback", "ip": "127.0.0.1", "prefix": 8, "want": {"ip": "127.0.0.1", "prefixLength": 8, "family": "ipv4", "scope": "loopback"}, "code": null},

@@ -21,8 +21,11 @@ func platformRoutes(ctx context.Context, limit int) ([]Route, CollectionStatus, 
 	mib := [6]int32{unix.CTL_NET, unix.AF_ROUTE, 0, unix.AF_UNSPEC, unix.NET_RT_DUMP, 0}
 	for attempt := 0; attempt < 3; attempt++ {
 		var size uintptr
-		if err := routeSysctl(&mib, nil, &size); err != 0 || size > 16<<20 {
-			return nil, status("unavailable", "route snapshot unavailable or exceeds byte bound"), nil
+		if err := routeSysctl(&mib, nil, &size); err != 0 {
+			return nil, unavailable(err, fmt.Sprintf("route snapshot: %v", err)), nil
+		}
+		if size > 16<<20 {
+			return nil, unavailable(nil, "route snapshot exceeds byte bound"), nil
 		}
 		if size == 0 {
 			return []Route{}, status("complete", ""), nil
@@ -32,7 +35,7 @@ func platformRoutes(ctx context.Context, limit int) ([]Route, CollectionStatus, 
 			if err == syscall.ENOMEM {
 				continue
 			}
-			return nil, status("unavailable", fmt.Sprintf("route snapshot: %v", err)), nil
+			return nil, unavailable(err, fmt.Sprintf("route snapshot: %v", err)), nil
 		}
 		if size > uintptr(len(data)) {
 			continue
@@ -46,7 +49,7 @@ func platformRoutes(ctx context.Context, limit int) ([]Route, CollectionStatus, 
 		}
 		return routes, status("complete", ""), nil
 	}
-	return nil, status("unavailable", "route snapshot kept growing"), nil
+	return nil, unavailable(nil, "route snapshot kept growing"), nil
 }
 
 func routeSysctl(mib *[6]int32, data *byte, size *uintptr) syscall.Errno {

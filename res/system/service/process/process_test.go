@@ -3,6 +3,7 @@ package process
 import (
 	"os"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 )
@@ -17,11 +18,16 @@ func TestProcessOptionsAndCoverage(t *testing.T) {
 	if err != nil || o.MaxProcesses != 4096 || o.MaxResources != 1024 || o.Timeout != 10*time.Second {
 		t.Fatalf("defaults %+v: %v", o, err)
 	}
-	if got := processStatus(os.ErrPermission); got.State != "permission-denied" {
+	if got := processStatus(os.ErrPermission); got.State != "permission-denied" || got.Reason != "permission" {
 		t.Fatal(got)
 	}
-	if got := processStatus(os.ErrNotExist); got.State == "exited" {
-		t.Fatal("missing resource does not prove process exit")
+	if got := processStatus(os.ErrNotExist); got.State != "unavailable" || got.Reason != "no_device" {
+		t.Fatal("a missing resource is unavailable for want of a source and does not prove process exit: ", got)
+	}
+	for _, status := range []CollectionStatus{processStatus(os.ErrPermission), processStatus(os.ErrNotExist), processStatus(syscall.ESRCH), unreadableProcessStatus("short record")} {
+		if err := status.Validate(); err != nil {
+			t.Fatal(err)
+		}
 	}
 	p := newProcessInfo(42)
 	p.Coverage["file"] = completeProcessStatus()

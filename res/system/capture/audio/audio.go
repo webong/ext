@@ -6,6 +6,7 @@ package audio
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -68,12 +69,31 @@ type Snapshot struct {
 	Status     Status    `json:"status"`
 }
 
-// Limits bound an observation and one PCM packet. Zero values select defaults.
+// Limits bound an observation and one PCM packet. In a Go literal a zero field is an absent one and
+// Normalize gives it the default. Limits that arrive as data are explicit: Validate and the JSON
+// form reject a zero (testdata/audio/v1).
 type Limits struct {
 	MaxDevices     int `json:"max_devices"`
 	MaxPacketBytes int `json:"max_packet_bytes"`
 }
 
+// DefaultLimits returns the default of every limit.
+func DefaultLimits() Limits {
+	return Limits{MaxDevices: DefaultMaxDevices, MaxPacketBytes: DefaultMaxPacketBytes}
+}
+
+// Validate checks explicit limits: every field is between 1 and its ceiling, so a zero is invalid.
+func (l Limits) Validate() error {
+	if l.MaxDevices < 1 || l.MaxDevices > MaxDevices {
+		return fmt.Errorf("%w: device bound must be between 1 and %d", ErrInvalid, MaxDevices)
+	}
+	if l.MaxPacketBytes < 1 || l.MaxPacketBytes > MaxPacketBytes {
+		return fmt.Errorf("%w: packet bound must be between 1 and %d", ErrInvalid, MaxPacketBytes)
+	}
+	return nil
+}
+
+// Normalize gives the absent (zero) fields of a Go literal their defaults and validates the result.
 func (l Limits) Normalize() (Limits, error) {
 	if l.MaxDevices == 0 {
 		l.MaxDevices = DefaultMaxDevices
@@ -81,13 +101,31 @@ func (l Limits) Normalize() (Limits, error) {
 	if l.MaxPacketBytes == 0 {
 		l.MaxPacketBytes = DefaultMaxPacketBytes
 	}
-	if l.MaxDevices < 1 || l.MaxDevices > MaxDevices {
-		return l, fmt.Errorf("%w: device bound must be between 1 and %d", ErrInvalid, MaxDevices)
+	return l, l.Validate()
+}
+
+// UnmarshalJSON reads limits in their wire form: a key that is left out takes its default, and a
+// key that is present is explicit, so a zero is invalid.
+func (l *Limits) UnmarshalJSON(data []byte) error {
+	var wire struct {
+		MaxDevices     *int `json:"max_devices"`
+		MaxPacketBytes *int `json:"max_packet_bytes"`
 	}
-	if l.MaxPacketBytes < 1 || l.MaxPacketBytes > MaxPacketBytes {
-		return l, fmt.Errorf("%w: packet bound must be between 1 and %d", ErrInvalid, MaxPacketBytes)
+	if err := json.Unmarshal(data, &wire); err != nil {
+		return fmt.Errorf("%w: limits are not a JSON object of whole numbers", ErrInvalid)
 	}
-	return l, nil
+	limits := DefaultLimits()
+	if wire.MaxDevices != nil {
+		limits.MaxDevices = *wire.MaxDevices
+	}
+	if wire.MaxPacketBytes != nil {
+		limits.MaxPacketBytes = *wire.MaxPacketBytes
+	}
+	if err := limits.Validate(); err != nil {
+		return err
+	}
+	*l = limits
+	return nil
 }
 
 var (

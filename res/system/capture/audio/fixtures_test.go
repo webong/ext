@@ -96,10 +96,26 @@ func TestFixtures(t *testing.T) {
 			expectCode(t, codes, c.Code, ValidatePacket(packet, Limits{MaxPacketBytes: c.MaxBytes}))
 		})
 	}
+	t.Run("defaults-in-the-json-form", func(t *testing.T) {
+		var got Limits
+		if err := json.Unmarshal([]byte(`{"max_devices":7}`), &got); err != nil {
+			t.Fatal(err)
+		}
+		if want := (Limits{MaxDevices: 7, MaxPacketBytes: cases.Defaults.MaxPacketBytes}); got != want {
+			t.Fatalf("%+v, want %+v", got, want)
+		}
+	})
 	for _, c := range cases.Limits {
 		t.Run("limits/"+c.Name, func(t *testing.T) {
-			_, err := Limits{MaxDevices: c.MaxDevices, MaxPacketBytes: c.MaxPacketBytes}.Normalize()
-			expectCode(t, codes, c.Code, err)
+			limits := Limits{MaxDevices: c.MaxDevices, MaxPacketBytes: c.MaxPacketBytes}
+			expectCode(t, codes, c.Code, limits.Validate())
+			// The JSON form is explicit too: the same values give the same answer.
+			var read Limits
+			wire := fmt.Sprintf(`{"max_devices":%d,"max_packet_bytes":%d}`, c.MaxDevices, c.MaxPacketBytes)
+			expectCode(t, codes, c.Code, json.Unmarshal([]byte(wire), &read))
+			if c.Code == nil && read != limits {
+				t.Fatalf("read %+v, want %+v", read, limits)
+			}
 		})
 	}
 	for _, c := range cases.Devices {

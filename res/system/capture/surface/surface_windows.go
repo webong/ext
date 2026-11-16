@@ -72,7 +72,7 @@ func windowsDisplays(ctx context.Context, limit int) ([]DisplayInfo, proc.Collec
 		return nil, proc.CollectionStatus{}, callbackErr
 	}
 	if ok == 0 {
-		return []DisplayInfo{}, surfaceStatus("unavailable", fmt.Sprintf("EnumDisplayMonitors failed: %v", callErr)), nil
+		return []DisplayInfo{}, surfaceUnavailable(callErr, fmt.Sprintf("EnumDisplayMonitors failed: %v", callErr)), nil
 	}
 	if truncated {
 		return result, surfaceStatus("partial", "display limit reached"), nil
@@ -129,7 +129,7 @@ func windowsWindows(ctx context.Context, limit int) ([]WindowInfo, proc.Collecti
 		return nil, proc.CollectionStatus{}, callbackErr
 	}
 	if ok == 0 {
-		return []WindowInfo{}, surfaceStatus("unavailable", fmt.Sprintf("EnumWindows failed: %v", callErr)), nil
+		return []WindowInfo{}, surfaceUnavailable(callErr, fmt.Sprintf("EnumWindows failed: %v", callErr)), nil
 	}
 	if truncated {
 		return result, surfaceStatus("partial", "window limit reached"), nil

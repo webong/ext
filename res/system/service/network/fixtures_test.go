@@ -81,8 +81,7 @@ func TestFixtures(t *testing.T) {
 	}
 	for _, c := range cases.Options {
 		t.Run("options/"+c.Name, func(t *testing.T) {
-			_, err := normalizeOptions(Options{MaxInterfaces: c.MaxInterfaces, MaxAddresses: c.MaxAddresses, MaxRoutes: c.MaxRoutes})
-			expectCode(t, codes, c.Code, err)
+			expectCode(t, codes, c.Code, Options{MaxInterfaces: c.MaxInterfaces, MaxAddresses: c.MaxAddresses, MaxRoutes: c.MaxRoutes}.Validate())
 		})
 	}
 	for _, c := range cases.Addresses {

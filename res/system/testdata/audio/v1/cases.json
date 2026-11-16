@@ -1,7 +1,7 @@
 {
   "version": 1,
   "area": "audio",
-  "about": "The rules of the audio contract. A packet case builds a PCM16 packet of the given rate and channels and that many zero bytes and checks it against a ceiling: a packet with no data, a rate outside 8 to 192 kHz, 1 to 8 channels or a size that is not whole frames is invalid, a packet over the ceiling is too_large, and the format is judged before the size. A playback case is the same rule for the packet a playback sink takes (stereo, 48 kHz, 16 bits: a frame is 4 bytes). A limits case builds the observation limits (zero is not a case: Go reads it as the default). A devices case is a device snapshot in its wire form, and whether it is valid, under the case's device limit (default 64): only Go has such a snapshot today, and a status is complete, partial or unsupported. A select case picks a device of a kind from the standard device list (out-1, in-1, out-2, mon-1) by id, or the first of the kind when the id is empty, and expects the id or unavailable: a device of another kind or an unknown id is never a fallback. Timestamps are RFC 3339.",
+  "about": "The rules of the audio contract. A packet case builds a PCM16 packet of the given rate and channels and that many zero bytes and checks it against a ceiling: a packet with no data, a rate outside 8 to 192 kHz, 1 to 8 channels or a size that is not whole frames is invalid, a packet over the ceiling is too_large, and the format is judged before the size. A playback case is the same rule for the packet a playback sink takes (stereo, 48 kHz, 16 bits: a frame is 4 bytes). A limits case builds the observation limits (a zero is invalid; the defaults come from the binding's default constructor). A devices case is a device snapshot in its wire form, and whether it is valid, under the case's device limit (default 64): only Go has such a snapshot today, and a status is complete, partial or unsupported. A select case picks a device of a kind from the standard device list (out-1, in-1, out-2, mon-1) by id, or the first of the kind when the id is empty, and expects the id or unavailable: a device of another kind or an unknown id is never a fallback. Timestamps are RFC 3339.",
   "defaults": {
     "maxDevices": 64,
     "maxPacketBytes": 192000,
@@ -70,7 +70,10 @@
     {"name": "devices-above-the-ceiling", "maxDevices": 1025, "maxPacketBytes": 1, "code": "invalid"},
     {"name": "packet-bytes-above-the-ceiling", "maxDevices": 1, "maxPacketBytes": 1048577, "code": "invalid"},
     {"name": "devices-negative", "maxDevices": -1, "maxPacketBytes": 1, "code": "invalid"},
-    {"name": "packet-bytes-negative", "maxDevices": 1, "maxPacketBytes": -1, "code": "invalid"}
+    {"name": "packet-bytes-negative", "maxDevices": 1, "maxPacketBytes": -1, "code": "invalid"},
+    {"name": "devices-zero", "maxDevices": 0, "maxPacketBytes": 1, "code": "invalid"},
+    {"name": "packet-bytes-zero", "maxDevices": 1, "maxPacketBytes": 0, "code": "invalid"},
+    {"name": "every-limit-zero", "maxDevices": 0, "maxPacketBytes": 0, "code": "invalid"}
   ],
   "devices": [
     {"name": "a-full-snapshot", "snapshot": {"backend": "pulseaudio", "observed_at": "2026-11-10T12:00:00Z", "devices": [{"id": "out-1", "name": "Speakers", "kind": "output"}, {"id": "in-1", "name": "Microphone", "kind": "input", "state": "running", "sample_format": "s16le", "sample_rate": 48000, "channels": 2}, {"id": "mon-1", "name": "Monitor", "kind": "monitor"}], "status": {"state": "complete"}}, "code": null},

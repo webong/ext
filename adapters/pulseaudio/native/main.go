@@ -39,7 +39,7 @@ func run(args []string) int {
 			return 2
 		}
 		observer := pulseaudio.NewObserver(nil)
-		snapshot, err := observer.Observe(context.Background(), audio.Limits{})
+		snapshot, err := observer.Observe(context.Background(), audio.DefaultLimits())
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "pulseaudio: %v\n", err)
 			return 1

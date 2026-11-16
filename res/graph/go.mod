@@ -3,7 +3,7 @@ module github.com/webong/ext/res/graph
 go 1.26.0
 
 require (
-	github.com/webong/ext/res/system v0.3.0
+	github.com/webong/ext/res/system v0.5.0
 	modernc.org/sqlite v1.61.0
 )
 

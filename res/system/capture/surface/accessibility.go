@@ -41,8 +41,10 @@ type AccessibilitySnapshot struct {
 }
 
 // AccessibilityOptions bounds traversal. Text is omitted by default because
-// labels and values may contain document or form contents. Zero bounds select
-// 1024 elements, depth 16, and a five-second deadline.
+// labels and values may contain document or form contents. Every bound is
+// explicit and a zero is invalid, as in the other bindings
+// (testdata/surface/v1); start from DefaultAccessibilityOptions (1024 elements,
+// depth 16, five seconds) and change what differs.
 type AccessibilityOptions struct {
 	MaxElements int
 	MaxDepth    int
@@ -50,23 +52,22 @@ type AccessibilityOptions struct {
 	IncludeText bool
 }
 
-func accessibilityOptions(options AccessibilityOptions) (AccessibilityOptions, error) {
-	if options.MaxElements < 0 || options.MaxDepth < 0 || options.Timeout < 0 {
-		return options, fmt.Errorf("%w: accessibility limits and timeout must not be negative", ErrInvalid)
+// DefaultAccessibilityOptions returns the default of every limit and the
+// default timeout, without text.
+func DefaultAccessibilityOptions() AccessibilityOptions {
+	return AccessibilityOptions{MaxElements: 1024, MaxDepth: 16, Timeout: 5 * time.Second}
+}
+
+// Validate checks that the element limit is between 1 and 65536, the depth
+// between 1 and 256, and the timeout positive.
+func (o AccessibilityOptions) Validate() error {
+	if o.MaxElements < 1 || o.MaxElements > 65536 || o.MaxDepth < 1 || o.MaxDepth > 256 {
+		return fmt.Errorf("%w: accessibility limits are outside the supported range", ErrInvalid)
 	}
-	if options.MaxElements == 0 {
-		options.MaxElements = 1024
+	if o.Timeout <= 0 {
+		return fmt.Errorf("%w: accessibility timeout must be positive", ErrInvalid)
 	}
-	if options.MaxDepth == 0 {
-		options.MaxDepth = 16
-	}
-	if options.Timeout == 0 {
-		options.Timeout = 5 * time.Second
-	}
-	if options.MaxElements > 65536 || options.MaxDepth > 256 {
-		return options, fmt.Errorf("%w: accessibility limits exceed the supported ceiling", ErrInvalid)
-	}
-	return options, nil
+	return nil
 }
 
 // DiscoverAccessibility observes the focused local application's native UI
@@ -74,7 +75,7 @@ func accessibilityOptions(options AccessibilityOptions) (AccessibilityOptions, e
 // synthesize input, capture pixels, or communicate with another process over a
 // transport.
 func DiscoverAccessibility(ctx context.Context, options AccessibilityOptions) (AccessibilitySnapshot, error) {
-	options, err := accessibilityOptions(options)
+	err := options.Validate()
 	if err != nil {
 		return AccessibilitySnapshot{}, err
 	}

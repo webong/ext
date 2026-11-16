@@ -28,8 +28,10 @@ action names are not empty and `actions` may be left out; a `parent_id` (left ou
 another element of the snapshot, and the parents have no cycle. A parent may come after its child.
 
 **Options**: surface `maxDisplays` and `maxWindows` are 1 to 65,536 (defaults 64 and 4096);
-accessibility `maxElements` is 1 to 65,536 and `maxDepth` 1 to 256 (defaults 1024 and 16). Go reads a zero
-as the default, so zero is not a case.
+accessibility `maxElements` is 1 to 65,536 and `maxDepth` 1 to 256 (defaults 1024 and 16). A zero is
+`invalid` in every binding (Go `SurfaceOptions.Validate` and `AccessibilityOptions.Validate`). The defaults
+come from the default constructor: Swift's and Java's, and Go's `DefaultSurfaceOptions` and
+`DefaultAccessibilityOptions`. A timeout is positive in Go and Java; it is not a case.
 
 Not covered, because it is each platform's own observation: which displays and windows exist, the
 coordinate space a platform chooses, the accessibility tree a platform walks, and native input and

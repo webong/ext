@@ -94,7 +94,7 @@ func (b *Backend) OpenPlayback(ctx context.Context, deviceID string, limits audi
 }
 
 func (b *Backend) open(ctx context.Context, pcm string, limits audio.Limits, playback bool) (*stream, error) {
-	limits, err := limits.Normalize()
+	err := limits.Validate()
 	if err != nil {
 		return nil, err
 	}
@@ -167,7 +167,7 @@ func (s *stream) Write(ctx context.Context, packet media.PCM16) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	if err := audio.ValidatePacket(packet, audio.Limits{MaxPacketBytes: s.maxPacketBytes}); err != nil {
+	if err := audio.ValidatePacket(packet, audio.Limits{MaxDevices: audio.DefaultMaxDevices, MaxPacketBytes: s.maxPacketBytes}); err != nil {
 		return err
 	}
 	if packet.SampleRate != s.format.SampleRate || packet.Channels != s.format.Channels {

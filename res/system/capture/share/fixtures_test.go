@@ -2,7 +2,9 @@ package share_test
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"reflect"
 	"testing"
 
@@ -17,9 +19,9 @@ type limitsSpec struct {
 	MaxURLLength *int   `json:"maxUrlLength"`
 }
 
-// limits fills a field a case leaves out with the default, since Go cannot tell zero from absent.
+// limits gives a field a case leaves out its default.
 func (l *limitsSpec) limits() share.Limits {
-	var out share.Limits
+	out := share.DefaultLimits()
 	if l == nil {
 		return out
 	}
@@ -122,15 +124,36 @@ func TestFixtures(t *testing.T) {
 		t.Fatal("no cases")
 	}
 	t.Run("defaults", func(t *testing.T) {
-		got, err := (share.Limits{}).Normalize()
+		got := share.DefaultLimits()
+		err := got.Validate()
 		want := share.Limits{MaxItems: cases.Defaults.MaxItems, MaxBytes: cases.Defaults.MaxBytes, MaxTextBytes: cases.Defaults.MaxTextBytes, MaxURLLength: cases.Defaults.MaxURLLength}
 		if err != nil || got != want {
 			t.Fatalf("%+v, %v; want %+v", got, err, want)
 		}
 	})
+	t.Run("defaults-in-the-json-form", func(t *testing.T) {
+		var got share.Limits
+		if err := json.Unmarshal([]byte(`{"max_items":7}`), &got); err != nil {
+			t.Fatal(err)
+		}
+		want := share.DefaultLimits()
+		want.MaxItems = 7
+		if got != want {
+			t.Fatalf("%+v, want %+v", got, want)
+		}
+	})
 	for _, c := range cases.Limits {
 		t.Run("limits/"+c.Name, func(t *testing.T) {
-			_, err := c.Limits.limits().Normalize()
+			limits := c.Limits.limits()
+			err := limits.Validate()
+			// The JSON form is explicit too: the same values give the same answer.
+			var read share.Limits
+			wire := fmt.Sprintf(`{"max_items":%d,"max_bytes":%d,"max_text_bytes":%d,"max_url_length":%d}`, limits.MaxItems, limits.MaxBytes, limits.MaxTextBytes, limits.MaxURLLength)
+			if readErr := json.Unmarshal([]byte(wire), &read); share.Code(readErr) != share.Code(err) {
+				t.Fatalf("JSON form gave %v, Validate %v", readErr, err)
+			} else if err == nil && read != limits {
+				t.Fatalf("read %+v, want %+v", read, limits)
+			}
 			expectCode(t, codes, c.Code, err)
 		})
 	}

@@ -17,7 +17,10 @@ those sections are Go's and are written for the bindings that follow.
   they are not cases; C# tests the busy and canceled paths on a sink with no device and the mapping of
   WASAPI failures instead, and Java tests them on `PlaybackSink` over a fake track.
 - **Limits** (Go): `maxDevices` is 1 to 1024 and `maxPacketBytes` 1 to 1 MiB (defaults 64 and 192,000),
-  else `invalid`; zero is Go's default, so it is not a case.
+  else `invalid`, so a zero is `invalid` (Go `Limits.Validate`). The defaults come from `DefaultLimits`;
+  in Go's JSON form a key that is left out takes its default and a key that is present with 0 is
+  `invalid`. A packet ceiling of zero is not a case: Go refuses the limits as `invalid`, and the
+  playback sinks of Swift and Java read it as a ceiling nothing fits under.
 - **Devices** (Go `ValidateSnapshot`): a snapshot has a backend of at most 64 bytes, a timestamp (RFC 3339)
   and a status of `complete`, `partial` or `unsupported`; an `unsupported` status says why with the reason
   `unsupported` or `tool_missing` (the adapter that owns a missing tool reports `tool_missing`), and the

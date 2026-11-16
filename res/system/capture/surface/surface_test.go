@@ -5,19 +5,20 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestSurfaceOptionsAreBounded(t *testing.T) {
-	if _, err := DiscoverSurfaces(context.Background(), SurfaceOptions{MaxWindows: -1}); err == nil {
+	if _, err := DiscoverSurfaces(context.Background(), SurfaceOptions{MaxDisplays: 1, MaxWindows: -1, Timeout: time.Second}); err == nil {
 		t.Fatal("negative window limit was accepted")
 	}
-	if _, err := DiscoverSurfaces(context.Background(), SurfaceOptions{MaxDisplays: 65537}); err == nil {
+	if _, err := DiscoverSurfaces(context.Background(), SurfaceOptions{MaxDisplays: 65537, MaxWindows: 1, Timeout: time.Second}); err == nil {
 		t.Fatal("excessive display limit was accepted")
 	}
 }
 
 func TestSurfaceObservationContainsNoTitlesOrNativeHandles(t *testing.T) {
-	snapshot, err := DiscoverSurfaces(context.Background(), SurfaceOptions{})
+	snapshot, err := DiscoverSurfaces(context.Background(), DefaultSurfaceOptions())
 	if err != nil {
 		t.Fatal(err)
 	}

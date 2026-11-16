@@ -12,9 +12,15 @@ on an OS name (`docs/adr-architecture.md`, rule 2). Every collection status has 
 | `unavailable` | it can be observed here but not now | `permission`, `no_device`, `tool_missing`, or none |
 
 The reasons are fixed: `unsupported` on this platform, `permission` not granted, `no_device`, and
-`tool_missing` (the native tool is not installed; the adapter that owns the tool reports it). A
-failed native read has no reason in this set, so an `unavailable` status may leave it out until a
-cause is known. `cases.json` lists each pair and whether it is valid. A package runs it against its
+`tool_missing` (the native tool is not installed; the adapter that owns the tool reports it).
+
+A failed native read is `unavailable` and says why with one of the same reasons: `permission` when
+the system refused the read, `tool_missing` when a program or library it needs is not installed, and
+`no_device` otherwise, which covers a device, session or source that is absent or did not answer (no
+display to open, no focused application, no resolver configuration, a process that went away during
+the read). Go's observers always give the reason (`internal/capability.Unavailable`). The empty
+reason stays valid for `unavailable` until the Swift, Java and C# read sites give one too.
+`cases.json` lists each pair and whether it is valid. A package runs it against its
 own status type: network has Go `CollectionStatus.Validate`, Swift `NetworkCollectionStatus.validate`
 and the Java `NetworkCollectionStatus` constructor; host and surface share Go's
 `process.CollectionStatus.Validate` and have Swift `ResourceCollectionStatus.validate` and the Java

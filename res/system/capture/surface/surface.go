@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/webong/ext/res/system/internal/capability"
 	"github.com/webong/ext/res/system/internal/identity"
 	proc "github.com/webong/ext/res/system/service/process"
 )
@@ -55,38 +56,38 @@ type SurfaceSnapshot struct {
 	WindowStatus    proc.CollectionStatus `json:"window_status"`
 }
 
-// SurfaceOptions bounds returned metadata and collection time. Zero values
-// select 64 displays, 4096 windows, and a five-second deadline.
+// SurfaceOptions bounds returned metadata and collection time. Every field is
+// explicit and a zero is invalid, as in the other bindings
+// (testdata/surface/v1); start from DefaultSurfaceOptions (64 displays, 4096
+// windows, five seconds) and change what differs.
 type SurfaceOptions struct {
 	MaxDisplays int
 	MaxWindows  int
 	Timeout     time.Duration
 }
 
-func surfaceOptions(options SurfaceOptions) (SurfaceOptions, error) {
-	if options.MaxDisplays < 0 || options.MaxWindows < 0 || options.Timeout < 0 {
-		return options, fmt.Errorf("%w: surface limits and timeout must not be negative", ErrInvalid)
+// DefaultSurfaceOptions returns the default of every limit and the default timeout.
+func DefaultSurfaceOptions() SurfaceOptions {
+	return SurfaceOptions{MaxDisplays: 64, MaxWindows: 4096, Timeout: 5 * time.Second}
+}
+
+// Validate checks that every limit is between 1 and 65536 and that the
+// timeout is positive.
+func (o SurfaceOptions) Validate() error {
+	if o.MaxDisplays < 1 || o.MaxDisplays > 65536 || o.MaxWindows < 1 || o.MaxWindows > 65536 {
+		return fmt.Errorf("%w: surface limits must be between 1 and 65536", ErrInvalid)
 	}
-	if options.MaxDisplays == 0 {
-		options.MaxDisplays = 64
+	if o.Timeout <= 0 {
+		return fmt.Errorf("%w: surface timeout must be positive", ErrInvalid)
 	}
-	if options.MaxWindows == 0 {
-		options.MaxWindows = 4096
-	}
-	if options.Timeout == 0 {
-		options.Timeout = 5 * time.Second
-	}
-	if options.MaxDisplays > 65536 || options.MaxWindows > 65536 {
-		return options, fmt.Errorf("%w: surface limits must not exceed 65536", ErrInvalid)
-	}
-	return options, nil
+	return nil
 }
 
 // DiscoverSurfaces observes local display geometry and caller-visible windows.
 // It does not request permission, capture pixels, read window titles, expose
 // native handles, synthesize input, or contact a remote service.
 func DiscoverSurfaces(ctx context.Context, options SurfaceOptions) (SurfaceSnapshot, error) {
-	options, err := surfaceOptions(options)
+	err := options.Validate()
 	if err != nil {
 		return SurfaceSnapshot{}, err
 	}
@@ -128,6 +129,13 @@ func stampSurfaceStatus(status *proc.CollectionStatus, observed time.Time) {
 
 func surfaceStatus(state, detail string) proc.CollectionStatus {
 	return proc.CollectionStatus{State: state, Detail: detail}
+}
+
+// surfaceUnavailable reports something this platform can observe but could not now. The reason
+// comes from err, the failure of the native read: permission, tool_missing, or no_device when the
+// display, session or application to read is absent or did not answer (a nil err).
+func surfaceUnavailable(err error, detail string) proc.CollectionStatus {
+	return proc.CollectionStatus{State: "unavailable", Reason: capability.Unavailable(err), Detail: detail}
 }
 
 // surfaceUnsupported reports a platform or build that cannot observe something at all.

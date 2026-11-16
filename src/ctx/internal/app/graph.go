@@ -58,12 +58,12 @@ func graphCommand(args []string, stdout, stderr io.Writer) int {
 			inventory.Webviews, err = systemhost.DiscoverWebviews(ctx)
 			result = inventory.Webviews
 		case "surfaces":
-			surfaces, surfaceErr := systemsurface.DiscoverSurfaces(ctx, systemsurface.SurfaceOptions{})
+			surfaces, surfaceErr := systemsurface.DiscoverSurfaces(ctx, systemsurface.DefaultSurfaceOptions())
 			err = surfaceErr
 			inventory.Surfaces = &surfaces
 			result = surfaces
 		case "accessibility":
-			accessibility, accessibilityErr := systemsurface.DiscoverAccessibility(ctx, systemsurface.AccessibilityOptions{})
+			accessibility, accessibilityErr := systemsurface.DiscoverAccessibility(ctx, systemsurface.DefaultAccessibilityOptions())
 			err = accessibilityErr
 			inventory.Accessibility = &accessibility
 			result = accessibility

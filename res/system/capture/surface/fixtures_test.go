@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/webong/ext/res/system/internal/fixtures"
+	proc "github.com/webong/ext/res/system/service/process"
 )
 
 type snapshotCase struct {
@@ -81,14 +83,12 @@ func TestFixtures(t *testing.T) {
 	}
 	for _, c := range cases.SurfaceOptions {
 		t.Run("surfaceOptions/"+c.Name, func(t *testing.T) {
-			_, err := surfaceOptions(SurfaceOptions{MaxDisplays: c.MaxDisplays, MaxWindows: c.MaxWindows})
-			expectCode(t, codes, c.Code, err)
+			expectCode(t, codes, c.Code, SurfaceOptions{MaxDisplays: c.MaxDisplays, MaxWindows: c.MaxWindows, Timeout: time.Second}.Validate())
 		})
 	}
 	for _, c := range cases.AccessibilityOptions {
 		t.Run("accessibilityOptions/"+c.Name, func(t *testing.T) {
-			_, err := accessibilityOptions(AccessibilityOptions{MaxElements: c.MaxElements, MaxDepth: c.MaxDepth})
-			expectCode(t, codes, c.Code, err)
+			expectCode(t, codes, c.Code, AccessibilityOptions{MaxElements: c.MaxElements, MaxDepth: c.MaxDepth, Timeout: time.Second}.Validate())
 		})
 	}
 }
@@ -96,7 +96,7 @@ func TestFixtures(t *testing.T) {
 // TestObserverProducesValidSnapshots checks the rules against what this machine reports.
 func TestObserverProducesValidSnapshots(t *testing.T) {
 	ctx := context.Background()
-	surfaces, err := DiscoverSurfaces(ctx, SurfaceOptions{})
+	surfaces, err := DiscoverSurfaces(ctx, DefaultSurfaceOptions())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -110,11 +110,22 @@ func TestObserverProducesValidSnapshots(t *testing.T) {
 	if err := permissions.Validate(); err != nil {
 		t.Fatalf("%v\n%+v", err, permissions)
 	}
-	tree, err := DiscoverAccessibility(ctx, AccessibilityOptions{})
+	tree, err := DiscoverAccessibility(ctx, DefaultAccessibilityOptions())
 	if err != nil {
 		t.Fatal(err)
 	}
 	if err := tree.Validate(); err != nil {
 		t.Fatalf("%v\n%+v", err, tree)
+	}
+	// Go's observers always say why something could not be read.
+	for name, status := range map[string]proc.CollectionStatus{"display": surfaces.DisplayStatus, "window": surfaces.WindowStatus, "accessibility": tree.Status} {
+		if (status.State == "unavailable" || status.State == "permission-denied") && status.Reason == "" {
+			t.Errorf("%s status %q has no reason", name, status.State)
+		}
+	}
+	for name, permission := range map[string]PermissionInfo{"accessibility": permissions.Accessibility, "screen recording": permissions.ScreenRecording} {
+		if permission.State == "unavailable" && permission.Reason == "" {
+			t.Errorf("%s permission is unavailable without a reason", name)
+		}
 	}
 }

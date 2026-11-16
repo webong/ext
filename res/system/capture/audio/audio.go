@@ -6,6 +6,7 @@ package audio
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -68,26 +69,52 @@ type Snapshot struct {
 	Status     Status    `json:"status"`
 }
 
-// Limits bound an observation and one PCM packet. Zero values select defaults.
+// Limits bound an observation and one PCM packet. Every field is explicit and a zero is invalid
+// (testdata/audio/v1); start from DefaultLimits and change what differs. In the JSON form a key
+// that is left out takes its default.
 type Limits struct {
 	MaxDevices     int `json:"max_devices"`
 	MaxPacketBytes int `json:"max_packet_bytes"`
 }
 
-func (l Limits) Normalize() (Limits, error) {
-	if l.MaxDevices == 0 {
-		l.MaxDevices = DefaultMaxDevices
-	}
-	if l.MaxPacketBytes == 0 {
-		l.MaxPacketBytes = DefaultMaxPacketBytes
-	}
+// DefaultLimits returns the default of every limit.
+func DefaultLimits() Limits {
+	return Limits{MaxDevices: DefaultMaxDevices, MaxPacketBytes: DefaultMaxPacketBytes}
+}
+
+// Validate checks that every field is between 1 and its ceiling.
+func (l Limits) Validate() error {
 	if l.MaxDevices < 1 || l.MaxDevices > MaxDevices {
-		return l, fmt.Errorf("%w: device bound must be between 1 and %d", ErrInvalid, MaxDevices)
+		return fmt.Errorf("%w: device bound must be between 1 and %d", ErrInvalid, MaxDevices)
 	}
 	if l.MaxPacketBytes < 1 || l.MaxPacketBytes > MaxPacketBytes {
-		return l, fmt.Errorf("%w: packet bound must be between 1 and %d", ErrInvalid, MaxPacketBytes)
+		return fmt.Errorf("%w: packet bound must be between 1 and %d", ErrInvalid, MaxPacketBytes)
 	}
-	return l, nil
+	return nil
+}
+
+// UnmarshalJSON reads limits in their wire form: a key that is left out takes its default, and a
+// key that is present is explicit, so a zero is invalid.
+func (l *Limits) UnmarshalJSON(data []byte) error {
+	var wire struct {
+		MaxDevices     *int `json:"max_devices"`
+		MaxPacketBytes *int `json:"max_packet_bytes"`
+	}
+	if err := json.Unmarshal(data, &wire); err != nil {
+		return fmt.Errorf("%w: limits are not a JSON object of whole numbers", ErrInvalid)
+	}
+	limits := DefaultLimits()
+	if wire.MaxDevices != nil {
+		limits.MaxDevices = *wire.MaxDevices
+	}
+	if wire.MaxPacketBytes != nil {
+		limits.MaxPacketBytes = *wire.MaxPacketBytes
+	}
+	if err := limits.Validate(); err != nil {
+		return err
+	}
+	*l = limits
+	return nil
 }
 
 var (
@@ -151,8 +178,7 @@ type Sink interface {
 
 // ValidateSnapshot checks identity, kind, format, and device bounds.
 func ValidateSnapshot(snapshot Snapshot, limits Limits) error {
-	limits, err := limits.Normalize()
-	if err != nil {
+	if err := limits.Validate(); err != nil {
 		return err
 	}
 	if snapshot.Backend == "" || len(snapshot.Backend) > 64 || snapshot.ObservedAt.IsZero() {
@@ -201,8 +227,7 @@ func ValidateSnapshot(snapshot Snapshot, limits Limits) error {
 // data, a rate outside 8 to 192 kHz, 1 to 8 channels or a size that is not whole frames is invalid, and
 // one over the ceiling is too large. The format is judged first.
 func ValidatePacket(packet media.PCM16, limits Limits) error {
-	limits, err := limits.Normalize()
-	if err != nil {
+	if err := limits.Validate(); err != nil {
 		return err
 	}
 	if len(packet.Data) == 0 || packet.SampleRate < 8_000 || packet.SampleRate > 192_000 || packet.Channels < 1 || packet.Channels > 8 ||

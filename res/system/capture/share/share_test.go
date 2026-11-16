@@ -13,7 +13,7 @@ func TestNormalizeMergesAndDeduplicates(t *testing.T) {
 		{Subject: "Release notes", Text: "second", Attachments: []Attachment{
 			{Name: "report.txt", MIMEType: "text/plain", Data: []byte("hello")},
 		}},
-	}, Limits{})
+	}, DefaultLimits())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -39,7 +39,7 @@ func TestNormalizeCollapsesDuplicateAttachments(t *testing.T) {
 	payload, err := Normalize([]Item{
 		{Attachments: []Attachment{attachment, attachment}},
 		{Attachments: []Attachment{attachment}},
-	}, Limits{})
+	}, DefaultLimits())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -52,7 +52,7 @@ func TestNormalizeRejectsConflictingAttachmentNames(t *testing.T) {
 	_, err := Normalize([]Item{{Attachments: []Attachment{
 		{Name: "photo.jpg", MIMEType: "image/jpeg", Data: []byte("one")},
 		{Name: "Photo.jpg", MIMEType: "image/jpeg", Data: []byte("two")},
-	}}}, Limits{})
+	}}}, DefaultLimits())
 	if !errors.Is(err, ErrInvalid) {
 		t.Fatalf("conflicting attachment names = %v", err)
 	}
@@ -61,7 +61,7 @@ func TestNormalizeRejectsConflictingAttachmentNames(t *testing.T) {
 func TestNormalizeEnforcesByteCeiling(t *testing.T) {
 	_, err := Normalize([]Item{{Attachments: []Attachment{
 		{Name: "large.bin", Data: make([]byte, 64)},
-	}}}, Limits{MaxBytes: 32})
+	}}}, over(Limits{MaxBytes: 32}))
 	if !errors.Is(err, ErrLimit) {
 		t.Fatalf("oversized attachment = %v", err)
 	}
@@ -70,7 +70,7 @@ func TestNormalizeEnforcesByteCeiling(t *testing.T) {
 func TestNormalizeCountsDeclaredAttachmentSize(t *testing.T) {
 	_, err := Normalize([]Item{{Attachments: []Attachment{
 		{Name: "stream.bin", Size: 1024, Path: "/tmp/stream.bin"},
-	}}}, Limits{MaxBytes: 512})
+	}}}, over(Limits{MaxBytes: 512}))
 	if !errors.Is(err, ErrLimit) {
 		t.Fatalf("declared size = %v", err)
 	}
@@ -79,13 +79,13 @@ func TestNormalizeCountsDeclaredAttachmentSize(t *testing.T) {
 func TestNormalizeEnforcesItemAndTextBounds(t *testing.T) {
 	items := make([]Item, 3)
 	items[0], items[1], items[2] = Item{Text: "a"}, Item{Text: "b"}, Item{Text: "c"}
-	if _, err := Normalize(items, Limits{MaxItems: 2}); !errors.Is(err, ErrLimit) {
+	if _, err := Normalize(items, over(Limits{MaxItems: 2})); !errors.Is(err, ErrLimit) {
 		t.Fatalf("item bound = %v", err)
 	}
-	if _, err := Normalize([]Item{{Text: strings.Repeat("x", 40)}}, Limits{MaxTextBytes: 16}); !errors.Is(err, ErrLimit) {
+	if _, err := Normalize([]Item{{Text: strings.Repeat("x", 40)}}, over(Limits{MaxTextBytes: 16})); !errors.Is(err, ErrLimit) {
 		t.Fatalf("item text bound = %v", err)
 	}
-	if _, err := Normalize([]Item{{Text: "0123456789"}, {Text: "abcdefghij"}}, Limits{MaxTextBytes: 12}); !errors.Is(err, ErrLimit) {
+	if _, err := Normalize([]Item{{Text: "0123456789"}, {Text: "abcdefghij"}}, over(Limits{MaxTextBytes: 12})); !errors.Is(err, ErrLimit) {
 		t.Fatalf("merged text bound = %v", err)
 	}
 }
@@ -101,7 +101,7 @@ func TestNormalizeRejectsInvalidAttachments(t *testing.T) {
 		"negative":     {Name: "value", Size: -1},
 		"sizeMismatch": {Name: "value", Data: []byte("abc"), Size: 9},
 	} {
-		if _, err := Normalize([]Item{{Attachments: []Attachment{attachment}}}, Limits{}); !errors.Is(err, ErrInvalid) {
+		if _, err := Normalize([]Item{{Attachments: []Attachment{attachment}}}, DefaultLimits()); !errors.Is(err, ErrInvalid) {
 			t.Errorf("%s attachment = %v", name, err)
 		}
 	}
@@ -115,16 +115,16 @@ func TestNormalizeRejectsInvalidLinksAndText(t *testing.T) {
 		"nulText":      {Text: "value\x00"},
 		"invalidUTF8":  {Text: string([]byte{0xff, 0xfe})},
 	} {
-		if _, err := Normalize([]Item{item}, Limits{}); !errors.Is(err, ErrInvalid) {
+		if _, err := Normalize([]Item{item}, DefaultLimits()); !errors.Is(err, ErrInvalid) {
 			t.Errorf("%s = %v", name, err)
 		}
 	}
-	if _, err := Normalize([]Item{{URLs: []string{"https://example.test/" + strings.Repeat("a", 32)}}}, Limits{MaxURLLength: 16}); !errors.Is(err, ErrLimit) {
+	if _, err := Normalize([]Item{{URLs: []string{"https://example.test/" + strings.Repeat("a", 32)}}}, over(Limits{MaxURLLength: 16})); !errors.Is(err, ErrLimit) {
 		t.Fatalf("link bound = %v", err)
 	}
 }
 
-func TestLimitsNormalizeRejectsCeilings(t *testing.T) {
+func TestLimitsValidateRejectsCeilings(t *testing.T) {
 	for name, limits := range map[string]Limits{
 		"items": {MaxItems: MaxItems + 1},
 		"bytes": {MaxBytes: MaxBytes + 1},
@@ -132,22 +132,43 @@ func TestLimitsNormalizeRejectsCeilings(t *testing.T) {
 		"url":   {MaxURLLength: MaxURLLength + 1},
 		"zero":  {MaxItems: -1},
 	} {
-		if _, err := limits.Normalize(); !errors.Is(err, ErrInvalid) {
+		if err := over(limits).Validate(); !errors.Is(err, ErrInvalid) {
 			t.Errorf("%s limits = %v", name, err)
 		}
 	}
-	defaults, err := (Limits{}).Normalize()
-	if err != nil || defaults.MaxItems != DefaultMaxItems || defaults.MaxBytes != DefaultMaxBytes {
+	if err := (Limits{}).Validate(); !errors.Is(err, ErrInvalid) {
+		t.Errorf("zero limits = %v", err)
+	}
+	defaults := DefaultLimits()
+	if err := defaults.Validate(); err != nil || defaults.MaxItems != DefaultMaxItems || defaults.MaxBytes != DefaultMaxBytes {
 		t.Fatalf("default limits = %#v, %v", defaults, err)
 	}
 }
 
 func TestNormalizeEmptyInput(t *testing.T) {
-	payload, err := Normalize(nil, Limits{})
+	payload, err := Normalize(nil, DefaultLimits())
 	if err != nil {
 		t.Fatal(err)
 	}
 	if payload.Text != "" || len(payload.URLs) != 0 || len(payload.Attachments) != 0 || payload.ByteCount != 0 {
 		t.Fatalf("empty payload = %#v", payload)
 	}
+}
+
+// over returns the default limits with the fields set in l in their place.
+func over(l Limits) Limits {
+	out := DefaultLimits()
+	if l.MaxItems != 0 {
+		out.MaxItems = l.MaxItems
+	}
+	if l.MaxBytes != 0 {
+		out.MaxBytes = l.MaxBytes
+	}
+	if l.MaxTextBytes != 0 {
+		out.MaxTextBytes = l.MaxTextBytes
+	}
+	if l.MaxURLLength != 0 {
+		out.MaxURLLength = l.MaxURLLength
+	}
+	return out
 }

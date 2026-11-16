@@ -2,6 +2,7 @@ package adapter
 
 import (
 	"archive/zip"
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -9,7 +10,6 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
-	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -19,6 +19,7 @@ import (
 	"time"
 
 	plugin "github.com/webong/ext/pkg/ext-go/engine"
+	"github.com/webong/ext/pkg/ext-go/engine/host/store"
 	"github.com/webong/ext/pkg/ext-go/engine/package"
 )
 
@@ -26,6 +27,10 @@ const maxArtifactBytes int64 = 256 << 20
 const maxExpandedBytes int64 = 512 << 20
 const maxArtifactEntries = 4096
 const maxIndexBytes int64 = 1 << 20
+const downloadTimeout = 2 * time.Minute
+
+// archiveLimits bounds an adapter archive and what it extracts to.
+var archiveLimits = store.Limits{MaxArchiveBytes: maxArtifactBytes, MaxTreeBytes: maxExpandedBytes, MaxTreeFiles: maxArtifactEntries + 1}
 
 var validTarget = regexp.MustCompile(`^[a-z0-9][a-z0-9_]*$`)
 
@@ -150,7 +155,7 @@ func PackageDirectory(directory, output, goos, goarch string) error {
 			return err
 		}
 		archiveName := filepath.ToSlash(relative)
-		if !safeArtifactPath(archiveName) {
+		if !store.SafeArchivePath(archiveName) {
 			return fmt.Errorf("unsafe adapter package path %q", archiveName)
 		}
 		info, err := entry.Info()
@@ -266,7 +271,7 @@ func WriteIndex(output string, packages []string) error {
 			return errors.New("adapter index and archives must be in the same directory")
 		}
 		name := filepath.Base(archivePath)
-		if !safeArtifactPath(name) || seenFiles[strings.ToLower(name)] || name == filepath.Base(output) {
+		if !store.SafeArchivePath(name) || seenFiles[strings.ToLower(name)] || name == filepath.Base(output) {
 			return fmt.Errorf("duplicate or invalid adapter archive %s", name)
 		}
 		seenFiles[strings.ToLower(name)] = true
@@ -390,7 +395,7 @@ func (s *Store) installSource(source, expectedSHA256, expectedName string) (*Ada
 		if err != nil {
 			return nil, err
 		}
-		defer os.Remove(archive)
+		defer os.RemoveAll(filepath.Dir(archive))
 		return s.installArchive(archive, expectedSHA256, expectedName)
 	}
 	info, err := os.Lstat(source)
@@ -436,7 +441,7 @@ func (s *Store) installIndex(source, expectedSHA256 string) (*Adapter, error) {
 		if err != nil {
 			return nil, err
 		}
-		defer os.Remove(path)
+		defer os.RemoveAll(filepath.Dir(path))
 	}
 	info, err := os.Lstat(path)
 	if err != nil {
@@ -491,76 +496,34 @@ func (s *Store) installIndex(source, expectedSHA256 string) (*Adapter, error) {
 	return s.installSource(packageSource, location.SHA256, index.Name)
 }
 
+// downloadArtifact fetches an HTTPS source into a temporary file the caller
+// removes.
 func downloadArtifact(source string, limit int64) (string, error) {
-	client := &http.Client{
-		Timeout: 2 * time.Minute,
-		CheckRedirect: func(request *http.Request, via []*http.Request) error {
-			if request.URL.Scheme != "https" {
-				return errors.New("adapter download redirected away from HTTPS")
-			}
-			if len(via) >= 10 {
-				return errors.New("too many adapter download redirects")
-			}
-			return nil
-		},
-	}
-	response, err := client.Get(source)
+	directory, err := os.MkdirTemp("", "ctx-adapter-download-")
 	if err != nil {
 		return "", err
 	}
-	defer response.Body.Close()
-	if response.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("adapter download returned HTTP %d", response.StatusCode)
-	}
-	file, err := os.CreateTemp("", "ctx-adapter-download-*.ctxadapter")
-	if err != nil {
-		return "", err
-	}
-	path := file.Name()
-	count, copyErr := io.Copy(file, io.LimitReader(response.Body, limit+1))
-	closeErr := file.Close()
-	if copyErr != nil || closeErr != nil || count > limit {
-		os.Remove(path)
-		if copyErr != nil {
-			return "", copyErr
-		}
-		if closeErr != nil {
-			return "", closeErr
-		}
-		return "", errors.New("adapter download exceeds size limit")
+	ctx, cancel := context.WithTimeout(context.Background(), downloadTimeout)
+	defer cancel()
+	path := filepath.Join(directory, "download")
+	if err := store.Download(ctx, nil, source, path, limit); err != nil {
+		os.RemoveAll(directory)
+		return "", fmt.Errorf("adapter download: %w", err)
 	}
 	return path, nil
 }
 
 func (s *Store) installArchive(path, expectedSHA256, expectedName string) (*Adapter, error) {
-	file, err := os.Open(path)
-	if err != nil {
-		return nil, err
-	}
-	defer file.Close()
-	info, err := file.Stat()
-	if err != nil {
-		return nil, err
-	}
-	if !info.Mode().IsRegular() || info.Size() > maxArtifactBytes {
-		return nil, errors.New("adapter archive exceeds size limit or is not a regular file")
-	}
-	if err := verifyArtifactSHA(path, expectedSHA256); err != nil {
-		return nil, err
-	}
-	archive, err := zip.NewReader(file, info.Size())
-	if err != nil {
-		return nil, fmt.Errorf("open adapter archive: %w", err)
-	}
 	staging, err := os.MkdirTemp("", "ctx-adapter-extract-")
 	if err != nil {
 		return nil, err
 	}
 	defer os.RemoveAll(staging)
-	if err := extractArtifact(archive, staging); err != nil {
-		return nil, err
+	root, err := store.ExtractArchive(path, expectedSHA256, filepath.Join(staging, "package"), archiveLimits)
+	if err != nil {
+		return nil, fmt.Errorf("adapter archive: %w", err)
 	}
-	loaded, err := LoadDirectory(staging)
+	loaded, err := LoadDirectory(root)
 	if err != nil {
 		return nil, err
 	}
@@ -583,7 +546,7 @@ func (s *Store) installArchive(path, expectedSHA256, expectedName string) (*Adap
 	if expectedName != "" && loaded.Manifest.Name != expectedName {
 		return nil, errors.New("adapter package name does not match its index")
 	}
-	return s.Install(staging)
+	return s.Install(root)
 }
 
 func verifyArtifactSHA(path, expected string) error {
@@ -625,82 +588,4 @@ func FileSHA256(path string) (string, error) {
 		return "", err
 	}
 	return hex.EncodeToString(digest.Sum(nil)), nil
-}
-
-func extractArtifact(archive *zip.Reader, target string) error {
-	if len(archive.File) == 0 || len(archive.File) > maxArtifactEntries+1 {
-		return errors.New("adapter archive has an invalid file count")
-	}
-	seen := map[string]bool{}
-	var total int64
-	for _, entry := range archive.File {
-		name := strings.TrimSuffix(entry.Name, "/")
-		if !safeArtifactPath(name) {
-			return fmt.Errorf("unsafe adapter archive path %q", entry.Name)
-		}
-		key := strings.ToLower(name)
-		if seen[key] {
-			return fmt.Errorf("duplicate adapter archive path %q", entry.Name)
-		}
-		seen[key] = true
-		destination := filepath.Join(target, filepath.FromSlash(name))
-		if entry.FileInfo().IsDir() {
-			if err := os.MkdirAll(destination, 0o700); err != nil {
-				return err
-			}
-			continue
-		}
-		if !entry.Mode().IsRegular() || entry.UncompressedSize64 > uint64(maxExpandedBytes-total) {
-			return fmt.Errorf("invalid or oversized adapter archive entry %q", entry.Name)
-		}
-		if err := os.MkdirAll(filepath.Dir(destination), 0o700); err != nil {
-			return err
-		}
-		input, err := entry.Open()
-		if err != nil {
-			return err
-		}
-		mode := entry.Mode().Perm()
-		if mode == 0 {
-			mode = 0o644
-		}
-		output, err := os.OpenFile(destination, os.O_CREATE|os.O_EXCL|os.O_WRONLY, mode)
-		if err != nil {
-			input.Close()
-			return err
-		}
-		count, copyErr := io.Copy(output, io.LimitReader(input, maxExpandedBytes-total+1))
-		inputErr := input.Close()
-		outputErr := output.Close()
-		if copyErr != nil || inputErr != nil || outputErr != nil {
-			return errors.Join(copyErr, inputErr, outputErr)
-		}
-		total += count
-		if total > maxExpandedBytes {
-			return errors.New("adapter archive exceeds expanded size limit")
-		}
-	}
-	return nil
-}
-
-func safeArtifactPath(name string) bool {
-	if name == "" || !fs.ValidPath(name) || strings.ContainsAny(name, "\\:\x00") {
-		return false
-	}
-	for _, character := range name {
-		if character < 0x20 || character == 0x7f {
-			return false
-		}
-	}
-	for _, part := range strings.Split(name, "/") {
-		if len(part) > 255 || strings.TrimRight(part, ". ") != part {
-			return false
-		}
-		stem := strings.ToUpper(strings.SplitN(part, ".", 2)[0])
-		if stem == "CON" || stem == "PRN" || stem == "AUX" || stem == "NUL" ||
-			len(stem) == 4 && (strings.HasPrefix(stem, "COM") || strings.HasPrefix(stem, "LPT")) && stem[3] >= '1' && stem[3] <= '9' {
-			return false
-		}
-	}
-	return true
 }

@@ -55,8 +55,8 @@ func SafeArchivePath(name string) bool { return cstore.SafeArchivePath(name) }
 // when ManifestName is at the top of the archive, or the single top-level
 // directory that holds it.
 //
-// The archive is a gzip-compressed tar or a zip, told apart by content and not
-// by name. Only directories and regular files are extracted; a link, a device
+// The archive is a zip, a gzip-compressed tar or a plain tar, told apart by
+// content and not by name; anything else is plugin.ErrUnsupported. Only directories and regular files are extracted; a link, a device
 // or any other special entry fails the extraction, as does a path that is
 // absolute, leaves the destination, repeats another (whatever its case) or is
 // not a SafeArchivePath. limits bounds the work: MaxArchiveBytes the archive

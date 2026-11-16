@@ -54,7 +54,19 @@ func tarGz(t testing.TB, entries []member) []byte {
 	t.Helper()
 	var buffer bytes.Buffer
 	compressed := gzip.NewWriter(&buffer)
-	writer := tar.NewWriter(compressed)
+	if _, err := compressed.Write(tarred(t, entries)); err != nil {
+		t.Fatal(err)
+	}
+	if err := compressed.Close(); err != nil {
+		t.Fatal(err)
+	}
+	return buffer.Bytes()
+}
+
+func tarred(t testing.TB, entries []member) []byte {
+	t.Helper()
+	var buffer bytes.Buffer
+	writer := tar.NewWriter(&buffer)
 	for _, e := range entries {
 		header := &tar.Header{Name: e.name, Mode: 0o644, Size: int64(len(e.body)), Typeflag: tar.TypeReg}
 		if e.mode != 0 {
@@ -75,7 +87,7 @@ func tarGz(t testing.TB, entries []member) []byte {
 			}
 		}
 	}
-	if err := errors.Join(writer.Close(), compressed.Close()); err != nil {
+	if err := writer.Close(); err != nil {
 		t.Fatal(err)
 	}
 	return buffer.Bytes()
@@ -129,7 +141,7 @@ func sum(data []byte) string {
 
 func TestInstallArchiveBothFormats(t *testing.T) {
 	ctx := context.Background()
-	for name, build := range map[string]func(testing.TB, []member) []byte{"tar.gz": tarGz, "zip": zipped} {
+	for name, build := range map[string]func(testing.TB, []member) []byte{"tar.gz": tarGz, "tar": tarred, "zip": zipped} {
 		t.Run(name, func(t *testing.T) {
 			s := newStore(t)
 			// r1: the manifest sits in one top-level directory, as a release tarball has it.
@@ -239,9 +251,19 @@ func TestInstallArchiveRefusals(t *testing.T) {
 		{name: "two top-level directories", want: plugin.ErrInvalid, archive: func(t *testing.T) store.Archive {
 			return pinned(t, zipped(t, append(members(t, source(t, "example/a", "r1", "one"), "a/"), member{name: "b/x", body: []byte("x")})))
 		}},
-		{name: "plain tar", want: plugin.ErrInvalid, archive: func(t *testing.T) store.Archive {
+		{name: "unknown format", want: plugin.ErrUnsupported, archive: func(t *testing.T) store.Archive {
 			return pinned(t, []byte("not an archive at all"))
 		}},
+		{name: "plain tar link", want: plugin.ErrInvalid, archive: func(t *testing.T) store.Archive {
+			return pinned(t, tarred(t, with(member{name: "link", link: outside})))
+		}},
+		{name: "plain tar path escape", want: plugin.ErrInvalid, archive: func(t *testing.T) store.Archive {
+			return pinned(t, tarred(t, with(member{name: "../../escaped", body: []byte("x")})))
+		}},
+		{name: "oversized plain tar content", want: plugin.ErrInvalid, limits: store.Limits{MaxTreeBytes: 1024},
+			archive: func(t *testing.T) store.Archive {
+				return pinned(t, tarred(t, with(member{name: "big", body: bytes.Repeat([]byte{0}, 1<<20)})))
+			}},
 		{name: "another package", want: plugin.ErrMismatch, archive: func(t *testing.T) store.Archive {
 			a := pinned(t, tarGz(t, good))
 			a.ID = "example/b"
@@ -450,6 +472,11 @@ func TestExtractArchiveKeepsOnlyTheExecuteBit(t *testing.T) {
 	}
 	if _, err := store.ExtractArchive(archive.Source, "", destination, store.Limits{}); !errors.Is(err, plugin.ErrInvalid) {
 		t.Fatalf("extracted into a directory that is not empty: %v", err)
+	}
+	unknown := pinned(t, []byte("Rar!\x1a\x07\x00 and more"))
+	if _, err := store.ExtractArchive(unknown.Source, "", filepath.Join(t.TempDir(), "x"), store.Limits{}); !errors.Is(err, plugin.ErrUnsupported) ||
+		!strings.Contains(err.Error(), "zip, tar.gz, tar") {
+		t.Fatalf("unknown format: %v", err)
 	}
 	for _, name := range []string{"", ".", "a//b", "a/../b", "/a", `a\b`, "c:a", "a/NUL.txt", "a/b.", "a\nb"} {
 		if store.SafeArchivePath(name) {

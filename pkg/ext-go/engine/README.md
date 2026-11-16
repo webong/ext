@@ -46,7 +46,7 @@ with adapter-specific metadata, then uses this store for the package lifecycle.
 ## Installing from a pinned archive
 
 `Store.InstallArchive` installs a package, or upgrades the installed one of the same ID, from a
-`.tar.gz` or zip named by a local path or an HTTPS URL and pinned by its SHA-256:
+zip, `.tar.gz` or plain tar named by a local path or an HTTPS URL and pinned by its SHA-256:
 
 ```go
 installed, err := s.InstallArchive(ctx, store.Archive{
@@ -56,7 +56,9 @@ installed, err := s.InstallArchive(ctx, store.Archive{
 }, store.ArchiveOptions{})
 ```
 
-The format is read from the content, not the name. The archive is checked against the digest before
+The format is read from the content, not the name, and an unrecognized one is `ErrUnsupported`.
+Formats that need a dependency (zstd, xz) are not supported, since this module is standard library
+only. The archive is checked against the digest before
 anything is extracted; extraction is bounded by the store's `Limits` (`MaxArchiveBytes`,
 `MaxTreeFiles`, `MaxTreeBytes`, `MaxArtifactBytes`) and refuses links, special files, absolute paths
 and paths that leave the destination. The manifest may sit at the top of the archive or in one

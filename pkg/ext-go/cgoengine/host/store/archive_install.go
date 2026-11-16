@@ -51,7 +51,7 @@ type Receipt struct {
 
 // InstallArchive installs the package in a pinned archive, or upgrades the
 // installed package of the same ID to it. The archive is a local file or an
-// HTTPS URL, a gzip-compressed tar or a zip; it is checked against
+// HTTPS URL, in any format ExtractArchive reads; it is checked against
 // archive.SHA256 before anything is extracted, extracted under the store's
 // Limits as ExtractArchive describes, and then installed like a directory, so
 // the package is verified against its manifest. An upgrade follows the rules of

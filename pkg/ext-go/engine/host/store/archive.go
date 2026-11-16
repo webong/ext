@@ -1,10 +1,6 @@
 package store
 
 import (
-	"archive/tar"
-	"archive/zip"
-	"bytes"
-	"compress/gzip"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -162,8 +158,8 @@ func normalizeSHA256(value string) (string, error) {
 // when ManifestName is at the top of the archive, or the single top-level
 // directory that holds it.
 //
-// The archive is a gzip-compressed tar or a zip, told apart by content and not
-// by name. Only directories and regular files are extracted; a link, a device
+// The archive is a zip, a gzip-compressed tar or a plain tar, told apart by
+// content and not by name; anything else is plugin.ErrUnsupported. Only directories and regular files are extracted; a link, a device
 // or any other special entry fails the extraction, as does a path that is
 // absolute, leaves the destination, repeats another (whatever its case) or is
 // not a SafeArchivePath. limits bounds the work: MaxArchiveBytes the archive
@@ -212,9 +208,13 @@ func ExtractArchive(archive, sha256Hex, destination string, limits Limits) (stri
 	if want != "" && hex.EncodeToString(hash.Sum(nil)) != want {
 		return "", fmt.Errorf("%w: archive SHA-256 does not match", plugin.ErrMismatch)
 	}
-	var magic [4]byte
-	n, err := file.ReadAt(magic[:], 0)
+	head := make([]byte, 512)
+	n, err := file.ReadAt(head, 0)
 	if err != nil && !errors.Is(err, io.EOF) {
+		return "", err
+	}
+	format, err := detectArchive(head[:n])
+	if err != nil {
 		return "", err
 	}
 	if entries, err := os.ReadDir(destination); err == nil && len(entries) > 0 {
@@ -226,15 +226,7 @@ func ExtractArchive(archive, sha256Hex, destination string, limits Limits) (stri
 		return "", err
 	}
 	x := &extraction{root: destination, limits: limits, seen: map[string]bool{}}
-	switch {
-	case n >= 2 && magic[0] == 0x1f && magic[1] == 0x8b:
-		err = x.tarGzip(io.NewSectionReader(file, 0, size))
-	case n == 4 && (bytes.Equal(magic[:], []byte("PK\x03\x04")) || bytes.Equal(magic[:], []byte("PK\x05\x06"))):
-		err = x.zip(file, size)
-	default:
-		err = fmt.Errorf("%w: archive is neither a gzip-compressed tar nor a zip", plugin.ErrInvalid)
-	}
-	if err != nil {
+	if err := format.read(file, size, x.entry); err != nil {
 		return "", err
 	}
 	return archiveRoot(destination)
@@ -324,70 +316,20 @@ func (x *extraction) regular(raw string, mode fs.FileMode, declared int64, conte
 	return nil
 }
 
-func (x *extraction) tarGzip(source io.Reader) error {
-	compressed, err := gzip.NewReader(source)
-	if err != nil {
-		return fmt.Errorf("%w: archive is not a gzip-compressed tar", plugin.ErrInvalid)
-	}
-	defer compressed.Close()
-	reader := tar.NewReader(compressed)
-	for {
-		header, err := reader.Next()
-		if errors.Is(err, io.EOF) {
-			return nil
-		}
-		if err != nil {
-			return fmt.Errorf("%w: reading tar archive: %v", plugin.ErrInvalid, err)
-		}
-		switch header.Typeflag {
-		case tar.TypeXGlobalHeader:
-			// Metadata for the whole archive (git archive writes one); no entry.
-		case tar.TypeDir:
-			err = x.directory(header.Name)
-		case tar.TypeReg:
-			err = x.regular(header.Name, header.FileInfo().Mode(), header.Size, reader)
-		default:
-			err = fmt.Errorf("%w: archive entry %q is a link or special file", plugin.ErrInvalid, header.Name)
-		}
+// entry extracts one entry of any format.
+func (x *extraction) entry(e archiveEntry) error {
+	switch e.kind {
+	case entryDirectory:
+		return x.directory(e.name)
+	case entryFile:
+		content, err := e.open()
 		if err != nil {
 			return err
 		}
+		err = x.regular(e.name, e.mode, e.size, content)
+		return errors.Join(err, content.Close())
 	}
-}
-
-func (x *extraction) zip(source io.ReaderAt, size int64) error {
-	archive, err := zip.NewReader(source, size)
-	if err != nil {
-		return fmt.Errorf("%w: reading zip archive: %v", plugin.ErrInvalid, err)
-	}
-	if len(archive.File) > x.limits.MaxTreeFiles {
-		return fmt.Errorf("%w: archive exceeds its file limit", plugin.ErrInvalid)
-	}
-	for _, entry := range archive.File {
-		mode := entry.Mode()
-		if mode.IsDir() || strings.HasSuffix(entry.Name, "/") {
-			if err := x.directory(entry.Name); err != nil {
-				return err
-			}
-			continue
-		}
-		if !mode.IsRegular() {
-			return fmt.Errorf("%w: archive entry %q is a link or special file", plugin.ErrInvalid, entry.Name)
-		}
-		if entry.UncompressedSize64 > uint64(x.limits.MaxArtifactBytes) {
-			return fmt.Errorf("%w: archive exceeds its size limits", plugin.ErrInvalid)
-		}
-		content, err := entry.Open()
-		if err != nil {
-			return fmt.Errorf("%w: reading zip archive: %v", plugin.ErrInvalid, err)
-		}
-		err = x.regular(entry.Name, mode, int64(entry.UncompressedSize64), content)
-		closeErr := content.Close()
-		if err != nil || closeErr != nil {
-			return errors.Join(err, closeErr)
-		}
-	}
-	return nil
+	return fmt.Errorf("%w: archive entry %q is a link or special file", plugin.ErrInvalid, e.name)
 }
 
 // archiveRoot finds the package directory in an extracted archive.

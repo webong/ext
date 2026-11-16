@@ -25,17 +25,17 @@ var (
 func platformAccessibility(ctx context.Context, options AccessibilityOptions) ([]AccessibilityElement, proc.CollectionStatus, error) {
 	window, _, _ := accessibilityGetForegroundWindow.Call()
 	if window == 0 {
-		return []AccessibilityElement{}, surfaceStatus("unavailable", "focused window is unavailable"), nil
+		return []AccessibilityElement{}, surfaceUnavailable(nil, "focused window is unavailable"), nil
 	}
 	var processID uint32
 	surfaceGetWindowThreadProcess.Call(window, uintptr(unsafe.Pointer(&processID)))
 	if processID == 0 {
-		return []AccessibilityElement{}, surfaceStatus("unavailable", "focused application identity is unavailable"), nil
+		return []AccessibilityElement{}, surfaceUnavailable(nil, "focused application identity is unavailable"), nil
 	}
 	pid := int(processID)
 	process, err := proc.Lookup(ctx, pid)
 	if err != nil || process.StartID == "" {
-		return []AccessibilityElement{}, surfaceStatus("unavailable", "focused application generation is unavailable"), nil
+		return []AccessibilityElement{}, surfaceUnavailable(nil, "focused application generation is unavailable"), nil
 	}
 	handles := []uintptr{window}
 	truncated := false

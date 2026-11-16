@@ -48,11 +48,11 @@ func DiscoverHost(ctx context.Context) (HostInventory, error) {
 	if err != nil {
 		return HostInventory{}, err
 	}
-	surfaces, err := surface.DiscoverSurfaces(ctx, surface.SurfaceOptions{})
+	surfaces, err := surface.DiscoverSurfaces(ctx, surface.DefaultSurfaceOptions())
 	if err != nil {
 		return HostInventory{}, err
 	}
-	accessibility, err := surface.DiscoverAccessibility(ctx, surface.AccessibilityOptions{})
+	accessibility, err := surface.DiscoverAccessibility(ctx, surface.DefaultAccessibilityOptions())
 	if err != nil {
 		return HostInventory{}, err
 	}

@@ -11,6 +11,8 @@ import android.view.View;
 import android.view.Window;
 import io.github.webong.ext.system.DisplayInfo;
 import io.github.webong.ext.system.SurfaceBounds;
+import io.github.webong.ext.system.SurfaceCancellation;
+import io.github.webong.ext.system.SurfaceCancellationException;
 import io.github.webong.ext.system.SurfaceCollectionStatus;
 import io.github.webong.ext.system.SurfaceOptions;
 import io.github.webong.ext.system.SurfaceSnapshot;
@@ -41,21 +43,31 @@ public final class SystemSurfaceObserver {
         this.processStartId = Process.myPid() + ":" + Process.getStartElapsedRealtime();
     }
 
+    /** Observes with no cancellation beyond the options' timeout. */
+    public SurfaceSnapshot observe(Activity activity) { return observe(activity, new SurfaceCancellation()); }
+
     /**
-     * Observes displays and the supplied Activity's app-owned window. Pass null
-     * when only display metadata is needed.
+     * Observes displays and the supplied Activity's app-owned window within the options' timeout. Pass
+     * null when only display metadata is needed. Cancel it from another thread: the main thread checks
+     * before each display, before the window and once at the end.
+     *
+     * @throws SurfaceCancellationException timeout or canceled
      */
     @SuppressWarnings("deprecation") // Display#getRealMetrics keeps the binding usable from API 24.
-    public SurfaceSnapshot observe(Activity activity) {
+    public SurfaceSnapshot observe(Activity activity, SurfaceCancellation cancellation) {
+        if (cancellation == null) throw new IllegalArgumentException("cancellation is required");
         if (Looper.myLooper() != Looper.getMainLooper()) {
             throw new IllegalStateException("surface observation must run on the Android main thread");
         }
+        SurfaceCancellation deadline = cancellation.withTimeout(options.timeoutMillis());
+        deadline.check();
         String now = timestamp();
         DisplayManager manager = (DisplayManager) context.getSystemService(Context.DISPLAY_SERVICE);
         Display[] nativeDisplays = manager == null ? new Display[0] : manager.getDisplays();
         boolean displaysLimited = nativeDisplays.length > options.maxDisplays();
         List<DisplayInfo> displays = new ArrayList<>();
         for (int index = 0; index < nativeDisplays.length && displays.size() < options.maxDisplays(); index++) {
+            deadline.check();
             Display display = nativeDisplays[index];
             DisplayMetrics metrics = new DisplayMetrics();
             display.getRealMetrics(metrics);
@@ -69,6 +81,7 @@ public final class SystemSurfaceObserver {
 
         List<WindowInfo> windows = new ArrayList<>();
         if (activity != null) {
+            deadline.check();
             Window window = activity.getWindow();
             View decor = window == null ? null : window.getDecorView();
             if (decor != null && decor.getVisibility() == View.VISIBLE && decor.getWidth() > 0 && decor.getHeight() > 0) {
@@ -81,6 +94,7 @@ public final class SystemSurfaceObserver {
                         new SurfaceBounds(location[0], location[1], decor.getWidth(), decor.getHeight()), true));
             }
         }
+        deadline.check();
         return new SurfaceSnapshot(
                 "android", "screen-pixels", now, displays, windows,
                 new SurfaceCollectionStatus(displaysLimited ? "partial" : "complete", displaysLimited ? "display limit reached" : null, now),

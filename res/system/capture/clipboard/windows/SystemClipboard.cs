@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text;
 
@@ -7,7 +8,8 @@ namespace Webong.Ext.System.Windows;
 /// <summary>
 /// Bounds and permissions fixed by the embedding application before native
 /// clipboard access. Formats are Win32 names: the four standard names this
-/// library understands, or a registered format name.
+/// library understands, or a registered format name. <see cref="Timeout"/> bounds each read and
+/// write: five seconds when null, as Go's observers, and above zero and at most an hour.
 /// </summary>
 public sealed record ClipboardPolicy(
     IReadOnlyCollection<string> AllowedFormats,
@@ -15,8 +17,12 @@ public sealed record ClipboardPolicy(
     int MaxItems = 64,
     int MaxFormats = 32,
     bool AllowRead = false,
-    bool AllowWrite = false)
+    bool AllowWrite = false,
+    TimeSpan? Timeout = null)
 {
+    /// <summary>The timeout of a policy that selects none.</summary>
+    public static readonly TimeSpan DefaultTimeout = TimeSpan.FromSeconds(5);
+
     public ClipboardPolicy Validate()
     {
         if (MaxBytes <= 0 || MaxBytes > 16 * 1024 * 1024 ||
@@ -25,6 +31,10 @@ public sealed record ClipboardPolicy(
             AllowedFormats is null || AllowedFormats.Count < 1 || AllowedFormats.Count > MaxFormats)
         {
             throw new ClipboardException("invalid", "clipboard needs bounded formats and byte/item ceilings");
+        }
+        if (!ClipboardBound.Valid(Timeout ?? DefaultTimeout))
+        {
+            throw new ClipboardException("invalid", "a clipboard timeout is above zero and at most an hour");
         }
         var seen = new HashSet<string>(StringComparer.Ordinal);
         foreach (var format in AllowedFormats)
@@ -50,6 +60,10 @@ public enum ClipboardErrorKind
     Io,
     /// <summary>This session has no clipboard to open (see <see cref="SystemClipboard.Status"/>).</summary>
     Unavailable,
+    /// <summary>The call ran past <see cref="ClipboardPolicy.Timeout"/>.</summary>
+    Timeout,
+    /// <summary>The caller's token was canceled.</summary>
+    Canceled,
 }
 
 public sealed class ClipboardException : Exception
@@ -65,6 +79,8 @@ public sealed class ClipboardException : Exception
         ClipboardErrorKind.Busy => "busy",
         ClipboardErrorKind.Io => "io",
         ClipboardErrorKind.Unavailable => "unavailable",
+        ClipboardErrorKind.Timeout => "timeout",
+        ClipboardErrorKind.Canceled => "canceled",
         _ => "invalid",
     };
 
@@ -83,6 +99,8 @@ public sealed class ClipboardException : Exception
             "busy" => ClipboardErrorKind.Busy,
             "io" => ClipboardErrorKind.Io,
             "unavailable" => ClipboardErrorKind.Unavailable,
+            "timeout" => ClipboardErrorKind.Timeout,
+            "canceled" => ClipboardErrorKind.Canceled,
             _ => ClipboardErrorKind.Invalid,
         }, message, inner)
     {
@@ -111,6 +129,47 @@ public sealed record ClipboardStatus
         }
         State = state;
         Reason = reason;
+    }
+}
+
+/// <summary>
+/// The time bound and cancellation of one call (docs/adr-architecture.md rule 4), as Go's context
+/// deadline: it stops at its deadline and when the caller's token is canceled. The deadline is the
+/// last clock tick inside the timeout, so the clock's resolution never lets a call run past it.
+/// </summary>
+internal readonly struct ClipboardBound
+{
+    /// <summary>The longest timeout a policy may select: one hour.</summary>
+    internal static readonly TimeSpan MaximumTimeout = TimeSpan.FromHours(1);
+
+    private readonly long deadline;
+    private readonly CancellationToken token;
+
+    internal ClipboardBound(TimeSpan timeout, CancellationToken token)
+        : this(Stopwatch.GetTimestamp() + Math.Max((long)Math.Ceiling(timeout.TotalSeconds * Stopwatch.Frequency), 1) - 1, token)
+    {
+    }
+
+    /// <summary>A bound ending at a Stopwatch timestamp, so the tests can make one that has passed.</summary>
+    internal ClipboardBound(long deadline, CancellationToken token)
+    {
+        this.deadline = deadline;
+        this.token = token;
+    }
+
+    internal static bool Valid(TimeSpan timeout) => timeout > TimeSpan.Zero && timeout <= MaximumTimeout;
+
+    /// <summary>Throws <c>canceled</c> when the token is (judged first, as Go reports the parent context), else <c>timeout</c> past the deadline.</summary>
+    internal void Check()
+    {
+        if (token.IsCancellationRequested)
+        {
+            throw new ClipboardException(ClipboardErrorKind.Canceled, "the clipboard call was canceled");
+        }
+        if (Stopwatch.GetTimestamp() >= deadline)
+        {
+            throw new ClipboardException(ClipboardErrorKind.Timeout, "the clipboard call ran past its timeout");
+        }
     }
 }
 
@@ -217,6 +276,13 @@ internal interface IClipboardApi
 /// Windows exposes one clipboard item with several formats, so a write with
 /// more than one item fails instead of being flattened.
 /// </summary>
+/// <remarks>
+/// Each read and write is bounded by <see cref="ClipboardPolicy.Timeout"/> and by the caller's
+/// token (docs/adr-architecture.md rule 4): it throws <see cref="ClipboardException"/>
+/// <c>timeout</c> or <c>canceled</c>, as Go's clipboard returns its context's error. The bound is
+/// judged before each attempt to open the clipboard and between formats. A write that stops does so
+/// before the clipboard is cleared, so it changes nothing; once cleared, it runs to the end.
+/// </remarks>
 public static class SystemClipboard
 {
     private const uint CFText = 1;
@@ -264,16 +330,22 @@ public static class SystemClipboard
 
     internal static string Generation(IClipboardApi api) => $"windows:{api.Sequence()}";
 
-    public static ClipboardSnapshot Read(ClipboardPolicy policy) => Read(policy, Win32ClipboardApi.Instance);
+    public static ClipboardSnapshot Read(ClipboardPolicy policy, CancellationToken cancellationToken = default) =>
+        Read(policy, Win32ClipboardApi.Instance, cancellationToken);
 
-    internal static ClipboardSnapshot Read(ClipboardPolicy policy, IClipboardApi api)
+    internal static ClipboardSnapshot Read(ClipboardPolicy policy, IClipboardApi api, CancellationToken cancellationToken = default) =>
+        Read(policy, api, null, cancellationToken);
+
+    /// <summary>A read under <paramref name="given"/>, or under the policy's timeout when it is null.</summary>
+    internal static ClipboardSnapshot Read(ClipboardPolicy policy, IClipboardApi api, ClipboardBound? given, CancellationToken cancellationToken = default)
     {
         policy.Validate();
         if (!policy.AllowRead)
         {
             throw new ClipboardException(ClipboardErrorKind.Denied, "clipboard read is not allowed");
         }
-        OpenClipboard(api);
+        var bound = given ?? new ClipboardBound(policy.Timeout ?? ClipboardPolicy.DefaultTimeout, cancellationToken);
+        OpenClipboard(api, bound);
         try
         {
             var before = Generation(api);
@@ -283,6 +355,7 @@ public static class SystemClipboard
             uint identifier = 0;
             while (true)
             {
+                bound.Check();
                 identifier = api.EnumFormats(identifier);
                 if (identifier == 0)
                 {
@@ -331,6 +404,7 @@ public static class SystemClipboard
                 throw new ClipboardException(ClipboardErrorKind.Denied,
                     "clipboard contains none of the allowed formats");
             }
+            bound.Check();
             if (Generation(api) != before)
             {
                 throw new ClipboardException(ClipboardErrorKind.Changed,
@@ -348,13 +422,24 @@ public static class SystemClipboard
     public static ClipboardReceipt Write(
         ClipboardPolicy policy,
         string expectedGeneration,
-        IReadOnlyList<ClipboardItem> items) => Write(policy, expectedGeneration, items, Win32ClipboardApi.Instance);
+        IReadOnlyList<ClipboardItem> items,
+        CancellationToken cancellationToken = default) => Write(policy, expectedGeneration, items, Win32ClipboardApi.Instance, null, cancellationToken);
 
     internal static ClipboardReceipt Write(
         ClipboardPolicy policy,
         string expectedGeneration,
         IReadOnlyList<ClipboardItem> items,
-        IClipboardApi api)
+        IClipboardApi api,
+        CancellationToken cancellationToken = default) => Write(policy, expectedGeneration, items, api, null, cancellationToken);
+
+    /// <summary>A write under <paramref name="given"/>, or under the policy's timeout when it is null.</summary>
+    internal static ClipboardReceipt Write(
+        ClipboardPolicy policy,
+        string expectedGeneration,
+        IReadOnlyList<ClipboardItem> items,
+        IClipboardApi api,
+        ClipboardBound? given,
+        CancellationToken cancellationToken = default)
     {
         policy.Validate();
         if (!policy.AllowWrite)
@@ -372,12 +457,14 @@ public static class SystemClipboard
                 "the Windows clipboard holds one item");
         }
         ClipboardValidation.ValidateItems(items, policy.MaxBytes, policy.MaxItems, policy.MaxFormats, policy.AllowedFormats);
+        var bound = given ?? new ClipboardBound(policy.Timeout ?? ClipboardPolicy.DefaultTimeout, cancellationToken);
+        bound.Check();
         if (Generation(api) != expectedGeneration)
         {
             throw new ClipboardException(ClipboardErrorKind.Changed,
                 "clipboard generation changed");
         }
-        OpenClipboard(api);
+        OpenClipboard(api, bound);
         try
         {
             if (Generation(api) != expectedGeneration)
@@ -385,6 +472,8 @@ public static class SystemClipboard
                 throw new ClipboardException(ClipboardErrorKind.Changed,
                     "clipboard generation changed before the write");
             }
+            // The last point a write can stop at: after this the clipboard is cleared.
+            bound.Check();
             if (!api.Empty())
             {
                 throw Native(api, "cannot clear the clipboard");
@@ -424,20 +513,22 @@ public static class SystemClipboard
         return new ClipboardReceipt(Generation(api), "dispatched");
     }
 
-    public static ClipboardReceipt Clear(ClipboardPolicy policy, string expectedGeneration) =>
-        Write(policy, expectedGeneration, Array.Empty<ClipboardItem>());
+    public static ClipboardReceipt Clear(ClipboardPolicy policy, string expectedGeneration, CancellationToken cancellationToken = default) =>
+        Write(policy, expectedGeneration, Array.Empty<ClipboardItem>(), cancellationToken);
 
-    internal static ClipboardReceipt Clear(ClipboardPolicy policy, string expectedGeneration, IClipboardApi api) =>
-        Write(policy, expectedGeneration, Array.Empty<ClipboardItem>(), api);
+    internal static ClipboardReceipt Clear(ClipboardPolicy policy, string expectedGeneration, IClipboardApi api, CancellationToken cancellationToken = default) =>
+        Write(policy, expectedGeneration, Array.Empty<ClipboardItem>(), api, cancellationToken);
 
     /// <summary>
     /// Opens the clipboard, retrying while another process holds it. Retrying out is busy, or
-    /// unavailable when the window station has no interactive desktop and so no clipboard.
+    /// unavailable when the window station has no interactive desktop and so no clipboard. The
+    /// bound is judged before each attempt, so a timeout or cancel ends the retries.
     /// </summary>
-    private static void OpenClipboard(IClipboardApi api)
+    private static void OpenClipboard(IClipboardApi api, ClipboardBound bound)
     {
         for (var attempt = 0; attempt < OpenAttempts; attempt++)
         {
+            bound.Check();
             if (api.Open())
             {
                 return;

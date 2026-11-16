@@ -8,8 +8,17 @@ final class SystemControlTests: XCTestCase {
         XCTAssertThrowsError(try MediaCaptureOptions(framesPerSecond: 0))
         XCTAssertThrowsError(try MediaCaptureOptions(framesPerSecond: 61))
         XCTAssertEqual(try MediaCaptureOptions(systemAudio: true, framesPerSecond: 60).framesPerSecond, 60)
+        XCTAssertEqual(try MediaCaptureOptions().maxDuration, 300)
+        XCTAssertEqual(try MediaCaptureOptions(maxDuration: 3_600).maxDuration, 3_600)
+        for duration in [0, -1, 3_601, .infinity, .nan] as [TimeInterval] {
+            XCTAssertThrowsError(try MediaCaptureOptions(maxDuration: duration), "duration \(duration)")
+        }
 
         XCTAssertThrowsError(try SurfaceCaptureOptions(maxPixels: 0))
+        XCTAssertEqual(try SurfaceCaptureOptions().timeout, 5)
+        for timeout in [0, -1, 3_601, .infinity, .nan] as [TimeInterval] {
+            XCTAssertThrowsError(try SurfaceCaptureOptions(timeout: timeout), "capture timeout \(timeout)")
+        }
         XCTAssertThrowsError(try SurfaceControlOptions(maxTextLength: 0))
         XCTAssertEqual(try SurfaceControlOptions(maxTextLength: 32).maxTextLength, 32)
         XCTAssertEqual(try SystemAppleEvent.fourCharacterCode("hook"), 0x686f6f6b)

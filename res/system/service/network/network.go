@@ -96,8 +96,10 @@ type Snapshot struct {
 	ResolverStatus  CollectionStatus `json:"resolver_status"`
 }
 
-// Options bounds records and collection time. Zero values select 256
-// interfaces, 4096 routes, 256 addresses per interface, and five seconds.
+// Options bounds records and collection time. Every field is explicit and a
+// zero is invalid, as in the other bindings (testdata/network/v1); start from
+// DefaultOptions (256 interfaces, 4096 routes, 256 addresses per interface,
+// five seconds) and change what differs.
 type Options struct {
 	MaxInterfaces int
 	MaxAddresses  int
@@ -105,32 +107,29 @@ type Options struct {
 	Timeout       time.Duration
 }
 
-func normalizeOptions(options Options) (Options, error) {
-	if options.MaxInterfaces < 0 || options.MaxAddresses < 0 || options.MaxRoutes < 0 || options.Timeout < 0 {
-		return options, fmt.Errorf("%w: network limits and timeout must not be negative", ErrInvalid)
+// DefaultOptions returns the default of every limit and the default timeout.
+func DefaultOptions() Options {
+	return Options{MaxInterfaces: 256, MaxAddresses: 256, MaxRoutes: 4096, Timeout: 5 * time.Second}
+}
+
+// Validate checks that every limit is between 1 and 65536 and that the
+// timeout is positive.
+func (o Options) Validate() error {
+	for _, limit := range []int{o.MaxInterfaces, o.MaxAddresses, o.MaxRoutes} {
+		if limit < 1 || limit > 65536 {
+			return fmt.Errorf("%w: network limits must be between 1 and 65536", ErrInvalid)
+		}
 	}
-	if options.MaxInterfaces == 0 {
-		options.MaxInterfaces = 256
+	if o.Timeout <= 0 {
+		return fmt.Errorf("%w: network timeout must be positive", ErrInvalid)
 	}
-	if options.MaxAddresses == 0 {
-		options.MaxAddresses = 256
-	}
-	if options.MaxRoutes == 0 {
-		options.MaxRoutes = 4096
-	}
-	if options.Timeout == 0 {
-		options.Timeout = 5 * time.Second
-	}
-	if options.MaxInterfaces > 65536 || options.MaxAddresses > 65536 || options.MaxRoutes > 65536 {
-		return options, fmt.Errorf("%w: network limits must not exceed 65536", ErrInvalid)
-	}
-	return options, nil
+	return nil
 }
 
 // Discover observes local network interfaces, routes, and resolver settings.
 // It performs no DNS lookup and opens no network connection.
 func Discover(ctx context.Context, options Options) (Snapshot, error) {
-	options, err := normalizeOptions(options)
+	err := options.Validate()
 	if err != nil {
 		return Snapshot{}, err
 	}
@@ -164,7 +163,7 @@ func Discover(ctx context.Context, options Options) (Snapshot, error) {
 func discoverInterfaces(ctx context.Context, options Options) ([]Interface, CollectionStatus, error) {
 	values, err := net.Interfaces()
 	if err != nil {
-		return []Interface{}, status("unavailable", "network interface enumeration failed"), nil
+		return []Interface{}, unavailable(err, "network interface enumeration failed"), nil
 	}
 	result := make([]Interface, 0, min(len(values), options.MaxInterfaces))
 	partial := len(values) > options.MaxInterfaces
@@ -238,6 +237,13 @@ func interfaceFlags(flags net.Flags) []string {
 
 func status(state, detail string) CollectionStatus {
 	return CollectionStatus{State: state, Detail: detail}
+}
+
+// unavailable reports something this platform can observe but could not now. The reason comes
+// from err, the failure of the native read: permission, tool_missing, or no_device when the source
+// to read is absent or did not answer (a nil err).
+func unavailable(err error, detail string) CollectionStatus {
+	return CollectionStatus{State: "unavailable", Reason: capability.Unavailable(err), Detail: detail}
 }
 
 // unsupported reports a platform that cannot observe something at all.

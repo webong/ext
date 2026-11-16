@@ -18,6 +18,6 @@ func platformPermissions(ctx context.Context) (PermissionInfo, PermissionInfo, e
 	if err := ctx.Err(); err != nil {
 		return PermissionInfo{}, PermissionInfo{}, err
 	}
-	unavailable := PermissionInfo{State: "unavailable", Detail: "native permission inspection requires cgo or the ExtSystem Swift library"}
-	return unavailable, unavailable, nil
+	unsupported := PermissionInfo{State: "unsupported", Reason: "unsupported", Detail: "native permission inspection requires cgo or the ExtSystem Swift library"}
+	return unsupported, unsupported, nil
 }

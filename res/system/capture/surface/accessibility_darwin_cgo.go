@@ -152,21 +152,21 @@ type darwinAccessibilityNode struct {
 
 func platformAccessibility(ctx context.Context, options AccessibilityOptions) ([]AccessibilityElement, proc.CollectionStatus, error) {
 	if C.ext_system_ax_trusted() == 0 {
-		return []AccessibilityElement{}, surfaceStatus("permission-denied", "macOS Accessibility access is not granted"), nil
+		return []AccessibilityElement{}, proc.CollectionStatus{State: "permission-denied", Reason: "permission", Detail: "macOS Accessibility access is not granted"}, nil
 	}
 	root := C.ext_system_ax_focused_application()
 	if root == 0 {
-		return []AccessibilityElement{}, surfaceStatus("unavailable", "focused application is unavailable"), nil
+		return []AccessibilityElement{}, surfaceUnavailable(nil, "focused application is unavailable"), nil
 	}
 	defer C.ext_system_ax_release(root)
 	var nativePID C.int32_t
 	if C.ext_system_ax_pid(root, &nativePID) == 0 || nativePID <= 0 {
-		return []AccessibilityElement{}, surfaceStatus("unavailable", "focused application identity is unavailable"), nil
+		return []AccessibilityElement{}, surfaceUnavailable(nil, "focused application identity is unavailable"), nil
 	}
 	pid := int(nativePID)
 	process, err := proc.Lookup(ctx, pid)
 	if err != nil || process.StartID == "" {
-		return []AccessibilityElement{}, surfaceStatus("unavailable", "focused application generation is unavailable"), nil
+		return []AccessibilityElement{}, surfaceUnavailable(nil, "focused application generation is unavailable"), nil
 	}
 	queue := []darwinAccessibilityNode{{element: root, path: "0"}}
 	result := make([]AccessibilityElement, 0, min(options.MaxElements, 128))

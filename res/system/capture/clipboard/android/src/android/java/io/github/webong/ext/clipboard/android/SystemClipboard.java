@@ -8,6 +8,7 @@ import android.content.Intent;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Looper;
+import io.github.webong.ext.clipboard.ClipboardCancellation;
 import io.github.webong.ext.clipboard.ClipboardException;
 import io.github.webong.ext.clipboard.ClipboardItem;
 import io.github.webong.ext.clipboard.ClipboardPolicy;
@@ -55,8 +56,19 @@ public final class SystemClipboard implements AutoCloseable {
         return generation();
     }
 
-    public ClipboardSnapshot read() throws ClipboardException {
+    /** Reads with no cancellation and no deadline. */
+    public ClipboardSnapshot read() throws ClipboardException { return read(new ClipboardCancellation()); }
+
+    /**
+     * Reads the clipboard until {@code cancellation} stops, as Go's Clipboard.Read takes a context. It
+     * checks before the read, before each item and before returning.
+     *
+     * @throws ClipboardException timeout or canceled once it stops, or a clipboard code
+     */
+    public ClipboardSnapshot read(ClipboardCancellation cancellation) throws ClipboardException {
         requireOpen();
+        if (cancellation == null) throw failure("invalid", "clipboard cancellation is required");
+        cancellation.check();
         if (!policy.allowRead) throw failure("denied", "clipboard read is disabled");
         String before = generation();
         ClipData clip = manager.getPrimaryClip();
@@ -64,19 +76,39 @@ public final class SystemClipboard implements AutoCloseable {
         if (clip != null) {
             if (clip.getItemCount() > ClipboardPolicy.MAX_ITEMS) throw failure("too_large", "clipboard item limit exceeded");
             rejectUnsupportedDescription(clip.getDescription());
-            for (int i = 0; i < clip.getItemCount(); i++) items.add(readItem(clip.getItemAt(i)));
+            for (int i = 0; i < clip.getItemCount(); i++) {
+                cancellation.check();
+                items.add(readItem(clip.getItemAt(i)));
+            }
         }
         ClipboardValidation.validateItems(items, policy.maxBytes, policy.allowedFormats);
         if (!before.equals(generation())) throw failure("changed", "clipboard changed during read");
+        cancellation.check();
         return new ClipboardSnapshot(before, items);
     }
 
+    /** Writes with no cancellation and no deadline. */
     public ClipboardReceipt write(String expectedGeneration, List<ClipboardItem> items) throws ClipboardException {
+        return write(expectedGeneration, items, new ClipboardCancellation());
+    }
+
+    /**
+     * Writes the clipboard unless {@code cancellation} stops first, as Go's Clipboard.Write takes a
+     * context. The last check is just before the native write; once dispatched, a write is not undone.
+     *
+     * @throws ClipboardException timeout or canceled once it stops, or a clipboard code
+     */
+    public ClipboardReceipt write(String expectedGeneration, List<ClipboardItem> items, ClipboardCancellation cancellation)
+            throws ClipboardException {
         requireOpen();
+        if (cancellation == null) throw failure("invalid", "clipboard cancellation is required");
+        cancellation.check();
         if (!policy.allowWrite) throw failure("denied", "clipboard write is disabled");
         if (expectedGeneration == null || expectedGeneration.isEmpty()) throw failure("invalid", "expected generation is required");
         ClipboardValidation.validateItems(items, policy.maxBytes, policy.allowedFormats);
         if (!generation().equals(expectedGeneration)) throw failure("changed", "clipboard generation changed");
+        ClipData clip = items.isEmpty() ? null : nativeClip(items);
+        cancellation.check();
         pendingOwnChange = true;
         long next = change + 1;
         if (items.isEmpty()) {
@@ -86,14 +118,18 @@ public final class SystemClipboard implements AutoCloseable {
             }
             manager.clearPrimaryClip();
         } else {
-            manager.setPrimaryClip(nativeClip(items));
+            manager.setPrimaryClip(clip);
         }
         change = next;
         return new ClipboardReceipt(generation(), "dispatched");
     }
 
     public ClipboardReceipt clear(String expectedGeneration) throws ClipboardException {
-        return write(expectedGeneration, java.util.Collections.<ClipboardItem>emptyList());
+        return clear(expectedGeneration, new ClipboardCancellation());
+    }
+
+    public ClipboardReceipt clear(String expectedGeneration, ClipboardCancellation cancellation) throws ClipboardException {
+        return write(expectedGeneration, java.util.Collections.<ClipboardItem>emptyList(), cancellation);
     }
 
     @Override public void close() {

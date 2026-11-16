@@ -21,7 +21,7 @@ func validSnapshot() Snapshot {
 }
 
 func TestValidateSnapshot(t *testing.T) {
-	if err := ValidateSnapshot(validSnapshot(), Limits{}); err != nil {
+	if err := ValidateSnapshot(validSnapshot(), DefaultLimits()); err != nil {
 		t.Fatal(err)
 	}
 	for name, mutate := range map[string]func(*Snapshot){
@@ -40,48 +40,51 @@ func TestValidateSnapshot(t *testing.T) {
 	} {
 		snapshot := validSnapshot()
 		mutate(&snapshot)
-		if err := ValidateSnapshot(snapshot, Limits{}); !errors.Is(err, ErrInvalid) {
+		if err := ValidateSnapshot(snapshot, DefaultLimits()); !errors.Is(err, ErrInvalid) {
 			t.Errorf("%s snapshot = %v", name, err)
 		}
 	}
 	snapshot := validSnapshot()
-	if err := ValidateSnapshot(snapshot, Limits{MaxDevices: 2}); !errors.Is(err, ErrLimit) {
+	if err := ValidateSnapshot(snapshot, over(Limits{MaxDevices: 2})); !errors.Is(err, ErrLimit) {
 		t.Fatalf("device bound = %v", err)
 	}
 	snapshot = validSnapshot()
 	snapshot.Status.State = "unsupported"
 	snapshot.Status.Reason = "unsupported"
 	snapshot.Devices = nil
-	if err := ValidateSnapshot(snapshot, Limits{}); err != nil {
+	if err := ValidateSnapshot(snapshot, DefaultLimits()); err != nil {
 		t.Fatalf("explicit unsupported snapshot = %v", err)
 	}
 }
 
-func TestLimitsNormalizeCeilings(t *testing.T) {
+func TestLimitsValidateCeilings(t *testing.T) {
 	for name, limits := range map[string]Limits{
 		"devices": {MaxDevices: MaxDevices + 1},
 		"packets": {MaxPacketBytes: MaxPacketBytes + 1},
 		"zero":    {MaxDevices: -1},
 	} {
-		if _, err := limits.Normalize(); !errors.Is(err, ErrInvalid) {
+		if err := over(limits).Validate(); !errors.Is(err, ErrInvalid) {
 			t.Errorf("%s = %v", name, err)
 		}
 	}
-	defaults, err := (Limits{}).Normalize()
-	if err != nil || defaults.MaxDevices != DefaultMaxDevices || defaults.MaxPacketBytes != DefaultMaxPacketBytes {
+	if err := (Limits{}).Validate(); !errors.Is(err, ErrInvalid) {
+		t.Errorf("zero limits = %v", err)
+	}
+	defaults := DefaultLimits()
+	if err := defaults.Validate(); err != nil || defaults.MaxDevices != DefaultMaxDevices || defaults.MaxPacketBytes != DefaultMaxPacketBytes {
 		t.Fatalf("defaults = %#v, %v", defaults, err)
 	}
 }
 
 func TestValidatePacketUsesMediaBounds(t *testing.T) {
 	packet := media.PCM16{SampleRate: 48_000, Channels: 2, Data: make([]byte, 4)}
-	if err := ValidatePacket(packet, Limits{}); err != nil {
+	if err := ValidatePacket(packet, DefaultLimits()); err != nil {
 		t.Fatal(err)
 	}
-	if err := ValidatePacket(packet, Limits{MaxPacketBytes: 2}); !errors.Is(err, ErrLimit) {
+	if err := ValidatePacket(packet, over(Limits{MaxPacketBytes: 2})); !errors.Is(err, ErrLimit) {
 		t.Fatalf("packet bound = %v", err)
 	}
-	if err := ValidatePacket(media.PCM16{SampleRate: 48_000, Channels: 2, Data: []byte{1}}, Limits{}); !errors.Is(err, ErrInvalid) {
+	if err := ValidatePacket(media.PCM16{SampleRate: 48_000, Channels: 2, Data: []byte{1}}, DefaultLimits()); !errors.Is(err, ErrInvalid) {
 		t.Fatalf("misaligned packet = %v", err)
 	}
 }
@@ -109,7 +112,19 @@ func TestObserverFuncMatchesInterface(t *testing.T) {
 	var observer Observer = ObserverFunc(func(context.Context, Limits) (Snapshot, error) {
 		return validSnapshot(), nil
 	})
-	if snapshot, err := observer.Observe(context.Background(), Limits{}); err != nil || len(snapshot.Devices) != 3 {
+	if snapshot, err := observer.Observe(context.Background(), DefaultLimits()); err != nil || len(snapshot.Devices) != 3 {
 		t.Fatalf("observation = %#v, %v", snapshot, err)
 	}
+}
+
+// over returns the default limits with the fields set in l in their place.
+func over(l Limits) Limits {
+	out := DefaultLimits()
+	if l.MaxDevices != 0 {
+		out.MaxDevices = l.MaxDevices
+	}
+	if l.MaxPacketBytes != 0 {
+		out.MaxPacketBytes = l.MaxPacketBytes
+	}
+	return out
 }

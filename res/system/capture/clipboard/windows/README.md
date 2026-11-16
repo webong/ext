@@ -11,7 +11,11 @@ interactive desktop (a service session), and `unsupported` off Windows. Every er
 `ClipboardException` whose `Code` is in `res/system/testdata/codes.json`: `invalid`, `denied`
 (the policy refuses it, or the clipboard holds none of the allowed formats), `too_large`, `changed`,
 `busy` (another process held the clipboard while it was retried), `unavailable` (there is no
-clipboard to open) and `io` (a Win32 call failed; its `Win32Exception` is the inner exception).
+clipboard to open), `io` (a Win32 call failed; its `Win32Exception` is the inner exception),
+`timeout` and `canceled`. Each read and write is bounded by `ClipboardPolicy.Timeout` (five seconds
+by default; above zero and at most an hour) and by the caller's `CancellationToken` (rule 4 of
+`docs/adr-architecture.md`), judged before each attempt to open the clipboard and between formats.
+A write that stops does so before the clipboard is cleared, so it changes nothing.
 No message names a format or other value it was given. The tests run the shared `clipboard/v1` and
 `capability/v1` fixtures, and each Win32 failure through a fake clipboard, before the round trips.
 

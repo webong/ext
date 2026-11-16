@@ -14,6 +14,55 @@ final class ClipboardTests: XCTestCase {
         XCTAssertThrowsError(try ClipboardValidation.validate(items: [item], maxBytes: 5, formats: ["text/html"]))
     }
 
+    /// A clipboard over the general pasteboard on macOS and a private one on iOS. The bound tests
+    /// stop before any native call, so the general pasteboard is neither read nor changed.
+    @MainActor
+    private func clipboard(timeout: TimeInterval) throws -> SystemClipboard {
+        let policy = ClipboardPolicy(maxBytes: 1024, allowedFormats: ["public.utf8-plain-text"], allowRead: true, allowWrite: true)
+#if os(iOS)
+        let board = try XCTUnwrap(UIPasteboard(name: UIPasteboard.Name(rawValue: "io.github.webong.ext.clipboard.bound"), create: true))
+        return try SystemClipboard(policy: policy, board: board, timeout: timeout)
+#else
+        return try SystemClipboard(policy: policy, timeout: timeout)
+#endif
+    }
+
+    @MainActor
+    func testCallsAreBoundedInTime() throws {
+        for timeout in [0, -1, 3_601, .infinity, .nan] as [TimeInterval] {
+            XCTAssertThrowsError(try clipboard(timeout: timeout), "timeout \(timeout)") { error in
+                XCTAssertEqual((error as? ClipboardError)?.code, "invalid")
+            }
+        }
+        XCTAssertEqual(try clipboard(timeout: 5).timeout, 5)
+        let expired = try clipboard(timeout: 1e-9)
+        XCTAssertThrowsError(try expired.read()) { error in
+            XCTAssertEqual(error as? ClipboardError, .timeout)
+            XCTAssertEqual((error as? ClipboardError)?.code, "timeout")
+        }
+        XCTAssertThrowsError(try expired.write(expectedGeneration: "p:1", items: [])) { error in
+            XCTAssertEqual(error as? ClipboardError, .timeout)
+        }
+    }
+
+    func testCallsAreCanceledWithTheirTask() async throws {
+        let task = Task { @MainActor () -> [Error?] in
+            while !Task.isCancelled { await Task.yield() }
+            let clipboard = try self.clipboard(timeout: 5)
+            var errors: [Error?] = []
+            do { _ = try clipboard.read(); errors.append(nil) } catch { errors.append(error) }
+            do { _ = try clipboard.clear(expectedGeneration: "p:1"); errors.append(nil) } catch { errors.append(error) }
+            return errors
+        }
+        task.cancel()
+        let errors = try await task.value
+        XCTAssertEqual(errors.count, 2)
+        for error in errors {
+            XCTAssertEqual(error as? ClipboardError, .canceled)
+            XCTAssertEqual((error as? ClipboardError)?.code, "canceled")
+        }
+    }
+
     func testWireNamesAndData() throws {
         let value = ClipboardSnapshot(generation: "p:1", items: [ClipboardItem(representations: [
             ClipboardRepresentation(format: "text/plain", data: Data([0, 1, 2]))

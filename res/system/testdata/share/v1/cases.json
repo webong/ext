@@ -1,7 +1,7 @@
 {
   "version": 1,
   "area": "share",
-  "about": "The share contract: limits and the normalisation of share items into one payload. A limits case builds limits from all four values and reports invalid or accepts them; Go cannot tell an absent limit from zero, so explicit zero is not a case. A normalize case runs the items under its limits (any limit left out is the default) and expects the payload or a code. Strings are compared as written; a missing subject or text is the empty string in the payload. An attachment's text or zeros are its data (UTF-8 bytes, or that many zero bytes); path gives a caller-owned absolute path instead. The trim rule everywhere is: strip leading and trailing U+0009 to U+000D and U+0020 (ASCII white space and the vertical controls); every other control character is content, so a link or a name holding one is invalid.",
+  "about": "The share contract: limits and the normalisation of share items into one payload. A limits case builds limits from all four values and reports invalid or accepts them; a zero is invalid, and the defaults come from the binding's default constructor. A normalize case runs the items under its limits (any limit left out is the default) and expects the payload or a code. Strings are compared as written; a missing subject or text is the empty string in the payload. An attachment's text or zeros are its data (UTF-8 bytes, or that many zero bytes); path gives a caller-owned absolute path instead. The trim rule everywhere is: strip leading and trailing U+0009 to U+000D and U+0020 (ASCII white space and the vertical controls); every other control character is content, so a link or a name holding one is invalid.",
   "defaults": {
     "maxItems": 32,
     "maxBytes": 16777216,
@@ -25,7 +25,12 @@
     {"name": "maxTextBytes-above-the-ceiling", "limits": {"maxItems": 32, "maxBytes": 16777216, "maxTextBytes": 1048577, "maxUrlLength": 8192}, "code": "invalid"},
     {"name": "maxTextBytes-negative", "limits": {"maxItems": 32, "maxBytes": 16777216, "maxTextBytes": -1, "maxUrlLength": 8192}, "code": "invalid"},
     {"name": "maxUrlLength-above-the-ceiling", "limits": {"maxItems": 32, "maxBytes": 16777216, "maxTextBytes": 65536, "maxUrlLength": 8193}, "code": "invalid"},
-    {"name": "maxUrlLength-negative", "limits": {"maxItems": 32, "maxBytes": 16777216, "maxTextBytes": 65536, "maxUrlLength": -1}, "code": "invalid"}
+    {"name": "maxUrlLength-negative", "limits": {"maxItems": 32, "maxBytes": 16777216, "maxTextBytes": 65536, "maxUrlLength": -1}, "code": "invalid"},
+    {"name": "maxItems-zero", "limits": {"maxItems": 0, "maxBytes": 16777216, "maxTextBytes": 65536, "maxUrlLength": 8192}, "code": "invalid"},
+    {"name": "maxBytes-zero", "limits": {"maxItems": 32, "maxBytes": 0, "maxTextBytes": 65536, "maxUrlLength": 8192}, "code": "invalid"},
+    {"name": "maxTextBytes-zero", "limits": {"maxItems": 32, "maxBytes": 16777216, "maxTextBytes": 0, "maxUrlLength": 8192}, "code": "invalid"},
+    {"name": "maxUrlLength-zero", "limits": {"maxItems": 32, "maxBytes": 16777216, "maxTextBytes": 65536, "maxUrlLength": 0}, "code": "invalid"},
+    {"name": "every-limit-zero", "limits": {"maxItems": 0, "maxBytes": 0, "maxTextBytes": 0, "maxUrlLength": 0}, "code": "invalid"}
   ],
   "normalize": [
     {"name": "nothing", "items": [], "code": null, "payload": {"subject": "", "text": "", "urls": [], "attachments": [], "byteCount": 0}},

@@ -38,7 +38,7 @@ func NewObserver(run CommandRunner) *Observer {
 }
 
 func (o *Observer) Observe(ctx context.Context, limits audio.Limits) (audio.Snapshot, error) {
-	limits, err := limits.Normalize()
+	err := limits.Validate()
 	if err != nil {
 		return audio.Snapshot{}, err
 	}

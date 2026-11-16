@@ -5,19 +5,20 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestAccessibilityOptionsAreBounded(t *testing.T) {
-	if _, err := DiscoverAccessibility(context.Background(), AccessibilityOptions{MaxDepth: -1}); err == nil {
+	if _, err := DiscoverAccessibility(context.Background(), AccessibilityOptions{MaxElements: 1, MaxDepth: -1, Timeout: time.Second}); err == nil {
 		t.Fatal("negative accessibility depth was accepted")
 	}
-	if _, err := DiscoverAccessibility(context.Background(), AccessibilityOptions{MaxElements: 65537}); err == nil {
+	if _, err := DiscoverAccessibility(context.Background(), AccessibilityOptions{MaxElements: 65537, MaxDepth: 1, Timeout: time.Second}); err == nil {
 		t.Fatal("excessive accessibility element limit was accepted")
 	}
 }
 
 func TestAccessibilityDefaultsDoNotExposeTextOrNativeHandles(t *testing.T) {
-	snapshot, err := DiscoverAccessibility(context.Background(), AccessibilityOptions{})
+	snapshot, err := DiscoverAccessibility(context.Background(), DefaultAccessibilityOptions())
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -15,7 +15,7 @@ func platformResolver(ctx context.Context) (Resolver, CollectionStatus, error) {
 	}
 	file, err := os.Open("/etc/resolv.conf")
 	if err != nil {
-		return Resolver{Servers: []string{}, Search: []string{}, Options: []string{}}, status("unavailable", "resolver configuration is unavailable"), nil
+		return Resolver{Servers: []string{}, Search: []string{}, Options: []string{}}, unavailable(err, "resolver configuration is unavailable"), nil
 	}
 	defer file.Close()
 	result := Resolver{Servers: []string{}, Search: []string{}, Options: []string{}}

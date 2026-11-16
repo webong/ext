@@ -7,6 +7,8 @@ import android.net.LinkProperties;
 import android.net.Network;
 import android.net.RouteInfo;
 import io.github.webong.ext.network.NetworkAddress;
+import io.github.webong.ext.network.NetworkCancellation;
+import io.github.webong.ext.network.NetworkCancellationException;
 import io.github.webong.ext.network.NetworkCollectionStatus;
 import io.github.webong.ext.network.NetworkInterfaceInfo;
 import io.github.webong.ext.network.NetworkOptions;
@@ -32,17 +34,33 @@ import java.util.TimeZone;
 /** Observes the Android device's local interfaces and ConnectivityManager link properties. */
 public final class SystemNetworkObserver {
     private final NetworkOptions options;
-    public SystemNetworkObserver(NetworkOptions options) { this.options = options; }
+    public SystemNetworkObserver(NetworkOptions options) {
+        if (options == null) throw new IllegalArgumentException("options are required");
+        this.options = options;
+    }
     public SystemNetworkObserver() { this(new NetworkOptions()); }
 
+    /** Observes with no cancellation beyond the options' timeout. */
+    public NetworkSnapshot observe(Context context) { return observe(context, new NetworkCancellation()); }
+
+    /**
+     * Observes interfaces, then routes and resolver settings, within the options' timeout.
+     *
+     * @throws NetworkCancellationException timeout or canceled, checked
+     *     before each interface and network and once at the end
+     */
     @SuppressWarnings("deprecation")
-    public NetworkSnapshot observe(Context context) {
+    public NetworkSnapshot observe(Context context, NetworkCancellation cancellation) {
+        if (context == null || cancellation == null) throw new IllegalArgumentException("context and cancellation are required");
+        NetworkCancellation deadline = cancellation.withTimeout(options.timeoutMillis());
+        deadline.check();
         String now = timestamp();
         List<NetworkInterfaceInfo> interfaces = new ArrayList<>();
         boolean interfacePartial = false;
         try {
             Enumeration<NetworkInterface> values = NetworkInterface.getNetworkInterfaces();
             while (values != null && values.hasMoreElements()) {
+                deadline.check();
                 NetworkInterface value = values.nextElement();
                 if (interfaces.size() >= options.maxInterfaces()) { interfacePartial = true; break; }
                 List<NetworkAddress> addresses = new ArrayList<>();
@@ -70,6 +88,7 @@ public final class SystemNetworkObserver {
             if (manager == null) throw new IllegalStateException("ConnectivityManager is unavailable");
             boolean routePartial = false;
             for (Network network : manager.getAllNetworks()) {
+                deadline.check();
                 LinkProperties links = manager.getLinkProperties(network);
                 if (links == null) continue;
                 for (InetAddress server : links.getDnsServers()) dns.add(canonical(server));
@@ -87,10 +106,13 @@ public final class SystemNetworkObserver {
         } catch (SecurityException exception) {
             routeStatus = new NetworkCollectionStatus("permission-denied", "permission", "ACCESS_NETWORK_STATE is not granted", now);
             resolverStatus = new NetworkCollectionStatus("permission-denied", "permission", "ACCESS_NETWORK_STATE is not granted", now);
+        } catch (NetworkCancellationException stopped) {
+            throw stopped;
         } catch (RuntimeException exception) {
             routeStatus = new NetworkCollectionStatus("unavailable", "Android link properties are unavailable", now);
             resolverStatus = new NetworkCollectionStatus("unavailable", "Android resolver properties are unavailable", now);
         }
+        deadline.check();
         return new NetworkSnapshot("android", now, interfaces, routes,
                 new NetworkResolver(NetworkResolver.clean(new ArrayList<>(dns)), Collections.emptyList(), Collections.emptyList()),
                 new NetworkCollectionStatus(interfacePartial ? "partial" : "complete",

@@ -70,7 +70,7 @@ func platformResolver(ctx context.Context) (Resolver, CollectionStatus, error) {
 	}
 	raw := C.copyDNSState()
 	if raw == nil {
-		return Resolver{}, status("unavailable", "SystemConfiguration DNS state unavailable"), nil
+		return Resolver{}, unavailable(nil, "SystemConfiguration DNS state unavailable"), nil
 	}
 	defer C.free(unsafe.Pointer(raw))
 	result := parseNativeDNS(C.GoString(raw))

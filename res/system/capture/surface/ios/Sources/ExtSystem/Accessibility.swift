@@ -55,24 +55,47 @@ public struct AccessibilitySnapshot: Codable, Equatable, Sendable {
     }
 }
 
+/// Bounds traversal, as Go's `surface.AccessibilityOptions`: 1024 elements, depth 16 and five
+/// seconds by default. The timeout is above zero and at most an hour.
 public struct AccessibilityOptions: Equatable, Sendable {
     public let maxElements: Int
     public let maxDepth: Int
     public let includeText: Bool
+    public let timeout: TimeInterval
 
-    public init(maxElements: Int = 1024, maxDepth: Int = 16, includeText: Bool = false) throws {
-        guard (1...65_536).contains(maxElements), (1...256).contains(maxDepth) else {
+    public init(maxElements: Int = 1024, maxDepth: Int = 16, includeText: Bool = false, timeout: TimeInterval = 5) throws {
+        guard (1...65_536).contains(maxElements), (1...256).contains(maxDepth), ObservationBound.valid(timeout) else {
             throw AccessibilityObservationError.invalidLimit
         }
         self.maxElements = maxElements; self.maxDepth = maxDepth; self.includeText = includeText
+        self.timeout = timeout
     }
 }
 
 public enum AccessibilityObservationError: Error, Equatable {
     case invalidLimit
+    /// The observation ran past its timeout.
+    case timeout
+    /// The task running the observation was canceled.
+    case canceled
 
     /// The stable error code of `res/system/testdata/codes.json`.
-    public var code: String { "invalid" }
+    public var code: String {
+        switch self {
+        case .invalidLimit: return "invalid"
+        case .timeout: return "timeout"
+        case .canceled: return "canceled"
+        }
+    }
+
+    /// Throws the error of a bound that has stopped.
+    static func check(_ bound: ObservationBound) throws {
+        switch bound.stop {
+        case .timeout?: throw AccessibilityObservationError.timeout
+        case .canceled?: throw AccessibilityObservationError.canceled
+        case nil: return
+        }
+    }
 }
 
 extension AccessibilityElement {
@@ -118,6 +141,10 @@ extension AccessibilitySnapshot {
 /// Read-only observation of the focused native UI tree on macOS and the
 /// application's own UIKit tree on iOS. It never requests permission or
 /// exposes an invocable native reference.
+///
+/// An observation is bounded by `AccessibilityOptions.timeout` and stops when the task running it
+/// is canceled, throwing `AccessibilityObservationError.timeout` or `.canceled` (rule 4 of
+/// docs/adr-architecture.md), as Go's `surface.DiscoverAccessibility` returns its context's error.
 @MainActor
 public final class SystemAccessibilityObserver {
     private let options: AccessibilityOptions
@@ -126,11 +153,13 @@ public final class SystemAccessibilityObserver {
         self.options = options
     }
 
-    public func observe() -> AccessibilitySnapshot {
+    public func observe() throws -> AccessibilitySnapshot {
+        let bound = ObservationBound(timeout: options.timeout)
+        try AccessibilityObservationError.check(bound)
 #if os(macOS)
-        observeMacOS()
+        return try observeMacOS(bound)
 #elseif os(iOS)
-        observeIOS()
+        return try observeIOS(bound)
 #endif
     }
 }
@@ -149,7 +178,7 @@ extension SystemAccessibilityObserver {
         let depth: Int
     }
 
-    private func observeMacOS() -> AccessibilitySnapshot {
+    private func observeMacOS(_ bound: ObservationBound) throws -> AccessibilitySnapshot {
         let now = surfaceTimestamp(Date())
         guard AXIsProcessTrusted() else {
             return AccessibilitySnapshot(platform: "darwin", observedAt: now,
@@ -176,8 +205,12 @@ extension SystemAccessibilityObserver {
         var elements: [AccessibilityElement] = []
         var truncated = false
         while !queue.isEmpty {
+            try AccessibilityObservationError.check(bound)
             let node = queue.removeFirst()
             guard elements.count < options.maxElements else { truncated = true; continue }
+            // Each attribute read waits at most a quarter second, and never past the deadline, so
+            // an application that does not answer cannot hold the walk beyond its bound.
+            AXUIElementSetMessagingTimeout(node.element, Float(max(min(bound.remaining, 0.25), 0.01)))
             let id = accessibilityID(pid, generation, node.path)
             let role = stringAttribute(node.element, kAXRoleAttribute) ?? "unknown"
             let identifier = stringAttribute(node.element, kAXIdentifierAttribute)
@@ -201,6 +234,7 @@ extension SystemAccessibilityObserver {
             }
         }
         elements.sort { $0.id < $1.id }
+        try AccessibilityObservationError.check(bound)
         return AccessibilitySnapshot(platform: "darwin", observedAt: now,
             status: SurfaceCollectionStatus(state: truncated ? "partial" : "complete",
                 detail: truncated ? "accessibility element or depth limit reached" : nil, observedAt: now), elements: elements)
@@ -255,7 +289,7 @@ extension SystemAccessibilityObserver {
         let depth: Int
     }
 
-    private func observeIOS() -> AccessibilitySnapshot {
+    private func observeIOS(_ bound: ObservationBound) throws -> AccessibilitySnapshot {
         let now = surfaceTimestamp(Date())
         let pid = Int(ProcessInfo.processInfo.processIdentifier)
         var roots: [UIView] = []
@@ -267,6 +301,7 @@ extension SystemAccessibilityObserver {
         var elements: [AccessibilityElement] = []
         var truncated = false
         while !queue.isEmpty {
+            try AccessibilityObservationError.check(bound)
             let node = queue.removeFirst()
             guard elements.count < options.maxElements else { truncated = true; continue }
             let id = accessibilityID(pid, iosProcessGeneration, node.path)
@@ -292,6 +327,7 @@ extension SystemAccessibilityObserver {
             }
         }
         elements.sort { $0.id < $1.id }
+        try AccessibilityObservationError.check(bound)
         return AccessibilitySnapshot(platform: "ios", observedAt: now,
             status: SurfaceCollectionStatus(state: truncated ? "partial" : "complete",
                 detail: truncated ? "accessibility element or depth limit reached" : nil, observedAt: now), elements: elements)

@@ -22,7 +22,7 @@ func platformPermissions(ctx context.Context) (PermissionInfo, PermissionInfo, e
 		return PermissionInfo{}, PermissionInfo{}, err
 	}
 	accessibility := PermissionInfo{State: "unsupported", Reason: "unsupported", Scope: "linux.at-spi", Detail: "AT-SPI observation is not available in this build"}
-	recording := PermissionInfo{State: "unavailable", Detail: "no local graphical session is visible"}
+	recording := PermissionInfo{State: "unavailable", Reason: "no_device", Detail: "no local graphical session is visible"}
 	if strings.TrimSpace(os.Getenv("DISPLAY")) != "" {
 		recording = PermissionInfo{State: "not-required", Scope: "linux.x11-capture"}
 	} else if strings.TrimSpace(os.Getenv("WAYLAND_DISPLAY")) != "" {

@@ -21,7 +21,7 @@ public final class PlaybackPacket {
             throw new PlaybackException("invalid", "invalid PCM packet");
         }
         if (count > maxBytes) {
-            throw new PlaybackException("too_large", "PCM packet exceeds " + maxBytes + " bytes");
+            throw new PlaybackException("too_large", "PCM packet is over the packet ceiling of " + maxBytes + " bytes");
         }
     }
 }

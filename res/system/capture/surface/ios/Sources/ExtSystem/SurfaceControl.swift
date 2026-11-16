@@ -14,18 +14,47 @@ public enum SurfaceControlError: Error, Equatable {
     case notFocused
     case captureTooLarge
     case nativeFailure
+    /// A capture ran past `SurfaceCaptureOptions.timeout` (code `timeout`).
+    case timeout
+    /// The task running a capture was canceled (code `canceled`).
+    case canceled
+
+    /// Throws the error of a bound that has stopped.
+    static func check(_ bound: ObservationBound) throws {
+        switch bound.stop {
+        case .timeout?: throw SurfaceControlError.timeout
+        case .canceled?: throw SurfaceControlError.canceled
+        case nil: return
+        }
+    }
+
+    /// Awaits a native call under the bound, as `timeout`, `canceled` or `nativeFailure`.
+    static func race<T>(_ bound: ObservationBound, _ body: @escaping () async throws -> T) async throws -> T {
+        do {
+            return try await bound.race(body)
+        } catch let stopped as ObservationBound.Stopped {
+            throw stopped.stop == .timeout ? SurfaceControlError.timeout : SurfaceControlError.canceled
+        } catch {
+            throw SurfaceControlError.nativeFailure
+        }
+    }
 }
 
+/// Bounds one window capture, as Go's `surface.CaptureOptions`: 16 777 216 pixels, 16 MiB and five
+/// seconds by default. The timeout is above zero and at most an hour; a capture that runs past it,
+/// or whose task is canceled, throws `SurfaceControlError.timeout` or `.canceled`.
 public struct SurfaceCaptureOptions: Equatable, Sendable {
     public let maxPixels: Int
     public let maxBytes: Int
+    public let timeout: TimeInterval
 
-    public init(maxPixels: Int = 16_777_216, maxBytes: Int = 16 * 1_024 * 1_024) throws {
-        guard (1...268_435_456).contains(maxPixels), (1...(1 << 30)).contains(maxBytes) else {
+    public init(maxPixels: Int = 16_777_216, maxBytes: Int = 16 * 1_024 * 1_024, timeout: TimeInterval = 5) throws {
+        guard (1...268_435_456).contains(maxPixels), (1...(1 << 30)).contains(maxBytes), ObservationBound.valid(timeout) else {
             throw SurfaceControlError.invalidLimit
         }
         self.maxPixels = maxPixels
         self.maxBytes = maxBytes
+        self.timeout = timeout
     }
 }
 
@@ -89,13 +118,12 @@ public final class SystemSurfaceController {
         window: WindowInfo,
         options: SurfaceCaptureOptions = try! SurfaceCaptureOptions()
     ) async throws -> SurfaceCapture {
+        let bound = ObservationBound(timeout: options.timeout)
+        try SurfaceControlError.check(bound)
         guard CGPreflightScreenCaptureAccess() else { throw SurfaceControlError.permissionDenied }
         let native = try requireWindow(window)
-        let content: SCShareableContent
-        do {
-            content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
-        } catch {
-            throw SurfaceControlError.nativeFailure
+        let content = try await SurfaceControlError.race(bound) {
+            try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
         }
         guard let captureWindow = content.windows.first(where: { $0.windowID == native.windowID }) else {
             throw SurfaceControlError.staleReference
@@ -109,15 +137,10 @@ public final class SystemSurfaceController {
         configuration.width = width
         configuration.height = height
         configuration.captureResolution = .best
-        let image: CGImage
-        do {
-            image = try await SCScreenshotManager.captureImage(
-                contentFilter: filter,
-                configuration: configuration
-            )
-        } catch {
-            throw SurfaceControlError.nativeFailure
+        let image = try await SurfaceControlError.race(bound) {
+            try await SCScreenshotManager.captureImage(contentFilter: filter, configuration: configuration)
         }
+        try SurfaceControlError.check(bound)
         _ = try requireWindow(window)
         let bitmap = NSBitmapImageRep(cgImage: image)
         guard let data = bitmap.representation(using: .png, properties: [:]) else {

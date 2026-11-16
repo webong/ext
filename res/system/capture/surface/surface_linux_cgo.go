@@ -207,11 +207,12 @@ func platformSurfaces(ctx context.Context, maxDisplays, maxWindows int) ([]Displ
 		defer C.free(unsafe.Pointer(values))
 	}
 	if code != 0 {
-		detail := "libX11 is unavailable"
+		// Without libX11 the library this read needs is not installed; with it, no display answered.
+		status := proc.CollectionStatus{State: "unavailable", Reason: "tool_missing", Detail: "libX11 is unavailable"}
 		if libraryState != 0 {
-			detail = "the X11 display could not be opened"
+			status = surfaceUnavailable(nil, "the X11 display could not be opened")
 		}
-		return []DisplayInfo{}, surfaceStatus("unavailable", detail), []WindowInfo{}, surfaceStatus("unavailable", detail), "desktop-global-pixels", nil
+		return []DisplayInfo{}, status, []WindowInfo{}, status, "desktop-global-pixels", nil
 	}
 	displays := []DisplayInfo{}
 	if width > 0 && height > 0 && maxDisplays > 0 {

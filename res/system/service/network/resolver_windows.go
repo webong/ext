@@ -46,18 +46,18 @@ func platformResolver(ctx context.Context) (Resolver, CollectionStatus, error) {
 		if errno, ok := callErr.(windows.Errno); ok && errno == networkErrBufferOverflow && size > 0 {
 			// Proceed with the allocated buffer.
 		} else if uintptr(result) != uintptr(networkErrBufferOverflow) || size == 0 {
-			return Resolver{}, status("unavailable", fmt.Sprintf("GetNetworkParams size probe failed: result=%d err=%v", result, callErr)), nil
+			return Resolver{}, unavailable(windows.Errno(result), fmt.Sprintf("GetNetworkParams size probe failed: result=%d err=%v", result, callErr)), nil
 		}
 	}
 	if size == 0 {
-		return Resolver{}, status("unavailable", "GetNetworkParams returned zero size"), nil
+		return Resolver{}, unavailable(nil, "GetNetworkParams returned zero size"), nil
 	}
 	buf := make([]byte, int(size))
 	result, callErr = getNetworkParamsCall(&buf[0], &size)
 	if result != 0 {
 		// Report the returned Win32 result code, not callErr which may be
 		// stale or zero.
-		return Resolver{}, status("unavailable", fmt.Sprintf("GetNetworkParams failed: result=%d err=%v", result, callErr)), nil
+		return Resolver{}, unavailable(windows.Errno(result), fmt.Sprintf("GetNetworkParams failed: result=%d err=%v", result, callErr)), nil
 	}
 	servers, domain := dnsServersFromFixedInfo(buf)
 	search := []string{}
@@ -67,10 +67,10 @@ func platformResolver(ctx context.Context) (Resolver, CollectionStatus, error) {
 	if err := ctx.Err(); err != nil {
 		return Resolver{}, CollectionStatus{}, err
 	}
-	state := "complete"
+	resolverStatus := status("complete", "")
 	if len(servers) == 0 {
-		state = "unavailable"
+		resolverStatus = unavailable(nil, "no DNS server is configured")
 	}
 	return Resolver{Servers: cleanResolver(servers), Search: cleanResolver(search), Options: []string{}},
-		status(state, ""), nil
+		resolverStatus, nil
 }

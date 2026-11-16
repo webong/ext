@@ -12,6 +12,7 @@ package share
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -60,8 +61,10 @@ func Code(err error) string {
 }
 
 // Limits are fixed by the embedding application before a native extension
-// loads any item. Zero fields select the defaults; every field has a library
-// ceiling so a caller cannot disable bounding.
+// loads any item; every field has a library ceiling so a caller cannot disable
+// bounding. Every field is explicit and a zero is invalid, as in the other
+// bindings (testdata/share/v1); start from DefaultLimits and change what
+// differs. In the JSON form a key that is left out takes its default.
 type Limits struct {
 	MaxItems     int   `json:"max_items"`
 	MaxBytes     int64 `json:"max_bytes"`
@@ -69,33 +72,58 @@ type Limits struct {
 	MaxURLLength int   `json:"max_url_length"`
 }
 
-// Normalize resolves defaults and rejects limits beyond the library ceilings.
-func (l Limits) Normalize() (Limits, error) {
-	if l.MaxItems == 0 {
-		l.MaxItems = DefaultMaxItems
-	}
-	if l.MaxBytes == 0 {
-		l.MaxBytes = DefaultMaxBytes
-	}
-	if l.MaxTextBytes == 0 {
-		l.MaxTextBytes = DefaultMaxTextBytes
-	}
-	if l.MaxURLLength == 0 {
-		l.MaxURLLength = MaxURLLength
-	}
+// DefaultLimits returns the default of every limit.
+func DefaultLimits() Limits {
+	return Limits{MaxItems: DefaultMaxItems, MaxBytes: DefaultMaxBytes, MaxTextBytes: DefaultMaxTextBytes, MaxURLLength: MaxURLLength}
+}
+
+// Validate checks that every field is between 1 and its library ceiling.
+func (l Limits) Validate() error {
 	if l.MaxItems < 1 || l.MaxItems > MaxItems {
-		return Limits{}, fmt.Errorf("%w: item bound must be between 1 and %d", ErrInvalid, MaxItems)
+		return fmt.Errorf("%w: item bound must be between 1 and %d", ErrInvalid, MaxItems)
 	}
 	if l.MaxBytes < 1 || l.MaxBytes > MaxBytes {
-		return Limits{}, fmt.Errorf("%w: byte bound must be between 1 and %d", ErrInvalid, MaxBytes)
+		return fmt.Errorf("%w: byte bound must be between 1 and %d", ErrInvalid, MaxBytes)
 	}
 	if l.MaxTextBytes < 1 || l.MaxTextBytes > MaxTextBytes {
-		return Limits{}, fmt.Errorf("%w: text bound must be between 1 and %d", ErrInvalid, MaxTextBytes)
+		return fmt.Errorf("%w: text bound must be between 1 and %d", ErrInvalid, MaxTextBytes)
 	}
 	if l.MaxURLLength < 1 || l.MaxURLLength > MaxURLLength {
-		return Limits{}, fmt.Errorf("%w: URL bound must be between 1 and %d", ErrInvalid, MaxURLLength)
+		return fmt.Errorf("%w: URL bound must be between 1 and %d", ErrInvalid, MaxURLLength)
 	}
-	return l, nil
+	return nil
+}
+
+// UnmarshalJSON reads limits in their wire form: a key that is left out takes
+// its default, and a key that is present is explicit, so a zero is invalid.
+func (l *Limits) UnmarshalJSON(data []byte) error {
+	var wire struct {
+		MaxItems     *int   `json:"max_items"`
+		MaxBytes     *int64 `json:"max_bytes"`
+		MaxTextBytes *int   `json:"max_text_bytes"`
+		MaxURLLength *int   `json:"max_url_length"`
+	}
+	if err := json.Unmarshal(data, &wire); err != nil {
+		return fmt.Errorf("%w: limits are not a JSON object of whole numbers", ErrInvalid)
+	}
+	limits := DefaultLimits()
+	if wire.MaxItems != nil {
+		limits.MaxItems = *wire.MaxItems
+	}
+	if wire.MaxBytes != nil {
+		limits.MaxBytes = *wire.MaxBytes
+	}
+	if wire.MaxTextBytes != nil {
+		limits.MaxTextBytes = *wire.MaxTextBytes
+	}
+	if wire.MaxURLLength != nil {
+		limits.MaxURLLength = *wire.MaxURLLength
+	}
+	if err := limits.Validate(); err != nil {
+		return err
+	}
+	*l = limits
+	return nil
 }
 
 // Attachment is one shared file. Exactly one of Data and Path carries the
@@ -138,8 +166,7 @@ type Payload struct {
 // with distinct names only when the caller can tell them apart; otherwise the
 // second is rejected.
 func Normalize(items []Item, limits Limits) (Payload, error) {
-	limits, err := limits.Normalize()
-	if err != nil {
+	if err := limits.Validate(); err != nil {
 		return Payload{}, err
 	}
 	if len(items) > limits.MaxItems {

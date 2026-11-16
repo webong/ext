@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 using NAudio.CoreAudioApi;
 using NAudio.Wave;
@@ -47,8 +48,9 @@ public sealed class AudioPacketException : AudioArgumentException
 /// A failure of the audio service, an endpoint or a stream, with the stable code of
 /// res/system/testdata/codes.json that Swift <c>SystemAudioPlaybackError.code</c> uses for the same
 /// failure: <c>busy</c> (the playback buffer is full), <c>canceled</c> (the sink or capture is
-/// closed), <c>io</c> (a WASAPI call failed), <c>unavailable</c> (the endpoint is unknown or not
-/// active) or <c>unsupported</c> (this session has no audio service; see <see cref="SystemAudio.Status"/>).
+/// closed, or the caller's token was canceled), <c>timeout</c> (a listing ran past its timeout),
+/// <c>io</c> (a WASAPI call failed), <c>unavailable</c> (the endpoint is unknown or not active) or
+/// <c>unsupported</c> (this session has no audio service; see <see cref="SystemAudio.Status"/>).
 /// </summary>
 public sealed class AudioException : Exception
 {
@@ -81,6 +83,159 @@ public sealed record AudioStatus
             throw new AudioArgumentException("invalid", "audio status does not take that reason", nameof(reason));
         State = state;
         Reason = reason;
+    }
+}
+
+/// <summary>
+/// The time bound and cancellation of one call (docs/adr-architecture.md rule 4), as Go's context
+/// deadline: it stops at its deadline and when the caller's token is canceled. The deadline is the
+/// last clock tick inside the timeout, so the clock's resolution never lets a call run past it.
+/// </summary>
+internal readonly struct AudioBound
+{
+    /// <summary>The default timeout, as Go's observers: five seconds.</summary>
+    internal static readonly TimeSpan DefaultTimeout = TimeSpan.FromSeconds(5);
+    /// <summary>The longest timeout or capture a caller may select: one hour.</summary>
+    internal static readonly TimeSpan MaximumTimeout = TimeSpan.FromHours(1);
+
+    private readonly long deadline;
+    private readonly CancellationToken token;
+
+    internal AudioBound(TimeSpan timeout, CancellationToken token)
+        : this(Stopwatch.GetTimestamp() + Math.Max((long)Math.Ceiling(timeout.TotalSeconds * Stopwatch.Frequency), 1) - 1, token)
+    {
+    }
+
+    /// <summary>A bound ending at a Stopwatch timestamp, so the tests can make one that has passed.</summary>
+    internal AudioBound(long deadline, CancellationToken token)
+    {
+        this.deadline = deadline;
+        this.token = token;
+    }
+
+    /// <summary>A timeout is a bound when it is above zero and at most an hour.</summary>
+    internal static bool Valid(TimeSpan timeout) => timeout > TimeSpan.Zero && timeout <= MaximumTimeout;
+
+    /// <summary>The checked timeout: the default for null, else <c>invalid</c> unless it is a bound.</summary>
+    internal static TimeSpan Timeout(TimeSpan? timeout, string paramName)
+    {
+        var value = timeout ?? DefaultTimeout;
+        if (!Valid(value))
+            throw new AudioArgumentException("invalid", "a timeout is above zero and at most an hour", paramName);
+        return value;
+    }
+
+    /// <summary><c>canceled</c> when the token is (judged first, as Go reports the parent context), else <c>timeout</c> past the deadline, else null.</summary>
+    internal string? Stop => token.IsCancellationRequested ? "canceled"
+        : Stopwatch.GetTimestamp() >= deadline ? "timeout" : null;
+
+    /// <summary>Throws the <see cref="AudioException"/> of a bound that has stopped.</summary>
+    internal void Check()
+    {
+        switch (Stop)
+        {
+            case "canceled":
+                throw new AudioException("canceled", "the audio call was canceled");
+            case "timeout":
+                throw new AudioException("timeout", "the audio call ran past its timeout");
+        }
+    }
+}
+
+/// <summary>
+/// The bounds of one capture (docs/adr-architecture.md rule 4), as Go's
+/// <c>media.SampleOptions</c>: it runs for at most <see cref="MaxDuration"/> and delivers at most
+/// <see cref="MaxBytes"/>. The duration is above zero and at most an hour; the byte limit is at
+/// least one and at most 1 GiB. Others are refused with code <c>invalid</c>.
+/// </summary>
+public sealed record AudioCaptureLimits
+{
+    /// <summary>Five minutes and 64 MiB: the bounds of a capture that selects none.</summary>
+    public static readonly AudioCaptureLimits Default = new(TimeSpan.FromMinutes(5), 64L * 1024 * 1024);
+    /// <summary>The largest byte limit: 1 GiB, as Go's <c>MaxTotalBytes</c> ceiling.</summary>
+    public const long MaximumBytes = 1L << 30;
+
+    public TimeSpan MaxDuration { get; }
+    public long MaxBytes { get; }
+
+    public AudioCaptureLimits(TimeSpan maxDuration, long maxBytes)
+    {
+        if (!AudioBound.Valid(maxDuration))
+            throw new AudioArgumentException("invalid", "a capture lasts above zero and at most an hour", nameof(maxDuration));
+        if (maxBytes < 1 || maxBytes > MaximumBytes)
+            throw new AudioArgumentException("invalid", "a capture byte limit is at least one byte and at most 1 GiB", nameof(maxBytes));
+        MaxDuration = maxDuration;
+        MaxBytes = maxBytes;
+    }
+}
+
+/// <summary>
+/// Why a capture stopped, as Go's <c>media.SampleManifest.StopReason</c>, and how many bytes it
+/// delivered. <see cref="Reason"/> is <c>duration</c> (it ran for its maximum duration),
+/// <c>byte_limit</c> (it delivered its byte limit), <c>canceled</c> (the token given to Start was
+/// canceled), <c>closed</c> (it was disposed) or <c>capture_failed</c> (WASAPI stopped it, with
+/// <see cref="Error"/> the exception NAudio reported). The first two are complete captures.
+/// </summary>
+public sealed record AudioCaptureStop(string Reason, long Bytes, Exception? Error);
+
+/// <summary>
+/// What a capture may still deliver, judged on each WASAPI buffer: the byte limit is reached on a
+/// frame boundary, and the first reason to stop is the one reported.
+/// </summary>
+internal sealed class AudioCaptureBudget
+{
+    private readonly object gate = new();
+    private readonly long maxBytes;
+    private long delivered;
+    private string? reason;
+
+    internal AudioCaptureBudget(long maxBytes)
+    {
+        this.maxBytes = maxBytes;
+    }
+
+    internal long Delivered
+    {
+        get { lock (gate) return delivered; }
+    }
+
+    /// <summary>The reason given to the first <see cref="Stop"/>, or null.</summary>
+    internal string? Reason
+    {
+        get { lock (gate) return reason; }
+    }
+
+    /// <summary>
+    /// How many of <paramref name="recorded"/> bytes to deliver: all of them while they fit, else
+    /// the whole frames that fit, after which the budget has stopped with <c>byte_limit</c>. Nothing
+    /// once it has stopped for any reason.
+    /// </summary>
+    internal int Take(int recorded, int blockAlign)
+    {
+        lock (gate)
+        {
+            if (reason is not null || recorded <= 0) return 0;
+            var room = maxBytes - delivered;
+            var take = recorded;
+            if (recorded >= room)
+            {
+                take = (int)(room - room % Math.Max(blockAlign, 1));
+                reason = "byte_limit";
+            }
+            delivered += take;
+            return take;
+        }
+    }
+
+    /// <summary>Records why the capture stops; true for the first reason only.</summary>
+    internal bool Stop(string why)
+    {
+        lock (gate)
+        {
+            if (reason is not null) return false;
+            reason = why;
+            return true;
+        }
     }
 }
 
@@ -133,20 +288,30 @@ public static class SystemAudio
 
     /// <summary>
     /// The active endpoints; an empty list when there are none. Throws <see cref="AudioException"/>
-    /// <c>unsupported</c> when this session has no audio service, or <c>io</c>.
+    /// <c>unsupported</c> when this session has no audio service, or <c>io</c>. The listing is bounded
+    /// by <paramref name="timeout"/> (five seconds when null, as Go; above zero and at most an hour,
+    /// else <see cref="AudioArgumentException"/> <c>invalid</c>) and by
+    /// <paramref name="cancellationToken"/>: it throws <c>timeout</c> or <c>canceled</c>. The bound is
+    /// judged between WASAPI calls; one call that blocks is not interrupted.
     /// </summary>
-    public static IReadOnlyList<AudioEndpoint> Endpoints()
+    public static IReadOnlyList<AudioEndpoint> Endpoints(TimeSpan? timeout = null, CancellationToken cancellationToken = default) =>
+        Endpoints(new AudioBound(AudioBound.Timeout(timeout, nameof(timeout)), cancellationToken));
+
+    internal static IReadOnlyList<AudioEndpoint> Endpoints(AudioBound bound)
     {
+        bound.Check();
         using var enumerator = Enumerator();
         var result = new List<AudioEndpoint>();
         try
         {
             foreach (var flow in new[] { DataFlow.Render, DataFlow.Capture })
             {
+                bound.Check();
                 foreach (var device in enumerator.EnumerateAudioEndPoints(flow, DeviceState.Active))
                 {
                     using (device)
                     {
+                        bound.Check();
                         result.Add(new AudioEndpoint(
                             device.ID,
                             device.FriendlyName,
@@ -159,11 +324,16 @@ public static class SystemAudio
         {
             throw Native(e, "cannot list audio endpoints");
         }
+        bound.Check();
         return result;
     }
 
-    public static SystemAudioCapture Capture(string endpointId, bool systemAudio = false) =>
-        new(endpointId, systemAudio);
+    /// <summary>
+    /// A capture of one endpoint, bounded by <paramref name="limits"/>
+    /// (<see cref="AudioCaptureLimits.Default"/> when null): see <see cref="SystemAudioCapture"/>.
+    /// </summary>
+    public static SystemAudioCapture Capture(string endpointId, bool systemAudio = false, AudioCaptureLimits? limits = null) =>
+        new(endpointId, systemAudio, limits ?? AudioCaptureLimits.Default);
 
     public static SystemAudioPlayback Playback(string endpointId) => new(endpointId);
 
@@ -249,25 +419,40 @@ public static class SystemAudio
 /// Captures native WASAPI buffers. Samples use <see cref="Format"/> and the
 /// callback memory is valid only until the event handler returns.
 /// </summary>
+/// <remarks>
+/// A capture is bounded (docs/adr-architecture.md rule 4) by its <see cref="Limits"/>: it stops by
+/// itself after <see cref="AudioCaptureLimits.MaxDuration"/>, or once it has delivered
+/// <see cref="AudioCaptureLimits.MaxBytes"/> (the last buffer is cut to the whole frames that fit),
+/// and when the token given to <see cref="Start"/> is canceled. <see cref="Stopped"/> then says why
+/// (<see cref="AudioCaptureStop"/>). It is raised once, on the capture thread.
+/// </remarks>
 public sealed class SystemAudioCapture : IDisposable
 {
     private readonly MMDevice device;
     private readonly WasapiCapture capture;
+    private readonly AudioCaptureBudget budget;
+    private readonly object gate = new();
+    private bool started;
     private bool disposed;
+    private Timer? timer;
+    private CancellationTokenRegistration registration;
 
     public WaveFormat Format => capture.WaveFormat;
+    public AudioCaptureLimits Limits { get; }
     public event Action<ReadOnlyMemory<byte>>? Samples;
-    public event Action<Exception?>? Stopped;
+    public event Action<AudioCaptureStop>? Stopped;
 
-    internal SystemAudioCapture(string endpointId, bool systemAudio)
+    internal SystemAudioCapture(string endpointId, bool systemAudio, AudioCaptureLimits limits)
     {
+        Limits = limits;
+        budget = new AudioCaptureBudget(limits.MaxBytes);
         device = SystemAudio.Device(endpointId, systemAudio ? DataFlow.Render : DataFlow.Capture,
             "Endpoint direction does not match capture mode");
         try
         {
             capture = systemAudio ? new WasapiLoopbackCapture(device) : new WasapiCapture(device);
-            capture.DataAvailable += (_, value) => Samples?.Invoke(value.Buffer.AsMemory(0, value.BytesRecorded));
-            capture.RecordingStopped += (_, value) => Stopped?.Invoke(value.Exception);
+            capture.DataAvailable += (_, value) => Deliver(value.Buffer, value.BytesRecorded);
+            capture.RecordingStopped += (_, value) => Finished(value.Exception);
         }
         catch (COMException e)
         {
@@ -281,24 +466,80 @@ public sealed class SystemAudioCapture : IDisposable
         }
     }
 
-    /// <summary>Starts capture; <see cref="AudioException"/> <c>canceled</c> after Dispose, or <c>io</c>.</summary>
-    public void Start()
+    /// <summary>
+    /// Starts capture, which stops by itself at its <see cref="Limits"/> or when
+    /// <paramref name="cancellationToken"/> is canceled. <see cref="AudioException"/>
+    /// <c>canceled</c> after Dispose or with a token already canceled, <c>busy</c> when it was
+    /// started before (a capture runs once), or <c>io</c>.
+    /// </summary>
+    public void Start(CancellationToken cancellationToken = default)
     {
-        if (disposed) throw new AudioException("canceled", "audio capture is closed");
-        try
+        lock (gate)
         {
-            capture.StartRecording();
+            if (disposed) throw new AudioException("canceled", "audio capture is closed");
+            if (cancellationToken.IsCancellationRequested) throw new AudioException("canceled", "audio capture was canceled");
+            if (started) throw new AudioException("busy", "audio capture runs once");
+            started = true;
+            try
+            {
+                capture.StartRecording();
+            }
+            catch (COMException e)
+            {
+                throw SystemAudio.Native(e, "cannot start audio capture");
+            }
+            timer = new Timer(_ => StopFor("duration"), null, Limits.MaxDuration, Timeout.InfiniteTimeSpan);
+            registration = cancellationToken.Register(() => StopFor("canceled"));
         }
-        catch (COMException e)
+    }
+
+    /// <summary>Delivers what the budget allows of one WASAPI buffer, and stops at the byte limit.</summary>
+    private void Deliver(byte[] buffer, int recorded)
+    {
+        var take = budget.Take(recorded, capture.WaveFormat.BlockAlign);
+        if (take > 0) Samples?.Invoke(buffer.AsMemory(0, take));
+        if (budget.Reason == "byte_limit") StopRecording();
+    }
+
+    /// <summary>Stops the capture for this reason, unless it already stops for another.</summary>
+    private void StopFor(string reason)
+    {
+        if (budget.Stop(reason)) StopRecording();
+    }
+
+    private void StopRecording()
+    {
+        lock (gate)
         {
-            throw SystemAudio.Native(e, "cannot start audio capture");
+            if (disposed) return;
+            try { capture.StopRecording(); }
+            catch (Exception e) when (e is COMException or InvalidOperationException) { }
         }
+    }
+
+    private void Finished(Exception? error)
+    {
+        budget.Stop(error is null ? "closed" : "capture_failed");
+        lock (gate)
+        {
+            timer?.Dispose();
+            timer = null;
+        }
+        registration.Dispose();
+        Stopped?.Invoke(new AudioCaptureStop(budget.Reason!, budget.Delivered, error));
     }
 
     public void Dispose()
     {
-        if (disposed) return;
-        disposed = true;
+        budget.Stop("closed");
+        lock (gate)
+        {
+            if (disposed) return;
+            disposed = true;
+            timer?.Dispose();
+            timer = null;
+        }
+        registration.Dispose();
         try { capture.StopRecording(); }
         finally
         {

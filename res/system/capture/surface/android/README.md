@@ -6,6 +6,14 @@ permission models. The Android binding reports displays visible through
 window and view tree. Android applications cannot enumerate other applications'
 windows or views through public APIs.
 
+Both observers are bounded in time and cancellable, as Go's `DiscoverSurfaces` and
+`DiscoverAccessibility`: `SurfaceOptions` and `AccessibilityOptions` carry a timeout (five seconds by
+default), and `observe(activity, cancellation)` takes a `SurfaceCancellation`, which another thread can
+`cancel()` while the main thread observes and which can carry its own deadline (`withTimeout`). The
+observer checks before each display or view and at the end, and throws
+`SurfaceCancellationException` (a `CancellationException`) with the code `timeout` or `canceled`.
+The permission observer reads constants and waits on nothing, so it takes neither.
+
 Accessibility labels and values are opt-in. `SystemMediaProjection` wraps a
 fresh, caller-consented `MediaProjection` for display surfaces and optional
 system-audio or microphone capture. The application remains responsible for the

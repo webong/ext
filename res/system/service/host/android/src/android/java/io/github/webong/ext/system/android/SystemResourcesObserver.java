@@ -10,6 +10,8 @@ import android.os.Environment;
 import android.os.StatFs;
 import io.github.webong.ext.system.ContainerInfo;
 import io.github.webong.ext.system.PowerInfo;
+import io.github.webong.ext.system.ResourceCancellation;
+import io.github.webong.ext.system.ResourceCancellationException;
 import io.github.webong.ext.system.ResourceCollectionStatus;
 import io.github.webong.ext.system.ResourceInfo;
 import io.github.webong.ext.system.StorageInfo;
@@ -29,16 +31,32 @@ public final class SystemResourcesObserver {
         this.context = context.getApplicationContext();
     }
 
-    public ResourceInfo observe() {
+    /** Observes with no cancellation and no deadline, as Go's DiscoverResources with a background context. */
+    public ResourceInfo observe() { return observe(new ResourceCancellation()); }
+
+    /**
+     * Observes CPU, memory, storage, power and uptime until {@code cancellation} stops, as Go's
+     * DiscoverResources does with its context; give it a deadline with {@link ResourceCancellation#withTimeout}.
+     * It checks before each of those reads and once at the end.
+     *
+     * @throws ResourceCancellationException timeout or canceled
+     */
+    public ResourceInfo observe(ResourceCancellation cancellation) {
+        if (cancellation == null) throw new IllegalArgumentException("cancellation is required");
+        cancellation.check();
         String now = timestamp();
         int logicalCPUs = Runtime.getRuntime().availableProcessors();
         if (logicalCPUs < 1) logicalCPUs = 1;
 
+        cancellation.check();
         long[] memory = platformMemory();
+        cancellation.check();
         List<StorageInfo> storage = platformStorage();
+        cancellation.check();
         PowerInfo power = platformPower();
         ContainerInfo container = new ContainerInfo(false, "unsupported", new ArrayList<>());
         Double uptime = platformUptime();
+        cancellation.check();
 
         boolean memoryAvailable = memory[1] > 0;
         String memoryState = memoryAvailable ? "complete" : "unavailable";

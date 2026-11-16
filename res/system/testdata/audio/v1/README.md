@@ -13,9 +13,9 @@ those sections are Go's and are written for the bindings that follow.
   An empty packet or a partial frame is `invalid` and a packet over the ceiling is `too_large`, frames
   first. A full playback buffer is `busy` (Swift `bufferFull`, C# `AudioException`), a closed sink `canceled`
   (Swift `closed`, C# `AudioException`), and a native failure `io` (Swift `nativeFailure`, C# `AudioException`).
-  A real buffer needs a device, so they are not cases; C# tests the busy and canceled paths on a sink
-  with no device and the mapping of WASAPI failures instead. Java's `PlaybackException` covers the packet
-  codes only.
+  Java's `AudioException` carries the same `busy`, `canceled` and `io`. A real buffer needs a device, so
+  they are not cases; C# tests the busy and canceled paths on a sink with no device and the mapping of
+  WASAPI failures instead, and Java tests them on `PlaybackSink` over a fake track.
 - **Limits** (Go): `maxDevices` is 1 to 1024 and `maxPacketBytes` 1 to 1 MiB (defaults 64 and 192,000),
   else `invalid`; zero is Go's default, so it is not a case.
 - **Devices** (Go `ValidateSnapshot`): a snapshot has a backend of at most 64 bytes, a timestamp (RFC 3339)

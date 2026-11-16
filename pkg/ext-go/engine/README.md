@@ -72,8 +72,11 @@ installed package without reading or downloading the archive, once that package 
 `Download`, `NewDownloadClient` and `ExtractArchive` are the same steps on their own. The default
 client follows at most `MaxDownloadRedirects` redirects, to HTTPS URLs without user information or a
 fragment only, and removes `Authorization`, `Cookie` and `Referer` from a redirected request; pass
-your own through `ArchiveOptions.Client`. Archive handling is Go code in both stores: the C engine's
-store has no archive operations.
+your own through `ArchiveOptions.Client`. The engine-routed store (`cgoengine/host/store`) runs the
+install in the C engine (`ext_store_install_archive`: the digest check, the extraction, the install
+or upgrade and the receipt), which the other language bindings share; it downloads an HTTPS source
+in Go first, since the engine leaves fetching to its caller. `ExtractArchive` and `Download` are Go
+in both.
 
 What an archive install and a download must do is fixed as fixtures every language's store runs:
 `lib/plugin/testdata/v1/archive-cases.json` with the archives beside it, and `download-cases.json`.

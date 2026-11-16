@@ -77,6 +77,51 @@
       ]
     },
     {
+      "name": "tar-gz-header-fields",
+      "steps": [
+        {
+          "install": "archives/tar-gz-header-fields.bin",
+          "sha256": "0dc965d9c59747f1b8d7dcac6137098e08dccc66cba40685ec86c051271e5d0a",
+          "revision": "r1"
+        },
+        {
+          "receipt": "example/archive",
+          "sha256": "0dc965d9c59747f1b8d7dcac6137098e08dccc66cba40685ec86c051271e5d0a",
+          "revision": "r1"
+        }
+      ]
+    },
+    {
+      "name": "tar-gnu-long-name",
+      "steps": [
+        {
+          "install": "archives/tar-gnu-long-name.bin",
+          "sha256": "2eb63752f84d0dcb7451e38380018760ba8d4fe35cf7beed97f6a573c213064d",
+          "revision": "r1"
+        },
+        {
+          "receipt": "example/archive",
+          "sha256": "2eb63752f84d0dcb7451e38380018760ba8d4fe35cf7beed97f6a573c213064d",
+          "revision": "r1"
+        }
+      ]
+    },
+    {
+      "name": "tar-ustar-prefix",
+      "steps": [
+        {
+          "install": "archives/tar-ustar-prefix.bin",
+          "sha256": "580b0b7fc32664f2ebdefe2be587cec390153c9cfb9d4fb304e9757bdb0671f4",
+          "revision": "r1"
+        },
+        {
+          "receipt": "example/archive",
+          "sha256": "580b0b7fc32664f2ebdefe2be587cec390153c9cfb9d4fb304e9757bdb0671f4",
+          "revision": "r1"
+        }
+      ]
+    },
+    {
       "name": "zip-top",
       "steps": [
         {
@@ -117,6 +162,51 @@
         {
           "receipt": "example/archive",
           "sha256": "3f6b91dfbb448a4f1cdd05e5554b008a47ca829909726e7e5f0438a0fc939f92",
+          "revision": "r1"
+        }
+      ]
+    },
+    {
+      "name": "zip-dos-attributes",
+      "steps": [
+        {
+          "install": "archives/zip-dos-attributes.bin",
+          "sha256": "ae505af7fee9a8a61f7d6f2a89157d3f90fcc67d9e3ade5db1d3be2e8edb068a",
+          "revision": "r1"
+        },
+        {
+          "receipt": "example/archive",
+          "sha256": "ae505af7fee9a8a61f7d6f2a89157d3f90fcc67d9e3ade5db1d3be2e8edb068a",
+          "revision": "r1"
+        }
+      ]
+    },
+    {
+      "name": "zip-expands",
+      "steps": [
+        {
+          "install": "archives/zip-expands.bin",
+          "sha256": "ead3a56da54c656182877af74ce34b5cbfbe09ca6cbe0a164cf4880fadd6117b",
+          "revision": "r1"
+        },
+        {
+          "receipt": "example/archive",
+          "sha256": "ead3a56da54c656182877af74ce34b5cbfbe09ca6cbe0a164cf4880fadd6117b",
+          "revision": "r1"
+        }
+      ]
+    },
+    {
+      "name": "tar-gz-expands",
+      "steps": [
+        {
+          "install": "archives/tar-gz-expands.bin",
+          "sha256": "6f0a18bd95ca1d8a545d4d2e6dfb7b2ce8201899fec505058aa22bccba8ebd76",
+          "revision": "r1"
+        },
+        {
+          "receipt": "example/archive",
+          "sha256": "6f0a18bd95ca1d8a545d4d2e6dfb7b2ce8201899fec505058aa22bccba8ebd76",
           "revision": "r1"
         }
       ]
@@ -404,7 +494,7 @@
       "steps": [
         {
           "install": "archives/zip-expands.bin",
-          "sha256": "9192eeaff9e28fcf96d11b3a7642dbc3505636fdd5eaa2db0d3c29f6960b4f22",
+          "sha256": "ead3a56da54c656182877af74ce34b5cbfbe09ca6cbe0a164cf4880fadd6117b",
           "status": "invalid"
         }
       ]
@@ -417,7 +507,7 @@
       "steps": [
         {
           "install": "archives/tar-gz-expands.bin",
-          "sha256": "10a197074599d7908a3d163644e11ec2c3bf5339ad6d2b05adde60ab4e8a5dff",
+          "sha256": "6f0a18bd95ca1d8a545d4d2e6dfb7b2ce8201899fec505058aa22bccba8ebd76",
           "status": "invalid"
         }
       ]
@@ -558,6 +648,26 @@
         {
           "install": "archives/tar-control-character.bin",
           "sha256": "cb3405ef319f40ef5c4fe92532a710c774a823f580e7d5629e1ee035a96ffdc7",
+          "status": "invalid"
+        }
+      ]
+    },
+    {
+      "name": "tar-invalid-utf8",
+      "steps": [
+        {
+          "install": "archives/tar-invalid-utf8.bin",
+          "sha256": "820ad8b51236391022d74ac242af2237c2c872ade67785fee356be8e8013a8f2",
+          "status": "invalid"
+        }
+      ]
+    },
+    {
+      "name": "zip-invalid-utf8",
+      "steps": [
+        {
+          "install": "archives/zip-invalid-utf8.bin",
+          "sha256": "b937e39ef07ccdc001707d78fa554dc35ffed860ffffb0df7f6ff49042390590",
           "status": "invalid"
         }
       ]

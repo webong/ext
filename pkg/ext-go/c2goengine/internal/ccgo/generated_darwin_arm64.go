@@ -1,5 +1,5 @@
 // Code generated for darwin/arm64 by 'ccgo -o engine.go --package-name ccgo -I csrc/shim -I csrc/src -I csrc/vendor -I csrc/include -DEXT_HOST_STATIC -DEXT_HOST_BUILD -Dyyjson_align(x)= -Dyyjson_inline= -Dyyjson_noinline= -U__SIZEOF_INT128__ -include csrc/shim/compat_core.h -include csrc/shim/compat.h csrc/src/common.c csrc/src/wire.c csrc/src/progress.c csrc/src/reverse.c csrc/src/endpoint.c csrc/src/services.c csrc/src/guest.c csrc/src/sha256.c csrc/src/packages.c csrc/vendor/yyjson.c csrc/src/host.c csrc/src/fs_posix.c csrc/src/random_posix.c csrc/src/integrity.c csrc/src/instances.c csrc/src/streams.c csrc/shim/channel_go.c csrc/shim/missing.c', DO NOT EDIT.
-// c2goengine inputs sha256:1681ad1eee18a8aa63fbd30b6105c78550a0c33e45b8b5cb994f2812f99766e4
+// c2goengine inputs sha256:b1eecd88d8fb5f24588eb64d5213f9ff3ed473ce1fb1049c985096d7027e4ed3
 
 //go:build darwin && arm64
 
@@ -56443,6 +56443,73 @@ func ext_path_fold_equal(tls *libc.TLS, a uintptr, b uintptr) (r int32) {
 		}
 	}
 	return libc.BoolInt32(!(*(*uint8_t)(unsafe.Add(nil, *(*uintptr)(unsafe.Add(nil, bp)))) != 0) && !(*(*uint8_t)(unsafe.Add(nil, *(*uintptr)(unsafe.Add(nil, bp+8)))) != 0))
+}
+
+func ext_path_fold_key(tls *libc.TLS, path uintptr) (r uintptr) {
+	bp := tls.Alloc(16)
+	defer tls.Free(16)
+	var c uint32_t
+	var key, out, v1 uintptr
+	var n size_t
+	var _ /* p at bp+0 */ uintptr
+	_, _, _, _, _ = c, key, n, out, v1
+	if !(path != 0) || !(valid_utf8(tls, path) != 0) {
+		return libc.UintptrFromInt32(0)
+	}
+	n = libc.Xstrlen(tls, path)
+	if n > (libc.Uint64FromUint64(18446744073709551615)-libc.Uint64FromInt32(1))/libc.Uint64FromInt32(4) {
+		return libc.UintptrFromInt32(0)
+	}
+	key = libc.Xmalloc(tls, n*uint64(4)+uint64(1))
+	out = key
+	if !(key != 0) {
+		return libc.UintptrFromInt32(0)
+	}
+	*(*uintptr)(unsafe.Add(nil, bp)) = path
+	for *(*uint8_t)(unsafe.Add(nil, *(*uintptr)(unsafe.Add(nil, bp)))) != 0 {
+		c = lower_rune(tls, bp)
+		if c < uint32(0x80) {
+			v1 = out
+			out = out + 1
+			*(*uint8_t)(unsafe.Add(nil, v1)) = uint8(c)
+		} else {
+			if c < uint32(0x800) {
+				v1 = out
+				out = out + 1
+				*(*uint8_t)(unsafe.Add(nil, v1)) = uint8(libc.Uint32FromInt32(0xc0) | c>>libc.Int32FromInt32(6))
+				v1 = out
+				out = out + 1
+				*(*uint8_t)(unsafe.Add(nil, v1)) = uint8(libc.Uint32FromInt32(0x80) | c&libc.Uint32FromInt32(63))
+			} else {
+				if c < uint32(0x10000) {
+					v1 = out
+					out = out + 1
+					*(*uint8_t)(unsafe.Add(nil, v1)) = uint8(libc.Uint32FromInt32(0xe0) | c>>libc.Int32FromInt32(12))
+					v1 = out
+					out = out + 1
+					*(*uint8_t)(unsafe.Add(nil, v1)) = uint8(libc.Uint32FromInt32(0x80) | c>>libc.Int32FromInt32(6)&libc.Uint32FromInt32(63))
+					v1 = out
+					out = out + 1
+					*(*uint8_t)(unsafe.Add(nil, v1)) = uint8(libc.Uint32FromInt32(0x80) | c&libc.Uint32FromInt32(63))
+				} else {
+					v1 = out
+					out = out + 1
+					*(*uint8_t)(unsafe.Add(nil, v1)) = uint8(libc.Uint32FromInt32(0xf0) | c>>libc.Int32FromInt32(18))
+					v1 = out
+					out = out + 1
+					*(*uint8_t)(unsafe.Add(nil, v1)) = uint8(libc.Uint32FromInt32(0x80) | c>>libc.Int32FromInt32(12)&libc.Uint32FromInt32(63))
+					v1 = out
+					out = out + 1
+					*(*uint8_t)(unsafe.Add(nil, v1)) = uint8(libc.Uint32FromInt32(0x80) | c>>libc.Int32FromInt32(6)&libc.Uint32FromInt32(63))
+					v1 = out
+					out = out + 1
+					*(*uint8_t)(unsafe.Add(nil, v1)) = uint8(libc.Uint32FromInt32(0x80) | c&libc.Uint32FromInt32(63))
+				}
+			}
+		}
+	}
+	*(*uint8_t)(unsafe.Add(nil, out)) = uint8(0)
+	return key
 }
 
 func ext_path_fold_tree_contains(tls *libc.TLS, tree uintptr, path uintptr) (r int32) {

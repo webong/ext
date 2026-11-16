@@ -26,12 +26,14 @@ import (
 type PackageStore struct {
 	mu  sync.RWMutex
 	ptr *C.ext_store
+	// The engine takes the bound on an archive file with each call.
+	maxArchiveBytes int64
 }
 
 // OpenPackageStore returns a store rooted at root.
 func OpenPackageStore(root string, limits PackageStoreLimits) (*PackageStore, error) {
 	if root == "" || strings.IndexByte(root, 0) >= 0 || limits.MaxArtifactBytes < 0 || limits.MaxTreeFiles < 0 ||
-		limits.MaxTreeBytes < 0 || int64(limits.MaxTreeFiles) > math.MaxUint32 {
+		limits.MaxTreeBytes < 0 || limits.MaxArchiveBytes < 0 || int64(limits.MaxTreeFiles) > math.MaxUint32 {
 		return nil, plugin.ErrInvalid
 	}
 	croot := C.CString(root)
@@ -45,7 +47,7 @@ func OpenPackageStore(root string, limits PackageStoreLimits) (*PackageStore, er
 	if err := status(C.ext_store_open(croot, &cl, &ptr)); err != nil {
 		return nil, err
 	}
-	return &PackageStore{ptr: ptr}, nil
+	return &PackageStore{ptr: ptr, maxArchiveBytes: limits.MaxArchiveBytes}, nil
 }
 
 // Close releases the store. A closed store refuses every call with plugin.ErrClosed.
@@ -121,6 +123,57 @@ func (s *PackageStore) Upgrade(source string, preserveExecutable bool) ([]byte, 
 // Replace installs or replaces the package of the source's id, whatever its contracts.
 func (s *PackageStore) Replace(source string, preserveExecutable bool) ([]byte, error) {
 	return s.put(storeReplace, source, preserveExecutable)
+}
+
+// InstallArchive installs the package in the pinned archive file, or upgrades the installed package of
+// the same id to it, and returns the installed plugin.json. archive is a local zip, gzip-compressed
+// tar or plain tar; sha256 is the digest it must have; id, when not empty, is the package it must
+// hold. A receipt that ties this digest to the installed revision makes the call return without
+// opening the archive. Downloading is the caller's: a URL is plugin.ErrInvalid.
+func (s *PackageStore) InstallArchive(archive, sha256, id string, preserveExecutable bool) ([]byte, error) {
+	if archive == "" || strings.Contains(archive, "://") || strings.IndexByte(archive, 0) >= 0 ||
+		strings.IndexByte(sha256, 0) >= 0 || strings.IndexByte(id, 0) >= 0 {
+		return nil, plugin.ErrInvalid
+	}
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if s.ptr == nil {
+		return nil, plugin.ErrClosed
+	}
+	carchive, csum, cid := C.CString(archive), C.CString(sha256), C.CString(id)
+	defer C.free(unsafe.Pointer(carchive))
+	defer C.free(unsafe.Pointer(csum))
+	defer C.free(unsafe.Pointer(cid))
+	var flags C.uint32_t
+	if preserveExecutable {
+		flags = C.EXT_STORE_PRESERVE_EXECUTABLE
+	}
+	var manifest C.ext_buffer
+	if err := status(C.ext_store_install_archive(s.ptr, carchive, csum, cid, flags, C.uint64_t(s.maxArchiveBytes), &manifest)); err != nil {
+		return nil, err
+	}
+	return takeBuffer(&manifest), nil
+}
+
+// Receipt returns the install receipt of a package as JSON: its id, the revision the archive install
+// produced and artifact_sha256, the digest of the archive. It is plugin.ErrNotFound when no archive
+// install recorded one.
+func (s *PackageStore) Receipt(id string) ([]byte, error) {
+	if strings.IndexByte(id, 0) >= 0 {
+		return nil, plugin.ErrInvalid
+	}
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if s.ptr == nil {
+		return nil, plugin.ErrClosed
+	}
+	cid := C.CString(id)
+	defer C.free(unsafe.Pointer(cid))
+	var receipt C.ext_buffer
+	if err := status(C.ext_store_receipt(s.ptr, cid, &receipt)); err != nil {
+		return nil, err
+	}
+	return takeBuffer(&receipt), nil
 }
 
 // Remove deletes one installed package. It returns plugin.ErrNotFound for an id that is not installed.

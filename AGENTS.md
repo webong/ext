@@ -102,7 +102,11 @@ walking up (`host/internal/fixtures`) and skip when run without the repository.
 `lib/` is a container for native libraries that several language bindings
 share. Nothing lives at that level. `lib/plugin` is the portable C plugin
 engine, built with CMake: it is not a Go module, has no `go.mod` and is not
-listed in `go.work`. The language bindings (`pkg/ext-go`, `pkg/ext-rust`, `pkg/ext-zig`, `pkg/ext-ts`,
+listed in `go.work`. Its only third-party code is in `lib/plugin/vendor`,
+pinned by version and SHA-256 with its licence beside it: the yyjson parser and
+the inflate decoder of miniz (`vendor/miniz`), which the package store's
+install from a zip or tar.gz archive uses. Vendored sources stay unmodified and
+their symbols are renamed at build time; adding one is a decision for the user. The language bindings (`pkg/ext-go`, `pkg/ext-rust`, `pkg/ext-zig`, `pkg/ext-ts`,
 `pkg/ext-python`) and the mobile SDKs (`pkg/ext-ios`, `pkg/ext-android`) build on it.
 The scripting guest SDKs (`pkg/ext-python`, `pkg/ext-ruby`, `pkg/ext-php`, `pkg/ext-lua`)
 are written in their own language only: they speak `ext.plugin/v1` as JSON lines over stdio,

@@ -15,7 +15,7 @@ import (
 // needs no Close. Installed still re-verifies content on use, in this package.
 
 func packageLimits(l Limits) cgoengine.PackageStoreLimits {
-	return cgoengine.PackageStoreLimits{MaxArtifactBytes: l.MaxArtifactBytes, MaxTreeFiles: l.MaxTreeFiles, MaxTreeBytes: l.MaxTreeBytes}
+	return cgoengine.PackageStoreLimits{MaxArtifactBytes: l.MaxArtifactBytes, MaxTreeFiles: l.MaxTreeFiles, MaxTreeBytes: l.MaxTreeBytes, MaxArchiveBytes: l.MaxArchiveBytes}
 }
 
 // open returns the engine's package store on the root. The caller holds s.mu and closes it.

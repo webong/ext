@@ -34,6 +34,9 @@ type member struct {
 	pax      map[string]string
 	// stored writes a zip entry without compression.
 	stored bool
+	// gnu writes a tar entry in the GNU format; dos writes a zip entry as a
+	// DOS writer would, with no Unix mode.
+	gnu, dos bool
 }
 
 // members lists a package directory as archive entries under prefix.
@@ -83,6 +86,9 @@ func tarred(t testing.TB, entries []member) []byte {
 		case strings.HasSuffix(e.name, "/"):
 			header.Typeflag, header.Mode = tar.TypeDir, 0o755
 		}
+		if e.gnu {
+			header.Format = tar.FormatGNU
+		}
 		if e.typeflag == tar.TypeXGlobalHeader {
 			header = &tar.Header{Typeflag: e.typeflag, PAXRecords: e.pax}
 		} else if e.typeflag != 0 {
@@ -120,7 +126,7 @@ func zipped(t testing.TB, entries []member) []byte {
 		if e.link != "" {
 			mode, body = fs.ModeSymlink|0o777, []byte(e.link)
 		}
-		if !strings.HasSuffix(e.name, "/") {
+		if !strings.HasSuffix(e.name, "/") && !e.dos {
 			header.SetMode(mode)
 		}
 		if e.stored {

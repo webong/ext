@@ -20,7 +20,7 @@ namespace="$work/gen/parser_namespace.h"
 # The guest core, then the package store and what it stands on. scripts/ext-ios-wamr-xcframework.sh
 # leaves out of CExtWamr every object named here, so keep the two lists together.
 sources=(src/common.c src/wire.c src/progress.c src/reverse.c src/endpoint.c src/services.c src/guest.c src/sha256.c src/packages.c vendor/yyjson.c
-  src/fs_posix.c src/fs_write_posix.c src/random_posix.c src/integrity.c src/store.c)
+  src/fs_posix.c src/fs_write_posix.c src/random_posix.c src/integrity.c src/archive.c src/store.c)
 
 # slice name | sdk | clang target
 slices=(

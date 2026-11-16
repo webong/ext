@@ -1,6 +1,7 @@
 package cgoengine
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	plugin "github.com/webong/ext/pkg/ext-go/engine"
@@ -16,10 +17,14 @@ var ErrPackageExists = errors.New("plugin package already installed")
 
 // PackageStoreLimits are optional size bounds for a PackageStore: one artifact file (a file inside
 // a tree counts too), the files in one tree and the bytes of one tree. Zero takes the default.
+//
+// MaxArchiveBytes bounds the archive file InstallArchive reads, 512 MiB when zero; MaxTreeFiles and
+// MaxTreeBytes also bound the entries and the extracted total of an archive.
 type PackageStoreLimits struct {
 	MaxArtifactBytes int64
 	MaxTreeFiles     int
 	MaxTreeBytes     int64
+	MaxArchiveBytes  int64
 }
 
 // goPackageStore is the package store of the pure-Go engine behind the PackageStore methods. It is
@@ -30,7 +35,7 @@ type goPackageStore struct {
 }
 
 func openGoPackageStore(root string, limits PackageStoreLimits) (*goPackageStore, error) {
-	s, err := store.New(root, store.Limits{MaxArtifactBytes: limits.MaxArtifactBytes, MaxTreeFiles: limits.MaxTreeFiles, MaxTreeBytes: limits.MaxTreeBytes})
+	s, err := store.New(root, store.Limits{MaxArtifactBytes: limits.MaxArtifactBytes, MaxTreeFiles: limits.MaxTreeFiles, MaxTreeBytes: limits.MaxTreeBytes, MaxArchiveBytes: limits.MaxArchiveBytes})
 	if err != nil {
 		return nil, err
 	}
@@ -77,6 +82,29 @@ func (g *goPackageStore) Upgrade(source string, preserveExecutable bool) ([]byte
 // Replace installs or replaces the package of the source's id, whatever its contracts.
 func (g *goPackageStore) Replace(source string, preserveExecutable bool) ([]byte, error) {
 	return g.manifest(g.s.ReplaceWithOptions(source, copyOptions(preserveExecutable)))
+}
+
+// InstallArchive installs the package in the pinned archive file, or upgrades the installed package of
+// the same id to it, and returns the installed plugin.json. archive is a local zip, gzip-compressed
+// tar or plain tar; sha256 is the digest it must have; id, when not empty, is the package it must
+// hold. A receipt that ties this digest to the installed revision makes the call return without
+// opening the archive. Downloading is the caller's: a URL is plugin.ErrInvalid.
+func (g *goPackageStore) InstallArchive(archive, sha256, id string, preserveExecutable bool) ([]byte, error) {
+	if archive == "" || strings.Contains(archive, "://") {
+		return nil, plugin.ErrInvalid
+	}
+	return g.manifest(g.s.InstallArchive(context.Background(), store.Archive{Source: archive, SHA256: sha256, ID: id},
+		store.ArchiveOptions{Copy: copyOptions(preserveExecutable)}))
+}
+
+// Receipt returns the install receipt of a package as JSON: its id, the revision the archive install
+// produced and artifact_sha256, the digest of the archive. It is plugin.ErrNotFound when no archive
+// install recorded one.
+func (g *goPackageStore) Receipt(id string) ([]byte, error) {
+	if _, err := g.s.Receipt(id); err != nil {
+		return nil, packageStoreError(err)
+	}
+	return os.ReadFile(filepath.Join(g.root, ".receipts", strings.ReplaceAll(id, "/", "%2f")+".json"))
 }
 
 // Remove deletes one installed package.

@@ -1,4 +1,5 @@
 #define _POSIX_C_SOURCE 200809L
+#include "archive.h"
 #include "fs.h"
 #include "services.h"
 #include "sha256.h"
@@ -24,6 +25,10 @@
 #define STORE_TREE_BYTES (16ull << 30)
 #define STORE_STAGING ".install-"
 #define STORE_BACKUP ".backup-"
+#define STORE_ARCHIVE ".archive-"
+#define STORE_ARCHIVE_BYTES (512ull << 20)
+#define STORE_RECEIPTS ".receipts"
+#define STORE_RECEIPT_MAX (1u << 16)
 
 static int valid_id(const char *id) {
   if (!id || !*id)
@@ -188,6 +193,8 @@ struct ext_store {
   char *root;
   ext_store_limits limits;
   pthread_mutex_t mu;
+  /* Serializes ext_store_install_archive, which spans several locked steps. */
+  pthread_mutex_t archives;
 };
 
 ext_status ext_store_open(const char *root, const ext_store_limits *limits,
@@ -199,6 +206,12 @@ ext_status ext_store_open(const char *root, const ext_store_limits *limits,
     return EXT_NOMEM;
   store->root = strdup(root);
   if (!store->root || pthread_mutex_init(&store->mu, NULL)) {
+    free(store->root);
+    free(store);
+    return EXT_NOMEM;
+  }
+  if (pthread_mutex_init(&store->archives, NULL)) {
+    pthread_mutex_destroy(&store->mu);
     free(store->root);
     free(store);
     return EXT_NOMEM;
@@ -217,6 +230,7 @@ ext_status ext_store_open(const char *root, const ext_store_limits *limits,
 void ext_store_close(ext_store *store) {
   if (!store)
     return;
+  pthread_mutex_destroy(&store->archives);
   pthread_mutex_destroy(&store->mu);
   free(store->root);
   free(store);
@@ -544,6 +558,21 @@ ext_status ext_store_replace(ext_store *store, const char *source,
                              uint32_t flags, ext_buffer *manifest) {
   return put(store, PUT_REPLACE, source, flags, manifest);
 }
+/* The receipt of a package, below the root: ".receipts/<directory name>.json". */
+static char *receipt_path(const char *id) {
+  char *name = dir_name(id);
+  if (!name)
+    return NULL;
+  size_t n = strlen(name);
+  char *path = malloc(sizeof(STORE_RECEIPTS) + 1 + n + 5);
+  if (path) {
+    memcpy(path, STORE_RECEIPTS "/", sizeof(STORE_RECEIPTS));
+    memcpy(path + sizeof(STORE_RECEIPTS), name, n);
+    memcpy(path + sizeof(STORE_RECEIPTS) + n, ".json", 6);
+  }
+  free(name);
+  return path;
+}
 /* The directory of an installed id, which must be a directory. */
 static ext_status installed_dir(ext_store *store, const char *id, ext_fs **fs,
                                 char **name) {
@@ -591,6 +620,13 @@ ext_status ext_store_remove(ext_store *store, const char *id) {
   }
   if (!s)
     s = ext_fs_remove_all(fs, name);
+  if (!s) {
+    /* A removed package has no receipt. */
+    char *receipt = receipt_path(id);
+    if (receipt)
+      ext_fs_remove_all(fs, receipt);
+    free(receipt);
+  }
   yyjson_doc_free(doc);
   ext_buffer_free(&bytes);
   free(path);
@@ -630,6 +666,261 @@ ext_status ext_store_load(ext_store *store, const char *id,
   pthread_mutex_lock(&store->mu);
   ext_status s = read_package(store, id, 1, manifest);
   pthread_mutex_unlock(&store->mu);
+  return s;
+}
+
+/* ---- install from a pinned archive, and the receipts it leaves ---- */
+
+/* Reads the receipt file at path below fs. A receipt is a JSON object with the
+ * package "id", the "revision" the install produced and "artifact_sha256", the
+ * digest of the archive; its id must be the one its file is named for. A file
+ * that is not there is EXT_NOT_FOUND. On success the caller owns the bytes and
+ * the document. */
+static ext_status read_receipt(ext_fs *fs, const char *path, ext_buffer *bytes,
+                               yyjson_doc **doc) {
+  *bytes = (ext_buffer){0};
+  *doc = NULL;
+  ext_status s = ext_fs_read_file(fs, path, STORE_RECEIPT_MAX, bytes);
+  if (s)
+    return s == EXT_MISSING ? EXT_NOT_FOUND : s;
+  yyjson_doc *d = ext_parse(bytes->data, bytes->len);
+  yyjson_val *r = d ? yyjson_doc_get_root(d) : NULL;
+  const char *id = yyjson_get_str(yyjson_obj_get(r, "id"));
+  char *expected = id && valid_id(id) ? receipt_path(id) : NULL;
+  int ok = expected && !strcmp(expected, path) &&
+           yyjson_is_str(yyjson_obj_get(r, "revision")) &&
+           yyjson_is_str(yyjson_obj_get(r, "artifact_sha256"));
+  free(expected);
+  if (!ok) {
+    yyjson_doc_free(d);
+    ext_buffer_free(bytes);
+    *bytes = (ext_buffer){0};
+    return EXT_INVALID;
+  }
+  *doc = d;
+  return EXT_OK;
+}
+static const char *revision_of(yyjson_doc *doc) {
+  return manifest_string(yyjson_doc_get_root(doc), "descriptor", "identity",
+                         "revision");
+}
+/* Finds the installed package a receipt ties to the archive digest: the same
+ * digest, the revision that is installed now, and a package that still
+ * verifies. *found says whether there is one; its manifest is the caller's. */
+static ext_status receipted(ext_store *store, const char *digest, const char *id,
+                            int *found, ext_buffer *manifest) {
+  *found = 0;
+  ext_fs *fs = NULL;
+  int missing = 0;
+  ext_status s = open_root(store, 0, &fs, &missing);
+  if (s || missing)
+    return s;
+  ext_fs_kind kind = EXT_FS_NONE;
+  ext_fs_entry *entries = NULL;
+  size_t count = 0;
+  if (ext_fs_kind_of(fs, STORE_RECEIPTS, &kind) || kind != EXT_FS_DIR ||
+      ext_fs_list(fs, STORE_RECEIPTS, &entries, &count)) {
+    ext_fs_close(fs);
+    return EXT_OK;
+  }
+  for (size_t i = 0; i < count && !*found; i++) {
+    size_t n = strlen(entries[i].name);
+    if (entries[i].kind != EXT_FS_FILE || n < 5 ||
+        strcmp(entries[i].name + n - 5, ".json"))
+      continue;
+    char *path = join(STORE_RECEIPTS, entries[i].name);
+    ext_buffer bytes = {0};
+    yyjson_doc *doc = NULL;
+    if (path && !read_receipt(fs, path, &bytes, &doc)) {
+      yyjson_val *r = yyjson_doc_get_root(doc);
+      const char *owner = yyjson_get_str(yyjson_obj_get(r, "id"));
+      const char *revision = yyjson_get_str(yyjson_obj_get(r, "revision"));
+      const char *recorded = yyjson_get_str(yyjson_obj_get(r, "artifact_sha256"));
+      if (!strcmp(recorded, digest) && (!id || !strcmp(owner, id))) {
+        ext_buffer current = {0};
+        if (!ext_store_load(store, owner, &current)) {
+          yyjson_doc *m = ext_parse(current.data, current.len);
+          const char *installed = m ? revision_of(m) : NULL;
+          if (installed && !strcmp(installed, revision)) {
+            *manifest = current;
+            current = (ext_buffer){0};
+            *found = 1;
+          }
+          yyjson_doc_free(m);
+        }
+        ext_buffer_free(&current);
+      }
+    }
+    yyjson_doc_free(doc);
+    ext_buffer_free(&bytes);
+    free(path);
+  }
+  ext_fs_list_free(entries, count);
+  ext_fs_close(fs);
+  return EXT_OK;
+}
+static ext_status write_receipt(ext_fs *fs, const char *id, const char *revision,
+                                const char *digest) {
+  yyjson_mut_doc *doc = yyjson_mut_doc_new(NULL);
+  yyjson_mut_val *r = doc ? yyjson_mut_obj(doc) : NULL;
+  char *path = receipt_path(id), *text = NULL;
+  size_t len = 0;
+  ext_status s = EXT_NOMEM;
+  if (r && path && yyjson_mut_obj_add_str(doc, r, "id", id) &&
+      yyjson_mut_obj_add_str(doc, r, "revision", revision) &&
+      yyjson_mut_obj_add_str(doc, r, "artifact_sha256", digest)) {
+    yyjson_mut_doc_set_root(doc, r);
+    text = yyjson_mut_write(doc, 0, &len);
+  }
+  if (text) {
+    /* One line, as the Go store writes it. The previous receipt goes first: a
+     * file is never written over. */
+    char *line = realloc(text, len + 2);
+    if (line) {
+      text = line;
+      text[len++] = '\n';
+      s = ext_fs_remove_all(fs, path);
+      if (!s)
+        s = ext_fs_write_file(fs, path, (const uint8_t *)text, len, 0);
+    }
+  }
+  free(text);
+  free(path);
+  yyjson_mut_doc_free(doc);
+  return s;
+}
+ext_status ext_store_install_archive(ext_store *store, const char *archive,
+                                     const char *sha256, const char *id,
+                                     uint32_t flags, uint64_t max_archive_bytes,
+                                     ext_buffer *manifest) {
+  char digest[65];
+  if (!manifest)
+    return EXT_INVALID;
+  *manifest = (ext_buffer){0};
+  if (!store || !archive || !*archive ||
+      (flags & ~EXT_STORE_PRESERVE_EXECUTABLE) ||
+      !ext_archive_digest_text(sha256, digest))
+    return EXT_INVALID;
+  if (id && !*id)
+    id = NULL;
+  if (id && !valid_id(id))
+    return EXT_INVALID;
+  pthread_mutex_lock(&store->archives);
+  int found = 0;
+  ext_status s = receipted(store, digest, id, &found, manifest);
+  if (s || found) {
+    pthread_mutex_unlock(&store->archives);
+    return s;
+  }
+  ext_fs *fs = NULL;
+  int missing = 0;
+  char *work = NULL, *dest = NULL, *root = NULL, *source = NULL, *path = NULL;
+  ext_buffer fresh = {0}, current = {0}, installed = {0};
+  yyjson_doc *fresh_doc = NULL, *current_doc = NULL, *installed_doc = NULL;
+  const char *found_id = NULL, *revision = NULL;
+  s = open_root(store, 1, &fs, &missing);
+  if (!s)
+    s = ext_fs_mkdtemp(fs, "", STORE_ARCHIVE, &work);
+  if (!s) {
+    dest = under(work, "package");
+    s = dest ? ext_fs_mkdirs(fs, dest) : EXT_NOMEM;
+  }
+  if (!s) {
+    ext_archive_limits limits = {
+        max_archive_bytes ? max_archive_bytes : STORE_ARCHIVE_BYTES,
+        store->limits.max_artifact_bytes, store->limits.max_tree_bytes,
+        store->limits.max_tree_files};
+    s = ext_archive_extract(archive, digest, fs, dest, &limits, &root);
+  }
+  if (!s) {
+    source = under(store->root, root);
+    path = under(root, STORE_MANIFEST);
+    s = source && path ? ext_fs_read_file(fs, path, STORE_MANIFEST_MAX, &fresh)
+                       : EXT_NOMEM;
+  }
+  if (!s) {
+    /* The identity the archive claims. The install that follows checks the
+     * rest of the manifest and every artifact. */
+    fresh_doc = ext_parse(fresh.data, fresh.len);
+    yyjson_val *m = fresh_doc ? yyjson_doc_get_root(fresh_doc) : NULL;
+    found_id = manifest_string(m, "descriptor", "identity", "id");
+    revision = manifest_string(m, "descriptor", "identity", "revision");
+    if (!found_id || !valid_id(found_id) || !revision || !*revision)
+      s = EXT_INVALID;
+    else if (id && strcmp(id, found_id))
+      s = EXT_MISMATCH;
+  }
+  if (!s) {
+    s = ext_store_load(store, found_id, &current);
+    if (s == EXT_NOT_FOUND)
+      s = ext_store_install(store, source, flags, &installed);
+    else if (!s) {
+      current_doc = ext_parse(current.data, current.len);
+      const char *have = current_doc ? revision_of(current_doc) : NULL;
+      if (have && !strcmp(have, revision)) {
+        /* Already at this revision: it must be this content. */
+        uint8_t a[32], b[32];
+        s = ext_store_digest(store->root, found_id, a);
+        if (!s)
+          s = ext_directory_digest(source, b);
+        if (!s && memcmp(a, b, 32))
+          s = EXT_MISMATCH;
+        if (!s) {
+          installed = current;
+          current = (ext_buffer){0};
+        }
+      } else
+        s = ext_store_upgrade(store, source, flags, &installed);
+    }
+  }
+  if (!s) {
+    installed_doc = ext_parse(installed.data, installed.len);
+    const char *now = installed_doc ? revision_of(installed_doc) : NULL;
+    s = now ? write_receipt(fs, found_id, now, digest) : EXT_INVALID;
+  }
+  if (work)
+    ext_fs_remove_all(fs, work);
+  ext_fs_close(fs);
+  yyjson_doc_free(fresh_doc);
+  yyjson_doc_free(current_doc);
+  yyjson_doc_free(installed_doc);
+  ext_buffer_free(&fresh);
+  ext_buffer_free(&current);
+  free(work);
+  free(dest);
+  free(root);
+  free(source);
+  free(path);
+  pthread_mutex_unlock(&store->archives);
+  if (s) {
+    ext_buffer_free(&installed);
+    return s;
+  }
+  *manifest = installed;
+  return EXT_OK;
+}
+ext_status ext_store_receipt(ext_store *store, const char *id,
+                             ext_buffer *receipt) {
+  if (!store || !valid_id(id) || !receipt)
+    return EXT_INVALID;
+  *receipt = (ext_buffer){0};
+  ext_fs *fs = NULL;
+  int missing = 0;
+  ext_status s = open_root(store, 0, &fs, &missing);
+  if (!s && missing)
+    s = EXT_NOT_FOUND;
+  char *path = s ? NULL : receipt_path(id);
+  if (!s && !path)
+    s = EXT_NOMEM;
+  ext_buffer bytes = {0};
+  yyjson_doc *doc = NULL;
+  if (!s)
+    s = read_receipt(fs, path, &bytes, &doc);
+  yyjson_doc_free(doc);
+  free(path);
+  ext_fs_close(fs);
+  if (!s)
+    *receipt = bytes;
   return s;
 }
 

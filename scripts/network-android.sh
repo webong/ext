@@ -9,3 +9,4 @@ javac -Xlint:all -Werror -d "$build" \
   res/system/service/network/android/src/test/java/io/github/webong/ext/network/*.java
 java -ea -cp "$build" io.github.webong.ext.network.NetworkTests
 java -ea -cp "$build" io.github.webong.ext.network.NetworkFixtureTests
+java -ea -cp "$build" io.github.webong.ext.network.NetworkCancellationTests

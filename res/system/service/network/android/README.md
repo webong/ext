@@ -5,3 +5,11 @@ Android source set and combines `java.net.NetworkInterface` with
 `ConnectivityManager` link properties. Reading routes and DNS servers requires
 Android's `ACCESS_NETWORK_STATE` permission; interface data remains available
 when the platform permits it.
+
+Observation is bounded in time and cancellable, as Go's `network.Discover`: `NetworkOptions`
+carries a timeout (five seconds by default, Go's `Options.Timeout`), and
+`observe(context, cancellation)` takes a `NetworkCancellation`, which another thread can
+`cancel()` and which can carry its own deadline (`withTimeout`). The observer checks before each
+interface and network and at the end, and throws `NetworkCancellationException` (a
+`CancellationException`) with the code `timeout` or `canceled`, which is what Go's context errors
+map to.

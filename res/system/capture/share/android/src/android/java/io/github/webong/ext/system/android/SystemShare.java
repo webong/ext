@@ -18,6 +18,7 @@ import java.util.List;
 import java.util.Set;
 
 import io.github.webong.ext.system.share.ShareAttachment;
+import io.github.webong.ext.system.share.ShareCancellation;
 import io.github.webong.ext.system.share.ShareException;
 import io.github.webong.ext.system.share.ShareLimits;
 import io.github.webong.ext.system.share.ShareLoadedItem;
@@ -42,8 +43,24 @@ public final class SystemShare {
         this.context = context.getApplicationContext() == null ? context : context.getApplicationContext();
     }
 
+    /** Captures with no cancellation and no deadline. */
     public SharePayload capture(Intent intent, File directory, ShareLimits limits)
             throws ShareException {
+        return capture(intent, directory, limits, new ShareCancellation());
+    }
+
+    /**
+     * Captures the share, copying its attachments until {@code cancellation} stops; give it a deadline
+     * with {@link ShareCancellation#withTimeout}. It checks before each attachment and each copied
+     * chunk, and a stopped copy deletes its partial file. A provider whose read blocks is only seen to
+     * stop when the read returns.
+     *
+     * @throws ShareException timeout or canceled once it stops, or a share code
+     */
+    public SharePayload capture(Intent intent, File directory, ShareLimits limits, ShareCancellation cancellation)
+            throws ShareException {
+        if (cancellation == null) throw new ShareException("invalid", "share cancellation is required");
+        cancellation.check();
         if (intent == null) throw new ShareException("invalid", "share intent is required");
         if (limits == null) throw new ShareException("invalid", "share limits are required");
         String action = intent.getAction();
@@ -63,6 +80,7 @@ public final class SystemShare {
         }
         long copied = 0;
         for (int index = 0; index < streams.size(); index++) {
+            cancellation.check();
             Uri uri = streams.get(index);
             String name = portableName(queryDisplayName(uri), index);
             String mimeType = contentType(uri, intent.getType());
@@ -70,11 +88,12 @@ public final class SystemShare {
             if (remaining <= 0) {
                 throw new ShareException("too_large", "attachment bytes exceed the bound of " + limits.maxBytes);
             }
-            File target = copy(uri, destination, name, index, remaining);
+            File target = copy(uri, destination, name, index, remaining, cancellation);
             long size = target.length();
             copied += size;
             attachments.add(new ShareAttachment(name, mimeType, size, null, target.getAbsolutePath()));
         }
+        cancellation.check();
         ShareLoadedItem item = new ShareLoadedItem(subject, text, List.of(), attachments);
         return ShareNormalizer.normalize(List.of(item), limits);
     }
@@ -164,8 +183,8 @@ public final class SystemShare {
         return sanitized;
     }
 
-    private File copy(Uri uri, File directory, String name, int index, long maximum)
-            throws ShareException {
+    private File copy(Uri uri, File directory, String name, int index, long maximum,
+            ShareCancellation cancellation) throws ShareException {
         File target = new File(directory, index + "-" + name);
         try {
             String directoryPath = directory.getCanonicalPath() + File.separator;
@@ -181,6 +200,7 @@ public final class SystemShare {
                     byte[] buffer = new byte[COPY_BUFFER];
                     long written = 0;
                     for (int read; (read = input.read(buffer)) != -1; ) {
+                        cancellation.check();
                         written += read;
                         if (written > maximum) {
                             throw new ShareException("too_large",

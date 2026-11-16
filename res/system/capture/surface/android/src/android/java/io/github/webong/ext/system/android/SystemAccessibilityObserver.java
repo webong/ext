@@ -11,6 +11,8 @@ import io.github.webong.ext.system.AccessibilityElement;
 import io.github.webong.ext.system.AccessibilityOptions;
 import io.github.webong.ext.system.AccessibilitySnapshot;
 import io.github.webong.ext.system.SurfaceBounds;
+import io.github.webong.ext.system.SurfaceCancellation;
+import io.github.webong.ext.system.SurfaceCancellationException;
 import io.github.webong.ext.system.SurfaceCollectionStatus;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -31,15 +33,28 @@ public final class SystemAccessibilityObserver {
     private final AccessibilityOptions options;
 
     public SystemAccessibilityObserver(AccessibilityOptions options) {
+        if (options == null) throw new IllegalArgumentException("options are required");
         this.options = options;
     }
 
     public SystemAccessibilityObserver() { this(new AccessibilityOptions()); }
 
-    public AccessibilitySnapshot observe(Activity activity) {
+    /** Observes with no cancellation beyond the options' timeout. */
+    public AccessibilitySnapshot observe(Activity activity) { return observe(activity, new SurfaceCancellation()); }
+
+    /**
+     * Walks the Activity's view tree within the options' timeout. Cancel it from another thread: the
+     * main thread checks before each view and once at the end.
+     *
+     * @throws SurfaceCancellationException timeout or canceled
+     */
+    public AccessibilitySnapshot observe(Activity activity, SurfaceCancellation cancellation) {
+        if (cancellation == null) throw new IllegalArgumentException("cancellation is required");
         if (Looper.myLooper() != Looper.getMainLooper()) {
             throw new IllegalStateException("system accessibility observation must run on the main thread");
         }
+        SurfaceCancellation deadline = cancellation.withTimeout(options.timeoutMillis());
+        deadline.check();
         String now = timestamp();
         List<AccessibilityElement> result = new ArrayList<>();
         if (activity == null) {
@@ -57,6 +72,7 @@ public final class SystemAccessibilityObserver {
         boolean truncated = false;
         int pid = Process.myPid();
         while (!queue.isEmpty()) {
+            deadline.check();
             Node node = queue.removeFirst();
             if (result.size() >= options.maxElements()) { truncated = true; continue; }
             String id = opaque(pid, PROCESS_START_ID, node.path);
@@ -84,6 +100,7 @@ public final class SystemAccessibilityObserver {
                 queue.add(new Node(group.getChildAt(index), id, node.path + "/" + index, node.depth + 1));
             }
         }
+        deadline.check();
         result.sort((left, right) -> left.id().compareTo(right.id()));
         return new AccessibilitySnapshot("android", now,
                 new SurfaceCollectionStatus(truncated ? "partial" : "complete",

@@ -70,12 +70,52 @@ final class SurfaceTests: XCTestCase {
         XCTAssertFalse(permissions.accessibility.state.isEmpty)
         XCTAssertFalse(permissions.screenRecording.state.isEmpty)
 
-        let snapshot = SystemAccessibilityObserver(options: try AccessibilityOptions(maxElements: 64, maxDepth: 8)).observe()
+        let snapshot = try SystemAccessibilityObserver(options: try AccessibilityOptions(maxElements: 64, maxDepth: 8)).observe()
         XCTAssertFalse(snapshot.status.state.isEmpty)
         for element in snapshot.elements {
             XCTAssertTrue(element.id.hasPrefix("accessibility:"))
             XCTAssertNil(element.label)
             XCTAssertNil(element.value)
         }
+    }
+
+    func testTimeoutsAreBounded() throws {
+        for timeout in [0, -1, 3_601, .infinity, .nan] as [TimeInterval] {
+            XCTAssertThrowsError(try SurfaceOptions(timeout: timeout), "surface timeout \(timeout)") { error in
+                XCTAssertEqual((error as? SurfaceObservationError)?.code, "invalid")
+            }
+            XCTAssertThrowsError(try AccessibilityOptions(timeout: timeout), "accessibility timeout \(timeout)") { error in
+                XCTAssertEqual((error as? AccessibilityObservationError)?.code, "invalid")
+            }
+        }
+        XCTAssertEqual(try SurfaceOptions().timeout, 5)
+        XCTAssertEqual(try AccessibilityOptions().timeout, 5)
+    }
+
+    @MainActor
+    func testObservationsTimeOut() throws {
+        XCTAssertThrowsError(try SystemSurfaceObserver(options: SurfaceOptions(timeout: 1e-9)).observe()) { error in
+            XCTAssertEqual(error as? SurfaceObservationError, .timeout)
+            XCTAssertEqual((error as? SurfaceObservationError)?.code, "timeout")
+        }
+        XCTAssertThrowsError(try SystemAccessibilityObserver(options: AccessibilityOptions(timeout: 1e-9)).observe()) { error in
+            XCTAssertEqual(error as? AccessibilityObservationError, .timeout)
+            XCTAssertEqual((error as? AccessibilityObservationError)?.code, "timeout")
+        }
+    }
+
+    func testObservationsAreCanceledWithTheirTask() async throws {
+        let task = Task { @MainActor () -> [Error?] in
+            while !Task.isCancelled { await Task.yield() }
+            var errors: [Error?] = []
+            do { _ = try SystemSurfaceObserver().observe(); errors.append(nil) } catch { errors.append(error) }
+            do { _ = try SystemAccessibilityObserver().observe(); errors.append(nil) } catch { errors.append(error) }
+            return errors
+        }
+        task.cancel()
+        let errors = await task.value
+        XCTAssertEqual(errors.first as? SurfaceObservationError, .canceled)
+        XCTAssertEqual(errors.last as? AccessibilityObservationError, .canceled)
+        XCTAssertEqual((errors.last as? AccessibilityObservationError)?.code, "canceled")
     }
 }

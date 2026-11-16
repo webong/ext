@@ -152,16 +152,23 @@ public struct NetworkSnapshot: Codable, Equatable, Sendable {
     }
 }
 
+/// Bounds records and collection time, as Go's `network.Options`: 256 interfaces, 256 addresses
+/// per interface, 4096 routes and five seconds by default. The timeout is above zero and at most
+/// an hour.
 public struct NetworkOptions: Equatable, Sendable {
     public let maxInterfaces: Int
     public let maxAddresses: Int
     public let maxRoutes: Int
+    public let timeout: TimeInterval
 
-    public init(maxInterfaces: Int = 256, maxAddresses: Int = 256, maxRoutes: Int = 4096) throws {
-        guard (1...65_536).contains(maxInterfaces), (1...65_536).contains(maxAddresses), (1...65_536).contains(maxRoutes) else {
+    public init(maxInterfaces: Int = 256, maxAddresses: Int = 256, maxRoutes: Int = 4096,
+                timeout: TimeInterval = 5) throws {
+        guard (1...65_536).contains(maxInterfaces), (1...65_536).contains(maxAddresses), (1...65_536).contains(maxRoutes),
+              ObservationBound.valid(timeout) else {
             throw NetworkObservationError.invalidLimit
         }
         self.maxInterfaces = maxInterfaces; self.maxAddresses = maxAddresses; self.maxRoutes = maxRoutes
+        self.timeout = timeout
     }
 }
 
@@ -169,19 +176,44 @@ public enum NetworkObservationError: Error, Equatable {
     case invalidLimit
     case invalidAddress
     case invalidStatus
+    /// The observation ran past its timeout.
+    case timeout
+    /// The task running the observation was canceled.
+    case canceled
 
     /// The stable error code of `res/system/testdata/codes.json`.
-    public var code: String { "invalid" }
+    public var code: String {
+        switch self {
+        case .invalidLimit, .invalidAddress, .invalidStatus: return "invalid"
+        case .timeout: return "timeout"
+        case .canceled: return "canceled"
+        }
+    }
+
+    /// Throws the error of a bound that has stopped.
+    static func check(_ bound: ObservationBound) throws {
+        switch bound.stop {
+        case .timeout?: throw NetworkObservationError.timeout
+        case .canceled?: throw NetworkObservationError.canceled
+        case nil: return
+        }
+    }
 }
 
 /// Observes local interfaces and assigned addresses, plus native route and DNS
 /// state on macOS. It performs no lookup and creates no network connection.
+///
+/// An observation is bounded by `NetworkOptions.timeout` and stops when the task running it is
+/// canceled, throwing `NetworkObservationError.timeout` or `.canceled` (rule 4 of
+/// docs/adr-architecture.md), as Go's `network.Discover` returns its context's error.
 public final class SystemNetworkObserver: @unchecked Sendable {
     private let options: NetworkOptions
 
     public init(options: NetworkOptions = try! NetworkOptions()) { self.options = options }
 
-    public func observe() -> NetworkSnapshot {
+    public func observe() throws -> NetworkSnapshot {
+        let bound = ObservationBound(timeout: options.timeout)
+        try NetworkObservationError.check(bound)
         let now = networkTimestamp(Date())
         var first: UnsafeMutablePointer<ifaddrs>?
         guard getifaddrs(&first) == 0, let first else {
@@ -195,6 +227,7 @@ public final class SystemNetworkObserver: @unchecked Sendable {
         var pointer: UnsafeMutablePointer<ifaddrs>? = first
         var partial = false
         while let current = pointer {
+            try NetworkObservationError.check(bound)
             defer { pointer = current.pointee.ifa_next }
             let name = String(cString: current.pointee.ifa_name)
             if builders[name] == nil && builders.count >= options.maxInterfaces { partial = true; continue }
@@ -210,8 +243,11 @@ public final class SystemNetworkObserver: @unchecked Sendable {
             NetworkInterface(index: builder.index, name: name, flags: builder.flags.sorted(),
                 addresses: builder.addresses.sorted { $0.ip < $1.ip })
         }.sorted { $0.index < $1.index }
+        try NetworkObservationError.check(bound)
         let (routes, routeStatus) = platformRoutes(now, limit: options.maxRoutes)
+        try NetworkObservationError.check(bound)
         let (resolver, resolverStatus) = platformResolver(now)
+        try NetworkObservationError.check(bound)
         return NetworkSnapshot(platform: networkPlatform, observedAt: now, interfaces: interfaces, routes: routes, resolver: resolver,
             interfaceStatus: NetworkCollectionStatus(state: partial ? "partial" : "complete",
                 detail: partial ? "interface or address limit reached" : nil, observedAt: now),

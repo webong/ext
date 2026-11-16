@@ -13,9 +13,23 @@ error carries a `Code` from `res/system/testdata/codes.json`, the codes Swift's
 - `AudioArgumentException` (an `ArgumentException`) is `invalid`: an empty endpoint id, or an endpoint
   of the other direction. `AudioPacketException` is one too, for a packet that breaks the playback
   rule of `audio/v1`: `invalid` or `too_large`.
-- `AudioException` is `busy` (the playback buffer is full), `canceled` (a write or start after
-  `Dispose`), `unavailable` (the endpoint is unknown or not active), `unsupported` (no audio service)
-  or `io` (another WASAPI failure; NAudio's `COMException` is the inner exception).
+- `AudioException` is `busy` (the playback buffer is full, or a capture is started twice), `canceled`
+  (a write or start after `Dispose`, or a canceled token), `timeout` (a listing ran past its timeout),
+  `unavailable` (the endpoint is unknown or not active), `unsupported` (no audio service) or `io`
+  (another WASAPI failure; NAudio's `COMException` is the inner exception).
+
+Every call is bounded and cancellable (rule 4 of `docs/adr-architecture.md`):
+
+- `Endpoints(timeout, cancellationToken)` stops at its timeout (five seconds by default, as Go; above
+  zero and at most an hour) or its token, as `timeout` or `canceled`. The bound is judged between
+  WASAPI calls.
+- A capture runs under `AudioCaptureLimits`: a maximum duration (above zero, at most an hour) and a
+  byte limit (at most 1 GiB), five minutes and 64 MiB by default. It stops by itself at either, and
+  when the token given to `Start` is canceled; the last buffer is cut to the whole frames that fit.
+  `Stopped` reports an `AudioCaptureStop` whose `Reason` is Go's `media` stop reason: `duration`,
+  `byte_limit`, `canceled`, `closed` (it was disposed) or `capture_failed` (with NAudio's exception
+  as `Error`), and the bytes it delivered.
+- Playback `Write` never blocks: a full buffer is `busy`.
 
 The library does not choose endpoints, request approval, encode or transmit samples, retain
 credentials, or expose a remote-control protocol. A consumer such as Cymonkey supplies

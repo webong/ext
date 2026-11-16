@@ -56,4 +56,29 @@ final class ResourcesTests: XCTestCase {
         let data = try JSONEncoder().encode(value)
         XCTAssertFalse(String(decoding: data, as: UTF8.self).contains("credential"))
     }
+
+    @MainActor
+    func testObservationIsBoundedInTime() throws {
+        for timeout in [0, -1, 3_601, .infinity, .nan] as [TimeInterval] {
+            XCTAssertThrowsError(try SystemResourceObserver(timeout: timeout), "timeout \(timeout)") { error in
+                XCTAssertEqual((error as? ResourceObservationError)?.code, "invalid")
+            }
+        }
+        XCTAssertEqual(try SystemResourceObserver().timeout, 5)
+        XCTAssertThrowsError(try SystemResourceObserver(timeout: 1e-9).observe()) { error in
+            XCTAssertEqual(error as? ResourceObservationError, .timeout)
+            XCTAssertEqual((error as? ResourceObservationError)?.code, "timeout")
+        }
+    }
+
+    func testObservationIsCanceledWithItsTask() async throws {
+        let task = Task { @MainActor () -> Error? in
+            while !Task.isCancelled { await Task.yield() }
+            do { _ = try SystemResourceObserver().observe(); return nil } catch { return error }
+        }
+        task.cancel()
+        let error = await task.value
+        XCTAssertEqual(error as? ResourceObservationError, .canceled)
+        XCTAssertEqual((error as? ResourceObservationError)?.code, "canceled")
+    }
 }

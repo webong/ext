@@ -43,6 +43,36 @@ hosts whose packages include executable helpers outside the declared entrypoint;
 ordinary installs keep those files non-executable. CTX seals adapter templates
 with adapter-specific metadata, then uses this store for the package lifecycle.
 
+## Installing from a pinned archive
+
+`Store.InstallArchive` installs a package, or upgrades the installed one of the same ID, from a
+`.tar.gz` or zip named by a local path or an HTTPS URL and pinned by its SHA-256:
+
+```go
+installed, err := s.InstallArchive(ctx, store.Archive{
+    Source: "https://example.com/releases/reader-1.2.0.tar.gz",
+    SHA256: "…", // required
+    ID:     "example/reader", // optional: the package the archive must hold
+}, store.ArchiveOptions{})
+```
+
+The format is read from the content, not the name. The archive is checked against the digest before
+anything is extracted; extraction is bounded by the store's `Limits` (`MaxArchiveBytes`,
+`MaxTreeFiles`, `MaxTreeBytes`, `MaxArtifactBytes`) and refuses links, special files, absolute paths
+and paths that leave the destination. The manifest may sit at the top of the archive or in one
+top-level directory. What was extracted is then installed like a directory, so it is verified
+against its manifest.
+
+A successful install writes a `Receipt` (`Store.Receipt`) under `.receipts` in the root: the archive
+digest and the package revision it produced. A repeated call with the same digest returns the
+installed package without reading or downloading the archive, once that package has verified again.
+
+`Download`, `NewDownloadClient` and `ExtractArchive` are the same steps on their own. The default
+client follows at most `MaxDownloadRedirects` redirects, to HTTPS URLs without user information or a
+fragment only, and removes `Authorization`, `Cookie` and `Referer` from a redirected request; pass
+your own through `ArchiveOptions.Client`. Archive handling is Go code in both stores: the C engine's
+store has no archive operations.
+
 ## The package manifest
 
 A package directory holds `plugin.json`, the `ext.package/v1` manifest, and exactly the artifacts it lists

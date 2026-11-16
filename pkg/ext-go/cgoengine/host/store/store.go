@@ -48,8 +48,11 @@ type Limits struct {
 	MaxArtifactBytes int64
 	// MaxTreeFiles bounds the files in one tree artifact.
 	MaxTreeFiles int
-	// MaxTreeBytes bounds the total bytes of one tree artifact.
+	// MaxTreeBytes bounds the total bytes of one tree artifact, and the
+	// extracted total of one package archive.
 	MaxTreeBytes int64
+	// MaxArchiveBytes bounds one package archive file, downloaded or local.
+	MaxArchiveBytes int64
 }
 
 // CopyOptions lets a consumer retain executable helper artifacts in addition
@@ -69,6 +72,9 @@ func (l Limits) normalize() Limits {
 	if l.MaxTreeBytes == 0 {
 		l.MaxTreeBytes = DefaultMaxTreeBytes
 	}
+	if l.MaxArchiveBytes == 0 {
+		l.MaxArchiveBytes = DefaultMaxArchiveBytes
+	}
 	return l
 }
 
@@ -76,12 +82,14 @@ type Store struct {
 	root   string
 	limits Limits
 	mu     sync.Mutex
+	// archives serializes InstallArchive, which spans several locked steps.
+	archives sync.Mutex
 }
 
 // New returns a store rooted at root. The directory is created on first
 // install. root must be supplied by the consumer.
 func New(root string, limits Limits) (*Store, error) {
-	if root == "" || limits.MaxArtifactBytes < 0 || limits.MaxTreeFiles < 0 || limits.MaxTreeBytes < 0 {
+	if root == "" || limits.MaxArtifactBytes < 0 || limits.MaxTreeFiles < 0 || limits.MaxTreeBytes < 0 || limits.MaxArchiveBytes < 0 {
 		return nil, plugin.ErrInvalid
 	}
 	return &Store{root: root, limits: limits.normalize()}, nil
@@ -233,7 +241,11 @@ func (s *Store) Remove(id string) error {
 		return err
 	}
 	defer e.Close()
-	return storeError(e.Remove(id))
+	if err := storeError(e.Remove(id)); err != nil {
+		return err
+	}
+	s.dropReceipt(id)
+	return nil
 }
 
 // securePath resolves a slash path under root, refusing symbolic links and

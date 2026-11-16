@@ -266,6 +266,19 @@ func (x *extraction) claim(raw string, dir bool) (target string, skip bool, err 
 		return "", false, fmt.Errorf("%w: duplicate archive path %q", plugin.ErrInvalid, raw)
 	}
 	x.seen[key] = dir
+	// The directories above an entry exist once it does, listed or not, so a
+	// later file may not take the place of one, nor an entry sit under a file.
+	for parent := key; ; {
+		cut := strings.LastIndexByte(parent, '/')
+		if cut < 0 {
+			break
+		}
+		parent = parent[:cut]
+		if wasDir, ok := x.seen[parent]; ok && !wasDir {
+			return "", false, fmt.Errorf("%w: archive path %q is under a file", plugin.ErrInvalid, raw)
+		}
+		x.seen[parent] = true
+	}
 	target = filepath.Join(x.root, filepath.FromSlash(name))
 	if relative, err := filepath.Rel(x.root, target); err != nil || relative == ".." || strings.HasPrefix(relative, ".."+string(filepath.Separator)) {
 		return "", false, fmt.Errorf("%w: archive path %q escapes the destination", plugin.ErrInvalid, raw)
@@ -281,8 +294,8 @@ func (x *extraction) directory(raw string) error {
 	return os.MkdirAll(target, 0o700)
 }
 
-// regular writes one file of the declared size, reading no more than the bounds
-// allow whatever the header claims.
+// regular writes one file of exactly the declared size, which must fit the
+// bounds.
 func (x *extraction) regular(raw string, mode fs.FileMode, declared int64, content io.Reader) error {
 	target, _, err := x.claim(raw, false)
 	if err != nil {
@@ -304,16 +317,35 @@ func (x *extraction) regular(raw string, mode fs.FileMode, declared int64, conte
 	if err != nil {
 		return err
 	}
-	written, copyErr := io.Copy(out, io.LimitReader(content, allowed+1))
+	body := &bodyReader{source: content}
+	written, copyErr := io.Copy(out, io.LimitReader(body, declared+1))
 	closeErr := out.Close()
+	if body.err != nil {
+		return fmt.Errorf("%w: reading archive entry %q: %v", plugin.ErrInvalid, raw, body.err)
+	}
 	if copyErr != nil || closeErr != nil {
 		return errors.Join(copyErr, closeErr)
 	}
-	if written > allowed {
-		return fmt.Errorf("%w: archive exceeds its size limits", plugin.ErrInvalid)
+	if written != declared {
+		return fmt.Errorf("%w: archive entry %q does not have its declared size", plugin.ErrInvalid, raw)
 	}
 	x.bytes += written
 	return nil
+}
+
+// bodyReader remembers a failure to read an entry's body, which is a defect of
+// the archive, apart from a failure to write the file.
+type bodyReader struct {
+	source io.Reader
+	err    error
+}
+
+func (b *bodyReader) Read(p []byte) (int, error) {
+	n, err := b.source.Read(p)
+	if err != nil && !errors.Is(err, io.EOF) {
+		b.err = err
+	}
+	return n, err
 }
 
 // entry extracts one entry of any format.

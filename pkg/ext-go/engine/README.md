@@ -75,6 +75,11 @@ fragment only, and removes `Authorization`, `Cookie` and `Referer` from a redire
 your own through `ArchiveOptions.Client`. Archive handling is Go code in both stores: the C engine's
 store has no archive operations.
 
+What an archive install and a download must do is fixed as fixtures every language's store runs:
+`lib/plugin/testdata/v1/archive-cases.json` with the archives beside it, and `download-cases.json`.
+`TestArchiveCases` and `TestDownloadCases` hold both Go stores to them;
+`EXT_UPDATE_FIXTURES=1 go test -run TestWriteArchiveFixtures ./host/store` rewrites them.
+
 ## The package manifest
 
 A package directory holds `plugin.json`, the `ext.package/v1` manifest, and exactly the artifacts it lists

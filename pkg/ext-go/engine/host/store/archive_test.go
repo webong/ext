@@ -29,6 +29,11 @@ type member struct {
 	body []byte
 	link string
 	mode fs.FileMode
+	// typeflag overrides the tar entry type; pax are its PAX records.
+	typeflag byte
+	pax      map[string]string
+	// stored writes a zip entry without compression.
+	stored bool
 }
 
 // members lists a package directory as archive entries under prefix.
@@ -78,6 +83,14 @@ func tarred(t testing.TB, entries []member) []byte {
 		case strings.HasSuffix(e.name, "/"):
 			header.Typeflag, header.Mode = tar.TypeDir, 0o755
 		}
+		if e.typeflag == tar.TypeXGlobalHeader {
+			header = &tar.Header{Typeflag: e.typeflag, PAXRecords: e.pax}
+		} else if e.typeflag != 0 {
+			header.Typeflag, header.PAXRecords = e.typeflag, e.pax
+			if e.typeflag != tar.TypeReg {
+				header.Size = 0
+			}
+		}
 		if err := writer.WriteHeader(header); err != nil {
 			t.Fatal(err)
 		}
@@ -109,6 +122,9 @@ func zipped(t testing.TB, entries []member) []byte {
 		}
 		if !strings.HasSuffix(e.name, "/") {
 			header.SetMode(mode)
+		}
+		if e.stored {
+			header.Method = zip.Store
 		}
 		out, err := writer.CreateHeader(header)
 		if err != nil {

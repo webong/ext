@@ -7,6 +7,9 @@ pkg/ext-go/cgoengine/_csrc/** linguist-generated=true
 # copies under _csrc, keep LF on every platform, whatever core.autocrlf says.
 lib/plugin/testdata/** text eol=lf
 pkg/ext-go/cgoengine/_csrc/testdata/** text eol=lf
+# The archive fixtures are binary: their SHA-256 is pinned in archive-cases.json.
+lib/plugin/testdata/v1/archives/** binary
+pkg/ext-go/cgoengine/_csrc/testdata/v1/archives/** binary
 
 # Example plugins whose manifests pin their scripts by SHA-256 keep LF everywhere, so a Windows
 # checkout hashes the same bytes.

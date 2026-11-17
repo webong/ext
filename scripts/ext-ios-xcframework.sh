@@ -5,7 +5,11 @@
 # integrity checks) spawns nothing and needs only a mutex, so it ships here. The rest of
 # the host half (sessions, processes, trust files, instances, streams) is not built,
 # because iOS cannot spawn processes; the optional CExtWamr framework carries it.
-# Output: pkg/ext-ios/Frameworks/CExtEngine.xcframework
+# The engine's vendored code is compiled in (the yyjson parser and miniz's inflate decoder,
+# lib/plugin/vendor), so their licenses go beside the framework as yyjson-LICENSE and
+# miniz-LICENSE, the names lib/plugin's CMake install gives them, and must ship with any
+# binary that links it.
+# Output: pkg/ext-ios/Frameworks/CExtEngine.xcframework, yyjson-LICENSE, miniz-LICENSE
 set -euo pipefail
 cd "$(dirname "$0")/.."
 [[ "$(uname -s)" == Darwin ]] || { echo "ext-ios-xcframework.sh needs macOS and Xcode" >&2; exit 1; }
@@ -75,4 +79,6 @@ xcodebuild -create-xcframework \
   -library "$work/ios/libext_guest.a" -headers "$headers" \
   -library "$work/iossim/libext_guest.a" -headers "$headers" \
   -output "$out/CExtEngine.xcframework" >/dev/null
+cp "$engine/vendor/LICENSE" "$out/yyjson-LICENSE"
+cp "$engine/vendor/miniz/LICENSE" "$out/miniz-LICENSE"
 echo "wrote $out/CExtEngine.xcframework"

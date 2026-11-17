@@ -292,7 +292,8 @@ Keep
 envelope (`cshared/abi`) and the runtime loader (`cshared`) live under
 `pkg/ext-go/cgoengine/cshared`, inside the `cgoengine` module. The loader has a
 cgo build and, for `CGO_ENABLED=0`, a purego build (Linux, macOS and Windows on
-amd64 and arm64; elsewhere it returns `ErrUnsupported`). purego is a dependency
+amd64 and arm64; elsewhere it returns `ErrUnsupported`). On darwin/amd64 both builds refuse a Go
+c-shared guest, since two Go runtimes there share the TLS slot for g. purego is a dependency
 of `cgoengine` only, never of `pkg/ext-go/engine`, and both builds run the
 cshared tests and the shared host cases (`scripts/cshared-purego.sh`). `res/web/host/engine/wasm`
 is a package of the `res/web/host` module, not a nested module. `pkg/ext-go/wasm`

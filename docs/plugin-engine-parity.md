@@ -25,7 +25,11 @@ absolute verified paths only and cancel the same way, and both run the cshared
 conformance tests and the shared host cases (`scripts/cshared-purego.sh`, the
 `go-purego` job of the Host cases workflow). On Linux, a `CGO_ENABLED=0` program
 that imports `cshared` links purego's runtime shim and is dynamically linked
-against libc.
+against libc. On darwin/amd64 both loaders refuse a Go
+c-shared guest with `ErrUnsupported` (detected by its `_cgo_wait_runtime_init_done`
+export, before any call): each Go runtime keeps g in the same fixed TLS slot
+there, so the guest's runtime takes the host's g for its own and faults. C, Rust
+and Zig guests load there as anywhere else.
 
 ### Running the comparison against an engine
 

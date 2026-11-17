@@ -3,10 +3,13 @@ package cshared_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -38,17 +41,64 @@ func guest(t *testing.T) string {
 	if extension == "" {
 		extension = "so"
 	}
-	path := filepath.Join(t.TempDir(), "guest."+extension)
-	cmd := exec.Command("go", "build", "-buildmode=c-shared", "-o", path, "./testdata/guest")
-	cmd.Env = append(os.Environ(), "CGO_ENABLED=1")
-	if out, err := cmd.CombinedOutput(); err != nil {
-		skip("build the c-shared guest (set EXT_CSHARED_GUEST to use a prebuilt one): %v\n%s", err, out)
+	built.once.Do(func() {
+		// Not t.TempDir: the image stays loaded, and Windows cannot delete a
+		// loaded DLL. TestMain removes the directory, as far as it can.
+		dir, err := os.MkdirTemp("", "cshared-guest")
+		if err != nil {
+			built.err = err
+			return
+		}
+		buildDir = dir
+		built.path = filepath.Join(dir, "guest."+extension)
+		cmd := exec.Command("go", "build", "-buildmode=c-shared", "-o", built.path, "./testdata/guest")
+		cmd.Env = append(os.Environ(), "CGO_ENABLED=1")
+		if out, err := cmd.CombinedOutput(); err != nil {
+			built.err = fmt.Errorf("%v\n%s", err, out)
+		}
+	})
+	if built.err != nil {
+		skip("build the c-shared guest (set EXT_CSHARED_GUEST to use a prebuilt one): %v", built.err)
 	}
-	return path
+	return built.path
+}
+
+var (
+	built struct {
+		once sync.Once
+		path string
+		err  error
+	}
+	buildDir string
+)
+
+func TestMain(m *testing.M) {
+	code := m.Run()
+	if buildDir != "" {
+		_ = os.RemoveAll(buildDir)
+	}
+	os.Exit(code)
+}
+
+// goGuestRefused reports whether this platform refuses a Go c-shared guest:
+// on darwin/amd64 two Go runtimes share one TLS slot for g.
+func goGuestRefused(t *testing.T, path string) bool {
+	t.Helper()
+	if runtime.GOOS != "darwin" || runtime.GOARCH != "amd64" {
+		return false
+	}
+	_, err := cshared.Open(context.Background(), path)
+	if !errors.Is(err, plugin.ErrUnsupported) || !strings.Contains(err.Error(), "darwin/amd64") {
+		t.Fatalf("a Go guest on darwin/amd64: got %v, want ErrUnsupported naming darwin/amd64", err)
+	}
+	return true
 }
 
 func TestConformance(t *testing.T) {
 	path := guest(t)
+	if goGuestRefused(t, path) {
+		return
+	}
 	plugintest.Run(t, func(ctx context.Context) (plugin.Backend, error) {
 		b, err := cshared.Open(ctx, path)
 		if err != nil {
@@ -95,6 +145,9 @@ func TestOpenReportsLoadFailure(t *testing.T) {
 // pinned image, and each handle closes on its own.
 func TestImageStaysResident(t *testing.T) {
 	path := guest(t)
+	if goGuestRefused(t, path) {
+		return
+	}
 	for range 2 {
 		b, err := cshared.Open(context.Background(), path)
 		if err != nil {

@@ -8,8 +8,10 @@ package cshared
 // some platforms) never apply: this loader registers no callback at all.
 
 import (
+	"errors"
 	"fmt"
 	"path/filepath"
+	"runtime"
 	"sync"
 
 	"github.com/ebitengine/purego"
@@ -18,6 +20,8 @@ import (
 )
 
 func Supported() bool { return true }
+
+var errGoGuestDarwinAMD64 = errors.New("a Go c-shared guest cannot run in a Go host on darwin/amd64: both Go runtimes keep g in the same fixed TLS slot; use a C, Rust or Zig guest, or a process guest")
 
 // The OS image and symbol table are deliberately pinned, as in the cgo loader:
 // once per canonical path, never unloaded, even after an ABI failure.
@@ -77,6 +81,14 @@ func load(path string) (*exports, error) {
 	for n, name := range []string{"ext_plugin_abi_version", "ext_plugin_open", "ext_plugin_call", "ext_plugin_close"} {
 		if symbols[n], err = lookup(library, name); err != nil || symbols[n] == 0 {
 			return nil, fmt.Errorf("missing required CTX C ABI exports")
+		}
+	}
+	if runtime.GOOS == "darwin" && runtime.GOARCH == "amd64" {
+		// Every Go c-shared library exports this. On darwin/amd64 each Go runtime
+		// keeps its g in the same fixed TLS slot, so a Go guest called from a Go
+		// host thread takes the host's g for its own and faults (with cgo too).
+		if symbol, err := lookup(library, "_cgo_wait_runtime_init_done"); err == nil && symbol != 0 {
+			return nil, errGoGuestDarwinAMD64
 		}
 	}
 	var version func() uint32

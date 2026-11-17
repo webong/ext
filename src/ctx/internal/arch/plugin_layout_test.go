@@ -24,6 +24,7 @@ import (
 //	c2goengine  the C engine's portable core translated to Go; needs engine
 //	wasm        the engine binding for res/web/host/engine/wasm; needs engine and res/web/host
 //	hashicorp   the gRPC backend; needs engine only, never cgoengine
+//	yaegi       the Go source interpreter backend; needs engine and yaegi only, never cgoengine
 //	(umbrella)  pkg/ext-go itself, the one module that may require them all; its core package
 //	            chooses between engine, cgoengine and c2goengine
 //	res/web/host  portable web and WebAssembly tooling; never imports the plugin engine
@@ -36,6 +37,7 @@ var pluginRequires = map[string][]string{
 	"pkg/ext-go/c2goengine": {"pkg/ext-go/engine"},
 	"pkg/ext-go/wasm":       {"pkg/ext-go/engine", "res/web/host"},
 	"pkg/ext-go/hashicorp":  {"pkg/ext-go/engine"},
+	"pkg/ext-go/yaegi":      {"pkg/ext-go/engine"},
 	"pkg/ext-go/model":      {"pkg/ext-go/engine", "res/int"},
 	"pkg/ext-go/inference":  {"pkg/ext-go/engine", "res/int"},
 	"pkg/ext-go/perception": {"pkg/ext-go/engine", "res/int"},
@@ -78,7 +80,7 @@ func TestPluginGoModulesRequireOnlyTheirParts(t *testing.T) {
 // have the engine binding in the module graph.
 func TestBackendsNeverImportTheCEngine(t *testing.T) {
 	root := repoRoot(t)
-	for _, dir := range []string{"pkg/ext-go/wasm", "pkg/ext-go/hashicorp", "pkg/ext-go/inference", "pkg/ext-go/model", "pkg/ext-go/perception", "pkg/ext-go/realtime"} {
+	for _, dir := range []string{"pkg/ext-go/wasm", "pkg/ext-go/hashicorp", "pkg/ext-go/yaegi", "pkg/ext-go/inference", "pkg/ext-go/model", "pkg/ext-go/perception", "pkg/ext-go/realtime"} {
 		forbidden := []string{pluginPrefix + "/cgoengine", pluginPrefix + "/c2goengine", pluginPrefix + "/core", pluginPrefix}
 		err := filepath.WalkDir(filepath.Join(root, dir), func(path string, entry fs.DirEntry, walkErr error) error {
 			if walkErr != nil || entry.IsDir() || filepath.Ext(path) != ".go" {
@@ -102,6 +104,30 @@ func TestBackendsNeverImportTheCEngine(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+	}
+}
+
+// pkg/ext-go/yaegi interprets guests in the host process, so what it links is
+// what every interpreted guest runs beside: the engine, the standard library
+// and yaegi itself, nothing else.
+func TestYaegiBackendRequiresOnlyYaegi(t *testing.T) {
+	root := repoRoot(t)
+	data, err := os.ReadFile(filepath.Join(root, "pkg/ext-go/yaegi/go.mod"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got []string
+	for _, line := range strings.Split(string(data), "\n") {
+		fields := strings.Fields(strings.TrimPrefix(strings.TrimSpace(line), "require "))
+		if len(fields) < 2 || !strings.HasPrefix(fields[1], "v") || !strings.Contains(fields[0], ".") {
+			continue
+		}
+		if fields[0] != "github.com/traefik/yaegi" && fields[0] != pluginPrefix+"/engine" {
+			got = append(got, fields[0])
+		}
+	}
+	if len(got) > 0 {
+		t.Errorf("pkg/ext-go/yaegi requires %v; it may require only the engine and github.com/traefik/yaegi", got)
 	}
 }
 

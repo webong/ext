@@ -145,8 +145,10 @@ published paths are not reused by a different module.
 Runtime backends that own a heavy runtime stay outside the engine module:
 `pkg/ext-go/hashicorp` is a separate module for go-plugin/grpc, while
 `pkg/ext-go/wasm` binds the protocol-neutral wazero runtime in `res/web/host/engine/wasm`
-to `engine.Backend`. A backend never depends on `pkg/ext-go/cgoengine`, so a
-wazero or grpc user needs no C toolchain and the engine binding is not in their
+to `engine.Backend`, and `pkg/ext-go/yaegi` interprets a guest shipped as Go source
+(entrypoint runtime `go-source`, a tree artifact) in-process with yaegi, limited to the
+standard library packages the host allows and the ext guest packages. A backend never
+depends on `pkg/ext-go/cgoengine`, so a wazero, grpc or yaegi user needs no C toolchain and the engine binding is not in their
 module graph. Tests that need
 a backend belong in that backend's module, and tests or commands that need both
 a backend and the engine belong in the umbrella module, not in `engine`, so
@@ -181,17 +183,18 @@ The reusable libraries are:
 - `pkg/ext-go/cgoengine` for the Go binding of the C engine, with a pure-Go build of the same API and the C ABI loader.
 - `pkg/ext-go/wasm` for the engine-facing WebAssembly backend; it depends on `pkg/ext-go/engine` and the reusable runtime in `res/web/host/engine/wasm`.
 - `pkg/ext-go/hashicorp` for the HashiCorp go-plugin backend.
+- `pkg/ext-go/yaegi` for the Go source backend: a guest shipped as Go source, interpreted in-process by yaegi (`github.com/traefik/yaegi`); it depends on `pkg/ext-go/engine` and yaegi only, and the umbrella does not require it.
 - `pkg/ext-go/inference` for the `res/int/inference` provider contract over the Ext plugin engine.
 - `pkg/ext-go/model` for the `res/int/model` tensor-provider contract over the Ext plugin engine.
 - `pkg/ext-go/perception` for the `res/int/perception` host and guest contract over the Ext plugin engine.
 - `pkg/ext-go/realtime` for the `res/int/realtime` duplex session contract over the Ext plugin engine.
 - `pkg/ext-go` for the umbrella module that requires the plugin engines, `res/web/host` and `res/graph`; it holds code that needs several engines, such as `pkg/ext-go/core`, which chooses between the pure-Go `engine`, `cgoengine` and `c2goengine` (the only place that knows all three).
 
-Plugin-specific runtime bindings, including HashiCorp go-plugin and the
-WebAssembly `engine.Backend`, belong inside the plugin library
-(`pkg/ext-go/hashicorp`, `pkg/ext-go/wasm`). The reusable WebAssembly mechanism
+Plugin-specific runtime bindings, including HashiCorp go-plugin, the
+WebAssembly `engine.Backend` and the yaegi interpreter, belong inside the plugin library
+(`pkg/ext-go/hashicorp`, `pkg/ext-go/wasm`, `pkg/ext-go/yaegi`). The reusable WebAssembly mechanism
 belongs to `res/web/host/engine/wasm` and never imports the plugin engine; `pkg/ext-go/wasm`
-adapts it. Neither is a product adapter. Keep the shared host/guest contract
+adapts it. None of them is a product adapter. Keep the shared host/guest contract
 independent of backend choice so existing and future plugin implementations can use it.
 
 Product adapter engines and stores that are reused across adapters

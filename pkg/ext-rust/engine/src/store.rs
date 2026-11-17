@@ -28,13 +28,16 @@ use std::{
 };
 
 /// Bounds on one artifact file (a file inside a tree counts too), on the files
-/// in one tree and on the bytes of one tree. Zero takes the default: 4 GiB,
-/// 250000 files and 16 GiB.
+/// in one tree, on the bytes of one tree and on an archive file that
+/// [`Store::install_archive`] reads. Zero takes the default: 4 GiB, 250000
+/// files, 16 GiB and 512 MiB. An archive's extracted entries count toward the
+/// first three.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct Limits {
     pub max_artifact_bytes: u64,
     pub max_tree_files: u32,
     pub max_tree_bytes: u64,
+    pub max_archive_bytes: u64,
 }
 
 /// The platform an entrypoint is chosen for, named as Go's `runtime.GOOS` and
@@ -47,7 +50,10 @@ pub struct Platform<'a> {
 }
 
 /// An open package store. Dropping it releases the engine's handle.
-pub struct Store(*mut c_void);
+pub struct Store {
+    handle: *mut c_void,
+    max_archive_bytes: u64,
+}
 // The engine serializes calls on one store.
 unsafe impl Send for Store {}
 unsafe impl Sync for Store {}
@@ -65,7 +71,10 @@ impl Store {
         };
         let mut handle = ptr::null_mut();
         check(unsafe { ffi::ext_store_open(root.as_ptr(), &raw, &mut handle) })?;
-        Ok(Self(handle))
+        Ok(Self {
+            handle,
+            max_archive_bytes: limits.max_archive_bytes,
+        })
     }
     fn put(&self, call: Put, source: &str, preserve_executable: bool) -> Result<Vec<u8>, Error> {
         let source = cstring(source)?;
@@ -74,7 +83,7 @@ impl Store {
         } else {
             0
         };
-        output(|manifest| unsafe { call(self.0, source.as_ptr(), flags, manifest) })
+        output(|manifest| unsafe { call(self.handle, source.as_ptr(), flags, manifest) })
     }
     /// Copies the package in the directory `source` into the store, never over an
     /// installed id, and returns the installed `plugin.json`, byte for byte as the
@@ -93,21 +102,90 @@ impl Store {
     pub fn replace(&self, source: &str, preserve_executable: bool) -> Result<Vec<u8>, Error> {
         self.put(ffi::ext_store_replace, source, preserve_executable)
     }
-    /// Deletes one installed package.
+    /// Installs the package in the archive file `archive`, or upgrades the
+    /// installed package of the same id to it, as [`Store::upgrade`] does, and
+    /// returns the installed `plugin.json`. The archive is a zip, a
+    /// gzip-compressed tar or a plain tar, told apart by its content, and must
+    /// have the SHA-256 `sha256` (64 hexadecimal characters in either case),
+    /// checked before anything is extracted. With `id` the archive must hold that
+    /// package. The file is bounded by [`Limits::max_archive_bytes`] and
+    /// extraction by the other limits; only directories and regular files are
+    /// written, and `plugin.json` is at the top of the archive or in its one
+    /// top-level directory. What was extracted is installed like a directory.
+    ///
+    /// A successful install leaves a receipt (see [`Store::receipt`]). When the
+    /// receipt of the installed package names this digest and the revision
+    /// installed now, and the package still verifies, the call returns it
+    /// without opening the archive.
+    ///
+    /// Failures, besides those of install and upgrade: [`Error::MISMATCH`] for a
+    /// digest that differs, an archive that holds another package than `id`, or
+    /// other content at the installed revision; [`Error::INVALID`] for an archive
+    /// over a limit, an entry that is a link, a special file or a path that is
+    /// not safe on every platform, or a zip in the zip64 form;
+    /// [`Error::UNSUPPORTED`] for a format that is not read (zstd, xz, bzip2);
+    /// [`Error::MISSING`] for an archive that is not there. Downloading is the
+    /// application's, or `download::Downloader`'s with the `download` feature.
+    pub fn install_archive(
+        &self,
+        archive: &str,
+        sha256: &str,
+        id: Option<&str>,
+        preserve_executable: bool,
+    ) -> Result<Vec<u8>, Error> {
+        if archive.is_empty() || archive.contains("://") {
+            return Err(Error::INVALID);
+        }
+        let archive = cstring(archive)?;
+        let sha256 = cstring(sha256)?;
+        let id = id.map(cstring).transpose()?;
+        let id = id.as_ref().map_or(ptr::null(), |id| id.as_ptr());
+        let flags = if preserve_executable {
+            ffi::STORE_PRESERVE_EXECUTABLE
+        } else {
+            0
+        };
+        output(|manifest| unsafe {
+            ffi::ext_store_install_archive(
+                self.handle,
+                archive.as_ptr(),
+                sha256.as_ptr(),
+                id,
+                flags,
+                self.max_archive_bytes,
+                manifest,
+            )
+        })
+    }
+    /// The archive limit this store was opened with; zero is the default.
+    #[cfg_attr(not(feature = "download"), allow(dead_code))]
+    pub(crate) fn max_archive_bytes(&self) -> u64 {
+        self.max_archive_bytes
+    }
+    /// Returns the receipt of an installed package as JSON: `{"id", "revision",
+    /// "artifact_sha256"}`, the digest of the archive in lower case.
+    /// [`Error::NOT_FOUND`] when no archive install recorded one. It describes
+    /// the install that wrote it: compare its revision with the installed
+    /// package before relying on it. [`Store::remove`] deletes it.
+    pub fn receipt(&self, id: &str) -> Result<Vec<u8>, Error> {
+        let id = cstring(id)?;
+        output(|receipt| unsafe { ffi::ext_store_receipt(self.handle, id.as_ptr(), receipt) })
+    }
+    /// Deletes one installed package and its receipt.
     pub fn remove(&self, id: &str) -> Result<(), Error> {
         let id = cstring(id)?;
-        check(unsafe { ffi::ext_store_remove(self.0, id.as_ptr()) })
+        check(unsafe { ffi::ext_store_remove(self.handle, id.as_ptr()) })
     }
     /// Reads and verifies one installed package and returns its `plugin.json`.
     pub fn load(&self, id: &str) -> Result<Vec<u8>, Error> {
         let id = cstring(id)?;
-        output(|manifest| unsafe { ffi::ext_store_load(self.0, id.as_ptr(), manifest) })
+        output(|manifest| unsafe { ffi::ext_store_load(self.handle, id.as_ptr(), manifest) })
     }
     /// Lists the installed package ids in byte order without reading or verifying
     /// any package. Staging directories are skipped; any other entry that is not a
     /// package directory is [`Error::INVALID`].
     pub fn ids(&self) -> Result<Vec<String>, Error> {
-        let json = output(|ids| unsafe { ffi::ext_store_ids(self.0, ids) })?;
+        let json = output(|ids| unsafe { ffi::ext_store_ids(self.handle, ids) })?;
         // A JSON array of strings; ids hold only [a-z0-9._/-], so nothing is escaped.
         let text = std::str::from_utf8(&json).map_err(|_| Error::INVALID)?;
         let inner = text
@@ -132,20 +210,20 @@ impl Store {
     /// as an embedded value. It fails with the status of the first entry that is
     /// not a package directory and of the first package that does not verify.
     pub fn list(&self) -> Result<Vec<u8>, Error> {
-        output(|packages| unsafe { ffi::ext_store_list(self.0, packages) })
+        output(|packages| unsafe { ffi::ext_store_list(self.handle, packages) })
     }
     /// Checks every entry without stopping at a bad one and returns a JSON array
     /// of `{id, directory, layer, status}`, where `status` is the engine status
     /// verifying it gave (0 for verified). It runs nothing and changes nothing.
     pub fn verify(&self) -> Result<Vec<u8>, Error> {
-        output(|checks| unsafe { ffi::ext_store_verify(self.0, checks) })
+        output(|checks| unsafe { ffi::ext_store_verify(self.handle, checks) })
     }
     /// Reads only the manifests and checks them against their directory names;
     /// no artifact is read or hashed, so THE RESULT IS UNVERIFIED and must not be
     /// launched or trusted as it stands. Returns `{"packages": [...], "problems":
     /// [...]}` as JSON; a package that cannot be read does not hide the others.
     pub fn list_unverified(&self) -> Result<Vec<u8>, Error> {
-        output(|listing| unsafe { ffi::ext_store_list_unverified(self.0, listing) })
+        output(|listing| unsafe { ffi::ext_store_list_unverified(self.handle, listing) })
     }
     /// Chooses the entrypoint the installed package `id` offers for `protocol` on
     /// `platform`, for a package the caller has reviewed, and returns the JSON
@@ -178,7 +256,7 @@ impl Store {
         let arch = arch.as_ref().map_or(ptr::null(), |name| name.as_ptr());
         output(|entrypoint| unsafe {
             ffi::ext_store_resolve_entrypoint(
-                self.0,
+                self.handle,
                 id.as_ptr(),
                 contract.as_ptr(),
                 version.as_ptr(),
@@ -193,7 +271,7 @@ impl Store {
 }
 impl Drop for Store {
     fn drop(&mut self) {
-        unsafe { ffi::ext_store_close(self.0) }
+        unsafe { ffi::ext_store_close(self.handle) }
     }
 }
 

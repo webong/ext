@@ -247,6 +247,16 @@ extern "C" {
         manifest: *mut Buffer,
     ) -> Status;
     pub fn ext_store_remove(s: *mut c_void, id: *const c_char) -> Status;
+    pub fn ext_store_install_archive(
+        s: *mut c_void,
+        archive: *const c_char,
+        sha256: *const c_char,
+        id: *const c_char,
+        flags: u32,
+        max_archive_bytes: u64,
+        manifest: *mut Buffer,
+    ) -> Status;
+    pub fn ext_store_receipt(s: *mut c_void, id: *const c_char, receipt: *mut Buffer) -> Status;
     pub fn ext_store_load(s: *mut c_void, id: *const c_char, manifest: *mut Buffer) -> Status;
     pub fn ext_store_ids(s: *mut c_void, ids: *mut Buffer) -> Status;
     pub fn ext_store_list(s: *mut c_void, packages: *mut Buffer) -> Status;

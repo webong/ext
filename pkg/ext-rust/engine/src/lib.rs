@@ -1,6 +1,8 @@
 //! Rust ownership and callback bindings for the ext C engine. Wire values remain
 //! JSON bytes; consumers choose their own serializer and domain types. Requires
 //! ABI v2, currently Linux/macOS. No Go runtime or Rust protocol engine is linked.
+#[cfg(all(feature = "download", not(feature = "guest-only")))]
+pub mod download;
 pub mod endpoint;
 pub mod ffi;
 #[cfg(not(feature = "guest-only"))]

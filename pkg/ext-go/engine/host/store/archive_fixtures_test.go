@@ -6,8 +6,10 @@ import (
 	"bytes"
 	"compress/flate"
 	"compress/gzip"
+	"encoding/binary"
 	"encoding/json"
 	"hash/crc32"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -120,6 +122,9 @@ func TestWriteArchiveFixtures(t *testing.T) {
 	put("tar-gnu-long-name", tarred(t, gnu))
 	put("tar-ustar-prefix", tarred(t, members(t, fixturePackage(t, id, "r1", map[string]string{prefixed: "pass\n"}), "")))
 	put("zip-dos-attributes", zipped(t, dos))
+	put("tar-cut-in-header", cutInHeader(t, plain))
+	put("tar-gz-cut-in-header", gzipped(t, cutInHeader(t, plain)))
+	put("zip-zip64", zip64(t, zipped(t, good)))
 	put("tar-invalid-utf8", tarred(t, with(member{name: "src/\xff\xfe.py", body: []byte("x")})))
 	put("zip-invalid-utf8", zipped(t, with(member{name: "src/\xc3.py", body: []byte("x")})))
 
@@ -195,6 +200,7 @@ func TestWriteArchiveFixtures(t *testing.T) {
 		"tar-case-duplicate", "zip-exact-duplicate", "tar-file-over-directory", "tar-entry-under-file",
 		"zip-two-directories", "tar-no-manifest", "tar-manifest-too-deep", "tar-unlisted-file",
 		"gzip-not-tar", "tar-gz-truncated", "tar-truncated", "zip-truncated",
+		"tar-cut-in-header", "tar-gz-cut-in-header", "zip-zip64",
 		"zip-size-understated", "zip-size-overstated", "zip-bad-crc", "zip-unknown-method",
 	} {
 		fixture.Cases = append(fixture.Cases, single(name, "invalid", ""))
@@ -268,6 +274,71 @@ func gzipped(t *testing.T, data []byte) []byte {
 		t.Fatal(err)
 	}
 	return buffer.Bytes()
+}
+
+// cutInHeader ends a tar sixteen bytes into its second header block.
+func cutInHeader(t *testing.T, archive []byte) []byte {
+	t.Helper()
+	for at := 512; at+512 <= len(archive); at += 512 {
+		if string(archive[at+257:at+262]) == "ustar" {
+			return archive[:at+16]
+		}
+	}
+	t.Fatal("no second header")
+	return nil
+}
+
+// zip64 rewrites the last entry of a zip the way a zip64 writer records it: the
+// sizes in the central directory give way to an extra field. The result is a
+// valid archive that archive/zip reads, which is checked here; the stores
+// refuse the form.
+func zip64(t *testing.T, archive []byte) []byte {
+	t.Helper()
+	le := binary.LittleEndian
+	end := len(archive) - 22
+	if le.Uint32(archive[end:]) != 0x06054b50 {
+		t.Fatal("no end record")
+	}
+	size, offset := int(le.Uint32(archive[end+12:])), int(le.Uint32(archive[end+16:]))
+	last := offset
+	for at := offset; at < offset+size; {
+		last = at
+		at += 46 + int(le.Uint16(archive[at+28:])) + int(le.Uint16(archive[at+30:])) + int(le.Uint16(archive[at+32:]))
+	}
+	nameLen, extraLen := int(le.Uint16(archive[last+28:])), int(le.Uint16(archive[last+30:]))
+	entry := append([]byte{}, archive[last:last+46+nameLen+extraLen]...)
+	extra := make([]byte, 20)
+	le.PutUint16(extra[0:], 1)
+	le.PutUint16(extra[2:], 16)
+	le.PutUint64(extra[4:], uint64(le.Uint32(entry[24:])))
+	le.PutUint64(extra[12:], uint64(le.Uint32(entry[20:])))
+	le.PutUint32(entry[20:], 0xffffffff)
+	le.PutUint32(entry[24:], 0xffffffff)
+	le.PutUint16(entry[30:], uint16(extraLen+20))
+	out := append([]byte{}, archive[:last]...)
+	out = append(out, entry...)
+	out = append(out, extra...)
+	out = append(out, archive[last+46+nameLen+extraLen:end]...)
+	tail := append([]byte{}, archive[end:]...)
+	le.PutUint32(tail[12:], uint32(size+20))
+	out = append(out, tail...)
+	reader, err := zip.NewReader(bytes.NewReader(out), int64(len(out)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, file := range reader.File {
+		body, err := file.Open()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := io.Copy(io.Discard, body); err != nil {
+			t.Fatalf("%s: %v", file.Name, err)
+		}
+	}
+	if final := reader.File[len(reader.File)-1]; final.UncompressedSize != 0xffffffff || final.UncompressedSize64 == 0xffffffff {
+		t.Fatal("the last entry is not in the zip64 form")
+	}
+	return out
 }
 
 // gzipNamed compresses data with every optional field of the gzip header set.

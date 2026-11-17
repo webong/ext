@@ -793,6 +793,36 @@
       ]
     },
     {
+      "name": "tar-cut-in-header",
+      "steps": [
+        {
+          "install": "archives/tar-cut-in-header.bin",
+          "sha256": "f41b6e7d732a82699ef38b90414a9ab027c51b14b12397749266007500d27624",
+          "status": "invalid"
+        }
+      ]
+    },
+    {
+      "name": "tar-gz-cut-in-header",
+      "steps": [
+        {
+          "install": "archives/tar-gz-cut-in-header.bin",
+          "sha256": "da9ea7307234d75cdeed5d868570f8458835db9c9d46e32a399b4a0f6342d1bb",
+          "status": "invalid"
+        }
+      ]
+    },
+    {
+      "name": "zip-zip64",
+      "steps": [
+        {
+          "install": "archives/zip-zip64.bin",
+          "sha256": "79972147277e3a29cc670dfd46cfdca90dafa3e3b359436cde61cacc7263acf0",
+          "status": "invalid"
+        }
+      ]
+    },
+    {
       "name": "zip-size-understated",
       "steps": [
         {

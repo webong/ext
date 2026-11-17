@@ -129,9 +129,10 @@ without the C engine), `cgoengine/host/store` runs its `InstallArchive` and `Rec
 outcome, the installed manifest bytes, the receipt and the directory left below the root. Downloading stays
 with the caller in every language, under the rules of `testdata/v1/download-cases.json`, which the Go stores
 run (`TestDownloadCases`). Open: the Rust, Node, Zig, Swift and Java bindings do not bind the two functions
-yet, and none has a download helper. Known differences: the C reader refuses a zip in the zip64 form
-(`EXT_INVALID`), which Go's `archive/zip` reads; a plain tar cut inside a header block is invalid in C and the
-end of the archive in Go's `archive/tar`; neither has a fixture. The Windows side of the streamed file layer
+yet, and none has a download helper. Two forms are refused by both stores on purpose, each pinned by a fixture: a zip in the
+zip64 form (`zip-zip64`; Go's `archive/zip` would read it, so the Go store checks for it) and a tar that stops
+inside a header block (`tar-cut-in-header`, `tar-gz-cut-in-header`; Go's `archive/tar` would take it as the end
+of the archive, so the Go store counts blocks). The Windows side of the streamed file layer
 (`ext_fs_create`, `ext_fs_in_open` in `fs_win32.c`) is exercised by CI only.
 
 The C-backed Go session runs the reference session tests. Contract/schema,

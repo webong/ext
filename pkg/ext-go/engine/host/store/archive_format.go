@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"math"
 	"strings"
 
 	plugin "github.com/webong/ext/pkg/ext-go/engine"
@@ -76,11 +77,19 @@ func readZip(source io.ReaderAt, size int64, visit func(archiveEntry) error) err
 	if err != nil {
 		return fmt.Errorf("%w: reading zip archive: %v", plugin.ErrInvalid, err)
 	}
+	// The zip64 form is not read, by any store: a package archive has no use for
+	// it, and one rule everywhere is worth more than the reach. It shows as a
+	// count or a size that does not fit the original fields.
+	if size > math.MaxUint32 || len(archive.File) >= math.MaxUint16 {
+		return fmt.Errorf("%w: zip64 archives are not supported", plugin.ErrInvalid)
+	}
 	for _, file := range archive.File {
 		entry := archiveEntry{name: file.Name, mode: file.Mode()}
 		switch {
 		case entry.mode.IsDir() || strings.HasSuffix(file.Name, "/"):
 			entry.kind = entryDirectory
+		case entry.mode.IsRegular() && (file.CompressedSize == math.MaxUint32 || file.UncompressedSize == math.MaxUint32):
+			return fmt.Errorf("%w: zip64 archives are not supported", plugin.ErrInvalid)
 		case entry.mode.IsRegular() && file.UncompressedSize64 <= 1<<62:
 			entry.kind, entry.size = entryFile, int64(file.UncompressedSize64)
 			entry.open = func() (io.ReadCloser, error) {
@@ -113,11 +122,29 @@ func readTar(source io.ReaderAt, size int64, visit func(archiveEntry) error) err
 	return readTarStream(io.NewSectionReader(source, 0, size), visit)
 }
 
+// blockCounter counts what a tar reader consumes.
+type blockCounter struct {
+	source io.Reader
+	read   int64
+}
+
+func (c *blockCounter) Read(p []byte) (int, error) {
+	n, err := c.source.Read(p)
+	c.read += int64(n)
+	return n, err
+}
+
 func readTarStream(source io.Reader, visit func(archiveEntry) error) error {
-	reader := tar.NewReader(source)
+	counted := &blockCounter{source: source}
+	reader := tar.NewReader(counted)
 	for {
 		header, err := reader.Next()
 		if errors.Is(err, io.EOF) {
+			// archive/tar takes an archive that stops inside a header block as
+			// one that has ended. A tar is whole blocks: anything else was cut.
+			if counted.read%512 != 0 {
+				return fmt.Errorf("%w: tar archive ends inside a block", plugin.ErrInvalid)
+			}
 			return nil
 		}
 		if err != nil {

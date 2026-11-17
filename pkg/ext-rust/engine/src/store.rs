@@ -124,8 +124,8 @@ impl Store {
     /// over a limit, an entry that is a link, a special file or a path that is
     /// not safe on every platform, or a zip in the zip64 form;
     /// [`Error::UNSUPPORTED`] for a format that is not read (zstd, xz, bzip2);
-    /// [`Error::MISSING`] for an archive that is not there. Downloading is
-    /// [`crate::download`]'s.
+    /// [`Error::MISSING`] for an archive that is not there. Downloading is the
+    /// application's, or `download::Downloader`'s with the `download` feature.
     pub fn install_archive(
         &self,
         archive: &str,
@@ -156,6 +156,11 @@ impl Store {
                 manifest,
             )
         })
+    }
+    /// The archive limit this store was opened with; zero is the default.
+    #[cfg_attr(not(feature = "download"), allow(dead_code))]
+    pub(crate) fn max_archive_bytes(&self) -> u64 {
+        self.max_archive_bytes
     }
     /// Returns the receipt of an installed package as JSON: `{"id", "revision",
     /// "artifact_sha256"}`, the digest of the archive in lower case.

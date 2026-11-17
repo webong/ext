@@ -120,7 +120,7 @@ and child processes still reach standard error through descriptor 1.
 get right: admission, the handshake check against the descriptor, request and response validation,
 deadlines and the session's lifecycle. It is opt-in: it needs the FFI extension (`ext-ffi`, which
 the CLI may use with the default `ffi.enable=preload`; elsewhere set `ffi.enable=true`) and the
-engine's shared library (`libext_host`, from an `ext-engine-vX.Y.Z` release or a CMake build of
+engine's shared library (`libext_host`, from an `ext-plugin-vX.Y.Z` release or a CMake build of
 `lib/plugin`), and no compiled extension of its own. Autoloading `ExtIO\Plugin` never loads it.
 
 ```php

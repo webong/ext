@@ -115,8 +115,8 @@ link `-lext_host_static -pthread -lm`, plus `-ldl` on Linux. Parser symbols are 
 at build time, allowing applications to link their own yyjson version; the inflate
 decoder's functions are prefixed the same way, so an application's own miniz or zlib is untouched.
 
-Prebuilt libraries are attached to each `ext-engine-vX.Y.Z` GitHub release, one archive per
-platform (`scripts/ext-engine-release.sh`, see [module versioning](../../docs/module-versioning.md)):
+Prebuilt libraries are attached to each `ext-plugin-vX.Y.Z` GitHub release, one archive per
+platform (`scripts/ext-plugin-release.sh`, see [module versioning](../../docs/module-versioning.md)):
 a host that loads the engine at run time, such as the Python host, needs no C toolchain.
 
 Go integration is opt-in and excluded from ordinary Go builds:

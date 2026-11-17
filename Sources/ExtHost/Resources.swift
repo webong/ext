@@ -5,18 +5,36 @@ import Foundation
 import UIKit
 #endif
 
+/// A state (complete, partial, permission-denied, unsupported or unavailable) and, where something
+/// is missing, why: unsupported, permission, no_device or tool_missing (`testdata/capability/v1`).
 public struct ResourceCollectionStatus: Codable, Equatable, Sendable {
     public let state: String
+    public let reason: String?
     public let detail: String?
     public let observedAt: String?
 
-    public init(state: String, detail: String? = nil, observedAt: String? = nil) {
-        self.state = state; self.detail = detail; self.observedAt = observedAt
+    public init(state: String, reason: String? = nil, detail: String? = nil, observedAt: String? = nil) {
+        self.state = state; self.reason = reason; self.detail = detail; self.observedAt = observedAt
     }
 
     enum CodingKeys: String, CodingKey {
-        case state, detail
+        case state, reason, detail
         case observedAt = "observed_at"
+    }
+
+    /// Checks that the state is known and the reason fits it: none for complete and partial,
+    /// permission or none for permission-denied, unsupported or tool_missing for unsupported, and
+    /// none, permission, no_device or tool_missing for unavailable (a failed native read has none).
+    public func validate() throws {
+        let allowed: [String?]
+        switch state {
+        case "complete", "partial": allowed = [nil]
+        case "permission-denied": allowed = [nil, "permission"]
+        case "unsupported": allowed = ["unsupported", "tool_missing"]
+        case "unavailable": allowed = [nil, "permission", "no_device", "tool_missing"]
+        default: throw ResourceObservationError.invalidValue
+        }
+        guard allowed.contains(where: { $0 == reason }) else { throw ResourceObservationError.invalidValue }
     }
 }
 
@@ -35,7 +53,8 @@ public struct StorageInfo: Codable, Equatable, Sendable {
     }
 
     enum CodingKeys: String, CodingKey {
-        case device, mountPoint
+        case device
+        case mountPoint = "mount_point"
         case totalBytes = "total_bytes"
         case availableBytes = "available_bytes"
         case type, readOnly = "read_only"
@@ -118,12 +137,105 @@ public struct ResourceInfo: Codable, Equatable, Sendable {
 
 public enum ResourceObservationError: Error, Equatable {
     case nativeFailure
+    case invalidValue
+    /// The observation ran past its timeout (code `timeout`).
+    case timeout
+    /// The task running the observation was canceled (code `canceled`).
+    case canceled
+
+    /// Throws the error of a bound that has stopped.
+    static func check(_ bound: ObservationBound) throws {
+        switch bound.stop {
+        case .timeout?: throw ResourceObservationError.timeout
+        case .canceled?: throw ResourceObservationError.canceled
+        case nil: return
+        }
+    }
+
+    /// The stable error code of `res/system/testdata/codes.json`.
+    public var code: String {
+        switch self {
+        case .nativeFailure: return "io"
+        case .invalidValue: return "invalid"
+        case .timeout: return "timeout"
+        case .canceled: return "canceled"
+        }
+    }
+}
+
+extension StorageInfo {
+    /// Reads a volume in its wire form: a missing `read_only` is false (Go leaves it out when false).
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(device: try c.decode(String.self, forKey: .device), mountPoint: try c.decode(String.self, forKey: .mountPoint),
+                  totalBytes: try c.decode(UInt64.self, forKey: .totalBytes), availableBytes: try c.decode(UInt64.self, forKey: .availableBytes),
+                  type: try c.decodeIfPresent(String.self, forKey: .type),
+                  readOnly: try c.decodeIfPresent(Bool.self, forKey: .readOnly) ?? false)
+    }
+}
+
+extension ResourceInfo {
+    /// Reads a snapshot in its wire form (`testdata/host/v1`): a missing `storage` is empty.
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            os: try c.decode(String.self, forKey: .os), architecture: try c.decode(String.self, forKey: .architecture),
+            observedAt: try c.decode(String.self, forKey: .observedAt),
+            logicalCPUs: try c.decode(Int.self, forKey: .logicalCPUs), cpuCapacity: try c.decode(Double.self, forKey: .cpuCapacity),
+            cpuStatus: try c.decode(ResourceCollectionStatus.self, forKey: .cpuStatus),
+            memoryBytes: try c.decode(UInt64.self, forKey: .memoryBytes), memoryCapacityBytes: try c.decode(UInt64.self, forKey: .memoryCapacityBytes),
+            memoryStatus: try c.decode(ResourceCollectionStatus.self, forKey: .memoryStatus),
+            storage: try c.decodeIfPresent([StorageInfo].self, forKey: .storage) ?? [],
+            power: try c.decodeIfPresent(PowerInfo.self, forKey: .power),
+            container: try c.decode(ContainerInfo.self, forKey: .container),
+            uptimeSeconds: try c.decodeIfPresent(Double.self, forKey: .uptimeSeconds),
+            bootTime: try c.decodeIfPresent(String.self, forKey: .bootTime),
+            uptimeStatus: try c.decode(ResourceCollectionStatus.self, forKey: .uptimeStatus))
+    }
+
+    /// Checks a snapshot against the rules of `testdata/host/v1`: the identity and times are set,
+    /// the CPU and memory figures agree, each status fits the capability rules, storage, power and
+    /// container are consistent, and uptime and boot time come together.
+    public func validate() throws {
+        func timestamp(_ value: String) -> Bool {
+            value.range(of: #"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$"#, options: .regularExpression) != nil
+        }
+        guard !os.isEmpty, !architecture.isEmpty, timestamp(observedAt), bootTime.map(timestamp) ?? true,
+              logicalCPUs >= 1, cpuCapacity >= 0, cpuCapacity <= Double(logicalCPUs),
+              memoryCapacityBytes <= memoryBytes else { throw ResourceObservationError.invalidValue }
+        for status in [cpuStatus, memoryStatus, uptimeStatus] { try status.validate() }
+        for volume in storage where volume.mountPoint.isEmpty || volume.availableBytes > volume.totalBytes {
+            throw ResourceObservationError.invalidValue
+        }
+        if let power {
+            guard ["charging", "discharging", "charged", "unknown"].contains(power.state), (0...100).contains(power.percentage),
+                  (power.timeRemainingSeconds ?? 0) >= 0 else { throw ResourceObservationError.invalidValue }
+        }
+        guard ["detected", "none", "unsupported"].contains(container.state),
+              container.detected == (container.state == "detected"), container.detected == !container.evidence.isEmpty else {
+            throw ResourceObservationError.invalidValue
+        }
+        var previous: [UInt8]?
+        for name in container.evidence {
+            let bytes = Array(name.utf8)
+            guard !bytes.isEmpty, previous.map({ $0.lexicographicallyPrecedes(bytes) }) ?? true else { throw ResourceObservationError.invalidValue }
+            previous = bytes
+        }
+        guard (uptimeSeconds == nil) == (bootTime == nil), (uptimeSeconds ?? 0) >= 0, uptimeSeconds?.isFinite ?? true else {
+            throw ResourceObservationError.invalidValue
+        }
+    }
 }
 
 /// A caller-owned observer for local host resource metadata. All values are
 /// read from the local process only: no command is launched, no network is
 /// contacted, and no identity is attached. Fields whose native source is
 /// unavailable carry a non-complete status instead of guessing.
+///
+/// An observation is bounded by the observer's timeout (five seconds by default, above zero and at
+/// most an hour) and stops when the task running it is canceled, throwing
+/// `ResourceObservationError.timeout` or `.canceled` (rule 4 of docs/adr-architecture.md), as Go's
+/// `host.DiscoverResources` returns its context's error.
 @MainActor
 public final class SystemResourceObserver {
     private static let logicalCPUs: Int = {
@@ -135,17 +247,27 @@ public final class SystemResourceObserver {
         return ProcessInfo.processInfo.processorCount
     }()
 
-    public init() {}
+    public let timeout: TimeInterval
+
+    public init(timeout: TimeInterval = 5) throws {
+        guard ObservationBound.valid(timeout) else { throw ResourceObservationError.invalidValue }
+        self.timeout = timeout
+    }
 
     public func observe() throws -> ResourceInfo {
+        let bound = ObservationBound(timeout: timeout)
+        try ResourceObservationError.check(bound)
         let now = resourceTimestamp(Date())
         let logical = Self.logicalCPUs
         let cpuCapacity = Double(max(logical, 1))
         let memory = platformMemory()
+        try ResourceObservationError.check(bound)
         let storage = platformStorage()
+        try ResourceObservationError.check(bound)
         let power = platformPower()
         let container = platformContainer()
         let uptime = platformUptime()
+        try ResourceObservationError.check(bound)
         return ResourceInfo(
             os: resourcePlatform, architecture: processorArchitecture,
             observedAt: now,
@@ -196,7 +318,7 @@ private func platformMemory() -> (UInt64, UInt64, ResourceCollectionStatus) {
     if sysctl(&mib, 2, &size, &length, nil, 0) == 0, size > 0 {
         return (size, size, ResourceCollectionStatus(state: "complete", detail: "physical memory capacity", observedAt: now))
     }
-    return (0, 0, ResourceCollectionStatus(state: "unsupported", detail: "physical memory capacity is unavailable", observedAt: now))
+    return (0, 0, ResourceCollectionStatus(state: "unsupported", reason: "unsupported", detail: "physical memory capacity is unavailable", observedAt: now))
 }
 
 // MARK: - Storage
@@ -275,5 +397,5 @@ private func platformUptime() -> (Double?, String?, ResourceCollectionStatus) {
         let uptime = Date().timeIntervalSince(boot)
         return (uptime, resourceTimestamp(boot), ResourceCollectionStatus(state: "complete", observedAt: now))
     }
-    return (nil, nil, ResourceCollectionStatus(state: "unsupported", detail: "boot time is unavailable", observedAt: now))
+    return (nil, nil, ResourceCollectionStatus(state: "unsupported", reason: "unsupported", detail: "boot time is unavailable", observedAt: now))
 }

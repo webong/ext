@@ -7,13 +7,31 @@ import CoreGraphics
 import ReplayKit
 #endif
 
+/// A state (ready, denied, not-determined, not-required, unsupported or unavailable) and, for
+/// unsupported and unavailable, why: unsupported, permission, no_device or tool_missing
+/// (`testdata/capability/v1`).
 public struct PermissionInfo: Codable, Equatable, Sendable {
     public let state: String
+    public let reason: String?
     public let scope: String?
     public let detail: String?
 
-    public init(state: String, scope: String? = nil, detail: String? = nil) {
-        self.state = state; self.scope = scope; self.detail = detail
+    public init(state: String, reason: String? = nil, scope: String? = nil, detail: String? = nil) {
+        self.state = state; self.reason = reason; self.scope = scope; self.detail = detail
+    }
+
+    /// Checks that the state is known and the reason fits it.
+    public func validate() throws {
+        switch state {
+        case "ready", "denied", "not-determined", "not-required":
+            guard reason == nil else { throw SurfaceObservationError.invalidValue }
+        case "unsupported":
+            guard reason == "unsupported" || reason == "tool_missing" else { throw SurfaceObservationError.invalidValue }
+        case "unavailable":
+            guard reason == nil || ["permission", "no_device", "tool_missing"].contains(reason!) else { throw SurfaceObservationError.invalidValue }
+        default:
+            throw SurfaceObservationError.invalidValue
+        }
     }
 }
 
@@ -33,6 +51,13 @@ public struct PermissionSnapshot: Codable, Equatable, Sendable {
         case platform, accessibility
         case observedAt = "observed_at"
         case screenRecording = "screen_recording"
+    }
+
+    /// Checks the platform and time and both permissions.
+    public func validate() throws {
+        guard !platform.isEmpty, SurfaceWire.timestamp(observedAt) else { throw SurfaceObservationError.invalidValue }
+        try accessibility.validate()
+        try screenRecording.validate()
     }
 }
 

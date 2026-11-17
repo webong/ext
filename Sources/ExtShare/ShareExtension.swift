@@ -10,7 +10,8 @@ import UniformTypeIdentifiers
 
 /// Bounds fixed by the embedding application before a share extension loads any
 /// item. Zero values select the documented defaults; every value has a library
-/// ceiling so a caller cannot disable bounding.
+/// ceiling so a caller cannot disable bounding. `timeout` bounds one whole load:
+/// thirty seconds by default, above zero and at most an hour.
 public struct ShareLimits: Equatable, Sendable {
     public static let maxItems = 128
     public static let maxBytes = 64 * 1024 * 1024
@@ -26,19 +27,23 @@ public struct ShareLimits: Equatable, Sendable {
     public let maxBytes: Int
     public let maxTextBytes: Int
     public let maxURLLength: Int
+    public let timeout: TimeInterval
 
     public init(maxItems: Int = 32, maxBytes: Int = 16 * 1024 * 1024,
-                maxTextBytes: Int = 64 * 1024, maxURLLength: Int = 8192) throws {
+                maxTextBytes: Int = 64 * 1024, maxURLLength: Int = 8192,
+                timeout: TimeInterval = 30) throws {
         guard (1...Self.maxItems).contains(maxItems),
               (1...Self.maxBytes).contains(maxBytes),
               (1...Self.maxTextBytes).contains(maxTextBytes),
-              (1...Self.maxURLLength).contains(maxURLLength) else {
+              (1...Self.maxURLLength).contains(maxURLLength),
+              ObservationBound.valid(timeout) else {
             throw ShareError.invalidValue
         }
         self.maxItems = maxItems
         self.maxBytes = maxBytes
         self.maxTextBytes = maxTextBytes
         self.maxURLLength = maxURLLength
+        self.timeout = timeout
     }
 }
 
@@ -47,6 +52,40 @@ public enum ShareError: Error, Equatable {
     case limitExceeded
     case loadFailed
     case containerUnavailable
+    /// The load ran past `ShareLimits.timeout`.
+    case timeout
+    /// The task running the load was canceled.
+    case canceled
+
+    /// The stable error code of `res/system/testdata/codes.json`.
+    public var code: String {
+        switch self {
+        case .invalidValue: return "invalid"
+        case .limitExceeded: return "too_large"
+        case .loadFailed: return "io"
+        case .containerUnavailable: return "unavailable"
+        case .timeout: return "timeout"
+        case .canceled: return "canceled"
+        }
+    }
+
+    /// Throws the error of a bound that has stopped.
+    static func check(_ bound: ObservationBound) throws {
+        switch bound.stop {
+        case .timeout?: throw ShareError.timeout
+        case .canceled?: throw ShareError.canceled
+        case nil: return
+        }
+    }
+
+    /// Awaits one item provider under the bound, as `timeout` or `canceled` when it stops first.
+    static func race<T>(_ bound: ObservationBound, _ body: @escaping () async -> T) async throws -> T {
+        do {
+            return try await bound.race(body)
+        } catch let stopped as ObservationBound.Stopped {
+            throw stopped.stop == .timeout ? ShareError.timeout : ShareError.canceled
+        }
+    }
 }
 
 /// One shared file. Exactly one of `data` and `fileURL` carries the content;
@@ -155,29 +194,50 @@ public enum ShareValidation {
         return value.unicodeScalars.allSatisfy { !CharacterSet.controlCharacters.contains($0) }
     }
 
+    /// Strips leading and trailing U+0009 to U+000D and U+0020, the rule of every binding of this
+    /// contract. Unicode spaces and the other control characters are content.
+    static func trim(_ value: String) -> String {
+        func space(_ scalar: Unicode.Scalar) -> Bool { scalar == " " || (9...13).contains(scalar.value) }
+        let scalars = value.unicodeScalars
+        guard let start = scalars.firstIndex(where: { !space($0) }),
+              let end = scalars.lastIndex(where: { !space($0) }) else { return "" }
+        return String(scalars[start...end])
+    }
+
     static func text(_ value: String?, limit: Int) throws -> String? {
         guard let value, !value.isEmpty else { return nil }
-        guard value.utf8.count <= limit, !value.contains("\0") else {
-            throw ShareError.limitExceeded
-        }
+        guard !value.unicodeScalars.contains("\0") else { throw ShareError.invalidValue }
+        guard value.utf8.count <= limit else { throw ShareError.limitExceeded }
         return value
     }
 
+    /// A link's normal form: trimmed, with its scheme lowercased and nothing else changed. It has
+    /// no spaces or control characters and starts with a scheme (a letter, then letters, digits,
+    /// plus, dot or dash, then a colon); parsing it is the embedding application's.
     static func link(_ value: String, limit: Int) throws -> String {
-        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty, trimmed.utf8.count <= limit, !trimmed.contains("\0"),
-              !trimmed.unicodeScalars.contains(where: { CharacterSet.controlCharacters.contains($0) }),
-              let url = URL(string: trimmed), let scheme = url.scheme else {
+        let trimmed = trim(value)
+        guard !trimmed.isEmpty else { throw ShareError.invalidValue }
+        guard trimmed.utf8.count <= limit else { throw ShareError.limitExceeded }
+        let scalars = trimmed.unicodeScalars
+        guard !scalars.contains(where: { $0 == " " || $0.properties.generalCategory == .control }),
+              let colon = scalars.firstIndex(of: ":"), colon != scalars.startIndex else {
             throw ShareError.invalidValue
         }
-        var components = URLComponents(url: url, resolvingAgainstBaseURL: false)
-        components?.scheme = scheme.lowercased()
-        return components?.url?.absoluteString ?? url.absoluteString
+        for (offset, scalar) in scalars[..<colon].enumerated() {
+            let letter = ("a"..."z").contains(scalar) || ("A"..."Z").contains(scalar)
+            let digit = ("0"..."9").contains(scalar)
+            guard offset == 0 ? letter : (letter || digit || scalar == "+" || scalar == "-" || scalar == ".") else {
+                throw ShareError.invalidValue
+            }
+        }
+        return String(scalars[..<colon]).lowercased() + String(scalars[colon...])
     }
 
     static func attachment(_ value: ShareAttachment) throws -> ShareAttachment {
-        guard isPortableName(value.name) else { throw ShareError.invalidValue }
-        let mimeType = value.mimeType.isEmpty ? "application/octet-stream" : value.mimeType
+        let name = trim(value.name)
+        guard isPortableName(name) else { throw ShareError.invalidValue }
+        let trimmedType = trim(value.mimeType)
+        let mimeType = trimmedType.isEmpty ? "application/octet-stream" : trimmedType
         guard mimeType.utf8.count <= ShareLimits.maxMIMETypeLength, !mimeType.contains("\0"),
               value.data == nil || value.fileURL == nil else {
             throw ShareError.invalidValue
@@ -186,14 +246,14 @@ public enum ShareValidation {
             guard value.byteCount == 0 || value.byteCount == data.count else {
                 throw ShareError.invalidValue
             }
-            return ShareAttachment(name: value.name, mimeType: mimeType,
+            return ShareAttachment(name: name, mimeType: mimeType,
                                    byteCount: data.count, data: data)
         }
         guard value.byteCount >= 0 else { throw ShareError.invalidValue }
         if let fileURL = value.fileURL, !fileURL.isFileURL {
             throw ShareError.invalidValue
         }
-        return ShareAttachment(name: value.name, mimeType: mimeType,
+        return ShareAttachment(name: name, mimeType: mimeType,
                                byteCount: value.byteCount, fileURL: value.fileURL)
     }
 }
@@ -274,12 +334,17 @@ public enum ShareNormalizer {
 /// text, URL, and file representations and copies files through the caller's
 /// sink. It never launches the application, records an event, or chooses a
 /// container.
+///
+/// A load is bounded by `ShareLimits.timeout` and stops when the task running it is canceled, as
+/// `.timeout` or `.canceled` (rule 4 of docs/adr-architecture.md). An item provider that never
+/// answers is abandoned: its file load is canceled and a late file is not stored.
 public enum ShareExtensionLoader {
     public static func load(items: [NSExtensionItem],
                             limits: ShareLimits = ShareLimits.standard,
                             sink: ShareAttachmentSink? = nil) async -> Result<SharePayload, ShareError> {
-        let loaded = await loadedItems(items: items, limits: limits, sink: sink)
         do {
+            let bound = ObservationBound(timeout: limits.timeout)
+            let loaded = try await loadedItems(items: items, limits: limits, sink: sink, bound: bound)
             return .success(try ShareNormalizer.normalize(loaded, limits: limits))
         } catch let error as ShareError {
             return .failure(error)
@@ -289,17 +354,19 @@ public enum ShareExtensionLoader {
     }
 
     static func loadedItems(items: [NSExtensionItem], limits: ShareLimits,
-                            sink: ShareAttachmentSink?) async -> [ShareLoadedItem] {
+                            sink: ShareAttachmentSink?, bound: ObservationBound) async throws -> [ShareLoadedItem] {
         var result: [ShareLoadedItem] = []
         var attachmentIndex = 0
+        try ShareError.check(bound)
         for item in items.prefix(limits.maxItems) {
             var loaded = ShareLoadedItem(
                 subject: item.attributedContentText?.string,
                 text: nil, urls: [], attachments: []
             )
             for provider in item.attachments ?? [] where attachmentIndex < limits.maxItems {
+                try ShareError.check(bound)
                 if provider.hasItemConformingToTypeIdentifier("public.plain-text") {
-                    if let value = await loadItem(provider, typeIdentifier: "public.plain-text") {
+                    if let value = try await ShareError.race(bound, { await loadItem(provider, typeIdentifier: "public.plain-text") }) {
                         let text: String?
                         if let value = value as? String {
                             text = value
@@ -313,7 +380,7 @@ public enum ShareExtensionLoader {
                         }
                     }
                 } else if provider.hasItemConformingToTypeIdentifier("public.url") {
-                    if let url = await loadItem(provider, typeIdentifier: "public.url") {
+                    if let url = try await ShareError.race(bound, { await loadItem(provider, typeIdentifier: "public.url") }) {
                         if let value = url as? URL {
                             loaded.urls.append(value.absoluteString)
                         } else if let text = url as? String {
@@ -322,17 +389,18 @@ public enum ShareExtensionLoader {
                     }
                 } else if let identifier = provider.registeredTypeIdentifiers.first {
                     guard let sink else { continue }
-                    guard let attachment = await loadAttachment(
-                        provider, typeIdentifier: identifier,
-                        name: provider.suggestedName, index: attachmentIndex,
-                        sink: sink
-                    ) else { continue }
+                    let index = attachmentIndex
+                    guard let attachment = try await ShareError.race(bound, {
+                        await loadAttachment(provider, typeIdentifier: identifier,
+                                             name: provider.suggestedName, index: index, sink: sink)
+                    }) else { continue }
                     attachmentIndex += 1
                     loaded.attachments.append(attachment)
                 }
             }
             result.append(loaded)
         }
+        try ShareError.check(bound)
         return result
     }
 
@@ -344,12 +412,16 @@ public enum ShareExtensionLoader {
         }
     }
 
+    /// Loads one file through the sink. When the load is abandoned (its task is canceled), the
+    /// provider's progress is canceled and a file that still arrives is not stored.
     static func loadAttachment(_ provider: NSItemProvider, typeIdentifier: String,
                                name: String?, index: Int,
                                sink: ShareAttachmentSink) async -> ShareAttachment? {
-        await withCheckedContinuation { continuation in
-            provider.loadFileRepresentation(forTypeIdentifier: typeIdentifier) { source, _ in
-                guard let source else {
+        let load = AbandonableLoad()
+        return await withTaskCancellationHandler {
+            await withCheckedContinuation { continuation in
+            load.track(provider.loadFileRepresentation(forTypeIdentifier: typeIdentifier) { source, _ in
+                guard let source, !load.abandoned else {
                     continuation.resume(returning: nil)
                     return
                 }
@@ -370,7 +442,10 @@ public enum ShareExtensionLoader {
                     name: portable, mimeType: mimeType(for: typeIdentifier),
                     byteCount: size, fileURL: target
                 ))
+            })
             }
+        } onCancel: {
+            load.abandon()
         }
     }
 
@@ -393,5 +468,33 @@ public enum ShareExtensionLoader {
         case "public.zip-archive": return "application/zip"
         default: return "application/octet-stream"
         }
+    }
+}
+
+/// The progress of one file load and whether its caller has given up on it.
+private final class AbandonableLoad: @unchecked Sendable {
+    private let lock = NSLock()
+    private var progress: Progress?
+    private var gaveUp = false
+
+    var abandoned: Bool {
+        lock.lock(); defer { lock.unlock() }
+        return gaveUp
+    }
+
+    func track(_ value: Progress) {
+        lock.lock()
+        progress = value
+        let cancel = gaveUp
+        lock.unlock()
+        if cancel { value.cancel() }
+    }
+
+    func abandon() {
+        lock.lock()
+        gaveUp = true
+        let value = progress
+        lock.unlock()
+        value?.cancel()
     }
 }

@@ -132,22 +132,22 @@ func platformResolver(_ now: String) -> (NetworkResolver, NetworkCollectionStatu
 }
 
 func parseNativeDNS(_ values: [String: Any]) -> NetworkResolver {
-    var servers = Set<String>()
-    var search = Set<String>()
+    var servers: [String] = []
+    var search: [String] = []
     for key in values.keys.sorted().prefix(256) {
         guard let dns = values[key] as? [String: Any] else { continue }
         for value in (dns["ServerAddresses"] as? [String] ?? []).prefix(256) where value.utf8.count <= 128 {
             for family in [AF_INET, AF_INET6] {
                 var bytes = [UInt8](repeating: 0, count: family == AF_INET ? 4 : 16)
-                if inet_pton(family, value, &bytes) == 1, let text = nativeIPText(bytes, family: family) { servers.insert(text) }
+                if inet_pton(family, value, &bytes) == 1, let text = nativeIPText(bytes, family: family) { servers.append(text) }
             }
         }
         // DomainName is a resolver match domain, not necessarily a search suffix.
         for value in (dns["SearchDomains"] as? [String] ?? []).prefix(256)
             where !value.isEmpty && value.utf8.count <= 253 && !value.contains("\n") {
-            search.insert(value)
+            search.append(value)
         }
     }
-    return NetworkResolver(servers: servers.sorted(), search: search.sorted())
+    return NetworkResolver(servers: NetworkResolver.clean(servers), search: NetworkResolver.clean(search))
 }
 #endif

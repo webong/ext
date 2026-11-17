@@ -58,20 +58,39 @@ public struct WindowInfo: Codable, Equatable, Sendable {
     }
 }
 
+/// A state (complete, partial, permission-denied, unsupported or unavailable) and, where something
+/// is missing, why: unsupported, permission, no_device or tool_missing (`testdata/capability/v1`).
 public struct SurfaceCollectionStatus: Codable, Equatable, Sendable {
     public let state: String
+    public let reason: String?
     public let detail: String?
     public let observedAt: String?
 
-    public init(state: String, detail: String? = nil, observedAt: String? = nil) {
+    public init(state: String, reason: String? = nil, detail: String? = nil, observedAt: String? = nil) {
         self.state = state
+        self.reason = reason
         self.detail = detail
         self.observedAt = observedAt
     }
 
     enum CodingKeys: String, CodingKey {
-        case state, detail
+        case state, reason, detail
         case observedAt = "observed_at"
+    }
+
+    /// Checks that the state is known and the reason fits it: none for complete and partial,
+    /// permission or none for permission-denied, unsupported or tool_missing for unsupported, and
+    /// none, permission, no_device or tool_missing for unavailable (a failed native read has none).
+    public func validate() throws {
+        let allowed: [String?]
+        switch state {
+        case "complete", "partial": allowed = [nil]
+        case "permission-denied": allowed = [nil, "permission"]
+        case "unsupported": allowed = ["unsupported", "tool_missing"]
+        case "unavailable": allowed = [nil, "permission", "no_device", "tool_missing"]
+        default: throw SurfaceObservationError.invalidValue
+        }
+        guard allowed.contains(where: { $0 == reason }) else { throw SurfaceObservationError.invalidValue }
     }
 }
 
@@ -105,27 +124,102 @@ public struct SurfaceSnapshot: Codable, Equatable, Sendable {
     }
 }
 
+/// Bounds an observation, as Go's `surface.SurfaceOptions`: 64 displays, 4096 windows and five
+/// seconds by default. The timeout is above zero and at most an hour.
 public struct SurfaceOptions: Equatable, Sendable {
     public let maxDisplays: Int
     public let maxWindows: Int
+    public let timeout: TimeInterval
 
-    public init(maxDisplays: Int = 64, maxWindows: Int = 4096) throws {
-        guard (1...65_536).contains(maxDisplays), (1...65_536).contains(maxWindows) else {
+    public init(maxDisplays: Int = 64, maxWindows: Int = 4096, timeout: TimeInterval = 5) throws {
+        guard (1...65_536).contains(maxDisplays), (1...65_536).contains(maxWindows), ObservationBound.valid(timeout) else {
             throw SurfaceObservationError.invalidLimit
         }
         self.maxDisplays = maxDisplays
         self.maxWindows = maxWindows
+        self.timeout = timeout
     }
 }
 
 public enum SurfaceObservationError: Error, Equatable {
     case invalidLimit
     case nativeFailure
+    case invalidValue
+    /// The observation ran past its timeout.
+    case timeout
+    /// The task running the observation was canceled.
+    case canceled
+
+    /// The stable error code of `res/system/testdata/codes.json`.
+    public var code: String {
+        switch self {
+        case .invalidLimit, .invalidValue: return "invalid"
+        case .nativeFailure: return "io"
+        case .timeout: return "timeout"
+        case .canceled: return "canceled"
+        }
+    }
+
+    /// Throws the error of a bound that has stopped.
+    static func check(_ bound: ObservationBound) throws {
+        switch bound.stop {
+        case .timeout?: throw SurfaceObservationError.timeout
+        case .canceled?: throw SurfaceObservationError.canceled
+        case nil: return
+        }
+    }
+}
+
+/// The wire rules the surface models share (`testdata/surface/v1`).
+enum SurfaceWire {
+    static func timestamp(_ value: String) -> Bool {
+        value.range(of: #"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$"#, options: .regularExpression) != nil
+    }
+
+    static func bounds(_ value: SurfaceBounds) throws {
+        guard value.width > 0, value.height > 0 else { throw SurfaceObservationError.invalidValue }
+    }
+}
+
+extension DisplayInfo {
+    /// Reads a display in its wire form: a missing `scale` is 0 (Go leaves it out when unknown).
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(id: try c.decode(String.self, forKey: .id), bounds: try c.decode(SurfaceBounds.self, forKey: .bounds),
+                  scale: try c.decodeIfPresent(Double.self, forKey: .scale) ?? 0, primary: try c.decode(Bool.self, forKey: .primary))
+    }
+}
+
+extension SurfaceSnapshot {
+    /// Checks a snapshot against the rules of `testdata/surface/v1`: the platform, coordinate space
+    /// and time are set; display and window ids are set and unique; bounds are positive; a scale is
+    /// not negative; at most one display is primary; a window has a process; each status fits the
+    /// capability rules.
+    public func validate() throws {
+        guard !platform.isEmpty, !coordinateSpace.isEmpty, SurfaceWire.timestamp(observedAt) else { throw SurfaceObservationError.invalidValue }
+        var ids = Set<String>()
+        for display in displays {
+            guard !display.id.isEmpty, ids.insert(display.id).inserted, display.scale >= 0, display.scale.isFinite else { throw SurfaceObservationError.invalidValue }
+            try SurfaceWire.bounds(display.bounds)
+        }
+        guard displays.filter(\.primary).count <= 1 else { throw SurfaceObservationError.invalidValue }
+        ids = []
+        for window in windows {
+            guard !window.id.isEmpty, ids.insert(window.id).inserted, window.pid >= 1 else { throw SurfaceObservationError.invalidValue }
+            try SurfaceWire.bounds(window.bounds)
+        }
+        try displayStatus.validate()
+        try windowStatus.validate()
+    }
 }
 
 /// A caller-owned observer for local display and window metadata. IDs are
 /// opaque. The macOS surface controller accepts the complete WindowInfo value
 /// and revalidates its ID and process generation before acting on it.
+///
+/// An observation is bounded by `SurfaceOptions.timeout` and stops when the task running it is
+/// canceled, throwing `SurfaceObservationError.timeout` or `.canceled` (rule 4 of
+/// docs/adr-architecture.md), as Go's `surface.DiscoverSurfaces` returns its context's error.
 @MainActor
 public final class SystemSurfaceObserver {
     private let options: SurfaceOptions
@@ -135,10 +229,12 @@ public final class SystemSurfaceObserver {
     }
 
     public func observe() throws -> SurfaceSnapshot {
+        let bound = ObservationBound(timeout: options.timeout)
+        try SurfaceObservationError.check(bound)
 #if os(macOS)
-        return try observeMacOS()
+        return try observeMacOS(bound)
 #elseif os(iOS)
-        return observeIOS()
+        return try observeIOS(bound)
 #else
         throw SurfaceObservationError.nativeFailure
 #endif
@@ -164,7 +260,7 @@ func surfaceTimestamp(_ date: Date) -> String {
 
 #if os(macOS)
 extension SystemSurfaceObserver {
-    private func observeMacOS() throws -> SurfaceSnapshot {
+    private func observeMacOS(_ bound: ObservationBound) throws -> SurfaceSnapshot {
         let now = surfaceTimestamp(Date())
         var count: UInt32 = 0
         guard CGGetActiveDisplayList(0, nil, &count) == .success else {
@@ -185,6 +281,7 @@ extension SystemSurfaceObserver {
                 primary: identifier == CGMainDisplayID()
             )
         }.sorted { $0.id < $1.id }
+        try SurfaceObservationError.check(bound)
 
         guard let values = CGWindowListCopyWindowInfo(
             [.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID
@@ -200,6 +297,7 @@ extension SystemSurfaceObserver {
         var sawExtraWindow = false
         var identityUnavailable = false
         for value in values {
+            try SurfaceObservationError.check(bound)
             guard let pidValue = value[kCGWindowOwnerPID as String] as? NSNumber,
                   let windowValue = value[kCGWindowNumber as String] as? NSNumber,
                   let boundsValue = value[kCGWindowBounds as String] as? [String: Any],
@@ -222,6 +320,7 @@ extension SystemSurfaceObserver {
             ))
         }
         windows.sort { $0.id < $1.id }
+        try SurfaceObservationError.check(bound)
         return SurfaceSnapshot(
             platform: "darwin", coordinateSpace: "desktop-global-points", observedAt: now,
             displays: displays, windows: windows,
@@ -238,7 +337,7 @@ extension SystemSurfaceObserver {
 let iosProcessGeneration = UUID().uuidString.lowercased()
 
 extension SystemSurfaceObserver {
-    private func observeIOS() -> SurfaceSnapshot {
+    private func observeIOS(_ bound: ObservationBound) throws -> SurfaceSnapshot {
         let now = surfaceTimestamp(Date())
         var screens: [UIScreen] = []
         for scene in UIApplication.shared.connectedScenes {
@@ -259,6 +358,7 @@ extension SystemSurfaceObserver {
         for scene in UIApplication.shared.connectedScenes {
             guard let windowScene = scene as? UIWindowScene else { continue }
             for window in windowScene.windows where !window.isHidden && window.alpha > 0 {
+                try SurfaceObservationError.check(bound)
                 if windows.count >= options.maxWindows {
                     sawExtraWindow = true
                     continue
@@ -272,6 +372,7 @@ extension SystemSurfaceObserver {
             }
         }
         windows.sort { $0.id < $1.id }
+        try SurfaceObservationError.check(bound)
         return SurfaceSnapshot(
             platform: "ios", coordinateSpace: "screen-points", observedAt: now,
             displays: displays, windows: windows,

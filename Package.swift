@@ -32,7 +32,7 @@ let package = Package(
         .library(name: "ExtNetwork", targets: ["ExtNetwork"]),
     ],
     targets: [
-        .binaryTarget(name: "CExtEngine", url: "https://github.com/webong/ext/releases/download/ext-ios-v0.1.1/CExtEngine.xcframework.zip", checksum: "ecd6308c47a0e35a3bbac0aaf35485b9b10bec1ee0e5ee3d33176dda4c184a78"),
+        .binaryTarget(name: "CExtEngine", url: "https://github.com/webong/ext/releases/download/ext-ios-v0.2.0/CExtEngine.xcframework.zip", checksum: "da91bc459fd4a4ec544c467e558e8d7f841060440f692e3698b65c592eb0a98b"),
         .target(name: "ExtPluginGuest", dependencies: ["CExtEngine"]),
         .target(name: "CExtPluginShim", dependencies: ["CExtEngine"]),
         .target(name: "ExtPluginExports", dependencies: ["ExtPluginGuest", "CExtPluginShim", "CExtEngine"]),
@@ -54,7 +54,7 @@ let package = Package(
 do {
     package.products.append(.library(name: "ExtPluginWamr", targets: ["ExtPluginWamr"]))
     package.targets.append(contentsOf: [
-        .binaryTarget(name: "CExtWamr", url: "https://github.com/webong/ext/releases/download/ext-ios-v0.1.1/CExtWamr.xcframework.zip", checksum: "356fc2121ca8be32a4f2ce224df035ce0eb1feff4a917d4c2772e5a89acdbea4"),
+        .binaryTarget(name: "CExtWamr", url: "https://github.com/webong/ext/releases/download/ext-ios-v0.2.0/CExtWamr.xcframework.zip", checksum: "f7d814eb3498e0bb4b0d7ce5fd4c3180a974d8aa66c6e5f0c45ad29abfbfc0ae"),
         // CExtEngine supplies the engine core that CExtWamr's host objects use.
         .target(name: "ExtPluginWamr", dependencies: ["CExtWamr", "CExtEngine"]),
     ])

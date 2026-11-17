@@ -244,7 +244,7 @@ test "a guest serves the capability contracts" {
     const a = arena.allocator();
     var g = try factory(std.testing.allocator);
     defer g.deinit();
-    try w.validate(g.descriptor);
+    try w.validate(std.testing.allocator, g.descriptor);
     const health_ref = cap.health_method.contract;
     const config_ref = cap.configuration_method.contract;
     const stream_ref = stream.open_method.contract;

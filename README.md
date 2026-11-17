@@ -1,6 +1,6 @@
 # ext for Zig (`ext_io`): plugin SDK
 
-> **Why `ext_io`:** it matches the `ext-io` package of the other languages: one package for all of ext's APIs, one namespace per area. Only `plugin` is built so far; `system`, `web` and `int` are planned.
+> **Why `ext_io`:** it matches the `ext-io` package of the other languages: one package for all of ext's APIs, one namespace per area. Only `plugin` is built; `system`, `web` and `int` are reserved names, added when someone needs them.
 
 This package implements typed guests and host sessions for `ext.plugin/v1`,
 including JSON-line and C ABI bindings. It targets **Zig 0.17.0**, pinned because
@@ -10,7 +10,7 @@ third-party dependencies and links libc for clocks and standalone stdio.
 Add the package to your `build.zig.zon` with `zig fetch`, then import its named module:
 
 ```sh
-zig fetch --save https://github.com/webong/ext/archive/refs/tags/ext-zig-0.1.0.tar.gz
+zig fetch --save https://github.com/webong/ext/archive/refs/tags/ext-zig-0.2.0.tar.gz
 ```
 
 ```zig
@@ -26,6 +26,12 @@ workflow tests the package on its own, then fetches that URL and checks that Zig
 recorded, which the release page carries as `ext-zig-X.Y.Z-package-hash.txt`. See
 [distribution branches](../../docs/module-versioning.md#distribution-branches). To develop against a
 checkout instead, point a path dependency at this directory.
+
+The package compiles the C engine's portable guest core (validation and dispatch) with Zig, so it
+needs no CMake and no prebuilt library. It carries the sources in [`csrc`](csrc), a generated copy of
+[`lib/plugin`](../../lib/plugin): after changing `lib/plugin`, run `scripts/ext-zig-sync.sh` and commit
+both (`scripts/ext-zig-release.sh` fails on a copy that differs). `-Dengine-src=<dir>` builds from
+another directory.
 
 ## Typed authoring
 
@@ -172,7 +178,7 @@ try registry.register(cap.stream.CloseRequest, cap.stream.Empty, cap.stream.clos
 A request that does not satisfy a method never reaches the handler. `src/capability_tests.zig`
 pins the limits and the wire shapes (the cases the Rust, Python and TypeScript SDKs check too), and
 `examples/capability.zig` and `examples/capability-host.zig` take part in
-`pkg/ext-go/crosslang/capability_test.go`: the Go library's own methods and stream client call the
+`tests/crosslang/capability_test.go`: the Go library's own methods and stream client call the
 Zig guest (natively and as a WASI command), and the Zig host calls a guest the Go library serves
 (`stream.Service`, `RegisterConfiguration`, `RegisterHealth`).
 
@@ -210,6 +216,14 @@ zig build --build-file pkg/ext-zig/build.zig
 zig build --build-file pkg/ext-zig/build.zig -Dtarget=wasm32-wasi --prefix /tmp/ext-zig-wasi
 scripts/plugin-crosslang.sh
 ```
+
+The SDK runs the C engine's guest core (validation and dispatch), so a guest carries it. In a
+WASI module that is about 270 KB of code on top of the SDK's own: 175 KB became 445 KB, of which the
+vendored JSON parser is 165 KB. wazero compiles about 0.35 ms per KB of code, so a host that
+opens the module compiles it three times slower than before (54 ms became 154 ms on a laptop; the
+test harness measured 0.9 s become 2.9 s per session on a hosted Linux runner). A host that opens the same module more than once should share a
+compilation cache (`wasm.NewCompilationCache()` in `pkg/ext-go/wasm`): a later open then takes about
+3 ms. Debug information is most of the file's size (2.3 MB) and costs nothing to compile.
 
 `examples/common.zig` contains the shared conformance guest, `examples/frames.zig` the frames one, and
 `examples/capability.zig` and `examples/capability-host.zig` the capability ones. Native builds

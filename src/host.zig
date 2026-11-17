@@ -14,6 +14,7 @@ pub fn Result(comptime T: type) type {
 pub const Session = struct {
     arena: *std.heap.ArenaAllocator,
     descriptor: w.Descriptor,
+    descriptor_json: []const u8,
     backend: Backend,
     authorize: author.Policy,
     next: u64 = 0,
@@ -27,7 +28,8 @@ pub const Session = struct {
         }
         const own = arena.allocator();
         const d = try w.typed(w.Descriptor, own, try w.decode(own, try w.encode(own, selected)));
-        try w.validate(d);
+        try w.validate(own, d);
+        const json = try w.encode(own, d);
         try verify(d);
         const backend = try connector.connect(connector.context);
         errdefer backend.close(backend.context);
@@ -36,9 +38,9 @@ pub const Session = struct {
         const temp = scratch.allocator();
         const deadline = w.now() + w.timeout_ns;
         const bytes = try backend.exchange(backend.context, temp, 1, try w.encode(temp, .{ .deadline = try w.timestamp(temp, deadline) }), deadline);
-        try w.match(d, try w.typed(w.Descriptor, temp, try w.decode(temp, bytes)));
+        try w.match(temp, d, try w.typed(w.Descriptor, temp, try w.decode(temp, bytes)));
         if (w.now() >= deadline) return error.Deadline;
-        return .{ .arena = arena, .descriptor = d, .backend = backend, .authorize = authorize };
+        return .{ .arena = arena, .descriptor = d, .descriptor_json = json, .backend = backend, .authorize = authorize };
     }
     pub fn close(self: *Session) void {
         if (!self.closed) {
@@ -61,7 +63,7 @@ pub const Session = struct {
         if (self.next == std.math.maxInt(u64)) return error.Invalid;
         self.next += 1;
         const r: w.Request = .{ .apiVersion = w.version, .id = try std.fmt.allocPrint(a, "{d}", .{self.next}), .plugin = self.descriptor.identity, .contract = ref, .operation = operation, .surface = (try w.lookup(self.descriptor, ref, operation)).surface, .deadline = try w.timestamp(a, deadline), .payload = payload };
-        try w.validateRequest(self.descriptor, r);
+        try w.validateRequest(a, self.descriptor_json, r);
         try self.authorize(r);
         if (w.now() >= deadline) return error.Deadline;
         const input = try w.encode(a, r);

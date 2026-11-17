@@ -1,7 +1,7 @@
 // Calls the capability contracts (ext.health, ext.configuration and ext.stream) of a guest on
 // standard input and output, with the SDK's methods and stream.Client, and exits with an error on the
 // first answer that is not the one the cross-language test expects of a Go guest
-// (pkg/ext-go/crosslang/capability_test.go: TestCapabilityHosts).
+// (tests/crosslang/capability_test.go: TestCapabilityHosts).
 const std = @import("std");
 const sdk = @import("ext_io");
 const w = sdk.wire;
@@ -27,7 +27,9 @@ const Loader = struct {
     }
 };
 fn verify(d: w.Descriptor) !void {
-    try w.validate(d);
+    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    defer arena.deinit();
+    try w.validate(arena.allocator(), d);
 }
 fn allow(_: w.Request) !void {}
 fn expect(ok: bool) !void {

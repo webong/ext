@@ -22,7 +22,9 @@ const Loader = struct {
 // Explicit local fixture path supplied by the runner. Real hosts authenticate
 // the reviewed artifact in verify before connect executes any foreign code.
 fn verify(d: w.Descriptor) !void {
-    try w.validate(d);
+    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    defer arena.deinit();
+    try w.validate(arena.allocator(), d);
 }
 pub fn main(init: std.process.Init) !void {
     const a = init.arena.allocator();

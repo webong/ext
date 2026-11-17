@@ -126,7 +126,7 @@ test "the rate limiter reproduces every step" {
 fn descriptorAccepted(a: A, raw: []const u8) bool {
     const value = w.decode(a, raw) catch return false;
     const d = w.descriptorFromValue(a, value) catch return false;
-    w.validate(d) catch return false;
+    w.validate(a, d) catch return false;
     return true;
 }
 const Seen = struct { reporter: bool, events: i64, bytes: i64 };
@@ -134,7 +134,8 @@ const Seen = struct { reporter: bool, events: i64, bytes: i64 };
 fn requestAccepted(a: A, d: w.Descriptor, raw: []const u8) ?Seen {
     const value = w.decode(a, raw) catch return null;
     const r = w.requestFromValue(value) catch return null;
-    w.validateRequest(d, r) catch return null;
+    const json = w.encode(a, d) catch return null;
+    w.validateRequest(a, json, r) catch return null;
     const op = w.lookup(d, r.contract, r.operation) catch return null;
     if (r.progress) |rate| {
         if (op.progress) {
@@ -160,7 +161,7 @@ test "the wire model is judged as the Go contract judges it" {
         }
     }
     const selected = try w.descriptorFromValue(a, try w.field(root, "requestDescriptor"));
-    try w.validate(selected);
+    try w.validate(a, selected);
     const requests = (try w.field(root, "requests")).array.items;
     try std.testing.expect(requests.len > 100);
     for (requests) |case| {

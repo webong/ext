@@ -1,4 +1,5 @@
 const std = @import("std");
+const engine = @import("engine.zig");
 pub const Allocator = std.mem.Allocator;
 pub const Value = std.json.Value;
 pub const version = "ext.plugin/v1";
@@ -26,24 +27,22 @@ pub fn identifier(s: []const u8, revision: bool) bool {
 pub fn validateIdentity(id: Identity) !void {
     if (!identifier(id.id, false) or !identifier(id.revision, true) or (id.version.len != 0 and !identifier(id.version, true))) return error.Invalid;
 }
-pub fn sameIdentity(a: Identity, b: Identity) bool {
-    return eq(u8, a.id, b.id) and eq(u8, a.revision, b.revision) and eq(u8, a.version, b.version);
+// The rules of a descriptor, and of a request against one, are the C engine's (engine.zig), so there
+// is one copy of them across the SDKs. Its answers are our errors: a request or descriptor it refuses
+// is Invalid, one that does not match is Mismatch, and an operation it does not list is Unsupported.
+fn viaEngine(a: Allocator, operation: [:0]const u8, input: []const u8) !void {
+    const out = engine.service(a, operation, input) catch |err| return switch (err) {
+        error.OutOfMemory => error.OutOfMemory,
+        error.Mismatch => error.Mismatch,
+        error.Unsupported, error.NotFound => error.Unsupported,
+        else => error.Invalid,
+    };
+    a.free(out);
 }
-pub fn validate(d: Descriptor) !void {
-    try validateIdentity(d.identity);
-    if (!eq(u8, d.apiVersion, version) or d.contracts.len == 0 or d.contracts.len > 64 or d.reverse.len > 64) return error.Invalid;
-    try validateContracts(d.contracts, false);
-    try validateContracts(d.reverse, true);
-}
-fn validateContracts(contracts: []const Contract, reverse: bool) !void {
-    for (contracts, 0..) |c, i| {
-        if (!identifier(c.name, false) or !identifier(c.version, true) or c.operations.len == 0 or c.operations.len > 256) return error.Invalid;
-        for (contracts[0..i]) |p| if (eq(u8, p.name, c.name) and eq(u8, p.version, c.version)) return error.Invalid;
-        for (c.operations, 0..) |op, j| {
-            if (!identifier(op.name, false) or eq(u8, op.name, "plugin.hello") or (op.surface.len != 0 and !identifier(op.surface, false)) or (reverse and op.progress)) return error.Invalid;
-            for (c.operations[0..j]) |p| if (eq(u8, p.name, op.name)) return error.Invalid;
-        }
-    }
+pub fn validate(a: Allocator, d: Descriptor) !void {
+    const json = try encode(a, d);
+    defer a.free(json);
+    try viaEngine(a, "descriptor.validate", json);
 }
 fn find(contracts: []const Contract, ref: Ref, name: []const u8) !Operation {
     for (contracts) |c| if (eq(u8, c.name, ref.name) and eq(u8, c.version, ref.version)) {
@@ -58,32 +57,23 @@ pub fn lookup(d: Descriptor, ref: Ref, name: []const u8) !Operation {
 pub fn lookupReverse(d: Descriptor, ref: Ref, name: []const u8) !Operation {
     return find(d.reverse, ref, name);
 }
-pub fn match(a: Descriptor, b: Descriptor) !void {
-    try validate(a);
-    try validate(b);
-    if (!sameIdentity(a.identity, b.identity)) return error.Mismatch;
-    try matchContracts(a.contracts, b.contracts);
-    try matchContracts(a.reverse, b.reverse);
+// Whether the descriptor a plugin answered with is the one that was selected.
+pub fn match(a: Allocator, selected: Descriptor, actual: Descriptor) !void {
+    const left = try encode(a, selected);
+    defer a.free(left);
+    const right = try encode(a, actual);
+    defer a.free(right);
+    const input = try std.fmt.allocPrint(a, "{{\"selected\":{s},\"actual\":{s}}}", .{ left, right });
+    defer a.free(input);
+    try viaEngine(a, "descriptor.match", input);
 }
-fn matchContracts(a: []const Contract, b: []const Contract) !void {
-    if (a.len != b.len) return error.Mismatch;
-    for (a) |c| {
-        var found = false;
-        for (b) |d| if (eq(u8, c.name, d.name) and eq(u8, c.version, d.version) and c.operations.len == d.operations.len) {
-            found = true;
-        };
-        if (!found) return error.Mismatch;
-        for (c.operations) |op| {
-            const other = find(b, .{ .name = c.name, .version = c.version }, op.name) catch return error.Mismatch;
-            if (!eq(u8, op.surface, other.surface) or op.progress != other.progress) return error.Mismatch;
-        }
-    }
-}
-pub fn validateRequest(d: Descriptor, r: Request) !void {
-    try validate(d);
-    if (!eq(u8, r.apiVersion, version) or !identifier(r.id, true)) return error.Invalid;
-    _ = try deadline(r.deadline);
-    if (!sameIdentity(d.identity, r.plugin) or !eq(u8, (try lookup(d, r.contract, r.operation)).surface, r.surface)) return error.Mismatch;
+// descriptor_json is the descriptor as encode wrote it, kept by whoever validates many requests.
+pub fn validateRequest(a: Allocator, descriptor_json: []const u8, r: Request) !void {
+    const request = try encode(a, r);
+    defer a.free(request);
+    const input = try std.fmt.allocPrint(a, "{{\"descriptor\":{s},\"request\":{s}}}", .{ descriptor_json, request });
+    defer a.free(input);
+    try viaEngine(a, "request.validate", input);
 }
 
 // The strict readers below take a decoded JSON tree the way the Go contract decodes it: a member it

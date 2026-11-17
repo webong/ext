@@ -18,5 +18,18 @@ pub fn build(b: *std.Build) void {
     if (!shared and target.result.os.tag == .linux) module.linkSystemLibrary("dl", .{});
     const tests = b.addTest(.{ .root_module = module });
     const run = b.addRunArtifact(tests);
-    b.step("test", "Check the C engine binding").dependOn(&run.step);
+    const step = b.step("test", "Check the C engine binding");
+    step.dependOn(&run.step);
+    // The archive and download fixtures every binding runs. They are outside this
+    // package, so the tests skip when the directory is not there.
+    const fixtures = b.option([]const u8, "fixtures", "Directory of lib/plugin/testdata/v1") orelse (b.root.joinString(b.allocator, "../../../lib/plugin/testdata/v1") catch @panic("OOM"));
+    const options = b.addOptions();
+    options.addOption([]const u8, "fixtures", fixtures);
+    options.addOption([]const u8, "origin", b.root.joinString(b.allocator, "testdata/origin.py") catch @panic("OOM"));
+    for ([_][]const u8{ "src/archive_tests.zig", "src/download_tests.zig" }) |path| {
+        const fixture_module = b.createModule(.{ .root_source_file = b.path(path), .target = target, .optimize = optimize, .link_libc = true });
+        fixture_module.addImport("ext_plugin_engine", module);
+        fixture_module.addOptions("build_options", options);
+        step.dependOn(&b.addRunArtifact(b.addTest(.{ .root_module = fixture_module })).step);
+    }
 }

@@ -157,8 +157,11 @@ Swift SDK binds both as `PackageStore.installArchive` and `receipt` (with `Archi
 `maxArchiveBytes` in `PackageStoreLimits`; `ArchiveCasesTests` in `pkg/ext-ios` runs every archive case) and
 has a download helper on `URLSession`, `ArchiveDownloader`, which `DownloadCasesTests` runs through every
 download case against a local Network.framework TLS server; `CExtEngine.xcframework` exports both functions,
-and the iOS release ships the `yyjson-LICENSE` and `miniz-LICENSE` of the code it compiles in. Open:
-the Zig and Java bindings do not bind the two functions yet, and have no download helper. Two forms are refused by both stores on purpose, each pinned by a fixture: a zip in the
+and the iOS release ships the `yyjson-LICENSE` and `miniz-LICENSE` of the code it compiles in. The Zig
+binding binds both as `Store.installArchive` and `receipt` (`pkg/ext-zig/engine/src/archive_tests.zig` runs every
+archive case) and has `download.Downloader` over `std.http.Client`, which `src/download_tests.zig` runs through
+every download case against a local TLS origin (`testdata/origin.py`, Python's `ssl` with a certificate made by
+`openssl`). Open: the Java binding does not bind the two functions yet, and has no download helper. Two forms are refused by both stores on purpose, each pinned by a fixture: a zip in the
 zip64 form (`zip-zip64`; Go's `archive/zip` would read it, so the Go store checks for it) and a tar that stops
 inside a header block (`tar-cut-in-header`, `tar-gz-cut-in-header`; Go's `archive/tar` would take it as the end
 of the archive, so the Go store counts blocks). The Windows side of the streamed file layer

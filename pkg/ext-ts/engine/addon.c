@@ -1262,7 +1262,9 @@ typedef struct {
 } store_box;
 /* The arguments of resolveEntrypoint, in the order of ext_store_resolve_entrypoint:
  * id, contract, version, protocol, reviewed digest, os and arch, the last two
- * NULL for the platform the engine was built for. */
+ * NULL for the platform the engine was built for. installArchive uses the first
+ * two for the pinned SHA-256 and the expected id, and max_bytes for the archive
+ * limit. */
 #define STORE_FIELDS 7
 typedef struct {
   napi_async_work work;
@@ -1272,6 +1274,7 @@ typedef struct {
   char *operation, *argument;
   char *fields[STORE_FIELDS];
   uint32_t flags;
+  uint64_t max_bytes;
   ext_buffer output;
   size_t layer;
   int with_layer;
@@ -1412,6 +1415,13 @@ static void store_execute(napi_env env, void *data) {
     j->status = ext_store_replace(s, j->argument, j->flags, &j->output);
   else if (!strcmp(j->operation, "remove"))
     j->status = ext_store_remove(s, j->argument);
+  else if (!strcmp(j->operation, "installArchive"))
+    j->status = ext_store_install_archive(s, j->argument,
+                                          j->fields[0] ? j->fields[0] : "",
+                                          j->fields[1], j->flags, j->max_bytes,
+                                          &j->output);
+  else if (!strcmp(j->operation, "receipt"))
+    j->status = ext_store_receipt(s, j->argument, &j->output);
   else if (!strcmp(j->operation, "load"))
     j->status = ext_store_load(s, j->argument, &j->output);
   else if (!strcmp(j->operation, "ids"))
@@ -1496,11 +1506,13 @@ static void store_complete(napi_env env, napi_status code, void *data) {
   box->jobs--;
   settle_store(box);
 }
+/* storeRequest(store, operation, argument, flags[, fields[, maxBytes]]). */
 static napi_value store_request(napi_env env, napi_callback_info info) {
-  size_t count = 5, on = 0, an = 0;
-  napi_value args[5], promise, name;
+  size_t count = 6, on = 0, an = 0;
+  napi_value args[6], promise, name;
+  int64_t max_bytes = 0;
   if (napi_get_cb_info(env, info, &count, args, NULL, NULL) != napi_ok ||
-      (count != 4 && count != 5))
+      count < 4 || count > 6)
     return failure(env, "invalid store call");
   store_job *j = calloc(1, sizeof(*j));
   if (!j)
@@ -1511,8 +1523,11 @@ static napi_value store_request(napi_env env, napi_callback_info info) {
       strlen(j->operation) != on ||
       !(j->argument = string(env, args[2], &an)) || strlen(j->argument) != an ||
       napi_get_value_uint32(env, args[3], &j->flags) != napi_ok ||
-      (count == 5 && !store_fields(env, args[4], j->fields)))
+      (count >= 5 && !store_fields(env, args[4], j->fields)) ||
+      (count == 6 && (napi_get_value_int64(env, args[5], &max_bytes) != napi_ok ||
+                      max_bytes < 0)))
     goto invalid;
+  j->max_bytes = (uint64_t)max_bytes;
   if (napi_create_reference(env, args[0], 1, &j->owner) != napi_ok ||
       napi_create_promise(env, &j->deferred, &promise) != napi_ok)
     goto invalid;

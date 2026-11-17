@@ -46,6 +46,32 @@ over an installed id) or `status.NOT_FOUND`. A missing root is an empty store, m
 the first install; calls on one store are serialized by the engine, several processes
 mutating one root are yours to serialize. `close()` lets calls in flight finish.
 
+`installArchive(archive, sha256, {id, preserveExecutable})` installs, or upgrades to, the
+package in a zip, tar.gz or plain tar file, which must have the pinned SHA-256 (64 hexadecimal
+characters, either case); the engine checks the digest before it extracts anything, extracts
+under the store's limits and `maxArchiveBytes` (512 MiB when absent), and resolves with the
+installed `plugin.json`. `id`, when given, is the package the archive must hold. Besides the
+statuses of `install` and `upgrade`, it rejects with `status.MISMATCH` (another digest, another
+id, or other content at the installed revision), `status.UNSUPPORTED` (zstd, xz, bzip2 or not an
+archive) and `status.MISSING` (no such file); a URL is `status.INVALID`. A successful install
+leaves a receipt, so a repeat with the same digest skips the archive while the package still
+verifies; `receipt(id)` resolves with it, `{id, revision, artifact_sha256}`, or rejects with
+`status.NOT_FOUND`. Compare its revision with the installed package before relying on it.
+
+The C engine has no HTTPS, so downloading is this package's. `download(url, destination,
+{maxBytes, headers, ca, agent, signal, timeout})` uses Node's own `https` and follows the rules
+every binding shares (`lib/plugin/testdata/v1/download-cases.json`): only `https` URLs with a
+host and without user information or a fragment, for the first request and every redirect; at
+most `MAX_REDIRECTS` (5) redirects; `headers` go with the first request only, and
+`Authorization`, `Cookie` and `Referer` are dropped at a redirect; the body is held to `maxBytes`
+(`DEFAULT_MAX_BYTES`, 512 MiB, when absent) whatever `Content-Length` says; the destination must
+not exist, and a failed download leaves no file. A refusal by the rules rejects with
+`status.INVALID`; an HTTP status other than 200 (as `httpStatus`), the network and the file reject
+without a `status`. `store.installArchiveFrom(url, sha256, options)` downloads under the store's
+`maxArchiveBytes` into a private directory (under `options.temporaryDirectory` or `os.tmpdir()`),
+calls `installArchive` and removes the download. Neither sets a deadline unless you pass
+`timeout` or `signal`.
+
 `list()`, `verify()` and `listUnverified()` are the whole-root reports; each resolves with
 the engine's JSON parsed (`PackageRecord[]`, `PackageCheck[]` and
 `{packages, problems}`). `listUnverified()` reads no artifact: its result is unverified and

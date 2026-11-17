@@ -1,4 +1,9 @@
 import {createRequire} from 'node:module';
+import {mkdtemp,rm} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+import {download} from './download.mjs';
+export {download,MAX_REDIRECTS,DEFAULT_MAX_BYTES} from './download.mjs';
 const require=createRequire(import.meta.url);
 const json=value=>JSON.stringify(value??null);
 const timeout=value=>{value??=30_000;if(!Number.isInteger(value)||value<1||value>0xffffffff)throw new TypeError('timeout must be 1..4294967295 milliseconds');return value;};
@@ -193,20 +198,46 @@ export function loadEngine(addonPath){
    return value;
  };
  class PackageStore{
-   #handle;#closed=false;
+   #handle;#closed=false;#maxArchiveBytes;
    constructor(root,limits={}){
      if(typeof root!=='string'||root==='')throw new TypeError('root required');
+     this.#maxArchiveBytes=size(limits.maxArchiveBytes,'maxArchiveBytes');
      this.#handle=native.openStore(root,size(limits.maxArtifactBytes,'maxArtifactBytes'),natural(limits.maxTreeFiles,'maxTreeFiles'),size(limits.maxTreeBytes,'maxTreeBytes'));
    }
-   #call(operation,argument,flags=0,fields){
+   #call(operation,argument,flags=0,fields,maxBytes){
      if(this.#closed)return Promise.reject(Object.assign(new Error('store closed'),{status:5}));
      if(typeof argument!=='string')return Promise.reject(new TypeError('a string is required'));
+     if(maxBytes!==undefined)return native.storeRequest(this.#handle,operation,argument,flags,fields,maxBytes);
      if(fields!==undefined)return native.storeRequest(this.#handle,operation,argument,flags,fields);
      return native.storeRequest(this.#handle,operation,argument,flags);
    }
    install(source,options){return this.#call('install',source,options?.preserveExecutable?1:0);}
    upgrade(source,options){return this.#call('upgrade',source,options?.preserveExecutable?1:0);}
    replace(source,options){return this.#call('replace',source,options?.preserveExecutable?1:0);}
+   // Installs or upgrades from the archive file `archive` (zip, tar.gz or plain tar), which must have the
+   // SHA-256 `sha256` (see ext_store_install_archive in ext_host.h); resolves with the installed plugin.json.
+   // `id`, when given, is the package the archive must hold. The store's maxArchiveBytes bounds the file.
+   installArchive(archive,sha256,options){
+     if(typeof sha256!=='string')return Promise.reject(new TypeError('sha256 must be a string'));
+     const id=options?.id;
+     if(id!==undefined&&typeof id!=='string')return Promise.reject(new TypeError('id must be a string'));
+     // A URL is never a file to open, whatever the file system would make of it: download it first.
+     if(typeof archive==='string'&&archive.includes('://'))return Promise.reject(invalid('archive must be a file path, not a URL'));
+     return this.#call('installArchive',archive,options?.preserveExecutable?1:0,[sha256,id??null,null,null,null,null,null],this.#maxArchiveBytes);
+   }
+   // Downloads the archive at the HTTPS URL `url` under the shared rules (see download.mjs) into a private
+   // temporary directory, installs it as installArchive does and removes the download.
+   async installArchiveFrom(url,sha256,options={}){
+     if(this.#closed)throw Object.assign(new Error('store closed'),{status:5});
+     const directory=await mkdtemp(join(options.temporaryDirectory??tmpdir(),'ext-archive-'));
+     try{
+       const file=join(directory,'archive');
+       await download(url,file,{...options,maxBytes:this.#maxArchiveBytes});
+       return await this.installArchive(file,sha256,options);
+     }finally{await rm(directory,{recursive:true,force:true});}
+   }
+   // The receipt an archive install left: {id, revision, artifact_sha256}. Rejects with NOT_FOUND when none.
+   async receipt(id){return JSON.parse(await this.#call('receipt',id));}
    async remove(id){await this.#call('remove',id);}
    load(id){return this.#call('load',id);}
    async ids(){return JSON.parse(await this.#call('ids',''));}

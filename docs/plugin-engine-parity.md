@@ -134,8 +134,11 @@ run (`TestDownloadCases`). The Rust binding binds both as `store::Store::install
 `pkg/ext-rust/engine/tests/download.rs` runs through every download case against a local TLS server. The Node
 binding binds them as `PackageStore.installArchive` and `receipt` (`pkg/ext-ts/engine/archive.test.mjs` runs every
 archive case) and has `download` and `PackageStore.installArchiveFrom` on Node's own `https`, which
-`pkg/ext-ts/engine/download.test.mjs` runs through every download case against a local TLS server. Open:
-the Zig, Swift and Java bindings do not bind the two functions yet, and none has a download helper. Two forms are refused by both stores on purpose, each pinned by a fixture: a zip in the
+`pkg/ext-ts/engine/download.test.mjs` runs through every download case against a local TLS server. The Zig
+binding binds both as `Store.installArchive` and `receipt` (`pkg/ext-zig/engine/src/archive_tests.zig` runs every
+archive case) and has `download.Downloader` over `std.http.Client`, which `src/download_tests.zig` runs through
+every download case against a local TLS origin (`testdata/origin.py`, Python's `ssl` with a certificate made by
+`openssl`). Open: the Swift and Java bindings do not bind the two functions yet, and have no download helper. Two forms are refused by both stores on purpose, each pinned by a fixture: a zip in the
 zip64 form (`zip-zip64`; Go's `archive/zip` would read it, so the Go store checks for it) and a tar that stops
 inside a header block (`tar-cut-in-header`, `tar-gz-cut-in-header`; Go's `archive/tar` would take it as the end
 of the archive, so the Go store counts blocks). The Windows side of the streamed file layer

@@ -56,6 +56,30 @@ best `argv` entrypoint that lists the protocol. A changed or empty digest is `er
 so an installed package is never trusted for being installed; a package that does not serve
 the contract, or has no entrypoint that fits the platform, is `error.Unsupported`.
 
+`Store.installArchive` installs or upgrades from a local zip, gzip-compressed tar or plain tar
+after checking it against a pinned SHA-256, optionally requiring the package id it must hold, and
+returns the installed `plugin.json`; `Store.receipt` returns the receipt that install left, the JSON
+`{"id","revision","artifact_sha256"}`, or `error.NotFound`. The archive file is bounded by
+`StoreLimits.max_archive_bytes` (512 MiB when zero) and its extraction by the tree limits. Besides the
+statuses of `install` and `upgrade`, a digest that differs or an archive of another id is
+`error.Mismatch`, an unsafe or over-limit entry or a zip64 archive `error.Invalid`, a format that is not
+read (zstd, xz, bzip2) `error.Unsupported` and an archive that is not there `error.Missing`.
+`src/archive_tests.zig` runs every case of `lib/plugin/testdata/v1/archive-cases.json`.
+
+The engine has no HTTPS, so `download.Downloader` fetches an archive with `std.http.Client` under the
+rules every binding follows: `https` only, with a host and without user information or a fragment, for
+the first request and every redirect; at most `download.max_redirects` (5) redirects; `Authorization`,
+`Cookie` and `Referer` dropped at the first redirect; a body no larger than the limit, whatever
+`Content-Length` says; and no file left behind, nor an existing one changed, on failure. `init` trusts
+the system roots and `trustOnly` the PEM certificates of one file; there is no proxy or timeout (cancel
+the `Io` operation instead). `download` writes a new file, and `install` downloads into a private
+temporary directory under the store's archive limit, calls `Store.installArchive` and removes the
+download. A refusal by the rules is `error.Invalid`, another status than 200 `error.HttpStatus` and any
+other failure `error.Transfer` or `error.DestinationExists`. `src/download_tests.zig` runs every case
+of `download-cases.json` against a local TLS origin, `testdata/origin.py`, which needs `python3` and
+`openssl` and is skipped without `python3`. The fixtures are found through `-Dfixtures`, by default
+`lib/plugin/testdata/v1` of the repository; both tests skip when it is not there.
+
 The guest handler uses the C copying result sink. It must cooperate with its
 remaining time and must not retain borrowed pointers. Instance/stream APIs are
 available through both ownership wrappers and `ffi`. Release all leases and join

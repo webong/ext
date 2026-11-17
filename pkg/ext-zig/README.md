@@ -10,7 +10,7 @@ third-party dependencies and links libc for clocks and standalone stdio.
 Add the package to your `build.zig.zon` with `zig fetch`, then import its named module:
 
 ```sh
-zig fetch --save https://github.com/webong/ext/archive/refs/tags/ext-zig-0.1.0.tar.gz
+zig fetch --save https://github.com/webong/ext/archive/refs/tags/ext-zig-0.2.0.tar.gz
 ```
 
 ```zig

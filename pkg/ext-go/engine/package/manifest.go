@@ -163,9 +163,11 @@ func (m Manifest) Validate() error {
 			}
 		}
 	}
+	// An entrypoint may name a tree, such as Go source a host interprets, except
+	// under the process runtime, which starts a single executable file.
 	entries := map[string]bool{}
 	for _, e := range m.Entrypoints {
-		if !namePattern.MatchString(e.Name) || entries[e.Name] || !namePattern.MatchString(e.Runtime) || !names[e.Artifact] || m.treeArtifact(e.Artifact) {
+		if !namePattern.MatchString(e.Name) || entries[e.Name] || !namePattern.MatchString(e.Runtime) || !names[e.Artifact] || (e.Runtime == ExecutableRuntime && m.treeArtifact(e.Artifact)) {
 			return plugin.ErrInvalid
 		}
 		entries[e.Name] = true

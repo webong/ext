@@ -201,13 +201,17 @@ func TestTreeRulesRejected(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// An entrypoint cannot name a tree.
+	// A process entrypoint cannot name a tree; another runtime may.
 	os.Remove(filepath.Join(root, "vendor", "sym"))
 	tree, _ := packagekit.TreeDigest(root, "vendor")
 	m.Artifacts = append(m.Artifacts, packagekit.Artifact{Name: "vendor", Path: "vendor", Kind: packagekit.ArtifactTree, SHA256: tree})
 	m.Entrypoints = []packagekit.Entrypoint{{Name: "main", Runtime: "process", Artifact: "vendor", Protocols: []string{plugin.APIVersion}}}
 	if err := m.Validate(); err == nil {
-		t.Fatal("tree entrypoint accepted")
+		t.Fatal("process entrypoint on a tree accepted")
+	}
+	m.Entrypoints[0].Runtime = "go-source"
+	if err := m.Validate(); err != nil {
+		t.Fatalf("source entrypoint on a tree refused: %v", err)
 	}
 	m.Entrypoints = nil
 	m.Artifacts[len(m.Artifacts)-1].Kind = "bundle"

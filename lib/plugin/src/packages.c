@@ -459,11 +459,15 @@ ext_status ext_manifest_valid(yyjson_val *m) {
   ext_status distinct = artifacts_distinct(a);
   if (distinct)
     return distinct;
+  /* An entrypoint may name a tree except under the process runtime, which
+   * starts a single executable file. */
   yyjson_arr_foreach(e, i, n, v) {
     yyjson_val *target = named(a, get(v, "artifact"));
     if (!EXT_FIELDS(v, "name", "runtime", "artifact", "protocols") ||
         !ext_text(get(v, "name"), 0, 0) || !ext_text(get(v, "runtime"), 0, 0) ||
-        !target || tree_artifact(target) || !ext_protocols(get(v, "protocols")))
+        !target ||
+        (tree_artifact(target) && yyjson_equals_str(get(v, "runtime"), "process")) ||
+        !ext_protocols(get(v, "protocols")))
       return EXT_INVALID;
     EXT_ARR_BEFORE(e, i, j, k, w)
     if (ext_same(get(v, "name"), get(w, "name"))) return EXT_INVALID;

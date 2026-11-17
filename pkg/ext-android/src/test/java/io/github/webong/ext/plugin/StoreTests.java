@@ -331,14 +331,14 @@ final class StoreTests {
         try (Scratch scratch = new Scratch()) {
             Path root = scratch.path("store");
             String big = pack(scratch.path("big"), "example/f", "r1", "example.read", "three bytes", false);
-            try (PackageStore store = new PackageStore(root.toString(), new StoreLimits(2, 0, 0))) {
+            try (PackageStore store = new PackageStore(root.toString(), new StoreLimits(2, 0, 0, 0))) {
                 fails(PackageStore.INVALID, () -> store.install(big), "an artifact over the limit");
             }
             String tree = pack(scratch.path("tree"), "example/g", "r1", "example.read", "ok", true);
-            try (PackageStore store = new PackageStore(root.toString(), new StoreLimits(0, 2, 0))) {
+            try (PackageStore store = new PackageStore(root.toString(), new StoreLimits(0, 2, 0, 0))) {
                 fails(PackageStore.INVALID, () -> store.install(tree), "a tree with too many files");
             }
-            try (PackageStore store = new PackageStore(root.toString(), new StoreLimits(0, 0, 4))) {
+            try (PackageStore store = new PackageStore(root.toString(), new StoreLimits(0, 0, 4, 0))) {
                 fails(PackageStore.INVALID, () -> store.install(tree), "a tree over the byte limit");
             }
             same(List.of(), entries(root), "the root after refused installs");
@@ -347,7 +347,7 @@ final class StoreTests {
                 same(List.of("example/g"), store.ids(), "the default limits admit it");
             }
             try {
-                new StoreLimits(-1, 0, 0);
+                new StoreLimits(-1, 0, 0, 0);
                 throw new AssertionError("a negative limit was accepted");
             } catch (IllegalArgumentException expected) {
                 // the bounds are non-negative

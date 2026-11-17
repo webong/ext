@@ -150,8 +150,8 @@ try (LayeredPackageStore view = new LayeredPackageStore(List.of(userRoot, system
   installed id), `NOT_FOUND`, `MISSING` (a source directory, a manifest or a listed artifact that is not there),
   `CLOSED`, `IO` and `NOMEM`. A `null` argument is a
   `NullPointerException`; a string with no UTF-8 spelling (a lone surrogate) or with a NUL is `INVALID`.
-- `StoreLimits` bounds one artifact file, the files in a tree and the bytes of a tree; zero takes the engine's
-  default (4 GiB, 250000 files, 16 GiB). The install and upgrade calls take a `preserveExecutable` flag: a
+- `StoreLimits` bounds one artifact file, the files in a tree, the bytes of a tree and the archive file of
+  `installArchive`; zero takes the engine's default (4 GiB, 250000 files, 16 GiB, 512 MiB). The install and upgrade calls take a `preserveExecutable` flag: a
   file artifact keeps its execute bit only when asked, while entrypoints and the files of a tree always do.
 - Manifests and the reports come back as the engine's bytes, not as a Java model. `load` returns `plugin.json`
   verbatim, which is what a trust record's digest covers, and `list()`, `verify()` and `listUnverified()`
@@ -175,10 +175,49 @@ try (LayeredPackageStore view = new LayeredPackageStore(List.of(userRoot, system
   root are the app's to serialize.
 - Paths reach the engine as UTF-8, not as the modified UTF-8 of a JNI `jstring`, so a name with an emoji in it
   is the name on disk. `libextjni` carries the store: it links the host half of the engine as a static archive,
-  so only the objects the store needs come with it (the file layer, integrity checks and SHA-256, about 50 KB
-  per ABI), and no process or WebAssembly hosting code.
+  so only the objects the store needs come with it (the file layer, integrity checks, SHA-256, and the archive
+  readers with miniz's inflate decoder), and no process or WebAssembly hosting code.
 - The store holds reviewed content; it does not make downloaded native code launchable. See the store rules
   under Kotlin and Android.
+
+### Install from an archive
+
+`installArchive` installs, or upgrades to, the package in a local zip, gzip-compressed tar or plain tar, pinned
+by its SHA-256; `ArchiveDownload` fetches one over HTTPS first. The engine checks the digest before it extracts
+anything, extracts under the store's limits (only directories and regular files, no link, no unsafe or repeated
+path), installs what it extracted as it would a directory, and leaves a receipt.
+
+```java
+File archive = new File(context.getCacheDir(), "greeter.zip");               // must not exist yet
+ArchiveDownload.download("https://example.com/greeter-1.2.0.zip", archive);  // off the main thread
+try (PackageStore store = new PackageStore(root, new StoreLimits(0, 0, 0, 64L << 20))) {
+    byte[] manifest = store.installArchive(archive.getPath(), pinnedSha256, "com.example/greeter", false);
+    byte[] receipt = store.receipt("com.example/greeter");   // {"id","revision","artifact_sha256"}
+} finally {
+    archive.delete();
+}
+```
+
+- `sha256` is required (64 hexadecimal characters, either case); `id`, when not null or empty, is the package
+  the archive must hold. `StoreLimits.maxArchiveBytes` bounds the archive file (512 MiB when zero); the other
+  limits bound its entries, the extracted total and one file.
+- When the receipt of the installed package names the same digest and the revision installed now, and the
+  package still verifies, the call returns without opening the archive.
+- Besides the statuses of `install` and `upgrade`: `MISMATCH` for a digest that differs, another package than
+  `id`, or other content at the installed revision; `UNSUPPORTED` for a format that is not read (zstd, xz,
+  bzip2); `INVALID` for a missing or malformed digest, an archive over a limit, a link or special entry, an
+  unsafe or repeated path, a zip64 archive or a URL; `MISSING` for an archive that is not there. `receipt` is
+  `NOT_FOUND` when no archive install recorded one, and `remove` deletes it.
+- `ArchiveDownload` takes only `https` URLs with a host and without user information or a fragment, for the
+  first request and for every redirect, which it follows by hand, at most five; `Authorization`, `Cookie` and
+  `Referer` are not sent after a redirect; the body is bounded by `Options.maxBytes` (512 MiB when zero) whatever
+  `Content-Length` says; and a failed download leaves no file and never touches one that was there. A refusal by
+  those rules is `GuestException` with `INVALID`; any other failure, an HTTP status other than 200 included, is
+  an `IOException`. `Options` also sets request headers, a connect and read timeout (60 seconds by default) and
+  an `SSLSocketFactory`, for an app that pins or trusts a private authority. The download verifies nothing: the
+  pinned digest is checked by `installArchive`.
+- The JVM tests run every case of `lib/plugin/testdata/v1/archive-cases.json` and `download-cases.json`, the
+  second against a loopback HTTPS server; neither has run on a device or an emulator.
 
 ## Report progress and call the host
 
@@ -270,7 +309,7 @@ not use `INTERNET`, perform a lookup, or open a connection.
 
 The script builds the JNI library with CMake, compiles the classes with
 `javac -Xlint:all -Werror`, runs the tests with `java -ea` (no test framework is
-assumed; `StoreTests` is the package store's, run from `GuestTests`), and writes launchers for `ConformanceGuest`, the shared
+assumed; `StoreTests` is the package store's and `ArchiveTests` and `DownloadTests` its archive install and download, run from `GuestTests`), and writes launchers for `ConformanceGuest`, the shared
 `ext.conformance/v1` fixture, and `FramesGuest` (each names `java` by absolute path,
 since the engine starts a guest with an empty environment). `scripts/plugin-crosslang.sh`
 runs them through the same Go suite as the Rust and Zig guests, and requires them when a
@@ -343,7 +382,9 @@ see [module versioning](../../docs/module-versioning.md)). Each carries:
 
 - `ext-android-X.Y.Z.aar`: the guest SDK, the package store, the WebView host and the web rules as `classes.jar`
   (Java 17, which the app's D8 desugars), `libextjni` for arm64-v8a and x86_64, and consumer R8 rules (`proguard.txt`).
-  Minimum SDK 24.
+  Minimum SDK 24. `libextjni` carries the engine's vendored yyjson parser and miniz inflate decoder; their
+  licenses are inside every AAR (`META-INF/yyjson-LICENSE`, `META-INF/miniz-LICENSE`) and beside it
+  (`yyjson-LICENSE`, `miniz-LICENSE`), and ship with any app that links it.
 - `ext-android-wamr-X.Y.Z.aar`: the same plus `libextwamrjni` and the `WamrPluginHost` classes.
   Minimum SDK 28. WAMR's license is inside it (`META-INF/WAMR-LICENSE`) and beside it
   (`WAMR-LICENSE`), and must ship with any app that links it.

@@ -10,3 +10,6 @@ links = "ext_host"
 default = []
 shared = []
 guest-only = []
+
+[dev-dependencies]
+serde_json = "1"

@@ -17,8 +17,13 @@ download = ["dep:ureq"]
 ureq = { version = "3.5.2", default-features = false, features = ["rustls"], optional = true }
 
 [dev-dependencies]
+serde_json = "1"
+
+# The network tests (the download helper and its TLS origin) never build for a
+# WASM target: `ring` has no wasm32-wasip1 build, and the WASI guest example
+# would otherwise pull these in as dev-dependencies.
+[target.'cfg(not(target_family = "wasm"))'.dev-dependencies]
 # The tests build the download helper too, whatever features the build names.
 ext-plugin-engine = { path = ".", features = ["download"] }
 rcgen = { version = "0.14", default-features = false, features = ["crypto", "ring"] }
 rustls = { version = "0.23", default-features = false, features = ["ring", "std"] }
-serde_json = "1"

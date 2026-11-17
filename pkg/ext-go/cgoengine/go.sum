@@ -1,4 +1,4 @@
 github.com/ebitengine/purego v0.11.3 h1:OB+JLpdm7ioymhyA+6s5kbb/uOuYycAgL8NNTFc5MLg=
 github.com/ebitengine/purego v0.11.3/go.mod h1:DCHPP08djqhNSoTfImcnHYQRZmd0qhakvrozqaEYhGQ=
-github.com/webong/ext/pkg/ext-go/engine v0.3.0 h1:BSsdKtqiWKLkhXLQc2dKAPl5fFlQMbH+Enw5qjPlw1o=
-github.com/webong/ext/pkg/ext-go/engine v0.3.0/go.mod h1:lnYoMIb5lKAnz60k2oG47rhxxFqOLA5MT3IaU5rlU4s=
+github.com/webong/ext/pkg/ext-go/engine v0.4.0 h1:UpF71NLx8q3Q/LYJyvfd6wfbQ5/VfGOIk4V2YAXY2kE=
+github.com/webong/ext/pkg/ext-go/engine v0.4.0/go.mod h1:lnYoMIb5lKAnz60k2oG47rhxxFqOLA5MT3IaU5rlU4s=

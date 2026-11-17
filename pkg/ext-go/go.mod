@@ -3,12 +3,14 @@ module github.com/webong/ext/pkg/ext-go
 go 1.26.0
 
 require (
-	github.com/webong/ext/pkg/ext-go/c2goengine v0.3.0
-	github.com/webong/ext/pkg/ext-go/cgoengine v0.3.0
-	github.com/webong/ext/pkg/ext-go/engine v0.3.0
+	github.com/webong/ext/pkg/ext-go/c2goengine v0.4.0
+	github.com/webong/ext/pkg/ext-go/cgoengine v0.4.0
+	github.com/webong/ext/pkg/ext-go/engine v0.4.0
 	github.com/webong/ext/pkg/ext-go/hashicorp v0.3.2
 	github.com/webong/ext/pkg/ext-go/wasm v0.5.0
 )
+
+require github.com/ebitengine/purego v0.11.3 // indirect
 
 require (
 	github.com/dustin/go-humanize v1.1.0 // indirect

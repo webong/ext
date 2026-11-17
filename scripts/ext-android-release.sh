@@ -9,7 +9,8 @@
 # --with-wamr also builds the optional WAMR host: libextwamrjni for the same ABIs and the
 # WamrPluginHost classes. WAMR is Apache-2.0 with the LLVM exception; its license is staged as
 # WAMR-LICENSE beside the AAR and inside it (META-INF/), and must ship with any binary that links
-# it. Without the flag the AAR carries neither the library nor the classes.
+# it. Without the flag the AAR carries neither the library nor the classes. Every AAR carries the
+# licenses of the engine's vendored code, yyjson-LICENSE and miniz-LICENSE, the same way.
 # Usage: scripts/ext-android-release.sh [--with-wamr] <version, for example 0.1.0>
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -70,8 +71,15 @@ MANIFEST
 : >"$work/aar/R.txt"
 # Rules the native code needs from R8, applied to every app that depends on the AAR.
 cp "$pkg/consumer-rules.pro" "$work/aar/proguard.txt"
+# libextjni carries the engine's vendored yyjson parser and miniz inflate decoder; their licenses
+# ship inside every AAR and beside it.
+mkdir -p "$work/aar/META-INF"
+for license in "yyjson-LICENSE lib/plugin/vendor/LICENSE" "miniz-LICENSE lib/plugin/vendor/miniz/LICENSE"; do
+  set -- $license
+  cp "$2" "$work/aar/META-INF/$1"
+  cp "$2" "$out/$1"
+done
 if [[ -n "$with_wamr" ]]; then
-  mkdir -p "$work/aar/META-INF"
   cp "$wamr/LICENSE" "$work/aar/META-INF/WAMR-LICENSE"
   cp "$wamr/LICENSE" "$out/WAMR-LICENSE"
 fi
@@ -79,7 +87,8 @@ fi
 
 # Prove it: the AAR must hold what it claims, and nothing of WAMR unless asked.
 listing="$(unzip -Z1 "$out/$aar_name")"
-for entry in AndroidManifest.xml classes.jar proguard.txt jni/arm64-v8a/libextjni.so jni/x86_64/libextjni.so; do
+for entry in AndroidManifest.xml classes.jar proguard.txt jni/arm64-v8a/libextjni.so jni/x86_64/libextjni.so \
+  META-INF/yyjson-LICENSE META-INF/miniz-LICENSE; do
   grep -qx "$entry" <<<"$listing" || { echo "AAR is missing $entry" >&2; exit 1; }
 done
 wamr_entries="$(grep -c -i wamr <<<"$listing" || true)"
@@ -91,6 +100,7 @@ fi
 unzip -p "$out/$aar_name" classes.jar >"$work/check.jar"
 classes="$(unzip -Z1 "$work/check.jar")"
 grep -qx 'io/github/webong/ext/plugin/PackageStore.class' <<<"$classes" || { echo 'classes.jar is missing the package store' >&2; exit 1; }
+grep -qx 'io/github/webong/ext/plugin/ArchiveDownload.class' <<<"$classes" || { echo 'classes.jar is missing the archive download' >&2; exit 1; }
 grep -qx 'io/github/webong/ext/plugin/LayeredPackageStore.class' <<<"$classes" || { echo 'classes.jar is missing the layered package store' >&2; exit 1; }
 grep -qx 'io/github/webong/ext/web/android/BrowserWorkspace.class' <<<"$classes" || { echo 'classes.jar is missing the browser workspace'; exit 1; }
 for entry in BundleRunner BundleServer BundleAssets; do
@@ -126,4 +136,5 @@ fi
 echo "version   $version"
 echo "aar       $out/$aar_name"
 echo "entries   $(wc -l <<<"$listing" | tr -d ' ')"
+echo "licenses  $out/yyjson-LICENSE $out/miniz-LICENSE"
 [[ -z "$with_wamr" ]] || echo "license   $out/WAMR-LICENSE"

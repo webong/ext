@@ -131,8 +131,13 @@ with the caller in every language, under the rules of `testdata/v1/download-case
 run (`TestDownloadCases`). The Rust binding binds both as `store::Store::install_archive` and `receipt`
 (`pkg/ext-rust/engine/tests/archive.rs` runs every archive case) and has a download helper,
 `download::Downloader` behind its `download` feature (ureq over rustls), which
-`pkg/ext-rust/engine/tests/download.rs` runs through every download case against a local TLS server. Open:
-the Node, Zig, Swift and Java bindings do not bind the two functions yet, and none has a download helper. Two forms are refused by both stores on purpose, each pinned by a fixture: a zip in the
+`pkg/ext-rust/engine/tests/download.rs` runs through every download case against a local TLS server. Java
+(`pkg/ext-android`) binds both functions as `PackageStore.installArchive` and `receipt` over `libextjni`, with
+`StoreLimits.maxArchiveBytes`, and has a download helper, `ArchiveDownload`, on `HttpURLConnection`, following
+each redirect by hand so every hop is checked; `ArchiveTests` runs every case of `archive-cases.json` and
+`DownloadTests` every case of `download-cases.json` against a loopback HTTPS origin with a certificate made for
+the run, on a desktop JDK (`scripts/ext-android.sh`), not on a device or an emulator. Open: the Node, Zig and
+Swift bindings do not bind the two functions yet, and none of them has a download helper. Two forms are refused by both stores on purpose, each pinned by a fixture: a zip in the
 zip64 form (`zip-zip64`; Go's `archive/zip` would read it, so the Go store checks for it) and a tar that stops
 inside a header block (`tar-cut-in-header`, `tar-gz-cut-in-header`; Go's `archive/tar` would take it as the end
 of the archive, so the Go store counts blocks). The Windows side of the streamed file layer

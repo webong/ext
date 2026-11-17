@@ -23,6 +23,7 @@ final class SurfaceTests: XCTestCase {
 
     @MainActor
     func testNativeObservationHasOpaqueBoundedMetadata() throws {
+        Fixtures.warmUpNativeObservers()
         let value = try SystemSurfaceObserver(options: SurfaceOptions(maxDisplays: 64, maxWindows: 4096)).observe()
         XCTAssertFalse(value.platform.isEmpty)
         XCTAssertFalse(value.coordinateSpace.isEmpty)
@@ -65,6 +66,7 @@ final class SurfaceTests: XCTestCase {
 
     @MainActor
     func testNativePermissionAndAccessibilityObservationDoNotPrompt() throws {
+        Fixtures.warmUpNativeObservers()
         let permissions = SystemPermissionObserver.observe()
         XCTAssertFalse(permissions.platform.isEmpty)
         XCTAssertFalse(permissions.accessibility.state.isEmpty)
@@ -94,6 +96,7 @@ final class SurfaceTests: XCTestCase {
 
     @MainActor
     func testObservationsTimeOut() throws {
+        Fixtures.warmUpNativeObservers()
         XCTAssertThrowsError(try SystemSurfaceObserver(options: SurfaceOptions(timeout: 1e-9)).observe()) { error in
             XCTAssertEqual(error as? SurfaceObservationError, .timeout)
             XCTAssertEqual((error as? SurfaceObservationError)?.code, "timeout")

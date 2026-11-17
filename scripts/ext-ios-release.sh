@@ -9,6 +9,10 @@
 # This script builds both under dist/ext-ios-<version>/ and checks the distribution
 # package compiles against the archive. It publishes nothing.
 #
+# CExtEngine compiles in the engine's vendored code, the yyjson parser (MIT) and miniz's
+# inflate decoder (MIT): their licenses are staged as yyjson-LICENSE and miniz-LICENSE beside
+# the archives and in the package's LICENSES/ directory, and ship with any binary that links it.
+#
 # --with-wamr also stages the optional WAMR host: CExtWamr.xcframework.zip, a second release
 # asset, and the ExtPluginWamr product in the distribution package. WAMR is Apache-2.0 with the
 # LLVM exception: its license is staged as WAMR-LICENSE beside the archives and in the package's
@@ -33,6 +37,8 @@ mkdir -p "$out"
 ./scripts/ext-ios-xcframework.sh >/dev/null
 ( cd "$sdk/Frameworks" && ditto -c -k --sequesterRsrc --keepParent CExtEngine.xcframework "../../../$out/CExtEngine.xcframework.zip" )
 checksum="$(swift package compute-checksum "$out/CExtEngine.xcframework.zip")"
+vendored=(yyjson-LICENSE miniz-LICENSE)
+for license in "${vendored[@]}"; do cp "$sdk/Frameworks/$license" "$out/$license"; done
 url="https://github.com/$repository/releases/download/$tag/CExtEngine.xcframework.zip"
 wamr_checksum=""
 wamr_url="https://github.com/$repository/releases/download/$tag/CExtWamr.xcframework.zip"
@@ -52,6 +58,7 @@ for source in BundleRunner BundleServer BundleAssets; do
 done
 [[ -f "$dist/Sources/ExtWeb/BundlePolicy.swift" ]] || { echo 'distribution is missing BundlePolicy' >&2; exit 1; }
 [[ -f "$dist/Sources/ExtPluginStore/PackageStore.swift" ]] || { echo 'distribution is missing ExtPluginStore' >&2; exit 1; }
+[[ -f "$dist/Sources/ExtPluginStore/ArchiveDownloader.swift" ]] || { echo 'distribution is missing the archive downloader' >&2; exit 1; }
 [[ -f "$dist/Sources/ExtClipboard/Clipboard.swift" ]] || { echo 'distribution is missing ExtClipboard' >&2; exit 1; }
 [[ -f "$dist/Sources/ExtSystem/Surface.swift" ]] || { echo 'distribution is missing ExtSystem' >&2; exit 1; }
 [[ -f "$dist/Sources/ExtHost/Resources.swift" ]] || { echo 'distribution is missing ExtHost resources' >&2; exit 1; }
@@ -68,8 +75,10 @@ done
 rm -rf "$dist/Sources/ExtConformancePlugin" "$dist/Sources/ExtFramesGuest"
 cp "$sdk/README.md" "$dist/README.md"
 cp LICENSE "$dist/LICENSE"
+mkdir -p "$dist/LICENSES"
+for license in "${vendored[@]}"; do cp "$out/$license" "$dist/LICENSES/$license"; done
 if [[ -n "$with_wamr" ]]; then
-  mkdir -p "$dist/LICENSES" && cp "$out/WAMR-LICENSE" "$dist/LICENSES/WAMR-LICENSE"
+  cp "$out/WAMR-LICENSE" "$dist/LICENSES/WAMR-LICENSE"
 else
   rm -rf "$dist/Sources/ExtPluginWamr"
 fi
@@ -124,6 +133,7 @@ echo "tag       $tag"
 echo "archive   $out/CExtEngine.xcframework.zip"
 echo "checksum  $checksum"
 echo "url       $url"
+echo "licenses  $out/yyjson-LICENSE $out/miniz-LICENSE"
 if [[ -n "$with_wamr" ]]; then
   echo "wamr      $out/CExtWamr.xcframework.zip"
   echo "wamr sum  $wamr_checksum"

@@ -198,7 +198,7 @@ scripts/web-ios.sh                    # just ExtWeb (res/web/ios), without the x
 
 `scripts/ext-ios-xcframework.sh` compiles the engine's guest core and the package store (a mutex and
 POSIX file calls; no `posix_spawn`) with the repository's strict flags and writes
-`Frameworks/CExtEngine.xcframework`, which is not committed. `ExtConformancePlugin`
+`Frameworks/CExtEngine.xcframework`, which is not committed, with `yyjson-LICENSE` and `miniz-LICENSE` beside it. `ExtConformancePlugin`
 is the shared `ext.conformance/v1` fixture. `scripts/plugin-crosslang.sh` loads
 its dynamic library through the Go `cshared` host, with the same suite that checks
 Rust and Zig, and requires it on macOS.
@@ -315,18 +315,49 @@ let served = try view.load("com.example/greeter")             // ServedPackage(m
 - In a view an id is served from the first root that holds it, a shadowed copy in a lower root is never
   read, and a damaged winner fails closed instead of falling back to the copy below. A repeated, empty or
   missing set of roots, or the same root spelled two ways, is `invalid`.
-- `PackageStoreLimits` (zero takes the default: 4 GiB per artifact, 250000 files and 16 GiB per tree) bound
-  what `install`, `upgrade` and `replace` copy. One store serializes its own calls; several processes
+- `PackageStoreLimits` (zero takes the default: 4 GiB per artifact, 250000 files and 16 GiB per tree, and
+  512 MiB per archive) bound what `install`, `upgrade`, `replace` and `installArchive` copy. One store serializes its own calls; several processes
   mutating one root are the app's to serialize.
+- Archive install: see below.
 - The store verifies bytes, never who published them (trust is separate, `ext_trust_*`), and the app must
   keep the root out of reach of other writers. It is host-side code, but it spawns nothing and takes only a
   mutex, so it ships in `CExtEngine`; the rest of the host (sessions, processes) does not. The tests run
   on macOS and in the iOS Simulator, not on a physical device. What an app may run from a package is
   still the policy below.
 
+### Install from an archive
+
+`installArchive(_:sha256:id:preserveExecutable:)` installs the package in a zip, a gzip-compressed tar or a
+plain tar (told apart by content), or upgrades the installed package of the same id to it. The archive must
+have the pinned SHA-256, checked before anything is extracted; with `id:` it must hold that package. Only
+directories and regular files are extracted, under the store's limits (`maxArchiveBytes` bounds the file),
+and the result is verified against its manifest like any install. A successful install leaves a receipt,
+`receipt(_:)` (`ArchiveReceipt`: `id`, `revision`, `artifactSHA256`); when the receipt names the same
+digest and the installed revision and the package still verifies, the archive is not opened again. A link,
+an escaping, absolute, case-duplicate or Windows-unsafe path, a zip64 archive and an archive over a limit are
+`invalid`; another digest or package is `mismatch`; zstd, xz and bzip2 are `unsupported`.
+
+`ArchiveDownloader` fetches the archive over HTTPS with `URLSession`, under the rules every binding follows
+([`download-cases.json`](../../lib/plugin/testdata/v1/download-cases.json)): `https` with a host and without
+user information or a fragment at every hop, at most five redirects, `Authorization`, `Cookie` and `Referer`
+removed on redirect (and no cookies of the session's own), the body bounded whatever `Content-Length` says,
+and a new owner-only file that a failed download removes. Failures are `ArchiveDownloadError`: `invalid`
+for a refusal by the rules, `status`, `transport`, `io` and `store`.
+
+```swift
+let downloader = ArchiveDownloader()                     // system trust; serverTrust: for a private CA
+try await downloader.install(URL(string: "https://example.com/greeter-1.2.0.tar.gz")!,
+                             sha256: pinnedDigest, id: "com.example/greeter", into: store)
+let receipt = try store.receipt("com.example/greeter")  // revision and artifactSHA256
+```
+
 ```sh
 swift test --package-path pkg/ext-ios --filter ExtPluginStoreTests
 ```
+
+`ArchiveCasesTests` runs every case of `lib/plugin/testdata/v1/archive-cases.json`, and `DownloadCasesTests`
+every case of `download-cases.json` against a local Network.framework TLS server, whose test identity is
+imported in memory (macOS 15 or iOS 18; the test skips before).
 
 ## Platform and policy limits
 
@@ -342,7 +373,10 @@ Releases are GitHub releases tagged `ext-ios-vX.Y.Z` (a dash form, not a Go modu
 the release with `scripts/ext-ios-release.sh --with-wamr`, runs the web checks, the Swift tests on the
 host and the same tests in an iOS Simulator, and only then publishes. Each release carries:
 
-- `CExtEngine.xcframework.zip`, the engine's guest core and package store for macOS, iOS and the iOS Simulator;
+- `CExtEngine.xcframework.zip`, the engine's guest core and package store for macOS, iOS and the iOS Simulator.
+  It compiles in the engine's vendored yyjson parser and miniz inflate decoder (both MIT); their licenses
+  are staged as `yyjson-LICENSE` and `miniz-LICENSE` beside the archive and the package carries them in
+  `LICENSES/`;
 - `CExtWamr.xcframework.zip` and `WAMR-LICENSE`, the optional WAMR host. WAMR is Apache-2.0 with the
   LLVM exception; its license must ship with any binary that links it, and the package carries it in
   `LICENSES/`;

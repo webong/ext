@@ -1,6 +1,7 @@
 //go:build cgo && (linux || darwin || freebsd || windows)
 
 #include "loader.h"
+#define EXT_GO_GUEST_DARWIN_AMD64 "a Go c-shared guest cannot run in a Go host on darwin/amd64: both Go runtimes keep g in the same fixed TLS slot; use a C, Rust or Zig guest, or a process guest"
 #include <stdio.h>
 #include <stdlib.h>
 #ifdef _WIN32
@@ -50,6 +51,14 @@ ext_library *ext_library_load(const char *path, char *error, size_t cap) {
     if (!version || !open || !call || !close) {
         snprintf(error, cap, "missing required CTX C ABI exports"); return NULL;
     }
+#if defined(__APPLE__) && defined(__x86_64__)
+    /* Every Go c-shared library exports this. On darwin/amd64 each Go runtime keeps
+     * its g in the same fixed TLS slot, so a Go guest called from a Go host thread
+     * takes the host's g for its own and faults. Refuse before calling into it. */
+    if (LOOKUP(h, "_cgo_wait_runtime_init_done")) {
+        snprintf(error, cap, "%s", EXT_GO_GUEST_DARWIN_AMD64); return NULL;
+    }
+#endif
     if (version() != 1u) { snprintf(error, cap, "unsupported CTX C ABI version"); return NULL; }
     ext_library *library = (ext_library *)malloc(sizeof(ext_library));
     if (!library) { snprintf(error, cap, "library allocation failed"); return NULL; }

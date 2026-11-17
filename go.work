@@ -55,5 +55,3 @@ use (
 	./src/ctx
 	./tests/crosslang
 )
-
-replace github.com/webong/ext/pkg/ext-go/c2goengine v0.3.0 => ./pkg/ext-go/c2goengine

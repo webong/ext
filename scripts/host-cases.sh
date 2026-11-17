@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Runs the shared host cases (lib/plugin/testdata/v1/host-cases.json) on every host that has a
-# runner: the pure-Go host, the oracle (tests/crosslang TestHostCases), and the hosts that bind the
+# runner: the pure-Go host, the oracle (tests/crosslang TestHostCases, with cgo and without it, where
+# the C ABI library is loaded through purego), and the hosts that bind the
 # C engine (pkg/ext-python and pkg/ext-lua ext_io.host, pkg/ext-ruby ExtIO::Host, pkg/ext-php ExtIO\Host,
 # pkg/ext-dotnet ExtIO.Host). It builds the engine's shared library and the reference
 # guest twice: as a JSON-line child process and as a C ABI library.
@@ -93,6 +94,8 @@ export EXT_HOST_LIBRARY="$build_dir/engine/$library" EXT_HOST_REQUIRED=1 EXT_CRO
 
 echo "== the Go host (the oracle)"
 go test -count=1 -run 'TestHostCases$' ./tests/crosslang
+echo "== the Go host without cgo (the C ABI loader on purego)"
+CGO_ENABLED=0 go test -count=1 -run 'TestHostCases$' ./tests/crosslang
 echo "== the Python host ($("$python" --version 2>&1))"
 "$python" -I -m unittest discover -s pkg/ext-python/tests -p 'test_host.py' -v
 echo "== the Ruby host ($("${EXT_RUBY:-ruby}" -v))"

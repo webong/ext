@@ -65,7 +65,45 @@ export interface Streams {
  close(options?: CallOptions): Promise<void>;
 }
 /** Bounds on a package store; zero or absent takes the default (4 GiB, 250000 files, 16 GiB). */
-export interface PackageStoreLimits { maxArtifactBytes?: number; maxTreeFiles?: number; maxTreeBytes?: number }
+export interface PackageStoreLimits {
+ maxArtifactBytes?: number; maxTreeFiles?: number; maxTreeBytes?: number;
+ /** The bound on an archive file for installArchive and installArchiveFrom; 512 MiB when 0 or absent. */
+ maxArchiveBytes?: number;
+}
+export interface ArchiveInstallOptions extends PackageStoreCopyOptions {
+ /** The package the archive must hold; MISMATCH when it holds another. */
+ id?: string;
+}
+/** What installArchive leaves for an installed package. Compare `revision` with the installed package before relying on it. */
+export interface ArchiveReceipt { id: string; revision: string; artifact_sha256: string }
+export interface DownloadOptions {
+ /** The size limit of the body; DEFAULT_MAX_BYTES when 0 or absent. */
+ maxBytes?: number;
+ /** Sent with the first request only: Authorization, Cookie and Referer are dropped at a redirect. */
+ headers?: Record<string, string>;
+ /** Certificates to trust instead of Node's bundled roots, as for https.request. */
+ ca?: string | Uint8Array | Array<string | Uint8Array>;
+ /** An https.Agent, passed to https.request as it is. */
+ agent?: unknown;
+ signal?: AbortSignal;
+ /** Socket inactivity timeout in milliseconds. */
+ timeout?: number;
+}
+export interface ArchiveDownloadOptions extends ArchiveInstallOptions, Omit<DownloadOptions, 'maxBytes'> {
+ /** Where the private download directory is made; os.tmpdir() when absent. */
+ temporaryDirectory?: string;
+}
+/** How many redirects a download follows. */
+export const MAX_REDIRECTS: 5;
+/** The download size limit when none is given: 512 MiB, the store's archive limit. */
+export const DEFAULT_MAX_BYTES: number;
+/**
+ * Downloads an https URL into the new file `destination` under the shared rules: a host and no user information
+ * or fragment for the URL and every redirect, at most MAX_REDIRECTS redirects, credentials dropped at a redirect,
+ * the body within `maxBytes` and no file left on failure. A refusal by the rules rejects with `status` INVALID;
+ * an HTTP status other than 200 (as `httpStatus`), the network and the file reject without one.
+ */
+export function download(url: string, destination: string, options?: DownloadOptions): Promise<void>;
 export interface PackageStoreCopyOptions {
  /** Keep the execute bit of a file artifact that has one in the source. Entrypoints and executable files in trees always keep it. */
  preserveExecutable?: boolean;
@@ -84,6 +122,17 @@ export interface PackageStore {
  upgrade(source: string, options?: PackageStoreCopyOptions): Promise<string>;
  /** Installs or replaces the package of the source's id, whatever its contracts. */
  replace(source: string, options?: PackageStoreCopyOptions): Promise<string>;
+ /**
+  * Installs, or upgrades to, the package in the zip, tar.gz or plain tar file `archive`, which must have the SHA-256
+  * `sha256` (64 hexadecimal characters); resolves with the installed plugin.json. Rejects with INVALID (a bad digest,
+  * archive or package, or a limit), MISMATCH (another digest, id or content at the installed revision), UNSUPPORTED
+  * (zstd, xz, bzip2 or anything not an archive) or MISSING (no such file). A receipt lets a repeat skip the archive.
+  */
+ installArchive(archive: string, sha256: string, options?: ArchiveInstallOptions): Promise<string>;
+ /** Downloads `url` with `download` under the store's maxArchiveBytes into a private directory, then installArchive. */
+ installArchiveFrom(url: string, sha256: string, options?: ArchiveDownloadOptions): Promise<string>;
+ /** The receipt of an archive install; rejects with NOT_FOUND when there is none. */
+ receipt(id: string): Promise<ArchiveReceipt>;
  remove(id: string): Promise<void>;
  /** Reads and verifies one installed package; resolves with its plugin.json. */
  load(id: string): Promise<string>;

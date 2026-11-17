@@ -27,8 +27,8 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
  * directory that is not a package, or an artifact over a limit; {@link #MISMATCH} for an artifact
  * whose digest differs, a directory that does not match its manifest, or an upgrade that changes
  * the id or the contracts; {@link #EXISTS} for an install over an installed id; {@link #NOT_FOUND}
- * for an id that is not installed; {@link #MISSING} for a source directory or a file it lists that
- * is not there; {@link #DENIED} and {@link #UNSUPPORTED} come from {@link #resolveEntrypoint}.
+ * for an id that is not installed; {@link #MISSING} for a source directory, archive or a file it
+ * lists that is not there; {@link #DENIED} and {@link #UNSUPPORTED} come from {@link #resolveEntrypoint}.
  *
  * <p>The manifest a call returns is the installed {@code plugin.json}, byte for byte. The whole-root
  * reports ({@link #list()}, {@link #verify()}, {@link #listUnverified()}) are the engine's JSON as
@@ -61,6 +61,7 @@ public final class PackageStore implements AutoCloseable {
     private static final int PRESERVE_EXECUTABLE = 1;
 
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
+    private final long maxArchiveBytes;
     private long handle;
 
     /** Opens a store at {@code root}, which need not exist yet, with the engine's default limits. */
@@ -71,6 +72,7 @@ public final class PackageStore implements AutoCloseable {
     /** Opens a store at {@code root}, which need not exist yet. An empty root is {@link #INVALID}. */
     public PackageStore(String root, StoreLimits limits) throws GuestException {
         Objects.requireNonNull(limits, "limits");
+        maxArchiveBytes = limits.maxArchiveBytes();
         handle = NativeEngine.storeOpen(text(Objects.requireNonNull(root, "root")),
                 limits.maxArtifactBytes(), limits.maxTreeFiles(), limits.maxTreeBytes());
     }
@@ -117,6 +119,70 @@ public final class PackageStore implements AutoCloseable {
     /** As {@link #replace(String)}; see {@link #install(String, boolean)} for {@code preserveExecutable}. */
     public byte[] replace(String source, boolean preserveExecutable) throws GuestException {
         return put(NativeEngine.PUT_REPLACE, source, preserveExecutable);
+    }
+
+    /**
+     * As {@link #installArchive(String, String, String, boolean)} for any package id, without
+     * {@code preserveExecutable}.
+     */
+    public byte[] installArchive(String archive, String sha256) throws GuestException {
+        return installArchive(archive, sha256, null, false);
+    }
+
+    /**
+     * Installs the package in the local archive file {@code archive}, or upgrades the installed
+     * package of the same id to it, and returns the installed {@code plugin.json}. The archive is a
+     * zip, a gzip-compressed tar or a plain tar, told apart by its content; {@code sha256} is the
+     * digest the file must have (64 hexadecimal characters, either case), checked before anything is
+     * extracted; {@code id}, when not null or empty, is the package the archive must hold. The file is
+     * bounded by {@link StoreLimits#maxArchiveBytes()} and its extraction by the other limits. Only
+     * directories and regular files are extracted, and {@code plugin.json} is at the top of the
+     * archive or in its one top-level directory; what was extracted is installed like a directory,
+     * so the package is verified against its manifest.
+     *
+     * <p>A successful install leaves a {@link #receipt receipt}. When the receipt of the installed
+     * package names this digest and the revision installed now, and the package still verifies, the
+     * call returns it without opening the archive.
+     *
+     * <p>Besides the statuses of {@link #install} and {@link #upgrade}: {@link #MISMATCH} for a
+     * digest that differs, an archive that holds another package than {@code id}, or other content
+     * at the installed revision; {@link #UNSUPPORTED} for a format that is not read (zstd, xz,
+     * bzip2); {@link #INVALID} for a missing or malformed digest, an archive over a limit, a link or
+     * special entry, an unsafe or repeated path, or a zip64 archive; {@link #MISSING} for an archive
+     * that is not there. A URL is {@link #INVALID}: fetch it first with {@link ArchiveDownload}.
+     */
+    public byte[] installArchive(String archive, String sha256, String id, boolean preserveExecutable)
+            throws GuestException {
+        Objects.requireNonNull(archive, "archive");
+        if (archive.contains("://")) {
+            throw new GuestException(INVALID);
+        }
+        byte[] path = text(archive);
+        byte[] digest = text(Objects.requireNonNull(sha256, "sha256"));
+        byte[] name = id == null ? null : text(id);
+        lock.readLock().lock();
+        try {
+            return NativeEngine.storeInstallArchive(live(), path, digest, name,
+                    preserveExecutable ? PRESERVE_EXECUTABLE : 0, maxArchiveBytes);
+        } finally {
+            lock.readLock().unlock();
+        }
+    }
+
+    /**
+     * The receipt an archive install left for the package {@code id}, as the JSON {@code {"id",
+     * "revision", "artifact_sha256"}}, the digest in lower case. It describes the install that
+     * wrote it: compare its revision with the installed package before relying on it. {@link
+     * #NOT_FOUND} when no archive install recorded one; {@link #remove} deletes it.
+     */
+    public byte[] receipt(String id) throws GuestException {
+        byte[] name = text(Objects.requireNonNull(id, "id"));
+        lock.readLock().lock();
+        try {
+            return NativeEngine.storeReceipt(live(), name);
+        } finally {
+            lock.readLock().unlock();
+        }
     }
 
     /** Deletes one installed package. */

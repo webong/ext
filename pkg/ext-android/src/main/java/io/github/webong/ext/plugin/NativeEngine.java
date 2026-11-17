@@ -56,6 +56,12 @@ final class NativeEngine {
 
     static native byte[] storePut(long handle, int how, byte[] source, int flags) throws GuestException;
 
+    /** id may be null (any package); maxArchiveBytes 0 is the engine's default of 512 MiB. */
+    static native byte[] storeInstallArchive(long handle, byte[] archive, byte[] sha256, byte[] id, int flags,
+            long maxArchiveBytes) throws GuestException;
+
+    static native byte[] storeReceipt(long handle, byte[] id) throws GuestException;
+
     static native void storeRemove(long handle, byte[] id) throws GuestException;
 
     static native byte[] storeLoad(long handle, byte[] id) throws GuestException;

@@ -1,5 +1,10 @@
 // Package cshared loads trusted C ABI libraries, including Go -buildmode=c-shared
 // guests. Native code executes inside the host and cannot be forcibly stopped.
+//
+// It loads with cgo on Linux, macOS, FreeBSD and Windows, and without cgo through
+// purego on Linux, macOS and Windows for amd64 and arm64; Supported reports
+// whether this build can load at all. The C ABI has no host callbacks, so both
+// loaders implement all of it.
 package cshared
 
 import (

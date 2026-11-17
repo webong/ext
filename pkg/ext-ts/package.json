@@ -19,6 +19,7 @@
     "node.d.mts",
     "engine/index.mjs",
     "engine/index.d.mts",
+    "engine/download.mjs",
     "engine/addon.c",
     "engine/README.md"
   ],

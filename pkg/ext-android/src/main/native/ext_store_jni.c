@@ -1,4 +1,5 @@
-/* JNI binding for the package store of the shared C engine: ext_store_* and the read-only
+/* JNI binding for the package store of the shared C engine: ext_store_* (archive install and
+ * receipts included) and the read-only
  * ext_layered_* view. Paths and ids arrive as UTF-8 bytes rather than as jstring, whose
  * modified UTF-8 would spell a supplementary character differently from the file system.
  * The engine serializes the calls on one store; the Java classes keep a handle alive for
@@ -108,6 +109,45 @@ JNIEXPORT jbyteArray JNICALL Java_io_github_webong_ext_plugin_NativeEngine_store
   }
   free(path);
   return take(env, status, &manifest);
+}
+
+/* id may be NULL: any package. max_archive_bytes 0 is the engine's default. */
+JNIEXPORT jbyteArray JNICALL Java_io_github_webong_ext_plugin_NativeEngine_storeInstallArchive(
+    JNIEnv *env, jclass cls, jlong handle, jbyteArray archive, jbyteArray sha256, jbyteArray id,
+    jint flags, jlong max_archive_bytes) {
+  (void)cls;
+  jbyteArray args[] = {archive, sha256, id};
+  char *text[3] = {0};
+  int failed = 0;
+  for (int i = 0; i < 3 && !failed; i++) {
+    if (!args[i] && i == 2) continue;
+    if (!args[i]) {
+      throw_status(env, EXT_INVALID);
+      failed = 1;
+    } else if (!(text[i] = c_string(env, args[i]))) {
+      failed = 1;
+    }
+  }
+  ext_buffer manifest = {0};
+  ext_status status = EXT_OK;
+  if (!failed) {
+    status = ext_store_install_archive((ext_store *)(intptr_t)handle, text[0], text[1], text[2],
+                                       (uint32_t)flags, (uint64_t)max_archive_bytes, &manifest);
+  }
+  for (int i = 0; i < 3; i++) free(text[i]);
+  if (failed) return NULL; /* the exception is pending */
+  return take(env, status, &manifest);
+}
+
+JNIEXPORT jbyteArray JNICALL Java_io_github_webong_ext_plugin_NativeEngine_storeReceipt(
+    JNIEnv *env, jclass cls, jlong handle, jbyteArray id) {
+  (void)cls;
+  char *name = c_string(env, id);
+  if (!name) return NULL;
+  ext_buffer receipt = {0};
+  ext_status status = ext_store_receipt((ext_store *)(intptr_t)handle, name, &receipt);
+  free(name);
+  return take(env, status, &receipt);
 }
 
 JNIEXPORT void JNICALL Java_io_github_webong_ext_plugin_NativeEngine_storeRemove(

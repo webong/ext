@@ -96,6 +96,7 @@ final class FixtureTests: XCTestCase {
 
     @MainActor
     func testTheObserversProduceValidSnapshots() throws {
+        Fixtures.warmUpNativeObservers()
         try SystemSurfaceObserver().observe().validate()
         try SystemPermissionObserver.observe().validate()
         try SystemAccessibilityObserver().observe().validate()

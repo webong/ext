@@ -79,11 +79,14 @@ echo "== Go suites linked against the engine (pkg/ext-go/cgoengine)"
  CGO_LDFLAGS="-L$(winpath "$build/engine")" \
  EXT_CENGINE_GUEST="$(winpath "$guest")" \
  EXT_CENGINE_FAULT_GUEST="$(winpath "$fault")" \
+ EXT_CSHARED_GUEST="$(winpath "$build/go-shared.$shared_ext")" EXT_CSHARED_REQUIRED=1 \
    go test -tags ext_cengine "${race[@]}" -count=1 -timeout=10m ./...)
 echo "== the engine module, standard library only (pkg/ext-go/engine)"
 (cd pkg/ext-go/engine && go test -count=1 -timeout=10m ./...)
 echo "== the same API without cgo, served by the pure-Go implementation"
-(cd pkg/ext-go/cgoengine && CGO_ENABLED=0 go test -count=1 -timeout=10m ./...)
+# cshared runs on purego here, against the same C ABI guest.
+(cd pkg/ext-go/cgoengine && EXT_CSHARED_GUEST="$(winpath "$build/go-shared.$shared_ext")" EXT_CSHARED_REQUIRED=1 \
+   CGO_ENABLED=0 go test -count=1 -timeout=10m ./...)
 echo "== the umbrella module (pkg/ext-go)"
 (cd pkg/ext-go && go test -count=1 -timeout=10m .)
 echo "plugin engine tests passed"

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"os"
 	"reflect"
+	"runtime"
 	"testing"
 	"time"
 
@@ -130,6 +131,11 @@ func TestHostCases(t *testing.T) {
 				path := artifact(t, "GO_GUEST")
 				connect = func(context.Context) (plugin.Backend, error) { return process(path) }
 			case "shared":
+				if runtime.GOOS == "darwin" && runtime.GOARCH == "amd64" {
+					// cshared refuses a Go c-shared guest here: two Go runtimes keep g
+					// in the same fixed TLS slot. Its own tests check the refusal.
+					t.Skip("a Go c-shared guest cannot run in a Go host on darwin/amd64")
+				}
 				path := artifact(t, "GO_SHARED")
 				connect = func(ctx context.Context) (plugin.Backend, error) { return cshared.Open(ctx, path) }
 			default:

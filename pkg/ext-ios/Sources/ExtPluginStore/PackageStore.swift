@@ -47,22 +47,51 @@ public enum PackageStoreError: Error, Equatable {
 }
 
 /// Bounds on one artifact file (a file inside a tree counts too), on the files in
-/// one tree and on the bytes of one tree. Zero takes the engine's default: 4 GiB,
-/// 250000 files and 16 GiB. They bound what `install`, `upgrade` and `replace` copy;
-/// loading and the reports read a package as it is and are not bounded by them.
+/// one tree and on the bytes of one tree, and on an archive file. Zero takes the
+/// engine's default: 4 GiB, 250000 files, 16 GiB and 512 MiB. The first three bound what
+/// `install`, `upgrade`, `replace` and `installArchive` copy (for an archive, every entry
+/// counts toward `maxTreeFiles` and the extracted total toward `maxTreeBytes`);
+/// `maxArchiveBytes` bounds the archive `installArchive` opens. Loading and the reports
+/// read a package as it is and are not bounded by them.
 public struct PackageStoreLimits: Equatable {
     public var maxArtifactBytes: UInt64
     public var maxTreeFiles: UInt32
     public var maxTreeBytes: UInt64
+    public var maxArchiveBytes: UInt64
 
-    public init(maxArtifactBytes: UInt64 = 0, maxTreeFiles: UInt32 = 0, maxTreeBytes: UInt64 = 0) {
+    public init(maxArtifactBytes: UInt64 = 0, maxTreeFiles: UInt32 = 0, maxTreeBytes: UInt64 = 0,
+                maxArchiveBytes: UInt64 = 0) {
         self.maxArtifactBytes = maxArtifactBytes
         self.maxTreeFiles = maxTreeFiles
         self.maxTreeBytes = maxTreeBytes
+        self.maxArchiveBytes = maxArchiveBytes
     }
+
+    /// The engine's bound on an archive file when `maxArchiveBytes` is zero.
+    public static let defaultMaxArchiveBytes: UInt64 = 512 << 20
 
     fileprivate var raw: ext_store_limits {
         ext_store_limits(max_artifact_bytes: maxArtifactBytes, max_tree_files: maxTreeFiles, max_tree_bytes: maxTreeBytes)
+    }
+}
+
+/// What an archive install recorded for a package: its id, the revision the install
+/// produced and the archive's SHA-256 in lower case. It describes the install that wrote
+/// it, so compare `revision` with the installed package before relying on it.
+public struct ArchiveReceipt: Equatable, Decodable {
+    public let id: String
+    public let revision: String
+    public let artifactSHA256: String
+
+    public init(id: String, revision: String, artifactSHA256: String) {
+        self.id = id
+        self.revision = revision
+        self.artifactSHA256 = artifactSHA256
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, revision
+        case artifactSHA256 = "artifact_sha256"
     }
 }
 
@@ -96,6 +125,8 @@ public struct ResolvedEntrypoint: Equatable, Decodable {
 /// so a caller decodes it with its own types; the shapes are in `ext_store_list`.
 public final class PackageStore: @unchecked Sendable {
     private let handle: OpaquePointer
+    /// The store's limits, `maxArchiveBytes` included, as it was opened with them.
+    public let limits: PackageStoreLimits
 
     /// Returns a store rooted at `root`, which need not exist yet.
     public init(root: String, limits: PackageStoreLimits = PackageStoreLimits()) throws {
@@ -104,6 +135,7 @@ public final class PackageStore: @unchecked Sendable {
         try withEngineString(root) { try check(ext_store_open($0, &raw, &opened)) }
         guard let opened else { throw PackageStoreError.engine(ext_status(EXT_NOMEM)) }
         handle = opened
+        self.limits = limits
     }
 
     deinit { ext_store_close(handle) }
@@ -139,7 +171,48 @@ public final class PackageStore: @unchecked Sendable {
         try put(ext_store_replace, source, preserveExecutable)
     }
 
-    /// Deletes one installed package.
+    /// Installs the package in the archive file at `archive`, or upgrades the installed
+    /// package of the same id to it (as `upgrade` does), and returns the installed
+    /// `plugin.json`. The archive is a zip, a gzip-compressed tar or a plain tar, told apart
+    /// by its content, and must have the SHA-256 `sha256` (64 hexadecimal characters in
+    /// either case); it is checked before anything is extracted. With `id` the archive must
+    /// hold that package. `plugin.json` is at the top of the archive or in its one top-level
+    /// directory, and only directories and regular files are extracted, under the store's
+    /// limits; the archive file itself is bounded by `limits.maxArchiveBytes`. A package
+    /// already installed at the archive's revision must have the archive's content.
+    ///
+    /// A successful install leaves a receipt (`receipt`). When the receipt of the installed
+    /// package names `sha256` and the revision installed now, and the package still
+    /// verifies, the call returns it without opening the archive.
+    ///
+    /// Failures besides those of `install` and `upgrade`: `mismatch` for a digest that
+    /// differs, another package than `id`, or other content at the installed revision;
+    /// `unsupported` for a format that is not read (zstd, xz, bzip2); `invalid` for a
+    /// missing or malformed digest, a zip64 archive, an archive over a limit, a link or
+    /// special entry, a path that escapes, is absolute, repeats another in any case or could
+    /// not exist on Windows; `missing` for an archive that is not there. Getting the archive
+    /// is the application's: `ArchiveDownloader` fetches one over HTTPS.
+    @discardableResult
+    public func installArchive(_ archive: String, sha256: String, id: String? = nil,
+                               preserveExecutable: Bool = false) throws -> Data {
+        let flags = preserveExecutable ? UInt32(EXT_STORE_PRESERVE_EXECUTABLE) : 0
+        let maxArchiveBytes = limits.maxArchiveBytes
+        return try withEngineStrings([archive, sha256, id]) { s in
+            try output { ext_store_install_archive(handle, s[0], s[1], s[2], flags, maxArchiveBytes, $0) }
+        }
+    }
+
+    /// The receipt the last archive install of `id` left. `PackageStoreError.notFound` when
+    /// no archive install recorded one; `remove` deletes it.
+    public func receipt(_ id: String) throws -> ArchiveReceipt {
+        let json = try withEngineString(id) { id in try output { ext_store_receipt(handle, id, $0) } }
+        guard let receipt = try? JSONDecoder().decode(ArchiveReceipt.self, from: json) else {
+            throw PackageStoreError.invalid
+        }
+        return receipt
+    }
+
+    /// Deletes one installed package and its archive receipt.
     public func remove(_ id: String) throws {
         try withEngineString(id) { try check(ext_store_remove(handle, $0)) }
     }

@@ -58,6 +58,9 @@ public final class GuestTests {
         run("package store: an entrypoint is resolved for a reviewed package on a platform", StoreTests::discovery);
         run("layered store: the highest root serves, a damaged winner fails closed", StoreTests::layered);
         run("layered store: refuses what is not a set of roots", StoreTests::layeredRefusals);
+        run("archive install: every case of the shared fixtures", ArchiveTests::cases);
+        run("archive install: arguments, a missing archive and a closed store", ArchiveTests::arguments);
+        run("archive download: every case of the shared fixtures over local TLS", DownloadTests::cases);
         System.out.println(failures == 0 ? "all Java plugin tests passed" : failures + " Java plugin tests FAILED");
         System.exit(failures == 0 ? 0 : 1);
     }

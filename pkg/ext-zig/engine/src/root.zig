@@ -3,6 +3,8 @@
 //! call deinit exactly once after all concurrent uses have joined. No Go runtime.
 const std = @import("std");
 pub const ffi = @import("ffi");
+/// Downloading an HTTPS archive for `Store.installArchive`.
+pub const download = @import("download.zig");
 pub const Error = error{ Invalid, Denied, Mismatch, Unsupported, Closed, Timeout, IO, OutOfMemory, Draining, NotFound, Ambiguous, Canceled, Updating, Capacity, Sequence, Protocol, Expired, Exists, Missing, UnknownStatus };
 pub fn check(status: ffi.ext_status) Error!void {
     return switch (status) {
@@ -202,9 +204,10 @@ pub fn service(operation: [:0]const u8, input: []const u8) Error!Buffer {
     return out;
 }
 /// Bounds on a package store: one artifact file (a file inside a tree counts
-/// too), the files in one tree and the bytes of one tree. Zero takes the default:
-/// 4 GiB, 250000 files and 16 GiB.
-pub const StoreLimits = struct { max_artifact_bytes: u64 = 0, max_tree_files: u32 = 0, max_tree_bytes: u64 = 0 };
+/// too), the files in one tree and the bytes of one tree, and the archive file of
+/// `Store.installArchive`. Zero takes the default: 4 GiB, 250000 files, 16 GiB and
+/// 512 MiB.
+pub const StoreLimits = struct { max_artifact_bytes: u64 = 0, max_tree_files: u32 = 0, max_tree_bytes: u64 = 0, max_archive_bytes: u64 = 0 };
 /// Keep the execute bit of a file artifact that has one in the source.
 /// Entrypoints and executable files in trees always keep it.
 pub const StoreOptions = struct { preserve_executable: bool = false };
@@ -232,11 +235,12 @@ pub const EntrypointRequest = struct {
 /// owned and freed with `deinit`.
 pub const Store = struct {
     raw: ?*ffi.ext_store,
+    max_archive_bytes: u64 = 0,
     pub fn init(root: [:0]const u8, limits: StoreLimits) Error!Store {
         var raw: ?*ffi.ext_store = null;
         const c_limits: ffi.ext_store_limits = .{ .max_artifact_bytes = limits.max_artifact_bytes, .max_tree_files = limits.max_tree_files, .max_tree_bytes = limits.max_tree_bytes };
         try check(ffi.ext_store_open(root.ptr, &c_limits, &raw));
-        return .{ .raw = raw };
+        return .{ .raw = raw, .max_archive_bytes = limits.max_archive_bytes };
     }
     pub fn deinit(self: *Store) void {
         ffi.ext_store_close(self.raw);
@@ -268,7 +272,43 @@ pub const Store = struct {
         try check(ffi.ext_store_replace(self.raw, source.ptr, flags(options), &out.raw));
         return out;
     }
-    /// Deletes one installed package.
+    /// Installs or upgrades the package in the local archive file `archive` (a
+    /// zip, a gzip-compressed tar or a plain tar, told apart by content) after
+    /// checking it against the pinned `sha256`, hexadecimal in either case. `id`,
+    /// when not null, is the package the archive must hold. The archive is bounded
+    /// by `StoreLimits.max_archive_bytes` and its extraction by the tree limits;
+    /// only directories and regular files are extracted, and `plugin.json` is at
+    /// the top or in the one top-level directory. Returns the installed
+    /// `plugin.json`. A successful install leaves a receipt (see `receipt`); when
+    /// the receipt names this digest and the installed revision, and the package
+    /// still verifies, the archive is not opened. Besides the statuses of
+    /// `install` and `upgrade`: `error.Mismatch` for a digest that differs, an
+    /// archive of another id or other content at the installed revision;
+    /// `error.Invalid` for a missing digest, an entry over a limit, a link, a
+    /// special file, a path that is not safe on every platform or a zip64 archive;
+    /// `error.Unsupported` for a format that is not read (zstd, xz, bzip2);
+    /// `error.Missing` for an archive that is not there. Downloading is the
+    /// application's, or `download.install`'s.
+    pub fn installArchive(self: *const Store, archive: [:0]const u8, sha256_hex: [:0]const u8, id: ?[:0]const u8, options: StoreOptions) Error!Buffer {
+        if (archive.len == 0 or std.mem.indexOf(u8, archive, "://") != null) return error.Invalid;
+        var out: Buffer = .{};
+        errdefer out.deinit();
+        const want: [*c]const u8 = if (id) |name| name.ptr else null;
+        try check(ffi.ext_store_install_archive(self.raw, archive.ptr, sha256_hex.ptr, want, flags(options), self.max_archive_bytes, &out.raw));
+        return out;
+    }
+    /// The receipt an archive install left for `id`, as the JSON `{"id",
+    /// "revision", "artifact_sha256"}` (the digest in lower case);
+    /// `error.NotFound` when no archive install recorded one. It describes the
+    /// install that wrote it: compare its revision with the installed package
+    /// before relying on it. `remove` deletes it.
+    pub fn receipt(self: *const Store, id: [:0]const u8) Error!Buffer {
+        var out: Buffer = .{};
+        errdefer out.deinit();
+        try check(ffi.ext_store_receipt(self.raw, id.ptr, &out.raw));
+        return out;
+    }
+    /// Deletes one installed package and its receipt.
     pub fn remove(self: *const Store, id: [:0]const u8) Error!void {
         try check(ffi.ext_store_remove(self.raw, id.ptr));
     }
@@ -1302,4 +1342,8 @@ test "the package store bounds an artifact" {
     try writePackage(a, dir, "example/f", "r1", "example.read", "three bytes");
     try std.testing.expectError(error.Invalid, store.install(dir, .{}));
     try std.testing.expectError(error.Invalid, Store.init("", .{}));
+}
+
+test {
+    _ = download;
 }

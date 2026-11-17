@@ -53,7 +53,7 @@ and `NewLaunch` are engine-only and need the C engine build.
 | `interop`, `bridge` | Route resolution and bridges between backends |
 | `adapter` | Host side of ext adapters: manifests, the installed store, packaging, trust and invocation |
 | `plugintest` | Shared conformance fixtures |
-| `cshared` | The C plugin ABI in Go: the loader that opens such libraries as a backend (cgo; the header is `lib/plugin/include/ext_plugin.h`), `cshared/abi` (the envelope's constants and wire types, no cgo) and `cshared/guest` (the Go guest lifecycle that exports it) |
+| `cshared` | The C plugin ABI in Go: the loader that opens such libraries as a backend (cgo, or without cgo [purego](https://github.com/ebitengine/purego) on Linux, macOS and Windows for amd64 and arm64; the header is `lib/plugin/include/ext_plugin.h`), `cshared/abi` (the envelope's constants and wire types, no cgo) and `cshared/guest` (the Go guest lifecycle that exports it) |
 
 Runtime backends that own a heavy runtime stay outside the engine module:
 [`pkg/ext-go/hashicorp`](../hashicorp/README.md) owns go-plugin, net/rpc and

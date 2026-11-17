@@ -6,6 +6,8 @@ github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/dustin/go-humanize v1.1.0 h1:dbKTrvD0klcbBV/h4AWJdMuZogJACoMlvWIWZ5b2xWg=
 github.com/dustin/go-humanize v1.1.0/go.mod h1:hc1CvRkJMsgxqjmjMQF3QNRAZBwY8AXBAzKYoSX9sFI=
+github.com/ebitengine/purego v0.11.3 h1:OB+JLpdm7ioymhyA+6s5kbb/uOuYycAgL8NNTFc5MLg=
+github.com/ebitengine/purego v0.11.3/go.mod h1:DCHPP08djqhNSoTfImcnHYQRZmd0qhakvrozqaEYhGQ=
 github.com/fatih/color v1.7.0 h1:DkWD4oS2D8LGGgTQ6IvwJJXSL5Vp2ffcQg58nFV38Ys=
 github.com/fatih/color v1.7.0/go.mod h1:Zm6kSWBoL9eyXnKyktHP6abPY2pDugNf5KwzbycvMj4=
 github.com/go-logr/logr v1.4.3 h1:CjnDlHq8ikf6E492q6eKboGOC0T8CDaOvkHCIg8idEI=
@@ -47,12 +49,12 @@ github.com/stretchr/testify v1.8.3 h1:RP3t2pwF7cMEbC1dqtB6poj3niw/9gnV4Cjg5oW5gt
 github.com/stretchr/testify v1.8.3/go.mod h1:sz/lmYIOXD/1dqDmKjjqLyZ2RngseejIcXlSw2iwfAo=
 github.com/tetratelabs/wazero v1.10.1 h1:2DugeJf6VVk58KTPszlNfeeN8AhhpwcZqkJj2wwFuH8=
 github.com/tetratelabs/wazero v1.10.1/go.mod h1:DRm5twOQ5Gr1AoEdSi0CLjDQF1J9ZAuyqFIjl1KKfQU=
-github.com/webong/ext/pkg/ext-go/c2goengine v0.3.0 h1:lqBU2yyMVNO1wrpdhhT6KUAGK6vCGeopcwgZJXh5Hp8=
-github.com/webong/ext/pkg/ext-go/c2goengine v0.3.0/go.mod h1:Z1mkoEQ1oJ86EjPJNdbXZoWmveQSFiCvsFigTGyf/YY=
-github.com/webong/ext/pkg/ext-go/cgoengine v0.3.0 h1:YDMIicrchGXSKlnVX297VwZBN5MPbpFTyLe1YlKl1Ns=
-github.com/webong/ext/pkg/ext-go/cgoengine v0.3.0/go.mod h1:93SilXwDjdBzVs1iXpUhXn7QSbmEf9BTejgremkQBS0=
-github.com/webong/ext/pkg/ext-go/engine v0.3.0 h1:BSsdKtqiWKLkhXLQc2dKAPl5fFlQMbH+Enw5qjPlw1o=
-github.com/webong/ext/pkg/ext-go/engine v0.3.0/go.mod h1:lnYoMIb5lKAnz60k2oG47rhxxFqOLA5MT3IaU5rlU4s=
+github.com/webong/ext/pkg/ext-go/c2goengine v0.4.0 h1:+f58Q2G32iXbteToLUaorkWgUVvA6IkG6Z34qk9RnUY=
+github.com/webong/ext/pkg/ext-go/c2goengine v0.4.0/go.mod h1:x56SNaeKcnVzUvZLUovMGtZH9JoWRtiA3+pjRZPfzww=
+github.com/webong/ext/pkg/ext-go/cgoengine v0.4.0 h1:4UVyy3WSM7d8jYEysjIUZ3ERn5llsrbtOigoBY3P6tY=
+github.com/webong/ext/pkg/ext-go/cgoengine v0.4.0/go.mod h1:oJySUn6ZI9fgCKEh5WTGvRofE5ZtpexjDZbmw82NBFU=
+github.com/webong/ext/pkg/ext-go/engine v0.4.0 h1:UpF71NLx8q3Q/LYJyvfd6wfbQ5/VfGOIk4V2YAXY2kE=
+github.com/webong/ext/pkg/ext-go/engine v0.4.0/go.mod h1:lnYoMIb5lKAnz60k2oG47rhxxFqOLA5MT3IaU5rlU4s=
 github.com/webong/ext/pkg/ext-go/hashicorp v0.3.2 h1:IogLKdLFGj5H22wSvFAnnkdJ2Z+MrCPJAoKe3SABYT8=
 github.com/webong/ext/pkg/ext-go/hashicorp v0.3.2/go.mod h1:n4v/KO8wV+KU+U1JT1N6kheorwQ47kSXrjostkK2dtE=
 github.com/webong/ext/pkg/ext-go/wasm v0.5.0 h1:AZ9MqZL9qLIi6xOWTBDT8nQpGi6uWjJ0U64xloa43LQ=

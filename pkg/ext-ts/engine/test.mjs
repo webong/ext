@@ -6,6 +6,9 @@ import {join} from 'node:path';
 import {createHash} from 'node:crypto';
 import {execFileSync} from 'node:child_process';
 import {loadEngine,status} from './index.mjs';
+// Archive install and the download helper; scripts/plugin-cengine.sh runs this file only.
+import './archive.test.mjs';
+import './download.test.mjs';
 const engine=loadEngine(process.env.EXT_ENGINE_ADDON);
 const descriptor=JSON.parse(await readFile(new URL('../../../lib/plugin/testdata/v1/descriptor.json',import.meta.url)));
 function envelope(operation='echo',payload={value:7}){return {apiVersion:'ext.plugin/v1',id:'1',plugin:descriptor.identity,contract:{name:'ext.conformance',version:'v1'},operation,payload,deadline:new Date(Date.now()+5000).toISOString()};}

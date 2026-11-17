@@ -116,6 +116,11 @@ platform, so installing this package does not give you a working engine binding:
 until you supply an addon. See [engine/README.md](engine/README.md); the repository's
 `scripts/plugin-cengine.sh` builds and exercises both link choices.
 
+Through the addon, `PackageStore` also installs a package from a pinned zip, tar.gz or plain tar
+archive (`installArchive`, `receipt`). The subpath exports `download`, an HTTPS download on Node's own
+`https` under the rules every binding shares, which needs no addon; `PackageStore.installArchiveFrom`
+joins the two.
+
 ## Run
 
 From the repository root:

@@ -21,7 +21,7 @@ depend on only what you use:
 | run web content in a browser | `github.com/webong/ext/res/web/host` (v0.1.0) |
 
 ```sh
-go get github.com/webong/ext/pkg/ext-go@v0.2.0
+go get github.com/webong/ext/pkg/ext-go@v0.11.0
 ```
 
 ## Host a plugin

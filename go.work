@@ -1,57 +1,59 @@
 go 1.26.0
 
 use (
-	./src/ctn
-	./src/ctx
-	./cmd/ext
-	./adapters/chromium
-	./adapters/secret_service
-	./adapters/credman
-	./adapters/keychain
-	./adapters/git
-	./adapters/systemd
-	./adapters/pulseaudio
 	./adapters/alsa
-	./adapters/pipewire
-	./adapters/x11
-	./adapters/ffmpeg
-	./adapters/wayland
-	./adapters/wasm
-	./adapters/evm
-	./adapters/zen
-	./adapters/waterfox
-	./adapters/librewolf
-	./adapters/floorp
-	./adapters/whale
-	./adapters/vivaldi
-	./adapters/opera
-	./adapters/helium
-	./adapters/dia
-	./adapters/comet
-	./adapters/atlas
-	./adapters/arc
-	./adapters/brave
-	./adapters/edge
-	./adapters/chrome
-	./adapters/firefox
-	./adapters/safari
-	./adapters/openai
-	./adapters/ollama
 	./adapters/anthropic
+	./adapters/arc
+	./adapters/atlas
+	./adapters/brave
+	./adapters/chrome
+	./adapters/chromium
+	./adapters/comet
+	./adapters/credman
+	./adapters/dia
+	./adapters/edge
+	./adapters/evm
+	./adapters/ffmpeg
+	./adapters/firefox
+	./adapters/floorp
 	./adapters/gemini
-	./res/system
-	./res/graph
-	./res/int
+	./adapters/git
+	./adapters/helium
+	./adapters/keychain
+	./adapters/librewolf
+	./adapters/ollama
+	./adapters/openai
+	./adapters/opera
+	./adapters/pipewire
+	./adapters/pulseaudio
+	./adapters/safari
+	./adapters/secret_service
+	./adapters/systemd
+	./adapters/vivaldi
+	./adapters/wasm
+	./adapters/waterfox
+	./adapters/wayland
+	./adapters/whale
+	./adapters/x11
+	./adapters/zen
+	./cmd/ext
 	./pkg/ext-go
+	./pkg/ext-go/c2goengine
+	./pkg/ext-go/cgoengine
+	./pkg/ext-go/engine
 	./pkg/ext-go/hashicorp
-	./pkg/ext-go/wasm
 	./pkg/ext-go/inference
 	./pkg/ext-go/model
 	./pkg/ext-go/perception
 	./pkg/ext-go/realtime
+	./pkg/ext-go/wasm
+	./res/graph
+	./res/int
+	./res/system
 	./res/web/host
-	./pkg/ext-go/engine
-	./pkg/ext-go/cgoengine
-	./pkg/ext-go/c2goengine
+	./src/ctn
+	./src/ctx
 	./tests/crosslang
 )
+
+replace github.com/webong/ext/pkg/ext-go/c2goengine v0.3.0 => ./pkg/ext-go/c2goengine

@@ -3,7 +3,7 @@ module github.com/webong/ext/pkg/ext-go/c2goengine
 go 1.26.0
 
 require (
-	github.com/webong/ext/pkg/ext-go/engine v0.2.0
+	github.com/webong/ext/pkg/ext-go/engine v0.3.0
 	modernc.org/libc v1.79.0
 )
 

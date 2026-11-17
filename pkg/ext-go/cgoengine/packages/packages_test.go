@@ -217,9 +217,15 @@ func TestManifestExtensionsDifferential(t *testing.T) {
 	add("tree overlap is case-insensitive", false, withArtifacts(tree("vendor", "Vendor"), file("inner", "vendor/x")))
 	add("tree overlap with unicode case", false, withArtifacts(tree("t", "É"), file("inner", "é/x")))
 	add("two separate trees", true, withArtifacts(tree("a", "a"), tree("b", "b")))
-	add("entrypoint on tree", false, func(m *packagekit.Manifest) {
+	add("process entrypoint on tree", false, func(m *packagekit.Manifest) {
 		m.Artifacts = append(m.Artifacts, tree("vendor", "vendor"))
 		m.Entrypoints[0].Artifact = "vendor"
+		m.Entrypoints[0].Runtime = "process"
+	})
+	add("go-source entrypoint on tree", true, func(m *packagekit.Manifest) {
+		m.Artifacts = append(m.Artifacts, tree("vendor", "vendor"))
+		m.Entrypoints[0].Artifact = "vendor"
+		m.Entrypoints[0].Runtime = "go-source"
 	})
 	add("asset on tree", true, func(m *packagekit.Manifest) {
 		m.Artifacts = append(m.Artifacts, tree("vendor", "vendor"))

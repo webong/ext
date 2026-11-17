@@ -207,8 +207,9 @@ one manifest entry per file. Its `path` is a directory and its `sha256` is
 `plugin.DirectoryDigest` of that directory, so files inside may use any case and
 do not count toward the 4096-artifact limit. A tree may hold only regular files
 and directories; symbolic links and special files are rejected, so an author
-materializes links when staging. It must not overlap another artifact and cannot
-be an entrypoint. `packagekit.SourceManifest` turns a directory path into a tree
+materializes links when staging. It must not overlap another artifact. An entrypoint may
+name a tree, as the `go-source` runtime of `pkg/ext-go/yaegi` does, except under
+the `process` runtime, which starts a single executable file. `packagekit.SourceManifest` turns a directory path into a tree
 artifact, `packagekit.TreeDigest(root, dir)` computes its digest, and
 `Installed.ArtifactPath(name)` returns the verified directory.
 

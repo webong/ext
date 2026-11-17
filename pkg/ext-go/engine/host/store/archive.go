@@ -159,7 +159,8 @@ func normalizeSHA256(value string) (string, error) {
 // directory that holds it.
 //
 // The archive is a zip, a gzip-compressed tar or a plain tar, told apart by
-// content and not by name; anything else is plugin.ErrUnsupported. Only directories and regular files are extracted; a link, a device
+// content and not by name; anything else is plugin.ErrUnsupported. A zip in
+// the zip64 form and a tar that stops inside a block are refused. Only directories and regular files are extracted; a link, a device
 // or any other special entry fails the extraction, as does a path that is
 // absolute, leaves the destination, repeats another (whatever its case) or is
 // not a SafeArchivePath. limits bounds the work: MaxArchiveBytes the archive

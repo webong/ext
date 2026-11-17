@@ -20,6 +20,8 @@ on:
       - 'pkg/ext-go/cgoengine/cshared/**'
       - 'tests/crosslang/**'
       - 'scripts/host-cases.sh'
+      - 'scripts/cshared-purego.sh'
+      - 'pkg/ext-go/cgoengine/go.mod'
       - '.github/workflows/host-cases.yml'
   workflow_dispatch:
 
@@ -27,6 +29,48 @@ permissions:
   contents: read
 
 jobs:
+  # The cgo-free C ABI loader (cshared on purego) held to the cases the cgo loader passes: the
+  # cshared tests and the shared host cases with CGO_ENABLED=0, on every platform it supports.
+  # The guests are built with cgo; only the host is cgo-free. The hosts job below runs the same
+  # host cases with cgo off as one step of scripts/host-cases.sh.
+  go-purego:
+    name: go host without cgo (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, ubuntu-24.04-arm, macos-15, macos-15-intel, windows-latest, windows-11-arm]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.26.x'
+          cache: true
+          cache-dependency-path: |
+            **/go.sum
+            go.work.sum
+      - uses: msys2/setup-msys2@v2
+        if: matrix.os == 'windows-latest'
+        with:
+          msystem: MINGW64
+          path-type: inherit
+          install: mingw-w64-x86_64-gcc
+      - uses: msys2/setup-msys2@v2
+        if: matrix.os == 'windows-11-arm'
+        with:
+          msystem: CLANGARM64
+          path-type: inherit
+          install: mingw-w64-clang-aarch64-clang
+      - name: cshared and the host cases without cgo
+        if: runner.os != 'Windows'
+        run: scripts/cshared-purego.sh
+      - name: cshared and the host cases without cgo (Windows)
+        if: runner.os == 'Windows'
+        shell: msys2 {0}
+        env:
+          CC: ${{ matrix.os == 'windows-11-arm' && 'clang' || 'gcc' }}
+        run: scripts/cshared-purego.sh
+
   hosts:
     strategy:
       fail-fast: false

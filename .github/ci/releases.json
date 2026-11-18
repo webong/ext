@@ -37,17 +37,41 @@
       ],
       "pr_paths": null,
       "version_default": "0.0.0",
-      "publishes": ".NET libraries (GitHub release; NuGet when EXT_NUGET_SOURCE is set)",
+      "publishes": "ExtIO.Host, the .NET plugin host (GitHub release; NuGet when EXT_NUGET_SOURCE is set)",
       "build": [
         {
-          "name": "ext-dotnet build (windows-latest)",
-          "runner": "windows-latest",
+          "name": "ext-dotnet build (ubuntu-latest)",
+          "runner": "ubuntu-latest",
           "script": "scripts/release/ext-dotnet/build.sh",
           "vars": {},
           "setup": {
             "dotnet": "8.0.x"
           },
-          "artifact": "release-ext-dotnet-windows-latest",
+          "artifact": "release-ext-dotnet-ubuntu-latest",
+          "timeout": 15
+        }
+      ],
+      "publish_setup": {},
+      "registry": "nuget",
+      "distribute": false
+    },
+    "ext-windows": {
+      "tag_prefixes": [
+        "ext-windows-v"
+      ],
+      "pr_paths": null,
+      "version_default": "0.0.0",
+      "publishes": "Windows .NET libraries of res/ (GitHub release; NuGet when EXT_NUGET_SOURCE is set)",
+      "build": [
+        {
+          "name": "ext-windows build (windows-latest)",
+          "runner": "windows-latest",
+          "script": "scripts/release/ext-windows/build.sh",
+          "vars": {},
+          "setup": {
+            "dotnet": "8.0.x"
+          },
+          "artifact": "release-ext-windows-windows-latest",
           "timeout": 30
         }
       ],

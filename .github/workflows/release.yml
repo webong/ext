@@ -19,6 +19,7 @@ on:
     tags:
       - 'ext-android-v*'
       - 'ext-dotnet-v*'
+      - 'ext-windows-v*'
       - 'ext-ios-v*'
       - 'ext-plugin-v*'
       - 'ext-python-v*'
@@ -61,6 +62,7 @@ on:
         options:
           - ext-android
           - ext-dotnet
+          - ext-windows
           - ext-ios
           - ext-plugin
           - ext-python
@@ -325,13 +327,16 @@ jobs:
 
   nuget:
     needs: [route, build, publish]
-    if: needs.route.outputs.registry == 'nuget' && github.event_name == 'push' && startsWith(github.ref, 'refs/tags/ext-dotnet-v') && vars.EXT_NUGET_SOURCE != ''
+    if: >-
+      needs.route.outputs.registry == 'nuget' && github.event_name == 'push' &&
+      (startsWith(github.ref, 'refs/tags/ext-dotnet-v') || startsWith(github.ref, 'refs/tags/ext-windows-v')) &&
+      vars.EXT_NUGET_SOURCE != ''
     runs-on: ubuntu-latest
     environment: nuget
     steps:
       - uses: actions/download-artifact@v7
         with:
-          pattern: release-ext-dotnet-*
+          pattern: release-${{ needs.route.outputs.package }}-*
           merge-multiple: true
           path: dist
       - uses: actions/setup-dotnet@v5

@@ -18,7 +18,7 @@ dotnet run --project .\Tests\Ext.Web.Windows.Tests.csproj
 
 ## Install
 
-`Ext.Web.Windows` is released as a NuGet package of that name, at the version of the `ext-dotnet-vX.Y.Z` tag
+`Ext.Web.Windows` is released as a NuGet package of that name, at the version of the `ext-windows-vX.Y.Z` tag
 (see [module versioning](https://github.com/webong/ext/blob/main/docs/module-versioning.md)). The types are in the namespace `Webong.Ext.Web.Windows`.
 
 ```powershell

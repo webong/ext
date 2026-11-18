@@ -21,7 +21,7 @@ fi
 # cshared and the host cases without cgo (Windows)
 if [ "$RUNNER_OS" = Windows ]; then
 (
-export CC="${MATRIX_OS == 'WINDOWS_11_ARM' && 'CLANG' || 'GCC':-}"
+if [ "${MATRIX_OS:-}" = windows-11-arm ]; then export CC=clang; else export CC=gcc; fi
 ci_msys2 <<'MSYS2'
 scripts/cshared-purego.sh
 MSYS2

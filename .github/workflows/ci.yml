@@ -176,10 +176,21 @@ jobs:
           gradle: ${{ matrix.setup.gradle }}
           wamr_cache: ${{ matrix.wamr_cache }}
       - name: Run
+        if: matrix.setup.msys2_msystem == null
         shell: bash
         env:
           CI_CELL_EXPORTS: ${{ matrix.exports }}
           CI_SCRIPT: ${{ matrix.script }}
+        run: bash "$CI_SCRIPT"
+      # A cell that sets up MSYS2 runs its whole script in the MSYS2 shell, as its steps did,
+      # so Git Bash's own MinGW directories never come before MSYS2's on PATH.
+      - name: Run (MSYS2)
+        if: matrix.setup.msys2_msystem != null
+        shell: msys2 {0}
+        env:
+          CI_CELL_EXPORTS: ${{ matrix.exports }}
+          CI_SCRIPT: ${{ matrix.script }}
+          CI_IN_MSYS2: '1'
         run: bash "$CI_SCRIPT"
       - name: Keep the result
         if: always() && matrix.artifact && (matrix.artifact.always || success())
@@ -280,10 +291,21 @@ jobs:
           gradle: ${{ matrix.setup.gradle }}
           wamr_cache: ${{ matrix.wamr_cache }}
       - name: Run
+        if: matrix.setup.msys2_msystem == null
         shell: bash
         env:
           CI_CELL_EXPORTS: ${{ matrix.exports }}
           CI_SCRIPT: ${{ matrix.script }}
+        run: bash "$CI_SCRIPT"
+      # A cell that sets up MSYS2 runs its whole script in the MSYS2 shell, as its steps did,
+      # so Git Bash's own MinGW directories never come before MSYS2's on PATH.
+      - name: Run (MSYS2)
+        if: matrix.setup.msys2_msystem != null
+        shell: msys2 {0}
+        env:
+          CI_CELL_EXPORTS: ${{ matrix.exports }}
+          CI_SCRIPT: ${{ matrix.script }}
+          CI_IN_MSYS2: '1'
         run: bash "$CI_SCRIPT"
       - name: Keep the result
         if: always() && matrix.artifact && (matrix.artifact.always || success())

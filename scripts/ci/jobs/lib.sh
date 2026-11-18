@@ -22,6 +22,14 @@ fi
 : "${GITHUB_ENV:=$RUNNER_TEMP/github-env}"
 : "${GITHUB_PATH:=$RUNNER_TEMP/github-path}"
 : "${GITHUB_WORKSPACE:=$PWD}"
+# On Windows the runner gives these as D:\a\... paths. The mixed form (D:/a/...) works both in Git
+# Bash or MSYS2 and for the Windows programs the steps start.
+if command -v cygpath >/dev/null 2>&1; then
+  RUNNER_TEMP="$(cygpath -m "$RUNNER_TEMP")"
+  GITHUB_ENV="$(cygpath -m "$GITHUB_ENV")"
+  GITHUB_PATH="$(cygpath -m "$GITHUB_PATH")"
+  GITHUB_WORKSPACE="$(cygpath -m "$GITHUB_WORKSPACE")"
+fi
 export RUNNER_TEMP RUNNER_OS GITHUB_ENV GITHUB_PATH GITHUB_WORKSPACE
 touch "$GITHUB_ENV" "$GITHUB_PATH"
 _ci_env_seen=$(wc -l <"$GITHUB_ENV")
@@ -53,7 +61,10 @@ ci_import_env() {
   total=$(wc -l <"$GITHUB_PATH")
   if [ "$total" -gt "$_ci_path_seen" ]; then
     while IFS= read -r line || [ -n "$line" ]; do
-      [ -n "$line" ] && PATH="$line:$PATH"
+      if [ -n "$line" ]; then
+        command -v cygpath >/dev/null 2>&1 && line="$(cygpath -u "$line")"
+        PATH="$line:$PATH"
+      fi
     done < <(tail -n "+$((_ci_path_seen + 1))" "$GITHUB_PATH")
     export PATH
     _ci_path_seen=$total
@@ -63,6 +74,11 @@ ci_import_env() {
 # Runs the script on stdin in the MSYS2 shell that .github/actions/setup installed (msys2.cmd),
 # in the current directory, with bash's -e and pipefail, as a step with "shell: msys2 {0}" does.
 ci_msys2() {
+  # Already in the MSYS2 shell: ci.yml runs a whole MSYS2 cell's script there.
+  if [ "${CI_IN_MSYS2:-}" = 1 ]; then
+    bash -eo pipefail
+    return
+  fi
   local script
   script="$(mktemp "$RUNNER_TEMP/msys2-step.XXXXXX.sh")"
   { echo 'set -eo pipefail'; cat; } >"$script"

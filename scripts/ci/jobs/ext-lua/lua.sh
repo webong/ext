@@ -10,7 +10,7 @@
 
 # Test the SDK and run it under the Go hosts
 (
-export EXT_LUA="$(case "${MATRIX_LUA:-}" in luajit*) echo luajit ;; *) echo lua ;; esac)"
+if [[ "${MATRIX_LUA:-}" == luajit* ]]; then export EXT_LUA=luajit; else export EXT_LUA=lua; fi
 scripts/lang/lua.sh test
 )
 ci_import_env

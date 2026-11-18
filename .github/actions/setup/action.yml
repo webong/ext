@@ -120,10 +120,6 @@ runs:
         path-type: inherit
     - if: inputs.msvc == 'true'
       uses: ilammy/msvc-dev-cmd@v1
-    - if: inputs.ruby != ''
-      uses: ruby/setup-ruby@v1
-      with:
-        ruby-version: ${{ inputs.ruby }}
     - if: inputs.lua != ''
       uses: leafo/gh-actions-lua@v13
       with:
@@ -131,6 +127,10 @@ runs:
         buildCache: ${{ inputs.lua_build_cache }}
     - if: inputs.luarocks == 'true'
       uses: leafo/gh-actions-luarocks@v6
+    - if: inputs.ruby != ''
+      uses: ruby/setup-ruby@v1
+      with:
+        ruby-version: ${{ inputs.ruby }}
     - if: inputs.rust != ''
       uses: dtolnay/rust-toolchain@stable
       with:

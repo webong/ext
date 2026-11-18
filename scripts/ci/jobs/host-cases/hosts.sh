@@ -18,7 +18,7 @@
 
 # Host cases
 (
-export EXT_LUA="$(case "${MATRIX_LUA:-}" in luajit*) echo luajit ;; *) echo lua ;; esac)"
+if [[ "${MATRIX_LUA:-}" == luajit* ]]; then export EXT_LUA=luajit; else export EXT_LUA=lua; fi
 export PYTHON="python"
 scripts/host-cases.sh
 )

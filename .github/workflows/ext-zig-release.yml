@@ -8,25 +8,12 @@ name: Release Zig package
 # manual run, stage, build and test the manifest's version and publish nothing. The tag is not a Go
 # module tag; see docs/module-versioning.md.
 on:
-  push:
-    tags: ['ext-zig-v*']
-  pull_request:
-    paths:
-      - 'pkg/ext-zig/**'
-      - 'lib/plugin/**'
-      - 'scripts/ext-zig-release.sh'
-      - 'scripts/ext-zig-sync.sh'
-      - 'scripts/install-zig.sh'
-      - 'LICENSE'
-      - '.github/workflows/ext-zig-release.yml'
-  workflow_dispatch:
+  # Called by release.yml, which routes each tag, manual run and pull request (docs/ci.md). The
+  # publish jobs below still check that the run is a tag push of this package.
+  workflow_call:
 
 permissions:
   contents: read
-
-concurrency:
-  group: ext-zig-release-${{ github.ref }}
-  cancel-in-progress: false
 
 jobs:
   # Stages the package and tests it on its own, with fresh caches, before anything is published.

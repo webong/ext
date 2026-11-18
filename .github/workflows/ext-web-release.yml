@@ -11,21 +11,17 @@ name: Release ext-web
 #
 # The tag's version must equal the version in pkg/ext-web/package.json.
 on:
-  push:
-    tags: ['ext-web-v*']
-  workflow_dispatch:
+  # Called by release.yml, which routes each tag, manual run and pull request (docs/ci.md). The
+  # publish jobs below still check that the run is a tag push of this package.
+  workflow_call:
     inputs:
       version:
-        description: Version to build for the dry run; must equal the version in package.json
+        description: Version to build for a dry run (a tag run takes the tag's)
         type: string
         default: 0.1.0
 
 permissions:
   contents: read
-
-concurrency:
-  group: ext-web-release-${{ github.ref }}
-  cancel-in-progress: false
 
 jobs:
   # Tests and packs before anything is published. Read-only: it has no token that can write.

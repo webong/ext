@@ -10,20 +10,12 @@ name: Release ext-io (PyPI)
 # first release, add a pending publisher for the project ext-io naming the repository webong/ext, the
 # workflow ext-python-release.yml and the environment pypi.
 on:
-  push:
-    tags: ['ext-python-v*']
-  pull_request:
-    paths:
-      - 'pkg/ext-python/**'
-      - '.github/workflows/ext-python-release.yml'
-  workflow_dispatch:
+  # Called by release.yml, which routes each tag, manual run and pull request (docs/ci.md). The
+  # publish jobs below still check that the run is a tag push of this package.
+  workflow_call:
 
 permissions:
   contents: read
-
-concurrency:
-  group: ext-python-release-${{ github.ref }}
-  cancel-in-progress: false
 
 jobs:
   # Tests and builds before anything is published. Read-only: it has no token that can write.

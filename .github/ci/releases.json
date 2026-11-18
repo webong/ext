@@ -1,0 +1,122 @@
+{
+  "about": "Release packages: release.yml routes a tag to the package whose prefix it starts with (the longest prefix wins), a manual run to the package named, and a pull request to the packages whose pr_paths match a changed file (null: never on pull requests). Only a tag push publishes; every other run is a dry run, gated inside each package's workflow. version_default is the dry-run version for packages whose workflow takes one.",
+  "packages": {
+    "binaries": {
+      "tag_prefixes": [
+        "ctx-v",
+        "ctn-v",
+        "ext-v"
+      ],
+      "workflow": ".github/workflows/release-binaries.yml",
+      "pr_paths": null,
+      "version_default": null,
+      "publishes": "ctx, ctn and ext binaries"
+    },
+    "ext-android": {
+      "tag_prefixes": [
+        "ext-android-v"
+      ],
+      "workflow": ".github/workflows/ext-android-release.yml",
+      "pr_paths": null,
+      "version_default": "0.0.0",
+      "publishes": "Android SDK (GitHub release)"
+    },
+    "ext-dotnet": {
+      "tag_prefixes": [
+        "ext-dotnet-v"
+      ],
+      "workflow": ".github/workflows/ext-dotnet-release.yml",
+      "pr_paths": null,
+      "version_default": "0.0.0",
+      "publishes": ".NET libraries (GitHub release; NuGet when EXT_NUGET_SOURCE is set)"
+    },
+    "ext-ios": {
+      "tag_prefixes": [
+        "ext-ios-v"
+      ],
+      "workflow": ".github/workflows/ext-ios-release.yml",
+      "pr_paths": null,
+      "version_default": "0.0.0",
+      "publishes": "iOS SDK (GitHub release and dist/ext-ios for SwiftPM)"
+    },
+    "ext-web": {
+      "tag_prefixes": [
+        "ext-web-v"
+      ],
+      "workflow": ".github/workflows/ext-web-release.yml",
+      "pr_paths": null,
+      "version_default": "0.1.0",
+      "publishes": "ext-web tarball (GitHub release)"
+    },
+    "ext-plugin": {
+      "tag_prefixes": [
+        "ext-plugin-v"
+      ],
+      "workflow": ".github/workflows/ext-plugin-release.yml",
+      "pr_paths": [
+        "lib/plugin/**",
+        "scripts/ext-plugin-release.sh",
+        ".github/workflows/ext-plugin-release.yml"
+      ],
+      "version_default": null,
+      "publishes": "prebuilt C plugin engine (GitHub release)"
+    },
+    "ext-python": {
+      "tag_prefixes": [
+        "ext-python-v"
+      ],
+      "workflow": ".github/workflows/ext-python-release.yml",
+      "pr_paths": [
+        "pkg/ext-python/**",
+        ".github/workflows/ext-python-release.yml"
+      ],
+      "version_default": null,
+      "publishes": "ext-io on PyPI"
+    },
+    "ext-rust": {
+      "tag_prefixes": [
+        "ext-rust-v"
+      ],
+      "workflow": ".github/workflows/ext-rust-release.yml",
+      "pr_paths": [
+        "pkg/ext-rust/Cargo.toml",
+        "pkg/ext-rust/Cargo.lock",
+        "pkg/ext-rust/src/**",
+        "pkg/ext-rust/README.md",
+        "pkg/ext-rust/LICENSE",
+        ".github/workflows/ext-rust-release.yml"
+      ],
+      "version_default": null,
+      "publishes": "ext-io on crates.io"
+    },
+    "ext-ts": {
+      "tag_prefixes": [
+        "ext-ts-v"
+      ],
+      "workflow": ".github/workflows/ext-ts-release.yml",
+      "pr_paths": [
+        "pkg/ext-ts/**",
+        ".github/workflows/ext-ts-release.yml"
+      ],
+      "version_default": null,
+      "publishes": "ext-io on npm"
+    },
+    "ext-zig": {
+      "tag_prefixes": [
+        "ext-zig-v"
+      ],
+      "workflow": ".github/workflows/ext-zig-release.yml",
+      "pr_paths": [
+        "pkg/ext-zig/**",
+        "lib/plugin/**",
+        "scripts/ext-zig-release.sh",
+        "scripts/ext-zig-sync.sh",
+        "scripts/install-zig.sh",
+        "LICENSE",
+        ".github/workflows/ext-zig-release.yml"
+      ],
+      "version_default": null,
+      "publishes": "Zig package (GitHub release and dist/ext-zig)"
+    }
+  }
+}

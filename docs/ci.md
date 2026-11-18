@@ -1,7 +1,7 @@
 # CI
 
-Tests run from one workflow, `.github/workflows/ci.yml`. Releases run from their own workflows (see
-[module versioning](module-versioning.md)).
+Tests run from one workflow, `.github/workflows/ci.yml`, and releases from one,
+`.github/workflows/release.yml` (tag and version rules: [module versioning](module-versioning.md)).
 
 ## How a run is planned
 
@@ -47,3 +47,24 @@ or `typecheck`); workflows install the toolchain and call the script. The cross-
 - **A language:** a `scripts/lang/<language>.sh`, a tool name in `areas.json`, and the label.
 - **An area:** a reusable workflow (`on: workflow_call` with the `cells` input), its entry in
   `areas.json`, and a job plus two plan outputs in `ci.yml`.
+
+## Releases
+
+`release.yml` routes every run through `scripts/ci/release_plan.py` and `.github/ci/releases.json`,
+which lists each package's tag prefixes, its workflow, the paths whose change makes a pull request
+dry-run it, and its default dry-run version.
+
+| Run | Packages | Publishes |
+| --- | --- | --- |
+| tag push | the package whose prefix the tag starts with (the longest prefix wins) | yes, if the package's workflow accepts the tag |
+| pull request | the packages whose `pr_paths` match a changed file | no |
+| `gh workflow run release.yml -f package=<name> [-f version=X.Y.Z]` | that package | no |
+
+A tag that matches no package fails the route. Publishing is still decided inside each package's
+workflow: its publish jobs run only for a tag push of its own prefix, in their own environments,
+exactly as before they were routed. The `ctx-v`, `ctn-v` and `ext-v` binaries
+(`release-binaries.yml`) release only from a tag.
+
+Adding a package: its reusable workflow (`on: workflow_call`, taking `version` if it builds a
+version by hand), its entry in `releases.json`, and its tag pattern and job in `release.yml`.
+`release_plan.py --check`, which the route job runs, fails when they drift apart.

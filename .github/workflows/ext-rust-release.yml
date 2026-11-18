@@ -11,24 +11,12 @@ name: Release ext-io (Rust)
 # `crates` environment secret CARGO_REGISTRY_TOKEN. The token wins when both are present.
 # ext-plugin-engine (pkg/ext-rust/engine) links a prebuilt native library and is never published.
 on:
-  push:
-    tags: ['ext-rust-v*']
-  pull_request:
-    paths:
-      - 'pkg/ext-rust/Cargo.toml'
-      - 'pkg/ext-rust/Cargo.lock'
-      - 'pkg/ext-rust/src/**'
-      - 'pkg/ext-rust/README.md'
-      - 'pkg/ext-rust/LICENSE'
-      - '.github/workflows/ext-rust-release.yml'
-  workflow_dispatch:
+  # Called by release.yml, which routes each tag, manual run and pull request (docs/ci.md). The
+  # publish jobs below still check that the run is a tag push of this package.
+  workflow_call:
 
 permissions:
   contents: read
-
-concurrency:
-  group: ext-rust-release-${{ github.ref }}
-  cancel-in-progress: false
 
 jobs:
   # Tests and packages the crate before anything is published. Read-only: it has no token that can write.

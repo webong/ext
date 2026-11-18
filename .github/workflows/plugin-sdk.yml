@@ -31,10 +31,10 @@ jobs:
             (cd "$module" && go test -race ./...) || exit 1
           done
       - run: go test -race ./pkg/ext-go/hashicorp/cmd/ext-plugin
-      - run: node --test pkg/ext-ts/test.mjs pkg/ext-ts/frames.test.mjs pkg/ext-ts/router.test.mjs
-      - run: python3 -I -m unittest discover -s pkg/ext-python/tests
+      - run: scripts/lang/ts.sh test
+      - run: scripts/lang/python.sh test
       - name: Check TypeScript declarations
-        run: npx --yes --package typescript@5.8.3 tsc --noEmit --strict --module NodeNext --moduleResolution NodeNext --target ES2022 pkg/ext-ts/typecheck.mts
+        run: scripts/lang/ts.sh typecheck
       - run: go run ./pkg/ext-go/examples/plugin-sdk --backend jsonline
       - run: go run ./pkg/ext-go/examples/plugin-sdk --backend inprocess
       - run: go run ./pkg/ext-go/examples/plugin-typescript

@@ -9,6 +9,7 @@ on:
   push:
     branches: [main]
     paths:
+      - 'scripts/lang/**'
       - pkg/ext-lua/**
       - lib/plugin/testdata/**
       - pkg/ext-go/engine/**
@@ -48,7 +49,7 @@ jobs:
       - name: Test the SDK and run it under the Go hosts
         env:
           EXT_LUA: ${{ startsWith(matrix.lua, 'luajit') && 'luajit' || 'lua' }}
-        run: scripts/ext-lua.sh
+        run: scripts/lang/lua.sh test
 
   rock:
     runs-on: ubuntu-latest
@@ -59,11 +60,4 @@ jobs:
           luaVersion: '5.4.9'
       - uses: leafo/gh-actions-luarocks@v6
       - name: Lint and install the rockspec, then load the installed modules
-        working-directory: pkg/ext-lua
-        run: |
-          luarocks lint ext-io-0.1.0-1.rockspec
-          luarocks lint ext-io-host-0.1.0-1.rockspec
-          luarocks make --tree "$RUNNER_TEMP/rocks" ext-io-0.1.0-1.rockspec
-          cd "$RUNNER_TEMP"
-          LUA_PATH="$RUNNER_TEMP/rocks/share/lua/5.4/?.lua;$RUNNER_TEMP/rocks/share/lua/5.4/?/init.lua" \
-            lua -e 'local p = require("ext_io.plugin"); assert(p.API_VERSION == "ext.plugin/v1" and p.capability.Router)'
+        run: scripts/lang/lua.sh rock

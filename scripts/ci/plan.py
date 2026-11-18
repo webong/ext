@@ -12,6 +12,9 @@ Selection, by event:
   workflow_dispatch
       as a pull request, with --labels standing in for the PR's labels
 
+A job marked "nightly" in the table (slow, or needing a real device session) runs only on the
+schedule or with ci:full, never on a push to main or an ordinary pull request.
+
 Writes "<area>_run=true|false" and "<area>_cells=<json>" lines (job name -> list of cells) to
 $GITHUB_OUTPUT, or to stdout, and a summary table to $GITHUB_STEP_SUMMARY when it is set.
 Uses the standard library only.
@@ -57,6 +60,7 @@ def plan(table, event, labels, changed):
     if unknown:
         raise SystemExit(f"unknown labels: {sorted(unknown)} (tools {sorted(tools_all)}, platforms {sorted(platforms_all)})")
     full = event in ("push", "schedule") or "ci:full" in labels
+    nightly = event == "schedule" or "ci:full" in labels
     if full:
         tools, platforms = tools_all, platforms_all
     elif not platforms:
@@ -71,7 +75,8 @@ def plan(table, event, labels, changed):
             run = matches(area["pr_paths"], changed)
         cells = {}
         for job_name, job in area["jobs"].items():
-            kept = [c for c in job["cells"] if platform_of(job, c) in platforms] if run else []
+            wanted = run and (nightly or not job.get("nightly"))
+            kept = [c for c in job["cells"] if platform_of(job, c) in platforms] if wanted else []
             cells[job_name] = kept
         run = run and any(cells.values())
         result[name] = {"run": run, "cells": cells}

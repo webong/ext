@@ -15,8 +15,14 @@ workflow runs only those cells. Its summary on the run page says what was picked
 | push to `main` | those whose `main_paths` match a changed file (all, when `main_paths` is null) | all |
 | pull request with `tool:` labels | those tagged with a labelled tool | `platform:` labels, else linux |
 | pull request without `tool:` labels | those whose `pr_paths` match a changed file | `platform:` labels, else linux |
-| pull request labelled `ci:full` | all | all |
+| pull request labelled `ci:full` | all, with the nightly jobs | all |
 | manual run | as a pull request, from `-f labels=...` | as a pull request |
+| nightly (02:17 UTC) | all, with the nightly jobs | all |
+
+A job marked `"nightly": true` in `areas.json` is slow or needs a real device session: the C engine
+fuzzer, the real PipeWire and Wayland desktop session, the Android emulator suite and the iOS
+Simulator suite. It runs on the nightly schedule or with `ci:full`, never on a push to `main` or an
+ordinary pull request.
 
 Adding or removing a label re-plans a pull request's run, and a newer run of the same pull request or
 branch cancels the older one. macOS, Windows, iOS and Android cost nothing on a pull request unless a

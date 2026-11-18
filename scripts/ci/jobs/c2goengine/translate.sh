@@ -2,7 +2,7 @@
 # c2goengine/translate: drafted from .github/workflows/c2goengine.yml (job translate).
 . "$(dirname "$0")/../lib.sh"
 
-# (Windows keeps line endings as they are: ci.yml sets core.autocrlf false before checkout, for
+# (Windows keeps line endings as they are: the workflow sets core.autocrlf false before checkout, for
 # cells with autocrlf_off.)
 
 # (action actions/checkout@v5)

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-"""Plans a CI run: which cells of .github/ci/areas.json run, grouped by the ci.yml job that runs
-them (go, engines, languages, conformance, platforms).
+"""Plans a CI run: which cells of .github/ci/areas.json run, grouped by the job that runs them.
+core.yml runs the base and conformance groups, targets.yml the engines, runtimes and platforms
+groups (the table's "workflows"); each passes --workflow so it plans only its own groups.
 
 Selection, by event:
   push to main, or the label ci:full
@@ -14,13 +15,14 @@ Selection, by event:
       as a pull request, with --labels standing in for the PR's labels
 
 A job marked "on_request" (slow, or needing a real device session) runs only with ci:full; one
-marked "push_only" only on a push to main.
+marked "push_only" only on a push to main. A job with its own "tools" runs, when tool: labels pick,
+only if a picked tool is among them (so tool:swift runs the Swift cells, not the area's Go ones).
 
 Writes "<group>=<json list of cells>" and "<group>_run=true|false" lines to $GITHUB_OUTPUT, or to
 stdout, and a summary table to $GITHUB_STEP_SUMMARY when it is set. Standard library only.
 
-Usage: plan.py --event EVENT [--labels 'a,b'] [--changed FILE] [--areas PATH]
-       plan.py --check   (the table names existing scripts, known groups, and runnable cells)
+Usage: plan.py --event EVENT --workflow core|targets [--labels 'a,b'] [--changed FILE] [--areas PATH]
+       plan.py --check   (scripts exist, groups have one workflow, cells are runnable)
 """
 import argparse
 import fnmatch
@@ -51,7 +53,7 @@ def matches(paths, changed):
     return False
 
 
-def plan(table, event, labels, changed):
+def plan(table, event, labels, changed, workflow):
     tools_all = set(table["tools"])
     platforms_all = set(table["platforms"])
     tools = {l.split(":", 1)[1] for l in labels if l.startswith("tool:")}
@@ -65,7 +67,8 @@ def plan(table, event, labels, changed):
         tools, platforms = tools_all, platforms_all
     elif not platforms:
         platforms = {"linux"}
-    groups = {g: [] for g in table["groups"]}
+    owned = table["workflows"][workflow]
+    groups = {g: [] for g in owned}
     areas = {}
     for name, area in table["areas"].items():
         if full:
@@ -77,7 +80,9 @@ def plan(table, event, labels, changed):
         count = 0
         for job in area["jobs"].values():
             wanted = run and (on_request or not job.get("on_request")) and (event == "push" or not job.get("push_only"))
-            if not wanted:
+            if wanted and tools and not full and job.get("tools"):
+                wanted = bool(tools & set(job["tools"]))
+            if not wanted or job["group"] not in groups:
                 continue
             for cell in job["cells"]:
                 if platform_of(job, cell) in platforms:
@@ -93,6 +98,15 @@ def plan(table, event, labels, changed):
 def check(table):
     problems = []
     groups = set(table["groups"])
+    owners = {}
+    for workflow, owned in table["workflows"].items():
+        if not os.path.isfile(f".github/workflows/{workflow}.yml"):
+            problems.append(f"workflow {workflow}.yml does not exist")
+        for g in owned:
+            owners.setdefault(g, []).append(workflow)
+    for g in groups:
+        if len(owners.get(g, [])) != 1:
+            problems.append(f"group {g} belongs to {owners.get(g, [])}, not exactly one workflow")
     names = set()
     for name, area in table["areas"].items():
         for job_name, job in area["jobs"].items():
@@ -113,6 +127,7 @@ def check(table):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--event")
+    parser.add_argument("--workflow", help="core or targets: plan only the groups that workflow runs")
     parser.add_argument("--labels", default="")
     parser.add_argument("--changed", help="file listing changed paths, one per line")
     parser.add_argument("--areas", default=".github/ci/areas.json")
@@ -122,14 +137,14 @@ def main():
         table = json.load(f)
     if args.check:
         return check(table)
-    if not args.event:
-        parser.error("--event is required")
+    if not args.event or args.workflow not in table["workflows"]:
+        parser.error(f"--event and --workflow (one of {sorted(table['workflows'])}) are required")
     labels = [l.strip() for l in args.labels.split(",") if l.strip()]
     changed = []
     if args.changed:
         with open(args.changed) as f:
             changed = [l.strip() for l in f if l.strip()]
-    groups, areas, tools, platforms, full = plan(table, args.event, labels, changed)
+    groups, areas, tools, platforms, full = plan(table, args.event, labels, changed, args.workflow)
 
     lines = []
     for group, cells in groups.items():
@@ -146,7 +161,7 @@ def main():
     if summary:
         with open(summary, "a") as f:
             mode = "full run" if full else f"tools: {', '.join(tools) or 'from changed paths'}"
-            f.write(f"### CI plan ({args.event}; {mode}; platforms: {', '.join(platforms)})\n\n")
+            f.write(f"### {args.workflow}.yml plan ({args.event}; {mode}; platforms: {', '.join(platforms)})\n\n")
             f.write("| Area | Cells |\n| --- | --- |\n")
             for name, count in areas.items():
                 f.write(f"| {name} | {count} |\n")

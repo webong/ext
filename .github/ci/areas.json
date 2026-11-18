@@ -1,5 +1,5 @@
 {
-  "about": "CI areas and cells. ci.yml runs scripts/ci/plan.py over this table and runs each picked cell in the job of its group (go, engines, languages, conformance, platforms): it sets up the cell's toolchains with .github/actions/setup, exports its vars as MATRIX_<KEY>, and runs its script. An area is chosen by its tools (tool: labels) or, without labels, by main_paths on a push to main and pr_paths on a pull request (null: always). A cell runs on the platform of its runner unless its job names one. A job marked on_request runs only with ci:full; one marked push_only only on a push to main.",
+  "about": "CI areas and cells. core.yml and targets.yml run scripts/ci/plan.py over this table and run each picked cell in the job of its group; core.yml runs base and conformance, targets.yml runs engines, runtimes and platforms (workflows): it sets up the cell's toolchains with .github/actions/setup, exports its vars as MATRIX_<KEY>, and runs its script. An area is chosen by its tools (tool: labels; a job may narrow them with its own tools) or, without labels, by main_paths on a push to main and pr_paths on a pull request (null: always). A cell runs on the platform of its runner unless its job names one. A job marked on_request runs only with ci:full; one marked push_only only on a push to main.",
   "platforms": [
     "linux",
     "macos",
@@ -22,10 +22,10 @@
     "zig"
   ],
   "groups": [
-    "go",
-    "engines",
-    "languages",
+    "base",
     "conformance",
+    "engines",
+    "runtimes",
     "platforms"
   ],
   "areas": {
@@ -55,10 +55,13 @@
                 "android_packages": "platform-tools"
               }
             }
+          ],
+          "tools": [
+            "java"
           ]
         },
         "dist-branch": {
-          "group": "go",
+          "group": "base",
           "cells": [
             {
               "name": "native/dist-branch (ubuntu-latest)",
@@ -68,6 +71,30 @@
                 "OS": "ubuntu-latest"
               },
               "setup": {}
+            }
+          ],
+          "tools": [
+            "go"
+          ]
+        },
+        "dotnet": {
+          "group": "runtimes",
+          "tools": [
+            "csharp"
+          ],
+          "cells": [
+            {
+              "name": "native/dotnet (windows-latest)",
+              "runner": "windows-latest",
+              "script": "scripts/ci/jobs/native/dotnet.sh",
+              "vars": {
+                "OS": "windows-latest"
+              },
+              "setup": {
+                "go": "1.26.x",
+                "go_cache": "true",
+                "dotnet": "8.0.x"
+              }
             }
           ]
         },
@@ -83,6 +110,41 @@
                 "OS": "macos-latest"
               },
               "setup": {}
+            }
+          ],
+          "tools": [
+            "swift"
+          ]
+        },
+        "java": {
+          "group": "runtimes",
+          "tools": [
+            "java"
+          ],
+          "cells": [
+            {
+              "name": "native/java (ubuntu-latest)",
+              "runner": "ubuntu-latest",
+              "script": "scripts/ci/jobs/native/java.sh",
+              "vars": {
+                "OS": "ubuntu-latest"
+              },
+              "setup": {
+                "go": "1.26.x",
+                "go_cache": "true"
+              }
+            },
+            {
+              "name": "native/java (macos-latest)",
+              "runner": "macos-latest",
+              "script": "scripts/ci/jobs/native/java.sh",
+              "vars": {
+                "OS": "macos-latest"
+              },
+              "setup": {
+                "go": "1.26.x",
+                "go_cache": "true"
+              }
             }
           ]
         },
@@ -103,10 +165,13 @@
               },
               "timeout": 15
             }
+          ],
+          "tools": [
+            "go"
           ]
         },
         "native": {
-          "group": "go",
+          "group": "base",
           "cells": [
             {
               "name": "native/native (ubuntu-latest)",
@@ -146,10 +211,13 @@
                 "dotnet": "8.0.x"
               }
             }
+          ],
+          "tools": [
+            "go"
           ]
         },
         "native-integration": {
-          "group": "go",
+          "group": "base",
           "cells": [
             {
               "name": "native/native-integration (ubuntu-latest)",
@@ -175,10 +243,13 @@
                 "go_cache": "true"
               }
             }
+          ],
+          "tools": [
+            "go"
           ]
         },
         "standalone-modules": {
-          "group": "go",
+          "group": "base",
           "cells": [
             {
               "name": "native/standalone-modules (ubuntu-latest)",
@@ -193,7 +264,30 @@
               }
             }
           ],
-          "push_only": true
+          "push_only": true,
+          "tools": [
+            "go"
+          ]
+        },
+        "swift": {
+          "group": "runtimes",
+          "tools": [
+            "swift"
+          ],
+          "cells": [
+            {
+              "name": "native/swift (macos-latest)",
+              "runner": "macos-latest",
+              "script": "scripts/ci/jobs/native/swift.sh",
+              "vars": {
+                "OS": "macos-latest"
+              },
+              "setup": {
+                "go": "1.26.x",
+                "go_cache": "true"
+              }
+            }
+          ]
         }
       }
     },
@@ -204,7 +298,8 @@
       "main_paths": [
         ".github/actions/setup/**",
         ".github/ci/areas.json",
-        ".github/workflows/ci.yml",
+        ".github/workflows/core.yml",
+        ".github/workflows/targets.yml",
         "lib/plugin/**",
         "pkg/ext-go/**",
         "scripts/ci/jobs/lib.sh",
@@ -215,7 +310,8 @@
       "pr_paths": [
         ".github/actions/setup/**",
         ".github/ci/areas.json",
-        ".github/workflows/ci.yml",
+        ".github/workflows/core.yml",
+        ".github/workflows/targets.yml",
         "lib/plugin/**",
         "pkg/ext-go/**",
         "scripts/ci/jobs/lib.sh",
@@ -336,7 +432,8 @@
       "main_paths": [
         ".github/actions/setup/**",
         ".github/ci/areas.json",
-        ".github/workflows/ci.yml",
+        ".github/workflows/core.yml",
+        ".github/workflows/targets.yml",
         "lib/plugin/**",
         "pkg/ext-go/c2goengine/**",
         "pkg/ext-go/engine/plugintest/enginetest/**",
@@ -347,7 +444,8 @@
       "pr_paths": [
         ".github/actions/setup/**",
         ".github/ci/areas.json",
-        ".github/workflows/ci.yml",
+        ".github/workflows/core.yml",
+        ".github/workflows/targets.yml",
         "lib/plugin/**",
         "pkg/ext-go/c2goengine/**",
         "pkg/ext-go/engine/plugintest/enginetest/**",
@@ -542,7 +640,8 @@
       "main_paths": [
         ".github/actions/setup/**",
         ".github/ci/areas.json",
-        ".github/workflows/ci.yml",
+        ".github/workflows/core.yml",
+        ".github/workflows/targets.yml",
         "lib/plugin/**",
         "pkg/ext-dotnet/**",
         "pkg/ext-go/cgoengine/cshared/**",
@@ -564,7 +663,8 @@
       "pr_paths": [
         ".github/actions/setup/**",
         ".github/ci/areas.json",
-        ".github/workflows/ci.yml",
+        ".github/workflows/core.yml",
+        ".github/workflows/targets.yml",
         "lib/plugin/**",
         "pkg/ext-dotnet/**",
         "pkg/ext-go/cgoengine/cshared/**",
@@ -934,7 +1034,7 @@
           ]
         },
         "sdk": {
-          "group": "go",
+          "group": "base",
           "cells": [
             {
               "name": "plugin-sdk/sdk (ubuntu-latest)",
@@ -952,7 +1052,7 @@
           ]
         },
         "web-ports": {
-          "group": "go",
+          "group": "base",
           "cells": [
             {
               "name": "plugin-sdk/web-ports (ubuntu-latest)",
@@ -994,7 +1094,8 @@
       "main_paths": [
         ".github/actions/setup/**",
         ".github/ci/areas.json",
-        ".github/workflows/ci.yml",
+        ".github/workflows/core.yml",
+        ".github/workflows/targets.yml",
         "examples/android-consumer/**",
         "lib/plugin/**",
         "pkg/ext-android/**",
@@ -1015,7 +1116,8 @@
       "pr_paths": [
         ".github/actions/setup/**",
         ".github/ci/areas.json",
-        ".github/workflows/ci.yml",
+        ".github/workflows/core.yml",
+        ".github/workflows/targets.yml",
         "examples/android-consumer/**",
         "lib/plugin/**",
         "pkg/ext-android/**",
@@ -1112,7 +1214,8 @@
       "pr_paths": [
         ".github/actions/setup/**",
         ".github/ci/areas.json",
-        ".github/workflows/ci.yml",
+        ".github/workflows/core.yml",
+        ".github/workflows/targets.yml",
         "pkg/ext-web/**",
         "scripts/ci/jobs/lib.sh",
         "scripts/ci/jobs/web-js/**",
@@ -1120,7 +1223,7 @@
       ],
       "jobs": {
         "extension-library": {
-          "group": "languages",
+          "group": "runtimes",
           "cells": [
             {
               "name": "web-js/extension-library (ubuntu-latest)",
@@ -1147,7 +1250,8 @@
       "pr_paths": [
         ".github/actions/setup/**",
         ".github/ci/areas.json",
-        ".github/workflows/ci.yml",
+        ".github/workflows/core.yml",
+        ".github/workflows/targets.yml",
         "lib/plugin/testdata/**",
         "pkg/ext-go/engine/**",
         "pkg/ext-php/**",
@@ -1159,7 +1263,7 @@
       ],
       "jobs": {
         "php": {
-          "group": "languages",
+          "group": "runtimes",
           "cells": [
             {
               "name": "ext-php/php (ubuntu-latest, 8.1)",
@@ -1236,7 +1340,8 @@
       "main_paths": [
         ".github/actions/setup/**",
         ".github/ci/areas.json",
-        ".github/workflows/ci.yml",
+        ".github/workflows/core.yml",
+        ".github/workflows/targets.yml",
         "lib/plugin/testdata/**",
         "pkg/ext-go/engine/**",
         "pkg/ext-ruby/**",
@@ -1249,7 +1354,8 @@
       "pr_paths": [
         ".github/actions/setup/**",
         ".github/ci/areas.json",
-        ".github/workflows/ci.yml",
+        ".github/workflows/core.yml",
+        ".github/workflows/targets.yml",
         "lib/plugin/testdata/**",
         "pkg/ext-go/engine/**",
         "pkg/ext-ruby/**",
@@ -1261,7 +1367,7 @@
       ],
       "jobs": {
         "ruby": {
-          "group": "languages",
+          "group": "runtimes",
           "cells": [
             {
               "name": "ext-ruby/ruby (ubuntu-latest, 3.1)",
@@ -1358,7 +1464,8 @@
       "main_paths": [
         ".github/actions/setup/**",
         ".github/ci/areas.json",
-        ".github/workflows/ci.yml",
+        ".github/workflows/core.yml",
+        ".github/workflows/targets.yml",
         "lib/plugin/testdata/**",
         "pkg/ext-go/engine/**",
         "pkg/ext-lua/**",
@@ -1372,7 +1479,8 @@
       "pr_paths": [
         ".github/actions/setup/**",
         ".github/ci/areas.json",
-        ".github/workflows/ci.yml",
+        ".github/workflows/core.yml",
+        ".github/workflows/targets.yml",
         "lib/plugin/testdata/**",
         "pkg/ext-go/engine/**",
         "pkg/ext-lua/**",
@@ -1385,7 +1493,7 @@
       ],
       "jobs": {
         "lua": {
-          "group": "languages",
+          "group": "runtimes",
           "cells": [
             {
               "name": "ext-lua/lua (5.1.5, ubuntu-latest)",
@@ -1510,7 +1618,7 @@
           ]
         },
         "rock": {
-          "group": "languages",
+          "group": "runtimes",
           "cells": [
             {
               "name": "ext-lua/rock (ubuntu-latest)",
@@ -1536,7 +1644,8 @@
       "main_paths": [
         ".github/actions/setup/**",
         ".github/ci/areas.json",
-        ".github/workflows/ci.yml",
+        ".github/workflows/core.yml",
+        ".github/workflows/targets.yml",
         "res/int/model/windows/**",
         "res/system/capture/audio/windows/**",
         "res/system/capture/clipboard/windows/**",
@@ -1550,7 +1659,8 @@
       "pr_paths": [
         ".github/actions/setup/**",
         ".github/ci/areas.json",
-        ".github/workflows/ci.yml",
+        ".github/workflows/core.yml",
+        ".github/workflows/targets.yml",
         "res/int/model/windows/**",
         "res/system/capture/audio/windows/**",
         "res/system/capture/clipboard/windows/**",
@@ -1563,7 +1673,7 @@
       ],
       "jobs": {
         "tests": {
-          "group": "languages",
+          "group": "runtimes",
           "cells": [
             {
               "name": "dotnet-windows/tests (windows-latest)",
@@ -1580,5 +1690,16 @@
         }
       }
     }
+  },
+  "workflows": {
+    "core": [
+      "base",
+      "conformance"
+    ],
+    "targets": [
+      "engines",
+      "runtimes",
+      "platforms"
+    ]
   }
 }

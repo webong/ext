@@ -1,5 +1,5 @@
 # Sourced by every scripts/ci/jobs/<area>/<job>.sh. Each of those scripts is the body of one CI job:
-# ci.yml checks out the repository, runs .github/actions/setup for the job's toolchains, exports the
+# core.yml or targets.yml checks out the repository, runs .github/actions/setup for the job's toolchains, exports the
 # job's matrix cell as MATRIX_<KEY> variables, and runs the script with bash. A script is a list of
 # steps, each in a subshell, in the order the job used to run them.
 #
@@ -8,7 +8,7 @@
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/../../.."
 
-# ci.yml passes the cell's values as one line of export statements (scripts/ci/plan.py writes it).
+# core.yml and targets.yml pass the cell's values as one line of export statements (scripts/ci/plan.py writes it).
 eval "${CI_CELL_EXPORTS:-}"
 
 : "${RUNNER_TEMP:=$(mktemp -d "${TMPDIR:-/tmp}/ext-ci.XXXXXX")}"
@@ -74,7 +74,7 @@ ci_import_env() {
 # Runs the script on stdin in the MSYS2 shell that .github/actions/setup installed (msys2.cmd),
 # in the current directory, with bash's -e and pipefail, as a step with "shell: msys2 {0}" does.
 ci_msys2() {
-  # Already in the MSYS2 shell: ci.yml runs a whole MSYS2 cell's script there.
+  # Already in the MSYS2 shell: the workflow runs a whole MSYS2 cell's script there.
   if [ "${CI_IN_MSYS2:-}" = 1 ]; then
     bash -eo pipefail
     return

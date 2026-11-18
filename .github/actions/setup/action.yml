@@ -1,7 +1,7 @@
 name: Set up toolchains
 description: >-
   Installs the toolchains one CI cell names (its "setup" object in .github/ci/areas.json). Every
-  input is optional; an empty one installs nothing. ci.yml passes the cell's values; adding a
+  input is optional; an empty one installs nothing. core.yml and targets.yml pass the cell's values; adding a
   language means adding its inputs and steps here, not a workflow.
 
 inputs:

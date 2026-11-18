@@ -127,8 +127,13 @@ type processConn struct {
 	once  sync.Once
 }
 
+// Close kills the guest before it closes the pipes, as the engine's own process host does
+// (engine/host/process). On Windows a pipe is not pollable, so closing the read end waits for the
+// client's pending Read to return; that Read returns only once the guest writes or exits. Closing
+// first therefore hung until the test timed out whenever a call was abandoned mid-read (the
+// late-call-fails case). Killing first ends the guest, which ends the Read.
 func (p *processConn) Close() error {
-	p.once.Do(func() { _ = p.read.Close(); _ = p.write.Close(); _ = p.cmd.Process.Kill(); _ = p.cmd.Wait() })
+	p.once.Do(func() { _ = p.cmd.Process.Kill(); _ = p.write.Close(); _ = p.read.Close(); _ = p.cmd.Wait() })
 	return nil
 }
 func process(path string) (plugin.Backend, error) {

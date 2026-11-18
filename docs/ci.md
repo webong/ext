@@ -1,27 +1,36 @@
 # CI
 
-Tests run from one workflow, `.github/workflows/ci.yml`, and releases from one,
-`.github/workflows/release.yml` (tag and version rules: [module versioning](module-versioning.md)).
+Tests run from two workflows, and releases from one (tag and version rules:
+[module versioning](module-versioning.md)):
+
+| Workflow | Asks | Jobs |
+| --- | --- | --- |
+| `.github/workflows/core.yml` | Is ext correct, and do its languages agree? | `base`, `conformance` |
+| `.github/workflows/targets.yml` | Does it build and run on every engine, runtime and platform? | `engines`, `runtimes`, `platforms` |
+| `.github/workflows/release.yml` | Release a package | see [Releases](#releases) |
+
+Both test workflows run on every push to `main` and every pull request, side by side.
 
 ## How a run is planned
 
-`ci.yml` is the only test workflow. It starts with a `plan` job, which runs `scripts/ci/plan.py`
-over `.github/ci/areas.json`. That table lists every **area** (`native`, `plugin-engine`,
+Each test workflow starts with a `plan` job, which runs `scripts/ci/plan.py --workflow core` (or
+`targets`) over `.github/ci/areas.json`. That table lists every **area** (`native`, `plugin-engine`,
 `c2goengine`, `host-cases`, `plugin-sdk`, `plugin-wamr`, `web-js`, `ext-php`, `ext-ruby`, `ext-lua`,
 `dotnet-windows`), the tools it tests, the paths that concern it, and its jobs, each with its
 **cells**. A cell is one run: its name, its runner, the toolchains it needs (`setup`), its values
 (`vars`) and its script under `scripts/ci/jobs/<area>/<job>.sh`. The plan picks the cells; its
 summary on the run page says how many per area.
 
-`ci.yml` then has five jobs, one per **group**, and each runs its group's picked cells as one matrix:
+Each **group** is one job, which runs its group's picked cells as one matrix; the table's
+`workflows` says which workflow owns which group:
 
-| Job | Runs |
-| --- | --- |
-| `go` | Go modules, the native shell libraries, the standalone and arch checks, the Go SDK |
-| `engines` | the C plugin engine on every toolchain, and its c2goengine translation |
-| `languages` | the language SDKs (PHP, Ruby, Lua, .NET, web JS) |
-| `conformance` | the cross-language suites: host cases, and the foreign SDKs through the C engine |
-| `platforms` | Android and iOS packaging, the WAMR hosts, the real desktop session |
+| Workflow | Job | Runs |
+| --- | --- | --- |
+| core | `base` | the Go host: library modules, the native shell libraries on each OS, products, the standalone and arch checks, the Go SDK |
+| core | `conformance` | the cross-language suites: host cases in every language, and the foreign SDKs through the C engine |
+| targets | `engines` | the C plugin engine on every toolchain, and its c2goengine translation |
+| targets | `runtimes` | the PHP, Ruby, Lua, .NET and web JS SDKs, and the Java, Swift and .NET libraries of `res/` |
+| targets | `platforms` | Android and iOS packaging, the WAMR hosts, the real desktop session |
 
 Every cell does the same thing: check out, run `.github/actions/setup` with its `setup` values (one
 composite action that knows every toolchain), export its `vars` as `MATRIX_<KEY>`, and run its
@@ -57,7 +66,11 @@ branch cancels the older one. macOS, Windows, iOS and Android cost nothing on a 
 
 A label that is not in `areas.json` fails the plan, so a typo is caught.
 
-A manual run on a branch: `gh workflow run ci.yml --ref <branch> -f labels=tool:php,platform:macos`.
+A manual run on a branch: `gh workflow run core.yml --ref <branch> -f labels=tool:php,platform:macos`
+(or `targets.yml`).
+
+A job may list its own `tools`, narrower than its area's: `tool:swift` then runs the Swift cells of
+the `native` area, not its Go ones.
 
 ## Languages
 
@@ -76,7 +89,8 @@ No change here adds a workflow file.
 - **A language:** a `scripts/lang/<language>.sh`, its toolchain's inputs and step in
   `.github/actions/setup/action.yml` if it needs a new one, its cells, a tool name in `areas.json`,
   and the `tool:` label.
-- **A group:** its entry in `groups` and a job in `ci.yml`, copied from the others.
+- **A group:** its entry in `groups` and in one workflow's list in `workflows`, and a job in that
+  workflow, copied from the others.
 
 `plan.py --check`, which the plan job runs, fails when a cell names a script that does not exist, a
 group that has no job, or a runner whose platform it cannot tell.

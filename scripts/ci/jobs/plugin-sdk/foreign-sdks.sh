@@ -63,7 +63,7 @@ scripts/plugin-crosslang.sh
 )
 ci_import_env
 
-# Preserve prototype measurements: ci.yml uploads ci-artifacts/ (the cell's artifact) at the end.
+# Preserve prototype measurements: the workflow uploads ci-artifacts/ (the cell's artifact) at the end.
 (
 mkdir -p ci-artifacts
 for f in benchmarks.jsonl benchmark-report.md; do

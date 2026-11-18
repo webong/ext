@@ -20,7 +20,7 @@ The boundary is local mechanism, not model policy:
 | Package | What it is |
 | --- | --- |
 | `ml` (module root) | Model manifest types, verified artifact store, model inspection, and bounded inference interfaces |
-| `ios/` (`ExtML`) | Apple CoreML-backed model provider shipped through `pkg/ext-ios` (macOS and iOS) |
+| `ios/` (`ExtML`) | Apple CoreML-backed model provider shipped through `pkg/ext-darwin` (macOS and iOS) |
 | `android/` | Optional TensorFlow Lite float32 provider compiled into the `pkg/ext-android` AAR; NNAPI is an unavailable stub |
 | `windows/` | Optional ONNX Runtime CPU backend and `model.tensor/v1` guest, usable on Windows and Linux |
 | `linux/` | Linux guest build of the shared ONNX Runtime CPU backend |

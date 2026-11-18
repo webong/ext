@@ -226,13 +226,13 @@ func TestJavaMalformedFrames(t *testing.T) {
 }
 
 // TestSwiftSharedGuest runs the conformance suite against the fixture that
-// pkg/ext-ios builds, through the same cshared ABI the other languages use.
+// pkg/ext-darwin builds, through the same cshared ABI the other languages use.
 //
 // Swift builds only on Apple platforms, so the artifact is optional elsewhere:
 // scripts/plugin-crosslang.sh sets EXT_SWIFT_REQUIRED=1 on macOS.
 func TestSwiftSharedGuest(t *testing.T) {
 	if os.Getenv("EXT_SWIFT_SHARED") == "" && os.Getenv("EXT_SWIFT_REQUIRED") != "1" {
-		t.Skip("set EXT_SWIFT_SHARED to the library built by pkg/ext-ios")
+		t.Skip("set EXT_SWIFT_SHARED to the library built by pkg/ext-darwin")
 	}
 	runGuestConformance(t, sharedBackend(t, artifact(t, "SWIFT_SHARED")))
 }

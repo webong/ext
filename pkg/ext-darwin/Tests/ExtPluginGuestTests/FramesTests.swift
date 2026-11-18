@@ -7,7 +7,7 @@ import XCTest
 final class FramesFixtureTests: XCTestCase {
     private static let directory: URL = {
         if let path = ProcessInfo.processInfo.environment["EXT_FIXTURES"] { return URL(fileURLWithPath: path) }
-        // pkg/ext-ios/Tests/ExtPluginGuestTests/FramesTests.swift -> the repository root.
+        // pkg/ext-darwin/Tests/ExtPluginGuestTests/FramesTests.swift -> the repository root.
         var url = URL(fileURLWithPath: #filePath)
         for _ in 0..<5 { url.deleteLastPathComponent() }
         return url.appendingPathComponent("lib/plugin/testdata/v1")

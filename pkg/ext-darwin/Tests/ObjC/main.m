@@ -1,6 +1,6 @@
 // An Objective-C program using the guest SDK and the web-view host through their
 // EXT* facades, and the ext_plugin_* C ABI an Objective-C plugin would export.
-// scripts/ext-ios-objc.sh builds and runs it.
+// scripts/ext-darwin-objc.sh builds and runs it.
 #import <Foundation/Foundation.h>
 #import "ExtPluginExports-Swift.h"
 #import "ExtPluginGuest-Swift.h"

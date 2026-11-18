@@ -85,12 +85,39 @@
       ],
       "pr_paths": null,
       "version_default": "0.0.0",
-      "publishes": "iOS SDK (GitHub release and dist/ext-ios for SwiftPM)",
+      "publishes": "Apple SDK for iOS and the iOS Simulator (GitHub release and dist/ext-ios for SwiftPM)",
       "build": [
         {
           "name": "ext-ios build (macos-15)",
           "runner": "macos-15",
           "script": "scripts/release/ext-ios/build.sh",
+          "vars": {},
+          "setup": {
+            "rust": "1.98.1",
+            "rust_targets": "wasm32-wasip1",
+            "rust_components": ""
+          },
+          "artifact": "release-ext-ios-15",
+          "timeout": 60,
+          "wamr_cache": true
+        }
+      ],
+      "publish_setup": {},
+      "registry": null,
+      "distribute": true
+    },
+    "ext-macos": {
+      "tag_prefixes": [
+        "ext-macos-v"
+      ],
+      "pr_paths": null,
+      "version_default": "0.0.0",
+      "publishes": "Apple SDK for macOS (GitHub release and dist/ext-macos, pinned by branch or revision)",
+      "build": [
+        {
+          "name": "ext-macos build (macos-15)",
+          "runner": "macos-15",
+          "script": "scripts/release/ext-macos/build.sh",
           "vars": {},
           "setup": {
             "go": "1.27.x",
@@ -100,7 +127,7 @@
             "rust_targets": "wasm32-wasip1",
             "rust_components": ""
           },
-          "artifact": "release-ext-ios-macos-15",
+          "artifact": "release-ext-macos-15",
           "timeout": 60,
           "wamr_cache": true
         }

@@ -198,7 +198,7 @@ as they are added.
 5. Build the host and guest examples and exercise bidirectional calls, state,
    events, denial, timeout, cancellation, disconnection, and background restart
    in real browsers. Publish repeatable local build and smoke-test instructions.
-6. Release it with a tag of its own, `ext-web-vX.Y.Z`, like `pkg/ext-ios` and `pkg/ext-android`
+6. Release it with a tag of its own, `ext-web-vX.Y.Z`, like `pkg/ext-darwin` and `pkg/ext-android`
    (`.github/workflows/release.yml` (package `ext-web`)): a tarball on the GitHub release, not the npm registry,
    because the package stays private. The package name is `ext-web`. Choosing a registry is still open.
    Xallet or Cymonkey adopt it through a product-specific wrapper, keeping pairing

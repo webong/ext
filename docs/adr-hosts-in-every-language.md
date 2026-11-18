@@ -16,7 +16,7 @@ can write a host, without a second engine.
 | Rust (`pkg/ext-rust`) | Yes | `plugin/host.rs`, `plugin/native.rs` (loads C-ABI guests with `libloading`); the engine crate (`pkg/ext-rust/engine`) binds `ext_host` and the store | Its own code, or the C engine through the separate crate |
 | Zig (`pkg/ext-zig`) | Yes | `host.zig` over a backend it supplies; the engine package (`pkg/ext-zig/engine`) binds `ext_host` | Its own code, or the C engine through the separate package |
 | TypeScript (`pkg/ext-ts`) | Yes | `index.mjs` over a transport (`node.mjs`); the Node addon (`engine/addon.c`) binds `ext_host` | Its own code, or the C engine through the addon |
-| Swift (`pkg/ext-ios`) | Yes | WebView and WAMR hosts, store | The C engine |
+| Swift (`pkg/ext-darwin`) | Yes | WebView and WAMR hosts, store | The C engine |
 | Java (`pkg/ext-android`) | Yes | WAMR host, store | The C engine |
 | Python (`pkg/ext-python`) | Yes, standard library only | No | |
 | Ruby, PHP, Lua (`pkg/ext-ruby`, `pkg/ext-php`, `pkg/ext-lua`) | Yes, no native code | No | |

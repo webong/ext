@@ -28,7 +28,7 @@ costs them nothing.
 1. **Ext owns the extension JavaScript library, and it lives in `pkg/ext-web`.**
    It is mechanism, not product UI, so it follows the split in which ext holds
    reusable mechanisms and products such as Cymonkey and Xallet consume them.
-   `pkg/` already holds packages named for the platform they run on (`pkg/ext-ios`,
+   `pkg/` already holds packages named for the platform they run on (`pkg/ext-darwin`,
    `pkg/ext-android`), and code that runs inside a browser extension is one more
    platform. The source lives directly in `pkg/ext-web`: `res/web` has no source
    module for it and there is no staging link. It is not a plugin SDK (`pkg/ext-ts`
@@ -54,7 +54,7 @@ costs them nothing.
    `guest` used those helpers, so they moved to `artifact/extension` beside the type.
 7. **`ios`, `android` and `windows` stay beside `host`.** Grouping them under a
    `webview` directory would change 17 files outside `res/web`, two symlinks in
-   `pkg/ext-ios` and the SwiftPM, NuGet and Android release paths, and the host
+   `pkg/ext-darwin` and the SwiftPM, NuGet and Android release paths, and the host
    move does not need any of it.
 8. **`docs` and `testdata` stay at the top of `res/web`.** `testdata` holds the
    fixtures that Go, Swift and Java all run. `docs` holds the guides for the Swift

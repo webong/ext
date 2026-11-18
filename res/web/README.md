@@ -17,7 +17,7 @@ binding.
 
 The JavaScript/TypeScript library for code that runs inside a browser extension is not
 in this container: it is [`pkg/ext-web`](../../pkg/ext-web/README.md), named for its
-platform like `pkg/ext-ios` and `pkg/ext-android`.
+platform like `pkg/ext-darwin` and `pkg/ext-android`.
 
 ## What it provides
 
@@ -37,7 +37,7 @@ policy.
 platform, so a phone app needs no Go runtime and no native library for them. `windows`
 hosts prepared userscripts in WebView2. None of them is a Go package, and none is part
 of the `host` module zip or its version: apps take the mobile modules through
-[`pkg/ext-ios`](../../pkg/ext-ios/README.md) and
+[`pkg/ext-darwin`](../../pkg/ext-darwin/README.md) and
 [`pkg/ext-android`](../../pkg/ext-android/README.md), which ship them beside their plugin
 code and release under their own tags.
 

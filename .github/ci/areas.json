@@ -1637,6 +1637,72 @@
         }
       }
     },
+    "ext-dotnet": {
+      "tools": [
+        "csharp"
+      ],
+      "main_paths": [
+        ".github/actions/setup/**",
+        ".github/ci/areas.json",
+        ".github/workflows/core.yml",
+        ".github/workflows/targets.yml",
+        "lib/plugin/testdata/**",
+        "pkg/ext-dotnet/**",
+        "pkg/ext-go/engine/**",
+        "scripts/ci/jobs/ext-dotnet/**",
+        "scripts/ci/jobs/lib.sh",
+        "scripts/ci/plan.py",
+        "scripts/lang/**",
+        "tests/crosslang/**"
+      ],
+      "pr_paths": [
+        ".github/actions/setup/**",
+        ".github/ci/areas.json",
+        ".github/workflows/core.yml",
+        ".github/workflows/targets.yml",
+        "lib/plugin/testdata/**",
+        "pkg/ext-dotnet/**",
+        "pkg/ext-go/engine/**",
+        "scripts/ci/jobs/ext-dotnet/**",
+        "scripts/ci/jobs/lib.sh",
+        "scripts/ci/plan.py",
+        "scripts/lang/**",
+        "tests/crosslang/**"
+      ],
+      "jobs": {
+        "guest": {
+          "group": "runtimes",
+          "cells": [
+            {
+              "name": "ext-dotnet/guest (ubuntu-latest)",
+              "runner": "ubuntu-latest",
+              "script": "scripts/ci/jobs/ext-dotnet/guest.sh",
+              "vars": {
+                "OS": "ubuntu-latest"
+              },
+              "setup": {
+                "dotnet": "8.0.x",
+                "go": "1.26.x",
+                "go_cache": "true"
+              }
+            },
+            {
+              "name": "ext-dotnet/guest (macos-latest)",
+              "runner": "macos-latest",
+              "script": "scripts/ci/jobs/ext-dotnet/guest.sh",
+              "vars": {
+                "OS": "macos-latest"
+              },
+              "setup": {
+                "dotnet": "8.0.x",
+                "go": "1.26.x",
+                "go_cache": "true"
+              }
+            }
+          ]
+        }
+      }
+    },
     "dotnet-windows": {
       "tools": [
         "csharp"

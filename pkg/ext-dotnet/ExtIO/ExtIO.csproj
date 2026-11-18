@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <Import Project="../../../scripts/dotnet/Ext.Package.props" />
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <IsAotCompatible>true</IsAotCompatible>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+    <AssemblyName>ExtIO</AssemblyName>
+    <RootNamespace>ExtIO.Plugin</RootNamespace>
+    <PackageId>ExtIO</PackageId>
+    <Description>The ext plugin guest SDK for .NET: write ext.plugin/v1 plugins that speak bounded JSON lines over standard input and output, with progress events, reverse calls and the ext.health, ext.configuration and ext.stream capabilities. Base class library only.</Description>
+    <PackageTags>ext;ext-io;plugin;guest</PackageTags>
+  </PropertyGroup>
+</Project>

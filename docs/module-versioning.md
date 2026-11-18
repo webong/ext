@@ -105,8 +105,8 @@ counterpart of `ext-ios` and `ext-android`: the NuGet packages `Ext.Audio.Window
 (`res/system/capture/audio/windows`), `Ext.Clipboard.Windows` (`res/system/capture/clipboard/windows`),
 `Ext.Web.Windows` (`res/web/windows`) and `Ext.ML.Windows` (`res/int/model/windows`), at one version, built,
 tested and packed on Windows. `ext-dotnet-vX.Y.Z` (package `ext-dotnet`) is the .NET language package, the
-counterpart of `ext-rust`, `ext-ts` and `ext-python`: the cross-platform plugin host `ExtIO.Host`
-(`pkg/ext-dotnet/ExtIO.Host`), built, tested and packed on Linux. Releases up to `ext-dotnet-v0.2.0` held all
+counterpart of `ext-rust`, `ext-ts` and `ext-python`: the guest SDK `ExtIO` (`pkg/ext-dotnet/ExtIO`) and the
+cross-platform plugin host `ExtIO.Host` (`pkg/ext-dotnet/ExtIO.Host`), built, tested and packed on Linux. Releases up to `ext-dotnet-v0.2.0` held all
 five packages; tags cannot be renamed, so those keep their name. Each release attaches its packages with their
 checksums and a provenance attestation to the GitHub release, and pushes them to a NuGet feed only when the
 repository variable `EXT_NUGET_SOURCE` names one and the secret `EXT_NUGET_API_KEY` can push to it; that push

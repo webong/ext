@@ -2,7 +2,7 @@
 """Plans a CI run: which areas of .github/ci/areas.json run, and which matrix cells of each job.
 
 Selection, by event:
-  push to main, schedule, or the label ci:full
+  push to main, or the label ci:full
       every tool on every platform; on a push, an area with main_paths runs only if a changed
       file matches them (as the per-area workflows did before ci.yml)
   pull_request
@@ -11,6 +11,9 @@ Selection, by event:
       only linux runs, so macOS, Windows, iOS and Android cost nothing unless a label asks
   workflow_dispatch
       as a pull request, with --labels standing in for the PR's labels
+
+A job marked "on_request" in the table (slow, or needing a real device session) runs only with
+ci:full, never on a push to main or an ordinary pull request.
 
 Writes "<area>_run=true|false" and "<area>_cells=<json>" lines (job name -> list of cells) to
 $GITHUB_OUTPUT, or to stdout, and a summary table to $GITHUB_STEP_SUMMARY when it is set.
@@ -56,7 +59,8 @@ def plan(table, event, labels, changed):
     unknown = (tools - tools_all) | (platforms - platforms_all)
     if unknown:
         raise SystemExit(f"unknown labels: {sorted(unknown)} (tools {sorted(tools_all)}, platforms {sorted(platforms_all)})")
-    full = event in ("push", "schedule") or "ci:full" in labels
+    full = event == "push" or "ci:full" in labels
+    on_request = "ci:full" in labels
     if full:
         tools, platforms = tools_all, platforms_all
     elif not platforms:
@@ -71,7 +75,8 @@ def plan(table, event, labels, changed):
             run = matches(area["pr_paths"], changed)
         cells = {}
         for job_name, job in area["jobs"].items():
-            kept = [c for c in job["cells"] if platform_of(job, c) in platforms] if run else []
+            wanted = run and (on_request or not job.get("on_request"))
+            kept = [c for c in job["cells"] if platform_of(job, c) in platforms] if wanted else []
             cells[job_name] = kept
         run = run and any(cells.values())
         result[name] = {"run": run, "cells": cells}

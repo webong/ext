@@ -71,8 +71,10 @@ on:
 permissions:
   contents: read
 
+# One group per pull request, tag, or manually run package: GitHub keeps one waiting run per
+# group, so manual runs of different packages on the same branch must not share one.
 concurrency:
-  group: release-${{ github.event.pull_request.number || github.ref }}
+  group: release-${{ github.event.pull_request.number || github.ref }}-${{ inputs.package }}
   cancel-in-progress: false
 
 jobs:

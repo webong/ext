@@ -8,21 +8,12 @@ name: Release C plugin engine (ext-plugin)
 # and a manual run, build, test and stage every platform and publish nothing. The tag is not a Go module
 # tag; see docs/module-versioning.md.
 on:
-  push:
-    tags: ['ext-plugin-v*']
-  pull_request:
-    paths:
-      - 'lib/plugin/**'
-      - 'scripts/ext-plugin-release.sh'
-      - '.github/workflows/ext-plugin-release.yml'
-  workflow_dispatch:
+  # Called by release.yml, which routes each tag, manual run and pull request (docs/ci.md). The
+  # publish jobs below still check that the run is a tag push of this package.
+  workflow_call:
 
 permissions:
   contents: read
-
-concurrency:
-  group: ext-plugin-release-${{ github.ref }}
-  cancel-in-progress: false
 
 jobs:
   # Builds, tests and stages each platform. Read-only: it has no token that can write.

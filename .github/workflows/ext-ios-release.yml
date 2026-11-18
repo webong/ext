@@ -11,21 +11,17 @@ name: Release iOS SDK
 # (the "distribute" job) needs no variable or secret: it pushes with the workflow's own token. See
 # "Distribution branches" in docs/module-versioning.md.
 on:
-  push:
-    tags: ['ext-ios-v*']
-  workflow_dispatch:
+  # Called by release.yml, which routes each tag, manual run and pull request (docs/ci.md). The
+  # publish jobs below still check that the run is a tag push of this package.
+  workflow_call:
     inputs:
       version:
-        description: Version to build for the dry run, for example 0.1.0
+        description: Version to build for a dry run (a tag run takes the tag's)
         type: string
         default: 0.0.0
 
 permissions:
   contents: read
-
-concurrency:
-  group: ext-ios-release-${{ github.ref }}
-  cancel-in-progress: false
 
 env:
   EXT_CACHE: ${{ github.workspace }}/.cache/ext

@@ -1,145 +1,218 @@
-name: Release native bundles
+name: Release
 
+# The one entry point for releases. A route job reads .github/ci/releases.json through
+# scripts/ci/release_plan.py and calls the workflow of the package a run concerns:
+#
+#   tag push        the package whose prefix the tag starts with; that workflow publishes
+#   pull request    the packages whose files changed, as dry runs (nothing is published)
+#   manual run      gh workflow run release.yml -f package=<name> [-f version=X.Y.Z], a dry run
+#
+# Each package's workflow still decides publishing itself: its publish jobs run only on a tag push
+# of its own prefix, in their own environments. See docs/ci.md and docs/module-versioning.md.
 on:
   push:
-    tags: ['ctx-v*', 'ctn-v*', 'ext-v*']
+    tags:
+      - 'ctx-v*'
+      - 'ctn-v*'
+      - 'ext-v*'
+      - 'ext-android-v*'
+      - 'ext-dotnet-v*'
+      - 'ext-ios-v*'
+      - 'ext-web-v*'
+      - 'ext-plugin-v*'
+      - 'ext-python-v*'
+      - 'ext-rust-v*'
+      - 'ext-ts-v*'
+      - 'ext-zig-v*'
+  pull_request:
+    paths:
+      - '.github/ci/releases.json'
+      - '.github/workflows/ext-plugin-release.yml'
+      - '.github/workflows/ext-python-release.yml'
+      - '.github/workflows/ext-rust-release.yml'
+      - '.github/workflows/ext-ts-release.yml'
+      - '.github/workflows/ext-zig-release.yml'
+      - '.github/workflows/release.yml'
+      - 'LICENSE'
+      - 'lib/plugin/**'
+      - 'pkg/ext-python/**'
+      - 'pkg/ext-rust/Cargo.lock'
+      - 'pkg/ext-rust/Cargo.toml'
+      - 'pkg/ext-rust/LICENSE'
+      - 'pkg/ext-rust/README.md'
+      - 'pkg/ext-rust/src/**'
+      - 'pkg/ext-ts/**'
+      - 'pkg/ext-zig/**'
+      - 'scripts/ci/release_plan.py'
+      - 'scripts/ext-plugin-release.sh'
+      - 'scripts/ext-zig-release.sh'
+      - 'scripts/ext-zig-sync.sh'
+      - 'scripts/install-zig.sh'
+  workflow_dispatch:
+    inputs:
+      package:
+        description: Package to dry-run
+        type: choice
+        options:
+          - ext-android
+          - ext-dotnet
+          - ext-ios
+          - ext-web
+          - ext-plugin
+          - ext-python
+          - ext-rust
+          - ext-ts
+          - ext-zig
+      version:
+        description: Version to build (empty takes the package's default)
+        type: string
+        default: ''
 
 permissions:
-  contents: write
-  id-token: write
-  attestations: write
+  contents: read
+
+concurrency:
+  group: release-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
 
 jobs:
-  keychain:
-    if: startsWith(github.ref_name, 'ctx-v')
-    env:
-      MACOSX_DEPLOYMENT_TARGET: '11.0'
-    strategy:
-      matrix:
-        include:
-          - runner: macos-15-intel
-            arch: amd64
-          - runner: macos-15
-            arch: arm64
-    runs-on: ${{ matrix.runner }}
-    steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-go@v6
-        with:
-          go-version: '1.26.x'
-          cache: true
-          cache-dependency-path: |
-            **/go.sum
-            go.work.sum
-      - run: go test ./adapters/keychain/store
-      - run: go test ./service/credential/...
-        working-directory: res/system
-      - run: mkdir -p keychain && go build -trimpath -ldflags '-s -w' -o keychain/ctx-keychain ./adapters/keychain/native
-      - uses: actions/upload-artifact@v6
-        with:
-          name: keychain-${{ matrix.arch }}
-          path: keychain/ctx-keychain
-          if-no-files-found: error
-
-  release:
-    needs: keychain
-    if: startsWith(github.ref_name, 'ctx-v')
+  route:
     runs-on: ubuntu-latest
+    outputs:
+      binaries: ${{ steps.route.outputs.binaries }}
+      ext-android: ${{ steps.route.outputs.ext-android }}
+      ext-android_version: ${{ steps.route.outputs.ext-android_version }}
+      ext-dotnet: ${{ steps.route.outputs.ext-dotnet }}
+      ext-dotnet_version: ${{ steps.route.outputs.ext-dotnet_version }}
+      ext-ios: ${{ steps.route.outputs.ext-ios }}
+      ext-ios_version: ${{ steps.route.outputs.ext-ios_version }}
+      ext-web: ${{ steps.route.outputs.ext-web }}
+      ext-web_version: ${{ steps.route.outputs.ext-web_version }}
+      ext-plugin: ${{ steps.route.outputs.ext-plugin }}
+      ext-python: ${{ steps.route.outputs.ext-python }}
+      ext-rust: ${{ steps.route.outputs.ext-rust }}
+      ext-ts: ${{ steps.route.outputs.ext-ts }}
+      ext-zig: ${{ steps.route.outputs.ext-zig }}
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/download-artifact@v7
         with:
-          name: keychain-amd64
-          path: native-keychain/amd64
-      - uses: actions/download-artifact@v7
-        with:
-          name: keychain-arm64
-          path: native-keychain/arm64
-      - uses: actions/setup-go@v6
-        with:
-          go-version: '1.26.x'
-          cache: true
-          cache-dependency-path: |
-            **/go.sum
-            go.work.sum
-      - name: Test library modules
+          fetch-depth: 0
+      - name: Check the package table against the workflows
+        run: python3 -I scripts/ci/release_plan.py --check
+      - name: Changed files
+        if: github.event_name == 'pull_request'
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: git diff --name-only "$BASE...$HEAD" >changed.txt
+      - id: route
+        name: Route
+        env:
+          EVENT: ${{ github.event_name }}
+          REF_NAME: ${{ github.ref_name }}
+          PACKAGE: ${{ inputs.package }}
+          VERSION: ${{ inputs.version }}
         run: |
-          for module in src/ctx src/ctn res/system res/graph pkg/ext-go pkg/ext-go/engine pkg/ext-go/cgoengine pkg/ext-go/hashicorp pkg/ext-go/wasm pkg/ext-go/yaegi adapters/wasm adapters/evm res/web/host; do
-            (cd "$module" && go test ./...) || exit 1
-          done
-      - run: ./tests/native_test.sh
-      - run: ./tests/native_installer_test.sh
-      - run: sh ./scripts/build-release.sh "${GITHUB_REF_NAME#ctx-}" dist
-        env:
-          CTX_KEYCHAIN_AMD64: ${{ github.workspace }}/native-keychain/amd64/ctx-keychain
-          CTX_KEYCHAIN_ARM64: ${{ github.workspace }}/native-keychain/arm64/ctx-keychain
-      - name: Create checksums
-        run: (cd dist && sha256sum ctx-* > checksums.txt)
-      - name: Attest release provenance
-        uses: actions/attest-build-provenance@v2
-        with:
-          subject-path: 'dist/*'
-      - name: Publish GitHub release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" dist/* --verify-tag --generate-notes --title "$GITHUB_REF_NAME"
+          changed=()
+          [ -f changed.txt ] && changed=(--changed changed.txt)
+          python3 -I scripts/ci/release_plan.py --event "$EVENT" --ref-name "$REF_NAME" \
+            --package "$PACKAGE" --version "$VERSION" "${changed[@]}"
 
-  release-ctn:
-    if: startsWith(github.ref_name, 'ctn-v')
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-go@v6
-        with:
-          go-version: '1.26.x'
-          cache: true
-          cache-dependency-path: |
-            **/go.sum
-            go.work.sum
-      - name: Test ctn and the libraries it builds on
-        run: |
-          for module in src/ctn res/system pkg/ext-go pkg/ext-go/engine pkg/ext-go/cgoengine res/web/host; do
-            (cd "$module" && go test ./...) || exit 1
-          done
-      - run: sh ./scripts/build-release-ctn.sh "${GITHUB_REF_NAME#ctn-}" dist
-      - name: Create checksums
-        run: (cd dist && sha256sum ctn-* > checksums.txt)
-      - name: Attest release provenance
-        uses: actions/attest-build-provenance@v2
-        with:
-          subject-path: 'dist/*'
-      - name: Publish GitHub release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" dist/* --verify-tag --generate-notes --title "$GITHUB_REF_NAME" --latest=false
-
-  release-ext:
-    if: startsWith(github.ref_name, 'ext-v')
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          fetch-depth: 0 # the embedded ctx and ctn versions are read from tags
-      - uses: actions/setup-go@v6
-        with:
-          go-version: '1.26.x'
-          cache: true
-          cache-dependency-path: |
-            **/go.sum
-            go.work.sum
-      - name: Test ext and the libraries it builds on
-        run: |
-          for module in cmd/ext src/ctx src/ctn res/system res/graph pkg/ext-go/engine pkg/ext-go/cgoengine res/web/host; do
-            (cd "$module" && go test ./...) || exit 1
-          done
-      - run: sh ./scripts/build-release-ext.sh "${GITHUB_REF_NAME#ext-}" dist
-      - name: Create checksums
-        run: (cd dist && sha256sum ext-* > checksums.txt)
-      - name: Attest release provenance
-        uses: actions/attest-build-provenance@v2
-        with:
-          subject-path: 'dist/*'
-      - name: Publish GitHub release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" dist/* --verify-tag --generate-notes --title "$GITHUB_REF_NAME" --latest=false
+  binaries:
+    needs: route
+    if: needs.route.outputs.binaries == 'true'
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    uses: ./.github/workflows/release-binaries.yml
+    secrets: inherit
+  ext-android:
+    needs: route
+    if: needs.route.outputs.ext-android == 'true'
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    uses: ./.github/workflows/ext-android-release.yml
+    secrets: inherit
+    with:
+      version: ${{ needs.route.outputs.ext-android_version }}
+  ext-dotnet:
+    needs: route
+    if: needs.route.outputs.ext-dotnet == 'true'
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    uses: ./.github/workflows/ext-dotnet-release.yml
+    secrets: inherit
+    with:
+      version: ${{ needs.route.outputs.ext-dotnet_version }}
+  ext-ios:
+    needs: route
+    if: needs.route.outputs.ext-ios == 'true'
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    uses: ./.github/workflows/ext-ios-release.yml
+    secrets: inherit
+    with:
+      version: ${{ needs.route.outputs.ext-ios_version }}
+  ext-web:
+    needs: route
+    if: needs.route.outputs.ext-web == 'true'
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    uses: ./.github/workflows/ext-web-release.yml
+    secrets: inherit
+    with:
+      version: ${{ needs.route.outputs.ext-web_version }}
+  ext-plugin:
+    needs: route
+    if: needs.route.outputs.ext-plugin == 'true'
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    uses: ./.github/workflows/ext-plugin-release.yml
+    secrets: inherit
+  ext-python:
+    needs: route
+    if: needs.route.outputs.ext-python == 'true'
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    uses: ./.github/workflows/ext-python-release.yml
+    secrets: inherit
+  ext-rust:
+    needs: route
+    if: needs.route.outputs.ext-rust == 'true'
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    uses: ./.github/workflows/ext-rust-release.yml
+    secrets: inherit
+  ext-ts:
+    needs: route
+    if: needs.route.outputs.ext-ts == 'true'
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    uses: ./.github/workflows/ext-ts-release.yml
+    secrets: inherit
+  ext-zig:
+    needs: route
+    if: needs.route.outputs.ext-zig == 'true'
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    uses: ./.github/workflows/ext-zig-release.yml
+    secrets: inherit

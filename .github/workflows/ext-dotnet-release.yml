@@ -11,21 +11,17 @@ name: Release .NET libraries
 # EXT_NUGET_API_KEY can push to it. Without the variable the release is the GitHub release alone,
 # with the packages attached, and the job is skipped.
 on:
-  push:
-    tags: ['ext-dotnet-v*']
-  workflow_dispatch:
+  # Called by release.yml, which routes each tag, manual run and pull request (docs/ci.md). The
+  # publish jobs below still check that the run is a tag push of this package.
+  workflow_call:
     inputs:
       version:
-        description: Version to build for the dry run, for example 0.1.0
+        description: Version to build for a dry run (a tag run takes the tag's)
         type: string
         default: 0.0.0
 
 permissions:
   contents: read
-
-concurrency:
-  group: ext-dotnet-release-${{ github.ref }}
-  cancel-in-progress: false
 
 jobs:
   # Builds, tests and packs before anything is published. Read-only: it has no token that can write.

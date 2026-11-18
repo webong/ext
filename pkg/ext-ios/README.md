@@ -369,7 +369,7 @@ plugins that arrive after release need an interpreter, such as the WASM backend.
 
 Releases are GitHub releases tagged `ext-ios-vX.Y.Z` (a dash form, not a Go module tag; see
 [module versioning](../../docs/module-versioning.md)), made by
-[`.github/workflows/ext-ios-release.yml`](../../.github/workflows/ext-ios-release.yml). It stages
+[`.github/workflows/release.yml` (package `ext-ios`)](../../.github/workflows/release.yml). It stages
 the release with `scripts/ext-ios-release.sh --with-wamr`, runs the web checks, the Swift tests on the
 host and the same tests in an iOS Simulator, and only then publishes. Each release carries:
 

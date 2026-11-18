@@ -62,6 +62,9 @@ inputs:
   msvc:
     description: Enter the MSVC developer environment (true or false)
     default: ''
+  msvc_arch:
+    description: Target architecture for the MSVC environment (empty is the runner's)
+    default: ''
   android_packages:
     description: Android SDK packages (android-actions/setup-android)
     default: ''
@@ -118,8 +121,12 @@ runs:
         msystem: ${{ inputs.msys2_msystem }}
         install: ${{ inputs.msys2_install }}
         path-type: inherit
-    - if: inputs.msvc == 'true'
+    - if: inputs.msvc == 'true' && inputs.msvc_arch == ''
       uses: ilammy/msvc-dev-cmd@v1
+    - if: inputs.msvc == 'true' && inputs.msvc_arch != ''
+      uses: ilammy/msvc-dev-cmd@v1
+      with:
+        arch: ${{ inputs.msvc_arch }}
     - if: inputs.lua != ''
       uses: leafo/gh-actions-lua@v13
       with:

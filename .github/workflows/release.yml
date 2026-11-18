@@ -1,37 +1,37 @@
 name: Release
 
-# The one entry point for releases. A route job reads .github/ci/releases.json through
-# scripts/ci/release_plan.py and calls the workflow of the package a run concerns:
+# The one workflow for releases. A route job reads .github/ci/releases.json through
+# scripts/ci/release_plan.py and picks the package a run concerns:
 #
-#   tag push        the package whose prefix the tag starts with; that workflow publishes
-#   pull request    the packages whose files changed, as dry runs (nothing is published)
-#   manual run      gh workflow run release.yml -f package=<name> [-f version=X.Y.Z], a dry run
+#   tag push        the package whose prefix the tag starts with; it is built and published
+#   pull request    the packages whose files changed: their build cells run, nothing is published
+#   manual run      gh workflow run release.yml -f package=<name> [-f version=X.Y.Z]: a dry run
 #
-# Each package's workflow still decides publishing itself: its publish jobs run only on a tag push
-# of its own prefix, in their own environments. See docs/ci.md and docs/module-versioning.md.
+# build runs the package's build cells (scripts/release/<package>/build.sh, one cell per platform
+# where it has several) and uploads release-out/. publish downloads that into dist/, runs prepare.sh,
+# attests dist/*, and runs release.sh (the GitHub release). The registry jobs (crates, npm, pypi,
+# nuget) and distribute (the dist/ branches) follow for the packages that name them. Every publish,
+# registry and distribute job runs only for a push of a tag with its package's own prefix, as the
+# per-package workflows did; each registry job keeps its environment and its literal tag check.
+# Adding a package adds scripts and a table entry, not a workflow. See docs/ci.md.
 on:
   push:
     tags:
-      - 'ctx-v*'
-      - 'ctn-v*'
-      - 'ext-v*'
       - 'ext-android-v*'
       - 'ext-dotnet-v*'
       - 'ext-ios-v*'
-      - 'ext-web-v*'
       - 'ext-plugin-v*'
       - 'ext-python-v*'
       - 'ext-rust-v*'
       - 'ext-ts-v*'
+      - 'ext-web-v*'
       - 'ext-zig-v*'
+      - 'ctx-v*'
+      - 'ctn-v*'
+      - 'ext-v*'
   pull_request:
     paths:
       - '.github/ci/releases.json'
-      - '.github/workflows/ext-plugin-release.yml'
-      - '.github/workflows/ext-python-release.yml'
-      - '.github/workflows/ext-rust-release.yml'
-      - '.github/workflows/ext-ts-release.yml'
-      - '.github/workflows/ext-zig-release.yml'
       - '.github/workflows/release.yml'
       - 'LICENSE'
       - 'lib/plugin/**'
@@ -48,6 +48,11 @@ on:
       - 'scripts/ext-zig-release.sh'
       - 'scripts/ext-zig-sync.sh'
       - 'scripts/install-zig.sh'
+      - 'scripts/release/ext-plugin/**'
+      - 'scripts/release/ext-python/**'
+      - 'scripts/release/ext-rust/**'
+      - 'scripts/release/ext-ts/**'
+      - 'scripts/release/ext-zig/**'
   workflow_dispatch:
     inputs:
       package:
@@ -57,12 +62,13 @@ on:
           - ext-android
           - ext-dotnet
           - ext-ios
-          - ext-web
           - ext-plugin
           - ext-python
           - ext-rust
           - ext-ts
+          - ext-web
           - ext-zig
+          - ctx
       version:
         description: Version to build (empty takes the package's default)
         type: string
@@ -71,8 +77,7 @@ on:
 permissions:
   contents: read
 
-# One group per pull request, tag, or manually run package: GitHub keeps one waiting run per
-# group, so manual runs of different packages on the same branch must not share one.
+# One group per pull request, tag, or manually run package: GitHub keeps one waiting run per group.
 concurrency:
   group: release-${{ github.event.pull_request.number || github.ref }}-${{ inputs.package }}
   cancel-in-progress: false
@@ -81,25 +86,18 @@ jobs:
   route:
     runs-on: ubuntu-latest
     outputs:
-      binaries: ${{ steps.route.outputs.binaries }}
-      ext-android: ${{ steps.route.outputs.ext-android }}
-      ext-android_version: ${{ steps.route.outputs.ext-android_version }}
-      ext-dotnet: ${{ steps.route.outputs.ext-dotnet }}
-      ext-dotnet_version: ${{ steps.route.outputs.ext-dotnet_version }}
-      ext-ios: ${{ steps.route.outputs.ext-ios }}
-      ext-ios_version: ${{ steps.route.outputs.ext-ios_version }}
-      ext-web: ${{ steps.route.outputs.ext-web }}
-      ext-web_version: ${{ steps.route.outputs.ext-web_version }}
-      ext-plugin: ${{ steps.route.outputs.ext-plugin }}
-      ext-python: ${{ steps.route.outputs.ext-python }}
-      ext-rust: ${{ steps.route.outputs.ext-rust }}
-      ext-ts: ${{ steps.route.outputs.ext-ts }}
-      ext-zig: ${{ steps.route.outputs.ext-zig }}
+      build: ${{ steps.route.outputs.build }}
+      build_run: ${{ steps.route.outputs.build_run }}
+      package: ${{ steps.route.outputs.package }}
+      prefix: ${{ steps.route.outputs.prefix }}
+      publish_setup: ${{ steps.route.outputs.publish_setup }}
+      registry: ${{ steps.route.outputs.registry }}
+      distribute: ${{ steps.route.outputs.distribute }}
     steps:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
-      - name: Check the package table against the workflows
+      - name: Check the package table against the scripts
         run: python3 -I scripts/ci/release_plan.py --check
       - name: Changed files
         if: github.event_name == 'pull_request'
@@ -120,101 +118,252 @@ jobs:
           python3 -I scripts/ci/release_plan.py --event "$EVENT" --ref-name "$REF_NAME" \
             --package "$PACKAGE" --version "$VERSION" "${changed[@]}"
 
-  binaries:
+  # Every build cell of the chosen packages: build, test and stage what the release ships.
+  build:
     needs: route
-    if: needs.route.outputs.binaries == 'true'
+    if: needs.route.outputs.build_run == 'true'
+    name: ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.route.outputs.build) }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: ${{ matrix.timeout || 360 }}
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup
+        with:
+          go: ${{ matrix.setup.go }}
+          go_cache: ${{ matrix.setup.go_cache }}
+          java: ${{ matrix.setup.java }}
+          node: ${{ matrix.setup.node }}
+          python: ${{ matrix.setup.python }}
+          php: ${{ matrix.setup.php }}
+          php_extensions: ${{ matrix.setup.php_extensions }}
+          php_tools: ${{ matrix.setup.php_tools }}
+          ruby: ${{ matrix.setup.ruby }}
+          lua: ${{ matrix.setup.lua }}
+          lua_build_cache: ${{ matrix.setup.lua_build_cache }}
+          luarocks: ${{ matrix.setup.luarocks }}
+          rust: ${{ matrix.setup.rust }}
+          rust_targets: ${{ matrix.setup.rust_targets }}
+          rust_components: ${{ matrix.setup.rust_components }}
+          dotnet: ${{ matrix.setup.dotnet }}
+          msys2_msystem: ${{ matrix.setup.msys2_msystem }}
+          msys2_install: ${{ matrix.setup.msys2_install }}
+          msvc: ${{ matrix.setup.msvc }}
+          msvc_arch: ${{ matrix.setup.msvc_arch }}
+          android_packages: ${{ matrix.setup.android_packages }}
+          gradle: ${{ matrix.setup.gradle }}
+          wamr_cache: ${{ matrix.wamr_cache }}
+      - name: Build
+        shell: bash
+        env:
+          CI_CELL_EXPORTS: ${{ matrix.exports }}
+          CI_SCRIPT: ${{ matrix.script }}
+        run: bash "$CI_SCRIPT"
+      - name: Test in the Android emulator
+        if: matrix.android_emulator
+        uses: reactivecircus/android-emulator-runner@v2.33.0
+        with:
+          api-level: 34
+          arch: x86_64
+          target: default
+          disable-animations: true
+          script: bash ${{ matrix.android_emulator }}
+      - id: version
+        name: Version
+        shell: bash
+        run: echo "version=${VERSION:-}" >>"$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v6
+        with:
+          name: ${{ matrix.artifact }}
+          path: release-out/
+          if-no-files-found: error
+
+  # The GitHub release of the package a tag concerns.
+  publish:
+    needs: [route, build]
+    if: >-
+      always() && needs.route.outputs.package != '' &&
+      (needs.build.result == 'success' || needs.build.result == 'skipped') &&
+      github.event_name == 'push' && startsWith(github.ref, format('refs/tags/{0}', needs.route.outputs.prefix))
+    runs-on: ubuntu-latest
     permissions:
       contents: write
       id-token: write
       attestations: write
-    uses: ./.github/workflows/release-binaries.yml
-    secrets: inherit
-  ext-android:
-    needs: route
-    if: needs.route.outputs.ext-android == 'true'
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/setup
+        with:
+          go: ${{ fromJSON(needs.route.outputs.publish_setup).go }}
+          go_cache: ${{ fromJSON(needs.route.outputs.publish_setup).go_cache }}
+          java: ${{ fromJSON(needs.route.outputs.publish_setup).java }}
+          node: ${{ fromJSON(needs.route.outputs.publish_setup).node }}
+          python: ${{ fromJSON(needs.route.outputs.publish_setup).python }}
+          php: ${{ fromJSON(needs.route.outputs.publish_setup).php }}
+          php_extensions: ${{ fromJSON(needs.route.outputs.publish_setup).php_extensions }}
+          php_tools: ${{ fromJSON(needs.route.outputs.publish_setup).php_tools }}
+          ruby: ${{ fromJSON(needs.route.outputs.publish_setup).ruby }}
+          lua: ${{ fromJSON(needs.route.outputs.publish_setup).lua }}
+          lua_build_cache: ${{ fromJSON(needs.route.outputs.publish_setup).lua_build_cache }}
+          luarocks: ${{ fromJSON(needs.route.outputs.publish_setup).luarocks }}
+          rust: ${{ fromJSON(needs.route.outputs.publish_setup).rust }}
+          rust_targets: ${{ fromJSON(needs.route.outputs.publish_setup).rust_targets }}
+          rust_components: ${{ fromJSON(needs.route.outputs.publish_setup).rust_components }}
+          dotnet: ${{ fromJSON(needs.route.outputs.publish_setup).dotnet }}
+          msys2_msystem: ${{ fromJSON(needs.route.outputs.publish_setup).msys2_msystem }}
+          msys2_install: ${{ fromJSON(needs.route.outputs.publish_setup).msys2_install }}
+          msvc: ${{ fromJSON(needs.route.outputs.publish_setup).msvc }}
+          msvc_arch: ${{ fromJSON(needs.route.outputs.publish_setup).msvc_arch }}
+          android_packages: ${{ fromJSON(needs.route.outputs.publish_setup).android_packages }}
+          gradle: ${{ fromJSON(needs.route.outputs.publish_setup).gradle }}
+      - uses: actions/download-artifact@v7
+        if: needs.build.result == 'success'
+        with:
+          pattern: release-${{ needs.route.outputs.package }}-*
+          merge-multiple: true
+          path: dist
+      - name: Prepare
+        shell: bash
+        env:
+          VERSION: ${{ needs.build.outputs.version }}
+          GH_TOKEN: ${{ github.token }}
+          PACKAGE: ${{ needs.route.outputs.package }}
+        run: bash "scripts/release/$PACKAGE/prepare.sh"
+      - name: Attest release provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: dist/*
+      - name: Publish GitHub release
+        shell: bash
+        env:
+          VERSION: ${{ needs.build.outputs.version }}
+          GH_TOKEN: ${{ github.token }}
+          PACKAGE: ${{ needs.route.outputs.package }}
+        run: bash "scripts/release/$PACKAGE/release.sh"
+
+  crates:
+    needs: [route, build, publish]
+    if: needs.route.outputs.registry == 'crates' && github.event_name == 'push' && startsWith(github.ref, 'refs/tags/ext-rust-v')
+    runs-on: ubuntu-latest
+    environment:
+      name: crates
+      url: https://crates.io/crates/ext-io/${{ needs.build.outputs.version }}
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      HAS_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN != '' }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Trusted publishing token
+        id: auth
+        if: env.HAS_TOKEN != 'true'
+        uses: rust-lang/crates-io-auth-action@v1
+      - name: Publish
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN || steps.auth.outputs.token }}
+        run: cargo publish --locked --manifest-path pkg/ext-rust/Cargo.toml
+
+  npm:
+    needs: [route, build, publish]
+    if: needs.route.outputs.registry == 'npm' && github.event_name == 'push' && startsWith(github.ref, 'refs/tags/ext-ts-v')
+    runs-on: ubuntu-latest
+    environment:
+      name: npm
+      url: https://www.npmjs.com/package/ext-io/v/${{ needs.build.outputs.version }}
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org'
+      # Trusted publishing needs npm 11.5.1 or later.
+      - run: npm install -g npm@11
+      - uses: actions/download-artifact@v7
+        with:
+          pattern: release-ext-ts-*
+          merge-multiple: true
+          path: dist
+      - name: Verify checksums
+        run: (cd dist && sha256sum -c checksums.txt)
+      - name: Publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          VERSION: ${{ needs.build.outputs.version }}
+        run: npm publish "dist/ext-io-$VERSION.tgz" --access public --provenance
+
+  pypi:
+    needs: [route, build, publish]
+    if: needs.route.outputs.registry == 'pypi' && github.event_name == 'push' && startsWith(github.ref, 'refs/tags/ext-python-v')
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/ext-io/${{ needs.build.outputs.version }}/
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v7
+        with:
+          pattern: release-ext-python-*
+          merge-multiple: true
+          path: dist
+      - name: Verify checksums
+        run: (cd dist && sha256sum -c checksums.txt && rm checksums.txt)
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist
+
+  nuget:
+    needs: [route, build, publish]
+    if: needs.route.outputs.registry == 'nuget' && github.event_name == 'push' && startsWith(github.ref, 'refs/tags/ext-dotnet-v') && vars.EXT_NUGET_SOURCE != ''
+    runs-on: ubuntu-latest
+    environment: nuget
+    steps:
+      - uses: actions/download-artifact@v7
+        with:
+          pattern: release-ext-dotnet-*
+          merge-multiple: true
+          path: dist
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '8.0.x'
+      - name: Check the configuration
+        env:
+          KEY: ${{ secrets.EXT_NUGET_API_KEY }}
+        run: '[[ -n "$KEY" ]] || { echo "EXT_NUGET_SOURCE is set but the secret EXT_NUGET_API_KEY is not" >&2; exit 1; }'
+      - name: Push the packages
+        env:
+          SOURCE: ${{ vars.EXT_NUGET_SOURCE }}
+          KEY: ${{ secrets.EXT_NUGET_API_KEY }}
+        run: dotnet nuget push 'dist/*.nupkg' --source "$SOURCE" --api-key "$KEY" --skip-duplicate
+
+  # The dist/ branch of a package that has one (SwiftPM for ext-ios, Zig for ext-zig).
+  distribute:
+    needs: [route, build, publish]
+    if: needs.route.outputs.distribute == 'true' && github.event_name == 'push' && startsWith(github.ref, format('refs/tags/{0}', needs.route.outputs.prefix))
+    runs-on: ubuntu-latest
     permissions:
       contents: write
-      id-token: write
-      attestations: write
-    uses: ./.github/workflows/ext-android-release.yml
-    secrets: inherit
-    with:
-      version: ${{ needs.route.outputs.ext-android_version }}
-  ext-dotnet:
-    needs: route
-    if: needs.route.outputs.ext-dotnet == 'true'
-    permissions:
-      contents: write
-      id-token: write
-      attestations: write
-    uses: ./.github/workflows/ext-dotnet-release.yml
-    secrets: inherit
-    with:
-      version: ${{ needs.route.outputs.ext-dotnet_version }}
-  ext-ios:
-    needs: route
-    if: needs.route.outputs.ext-ios == 'true'
-    permissions:
-      contents: write
-      id-token: write
-      attestations: write
-    uses: ./.github/workflows/ext-ios-release.yml
-    secrets: inherit
-    with:
-      version: ${{ needs.route.outputs.ext-ios_version }}
-  ext-web:
-    needs: route
-    if: needs.route.outputs.ext-web == 'true'
-    permissions:
-      contents: write
-      id-token: write
-      attestations: write
-    uses: ./.github/workflows/ext-web-release.yml
-    secrets: inherit
-    with:
-      version: ${{ needs.route.outputs.ext-web_version }}
-  ext-plugin:
-    needs: route
-    if: needs.route.outputs.ext-plugin == 'true'
-    permissions:
-      contents: write
-      id-token: write
-      attestations: write
-    uses: ./.github/workflows/ext-plugin-release.yml
-    secrets: inherit
-  ext-python:
-    needs: route
-    if: needs.route.outputs.ext-python == 'true'
-    permissions:
-      contents: write
-      id-token: write
-      attestations: write
-    uses: ./.github/workflows/ext-python-release.yml
-    secrets: inherit
-  ext-rust:
-    needs: route
-    if: needs.route.outputs.ext-rust == 'true'
-    permissions:
-      contents: write
-      id-token: write
-      attestations: write
-    uses: ./.github/workflows/ext-rust-release.yml
-    secrets: inherit
-  ext-ts:
-    needs: route
-    if: needs.route.outputs.ext-ts == 'true'
-    permissions:
-      contents: write
-      id-token: write
-      attestations: write
-    uses: ./.github/workflows/ext-ts-release.yml
-    secrets: inherit
-  ext-zig:
-    needs: route
-    if: needs.route.outputs.ext-zig == 'true'
-    permissions:
-      contents: write
-      id-token: write
-      attestations: write
-    uses: ./.github/workflows/ext-zig-release.yml
-    secrets: inherit
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v7
+        with:
+          pattern: release-${{ needs.route.outputs.package }}-*
+          merge-multiple: true
+          path: dist
+      - name: Push the package
+        shell: bash
+        env:
+          VERSION: ${{ needs.build.outputs.version }}
+          PACKAGE: ${{ needs.route.outputs.package }}
+        run: bash "scripts/release/$PACKAGE/distribute.sh"

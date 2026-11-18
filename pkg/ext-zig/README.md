@@ -20,7 +20,7 @@ exe.root_module.addImport("ext_io", ext.module("ext_io"));
 
 Zig has no registry and `zig fetch` needs an archive whose root holds `build.zig.zon`, which this
 repository's root does not. So each release (`ext-zig-vX.Y.Z`, made by
-[`.github/workflows/ext-zig-release.yml`](../../.github/workflows/ext-zig-release.yml)) is also put at the
+[`.github/workflows/release.yml` (package `ext-zig`)](../../.github/workflows/release.yml)) is also put at the
 root of the `dist/ext-zig` branch and tagged `ext-zig-X.Y.Z`; that tag's archive is the URL above. The
 workflow tests the package on its own, then fetches that URL and checks that Zig computes the hash it
 recorded, which the release page carries as `ext-zig-X.Y.Z-package-hash.txt`. See

@@ -79,19 +79,19 @@ makes download URLs ambiguous. GitHub's "latest" release is repository-wide, so
 `install.sh` and `install.ps1` resolve the newest `ctx-v*` release instead of
 `latest/download`, and ctn releases are published with `--latest=false`.
 The mobile SDKs follow the same dash form: `ext-android-vX.Y.Z` releases the Android AARs
-(`.github/workflows/ext-android-release.yml`, published with `--latest=false`) and `ext-ios-vX.Y.Z` releases the iOS
-SDK (`.github/workflows/ext-ios-release.yml`, same form). Their `MINOR` and `PATCH` move
+(`.github/workflows/release.yml` (package `ext-android`), published with `--latest=false`) and `ext-ios-vX.Y.Z` releases the iOS
+SDK (`.github/workflows/release.yml` (package `ext-ios`), same form). Their `MINOR` and `PATCH` move
 independently; their `MAJOR` follows the repository-wide `MAJOR`. `ext-zig-vX.Y.Z` releases the Zig package the same way
-(`.github/workflows/ext-zig-release.yml`, published with `--latest=false`); its version has to be the `.version` of
+(`.github/workflows/release.yml` (package `ext-zig`), published with `--latest=false`); its version has to be the `.version` of
 `pkg/ext-zig/build.zig.zon`, and the staging script refuses any other.
 `ext-web-vX.Y.Z` releases the browser extension library `pkg/ext-web` the same way
-(`.github/workflows/ext-web-release.yml`, published with `--latest=false`); its version has to be the `version` of
+(`.github/workflows/release.yml` (package `ext-web`), published with `--latest=false`); its version has to be the `version` of
 `pkg/ext-web/package.json`, and the workflow refuses any other. It tests and type-checks the library, packs
 `ext-web-X.Y.Z.tgz` with `npm pack`, checks that the tarball installs and that every entry point imports, and
 attaches the tarball with its checksum and a provenance attestation to the GitHub release. The package is
 private, so nothing is pushed to the npm registry; an app installs the tarball from the release.
 `ext-plugin-vX.Y.Z` releases the prebuilt C engine (`lib/plugin`) the same way
-(`.github/workflows/ext-plugin-release.yml`, published with `--latest=false`); its version has to be the
+(`.github/workflows/release.yml` (package `ext-plugin`), published with `--latest=false`); its version has to be the
 `VERSION` of `project()` in `lib/plugin/CMakeLists.txt`, and the staging script refuses any other. For
 Linux (x86-64 and aarch64, built on Ubuntu 22.04), macOS (one universal library) and Windows (x86-64 and
 arm64, built with MSVC) it attaches `ext-plugin-X.Y.Z-<platform>.tar.gz`, holding the shared and static
@@ -103,7 +103,7 @@ The .NET libraries follow the same form: `ext-dotnet-vX.Y.Z` releases the NuGet 
 `Ext.Audio.Windows` (`res/system/capture/audio/windows`), `Ext.Clipboard.Windows`
 (`res/system/capture/clipboard/windows`), `Ext.Web.Windows` (`res/web/windows`) and `Ext.ML.Windows`
 (`res/int/model/windows`), which are Windows-only, and the cross-platform plugin host `ExtIO.Host`
-(`pkg/ext-dotnet/ExtIO.Host`), all at one version, through `.github/workflows/ext-dotnet-release.yml`
+(`pkg/ext-dotnet/ExtIO.Host`), all at one version, through `.github/workflows/release.yml` (package `ext-dotnet`)
 (published with `--latest=false`). The workflow builds, tests and packs on Windows, attaches the packages
 with their checksums and a provenance attestation to the GitHub release, and pushes them to a NuGet feed only
 when the repository variable `EXT_NUGET_SOURCE` names one and the secret `EXT_NUGET_API_KEY` can push to it;
@@ -161,7 +161,7 @@ branch, `dist/<name>`, that holds the staged tree at its root:
   namespace is single for the repository: an ecosystem that reads no tag name, like Zig, uses a prefixed tag
   (`ext-zig-X.Y.Z`), and a second one that needs bare tags needs its own repository.
 
-`dist/ext-ios` is the first: `ext-ios-release.yml` publishes the GitHub release, and once it exists (the staged
+`dist/ext-ios` is the first: `release.yml` (package `ext-ios`) publishes the GitHub release, and once it exists (the staged
 package's binary targets are the release's assets, by URL and checksum) its last job puts
 `ext-ios-X.Y.Z-package.tar.gz` on `dist/ext-ios` and tags the commit `X.Y.Z`. An app adds
 `.package(url: "https://github.com/webong/ext", from: "0.1.1")`, for example. `ext-ios-v0.1.0` predates the branch
@@ -169,7 +169,7 @@ and has no bare tag; the next release is the first on SwiftPM. `scripts/dist-bra
 against a throwaway remote.
 
 `dist/ext-zig` is the second. Zig has no registry and fetches an archive whose root holds `build.zig.zon`, so
-`ext-zig-release.yml` stages `pkg/ext-zig` (the files its manifest lists in `.paths`, plus `LICENSE`) with
+`release.yml` (package `ext-zig`) stages `pkg/ext-zig` (the files its manifest lists in `.paths`, plus `LICENSE`) with
 `scripts/ext-zig-release.sh`, builds and tests the staged package on its own, attaches it to the `ext-zig-vX.Y.Z`
 release with the hash Zig computed for it, puts it on `dist/ext-zig` tagged `ext-zig-X.Y.Z`, and then runs
 `zig fetch` on that tag's archive to check that the hash is the one it tested. A consumer runs
@@ -205,8 +205,8 @@ are versioned separately and need not match: what lets a Rust host call a Python
 `ext.plugin/v1` protocol version, not the package version.
 
 **Releases.** Each package is released by its own tag and workflow: `ext-rust-vX.Y.Z`
-(`.github/workflows/ext-rust-release.yml`, crates.io), `ext-ts-vX.Y.Z` (`ext-ts-release.yml`, npm) and
-`ext-python-vX.Y.Z` (`ext-python-release.yml`, PyPI). The tag's version must equal the manifest's. A pull
+(`.github/workflows/release.yml` (package `ext-rust`), crates.io), `ext-ts-vX.Y.Z` (`release.yml` (package `ext-ts`), npm) and
+`ext-python-vX.Y.Z` (`release.yml` (package `ext-python`), PyPI). The tag's version must equal the manifest's. A pull
 request or a manual run tests the package, builds what would be published and dry-runs the publish
 (`cargo publish --dry-run`, `npm publish --dry-run`, `twine check`); only a pushed tag publishes. The tagged
 run first attaches the tested files, their checksums and a provenance attestation to a GitHub release

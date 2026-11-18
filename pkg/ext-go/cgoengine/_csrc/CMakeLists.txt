@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.18)
-project(ext_host_prototype VERSION 0.2.0 LANGUAGES C)
+project(ext_host_prototype VERSION 0.3.0 LANGUAGES C)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 option(EXT_BUILD_HOST "Build native host, filesystem and resource runtimes" ON)

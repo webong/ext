@@ -15,7 +15,7 @@ description = {
   detailed = [[
     Runs ext plugins (JSON-line processes and C ABI libraries) from Lua through the ext C engine,
     which does admission, handshake checks, validation, deadlines and the session lifecycle. Needs
-    the engine's shared library, libext_host, from an ext-engine release or a CMake build.
+    the engine's shared library, libext_host, from an ext-plugin release or a CMake build.
   ]],
   homepage = "https://github.com/webong/ext/tree/main/pkg/ext-lua",
   issues_url = "https://github.com/webong/ext/issues",

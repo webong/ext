@@ -95,9 +95,9 @@ which does what a host must get right: admission, the handshake check against th
 request and response validation, deadlines and the session's lifecycle. It is opt-in and separate
 from the guest, as the gem `ext-io-host` (`ext-io-host.gemspec`): one native extension,
 `ExtIO::Host::Native` (`ext/ext_io_host`), which loads the engine's shared library (`libext_host`,
-from an `ext-engine-vX.Y.Z` release or a CMake build of `lib/plugin`) at run time, so it is built
+from an `ext-plugin-vX.Y.Z` release or a CMake build of `lib/plugin`) at run time, so it is built
 against the Ruby headers and `ext_host.h` only. Outside a checkout, install it with
-`gem install ext-io-host -- --with-ext_host-dir=<unpacked ext-engine release>` (or set
+`gem install ext-io-host -- --with-ext_host-dir=<unpacked ext-plugin release>` (or set
 `EXT_HOST_INCLUDE`). `scripts/ext-ruby-host.sh <dir>` builds the extension into
 `<dir>/ext_io/host/native.<so|bundle>` for `-I <dir>`. Requiring `"ext_io/plugin"` loads neither.
 

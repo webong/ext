@@ -3,7 +3,7 @@
 # Builds ExtIO::Host::Native (ext_io/host/native), the extension under the Ruby host. It needs the
 # Ruby headers and the C engine's ext_host.h only: the engine's shared library is loaded at run
 # time. The header is found with --with-ext_host-include=DIR or --with-ext_host-dir=DIR (an
-# unpacked ext-engine release), EXT_HOST_INCLUDE, or the lib/plugin/include of a checkout.
+# unpacked ext-plugin release), EXT_HOST_INCLUDE, or the lib/plugin/include of a checkout.
 require "mkmf"
 
 checkout = File.expand_path("../../../../lib/plugin/include", __dir__)

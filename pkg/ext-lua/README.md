@@ -141,7 +141,7 @@ epoch seconds.
 `ext_io.host` runs plugins from Lua through the C engine (`lib/plugin`), which does what a host must
 get right: admission, the handshake check against the descriptor, request and response validation,
 deadlines and the session's lifecycle. It is opt-in and separate from the guest: one C module,
-`ext_io.host.core`, which loads the engine's shared library (`libext_host`, from an `ext-engine-vX.Y.Z`
+`ext_io.host.core`, which loads the engine's shared library (`libext_host`, from an `ext-plugin-vX.Y.Z`
 release or a CMake build of `lib/plugin`) at run time, so it is built against the Lua headers and
 `ext_host.h` only. Requiring `ext_io.plugin` loads neither. The rock is `ext-io-host`
 (`ext-io-host-0.1.0-1.rockspec`, built from a checkout); `scripts/ext-lua-host.sh <dir>` builds the

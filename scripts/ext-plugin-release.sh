@@ -1,20 +1,20 @@
 #!/usr/bin/env bash
-# Builds, tests and stages one platform's prebuilt C engine (lib/plugin) for an ext-engine-vX.Y.Z
+# Builds, tests and stages one platform's prebuilt C engine (lib/plugin) for an ext-plugin-vX.Y.Z
 # release: the shared and static libraries, the headers, the CMake package and the licenses, as
-# dist/ext-engine-X.Y.Z-<platform>.tar.gz with its SHA-256. Hosts that load the engine at run time
+# dist/ext-plugin-X.Y.Z-<platform>.tar.gz with its SHA-256. Hosts that load the engine at run time
 # (Python ctypes, PHP FFI, Ruby, Lua, .NET) and C consumers use it instead of building with CMake.
 # It publishes nothing.
 #
-# Usage: scripts/ext-engine-release.sh <version> <platform> [build-dir]
+# Usage: scripts/ext-plugin-release.sh <version> <platform> [build-dir]
 #   version   must be the VERSION of project() in lib/plugin/CMakeLists.txt
 #   platform  linux-x86_64, linux-aarch64, macos-universal, windows-x86_64 or windows-aarch64
 # On Windows, run it from a shell where MSVC (cl) is set up.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 root=$PWD
-version="${1:?usage: ext-engine-release.sh <version> <platform> [build-dir]}"
-platform="${2:?usage: ext-engine-release.sh <version> <platform> [build-dir]}"
-build="${3:-$(mktemp -d "${TMPDIR:-/tmp}/ext-engine-release.XXXXXX")}"
+version="${1:?usage: ext-plugin-release.sh <version> <platform> [build-dir]}"
+platform="${2:?usage: ext-plugin-release.sh <version> <platform> [build-dir]}"
+build="${3:-$(mktemp -d "${TMPDIR:-/tmp}/ext-plugin-release.XXXXXX")}"
 mkdir -p "$build"
 build="$(cd "$build" && pwd)"
 
@@ -45,7 +45,7 @@ echo "== native tests"
 "$build/engine/ext_endpoint_test$exe" "$(winpath "$root/lib/plugin/testdata/v1/endpoint-cases.json")"
 "$build/engine/ext_fixtures_test$exe" "$(winpath "$root/lib/plugin/testdata/v1")"
 
-name="ext-engine-$version-$platform"
+name="ext-plugin-$version-$platform"
 stage="$build/stage/$name"
 rm -rf "$stage"
 cmake --install "$build/engine" --prefix "$stage"

@@ -4,7 +4,7 @@ The ext plugin host for .NET: runs `ext.plugin/v1` plugins through the ext C eng
 which does what a host must get right: admission, the handshake check against the descriptor,
 request and response validation, deadlines and the session's lifecycle. This package only moves
 bytes and policy decisions across P/Invoke. It loads the engine's shared library (`libext_host`,
-`ext_host.dll` on Windows, from an `ext-engine-vX.Y.Z` release or a CMake build of `lib/plugin`) at
+`ext_host.dll` on Windows, from an `ext-plugin-vX.Y.Z` release or a CMake build of `lib/plugin`) at
 run time, so it carries no native code of its own. `net8.0`, any OS the engine is built for.
 
 ```csharp

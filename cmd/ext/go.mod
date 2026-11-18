@@ -5,7 +5,7 @@ go 1.26.0
 require (
 	github.com/webong/ext/ctn v0.0.0
 	github.com/webong/ext/ctx v0.0.0
-	github.com/webong/ext/pkg/ext-go/cgoengine v0.4.0
+	github.com/webong/ext/pkg/ext-go/cgoengine v0.4.1
 	github.com/webong/ext/pkg/ext-go/engine v0.4.0
 	github.com/webong/ext/pkg/ext-go/inference v0.1.1
 	github.com/webong/ext/pkg/ext-go/model v0.1.0

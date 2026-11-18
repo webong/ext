@@ -180,7 +180,8 @@ host.close()
   instruction budget; a guest that overruns, traps or exhausts either ends the instance.
 - `WamrPluginHost.descriptor(of:)` reads a module's descriptor before it is trusted.
 - `scripts/ext-ios-wamr-xcframework.sh` fetches WAMR at the pinned commit
-  (`scripts/plugin-wamr-source.sh`) and builds the macOS, iOS and Simulator slices
+  (`scripts/plugin-wamr-source.sh`) and builds the macOS, iOS and Simulator slices, or one
+  platform's with `--platform ios|macos`
   (about 0.5 to 0.9 MB each). `CExtEngine.xcframework` declares the `CExtWamr` module and
   header, because two xcframeworks cannot ship the same header or module map. WAMR's
   license is written to `Frameworks/WAMR-LICENSE` and must ship with any binary linking it.
@@ -189,7 +190,7 @@ host.close()
 ## Building and testing
 
 ```sh
-scripts/ext-ios-xcframework.sh     # macOS, iOS and iOS Simulator slices
+scripts/ext-ios-xcframework.sh     # macOS, iOS and iOS Simulator slices (--platform ios|macos: one platform's)
 swift test --package-path pkg/ext-ios
 xcodebuild test -scheme Ext-Package \
   -destination 'platform=iOS Simulator,name=iPhone 16 Pro'   # in pkg/ext-ios
@@ -367,49 +368,84 @@ plugins that arrive after release need an interpreter, such as the WASM backend.
 
 ## Distribution
 
-Releases are GitHub releases tagged `ext-ios-vX.Y.Z` (a dash form, not a Go module tag; see
-[module versioning](../../docs/module-versioning.md)), made by
-[`.github/workflows/release.yml` (package `ext-ios`)](../../.github/workflows/release.yml). It stages
-the release with `scripts/ext-ios-release.sh --with-wamr`, runs the web checks, the Swift tests on the
-host and the same tests in an iOS Simulator, and only then publishes. Each release carries:
+Two packages are released from these sources, one per platform, each with its own GitHub release
+and its own distribution branch:
 
-- `CExtEngine.xcframework.zip`, the engine's guest core and package store for macOS, iOS and the iOS Simulator.
-  It compiles in the engine's vendored yyjson parser and miniz inflate decoder (both MIT); their licenses
-  are staged as `yyjson-LICENSE` and `miniz-LICENSE` beside the archive and the package carries them in
-  `LICENSES/`;
-- `CExtWamr.xcframework.zip` and `WAMR-LICENSE`, the optional WAMR host. WAMR is Apache-2.0 with the
-  LLVM exception; its license must ship with any binary that links it, and the package carries it in
-  `LICENSES/`;
-- `ext-ios-X.Y.Z-package.tar.gz`, the staged Swift package: a release manifest whose binary targets
-  point at the two archives by URL and checksum, the Swift sources, the README and the licenses;
+| Package | Platforms | Release tag | Branch | Tag on the branch |
+| --- | --- | --- | --- | --- |
+| `ext-ios` | iOS 13, iOS Simulator | `ext-ios-vX.Y.Z` | `dist/ext-ios` | `X.Y.Z` |
+| `ext-macos` | macOS 12 | `ext-macos-vX.Y.Z` | `dist/ext-macos` | `ext-macos-X.Y.Z` |
+
+The tags are dash forms, not Go module tags (see [module versioning](../../docs/module-versioning.md)).
+Both are made by [`.github/workflows/release.yml`](../../.github/workflows/release.yml) (packages `ext-ios`
+and `ext-macos`), which stages a release with `scripts/ext-ios-release.sh --platform ios|macos --with-wamr`,
+tests the platform it ships (ext-ios in an iOS Simulator; ext-macos with the web checks and the Swift
+tests on the macOS host), and only then publishes. Each release carries:
+
+- `CExtEngine.xcframework.zip`, the engine's guest core and package store, with only that package's
+  slices (iOS and the iOS Simulator, or macOS). It compiles in the engine's vendored yyjson parser and miniz
+  inflate decoder (both MIT); their licenses are staged as `yyjson-LICENSE` and `miniz-LICENSE` beside the
+  archive and the package carries them in `LICENSES/`;
+- `CExtWamr.xcframework.zip` and `WAMR-LICENSE`, the optional WAMR host, with the same slices. WAMR is
+  Apache-2.0 with the LLVM exception; its license must ship with any binary that links it, and the package
+  carries it in `LICENSES/`;
+- `ext-ios-X.Y.Z-package.tar.gz` or `ext-macos-X.Y.Z-package.tar.gz`, the staged Swift package: a release
+  manifest that declares only its platform (`.iOS(.v13)` or `.macOS(.v12)`) and whose binary targets point at
+  that release's two archives by URL and checksum, the Swift sources, the README and the licenses;
 - `checksums.txt` (SHA-256) and a build-provenance attestation for every file.
+
+ext-macos also carries the `ExtFramesGuest` executable, a JSON-line guest a host starts as a process; iOS
+cannot spawn processes, so ext-ios leaves it out. The other products are in both.
 
 Verify a download with `shasum -a 256 -c checksums.txt` and
 `gh attestation verify <file> --repo webong/ext`.
 
 **SwiftPM needs a repository root.** It resolves a package from the root of a tagged commit, and only
 from tags that parse as semver, which this monorepo's root and its `ext-ios-vX.Y.Z` tags are not. So the
-manifest in this directory is for development against the local xcframework, and a consumer resolves the
-staged package from the `dist/ext-ios` branch of this repository. The workflow's last job puts the
-package there once the release exists (the manifest's binary targets are the release's assets), as one
-commit `ext-ios X.Y.Z` on top of the previous release, and tags that commit `X.Y.Z`. It pushes with the
-workflow's own token, so nothing has to be configured. The branch is written only by that job and is never
-merged into `main`; see [distribution branches](../../docs/module-versioning.md#distribution-branches). A
-release made before the branch existed (`ext-ios-v0.1.0`) has no `X.Y.Z` tag: an app takes its package from
+manifest in this directory is for development against the local xcframework (it declares macOS and iOS),
+and a consumer resolves a staged package from a `dist/` branch of this repository. The workflow's last job
+puts the package there once the release exists (the manifest's binary targets are the release's assets), as
+one commit on top of the previous release, and tags it. It pushes with the workflow's own token, so nothing
+has to be configured. The branches are written only by that job and are never merged into `main`; see
+[distribution branches](../../docs/module-versioning.md#distribution-branches). A release made before
+`dist/ext-ios` existed (`ext-ios-v0.1.0`) has no `X.Y.Z` tag: an app takes its package from
 `ext-ios-0.1.0-package.tar.gz`, or from the next release.
 
-A consumer then writes:
+An iOS app resolves ext-ios by version:
 
 ```swift
-.package(url: "https://github.com/webong/ext", from: "0.1.1")
+.package(url: "https://github.com/webong/ext", from: "0.2.0")
 // and depends on the products it uses: ExtWeb, ExtPluginGuest, ExtPluginExports, ExtPluginStore, ExtPluginWebView, ExtPluginWamr
 ```
 
+**A macOS app pins ext-macos by branch or revision, not by version.** Git tags are repository-wide and
+the bare `X.Y.Z` tags already belong to `dist/ext-ios`, so `dist/ext-macos` is tagged `ext-macos-X.Y.Z`,
+which SwiftPM cannot read as a version. `from:`, `exact:` and version ranges do not work for ext-macos.
+Pin the commit that the `ext-macos-X.Y.Z` tag names, which `Package.resolved` keeps fixed:
+
+```swift
+.package(url: "https://github.com/webong/ext", revision: "<the commit of ext-macos-X.Y.Z>")
+// or follow the newest release:
+.package(url: "https://github.com/webong/ext", branch: "dist/ext-macos")
+```
+
+`git ls-remote https://github.com/webong/ext refs/tags/ext-macos-X.Y.Z` prints that commit. A package
+that depends on a branch or revision cannot itself be depended on by version from another package; that is a
+SwiftPM rule.
+
+**One app, one of the two.** Both packages export the same module names (`ExtWeb`, `ExtSystem`,
+`ExtPluginGuest`, ...), and SwiftPM refuses two packages that define the same module, so an app cannot depend
+on both. A multiplatform app (iOS and macOS targets in one project) picks one of them for the targets it
+covers, or depends on this directory, the development package, from source: it declares both platforms but
+needs the xcframeworks built locally (`scripts/ext-ios-xcframework.sh`).
+
 The archives are not byte-reproducible, so their checksums change with every run: the manifest and
-the archives always come from the same run. `scripts/ext-ios-release.sh [--with-wamr] <version>`
-stages the same pieces locally under `dist/ext-ios-<version>/` and checks that the staged package
-builds against the archives; it publishes nothing. Without `--with-wamr` the package carries neither
-the `ExtPluginWamr` product nor its sources.
+the archives always come from the same run. `scripts/ext-ios-release.sh --platform ios|macos [--with-wamr] <version>`
+stages the same pieces locally under `dist/ext-<platform>-<version>/` and checks that the staged package
+builds against the archives (`swift build` for macOS, `xcodebuild` for iOS and the Simulator); it publishes
+nothing. It leaves that platform's xcframeworks in `Frameworks/`; run `scripts/ext-ios-xcframework.sh`
+without `--platform` to get every slice back. Without `--with-wamr` the package carries neither the
+`ExtPluginWamr` product nor its sources.
 
 ## Objective-C
 

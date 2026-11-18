@@ -9,10 +9,23 @@
 # lib/plugin/vendor), so their licenses go beside the framework as yyjson-LICENSE and
 # miniz-LICENSE, the names lib/plugin's CMake install gives them, and must ship with any
 # binary that links it.
+# --platform ios builds only the iOS and iOS Simulator slices (what the ext-ios release ships),
+# --platform macos only the macOS slice (ext-macos); the default, all, builds every slice for
+# development and CI.
+# Usage: scripts/ext-ios-xcframework.sh [--platform ios|macos|all]
 # Output: pkg/ext-ios/Frameworks/CExtEngine.xcframework, yyjson-LICENSE, miniz-LICENSE
 set -euo pipefail
 cd "$(dirname "$0")/.."
 [[ "$(uname -s)" == Darwin ]] || { echo "ext-ios-xcframework.sh needs macOS and Xcode" >&2; exit 1; }
+platform=all
+if [[ "${1:-}" == --platform ]]; then platform="${2:?--platform needs ios, macos or all}"; shift 2; fi
+[[ $# -eq 0 ]] || { echo 'usage: scripts/ext-ios-xcframework.sh [--platform ios|macos|all]' >&2; exit 2; }
+case "$platform" in
+  ios) groups=(ios iossim) ;;
+  macos) groups=(macos) ;;
+  all) groups=(macos ios iossim) ;;
+  *) echo "unknown platform '$platform': ios, macos or all" >&2; exit 2 ;;
+esac
 engine=lib/plugin
 out="${EXT_SWIFT_FRAMEWORKS:-pkg/ext-ios/Frameworks}"
 work="$(mktemp -d "${TMPDIR:-/tmp}/ext-swift-xcframework.XXXXXX")"
@@ -36,6 +49,7 @@ slices=(
 )
 for slice in "${slices[@]}"; do
   IFS='|' read -r name sdk target <<<"$slice"
+  [[ " ${groups[*]} " == *" ${name%%-*} "* ]] || continue
   mkdir -p "$work/$name"
   for source in "${sources[@]}"; do
     xcrun -sdk "$sdk" clang -target "$target" -std=c11 -O2 -Wall -Wextra -Werror \
@@ -46,12 +60,13 @@ for slice in "${slices[@]}"; do
   xcrun -sdk "$sdk" libtool -static -o "$work/$name/libext_guest.a" "$work/$name"/*.o
 done
 
-# Universal libraries per platform.
-for platform in macos iossim; do
-  mkdir -p "$work/$platform"
-  lipo -create "$work/$platform"-*/libext_guest.a -output "$work/$platform/libext_guest.a"
+# One (universal) library per platform group.
+libraries=()
+for group in "${groups[@]}"; do
+  mkdir -p "$work/$group"
+  lipo -create "$work/$group"-*/libext_guest.a -output "$work/$group/libext_guest.a"
+  libraries+=(-library "$work/$group/libext_guest.a" -headers "$work/Headers")
 done
-mkdir -p "$work/ios" && cp "$work/ios-arm64/libext_guest.a" "$work/ios/libext_guest.a"
 
 headers="$work/Headers"
 mkdir -p "$headers"
@@ -74,10 +89,7 @@ MODULE
 
 rm -rf "$out/CExtEngine.xcframework"
 mkdir -p "$out"
-xcodebuild -create-xcframework \
-  -library "$work/macos/libext_guest.a" -headers "$headers" \
-  -library "$work/ios/libext_guest.a" -headers "$headers" \
-  -library "$work/iossim/libext_guest.a" -headers "$headers" \
+xcodebuild -create-xcframework "${libraries[@]}" \
   -output "$out/CExtEngine.xcframework" >/dev/null
 cp "$engine/vendor/LICENSE" "$out/yyjson-LICENSE"
 cp "$engine/vendor/miniz/LICENSE" "$out/miniz-LICENSE"

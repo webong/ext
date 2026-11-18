@@ -79,8 +79,10 @@ makes download URLs ambiguous. GitHub's "latest" release is repository-wide, so
 `install.sh` and `install.ps1` resolve the newest `ctx-v*` release instead of
 `latest/download`, and ctn releases are published with `--latest=false`.
 The mobile SDKs follow the same dash form: `ext-android-vX.Y.Z` releases the Android AARs
-(`.github/workflows/release.yml` (package `ext-android`), published with `--latest=false`) and `ext-ios-vX.Y.Z` releases the iOS
-SDK (`.github/workflows/release.yml` (package `ext-ios`), same form). Their `MINOR` and `PATCH` move
+(`.github/workflows/release.yml` (package `ext-android`), published with `--latest=false`), `ext-ios-vX.Y.Z` releases the
+Apple SDK for iOS and the iOS Simulator (`.github/workflows/release.yml` (package `ext-ios`), same form) and
+`ext-macos-vX.Y.Z` releases it for macOS (package `ext-macos`, same form). ext-ios and ext-macos are built from the same
+sources, `pkg/ext-ios`, each with only its platform's slices and a manifest that declares only that platform. Their `MINOR` and `PATCH` move
 independently; their `MAJOR` follows the repository-wide `MAJOR`. `ext-zig-vX.Y.Z` releases the Zig package the same way
 (`.github/workflows/release.yml` (package `ext-zig`), published with `--latest=false`); its version has to be the `.version` of
 `pkg/ext-zig/build.zig.zon`, and the staging script refuses any other.
@@ -139,7 +141,7 @@ first four have since become `ext-io` (see [the `ext-io` language packages](#the
 `io.github.webong.ext.web`) sit beside the Go module `res/web/host`, not inside it: its module zip does
 not carry them, and a change to them needs no `res/web/host/vX.Y.Z` tag.
 They reach apps through `pkg/ext-ios` and `pkg/ext-android`, so they are released with those, under
-`ext-ios-vX.Y.Z` and `ext-android-vX.Y.Z`.
+`ext-ios-vX.Y.Z`, `ext-macos-vX.Y.Z` and `ext-android-vX.Y.Z`.
 
 ## Distribution branches
 
@@ -161,8 +163,9 @@ branch, `dist/<name>`, that holds the staged tree at its root:
 - **Tags.** The release keeps its dash-form tag on `main` (`ext-ios-vX.Y.Z`, which builds and attaches
   the assets). The ecosystem's own tag goes on the `dist/` commit, in the form that ecosystem reads. SwiftPM
   needs a bare `X.Y.Z`, and Go ignores a tag without a `v`, so it cannot be read as a module version. That bare
-  namespace is single for the repository: an ecosystem that reads no tag name, like Zig, uses a prefixed tag
-  (`ext-zig-X.Y.Z`), and a second one that needs bare tags needs its own repository.
+  namespace is single for the repository and belongs to `dist/ext-ios`. Every other branch uses a prefixed tag,
+  `<name>-X.Y.Z` (`ext-zig-X.Y.Z`, `ext-macos-X.Y.Z`), and `scripts/dist-branch.sh` refuses any other shape. For
+  Zig, which reads no tag name, that costs nothing; for a second SwiftPM package it means no version resolution.
 
 `dist/ext-ios` is the first: `release.yml` (package `ext-ios`) publishes the GitHub release, and once it exists (the staged
 package's binary targets are the release's assets, by URL and checksum) its last job puts
@@ -171,7 +174,16 @@ package's binary targets are the release's assets, by URL and checksum) its last
 and has no bare tag; the next release is the first on SwiftPM. `scripts/dist-branch-test.sh` checks the script
 against a throwaway remote.
 
-`dist/ext-zig` is the second. Zig has no registry and fetches an archive whose root holds `build.zig.zon`, so
+`dist/ext-macos` is the second, from the same sources as `dist/ext-ios` with the macOS slice and a manifest
+that declares only macOS. `release.yml` (package `ext-macos`) publishes the `ext-macos-vX.Y.Z` release and then
+puts `ext-macos-X.Y.Z-package.tar.gz` on `dist/ext-macos`, tagged `ext-macos-X.Y.Z`. SwiftPM cannot read that tag
+as a version, and the bare `X.Y.Z` it could read is taken by `dist/ext-ios`, so a macOS app cannot use `from:` or
+`exact:`: it pins the branch, `.package(url: "https://github.com/webong/ext", branch: "dist/ext-macos")`, or the
+commit an `ext-macos-X.Y.Z` tag names, `revision: "<commit>"`. This is a limit of sharing one repository, not
+something the release works around. The two packages export the same module names (`ExtWeb`, `ExtSystem`, ...),
+so one app cannot depend on both; a multiplatform app picks one, or builds `pkg/ext-ios` from source.
+
+`dist/ext-zig` is the third. Zig has no registry and fetches an archive whose root holds `build.zig.zon`, so
 `release.yml` (package `ext-zig`) stages `pkg/ext-zig` (the files its manifest lists in `.paths`, plus `LICENSE`) with
 `scripts/ext-zig-release.sh`, builds and tests the staged package on its own, attaches it to the `ext-zig-vX.Y.Z`
 release with the hash Zig computed for it, puts it on `dist/ext-zig` tagged `ext-zig-X.Y.Z`, and then runs
@@ -245,9 +257,9 @@ the corresponding mobile SDK releases. `ExtNetwork` and the Java
 `io.github.webong.ext.network` namespace remain stable even though their source
 is owned by `res/system/service/network`.
 
-The iOS SDK's engine and WAMR archives are released under that same tag; see
-[`pkg/ext-ios`](../pkg/ext-ios/README.md) and `scripts/ext-ios-release.sh`. It is
-not a Go module version either.
+The Apple SDK's engine and WAMR archives are released under the `ext-ios-vX.Y.Z` and `ext-macos-vX.Y.Z` tags; see
+[`pkg/ext-ios`](../pkg/ext-ios/README.md) and `scripts/ext-ios-release.sh`. They are
+not Go module versions either.
 
 Because of this, `GOWORK=off go build ./...` inside a library module fails until
 that dependency is published at the required version. That failure is the

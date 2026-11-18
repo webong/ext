@@ -10,6 +10,11 @@
 #
 # Usage: scripts/dist-branch.sh <dist/name> <tag> <archive.tar.gz> <commit subject> [<commit body>]
 #
+# Tags are repository-wide, so each branch has its own tag names. The bare X.Y.Z tags belong to
+# dist/ext-ios, the one branch SwiftPM resolves versions from (SwiftPM reads only X.Y.Z or vX.Y.Z,
+# and vX.Y.Z is not used here); every other dist/<name> is tagged <name>-X.Y.Z, as dist/ext-zig and
+# dist/ext-macos are. A tag of another shape is refused.
+#
 # Run it in a clone whose remote (DIST_REMOTE, default origin) is the repository and accepts the
 # push. The tag must not exist on the remote yet. The branch and the tag are pushed together or
 # not at all.
@@ -22,6 +27,10 @@ subject="${4:?$usage}"
 body="${5:-}"
 remote="${DIST_REMOTE:-origin}"
 [[ "$branch" == dist/?* ]] || { echo "the branch '$branch' must look like dist/<name>" >&2; exit 2; }
+name="${branch#dist/}"
+if [[ "$branch" == dist/ext-ios ]]; then expected='X.Y.Z'; pattern='^[0-9]+\.[0-9]+\.[0-9]+$'
+else expected="$name-X.Y.Z"; pattern="^${name//./\\.}-[0-9]+\\.[0-9]+\\.[0-9]+\$"; fi
+[[ "$tag" =~ $pattern ]] || { echo "the tag '$tag' of $branch must look like $expected" >&2; exit 2; }
 [[ -f "$archive" ]] || { echo "no archive at $archive" >&2; exit 2; }
 archive="$(cd "$(dirname "$archive")" && pwd)/$(basename "$archive")"
 

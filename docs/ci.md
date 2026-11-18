@@ -115,7 +115,7 @@ The jobs, the same for every package:
 | `build` | runs the package's build cells (`scripts/release/<package>/build.sh`, one cell per platform where it has several; the Android emulator where the cell names it) and uploads `release-out/` |
 | `publish` | downloads the build into `dist/`, runs `prepare.sh` (verify the checksums, or for `ctx`, `ctn` and `ext` build and test), attests `dist/*`, and runs `release.sh` (the GitHub release) |
 | `crates`, `npm`, `pypi`, `nuget` | the registry a package names, in that registry's environment |
-| `distribute` | `distribute.sh`, which pushes the package's `dist/` branch (`ext-ios`, `ext-zig`) |
+| `distribute` | `distribute.sh`, which pushes the package's `dist/` branch (`ext-ios`, `ext-macos`, `ext-zig`) |
 
 `publish` and `distribute` run only for a push of a tag with the package's own prefix; each registry
 job also checks its package's literal tag prefix, and `nuget` still needs `EXT_NUGET_SOURCE`. A

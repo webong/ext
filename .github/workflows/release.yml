@@ -21,6 +21,7 @@ on:
       - 'ext-dotnet-v*'
       - 'ext-windows-v*'
       - 'ext-ios-v*'
+      - 'ext-macos-v*'
       - 'ext-plugin-v*'
       - 'ext-python-v*'
       - 'ext-rust-v*'
@@ -64,6 +65,7 @@ on:
           - ext-dotnet
           - ext-windows
           - ext-ios
+          - ext-macos
           - ext-plugin
           - ext-python
           - ext-rust
@@ -352,7 +354,7 @@ jobs:
           KEY: ${{ secrets.EXT_NUGET_API_KEY }}
         run: dotnet nuget push 'dist/*.nupkg' --source "$SOURCE" --api-key "$KEY" --skip-duplicate
 
-  # The dist/ branch of a package that has one (SwiftPM for ext-ios, Zig for ext-zig).
+  # The dist/ branch of a package that has one (SwiftPM for ext-ios and ext-macos, Zig for ext-zig).
   distribute:
     needs: [route, build, publish]
     if: needs.route.outputs.distribute == 'true' && github.event_name == 'push' && startsWith(github.ref, format('refs/tags/{0}', needs.route.outputs.prefix))

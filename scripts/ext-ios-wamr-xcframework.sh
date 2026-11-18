@@ -6,10 +6,21 @@
 # declares the CExtWamr module and header, because two xcframeworks must not ship the same
 # header or module map. WAMR is fetched at the pinned commit by plugin-wamr-source.sh. Its license goes
 # beside the framework and must ship with any binary that links it.
+# --platform ios|macos|all picks the slices as scripts/ext-ios-xcframework.sh does.
+# Usage: scripts/ext-ios-wamr-xcframework.sh [--platform ios|macos|all]
 # Output: pkg/ext-ios/Frameworks/CExtWamr.xcframework
 set -euo pipefail
 cd "$(dirname "$0")/.."
 [[ "$(uname -s)" == Darwin ]] || { echo "ext-ios-wamr-xcframework.sh needs macOS and Xcode" >&2; exit 1; }
+platform=all
+if [[ "${1:-}" == --platform ]]; then platform="${2:?--platform needs ios, macos or all}"; shift 2; fi
+[[ $# -eq 0 ]] || { echo 'usage: scripts/ext-ios-wamr-xcframework.sh [--platform ios|macos|all]' >&2; exit 2; }
+case "$platform" in
+  ios) groups=(ios iossim) ;;
+  macos) groups=(macos) ;;
+  all) groups=(macos ios iossim) ;;
+  *) echo "unknown platform '$platform': ios, macos or all" >&2; exit 2 ;;
+esac
 wamr="$(scripts/plugin-wamr-source.sh)"
 out="${EXT_SWIFT_FRAMEWORKS:-pkg/ext-ios/Frameworks}"
 work="$(mktemp -d "${TMPDIR:-/tmp}/ext-wamr-xcframework.XXXXXX")"
@@ -29,6 +40,7 @@ slices=(
 )
 for slice in "${slices[@]}"; do
   IFS='|' read -r name sdk arch target system <<<"$slice"
+  [[ " ${groups[*]} " == *" ${name%%-*} "* ]] || continue
   sysroot="$(xcrun --sdk "$sdk" --show-sdk-path)"
   args=(-DCMAKE_BUILD_TYPE=Release -DEXT_WITH_WAMR=ON -DEXT_WAMR_ROOT="$wamr"
     -DCMAKE_OSX_SYSROOT="$sysroot" -DCMAKE_OSX_ARCHITECTURES="$arch" -DCMAKE_OSX_DEPLOYMENT_TARGET="$target")
@@ -45,18 +57,16 @@ for slice in "${slices[@]}"; do
   # Same-named objects from different libraries would overwrite each other in one directory.
   xcrun --sdk "$sdk" libtool -static -o "$work/$name/libext_wamr_host.a" $(find "$work/$name/objs" -name '*.o') 2>/dev/null
 done
-for platform in macos iossim; do
-  mkdir -p "$work/$platform"
-  lipo -create "$work/$platform"-*/libext_wamr_host.a -output "$work/$platform/libext_wamr_host.a"
+libraries=()
+for group in "${groups[@]}"; do
+  mkdir -p "$work/$group"
+  lipo -create "$work/$group"-*/libext_wamr_host.a -output "$work/$group/libext_wamr_host.a"
+  libraries+=(-library "$work/$group/libext_wamr_host.a")
 done
-mkdir -p "$work/ios" && cp "$work/ios-arm64/libext_wamr_host.a" "$work/ios/libext_wamr_host.a"
 
 rm -rf "$out/CExtWamr.xcframework"
 mkdir -p "$out"
-xcodebuild -create-xcframework \
-  -library "$work/macos/libext_wamr_host.a" \
-  -library "$work/ios/libext_wamr_host.a" \
-  -library "$work/iossim/libext_wamr_host.a" \
+xcodebuild -create-xcframework "${libraries[@]}" \
   -output "$out/CExtWamr.xcframework" >/dev/null
 cp "$wamr/LICENSE" "$out/WAMR-LICENSE"
 echo "wrote $out/CExtWamr.xcframework"

@@ -53,9 +53,10 @@ product and must not be imported by consumers.
 
 The repository root is only the workspace: it holds `go.work` and no Go module or
 package. Binary releases use product tags, `ctx-vX.Y.Z` and `ctn-vX.Y.Z`; those are not Go
-module versions. Bare `vX.Y.Z` tags are not used. The only bare tags are the `X.Y.Z` tags of a
-distribution branch (`dist/ext-ios`, for SwiftPM; `dist/ext-zig` tags `ext-zig-X.Y.Z` instead), which only the
-release workflow writes and which is never merged; see [distribution branches](docs/module-versioning.md#distribution-branches).
+module versions. Bare `vX.Y.Z` tags are not used. The only bare tags are the `X.Y.Z` tags of one
+distribution branch, `dist/ext-ios`, for SwiftPM; the others are tagged `<name>-X.Y.Z` (`dist/ext-macos` tags
+`ext-macos-X.Y.Z`, so macOS consumers pin it by branch or revision, and `dist/ext-zig` tags `ext-zig-X.Y.Z`).
+Only the release workflow writes them and they are never merged; see [distribution branches](docs/module-versioning.md#distribution-branches).
 `tests/` is a container for test-only Go modules that belong to no single library: `tests/crosslang` runs
 every language's guests and hosts against each other, with `pkg/ext-go` as the host side. Its modules are
 listed in `go.work`, are never tagged or published, and no library imports them. `src/` is a container like `res/`; the context manager is the module
@@ -244,7 +245,11 @@ named for that platform like the mobile SDKs. The
 mobile SDKs are named for their platforms because they are native to them:
 `pkg/ext-ios` (Swift, with Objective-C through the C headers) and
 `pkg/ext-android` (Java, with Kotlin through the same API). Each is the one package an app adds
-for a platform and ships both the plugin code (guest SDK, WebView and WAMR hosts), which is
+for a platform. `pkg/ext-ios` holds the sources of two Apple releases built from the same code:
+`ext-ios` (the iOS and iOS Simulator slices, `ext-ios-vX.Y.Z`, `dist/ext-ios`) and `ext-macos` (the
+macOS slice, `ext-macos-vX.Y.Z`, `dist/ext-macos`), each with a generated manifest that declares only
+its platform; its own `Package.swift` stays multi-platform for development and CI. Both export the
+same module names, so an app depends on one of them, or on `pkg/ext-ios` from source. Each SDK ships both the plugin code (guest SDK, WebView and WAMR hosts), which is
 written there, and the web code (the cookie, userscript and bookmarklet rules), which is not:
 `res/web` is a container whose Go module is `res/web/host`, and it holds the iOS module (`res/web/ios`, the SwiftPM packages `ExtWeb`
 and `ExtWebKit`) and the Android module (`res/web/android`, the Java packages

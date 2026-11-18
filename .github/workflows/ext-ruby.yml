@@ -7,6 +7,7 @@ on:
   push:
     branches: [main]
     paths:
+      - 'scripts/lang/**'
       - 'pkg/ext-ruby/**'
       - 'pkg/ext-go/engine/**'
       - 'tests/crosslang/**'
@@ -40,19 +41,5 @@ jobs:
           cache-dependency-path: |
             **/go.sum
             go.work.sum
-      - name: Minitest
-        working-directory: pkg/ext-ruby
-        run: ruby -w test/all.rb
-      - name: Build the gem
-        working-directory: pkg/ext-ruby
-        run: |
-          gem build ext-io.gemspec --output "$RUNNER_TEMP/ext-io.gem"
-          gem build ext-io-host.gemspec --output "$RUNNER_TEMP/ext-io-host.gem"
-      - name: Conformance through the Go process host
-        working-directory: pkg/ext-go/engine
-        run: EXT_RUBY="$(command -v ruby)" go test -count=1 -run 'TestRuby' -v ./plugintest
-      - name: Frames suite through the Go session
-        working-directory: tests/crosslang
-        env:
-          EXT_FRAMES_REQUIRED: Ruby
-        run: EXT_RUBY="$(command -v ruby)" go test -count=1 -v -run 'TestRubyFramesGuest' .
+      - name: Minitest, both gems, and the guest under the Go process host
+        run: scripts/lang/ruby.sh test

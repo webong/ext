@@ -113,7 +113,7 @@ prefix plus the script ID and caps it at 128 characters, while the Go userscript
 script ID. Call `registry.registrationId(id)` inside `prepare` to refuse an over-long script early.
 
 `pkg/ext-web` is `private: true` and is not on the npm registry. Ext is adding a release workflow
-(`ext-web-release.yml`) that attaches `ext-web-X.Y.Z.tgz` to a GitHub release `ext-web-vX.Y.Z`; until the first
+(`release.yml` (package `ext-web`)) that attaches `ext-web-X.Y.Z.tgz` to a GitHub release `ext-web-vX.Y.Z`; until the first
 such tag exists Cymonkey cannot install it. See section 5.
 
 ## 5. How to consume each ext SDK today (verified from the published releases)

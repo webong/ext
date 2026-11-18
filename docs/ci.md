@@ -97,21 +97,32 @@ group that has no job, or a runner whose platform it cannot tell.
 
 ## Releases
 
-`release.yml` routes every run through `scripts/ci/release_plan.py` and `.github/ci/releases.json`,
-which lists each package's tag prefixes, its workflow, the paths whose change makes a pull request
-dry-run it, and its default dry-run version.
+`release.yml` is the only release workflow. Its `route` job runs `scripts/ci/release_plan.py` over
+`.github/ci/releases.json`, which lists each package: its tag prefixes, the paths whose change makes
+a pull request dry-run it, its default dry-run version, its build cells, the toolchains its publish
+step needs, its registry, and whether it has a `dist/` branch.
 
 | Run | Packages | Publishes |
 | --- | --- | --- |
-| tag push | the package whose prefix the tag starts with (the longest prefix wins) | yes, if the package's workflow accepts the tag |
+| tag push | the package whose prefix the tag starts with (the longest prefix wins) | yes |
 | pull request | the packages whose `pr_paths` match a changed file | no |
 | `gh workflow run release.yml -f package=<name> [-f version=X.Y.Z]` | that package | no |
 
-A tag that matches no package fails the route. Publishing is still decided inside each package's
-workflow: its publish jobs run only for a tag push of its own prefix, in their own environments,
-exactly as before they were routed. The `ctx-v`, `ctn-v` and `ext-v` binaries
-(`release-binaries.yml`) release only from a tag.
+The jobs, the same for every package:
 
-Adding a package: its reusable workflow (`on: workflow_call`, taking `version` if it builds a
-version by hand), its entry in `releases.json`, and its tag pattern and job in `release.yml`.
-`release_plan.py --check`, which the route job runs, fails when they drift apart.
+| Job | Does |
+| --- | --- |
+| `build` | runs the package's build cells (`scripts/release/<package>/build.sh`, one cell per platform where it has several; the Android emulator where the cell names it) and uploads `release-out/` |
+| `publish` | downloads the build into `dist/`, runs `prepare.sh` (verify the checksums, or for `ctx`, `ctn` and `ext` build and test), attests `dist/*`, and runs `release.sh` (the GitHub release) |
+| `crates`, `npm`, `pypi`, `nuget` | the registry a package names, in that registry's environment |
+| `distribute` | `distribute.sh`, which pushes the package's `dist/` branch (`ext-ios`, `ext-zig`) |
+
+`publish` and `distribute` run only for a push of a tag with the package's own prefix; each registry
+job also checks its package's literal tag prefix, and `nuget` still needs `EXT_NUGET_SOURCE`. A
+tag that matches no package fails the route, and `ctx`, `ctn` and `ext`, which have no build cells,
+refuse a manual run.
+
+Adding a package: `scripts/release/<package>/` (`build.sh`, `prepare.sh`, `release.sh`, and
+`distribute.sh` if it has a branch), its entry in `releases.json`, and its tag pattern in
+`release.yml`'s `on.push.tags`; a new registry adds one job. `release_plan.py --check`, which the
+route job runs, fails when a script or tag pattern is missing.

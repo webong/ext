@@ -102,6 +102,6 @@ costs them nothing.
   accept, and a hashed ID would need a synchronous digest that the web platform
   does not offer. It is documented in the library README and declarations.
 - `pkg/ext-web` is released as a tarball on the GitHub release `ext-web-vX.Y.Z`
-  (`ext-web-release.yml`); the package stays private, so there is no npm registry.
+  (`release.yml` (package `ext-web`)); the package stays private, so there is no npm registry.
 - Not done yet: installing the packaged examples through an adapter into a real
   browser, and choosing an npm registry for `pkg/ext-web`.

@@ -390,7 +390,7 @@ see [module versioning](../../docs/module-versioning.md)). Each carries:
   (`WAMR-LICENSE`), and must ship with any app that links it.
 - `checksums.txt` (SHA-256) and a build-provenance attestation for every file.
 
-The release workflow ([`ext-android-release.yml`](../../.github/workflows/ext-android-release.yml))
+The release workflow ([`release.yml`](../../.github/workflows/release.yml) (package `ext-android`, `scripts/release/ext-android/`))
 checks the web rules on a JDK, builds both AARs, tests each one as shipped in an app with R8 on, on an
 emulator (guest, WebView host, web rules, native libraries per ABI), and only then publishes. Verify a download with `sha256sum -c checksums.txt` and
 `gh attestation verify <file> --repo webong/ext`. To use one, put it in a local flat repository:

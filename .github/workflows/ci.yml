@@ -9,11 +9,10 @@ name: CI
 #                     platform:<name> labels pick platforms (otherwise linux only); ci:full runs
 #                     everything. Adding or removing a label re-plans the run.
 #   manual run        gh workflow run ci.yml --ref <branch> -f labels=tool:php,platform:macos
-#   nightly           every area, every platform, and the jobs marked nightly in areas.json (fuzz,
-#                     the real desktop session, the Android emulator and iOS Simulator suites)
+#
+# ci:full also runs the jobs marked on_request in areas.json (fuzz, the real desktop session, the
+# Android emulator and iOS Simulator suites). There is no scheduled run, to keep CI cost down.
 on:
-  schedule:
-    - cron: '17 2 * * *'
   push:
     branches: [main]
   pull_request:
@@ -72,7 +71,6 @@ jobs:
         run: |
           set -euo pipefail
           case "$EVENT" in
-            schedule) git ls-files >changed.txt ;;
             pull_request) git diff --name-only "$BASE...$HEAD" >changed.txt ;;
             push)
               # A new branch or a force push has no usable before: plan on every path.

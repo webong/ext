@@ -1,5 +1,5 @@
 {
-  "about": "CI areas: which reusable workflow runs which jobs, for which tools, on which platforms. ci.yml runs scripts/ci/plan.py over this table. main_paths: a push to main runs the area only if a changed file matches (null: always). pr_paths: a pull request without tool labels runs the area only if a changed file matches (null: always). Each job lists its matrix cells; a cell runs on the platform of its os (or the job's runs-on), unless the job names a platform. A job marked nightly runs on the scheduled run, a manual run or a pull request labelled ci:full, never on a push to main or an unlabelled pull request: it is slow or needs a real device session.",
+  "about": "CI areas: which reusable workflow runs which jobs, for which tools, on which platforms. ci.yml runs scripts/ci/plan.py over this table. main_paths: a push to main runs the area only if a changed file matches (null: always). pr_paths: a pull request without tool labels runs the area only if a changed file matches (null: always). Each job lists its matrix cells; a cell runs on the platform of its os (or the job's runs-on), unless the job names a platform. A job marked on_request is slow or needs a real device session: it runs only when a pull request or a manual run carries ci:full, never on a push to main.",
   "platforms": [
     "linux",
     "macos",
@@ -66,7 +66,7 @@
               "os": "ubuntu-latest"
             }
           ],
-          "nightly": true
+          "on_request": true
         },
         "native": {
           "runs-on": "${{ matrix.os }}",
@@ -128,7 +128,7 @@
               "os": "ubuntu-latest"
             }
           ],
-          "nightly": true
+          "on_request": true
         },
         "posix": {
           "runs-on": "${{ matrix.os }}",
@@ -469,7 +469,7 @@
             }
           ],
           "platform": "ios",
-          "nightly": true
+          "on_request": true
         },
         "emulator": {
           "runs-on": "ubuntu-latest",
@@ -479,7 +479,7 @@
             }
           ],
           "platform": "android",
-          "nightly": true
+          "on_request": true
         },
         "jdk": {
           "runs-on": "ubuntu-latest",

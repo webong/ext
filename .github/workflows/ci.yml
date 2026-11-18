@@ -1,0 +1,160 @@
+name: CI
+
+# The one entry point for tests. A plan job reads .github/ci/areas.json through scripts/ci/plan.py
+# and decides which areas run and which matrix cells each of their jobs gets; every area is a
+# reusable workflow fed those cells. See docs/ci.md.
+#
+#   push to main      every platform; an area runs if a changed file matches its main_paths
+#   pull request      tool:<name> labels pick areas (otherwise the changed paths do);
+#                     platform:<name> labels pick platforms (otherwise linux only); ci:full runs
+#                     everything. Adding or removing a label re-plans the run.
+#   manual run        gh workflow run ci.yml --ref <branch> -f labels=tool:php,platform:macos
+on:
+  push:
+    branches: [main]
+  pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+  workflow_dispatch:
+    inputs:
+      labels:
+        description: Labels to plan with, comma-separated (tool:<name>, platform:<name>, ci:full)
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      native_run: ${{ steps.plan.outputs.native_run }}
+      native_cells: ${{ steps.plan.outputs.native_cells }}
+      plugin-engine_run: ${{ steps.plan.outputs.plugin-engine_run }}
+      plugin-engine_cells: ${{ steps.plan.outputs.plugin-engine_cells }}
+      c2goengine_run: ${{ steps.plan.outputs.c2goengine_run }}
+      c2goengine_cells: ${{ steps.plan.outputs.c2goengine_cells }}
+      host-cases_run: ${{ steps.plan.outputs.host-cases_run }}
+      host-cases_cells: ${{ steps.plan.outputs.host-cases_cells }}
+      plugin-sdk_run: ${{ steps.plan.outputs.plugin-sdk_run }}
+      plugin-sdk_cells: ${{ steps.plan.outputs.plugin-sdk_cells }}
+      plugin-wamr_run: ${{ steps.plan.outputs.plugin-wamr_run }}
+      plugin-wamr_cells: ${{ steps.plan.outputs.plugin-wamr_cells }}
+      web-js_run: ${{ steps.plan.outputs.web-js_run }}
+      web-js_cells: ${{ steps.plan.outputs.web-js_cells }}
+      ext-php_run: ${{ steps.plan.outputs.ext-php_run }}
+      ext-php_cells: ${{ steps.plan.outputs.ext-php_cells }}
+      ext-ruby_run: ${{ steps.plan.outputs.ext-ruby_run }}
+      ext-ruby_cells: ${{ steps.plan.outputs.ext-ruby_cells }}
+      ext-lua_run: ${{ steps.plan.outputs.ext-lua_run }}
+      ext-lua_cells: ${{ steps.plan.outputs.ext-lua_cells }}
+      dotnet-windows_run: ${{ steps.plan.outputs.dotnet-windows_run }}
+      dotnet-windows_cells: ${{ steps.plan.outputs.dotnet-windows_cells }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Changed files
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          case "$EVENT" in
+            pull_request) git diff --name-only "$BASE...$HEAD" >changed.txt ;;
+            push)
+              # A new branch or a force push has no usable before: plan on every path.
+              if [ -z "$BEFORE" ] || [ "$BEFORE" = 0000000000000000000000000000000000000000 ] ||
+                ! git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
+                git ls-files >changed.txt
+              else
+                git diff --name-only "$BEFORE" "$AFTER" >changed.txt
+              fi ;;
+            *) : >changed.txt ;;
+          esac
+          wc -l <changed.txt
+      - name: Check the area table against the workflows
+        run: python3 -I scripts/ci/plan.py --check
+      - id: plan
+        name: Plan
+        env:
+          EVENT: ${{ github.event_name }}
+          PR_LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}
+          DISPATCH_LABELS: ${{ inputs.labels }}
+        run: |
+          python3 -I scripts/ci/plan.py --event "$EVENT" --labels "${PR_LABELS}${DISPATCH_LABELS}" \
+            --changed changed.txt
+
+  native:
+    needs: plan
+    if: needs.plan.outputs.native_run == 'true'
+    uses: ./.github/workflows/native.yml
+    with:
+      cells: ${{ needs.plan.outputs.native_cells }}
+  plugin-engine:
+    needs: plan
+    if: needs.plan.outputs.plugin-engine_run == 'true'
+    uses: ./.github/workflows/plugin-engine.yml
+    with:
+      cells: ${{ needs.plan.outputs.plugin-engine_cells }}
+  c2goengine:
+    needs: plan
+    if: needs.plan.outputs.c2goengine_run == 'true'
+    uses: ./.github/workflows/c2goengine.yml
+    with:
+      cells: ${{ needs.plan.outputs.c2goengine_cells }}
+  host-cases:
+    needs: plan
+    if: needs.plan.outputs.host-cases_run == 'true'
+    uses: ./.github/workflows/host-cases.yml
+    with:
+      cells: ${{ needs.plan.outputs.host-cases_cells }}
+  plugin-sdk:
+    needs: plan
+    if: needs.plan.outputs.plugin-sdk_run == 'true'
+    uses: ./.github/workflows/plugin-sdk.yml
+    with:
+      cells: ${{ needs.plan.outputs.plugin-sdk_cells }}
+  plugin-wamr:
+    needs: plan
+    if: needs.plan.outputs.plugin-wamr_run == 'true'
+    uses: ./.github/workflows/plugin-wamr.yml
+    with:
+      cells: ${{ needs.plan.outputs.plugin-wamr_cells }}
+  web-js:
+    needs: plan
+    if: needs.plan.outputs.web-js_run == 'true'
+    uses: ./.github/workflows/web-js.yml
+    with:
+      cells: ${{ needs.plan.outputs.web-js_cells }}
+  ext-php:
+    needs: plan
+    if: needs.plan.outputs.ext-php_run == 'true'
+    uses: ./.github/workflows/ext-php.yml
+    with:
+      cells: ${{ needs.plan.outputs.ext-php_cells }}
+  ext-ruby:
+    needs: plan
+    if: needs.plan.outputs.ext-ruby_run == 'true'
+    uses: ./.github/workflows/ext-ruby.yml
+    with:
+      cells: ${{ needs.plan.outputs.ext-ruby_cells }}
+  ext-lua:
+    needs: plan
+    if: needs.plan.outputs.ext-lua_run == 'true'
+    uses: ./.github/workflows/ext-lua.yml
+    with:
+      cells: ${{ needs.plan.outputs.ext-lua_cells }}
+  dotnet-windows:
+    needs: plan
+    if: needs.plan.outputs.dotnet-windows_run == 'true'
+    uses: ./.github/workflows/dotnet-windows.yml
+    with:
+      cells: ${{ needs.plan.outputs.dotnet-windows_cells }}

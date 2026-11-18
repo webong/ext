@@ -1,21 +1,25 @@
 name: Native core
-
-# Runs on pushes to main and on demand (gh workflow run native.yml --ref <branch>). Branches and
-# pull requests do not start it, to save runner time.
+#
+# Called by ci.yml, which picks the jobs and matrix cells from .github/ci/areas.json (docs/ci.md).
 on:
-  push:
-    branches: [main]
-  workflow_dispatch:
+  # Called by ci.yml, which plans the run (scripts/ci/plan.py, .github/ci/areas.json).
+  workflow_call:
+    inputs:
+      cells:
+        description: JSON object from each job's name to the matrix cells it runs
+        type: string
+        required: true
 
 permissions:
   contents: read
 
 jobs:
   native:
+    if: toJSON(fromJSON(inputs.cells)['native']) != '[]'
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        include: ${{ fromJSON(inputs.cells)['native'] }}
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v5
@@ -178,6 +182,11 @@ jobs:
   # Packaging checks run independently of the broad module suite and provision
   # the tools they need instead of relying on the runner's Android defaults.
   android-package:
+    if: toJSON(fromJSON(inputs.cells)['android-package']) != '[]'
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(inputs.cells)['android-package'] }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -197,6 +206,11 @@ jobs:
         run: scripts/ext-android-release.sh 0.0.0
 
   ios-package:
+    if: toJSON(fromJSON(inputs.cells)['ios-package']) != '[]'
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(inputs.cells)['ios-package'] }}
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v5
@@ -209,6 +223,11 @@ jobs:
         run: scripts/ext-ios-release.sh 0.0.0
 
   linux-desktop:
+    if: toJSON(fromJSON(inputs.cells)['linux-desktop']) != '[]'
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(inputs.cells)['linux-desktop'] }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -224,10 +243,11 @@ jobs:
         run: scripts/verify-linux-desktop.sh
 
   native-integration:
+    if: toJSON(fromJSON(inputs.cells)['native-integration']) != '[]'
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        include: ${{ fromJSON(inputs.cells)['native-integration'] }}
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v5
@@ -249,7 +269,11 @@ jobs:
   # may not be published yet. A module waiting for an unpublished sibling is skipped
   # with a message and checked by the next run.
   standalone-modules:
-    if: github.event_name == 'push'
+    if: (github.event_name == 'push') && toJSON(fromJSON(inputs.cells)['standalone-modules']) != '[]'
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(inputs.cells)['standalone-modules'] }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -265,6 +289,11 @@ jobs:
 
   # The release scripts that publish to a dist/ branch, against a throwaway remote.
   dist-branch:
+    if: toJSON(fromJSON(inputs.cells)['dist-branch']) != '[]'
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(inputs.cells)['dist-branch'] }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5

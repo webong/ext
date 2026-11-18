@@ -2,37 +2,27 @@ name: Lua SDK
 
 # The Lua guest SDK (pkg/ext-lua) on every Lua it supports: its own tests, the conformance suite
 # through the Go process host and the frames suite through the Go session (scripts/ext-lua.sh).
-# Runs on pushes to main that touch it or what it is checked against, and on demand
-# (gh workflow run ext-lua.yml --ref <branch>). Branches and pull requests do not start it, to
-# save runner time.
+#
+# Called by ci.yml, which picks the jobs and matrix cells from .github/ci/areas.json (docs/ci.md).
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'scripts/lang/**'
-      - pkg/ext-lua/**
-      - lib/plugin/testdata/**
-      - pkg/ext-go/engine/**
-      - tests/crosslang/**
-      - scripts/ext-lua.sh
-      - .github/workflows/ext-lua.yml
-  workflow_dispatch:
+  # Called by ci.yml, which plans the run (scripts/ci/plan.py, .github/ci/areas.json).
+  workflow_call:
+    inputs:
+      cells:
+        description: JSON object from each job's name to the matrix cells it runs
+        type: string
+        required: true
 
 permissions:
   contents: read
 
 jobs:
   lua:
+    if: toJSON(fromJSON(inputs.cells)['lua']) != '[]'
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest]
-        lua: ['5.1.5', '5.2.4', '5.3.6', '5.4.9', '5.5.1', 'luajit-2.1']
-        include:
-          - os: macos-15
-            lua: '5.4.9'
-          - os: macos-15
-            lua: 'luajit-2.1'
+        include: ${{ fromJSON(inputs.cells)['lua'] }}
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v5
@@ -52,6 +42,11 @@ jobs:
         run: scripts/lang/lua.sh test
 
   rock:
+    if: toJSON(fromJSON(inputs.cells)['rock']) != '[]'
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(inputs.cells)['rock'] }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5

@@ -1,18 +1,27 @@
 name: Web JS
 
-# Runs on pushes to main and on demand (gh workflow run web-js.yml --ref <branch>). Branches and
-# pull requests do not start it, to save runner time. The browser smoke tests need a browser and
-# are run by hand; see pkg/ext-web/COMPATIBILITY.md.
+# The browser smoke tests need a browser and are run by hand; see pkg/ext-web/COMPATIBILITY.md.
+#
+# Called by ci.yml, which picks the jobs and matrix cells from .github/ci/areas.json (docs/ci.md).
 on:
-  push:
-    branches: [main]
-  workflow_dispatch:
+  # Called by ci.yml, which plans the run (scripts/ci/plan.py, .github/ci/areas.json).
+  workflow_call:
+    inputs:
+      cells:
+        description: JSON object from each job's name to the matrix cells it runs
+        type: string
+        required: true
 
 permissions:
   contents: read
 
 jobs:
   extension-library:
+    if: toJSON(fromJSON(inputs.cells)['extension-library']) != '[]'
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(inputs.cells)['extension-library'] }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5

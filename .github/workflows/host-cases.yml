@@ -2,28 +2,17 @@ name: Host cases
 
 # The shared host cases (lib/plugin/testdata/v1/host-cases.json) on every host that has a runner:
 # the pure-Go host and the hosts that bind the C engine (scripts/host-cases.sh), on Linux, macOS and
-# Windows. Runs on pushes to main that touch them and on demand (gh workflow run host-cases.yml
-# --ref <branch>). Branches and pull requests do not start it, to save runner time.
+# Windows.
+#
+# Called by ci.yml, which picks the jobs and matrix cells from .github/ci/areas.json (docs/ci.md).
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'lib/plugin/**'
-      - 'pkg/ext-python/**'
-      - 'pkg/ext-ruby/**'
-      - 'scripts/ext-ruby-host.sh'
-      - 'pkg/ext-lua/**'
-      - 'scripts/ext-lua-host.sh'
-      - 'pkg/ext-php/**'
-      - 'pkg/ext-dotnet/**'
-      - 'pkg/ext-go/engine/**'
-      - 'pkg/ext-go/cgoengine/cshared/**'
-      - 'tests/crosslang/**'
-      - 'scripts/host-cases.sh'
-      - 'scripts/cshared-purego.sh'
-      - 'pkg/ext-go/cgoengine/go.mod'
-      - '.github/workflows/host-cases.yml'
-  workflow_dispatch:
+  # Called by ci.yml, which plans the run (scripts/ci/plan.py, .github/ci/areas.json).
+  workflow_call:
+    inputs:
+      cells:
+        description: JSON object from each job's name to the matrix cells it runs
+        type: string
+        required: true
 
 permissions:
   contents: read
@@ -35,10 +24,11 @@ jobs:
   # host cases with cgo off as one step of scripts/host-cases.sh.
   go-purego:
     name: go host without cgo (${{ matrix.os }})
+    if: toJSON(fromJSON(inputs.cells)['go-purego']) != '[]'
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, ubuntu-24.04-arm, macos-15, macos-15-intel, windows-latest, windows-11-arm]
+        include: ${{ fromJSON(inputs.cells)['go-purego'] }}
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v5
@@ -72,14 +62,11 @@ jobs:
         run: scripts/cshared-purego.sh
 
   hosts:
+    if: toJSON(fromJSON(inputs.cells)['hosts']) != '[]'
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - {os: ubuntu-22.04, python: '3.8', ruby: '3.1', lua: '5.1.5', php: '8.1'}
-          - {os: ubuntu-latest, python: '3.13', ruby: '3.4', lua: '5.4.9', php: '8.4'}
-          - {os: ubuntu-24.04-arm, python: '3.13', ruby: '4.0', lua: 'luajit-2.1', php: '8.4'}
-          - {os: macos-15, python: '3.13', ruby: '3.4', lua: '5.5.1', php: '8.4'}
+        include: ${{ fromJSON(inputs.cells)['hosts'] }}
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v5
@@ -128,10 +115,11 @@ jobs:
   # devkit /usr/bin (with a link of its own) it puts on the path.
   windows:
     name: hosts (windows, ${{ matrix.toolchain }})
+    if: toJSON(fromJSON(inputs.cells)['windows']) != '[]'
     strategy:
       fail-fast: false
       matrix:
-        toolchain: [mingw, msvc]
+        include: ${{ fromJSON(inputs.cells)['windows'] }}
     runs-on: windows-latest
     continue-on-error: ${{ matrix.toolchain == 'msvc' }}
     steps:

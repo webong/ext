@@ -1,33 +1,28 @@
 name: ext-ruby
 
-# The Ruby guest SDK (pkg/ext-ruby): its Minitest suite on every supported Ruby, the gem build,
-# and the Go conformance suite that runs it through the process host. Runs on pushes to main that
-# touch it and on demand (gh workflow run ext-ruby.yml --ref <branch>), like plugin-sdk.yml.
+# The Ruby guest SDK (pkg/ext-ruby): its Minitest suite on every supported Ruby, the gem build, and
+# the Go conformance suite that runs it through the process host.
+#
+# Called by ci.yml, which picks the jobs and matrix cells from .github/ci/areas.json (docs/ci.md).
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'scripts/lang/**'
-      - 'pkg/ext-ruby/**'
-      - 'pkg/ext-go/engine/**'
-      - 'tests/crosslang/**'
-      - 'lib/plugin/testdata/**'
-      - '.github/workflows/ext-ruby.yml'
-  workflow_dispatch:
+  # Called by ci.yml, which plans the run (scripts/ci/plan.py, .github/ci/areas.json).
+  workflow_call:
+    inputs:
+      cells:
+        description: JSON object from each job's name to the matrix cells it runs
+        type: string
+        required: true
 
 permissions:
   contents: read
 
 jobs:
   ruby:
+    if: toJSON(fromJSON(inputs.cells)['ruby']) != '[]'
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest]
-        ruby: ['3.1', '3.2', '3.3', '3.4', '4.0']
-        include:
-          - os: macos-15
-            ruby: '3.4'
+        include: ${{ fromJSON(inputs.cells)['ruby'] }}
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v5

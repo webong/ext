@@ -127,7 +127,7 @@
             "rust_targets": "wasm32-wasip1",
             "rust_components": ""
           },
-          "artifact": "release-ext-macos-macos-15",
+          "artifact": "release-ext-macos-15",
           "timeout": 60,
           "wamr_cache": true
         }

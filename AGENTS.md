@@ -37,7 +37,7 @@ Android WebView implementations of the public `res/web` workspace API belong in
 `res/web/ios` and `res/web/android`.
 
 `pkg/ext-web` is ext's JavaScript/TypeScript package for code that runs inside a
-browser extension. Ext owns it; Cymonkey and Xallet consume it. Like `pkg/ext-ios` and
+browser extension. Ext owns it; Cymonkey and Xallet consume it. Like `pkg/ext-darwin` and
 `pkg/ext-android` it is named for the platform it runs on, and unlike `pkg/ext-ts` it
 is not a plugin SDK. Its extension-embedded runtime messaging, in-browser
 management, themes, and `chrome`/`browser` compatibility are not adapters.
@@ -108,7 +108,7 @@ pinned by version and SHA-256 with its licence beside it: the yyjson parser and
 the inflate decoder of miniz (`vendor/miniz`), which the package store's
 install from a zip or tar.gz archive uses. Vendored sources stay unmodified and
 their symbols are renamed at build time; adding one is a decision for the user. The language bindings (`pkg/ext-go`, `pkg/ext-rust`, `pkg/ext-zig`, `pkg/ext-ts`,
-`pkg/ext-python`) and the mobile SDKs (`pkg/ext-ios`, `pkg/ext-android`) build on it.
+`pkg/ext-python`) and the mobile SDKs (`pkg/ext-darwin`, `pkg/ext-android`) build on it.
 The JSON-line guest SDKs (`pkg/ext-python`, `pkg/ext-ruby`, `pkg/ext-php`, `pkg/ext-lua`, and
 `ExtIO` in `pkg/ext-dotnet`) are written in their own language only: they speak `ext.plugin/v1` as JSON lines over stdio,
 need no C or native build, and are checked against the same fixtures. A host binding for one of
@@ -173,7 +173,7 @@ CTN owns its content verification workflow and durable file catalog in
 
 The reusable libraries are:
 
-- `res/web` for portable web contracts and workflows: browsers, WebAssembly inspection/execution through wazero (`res/web/host/engine/wasm`), and the web engine that runs web content through browsers. It is also the iOS and Android module of the cookie, userscript and bookmarklet rules (`res/web/ios`, `res/web/android`), which `pkg/ext-ios` and `pkg/ext-android` ship, and owns the application-hosted WebView2 implementation in `res/web/windows`. Its Go module is `res/web/host`.
+- `res/web` for portable web contracts and workflows: browsers, WebAssembly inspection/execution through wazero (`res/web/host/engine/wasm`), and the web engine that runs web content through browsers. It is also the iOS and Android module of the cookie, userscript and bookmarklet rules (`res/web/ios`, `res/web/android`), which `pkg/ext-darwin` and `pkg/ext-android` ship, and owns the application-hosted WebView2 implementation in `res/web/windows`. Its Go module is `res/web/host`.
 - `pkg/ext-web` for the JavaScript/TypeScript library that runs inside a browser extension: peer messaging, in-browser management, workspace helpers, a userscript registry, a page bridge and themes. It is built and tested with Node, is `private: true` under the npm name `ext-web`, and depends on neither the plugin engine nor any Go code.
 - `lib/plugin` for the portable C plugin engine shared by the language bindings under `pkg/` (`ext-go`, `ext-rust`, `ext-zig`, `ext-ts`) and the mobile SDKs. The JSON-line guest SDKs (`ext-python`, `ext-ruby`, `ext-php`, `ext-lua`, and the .NET `ExtIO`) do not link it; the Python and Lua hosts (`ext_io.host`), the Ruby host (`ExtIO::Host`, gem `ext-io-host`), the PHP host (`ExtIO\Host`, through FFI) and the .NET host (`ExtIO.Host`, `pkg/ext-dotnet`) load its shared library at run time.
 - `res/system` for the local operating-system substrate used to extend graphical and textual shells: host, shell, filesystem and volume mechanics, clipboard, credential integration, local interface/address/route/resolver observation, web view and process discovery, native surfaces, accessibility, permission state, bounded capture and media playback/capture, and atomic native input. It owns mechanisms, not authorization, remote control, routing services or consumer policy. The module has no root package; its packages sit in three groups, which are plain directories: `service` (what the host provides, looked up and used: `host` for shells, filesystems, web views and resource capacity, `network`, `process`, `program`, `credential` and `user` for per-user service definitions), `capture` (content and events crossing the device edge: `surface` for displays, windows, accessibility, permission, capture and input, `audio`, `clipboard`, `share` and `media`) and `device` (`volume` for snapshots and private directories, `image` for snapshot archives). Each package owns its own iOS, Android and Windows code (the .NET libraries are `capture/audio/windows` and `capture/clipboard/windows`). The Windows .NET libraries of `res/` (those two, `res/web/windows` and `res/int/model/windows`) ship as NuGet packages named like their assemblies, released together under the tag `ext-windows-vX.Y.Z`, the Windows platform package (the counterpart of `ext-ios` and `ext-android`); the .NET guest SDK `ExtIO` and plugin host `ExtIO.Host` (`pkg/ext-dotnet`), a language package, are released on their own as `ext-dotnet-vX.Y.Z`.
@@ -243,13 +243,13 @@ TypeScript), with language-specific embedding examples alongside them. `pkg/ext-
 is not one of them: it is the package for code that runs inside a browser extension,
 named for that platform like the mobile SDKs. The
 mobile SDKs are named for their platforms because they are native to them:
-`pkg/ext-ios` (Swift, with Objective-C through the C headers) and
+`pkg/ext-darwin` (Swift, with Objective-C through the C headers, for iOS and macOS) and
 `pkg/ext-android` (Java, with Kotlin through the same API). Each is the one package an app adds
-for a platform. `pkg/ext-ios` holds the sources of two Apple releases built from the same code:
+for a platform. `pkg/ext-darwin` holds the sources of two Apple releases built from the same code:
 `ext-ios` (the iOS and iOS Simulator slices, `ext-ios-vX.Y.Z`, `dist/ext-ios`) and `ext-macos` (the
 macOS slice, `ext-macos-vX.Y.Z`, `dist/ext-macos`), each with a generated manifest that declares only
 its platform; its own `Package.swift` stays multi-platform for development and CI. Both export the
-same module names, so an app depends on one of them, or on `pkg/ext-ios` from source. Each SDK ships both the plugin code (guest SDK, WebView and WAMR hosts), which is
+same module names, so an app depends on one of them, or on `pkg/ext-darwin` from source. Each SDK ships both the plugin code (guest SDK, WebView and WAMR hosts), which is
 written there, and the web code (the cookie, userscript and bookmarklet rules), which is not:
 `res/web` is a container whose Go module is `res/web/host`, and it holds the iOS module (`res/web/ios`, the SwiftPM packages `ExtWeb`
 and `ExtWebKit`) and the Android module (`res/web/android`, the Java packages
@@ -259,19 +259,19 @@ remain separate from those portable rules. The mobile modules in `res/web` impor
 the plugin code or the C engine and build and test with Swift or a JDK/Android SDK
 (`scripts/web-ios.sh`, `scripts/web-android.sh`, `scripts/web-differential.sh`).
 The Go-only `res/web/host/engine/wasm` package imports wazero but no plugin code;
-`pkg/ext-go/wasm` supplies that binding. `pkg/ext-ios`
+`pkg/ext-go/wasm` supplies that binding. `pkg/ext-darwin`
 reaches `res/web/ios` through the links `Sources/ExtWeb` and `Sources/ExtWebKit` (a release stages
 real copies), and `pkg/ext-android` compiles the portable and Android source sets from
 `res/web/android` into its AAR. Edit web code in `res/web`, never in
 the SDKs. `res/system/capture/clipboard` follows the same ownership model: its Swift
-target is linked into `pkg/ext-ios`, and its portable and Android Java source
+target is linked into `pkg/ext-darwin`, and its portable and Android Java source
 sets are compiled into the `pkg/ext-android` AAR. Edit clipboard code in
 `res/system/capture/clipboard`. `res/system/service/network` follows that ownership model: its
-Swift target is linked into `pkg/ext-ios`, and its Java source sets are compiled
+Swift target is linked into `pkg/ext-darwin`, and its Java source sets are compiled
 into the `pkg/ext-android` AAR. Edit those implementations in `res/system/service/network`.
 `res/system/service/network` exposes local state only.
 `res/system/capture/share` follows the same ownership model for mobile share and
-keyboard extensions: its Swift target ships through `pkg/ext-ios` as `ExtShare`, and its Java source sets compile into the `pkg/ext-android` AAR.
+keyboard extensions: its Swift target ships through `pkg/ext-darwin` as `ExtShare`, and its Java source sets compile into the `pkg/ext-android` AAR.
 The Android share and keyboard binding classes live in
 `res/system/capture/share/android/src/android`, beside the portable model.
 `capture/surface` (`ExtSystem`), `service/host` (`ExtHost`) and `capture/audio` (`ExtAudio`) follow the same
@@ -314,7 +314,7 @@ Moving a library into or out of `pkg/` changes public import paths. Update
 
 Mobile browser workspaces are platform implementations of the public `res/web`
 API, not product adapters. WKWebView code lives in `res/web/ios/Sources/ExtWebKit`
-and is exposed by `pkg/ext-ios`; Android WebView and optional AndroidX
+and is exposed by `pkg/ext-darwin`; Android WebView and optional AndroidX
 document-start integration live in `res/web/android/src/android` and are compiled
 into the `pkg/ext-android` AAR. Portable reviewed-userscript preparation stays in
 the portable targets and source sets. Keep Expo, app identity, storage policy,

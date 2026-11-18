@@ -5,7 +5,7 @@ browser cookies, userscripts and bookmarklets written out in Swift, without the 
 It is a package of its own (`Package.swift` here), so it builds and tests with Swift alone; nothing of the
 plugin code can be imported into it.
 
-[`pkg/ext-ios`](../../../pkg/ext-ios/README.md) is the package an app adds: it ships these sources beside
+[`pkg/ext-darwin`](../../../pkg/ext-darwin/README.md) is the package an app adds: it ships these sources beside
 its plugin code (its `Sources/ExtWeb` is a link to `Sources/ExtWeb` here, and a release stages a real copy).
 Edit the code here, not through the link.
 
@@ -56,7 +56,7 @@ scripts/web-ios.sh            # swift test of this package; needs Swift, not the
 
 The separate `ExtWebKit` target in this package owns the WKWebView workspace and
 uses the portable `ExtWeb` userscript rules. Both products are shipped by
-`pkg/ext-ios`; native source lives here. See [workspace usage](WORKSPACE.md).
+`pkg/ext-darwin`; native source lives here. See [workspace usage](WORKSPACE.md).
 `scripts/web-ios.sh` selects the portable rules tests;
 `scripts/web-workspace-ios.sh` selects the native WebKit integration tests.
 

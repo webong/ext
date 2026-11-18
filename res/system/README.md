@@ -13,7 +13,7 @@ and product policy.
 
 The module has no root package. Its packages sit in three groups, which are plain
 directories. Each package owns its native Swift, Java and
-Windows code beside its Go code, and the SDKs (`pkg/ext-ios`, `pkg/ext-android`) ship
+Windows code beside its Go code, and the SDKs (`pkg/ext-darwin`, `pkg/ext-android`) ship
 it from there.
 
 ## service: what the host provides

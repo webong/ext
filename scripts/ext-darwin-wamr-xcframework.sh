@@ -1,20 +1,20 @@
 #!/usr/bin/env bash
 # Build the optional WAMR host (the engine's host half, the WAMR reactor backend and
-# WAMR's interpreter) as an Apple xcframework for pkg/ext-ios: macOS, iOS and iOS
+# WAMR's interpreter) as an Apple xcframework for pkg/ext-darwin: macOS, iOS and iOS
 # Simulator. It carries the host half only; the guest core and the package store stay in
 # CExtEngine, so the two do not define the same symbols. It ships no headers: CExtEngine
 # declares the CExtWamr module and header, because two xcframeworks must not ship the same
 # header or module map. WAMR is fetched at the pinned commit by plugin-wamr-source.sh. Its license goes
 # beside the framework and must ship with any binary that links it.
-# --platform ios|macos|all picks the slices as scripts/ext-ios-xcframework.sh does.
-# Usage: scripts/ext-ios-wamr-xcframework.sh [--platform ios|macos|all]
-# Output: pkg/ext-ios/Frameworks/CExtWamr.xcframework
+# --platform ios|macos|all picks the slices as scripts/ext-darwin-xcframework.sh does.
+# Usage: scripts/ext-darwin-wamr-xcframework.sh [--platform ios|macos|all]
+# Output: pkg/ext-darwin/Frameworks/CExtWamr.xcframework
 set -euo pipefail
 cd "$(dirname "$0")/.."
-[[ "$(uname -s)" == Darwin ]] || { echo "ext-ios-wamr-xcframework.sh needs macOS and Xcode" >&2; exit 1; }
+[[ "$(uname -s)" == Darwin ]] || { echo "ext-darwin-wamr-xcframework.sh needs macOS and Xcode" >&2; exit 1; }
 platform=all
 if [[ "${1:-}" == --platform ]]; then platform="${2:?--platform needs ios, macos or all}"; shift 2; fi
-[[ $# -eq 0 ]] || { echo 'usage: scripts/ext-ios-wamr-xcframework.sh [--platform ios|macos|all]' >&2; exit 2; }
+[[ $# -eq 0 ]] || { echo 'usage: scripts/ext-darwin-wamr-xcframework.sh [--platform ios|macos|all]' >&2; exit 2; }
 case "$platform" in
   ios) groups=(ios iossim) ;;
   macos) groups=(macos) ;;
@@ -22,10 +22,10 @@ case "$platform" in
   *) echo "unknown platform '$platform': ios, macos or all" >&2; exit 2 ;;
 esac
 wamr="$(scripts/plugin-wamr-source.sh)"
-out="${EXT_SWIFT_FRAMEWORKS:-pkg/ext-ios/Frameworks}"
+out="${EXT_SWIFT_FRAMEWORKS:-pkg/ext-darwin/Frameworks}"
 work="$(mktemp -d "${TMPDIR:-/tmp}/ext-wamr-xcframework.XXXXXX")"
 trap 'rm -rf "$work"' EXIT
-# Objects CExtEngine already carries (scripts/ext-ios-xcframework.sh: the guest core and the
+# Objects CExtEngine already carries (scripts/ext-darwin-xcframework.sh: the guest core and the
 # package store with the file layer under it), so the two frameworks never define a symbol twice.
 core=(common.c.o wire.c.o progress.c.o reverse.c.o endpoint.c.o services.c.o guest.c.o sha256.c.o packages.c.o yyjson.c.o
   fs_posix.c.o fs_write_posix.c.o random_posix.c.o integrity.c.o archive.c.o store.c.o)

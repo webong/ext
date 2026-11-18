@@ -2,7 +2,7 @@
 
 `res/web/ios/Sources/ExtWebKit` owns WKWebView behavior. Build independently with
 `swift test --package-path res/web/ios --filter ExtWebKitTests`, or use the `ExtWebKit` product of
-`pkg/ext-ios`. The SDK links these sources and stages real copies for releases.
+`pkg/ext-darwin`. The SDK links these sources and stages real copies for releases.
 This is the native workspace target of the web resource module.
 
 Adapted from POS/Xallet's browser workspace. Expo, app identity, persistent

@@ -9,7 +9,7 @@ import XCTest
 @MainActor
 final class WebViewPluginHostTests: XCTestCase {
     private func shim() throws -> String {
-        // pkg/ext-ios/Tests/ExtPluginWebViewTests/<this file> -> repository root.
+        // pkg/ext-darwin/Tests/ExtPluginWebViewTests/<this file> -> repository root.
         let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
             .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
         return try String(contentsOf: root.appendingPathComponent("res/web/host/engine/bundle/shim.js"), encoding: .utf8)

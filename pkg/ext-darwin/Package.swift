@@ -2,14 +2,14 @@
 import Foundation
 import PackageDescription
 
-// The WAMR host is opt-in: it is part of the package only once scripts/ext-ios-wamr-xcframework.sh
+// The WAMR host is opt-in: it is part of the package only once scripts/ext-darwin-wamr-xcframework.sh
 // has built Frameworks/CExtWamr.xcframework, so a build that does not want WAMR never needs it.
 let wamrFramework = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
     .appendingPathComponent("Frameworks/CExtWamr.xcframework").path
 let withWamr = FileManager.default.fileExists(atPath: wamrFramework)
 
 // Development manifest. It builds against the xcframework produced by
-// scripts/ext-ios-xcframework.sh; a release manifest points the binary
+// scripts/ext-darwin-xcframework.sh; a release manifest points the binary
 // target at a published archive with a checksum instead.
 let package = Package(
     name: "Ext",

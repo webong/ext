@@ -37,7 +37,7 @@ apple_reactor
 
 # Swift tests on the host
 (
-swift test --package-path pkg/ext-ios
+swift test --package-path pkg/ext-darwin
 )
 ci_import_env
 

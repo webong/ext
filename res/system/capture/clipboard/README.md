@@ -13,4 +13,4 @@ permission onboarding. A native mutation receipt reports dispatch separately fro
 verification because operating-system clipboard APIs do not provide a cross-process transaction.
 
 Apple implementations live in `ios/Sources/ExtClipboard`; Android implementations live in
-`android/src/android`. They are shipped by `pkg/ext-ios` and `pkg/ext-android` respectively.
+`android/src/android`. They are shipped by `pkg/ext-darwin` and `pkg/ext-android` respectively.

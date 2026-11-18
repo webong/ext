@@ -82,7 +82,7 @@ The mobile SDKs follow the same dash form: `ext-android-vX.Y.Z` releases the And
 (`.github/workflows/release.yml` (package `ext-android`), published with `--latest=false`), `ext-ios-vX.Y.Z` releases the
 Apple SDK for iOS and the iOS Simulator (`.github/workflows/release.yml` (package `ext-ios`), same form) and
 `ext-macos-vX.Y.Z` releases it for macOS (package `ext-macos`, same form). ext-ios and ext-macos are built from the same
-sources, `pkg/ext-ios`, each with only its platform's slices and a manifest that declares only that platform. Their `MINOR` and `PATCH` move
+sources, `pkg/ext-darwin`, each with only its platform's slices and a manifest that declares only that platform. Their `MINOR` and `PATCH` move
 independently; their `MAJOR` follows the repository-wide `MAJOR`. `ext-zig-vX.Y.Z` releases the Zig package the same way
 (`.github/workflows/release.yml` (package `ext-zig`), published with `--latest=false`); its version has to be the `.version` of
 `pkg/ext-zig/build.zig.zon`, and the staging script refuses any other.
@@ -130,6 +130,12 @@ release workflow no longer watches them (the one release made under the old form
 `scripts/ext-android*.sh`; the SwiftPM package is `Ext` (scheme `Ext-Package`) and its plugin
 products keep their `ExtPlugin…` names.
 
+`pkg/ext-ios` then became `pkg/ext-darwin`, and `scripts/ext-ios-*.sh` became `scripts/ext-darwin-*.sh`,
+when its releases split into `ext-ios` (iOS and the iOS Simulator) and `ext-macos` (macOS): the directory
+holds the sources of both, so it is named for the platform family. This was a hard cut too. The release
+packages, their tags (`ext-ios-vX.Y.Z`, `ext-macos-vX.Y.Z`) and branches (`dist/ext-ios`, `dist/ext-macos`)
+keep their platform names, and the SwiftPM package is still `Ext`.
+
 `pkg/plugin-rust`, `pkg/plugin-zig`, `pkg/plugin-ts` and `pkg/plugin-python` became `pkg/ext-rust`,
 `pkg/ext-zig`, `pkg/ext-ts` and `pkg/ext-python` (a hard cut, like the mobile SDKs). The names of the packages
 inside did not change at that point: the crates `ext-plugin` and `ext-plugin-engine`, the npm package `@ctx/plugin`, the
@@ -140,7 +146,7 @@ first four have since become `ext-io` (see [the `ext-io` language packages](#the
 `res/web/ios` (the SwiftPM package `ExtWeb`) and `res/web/android` (the Java package
 `io.github.webong.ext.web`) sit beside the Go module `res/web/host`, not inside it: its module zip does
 not carry them, and a change to them needs no `res/web/host/vX.Y.Z` tag.
-They reach apps through `pkg/ext-ios` and `pkg/ext-android`, so they are released with those, under
+They reach apps through `pkg/ext-darwin` and `pkg/ext-android`, so they are released with those, under
 `ext-ios-vX.Y.Z`, `ext-macos-vX.Y.Z` and `ext-android-vX.Y.Z`.
 
 ## Distribution branches
@@ -181,7 +187,7 @@ as a version, and the bare `X.Y.Z` it could read is taken by `dist/ext-ios`, so 
 `exact:`: it pins the branch, `.package(url: "https://github.com/webong/ext", branch: "dist/ext-macos")`, or the
 commit an `ext-macos-X.Y.Z` tag names, `revision: "<commit>"`. This is a limit of sharing one repository, not
 something the release works around. The two packages export the same module names (`ExtWeb`, `ExtSystem`, ...),
-so one app cannot depend on both; a multiplatform app picks one, or builds `pkg/ext-ios` from source.
+so one app cannot depend on both; a multiplatform app picks one, or builds `pkg/ext-darwin` from source.
 
 `dist/ext-zig` is the third. Zig has no registry and fetches an archive whose root holds `build.zig.zon`, so
 `release.yml` (package `ext-zig`) stages `pkg/ext-zig` (the files its manifest lists in `.paths`, plus `LICENSE`) with
@@ -252,13 +258,13 @@ the `res/system` module as `res/system/capture/clipboard`, `res/system/service/c
 `res/system/service/network`. The historical `res/clipboard`, `res/credential` and
 `res/network` module paths are retired rather than reused. Clipboard and
 network Apple and Android source sets still reach applications through
-`pkg/ext-ios` and `pkg/ext-android`, so native-source changes are included in
+`pkg/ext-darwin` and `pkg/ext-android`, so native-source changes are included in
 the corresponding mobile SDK releases. `ExtNetwork` and the Java
 `io.github.webong.ext.network` namespace remain stable even though their source
 is owned by `res/system/service/network`.
 
 The Apple SDK's engine and WAMR archives are released under the `ext-ios-vX.Y.Z` and `ext-macos-vX.Y.Z` tags; see
-[`pkg/ext-ios`](../pkg/ext-ios/README.md) and `scripts/ext-ios-release.sh`. They are
+[`pkg/ext-darwin`](../pkg/ext-darwin/README.md) and `scripts/ext-darwin-release.sh`. They are
 not Go module versions either.
 
 Because of this, `GOWORK=off go build ./...` inside a library module fails until

@@ -175,7 +175,7 @@ the [browser compatibility checks](COMPATIBILITY.md) and the
 [implementation plan](PLAN.md).
 
 This package is owned by ext. It lives in `pkg/ext-web`, named for the platform it runs
-on the way `pkg/ext-ios` and `pkg/ext-android` are, and it is not a plugin SDK
+on the way `pkg/ext-darwin` and `pkg/ext-android` are, and it is not a plugin SDK
 (`pkg/ext-ts` is). It is built and tested with Node, depends on no Go code and not on
 the plugin engine, and stays `private: true` under the name `ext-web` until a registry
 is chosen. The Go side that inspects and packages what it builds is

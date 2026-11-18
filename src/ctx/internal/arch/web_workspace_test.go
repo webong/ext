@@ -8,7 +8,7 @@ import (
 // The SDK ships the resource module's sources rather than a separately edited copy.
 func TestWebKitSDKSourceOwnership(t *testing.T) {
 	root := repoRoot(t)
-	got, err := filepath.EvalSymlinks(filepath.Join(root, "pkg", "ext-ios", "Sources", "ExtWebKit"))
+	got, err := filepath.EvalSymlinks(filepath.Join(root, "pkg", "ext-darwin", "Sources", "ExtWebKit"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -20,7 +20,7 @@ func TestWebKitSDKSourceOwnership(t *testing.T) {
 
 func TestClipboardSDKSourceOwnership(t *testing.T) {
 	root := repoRoot(t)
-	got, err := filepath.EvalSymlinks(filepath.Join(root, "pkg", "ext-ios", "Sources", "ExtClipboard"))
+	got, err := filepath.EvalSymlinks(filepath.Join(root, "pkg", "ext-darwin", "Sources", "ExtClipboard"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -32,7 +32,7 @@ func TestClipboardSDKSourceOwnership(t *testing.T) {
 
 func TestSystemSDKSourceOwnership(t *testing.T) {
 	root := repoRoot(t)
-	got, err := filepath.EvalSymlinks(filepath.Join(root, "pkg", "ext-ios", "Sources", "ExtSystem"))
+	got, err := filepath.EvalSymlinks(filepath.Join(root, "pkg", "ext-darwin", "Sources", "ExtSystem"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -44,7 +44,7 @@ func TestSystemSDKSourceOwnership(t *testing.T) {
 
 func TestNetworkSDKSourceOwnership(t *testing.T) {
 	root := repoRoot(t)
-	got, err := filepath.EvalSymlinks(filepath.Join(root, "pkg", "ext-ios", "Sources", "ExtNetwork"))
+	got, err := filepath.EvalSymlinks(filepath.Join(root, "pkg", "ext-darwin", "Sources", "ExtNetwork"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -56,7 +56,7 @@ func TestNetworkSDKSourceOwnership(t *testing.T) {
 
 func TestHostSDKSourceOwnership(t *testing.T) {
 	root := repoRoot(t)
-	got, err := filepath.EvalSymlinks(filepath.Join(root, "pkg", "ext-ios", "Sources", "ExtHost"))
+	got, err := filepath.EvalSymlinks(filepath.Join(root, "pkg", "ext-darwin", "Sources", "ExtHost"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -68,7 +68,7 @@ func TestHostSDKSourceOwnership(t *testing.T) {
 
 func TestShareSDKSourceOwnership(t *testing.T) {
 	root := repoRoot(t)
-	got, err := filepath.EvalSymlinks(filepath.Join(root, "pkg", "ext-ios", "Sources", "ExtShare"))
+	got, err := filepath.EvalSymlinks(filepath.Join(root, "pkg", "ext-darwin", "Sources", "ExtShare"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -80,7 +80,7 @@ func TestShareSDKSourceOwnership(t *testing.T) {
 
 func TestAudioSDKSourceOwnership(t *testing.T) {
 	root := repoRoot(t)
-	got, err := filepath.EvalSymlinks(filepath.Join(root, "pkg", "ext-ios", "Sources", "ExtAudio"))
+	got, err := filepath.EvalSymlinks(filepath.Join(root, "pkg", "ext-darwin", "Sources", "ExtAudio"))
 	if err != nil {
 		t.Fatal(err)
 	}

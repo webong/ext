@@ -1,6 +1,6 @@
 # Sourced by scripts/release/ext-ios/*.sh and scripts/release/ext-macos/*.sh: the steps the two
-# Apple releases share. Both are built from the same sources (pkg/ext-ios and the res/ links it
-# holds) by scripts/ext-ios-release.sh, which stages one platform's slices and manifest; ext-ios
+# Apple releases share. Both are built from the same sources (pkg/ext-darwin and the res/ links it
+# holds) by scripts/ext-darwin-release.sh, which stages one platform's slices and manifest; ext-ios
 # ships iOS and the iOS Simulator, ext-macos ships macOS. Each step runs in a subshell and is
 # followed by ci_import_env, as the steps of a job script are (scripts/ci/jobs/lib.sh).
 . "$(dirname "${BASH_SOURCE[0]}")/../ci/jobs/lib.sh"
@@ -17,10 +17,10 @@ apple_version() {
 }
 
 # Stage the release of one platform (ios or macos) under dist/ext-<platform>-<version>, with the
-# WAMR host. It leaves that platform's xcframeworks in pkg/ext-ios/Frameworks for the tests.
+# WAMR host. It leaves that platform's xcframeworks in pkg/ext-darwin/Frameworks for the tests.
 apple_stage() {
   local platform="$1"
-  ( scripts/ext-ios-release.sh --platform "$platform" --with-wamr "$VERSION" )
+  ( scripts/ext-darwin-release.sh --platform "$platform" --with-wamr "$VERSION" )
   ci_import_env
 }
 

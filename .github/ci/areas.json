@@ -1100,7 +1100,7 @@
         "lib/plugin/**",
         "pkg/ext-android/**",
         "pkg/ext-go/cgoengine/cshared/**",
-        "pkg/ext-ios/**",
+        "pkg/ext-darwin/**",
         "pkg/ext-rust/**",
         "res/web/android/**",
         "res/web/ios/**",
@@ -1110,7 +1110,7 @@
         "scripts/ext-*wamr*.sh",
         "scripts/ext-android-consumer.sh",
         "scripts/ext-android-release.sh",
-        "scripts/ext-ios-xcframework.sh",
+        "scripts/ext-darwin-xcframework.sh",
         "scripts/plugin-*wamr*.sh"
       ],
       "pr_paths": [
@@ -1122,7 +1122,7 @@
         "lib/plugin/**",
         "pkg/ext-android/**",
         "pkg/ext-go/cgoengine/cshared/**",
-        "pkg/ext-ios/**",
+        "pkg/ext-darwin/**",
         "pkg/ext-rust/**",
         "res/web/android/**",
         "res/web/ios/**",
@@ -1132,7 +1132,7 @@
         "scripts/ext-*wamr*.sh",
         "scripts/ext-android-consumer.sh",
         "scripts/ext-android-release.sh",
-        "scripts/ext-ios-xcframework.sh",
+        "scripts/ext-darwin-xcframework.sh",
         "scripts/plugin-*wamr*.sh"
       ],
       "jobs": {

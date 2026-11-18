@@ -148,7 +148,7 @@ and Android bindings ship in the SDKs.
 
 `res/int/model` defines portable model manifests, verified artifact installation,
 model inspection, and bounded inference through a caller-selected provider.
-The iOS CoreML binding ships through `ExtML` in `pkg/ext-ios`; the Android
+The iOS CoreML binding ships through `ExtML` in `pkg/ext-darwin`; the Android
 NNAPI/TensorFlow Lite binding compiles into the `pkg/ext-android` AAR. The
 shared library owns no model download, provider selection, authorization, or
 remote protocol.

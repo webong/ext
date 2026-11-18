@@ -92,14 +92,14 @@ scripts/plugin-mobile-assets.sh --check
 # Swift builds on Apple platforms only. Its package tests run on the host, then
 # the dynamic fixture is checked through the same Go cshared suite as the others.
 if [[ "$(uname -s)" == Darwin ]]; then
-  scripts/ext-ios-xcframework.sh
-  swift test --package-path pkg/ext-ios --scratch-path "$build_dir/swift"
-  swift build --package-path pkg/ext-ios --scratch-path "$build_dir/swift" --product ExtConformancePlugin
-  scripts/ext-ios-objc.sh
+  scripts/ext-darwin-xcframework.sh
+  swift test --package-path pkg/ext-darwin --scratch-path "$build_dir/swift"
+  swift build --package-path pkg/ext-darwin --scratch-path "$build_dir/swift" --product ExtConformancePlugin
+  scripts/ext-darwin-objc.sh
   export EXT_SWIFT_SHARED="$build_dir/swift/debug/libExtConformancePlugin.dylib" EXT_SWIFT_REQUIRED=1
   # The frames guest (progress events and reverse calls) is a JSON-line process, so it joins the
   # frames suite beside the guests of the other languages.
-  swift build --package-path pkg/ext-ios --scratch-path "$build_dir/swift" --product ExtFramesGuest
+  swift build --package-path pkg/ext-darwin --scratch-path "$build_dir/swift" --product ExtFramesGuest
   export EXT_SWIFT_FRAMES_GUEST="$build_dir/swift/debug/ExtFramesGuest"
   EXT_FRAMES_REQUIRED="$EXT_FRAMES_REQUIRED SWIFT"
 fi

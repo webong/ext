@@ -12,7 +12,7 @@ apple_reactor
 (
 set -euo pipefail
 device="$(apple_simulator)"
-cd pkg/ext-ios
+cd pkg/ext-darwin
 TEST_RUNNER_EXT_RUST_REACTOR="$EXT_RUST_REACTOR" xcodebuild test -scheme Ext-Package \
   -destination "platform=iOS Simulator,id=$device"
 )

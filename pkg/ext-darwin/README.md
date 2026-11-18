@@ -1,6 +1,6 @@
 # Apple SDK
 
-`pkg/ext-ios` is the ext SDK for Apple platforms. Its plugin, web, clipboard,
+`pkg/ext-darwin` is the ext SDK for Apple platforms. Its plugin, web, clipboard,
 system-observation, and network-observation libraries do not depend on each other.
 
 - **Plugin** (`ExtPluginGuest`, `ExtPluginExports`, `ExtPluginWebView`, `ExtPluginWamr`, `ExtPluginStore`): author an
@@ -70,7 +70,7 @@ that has its own transport.
 `ExtWeb` is the iOS module of [`res/web`](../../res/web/README.md): the cookie, userscript and bookmarklet
 rules in Swift, with no dependency on the plugin code or the engine. Its code, its tests and its usage are in
 [`res/web/ios`](../../res/web/ios/README.md); `Sources/ExtWeb` here is a link to it, so an app that adds this
-package gets the `ExtWeb` product beside the plugin ones, and `scripts/ext-ios-release.sh` stages a real copy.
+package gets the `ExtWeb` product beside the plugin ones, and `scripts/ext-darwin-release.sh` stages a real copy.
 
 ```swift
 import ExtWeb
@@ -179,25 +179,25 @@ host.close()
 - The host enforces the request deadline, a linear-memory cap and an optional
   instruction budget; a guest that overruns, traps or exhausts either ends the instance.
 - `WamrPluginHost.descriptor(of:)` reads a module's descriptor before it is trusted.
-- `scripts/ext-ios-wamr-xcframework.sh` fetches WAMR at the pinned commit
+- `scripts/ext-darwin-wamr-xcframework.sh` fetches WAMR at the pinned commit
   (`scripts/plugin-wamr-source.sh`) and builds the macOS, iOS and Simulator slices, or one
   platform's with `--platform ios|macos`
   (about 0.5 to 0.9 MB each). `CExtEngine.xcframework` declares the `CExtWamr` module and
   header, because two xcframeworks cannot ship the same header or module map. WAMR's
   license is written to `Frameworks/WAMR-LICENSE` and must ship with any binary linking it.
-- `scripts/ext-ios-wamr.sh` builds it and runs the tests on macOS.
+- `scripts/ext-darwin-wamr.sh` builds it and runs the tests on macOS.
 
 ## Building and testing
 
 ```sh
-scripts/ext-ios-xcframework.sh     # macOS, iOS and iOS Simulator slices (--platform ios|macos: one platform's)
-swift test --package-path pkg/ext-ios
+scripts/ext-darwin-xcframework.sh     # macOS, iOS and iOS Simulator slices (--platform ios|macos: one platform's)
+swift test --package-path pkg/ext-darwin
 xcodebuild test -scheme Ext-Package \
-  -destination 'platform=iOS Simulator,name=iPhone 16 Pro'   # in pkg/ext-ios
+  -destination 'platform=iOS Simulator,name=iPhone 16 Pro'   # in pkg/ext-darwin
 scripts/web-ios.sh                    # just ExtWeb (res/web/ios), without the xcframework
 ```
 
-`scripts/ext-ios-xcframework.sh` compiles the engine's guest core and the package store (a mutex and
+`scripts/ext-darwin-xcframework.sh` compiles the engine's guest core and the package store (a mutex and
 POSIX file calls; no `posix_spawn`) with the repository's strict flags and writes
 `Frameworks/CExtEngine.xcframework`, which is not committed, with `yyjson-LICENSE` and `miniz-LICENSE` beside it. `ExtConformancePlugin`
 is the shared `ext.conformance/v1` fixture. `scripts/plugin-crosslang.sh` loads
@@ -353,7 +353,7 @@ let receipt = try store.receipt("com.example/greeter")  // revision and artifact
 ```
 
 ```sh
-swift test --package-path pkg/ext-ios --filter ExtPluginStoreTests
+swift test --package-path pkg/ext-darwin --filter ExtPluginStoreTests
 ```
 
 `ArchiveCasesTests` runs every case of `lib/plugin/testdata/v1/archive-cases.json`, and `DownloadCasesTests`
@@ -378,7 +378,7 @@ and its own distribution branch:
 
 The tags are dash forms, not Go module tags (see [module versioning](../../docs/module-versioning.md)).
 Both are made by [`.github/workflows/release.yml`](../../.github/workflows/release.yml) (packages `ext-ios`
-and `ext-macos`), which stages a release with `scripts/ext-ios-release.sh --platform ios|macos --with-wamr`,
+and `ext-macos`), which stages a release with `scripts/ext-darwin-release.sh --platform ios|macos --with-wamr`,
 tests the platform it ships (ext-ios in an iOS Simulator; ext-macos with the web checks and the Swift
 tests on the macOS host), and only then publishes. Each release carries:
 
@@ -437,13 +437,13 @@ SwiftPM rule.
 `ExtPluginGuest`, ...), and SwiftPM refuses two packages that define the same module, so an app cannot depend
 on both. A multiplatform app (iOS and macOS targets in one project) picks one of them for the targets it
 covers, or depends on this directory, the development package, from source: it declares both platforms but
-needs the xcframeworks built locally (`scripts/ext-ios-xcframework.sh`).
+needs the xcframeworks built locally (`scripts/ext-darwin-xcframework.sh`).
 
 The archives are not byte-reproducible, so their checksums change with every run: the manifest and
-the archives always come from the same run. `scripts/ext-ios-release.sh --platform ios|macos [--with-wamr] <version>`
+the archives always come from the same run. `scripts/ext-darwin-release.sh --platform ios|macos [--with-wamr] <version>`
 stages the same pieces locally under `dist/ext-<platform>-<version>/` and checks that the staged package
 builds against the archives (`swift build` for macOS, `xcodebuild` for iOS and the Simulator); it publishes
-nothing. It leaves that platform's xcframeworks in `Frameworks/`; run `scripts/ext-ios-xcframework.sh`
+nothing. It leaves that platform's xcframeworks in `Frameworks/`; run `scripts/ext-darwin-xcframework.sh`
 without `--platform` to get every slice back. Without `--with-wamr` the package carries neither the
 `ExtPluginWamr` product nor its sources.
 
@@ -461,7 +461,7 @@ plugin needs no Swift code of its own:
   four `ext_plugin_*` symbols.
 - `EXTWebViewPluginHost` hosts a reactor in a web view, with completion blocks.
 
-`scripts/ext-ios-objc.sh` compiles and runs an Objective-C program
+`scripts/ext-darwin-objc.sh` compiles and runs an Objective-C program
 (`Tests/ObjC/main.m`) that uses all three and calls the C ABI directly; it passes on
 macOS. It is not run in the iOS Simulator.
 

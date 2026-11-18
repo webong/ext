@@ -57,7 +57,7 @@ def java():
     return '\n'.join(out) + '\n'
 
 targets = {
-    'pkg/ext-ios/Sources/ExtPluginWebView/GeneratedAssets.swift': swift(),
+    'pkg/ext-darwin/Sources/ExtPluginWebView/GeneratedAssets.swift': swift(),
     'pkg/ext-android/src/android/java/io/github/webong/ext/plugin/webview/GeneratedAssets.java': java(),
 }
 # The standalone web runners embed only the canonical bundle shim.

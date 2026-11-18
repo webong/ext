@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# Build and run an Objective-C program against pkg/ext-ios through its EXT*
+# Build and run an Objective-C program against pkg/ext-darwin through its EXT*
 # facades and the ext_plugin_* C ABI. Set EXT_RUST_REACTOR to also check the web-view
 # host (the Rust shared example built for wasm32-wasip1).
 set -euo pipefail
 cd "$(dirname "$0")/.."
-[[ "$(uname -s)" == Darwin ]] || { echo 'ext-ios-objc.sh needs macOS and Xcode' >&2; exit 1; }
-scripts/ext-ios-xcframework.sh >/dev/null
-sdk=pkg/ext-ios
+[[ "$(uname -s)" == Darwin ]] || { echo 'ext-darwin-objc.sh needs macOS and Xcode' >&2; exit 1; }
+scripts/ext-darwin-xcframework.sh >/dev/null
+sdk=pkg/ext-darwin
 swift build --package-path "$sdk" >/dev/null
 build="$(swift build --package-path "$sdk" --show-bin-path)"
 work="$(mktemp -d "${TMPDIR:-/tmp}/ext-objc.XXXXXX")"

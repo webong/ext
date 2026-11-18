@@ -1,27 +1,28 @@
 name: .NET Windows libraries
 
 # The tests of the Windows .NET libraries (the ext-dotnet-v packages): res/system audio and
-# clipboard, res/web WebView2 and res/int ONNX. It runs on pull requests that touch these
-# libraries, as ext-plugin-release.yml and ext-zig-release.yml do for theirs, so a change to one
-# is checked before it merges; native.yml and ext-dotnet-release.yml run the same tests. Also on demand
-# (gh workflow run dotnet-windows.yml --ref <branch>).
+# clipboard, res/web WebView2 and res/int ONNX.
+#
+# Called by ci.yml, which picks the jobs and matrix cells from .github/ci/areas.json (docs/ci.md).
 on:
-  pull_request:
-    paths:
-      - 'scripts/lang/**'
-      - 'res/system/capture/audio/windows/**'
-      - 'res/system/capture/clipboard/windows/**'
-      - 'res/web/windows/**'
-      - 'res/int/model/windows/**'
-      - 'scripts/dotnet/**'
-      - '.github/workflows/dotnet-windows.yml'
-  workflow_dispatch:
+  # Called by ci.yml, which plans the run (scripts/ci/plan.py, .github/ci/areas.json).
+  workflow_call:
+    inputs:
+      cells:
+        description: JSON object from each job's name to the matrix cells it runs
+        type: string
+        required: true
 
 permissions:
   contents: read
 
 jobs:
   tests:
+    if: toJSON(fromJSON(inputs.cells)['tests']) != '[]'
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(inputs.cells)['tests'] }}
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v5

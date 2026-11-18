@@ -1,20 +1,20 @@
 name: c2goengine
 
 # The C engine's portable core translated to Go (pkg/ext-go/c2goengine). ccgo translates for the
-# platform it runs on, so every platform generates its own file here. A platform whose translation is
-# checked in must find the inputs digest unchanged (a stale translation fails the job); one without is
-# a probe: it generates, tests the result and uploads it, so it can be committed. A probe never blocks.
-# Runs on pushes to main and on demand (gh workflow run c2goengine.yml --ref <branch>). Branches and
-# pull requests do not start it, to save runner time.
+# platform it runs on, so every platform generates its own file here. A platform whose translation
+# is checked in must find the inputs digest unchanged (a stale translation fails the job); one
+# without is a probe: it generates, tests the result and uploads it, so it can be committed. A probe
+# never blocks.
+#
+# Called by ci.yml, which picks the jobs and matrix cells from .github/ci/areas.json (docs/ci.md).
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'lib/plugin/**'
-      - 'pkg/ext-go/c2goengine/**'
-      - 'pkg/ext-go/engine/plugintest/enginetest/**'
-      - '.github/workflows/c2goengine.yml'
-  workflow_dispatch:
+  # Called by ci.yml, which plans the run (scripts/ci/plan.py, .github/ci/areas.json).
+  workflow_call:
+    inputs:
+      cells:
+        description: JSON object from each job's name to the matrix cells it runs
+        type: string
+        required: true
 
 permissions:
   contents: read
@@ -24,16 +24,11 @@ jobs:
     name: translate (${{ matrix.goos }}/${{ matrix.goarch }})
     runs-on: ${{ matrix.os }}
     continue-on-error: ${{ !matrix.required }}
+    if: toJSON(fromJSON(inputs.cells)['translate']) != '[]'
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - {os: ubuntu-latest, goos: linux, goarch: amd64, required: true, race: '-race'}
-          - {os: ubuntu-24.04-arm, goos: linux, goarch: arm64, required: true, race: '-race'}
-          - {os: macos-latest, goos: darwin, goarch: arm64, required: true, race: ''}
-          - {os: macos-15-intel, goos: darwin, goarch: amd64, required: true, race: ''}
-          - {os: windows-latest, goos: windows, goarch: amd64, required: true, race: '', msystem: MINGW64, packages: 'mingw-w64-x86_64-gcc'}
-          - {os: windows-11-arm, goos: windows, goarch: arm64, required: true, race: '', msystem: CLANGARM64, packages: 'mingw-w64-clang-aarch64-clang', cc: clang}
+        include: ${{ fromJSON(inputs.cells)['translate'] }}
     steps:
       - name: Keep line endings as they are
         if: runner.os == 'Windows'
@@ -130,6 +125,11 @@ jobs:
 
   # The generator's own tests.
   tools:
+    if: toJSON(fromJSON(inputs.cells)['tools']) != '[]'
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(inputs.cells)['tools'] }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5

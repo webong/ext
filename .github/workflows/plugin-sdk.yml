@@ -1,17 +1,25 @@
 name: Plugin SDK
-
-# Runs on pushes to main and on demand (gh workflow run plugin-sdk.yml --ref <branch>). Branches and
-# pull requests do not start it, to save runner time.
+#
+# Called by ci.yml, which picks the jobs and matrix cells from .github/ci/areas.json (docs/ci.md).
 on:
-  push:
-    branches: [main]
-  workflow_dispatch:
+  # Called by ci.yml, which plans the run (scripts/ci/plan.py, .github/ci/areas.json).
+  workflow_call:
+    inputs:
+      cells:
+        description: JSON object from each job's name to the matrix cells it runs
+        type: string
+        required: true
 
 permissions:
   contents: read
 
 jobs:
   sdk:
+    if: toJSON(fromJSON(inputs.cells)['sdk']) != '[]'
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(inputs.cells)['sdk'] }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -43,11 +51,11 @@ jobs:
       - run: go run ./pkg/ext-go/hashicorp/cmd/ext-plugin inspect --root pkg/ext-go/examples/plugin-package --entry main pkg/ext-go/examples/plugin-package/plugin.json
 
   foreign-sdks:
+    if: toJSON(fromJSON(inputs.cells)['foreign-sdks']) != '[]'
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-15]
-        linkage: [static, shared]
+        include: ${{ fromJSON(inputs.cells)['foreign-sdks'] }}
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v5
@@ -133,10 +141,11 @@ jobs:
   # and against what the Go module answers for a generated corpus. Neither needs the engine, so this
   # does not wait for the C builds.
   web-ports:
+    if: toJSON(fromJSON(inputs.cells)['web-ports']) != '[]'
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-15]
+        include: ${{ fromJSON(inputs.cells)['web-ports'] }}
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v5

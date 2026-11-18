@@ -1,28 +1,27 @@
 name: ext-php
 
-# The PHP guest SDK (pkg/ext-php). Runs on pushes to main and on demand
-# (gh workflow run ext-php.yml --ref <branch>). Branches and pull requests do not start it, to
-# save runner time.
+# The PHP guest SDK (pkg/ext-php).
+#
+# Called by ci.yml, which picks the jobs and matrix cells from .github/ci/areas.json (docs/ci.md).
 on:
-  push:
-    branches: [main]
-  workflow_dispatch:
+  # Called by ci.yml, which plans the run (scripts/ci/plan.py, .github/ci/areas.json).
+  workflow_call:
+    inputs:
+      cells:
+        description: JSON object from each job's name to the matrix cells it runs
+        type: string
+        required: true
 
 permissions:
   contents: read
 
 jobs:
   php:
+    if: toJSON(fromJSON(inputs.cells)['php']) != '[]'
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest]
-        php: ['8.1', '8.4']
-        include:
-          - os: macos-latest
-            php: '8.4'
-          - os: windows-latest
-            php: '8.4'
+        include: ${{ fromJSON(inputs.cells)['php'] }}
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v5

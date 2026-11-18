@@ -1,57 +1,24 @@
 name: Plugin WAMR host
 
-# The optional in-process WebAssembly host (WAMR) bound into pkg/ext-ios and
-# pkg/ext-android. It is deliberately not part of default CI: it fetches WAMR, builds an
-# interpreter and boots an emulator and a simulator. It runs by hand, and on pushes and pull
-# requests that touch the code it builds, so it costs nothing while those paths are untouched.
-#
-# A hand-started run can pick its jobs, so it does not always cost all three. Each input defaults
-# to true, and push and pull-request runs always start every job:
+# The optional in-process WebAssembly host (WAMR) bound into pkg/ext-ios and pkg/ext-android. It
+# fetches WAMR, builds an interpreter and boots an emulator and a simulator, so a pull request runs
+# it only when asked. Its jobs:
 #   jdk      desktop JDK suite (Linux)
-#   emulator Android emulator suite (Linux, KVM)
-#   apple    macOS Swift tests and the iOS Simulator suite, together (macOS, the costly one)
-# For example, skip macOS: gh workflow run plugin-wamr.yml -f apple=false
-# Runs on pushes to main and on demand (gh workflow run plugin-wamr.yml --ref <branch>). Branches and
-# pull requests do not start it, to save runner time.
+#   emulator Android emulator suite (Linux, KVM; platform:android)
+#   apple    macOS Swift tests and the iOS Simulator suite, together (macOS; platform:ios)
+#
+# Called by ci.yml, which picks the jobs and matrix cells from .github/ci/areas.json (docs/ci.md).
 on:
-  workflow_dispatch:
+  # Called by ci.yml, which plans the run (scripts/ci/plan.py, .github/ci/areas.json).
+  workflow_call:
     inputs:
-      jdk:
-        description: Run the desktop JDK suite
-        type: boolean
-        default: true
-      emulator:
-        description: Run the Android emulator suite
-        type: boolean
-        default: true
-      apple:
-        description: Run the macOS and iOS Simulator suites (one macOS job)
-        type: boolean
-        default: true
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/plugin-wamr.yml'
-      - 'scripts/plugin-*wamr*.sh'
-      - 'scripts/ext-*wamr*.sh'
-      - 'scripts/ext-ios-xcframework.sh'
-      - 'scripts/ext-android-release.sh'
-      - 'scripts/ext-android-consumer.sh'
-      - 'examples/android-consumer/**'
-      - 'pkg/ext-android/**'
-      - 'pkg/ext-ios/**'
-      - 'res/web/android/**'
-      - 'res/web/ios/**'
-      - 'pkg/ext-go/cgoengine/cshared/**'
-      - 'lib/plugin/**'
-      - 'pkg/ext-rust/**'
+      cells:
+        description: JSON object from each job's name to the matrix cells it runs
+        type: string
+        required: true
 
 permissions:
   contents: read
-
-concurrency:
-  group: plugin-wamr-${{ github.ref }}
-  cancel-in-progress: true
 
 env:
   # The WAMR checkout is cached on the commit pinned in scripts/plugin-wamr.sh.
@@ -60,7 +27,11 @@ env:
 jobs:
   # Desktop JDK: builds libextwamrjni and runs the 12 checks. Linux minutes are the cheap ones.
   jdk:
-    if: github.event_name != 'workflow_dispatch' || inputs.jdk
+    if: toJSON(fromJSON(inputs.cells)['jdk']) != '[]'
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(inputs.cells)['jdk'] }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -84,7 +55,11 @@ jobs:
   # runner has KVM, so an x86_64 image is fast; the device script follows the device's ABI. Real
   # arm64 devices stay manual.
   emulator:
-    if: github.event_name != 'workflow_dispatch' || inputs.emulator
+    if: toJSON(fromJSON(inputs.cells)['emulator']) != '[]'
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(inputs.cells)['emulator'] }}
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -126,7 +101,11 @@ jobs:
   # One macOS job for both Apple suites, because macOS minutes cost about ten times Linux:
   # the Swift tests on the host, then the same tests in an iOS Simulator.
   apple:
-    if: github.event_name != 'workflow_dispatch' || inputs.apple
+    if: toJSON(fromJSON(inputs.cells)['apple']) != '[]'
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(inputs.cells)['apple'] }}
     runs-on: macos-15
     timeout-minutes: 45
     steps:

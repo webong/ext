@@ -20,7 +20,7 @@ can write a host, without a second engine.
 | Java (`pkg/ext-android`) | Yes | WAMR host, store | The C engine |
 | Python (`pkg/ext-python`) | Yes, standard library only | No | |
 | Ruby, PHP, Lua (`pkg/ext-ruby`, `pkg/ext-php`, `pkg/ext-lua`) | Yes, no native code | No | |
-| .NET (`pkg/ext-dotnet`) | No | Yes, on the C engine (`ExtIO.Host`) | |
+| .NET (`pkg/ext-dotnet`) | Yes, base class library only (`ExtIO`) | Yes, on the C engine (`ExtIO.Host`) | |
 
 Three languages carry a host of their own (Rust, Zig, TypeScript), and each also has a binding
 to the C engine's host beside it. Four languages, the scripting ones, cannot host at all.

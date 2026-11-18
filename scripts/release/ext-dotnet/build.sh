@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# ext-dotnet release, build: test and pack ExtIO.Host, the .NET plugin host (the .NET counterpart of
+# ext-dotnet release, build: test and pack ExtIO, the .NET guest SDK, and ExtIO.Host, the .NET plugin host (the .NET counterpart of
 # ext-rust, ext-ts and ext-python). It is cross-platform (net8.0), so it builds on Linux; the
 # Windows libraries of res/ are the ext-windows package.
 . "$(dirname "$0")/../../ci/jobs/lib.sh"
@@ -15,6 +15,7 @@ ci_import_env
 # Tests: without EXT_HOST_LIBRARY and the guests the host tests check what they can and say so; the
 # host cases run against the engine in core.yml (host-cases).
 (
+dotnet run --project pkg/ext-dotnet/ExtIO.Tests/ExtIO.Tests.csproj -c Release
 dotnet run --project pkg/ext-dotnet/ExtIO.Host.Tests/ExtIO.Host.Tests.csproj -c Release
 )
 ci_import_env
@@ -24,8 +25,9 @@ ci_import_env
 set -euo pipefail
 out="dist/ext-dotnet-$VERSION"
 mkdir -p "$out"
+dotnet pack pkg/ext-dotnet/ExtIO/ExtIO.csproj -c Release -p:Version="$VERSION" -o "$out"
 dotnet pack pkg/ext-dotnet/ExtIO.Host/ExtIO.Host.csproj -c Release -p:Version="$VERSION" -o "$out"
-[[ "$(ls "$out"/*.nupkg | wc -l)" -eq 1 ]] || { echo 'expected one package' >&2; ls "$out" >&2; exit 1; }
+[[ "$(ls "$out"/*.nupkg | wc -l)" -eq 2 ]] || { echo 'expected two packages' >&2; ls "$out" >&2; exit 1; }
 )
 ci_import_env
 

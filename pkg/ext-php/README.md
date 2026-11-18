@@ -175,4 +175,4 @@ The Go suites run this guest through `process.Start`: `TestPHPGuest` in
 the reference guest as a process and as a C ABI library, then policies, envelopes, reentry and
 ownership. It needs FFI, `EXT_HOST_LIBRARY`, `EXT_GO_GUEST` and `EXT_GO_SHARED`; without them it
 says so and runs nothing (it fails instead with `EXT_HOST_REQUIRED=1`). `scripts/host-cases.sh`
-builds them all and runs it, on PHP 8.1 and 8.4 in `.github/workflows/host-cases.yml`.
+builds them all and runs it, on PHP 8.1 and 8.4 in CI (the `host-cases` area of `.github/ci/areas.json`).

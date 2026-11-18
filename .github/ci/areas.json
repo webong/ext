@@ -1,5 +1,5 @@
 {
-  "about": "CI areas: which reusable workflow runs which jobs, for which tools, on which platforms. ci.yml runs scripts/ci/plan.py over this table. main_paths: a push to main runs the area only if a changed file matches (null: always). pr_paths: a pull request without tool labels runs the area only if a changed file matches (null: always). Each job lists its matrix cells; a cell runs on the platform of its os (or the job's runs-on), unless the job names a platform. A job marked on_request is slow or needs a real device session: it runs only when a pull request or a manual run carries ci:full, never on a push to main.",
+  "about": "CI areas and cells. ci.yml runs scripts/ci/plan.py over this table and runs each picked cell in the job of its group (go, engines, languages, conformance, platforms): it sets up the cell's toolchains with .github/actions/setup, exports its vars as MATRIX_<KEY>, and runs its script. An area is chosen by its tools (tool: labels) or, without labels, by main_paths on a push to main and pr_paths on a pull request (null: always). A cell runs on the platform of its runner unless its job names one. A job marked on_request runs only with ci:full; one marked push_only only on a push to main.",
   "platforms": [
     "linux",
     "macos",
@@ -21,9 +21,15 @@
     "swift",
     "zig"
   ],
+  "groups": [
+    "go",
+    "engines",
+    "languages",
+    "conformance",
+    "platforms"
+  ],
   "areas": {
     "native": {
-      "workflow": ".github/workflows/native.yml",
       "tools": [
         "go",
         "swift",
@@ -34,222 +40,496 @@
       "pr_paths": null,
       "jobs": {
         "android-package": {
-          "runs-on": "ubuntu-latest",
+          "group": "platforms",
+          "platform": "android",
           "cells": [
             {
-              "os": "ubuntu-latest"
+              "name": "native/android-package (ubuntu-latest)",
+              "runner": "ubuntu-latest",
+              "script": "scripts/ci/jobs/native/android-package.sh",
+              "vars": {
+                "OS": "ubuntu-latest"
+              },
+              "setup": {
+                "java": "17",
+                "android_packages": "platform-tools"
+              }
             }
-          ],
-          "platform": "android"
+          ]
         },
         "dist-branch": {
-          "runs-on": "ubuntu-latest",
+          "group": "go",
           "cells": [
             {
-              "os": "ubuntu-latest"
+              "name": "native/dist-branch (ubuntu-latest)",
+              "runner": "ubuntu-latest",
+              "script": "scripts/ci/jobs/native/dist-branch.sh",
+              "vars": {
+                "OS": "ubuntu-latest"
+              },
+              "setup": {}
             }
           ]
         },
         "ios-package": {
-          "runs-on": "macos-latest",
+          "group": "platforms",
+          "platform": "ios",
           "cells": [
             {
-              "os": "macos-latest"
+              "name": "native/ios-package (macos-latest)",
+              "runner": "macos-latest",
+              "script": "scripts/ci/jobs/native/ios-package.sh",
+              "vars": {
+                "OS": "macos-latest"
+              },
+              "setup": {}
             }
-          ],
-          "platform": "ios"
+          ]
         },
         "linux-desktop": {
-          "runs-on": "ubuntu-latest",
+          "group": "platforms",
+          "on_request": true,
           "cells": [
             {
-              "os": "ubuntu-latest"
+              "name": "native/linux-desktop (ubuntu-latest)",
+              "runner": "ubuntu-latest",
+              "script": "scripts/ci/jobs/native/linux-desktop.sh",
+              "vars": {
+                "OS": "ubuntu-latest"
+              },
+              "setup": {
+                "go": "1.26.x",
+                "go_cache": "true"
+              },
+              "timeout": 15
             }
-          ],
-          "on_request": true
+          ]
         },
         "native": {
-          "runs-on": "${{ matrix.os }}",
+          "group": "go",
           "cells": [
             {
-              "os": "ubuntu-latest"
+              "name": "native/native (ubuntu-latest)",
+              "runner": "ubuntu-latest",
+              "script": "scripts/ci/jobs/native/native.sh",
+              "vars": {
+                "OS": "ubuntu-latest"
+              },
+              "setup": {
+                "go": "1.26.x",
+                "go_cache": "true",
+                "dotnet": "8.0.x"
+              }
             },
             {
-              "os": "macos-latest"
+              "name": "native/native (macos-latest)",
+              "runner": "macos-latest",
+              "script": "scripts/ci/jobs/native/native.sh",
+              "vars": {
+                "OS": "macos-latest"
+              },
+              "setup": {
+                "go": "1.26.x",
+                "go_cache": "true"
+              }
             },
             {
-              "os": "windows-latest"
+              "name": "native/native (windows-latest)",
+              "runner": "windows-latest",
+              "script": "scripts/ci/jobs/native/native.sh",
+              "vars": {
+                "OS": "windows-latest"
+              },
+              "setup": {
+                "go": "1.26.x",
+                "go_cache": "true",
+                "dotnet": "8.0.x"
+              }
             }
           ]
         },
         "native-integration": {
-          "runs-on": "${{ matrix.os }}",
+          "group": "go",
           "cells": [
             {
-              "os": "ubuntu-latest"
+              "name": "native/native-integration (ubuntu-latest)",
+              "runner": "ubuntu-latest",
+              "script": "scripts/ci/jobs/native/native-integration.sh",
+              "vars": {
+                "OS": "ubuntu-latest"
+              },
+              "setup": {
+                "go": "1.26.x",
+                "go_cache": "true"
+              }
             },
             {
-              "os": "macos-latest"
+              "name": "native/native-integration (macos-latest)",
+              "runner": "macos-latest",
+              "script": "scripts/ci/jobs/native/native-integration.sh",
+              "vars": {
+                "OS": "macos-latest"
+              },
+              "setup": {
+                "go": "1.26.x",
+                "go_cache": "true"
+              }
             }
           ]
         },
         "standalone-modules": {
-          "runs-on": "ubuntu-latest",
+          "group": "go",
           "cells": [
             {
-              "os": "ubuntu-latest"
+              "name": "native/standalone-modules (ubuntu-latest)",
+              "runner": "ubuntu-latest",
+              "script": "scripts/ci/jobs/native/standalone-modules.sh",
+              "vars": {
+                "OS": "ubuntu-latest"
+              },
+              "setup": {
+                "go": "1.26.x",
+                "go_cache": "false"
+              }
             }
-          ]
+          ],
+          "push_only": true
         }
       }
     },
     "plugin-engine": {
-      "workflow": ".github/workflows/plugin-engine.yml",
       "tools": [
         "c"
       ],
       "main_paths": [
+        ".github/actions/setup/**",
+        ".github/ci/areas.json",
+        ".github/workflows/ci.yml",
         "lib/plugin/**",
         "pkg/ext-go/**",
-        "scripts/plugin-engine-test.sh",
-        ".github/workflows/plugin-engine.yml"
+        "scripts/ci/jobs/lib.sh",
+        "scripts/ci/jobs/plugin-engine/**",
+        "scripts/ci/plan.py",
+        "scripts/plugin-engine-test.sh"
       ],
       "pr_paths": [
+        ".github/actions/setup/**",
+        ".github/ci/areas.json",
+        ".github/workflows/ci.yml",
         "lib/plugin/**",
         "pkg/ext-go/**",
-        "scripts/plugin-engine-test.sh",
-        ".github/workflows/plugin-engine.yml"
+        "scripts/ci/jobs/lib.sh",
+        "scripts/ci/jobs/plugin-engine/**",
+        "scripts/ci/plan.py",
+        "scripts/plugin-engine-test.sh"
       ],
       "jobs": {
         "fuzz": {
-          "runs-on": "ubuntu-latest",
+          "group": "engines",
+          "on_request": true,
           "cells": [
             {
-              "os": "ubuntu-latest"
+              "name": "plugin-engine/fuzz (ubuntu-latest)",
+              "runner": "ubuntu-latest",
+              "script": "scripts/ci/jobs/plugin-engine/fuzz.sh",
+              "vars": {
+                "OS": "ubuntu-latest"
+              },
+              "setup": {}
             }
-          ],
-          "on_request": true
+          ]
         },
         "posix": {
-          "runs-on": "${{ matrix.os }}",
+          "group": "engines",
           "cells": [
             {
-              "os": "ubuntu-latest"
+              "name": "plugin-engine/posix (ubuntu-latest)",
+              "runner": "ubuntu-latest",
+              "script": "scripts/ci/jobs/plugin-engine/posix.sh",
+              "vars": {
+                "OS": "ubuntu-latest"
+              },
+              "setup": {
+                "go": "1.26.x",
+                "go_cache": "true"
+              }
             },
             {
-              "os": "macos-latest"
+              "name": "plugin-engine/posix (macos-latest)",
+              "runner": "macos-latest",
+              "script": "scripts/ci/jobs/plugin-engine/posix.sh",
+              "vars": {
+                "OS": "macos-latest"
+              },
+              "setup": {
+                "go": "1.26.x",
+                "go_cache": "true"
+              }
             }
           ]
         },
         "windows": {
-          "runs-on": "windows-latest",
+          "group": "engines",
           "cells": [
             {
-              "os": "windows-latest"
+              "name": "plugin-engine/windows (windows-latest)",
+              "runner": "windows-latest",
+              "script": "scripts/ci/jobs/plugin-engine/windows.sh",
+              "vars": {
+                "OS": "windows-latest"
+              },
+              "setup": {
+                "go": "1.26.x",
+                "go_cache": "true",
+                "msys2_msystem": "MINGW64",
+                "msys2_install": "mingw-w64-x86_64-gcc mingw-w64-x86_64-cmake mingw-w64-x86_64-ninja"
+              }
             }
           ]
         },
         "windows-arm64": {
-          "runs-on": "windows-11-arm",
+          "group": "engines",
           "cells": [
             {
-              "os": "windows-11-arm"
+              "name": "plugin-engine/windows-arm64 (windows-11-arm)",
+              "runner": "windows-11-arm",
+              "script": "scripts/ci/jobs/plugin-engine/windows-arm64.sh",
+              "vars": {
+                "OS": "windows-11-arm"
+              },
+              "setup": {
+                "go": "1.26.x",
+                "go_cache": "true",
+                "msys2_msystem": "CLANGARM64",
+                "msys2_install": "mingw-w64-clang-aarch64-clang mingw-w64-clang-aarch64-cmake mingw-w64-clang-aarch64-ninja mingw-w64-clang-aarch64-winpthreads"
+              },
+              "continue_on_error": true
             }
           ]
         },
         "windows-msvc": {
-          "runs-on": "windows-latest",
+          "group": "engines",
           "cells": [
             {
-              "os": "windows-latest"
+              "name": "plugin-engine/windows-msvc (windows-latest)",
+              "runner": "windows-latest",
+              "script": "scripts/ci/jobs/plugin-engine/windows-msvc.sh",
+              "vars": {
+                "OS": "windows-latest"
+              },
+              "setup": {
+                "go": "1.26.x",
+                "go_cache": "true",
+                "msvc": "true"
+              },
+              "continue_on_error": true
             }
           ]
         }
       }
     },
     "c2goengine": {
-      "workflow": ".github/workflows/c2goengine.yml",
       "tools": [
         "go",
         "c"
       ],
       "main_paths": [
+        ".github/actions/setup/**",
+        ".github/ci/areas.json",
+        ".github/workflows/ci.yml",
         "lib/plugin/**",
         "pkg/ext-go/c2goengine/**",
         "pkg/ext-go/engine/plugintest/enginetest/**",
-        ".github/workflows/c2goengine.yml"
+        "scripts/ci/jobs/c2goengine/**",
+        "scripts/ci/jobs/lib.sh",
+        "scripts/ci/plan.py"
       ],
       "pr_paths": [
+        ".github/actions/setup/**",
+        ".github/ci/areas.json",
+        ".github/workflows/ci.yml",
         "lib/plugin/**",
         "pkg/ext-go/c2goengine/**",
         "pkg/ext-go/engine/plugintest/enginetest/**",
-        ".github/workflows/c2goengine.yml"
+        "scripts/ci/jobs/c2goengine/**",
+        "scripts/ci/jobs/lib.sh",
+        "scripts/ci/plan.py"
       ],
       "jobs": {
         "tools": {
-          "runs-on": "ubuntu-latest",
+          "group": "engines",
           "cells": [
             {
-              "os": "ubuntu-latest"
+              "name": "c2goengine/tools (ubuntu-latest)",
+              "runner": "ubuntu-latest",
+              "script": "scripts/ci/jobs/c2goengine/tools.sh",
+              "vars": {
+                "OS": "ubuntu-latest"
+              },
+              "setup": {
+                "go": "1.26.x",
+                "go_cache": "true"
+              }
             }
           ]
         },
         "translate": {
-          "runs-on": "${{ matrix.os }}",
+          "group": "engines",
           "cells": [
             {
-              "goarch": "amd64",
-              "goos": "linux",
-              "os": "ubuntu-latest",
-              "race": "-race",
-              "required": true
+              "name": "c2goengine/translate (amd64, linux, ubuntu-latest, -race)",
+              "runner": "ubuntu-latest",
+              "script": "scripts/ci/jobs/c2goengine/translate.sh",
+              "vars": {
+                "GOARCH": "amd64",
+                "GOOS": "linux",
+                "OS": "ubuntu-latest",
+                "RACE": "-race",
+                "REQUIRED": "true"
+              },
+              "setup": {
+                "go": "1.26.x",
+                "go_cache": "true"
+              },
+              "artifact": {
+                "name": "translation-linux-amd64",
+                "path": "pkg/ext-go/c2goengine/internal/ccgo/generated_linux_amd64.go\npkg/ext-go/c2goengine/internal/ccgo/inputs.sha256\npkg/ext-go/c2goengine/internal/ccgo/call.go\npkg/ext-go/c2goengine/internal/ccgo/call_unsupported.go\npkg/ext-go/c2goengine/internal/ccgo/host.go\npkg/ext-go/c2goengine/internal/ccgo/host_unsupported.go\npkg/ext-go/c2goengine/internal/ccgo/channel.go\npkg/ext-go/c2goengine/internal/ccgo/session.go\npkg/ext-go/c2goengine/internal/ccgo/instances.go",
+                "always": true,
+                "if_no_files_found": "ignore",
+                "retention_days": 14
+              }
             },
             {
-              "goarch": "arm64",
-              "goos": "linux",
-              "os": "ubuntu-24.04-arm",
-              "race": "-race",
-              "required": true
+              "name": "c2goengine/translate (arm64, linux, ubuntu-24.04-arm, -race)",
+              "runner": "ubuntu-24.04-arm",
+              "script": "scripts/ci/jobs/c2goengine/translate.sh",
+              "vars": {
+                "GOARCH": "arm64",
+                "GOOS": "linux",
+                "OS": "ubuntu-24.04-arm",
+                "RACE": "-race",
+                "REQUIRED": "true"
+              },
+              "setup": {
+                "go": "1.26.x",
+                "go_cache": "true"
+              },
+              "artifact": {
+                "name": "translation-linux-arm64",
+                "path": "pkg/ext-go/c2goengine/internal/ccgo/generated_linux_arm64.go\npkg/ext-go/c2goengine/internal/ccgo/inputs.sha256\npkg/ext-go/c2goengine/internal/ccgo/call.go\npkg/ext-go/c2goengine/internal/ccgo/call_unsupported.go\npkg/ext-go/c2goengine/internal/ccgo/host.go\npkg/ext-go/c2goengine/internal/ccgo/host_unsupported.go\npkg/ext-go/c2goengine/internal/ccgo/channel.go\npkg/ext-go/c2goengine/internal/ccgo/session.go\npkg/ext-go/c2goengine/internal/ccgo/instances.go",
+                "always": true,
+                "if_no_files_found": "ignore",
+                "retention_days": 14
+              }
             },
             {
-              "goarch": "arm64",
-              "goos": "darwin",
-              "os": "macos-latest",
-              "race": "",
-              "required": true
+              "name": "c2goengine/translate (arm64, darwin, macos-latest)",
+              "runner": "macos-latest",
+              "script": "scripts/ci/jobs/c2goengine/translate.sh",
+              "vars": {
+                "GOARCH": "arm64",
+                "GOOS": "darwin",
+                "OS": "macos-latest",
+                "RACE": "",
+                "REQUIRED": "true"
+              },
+              "setup": {
+                "go": "1.26.x",
+                "go_cache": "true"
+              },
+              "artifact": {
+                "name": "translation-darwin-arm64",
+                "path": "pkg/ext-go/c2goengine/internal/ccgo/generated_darwin_arm64.go\npkg/ext-go/c2goengine/internal/ccgo/inputs.sha256\npkg/ext-go/c2goengine/internal/ccgo/call.go\npkg/ext-go/c2goengine/internal/ccgo/call_unsupported.go\npkg/ext-go/c2goengine/internal/ccgo/host.go\npkg/ext-go/c2goengine/internal/ccgo/host_unsupported.go\npkg/ext-go/c2goengine/internal/ccgo/channel.go\npkg/ext-go/c2goengine/internal/ccgo/session.go\npkg/ext-go/c2goengine/internal/ccgo/instances.go",
+                "always": true,
+                "if_no_files_found": "ignore",
+                "retention_days": 14
+              }
             },
             {
-              "goarch": "amd64",
-              "goos": "darwin",
-              "os": "macos-15-intel",
-              "race": "",
-              "required": true
+              "name": "c2goengine/translate (amd64, darwin, macos-15-intel)",
+              "runner": "macos-15-intel",
+              "script": "scripts/ci/jobs/c2goengine/translate.sh",
+              "vars": {
+                "GOARCH": "amd64",
+                "GOOS": "darwin",
+                "OS": "macos-15-intel",
+                "RACE": "",
+                "REQUIRED": "true"
+              },
+              "setup": {
+                "go": "1.26.x",
+                "go_cache": "true"
+              },
+              "artifact": {
+                "name": "translation-darwin-amd64",
+                "path": "pkg/ext-go/c2goengine/internal/ccgo/generated_darwin_amd64.go\npkg/ext-go/c2goengine/internal/ccgo/inputs.sha256\npkg/ext-go/c2goengine/internal/ccgo/call.go\npkg/ext-go/c2goengine/internal/ccgo/call_unsupported.go\npkg/ext-go/c2goengine/internal/ccgo/host.go\npkg/ext-go/c2goengine/internal/ccgo/host_unsupported.go\npkg/ext-go/c2goengine/internal/ccgo/channel.go\npkg/ext-go/c2goengine/internal/ccgo/session.go\npkg/ext-go/c2goengine/internal/ccgo/instances.go",
+                "always": true,
+                "if_no_files_found": "ignore",
+                "retention_days": 14
+              }
             },
             {
-              "goarch": "amd64",
-              "goos": "windows",
-              "msystem": "MINGW64",
-              "os": "windows-latest",
-              "packages": "mingw-w64-x86_64-gcc",
-              "race": "",
-              "required": true
+              "name": "c2goengine/translate (amd64, windows, MINGW64, windows-latest, mingw-w64-x86_64-gcc)",
+              "runner": "windows-latest",
+              "script": "scripts/ci/jobs/c2goengine/translate.sh",
+              "vars": {
+                "GOARCH": "amd64",
+                "GOOS": "windows",
+                "MSYSTEM": "MINGW64",
+                "OS": "windows-latest",
+                "PACKAGES": "mingw-w64-x86_64-gcc",
+                "RACE": "",
+                "REQUIRED": "true"
+              },
+              "setup": {
+                "go": "1.26.x",
+                "go_cache": "true",
+                "msys2_msystem": "MINGW64",
+                "msys2_install": "mingw-w64-x86_64-gcc"
+              },
+              "artifact": {
+                "name": "translation-windows-amd64",
+                "path": "pkg/ext-go/c2goengine/internal/ccgo/generated_windows_amd64.go\npkg/ext-go/c2goengine/internal/ccgo/inputs.sha256\npkg/ext-go/c2goengine/internal/ccgo/call.go\npkg/ext-go/c2goengine/internal/ccgo/call_unsupported.go\npkg/ext-go/c2goengine/internal/ccgo/host.go\npkg/ext-go/c2goengine/internal/ccgo/host_unsupported.go\npkg/ext-go/c2goengine/internal/ccgo/channel.go\npkg/ext-go/c2goengine/internal/ccgo/session.go\npkg/ext-go/c2goengine/internal/ccgo/instances.go",
+                "always": true,
+                "if_no_files_found": "ignore",
+                "retention_days": 14
+              },
+              "autocrlf_off": true
             },
             {
-              "cc": "clang",
-              "goarch": "arm64",
-              "goos": "windows",
-              "msystem": "CLANGARM64",
-              "os": "windows-11-arm",
-              "packages": "mingw-w64-clang-aarch64-clang",
-              "race": "",
-              "required": true
+              "name": "c2goengine/translate (clang, arm64, windows, CLANGARM64, windows-11-arm, mingw-w64-clang-aarch64-clang)",
+              "runner": "windows-11-arm",
+              "script": "scripts/ci/jobs/c2goengine/translate.sh",
+              "vars": {
+                "CC": "clang",
+                "GOARCH": "arm64",
+                "GOOS": "windows",
+                "MSYSTEM": "CLANGARM64",
+                "OS": "windows-11-arm",
+                "PACKAGES": "mingw-w64-clang-aarch64-clang",
+                "RACE": "",
+                "REQUIRED": "true"
+              },
+              "setup": {
+                "go": "1.26.x",
+                "go_cache": "true",
+                "msys2_msystem": "CLANGARM64",
+                "msys2_install": "mingw-w64-clang-aarch64-clang"
+              },
+              "artifact": {
+                "name": "translation-windows-arm64",
+                "path": "pkg/ext-go/c2goengine/internal/ccgo/generated_windows_arm64.go\npkg/ext-go/c2goengine/internal/ccgo/inputs.sha256\npkg/ext-go/c2goengine/internal/ccgo/call.go\npkg/ext-go/c2goengine/internal/ccgo/call_unsupported.go\npkg/ext-go/c2goengine/internal/ccgo/host.go\npkg/ext-go/c2goengine/internal/ccgo/host_unsupported.go\npkg/ext-go/c2goengine/internal/ccgo/channel.go\npkg/ext-go/c2goengine/internal/ccgo/session.go\npkg/ext-go/c2goengine/internal/ccgo/instances.go",
+                "always": true,
+                "if_no_files_found": "ignore",
+                "retention_days": 14
+              },
+              "autocrlf_off": true
             }
           ]
         }
       }
     },
     "host-cases": {
-      "workflow": ".github/workflows/host-cases.yml",
       "tools": [
         "go",
         "c",
@@ -260,111 +540,281 @@
         "csharp"
       ],
       "main_paths": [
+        ".github/actions/setup/**",
+        ".github/ci/areas.json",
+        ".github/workflows/ci.yml",
         "lib/plugin/**",
+        "pkg/ext-dotnet/**",
+        "pkg/ext-go/cgoengine/cshared/**",
+        "pkg/ext-go/cgoengine/go.mod",
+        "pkg/ext-go/engine/**",
+        "pkg/ext-lua/**",
+        "pkg/ext-php/**",
         "pkg/ext-python/**",
         "pkg/ext-ruby/**",
-        "scripts/ext-ruby-host.sh",
-        "pkg/ext-lua/**",
-        "scripts/ext-lua-host.sh",
-        "pkg/ext-php/**",
-        "pkg/ext-dotnet/**",
-        "pkg/ext-go/engine/**",
-        "pkg/ext-go/cgoengine/cshared/**",
-        "tests/crosslang/**",
-        "scripts/host-cases.sh",
+        "scripts/ci/jobs/host-cases/**",
+        "scripts/ci/jobs/lib.sh",
+        "scripts/ci/plan.py",
         "scripts/cshared-purego.sh",
-        "pkg/ext-go/cgoengine/go.mod",
-        ".github/workflows/host-cases.yml"
+        "scripts/ext-lua-host.sh",
+        "scripts/ext-ruby-host.sh",
+        "scripts/host-cases.sh",
+        "tests/crosslang/**"
       ],
       "pr_paths": [
+        ".github/actions/setup/**",
+        ".github/ci/areas.json",
+        ".github/workflows/ci.yml",
         "lib/plugin/**",
+        "pkg/ext-dotnet/**",
+        "pkg/ext-go/cgoengine/cshared/**",
+        "pkg/ext-go/cgoengine/go.mod",
+        "pkg/ext-go/engine/**",
+        "pkg/ext-lua/**",
+        "pkg/ext-php/**",
         "pkg/ext-python/**",
         "pkg/ext-ruby/**",
-        "scripts/ext-ruby-host.sh",
-        "pkg/ext-lua/**",
-        "scripts/ext-lua-host.sh",
-        "pkg/ext-php/**",
-        "pkg/ext-dotnet/**",
-        "pkg/ext-go/engine/**",
-        "pkg/ext-go/cgoengine/cshared/**",
-        "tests/crosslang/**",
-        "scripts/host-cases.sh",
+        "scripts/ci/jobs/host-cases/**",
+        "scripts/ci/jobs/lib.sh",
+        "scripts/ci/plan.py",
         "scripts/cshared-purego.sh",
-        "pkg/ext-go/cgoengine/go.mod",
-        ".github/workflows/host-cases.yml"
+        "scripts/ext-lua-host.sh",
+        "scripts/ext-ruby-host.sh",
+        "scripts/host-cases.sh",
+        "tests/crosslang/**"
       ],
       "jobs": {
         "go-purego": {
-          "runs-on": "${{ matrix.os }}",
+          "group": "conformance",
           "cells": [
             {
-              "os": "ubuntu-latest"
+              "name": "host-cases/go-purego (ubuntu-latest)",
+              "runner": "ubuntu-latest",
+              "script": "scripts/ci/jobs/host-cases/go-purego.sh",
+              "vars": {
+                "OS": "ubuntu-latest"
+              },
+              "setup": {
+                "go": "1.26.x",
+                "go_cache": "true"
+              }
             },
             {
-              "os": "ubuntu-24.04-arm"
+              "name": "host-cases/go-purego (ubuntu-24.04-arm)",
+              "runner": "ubuntu-24.04-arm",
+              "script": "scripts/ci/jobs/host-cases/go-purego.sh",
+              "vars": {
+                "OS": "ubuntu-24.04-arm"
+              },
+              "setup": {
+                "go": "1.26.x",
+                "go_cache": "true"
+              }
             },
             {
-              "os": "macos-15"
+              "name": "host-cases/go-purego (macos-15)",
+              "runner": "macos-15",
+              "script": "scripts/ci/jobs/host-cases/go-purego.sh",
+              "vars": {
+                "OS": "macos-15"
+              },
+              "setup": {
+                "go": "1.26.x",
+                "go_cache": "true"
+              }
             },
             {
-              "os": "macos-15-intel"
+              "name": "host-cases/go-purego (macos-15-intel)",
+              "runner": "macos-15-intel",
+              "script": "scripts/ci/jobs/host-cases/go-purego.sh",
+              "vars": {
+                "OS": "macos-15-intel"
+              },
+              "setup": {
+                "go": "1.26.x",
+                "go_cache": "true"
+              }
             },
             {
-              "os": "windows-latest"
+              "name": "host-cases/go-purego (windows-latest)",
+              "runner": "windows-latest",
+              "script": "scripts/ci/jobs/host-cases/go-purego.sh",
+              "vars": {
+                "OS": "windows-latest"
+              },
+              "setup": {
+                "go": "1.26.x",
+                "go_cache": "true",
+                "msys2_msystem": "MINGW64",
+                "msys2_install": "mingw-w64-x86_64-gcc"
+              }
             },
             {
-              "os": "windows-11-arm"
+              "name": "host-cases/go-purego (windows-11-arm)",
+              "runner": "windows-11-arm",
+              "script": "scripts/ci/jobs/host-cases/go-purego.sh",
+              "vars": {
+                "OS": "windows-11-arm"
+              },
+              "setup": {
+                "go": "1.26.x",
+                "go_cache": "true",
+                "msys2_msystem": "CLANGARM64",
+                "msys2_install": "mingw-w64-clang-aarch64-clang"
+              }
             }
           ]
         },
         "hosts": {
-          "runs-on": "${{ matrix.os }}",
+          "group": "conformance",
           "cells": [
             {
-              "lua": "5.1.5",
-              "os": "ubuntu-22.04",
-              "php": "8.1",
-              "python": "3.8",
-              "ruby": "3.1"
+              "name": "host-cases/hosts (5.1.5, ubuntu-22.04, 8.1, 3.8, 3.1)",
+              "runner": "ubuntu-22.04",
+              "script": "scripts/ci/jobs/host-cases/hosts.sh",
+              "vars": {
+                "LUA": "5.1.5",
+                "OS": "ubuntu-22.04",
+                "PHP": "8.1",
+                "PYTHON": "3.8",
+                "RUBY": "3.1"
+              },
+              "setup": {
+                "go": "1.26.x",
+                "go_cache": "true",
+                "python": "3.8",
+                "ruby": "3.1",
+                "lua": "5.1.5",
+                "lua_build_cache": "false",
+                "php": "8.1",
+                "php_extensions": "ffi, json",
+                "php_tools": "",
+                "dotnet": "8.0.x"
+              }
             },
             {
-              "lua": "5.4.9",
-              "os": "ubuntu-latest",
-              "php": "8.4",
-              "python": "3.13",
-              "ruby": "3.4"
+              "name": "host-cases/hosts (5.4.9, ubuntu-latest, 8.4, 3.13, 3.4)",
+              "runner": "ubuntu-latest",
+              "script": "scripts/ci/jobs/host-cases/hosts.sh",
+              "vars": {
+                "LUA": "5.4.9",
+                "OS": "ubuntu-latest",
+                "PHP": "8.4",
+                "PYTHON": "3.13",
+                "RUBY": "3.4"
+              },
+              "setup": {
+                "go": "1.26.x",
+                "go_cache": "true",
+                "python": "3.13",
+                "ruby": "3.4",
+                "lua": "5.4.9",
+                "lua_build_cache": "false",
+                "php": "8.4",
+                "php_extensions": "ffi, json",
+                "php_tools": "",
+                "dotnet": "8.0.x"
+              }
             },
             {
-              "lua": "luajit-2.1",
-              "os": "ubuntu-24.04-arm",
-              "php": "8.4",
-              "python": "3.13",
-              "ruby": "4.0"
+              "name": "host-cases/hosts (luajit-2.1, ubuntu-24.04-arm, 8.4, 3.13, 4.0)",
+              "runner": "ubuntu-24.04-arm",
+              "script": "scripts/ci/jobs/host-cases/hosts.sh",
+              "vars": {
+                "LUA": "luajit-2.1",
+                "OS": "ubuntu-24.04-arm",
+                "PHP": "8.4",
+                "PYTHON": "3.13",
+                "RUBY": "4.0"
+              },
+              "setup": {
+                "go": "1.26.x",
+                "go_cache": "true",
+                "python": "3.13",
+                "ruby": "4.0",
+                "lua": "luajit-2.1",
+                "lua_build_cache": "false",
+                "php": "8.4",
+                "php_extensions": "ffi, json",
+                "php_tools": "",
+                "dotnet": "8.0.x"
+              }
             },
             {
-              "lua": "5.5.1",
-              "os": "macos-15",
-              "php": "8.4",
-              "python": "3.13",
-              "ruby": "3.4"
+              "name": "host-cases/hosts (5.5.1, macos-15, 8.4, 3.13, 3.4)",
+              "runner": "macos-15",
+              "script": "scripts/ci/jobs/host-cases/hosts.sh",
+              "vars": {
+                "LUA": "5.5.1",
+                "OS": "macos-15",
+                "PHP": "8.4",
+                "PYTHON": "3.13",
+                "RUBY": "3.4"
+              },
+              "setup": {
+                "go": "1.26.x",
+                "go_cache": "true",
+                "python": "3.13",
+                "ruby": "3.4",
+                "lua": "5.5.1",
+                "lua_build_cache": "false",
+                "php": "8.4",
+                "php_extensions": "ffi, json",
+                "php_tools": "",
+                "dotnet": "8.0.x"
+              }
             }
           ]
         },
         "windows": {
-          "runs-on": "windows-latest",
+          "group": "conformance",
           "cells": [
             {
-              "toolchain": "mingw"
+              "name": "host-cases/windows (mingw)",
+              "runner": "windows-latest",
+              "script": "scripts/ci/jobs/host-cases/windows.sh",
+              "vars": {
+                "TOOLCHAIN": "mingw"
+              },
+              "setup": {
+                "go": "1.26.x",
+                "go_cache": "true",
+                "python": "3.13",
+                "php": "8.4",
+                "php_extensions": "ffi, json",
+                "php_tools": "",
+                "dotnet": "8.0.x",
+                "msys2_msystem": "MINGW64",
+                "msys2_install": "mingw-w64-x86_64-gcc mingw-w64-x86_64-cmake mingw-w64-x86_64-ninja mingw-w64-x86_64-ruby mingw-w64-x86_64-lua make"
+              }
             },
             {
-              "toolchain": "msvc"
+              "name": "host-cases/windows (msvc)",
+              "runner": "windows-latest",
+              "script": "scripts/ci/jobs/host-cases/windows.sh",
+              "vars": {
+                "TOOLCHAIN": "msvc"
+              },
+              "setup": {
+                "go": "1.26.x",
+                "go_cache": "true",
+                "python": "3.13",
+                "php": "8.4",
+                "php_extensions": "ffi, json",
+                "php_tools": "",
+                "dotnet": "8.0.x",
+                "msvc": "true",
+                "lua": "5.4.9",
+                "lua_build_cache": "false",
+                "ruby": "3.4"
+              },
+              "continue_on_error": true
             }
           ]
         }
       }
     },
     "plugin-sdk": {
-      "workflow": ".github/workflows/plugin-sdk.yml",
       "tools": [
         "go",
         "c",
@@ -379,49 +829,162 @@
       "pr_paths": null,
       "jobs": {
         "foreign-sdks": {
-          "runs-on": "${{ matrix.os }}",
+          "group": "conformance",
           "cells": [
             {
-              "linkage": "static",
-              "os": "ubuntu-latest"
+              "name": "plugin-sdk/foreign-sdks (static, ubuntu-latest)",
+              "runner": "ubuntu-latest",
+              "script": "scripts/ci/jobs/plugin-sdk/foreign-sdks.sh",
+              "vars": {
+                "LINKAGE": "static",
+                "OS": "ubuntu-latest"
+              },
+              "setup": {
+                "java": "17",
+                "go": "1.26.x",
+                "go_cache": "true",
+                "rust": "1.98.1",
+                "rust_targets": "wasm32-wasip1",
+                "rust_components": "rustfmt, clippy",
+                "node": "22"
+              },
+              "artifact": {
+                "name": "cengine-measurements-ubuntu-latest-static",
+                "path": "ci-artifacts/benchmarks.jsonl\nci-artifacts/benchmark-report.md",
+                "always": false,
+                "if_no_files_found": "warn",
+                "retention_days": null
+              }
             },
             {
-              "linkage": "static",
-              "os": "macos-15"
+              "name": "plugin-sdk/foreign-sdks (static, macos-15)",
+              "runner": "macos-15",
+              "script": "scripts/ci/jobs/plugin-sdk/foreign-sdks.sh",
+              "vars": {
+                "LINKAGE": "static",
+                "OS": "macos-15"
+              },
+              "setup": {
+                "java": "17",
+                "go": "1.26.x",
+                "go_cache": "true",
+                "rust": "1.98.1",
+                "rust_targets": "wasm32-wasip1",
+                "rust_components": "rustfmt, clippy",
+                "node": "22"
+              },
+              "artifact": {
+                "name": "cengine-measurements-macos-15-static",
+                "path": "ci-artifacts/benchmarks.jsonl\nci-artifacts/benchmark-report.md",
+                "always": false,
+                "if_no_files_found": "warn",
+                "retention_days": null
+              }
             },
             {
-              "linkage": "shared",
-              "os": "ubuntu-latest"
+              "name": "plugin-sdk/foreign-sdks (shared, ubuntu-latest)",
+              "runner": "ubuntu-latest",
+              "script": "scripts/ci/jobs/plugin-sdk/foreign-sdks.sh",
+              "vars": {
+                "LINKAGE": "shared",
+                "OS": "ubuntu-latest"
+              },
+              "setup": {
+                "java": "17",
+                "go": "1.26.x",
+                "go_cache": "true",
+                "rust": "1.98.1",
+                "rust_targets": "wasm32-wasip1",
+                "rust_components": "rustfmt, clippy",
+                "node": "22"
+              },
+              "artifact": {
+                "name": "cengine-measurements-ubuntu-latest-shared",
+                "path": "ci-artifacts/benchmarks.jsonl\nci-artifacts/benchmark-report.md",
+                "always": false,
+                "if_no_files_found": "warn",
+                "retention_days": null
+              }
             },
             {
-              "linkage": "shared",
-              "os": "macos-15"
+              "name": "plugin-sdk/foreign-sdks (shared, macos-15)",
+              "runner": "macos-15",
+              "script": "scripts/ci/jobs/plugin-sdk/foreign-sdks.sh",
+              "vars": {
+                "LINKAGE": "shared",
+                "OS": "macos-15"
+              },
+              "setup": {
+                "java": "17",
+                "go": "1.26.x",
+                "go_cache": "true",
+                "rust": "1.98.1",
+                "rust_targets": "wasm32-wasip1",
+                "rust_components": "rustfmt, clippy",
+                "node": "22"
+              },
+              "artifact": {
+                "name": "cengine-measurements-macos-15-shared",
+                "path": "ci-artifacts/benchmarks.jsonl\nci-artifacts/benchmark-report.md",
+                "always": false,
+                "if_no_files_found": "warn",
+                "retention_days": null
+              }
             }
           ]
         },
         "sdk": {
-          "runs-on": "ubuntu-latest",
+          "group": "go",
           "cells": [
             {
-              "os": "ubuntu-latest"
+              "name": "plugin-sdk/sdk (ubuntu-latest)",
+              "runner": "ubuntu-latest",
+              "script": "scripts/ci/jobs/plugin-sdk/sdk.sh",
+              "vars": {
+                "OS": "ubuntu-latest"
+              },
+              "setup": {
+                "go": "1.26.x",
+                "go_cache": "true",
+                "node": "22"
+              }
             }
           ]
         },
         "web-ports": {
-          "runs-on": "${{ matrix.os }}",
+          "group": "go",
           "cells": [
             {
-              "os": "ubuntu-latest"
+              "name": "plugin-sdk/web-ports (ubuntu-latest)",
+              "runner": "ubuntu-latest",
+              "script": "scripts/ci/jobs/plugin-sdk/web-ports.sh",
+              "vars": {
+                "OS": "ubuntu-latest"
+              },
+              "setup": {
+                "go": "1.27.x",
+                "go_cache": "true",
+                "java": "17"
+              }
             },
             {
-              "os": "macos-15"
+              "name": "plugin-sdk/web-ports (macos-15)",
+              "runner": "macos-15",
+              "script": "scripts/ci/jobs/plugin-sdk/web-ports.sh",
+              "vars": {
+                "OS": "macos-15"
+              },
+              "setup": {
+                "go": "1.27.x",
+                "go_cache": "true",
+                "java": "17"
+              }
             }
           ]
         }
       }
     },
     "plugin-wamr": {
-      "workflow": ".github/workflows/plugin-wamr.yml",
       "tools": [
         "c",
         "java",
@@ -429,280 +992,589 @@
         "rust"
       ],
       "main_paths": [
-        ".github/workflows/plugin-wamr.yml",
-        "scripts/plugin-*wamr*.sh",
-        "scripts/ext-*wamr*.sh",
-        "scripts/ext-ios-xcframework.sh",
-        "scripts/ext-android-release.sh",
-        "scripts/ext-android-consumer.sh",
+        ".github/actions/setup/**",
+        ".github/ci/areas.json",
+        ".github/workflows/ci.yml",
         "examples/android-consumer/**",
+        "lib/plugin/**",
         "pkg/ext-android/**",
+        "pkg/ext-go/cgoengine/cshared/**",
         "pkg/ext-ios/**",
+        "pkg/ext-rust/**",
         "res/web/android/**",
         "res/web/ios/**",
-        "pkg/ext-go/cgoengine/cshared/**",
-        "lib/plugin/**",
-        "pkg/ext-rust/**"
+        "scripts/ci/jobs/lib.sh",
+        "scripts/ci/jobs/plugin-wamr/**",
+        "scripts/ci/plan.py",
+        "scripts/ext-*wamr*.sh",
+        "scripts/ext-android-consumer.sh",
+        "scripts/ext-android-release.sh",
+        "scripts/ext-ios-xcframework.sh",
+        "scripts/plugin-*wamr*.sh"
       ],
       "pr_paths": [
-        ".github/workflows/plugin-wamr.yml",
-        "scripts/plugin-*wamr*.sh",
-        "scripts/ext-*wamr*.sh",
-        "scripts/ext-ios-xcframework.sh",
-        "scripts/ext-android-release.sh",
-        "scripts/ext-android-consumer.sh",
+        ".github/actions/setup/**",
+        ".github/ci/areas.json",
+        ".github/workflows/ci.yml",
         "examples/android-consumer/**",
+        "lib/plugin/**",
         "pkg/ext-android/**",
+        "pkg/ext-go/cgoengine/cshared/**",
         "pkg/ext-ios/**",
+        "pkg/ext-rust/**",
         "res/web/android/**",
         "res/web/ios/**",
-        "pkg/ext-go/cgoengine/cshared/**",
-        "lib/plugin/**",
-        "pkg/ext-rust/**"
+        "scripts/ci/jobs/lib.sh",
+        "scripts/ci/jobs/plugin-wamr/**",
+        "scripts/ci/plan.py",
+        "scripts/ext-*wamr*.sh",
+        "scripts/ext-android-consumer.sh",
+        "scripts/ext-android-release.sh",
+        "scripts/ext-ios-xcframework.sh",
+        "scripts/plugin-*wamr*.sh"
       ],
       "jobs": {
         "apple": {
-          "runs-on": "macos-15",
+          "group": "platforms",
+          "platform": "ios",
+          "on_request": true,
           "cells": [
             {
-              "os": "macos-15"
+              "name": "plugin-wamr/apple (macos-15)",
+              "runner": "macos-15",
+              "script": "scripts/ci/jobs/plugin-wamr/apple.sh",
+              "vars": {
+                "OS": "macos-15"
+              },
+              "setup": {
+                "rust": "1.98.1",
+                "rust_targets": "wasm32-wasip1",
+                "rust_components": ""
+              },
+              "timeout": 45,
+              "wamr_cache": true
             }
-          ],
-          "platform": "ios",
-          "on_request": true
+          ]
         },
         "emulator": {
-          "runs-on": "ubuntu-latest",
+          "group": "platforms",
+          "platform": "android",
+          "on_request": true,
           "cells": [
             {
-              "os": "ubuntu-latest"
+              "name": "plugin-wamr/emulator (ubuntu-latest)",
+              "runner": "ubuntu-latest",
+              "script": "scripts/ci/jobs/plugin-wamr/emulator.sh",
+              "vars": {
+                "OS": "ubuntu-latest"
+              },
+              "setup": {
+                "java": "17",
+                "rust": "1.98.1",
+                "rust_targets": "wasm32-wasip1",
+                "rust_components": "",
+                "gradle": "8.14.3"
+              },
+              "timeout": 60,
+              "wamr_cache": true,
+              "android_emulator": "scripts/ci/jobs/plugin-wamr/emulator-device.sh"
             }
-          ],
-          "platform": "android",
-          "on_request": true
+          ]
         },
         "jdk": {
-          "runs-on": "ubuntu-latest",
+          "group": "platforms",
           "cells": [
             {
-              "os": "ubuntu-latest"
+              "name": "plugin-wamr/jdk (ubuntu-latest)",
+              "runner": "ubuntu-latest",
+              "script": "scripts/ci/jobs/plugin-wamr/jdk.sh",
+              "vars": {
+                "OS": "ubuntu-latest"
+              },
+              "setup": {
+                "java": "17",
+                "rust": "1.98.1",
+                "rust_targets": "wasm32-wasip1",
+                "rust_components": ""
+              },
+              "timeout": 20,
+              "wamr_cache": true
             }
           ]
         }
       }
     },
     "web-js": {
-      "workflow": ".github/workflows/web-js.yml",
       "tools": [
         "javascript"
       ],
       "main_paths": null,
       "pr_paths": [
+        ".github/actions/setup/**",
+        ".github/ci/areas.json",
+        ".github/workflows/ci.yml",
         "pkg/ext-web/**",
-        ".github/workflows/web-js.yml"
+        "scripts/ci/jobs/lib.sh",
+        "scripts/ci/jobs/web-js/**",
+        "scripts/ci/plan.py"
       ],
       "jobs": {
         "extension-library": {
-          "runs-on": "ubuntu-latest",
+          "group": "languages",
           "cells": [
             {
-              "os": "ubuntu-latest"
+              "name": "web-js/extension-library (ubuntu-latest)",
+              "runner": "ubuntu-latest",
+              "script": "scripts/ci/jobs/web-js/extension-library.sh",
+              "vars": {
+                "OS": "ubuntu-latest"
+              },
+              "setup": {
+                "node": "22",
+                "go": "1.26.x",
+                "go_cache": "false"
+              }
             }
           ]
         }
       }
     },
     "ext-php": {
-      "workflow": ".github/workflows/ext-php.yml",
       "tools": [
         "php"
       ],
       "main_paths": null,
       "pr_paths": [
-        "scripts/lang/**",
-        "pkg/ext-php/**",
-        "pkg/ext-go/engine/**",
-        "tests/crosslang/**",
+        ".github/actions/setup/**",
+        ".github/ci/areas.json",
+        ".github/workflows/ci.yml",
         "lib/plugin/testdata/**",
-        ".github/workflows/ext-php.yml"
+        "pkg/ext-go/engine/**",
+        "pkg/ext-php/**",
+        "scripts/ci/jobs/ext-php/**",
+        "scripts/ci/jobs/lib.sh",
+        "scripts/ci/plan.py",
+        "scripts/lang/**",
+        "tests/crosslang/**"
       ],
       "jobs": {
         "php": {
-          "runs-on": "${{ matrix.os }}",
+          "group": "languages",
           "cells": [
             {
-              "os": "ubuntu-latest",
-              "php": "8.1"
+              "name": "ext-php/php (ubuntu-latest, 8.1)",
+              "runner": "ubuntu-latest",
+              "script": "scripts/ci/jobs/ext-php/php.sh",
+              "vars": {
+                "OS": "ubuntu-latest",
+                "PHP": "8.1"
+              },
+              "setup": {
+                "php": "8.1",
+                "php_extensions": "json",
+                "php_tools": "composer",
+                "go": "1.26.x",
+                "go_cache": "true"
+              }
             },
             {
-              "os": "ubuntu-latest",
-              "php": "8.4"
+              "name": "ext-php/php (ubuntu-latest, 8.4)",
+              "runner": "ubuntu-latest",
+              "script": "scripts/ci/jobs/ext-php/php.sh",
+              "vars": {
+                "OS": "ubuntu-latest",
+                "PHP": "8.4"
+              },
+              "setup": {
+                "php": "8.4",
+                "php_extensions": "json",
+                "php_tools": "composer",
+                "go": "1.26.x",
+                "go_cache": "true"
+              }
             },
             {
-              "os": "macos-latest",
-              "php": "8.4"
+              "name": "ext-php/php (macos-latest, 8.4)",
+              "runner": "macos-latest",
+              "script": "scripts/ci/jobs/ext-php/php.sh",
+              "vars": {
+                "OS": "macos-latest",
+                "PHP": "8.4"
+              },
+              "setup": {
+                "php": "8.4",
+                "php_extensions": "json",
+                "php_tools": "composer",
+                "go": "1.26.x",
+                "go_cache": "true"
+              }
             },
             {
-              "os": "windows-latest",
-              "php": "8.4"
+              "name": "ext-php/php (windows-latest, 8.4)",
+              "runner": "windows-latest",
+              "script": "scripts/ci/jobs/ext-php/php.sh",
+              "vars": {
+                "OS": "windows-latest",
+                "PHP": "8.4"
+              },
+              "setup": {
+                "php": "8.4",
+                "php_extensions": "json",
+                "php_tools": "composer",
+                "go": "1.26.x",
+                "go_cache": "true"
+              }
             }
           ]
         }
       }
     },
     "ext-ruby": {
-      "workflow": ".github/workflows/ext-ruby.yml",
       "tools": [
         "ruby"
       ],
       "main_paths": [
-        "scripts/lang/**",
-        "pkg/ext-ruby/**",
-        "pkg/ext-go/engine/**",
-        "tests/crosslang/**",
+        ".github/actions/setup/**",
+        ".github/ci/areas.json",
+        ".github/workflows/ci.yml",
         "lib/plugin/testdata/**",
-        ".github/workflows/ext-ruby.yml"
+        "pkg/ext-go/engine/**",
+        "pkg/ext-ruby/**",
+        "scripts/ci/jobs/ext-ruby/**",
+        "scripts/ci/jobs/lib.sh",
+        "scripts/ci/plan.py",
+        "scripts/lang/**",
+        "tests/crosslang/**"
       ],
       "pr_paths": [
-        "scripts/lang/**",
-        "pkg/ext-ruby/**",
-        "pkg/ext-go/engine/**",
-        "tests/crosslang/**",
+        ".github/actions/setup/**",
+        ".github/ci/areas.json",
+        ".github/workflows/ci.yml",
         "lib/plugin/testdata/**",
-        ".github/workflows/ext-ruby.yml"
+        "pkg/ext-go/engine/**",
+        "pkg/ext-ruby/**",
+        "scripts/ci/jobs/ext-ruby/**",
+        "scripts/ci/jobs/lib.sh",
+        "scripts/ci/plan.py",
+        "scripts/lang/**",
+        "tests/crosslang/**"
       ],
       "jobs": {
         "ruby": {
-          "runs-on": "${{ matrix.os }}",
+          "group": "languages",
           "cells": [
             {
-              "os": "ubuntu-latest",
-              "ruby": "3.1"
+              "name": "ext-ruby/ruby (ubuntu-latest, 3.1)",
+              "runner": "ubuntu-latest",
+              "script": "scripts/ci/jobs/ext-ruby/ruby.sh",
+              "vars": {
+                "OS": "ubuntu-latest",
+                "RUBY": "3.1"
+              },
+              "setup": {
+                "ruby": "3.1",
+                "go": "1.26.x",
+                "go_cache": "true"
+              }
             },
             {
-              "os": "ubuntu-latest",
-              "ruby": "3.2"
+              "name": "ext-ruby/ruby (ubuntu-latest, 3.2)",
+              "runner": "ubuntu-latest",
+              "script": "scripts/ci/jobs/ext-ruby/ruby.sh",
+              "vars": {
+                "OS": "ubuntu-latest",
+                "RUBY": "3.2"
+              },
+              "setup": {
+                "ruby": "3.2",
+                "go": "1.26.x",
+                "go_cache": "true"
+              }
             },
             {
-              "os": "ubuntu-latest",
-              "ruby": "3.3"
+              "name": "ext-ruby/ruby (ubuntu-latest, 3.3)",
+              "runner": "ubuntu-latest",
+              "script": "scripts/ci/jobs/ext-ruby/ruby.sh",
+              "vars": {
+                "OS": "ubuntu-latest",
+                "RUBY": "3.3"
+              },
+              "setup": {
+                "ruby": "3.3",
+                "go": "1.26.x",
+                "go_cache": "true"
+              }
             },
             {
-              "os": "ubuntu-latest",
-              "ruby": "3.4"
+              "name": "ext-ruby/ruby (ubuntu-latest, 3.4)",
+              "runner": "ubuntu-latest",
+              "script": "scripts/ci/jobs/ext-ruby/ruby.sh",
+              "vars": {
+                "OS": "ubuntu-latest",
+                "RUBY": "3.4"
+              },
+              "setup": {
+                "ruby": "3.4",
+                "go": "1.26.x",
+                "go_cache": "true"
+              }
             },
             {
-              "os": "ubuntu-latest",
-              "ruby": "4.0"
+              "name": "ext-ruby/ruby (ubuntu-latest, 4.0)",
+              "runner": "ubuntu-latest",
+              "script": "scripts/ci/jobs/ext-ruby/ruby.sh",
+              "vars": {
+                "OS": "ubuntu-latest",
+                "RUBY": "4.0"
+              },
+              "setup": {
+                "ruby": "4.0",
+                "go": "1.26.x",
+                "go_cache": "true"
+              }
             },
             {
-              "os": "macos-15",
-              "ruby": "3.4"
+              "name": "ext-ruby/ruby (macos-15, 3.4)",
+              "runner": "macos-15",
+              "script": "scripts/ci/jobs/ext-ruby/ruby.sh",
+              "vars": {
+                "OS": "macos-15",
+                "RUBY": "3.4"
+              },
+              "setup": {
+                "ruby": "3.4",
+                "go": "1.26.x",
+                "go_cache": "true"
+              }
             }
           ]
         }
       }
     },
     "ext-lua": {
-      "workflow": ".github/workflows/ext-lua.yml",
       "tools": [
         "lua"
       ],
       "main_paths": [
-        "scripts/lang/**",
-        "pkg/ext-lua/**",
+        ".github/actions/setup/**",
+        ".github/ci/areas.json",
+        ".github/workflows/ci.yml",
         "lib/plugin/testdata/**",
         "pkg/ext-go/engine/**",
-        "tests/crosslang/**",
+        "pkg/ext-lua/**",
+        "scripts/ci/jobs/ext-lua/**",
+        "scripts/ci/jobs/lib.sh",
+        "scripts/ci/plan.py",
         "scripts/ext-lua.sh",
-        ".github/workflows/ext-lua.yml"
+        "scripts/lang/**",
+        "tests/crosslang/**"
       ],
       "pr_paths": [
-        "scripts/lang/**",
-        "pkg/ext-lua/**",
+        ".github/actions/setup/**",
+        ".github/ci/areas.json",
+        ".github/workflows/ci.yml",
         "lib/plugin/testdata/**",
         "pkg/ext-go/engine/**",
-        "tests/crosslang/**",
+        "pkg/ext-lua/**",
+        "scripts/ci/jobs/ext-lua/**",
+        "scripts/ci/jobs/lib.sh",
+        "scripts/ci/plan.py",
         "scripts/ext-lua.sh",
-        ".github/workflows/ext-lua.yml"
+        "scripts/lang/**",
+        "tests/crosslang/**"
       ],
       "jobs": {
         "lua": {
-          "runs-on": "${{ matrix.os }}",
+          "group": "languages",
           "cells": [
             {
-              "lua": "5.1.5",
-              "os": "ubuntu-latest"
+              "name": "ext-lua/lua (5.1.5, ubuntu-latest)",
+              "runner": "ubuntu-latest",
+              "script": "scripts/ci/jobs/ext-lua/lua.sh",
+              "vars": {
+                "LUA": "5.1.5",
+                "OS": "ubuntu-latest"
+              },
+              "setup": {
+                "go": "1.26.x",
+                "go_cache": "true",
+                "lua": "5.1.5",
+                "lua_build_cache": "true"
+              }
             },
             {
-              "lua": "5.2.4",
-              "os": "ubuntu-latest"
+              "name": "ext-lua/lua (5.2.4, ubuntu-latest)",
+              "runner": "ubuntu-latest",
+              "script": "scripts/ci/jobs/ext-lua/lua.sh",
+              "vars": {
+                "LUA": "5.2.4",
+                "OS": "ubuntu-latest"
+              },
+              "setup": {
+                "go": "1.26.x",
+                "go_cache": "true",
+                "lua": "5.2.4",
+                "lua_build_cache": "true"
+              }
             },
             {
-              "lua": "5.3.6",
-              "os": "ubuntu-latest"
+              "name": "ext-lua/lua (5.3.6, ubuntu-latest)",
+              "runner": "ubuntu-latest",
+              "script": "scripts/ci/jobs/ext-lua/lua.sh",
+              "vars": {
+                "LUA": "5.3.6",
+                "OS": "ubuntu-latest"
+              },
+              "setup": {
+                "go": "1.26.x",
+                "go_cache": "true",
+                "lua": "5.3.6",
+                "lua_build_cache": "true"
+              }
             },
             {
-              "lua": "5.4.9",
-              "os": "ubuntu-latest"
+              "name": "ext-lua/lua (5.4.9, ubuntu-latest)",
+              "runner": "ubuntu-latest",
+              "script": "scripts/ci/jobs/ext-lua/lua.sh",
+              "vars": {
+                "LUA": "5.4.9",
+                "OS": "ubuntu-latest"
+              },
+              "setup": {
+                "go": "1.26.x",
+                "go_cache": "true",
+                "lua": "5.4.9",
+                "lua_build_cache": "true"
+              }
             },
             {
-              "lua": "5.5.1",
-              "os": "ubuntu-latest"
+              "name": "ext-lua/lua (5.5.1, ubuntu-latest)",
+              "runner": "ubuntu-latest",
+              "script": "scripts/ci/jobs/ext-lua/lua.sh",
+              "vars": {
+                "LUA": "5.5.1",
+                "OS": "ubuntu-latest"
+              },
+              "setup": {
+                "go": "1.26.x",
+                "go_cache": "true",
+                "lua": "5.5.1",
+                "lua_build_cache": "true"
+              }
             },
             {
-              "lua": "luajit-2.1",
-              "os": "ubuntu-latest"
+              "name": "ext-lua/lua (luajit-2.1, ubuntu-latest)",
+              "runner": "ubuntu-latest",
+              "script": "scripts/ci/jobs/ext-lua/lua.sh",
+              "vars": {
+                "LUA": "luajit-2.1",
+                "OS": "ubuntu-latest"
+              },
+              "setup": {
+                "go": "1.26.x",
+                "go_cache": "true",
+                "lua": "luajit-2.1",
+                "lua_build_cache": "true"
+              }
             },
             {
-              "lua": "5.4.9",
-              "os": "macos-15"
+              "name": "ext-lua/lua (5.4.9, macos-15)",
+              "runner": "macos-15",
+              "script": "scripts/ci/jobs/ext-lua/lua.sh",
+              "vars": {
+                "LUA": "5.4.9",
+                "OS": "macos-15"
+              },
+              "setup": {
+                "go": "1.26.x",
+                "go_cache": "true",
+                "lua": "5.4.9",
+                "lua_build_cache": "true"
+              }
             },
             {
-              "lua": "luajit-2.1",
-              "os": "macos-15"
+              "name": "ext-lua/lua (luajit-2.1, macos-15)",
+              "runner": "macos-15",
+              "script": "scripts/ci/jobs/ext-lua/lua.sh",
+              "vars": {
+                "LUA": "luajit-2.1",
+                "OS": "macos-15"
+              },
+              "setup": {
+                "go": "1.26.x",
+                "go_cache": "true",
+                "lua": "luajit-2.1",
+                "lua_build_cache": "true"
+              }
             }
           ]
         },
         "rock": {
-          "runs-on": "ubuntu-latest",
+          "group": "languages",
           "cells": [
             {
-              "os": "ubuntu-latest"
+              "name": "ext-lua/rock (ubuntu-latest)",
+              "runner": "ubuntu-latest",
+              "script": "scripts/ci/jobs/ext-lua/rock.sh",
+              "vars": {
+                "OS": "ubuntu-latest"
+              },
+              "setup": {
+                "lua": "5.4.9",
+                "lua_build_cache": "true",
+                "luarocks": "true"
+              }
             }
           ]
         }
       }
     },
     "dotnet-windows": {
-      "workflow": ".github/workflows/dotnet-windows.yml",
       "tools": [
         "csharp"
       ],
       "main_paths": [
-        "scripts/lang/**",
+        ".github/actions/setup/**",
+        ".github/ci/areas.json",
+        ".github/workflows/ci.yml",
+        "res/int/model/windows/**",
         "res/system/capture/audio/windows/**",
         "res/system/capture/clipboard/windows/**",
         "res/web/windows/**",
-        "res/int/model/windows/**",
+        "scripts/ci/jobs/dotnet-windows/**",
+        "scripts/ci/jobs/lib.sh",
+        "scripts/ci/plan.py",
         "scripts/dotnet/**",
-        ".github/workflows/dotnet-windows.yml"
+        "scripts/lang/**"
       ],
       "pr_paths": [
-        "scripts/lang/**",
+        ".github/actions/setup/**",
+        ".github/ci/areas.json",
+        ".github/workflows/ci.yml",
+        "res/int/model/windows/**",
         "res/system/capture/audio/windows/**",
         "res/system/capture/clipboard/windows/**",
         "res/web/windows/**",
-        "res/int/model/windows/**",
+        "scripts/ci/jobs/dotnet-windows/**",
+        "scripts/ci/jobs/lib.sh",
+        "scripts/ci/plan.py",
         "scripts/dotnet/**",
-        ".github/workflows/dotnet-windows.yml"
+        "scripts/lang/**"
       ],
       "jobs": {
         "tests": {
-          "runs-on": "windows-latest",
+          "group": "languages",
           "cells": [
             {
-              "os": "windows-latest"
+              "name": "dotnet-windows/tests (windows-latest)",
+              "runner": "windows-latest",
+              "script": "scripts/ci/jobs/dotnet-windows/tests.sh",
+              "vars": {
+                "OS": "windows-latest"
+              },
+              "setup": {
+                "dotnet": "8.0.x"
+              }
             }
           ]
         }

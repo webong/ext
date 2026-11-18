@@ -1,8 +1,11 @@
 name: CI
 
-# The one entry point for tests. A plan job reads .github/ci/areas.json through scripts/ci/plan.py
-# and decides which areas run and which matrix cells each of their jobs gets; every area is a
-# reusable workflow fed those cells. See docs/ci.md.
+# The one workflow for tests. A plan job reads .github/ci/areas.json through scripts/ci/plan.py and
+# picks the cells to run; the jobs below (go, engines, languages, conformance, platforms) each run
+# their group's cells as one matrix. A cell names its runner, its toolchains (installed by
+# .github/actions/setup), its values (exported as MATRIX_<KEY>) and its script under
+# scripts/ci/jobs/. Adding a language, an engine or a platform adds cells, not workflows. See
+# docs/ci.md.
 #
 #   push to main      every platform; an area runs if a changed file matches its main_paths
 #   pull request      tool:<name> labels pick areas (otherwise the changed paths do);
@@ -35,28 +38,16 @@ jobs:
   plan:
     runs-on: ubuntu-latest
     outputs:
-      native_run: ${{ steps.plan.outputs.native_run }}
-      native_cells: ${{ steps.plan.outputs.native_cells }}
-      plugin-engine_run: ${{ steps.plan.outputs.plugin-engine_run }}
-      plugin-engine_cells: ${{ steps.plan.outputs.plugin-engine_cells }}
-      c2goengine_run: ${{ steps.plan.outputs.c2goengine_run }}
-      c2goengine_cells: ${{ steps.plan.outputs.c2goengine_cells }}
-      host-cases_run: ${{ steps.plan.outputs.host-cases_run }}
-      host-cases_cells: ${{ steps.plan.outputs.host-cases_cells }}
-      plugin-sdk_run: ${{ steps.plan.outputs.plugin-sdk_run }}
-      plugin-sdk_cells: ${{ steps.plan.outputs.plugin-sdk_cells }}
-      plugin-wamr_run: ${{ steps.plan.outputs.plugin-wamr_run }}
-      plugin-wamr_cells: ${{ steps.plan.outputs.plugin-wamr_cells }}
-      web-js_run: ${{ steps.plan.outputs.web-js_run }}
-      web-js_cells: ${{ steps.plan.outputs.web-js_cells }}
-      ext-php_run: ${{ steps.plan.outputs.ext-php_run }}
-      ext-php_cells: ${{ steps.plan.outputs.ext-php_cells }}
-      ext-ruby_run: ${{ steps.plan.outputs.ext-ruby_run }}
-      ext-ruby_cells: ${{ steps.plan.outputs.ext-ruby_cells }}
-      ext-lua_run: ${{ steps.plan.outputs.ext-lua_run }}
-      ext-lua_cells: ${{ steps.plan.outputs.ext-lua_cells }}
-      dotnet-windows_run: ${{ steps.plan.outputs.dotnet-windows_run }}
-      dotnet-windows_cells: ${{ steps.plan.outputs.dotnet-windows_cells }}
+      go: ${{ steps.plan.outputs.go }}
+      go_run: ${{ steps.plan.outputs.go_run }}
+      engines: ${{ steps.plan.outputs.engines }}
+      engines_run: ${{ steps.plan.outputs.engines_run }}
+      languages: ${{ steps.plan.outputs.languages }}
+      languages_run: ${{ steps.plan.outputs.languages_run }}
+      conformance: ${{ steps.plan.outputs.conformance }}
+      conformance_run: ${{ steps.plan.outputs.conformance_run }}
+      platforms: ${{ steps.plan.outputs.platforms }}
+      platforms_run: ${{ steps.plan.outputs.platforms_run }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -83,7 +74,7 @@ jobs:
             *) : >changed.txt ;;
           esac
           wc -l <changed.txt
-      - name: Check the area table against the workflows
+      - name: Check the area table against the scripts
         run: python3 -I scripts/ci/plan.py --check
       - id: plan
         name: Plan
@@ -95,69 +86,267 @@ jobs:
           python3 -I scripts/ci/plan.py --event "$EVENT" --labels "${PR_LABELS}${DISPATCH_LABELS}" \
             --changed changed.txt
 
-  native:
+  # Go modules, the native shell libraries, the standalone and arch checks, and the Go SDK.
+  go:
     needs: plan
-    if: needs.plan.outputs.native_run == 'true'
-    uses: ./.github/workflows/native.yml
-    with:
-      cells: ${{ needs.plan.outputs.native_cells }}
-  plugin-engine:
+    if: needs.plan.outputs.go_run == 'true'
+    name: ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.plan.outputs.go) }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: ${{ matrix.timeout || 360 }}
+    continue-on-error: ${{ matrix.continue_on_error == true }}
+    steps:
+      - name: Keep line endings as they are
+        if: matrix.autocrlf_off
+        run: git config --global core.autocrlf false
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup
+        with:
+          go: ${{ matrix.setup.go }}
+          go_cache: ${{ matrix.setup.go_cache }}
+          java: ${{ matrix.setup.java }}
+          node: ${{ matrix.setup.node }}
+          python: ${{ matrix.setup.python }}
+          php: ${{ matrix.setup.php }}
+          php_extensions: ${{ matrix.setup.php_extensions }}
+          php_tools: ${{ matrix.setup.php_tools }}
+          ruby: ${{ matrix.setup.ruby }}
+          lua: ${{ matrix.setup.lua }}
+          lua_build_cache: ${{ matrix.setup.lua_build_cache }}
+          luarocks: ${{ matrix.setup.luarocks }}
+          rust: ${{ matrix.setup.rust }}
+          rust_targets: ${{ matrix.setup.rust_targets }}
+          rust_components: ${{ matrix.setup.rust_components }}
+          dotnet: ${{ matrix.setup.dotnet }}
+          msys2_msystem: ${{ matrix.setup.msys2_msystem }}
+          msys2_install: ${{ matrix.setup.msys2_install }}
+          msvc: ${{ matrix.setup.msvc }}
+          android_packages: ${{ matrix.setup.android_packages }}
+          gradle: ${{ matrix.setup.gradle }}
+          wamr_cache: ${{ matrix.wamr_cache }}
+      - name: Run
+        shell: bash
+        env:
+          CI_CELL_EXPORTS: ${{ matrix.exports }}
+          CI_SCRIPT: ${{ matrix.script }}
+        run: bash "$CI_SCRIPT"
+
+  # the C plugin engine on every toolchain, and its c2goengine translation.
+  engines:
     needs: plan
-    if: needs.plan.outputs.plugin-engine_run == 'true'
-    uses: ./.github/workflows/plugin-engine.yml
-    with:
-      cells: ${{ needs.plan.outputs.plugin-engine_cells }}
-  c2goengine:
+    if: needs.plan.outputs.engines_run == 'true'
+    name: ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.plan.outputs.engines) }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: ${{ matrix.timeout || 360 }}
+    continue-on-error: ${{ matrix.continue_on_error == true }}
+    steps:
+      - name: Keep line endings as they are
+        if: matrix.autocrlf_off
+        run: git config --global core.autocrlf false
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup
+        with:
+          go: ${{ matrix.setup.go }}
+          go_cache: ${{ matrix.setup.go_cache }}
+          java: ${{ matrix.setup.java }}
+          node: ${{ matrix.setup.node }}
+          python: ${{ matrix.setup.python }}
+          php: ${{ matrix.setup.php }}
+          php_extensions: ${{ matrix.setup.php_extensions }}
+          php_tools: ${{ matrix.setup.php_tools }}
+          ruby: ${{ matrix.setup.ruby }}
+          lua: ${{ matrix.setup.lua }}
+          lua_build_cache: ${{ matrix.setup.lua_build_cache }}
+          luarocks: ${{ matrix.setup.luarocks }}
+          rust: ${{ matrix.setup.rust }}
+          rust_targets: ${{ matrix.setup.rust_targets }}
+          rust_components: ${{ matrix.setup.rust_components }}
+          dotnet: ${{ matrix.setup.dotnet }}
+          msys2_msystem: ${{ matrix.setup.msys2_msystem }}
+          msys2_install: ${{ matrix.setup.msys2_install }}
+          msvc: ${{ matrix.setup.msvc }}
+          android_packages: ${{ matrix.setup.android_packages }}
+          gradle: ${{ matrix.setup.gradle }}
+          wamr_cache: ${{ matrix.wamr_cache }}
+      - name: Run
+        shell: bash
+        env:
+          CI_CELL_EXPORTS: ${{ matrix.exports }}
+          CI_SCRIPT: ${{ matrix.script }}
+        run: bash "$CI_SCRIPT"
+      - name: Keep the result
+        if: always() && matrix.artifact && (matrix.artifact.always || success())
+        uses: actions/upload-artifact@v6
+        with:
+          name: ${{ matrix.artifact.name }}
+          path: ${{ matrix.artifact.path }}
+          if-no-files-found: ${{ matrix.artifact.if_no_files_found }}
+          retention-days: ${{ matrix.artifact.retention_days }}
+
+  # each language SDK through scripts/lang/<language>.sh: PHP, Ruby, Lua, .NET, web JS.
+  languages:
     needs: plan
-    if: needs.plan.outputs.c2goengine_run == 'true'
-    uses: ./.github/workflows/c2goengine.yml
-    with:
-      cells: ${{ needs.plan.outputs.c2goengine_cells }}
-  host-cases:
+    if: needs.plan.outputs.languages_run == 'true'
+    name: ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.plan.outputs.languages) }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: ${{ matrix.timeout || 360 }}
+    continue-on-error: ${{ matrix.continue_on_error == true }}
+    steps:
+      - name: Keep line endings as they are
+        if: matrix.autocrlf_off
+        run: git config --global core.autocrlf false
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup
+        with:
+          go: ${{ matrix.setup.go }}
+          go_cache: ${{ matrix.setup.go_cache }}
+          java: ${{ matrix.setup.java }}
+          node: ${{ matrix.setup.node }}
+          python: ${{ matrix.setup.python }}
+          php: ${{ matrix.setup.php }}
+          php_extensions: ${{ matrix.setup.php_extensions }}
+          php_tools: ${{ matrix.setup.php_tools }}
+          ruby: ${{ matrix.setup.ruby }}
+          lua: ${{ matrix.setup.lua }}
+          lua_build_cache: ${{ matrix.setup.lua_build_cache }}
+          luarocks: ${{ matrix.setup.luarocks }}
+          rust: ${{ matrix.setup.rust }}
+          rust_targets: ${{ matrix.setup.rust_targets }}
+          rust_components: ${{ matrix.setup.rust_components }}
+          dotnet: ${{ matrix.setup.dotnet }}
+          msys2_msystem: ${{ matrix.setup.msys2_msystem }}
+          msys2_install: ${{ matrix.setup.msys2_install }}
+          msvc: ${{ matrix.setup.msvc }}
+          android_packages: ${{ matrix.setup.android_packages }}
+          gradle: ${{ matrix.setup.gradle }}
+          wamr_cache: ${{ matrix.wamr_cache }}
+      - name: Run
+        shell: bash
+        env:
+          CI_CELL_EXPORTS: ${{ matrix.exports }}
+          CI_SCRIPT: ${{ matrix.script }}
+        run: bash "$CI_SCRIPT"
+
+  # the cross-language suites: host cases in every language, and the foreign SDKs through the C engine.
+  conformance:
     needs: plan
-    if: needs.plan.outputs.host-cases_run == 'true'
-    uses: ./.github/workflows/host-cases.yml
-    with:
-      cells: ${{ needs.plan.outputs.host-cases_cells }}
-  plugin-sdk:
+    if: needs.plan.outputs.conformance_run == 'true'
+    name: ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.plan.outputs.conformance) }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: ${{ matrix.timeout || 360 }}
+    continue-on-error: ${{ matrix.continue_on_error == true }}
+    steps:
+      - name: Keep line endings as they are
+        if: matrix.autocrlf_off
+        run: git config --global core.autocrlf false
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup
+        with:
+          go: ${{ matrix.setup.go }}
+          go_cache: ${{ matrix.setup.go_cache }}
+          java: ${{ matrix.setup.java }}
+          node: ${{ matrix.setup.node }}
+          python: ${{ matrix.setup.python }}
+          php: ${{ matrix.setup.php }}
+          php_extensions: ${{ matrix.setup.php_extensions }}
+          php_tools: ${{ matrix.setup.php_tools }}
+          ruby: ${{ matrix.setup.ruby }}
+          lua: ${{ matrix.setup.lua }}
+          lua_build_cache: ${{ matrix.setup.lua_build_cache }}
+          luarocks: ${{ matrix.setup.luarocks }}
+          rust: ${{ matrix.setup.rust }}
+          rust_targets: ${{ matrix.setup.rust_targets }}
+          rust_components: ${{ matrix.setup.rust_components }}
+          dotnet: ${{ matrix.setup.dotnet }}
+          msys2_msystem: ${{ matrix.setup.msys2_msystem }}
+          msys2_install: ${{ matrix.setup.msys2_install }}
+          msvc: ${{ matrix.setup.msvc }}
+          android_packages: ${{ matrix.setup.android_packages }}
+          gradle: ${{ matrix.setup.gradle }}
+          wamr_cache: ${{ matrix.wamr_cache }}
+      - name: Run
+        shell: bash
+        env:
+          CI_CELL_EXPORTS: ${{ matrix.exports }}
+          CI_SCRIPT: ${{ matrix.script }}
+        run: bash "$CI_SCRIPT"
+      - name: Keep the result
+        if: always() && matrix.artifact && (matrix.artifact.always || success())
+        uses: actions/upload-artifact@v6
+        with:
+          name: ${{ matrix.artifact.name }}
+          path: ${{ matrix.artifact.path }}
+          if-no-files-found: ${{ matrix.artifact.if_no_files_found }}
+          retention-days: ${{ matrix.artifact.retention_days }}
+
+  # Android and iOS packaging, the WAMR hosts, and the real desktop session.
+  platforms:
     needs: plan
-    if: needs.plan.outputs.plugin-sdk_run == 'true'
-    uses: ./.github/workflows/plugin-sdk.yml
-    with:
-      cells: ${{ needs.plan.outputs.plugin-sdk_cells }}
-  plugin-wamr:
-    needs: plan
-    if: needs.plan.outputs.plugin-wamr_run == 'true'
-    uses: ./.github/workflows/plugin-wamr.yml
-    with:
-      cells: ${{ needs.plan.outputs.plugin-wamr_cells }}
-  web-js:
-    needs: plan
-    if: needs.plan.outputs.web-js_run == 'true'
-    uses: ./.github/workflows/web-js.yml
-    with:
-      cells: ${{ needs.plan.outputs.web-js_cells }}
-  ext-php:
-    needs: plan
-    if: needs.plan.outputs.ext-php_run == 'true'
-    uses: ./.github/workflows/ext-php.yml
-    with:
-      cells: ${{ needs.plan.outputs.ext-php_cells }}
-  ext-ruby:
-    needs: plan
-    if: needs.plan.outputs.ext-ruby_run == 'true'
-    uses: ./.github/workflows/ext-ruby.yml
-    with:
-      cells: ${{ needs.plan.outputs.ext-ruby_cells }}
-  ext-lua:
-    needs: plan
-    if: needs.plan.outputs.ext-lua_run == 'true'
-    uses: ./.github/workflows/ext-lua.yml
-    with:
-      cells: ${{ needs.plan.outputs.ext-lua_cells }}
-  dotnet-windows:
-    needs: plan
-    if: needs.plan.outputs.dotnet-windows_run == 'true'
-    uses: ./.github/workflows/dotnet-windows.yml
-    with:
-      cells: ${{ needs.plan.outputs.dotnet-windows_cells }}
+    if: needs.plan.outputs.platforms_run == 'true'
+    name: ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.plan.outputs.platforms) }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: ${{ matrix.timeout || 360 }}
+    continue-on-error: ${{ matrix.continue_on_error == true }}
+    steps:
+      - name: Keep line endings as they are
+        if: matrix.autocrlf_off
+        run: git config --global core.autocrlf false
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup
+        with:
+          go: ${{ matrix.setup.go }}
+          go_cache: ${{ matrix.setup.go_cache }}
+          java: ${{ matrix.setup.java }}
+          node: ${{ matrix.setup.node }}
+          python: ${{ matrix.setup.python }}
+          php: ${{ matrix.setup.php }}
+          php_extensions: ${{ matrix.setup.php_extensions }}
+          php_tools: ${{ matrix.setup.php_tools }}
+          ruby: ${{ matrix.setup.ruby }}
+          lua: ${{ matrix.setup.lua }}
+          lua_build_cache: ${{ matrix.setup.lua_build_cache }}
+          luarocks: ${{ matrix.setup.luarocks }}
+          rust: ${{ matrix.setup.rust }}
+          rust_targets: ${{ matrix.setup.rust_targets }}
+          rust_components: ${{ matrix.setup.rust_components }}
+          dotnet: ${{ matrix.setup.dotnet }}
+          msys2_msystem: ${{ matrix.setup.msys2_msystem }}
+          msys2_install: ${{ matrix.setup.msys2_install }}
+          msvc: ${{ matrix.setup.msvc }}
+          android_packages: ${{ matrix.setup.android_packages }}
+          gradle: ${{ matrix.setup.gradle }}
+          wamr_cache: ${{ matrix.wamr_cache }}
+      - name: Run
+        shell: bash
+        env:
+          CI_CELL_EXPORTS: ${{ matrix.exports }}
+          CI_SCRIPT: ${{ matrix.script }}
+        run: bash "$CI_SCRIPT"
+      - name: Run in the Android emulator
+        if: matrix.android_emulator
+        uses: reactivecircus/android-emulator-runner@v2.33.0
+        with:
+          api-level: 34
+          arch: x86_64
+          target: default
+          disable-animations: true
+          script: bash ${{ matrix.android_emulator }}

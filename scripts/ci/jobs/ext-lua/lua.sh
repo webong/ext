@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# ext-lua/lua: drafted from .github/workflows/ext-lua.yml (job lua).
+. "$(dirname "$0")/../lib.sh"
+
+# (action actions/checkout@v5)
+
+# (action actions/setup-go@v6)
+
+# (action leafo/gh-actions-lua@v13)
+
+# Test the SDK and run it under the Go hosts
+(
+export EXT_LUA="$(case "${MATRIX_LUA:-}" in luajit*) echo luajit ;; *) echo lua ;; esac)"
+scripts/lang/lua.sh test
+)
+ci_import_env

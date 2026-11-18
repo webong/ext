@@ -1,0 +1,152 @@
+name: Set up toolchains
+description: >-
+  Installs the toolchains one CI cell names (its "setup" object in .github/ci/areas.json). Every
+  input is optional; an empty one installs nothing. ci.yml passes the cell's values; adding a
+  language means adding its inputs and steps here, not a workflow.
+
+inputs:
+  go:
+    description: Go version (actions/setup-go)
+    default: ''
+  go_cache:
+    description: Cache Go modules and builds (true or false)
+    default: 'true'
+  java:
+    description: Temurin JDK version
+    default: ''
+  node:
+    description: Node.js version
+    default: ''
+  python:
+    description: Python version
+    default: ''
+  php:
+    description: PHP version (shivammathur/setup-php, coverage none)
+    default: ''
+  php_extensions:
+    description: PHP extensions
+    default: ''
+  php_tools:
+    description: PHP tools
+    default: ''
+  ruby:
+    description: Ruby version
+    default: ''
+  lua:
+    description: Lua version (leafo/gh-actions-lua)
+    default: ''
+  lua_build_cache:
+    description: Let gh-actions-lua cache its build (true or false)
+    default: 'true'
+  luarocks:
+    description: Install LuaRocks (true or false)
+    default: ''
+  rust:
+    description: Rust toolchain (dtolnay/rust-toolchain)
+    default: ''
+  rust_targets:
+    description: Rust targets
+    default: ''
+  rust_components:
+    description: Rust components
+    default: ''
+  dotnet:
+    description: .NET SDK version
+    default: ''
+  msys2_msystem:
+    description: MSYS2 environment (MINGW64, CLANGARM64, ...); installs MSYS2 with path-type inherit
+    default: ''
+  msys2_install:
+    description: MSYS2 packages
+    default: ''
+  msvc:
+    description: Enter the MSVC developer environment (true or false)
+    default: ''
+  android_packages:
+    description: Android SDK packages (android-actions/setup-android)
+    default: ''
+  gradle:
+    description: Gradle version
+    default: ''
+  wamr_cache:
+    description: Restore and save the WAMR source cache in .cache/ext (true or false)
+    default: ''
+
+runs:
+  using: composite
+  steps:
+    - if: inputs.java != ''
+      uses: actions/setup-java@v5
+      with:
+        distribution: temurin
+        java-version: ${{ inputs.java }}
+    - if: inputs.android_packages != ''
+      uses: android-actions/setup-android@v3
+      with:
+        packages: ${{ inputs.android_packages }}
+    - if: inputs.go != '' && inputs.go_cache == 'true'
+      uses: actions/setup-go@v6
+      with:
+        go-version: ${{ inputs.go }}
+        cache: true
+        cache-dependency-path: |
+          **/go.sum
+          go.work.sum
+    - if: inputs.go != '' && inputs.go_cache != 'true'
+      uses: actions/setup-go@v6
+      with:
+        go-version: ${{ inputs.go }}
+        cache: false
+    - if: inputs.dotnet != ''
+      uses: actions/setup-dotnet@v5
+      with:
+        dotnet-version: ${{ inputs.dotnet }}
+    - if: inputs.python != ''
+      uses: actions/setup-python@v6
+      with:
+        python-version: ${{ inputs.python }}
+    - if: inputs.php != ''
+      uses: shivammathur/setup-php@v2
+      with:
+        php-version: ${{ inputs.php }}
+        extensions: ${{ inputs.php_extensions }}
+        tools: ${{ inputs.php_tools }}
+        coverage: none
+    - if: inputs.msys2_msystem != ''
+      uses: msys2/setup-msys2@v2
+      with:
+        msystem: ${{ inputs.msys2_msystem }}
+        install: ${{ inputs.msys2_install }}
+        path-type: inherit
+    - if: inputs.msvc == 'true'
+      uses: ilammy/msvc-dev-cmd@v1
+    - if: inputs.lua != ''
+      uses: leafo/gh-actions-lua@v13
+      with:
+        luaVersion: ${{ inputs.lua }}
+        buildCache: ${{ inputs.lua_build_cache }}
+    - if: inputs.luarocks == 'true'
+      uses: leafo/gh-actions-luarocks@v6
+    - if: inputs.ruby != ''
+      uses: ruby/setup-ruby@v1
+      with:
+        ruby-version: ${{ inputs.ruby }}
+    - if: inputs.rust != ''
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        toolchain: ${{ inputs.rust }}
+        targets: ${{ inputs.rust_targets }}
+        components: ${{ inputs.rust_components }}
+    - if: inputs.wamr_cache == 'true'
+      uses: actions/cache@v5
+      with:
+        path: .cache/ext
+        key: wamr-${{ hashFiles('scripts/plugin-wamr.sh') }}
+    - if: inputs.gradle != ''
+      uses: gradle/actions/setup-gradle@v4
+      with:
+        gradle-version: ${{ inputs.gradle }}
+    - if: inputs.node != ''
+      uses: actions/setup-node@v5
+      with:
+        node-version: ${{ inputs.node }}

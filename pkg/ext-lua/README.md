@@ -199,11 +199,11 @@ coroutine. `scripts/ext-lua.sh` (with `EXT_LUA` naming the interpreter) runs the
 `tests/crosslang`, which runs `tests/frames_guest.lua`, the frames conformance guest of
 [docs/plugin-guest-frames.md](https://github.com/webong/ext/blob/main/docs/plugin-guest-frames.md)
 (it answers the operations that need a reader of its own with the public error `unsupported`).
-`.github/workflows/ext-lua.yml` runs that script on Lua 5.1, 5.2, 5.3, 5.4, 5.5 and LuaJIT.
+CI (the `ext-lua` area of `.github/ci/areas.json`) runs that script on Lua 5.1, 5.2, 5.3, 5.4, 5.5 and LuaJIT.
 
 `tests/test_host.lua` checks the host SDK: every case of `lib/plugin/testdata/v1/host-cases.json` on
 the reference guest as a process and as a C ABI library, then policies, envelopes, reentry and
 ownership. It needs the C module on `package.cpath`, `EXT_HOST_LIBRARY`, `EXT_GO_GUEST` and
 `EXT_GO_SHARED`, and is skipped without them (it fails instead with `EXT_HOST_REQUIRED=1`).
-`scripts/host-cases.sh` builds them all and runs it, and `.github/workflows/host-cases.yml` runs that
+`scripts/host-cases.sh` builds them all and runs it, and CI (the `host-cases` area of `.github/ci/areas.json`) runs that
 on Lua 5.1, 5.4, 5.5 and LuaJIT.

@@ -1,0 +1,262 @@
+#!/usr/bin/env bash
+# native/native: drafted from .github/workflows/native.yml (job native).
+. "$(dirname "$0")/../lib.sh"
+
+# (action actions/checkout@v5)
+
+# (action actions/setup-go@v6)
+
+# (action actions/setup-dotnet@v5 if runner.os == 'Windows' || runner.os == 'Linux')
+
+# Validate Windows system library
+if [ "$RUNNER_OS" = Windows ]; then
+(
+go test -v ./res/system/... ./res/graph/... -timeout 5m
+)
+ci_import_env
+fi
+
+# Test library modules
+(
+for module in cmd/ext src/ctx src/ctn res/system res/graph res/int pkg/ext-go pkg/ext-go/engine pkg/ext-go/cgoengine pkg/ext-go/hashicorp pkg/ext-go/wasm pkg/ext-go/yaegi pkg/ext-go/inference pkg/ext-go/model pkg/ext-go/perception pkg/ext-go/realtime adapters/wasm adapters/evm adapters/systemd adapters/pulseaudio adapters/alsa adapters/x11 adapters/ffmpeg adapters/wayland adapters/pipewire adapters/openai adapters/ollama adapters/anthropic adapters/gemini res/web/host; do
+  (cd "$module" && go test ./...) || exit 1
+done
+)
+ci_import_env
+
+# Test intelligence contracts with race detector
+(
+go test -race ./res/int/inference/... ./res/int/perception/... ./pkg/ext-go/perception/... ./pkg/ext-go/realtime/... -timeout 5m
+)
+ci_import_env
+
+# Cross-build inference adapters for Windows
+(
+for module in adapters/openai adapters/ollama adapters/anthropic adapters/gemini; do
+  GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -o "$RUNNER_TEMP/$(basename "$module").exe" "./$module"
+done
+)
+ci_import_env
+
+# Validate isolated native processes
+(
+export EXT_GRAPH_PROCESS_NATIVE_TESTS="1"
+cd res/system
+go test -race -v ./service/process -run '^(TestNativeProcess|TestProcess)' -count=3 -timeout=5m
+)
+ci_import_env
+
+# Validate native process projection in the graph
+(
+export EXT_GRAPH_PROCESS_NATIVE_TESTS="1"
+cd res/graph
+go test -race -v . -run '^(TestLiveProcess|TestProcess)' -count=3 -timeout=5m
+)
+ci_import_env
+
+# Validate portable Android system contracts
+if [ "$RUNNER_OS" != Windows ]; then
+(
+scripts/system-android.sh
+)
+ci_import_env
+fi
+
+# Validate Android system network contracts
+if [ "$RUNNER_OS" != Windows ]; then
+(
+scripts/network-android.sh
+)
+ci_import_env
+fi
+
+# Validate Android ML contracts and optional TensorFlow Lite backend
+if [ "$RUNNER_OS" != Windows ]; then
+(
+scripts/ml-android.sh
+)
+ci_import_env
+fi
+
+# Generic iOS ExtSystem build
+if [ "$RUNNER_OS" = macOS ]; then
+(
+cd res/system/capture/surface/ios
+xcodebuild -scheme ExtSystem -destination 'generic/platform=iOS' -sdk iphoneos CODE_SIGNING_ALLOWED=NO build
+)
+ci_import_env
+fi
+
+# Generic iOS ExtHost, ExtShare and ExtAudio builds
+if [ "$RUNNER_OS" = macOS ]; then
+(
+for package in service/host/ios:ExtHost capture/share/ios:ExtShare capture/audio/ios:ExtAudio; do
+  (cd "res/system/${package%%:*}" && xcodebuild -scheme "${package##*:}" -destination 'generic/platform=iOS' -sdk iphoneos CODE_SIGNING_ALLOWED=NO build)
+done
+)
+ci_import_env
+fi
+
+# Generic iOS ExtNetwork build
+if [ "$RUNNER_OS" = macOS ]; then
+(
+cd res/system/service/network/ios
+xcodebuild -scheme ExtNetwork -destination 'generic/platform=iOS' -sdk iphoneos CODE_SIGNING_ALLOWED=NO build
+)
+ci_import_env
+fi
+
+# Swift tests (ExtSystem)
+if [ "$RUNNER_OS" = macOS ]; then
+(
+cd res/system/capture/surface/ios
+swift test
+)
+ci_import_env
+fi
+
+# Swift tests (ExtHost, ExtShare, ExtAudio and ExtClipboard)
+if [ "$RUNNER_OS" = macOS ]; then
+(
+for package in service/host/ios capture/share/ios capture/audio/ios capture/clipboard/ios; do
+  swift test --package-path "res/system/$package"
+done
+)
+ci_import_env
+fi
+
+# Swift tests (ExtNetwork)
+if [ "$RUNNER_OS" = macOS ]; then
+(
+cd res/system/service/network/ios
+swift test
+)
+ci_import_env
+fi
+
+# Swift tests (ExtML)
+if [ "$RUNNER_OS" = macOS ]; then
+(
+cd res/int/model/ios
+swift test
+)
+ci_import_env
+fi
+
+# Validate native CoreML guest through CTN
+if [ "$RUNNER_OS" = macOS ]; then
+(
+swift build --product ext-coreml-guest --package-path res/int/model/ios
+EXT_COREML_GUEST_BINARY="$PWD/res/int/model/ios/.build/debug/ext-coreml-guest" go test ./src/ctn/internal/app -run '^TestModelRunThroughCoreMLGuest$' -count=1
+cmake -S pkg/ext-go/cgoengine/_csrc -B "$RUNNER_TEMP/ext-model-cengine" -DCMAKE_BUILD_TYPE=Release
+cmake --build "$RUNNER_TEMP/ext-model-cengine" --target ext_host_static -j 4
+EXT_COREML_GUEST_BINARY="$PWD/res/int/model/ios/.build/debug/ext-coreml-guest" CGO_LDFLAGS="-L$RUNNER_TEMP/ext-model-cengine" go test -tags ext_cengine ./src/ctn/internal/app -run '^TestModelRunThroughCoreMLGuest$' -count=1
+)
+ci_import_env
+fi
+
+# Validate Windows system and WebView2 libraries
+if [ "$RUNNER_OS" = Windows ]; then
+(
+ci_pwsh <<'PWSH'
+dotnet build res/system/capture/audio/windows/Ext.Audio.Windows.csproj
+dotnet run --project res/system/capture/audio/windows/Tests/Ext.Audio.Windows.Tests.csproj
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+dotnet build res/system/capture/clipboard/windows/Ext.Clipboard.Windows.csproj
+dotnet run --project res/system/capture/clipboard/windows/Tests/Ext.Clipboard.Windows.Tests.csproj
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+dotnet build res/int/model/windows/Ext.ML.Windows.csproj
+dotnet run --project res/int/model/windows/Tests/Ext.ML.Windows.Tests.csproj
+dotnet build res/web/windows/Ext.Web.Windows.csproj
+dotnet run --project res/web/windows/Tests/Ext.Web.Windows.Tests.csproj
+PWSH
+)
+ci_import_env
+fi
+
+# Pack the .NET libraries
+if [ "$RUNNER_OS" = Windows ]; then
+(
+ci_pwsh <<'PWSH'
+$out = Join-Path $env:RUNNER_TEMP 'nupkg'
+foreach ($project in @(
+    'res/system/capture/audio/windows/Ext.Audio.Windows.csproj',
+    'res/system/capture/clipboard/windows/Ext.Clipboard.Windows.csproj',
+    'res/web/windows/Ext.Web.Windows.csproj',
+    'res/int/model/windows/Ext.ML.Windows.csproj')) {
+  dotnet pack $project -c Release -p:Version=0.0.0-ci -o $out
+  if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+}
+if ((Get-ChildItem $out -Filter *.nupkg).Count -ne 4) { throw 'expected four packages' }
+PWSH
+)
+ci_import_env
+fi
+
+# Validate native ONNX guest through CTN
+if [ "$RUNNER_OS" = Windows ]; then
+(
+ci_pwsh <<'PWSH'
+dotnet publish res/int/model/windows/Guest/Ext.ML.Windows.Guest.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o "$env:RUNNER_TEMP/onnx-guest"
+$env:EXT_ONNX_GUEST_BINARY = Join-Path $env:RUNNER_TEMP 'onnx-guest/Ext.ML.Windows.Guest.exe'
+go test ./src/ctn/internal/app -run '^TestModelRunThroughONNXGuest$' -count=1
+PWSH
+)
+ci_import_env
+fi
+
+# Validate Linux ONNX guest through CTN
+if [ "$RUNNER_OS" = Linux ]; then
+(
+dotnet run --project res/int/model/windows/Tests/Ext.ML.Windows.Tests.csproj
+dotnet publish res/int/model/linux/Guest/Ext.ML.Linux.Guest.csproj -c Release -r linux-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o "$RUNNER_TEMP/onnx-guest"
+EXT_ONNX_GUEST_BINARY="$RUNNER_TEMP/onnx-guest/Ext.ML.Linux.Guest" go test ./src/ctn/internal/app -run '^TestModelRunThroughONNXGuest$' -count=1
+)
+ci_import_env
+fi
+
+# Validate isolated native cookie credentials
+if [ "$RUNNER_OS" = macOS ] || [ "$RUNNER_OS" = Windows ]; then
+(
+export EXT_COOKIE_NATIVE_CREDENTIAL_TESTS="1"
+go test -v ./adapters/chromium/engine -run '^TestNativeCookieCredentials' -count=1
+)
+ci_import_env
+fi
+
+# Validate isolated native credential store
+if [ "$RUNNER_OS" = macOS ] || [ "$RUNNER_OS" = Windows ]; then
+(
+export EXT_CREDENTIAL_NATIVE_TESTS="1"
+go test -v ./adapters/keychain/store ./adapters/credman/store -run '^TestNative(KeychainCredential|CredentialManager)RoundTrip$' -count=1
+)
+ci_import_env
+fi
+
+# go build ./src/ctx/cmd/ctx
+(
+go build ./src/ctx/cmd/ctx
+)
+ci_import_env
+
+# Test Windows source installer
+if [ "$RUNNER_OS" = Windows ]; then
+(
+ci_pwsh <<'PWSH'
+./tests/windows_native_test.ps1
+PWSH
+)
+ci_import_env
+fi
+
+# Test Windows source installer (Windows PowerShell 5.1)
+if [ "$RUNNER_OS" = Windows ]; then
+(
+ci_powershell <<'PS'
+if ($PSVersionTable.PSEdition -ne 'Desktop') { throw "expected Windows PowerShell, got $($PSVersionTable.PSEdition) $($PSVersionTable.PSVersion)" }
+"Windows PowerShell $($PSVersionTable.PSVersion)"
+./tests/windows_native_test.ps1
+PS
+)
+ci_import_env
+fi

@@ -150,12 +150,12 @@ on the thread making the call, so the extension takes the lock back to run them.
   envelopes and ownership. It needs the extension on the load path, `EXT_HOST_LIBRARY`,
   `EXT_GO_GUEST` and `EXT_GO_SHARED`, and is skipped without them (it fails instead with
   `EXT_HOST_REQUIRED=1`); `scripts/host-cases.sh` builds them all and runs it, on Ruby 3.1, 3.4
-  and 4.0 in `.github/workflows/host-cases.yml`.
+  and 4.0 in CI (the `host-cases` area of `.github/ci/areas.json`).
 
 `test/frames_guest.rb` is the frames conformance guest of
 [docs/plugin-guest-frames.md](https://github.com/webong/ext/blob/main/docs/plugin-guest-frames.md)
 (it answers the operations that need a reader of its own with the public error `unsupported`).
 The Go suite in `pkg/ext-go/engine/plugintest` (`TestRubyGuest`, `TestRubyUnitTests`) runs
 `test/conformance_guest.rb` through `process.Start` against the shared conformance fixtures; set
-`EXT_RUBY` to an interpreter's absolute path to choose one. `.github/workflows/ext-ruby.yml` runs
+`EXT_RUBY` to an interpreter's absolute path to choose one. CI (the `ext-ruby` area of `.github/ci/areas.json`) runs
 all of this on Ruby 3.1 through the latest.

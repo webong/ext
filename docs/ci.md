@@ -5,10 +5,30 @@ Tests run from one workflow, `.github/workflows/ci.yml`, and releases from one,
 
 ## How a run is planned
 
-`ci.yml` starts with a `plan` job. It runs `scripts/ci/plan.py` over `.github/ci/areas.json`, which
-lists every **area** (a reusable workflow), the tools it tests, the paths that concern it, and each of
-its jobs with the matrix cells it can run. The plan picks the areas and the cells, and each area's
-workflow runs only those cells. Its summary on the run page says what was picked.
+`ci.yml` is the only test workflow. It starts with a `plan` job, which runs `scripts/ci/plan.py`
+over `.github/ci/areas.json`. That table lists every **area** (`native`, `plugin-engine`,
+`c2goengine`, `host-cases`, `plugin-sdk`, `plugin-wamr`, `web-js`, `ext-php`, `ext-ruby`, `ext-lua`,
+`dotnet-windows`), the tools it tests, the paths that concern it, and its jobs, each with its
+**cells**. A cell is one run: its name, its runner, the toolchains it needs (`setup`), its values
+(`vars`) and its script under `scripts/ci/jobs/<area>/<job>.sh`. The plan picks the cells; its
+summary on the run page says how many per area.
+
+`ci.yml` then has five jobs, one per **group**, and each runs its group's picked cells as one matrix:
+
+| Job | Runs |
+| --- | --- |
+| `go` | Go modules, the native shell libraries, the standalone and arch checks, the Go SDK |
+| `engines` | the C plugin engine on every toolchain, and its c2goengine translation |
+| `languages` | the language SDKs (PHP, Ruby, Lua, .NET, web JS) |
+| `conformance` | the cross-language suites: host cases, and the foreign SDKs through the C engine |
+| `platforms` | Android and iOS packaging, the WAMR hosts, the real desktop session |
+
+Every cell does the same thing: check out, run `.github/actions/setup` with its `setup` values (one
+composite action that knows every toolchain), export its `vars` as `MATRIX_<KEY>`, and run its
+script with bash. A script is the old job's steps in order; `scripts/ci/jobs/lib.sh` gives them the
+runner's handling of `$GITHUB_ENV` and `$GITHUB_PATH` between steps and helpers for MSYS2 and
+PowerShell steps. A cell may also name an artifact to keep, the Android emulator to run a script
+in, or `autocrlf_off` (Git keeps Windows line endings off before checkout).
 
 | Event | Areas | Platforms |
 | --- | --- | --- |
@@ -21,7 +41,8 @@ workflow runs only those cells. Its summary on the run page says what was picked
 There is no scheduled run, to keep CI cost down. A job marked `"on_request": true` in `areas.json`
 is slow or needs a real device session: the C engine fuzzer, the real PipeWire and Wayland desktop
 session, the Android emulator suite and the iOS Simulator suite. It runs only when a pull request or
-a manual run carries `ci:full`, never on a push to `main`.
+a manual run carries `ci:full`, never on a push to `main`. A job marked `"push_only": true` (the
+standalone-module check, which needs published sibling versions) runs only on a push to `main`.
 
 Adding or removing a label re-plans a pull request's run, and a newer run of the same pull request or
 branch cancels the older one. macOS, Windows, iOS and Android cost nothing on a pull request unless a
@@ -41,17 +62,24 @@ A manual run on a branch: `gh workflow run ci.yml --ref <branch> -f labels=tool:
 ## Languages
 
 Each language's own tests live in `scripts/lang/<language>.sh` (`test`, and commands such as `pack`
-or `typecheck`); workflows install the toolchain and call the script. The cross-runtime suites
+or `typecheck`), which the job scripts call. The cross-runtime suites
 (`scripts/plugin-crosslang.sh`, `plugin-cengine.sh`, `plugin-interop.sh`, `plugin-wasi-core.sh`,
-`host-cases.sh`) test the languages against each other and stay areas of their own.
+`host-cases.sh`) test the languages against each other and run in the `conformance` group.
 
 ## Adding to CI
 
-- **A job or a cell:** add it to its workflow and to `areas.json`. A job's matrix is
-  `include: ${{ fromJSON(inputs.cells)['<job>'] }}`, so a cell missing from `areas.json` never runs.
-- **A language:** a `scripts/lang/<language>.sh`, a tool name in `areas.json`, and the label.
-- **An area:** a reusable workflow (`on: workflow_call` with the `cells` input), its entry in
-  `areas.json`, and a job plus two plan outputs in `ci.yml`.
+No change here adds a workflow file.
+
+- **A cell** (a version, an OS): add it to its job's `cells` in `areas.json`.
+- **A job:** its script under `scripts/ci/jobs/<area>/`, and its entry (with `group` and `cells`)
+  in `areas.json`.
+- **A language:** a `scripts/lang/<language>.sh`, its toolchain's inputs and step in
+  `.github/actions/setup/action.yml` if it needs a new one, its cells, a tool name in `areas.json`,
+  and the `tool:` label.
+- **A group:** its entry in `groups` and a job in `ci.yml`, copied from the others.
+
+`plan.py --check`, which the plan job runs, fails when a cell names a script that does not exist, a
+group that has no job, or a runner whose platform it cannot tell.
 
 ## Releases
 

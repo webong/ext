@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""Plans a CI run: which areas of .github/ci/areas.json run, and which matrix cells of each job.
+"""Plans a CI run: which cells of .github/ci/areas.json run, grouped by the ci.yml job that runs
+them (go, engines, languages, conformance, platforms).
 
 Selection, by event:
   push to main, or the label ci:full
       every tool on every platform; on a push, an area with main_paths runs only if a changed
-      file matches them (as the per-area workflows did before ci.yml)
+      file matches them
   pull_request
       tool:<name> labels choose the areas tagged with that tool; without one, the areas whose
       pr_paths match a changed file run. platform:<name> labels choose platforms; without one,
@@ -12,28 +13,27 @@ Selection, by event:
   workflow_dispatch
       as a pull request, with --labels standing in for the PR's labels
 
-A job marked "on_request" in the table (slow, or needing a real device session) runs only with
-ci:full, never on a push to main or an ordinary pull request.
+A job marked "on_request" (slow, or needing a real device session) runs only with ci:full; one
+marked "push_only" only on a push to main.
 
-Writes "<area>_run=true|false" and "<area>_cells=<json>" lines (job name -> list of cells) to
-$GITHUB_OUTPUT, or to stdout, and a summary table to $GITHUB_STEP_SUMMARY when it is set.
-Uses the standard library only.
+Writes "<group>=<json list of cells>" and "<group>_run=true|false" lines to $GITHUB_OUTPUT, or to
+stdout, and a summary table to $GITHUB_STEP_SUMMARY when it is set. Standard library only.
 
 Usage: plan.py --event EVENT [--labels 'a,b'] [--changed FILE] [--areas PATH]
-       plan.py --check   (every workflow job is in areas.json and takes its cells from the plan)
+       plan.py --check   (the table names existing scripts, known groups, and runnable cells)
 """
 import argparse
 import fnmatch
 import json
 import os
-import re
+import shlex
 import sys
 
 
 def platform_of(job, cell):
     if job.get("platform"):
         return job["platform"]
-    runner = str(cell.get("os") or job.get("runs-on") or "")
+    runner = str(cell.get("runner") or "")
     for prefix, name in (("ubuntu", "linux"), ("macos", "macos"), ("windows", "windows")):
         if runner.startswith(prefix):
             return name
@@ -65,7 +65,8 @@ def plan(table, event, labels, changed):
         tools, platforms = tools_all, platforms_all
     elif not platforms:
         platforms = {"linux"}
-    result = {}
+    groups = {g: [] for g in table["groups"]}
+    areas = {}
     for name, area in table["areas"].items():
         if full:
             run = event != "push" or matches(area["main_paths"], changed)
@@ -73,36 +74,37 @@ def plan(table, event, labels, changed):
             run = bool(tools & set(area["tools"]))
         else:
             run = matches(area["pr_paths"], changed)
-        cells = {}
-        for job_name, job in area["jobs"].items():
-            wanted = run and (on_request or not job.get("on_request"))
-            kept = [c for c in job["cells"] if platform_of(job, c) in platforms] if wanted else []
-            cells[job_name] = kept
-        run = run and any(cells.values())
-        result[name] = {"run": run, "cells": cells}
-    return result, sorted(tools), sorted(platforms), full
+        count = 0
+        for job in area["jobs"].values():
+            wanted = run and (on_request or not job.get("on_request")) and (event == "push" or not job.get("push_only"))
+            if not wanted:
+                continue
+            for cell in job["cells"]:
+                if platform_of(job, cell) in platforms:
+                    # The job's shell reads the cell's values from one variable, so no runner needs
+                    # jq or python to turn a JSON object into environment variables.
+                    exports = "; ".join(f"export MATRIX_{k}={shlex.quote(v)}" for k, v in sorted(cell["vars"].items()))
+                    groups[job["group"]].append(dict(cell, exports=exports))
+                    count += 1
+        areas[name] = count
+    return groups, areas, sorted(tools), sorted(platforms), full
 
 
 def check(table):
-    """Every job of an area's workflow is in the table, and reads its cells from the plan."""
     problems = []
+    groups = set(table["groups"])
+    names = set()
     for name, area in table["areas"].items():
-        with open(area["workflow"]) as f:
-            text = f.read()
-        if "workflow_call:" not in text:
-            problems.append(f"{area['workflow']}: not a reusable workflow")
-        jobs_text = text.split("\njobs:\n", 1)[1]
-        jobs = re.findall(r"(?m)^  ([a-z0-9_-]+):\n", jobs_text)
-        for job in jobs:
-            if job not in area["jobs"]:
-                problems.append(f"{area['workflow']}: job {job} is not in areas.json")
-            elif f"fromJSON(inputs.cells)['{job}']" not in jobs_text:
-                problems.append(f"{area['workflow']}: job {job} does not take its cells from the plan")
-        for job in area["jobs"]:
-            if job not in jobs:
-                problems.append(f"areas.json: {name} lists job {job}, which its workflow lacks")
-            for cell in area["jobs"][job]["cells"]:
-                platform_of(area["jobs"][job], cell)
+        for job_name, job in area["jobs"].items():
+            if job.get("group") not in groups:
+                problems.append(f"{name}/{job_name}: group {job.get('group')!r} is not one of {sorted(groups)}")
+            for cell in job["cells"]:
+                platform_of(job, cell)
+                if not os.path.isfile(cell["script"]):
+                    problems.append(f"{cell['name']}: script {cell['script']} does not exist")
+                if cell["name"] in names:
+                    problems.append(f"{cell['name']}: two cells have this name")
+                names.add(cell["name"])
     for problem in problems:
         print(problem, file=sys.stderr)
     return 1 if problems else 0
@@ -111,10 +113,10 @@ def check(table):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--event")
-    parser.add_argument("--check", action="store_true", help="check areas.json against the workflows")
     parser.add_argument("--labels", default="")
     parser.add_argument("--changed", help="file listing changed paths, one per line")
     parser.add_argument("--areas", default=".github/ci/areas.json")
+    parser.add_argument("--check", action="store_true", help="check areas.json against the scripts")
     args = parser.parse_args()
     with open(args.areas) as f:
         table = json.load(f)
@@ -127,12 +129,12 @@ def main():
     if args.changed:
         with open(args.changed) as f:
             changed = [l.strip() for l in f if l.strip()]
-    result, tools, platforms, full = plan(table, args.event, labels, changed)
+    groups, areas, tools, platforms, full = plan(table, args.event, labels, changed)
 
     lines = []
-    for name, r in result.items():
-        lines.append(f"{name}_run={'true' if r['run'] else 'false'}")
-        lines.append(f"{name}_cells={json.dumps(r['cells'], separators=(',', ':'))}")
+    for group, cells in groups.items():
+        lines.append(f"{group}={json.dumps(cells, separators=(',', ':'))}")
+        lines.append(f"{group}_run={'true' if cells else 'false'}")
     out = os.environ.get("GITHUB_OUTPUT")
     if out:
         with open(out, "a") as f:
@@ -145,10 +147,9 @@ def main():
         with open(summary, "a") as f:
             mode = "full run" if full else f"tools: {', '.join(tools) or 'from changed paths'}"
             f.write(f"### CI plan ({args.event}; {mode}; platforms: {', '.join(platforms)})\n\n")
-            f.write("| Area | Runs | Cells |\n| --- | --- | --- |\n")
-            for name, r in result.items():
-                count = sum(len(c) for c in r["cells"].values())
-                f.write(f"| {name} | {'yes' if r['run'] else 'no'} | {count} |\n")
+            f.write("| Area | Cells |\n| --- | --- |\n")
+            for name, count in areas.items():
+                f.write(f"| {name} | {count} |\n")
             f.write("\nAdd `tool:<name>` or `platform:<name>` labels, or `ci:full`, to change what runs.\n")
     return 0
 

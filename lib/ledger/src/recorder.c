@@ -272,8 +272,8 @@ int rec_apply(rec *r, const ext_ledger_context *ctx, lj_value *tx) {
 }
 
 int rec_get(rec *r, const ext_ledger_context *ctx, int edge, const char *id, lj_value **out) {
-  char *text;
-  size_t len;
+  char *text = NULL;
+  size_t len = 0;
   int rc = edge ? ext_ledger_get_edge(r->store, ctx, REC_NS, id, &text, &len) : ext_ledger_get_vertex(r->store, ctx, REC_NS, id, &text, &len);
   return parse_out(rc, text, len, out);
 }
@@ -298,8 +298,8 @@ int rec_query_edges(rec *r, const ext_ledger_context *ctx, const char *type, con
 }
 
 int rec_snapshot(rec *r, const ext_ledger_context *ctx, lj_value **out) {
-  char *text;
-  size_t len;
+  char *text = NULL;
+  size_t len = 0;
   return parse_out(ext_ledger_snapshot(r->store, ctx, REC_NS, &text, &len), text, len, out);
 }
 

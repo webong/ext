@@ -1,5 +1,5 @@
 // Code generated for darwin/amd64 by 'ccgo -o engine.go --package-name ccgo -I csrc/shim -I csrc/src -I csrc/vendor -I csrc/include -DEXT_HOST_STATIC -DEXT_HOST_BUILD -Dyyjson_align(x)= -Dyyjson_inline= -Dyyjson_noinline= -U__SIZEOF_INT128__ -include csrc/shim/compat_core.h -include csrc/shim/compat.h csrc/src/common.c csrc/src/wire.c csrc/src/progress.c csrc/src/reverse.c csrc/src/endpoint.c csrc/src/services.c csrc/src/guest.c csrc/src/sha256.c csrc/src/packages.c csrc/vendor/yyjson.c csrc/src/host.c csrc/src/fs_posix.c csrc/src/random_posix.c csrc/src/integrity.c csrc/src/instances.c csrc/src/streams.c csrc/shim/channel_go.c csrc/shim/missing.c', DO NOT EDIT.
-// c2goengine inputs sha256:4d0a86afa869344a9fcfece4742450d26ca8c62da59b43b3b643e97d0ba73b38
+// c2goengine inputs sha256:c8026fae4988c82b6f0f356416ea239fb12bac1551fae93e93165673d8489136
 
 //go:build darwin && amd64
 
@@ -1804,6 +1804,16 @@ type ext_host_services = struct {
 	Fmax_payload_bytes uint32_t
 	Fmax_in_flight     uint32_t
 	Fsession_value     uintptr
+}
+
+type ext_registry_edge = struct {
+	Fstruct_size    uint32_t
+	Ffrom_name      uintptr
+	Ffrom_version   uintptr
+	Ffrom_operation uintptr
+	Fto_name        uintptr
+	Fto_version     uintptr
+	Fto_operation   uintptr
 }
 
 type ext_host_state = int32
@@ -89775,6 +89785,8 @@ func unsafe_yyjson_mut_get_pointer9(tls *libc.TLS, val uintptr, ptr uintptr, len
 	return unsafe_yyjson_mut_ptr_getx(tls, val, ptr, len1, libc.UintptrFromInt32(0), bp)
 }
 
+type ext_call_begun = uintptr
+
 /*
  * Copyright (c) 2000, 2005, 2007, 2009, 2010, 2023 Apple Inc. All rights reserved.
  *
@@ -92999,7 +93011,7 @@ func ext_host_drain(tls *libc.TLS, h uintptr, timeout uint32_t) (r ext_status) {
 // C documentation
 //
 //	/* Builds authoritative request metadata from the immutable selection. */
-func call_impl(tls *libc.TLS, h uintptr, input uintptr, len1 size_t, options uintptr, progress uintptr, out uintptr) (r ext_status) {
+func call_impl(tls *libc.TLS, h uintptr, input uintptr, len1 size_t, options uintptr, progress uintptr, __ccgo_fp_begun ext_call_begun, begun_context uintptr, out uintptr) (r ext_status) {
 	bp := tls.Alloc(256)
 	defer tls.Free(256)
 	var bytes, call, copy1, doc, limits, name, operation, ref, request, root, v5 uintptr
@@ -93165,6 +93177,10 @@ func call_impl(tls *libc.TLS, h uintptr, input uintptr, len1 size_t, options uin
 		v5 = libc.UintptrFromInt32(0)
 	}
 	bytes = v5
+	if bytes != 0 && __ccgo_fp_begun != 0 && (*(*func(*libc.TLS, uintptr, uintptr) int32)(unsafe.Pointer(&struct{ uintptr }{__ccgo_fp_begun})))(tls, begun_context, bp+40) != 0 {
+		libc.Xfree(tls, bytes)
+		bytes = libc.UintptrFromInt32(0)
+	}
 	if bytes != 0 {
 		v2 = invoke_impl(tls, h, bytes, *(*size_t)(unsafe.Add(nil, bp+224)), options, progress, out)
 	} else {
@@ -93181,11 +93197,40 @@ done:
 }
 
 func ext_host_call(tls *libc.TLS, h uintptr, input uintptr, len1 size_t, options uintptr, out uintptr) (r ext_status) {
-	return call_impl(tls, h, input, len1, options, libc.UintptrFromInt32(0), out)
+	return call_impl(tls, h, input, len1, options, libc.UintptrFromInt32(0), libc.UintptrFromInt32(0), libc.UintptrFromInt32(0), out)
+}
+
+type __ccgo_fp__Xext_host_call_begun_4 = func(*libc.TLS, uintptr, uintptr) int32
+
+func ext_host_call_begun(tls *libc.TLS, h uintptr, input uintptr, len1 size_t, options uintptr, __ccgo_fp_begun ext_call_begun, context uintptr, out uintptr) (r ext_status) {
+	return call_impl(tls, h, input, len1, options, libc.UintptrFromInt32(0), __ccgo_fp_begun, context, out)
+}
+
+func ext_host_serves(tls *libc.TLS, h uintptr, ref uintptr) (r int32) {
+	var c uintptr
+	var i, n size_t
+	_, _, _ = c, i, n
+	i = uint64(0)
+	n = yyjson_arr_size9(tls, yyjson_obj_get9(tls, yyjson_doc_get_root9(tls, (*ext_host)(unsafe.Pointer(h)).Fselection), __ccgo_ts+417))
+	c = yyjson_arr_get_first9(tls, yyjson_obj_get9(tls, yyjson_doc_get_root9(tls, (*ext_host)(unsafe.Pointer(h)).Fselection), __ccgo_ts+417))
+	for {
+		if !(i < n) {
+			break
+		}
+		if ext_same_ref(tls, c, ref) != 0 {
+			return int32(1)
+		}
+		goto _1
+	_1:
+		;
+		i = i + 1
+		c = unsafe_yyjson_get_next9(tls, c)
+	}
+	return 0
 }
 
 func ext_host_call_progress(tls *libc.TLS, h uintptr, input uintptr, len1 size_t, options uintptr, progress uintptr, out uintptr) (r ext_status) {
-	return call_impl(tls, h, input, len1, options, progress, out)
+	return call_impl(tls, h, input, len1, options, progress, libc.UintptrFromInt32(0), libc.UintptrFromInt32(0), out)
 }
 
 /* ---- frames from an extension backend ---- */

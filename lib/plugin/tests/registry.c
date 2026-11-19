@@ -15,8 +15,6 @@
 #include <fcntl.h>
 #include <io.h>
 #include <windows.h>
-#else
-#include <unistd.h>
 #endif
 
 static yyjson_doc *read_json(const char *path) {
@@ -63,7 +61,9 @@ static void sleep_ms(int ms) {
 #ifdef _WIN32
   Sleep((DWORD)ms);
 #else
-  usleep((useconds_t)ms * 1000);
+  struct timespec t = {ms / 1000, (long)(ms % 1000) * 1000000L};
+  while (nanosleep(&t, &t) != 0)
+    ;
 #endif
 }
 static void format_deadline(int64_t ms_from_now, char *out, size_t size) {

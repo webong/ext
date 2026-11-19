@@ -15,7 +15,7 @@ Each layer depends only on the layers above it in this table. `AGENTS.md` and
 | Layer | What it is | Language |
 | --- | --- | --- |
 | 1. Contracts | `ext.plugin/v1`, the package manifest, the `ext.system` vocabulary, and the shared fixtures (`lib/plugin/testdata`, `res/web/testdata`, and the fixtures `res/system` and `res/graph` will get) | Data |
-| 2. Engines | `lib/plugin` (C, embeddable anywhere), `pkg/ext-go/engine` (the Go reference), `c2goengine`, `cgoengine`, and `lib/ledger` (the graph) | C where it must embed anywhere; Go as the reference for the plugin engine |
+| 2. Engines | `lib/plugin` (C, the main plugin engine), `pkg/ext-go/engine` (pure Go, kept in parity with it), `c2goengine`, `cgoengine`, and `lib/ledger` (the graph) | C, which the fixtures hold; the pure-Go engine follows the C one |
 | 3. OS mechanisms | `res/system`, `res/web`, `res/int` | Go on desktop and server; each OS's own language inside an app |
 | 4. Read model | `res/graph`: the store, the recorder of `ext.system`, the supervisor; moving to `lib/ledger` | Go, then C |
 | 5. SDKs | `pkg/ext-*`: guests and hosts over the protocol; `ext-ios` and `ext-android` also bundle the native `res/` code | Every language |

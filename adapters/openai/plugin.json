@@ -101,7 +101,7 @@
   ],
   "metadata": {
     "inference.provider/v1": {
-      "description": "OpenAI-compatible inference provider (chat completions, embeddings)",
+      "description": "OpenAI-compatible inference provider (chat completions, embeddings, speech, transcription)",
       "display_name": "OpenAI",
       "go_entry": "."
     }

@@ -1,6 +1,6 @@
 /* The guest registry: the shared cases (testdata/v1/registry-cases.json) run
  * against the relay guest they describe, which is this program started with
- * --guest <cases> <name>, then the configuration rules and routing under
+ * --guest <cases> <name> (--descriptor <cases> <name> prints its descriptor), then the configuration rules and routing under
  * concurrent registration. Usage: ext_registry_test <registry-cases.json> */
 #define _XOPEN_SOURCE 700 /* realpath, under -std=c11 on glibc */
 #include "sync.h"
@@ -74,7 +74,9 @@ static void format_deadline(int64_t ms_from_now, char *out, size_t size) {
   snprintf(out, size, "%s.%03dZ", stamp, (int)(wall % 1000));
 }
 
-static int guest(const char *cases_path, const char *name) {
+/* Serves the relay guest, or with descriptor_only prints its descriptor: the
+ * host bindings' tests read it with --descriptor <cases> <name>. */
+static int guest(const char *cases_path, const char *name, int descriptor_only) {
 #ifdef _WIN32
   _setmode(_fileno(stdin), _O_BINARY);
   _setmode(_fileno(stdout), _O_BINARY);
@@ -125,6 +127,11 @@ static int guest(const char *cases_path, const char *name) {
   yyjson_mut_arr_append(reverses, rev);
   yyjson_mut_obj_add_val(dm, d, "reverse", reverses);
 
+  if (descriptor_only) {
+    yyjson_mut_doc_set_root(dm, d);
+    write_doc(dm);
+    return 0;
+  }
   if (!fgets(line, sizeof(line), stdin))
     return 0;
   yyjson_mut_doc *hello = yyjson_mut_doc_new(NULL);
@@ -545,7 +552,9 @@ static void find_cases(const char *path) { assert(realpath(path, cases_path)); }
 
 int main(int argc, char **argv) {
   if (argc == 4 && !strcmp(argv[1], "--guest"))
-    return guest(argv[2], argv[3]);
+    return guest(argv[2], argv[3], 0);
+  if (argc == 4 && !strcmp(argv[1], "--descriptor"))
+    return guest(argv[2], argv[3], 1);
   if (argc != 2) {
     fprintf(stderr, "usage: %s <registry-cases.json>\n", argv[0]);
     return 2;

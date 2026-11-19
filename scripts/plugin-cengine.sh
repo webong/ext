@@ -50,6 +50,9 @@ export EXT_REVERSE_TEST_GUEST="$build_dir/release/ext_reverse_test"
 "$EXT_REVERSE_TEST_GUEST" --descriptor > "$build_dir/reverse-descriptor.json"
 export EXT_REVERSE_TEST_DESCRIPTOR="$build_dir/reverse-descriptor.json"
 export EXT_ENDPOINT_CASES="$PWD/lib/plugin/testdata/v1/endpoint-cases.json"
+# ... and the guest registry tests run the relay guest of the shared registry cases.
+export EXT_REGISTRY_TEST_GUEST="$build_dir/release/ext_registry_test"
+export EXT_REGISTRY_CASES="$PWD/lib/plugin/testdata/v1/registry-cases.json"
 cmake -S lib/plugin -B "$build_dir/sanitize" -DCMAKE_BUILD_TYPE=Debug -DEXT_SANITIZE=ON
 cmake --build "$build_dir/sanitize" -j 4
 "$build_dir/sanitize/ext_guest_core_test"

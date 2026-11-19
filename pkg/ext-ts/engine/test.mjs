@@ -494,3 +494,51 @@ test('C layered view refuses what is not a set of roots',async()=>{
   new engine.LayeredPackageStore([one,join(base,'two')]).close();
  }finally{await rm(base,{recursive:true,force:true});}
 });
+
+// The guest registry: the shared cases (lib/plugin/testdata/v1/registry-cases.json)
+// against the C engine's relay guest (lib/plugin/tests/registry.c); set
+// EXT_REGISTRY_TEST_GUEST to the built ext_registry_test.
+const registryGuest=process.env.EXT_REGISTRY_TEST_GUEST;
+const registrySkip=!registryGuest;
+const registryCasesPath=process.env.EXT_REGISTRY_CASES??new URL('../../../lib/plugin/testdata/v1/registry-cases.json',import.meta.url).pathname;
+async function relayHost(registry,name,{denyForward=false,denyReverse=false}={}){
+ const descriptor=JSON.parse(execFileSync(registryGuest,['--descriptor',registryCasesPath,name]).toString());
+ return engine.Host.open({executable:registryGuest,arguments:['--guest',registryCasesPath,name],descriptor,verify:()=>true,authorize:()=>!denyForward,registry,reverse:{authorize:()=>!denyReverse}});
+}
+test('guest registry: the shared cases',{skip:registrySkip},async()=>{
+ const cases=JSON.parse(await readFile(registryCasesPath,'utf8'));
+ for(const c of cases.cases){
+  const registry=new engine.Registry();const hosts={};
+  try{
+   for(const [name,contract] of Object.entries(cases.guests)){
+    hosts[name]=await relayHost(registry,name,{denyForward:(c.forwardDeny??[]).includes(name),denyReverse:(c.reverseDeny??[]).includes(name)});
+    registry.register({name:contract,version:'v1'},hosts[name]);
+   }
+   for(const e of cases.edges)registry.route(e.from,e.to);
+   for(const [i,step] of c.steps.entries()){
+    if(step.unregister){registry.unregister({name:cases.guests[step.unregister],version:'v1'});continue;}
+    const reply=await hosts[step.call].call({name:cases.guests[step.call],version:'v1'},step.operation,step.payload??null,{timeout:step.timeoutMs??5000});
+    if(step.result!==undefined)assert.deepEqual(reply.payload,step.result,`${c.name} step ${i}`);
+    else assert.ok(step.resultError.includes(reply.payload?.error?.code),`${c.name} step ${i}: ${JSON.stringify(reply.payload)}`);
+   }
+  }finally{for(const h of Object.values(hosts))h.close();}
+ }
+});
+test('guest registry: configuration',{skip:registrySkip},async()=>{
+ const registry=new engine.Registry();
+ const b=await relayHost(registry,'b');
+ assert.throws(()=>registry.register({name:'Not A Name',version:'v1'},b),e=>e.status===status.INVALID);
+ assert.throws(()=>registry.register({name:'registry.other',version:'v1'},b),e=>e.status===status.UNSUPPORTED);
+ registry.register({name:'registry.b',version:'v1'},b);
+ assert.throws(()=>registry.register({name:'registry.b',version:'v1'},b),e=>e.status===status.EXISTS);
+ const from={name:'registry.ask',version:'v1',operation:'echo-b'},to={name:'registry.b',version:'v1',operation:'echo'};
+ registry.route(from,to);
+ assert.throws(()=>registry.route(from,to),e=>e.status===status.EXISTS);
+ assert.throws(()=>registry.route({...from,operation:'other'},{...to,operation:'Bad Name'}),e=>e.status===status.INVALID);
+ assert.throws(()=>registry.unregister({name:'registry.x',version:'v1'}),e=>e.status===status.NOT_FOUND);
+ registry.unregister({name:'registry.b',version:'v1'});
+ // A host closed while registered leaves the registry first.
+ registry.register({name:'registry.b',version:'v1'},b);b.close();
+ assert.throws(()=>registry.unregister({name:'registry.b',version:'v1'}),e=>e.status===status.NOT_FOUND);
+ assert.throws(()=>new engine.Host({executable:registryGuest,descriptor:{},verify:()=>true,authorize:()=>true,registry,reverse:{authorize:()=>true,handle:()=>({})}}),TypeError);
+});

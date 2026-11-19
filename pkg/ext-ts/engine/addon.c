@@ -14,6 +14,8 @@
 
 static const napi_type_tag binding_tag = {0xd709f6b1ec467f01ULL,
                                           0xbac017ce5969d93fULL};
+static const napi_type_tag registry_tag = {0x5a0e3c21b7d94f62ULL,
+                                           0x8e41f07a2c6d19b5ULL};
 static const napi_type_tag cancel_tag = {0x1f3308617d268b41ULL,
                                          0x9650dfcb91149861ULL};
 static int external(napi_env env, napi_value value, const napi_type_tag *tag,
@@ -22,9 +24,36 @@ static int external(napi_env env, napi_value value, const napi_type_tag *tag,
   return napi_check_object_type_tag(env, value, tag, &tagged) == napi_ok &&
          tagged && napi_get_value_external(env, value, out) == napi_ok;
 }
+/* A guest registry, counted: the JS handle holds one reference, and so does
+ * each host attached to it or registered with it, so it is freed only once
+ * none of them can call into it. */
+typedef struct registry_ref registry_ref;
+/* The registry behind a JS handle; a helper, since create_host names a local
+ * "external". */
+static int tagged_registry(napi_env env, napi_value value, registry_ref **out) {
+  return external(env, value, &registry_tag, (void **)out);
+}
+struct registry_ref {
+  ext_registry *registry;
+  atomic_int refs;
+};
+static void registry_release(registry_ref *g) {
+  if (g && atomic_fetch_sub(&g->refs, 1) == 1) {
+    ext_registry_destroy(g->registry);
+    free(g);
+  }
+}
+/* A contract a host serves in a registry. */
+typedef struct registration {
+  struct registration *next;
+  registry_ref *registry;
+  char *name, *version;
+} registration;
 typedef struct {
   ext_host *host;
   ext_guest *guest;
+  registry_ref *source_of;     /* the registry this host is a source of */
+  registration *registrations; /* unregistered before the host is freed */
   napi_threadsafe_function verify, authorize, handle, observe;
   /* The host's reverse services: policy and handler for requests the plugin
    * makes on its host. */
@@ -363,6 +392,19 @@ static void cleanup_binding(void *data) {
   }
 }
 static void dispose_contents(binding *b) {
+  if (b->registrations) {
+    /* Calls routed here end once the host is closed; unregister waits for them. */
+    ext_host_close(b->host);
+    while (b->registrations) {
+      registration *r = b->registrations;
+      b->registrations = r->next;
+      ext_registry_unregister(r->registry->registry, r->name, r->version);
+      registry_release(r->registry);
+      free(r->name);
+      free(r->version);
+      free(r);
+    }
+  }
   if (b->cleanup_hook)
     napi_remove_env_cleanup_hook(b->env, cleanup_binding, b);
   cleanup_binding(b);
@@ -370,6 +412,8 @@ static void dispose_contents(binding *b) {
   b->host = NULL;
   ext_guest_destroy(b->guest);
   b->guest = NULL;
+  registry_release(b->source_of);
+  b->source_of = NULL;
 }
 static void destroy_binding(napi_env env, void *data, void *hint) {
   (void)env;
@@ -410,10 +454,10 @@ static char **strings(napi_env env, napi_value array, uint32_t *count) {
   return out;
 }
 static napi_value create_host(napi_env env, napi_callback_info info) {
-  size_t count = 10;
-  napi_value args[10], external;
+  size_t count = 11;
+  napi_value args[11], external;
   if (napi_get_cb_info(env, info, &count, args, NULL, NULL) != napi_ok ||
-      count != 10)
+      count != 11)
     return failure(env, "invalid host arguments");
   size_t pn = 0, dn = 0;
   char *path = string(env, args[0], &pn),
@@ -448,10 +492,19 @@ static napi_value create_host(napi_env env, napi_callback_info info) {
   if (napi_typeof(env, args[7], &authorize_type) != napi_ok ||
       napi_typeof(env, args[8], &handle_type) != napi_ok)
     goto done;
+  /* With a registry (args[10]) the host is its source: the registry serves
+   * the reverse calls, so only authorize is given. */
+  napi_valuetype registry_type;
+  registry_ref *source = NULL;
+  if (napi_typeof(env, args[10], &registry_type) != napi_ok ||
+      (registry_type != napi_undefined &&
+       (!tagged_registry(env, args[10], &source) ||
+        authorize_type != napi_function || handle_type != napi_undefined)))
+    goto done;
   if (authorize_type != napi_undefined || handle_type != napi_undefined) {
     napi_value element;
     if (!tsfn(env, args[7], &b->reverse_authorize) ||
-        !tsfn(env, args[8], &b->reverse_handle))
+        (!source && !tsfn(env, args[8], &b->reverse_handle)))
       goto done;
     for (uint32_t i = 0; i < 3; i++)
       if (napi_get_element(env, args[9], i, &element) != napi_ok ||
@@ -478,10 +531,23 @@ static napi_value create_host(napi_env env, napi_callback_info info) {
     status = ext_host_set_hooks(b->host, &hooks);
   }
   if (!status && services) {
-    ext_host_services offered = {sizeof(offered),   b,         reverse_authorize,
-                                 reverse_handle,    bounds[0], bounds[1],
-                                 bounds[2],         NULL};
-    status = ext_host_set_services(b->host, &offered);
+    ext_host_services offered = {sizeof(offered),
+                                 b,
+                                 reverse_authorize,
+                                 source ? NULL : reverse_handle,
+                                 bounds[0],
+                                 bounds[1],
+                                 bounds[2],
+                                 NULL};
+    if (source) {
+      status = ext_registry_attach(source->registry, b->host, &offered);
+      if (!status) {
+        atomic_fetch_add(&source->refs, 1);
+        b->source_of = source;
+      }
+    } else {
+      status = ext_host_set_services(b->host, &offered);
+    }
   }
 done:
   free(path);
@@ -561,6 +627,87 @@ static napi_value signal_cancel(napi_env env, napi_callback_info info) {
       !external(env, arg, &cancel_tag, &c))
     return failure(env, "invalid cancellation");
   ext_cancel_signal(c);
+  return undefined(env);
+}
+static void finalize_registry(napi_env env, void *data, void *hint) {
+  (void)env;
+  (void)hint;
+  registry_release(data);
+}
+static napi_value failure_status(napi_env env, ext_status status);
+static napi_value create_registry(napi_env env, napi_callback_info info) {
+  (void)info;
+  registry_ref *g = calloc(1, sizeof(*g));
+  napi_value out;
+  ext_status s = g ? ext_registry_create(&g->registry) : EXT_NOMEM;
+  if (s) {
+    free(g);
+    return failure_status(env, s);
+  }
+  atomic_init(&g->refs, 1);
+  if (napi_create_external(env, g, finalize_registry, NULL, &out) != napi_ok) {
+    registry_release(g);
+    return failure(env, "allocation failed");
+  }
+  if (napi_type_tag_object(env, out, &registry_tag) != napi_ok)
+    return failure(env, "cannot tag registry");
+  return out;
+}
+/* registryRegister(registry, name, version, host),
+ * registryUnregister(registry, name, version) and
+ * registryRoute(registry, fromName, fromVersion, fromOperation, toName,
+ * toVersion, toOperation): undefined, or a throw with the engine's status. */
+static napi_value registry_call(napi_env env, napi_callback_info info) {
+  size_t count = 7;
+  napi_value args[7];
+  void *kind = NULL;
+  registry_ref *g = NULL;
+  if (napi_get_cb_info(env, info, &count, args, NULL, &kind) != napi_ok ||
+      count < 3 || !external(env, args[0], &registry_tag, (void **)&g))
+    return failure(env, "invalid registry arguments");
+  int which = (int)(intptr_t)kind; /* 0 register, 1 unregister, 2 route */
+  size_t want = which == 0 ? 4 : which == 1 ? 3 : 7, strings_n = which == 2 ? 6 : 2;
+  if (count != want)
+    return failure(env, "invalid registry arguments");
+  char *text[6] = {0};
+  ext_status s = EXT_INVALID;
+  for (size_t i = 0; i < strings_n; i++) {
+    size_t n = 0;
+    if (!(text[i] = string(env, args[i + 1], &n)) || strlen(text[i]) != n)
+      goto done;
+  }
+  if (which == 0) {
+    binding *b = NULL;
+    registration *r = calloc(1, sizeof(*r));
+    if (!r || !external(env, args[3], &binding_tag, (void **)&b) || !b->host ||
+        b->disposed) {
+      free(r);
+      goto done;
+    }
+    s = ext_registry_register(g->registry, text[0], text[1], b->host);
+    if (s) {
+      free(r);
+      goto done;
+    }
+    atomic_fetch_add(&g->refs, 1);
+    r->registry = g;
+    r->name = text[0];
+    r->version = text[1];
+    text[0] = text[1] = NULL;
+    r->next = b->registrations;
+    b->registrations = r;
+  } else if (which == 1) {
+    s = ext_registry_unregister(g->registry, text[0], text[1]);
+  } else {
+    ext_registry_edge edge = {sizeof(edge), text[0], text[1], text[2],
+                              text[3],      text[4], text[5]};
+    s = ext_registry_route(g->registry, &edge);
+  }
+done:
+  for (size_t i = 0; i < 6; i++)
+    free(text[i]);
+  if (s)
+    return failure_status(env, s);
   return undefined(env);
 }
 static napi_value close_host(napi_env env, napi_callback_info info) {
@@ -1557,6 +1704,14 @@ static napi_value init(napi_env env, napi_value exports) {
   const napi_property_descriptor properties[] = {
       {"createHost", NULL, create_host, NULL, NULL, NULL, napi_default, NULL},
       {"createGuest", NULL, create_guest, NULL, NULL, NULL, napi_default, NULL},
+      {"createRegistry", NULL, create_registry, NULL, NULL, NULL, napi_default,
+       NULL},
+      {"registryRegister", NULL, registry_call, NULL, NULL, NULL, napi_default,
+       (void *)0},
+      {"registryUnregister", NULL, registry_call, NULL, NULL, NULL,
+       napi_default, (void *)1},
+      {"registryRoute", NULL, registry_call, NULL, NULL, NULL, napi_default,
+       (void *)2},
       {"newCancel", NULL, new_cancel, NULL, NULL, NULL, napi_default, NULL},
       {"cancel", NULL, signal_cancel, NULL, NULL, NULL, napi_default, NULL},
       {"closeHost", NULL, close_host, NULL, NULL, NULL, napi_default, NULL},

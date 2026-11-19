@@ -12,8 +12,9 @@ export interface ProgressEvent { kind: 'progress' | 'log'; stream?: 'out' | 'err
 export interface ReverseOptions {
  /** Runs for every request the engine admitted; return false or throw to deny. */
  authorize(request: unknown, context: CallbackContext): void | boolean | Promise<void | boolean>;
- /** Serves an authorized request: a payload, or an error the plugin may see. */
- handle(request: unknown, context: CallbackContext): GuestReply | Promise<GuestReply>;
+ /** Serves an authorized request: a payload, or an error the plugin may see. Not given
+  * for a registry source, whose calls the registry serves. */
+ handle?(request: unknown, context: CallbackContext): GuestReply | Promise<GuestReply>;
  /** Milliseconds; zero or absent uses 30000. */
  timeout?: number; maxPayloadBytes?: number; maxInFlight?: number;
 }
@@ -28,6 +29,21 @@ export interface HostOptions {
  observe?(event: EngineEvent): void;
  /** Offer reverse-call services to the plugin. */
  reverse?: ReverseOptions;
+ /** Make the host a source of this registry: its reverse calls are served by forward
+  * calls along the registry's edges. `reverse.authorize` is required, `reverse.handle` is not given. */
+ registry?: Registry;
+}
+export interface ContractRef { name: string; version: string }
+export interface RegistryEnd { name: string; version: string; operation: string }
+/** A guest registry: routes a guest's reverse calls to other guests' forward calls along
+ * declared edges. Methods throw with the engine's `status` (INVALID, UNSUPPORTED, EXISTS, NOT_FOUND). */
+export interface Registry {
+ /** Names a started host whose descriptor lists `contract` as the one serving it. */
+ register(contract: ContractRef, host: Host): void;
+ /** Removes the contract; waits for the calls routed to its host. */
+ unregister(contract: ContractRef): void;
+ /** A reverse call of `from` is served by a call of `to`. */
+ route(from: RegistryEnd, to: RegistryEnd): void;
 }
 export interface EngineEvent { stage: string; code: string; durationMilliseconds: number; identity: {id: string; revision: string}; contract?: {name: string; version: string}; operation?: string; requestID?: string }
 export interface GuestOptions { descriptor: unknown; maxCallDuration?: number; handle(request: unknown, context: CallbackContext): GuestReply | Promise<GuestReply> }
@@ -183,6 +199,7 @@ export interface LayeredPackageStore {
 export function loadEngine(addonPath: string): {
  Host: { new(options: HostOptions): Host; open(options: HostOptions, callOptions?: CallOptions): Promise<Host> };
  Guest: { new(options: GuestOptions): Guest };
+ Registry: { new(): Registry };
  Instances: { new<T>(options: InstanceOptions<T>): Instances<T> };
  Streams: { new(options: StreamOptions): Streams };
  PackageStore: { new(root: string, limits?: PackageStoreLimits): PackageStore };

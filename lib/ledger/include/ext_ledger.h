@@ -137,6 +137,9 @@ typedef struct ext_ledger_recorder ext_ledger_recorder;
  * The store must outlive the recorder. */
 EXT_LEDGER_API int ext_ledger_recorder_open(ext_ledger *store, const ext_ledger_context *ctx, const char *environment, size_t len,
                                             ext_ledger_recorder **out);
+/* A recorder of this machine: its environment is read from the OS, the clock
+ * and the filesystem are read when each observation is made. */
+EXT_LEDGER_API int ext_ledger_recorder_open_machine(ext_ledger *store, const ext_ledger_context *ctx, ext_ledger_recorder **out);
 EXT_LEDGER_API void ext_ledger_recorder_close(ext_ledger_recorder *recorder);
 
 /* Runs one recorder operation: observe_shell, observe_web, observe_host,
@@ -147,6 +150,17 @@ EXT_LEDGER_API void ext_ledger_recorder_close(ext_ledger_recorder *recorder);
  * EXT_LEDGER_UNSUPPORTED. */
 EXT_LEDGER_API int ext_ledger_record(ext_ledger_recorder *recorder, const ext_ledger_context *ctx, const char *op, const char *input, size_t len,
                                      char **out, size_t *out_len);
+
+/* ---- the collectors ----
+ * What the recorder reads from the machine through each kernel's own
+ * interface, in the JSON forms of res/system's types. what is "processes"
+ * (process identities, as res/system's DiscoverProcesses reports them); a
+ * collection this build or OS does not have is EXT_LEDGER_UNSUPPORTED. */
+EXT_LEDGER_API int ext_ledger_collect(const ext_ledger_context *ctx, const char *what, char **out, size_t *out_len);
+/* Collects what and records it through the recorder's observation of it. */
+EXT_LEDGER_API int ext_ledger_scan(ext_ledger_recorder *recorder, const ext_ledger_context *ctx, const char *what);
+/* The recorder environment of this machine, the JSON ext_ledger_recorder_open takes. */
+EXT_LEDGER_API int ext_ledger_machine_environment(char **out, size_t *out_len);
 
 /* The ext.system schema the recorder registers, as canonical JSON. */
 EXT_LEDGER_API const char *ext_ledger_recorder_vocabulary(void);

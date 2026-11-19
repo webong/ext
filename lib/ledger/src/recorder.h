@@ -13,6 +13,7 @@ typedef struct {
   int64_t ppid;
   lj_value *variables; /* object of strings, or NULL */
   ll_map paths;        /* cleaned path -> (void*)1 */
+  int machine;         /* read the clock and the filesystem live instead of the fixed values */
 } rec_env;
 
 struct ext_ledger_recorder {

@@ -6,9 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/webong/ext/res/graph/store"
-	"os"
 	"path/filepath"
-	"runtime"
 	"time"
 
 	"github.com/webong/ext/res/system/capture/surface"
@@ -82,10 +80,11 @@ func (g *Graph) ObserveHost(ctx context.Context, inventory HostInventory) error 
 	if inventory.Shells == nil && inventory.Filesystems == nil && inventory.Webviews == nil && inventory.Desktop == nil && inventory.Surfaces == nil && inventory.Accessibility == nil && inventory.Permissions == nil && inventory.Resources == nil {
 		return nil
 	}
-	now := time.Now().UTC()
-	hostname, _ := os.Hostname()
+	env := g.environment()
+	now := env.now().UTC()
+	hostname := env.hostname()
 	vertices := map[string]store.Vertex{
-		"machine/local": {ID: "machine/local", Kind: Namespace + "/machine", Attributes: map[string]any{"hostname": hostname, "os": runtime.GOOS, "architecture": runtime.GOARCH}, Provenance: store.Provenance{Source: "ctx", Operation: "host-observed", At: now}},
+		"machine/local": {ID: "machine/local", Kind: Namespace + "/machine", Attributes: map[string]any{"hostname": hostname, "os": env.goos, "architecture": env.goarch}, Provenance: store.Provenance{Source: "ctx", Operation: "host-observed", At: now}},
 	}
 	edges := map[string]store.Edge{}
 	managedKinds := map[string]bool{}
@@ -98,11 +97,11 @@ func (g *Graph) ObserveHost(ctx context.Context, inventory HostInventory) error 
 	if inventory.Shells != nil {
 		managedKinds[Namespace+"/shell"] = true
 		managedTypes[Namespace+"/has-shell"] = true
-		searchPath := os.Getenv("PATH")
+		searchPath := env.getenv("PATH")
 		if inventory.shellSearchPath != nil {
 			searchPath = *inventory.shellSearchPath
 		}
-		add("host-inventory/shells", "host-inventory", "has-host-inventory", map[string]any{"kind": "shell", "count": len(inventory.Shells), "observed_at": now.Format(time.RFC3339Nano), "environment": shellEnvironment(searchPath)})
+		add("host-inventory/shells", "host-inventory", "has-host-inventory", map[string]any{"kind": "shell", "count": len(inventory.Shells), "observed_at": now.Format(time.RFC3339Nano), "environment": shellEnvironment(env, searchPath)})
 		for _, shell := range inventory.Shells {
 			if !filepath.IsAbs(shell.Path) || shell.Name == "" {
 				return errors.New("host shell requires a name and absolute executable path")
@@ -116,7 +115,7 @@ func (g *Graph) ObserveHost(ctx context.Context, inventory HostInventory) error 
 	if inventory.Filesystems != nil {
 		managedKinds[Namespace+"/filesystem"] = true
 		managedTypes[Namespace+"/has-filesystem"] = true
-		add("host-inventory/filesystems", "host-inventory", "has-host-inventory", map[string]any{"kind": "filesystem", "count": len(inventory.Filesystems), "observed_at": now.Format(time.RFC3339Nano), "environment": host.Environment()})
+		add("host-inventory/filesystems", "host-inventory", "has-host-inventory", map[string]any{"kind": "filesystem", "count": len(inventory.Filesystems), "observed_at": now.Format(time.RFC3339Nano), "environment": env.hostEnvironment()})
 		for _, filesystem := range inventory.Filesystems {
 			if !filepath.IsAbs(filesystem.MountPoint) {
 				return errors.New("host filesystem requires an absolute mount point")
@@ -141,7 +140,7 @@ func (g *Graph) ObserveHost(ctx context.Context, inventory HostInventory) error 
 	if inventory.Webviews != nil {
 		managedKinds[Namespace+"/webview"] = true
 		managedTypes[Namespace+"/has-webview"] = true
-		add("host-inventory/webviews", "host-inventory", "has-host-inventory", map[string]any{"kind": "webview", "count": len(inventory.Webviews), "observed_at": now.Format(time.RFC3339Nano), "environment": webviewEnvironment()})
+		add("host-inventory/webviews", "host-inventory", "has-host-inventory", map[string]any{"kind": "webview", "count": len(inventory.Webviews), "observed_at": now.Format(time.RFC3339Nano), "environment": webviewEnvironment(env)})
 		for _, webview := range inventory.Webviews {
 			if webview.Name == "" || webview.Engine == "" || webview.API == "" || webview.Location == "" || webview.Scope == "" || webview.Source == "" {
 				return errors.New("host webview requires a name, engine, API, location, scope, and source")
@@ -162,7 +161,7 @@ func (g *Graph) ObserveHost(ctx context.Context, inventory HostInventory) error 
 		}
 		managedKinds[Namespace+"/desktop"] = true
 		managedTypes[Namespace+"/has-desktop"] = true
-		add("host-inventory/desktop", "host-inventory", "has-host-inventory", map[string]any{"kind": "desktop", "count": 1, "observed_at": desktop.ObservedAt.Format(time.RFC3339Nano), "environment": host.Environment()})
+		add("host-inventory/desktop", "host-inventory", "has-host-inventory", map[string]any{"kind": "desktop", "count": 1, "observed_at": desktop.ObservedAt.Format(time.RFC3339Nano), "environment": env.hostEnvironment()})
 		attributes, err := jsonAttributes(desktop)
 		if err != nil {
 			return err
@@ -182,7 +181,7 @@ func (g *Graph) ObserveHost(ctx context.Context, inventory HostInventory) error 
 			"kind": "surface", "count": len(surfaces.Displays) + len(surfaces.Windows),
 			"display_count": len(surfaces.Displays), "window_count": len(surfaces.Windows),
 			"platform": surfaces.Platform, "coordinate_space": surfaces.CoordinateSpace,
-			"observed_at": surfaces.ObservedAt.Format(time.RFC3339Nano), "environment": host.Environment(),
+			"observed_at": surfaces.ObservedAt.Format(time.RFC3339Nano), "environment": env.hostEnvironment(),
 		}
 		displayStatus, err := jsonAttributes(surfaces.DisplayStatus)
 		if err != nil {
@@ -229,7 +228,7 @@ func (g *Graph) ObserveHost(ctx context.Context, inventory HostInventory) error 
 		}
 		add("host-inventory/accessibility", "host-inventory", "has-host-inventory", map[string]any{
 			"kind": "accessibility", "count": len(accessibility.Elements), "platform": accessibility.Platform,
-			"status": status, "observed_at": accessibility.ObservedAt.Format(time.RFC3339Nano), "environment": host.Environment(),
+			"status": status, "observed_at": accessibility.ObservedAt.Format(time.RFC3339Nano), "environment": env.hostEnvironment(),
 		})
 		for _, element := range accessibility.Elements {
 			if element.ID == "" || element.PID <= 0 || element.ProcessStartID == "" || element.Role == "" {
@@ -254,7 +253,7 @@ func (g *Graph) ObserveHost(ctx context.Context, inventory HostInventory) error 
 		managedTypes[Namespace+"/has-host-resource"] = true
 		add("host-inventory/resources", "host-inventory", "has-host-inventory", map[string]any{
 			"kind": "resource", "count": 1, "platform": resources.OS,
-			"observed_at": resources.ObservedAt.Format(time.RFC3339Nano), "environment": host.Environment(),
+			"observed_at": resources.ObservedAt.Format(time.RFC3339Nano), "environment": env.hostEnvironment(),
 		})
 		attributes, err := jsonAttributes(resources)
 		if err != nil {
@@ -271,7 +270,7 @@ func (g *Graph) ObserveHost(ctx context.Context, inventory HostInventory) error 
 		managedTypes[Namespace+"/has-permission"] = true
 		add("host-inventory/permissions", "host-inventory", "has-host-inventory", map[string]any{
 			"kind": "permission", "count": 2, "platform": permissions.Platform,
-			"observed_at": permissions.ObservedAt.Format(time.RFC3339Nano), "environment": host.Environment(),
+			"observed_at": permissions.ObservedAt.Format(time.RFC3339Nano), "environment": env.hostEnvironment(),
 		})
 		for name, permission := range map[string]surface.PermissionInfo{"accessibility": permissions.Accessibility, "screen-recording": permissions.ScreenRecording} {
 			attributes, err := jsonAttributes(permission)

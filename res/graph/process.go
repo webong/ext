@@ -5,8 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
-	"runtime"
 	"time"
 
 	"github.com/webong/ext/res/graph/store"
@@ -65,7 +63,7 @@ func (g *Graph) ObserveProcesses(ctx context.Context, observation proc.ProcessSn
 		if err != nil {
 			return err
 		}
-		tx, err := processTransaction(snapshot, observation)
+		tx, err := processTransaction(g.environment(), snapshot, observation)
 		if err != nil {
 			return err
 		}
@@ -92,7 +90,7 @@ func processResourceKind(kind string) bool {
 	return false
 }
 
-func processTransaction(snapshot store.Snapshot, observation proc.ProcessSnapshot) (store.Transaction, error) {
+func processTransaction(env environment, snapshot store.Snapshot, observation proc.ProcessSnapshot) (store.Transaction, error) {
 	tx := store.Transaction{Namespace: Namespace, ExpectedRevision: &snapshot.Revision, DeleteIncidentEdges: true}
 	vertices := map[string]store.Vertex{}
 	edges := map[string]store.Edge{}
@@ -128,8 +126,7 @@ func processTransaction(snapshot store.Snapshot, observation proc.ProcessSnapsho
 	}
 	// Keep the machine's existing attributes and provenance.
 	if _, ok := oldVertices["machine/local"]; !ok {
-		hostname, _ := os.Hostname()
-		vertices["machine/local"] = store.Vertex{ID: "machine/local", Kind: Namespace + "/machine", Attributes: map[string]any{"hostname": hostname, "os": runtime.GOOS, "architecture": runtime.GOARCH}, Provenance: provenance}
+		vertices["machine/local"] = store.Vertex{ID: "machine/local", Kind: Namespace + "/machine", Attributes: map[string]any{"hostname": env.hostname(), "os": env.goos, "architecture": env.goarch}, Provenance: provenance}
 	}
 	marker := "host-inventory/processes"
 	if old, ok := oldVertices[marker]; ok && observation.ObservedAt.Before(old.Provenance.At) {

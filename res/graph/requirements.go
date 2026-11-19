@@ -103,12 +103,12 @@ func (err *HostRequirementError) Error() string {
 
 func (err *HostRequirementError) Unwrap() error { return err.Cause }
 
-func shellEnvironment(searchPath string) string {
-	return digest(host.Environment() + "\x00" + searchPath + "\x00" + os.Getenv("SHELL") + "\x00" + os.Getenv("ComSpec"))
+func shellEnvironment(env environment, searchPath string) string {
+	return digest(env.hostEnvironment() + "\x00" + searchPath + "\x00" + env.getenv("SHELL") + "\x00" + env.getenv("ComSpec"))
 }
 
-func webviewEnvironment() string {
-	return digest(host.Environment() + "\x00" + os.Getenv("LD_LIBRARY_PATH"))
+func webviewEnvironment(env environment) string {
+	return digest(env.hostEnvironment() + "\x00" + env.getenv("LD_LIBRARY_PATH"))
 }
 
 // ReadHost reads host observations without refreshing or probing the OS.
@@ -251,22 +251,23 @@ func (g *Graph) hostForRequirements(ctx context.Context, requirements OperationR
 	if err != nil {
 		return HostSnapshot{}, err
 	}
+	env := g.environment()
 	maxAge := requirements.MaxAge
 	if maxAge == 0 {
 		maxAge = 5 * time.Second
 	}
 	stale := func(kind string) bool {
 		observed := snapshot.ObservedAt[kind]
-		age := time.Since(observed)
+		age := env.now().Sub(observed)
 		return observed.IsZero() || age < 0 || maxAge < 0 || age > maxAge
 	}
 	refresh := HostInventory{}
-	searchPath := os.Getenv("PATH")
+	searchPath := env.getenv("PATH")
 	if requirements.Shell != nil {
 		if requirements.Shell.SearchPath != nil {
 			searchPath = *requirements.Shell.SearchPath
 		}
-		if stale("shell") || snapshot.environment["shell"] != shellEnvironment(searchPath) {
+		if stale("shell") || snapshot.environment["shell"] != shellEnvironment(env, searchPath) {
 			refresh.Shells, err = host.DiscoverShellsOnPath(ctx, searchPath)
 			if err != nil {
 				return HostSnapshot{}, err
@@ -274,13 +275,13 @@ func (g *Graph) hostForRequirements(ctx context.Context, requirements OperationR
 			refresh.shellSearchPath = &searchPath
 		}
 	}
-	if requirements.Filesystem != nil && (stale("filesystem") || snapshot.environment["filesystem"] != host.Environment()) {
+	if requirements.Filesystem != nil && (stale("filesystem") || snapshot.environment["filesystem"] != env.hostEnvironment()) {
 		refresh.Filesystems, err = host.DiscoverFilesystems(ctx)
 		if err != nil {
 			return HostSnapshot{}, err
 		}
 	}
-	if requirements.Webview != nil && (stale("webview") || snapshot.environment["webview"] != webviewEnvironment()) {
+	if requirements.Webview != nil && (stale("webview") || snapshot.environment["webview"] != webviewEnvironment(env)) {
 		refresh.Webviews, err = host.DiscoverWebviews(ctx)
 		if err != nil {
 			return HostSnapshot{}, err

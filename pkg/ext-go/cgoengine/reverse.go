@@ -45,6 +45,12 @@ func (h *Host) setReverse(ctx context.Context, o *plugin.ReverseOptions) error {
 	if err := validateReverse(o); err != nil {
 		return err
 	}
+	return h.serveReverse(ctx, o, nil)
+}
+
+// serveReverse installs the services: the binding's hooks, or, with a registry,
+// the binding's Authorize and the registry as the handler.
+func (h *Host) serveReverse(ctx context.Context, o *plugin.ReverseOptions, registry *C.ext_registry) error {
 	timeout := uint64(0)
 	if o.Timeout > 0 {
 		timeout = uint64((o.Timeout + time.Millisecond - 1) / time.Millisecond)
@@ -54,7 +60,13 @@ func (h *Host) setReverse(ctx context.Context, o *plugin.ReverseOptions) error {
 	}
 	binding := cgo.NewHandle(&reverseBinding{options: *o})
 	session := cgo.NewHandle(context.WithoutCancel(ctx))
-	if err := status(C.ext_go_set_services(h.ptr, C.uintptr_t(binding), C.uintptr_t(session), C.uint32_t(timeout), C.uint32_t(o.MaxPayloadBytes), C.uint32_t(o.MaxInFlight))); err != nil {
+	var code C.ext_status
+	if registry != nil {
+		code = C.ext_go_attach_registry(registry, h.ptr, C.uintptr_t(binding), C.uintptr_t(session), C.uint32_t(timeout), C.uint32_t(o.MaxPayloadBytes), C.uint32_t(o.MaxInFlight))
+	} else {
+		code = C.ext_go_set_services(h.ptr, C.uintptr_t(binding), C.uintptr_t(session), C.uint32_t(timeout), C.uint32_t(o.MaxPayloadBytes), C.uint32_t(o.MaxInFlight))
+	}
+	if err := status(code); err != nil {
 		binding.Delete()
 		session.Delete()
 		return err

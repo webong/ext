@@ -61,6 +61,7 @@ type Registry struct {
 type target struct {
 	p    *Process
 	busy int
+	stop chan struct{} // closed when the contract is unregistered
 }
 
 type edgeKey struct {
@@ -83,7 +84,7 @@ func validOperation(name string) bool {
 
 // Register names p as the process that serves contract. p's descriptor must
 // list the contract (ErrUnsupported otherwise); ErrExists when the contract is
-// already registered.
+// already registered. The contract is unregistered when p's session ends.
 func (r *Registry) Register(contract plugin.ContractRef, p *Process) error {
 	if p == nil || p.session == nil || contract.Validate() != nil {
 		return plugin.ErrInvalid
@@ -100,8 +101,29 @@ func (r *Registry) Register(contract plugin.ContractRef, p *Process) error {
 	if r.targets[contract] != nil {
 		return ErrExists
 	}
-	r.targets[contract] = &target{p: p}
+	t := &target{p: p, stop: make(chan struct{})}
+	r.targets[contract] = t
+	go func() {
+		select {
+		case <-p.Done():
+			r.mu.Lock()
+			if r.targets[contract] == t {
+				r.remove(contract, t)
+			}
+			r.mu.Unlock()
+		case <-t.stop:
+		}
+	}()
 	return nil
+}
+
+// remove unregisters t and waits for its calls; the caller holds r.mu.
+func (r *Registry) remove(contract plugin.ContractRef, t *target) {
+	delete(r.targets, contract)
+	close(t.stop)
+	for t.busy > 0 {
+		r.idle.Wait()
+	}
 }
 
 // Unregister removes contract and waits for the forward calls routed to its
@@ -113,10 +135,7 @@ func (r *Registry) Unregister(contract plugin.ContractRef) error {
 	if t == nil {
 		return plugin.ErrNotFound
 	}
-	delete(r.targets, contract)
-	for t.busy > 0 {
-		r.idle.Wait()
-	}
+	r.remove(contract, t)
 	return nil
 }
 

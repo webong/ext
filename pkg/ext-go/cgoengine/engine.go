@@ -61,6 +61,17 @@ type Host struct {
 	observer       plugin.Observer // the session's, kept apart from policy, which Destroy deletes
 	callTimeout    time.Duration
 	backend        *backendBinding
+	// beforeDestroy runs once, after Close and before the C host is freed: a
+	// registry that holds the host lets go of it there.
+	hooksMu       sync.Mutex
+	beforeDestroy []func()
+}
+
+// onDestroy adds a hook that runs before the C host is freed.
+func (h *Host) onDestroy(hook func()) {
+	h.hooksMu.Lock()
+	h.beforeDestroy = append(h.beforeDestroy, hook)
+	h.hooksMu.Unlock()
 }
 
 func New(path string, d plugin.Descriptor, verify, authorize Policy) (*Host, error) {
@@ -252,6 +263,13 @@ func (h *Host) Close() error {
 }
 func (h *Host) Destroy() {
 	_ = h.Close()
+	h.hooksMu.Lock()
+	hooks := h.beforeDestroy
+	h.beforeDestroy = nil
+	h.hooksMu.Unlock()
+	for _, hook := range hooks {
+		hook()
+	}
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	if h.ptr != nil {

@@ -67,9 +67,7 @@ static void sleep_ms(int ms) {
 #endif
 }
 static void format_deadline(int64_t ms_from_now, char *out, size_t size) {
-  struct timespec ts;
-  timespec_get(&ts, TIME_UTC);
-  int64_t wall = (int64_t)ts.tv_sec * 1000 + ts.tv_nsec / 1000000 + ms_from_now;
+  int64_t wall = ext_wall_ms() + ms_from_now;
   time_t seconds = (time_t)(wall / 1000);
   char stamp[32];
   strftime(stamp, sizeof(stamp), "%Y-%m-%dT%H:%M:%S", gmtime(&seconds));

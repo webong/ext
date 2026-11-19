@@ -8,7 +8,8 @@ consumer's vocabulary.
 | --- | --- |
 | `entities.schema.json` | The wire form of every entity (JSON Schema 2020-12): vertex, edge, provenance, reference, schema, relationship, transaction, commit, change, snapshot, path, the two queries and the store options |
 | `rules.json` | The naming, secret and size rules, the default bounds, the order in which a transaction is checked, and what each error code means here |
-| `tables.json` | The SQLite layout of a durable store, from which the store creates its tables |
+| `ledger.json` | The file layout of a durable store: a directory with an append-only log and a checkpoint, the default durable form |
+| `tables.json` | The SQLite layout of a durable store, the optional durable form |
 | `cases.json` | The operation cases |
 | `fingerprints.json` | Canonical JSON and SHA-256 of transactions, which idempotency keys bind to |
 
@@ -49,7 +50,7 @@ Live delivery is tested by each implementation: a watch delivers later commits i
 closes when its buffer fills, its context ends or the store closes, and closes when its cursor
 falls below the history floor. Concurrent writers, including other processes on one durable store,
 lose no commit. A closed store answers `unavailable`, a canceled context `canceled` and an expired
-one `timeout`, before any other check. In Go these are `storetest.RunBehaviour` and the
+one `timeout`, before any other check. In C these are `lib/ledger/tests/behaviour.c`; in Go, `storetest.RunBehaviour` and the
 multi-process tests of `store/sqlite`.
 
 ## Canonical JSON
@@ -70,15 +71,32 @@ The fingerprint is the lowercase hex SHA-256 of those bytes. A change's size, wh
 
 ## Durable layout
 
-A durable store keeps one SQLite database laid out as `tables.json` says, with the pragmas it
-names. It creates the tables and indexes from that file when the database is new (in the order
-listed, inside one write transaction), stores the layout name in the one row of `store`, and
-refuses a database whose `store` row names another layout or that holds unrelated tables. There
-are no migrations. Times are RFC 3339 text in UTC. `labels`, `attributes` and `provenance` hold
-canonical JSON or NULL when empty; `changes.body` holds the canonical JSON of the change entity,
-and `namespaces.schema` that of the normalised schema (kinds sorted and deduplicated,
-relationships sorted by type, then from, then to). A commit takes the write lock first
-(`BEGIN IMMEDIATE`), so two writers never interleave.
+A durable store has two forms. Both hold the same records, and a store opened on either answers
+every case alike.
+
+**Files** (`ledger.json`), the default. A directory holds an append-only `log` and a
+`checkpoint`. Each line is `<crc> <json>`: the CRC-32 of one canonical JSON object, then the
+object. The log holds a header, then every schema registration, commit and history floor in
+the order they happened; the checkpoint holds the state at a base cursor. A writer holds an
+advisory lock on `lock` for the whole of a register or apply, catches up with the log, cuts off a
+torn last line, appends and syncs. Readers never lock: they stop before a torn last line and
+catch up by reading what was appended. When the log carries enough commits below the history
+floor, a writer rewrites the checkpoint and then the log, each by writing a temporary file and
+renaming it into place; `ledger.json` says why a reader is correct between and across the two
+renames. A directory that holds other files (names starting with a dot are ignored), or a log or
+checkpoint naming another layout, is refused. It needs nothing beyond the C library and the OS.
+
+**SQLite** (`tables.json`), optional. One database laid out as `tables.json` says, with the
+pragmas it names. The store creates the tables and indexes from that file when the database is
+new (in the order listed, inside one write transaction), stores the layout name in the one row of
+`store`, and refuses a database whose `store` row names another layout or that holds unrelated
+tables. Times are RFC 3339 text in UTC. `labels`, `attributes` and `provenance` hold canonical
+JSON or NULL when empty; `changes.body` holds the canonical JSON of the change entity, and
+`namespaces.schema` that of the normalised schema (kinds sorted and deduplicated, relationships
+sorted by type, then from, then to). A commit takes the write lock first (`BEGIN IMMEDIATE`), so
+two writers never interleave.
+
+Neither form has migrations.
 
 ## Not covered
 

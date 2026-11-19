@@ -914,6 +914,94 @@
         }
       }
     },
+    "ledger": {
+      "tools": [
+        "c"
+      ],
+      "main_paths": [
+        ".github/actions/setup/**",
+        ".github/ci/areas.json",
+        ".github/workflows/core.yml",
+        ".github/workflows/targets.yml",
+        "lib/ledger/**",
+        "res/graph/testdata/store/**",
+        "scripts/ci/jobs/lib.sh",
+        "scripts/ci/jobs/ledger/**",
+        "scripts/ci/plan.py",
+        "scripts/ledger-test.sh"
+      ],
+      "pr_paths": [
+        ".github/actions/setup/**",
+        ".github/ci/areas.json",
+        ".github/workflows/core.yml",
+        ".github/workflows/targets.yml",
+        "lib/ledger/**",
+        "res/graph/testdata/store/**",
+        "scripts/ci/jobs/lib.sh",
+        "scripts/ci/jobs/ledger/**",
+        "scripts/ci/plan.py",
+        "scripts/ledger-test.sh"
+      ],
+      "jobs": {
+        "posix": {
+          "group": "engines",
+          "cells": [
+            {
+              "name": "ledger/posix (ubuntu-latest)",
+              "runner": "ubuntu-latest",
+              "script": "scripts/ci/jobs/ledger/posix.sh",
+              "vars": {
+                "OS": "ubuntu-latest"
+              },
+              "setup": {}
+            },
+            {
+              "name": "ledger/posix (macos-latest)",
+              "runner": "macos-latest",
+              "script": "scripts/ci/jobs/ledger/posix.sh",
+              "vars": {
+                "OS": "macos-latest"
+              },
+              "setup": {}
+            }
+          ]
+        },
+        "windows": {
+          "group": "engines",
+          "cells": [
+            {
+              "name": "ledger/windows (windows-latest)",
+              "runner": "windows-latest",
+              "script": "scripts/ci/jobs/ledger/windows.sh",
+              "vars": {
+                "OS": "windows-latest"
+              },
+              "setup": {
+                "msys2_msystem": "MINGW64",
+                "msys2_install": "mingw-w64-x86_64-gcc mingw-w64-x86_64-cmake mingw-w64-x86_64-ninja"
+              }
+            }
+          ]
+        },
+        "windows-msvc": {
+          "group": "engines",
+          "cells": [
+            {
+              "name": "ledger/windows-msvc (windows-latest)",
+              "runner": "windows-latest",
+              "script": "scripts/ci/jobs/ledger/windows-msvc.sh",
+              "vars": {
+                "OS": "windows-latest"
+              },
+              "setup": {
+                "msvc": "true"
+              },
+              "continue_on_error": true
+            }
+          ]
+        }
+      }
+    },
     "plugin-sdk": {
       "tools": [
         "go",

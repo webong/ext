@@ -557,6 +557,11 @@ from `_csrc` and links the engine library, which is built from `_csrc` with CMak
 | `pkg/plugin-wasm` (up to v0.2.1), later `pkg/plugin-go/wasm` | `pkg/ext-go/wasm` (`pkg/ext-go/wasm`); its reusable mechanics are `res/web/host/engine/wasm` |
 | `pkg/plugin-hashicorp` (up to v0.1.1) | `pkg/plugin-go/hashicorp` (`pkg/plugin-go/hashicorp`) |
 | `pkg/plugin-hashicorp/cmd/ext-plugin-bridge` | `pkg/plugin-go/cmd/ext-plugin-bridge` (`pkg/plugin-go`) |
+| `pkg/plugin-go/contract` and `.../contract/<subpackage>` (`pkg/plugin-go/contract`, up to v0.8.0) | `pkg/ext-go/engine` and `.../engine/<subpackage>` (`pkg/ext-go/engine`, from v0.1.0); the subpackage paths below `contract` are unchanged below `engine` (`contract/host/store` becomes `engine/host/store`, `contract/package` becomes `engine/package`, and so on) |
+| `pkg/plugin-go/cengine`, later `pkg/plugin-go/cgoengine`, and their subpackages (up to v0.8.0) | `pkg/ext-go/cgoengine` and `.../cgoengine/<subpackage>` (`pkg/ext-go/cgoengine`, from v0.1.0) |
+| `pkg/plugin-go/c2goengine` | `pkg/ext-go/c2goengine` (`pkg/ext-go/c2goengine`, from v0.1.0) |
+| `pkg/plugin-go/hashicorp` | `pkg/ext-go/hashicorp` (`pkg/ext-go/hashicorp`) |
+| `pkg/plugin-go` umbrella and its packages, such as `core` and `cmd/ext-plugin-bridge` (up to v0.8.0) | `pkg/ext-go` and the same packages (`pkg/ext-go`, from v0.9.0) |
 | `pkg/graph` (v0.1.0) | the generic store, first `res/system/graph` in module `res/system` (v0.1.0 to v0.2.1), now `res/graph/store` in module `res/graph` (from v0.2.0; see below) |
 | `res/graph` (v0.1.0, published for a short time) | `res/system` (module `res/system`): the discovery package that lived in `res/graph/system` (declared name `systemgraph`) became the module root, package `system`; the store, `res/graph`'s own package, became `res/system/graph`, and `res/graph/supervisor` became `res/system/supervisor`. Both have since moved back under `res/graph` (next rows) |
 | `res/system/graph`, `res/system/supervisor` and the recorder in the root package of `res/system` (`Graph`, `Open`, `New`, `Scan*`, `Observe*`, `ResolveInventory`, `ReadHost`, `ResolveHost`, `PrepareHost`) (`res/system`, up to v0.2.1) | `res/graph/store`, `res/graph/supervisor` and the root package `res/graph` (module `res/graph`, from v0.2.0) |

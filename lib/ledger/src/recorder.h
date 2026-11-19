@@ -62,5 +62,7 @@ int rec_equal_attributes(const lj_value *a, const lj_value *b); /* ignoring obse
 /* ---- the observations ---- */
 int rec_observe_shell(rec *r, const ext_ledger_context *ctx, const lj_value *in);
 int rec_observe_web(rec *r, const ext_ledger_context *ctx, const lj_value *in);
+int rec_observe_host(rec *r, const ext_ledger_context *ctx, const lj_value *in);
+int rec_read_host(rec *r, const ext_ledger_context *ctx, char **out, size_t *out_len);
 
 #endif

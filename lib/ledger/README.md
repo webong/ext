@@ -14,6 +14,20 @@ It replaces the Go `res/graph` as the implementation of the graph; the contract 
 | Collectors | Next: each kernel's own interface, so the recorder reads the machine itself |
 | Supervisor | Later: `res/graph/supervisor` moves here |
 
+## Platforms
+
+| OS | Tested |
+| --- | --- |
+| macOS (arm64) | locally, with the address, undefined-behaviour and thread sanitizers, with and without SQLite |
+| Linux | CI (`ledger/posix`, `ledger/sqlite`): GCC with the sanitizers, and the Go and C SQLite cross-check |
+| Windows | CI (`ledger/windows`, `ledger/windows-msvc`): MinGW-w64 and MSVC |
+| iOS | built for devices and the simulator (`-DCMAKE_SYSTEM_NAME=iOS`); every test passes in the iOS 18 simulator (`xcrun simctl spawn`) |
+| Android | built with the NDK (arm64-v8a, API 24); every test and `ext-ledger` pass on an Android 11 emulator |
+
+The iOS and Android builds have no SQLite backend: Android's NDK has no public SQLite, and on iOS the
+file backend is the one to use. iOS and its relatives build no `ext-ledger`, since there is no shell to
+run it from. iOS and Android are tested by hand for now; they have no CI cell.
+
 ## Building
 
 ```bash

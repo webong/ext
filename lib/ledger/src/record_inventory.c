@@ -96,7 +96,7 @@ static void put_vertex(inv_tx *t, const char *id, const char *kind, lj_value *at
   lj_value *v = rec_obj(), *prov = rec_obj();
   char k[96];
   snprintf(k, sizeof k, REC_NS "/%s", kind);
-  int bad = !attrs | rec_set(prov, "source", rec_str(source)) | rec_set(prov, "operation", rec_str(operation)) |
+  int bad = (!attrs) | rec_set(prov, "source", rec_str(source)) | rec_set(prov, "operation", rec_str(operation)) |
             rec_set(prov, "at", rec_strn(t->now.ptr, t->now.len)) | rec_set(v, "id", rec_str(id)) | rec_set(v, "kind", rec_str(k)) |
             rec_set(v, "provenance", prov);
   if (attrs && attrs->u.object.len) bad |= rec_set(v, "attributes", attrs);

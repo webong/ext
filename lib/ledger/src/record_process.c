@@ -173,7 +173,7 @@ static void add_vertex(proc_tx *t, const char *id, const char *kind, lj_value *a
   lj_value *v = rec_obj(), *labels = rec_obj();
   char k[96];
   snprintf(k, sizeof k, REC_NS "/%s", kind);
-  int bad = !attrs | put_str(labels, "collector", "process", 0) | put_str(labels, "host_id", t->host, 0);
+  int bad = (!attrs) | put_str(labels, "collector", "process", 0) | put_str(labels, "host_id", t->host, 0);
   if (owner) bad |= put_str(labels, "process_id", owner, 0);
   bad |= rec_set(v, "id", rec_str(id)) | rec_set(v, "kind", rec_str(k)) | rec_set(v, "labels", labels) |
          rec_set(v, "provenance", lj_clone(t->provenance));

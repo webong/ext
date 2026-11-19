@@ -56,11 +56,3 @@ use (
 	./src/ctx
 	./tests/crosslang
 )
-
-// Release round 2026-11-19: these versions have no tag until their layer is pushed, so the
-// workspace replaces them; remove these lines in the commit after the last layer is tagged.
-replace (
-	github.com/webong/ext/adapters/openai v0.2.0 => ./adapters/openai
-	github.com/webong/ext/pkg/ext-go/inference v0.2.0 => ./pkg/ext-go/inference
-	github.com/webong/ext/res/int v0.2.0 => ./res/int
-)

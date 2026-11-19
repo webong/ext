@@ -78,7 +78,7 @@ func TestGenerationRequestFixtures(t *testing.T) {
 }
 
 func TestGenerationResponseFixtures(t *testing.T) {
-	for _, name := range []string{"generation-response-tools.json", "generation-response-structured.json", "generation-response-refusal.json"} {
+	for _, name := range []string{"generation-response-tools.json", "generation-response-structured.json", "generation-response-refusal.json", "generation-response-other.json", "generation-response-paused.json"} {
 		var resp inference.GenerationResponse
 		roundTrip(t, name, &resp)
 		unmarshalAndValidate(t, name, &resp)
@@ -89,6 +89,12 @@ func TestEmbeddingFixtures(t *testing.T) {
 	var req inference.EmbeddingRequest
 	roundTrip(t, "embedding-request.json", &req)
 	unmarshalAndValidate(t, "embedding-request.json", &req)
+	var tokens inference.EmbeddingRequest
+	roundTrip(t, "embedding-request-tokens.json", &tokens)
+	unmarshalAndValidate(t, "embedding-request-tokens.json", &tokens)
+	if tokens.InputCount() != 2 || len(tokens.Inputs) != 0 {
+		t.Fatalf("token inputs: %+v", tokens)
+	}
 	var resp inference.EmbeddingResponse
 	roundTrip(t, "embedding-response.json", &resp)
 	unmarshalAndValidate(t, "embedding-response.json", &resp)
@@ -181,5 +187,21 @@ func TestModelListFixture(t *testing.T) {
 		if m.ID == "" {
 			t.Fatal("model missing id")
 		}
+	}
+}
+
+func TestContractGapsAreChecked(t *testing.T) {
+	both := inference.EmbeddingRequest{Model: "m", Inputs: []string{"a"}, TokenInputs: [][]int64{{1}}}
+	neither := inference.EmbeddingRequest{Model: "m"}
+	negative := inference.EmbeddingRequest{Model: "m", TokenInputs: [][]int64{{1, -2}}}
+	empty := inference.EmbeddingRequest{Model: "m", TokenInputs: [][]int64{{}}}
+	for name, req := range map[string]inference.EmbeddingRequest{"both": both, "neither": neither, "negative": negative, "empty": empty} {
+		if err := req.Validate(); !errors.Is(err, inference.ErrInvalidRequest) {
+			t.Errorf("%s: %v", name, err)
+		}
+	}
+	other := inference.GenerationResponse{Model: "m", Message: inference.Message{Role: inference.RoleAssistant, Parts: []inference.Part{{Kind: inference.PartKindText, Text: "x"}}}, StopReason: inference.FinishReasonOther}
+	if err := other.Validate(); !errors.Is(err, inference.ErrInvalidResponse) {
+		t.Errorf("other without provider reason: %v", err)
 	}
 }

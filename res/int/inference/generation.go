@@ -331,13 +331,20 @@ const (
 	FinishReasonContentFilter FinishReason = "contentFilter"
 	// FinishReasonRefusal means the model refused.
 	FinishReasonRefusal FinishReason = "refusal"
+	// FinishReasonPaused means the provider paused a long turn (for example Anthropic's
+	// pause_turn while it runs server tools); sending the response back as the next
+	// assistant message lets it continue.
+	FinishReasonPaused FinishReason = "paused"
+	// FinishReasonOther means the provider ended for a reason none of the others name (for
+	// example Gemini's OTHER); GenerationResponse.ProviderStopReason says which.
+	FinishReasonOther FinishReason = "other"
 )
 
 // Valid reports whether f is a known finish reason.
 func (f FinishReason) Valid() bool {
 	switch f {
 	case FinishReasonStop, FinishReasonLength, FinishReasonToolCalls,
-		FinishReasonContentFilter, FinishReasonRefusal:
+		FinishReasonContentFilter, FinishReasonRefusal, FinishReasonPaused, FinishReasonOther:
 		return true
 	default:
 		return false
@@ -363,6 +370,9 @@ type GenerationResponse struct {
 	Message Message `json:"message"`
 	// StopReason is why generation ended.
 	StopReason FinishReason `json:"stopReason,omitempty"`
+	// ProviderStopReason is the provider's own name for why generation ended, as it sent it.
+	// It is required when StopReason is FinishReasonOther and optional otherwise.
+	ProviderStopReason string `json:"providerStopReason,omitempty"`
 	// Usage is token accounting.
 	Usage TokenUsage `json:"usage"`
 	// ProviderMetadata is opaque provider metadata, free of credentials.
@@ -413,6 +423,12 @@ func (r GenerationResponse) Validate() error {
 	}
 	if r.StopReason != "" && !r.StopReason.Valid() {
 		return fmt.Errorf("%w: unknown finish reason %q", ErrInvalidResponse, r.StopReason)
+	}
+	if r.StopReason == FinishReasonOther && r.ProviderStopReason == "" {
+		return fmt.Errorf("%w: finish reason other needs the provider's stop reason", ErrInvalidResponse)
+	}
+	if len(r.ProviderStopReason) > 256 {
+		return fmt.Errorf("%w: provider stop reason too long", ErrInvalidResponse)
 	}
 	if r.Usage.Input < 0 || r.Usage.Output < 0 || r.Usage.Total < 0 ||
 		r.Usage.CachedInput < 0 || r.Usage.Reasoning < 0 {

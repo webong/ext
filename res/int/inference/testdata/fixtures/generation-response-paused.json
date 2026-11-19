@@ -1,0 +1,11 @@
+{
+  "id": "msg-paused",
+  "model": "claude-test",
+  "message": {
+    "role": "assistant",
+    "parts": [{ "kind": "text", "text": "Still searching." }]
+  },
+  "stopReason": "paused",
+  "providerStopReason": "pause_turn",
+  "usage": { "input": 40, "output": 9, "total": 49 }
+}

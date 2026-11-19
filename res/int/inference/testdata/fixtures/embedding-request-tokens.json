@@ -1,0 +1,4 @@
+{
+  "model": "text-embedding-3-small",
+  "tokenInputs": [[15339, 1917], [258, 2251, 5211]]
+}

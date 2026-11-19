@@ -512,6 +512,10 @@ static int rewrite(file_backend *fb, ll_state *state) {
   lj_buf_free(&ck);
   if (rc) return rc;
 
+  /* Windows refuses to rename over a file this handle holds open; close it first. */
+  ll_file_close(fb->log);
+  fb->log = NULL;
+  fb->stale = 1; /* until the new log is open again */
   lj_buf log = {0};
   header_line(&log, "log", generation, 0, 0, 0);
   size_t retained = ll_state_retained(state);
@@ -529,9 +533,9 @@ static int rewrite(file_backend *fb, ll_state *state) {
     ll_file_close(f);
     return rc;
   }
-  ll_file_close(fb->log);
   fb->log = f;
   fb->log_id = id;
+  fb->stale = 0;
   fb->generation = generation;
   fb->base = state->cursor;
   fb->offset = log_len;

@@ -80,7 +80,7 @@ static const char *json_arg(const char *arg, size_t *len, char **owned) {
 
 static int print(int rc, char *out, size_t len) {
   if (rc) return fail(rc);
-  fwrite(out, 1, len, stdout);
+  if (len) fwrite(out, 1, len, stdout);
   fputc('\n', stdout);
   ext_ledger_free(out);
   return fflush(stdout) ? EXT_LEDGER_IO : 0;
@@ -177,7 +177,7 @@ int main(int argc, char **argv) {
   size_t len = 0;
 
   if (strcmp(command, "snapshot") == 0 && n == 2) {
-    rc = print(ext_ledger_snapshot(store, &ctx, p[1], &out, &len), out, len);
+    rc = (rc = ext_ledger_snapshot(store, &ctx, p[1], &out, &len), print(rc, out, len));
   } else if ((strcmp(command, "get-vertex") == 0 || strcmp(command, "get-edge") == 0) && n == 3) {
     rc = command[4] == 'v' ? ext_ledger_get_vertex(store, &ctx, p[1], p[2], &out, &len) : ext_ledger_get_edge(store, &ctx, p[1], p[2], &out, &len);
     rc = print(rc, out, len);
@@ -190,17 +190,17 @@ int main(int argc, char **argv) {
       rc = ext_ledger_register(store, &ctx, text, tlen);
       rc = rc ? fail(rc) : 0;
     } else if (strcmp(command, "apply") == 0) {
-      rc = print(ext_ledger_apply(store, &ctx, text, tlen, &out, &len), out, len);
+      rc = (rc = ext_ledger_apply(store, &ctx, text, tlen, &out, &len), print(rc, out, len));
     } else if (command[6] == 'v') {
-      rc = print(ext_ledger_query_vertices(store, &ctx, text, tlen, &out, &len), out, len);
+      rc = (rc = ext_ledger_query_vertices(store, &ctx, text, tlen, &out, &len), print(rc, out, len));
     } else {
-      rc = print(ext_ledger_query_edges(store, &ctx, text, tlen, &out, &len), out, len);
+      rc = (rc = ext_ledger_query_edges(store, &ctx, text, tlen, &out, &len), print(rc, out, len));
     }
     free(owned);
   } else if (strcmp(command, "traverse") == 0 && n == 3) {
-    rc = print(ext_ledger_traverse(store, &ctx, p[1], p[2], a.depth, a.max, &out, &len), out, len);
+    rc = (rc = ext_ledger_traverse(store, &ctx, p[1], p[2], a.depth, a.max, &out, &len), print(rc, out, len));
   } else if (strcmp(command, "changes") == 0 && n <= 2) {
-    rc = print(ext_ledger_changes(store, &ctx, n == 2 ? p[1] : "", (uint64_t)a.after, a.limit, &out, &len), out, len);
+    rc = (rc = ext_ledger_changes(store, &ctx, n == 2 ? p[1] : "", (uint64_t)a.after, a.limit, &out, &len), print(rc, out, len));
   } else if (strcmp(command, "watch") == 0 && n <= 2) {
     ext_ledger_watch *w;
     rc = ext_ledger_watch_open(store, &ctx, n == 2 ? p[1] : "", (uint64_t)a.after, a.buffer, &w);

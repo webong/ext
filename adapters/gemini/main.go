@@ -37,18 +37,40 @@ func (p *provider) Info(ctx context.Context) (inference.ProviderInfo, error) {
 	if err := ctx.Err(); err != nil {
 		return inference.ProviderInfo{}, err
 	}
-	return inference.ProviderInfo{ID: "gemini", Name: "Gemini", Version: "1.0.0", Stability: inference.StabilityStable, Modalities: []inference.Modality{inference.ModalityText, inference.ModalityImage}, Capabilities: []inference.Capability{inference.CapabilityGenerate, inference.CapabilityToolProposal, inference.CapabilityStructuredOutput}, Limits: inference.Limits{MaxBytes: 32 << 20}, Protocol: map[string]string{"endpoint": p.endpoint, "auth": "x-goog-api-key"}}, nil
+	return inference.ProviderInfo{ID: "gemini", Name: "Gemini", Version: "1.0.0", Stability: inference.StabilityStable, Modalities: []inference.Modality{inference.ModalityText, inference.ModalityImage}, Capabilities: []inference.Capability{inference.CapabilityGenerate, inference.CapabilityStream, inference.CapabilityEmbed, inference.CapabilityToolProposal, inference.CapabilityStructuredOutput, inference.CapabilityModelListing}, Limits: inference.Limits{MaxBytes: 32 << 20}, Protocol: map[string]string{"endpoint": p.endpoint, "auth": "x-goog-api-key"}}, nil
 }
 func (p *provider) Close() error { return nil }
-func (p *provider) Generate(ctx context.Context, r inference.GenerationRequest) (inference.GenerationResponse, error) {
+// generationOptions go into generationConfig and topOptions beside it; any other request
+// option is refused rather than dropped.
+var (
+	generationOptions = map[string]bool{
+		"topK": true, "topP": true, "stopSequences": true, "thinkingConfig": true, "seed": true,
+		"presencePenalty": true, "frequencyPenalty": true, "responseLogprobs": true, "logprobs": true,
+	}
+	topOptions = map[string]bool{"safetySettings": true, "toolConfig": true, "cachedContent": true}
+)
+
+// origin is what Gemini needs back from an earlier turn: the signature of a thought,
+// text or function call part.
+type origin struct {
+	ThoughtSignature string `json:"thoughtSignature,omitempty"`
+}
+
+func signature(data json.RawMessage) string {
+	var o origin
+	if len(data) > 0 && json.Unmarshal(data, &o) == nil {
+		return o.ThoughtSignature
+	}
+	return ""
+}
+
+// payload builds a generateContent request body.
+func (p *provider) payload(r inference.GenerationRequest) ([]byte, error) {
 	if err := r.Validate(); err != nil {
-		return inference.GenerationResponse{}, err
+		return nil, err
 	}
 	if !modelName.MatchString(r.Model) {
-		return inference.GenerationResponse{}, inference.ErrInvalidRequest
-	}
-	if len(r.Options) > 0 {
-		return inference.GenerationResponse{}, inference.ErrUnsupported
+		return nil, inference.ErrInvalidRequest
 	}
 	type content struct {
 		Role  string           `json:"role,omitempty"`
@@ -59,23 +81,30 @@ func (p *provider) Generate(ctx context.Context, r inference.GenerationRequest) 
 	for _, m := range r.Messages {
 		parts := make([]map[string]any, 0, len(m.Parts)+len(m.ToolCalls))
 		for _, part := range m.Parts {
+			var out map[string]any
 			switch part.Kind {
 			case inference.PartKindText:
-				parts = append(parts, map[string]any{"text": part.Text})
+				out = map[string]any{"text": part.Text}
+			case inference.PartKindReasoning:
+				out = map[string]any{"text": part.Text, "thought": true}
 			case inference.PartKindImage:
 				if m.Role != inference.RoleUser || part.Reference != nil || !supportedImage(part.MediaType) {
-					return inference.GenerationResponse{}, inference.ErrUnsupported
+					return nil, inference.ErrUnsupported
 				}
-				parts = append(parts, map[string]any{"inlineData": map[string]any{"mimeType": part.MediaType, "data": base64.StdEncoding.EncodeToString(part.Data)}})
+				out = map[string]any{"inlineData": map[string]any{"mimeType": part.MediaType, "data": base64.StdEncoding.EncodeToString(part.Data)}}
 			default:
-				return inference.GenerationResponse{}, inference.ErrUnsupported
+				return nil, inference.ErrUnsupported
 			}
+			if sig := signature(part.ProviderData); sig != "" {
+				out["thoughtSignature"] = sig
+			}
+			parts = append(parts, out)
 		}
 		switch m.Role {
 		case inference.RoleSystem:
 			for _, part := range parts {
-				if _, ok := part["text"]; !ok {
-					return inference.GenerationResponse{}, inference.ErrUnsupported
+				if _, ok := part["text"]; !ok || part["thought"] != nil {
+					return nil, inference.ErrUnsupported
 				}
 			}
 			system = append(system, parts...)
@@ -83,20 +112,28 @@ func (p *provider) Generate(ctx context.Context, r inference.GenerationRequest) 
 			messages = append(messages, content{Role: "user", Parts: parts})
 		case inference.RoleAssistant:
 			for _, call := range m.ToolCalls {
-				function := map[string]any{"name": call.Name, "args": call.Arguments}
+				args := call.Arguments
+				if len(args) == 0 {
+					args = json.RawMessage(`{}`)
+				}
+				function := map[string]any{"name": call.Name, "args": args}
 				if !strings.HasPrefix(call.ID, "gemini-call-") {
 					function["id"] = call.ID
 				}
-				parts = append(parts, map[string]any{"functionCall": function})
+				out := map[string]any{"functionCall": function}
+				if sig := signature(call.ProviderData); sig != "" {
+					out["thoughtSignature"] = sig
+				}
+				parts = append(parts, out)
 			}
 			messages = append(messages, content{Role: "model", Parts: parts})
 		case inference.RoleTool:
 			if m.ToolName == "" {
-				return inference.GenerationResponse{}, inference.ErrInvalidRequest
+				return nil, inference.ErrInvalidRequest
 			}
 			for _, part := range m.Parts {
 				if part.Kind != inference.PartKindText {
-					return inference.GenerationResponse{}, inference.ErrUnsupported
+					return nil, inference.ErrUnsupported
 				}
 			}
 			response := map[string]any{"name": m.ToolName, "response": map[string]any{"result": textParts(m.Parts)}}
@@ -108,11 +145,11 @@ func (p *provider) Generate(ctx context.Context, r inference.GenerationRequest) 
 			}
 			messages = append(messages, content{Role: "user", Parts: []map[string]any{{"functionResponse": response}}})
 		default:
-			return inference.GenerationResponse{}, inference.ErrUnsupported
+			return nil, inference.ErrUnsupported
 		}
 	}
 	if len(messages) == 0 {
-		return inference.GenerationResponse{}, inference.ErrInvalidRequest
+		return nil, inference.ErrInvalidRequest
 	}
 	payload := map[string]any{"contents": messages}
 	if len(system) > 0 {
@@ -129,6 +166,22 @@ func (p *provider) Generate(ctx context.Context, r inference.GenerationRequest) 
 		config["responseMimeType"] = "application/json"
 		config["responseJsonSchema"] = r.OutputSchema
 	}
+	if len(r.Options) > 0 {
+		var options map[string]json.RawMessage
+		if err := json.Unmarshal(r.Options, &options); err != nil {
+			return nil, inference.ErrInvalidRequest
+		}
+		for key, value := range options {
+			switch {
+			case generationOptions[key]:
+				config[key] = value
+			case topOptions[key]:
+				payload[key] = value
+			default:
+				return nil, fmt.Errorf("%w: option %q", inference.ErrUnsupported, key)
+			}
+		}
+	}
 	if len(config) > 0 {
 		payload["generationConfig"] = config
 	}
@@ -139,25 +192,151 @@ func (p *provider) Generate(ctx context.Context, r inference.GenerationRequest) 
 		}
 		payload["tools"] = []map[string]any{{"functionDeclarations": declarations}}
 	}
-	body, err := json.Marshal(payload)
+	return json.Marshal(payload)
+}
+
+// send posts to the API and returns the reply when its status is a success.
+func (p *provider) send(ctx context.Context, method, path string, body []byte) (*http.Response, error) {
+	var reader io.Reader
+	if body != nil {
+		reader = bytes.NewReader(body)
+	}
+	req, err := http.NewRequestWithContext(ctx, method, p.endpoint+path, reader)
+	if err != nil {
+		return nil, inference.ErrInvalidRequest
+	}
+	req.Header.Set("x-goog-api-key", p.key)
+	if body != nil {
+		req.Header.Set("content-type", "application/json")
+	}
+	reply, err := p.client.Do(req)
+	if err != nil {
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			return nil, inference.NewRemoteError(inference.ErrCanceled, "operation canceled", "gemini")
+		}
+		return nil, inference.NewRemoteError(inference.ErrUnavailable, "request failed", "gemini")
+	}
+	if reply.StatusCode < 200 || reply.StatusCode >= 300 {
+		reply.Body.Close()
+		return nil, inference.NewRemoteError(statusError(reply.StatusCode), "provider request failed", "gemini")
+	}
+	return reply, nil
+}
+
+// apiPart is one part of a candidate's content.
+type apiPart struct {
+	Text             *string `json:"text"`
+	Thought          bool    `json:"thought"`
+	ThoughtSignature string  `json:"thoughtSignature"`
+	FunctionCall     *struct {
+		ID   string          `json:"id"`
+		Name string          `json:"name"`
+		Args json.RawMessage `json:"args"`
+	} `json:"functionCall"`
+}
+
+// chunk is a generateContent response, or one event of a streamed one.
+type chunk struct {
+	Candidates []struct {
+		Content struct {
+			Parts []apiPart `json:"parts"`
+		} `json:"content"`
+		FinishReason string `json:"finishReason"`
+	} `json:"candidates"`
+	Usage *struct {
+		Input    int64 `json:"promptTokenCount"`
+		Output   int64 `json:"candidatesTokenCount"`
+		Thoughts int64 `json:"thoughtsTokenCount"`
+		Cached   int64 `json:"cachedContentTokenCount"`
+		Total    int64 `json:"totalTokenCount"`
+	} `json:"usageMetadata"`
+	ModelVersion string `json:"modelVersion"`
+	ResponseID   string `json:"responseId"`
+}
+
+func (c chunk) usage() inference.TokenUsage {
+	if c.Usage == nil {
+		return inference.TokenUsage{}
+	}
+	return inference.TokenUsage{Input: c.Usage.Input, Output: c.Usage.Output + c.Usage.Thoughts, Total: c.Usage.Total, CachedInput: c.Usage.Cached, Reasoning: c.Usage.Thoughts}
+}
+
+func originData(sig string) json.RawMessage {
+	if sig == "" {
+		return nil
+	}
+	data, _ := json.Marshal(origin{ThoughtSignature: sig})
+	return data
+}
+
+// appendPart adds one response part to the message and returns the event it makes in a
+// stream: a text or reasoning delta, or a completed tool call.
+func appendPart(m *inference.Message, part apiPart) (inference.GenerationEvent, error) {
+	switch {
+	case part.FunctionCall != nil:
+		call := part.FunctionCall
+		id := call.ID
+		if id == "" {
+			id = fmt.Sprintf("gemini-call-%d", len(m.ToolCalls))
+		}
+		args := call.Args
+		if len(args) == 0 {
+			args = json.RawMessage(`{}`)
+		}
+		tc := inference.ToolCall{ID: id, Name: call.Name, Arguments: args, ProviderData: originData(part.ThoughtSignature)}
+		m.ToolCalls = append(m.ToolCalls, tc)
+		return inference.GenerationEvent{Kind: inference.EventKindToolCompleted, Index: len(m.ToolCalls) - 1, CallID: tc.ID, ToolName: tc.Name, Call: &tc}, nil
+	case part.Text != nil:
+		kind, event := inference.PartKindText, inference.EventKindTextDelta
+		if part.Thought {
+			kind, event = inference.PartKindReasoning, inference.EventKindReasoningDelta
+		}
+		n := len(m.Parts)
+		if n > 0 && m.Parts[n-1].Kind == kind && len(m.Parts[n-1].ProviderData) == 0 {
+			// A stream sends a part's text in pieces; they join into one part.
+			m.Parts[n-1].Text += *part.Text
+			m.Parts[n-1].ProviderData = originData(part.ThoughtSignature)
+		} else {
+			m.Parts = append(m.Parts, inference.Part{Kind: kind, Text: *part.Text, ProviderData: originData(part.ThoughtSignature)})
+		}
+		return inference.GenerationEvent{Kind: event, Index: len(m.Parts) - 1, Text: *part.Text}, nil
+	case part.ThoughtSignature != "":
+		// A signature on its own (as the last streamed piece can be) belongs to the part before.
+		if n := len(m.Parts); n > 0 {
+			m.Parts[n-1].ProviderData = originData(part.ThoughtSignature)
+		}
+		return inference.GenerationEvent{}, nil
+	default:
+		return inference.GenerationEvent{}, inference.ErrUnsupported
+	}
+}
+
+func finishReason(reason string, toolCalls bool) (inference.FinishReason, error) {
+	switch reason {
+	case "STOP":
+		if toolCalls {
+			return inference.FinishReasonToolCalls, nil
+		}
+		return inference.FinishReasonStop, nil
+	case "MAX_TOKENS":
+		return inference.FinishReasonLength, nil
+	case "SAFETY", "RECITATION", "BLOCKLIST", "PROHIBITED_CONTENT", "SPII":
+		return inference.FinishReasonContentFilter, nil
+	default:
+		return "", inference.ErrInvalidResponse
+	}
+}
+
+func (p *provider) Generate(ctx context.Context, r inference.GenerationRequest) (inference.GenerationResponse, error) {
+	body, err := p.payload(r)
 	if err != nil {
 		return inference.GenerationResponse{}, err
 	}
-	endpoint := p.endpoint + "/models/" + r.Model + ":generateContent"
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(body))
+	reply, err := p.send(ctx, http.MethodPost, "/models/"+r.Model+":generateContent", body)
 	if err != nil {
-		return inference.GenerationResponse{}, inference.ErrInvalidRequest
-	}
-	req.Header.Set("x-goog-api-key", p.key)
-	req.Header.Set("content-type", "application/json")
-	reply, err := p.client.Do(req)
-	if err != nil {
-		return inference.GenerationResponse{}, inference.NewRemoteError(inference.ErrUnavailable, "request failed", "gemini")
+		return inference.GenerationResponse{}, err
 	}
 	defer reply.Body.Close()
-	if reply.StatusCode < 200 || reply.StatusCode >= 300 {
-		return inference.GenerationResponse{}, inference.NewRemoteError(statusError(reply.StatusCode), "provider request failed", "gemini")
-	}
 	raw, err := io.ReadAll(io.LimitReader(reply.Body, (32<<20)+1))
 	if err != nil {
 		return inference.GenerationResponse{}, inference.ErrInvalidResponse
@@ -165,19 +344,7 @@ func (p *provider) Generate(ctx context.Context, r inference.GenerationRequest) 
 	if len(raw) > 32<<20 {
 		return inference.GenerationResponse{}, inference.ErrResourceExhausted
 	}
-	var result struct {
-		Candidates []struct {
-			Content struct {
-				Parts []map[string]json.RawMessage `json:"parts"`
-			} `json:"content"`
-			FinishReason string `json:"finishReason"`
-		} `json:"candidates"`
-		Usage struct {
-			Input  int64 `json:"promptTokenCount"`
-			Output int64 `json:"candidatesTokenCount"`
-			Total  int64 `json:"totalTokenCount"`
-		} `json:"usageMetadata"`
-	}
+	var result chunk
 	if err := json.Unmarshal(raw, &result); err != nil || len(result.Candidates) == 0 {
 		return inference.GenerationResponse{}, inference.ErrInvalidResponse
 	}
@@ -185,47 +352,14 @@ func (p *provider) Generate(ctx context.Context, r inference.GenerationRequest) 
 	if len(first.Content.Parts) == 0 {
 		return inference.GenerationResponse{}, inference.ErrInvalidResponse
 	}
-	out := inference.GenerationResponse{Model: r.Model, Message: inference.Message{Role: inference.RoleAssistant}, Usage: inference.TokenUsage{Input: result.Usage.Input, Output: result.Usage.Output, Total: result.Usage.Total}}
+	out := inference.GenerationResponse{ID: result.ResponseID, Model: r.Model, Message: inference.Message{Role: inference.RoleAssistant}, Usage: result.usage()}
 	for _, part := range first.Content.Parts {
-		if rawText, ok := part["text"]; ok {
-			var text string
-			if err := json.Unmarshal(rawText, &text); err != nil {
-				return inference.GenerationResponse{}, inference.ErrInvalidResponse
-			}
-			out.Message.Parts = append(out.Message.Parts, inference.Part{Kind: inference.PartKindText, Text: text})
-		} else if rawCall, ok := part["functionCall"]; ok {
-			var call struct {
-				ID   string          `json:"id"`
-				Name string          `json:"name"`
-				Args json.RawMessage `json:"args"`
-			}
-			if err := json.Unmarshal(rawCall, &call); err != nil {
-				return inference.GenerationResponse{}, inference.ErrInvalidResponse
-			}
-			if call.ID == "" {
-				call.ID = fmt.Sprintf("gemini-call-%d", len(out.Message.ToolCalls))
-			}
-			if len(call.Args) == 0 {
-				call.Args = json.RawMessage(`{}`)
-			}
-			out.Message.ToolCalls = append(out.Message.ToolCalls, inference.ToolCall{ID: call.ID, Name: call.Name, Arguments: call.Args})
-		} else {
-			return inference.GenerationResponse{}, inference.ErrUnsupported
+		if _, err := appendPart(&out.Message, part); err != nil {
+			return inference.GenerationResponse{}, err
 		}
 	}
-	switch first.FinishReason {
-	case "STOP":
-		if len(out.Message.ToolCalls) > 0 {
-			out.StopReason = inference.FinishReasonToolCalls
-		} else {
-			out.StopReason = inference.FinishReasonStop
-		}
-	case "MAX_TOKENS":
-		out.StopReason = inference.FinishReasonLength
-	case "SAFETY", "RECITATION":
-		out.StopReason = inference.FinishReasonContentFilter
-	default:
-		return inference.GenerationResponse{}, inference.ErrInvalidResponse
+	if out.StopReason, err = finishReason(first.FinishReason, len(out.Message.ToolCalls) > 0); err != nil {
+		return inference.GenerationResponse{}, err
 	}
 	return out, out.Validate()
 }

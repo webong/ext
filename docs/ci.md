@@ -107,6 +107,7 @@ step needs, its registry, and whether it has a `dist/` branch.
 | tag push | the package whose prefix the tag starts with (the longest prefix wins) | yes |
 | pull request | the packages whose `pr_paths` match a changed file | no |
 | `gh workflow run release.yml -f package=<name> [-f version=X.Y.Z]` | that package | no |
+| `gh workflow run release.yml -f package=<name> -f tag=<tag>` | that package, which must own the tag | yes, as the tag's push would |
 
 The jobs, the same for every package:
 
@@ -117,10 +118,16 @@ The jobs, the same for every package:
 | `crates`, `npm`, `pypi`, `nuget` | the registry a package names, in that registry's environment |
 | `distribute` | `distribute.sh`, which pushes the package's `dist/` branch (`ext-ios`, `ext-macos`, `ext-zig`) |
 
-`publish` and `distribute` run only for a push of a tag with the package's own prefix; each registry
-job also checks its package's literal tag prefix, and `nuget` still needs `EXT_NUGET_SOURCE`. A
-tag that matches no package fails the route, and `ctx`, `ctn` and `ext`, which have no build cells,
-refuse a manual run.
+`publish` and `distribute` run only for a tag with the package's own prefix, pushed or named by a
+manual publish; each registry job also checks its package's literal tag prefix, and `nuget` still
+needs `EXT_NUGET_SOURCE`. A tag that matches no package fails the route, and `ctx`, `ctn` and `ext`,
+which have no build cells, refuse a dry run.
+
+A manual publish (`-f tag=<tag>`, with `version` empty) is for a tag whose push started no run.
+GitHub sends no push event when more than three tags arrive in one push, and the ruleset forbids
+deleting a tag to push it again, so push release tags one per `git push`. The run uses this
+workflow from the branch it is started on, checks out the tagged commit in every job, routes the tag
+as its push would, and gives the scripts the tag as `GITHUB_REF_NAME`.
 
 Adding a package: `scripts/release/<package>/` (`build.sh`, `prepare.sh`, `release.sh`, and
 `distribute.sh` if it has a branch), its entry in `releases.json`, and its tag pattern in

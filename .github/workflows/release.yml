@@ -6,13 +6,17 @@ name: Release
 #   tag push        the package whose prefix the tag starts with; it is built and published
 #   pull request    the packages whose files changed: their build cells run, nothing is published
 #   manual run      gh workflow run release.yml -f package=<name> [-f version=X.Y.Z]: a dry run
+#   manual publish  gh workflow run release.yml -f package=<name> -f tag=<tag>: builds the tagged
+#                   commit and publishes it exactly as the tag's push would have. For a tag whose push
+#                   started no run (GitHub sends no push event when more than three tags arrive in one
+#                   push, and the ruleset forbids deleting a tag to push it again).
 #
 # build runs the package's build cells (scripts/release/<package>/build.sh, one cell per platform
 # where it has several) and uploads release-out/. publish downloads that into dist/, runs prepare.sh,
 # attests dist/*, and runs release.sh (the GitHub release). The registry jobs (crates, npm, pypi,
 # nuget) and distribute (the dist/ branches) follow for the packages that name them. Every publish,
-# registry and distribute job runs only for a push of a tag with its package's own prefix, as the
-# per-package workflows did; each registry job keeps its environment and its literal tag check.
+# registry and distribute job runs only for a tag with its package's own prefix, pushed or named by a
+# manual publish; each registry job keeps its environment and its literal tag check.
 # Adding a package adds scripts and a table entry, not a workflow. See docs/ci.md.
 on:
   push:
@@ -77,6 +81,10 @@ on:
         description: Version to build (empty takes the package's default)
         type: string
         default: ''
+      tag:
+        description: Publish this existing tag of the package instead of a dry run (version must be empty)
+        type: string
+        default: ''
 
 permissions:
   contents: read
@@ -97,9 +105,11 @@ jobs:
       publish_setup: ${{ steps.route.outputs.publish_setup }}
       registry: ${{ steps.route.outputs.registry }}
       distribute: ${{ steps.route.outputs.distribute }}
+      tag: ${{ steps.tag.outputs.tag }}
     steps:
       - uses: actions/checkout@v5
         with:
+          ref: ${{ inputs.tag }}
           fetch-depth: 0
       - name: Check the package table against the scripts
         run: python3 -I scripts/ci/release_plan.py --check
@@ -109,6 +119,24 @@ jobs:
           BASE: ${{ github.event.pull_request.base.sha }}
           HEAD: ${{ github.event.pull_request.head.sha }}
         run: git diff --name-only "$BASE...$HEAD" >changed.txt
+      # The tag a run publishes: the pushed one, or the one a manual publish names. A manual publish
+      # is routed as that tag's push and must name the package the tag belongs to.
+      - id: tag
+        name: Tag
+        env:
+          EVENT: ${{ github.event_name }}
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+          TAG: ${{ inputs.tag }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          if [[ "$EVENT" == push && "$REF_TYPE" == tag ]]; then
+            echo "tag=$REF_NAME" >>"$GITHUB_OUTPUT"
+          elif [[ "$EVENT" == workflow_dispatch && -n "$TAG" ]]; then
+            [[ -z "$VERSION" ]] || { echo "a manual publish takes its version from the tag; leave version empty" >&2; exit 1; }
+            git rev-parse -q --verify "refs/tags/$TAG" >/dev/null || { echo "tag $TAG does not exist" >&2; exit 1; }
+            echo "tag=$TAG" >>"$GITHUB_OUTPUT"
+          fi
       - id: route
         name: Route
         env:
@@ -116,11 +144,18 @@ jobs:
           REF_NAME: ${{ github.ref_name }}
           PACKAGE: ${{ inputs.package }}
           VERSION: ${{ inputs.version }}
+          TAG: ${{ inputs.tag }}
         run: |
           changed=()
           [ -f changed.txt ] && changed=(--changed changed.txt)
-          python3 -I scripts/ci/release_plan.py --event "$EVENT" --ref-name "$REF_NAME" \
-            --package "$PACKAGE" --version "$VERSION" "${changed[@]}"
+          if [[ -n "$TAG" ]]; then
+            python3 -I scripts/ci/release_plan.py --event push --ref-name "$TAG"
+            routed=$(sed -n 's/^package=//p' "$GITHUB_OUTPUT" | tail -n 1)
+            [[ "$routed" == "$PACKAGE" ]] || { echo "tag $TAG belongs to $routed, not $PACKAGE" >&2; exit 1; }
+          else
+            python3 -I scripts/ci/release_plan.py --event "$EVENT" --ref-name "$REF_NAME" \
+              --package "$PACKAGE" --version "$VERSION" "${changed[@]}"
+          fi
 
   # Every build cell of the chosen packages: build, test and stage what the release ships.
   build:
@@ -137,6 +172,8 @@ jobs:
       version: ${{ steps.version.outputs.version }}
     steps:
       - uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.tag }}
       - uses: ./.github/actions/setup
         with:
           go: ${{ matrix.setup.go }}
@@ -167,7 +204,11 @@ jobs:
         env:
           CI_CELL_EXPORTS: ${{ matrix.exports }}
           CI_SCRIPT: ${{ matrix.script }}
-        run: bash "$CI_SCRIPT"
+          TAG: ${{ needs.route.outputs.tag }}
+        run: |
+          # A manual publish builds the tag as its push would: the scripts read the tag from GITHUB_REF_*.
+          [[ -z "$TAG" ]] || export GITHUB_REF="refs/tags/$TAG" GITHUB_REF_NAME="$TAG" GITHUB_REF_TYPE=tag
+          bash "$CI_SCRIPT"
       - name: Test in the Android emulator
         if: matrix.android_emulator
         uses: reactivecircus/android-emulator-runner@v2.33.0
@@ -193,7 +234,7 @@ jobs:
     if: >-
       always() && needs.route.outputs.package != '' &&
       (needs.build.result == 'success' || needs.build.result == 'skipped') &&
-      github.event_name == 'push' && startsWith(github.ref, format('refs/tags/{0}', needs.route.outputs.prefix))
+      startsWith(needs.route.outputs.tag, needs.route.outputs.prefix)
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -202,6 +243,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with:
+          ref: ${{ inputs.tag }}
           fetch-depth: 0
       - uses: ./.github/actions/setup
         with:
@@ -239,7 +281,10 @@ jobs:
           VERSION: ${{ needs.build.outputs.version }}
           GH_TOKEN: ${{ github.token }}
           PACKAGE: ${{ needs.route.outputs.package }}
-        run: bash "scripts/release/$PACKAGE/prepare.sh"
+          TAG: ${{ needs.route.outputs.tag }}
+        run: |
+          export GITHUB_REF="refs/tags/$TAG" GITHUB_REF_NAME="$TAG" GITHUB_REF_TYPE=tag
+          bash "scripts/release/$PACKAGE/prepare.sh"
       - name: Attest release provenance
         uses: actions/attest-build-provenance@v2
         with:
@@ -250,11 +295,14 @@ jobs:
           VERSION: ${{ needs.build.outputs.version }}
           GH_TOKEN: ${{ github.token }}
           PACKAGE: ${{ needs.route.outputs.package }}
-        run: bash "scripts/release/$PACKAGE/release.sh"
+          TAG: ${{ needs.route.outputs.tag }}
+        run: |
+          export GITHUB_REF="refs/tags/$TAG" GITHUB_REF_NAME="$TAG" GITHUB_REF_TYPE=tag
+          bash "scripts/release/$PACKAGE/release.sh"
 
   crates:
     needs: [route, build, publish]
-    if: needs.route.outputs.registry == 'crates' && github.event_name == 'push' && startsWith(github.ref, 'refs/tags/ext-rust-v')
+    if: needs.route.outputs.registry == 'crates' && startsWith(needs.route.outputs.tag, 'ext-rust-v')
     runs-on: ubuntu-latest
     environment:
       name: crates
@@ -266,6 +314,8 @@ jobs:
       HAS_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN != '' }}
     steps:
       - uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.tag }}
       - uses: dtolnay/rust-toolchain@stable
       - name: Trusted publishing token
         id: auth
@@ -278,7 +328,7 @@ jobs:
 
   npm:
     needs: [route, build, publish]
-    if: needs.route.outputs.registry == 'npm' && github.event_name == 'push' && startsWith(github.ref, 'refs/tags/ext-ts-v')
+    if: needs.route.outputs.registry == 'npm' && startsWith(needs.route.outputs.tag, 'ext-ts-v')
     runs-on: ubuntu-latest
     environment:
       name: npm
@@ -308,7 +358,7 @@ jobs:
 
   pypi:
     needs: [route, build, publish]
-    if: needs.route.outputs.registry == 'pypi' && github.event_name == 'push' && startsWith(github.ref, 'refs/tags/ext-python-v')
+    if: needs.route.outputs.registry == 'pypi' && startsWith(needs.route.outputs.tag, 'ext-python-v')
     runs-on: ubuntu-latest
     environment:
       name: pypi
@@ -330,8 +380,8 @@ jobs:
   nuget:
     needs: [route, build, publish]
     if: >-
-      needs.route.outputs.registry == 'nuget' && github.event_name == 'push' &&
-      (startsWith(github.ref, 'refs/tags/ext-dotnet-v') || startsWith(github.ref, 'refs/tags/ext-windows-v')) &&
+      needs.route.outputs.registry == 'nuget' &&
+      (startsWith(needs.route.outputs.tag, 'ext-dotnet-v') || startsWith(needs.route.outputs.tag, 'ext-windows-v')) &&
       vars.EXT_NUGET_SOURCE != ''
     runs-on: ubuntu-latest
     environment: nuget
@@ -357,12 +407,14 @@ jobs:
   # The dist/ branch of a package that has one (SwiftPM for ext-ios and ext-macos, Zig for ext-zig).
   distribute:
     needs: [route, build, publish]
-    if: needs.route.outputs.distribute == 'true' && github.event_name == 'push' && startsWith(github.ref, format('refs/tags/{0}', needs.route.outputs.prefix))
+    if: needs.route.outputs.distribute == 'true' && startsWith(needs.route.outputs.tag, needs.route.outputs.prefix)
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.tag }}
       - uses: actions/download-artifact@v7
         with:
           pattern: release-${{ needs.route.outputs.package }}-*
@@ -373,4 +425,7 @@ jobs:
         env:
           VERSION: ${{ needs.build.outputs.version }}
           PACKAGE: ${{ needs.route.outputs.package }}
-        run: bash "scripts/release/$PACKAGE/distribute.sh"
+          TAG: ${{ needs.route.outputs.tag }}
+        run: |
+          export GITHUB_REF="refs/tags/$TAG" GITHUB_REF_NAME="$TAG" GITHUB_REF_TYPE=tag
+          bash "scripts/release/$PACKAGE/distribute.sh"

@@ -10,6 +10,7 @@ import (
 	"errors"
 	"io"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	plugin "github.com/webong/ext/pkg/ext-go/engine"
@@ -150,10 +151,19 @@ func (g *Provider) openStream(ctx context.Context, _ plugin.Request, req inferen
 	reader := newGenReader()
 	id := newStreamID()
 	reader.run = func(ctx context.Context) {
+		// The host sees only the events, so the final response must travel as one: a provider
+		// that does not emit its own completed event gets one carrying what Stream returned.
+		var completed atomic.Bool
 		sink := inference.SinkFunc(func(ctx context.Context, ev inference.GenerationEvent) error {
+			if ev.Kind == inference.EventKindCompleted && ev.Response != nil {
+				completed.Store(true)
+			}
 			return reader.push(ctx, ev)
 		})
-		_, err := str.Stream(ctx, req, sink)
+		resp, err := str.Stream(ctx, req, sink)
+		if err == nil && !completed.Load() {
+			err = reader.push(ctx, inference.GenerationEvent{Kind: inference.EventKindCompleted, Response: &resp})
+		}
 		reader.finish(pluginError(err))
 	}
 	g.mu.Lock()
@@ -314,4 +324,3 @@ func (g *Provider) closeOp(ctx context.Context, _ plugin.Request, _ struct{}) (s
 	return struct{}{}, nil
 }
 
-var _ = errors.Is

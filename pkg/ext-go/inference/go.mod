@@ -3,6 +3,6 @@ module github.com/webong/ext/pkg/ext-go/inference
 go 1.25.0
 
 require (
-	github.com/webong/ext/pkg/ext-go/engine v0.3.0
+	github.com/webong/ext/pkg/ext-go/engine v0.4.0
 	github.com/webong/ext/res/int v0.1.0
 )

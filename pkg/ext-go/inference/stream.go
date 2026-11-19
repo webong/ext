@@ -122,7 +122,8 @@ func (r *genReader) Close() error {
 }
 
 // synthReader bridges a push-based synthesis byte stream to a pull-based
-// stream.Reader. Each Read returns one batch of audio bytes.
+// stream.Reader. Each item is one chunk of audio as a JSON string holding the bytes in
+// standard base64; DecodeAudio turns an item back into bytes.
 type synthReader struct {
 	mu     sync.Mutex
 	chunks [][]byte
@@ -194,7 +195,12 @@ func (r *synthReader) Read(ctx context.Context, limit int) ([]json.RawMessage, b
 	}
 	batch := make([]json.RawMessage, 0, n)
 	for i := 0; i < n; i++ {
-		batch = append(batch, r.chunks[i])
+		data, err := json.Marshal(r.chunks[i]) // []byte marshals as a base64 JSON string
+		if err != nil {
+			r.mu.Unlock()
+			return batch, false, err
+		}
+		batch = append(batch, data)
 	}
 	r.chunks = r.chunks[n:]
 	for i := 0; i < n; i++ {
@@ -221,6 +227,26 @@ func (r *synthReader) Close() error {
 	default:
 	}
 	return nil
+}
+
+// DecodeEvent decodes one item of a generation stream opened by Client.Stream. The last
+// event of a stream that ends without error is a completed event carrying the response.
+func DecodeEvent(item json.RawMessage) (inference.GenerationEvent, error) {
+	var ev inference.GenerationEvent
+	if err := json.Unmarshal(item, &ev); err != nil {
+		return inference.GenerationEvent{}, inference.ErrInvalidResponse
+	}
+	return ev, nil
+}
+
+// DecodeAudio decodes one item of a synthesis stream opened by Client.Synthesize into the
+// audio bytes it carries.
+func DecodeAudio(item json.RawMessage) ([]byte, error) {
+	var chunk []byte
+	if err := json.Unmarshal(item, &chunk); err != nil {
+		return nil, inference.ErrInvalidResponse
+	}
+	return chunk, nil
 }
 
 var _ = stream.Contract

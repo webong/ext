@@ -64,5 +64,6 @@ int ll_collect_resources(const ext_ledger_context *ctx, lj_value **out); /* coll
 int ll_collect_webviews(const ext_ledger_context *ctx, lj_value **out);  /* collect_webviews.c */
 int ll_collect_surfaces(const ext_ledger_context *ctx, lj_value **out);  /* collect_surfaces.c */
 int ll_collect_permissions(const ext_ledger_context *ctx, lj_value **out);
+int ll_collect_desktop(const ext_ledger_context *ctx, lj_value **out); /* collect_desktop.c */
 
 #endif

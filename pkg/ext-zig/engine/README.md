@@ -22,7 +22,12 @@ call returns. `Host.setServices` offers the plugin's `reverse` operations to it:
 the engine admits or refuses each request with a stable code, and the `authorize`
 and `handle` callbacks of `Services` are the host's policy; they run on engine
 threads, receive the request JSON and an engine-owned cancel signal, and emit one
-payload or public error. `endpoint.check` and `endpoint.validate` admit loopback
+payload or public error. `Registry` composes guests (`ext_registry_*`):
+`Registry.attach` makes a host a source (in place of `setServices`, with a
+`RegistrySource` that has no handler), and its plugin's reverse calls are served by
+forward calls to the hosts `register` names, along the edges `route` declares. Hosts
+are borrowed as in C: unregister a host before its `deinit`, and `deinit` the
+registry after its sources. `endpoint.check` and `endpoint.validate` admit loopback
 data endpoints and fail with `error.Invalid`, `error.Denied` or `error.Expired`,
 never text; `error.Protocol` is a plugin that broke the framing. The tests of these
 read `EXT_REVERSE_TEST_GUEST`, `EXT_REVERSE_TEST_DESCRIPTOR` and

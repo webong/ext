@@ -28,6 +28,16 @@ answer with `Error::INVALID`, `Error::DENIED` or `Error::EXPIRED`, never text.
 `EXT_REVERSE_TEST_GUEST` to the built `ext_reverse_test`) and the shared endpoint
 fixture.
 
+`Registry` composes guests (`ext_registry_*`): a source host, made with
+`Host::with_registry` and a `RegistrySource` (an `authorize` and the bounds, no
+handler), has its plugin's reverse calls served by forward calls to the hosts
+`Registry::register` names, along the edges `Registry::route` declares. Undeclared
+edges are `reverse_undeclared`, unregistered targets `reverse_unavailable`, and a
+call that would re-enter a host on its call chain `denied`. A host keeps the
+registry alive and leaves it before it is destroyed. `tests/registry.rs` runs the
+shared registry cases (set `EXT_REGISTRY_TEST_GUEST` to the built
+`ext_registry_test`).
+
 `store::Store` is the engine's package store (`ext_store_*`): `install`, `upgrade`,
 `replace`, `remove`, `load` and `ids` over reviewed `ext.package/v1` packages under a
 root you supply, as the Go store does. `install`, `upgrade` and `replace` copy the

@@ -54,6 +54,11 @@ type Options struct {
 	// host, limited to the operations its descriptor declares in Reverse. When
 	// nil, every reverse call is denied.
 	Reverse *ReverseOptions
+	// Registry serves the plugin's reverse calls along the edges declared on it,
+	// with forward calls to the processes registered there (see Registry).
+	// Reverse must be set too: its Authorize runs first and its bounds apply, and
+	// its Handle must be nil, since the registry is the handler.
+	Registry *Registry
 }
 
 // Process is one plugin process behind a plugin session.
@@ -100,6 +105,12 @@ func Open(ctx context.Context, installed store.Installed, options Options) (*Pro
 		timeout = DefaultTimeout
 	}
 	result := &Process{}
+	reverse := options.Reverse
+	if options.Registry != nil {
+		if reverse, err = options.Registry.reverseOptions(result, reverse); err != nil {
+			return nil, err
+		}
+	}
 	session, err := plugin.Open(ctx, installed.Manifest.Descriptor, plugin.Options{
 		Verify: func(ctx context.Context, _ plugin.Descriptor) error {
 			if err := installed.Verify(); err != nil {
@@ -120,7 +131,7 @@ func Open(ctx context.Context, installed store.Installed, options Options) (*Pro
 		},
 		Authorize: authorize,
 		Timeout:   timeout,
-		Reverse:   options.Reverse,
+		Reverse:   reverse,
 	})
 	if err != nil {
 		return nil, err

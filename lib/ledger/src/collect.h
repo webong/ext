@@ -58,5 +58,6 @@ lj_value *ll_filesystem_space(uint64_t blocks, uint64_t free_blocks, uint64_t av
 
 int ll_collect_shells(const ext_ledger_context *ctx, const char *search_path, lj_value **out);
 int ll_collect_filesystems(const ext_ledger_context *ctx, lj_value **out);
+int ll_collect_resources(const ext_ledger_context *ctx, lj_value **out); /* collect_resources.c */
 
 #endif

@@ -155,7 +155,8 @@ EXT_LEDGER_API int ext_ledger_record(ext_ledger_recorder *recorder, const ext_le
  * What the recorder reads from the machine through each kernel's own
  * interface, in the JSON forms of res/system's types. what is "processes"
  * (process identities, as res/system's DiscoverProcesses reports them),
- * "shells" and "filesystems" (as DiscoverShells and DiscoverFilesystems), or
+ * "shells", "filesystems" and "resources" (as DiscoverShells,
+ * DiscoverFilesystems and DiscoverResources), or
  * "host" (the host inventory: every host kind this build collects here). A
  * collection this build or OS does not have is EXT_LEDGER_UNSUPPORTED. Scan
  * takes "processes" or "host". */

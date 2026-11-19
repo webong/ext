@@ -236,9 +236,10 @@ func parseChatResponse(raw []byte) (inference.GenerationResponse, error) {
 		},
 		StopReason: finishReason(choice.FinishReason),
 	}
+	// A message with only tool calls has "content": null; that and an empty string add no part.
 	if choice.Message.Content != nil {
 		var text string
-		if err := json.Unmarshal(choice.Message.Content, &text); err == nil {
+		if err := json.Unmarshal(choice.Message.Content, &text); err == nil && text != "" {
 			resp.Message.Parts = []inference.Part{{
 				Kind: inference.PartKindText,
 				Text: text,

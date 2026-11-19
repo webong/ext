@@ -184,3 +184,28 @@ func TestCompatibleProviderHasNoAudio(t *testing.T) {
 		}
 	}
 }
+
+// The response the Cymonkey session ran the adapter against: tool calls with "content": null.
+func TestToolCallWithNullContentValidates(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"id":"c2","model":"m1","choices":[{"index":0,"finish_reason":"tool_calls","message":{"role":"assistant","content":null,"tool_calls":[{"id":"call-1","type":"function","function":{"name":"lookup","arguments":"{\"key\":\"a\"}"}}]}}],"usage":{"prompt_tokens":3,"completion_tokens":2,"total_tokens":5}}`))
+	}))
+	defer server.Close()
+	p, err := NewProvider(server.URL+"/v1", "secret")
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp, err := p.Generate(context.Background(), userRequest())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(resp.Message.Parts) != 0 {
+		t.Fatalf("null content became parts: %+v", resp.Message.Parts)
+	}
+	if len(resp.Message.ToolCalls) != 1 || string(resp.Message.ToolCalls[0].Arguments) != `{"key":"a"}` {
+		t.Fatalf("tool calls %+v", resp.Message.ToolCalls)
+	}
+	if err := resp.Validate(); err != nil {
+		t.Fatalf("response does not validate: %v", err)
+	}
+}

@@ -26,7 +26,7 @@ typedef struct {
   uint64_t base;       /* the checkpoint's base cursor */
   uint64_t offset;     /* the end of the last whole line read from the log */
   uint64_t commits;    /* commit lines in the log */
-  int locked, stale;
+  int locked, stale, read_only;
 } file_backend;
 
 /* ---- lines ---- */
@@ -250,7 +250,7 @@ static int reload(file_backend *fb, ll_state *state) {
     ck_reader ck;
     int rc = load_checkpoint(fb, &fresh, &ck);
     ll_file *log = NULL;
-    if (!rc) rc = ll_file_open(fb->paths[P_LOG], LL_READ | LL_WRITE, &log);
+    if (!rc) rc = ll_file_open(fb->paths[P_LOG], fb->read_only ? LL_READ : LL_READ | LL_WRITE, &log);
     if (rc == EXT_LEDGER_NOT_FOUND) rc = EXT_LEDGER_IO;
     log_reader lr = {fb, &fresh, 0};
     uint64_t end = 0, commits = fb->commits, base = fb->base;
@@ -331,6 +331,7 @@ static void fb_end_write(ll_backend *b) {
 
 static int fb_begin_write(ll_backend *b, const ext_ledger_context *ctx, ll_state *state) {
   file_backend *fb = (file_backend *)b;
+  if (fb->read_only) return EXT_LEDGER_UNSUPPORTED;
   int rc = take_lock(fb, ctx);
   if (rc) return rc;
   if (!(rc = fb_refresh(b, state))) {
@@ -599,23 +600,26 @@ static int create_log(file_backend *fb, const ext_ledger_context *ctx) {
   return rc;
 }
 
-int ll_dir_open(const ext_ledger_context *ctx, const char *dir, ll_state *state, ll_backend **out) {
+int ll_dir_open(const ext_ledger_context *ctx, const char *dir, int read_only, ll_state *state, ll_backend **out) {
   int kind = ll_path_kind(dir);
   if (kind < 0) return EXT_LEDGER_IO;
   if (kind == 2) return EXT_LEDGER_UNSUPPORTED;
+  if (kind == 0 && read_only) return EXT_LEDGER_NOT_FOUND;
   if (kind == 0 && ll_mkdir(dir)) return EXT_LEDGER_IO;
   int rc = ll_list_dir(dir, allowed_entry, NULL);
   if (rc) return rc;
   file_backend *fb = calloc(1, sizeof *fb);
   if (!fb) return EXT_LEDGER_IO;
   fb->backend.ops = &file_ops;
+  fb->read_only = read_only;
   fb->dir = join(dir, ".");
   if (fb->dir) fb->dir[strlen(fb->dir) - 2] = 0; /* dir without a trailing separator */
   for (int i = 0; i < P_COUNT; i++)
     if (!(fb->paths[i] = join(dir, file_names[i]))) rc = EXT_LEDGER_IO;
   if (!fb->dir) rc = EXT_LEDGER_IO;
-  if (!rc) rc = ll_file_open(fb->paths[P_LOCK], LL_READ | LL_WRITE | LL_CREATE, &fb->lock);
-  if (!rc) rc = create_log(fb, ctx);
+  if (!rc && read_only && ll_path_kind(fb->paths[P_LOG]) == 0) rc = EXT_LEDGER_NOT_FOUND; /* no store here yet */
+  if (!rc && !read_only) rc = ll_file_open(fb->paths[P_LOCK], LL_READ | LL_WRITE | LL_CREATE, &fb->lock);
+  if (!rc && !read_only) rc = create_log(fb, ctx);
   if (!rc) rc = reload(fb, state);
   if (rc) {
     fb_close(&fb->backend);

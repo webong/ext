@@ -113,8 +113,20 @@ static int open_durable(const ext_ledger_context *ctx, const char *path, const e
   return 0;
 }
 
+static int open_writer(const ext_ledger_context *ctx, const char *dir, ll_state *state, ll_backend **out) {
+  return ll_dir_open(ctx, dir, 0, state, out);
+}
+
+static int open_reader(const ext_ledger_context *ctx, const char *dir, ll_state *state, ll_backend **out) {
+  return ll_dir_open(ctx, dir, 1, state, out);
+}
+
 int ext_ledger_open(const ext_ledger_context *ctx, const char *dir, const ext_ledger_options *options, ext_ledger **out) {
-  return open_durable(ctx, dir, options, out, ll_dir_open);
+  return open_durable(ctx, dir, options, out, open_writer);
+}
+
+int ext_ledger_open_reader(const ext_ledger_context *ctx, const char *dir, const ext_ledger_options *options, ext_ledger **out) {
+  return open_durable(ctx, dir, options, out, open_reader);
 }
 
 int ext_ledger_open_sqlite(const ext_ledger_context *ctx, const char *path, const ext_ledger_options *options, ext_ledger **out) {

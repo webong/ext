@@ -272,7 +272,7 @@ struct ll_backend {
   const ll_backend_ops *ops;
 };
 
-int ll_dir_open(const ext_ledger_context *ctx, const char *dir, ll_state *state, ll_backend **out);
+int ll_dir_open(const ext_ledger_context *ctx, const char *dir, int read_only, ll_state *state, ll_backend **out);
 int ll_sqlite_open(const ext_ledger_context *ctx, const char *path, ll_state *state, ll_backend **out);
 
 #endif

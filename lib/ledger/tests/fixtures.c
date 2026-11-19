@@ -172,7 +172,8 @@ static void run_case(const lj_value *c, backend b) {
   if (rc) {
     fprintf(stderr, "FAIL %s [%s]: open: %s\n", name, b ? "file" : "memory", ext_ledger_code_name(rc));
     failures++;
-    free(dir);
+    remove_store(dir);
+  free(dir);
     return;
   }
   const lj_value *steps = lj_get(c, "steps");
@@ -183,7 +184,8 @@ static void run_case(const lj_value *c, backend b) {
       if ((rc = open_store(b, dir, &o, &s))) {
         fprintf(stderr, "FAIL %s [%s]: step %zu: reopen: %s\n", name, b ? "file" : "memory", i, ext_ledger_code_name(rc));
         failures++;
-        free(dir);
+        remove_store(dir);
+  free(dir);
         return;
       }
       continue;
@@ -218,6 +220,7 @@ static void run_case(const lj_value *c, backend b) {
     ext_ledger_free(out);
   }
   ext_ledger_close(s);
+  remove_store(dir);
   free(dir);
 }
 

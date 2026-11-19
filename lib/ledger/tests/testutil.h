@@ -48,4 +48,21 @@ static char *temp_path(const char *tag) {
   return p;
 }
 
+/* Removes a store directory the tests made: its files, then the directory. */
+#include "ledger_internal.h"
+static int remove_entry(void *dir, const char *name) {
+  char path[2048];
+  snprintf(path, sizeof path, "%s/%s", (const char *)dir, name);
+  ll_remove(path);
+  return 0;
+}
+static void remove_store(const char *dir) {
+  ll_list_dir(dir, remove_entry, (void *)dir);
+#ifdef _WIN32
+  RemoveDirectoryA(dir);
+#else
+  rmdir(dir);
+#endif
+}
+
 #endif

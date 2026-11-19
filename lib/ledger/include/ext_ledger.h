@@ -9,6 +9,7 @@
  *   file     ext_ledger_open: a directory holding an append-only log and a
  *            checkpoint (ledger.json), shared by processes through an advisory
  *            lock. It needs nothing beyond the C library and the OS.
+ *            ext_ledger_open_reader reads one without ever writing.
  *   sqlite   ext_ledger_open_sqlite: one SQLite database laid out as
  *            tables.json says. Optional: a build without EXT_LEDGER_SQLITE
  *            answers EXT_LEDGER_UNSUPPORTED.
@@ -84,6 +85,11 @@ typedef struct ext_ledger_watch ext_ledger_watch;
 
 EXT_LEDGER_API int ext_ledger_open_memory(const ext_ledger_options *options, ext_ledger **out);
 EXT_LEDGER_API int ext_ledger_open(const ext_ledger_context *ctx, const char *dir, const ext_ledger_options *options, ext_ledger **out);
+/* A reader of a file store: it never locks, creates or writes anything, so it
+ * also reads a directory it may not write (a read-only mount, another app's
+ * shared container). Register and apply answer EXT_LEDGER_UNSUPPORTED; a
+ * directory that holds no store answers EXT_LEDGER_NOT_FOUND. */
+EXT_LEDGER_API int ext_ledger_open_reader(const ext_ledger_context *ctx, const char *dir, const ext_ledger_options *options, ext_ledger **out);
 EXT_LEDGER_API int ext_ledger_open_sqlite(const ext_ledger_context *ctx, const char *path, const ext_ledger_options *options, ext_ledger **out);
 /* Ends every watch and releases the store. Safe on NULL. */
 EXT_LEDGER_API void ext_ledger_close(ext_ledger *store);

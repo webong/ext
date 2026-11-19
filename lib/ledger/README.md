@@ -9,7 +9,7 @@ It replaces the Go `res/graph` as the implementation of the graph; the contract 
 | --- | --- |
 | Store | Done: `include/ext_ledger.h`, memory and file backends, the whole store contract |
 | SQLite backend | Optional (`EXT_LEDGER_SQLITE`), on the `tables.json` layout; not written yet |
-| Reader | Next: a read-only open and a command for shells |
+| Reader | Done: `ext_ledger_open_reader`, which never locks or writes, and the `ext-ledger` command |
 | Recorder | Later: the `ext.system` vocabulary and per-kernel collectors |
 
 ## Building
@@ -45,6 +45,22 @@ ext_ledger_close(store);
 A watch (`ext_ledger_watch_open`, `_next`, `_close`) has no thread of its own: `_next` waits on
 the store, and on a file store it also looks for other processes' commits every 150 ms.
 
+## From a shell
+
+`ext-ledger` (built by default, `EXT_LEDGER_COMMAND`) answers every read through a reader and
+opens the store only to register or apply:
+
+```bash
+ext-ledger register ~/.config/ext/graph '{"namespace":"my.app","version":"1"}'
+ext-ledger apply ~/.config/ext/graph '{"namespace":"my.app","vertices":[{"id":"a","kind":"my.app/node"}]}'
+ext-ledger snapshot ~/.config/ext/graph my.app
+ext-ledger watch ~/.config/ext/graph my.app --after 0
+```
+
+Output is canonical JSON on standard output, one value per line (`watch` prints one change per
+line until it ends). A failure prints `{"error":"<code>"}` on standard error and exits with the
+code's number; a usage error exits with 64. A JSON argument of `-` is read from standard input.
+
 ## Backends
 
 - **memory** (`ext_ledger_open_memory`): one process's state.
@@ -70,6 +86,8 @@ the store, and on a file store it also looks for other processes' commits every 
 | `src/file.c` | The file backend |
 | `src/platform_posix.c`, `src/platform_win32.c` | Threads, time, files and locks |
 | `tests/fixtures.c` | Runs `cases.json` and `fingerprints.json` on every backend |
-| `tests/behaviour.c` | What the cases cannot hold: watches, concurrency, rewrites, torn writes |
+| `tests/behaviour.c` | What the cases cannot hold: watches, concurrency, rewrites, torn writes, readers |
+| `tests/command.cmake` | Drives `ext-ledger` as a shell would |
+| `cmd/ext-ledger.c` | The command |
 
 Like `lib/plugin`, the tree holds no Go code.

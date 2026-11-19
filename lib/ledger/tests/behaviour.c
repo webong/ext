@@ -8,6 +8,7 @@
 
 #ifndef _WIN32
 #include <pthread.h>
+#include <sys/stat.h>
 #include <sys/wait.h>
 #endif
 
@@ -174,6 +175,7 @@ static void run_backend(int file) {
   CHECK(rc == 0 && cursor_of(snap) == 15, "snapshot after 15 commits: %s %s", ext_ledger_code_name(rc), rc ? "" : snap);
   if (!rc) ext_ledger_free(snap);
   closed_store(s);
+  remove_store(dir);
   free(dir);
 }
 
@@ -233,6 +235,7 @@ static void rewrites_keep_everything(void) {
   CHECK(rc == 0 && strstr(commit, "\"replayed\":true") && cursor_of(commit) == 296, "a retained idempotency key replays: %s", rc ? "" : commit);
   if (!rc) ext_ledger_free(commit);
   ext_ledger_close(s);
+  remove_store(dir);
   free(dir);
 }
 
@@ -261,6 +264,7 @@ static void torn_tail_is_repaired(void) {
   CHECK(rc == 0, "the commit after the repair is read back: %s", ext_ledger_code_name(rc));
   if (!rc) ext_ledger_free(out);
   ext_ledger_close(s);
+  remove_store(dir);
   free(dir);
 }
 
@@ -277,6 +281,7 @@ static void refuses_what_it_does_not_own(void) {
   CHECK(rc == EXT_LEDGER_UNSUPPORTED, "a directory with other files: %s", ext_ledger_code_name(rc));
   rc = ext_ledger_open(NULL, path, &o, &s);
   CHECK(rc == EXT_LEDGER_UNSUPPORTED, "a path that is a file: %s", ext_ledger_code_name(rc));
+  remove_store(dir);
   free(dir);
 
   dir = temp_path("layout");
@@ -290,6 +295,58 @@ static void refuses_what_it_does_not_own(void) {
   fclose(f);
   rc = ext_ledger_open(NULL, dir, &o, &s);
   CHECK(rc == EXT_LEDGER_UNSUPPORTED, "another layout: %s", ext_ledger_code_name(rc));
+  remove_store(dir);
+  free(dir);
+}
+
+/* A reader follows a writer without locking or writing, also in a directory it may not write. */
+static void reader_follows(void) {
+  ext_ledger_options o = {0};
+  char *dir = temp_path("reader");
+  ext_ledger *r = NULL;
+  int rc = ext_ledger_open_reader(NULL, dir, &o, &r);
+  CHECK(rc == EXT_LEDGER_NOT_FOUND, "a reader of no store: %s", ext_ledger_code_name(rc));
+  ext_ledger *w = open_file(dir, &o);
+  if (!w) return;
+  reg(w);
+  CHECK(put(w, "a") == 0, "write a");
+  rc = ext_ledger_open_reader(NULL, dir, &o, &r);
+  CHECK(rc == 0, "open reader: %s", ext_ledger_code_name(rc));
+  if (rc) return;
+  CHECK(put(r, "x") == EXT_LEDGER_UNSUPPORTED, "a reader refuses writes");
+  CHECK(put(w, "b") == 0, "write b");
+  char *out;
+  size_t n;
+  rc = ext_ledger_get_vertex(r, NULL, NS, "b", &out, &n);
+  CHECK(rc == 0, "the reader sees a later commit: %s", ext_ledger_code_name(rc));
+  if (!rc) ext_ledger_free(out);
+  ext_ledger_watch *watch;
+  rc = ext_ledger_watch_open(r, NULL, NS, 2, 4, &watch);
+  CHECK(rc == 0, "reader watch: %s", ext_ledger_code_name(rc));
+  CHECK(put(w, "c") == 0, "write c");
+  if (!rc) {
+    rc = ext_ledger_watch_next(watch, 5000, &out, &n);
+    CHECK(rc == 0 && cursor_of(out) == 3, "the reader's watch delivers the writer's commit: %s", ext_ledger_code_name(rc));
+    if (!rc) ext_ledger_free(out);
+    ext_ledger_watch_close(watch);
+  }
+  ext_ledger_close(r);
+  ext_ledger_close(w);
+#ifndef _WIN32
+  if (geteuid() != 0) { /* root writes anywhere */
+    chmod(dir, 0500);
+    rc = ext_ledger_open_reader(NULL, dir, &o, &r);
+    CHECK(rc == 0, "a reader of a read-only directory: %s", ext_ledger_code_name(rc));
+    if (!rc) {
+      rc = ext_ledger_get_vertex(r, NULL, NS, "c", &out, &n);
+      CHECK(rc == 0, "read from a read-only directory: %s", ext_ledger_code_name(rc));
+      if (!rc) ext_ledger_free(out);
+      ext_ledger_close(r);
+    }
+    chmod(dir, 0700);
+  }
+#endif
+  remove_store(dir);
   free(dir);
 }
 
@@ -316,6 +373,7 @@ static void handles_share(void) {
   if (!rc) ext_ledger_watch_close(w);
   ext_ledger_close(a);
   ext_ledger_close(b);
+  remove_store(dir);
   free(dir);
 }
 
@@ -354,6 +412,7 @@ static void processes_share(void) {
   CHECK(rc == 0 && cursor_of(out) == N * EACH, "no commit is lost across processes: %s", rc ? "" : out);
   if (!rc) ext_ledger_free(out);
   ext_ledger_close(parent);
+  remove_store(dir);
   free(dir);
 }
 #endif
@@ -365,6 +424,7 @@ int main(void) {
   torn_tail_is_repaired();
   refuses_what_it_does_not_own();
   handles_share();
+  reader_follows();
 #ifndef _WIN32
   processes_share();
 #endif

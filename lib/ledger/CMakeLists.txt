@@ -63,6 +63,14 @@ if(EXT_LEDGER_SHARED)
   list(APPEND ledger_targets ext_ledger_shared)
 endif()
 
+option(EXT_LEDGER_COMMAND "Build the ext-ledger command" ON)
+if(EXT_LEDGER_COMMAND)
+  add_executable(ext-ledger cmd/ext-ledger.c)
+  target_compile_options(ext-ledger PRIVATE ${LEDGER_WARN})
+  target_link_libraries(ext-ledger PRIVATE ext_ledger_static Threads::Threads)
+  install(TARGETS ext-ledger RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+endif()
+
 install(TARGETS ${ledger_targets} EXPORT ext_ledger_targets ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR} LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
         RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 install(FILES include/ext_ledger.h DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
@@ -81,4 +89,8 @@ if(EXT_LEDGER_TESTS)
   target_compile_options(ledger_behaviour PRIVATE ${LEDGER_WARN})
   target_link_libraries(ledger_behaviour PRIVATE ext_ledger_static Threads::Threads)
   add_test(NAME ledger_behaviour COMMAND ledger_behaviour)
+  if(EXT_LEDGER_COMMAND)
+    add_test(NAME ledger_command COMMAND ${CMAKE_COMMAND} -DLEDGER=$<TARGET_FILE:ext-ledger> -DWORK=${CMAKE_CURRENT_BINARY_DIR}/command-test
+                                         -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/command.cmake)
+  endif()
 endif()

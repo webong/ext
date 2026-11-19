@@ -1,0 +1,500 @@
+import Foundation
+
+#if canImport(CryptoKit)
+import CryptoKit
+#endif
+
+#if canImport(UniformTypeIdentifiers)
+import UniformTypeIdentifiers
+#endif
+
+/// Bounds fixed by the embedding application before a share extension loads any
+/// item. Zero values select the documented defaults; every value has a library
+/// ceiling so a caller cannot disable bounding. `timeout` bounds one whole load:
+/// thirty seconds by default, above zero and at most an hour.
+public struct ShareLimits: Equatable, Sendable {
+    public static let maxItems = 128
+    public static let maxBytes = 64 * 1024 * 1024
+    public static let maxTextBytes = 1024 * 1024
+    public static let maxURLLength = 8192
+    public static let maxNameLength = 255
+    public static let maxMIMETypeLength = 255
+
+    /// Default bounds suitable for an extension that does not configure its own.
+    public static let standard = try! ShareLimits()
+
+    public let maxItems: Int
+    public let maxBytes: Int
+    public let maxTextBytes: Int
+    public let maxURLLength: Int
+    public let timeout: TimeInterval
+
+    public init(maxItems: Int = 32, maxBytes: Int = 16 * 1024 * 1024,
+                maxTextBytes: Int = 64 * 1024, maxURLLength: Int = 8192,
+                timeout: TimeInterval = 30) throws {
+        guard (1...Self.maxItems).contains(maxItems),
+              (1...Self.maxBytes).contains(maxBytes),
+              (1...Self.maxTextBytes).contains(maxTextBytes),
+              (1...Self.maxURLLength).contains(maxURLLength),
+              ObservationBound.valid(timeout) else {
+            throw ShareError.invalidValue
+        }
+        self.maxItems = maxItems
+        self.maxBytes = maxBytes
+        self.maxTextBytes = maxTextBytes
+        self.maxURLLength = maxURLLength
+        self.timeout = timeout
+    }
+}
+
+public enum ShareError: Error, Equatable {
+    case invalidValue
+    case limitExceeded
+    case loadFailed
+    case containerUnavailable
+    /// The load ran past `ShareLimits.timeout`.
+    case timeout
+    /// The task running the load was canceled.
+    case canceled
+
+    /// The stable error code of `res/system/testdata/codes.json`.
+    public var code: String {
+        switch self {
+        case .invalidValue: return "invalid"
+        case .limitExceeded: return "too_large"
+        case .loadFailed: return "io"
+        case .containerUnavailable: return "unavailable"
+        case .timeout: return "timeout"
+        case .canceled: return "canceled"
+        }
+    }
+
+    /// Throws the error of a bound that has stopped.
+    static func check(_ bound: ObservationBound) throws {
+        switch bound.stop {
+        case .timeout?: throw ShareError.timeout
+        case .canceled?: throw ShareError.canceled
+        case nil: return
+        }
+    }
+
+    /// Awaits one item provider under the bound, as `timeout` or `canceled` when it stops first.
+    static func race<T>(_ bound: ObservationBound, _ body: @escaping () async -> T) async throws -> T {
+        do {
+            return try await bound.race(body)
+        } catch let stopped as ObservationBound.Stopped {
+            throw stopped.stop == .timeout ? ShareError.timeout : ShareError.canceled
+        }
+    }
+}
+
+/// One shared file. Exactly one of `data` and `fileURL` carries the content;
+/// `byteCount` is the content size and must agree with `data`.
+public struct ShareAttachment: Codable, Equatable, Sendable {
+    public let name: String
+    public let mimeType: String
+    public let byteCount: Int
+    public let data: Data?
+    public let fileURL: URL?
+
+    public init(name: String, mimeType: String, byteCount: Int,
+                data: Data? = nil, fileURL: URL? = nil) {
+        self.name = name
+        self.mimeType = mimeType
+        self.byteCount = byteCount
+        self.data = data
+        self.fileURL = fileURL
+    }
+}
+
+/// One contribution from a native share source. `subject` is optional preview
+/// text from the sharing application, never a destination or an approval.
+public struct ShareLoadedItem: Equatable, Sendable {
+    public var subject: String?
+    public var text: String?
+    public var urls: [String]
+    public var attachments: [ShareAttachment]
+
+    public init(subject: String? = nil, text: String? = nil,
+                urls: [String] = [], attachments: [ShareAttachment] = []) {
+        self.subject = subject
+        self.text = text
+        self.urls = urls
+        self.attachments = attachments
+    }
+}
+
+/// The normalized, deduplicated result. The embedding application owns the
+/// destination and any further transport.
+public struct SharePayload: Codable, Equatable, Sendable {
+    public let subject: String?
+    public let text: String?
+    public let urls: [String]
+    public let attachments: [ShareAttachment]
+    public let byteCount: Int
+
+    public init(subject: String?, text: String?, urls: [String],
+                attachments: [ShareAttachment], byteCount: Int) {
+        self.subject = subject
+        self.text = text
+        self.urls = urls
+        self.attachments = attachments
+        self.byteCount = byteCount
+    }
+}
+
+/// A caller-configured destination for copied attachments. The extension
+/// container, app group, and directory layout are never chosen here; the
+/// application supplies them explicitly.
+public protocol ShareAttachmentSink: Sendable {
+    /// Copies a readable source into the destination and returns its location.
+    /// The source URL is valid only for the duration of the call.
+    func storeAttachment(_ source: URL, name: String, mimeType: String, index: Int) throws -> URL
+}
+
+/// Stores attachments in a directory of an app group the application names.
+public struct AppGroupAttachmentSink: ShareAttachmentSink {
+    public let groupIdentifier: String
+    public let directoryName: String
+
+    public init(groupIdentifier: String, directoryName: String = "SharedInbox") throws {
+        guard !groupIdentifier.isEmpty, groupIdentifier.utf8.count <= 255,
+              ShareValidation.isPortableName(directoryName) else {
+            throw ShareError.invalidValue
+        }
+        self.groupIdentifier = groupIdentifier
+        self.directoryName = directoryName
+    }
+
+    public func storeAttachment(_ source: URL, name: String, mimeType: String, index: Int) throws -> URL {
+        guard let container = FileManager.default.containerURL(
+            forSecurityApplicationGroupIdentifier: groupIdentifier
+        ) else {
+            throw ShareError.containerUnavailable
+        }
+        let directory = container.appendingPathComponent(directoryName, isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let target = directory.appendingPathComponent("\(index)-\(name)")
+        if FileManager.default.fileExists(atPath: target.path) {
+            try FileManager.default.removeItem(at: target)
+        }
+        try FileManager.default.copyItem(at: source, to: target)
+        return target
+    }
+}
+
+public enum ShareValidation {
+    /// Portable file-name rule shared with the Go and Android contracts.
+    public static func isPortableName(_ value: String) -> Bool {
+        guard !value.isEmpty, value.utf8.count <= ShareLimits.maxNameLength,
+              value != ".", value != "..",
+              !value.contains("/"), !value.contains("\\"), !value.contains("\0") else {
+            return false
+        }
+        return value.unicodeScalars.allSatisfy { !CharacterSet.controlCharacters.contains($0) }
+    }
+
+    /// Strips leading and trailing U+0009 to U+000D and U+0020, the rule of every binding of this
+    /// contract. Unicode spaces and the other control characters are content.
+    static func trim(_ value: String) -> String {
+        func space(_ scalar: Unicode.Scalar) -> Bool { scalar == " " || (9...13).contains(scalar.value) }
+        let scalars = value.unicodeScalars
+        guard let start = scalars.firstIndex(where: { !space($0) }),
+              let end = scalars.lastIndex(where: { !space($0) }) else { return "" }
+        return String(scalars[start...end])
+    }
+
+    static func text(_ value: String?, limit: Int) throws -> String? {
+        guard let value, !value.isEmpty else { return nil }
+        guard !value.unicodeScalars.contains("\0") else { throw ShareError.invalidValue }
+        guard value.utf8.count <= limit else { throw ShareError.limitExceeded }
+        return value
+    }
+
+    /// A link's normal form: trimmed, with its scheme lowercased and nothing else changed. It has
+    /// no spaces or control characters and starts with a scheme (a letter, then letters, digits,
+    /// plus, dot or dash, then a colon); parsing it is the embedding application's.
+    static func link(_ value: String, limit: Int) throws -> String {
+        let trimmed = trim(value)
+        guard !trimmed.isEmpty else { throw ShareError.invalidValue }
+        guard trimmed.utf8.count <= limit else { throw ShareError.limitExceeded }
+        let scalars = trimmed.unicodeScalars
+        guard !scalars.contains(where: { $0 == " " || $0.properties.generalCategory == .control }),
+              let colon = scalars.firstIndex(of: ":"), colon != scalars.startIndex else {
+            throw ShareError.invalidValue
+        }
+        for (offset, scalar) in scalars[..<colon].enumerated() {
+            let letter = ("a"..."z").contains(scalar) || ("A"..."Z").contains(scalar)
+            let digit = ("0"..."9").contains(scalar)
+            guard offset == 0 ? letter : (letter || digit || scalar == "+" || scalar == "-" || scalar == ".") else {
+                throw ShareError.invalidValue
+            }
+        }
+        return String(scalars[..<colon]).lowercased() + String(scalars[colon...])
+    }
+
+    static func attachment(_ value: ShareAttachment) throws -> ShareAttachment {
+        let name = trim(value.name)
+        guard isPortableName(name) else { throw ShareError.invalidValue }
+        let trimmedType = trim(value.mimeType)
+        let mimeType = trimmedType.isEmpty ? "application/octet-stream" : trimmedType
+        guard mimeType.utf8.count <= ShareLimits.maxMIMETypeLength, !mimeType.contains("\0"),
+              value.data == nil || value.fileURL == nil else {
+            throw ShareError.invalidValue
+        }
+        if let data = value.data {
+            guard value.byteCount == 0 || value.byteCount == data.count else {
+                throw ShareError.invalidValue
+            }
+            return ShareAttachment(name: name, mimeType: mimeType,
+                                   byteCount: data.count, data: data)
+        }
+        guard value.byteCount >= 0 else { throw ShareError.invalidValue }
+        if let fileURL = value.fileURL, !fileURL.isFileURL {
+            throw ShareError.invalidValue
+        }
+        return ShareAttachment(name: name, mimeType: mimeType,
+                               byteCount: value.byteCount, fileURL: value.fileURL)
+    }
+}
+
+public enum ShareNormalizer {
+    /// Validates and merges already-loaded items. Exact duplicate texts, links,
+    /// and attachments collapse to their first occurrence. Two different
+    /// attachments with one file name are rejected rather than renamed.
+    public static func normalize(_ items: [ShareLoadedItem],
+                                 limits: ShareLimits = ShareLimits.standard) throws -> SharePayload {
+        guard items.count <= limits.maxItems else { throw ShareError.limitExceeded }
+        var subjects: [String] = []
+        var texts: [String] = []
+        var urls: [String] = []
+        var attachments: [ShareAttachment] = []
+        var subjectSeen = Set<String>()
+        var textSeen = Set<String>()
+        var urlSeen = Set<String>()
+        var attachmentSeen = Set<String>()
+        var attachmentNames = [String: String]()
+        var byteCount = 0
+        for item in items {
+            if let subject = try ShareValidation.text(item.subject, limit: limits.maxTextBytes),
+               subjectSeen.insert(subject).inserted {
+                subjects.append(subject)
+            }
+            if let text = try ShareValidation.text(item.text, limit: limits.maxTextBytes),
+               textSeen.insert(text).inserted {
+                texts.append(text)
+            }
+            guard urlSeen.count + item.urls.count <= limits.maxItems else { throw ShareError.limitExceeded }
+            for raw in item.urls {
+                let link = try ShareValidation.link(raw, limit: limits.maxURLLength)
+                if urlSeen.insert(link).inserted { urls.append(link) }
+            }
+            for candidate in item.attachments {
+                let attachment = try ShareValidation.attachment(candidate)
+                let key = attachmentKey(attachment)
+                guard attachmentSeen.insert(key).inserted else { continue }
+                let folded = attachment.name.lowercased()
+                if let previous = attachmentNames[folded], previous != key {
+                    throw ShareError.invalidValue
+                }
+                attachmentNames[folded] = key
+                byteCount += attachment.byteCount
+                guard byteCount <= limits.maxBytes else { throw ShareError.limitExceeded }
+                attachments.append(attachment)
+            }
+        }
+        let mergedSubject = subjects.isEmpty ? nil : subjects.joined(separator: "\n")
+        let mergedText = texts.isEmpty ? nil : texts.joined(separator: "\n")
+        guard (mergedSubject?.utf8.count ?? 0) <= limits.maxTextBytes,
+              (mergedText?.utf8.count ?? 0) <= limits.maxTextBytes else {
+            throw ShareError.limitExceeded
+        }
+        return SharePayload(subject: mergedSubject, text: mergedText, urls: urls,
+                            attachments: attachments, byteCount: byteCount)
+    }
+
+    static func attachmentKey(_ attachment: ShareAttachment) -> String {
+        let content: String
+        if let data = attachment.data {
+#if canImport(CryptoKit)
+            content = SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+#else
+            content = String(data.hashValue)
+#endif
+        } else if let fileURL = attachment.fileURL {
+            content = fileURL.path
+        } else {
+            content = ""
+        }
+        return "\(attachment.name.lowercased())\u{0}\(attachment.mimeType)\u{0}\(attachment.byteCount)\u{0}\(content)"
+    }
+}
+
+/// Normalizes `NSExtensionItem` share input. The loader reads only the standard
+/// text, URL, and file representations and copies files through the caller's
+/// sink. It never launches the application, records an event, or chooses a
+/// container.
+///
+/// A load is bounded by `ShareLimits.timeout` and stops when the task running it is canceled, as
+/// `.timeout` or `.canceled` (rule 4 of docs/adr-architecture.md). An item provider that never
+/// answers is abandoned: its file load is canceled and a late file is not stored.
+public enum ShareExtensionLoader {
+    public static func load(items: [NSExtensionItem],
+                            limits: ShareLimits = ShareLimits.standard,
+                            sink: ShareAttachmentSink? = nil) async -> Result<SharePayload, ShareError> {
+        do {
+            let bound = ObservationBound(timeout: limits.timeout)
+            let loaded = try await loadedItems(items: items, limits: limits, sink: sink, bound: bound)
+            return .success(try ShareNormalizer.normalize(loaded, limits: limits))
+        } catch let error as ShareError {
+            return .failure(error)
+        } catch {
+            return .failure(.loadFailed)
+        }
+    }
+
+    static func loadedItems(items: [NSExtensionItem], limits: ShareLimits,
+                            sink: ShareAttachmentSink?, bound: ObservationBound) async throws -> [ShareLoadedItem] {
+        var result: [ShareLoadedItem] = []
+        var attachmentIndex = 0
+        try ShareError.check(bound)
+        for item in items.prefix(limits.maxItems) {
+            var loaded = ShareLoadedItem(
+                subject: item.attributedContentText?.string,
+                text: nil, urls: [], attachments: []
+            )
+            for provider in item.attachments ?? [] where attachmentIndex < limits.maxItems {
+                try ShareError.check(bound)
+                if provider.hasItemConformingToTypeIdentifier("public.plain-text") {
+                    if let value = try await ShareError.race(bound, { await loadItem(provider, typeIdentifier: "public.plain-text") }) {
+                        let text: String?
+                        if let value = value as? String {
+                            text = value
+                        } else if let attributed = value as? NSAttributedString {
+                            text = attributed.string
+                        } else {
+                            text = nil
+                        }
+                        if let text {
+                            loaded.text = [loaded.text, text].compactMap { $0 }.joined(separator: "\n")
+                        }
+                    }
+                } else if provider.hasItemConformingToTypeIdentifier("public.url") {
+                    if let url = try await ShareError.race(bound, { await loadItem(provider, typeIdentifier: "public.url") }) {
+                        if let value = url as? URL {
+                            loaded.urls.append(value.absoluteString)
+                        } else if let text = url as? String {
+                            loaded.urls.append(text)
+                        }
+                    }
+                } else if let identifier = provider.registeredTypeIdentifiers.first {
+                    guard let sink else { continue }
+                    let index = attachmentIndex
+                    guard let attachment = try await ShareError.race(bound, {
+                        await loadAttachment(provider, typeIdentifier: identifier,
+                                             name: provider.suggestedName, index: index, sink: sink)
+                    }) else { continue }
+                    attachmentIndex += 1
+                    loaded.attachments.append(attachment)
+                }
+            }
+            result.append(loaded)
+        }
+        try ShareError.check(bound)
+        return result
+    }
+
+    static func loadItem(_ provider: NSItemProvider, typeIdentifier: String) async -> NSSecureCoding? {
+        await withCheckedContinuation { continuation in
+            provider.loadItem(forTypeIdentifier: typeIdentifier, options: nil) { value, _ in
+                continuation.resume(returning: value)
+            }
+        }
+    }
+
+    /// Loads one file through the sink. When the load is abandoned (its task is canceled), the
+    /// provider's progress is canceled and a file that still arrives is not stored.
+    static func loadAttachment(_ provider: NSItemProvider, typeIdentifier: String,
+                               name: String?, index: Int,
+                               sink: ShareAttachmentSink) async -> ShareAttachment? {
+        let load = AbandonableLoad()
+        return await withTaskCancellationHandler {
+            await withCheckedContinuation { continuation in
+            load.track(provider.loadFileRepresentation(forTypeIdentifier: typeIdentifier) { source, _ in
+                guard let source, !load.abandoned else {
+                    continuation.resume(returning: nil)
+                    return
+                }
+                let preferred = name ?? source.lastPathComponent
+                let portable = preferred
+                    .replacingOccurrences(of: "/", with: "_")
+                    .replacingOccurrences(of: "\\", with: "_")
+                guard ShareValidation.isPortableName(portable),
+                      let target = try? sink.storeAttachment(
+                        source, name: portable,
+                        mimeType: mimeType(for: typeIdentifier), index: index
+                      ) else {
+                    continuation.resume(returning: nil)
+                    return
+                }
+                let size = (try? target.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
+                continuation.resume(returning: ShareAttachment(
+                    name: portable, mimeType: mimeType(for: typeIdentifier),
+                    byteCount: size, fileURL: target
+                ))
+            })
+            }
+        } onCancel: {
+            load.abandon()
+        }
+    }
+
+    static func mimeType(for identifier: String) -> String {
+#if canImport(UniformTypeIdentifiers)
+        if #available(iOS 14.0, macOS 11.0, *) {
+            if let type = UTType(identifier), let mime = type.preferredMIMEType {
+                return mime
+            }
+        }
+#endif
+        switch identifier {
+        case "public.jpeg": return "image/jpeg"
+        case "public.png": return "image/png"
+        case "public.heic": return "image/heic"
+        case "com.compuserve.gif": return "image/gif"
+        case "public.mp3": return "audio/mpeg"
+        case "public.mpeg-4": return "video/mp4"
+        case "com.adobe.pdf": return "application/pdf"
+        case "public.zip-archive": return "application/zip"
+        default: return "application/octet-stream"
+        }
+    }
+}
+
+/// The progress of one file load and whether its caller has given up on it.
+private final class AbandonableLoad: @unchecked Sendable {
+    private let lock = NSLock()
+    private var progress: Progress?
+    private var gaveUp = false
+
+    var abandoned: Bool {
+        lock.lock(); defer { lock.unlock() }
+        return gaveUp
+    }
+
+    func track(_ value: Progress) {
+        lock.lock()
+        progress = value
+        let cancel = gaveUp
+        lock.unlock()
+        if cancel { value.cancel() }
+    }
+
+    func abandon() {
+        lock.lock()
+        gaveUp = true
+        let value = progress
+        lock.unlock()
+        value?.cancel()
+    }
+}

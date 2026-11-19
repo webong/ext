@@ -171,6 +171,60 @@ pub const Host = struct {
         self.raw = null;
     }
 };
+/// One end of a registry edge: a contract and an operation in it.
+pub const RegistryEnd = struct { name: [:0]const u8, version: [:0]const u8, operation: [:0]const u8 };
+/// The policy and bounds of a registry source (`Registry.attach`): as `Services`,
+/// without `handle`, since the registry serves the calls.
+pub const RegistrySource = struct {
+    authorize: ffi.ext_context_policy,
+    user: ?*anyopaque = null,
+    timeout_ms: u32 = 0,
+    max_payload_bytes: u32 = 0,
+    max_in_flight: u32 = 0,
+    session_value: ?*anyopaque = null,
+};
+/// A guest registry (`ext_registry_*` in ext_host.h): a reverse call one guest
+/// makes is served by a forward call to another guest, along an edge declared
+/// with `route`. An undeclared edge is refused with `reverse_undeclared`, an
+/// unregistered target with `reverse_unavailable`, and a call that would re-enter
+/// a host already on its call chain with `denied`; the target's answer passes
+/// through unchanged. Hosts are borrowed, as in C: unregister a host's contracts
+/// before its deinit (unregister waits for the calls routed to it), and deinit
+/// the registry only after every host attached to it. Safe to use from several
+/// threads.
+pub const Registry = struct {
+    raw: ?*ffi.ext_registry,
+    pub fn init() Error!Registry {
+        var raw: ?*ffi.ext_registry = null;
+        try check(ffi.ext_registry_create(&raw));
+        return .{ .raw = raw };
+    }
+    /// Names `host`, started and listing the contract, as the host that serves
+    /// `name`/`version`. `error.Unsupported` when it does not list it,
+    /// `error.Exists` when the contract is already registered.
+    pub fn register(self: *const Registry, name: [:0]const u8, version: [:0]const u8, host: *const Host) Error!void {
+        try check(ffi.ext_registry_register(self.raw, name.ptr, version.ptr, host.raw));
+    }
+    /// `error.NotFound` when the contract is not registered.
+    pub fn unregister(self: *const Registry, name: [:0]const u8, version: [:0]const u8) Error!void {
+        try check(ffi.ext_registry_unregister(self.raw, name.ptr, version.ptr));
+    }
+    /// A reverse call of `from` is served by a call of `to`. `error.Exists` when
+    /// that reverse operation is already routed.
+    pub fn route(self: *const Registry, from: RegistryEnd, to: RegistryEnd) Error!void {
+        const e: ffi.ext_registry_edge = .{ .struct_size = @sizeOf(ffi.ext_registry_edge), .from_name = from.name.ptr, .from_version = from.version.ptr, .from_operation = from.operation.ptr, .to_name = to.name.ptr, .to_version = to.version.ptr, .to_operation = to.operation.ptr };
+        try check(ffi.ext_registry_route(self.raw, &e));
+    }
+    /// Makes `host` a source, in place of `Host.setServices`. Install before start.
+    pub fn attach(self: *const Registry, host: *const Host, source: RegistrySource) Error!void {
+        const s: ffi.ext_host_services = .{ .struct_size = @sizeOf(ffi.ext_host_services), .user = source.user, .authorize = source.authorize, .handle = null, .timeout_ms = source.timeout_ms, .max_payload_bytes = source.max_payload_bytes, .max_in_flight = source.max_in_flight, .session_value = source.session_value };
+        try check(ffi.ext_registry_attach(self.raw, host.raw, &s));
+    }
+    pub fn deinit(self: *Registry) void {
+        ffi.ext_registry_destroy(self.raw);
+        self.raw = null;
+    }
+};
 pub const Guest = struct {
     raw: ?*ffi.ext_guest,
     /// Handler receives borrowed request bytes and an engine copying result sink.
@@ -1346,4 +1400,162 @@ test "the package store bounds an artifact" {
 
 test {
     _ = download;
+}
+
+// The guest registry: the shared cases (lib/plugin/testdata/v1/registry-cases.json,
+// EXT_REGISTRY_CASES) against the C engine's relay guest (lib/plugin/tests/registry.c,
+// EXT_REGISTRY_TEST_GUEST), started as `<guest> --guest <cases> <name>`.
+const Deny = struct {
+    deny: bool = false,
+    fn forward(user: ?*anyopaque, _: [*c]const u8, _: usize) callconv(.c) i32 {
+        return if (@as(*const Deny, @ptrCast(@alignCast(user))).deny) 1 else 0;
+    }
+    fn reverse(user: ?*anyopaque, _: [*c]const ffi.ext_call_options, _: [*c]const u8, _: usize) callconv(.c) i32 {
+        return if (@as(*const Deny, @ptrCast(@alignCast(user))).deny) 1 else 0;
+    }
+};
+/// The relay guest's descriptor, as the fixture's guest.about describes it.
+fn relayDescriptor(a: std.mem.Allocator, cases: std.json.Value, name: []const u8) ![]u8 {
+    const reverse = cases.object.get("guest").?.object.get("reverse").?.object;
+    var ops: std.ArrayList(u8) = .empty;
+    for (reverse.get("operations").?.array.items, 0..) |op, i| {
+        try ops.appendSlice(a, try std.fmt.allocPrint(a, "{s}{{\"name\":\"{s}\"}}", .{ if (i == 0) "" else ",", op.string }));
+    }
+    return std.fmt.allocPrint(a, "{{\"apiVersion\":\"ext.plugin/v1\",\"identity\":{{\"id\":\"registry/{s}\",\"revision\":\"r1\",\"version\":\"1.0.0\"}},\"contracts\":[{{\"name\":\"{s}\",\"version\":\"v1\",\"operations\":[{{\"name\":\"echo\"}},{{\"name\":\"fail\"}},{{\"name\":\"slow\"}},{{\"name\":\"relay\"}}]}}],\"reverse\":[{{\"name\":\"{s}\",\"version\":\"{s}\",\"operations\":[{s}]}}]}}", .{ name, cases.object.get("guests").?.object.get(name).?.string, reverse.get("name").?.string, reverse.get("version").?.string, ops.items });
+}
+fn jsonText(a: std.mem.Allocator, v: std.json.Value) ![]const u8 {
+    var out: std.Io.Writer.Allocating = .init(a);
+    try std.json.Stringify.value(v, .{}, &out.writer);
+    return out.written();
+}
+fn sameJson(x: std.json.Value, y: std.json.Value) bool {
+    switch (x) {
+        .object => |o| {
+            if (y != .object or y.object.count() != o.count()) return false;
+            var it = o.iterator();
+            while (it.next()) |e| {
+                const other = y.object.get(e.key_ptr.*) orelse return false;
+                if (!sameJson(e.value_ptr.*, other)) return false;
+            }
+            return true;
+        },
+        .array => |items| {
+            if (y != .array or y.array.items.len != items.items.len) return false;
+            for (items.items, y.array.items) |p, q| if (!sameJson(p, q)) return false;
+            return true;
+        },
+        .string => |t| return y == .string and std.mem.eql(u8, t, y.string),
+        .integer => |n| return (y == .integer and y.integer == n) or (y == .float and y.float == @as(f64, @floatFromInt(n))),
+        .float => |f| return (y == .float and y.float == f) or (y == .integer and @as(f64, @floatFromInt(y.integer)) == f),
+        .bool => |b| return y == .bool and y.bool == b,
+        .null => return y == .null,
+        .number_string => |t| return y == .number_string and std.mem.eql(u8, t, y.number_string),
+    }
+}
+fn listed(v: ?std.json.Value, name: []const u8) bool {
+    const list = v orelse return false;
+    for (list.array.items) |item| if (std.mem.eql(u8, item.string, name)) return true;
+    return false;
+}
+test "the guest registry answers the shared cases" {
+    const guest = environment("EXT_REGISTRY_TEST_GUEST") orelse return error.SkipZigTest;
+    const cases_path = environment("EXT_REGISTRY_CASES") orelse return error.SkipZigTest;
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const a = arena.allocator();
+    var buffer: [65536]u8 = undefined;
+    const parsed = try std.json.parseFromSlice(std.json.Value, a, try readFile(cases_path, &buffer), .{});
+    const cases = parsed.value;
+    const guests = cases.object.get("guests").?.object;
+    var failures: usize = 0;
+    for (cases.object.get("cases").?.array.items) |case| {
+        const name = case.object.get("name").?.string;
+        var registry = try Registry.init();
+        var hosts: [8]Host = undefined;
+        var denies: [8][2]Deny = undefined;
+        var names: [8][]const u8 = undefined;
+        var contracts: [8][:0]const u8 = undefined;
+        var count: usize = 0;
+        var it = guests.iterator();
+        while (it.next()) |g| : (count += 1) {
+            names[count] = g.key_ptr.*;
+            contracts[count] = try a.dupeSentinel(u8, g.value_ptr.*.string, 0);
+            denies[count] = .{ .{ .deny = listed(case.object.get("forwardDeny"), names[count]) }, .{ .deny = listed(case.object.get("reverseDeny"), names[count]) } };
+            const args = [_][*:0]const u8{ "--guest", cases_path.ptr, (try a.dupeSentinel(u8, names[count], 0)).ptr };
+            hosts[count] = try Host.init(.{ .executable = guest, .arguments = &args }, try relayDescriptor(a, cases, names[count]), .{ .verify = allow, .authorize = Deny.forward, .user = &denies[count][0] });
+            try registry.attach(&hosts[count], .{ .authorize = Deny.reverse, .user = &denies[count][1] });
+            try hosts[count].start(.{});
+            try registry.register(contracts[count], "v1", &hosts[count]);
+        }
+        for (cases.object.get("edges").?.array.items) |e| {
+            const end = struct {
+                fn of(al: std.mem.Allocator, v: std.json.Value) !RegistryEnd {
+                    return .{ .name = try al.dupeSentinel(u8, v.object.get("name").?.string, 0), .version = try al.dupeSentinel(u8, v.object.get("version").?.string, 0), .operation = try al.dupeSentinel(u8, v.object.get("operation").?.string, 0) };
+                }
+            };
+            try registry.route(try end.of(a, e.object.get("from").?), try end.of(a, e.object.get("to").?));
+        }
+        for (case.object.get("steps").?.array.items, 0..) |step, i| {
+            const who = (step.object.get("call") orelse step.object.get("unregister").?).string;
+            var at: usize = 0;
+            while (!std.mem.eql(u8, names[at], who)) at += 1;
+            if (step.object.get("unregister") != null) {
+                try registry.unregister(contracts[at], "v1");
+                continue;
+            }
+            const payload = if (step.object.get("payload")) |p| try jsonText(a, p) else "null";
+            const request = try std.fmt.allocPrint(a, "{{\"contract\":{{\"name\":\"{s}\",\"version\":\"v1\"}},\"operation\":\"{s}\",\"payload\":{s}}}", .{ contracts[at], step.object.get("operation").?.string, payload });
+            const timeout: u32 = if (step.object.get("timeoutMs")) |t| @intCast(t.integer) else 5000;
+            var reply = try hosts[at].call(request, .{ .timeout_ms = timeout });
+            defer reply.deinit();
+            const response = try std.json.parseFromSlice(std.json.Value, a, reply.bytes(), .{});
+            const got = response.value.object.get("payload") orelse std.json.Value.null;
+            const ok = if (step.object.get("result")) |want| sameJson(got, want) else blk: {
+                const err = if (got == .object) got.object.get("error") else null;
+                const code = if (err) |e| (if (e.object.get("code")) |c| c.string else "") else "";
+                break :blk listed(step.object.get("resultError"), code);
+            };
+            if (!ok) {
+                std.debug.print("registry case {s} step {d}: got {s}\n", .{ name, i, reply.bytes() });
+                failures += 1;
+            }
+        }
+        for (hosts[0..count], contracts[0..count]) |*h, c| {
+            h.close();
+            registry.unregister(c, "v1") catch {};
+            h.deinit();
+        }
+        registry.deinit();
+    }
+    try std.testing.expectEqual(@as(usize, 0), failures);
+}
+test "the guest registry refuses what it cannot route" {
+    const guest = environment("EXT_REGISTRY_TEST_GUEST") orelse return error.SkipZigTest;
+    const cases_path = environment("EXT_REGISTRY_CASES") orelse return error.SkipZigTest;
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const a = arena.allocator();
+    var buffer: [65536]u8 = undefined;
+    const parsed = try std.json.parseFromSlice(std.json.Value, a, try readFile(cases_path, &buffer), .{});
+    var registry = try Registry.init();
+    defer registry.deinit();
+    var allowed: Deny = .{};
+    const args = [_][*:0]const u8{ "--guest", cases_path.ptr, "b" };
+    var b = try Host.init(.{ .executable = guest, .arguments = &args }, try relayDescriptor(a, parsed.value, "b"), .{ .verify = allow, .authorize = Deny.forward, .user = &allowed });
+    defer b.deinit();
+    try registry.attach(&b, .{ .authorize = Deny.reverse, .user = &allowed });
+    try b.start(.{});
+    // attach is ext_host_set_services: before start only.
+    try std.testing.expectError(error.Invalid, registry.attach(&b, .{ .authorize = Deny.reverse, .user = &allowed }));
+    try std.testing.expectError(error.Invalid, registry.register("Not A Name", "v1", &b));
+    try std.testing.expectError(error.Unsupported, registry.register("registry.other", "v1", &b));
+    try registry.register("registry.b", "v1", &b);
+    try std.testing.expectError(error.Exists, registry.register("registry.b", "v1", &b));
+    const from: RegistryEnd = .{ .name = "registry.ask", .version = "v1", .operation = "echo-b" };
+    const to: RegistryEnd = .{ .name = "registry.b", .version = "v1", .operation = "echo" };
+    try registry.route(from, to);
+    try std.testing.expectError(error.Exists, registry.route(from, to));
+    try std.testing.expectError(error.Invalid, registry.route(.{ .name = "registry.ask", .version = "v1", .operation = "other" }, .{ .name = "registry.b", .version = "v1", .operation = "Bad Name" }));
+    try std.testing.expectError(error.NotFound, registry.unregister("registry.x", "v1"));
+    try registry.unregister("registry.b", "v1");
 }

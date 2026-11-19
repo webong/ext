@@ -10,7 +10,9 @@ It replaces the Go `res/graph` as the implementation of the graph; the contract 
 | Store | Done: `include/ext_ledger.h`, memory and file backends, the whole store contract |
 | SQLite backend | Done, optional (`EXT_LEDGER_SQLITE`): the `tables.json` layout, which the Go store writes too |
 | Reader | Done: `ext_ledger_open_reader`, which never locks or writes, and the `ext-ledger` command |
-| Recorder | Later: the `ext.system` vocabulary and per-kernel collectors |
+| Recorder | Done for what it is given: `ext_ledger_recorder_open` and `ext_ledger_record`, shells, web origins, host inventory, processes and adapter inventory, held to `res/graph/testdata/recorder/v1` |
+| Collectors | Next: each kernel's own interface, so the recorder reads the machine itself |
+| Supervisor | Later: `res/graph/supervisor` moves here |
 
 ## Building
 
@@ -97,5 +99,8 @@ code's number; a usage error exits with 64. A JSON argument of `-` is read from 
 | `tests/behaviour.c` | What the cases cannot hold: watches, concurrency, rewrites, torn writes, readers |
 | `tests/command.cmake` | Drives `ext-ledger` as a shell would |
 | `cmd/ext-ledger.c` | The command |
+| `src/recorder.c`, `src/record_*.c` | The `ext.system` recorder: its environment and helpers, and one file per kind of observation |
+| `src/vocabulary.h` | The `ext.system` vocabulary, from `vocabulary.json` |
+| `tests/recorder.c` | Runs `recorder/v1` against the recorder |
 
 Like `lib/plugin`, the tree holds no Go code.

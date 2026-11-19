@@ -365,6 +365,8 @@ int ext_ledger_record(ext_ledger_recorder *r, const ext_ledger_context *ctx, con
   else if (strcmp(op, "observe_web") == 0) rc = rec_observe_web(r, ctx, in);
   else if (strcmp(op, "observe_host") == 0) rc = rec_observe_host(r, ctx, in);
   else if (strcmp(op, "observe_processes") == 0) rc = rec_observe_processes(r, ctx, in);
+  else if (strcmp(op, "observe_inventory") == 0) rc = rec_observe_inventory(r, ctx, in);
+  else if (strcmp(op, "resolve_inventory") == 0) rc = out ? rec_resolve_inventory(r, ctx, in, out, out_len) : EXT_LEDGER_INVALID;
   else if (strcmp(op, "read_host") == 0) rc = out ? rec_read_host(r, ctx, out, out_len) : EXT_LEDGER_INVALID;
   else rc = EXT_LEDGER_UNSUPPORTED;
   lj_free(in);

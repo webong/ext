@@ -65,5 +65,7 @@ int rec_observe_web(rec *r, const ext_ledger_context *ctx, const lj_value *in);
 int rec_observe_host(rec *r, const ext_ledger_context *ctx, const lj_value *in);
 int rec_read_host(rec *r, const ext_ledger_context *ctx, char **out, size_t *out_len);
 int rec_observe_processes(rec *r, const ext_ledger_context *ctx, const lj_value *in);
+int rec_observe_inventory(rec *r, const ext_ledger_context *ctx, const lj_value *in);
+int rec_resolve_inventory(rec *r, const ext_ledger_context *ctx, const lj_value *in, char **out, size_t *out_len);
 
 #endif

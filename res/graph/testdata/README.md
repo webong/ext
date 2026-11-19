@@ -37,4 +37,4 @@ type and maps it to the code: `store.Code(err)` in Go. Error text is never part 
 | Area | Versions | Run by |
 | --- | --- | --- |
 | `store` | v1 | Go: the memory store (`store.NewMemory`) and the SQLite store (`store/sqlite`); C: `lib/ledger` on every backend |
-| `recorder` | v1 | Go: `TestRecorderFixtures` in `res/graph`, which also writes the expectations (`-update`); C: `lib/ledger`'s recorder, next |
+| `recorder` | v1 | Go: `TestRecorderFixtures` in `res/graph`, which also writes the expectations (`-update`); C: `lib/ledger/tests/recorder.c` |

@@ -58,7 +58,8 @@ the fields it names, so the expectations leave out what the store sets (records'
 ## Changing the cases
 
 The expectations are what the Go recorder writes. `go test -run TestRecorder -update` in
-`res/graph` rewrites them from Go, and `go test -run TestRecorder` checks Go against them. Once the
+`res/graph` rewrites them from Go, `go test -run TestRecorder` checks Go against them, and
+`lib/ledger/tests/recorder.c` (run by `scripts/ledger-test.sh`) checks the C recorder. Once the
 Go recorder is gone, the cases are changed by hand and `lib/ledger` is the implementation they check.
 
 ## Not covered yet

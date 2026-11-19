@@ -136,10 +136,12 @@ static int collect(const ext_ledger_context *ctx, const char *what, lj_value **o
   }
   if (strcmp(what, "resources") == 0) return ll_collect_resources(ctx, out);
   if (strcmp(what, "webviews") == 0) return ll_collect_webviews(ctx, out);
+  if (strcmp(what, "surfaces") == 0) return ll_collect_surfaces(ctx, out);
+  if (strcmp(what, "permissions") == 0) return ll_collect_permissions(ctx, out);
   if (strcmp(what, "host") == 0) { /* every host kind this build collects; one it cannot collect here is left out */
     lj_value *host = rec_obj();
     if (!host) return EXT_LEDGER_IO;
-    static const char *const kinds[] = {"shells", "filesystems", "webviews", "resources"};
+    static const char *const kinds[] = {"shells", "filesystems", "webviews", "resources", "surfaces", "permissions"};
     for (size_t i = 0; i < sizeof kinds / sizeof *kinds; i++) {
       lj_value *v;
       rc = collect(ctx, kinds[i], &v);

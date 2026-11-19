@@ -186,6 +186,27 @@ static int read_process(const PROCESSENTRY32W *e, lj_value *processes) {
   return bad ? -1 : 0;
 }
 
+int ll_process_start(int64_t pid, char *out, size_t n) {
+  out[0] = 0;
+  HANDLE snap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+  if (snap == INVALID_HANDLE_VALUE) return EXT_LEDGER_UNAVAILABLE;
+  PROCESSENTRY32W e;
+  e.dwSize = sizeof e;
+  int rc = EXT_LEDGER_NOT_FOUND;
+  for (BOOL ok = Process32FirstW(snap, &e); ok; ok = Process32NextW(snap, &e)) {
+    if ((int64_t)e.th32ProcessID != pid) continue;
+    lj_value *one = lj_new(LJ_ARRAY);
+    if (one && read_process(&e, one) == 0 && one->u.array.len) {
+      snprintf(out, n, "%s", rec_field(one->u.array.items[0], "start_id"));
+      if (*out) rc = 0;
+    }
+    lj_free(one);
+    break;
+  }
+  CloseHandle(snap);
+  return rc;
+}
+
 int ll_processes(const ext_ledger_context *ctx, int64_t limit, lj_value *processes, lj_value **enumeration) {
   *enumeration = NULL;
   HANDLE snap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);

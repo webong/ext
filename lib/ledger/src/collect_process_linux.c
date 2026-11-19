@@ -171,6 +171,17 @@ static int read_process(int pid, lj_value *processes) {
   return bad ? -1 : 0;
 }
 
+int ll_process_start(int64_t pid, char *out, size_t n) {
+  out[0] = 0;
+  lj_value *one = lj_new(LJ_ARRAY);
+  if (!one) return EXT_LEDGER_IO;
+  int r = read_process((int)pid, one);
+  const char *start = one->u.array.len ? rec_field(one->u.array.items[0], "start_id") : "";
+  snprintf(out, n, "%s", start);
+  lj_free(one);
+  return r == 0 && *out ? 0 : EXT_LEDGER_NOT_FOUND;
+}
+
 int ll_processes(const ext_ledger_context *ctx, int64_t limit, lj_value *processes, lj_value **enumeration) {
   *enumeration = NULL;
   DIR *dir = opendir("/proc");

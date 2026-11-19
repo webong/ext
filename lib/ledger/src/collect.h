@@ -38,6 +38,8 @@ lj_value *ll_status_errno(int err, const char *what);
 int ll_process_host_id(char out[25]);
 /* Appends one ProcessInfo object per process to processes (identity only), and sets *enumeration. */
 int ll_processes(const ext_ledger_context *ctx, int64_t limit, lj_value *processes, lj_value **enumeration);
+/* The start identity of one process (res/system's process.Lookup); NOT_FOUND when it has none. */
+int ll_process_start(int64_t pid, char *out, size_t n);
 
 /* ---- host inventory (collect_host.c; collect_host_posix.c, collect_win32.c) ---- */
 typedef struct {
@@ -60,5 +62,7 @@ int ll_collect_shells(const ext_ledger_context *ctx, const char *search_path, lj
 int ll_collect_filesystems(const ext_ledger_context *ctx, lj_value **out);
 int ll_collect_resources(const ext_ledger_context *ctx, lj_value **out); /* collect_resources.c */
 int ll_collect_webviews(const ext_ledger_context *ctx, lj_value **out);  /* collect_webviews.c */
+int ll_collect_surfaces(const ext_ledger_context *ctx, lj_value **out);  /* collect_surfaces.c */
+int ll_collect_permissions(const ext_ledger_context *ctx, lj_value **out);
 
 #endif

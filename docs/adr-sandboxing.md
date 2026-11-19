@@ -184,8 +184,8 @@ The library never picks one by name, and a launch that names no driver fails wit
   its parent and supports filesystem grants per path. The interface is unsupported for
   third parties and deprecated as a command (`sandbox-exec`). ext accepts that risk and
   tests the profiles on each macOS release in CI.
-- **`app-sandbox`**: the launcher is a separate helper signed with the App Sandbox
-  entitlement, and the guest it starts inherits that sandbox. It is Apple's supported
+- **`app-sandbox`**: the launch step is a separate helper signed with the App Sandbox
+  entitlement (below), and the guest it starts inherits that sandbox. It is Apple's supported
   mechanism. Its grant is fixed when the helper is signed: the helper's container plus the
   entitlements it carries. It therefore reports filesystem grants per path, beyond that
   container, as `unsupported`, and a grant that needs them fails closed. It suits a
@@ -194,18 +194,35 @@ The library never picks one by name, and a launch that names no driver fails wit
 Linux and Windows have one driver each today (`landlock` and `appcontainer`). The same
 seam takes another driver later without changing the contract.
 
-**One launcher, `ext-confine`.** Go's `os/exec` cannot run code between fork and exec, the
-C engine launches processes as well, and workload's supervisor launches its own. So none
-of them confines a process directly. Each runs a small launcher:
-- A runner starts `ext-confine` with the grant on a file descriptor or handle, followed by
-  the guest's command.
-- `ext-confine` applies the grant to itself and writes the report to a status pipe.
+**One launch step, `ext sandbox exec`.** Go's `os/exec` cannot run code between fork and
+exec, the C engine launches processes as well, and workload's supervisor launches its own.
+So none of them confines a process directly. Each runs a launch step in a separate
+process:
+- A runner starts `ext sandbox exec` with the grant on a file descriptor or handle,
+  followed by the guest's command.
+- The command applies the grant to its own process and writes the report to a status pipe.
 - Then it execs the guest. On Windows, where there is no exec, it creates the guest in the
   AppContainer inside the job object and waits for it.
 
-A runner only needs the launcher's path and the report format, which is a fixture. workload
-configures `ext-confine` the way it configures `workload-supervisor` today: as an absolute
-path to an executable. So workload's library keeps using only the standard library.
+`res/` holds no commands. `res/system/service/confine` exports only the library entry
+point, `confine.Exec(grant, command)`, which does the three steps above in the calling
+process. The command around it follows adapter management: one shared command package in
+`pkg/`, outside `res/` (for example `pkg/ext-go/sandboxcmd`, in a module that may require
+`res/system`), serves both `ext sandbox …` and standalone `ctx sandbox …`. ctn reaches it
+through `ext`. The same package can later offer `ext sandbox check`, which prints the drivers
+and classes this host can enforce.
+
+A runner only needs a command line for the launch step and the report format, which is a
+fixture:
+- When ext or ctx hosts the engine, that is its own executable with `sandbox exec`.
+- Other hosts, such as the Python or Ruby hosts, configure the path to `ext`.
+- workload configures it the way it configures `workload-supervisor` today: as an absolute
+  path plus arguments. So workload's library keeps using only the standard library.
+
+The `app-sandbox` driver is the exception: `ext` cannot sign itself into App Sandbox
+without confining the whole `ext`. A consumer that chooses it builds a small helper that
+calls `confine.Exec`, signs it with its entitlements, and configures that helper's path in
+place of `ext sandbox exec`.
 
 ### 5. The plugin engine (C first, then Go)
 
@@ -214,8 +231,9 @@ with fixtures in `lib/plugin/testdata/v1`, then reach `cgoengine`, a regenerated
 `c2goengine` and the pure-Go `engine`:
 
 - `BackendProfile` gains `boundary`. The value is fixed per backend, except that a process
-  launch reports `confined` when it went through `ext-confine`.
-- The process launch takes an optional grant. With one, it runs `ext-confine`.
+  launch reports `confined` when it went through `ext sandbox exec`.
+- The process launch takes an optional grant and the command line of the launch step. With
+  a grant, it runs that step.
 - Selection (`interop.Resolve` and its C counterpart) accepts a set of acceptable
   boundaries. A package whose runtime cannot meet it fails admission with `denied`.
 - A manifest entrypoint may carry `requests`, the classes of section 2. Being part of the
@@ -270,7 +288,7 @@ repository.
 
 - **Import `res/sandbox`** and describe each driver by its boundary and capabilities.
 - **`local`**: becomes `confined` when given a grant, by starting the worker through
-  `ext-confine` under `workload-supervisor`. Windows support can come from Xallet's process
+  `ext sandbox exec` under `workload-supervisor`. Windows support can come from Xallet's process
   handling.
 - **`docker` and `kubernetes`**: report `container`, or `kernel` when gVisor or Kata is
   selected through the runtime or `RuntimeClass`. Translate the grant into mounts, the
@@ -302,9 +320,12 @@ Taken by the user on 2026-11-19.
 1. **The contract is a new module, `res/sandbox`,** using only the standard library and
    importing nothing in ext. A package inside `res/system` was rejected: it would have
    given workload a dependency on `golang.org/x/sys` and all of `res/system`.
-2. **The launcher is Go, in `res/system`** (`res/system/cmd/ext-confine`). Linux and Windows
-   need no cgo; macOS calls `sandbox_init` through purego or cgo. C in `lib/` was rejected:
-   it would have been a native implementation with no Go reference.
+2. **The launch step is Go and is not a command in `res/`.** `res/system/service/confine`
+   exports `confine.Exec`, and the command is `ext sandbox exec`, also served by standalone
+   `ctx sandbox exec` through one shared command package in `pkg/`, as adapter management is.
+   Linux and Windows need no cgo; macOS calls `sandbox_init` through purego or cgo. A
+   separate `ext-confine` executable in `res/system` was rejected because `res/` holds no
+   commands, and C in `lib/` because it would have had no Go reference.
 3. **macOS gets both mechanisms, as drivers:** `seatbelt` and `app-sandbox`, chosen by the
    consumer (section 4). workload's Apple Virtualization or libkrun driver remains the
    `kernel` option.
@@ -328,7 +349,8 @@ Taken by the user on 2026-11-19.
    - No behaviour changes, but every launch becomes honest about what it is, and workload
      can start reporting in the same words.
 2. **Confinement.**
-   - `res/system/service/confine` and `ext-confine` on Linux, macOS and Windows.
+   - `res/system/service/confine` and `ext sandbox exec` (with `ctx sandbox exec`) on Linux,
+     macOS and Windows.
    - Filesystem, process and resources first; network as `none` only.
    - The engines' process launch takes a grant.
    - workload's `local` driver can use it from here on.
@@ -350,8 +372,8 @@ workload's driver work runs in parallel from phase 1 on, in its own repository.
   may run, and the grant decides what it can do.
 - ext stays free of container and VM code, and workload stays limited to the standard
   library.
-- ext adds one module (`res/sandbox`), one `res/system` package with a launcher executable,
-  one field in `BackendProfile`, and one in the manifest's entrypoints. The engine and
+- ext adds one module (`res/sandbox`), one `res/system` package, one shared command
+  package behind `ext sandbox` and `ctx sandbox`, one field in `BackendProfile`, and one in the manifest's entrypoints. The engine and
   manifest changes land in C first, under the rule in `AGENTS.md`.
 - The per-OS base policies have to keep working as runtimes change. They are treated as
   code: versioned fixtures, tested on each OS in CI.

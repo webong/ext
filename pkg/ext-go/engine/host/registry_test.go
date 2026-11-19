@@ -252,7 +252,7 @@ func TestRegistryConcurrentRegistration(t *testing.T) {
 			defer wg.Done()
 			for i := range 25 {
 				var out struct {
-					Payload *int               `json:"payload"`
+					Payload *int                `json:"payload"`
 					Error   *plugin.RemoteError `json:"error"`
 				}
 				payload, _ := json.Marshal(map[string]any{"operation": "echo-b", "payload": i})

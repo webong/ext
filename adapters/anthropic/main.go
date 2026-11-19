@@ -34,19 +34,24 @@ func (p *provider) Info(ctx context.Context) (inference.ProviderInfo, error) {
 	if err := ctx.Err(); err != nil {
 		return inference.ProviderInfo{}, err
 	}
-	return inference.ProviderInfo{ID: "anthropic", Name: "Anthropic", Version: "1.0.0", Stability: inference.StabilityStable, Modalities: []inference.Modality{inference.ModalityText, inference.ModalityImage}, Capabilities: []inference.Capability{inference.CapabilityGenerate, inference.CapabilityToolProposal, inference.CapabilityStructuredOutput}, Limits: inference.Limits{MaxBytes: 32 << 20}, Protocol: map[string]string{"endpoint": p.endpoint, "auth": "x-api-key"}}, nil
+	return inference.ProviderInfo{ID: "anthropic", Name: "Anthropic", Version: "1.0.0", Stability: inference.StabilityStable, Modalities: []inference.Modality{inference.ModalityText, inference.ModalityImage}, Capabilities: []inference.Capability{inference.CapabilityGenerate, inference.CapabilityStream, inference.CapabilityToolProposal, inference.CapabilityStructuredOutput, inference.CapabilityModelListing}, Limits: inference.Limits{MaxBytes: 32 << 20}, Protocol: map[string]string{"endpoint": p.endpoint, "auth": "x-api-key"}}, nil
 }
 func (p *provider) Close() error { return nil }
 
-func (p *provider) Generate(ctx context.Context, r inference.GenerationRequest) (inference.GenerationResponse, error) {
+// optionKeys are the request options passed through to the Messages API as they are;
+// any other key is refused rather than dropped.
+var optionKeys = map[string]bool{
+	"top_k": true, "top_p": true, "stop_sequences": true, "metadata": true,
+	"thinking": true, "tool_choice": true, "service_tier": true,
+}
+
+// payload builds a Messages API request body.
+func (p *provider) payload(r inference.GenerationRequest, stream bool) ([]byte, error) {
 	if err := r.Validate(); err != nil {
-		return inference.GenerationResponse{}, err
+		return nil, err
 	}
 	if r.MaxOutputTokens <= 0 {
-		return inference.GenerationResponse{}, inference.ErrInvalidRequest
-	}
-	if len(r.Options) > 0 {
-		return inference.GenerationResponse{}, inference.ErrUnsupported
+		return nil, inference.ErrInvalidRequest
 	}
 	type msg struct {
 		Role    string           `json:"role"`
@@ -62,46 +67,78 @@ func (p *provider) Generate(ctx context.Context, r inference.GenerationRequest) 
 				content = append(content, map[string]any{"type": "text", "text": part.Text})
 			case inference.PartKindImage:
 				if m.Role != inference.RoleUser || part.Reference != nil || !supportedImage(part.MediaType) {
-					return inference.GenerationResponse{}, inference.ErrUnsupported
+					return nil, inference.ErrUnsupported
 				}
 				content = append(content, map[string]any{"type": "image", "source": map[string]any{"type": "base64", "media_type": part.MediaType, "data": base64.StdEncoding.EncodeToString(part.Data)}})
+			case inference.PartKindReasoning:
+				// Extended thinking goes back with the signature it came with.
+				block := map[string]any{"type": "thinking", "thinking": part.Text}
+				var origin struct {
+					Signature string `json:"signature"`
+				}
+				if len(part.ProviderData) > 0 && json.Unmarshal(part.ProviderData, &origin) == nil && origin.Signature != "" {
+					block["signature"] = origin.Signature
+				}
+				content = append(content, block)
+			case inference.PartKindContext:
+				// An opaque block (redacted thinking) goes back exactly as it came.
+				var block map[string]any
+				if err := json.Unmarshal(part.ProviderData, &block); err != nil || block["type"] == nil {
+					return nil, inference.ErrInvalidRequest
+				}
+				content = append(content, block)
 			default:
-				return inference.GenerationResponse{}, inference.ErrUnsupported
+				return nil, inference.ErrUnsupported
 			}
 		}
 		switch m.Role {
 		case inference.RoleSystem:
 			for _, part := range content {
 				if part["type"] != "text" {
-					return inference.GenerationResponse{}, inference.ErrUnsupported
+					return nil, inference.ErrUnsupported
 				}
 				system = append(system, part["text"].(string))
 			}
 		case inference.RoleUser, inference.RoleAssistant:
 			for _, call := range m.ToolCalls {
-				content = append(content, map[string]any{"type": "tool_use", "id": call.ID, "name": call.Name, "input": call.Arguments})
+				input := call.Arguments
+				if len(input) == 0 {
+					input = json.RawMessage(`{}`)
+				}
+				content = append(content, map[string]any{"type": "tool_use", "id": call.ID, "name": call.Name, "input": input})
 			}
 			messages = append(messages, msg{Role: string(m.Role), Content: content})
 		case inference.RoleTool:
 			for _, part := range m.Parts {
 				if part.Kind != inference.PartKindText {
-					return inference.GenerationResponse{}, inference.ErrUnsupported
+					return nil, inference.ErrUnsupported
 				}
 			}
+			result := map[string]any{"type": "tool_result", "tool_use_id": m.ToolCallID, "content": textParts(m.Parts)}
 			if m.ToolError {
-				content = []map[string]any{{"type": "tool_result", "tool_use_id": m.ToolCallID, "content": textParts(m.Parts), "is_error": true}}
-			} else {
-				content = []map[string]any{{"type": "tool_result", "tool_use_id": m.ToolCallID, "content": textParts(m.Parts)}}
+				result["is_error"] = true
 			}
-			messages = append(messages, msg{Role: "user", Content: content})
+			messages = append(messages, msg{Role: "user", Content: []map[string]any{result}})
 		default:
-			return inference.GenerationResponse{}, inference.ErrUnsupported
+			return nil, inference.ErrUnsupported
 		}
 	}
 	if len(messages) == 0 {
-		return inference.GenerationResponse{}, inference.ErrInvalidRequest
+		return nil, inference.ErrInvalidRequest
 	}
 	payload := map[string]any{"model": r.Model, "max_tokens": r.MaxOutputTokens, "messages": messages}
+	if len(r.Options) > 0 {
+		var options map[string]json.RawMessage
+		if err := json.Unmarshal(r.Options, &options); err != nil {
+			return nil, inference.ErrInvalidRequest
+		}
+		for key, value := range options {
+			if !optionKeys[key] {
+				return nil, fmt.Errorf("%w: option %q", inference.ErrUnsupported, key)
+			}
+			payload[key] = value
+		}
+	}
 	if len(system) > 0 {
 		payload["system"] = strings.Join(system, "\n")
 	}
@@ -118,27 +155,119 @@ func (p *provider) Generate(ctx context.Context, r inference.GenerationRequest) 
 	if len(r.OutputSchema) > 0 {
 		payload["output_config"] = map[string]any{"format": map[string]any{"type": "json_schema", "schema": r.OutputSchema}}
 	}
-	body, err := json.Marshal(payload)
-	if err != nil {
-		return inference.GenerationResponse{}, err
+	if stream {
+		payload["stream"] = true
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, p.endpoint+"/messages", bytes.NewReader(body))
+	return json.Marshal(payload)
+}
+
+// send posts a request to the API and returns the reply when its status is a success.
+func (p *provider) send(ctx context.Context, method, path string, body []byte, accept string) (*http.Response, error) {
+	var reader io.Reader
+	if body != nil {
+		reader = bytes.NewReader(body)
+	}
+	req, err := http.NewRequestWithContext(ctx, method, p.endpoint+path, reader)
 	if err != nil {
-		return inference.GenerationResponse{}, inference.ErrInvalidRequest
+		return nil, inference.ErrInvalidRequest
 	}
 	req.Header.Set("x-api-key", p.key)
 	// The newer 2026-10-21 version removes temperature; keep the compatible
 	// version while the neutral generation contract still exposes it.
 	req.Header.Set("anthropic-version", "2023-06-01")
-	req.Header.Set("content-type", "application/json")
+	if body != nil {
+		req.Header.Set("content-type", "application/json")
+	}
+	if accept != "" {
+		req.Header.Set("accept", accept)
+	}
 	reply, err := p.client.Do(req)
 	if err != nil {
-		return inference.GenerationResponse{}, inference.NewRemoteError(inference.ErrUnavailable, "request failed", "anthropic")
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			return nil, inference.NewRemoteError(inference.ErrCanceled, "operation canceled", "anthropic")
+		}
+		return nil, inference.NewRemoteError(inference.ErrUnavailable, "request failed", "anthropic")
+	}
+	if reply.StatusCode < 200 || reply.StatusCode >= 300 {
+		reply.Body.Close()
+		return nil, inference.NewRemoteError(statusError(reply.StatusCode), "provider request failed", "anthropic")
+	}
+	return reply, nil
+}
+
+// block is one content block of a Messages API response.
+type block struct {
+	Type      string          `json:"type"`
+	Text      string          `json:"text"`
+	ID        string          `json:"id"`
+	Name      string          `json:"name"`
+	Input     json.RawMessage `json:"input"`
+	Thinking  string          `json:"thinking"`
+	Signature string          `json:"signature"`
+	Data      string          `json:"data"`
+}
+
+// apiUsage is the Messages API's token usage.
+type apiUsage struct {
+	Input       int64 `json:"input_tokens"`
+	Output      int64 `json:"output_tokens"`
+	CacheRead   int64 `json:"cache_read_input_tokens"`
+	CacheCreate int64 `json:"cache_creation_input_tokens"`
+}
+
+func (u apiUsage) usage() inference.TokenUsage {
+	input := u.Input + u.CacheRead + u.CacheCreate
+	return inference.TokenUsage{Input: input, Output: u.Output, Total: input + u.Output, CachedInput: u.CacheRead}
+}
+
+// appendBlock adds a response block to the message. raw is the block as the API sent it,
+// kept for opaque blocks that must go back unchanged.
+func appendBlock(m *inference.Message, b block, raw json.RawMessage) error {
+	switch b.Type {
+	case "text":
+		m.Parts = append(m.Parts, inference.Part{Kind: inference.PartKindText, Text: b.Text})
+	case "tool_use":
+		input := b.Input
+		if len(input) == 0 {
+			input = json.RawMessage(`{}`)
+		}
+		m.ToolCalls = append(m.ToolCalls, inference.ToolCall{ID: b.ID, Name: b.Name, Arguments: input})
+	case "thinking":
+		origin, _ := json.Marshal(map[string]string{"signature": b.Signature})
+		m.Parts = append(m.Parts, inference.Part{Kind: inference.PartKindReasoning, Text: b.Thinking, ProviderData: origin})
+	case "redacted_thinking":
+		m.Parts = append(m.Parts, inference.Part{Kind: inference.PartKindContext, ProviderData: append(json.RawMessage(nil), raw...)})
+	default:
+		return inference.ErrUnsupported
+	}
+	return nil
+}
+
+func stopReason(s string) (inference.FinishReason, error) {
+	switch s {
+	case "end_turn", "stop_sequence":
+		return inference.FinishReasonStop, nil
+	case "max_tokens":
+		return inference.FinishReasonLength, nil
+	case "tool_use":
+		return inference.FinishReasonToolCalls, nil
+	case "refusal":
+		return inference.FinishReasonRefusal, nil
+	default:
+		return "", inference.ErrInvalidResponse
+	}
+}
+
+func (p *provider) Generate(ctx context.Context, r inference.GenerationRequest) (inference.GenerationResponse, error) {
+	body, err := p.payload(r, false)
+	if err != nil {
+		return inference.GenerationResponse{}, err
+	}
+	reply, err := p.send(ctx, http.MethodPost, "/messages", body, "")
+	if err != nil {
+		return inference.GenerationResponse{}, err
 	}
 	defer reply.Body.Close()
-	if reply.StatusCode < 200 || reply.StatusCode >= 300 {
-		return inference.GenerationResponse{}, inference.NewRemoteError(statusError(reply.StatusCode), "provider request failed", "anthropic")
-	}
 	raw, err := io.ReadAll(io.LimitReader(reply.Body, (32<<20)+1))
 	if err != nil {
 		return inference.GenerationResponse{}, inference.ErrInvalidResponse
@@ -147,49 +276,31 @@ func (p *provider) Generate(ctx context.Context, r inference.GenerationRequest) 
 		return inference.GenerationResponse{}, inference.ErrResourceExhausted
 	}
 	var result struct {
-		ID      string `json:"id"`
-		Model   string `json:"model"`
-		Content []struct {
-			Type  string          `json:"type"`
-			Text  string          `json:"text"`
-			ID    string          `json:"id"`
-			Name  string          `json:"name"`
-			Input json.RawMessage `json:"input"`
-		} `json:"content"`
-		StopReason string `json:"stop_reason"`
-		Usage      struct {
-			Input  int64 `json:"input_tokens"`
-			Output int64 `json:"output_tokens"`
-		} `json:"usage"`
+		ID         string            `json:"id"`
+		Model      string            `json:"model"`
+		Content    []json.RawMessage `json:"content"`
+		StopReason string            `json:"stop_reason"`
+		Usage      apiUsage          `json:"usage"`
 	}
 	if err := json.Unmarshal(raw, &result); err != nil || result.Model == "" || len(result.Content) == 0 {
 		return inference.GenerationResponse{}, inference.ErrInvalidResponse
 	}
-	out := inference.GenerationResponse{ID: result.ID, Model: result.Model, Message: inference.Message{Role: inference.RoleAssistant}, Usage: inference.TokenUsage{Input: result.Usage.Input, Output: result.Usage.Output, Total: result.Usage.Input + result.Usage.Output}}
-	for _, part := range result.Content {
-		switch part.Type {
-		case "text":
-			out.Message.Parts = append(out.Message.Parts, inference.Part{Kind: inference.PartKindText, Text: part.Text})
-		case "tool_use":
-			out.Message.ToolCalls = append(out.Message.ToolCalls, inference.ToolCall{ID: part.ID, Name: part.Name, Arguments: part.Input})
-		default:
-			return inference.GenerationResponse{}, inference.ErrUnsupported
+	out := inference.GenerationResponse{ID: result.ID, Model: result.Model, Message: inference.Message{Role: inference.RoleAssistant}, Usage: result.Usage.usage()}
+	for _, rawBlock := range result.Content {
+		var b block
+		if err := json.Unmarshal(rawBlock, &b); err != nil {
+			return inference.GenerationResponse{}, inference.ErrInvalidResponse
+		}
+		if err := appendBlock(&out.Message, b, rawBlock); err != nil {
+			return inference.GenerationResponse{}, err
 		}
 	}
-	switch result.StopReason {
-	case "end_turn", "stop_sequence":
-		out.StopReason = inference.FinishReasonStop
-	case "max_tokens":
-		out.StopReason = inference.FinishReasonLength
-	case "tool_use":
-		out.StopReason = inference.FinishReasonToolCalls
-	case "refusal":
-		out.StopReason = inference.FinishReasonRefusal
-	default:
-		return inference.GenerationResponse{}, inference.ErrInvalidResponse
+	if out.StopReason, err = stopReason(result.StopReason); err != nil {
+		return inference.GenerationResponse{}, err
 	}
 	return out, out.Validate()
 }
+
 func supportedImage(mediaType string) bool {
 	switch mediaType {
 	case "image/png", "image/jpeg", "image/gif", "image/webp":

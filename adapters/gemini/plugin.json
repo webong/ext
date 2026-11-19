@@ -101,7 +101,7 @@
   ],
   "metadata": {
     "inference.provider/v1": {
-      "description": "Gemini generateContent text-generation provider",
+      "description": "Gemini generateContent provider (generate, stream, embed, models)",
       "display_name": "Gemini",
       "go_entry": "."
     }

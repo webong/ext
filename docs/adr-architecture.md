@@ -94,10 +94,16 @@ the same interface. The first two steps were done in Go; on 2026-11-19 the graph
      canonical-JSON lines and a checkpoint (`ledger.json`). An advisory lock serialises writers;
      readers never lock. It needs nothing beyond the C library and the OS.
    - **SQLite is optional**, a build option of the library, on the `tables.json` layout.
+   - **The supervisor moves too.** `res/graph/supervisor` becomes part of `lib/ledger`, so a
+     program that records its processes also supervises them without Go.
+   - **Collectors call each OS's C interface.** On macOS that is CoreGraphics for displays and
+     windows, the Accessibility API and CoreFoundation, called from C with no Swift. iOS has no
+     system-wide view of screens or other apps' windows, so an iOS app gives the recorder what
+     `ext-darwin`'s Swift code sees through its observe calls.
    - **The Go `res/graph` is deprecated.** Nothing new is added to it. Go reaches the C library as
-     other languages do, and the Go `res/graph` is then removed with no compatibility layer; its
-     `testdata` fixtures stay as the contract. How Go builds without cgo (a ccgo translation, as `c2goengine` does for
-     the plugin engine, or a loaded shared library) is decided when that step starts.
+     other languages do, through a standalone purego module that the plugin engine's Go bindings
+     (`engine`, `cgoengine`) use as well, so no binding needs cgo. The Go `res/graph` is then
+     removed with no compatibility layer; its `testdata` fixtures stay as the contract.
 
 ## Language tiers
 

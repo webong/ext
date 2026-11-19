@@ -41,7 +41,8 @@ func (c *Client) Generate(ctx context.Context, req inference.GenerationRequest) 
 
 // Stream opens an ext.stream of GenerationEvent and returns its reader. The
 // returned stream.Client reads from the provider's generation stream via the
-// ext.stream protocol.
+// ext.stream protocol; DecodeEvent decodes each item. A stream that ends without
+// error ends with a completed event carrying the final GenerationResponse.
 func (c *Client) Stream(ctx context.Context, req inference.GenerationRequest) (*stream.Client, error) {
 	resp, err := author.Call(ctx, c.caller, streamMethod(), req)
 	if err != nil {
@@ -67,16 +68,17 @@ func (c *Client) Transcribe(ctx context.Context, req inference.TranscriptionRequ
 	return resp, inferenceError(err)
 }
 
-// Synthesize opens an ext.stream of audio bytes and returns its reader.
+// Synthesize opens an ext.stream of audio and returns its reader; DecodeAudio turns
+// each item back into bytes.
 func (c *Client) Synthesize(ctx context.Context, req inference.SpeechRequest) (*stream.Client, error) {
 	resp, err := author.Call(ctx, c.caller, synthesizeMethod(), req)
 	if err != nil {
-		return nil, err
+		return nil, inferenceError(err)
 	}
 	params := streamOpenParams{Op: OpSynthesize, ID: resp.ID}
 	data, err := json.Marshal(params)
 	if err != nil {
-		return nil, err
+		return nil, inferenceError(err)
 	}
 	return stream.Open(ctx, c.caller, data)
 }

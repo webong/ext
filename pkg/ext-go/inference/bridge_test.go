@@ -56,7 +56,8 @@ func TestRoundTrip(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	// The item and the end of the stream may arrive in one batch or in two.
+	// The delta and the completed event the bridge adds; the end of the stream may arrive
+	// with the last item or on its own.
 	var items int
 	for done := false; !done; {
 		batch, e := stream.Read(ctx, 1)
@@ -65,12 +66,12 @@ func TestRoundTrip(t *testing.T) {
 		}
 		items += len(batch.Items)
 		done = batch.Done
-		if items > 1 {
+		if items > 2 {
 			t.Fatalf("bad batch: %+v", batch)
 		}
 	}
-	if items != 1 {
-		t.Fatalf("got %d items, want 1", items)
+	if items != 2 {
+		t.Fatalf("got %d items, want 2", items)
 	}
 	if e = stream.Close(ctx); e != nil {
 		t.Fatal(e)

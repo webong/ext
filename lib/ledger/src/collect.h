@@ -39,4 +39,24 @@ int ll_process_host_id(char out[25]);
 /* Appends one ProcessInfo object per process to processes (identity only), and sets *enumeration. */
 int ll_processes(const ext_ledger_context *ctx, int64_t limit, lj_value *processes, lj_value **enumeration);
 
+/* ---- host inventory (collect_host.c; collect_host_posix.c, collect_win32.c) ---- */
+typedef struct {
+  char *path;
+  const char *source; /* registered, system, configured-default, path */
+} ll_shell_path;
+/* The platform's own shell locations (/etc/shells; the Windows system shells). */
+int ll_platform_shell_paths(const ext_ledger_context *ctx, ll_shell_path **out, size_t *n);
+int ll_is_executable(const char *path);
+char *ll_resolve_path(const char *path); /* symlinks evaluated; NULL when it cannot be */
+char ll_path_list_separator(void);
+char *ll_path_join(const char *dir, const char *name);
+char *ll_path_clean(const char *path);
+const char *ll_executable_suffix(void); /* ".exe" on Windows */
+/* Appends one FilesystemInfo per mounted filesystem (source not yet redacted). */
+int ll_platform_filesystems(const ext_ledger_context *ctx, lj_value *filesystems);
+lj_value *ll_filesystem_space(uint64_t blocks, uint64_t free_blocks, uint64_t available, uint64_t size);
+
+int ll_collect_shells(const ext_ledger_context *ctx, const char *search_path, lj_value **out);
+int ll_collect_filesystems(const ext_ledger_context *ctx, lj_value **out);
+
 #endif

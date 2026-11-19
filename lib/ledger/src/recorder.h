@@ -39,6 +39,7 @@ char *rec_dir(const char *p);
 char *rec_base(const char *p);
 char *rec_join(const char *a, const char *b);
 int rec_is_abs(const char *p);
+char *rec_redact_source(const char *source); /* without URL credentials */
 
 /* ---- building records ----
  * Each returns NULL when memory runs out; a NULL argument where a value is

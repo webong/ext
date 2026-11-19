@@ -154,8 +154,11 @@ EXT_LEDGER_API int ext_ledger_record(ext_ledger_recorder *recorder, const ext_le
 /* ---- the collectors ----
  * What the recorder reads from the machine through each kernel's own
  * interface, in the JSON forms of res/system's types. what is "processes"
- * (process identities, as res/system's DiscoverProcesses reports them); a
- * collection this build or OS does not have is EXT_LEDGER_UNSUPPORTED. */
+ * (process identities, as res/system's DiscoverProcesses reports them),
+ * "shells" and "filesystems" (as DiscoverShells and DiscoverFilesystems), or
+ * "host" (the host inventory: every host kind this build collects here). A
+ * collection this build or OS does not have is EXT_LEDGER_UNSUPPORTED. Scan
+ * takes "processes" or "host". */
 EXT_LEDGER_API int ext_ledger_collect(const ext_ledger_context *ctx, const char *what, char **out, size_t *out_len);
 /* Collects what and records it through the recorder's observation of it. */
 EXT_LEDGER_API int ext_ledger_scan(ext_ledger_recorder *recorder, const ext_ledger_context *ctx, const char *what);

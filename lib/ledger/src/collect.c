@@ -114,11 +114,42 @@ static int collect_processes(const ext_ledger_context *ctx, lj_value **out) {
   return 0;
 }
 
+static int collect(const ext_ledger_context *ctx, const char *what, lj_value **out);
+
 static int collect(const ext_ledger_context *ctx, const char *what, lj_value **out) {
   *out = NULL;
   int rc = ll_ctx_check(ctx);
   if (rc) return rc;
   if (strcmp(what, "processes") == 0) return collect_processes(ctx, out);
+  if (strcmp(what, "shells") == 0 || strcmp(what, "filesystems") == 0) {
+    lj_value *list;
+    if (what[0] == 's') {
+      char *path = ll_os_getenv("PATH");
+      rc = ll_collect_shells(ctx, path, &list);
+      free(path);
+    } else {
+      rc = ll_collect_filesystems(ctx, &list);
+    }
+    if (rc) return rc;
+    *out = list;
+    return 0;
+  }
+  if (strcmp(what, "host") == 0) { /* every host kind this build collects; one it cannot collect here is left out */
+    lj_value *host = rec_obj();
+    if (!host) return EXT_LEDGER_IO;
+    static const char *const kinds[] = {"shells", "filesystems"};
+    for (size_t i = 0; i < sizeof kinds / sizeof *kinds; i++) {
+      lj_value *v;
+      rc = collect(ctx, kinds[i], &v);
+      if (rc == EXT_LEDGER_UNSUPPORTED) continue;
+      if (rc || rec_set(host, kinds[i], v)) {
+        lj_free(host);
+        return rc ? rc : EXT_LEDGER_IO;
+      }
+    }
+    *out = host;
+    return 0;
+  }
   return EXT_LEDGER_UNSUPPORTED;
 }
 
@@ -143,7 +174,8 @@ int ext_ledger_scan(ext_ledger_recorder *r, const ext_ledger_context *ctx, const
   int rc = collect(ctx, what, &v);
   if (rc) return rc;
   if (strcmp(what, "processes") == 0) rc = rec_observe_processes(r, ctx, v);
-  else rc = EXT_LEDGER_UNSUPPORTED;
+  else if (strcmp(what, "host") == 0) rc = rec_observe_host(r, ctx, v);
+  else rc = EXT_LEDGER_UNSUPPORTED; /* a single host kind is recorded through "host" */
   lj_free(v);
   return rc;
 }

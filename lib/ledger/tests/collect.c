@@ -88,6 +88,26 @@ int main(void) {
   }
   lj_free(snap);
 
+  /* The host inventory: shells and filesystems, the root among them. */
+  rc = ext_ledger_collect(NULL, "host", &out, &len);
+  CHECK(rc == 0, "collect the host: %s", ext_ledger_code_name(rc));
+  lj_value *host = rc ? NULL : lj_parse(out, len, NULL);
+  if (!rc) ext_ledger_free(out);
+  const lj_value *shells = lj_get(host, "shells"), *filesystems = lj_get(host, "filesystems");
+  CHECK(shells && shells->type == LJ_ARRAY, "the host has a shell list");
+  int root = 0;
+  for (size_t i = 0; filesystems && filesystems->type == LJ_ARRAY && i < filesystems->u.array.len; i++) {
+    const char *mount = field(filesystems->u.array.items[i], "mount_point");
+#ifdef _WIN32
+    root |= strlen(mount) == 3 && mount[1] == ':' && mount[2] == '\\';
+#else
+    root |= strcmp(mount, "/") == 0;
+#endif
+  }
+  CHECK(root, "the root filesystem is among the host's filesystems");
+  printf("host: %zu shells, %zu filesystems\n", shells ? shells->u.array.len : 0, filesystems ? filesystems->u.array.len : 0);
+  lj_free(host);
+
   /* A machine recorder records the scan. */
   ext_ledger *store;
   ext_ledger_open_memory(NULL, &store);
@@ -108,6 +128,11 @@ int main(void) {
     lj_free(found);
     rc = ext_ledger_scan(r, NULL, "processes");
     CHECK(rc == 0, "a second scan reconciles: %s", ext_ledger_code_name(rc));
+    rc = ext_ledger_scan(r, NULL, "host");
+    CHECK(rc == 0, "scan the host: %s", ext_ledger_code_name(rc));
+    rc = ext_ledger_get_vertex(store, NULL, "ext.system", "host-inventory/filesystems", &out, &len);
+    CHECK(rc == 0, "the scan recorded the filesystem inventory: %s", ext_ledger_code_name(rc));
+    if (!rc) ext_ledger_free(out);
     ext_ledger_recorder_close(r);
   }
   ext_ledger_close(store);

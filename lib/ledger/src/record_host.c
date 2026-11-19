@@ -19,8 +19,8 @@ static char *path_key(const rec *r, const char *path) {
   return k;
 }
 
-/* A filesystem source without URL credentials. */
-static char *redact_source(const char *s) {
+/* A filesystem source without URL credentials, as res/system's RedactSource. */
+char *rec_redact_source(const char *s) {
   size_t n = strlen(s), start;
   const char *sep = strstr(s, "://");
   if (n >= 2 && s[0] == '/' && s[1] == '/') start = 2;
@@ -193,7 +193,7 @@ static int observe_filesystems(host_tx *h, const lj_value *filesystems) {
     const lj_value *f = filesystems->u.array.items[i];
     const char *mount = str_at(f, "mount_point");
     if (!rec_is_abs(mount)) return EXT_LEDGER_INVALID;
-    char *source = redact_source(str_at(f, "source")), *key = path_key(r, mount);
+    char *source = rec_redact_source(str_at(f, "source")), *key = path_key(r, mount);
     if (!source || !key) {
       free(source);
       free(key);

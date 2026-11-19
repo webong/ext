@@ -206,6 +206,24 @@ data endpoint is declared with `engine/endpoint`. See the
 other SDKs do not carry these yet. The rest of this section describes the
 separate-connection approach the other SDKs still use.
 
+A host composes plugins with a guest registry: a reverse call one plugin makes is
+served by a forward call to another plugin, along an edge the host declares, so an
+edge needs no hand-written case in a `Handle`. In Go, `host.NewRegistry()` (in
+`engine/host` and `cgoengine/host`, with the same API) takes `Register(contract,
+process)` for each process that serves a contract and `Route(fromContract,
+fromOperation, toContract, toOperation)` for each edge; a process opened with
+`Options.Registry` (and `Options.Reverse` for its `Authorize` and bounds, with no
+`Handle`) has its reverse calls served by it. In C the same is `ext_registry_*` in
+`ext_host.h`, attached to a source host with `ext_registry_attach`. The host stays
+the authority: the source's reverse `Authorize` runs first and the target's own
+`Authorize` still applies to the forward call. Deadlines and cancellation carry
+into the forward call; payloads and errors pass through unchanged. An undeclared
+edge is answered `reverse_undeclared`, an unregistered (or closed) target
+`reverse_unavailable`, and an edge whose target is already on the call chain
+(A to A, A to B to A) `denied`, so a cycle is refused instead of waiting out its
+deadline. Nothing changes on the wire, and the registry discovers and starts
+nothing. The shared cases are `lib/plugin/testdata/v1/registry-cases.json`.
+
 For guest-to-host calls, expose the host service as another `Guest` and give the
 plugin an explicitly admitted reverse `Session` implementing `author.Caller`.
 Apply verification and per-call authorization in that direction too. A supplied

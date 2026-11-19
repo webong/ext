@@ -1,5 +1,5 @@
 // Code generated for windows/amd64 by 'ccgo -o engine.go --package-name ccgo -I csrc/shim -I csrc/src -I csrc/vendor -I csrc/include -DEXT_HOST_STATIC -DEXT_HOST_BUILD -Dyyjson_align(x)= -Dyyjson_inline= -Dyyjson_noinline= -U__SIZEOF_INT128__ -include csrc/shim/compat_core.h csrc/src/common.c csrc/src/wire.c csrc/src/progress.c csrc/src/reverse.c csrc/src/endpoint.c csrc/src/services.c csrc/src/guest.c csrc/src/sha256.c csrc/src/packages.c csrc/vendor/yyjson.c csrc/shim/windows.c', DO NOT EDIT.
-// c2goengine inputs sha256:4d0a86afa869344a9fcfece4742450d26ca8c62da59b43b3b643e97d0ba73b38
+// c2goengine inputs sha256:c8026fae4988c82b6f0f356416ea239fb12bac1551fae93e93165673d8489136
 
 //go:build windows && amd64
 
@@ -993,6 +993,16 @@ type ext_host_services = struct {
 	Fmax_payload_bytes uint32_t
 	Fmax_in_flight     uint32_t
 	Fsession_value     uintptr
+}
+
+type ext_registry_edge = struct {
+	Fstruct_size    uint32_t
+	Ffrom_name      uintptr
+	Ffrom_version   uintptr
+	Ffrom_operation uintptr
+	Fto_name        uintptr
+	Fto_version     uintptr
+	Fto_operation   uintptr
 }
 
 type ext_host_state = int32

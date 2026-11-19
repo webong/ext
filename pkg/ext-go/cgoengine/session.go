@@ -66,7 +66,7 @@ func Open(ctx context.Context, d plugin.Descriptor, options plugin.Options) (*Se
 			return nil, err
 		}
 	}
-	return openSession(ctx, d, options, func() (*Host, error) {
+	return openSession(ctx, d, options, nil, func() (*Host, error) {
 		return NewWithBackend(d, BackendOptions{Connect: options.Connect, Concurrent: true}, func([]byte) error { return nil }, func([]byte) error { return nil })
 	})
 }
@@ -85,12 +85,14 @@ func OpenProcess(ctx context.Context, d plugin.Descriptor, launch LaunchOptions,
 			return nil, err
 		}
 	}
-	return openSession(ctx, d, options, func() (*Host, error) {
+	return openSession(ctx, d, options, nil, func() (*Host, error) {
 		return NewLaunch(launch, d, func([]byte) error { return nil }, func([]byte) error { return nil })
 	})
 }
 
-func openSession(ctx context.Context, d plugin.Descriptor, options plugin.Options, create func() (*Host, error)) (*Session, error) {
+// openSession opens the session; with a registry, the registry serves the
+// plugin's reverse calls and options.Reverse supplies Authorize and the bounds.
+func openSession(ctx context.Context, d plugin.Descriptor, options plugin.Options, registry *GuestRegistry, create func() (*Host, error)) (*Session, error) {
 	requirements := make([]map[string]any, 0, len(options.Requirements))
 	for _, r := range options.Requirements {
 		value := map[string]any{"contract": r.Contract, "operation": r.Operation}
@@ -132,11 +134,14 @@ func openSession(ctx context.Context, d plugin.Descriptor, options plugin.Option
 		h.Destroy()
 		return nil, err
 	}
-	if options.Reverse != nil {
-		if err = h.setReverse(ctx, options.Reverse); err != nil {
-			h.Destroy()
-			return nil, err
-		}
+	if registry != nil {
+		err = registry.attach(ctx, h, options.Reverse)
+	} else if options.Reverse != nil {
+		err = h.setReverse(ctx, options.Reverse)
+	}
+	if err != nil {
+		h.Destroy()
+		return nil, err
 	}
 	if err = h.Start(ctx); err != nil {
 		h.Destroy()

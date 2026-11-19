@@ -58,6 +58,7 @@ cmake --build "$build_dir/sanitize" -j 4
 "$build_dir/sanitize/ext_tree_limits_test"
 "$build_dir/sanitize/ext_frames_test"
 "$build_dir/sanitize/ext_reverse_test"
+"$build_dir/sanitize/ext_registry_test" lib/plugin/testdata/v1/registry-cases.json
 "$build_dir/sanitize/ext_backend_test"
 "$build_dir/sanitize/ext_shared_library_test"
 # The same Go-built C ABI guest the Go loader runs, through the engine's shared-library backend.
@@ -83,6 +84,7 @@ cmake --build "$build_dir/thread-sanitize" -j 4
 "$build_dir/thread-sanitize/ext_tree_limits_test"
 "$build_dir/thread-sanitize/ext_frames_test"
 "$build_dir/thread-sanitize/ext_reverse_test"
+"$build_dir/thread-sanitize/ext_registry_test" lib/plugin/testdata/v1/registry-cases.json
 "$build_dir/thread-sanitize/ext_backend_test"
 "$build_dir/thread-sanitize/ext_shared_library_test"
 "$build_dir/thread-sanitize/ext_endpoint_test" lib/plugin/testdata/v1/endpoint-cases.json

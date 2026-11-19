@@ -343,6 +343,73 @@ typedef struct {
 EXT_HOST_API ext_status ext_host_set_services(ext_host *,
                                               const ext_host_services *);
 
+/* A guest registry composes guests through their host: a reverse call one guest
+ * makes is served by a forward call to another guest, along an edge the host
+ * declared. The host stays the authority. Nothing changes on the wire: the
+ * calling guest sees an ordinary reverse response and the target an ordinary
+ * call, and the registry routes only between hosts the application created and
+ * started; it discovers and launches nothing.
+ *
+ * ext_registry_register names the host that serves a forward contract; the host
+ * must be started and its descriptor must list the contract (EXT_UNSUPPORTED
+ * otherwise, EXT_EXISTS when the contract is already registered).
+ * ext_registry_route declares one edge: a reverse call of from_operation in
+ * from_contract is served by a call of to_operation in to_contract (EXT_EXISTS
+ * when that reverse operation is already routed). ext_registry_attach installs
+ * the registry as the reverse handler of a source host, in place of
+ * ext_host_set_services and under the same rules: services->handle must be NULL
+ * (the registry serves the calls), services->authorize is required and runs
+ * first, as for every reverse call, and the bounds and session_value apply as
+ * they do there. Names are copied; hosts are borrowed.
+ *
+ * A reverse call the registry serves is answered:
+ *   - reverse_undeclared when no edge leaves its (contract, operation);
+ *   - reverse_unavailable when the edge's target contract is not registered,
+ *     or its host is closed, draining or does not offer the operation;
+ *   - denied when the target host's authorize refuses the forward call, or the
+ *     call would re-enter a host already on its call chain (see below);
+ *   - expired when the forward call ran out of time;
+ *   - otherwise with the target's answer, unchanged: its payload, or its public
+ *     error as the target returned it. Any other failure is operation_failed.
+ * The forward call runs with the reverse call's time left and its cancel
+ * signal, so a deadline or cancellation reaches the target. Its value is NULL:
+ * the reverse call's value belongs to the source's binding, and the target may
+ * be another one.
+ *
+ * Cycles. A call chain starts at a source host's reverse call and grows by one
+ * host for each forward call the registry makes. A reverse call that a target
+ * makes inside such a forward call continues that chain; a session-scoped one
+ * starts a new chain at its source. An edge whose target host is already on the
+ * chain (A to A, or A to B to A) is refused with denied instead of waiting on a
+ * host that is busy with the call that leads to it. A chain that leaves the
+ * registry (a handler of the application that calls another guest itself) is not
+ * seen, and is bounded only by the deadline it carries.
+ *
+ * All functions are safe to call concurrently with each other and with calls
+ * being routed. ext_registry_unregister removes a contract and waits for the
+ * forward calls routed to its host to return, so the host may be destroyed after
+ * it returns; it is EXT_NOT_FOUND for a contract that is not registered.
+ * ext_registry_destroy frees the registry; call it only once every host
+ * attached to it has been destroyed. */
+typedef struct ext_registry ext_registry;
+typedef struct {
+  uint32_t struct_size;
+  const char *from_name, *from_version, *from_operation;
+  const char *to_name, *to_version, *to_operation;
+} ext_registry_edge;
+EXT_HOST_API ext_status ext_registry_create(ext_registry **out);
+EXT_HOST_API ext_status ext_registry_register(ext_registry *, const char *name,
+                                              const char *version,
+                                              ext_host *host);
+EXT_HOST_API ext_status ext_registry_unregister(ext_registry *,
+                                                const char *name,
+                                                const char *version);
+EXT_HOST_API ext_status ext_registry_route(ext_registry *,
+                                           const ext_registry_edge *);
+EXT_HOST_API ext_status ext_registry_attach(ext_registry *, ext_host *source,
+                                            const ext_host_services *);
+EXT_HOST_API void ext_registry_destroy(ext_registry *);
+
 /* Frames from an extension backend. A backend owns its transport and its threads,
  * so it reads the plugin's tagged frames itself and hands them to the engine, which
  * validates them and decides exactly as it does for a process it reads: progress

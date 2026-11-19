@@ -155,6 +155,24 @@ static inline ext_status ext_go_set_services(ext_host *host, uintptr_t user,
                                 (void *)session};
   return ext_host_set_services(host, &services);
 }
+/* A source of a guest registry: the Go binding authorizes, the registry
+ * serves. */
+static inline ext_status ext_go_attach_registry(ext_registry *registry,
+                                                ext_host *host, uintptr_t user,
+                                                uintptr_t session,
+                                                uint32_t timeout_ms,
+                                                uint32_t max_payload,
+                                                uint32_t max_in_flight) {
+  ext_host_services services = {sizeof(services),
+                                (void *)user,
+                                ext_go_reverse_authorize,
+                                NULL,
+                                timeout_ms,
+                                max_payload,
+                                max_in_flight,
+                                (void *)session};
+  return ext_registry_attach(registry, host, &services);
+}
 static inline ext_status ext_go_create_launch(
     const char *path, const char *const *args, size_t argc,
     const char *const *env, size_t envc, const char *dir, uint32_t stderr_bytes,

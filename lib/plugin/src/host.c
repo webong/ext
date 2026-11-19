@@ -2,6 +2,7 @@
 #include "channel.h"
 #include "platform.h"
 #include "progress.h"
+#include "registry.h"
 #include "reverse.h"
 #include "wire.h"
 #include <errno.h>
@@ -1881,6 +1882,7 @@ ext_status ext_host_drain(ext_host *h, uint32_t timeout) {
 static ext_status call_impl(ext_host *h, const uint8_t *input, size_t len,
                             const ext_call_options *options,
                             const ext_progress_options *progress,
+                            ext_call_begun begun, void *begun_context,
                             ext_buffer *out) {
   if (!out)
     return EXT_INVALID;
@@ -1990,6 +1992,10 @@ static ext_status call_impl(ext_host *h, const uint8_t *input, size_t len,
   }
   size_t count = 0;
   char *bytes = ok ? yyjson_mut_write(request, 0, &count) : NULL;
+  if (bytes && begun && begun(begun_context, id)) {
+    free(bytes);
+    bytes = NULL;
+  }
   status = bytes ? invoke_impl(h, (const uint8_t *)bytes, count, options,
                                progress, out)
                  : EXT_NOMEM;
@@ -2002,13 +2008,27 @@ done:
 
 ext_status ext_host_call(ext_host *h, const uint8_t *input, size_t len,
                          const ext_call_options *options, ext_buffer *out) {
-  return call_impl(h, input, len, options, NULL, out);
+  return call_impl(h, input, len, options, NULL, NULL, NULL, out);
+}
+ext_status ext_host_call_begun(ext_host *h, const uint8_t *input, size_t len,
+                               const ext_call_options *options,
+                               ext_call_begun begun, void *context,
+                               ext_buffer *out) {
+  return call_impl(h, input, len, options, NULL, begun, context, out);
+}
+int ext_host_serves(ext_host *h, yyjson_val *ref) {
+  size_t i, n;
+  yyjson_val *c;
+  yyjson_arr_foreach(
+      yyjson_obj_get(yyjson_doc_get_root(h->selection), "contracts"), i, n,
+      c) if (ext_same_ref(c, ref)) return 1;
+  return 0;
 }
 ext_status ext_host_call_progress(ext_host *h, const uint8_t *input, size_t len,
                                   const ext_call_options *options,
                                   const ext_progress_options *progress,
                                   ext_buffer *out) {
-  return call_impl(h, input, len, options, progress, out);
+  return call_impl(h, input, len, options, progress, NULL, NULL, out);
 }
 
 /* ---- frames from an extension backend ---- */

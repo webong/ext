@@ -42,48 +42,6 @@ static double num_field(const lj_value *o, const char *key) {
   return v && v->type == LJ_NUMBER ? v->u.number : 0;
 }
 
-/* Match in storetest.go: the expectation names only what it checks. */
-static int match(const lj_value *want, const lj_value *actual) {
-  if (actual && actual->type == LJ_NULL) actual = NULL;
-  switch (want->type) {
-  case LJ_OBJECT:
-    if (actual && actual->type != LJ_OBJECT) return 0;
-    for (size_t i = 0; i < want->u.object.len; i++) {
-      const lj_member *m = &want->u.object.members[i];
-      if (!match(m->value, actual ? lj_get(actual, m->key.ptr) : NULL)) return 0;
-    }
-    return 1;
-  case LJ_ARRAY:
-    if (!actual) return want->u.array.len == 0;
-    if (actual->type != LJ_ARRAY || actual->u.array.len != want->u.array.len) return 0;
-    for (size_t i = 0; i < want->u.array.len; i++)
-      if (!match(want->u.array.items[i], actual->u.array.items[i])) return 0;
-    return 1;
-  case LJ_STRING:
-    if (!actual) return want->u.string.len == 0;
-    if (actual->type == LJ_OBJECT) {
-      const lj_value *id = lj_get(actual, "id");
-      return id && lj_equal(id, want);
-    }
-    if (actual->type != LJ_STRING) return 0;
-    if (lj_equal(want, actual)) return 1;
-    {
-      ll_time a, b;
-      return ll_time_parse(want->u.string.ptr, want->u.string.len, &a) == 0 &&
-             ll_time_parse(actual->u.string.ptr, actual->u.string.len, &b) == 0 && a.sec == b.sec && a.nsec == b.nsec;
-    }
-  case LJ_NULL:
-    return actual == NULL;
-  case LJ_BOOL:
-    if (!actual) return !want->u.boolean;
-    return actual->type == LJ_BOOL && actual->u.boolean == want->u.boolean;
-  case LJ_NUMBER:
-    if (!actual) return want->u.number == 0;
-    return actual->type == LJ_NUMBER && actual->u.number == want->u.number;
-  }
-  return 0;
-}
-
 static ext_ledger_options options_of(const lj_value *c) {
   const lj_value *o = lj_get(c, "options");
   ext_ledger_options opts = {0};

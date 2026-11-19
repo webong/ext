@@ -1,0 +1,43 @@
+/* The ext.system vocabulary, the canonical JSON of res/graph/testdata/recorder/v1/vocabulary.json
+ * ("schema"); tests/recorder.c checks the two are the same. */
+#ifndef EXT_LEDGER_VOCABULARY_H
+#define EXT_LEDGER_VOCABULARY_H
+static const char ll_vocabulary[] =
+    "{\"kinds\":[\"ext.system/accessibility-element\",\"ext.system/adapter\",\"ext.system/alias\",\"ext.system/app"
+    "lication\",\"ext.system/browser-context\",\"ext.system/capability\",\"ext.system/context\",\"ext.system/desk"
+    "top\",\"ext.system/directory\",\"ext.system/display\",\"ext.system/executable\",\"ext.system/filesystem\",\"ex"
+    "t.system/host-inventory\",\"ext.system/host-resource\",\"ext.system/installer\",\"ext.system/inventory\",\"e"
+    "xt.system/machine\",\"ext.system/permission\",\"ext.system/process\",\"ext.system/process-resource\",\"ext.s"
+    "ystem/profile\",\"ext.system/program\",\"ext.system/project\",\"ext.system/resource\",\"ext.system/selection"
+    "\",\"ext.system/shell\",\"ext.system/shell-session\",\"ext.system/support\",\"ext.system/webview\",\"ext.syste"
+    "m/window\"],\"namespace\":\"ext.system\",\"relationships\":[{\"from\":\"ext.system/process\",\"to\":\"ext.system/a"
+    "pplication\",\"type\":\"ext.system/belongs-to-application\"},{\"from\":\"ext.system/context\",\"to\":\"ext.syste"
+    "m/resource\",\"type\":\"ext.system/contains\"},{\"from\":\"ext.system/process\",\"to\":\"ext.system/executable\","
+    "\"type\":\"ext.system/executes\"},{\"from\":\"ext.system/machine\",\"to\":\"ext.system/accessibility-element\",\""
+    "type\":\"ext.system/has-accessibility-element\"},{\"from\":\"ext.system/machine\",\"to\":\"ext.system/adapter\""
+    ",\"type\":\"ext.system/has-adapter\"},{\"from\":\"ext.system/machine\",\"to\":\"ext.system/desktop\",\"type\":\"ext"
+    ".system/has-desktop\"},{\"from\":\"ext.system/machine\",\"to\":\"ext.system/display\",\"type\":\"ext.system/has-"
+    "display\"},{\"from\":\"ext.system/machine\",\"to\":\"ext.system/filesystem\",\"type\":\"ext.system/has-filesyste"
+    "m\"},{\"from\":\"ext.system/machine\",\"to\":\"ext.system/host-inventory\",\"type\":\"ext.system/has-host-invent"
+    "ory\"},{\"from\":\"ext.system/machine\",\"to\":\"ext.system/host-resource\",\"type\":\"ext.system/has-host-resou"
+    "rce\"},{\"from\":\"ext.system/machine\",\"to\":\"ext.system/permission\",\"type\":\"ext.system/has-permission\"},"
+    "{\"from\":\"ext.system/machine\",\"to\":\"ext.system/program\",\"type\":\"ext.system/has-program\"},{\"from\":\"ext"
+    ".system/machine\",\"to\":\"ext.system/shell\",\"type\":\"ext.system/has-shell\"},{\"from\":\"ext.system/machine\""
+    ",\"to\":\"ext.system/webview\",\"type\":\"ext.system/has-webview\"},{\"from\":\"ext.system/machine\",\"to\":\"ext.s"
+    "ystem/window\",\"type\":\"ext.system/has-window\"},{\"from\":\"ext.system/machine\",\"to\":\"ext.system/shell-se"
+    "ssion\",\"type\":\"ext.system/hosts\"},{\"from\":\"ext.system/installer\",\"to\":\"ext.system/adapter\",\"type\":\"e"
+    "xt.system/implemented-by\"},{\"from\":\"ext.system/program\",\"to\":\"ext.system/installer\",\"type\":\"ext.syst"
+    "em/installed-by\"},{\"from\":\"ext.system/adapter\",\"to\":\"ext.system/context\",\"type\":\"ext.system/offers\"}"
+    ",{\"from\":\"ext.system/shell-session\",\"to\":\"ext.system/browser-context\",\"type\":\"ext.system/opened\"},{\""
+    "from\":\"ext.system/process\",\"to\":\"ext.system/process\",\"type\":\"ext.system/parent-of\"},{\"from\":\"ext.sys"
+    "tem/resource\",\"to\":\"ext.system/resource\",\"type\":\"ext.system/relates\"},{\"from\":\"ext.system/alias\",\"to"
+    "\":\"ext.system/context\",\"type\":\"ext.system/resolves-to\"},{\"from\":\"ext.system/machine\",\"to\":\"ext.syste"
+    "m/process\",\"type\":\"ext.system/runs\"},{\"from\":\"ext.system/shell-session\",\"to\":\"ext.system/selection\","
+    "\"type\":\"ext.system/selects\"},{\"from\":\"ext.system/adapter\",\"to\":\"ext.system/capability\",\"type\":\"ext.s"
+    "ystem/supports\"},{\"from\":\"ext.system/adapter\",\"to\":\"ext.system/support\",\"type\":\"ext.system/supports-"
+    "kind\"},{\"from\":\"ext.system/shell-session\",\"to\":\"ext.system/profile\",\"type\":\"ext.system/uses-profile\""
+    "},{\"from\":\"ext.system/context\",\"to\":\"ext.system/program\",\"type\":\"ext.system/uses-program\"},{\"from\":\""
+    "ext.system/process\",\"to\":\"ext.system/process-resource\",\"type\":\"ext.system/uses-resource\"},{\"from\":\"e"
+    "xt.system/directory\",\"to\":\"ext.system/project\",\"type\":\"ext.system/within\"},{\"from\":\"ext.system/shell"
+    "-session\",\"to\":\"ext.system/directory\",\"type\":\"ext.system/working-in\"}],\"version\":\"1\"}";
+#endif

@@ -123,6 +123,34 @@ EXT_LEDGER_API void ext_ledger_watch_close(ext_ledger_watch *watch);
 /* The canonical JSON and the fingerprint (lowercase hex SHA-256) of a transaction. */
 EXT_LEDGER_API int ext_ledger_canonical_transaction(const char *transaction, size_t len, char **canonical, size_t *canonical_len, char fingerprint[65]);
 
+/* ---- the ext.system recorder ----
+ * The recorder projects observations of a machine (shell sessions, web
+ * origins, host inventory, processes, adapter inventory) onto the ext.system
+ * vocabulary in a store, and reads them back. Its contract is
+ * res/graph/testdata/recorder/v1. */
+typedef struct ext_ledger_recorder ext_ledger_recorder;
+
+/* Registers the vocabulary on store and returns a recorder over it. environment
+ * is the JSON object of the recorder fixtures (now, hostname, os,
+ * architecture, parent_pid, working_directory, variables, paths,
+ * host_environment): what the recorder would otherwise read from the machine.
+ * The store must outlive the recorder. */
+EXT_LEDGER_API int ext_ledger_recorder_open(ext_ledger *store, const ext_ledger_context *ctx, const char *environment, size_t len,
+                                            ext_ledger_recorder **out);
+EXT_LEDGER_API void ext_ledger_recorder_close(ext_ledger_recorder *recorder);
+
+/* Runs one recorder operation: observe_shell, observe_web, observe_host,
+ * observe_processes or observe_inventory, which return nothing, or
+ * resolve_inventory and read_host, which return JSON in *out. input is the
+ * operation's JSON object (NULL or empty for none). An observation the recorder
+ * refuses is EXT_LEDGER_INVALID; an operation this build does not have is
+ * EXT_LEDGER_UNSUPPORTED. */
+EXT_LEDGER_API int ext_ledger_record(ext_ledger_recorder *recorder, const ext_ledger_context *ctx, const char *op, const char *input, size_t len,
+                                     char **out, size_t *out_len);
+
+/* The ext.system schema the recorder registers, as canonical JSON. */
+EXT_LEDGER_API const char *ext_ledger_recorder_vocabulary(void);
+
 EXT_LEDGER_API void ext_ledger_free(void *p);
 
 #ifdef __cplusplus

@@ -68,7 +68,7 @@ func validateBatchEmbedding(response EmbeddingResponse, request EmbeddingRequest
 	if err := response.Validate(); err != nil {
 		return err
 	}
-	if len(response.Embeddings) != len(request.Inputs) {
+	if len(response.Embeddings) != request.InputCount() {
 		return fmt.Errorf("%w: embedding count does not match inputs", ErrInvalidResponse)
 	}
 	dimensions := 0

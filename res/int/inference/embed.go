@@ -12,8 +12,11 @@ import (
 type EmbeddingRequest struct {
 	// Model is the selected embedding model.
 	Model string `json:"model"`
-	// Inputs are the texts to embed. At least one is required.
-	Inputs []string `json:"inputs"`
+	// Inputs are the texts to embed. A request has Inputs or TokenInputs, not both.
+	Inputs []string `json:"inputs,omitempty"`
+	// TokenInputs are inputs already tokenized for the model, one token-ID array per input,
+	// for providers that accept them (OpenAI does).
+	TokenInputs [][]int64 `json:"tokenInputs,omitempty"`
 	// Options are provider-owned options.
 	Options json.RawMessage `json:"options,omitempty"`
 	// Limits are explicit bounds for this request.
@@ -25,7 +28,10 @@ func (r EmbeddingRequest) Validate() error {
 	if strings.TrimSpace(r.Model) == "" {
 		return fmt.Errorf("%w: model is required", ErrInvalidRequest)
 	}
-	if len(r.Inputs) == 0 || len(r.Inputs) > 4096 {
+	if (len(r.Inputs) == 0) == (len(r.TokenInputs) == 0) {
+		return fmt.Errorf("%w: exactly one of inputs or tokenInputs is required", ErrInvalidRequest)
+	}
+	if r.InputCount() > 4096 {
 		return fmt.Errorf("%w: inputs must be between 1 and 4096", ErrInvalidRequest)
 	}
 	total := 0
@@ -35,6 +41,21 @@ func (r EmbeddingRequest) Validate() error {
 			return fmt.Errorf("%w: inputs exceed 32 MiB", ErrInvalidRequest)
 		}
 	}
+	tokens := 0
+	for _, input := range r.TokenInputs {
+		if len(input) == 0 {
+			return fmt.Errorf("%w: a token input must not be empty", ErrInvalidRequest)
+		}
+		tokens += len(input)
+		if tokens > 4<<20 {
+			return fmt.Errorf("%w: token inputs exceed 4 Mi tokens", ErrInvalidRequest)
+		}
+		for _, token := range input {
+			if token < 0 {
+				return fmt.Errorf("%w: token IDs must not be negative", ErrInvalidRequest)
+			}
+		}
+	}
 	if err := r.Limits.Validate(); err != nil {
 		return err
 	}
@@ -42,6 +63,11 @@ func (r EmbeddingRequest) Validate() error {
 		return fmt.Errorf("%w: adapter options must be a JSON object", ErrInvalidRequest)
 	}
 	return nil
+}
+
+// InputCount is the number of inputs, texts or token arrays, the request embeds.
+func (r EmbeddingRequest) InputCount() int {
+	return len(r.Inputs) + len(r.TokenInputs)
 }
 
 // Embedding is one embedding vector.

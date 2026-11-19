@@ -1,0 +1,11 @@
+{
+  "id": "resp-other",
+  "model": "gemini-2.5-flash",
+  "message": {
+    "role": "assistant",
+    "parts": [{ "kind": "text", "text": "Partial answer" }]
+  },
+  "stopReason": "other",
+  "providerStopReason": "OTHER",
+  "usage": { "input": 12, "output": 3, "total": 15 }
+}

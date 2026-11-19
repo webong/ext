@@ -8,7 +8,8 @@
     "id": { "type": "string" },
     "model": { "type": "string", "minLength": 1 },
     "message": { "$ref": "#/definitions/message" },
-    "stopReason": { "type": "string", "enum": ["stop", "length", "toolCalls", "contentFilter", "refusal"] },
+    "stopReason": { "type": "string", "enum": ["stop", "length", "toolCalls", "contentFilter", "refusal", "paused", "other"] },
+    "providerStopReason": { "type": "string", "maxLength": 256 },
     "usage": { "$ref": "#/definitions/tokenUsage" },
     "providerMetadata": {},
     "reasoningContext": {}

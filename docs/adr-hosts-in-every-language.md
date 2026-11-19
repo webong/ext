@@ -12,7 +12,7 @@ can write a host, without a second engine.
 
 | Language | Guest | Host | Host runs on |
 | --- | --- | --- | --- |
-| Go (`pkg/ext-go`) | Yes, the oracle | Yes: sessions, process, `cshared`, `nativego`, wazero (`wasm`), hashicorp, store, trust | The pure-Go engine, `cgoengine` or `c2goengine` ([selection](adr-engine-selection.md)) |
+| Go (`pkg/ext-go`) | Yes | Yes: sessions, process, `cshared`, `nativego`, wazero (`wasm`), hashicorp, store, trust | The pure-Go engine, `cgoengine` or `c2goengine` ([selection](adr-engine-selection.md)) |
 | Rust (`pkg/ext-rust`) | Yes | `plugin/host.rs`, `plugin/native.rs` (loads C-ABI guests with `libloading`); the engine crate (`pkg/ext-rust/engine`) binds `ext_host` and the store | Its own code, or the C engine through the separate crate |
 | Zig (`pkg/ext-zig`) | Yes | `host.zig` over a backend it supplies; the engine package (`pkg/ext-zig/engine`) binds `ext_host` | Its own code, or the C engine through the separate package |
 | TypeScript (`pkg/ext-ts`) | Yes | `index.mjs` over a transport (`node.mjs`); the Node addon (`engine/addon.c`) binds `ext_host` | Its own code, or the C engine through the addon |
@@ -55,7 +55,8 @@ and stream clients.
 2. **Hosts: any language that can call C, by binding the C engine's host.** A new host never
    reimplements admission, validation, progress, reverse calls, packages or trust. A host written
    in its own language would be another copy of the rules [the SDK switch](plugin-sdk-switch.md)
-   is removing. The pure-Go engine stays the oracle that the C host is held to.
+   is removing. Since 2026-11-19 the C engine is the main engine: the pure-Go engine follows it to
+   keep parity, and the shared host cases hold every host, the pure-Go one included.
 
 3. **No new hosts written in their own language.** The Rust, Zig and TypeScript hosts stay until
    their SDKs move onto the engine under the gates and the order the SDK switch already set (Zig,

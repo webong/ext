@@ -4,6 +4,12 @@ Status: accepted and built on the engine stack (`engine/c2goengine`, the `cengin
 `cgoengine` rename, the selection package, and the `contract` → `engine` rename with the
 selection in `core`). The branches are pull requests; tags are the coordinator's.
 
+Superseded in part on 2026-11-19: the C engine in `lib/plugin` is now the main plugin engine, and
+the decision "The oracle stays the oracle" below no longer holds. New engine and host features land
+in C first, the pure-Go engine follows to keep parity, and where the engines disagree the C engine and
+the shared fixtures decide. The rest of this record (the three engines, the names, who chooses) stands.
+See [engine parity](plugin-engine-parity.md).
+
 The C engine in `lib/plugin` can be reached three ways, and `pkg/ext-go` picks between
 them. The three are named alike, as engines:
 
@@ -23,7 +29,7 @@ process or an instance manager are skipped there.
 
 ## Decisions
 
-**The oracle stays the oracle.** The pure-Go engine is never replaced by another engine. A
+**The oracle stays the oracle** (superseded on 2026-11-19, see the status above). The pure-Go engine is never replaced by another engine. A
 change to the plugin contract lands in `engine` and `lib/plugin` together, and `enginetest`
 compares them. An engine that disagrees with the oracle is the one that is wrong until
 proven otherwise.

@@ -1,5 +1,12 @@
 # Shared plugin engine parity
 
+The C engine in `lib/plugin` is the main plugin engine. Every binding outside Go (Rust, Zig,
+TypeScript, Swift, Java, Python, Ruby, Lua, PHP and .NET) hosts on it, so a new engine or host
+feature is built there first, with its fixtures in `lib/plugin/testdata`. It then reaches the Go
+side: `cgoengine` binds it, `c2goengine` is regenerated from it, and the pure-Go engine
+(`pkg/ext-go/engine`) is brought level so that `CGO_ENABLED=0` programs keep the same behavior. When
+the engines disagree, the C engine and the shared fixtures decide which one is wrong.
+
 ## One Go API, two builds
 
 `pkg/ext-go` is the single Go entry point. With the `ext_cengine` tag and cgo
@@ -33,8 +40,7 @@ and Zig guests load there as anywhere else.
 
 ### Running the comparison against an engine
 
-The pure-Go engine is the oracle. The checks that hold an engine against it are an importable
-package, `pkg/ext-go/engine/plugintest/enginetest`, and take an `enginetest.Engine`: a name,
+The checks that compare an engine with the pure-Go engine are an importable package, `pkg/ext-go/engine/plugintest/enginetest`, and take an `enginetest.Engine`: a name,
 the engine's `Call(operation, json)`, the directory of the shared fixtures and, to compare instance
 managers, sessions and child processes, `NewInstances`, `Open` and `OpenProcess`. There are 28
 checks:
@@ -53,8 +59,11 @@ translated engine (`pkg/ext-go/c2goengine`: the same C, translated to Go by ccgo
 `c2goengine_test.go` on darwin and linux, also under the race detector; on Windows it translates the
 services only, so the checks that need `EngineCall` run there and the session, process and instance
 checks are skipped. A check whose constructor an engine leaves out is skipped, and a check that passes
-for an engine passes for the same reasons. The oracle also runs the instance and session checks
-against itself, which shows the checks' own mechanics and timing do not flake.
+for an engine passes for the same reasons. The pure-Go engine also runs the instance and session
+checks against itself, which shows the checks' own mechanics and timing do not flake. The checks use
+the pure-Go engine as the other side of each comparison because it needs no C toolchain; a difference
+they find is settled by the C engine and the fixtures, not by the side the harness happens to call
+first.
 
 The stream, capability, progress and reverse-call differentials still live in the `cgoengine`
 package, because they need progress frames and reverse calls, which the harness has no interface
@@ -62,9 +71,9 @@ for yet.
 
 ## Required destination
 
-CTX is in development. The shared engine must reach the current Go SDK's
-behavioral and supported-platform coverage before Go's common implementation is
-retired. Parity is a requirement, not an optional follow-up. ABI and internal API
+CTX is in development. The C engine is the main engine; where it still lacks
+behavior or platform coverage that the pure-Go engine has, the gap is closed in C,
+and the pure-Go implementation is retired only once nothing depends on it. Parity is a requirement, not an optional follow-up. ABI and internal API
 changes are acceptable during this work; every language binding must be updated
 together. The plugin wire contract remains independently versioned.
 

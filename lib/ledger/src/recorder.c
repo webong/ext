@@ -364,6 +364,7 @@ int ext_ledger_record(ext_ledger_recorder *r, const ext_ledger_context *ctx, con
   if (strcmp(op, "observe_shell") == 0) rc = rec_observe_shell(r, ctx, in);
   else if (strcmp(op, "observe_web") == 0) rc = rec_observe_web(r, ctx, in);
   else if (strcmp(op, "observe_host") == 0) rc = rec_observe_host(r, ctx, in);
+  else if (strcmp(op, "observe_processes") == 0) rc = rec_observe_processes(r, ctx, in);
   else if (strcmp(op, "read_host") == 0) rc = out ? rec_read_host(r, ctx, out, out_len) : EXT_LEDGER_INVALID;
   else rc = EXT_LEDGER_UNSUPPORTED;
   lj_free(in);

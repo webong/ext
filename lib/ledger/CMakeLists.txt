@@ -19,7 +19,7 @@ if(EXT_LEDGER_SANITIZE)
   add_link_options(-fsanitize=address,undefined)
 endif()
 
-set(ledger_sources src/json.c src/hash.c src/model.c src/rules.c src/state.c src/store.c src/file.c src/recorder.c src/record_shell.c src/record_host.c)
+set(ledger_sources src/json.c src/hash.c src/model.c src/rules.c src/state.c src/store.c src/file.c src/recorder.c src/record_shell.c src/record_host.c src/record_process.c)
 if(WIN32)
   list(APPEND ledger_sources src/platform_win32.c)
 else()

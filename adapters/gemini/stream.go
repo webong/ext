@@ -97,7 +97,7 @@ func (p *provider) Stream(ctx context.Context, r inference.GenerationRequest, si
 	if finish == "" {
 		return fail()
 	}
-	if out.StopReason, err = finishReason(finish, len(out.Message.ToolCalls) > 0); err != nil {
+	if err := setFinish(&out, finish); err != nil {
 		return inference.GenerationResponse{}, err
 	}
 	if err := out.Validate(); err != nil {

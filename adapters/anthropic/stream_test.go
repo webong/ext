@@ -142,3 +142,24 @@ func TestListModels(t *testing.T) {
 		t.Fatalf("models %+v, %v", models, err)
 	}
 }
+
+func TestStopReasons(t *testing.T) {
+	for raw, want := range map[string]inference.FinishReason{"pause_turn": inference.FinishReasonPaused, "something_new": inference.FinishReasonOther, "end_turn": inference.FinishReasonStop} {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			_, _ = w.Write([]byte(`{"id":"m","model":"test-model","content":[{"type":"text","text":"x"}],"stop_reason":"` + raw + `","usage":{"input_tokens":1,"output_tokens":1}}`))
+		}))
+		p, _ := newProvider(server.URL+"/v1", "key")
+		resp, err := p.Generate(context.Background(), request())
+		server.Close()
+		if err != nil {
+			t.Fatalf("%s: %v", raw, err)
+		}
+		wantRaw := raw
+		if want == inference.FinishReasonStop {
+			wantRaw = ""
+		}
+		if resp.StopReason != want || resp.ProviderStopReason != wantRaw {
+			t.Fatalf("%s: got %s/%q", raw, resp.StopReason, resp.ProviderStopReason)
+		}
+	}
+}

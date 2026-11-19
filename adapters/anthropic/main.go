@@ -243,19 +243,27 @@ func appendBlock(m *inference.Message, b block, raw json.RawMessage) error {
 	return nil
 }
 
-func stopReason(s string) (inference.FinishReason, error) {
+// setStop maps the Messages API's stop_reason onto the response. pause_turn is paused (send
+// the response back to continue the turn); a reason this adapter does not know is other.
+// Paused and other keep the API's own name in ProviderStopReason.
+func setStop(out *inference.GenerationResponse, s string) error {
 	switch s {
 	case "end_turn", "stop_sequence":
-		return inference.FinishReasonStop, nil
-	case "max_tokens":
-		return inference.FinishReasonLength, nil
+		out.StopReason = inference.FinishReasonStop
+	case "max_tokens", "model_context_window_exceeded":
+		out.StopReason = inference.FinishReasonLength
 	case "tool_use":
-		return inference.FinishReasonToolCalls, nil
+		out.StopReason = inference.FinishReasonToolCalls
 	case "refusal":
-		return inference.FinishReasonRefusal, nil
+		out.StopReason = inference.FinishReasonRefusal
+	case "":
+		return inference.ErrInvalidResponse
+	case "pause_turn":
+		out.StopReason, out.ProviderStopReason = inference.FinishReasonPaused, s
 	default:
-		return "", inference.ErrInvalidResponse
+		out.StopReason, out.ProviderStopReason = inference.FinishReasonOther, s
 	}
+	return nil
 }
 
 func (p *provider) Generate(ctx context.Context, r inference.GenerationRequest) (inference.GenerationResponse, error) {
@@ -295,7 +303,7 @@ func (p *provider) Generate(ctx context.Context, r inference.GenerationRequest) 
 			return inference.GenerationResponse{}, err
 		}
 	}
-	if out.StopReason, err = stopReason(result.StopReason); err != nil {
+	if err := setStop(&out, result.StopReason); err != nil {
 		return inference.GenerationResponse{}, err
 	}
 	return out, out.Validate()

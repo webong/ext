@@ -112,8 +112,9 @@ A **policy** is data with these classes:
   a per-platform base that a process needs to start (the dynamic linker, runtime
   libraries, temporary directories). The base is itself a fixture.
 - **network**: `none`, `proxy` (the only reachable destination is an egress proxy that
-  enforces a hostname allowlist), or `ports` where the boundary can enforce them. Hostname
-  rules exist only through `proxy`.
+  enforces a hostname allowlist), `ports` where the boundary can enforce them, or `open`
+  (anything, as a plain container network or today's unconfined process gives). Hostname
+  rules exist only through `proxy`. A grant with an `open` network is never `sandboxed`.
 - **process**: whether children may be created. No-new-privileges is always on.
 - **devices**: none unless named. GPU passthrough is a named device and is reported as such.
 - **resources**: CPU time, wall time, memory, process count, open files and bytes written.

@@ -50,6 +50,7 @@ use (
 	./pkg/ext-go/yaegi
 	./res/graph
 	./res/int
+	./res/sandbox
 	./res/system
 	./res/web/host
 	./src/ctn

@@ -63,6 +63,8 @@ ll_record *ll_record_ref(ll_record *r);
 void ll_record_unref(ll_record *r);
 ll_record *ll_record_copy(const ll_record *r);
 void ll_record_write(lj_buf *b, const ll_record *r);
+int ll_prov_is_zero(const ll_prov *p);
+void ll_prov_write(lj_buf *b, const ll_prov *p);
 /* Decodes the wire form of a vertex or edge. */
 int ll_record_decode(const lj_value *v, int is_edge, ll_record **out);
 
@@ -199,6 +201,8 @@ int ll_state_prepare(ll_state *s, const ext_ledger_context *ctx, const ll_tx *t,
 int ll_state_apply(ll_state *s, ll_change *c, const ll_s *key, const ll_s *fingerprint, int graph);
 /* Loads a record of a checkpoint into its (registered) namespace. */
 int ll_state_put(ll_state *s, ll_record *r);
+/* Loads an idempotency record of a retained commit. */
+int ll_state_put_idem(ll_state *s, const ll_s *ns, const ll_s *key, const ll_idem *idem);
 /* The floor compaction would move to under the bounds; equal to s->floor when none. */
 uint64_t ll_state_compaction(const ll_state *s, const ext_ledger_options *o);
 void ll_state_set_floor(ll_state *s, uint64_t floor);
@@ -274,5 +278,7 @@ struct ll_backend {
 
 int ll_dir_open(const ext_ledger_context *ctx, const char *dir, int read_only, ll_state *state, ll_backend **out);
 int ll_sqlite_open(const ext_ledger_context *ctx, const char *path, ll_state *state, ll_backend **out);
+/* The SQLite backend's CREATE statements, NULL-terminated; NULL in a build without it. */
+const char *const *ll_sqlite_layout(void);
 
 #endif

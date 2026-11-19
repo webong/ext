@@ -96,10 +96,16 @@ static ext_ledger_options options_of(const lj_value *c) {
   return opts;
 }
 
-typedef enum { B_MEMORY, B_FILE } backend;
+typedef enum { B_MEMORY, B_FILE, B_SQLITE } backend;
+static const char *const backend_names[] = {"memory", "file", "sqlite"};
 
 static int open_store(backend b, const char *dir, const ext_ledger_options *o, ext_ledger **out) {
   if (b == B_MEMORY) return ext_ledger_open_memory(o, out);
+  if (b == B_SQLITE) {
+    char path[1300];
+    snprintf(path, sizeof path, "%s/graph.db", dir);
+    return ext_ledger_open_sqlite(NULL, path, o, out);
+  }
   return ext_ledger_open(NULL, dir, o, out);
 }
 
@@ -170,7 +176,7 @@ static void run_case(const lj_value *c, backend b) {
   ext_ledger *s;
   int rc = open_store(b, dir, &o, &s);
   if (rc) {
-    fprintf(stderr, "FAIL %s [%s]: open: %s\n", name, b ? "file" : "memory", ext_ledger_code_name(rc));
+    fprintf(stderr, "FAIL %s [%s]: open: %s\n", name, backend_names[b], ext_ledger_code_name(rc));
     failures++;
     remove_store(dir);
   free(dir);
@@ -182,7 +188,7 @@ static void run_case(const lj_value *c, backend b) {
     if (strcmp(str_field(st, "op"), "reopen") == 0) {
       ext_ledger_close(s);
       if ((rc = open_store(b, dir, &o, &s))) {
-        fprintf(stderr, "FAIL %s [%s]: step %zu: reopen: %s\n", name, b ? "file" : "memory", i, ext_ledger_code_name(rc));
+        fprintf(stderr, "FAIL %s [%s]: step %zu: reopen: %s\n", name, backend_names[b], i, ext_ledger_code_name(rc));
         failures++;
         remove_store(dir);
   free(dir);
@@ -195,7 +201,7 @@ static void run_case(const lj_value *c, backend b) {
     rc = run_step(s, st, &out, &len);
     const char *want_code = str_field(st, "error");
     if (strcmp(ext_ledger_code_name(rc), want_code) != 0) {
-      fprintf(stderr, "FAIL %s [%s]: step %zu (%s): code \"%s\", want \"%s\"\n", name, b ? "file" : "memory", i, str_field(st, "op"),
+      fprintf(stderr, "FAIL %s [%s]: step %zu (%s): code \"%s\", want \"%s\"\n", name, backend_names[b], i, str_field(st, "op"),
               ext_ledger_code_name(rc), want_code);
       failures++;
       ext_ledger_free(out);
@@ -207,7 +213,7 @@ static void run_case(const lj_value *c, backend b) {
       if (!match(expect, actual)) {
         size_t wl;
         char *w = to_text(expect, &wl);
-        fprintf(stderr, "FAIL %s [%s]: step %zu (%s):\n  got  %s\n  want %s\n", name, b ? "file" : "memory", i, str_field(st, "op"),
+        fprintf(stderr, "FAIL %s [%s]: step %zu (%s):\n  got  %s\n  want %s\n", name, backend_names[b], i, str_field(st, "op"),
                 out ? out : "null", w);
         free(w);
         failures++;
@@ -244,6 +250,89 @@ static void run_fingerprints(void) {
   lj_free(file);
 }
 
+/* The SQLite backend's tables are those of tables.json, written as the Go store writes them. */
+static void quote_all(lj_buf *b, const lj_value *names) {
+  for (size_t i = 0; i < names->u.array.len; i++) {
+    if (i) lj_buf_puts(b, ", ");
+    lj_buf_putc(b, '"');
+    lj_buf_puts(b, names->u.array.items[i]->u.string.ptr);
+    lj_buf_putc(b, '"');
+  }
+}
+
+static void run_layout(void) {
+  const char *const *have = ll_sqlite_layout();
+  if (!have) return;
+  lj_value *file = load("tables.json");
+  size_t k = 0;
+  const lj_value *tables = lj_get(file, "tables"), *indexes = lj_get(file, "indexes");
+  for (size_t i = 0; i < tables->u.array.len + indexes->u.array.len; i++, k++) {
+    lj_buf b = {0};
+    if (i < tables->u.array.len) {
+      const lj_value *t = tables->u.array.items[i];
+      lj_buf_puts(&b, "CREATE TABLE \"");
+      lj_buf_puts(&b, str_field(t, "name"));
+      lj_buf_puts(&b, "\" (\n  ");
+      const lj_value *cols = lj_get(t, "columns");
+      int parts = 0;
+      for (size_t c = 0; c < cols->u.array.len; c++, parts++) {
+        const lj_value *col = cols->u.array.items[c];
+        if (parts) lj_buf_puts(&b, ",\n  ");
+        lj_buf_putc(&b, '"');
+        lj_buf_puts(&b, str_field(col, "name"));
+        lj_buf_puts(&b, "\" ");
+        lj_buf_puts(&b, str_field(col, "type"));
+        const lj_value *nn = lj_get(col, "not_null");
+        if (nn && nn->u.boolean) lj_buf_puts(&b, " NOT NULL");
+        if (*str_field(col, "check")) {
+          lj_buf_puts(&b, " CHECK (");
+          lj_buf_puts(&b, str_field(col, "check"));
+          lj_buf_putc(&b, ')');
+        }
+      }
+      const lj_value *pk = lj_get(t, "primary_key");
+      if (pk) {
+        lj_buf_puts(&b, ",\n  PRIMARY KEY (");
+        quote_all(&b, pk);
+        lj_buf_putc(&b, ')');
+      }
+      const lj_value *fks = lj_get(t, "foreign_keys");
+      for (size_t f = 0; fks && f < fks->u.array.len; f++) {
+        const lj_value *fk = fks->u.array.items[f];
+        lj_buf_puts(&b, ",\n  FOREIGN KEY (");
+        quote_all(&b, lj_get(fk, "columns"));
+        lj_buf_puts(&b, ") REFERENCES \"");
+        lj_buf_puts(&b, str_field(fk, "references"));
+        lj_buf_puts(&b, "\" (");
+        quote_all(&b, lj_get(fk, "to"));
+        lj_buf_putc(&b, ')');
+      }
+      lj_buf_puts(&b, "\n)");
+      const lj_value *wr = lj_get(t, "without_rowid");
+      if (wr && wr->u.boolean) lj_buf_puts(&b, " WITHOUT ROWID");
+    } else {
+      const lj_value *ix = indexes->u.array.items[i - tables->u.array.len];
+      lj_buf_puts(&b, "CREATE INDEX \"");
+      lj_buf_puts(&b, str_field(ix, "name"));
+      lj_buf_puts(&b, "\" ON \"");
+      lj_buf_puts(&b, str_field(ix, "table"));
+      lj_buf_puts(&b, "\" (");
+      quote_all(&b, lj_get(ix, "columns"));
+      lj_buf_putc(&b, ')');
+    }
+    if (!have[k] || strcmp(have[k], b.ptr) != 0) {
+      fprintf(stderr, "FAIL sqlite layout statement %zu:\n  got  %s\n  want %s\n", k, have[k] ? have[k] : "(none)", b.ptr);
+      failures++;
+    }
+    lj_buf_free(&b);
+  }
+  if (have[k]) {
+    fprintf(stderr, "FAIL sqlite layout: an extra statement %s\n", have[k]);
+    failures++;
+  }
+  lj_free(file);
+}
+
 int main(int argc, char **argv) {
   if (argc != 2) {
     fprintf(stderr, "usage: ledger_fixtures <res/graph/testdata/store/v1>\n");
@@ -251,18 +340,21 @@ int main(int argc, char **argv) {
   }
   fixtures = argv[1];
   run_fingerprints();
+  run_layout();
+  int sqlite = ll_sqlite_layout() != NULL; /* built with the SQLite backend */
   lj_value *file = load("cases.json");
   const lj_value *cases = lj_get(file, "cases");
   size_t n = cases->u.array.len;
   for (size_t i = 0; i < n; i++) {
     run_case(cases->u.array.items[i], B_MEMORY);
     run_case(cases->u.array.items[i], B_FILE);
+    if (sqlite) run_case(cases->u.array.items[i], B_SQLITE);
   }
   lj_free(file);
   if (failures) {
     fprintf(stderr, "%d failures\n", failures);
     return 1;
   }
-  printf("ok: %zu cases on memory and file, fingerprints\n", n);
+  printf("ok: %zu cases on memory, file%s; fingerprints\n", n, sqlite ? ", sqlite; the sqlite layout" : "");
   return 0;
 }

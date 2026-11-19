@@ -10,7 +10,7 @@
 #define EXIT_USAGE 64
 
 static const char usage[] =
-    "usage: ext-ledger <command> <dir> [arguments]\n"
+    "usage: ext-ledger [--sqlite] <command> <dir> [arguments]\n"
     "\n"
     "  snapshot DIR NS\n"
     "  get-vertex DIR NS ID\n"
@@ -24,6 +24,8 @@ static const char usage[] =
     "  apply DIR TRANSACTION\n"
     "  fingerprint TRANSACTION\n"
     "\n"
+    "With --sqlite, <dir> is a SQLite database (tables.json) instead of a ledger directory;\n"
+    "it needs a build with EXT_LEDGER_SQLITE.\n"
     "QUERY, SCHEMA and TRANSACTION are JSON in the wire form of the res/graph store\n"
     "contract; - reads it from standard input. A failure prints {\"error\":\"<code>\"} on\n"
     "standard error and exits with the code's number (" "64 for a usage error).\n";
@@ -115,6 +117,11 @@ static int parse_args(int argc, char **argv, args *a) {
 }
 
 int main(int argc, char **argv) {
+  int sqlite = argc > 1 && strcmp(argv[1], "--sqlite") == 0;
+  if (sqlite) {
+    argv++;
+    argc--;
+  }
   if (argc < 2) return bad_usage("no command");
   const char *command = argv[1];
   if (strcmp(command, "-h") == 0 || strcmp(command, "--help") == 0 || strcmp(command, "help") == 0) {
@@ -156,7 +163,15 @@ int main(int argc, char **argv) {
   const char *dir = p[0];
   int writes = strcmp(command, "register") == 0 || strcmp(command, "apply") == 0;
   ext_ledger *store;
-  int rc = writes ? ext_ledger_open(&ctx, dir, NULL, &store) : ext_ledger_open_reader(&ctx, dir, NULL, &store);
+  int rc;
+  if (sqlite) {
+    FILE *exists = writes ? NULL : fopen(dir, "rb");
+    if (!writes && !exists) return fail(EXT_LEDGER_NOT_FOUND); /* a read creates no database */
+    if (exists) fclose(exists);
+    rc = ext_ledger_open_sqlite(&ctx, dir, NULL, &store);
+  } else {
+    rc = writes ? ext_ledger_open(&ctx, dir, NULL, &store) : ext_ledger_open_reader(&ctx, dir, NULL, &store);
+  }
   if (rc) return fail(rc);
   char *out = NULL;
   size_t len = 0;

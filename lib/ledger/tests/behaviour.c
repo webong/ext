@@ -51,9 +51,18 @@ static uint64_t current_cursor(ext_ledger *s) {
   return c;
 }
 
+static int use_sqlite; /* open_file opens the SQLite backend, in dir/graph.db */
+
+static int open_any(const char *dir, const ext_ledger_options *o, ext_ledger **s) {
+  if (!use_sqlite) return ext_ledger_open(NULL, dir, o, s);
+  char path[1300];
+  snprintf(path, sizeof path, "%s/graph.db", dir);
+  return ext_ledger_open_sqlite(NULL, path, o, s);
+}
+
 static ext_ledger *open_file(const char *dir, const ext_ledger_options *o) {
   ext_ledger *s = NULL;
-  int rc = ext_ledger_open(NULL, dir, o, &s);
+  int rc = open_any(dir, o, &s);
   CHECK(rc == 0, "open %s: %s", dir, ext_ledger_code_name(rc));
   return s;
 }
@@ -391,7 +400,7 @@ static void processes_share(void) {
     pids[i] = fork();
     if (pids[i] == 0) {
       ext_ledger *s;
-      if (ext_ledger_open(NULL, dir, &o, &s)) _exit(1);
+      if (open_any(dir, &o, &s)) _exit(1);
       for (int k = 0; k < EACH; k++) {
         char id[32];
         snprintf(id, sizeof id, "p%d-%d", i, k);
@@ -420,6 +429,15 @@ static void processes_share(void) {
 int main(void) {
   run_backend(0);
   run_backend(1);
+  if (ll_sqlite_layout()) { /* the SQLite backend shares what the file backend shares */
+    use_sqlite = 1;
+    run_backend(1);
+    handles_share();
+#ifndef _WIN32
+    processes_share();
+#endif
+    use_sqlite = 0;
+  }
   rewrites_keep_everything();
   torn_tail_is_repaired();
   refuses_what_it_does_not_own();

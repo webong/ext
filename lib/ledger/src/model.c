@@ -267,7 +267,25 @@ ll_record *ll_record_copy(const ll_record *r) {
   return c;
 }
 
-static int prov_zero(const ll_prov *p) { return p->source.n == 0 && p->operation.n == 0 && ll_time_is_zero(&p->at); }
+int ll_prov_is_zero(const ll_prov *p) { return p->source.n == 0 && p->operation.n == 0 && ll_time_is_zero(&p->at); }
+
+void ll_prov_write(lj_buf *b, const ll_prov *p) {
+  int pf = 1;
+  lj_buf_putc(b, '{');
+  if (!ll_time_is_zero(&p->at)) {
+    write_key(b, &pf, "at");
+    ll_time_write(b, &p->at);
+  }
+  if (p->operation.n) {
+    write_key(b, &pf, "operation");
+    write_s(b, &p->operation);
+  }
+  if (p->source.n) {
+    write_key(b, &pf, "source");
+    write_s(b, &p->source);
+  }
+  lj_buf_putc(b, '}');
+}
 
 void ll_record_write(lj_buf *b, const ll_record *r) {
   int first = 1;
@@ -298,23 +316,9 @@ void ll_record_write(lj_buf *b, const ll_record *r) {
     write_key(b, &first, "namespace");
     write_s(b, &r->ns);
   }
-  if (!prov_zero(&r->prov)) {
+  if (!ll_prov_is_zero(&r->prov)) {
     write_key(b, &first, "provenance");
-    int pf = 1;
-    lj_buf_putc(b, '{');
-    if (!ll_time_is_zero(&r->prov.at)) {
-      write_key(b, &pf, "at");
-      ll_time_write(b, &r->prov.at);
-    }
-    if (r->prov.operation.n) {
-      write_key(b, &pf, "operation");
-      write_s(b, &r->prov.operation);
-    }
-    if (r->prov.source.n) {
-      write_key(b, &pf, "source");
-      write_s(b, &r->prov.source);
-    }
-    lj_buf_putc(b, '}');
+    ll_prov_write(b, &r->prov);
   }
   if (r->revision) {
     write_key(b, &first, "revision");

@@ -924,10 +924,12 @@
         ".github/workflows/core.yml",
         ".github/workflows/targets.yml",
         "lib/ledger/**",
+        "res/graph/store/sqlite/**",
         "res/graph/testdata/store/**",
-        "scripts/ci/jobs/lib.sh",
         "scripts/ci/jobs/ledger/**",
+        "scripts/ci/jobs/lib.sh",
         "scripts/ci/plan.py",
+        "scripts/ledger-sqlite-cross.sh",
         "scripts/ledger-test.sh"
       ],
       "pr_paths": [
@@ -936,10 +938,12 @@
         ".github/workflows/core.yml",
         ".github/workflows/targets.yml",
         "lib/ledger/**",
+        "res/graph/store/sqlite/**",
         "res/graph/testdata/store/**",
-        "scripts/ci/jobs/lib.sh",
         "scripts/ci/jobs/ledger/**",
+        "scripts/ci/jobs/lib.sh",
         "scripts/ci/plan.py",
+        "scripts/ledger-sqlite-cross.sh",
         "scripts/ledger-test.sh"
       ],
       "jobs": {
@@ -997,6 +1001,23 @@
                 "msvc": "true"
               },
               "continue_on_error": true
+            }
+          ]
+        },
+        "sqlite": {
+          "group": "engines",
+          "cells": [
+            {
+              "name": "ledger/sqlite (ubuntu-latest)",
+              "runner": "ubuntu-latest",
+              "script": "scripts/ci/jobs/ledger/sqlite.sh",
+              "vars": {
+                "OS": "ubuntu-latest"
+              },
+              "setup": {
+                "go": "1.26.x",
+                "go_cache": "true"
+              }
             }
           ]
         }

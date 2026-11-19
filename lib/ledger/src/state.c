@@ -368,6 +368,29 @@ int ll_state_put(ll_state *s, ll_record *r) {
   return 0;
 }
 
+int ll_state_put_idem(ll_state *s, const ll_s *ns, const ll_s *key, const ll_idem *idem) {
+  lj_buf k = {0};
+  lj_buf_put(&k, LL_S(*ns), ns->n);
+  lj_buf_putc(&k, 0);
+  lj_buf_put(&k, LL_S(*key), key->n);
+  ll_idem *copy = malloc(sizeof *copy);
+  if (k.oom || !copy) {
+    free(copy);
+    lj_buf_free(&k);
+    return EXT_LEDGER_IO;
+  }
+  *copy = *idem;
+  ll_idem *old = ll_map_get(&s->idempotency, k.ptr, k.len);
+  int rc = ll_map_put(&s->idempotency, k.ptr, k.len, copy);
+  lj_buf_free(&k);
+  if (rc) {
+    free(copy);
+    return EXT_LEDGER_IO;
+  }
+  free(old);
+  return 0;
+}
+
 size_t ll_state_retained(const ll_state *s) { return s->nchanges - s->first; }
 const ll_retained *ll_state_retained_at(const ll_state *s, size_t i) { return &s->changes[s->first + i]; }
 

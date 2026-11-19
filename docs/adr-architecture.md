@@ -120,7 +120,8 @@ guarantees are narrower. A language moves up a tier when a consumer depends on i
   and 3.
 - The `res/graph` store contract (`res/graph/testdata/store/v1`) and the SQLite store
   (`res/graph/store/sqlite`) are the first two steps above. `lib/ledger` has the store with its
-  memory and file backends; the SQLite backend, the reader, the recorder and the Go binding follow.
+  memory, file and optional SQLite backends, the reader and the `ext-ledger` command; the C and Go
+  stores open each other's SQLite databases. The recorder and the Go binding follow.
 - The Ruby and Lua hosts on Windows (#119), and the PHP SDK and host on Windows, which are in progress,
   go beyond what tier 3 requires. They are done because the gaps were small. They are not a precedent
   that tier 3 must run everywhere.

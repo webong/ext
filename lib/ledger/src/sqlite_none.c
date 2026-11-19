@@ -8,3 +8,5 @@ int ll_sqlite_open(const ext_ledger_context *ctx, const char *path, ll_state *st
   (void)out;
   return EXT_LEDGER_UNSUPPORTED;
 }
+
+const char *const *ll_sqlite_layout(void) { return NULL; }

@@ -8,7 +8,7 @@ It replaces the Go `res/graph` as the implementation of the graph; the contract 
 | Part | State |
 | --- | --- |
 | Store | Done: `include/ext_ledger.h`, memory and file backends, the whole store contract |
-| SQLite backend | Optional (`EXT_LEDGER_SQLITE`), on the `tables.json` layout; not written yet |
+| SQLite backend | Done, optional (`EXT_LEDGER_SQLITE`): the `tables.json` layout, which the Go store writes too |
 | Reader | Done: `ext_ledger_open_reader`, which never locks or writes, and the `ext-ledger` command |
 | Recorder | Later: the `ext.system` vocabulary and per-kernel collectors |
 
@@ -55,6 +55,7 @@ ext-ledger register ~/.config/ext/graph '{"namespace":"my.app","version":"1"}'
 ext-ledger apply ~/.config/ext/graph '{"namespace":"my.app","vertices":[{"id":"a","kind":"my.app/node"}]}'
 ext-ledger snapshot ~/.config/ext/graph my.app
 ext-ledger watch ~/.config/ext/graph my.app --after 0
+ext-ledger --sqlite snapshot ~/.config/ext/graph.db my.app
 ```
 
 Output is canonical JSON on standard output, one value per line (`watch` prints one change per
@@ -70,7 +71,13 @@ code's number; a usage error exits with 64. A JSON argument of `-` is read from 
   `LockFileEx`) serialises writers, and readers never lock. Every handle keeps the state in memory
   and catches up by reading what other handles appended. Handles in one process and in many
   processes share a directory.
-- **sqlite** (`ext_ledger_open_sqlite`): optional; `EXT_LEDGER_UNSUPPORTED` in a build without it.
+- **sqlite** (`ext_ledger_open_sqlite`): optional, linked against the system's SQLite (no vendored
+  copy); `EXT_LEDGER_UNSUPPORTED` in a build without it. One database laid out as
+  [`tables.json`](../../res/graph/testdata/store/v1/tables.json) says, which is what the Go store
+  `res/graph/store/sqlite` writes: either opens the other's database, and
+  `scripts/ledger-sqlite-cross.sh` checks it both ways (Go writes, C reads and writes, Go reads and
+  replays C's idempotency key). The handle catches up with other connections when SQLite's
+  `data_version` moves; a commit, with its compaction, is one `BEGIN IMMEDIATE` transaction.
 
 ## Layout
 
@@ -84,8 +91,9 @@ code's number; a usage error exits with 64. A JSON argument of `-` is read from 
 | `src/state.c` | The in-memory graph and the change a transaction makes |
 | `src/store.c` | The public API over the state and a backend |
 | `src/file.c` | The file backend |
+| `src/sqlite.c`, `src/sqlite_none.c` | The SQLite backend, and its stand-in when it is not built |
 | `src/platform_posix.c`, `src/platform_win32.c` | Threads, time, files and locks |
-| `tests/fixtures.c` | Runs `cases.json` and `fingerprints.json` on every backend |
+| `tests/fixtures.c` | Runs `cases.json` and `fingerprints.json` on every backend, and checks the SQLite tables against `tables.json` |
 | `tests/behaviour.c` | What the cases cannot hold: watches, concurrency, rewrites, torn writes, readers |
 | `tests/command.cmake` | Drives `ext-ledger` as a shell would |
 | `cmd/ext-ledger.c` | The command |

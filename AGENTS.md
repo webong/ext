@@ -119,11 +119,14 @@ extension, the Lua `ext_io.host` with a C module (`ext_io.host.core`) and the .N
 `ExtIO\Host` with PHP FFI; importing the guest never loads it. Every host runs
 the shared host cases (`lib/plugin/testdata/v1/host-cases.json`, `scripts/host-cases.sh`), which
 the pure-Go host is held to as well. See [hosts in every language](docs/adr-hosts-in-every-language.md).
-Until it reaches parity, the pure-Go implementation in `pkg/ext-go/engine`
-(and the pure-Go build of `pkg/ext-go/cgoengine`) is the behavioral baseline; see `docs/plugin-engine-parity.md`. The shared conformance
-fixtures live in `lib/plugin/testdata`. A change to the plugin contract or the
-package manifest lands in both implementations, and the conformance checks
-compare the two.
+The C engine in `lib/plugin` is the main plugin engine: every binding outside Go hosts on it. A new
+engine or host feature (sessions, reverse calls, routing, the package store) is built in C first, with
+its fixtures in `lib/plugin/testdata`, and then reaches `pkg/ext-go/cgoengine`, a regenerated
+`pkg/ext-go/c2goengine` and the other bindings. The pure-Go implementation in `pkg/ext-go/engine` (and
+the pure-Go build of `pkg/ext-go/cgoengine`) follows it to keep parity, so that `CGO_ENABLED=0`
+programs keep working; where the two disagree, the C engine and the fixtures decide. See
+`docs/plugin-engine-parity.md`. A change to the plugin contract or the package manifest lands in both
+implementations, and the conformance checks compare the two.
 
 Each reusable library under `pkg/` is its own Go module, not a package inside
 one repository-wide module. The root `go.work` keeps the repository building as
@@ -179,8 +182,8 @@ The reusable libraries are:
 - `res/system` for the local operating-system substrate used to extend graphical and textual shells: host, shell, filesystem and volume mechanics, clipboard, credential integration, local interface/address/route/resolver observation, web view and process discovery, native surfaces, accessibility, permission state, bounded capture and media playback/capture, and atomic native input. It owns mechanisms, not authorization, remote control, routing services or consumer policy. The module has no root package; its packages sit in three groups, which are plain directories: `service` (what the host provides, looked up and used: `host` for shells, filesystems, web views and resource capacity, `network`, `process`, `program`, `credential` and `user` for per-user service definitions), `capture` (content and events crossing the device edge: `surface` for displays, windows, accessibility, permission, capture and input, `audio`, `clipboard`, `share` and `media`) and `device` (`volume` for snapshots and private directories, `image` for snapshot archives). Each package owns its own iOS, Android and Windows code (the .NET libraries are `capture/audio/windows` and `capture/clipboard/windows`). The Windows .NET libraries of `res/` (those two, `res/web/windows` and `res/int/model/windows`) ship as NuGet packages named like their assemblies, released together under the tag `ext-windows-vX.Y.Z`, the Windows platform package (the counterpart of `ext-ios` and `ext-android`); the .NET guest SDK `ExtIO` and plugin host `ExtIO.Host` (`pkg/ext-dotnet`), a language package, are released on their own as `ext-dotnet-vX.Y.Z`.
 - `res/graph` for the graph store (`res/graph/store`), the recorder that projects what is observed about the machine, its adapters and its shell sessions onto the `ext.system` vocabulary (the module's root package), and the process supervisor (`res/graph/supervisor`). It requires `res/system`; nothing in `res/system` depends on it.
 - `res/int` for portable intelligence contracts and mechanisms: `model` owns verified local model bundles, tensors, and native backends; `inference` owns generation, embedding, transcription, speech, and provider contracts; `perception` owns interpretation and observation types; `realtime` owns duplex session types. Providers, models, credentials, and policy are chosen by consumers.
-- `pkg/ext-go/engine` for the pure-Go engine, the oracle: the plugin contract, sessions, guests, packages, bridges and tooling (standard library only).
-- `pkg/ext-go/c2goengine` for the C engine's portable core translated to Go by ccgo (no cgo, no C compiler). The translation is generated per platform by its `tools` module and held against the pure-Go engine, the oracle, by `engine/plugintest/enginetest`; it depends on `engine` only.
+- `pkg/ext-go/engine` for the pure-Go engine, kept in parity with the C engine: the plugin contract, sessions, guests, packages, bridges and tooling (standard library only).
+- `pkg/ext-go/c2goengine` for the C engine's portable core translated to Go by ccgo (no cgo, no C compiler). The translation is generated per platform by its `tools` module and compared with the pure-Go engine by `engine/plugintest/enginetest`; it depends on `engine` only.
 - `pkg/ext-go/cgoengine` for the Go binding of the C engine, with a pure-Go build of the same API and the C ABI loader (cgo, or purego without cgo).
 - `pkg/ext-go/wasm` for the engine-facing WebAssembly backend; it depends on `pkg/ext-go/engine` and the reusable runtime in `res/web/host/engine/wasm`.
 - `pkg/ext-go/hashicorp` for the HashiCorp go-plugin backend.

@@ -149,9 +149,11 @@ jobs:
           changed=()
           [ -f changed.txt ] && changed=(--changed changed.txt)
           if [[ -n "$TAG" ]]; then
-            python3 -I scripts/ci/release_plan.py --event push --ref-name "$TAG"
-            routed=$(sed -n 's/^package=//p' "$GITHUB_OUTPUT" | tail -n 1)
+            # Route into a scratch file and pass the outputs on only once the package matches.
+            GITHUB_OUTPUT="$RUNNER_TEMP/route.out" python3 -I scripts/ci/release_plan.py --event push --ref-name "$TAG"
+            routed=$(sed -n 's/^package=//p' "$RUNNER_TEMP/route.out")
             [[ "$routed" == "$PACKAGE" ]] || { echo "tag $TAG belongs to $routed, not $PACKAGE" >&2; exit 1; }
+            cat "$RUNNER_TEMP/route.out" >>"$GITHUB_OUTPUT"
           else
             python3 -I scripts/ci/release_plan.py --event "$EVENT" --ref-name "$REF_NAME" \
               --package "$PACKAGE" --version "$VERSION" "${changed[@]}"
@@ -232,7 +234,7 @@ jobs:
   publish:
     needs: [route, build]
     if: >-
-      always() && needs.route.outputs.package != '' &&
+      always() && needs.route.result == 'success' && needs.route.outputs.package != '' &&
       (needs.build.result == 'success' || needs.build.result == 'skipped') &&
       startsWith(needs.route.outputs.tag, needs.route.outputs.prefix)
     runs-on: ubuntu-latest

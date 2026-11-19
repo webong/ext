@@ -269,3 +269,76 @@ func TestProcessesShareWritesAndCursors(t *testing.T) {
 		}
 	}
 }
+
+// The cross-language check with lib/ledger, run by scripts/ledger-sqlite-cross.sh:
+// EXT_GRAPH_CROSS_WRITE writes a database for the C store to read, and
+// EXT_GRAPH_CROSS_READ reads one the C store wrote.
+const crossNS = "cross.example"
+
+func TestCrossWriteForC(t *testing.T) {
+	path := os.Getenv("EXT_GRAPH_CROSS_WRITE")
+	if path == "" {
+		t.Skip("EXT_GRAPH_CROSS_WRITE is not set")
+	}
+	ctx := context.Background()
+	s, err := sqlite.Open(ctx, path, store.Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	if err := s.Register(ctx, store.Schema{Namespace: crossNS, Version: "1"}); err != nil {
+		t.Fatal(err)
+	}
+	at := time.Date(2026, 1, 2, 3, 4, 5, 600, time.FixedZone("", 3600))
+	txs := []store.Transaction{
+		{Namespace: crossNS, IdempotencyKey: "go-1", Vertices: []store.Vertex{
+			{ID: "a", Kind: crossNS + "/node", Labels: map[string]string{"tier": "gold"}, Attributes: map[string]any{"n": 1.5, "list": []any{"x", true, nil}},
+				Provenance: store.Provenance{Source: "go", Operation: "write", At: at}},
+			{ID: "b", Kind: crossNS + "/node"},
+		}},
+		{Namespace: crossNS, Edges: []store.Edge{{ID: "ab", From: "a", To: "b", Type: crossNS + "/link", Attributes: map[string]any{"w": 2}}}},
+	}
+	for _, tx := range txs {
+		if _, err := s.Apply(ctx, tx); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+func TestCrossReadFromC(t *testing.T) {
+	path := os.Getenv("EXT_GRAPH_CROSS_READ")
+	if path == "" {
+		t.Skip("EXT_GRAPH_CROSS_READ is not set")
+	}
+	ctx := context.Background()
+	s, err := sqlite.Open(ctx, path, store.Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	snap, err := s.Snapshot(ctx, crossNS)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The Go writer's two commits, then the C writer's one.
+	if snap.Cursor != 3 || len(snap.Vertices) != 3 || len(snap.Edges) != 1 {
+		t.Fatalf("snapshot %+v", snap)
+	}
+	c, err := s.GetVertex(ctx, crossNS, "c")
+	if err != nil || c.Attributes["from"] != "c" || c.Revision != 3 {
+		t.Fatalf("vertex c %+v, %v", c, err)
+	}
+	a, err := s.GetVertex(ctx, crossNS, "a")
+	if err != nil || a.Provenance.At.IsZero() || a.Labels["tier"] != "gold" {
+		t.Fatalf("vertex a %+v, %v", a, err)
+	}
+	changes, err := s.Changes(ctx, crossNS, 0, 10)
+	if err != nil || len(changes) != 3 || changes[2].Vertices[0].ID != "c" {
+		t.Fatalf("changes %+v, %v", changes, err)
+	}
+	// The C commit's idempotency key replays in Go.
+	commit, err := s.Apply(ctx, store.Transaction{Namespace: crossNS, IdempotencyKey: "c-1", Vertices: []store.Vertex{{ID: "c", Kind: crossNS + "/node", Attributes: map[string]any{"from": "c"}}}})
+	if err != nil || !commit.Replayed || commit.Cursor != 3 {
+		t.Fatalf("replay %+v, %v", commit, err)
+	}
+}

@@ -6,9 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
 	"regexp"
-	"runtime"
 	"sort"
 	"time"
 
@@ -84,10 +82,11 @@ func contextID(adapter, selection string) string {
 // shell and web observations intact. It records only ordinary metadata and
 // redacts context names that resemble paths, URLs, or opaque values.
 func (g *Graph) ObserveInventory(ctx context.Context, adapters []AdapterObservation, aliases []AliasObservation, installers ...InstallerObservation) error {
-	now := time.Now().UTC()
-	host, _ := os.Hostname()
+	env := g.environment()
+	now := env.now().UTC()
+	host := env.hostname()
 	vertices := map[string]store.Vertex{
-		"machine/local":     {ID: "machine/local", Kind: Namespace + "/machine", Attributes: map[string]any{"hostname": host, "os": runtime.GOOS, "architecture": runtime.GOARCH}, Provenance: store.Provenance{Source: "ctx", Operation: "inventory-observed", At: now}},
+		"machine/local":     {ID: "machine/local", Kind: Namespace + "/machine", Attributes: map[string]any{"hostname": host, "os": env.goos, "architecture": env.goarch}, Provenance: store.Provenance{Source: "ctx", Operation: "inventory-observed", At: now}},
 		"inventory/current": {ID: "inventory/current", Kind: Namespace + "/inventory", Attributes: map[string]any{"observed_at": now.Format(time.RFC3339Nano)}, Provenance: store.Provenance{Source: "ctx", Operation: "inventory-observed", At: now}},
 	}
 	edges := map[string]store.Edge{}

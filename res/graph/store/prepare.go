@@ -81,18 +81,36 @@ func checkRecord(labels map[string]string, attrs map[string]any, p Provenance, o
 	if err := validateProvenance(p); err != nil {
 		return err
 	}
-	size := 0
-	for _, part := range []any{labels, attrs} {
-		encoded, err := json.Marshal(part)
-		if err != nil {
-			return fmt.Errorf("%w: record is not JSON serializable", ErrInvalid)
-		}
-		size += len(encoded)
+	size, err := RecordBytes(labels, attrs)
+	if err != nil {
+		return err
 	}
 	if size > o.MaxRecordBytes {
 		return fmt.Errorf("%w: record labels and attributes exceed %d bytes", ErrTooLarge, o.MaxRecordBytes)
 	}
 	return nil
+}
+
+// RecordBytes is the size a record counts against MaxRecordBytes: the length of
+// the canonical JSON of its labels plus that of its attributes, where empty
+// labels or attributes count nothing.
+func RecordBytes(labels map[string]string, attrs map[string]any) (int, error) {
+	size := 0
+	if len(labels) > 0 {
+		encoded, err := Canonical(labels)
+		if err != nil {
+			return 0, fmt.Errorf("%w: record is not JSON serializable", ErrInvalid)
+		}
+		size += len(encoded)
+	}
+	if len(attrs) > 0 {
+		encoded, err := Canonical(attrs)
+		if err != nil {
+			return 0, fmt.Errorf("%w: record is not JSON serializable", ErrInvalid)
+		}
+		size += len(encoded)
+	}
+	return size, nil
 }
 
 // Prepare computes the change a checked transaction makes to a namespace whose

@@ -4,7 +4,7 @@ Status: accepted on 2026-11-10, written against `main` at `71e1b8c0`. It collect
 were made one at a time ([hosts in every language](adr-hosts-in-every-language.md),
 [engine selection](adr-engine-selection.md), [web layout](adr-web-layout.md),
 [graph runtime](adr-graph-runtime.md)) into one picture. It adds three things: the rules every
-`res/` module follows, the plan for `res/graph` storage and the C store `lib/ledger`, and the
+`res/` module follows, the plan for `res/graph` storage and the C graph `lib/ledger`, and the
 support tier of each language.
 
 ## Layers
@@ -15,9 +15,9 @@ Each layer depends only on the layers above it in this table. `AGENTS.md` and
 | Layer | What it is | Language |
 | --- | --- | --- |
 | 1. Contracts | `ext.plugin/v1`, the package manifest, the `ext.system` vocabulary, and the shared fixtures (`lib/plugin/testdata`, `res/web/testdata`, and the fixtures `res/system` and `res/graph` will get) | Data |
-| 2. Engines | `lib/plugin` (C, embeddable anywhere), `pkg/ext-go/engine` (the Go reference), `c2goengine`, `cgoengine`, and later `lib/ledger` | C where it must embed anywhere; Go as the reference |
+| 2. Engines | `lib/plugin` (C, the main plugin engine), `pkg/ext-go/engine` (pure Go, kept in parity with it), `c2goengine`, `cgoengine`, and `lib/ledger` (the graph) | C, which the fixtures hold; the pure-Go engine follows the C one |
 | 3. OS mechanisms | `res/system`, `res/web`, `res/int` | Go on desktop and server; each OS's own language inside an app |
-| 4. Read model | `res/graph`: the store, the recorder of `ext.system`, the supervisor | Go |
+| 4. Read model | `res/graph`: the store, the recorder of `ext.system`, the supervisor; moving to `lib/ledger` | Go, then C |
 | 5. SDKs | `pkg/ext-*`: guests and hosts over the protocol; `ext-ios` and `ext-android` also bundle the native `res/` code | Every language |
 | 6. Adapters | `adapters/*`: one product, provider, browser or native tool each, loaded as packages | Mostly Go |
 | 7. Products | `ctx`, `ctn`, `ext`; Cymonkey and Xallet outside this repository | Selection, commands, policy |
@@ -76,24 +76,34 @@ design obligation.
 ## `res/graph` storage and `lib/ledger`
 
 The [graph runtime](adr-graph-runtime.md) says large installations need indexed persistence behind
-the same interface. That work comes in three steps:
+the same interface. The first two steps were done in Go; on 2026-11-19 the graph moved to C.
 
-1. **The store contract.** Vertices, edges, provenance, commits, changes, the naming and attribute
-   rules, the secret-marker check, idempotency, history compaction and the error codes become
-   fixtures under `res/graph/testdata/store/v1`. Schemas become declarative rules instead of the Go
-   callback `Schema.Validate`, so a schema can be checked in any language and stored with the graph.
-2. **SQLite storage in Go.** The JSON snapshot that is rewritten on every commit is replaced by
-   SQLite tables for vertices, edges, changes, schemas and idempotency records. The layout of the
-   tables is part of the contract. The Go store uses `modernc.org/sqlite`, so `res/graph` still needs
-   no cgo. An existing graph file is not migrated: the new store starts empty and the recorder
-   rebuilds what it observes. This replaces the snapshot's lock-and-reread scheme with SQLite's own
-   locking for short-lived commands and long-lived consumers. Watches poll the durable cursor as they
-   do now. The recorder and the supervisor stay in Go.
-3. **`lib/ledger`, only on demand.** A C store under `lib/ledger` is built when a program that cannot
-   embed Go must write a graph in its own process, a mobile app for example. It is a thin layer that
-   applies the contract over SQLite and is held to the same fixtures. It follows the pattern of
-   `lib/plugin`: CMake, no Go code in its tree, and Go as the reference. A program that only reads
-   the graph needs no library, because the documented tables can be read with any SQLite.
+1. **The store contract** (done). Vertices, edges, provenance, commits, changes, the naming and
+   attribute rules, the secret-marker check, idempotency, history compaction and the error codes are
+   fixtures under `res/graph/testdata/store/v1`. Schemas are declarative rules, so a schema can be
+   checked in any language and stored with the graph.
+2. **SQLite storage in Go** (done, `res/graph/store/sqlite`). It stays until the Go graph is
+   replaced, and its layout (`tables.json`) is the optional SQLite form of the C store.
+3. **`lib/ledger`: the graph in C.** The whole of `res/graph` (the store, a reader for programs and
+   shells, and the recorder of the `ext.system` vocabulary with its collectors) is written once in C,
+   so Linux, Darwin (macOS and iOS) and Windows programs embed one graph from any language. It
+   follows the pattern of `lib/plugin`: CMake, no Go code in its tree, and no third-party code: its
+   JSON reader and writer, SHA-256 and CRC-32 are its own. The fixtures stay the truth; where the C
+   library and the Go store disagree, the fixture decides.
+   - **Storage is files by default.** A directory holds an append-only log of framed, checksummed
+     canonical-JSON lines and a checkpoint (`ledger.json`). An advisory lock serialises writers;
+     readers never lock. It needs nothing beyond the C library and the OS.
+   - **SQLite is optional**, a build option of the library, on the `tables.json` layout.
+   - **The supervisor moves too.** `res/graph/supervisor` becomes part of `lib/ledger`, so a
+     program that records its processes also supervises them without Go.
+   - **Collectors call each OS's C interface.** On macOS that is CoreGraphics for displays and
+     windows, the Accessibility API and CoreFoundation, called from C with no Swift. iOS has no
+     system-wide view of screens or other apps' windows, so an iOS app gives the recorder what
+     `ext-darwin`'s Swift code sees through its observe calls.
+   - **The Go `res/graph` is deprecated.** Nothing new is added to it. Go reaches the C library as
+     other languages do, through a standalone purego module that the plugin engine's Go bindings
+     (`engine`, `cgoengine`) use as well, so no binding needs cgo. The Go `res/graph` is then
+     removed with no compatibility layer; its `testdata` fixtures stay as the contract.
 
 ## Language tiers
 
@@ -116,7 +126,9 @@ guarantees are narrower. A language moves up a tier when a consumer depends on i
   first work under rules 1 and 4. Each later `res/` change brings its package in line with rules 2
   and 3.
 - The `res/graph` store contract (`res/graph/testdata/store/v1`) and the SQLite store
-  (`res/graph/store/sqlite`) are the first two steps above. `lib/ledger` waits for an embedder.
+  (`res/graph/store/sqlite`) are the first two steps above. `lib/ledger` has the store with its
+  memory, file and optional SQLite backends, the reader and the `ext-ledger` command; the C and Go
+  stores open each other's SQLite databases. The recorder and the Go binding follow.
 - The Ruby and Lua hosts on Windows (#119), and the PHP SDK and host on Windows, which are in progress,
   go beyond what tier 3 requires. They are done because the gaps were small. They are not a precedent
   that tier 3 must run everywhere.

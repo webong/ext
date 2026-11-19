@@ -8,9 +8,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"net/url"
-	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"time"
 
@@ -20,7 +18,10 @@ import (
 
 const Namespace = "ext.system"
 
-type Graph struct{ Store store.Store }
+type Graph struct {
+	Store store.Store
+	env   *environment
+}
 
 // Open opens the ext.system graph in configHome/graph.db, the SQLite store.
 func Open(configHome string) (*Graph, error) {
@@ -127,23 +128,27 @@ func (g *Graph) Close() error { return g.Store.Close() }
 // ObserveShell records the current shell session and its active directory.
 // It never reads arbitrary environment values or shell history.
 func (g *Graph) ObserveShell(ctx context.Context, cwd, profile string, selections map[string]string) error {
+	env := g.environment()
 	if cwd == "" {
-		cwd, _ = os.Getwd()
+		cwd = env.workingDir()
 	}
-	cwd, _ = filepath.Abs(cwd)
-	project := projectRoot(cwd)
-	shell := os.Getenv("SHELL")
+	if !filepath.IsAbs(cwd) {
+		cwd = filepath.Join(env.workingDir(), cwd)
+	}
+	cwd = filepath.Clean(cwd)
+	project := projectRoot(env, cwd)
+	shell := env.getenv("SHELL")
 	if shell == "" {
-		shell = os.Getenv("ComSpec")
+		shell = env.getenv("ComSpec")
 	}
 	shell = filepath.Base(shell)
-	terminal := os.Getenv("TERM_PROGRAM")
-	parent := os.Getppid()
+	terminal := env.getenv("TERM_PROGRAM")
+	parent := env.parentPID()
 	sessionID := "shell/" + itoa(parent)
-	host, _ := os.Hostname()
-	now := time.Now().UTC()
+	host := env.hostname()
+	now := env.now().UTC()
 	vertices := []store.Vertex{
-		{ID: "machine/local", Kind: Namespace + "/machine", Attributes: map[string]any{"hostname": host, "os": runtime.GOOS, "architecture": runtime.GOARCH}, Provenance: store.Provenance{Source: "ctx", Operation: "shell-observed", At: now}},
+		{ID: "machine/local", Kind: Namespace + "/machine", Attributes: map[string]any{"hostname": host, "os": env.goos, "architecture": env.goarch}, Provenance: store.Provenance{Source: "ctx", Operation: "shell-observed", At: now}},
 		{ID: sessionID, Kind: Namespace + "/shell-session", Attributes: map[string]any{"parent_pid": float64(parent), "shell": shell, "terminal": terminal, "working_directory": cwd, "active_profile": profile, "observed_at": now.Format(time.RFC3339Nano)}, Provenance: store.Provenance{Source: "ctx", Operation: "shell-observed", At: now}},
 		{ID: "directory/" + digest(cwd), Kind: Namespace + "/directory", Attributes: map[string]any{"path": cwd}, Provenance: store.Provenance{Source: "ctx", Operation: "directory-observed", At: now}},
 		{ID: "project/" + digest(project), Kind: Namespace + "/project", Attributes: map[string]any{"path": project}, Provenance: store.Provenance{Source: "ctx", Operation: "project-observed", At: now}},
@@ -228,10 +233,11 @@ func (g *Graph) ObserveWeb(ctx context.Context, provider, profile, scheme, host 
 	if host == "" {
 		return nil
 	}
-	now := time.Now().UTC()
+	env := g.environment()
+	now := env.now().UTC()
 	id := "browser/current"
 	vertices := []store.Vertex{{ID: id, Kind: Namespace + "/browser-context", Attributes: map[string]any{"provider": provider, "profile": profile, "scheme": scheme, "host": host, "observed_at": now.Format(time.RFC3339Nano)}, Provenance: store.Provenance{Source: "ctx", Operation: "web-origin-observed", At: now}}}
-	parent := os.Getppid()
+	parent := env.parentPID()
 	edge := store.Edge{ID: "shell-browser/" + itoa(parent), From: "shell/" + itoa(parent), To: id, Type: Namespace + "/opened"}
 	if existing, err := g.Store.GetVertex(ctx, Namespace, id); err == nil && equalAttributes(existing.Attributes, vertices[0].Attributes) {
 		if old, edgeErr := g.Store.GetEdge(ctx, Namespace, edge.ID); edgeErr == nil && old.From == edge.From && old.To == edge.To {
@@ -242,10 +248,10 @@ func (g *Graph) ObserveWeb(ctx context.Context, provider, profile, scheme, host 
 	return err
 }
 
-func projectRoot(cwd string) string {
+func projectRoot(env environment, cwd string) string {
 	for dir := cwd; ; dir = filepath.Dir(dir) {
 		for _, marker := range []string{".git", ".ctx", "go.mod", "package.json"} {
-			if _, err := os.Stat(filepath.Join(dir, marker)); err == nil {
+			if env.exists(filepath.Join(dir, marker)) {
 				return dir
 			}
 		}

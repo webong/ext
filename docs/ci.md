@@ -15,7 +15,7 @@ Both test workflows run on every push to `main` and every pull request, side by 
 
 Each test workflow starts with a `plan` job, which runs `scripts/ci/plan.py --workflow core` (or
 `targets`) over `.github/ci/areas.json`. That table lists every **area** (`native`, `plugin-engine`,
-`c2goengine`, `host-cases`, `plugin-sdk`, `plugin-wamr`, `web-js`, `ext-php`, `ext-ruby`, `ext-lua`,
+`c2goengine`, `host-cases`, `ledger`, `plugin-sdk`, `plugin-wamr`, `web-js`, `ext-php`, `ext-ruby`, `ext-lua`,
 `dotnet-windows`), the tools it tests, the paths that concern it, and its jobs, each with its
 **cells**. A cell is one run: its name, its runner, the toolchains it needs (`setup`), its values
 (`vars`) and its script under `scripts/ci/jobs/<area>/<job>.sh`. The plan picks the cells; its

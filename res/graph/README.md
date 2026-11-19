@@ -1,5 +1,11 @@
 # graph
 
+> **Deprecated.** [`lib/ledger`](../../lib/ledger/README.md), the graph in C, replaces this Go module
+> on Linux, Darwin and Windows. Nothing new is added here: new graph behaviour goes to `lib/ledger`
+> and to the fixtures in [`testdata`](testdata/README.md), which stay the contract and outlive this
+> code. Once its Go consumers reach the C library through a Go binding, this module is removed
+> with no compatibility layer ([the architecture ADR](../../docs/adr-architecture.md#resgraph-storage-and-libledger)).
+
 `github.com/webong/ext/res/graph` records what is observed about a machine, its
 adapters and its shell sessions in a graph, and supervises local processes while
 projecting their state into it.

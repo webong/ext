@@ -1,0 +1,66 @@
+{
+  "version": 1,
+  "layout": "ext.graph.ledger/v1",
+  "about": "The on-disk form of a durable res/graph store: a directory holding an append-only log of commits and a checkpoint of the state at the history floor. It needs nothing but files and an advisory lock, so any language reads and writes it with its standard library. README.md, Durable layout, explains how the files are written and read.",
+  "files": {
+    "lock": "An empty file. A writer holds an exclusive advisory lock on it (flock on POSIX, LockFileEx on Windows) for the whole of a register or apply, including catching up with the log and any rewrite. Readers never lock.",
+    "log": "The append-only log: a header line, then one line per schema registration, commit or history floor, in the order they happened.",
+    "checkpoint": "The state of every namespace at the checkpoint's base cursor: a header line, one line per namespace, vertex and edge, and an end line. Absent until the first rewrite; an absent checkpoint is the empty state at base 0, floor 0, generation 0.",
+    "log.tmp": "A log being rewritten; ignored and removed by the next writer.",
+    "checkpoint.tmp": "A checkpoint being rewritten; ignored and removed by the next writer."
+  },
+  "modes": {
+    "directory": "0700",
+    "files": "0600"
+  },
+  "line": {
+    "form": "<crc> <json>\\n",
+    "crc": "8 lowercase hex digits: the CRC-32 (IEEE 802.3, the polynomial 0xedb88320 reflected, as zlib computes it) of the JSON bytes",
+    "json": "one canonical JSON object (README.md, Canonical JSON); canonical JSON holds no raw newline",
+    "torn": "A last line without its newline, or whose CRC does not match, is a torn write: a reader stops before it, and a writer truncates the file there before it appends. A bad line that is not the last is corruption (io)."
+  },
+  "records": {
+    "log": {
+      "header": {"record": "log", "layout": "<layout>", "generation": "<uint64>"},
+      "schema": {"record": "schema", "schema": "<the normalised schema entity>"},
+      "commit": {"record": "commit", "change": "<the change entity, with its cursor>", "idempotency_key": "<string, absent when the transaction had none>", "fingerprint": "<the transaction fingerprint, absent with the key>"},
+      "floor": {"record": "floor", "floor": "<uint64: the new history floor>"}
+    },
+    "checkpoint": {
+      "header": {"record": "checkpoint", "layout": "<layout>", "generation": "<uint64>", "base": "<uint64: the cursor the state is at>", "floor": "<uint64: the history floor; never above base>"},
+      "namespace": {"record": "namespace", "schema": "<the normalised schema entity>", "revision": "<uint64>"},
+      "vertex": {"record": "vertex", "vertex": "<the vertex entity, with its namespace>"},
+      "edge": {"record": "edge", "edge": "<the edge entity, with its namespace>"},
+      "end": {"record": "end", "count": "<uint64: the namespace, vertex and edge lines before it>"}
+    }
+  },
+  "order": {
+    "checkpoint": "namespaces by name, then vertices by namespace and ID, then edges by namespace and ID",
+    "log": "the order the store applied them; commit cursors increase by one"
+  },
+  "replay": [
+    "read the checkpoint, or take the empty state at base 0, floor 0 and generation 0 when there is none; the store cursor is the base",
+    "read the log header; a log generation greater than the checkpoint's means a rewrite ran between the two reads: read both again",
+    "apply every schema line in order: it sets its namespace's schema",
+    "a commit line at or below the base is history only: the checkpoint already holds its effect. A commit line above the base is applied, in order: deletions of edges, deletions of vertices, upserted vertices, upserted edges, then the namespace revision; the store cursor becomes the commit's cursor",
+    "a floor line raises the history floor",
+    "the retained history is the commits above the floor; their idempotency keys are the live ones"
+  ],
+  "rewrite": {
+    "when": "after a commit, once the log holds at least 64 commits at or below the floor and at least as many as above it",
+    "steps": [
+      "write checkpoint.tmp at generation g+1 holding the current state, whose base is the store cursor and whose floor is the history floor, fsync it, rename it over checkpoint",
+      "write log.tmp at generation g+1 holding the commits above the floor, fsync it, rename it over log",
+      "fsync the directory (POSIX)"
+    ],
+    "crash": "If a writer stops between the two renames, the checkpoint is one generation ahead of the log. Replay is still correct: the old log's commits are at or below the base, so they are history only, and the old log holds every schema registration in order, ending at the checkpoint's. The next rewrite brings the log level."
+  },
+  "refused": {
+    "code": "unsupported",
+    "when": [
+      "the path exists and is not a directory",
+      "a log or checkpoint header names another layout",
+      "the directory holds an entry that is not one of the files above and whose name does not start with a dot"
+    ]
+  }
+}

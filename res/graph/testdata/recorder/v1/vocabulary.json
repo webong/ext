@@ -1,0 +1,202 @@
+{
+  "about": "The ext.system vocabulary the recorder registers: every vertex kind, and every relationship with the kinds of its endpoints. A store checks the recorder's transactions against it.",
+  "schema": {
+    "namespace": "ext.system",
+    "version": "1",
+    "kinds": [
+      "ext.system/accessibility-element",
+      "ext.system/adapter",
+      "ext.system/alias",
+      "ext.system/application",
+      "ext.system/browser-context",
+      "ext.system/capability",
+      "ext.system/context",
+      "ext.system/desktop",
+      "ext.system/directory",
+      "ext.system/display",
+      "ext.system/executable",
+      "ext.system/filesystem",
+      "ext.system/host-inventory",
+      "ext.system/host-resource",
+      "ext.system/installer",
+      "ext.system/inventory",
+      "ext.system/machine",
+      "ext.system/permission",
+      "ext.system/process",
+      "ext.system/process-resource",
+      "ext.system/profile",
+      "ext.system/program",
+      "ext.system/project",
+      "ext.system/resource",
+      "ext.system/selection",
+      "ext.system/shell",
+      "ext.system/shell-session",
+      "ext.system/support",
+      "ext.system/webview",
+      "ext.system/window"
+    ],
+    "relationships": [
+      {
+        "type": "ext.system/belongs-to-application",
+        "from": "ext.system/process",
+        "to": "ext.system/application"
+      },
+      {
+        "type": "ext.system/contains",
+        "from": "ext.system/context",
+        "to": "ext.system/resource"
+      },
+      {
+        "type": "ext.system/executes",
+        "from": "ext.system/process",
+        "to": "ext.system/executable"
+      },
+      {
+        "type": "ext.system/has-accessibility-element",
+        "from": "ext.system/machine",
+        "to": "ext.system/accessibility-element"
+      },
+      {
+        "type": "ext.system/has-adapter",
+        "from": "ext.system/machine",
+        "to": "ext.system/adapter"
+      },
+      {
+        "type": "ext.system/has-desktop",
+        "from": "ext.system/machine",
+        "to": "ext.system/desktop"
+      },
+      {
+        "type": "ext.system/has-display",
+        "from": "ext.system/machine",
+        "to": "ext.system/display"
+      },
+      {
+        "type": "ext.system/has-filesystem",
+        "from": "ext.system/machine",
+        "to": "ext.system/filesystem"
+      },
+      {
+        "type": "ext.system/has-host-inventory",
+        "from": "ext.system/machine",
+        "to": "ext.system/host-inventory"
+      },
+      {
+        "type": "ext.system/has-host-resource",
+        "from": "ext.system/machine",
+        "to": "ext.system/host-resource"
+      },
+      {
+        "type": "ext.system/has-permission",
+        "from": "ext.system/machine",
+        "to": "ext.system/permission"
+      },
+      {
+        "type": "ext.system/has-program",
+        "from": "ext.system/machine",
+        "to": "ext.system/program"
+      },
+      {
+        "type": "ext.system/has-shell",
+        "from": "ext.system/machine",
+        "to": "ext.system/shell"
+      },
+      {
+        "type": "ext.system/has-webview",
+        "from": "ext.system/machine",
+        "to": "ext.system/webview"
+      },
+      {
+        "type": "ext.system/has-window",
+        "from": "ext.system/machine",
+        "to": "ext.system/window"
+      },
+      {
+        "type": "ext.system/hosts",
+        "from": "ext.system/machine",
+        "to": "ext.system/shell-session"
+      },
+      {
+        "type": "ext.system/implemented-by",
+        "from": "ext.system/installer",
+        "to": "ext.system/adapter"
+      },
+      {
+        "type": "ext.system/installed-by",
+        "from": "ext.system/program",
+        "to": "ext.system/installer"
+      },
+      {
+        "type": "ext.system/offers",
+        "from": "ext.system/adapter",
+        "to": "ext.system/context"
+      },
+      {
+        "type": "ext.system/opened",
+        "from": "ext.system/shell-session",
+        "to": "ext.system/browser-context"
+      },
+      {
+        "type": "ext.system/parent-of",
+        "from": "ext.system/process",
+        "to": "ext.system/process"
+      },
+      {
+        "type": "ext.system/relates",
+        "from": "ext.system/resource",
+        "to": "ext.system/resource"
+      },
+      {
+        "type": "ext.system/resolves-to",
+        "from": "ext.system/alias",
+        "to": "ext.system/context"
+      },
+      {
+        "type": "ext.system/runs",
+        "from": "ext.system/machine",
+        "to": "ext.system/process"
+      },
+      {
+        "type": "ext.system/selects",
+        "from": "ext.system/shell-session",
+        "to": "ext.system/selection"
+      },
+      {
+        "type": "ext.system/supports",
+        "from": "ext.system/adapter",
+        "to": "ext.system/capability"
+      },
+      {
+        "type": "ext.system/supports-kind",
+        "from": "ext.system/adapter",
+        "to": "ext.system/support"
+      },
+      {
+        "type": "ext.system/uses-profile",
+        "from": "ext.system/shell-session",
+        "to": "ext.system/profile"
+      },
+      {
+        "type": "ext.system/uses-program",
+        "from": "ext.system/context",
+        "to": "ext.system/program"
+      },
+      {
+        "type": "ext.system/uses-resource",
+        "from": "ext.system/process",
+        "to": "ext.system/process-resource"
+      },
+      {
+        "type": "ext.system/within",
+        "from": "ext.system/directory",
+        "to": "ext.system/project"
+      },
+      {
+        "type": "ext.system/working-in",
+        "from": "ext.system/shell-session",
+        "to": "ext.system/directory"
+      }
+    ]
+  },
+  "version": 1
+}

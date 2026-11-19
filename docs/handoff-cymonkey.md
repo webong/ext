@@ -38,20 +38,24 @@ and `tests/jangolova-blender-live` import no ext code.
 
 | Old import | New import | Module |
 | --- | --- | --- |
-| `pkg/plugin-go/contract` | `pkg/ext-go/engine` | `github.com/webong/ext/pkg/ext-go/engine` v0.2.0 |
+| `pkg/plugin-go/contract` | `pkg/ext-go/engine` | `github.com/webong/ext/pkg/ext-go/engine` v0.4.0 |
 | `.../contract/host`, `host/store`, `host/process`, `host/adapter` | `.../engine/host`, `host/store`, `host/process`, `host/adapter` | same module |
 | `.../contract/package` | `.../engine/package` (declared package name `packagekit`) | same module |
 | `.../contract/transport/jsonline` | `.../engine/transport/jsonline` | same module |
 | `.../contract/validate/jsonschema` | `.../engine/validate/jsonschema` | same module |
 | `.../contract/endpoint` | `.../engine/endpoint` | same module |
-| `res/web/userscript` | `res/web/host/artifact/userscript` | `github.com/webong/ext/res/web/host` v0.1.0 |
+| `res/web/userscript` | `res/web/host/artifact/userscript` | `github.com/webong/ext/res/web/host` v0.2.1 |
 | `res/web/contract` | `res/web/host/contract` | same module |
 | `res/web/extension` | `res/web/host/artifact/extension` | same module |
 | `res/web/bookmarklet` | `res/web/host/artifact/bookmarklet` | same module |
 
 Proof that all of these resolve: a scratch module outside any workspace, with the default checksum database,
-requiring only `pkg/ext-go/engine v0.2.0` and `res/web/host v0.1.0` and importing every new path above,
-`go mod tidy` and `go build` both pass, and no old path appears in its graph.
+requiring only `pkg/ext-go/engine v0.2.0` and `res/web/host v0.1.0` (the versions of the day) and importing
+every new path above, `go mod tidy` and `go build` both pass, and no old path appears in its graph.
+
+Status (2026-11-19): done. Cymonkey is on `pkg/ext-go/engine` v0.4.0 and `res/web/host` v0.2.1 (Cymonkey
+commit `351f59a`) and vendors `ext_io` from ext `0dab4eac` (Cymonkey `bbf54d6`); both pass Cymonkey's
+published-ext acceptance.
 
 Notes:
 
@@ -120,10 +124,12 @@ such tag exists Cymonkey cannot install it. See section 5.
 
 | SDK | Where it is | Notes |
 | --- | --- | --- |
-| Go modules | Go proxy, tags `<module>/vX.Y.Z` | `pkg/ext-go/engine` v0.2.0, `cgoengine` v0.2.0, `pkg/ext-go` v0.10.1, `wasm` v0.4.0, `res/web/host` v0.1.0, `res/system` v0.3.0, `res/graph` v0.2.0, `res/int` v0.1.0, `pkg/ext-go/inference`, `model`, `perception`, `realtime` v0.1.0 |
-| Swift (iOS, macOS) | GitHub release `ext-ios-v0.1.0`: `ext-ios-0.1.0-package.tar.gz` plus `CExtEngine` and `CExtWamr` xcframeworks | Package `Ext`, platforms macOS 12 and iOS 13. Products include `ExtWeb`, `ExtWebKit`, `ExtSystem`, `ExtClipboard`, `ExtAudio`, `ExtHost`, `ExtShare`, `ExtML`, `ExtNetwork`. **On SwiftPM since `ext-ios-v0.1.1`:** `.package(url: "https://github.com/webong/ext", from: "0.1.1")` resolves through the `dist/ext-ios` branch and the bare `0.1.1` tag (verified). The `v0.1.0` release has no SwiftPM tag; use 0.1.1 or later. |
-| Android | GitHub release `ext-android-v0.1.0`: `ext-android-0.1.0.aar` and `ext-android-wamr-0.1.0.aar` | Not on Maven. Add the AAR as a local file dependency. The AAR ships the web workspace and `io.github.webong.ext.system`. |
-| .NET (Windows) | GitHub release `ext-dotnet-v0.1.0`: `Ext.Web.Windows`, `Ext.Audio.Windows`, `Ext.Clipboard.Windows`, `Ext.ML.Windows` as `.nupkg` | No NuGet feed. Point a local NuGet source at the downloaded packages. |
+| Go modules | Go proxy, tags `<module>/vX.Y.Z` | `pkg/ext-go/engine` v0.4.0, `cgoengine` v0.4.1, `c2goengine` v0.4.0, `pkg/ext-go` v0.12.0, `wasm` v0.5.0, `hashicorp` v0.3.2, `yaegi` v0.1.0, `res/web/host` v0.2.1, `res/system` v0.5.1, `res/graph` v0.3.0, `res/int` v0.1.0, `pkg/ext-go/inference` v0.1.1, `model`, `perception`, `realtime` v0.1.0 |
+| Swift (iOS) | GitHub release `ext-ios-v0.3.0`: `ext-ios-0.3.0-package.tar.gz` plus `CExtEngine` and `CExtWamr` xcframeworks with the iOS and Simulator slices | Package `Ext`, platform iOS 13. Products include `ExtWeb`, `ExtWebKit`, `ExtSystem`, `ExtClipboard`, `ExtAudio`, `ExtHost`, `ExtShare`, `ExtML`, `ExtNetwork`. SwiftPM: `.package(url: "https://github.com/webong/ext", from: "0.3.0")` resolves through `dist/ext-ios` and its bare tags. The sources are `pkg/ext-darwin` (it was `pkg/ext-ios` until #169). |
+| Swift (macOS) | GitHub release `ext-macos-v0.1.0`: `ext-macos-0.1.0-package.tar.gz` plus the xcframeworks with the macOS slice | Same package `Ext` and product names, platform macOS 12, plus the `ExtFramesGuest` executable. `dist/ext-macos` is tagged `ext-macos-0.1.0`, which SwiftPM cannot resolve as a version: pin it with `revision:` (the tag's commit) or `branch: "dist/ext-macos"`. One app depends on `ext-ios` or `ext-macos`, not both, since their module names are the same. |
+| Android | GitHub release `ext-android-v0.2.0`: `ext-android-0.2.0.aar` and `ext-android-wamr-0.2.0.aar` | Not on Maven. Add the AAR as a local file dependency. The AAR ships the web workspace and `io.github.webong.ext.system`. |
+| .NET (Windows) | GitHub release `ext-windows-v0.1.0`: `Ext.Web.Windows`, `Ext.Audio.Windows`, `Ext.Clipboard.Windows`, `Ext.ML.Windows` as `.nupkg` (these were in `ext-dotnet` up to v0.2.0) | No NuGet feed. Point a local NuGet source at the downloaded packages. |
+| .NET (plugins) | GitHub release `ext-dotnet-v0.3.0`: `ExtIO` (guest SDK) and `ExtIO.Host` (host on the C engine) as `.nupkg` | No NuGet feed, as above. |
 | Python | `pkg/ext-python` (`ext-io`) | Not published. Vendor or install by path. |
 | JavaScript | `pkg/ext-web` | **Released as `ext-web-v0.1.0`** (2026-11-04): `npm install https://github.com/webong/ext/releases/download/ext-web-v0.1.0/ext-web-0.1.0.tgz`, checksum in `checksums.txt` beside it (verified; all six entry points import). Not on the npm registry. |
 
@@ -144,6 +150,8 @@ Checksums are in each release's `checksums.txt`.
 ## 7. What ext still has to do (the ext chat will handle these)
 
 - Done 2026-11-04: `ext-ios-v0.1.1` (SwiftPM via `dist/ext-ios`) and `ext-web-v0.1.0` (tarball release).
+- Done 2026-11-19: the Apple SDK split into `ext-ios-v0.3.0` and `ext-macos-v0.1.0`, the Windows libraries
+  into `ext-windows-v0.1.0`, and `ext-dotnet-v0.3.0`; every release has `checksums.txt` and attestations.
 - Still open: the macOS ScreenCaptureKit comparison in section 3, and the coordinator's naming plan for
   `ext-web` (the tag family `ext-web-vX.Y.Z` is the one in use today).
 - A NuGet feed, or documented local-source instructions, for the Windows libraries.

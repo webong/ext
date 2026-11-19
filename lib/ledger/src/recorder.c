@@ -300,7 +300,8 @@ int rec_query_edges(rec *r, const ext_ledger_context *ctx, const char *type, con
 int rec_snapshot(rec *r, const ext_ledger_context *ctx, lj_value **out) {
   char *text = NULL;
   size_t len = 0;
-  return parse_out(ext_ledger_snapshot(r->store, ctx, REC_NS, &text, &len), text, len, out);
+  int rc = ext_ledger_snapshot(r->store, ctx, REC_NS, &text, &len); /* before parse_out reads text and len */
+  return parse_out(rc, text, len, out);
 }
 
 int rec_equal_attributes(const lj_value *a, const lj_value *b) {

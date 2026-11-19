@@ -371,9 +371,10 @@ EXT_HOST_API ext_status ext_host_set_services(ext_host *,
  *   - expired when the forward call ran out of time;
  *   - otherwise with the target's answer, unchanged: its payload, or its public
  *     error as the target returned it. Any other failure is operation_failed.
- * The forward call runs with the reverse call's time left, its cancel signal
- * and its value, so a deadline or cancellation reaches the target, and a binding
- * finds its caller's context in the target's own reverse calls.
+ * The forward call runs with the reverse call's time left and its cancel
+ * signal, so a deadline or cancellation reaches the target. Its value is NULL:
+ * the reverse call's value belongs to the source's binding, and the target may
+ * be another one.
  *
  * Cycles. A call chain starts at a source host's reverse call and grows by one
  * host for each forward call the registry makes. A reverse call that a target

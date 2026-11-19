@@ -122,10 +122,15 @@ func Open(ctx context.Context, d plugin.Descriptor, options plugin.Options) (*Se
 // OpenProcess starts the launch as a child process and opens a session over its
 // stdin and stdout. options.Connect is unused.
 func OpenProcess(ctx context.Context, d plugin.Descriptor, launch LaunchOptions, options plugin.Options) (*Session, error) {
+	return openProcess(ctx, d, launch, options, &Session{})
+}
+
+// openProcess opens result; a registry names result in its handler before the
+// session exists.
+func openProcess(ctx context.Context, d plugin.Descriptor, launch LaunchOptions, options plugin.Options, result *Session) (*Session, error) {
 	if launch.StderrBytes < 0 {
 		return nil, plugin.ErrInvalid
 	}
-	result := &Session{}
 	connect := options
 	connect.Connect = func(ctx context.Context, _ plugin.Descriptor) (plugin.Backend, error) {
 		proc, err := process.Start(ctx, process.Command{

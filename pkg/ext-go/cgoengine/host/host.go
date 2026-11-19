@@ -57,6 +57,11 @@ type Options struct {
 	// host, limited to the operations its descriptor declares in Reverse. When
 	// nil, every reverse call is denied.
 	Reverse *ReverseOptions
+	// Registry serves the plugin's reverse calls along the edges declared on it,
+	// with forward calls to the processes registered there (see Registry).
+	// Reverse must be set too: its Authorize runs first and its bounds apply, and
+	// its Handle must be nil, since the registry is the handler.
+	Registry *Registry
 }
 
 // Process is one plugin process behind a C engine session.
@@ -109,7 +114,11 @@ func Open(ctx context.Context, installed store.Installed, options Options) (*Pro
 	if timeout == 0 {
 		timeout = DefaultTimeout
 	}
-	session, err := cgoengine.OpenProcess(ctx, installed.Manifest.Descriptor, cgoengine.LaunchOptions{
+	open := cgoengine.OpenProcess
+	if options.Registry != nil {
+		open = options.Registry.r.OpenProcess
+	}
+	session, err := open(ctx, installed.Manifest.Descriptor, cgoengine.LaunchOptions{
 		ProcessOptions: cgoengine.ProcessOptions{Executable: path, Arguments: launch.Args, Environment: launch.Env},
 		Directory:      dir,
 		StderrBytes:    launch.StderrBytes,

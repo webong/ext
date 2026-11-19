@@ -369,9 +369,11 @@ static ext_status serve(void *user, const ext_call_options *o,
   call.host = t->host;
   call.chain = &next;
   if (input) {
+    /* The value is the source binding's own context and means nothing to the
+     * target's, which may be another binding: it is not passed on. */
     ext_call_options options = {sizeof(options),
                                 o->timeout_ms ? o->timeout_ms : 1, o->cancel,
-                                o->value};
+                                NULL};
     begun_context b = {r, &call};
     s = ext_host_call_begun(t->host, (const uint8_t *)input, n, &options,
                             begun, &b, &out);

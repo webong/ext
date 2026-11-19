@@ -30,6 +30,9 @@ func descriptor() plugin.Descriptor {
 }
 
 func TestMain(m *testing.M) {
+	if name := os.Getenv(relayEnv); name != "" {
+		os.Exit(serveRelay(name))
+	}
 	if os.Getenv("HOST_TEST_CHILD") == "1" {
 		if os.Getenv("HOST_TEST_NOISE") == "1" {
 			fmt.Fprint(os.Stderr, strings.Repeat("e", 10000))

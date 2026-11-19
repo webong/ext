@@ -19,6 +19,8 @@ import (
 	plugin "github.com/webong/ext/pkg/ext-go/engine"
 )
 
+// GuestRegistry routes reverse calls between sessions through the C engine's
+// ext_registry.
 type GuestRegistry struct {
 	mu      sync.Mutex
 	ptr     *C.ext_registry

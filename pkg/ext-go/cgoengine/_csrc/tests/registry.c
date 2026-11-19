@@ -97,6 +97,7 @@ static int guest(const char *cases_path, const char *name) {
   yyjson_mut_obj_add_str(dm, d, "apiVersion", "ext.plugin/v1");
   yyjson_mut_obj_add_strcpy(dm, identity, "id", id);
   yyjson_mut_obj_add_str(dm, identity, "revision", "r1");
+  yyjson_mut_obj_add_str(dm, identity, "version", "1.0.0");
   yyjson_mut_obj_add_val(dm, d, "identity", identity);
   yyjson_mut_obj_add_strcpy(dm, served, "name", yyjson_get_str(contract));
   yyjson_mut_obj_add_str(dm, served, "version", "v1");
@@ -263,7 +264,7 @@ static void open_guest(ext_registry *r, guest_host *g) {
   char descriptor[8192];
   snprintf(descriptor, sizeof(descriptor),
            "{\"apiVersion\":\"ext.plugin/v1\",\"identity\":{\"id\":"
-           "\"registry/%s\",\"revision\":\"r1\"},\"contracts\":[{\"name\":\"%s\","
+           "\"registry/%s\",\"revision\":\"r1\",\"version\":\"1.0.0\"},\"contracts\":[{\"name\":\"%s\","
            "\"version\":\"v1\",\"operations\":[{\"name\":\"echo\"},{\"name\":"
            "\"fail\"},{\"name\":\"slow\"},{\"name\":\"relay\"}]}],\"reverse\":"
            "[{\"name\":\"registry.ask\",\"version\":\"v1\",\"operations\":[",

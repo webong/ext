@@ -3,6 +3,7 @@
 package client
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -10,6 +11,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	inference "github.com/webong/ext/res/int/inference"
@@ -22,13 +24,25 @@ type Provider struct {
 	endpoint string
 	apiKey   string
 	client   *http.Client
+	// audio is whether the endpoint serves /audio/speech and /audio/transcriptions;
+	// OpenAI does, and an OpenAI-compatible server says so with EnableAudio.
+	audio bool
 }
 
 // NewProvider creates an OpenAI provider. endpoint is the base URL (for
 // example "https://api.openai.com/v1"). apiKey is the bearer token.
 func NewProvider(endpoint, apiKey string) (*Provider, error) {
-	return NewCompatibleProvider("openai", "OpenAI", endpoint, apiKey)
+	p, err := NewCompatibleProvider("openai", "OpenAI", endpoint, apiKey)
+	if err != nil {
+		return nil, err
+	}
+	p.EnableAudio()
+	return p, nil
 }
+
+// EnableAudio declares that the endpoint serves OpenAI's speech and transcription APIs, so
+// Synthesize and Transcribe use them instead of returning ErrUnsupported.
+func (p *Provider) EnableAudio() { p.audio = true }
 
 // NewCompatibleProvider constructs an explicitly configured OpenAI-compatible
 // provider. The caller selects its identity and whether it uses a bearer key.
@@ -62,19 +76,25 @@ func (p *Provider) Info(ctx context.Context) (inference.ProviderInfo, error) {
 	if err := ctx.Err(); err != nil {
 		return inference.ProviderInfo{}, err
 	}
+	modalities := []inference.Modality{inference.ModalityText}
+	capabilities := []inference.Capability{
+		inference.CapabilityGenerate,
+		inference.CapabilityStream,
+		inference.CapabilityEmbed,
+		inference.CapabilityToolProposal,
+		inference.CapabilityModelListing,
+	}
+	if p.audio {
+		modalities = append(modalities, inference.ModalityAudio)
+		capabilities = append(capabilities, inference.CapabilitySynthesize, inference.CapabilityTranscribe)
+	}
 	return inference.ProviderInfo{
-		ID:         p.id,
-		Name:       p.name,
-		Version:    "1.0.0",
-		Stability:  inference.StabilityStable,
-		Modalities: []inference.Modality{inference.ModalityText},
-		Capabilities: []inference.Capability{
-			inference.CapabilityGenerate,
-			inference.CapabilityStream,
-			inference.CapabilityEmbed,
-			inference.CapabilityToolProposal,
-			inference.CapabilityModelListing,
-		},
+		ID:           p.id,
+		Name:         p.name,
+		Version:      "1.0.0",
+		Stability:    inference.StabilityStable,
+		Modalities:   modalities,
+		Capabilities: capabilities,
 		Limits: inference.Limits{
 			MaxOutputTokens: 4096,
 			MaxInputTokens:  128000,
@@ -133,21 +153,93 @@ func (p *Provider) Embed(ctx context.Context, req inference.EmbeddingRequest) (i
 	return parseEmbedResponse(respBody)
 }
 
-// Synthesize is not supported by OpenAI.
+// Synthesize streams speech from OpenAI's /audio/speech API. The returned stream reads the
+// response body as it arrives, bounded at 64 MiB.
 func (p *Provider) Synthesize(ctx context.Context, req inference.SpeechRequest) (inference.SpeechStream, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	return nil, inference.ErrUnsupported
+	if !p.audio {
+		return nil, inference.ErrUnsupported
+	}
+	if err := req.Validate(); err != nil {
+		return nil, err
+	}
+	body, err := marshalSpeechRequest(req)
+	if err != nil {
+		return nil, err
+	}
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, p.endpoint+"/audio/speech", bytesReader(body))
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", inference.ErrInvalidRequest, err)
+	}
+	p.authorize(httpReq)
+	httpReq.Header.Set("Content-Type", "application/json")
+	resp, err := p.client.Do(httpReq)
+	if err != nil {
+		return nil, transportError(err)
+	}
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		defer resp.Body.Close()
+		raw, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+		return nil, mapOpenAIError(raw, resp.StatusCode)
+	}
+	return &speechStream{body: resp.Body, r: io.LimitReader(resp.Body, 64<<20)}, nil
 }
 
-// Transcribe is not supported by OpenAI through this adapter (use the audio
-// transcription endpoint via a dedicated adapter).
+// Transcribe transcribes audio with OpenAI's /audio/transcriptions API.
 func (p *Provider) Transcribe(ctx context.Context, req inference.TranscriptionRequest) (inference.TranscriptionResponse, error) {
 	if err := ctx.Err(); err != nil {
 		return inference.TranscriptionResponse{}, err
 	}
-	return inference.TranscriptionResponse{}, inference.ErrUnsupported
+	if !p.audio {
+		return inference.TranscriptionResponse{}, inference.ErrUnsupported
+	}
+	if err := req.Validate(); err != nil {
+		return inference.TranscriptionResponse{}, err
+	}
+	body, contentType, err := marshalTranscriptionRequest(req)
+	if err != nil {
+		return inference.TranscriptionResponse{}, err
+	}
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, p.endpoint+"/audio/transcriptions", bytes.NewReader(body))
+	if err != nil {
+		return inference.TranscriptionResponse{}, fmt.Errorf("%w: %v", inference.ErrInvalidRequest, err)
+	}
+	p.authorize(httpReq)
+	httpReq.Header.Set("Content-Type", contentType)
+	httpReq.Header.Set("Accept", "application/json")
+	resp, err := p.client.Do(httpReq)
+	if err != nil {
+		return inference.TranscriptionResponse{}, transportError(err)
+	}
+	defer resp.Body.Close()
+	raw, err := io.ReadAll(io.LimitReader(resp.Body, 32<<20+1))
+	if err != nil {
+		return inference.TranscriptionResponse{}, inference.NewRemoteError(inference.ErrInvalidResponse, "failed to read response", "openai")
+	}
+	if len(raw) > 32<<20 {
+		return inference.TranscriptionResponse{}, inference.NewRemoteError(inference.ErrResourceExhausted, "response too large", "openai")
+	}
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return inference.TranscriptionResponse{}, mapOpenAIError(raw, resp.StatusCode)
+	}
+	return parseTranscription(raw)
+}
+
+// speechStream is the body of a speech response, read as it arrives.
+type speechStream struct {
+	body io.Closer
+	r    io.Reader
+	once sync.Once
+}
+
+func (s *speechStream) Read(p []byte) (int, error) { return s.r.Read(p) }
+
+func (s *speechStream) Close() error {
+	var err error
+	s.once.Do(func() { err = s.body.Close() })
+	return err
 }
 
 // Models lists OpenAI models.
@@ -178,18 +270,13 @@ func (p *Provider) do(ctx context.Context, method, path string, body []byte) ([]
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", inference.ErrInvalidRequest, err)
 	}
-	if p.apiKey != "" {
-		req.Header.Set("Authorization", "Bearer "+p.apiKey)
-	}
+	p.authorize(req)
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
 
 	resp, err := p.client.Do(req)
 	if err != nil {
-		if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
-			return nil, inference.NewRemoteError(inference.ErrCanceled, "operation canceled", "openai")
-		}
-		return nil, inference.NewRemoteError(inference.ErrUnavailable, "request failed", "openai")
+		return nil, transportError(err)
 	}
 	defer resp.Body.Close()
 
@@ -205,6 +292,20 @@ func (p *Provider) do(ctx context.Context, method, path string, body []byte) ([]
 		return nil, mapOpenAIError(raw, resp.StatusCode)
 	}
 	return raw, nil
+}
+
+func (p *Provider) authorize(req *http.Request) {
+	if p.apiKey != "" {
+		req.Header.Set("Authorization", "Bearer "+p.apiKey)
+	}
+}
+
+// transportError maps a failed request without leaking its URL or credentials.
+func transportError(err error) error {
+	if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
+		return inference.NewRemoteError(inference.ErrCanceled, "operation canceled", "openai")
+	}
+	return inference.NewRemoteError(inference.ErrUnavailable, "request failed", "openai")
 }
 
 func (p *Provider) authKind() string {

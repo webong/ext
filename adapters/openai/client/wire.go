@@ -16,19 +16,29 @@ import (
 
 // chatMessage maps an inference.Message to an OpenAI chat message.
 type chatMessage struct {
-	Role      string             `json:"role"`
-	Content   json.RawMessage    `json:"content,omitempty"`
-	ToolCalls []chatToolCallResp `json:"tool_calls,omitempty"`
+	Role       string             `json:"role"`
+	Content    json.RawMessage    `json:"content,omitempty"`
+	ToolCalls  []chatToolCallResp `json:"tool_calls,omitempty"`
+	ToolCallID string             `json:"tool_call_id,omitempty"`
 }
 
-// chatToolCallResp maps an OpenAI tool call response.
+// chatToolCallResp maps an OpenAI tool call. In a streamed delta, Index says which call a
+// fragment belongs to and only the first fragment carries the id and name.
 type chatToolCallResp struct {
-	ID       string           `json:"id"`
-	Type     string           `json:"type"`
-	Function chatToolFunction `json:"function"`
+	Index    *int         `json:"index,omitempty"`
+	ID       string       `json:"id,omitempty"`
+	Type     string       `json:"type,omitempty"`
+	Function chatToolCall `json:"function"`
 }
 
-// chatToolFunction maps a tool definition/call to OpenAI format.
+// chatToolCall is the function of a tool call: OpenAI sends its arguments as a JSON
+// document encoded in a string.
+type chatToolCall struct {
+	Name      string `json:"name,omitempty"`
+	Arguments string `json:"arguments"`
+}
+
+// chatToolFunction is a tool definition's function.
 type chatToolFunction struct {
 	Name        string          `json:"name"`
 	Description string          `json:"description,omitempty"`
@@ -41,6 +51,11 @@ type chatToolDef struct {
 	Function chatToolFunction `json:"function"`
 }
 
+// streamOptions asks for the usage chunk at the end of a stream.
+type streamOptions struct {
+	IncludeUsage bool `json:"include_usage"`
+}
+
 // chatRequest is the OpenAI chat completions request.
 type chatRequest struct {
 	Model       string          `json:"model"`
@@ -50,6 +65,8 @@ type chatRequest struct {
 	MaxTokens   int             `json:"max_tokens,omitempty"`
 	Temperature *float64        `json:"temperature,omitempty"`
 	Stream      bool            `json:"stream,omitempty"`
+	// StreamOptions is set on streamed requests so the last chunk carries usage.
+	StreamOptions *streamOptions `json:"stream_options,omitempty"`
 }
 
 // chatResponse is the OpenAI chat completions response.
@@ -132,15 +149,16 @@ func marshalChatRequest(req inference.GenerationRequest, stream bool) ([]byte, e
 		if err != nil {
 			return nil, err
 		}
-		msg := chatMessage{Role: string(m.Role), Content: content}
+		msg := chatMessage{Role: string(m.Role), Content: content, ToolCallID: m.ToolCallID}
 		for _, tc := range m.ToolCalls {
+			args := string(tc.Arguments)
+			if args == "" {
+				args = "{}"
+			}
 			msg.ToolCalls = append(msg.ToolCalls, chatToolCallResp{
-				ID:   tc.ID,
-				Type: "function",
-				Function: chatToolFunction{
-					Name:       tc.Name,
-					Parameters: tc.Arguments,
-				},
+				ID:       tc.ID,
+				Type:     "function",
+				Function: chatToolCall{Name: tc.Name, Arguments: args},
 			})
 		}
 		messages = append(messages, msg)
@@ -170,6 +188,9 @@ func marshalChatRequest(req inference.GenerationRequest, stream bool) ([]byte, e
 		ToolChoice: toolChoice,
 		MaxTokens:  req.MaxOutputTokens,
 		Stream:     stream,
+	}
+	if stream {
+		cr.StreamOptions = &streamOptions{IncludeUsage: true}
 	}
 	if req.Temperature != nil {
 		cr.Temperature = req.Temperature
@@ -215,9 +236,10 @@ func parseChatResponse(raw []byte) (inference.GenerationResponse, error) {
 		},
 		StopReason: finishReason(choice.FinishReason),
 	}
+	// A message with only tool calls has "content": null; that and an empty string add no part.
 	if choice.Message.Content != nil {
 		var text string
-		if err := json.Unmarshal(choice.Message.Content, &text); err == nil {
+		if err := json.Unmarshal(choice.Message.Content, &text); err == nil && text != "" {
 			resp.Message.Parts = []inference.Part{{
 				Kind: inference.PartKindText,
 				Text: text,
@@ -225,11 +247,11 @@ func parseChatResponse(raw []byte) (inference.GenerationResponse, error) {
 		}
 	}
 	for _, tc := range choice.Message.ToolCalls {
-		resp.Message.ToolCalls = append(resp.Message.ToolCalls, inference.ToolCall{
-			ID:        tc.ID,
-			Name:      tc.Function.Name,
-			Arguments: tc.Function.Parameters,
-		})
+		call, err := toolCall(tc.ID, tc.Function.Name, tc.Function.Arguments)
+		if err != nil {
+			return inference.GenerationResponse{}, err
+		}
+		resp.Message.ToolCalls = append(resp.Message.ToolCalls, call)
 	}
 	return resp, nil
 }
@@ -348,6 +370,7 @@ type chatChunk struct {
 	ID      string        `json:"id"`
 	Model   string        `json:"model"`
 	Choices []chunkChoice `json:"choices"`
+	Usage   *usage        `json:"usage"`
 }
 
 // chunkChoice is one choice in a streaming chunk.
@@ -389,7 +412,16 @@ func (p *Provider) streamEvents(ctx context.Context, path string, body []byte, s
 
 	var final inference.GenerationResponse
 	completed := false
+	started := false
 	final.Message.Role = inference.RoleAssistant
+	var text strings.Builder
+	var calls []*pendingCall // by OpenAI's call index
+	emit := func(ev inference.GenerationEvent) error {
+		if err := sink.Emit(ctx, ev); err != nil {
+			return inference.NewRemoteError(inference.ErrCanceled, "stream canceled by sink", "openai")
+		}
+		return nil
+	}
 
 	for {
 		if err := ctx.Err(); err != nil {
@@ -422,29 +454,108 @@ func (p *Provider) streamEvents(ctx context.Context, path string, body []byte, s
 		if chunk.Model != "" && final.Model == "" {
 			final.Model = chunk.Model
 		}
-		if len(chunk.Choices) > 0 {
-			cc := chunk.Choices[0]
-			if cc.Delta.Content != nil {
-				var text string
-				if err := json.Unmarshal(cc.Delta.Content, &text); err == nil && text != "" {
-					ev := inference.GenerationEvent{
-						Kind:  inference.EventKindTextDelta,
-						Text:  text,
-						Index: cc.Index,
-					}
-					if err := sink.Emit(ctx, ev); err != nil {
-						return final, inference.NewRemoteError(inference.ErrCanceled, "stream canceled by sink", "openai")
-					}
+		if !started {
+			started = true
+			if err := emit(inference.GenerationEvent{Kind: inference.EventKindStarted}); err != nil {
+				return final, err
+			}
+		}
+		if chunk.Usage != nil {
+			final.Usage = inference.TokenUsage{
+				Input:  int64(chunk.Usage.PromptTokens),
+				Output: int64(chunk.Usage.CompletionTokens),
+				Total:  int64(chunk.Usage.TotalTokens),
+			}
+			u := final.Usage
+			if err := emit(inference.GenerationEvent{Kind: inference.EventKindUsage, Usage: &u}); err != nil {
+				return final, err
+			}
+		}
+		if len(chunk.Choices) == 0 {
+			continue
+		}
+		cc := chunk.Choices[0]
+		if cc.Delta.Content != nil {
+			var delta string
+			if err := json.Unmarshal(cc.Delta.Content, &delta); err == nil && delta != "" {
+				text.WriteString(delta)
+				if err := emit(inference.GenerationEvent{Kind: inference.EventKindTextDelta, Text: delta, Index: cc.Index}); err != nil {
+					return final, err
 				}
 			}
-			if cc.FinishReason != "" {
-				final.StopReason = finishReason(cc.FinishReason)
+		}
+		for _, tc := range cc.Delta.ToolCalls {
+			i := len(calls)
+			if tc.Index != nil {
+				i = *tc.Index
 			}
+			if i < 0 || i > 1024 {
+				return final, inference.NewRemoteError(inference.ErrInvalidResponse, "tool call index out of range", "openai")
+			}
+			for len(calls) <= i {
+				calls = append(calls, nil)
+			}
+			if calls[i] == nil {
+				calls[i] = &pendingCall{}
+			}
+			c := calls[i]
+			if tc.ID != "" {
+				c.id = tc.ID
+			}
+			if tc.Function.Name != "" {
+				c.name = tc.Function.Name
+			}
+			c.args.WriteString(tc.Function.Arguments)
+			ev := inference.GenerationEvent{Kind: inference.EventKindToolDelta, Index: i, CallID: c.id, ToolName: c.name, ArgumentsDelta: tc.Function.Arguments}
+			if err := emit(ev); err != nil {
+				return final, err
+			}
+		}
+		if cc.FinishReason != "" {
+			final.StopReason = finishReason(cc.FinishReason)
 		}
 	}
 
 	if !completed {
 		return final, inference.NewRemoteError(inference.ErrInvalidResponse, "stream ended before completion", "openai")
 	}
+	if text.Len() > 0 {
+		final.Message.Parts = []inference.Part{{Kind: inference.PartKindText, Text: text.String()}}
+	}
+	for i, c := range calls {
+		if c == nil {
+			continue
+		}
+		call, err := toolCall(c.id, c.name, c.args.String())
+		if err != nil {
+			return final, err
+		}
+		final.Message.ToolCalls = append(final.Message.ToolCalls, call)
+		if err := emit(inference.GenerationEvent{Kind: inference.EventKindToolCompleted, Index: i, CallID: call.ID, ToolName: call.Name, Call: &call}); err != nil {
+			return final, err
+		}
+	}
+	done := final
+	if err := emit(inference.GenerationEvent{Kind: inference.EventKindCompleted, Response: &done}); err != nil {
+		return final, err
+	}
 	return final, nil
+}
+
+// pendingCall is a streamed tool call while its fragments arrive.
+type pendingCall struct {
+	id, name string
+	args     strings.Builder
+}
+
+// toolCall builds a tool call from OpenAI's id, name and argument string, which must be
+// a JSON document (an empty string means no arguments).
+func toolCall(id, name, args string) (inference.ToolCall, error) {
+	if strings.TrimSpace(args) == "" {
+		args = "{}"
+	}
+	if id == "" || name == "" || !json.Valid([]byte(args)) {
+		return inference.ToolCall{}, inference.NewRemoteError(inference.ErrInvalidResponse, "malformed tool call", "openai")
+	}
+	return inference.ToolCall{ID: id, Name: name, Arguments: json.RawMessage(args)}, nil
 }

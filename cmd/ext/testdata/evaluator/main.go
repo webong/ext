@@ -9,7 +9,7 @@ import (
 func main() {
 	switch os.Args[1] {
 	case "observe":
-		fmt.Println(`{"version":1,"contexts":[{"selection":"embedded","attributes":{"kind":"wasm","isolation":"sandboxed"}}]}`)
+		fmt.Println(`{"version":1,"contexts":[{"selection":"embedded","attributes":{"kind":"wasm","isolation":"sandboxed","boundary":"runtime"}}]}`)
 	case "doctor":
 		fmt.Println("evaluator doctor")
 		if os.Getenv("EXT_TEST_DOCTOR_FAIL") == "1" {

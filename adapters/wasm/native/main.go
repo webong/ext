@@ -89,7 +89,7 @@ func observe(stdout io.Writer) int {
 	contexts := []any{map[string]any{
 		"selection": engine,
 		"attributes": map[string]string{
-			"kind": "wasm", "version": engineVersion(), "isolation": "sandboxed",
+			"kind": "wasm", "version": engineVersion(), "isolation": "sandboxed", "boundary": "runtime",
 			"engine": "wazero", "wasi": "preview1", "components": "no", "sandbox": "no host access unless granted",
 		},
 	}}
@@ -105,7 +105,7 @@ func observe(stdout io.Writer) int {
 		contexts = append(contexts, map[string]any{
 			"selection": candidate.name,
 			"attributes": map[string]string{
-				"kind": "wasm", "version": candidate.version(path), "isolation": "sandboxed",
+				"kind": "wasm", "version": candidate.version(path), "isolation": "sandboxed", "boundary": "runtime",
 				"engine": candidate.name, "path": path, "components": components,
 				"sandbox": "no host access unless granted; cannot mount read-only",
 			},

@@ -20,6 +20,7 @@ require (
 	github.com/ncruces/go-strftime v1.1.0 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
 	github.com/webong/ext/res/graph v0.3.0 // indirect
+	github.com/webong/ext/res/sandbox v0.1.0 // indirect
 	github.com/webong/ext/res/system v0.5.1 // indirect
 	github.com/webong/ext/res/web/host v0.1.0 // indirect
 	golang.org/x/sys v0.49.0 // indirect
@@ -34,6 +35,8 @@ replace github.com/webong/ext/ctx => ../../src/ctx
 replace github.com/webong/ext/ctn => ../../src/ctn
 
 replace github.com/webong/ext/res/int => ../../res/int
+
+replace github.com/webong/ext/res/sandbox => ../../res/sandbox
 
 replace github.com/webong/ext/res/graph => ../../res/graph
 

@@ -61,7 +61,7 @@ func TestDiscovery(t *testing.T) {
 	}
 	code, stdout, _ := invoke(t, "observe")
 	if code != 0 || !strings.Contains(stdout, `"selection":"cancun"`) || !strings.Contains(stdout, "EIP-1153") || !strings.Contains(stdout, "go-ethereum") ||
-		!strings.Contains(stdout, `"kind":"evm"`) || !strings.Contains(stdout, `"isolation":"sandboxed"`) || !strings.Contains(stdout, `"version":"v`) {
+		!strings.Contains(stdout, `"kind":"evm"`) || !strings.Contains(stdout, `"isolation":"sandboxed"`) || !strings.Contains(stdout, `"boundary":"runtime"`) || !strings.Contains(stdout, `"version":"v`) {
 		t.Fatalf("observe: %d %q", code, stdout)
 	}
 	if code, _, _ := invoke(t, "validate", "cancun"); code != 0 {

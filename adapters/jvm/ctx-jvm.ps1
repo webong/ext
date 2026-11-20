@@ -58,7 +58,7 @@ switch ($operation) {
     'list' { $distinct | ForEach-Object { $_.selection }; exit 0 }
     'observe' {
         $contexts = @($distinct | ForEach-Object {
-            @{ selection = $_.selection; attributes = @{ kind = 'jvm'; isolation = 'host'; version = $_.version; home = $_.home; source = $_.source } }
+            @{ selection = $_.selection; attributes = @{ kind = 'jvm'; isolation = 'host'; boundary = 'process'; version = $_.version; home = $_.home; source = $_.source } }
         })
         @{ version = 1; contexts = $contexts } | ConvertTo-Json -Compress -Depth 5
         exit 0

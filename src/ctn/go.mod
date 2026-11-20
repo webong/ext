@@ -8,11 +8,14 @@ require (
 	github.com/webong/ext/pkg/ext-go/model v0.1.0
 	github.com/webong/ext/pkg/ext-go/perception v0.1.0
 	github.com/webong/ext/res/int v0.1.0
+	github.com/webong/ext/res/sandbox v0.1.0
 	github.com/webong/ext/res/system v0.5.1 // indirect
 	golang.org/x/sys v0.48.0 // indirect
 )
 
 replace github.com/webong/ext/res/int => ../../res/int
+
+replace github.com/webong/ext/res/sandbox => ../../res/sandbox
 
 replace github.com/webong/ext/res/system => ../../res/system
 

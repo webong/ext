@@ -32,6 +32,15 @@ a bridge is considered only when declared, with exact common protocol and the
 intersection of all four endpoint feature sets. This performs no discovery or
 version translation.
 
+A profile may state its sandbox `boundary`: `in-process`, `process`, `confined`,
+`runtime`, `container` or `kernel` ([the sandboxing ADR](../../docs/adr-sandboxing.md)).
+Requirements may list the `boundaries` a consumer accepts, distinct levels; an empty
+or absent list accepts any. A route's `boundary` is its guest's, and a bridge does not
+change it. A route that meets the transport requirements but not the boundaries is
+skipped; when every such route was skipped for its boundary the result is
+`EXT_DENIED`, otherwise `EXT_UNSUPPORTED`. `testdata/v1/route-cases.json` is the
+contract, run by `tests/fixtures.c` and by every engine binding's `RouteFixture`.
+
 Endpoints are the loopback listeners a plugin's result declares (`pkg/ext-go/
 engine/endpoint`). `endpoint.check` reads one strictly (unknown and duplicate
 fields and wrong types are refused) and applies the rules no policy changes: a

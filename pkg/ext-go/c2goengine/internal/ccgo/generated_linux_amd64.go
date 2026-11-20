@@ -1,5 +1,5 @@
 // Code generated for linux/amd64 by 'ccgo -o engine.go --package-name ccgo -I csrc/shim -I csrc/src -I csrc/vendor -I csrc/include -DEXT_HOST_STATIC -DEXT_HOST_BUILD -Dyyjson_align(x)= -Dyyjson_inline= -Dyyjson_noinline= -U__SIZEOF_INT128__ -include csrc/shim/compat_core.h -include csrc/shim/compat.h csrc/src/common.c csrc/src/wire.c csrc/src/progress.c csrc/src/reverse.c csrc/src/endpoint.c csrc/src/services.c csrc/src/guest.c csrc/src/sha256.c csrc/src/packages.c csrc/vendor/yyjson.c csrc/src/host.c csrc/src/fs_posix.c csrc/src/random_posix.c csrc/src/integrity.c csrc/src/instances.c csrc/src/streams.c csrc/shim/channel_go.c csrc/shim/missing.c', DO NOT EDIT.
-// c2goengine inputs sha256:c8026fae4988c82b6f0f356416ea239fb12bac1551fae93e93165673d8489136
+// c2goengine inputs sha256:1789679ff44cf16975f1e1e77ccd3690a6bcbddccf9533e3817dd4b19261671c
 
 //go:build linux && amd64
 
@@ -35339,28 +35339,130 @@ func ext_schema_check(tls *libc.TLS, s uintptr, v uintptr) (r int32) {
 	return int32(1)
 }
 
+// C documentation
+//
+//	/* The sandbox boundary levels (docs/adr-sandboxing.md). A profile may state one;
+//	 * a route's requirements may list the ones a consumer accepts. */
+var boundaries = [6]uintptr{
+	0: __ccgo_ts + 981,
+	1: __ccgo_ts + 992,
+	2: __ccgo_ts + 1000,
+	3: __ccgo_ts + 1009,
+	4: __ccgo_ts + 1017,
+	5: __ccgo_ts + 1027,
+}
+
+func boundary(tls *libc.TLS, v uintptr) (r int32) {
+	var i size_t
+	_ = i
+	if !(yyjson_is_str5(tls, v) != 0) {
+		return 0
+	}
+	i = uint64(0)
+	for {
+		if !(i < libc.Uint64FromInt64(48)/libc.Uint64FromInt64(8)) {
+			break
+		}
+		if yyjson_equals_str5(tls, v, boundaries[i]) != 0 {
+			return int32(1)
+		}
+		goto _1
+	_1:
+		;
+		i = i + 1
+	}
+	return 0
+}
+
+// C documentation
+//
+//	/* An absent list accepts any boundary; a present one is a list of distinct levels. */
+func boundary_list(tls *libc.TLS, v uintptr) (r int32) {
+	var b, earlier uintptr
+	var i, j, m, n size_t
+	_, _, _, _, _, _ = b, earlier, i, j, m, n
+	if !(v != 0) || yyjson_is_null5(tls, v) != 0 {
+		return int32(1)
+	}
+	if !(yyjson_is_arr5(tls, v) != 0) || yyjson_arr_size5(tls, v) > libc.Uint64FromInt64(48)/libc.Uint64FromInt64(8) {
+		return 0
+	}
+	i = uint64(0)
+	n = yyjson_arr_size5(tls, v)
+	b = yyjson_arr_get_first5(tls, v)
+	for {
+		if !(i < n) {
+			break
+		}
+		if !(boundary(tls, b) != 0) {
+			return 0
+		}
+		j = uint64(0)
+		m = yyjson_arr_size5(tls, v)
+		earlier = yyjson_arr_get_first5(tls, v)
+		for {
+			if !(j < m) {
+				break
+			}
+			if j >= i {
+				break
+			} else {
+				if ext_same(tls, b, earlier) != 0 {
+					return 0
+				}
+			}
+			goto _2
+		_2:
+			;
+			j = j + 1
+			earlier = unsafe_yyjson_get_next5(tls, earlier)
+		}
+		goto _1
+	_1:
+		;
+		i = i + 1
+		b = unsafe_yyjson_get_next5(tls, b)
+	}
+	return int32(1)
+}
+
+// C documentation
+//
+//	/* Whether a guest's boundary is one the requirements accept. */
+func boundary_accepted(tls *libc.TLS, guest uintptr, want uintptr) (r int32) {
+	var have, list uintptr
+	_, _ = have, list
+	list = yyjson_obj_get5(tls, want, __ccgo_ts+1034)
+	have = yyjson_obj_get5(tls, guest, __ccgo_ts+1045)
+	if !(list != 0) || yyjson_is_null5(tls, list) != 0 || !(yyjson_arr_size5(tls, list) != 0) {
+		return int32(1)
+	}
+	return libc.BoolInt32(!(!(have != 0) || yyjson_is_null5(tls, have) != 0) && contains(tls, list, have) != 0)
+}
+
 func profile(tls *libc.TLS, p uintptr) (r int32) {
 	bp := tls.Alloc(64)
 	defer tls.Free(64)
 	var flags [3]uintptr
 	var i size_t
 	_, _ = flags, i
-	*(*[7]uintptr)(unsafe.Pointer(bp)) = [7]uintptr{
+	*(*[8]uintptr)(unsafe.Pointer(bp)) = [8]uintptr{
 		0: __ccgo_ts + 412,
-		1: __ccgo_ts + 981,
-		2: __ccgo_ts + 991,
-		3: __ccgo_ts + 1002,
-		4: __ccgo_ts + 1015,
-		5: __ccgo_ts + 1028,
-		6: __ccgo_ts + 1044,
+		1: __ccgo_ts + 1054,
+		2: __ccgo_ts + 1064,
+		3: __ccgo_ts + 1075,
+		4: __ccgo_ts + 1088,
+		5: __ccgo_ts + 1101,
+		6: __ccgo_ts + 1117,
+		7: __ccgo_ts + 1045,
 	}
-	if !(ext_fields(tls, p, bp, libc.Uint64FromInt64(56)/libc.Uint64FromInt64(8)) != 0) || !(ext_text(tls, yyjson_obj_get5(tls, p, __ccgo_ts+412), 0, 0) != 0) || !(ext_protocols(tls, yyjson_obj_get5(tls, p, __ccgo_ts+981)) != 0) {
+	if !(ext_fields(tls, p, bp, libc.Uint64FromInt64(64)/libc.Uint64FromInt64(8)) != 0) || !(ext_text(tls, yyjson_obj_get5(tls, p, __ccgo_ts+412), 0, 0) != 0) || !(ext_protocols(tls, yyjson_obj_get5(tls, p, __ccgo_ts+1054)) != 0) {
 		return 0
 	}
 	flags = [3]uintptr{
-		0: __ccgo_ts + 991,
-		1: __ccgo_ts + 1028,
-		2: __ccgo_ts + 1044,
+		0: __ccgo_ts + 1064,
+		1: __ccgo_ts + 1101,
+		2: __ccgo_ts + 1117,
 	}
 	i = uint64(0)
 	for {
@@ -35375,7 +35477,7 @@ func profile(tls *libc.TLS, p uintptr) (r int32) {
 		;
 		i = i + 1
 	}
-	return libc.BoolInt32((!(yyjson_obj_get5(tls, p, __ccgo_ts+1002) != 0) || yyjson_is_null5(tls, yyjson_obj_get5(tls, p, __ccgo_ts+1002)) != 0 || yyjson_is_str5(tls, yyjson_obj_get5(tls, p, __ccgo_ts+1002)) != 0) && (!(yyjson_obj_get5(tls, p, __ccgo_ts+1015) != 0) || yyjson_is_null5(tls, yyjson_obj_get5(tls, p, __ccgo_ts+1015)) != 0 || yyjson_is_str5(tls, yyjson_obj_get5(tls, p, __ccgo_ts+1015)) != 0))
+	return libc.BoolInt32((!(yyjson_obj_get5(tls, p, __ccgo_ts+1075) != 0) || yyjson_is_null5(tls, yyjson_obj_get5(tls, p, __ccgo_ts+1075)) != 0 || yyjson_is_str5(tls, yyjson_obj_get5(tls, p, __ccgo_ts+1075)) != 0) && (!(yyjson_obj_get5(tls, p, __ccgo_ts+1088) != 0) || yyjson_is_null5(tls, yyjson_obj_get5(tls, p, __ccgo_ts+1088)) != 0 || yyjson_is_str5(tls, yyjson_obj_get5(tls, p, __ccgo_ts+1088)) != 0) && (!(yyjson_obj_get5(tls, p, __ccgo_ts+1045) != 0) || yyjson_is_null5(tls, yyjson_obj_get5(tls, p, __ccgo_ts+1045)) != 0 || boundary(tls, yyjson_obj_get5(tls, p, __ccgo_ts+1045)) != 0))
 }
 
 func unique_name(tls *libc.TLS, array uintptr, i size_t, p uintptr) (r int32) {
@@ -35406,17 +35508,17 @@ func unique_name(tls *libc.TLS, array uintptr, i size_t, p uintptr) (r int32) {
 }
 
 func route_result(tls *libc.TLS, h uintptr, g uintptr, bridge uintptr, protocol uintptr, want uintptr, out uintptr) (r ext_status) {
-	var copy1, d, root, v2 uintptr
+	var copy1, d, root, v2, v3 uintptr
 	var features [3]int32
 	var flags [3]uintptr
 	var i, i1, i2 size_t
-	var names, vals [4]uintptr
-	var ok, v5 int32
-	_, _, _, _, _, _, _, _, _, _, _, _, _ = copy1, d, features, flags, i, i1, i2, names, ok, root, vals, v2, v5
+	var names, vals [5]uintptr
+	var ok, v6 int32
+	_, _, _, _, _, _, _, _, _, _, _, _, _, _ = copy1, d, features, flags, i, i1, i2, names, ok, root, vals, v2, v3, v6
 	flags = [3]uintptr{
-		0: __ccgo_ts + 991,
-		1: __ccgo_ts + 1028,
-		2: __ccgo_ts + 1044,
+		0: __ccgo_ts + 1064,
+		1: __ccgo_ts + 1101,
+		2: __ccgo_ts + 1117,
 	}
 	i = uint64(0)
 	for {
@@ -35425,7 +35527,7 @@ func route_result(tls *libc.TLS, h uintptr, g uintptr, bridge uintptr, protocol 
 		}
 		features[i] = libc.BoolInt32(yyjson_get_bool5(tls, yyjson_obj_get5(tls, h, flags[i])) != 0 && yyjson_get_bool5(tls, yyjson_obj_get5(tls, g, flags[i])) != 0)
 		if bridge != 0 {
-			features[i] = libc.BoolInt32(features[i] != 0 && yyjson_get_bool5(tls, yyjson_obj_get5(tls, yyjson_obj_get5(tls, bridge, __ccgo_ts+1060), flags[i])) != 0 && yyjson_get_bool5(tls, yyjson_obj_get5(tls, yyjson_obj_get5(tls, bridge, __ccgo_ts+1069), flags[i])) != 0)
+			features[i] = libc.BoolInt32(features[i] != 0 && yyjson_get_bool5(tls, yyjson_obj_get5(tls, yyjson_obj_get5(tls, bridge, __ccgo_ts+1133), flags[i])) != 0 && yyjson_get_bool5(tls, yyjson_obj_get5(tls, yyjson_obj_get5(tls, bridge, __ccgo_ts+1142), flags[i])) != 0)
 		}
 		if yyjson_get_bool5(tls, yyjson_obj_get5(tls, want, flags[i])) != 0 && !(features[i] != 0) {
 			return int32(EXT_UNSUPPORTED)
@@ -35435,6 +35537,11 @@ func route_result(tls *libc.TLS, h uintptr, g uintptr, bridge uintptr, protocol 
 		;
 		i = i + 1
 	}
+	/* A route that meets the transport requirements but not the boundaries is
+	 * skipped; the caller reports denied when every such route was. */
+	if !(boundary_accepted(tls, g, want) != 0) {
+		return int32(EXT_DENIED)
+	}
 	d = yyjson_mut_doc_new(tls, libc.UintptrFromInt32(0))
 	if !(d != 0) {
 		return int32(EXT_NOMEM)
@@ -35442,34 +35549,41 @@ func route_result(tls *libc.TLS, h uintptr, g uintptr, bridge uintptr, protocol 
 	root = yyjson_mut_obj5(tls, d)
 	yyjson_mut_doc_set_root5(tls, d, root)
 	ok = libc.BoolInt32(root != libc.UintptrFromInt32(0))
-	names = [4]uintptr{
+	names = [5]uintptr{
 		0: __ccgo_ts + 359,
-		1: __ccgo_ts + 1077,
-		2: __ccgo_ts + 1082,
-		3: __ccgo_ts + 1088,
+		1: __ccgo_ts + 1150,
+		2: __ccgo_ts + 1155,
+		3: __ccgo_ts + 1161,
+		4: __ccgo_ts + 1045,
 	}
 	if bridge != 0 {
 		v2 = yyjson_obj_get5(tls, bridge, __ccgo_ts+412)
 	} else {
 		v2 = libc.UintptrFromInt32(0)
 	}
-	vals = [4]uintptr{
+	if !(yyjson_obj_get5(tls, g, __ccgo_ts+1045) != 0) || yyjson_is_null5(tls, yyjson_obj_get5(tls, g, __ccgo_ts+1045)) != 0 {
+		v3 = libc.UintptrFromInt32(0)
+	} else {
+		v3 = yyjson_obj_get5(tls, g, __ccgo_ts+1045)
+	}
+	vals = [5]uintptr{
 		0: protocol,
 		1: h,
 		2: g,
 		3: v2,
+		4: v3,
 	}
 	i1 = uint64(0)
 	for {
-		if !(i1 < uint64(4) && ok != 0) {
+		if !(i1 < uint64(5) && ok != 0) {
 			break
 		}
 		if vals[i1] != 0 {
 			copy1 = yyjson_val_mut_copy(tls, d, vals[i1])
 			ok = libc.BoolInt32(copy1 != 0 && yyjson_mut_obj_add_val5(tls, d, root, names[i1], copy1) != 0)
 		}
-		goto _3
-	_3:
+		goto _4
+	_4:
 		;
 		i1 = i1 + 1
 	}
@@ -35479,8 +35593,8 @@ func route_result(tls *libc.TLS, h uintptr, g uintptr, bridge uintptr, protocol 
 			break
 		}
 		ok = libc.Int32FromUint8(yyjson_mut_obj_add_bool5(tls, d, root, flags[i2], libc.Uint8FromInt32(libc.BoolInt32(features[i2] != 0))))
-		goto _4
-	_4:
+		goto _5
+	_5:
 		;
 		i2 = i2 + 1
 	}
@@ -35489,47 +35603,50 @@ func route_result(tls *libc.TLS, h uintptr, g uintptr, bridge uintptr, protocol 
 	}
 	yyjson_mut_doc_free(tls, d)
 	if (*ext_buffer)(unsafe.Pointer(out)).Fdata != 0 {
-		v5 = int32(EXT_OK)
+		v6 = int32(EXT_OK)
 	} else {
-		v5 = int32(EXT_NOMEM)
+		v6 = int32(EXT_NOMEM)
 	}
-	return v5
+	return v6
 }
 
 func routes(tls *libc.TLS, v uintptr, out uintptr) (r ext_status) {
-	bp := tls.Alloc(80)
-	defer tls.Free(80)
+	bp := tls.Alloc(96)
+	defer tls.Free(96)
 	var b, back, bridges, front, g, guests, h, hosts, p, want uintptr
 	var count, i, j, k, m, n, q, z size_t
+	var denied, v11 int32
 	var s, s1 ext_status
 	var v1 bool
-	_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ = b, back, bridges, count, front, g, guests, h, hosts, i, j, k, m, n, p, q, s, s1, want, z, v1
+	_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ = b, back, bridges, count, denied, front, g, guests, h, hosts, i, j, k, m, n, p, q, s, s1, want, z, v1, v11
 	*(*[4]uintptr)(unsafe.Pointer(bp)) = [4]uintptr{
-		0: __ccgo_ts + 1095,
-		1: __ccgo_ts + 1101,
-		2: __ccgo_ts + 1108,
-		3: __ccgo_ts + 1116,
+		0: __ccgo_ts + 1168,
+		1: __ccgo_ts + 1174,
+		2: __ccgo_ts + 1181,
+		3: __ccgo_ts + 1189,
 	}
 	if !(ext_fields(tls, v, bp, libc.Uint64FromInt64(32)/libc.Uint64FromInt64(8)) != 0) {
 		return int32(EXT_INVALID)
 	}
-	hosts = yyjson_obj_get5(tls, v, __ccgo_ts+1095)
-	guests = yyjson_obj_get5(tls, v, __ccgo_ts+1101)
-	bridges = yyjson_obj_get5(tls, v, __ccgo_ts+1108)
-	want = yyjson_obj_get5(tls, v, __ccgo_ts+1116)
+	hosts = yyjson_obj_get5(tls, v, __ccgo_ts+1168)
+	guests = yyjson_obj_get5(tls, v, __ccgo_ts+1174)
+	bridges = yyjson_obj_get5(tls, v, __ccgo_ts+1181)
+	want = yyjson_obj_get5(tls, v, __ccgo_ts+1189)
 	if !(list(tls, hosts, uint64(1), uint64(64)) != 0) || !(list(tls, guests, uint64(1), uint64(64)) != 0) || !(!(bridges != 0) || yyjson_is_null5(tls, bridges) != 0) && !(list(tls, bridges, uint64(0), uint64(64)) != 0) {
 		return int32(EXT_INVALID)
 	}
 	if v1 = !(!(want != 0) || yyjson_is_null5(tls, want) != 0); v1 {
-		*(*[3]uintptr)(unsafe.Pointer(bp + 32)) = [3]uintptr{
-			0: __ccgo_ts + 991,
-			1: __ccgo_ts + 1028,
-			2: __ccgo_ts + 1044,
+		*(*[4]uintptr)(unsafe.Pointer(bp + 32)) = [4]uintptr{
+			0: __ccgo_ts + 1064,
+			1: __ccgo_ts + 1101,
+			2: __ccgo_ts + 1117,
+			3: __ccgo_ts + 1034,
 		}
 	}
-	if v1 && (!(ext_fields(tls, want, bp+32, libc.Uint64FromInt64(24)/libc.Uint64FromInt64(8)) != 0) || !(optional_bool(tls, yyjson_obj_get5(tls, want, __ccgo_ts+991)) != 0) || !(optional_bool(tls, yyjson_obj_get5(tls, want, __ccgo_ts+1028)) != 0) || !(optional_bool(tls, yyjson_obj_get5(tls, want, __ccgo_ts+1044)) != 0)) {
+	if v1 && (!(ext_fields(tls, want, bp+32, libc.Uint64FromInt64(32)/libc.Uint64FromInt64(8)) != 0) || !(optional_bool(tls, yyjson_obj_get5(tls, want, __ccgo_ts+1064)) != 0) || !(optional_bool(tls, yyjson_obj_get5(tls, want, __ccgo_ts+1101)) != 0) || !(optional_bool(tls, yyjson_obj_get5(tls, want, __ccgo_ts+1117)) != 0) || !(boundary_list(tls, yyjson_obj_get5(tls, want, __ccgo_ts+1034)) != 0)) {
 		return int32(EXT_INVALID)
 	}
+	denied = 0
 	i = uint64(0)
 	n = yyjson_arr_size5(tls, hosts)
 	h = yyjson_arr_get_first5(tls, hosts)
@@ -35569,12 +35686,12 @@ func routes(tls *libc.TLS, v uintptr, out uintptr) (r ext_status) {
 		if !(i < n) {
 			break
 		}
-		*(*[3]uintptr)(unsafe.Pointer(bp + 56)) = [3]uintptr{
+		*(*[3]uintptr)(unsafe.Pointer(bp + 64)) = [3]uintptr{
 			0: __ccgo_ts + 412,
-			1: __ccgo_ts + 1060,
-			2: __ccgo_ts + 1069,
+			1: __ccgo_ts + 1133,
+			2: __ccgo_ts + 1142,
 		}
-		if !(ext_fields(tls, b, bp+56, libc.Uint64FromInt64(24)/libc.Uint64FromInt64(8)) != 0) || !(ext_text(tls, yyjson_obj_get5(tls, b, __ccgo_ts+412), 0, 0) != 0) || !(unique_name(tls, bridges, i, b) != 0) || !(profile(tls, yyjson_obj_get5(tls, b, __ccgo_ts+1060)) != 0) || !(profile(tls, yyjson_obj_get5(tls, b, __ccgo_ts+1069)) != 0) {
+		if !(ext_fields(tls, b, bp+64, libc.Uint64FromInt64(24)/libc.Uint64FromInt64(8)) != 0) || !(ext_text(tls, yyjson_obj_get5(tls, b, __ccgo_ts+412), 0, 0) != 0) || !(unique_name(tls, bridges, i, b) != 0) || !(profile(tls, yyjson_obj_get5(tls, b, __ccgo_ts+1133)) != 0) || !(profile(tls, yyjson_obj_get5(tls, b, __ccgo_ts+1142)) != 0) {
 			return int32(EXT_INVALID)
 		}
 		goto _4
@@ -35600,13 +35717,17 @@ func routes(tls *libc.TLS, v uintptr, out uintptr) (r ext_status) {
 			if !(ext_same(tls, yyjson_obj_get5(tls, h, __ccgo_ts+412), yyjson_obj_get5(tls, g, __ccgo_ts+412)) != 0) {
 				goto _6
 			}
-			p = ext_negotiate(tls, yyjson_obj_get5(tls, h, __ccgo_ts+981), yyjson_obj_get5(tls, g, __ccgo_ts+981))
+			p = ext_negotiate(tls, yyjson_obj_get5(tls, h, __ccgo_ts+1054), yyjson_obj_get5(tls, g, __ccgo_ts+1054))
 			if !(p != 0) {
 				goto _6
 			}
 			s = route_result(tls, h, g, libc.UintptrFromInt32(0), p, want, out)
-			if s != int32(EXT_UNSUPPORTED) {
-				return s
+			if s == int32(EXT_DENIED) {
+				denied = int32(1)
+			} else {
+				if s != int32(EXT_UNSUPPORTED) {
+					return s
+				}
 			}
 			goto _6
 		_6:
@@ -35641,24 +35762,28 @@ func routes(tls *libc.TLS, v uintptr, out uintptr) (r ext_status) {
 				if !(k < z) {
 					break
 				}
-				front = yyjson_obj_get5(tls, b, __ccgo_ts+1060)
-				back = yyjson_obj_get5(tls, b, __ccgo_ts+1069)
+				front = yyjson_obj_get5(tls, b, __ccgo_ts+1133)
+				back = yyjson_obj_get5(tls, b, __ccgo_ts+1142)
 				if !(ext_same(tls, yyjson_obj_get5(tls, h, __ccgo_ts+412), yyjson_obj_get5(tls, front, __ccgo_ts+412)) != 0) || !(ext_same(tls, yyjson_obj_get5(tls, g, __ccgo_ts+412), yyjson_obj_get5(tls, back, __ccgo_ts+412)) != 0) {
 					goto _9
 				}
 				q = uint64(0)
-				count = yyjson_arr_size5(tls, yyjson_obj_get5(tls, h, __ccgo_ts+981))
-				p = yyjson_arr_get_first5(tls, yyjson_obj_get5(tls, h, __ccgo_ts+981))
+				count = yyjson_arr_size5(tls, yyjson_obj_get5(tls, h, __ccgo_ts+1054))
+				p = yyjson_arr_get_first5(tls, yyjson_obj_get5(tls, h, __ccgo_ts+1054))
 				for {
 					if !(q < count) {
 						break
 					}
-					if !(contains(tls, yyjson_obj_get5(tls, g, __ccgo_ts+981), p) != 0) || !(contains(tls, yyjson_obj_get5(tls, front, __ccgo_ts+981), p) != 0) || !(contains(tls, yyjson_obj_get5(tls, back, __ccgo_ts+981), p) != 0) {
+					if !(contains(tls, yyjson_obj_get5(tls, g, __ccgo_ts+1054), p) != 0) || !(contains(tls, yyjson_obj_get5(tls, front, __ccgo_ts+1054), p) != 0) || !(contains(tls, yyjson_obj_get5(tls, back, __ccgo_ts+1054), p) != 0) {
 						goto _10
 					}
 					s1 = route_result(tls, h, g, b, p, want, out)
-					if s1 != int32(EXT_UNSUPPORTED) {
-						return s1
+					if s1 == int32(EXT_DENIED) {
+						denied = int32(1)
+					} else {
+						if s1 != int32(EXT_UNSUPPORTED) {
+							return s1
+						}
 					}
 					goto _10
 				_10:
@@ -35684,7 +35809,12 @@ func routes(tls *libc.TLS, v uintptr, out uintptr) (r ext_status) {
 		i = i + 1
 		h = unsafe_yyjson_get_next5(tls, h)
 	}
-	return int32(EXT_UNSUPPORTED)
+	if denied != 0 {
+		v11 = int32(EXT_DENIED)
+	} else {
+		v11 = int32(EXT_UNSUPPORTED)
+	}
+	return v11
 }
 
 func dispatch(tls *libc.TLS, op uintptr, v uintptr, out uintptr) (r1 ext_status) {
@@ -35703,54 +35833,54 @@ func dispatch(tls *libc.TLS, op uintptr, v uintptr, out uintptr) (r1 ext_status)
 	var _ /* result at bp+128 */ uintptr
 	_, _, _, _, _, _, _, _, _, _ = i, n, r, s, s1, s2, s3, s4, s5, tag
 	*(*uintptr)(unsafe.Add(nil, bp+128)) = libc.UintptrFromInt32(0)
-	if !(libc.Xstrncmp(tls, op, __ccgo_ts+1129, uint64(8)) != 0) {
+	if !(libc.Xstrncmp(tls, op, __ccgo_ts+1202, uint64(8)) != 0) {
 		return ext_package_service(tls, op, v, out)
 	}
-	if !(libc.Xstrcmp(tls, op, __ccgo_ts+1138) != 0) {
+	if !(libc.Xstrcmp(tls, op, __ccgo_ts+1211) != 0) {
 		return routes(tls, v, out)
 	}
-	if !(libc.Xstrcmp(tls, op, __ccgo_ts+1152) != 0) {
+	if !(libc.Xstrcmp(tls, op, __ccgo_ts+1225) != 0) {
 		if !(ext_descriptor(tls, v) != 0) {
 			return int32(EXT_INVALID)
 		}
 		*(*uintptr)(unsafe.Add(nil, bp+128)) = v
 	} else {
-		if !(libc.Xstrcmp(tls, op, __ccgo_ts+1172) != 0) {
+		if !(libc.Xstrcmp(tls, op, __ccgo_ts+1245) != 0) {
 			*(*[2]uintptr)(unsafe.Pointer(bp)) = [2]uintptr{
-				0: __ccgo_ts + 1189,
-				1: __ccgo_ts + 1198,
+				0: __ccgo_ts + 1262,
+				1: __ccgo_ts + 1271,
 			}
-			if !(ext_fields(tls, v, bp, libc.Uint64FromInt64(16)/libc.Uint64FromInt64(8)) != 0) || !(ext_descriptor(tls, yyjson_obj_get5(tls, v, __ccgo_ts+1189)) != 0) || !(ext_descriptor(tls, yyjson_obj_get5(tls, v, __ccgo_ts+1198)) != 0) {
+			if !(ext_fields(tls, v, bp, libc.Uint64FromInt64(16)/libc.Uint64FromInt64(8)) != 0) || !(ext_descriptor(tls, yyjson_obj_get5(tls, v, __ccgo_ts+1262)) != 0) || !(ext_descriptor(tls, yyjson_obj_get5(tls, v, __ccgo_ts+1271)) != 0) {
 				return int32(EXT_INVALID)
 			}
-			if !(ext_match(tls, yyjson_obj_get5(tls, v, __ccgo_ts+1189), yyjson_obj_get5(tls, v, __ccgo_ts+1198)) != 0) {
+			if !(ext_match(tls, yyjson_obj_get5(tls, v, __ccgo_ts+1262), yyjson_obj_get5(tls, v, __ccgo_ts+1271)) != 0) {
 				return int32(EXT_MISMATCH)
 			}
 		} else {
-			if !(libc.Xstrcmp(tls, op, __ccgo_ts+1205) != 0) {
+			if !(libc.Xstrcmp(tls, op, __ccgo_ts+1278) != 0) {
 				*(*[2]uintptr)(unsafe.Pointer(bp + 16)) = [2]uintptr{
-					0: __ccgo_ts + 1223,
-					1: __ccgo_ts + 1234,
+					0: __ccgo_ts + 1296,
+					1: __ccgo_ts + 1307,
 				}
 				if !(ext_fields(tls, v, bp+16, libc.Uint64FromInt64(16)/libc.Uint64FromInt64(8)) != 0) {
 					return int32(EXT_INVALID)
 				}
-				s = select_descriptor(tls, yyjson_obj_get5(tls, v, __ccgo_ts+1223), yyjson_obj_get5(tls, v, __ccgo_ts+1234), bp+128)
+				s = select_descriptor(tls, yyjson_obj_get5(tls, v, __ccgo_ts+1296), yyjson_obj_get5(tls, v, __ccgo_ts+1307), bp+128)
 				if s != 0 {
 					return s
 				}
 			} else {
-				if !(libc.Xstrcmp(tls, op, __ccgo_ts+1246) != 0) {
+				if !(libc.Xstrcmp(tls, op, __ccgo_ts+1319) != 0) {
 					*(*[2]uintptr)(unsafe.Pointer(bp + 32)) = [2]uintptr{
-						0: __ccgo_ts + 1270,
-						1: __ccgo_ts + 1116,
+						0: __ccgo_ts + 1343,
+						1: __ccgo_ts + 1189,
 					}
-					if !(ext_fields(tls, v, bp+32, libc.Uint64FromInt64(16)/libc.Uint64FromInt64(8)) != 0) || !(ext_descriptor(tls, yyjson_obj_get5(tls, v, __ccgo_ts+1270)) != 0) || !(yyjson_is_arr5(tls, yyjson_obj_get5(tls, v, __ccgo_ts+1116)) != 0) {
+					if !(ext_fields(tls, v, bp+32, libc.Uint64FromInt64(16)/libc.Uint64FromInt64(8)) != 0) || !(ext_descriptor(tls, yyjson_obj_get5(tls, v, __ccgo_ts+1343)) != 0) || !(yyjson_is_arr5(tls, yyjson_obj_get5(tls, v, __ccgo_ts+1189)) != 0) {
 						return int32(EXT_INVALID)
 					}
 					i = uint64(0)
-					n = yyjson_arr_size5(tls, yyjson_obj_get5(tls, v, __ccgo_ts+1116))
-					r = yyjson_arr_get_first5(tls, yyjson_obj_get5(tls, v, __ccgo_ts+1116))
+					n = yyjson_arr_size5(tls, yyjson_obj_get5(tls, v, __ccgo_ts+1189))
+					r = yyjson_arr_get_first5(tls, yyjson_obj_get5(tls, v, __ccgo_ts+1189))
 					for {
 						if !(i < n) {
 							break
@@ -35758,7 +35888,7 @@ func dispatch(tls *libc.TLS, op uintptr, v uintptr, out uintptr) (r1 ext_status)
 						if !(requirement(tls, r) != 0) {
 							return int32(EXT_INVALID)
 						}
-						if !(satisfies(tls, yyjson_obj_get5(tls, v, __ccgo_ts+1270), r) != 0) {
+						if !(satisfies(tls, yyjson_obj_get5(tls, v, __ccgo_ts+1343), r) != 0) {
 							return int32(EXT_NOT_FOUND)
 						}
 						goto _1
@@ -35768,7 +35898,7 @@ func dispatch(tls *libc.TLS, op uintptr, v uintptr, out uintptr) (r1 ext_status)
 						r = unsafe_yyjson_get_next5(tls, r)
 					}
 				} else {
-					if !(libc.Xstrcmp(tls, op, __ccgo_ts+1281) != 0) {
+					if !(libc.Xstrcmp(tls, op, __ccgo_ts+1354) != 0) {
 						/* An endpoint's shape, which no policy changes (endpoint.Decode). */
 						s1 = ext_endpoint_check(tls, v)
 						if s1 != 0 {
@@ -35776,21 +35906,21 @@ func dispatch(tls *libc.TLS, op uintptr, v uintptr, out uintptr) (r1 ext_status)
 						}
 						*(*uintptr)(unsafe.Add(nil, bp+128)) = v
 					} else {
-						if !(libc.Xstrcmp(tls, op, __ccgo_ts+1296) != 0) {
+						if !(libc.Xstrcmp(tls, op, __ccgo_ts+1369) != 0) {
 							*(*[2]uintptr)(unsafe.Pointer(bp + 48)) = [2]uintptr{
-								0: __ccgo_ts + 1314,
-								1: __ccgo_ts + 1323,
+								0: __ccgo_ts + 1387,
+								1: __ccgo_ts + 1396,
 							}
-							if !(ext_fields(tls, v, bp+48, libc.Uint64FromInt64(16)/libc.Uint64FromInt64(8)) != 0) || !(yyjson_obj_get5(tls, v, __ccgo_ts+1314) != 0) || !(ext_endpoint_policy_parse(tls, yyjson_obj_get5(tls, v, __ccgo_ts+1323), bp+136) != 0) {
+							if !(ext_fields(tls, v, bp+48, libc.Uint64FromInt64(16)/libc.Uint64FromInt64(8)) != 0) || !(yyjson_obj_get5(tls, v, __ccgo_ts+1387) != 0) || !(ext_endpoint_policy_parse(tls, yyjson_obj_get5(tls, v, __ccgo_ts+1396), bp+136) != 0) {
 								return int32(EXT_INVALID)
 							}
-							s2 = ext_endpoint_validate(tls, yyjson_obj_get5(tls, v, __ccgo_ts+1314), bp+136)
+							s2 = ext_endpoint_validate(tls, yyjson_obj_get5(tls, v, __ccgo_ts+1387), bp+136)
 							if s2 != 0 {
 								return s2
 							}
-							*(*uintptr)(unsafe.Add(nil, bp+128)) = yyjson_obj_get5(tls, v, __ccgo_ts+1314)
+							*(*uintptr)(unsafe.Add(nil, bp+128)) = yyjson_obj_get5(tls, v, __ccgo_ts+1387)
 						} else {
-							if !(libc.Xstrcmp(tls, op, __ccgo_ts+1330) != 0) {
+							if !(libc.Xstrcmp(tls, op, __ccgo_ts+1403) != 0) {
 								/* One tagged frame as it travels between a host and a plugin. The Go
 								 * reference is the frame types' Decode and Validate (reverse.go). */
 								tag = yyjson_obj_get5(tls, v, __ccgo_ts+633)
@@ -35807,64 +35937,64 @@ func dispatch(tls *libc.TLS, op uintptr, v uintptr, out uintptr) (r1 ext_status)
 								}
 								*(*uintptr)(unsafe.Add(nil, bp+128)) = v
 							} else {
-								if !(libc.Xstrcmp(tls, op, __ccgo_ts+1345) != 0) {
+								if !(libc.Xstrcmp(tls, op, __ccgo_ts+1418) != 0) {
 									*(*[2]uintptr)(unsafe.Pointer(bp + 64)) = [2]uintptr{
-										0: __ccgo_ts + 1364,
-										1: __ccgo_ts + 1374,
+										0: __ccgo_ts + 1437,
+										1: __ccgo_ts + 1447,
 									}
-									if !(ext_fields(tls, v, bp+64, libc.Uint64FromInt64(16)/libc.Uint64FromInt64(8)) != 0) || !(ext_protocols(tls, yyjson_obj_get5(tls, v, __ccgo_ts+1364)) != 0) || !(ext_protocols(tls, yyjson_obj_get5(tls, v, __ccgo_ts+1374)) != 0) {
+									if !(ext_fields(tls, v, bp+64, libc.Uint64FromInt64(16)/libc.Uint64FromInt64(8)) != 0) || !(ext_protocols(tls, yyjson_obj_get5(tls, v, __ccgo_ts+1437)) != 0) || !(ext_protocols(tls, yyjson_obj_get5(tls, v, __ccgo_ts+1447)) != 0) {
 										return int32(EXT_INVALID)
 									}
-									*(*uintptr)(unsafe.Add(nil, bp+128)) = ext_negotiate(tls, yyjson_obj_get5(tls, v, __ccgo_ts+1364), yyjson_obj_get5(tls, v, __ccgo_ts+1374))
+									*(*uintptr)(unsafe.Add(nil, bp+128)) = ext_negotiate(tls, yyjson_obj_get5(tls, v, __ccgo_ts+1437), yyjson_obj_get5(tls, v, __ccgo_ts+1447))
 									if !(*(*uintptr)(unsafe.Add(nil, bp+128)) != 0) {
 										return int32(EXT_UNSUPPORTED)
 									}
 								} else {
-									if !(libc.Xstrcmp(tls, op, __ccgo_ts+1382) != 0) {
+									if !(libc.Xstrcmp(tls, op, __ccgo_ts+1455) != 0) {
 										*(*[2]uintptr)(unsafe.Pointer(bp + 80)) = [2]uintptr{
-											0: __ccgo_ts + 1270,
-											1: __ccgo_ts + 1399,
+											0: __ccgo_ts + 1343,
+											1: __ccgo_ts + 1472,
 										}
-										if !(ext_fields(tls, v, bp+80, libc.Uint64FromInt64(16)/libc.Uint64FromInt64(8)) != 0) || !(ext_descriptor(tls, yyjson_obj_get5(tls, v, __ccgo_ts+1270)) != 0) {
+										if !(ext_fields(tls, v, bp+80, libc.Uint64FromInt64(16)/libc.Uint64FromInt64(8)) != 0) || !(ext_descriptor(tls, yyjson_obj_get5(tls, v, __ccgo_ts+1343)) != 0) {
 											return int32(EXT_INVALID)
 										}
-										s4 = ext_request(tls, yyjson_obj_get5(tls, v, __ccgo_ts+1270), yyjson_obj_get5(tls, v, __ccgo_ts+1399), bp+288)
+										s4 = ext_request(tls, yyjson_obj_get5(tls, v, __ccgo_ts+1343), yyjson_obj_get5(tls, v, __ccgo_ts+1472), bp+288)
 										if s4 != 0 {
 											return s4
 										}
-										*(*uintptr)(unsafe.Add(nil, bp+128)) = yyjson_obj_get5(tls, v, __ccgo_ts+1399)
+										*(*uintptr)(unsafe.Add(nil, bp+128)) = yyjson_obj_get5(tls, v, __ccgo_ts+1472)
 									} else {
-										if !(libc.Xstrcmp(tls, op, __ccgo_ts+1407) != 0) {
+										if !(libc.Xstrcmp(tls, op, __ccgo_ts+1480) != 0) {
 											*(*[2]uintptr)(unsafe.Pointer(bp + 96)) = [2]uintptr{
-												0: __ccgo_ts + 1425,
-												1: __ccgo_ts + 1434,
+												0: __ccgo_ts + 1498,
+												1: __ccgo_ts + 1507,
 											}
-											if !(ext_fields(tls, v, bp+96, libc.Uint64FromInt64(16)/libc.Uint64FromInt64(8)) != 0) || !(ext_text(tls, yyjson_obj_get5(tls, v, __ccgo_ts+1434), int32(1), 0) != 0) {
+											if !(ext_fields(tls, v, bp+96, libc.Uint64FromInt64(16)/libc.Uint64FromInt64(8)) != 0) || !(ext_text(tls, yyjson_obj_get5(tls, v, __ccgo_ts+1507), int32(1), 0) != 0) {
 												return int32(EXT_INVALID)
 											}
-											s5 = ext_response(tls, yyjson_obj_get5(tls, v, __ccgo_ts+1425), yyjson_get_str5(tls, yyjson_obj_get5(tls, v, __ccgo_ts+1434)))
+											s5 = ext_response(tls, yyjson_obj_get5(tls, v, __ccgo_ts+1498), yyjson_get_str5(tls, yyjson_obj_get5(tls, v, __ccgo_ts+1507)))
 											if s5 != 0 {
 												return s5
 											}
-											*(*uintptr)(unsafe.Add(nil, bp+128)) = yyjson_obj_get5(tls, v, __ccgo_ts+1425)
+											*(*uintptr)(unsafe.Add(nil, bp+128)) = yyjson_obj_get5(tls, v, __ccgo_ts+1498)
 										} else {
-											if !(libc.Xstrcmp(tls, op, __ccgo_ts+1444) != 0) {
+											if !(libc.Xstrcmp(tls, op, __ccgo_ts+1517) != 0) {
 												*(*uint32)(unsafe.Add(nil, bp+296)) = uint32(1024)
 												if !(ext_schema_valid(tls, v, uint32(0), bp+296) != 0) {
 													return int32(EXT_INVALID)
 												}
 												*(*uintptr)(unsafe.Add(nil, bp+128)) = v
 											} else {
-												if !(libc.Xstrcmp(tls, op, __ccgo_ts+1460) != 0) {
+												if !(libc.Xstrcmp(tls, op, __ccgo_ts+1533) != 0) {
 													*(*[2]uintptr)(unsafe.Pointer(bp + 112)) = [2]uintptr{
-														0: __ccgo_ts + 1473,
-														1: __ccgo_ts + 1480,
+														0: __ccgo_ts + 1546,
+														1: __ccgo_ts + 1553,
 													}
-													if !(ext_fields(tls, v, bp+112, libc.Uint64FromInt64(16)/libc.Uint64FromInt64(8)) != 0) || !(yyjson_obj_get5(tls, v, __ccgo_ts+1480) != 0) {
+													if !(ext_fields(tls, v, bp+112, libc.Uint64FromInt64(16)/libc.Uint64FromInt64(8)) != 0) || !(yyjson_obj_get5(tls, v, __ccgo_ts+1553) != 0) {
 														return int32(EXT_INVALID)
 													}
 													*(*uint32)(unsafe.Add(nil, bp+300)) = uint32(1024)
-													if !(ext_schema_valid(tls, yyjson_obj_get5(tls, v, __ccgo_ts+1473), uint32(0), bp+300) != 0) || !(ext_schema_check(tls, yyjson_obj_get5(tls, v, __ccgo_ts+1473), yyjson_obj_get5(tls, v, __ccgo_ts+1480)) != 0) {
+													if !(ext_schema_valid(tls, yyjson_obj_get5(tls, v, __ccgo_ts+1546), uint32(0), bp+300) != 0) || !(ext_schema_check(tls, yyjson_obj_get5(tls, v, __ccgo_ts+1546), yyjson_obj_get5(tls, v, __ccgo_ts+1553)) != 0) {
 														return int32(EXT_INVALID)
 													}
 												} else {
@@ -41241,8 +41371,8 @@ func ext_guest_invoke(tls *libc.TLS, g uintptr, input uintptr, len1 size_t, time
 	message = libc.UintptrFromInt32(0)
 	*(*reply)(unsafe.Add(nil, bp+8)) = reply{}
 	if s != 0 {
-		code = __ccgo_ts + 1486
-		message = __ccgo_ts + 1502
+		code = __ccgo_ts + 1559
+		message = __ccgo_ts + 1575
 	} else {
 		if timeout < (*ext_guest)(unsafe.Pointer(g)).Foptions.Fmax_call_ms {
 			v1 = timeout
@@ -41267,8 +41397,8 @@ func ext_guest_invoke(tls *libc.TLS, g uintptr, input uintptr, len1 size_t, time
 		}
 		s = v3
 		if s != 0 || clock_ms(tls) >= deadline {
-			code = __ccgo_ts + 1543
-			message = __ccgo_ts + 1560
+			code = __ccgo_ts + 1616
+			message = __ccgo_ts + 1633
 		} else {
 			if (*(*reply)(unsafe.Add(nil, bp+8))).Fstatus != 0 {
 				s = (*(*reply)(unsafe.Add(nil, bp+8))).Fstatus
@@ -41563,7 +41693,7 @@ func ext_hash_hex(tls *libc.TLS, in uintptr, out uintptr) {
 	var hex uintptr
 	var i uint32
 	_, _ = hex, i
-	hex = __ccgo_ts + 1584
+	hex = __ccgo_ts + 1657
 	i = uint32(0)
 	for {
 		if !(i < uint32(32)) {
@@ -52849,7 +52979,7 @@ func ext_portable_path(tls *libc.TLS, s uintptr, n size_t) (r int32) {
 			;
 			j = j + 1
 		}
-		if count <= uint64(4) && (!(libc.Xstrcmp(tls, bp, __ccgo_ts+1601) != 0) || !(libc.Xstrcmp(tls, bp, __ccgo_ts+1605) != 0) || !(libc.Xstrcmp(tls, bp, __ccgo_ts+1609) != 0) || !(libc.Xstrcmp(tls, bp, __ccgo_ts+1613) != 0) || count == uint64(4) && (!(libc.Xmemcmp(tls, bp, __ccgo_ts+1617, uint64(3)) != 0) || !(libc.Xmemcmp(tls, bp, __ccgo_ts+1621, uint64(3)) != 0)) && int32((*(*[5]int8)(unsafe.Add(nil, bp)))[int32(3)]) >= int32('1') && int32((*(*[5]int8)(unsafe.Add(nil, bp)))[int32(3)]) <= int32('9')) {
+		if count <= uint64(4) && (!(libc.Xstrcmp(tls, bp, __ccgo_ts+1674) != 0) || !(libc.Xstrcmp(tls, bp, __ccgo_ts+1678) != 0) || !(libc.Xstrcmp(tls, bp, __ccgo_ts+1682) != 0) || !(libc.Xstrcmp(tls, bp, __ccgo_ts+1686) != 0) || count == uint64(4) && (!(libc.Xmemcmp(tls, bp, __ccgo_ts+1690, uint64(3)) != 0) || !(libc.Xmemcmp(tls, bp, __ccgo_ts+1694, uint64(3)) != 0)) && int32((*(*[5]int8)(unsafe.Add(nil, bp)))[int32(3)]) >= int32('1') && int32((*(*[5]int8)(unsafe.Add(nil, bp)))[int32(3)]) <= int32('9')) {
 			return 0
 		}
 		start = i + uint64(1)
@@ -53277,7 +53407,7 @@ func tree_artifact(tls *libc.TLS, a uintptr) (r int32) {
 	var k uintptr
 	_ = k
 	k = yyjson_obj_get7(tls, a, __ccgo_ts+639)
-	return libc.BoolInt32(yyjson_is_str7(tls, k) != 0 && yyjson_equals_str7(tls, k, __ccgo_ts+1625) != 0)
+	return libc.BoolInt32(yyjson_is_str7(tls, k) != 0 && yyjson_equals_str7(tls, k, __ccgo_ts+1698) != 0)
 }
 
 func dependency(tls *libc.TLS, r uintptr) (r1 int32) {
@@ -53625,27 +53755,27 @@ func ext_manifest_valid(tls *libc.TLS, m uintptr) (r1 ext_status) {
 	_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ = a, assets, distinct, e, earlier, i, j, k, kind, n, p, r, shared, target, v, versions, w, x, y, v7
 	*(*[11]uintptr)(unsafe.Pointer(bp)) = [11]uintptr{
 		0:  __ccgo_ts + 468,
-		1:  __ccgo_ts + 1270,
-		2:  __ccgo_ts + 1630,
-		3:  __ccgo_ts + 1638,
-		4:  __ccgo_ts + 1648,
-		5:  __ccgo_ts + 1660,
-		6:  __ccgo_ts + 1669,
-		7:  __ccgo_ts + 1683,
-		8:  __ccgo_ts + 1692,
-		9:  __ccgo_ts + 1699,
-		10: __ccgo_ts + 1718,
+		1:  __ccgo_ts + 1343,
+		2:  __ccgo_ts + 1703,
+		3:  __ccgo_ts + 1711,
+		4:  __ccgo_ts + 1721,
+		5:  __ccgo_ts + 1733,
+		6:  __ccgo_ts + 1742,
+		7:  __ccgo_ts + 1756,
+		8:  __ccgo_ts + 1765,
+		9:  __ccgo_ts + 1772,
+		10: __ccgo_ts + 1791,
 	}
-	if !(ext_fields(tls, m, bp, libc.Uint64FromInt64(88)/libc.Uint64FromInt64(8)) != 0) || !(license_valid(tls, yyjson_obj_get7(tls, m, __ccgo_ts+1630)) != 0) || !(metadata_valid(tls, yyjson_obj_get7(tls, m, __ccgo_ts+1718)) != 0) || !(yyjson_equals_str7(tls, yyjson_obj_get7(tls, m, __ccgo_ts+468), __ccgo_ts+1727) != 0) || !(ext_descriptor(tls, yyjson_obj_get7(tls, m, __ccgo_ts+1270)) != 0) {
+	if !(ext_fields(tls, m, bp, libc.Uint64FromInt64(88)/libc.Uint64FromInt64(8)) != 0) || !(license_valid(tls, yyjson_obj_get7(tls, m, __ccgo_ts+1703)) != 0) || !(metadata_valid(tls, yyjson_obj_get7(tls, m, __ccgo_ts+1791)) != 0) || !(yyjson_equals_str7(tls, yyjson_obj_get7(tls, m, __ccgo_ts+468), __ccgo_ts+1800) != 0) || !(ext_descriptor(tls, yyjson_obj_get7(tls, m, __ccgo_ts+1343)) != 0) {
 		return int32(EXT_INVALID)
 	}
-	a = yyjson_obj_get7(tls, m, __ccgo_ts+1638)
-	e = yyjson_obj_get7(tls, m, __ccgo_ts+1648)
-	r = yyjson_obj_get7(tls, m, __ccgo_ts+1660)
-	p = yyjson_obj_get7(tls, m, __ccgo_ts+1683)
-	assets = yyjson_obj_get7(tls, m, __ccgo_ts+1692)
-	shared = yyjson_obj_get7(tls, m, __ccgo_ts+1699)
-	if !(yyjson_is_arr7(tls, a) != 0) || !(yyjson_arr_size7(tls, a) != 0) || !(array(tls, a, uint64(4096)) != 0) || !(array(tls, e, uint64(64)) != 0) || !(array(tls, r, uint64(256)) != 0) || !(array(tls, p, uint64(1024)) != 0) || !(array(tls, assets, uint64(1024)) != 0) || !(array(tls, shared, uint64(256)) != 0) || !(schema(tls, yyjson_obj_get7(tls, m, __ccgo_ts+1669)) != 0) {
+	a = yyjson_obj_get7(tls, m, __ccgo_ts+1711)
+	e = yyjson_obj_get7(tls, m, __ccgo_ts+1721)
+	r = yyjson_obj_get7(tls, m, __ccgo_ts+1733)
+	p = yyjson_obj_get7(tls, m, __ccgo_ts+1756)
+	assets = yyjson_obj_get7(tls, m, __ccgo_ts+1765)
+	shared = yyjson_obj_get7(tls, m, __ccgo_ts+1772)
+	if !(yyjson_is_arr7(tls, a) != 0) || !(yyjson_arr_size7(tls, a) != 0) || !(array(tls, a, uint64(4096)) != 0) || !(array(tls, e, uint64(64)) != 0) || !(array(tls, r, uint64(256)) != 0) || !(array(tls, p, uint64(1024)) != 0) || !(array(tls, assets, uint64(1024)) != 0) || !(array(tls, shared, uint64(256)) != 0) || !(schema(tls, yyjson_obj_get7(tls, m, __ccgo_ts+1742)) != 0) {
 		return int32(EXT_INVALID)
 	}
 	i = uint64(0)
@@ -53660,11 +53790,11 @@ func ext_manifest_valid(tls *libc.TLS, m uintptr) (r1 ext_status) {
 			0: __ccgo_ts + 412,
 			1: __ccgo_ts + 750,
 			2: __ccgo_ts + 639,
-			3: __ccgo_ts + 1742,
-			4: __ccgo_ts + 1749,
-			5: __ccgo_ts + 1752,
+			3: __ccgo_ts + 1815,
+			4: __ccgo_ts + 1822,
+			5: __ccgo_ts + 1825,
 		}
-		if !(ext_fields(tls, v, bp+88, libc.Uint64FromInt64(48)/libc.Uint64FromInt64(8)) != 0) || !(!(kind != 0) || yyjson_is_null7(tls, kind) != 0) && !(yyjson_is_str7(tls, kind) != 0 && (!(yyjson_get_len7(tls, kind) != 0) || yyjson_equals_str7(tls, kind, __ccgo_ts+1625) != 0)) || !(ext_text(tls, yyjson_obj_get7(tls, v, __ccgo_ts+412), 0, 0) != 0) || !(portable(tls, yyjson_obj_get7(tls, v, __ccgo_ts+750)) != 0) || !(digest(tls, yyjson_obj_get7(tls, v, __ccgo_ts+1742)) != 0) || !(ext_text(tls, yyjson_obj_get7(tls, v, __ccgo_ts+1749), 0, int32(1)) != 0) || !(ext_text(tls, yyjson_obj_get7(tls, v, __ccgo_ts+1752), 0, int32(1)) != 0) {
+		if !(ext_fields(tls, v, bp+88, libc.Uint64FromInt64(48)/libc.Uint64FromInt64(8)) != 0) || !(!(kind != 0) || yyjson_is_null7(tls, kind) != 0) && !(yyjson_is_str7(tls, kind) != 0 && (!(yyjson_get_len7(tls, kind) != 0) || yyjson_equals_str7(tls, kind, __ccgo_ts+1698) != 0)) || !(ext_text(tls, yyjson_obj_get7(tls, v, __ccgo_ts+412), 0, 0) != 0) || !(portable(tls, yyjson_obj_get7(tls, v, __ccgo_ts+750)) != 0) || !(digest(tls, yyjson_obj_get7(tls, v, __ccgo_ts+1815)) != 0) || !(ext_text(tls, yyjson_obj_get7(tls, v, __ccgo_ts+1822), 0, int32(1)) != 0) || !(ext_text(tls, yyjson_obj_get7(tls, v, __ccgo_ts+1825), 0, int32(1)) != 0) {
 			return int32(EXT_INVALID)
 		}
 		goto _1
@@ -53686,14 +53816,14 @@ func ext_manifest_valid(tls *libc.TLS, m uintptr) (r1 ext_status) {
 		if !(i < n) {
 			break
 		}
-		target = named(tls, a, yyjson_obj_get7(tls, v, __ccgo_ts+1757))
+		target = named(tls, a, yyjson_obj_get7(tls, v, __ccgo_ts+1830))
 		*(*[4]uintptr)(unsafe.Pointer(bp + 136)) = [4]uintptr{
 			0: __ccgo_ts + 412,
-			1: __ccgo_ts + 1766,
-			2: __ccgo_ts + 1757,
-			3: __ccgo_ts + 981,
+			1: __ccgo_ts + 1009,
+			2: __ccgo_ts + 1830,
+			3: __ccgo_ts + 1054,
 		}
-		if !(ext_fields(tls, v, bp+136, libc.Uint64FromInt64(32)/libc.Uint64FromInt64(8)) != 0) || !(ext_text(tls, yyjson_obj_get7(tls, v, __ccgo_ts+412), 0, 0) != 0) || !(ext_text(tls, yyjson_obj_get7(tls, v, __ccgo_ts+1766), 0, 0) != 0) || !(target != 0) || tree_artifact(tls, target) != 0 && yyjson_equals_str7(tls, yyjson_obj_get7(tls, v, __ccgo_ts+1766), __ccgo_ts+1774) != 0 || !(ext_protocols(tls, yyjson_obj_get7(tls, v, __ccgo_ts+981)) != 0) {
+		if !(ext_fields(tls, v, bp+136, libc.Uint64FromInt64(32)/libc.Uint64FromInt64(8)) != 0) || !(ext_text(tls, yyjson_obj_get7(tls, v, __ccgo_ts+412), 0, 0) != 0) || !(ext_text(tls, yyjson_obj_get7(tls, v, __ccgo_ts+1009), 0, 0) != 0) || !(target != 0) || tree_artifact(tls, target) != 0 && yyjson_equals_str7(tls, yyjson_obj_get7(tls, v, __ccgo_ts+1009), __ccgo_ts+992) != 0 || !(ext_protocols(tls, yyjson_obj_get7(tls, v, __ccgo_ts+1054)) != 0) {
 			return int32(EXT_INVALID)
 		}
 		j = uint64(0)
@@ -53768,8 +53898,8 @@ func ext_manifest_valid(tls *libc.TLS, m uintptr) (r1 ext_status) {
 		*(*[4]uintptr)(unsafe.Pointer(bp + 168)) = [4]uintptr{
 			0: __ccgo_ts + 555,
 			1: __ccgo_ts + 564,
-			2: __ccgo_ts + 1782,
-			3: __ccgo_ts + 1788,
+			2: __ccgo_ts + 1839,
+			3: __ccgo_ts + 1845,
 		}
 		if v7 = !(ext_fields(tls, v, bp+168, libc.Uint64FromInt64(32)/libc.Uint64FromInt64(8)) != 0); !v7 {
 			*(*[2]uintptr)(unsafe.Pointer(bp + 200)) = [2]uintptr{
@@ -53777,10 +53907,10 @@ func ext_manifest_valid(tls *libc.TLS, m uintptr) (r1 ext_status) {
 				1: __ccgo_ts + 404,
 			}
 		}
-		if v7 || !(ext_fields(tls, yyjson_obj_get7(tls, v, __ccgo_ts+555), bp+200, libc.Uint64FromInt64(16)/libc.Uint64FromInt64(8)) != 0) || !(ext_ref(tls, yyjson_obj_get7(tls, v, __ccgo_ts+555)) != 0) || !(ext_text(tls, yyjson_obj_get7(tls, v, __ccgo_ts+564), 0, 0) != 0) || !(schema(tls, yyjson_obj_get7(tls, v, __ccgo_ts+1782)) != 0) || !(schema(tls, yyjson_obj_get7(tls, v, __ccgo_ts+1788)) != 0) {
+		if v7 || !(ext_fields(tls, yyjson_obj_get7(tls, v, __ccgo_ts+555), bp+200, libc.Uint64FromInt64(16)/libc.Uint64FromInt64(8)) != 0) || !(ext_ref(tls, yyjson_obj_get7(tls, v, __ccgo_ts+555)) != 0) || !(ext_text(tls, yyjson_obj_get7(tls, v, __ccgo_ts+564), 0, 0) != 0) || !(schema(tls, yyjson_obj_get7(tls, v, __ccgo_ts+1839)) != 0) || !(schema(tls, yyjson_obj_get7(tls, v, __ccgo_ts+1845)) != 0) {
 			return int32(EXT_INVALID)
 		}
-		if !(ext_lookup(tls, yyjson_obj_get7(tls, m, __ccgo_ts+1270), yyjson_obj_get7(tls, v, __ccgo_ts+555), yyjson_obj_get7(tls, v, __ccgo_ts+564)) != 0) {
+		if !(ext_lookup(tls, yyjson_obj_get7(tls, m, __ccgo_ts+1343), yyjson_obj_get7(tls, v, __ccgo_ts+555), yyjson_obj_get7(tls, v, __ccgo_ts+564)) != 0) {
 			return int32(EXT_UNSUPPORTED)
 		}
 		j = uint64(0)
@@ -53817,11 +53947,11 @@ func ext_manifest_valid(tls *libc.TLS, m uintptr) (r1 ext_status) {
 			break
 		}
 		*(*[3]uintptr)(unsafe.Pointer(bp + 216)) = [3]uintptr{
-			0: __ccgo_ts + 1757,
+			0: __ccgo_ts + 1830,
 			1: __ccgo_ts + 639,
-			2: __ccgo_ts + 1795,
+			2: __ccgo_ts + 1852,
 		}
-		if !(ext_fields(tls, v, bp+216, libc.Uint64FromInt64(24)/libc.Uint64FromInt64(8)) != 0) || !(named(tls, a, yyjson_obj_get7(tls, v, __ccgo_ts+1757)) != 0) || !(ext_text(tls, yyjson_obj_get7(tls, v, __ccgo_ts+639), 0, 0) != 0) || !(!(yyjson_obj_get7(tls, v, __ccgo_ts+1795) != 0) || yyjson_is_null7(tls, yyjson_obj_get7(tls, v, __ccgo_ts+1795)) != 0) && !(string1(tls, yyjson_obj_get7(tls, v, __ccgo_ts+1795), uint64(0), uint64(64)) != 0) {
+		if !(ext_fields(tls, v, bp+216, libc.Uint64FromInt64(24)/libc.Uint64FromInt64(8)) != 0) || !(named(tls, a, yyjson_obj_get7(tls, v, __ccgo_ts+1830)) != 0) || !(ext_text(tls, yyjson_obj_get7(tls, v, __ccgo_ts+639), 0, 0) != 0) || !(!(yyjson_obj_get7(tls, v, __ccgo_ts+1852) != 0) || yyjson_is_null7(tls, yyjson_obj_get7(tls, v, __ccgo_ts+1852)) != 0) && !(string1(tls, yyjson_obj_get7(tls, v, __ccgo_ts+1852), uint64(0), uint64(64)) != 0) {
 			return int32(EXT_INVALID)
 		}
 		goto _9
@@ -53837,10 +53967,10 @@ func ext_manifest_valid(tls *libc.TLS, m uintptr) (r1 ext_status) {
 		if !(i < n) {
 			break
 		}
-		versions = yyjson_obj_get7(tls, v, __ccgo_ts+1802)
+		versions = yyjson_obj_get7(tls, v, __ccgo_ts+1859)
 		*(*[2]uintptr)(unsafe.Pointer(bp + 240)) = [2]uintptr{
 			0: __ccgo_ts + 412,
-			1: __ccgo_ts + 1802,
+			1: __ccgo_ts + 1859,
 		}
 		if !(ext_fields(tls, v, bp+240, libc.Uint64FromInt64(16)/libc.Uint64FromInt64(8)) != 0) || !(string1(tls, yyjson_obj_get7(tls, v, __ccgo_ts+412), uint64(1), uint64(256)) != 0) || !(yyjson_is_arr7(tls, versions) != 0) || !(yyjson_arr_size7(tls, versions) != 0) || !(array(tls, versions, uint64(64)) != 0) {
 			return int32(EXT_INVALID)
@@ -53943,42 +54073,42 @@ func select_entry(tls *libc.TLS, v uintptr, out uintptr) (r ext_status) {
 	var v1 bool
 	_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ = artifact, candidate, d, dep, entry, env, fields, found, i, j, k, m, n, o, profile, protocol, runtime, s, value, version, v1
 	*(*[3]uintptr)(unsafe.Pointer(bp)) = [3]uintptr{
-		0: __ccgo_ts + 1811,
+		0: __ccgo_ts + 1868,
 		1: __ccgo_ts + 412,
-		2: __ccgo_ts + 1820,
+		2: __ccgo_ts + 1877,
 	}
 	if !(ext_fields(tls, v, bp, libc.Uint64FromInt64(24)/libc.Uint64FromInt64(8)) != 0) {
 		return int32(EXT_INVALID)
 	}
-	m = yyjson_obj_get7(tls, v, __ccgo_ts+1811)
-	env = yyjson_obj_get7(tls, v, __ccgo_ts+1820)
+	m = yyjson_obj_get7(tls, v, __ccgo_ts+1868)
+	env = yyjson_obj_get7(tls, v, __ccgo_ts+1877)
 	s = ext_manifest_valid(tls, m)
 	if s != 0 {
 		return s
 	}
 	if v1 = !(string1(tls, yyjson_obj_get7(tls, v, __ccgo_ts+412), uint64(0), uint64(256)) != 0); !v1 {
 		*(*[4]uintptr)(unsafe.Pointer(bp + 24)) = [4]uintptr{
-			0: __ccgo_ts + 1749,
-			1: __ccgo_ts + 1752,
-			2: __ccgo_ts + 1832,
-			3: __ccgo_ts + 1841,
+			0: __ccgo_ts + 1822,
+			1: __ccgo_ts + 1825,
+			2: __ccgo_ts + 1889,
+			3: __ccgo_ts + 1898,
 		}
 	}
-	if v1 || !(ext_fields(tls, env, bp+24, libc.Uint64FromInt64(32)/libc.Uint64FromInt64(8)) != 0) || !(!(yyjson_obj_get7(tls, env, __ccgo_ts+1832) != 0) || yyjson_is_null7(tls, yyjson_obj_get7(tls, env, __ccgo_ts+1832)) != 0) && !(yyjson_is_obj7(tls, yyjson_obj_get7(tls, env, __ccgo_ts+1832)) != 0) || !(!(yyjson_obj_get7(tls, env, __ccgo_ts+1841) != 0) || yyjson_is_null7(tls, yyjson_obj_get7(tls, env, __ccgo_ts+1841)) != 0) && !(yyjson_is_obj7(tls, yyjson_obj_get7(tls, env, __ccgo_ts+1841)) != 0) {
+	if v1 || !(ext_fields(tls, env, bp+24, libc.Uint64FromInt64(32)/libc.Uint64FromInt64(8)) != 0) || !(!(yyjson_obj_get7(tls, env, __ccgo_ts+1889) != 0) || yyjson_is_null7(tls, yyjson_obj_get7(tls, env, __ccgo_ts+1889)) != 0) && !(yyjson_is_obj7(tls, yyjson_obj_get7(tls, env, __ccgo_ts+1889)) != 0) || !(!(yyjson_obj_get7(tls, env, __ccgo_ts+1898) != 0) || yyjson_is_null7(tls, yyjson_obj_get7(tls, env, __ccgo_ts+1898)) != 0) && !(yyjson_is_obj7(tls, yyjson_obj_get7(tls, env, __ccgo_ts+1898)) != 0) {
 		return int32(EXT_INVALID)
 	}
 	i = uint64(0)
-	n = yyjson_arr_size7(tls, yyjson_obj_get7(tls, m, __ccgo_ts+1699))
-	dep = yyjson_arr_get_first7(tls, yyjson_obj_get7(tls, m, __ccgo_ts+1699))
+	n = yyjson_arr_size7(tls, yyjson_obj_get7(tls, m, __ccgo_ts+1772))
+	dep = yyjson_arr_get_first7(tls, yyjson_obj_get7(tls, m, __ccgo_ts+1772))
 	for {
 		if !(i < n) {
 			break
 		}
-		version = yyjson_obj_getn7(tls, yyjson_obj_get7(tls, env, __ccgo_ts+1841), yyjson_get_str7(tls, yyjson_obj_get7(tls, dep, __ccgo_ts+412)), yyjson_get_len7(tls, yyjson_obj_get7(tls, dep, __ccgo_ts+412)))
+		version = yyjson_obj_getn7(tls, yyjson_obj_get7(tls, env, __ccgo_ts+1898), yyjson_get_str7(tls, yyjson_obj_get7(tls, dep, __ccgo_ts+412)), yyjson_get_len7(tls, yyjson_obj_get7(tls, dep, __ccgo_ts+412)))
 		found = 0
 		j = uint64(0)
-		k = yyjson_arr_size7(tls, yyjson_obj_get7(tls, dep, __ccgo_ts+1802))
-		candidate = yyjson_arr_get_first7(tls, yyjson_obj_get7(tls, dep, __ccgo_ts+1802))
+		k = yyjson_arr_size7(tls, yyjson_obj_get7(tls, dep, __ccgo_ts+1859))
+		candidate = yyjson_arr_get_first7(tls, yyjson_obj_get7(tls, dep, __ccgo_ts+1859))
 		for {
 			if !(j < k) {
 				break
@@ -54001,26 +54131,26 @@ func select_entry(tls *libc.TLS, v uintptr, out uintptr) (r ext_status) {
 		i = i + 1
 		dep = unsafe_yyjson_get_next7(tls, dep)
 	}
-	entry = named(tls, yyjson_obj_get7(tls, m, __ccgo_ts+1648), yyjson_obj_get7(tls, v, __ccgo_ts+412))
+	entry = named(tls, yyjson_obj_get7(tls, m, __ccgo_ts+1721), yyjson_obj_get7(tls, v, __ccgo_ts+412))
 	if !(entry != 0) {
 		return int32(EXT_NOT_FOUND)
 	}
-	runtime = yyjson_obj_get7(tls, entry, __ccgo_ts+1766)
-	profile = yyjson_obj_getn7(tls, yyjson_obj_get7(tls, env, __ccgo_ts+1832), yyjson_get_str7(tls, runtime), yyjson_get_len7(tls, runtime))
+	runtime = yyjson_obj_get7(tls, entry, __ccgo_ts+1009)
+	profile = yyjson_obj_getn7(tls, yyjson_obj_get7(tls, env, __ccgo_ts+1889), yyjson_get_str7(tls, runtime), yyjson_get_len7(tls, runtime))
 	if !(profile != 0) {
 		return int32(EXT_UNSUPPORTED)
 	}
-	if !(ext_protocols(tls, yyjson_obj_get7(tls, profile, __ccgo_ts+981)) != 0) {
+	if !(ext_protocols(tls, yyjson_obj_get7(tls, profile, __ccgo_ts+1054)) != 0) {
 		return int32(EXT_INVALID)
 	}
-	protocol = ext_negotiate(tls, yyjson_obj_get7(tls, profile, __ccgo_ts+981), yyjson_obj_get7(tls, entry, __ccgo_ts+981))
+	protocol = ext_negotiate(tls, yyjson_obj_get7(tls, profile, __ccgo_ts+1054), yyjson_obj_get7(tls, entry, __ccgo_ts+1054))
 	if !(protocol != 0) {
 		return int32(EXT_UNSUPPORTED)
 	}
-	artifact = named(tls, yyjson_obj_get7(tls, m, __ccgo_ts+1638), yyjson_obj_get7(tls, entry, __ccgo_ts+1757))
+	artifact = named(tls, yyjson_obj_get7(tls, m, __ccgo_ts+1711), yyjson_obj_get7(tls, entry, __ccgo_ts+1830))
 	fields = [2]uintptr{
-		0: __ccgo_ts + 1749,
-		1: __ccgo_ts + 1752,
+		0: __ccgo_ts + 1822,
+		1: __ccgo_ts + 1825,
 	}
 	i = uint64(0)
 	for {
@@ -54042,7 +54172,7 @@ func select_entry(tls *libc.TLS, v uintptr, out uintptr) (r ext_status) {
 	}
 	o = yyjson_mut_obj7(tls, d)
 	yyjson_mut_doc_set_root7(tls, d, o)
-	return result(tls, d, out, libc.BoolInt32(o != 0 && copy1(tls, d, o, __ccgo_ts+1856, entry) != 0 && copy1(tls, d, o, __ccgo_ts+1757, artifact) != 0 && copy1(tls, d, o, __ccgo_ts+359, protocol) != 0))
+	return result(tls, d, out, libc.BoolInt32(o != 0 && copy1(tls, d, o, __ccgo_ts+1913, entry) != 0 && copy1(tls, d, o, __ccgo_ts+1830, artifact) != 0 && copy1(tls, d, o, __ccgo_ts+359, protocol) != 0))
 }
 
 // C documentation
@@ -54058,9 +54188,9 @@ func identity_hash(tls *libc.TLS, id uintptr, out uintptr) {
 	_, _, _ = n, version, v1
 	version = yyjson_get_str7(tls, yyjson_obj_get7(tls, id, __ccgo_ts+404))
 	if version != 0 && *(*int8)(unsafe.Add(nil, version)) != 0 {
-		v1 = libc.X__builtin_snprintf(tls, bp, uint64(1024), __ccgo_ts+1867, libc.VaList(bp+1032, yyjson_get_str7(tls, yyjson_obj_get7(tls, id, __ccgo_ts+392)), yyjson_get_str7(tls, yyjson_obj_get7(tls, id, __ccgo_ts+395)), version))
+		v1 = libc.X__builtin_snprintf(tls, bp, uint64(1024), __ccgo_ts+1924, libc.VaList(bp+1032, yyjson_get_str7(tls, yyjson_obj_get7(tls, id, __ccgo_ts+392)), yyjson_get_str7(tls, yyjson_obj_get7(tls, id, __ccgo_ts+395)), version))
 	} else {
-		v1 = libc.X__builtin_snprintf(tls, bp, uint64(1024), __ccgo_ts+1910, libc.VaList(bp+1032, yyjson_get_str7(tls, yyjson_obj_get7(tls, id, __ccgo_ts+392)), yyjson_get_str7(tls, yyjson_obj_get7(tls, id, __ccgo_ts+395))))
+		v1 = libc.X__builtin_snprintf(tls, bp, uint64(1024), __ccgo_ts+1967, libc.VaList(bp+1032, yyjson_get_str7(tls, yyjson_obj_get7(tls, id, __ccgo_ts+392)), yyjson_get_str7(tls, yyjson_obj_get7(tls, id, __ccgo_ts+395))))
 	}
 	n = v1
 	ext_engine_sha256(tls, bp, libc.Uint64FromInt32(n), out)
@@ -54197,8 +54327,8 @@ func offers_build(tls *libc.TLS, o uintptr, ms uintptr) (r ext_status) {
 			break
 		}
 		j = uint64(0)
-		k = yyjson_arr_size7(tls, yyjson_obj_get7(tls, yyjson_obj_get7(tls, m, __ccgo_ts+1270), __ccgo_ts+417))
-		c = yyjson_arr_get_first7(tls, yyjson_obj_get7(tls, yyjson_obj_get7(tls, m, __ccgo_ts+1270), __ccgo_ts+417))
+		k = yyjson_arr_size7(tls, yyjson_obj_get7(tls, yyjson_obj_get7(tls, m, __ccgo_ts+1343), __ccgo_ts+417))
+		c = yyjson_arr_get_first7(tls, yyjson_obj_get7(tls, yyjson_obj_get7(tls, m, __ccgo_ts+1343), __ccgo_ts+417))
 		for {
 			if !(j < k) {
 				break
@@ -54243,8 +54373,8 @@ func offers_build(tls *libc.TLS, o uintptr, ms uintptr) (r ext_status) {
 			break
 		}
 		j = uint64(0)
-		k = yyjson_arr_size7(tls, yyjson_obj_get7(tls, yyjson_obj_get7(tls, m, __ccgo_ts+1270), __ccgo_ts+417))
-		c = yyjson_arr_get_first7(tls, yyjson_obj_get7(tls, yyjson_obj_get7(tls, m, __ccgo_ts+1270), __ccgo_ts+417))
+		k = yyjson_arr_size7(tls, yyjson_obj_get7(tls, yyjson_obj_get7(tls, m, __ccgo_ts+1343), __ccgo_ts+417))
+		c = yyjson_arr_get_first7(tls, yyjson_obj_get7(tls, yyjson_obj_get7(tls, m, __ccgo_ts+1343), __ccgo_ts+417))
 		for {
 			if !(j < k) {
 				break
@@ -54345,7 +54475,7 @@ func resolve(tls *libc.TLS, ms uintptr, out uintptr) (r1 ext_status) {
 		if v4 != 0 {
 			goto done
 		}
-		(*(*node)(unsafe.Add(nil, nodes+uintptr(i)*32))).Fid = yyjson_obj_get7(tls, yyjson_obj_get7(tls, m, __ccgo_ts+1270), __ccgo_ts+479)
+		(*(*node)(unsafe.Add(nil, nodes+uintptr(i)*32))).Fid = yyjson_obj_get7(tls, yyjson_obj_get7(tls, m, __ccgo_ts+1343), __ccgo_ts+479)
 		j = uint64(0)
 		for {
 			if !(j < i) {
@@ -54380,7 +54510,7 @@ func resolve(tls *libc.TLS, ms uintptr, out uintptr) (r1 ext_status) {
 		if !(i < n) {
 			break
 		}
-		(*(*node)(unsafe.Add(nil, nodes+uintptr(i)*32))).Fcount = yyjson_arr_size7(tls, yyjson_obj_get7(tls, m, __ccgo_ts+1660))
+		(*(*node)(unsafe.Add(nil, nodes+uintptr(i)*32))).Fcount = yyjson_arr_size7(tls, yyjson_obj_get7(tls, m, __ccgo_ts+1733))
 		if (*(*node)(unsafe.Add(nil, nodes+uintptr(i)*32))).Fcount != 0 {
 			(*(*node)(unsafe.Add(nil, nodes+uintptr(i)*32))).Fdeps = libc.Xcalloc(tls, (*(*node)(unsafe.Add(nil, nodes+uintptr(i)*32))).Fcount, uint64(8))
 			if !((*(*node)(unsafe.Add(nil, nodes+uintptr(i)*32))).Fdeps != 0) {
@@ -54389,8 +54519,8 @@ func resolve(tls *libc.TLS, ms uintptr, out uintptr) (r1 ext_status) {
 			}
 		}
 		j = uint64(0)
-		k = yyjson_arr_size7(tls, yyjson_obj_get7(tls, m, __ccgo_ts+1660))
-		r = yyjson_arr_get_first7(tls, yyjson_obj_get7(tls, m, __ccgo_ts+1660))
+		k = yyjson_arr_size7(tls, yyjson_obj_get7(tls, m, __ccgo_ts+1733))
+		r = yyjson_arr_get_first7(tls, yyjson_obj_get7(tls, m, __ccgo_ts+1733))
 		for {
 			if !(j < k) {
 				break
@@ -54425,7 +54555,7 @@ func resolve(tls *libc.TLS, ms uintptr, out uintptr) (r1 ext_status) {
 			}
 			*(*size_t)(unsafe.Add(nil, (*(*node)(unsafe.Add(nil, nodes+uintptr(i)*32))).Fdeps+uintptr(j)*8)) = provider
 			binding = yyjson_mut_obj7(tls, d)
-			if !(binding != 0) || !(copy1(tls, d, binding, __ccgo_ts+1938, (*(*node)(unsafe.Add(nil, nodes+uintptr(i)*32))).Fid) != 0) || !(copy1(tls, d, binding, __ccgo_ts+1234, r) != 0) || !(copy1(tls, d, binding, __ccgo_ts+1947, (*(*node)(unsafe.Add(nil, nodes+uintptr(provider)*32))).Fid) != 0) || !(yyjson_mut_arr_append7(tls, bindings, binding) != 0) {
+			if !(binding != 0) || !(copy1(tls, d, binding, __ccgo_ts+1995, (*(*node)(unsafe.Add(nil, nodes+uintptr(i)*32))).Fid) != 0) || !(copy1(tls, d, binding, __ccgo_ts+1307, r) != 0) || !(copy1(tls, d, binding, __ccgo_ts+2004, (*(*node)(unsafe.Add(nil, nodes+uintptr(provider)*32))).Fid) != 0) || !(yyjson_mut_arr_append7(tls, bindings, binding) != 0) {
 				s = int32(EXT_NOMEM)
 				goto done
 			}
@@ -54463,14 +54593,14 @@ func resolve(tls *libc.TLS, ms uintptr, out uintptr) (r1 ext_status) {
 	} else {
 		v13 = yyjson_mut_null7(tls, d)
 	}
-	if v15 = !(yyjson_mut_obj_add_val7(tls, d, root, __ccgo_ts+1956, v13) != 0); !v15 {
+	if v15 = !(yyjson_mut_obj_add_val7(tls, d, root, __ccgo_ts+2013, v13) != 0); !v15 {
 		if yyjson_mut_arr_size7(tls, bindings) != 0 {
 			v14 = bindings
 		} else {
 			v14 = yyjson_mut_null7(tls, d)
 		}
 	}
-	if v15 || !(yyjson_mut_obj_add_val7(tls, d, root, __ccgo_ts+1962, v14) != 0) {
+	if v15 || !(yyjson_mut_obj_add_val7(tls, d, root, __ccgo_ts+2019, v14) != 0) {
 		s = int32(EXT_NOMEM)
 		goto done
 	}
@@ -54505,7 +54635,7 @@ func ext_package_service(tls *libc.TLS, op uintptr, v uintptr, out uintptr) (r e
 	var s ext_status
 	var v1 int32
 	_, _ = s, v1
-	if !(libc.Xstrcmp(tls, op, __ccgo_ts+1971) != 0) {
+	if !(libc.Xstrcmp(tls, op, __ccgo_ts+2028) != 0) {
 		s = ext_manifest_valid(tls, v)
 		if s != 0 {
 			return s
@@ -54518,10 +54648,10 @@ func ext_package_service(tls *libc.TLS, op uintptr, v uintptr, out uintptr) (r e
 		}
 		return v1
 	}
-	if !(libc.Xstrcmp(tls, op, __ccgo_ts+1988) != 0) {
+	if !(libc.Xstrcmp(tls, op, __ccgo_ts+2045) != 0) {
 		return select_entry(tls, v, out)
 	}
-	if !(libc.Xstrcmp(tls, op, __ccgo_ts+2003) != 0) {
+	if !(libc.Xstrcmp(tls, op, __ccgo_ts+2060) != 0) {
 		return resolve(tls, v, out)
 	}
 	return int32(EXT_UNSUPPORTED)
@@ -60727,21 +60857,21 @@ func char_to_lower(tls *libc.TLS, c u8) (r u8) {
 //
 //	/** Match UTF-8 byte order mask. */
 func is_utf8_bom(tls *libc.TLS, cur uintptr) (r uint8) {
-	return libc.BoolUint8(byte_load_3(tls, cur) == byte_load_3(tls, __ccgo_ts+2019))
+	return libc.BoolUint8(byte_load_3(tls, cur) == byte_load_3(tls, __ccgo_ts+2076))
 }
 
 // C documentation
 //
 //	/** Match UTF-16 byte order mask. */
 func is_utf16_bom(tls *libc.TLS, cur uintptr) (r uint8) {
-	return libc.BoolUint8(libc.Int32FromUint16(byte_load_2(tls, cur)) == libc.Int32FromUint16(byte_load_2(tls, __ccgo_ts+2023)) || libc.Int32FromUint16(byte_load_2(tls, cur)) == libc.Int32FromUint16(byte_load_2(tls, __ccgo_ts+2026)))
+	return libc.BoolUint8(libc.Int32FromUint16(byte_load_2(tls, cur)) == libc.Int32FromUint16(byte_load_2(tls, __ccgo_ts+2080)) || libc.Int32FromUint16(byte_load_2(tls, cur)) == libc.Int32FromUint16(byte_load_2(tls, __ccgo_ts+2083)))
 }
 
 // C documentation
 //
 //	/** Match UTF-32 byte order mask, need length check to avoid zero padding. */
 func is_utf32_bom(tls *libc.TLS, cur uintptr) (r uint8) {
-	return libc.BoolUint8(byte_load_4(tls, cur) == byte_load_4(tls, __ccgo_ts+2029) || byte_load_4(tls, cur) == byte_load_4(tls, __ccgo_ts+2034))
+	return libc.BoolUint8(byte_load_4(tls, cur) == byte_load_4(tls, __ccgo_ts+2086) || byte_load_4(tls, cur) == byte_load_4(tls, __ccgo_ts+2091))
 }
 
 // C documentation
@@ -60766,10 +60896,10 @@ func ext_space_len(tls *libc.TLS, cur uintptr) (r usize) {
 	if libc.Int32FromUint8(*(*u8)(unsafe.Add(nil, cur))) < int32(0x80) {
 		return uint64(1)
 	} else {
-		if libc.Int32FromUint16(byte_load_2(tls, cur)) == libc.Int32FromUint16(byte_load_2(tls, __ccgo_ts+2039)) {
+		if libc.Int32FromUint16(byte_load_2(tls, cur)) == libc.Int32FromUint16(byte_load_2(tls, __ccgo_ts+2096)) {
 			return uint64(2)
 		} else {
-			if libc.Int32FromUint16(byte_load_2(tls, cur)) == libc.Int32FromUint16(byte_load_2(tls, __ccgo_ts+2042)) {
+			if libc.Int32FromUint16(byte_load_2(tls, cur)) == libc.Int32FromUint16(byte_load_2(tls, __ccgo_ts+2099)) {
 				if libc.Int32FromUint8(*(*u8)(unsafe.Add(nil, cur+2))) >= int32(0x80) && libc.Int32FromUint8(*(*u8)(unsafe.Add(nil, cur+2))) <= int32(0x8A) {
 					return uint64(3)
 				}
@@ -60778,7 +60908,7 @@ func ext_space_len(tls *libc.TLS, cur uintptr) (r usize) {
 				}
 			} else {
 				uni = byte_load_3(tls, cur)
-				if uni == byte_load_3(tls, __ccgo_ts+2045) || uni == byte_load_3(tls, __ccgo_ts+2049) || uni == byte_load_3(tls, __ccgo_ts+2053) || uni == byte_load_3(tls, __ccgo_ts+2019) {
+				if uni == byte_load_3(tls, __ccgo_ts+2102) || uni == byte_load_3(tls, __ccgo_ts+2106) || uni == byte_load_3(tls, __ccgo_ts+2110) || uni == byte_load_3(tls, __ccgo_ts+2076) {
 					return uint64(3)
 				}
 			}
@@ -62721,11 +62851,11 @@ func fopen_safe(tls *libc.TLS, path uintptr, mode uintptr) (r uintptr) {
 }
 
 func fopen_readonly(tls *libc.TLS, path uintptr) (r uintptr) {
-	return fopen_safe(tls, path, __ccgo_ts+2057)
+	return fopen_safe(tls, path, __ccgo_ts+2114)
 }
 
 func fopen_writeonly(tls *libc.TLS, path uintptr) (r uintptr) {
-	return fopen_safe(tls, path, __ccgo_ts+2060)
+	return fopen_safe(tls, path, __ccgo_ts+2117)
 }
 
 func fread_safe(tls *libc.TLS, buf uintptr, size usize, file uintptr) (r usize) {
@@ -64059,7 +64189,7 @@ func read_false(tls *libc.TLS, ptr uintptr, val uintptr) (r uint8) {
 	var cur uintptr
 	_ = cur
 	cur = *(*uintptr)(unsafe.Add(nil, ptr))
-	if libc.BoolInt64(!!(byte_match_4(tls, cur+uintptr(1), __ccgo_ts+2063) != 0)) != 0 {
+	if libc.BoolInt64(!!(byte_match_4(tls, cur+uintptr(1), __ccgo_ts+2120) != 0)) != 0 {
 		(*yyjson_val)(unsafe.Pointer(val)).Ftag = libc.Uint64FromInt32(libc.Int32FromUint8(libc.Uint8FromInt32(3)) | libc.Int32FromUint8(libc.Uint8FromInt32(libc.Int32FromInt32(0)<<libc.Int32FromInt32(3))))
 		*(*uintptr)(unsafe.Add(nil, ptr)) = cur + uintptr(5)
 		return libc.BoolUint8(true1 != 0)
@@ -64194,7 +64324,7 @@ func read_num_raw(tls *libc.TLS, ptr uintptr, pre uintptr, flg yyjson_read_flag,
 				return libc.BoolUint8(true1 != 0)
 			}
 		}
-		*(*uintptr)(unsafe.Add(nil, msg)) = __ccgo_ts + 2068
+		*(*uintptr)(unsafe.Add(nil, msg)) = __ccgo_ts + 2125
 		*(*uintptr)(unsafe.Add(nil, end)) = cur
 		return libc.BoolUint8(false1 != 0)
 	}
@@ -64202,7 +64332,7 @@ func read_num_raw(tls *libc.TLS, ptr uintptr, pre uintptr, flg yyjson_read_flag,
 	if libc.Int32FromUint8(*(*u8)(unsafe.Add(nil, cur))) == int32('0') {
 		cur = cur + 1
 		if libc.BoolInt64(!!(char_is_digit(tls, *(*u8)(unsafe.Add(nil, cur))) != 0)) != 0 {
-			*(*uintptr)(unsafe.Add(nil, msg)) = __ccgo_ts + 2088
+			*(*uintptr)(unsafe.Add(nil, msg)) = __ccgo_ts + 2145
 			*(*uintptr)(unsafe.Add(nil, end)) = cur - uintptr(1)
 			return libc.BoolUint8(false1 != 0)
 		}
@@ -64211,7 +64341,7 @@ func read_num_raw(tls *libc.TLS, ptr uintptr, pre uintptr, flg yyjson_read_flag,
 				cur = cur + 1
 				v1 = cur
 				if !(char_is_hex(tls, *(*u8)(unsafe.Add(nil, v1))) != 0) {
-					*(*uintptr)(unsafe.Add(nil, msg)) = __ccgo_ts + 2128
+					*(*uintptr)(unsafe.Add(nil, msg)) = __ccgo_ts + 2185
 					*(*uintptr)(unsafe.Add(nil, end)) = cur
 					return libc.BoolUint8(false1 != 0)
 				}
@@ -64256,7 +64386,7 @@ read_double:
 					return libc.BoolUint8(true1 != 0)
 				}
 			} else {
-				*(*uintptr)(unsafe.Add(nil, msg)) = __ccgo_ts + 2147
+				*(*uintptr)(unsafe.Add(nil, msg)) = __ccgo_ts + 2204
 				*(*uintptr)(unsafe.Add(nil, end)) = cur
 				return libc.BoolUint8(false1 != 0)
 			}
@@ -64271,7 +64401,7 @@ read_double:
 		v1 = cur
 		cur = cur + 1
 		if !(char_is_digit(tls, *(*u8)(unsafe.Add(nil, v1))) != 0) {
-			*(*uintptr)(unsafe.Add(nil, msg)) = __ccgo_ts + 2176
+			*(*uintptr)(unsafe.Add(nil, msg)) = __ccgo_ts + 2233
 			*(*uintptr)(unsafe.Add(nil, end)) = cur
 			return libc.BoolUint8(false1 != 0)
 		}
@@ -64324,14 +64454,14 @@ func read_num_hex(tls *libc.TLS, ptr uintptr, pre uintptr, flg yyjson_read_flag,
 	}
 	/* check error */
 	if libc.BoolInt64(!!(i == libc.Uint64FromInt32(0))) != 0 {
-		*(*uintptr)(unsafe.Add(nil, msg)) = __ccgo_ts + 2128
+		*(*uintptr)(unsafe.Add(nil, msg)) = __ccgo_ts + 2185
 		return libc.BoolUint8(false1 != 0)
 	}
 	/* check overflow */
 	if libc.BoolInt64(!!(i == libc.Uint64FromInt32(16))) != 0 {
 		if char_is_hex(tls, *(*u8)(unsafe.Add(nil, cur+16))) != 0 || sign != 0 && sig > libc.Uint64FromInt32(1)<<libc.Int32FromInt32(63) {
 			if !(libc.BoolInt64(!!(has_rflag(tls, flg, YYJSON_READ_BIGNUM_AS_RAW8, libc.BoolUint8(0 != 0)) != 0)) != 0) {
-				*(*uintptr)(unsafe.Add(nil, msg)) = __ccgo_ts + 2205
+				*(*uintptr)(unsafe.Add(nil, msg)) = __ccgo_ts + 2262
 				return libc.BoolUint8(false1 != 0)
 			}
 			cur = cur + uintptr(16)
@@ -64417,7 +64547,7 @@ func skip_trivia(tls *libc.TLS, ptr uintptr, eof uintptr, flg yyjson_read_flag) 
 			} else {
 				if libc.Int32FromUint8(*(*u8)(unsafe.Add(nil, cur+1))) == int32('*') { /* multi-line comment */
 					cur = cur + uintptr(2)
-					for !(byte_match_2(tls, cur, __ccgo_ts+2225) != 0) && cur < eof {
+					for !(byte_match_2(tls, cur, __ccgo_ts+2282) != 0) && cur < eof {
 						cur = cur + 1
 					}
 					if cur == eof {
@@ -64554,14 +64684,14 @@ func is_truncated_end(tls *libc.TLS, hdr uintptr, cur uintptr, eof uintptr, code
 			if libc.Int32FromUint8(*(*u8)(unsafe.Add(nil, cur))) == int32('-') {
 				cur = cur + 1
 			}
-			if is_truncated_str(tls, cur, eof, __ccgo_ts+2228, libc.BoolUint8(false1 != 0)) != 0 || is_truncated_str(tls, cur, eof, __ccgo_ts+2237, libc.BoolUint8(false1 != 0)) != 0 {
+			if is_truncated_str(tls, cur, eof, __ccgo_ts+2285, libc.BoolUint8(false1 != 0)) != 0 || is_truncated_str(tls, cur, eof, __ccgo_ts+2294, libc.BoolUint8(false1 != 0)) != 0 {
 				return libc.BoolUint8(true1 != 0)
 			}
 		}
 	}
 	if code == YYJSON_READ_ERROR_UNEXPECTED_CONTENT8 {
 		if libc.BoolInt64(!!(has_rflag(tls, flg, YYJSON_READ_ALLOW_INF_AND_NAN8, libc.BoolUint8(1 != 0)) != 0)) != 0 {
-			if hdr+uintptr(3) <= cur && is_truncated_str(tls, cur-uintptr(3), eof, __ccgo_ts+2228, libc.BoolUint8(false1 != 0)) != 0 {
+			if hdr+uintptr(3) <= cur && is_truncated_str(tls, cur-uintptr(3), eof, __ccgo_ts+2285, libc.BoolUint8(false1 != 0)) != 0 {
 				return libc.BoolUint8(true1 != 0) /* e.g. infin would be read as inf + in */
 			}
 		}
@@ -64671,7 +64801,7 @@ func is_truncated_end(tls *libc.TLS, hdr uintptr, cur uintptr, eof uintptr, code
 	if code == YYJSON_READ_ERROR_UNEXPECTED_CHARACTER8 && libc.BoolInt64(!!(has_rflag(tls, flg, YYJSON_READ_ALLOW_BOM8, libc.BoolUint8(1 != 0)) != 0)) != 0 {
 		/* truncated UTF-8 BOM */
 		len11 = libc.Uint64FromInt64(int64(eof) - int64(cur))
-		if cur == hdr && len11 < uint64(3) && !(libc.Xmemcmp(tls, hdr, __ccgo_ts+2019, len11) != 0) {
+		if cur == hdr && len11 < uint64(3) && !(libc.Xmemcmp(tls, hdr, __ccgo_ts+2076, len11) != 0) {
 			return libc.BoolUint8(true1 != 0)
 		}
 	}
@@ -65124,7 +65254,7 @@ _2:
 				return libc.BoolUint8(true1 != 0)
 			}
 		}
-		*(*uintptr)(unsafe.Add(nil, msg)) = __ccgo_ts + 2068
+		*(*uintptr)(unsafe.Add(nil, msg)) = __ccgo_ts + 2125
 		*(*uintptr)(unsafe.Add(nil, end)) = cur
 		return libc.BoolUint8(false1 != 0)
 	}
@@ -65160,7 +65290,7 @@ leading_dot:
 				return libc.BoolUint8(true1 != 0)
 			}
 		}
-		*(*uintptr)(unsafe.Add(nil, msg)) = __ccgo_ts + 2147
+		*(*uintptr)(unsafe.Add(nil, msg)) = __ccgo_ts + 2204
 		*(*uintptr)(unsafe.Add(nil, end)) = cur
 		return libc.BoolUint8(false1 != 0)
 	}
@@ -65176,14 +65306,14 @@ leading_dot:
 _4:
 	;
 	if libc.BoolInt64(!!(char_is_digit(tls, *(*u8)(unsafe.Add(nil, cur))) != 0)) != 0 {
-		*(*uintptr)(unsafe.Add(nil, msg)) = __ccgo_ts + 2088
+		*(*uintptr)(unsafe.Add(nil, msg)) = __ccgo_ts + 2145
 		*(*uintptr)(unsafe.Add(nil, end)) = cur - uintptr(1)
 		return libc.BoolUint8(false1 != 0)
 	}
 	if libc.BoolInt64(!!(char_is_exp(tls, *(*u8)(unsafe.Add(nil, cur))) != 0)) != 0 { /* 0 with any exponent is still 0 */
 		cur = cur + uintptr(libc.Uint64FromInt32(1)+uint64(char_is_sign(tls, *(*u8)(unsafe.Add(nil, cur+1)))))
 		if libc.BoolInt64(!!!(char_is_digit(tls, *(*u8)(unsafe.Add(nil, cur))) != 0)) != 0 {
-			*(*uintptr)(unsafe.Add(nil, msg)) = __ccgo_ts + 2176
+			*(*uintptr)(unsafe.Add(nil, msg)) = __ccgo_ts + 2233
 			*(*uintptr)(unsafe.Add(nil, end)) = cur
 			return libc.BoolUint8(false1 != 0)
 		}
@@ -66100,7 +66230,7 @@ digi_intg_more:
 			if libc.BoolInt64(!!(has_rflag(tls, flg, YYJSON_READ_ALLOW_EXT_NUMBER8, libc.BoolUint8(1 != 0)) != 0)) != 0 {
 				goto digi_frac_end
 			}
-			*(*uintptr)(unsafe.Add(nil, msg)) = __ccgo_ts + 2147
+			*(*uintptr)(unsafe.Add(nil, msg)) = __ccgo_ts + 2204
 			*(*uintptr)(unsafe.Add(nil, end)) = cur
 			return libc.BoolUint8(false1 != 0)
 		}
@@ -66133,7 +66263,7 @@ digi_frac_more:
 			v3 = cur
 			if libc.BoolInt64(!!!(char_is_digit(tls, *(*u8)(unsafe.Add(nil, v3))) != 0)) != 0 {
 				if !(libc.BoolInt64(!!(has_rflag(tls, flg, YYJSON_READ_ALLOW_EXT_NUMBER8, libc.BoolUint8(1 != 0)) != 0)) != 0) {
-					*(*uintptr)(unsafe.Add(nil, msg)) = __ccgo_ts + 2147
+					*(*uintptr)(unsafe.Add(nil, msg)) = __ccgo_ts + 2204
 					*(*uintptr)(unsafe.Add(nil, end)) = cur
 					return libc.BoolUint8(false1 != 0)
 				}
@@ -66165,7 +66295,7 @@ digi_frac_end:
 	;
 	if libc.BoolInt64(!!(dot_pos+libc.UintptrFromInt32(1) == cur)) != 0 {
 		if !(libc.BoolInt64(!!(has_rflag(tls, flg, YYJSON_READ_ALLOW_EXT_NUMBER8, libc.BoolUint8(1 != 0)) != 0)) != 0) {
-			*(*uintptr)(unsafe.Add(nil, msg)) = __ccgo_ts + 2147
+			*(*uintptr)(unsafe.Add(nil, msg)) = __ccgo_ts + 2204
 			*(*uintptr)(unsafe.Add(nil, end)) = cur
 			return libc.BoolUint8(false1 != 0)
 		}
@@ -66193,7 +66323,7 @@ digi_exp_more:
 	exp_sign = libc.BoolUint8(libc.Int32FromUint8(*(*u8)(unsafe.Add(nil, v3))) == libc.Int32FromUint8('-'))
 	cur = cur + uintptr(char_is_sign(tls, *(*u8)(unsafe.Add(nil, cur))))
 	if libc.BoolInt64(!!!(char_is_digit(tls, *(*u8)(unsafe.Add(nil, cur))) != 0)) != 0 {
-		*(*uintptr)(unsafe.Add(nil, msg)) = __ccgo_ts + 2176
+		*(*uintptr)(unsafe.Add(nil, msg)) = __ccgo_ts + 2233
 		*(*uintptr)(unsafe.Add(nil, end)) = cur
 		return libc.BoolUint8(false1 != 0)
 	}
@@ -66228,7 +66358,7 @@ digi_exp_more:
 				*(*uintptr)(unsafe.Add(nil, end)) = cur
 				return libc.BoolUint8(true1 != 0)
 			} else {
-				*(*uintptr)(unsafe.Add(nil, msg)) = __ccgo_ts + 2241
+				*(*uintptr)(unsafe.Add(nil, msg)) = __ccgo_ts + 2298
 				*(*uintptr)(unsafe.Add(nil, end)) = hdr
 				return libc.BoolUint8(false1 != 0)
 			} /* overflow */
@@ -66265,7 +66395,7 @@ digi_exp_finish:
 			*(*uintptr)(unsafe.Add(nil, end)) = cur
 			return libc.BoolUint8(true1 != 0)
 		} else {
-			*(*uintptr)(unsafe.Add(nil, msg)) = __ccgo_ts + 2241
+			*(*uintptr)(unsafe.Add(nil, msg)) = __ccgo_ts + 2298
 			*(*uintptr)(unsafe.Add(nil, end)) = hdr
 			return libc.BoolUint8(false1 != 0)
 		} /* overflow */
@@ -66465,7 +66595,7 @@ digi_finish:
 			*(*uintptr)(unsafe.Add(nil, end)) = cur
 			return libc.BoolUint8(true1 != 0)
 		} else {
-			*(*uintptr)(unsafe.Add(nil, msg)) = __ccgo_ts + 2241
+			*(*uintptr)(unsafe.Add(nil, msg)) = __ccgo_ts + 2298
 			*(*uintptr)(unsafe.Add(nil, end)) = hdr
 			return libc.BoolUint8(false1 != 0)
 		}
@@ -66525,7 +66655,7 @@ digi_finish:
 			*(*uintptr)(unsafe.Add(nil, end)) = cur
 			return libc.BoolUint8(true1 != 0)
 		} else {
-			*(*uintptr)(unsafe.Add(nil, msg)) = __ccgo_ts + 2241
+			*(*uintptr)(unsafe.Add(nil, msg)) = __ccgo_ts + 2298
 			*(*uintptr)(unsafe.Add(nil, end)) = hdr
 			return libc.BoolUint8(false1 != 0)
 		}
@@ -66556,7 +66686,7 @@ func read_uni_esc(tls *libc.TLS, src_ptr uintptr, dst_ptr uintptr, msg uintptr) 
 	dst = *(*uintptr)(unsafe.Add(nil, dst_ptr))
 	src = src + uintptr(2) /* skip `\u` */
 	if libc.BoolInt64(!!!(hex_load_4(tls, src, bp) != 0)) != 0 {
-		*(*uintptr)(unsafe.Add(nil, msg)) = __ccgo_ts + 2282
+		*(*uintptr)(unsafe.Add(nil, msg)) = __ccgo_ts + 2339
 		*(*uintptr)(unsafe.Add(nil, src_ptr)) = src - uintptr(2)
 		return libc.BoolUint8(false1 != 0)
 	}
@@ -66590,22 +66720,22 @@ func read_uni_esc(tls *libc.TLS, src_ptr uintptr, dst_ptr uintptr, msg uintptr) 
 	} else {
 		/* a non-BMP character, represented as a surrogate pair */
 		if libc.BoolInt64(!!(libc.Int32FromUint16(*(*u16)(unsafe.Add(nil, bp)))&libc.Int32FromInt32(0xFC00) != libc.Int32FromInt32(0xD800))) != 0 {
-			*(*uintptr)(unsafe.Add(nil, msg)) = __ccgo_ts + 2317
+			*(*uintptr)(unsafe.Add(nil, msg)) = __ccgo_ts + 2374
 			*(*uintptr)(unsafe.Add(nil, src_ptr)) = src - uintptr(6)
 			return libc.BoolUint8(false1 != 0)
 		}
-		if libc.BoolInt64(!!!(byte_match_2(tls, src, __ccgo_ts+2350) != 0)) != 0 {
-			*(*uintptr)(unsafe.Add(nil, msg)) = __ccgo_ts + 2353
+		if libc.BoolInt64(!!!(byte_match_2(tls, src, __ccgo_ts+2407) != 0)) != 0 {
+			*(*uintptr)(unsafe.Add(nil, msg)) = __ccgo_ts + 2410
 			*(*uintptr)(unsafe.Add(nil, src_ptr)) = src - uintptr(6)
 			return libc.BoolUint8(false1 != 0)
 		}
 		if libc.BoolInt64(!!!(hex_load_4(tls, src+uintptr(2), bp+2) != 0)) != 0 {
-			*(*uintptr)(unsafe.Add(nil, msg)) = __ccgo_ts + 2380
+			*(*uintptr)(unsafe.Add(nil, msg)) = __ccgo_ts + 2437
 			*(*uintptr)(unsafe.Add(nil, src_ptr)) = src - uintptr(6)
 			return libc.BoolUint8(false1 != 0)
 		}
 		if libc.BoolInt64(!!(libc.Int32FromUint16(*(*u16)(unsafe.Add(nil, bp+2)))&libc.Int32FromInt32(0xFC00) != libc.Int32FromInt32(0xDC00))) != 0 {
-			*(*uintptr)(unsafe.Add(nil, msg)) = __ccgo_ts + 2405
+			*(*uintptr)(unsafe.Add(nil, msg)) = __ccgo_ts + 2462
 			*(*uintptr)(unsafe.Add(nil, src_ptr)) = src - uintptr(6)
 			return libc.BoolUint8(false1 != 0)
 		}
@@ -67055,7 +67185,7 @@ skip_utf8:
 			if libc.BoolInt64(!!(has_rflag(tls, flg, YYJSON_READ_ALLOW_INVALID_UNICODE8, libc.BoolUint8(1 != 0)) != 0)) != 0 {
 				*(*uintptr)(unsafe.Add(nil, bp)) = *(*uintptr)(unsafe.Add(nil, bp)) + 1
 			} else {
-				*(*uintptr)(unsafe.Add(nil, msg)) = __ccgo_ts + 2437
+				*(*uintptr)(unsafe.Add(nil, msg)) = __ccgo_ts + 2494
 				*(*uintptr)(unsafe.Add(nil, end)) = *(*uintptr)(unsafe.Add(nil, bp))
 				if con != 0 {
 					*(*uintptr)(unsafe.Add(nil, con)) = *(*uintptr)(unsafe.Add(nil, bp))
@@ -67216,7 +67346,7 @@ copy_escape:
 					*(*uintptr)(unsafe.Add(nil, bp)) = *(*uintptr)(unsafe.Add(nil, bp)) + 1
 					goto _38
 				}
-				*(*uintptr)(unsafe.Add(nil, msg)) = __ccgo_ts + 2470
+				*(*uintptr)(unsafe.Add(nil, msg)) = __ccgo_ts + 2527
 				*(*uintptr)(unsafe.Add(nil, end)) = *(*uintptr)(unsafe.Add(nil, bp)) - uintptr(1)
 				if con != 0 {
 					*(*uintptr)(unsafe.Add(nil, con)) = *(*uintptr)(unsafe.Add(nil, bp)) - uintptr(1)
@@ -67243,7 +67373,7 @@ copy_escape:
 				;
 			_47:
 				;
-				*(*uintptr)(unsafe.Add(nil, msg)) = __ccgo_ts + 2498
+				*(*uintptr)(unsafe.Add(nil, msg)) = __ccgo_ts + 2555
 				*(*uintptr)(unsafe.Add(nil, end)) = *(*uintptr)(unsafe.Add(nil, bp)) - uintptr(1)
 				if con != 0 {
 					*(*uintptr)(unsafe.Add(nil, con)) = *(*uintptr)(unsafe.Add(nil, bp)) - uintptr(1)
@@ -67277,7 +67407,7 @@ copy_escape:
 					}
 					goto _38
 				}
-				*(*uintptr)(unsafe.Add(nil, msg)) = __ccgo_ts + 2520
+				*(*uintptr)(unsafe.Add(nil, msg)) = __ccgo_ts + 2577
 				*(*uintptr)(unsafe.Add(nil, end)) = *(*uintptr)(unsafe.Add(nil, bp)) - uintptr(1)
 				if con != 0 {
 					*(*uintptr)(unsafe.Add(nil, con)) = *(*uintptr)(unsafe.Add(nil, bp)) - uintptr(1)
@@ -67311,7 +67441,7 @@ copy_escape:
 					*(*uintptr)(unsafe.Add(nil, bp)) = *(*uintptr)(unsafe.Add(nil, bp)) + 1
 					break
 				} else {
-					*(*uintptr)(unsafe.Add(nil, msg)) = __ccgo_ts + 2282
+					*(*uintptr)(unsafe.Add(nil, msg)) = __ccgo_ts + 2339
 					*(*uintptr)(unsafe.Add(nil, end)) = *(*uintptr)(unsafe.Add(nil, bp)) - uintptr(1)
 					if con != 0 {
 						*(*uintptr)(unsafe.Add(nil, con)) = *(*uintptr)(unsafe.Add(nil, bp)) - uintptr(1)
@@ -67335,7 +67465,7 @@ copy_escape:
 			return libc.BoolUint8(true1 != 0)
 		} else {
 			if !(libc.BoolInt64(!!(has_rflag(tls, flg, YYJSON_READ_ALLOW_INVALID_UNICODE8, libc.BoolUint8(1 != 0)) != 0)) != 0) {
-				*(*uintptr)(unsafe.Add(nil, msg)) = __ccgo_ts + 2539
+				*(*uintptr)(unsafe.Add(nil, msg)) = __ccgo_ts + 2596
 				*(*uintptr)(unsafe.Add(nil, end)) = *(*uintptr)(unsafe.Add(nil, bp))
 				if con != 0 {
 					*(*uintptr)(unsafe.Add(nil, con)) = *(*uintptr)(unsafe.Add(nil, bp))
@@ -67344,7 +67474,7 @@ copy_escape:
 				return libc.BoolUint8(false1 != 0)
 			}
 			if *(*uintptr)(unsafe.Add(nil, bp)) >= eof {
-				*(*uintptr)(unsafe.Add(nil, msg)) = __ccgo_ts + 2578
+				*(*uintptr)(unsafe.Add(nil, msg)) = __ccgo_ts + 2635
 				*(*uintptr)(unsafe.Add(nil, end)) = *(*uintptr)(unsafe.Add(nil, bp))
 				if con != 0 {
 					*(*uintptr)(unsafe.Add(nil, con)) = *(*uintptr)(unsafe.Add(nil, bp))
@@ -67663,7 +67793,7 @@ copy_utf8:
 		}
 		if libc.BoolInt64(!!(pos == *(*uintptr)(unsafe.Add(nil, bp)))) != 0 {
 			if !(libc.BoolInt64(!!(has_rflag(tls, flg, YYJSON_READ_ALLOW_INVALID_UNICODE8, libc.BoolUint8(1 != 0)) != 0)) != 0) {
-				*(*uintptr)(unsafe.Add(nil, msg)) = __ccgo_ts + 2594
+				*(*uintptr)(unsafe.Add(nil, msg)) = __ccgo_ts + 2651
 				*(*uintptr)(unsafe.Add(nil, end)) = *(*uintptr)(unsafe.Add(nil, bp))
 				if con != 0 {
 					*(*uintptr)(unsafe.Add(nil, con)) = *(*uintptr)(unsafe.Add(nil, bp))
@@ -67902,7 +68032,7 @@ skip_utf8:
 					*(*uintptr)(unsafe.Add(nil, bp)) = *(*uintptr)(unsafe.Add(nil, bp)) + uintptr(4)
 				} else {
 					if !(libc.BoolInt64(!!(has_rflag(tls, flg, YYJSON_READ_ALLOW_INVALID_UNICODE8, libc.BoolUint8(1 != 0)) != 0)) != 0) {
-						*(*uintptr)(unsafe.Add(nil, msg)) = __ccgo_ts + 2594
+						*(*uintptr)(unsafe.Add(nil, msg)) = __ccgo_ts + 2651
 						*(*uintptr)(unsafe.Add(nil, end)) = *(*uintptr)(unsafe.Add(nil, bp))
 						return libc.BoolUint8(false1 != 0)
 					}
@@ -67919,7 +68049,7 @@ skip_utf8:
 	goto copy_escape
 copy_escape:
 	;
-	if byte_match_2(tls, *(*uintptr)(unsafe.Add(nil, bp)), __ccgo_ts+2350) != 0 {
+	if byte_match_2(tls, *(*uintptr)(unsafe.Add(nil, bp)), __ccgo_ts+2407) != 0 {
 		if !(read_uni_esc(tls, bp, bp+8, msg) != 0) {
 			*(*uintptr)(unsafe.Add(nil, msg)) = *(*uintptr)(unsafe.Add(nil, msg))
 			*(*uintptr)(unsafe.Add(nil, end)) = *(*uintptr)(unsafe.Add(nil, bp))
@@ -67933,7 +68063,7 @@ copy_escape:
 			*(*uintptr)(unsafe.Add(nil, end)) = *(*uintptr)(unsafe.Add(nil, bp))
 			return libc.BoolUint8(true1 != 0)
 		}
-		*(*uintptr)(unsafe.Add(nil, msg)) = __ccgo_ts + 2627
+		*(*uintptr)(unsafe.Add(nil, msg)) = __ccgo_ts + 2684
 		*(*uintptr)(unsafe.Add(nil, end)) = *(*uintptr)(unsafe.Add(nil, bp))
 		return libc.BoolUint8(false1 != 0)
 	}
@@ -68165,7 +68295,7 @@ copy_utf8:
 					*(*uintptr)(unsafe.Add(nil, bp)) = *(*uintptr)(unsafe.Add(nil, bp)) + uintptr(4)
 				} else {
 					if !(libc.BoolInt64(!!(has_rflag(tls, flg, YYJSON_READ_ALLOW_INVALID_UNICODE8, libc.BoolUint8(1 != 0)) != 0)) != 0) {
-						*(*uintptr)(unsafe.Add(nil, msg)) = __ccgo_ts + 2594
+						*(*uintptr)(unsafe.Add(nil, msg)) = __ccgo_ts + 2651
 						*(*uintptr)(unsafe.Add(nil, end)) = *(*uintptr)(unsafe.Add(nil, bp))
 						return libc.BoolUint8(false1 != 0)
 					}
@@ -68297,7 +68427,7 @@ fail_string:
 	if is_truncated_end(tls, hdr, *(*uintptr)(unsafe.Add(nil, bp)), eof, YYJSON_READ_ERROR_INVALID_STRING8, flg) != 0 {
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fpos = libc.Uint64FromInt64(int64(eof) - int64(hdr))
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_UNEXPECTED_END8
-		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2655
+		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2712
 	} else {
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fpos = libc.Uint64FromInt64(int64(*(*uintptr)(unsafe.Add(nil, bp))) - int64(hdr))
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_INVALID_STRING8
@@ -68313,7 +68443,7 @@ fail_number:
 	if is_truncated_end(tls, hdr, *(*uintptr)(unsafe.Add(nil, bp)), eof, YYJSON_READ_ERROR_INVALID_NUMBER8, flg) != 0 {
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fpos = libc.Uint64FromInt64(int64(eof) - int64(hdr))
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_UNEXPECTED_END8
-		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2655
+		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2712
 	} else {
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fpos = libc.Uint64FromInt64(int64(*(*uintptr)(unsafe.Add(nil, bp))) - int64(hdr))
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_INVALID_NUMBER8
@@ -68329,11 +68459,11 @@ fail_alloc:
 	if is_truncated_end(tls, hdr, *(*uintptr)(unsafe.Add(nil, bp)), eof, YYJSON_READ_ERROR_MEMORY_ALLOCATION8, flg) != 0 {
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fpos = libc.Uint64FromInt64(int64(eof) - int64(hdr))
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_UNEXPECTED_END8
-		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2655
+		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2712
 	} else {
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fpos = libc.Uint64FromInt64(int64(*(*uintptr)(unsafe.Add(nil, bp))) - int64(hdr))
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_MEMORY_ALLOCATION8
-		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2678
+		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2735
 	}
 	if val_hdr != 0 {
 		(*(*func(*libc.TLS, uintptr, uintptr))(unsafe.Pointer(&struct{ uintptr }{alc.Ffree})))(tls, alc.Fctx, val_hdr)
@@ -68345,11 +68475,11 @@ fail_literal_true:
 	if is_truncated_end(tls, hdr, *(*uintptr)(unsafe.Add(nil, bp)), eof, YYJSON_READ_ERROR_LITERAL8, flg) != 0 {
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fpos = libc.Uint64FromInt64(int64(eof) - int64(hdr))
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_UNEXPECTED_END8
-		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2655
+		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2712
 	} else {
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fpos = libc.Uint64FromInt64(int64(*(*uintptr)(unsafe.Add(nil, bp))) - int64(hdr))
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_LITERAL8
-		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2704
+		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2761
 	}
 	if val_hdr != 0 {
 		(*(*func(*libc.TLS, uintptr, uintptr))(unsafe.Pointer(&struct{ uintptr }{alc.Ffree})))(tls, alc.Fctx, val_hdr)
@@ -68361,11 +68491,11 @@ fail_literal_false:
 	if is_truncated_end(tls, hdr, *(*uintptr)(unsafe.Add(nil, bp)), eof, YYJSON_READ_ERROR_LITERAL8, flg) != 0 {
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fpos = libc.Uint64FromInt64(int64(eof) - int64(hdr))
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_UNEXPECTED_END8
-		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2655
+		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2712
 	} else {
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fpos = libc.Uint64FromInt64(int64(*(*uintptr)(unsafe.Add(nil, bp))) - int64(hdr))
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_LITERAL8
-		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2737
+		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2794
 	}
 	if val_hdr != 0 {
 		(*(*func(*libc.TLS, uintptr, uintptr))(unsafe.Pointer(&struct{ uintptr }{alc.Ffree})))(tls, alc.Fctx, val_hdr)
@@ -68377,11 +68507,11 @@ fail_literal_null:
 	if is_truncated_end(tls, hdr, *(*uintptr)(unsafe.Add(nil, bp)), eof, YYJSON_READ_ERROR_LITERAL8, flg) != 0 {
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fpos = libc.Uint64FromInt64(int64(eof) - int64(hdr))
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_UNEXPECTED_END8
-		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2655
+		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2712
 	} else {
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fpos = libc.Uint64FromInt64(int64(*(*uintptr)(unsafe.Add(nil, bp))) - int64(hdr))
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_LITERAL8
-		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2771
+		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2828
 	}
 	if val_hdr != 0 {
 		(*(*func(*libc.TLS, uintptr, uintptr))(unsafe.Pointer(&struct{ uintptr }{alc.Ffree})))(tls, alc.Fctx, val_hdr)
@@ -68393,11 +68523,11 @@ fail_character:
 	if is_truncated_end(tls, hdr, *(*uintptr)(unsafe.Add(nil, bp)), eof, YYJSON_READ_ERROR_UNEXPECTED_CHARACTER8, flg) != 0 {
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fpos = libc.Uint64FromInt64(int64(eof) - int64(hdr))
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_UNEXPECTED_END8
-		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2655
+		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2712
 	} else {
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fpos = libc.Uint64FromInt64(int64(*(*uintptr)(unsafe.Add(nil, bp))) - int64(hdr))
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_UNEXPECTED_CHARACTER8
-		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2804
+		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2861
 	}
 	if val_hdr != 0 {
 		(*(*func(*libc.TLS, uintptr, uintptr))(unsafe.Pointer(&struct{ uintptr }{alc.Ffree})))(tls, alc.Fctx, val_hdr)
@@ -68409,11 +68539,11 @@ fail_comment:
 	if is_truncated_end(tls, hdr, *(*uintptr)(unsafe.Add(nil, bp)), eof, YYJSON_READ_ERROR_INVALID_COMMENT8, flg) != 0 {
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fpos = libc.Uint64FromInt64(int64(eof) - int64(hdr))
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_UNEXPECTED_END8
-		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2655
+		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2712
 	} else {
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fpos = libc.Uint64FromInt64(int64(*(*uintptr)(unsafe.Add(nil, bp))) - int64(hdr))
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_INVALID_COMMENT8
-		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2848
+		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2905
 	}
 	if val_hdr != 0 {
 		(*(*func(*libc.TLS, uintptr, uintptr))(unsafe.Pointer(&struct{ uintptr }{alc.Ffree})))(tls, alc.Fctx, val_hdr)
@@ -68425,11 +68555,11 @@ fail_garbage:
 	if is_truncated_end(tls, hdr, *(*uintptr)(unsafe.Add(nil, bp)), eof, YYJSON_READ_ERROR_UNEXPECTED_CONTENT8, flg) != 0 {
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fpos = libc.Uint64FromInt64(int64(eof) - int64(hdr))
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_UNEXPECTED_END8
-		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2655
+		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2712
 	} else {
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fpos = libc.Uint64FromInt64(int64(*(*uintptr)(unsafe.Add(nil, bp))) - int64(hdr))
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_UNEXPECTED_CONTENT8
-		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2875
+		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2932
 	}
 	if val_hdr != 0 {
 		(*(*func(*libc.TLS, uintptr, uintptr))(unsafe.Pointer(&struct{ uintptr }{alc.Ffree})))(tls, alc.Fctx, val_hdr)
@@ -69129,7 +69259,7 @@ fail_string:
 	if is_truncated_end(tls, hdr, *(*uintptr)(unsafe.Add(nil, bp)), eof, YYJSON_READ_ERROR_INVALID_STRING8, flg) != 0 {
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fpos = libc.Uint64FromInt64(int64(eof) - int64(hdr))
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_UNEXPECTED_END8
-		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2655
+		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2712
 	} else {
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fpos = libc.Uint64FromInt64(int64(*(*uintptr)(unsafe.Add(nil, bp))) - int64(hdr))
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_INVALID_STRING8
@@ -69145,7 +69275,7 @@ fail_number:
 	if is_truncated_end(tls, hdr, *(*uintptr)(unsafe.Add(nil, bp)), eof, YYJSON_READ_ERROR_INVALID_NUMBER8, flg) != 0 {
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fpos = libc.Uint64FromInt64(int64(eof) - int64(hdr))
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_UNEXPECTED_END8
-		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2655
+		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2712
 	} else {
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fpos = libc.Uint64FromInt64(int64(*(*uintptr)(unsafe.Add(nil, bp))) - int64(hdr))
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_INVALID_NUMBER8
@@ -69161,11 +69291,11 @@ fail_alloc:
 	if is_truncated_end(tls, hdr, *(*uintptr)(unsafe.Add(nil, bp)), eof, YYJSON_READ_ERROR_MEMORY_ALLOCATION8, flg) != 0 {
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fpos = libc.Uint64FromInt64(int64(eof) - int64(hdr))
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_UNEXPECTED_END8
-		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2655
+		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2712
 	} else {
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fpos = libc.Uint64FromInt64(int64(*(*uintptr)(unsafe.Add(nil, bp))) - int64(hdr))
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_MEMORY_ALLOCATION8
-		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2678
+		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2735
 	}
 	if val_hdr != 0 {
 		(*(*func(*libc.TLS, uintptr, uintptr))(unsafe.Pointer(&struct{ uintptr }{alc.Ffree})))(tls, alc.Fctx, val_hdr)
@@ -69177,11 +69307,11 @@ fail_trailing_comma:
 	if is_truncated_end(tls, hdr, *(*uintptr)(unsafe.Add(nil, bp)), eof, YYJSON_READ_ERROR_JSON_STRUCTURE8, flg) != 0 {
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fpos = libc.Uint64FromInt64(int64(eof) - int64(hdr))
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_UNEXPECTED_END8
-		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2655
+		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2712
 	} else {
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fpos = libc.Uint64FromInt64(int64(*(*uintptr)(unsafe.Add(nil, bp))) - int64(hdr))
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_JSON_STRUCTURE8
-		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2909
+		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2966
 	}
 	if val_hdr != 0 {
 		(*(*func(*libc.TLS, uintptr, uintptr))(unsafe.Pointer(&struct{ uintptr }{alc.Ffree})))(tls, alc.Fctx, val_hdr)
@@ -69193,11 +69323,11 @@ fail_literal_true:
 	if is_truncated_end(tls, hdr, *(*uintptr)(unsafe.Add(nil, bp)), eof, YYJSON_READ_ERROR_LITERAL8, flg) != 0 {
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fpos = libc.Uint64FromInt64(int64(eof) - int64(hdr))
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_UNEXPECTED_END8
-		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2655
+		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2712
 	} else {
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fpos = libc.Uint64FromInt64(int64(*(*uintptr)(unsafe.Add(nil, bp))) - int64(hdr))
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_LITERAL8
-		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2704
+		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2761
 	}
 	if val_hdr != 0 {
 		(*(*func(*libc.TLS, uintptr, uintptr))(unsafe.Pointer(&struct{ uintptr }{alc.Ffree})))(tls, alc.Fctx, val_hdr)
@@ -69209,11 +69339,11 @@ fail_literal_false:
 	if is_truncated_end(tls, hdr, *(*uintptr)(unsafe.Add(nil, bp)), eof, YYJSON_READ_ERROR_LITERAL8, flg) != 0 {
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fpos = libc.Uint64FromInt64(int64(eof) - int64(hdr))
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_UNEXPECTED_END8
-		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2655
+		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2712
 	} else {
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fpos = libc.Uint64FromInt64(int64(*(*uintptr)(unsafe.Add(nil, bp))) - int64(hdr))
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_LITERAL8
-		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2737
+		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2794
 	}
 	if val_hdr != 0 {
 		(*(*func(*libc.TLS, uintptr, uintptr))(unsafe.Pointer(&struct{ uintptr }{alc.Ffree})))(tls, alc.Fctx, val_hdr)
@@ -69225,11 +69355,11 @@ fail_literal_null:
 	if is_truncated_end(tls, hdr, *(*uintptr)(unsafe.Add(nil, bp)), eof, YYJSON_READ_ERROR_LITERAL8, flg) != 0 {
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fpos = libc.Uint64FromInt64(int64(eof) - int64(hdr))
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_UNEXPECTED_END8
-		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2655
+		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2712
 	} else {
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fpos = libc.Uint64FromInt64(int64(*(*uintptr)(unsafe.Add(nil, bp))) - int64(hdr))
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_LITERAL8
-		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2771
+		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2828
 	}
 	if val_hdr != 0 {
 		(*(*func(*libc.TLS, uintptr, uintptr))(unsafe.Pointer(&struct{ uintptr }{alc.Ffree})))(tls, alc.Fctx, val_hdr)
@@ -69241,11 +69371,11 @@ fail_character_val:
 	if is_truncated_end(tls, hdr, *(*uintptr)(unsafe.Add(nil, bp)), eof, YYJSON_READ_ERROR_UNEXPECTED_CHARACTER8, flg) != 0 {
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fpos = libc.Uint64FromInt64(int64(eof) - int64(hdr))
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_UNEXPECTED_END8
-		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2655
+		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2712
 	} else {
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fpos = libc.Uint64FromInt64(int64(*(*uintptr)(unsafe.Add(nil, bp))) - int64(hdr))
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_UNEXPECTED_CHARACTER8
-		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2804
+		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2861
 	}
 	if val_hdr != 0 {
 		(*(*func(*libc.TLS, uintptr, uintptr))(unsafe.Pointer(&struct{ uintptr }{alc.Ffree})))(tls, alc.Fctx, val_hdr)
@@ -69257,11 +69387,11 @@ fail_character_arr_end:
 	if is_truncated_end(tls, hdr, *(*uintptr)(unsafe.Add(nil, bp)), eof, YYJSON_READ_ERROR_UNEXPECTED_CHARACTER8, flg) != 0 {
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fpos = libc.Uint64FromInt64(int64(eof) - int64(hdr))
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_UNEXPECTED_END8
-		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2655
+		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2712
 	} else {
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fpos = libc.Uint64FromInt64(int64(*(*uintptr)(unsafe.Add(nil, bp))) - int64(hdr))
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_UNEXPECTED_CHARACTER8
-		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2939
+		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2996
 	}
 	if val_hdr != 0 {
 		(*(*func(*libc.TLS, uintptr, uintptr))(unsafe.Pointer(&struct{ uintptr }{alc.Ffree})))(tls, alc.Fctx, val_hdr)
@@ -69273,11 +69403,11 @@ fail_character_obj_key:
 	if is_truncated_end(tls, hdr, *(*uintptr)(unsafe.Add(nil, bp)), eof, YYJSON_READ_ERROR_UNEXPECTED_CHARACTER8, flg) != 0 {
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fpos = libc.Uint64FromInt64(int64(eof) - int64(hdr))
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_UNEXPECTED_END8
-		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2655
+		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2712
 	} else {
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fpos = libc.Uint64FromInt64(int64(*(*uintptr)(unsafe.Add(nil, bp))) - int64(hdr))
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_UNEXPECTED_CHARACTER8
-		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2981
+		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3038
 	}
 	if val_hdr != 0 {
 		(*(*func(*libc.TLS, uintptr, uintptr))(unsafe.Pointer(&struct{ uintptr }{alc.Ffree})))(tls, alc.Fctx, val_hdr)
@@ -69289,11 +69419,11 @@ fail_character_obj_sep:
 	if is_truncated_end(tls, hdr, *(*uintptr)(unsafe.Add(nil, bp)), eof, YYJSON_READ_ERROR_UNEXPECTED_CHARACTER8, flg) != 0 {
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fpos = libc.Uint64FromInt64(int64(eof) - int64(hdr))
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_UNEXPECTED_END8
-		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2655
+		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2712
 	} else {
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fpos = libc.Uint64FromInt64(int64(*(*uintptr)(unsafe.Add(nil, bp))) - int64(hdr))
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_UNEXPECTED_CHARACTER8
-		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3025
+		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3082
 	}
 	if val_hdr != 0 {
 		(*(*func(*libc.TLS, uintptr, uintptr))(unsafe.Pointer(&struct{ uintptr }{alc.Ffree})))(tls, alc.Fctx, val_hdr)
@@ -69305,11 +69435,11 @@ fail_character_obj_end:
 	if is_truncated_end(tls, hdr, *(*uintptr)(unsafe.Add(nil, bp)), eof, YYJSON_READ_ERROR_UNEXPECTED_CHARACTER8, flg) != 0 {
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fpos = libc.Uint64FromInt64(int64(eof) - int64(hdr))
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_UNEXPECTED_END8
-		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2655
+		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2712
 	} else {
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fpos = libc.Uint64FromInt64(int64(*(*uintptr)(unsafe.Add(nil, bp))) - int64(hdr))
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_UNEXPECTED_CHARACTER8
-		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3070
+		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3127
 	}
 	if val_hdr != 0 {
 		(*(*func(*libc.TLS, uintptr, uintptr))(unsafe.Pointer(&struct{ uintptr }{alc.Ffree})))(tls, alc.Fctx, val_hdr)
@@ -69321,11 +69451,11 @@ fail_comment:
 	if is_truncated_end(tls, hdr, *(*uintptr)(unsafe.Add(nil, bp)), eof, YYJSON_READ_ERROR_INVALID_COMMENT8, flg) != 0 {
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fpos = libc.Uint64FromInt64(int64(eof) - int64(hdr))
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_UNEXPECTED_END8
-		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2655
+		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2712
 	} else {
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fpos = libc.Uint64FromInt64(int64(*(*uintptr)(unsafe.Add(nil, bp))) - int64(hdr))
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_INVALID_COMMENT8
-		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2848
+		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2905
 	}
 	if val_hdr != 0 {
 		(*(*func(*libc.TLS, uintptr, uintptr))(unsafe.Pointer(&struct{ uintptr }{alc.Ffree})))(tls, alc.Fctx, val_hdr)
@@ -69337,11 +69467,11 @@ fail_garbage:
 	if is_truncated_end(tls, hdr, *(*uintptr)(unsafe.Add(nil, bp)), eof, YYJSON_READ_ERROR_UNEXPECTED_CONTENT8, flg) != 0 {
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fpos = libc.Uint64FromInt64(int64(eof) - int64(hdr))
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_UNEXPECTED_END8
-		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2655
+		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2712
 	} else {
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fpos = libc.Uint64FromInt64(int64(*(*uintptr)(unsafe.Add(nil, bp))) - int64(hdr))
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_UNEXPECTED_CONTENT8
-		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2875
+		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2932
 	}
 	if val_hdr != 0 {
 		(*(*func(*libc.TLS, uintptr, uintptr))(unsafe.Pointer(&struct{ uintptr }{alc.Ffree})))(tls, alc.Fctx, val_hdr)
@@ -69443,82 +69573,82 @@ arr_begin:
 arr_val_begin:
 	;
 	for int32(true1) != 0 {
-		if libc.BoolInt64(!!(byte_match_2(tls, *(*uintptr)(unsafe.Add(nil, bp)), __ccgo_ts+3112) != 0)) != 0 {
+		if libc.BoolInt64(!!(byte_match_2(tls, *(*uintptr)(unsafe.Add(nil, bp)), __ccgo_ts+3169) != 0)) != 0 {
 			*(*uintptr)(unsafe.Add(nil, bp)) = *(*uintptr)(unsafe.Add(nil, bp)) + uintptr(2)
 		} else {
 			break
 		}
-		if libc.BoolInt64(!!(byte_match_2(tls, *(*uintptr)(unsafe.Add(nil, bp)), __ccgo_ts+3112) != 0)) != 0 {
+		if libc.BoolInt64(!!(byte_match_2(tls, *(*uintptr)(unsafe.Add(nil, bp)), __ccgo_ts+3169) != 0)) != 0 {
 			*(*uintptr)(unsafe.Add(nil, bp)) = *(*uintptr)(unsafe.Add(nil, bp)) + uintptr(2)
 		} else {
 			break
 		}
-		if libc.BoolInt64(!!(byte_match_2(tls, *(*uintptr)(unsafe.Add(nil, bp)), __ccgo_ts+3112) != 0)) != 0 {
+		if libc.BoolInt64(!!(byte_match_2(tls, *(*uintptr)(unsafe.Add(nil, bp)), __ccgo_ts+3169) != 0)) != 0 {
 			*(*uintptr)(unsafe.Add(nil, bp)) = *(*uintptr)(unsafe.Add(nil, bp)) + uintptr(2)
 		} else {
 			break
 		}
-		if libc.BoolInt64(!!(byte_match_2(tls, *(*uintptr)(unsafe.Add(nil, bp)), __ccgo_ts+3112) != 0)) != 0 {
+		if libc.BoolInt64(!!(byte_match_2(tls, *(*uintptr)(unsafe.Add(nil, bp)), __ccgo_ts+3169) != 0)) != 0 {
 			*(*uintptr)(unsafe.Add(nil, bp)) = *(*uintptr)(unsafe.Add(nil, bp)) + uintptr(2)
 		} else {
 			break
 		}
-		if libc.BoolInt64(!!(byte_match_2(tls, *(*uintptr)(unsafe.Add(nil, bp)), __ccgo_ts+3112) != 0)) != 0 {
+		if libc.BoolInt64(!!(byte_match_2(tls, *(*uintptr)(unsafe.Add(nil, bp)), __ccgo_ts+3169) != 0)) != 0 {
 			*(*uintptr)(unsafe.Add(nil, bp)) = *(*uintptr)(unsafe.Add(nil, bp)) + uintptr(2)
 		} else {
 			break
 		}
-		if libc.BoolInt64(!!(byte_match_2(tls, *(*uintptr)(unsafe.Add(nil, bp)), __ccgo_ts+3112) != 0)) != 0 {
+		if libc.BoolInt64(!!(byte_match_2(tls, *(*uintptr)(unsafe.Add(nil, bp)), __ccgo_ts+3169) != 0)) != 0 {
 			*(*uintptr)(unsafe.Add(nil, bp)) = *(*uintptr)(unsafe.Add(nil, bp)) + uintptr(2)
 		} else {
 			break
 		}
-		if libc.BoolInt64(!!(byte_match_2(tls, *(*uintptr)(unsafe.Add(nil, bp)), __ccgo_ts+3112) != 0)) != 0 {
+		if libc.BoolInt64(!!(byte_match_2(tls, *(*uintptr)(unsafe.Add(nil, bp)), __ccgo_ts+3169) != 0)) != 0 {
 			*(*uintptr)(unsafe.Add(nil, bp)) = *(*uintptr)(unsafe.Add(nil, bp)) + uintptr(2)
 		} else {
 			break
 		}
-		if libc.BoolInt64(!!(byte_match_2(tls, *(*uintptr)(unsafe.Add(nil, bp)), __ccgo_ts+3112) != 0)) != 0 {
+		if libc.BoolInt64(!!(byte_match_2(tls, *(*uintptr)(unsafe.Add(nil, bp)), __ccgo_ts+3169) != 0)) != 0 {
 			*(*uintptr)(unsafe.Add(nil, bp)) = *(*uintptr)(unsafe.Add(nil, bp)) + uintptr(2)
 		} else {
 			break
 		}
-		if libc.BoolInt64(!!(byte_match_2(tls, *(*uintptr)(unsafe.Add(nil, bp)), __ccgo_ts+3112) != 0)) != 0 {
+		if libc.BoolInt64(!!(byte_match_2(tls, *(*uintptr)(unsafe.Add(nil, bp)), __ccgo_ts+3169) != 0)) != 0 {
 			*(*uintptr)(unsafe.Add(nil, bp)) = *(*uintptr)(unsafe.Add(nil, bp)) + uintptr(2)
 		} else {
 			break
 		}
-		if libc.BoolInt64(!!(byte_match_2(tls, *(*uintptr)(unsafe.Add(nil, bp)), __ccgo_ts+3112) != 0)) != 0 {
+		if libc.BoolInt64(!!(byte_match_2(tls, *(*uintptr)(unsafe.Add(nil, bp)), __ccgo_ts+3169) != 0)) != 0 {
 			*(*uintptr)(unsafe.Add(nil, bp)) = *(*uintptr)(unsafe.Add(nil, bp)) + uintptr(2)
 		} else {
 			break
 		}
-		if libc.BoolInt64(!!(byte_match_2(tls, *(*uintptr)(unsafe.Add(nil, bp)), __ccgo_ts+3112) != 0)) != 0 {
+		if libc.BoolInt64(!!(byte_match_2(tls, *(*uintptr)(unsafe.Add(nil, bp)), __ccgo_ts+3169) != 0)) != 0 {
 			*(*uintptr)(unsafe.Add(nil, bp)) = *(*uintptr)(unsafe.Add(nil, bp)) + uintptr(2)
 		} else {
 			break
 		}
-		if libc.BoolInt64(!!(byte_match_2(tls, *(*uintptr)(unsafe.Add(nil, bp)), __ccgo_ts+3112) != 0)) != 0 {
+		if libc.BoolInt64(!!(byte_match_2(tls, *(*uintptr)(unsafe.Add(nil, bp)), __ccgo_ts+3169) != 0)) != 0 {
 			*(*uintptr)(unsafe.Add(nil, bp)) = *(*uintptr)(unsafe.Add(nil, bp)) + uintptr(2)
 		} else {
 			break
 		}
-		if libc.BoolInt64(!!(byte_match_2(tls, *(*uintptr)(unsafe.Add(nil, bp)), __ccgo_ts+3112) != 0)) != 0 {
+		if libc.BoolInt64(!!(byte_match_2(tls, *(*uintptr)(unsafe.Add(nil, bp)), __ccgo_ts+3169) != 0)) != 0 {
 			*(*uintptr)(unsafe.Add(nil, bp)) = *(*uintptr)(unsafe.Add(nil, bp)) + uintptr(2)
 		} else {
 			break
 		}
-		if libc.BoolInt64(!!(byte_match_2(tls, *(*uintptr)(unsafe.Add(nil, bp)), __ccgo_ts+3112) != 0)) != 0 {
+		if libc.BoolInt64(!!(byte_match_2(tls, *(*uintptr)(unsafe.Add(nil, bp)), __ccgo_ts+3169) != 0)) != 0 {
 			*(*uintptr)(unsafe.Add(nil, bp)) = *(*uintptr)(unsafe.Add(nil, bp)) + uintptr(2)
 		} else {
 			break
 		}
-		if libc.BoolInt64(!!(byte_match_2(tls, *(*uintptr)(unsafe.Add(nil, bp)), __ccgo_ts+3112) != 0)) != 0 {
+		if libc.BoolInt64(!!(byte_match_2(tls, *(*uintptr)(unsafe.Add(nil, bp)), __ccgo_ts+3169) != 0)) != 0 {
 			*(*uintptr)(unsafe.Add(nil, bp)) = *(*uintptr)(unsafe.Add(nil, bp)) + uintptr(2)
 		} else {
 			break
 		}
-		if libc.BoolInt64(!!(byte_match_2(tls, *(*uintptr)(unsafe.Add(nil, bp)), __ccgo_ts+3112) != 0)) != 0 {
+		if libc.BoolInt64(!!(byte_match_2(tls, *(*uintptr)(unsafe.Add(nil, bp)), __ccgo_ts+3169) != 0)) != 0 {
 			*(*uintptr)(unsafe.Add(nil, bp)) = *(*uintptr)(unsafe.Add(nil, bp)) + uintptr(2)
 		} else {
 			break
@@ -69747,7 +69877,7 @@ arr_val_begin:
 	goto arr_val_end
 arr_val_end:
 	;
-	if byte_match_2(tls, *(*uintptr)(unsafe.Add(nil, bp)), __ccgo_ts+3115) != 0 {
+	if byte_match_2(tls, *(*uintptr)(unsafe.Add(nil, bp)), __ccgo_ts+3172) != 0 {
 		*(*uintptr)(unsafe.Add(nil, bp)) = *(*uintptr)(unsafe.Add(nil, bp)) + uintptr(2)
 		goto arr_val_begin
 	}
@@ -69835,82 +69965,82 @@ obj_begin:
 obj_key_begin:
 	;
 	for int32(true1) != 0 {
-		if libc.BoolInt64(!!(byte_match_2(tls, *(*uintptr)(unsafe.Add(nil, bp)), __ccgo_ts+3112) != 0)) != 0 {
+		if libc.BoolInt64(!!(byte_match_2(tls, *(*uintptr)(unsafe.Add(nil, bp)), __ccgo_ts+3169) != 0)) != 0 {
 			*(*uintptr)(unsafe.Add(nil, bp)) = *(*uintptr)(unsafe.Add(nil, bp)) + uintptr(2)
 		} else {
 			break
 		}
-		if libc.BoolInt64(!!(byte_match_2(tls, *(*uintptr)(unsafe.Add(nil, bp)), __ccgo_ts+3112) != 0)) != 0 {
+		if libc.BoolInt64(!!(byte_match_2(tls, *(*uintptr)(unsafe.Add(nil, bp)), __ccgo_ts+3169) != 0)) != 0 {
 			*(*uintptr)(unsafe.Add(nil, bp)) = *(*uintptr)(unsafe.Add(nil, bp)) + uintptr(2)
 		} else {
 			break
 		}
-		if libc.BoolInt64(!!(byte_match_2(tls, *(*uintptr)(unsafe.Add(nil, bp)), __ccgo_ts+3112) != 0)) != 0 {
+		if libc.BoolInt64(!!(byte_match_2(tls, *(*uintptr)(unsafe.Add(nil, bp)), __ccgo_ts+3169) != 0)) != 0 {
 			*(*uintptr)(unsafe.Add(nil, bp)) = *(*uintptr)(unsafe.Add(nil, bp)) + uintptr(2)
 		} else {
 			break
 		}
-		if libc.BoolInt64(!!(byte_match_2(tls, *(*uintptr)(unsafe.Add(nil, bp)), __ccgo_ts+3112) != 0)) != 0 {
+		if libc.BoolInt64(!!(byte_match_2(tls, *(*uintptr)(unsafe.Add(nil, bp)), __ccgo_ts+3169) != 0)) != 0 {
 			*(*uintptr)(unsafe.Add(nil, bp)) = *(*uintptr)(unsafe.Add(nil, bp)) + uintptr(2)
 		} else {
 			break
 		}
-		if libc.BoolInt64(!!(byte_match_2(tls, *(*uintptr)(unsafe.Add(nil, bp)), __ccgo_ts+3112) != 0)) != 0 {
+		if libc.BoolInt64(!!(byte_match_2(tls, *(*uintptr)(unsafe.Add(nil, bp)), __ccgo_ts+3169) != 0)) != 0 {
 			*(*uintptr)(unsafe.Add(nil, bp)) = *(*uintptr)(unsafe.Add(nil, bp)) + uintptr(2)
 		} else {
 			break
 		}
-		if libc.BoolInt64(!!(byte_match_2(tls, *(*uintptr)(unsafe.Add(nil, bp)), __ccgo_ts+3112) != 0)) != 0 {
+		if libc.BoolInt64(!!(byte_match_2(tls, *(*uintptr)(unsafe.Add(nil, bp)), __ccgo_ts+3169) != 0)) != 0 {
 			*(*uintptr)(unsafe.Add(nil, bp)) = *(*uintptr)(unsafe.Add(nil, bp)) + uintptr(2)
 		} else {
 			break
 		}
-		if libc.BoolInt64(!!(byte_match_2(tls, *(*uintptr)(unsafe.Add(nil, bp)), __ccgo_ts+3112) != 0)) != 0 {
+		if libc.BoolInt64(!!(byte_match_2(tls, *(*uintptr)(unsafe.Add(nil, bp)), __ccgo_ts+3169) != 0)) != 0 {
 			*(*uintptr)(unsafe.Add(nil, bp)) = *(*uintptr)(unsafe.Add(nil, bp)) + uintptr(2)
 		} else {
 			break
 		}
-		if libc.BoolInt64(!!(byte_match_2(tls, *(*uintptr)(unsafe.Add(nil, bp)), __ccgo_ts+3112) != 0)) != 0 {
+		if libc.BoolInt64(!!(byte_match_2(tls, *(*uintptr)(unsafe.Add(nil, bp)), __ccgo_ts+3169) != 0)) != 0 {
 			*(*uintptr)(unsafe.Add(nil, bp)) = *(*uintptr)(unsafe.Add(nil, bp)) + uintptr(2)
 		} else {
 			break
 		}
-		if libc.BoolInt64(!!(byte_match_2(tls, *(*uintptr)(unsafe.Add(nil, bp)), __ccgo_ts+3112) != 0)) != 0 {
+		if libc.BoolInt64(!!(byte_match_2(tls, *(*uintptr)(unsafe.Add(nil, bp)), __ccgo_ts+3169) != 0)) != 0 {
 			*(*uintptr)(unsafe.Add(nil, bp)) = *(*uintptr)(unsafe.Add(nil, bp)) + uintptr(2)
 		} else {
 			break
 		}
-		if libc.BoolInt64(!!(byte_match_2(tls, *(*uintptr)(unsafe.Add(nil, bp)), __ccgo_ts+3112) != 0)) != 0 {
+		if libc.BoolInt64(!!(byte_match_2(tls, *(*uintptr)(unsafe.Add(nil, bp)), __ccgo_ts+3169) != 0)) != 0 {
 			*(*uintptr)(unsafe.Add(nil, bp)) = *(*uintptr)(unsafe.Add(nil, bp)) + uintptr(2)
 		} else {
 			break
 		}
-		if libc.BoolInt64(!!(byte_match_2(tls, *(*uintptr)(unsafe.Add(nil, bp)), __ccgo_ts+3112) != 0)) != 0 {
+		if libc.BoolInt64(!!(byte_match_2(tls, *(*uintptr)(unsafe.Add(nil, bp)), __ccgo_ts+3169) != 0)) != 0 {
 			*(*uintptr)(unsafe.Add(nil, bp)) = *(*uintptr)(unsafe.Add(nil, bp)) + uintptr(2)
 		} else {
 			break
 		}
-		if libc.BoolInt64(!!(byte_match_2(tls, *(*uintptr)(unsafe.Add(nil, bp)), __ccgo_ts+3112) != 0)) != 0 {
+		if libc.BoolInt64(!!(byte_match_2(tls, *(*uintptr)(unsafe.Add(nil, bp)), __ccgo_ts+3169) != 0)) != 0 {
 			*(*uintptr)(unsafe.Add(nil, bp)) = *(*uintptr)(unsafe.Add(nil, bp)) + uintptr(2)
 		} else {
 			break
 		}
-		if libc.BoolInt64(!!(byte_match_2(tls, *(*uintptr)(unsafe.Add(nil, bp)), __ccgo_ts+3112) != 0)) != 0 {
+		if libc.BoolInt64(!!(byte_match_2(tls, *(*uintptr)(unsafe.Add(nil, bp)), __ccgo_ts+3169) != 0)) != 0 {
 			*(*uintptr)(unsafe.Add(nil, bp)) = *(*uintptr)(unsafe.Add(nil, bp)) + uintptr(2)
 		} else {
 			break
 		}
-		if libc.BoolInt64(!!(byte_match_2(tls, *(*uintptr)(unsafe.Add(nil, bp)), __ccgo_ts+3112) != 0)) != 0 {
+		if libc.BoolInt64(!!(byte_match_2(tls, *(*uintptr)(unsafe.Add(nil, bp)), __ccgo_ts+3169) != 0)) != 0 {
 			*(*uintptr)(unsafe.Add(nil, bp)) = *(*uintptr)(unsafe.Add(nil, bp)) + uintptr(2)
 		} else {
 			break
 		}
-		if libc.BoolInt64(!!(byte_match_2(tls, *(*uintptr)(unsafe.Add(nil, bp)), __ccgo_ts+3112) != 0)) != 0 {
+		if libc.BoolInt64(!!(byte_match_2(tls, *(*uintptr)(unsafe.Add(nil, bp)), __ccgo_ts+3169) != 0)) != 0 {
 			*(*uintptr)(unsafe.Add(nil, bp)) = *(*uintptr)(unsafe.Add(nil, bp)) + uintptr(2)
 		} else {
 			break
 		}
-		if libc.BoolInt64(!!(byte_match_2(tls, *(*uintptr)(unsafe.Add(nil, bp)), __ccgo_ts+3112) != 0)) != 0 {
+		if libc.BoolInt64(!!(byte_match_2(tls, *(*uintptr)(unsafe.Add(nil, bp)), __ccgo_ts+3169) != 0)) != 0 {
 			*(*uintptr)(unsafe.Add(nil, bp)) = *(*uintptr)(unsafe.Add(nil, bp)) + uintptr(2)
 		} else {
 			break
@@ -70026,7 +70156,7 @@ obj_key_begin:
 	goto obj_key_end
 obj_key_end:
 	;
-	if byte_match_2(tls, *(*uintptr)(unsafe.Add(nil, bp)), __ccgo_ts+3118) != 0 {
+	if byte_match_2(tls, *(*uintptr)(unsafe.Add(nil, bp)), __ccgo_ts+3175) != 0 {
 		*(*uintptr)(unsafe.Add(nil, bp)) = *(*uintptr)(unsafe.Add(nil, bp)) + uintptr(2)
 		goto obj_val_begin
 	}
@@ -70147,7 +70277,7 @@ obj_val_begin:
 	goto obj_val_end
 obj_val_end:
 	;
-	if byte_match_2(tls, *(*uintptr)(unsafe.Add(nil, bp)), __ccgo_ts+3115) != 0 {
+	if byte_match_2(tls, *(*uintptr)(unsafe.Add(nil, bp)), __ccgo_ts+3172) != 0 {
 		*(*uintptr)(unsafe.Add(nil, bp)) = *(*uintptr)(unsafe.Add(nil, bp)) + uintptr(2)
 		goto obj_key_begin
 	}
@@ -70235,7 +70365,7 @@ fail_string:
 	if is_truncated_end(tls, hdr, *(*uintptr)(unsafe.Add(nil, bp)), eof, YYJSON_READ_ERROR_INVALID_STRING8, flg) != 0 {
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fpos = libc.Uint64FromInt64(int64(eof) - int64(hdr))
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_UNEXPECTED_END8
-		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2655
+		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2712
 	} else {
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fpos = libc.Uint64FromInt64(int64(*(*uintptr)(unsafe.Add(nil, bp))) - int64(hdr))
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_INVALID_STRING8
@@ -70251,7 +70381,7 @@ fail_number:
 	if is_truncated_end(tls, hdr, *(*uintptr)(unsafe.Add(nil, bp)), eof, YYJSON_READ_ERROR_INVALID_NUMBER8, flg) != 0 {
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fpos = libc.Uint64FromInt64(int64(eof) - int64(hdr))
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_UNEXPECTED_END8
-		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2655
+		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2712
 	} else {
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fpos = libc.Uint64FromInt64(int64(*(*uintptr)(unsafe.Add(nil, bp))) - int64(hdr))
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_INVALID_NUMBER8
@@ -70267,11 +70397,11 @@ fail_alloc:
 	if is_truncated_end(tls, hdr, *(*uintptr)(unsafe.Add(nil, bp)), eof, YYJSON_READ_ERROR_MEMORY_ALLOCATION8, flg) != 0 {
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fpos = libc.Uint64FromInt64(int64(eof) - int64(hdr))
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_UNEXPECTED_END8
-		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2655
+		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2712
 	} else {
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fpos = libc.Uint64FromInt64(int64(*(*uintptr)(unsafe.Add(nil, bp))) - int64(hdr))
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_MEMORY_ALLOCATION8
-		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2678
+		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2735
 	}
 	if val_hdr != 0 {
 		(*(*func(*libc.TLS, uintptr, uintptr))(unsafe.Pointer(&struct{ uintptr }{alc.Ffree})))(tls, alc.Fctx, val_hdr)
@@ -70283,11 +70413,11 @@ fail_trailing_comma:
 	if is_truncated_end(tls, hdr, *(*uintptr)(unsafe.Add(nil, bp)), eof, YYJSON_READ_ERROR_JSON_STRUCTURE8, flg) != 0 {
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fpos = libc.Uint64FromInt64(int64(eof) - int64(hdr))
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_UNEXPECTED_END8
-		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2655
+		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2712
 	} else {
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fpos = libc.Uint64FromInt64(int64(*(*uintptr)(unsafe.Add(nil, bp))) - int64(hdr))
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_JSON_STRUCTURE8
-		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2909
+		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2966
 	}
 	if val_hdr != 0 {
 		(*(*func(*libc.TLS, uintptr, uintptr))(unsafe.Pointer(&struct{ uintptr }{alc.Ffree})))(tls, alc.Fctx, val_hdr)
@@ -70299,11 +70429,11 @@ fail_literal_true:
 	if is_truncated_end(tls, hdr, *(*uintptr)(unsafe.Add(nil, bp)), eof, YYJSON_READ_ERROR_LITERAL8, flg) != 0 {
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fpos = libc.Uint64FromInt64(int64(eof) - int64(hdr))
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_UNEXPECTED_END8
-		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2655
+		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2712
 	} else {
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fpos = libc.Uint64FromInt64(int64(*(*uintptr)(unsafe.Add(nil, bp))) - int64(hdr))
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_LITERAL8
-		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2704
+		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2761
 	}
 	if val_hdr != 0 {
 		(*(*func(*libc.TLS, uintptr, uintptr))(unsafe.Pointer(&struct{ uintptr }{alc.Ffree})))(tls, alc.Fctx, val_hdr)
@@ -70315,11 +70445,11 @@ fail_literal_false:
 	if is_truncated_end(tls, hdr, *(*uintptr)(unsafe.Add(nil, bp)), eof, YYJSON_READ_ERROR_LITERAL8, flg) != 0 {
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fpos = libc.Uint64FromInt64(int64(eof) - int64(hdr))
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_UNEXPECTED_END8
-		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2655
+		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2712
 	} else {
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fpos = libc.Uint64FromInt64(int64(*(*uintptr)(unsafe.Add(nil, bp))) - int64(hdr))
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_LITERAL8
-		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2737
+		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2794
 	}
 	if val_hdr != 0 {
 		(*(*func(*libc.TLS, uintptr, uintptr))(unsafe.Pointer(&struct{ uintptr }{alc.Ffree})))(tls, alc.Fctx, val_hdr)
@@ -70331,11 +70461,11 @@ fail_literal_null:
 	if is_truncated_end(tls, hdr, *(*uintptr)(unsafe.Add(nil, bp)), eof, YYJSON_READ_ERROR_LITERAL8, flg) != 0 {
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fpos = libc.Uint64FromInt64(int64(eof) - int64(hdr))
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_UNEXPECTED_END8
-		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2655
+		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2712
 	} else {
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fpos = libc.Uint64FromInt64(int64(*(*uintptr)(unsafe.Add(nil, bp))) - int64(hdr))
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_LITERAL8
-		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2771
+		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2828
 	}
 	if val_hdr != 0 {
 		(*(*func(*libc.TLS, uintptr, uintptr))(unsafe.Pointer(&struct{ uintptr }{alc.Ffree})))(tls, alc.Fctx, val_hdr)
@@ -70347,11 +70477,11 @@ fail_character_val:
 	if is_truncated_end(tls, hdr, *(*uintptr)(unsafe.Add(nil, bp)), eof, YYJSON_READ_ERROR_UNEXPECTED_CHARACTER8, flg) != 0 {
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fpos = libc.Uint64FromInt64(int64(eof) - int64(hdr))
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_UNEXPECTED_END8
-		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2655
+		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2712
 	} else {
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fpos = libc.Uint64FromInt64(int64(*(*uintptr)(unsafe.Add(nil, bp))) - int64(hdr))
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_UNEXPECTED_CHARACTER8
-		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2804
+		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2861
 	}
 	if val_hdr != 0 {
 		(*(*func(*libc.TLS, uintptr, uintptr))(unsafe.Pointer(&struct{ uintptr }{alc.Ffree})))(tls, alc.Fctx, val_hdr)
@@ -70363,11 +70493,11 @@ fail_character_arr_end:
 	if is_truncated_end(tls, hdr, *(*uintptr)(unsafe.Add(nil, bp)), eof, YYJSON_READ_ERROR_UNEXPECTED_CHARACTER8, flg) != 0 {
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fpos = libc.Uint64FromInt64(int64(eof) - int64(hdr))
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_UNEXPECTED_END8
-		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2655
+		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2712
 	} else {
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fpos = libc.Uint64FromInt64(int64(*(*uintptr)(unsafe.Add(nil, bp))) - int64(hdr))
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_UNEXPECTED_CHARACTER8
-		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2939
+		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2996
 	}
 	if val_hdr != 0 {
 		(*(*func(*libc.TLS, uintptr, uintptr))(unsafe.Pointer(&struct{ uintptr }{alc.Ffree})))(tls, alc.Fctx, val_hdr)
@@ -70379,11 +70509,11 @@ fail_character_obj_key:
 	if is_truncated_end(tls, hdr, *(*uintptr)(unsafe.Add(nil, bp)), eof, YYJSON_READ_ERROR_UNEXPECTED_CHARACTER8, flg) != 0 {
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fpos = libc.Uint64FromInt64(int64(eof) - int64(hdr))
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_UNEXPECTED_END8
-		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2655
+		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2712
 	} else {
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fpos = libc.Uint64FromInt64(int64(*(*uintptr)(unsafe.Add(nil, bp))) - int64(hdr))
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_UNEXPECTED_CHARACTER8
-		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2981
+		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3038
 	}
 	if val_hdr != 0 {
 		(*(*func(*libc.TLS, uintptr, uintptr))(unsafe.Pointer(&struct{ uintptr }{alc.Ffree})))(tls, alc.Fctx, val_hdr)
@@ -70395,11 +70525,11 @@ fail_character_obj_sep:
 	if is_truncated_end(tls, hdr, *(*uintptr)(unsafe.Add(nil, bp)), eof, YYJSON_READ_ERROR_UNEXPECTED_CHARACTER8, flg) != 0 {
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fpos = libc.Uint64FromInt64(int64(eof) - int64(hdr))
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_UNEXPECTED_END8
-		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2655
+		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2712
 	} else {
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fpos = libc.Uint64FromInt64(int64(*(*uintptr)(unsafe.Add(nil, bp))) - int64(hdr))
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_UNEXPECTED_CHARACTER8
-		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3025
+		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3082
 	}
 	if val_hdr != 0 {
 		(*(*func(*libc.TLS, uintptr, uintptr))(unsafe.Pointer(&struct{ uintptr }{alc.Ffree})))(tls, alc.Fctx, val_hdr)
@@ -70411,11 +70541,11 @@ fail_character_obj_end:
 	if is_truncated_end(tls, hdr, *(*uintptr)(unsafe.Add(nil, bp)), eof, YYJSON_READ_ERROR_UNEXPECTED_CHARACTER8, flg) != 0 {
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fpos = libc.Uint64FromInt64(int64(eof) - int64(hdr))
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_UNEXPECTED_END8
-		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2655
+		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2712
 	} else {
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fpos = libc.Uint64FromInt64(int64(*(*uintptr)(unsafe.Add(nil, bp))) - int64(hdr))
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_UNEXPECTED_CHARACTER8
-		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3070
+		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3127
 	}
 	if val_hdr != 0 {
 		(*(*func(*libc.TLS, uintptr, uintptr))(unsafe.Pointer(&struct{ uintptr }{alc.Ffree})))(tls, alc.Fctx, val_hdr)
@@ -70427,11 +70557,11 @@ fail_comment:
 	if is_truncated_end(tls, hdr, *(*uintptr)(unsafe.Add(nil, bp)), eof, YYJSON_READ_ERROR_INVALID_COMMENT8, flg) != 0 {
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fpos = libc.Uint64FromInt64(int64(eof) - int64(hdr))
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_UNEXPECTED_END8
-		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2655
+		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2712
 	} else {
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fpos = libc.Uint64FromInt64(int64(*(*uintptr)(unsafe.Add(nil, bp))) - int64(hdr))
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_INVALID_COMMENT8
-		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2848
+		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2905
 	}
 	if val_hdr != 0 {
 		(*(*func(*libc.TLS, uintptr, uintptr))(unsafe.Pointer(&struct{ uintptr }{alc.Ffree})))(tls, alc.Fctx, val_hdr)
@@ -70443,11 +70573,11 @@ fail_garbage:
 	if is_truncated_end(tls, hdr, *(*uintptr)(unsafe.Add(nil, bp)), eof, YYJSON_READ_ERROR_UNEXPECTED_CONTENT8, flg) != 0 {
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fpos = libc.Uint64FromInt64(int64(eof) - int64(hdr))
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_UNEXPECTED_END8
-		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2655
+		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2712
 	} else {
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fpos = libc.Uint64FromInt64(int64(*(*uintptr)(unsafe.Add(nil, bp))) - int64(hdr))
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_UNEXPECTED_CONTENT8
-		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2875
+		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2932
 	}
 	if val_hdr != 0 {
 		(*(*func(*libc.TLS, uintptr, uintptr))(unsafe.Pointer(&struct{ uintptr }{alc.Ffree})))(tls, alc.Fctx, val_hdr)
@@ -70481,7 +70611,7 @@ func yyjson_read_opts(tls *libc.TLS, dat uintptr, len1 usize, flg yyjson_read_fl
 	}
 	if libc.BoolInt64(!!!(dat != 0)) != 0 {
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fpos = libc.Uint64FromInt32(libc.Int32FromInt32(0))
-		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3121
+		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3178
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_INVALID_PARAMETER8
 		if !(libc.BoolInt64(!!(has_rflag(tls, flg, YYJSON_READ_INSITU8, libc.BoolUint8(0 != 0)) != 0)) != 0) && hdr != 0 {
 			(*(*func(*libc.TLS, uintptr, uintptr))(unsafe.Pointer(&struct{ uintptr }{alc.Ffree})))(tls, alc.Fctx, hdr)
@@ -70490,7 +70620,7 @@ func yyjson_read_opts(tls *libc.TLS, dat uintptr, len1 usize, flg yyjson_read_fl
 	}
 	if libc.BoolInt64(!!!(len1 != 0)) != 0 {
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fpos = libc.Uint64FromInt32(libc.Int32FromInt32(0))
-		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3140
+		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3197
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_INVALID_PARAMETER8
 		if !(libc.BoolInt64(!!(has_rflag(tls, flg, YYJSON_READ_INSITU8, libc.BoolUint8(0 != 0)) != 0)) != 0) && hdr != 0 {
 			(*(*func(*libc.TLS, uintptr, uintptr))(unsafe.Pointer(&struct{ uintptr }{alc.Ffree})))(tls, alc.Fctx, hdr)
@@ -70505,7 +70635,7 @@ func yyjson_read_opts(tls *libc.TLS, dat uintptr, len1 usize, flg yyjson_read_fl
 	} else {
 		if libc.BoolInt64(!!(len1 >= ^libc.Uint64FromInt32(0)-libc.Uint64FromInt32(YYJSON_PADDING_SIZE))) != 0 {
 			(*yyjson_read_err)(unsafe.Pointer(err)).Fpos = libc.Uint64FromInt32(libc.Int32FromInt32(0))
-			(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2678
+			(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2735
 			(*yyjson_read_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_MEMORY_ALLOCATION8
 			if !(libc.BoolInt64(!!(has_rflag(tls, flg, YYJSON_READ_INSITU8, libc.BoolUint8(0 != 0)) != 0)) != 0) && hdr != 0 {
 				(*(*func(*libc.TLS, uintptr, uintptr))(unsafe.Pointer(&struct{ uintptr }{alc.Ffree})))(tls, alc.Fctx, hdr)
@@ -70515,7 +70645,7 @@ func yyjson_read_opts(tls *libc.TLS, dat uintptr, len1 usize, flg yyjson_read_fl
 		hdr = (*(*func(*libc.TLS, uintptr, size_t) uintptr)(unsafe.Pointer(&struct{ uintptr }{alc.Fmalloc})))(tls, alc.Fctx, len1+uint64(YYJSON_PADDING_SIZE))
 		if libc.BoolInt64(!!!(hdr != 0)) != 0 {
 			(*yyjson_read_err)(unsafe.Pointer(err)).Fpos = libc.Uint64FromInt32(libc.Int32FromInt32(0))
-			(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2678
+			(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2735
 			(*yyjson_read_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_MEMORY_ALLOCATION8
 			if !(libc.BoolInt64(!!(has_rflag(tls, flg, YYJSON_READ_INSITU8, libc.BoolUint8(0 != 0)) != 0)) != 0) && hdr != 0 {
 				(*(*func(*libc.TLS, uintptr, uintptr))(unsafe.Pointer(&struct{ uintptr }{alc.Ffree})))(tls, alc.Fctx, hdr)
@@ -70541,7 +70671,7 @@ func yyjson_read_opts(tls *libc.TLS, dat uintptr, len1 usize, flg yyjson_read_fl
 			if libc.BoolInt64(!!(has_rflag(tls, flg, YYJSON_READ_ALLOW_COMMENTS8|YYJSON_READ_ALLOW_EXT_WHITESPACE8, libc.BoolUint8(1 != 0)) != 0)) != 0 && char_is_trivia(tls, *(*u8)(unsafe.Add(nil, *(*uintptr)(unsafe.Add(nil, bp+24))))) != 0 {
 				if !(skip_trivia(tls, bp+24, eof, flg) != 0) && *(*uintptr)(unsafe.Add(nil, bp+24)) == eof {
 					(*yyjson_read_err)(unsafe.Pointer(err)).Fpos = libc.Uint64FromInt64(int64(*(*uintptr)(unsafe.Add(nil, bp+24))) - int64(hdr))
-					(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2848
+					(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2905
 					(*yyjson_read_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_INVALID_COMMENT8
 					if !(libc.BoolInt64(!!(has_rflag(tls, flg, YYJSON_READ_INSITU8, libc.BoolUint8(0 != 0)) != 0)) != 0) && hdr != 0 {
 						(*(*func(*libc.TLS, uintptr, uintptr))(unsafe.Pointer(&struct{ uintptr }{alc.Ffree})))(tls, alc.Fctx, hdr)
@@ -70552,7 +70682,7 @@ func yyjson_read_opts(tls *libc.TLS, dat uintptr, len1 usize, flg yyjson_read_fl
 		}
 		if libc.BoolInt64(!!(*(*uintptr)(unsafe.Add(nil, bp+24)) >= eof)) != 0 {
 			(*yyjson_read_err)(unsafe.Pointer(err)).Fpos = libc.Uint64FromInt32(libc.Int32FromInt32(0))
-			(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3158
+			(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3215
 			(*yyjson_read_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_EMPTY_CONTENT8
 			if !(libc.BoolInt64(!!(has_rflag(tls, flg, YYJSON_READ_INSITU8, libc.BoolUint8(0 != 0)) != 0)) != 0) && hdr != 0 {
 				(*(*func(*libc.TLS, uintptr, uintptr))(unsafe.Pointer(&struct{ uintptr }{alc.Ffree})))(tls, alc.Fctx, hdr)
@@ -70577,13 +70707,13 @@ func yyjson_read_opts(tls *libc.TLS, dat uintptr, len1 usize, flg yyjson_read_fl
 		/* RFC 8259: JSON text MUST be encoded using UTF-8 */
 		if (*yyjson_read_err)(unsafe.Pointer(err)).Fpos == uint64(0) && (*yyjson_read_err)(unsafe.Pointer(err)).Fcode != YYJSON_READ_ERROR_MEMORY_ALLOCATION8 {
 			if is_utf8_bom(tls, hdr) != 0 {
-				(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3178
+				(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3235
 			} else {
 				if len1 >= uint64(4) && is_utf32_bom(tls, hdr) != 0 {
-					(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3223
+					(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3280
 				} else {
 					if len1 >= uint64(2) && is_utf16_bom(tls, hdr) != 0 {
-						(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3256
+						(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3313
 					}
 				}
 			}
@@ -70606,14 +70736,14 @@ func yyjson_read_file(tls *libc.TLS, path uintptr, flg yyjson_read_flag, alc_ptr
 	}
 	if libc.BoolInt64(!!!(path != 0)) != 0 {
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fpos = uint64(0)
-		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3289
+		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3346
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_INVALID_PARAMETER8
 		return libc.UintptrFromInt32(0)
 	}
 	file = fopen_readonly(tls, path)
 	if libc.BoolInt64(!!!(file != 0)) != 0 {
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fpos = uint64(0)
-		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3308
+		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3365
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_FILE_OPEN8
 		return libc.UintptrFromInt32(0)
 	}
@@ -70647,7 +70777,7 @@ func yyjson_read_fp(tls *libc.TLS, file uintptr, flg yyjson_read_flag, alc_ptr u
 	}
 	if libc.BoolInt64(!!!(file != 0)) != 0 {
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fpos = uint64(0)
-		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3328
+		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3385
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_INVALID_PARAMETER8
 		if buf != 0 {
 			(*(*func(*libc.TLS, uintptr, uintptr))(unsafe.Pointer(&struct{ uintptr }{(*(*yyjson_alc)(unsafe.Add(nil, bp+24))).Ffree})))(tls, (*(*yyjson_alc)(unsafe.Add(nil, bp+24))).Fctx, buf)
@@ -70677,7 +70807,7 @@ func yyjson_read_fp(tls *libc.TLS, file uintptr, flg yyjson_read_flag, alc_ptr u
 		buf = (*(*func(*libc.TLS, uintptr, size_t) uintptr)(unsafe.Pointer(&struct{ uintptr }{(*(*yyjson_alc)(unsafe.Add(nil, bp+24))).Fmalloc})))(tls, (*(*yyjson_alc)(unsafe.Add(nil, bp+24))).Fctx, buf_size)
 		if buf == libc.UintptrFromInt32(0) {
 			(*yyjson_read_err)(unsafe.Pointer(err)).Fpos = uint64(0)
-			(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2678
+			(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2735
 			(*yyjson_read_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_MEMORY_ALLOCATION8
 			if buf != 0 {
 				(*(*func(*libc.TLS, uintptr, uintptr))(unsafe.Pointer(&struct{ uintptr }{(*(*yyjson_alc)(unsafe.Add(nil, bp+24))).Ffree})))(tls, (*(*yyjson_alc)(unsafe.Add(nil, bp+24))).Fctx, buf)
@@ -70686,7 +70816,7 @@ func yyjson_read_fp(tls *libc.TLS, file uintptr, flg yyjson_read_flag, alc_ptr u
 		}
 		if fread_safe(tls, buf, libc.Uint64FromInt64(file_size), file) != libc.Uint64FromInt64(file_size) {
 			(*yyjson_read_err)(unsafe.Pointer(err)).Fpos = uint64(0)
-			(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3308
+			(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3365
 			(*yyjson_read_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_FILE_READ8
 			if buf != 0 {
 				(*(*func(*libc.TLS, uintptr, uintptr))(unsafe.Pointer(&struct{ uintptr }{(*(*yyjson_alc)(unsafe.Add(nil, bp+24))).Ffree})))(tls, (*(*yyjson_alc)(unsafe.Add(nil, bp+24))).Fctx, buf)
@@ -70702,7 +70832,7 @@ func yyjson_read_fp(tls *libc.TLS, file uintptr, flg yyjson_read_flag, alc_ptr u
 		for int32(true1) != 0 {
 			if buf_size+chunk_now < buf_size { /* overflow */
 				(*yyjson_read_err)(unsafe.Pointer(err)).Fpos = uint64(0)
-				(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2678
+				(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2735
 				(*yyjson_read_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_MEMORY_ALLOCATION8
 				if buf != 0 {
 					(*(*func(*libc.TLS, uintptr, uintptr))(unsafe.Pointer(&struct{ uintptr }{(*(*yyjson_alc)(unsafe.Add(nil, bp+24))).Ffree})))(tls, (*(*yyjson_alc)(unsafe.Add(nil, bp+24))).Fctx, buf)
@@ -70714,7 +70844,7 @@ func yyjson_read_fp(tls *libc.TLS, file uintptr, flg yyjson_read_flag, alc_ptr u
 				buf = (*(*func(*libc.TLS, uintptr, size_t) uintptr)(unsafe.Pointer(&struct{ uintptr }{(*(*yyjson_alc)(unsafe.Add(nil, bp+24))).Fmalloc})))(tls, (*(*yyjson_alc)(unsafe.Add(nil, bp+24))).Fctx, buf_size)
 				if !(buf != 0) {
 					(*yyjson_read_err)(unsafe.Pointer(err)).Fpos = uint64(0)
-					(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2678
+					(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2735
 					(*yyjson_read_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_MEMORY_ALLOCATION8
 					if buf != 0 {
 						(*(*func(*libc.TLS, uintptr, uintptr))(unsafe.Pointer(&struct{ uintptr }{(*(*yyjson_alc)(unsafe.Add(nil, bp+24))).Ffree})))(tls, (*(*yyjson_alc)(unsafe.Add(nil, bp+24))).Fctx, buf)
@@ -70725,7 +70855,7 @@ func yyjson_read_fp(tls *libc.TLS, file uintptr, flg yyjson_read_flag, alc_ptr u
 				tmp = (*(*func(*libc.TLS, uintptr, uintptr, size_t, size_t) uintptr)(unsafe.Pointer(&struct{ uintptr }{(*(*yyjson_alc)(unsafe.Add(nil, bp+24))).Frealloc})))(tls, (*(*yyjson_alc)(unsafe.Add(nil, bp+24))).Fctx, buf, buf_size-chunk_now, buf_size)
 				if !(tmp != 0) {
 					(*yyjson_read_err)(unsafe.Pointer(err)).Fpos = uint64(0)
-					(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2678
+					(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2735
 					(*yyjson_read_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_MEMORY_ALLOCATION8
 					if buf != 0 {
 						(*(*func(*libc.TLS, uintptr, uintptr))(unsafe.Pointer(&struct{ uintptr }{(*(*yyjson_alc)(unsafe.Add(nil, bp+24))).Ffree})))(tls, (*(*yyjson_alc)(unsafe.Add(nil, bp+24))).Fctx, buf)
@@ -70785,7 +70915,7 @@ func yyjson_read_number(tls *libc.TLS, dat uintptr, val uintptr, flg yyjson_read
 			v1 = uint64(0)
 		}
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fpos = v1
-		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3121
+		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3178
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_INVALID_PARAMETER8
 		return libc.UintptrFromInt32(0)
 	}
@@ -70796,7 +70926,7 @@ func yyjson_read_number(tls *libc.TLS, dat uintptr, val uintptr, flg yyjson_read
 			v1 = uint64(0)
 		}
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fpos = v1
-		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3347
+		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3404
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_INVALID_PARAMETER8
 		return libc.UintptrFromInt32(0)
 	}
@@ -70905,19 +71035,19 @@ func yyjson_incr_read(tls *libc.TLS, state uintptr, len1 size_t, err uintptr) (r
 	}
 	if libc.BoolInt64(!!!(state != 0)) != 0 {
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fpos = uint64(0)
-		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3368
+		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3425
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_INVALID_PARAMETER8
 		return libc.UintptrFromInt32(0)
 	}
 	if libc.BoolInt64(!!!(len1 != 0)) != 0 {
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fpos = uint64(0)
-		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3140
+		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3197
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_INVALID_PARAMETER8
 		return libc.UintptrFromInt32(0)
 	}
 	if libc.BoolInt64(!!(len1 > (*yyjson_incr_state)(unsafe.Pointer(state)).Fbuf_len)) != 0 {
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fpos = uint64(0)
-		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3388
+		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3445
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_INVALID_PARAMETER8
 		return libc.UintptrFromInt32(0)
 	}
@@ -70991,7 +71121,7 @@ _9:
 _13:
 	;
 	(*yyjson_read_err)(unsafe.Pointer(err)).Fpos = uint64(0)
-	(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3430
+	(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3487
 	(*yyjson_read_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_INVALID_PARAMETER8
 	return libc.UintptrFromInt32(0)
 	goto _12
@@ -71100,17 +71230,17 @@ doc_begin:
 		}
 		goto fail_literal_null
 	}
-	*(*uintptr)(unsafe.Add(nil, bp+8)) = __ccgo_ts + 3456
+	*(*uintptr)(unsafe.Add(nil, bp+8)) = __ccgo_ts + 3513
 	if *(*uintptr)(unsafe.Add(nil, bp)) == hdr {
 		/* RFC 8259: JSON text MUST be encoded using UTF-8 */
 		if is_utf8_bom(tls, hdr) != 0 {
-			*(*uintptr)(unsafe.Add(nil, bp+8)) = __ccgo_ts + 3178
+			*(*uintptr)(unsafe.Add(nil, bp+8)) = __ccgo_ts + 3235
 		} else {
 			if len1 >= uint64(4) && is_utf32_bom(tls, hdr) != 0 {
-				*(*uintptr)(unsafe.Add(nil, bp+8)) = __ccgo_ts + 3223
+				*(*uintptr)(unsafe.Add(nil, bp+8)) = __ccgo_ts + 3280
 			} else {
 				if len1 >= uint64(2) && is_utf16_bom(tls, hdr) != 0 {
-					*(*uintptr)(unsafe.Add(nil, bp+8)) = __ccgo_ts + 3256
+					*(*uintptr)(unsafe.Add(nil, bp+8)) = __ccgo_ts + 3313
 				}
 			}
 		}
@@ -71339,7 +71469,7 @@ arr_val_maybe_end:
 	   with more digits, so arr val maybe didn't end yet */
 	if libc.BoolInt64(!!(*(*uintptr)(unsafe.Add(nil, bp)) >= end)) != 0 {
 		if libc.BoolInt64(!!(*(*uintptr)(unsafe.Add(nil, bp)) > (*yyjson_incr_state)(unsafe.Pointer(state)).Fcur+libc.UintptrFromInt32(INCR_NUM_MAX_LEN))) != 0 {
-			*(*uintptr)(unsafe.Add(nil, bp+8)) = __ccgo_ts + 3506
+			*(*uintptr)(unsafe.Add(nil, bp+8)) = __ccgo_ts + 3563
 			goto fail_number
 		}
 		goto unexpected_end
@@ -71591,7 +71721,7 @@ obj_val_maybe_end:
 	   with more digits, so obj val maybe didn't end yet */
 	if libc.BoolInt64(!!(*(*uintptr)(unsafe.Add(nil, bp)) >= end)) != 0 {
 		if libc.BoolInt64(!!(*(*uintptr)(unsafe.Add(nil, bp)) > (*yyjson_incr_state)(unsafe.Pointer(state)).Fcur+libc.UintptrFromInt32(INCR_NUM_MAX_LEN))) != 0 {
-			*(*uintptr)(unsafe.Add(nil, bp+8)) = __ccgo_ts + 3506
+			*(*uintptr)(unsafe.Add(nil, bp+8)) = __ccgo_ts + 3563
 			goto fail_number
 		}
 		goto unexpected_end
@@ -71687,13 +71817,13 @@ unexpected_end:
 	/* if no nore data, stop the incr read */
 	if libc.BoolInt64(!!(len1 >= (*yyjson_incr_state)(unsafe.Pointer(state)).Fbuf_len)) != 0 {
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_UNEXPECTED_END8
-		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2655
+		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2712
 		return libc.UintptrFromInt32(0)
 	}
 	/* save parser state in extended error struct, in addition to what was
 	 * stored in the last save_incr_state */
 	(*yyjson_read_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_MORE8
-	(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3522
+	(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3579
 	(*yyjson_incr_state)(unsafe.Pointer(state)).Fval_end = val_end
 	(*yyjson_incr_state)(unsafe.Pointer(state)).Fctn = ctn
 	(*yyjson_incr_state)(unsafe.Pointer(state)).Falc_len = alc_len
@@ -71730,7 +71860,7 @@ fail_alloc:
 	} else {
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fpos = libc.Uint64FromInt64(int64(*(*uintptr)(unsafe.Add(nil, bp))) - int64(hdr))
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_MEMORY_ALLOCATION8
-		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2678
+		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2735
 	}
 	return libc.UintptrFromInt32(0)
 	goto fail_trailing_comma
@@ -71741,7 +71871,7 @@ fail_trailing_comma:
 	} else {
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fpos = libc.Uint64FromInt64(int64(*(*uintptr)(unsafe.Add(nil, bp))) - int64(hdr))
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_JSON_STRUCTURE8
-		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2909
+		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2966
 	}
 	return libc.UintptrFromInt32(0)
 	goto fail_literal_true
@@ -71752,7 +71882,7 @@ fail_literal_true:
 	} else {
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fpos = libc.Uint64FromInt64(int64(*(*uintptr)(unsafe.Add(nil, bp))) - int64(hdr))
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_LITERAL8
-		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2704
+		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2761
 	}
 	return libc.UintptrFromInt32(0)
 	goto fail_literal_false
@@ -71763,7 +71893,7 @@ fail_literal_false:
 	} else {
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fpos = libc.Uint64FromInt64(int64(*(*uintptr)(unsafe.Add(nil, bp))) - int64(hdr))
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_LITERAL8
-		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2737
+		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2794
 	}
 	return libc.UintptrFromInt32(0)
 	goto fail_literal_null
@@ -71774,7 +71904,7 @@ fail_literal_null:
 	} else {
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fpos = libc.Uint64FromInt64(int64(*(*uintptr)(unsafe.Add(nil, bp))) - int64(hdr))
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_LITERAL8
-		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2771
+		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2828
 	}
 	return libc.UintptrFromInt32(0)
 	goto fail_character_val
@@ -71785,7 +71915,7 @@ fail_character_val:
 	} else {
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fpos = libc.Uint64FromInt64(int64(*(*uintptr)(unsafe.Add(nil, bp))) - int64(hdr))
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_UNEXPECTED_CHARACTER8
-		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2804
+		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2861
 	}
 	return libc.UintptrFromInt32(0)
 	goto fail_character_arr_end
@@ -71796,7 +71926,7 @@ fail_character_arr_end:
 	} else {
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fpos = libc.Uint64FromInt64(int64(*(*uintptr)(unsafe.Add(nil, bp))) - int64(hdr))
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_UNEXPECTED_CHARACTER8
-		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2939
+		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2996
 	}
 	return libc.UintptrFromInt32(0)
 	goto fail_character_obj_key
@@ -71807,7 +71937,7 @@ fail_character_obj_key:
 	} else {
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fpos = libc.Uint64FromInt64(int64(*(*uintptr)(unsafe.Add(nil, bp))) - int64(hdr))
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_UNEXPECTED_CHARACTER8
-		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2981
+		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3038
 	}
 	return libc.UintptrFromInt32(0)
 	goto fail_character_obj_sep
@@ -71818,7 +71948,7 @@ fail_character_obj_sep:
 	} else {
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fpos = libc.Uint64FromInt64(int64(*(*uintptr)(unsafe.Add(nil, bp))) - int64(hdr))
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_UNEXPECTED_CHARACTER8
-		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3025
+		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3082
 	}
 	return libc.UintptrFromInt32(0)
 	goto fail_character_obj_end
@@ -71829,7 +71959,7 @@ fail_character_obj_end:
 	} else {
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fpos = libc.Uint64FromInt64(int64(*(*uintptr)(unsafe.Add(nil, bp))) - int64(hdr))
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_UNEXPECTED_CHARACTER8
-		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3070
+		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3127
 	}
 	return libc.UintptrFromInt32(0)
 	goto fail_garbage
@@ -71840,7 +71970,7 @@ fail_garbage:
 	} else {
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fpos = libc.Uint64FromInt64(int64(*(*uintptr)(unsafe.Add(nil, bp))) - int64(hdr))
 		(*yyjson_read_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_UNEXPECTED_CONTENT8
-		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2875
+		(*yyjson_read_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2932
 	}
 	return libc.UintptrFromInt32(0)
 	return r
@@ -72428,7 +72558,7 @@ func write_f32_exp(tls *libc.TLS, exp i32, buf uintptr) (r uintptr) {
 	var lz uint8
 	var v1 int32
 	_, _ = lz, v1
-	byte_copy_2(tls, buf, __ccgo_ts+3537)
+	byte_copy_2(tls, buf, __ccgo_ts+3594)
 	buf = buf + uintptr(int32(2)-libc.BoolInt32(exp >= 0))
 	if exp < 0 {
 		v1 = -exp
@@ -72449,7 +72579,7 @@ func write_f64_exp(tls *libc.TLS, exp i32, buf uintptr) (r uintptr) {
 	var lz uint8
 	var v1 int32
 	_, _, _, _ = hi, lo, lz, v1
-	byte_copy_2(tls, buf, __ccgo_ts+3537)
+	byte_copy_2(tls, buf, __ccgo_ts+3594)
 	buf = buf + uintptr(int32(2)-libc.BoolInt32(exp >= 0))
 	if exp < 0 {
 		v1 = -exp
@@ -72950,10 +73080,10 @@ func write_inf_or_nan(tls *libc.TLS, buf uintptr, flg yyjson_write_flag, sig_raw
 		if sig_raw == uint64(0) {
 			*(*u8)(unsafe.Add(nil, buf)) = uint8('-')
 			buf = buf + uintptr(sign)
-			byte_copy_8(tls, buf, __ccgo_ts+3540)
+			byte_copy_8(tls, buf, __ccgo_ts+3597)
 			return buf + uintptr(8)
 		} else {
-			byte_copy_4(tls, buf, __ccgo_ts+3549)
+			byte_copy_4(tls, buf, __ccgo_ts+3606)
 			return buf + uintptr(3)
 		}
 	}
@@ -72996,7 +73126,7 @@ func write_f32_raw(tls *libc.TLS, buf uintptr, raw_f64 u64, flg yyjson_write_fla
 	buf = buf + uintptr(sign)
 	/* return zero */
 	if raw<<libc.Int32FromInt32(1) == uint32(0) {
-		byte_copy_4(tls, buf, __ccgo_ts+3553)
+		byte_copy_4(tls, buf, __ccgo_ts+3610)
 		return buf + uintptr(3)
 	}
 	if libc.BoolInt64(!!(exp_raw != libc.Uint32FromInt32(0))) != 0 {
@@ -73007,7 +73137,7 @@ func write_f32_raw(tls *libc.TLS, buf uintptr, raw_f64 u64, flg yyjson_write_fla
 		if -int32(F32_SIG_BITS) <= exp_bin && exp_bin <= 0 && u64_tz_bits(tls, uint64(sig_bin)) >= libc.Uint32FromInt32(-exp_bin) {
 			*(*u32)(unsafe.Add(nil, bp)) = sig_bin >> -exp_bin /* range: [1, 0xFFFFFF] */
 			buf = write_u32_len_1_to_8(tls, *(*u32)(unsafe.Add(nil, bp)), buf)
-			byte_copy_2(tls, buf, __ccgo_ts+3557)
+			byte_copy_2(tls, buf, __ccgo_ts+3614)
 			return buf + uintptr(2)
 		}
 		/* binary to decimal */
@@ -73124,7 +73254,7 @@ func write_f64_raw(tls *libc.TLS, buf uintptr, raw u64, flg yyjson_write_flag) (
 	buf = buf + uintptr(sign)
 	/* return zero */
 	if raw<<libc.Int32FromInt32(1) == uint64(0) {
-		byte_copy_4(tls, buf, __ccgo_ts+3553)
+		byte_copy_4(tls, buf, __ccgo_ts+3610)
 		return buf + uintptr(3)
 	}
 	if libc.BoolInt64(!!(exp_raw != libc.Uint32FromInt32(0))) != 0 {
@@ -73135,7 +73265,7 @@ func write_f64_raw(tls *libc.TLS, buf uintptr, raw u64, flg yyjson_write_flag) (
 		if -int32(F64_SIG_BITS) <= exp_bin && exp_bin <= 0 && u64_tz_bits(tls, sig_bin) >= libc.Uint32FromInt32(-exp_bin) {
 			*(*u64)(unsafe.Add(nil, bp)) = sig_bin >> -exp_bin /* range: [1, 0x1FFFFFFFFFFFFF] */
 			buf = write_u64_len_1_to_16(tls, *(*u64)(unsafe.Add(nil, bp)), buf)
-			byte_copy_2(tls, buf, __ccgo_ts+3557)
+			byte_copy_2(tls, buf, __ccgo_ts+3614)
 			return buf + uintptr(2)
 		}
 		/* binary to decimal */
@@ -73258,7 +73388,7 @@ func write_f64_raw_fixed(tls *libc.TLS, buf uintptr, raw u64, flg yyjson_write_f
 	buf = buf + uintptr(sign)
 	/* return zero */
 	if raw<<libc.Int32FromInt32(1) == uint64(0) {
-		byte_copy_4(tls, buf, __ccgo_ts+3553)
+		byte_copy_4(tls, buf, __ccgo_ts+3610)
 		return buf + uintptr(3)
 	}
 	if libc.BoolInt64(!!(exp_raw != libc.Uint32FromInt32(0))) != 0 {
@@ -73269,7 +73399,7 @@ func write_f64_raw_fixed(tls *libc.TLS, buf uintptr, raw u64, flg yyjson_write_f
 		if -int32(F64_SIG_BITS) <= exp_bin && exp_bin <= 0 && u64_tz_bits(tls, sig_bin) >= libc.Uint32FromInt32(-exp_bin) {
 			*(*u64)(unsafe.Add(nil, bp)) = sig_bin >> -exp_bin /* range: [1, 0x1FFFFFFFFFFFFF] */
 			buf = write_u64_len_1_to_16(tls, *(*u64)(unsafe.Add(nil, bp)), buf)
-			byte_copy_2(tls, buf, __ccgo_ts+3557)
+			byte_copy_2(tls, buf, __ccgo_ts+3614)
 			return buf + uintptr(2)
 		}
 		/* only `fabs(num) < 1e21` are processed here. */
@@ -73282,7 +73412,7 @@ func write_f64_raw_fixed(tls *libc.TLS, buf uintptr, raw u64, flg yyjson_write_f
 			if *(*i32)(unsafe.Add(nil, bp+8)) < -int32(1) {
 				sig_len_cut = -*(*i32)(unsafe.Add(nil, bp+8)) - libc.Int32FromUint32(prec)
 				if sig_len_cut > sig_len {
-					byte_copy_4(tls, buf, __ccgo_ts+3553)
+					byte_copy_4(tls, buf, __ccgo_ts+3610)
 					return buf + uintptr(3)
 				}
 				if sig_len_cut > 0 {
@@ -73299,7 +73429,7 @@ func write_f64_raw_fixed(tls *libc.TLS, buf uintptr, raw u64, flg yyjson_write_f
 					sig_len = sig_len + libc.BoolInt32(sig_len >= 0 && *(*u64)(unsafe.Add(nil, bp)) >= div_pow10_table[sig_len].Fp10)
 				}
 				if sig_len <= 0 {
-					byte_copy_4(tls, buf, __ccgo_ts+3553)
+					byte_copy_4(tls, buf, __ccgo_ts+3610)
 					return buf + uintptr(3)
 				}
 			}
@@ -73366,7 +73496,7 @@ func write_f64_raw_fixed(tls *libc.TLS, buf uintptr, raw u64, flg yyjson_write_f
 		}
 	} else {
 		/* subnormal number */
-		byte_copy_4(tls, buf, __ccgo_ts+3553)
+		byte_copy_4(tls, buf, __ccgo_ts+3610)
 		return buf + uintptr(3)
 	}
 	return r
@@ -75778,7 +75908,7 @@ func write_indent(tls *libc.TLS, cur uintptr, level usize, spaces usize) (r uint
 		if !(v1 > uint64(0)) {
 			break
 		}
-		byte_copy_4(tls, cur, __ccgo_ts+3560)
+		byte_copy_4(tls, cur, __ccgo_ts+3617)
 		cur = cur + uintptr(spaces)
 	}
 	return cur
@@ -75789,7 +75919,7 @@ func write_indent(tls *libc.TLS, cur uintptr, level usize, spaces usize) (r uint
 //	/** Write data to file pointer. */
 func write_dat_to_fp(tls *libc.TLS, fp uintptr, dat uintptr, len1 usize, err uintptr) (r uint8) {
 	if libc.Xfwrite(tls, dat, len1, uint64(1), fp) != uint64(1) {
-		(*yyjson_write_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3565
+		(*yyjson_write_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3622
 		(*yyjson_write_err)(unsafe.Pointer(err)).Fcode = YYJSON_WRITE_ERROR_FILE_WRITE8
 		return libc.BoolUint8(false1 != 0)
 	}
@@ -75804,7 +75934,7 @@ func write_dat_to_file(tls *libc.TLS, path uintptr, dat uintptr, len1 usize, err
 	_ = file
 	file = fopen_writeonly(tls, path)
 	if file == libc.UintptrFromInt32(0) {
-		(*yyjson_write_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3585
+		(*yyjson_write_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3642
 		(*yyjson_write_err)(unsafe.Pointer(err)).Fcode = YYJSON_WRITE_ERROR_FILE_OPEN8
 		if file != 0 {
 			libc.Xfclose(tls, file)
@@ -75812,7 +75942,7 @@ func write_dat_to_file(tls *libc.TLS, path uintptr, dat uintptr, len1 usize, err
 		return libc.BoolUint8(false1 != 0)
 	}
 	if libc.Xfwrite(tls, dat, len1, uint64(1), file) != uint64(1) {
-		(*yyjson_write_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3605
+		(*yyjson_write_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3662
 		(*yyjson_write_err)(unsafe.Pointer(err)).Fcode = YYJSON_WRITE_ERROR_FILE_WRITE8
 		if file != 0 {
 			libc.Xfclose(tls, file)
@@ -75821,7 +75951,7 @@ func write_dat_to_file(tls *libc.TLS, path uintptr, dat uintptr, len1 usize, err
 	}
 	if libc.Xfclose(tls, file) != 0 {
 		file = libc.UintptrFromInt32(0)
-		(*yyjson_write_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3626
+		(*yyjson_write_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3683
 		(*yyjson_write_err)(unsafe.Pointer(err)).Fcode = YYJSON_WRITE_ERROR_FILE_WRITE8
 		if file != 0 {
 			libc.Xfclose(tls, file)
@@ -75968,7 +76098,7 @@ _6:
 		goto fail_alloc
 	}
 	cur = hdr
-	byte_copy_2(tls, cur, __ccgo_ts+3647)
+	byte_copy_2(tls, cur, __ccgo_ts+3704)
 	cur = cur + uintptr(2)
 	goto _9
 _7:
@@ -75978,7 +76108,7 @@ _7:
 		goto fail_alloc
 	}
 	cur = hdr
-	byte_copy_2(tls, cur, __ccgo_ts+3650)
+	byte_copy_2(tls, cur, __ccgo_ts+3707)
 	cur = cur + uintptr(2)
 	goto _9
 _8:
@@ -76003,7 +76133,7 @@ fail_alloc:
 	}
 	*(*usize)(unsafe.Add(nil, dat_len)) = uint64(0)
 	(*yyjson_write_err)(unsafe.Pointer(err)).Fcode = YYJSON_WRITE_ERROR_MEMORY_ALLOCATION8
-	(*yyjson_write_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2678
+	(*yyjson_write_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2735
 	return libc.UintptrFromInt32(0)
 	goto fail_type
 fail_type:
@@ -76013,7 +76143,7 @@ fail_type:
 	}
 	*(*usize)(unsafe.Add(nil, dat_len)) = uint64(0)
 	(*yyjson_write_err)(unsafe.Pointer(err)).Fcode = YYJSON_WRITE_ERROR_INVALID_VALUE_TYPE8
-	(*yyjson_write_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3653
+	(*yyjson_write_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3710
 	return libc.UintptrFromInt32(0)
 	goto fail_num
 fail_num:
@@ -76023,7 +76153,7 @@ fail_num:
 	}
 	*(*usize)(unsafe.Add(nil, dat_len)) = uint64(0)
 	(*yyjson_write_err)(unsafe.Pointer(err)).Fcode = YYJSON_WRITE_ERROR_NAN_OR_INF8
-	(*yyjson_write_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3677
+	(*yyjson_write_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3734
 	return libc.UintptrFromInt32(0)
 	goto fail_str
 fail_str:
@@ -76033,7 +76163,7 @@ fail_str:
 	}
 	*(*usize)(unsafe.Add(nil, dat_len)) = uint64(0)
 	(*yyjson_write_err)(unsafe.Pointer(err)).Fcode = YYJSON_WRITE_ERROR_INVALID_STRING8
-	(*yyjson_write_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2594
+	(*yyjson_write_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2651
 	return libc.UintptrFromInt32(0)
 	return r
 }
@@ -76409,7 +76539,7 @@ fail_alloc:
 	;
 	*(*usize)(unsafe.Add(nil, dat_len)) = uint64(0)
 	(*yyjson_write_err)(unsafe.Pointer(err)).Fcode = YYJSON_WRITE_ERROR_MEMORY_ALLOCATION8
-	(*yyjson_write_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2678
+	(*yyjson_write_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2735
 	if hdr != 0 {
 		(*(*func(*libc.TLS, uintptr, uintptr))(unsafe.Pointer(&struct{ uintptr }{alc.Ffree})))(tls, alc.Fctx, hdr)
 	}
@@ -76419,7 +76549,7 @@ fail_type:
 	;
 	*(*usize)(unsafe.Add(nil, dat_len)) = uint64(0)
 	(*yyjson_write_err)(unsafe.Pointer(err)).Fcode = YYJSON_WRITE_ERROR_INVALID_VALUE_TYPE8
-	(*yyjson_write_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3653
+	(*yyjson_write_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3710
 	if hdr != 0 {
 		(*(*func(*libc.TLS, uintptr, uintptr))(unsafe.Pointer(&struct{ uintptr }{alc.Ffree})))(tls, alc.Fctx, hdr)
 	}
@@ -76429,7 +76559,7 @@ fail_num:
 	;
 	*(*usize)(unsafe.Add(nil, dat_len)) = uint64(0)
 	(*yyjson_write_err)(unsafe.Pointer(err)).Fcode = YYJSON_WRITE_ERROR_NAN_OR_INF8
-	(*yyjson_write_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3677
+	(*yyjson_write_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3734
 	if hdr != 0 {
 		(*(*func(*libc.TLS, uintptr, uintptr))(unsafe.Pointer(&struct{ uintptr }{alc.Ffree})))(tls, alc.Fctx, hdr)
 	}
@@ -76439,7 +76569,7 @@ fail_str:
 	;
 	*(*usize)(unsafe.Add(nil, dat_len)) = uint64(0)
 	(*yyjson_write_err)(unsafe.Pointer(err)).Fcode = YYJSON_WRITE_ERROR_INVALID_STRING8
-	(*yyjson_write_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2594
+	(*yyjson_write_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2651
 	if hdr != 0 {
 		(*(*func(*libc.TLS, uintptr, uintptr))(unsafe.Pointer(&struct{ uintptr }{alc.Ffree})))(tls, alc.Fctx, hdr)
 	}
@@ -76994,7 +77124,7 @@ fail_alloc:
 	;
 	*(*usize)(unsafe.Add(nil, dat_len)) = uint64(0)
 	(*yyjson_write_err)(unsafe.Pointer(err)).Fcode = YYJSON_WRITE_ERROR_MEMORY_ALLOCATION8
-	(*yyjson_write_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2678
+	(*yyjson_write_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2735
 	if hdr != 0 {
 		(*(*func(*libc.TLS, uintptr, uintptr))(unsafe.Pointer(&struct{ uintptr }{alc.Ffree})))(tls, alc.Fctx, hdr)
 	}
@@ -77004,7 +77134,7 @@ fail_type:
 	;
 	*(*usize)(unsafe.Add(nil, dat_len)) = uint64(0)
 	(*yyjson_write_err)(unsafe.Pointer(err)).Fcode = YYJSON_WRITE_ERROR_INVALID_VALUE_TYPE8
-	(*yyjson_write_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3653
+	(*yyjson_write_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3710
 	if hdr != 0 {
 		(*(*func(*libc.TLS, uintptr, uintptr))(unsafe.Pointer(&struct{ uintptr }{alc.Ffree})))(tls, alc.Fctx, hdr)
 	}
@@ -77014,7 +77144,7 @@ fail_num:
 	;
 	*(*usize)(unsafe.Add(nil, dat_len)) = uint64(0)
 	(*yyjson_write_err)(unsafe.Pointer(err)).Fcode = YYJSON_WRITE_ERROR_NAN_OR_INF8
-	(*yyjson_write_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3677
+	(*yyjson_write_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3734
 	if hdr != 0 {
 		(*(*func(*libc.TLS, uintptr, uintptr))(unsafe.Pointer(&struct{ uintptr }{alc.Ffree})))(tls, alc.Fctx, hdr)
 	}
@@ -77024,7 +77154,7 @@ fail_str:
 	;
 	*(*usize)(unsafe.Add(nil, dat_len)) = uint64(0)
 	(*yyjson_write_err)(unsafe.Pointer(err)).Fcode = YYJSON_WRITE_ERROR_INVALID_STRING8
-	(*yyjson_write_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2594
+	(*yyjson_write_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2651
 	if hdr != 0 {
 		(*(*func(*libc.TLS, uintptr, uintptr))(unsafe.Pointer(&struct{ uintptr }{alc.Ffree})))(tls, alc.Fctx, hdr)
 	}
@@ -77059,7 +77189,7 @@ func yyjson_val_write_opts(tls *libc.TLS, val uintptr, flg yyjson_write_flag, al
 	}
 	if libc.BoolInt64(!!!(root != 0)) != 0 {
 		*(*usize)(unsafe.Add(nil, dat_len)) = uint64(0)
-		(*yyjson_write_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3710
+		(*yyjson_write_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3767
 		(*yyjson_write_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_INVALID_PARAMETER8
 		return libc.UintptrFromInt32(0)
 	}
@@ -77109,7 +77239,7 @@ func yyjson_val_write_file(tls *libc.TLS, path uintptr, val uintptr, flg yyjson_
 		err = bp
 	}
 	if libc.BoolInt64(!!(!(path != 0) || !(*(*int8)(unsafe.Add(nil, path)) != 0))) != 0 {
-		(*yyjson_write_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3729
+		(*yyjson_write_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3786
 		(*yyjson_write_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_INVALID_PARAMETER8
 		return libc.BoolUint8(false1 != 0)
 	}
@@ -77144,7 +77274,7 @@ func yyjson_val_write_fp(tls *libc.TLS, fp uintptr, val uintptr, flg yyjson_writ
 		err = bp
 	}
 	if libc.BoolInt64(!!!(fp != 0)) != 0 {
-		(*yyjson_write_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3751
+		(*yyjson_write_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3808
 		(*yyjson_write_err)(unsafe.Pointer(err)).Fcode = YYJSON_READ_ERROR_INVALID_PARAMETER8
 		return libc.BoolUint8(false1 != 0)
 	}
@@ -77617,7 +77747,7 @@ fail_alloc:
 	;
 	*(*usize)(unsafe.Add(nil, dat_len)) = uint64(0)
 	(*yyjson_write_err)(unsafe.Pointer(err)).Fcode = YYJSON_WRITE_ERROR_MEMORY_ALLOCATION8
-	(*yyjson_write_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2678
+	(*yyjson_write_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2735
 	if hdr != 0 {
 		(*(*func(*libc.TLS, uintptr, uintptr))(unsafe.Pointer(&struct{ uintptr }{alc.Ffree})))(tls, alc.Fctx, hdr)
 	}
@@ -77627,7 +77757,7 @@ fail_type:
 	;
 	*(*usize)(unsafe.Add(nil, dat_len)) = uint64(0)
 	(*yyjson_write_err)(unsafe.Pointer(err)).Fcode = YYJSON_WRITE_ERROR_INVALID_VALUE_TYPE8
-	(*yyjson_write_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3653
+	(*yyjson_write_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3710
 	if hdr != 0 {
 		(*(*func(*libc.TLS, uintptr, uintptr))(unsafe.Pointer(&struct{ uintptr }{alc.Ffree})))(tls, alc.Fctx, hdr)
 	}
@@ -77637,7 +77767,7 @@ fail_num:
 	;
 	*(*usize)(unsafe.Add(nil, dat_len)) = uint64(0)
 	(*yyjson_write_err)(unsafe.Pointer(err)).Fcode = YYJSON_WRITE_ERROR_NAN_OR_INF8
-	(*yyjson_write_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3677
+	(*yyjson_write_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3734
 	if hdr != 0 {
 		(*(*func(*libc.TLS, uintptr, uintptr))(unsafe.Pointer(&struct{ uintptr }{alc.Ffree})))(tls, alc.Fctx, hdr)
 	}
@@ -77647,7 +77777,7 @@ fail_str:
 	;
 	*(*usize)(unsafe.Add(nil, dat_len)) = uint64(0)
 	(*yyjson_write_err)(unsafe.Pointer(err)).Fcode = YYJSON_WRITE_ERROR_INVALID_STRING8
-	(*yyjson_write_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2594
+	(*yyjson_write_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2651
 	if hdr != 0 {
 		(*(*func(*libc.TLS, uintptr, uintptr))(unsafe.Pointer(&struct{ uintptr }{alc.Ffree})))(tls, alc.Fctx, hdr)
 	}
@@ -78218,7 +78348,7 @@ fail_alloc:
 	;
 	*(*usize)(unsafe.Add(nil, dat_len)) = uint64(0)
 	(*yyjson_write_err)(unsafe.Pointer(err)).Fcode = YYJSON_WRITE_ERROR_MEMORY_ALLOCATION8
-	(*yyjson_write_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2678
+	(*yyjson_write_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2735
 	if hdr != 0 {
 		(*(*func(*libc.TLS, uintptr, uintptr))(unsafe.Pointer(&struct{ uintptr }{alc.Ffree})))(tls, alc.Fctx, hdr)
 	}
@@ -78228,7 +78358,7 @@ fail_type:
 	;
 	*(*usize)(unsafe.Add(nil, dat_len)) = uint64(0)
 	(*yyjson_write_err)(unsafe.Pointer(err)).Fcode = YYJSON_WRITE_ERROR_INVALID_VALUE_TYPE8
-	(*yyjson_write_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3653
+	(*yyjson_write_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3710
 	if hdr != 0 {
 		(*(*func(*libc.TLS, uintptr, uintptr))(unsafe.Pointer(&struct{ uintptr }{alc.Ffree})))(tls, alc.Fctx, hdr)
 	}
@@ -78238,7 +78368,7 @@ fail_num:
 	;
 	*(*usize)(unsafe.Add(nil, dat_len)) = uint64(0)
 	(*yyjson_write_err)(unsafe.Pointer(err)).Fcode = YYJSON_WRITE_ERROR_NAN_OR_INF8
-	(*yyjson_write_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3677
+	(*yyjson_write_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3734
 	if hdr != 0 {
 		(*(*func(*libc.TLS, uintptr, uintptr))(unsafe.Pointer(&struct{ uintptr }{alc.Ffree})))(tls, alc.Fctx, hdr)
 	}
@@ -78248,7 +78378,7 @@ fail_str:
 	;
 	*(*usize)(unsafe.Add(nil, dat_len)) = uint64(0)
 	(*yyjson_write_err)(unsafe.Pointer(err)).Fcode = YYJSON_WRITE_ERROR_INVALID_STRING8
-	(*yyjson_write_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2594
+	(*yyjson_write_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 2651
 	if hdr != 0 {
 		(*(*func(*libc.TLS, uintptr, uintptr))(unsafe.Pointer(&struct{ uintptr }{alc.Ffree})))(tls, alc.Fctx, hdr)
 	}
@@ -78279,7 +78409,7 @@ func yyjson_mut_write_opts_impl(tls *libc.TLS, val uintptr, estimated_val_num us
 	}
 	if libc.BoolInt64(!!!(root != 0)) != 0 {
 		*(*usize)(unsafe.Add(nil, dat_len)) = uint64(0)
-		(*yyjson_write_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3710
+		(*yyjson_write_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3767
 		(*yyjson_write_err)(unsafe.Pointer(err)).Fcode = YYJSON_WRITE_ERROR_INVALID_PARAMETER8
 		return libc.UintptrFromInt32(0)
 	}
@@ -78339,7 +78469,7 @@ func yyjson_mut_val_write_file(tls *libc.TLS, path uintptr, val uintptr, flg yyj
 		err = bp
 	}
 	if libc.BoolInt64(!!(!(path != 0) || !(*(*int8)(unsafe.Add(nil, path)) != 0))) != 0 {
-		(*yyjson_write_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3729
+		(*yyjson_write_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3786
 		(*yyjson_write_err)(unsafe.Pointer(err)).Fcode = YYJSON_WRITE_ERROR_INVALID_PARAMETER8
 		return libc.BoolUint8(false1 != 0)
 	}
@@ -78374,7 +78504,7 @@ func yyjson_mut_val_write_fp(tls *libc.TLS, fp uintptr, val uintptr, flg yyjson_
 		err = bp
 	}
 	if libc.BoolInt64(!!!(fp != 0)) != 0 {
-		(*yyjson_write_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3751
+		(*yyjson_write_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3808
 		(*yyjson_write_err)(unsafe.Pointer(err)).Fcode = YYJSON_WRITE_ERROR_INVALID_PARAMETER8
 		return libc.BoolUint8(false1 != 0)
 	}
@@ -78823,7 +78953,7 @@ func unsafe_yyjson_ptr_getx(tls *libc.TLS, val uintptr, _ptr uintptr, ptr_len si
 		if libc.BoolInt64(!!!(token != 0)) != 0 {
 			if err != 0 {
 				(*yyjson_ptr_err)(unsafe.Pointer(err)).Fcode = YYJSON_PTR_ERR_SYNTAX8
-				(*yyjson_ptr_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3771
+				(*yyjson_ptr_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3828
 				(*yyjson_ptr_err)(unsafe.Pointer(err)).Fpos = libc.Uint64FromInt64(int64(*(*uintptr)(unsafe.Add(nil, bp))) - int64(hdr))
 			}
 			return libc.UintptrFromInt32(0)
@@ -78873,7 +79003,7 @@ func unsafe_yyjson_mut_ptr_getx(tls *libc.TLS, val uintptr, _ptr uintptr, ptr_le
 		if libc.BoolInt64(!!!(token != 0)) != 0 {
 			if err != 0 {
 				(*yyjson_ptr_err)(unsafe.Pointer(err)).Fcode = YYJSON_PTR_ERR_SYNTAX8
-				(*yyjson_ptr_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3771
+				(*yyjson_ptr_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3828
 				(*yyjson_ptr_err)(unsafe.Pointer(err)).Fpos = libc.Uint64FromInt64(int64(*(*uintptr)(unsafe.Add(nil, bp))) - int64(hdr))
 			}
 			return libc.UintptrFromInt32(0)
@@ -78935,7 +79065,7 @@ func unsafe_yyjson_mut_ptr_putx(tls *libc.TLS, val uintptr, _ptr uintptr, ptr_le
 		if libc.BoolInt64(!!!(token != 0)) != 0 {
 			if err != 0 {
 				(*yyjson_ptr_err)(unsafe.Pointer(err)).Fcode = YYJSON_PTR_ERR_SYNTAX8
-				(*yyjson_ptr_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3771
+				(*yyjson_ptr_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3828
 				(*yyjson_ptr_err)(unsafe.Pointer(err)).Fpos = libc.Uint64FromInt64(int64(*(*uintptr)(unsafe.Add(nil, bp))) - int64(hdr))
 			}
 			return libc.BoolUint8(false1 != 0)
@@ -79045,7 +79175,7 @@ func unsafe_yyjson_mut_ptr_putx(tls *libc.TLS, val uintptr, _ptr uintptr, ptr_le
 			if libc.BoolInt64(!!!(token != 0)) != 0 {
 				if err != 0 {
 					(*yyjson_ptr_err)(unsafe.Pointer(err)).Fcode = YYJSON_PTR_ERR_SYNTAX8
-					(*yyjson_ptr_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3771
+					(*yyjson_ptr_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3828
 					(*yyjson_ptr_err)(unsafe.Pointer(err)).Fpos = libc.Uint64FromInt64(int64(*(*uintptr)(unsafe.Add(nil, bp))) - int64(hdr))
 				}
 				return libc.BoolUint8(false1 != 0)
@@ -79253,28 +79383,28 @@ func patch_op_get(tls *libc.TLS, op uintptr) (r patch_op1) {
 	str = *(*uintptr)(unsafe.Pointer(op + 8))
 	switch unsafe_yyjson_get_len8(tls, op) {
 	case uint64(3):
-		if !(libc.Xmemcmp(tls, str, __ccgo_ts+3797, uint64(3)) != 0) {
+		if !(libc.Xmemcmp(tls, str, __ccgo_ts+3854, uint64(3)) != 0) {
 			return int32(PATCH_OP_ADD)
 		}
 		return int32(PATCH_OP_NONE)
 	case uint64(4):
-		if !(libc.Xmemcmp(tls, str, __ccgo_ts+3801, uint64(4)) != 0) {
+		if !(libc.Xmemcmp(tls, str, __ccgo_ts+3858, uint64(4)) != 0) {
 			return int32(PATCH_OP_MOVE)
 		}
-		if !(libc.Xmemcmp(tls, str, __ccgo_ts+3806, uint64(4)) != 0) {
+		if !(libc.Xmemcmp(tls, str, __ccgo_ts+3863, uint64(4)) != 0) {
 			return int32(PATCH_OP_COPY)
 		}
-		if !(libc.Xmemcmp(tls, str, __ccgo_ts+3811, uint64(4)) != 0) {
+		if !(libc.Xmemcmp(tls, str, __ccgo_ts+3868, uint64(4)) != 0) {
 			return int32(PATCH_OP_TEST)
 		}
 		return int32(PATCH_OP_NONE)
 	case uint64(6):
-		if !(libc.Xmemcmp(tls, str, __ccgo_ts+3816, uint64(6)) != 0) {
+		if !(libc.Xmemcmp(tls, str, __ccgo_ts+3873, uint64(6)) != 0) {
 			return int32(PATCH_OP_REMOVE)
 		}
 		return int32(PATCH_OP_NONE)
 	case uint64(7):
-		if !(libc.Xmemcmp(tls, str, __ccgo_ts+3823, uint64(7)) != 0) {
+		if !(libc.Xmemcmp(tls, str, __ccgo_ts+3880, uint64(7)) != 0) {
 			return int32(PATCH_OP_REPLACE)
 		}
 		return int32(PATCH_OP_NONE)
@@ -79321,11 +79451,11 @@ func yyjson_patch(tls *libc.TLS, doc uintptr, orig uintptr, patch uintptr, err u
 	if libc.BoolInt64(!!!(yyjson_is_arr8(tls, patch) != 0)) != 0 {
 		if (*yyjson_patch_err)(unsafe.Pointer(err)).Fptr.Fcode == YYJSON_PTR_ERR_MEMORY_ALLOCATION8 {
 			(*yyjson_patch_err)(unsafe.Pointer(err)).Fcode = YYJSON_PATCH_ERROR_MEMORY_ALLOCATION8
-			(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3831
+			(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3888
 			libc.Xmemset(tls, err+24, 0, uint64(24))
 		} else {
 			(*yyjson_patch_err)(unsafe.Pointer(err)).Fcode = YYJSON_PATCH_ERROR_INVALID_PARAMETER8
-			(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3831
+			(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3888
 			if (*(*yyjson_arr_iter)(unsafe.Add(nil, bp))).Fidx != 0 {
 				v1 = (*(*yyjson_arr_iter)(unsafe.Add(nil, bp))).Fidx - uint64(1)
 			} else {
@@ -79339,11 +79469,11 @@ func yyjson_patch(tls *libc.TLS, doc uintptr, orig uintptr, patch uintptr, err u
 	if libc.BoolInt64(!!!(root != 0)) != 0 {
 		if (*yyjson_patch_err)(unsafe.Pointer(err)).Fptr.Fcode == YYJSON_PTR_ERR_MEMORY_ALLOCATION8 {
 			(*yyjson_patch_err)(unsafe.Pointer(err)).Fcode = YYJSON_PATCH_ERROR_MEMORY_ALLOCATION8
-			(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3856
+			(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3913
 			libc.Xmemset(tls, err+24, 0, uint64(24))
 		} else {
 			(*yyjson_patch_err)(unsafe.Pointer(err)).Fcode = YYJSON_PATCH_ERROR_MEMORY_ALLOCATION8
-			(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3856
+			(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3913
 			if (*(*yyjson_arr_iter)(unsafe.Add(nil, bp))).Fidx != 0 {
 				v1 = (*(*yyjson_arr_iter)(unsafe.Add(nil, bp))).Fidx - uint64(1)
 			} else {
@@ -79367,11 +79497,11 @@ func yyjson_patch(tls *libc.TLS, doc uintptr, orig uintptr, patch uintptr, err u
 		if libc.BoolInt64(!!!(unsafe_yyjson_is_obj8(tls, obj) != 0)) != 0 {
 			if (*yyjson_patch_err)(unsafe.Pointer(err)).Fptr.Fcode == YYJSON_PTR_ERR_MEMORY_ALLOCATION8 {
 				(*yyjson_patch_err)(unsafe.Pointer(err)).Fcode = YYJSON_PATCH_ERROR_MEMORY_ALLOCATION8
-				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3877
+				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3934
 				libc.Xmemset(tls, err+24, 0, uint64(24))
 			} else {
 				(*yyjson_patch_err)(unsafe.Pointer(err)).Fcode = YYJSON_PATCH_ERROR_INVALID_OPERATION8
-				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3877
+				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3934
 				if (*(*yyjson_arr_iter)(unsafe.Add(nil, bp))).Fidx != 0 {
 					v1 = (*(*yyjson_arr_iter)(unsafe.Add(nil, bp))).Fidx - uint64(1)
 				} else {
@@ -79382,15 +79512,15 @@ func yyjson_patch(tls *libc.TLS, doc uintptr, orig uintptr, patch uintptr, err u
 			return libc.UintptrFromInt32(0)
 		}
 		/* get required member: op */
-		op = yyjson_obj_get8(tls, obj, __ccgo_ts+3912)
+		op = yyjson_obj_get8(tls, obj, __ccgo_ts+3969)
 		if libc.BoolInt64(!!!(op != 0)) != 0 {
 			if (*yyjson_patch_err)(unsafe.Pointer(err)).Fptr.Fcode == YYJSON_PTR_ERR_MEMORY_ALLOCATION8 {
 				(*yyjson_patch_err)(unsafe.Pointer(err)).Fcode = YYJSON_PATCH_ERROR_MEMORY_ALLOCATION8
-				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3915
+				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3972
 				libc.Xmemset(tls, err+24, 0, uint64(24))
 			} else {
 				(*yyjson_patch_err)(unsafe.Pointer(err)).Fcode = YYJSON_PATCH_ERROR_MISSING_KEY8
-				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3915
+				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3972
 				if (*(*yyjson_arr_iter)(unsafe.Add(nil, bp))).Fidx != 0 {
 					v1 = (*(*yyjson_arr_iter)(unsafe.Add(nil, bp))).Fidx - uint64(1)
 				} else {
@@ -79403,11 +79533,11 @@ func yyjson_patch(tls *libc.TLS, doc uintptr, orig uintptr, patch uintptr, err u
 		if libc.BoolInt64(!!!(yyjson_is_str8(tls, op) != 0)) != 0 {
 			if (*yyjson_patch_err)(unsafe.Pointer(err)).Fptr.Fcode == YYJSON_PTR_ERR_MEMORY_ALLOCATION8 {
 				(*yyjson_patch_err)(unsafe.Pointer(err)).Fcode = YYJSON_PATCH_ERROR_MEMORY_ALLOCATION8
-				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3932
+				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3989
 				libc.Xmemset(tls, err+24, 0, uint64(24))
 			} else {
 				(*yyjson_patch_err)(unsafe.Pointer(err)).Fcode = YYJSON_PATCH_ERROR_INVALID_MEMBER8
-				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3932
+				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3989
 				if (*(*yyjson_arr_iter)(unsafe.Add(nil, bp))).Fidx != 0 {
 					v1 = (*(*yyjson_arr_iter)(unsafe.Add(nil, bp))).Fidx - uint64(1)
 				} else {
@@ -79423,11 +79553,11 @@ func yyjson_patch(tls *libc.TLS, doc uintptr, orig uintptr, patch uintptr, err u
 		if libc.BoolInt64(!!!(path != 0)) != 0 {
 			if (*yyjson_patch_err)(unsafe.Pointer(err)).Fptr.Fcode == YYJSON_PTR_ERR_MEMORY_ALLOCATION8 {
 				(*yyjson_patch_err)(unsafe.Pointer(err)).Fcode = YYJSON_PATCH_ERROR_MEMORY_ALLOCATION8
-				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3952
+				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4009
 				libc.Xmemset(tls, err+24, 0, uint64(24))
 			} else {
 				(*yyjson_patch_err)(unsafe.Pointer(err)).Fcode = YYJSON_PATCH_ERROR_MISSING_KEY8
-				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3952
+				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4009
 				if (*(*yyjson_arr_iter)(unsafe.Add(nil, bp))).Fidx != 0 {
 					v1 = (*(*yyjson_arr_iter)(unsafe.Add(nil, bp))).Fidx - uint64(1)
 				} else {
@@ -79440,11 +79570,11 @@ func yyjson_patch(tls *libc.TLS, doc uintptr, orig uintptr, patch uintptr, err u
 		if libc.BoolInt64(!!!(yyjson_is_str8(tls, path) != 0)) != 0 {
 			if (*yyjson_patch_err)(unsafe.Pointer(err)).Fptr.Fcode == YYJSON_PTR_ERR_MEMORY_ALLOCATION8 {
 				(*yyjson_patch_err)(unsafe.Pointer(err)).Fcode = YYJSON_PATCH_ERROR_MEMORY_ALLOCATION8
-				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3971
+				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4028
 				libc.Xmemset(tls, err+24, 0, uint64(24))
 			} else {
 				(*yyjson_patch_err)(unsafe.Pointer(err)).Fcode = YYJSON_PATCH_ERROR_INVALID_MEMBER8
-				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3971
+				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4028
 				if (*(*yyjson_arr_iter)(unsafe.Add(nil, bp))).Fidx != 0 {
 					v1 = (*(*yyjson_arr_iter)(unsafe.Add(nil, bp))).Fidx - uint64(1)
 				} else {
@@ -79462,15 +79592,15 @@ func yyjson_patch(tls *libc.TLS, doc uintptr, orig uintptr, patch uintptr, err u
 		case int32(PATCH_OP_REPLACE):
 			fallthrough
 		case int32(PATCH_OP_TEST):
-			value = yyjson_obj_get8(tls, obj, __ccgo_ts+1480)
+			value = yyjson_obj_get8(tls, obj, __ccgo_ts+1553)
 			if libc.BoolInt64(!!!(value != 0)) != 0 {
 				if (*yyjson_patch_err)(unsafe.Pointer(err)).Fptr.Fcode == YYJSON_PTR_ERR_MEMORY_ALLOCATION8 {
 					(*yyjson_patch_err)(unsafe.Pointer(err)).Fcode = YYJSON_PATCH_ERROR_MEMORY_ALLOCATION8
-					(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3993
+					(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4050
 					libc.Xmemset(tls, err+24, 0, uint64(24))
 				} else {
 					(*yyjson_patch_err)(unsafe.Pointer(err)).Fcode = YYJSON_PATCH_ERROR_MISSING_KEY8
-					(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3993
+					(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4050
 					if (*(*yyjson_arr_iter)(unsafe.Add(nil, bp))).Fidx != 0 {
 						v1 = (*(*yyjson_arr_iter)(unsafe.Add(nil, bp))).Fidx - uint64(1)
 					} else {
@@ -79484,11 +79614,11 @@ func yyjson_patch(tls *libc.TLS, doc uintptr, orig uintptr, patch uintptr, err u
 			if libc.BoolInt64(!!!(val != 0)) != 0 {
 				if (*yyjson_patch_err)(unsafe.Pointer(err)).Fptr.Fcode == YYJSON_PTR_ERR_MEMORY_ALLOCATION8 {
 					(*yyjson_patch_err)(unsafe.Pointer(err)).Fcode = YYJSON_PATCH_ERROR_MEMORY_ALLOCATION8
-					(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3856
+					(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3913
 					libc.Xmemset(tls, err+24, 0, uint64(24))
 				} else {
 					(*yyjson_patch_err)(unsafe.Pointer(err)).Fcode = YYJSON_PATCH_ERROR_MEMORY_ALLOCATION8
-					(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3856
+					(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3913
 					if (*(*yyjson_arr_iter)(unsafe.Add(nil, bp))).Fidx != 0 {
 						v1 = (*(*yyjson_arr_iter)(unsafe.Add(nil, bp))).Fidx - uint64(1)
 					} else {
@@ -79501,15 +79631,15 @@ func yyjson_patch(tls *libc.TLS, doc uintptr, orig uintptr, patch uintptr, err u
 		case int32(PATCH_OP_MOVE):
 			fallthrough
 		case int32(PATCH_OP_COPY):
-			from = yyjson_obj_get8(tls, obj, __ccgo_ts+4013)
+			from = yyjson_obj_get8(tls, obj, __ccgo_ts+4070)
 			if libc.BoolInt64(!!!(from != 0)) != 0 {
 				if (*yyjson_patch_err)(unsafe.Pointer(err)).Fptr.Fcode == YYJSON_PTR_ERR_MEMORY_ALLOCATION8 {
 					(*yyjson_patch_err)(unsafe.Pointer(err)).Fcode = YYJSON_PATCH_ERROR_MEMORY_ALLOCATION8
-					(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4018
+					(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4075
 					libc.Xmemset(tls, err+24, 0, uint64(24))
 				} else {
 					(*yyjson_patch_err)(unsafe.Pointer(err)).Fcode = YYJSON_PATCH_ERROR_MISSING_KEY8
-					(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4018
+					(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4075
 					if (*(*yyjson_arr_iter)(unsafe.Add(nil, bp))).Fidx != 0 {
 						v1 = (*(*yyjson_arr_iter)(unsafe.Add(nil, bp))).Fidx - uint64(1)
 					} else {
@@ -79522,11 +79652,11 @@ func yyjson_patch(tls *libc.TLS, doc uintptr, orig uintptr, patch uintptr, err u
 			if libc.BoolInt64(!!!(yyjson_is_str8(tls, from) != 0)) != 0 {
 				if (*yyjson_patch_err)(unsafe.Pointer(err)).Fptr.Fcode == YYJSON_PTR_ERR_MEMORY_ALLOCATION8 {
 					(*yyjson_patch_err)(unsafe.Pointer(err)).Fcode = YYJSON_PATCH_ERROR_MEMORY_ALLOCATION8
-					(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4037
+					(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4094
 					libc.Xmemset(tls, err+24, 0, uint64(24))
 				} else {
 					(*yyjson_patch_err)(unsafe.Pointer(err)).Fcode = YYJSON_PATCH_ERROR_INVALID_MEMBER8
-					(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4037
+					(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4094
 					if (*(*yyjson_arr_iter)(unsafe.Add(nil, bp))).Fidx != 0 {
 						v1 = (*(*yyjson_arr_iter)(unsafe.Add(nil, bp))).Fidx - uint64(1)
 					} else {
@@ -79567,11 +79697,11 @@ func yyjson_patch(tls *libc.TLS, doc uintptr, orig uintptr, patch uintptr, err u
 		if libc.BoolInt64(!!!(yyjson_mut_ptr_addx8(tls, root, *(*uintptr)(unsafe.Pointer(path + 8)), path_len, val, doc, libc.BoolUint8(false1 != 0), libc.UintptrFromInt32(0), err+24) != 0)) != 0 {
 			if (*yyjson_patch_err)(unsafe.Pointer(err)).Fptr.Fcode == YYJSON_PTR_ERR_MEMORY_ALLOCATION8 {
 				(*yyjson_patch_err)(unsafe.Pointer(err)).Fcode = YYJSON_PATCH_ERROR_MEMORY_ALLOCATION8
-				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4059
+				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4116
 				libc.Xmemset(tls, err+24, 0, uint64(24))
 			} else {
 				(*yyjson_patch_err)(unsafe.Pointer(err)).Fcode = YYJSON_PATCH_ERROR_POINTER8
-				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4059
+				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4116
 				if (*(*yyjson_arr_iter)(unsafe.Add(nil, bp))).Fidx != 0 {
 					v1 = (*(*yyjson_arr_iter)(unsafe.Add(nil, bp))).Fidx - uint64(1)
 				} else {
@@ -79587,11 +79717,11 @@ func yyjson_patch(tls *libc.TLS, doc uintptr, orig uintptr, patch uintptr, err u
 		if libc.BoolInt64(!!!(yyjson_mut_ptr_removex8(tls, root, *(*uintptr)(unsafe.Pointer(path + 8)), path_len, libc.UintptrFromInt32(0), err+24) != 0)) != 0 {
 			if (*yyjson_patch_err)(unsafe.Pointer(err)).Fptr.Fcode == YYJSON_PTR_ERR_MEMORY_ALLOCATION8 {
 				(*yyjson_patch_err)(unsafe.Pointer(err)).Fcode = YYJSON_PATCH_ERROR_MEMORY_ALLOCATION8
-				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4080
+				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4137
 				libc.Xmemset(tls, err+24, 0, uint64(24))
 			} else {
 				(*yyjson_patch_err)(unsafe.Pointer(err)).Fcode = YYJSON_PATCH_ERROR_POINTER8
-				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4080
+				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4137
 				if (*(*yyjson_arr_iter)(unsafe.Add(nil, bp))).Fidx != 0 {
 					v1 = (*(*yyjson_arr_iter)(unsafe.Add(nil, bp))).Fidx - uint64(1)
 				} else {
@@ -79611,11 +79741,11 @@ func yyjson_patch(tls *libc.TLS, doc uintptr, orig uintptr, patch uintptr, err u
 		if libc.BoolInt64(!!!(yyjson_mut_ptr_replacex8(tls, root, *(*uintptr)(unsafe.Pointer(path + 8)), path_len, val, libc.UintptrFromInt32(0), err+24) != 0)) != 0 {
 			if (*yyjson_patch_err)(unsafe.Pointer(err)).Fptr.Fcode == YYJSON_PTR_ERR_MEMORY_ALLOCATION8 {
 				(*yyjson_patch_err)(unsafe.Pointer(err)).Fcode = YYJSON_PATCH_ERROR_MEMORY_ALLOCATION8
-				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4104
+				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4161
 				libc.Xmemset(tls, err+24, 0, uint64(24))
 			} else {
 				(*yyjson_patch_err)(unsafe.Pointer(err)).Fcode = YYJSON_PATCH_ERROR_POINTER8
-				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4104
+				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4161
 				if (*(*yyjson_arr_iter)(unsafe.Add(nil, bp))).Fidx != 0 {
 					v1 = (*(*yyjson_arr_iter)(unsafe.Add(nil, bp))).Fidx - uint64(1)
 				} else {
@@ -79635,11 +79765,11 @@ func yyjson_patch(tls *libc.TLS, doc uintptr, orig uintptr, patch uintptr, err u
 		if libc.BoolInt64(!!!(val != 0)) != 0 {
 			if (*yyjson_patch_err)(unsafe.Pointer(err)).Fptr.Fcode == YYJSON_PTR_ERR_MEMORY_ALLOCATION8 {
 				(*yyjson_patch_err)(unsafe.Pointer(err)).Fcode = YYJSON_PATCH_ERROR_MEMORY_ALLOCATION8
-				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4129
+				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4186
 				libc.Xmemset(tls, err+24, 0, uint64(24))
 			} else {
 				(*yyjson_patch_err)(unsafe.Pointer(err)).Fcode = YYJSON_PATCH_ERROR_POINTER8
-				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4129
+				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4186
 				if (*(*yyjson_arr_iter)(unsafe.Add(nil, bp))).Fidx != 0 {
 					v1 = (*(*yyjson_arr_iter)(unsafe.Add(nil, bp))).Fidx - uint64(1)
 				} else {
@@ -79656,11 +79786,11 @@ func yyjson_patch(tls *libc.TLS, doc uintptr, orig uintptr, patch uintptr, err u
 		if libc.BoolInt64(!!!(yyjson_mut_ptr_addx8(tls, root, *(*uintptr)(unsafe.Pointer(path + 8)), path_len, val, doc, libc.BoolUint8(false1 != 0), libc.UintptrFromInt32(0), err+24) != 0)) != 0 {
 			if (*yyjson_patch_err)(unsafe.Pointer(err)).Fptr.Fcode == YYJSON_PTR_ERR_MEMORY_ALLOCATION8 {
 				(*yyjson_patch_err)(unsafe.Pointer(err)).Fcode = YYJSON_PATCH_ERROR_MEMORY_ALLOCATION8
-				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4059
+				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4116
 				libc.Xmemset(tls, err+24, 0, uint64(24))
 			} else {
 				(*yyjson_patch_err)(unsafe.Pointer(err)).Fcode = YYJSON_PATCH_ERROR_POINTER8
-				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4059
+				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4116
 				if (*(*yyjson_arr_iter)(unsafe.Add(nil, bp))).Fidx != 0 {
 					v1 = (*(*yyjson_arr_iter)(unsafe.Add(nil, bp))).Fidx - uint64(1)
 				} else {
@@ -79677,11 +79807,11 @@ func yyjson_patch(tls *libc.TLS, doc uintptr, orig uintptr, patch uintptr, err u
 		if libc.BoolInt64(!!!(val != 0)) != 0 {
 			if (*yyjson_patch_err)(unsafe.Pointer(err)).Fptr.Fcode == YYJSON_PTR_ERR_MEMORY_ALLOCATION8 {
 				(*yyjson_patch_err)(unsafe.Pointer(err)).Fcode = YYJSON_PATCH_ERROR_MEMORY_ALLOCATION8
-				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4153
+				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4210
 				libc.Xmemset(tls, err+24, 0, uint64(24))
 			} else {
 				(*yyjson_patch_err)(unsafe.Pointer(err)).Fcode = YYJSON_PATCH_ERROR_POINTER8
-				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4153
+				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4210
 				if (*(*yyjson_arr_iter)(unsafe.Add(nil, bp))).Fidx != 0 {
 					v1 = (*(*yyjson_arr_iter)(unsafe.Add(nil, bp))).Fidx - uint64(1)
 				} else {
@@ -79699,11 +79829,11 @@ func yyjson_patch(tls *libc.TLS, doc uintptr, orig uintptr, patch uintptr, err u
 		if libc.BoolInt64(!!!(val != 0)) != 0 {
 			if (*yyjson_patch_err)(unsafe.Pointer(err)).Fptr.Fcode == YYJSON_PTR_ERR_MEMORY_ALLOCATION8 {
 				(*yyjson_patch_err)(unsafe.Pointer(err)).Fcode = YYJSON_PATCH_ERROR_MEMORY_ALLOCATION8
-				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3856
+				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3913
 				libc.Xmemset(tls, err+24, 0, uint64(24))
 			} else {
 				(*yyjson_patch_err)(unsafe.Pointer(err)).Fcode = YYJSON_PATCH_ERROR_MEMORY_ALLOCATION8
-				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3856
+				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3913
 				if (*(*yyjson_arr_iter)(unsafe.Add(nil, bp))).Fidx != 0 {
 					v1 = (*(*yyjson_arr_iter)(unsafe.Add(nil, bp))).Fidx - uint64(1)
 				} else {
@@ -79716,11 +79846,11 @@ func yyjson_patch(tls *libc.TLS, doc uintptr, orig uintptr, patch uintptr, err u
 		if libc.BoolInt64(!!!(yyjson_mut_ptr_addx8(tls, root, *(*uintptr)(unsafe.Pointer(path + 8)), path_len, val, doc, libc.BoolUint8(false1 != 0), libc.UintptrFromInt32(0), err+24) != 0)) != 0 {
 			if (*yyjson_patch_err)(unsafe.Pointer(err)).Fptr.Fcode == YYJSON_PTR_ERR_MEMORY_ALLOCATION8 {
 				(*yyjson_patch_err)(unsafe.Pointer(err)).Fcode = YYJSON_PATCH_ERROR_MEMORY_ALLOCATION8
-				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4059
+				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4116
 				libc.Xmemset(tls, err+24, 0, uint64(24))
 			} else {
 				(*yyjson_patch_err)(unsafe.Pointer(err)).Fcode = YYJSON_PATCH_ERROR_POINTER8
-				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4059
+				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4116
 				if (*(*yyjson_arr_iter)(unsafe.Add(nil, bp))).Fidx != 0 {
 					v1 = (*(*yyjson_arr_iter)(unsafe.Add(nil, bp))).Fidx - uint64(1)
 				} else {
@@ -79737,11 +79867,11 @@ func yyjson_patch(tls *libc.TLS, doc uintptr, orig uintptr, patch uintptr, err u
 		if libc.BoolInt64(!!!(test != 0)) != 0 {
 			if (*yyjson_patch_err)(unsafe.Pointer(err)).Fptr.Fcode == YYJSON_PTR_ERR_MEMORY_ALLOCATION8 {
 				(*yyjson_patch_err)(unsafe.Pointer(err)).Fcode = YYJSON_PATCH_ERROR_MEMORY_ALLOCATION8
-				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4174
+				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4231
 				libc.Xmemset(tls, err+24, 0, uint64(24))
 			} else {
 				(*yyjson_patch_err)(unsafe.Pointer(err)).Fcode = YYJSON_PATCH_ERROR_POINTER8
-				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4174
+				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4231
 				if (*(*yyjson_arr_iter)(unsafe.Add(nil, bp))).Fidx != 0 {
 					v1 = (*(*yyjson_arr_iter)(unsafe.Add(nil, bp))).Fidx - uint64(1)
 				} else {
@@ -79754,11 +79884,11 @@ func yyjson_patch(tls *libc.TLS, doc uintptr, orig uintptr, patch uintptr, err u
 		if libc.BoolInt64(!!!(yyjson_mut_equals8(tls, val, test) != 0)) != 0 {
 			if (*yyjson_patch_err)(unsafe.Pointer(err)).Fptr.Fcode == YYJSON_PTR_ERR_MEMORY_ALLOCATION8 {
 				(*yyjson_patch_err)(unsafe.Pointer(err)).Fcode = YYJSON_PATCH_ERROR_MEMORY_ALLOCATION8
-				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4195
+				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4252
 				libc.Xmemset(tls, err+24, 0, uint64(24))
 			} else {
 				(*yyjson_patch_err)(unsafe.Pointer(err)).Fcode = YYJSON_PATCH_ERROR_EQUAL8
-				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4195
+				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4252
 				if (*(*yyjson_arr_iter)(unsafe.Add(nil, bp))).Fidx != 0 {
 					v1 = (*(*yyjson_arr_iter)(unsafe.Add(nil, bp))).Fidx - uint64(1)
 				} else {
@@ -79775,11 +79905,11 @@ func yyjson_patch(tls *libc.TLS, doc uintptr, orig uintptr, patch uintptr, err u
 		;
 		if (*yyjson_patch_err)(unsafe.Pointer(err)).Fptr.Fcode == YYJSON_PTR_ERR_MEMORY_ALLOCATION8 {
 			(*yyjson_patch_err)(unsafe.Pointer(err)).Fcode = YYJSON_PATCH_ERROR_MEMORY_ALLOCATION8
-			(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4216
+			(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4273
 			libc.Xmemset(tls, err+24, 0, uint64(24))
 		} else {
 			(*yyjson_patch_err)(unsafe.Pointer(err)).Fcode = YYJSON_PATCH_ERROR_INVALID_MEMBER8
-			(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4216
+			(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4273
 			if (*(*yyjson_arr_iter)(unsafe.Add(nil, bp))).Fidx != 0 {
 				v1 = (*(*yyjson_arr_iter)(unsafe.Add(nil, bp))).Fidx - uint64(1)
 			} else {
@@ -79837,11 +79967,11 @@ func yyjson_mut_patch(tls *libc.TLS, doc uintptr, orig uintptr, patch uintptr, e
 	if libc.BoolInt64(!!!(yyjson_mut_is_arr8(tls, patch) != 0)) != 0 {
 		if (*yyjson_patch_err)(unsafe.Pointer(err)).Fptr.Fcode == YYJSON_PTR_ERR_MEMORY_ALLOCATION8 {
 			(*yyjson_patch_err)(unsafe.Pointer(err)).Fcode = YYJSON_PATCH_ERROR_MEMORY_ALLOCATION8
-			(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3831
+			(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3888
 			libc.Xmemset(tls, err+24, 0, uint64(24))
 		} else {
 			(*yyjson_patch_err)(unsafe.Pointer(err)).Fcode = YYJSON_PATCH_ERROR_INVALID_PARAMETER8
-			(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3831
+			(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3888
 			if (*(*yyjson_mut_arr_iter)(unsafe.Add(nil, bp))).Fidx != 0 {
 				v1 = (*(*yyjson_mut_arr_iter)(unsafe.Add(nil, bp))).Fidx - uint64(1)
 			} else {
@@ -79855,11 +79985,11 @@ func yyjson_mut_patch(tls *libc.TLS, doc uintptr, orig uintptr, patch uintptr, e
 	if libc.BoolInt64(!!!(root != 0)) != 0 {
 		if (*yyjson_patch_err)(unsafe.Pointer(err)).Fptr.Fcode == YYJSON_PTR_ERR_MEMORY_ALLOCATION8 {
 			(*yyjson_patch_err)(unsafe.Pointer(err)).Fcode = YYJSON_PATCH_ERROR_MEMORY_ALLOCATION8
-			(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3856
+			(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3913
 			libc.Xmemset(tls, err+24, 0, uint64(24))
 		} else {
 			(*yyjson_patch_err)(unsafe.Pointer(err)).Fcode = YYJSON_PATCH_ERROR_MEMORY_ALLOCATION8
-			(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3856
+			(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3913
 			if (*(*yyjson_mut_arr_iter)(unsafe.Add(nil, bp))).Fidx != 0 {
 				v1 = (*(*yyjson_mut_arr_iter)(unsafe.Add(nil, bp))).Fidx - uint64(1)
 			} else {
@@ -79883,11 +80013,11 @@ func yyjson_mut_patch(tls *libc.TLS, doc uintptr, orig uintptr, patch uintptr, e
 		if !(unsafe_yyjson_is_obj8(tls, obj) != 0) {
 			if (*yyjson_patch_err)(unsafe.Pointer(err)).Fptr.Fcode == YYJSON_PTR_ERR_MEMORY_ALLOCATION8 {
 				(*yyjson_patch_err)(unsafe.Pointer(err)).Fcode = YYJSON_PATCH_ERROR_MEMORY_ALLOCATION8
-				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3877
+				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3934
 				libc.Xmemset(tls, err+24, 0, uint64(24))
 			} else {
 				(*yyjson_patch_err)(unsafe.Pointer(err)).Fcode = YYJSON_PATCH_ERROR_INVALID_OPERATION8
-				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3877
+				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3934
 				if (*(*yyjson_mut_arr_iter)(unsafe.Add(nil, bp))).Fidx != 0 {
 					v1 = (*(*yyjson_mut_arr_iter)(unsafe.Add(nil, bp))).Fidx - uint64(1)
 				} else {
@@ -79898,15 +80028,15 @@ func yyjson_mut_patch(tls *libc.TLS, doc uintptr, orig uintptr, patch uintptr, e
 			return libc.UintptrFromInt32(0)
 		}
 		/* get required member: op */
-		op = yyjson_mut_obj_get8(tls, obj, __ccgo_ts+3912)
+		op = yyjson_mut_obj_get8(tls, obj, __ccgo_ts+3969)
 		if libc.BoolInt64(!!!(op != 0)) != 0 {
 			if (*yyjson_patch_err)(unsafe.Pointer(err)).Fptr.Fcode == YYJSON_PTR_ERR_MEMORY_ALLOCATION8 {
 				(*yyjson_patch_err)(unsafe.Pointer(err)).Fcode = YYJSON_PATCH_ERROR_MEMORY_ALLOCATION8
-				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3915
+				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3972
 				libc.Xmemset(tls, err+24, 0, uint64(24))
 			} else {
 				(*yyjson_patch_err)(unsafe.Pointer(err)).Fcode = YYJSON_PATCH_ERROR_MISSING_KEY8
-				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3915
+				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3972
 				if (*(*yyjson_mut_arr_iter)(unsafe.Add(nil, bp))).Fidx != 0 {
 					v1 = (*(*yyjson_mut_arr_iter)(unsafe.Add(nil, bp))).Fidx - uint64(1)
 				} else {
@@ -79919,11 +80049,11 @@ func yyjson_mut_patch(tls *libc.TLS, doc uintptr, orig uintptr, patch uintptr, e
 		if libc.BoolInt64(!!!(yyjson_mut_is_str8(tls, op) != 0)) != 0 {
 			if (*yyjson_patch_err)(unsafe.Pointer(err)).Fptr.Fcode == YYJSON_PTR_ERR_MEMORY_ALLOCATION8 {
 				(*yyjson_patch_err)(unsafe.Pointer(err)).Fcode = YYJSON_PATCH_ERROR_MEMORY_ALLOCATION8
-				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3932
+				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3989
 				libc.Xmemset(tls, err+24, 0, uint64(24))
 			} else {
 				(*yyjson_patch_err)(unsafe.Pointer(err)).Fcode = YYJSON_PATCH_ERROR_INVALID_MEMBER8
-				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3932
+				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3989
 				if (*(*yyjson_mut_arr_iter)(unsafe.Add(nil, bp))).Fidx != 0 {
 					v1 = (*(*yyjson_mut_arr_iter)(unsafe.Add(nil, bp))).Fidx - uint64(1)
 				} else {
@@ -79939,11 +80069,11 @@ func yyjson_mut_patch(tls *libc.TLS, doc uintptr, orig uintptr, patch uintptr, e
 		if libc.BoolInt64(!!!(path != 0)) != 0 {
 			if (*yyjson_patch_err)(unsafe.Pointer(err)).Fptr.Fcode == YYJSON_PTR_ERR_MEMORY_ALLOCATION8 {
 				(*yyjson_patch_err)(unsafe.Pointer(err)).Fcode = YYJSON_PATCH_ERROR_MEMORY_ALLOCATION8
-				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3952
+				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4009
 				libc.Xmemset(tls, err+24, 0, uint64(24))
 			} else {
 				(*yyjson_patch_err)(unsafe.Pointer(err)).Fcode = YYJSON_PATCH_ERROR_MISSING_KEY8
-				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3952
+				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4009
 				if (*(*yyjson_mut_arr_iter)(unsafe.Add(nil, bp))).Fidx != 0 {
 					v1 = (*(*yyjson_mut_arr_iter)(unsafe.Add(nil, bp))).Fidx - uint64(1)
 				} else {
@@ -79956,11 +80086,11 @@ func yyjson_mut_patch(tls *libc.TLS, doc uintptr, orig uintptr, patch uintptr, e
 		if libc.BoolInt64(!!!(yyjson_mut_is_str8(tls, path) != 0)) != 0 {
 			if (*yyjson_patch_err)(unsafe.Pointer(err)).Fptr.Fcode == YYJSON_PTR_ERR_MEMORY_ALLOCATION8 {
 				(*yyjson_patch_err)(unsafe.Pointer(err)).Fcode = YYJSON_PATCH_ERROR_MEMORY_ALLOCATION8
-				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3971
+				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4028
 				libc.Xmemset(tls, err+24, 0, uint64(24))
 			} else {
 				(*yyjson_patch_err)(unsafe.Pointer(err)).Fcode = YYJSON_PATCH_ERROR_INVALID_MEMBER8
-				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3971
+				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4028
 				if (*(*yyjson_mut_arr_iter)(unsafe.Add(nil, bp))).Fidx != 0 {
 					v1 = (*(*yyjson_mut_arr_iter)(unsafe.Add(nil, bp))).Fidx - uint64(1)
 				} else {
@@ -79978,15 +80108,15 @@ func yyjson_mut_patch(tls *libc.TLS, doc uintptr, orig uintptr, patch uintptr, e
 		case int32(PATCH_OP_REPLACE):
 			fallthrough
 		case int32(PATCH_OP_TEST):
-			value = yyjson_mut_obj_get8(tls, obj, __ccgo_ts+1480)
+			value = yyjson_mut_obj_get8(tls, obj, __ccgo_ts+1553)
 			if libc.BoolInt64(!!!(value != 0)) != 0 {
 				if (*yyjson_patch_err)(unsafe.Pointer(err)).Fptr.Fcode == YYJSON_PTR_ERR_MEMORY_ALLOCATION8 {
 					(*yyjson_patch_err)(unsafe.Pointer(err)).Fcode = YYJSON_PATCH_ERROR_MEMORY_ALLOCATION8
-					(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3993
+					(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4050
 					libc.Xmemset(tls, err+24, 0, uint64(24))
 				} else {
 					(*yyjson_patch_err)(unsafe.Pointer(err)).Fcode = YYJSON_PATCH_ERROR_MISSING_KEY8
-					(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3993
+					(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4050
 					if (*(*yyjson_mut_arr_iter)(unsafe.Add(nil, bp))).Fidx != 0 {
 						v1 = (*(*yyjson_mut_arr_iter)(unsafe.Add(nil, bp))).Fidx - uint64(1)
 					} else {
@@ -80000,11 +80130,11 @@ func yyjson_mut_patch(tls *libc.TLS, doc uintptr, orig uintptr, patch uintptr, e
 			if libc.BoolInt64(!!!(val != 0)) != 0 {
 				if (*yyjson_patch_err)(unsafe.Pointer(err)).Fptr.Fcode == YYJSON_PTR_ERR_MEMORY_ALLOCATION8 {
 					(*yyjson_patch_err)(unsafe.Pointer(err)).Fcode = YYJSON_PATCH_ERROR_MEMORY_ALLOCATION8
-					(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3856
+					(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3913
 					libc.Xmemset(tls, err+24, 0, uint64(24))
 				} else {
 					(*yyjson_patch_err)(unsafe.Pointer(err)).Fcode = YYJSON_PATCH_ERROR_MEMORY_ALLOCATION8
-					(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3856
+					(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3913
 					if (*(*yyjson_mut_arr_iter)(unsafe.Add(nil, bp))).Fidx != 0 {
 						v1 = (*(*yyjson_mut_arr_iter)(unsafe.Add(nil, bp))).Fidx - uint64(1)
 					} else {
@@ -80017,15 +80147,15 @@ func yyjson_mut_patch(tls *libc.TLS, doc uintptr, orig uintptr, patch uintptr, e
 		case int32(PATCH_OP_MOVE):
 			fallthrough
 		case int32(PATCH_OP_COPY):
-			from = yyjson_mut_obj_get8(tls, obj, __ccgo_ts+4013)
+			from = yyjson_mut_obj_get8(tls, obj, __ccgo_ts+4070)
 			if libc.BoolInt64(!!!(from != 0)) != 0 {
 				if (*yyjson_patch_err)(unsafe.Pointer(err)).Fptr.Fcode == YYJSON_PTR_ERR_MEMORY_ALLOCATION8 {
 					(*yyjson_patch_err)(unsafe.Pointer(err)).Fcode = YYJSON_PATCH_ERROR_MEMORY_ALLOCATION8
-					(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4018
+					(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4075
 					libc.Xmemset(tls, err+24, 0, uint64(24))
 				} else {
 					(*yyjson_patch_err)(unsafe.Pointer(err)).Fcode = YYJSON_PATCH_ERROR_MISSING_KEY8
-					(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4018
+					(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4075
 					if (*(*yyjson_mut_arr_iter)(unsafe.Add(nil, bp))).Fidx != 0 {
 						v1 = (*(*yyjson_mut_arr_iter)(unsafe.Add(nil, bp))).Fidx - uint64(1)
 					} else {
@@ -80038,11 +80168,11 @@ func yyjson_mut_patch(tls *libc.TLS, doc uintptr, orig uintptr, patch uintptr, e
 			if libc.BoolInt64(!!!(yyjson_mut_is_str8(tls, from) != 0)) != 0 {
 				if (*yyjson_patch_err)(unsafe.Pointer(err)).Fptr.Fcode == YYJSON_PTR_ERR_MEMORY_ALLOCATION8 {
 					(*yyjson_patch_err)(unsafe.Pointer(err)).Fcode = YYJSON_PATCH_ERROR_MEMORY_ALLOCATION8
-					(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4037
+					(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4094
 					libc.Xmemset(tls, err+24, 0, uint64(24))
 				} else {
 					(*yyjson_patch_err)(unsafe.Pointer(err)).Fcode = YYJSON_PATCH_ERROR_INVALID_MEMBER8
-					(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4037
+					(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4094
 					if (*(*yyjson_mut_arr_iter)(unsafe.Add(nil, bp))).Fidx != 0 {
 						v1 = (*(*yyjson_mut_arr_iter)(unsafe.Add(nil, bp))).Fidx - uint64(1)
 					} else {
@@ -80083,11 +80213,11 @@ func yyjson_mut_patch(tls *libc.TLS, doc uintptr, orig uintptr, patch uintptr, e
 		if libc.BoolInt64(!!!(yyjson_mut_ptr_addx8(tls, root, *(*uintptr)(unsafe.Pointer(path + 8)), path_len, val, doc, libc.BoolUint8(false1 != 0), libc.UintptrFromInt32(0), err+24) != 0)) != 0 {
 			if (*yyjson_patch_err)(unsafe.Pointer(err)).Fptr.Fcode == YYJSON_PTR_ERR_MEMORY_ALLOCATION8 {
 				(*yyjson_patch_err)(unsafe.Pointer(err)).Fcode = YYJSON_PATCH_ERROR_MEMORY_ALLOCATION8
-				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4059
+				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4116
 				libc.Xmemset(tls, err+24, 0, uint64(24))
 			} else {
 				(*yyjson_patch_err)(unsafe.Pointer(err)).Fcode = YYJSON_PATCH_ERROR_POINTER8
-				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4059
+				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4116
 				if (*(*yyjson_mut_arr_iter)(unsafe.Add(nil, bp))).Fidx != 0 {
 					v1 = (*(*yyjson_mut_arr_iter)(unsafe.Add(nil, bp))).Fidx - uint64(1)
 				} else {
@@ -80103,11 +80233,11 @@ func yyjson_mut_patch(tls *libc.TLS, doc uintptr, orig uintptr, patch uintptr, e
 		if libc.BoolInt64(!!!(yyjson_mut_ptr_removex8(tls, root, *(*uintptr)(unsafe.Pointer(path + 8)), path_len, libc.UintptrFromInt32(0), err+24) != 0)) != 0 {
 			if (*yyjson_patch_err)(unsafe.Pointer(err)).Fptr.Fcode == YYJSON_PTR_ERR_MEMORY_ALLOCATION8 {
 				(*yyjson_patch_err)(unsafe.Pointer(err)).Fcode = YYJSON_PATCH_ERROR_MEMORY_ALLOCATION8
-				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4080
+				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4137
 				libc.Xmemset(tls, err+24, 0, uint64(24))
 			} else {
 				(*yyjson_patch_err)(unsafe.Pointer(err)).Fcode = YYJSON_PATCH_ERROR_POINTER8
-				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4080
+				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4137
 				if (*(*yyjson_mut_arr_iter)(unsafe.Add(nil, bp))).Fidx != 0 {
 					v1 = (*(*yyjson_mut_arr_iter)(unsafe.Add(nil, bp))).Fidx - uint64(1)
 				} else {
@@ -80127,11 +80257,11 @@ func yyjson_mut_patch(tls *libc.TLS, doc uintptr, orig uintptr, patch uintptr, e
 		if libc.BoolInt64(!!!(yyjson_mut_ptr_replacex8(tls, root, *(*uintptr)(unsafe.Pointer(path + 8)), path_len, val, libc.UintptrFromInt32(0), err+24) != 0)) != 0 {
 			if (*yyjson_patch_err)(unsafe.Pointer(err)).Fptr.Fcode == YYJSON_PTR_ERR_MEMORY_ALLOCATION8 {
 				(*yyjson_patch_err)(unsafe.Pointer(err)).Fcode = YYJSON_PATCH_ERROR_MEMORY_ALLOCATION8
-				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4104
+				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4161
 				libc.Xmemset(tls, err+24, 0, uint64(24))
 			} else {
 				(*yyjson_patch_err)(unsafe.Pointer(err)).Fcode = YYJSON_PATCH_ERROR_POINTER8
-				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4104
+				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4161
 				if (*(*yyjson_mut_arr_iter)(unsafe.Add(nil, bp))).Fidx != 0 {
 					v1 = (*(*yyjson_mut_arr_iter)(unsafe.Add(nil, bp))).Fidx - uint64(1)
 				} else {
@@ -80151,11 +80281,11 @@ func yyjson_mut_patch(tls *libc.TLS, doc uintptr, orig uintptr, patch uintptr, e
 		if libc.BoolInt64(!!!(val != 0)) != 0 {
 			if (*yyjson_patch_err)(unsafe.Pointer(err)).Fptr.Fcode == YYJSON_PTR_ERR_MEMORY_ALLOCATION8 {
 				(*yyjson_patch_err)(unsafe.Pointer(err)).Fcode = YYJSON_PATCH_ERROR_MEMORY_ALLOCATION8
-				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4129
+				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4186
 				libc.Xmemset(tls, err+24, 0, uint64(24))
 			} else {
 				(*yyjson_patch_err)(unsafe.Pointer(err)).Fcode = YYJSON_PATCH_ERROR_POINTER8
-				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4129
+				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4186
 				if (*(*yyjson_mut_arr_iter)(unsafe.Add(nil, bp))).Fidx != 0 {
 					v1 = (*(*yyjson_mut_arr_iter)(unsafe.Add(nil, bp))).Fidx - uint64(1)
 				} else {
@@ -80172,11 +80302,11 @@ func yyjson_mut_patch(tls *libc.TLS, doc uintptr, orig uintptr, patch uintptr, e
 		if libc.BoolInt64(!!!(yyjson_mut_ptr_addx8(tls, root, *(*uintptr)(unsafe.Pointer(path + 8)), path_len, val, doc, libc.BoolUint8(false1 != 0), libc.UintptrFromInt32(0), err+24) != 0)) != 0 {
 			if (*yyjson_patch_err)(unsafe.Pointer(err)).Fptr.Fcode == YYJSON_PTR_ERR_MEMORY_ALLOCATION8 {
 				(*yyjson_patch_err)(unsafe.Pointer(err)).Fcode = YYJSON_PATCH_ERROR_MEMORY_ALLOCATION8
-				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4059
+				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4116
 				libc.Xmemset(tls, err+24, 0, uint64(24))
 			} else {
 				(*yyjson_patch_err)(unsafe.Pointer(err)).Fcode = YYJSON_PATCH_ERROR_POINTER8
-				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4059
+				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4116
 				if (*(*yyjson_mut_arr_iter)(unsafe.Add(nil, bp))).Fidx != 0 {
 					v1 = (*(*yyjson_mut_arr_iter)(unsafe.Add(nil, bp))).Fidx - uint64(1)
 				} else {
@@ -80193,11 +80323,11 @@ func yyjson_mut_patch(tls *libc.TLS, doc uintptr, orig uintptr, patch uintptr, e
 		if libc.BoolInt64(!!!(val != 0)) != 0 {
 			if (*yyjson_patch_err)(unsafe.Pointer(err)).Fptr.Fcode == YYJSON_PTR_ERR_MEMORY_ALLOCATION8 {
 				(*yyjson_patch_err)(unsafe.Pointer(err)).Fcode = YYJSON_PATCH_ERROR_MEMORY_ALLOCATION8
-				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4153
+				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4210
 				libc.Xmemset(tls, err+24, 0, uint64(24))
 			} else {
 				(*yyjson_patch_err)(unsafe.Pointer(err)).Fcode = YYJSON_PATCH_ERROR_POINTER8
-				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4153
+				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4210
 				if (*(*yyjson_mut_arr_iter)(unsafe.Add(nil, bp))).Fidx != 0 {
 					v1 = (*(*yyjson_mut_arr_iter)(unsafe.Add(nil, bp))).Fidx - uint64(1)
 				} else {
@@ -80215,11 +80345,11 @@ func yyjson_mut_patch(tls *libc.TLS, doc uintptr, orig uintptr, patch uintptr, e
 		if libc.BoolInt64(!!!(val != 0)) != 0 {
 			if (*yyjson_patch_err)(unsafe.Pointer(err)).Fptr.Fcode == YYJSON_PTR_ERR_MEMORY_ALLOCATION8 {
 				(*yyjson_patch_err)(unsafe.Pointer(err)).Fcode = YYJSON_PATCH_ERROR_MEMORY_ALLOCATION8
-				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3856
+				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3913
 				libc.Xmemset(tls, err+24, 0, uint64(24))
 			} else {
 				(*yyjson_patch_err)(unsafe.Pointer(err)).Fcode = YYJSON_PATCH_ERROR_MEMORY_ALLOCATION8
-				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3856
+				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 3913
 				if (*(*yyjson_mut_arr_iter)(unsafe.Add(nil, bp))).Fidx != 0 {
 					v1 = (*(*yyjson_mut_arr_iter)(unsafe.Add(nil, bp))).Fidx - uint64(1)
 				} else {
@@ -80232,11 +80362,11 @@ func yyjson_mut_patch(tls *libc.TLS, doc uintptr, orig uintptr, patch uintptr, e
 		if libc.BoolInt64(!!!(yyjson_mut_ptr_addx8(tls, root, *(*uintptr)(unsafe.Pointer(path + 8)), path_len, val, doc, libc.BoolUint8(false1 != 0), libc.UintptrFromInt32(0), err+24) != 0)) != 0 {
 			if (*yyjson_patch_err)(unsafe.Pointer(err)).Fptr.Fcode == YYJSON_PTR_ERR_MEMORY_ALLOCATION8 {
 				(*yyjson_patch_err)(unsafe.Pointer(err)).Fcode = YYJSON_PATCH_ERROR_MEMORY_ALLOCATION8
-				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4059
+				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4116
 				libc.Xmemset(tls, err+24, 0, uint64(24))
 			} else {
 				(*yyjson_patch_err)(unsafe.Pointer(err)).Fcode = YYJSON_PATCH_ERROR_POINTER8
-				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4059
+				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4116
 				if (*(*yyjson_mut_arr_iter)(unsafe.Add(nil, bp))).Fidx != 0 {
 					v1 = (*(*yyjson_mut_arr_iter)(unsafe.Add(nil, bp))).Fidx - uint64(1)
 				} else {
@@ -80253,11 +80383,11 @@ func yyjson_mut_patch(tls *libc.TLS, doc uintptr, orig uintptr, patch uintptr, e
 		if libc.BoolInt64(!!!(test != 0)) != 0 {
 			if (*yyjson_patch_err)(unsafe.Pointer(err)).Fptr.Fcode == YYJSON_PTR_ERR_MEMORY_ALLOCATION8 {
 				(*yyjson_patch_err)(unsafe.Pointer(err)).Fcode = YYJSON_PATCH_ERROR_MEMORY_ALLOCATION8
-				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4174
+				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4231
 				libc.Xmemset(tls, err+24, 0, uint64(24))
 			} else {
 				(*yyjson_patch_err)(unsafe.Pointer(err)).Fcode = YYJSON_PATCH_ERROR_POINTER8
-				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4174
+				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4231
 				if (*(*yyjson_mut_arr_iter)(unsafe.Add(nil, bp))).Fidx != 0 {
 					v1 = (*(*yyjson_mut_arr_iter)(unsafe.Add(nil, bp))).Fidx - uint64(1)
 				} else {
@@ -80270,11 +80400,11 @@ func yyjson_mut_patch(tls *libc.TLS, doc uintptr, orig uintptr, patch uintptr, e
 		if libc.BoolInt64(!!!(yyjson_mut_equals8(tls, val, test) != 0)) != 0 {
 			if (*yyjson_patch_err)(unsafe.Pointer(err)).Fptr.Fcode == YYJSON_PTR_ERR_MEMORY_ALLOCATION8 {
 				(*yyjson_patch_err)(unsafe.Pointer(err)).Fcode = YYJSON_PATCH_ERROR_MEMORY_ALLOCATION8
-				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4195
+				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4252
 				libc.Xmemset(tls, err+24, 0, uint64(24))
 			} else {
 				(*yyjson_patch_err)(unsafe.Pointer(err)).Fcode = YYJSON_PATCH_ERROR_EQUAL8
-				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4195
+				(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4252
 				if (*(*yyjson_mut_arr_iter)(unsafe.Add(nil, bp))).Fidx != 0 {
 					v1 = (*(*yyjson_mut_arr_iter)(unsafe.Add(nil, bp))).Fidx - uint64(1)
 				} else {
@@ -80291,11 +80421,11 @@ func yyjson_mut_patch(tls *libc.TLS, doc uintptr, orig uintptr, patch uintptr, e
 		;
 		if (*yyjson_patch_err)(unsafe.Pointer(err)).Fptr.Fcode == YYJSON_PTR_ERR_MEMORY_ALLOCATION8 {
 			(*yyjson_patch_err)(unsafe.Pointer(err)).Fcode = YYJSON_PATCH_ERROR_MEMORY_ALLOCATION8
-			(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4216
+			(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4273
 			libc.Xmemset(tls, err+24, 0, uint64(24))
 		} else {
 			(*yyjson_patch_err)(unsafe.Pointer(err)).Fcode = YYJSON_PATCH_ERROR_INVALID_MEMBER8
-			(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4216
+			(*yyjson_patch_err)(unsafe.Pointer(err)).Fmsg = __ccgo_ts + 4273
 			if (*(*yyjson_mut_arr_iter)(unsafe.Add(nil, bp))).Fidx != 0 {
 				v1 = (*(*yyjson_mut_arr_iter)(unsafe.Add(nil, bp))).Fidx - uint64(1)
 			} else {
@@ -86109,7 +86239,7 @@ func add_base_environment(tls *libc.TLS, environment uintptr, count size_t) (r e
 		} else {
 			v4 = __ccgo_ts + 391
 		}
-		libc.X__builtin_snprintf(tls, entry, length+uint64(1), __ccgo_ts+4238, libc.VaList(bp+8, names1[k], v4))
+		libc.X__builtin_snprintf(tls, entry, length+uint64(1), __ccgo_ts+4295, libc.VaList(bp+8, names1[k], v4))
 		v5 = added
 		added = added + 1
 		*(*uintptr)(unsafe.Add(nil, grown+uintptr(v5)*8)) = entry
@@ -86135,7 +86265,7 @@ func add_base_environment(tls *libc.TLS, environment uintptr, count size_t) (r e
 }
 
 var names1 = [1]uintptr{
-	0: __ccgo_ts + 4233,
+	0: __ccgo_ts + 4290,
 }
 
 func ext_host_create(tls *libc.TLS, o uintptr, b uintptr, out uintptr) (r ext_status) {
@@ -86456,7 +86586,7 @@ func observe_event(tls *libc.TLS, h uintptr, options uintptr, stage uintptr, req
 	if status >= 0 && status <= int32(EXT_CANCELED) {
 		v1 = codes[status]
 	} else {
-		v1 = __ccgo_ts + 4262
+		v1 = __ccgo_ts + 4319
 	}
 	code = v1
 	remote = yyjson_obj_get9(tls, yyjson_obj_get9(tls, response, __ccgo_ts+627), __ccgo_ts+622)
@@ -86469,7 +86599,7 @@ func observe_event(tls *libc.TLS, h uintptr, options uintptr, stage uintptr, req
 	}
 	root = yyjson_mut_obj9(tls, doc)
 	yyjson_mut_doc_set_root9(tls, doc, root)
-	ok = libc.BoolInt32(root != 0 && yyjson_mut_obj_add_str9(tls, doc, root, __ccgo_ts+4279, stage) != 0 && yyjson_mut_obj_add_str9(tls, doc, root, __ccgo_ts+622, code) != 0 && yyjson_mut_obj_add_sint9(tls, doc, root, __ccgo_ts+4285, mono_ms(tls)-start) != 0)
+	ok = libc.BoolInt32(root != 0 && yyjson_mut_obj_add_str9(tls, doc, root, __ccgo_ts+4336, stage) != 0 && yyjson_mut_obj_add_str9(tls, doc, root, __ccgo_ts+622, code) != 0 && yyjson_mut_obj_add_sint9(tls, doc, root, __ccgo_ts+4342, mono_ms(tls)-start) != 0)
 	identity = yyjson_obj_get9(tls, yyjson_doc_get_root9(tls, (*ext_host)(unsafe.Pointer(h)).Fselection), __ccgo_ts+479)
 	copy1 = yyjson_val_mut_copy(tls, doc, identity)
 	ok = libc.BoolInt32(ok != 0 && copy1 != 0 && yyjson_mut_obj_add_val9(tls, doc, root, __ccgo_ts+479, copy1) != 0)
@@ -86498,7 +86628,7 @@ func observe_event(tls *libc.TLS, h uintptr, options uintptr, stage uintptr, req
 			copy1 = yyjson_val_mut_copy(tls, doc, v)
 			if v5 = copy1 != 0; v5 {
 				if i == uint64(2) {
-					v1 = __ccgo_ts + 1434
+					v1 = __ccgo_ts + 1507
 				} else {
 					v1 = fields[i]
 				}
@@ -86531,11 +86661,11 @@ var codes = [13]uintptr{
 	3:  __ccgo_ts + 241,
 	4:  __ccgo_ts + 250,
 	5:  __ccgo_ts + 262,
-	6:  __ccgo_ts + 4244,
-	7:  __ccgo_ts + 4262,
-	8:  __ccgo_ts + 4262,
+	6:  __ccgo_ts + 4301,
+	7:  __ccgo_ts + 4319,
+	8:  __ccgo_ts + 4319,
 	9:  __ccgo_ts + 294,
-	10: __ccgo_ts + 4269,
+	10: __ccgo_ts + 4326,
 	11: __ccgo_ts + 313,
 	12: __ccgo_ts + 323,
 }
@@ -86996,7 +87126,7 @@ func write_frame(tls *libc.TLS, h uintptr, p uintptr, n size_t, deadline int64_t
 	libc.Xpthread_mutex_lock(tls, h+88)
 	s = write_bytes(tls, h, p, n, deadline, o)
 	if !(s != 0) {
-		s = write_bytes(tls, h, __ccgo_ts+4306, uint64(1), deadline, o)
+		s = write_bytes(tls, h, __ccgo_ts+4363, uint64(1), deadline, o)
 	}
 	libc.Xpthread_mutex_unlock(tls, h+88)
 	return s
@@ -87169,7 +87299,7 @@ func admit_reverse(tls *libc.TLS, h uintptr, r uintptr, payload_len size_t, live
 	*(*uintptr)(unsafe.Add(nil, refusal)) = libc.UintptrFromInt32(0)
 	*(*uintptr)(unsafe.Add(nil, declared)) = libc.UintptrFromInt32(0)
 	if !((*ext_host)(unsafe.Pointer(h)).Fhas_services != 0) {
-		*(*uintptr)(unsafe.Add(nil, refusal)) = __ccgo_ts + 4308
+		*(*uintptr)(unsafe.Add(nil, refusal)) = __ccgo_ts + 4365
 		return int32(EXT_OK)
 	}
 	if (*ext_reverse_request)(unsafe.Pointer(r)).Fparent != 0 && (!(live != 0) || !(yyjson_equals_str9(tls, (*ext_reverse_request)(unsafe.Pointer(r)).Fparent, live) != 0)) {
@@ -87177,10 +87307,10 @@ func admit_reverse(tls *libc.TLS, h uintptr, r uintptr, payload_len size_t, live
 	}
 	*(*uintptr)(unsafe.Add(nil, declared)) = ext_lookup_in(tls, yyjson_obj_get9(tls, yyjson_doc_get_root9(tls, (*ext_host)(unsafe.Pointer(h)).Fselection), __ccgo_ts+488), (*ext_reverse_request)(unsafe.Pointer(r)).Fcontract, (*ext_reverse_request)(unsafe.Pointer(r)).Foperation)
 	if !(*(*uintptr)(unsafe.Add(nil, declared)) != 0) {
-		*(*uintptr)(unsafe.Add(nil, refusal)) = __ccgo_ts + 4328
+		*(*uintptr)(unsafe.Add(nil, refusal)) = __ccgo_ts + 4385
 	} else {
 		if !((*ext_host)(unsafe.Pointer(h)).Fserving != 0) {
-			*(*uintptr)(unsafe.Add(nil, refusal)) = __ccgo_ts + 4308
+			*(*uintptr)(unsafe.Add(nil, refusal)) = __ccgo_ts + 4365
 		} else {
 			if payload_len > uint64((*ext_host)(unsafe.Pointer(h)).Fservices.Fmax_payload_bytes) {
 				*(*uintptr)(unsafe.Add(nil, refusal)) = __ccgo_ts + 725
@@ -87189,7 +87319,7 @@ func admit_reverse(tls *libc.TLS, h uintptr, r uintptr, payload_len size_t, live
 					*(*uintptr)(unsafe.Add(nil, refusal)) = __ccgo_ts + 368
 				} else {
 					if (*ext_host)(unsafe.Pointer(h)).Freverses >= (*ext_host)(unsafe.Pointer(h)).Fservices.Fmax_in_flight {
-						*(*uintptr)(unsafe.Add(nil, refusal)) = __ccgo_ts + 4347
+						*(*uintptr)(unsafe.Add(nil, refusal)) = __ccgo_ts + 4404
 					} else {
 						(*ext_host)(unsafe.Pointer(h)).Freverses = (*ext_host)(unsafe.Pointer(h)).Freverses + 1
 					}
@@ -87510,7 +87640,7 @@ func serve_reverse(tls *libc.TLS, call uintptr, frame uintptr) (r ext_status) {
 		/* Unreachable: only a plugin with declared reverse operations is admitted,
 		 * and its reader thread serves it. Do not run it here. */
 		(*ext_host)(unsafe.Pointer(h)).Freverses = (*ext_host)(unsafe.Pointer(h)).Freverses - 1
-		*(*uintptr)(unsafe.Add(nil, bp+56)) = __ccgo_ts + 4308
+		*(*uintptr)(unsafe.Add(nil, bp+56)) = __ccgo_ts + 4365
 	}
 	libc.Xpthread_mutex_unlock(tls, h)
 	if s != 0 {
@@ -87877,7 +88007,7 @@ func reverse_admit(tls *libc.TLS, h uintptr, frame uintptr, worker uintptr, refu
 	}
 	if v4 && !(v1 != 0) {
 		(*ext_host)(unsafe.Pointer(h)).Freverses = (*ext_host)(unsafe.Pointer(h)).Freverses - 1
-		*(*uintptr)(unsafe.Add(nil, bp+56)) = __ccgo_ts + 4347
+		*(*uintptr)(unsafe.Add(nil, bp+56)) = __ccgo_ts + 4404
 	}
 	libc.Xpthread_mutex_unlock(tls, h)
 	if s != 0 {
@@ -87897,7 +88027,7 @@ func reverse_admit(tls *libc.TLS, h uintptr, frame uintptr, worker uintptr, refu
 			libc.Xpthread_cond_broadcast(tls, h+40)
 			libc.Xpthread_mutex_unlock(tls, h)
 			destroy_worker(tls, w)
-			*(*uintptr)(unsafe.Add(nil, bp+56)) = __ccgo_ts + 4347
+			*(*uintptr)(unsafe.Add(nil, bp+56)) = __ccgo_ts + 4404
 		}
 	}
 	if *(*uintptr)(unsafe.Add(nil, bp+56)) != 0 {
@@ -87949,7 +88079,7 @@ func reader_reverse(tls *libc.TLS, h uintptr, frame uintptr) (r ext_status) {
 		libc.Xpthread_cond_broadcast(tls, h+40)
 		libc.Xpthread_mutex_unlock(tls, h)
 		/* The plugin's id is still in the worker: answer busy before freeing it. */
-		line = ext_reverse_refusal(tls, (*reverse_worker)(unsafe.Pointer(*(*uintptr)(unsafe.Add(nil, bp)))).Fid, (*reverse_worker)(unsafe.Pointer(*(*uintptr)(unsafe.Add(nil, bp)))).Fid_len, __ccgo_ts+4347, bp+16)
+		line = ext_reverse_refusal(tls, (*reverse_worker)(unsafe.Pointer(*(*uintptr)(unsafe.Add(nil, bp)))).Fid, (*reverse_worker)(unsafe.Pointer(*(*uintptr)(unsafe.Add(nil, bp)))).Fid_len, __ccgo_ts+4404, bp+16)
 		destroy_worker(tls, *(*uintptr)(unsafe.Add(nil, bp)))
 		if !(line != 0) {
 			return int32(EXT_NOMEM)
@@ -88299,7 +88429,7 @@ func ext_host_start_with_options(tls *libc.TLS, h uintptr, o uintptr) (r ext_sta
 	if v1 != 0 {
 		s = int32(EXT_DENIED)
 	}
-	observe_event(tls, h, o, __ccgo_ts+4352, libc.UintptrFromInt32(0), s, libc.UintptrFromInt32(0), stage_start)
+	observe_event(tls, h, o, __ccgo_ts+4409, libc.UintptrFromInt32(0), s, libc.UintptrFromInt32(0), stage_start)
 	stage_start = mono_ms(tls)
 	if !(s != 0) && canceled(tls, o) != 0 {
 		s = int32(EXT_CANCELED)
@@ -88320,7 +88450,7 @@ func ext_host_start_with_options(tls *libc.TLS, h uintptr, o uintptr) (r ext_sta
 		s = extension_call(tls, h, libc.UintptrFromInt32(0), uint64(0), deadline, o, bp)
 	}
 	if connecting != 0 {
-		observe_event(tls, h, o, __ccgo_ts+4359, libc.UintptrFromInt32(0), s, libc.UintptrFromInt32(0), stage_start)
+		observe_event(tls, h, o, __ccgo_ts+4416, libc.UintptrFromInt32(0), s, libc.UintptrFromInt32(0), stage_start)
 	}
 	handshaking = libc.BoolInt32(!(s != 0))
 	stage_start = mono_ms(tls)
@@ -88328,13 +88458,13 @@ func ext_host_start_with_options(tls *libc.TLS, h uintptr, o uintptr) (r ext_sta
 		wall = ext_wall_ms(tls) + (deadline - mono_ms(tls))
 		*(*time_t)(unsafe.Add(nil, bp+256)) = wall / libc.Int64FromInt32(1000)
 		libc.Xgmtime_r(tls, bp+256, bp+264)
-		libc.Xstrftime(tls, bp+216, uint64(40), __ccgo_ts+4367, bp+264)
-		n = libc.X__builtin_snprintf(tls, bp+24, uint64(192), __ccgo_ts+4385, libc.VaList(bp+376, bp+216, int64(wall%libc.Int64FromInt32(1000))))
+		libc.Xstrftime(tls, bp+216, uint64(40), __ccgo_ts+4424, bp+264)
+		n = libc.X__builtin_snprintf(tls, bp+24, uint64(192), __ccgo_ts+4442, libc.VaList(bp+376, bp+216, int64(wall%libc.Int64FromInt32(1000))))
 		*(*frame_call)(unsafe.Add(nil, bp+320)) = frame_call{
 			Fhost:     h,
 			Foptions:  o,
 			Fdeadline: deadline,
-			Fid:       __ccgo_ts + 4480,
+			Fid:       __ccgo_ts + 4537,
 		}
 		s = exchange(tls, h, bp+24, libc.Uint64FromInt32(n), deadline, o, bp+320, (*ext_host)(unsafe.Pointer(h)).Fthreaded, bp, bp+16)
 	}
@@ -88350,7 +88480,7 @@ func ext_host_start_with_options(tls *libc.TLS, h uintptr, o uintptr) (r ext_sta
 					s = int32(EXT_MISMATCH)
 				}
 			} else {
-				s = ext_response(tls, yyjson_doc_get_root9(tls, *(*uintptr)(unsafe.Add(nil, bp+16))), __ccgo_ts+4480)
+				s = ext_response(tls, yyjson_doc_get_root9(tls, *(*uintptr)(unsafe.Add(nil, bp+16))), __ccgo_ts+4537)
 				if !(s != 0) && !(ext_match(tls, yyjson_doc_get_root9(tls, (*ext_host)(unsafe.Pointer(h)).Fselection), yyjson_obj_get9(tls, yyjson_doc_get_root9(tls, *(*uintptr)(unsafe.Add(nil, bp+16))), __ccgo_ts+583)) != 0) {
 					s = int32(EXT_MISMATCH)
 				}
@@ -88373,7 +88503,7 @@ func ext_host_start_with_options(tls *libc.TLS, h uintptr, o uintptr) (r ext_sta
 		s = int32(EXT_CLOSED)
 	}
 	if handshaking != 0 {
-		observe_event(tls, h, o, __ccgo_ts+4486, libc.UintptrFromInt32(0), s, libc.UintptrFromInt32(0), stage_start)
+		observe_event(tls, h, o, __ccgo_ts+4543, libc.UintptrFromInt32(0), s, libc.UintptrFromInt32(0), stage_start)
 	}
 	yyjson_doc_free9(tls, *(*uintptr)(unsafe.Add(nil, bp+16)))
 	ext_buffer_free(tls, bp)
@@ -88437,19 +88567,19 @@ func invoke_impl(tls *libc.TLS, h uintptr, input uintptr, len1 size_t, o uintptr
 	deadline = mono_ms(tls) + libc.Int64FromUint32(timeout)
 	request = ext_parse(tls, input, len1)
 	if !(request != 0) {
-		observe_event(tls, h, o, __ccgo_ts+4496, libc.UintptrFromInt32(0), int32(EXT_INVALID), libc.UintptrFromInt32(0), stage_start)
+		observe_event(tls, h, o, __ccgo_ts+4553, libc.UintptrFromInt32(0), int32(EXT_INVALID), libc.UintptrFromInt32(0), stage_start)
 		return int32(EXT_INVALID)
 	}
 	r = yyjson_doc_get_root9(tls, request)
 	s = ext_request(tls, yyjson_doc_get_root9(tls, (*ext_host)(unsafe.Pointer(h)).Fselection), r, bp)
 	if s != 0 {
-		observe_event(tls, h, o, __ccgo_ts+4496, r, s, libc.UintptrFromInt32(0), stage_start)
+		observe_event(tls, h, o, __ccgo_ts+4553, r, s, libc.UintptrFromInt32(0), stage_start)
 		yyjson_doc_free9(tls, request)
 		return s
 	}
 	remaining = *(*int64_t)(unsafe.Add(nil, bp)) - ext_wall_ms(tls)
 	if remaining <= 0 {
-		observe_event(tls, h, o, __ccgo_ts+4496, r, int32(EXT_TIMEOUT), libc.UintptrFromInt32(0), stage_start)
+		observe_event(tls, h, o, __ccgo_ts+4553, r, int32(EXT_TIMEOUT), libc.UintptrFromInt32(0), stage_start)
 		yyjson_doc_free9(tls, request)
 		return int32(EXT_TIMEOUT)
 	}
@@ -88481,7 +88611,7 @@ func invoke_impl(tls *libc.TLS, h uintptr, input uintptr, len1 size_t, o uintptr
 	}
 	s = enter(tls, h, deadline, 0, o)
 	if s != 0 {
-		observe_event(tls, h, o, __ccgo_ts+4496, r, s, libc.UintptrFromInt32(0), stage_start)
+		observe_event(tls, h, o, __ccgo_ts+4553, r, s, libc.UintptrFromInt32(0), stage_start)
 		yyjson_doc_free9(tls, request)
 		return s
 	}
@@ -88591,7 +88721,7 @@ done:
 		} else {
 			v6 = libc.UintptrFromInt32(0)
 		}
-		observe_event(tls, h, o, __ccgo_ts+4496, r, s, v6, stage_start)
+		observe_event(tls, h, o, __ccgo_ts+4553, r, s, v6, stage_start)
 		yyjson_doc_free9(tls, observed)
 	}
 	yyjson_doc_free9(tls, request)
@@ -88698,13 +88828,13 @@ func call_impl(tls *libc.TLS, h uintptr, input uintptr, len1 size_t, options uin
 	 * already canceled, an operation the descriptor does not list, then a
 	 * session that is no longer ready. */
 	if canceled(tls, options) != 0 {
-		observe_event(tls, h, options, __ccgo_ts+4496, call, int32(EXT_CANCELED), libc.UintptrFromInt32(0), started)
+		observe_event(tls, h, options, __ccgo_ts+4553, call, int32(EXT_CANCELED), libc.UintptrFromInt32(0), started)
 		status = int32(EXT_CANCELED)
 		goto done
 	}
 	operation = ext_lookup(tls, yyjson_doc_get_root9(tls, (*ext_host)(unsafe.Pointer(h)).Fselection), ref, name)
 	if !(operation != 0) {
-		observe_event(tls, h, options, __ccgo_ts+4496, call, int32(EXT_UNSUPPORTED), libc.UintptrFromInt32(0), started)
+		observe_event(tls, h, options, __ccgo_ts+4553, call, int32(EXT_UNSUPPORTED), libc.UintptrFromInt32(0), started)
 		status = int32(EXT_UNSUPPORTED)
 		goto done
 	}
@@ -88722,7 +88852,7 @@ func call_impl(tls *libc.TLS, h uintptr, input uintptr, len1 size_t, options uin
 	gate = v2
 	libc.Xpthread_mutex_unlock(tls, h)
 	if gate != 0 {
-		observe_event(tls, h, options, __ccgo_ts+4496, call, gate, libc.UintptrFromInt32(0), started)
+		observe_event(tls, h, options, __ccgo_ts+4553, call, gate, libc.UintptrFromInt32(0), started)
 		status = gate
 		goto done
 	}
@@ -88736,12 +88866,12 @@ func call_impl(tls *libc.TLS, h uintptr, input uintptr, len1 size_t, options uin
 	v4 = *(*uint64_t)(unsafe.Pointer(v5))
 	sequence = v4
 	libc.Xpthread_mutex_unlock(tls, h)
-	libc.X__builtin_snprintf(tls, bp+40, uint64(32), __ccgo_ts+4503, libc.VaList(bp+240, sequence))
+	libc.X__builtin_snprintf(tls, bp+40, uint64(32), __ccgo_ts+4560, libc.VaList(bp+240, sequence))
 	wall = ext_wall_ms(tls) + libc.Int64FromUint32((*ext_call_options)(unsafe.Pointer(options)).Ftimeout_ms)
 	*(*time_t)(unsafe.Add(nil, bp+160)) = wall / libc.Int64FromInt32(1000)
 	libc.Xgmtime_r(tls, bp+160, bp+168)
-	libc.Xstrftime(tls, bp+72, uint64(40), __ccgo_ts+4367, bp+168)
-	libc.X__builtin_snprintf(tls, bp+112, uint64(48), __ccgo_ts+4508, libc.VaList(bp+240, bp+72, int64(wall%libc.Int64FromInt32(1000))))
+	libc.Xstrftime(tls, bp+72, uint64(40), __ccgo_ts+4424, bp+168)
+	libc.X__builtin_snprintf(tls, bp+112, uint64(48), __ccgo_ts+4565, libc.VaList(bp+240, bp+72, int64(wall%libc.Int64FromInt32(1000))))
 	request = yyjson_mut_doc_new(tls, libc.UintptrFromInt32(0))
 	if !(request != 0) {
 		status = int32(EXT_NOMEM)
@@ -89703,7 +89833,7 @@ func walk(tls *libc.TLS, fd int32, prefix uintptr, __ccgo_fp_visit ext_fs_visit,
 			}
 			break
 		}
-		if !(libc.Xstrcmp(tls, entry+19, __ccgo_ts+4519) != 0) || !(libc.Xstrcmp(tls, entry+19, __ccgo_ts+4521) != 0) {
+		if !(libc.Xstrcmp(tls, entry+19, __ccgo_ts+4576) != 0) || !(libc.Xstrcmp(tls, entry+19, __ccgo_ts+4578) != 0) {
 			goto _1
 		}
 		base = libc.Xstrlen(tls, prefix)
@@ -89942,7 +90072,7 @@ func ext_random_bytes(tls *libc.TLS, out uintptr, n size_t) (r1 ext_status) {
 	var s ext_status
 	var used size_t
 	_, _, _, _ = fd, r, s, used
-	fd = libc.Xopen(tls, __ccgo_ts+4524, libc.Int32FromInt32(O_RDONLY)|libc.Int32FromInt32(O_CLOEXEC), 0)
+	fd = libc.Xopen(tls, __ccgo_ts+4581, libc.Int32FromInt32(O_RDONLY)|libc.Int32FromInt32(O_CLOEXEC), 0)
 	if fd < 0 {
 		return int32(EXT_IO)
 	}
@@ -95240,11 +95370,11 @@ func digest_directory(tls *libc.TLS, fs uintptr, path uintptr, out uintptr, need
 				break
 			}
 			ext_hash_hex(tls, (*(*listing)(unsafe.Add(nil, bp))).Ffiles+uintptr(i)*40+8, bp+144)
-			ext_hash_update(tls, bp+32, __ccgo_ts+4537, uint64(2))
+			ext_hash_update(tls, bp+32, __ccgo_ts+4594, uint64(2))
 			ext_hash_update(tls, bp+32, (*(*file)(unsafe.Add(nil, (*(*listing)(unsafe.Add(nil, bp))).Ffiles+uintptr(i)*40))).Fpath, libc.Xstrlen(tls, (*(*file)(unsafe.Add(nil, (*(*listing)(unsafe.Add(nil, bp))).Ffiles+uintptr(i)*40))).Fpath))
-			ext_hash_update(tls, bp+32, __ccgo_ts+4540, uint64(1))
+			ext_hash_update(tls, bp+32, __ccgo_ts+4597, uint64(1))
 			ext_hash_update(tls, bp+32, bp+144, uint64(64))
-			ext_hash_update(tls, bp+32, __ccgo_ts+4306, uint64(1))
+			ext_hash_update(tls, bp+32, __ccgo_ts+4363, uint64(1))
 			goto _1
 		_1:
 			;
@@ -95290,15 +95420,15 @@ func ext_package_verify(tls *libc.TLS, manifest uintptr, len1 size_t, root uintp
 	}
 	if !(s != 0) {
 		i = uint64(0)
-		n = yyjson_arr_size10(tls, yyjson_obj_get10(tls, m, __ccgo_ts+1638))
-		a = yyjson_arr_get_first10(tls, yyjson_obj_get10(tls, m, __ccgo_ts+1638))
+		n = yyjson_arr_size10(tls, yyjson_obj_get10(tls, m, __ccgo_ts+1711))
+		a = yyjson_arr_get_first10(tls, yyjson_obj_get10(tls, m, __ccgo_ts+1711))
 		for {
 			if !(i < n) {
 				break
 			}
 			kind = yyjson_obj_get10(tls, a, __ccgo_ts+639)
 			path = yyjson_get_str10(tls, yyjson_obj_get10(tls, a, __ccgo_ts+750))
-			if yyjson_is_str10(tls, kind) != 0 && yyjson_equals_str10(tls, kind, __ccgo_ts+1625) != 0 {
+			if yyjson_is_str10(tls, kind) != 0 && yyjson_equals_str10(tls, kind, __ccgo_ts+1698) != 0 {
 				v2 = digest_directory(tls, *(*uintptr)(unsafe.Add(nil, bp)), path, bp+8, int32(1))
 			} else {
 				v2 = ext_fs_hash_file(tls, *(*uintptr)(unsafe.Add(nil, bp)), path, bp+8)
@@ -95308,7 +95438,7 @@ func ext_package_verify(tls *libc.TLS, manifest uintptr, len1 size_t, root uintp
 				break
 			}
 			ext_hash_hex(tls, bp+8, bp+40)
-			if !(yyjson_equals_str10(tls, yyjson_obj_get10(tls, a, __ccgo_ts+1742), bp+40) != 0) {
+			if !(yyjson_equals_str10(tls, yyjson_obj_get10(tls, a, __ccgo_ts+1815), bp+40) != 0) {
 				s = int32(EXT_MISMATCH)
 				break
 			}
@@ -100684,7 +100814,7 @@ func dispose(tls *libc.TLS, m uintptr, e uintptr) (r ext_status) {
 	}
 	s = v1
 	if (*instance)(unsafe.Pointer(e)).Fpublished != 0 {
-		observe(tls, m, e+8, (*instance)(unsafe.Pointer(e)).Fkey_len, e+264, (*instance)(unsafe.Pointer(e)).Frevision_len, __ccgo_ts+4542)
+		observe(tls, m, e+8, (*instance)(unsafe.Pointer(e)).Fkey_len, e+264, (*instance)(unsafe.Pointer(e)).Frevision_len, __ccgo_ts+4599)
 	}
 	libc.Xpthread_mutex_lock(tls, m)
 	if !((*ext_instances)(unsafe.Pointer(m)).Fcleanup != 0) && s != 0 {
@@ -100899,9 +101029,9 @@ func ext_instances_configure(tls *libc.TLS, m uintptr, key uintptr, key_len size
 					 */
 					(*instance)(unsafe.Pointer(e)).Fleases = (*instance)(unsafe.Pointer(e)).Fleases + 1
 					libc.Xpthread_mutex_unlock(tls, m)
-					observe(tls, m, e+8, (*instance)(unsafe.Pointer(e)).Fkey_len, e+264, (*instance)(unsafe.Pointer(e)).Frevision_len, __ccgo_ts+4551)
+					observe(tls, m, e+8, (*instance)(unsafe.Pointer(e)).Fkey_len, e+264, (*instance)(unsafe.Pointer(e)).Frevision_len, __ccgo_ts+4608)
 					if old != 0 {
-						observe(tls, m, e+8, (*instance)(unsafe.Pointer(e)).Fkey_len, bp+24, old_len, __ccgo_ts+4562)
+						observe(tls, m, e+8, (*instance)(unsafe.Pointer(e)).Fkey_len, bp+24, old_len, __ccgo_ts+4619)
 					}
 					if cleanup_old != 0 {
 						s = dispose(tls, m, old)
@@ -106654,7 +106784,7 @@ func random_id(tls *libc.TLS, out uintptr) (r ext_status) {
 	if s != 0 {
 		return s
 	}
-	hex = __ccgo_ts + 1584
+	hex = __ccgo_ts + 1657
 	i = uint64(0)
 	for {
 		if !(i < uint64(24)) {
@@ -106828,11 +106958,11 @@ func batch(tls *libc.TLS, raw uintptr, limit uint32_t, done uintptr) (r ext_stat
 	}
 	v = yyjson_doc_get_root12(tls, d)
 	items = yyjson_obj_get12(tls, v, __ccgo_ts+893)
-	end = yyjson_obj_get12(tls, v, __ccgo_ts+4570)
+	end = yyjson_obj_get12(tls, v, __ccgo_ts+4627)
 	status = int32(EXT_OK)
 	*(*[2]uintptr)(unsafe.Pointer(bp)) = [2]uintptr{
 		0: __ccgo_ts + 893,
-		1: __ccgo_ts + 4570,
+		1: __ccgo_ts + 4627,
 	}
 	if !(ext_fields(tls, v, bp, libc.Uint64FromInt64(16)/libc.Uint64FromInt64(8)) != 0) || !(yyjson_is_arr12(tls, items) != 0) && items != 0 && !(yyjson_is_null12(tls, items) != 0) || end != 0 && !(yyjson_is_bool12(tls, end) != 0) && !(yyjson_is_null12(tls, end) != 0) || yyjson_arr_size12(tls, items) > uint64(limit) {
 		status = int32(EXT_INVALID)
@@ -106879,7 +107009,7 @@ func batch(tls *libc.TLS, raw uintptr, limit uint32_t, done uintptr) (r ext_stat
 			}
 			array = v2
 			yyjson_mut_doc_set_root12(tls, out, root)
-			if !(root != 0) || !(array != 0) || !(yyjson_mut_obj_add_val12(tls, out, root, __ccgo_ts+893, array) != 0) || !(yyjson_mut_obj_add_bool12(tls, out, root, __ccgo_ts+4570, libc.Uint8FromInt32(libc.BoolInt32(*(*int32)(unsafe.Add(nil, done)) != 0))) != 0) {
+			if !(root != 0) || !(array != 0) || !(yyjson_mut_obj_add_val12(tls, out, root, __ccgo_ts+893, array) != 0) || !(yyjson_mut_obj_add_bool12(tls, out, root, __ccgo_ts+4627, libc.Uint8FromInt32(libc.BoolInt32(*(*int32)(unsafe.Add(nil, done)) != 0))) != 0) {
 				status = int32(EXT_NOMEM)
 			} else {
 				ext_buffer_free(tls, raw)
@@ -107231,4 +107361,4 @@ var ext_channel_ops_table uintptr
 
 var __ccgo_ts = (*reflect.StringHeader)(unsafe.Pointer(&__ccgo_ts1)).Data
 
-var __ccgo_ts1 = "raw\x00null\x00string\x00array\x00object\x00true\x00false\x00uint\x00sint\x00real\x00unknown\x00input parameter is NULL\x00document's root is NULL\x00no prefix '/'\x00cannot set document's root\x00failed to create value\x00cannot set root\x00JSON pointer cannot be resolved\x00ok\x00invalid\x00denied\x00mismatch\x00unsupported\x00closed\x00timeout\x00io\x00out of memory\x00draining\x00not found\x00ambiguous\x00canceled\x00updating\x00capacity\x00sequence\x00protocol\x00expired\x00exists\x00missing\x00\x00id\x00revision\x00version\x00name\x00contracts\x00operations\x00progress\x00surface\x00plugin.hello\x00apiVersion\x00identity\x00reverse\x00ext.plugin/v1\x00eventsPerSecond\x00bytesPerSecond\x00parent\x00plugin\x00contract\x00operation\x00deadline\x00payload\x00message\x00retryAfterMilliseconds\x00code\x00error\x00frame\x00kind\x00stream\x00text\x00completed\x00total\x00dropped\x00log\x00out\x00err\x00reverse_request\x00reverse_response\x00too_large\x00scheme\x00address\x00path\x00token\x00oneTime\x00expiresAt\x00ws\x00wss\x00http\x00https\x00tcp\x00localhost\x00schemes\x00maxLifetimeMilliseconds\x00now\x00type\x00properties\x00required\x00additionalProperties\x00items\x00enum\x00minimum\x00maximum\x00minLength\x00maxLength\x00minItems\x00maxItems\x00number\x00integer\x00boolean\x00protocols\x00concurrent\x00cancellation\x00processOwner\x00nativeStreaming\x00nativeCallbacks\x00frontend\x00backend\x00host\x00guest\x00bridge\x00hosts\x00guests\x00bridges\x00requirements\x00package.\x00route.resolve\x00descriptor.validate\x00descriptor.match\x00selected\x00actual\x00descriptor.select\x00candidates\x00requirement\x00descriptor.requirements\x00descriptor\x00endpoint.check\x00endpoint.validate\x00endpoint\x00policy\x00frame.validate\x00protocol.negotiate\x00preferred\x00offered\x00request.validate\x00request\x00response.validate\x00response\x00requestID\x00schema.validate\x00schema.check\x00schema\x00value\x00invalid_request\x00request does not match selected contract\x00operation_failed\x00plugin operation failed\x000123456789abcdef\x00con\x00prn\x00aux\x00nul\x00com\x00lpt\x00tree\x00license\x00artifacts\x00entrypoints\x00requires\x00configuration\x00payloads\x00assets\x00sharedDependencies\x00metadata\x00ext.package/v1\x00sha256\x00os\x00arch\x00artifact\x00runtime\x00process\x00input\x00output\x00locale\x00versions\x00manifest\x00environment\x00runtimes\x00sharedVersions\x00entrypoint\x00{\"id\":\"%s\",\"revision\":\"%s\",\"version\":\"%s\"}\x00{\"id\":\"%s\",\"revision\":\"%s\"}\x00consumer\x00provider\x00order\x00bindings\x00package.validate\x00package.select\x00package.resolve\x00\ufeff\x00\xfe\xff\x00\xff\xfe\x00\x00\x00\xfe\xff\x00\xff\xfe\x00\x00\x00\u00a0\x00\xe2\x80\x00\u1680\x00\u205f\x00\u3000\x00rb\x00wb\x00alse\x00no digit after sign\x00number with leading zero is not allowed\x00invalid hex number\x00no digit after decimal point\x00no digit after exponent sign\x00hex number overflow\x00*/\x00infinity\x00nan\x00number is infinity when parsed as double\x00invalid escaped sequence in string\x00invalid high surrogate in string\x00\\u\x00no low surrogate in string\x00invalid escape in string\x00invalid low surrogate in string\x00invalid UTF-8 encoding in string\x00octal escape is not allowed\x00invalid number escape\x00invalid hex escape\x00unexpected control character in string\x00unclosed string\x00invalid utf-8 encoding in string\x00unexpected character in key\x00unexpected end of data\x00failed to allocate memory\x00invalid literal, expected 'true'\x00invalid literal, expected 'false'\x00invalid literal, expected 'null'\x00unexpected character, expected a JSON value\x00unclosed multiline comment\x00unexpected content after document\x00trailing comma is not allowed\x00unexpected character, expected ',' or ']'\x00unexpected character, expected a string key\x00unexpected character, expected ':' after key\x00unexpected character, expected ',' or '}'\x00  \x00,\n\x00: \x00input data is NULL\x00input length is 0\x00input data is empty\x00UTF-8 byte order mark (BOM) is not supported\x00UTF-32 encoding is not supported\x00UTF-16 encoding is not supported\x00input path is NULL\x00failed to read file\x00input file is NULL\x00output value is NULL\x00input state is NULL\x00length is greater than total input length\x00invalid incremental state\x00unexpected character, expected a valid root value\x00number too long\x00need more data\x00e-\x00Infinity\x00NaN\x000.0\x00.0\x00    \x00file writing failed\x00failed to open file\x00failed to write file\x00failed to close file\x00[]\x00{}\x00invalid JSON value type\x00nan or inf number is not allowed\x00input JSON is NULL\x00input path is invalid\x00input fp is invalid\x00invalid escaped character\x00add\x00move\x00copy\x00test\x00remove\x00replace\x00input patch is not array\x00failed to copy value\x00JSON patch operation is not object\x00op\x00missing key `op`\x00invalid member `op`\x00missing key `path`\x00invalid member `path`\x00missing key `value`\x00from\x00missing key `from`\x00invalid member `from`\x00failed to add `path`\x00failed to remove `path`\x00failed to replace `path`\x00failed to remove `from`\x00failed to get `from`\x00failed to get `path`\x00failed to test equal\x00unsupported `op`\x00PATH\x00%s=%s\x00deadline_exceeded\x00failed\x00not_found\x00stage\x00durationMilliseconds\x00\n\x00reverse_unavailable\x00reverse_undeclared\x00busy\x00verify\x00connect\x00%Y-%m-%dT%H:%M:%S\x00{\"apiVersion\":\"ext.plugin/v1\",\"id\":\"hello\",\"operation\":\"plugin.hello\",\"deadline\":\"%s.%03lldZ\"}\x00hello\x00handshake\x00invoke\x00%llu\x00%s.%03lldZ\x00.\x00..\x00/dev/urandom\x00./\x00 \x00disposed\x00configured\x00retired\x00done\x00"
+var __ccgo_ts1 = "raw\x00null\x00string\x00array\x00object\x00true\x00false\x00uint\x00sint\x00real\x00unknown\x00input parameter is NULL\x00document's root is NULL\x00no prefix '/'\x00cannot set document's root\x00failed to create value\x00cannot set root\x00JSON pointer cannot be resolved\x00ok\x00invalid\x00denied\x00mismatch\x00unsupported\x00closed\x00timeout\x00io\x00out of memory\x00draining\x00not found\x00ambiguous\x00canceled\x00updating\x00capacity\x00sequence\x00protocol\x00expired\x00exists\x00missing\x00\x00id\x00revision\x00version\x00name\x00contracts\x00operations\x00progress\x00surface\x00plugin.hello\x00apiVersion\x00identity\x00reverse\x00ext.plugin/v1\x00eventsPerSecond\x00bytesPerSecond\x00parent\x00plugin\x00contract\x00operation\x00deadline\x00payload\x00message\x00retryAfterMilliseconds\x00code\x00error\x00frame\x00kind\x00stream\x00text\x00completed\x00total\x00dropped\x00log\x00out\x00err\x00reverse_request\x00reverse_response\x00too_large\x00scheme\x00address\x00path\x00token\x00oneTime\x00expiresAt\x00ws\x00wss\x00http\x00https\x00tcp\x00localhost\x00schemes\x00maxLifetimeMilliseconds\x00now\x00type\x00properties\x00required\x00additionalProperties\x00items\x00enum\x00minimum\x00maximum\x00minLength\x00maxLength\x00minItems\x00maxItems\x00number\x00integer\x00boolean\x00in-process\x00process\x00confined\x00runtime\x00container\x00kernel\x00boundaries\x00boundary\x00protocols\x00concurrent\x00cancellation\x00processOwner\x00nativeStreaming\x00nativeCallbacks\x00frontend\x00backend\x00host\x00guest\x00bridge\x00hosts\x00guests\x00bridges\x00requirements\x00package.\x00route.resolve\x00descriptor.validate\x00descriptor.match\x00selected\x00actual\x00descriptor.select\x00candidates\x00requirement\x00descriptor.requirements\x00descriptor\x00endpoint.check\x00endpoint.validate\x00endpoint\x00policy\x00frame.validate\x00protocol.negotiate\x00preferred\x00offered\x00request.validate\x00request\x00response.validate\x00response\x00requestID\x00schema.validate\x00schema.check\x00schema\x00value\x00invalid_request\x00request does not match selected contract\x00operation_failed\x00plugin operation failed\x000123456789abcdef\x00con\x00prn\x00aux\x00nul\x00com\x00lpt\x00tree\x00license\x00artifacts\x00entrypoints\x00requires\x00configuration\x00payloads\x00assets\x00sharedDependencies\x00metadata\x00ext.package/v1\x00sha256\x00os\x00arch\x00artifact\x00input\x00output\x00locale\x00versions\x00manifest\x00environment\x00runtimes\x00sharedVersions\x00entrypoint\x00{\"id\":\"%s\",\"revision\":\"%s\",\"version\":\"%s\"}\x00{\"id\":\"%s\",\"revision\":\"%s\"}\x00consumer\x00provider\x00order\x00bindings\x00package.validate\x00package.select\x00package.resolve\x00\ufeff\x00\xfe\xff\x00\xff\xfe\x00\x00\x00\xfe\xff\x00\xff\xfe\x00\x00\x00\u00a0\x00\xe2\x80\x00\u1680\x00\u205f\x00\u3000\x00rb\x00wb\x00alse\x00no digit after sign\x00number with leading zero is not allowed\x00invalid hex number\x00no digit after decimal point\x00no digit after exponent sign\x00hex number overflow\x00*/\x00infinity\x00nan\x00number is infinity when parsed as double\x00invalid escaped sequence in string\x00invalid high surrogate in string\x00\\u\x00no low surrogate in string\x00invalid escape in string\x00invalid low surrogate in string\x00invalid UTF-8 encoding in string\x00octal escape is not allowed\x00invalid number escape\x00invalid hex escape\x00unexpected control character in string\x00unclosed string\x00invalid utf-8 encoding in string\x00unexpected character in key\x00unexpected end of data\x00failed to allocate memory\x00invalid literal, expected 'true'\x00invalid literal, expected 'false'\x00invalid literal, expected 'null'\x00unexpected character, expected a JSON value\x00unclosed multiline comment\x00unexpected content after document\x00trailing comma is not allowed\x00unexpected character, expected ',' or ']'\x00unexpected character, expected a string key\x00unexpected character, expected ':' after key\x00unexpected character, expected ',' or '}'\x00  \x00,\n\x00: \x00input data is NULL\x00input length is 0\x00input data is empty\x00UTF-8 byte order mark (BOM) is not supported\x00UTF-32 encoding is not supported\x00UTF-16 encoding is not supported\x00input path is NULL\x00failed to read file\x00input file is NULL\x00output value is NULL\x00input state is NULL\x00length is greater than total input length\x00invalid incremental state\x00unexpected character, expected a valid root value\x00number too long\x00need more data\x00e-\x00Infinity\x00NaN\x000.0\x00.0\x00    \x00file writing failed\x00failed to open file\x00failed to write file\x00failed to close file\x00[]\x00{}\x00invalid JSON value type\x00nan or inf number is not allowed\x00input JSON is NULL\x00input path is invalid\x00input fp is invalid\x00invalid escaped character\x00add\x00move\x00copy\x00test\x00remove\x00replace\x00input patch is not array\x00failed to copy value\x00JSON patch operation is not object\x00op\x00missing key `op`\x00invalid member `op`\x00missing key `path`\x00invalid member `path`\x00missing key `value`\x00from\x00missing key `from`\x00invalid member `from`\x00failed to add `path`\x00failed to remove `path`\x00failed to replace `path`\x00failed to remove `from`\x00failed to get `from`\x00failed to get `path`\x00failed to test equal\x00unsupported `op`\x00PATH\x00%s=%s\x00deadline_exceeded\x00failed\x00not_found\x00stage\x00durationMilliseconds\x00\n\x00reverse_unavailable\x00reverse_undeclared\x00busy\x00verify\x00connect\x00%Y-%m-%dT%H:%M:%S\x00{\"apiVersion\":\"ext.plugin/v1\",\"id\":\"hello\",\"operation\":\"plugin.hello\",\"deadline\":\"%s.%03lldZ\"}\x00hello\x00handshake\x00invoke\x00%llu\x00%s.%03lldZ\x00.\x00..\x00/dev/urandom\x00./\x00 \x00disposed\x00configured\x00retired\x00done\x00"

@@ -251,9 +251,46 @@ int ext_schema_check(yyjson_val *s, yyjson_val *v) {
     return 0;
   return 1;
 }
+/* The sandbox boundary levels (docs/adr-sandboxing.md). A profile may state one;
+ * a route's requirements may list the ones a consumer accepts. */
+static const char *const boundaries[] = {"in-process", "process", "confined",
+                                         "runtime",    "container", "kernel"};
+static int boundary(yyjson_val *v) {
+  if (!yyjson_is_str(v))
+    return 0;
+  for (size_t i = 0; i < sizeof(boundaries) / sizeof(boundaries[0]); i++)
+    if (yyjson_equals_str(v, boundaries[i]))
+      return 1;
+  return 0;
+}
+/* An absent list accepts any boundary; a present one is a list of distinct levels. */
+static int boundary_list(yyjson_val *v) {
+  if (absent(v))
+    return 1;
+  if (!yyjson_is_arr(v) ||
+      yyjson_arr_size(v) > sizeof(boundaries) / sizeof(boundaries[0]))
+    return 0;
+  size_t i, n, j, m;
+  yyjson_val *b, *earlier;
+  yyjson_arr_foreach(v, i, n, b) {
+    if (!boundary(b))
+      return 0;
+    EXT_ARR_BEFORE(v, i, j, m, earlier)
+    if (ext_same(b, earlier)) return 0;
+  }
+  return 1;
+}
+/* Whether a guest's boundary is one the requirements accept. */
+static int boundary_accepted(yyjson_val *guest, yyjson_val *want) {
+  yyjson_val *list = get(want, "boundaries"), *have = get(guest, "boundary");
+  if (absent(list) || !yyjson_arr_size(list))
+    return 1;
+  return !absent(have) && contains(list, have);
+}
 static int profile(yyjson_val *p) {
   if (!EXT_FIELDS(p, "name", "protocols", "concurrent", "cancellation",
-                  "processOwner", "nativeStreaming", "nativeCallbacks") ||
+                  "processOwner", "nativeStreaming", "nativeCallbacks",
+                  "boundary") ||
       !ext_text(get(p, "name"), 0, 0) || !ext_protocols(get(p, "protocols")))
     return 0;
   const char *flags[] = {"concurrent", "nativeStreaming", "nativeCallbacks"};
@@ -263,7 +300,8 @@ static int profile(yyjson_val *p) {
   return (absent(get(p, "cancellation")) ||
           yyjson_is_str(get(p, "cancellation"))) &&
          (absent(get(p, "processOwner")) ||
-          yyjson_is_str(get(p, "processOwner")));
+          yyjson_is_str(get(p, "processOwner"))) &&
+         (absent(get(p, "boundary")) || boundary(get(p, "boundary")));
 }
 static int unique_name(yyjson_val *array, size_t i, yyjson_val *p) {
   size_t j, n;
@@ -287,15 +325,20 @@ static ext_status route_result(yyjson_val *h, yyjson_val *g, yyjson_val *bridge,
     if (yyjson_get_bool(get(want, flags[i])) && !features[i])
       return EXT_UNSUPPORTED;
   }
+  /* A route that meets the transport requirements but not the boundaries is
+   * skipped; the caller reports denied when every such route was. */
+  if (!boundary_accepted(g, want))
+    return EXT_DENIED;
   yyjson_mut_doc *d = yyjson_mut_doc_new(NULL);
   if (!d)
     return EXT_NOMEM;
   yyjson_mut_val *root = yyjson_mut_obj(d);
   yyjson_mut_doc_set_root(d, root);
   int ok = root != NULL;
-  const char *names[] = {"protocol", "host", "guest", "bridge"};
-  yyjson_val *vals[] = {protocol, h, g, bridge ? get(bridge, "name") : NULL};
-  for (size_t i = 0; i < 4 && ok; i++)
+  const char *names[] = {"protocol", "host", "guest", "bridge", "boundary"};
+  yyjson_val *vals[] = {protocol, h, g, bridge ? get(bridge, "name") : NULL,
+                        absent(get(g, "boundary")) ? NULL : get(g, "boundary")};
+  for (size_t i = 0; i < 5 && ok; i++)
     if (vals[i]) {
       yyjson_mut_val *copy = yyjson_val_mut_copy(d, vals[i]);
       ok = copy && yyjson_mut_obj_add_val(d, root, names[i], copy);
@@ -316,11 +359,14 @@ static ext_status routes(yyjson_val *v, ext_buffer *out) {
       (!absent(bridges) && !list(bridges, 0, 64)))
     return EXT_INVALID;
   if (!absent(want) &&
-      (!EXT_FIELDS(want, "concurrent", "nativeStreaming", "nativeCallbacks") ||
+      (!EXT_FIELDS(want, "concurrent", "nativeStreaming", "nativeCallbacks",
+                   "boundaries") ||
        !optional_bool(get(want, "concurrent")) ||
        !optional_bool(get(want, "nativeStreaming")) ||
-       !optional_bool(get(want, "nativeCallbacks"))))
+       !optional_bool(get(want, "nativeCallbacks")) ||
+       !boundary_list(get(want, "boundaries"))))
     return EXT_INVALID;
+  int denied = 0;
   size_t i, n, j, m, k, z, q, count;
   yyjson_val *h, *g, *b, *p;
   yyjson_arr_foreach(hosts, i, n,
@@ -343,7 +389,9 @@ static ext_status routes(yyjson_val *v, ext_buffer *out) {
       if (!p)
         continue;
       ext_status s = route_result(h, g, NULL, p, want, out);
-      if (s != EXT_UNSUPPORTED)
+      if (s == EXT_DENIED)
+        denied = 1;
+      else if (s != EXT_UNSUPPORTED)
         return s;
     }
   }
@@ -360,13 +408,15 @@ static ext_status routes(yyjson_val *v, ext_buffer *out) {
               !contains(get(back, "protocols"), p))
             continue;
           ext_status s = route_result(h, g, b, p, want, out);
-          if (s != EXT_UNSUPPORTED)
+          if (s == EXT_DENIED)
+            denied = 1;
+          else if (s != EXT_UNSUPPORTED)
             return s;
         }
       }
     }
   }
-  return EXT_UNSUPPORTED;
+  return denied ? EXT_DENIED : EXT_UNSUPPORTED;
 }
 
 static ext_status dispatch(const char *op, yyjson_val *v, ext_buffer *out) {

@@ -20,7 +20,7 @@ if(EXT_LEDGER_SANITIZE)
 endif()
 
 set(ledger_sources src/json.c src/hash.c src/model.c src/rules.c src/state.c src/store.c src/file.c src/recorder.c src/record_shell.c src/record_host.c src/record_process.c src/record_inventory.c
-    src/collect.c src/collect_host.c src/collect_host_posix.c src/collect_resources.c src/collect_webviews.c src/collect_surfaces.c src/collect_desktop.c src/collect_posix.c src/collect_win32.c src/collect_process_linux.c src/collect_process_darwin.c src/collect_process_none.c)
+    src/collect.c src/collect_host.c src/collect_host_posix.c src/collect_resources.c src/collect_webviews.c src/collect_surfaces.c src/collect_desktop.c src/collect_accessibility.c src/collect_posix.c src/collect_win32.c src/collect_process_linux.c src/collect_process_darwin.c src/collect_process_none.c)
 if(WIN32)
   list(APPEND ledger_sources src/platform_win32.c)
 else()

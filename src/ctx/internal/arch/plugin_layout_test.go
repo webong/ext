@@ -42,10 +42,11 @@ var pluginRequires = map[string][]string{
 	"pkg/ext-go/inference":  {"pkg/ext-go/engine", "res/int"},
 	"pkg/ext-go/perception": {"pkg/ext-go/engine", "res/int"},
 	"pkg/ext-go/realtime":   {"pkg/ext-go/engine", "res/int"},
+	"pkg/ext-go/sandboxcmd": {"res/sandbox", "res/system"},
 	"res/int":               {},
 	"res/sandbox":           {},
 	"res/web/host":          {},
-	"res/system":            {},
+	"res/system":            {"res/sandbox"},
 	"res/graph":             {"res/system"},
 	"pkg/ext-go":            {"pkg/ext-go/engine", "pkg/ext-go/cgoengine", "pkg/ext-go/c2goengine", "pkg/ext-go/wasm", "pkg/ext-go/hashicorp", "pkg/ext-go/inference", "pkg/ext-go/model", "pkg/ext-go/perception", "pkg/ext-go/realtime", "res/graph", "res/web/host"},
 }

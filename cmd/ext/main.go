@@ -17,6 +17,7 @@ import (
 	"github.com/webong/ext/pkg/ext-go/engine/host/adapter"
 	"github.com/webong/ext/pkg/ext-go/engine/host/adapter/adaptercmd"
 	"github.com/webong/ext/pkg/ext-go/engine/host/store"
+	"github.com/webong/ext/pkg/ext-go/sandboxcmd"
 )
 
 func main() {
@@ -25,6 +26,9 @@ func main() {
 		{Name: "adapter", Source: registry.Builtin, Version: ctx.Version(), Run: adaptercmd.Run},
 		{Name: "ctx", Source: registry.Builtin, Version: ctx.Version(), Run: ctx.Run},
 		{Name: "ctn", Source: registry.Builtin, Version: ctn.Version(), Run: ctn.Run},
+		{Name: "sandbox", Source: registry.Builtin, Version: ctx.Version(), Run: func(args []string, stdout, stderr io.Writer) int {
+			return sandboxcmd.Run("ext", args, stdout, stderr)
+		}},
 	} {
 		if err := reg.Register(c); err != nil {
 			fmt.Fprintln(os.Stderr, "ext:", err)

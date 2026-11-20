@@ -46,6 +46,7 @@ use (
 	./pkg/ext-go/model
 	./pkg/ext-go/perception
 	./pkg/ext-go/realtime
+	./pkg/ext-go/sandboxcmd
 	./pkg/ext-go/wasm
 	./pkg/ext-go/yaegi
 	./res/graph

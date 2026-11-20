@@ -471,7 +471,7 @@ workspace active, and that `src/ctx` resolves the intended versions:
 
 ```bash
 for module in src/ctx src/ctn pkg/ext-go pkg/ext-go/engine pkg/ext-go/cgoengine \
-              pkg/ext-go/hashicorp pkg/ext-go/wasm pkg/ext-go/yaegi pkg/ext-go/inference pkg/ext-go/model pkg/ext-go/perception pkg/ext-go/realtime res/system res/int res/sandbox \
+              pkg/ext-go/hashicorp pkg/ext-go/wasm pkg/ext-go/yaegi pkg/ext-go/inference pkg/ext-go/model pkg/ext-go/perception pkg/ext-go/realtime pkg/ext-go/sandboxcmd res/system res/int res/sandbox \
               adapters/wasm adapters/evm adapters/systemd adapters/pulseaudio adapters/alsa \
               adapters/x11 adapters/ffmpeg adapters/wayland adapters/pipewire adapters/openai \
               adapters/ollama adapters/anthropic adapters/gemini res/web/host; do
@@ -514,6 +514,7 @@ so an application imports only what it needs and stacks the rest:
 | `pkg/ext-go/model` | bridges `res/int/model` tensor providers to the Ext plugin engine through `model.tensor/v1` | `engine`, `res/int` |
 | `pkg/ext-go/perception` | bridges `res/int/perception` to the Ext plugin engine through `intelligence.perception/v1` | `engine`, `res/int` |
 | `pkg/ext-go/realtime` | bridges `res/int/realtime` to the Ext plugin engine through `intelligence.realtime/v1` | `engine`, `res/int` |
+| `pkg/ext-go/sandboxcmd` | the `sandbox` command that `ext` and standalone `ctx` share: `sandbox exec` confines its own process with `res/system/service/confine` and becomes the guest, `sandbox check` prints what each driver enforces ([the sandboxing ADR](adr-sandboxing.md)) | `res/sandbox`, `res/system` |
 | `res/web/host` | portable web tooling, including protocol-neutral WebAssembly inspection, execution and raw reactor hosting | nothing inside ext; third-party wazero only |
 | `pkg/ext-go/wasm` | the plugin-engine binding for `res/web/host/engine/wasm` (the old `pkg/plugin-wasm`) | `engine`, `res/web/host` |
 | `pkg/ext-go/hashicorp` | the go-plugin (gRPC) backend (the old `pkg/plugin-hashicorp`) | `engine` |

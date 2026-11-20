@@ -155,7 +155,7 @@ func (p *provider) Stream(ctx context.Context, r inference.GenerationRequest, si
 			}
 		case "message_delta":
 			if ev.Delta.StopReason != "" {
-				if out.StopReason, err = stopReason(ev.Delta.StopReason); err != nil {
+				if err := setStop(&out, ev.Delta.StopReason); err != nil {
 					return inference.GenerationResponse{}, err
 				}
 			}

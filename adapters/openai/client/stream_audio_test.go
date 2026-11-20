@@ -209,3 +209,35 @@ func TestToolCallWithNullContentValidates(t *testing.T) {
 		t.Fatalf("response does not validate: %v", err)
 	}
 }
+
+func TestTokenInputsAndUnknownFinish(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/v1/embeddings" {
+			var body struct {
+				Input [][]int64 `json:"input"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&body); err != nil || len(body.Input) != 2 || body.Input[1][0] != 7 {
+				t.Errorf("token input %v %v", body.Input, err)
+			}
+			_, _ = w.Write([]byte(`{"model":"e","data":[{"index":0,"embedding":[0.1]},{"index":1,"embedding":[0.2]}],"usage":{"prompt_tokens":3,"total_tokens":3}}`))
+			return
+		}
+		_, _ = w.Write([]byte(`{"id":"1","model":"m","choices":[{"index":0,"message":{"role":"assistant","content":"x"},"finish_reason":"insufficient_system_resource"}],"usage":{"prompt_tokens":1,"completion_tokens":1,"total_tokens":2}}`))
+	}))
+	defer server.Close()
+	p, err := NewProvider(server.URL+"/v1", "secret")
+	if err != nil {
+		t.Fatal(err)
+	}
+	emb, err := p.Embed(context.Background(), inference.EmbeddingRequest{Model: "e", TokenInputs: [][]int64{{1, 2}, {7}}})
+	if err != nil || len(emb.Embeddings) != 2 {
+		t.Fatalf("embed %+v %v", emb, err)
+	}
+	resp, err := p.Generate(context.Background(), userRequest())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StopReason != inference.FinishReasonOther || resp.ProviderStopReason != "insufficient_system_resource" {
+		t.Fatalf("got %s/%q", resp.StopReason, resp.ProviderStopReason)
+	}
+}

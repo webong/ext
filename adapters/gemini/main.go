@@ -311,20 +311,25 @@ func appendPart(m *inference.Message, part apiPart) (inference.GenerationEvent, 
 	}
 }
 
-func finishReason(reason string, toolCalls bool) (inference.FinishReason, error) {
+// setFinish maps a candidate's finishReason onto the response. OTHER, and any reason this
+// adapter does not know, is other with Gemini's own name in ProviderStopReason.
+func setFinish(out *inference.GenerationResponse, reason string) error {
 	switch reason {
 	case "STOP":
-		if toolCalls {
-			return inference.FinishReasonToolCalls, nil
+		out.StopReason = inference.FinishReasonStop
+		if len(out.Message.ToolCalls) > 0 {
+			out.StopReason = inference.FinishReasonToolCalls
 		}
-		return inference.FinishReasonStop, nil
 	case "MAX_TOKENS":
-		return inference.FinishReasonLength, nil
-	case "SAFETY", "RECITATION", "BLOCKLIST", "PROHIBITED_CONTENT", "SPII":
-		return inference.FinishReasonContentFilter, nil
+		out.StopReason = inference.FinishReasonLength
+	case "SAFETY", "RECITATION", "BLOCKLIST", "PROHIBITED_CONTENT", "SPII", "IMAGE_SAFETY":
+		out.StopReason = inference.FinishReasonContentFilter
+	case "", "FINISH_REASON_UNSPECIFIED":
+		return inference.ErrInvalidResponse
 	default:
-		return "", inference.ErrInvalidResponse
+		out.StopReason, out.ProviderStopReason = inference.FinishReasonOther, reason
 	}
+	return nil
 }
 
 func (p *provider) Generate(ctx context.Context, r inference.GenerationRequest) (inference.GenerationResponse, error) {
@@ -358,7 +363,7 @@ func (p *provider) Generate(ctx context.Context, r inference.GenerationRequest) 
 			return inference.GenerationResponse{}, err
 		}
 	}
-	if out.StopReason, err = finishReason(first.FinishReason, len(out.Message.ToolCalls) > 0); err != nil {
+	if err := setFinish(&out, first.FinishReason); err != nil {
 		return inference.GenerationResponse{}, err
 	}
 	return out, out.Validate()

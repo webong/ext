@@ -93,8 +93,9 @@ type usage struct {
 
 // embedRequest is the OpenAI embeddings request.
 type embedRequest struct {
-	Model string   `json:"model"`
-	Input []string `json:"input"`
+	Model string `json:"model"`
+	// Input is a list of strings, or of token-ID arrays for pre-tokenized input.
+	Input any `json:"input"`
 }
 
 // embedResponse is the OpenAI embeddings response.
@@ -234,8 +235,8 @@ func parseChatResponse(raw []byte) (inference.GenerationResponse, error) {
 			Output: int64(cr.Usage.CompletionTokens),
 			Total:  int64(cr.Usage.TotalTokens),
 		},
-		StopReason: finishReason(choice.FinishReason),
 	}
+	setFinish(&resp, choice.FinishReason)
 	// A message with only tool calls has "content": null; that and an empty string add no part.
 	if choice.Message.Content != nil {
 		var text string
@@ -259,9 +260,9 @@ func parseChatResponse(raw []byte) (inference.GenerationResponse, error) {
 // marshalEmbedRequest converts an inference.EmbeddingRequest to an OpenAI
 // embeddings request body.
 func marshalEmbedRequest(req inference.EmbeddingRequest) ([]byte, error) {
-	er := embedRequest{
-		Model: req.Model,
-		Input: req.Inputs,
+	er := embedRequest{Model: req.Model, Input: req.Inputs}
+	if len(req.TokenInputs) > 0 {
+		er.Input = req.TokenInputs
 	}
 	return json.Marshal(er)
 }
@@ -308,19 +309,21 @@ func parseModelList(raw []byte) ([]inference.ModelInfo, error) {
 	return models, nil
 }
 
-// finishReason maps an OpenAI finish reason to inference.FinishReason.
-func finishReason(s string) inference.FinishReason {
+// setFinish maps an OpenAI finish_reason onto the response. A missing one is stop, since
+// OpenAI-compatible servers often omit it; one this adapter does not know is other, with the
+// server's own name in ProviderStopReason, rather than a stop it may not have been.
+func setFinish(resp *inference.GenerationResponse, s string) {
 	switch s {
-	case "stop":
-		return inference.FinishReasonStop
+	case "stop", "":
+		resp.StopReason = inference.FinishReasonStop
 	case "length":
-		return inference.FinishReasonLength
-	case "tool_calls":
-		return inference.FinishReasonToolCalls
+		resp.StopReason = inference.FinishReasonLength
+	case "tool_calls", "function_call":
+		resp.StopReason = inference.FinishReasonToolCalls
 	case "content_filter":
-		return inference.FinishReasonContentFilter
+		resp.StopReason = inference.FinishReasonContentFilter
 	default:
-		return inference.FinishReasonStop
+		resp.StopReason, resp.ProviderStopReason = inference.FinishReasonOther, s
 	}
 }
 
@@ -512,7 +515,7 @@ func (p *Provider) streamEvents(ctx context.Context, path string, body []byte, s
 			}
 		}
 		if cc.FinishReason != "" {
-			final.StopReason = finishReason(cc.FinishReason)
+			setFinish(&final, cc.FinishReason)
 		}
 	}
 

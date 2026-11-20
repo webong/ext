@@ -129,3 +129,18 @@ func TestEmbed(t *testing.T) {
 		t.Fatalf("embeddings %+v", resp.Embeddings)
 	}
 }
+
+func TestOtherFinishReason(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"candidates":[{"content":{"parts":[{"text":"x"}]},"finishReason":"OTHER"}]}`))
+	}))
+	defer server.Close()
+	p, _ := newProvider(server.URL+"/v1beta", "key")
+	resp, err := p.Generate(context.Background(), request())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StopReason != inference.FinishReasonOther || resp.ProviderStopReason != "OTHER" {
+		t.Fatalf("got %s/%q", resp.StopReason, resp.ProviderStopReason)
+	}
+}

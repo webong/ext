@@ -1,5 +1,5 @@
 // Code generated for darwin/arm64 by 'ccgo -o engine.go --package-name ccgo -I csrc/shim -I csrc/src -I csrc/vendor -I csrc/include -DEXT_HOST_STATIC -DEXT_HOST_BUILD -Dyyjson_align(x)= -Dyyjson_inline= -Dyyjson_noinline= -U__SIZEOF_INT128__ -include csrc/shim/compat_core.h -include csrc/shim/compat.h csrc/src/common.c csrc/src/wire.c csrc/src/progress.c csrc/src/reverse.c csrc/src/endpoint.c csrc/src/services.c csrc/src/guest.c csrc/src/sha256.c csrc/src/packages.c csrc/vendor/yyjson.c csrc/src/host.c csrc/src/fs_posix.c csrc/src/random_posix.c csrc/src/integrity.c csrc/src/instances.c csrc/src/streams.c csrc/shim/channel_go.c csrc/shim/missing.c', DO NOT EDIT.
-// c2goengine inputs sha256:c8026fae4988c82b6f0f356416ea239fb12bac1551fae93e93165673d8489136
+// c2goengine inputs sha256:ee27f3694ecfde0774d7accd5d1727258aeb841ab65724ed72e7e0e3ce74dbfa
 
 //go:build darwin && arm64
 
@@ -62,6 +62,8 @@ const EXT_BACKEND_JSONLINE_PROCESS_CONFIG = "4u"
 const EXT_BACKEND_JSONLINE_PROCESS_LAUNCH = "5u"
 const EXT_HOST_ABI_VERSION = 2
 const EXT_HOST_BUILD = 1
+const EXT_HOST_REVERSE_CALLER_THREAD = "1u"
+const EXT_HOST_REVERSE_ENGINE_THREADS = "0u"
 const EXT_HOST_REVERSE_PAYLOAD = "0u"
 const EXT_HOST_REVERSE_PUBLIC_ERROR = "1u"
 const EXT_HOST_STATIC = 1
@@ -84101,6 +84103,7 @@ const EXT_BACKEND_JSONLINE_PROCESS1 = 1
 const EXT_BACKEND_JSONLINE_PROCESS_CONFIG1 = 4
 const EXT_BACKEND_JSONLINE_PROCESS_LAUNCH1 = 5
 const EXT_HOST_ABI_VERSION4 = 2
+const EXT_HOST_REVERSE_CALLER_THREAD1 = 1
 const EXT_HOST_REVERSE_PUBLIC_ERROR3 = 1
 const EXT_REVERSE_DEFAULT_IN_FLIGHT1 = 4
 const EXT_REVERSE_DEFAULT_TIMEOUT_MS1 = 30000
@@ -84150,6 +84153,9 @@ type ext_host = struct {
 	Freverses          uint32
 	Fworkers           uintptr
 	Ffinished          uintptr
+	Freverse_mode      uint32_t
+	Fqueue_head        uintptr
+	Fqueue_tail        uintptr
 }
 
 type ext_launch = struct {
@@ -89841,7 +89847,17 @@ type reverse_worker = struct {
 	Fthreaded           int32
 	Fvalue              uintptr
 	Fcall_deadline      int64_t
+	Fhooks              int32
+	Fqueued_next        uintptr
+	Fline               uintptr
+	Fline_len           size_t
+	Fline_until         int64_t
 }
+
+const HOOKS_ON_WORKER = 0
+const HOOKS_QUEUED = 1
+const HOOKS_RUNNING = 2
+const HOOKS_DONE = 3
 
 type pending_call = struct {
 	Fid           uintptr
@@ -90165,7 +90181,7 @@ func ext_host_create(tls *libc.TLS, o uintptr, b uintptr, out uintptr) (r ext_st
 		yyjson_doc_free9(tls, d)
 		return int32(EXT_UNSUPPORTED)
 	}
-	h = libc.Xcalloc(tls, uint64(1), uint64(608))
+	h = libc.Xcalloc(tls, uint64(1), uint64(632))
 	if !(h != 0) {
 		yyjson_doc_free9(tls, d)
 		return int32(EXT_NOMEM)
@@ -90326,6 +90342,27 @@ func ext_host_set_hooks(tls *libc.TLS, h uintptr, hooks uintptr) (r ext_status) 
 	s = v1
 	if !(s != 0) {
 		(*ext_host)(unsafe.Pointer(h)).Fhooks = *(*ext_host_hooks)(unsafe.Add(nil, hooks))
+	}
+	libc.Xpthread_mutex_unlock(tls, h)
+	return s
+}
+
+func ext_host_set_reverse_mode(tls *libc.TLS, h uintptr, mode uint32_t) (r ext_status) {
+	var s ext_status
+	var v1 int32
+	_, _ = s, v1
+	if !(h != 0) || mode > uint32(1) {
+		return int32(EXT_INVALID)
+	}
+	libc.Xpthread_mutex_lock(tls, h)
+	if (*ext_host)(unsafe.Pointer(h)).Fstate == int32(EXT_HOST_CREATED) && !((*ext_host)(unsafe.Pointer(h)).Factive != 0) && !((*ext_host)(unsafe.Pointer(h)).Fstarted != 0) {
+		v1 = int32(EXT_OK)
+	} else {
+		v1 = int32(EXT_INVALID)
+	}
+	s = v1
+	if !(s != 0) {
+		(*ext_host)(unsafe.Pointer(h)).Freverse_mode = mode
 	}
 	libc.Xpthread_mutex_unlock(tls, h)
 	return s
@@ -91170,6 +91207,7 @@ func destroy_worker(tls *libc.TLS, w uintptr) {
 		ext_cancel_destroy(tls, (*reverse_worker)(unsafe.Pointer(w)).Fcancel)
 		libc.Xfree(tls, (*reverse_worker)(unsafe.Pointer(w)).Fid)
 		libc.Xfree(tls, (*reverse_worker)(unsafe.Pointer(w)).Fjson)
+		libc.Xfree(tls, (*reverse_worker)(unsafe.Pointer(w)).Fline)
 		libc.Xfree(tls, w)
 	}
 }
@@ -91365,21 +91403,161 @@ func finish_worker(tls *libc.TLS, w uintptr) {
 	}
 }
 
+// C documentation
+//
+//	/* Takes the oldest queued request off the queue; the caller holds h->mu. */
+func dequeue(tls *libc.TLS, h uintptr) (r uintptr) {
+	var w uintptr
+	_ = w
+	w = (*ext_host)(unsafe.Pointer(h)).Fqueue_head
+	if w != 0 {
+		(*ext_host)(unsafe.Pointer(h)).Fqueue_head = (*reverse_worker)(unsafe.Pointer(w)).Fqueued_next
+		if !((*ext_host)(unsafe.Pointer(h)).Fqueue_head != 0) {
+			(*ext_host)(unsafe.Pointer(h)).Fqueue_tail = libc.UintptrFromInt32(0)
+		}
+		(*reverse_worker)(unsafe.Pointer(w)).Fqueued_next = libc.UintptrFromInt32(0)
+	}
+	return w
+}
+
+func unqueue(tls *libc.TLS, h uintptr, w uintptr) {
+	var previous, q uintptr
+	_, _ = previous, q
+	previous = libc.UintptrFromInt32(0)
+	q = (*ext_host)(unsafe.Pointer(h)).Fqueue_head
+	for {
+		if !(q != 0) {
+			break
+		}
+		if q == w {
+			if previous != 0 {
+				(*reverse_worker)(unsafe.Pointer(previous)).Fqueued_next = (*reverse_worker)(unsafe.Pointer(w)).Fqueued_next
+			} else {
+				(*ext_host)(unsafe.Pointer(h)).Fqueue_head = (*reverse_worker)(unsafe.Pointer(w)).Fqueued_next
+			}
+			if (*ext_host)(unsafe.Pointer(h)).Fqueue_tail == w {
+				(*ext_host)(unsafe.Pointer(h)).Fqueue_tail = previous
+			}
+			(*reverse_worker)(unsafe.Pointer(w)).Fqueued_next = libc.UintptrFromInt32(0)
+			return
+		}
+		goto _1
+	_1:
+		;
+		previous = q
+		q = (*reverse_worker)(unsafe.Pointer(q)).Fqueued_next
+	}
+}
+
+// C documentation
+//
+//	/* Runs the hooks of the oldest queued request on this thread. The caller holds
+//	 * h->mu, which is released while the hooks run. Returns whether it ran one. */
+func run_queued(tls *libc.TLS, h uintptr) (r int32) {
+	bp := tls.Alloc(16)
+	defer tls.Free(16)
+	var line, w uintptr
+	var _ /* len at bp+0 */ size_t
+	var _ /* until at bp+8 */ int64_t
+	_, _ = line, w
+	w = dequeue(tls, h)
+	if !(w != 0) {
+		return 0
+	}
+	(*reverse_worker)(unsafe.Pointer(w)).Fhooks = int32(HOOKS_RUNNING)
+	libc.Xpthread_mutex_unlock(tls, h)
+	*(*size_t)(unsafe.Add(nil, bp)) = uint64(0)
+	*(*int64_t)(unsafe.Add(nil, bp+8)) = 0
+	line = reverse_line(tls, w, bp, bp+8)
+	libc.Xpthread_mutex_lock(tls, h)
+	(*reverse_worker)(unsafe.Pointer(w)).Fline = line
+	(*reverse_worker)(unsafe.Pointer(w)).Fline_len = *(*size_t)(unsafe.Add(nil, bp))
+	(*reverse_worker)(unsafe.Pointer(w)).Fline_until = *(*int64_t)(unsafe.Add(nil, bp+8))
+	(*reverse_worker)(unsafe.Pointer(w)).Fhooks = int32(HOOKS_DONE)
+	libc.Xpthread_cond_broadcast(tls, h+64)
+	return int32(1)
+}
+
+// C documentation
+//
+//	/* In EXT_HOST_REVERSE_CALLER_THREAD mode: queues the request for a thread of
+//	 * the application and waits for its hooks to have run there. A request still
+//	 * queued when it is canceled or its deadline passes is answered expired; one
+//	 * that is running is waited for, since its hooks use the request. */
+func queued_line(tls *libc.TLS, w uintptr, len1 uintptr, until uintptr) (r uintptr) {
+	bp := tls.Alloc(32)
+	defer tls.Free(32)
+	var deadline, left, now int64_t
+	var h, line uintptr
+	var v1 int64
+	var _ /* poll at bp+0 */ ext_call_options
+	_, _, _, _, _, _ = deadline, h, left, line, now, v1
+	h = (*reverse_worker)(unsafe.Pointer(w)).Fhost
+	now = mono_ms(tls)
+	left = earliest(tls, (*reverse_worker)(unsafe.Pointer(w)).Fplugin_deadline_ms-ext_wall_ms(tls), libc.Int64FromUint32((*ext_host)(unsafe.Pointer(h)).Fservices.Ftimeout_ms))
+	if (*reverse_worker)(unsafe.Pointer(w)).Fcall_scoped != 0 {
+		left = earliest(tls, left, (*reverse_worker)(unsafe.Pointer(w)).Fcall_deadline-now)
+	}
+	deadline = now + left
+	*(*ext_call_options)(unsafe.Add(nil, bp)) = ext_call_options{
+		Fstruct_size: uint32(24),
+		Ftimeout_ms:  uint32(1),
+		Fcancel:      (*reverse_worker)(unsafe.Pointer(w)).Fcancel,
+	}
+	line = libc.UintptrFromInt32(0)
+	libc.Xpthread_mutex_lock(tls, h)
+	(*reverse_worker)(unsafe.Pointer(w)).Fhooks = int32(HOOKS_QUEUED)
+	if (*ext_host)(unsafe.Pointer(h)).Fqueue_tail != 0 {
+		(*reverse_worker)(unsafe.Pointer((*ext_host)(unsafe.Pointer(h)).Fqueue_tail)).Fqueued_next = w
+	} else {
+		(*ext_host)(unsafe.Pointer(h)).Fqueue_head = w
+	}
+	(*ext_host)(unsafe.Pointer(h)).Fqueue_tail = w
+	libc.Xpthread_cond_broadcast(tls, h+64)
+	for (*reverse_worker)(unsafe.Pointer(w)).Fhooks != int32(HOOKS_DONE) {
+		if (*reverse_worker)(unsafe.Pointer(w)).Fhooks == int32(HOOKS_QUEUED) && (canceled(tls, bp) != 0 || mono_ms(tls) >= deadline || (*ext_host)(unsafe.Pointer(h)).Fclosed != 0) {
+			unqueue(tls, h, w)
+			(*reverse_worker)(unsafe.Pointer(w)).Fhooks = int32(HOOKS_DONE)
+			(*reverse_worker)(unsafe.Pointer(w)).Fline = ext_reverse_refusal(tls, (*reverse_worker)(unsafe.Pointer(w)).Fid, (*reverse_worker)(unsafe.Pointer(w)).Fid_len, __ccgo_ts+368, w+136)
+			(*reverse_worker)(unsafe.Pointer(w)).Fline_until = deadline
+			break
+		}
+		/* A running request is bounded by its hooks, which honor the deadline. */
+		if (*reverse_worker)(unsafe.Pointer(w)).Fhooks == int32(HOOKS_QUEUED) {
+			v1 = deadline
+		} else {
+			v1 = mono_ms(tls) + int64(10)
+		}
+		wait_changed(tls, h, v1, bp)
+	}
+	line = (*reverse_worker)(unsafe.Pointer(w)).Fline
+	*(*size_t)(unsafe.Add(nil, len1)) = (*reverse_worker)(unsafe.Pointer(w)).Fline_len
+	*(*int64_t)(unsafe.Add(nil, until)) = (*reverse_worker)(unsafe.Pointer(w)).Fline_until
+	(*reverse_worker)(unsafe.Pointer(w)).Fline = libc.UintptrFromInt32(0)
+	libc.Xpthread_mutex_unlock(tls, h)
+	return line
+}
+
 func worker_main(tls *libc.TLS, arg uintptr) (r uintptr) {
 	bp := tls.Alloc(48)
 	defer tls.Free(48)
-	var h, line, w uintptr
+	var h, line, w, v1 uintptr
 	var s ext_status
 	var until_write int64_t
-	var v1 int64
+	var v2 int64
 	var _ /* len at bp+0 */ size_t
 	var _ /* reverse_deadline at bp+8 */ int64_t
 	var _ /* write_options at bp+16 */ ext_call_options
-	_, _, _, _, _, _ = h, line, s, until_write, w, v1
+	_, _, _, _, _, _, _ = h, line, s, until_write, w, v1, v2
 	w = arg
 	h = (*reverse_worker)(unsafe.Pointer(w)).Fhost
 	*(*size_t)(unsafe.Add(nil, bp)) = uint64(0)
-	line = reverse_line(tls, w, bp, bp+8)
+	if (*ext_host)(unsafe.Pointer(h)).Freverse_mode == uint32(1) {
+		v1 = queued_line(tls, w, bp, bp+8)
+	} else {
+		v1 = reverse_line(tls, w, bp, bp+8)
+	}
+	line = v1
 	if line != 0 {
 		/* A frame is written whole or the session is ended: cancellation must not
 		 * cut one short, so the write ignores the signal and is bounded by the call
@@ -91389,11 +91567,11 @@ func worker_main(tls *libc.TLS, arg uintptr) (r uintptr) {
 			Ftimeout_ms:  uint32(1),
 		}
 		if (*reverse_worker)(unsafe.Pointer(w)).Fcall_scoped != 0 {
-			v1 = (*reverse_worker)(unsafe.Pointer(w)).Fcall_deadline
+			v2 = (*reverse_worker)(unsafe.Pointer(w)).Fcall_deadline
 		} else {
-			v1 = *(*int64_t)(unsafe.Add(nil, bp+8)) + int64(30000)
+			v2 = *(*int64_t)(unsafe.Add(nil, bp+8)) + int64(30000)
 		}
-		until_write = v1
+		until_write = v2
 		s = write_frame(tls, h, line, *(*size_t)(unsafe.Add(nil, bp)), until_write, bp+16)
 		if s != 0 && s != int32(EXT_CLOSED) {
 			fail(tls, h)
@@ -91449,7 +91627,7 @@ func serve_reverse(tls *libc.TLS, call uintptr, frame uintptr) (r ext_status) {
 func new_worker(tls *libc.TLS, h uintptr, r uintptr, call uintptr) (r1 uintptr) {
 	var w uintptr
 	_ = w
-	w = libc.Xcalloc(tls, uint64(1), uint64(112))
+	w = libc.Xcalloc(tls, uint64(1), uint64(152))
 	if !(w != 0) {
 		return libc.UintptrFromInt32(0)
 	}
@@ -91706,6 +91884,11 @@ func reader_response(tls *libc.TLS, h uintptr, doc uintptr, line uintptr, len1 s
 			(*pending_call)(unsafe.Pointer(call)).Fresponse_len = len1
 			(*pending_call)(unsafe.Pointer(call)).Fdoc = doc
 			(*pending_call)(unsafe.Pointer(call)).Fdone = int32(1)
+			/* The call has ended. On the caller's thread a hook of one of its requests
+			 * may be running on the very thread that would end it, so it is told now. */
+			if (*ext_host)(unsafe.Pointer(h)).Freverse_mode == uint32(1) {
+				cancel_workers(tls, h, call)
+			}
 			libc.Xpthread_cond_broadcast(tls, h+64)
 		}
 	}
@@ -92114,7 +92297,11 @@ func exchange_threaded(tls *libc.TLS, h uintptr, p uintptr, n size_t, deadline i
 			if mono_ms(tls) >= deadline {
 				s = int32(EXT_TIMEOUT)
 			} else {
-				wait_changed(tls, h, deadline, o)
+				if (*ext_host)(unsafe.Pointer(h)).Freverse_mode == uint32(1) && run_queued(tls, h) != 0 {
+					continue
+				} else {
+					wait_changed(tls, h, deadline, o)
+				}
 			}
 		}
 	}
@@ -92137,6 +92324,50 @@ func exchange_threaded(tls *libc.TLS, h uintptr, p uintptr, n size_t, deadline i
 		libc.Xfree(tls, (*(*pending_call)(unsafe.Add(nil, bp))).Fresponse)
 		yyjson_doc_free9(tls, (*(*pending_call)(unsafe.Add(nil, bp))).Fdoc)
 	}
+	return s
+}
+
+func ext_host_serve_reverse(tls *libc.TLS, h uintptr, o uintptr) (r ext_status) {
+	var deadline int64_t
+	var s ext_status
+	var served int32
+	_, _, _ = deadline, s, served
+	if !(h != 0) || !(valid_call(tls, o) != 0) {
+		return int32(EXT_INVALID)
+	}
+	deadline = mono_ms(tls) + libc.Int64FromUint32((*ext_call_options)(unsafe.Pointer(o)).Ftimeout_ms)
+	served = 0
+	s = int32(EXT_OK)
+	libc.Xpthread_mutex_lock(tls, h)
+	if (*ext_host)(unsafe.Pointer(h)).Freverse_mode != uint32(1) {
+		libc.Xpthread_mutex_unlock(tls, h)
+		return int32(EXT_UNSUPPORTED)
+	}
+	for {
+		if run_queued(tls, h) != 0 {
+			served = int32(1)
+			goto _1
+		}
+		if served != 0 {
+			break
+		}
+		if (*ext_host)(unsafe.Pointer(h)).Fclosed != 0 || (*ext_host)(unsafe.Pointer(h)).Fstate == int32(EXT_HOST_FAILED) || (*ext_host)(unsafe.Pointer(h)).Fstate == int32(EXT_HOST_CLOSED) {
+			s = int32(EXT_CLOSED)
+			break
+		}
+		if canceled(tls, o) != 0 {
+			s = int32(EXT_CANCELED)
+			break
+		}
+		if mono_ms(tls) >= deadline {
+			s = int32(EXT_TIMEOUT)
+			break
+		}
+		wait_changed(tls, h, deadline, o)
+		goto _1
+	_1:
+	}
+	libc.Xpthread_mutex_unlock(tls, h)
 	return s
 }
 
@@ -92913,6 +93144,7 @@ const EXT_BACKEND_JSONLINE_PROCESS2 = "1u"
 const EXT_BACKEND_JSONLINE_PROCESS_CONFIG2 = "4u"
 const EXT_BACKEND_JSONLINE_PROCESS_LAUNCH2 = "5u"
 const EXT_HOST_ABI_VERSION5 = "2u"
+const EXT_HOST_REVERSE_CALLER_THREAD2 = "1u"
 const EXT_HOST_REVERSE_PUBLIC_ERROR4 = "1u"
 const FAPPEND = "O_APPEND"
 const FASYNC = "O_ASYNC"

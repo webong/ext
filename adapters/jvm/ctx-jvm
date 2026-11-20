@@ -82,7 +82,7 @@ case "$operation" in
     printf '{"version":1,"contexts":['
     inventory | awk -F '\t' '!seen[$1]++' | while IFS="$tab" read -r selection home version source; do
       [ -n "$selection" ] || continue
-      printf '%s{"selection":"%s","attributes":{"kind":"jvm","isolation":"host","version":"%s","home":"%s","source":"%s"}}' \
+      printf '%s{"selection":"%s","attributes":{"kind":"jvm","isolation":"host","boundary":"process","version":"%s","home":"%s","source":"%s"}}' \
         "$separator" "$selection" "$(json_escape "$version")" "$(json_escape "$home")" "$source"
       separator=,
     done

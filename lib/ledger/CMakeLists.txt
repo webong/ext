@@ -19,7 +19,8 @@ if(EXT_LEDGER_SANITIZE)
   add_link_options(-fsanitize=address,undefined)
 endif()
 
-set(ledger_sources src/json.c src/hash.c src/model.c src/rules.c src/state.c src/store.c src/file.c src/recorder.c src/record_shell.c src/record_host.c src/record_process.c src/record_inventory.c)
+set(ledger_sources src/json.c src/hash.c src/model.c src/rules.c src/state.c src/store.c src/file.c src/recorder.c src/record_shell.c src/record_host.c src/record_process.c src/record_inventory.c
+    src/collect.c src/collect_host.c src/collect_host_posix.c src/collect_resources.c src/collect_webviews.c src/collect_surfaces.c src/collect_desktop.c src/collect_accessibility.c src/collect_posix.c src/collect_win32.c src/collect_process_linux.c src/collect_process_darwin.c src/collect_process_none.c)
 if(WIN32)
   list(APPEND ledger_sources src/platform_win32.c)
 else()
@@ -37,6 +38,16 @@ else()
   list(APPEND ledger_sources src/sqlite_none.c)
 endif()
 
+# iOS, tvOS, watchOS and visionOS have no shell to run a command from, and no
+# ApplicationServices.
+if(CMAKE_SYSTEM_NAME MATCHES "^(iOS|tvOS|watchOS|visionOS)$")
+  set(LEDGER_APPLE_EMBEDDED TRUE)
+  set(ledger_command_default OFF)
+else()
+  set(LEDGER_APPLE_EMBEDDED FALSE)
+  set(ledger_command_default ON)
+endif()
+
 find_package(Threads REQUIRED)
 include(GNUInstallDirs)
 
@@ -47,6 +58,16 @@ function(ledger_target name kind)
   target_compile_definitions(${name} PRIVATE EXT_LEDGER_BUILD)
   set_target_properties(${name} PROPERTIES C_VISIBILITY_PRESET hidden)
   target_link_libraries(${name} PRIVATE Threads::Threads)
+  if(WIN32)
+    target_link_libraries(${name} PRIVATE advapi32 user32) # process tokens, SIDs, the registry; displays and windows
+  elseif(APPLE)
+    target_link_libraries(${name} PRIVATE "-framework CoreFoundation") # bundle metadata
+    if(NOT LEDGER_APPLE_EMBEDDED)
+      target_link_libraries(${name} PRIVATE "-framework ApplicationServices") # CoreGraphics and the Accessibility API
+    endif()
+  elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    target_link_libraries(${name} PRIVATE ${CMAKE_DL_LIBS}) # libX11 is loaded when it is there, never linked
+  endif()
   if(NOT WIN32 AND NOT APPLE)
     target_link_libraries(${name} PRIVATE m)
   endif()
@@ -68,14 +89,6 @@ if(EXT_LEDGER_SHARED)
   list(APPEND ledger_targets ext_ledger_shared)
 endif()
 
-# iOS, tvOS, watchOS and visionOS have no shell to run a command from.
-if(CMAKE_SYSTEM_NAME MATCHES "^(iOS|tvOS|watchOS|visionOS)$")
-  set(LEDGER_APPLE_EMBEDDED TRUE)
-  set(ledger_command_default OFF)
-else()
-  set(LEDGER_APPLE_EMBEDDED FALSE)
-  set(ledger_command_default ON)
-endif()
 option(EXT_LEDGER_COMMAND "Build the ext-ledger command" ${ledger_command_default})
 if(EXT_LEDGER_COMMAND)
   add_executable(ext-ledger cmd/ext-ledger.c)
@@ -103,13 +116,18 @@ if(EXT_LEDGER_TESTS)
   target_compile_options(ledger_recorder PRIVATE ${LEDGER_WARN})
   target_link_libraries(ledger_recorder PRIVATE ext_ledger_static Threads::Threads)
   add_test(NAME ledger_recorder COMMAND ledger_recorder "${EXT_LEDGER_RECORDER_FIXTURES}")
+  add_executable(ledger_collect tests/collect.c)
+  target_include_directories(ledger_collect PRIVATE src)
+  target_compile_options(ledger_collect PRIVATE ${LEDGER_WARN})
+  target_link_libraries(ledger_collect PRIVATE ext_ledger_static Threads::Threads)
+  add_test(NAME ledger_collect COMMAND ledger_collect)
   add_executable(ledger_behaviour tests/behaviour.c)
   target_include_directories(ledger_behaviour PRIVATE src)
   target_compile_options(ledger_behaviour PRIVATE ${LEDGER_WARN})
   target_link_libraries(ledger_behaviour PRIVATE ext_ledger_static Threads::Threads)
   add_test(NAME ledger_behaviour COMMAND ledger_behaviour)
   if(LEDGER_APPLE_EMBEDDED) # plain executables, so a simulator runs them with simctl spawn
-    set_target_properties(ledger_fixtures ledger_recorder ledger_behaviour PROPERTIES MACOSX_BUNDLE FALSE)
+    set_target_properties(ledger_fixtures ledger_recorder ledger_behaviour ledger_collect PROPERTIES MACOSX_BUNDLE FALSE)
   endif()
   if(EXT_LEDGER_COMMAND)
     add_test(NAME ledger_command COMMAND ${CMAKE_COMMAND} -DLEDGER=$<TARGET_FILE:ext-ledger> -DWORK=${CMAKE_CURRENT_BINARY_DIR}/command-test

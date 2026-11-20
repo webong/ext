@@ -146,6 +146,22 @@ export function loadEngine(addonPath){
      await managerRequest(this.#handle,'destroy',[],{timeout:60_000});
    }
  }
+ const registryHandle=Symbol('registry'),hostHandle=Symbol('host');
+ const end=(value,name)=>({name:text(value?.name,name+'.name'),version:text(value?.version,name+'.version'),operation:text(value?.operation,name+'.operation')});
+ /** A guest registry (ext_registry_* in ext_host.h): a reverse call one guest makes is
+  * served by a forward call to another guest, along an edge declared with route. An
+  * undeclared edge is refused with reverse_undeclared, an unregistered target with
+  * reverse_unavailable, and a call that would re-enter a host already on its call chain
+  * with denied; the target's answer passes through unchanged. A Host is a source when it
+  * is created with options.registry, and a target once register names a contract it
+  * serves; it is unregistered when it is closed. Errors carry the engine's status. */
+ class Registry{
+   #handle=native.createRegistry();
+   get [registryHandle](){return this.#handle;}
+   register(contract,host){native.registryRegister(this.#handle,text(contract?.name,'contract.name'),text(contract?.version,'contract.version'),host[hostHandle]);}
+   unregister(contract){native.registryUnregister(this.#handle,text(contract?.name,'contract.name'),text(contract?.version,'contract.version'));}
+   route(from,to){const f=end(from,'from'),t=end(to,'to');native.registryRoute(this.#handle,f.name,f.version,f.operation,t.name,t.version,t.operation);}
+ }
  class Host{
    #handle;#closed=false;
    constructor(options){
@@ -154,15 +170,20 @@ export function loadEngine(addonPath){
      // Services for the plugin's reverse calls: the engine admits a request (declared,
      // within bounds, before the plugin's deadline, below the in-flight bound) and
      // refuses it with a stable code; these two functions are the host's policy.
-     const reverse=options.reverse;
+     // With options.registry the host is a source of that Registry: the registry serves
+     // its reverse calls, so reverse.authorize is required and reverse.handle is not given.
+     const reverse=options.reverse,registry=options.registry;
      let authorizeReverse,handleReverse,bounds=[0,0,0];
+     if(registry!==undefined&&!(registry instanceof Registry))throw new TypeError('registry must be a Registry');
+     if(registry!==undefined&&(typeof reverse?.authorize!=='function'||reverse.handle!==undefined))throw new TypeError('a registry source needs reverse.authorize and no reverse.handle');
      if(reverse!==undefined){
-       if(typeof reverse.authorize!=='function'||typeof reverse.handle!=='function')throw new TypeError('reverse.authorize and reverse.handle are required');
-       authorizeReverse=callback(reverse.authorize,true);handleReverse=callback(reverse.handle,false);
+       if(typeof reverse.authorize!=='function'||(registry===undefined&&typeof reverse.handle!=='function'))throw new TypeError('reverse.authorize and reverse.handle are required');
+       authorizeReverse=callback(reverse.authorize,true);handleReverse=registry===undefined?callback(reverse.handle,false):undefined;
        bounds=[reverse.timeout===undefined?0:timeout(reverse.timeout),natural(reverse.maxPayloadBytes,'maxPayloadBytes'),natural(reverse.maxInFlight,'maxInFlight')];
      }
-     this.#handle=native.createHost(options.executable,json(options.descriptor),options.arguments??[],options.environment??[],callback(options.verify,true),callback(options.authorize,true),observe,authorizeReverse,handleReverse,bounds);
+     this.#handle=native.createHost(options.executable,json(options.descriptor),options.arguments??[],options.environment??[],callback(options.verify,true),callback(options.authorize,true),observe,authorizeReverse,handleReverse,bounds,registry?.[registryHandle]);
    }
+   get [hostHandle](){if(this.#closed)throw new Error('host closed');return this.#handle;}
    static async open(options,callOptions){const h=new Host(options);try{await h.start(callOptions);return h;}catch(e){h.close();throw e;}}
    #invoke(op,input,options){if(this.#closed)return Promise.reject(new Error('host closed'));return request(this.#handle,op,input,options);}
    start(options){return this.#invoke('start',null,options);}
@@ -284,7 +305,7 @@ export function loadEngine(addonPath){
    check:value=>{native.service('endpoint.check',json(value));},
    validate:(value,policy)=>{native.service('endpoint.validate',json({endpoint:value,policy}));},
  };
- return {Host,Guest,Instances,Streams,PackageStore,LayeredPackageStore,endpoint,service:(operation,input)=>JSON.parse(native.service(operation,json(input))),
+ return {Host,Guest,Registry,Instances,Streams,PackageStore,LayeredPackageStore,endpoint,service:(operation,input)=>JSON.parse(native.service(operation,json(input))),
    directoryDigest:async root=>JSON.parse(await native.integrity('digest',root,'null')),
    verifyArtifacts:async(manifest,root)=>{await native.integrity('verify',root,json(manifest));}};
 }

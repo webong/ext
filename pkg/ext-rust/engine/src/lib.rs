@@ -15,6 +15,7 @@ use std::{
     mem::size_of,
     panic::{catch_unwind, AssertUnwindSafe},
     ptr, slice,
+    sync::{Arc, Mutex},
     time::Duration,
 };
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -240,7 +241,8 @@ pub struct Services {
 #[cfg(not(feature = "guest-only"))]
 struct ServiceHooks {
     authorize: ReverseAuthorize,
-    handle: ReverseHandle,
+    /// None for a registry source, whose calls the registry serves.
+    handle: Option<ReverseHandle>,
 }
 #[cfg(not(feature = "guest-only"))]
 unsafe fn reverse_call<'a>(call: *const ffi::Call, p: *const u8, n: usize) -> ReverseCall<'a> {
@@ -281,7 +283,10 @@ unsafe extern "C" fn reverse_handle(
     // A hook that fails or panics is a failure the plugin sees as operation_failed.
     catch_unwind(AssertUnwindSafe(|| {
         let hooks = &*user.cast::<ServiceHooks>();
-        match (hooks.handle)(reverse_call(call, p, n)) {
+        let Some(handle) = &hooks.handle else {
+            return 7;
+        };
+        match handle(reverse_call(call, p, n)) {
             Ok(ReverseReply::Payload(v)) => emit(sink, 0, v.as_ptr(), v.len()),
             Ok(ReverseReply::PublicError(v)) => emit(sink, 1, v.as_ptr(), v.len()),
             Err(e) => e.0,
@@ -296,6 +301,11 @@ pub struct Host {
     raw: *mut c_void,
     _policies: Box<Policies>,
     _services: Option<Box<ServiceHooks>>,
+    /// The registry this host is a source of, kept alive while the host is.
+    _source_of: Option<Arc<RegistryInner>>,
+    /// The contracts this host serves in registries; unregistered before the host
+    /// is destroyed, so no registry holds it afterwards.
+    registered: Mutex<Vec<(Arc<RegistryInner>, CString, CString)>>,
 }
 #[cfg(not(feature = "guest-only"))]
 unsafe impl Send for Host {}
@@ -366,6 +376,8 @@ impl Host {
             raw,
             _policies: policies,
             _services: None,
+            _source_of: None,
+            registered: Mutex::new(Vec::new()),
         })
     }
     /// Offer reverse-call services to the plugin. Install before start. The hooks
@@ -378,13 +390,13 @@ impl Host {
         };
         let mut hooks = Box::new(ServiceHooks {
             authorize: services.authorize,
-            handle: services.handle,
+            handle: Some(services.handle),
         });
         let raw = ffi::Services {
             struct_size: size_of::<ffi::Services>() as u32,
             user: (&mut *hooks as *mut ServiceHooks).cast(),
             authorize: reverse_authorize,
-            handle: reverse_handle,
+            handle: Some(reverse_handle),
             timeout_ms,
             max_payload_bytes: services.max_payload_bytes,
             max_in_flight: services.max_in_flight,
@@ -392,6 +404,39 @@ impl Host {
         };
         check(unsafe { ffi::ext_host_set_services(self.raw, &raw) })?;
         self._services = Some(hooks);
+        Ok(self)
+    }
+    /// Make this host a source of `registry`: its plugin's reverse calls are
+    /// served by forward calls to the hosts registered there, along the declared
+    /// edges. `authorize` runs first, as for every reverse call. Install before
+    /// start, in place of `with_services`.
+    pub fn with_registry(
+        mut self,
+        registry: &Registry,
+        source: RegistrySource,
+    ) -> Result<Self, Error> {
+        let timeout_ms = if source.timeout.is_zero() {
+            0
+        } else {
+            milliseconds(source.timeout)?
+        };
+        let mut hooks = Box::new(ServiceHooks {
+            authorize: source.authorize,
+            handle: None,
+        });
+        let raw = ffi::Services {
+            struct_size: size_of::<ffi::Services>() as u32,
+            user: (&mut *hooks as *mut ServiceHooks).cast(),
+            authorize: reverse_authorize,
+            handle: None,
+            timeout_ms,
+            max_payload_bytes: source.max_payload_bytes,
+            max_in_flight: source.max_in_flight,
+            session_value: ptr::null_mut(),
+        };
+        check(unsafe { ffi::ext_registry_attach(registry.inner.raw, self.raw, &raw) })?;
+        self._services = Some(hooks);
+        self._source_of = Some(registry.inner.clone());
         Ok(self)
     }
     pub fn start(&self, options: CallOptions<'_>) -> Result<(), Error> {
@@ -458,7 +503,123 @@ impl Host {
 #[cfg(not(feature = "guest-only"))]
 impl Drop for Host {
     fn drop(&mut self) {
-        unsafe { ffi::ext_host_destroy(self.raw) }
+        let registered =
+            std::mem::take(&mut *self.registered.lock().unwrap_or_else(|e| e.into_inner()));
+        unsafe {
+            if !registered.is_empty() {
+                // Calls routed here end once the host is closed; unregister waits for them.
+                ffi::ext_host_close(self.raw);
+            }
+            for (registry, name, version) in &registered {
+                ffi::ext_registry_unregister(registry.raw, name.as_ptr(), version.as_ptr());
+            }
+            ffi::ext_host_destroy(self.raw)
+        }
+    }
+}
+
+/// The policy and bounds of a registry source: its reverse calls are authorized
+/// by `authorize` and served by the registry. Zero bounds use the defaults
+/// (30 s, 1 MiB, 4).
+#[cfg(not(feature = "guest-only"))]
+pub struct RegistrySource {
+    pub authorize: ReverseAuthorize,
+    pub timeout: Duration,
+    pub max_payload_bytes: u32,
+    pub max_in_flight: u32,
+}
+
+/// One end of a registry edge: a contract and an operation in it.
+#[cfg(not(feature = "guest-only"))]
+#[derive(Clone, Copy, Debug)]
+pub struct Endpoint<'a> {
+    pub name: &'a str,
+    pub version: &'a str,
+    pub operation: &'a str,
+}
+
+#[cfg(not(feature = "guest-only"))]
+struct RegistryInner {
+    raw: *mut c_void,
+}
+#[cfg(not(feature = "guest-only"))]
+unsafe impl Send for RegistryInner {}
+#[cfg(not(feature = "guest-only"))]
+unsafe impl Sync for RegistryInner {}
+#[cfg(not(feature = "guest-only"))]
+impl Drop for RegistryInner {
+    fn drop(&mut self) {
+        // Every host attached to it or registered with it holds a reference, so
+        // none is alive here.
+        unsafe { ffi::ext_registry_destroy(self.raw) }
+    }
+}
+
+/// A guest registry (`ext_registry_*` in ext_host.h): a reverse call one
+/// guest makes is served by a forward call to another guest, along an edge the
+/// host declared. Undeclared edges are refused with `reverse_undeclared`,
+/// unregistered targets with `reverse_unavailable`, and a call that would
+/// re-enter a host already on its call chain with `denied`; the target's answer
+/// passes through unchanged. A host is a source once `Host::with_registry`
+/// attaches it, and a target once `register` names a contract it serves; it is
+/// unregistered when it is dropped. Safe to share between threads.
+#[cfg(not(feature = "guest-only"))]
+pub struct Registry {
+    inner: Arc<RegistryInner>,
+}
+#[cfg(not(feature = "guest-only"))]
+impl Registry {
+    pub fn new() -> Result<Self, Error> {
+        let mut raw = ptr::null_mut();
+        check(unsafe { ffi::ext_registry_create(&mut raw) })?;
+        Ok(Self {
+            inner: Arc::new(RegistryInner { raw }),
+        })
+    }
+    /// Names `host`, which must be started and list the contract, as the host that
+    /// serves `name`/`version`. `Error::UNSUPPORTED` when its descriptor does not
+    /// list it, `Error::EXISTS` when the contract is already registered.
+    pub fn register(&self, name: &str, version: &str, host: &Host) -> Result<(), Error> {
+        let (name, version) = (cstring(name)?, cstring(version)?);
+        let mut registered = host.registered.lock().unwrap_or_else(|e| e.into_inner());
+        check(unsafe {
+            ffi::ext_registry_register(self.inner.raw, name.as_ptr(), version.as_ptr(), host.raw)
+        })?;
+        registered.push((self.inner.clone(), name, version));
+        Ok(())
+    }
+    /// Removes the contract and waits for the forward calls routed to its host.
+    /// `Error::NOT_FOUND` when it is not registered.
+    pub fn unregister(&self, name: &str, version: &str) -> Result<(), Error> {
+        let (name, version) = (cstring(name)?, cstring(version)?);
+        check(unsafe {
+            ffi::ext_registry_unregister(self.inner.raw, name.as_ptr(), version.as_ptr())
+        })
+    }
+    /// Declares one edge: a reverse call of `from` is served by a call of `to`.
+    /// `Error::EXISTS` when that reverse operation is already routed.
+    pub fn route(&self, from: Endpoint<'_>, to: Endpoint<'_>) -> Result<(), Error> {
+        let names = [
+            from.name,
+            from.version,
+            from.operation,
+            to.name,
+            to.version,
+            to.operation,
+        ]
+        .iter()
+        .map(|s| cstring(s))
+        .collect::<Result<Vec<_>, _>>()?;
+        let edge = ffi::RegistryEdge {
+            struct_size: size_of::<ffi::RegistryEdge>() as u32,
+            from_name: names[0].as_ptr(),
+            from_version: names[1].as_ptr(),
+            from_operation: names[2].as_ptr(),
+            to_name: names[3].as_ptr(),
+            to_version: names[4].as_ptr(),
+            to_operation: names[5].as_ptr(),
+        };
+        check(unsafe { ffi::ext_registry_route(self.inner.raw, &edge) })
     }
 }
 pub struct GuestCall<'a> {

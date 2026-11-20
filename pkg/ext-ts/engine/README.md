@@ -29,7 +29,13 @@ engine has validated it and applied the rate limit and before the promise settle
 code, and the two functions are the host's policy, called for each admitted request
 with its JSON; `handle` returns `{payload}` or `{error}`. Their `signal` aborts when
 the reverse deadline passes, not when the engine cancels the request (the call ended
-or the host closed): the answer is then discarded. `engine.endpoint.check(endpoint)`
+or the host closed): the answer is then discarded. `new engine.Registry()` composes guests (`ext_registry_*`): a host created with
+`registry` and `reverse: {authorize}` (no `handle`) is a source whose plugin's reverse
+calls are served by forward calls to the hosts `registry.register(contract, host)`
+names, along the edges `registry.route(from, to)` declares; refusals are
+`reverse_undeclared`, `reverse_unavailable` and `denied` (re-entry on the call chain),
+and a closed host leaves the registry. Its methods throw with the engine's `status`.
+`engine.endpoint.check(endpoint)`
 and `engine.endpoint.validate(endpoint, policy)` admit loopback data endpoints and
 throw an error whose `status` is `status.INVALID`, `status.DENIED` or
 `status.EXPIRED`, never text. A plugin that breaks the framing rejects with

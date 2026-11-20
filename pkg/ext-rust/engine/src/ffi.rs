@@ -103,11 +103,23 @@ pub struct Services {
     pub struct_size: u32,
     pub user: *mut c_void,
     pub authorize: ContextPolicy,
-    pub handle: ReverseHandler,
+    /// NULL only for `ext_registry_attach`, where the registry is the handler.
+    pub handle: Option<ReverseHandler>,
     pub timeout_ms: u32,
     pub max_payload_bytes: u32,
     pub max_in_flight: u32,
     pub session_value: *mut c_void,
+}
+/// One edge of a guest registry (`ext_registry_route`).
+#[repr(C)]
+pub struct RegistryEdge {
+    pub struct_size: u32,
+    pub from_name: *const c_char,
+    pub from_version: *const c_char,
+    pub from_operation: *const c_char,
+    pub to_name: *const c_char,
+    pub to_version: *const c_char,
+    pub to_operation: *const c_char,
 }
 pub type GuestEmit = unsafe extern "C" fn(*mut c_void, u32, *const u8, usize) -> Status;
 #[repr(C)]
@@ -207,6 +219,21 @@ extern "C" {
         out: *mut Buffer,
     ) -> Status;
     pub fn ext_host_set_services(h: *mut c_void, s: *const Services) -> Status;
+    pub fn ext_registry_create(out: *mut *mut c_void) -> Status;
+    pub fn ext_registry_register(
+        r: *mut c_void,
+        name: *const c_char,
+        version: *const c_char,
+        h: *mut c_void,
+    ) -> Status;
+    pub fn ext_registry_unregister(
+        r: *mut c_void,
+        name: *const c_char,
+        version: *const c_char,
+    ) -> Status;
+    pub fn ext_registry_route(r: *mut c_void, e: *const RegistryEdge) -> Status;
+    pub fn ext_registry_attach(r: *mut c_void, h: *mut c_void, s: *const Services) -> Status;
+    pub fn ext_registry_destroy(r: *mut c_void);
     pub fn ext_host_drain_with_options(h: *mut c_void, o: *const Call) -> Status;
     pub fn ext_host_get_state(h: *mut c_void) -> i32;
     pub fn ext_host_close(h: *mut c_void);

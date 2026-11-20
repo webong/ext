@@ -137,9 +137,21 @@ with engine.shared_library(descriptor, "/opt/plugins/echo/1.0.0/libecho.so") as 
   calls in flight, and leaving the `with` block (or `destroy`) frees the host.
 - A shared library is loaded when the host starts, after `verify`, and is never unloaded. Its
   code runs in this process with the process's full access.
+- `h.serve(authorize, handle, timeout=None, max_payload_bytes=0, max_in_flight=0)`, before
+  `start`, offers the plugin the operations its descriptor lists under `reverse`. The engine admits
+  or refuses each request with a stable code; `authorize(call)` and `handle(call)` get a
+  `host.ReverseCall` (`request`, `remaining`, `canceled()`) on an engine thread. `handle` returns a
+  JSON value, or raises `plugin.RemoteError` for an error the plugin receives unchanged.
+- `host.Registry(engine)` composes guests: `h.attach(registry, authorize)` (in place of `serve`)
+  makes a host a source whose plugin's reverse calls are served by forward calls to the hosts
+  `registry.register(contract, h)` names, along the edges `registry.route(source, target)`
+  declares. Undeclared edges are `reverse_undeclared`, unregistered targets `reverse_unavailable`,
+  and a call that would re-enter a host on its call chain `denied`. A destroyed host leaves the
+  registry.
 
 `tests/test_host.py` runs the shared host cases (`lib/plugin/testdata/v1/host-cases.json`), the
 same file the Go host is held to, on the reference guest as a child process and as a C ABI
-library. `scripts/host-cases.sh` builds the engine and both guests and runs it, on Linux, macOS and
+library, and the reverse services and the shared registry cases (`registry-cases.json`) against
+the engine's scripted guests (`EXT_REVERSE_TEST_GUEST`, `EXT_REGISTRY_TEST_GUEST`). `scripts/host-cases.sh` builds the engine and both guests and runs it, on Linux, macOS and
 Windows (the engine built with MinGW-w64 or MSVC).
 

@@ -35,6 +35,17 @@ var result = host.Call("ext.echo", "v1", "echo", new JsonObject { ["value"] = 7 
 - A domain error throws `RemoteException` (`ErrorCode`, `Message`, `RetryAfterMilliseconds`); a host
   failure throws `HostException`, whose `Status` is the engine's status by name (`denied`, `closed`,
   `timeout` ...).
+- `host.Serve(new ReverseServices(authorize, handle) { Timeout, MaxPayloadBytes, MaxInFlight })`,
+  before `Start`, offers the plugin the operations its descriptor lists under `reverse`. The engine
+  admits or refuses each request with a stable code; the delegates get a `ReverseCall` (`Request`,
+  `Remaining`, `Canceled`) on an engine thread, and `handle`'s `RemoteException` reaches the plugin
+  unchanged.
+- `new Registry(engine)` composes guests: `host.Attach(registry, new ReverseServices(authorize, null))`
+  (in place of `Serve`) makes a host a source whose plugin's reverse calls are served by forward calls
+  to the hosts `registry.Register(name, version, host)` names, along the edges
+  `registry.Route(from, to)` declares. Undeclared edges are `reverse_undeclared`, unregistered targets
+  `reverse_unavailable`, and a call that would re-enter a host on its call chain `denied`. A disposed
+  host leaves the registry; the native registry is freed once neither it nor any host can use it.
 
 Calls may come from several threads; the engine serializes a host's calls for a process or a
 shared library. The engine runs policies on the thread making the call, so they are

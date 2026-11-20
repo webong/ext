@@ -213,6 +213,13 @@ process. The command around it follows adapter management: one shared command pa
 through `ext`. The same package can later offer `ext sandbox check`, which prints the drivers
 and classes this host can enforce.
 
+Some classes cannot be enforced by a process that confines itself and then becomes the guest:
+a wall-time bound, and a fresh, workspace or snapshot lifecycle, need something that outlives
+the guest. The runner that starts the launch step enforces those and names them in the
+launch (`confine.Launch.Runner`); they are reported as enforced on its word. A plain
+`ext sandbox exec` from a shell has no such runner, so a person running one either accepts
+`lifecycle.fresh` unenforced (`--accept`) or is refused.
+
 A runner only needs a command line for the launch step and the report format, which is a
 fixture:
 - When ext or ctx hosts the engine, that is its own executable with `sandbox exec`.

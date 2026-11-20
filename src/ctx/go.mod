@@ -21,7 +21,9 @@ require (
 
 require (
 	github.com/webong/ext/pkg/ext-go/engine v0.4.0
+	github.com/webong/ext/pkg/ext-go/sandboxcmd v0.1.0
 	github.com/webong/ext/res/graph v0.3.0
+	github.com/webong/ext/res/sandbox v0.1.0 // indirect
 	golang.org/x/sys v0.49.0 // indirect
 )
 
@@ -32,3 +34,7 @@ replace github.com/webong/ext/res/web/host => ../../res/web/host
 replace github.com/webong/ext/pkg/ext-go/engine => ../../pkg/ext-go/engine
 
 replace github.com/webong/ext/res/graph => ../../res/graph
+
+replace github.com/webong/ext/pkg/ext-go/sandboxcmd => ../../pkg/ext-go/sandboxcmd
+
+replace github.com/webong/ext/res/sandbox => ../../res/sandbox

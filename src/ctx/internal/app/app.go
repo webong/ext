@@ -14,6 +14,7 @@ import (
 	"github.com/webong/ext/ctx/internal/launch"
 	"github.com/webong/ext/ctx/internal/platform"
 	modpkg "github.com/webong/ext/pkg/ext-go/engine/host/adapter"
+	"github.com/webong/ext/pkg/ext-go/sandboxcmd"
 	systemgraph "github.com/webong/ext/res/graph"
 )
 
@@ -70,6 +71,11 @@ func Run(args []string, stdout, stderr io.Writer) int {
 	}
 	if args[0] == "graph" {
 		return graphCommand(args[1:], stdout, stderr)
+	}
+	if args[0] == "sandbox" {
+		// The launch step of a confined guest (docs/adr-sandboxing.md): it reads no
+		// configuration and records nothing, since it becomes the guest.
+		return sandboxcmd.Run("ctx", args[1:], stdout, stderr)
 	}
 	if args[0] == "service" {
 		return serviceCommand(args[1:], stdout, stderr)

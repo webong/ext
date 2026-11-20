@@ -200,6 +200,7 @@ The reusable libraries are:
 - `pkg/ext-go/model` for the `res/int/model` tensor-provider contract over the Ext plugin engine.
 - `pkg/ext-go/perception` for the `res/int/perception` host and guest contract over the Ext plugin engine.
 - `pkg/ext-go/realtime` for the `res/int/realtime` duplex session contract over the Ext plugin engine.
+- `pkg/ext-go/sandboxcmd` for the `sandbox` command that `ext` and standalone `ctx` share, as `adaptercmd` is for `adapter`: `sandbox exec` is the launch step of a confined guest (it confines its own process with `res/system/service/confine` and becomes the guest), and `sandbox check` prints what each driver enforces. It is a library, so `res/` keeps no command; it requires `res/sandbox` and `res/system`.
 - `pkg/ext-go` for the umbrella module that requires the plugin engines, `res/web/host` and `res/graph`; it holds code that needs several engines, such as `pkg/ext-go/core`, which chooses between the pure-Go `engine`, `cgoengine` and `c2goengine` (the only place that knows all three).
 
 Plugin-specific runtime bindings, including HashiCorp go-plugin, the
@@ -300,6 +301,7 @@ implements the same contract with `pw-dump`, `pw-record`, and `pw-play`.
 PipeWire and PulseAudio are separate adapters; no library selects between them
 by name. `res/system/capture/surface.DesktopDriver` is the portable seam those adapters
 implement, and the shared library never selects a driver by name.
+`res/system/service/confine` confines one local process to a `res/sandbox` grant and then becomes the guest; its drivers (Seatbelt on macOS now, Landlock and seccomp on Linux, AppContainer and a job object on Windows next) are platform implementations beside the contract, not adapters, and no library chooses one by name. It never chooses a policy. `res/system` requires `res/sandbox` for it.
 `res/system` may also perform bounded local shell mechanisms such as capture,
 media playback/capture and portable media framing, native input, and volume snapshot/restore; process
 supervision is `res/graph/supervisor`. Remote clients, service discovery, routing services, authorization,

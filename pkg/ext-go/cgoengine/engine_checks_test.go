@@ -84,6 +84,8 @@ func TestRetryHintBoundMatchesGo(t *testing.T) { enginetest.RetryHintBoundMatche
 
 func TestEndpointFixture(t *testing.T) { enginetest.EndpointFixture(t, cgoEngine) }
 
+func TestRouteFixture(t *testing.T) { enginetest.RouteFixture(t, cgoEngine) }
+
 func TestEndpointMutationDifferential(t *testing.T) {
 	enginetest.EndpointMutationDifferential(t, cgoEngine)
 }

@@ -191,5 +191,5 @@ var _ plugin.Backend = (*Process)(nil)
 // "process" runtime speaking plugin.APIVersion over JSON lines, with the host
 // owning the child process.
 func Profile() plugin.BackendProfile {
-	return plugin.BackendProfile{Name: "process", Protocols: []string{plugin.APIVersion}, Cancellation: "kill", ProcessOwner: "host"}
+	return plugin.BackendProfile{Name: "process", Protocols: []string{plugin.APIVersion}, Cancellation: "kill", ProcessOwner: "host", Boundary: plugin.BoundaryProcess}
 }

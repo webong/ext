@@ -43,6 +43,7 @@ var pluginRequires = map[string][]string{
 	"pkg/ext-go/perception": {"pkg/ext-go/engine", "res/int"},
 	"pkg/ext-go/realtime":   {"pkg/ext-go/engine", "res/int"},
 	"res/int":               {},
+	"res/sandbox":           {},
 	"res/web/host":          {},
 	"res/system":            {},
 	"res/graph":             {"res/system"},
@@ -157,6 +158,42 @@ func TestEngineModuleUsesOnlyTheStandardLibrary(t *testing.T) {
 			if strings.Contains(first, ".") && !strings.HasPrefix(name, pluginPrefix+"/engine") {
 				rel, _ := filepath.Rel(root, path)
 				t.Errorf("%s imports %s; the engine module uses only the standard library", filepath.ToSlash(rel), name)
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+// res/sandbox is the contract that runners outside ext (github.com/webong/workload) depend on
+// while staying on the standard library, so it imports only the standard library, nothing else
+// in ext either, and its go.mod requires nothing.
+func TestSandboxContractUsesOnlyTheStandardLibrary(t *testing.T) {
+	root := repoRoot(t)
+	dir := filepath.Join(root, "res/sandbox")
+	data, err := os.ReadFile(filepath.Join(dir, "go.mod"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(data), "require") {
+		t.Error("res/sandbox/go.mod has a require; the contract module requires nothing")
+	}
+	err = filepath.WalkDir(dir, func(path string, entry fs.DirEntry, walkErr error) error {
+		if walkErr != nil || entry.IsDir() || filepath.Ext(path) != ".go" {
+			return walkErr
+		}
+		file, err := parser.ParseFile(token.NewFileSet(), path, nil, parser.ImportsOnly)
+		if err != nil {
+			return err
+		}
+		for _, imp := range file.Imports {
+			name, _ := strconv.Unquote(imp.Path.Value)
+			first, _, _ := strings.Cut(name, "/")
+			if strings.Contains(first, ".") && name != "github.com/webong/ext/res/sandbox" && !strings.HasPrefix(name, "github.com/webong/ext/res/sandbox/") {
+				rel, _ := filepath.Rel(root, path)
+				t.Errorf("%s imports %s; res/sandbox uses only the standard library", filepath.ToSlash(rel), name)
 			}
 		}
 		return nil

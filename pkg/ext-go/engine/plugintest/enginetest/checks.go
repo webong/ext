@@ -22,6 +22,7 @@ func Checks() []Check {
 		{"FrameValidationDifferential", FrameValidationDifferential},
 		{"RetryHintBoundMatchesGo", RetryHintBoundMatchesGo},
 		{"EndpointFixture", EndpointFixture},
+		{"RouteFixture", RouteFixture},
 		{"EndpointMutationDifferential", EndpointMutationDifferential},
 		{"EndpointAddressDifferential", EndpointAddressDifferential},
 		{"EndpointTimeDifferential", EndpointTimeDifferential},

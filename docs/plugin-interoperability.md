@@ -53,6 +53,23 @@ route, err := interop.Resolve(
 A missing route fails with `plugin.ErrUnsupported`. Declaring a profile does
 not install its implementation, establish trust, or translate domain methods.
 
+Every backend's profile states its sandbox `Boundary`
+([the sandboxing ADR](adr-sandboxing.md)), and `Requirements.Boundaries` lists the
+ones a consumer accepts:
+
+| Backend | Boundary |
+| --- | --- |
+| `inprocess`, `nativego`, `cshared`, `yaegi` | `in-process` |
+| `jsonline`, `process`, `hashicorp/grpc`, `hashicorp/netrpc` | `process` |
+| `wasm/wasi-preview1`, `wasm/reactor` | `runtime` |
+
+A route's boundary is its guest's; a bridge does not change it. A route that meets
+the transport requirements but not the boundaries is skipped, and when every such
+route was skipped for its boundary the error is `plugin.ErrDenied`. So a consumer
+that refuses to run an untrusted package in its own process asks for
+`{runtime, confined, kernel}`. Nothing reports `confined` yet: a process launch
+confined through `ext sandbox exec` will.
+
 ## Generic relay
 
 `bridge.Open(ctx, descriptor, plugin.Options{...})` creates a verified upstream

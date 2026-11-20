@@ -1,5 +1,6 @@
 /* The language-neutral fixtures for progress events and reverse calls
- * (testdata/v1/frame-cases.json, progress-limiter-cases.json, model-cases.json),
+ * (testdata/v1/frame-cases.json, progress-limiter-cases.json, model-cases.json)
+ * and the route cases (route-cases.json),
  * which the Go contract computes and every SDK must reproduce. This is the C
  * engine reproducing them. Usage: ext_fixtures_test <testdata/v1 directory> */
 #define _XOPEN_SOURCE 700
@@ -182,11 +183,58 @@ static void test_model(const char *dir) {
   printf("%zu model cases\n", checked);
 }
 
+/* route.resolve with sandbox boundaries (route-cases.json): the outcome of each
+ * case, and for ok the whole route. */
+static ext_status route_outcome(const char *name) {
+  if (!strcmp(name, "ok"))
+    return EXT_OK;
+  if (!strcmp(name, "invalid"))
+    return EXT_INVALID;
+  if (!strcmp(name, "denied"))
+    return EXT_DENIED;
+  if (!strcmp(name, "unsupported"))
+    return EXT_UNSUPPORTED;
+  fprintf(stderr, "unknown outcome %s\n", name);
+  abort();
+}
+static void test_routes(const char *dir) {
+  yyjson_doc *doc = load(dir, "route-cases.json");
+  yyjson_val *cases = yyjson_obj_get(yyjson_doc_get_root(doc), "cases"), *c;
+  size_t i, n, counts[4] = {0};
+  assert(yyjson_is_arr(cases) && yyjson_arr_size(cases) >= 15);
+  yyjson_arr_foreach(cases, i, n, c) {
+    ext_status want = route_outcome(str(c, "outcome"));
+    size_t input_len;
+    char *input = yyjson_val_write(yyjson_obj_get(c, "input"), 0, &input_len);
+    assert(input);
+    ext_buffer out = {0};
+    ext_status got = ext_engine_call("route.resolve", (const uint8_t *)input, input_len, &out);
+    if (got != want) {
+      mismatch("route", c, ext_host_status_string(got));
+    } else if (got == EXT_OK) {
+      yyjson_doc *route = yyjson_read((const char *)out.data, out.len, 0);
+      if (!route || !yyjson_equals(yyjson_doc_get_root(route), yyjson_obj_get(c, "route")))
+        mismatch("route", c, "route differs");
+      yyjson_doc_free(route);
+    }
+    counts[want == EXT_OK ? 0 : want == EXT_INVALID ? 1 : want == EXT_DENIED ? 2 : 3]++;
+    ext_buffer_free(&out);
+    free(input);
+  }
+  assert(!failures);
+  /* Every outcome is stated at least once. */
+  for (int k = 0; k < 4; k++)
+    assert(counts[k] >= 1);
+  yyjson_doc_free(doc);
+  printf("%zu route cases\n", n);
+}
+
 int main(int argc, char **argv) {
   assert(argc == 2);
   test_frames(argv[1]);
   test_limiter(argv[1]);
   test_model(argv[1]);
+  test_routes(argv[1]);
   puts("fixture checks passed");
   return 0;
 }

@@ -46,5 +46,5 @@ func (b *Backend) Invoke(ctx context.Context, r plugin.Request) (plugin.Response
 }
 func (b *Backend) Close() error { b.cancel(); return nil }
 func Profile() plugin.BackendProfile {
-	return plugin.BackendProfile{Name: "inprocess", Protocols: []string{plugin.APIVersion}, Concurrent: true, Cancellation: "request", ProcessOwner: "host"}
+	return plugin.BackendProfile{Name: "inprocess", Protocols: []string{plugin.APIVersion}, Concurrent: true, Cancellation: "request", ProcessOwner: "host", Boundary: plugin.BoundaryInProcess}
 }

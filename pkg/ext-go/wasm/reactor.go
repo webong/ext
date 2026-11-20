@@ -118,7 +118,7 @@ func (b *ReactorBackend) WaitClosed(ctx context.Context) error {
 }
 
 func ReactorProfile() plugin.BackendProfile {
-	return plugin.BackendProfile{Name: "wasm/reactor", Protocols: []string{plugin.APIVersion}, Cancellation: "module", ProcessOwner: "wazero"}
+	return plugin.BackendProfile{Name: "wasm/reactor", Protocols: []string{plugin.APIVersion}, Cancellation: "module", ProcessOwner: "wazero", Boundary: plugin.BoundaryRuntime}
 }
 
 var _ plugin.Backend = (*Backend)(nil)

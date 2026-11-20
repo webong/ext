@@ -43,5 +43,5 @@ func (b *Backend) Wait(ctx context.Context) error {
 }
 
 func Profile() plugin.BackendProfile {
-	return plugin.BackendProfile{Name: "wasm/wasi-preview1", Protocols: []string{plugin.APIVersion}, Cancellation: "module", ProcessOwner: "wazero"}
+	return plugin.BackendProfile{Name: "wasm/wasi-preview1", Protocols: []string{plugin.APIVersion}, Cancellation: "module", ProcessOwner: "wazero", Boundary: plugin.BoundaryRuntime}
 }

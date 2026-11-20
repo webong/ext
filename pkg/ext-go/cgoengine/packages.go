@@ -112,7 +112,11 @@ func engineValue(operation string, input any, output any) error {
 }
 func ResolveRoute(hosts, guests []plugin.BackendProfile, bridges []interop.Bridge, w interop.Requirements) (interop.Route, error) {
 	var out interop.Route
-	err := engineValue("route.resolve", map[string]any{"hosts": hosts, "guests": guests, "bridges": bridges, "requirements": map[string]bool{"concurrent": w.Concurrent, "nativeStreaming": w.NativeStreaming, "nativeCallbacks": w.NativeCallbacks}}, &out)
+	requirements := map[string]any{"concurrent": w.Concurrent, "nativeStreaming": w.NativeStreaming, "nativeCallbacks": w.NativeCallbacks}
+	if w.Boundaries != nil {
+		requirements["boundaries"] = w.Boundaries
+	}
+	err := engineValue("route.resolve", map[string]any{"hosts": hosts, "guests": guests, "bridges": bridges, "requirements": requirements}, &out)
 	return out, err
 }
 func ValidateSchema(s schema.Schema) error { return engineValue("schema.validate", s, nil) }

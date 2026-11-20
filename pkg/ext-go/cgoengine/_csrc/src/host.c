@@ -64,6 +64,10 @@ struct ext_host {
   unsigned reverses; /* reverse calls admitted and not yet finished */
   reverse_worker *workers;          /* running */
   reverse_worker *finished;         /* done, waiting to be joined */
+  /* EXT_HOST_REVERSE_CALLER_THREAD: admitted requests whose hooks wait for a
+   * thread of the application, oldest first. */
+  uint32_t reverse_mode;
+  reverse_worker *queue_head, *queue_tail;
 };
 static int64_t mono_ms(void) {
   struct timespec t;
@@ -356,6 +360,18 @@ ext_status ext_host_set_hooks(ext_host *h, const ext_host_hooks *hooks) {
                      : EXT_INVALID;
   if (!s)
     h->hooks = *hooks;
+  pthread_mutex_unlock(&h->mu);
+  return s;
+}
+ext_status ext_host_set_reverse_mode(ext_host *h, uint32_t mode) {
+  if (!h || mode > EXT_HOST_REVERSE_CALLER_THREAD)
+    return EXT_INVALID;
+  pthread_mutex_lock(&h->mu);
+  ext_status s = (h->state == EXT_HOST_CREATED && !h->active && !h->started)
+                     ? EXT_OK
+                     : EXT_INVALID;
+  if (!s)
+    h->reverse_mode = mode;
   pthread_mutex_unlock(&h->mu);
   return s;
 }
@@ -883,6 +899,13 @@ struct reverse_worker {
   int threaded;          /* it runs on a thread of its own; else the backend's */
   void *value;           /* the options' value for the hooks */
   int64_t call_deadline; /* monotonic; call scoped */
+  /* In EXT_HOST_REVERSE_CALLER_THREAD mode: where the hooks are, and what they
+   * produced. Guarded by h->mu. */
+  enum { HOOKS_ON_WORKER, HOOKS_QUEUED, HOOKS_RUNNING, HOOKS_DONE } hooks;
+  reverse_worker *queued_next;
+  char *line;
+  size_t line_len;
+  int64_t line_until;
 };
 static void cancel_workers(ext_host *h, const pending_call *call) {
   for (reverse_worker *w = h->workers; w; w = w->next)
@@ -894,6 +917,7 @@ static void destroy_worker(reverse_worker *w) {
     ext_cancel_destroy(w->cancel);
     free(w->id);
     free(w->json);
+    free(w->line);
     free(w);
   }
 }
@@ -1035,12 +1059,101 @@ static void finish_worker(reverse_worker *w) {
   if (!w->threaded)
     destroy_worker(w);
 }
+/* Takes the oldest queued request off the queue; the caller holds h->mu. */
+static reverse_worker *dequeue(ext_host *h) {
+  reverse_worker *w = h->queue_head;
+  if (w) {
+    h->queue_head = w->queued_next;
+    if (!h->queue_head)
+      h->queue_tail = NULL;
+    w->queued_next = NULL;
+  }
+  return w;
+}
+static void unqueue(ext_host *h, reverse_worker *w) {
+  reverse_worker *previous = NULL;
+  for (reverse_worker *q = h->queue_head; q; previous = q, q = q->queued_next)
+    if (q == w) {
+      if (previous)
+        previous->queued_next = w->queued_next;
+      else
+        h->queue_head = w->queued_next;
+      if (h->queue_tail == w)
+        h->queue_tail = previous;
+      w->queued_next = NULL;
+      return;
+    }
+}
+/* Runs the hooks of the oldest queued request on this thread. The caller holds
+ * h->mu, which is released while the hooks run. Returns whether it ran one. */
+static int run_queued(ext_host *h) {
+  reverse_worker *w = dequeue(h);
+  if (!w)
+    return 0;
+  w->hooks = HOOKS_RUNNING;
+  pthread_mutex_unlock(&h->mu);
+  size_t len = 0;
+  int64_t until = 0;
+  char *line = reverse_line(w, &len, &until);
+  pthread_mutex_lock(&h->mu);
+  w->line = line;
+  w->line_len = len;
+  w->line_until = until;
+  w->hooks = HOOKS_DONE;
+  pthread_cond_broadcast(&h->changed);
+  return 1;
+}
+/* In EXT_HOST_REVERSE_CALLER_THREAD mode: queues the request for a thread of
+ * the application and waits for its hooks to have run there. A request still
+ * queued when it is canceled or its deadline passes is answered expired; one
+ * that is running is waited for, since its hooks use the request. */
+static char *queued_line(reverse_worker *w, size_t *len, int64_t *until) {
+  ext_host *h = w->host;
+  int64_t now = mono_ms();
+  int64_t left = earliest(w->plugin_deadline_ms - ext_wall_ms(),
+                          (int64_t)h->services.timeout_ms);
+  if (w->call_scoped)
+    left = earliest(left, w->call_deadline - now);
+  int64_t deadline = now + left;
+  ext_call_options poll = {sizeof(poll), 1, w->cancel, NULL};
+  char *line = NULL;
+  pthread_mutex_lock(&h->mu);
+  w->hooks = HOOKS_QUEUED;
+  if (h->queue_tail)
+    h->queue_tail->queued_next = w;
+  else
+    h->queue_head = w;
+  h->queue_tail = w;
+  pthread_cond_broadcast(&h->changed);
+  while (w->hooks != HOOKS_DONE) {
+    if (w->hooks == HOOKS_QUEUED &&
+        (canceled(&poll) || mono_ms() >= deadline || h->closed)) {
+      unqueue(h, w);
+      w->hooks = HOOKS_DONE;
+      w->line = ext_reverse_refusal(w->id, w->id_len, EXT_REVERSE_EXPIRED,
+                                    &w->line_len);
+      w->line_until = deadline;
+      break;
+    }
+    /* A running request is bounded by its hooks, which honor the deadline. */
+    wait_changed(h, w->hooks == HOOKS_QUEUED ? deadline : mono_ms() + 10,
+                 &poll);
+  }
+  line = w->line;
+  *len = w->line_len;
+  *until = w->line_until;
+  w->line = NULL;
+  pthread_mutex_unlock(&h->mu);
+  return line;
+}
 static void *worker_main(void *arg) {
   reverse_worker *w = arg;
   ext_host *h = w->host;
   size_t len = 0;
   int64_t reverse_deadline;
-  char *line = reverse_line(w, &len, &reverse_deadline);
+  char *line = h->reverse_mode == EXT_HOST_REVERSE_CALLER_THREAD
+                   ? queued_line(w, &len, &reverse_deadline)
+                   : reverse_line(w, &len, &reverse_deadline);
   if (line) {
     /* A frame is written whole or the session is ended: cancellation must not
      * cut one short, so the write ignores the signal and is bounded by the call
@@ -1268,6 +1381,10 @@ static ext_status reader_response(ext_host *h, yyjson_doc *doc,
     call->response_len = len;
     call->doc = doc;
     call->done = 1;
+    /* The call has ended. On the caller's thread a hook of one of its requests
+     * may be running on the very thread that would end it, so it is told now. */
+    if (h->reverse_mode == EXT_HOST_REVERSE_CALLER_THREAD)
+      cancel_workers(h, call);
     pthread_cond_broadcast(&h->changed);
   }
   pthread_mutex_unlock(&h->mu);
@@ -1554,6 +1671,9 @@ static ext_status exchange_threaded(ext_host *h, const uint8_t *p, size_t n,
       s = EXT_CANCELED;
     else if (mono_ms() >= deadline)
       s = EXT_TIMEOUT;
+    else if (h->reverse_mode == EXT_HOST_REVERSE_CALLER_THREAD &&
+             run_queued(h))
+      continue; /* the hooks of a reverse request ran on this thread */
     else
       wait_changed(h, deadline, o);
   }
@@ -1573,6 +1693,41 @@ static ext_status exchange_threaded(ext_host *h, const uint8_t *p, size_t n,
   return s;
 }
 
+ext_status ext_host_serve_reverse(ext_host *h, const ext_call_options *o) {
+  if (!h || !valid_call(o))
+    return EXT_INVALID;
+  int64_t deadline = mono_ms() + o->timeout_ms;
+  int served = 0;
+  ext_status s = EXT_OK;
+  pthread_mutex_lock(&h->mu);
+  if (h->reverse_mode != EXT_HOST_REVERSE_CALLER_THREAD) {
+    pthread_mutex_unlock(&h->mu);
+    return EXT_UNSUPPORTED;
+  }
+  for (;;) {
+    if (run_queued(h)) {
+      served = 1;
+      continue;
+    }
+    if (served)
+      break;
+    if (h->closed || h->state == EXT_HOST_FAILED || h->state == EXT_HOST_CLOSED) {
+      s = EXT_CLOSED;
+      break;
+    }
+    if (canceled(o)) {
+      s = EXT_CANCELED;
+      break;
+    }
+    if (mono_ms() >= deadline) {
+      s = EXT_TIMEOUT;
+      break;
+    }
+    wait_changed(h, deadline, o);
+  }
+  pthread_mutex_unlock(&h->mu);
+  return s;
+}
 ext_status ext_host_process_stderr(ext_host *h, uint8_t *buffer,
                                    size_t capacity, size_t *length) {
   if (!h || !length || (capacity && !buffer))

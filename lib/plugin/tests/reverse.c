@@ -283,6 +283,15 @@ static struct {
   int gate_open;
 } seen;
 static int token, session_token;
+/* EXT_HOST_REVERSE_CALLER_THREAD tests: the mode open_host sets, and whether a
+ * hook ran on a thread other than the test's own. */
+static uint32_t reverse_mode;
+#ifdef _MSC_VER
+static __declspec(thread) int on_test_thread;
+#else
+static _Thread_local int on_test_thread;
+#endif
+static int off_thread;
 
 static void reset_seen(void) {
   pthread_mutex_lock(&seen_mu);
@@ -322,6 +331,7 @@ static int32_t authorize(void *user, const ext_call_options *o,
   seen.value = o->value;
   seen.cancel = o->cancel;
   seen.cancel_signaled_at_start = ext_cancel_is_signaled(o->cancel);
+  off_thread += !on_test_thread;
   int deny = strstr(seen.request, "\"operation\":\"secret\"") != NULL;
   pthread_mutex_unlock(&seen_mu);
   return deny;
@@ -342,6 +352,7 @@ static ext_status handle(void *user, const ext_call_options *o,
   text[len] = 0;
   pthread_mutex_lock(&seen_mu);
   seen.handled++;
+  off_thread += !on_test_thread;
   int sleep_ms = seen.sleep_ms;
   pthread_mutex_unlock(&seen_mu);
   const char *operation = strstr(text, "\"operation\":\"") + 13;
@@ -439,6 +450,7 @@ static ext_status open_host(const char *mode, int services, uint32_t timeout_ms,
     s = ext_host_set_services(*out, &configured);
     assert(s == EXT_OK);
   }
+  assert(ext_host_set_reverse_mode(*out, reverse_mode) == EXT_OK);
   reset_seen();
   s = ext_host_start(*out, 5000);
   if (s && strncmp(mode, "hello", 5)) {
@@ -883,6 +895,96 @@ static void test_threads(void) {
   ext_host_destroy(h);
 }
 
+/* On the caller's thread the hooks run one after another, so the gate opens
+ * once the first is held (and the reader has refused the fifth and sixth). */
+static void *open_gate_after_one(void *unused) {
+  (void)unused;
+  if (wait_until(&seen.handled, 1)) {
+    int64_t until = ext_mono_ns() + 400000000LL;
+    while (ext_mono_ns() < until)
+      ;
+    pthread_mutex_lock(&seen_mu);
+    seen.gate_open = 1;
+    pthread_mutex_unlock(&seen_mu);
+  }
+  return NULL;
+}
+/* EXT_HOST_REVERSE_CALLER_THREAD: the hooks run on the thread of the call that
+ * waits, or of ext_host_serve_reverse, one at a time, with the same answers. */
+static void test_caller_thread(void) {
+  ext_host *h = NULL;
+  on_test_thread = 1;
+  reverse_mode = EXT_HOST_REVERSE_CALLER_THREAD;
+  off_thread = 0;
+  /* A call-scoped request is served by the call that waits for its answer. */
+  assert(open_host("call:sign", 1, 0, 0, &h) == EXT_OK);
+  assert(call(h, body, sizeof(body), NULL) == EXT_OK);
+  assert(strstr(body, "\"payload\":\"signed\"") && seen.handled == 1);
+  assert(seen.value == &token && strstr(seen.request, "\"parent\":\"1\""));
+  ext_host_destroy(h);
+  /* Every answer has the same shape as on engine threads. */
+  answered("call:errok", 1, "\"code\":\"policy\",\"message\":\"refused for you\",\"retryAfterMilliseconds\":5");
+  answered("call:secret", 1, "\"code\":\"denied\"");
+  answered("call:fail", 1, "\"code\":\"operation_failed\"");
+  answered("call:nothere", 1, "\"code\":\"reverse_undeclared\"");
+  answered("call:sign", 0, "\"code\":\"reverse_unavailable\"");
+
+  /* A session-scoped request made between calls waits for ext_host_serve_reverse. */
+  assert(open_host("idle", 1, 0, 0, &h) == EXT_OK);
+  ext_call_options wait = {sizeof(wait), 5000, NULL, NULL};
+  assert(ext_host_serve_reverse(h, &wait) == EXT_OK);
+  assert(seen.handled == 1 && seen.value == &session_token);
+  assert(call(h, body, sizeof(body), NULL) == EXT_OK);
+  assert(strstr(body, "\"payload\":\"signed\""));
+  /* Nothing queued: it waits for the timeout. */
+  ext_call_options brief = {sizeof(brief), 50, NULL, NULL};
+  assert(ext_host_serve_reverse(h, &brief) == EXT_TIMEOUT);
+  ext_host_close(h);
+  assert(ext_host_serve_reverse(h, &brief) == EXT_CLOSED);
+  ext_host_destroy(h);
+
+  /* One no thread serves before its deadline is answered expired; its hooks never run. */
+  assert(open_host("idle", 1, 150, 0, &h) == EXT_OK);
+  int64_t until = ext_mono_ns() + 400000000LL;
+  while (ext_mono_ns() < until)
+    ;
+  assert(call(h, body, sizeof(body), NULL) == EXT_OK);
+  assert(strstr(body, "\"code\":\"expired\"") && seen.authorized == 0);
+  ext_host_destroy(h);
+
+  /* Six at once with four in flight: two are busy, and the four admitted run one
+   * after another on the calling thread. */
+  pthread_t opener;
+  assert(open_host("burst", 1, 5000, 0, &h) == EXT_OK);
+  assert(!pthread_create(&opener, NULL, open_gate_after_one, NULL));
+  assert(call(h, body, sizeof(body), NULL) == EXT_OK);
+  pthread_join(opener, NULL);
+  assert(strstr(body, "\"busy\":2,\"gated\":4") && seen.handled == 4);
+  ext_host_destroy(h);
+
+  /* A call that ends cancels the hook of its request, even one that runs on the
+   * call's own thread. */
+  assert(open_host("hang-call", 1, 5000, 0, &h) == EXT_OK);
+  int64_t started = ext_mono_ns();
+  assert(call(h, body, sizeof(body), NULL) == EXT_OK);
+  assert(ext_mono_ns() - started < 3000000000LL);
+  assert(seen.canceled_in_hook == 1 || seen.handled == 0);
+  assert(ext_host_get_state(h) == EXT_HOST_READY);
+  ext_host_destroy(h);
+  assert(off_thread == 0);
+
+  /* The mode is configuration: known values, before start. */
+  assert(open_host("call:sign", 1, 0, 0, &h) == EXT_OK);
+  assert(ext_host_set_reverse_mode(h, EXT_HOST_REVERSE_ENGINE_THREADS) == EXT_INVALID);
+  ext_host_destroy(h);
+  reverse_mode = EXT_HOST_REVERSE_ENGINE_THREADS;
+  assert(open_host("call:sign", 1, 0, 0, &h) == EXT_OK);
+  assert(ext_host_serve_reverse(h, &brief) == EXT_UNSUPPORTED);
+  assert(ext_host_set_reverse_mode(NULL, 0) == EXT_INVALID);
+  ext_host_destroy(h);
+  on_test_thread = 0;
+}
+
 static void test_configuration(void) {
   ext_host *h = NULL;
   ext_host_services s = {sizeof(s), NULL, authorize, handle, 0, 0, 0, NULL};
@@ -954,6 +1056,8 @@ int main(int argc, char **argv) {
   test_configuration();
   test_calls();
   test_threads();
+  test_caller_thread();
+  assert(ext_host_set_reverse_mode(NULL, 5) == EXT_INVALID);
   puts("reverse call checks passed");
   return 0;
 }

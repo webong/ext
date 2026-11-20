@@ -198,5 +198,5 @@ func (b *Backend) WaitClosed(ctx context.Context) error {
 }
 
 func Profile() plugin.BackendProfile {
-	return plugin.BackendProfile{Name: "cshared", Protocols: []string{plugin.APIVersion}, Cancellation: "detach-and-close-after-return", ProcessOwner: "host"}
+	return plugin.BackendProfile{Name: "cshared", Protocols: []string{plugin.APIVersion}, Cancellation: "detach-and-close-after-return", ProcessOwner: "host", Boundary: plugin.BoundaryInProcess}
 }

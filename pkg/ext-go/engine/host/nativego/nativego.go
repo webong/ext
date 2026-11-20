@@ -73,5 +73,5 @@ func (b *Backend) Close() error {
 }
 
 func Profile() plugin.BackendProfile {
-	return plugin.BackendProfile{Name: "nativego", Protocols: []string{plugin.APIVersion}, Concurrent: true, Cancellation: "cooperative-request", ProcessOwner: "host"}
+	return plugin.BackendProfile{Name: "nativego", Protocols: []string{plugin.APIVersion}, Concurrent: true, Cancellation: "cooperative-request", ProcessOwner: "host", Boundary: plugin.BoundaryInProcess}
 }

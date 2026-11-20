@@ -4,6 +4,8 @@ package interop
 
 import (
 	"fmt"
+	"slices"
+
 	plugin "github.com/webong/ext/pkg/ext-go/engine"
 )
 
@@ -18,23 +20,49 @@ type Requirements struct {
 	Concurrent      bool
 	NativeStreaming bool
 	NativeCallbacks bool
+	// Boundaries are the sandbox boundaries the consumer accepts for the guest
+	// (plugin.Boundaries). Empty accepts any, including a guest whose profile
+	// states none; otherwise the guest's profile must state one of them.
+	Boundaries []string
 }
 type Route struct {
-	Protocol        string                `json:"protocol"`
-	Host            plugin.BackendProfile `json:"host"`
-	Guest           plugin.BackendProfile `json:"guest"`
-	Bridge          string                `json:"bridge,omitempty"`
-	Concurrent      bool                  `json:"concurrent"`
-	NativeStreaming bool                  `json:"nativeStreaming"`
-	NativeCallbacks bool                  `json:"nativeCallbacks"`
+	Protocol string                `json:"protocol"`
+	Host     plugin.BackendProfile `json:"host"`
+	Guest    plugin.BackendProfile `json:"guest"`
+	Bridge   string                `json:"bridge,omitempty"`
+	// Boundary is the guest's: a bridge does not change where the guest is
+	// isolated.
+	Boundary        string `json:"boundary,omitempty"`
+	Concurrent      bool   `json:"concurrent"`
+	NativeStreaming bool   `json:"nativeStreaming"`
+	NativeCallbacks bool   `json:"nativeCallbacks"`
 }
 
 func valid(p plugin.BackendProfile) error {
 	if err := (plugin.Identity{ID: p.Name, Revision: "profile"}).Validate(); err != nil {
 		return err
 	}
+	if p.Boundary != "" && !plugin.ValidBoundary(p.Boundary) {
+		return plugin.ErrInvalid
+	}
 	_, err := plugin.NegotiateProtocol(p.Protocols, p.Protocols)
 	return err
+}
+func validBoundaries(list []string) error {
+	if len(list) > len(plugin.Boundaries) {
+		return plugin.ErrInvalid
+	}
+	seen := map[string]bool{}
+	for _, b := range list {
+		if !plugin.ValidBoundary(b) || seen[b] {
+			return plugin.ErrInvalid
+		}
+		seen[b] = true
+	}
+	return nil
+}
+func acceptsBoundary(guest plugin.BackendProfile, w Requirements) bool {
+	return len(w.Boundaries) == 0 || (guest.Boundary != "" && slices.Contains(w.Boundaries, guest.Boundary))
 }
 func clone(p plugin.BackendProfile) plugin.BackendProfile {
 	p.Protocols = append([]string(nil), p.Protocols...)
@@ -48,11 +76,19 @@ func meets(r Route, w Requirements) bool {
 // caller preference order. Names identify wire bindings, never source languages.
 // Protocols must match end-to-end; this resolver does not translate versions.
 // Requirements describe native transport features, not domain capabilities such
-// as CTX pull-stream operations (which can run over unary transports).
+// as CTX pull-stream operations (which can run over unary transports), and the
+// sandbox boundaries the consumer accepts. A route that meets the transport
+// requirements but not the boundaries is skipped; when every such route was
+// skipped for its boundary the error is plugin.ErrDenied, else
+// plugin.ErrUnsupported (lib/plugin/testdata/v1/route-cases.json).
 func Resolve(hosts, guests []plugin.BackendProfile, bridges []Bridge, w Requirements) (Route, error) {
 	if len(hosts) == 0 || len(guests) == 0 || len(hosts) > 64 || len(guests) > 64 || len(bridges) > 64 {
 		return Route{}, plugin.ErrInvalid
 	}
+	if err := validBoundaries(w.Boundaries); err != nil {
+		return Route{}, err
+	}
+	denied := false
 	for _, profiles := range [][]plugin.BackendProfile{hosts, guests} {
 		seen := map[string]bool{}
 		for _, p := range profiles {
@@ -90,9 +126,12 @@ func Resolve(hosts, guests []plugin.BackendProfile, bridges []Bridge, w Requirem
 			if err != nil {
 				continue
 			}
-			r := Route{Protocol: p, Host: clone(h), Guest: clone(g), Concurrent: h.Concurrent && g.Concurrent, NativeStreaming: h.NativeStreaming && g.NativeStreaming, NativeCallbacks: h.NativeCallbacks && g.NativeCallbacks}
+			r := Route{Protocol: p, Host: clone(h), Guest: clone(g), Boundary: g.Boundary, Concurrent: h.Concurrent && g.Concurrent, NativeStreaming: h.NativeStreaming && g.NativeStreaming, NativeCallbacks: h.NativeCallbacks && g.NativeCallbacks}
 			if meets(r, w) {
-				return r, nil
+				if acceptsBoundary(g, w) {
+					return r, nil
+				}
+				denied = true
 			}
 		}
 	}
@@ -113,13 +152,19 @@ func Resolve(hosts, guests []plugin.BackendProfile, bridges []Bridge, w Requirem
 					if !ok {
 						continue
 					}
-					r := Route{Protocol: p, Host: clone(h), Guest: clone(g), Bridge: b.Name, Concurrent: h.Concurrent && g.Concurrent && b.Frontend.Concurrent && b.Backend.Concurrent, NativeStreaming: h.NativeStreaming && g.NativeStreaming && b.Frontend.NativeStreaming && b.Backend.NativeStreaming, NativeCallbacks: h.NativeCallbacks && g.NativeCallbacks && b.Frontend.NativeCallbacks && b.Backend.NativeCallbacks}
+					r := Route{Protocol: p, Host: clone(h), Guest: clone(g), Bridge: b.Name, Boundary: g.Boundary, Concurrent: h.Concurrent && g.Concurrent && b.Frontend.Concurrent && b.Backend.Concurrent, NativeStreaming: h.NativeStreaming && g.NativeStreaming && b.Frontend.NativeStreaming && b.Backend.NativeStreaming, NativeCallbacks: h.NativeCallbacks && g.NativeCallbacks && b.Frontend.NativeCallbacks && b.Backend.NativeCallbacks}
 					if meets(r, w) {
-						return r, nil
+						if acceptsBoundary(g, w) {
+							return r, nil
+						}
+						denied = true
 					}
 				}
 			}
 		}
+	}
+	if denied {
+		return Route{}, fmt.Errorf("%w: no declared route has an accepted boundary", plugin.ErrDenied)
 	}
 	return Route{}, fmt.Errorf("%w: no declared route satisfies protocol and transport requirements", plugin.ErrUnsupported)
 }

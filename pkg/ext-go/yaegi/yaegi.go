@@ -357,7 +357,7 @@ func (b *Backend) Close() error {
 // Profile describes the backend for packagekit.Environment.Runtimes, under
 // Runtime.
 func Profile() plugin.BackendProfile {
-	return plugin.BackendProfile{Name: "yaegi", Protocols: []string{plugin.APIVersion}, Concurrent: true, Cancellation: "interpreter", ProcessOwner: "host"}
+	return plugin.BackendProfile{Name: "yaegi", Protocols: []string{plugin.APIVersion}, Concurrent: true, Cancellation: "interpreter", ProcessOwner: "host", Boundary: plugin.BoundaryInProcess}
 }
 
 // exportsFor returns the importable paths and a fresh copy of their exports.

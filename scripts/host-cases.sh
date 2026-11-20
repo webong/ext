@@ -70,7 +70,7 @@ stage_runtime() {
 
 # ${array[@]+...} so an empty array is not an unbound variable in the bash 3.2 macOS ships.
 quietly cmake -S lib/plugin -B "$build_dir/engine" ${generator[@]+"${generator[@]}"} ${compiler[@]+"${compiler[@]}"} -DCMAKE_BUILD_TYPE=Release -DEXT_BUILD_SHARED=ON
-quietly cmake --build "$build_dir/engine" --target ext_host_shared -j 4
+quietly cmake --build "$build_dir/engine" --target ext_host_shared ext_reverse_test ext_registry_test -j 4
 go build -o "$build_dir/go-guest$exe" ./tests/crosslang/testdata/go-guest
 go build -buildmode=c-shared -o "$build_dir/go-shared.$shared" ./tests/crosslang/testdata/go-shared
 
@@ -89,6 +89,19 @@ if [[ -z "$library" ]]; then
   stage_runtime "$build_dir/go-shared.$shared"
 fi
 
+# The engine's scripted guests: reverse calls (lib/plugin/tests/reverse.c) and the relay guest of the
+# guest registry cases (lib/plugin/tests/registry.c), for the hosts that offer reverse services.
+for guest in ext_reverse_test ext_registry_test; do
+  for candidate in "$guest$exe" "Release/$guest$exe"; do
+    if [[ -f "$build_dir/engine/$candidate" ]]; then
+      case "$guest" in
+        ext_reverse_test) export EXT_REVERSE_TEST_GUEST="$build_dir/engine/$candidate" ;;
+        ext_registry_test) export EXT_REGISTRY_TEST_GUEST="$build_dir/engine/$candidate" ;;
+      esac
+      break
+    fi
+  done
+done
 export EXT_GO_GUEST="$build_dir/go-guest$exe" EXT_GO_SHARED="$build_dir/go-shared.$shared"
 export EXT_HOST_LIBRARY="$build_dir/engine/$library" EXT_HOST_REQUIRED=1 EXT_CROSSLANG_REQUIRED=1
 

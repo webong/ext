@@ -75,6 +75,32 @@ internal unsafe struct ExtSharedLibraryOptions
     public byte* Path;
 }
 
+[StructLayout(LayoutKind.Sequential)]
+internal unsafe struct ExtHostServices
+{
+    public uint StructSize;
+    public void* User;
+    public delegate* unmanaged<void*, ExtCallOptions*, byte*, nuint, int> Authorize;
+    /// <summary>Null only for a registry source, whose calls the registry serves.</summary>
+    public delegate* unmanaged<void*, ExtCallOptions*, byte*, nuint, delegate* unmanaged<void*, uint, byte*, nuint, int>, void*, int> Handle;
+    public uint TimeoutMs;
+    public uint MaxPayloadBytes;
+    public uint MaxInFlight;
+    public void* SessionValue;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal unsafe struct ExtRegistryEdge
+{
+    public uint StructSize;
+    public byte* FromName;
+    public byte* FromVersion;
+    public byte* FromOperation;
+    public byte* ToName;
+    public byte* ToVersion;
+    public byte* ToOperation;
+}
+
 /// <summary>The engine's functions, resolved once per loaded library.</summary>
 internal sealed unsafe class NativeApi
 {
@@ -97,6 +123,14 @@ internal sealed unsafe class NativeApi
     public readonly delegate* unmanaged<nint*, int> CancelCreate;
     public readonly delegate* unmanaged<nint, void> CancelSignal;
     public readonly delegate* unmanaged<nint, void> CancelDestroy;
+    public readonly delegate* unmanaged<nint, int> CancelIsSignaled;
+    public readonly delegate* unmanaged<nint, ExtHostServices*, int> SetServices;
+    public readonly delegate* unmanaged<nint*, int> RegistryCreate;
+    public readonly delegate* unmanaged<nint, byte*, byte*, nint, int> RegistryRegister;
+    public readonly delegate* unmanaged<nint, byte*, byte*, int> RegistryUnregister;
+    public readonly delegate* unmanaged<nint, ExtRegistryEdge*, int> RegistryRoute;
+    public readonly delegate* unmanaged<nint, nint, ExtHostServices*, int> RegistryAttach;
+    public readonly delegate* unmanaged<nint, void> RegistryDestroy;
 
     public NativeApi(nint library, string path)
     {
@@ -124,5 +158,13 @@ internal sealed unsafe class NativeApi
         CancelCreate = (delegate* unmanaged<nint*, int>)Export("ext_cancel_create");
         CancelSignal = (delegate* unmanaged<nint, void>)Export("ext_cancel_signal");
         CancelDestroy = (delegate* unmanaged<nint, void>)Export("ext_cancel_destroy");
+        CancelIsSignaled = (delegate* unmanaged<nint, int>)Export("ext_cancel_is_signaled");
+        SetServices = (delegate* unmanaged<nint, ExtHostServices*, int>)Export("ext_host_set_services");
+        RegistryCreate = (delegate* unmanaged<nint*, int>)Export("ext_registry_create");
+        RegistryRegister = (delegate* unmanaged<nint, byte*, byte*, nint, int>)Export("ext_registry_register");
+        RegistryUnregister = (delegate* unmanaged<nint, byte*, byte*, int>)Export("ext_registry_unregister");
+        RegistryRoute = (delegate* unmanaged<nint, ExtRegistryEdge*, int>)Export("ext_registry_route");
+        RegistryAttach = (delegate* unmanaged<nint, nint, ExtHostServices*, int>)Export("ext_registry_attach");
+        RegistryDestroy = (delegate* unmanaged<nint, void>)Export("ext_registry_destroy");
     }
 }

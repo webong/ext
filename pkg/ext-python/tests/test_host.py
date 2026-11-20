@@ -213,3 +213,148 @@ class HostTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+RUN = {"name": "reverse.test", "version": "v1"}
+
+
+class ReverseServicesTest(unittest.TestCase):
+    """Reverse calls through Host.serve, against the C engine's scripted guest
+    (lib/plugin/tests/reverse.c; EXT_REVERSE_TEST_GUEST is the built ext_reverse_test)."""
+
+    def setUp(self):
+        self.host_module, self.engine = engine()
+        self.guest = need("EXT_REVERSE_TEST_GUEST")
+        import subprocess
+
+        self.descriptor = subprocess.run([self.guest, "--descriptor"], capture_output=True, check=True).stdout
+        self.seen = {"authorized": [], "handled": []}
+
+    def authorize(self, call):
+        self.seen["authorized"].append(call.request)
+        assert call.remaining > 0 and not call.canceled()
+        return call.request["operation"] != "secret"
+
+    def handle(self, call):
+        self.seen["handled"].append(call.request)
+        operation = call.request["operation"]
+        if operation == "sign":
+            return "signed"
+        if operation == "empty":
+            return None
+        if operation == "errok":
+            raise plugin.RemoteError("policy", "refused for you", retry_after_ms=5)
+        raise RuntimeError("a private failure")
+
+    def run_mode(self, mode, serve=True):
+        h = self.engine.process(self.descriptor, self.guest, ["--guest", mode])
+        with h:
+            if serve:
+                h.serve(self.authorize, self.handle, timeout=0.15, max_payload_bytes=64)
+            h.start(timeout=5)
+            return h.call(RUN, "run", {}, timeout=5)["reply"]
+
+    def test_hooks_answer(self):
+        reply = self.run_mode("call:sign")
+        self.assertEqual(reply["payload"], "signed")
+        request = self.seen["handled"][0]
+        self.assertEqual(request["surface"], "signing")
+        self.assertEqual(request["payload"], {"n": 1})
+        self.assertEqual(request["parent"], "1")
+        self.assertEqual(self.run_mode("call:empty")["payload"], None)
+        self.assertEqual(self.run_mode("call:errok")["error"],
+                         {"code": "policy", "message": "refused for you", "retryAfterMilliseconds": 5})
+        self.assertEqual(self.run_mode("call:fail")["error"]["code"], "operation_failed")
+
+    def test_policy_and_refusals(self):
+        self.assertEqual(self.run_mode("call:secret")["error"]["code"], "denied")
+        self.assertEqual(self.seen["handled"], [])
+        self.seen["authorized"].clear()
+        self.assertEqual(self.run_mode("call:nothere")["error"]["code"], "reverse_undeclared")
+        self.assertEqual(self.seen["authorized"], [])
+        self.assertEqual(self.run_mode("call:sign", serve=False)["error"]["code"], "reverse_unavailable")
+
+
+class RegistryTest(unittest.TestCase):
+    """The guest registry: the shared cases (registry-cases.json) against the C engine's relay
+    guest (lib/plugin/tests/registry.c; EXT_REGISTRY_TEST_GUEST is the built ext_registry_test)."""
+
+    def setUp(self):
+        self.host_module, self.engine = engine()
+        self.guest = need("EXT_REGISTRY_TEST_GUEST")
+        self.cases_path = os.path.abspath(os.path.join(FIXTURES, "registry-cases.json"))
+        self.cases = fixture("registry-cases.json")
+
+    def open(self, registry, name, deny_forward=False, deny_reverse=False):
+        import subprocess
+
+        descriptor = subprocess.run([self.guest, "--descriptor", self.cases_path, name],
+                                    capture_output=True, check=True).stdout
+        h = self.engine.process(descriptor, self.guest, ["--guest", self.cases_path, name],
+                                authorize=lambda request: not deny_forward)
+        h.attach(registry, lambda call: not deny_reverse)
+        h.start(timeout=5)
+        return h
+
+    def test_shared_cases(self):
+        for case in self.cases["cases"]:
+            with self.subTest(case["name"]):
+                registry = self.host_module.Registry(self.engine)
+                hosts = {}
+                try:
+                    for name, contract in sorted(self.cases["guests"].items()):
+                        hosts[name] = self.open(registry, name, name in case.get("forwardDeny", []),
+                                                name in case.get("reverseDeny", []))
+                        registry.register({"name": contract, "version": "v1"}, hosts[name])
+                    for edge in self.cases["edges"]:
+                        registry.route(edge["from"], edge["to"])
+                    for i, step in enumerate(case["steps"]):
+                        if "unregister" in step:
+                            registry.unregister({"name": self.cases["guests"][step["unregister"]], "version": "v1"})
+                            continue
+                        contract = {"name": self.cases["guests"][step["call"]], "version": "v1"}
+                        got = hosts[step["call"]].call(contract, step["operation"], step.get("payload"),
+                                                       timeout=step.get("timeoutMs", 5000) / 1000)
+                        if "result" in step:
+                            self.assertEqual(got, step["result"], "step %d" % i)
+                        else:
+                            self.assertIn((got.get("error") or {}).get("code"), step["resultError"], "step %d" % i)
+                finally:
+                    for h in hosts.values():
+                        h.close()
+                        h.destroy()
+
+    def test_configuration(self):
+        HostError = self.host_module.HostError
+        registry = self.host_module.Registry(self.engine)
+        with self.open(registry, "b") as b:
+            with self.assertRaises(HostError) as e:
+                registry.register({"name": "Not A Name", "version": "v1"}, b)
+            self.assertEqual(e.exception.status, "invalid")
+            with self.assertRaises(HostError) as e:
+                registry.register({"name": "registry.other", "version": "v1"}, b)
+            self.assertEqual(e.exception.status, "unsupported")
+            registry.register({"name": "registry.b", "version": "v1"}, b)
+            with self.assertRaises(HostError) as e:
+                registry.register({"name": "registry.b", "version": "v1"}, b)
+            self.assertEqual(e.exception.status, "exists")
+            source = {"name": "registry.ask", "version": "v1", "operation": "echo-b"}
+            target = {"name": "registry.b", "version": "v1", "operation": "echo"}
+            registry.route(source, target)
+            with self.assertRaises(HostError) as e:
+                registry.route(source, target)
+            self.assertEqual(e.exception.status, "exists")
+            with self.assertRaises(HostError) as e:
+                registry.route(dict(source, operation="other"), dict(target, operation="Bad Name"))
+            self.assertEqual(e.exception.status, "invalid")
+            with self.assertRaises(HostError) as e:
+                registry.unregister({"name": "registry.x", "version": "v1"})
+            self.assertEqual(e.exception.status, "not_found")
+            registry.unregister({"name": "registry.b", "version": "v1"})
+            registry.register({"name": "registry.b", "version": "v1"}, b)
+            with self.assertRaises(TypeError):
+                b.attach(object(), lambda call: True)
+        # A destroyed host has left the registry.
+        with self.assertRaises(HostError) as e:
+            registry.unregister({"name": "registry.b", "version": "v1"})
+        self.assertEqual(e.exception.status, "not_found")

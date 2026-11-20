@@ -211,6 +211,9 @@ public sealed unsafe class Host : IDisposable
     private nint handle;
     private int active;
     private bool disposing;
+    private ReverseServices? services;
+    private Registry? sourceOf;
+    private readonly List<(Registry Registry, string Name, string Version)> registered = new();
 
     internal Host(Engine engine, byte[] descriptor, ExtBackendOptions* backend, Policy? verify, Policy? authorize, ExtExtensionContext* extension)
     {
@@ -252,12 +255,171 @@ public sealed unsafe class Host : IDisposable
         if (handle != 0)
         {
             api.Close(handle);
+            LeaveRegistries();
             api.Destroy(handle);
             handle = 0;
         }
         if (self.IsAllocated)
         {
             self.Free();
+        }
+    }
+
+    /// <summary>
+    /// Offers the plugin the operations its descriptor lists under reverse, before <see cref="Start"/>.
+    /// The hooks run on engine threads, up to MaxInFlight at a time, must honor
+    /// <see cref="ReverseCall.Canceled"/> and must not use this host. Handle's RemoteException
+    /// reaches the plugin as it is; any other exception as operation_failed.
+    /// </summary>
+    public void Serve(ReverseServices services)
+    {
+        ArgumentNullException.ThrowIfNull(services.Authorize);
+        ArgumentNullException.ThrowIfNull(services.Handle);
+        Install(services, null);
+    }
+
+    /// <summary>
+    /// Makes this host a source of <paramref name="registry"/>, in place of <see cref="Serve"/> and
+    /// before <see cref="Start"/>: its plugin's reverse calls are served by forward calls to the hosts
+    /// registered there, along the declared edges, after <paramref name="services"/>.Authorize allowed
+    /// them. services.Handle must be null.
+    /// </summary>
+    public void Attach(Registry registry, ReverseServices services)
+    {
+        ArgumentNullException.ThrowIfNull(registry);
+        ArgumentNullException.ThrowIfNull(services.Authorize);
+        if (services.Handle is not null)
+        {
+            throw new ArgumentException("a registry source has no handle of its own", nameof(services));
+        }
+        Install(services, registry);
+    }
+
+    private void Install(ReverseServices offered, Registry? registry)
+    {
+        var ms = offered.Timeout.TotalMilliseconds;
+        var native = new ExtHostServices
+        {
+            StructSize = (uint)sizeof(ExtHostServices),
+            User = (void*)GCHandle.ToIntPtr(self),
+            Authorize = &ReverseAuthorizeCallback,
+            Handle = registry is null ? &ReverseHandleCallback : null,
+            TimeoutMs = ms <= 0 ? 0 : ms >= uint.MaxValue ? uint.MaxValue : Math.Max(1u, (uint)ms),
+            MaxPayloadBytes = offered.MaxPayloadBytes,
+            MaxInFlight = offered.MaxInFlight,
+        };
+        lock (gate)
+        {
+            if (handle == 0 || disposing)
+            {
+                throw new HostException(5, "destroyed");
+            }
+            var status = registry is null ? api.SetServices(handle, &native) : api.RegistryAttach(registry.Handle, handle, &native);
+            if (status != 0)
+            {
+                throw new HostException(status, "services");
+            }
+            services = offered;
+            if (registry is not null)
+            {
+                registry.Retain();
+                sourceOf?.Release();
+                sourceOf = registry;
+            }
+        }
+    }
+
+    internal void RegisterIn(Registry registry, string name, string version)
+    {
+        lock (gate)
+        {
+            if (handle == 0 || disposing)
+            {
+                throw new HostException(5, "destroyed");
+            }
+            var status = registry.RegisterRaw(name, version, handle);
+            if (status != 0)
+            {
+                throw new HostException(status, "register");
+            }
+            registry.Retain();
+            registered.Add((registry, name, version));
+        }
+    }
+
+    internal void Forget(Registry registry, string name, string version)
+    {
+        lock (gate)
+        {
+            var at = registered.FindIndex(r => ReferenceEquals(r.Registry, registry) && r.Name == name && r.Version == version);
+            if (at >= 0)
+            {
+                registered.RemoveAt(at);
+                registry.Release();
+            }
+        }
+    }
+
+    /// <summary>Leaves every registry, after the host is closed, so the calls routed to it have ended.</summary>
+    private void LeaveRegistries()
+    {
+        foreach (var (registry, name, version) in registered)
+        {
+            registry.UnregisterRaw(name, version);
+            registry.Forget(name, version);
+            registry.Release();
+        }
+        registered.Clear();
+        sourceOf?.Release();
+        sourceOf = null;
+    }
+
+    [UnmanagedCallersOnly]
+    private static int ReverseAuthorizeCallback(void* user, ExtCallOptions* options, byte* json, nuint len)
+    {
+        try
+        {
+            if (GCHandle.FromIntPtr((nint)user).Target is not Host host || host.services is not { } s)
+            {
+                return 1;
+            }
+            return s.Authorize(new ReverseCall(host.api, options, json, len)) ? 0 : 1;
+        }
+        catch
+        {
+            return 1; // a policy that fails denies
+        }
+    }
+
+    [UnmanagedCallersOnly]
+    private static int ReverseHandleCallback(void* user, ExtCallOptions* options, byte* json, nuint len,
+        delegate* unmanaged<void*, uint, byte*, nuint, int> emit, void* sink)
+    {
+        try
+        {
+            if (GCHandle.FromIntPtr((nint)user).Target is not Host host || host.services?.Handle is not { } handle)
+            {
+                return 7;
+            }
+            byte[] reply;
+            uint kind = 0;
+            try
+            {
+                reply = Registry.Encode(handle(new ReverseCall(host.api, options, json, len)));
+            }
+            catch (RemoteException e)
+            {
+                reply = Registry.EncodeError(e);
+                kind = 1;
+            }
+            fixed (byte* data = reply)
+            {
+                return emit(sink, kind, data, (nuint)reply.Length);
+            }
+        }
+        catch
+        {
+            return 7; // the plugin sees operation_failed
         }
     }
 
@@ -553,6 +715,7 @@ public sealed unsafe class Host : IDisposable
             }
             h = handle;
             handle = 0;
+            LeaveRegistries();
         }
         api.Destroy(h);
         if (self.IsAllocated)

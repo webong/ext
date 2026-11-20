@@ -23,10 +23,11 @@ import ctypes.util
 import json
 import os
 import sys
+import weakref
 
 from ..plugin import RemoteError
 
-__all__ = ["Engine", "Host", "HostError", "RemoteError", "STATUS_NAMES"]
+__all__ = ["Engine", "Host", "HostError", "Registry", "RemoteError", "ReverseCall", "STATUS_NAMES"]
 
 _ABI_VERSION = 2
 _BACKEND_EXTENSION_CONTEXT = 3
@@ -35,7 +36,7 @@ _BACKEND_PROCESS_LAUNCH = 5
 STATUS_NAMES = (
     "ok", "invalid", "denied", "mismatch", "unsupported", "closed", "timeout", "io",
     "nomem", "draining", "not_found", "ambiguous", "canceled", "updating", "capacity",
-    "sequence", "protocol",
+    "sequence", "protocol", "expired", "exists", "missing",
 )
 _STATES = ("created", "ready", "draining", "closed", "failed")
 
@@ -51,6 +52,7 @@ class HostError(Exception):
 
 _POLICY = ctypes.CFUNCTYPE(ctypes.c_int32, ctypes.c_void_p, ctypes.POINTER(ctypes.c_uint8), ctypes.c_size_t)
 _RELEASE = ctypes.CFUNCTYPE(None, ctypes.c_void_p)
+_REVERSE_PAYLOAD, _REVERSE_PUBLIC_ERROR = 0, 1
 
 
 class _Buffer(ctypes.Structure):
@@ -98,6 +100,45 @@ class _CallOptions(ctypes.Structure):
         ("struct_size", ctypes.c_uint32), ("timeout_ms", ctypes.c_uint32),
         ("cancel", ctypes.c_void_p), ("value", ctypes.c_void_p),
     ]
+
+
+_CONTEXT_POLICY = ctypes.CFUNCTYPE(ctypes.c_int32, ctypes.c_void_p, ctypes.POINTER(_CallOptions),
+                                   ctypes.POINTER(ctypes.c_uint8), ctypes.c_size_t)
+_REVERSE_EMIT = ctypes.CFUNCTYPE(ctypes.c_int32, ctypes.c_void_p, ctypes.c_uint32,
+                                 ctypes.POINTER(ctypes.c_uint8), ctypes.c_size_t)
+_REVERSE_HANDLER = ctypes.CFUNCTYPE(ctypes.c_int32, ctypes.c_void_p, ctypes.POINTER(_CallOptions),
+                                    ctypes.POINTER(ctypes.c_uint8), ctypes.c_size_t, _REVERSE_EMIT, ctypes.c_void_p)
+
+
+class _Services(ctypes.Structure):
+    _fields_ = [
+        ("struct_size", ctypes.c_uint32), ("user", ctypes.c_void_p),
+        ("authorize", _CONTEXT_POLICY), ("handle", _REVERSE_HANDLER),
+        ("timeout_ms", ctypes.c_uint32), ("max_payload_bytes", ctypes.c_uint32),
+        ("max_in_flight", ctypes.c_uint32), ("session_value", ctypes.c_void_p),
+    ]
+
+
+class _RegistryEdge(ctypes.Structure):
+    _fields_ = [("struct_size", ctypes.c_uint32)] + [
+        (name, ctypes.c_char_p) for name in
+        ("from_name", "from_version", "from_operation", "to_name", "to_version", "to_operation")
+    ]
+
+
+class ReverseCall:
+    """One reverse request a plugin made, for the hook that serves it: ``request`` is the
+    Request as a dict (apiVersion, id, plugin, contract, operation, surface, deadline,
+    payload and, for a call-scoped request, parent), ``remaining`` the seconds left to it."""
+
+    def __init__(self, lib, options, data, n):
+        self.request = json.loads(ctypes.string_at(data, n).decode("utf-8"))
+        self.remaining = options.contents.timeout_ms / 1000.0
+        self._lib, self._cancel = lib, options.contents.cancel
+
+    def canceled(self):
+        """True once the call it belongs to ended, the caller canceled it or the host closed."""
+        return bool(self._cancel) and bool(self._lib.ext_cancel_is_signaled(self._cancel))
 
 
 def _library_path(path):
@@ -175,6 +216,22 @@ class Engine:
         lib.ext_buffer_free.restype = None
         lib.ext_shared_library_backend_create.argtypes = [P(_SharedLibrary), P(_Extension)]
         lib.ext_shared_library_backend_create.restype = I
+        lib.ext_host_set_services.argtypes = [ctypes.c_void_p, P(_Services)]
+        lib.ext_host_set_services.restype = I
+        lib.ext_cancel_is_signaled.argtypes = [ctypes.c_void_p]
+        lib.ext_cancel_is_signaled.restype = ctypes.c_int
+        lib.ext_registry_create.argtypes = [P(ctypes.c_void_p)]
+        lib.ext_registry_create.restype = I
+        lib.ext_registry_register.argtypes = [ctypes.c_void_p, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_void_p]
+        lib.ext_registry_register.restype = I
+        lib.ext_registry_unregister.argtypes = [ctypes.c_void_p, ctypes.c_char_p, ctypes.c_char_p]
+        lib.ext_registry_unregister.restype = I
+        lib.ext_registry_route.argtypes = [ctypes.c_void_p, P(_RegistryEdge)]
+        lib.ext_registry_route.restype = I
+        lib.ext_registry_attach.argtypes = [ctypes.c_void_p, ctypes.c_void_p, P(_Services)]
+        lib.ext_registry_attach.restype = I
+        lib.ext_registry_destroy.argtypes = [ctypes.c_void_p]
+        lib.ext_registry_destroy.restype = None
 
     def process(self, descriptor, executable, arguments=(), environment=(), working_directory=None,
                 stderr_bytes=4096, verify=None, authorize=None):
@@ -232,6 +289,70 @@ class Host:
         if status:
             raise HostError(status, "create")
         self._handle = handle
+        self._services = None       # the reverse hooks, kept alive with the host
+        self._source_of = None      # the Registry this host is a source of
+        self._registered = []       # (Registry, name, version) this host serves
+
+    def _install(self, authorize, handle, timeout, max_payload_bytes, max_in_flight, registry):
+        lib = self._lib
+
+        def policy(user, options, data, n):
+            try:
+                return 0 if authorize(ReverseCall(lib, options, data, n)) else 1
+            except BaseException:  # never unwind into C; a policy that fails denies
+                return 1
+
+        def serve(user, options, data, n, emit, sink):
+            try:
+                try:
+                    reply = _encode(handle(ReverseCall(lib, options, data, n)))
+                    kind = _REVERSE_PAYLOAD
+                except RemoteError as e:
+                    error = {"code": e.code, "message": e.message}
+                    if e.retry_after_ms:
+                        error["retryAfterMilliseconds"] = e.retry_after_ms
+                    reply, kind = _encode(error), _REVERSE_PUBLIC_ERROR
+                buf = (ctypes.c_uint8 * len(reply)).from_buffer_copy(reply)
+                return emit(sink, kind, buf, len(reply))
+            except BaseException:  # the plugin sees operation_failed
+                return 7
+
+        hooks = (_CONTEXT_POLICY(policy), _REVERSE_HANDLER(serve) if handle else _REVERSE_HANDLER())
+        services = _Services(ctypes.sizeof(_Services), None, hooks[0], hooks[1],
+                             0 if timeout is None else _milliseconds(timeout),
+                             max_payload_bytes, max_in_flight, None)
+        if registry is None:
+            status = lib.ext_host_set_services(self._live(), ctypes.byref(services))
+        else:
+            status = lib.ext_registry_attach(registry._handle, self._live(), ctypes.byref(services))
+        if status:
+            raise HostError(status, "services")
+        self._services = hooks
+        if registry is not None:
+            self._source_of = registry
+
+    def serve(self, authorize, handle, timeout=None, max_payload_bytes=0, max_in_flight=0):
+        """Offers the plugin the operations its descriptor lists under ``reverse``. Call it
+        before ``start``. The engine admits or refuses each request with a stable code;
+        ``authorize(call)`` (True allows) and ``handle(call)`` are the host's policy, called
+        with a ``ReverseCall``. ``handle`` returns a JSON value (None is null), or raises
+        ``RemoteError`` for an error the plugin receives as it is; any other exception reaches
+        it as ``operation_failed``. Both run on engine threads, up to ``max_in_flight`` at a
+        time, must honor ``call.canceled()`` and must not call back into this host. Zero
+        bounds use the defaults (30 s, 1 MiB, 4)."""
+        if not callable(authorize) or not callable(handle):
+            raise TypeError("authorize and handle are required")
+        self._install(authorize, handle, timeout, max_payload_bytes, max_in_flight, None)
+
+    def attach(self, registry, authorize, timeout=None, max_payload_bytes=0, max_in_flight=0):
+        """Makes this host a source of ``registry``, in place of ``serve``: its plugin's reverse
+        calls are served by forward calls to the hosts registered there, along the declared
+        edges, after ``authorize(call)`` allowed them. Call it before ``start``."""
+        if not isinstance(registry, Registry):
+            raise TypeError("registry must be a Registry")
+        if not callable(authorize):
+            raise TypeError("authorize is required")
+        self._install(authorize, None, timeout, max_payload_bytes, max_in_flight, registry)
 
     def _options(self, timeout):
         return _CallOptions(ctypes.sizeof(_CallOptions), _milliseconds(timeout), None, None)
@@ -306,8 +427,16 @@ class Host:
         return bytes(buf[: min(size.value, len(buf))])
 
     def destroy(self):
-        """Frees the host. Call it once, after every call has returned."""
+        """Frees the host. Call it once, after every call has returned. A host that serves a
+        contract in a registry leaves it first."""
         if self._handle is not None:
+            if self._registered:
+                # Calls routed here end once the host is closed; unregister waits for them.
+                self._lib.ext_host_close(self._handle)
+                for registry, name, version in self._registered:
+                    self._lib.ext_registry_unregister(registry._handle, name, version)
+                    registry._targets.pop((name, version), None)
+                self._registered = []
             self._lib.ext_host_destroy(self._handle)
             self._handle = None
 
@@ -322,3 +451,63 @@ class Host:
     def __del__(self):
         if getattr(self, "_handle", None) is not None and not sys.is_finalizing():
             self.destroy()
+
+
+class Registry:
+    """A guest registry (``ext_registry_*`` in ext_host.h): a reverse call one guest makes is
+    served by a forward call to another guest, along an edge declared with ``route``. An
+    undeclared edge is refused with ``reverse_undeclared``, an unregistered target with
+    ``reverse_unavailable``, and a call that would re-enter a host already on its call chain
+    with ``denied``; the target's answer passes through unchanged. A host is a source once
+    ``Host.attach`` names the registry, and a target once ``register`` names a contract it
+    serves; it leaves the registry when it is destroyed. Hosts keep the registry alive. Safe
+    to use from several threads; failures raise ``HostError``."""
+
+    def __init__(self, engine):
+        self._lib = engine._lib
+        handle = ctypes.c_void_p()
+        status = self._lib.ext_registry_create(ctypes.byref(handle))
+        if status:
+            raise HostError(status, "registry")
+        self._handle = handle
+        self._targets = {}  # (name, version) -> the Host that serves it, weakly
+
+    @staticmethod
+    def _names(*values):
+        return [v.encode("utf-8") for v in values]
+
+    def register(self, contract, host):
+        """Names ``host`` (started, and listing the contract) as the one serving ``contract``."""
+        name, version = self._names(contract["name"], contract["version"])
+        status = self._lib.ext_registry_register(self._handle, name, version, host._live())
+        if status:
+            raise HostError(status, "register")
+        host._registered.append((self, name, version))
+        self._targets[(name, version)] = weakref.ref(host)
+
+    def unregister(self, contract):
+        """Removes the contract and waits for the forward calls routed to its host."""
+        name, version = self._names(contract["name"], contract["version"])
+        status = self._lib.ext_registry_unregister(self._handle, name, version)
+        if status:
+            raise HostError(status, "unregister")
+        ref = self._targets.pop((name, version), None)
+        host = ref() if ref is not None else None
+        if host is not None:
+            host._registered = [r for r in host._registered if r != (self, name, version)]
+
+    def route(self, source, target):
+        """A reverse call of ``source`` ({name, version, operation}) is served by a call of
+        ``target``."""
+        names = self._names(source["name"], source["version"], source["operation"],
+                            target["name"], target["version"], target["operation"])
+        edge = _RegistryEdge(ctypes.sizeof(_RegistryEdge), *names)
+        status = self._lib.ext_registry_route(self._handle, ctypes.byref(edge))
+        if status:
+            raise HostError(status, "route")
+
+    def __del__(self):
+        # Every host attached to it or registered with it holds a reference, so none is alive.
+        if getattr(self, "_handle", None) is not None and not sys.is_finalizing():
+            self._lib.ext_registry_destroy(self._handle)
+            self._handle = None

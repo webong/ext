@@ -318,6 +318,176 @@ Test("unreachable hosts are finalized", () =>
     GC.WaitForPendingFinalizers();
 });
 
+// Reverse services (Host.Serve) against the engine's scripted guest (lib/plugin/tests/reverse.c,
+// EXT_REVERSE_TEST_GUEST), and the guest registry against the relay guest of the shared registry
+// cases (lib/plugin/tests/registry.c, EXT_REGISTRY_TEST_GUEST). scripts/host-cases.sh builds both.
+JsonNode GuestDescriptor(string program, params string[] arguments)
+{
+    var start = new System.Diagnostics.ProcessStartInfo(program) { RedirectStandardOutput = true };
+    foreach (var a in arguments)
+    {
+        start.ArgumentList.Add(a);
+    }
+    using var p = System.Diagnostics.Process.Start(start)!;
+    var text = p.StandardOutput.ReadToEnd();
+    p.WaitForExit();
+    return JsonNode.Parse(text)!;
+}
+foreach (var name in new[] { "EXT_REVERSE_TEST_GUEST", "EXT_REGISTRY_TEST_GUEST" })
+{
+    if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable(name)))
+    {
+        Console.Error.WriteLine($"skip the reverse and registry tests: set {name}, or run scripts/host-cases.sh");
+        if (required)
+        {
+            failed.Add(name + " is not set");
+        }
+    }
+}
+var reverseGuest = Environment.GetEnvironmentVariable("EXT_REVERSE_TEST_GUEST");
+if (!string.IsNullOrEmpty(reverseGuest))
+{
+    var reverseDescriptor = GuestDescriptor(reverseGuest, "--descriptor");
+    var handled = new List<JsonNode?>();
+    var services = new ReverseServices(
+        call => { Check(call.Remaining > TimeSpan.Zero && !call.Canceled, "call"); return call.Request!["operation"]!.GetValue<string>() != "secret"; },
+        call =>
+        {
+            lock (handled) { handled.Add(call.Request); }
+            return call.Request!["operation"]!.GetValue<string>() switch
+            {
+                "sign" => JsonValue.Create("signed"),
+                "empty" => null,
+                "errok" => throw new RemoteException("policy", "refused for you", 5),
+                _ => throw new InvalidOperationException("a private failure"),
+            };
+        }) { Timeout = TimeSpan.FromMilliseconds(150), MaxPayloadBytes = 64 };
+    JsonNode Reply(string mode, bool serve = true)
+    {
+        using var h = engine.Process(reverseDescriptor, reverseGuest, ["--guest", mode]);
+        if (serve)
+        {
+            h.Serve(services);
+        }
+        h.Start(TimeSpan.FromSeconds(5));
+        return h.Call("reverse.test", "v1", "run", new JsonObject(), TimeSpan.FromSeconds(5))!["reply"]!;
+    }
+    Test("reverse calls are answered by the hooks", () =>
+    {
+        Check(Reply("call:sign")["payload"]!.GetValue<string>() == "signed", "sign");
+        Check(handled[0]!["surface"]!.GetValue<string>() == "signing" && handled[0]!["parent"]!.GetValue<string>() == "1", "request");
+        Check(Reply("call:empty")["payload"] is null, "empty");
+        Check(Same(Reply("call:errok")["error"], JsonNode.Parse("""{"code":"policy","message":"refused for you","retryAfterMilliseconds":5}""")), "errok");
+        Check(Reply("call:fail")["error"]!["code"]!.GetValue<string>() == "operation_failed", "fail");
+    });
+    Test("reverse policy and refusals", () =>
+    {
+        handled.Clear();
+        Check(Reply("call:secret")["error"]!["code"]!.GetValue<string>() == "denied", "secret");
+        Check(handled.Count == 0, "handled");
+        Check(Reply("call:nothere")["error"]!["code"]!.GetValue<string>() == "reverse_undeclared", "undeclared");
+        Check(Reply("call:sign", serve: false)["error"]!["code"]!.GetValue<string>() == "reverse_unavailable", "unavailable");
+    });
+}
+var relay = Environment.GetEnvironmentVariable("EXT_REGISTRY_TEST_GUEST");
+if (!string.IsNullOrEmpty(relay))
+{
+    var casesPath = Path.GetFullPath(Path.Combine(fixtures, "registry-cases.json"));
+    var cases = Fixture("registry-cases.json");
+    Host Relay(Registry registry, string name, bool denyForward = false, bool denyReverse = false)
+    {
+        var h = engine.Process(GuestDescriptor(relay, "--descriptor", casesPath, name), relay, ["--guest", casesPath, name],
+            authorize: _ => !denyForward);
+        h.Attach(registry, new ReverseServices(_ => !denyReverse, null));
+        h.Start(TimeSpan.FromSeconds(5));
+        return h;
+    }
+    bool Listed(JsonNode? list, string name) => list?.AsArray().Any(n => n!.GetValue<string>() == name) ?? false;
+    foreach (var c in cases["cases"]!.AsArray().Select(c => c!.AsObject()))
+    {
+        Test("registry: " + c["name"]!.GetValue<string>(), () =>
+        {
+            var registry = new Registry(engine);
+            var hosts = new Dictionary<string, Host>();
+            try
+            {
+                foreach (var (name, contractNode) in cases["guests"]!.AsObject())
+                {
+                    hosts[name] = Relay(registry, name, Listed(c["forwardDeny"], name), Listed(c["reverseDeny"], name));
+                    registry.Register(contractNode!.GetValue<string>(), "v1", hosts[name]);
+                }
+                foreach (var e in cases["edges"]!.AsArray())
+                {
+                    RegistryEnd End(JsonNode n) => new(n["name"]!.GetValue<string>(), n["version"]!.GetValue<string>(), n["operation"]!.GetValue<string>());
+                    registry.Route(End(e!["from"]!), End(e["to"]!));
+                }
+                var i = 0;
+                foreach (var step in c["steps"]!.AsArray().Select(s => s!.AsObject()))
+                {
+                    if (step["unregister"] is { } who)
+                    {
+                        registry.Unregister(cases["guests"]![who.GetValue<string>()]!.GetValue<string>(), "v1");
+                        i++;
+                        continue;
+                    }
+                    var target = step["call"]!.GetValue<string>();
+                    var got = hosts[target].Call(cases["guests"]![target]!.GetValue<string>(), "v1", step["operation"]!.GetValue<string>(),
+                        step["payload"]?.DeepClone(), TimeSpan.FromMilliseconds(step["timeoutMs"]?.GetValue<int>() ?? 5000));
+                    if (step["result"] is { } want)
+                    {
+                        Check(Same(got, want), $"step {i}: got {got?.ToJsonString()}");
+                    }
+                    else
+                    {
+                        var code = got?["error"]?["code"]?.GetValue<string>() ?? "";
+                        Check(Listed(step["resultError"], code), $"step {i}: got {got?.ToJsonString()}");
+                    }
+                    i++;
+                }
+            }
+            finally
+            {
+                foreach (var h in hosts.Values)
+                {
+                    h.Dispose();
+                }
+            }
+        });
+    }
+    Test("registry configuration", () =>
+    {
+        var registry = new Registry(engine);
+        var b = Relay(registry, "b");
+        Check(Throws<HostException>(() => registry.Register("Not A Name", "v1", b), "name").Status == "invalid", "invalid");
+        Check(Throws<HostException>(() => registry.Register("registry.other", "v1", b), "other").Status == "unsupported", "unsupported");
+        registry.Register("registry.b", "v1", b);
+        Check(Throws<HostException>(() => registry.Register("registry.b", "v1", b), "twice").Status == "exists", "exists");
+        RegistryEnd from = new("registry.ask", "v1", "echo-b"), to = new("registry.b", "v1", "echo");
+        registry.Route(from, to);
+        Check(Throws<HostException>(() => registry.Route(from, to), "route twice").Status == "exists", "route exists");
+        RegistryEnd other = new("registry.ask", "v1", "other"), bad = new("registry.b", "v1", "Bad Name");
+        Check(Throws<HostException>(() => registry.Route(other, bad), "bad").Status == "invalid", "route invalid");
+        Check(Throws<HostException>(() => registry.Unregister("registry.x", "v1"), "unknown").Status == "not_found", "not_found");
+        registry.Unregister("registry.b", "v1");
+        registry.Register("registry.b", "v1", b);
+        Throws<ArgumentException>(() => b.Attach(registry, new ReverseServices(_ => true, _ => null)), "attach with a handle");
+        b.Dispose();
+        // A disposed host has left the registry.
+        Check(Throws<HostException>(() => registry.Unregister("registry.b", "v1"), "after dispose").Status == "not_found", "left");
+    });
+    Test("unreachable registry sources and targets are finalized", () =>
+    {
+        for (var i = 0; i < 3; i++)
+        {
+            var registry = new Registry(engine);
+            registry.Register("registry.b", "v1", Relay(registry, "b"));
+        }
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
+        GC.Collect();
+    });
+}
+
 Console.WriteLine($"{passed} passed, {failed.Count} failed");
 foreach (var f in failed)
 {

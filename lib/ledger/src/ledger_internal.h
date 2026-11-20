@@ -213,6 +213,17 @@ const ll_retained *ll_state_retained_at(const ll_state *s, size_t i);
 int ll_state_incident(ll_namespace *ns, const ll_s *id, int outgoing_only, ll_record ***out, size_t *n);
 int ll_record_id_cmp(const void *a, const void *b); /* qsort over ll_record* by ID */
 
+/* ---- flags ----
+ * An int one thread sets and another polls, such as a context's canceled. */
+#if defined(_MSC_VER) && !defined(__clang__)
+#include <intrin.h>
+static __inline int ll_flag_load(const volatile int *p) { return (int)_InterlockedOr((volatile long *)p, 0); }
+static __inline void ll_flag_store(volatile int *p, int v) { _InterlockedExchange((volatile long *)p, v); }
+#else
+static inline int ll_flag_load(const volatile int *p) { return __atomic_load_n(p, __ATOMIC_ACQUIRE); }
+static inline void ll_flag_store(volatile int *p, int v) { __atomic_store_n(p, v, __ATOMIC_RELEASE); }
+#endif
+
 /* ---- contexts ---- */
 int ll_ctx_check(const ext_ledger_context *ctx);
 int64_t ll_now_unix_ms(void);

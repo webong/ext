@@ -11,8 +11,8 @@ It replaces the Go `res/graph` as the implementation of the graph; the contract 
 | SQLite backend | Done, optional (`EXT_LEDGER_SQLITE`): the `tables.json` layout, which the Go store writes too |
 | Reader | Done: `ext_ledger_open_reader`, which never locks or writes, and the `ext-ledger` command |
 | Recorder | Done for what it is given: `ext_ledger_recorder_open` and `ext_ledger_record`, shells, web origins, host inventory, processes and adapter inventory, held to `res/graph/testdata/recorder/v1` |
-| Collectors | Next: each kernel's own interface, so the recorder reads the machine itself |
-| Supervisor | Later: `res/graph/supervisor` moves here |
+| Collectors | Done: `ext_ledger_collect` and `ext_ledger_scan`, through each kernel's own interface, so the recorder reads the machine itself |
+| Supervisor | Done: `ext_ledger_supervisor_*`, `res/graph/supervisor` in C, held to its tests |
 
 ## Platforms
 
@@ -78,6 +78,36 @@ Output is canonical JSON on standard output, one value per line (`watch` prints 
 line until it ends). A failure prints `{"error":"<code>"}` on standard error and exits with the
 code's number; a usage error exits with 64. A JSON argument of `-` is read from standard input.
 
+## The supervisor
+
+`ext_ledger_supervisor_open` takes a store and runs local component processes, projecting what
+it sees of each into the `ext.runtime` namespace: the artifact, the process instance, the runtime
+that supervises it, and its endpoints, connections and dependencies. It decides nothing about
+trust or authority. A spec is JSON (see the header); hooks for readiness, the protocol handshake
+and health are C callbacks that get an `ext_ledger_context` carrying their deadline, and never a
+secret value.
+
+- **Process trees.** A child leads its own process group (POSIX) or starts suspended inside a job
+  object that ends every process in it (Windows), so stopping it, or its exit, ends what it started.
+  On Windows the child joins its job before its first instruction runs, which the Go supervisor left
+  to a policy hook.
+  Stopping sends `SIGTERM`, then `SIGKILL` after 5 s.
+- **Graph first.** A state change is applied to the store before the instance's lock is released,
+  so a state seen through `ext_ledger_supervisor_instance` is already in the graph.
+- **Secrets.** A secret reference is resolved by the caller's callback at each launch and goes only
+  into the child's environment; the output of a process given secrets is discarded.
+- **Leases and orphans.** An active instance's fact carries `lease_until`, renewed every third of
+  the lease. A supervisor opened while another of the same runtime holds a live lease answers
+  `EXT_LEDGER_BUSY`; processes whose lease expired are orphans, which block new starts until
+  `ext_ledger_supervisor_resolve_orphan` ends them (never a reused PID: the process identity is a
+  digest of its PID and start time) or, with the `terminate` policy, are ended at once.
+- **Bounds.** Each instance keeps the tail of its output (`log_limit`), and stopped or crashed
+  instances beyond `retain_terminal` leave both the supervisor and the graph.
+
+iOS lets no application start processes: a start there crashes as a failed start. Go's
+`ProcessPolicyFactory` (a hook for platform resource or sandbox controls) is not carried over;
+nothing used it, and sandboxing has its own contracts ([the decision](../../docs/adr-sandboxing.md)).
+
 ## Backends
 
 - **memory** (`ext_ledger_open_memory`): one process's state.
@@ -116,5 +146,9 @@ code's number; a usage error exits with 64. A JSON argument of `-` is read from 
 | `src/recorder.c`, `src/record_*.c` | The `ext.system` recorder: its environment and helpers, and one file per kind of observation |
 | `src/vocabulary.h` | The `ext.system` vocabulary, from `vocabulary.json` |
 | `tests/recorder.c` | Runs `recorder/v1` against the recorder |
+| `src/collect*.c` | The collectors, one file per kind and kernel |
+| `src/supervisor.c` | The supervisor: specs, the lifecycle, projection, leases and recovery |
+| `src/process_posix.c`, `src/process_win32.c` | Starting, waiting for and ending process trees; threads and random IDs |
+| `tests/supervisor.c` | `res/graph/supervisor`'s tests, with the test binary as its own child |
 
 Like `lib/plugin`, the tree holds no Go code.

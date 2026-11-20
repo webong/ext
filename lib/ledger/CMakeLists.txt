@@ -38,6 +38,16 @@ else()
   list(APPEND ledger_sources src/sqlite_none.c)
 endif()
 
+# iOS, tvOS, watchOS and visionOS have no shell to run a command from, and no
+# ApplicationServices.
+if(CMAKE_SYSTEM_NAME MATCHES "^(iOS|tvOS|watchOS|visionOS)$")
+  set(LEDGER_APPLE_EMBEDDED TRUE)
+  set(ledger_command_default OFF)
+else()
+  set(LEDGER_APPLE_EMBEDDED FALSE)
+  set(ledger_command_default ON)
+endif()
+
 find_package(Threads REQUIRED)
 include(GNUInstallDirs)
 
@@ -79,14 +89,6 @@ if(EXT_LEDGER_SHARED)
   list(APPEND ledger_targets ext_ledger_shared)
 endif()
 
-# iOS, tvOS, watchOS and visionOS have no shell to run a command from.
-if(CMAKE_SYSTEM_NAME MATCHES "^(iOS|tvOS|watchOS|visionOS)$")
-  set(LEDGER_APPLE_EMBEDDED TRUE)
-  set(ledger_command_default OFF)
-else()
-  set(LEDGER_APPLE_EMBEDDED FALSE)
-  set(ledger_command_default ON)
-endif()
 option(EXT_LEDGER_COMMAND "Build the ext-ledger command" ${ledger_command_default})
 if(EXT_LEDGER_COMMAND)
   add_executable(ext-ledger cmd/ext-ledger.c)

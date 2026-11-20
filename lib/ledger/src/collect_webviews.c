@@ -361,6 +361,7 @@ static int platform_webviews(const ext_ledger_context *ctx, lj_value *list) {
 static int platform_webviews(const ext_ledger_context *ctx, lj_value *list) {
   (void)ctx;
   (void)list;
+  (void)webview;
   return 0; /* no webview runtime this library knows how to find here */
 }
 #endif

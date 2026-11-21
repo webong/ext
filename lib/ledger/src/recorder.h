@@ -13,6 +13,7 @@ typedef struct {
   int64_t ppid;
   lj_value *variables; /* object of strings, or NULL */
   ll_map paths;        /* cleaned path -> (void*)1 */
+  int machine;         /* read the clock and the filesystem live instead of the fixed values */
 } rec_env;
 
 struct ext_ledger_recorder {
@@ -38,6 +39,7 @@ char *rec_dir(const char *p);
 char *rec_base(const char *p);
 char *rec_join(const char *a, const char *b);
 int rec_is_abs(const char *p);
+char *rec_redact_source(const char *source); /* without URL credentials */
 
 /* ---- building records ----
  * Each returns NULL when memory runs out; a NULL argument where a value is

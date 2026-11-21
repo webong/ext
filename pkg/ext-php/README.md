@@ -158,6 +158,21 @@ in `Engine` (FFI reads no headers); the ABI version check and the shared host ca
 dependencies (the MinGW runtime) on `PATH` and not in its own directory, so put that directory on
 `PATH`; `scripts/host-cases.sh` does.
 
+Reverse calls and the guest registry use the engine's caller-thread mode (`ext_host_set_reverse_mode`),
+so their hooks are FFI callbacks too, inside the FFI call of an engine call that waits on the host:
+
+- `$h->serve($authorize, $handle, $timeout, $maxPayloadBytes, $maxInFlight)`, before `start()`,
+  offers the plugin the operations its descriptor lists under `reverse`. The hooks get an
+  `ExtIO\Host\ReverseCall` (`request`, `remaining`); `$handle` returns a value, or throws
+  `RemoteError` for an error the plugin receives unchanged. A request made between calls waits for
+  the next call or `$h->serveReverse($timeout)`, which returns true once it served one.
+- `new ExtIO\Host\Registry($engine)` composes guests: `$h->attach($registry, $authorize)` (in place of
+  `serve()`) makes a host a source whose plugin's reverse calls are served by forward calls to the
+  hosts `$registry->register($contract, $h)` names, along the edges `$registry->route($from, $to)`
+  declares. Undeclared edges are `reverse_undeclared`, unregistered targets `reverse_unavailable`,
+  and a call that would re-enter a host on its call chain `denied`. A destroyed host leaves the
+  registry.
+
 ## Tests
 
 `php tests/run.php` here (no dependencies; CI runs it on PHP 8.1 and the latest release on Linux, and on macOS and Windows).

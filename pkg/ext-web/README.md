@@ -87,7 +87,9 @@ browser APIs supplied by the integrating extension:
   features sharing an extension's storage area.
 - `createScriptRegistry({scripting, namespace, assetPrefix})` registers and
   removes packaged content scripts under collision-resistant scoped IDs. Files
-  must stay under the supplied asset prefix.
+  must stay under the supplied asset prefix. `registerMany` validates the whole
+  batch and submits it in one browser call; optional `excludeMatches` are
+  preserved.
 - `createRuleRegistry({network, storage, namespace})` records ownership of
   dynamic network-rule IDs and refuses changes by another namespace. It reads
   the current rules before mutation so a failed ownership save can restore the

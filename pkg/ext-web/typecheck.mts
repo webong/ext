@@ -11,6 +11,7 @@ declare const target: { addEventListener(type: 'message', listener: (event: any)
 
 const scoped = createScopedStorage({ storage, namespace: 'example' });
 const scripts = createScriptRegistry({ scripting, namespace: 'example', assetPrefix: 'assets/example/' });
+void scripts.registerMany([{ id: 'main', matches: ['https://example.com/*'], excludeMatches: ['https://example.com/private/*'], files: ['assets/example/main.js'] }]);
 const rules = createRuleRegistry({ network, storage, namespace: 'example' });
 const client = createPageBridgeClient({ target, channel: 'example.page' });
 const info: ExtensionInfo = { id: 'extension', name: 'Example', version: '1', enabled: true };

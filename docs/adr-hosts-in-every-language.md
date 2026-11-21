@@ -85,7 +85,7 @@ and stream clients.
 ### 1. A shared-library guest backend in the C engine
 
 Today the engine starts processes and runs reactors but cannot load a C-ABI guest. Go
-(`cgoengine/cshared`) and Rust (`plugin/native.rs`) each load one themselves, the other hosts
+(`runtime/cshared`) and Rust (`plugin/native.rs`) each load one themselves, the other hosts
 cannot load one at all, and [plugin-runtimes.md](plugin-runtimes.md) tells any other host that it "must
 implement CTX selection, validation and admission policy itself". A constructor,
 `ext_shared_library_backend_create`, closes that. It returns an `EXT_BACKEND_EXTENSION_CONTEXT`

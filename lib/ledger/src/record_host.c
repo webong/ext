@@ -10,6 +10,13 @@
 
 /* ---- the res/system rules the projection uses ---- */
 
+/* Whether a host path is absolute by the rules of the recorder's OS (filepath.IsAbs). */
+static int host_abs(const rec *r, const char *p) {
+  if (strcmp(r->env.os, "windows") != 0) return p[0] == '/';
+  int drive = ((p[0] | 32) >= 'a' && (p[0] | 32) <= 'z') && p[1] == ':' && (p[2] == '\\' || p[2] == '/');
+  return drive || ((p[0] == '\\' || p[0] == '/') && (p[1] == '\\' || p[1] == '/'));
+}
+
 /* The key a host path is compared and recorded under: cleaned, lower-cased on Windows. */
 static char *path_key(const rec *r, const char *path) {
   char *k = rec_clean(path);
@@ -19,8 +26,8 @@ static char *path_key(const rec *r, const char *path) {
   return k;
 }
 
-/* A filesystem source without URL credentials. */
-static char *redact_source(const char *s) {
+/* A filesystem source without URL credentials, as res/system's RedactSource. */
+char *rec_redact_source(const char *s) {
   size_t n = strlen(s), start;
   const char *sep = strstr(s, "://");
   if (n >= 2 && s[0] == '/' && s[1] == '/') start = 2;
@@ -168,7 +175,7 @@ static int observe_shells(host_tx *h, const lj_value *shells) {
   for (size_t i = 0; i < shells->u.array.len; i++) {
     const lj_value *s = shells->u.array.items[i];
     const char *path = str_at(s, "path");
-    if (!rec_is_abs(path) || !*str_at(s, "name")) return EXT_LEDGER_INVALID;
+    if (!host_abs(r, path) || !*str_at(s, "name")) return EXT_LEDGER_INVALID;
     char *key = path_key(r, path), id[64];
     if (!key) return EXT_LEDGER_IO;
     digest_id(id, sizeof id, "host-shell/", key, strlen(key));
@@ -192,8 +199,8 @@ static int observe_filesystems(host_tx *h, const lj_value *filesystems) {
   for (size_t i = 0; i < filesystems->u.array.len; i++) {
     const lj_value *f = filesystems->u.array.items[i];
     const char *mount = str_at(f, "mount_point");
-    if (!rec_is_abs(mount)) return EXT_LEDGER_INVALID;
-    char *source = redact_source(str_at(f, "source")), *key = path_key(r, mount);
+    if (!host_abs(r, mount)) return EXT_LEDGER_INVALID;
+    char *source = rec_redact_source(str_at(f, "source")), *key = path_key(r, mount);
     if (!source || !key) {
       free(source);
       free(key);

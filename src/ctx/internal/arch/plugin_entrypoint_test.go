@@ -13,7 +13,7 @@ import (
 // re-exports the data model that lives in the root package of
 // pkg/ext-go/engine and runs on the C engine or in pure Go. Only the plugin
 // library itself and the runtime backends that implement engine.Backend
-// (pkg/ext-go/hashicorp, pkg/ext-go/wasm, pkg/ext-go/yaegi, pkg/ext-go/cgoengine/cshared)
+// (pkg/ext-go/hashicorp, pkg/ext-go/wasm, pkg/ext-go/yaegi, pkg/ext-go/runtime/cshared)
 // import that root package.
 func TestGoProgramsImportCgoengineNotTheEnginePackage(t *testing.T) {
 	root := repoRoot(t)

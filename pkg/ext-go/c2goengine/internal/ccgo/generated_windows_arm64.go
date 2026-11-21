@@ -1,5 +1,5 @@
 // Code generated for windows/arm64 by 'ccgo -o engine.go --package-name ccgo -I csrc/shim -I csrc/src -I csrc/vendor -I csrc/include -DEXT_HOST_STATIC -DEXT_HOST_BUILD -Dyyjson_align(x)= -Dyyjson_inline= -Dyyjson_noinline= -U__SIZEOF_INT128__ -include csrc/shim/compat_core.h csrc/src/common.c csrc/src/wire.c csrc/src/progress.c csrc/src/reverse.c csrc/src/endpoint.c csrc/src/services.c csrc/src/guest.c csrc/src/sha256.c csrc/src/packages.c csrc/vendor/yyjson.c csrc/shim/windows.c', DO NOT EDIT.
-// c2goengine inputs sha256:1789679ff44cf16975f1e1e77ccd3690a6bcbddccf9533e3817dd4b19261671c
+// c2goengine inputs sha256:6ce31a6e5337629cf189bdc31a8ff9289c3e833607bc16556c50084d5d6dcc2e
 
 //go:build windows && arm64
 
@@ -30,6 +30,8 @@ const EXT_BACKEND_JSONLINE_PROCESS_CONFIG = "4u"
 const EXT_BACKEND_JSONLINE_PROCESS_LAUNCH = "5u"
 const EXT_HOST_ABI_VERSION = 2
 const EXT_HOST_BUILD = 1
+const EXT_HOST_REVERSE_CALLER_THREAD = "1u"
+const EXT_HOST_REVERSE_ENGINE_THREADS = "0u"
 const EXT_HOST_REVERSE_PAYLOAD = "0u"
 const EXT_HOST_REVERSE_PUBLIC_ERROR = "1u"
 const EXT_HOST_STATIC = 1

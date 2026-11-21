@@ -46,6 +46,7 @@ use (
 	./pkg/ext-go/model
 	./pkg/ext-go/perception
 	./pkg/ext-go/realtime
+	./pkg/ext-go/runtime
 	./pkg/ext-go/sandboxcmd
 	./pkg/ext-go/wasm
 	./pkg/ext-go/yaegi
@@ -58,3 +59,7 @@ use (
 	./src/ctx
 	./tests/crosslang
 )
+
+// pkg/ext-go/runtime has no published version yet; the workspace resolves the one its modules
+// require to the tree. Remove this once pkg/ext-go/runtime/v0.1.0 is tagged.
+replace github.com/webong/ext/pkg/ext-go/runtime v0.1.0 => ./pkg/ext-go/runtime

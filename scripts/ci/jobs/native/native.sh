@@ -18,7 +18,7 @@ fi
 
 # Test library modules
 (
-for module in cmd/ext src/ctx src/ctn res/system res/graph res/int res/sandbox pkg/ext-go pkg/ext-go/engine pkg/ext-go/cgoengine pkg/ext-go/hashicorp pkg/ext-go/wasm pkg/ext-go/yaegi pkg/ext-go/inference pkg/ext-go/model pkg/ext-go/perception pkg/ext-go/realtime pkg/ext-go/sandboxcmd adapters/wasm adapters/evm adapters/systemd adapters/pulseaudio adapters/alsa adapters/x11 adapters/ffmpeg adapters/wayland adapters/pipewire adapters/openai adapters/ollama adapters/anthropic adapters/gemini res/web/host; do
+for module in cmd/ext src/ctx src/ctn res/system res/graph res/int res/sandbox pkg/ext-go pkg/ext-go/engine pkg/ext-go/cgoengine pkg/ext-go/hashicorp pkg/ext-go/wasm pkg/ext-go/yaegi pkg/ext-go/runtime pkg/ext-go/inference pkg/ext-go/model pkg/ext-go/perception pkg/ext-go/realtime pkg/ext-go/sandboxcmd adapters/wasm adapters/evm adapters/systemd adapters/pulseaudio adapters/alsa adapters/x11 adapters/ffmpeg adapters/wayland adapters/pipewire adapters/openai adapters/ollama adapters/anthropic adapters/gemini res/web/host; do
   (cd "$module" && go test ./...) || exit 1
 done
 )

@@ -75,6 +75,28 @@ final class Engine
         ext_status ext_host_process_stderr(ext_host *, uint8_t *buffer, size_t capacity, size_t *length);
         void ext_buffer_free(ext_buffer *);
         ext_status ext_shared_library_backend_create(const ext_shared_library_options *, ext_backend_extension_context *);
+        typedef int32_t (*ext_context_policy)(void *user, const ext_call_options *, const uint8_t *json, size_t len);
+        typedef ext_status (*ext_reverse_emit)(void *sink, uint32_t kind, const char *data, size_t len);
+        typedef ext_status (*ext_reverse_handler)(void *user, const ext_call_options *, const uint8_t *request, size_t len,
+                                                  ext_reverse_emit emit, void *sink);
+        typedef struct {
+          uint32_t struct_size; void *user; ext_context_policy authorize; ext_reverse_handler handle;
+          uint32_t timeout_ms; uint32_t max_payload_bytes; uint32_t max_in_flight; void *session_value;
+        } ext_host_services;
+        typedef struct ext_registry ext_registry;
+        typedef struct {
+          uint32_t struct_size; const char *from_name; const char *from_version; const char *from_operation;
+          const char *to_name; const char *to_version; const char *to_operation;
+        } ext_registry_edge;
+        ext_status ext_host_set_services(ext_host *, const ext_host_services *);
+        ext_status ext_host_set_reverse_mode(ext_host *, uint32_t mode);
+        ext_status ext_host_serve_reverse(ext_host *, const ext_call_options *);
+        ext_status ext_registry_create(ext_registry **out);
+        ext_status ext_registry_register(ext_registry *, const char *name, const char *version, ext_host *host);
+        ext_status ext_registry_unregister(ext_registry *, const char *name, const char *version);
+        ext_status ext_registry_route(ext_registry *, const ext_registry_edge *);
+        ext_status ext_registry_attach(ext_registry *, ext_host *source, const ext_host_services *);
+        void ext_registry_destroy(ext_registry *);
         C;
 
     /** @internal */

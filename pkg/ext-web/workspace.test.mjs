@@ -21,9 +21,33 @@ test('content scripts use collision-free scoped IDs and packaged files', async (
   const registered = []; const removed = [];
   const registry = createScriptRegistry({ namespace: 'a.b', assetPrefix: 'assets/a.b/', scripting: { registerContentScripts: async scripts => registered.push(...scripts), unregisterContentScripts: async request => removed.push(...request.ids) } });
   assert.notEqual(registry.id('a.b'), registry.id('a_2eb'));
-  const id = await registry.register({ id: 'main', matches: ['https://example.com/*'], files: ['assets/a.b/main.js'] });
+  const { register } = registry;
+  const id = await register({ id: 'main', matches: ['https://example.com/*'], files: ['assets/a.b/main.js'] });
   assert.equal(registered[0].id, id); await registry.unregister(['main']); assert.deepEqual(removed, [id]);
   await assert.rejects(registry.register({ id: 'bad', matches: ['https://example.com/*'], files: ['other/main.js'] }), { code: 'invalid' });
+});
+
+test('content-script batches preserve exclusions and validate before browser mutation', async () => {
+  const calls = [];
+  const registry = createScriptRegistry({ namespace: 'reader', assetPrefix: 'assets/reader/', scripting: {
+    registerContentScripts: async scripts => calls.push(scripts), unregisterContentScripts: async () => {},
+  } });
+  const ids = await registry.registerMany([
+    { id: 'main', matches: ['https://example.com/*'], excludeMatches: ['https://example.com/private/*'], files: ['assets/reader/main.js'] },
+    { id: 'extra', matches: ['https://example.org/*'], files: ['assets/reader/extra.js'] },
+  ]);
+  assert.equal(calls.length, 1);
+  assert.deepEqual(calls[0].map(script => script.id), ids);
+  assert.deepEqual(calls[0][0].excludeMatches, ['https://example.com/private/*']);
+  await assert.rejects(registry.registerMany([
+    { id: 'one', matches: ['https://example.com/*'], files: ['assets/reader/one.js'] },
+    { id: 'two', matches: ['https://example.com/*'], files: ['outside/two.js'] },
+  ]), { code: 'invalid' });
+  await assert.rejects(registry.registerMany([
+    { id: 'same', matches: ['https://example.com/*'], files: ['assets/reader/one.js'] },
+    { id: 'same', matches: ['https://example.com/*'], files: ['assets/reader/two.js'] },
+  ]), { code: 'invalid' });
+  assert.equal(calls.length, 1);
 });
 
 test('network rules cannot cross namespace ownership', async () => {

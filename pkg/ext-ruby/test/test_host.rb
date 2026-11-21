@@ -312,3 +312,174 @@ class HostTest < Minitest::Test
     GC.start
   end
 end
+
+# Reverse services and the guest registry, against the engine's scripted guests:
+# EXT_REVERSE_TEST_GUEST (lib/plugin/tests/reverse.c) and EXT_REGISTRY_TEST_GUEST
+# (lib/plugin/tests/registry.c), which scripts/host-cases.sh builds.
+module ReverseSupport
+  module_function
+
+  def guests(test)
+    why = HostSupport.load
+    raise why if why && HostSupport::REQUIRED
+    test.skip why if why
+    reverse = HostSupport.need("EXT_REVERSE_TEST_GUEST")
+    registry = HostSupport.need("EXT_REGISTRY_TEST_GUEST")
+    test.skip "set EXT_REVERSE_TEST_GUEST and EXT_REGISTRY_TEST_GUEST, or run scripts/host-cases.sh" unless
+      HostSupport.need("EXT_HOST_LIBRARY") && reverse && registry
+    [reverse, registry]
+  end
+end
+
+class ReverseServicesTest < Minitest::Test
+  RUN = { "name" => "reverse.test", "version" => "v1" }.freeze
+
+  def setup
+    @guest, = ReverseSupport.guests(self)
+    @descriptor, status = Open3.capture2(@guest, "--descriptor")
+    assert status.success?
+    @handled = []
+  end
+
+  def host(mode, serve: true)
+    h = HostSupport.engine.process(@descriptor, @guest, arguments: ["--guest", mode])
+    if serve
+      h.serve(authorize: ->(call) { call.remaining.positive? && call.request["operation"] != "secret" },
+              handle: lambda { |call|
+                @handled << call.request
+                case call.request["operation"]
+                when "sign" then "signed"
+                when "empty" then nil
+                when "errok" then raise ExtIO::Host::RemoteError.new("policy", "refused for you", retry_after_ms: 5)
+                else raise "a private failure"
+                end
+              }, timeout: 0.15, max_payload_bytes: 64)
+    end
+    h.start(5)
+    h
+  end
+
+  def reply(mode, serve: true)
+    h = host(mode, serve: serve)
+    h.call(RUN, "run", {}, timeout: 5)["reply"]
+  ensure
+    h&.close
+    h&.destroy
+  end
+
+  def test_hooks_answer_on_the_calling_thread
+    assert_equal "signed", reply("call:sign")["payload"]
+    assert_equal "signing", @handled[0]["surface"]
+    assert_equal "1", @handled[0]["parent"]
+    assert_nil reply("call:empty")["payload"]
+    assert_equal({ "code" => "policy", "message" => "refused for you", "retryAfterMilliseconds" => 5 },
+                 reply("call:errok")["error"])
+    assert_equal "operation_failed", reply("call:fail")["error"]["code"]
+  end
+
+  def test_policy_and_refusals
+    assert_equal "denied", reply("call:secret")["error"]["code"]
+    assert_empty @handled
+    assert_equal "reverse_undeclared", reply("call:nothere")["error"]["code"]
+    assert_equal "reverse_unavailable", reply("call:sign", serve: false)["error"]["code"]
+  end
+
+  def test_requests_between_calls_wait_for_serve_reverse
+    h = host("idle")
+    assert h.serve_reverse(5)
+    assert_nil @handled[0]["parent"]
+    assert_equal "signed", h.call(RUN, "run", {}, timeout: 5)["reply"]["payload"]
+    refute h.serve_reverse(0.05)
+  ensure
+    h&.close
+    h&.destroy
+  end
+end
+
+class RegistryTest < Minitest::Test
+  include TestHelper
+
+  def setup
+    _, @guest = ReverseSupport.guests(self)
+    @cases_path = File.join(TestHelper::FIXTURES, "registry-cases.json")
+    @cases = fixture("registry-cases.json")
+  end
+
+  def relay(registry, name, deny_forward: false, deny_reverse: false)
+    descriptor, status = Open3.capture2(@guest, "--descriptor", @cases_path, name)
+    assert status.success?
+    h = HostSupport.engine.process(descriptor, @guest, arguments: ["--guest", @cases_path, name],
+                                                       authorize: ->(_) { !deny_forward })
+    h.attach(registry, authorize: ->(_) { !deny_reverse })
+    h.start(5)
+    h
+  end
+
+  def contract(name)
+    { "name" => @cases["guests"].fetch(name), "version" => "v1" }
+  end
+
+  def test_shared_cases
+    @cases["cases"].each do |c|
+      registry = ExtIO::Host::Registry.new(HostSupport.engine)
+      hosts = {}
+      begin
+        @cases["guests"].each_key do |name|
+          hosts[name] = relay(registry, name, deny_forward: (c["forwardDeny"] || []).include?(name),
+                                              deny_reverse: (c["reverseDeny"] || []).include?(name))
+          registry.register(contract(name), hosts[name])
+        end
+        @cases["edges"].each { |e| registry.route(e["from"], e["to"]) }
+        c["steps"].each_with_index do |step, i|
+          if step["unregister"]
+            registry.unregister(contract(step["unregister"]))
+            next
+          end
+          got = hosts.fetch(step["call"]).call(contract(step["call"]), step["operation"], step["payload"],
+                                               timeout: (step["timeoutMs"] || 5000) / 1000.0)
+          if step.key?("result")
+            assert_equal step["result"], got, "#{c["name"]} step #{i}"
+          else
+            assert_includes step["resultError"], got.dig("error", "code"), "#{c["name"]} step #{i}: #{got}"
+          end
+        end
+      ensure
+        hosts.each_value do |h|
+          h.close
+          h.destroy
+        end
+      end
+    end
+  end
+
+  def test_configuration
+    registry = ExtIO::Host::Registry.new(HostSupport.engine)
+    b = relay(registry, "b")
+    status = ->(&blk) { assert_raises(ExtIO::Host::HostError, &blk).status }
+    assert_equal "invalid", status.call { registry.register({ "name" => "Not A Name", "version" => "v1" }, b) }
+    assert_equal "unsupported", status.call { registry.register({ "name" => "registry.other", "version" => "v1" }, b) }
+    registry.register(contract("b"), b)
+    assert_equal "exists", status.call { registry.register(contract("b"), b) }
+    from = { "name" => "registry.ask", "version" => "v1", "operation" => "echo-b" }
+    to = { "name" => "registry.b", "version" => "v1", "operation" => "echo" }
+    registry.route(from, to)
+    assert_equal "exists", status.call { registry.route(from, to) }
+    assert_equal "invalid", status.call { registry.route(from.merge("operation" => "other"), to.merge("operation" => "Bad Name")) }
+    assert_equal "not_found", status.call { registry.unregister({ "name" => "registry.x", "version" => "v1" }) }
+    registry.unregister(contract("b"))
+    registry.register(contract("b"), b)
+    assert_raises(ArgumentError) { b.attach(Object.new, authorize: ->(_) { true }) }
+    b.close
+    b.destroy
+    # A destroyed host has left the registry.
+    assert_equal "not_found", status.call { registry.unregister(contract("b")) }
+  end
+
+  def test_unreachable_hosts_and_registries_are_collected
+    3.times do
+      registry = ExtIO::Host::Registry.new(HostSupport.engine)
+      registry.register(contract("b"), relay(registry, "b"))
+    end
+    GC.start
+  end
+end

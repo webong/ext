@@ -14,6 +14,7 @@
 #include <ruby/encoding.h>
 #include <ruby/thread.h>
 #include <stdint.h>
+#include <stdlib.h>
 #include <string.h>
 
 #define EXT_HOST_STATIC /* declarations only: every engine function is resolved at run time */
@@ -43,9 +44,18 @@ typedef struct {
   ext_status (*cancel_create)(ext_cancel **);
   void (*cancel_signal)(ext_cancel *);
   void (*cancel_destroy)(ext_cancel *);
+  ext_status (*set_services)(ext_host *, const ext_host_services *);
+  ext_status (*set_reverse_mode)(ext_host *, uint32_t);
+  ext_status (*serve_reverse)(ext_host *, const ext_call_options *);
+  ext_status (*registry_create)(ext_registry **);
+  ext_status (*registry_register)(ext_registry *, const char *, const char *, ext_host *);
+  ext_status (*registry_unregister)(ext_registry *, const char *, const char *);
+  ext_status (*registry_route)(ext_registry *, const ext_registry_edge *);
+  ext_status (*registry_attach)(ext_registry *, ext_host *, const ext_host_services *);
+  void (*registry_destroy)(ext_registry *);
 } engine_api;
 
-static VALUE mNative, cEngine, cHost, eHostError;
+static VALUE mNative, cEngine, cHost, cRegistry, eHostError;
 static ID id_new, id_call, id_policy_key;
 
 static const char *const status_names[] = {
@@ -157,6 +167,15 @@ static VALUE engine_open(VALUE klass, VALUE rpath) {
   RESOLVE(cancel_create, "ext_cancel_create");
   RESOLVE(cancel_signal, "ext_cancel_signal");
   RESOLVE(cancel_destroy, "ext_cancel_destroy");
+  RESOLVE(set_services, "ext_host_set_services");
+  RESOLVE(set_reverse_mode, "ext_host_set_reverse_mode");
+  RESOLVE(serve_reverse, "ext_host_serve_reverse");
+  RESOLVE(registry_create, "ext_registry_create");
+  RESOLVE(registry_register, "ext_registry_register");
+  RESOLVE(registry_unregister, "ext_registry_unregister");
+  RESOLVE(registry_route, "ext_registry_route");
+  RESOLVE(registry_attach, "ext_registry_attach");
+  RESOLVE(registry_destroy, "ext_registry_destroy");
 #undef RESOLVE
   obj = TypedData_Make_Struct(klass, engine_t, &engine_type, e);
   e->api = api;
@@ -165,26 +184,88 @@ static VALUE engine_open(VALUE klass, VALUE rpath) {
 
 /* ---- hosts ---- */
 
+/* A guest registry, counted: its Ruby object, each host attached to it and each contract
+ * registered in it hold a reference, so the native registry is freed only once none of them can
+ * call into it, whatever order the garbage collector frees them in. */
+typedef struct registration registration;
 typedef struct {
+  const engine_api *api;
+  ext_registry *handle;
+  long refs;
+  registration *entries; /* the contracts registered, with their hosts */
+} registry_ref;
+typedef struct host_t host_t;
+struct registration {
+  registry_ref *registry;
+  host_t *host;
+  VALUE host_value; /* marked by the registry: a registered host stays alive with it */
+  char *name, *version;
+  registration *next_in_registry, *next_in_host;
+};
+static void registry_release(registry_ref *r) {
+  if (r && --r->refs == 0) {
+    r->api->registry_destroy(r->handle);
+    xfree(r);
+  }
+}
+
+struct host_t {
   const engine_api *api;
   ext_host *handle;
   VALUE self;
   VALUE verify, authorize; /* callables, or Qnil to allow */
   long active;             /* engine calls in flight, counted under the lock */
-} host_t;
+  /* Reverse services: callables, or Qnil. The hooks run on the thread of a call that waits on
+   * this host (EXT_HOST_REVERSE_CALLER_THREAD), never on an engine thread. */
+  VALUE reverse_authorize, reverse_handle;
+  VALUE source_of;          /* the Native::Registry this host is a source of, or Qnil */
+  registry_ref *source_ref; /* its native registry, counted */
+  registration *registrations;
+};
 
 static void host_mark(void *p) {
   host_t *h = (host_t *)p;
   rb_gc_mark(h->verify);
   rb_gc_mark(h->authorize);
+  rb_gc_mark(h->reverse_authorize);
+  rb_gc_mark(h->reverse_handle);
+  rb_gc_mark(h->source_of);
+}
+
+static void unlink_from_registry(registration *e) {
+  registration **at = &e->registry->entries;
+  while (*at && *at != e) at = &(*at)->next_in_registry;
+  if (*at) *at = e->next_in_registry;
+}
+
+/* Leaves every registry: the host is closed first, so the calls routed to it end, and
+ * unregistering waits for them. */
+static void leave_registries(host_t *h) {
+  while (h->registrations) {
+    registration *e = h->registrations;
+    h->registrations = e->next_in_host;
+    h->api->registry_unregister(e->registry->handle, e->name, e->version);
+    unlink_from_registry(e);
+    registry_release(e->registry);
+    xfree(e->name);
+    xfree(e->version);
+    xfree(e);
+  }
+}
+
+static void host_teardown(host_t *h) {
+  h->api->close(h->handle);
+  leave_registries(h);
+  h->api->destroy(h->handle);
+  h->handle = NULL;
+  registry_release(h->source_ref);
+  h->source_ref = NULL;
 }
 
 static void host_free(void *p) {
   host_t *h = (host_t *)p;
-  if (h->handle) { /* unreachable, so no call is in flight */
-    h->api->close(h->handle);
-    h->api->destroy(h->handle);
-  }
+  /* Unreachable, so no call is in flight, and no source that could route to it is reachable. */
+  if (h->handle) host_teardown(h);
   xfree(h);
 }
 
@@ -267,6 +348,7 @@ static VALUE new_host(const engine_api *api, VALUE verify, VALUE authorize, host
   h->self = obj;
   h->verify = verify;
   h->authorize = authorize;
+  h->reverse_authorize = h->reverse_handle = h->source_of = Qnil;
   *out = h;
   return obj;
 }
@@ -392,7 +474,7 @@ static uint32_t timeout_ms(VALUE seconds) {
   return ms >= 4294967295.0 ? 0xFFFFFFFFu : (uint32_t)ms;
 }
 
-enum { OP_START, OP_CALL, OP_INVOKE, OP_DRAIN };
+enum { OP_START, OP_CALL, OP_INVOKE, OP_DRAIN, OP_SERVE };
 
 typedef struct {
   host_t *host;
@@ -414,6 +496,7 @@ static void *blocking_run(void *arg) {
   case OP_START: c->status = api->start(handle, &c->options); break;
   case OP_CALL: c->status = api->call(handle, c->data, c->len, &c->options, &c->out); break;
   case OP_INVOKE: c->status = api->invoke(handle, c->data, c->len, &c->options, &c->out); break;
+  case OP_SERVE: c->status = api->serve_reverse(handle, &c->options); break;
   default: c->status = api->drain(handle, &c->options); break;
   }
   return NULL;
@@ -456,7 +539,14 @@ static VALUE blocking_done(VALUE arg) {
 
 /* Runs one engine call without the lock and returns its response (or Qnil), raising its failure.
  * A pending interrupt is raised by Ruby after the call returns. */
+static VALUE blocking_status(VALUE self, int op, VALUE data, VALUE timeout, const char *action,
+                             ext_status *status);
 static VALUE blocking(VALUE self, int op, VALUE data, VALUE timeout, const char *action) {
+  return blocking_status(self, op, data, timeout, action, NULL);
+}
+/* As blocking; with status, the call's status is stored there instead of raised. */
+static VALUE blocking_status(VALUE self, int op, VALUE data, VALUE timeout, const char *action,
+                             ext_status *status) {
   host_t *h = enter(self, action);
   blocking_call c;
   blocking_frame f;
@@ -486,7 +576,10 @@ static VALUE blocking(VALUE self, int op, VALUE data, VALUE timeout, const char 
     response = rb_str_new((const char *)c.out.data, (long)c.out.len);
     h->api->buffer_free(&c.out);
   }
-  if (c.status) raise_status(c.status, action);
+  if (status)
+    *status = c.status;
+  else if (c.status)
+    raise_status(c.status, action);
   return response;
 }
 
@@ -548,14 +641,272 @@ static VALUE host_destroy(VALUE self) {
     h->api->close(h->handle); /* the calls end; destroy again once they have returned */
     raise_status(EXT_INVALID, "destroy with calls in flight");
   }
-  h->api->close(h->handle);
-  h->api->destroy(h->handle);
-  h->handle = NULL;
-  h->verify = h->authorize = Qnil;
+  host_teardown(h);
+  h->verify = h->authorize = h->reverse_authorize = h->reverse_handle = h->source_of = Qnil;
   return Qnil;
 }
 
 static VALUE host_destroyed_p(VALUE self) { return get_host(self)->handle ? Qfalse : Qtrue; }
+
+/* ---- reverse services ---- */
+
+typedef struct {
+  host_t *host;
+  VALUE callable;
+  const uint8_t *json;
+  size_t len;
+  uint32_t remaining_ms;
+  int handle; /* the handler, not authorize */
+  int allowed;
+  /* The handler's answer, copied out under the lock (libc memory, as it is freed without it). */
+  int answered;
+  uint32_t kind;
+  char *data;
+  size_t data_len;
+} reverse_call_t;
+
+static VALUE reverse_invoke(VALUE arg) {
+  reverse_call_t *r = (reverse_call_t *)arg;
+  VALUE json = rb_utf8_str_new((const char *)r->json, (long)r->len);
+  return rb_funcall(r->callable, id_call, 2, json, UINT2NUM(r->remaining_ms));
+}
+
+static void *reverse_with_gvl(void *arg) {
+  reverse_call_t *r = (reverse_call_t *)arg;
+  VALUE thread = rb_thread_current();
+  VALUE before = rb_thread_local_aref(thread, id_policy_key);
+  int state = 0;
+  VALUE result;
+  rb_thread_local_aset(thread, id_policy_key, r->host->self);
+  result = rb_protect(reverse_invoke, (VALUE)r, &state);
+  rb_thread_local_aset(thread, id_policy_key, before);
+  if (state) {
+    rb_set_errinfo(Qnil); /* never unwinds into the engine */
+    r->allowed = 0;
+  } else if (r->handle) {
+    if (RB_TYPE_P(result, T_ARRAY) && RARRAY_LEN(result) == 2 && RB_TYPE_P(rb_ary_entry(result, 1), T_STRING)) {
+      VALUE body = rb_ary_entry(result, 1);
+      size_t n = (size_t)RSTRING_LEN(body);
+      r->data = (char *)malloc(n ? n : 1);
+      if (r->data) {
+        memcpy(r->data, RSTRING_PTR(body), n);
+        r->data_len = n;
+        r->kind = RTEST(rb_ary_entry(result, 0)) ? EXT_HOST_REVERSE_PUBLIC_ERROR : EXT_HOST_REVERSE_PAYLOAD;
+        r->answered = 1;
+      }
+    }
+  } else {
+    r->allowed = RTEST(result);
+  }
+  return NULL;
+}
+
+/* The hooks run on the thread of a call made without the lock (caller-thread mode). */
+static int32_t reverse_authorize_cb(void *user, const ext_call_options *o, const uint8_t *json, size_t len) {
+  host_t *h = (host_t *)user;
+  reverse_call_t r;
+  memset(&r, 0, sizeof r);
+  r.host = h;
+  r.callable = h->reverse_authorize;
+  r.json = json;
+  r.len = len;
+  r.remaining_ms = o->timeout_ms;
+  if (NIL_P(r.callable)) return 1;
+  rb_thread_call_with_gvl(reverse_with_gvl, &r);
+  return r.allowed ? 0 : 1;
+}
+
+static ext_status reverse_handle_cb(void *user, const ext_call_options *o, const uint8_t *json, size_t len,
+                                    ext_reverse_emit emit, void *sink) {
+  host_t *h = (host_t *)user;
+  reverse_call_t r;
+  ext_status s;
+  memset(&r, 0, sizeof r);
+  r.host = h;
+  r.callable = h->reverse_handle;
+  r.json = json;
+  r.len = len;
+  r.remaining_ms = o->timeout_ms;
+  r.handle = 1;
+  if (NIL_P(r.callable)) return EXT_IO;
+  rb_thread_call_with_gvl(reverse_with_gvl, &r);
+  if (!r.answered) return EXT_IO; /* the plugin sees operation_failed */
+  s = emit(sink, r.kind, (const uint8_t *)r.data, r.data_len);
+  free(r.data);
+  return s;
+}
+
+static ext_host_services reverse_services(host_t *h, VALUE timeout_ms, VALUE max_payload, VALUE max_in_flight,
+                                          int with_handle) {
+  ext_host_services services;
+  memset(&services, 0, sizeof services);
+  services.struct_size = (uint32_t)sizeof services;
+  services.user = h;
+  services.authorize = reverse_authorize_cb;
+  services.handle = with_handle ? reverse_handle_cb : NULL;
+  services.timeout_ms = NUM2UINT(timeout_ms);
+  services.max_payload_bytes = NUM2UINT(max_payload);
+  services.max_in_flight = NUM2UINT(max_in_flight);
+  return services;
+}
+
+/* host.serve(authorize, handle, timeout_ms, max_payload, max_in_flight): reverse services, before
+ * start. authorize.call(json, remaining_ms) is truthy to allow; handle.call(json, remaining_ms)
+ * returns [public_error?, json]. */
+static VALUE host_serve(VALUE self, VALUE authorize, VALUE handle, VALUE timeout_ms, VALUE max_payload,
+                        VALUE max_in_flight) {
+  host_t *h = enter(self, "serve");
+  ext_host_services services = reverse_services(h, timeout_ms, max_payload, max_in_flight, 1);
+  ext_status s = h->api->set_reverse_mode(h->handle, EXT_HOST_REVERSE_CALLER_THREAD);
+  if (!s) s = h->api->set_services(h->handle, &services);
+  if (s) raise_status(s, "serve");
+  h->reverse_authorize = authorize;
+  h->reverse_handle = handle;
+  return Qnil;
+}
+
+/* host.serve_reverse(timeout) -> true when it served a request, false when none came in time. */
+static VALUE host_serve_reverse(VALUE self, VALUE timeout) {
+  ext_status s = EXT_OK;
+  blocking_status(self, OP_SERVE, Qnil, timeout, "serve_reverse", &s);
+  if (s == EXT_TIMEOUT) return Qfalse;
+  if (s) raise_status(s, "serve_reverse");
+  return Qtrue;
+}
+
+/* ---- registries ---- */
+
+static void registry_mark(void *p) {
+  registry_ref **holder = (registry_ref **)p;
+  for (registration *e = (*holder)->entries; e; e = e->next_in_registry) rb_gc_mark(e->host_value);
+}
+static void registry_free(void *p) {
+  registry_ref **holder = (registry_ref **)p;
+  registry_release(*holder);
+  xfree(holder);
+}
+static const rb_data_type_t registry_type = {
+    "ExtIO::Host::Native::Registry",
+    {registry_mark, registry_free, NULL, NULL, {0}},
+    0, 0, 0,
+};
+static registry_ref *get_registry(VALUE self) {
+  registry_ref **holder;
+  TypedData_Get_Struct(self, registry_ref *, &registry_type, holder);
+  return *holder;
+}
+
+/* engine.registry -> a new Native::Registry */
+static VALUE engine_registry(VALUE self) {
+  const engine_api *api = get_engine(self)->api;
+  registry_ref **holder;
+  registry_ref *r;
+  ext_status s;
+  VALUE obj = TypedData_Make_Struct(cRegistry, registry_ref *, &registry_type, holder);
+  r = ALLOC(registry_ref);
+  memset(r, 0, sizeof *r);
+  r->api = api;
+  r->refs = 1;
+  s = api->registry_create(&r->handle);
+  if (s) {
+    xfree(r);
+    raise_status(s, "registry");
+  }
+  *holder = r;
+  return obj;
+}
+
+static char *copy_cstr(VALUE v) {
+  const char *text = StringValueCStr(v);
+  size_t n = strlen(text) + 1;
+  char *c = ALLOC_N(char, n);
+  memcpy(c, text, n);
+  return c;
+}
+
+/* registry.register(name, version, host) */
+static VALUE registry_register(VALUE self, VALUE name, VALUE version, VALUE host) {
+  registry_ref *r = get_registry(self);
+  host_t *h = enter(host, "register");
+  ext_status s = r->api->registry_register(r->handle, StringValueCStr(name), StringValueCStr(version), h->handle);
+  registration *e;
+  if (s) raise_status(s, "register");
+  e = ALLOC(registration);
+  memset(e, 0, sizeof *e);
+  e->registry = r;
+  e->host = h;
+  e->host_value = host;
+  e->name = copy_cstr(name);
+  e->version = copy_cstr(version);
+  e->next_in_registry = r->entries;
+  r->entries = e;
+  e->next_in_host = h->registrations;
+  h->registrations = e;
+  r->refs++;
+  return Qnil;
+}
+
+/* registry.unregister(name, version): waits for the calls routed to its host. */
+static VALUE registry_unregister(VALUE self, VALUE name, VALUE version) {
+  registry_ref *r = get_registry(self);
+  const char *n = StringValueCStr(name), *v = StringValueCStr(version);
+  ext_status s = r->api->registry_unregister(r->handle, n, v);
+  if (s) raise_status(s, "unregister");
+  for (registration **at = &r->entries; *at; at = &(*at)->next_in_registry) {
+    registration *e = *at;
+    if (!strcmp(e->name, n) && !strcmp(e->version, v)) {
+      *at = e->next_in_registry;
+      for (registration **in = &e->host->registrations; *in; in = &(*in)->next_in_host)
+        if (*in == e) {
+          *in = e->next_in_host;
+          break;
+        }
+      xfree(e->name);
+      xfree(e->version);
+      xfree(e);
+      r->refs--; /* the Ruby object still holds one */
+      break;
+    }
+  }
+  return Qnil;
+}
+
+/* registry.route(from_name, from_version, from_operation, to_name, to_version, to_operation) */
+static VALUE registry_route(int argc, VALUE *argv, VALUE self) {
+  registry_ref *r = get_registry(self);
+  ext_registry_edge edge;
+  ext_status s;
+  if (argc != 6) rb_raise(rb_eArgError, "route takes six names");
+  memset(&edge, 0, sizeof edge);
+  edge.struct_size = (uint32_t)sizeof edge;
+  edge.from_name = StringValueCStr(argv[0]);
+  edge.from_version = StringValueCStr(argv[1]);
+  edge.from_operation = StringValueCStr(argv[2]);
+  edge.to_name = StringValueCStr(argv[3]);
+  edge.to_version = StringValueCStr(argv[4]);
+  edge.to_operation = StringValueCStr(argv[5]);
+  s = r->api->registry_route(r->handle, &edge);
+  if (s) raise_status(s, "route");
+  return Qnil;
+}
+
+/* host.attach(registry, authorize, timeout_ms, max_payload, max_in_flight): a source of the
+ * registry, in place of serve, before start. */
+static VALUE host_attach(VALUE self, VALUE registry, VALUE authorize, VALUE timeout_ms, VALUE max_payload,
+                         VALUE max_in_flight) {
+  host_t *h = enter(self, "attach");
+  registry_ref *r = get_registry(registry);
+  ext_host_services services = reverse_services(h, timeout_ms, max_payload, max_in_flight, 0);
+  ext_status s = h->api->set_reverse_mode(h->handle, EXT_HOST_REVERSE_CALLER_THREAD);
+  if (!s) s = r->api->registry_attach(r->handle, h->handle, &services);
+  if (s) raise_status(s, "attach");
+  h->reverse_authorize = authorize;
+  registry_release(h->source_ref);
+  h->source_ref = r;
+  r->refs++;
+  h->source_of = registry;
+  return Qnil;
+}
 
 RUBY_FUNC_EXPORTED void Init_native(void) {
   VALUE mExtIO = rb_define_module("ExtIO");
@@ -589,4 +940,13 @@ RUBY_FUNC_EXPORTED void Init_native(void) {
   rb_define_method(cHost, "stderr", host_stderr, 0);
   rb_define_method(cHost, "destroy", host_destroy, 0);
   rb_define_method(cHost, "destroyed?", host_destroyed_p, 0);
+  rb_define_method(cHost, "serve", host_serve, 5);
+  rb_define_method(cHost, "serve_reverse", host_serve_reverse, 1);
+  rb_define_method(cHost, "attach", host_attach, 5);
+  rb_define_method(cEngine, "registry", engine_registry, 0);
+  cRegistry = rb_define_class_under(mNative, "Registry", rb_cObject);
+  rb_undef_alloc_func(cRegistry);
+  rb_define_method(cRegistry, "register", registry_register, 3);
+  rb_define_method(cRegistry, "unregister", registry_unregister, 2);
+  rb_define_method(cRegistry, "route", registry_route, -1);
 }

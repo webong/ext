@@ -121,10 +121,140 @@ static void *stop_later(void *p) {
   return NULL;
 }
 
+/* ---- reverse calls: a reactor that calls its host (ext_plugin.reverse) ---- */
+
+static pthread_t test_thread;
+static int hooks_off_thread, handled;
+static char last_request[2048];
+static int32_t reverse_authorize(void *u, const ext_call_options *o, const uint8_t *json, size_t len) {
+  (void)u;
+  (void)o;
+  hooks_off_thread += !pthread_equal(pthread_self(), test_thread);
+  return memmem(json, len, "\"operation\":\"secret\"", 20) != NULL;
+}
+static ext_status reverse_handle(void *u, const ext_call_options *o, const uint8_t *json, size_t len,
+                                 ext_reverse_emit emit, void *sink) {
+  (void)u;
+  (void)o;
+  hooks_off_thread += !pthread_equal(pthread_self(), test_thread);
+  handled++;
+  if (len < sizeof(last_request)) {
+    memcpy(last_request, json, len);
+    last_request[len] = 0;
+  }
+  if (memmem(json, len, "\"operation\":\"fail\"", 18)) return EXT_IO;
+  static const char signed_[] = "\"signed\"";
+  return emit(sink, EXT_HOST_REVERSE_PAYLOAD, (const uint8_t *)signed_, sizeof(signed_) - 1);
+}
+/* A host over the WAMR backend for module; bound for reverse calls when bind. */
+static ext_host *wamr_host(const uint8_t *module, size_t n, int bind, ext_registry *registry, int serve) {
+  ext_wamr_options opt = {0};
+  opt.struct_size = sizeof(opt);
+  live l = {0};
+  ext_status connected;
+  captured d = {0};
+  diagnostics[0] = 0;
+  l = start(module, n, opt, &connected, &d);
+  if (connected) fprintf(stderr, "connect: %s; %s\n", ext_host_status_string(connected), diagnostics);
+  assert(connected == EXT_OK);
+  finish(&l);
+  ext_backend_extension_context backend;
+  assert(ext_wamr_backend_create(module, n, &opt, &backend) == EXT_OK);
+  assert(backend.flags & EXT_BACKEND_FRAMES);
+  ext_backend_options b = {sizeof(b), EXT_BACKEND_EXTENSION_CONTEXT, &backend, sizeof(backend)};
+  ext_host_options h = {EXT_HOST_ABI_VERSION, sizeof(h), d.data, d.len, allow, allow, NULL};
+  ext_host *host = NULL;
+  assert(ext_host_create(&h, &b, &host) == EXT_OK);
+  if (bind) {
+    assert(ext_wamr_backend_bind_host(backend.user, host) == EXT_OK);
+    assert(ext_wamr_backend_bind_host(backend.user, host) == EXT_INVALID); /* once */
+  }
+  ext_host_services services = {sizeof(services), NULL, reverse_authorize, reverse_handle, 0, 0, 0, NULL};
+  if (registry) {
+    services.handle = NULL;
+    assert(ext_registry_attach(registry, host, &services) == EXT_OK);
+  } else if (serve) {
+    assert(ext_host_set_services(host, &services) == EXT_OK);
+  }
+  assert(ext_host_start(host, 20000) == EXT_OK);
+  if (bind) assert(ext_wamr_backend_bind_host(backend.user, host) == EXT_INVALID); /* started */
+  free(d.data);
+  return host;
+}
+/* Calls reactor.test ask and returns the response envelope (freed by the caller). */
+static char *ask(ext_host *host, const char *operation, const char *payload) {
+  char input[512];
+  snprintf(input, sizeof(input),
+           "{\"contract\":{\"name\":\"reactor.test\",\"version\":\"v1\"},\"operation\":\"ask\","
+           "\"payload\":{\"operation\":\"%s\",\"payload\":%s}}",
+           operation, payload);
+  ext_call_options o = {sizeof(o), 10000, NULL, NULL};
+  ext_buffer out = {0};
+  ext_status s = ext_host_call(host, (const uint8_t *)input, strlen(input), &o, &out);
+  if (s) fprintf(stderr, "ask %s: %s\n", operation, ext_host_status_string(s));
+  assert(s == EXT_OK);
+  char *text = malloc(out.len + 1);
+  memcpy(text, out.data, out.len);
+  text[out.len] = 0;
+  ext_buffer_free(&out);
+  return text;
+}
+static void expect(char *response, const char *want) {
+  if (!strstr(response, want)) fprintf(stderr, "got %s, want %s\n", response, want);
+  assert(strstr(response, want));
+  free(response);
+}
+static void test_reverse(const uint8_t *conformance, size_t conformance_len, const char *path) {
+  size_t n;
+  uint8_t *module = slurp(path, &n);
+  test_thread = pthread_self();
+  /* The host's hooks answer, on the thread inside the call. */
+  ext_host *host = wamr_host(module, n, 1, NULL, 1);
+  expect(ask(host, "sign", "{\"n\":1}"), "\"result\":\"signed\"");
+  assert(handled == 1 && strstr(last_request, "\"parent\":\"") && strstr(last_request, "\"payload\":{\"n\":1}"));
+  expect(ask(host, "secret", "null"), "\"code\":\"denied\"");
+  expect(ask(host, "fail", "null"), "\"code\":\"operation_failed\"");
+  expect(ask(host, "elsewhere", "null"), "\"code\":\"reverse_undeclared\""); /* refused by the guest */
+  assert(handled == 2 && hooks_off_thread == 0);
+  ext_host_close(host);
+  ext_host_destroy(host);
+  /* Bound without services: the engine answers unavailable. Unbound: the import does. */
+  host = wamr_host(module, n, 1, NULL, 0);
+  expect(ask(host, "sign", "null"), "\"code\":\"reverse_unavailable\"");
+  ext_host_close(host);
+  ext_host_destroy(host);
+  host = wamr_host(module, n, 0, NULL, 0);
+  expect(ask(host, "sign", "null"), "\"code\":\"reverse_unavailable\"");
+  ext_host_close(host);
+  ext_host_destroy(host);
+  /* Guest to guest: the reactor's reverse call is served by another reactor's
+   * forward call, through the registry. */
+  ext_registry *registry = NULL;
+  assert(ext_registry_create(&registry) == EXT_OK);
+  ext_host *target = wamr_host(conformance, conformance_len, 0, NULL, 0);
+  assert(ext_registry_register(registry, "ext.conformance", "v1", target) == EXT_OK);
+  ext_registry_edge edge = {sizeof(edge), "host.svc", "v1", "sign", "ext.conformance", "v1", "echo"};
+  assert(ext_registry_route(registry, &edge) == EXT_OK);
+  ext_host *source = wamr_host(module, n, 1, registry, 0);
+  expect(ask(source, "sign", "{\"routed\":true}"), "\"result\":{\"routed\":true}");
+  assert(ext_host_get_state(target) == EXT_HOST_READY);
+  expect(ask(source, "secret", "null"), "\"code\":\"denied\""); /* the source's authorize runs first */
+  expect(ask(source, "fail", "null"), "\"code\":\"reverse_undeclared\""); /* no edge for it */
+  assert(hooks_off_thread == 0);
+  ext_host_close(source);
+  ext_host_destroy(source);
+  assert(ext_registry_unregister(registry, "ext.conformance", "v1") == EXT_OK);
+  ext_host_close(target);
+  ext_host_destroy(target);
+  ext_registry_destroy(registry);
+  free(module);
+  printf("reverse calls ok\n");
+}
+
 int main(int argc, char **argv) {
   setvbuf(stdout, NULL, _IOLBF, 0);
-  if (argc != 2) {
-    fprintf(stderr, "usage: ext_wamr_test reactor.wasm\n");
+  if (argc != 2 && argc != 3) {
+    fprintf(stderr, "usage: ext_wamr_test reactor.wasm [reverse-reactor.wasm]\n");
     return 2;
   }
   size_t n;
@@ -333,6 +463,7 @@ int main(int argc, char **argv) {
   ext_host_close(host);
   ext_host_destroy(host);
   free(descriptor.data);
+  if (argc > 2) test_reverse(module, n, argv[2]);
   printf("ok\n");
   return 0;
 }

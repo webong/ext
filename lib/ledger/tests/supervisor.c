@@ -147,10 +147,10 @@ static int graph_is(void *arg) {
   return ok;
 }
 
-static char *start(ext_ledger_supervisor *s, const char *spec, const ext_ledger_supervisor_hooks *hooks, int *rc) {
+static char *start(ext_ledger_supervisor *s, const char *spec, const char *secrets, int *rc) {
   char *text = NULL;
   size_t len = 0;
-  *rc = ext_ledger_supervisor_start(s, NULL, spec, strlen(spec), hooks, &text, &len);
+  *rc = ext_ledger_supervisor_start(s, NULL, spec, strlen(spec), secrets, secrets ? strlen(secrets) : 0, &text, &len);
   if (*rc) return NULL;
   lj_value *v = lj_parse(text, len, NULL);
   ext_ledger_free(text);
@@ -212,15 +212,6 @@ static void crash_restart_and_bounded_logs(void) {
 }
 
 static const char secret_value[] = "never-project-this-value";
-static int resolve(void *arg, const char *scope, const char *id, char *buf, size_t cap, size_t *len) {
-  (void)arg;
-  if (strcmp(scope, "project:demo") != 0 || strcmp(id, "db-password") != 0) return EXT_LEDGER_NOT_FOUND;
-  *len = sizeof secret_value - 1;
-  if (cap < *len) return EXT_LEDGER_TOO_LARGE;
-  memcpy(buf, secret_value, *len);
-  return 0;
-}
-
 static void lifecycle_facts_and_secret_references(void) {
   ext_ledger *store = memory();
   size_t blen = 0;
@@ -230,21 +221,23 @@ static void lifecycle_facts_and_secret_references(void) {
   free(binary);
   ext_ledger_supervisor_options o = {0};
   o.log_limit = 128;
-  o.resolve_secret = resolve;
   ext_ledger_supervisor *s = NULL;
   CHECK(ext_ledger_supervisor_open(store, &o, &s) == 0, "open");
   char spec[4096], *cmd = json_self();
   snprintf(spec, sizeof spec,
            "{\"artifact\":{\"id\":\"artifact-1\",\"revision\":\"rev-3\",\"checksum\":\"sha256:%s\"},\"command\":%s,\"args\":[\"helper\"],"
            "\"environment\":{\"EXT_SUPERVISOR_ECHO_SECRET\":\"1\"},"
-           "\"secret_references\":{\"EXAMPLE_SECRET\":{\"scope\":\"project:demo\",\"id\":\"db-password\"}},"
            "\"endpoints\":[{\"id\":\"ipc-1\",\"address\":\"unix:///tmp/example.sock\",\"transport\":\"unix\"},{\"id\":\"ipc-2\",\"address\":\"tcp://127.0.0.1:7000\",\"transport\":\"tcp\"}],"
            "\"connections\":[{\"id\":\"link-1\",\"source_endpoint\":\"ipc-1\",\"target_endpoint\":\"ipc-2\",\"metadata\":{\"channel\":\"control\"}}],"
            "\"dependencies\":[\"database\"]}",
            sum, cmd);
   int rc;
-  char *id = start(s, spec, NULL, &rc);
+  char secrets[128];
+  snprintf(secrets, sizeof secrets, "{\"EXAMPLE_SECRET\":\"%s\"}", secret_value);
+  char *id = start(s, spec, secrets, &rc);
   CHECK(id, "start: %s", ext_ledger_code_name(rc));
+  CHECK(!start(s, spec, "{\"A=B\":\"x\"}", &rc) && rc == EXT_LEDGER_INVALID, "a secret name with = was accepted");
+  CHECK(!start(s, spec, "{\"A\":1}", &rc) && rc == EXT_LEDGER_INVALID, "a secret that is not a string was accepted");
   if (id) {
     watch w = {s, store, id, "stopped", -1};
     CHECK(wait_for(instance_is, &w), "never stopped");
@@ -272,27 +265,24 @@ static void lifecycle_facts_and_secret_references(void) {
   ext_ledger_close(store);
 }
 
-static int health_ok(void *arg, const ext_ledger_context *ctx) {
-  (void)arg;
-  (void)ctx;
-  return 0;
-}
-
 static void stop_and_health_projection(void) {
   ext_ledger *store = memory();
   ext_ledger_supervisor *s = NULL;
   CHECK(ext_ledger_supervisor_open(store, NULL, &s) == 0, "open");
   char spec[4096], *cmd = json_self();
   snprintf(spec, sizeof spec, "{\"artifact\":{\"id\":\"long\",\"revision\":\"1\"},\"command\":%s,\"args\":[\"helper\"],\"environment\":{\"EXT_SUPERVISOR_HOLD\":\"1\"}}", cmd);
-  ext_ledger_supervisor_hooks hooks = {NULL, health_ok, NULL, NULL};
   int rc;
-  char *id = start(s, spec, &hooks, &rc);
+  char *id = start(s, spec, NULL, &rc);
   CHECK(id, "start: %s", ext_ledger_code_name(rc));
   if (id) {
     watch w = {s, store, id, "ready", -1};
     CHECK(wait_for(instance_is, &w), "never ready");
     int healthy = 0;
-    CHECK(ext_ledger_supervisor_health(s, NULL, id, &healthy) == 0 && healthy, "health");
+    CHECK(ext_ledger_supervisor_health(s, id, 1, &healthy) == 0 && healthy, "health");
+    CHECK(ext_ledger_supervisor_health(s, id, 0, &healthy) == 0 && !healthy, "a failed check is healthy");
+    lj_value *v0 = process_vertex(store, id);
+    CHECK(v0 && strcmp(field(lj_get(v0, "attributes"), "health"), "unhealthy") == 0, "a failed check was not projected");
+    lj_free(v0);
     int64_t began = ll_now_unix_ms();
     CHECK(ext_ledger_supervisor_stop(s, NULL, id) == 0, "stop");
     CHECK(ll_now_unix_ms() - began < 5000, "stop took the force timeout");
@@ -415,103 +405,100 @@ static void invalid_specs(void) {
   ext_ledger_close(store);
 }
 
-typedef struct {
-  ll_mutex *mu;
-  int ready_entered, handshake_entered, release;
-} gate;
+static int64_t pid_of(const lj_value *instance) { return (int64_t)number(instance, "pid"); }
 
-static int endpoint_ready(void *arg, const ext_ledger_context *ctx, const char *inst, size_t len) {
-  gate *g = arg;
-  CHECK(inst && len && strstr(inst, "\"pid\":"), "the hook gets the instance");
-  ll_mutex_lock(g->mu);
-  g->ready_entered = 1;
-  ll_mutex_unlock(g->mu);
-  for (;;) {
-    ll_mutex_lock(g->mu);
-    int released = g->release;
-    ll_mutex_unlock(g->mu);
-    if (released) return 0;
-    if (ll_ctx_check(ctx)) return ll_ctx_check(ctx);
-    ll_sleep_ms(5);
-  }
+static lj_value *await_state(ext_ledger_supervisor *s, const char *id, const char *states, int *rc) {
+  ext_ledger_context ctx = {0, ll_now_unix_ms() + 10000};
+  char *text = NULL;
+  size_t len = 0;
+  *rc = ext_ledger_supervisor_await(s, &ctx, id, states, &text, &len);
+  return *rc ? NULL : parse(text, len);
 }
 
-static int handshake(void *arg, const ext_ledger_context *ctx, const char *inst, size_t len) {
-  (void)ctx;
-  (void)inst;
-  (void)len;
-  gate *g = arg;
-  ll_mutex_lock(g->mu);
-  g->handshake_entered = 1;
-  ll_mutex_unlock(g->mu);
-  return 0;
-}
-
-static int entered(void *arg) {
-  gate *g = arg;
-  ll_mutex_lock(g->mu);
-  int e = g->ready_entered;
-  ll_mutex_unlock(g->mu);
-  return e;
-}
-
-static void endpoint_and_handshake_gate_readiness(void) {
+/* The caller checks endpoints and the handshake, then reports; until then the
+ * instance is running, unready and unhealthy. */
+static void caller_reports_readiness(void) {
   ext_ledger *store = memory();
   ext_ledger_supervisor *s = NULL;
   CHECK(ext_ledger_supervisor_open(store, NULL, &s) == 0, "open");
-  gate g = {ll_mutex_new(), 0, 0, 0};
-  ext_ledger_supervisor_hooks hooks = {&g, NULL, endpoint_ready, handshake};
   char spec[4096], *cmd = json_self();
-  snprintf(spec, sizeof spec, "{\"artifact\":{\"id\":\"ipc\",\"revision\":\"1\"},\"command\":%s,\"args\":[\"helper\"],\"environment\":{\"EXT_SUPERVISOR_HOLD\":\"1\"}}", cmd);
+  snprintf(spec, sizeof spec,
+           "{\"artifact\":{\"id\":\"ipc\",\"revision\":\"1\"},\"command\":%s,\"args\":[\"helper\"],\"environment\":{\"EXT_SUPERVISOR_HOLD\":\"1\"},"
+           "\"await_readiness\":true}",
+           cmd);
   int rc;
-  char *id = start(s, spec, &hooks, &rc);
+  char *id = start(s, spec, NULL, &rc);
   CHECK(id, "start: %s", ext_ledger_code_name(rc));
   if (id) {
-    CHECK(wait_for(entered, &g), "the readiness hook was not called");
-    CHECK(!g.handshake_entered, "the handshake ran before endpoint readiness");
+    lj_value *running = await_state(s, id, "running", &rc);
+    CHECK(running && pid_of(running) > 0, "never running: %s", ext_ledger_code_name(rc));
+    int64_t pid = running ? pid_of(running) : 0;
+    lj_free(running);
+    ll_sleep_ms(100);
+    lj_value *i = instance(s, id);
+    CHECK(i && strcmp(field(i, "state"), "running") == 0, "ready before the caller reported it");
+    lj_free(i);
     int healthy = 1;
-    CHECK(ext_ledger_supervisor_health(s, NULL, id, &healthy) == 0 && !healthy, "an unready process is healthy");
-    ll_mutex_lock(g.mu);
-    g.release = 1;
-    ll_mutex_unlock(g.mu);
-    watch w = {s, store, id, "ready", -1};
-    CHECK(wait_for(instance_is, &w), "never ready");
-    CHECK(g.handshake_entered, "the protocol handshake was skipped");
-    CHECK(ext_ledger_supervisor_health(s, NULL, id, &healthy) == 0 && healthy, "a ready process is unhealthy");
+    CHECK(ext_ledger_supervisor_health(s, id, 1, &healthy) == 0 && !healthy, "an unready process is healthy");
+    CHECK(ext_ledger_supervisor_ready(s, id, pid + 1000000, 1) == EXT_LEDGER_CHANGED, "a report for another launch was taken");
+    CHECK(ext_ledger_supervisor_ready(s, id, pid, 1) == 0, "report ready");
+    lj_value *ready = await_state(s, id, "ready", &rc);
+    CHECK(ready, "never ready: %s", ext_ledger_code_name(rc));
+    lj_free(ready);
+    CHECK(ext_ledger_supervisor_ready(s, id, pid, 1) == EXT_LEDGER_CHANGED, "a second report was taken");
+    CHECK(ext_ledger_supervisor_health(s, id, 1, &healthy) == 0 && healthy, "a ready process is unhealthy");
     CHECK(ext_ledger_supervisor_stop(s, NULL, id) == 0, "stop");
-    CHECK(ext_ledger_supervisor_health(s, NULL, id, &healthy) == 0 && !healthy, "a stopped process is healthy");
+    CHECK(ext_ledger_supervisor_health(s, id, 1, &healthy) == 0 && !healthy, "a stopped process is healthy");
+    CHECK(await_state(s, id, "ready", &rc) == NULL && rc == EXT_LEDGER_CHANGED, "await on a finished instance: %s", ext_ledger_code_name(rc));
+  }
+  free(id);
+  /* Readiness is only for a spec that awaits it. */
+  snprintf(spec, sizeof spec, "{\"artifact\":{\"id\":\"plain\",\"revision\":\"1\"},\"command\":%s,\"args\":[\"helper\"],\"environment\":{\"EXT_SUPERVISOR_HOLD\":\"1\"}}", cmd);
+  id = start(s, spec, NULL, &rc);
+  if (id) {
+    lj_value *ready = await_state(s, id, "ready", &rc);
+    CHECK(ready, "a spec without await_readiness is ready on start");
+    CHECK(ext_ledger_supervisor_ready(s, id, ready ? pid_of(ready) : 0, 1) == EXT_LEDGER_INVALID, "a report for a spec that does not await it");
+    lj_free(ready);
   }
   free(id);
   free(cmd);
   ext_ledger_supervisor_close(s);
-  ll_mutex_free(g.mu);
   ext_ledger_close(store);
-}
-
-static int failing_ready(void *arg, const ext_ledger_context *ctx, const char *inst, size_t len) {
-  (void)arg;
-  (void)ctx;
-  (void)inst;
-  (void)len;
-  return EXT_LEDGER_UNAVAILABLE;
 }
 
 static void failed_readiness_crashes(void) {
   ext_ledger *store = memory();
   ext_ledger_supervisor *s = NULL;
   CHECK(ext_ledger_supervisor_open(store, NULL, &s) == 0, "open");
-  ext_ledger_supervisor_hooks hooks = {NULL, NULL, failing_ready, NULL};
   char spec[4096], *cmd = json_self();
-  snprintf(spec, sizeof spec, "{\"artifact\":{\"id\":\"unready\",\"revision\":\"1\"},\"command\":%s,\"args\":[\"helper\"],\"environment\":{\"EXT_SUPERVISOR_HOLD\":\"1\"}}", cmd);
+  snprintf(spec, sizeof spec,
+           "{\"artifact\":{\"id\":\"unready\",\"revision\":\"1\"},\"command\":%s,\"args\":[\"helper\"],\"environment\":{\"EXT_SUPERVISOR_HOLD\":\"1\"},"
+           "\"await_readiness\":true}",
+           cmd);
   int rc;
-  char *id = start(s, spec, &hooks, &rc);
+  char *id = start(s, spec, NULL, &rc);
   CHECK(id, "start: %s", ext_ledger_code_name(rc));
   if (id) {
+    lj_value *running = await_state(s, id, "running", &rc);
+    CHECK(running && ext_ledger_supervisor_ready(s, id, pid_of(running), 0) == 0, "report not ready");
+    lj_free(running);
     watch w = {s, store, id, "crashed", 1};
     CHECK(wait_for(instance_is, &w), "a failed readiness never crashed");
     lj_value *i = instance(s, id);
     CHECK(i && strcmp(field(i, "last_error"), "readiness or handshake failed") == 0, "last_error");
     lj_free(i);
+  }
+  free(id);
+  /* No report before the timeout crashes it too. */
+  snprintf(spec, sizeof spec,
+           "{\"artifact\":{\"id\":\"silent\",\"revision\":\"1\"},\"command\":%s,\"args\":[\"helper\"],\"environment\":{\"EXT_SUPERVISOR_HOLD\":\"1\"},"
+           "\"await_readiness\":true,\"readiness_timeout_ms\":200}",
+           cmd);
+  id = start(s, spec, NULL, &rc);
+  if (id) {
+    watch w = {s, store, id, "crashed", 1};
+    CHECK(wait_for(instance_is, &w), "an unreported readiness never timed out");
   }
   free(id);
   free(cmd);
@@ -684,7 +671,7 @@ static void stop_terminates_descendants(void) {
 
 static void (*const cases[])(void) = {
     crash_restart_and_bounded_logs, lifecycle_facts_and_secret_references, stop_and_health_projection, instance_never_leads_graph,
-    checksum_rejected_before_start, invalid_specs, endpoint_and_handshake_gate_readiness, failed_readiness_crashes,
+    checksum_rejected_before_start, invalid_specs, caller_reports_readiness, failed_readiness_crashes,
     expired_lease_marks_orphan_and_blocks_start, active_lease_rejects_second_supervisor, terminal_instance_retention_bounds_graph,
     stop_terminates_descendants,
 };

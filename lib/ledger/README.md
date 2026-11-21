@@ -83,9 +83,18 @@ code's number; a usage error exits with 64. A JSON argument of `-` is read from 
 `ext_ledger_supervisor_open` takes a store and runs local component processes, projecting what
 it sees of each into the `ext.runtime` namespace: the artifact, the process instance, the runtime
 that supervises it, and its endpoints, connections and dependencies. It decides nothing about
-trust or authority. A spec is JSON (see the header); hooks for readiness, the protocol handshake
-and health are C callbacks that get an `ext_ledger_context` carrying their deadline, and never a
-secret value.
+trust or authority. A spec is JSON (see the header).
+
+The supervisor never calls back into its caller, so every language drives it the same way,
+including one that cannot take a call from a C thread (Go through purego):
+
+- **Readiness is reported.** With `await_readiness`, each launch stays `running` until the caller,
+  having checked its endpoints and protocol handshake, calls `ext_ledger_supervisor_ready` with the
+  launch's pid; no report within `readiness_timeout_ms` crashes it.
+- **Health is reported.** `ext_ledger_supervisor_health` records the caller's check, healthy only
+  while the instance is ready and its process alive.
+- **Waiting needs no polling.** `ext_ledger_supervisor_await` blocks until an instance reaches one
+  of the states named, or the context ends.
 
 - **Process trees.** A child leads its own process group (POSIX) or starts suspended inside a job
   object that ends every process in it (Windows), so stopping it, or its exit, ends what it started.
@@ -94,8 +103,9 @@ secret value.
   Stopping sends `SIGTERM`, then `SIGKILL` after 5 s.
 - **Graph first.** A state change is applied to the store before the instance's lock is released,
   so a state seen through `ext_ledger_supervisor_instance` is already in the graph.
-- **Secrets.** A secret reference is resolved by the caller's callback at each launch and goes only
-  into the child's environment; the output of a process given secrets is discarded.
+- **Secrets.** The caller resolves secrets and passes them to `ext_ledger_supervisor_start`; they
+  go only into each launch's environment, are never projected and are wiped when the instance is
+  freed, and the output of a process given any is discarded.
 - **Leases and orphans.** An active instance's fact carries `lease_until`, renewed every third of
   the lease. A supervisor opened while another of the same runtime holds a live lease answers
   `EXT_LEDGER_BUSY`; processes whose lease expired are orphans, which block new starts until

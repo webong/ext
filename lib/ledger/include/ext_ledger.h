@@ -179,36 +179,21 @@ EXT_LEDGER_API const char *ext_ledger_recorder_vocabulary(void);
  * it. A process leads its own process group (POSIX) or job object (Windows),
  * so stopping it stops what it started. A supervisor holds a lease on each
  * active instance in the store; a later supervisor of the same runtime finds
- * processes whose lease expired as orphans. iOS answers EXT_LEDGER_UNSUPPORTED
- * when a process would start. */
+ * processes whose lease expired as orphans. On iOS, which lets no application
+ * start a process, every launch crashes as a failed start. */
 typedef struct ext_ledger_supervisor ext_ledger_supervisor;
 
-/* Resolves an opaque secret reference into buf. Returns 0 with *len set, or
- * EXT_LEDGER_TOO_LARGE with *len set to the size needed, when the supervisor
- * calls again with a buffer that large. Any other code fails the start. */
-typedef int (*ext_ledger_secret_fn)(void *arg, const char *scope, const char *id, char *buf, size_t cap, size_t *len);
-
+/* The supervisor never calls back into its caller: what a caller checks
+ * (readiness, health) it reports, and secrets it passes in. So any language,
+ * including one that cannot take a call from a C thread, drives it the same way. */
 typedef struct {
-  ext_ledger_secret_fn resolve_secret; /* NULL: specs with secret references are refused */
-  void *secret_arg;
-  int64_t log_limit;       /* bytes of output kept per instance; 0: 65536 */
-  const char *runtime_id;  /* NULL or "": "local" */
-  int require_checksum;    /* refuse an artifact without a checksum */
+  int64_t log_limit;         /* bytes of output kept per instance; 0: 65536 */
+  const char *runtime_id;    /* NULL or "": "local" */
+  int require_checksum;      /* refuse an artifact without a checksum */
   const char *orphan_policy; /* "mark" (NULL) blocks starts until resolved; "terminate" ends identity-matched trees */
-  int64_t lease_ms;        /* 0: 15000; at least 3 */
-  int64_t retain_terminal; /* stopped or crashed instances kept; 0: 256 */
+  int64_t lease_ms;          /* 0: 15000; at least 3 */
+  int64_t retain_terminal;   /* stopped or crashed instances kept; 0: 256 */
 } ext_ledger_supervisor_options;
-
-/* Hooks of one instance; each is optional and gets no secret value. ctx carries
- * the readiness deadline (or the caller's, for health) and is canceled when the
- * instance stops. instance is the Instance JSON. They run on the supervisor's
- * threads, and arg must stay valid until the instance has stopped. */
-typedef struct {
-  void *arg;
-  int (*health)(void *arg, const ext_ledger_context *ctx);
-  int (*endpoint_ready)(void *arg, const ext_ledger_context *ctx, const char *instance, size_t len);
-  int (*handshake)(void *arg, const ext_ledger_context *ctx, const char *instance, size_t len);
-} ext_ledger_supervisor_hooks;
 
 /* Registers ext.runtime on store and recovers what an earlier supervisor of the
  * runtime left: EXT_LEDGER_BUSY when one still holds a live lease. The store
@@ -219,22 +204,36 @@ EXT_LEDGER_API void ext_ledger_supervisor_close(ext_ledger_supervisor *sup);
 
 /* Starts a process from spec, a JSON object:
  *   {"artifact":{"id","revision","checksum":"sha256:<hex>"},"command","args":[],
- *    "dir","environment":{},"secret_references":{"NAME":{"scope","id"}},
+ *    "dir","environment":{},
  *    "endpoints":[{"id","address","transport","direction"}],
  *    "connections":[{"id","source_endpoint","target_endpoint","metadata":{}}],
  *    "dependencies":[],"restart":{"max_attempts","initial_delay_ms","max_delay_ms"},
- *    "readiness_timeout_ms"}
- * and returns its Instance JSON. A spec it refuses is EXT_LEDGER_INVALID, an
- * artifact whose checksum differs EXT_LEDGER_DENIED, and an unresolved orphan
- * EXT_LEDGER_BUSY. hooks may be NULL. The output of a process given secrets is
- * discarded. */
+ *    "await_readiness":false,"readiness_timeout_ms"}
+ * and returns its Instance JSON. secrets (NULL for none) is a JSON object of
+ * environment names and values the caller resolved: they go into each launch's
+ * environment only, are never projected, and the output of a process given
+ * any is discarded. With await_readiness, each launch stays "running" until
+ * the caller reports it with ext_ledger_supervisor_ready, and crashes when
+ * readiness_timeout_ms (default 10000) passes first. A spec it refuses is
+ * EXT_LEDGER_INVALID, an artifact whose checksum differs EXT_LEDGER_DENIED,
+ * and an unresolved orphan EXT_LEDGER_BUSY. */
 EXT_LEDGER_API int ext_ledger_supervisor_start(ext_ledger_supervisor *sup, const ext_ledger_context *ctx, const char *spec, size_t len,
-                                               const ext_ledger_supervisor_hooks *hooks, char **instance, size_t *instance_len);
+                                               const char *secrets, size_t secrets_len, char **instance, size_t *instance_len);
+/* Reports whether the launch with this pid (the Instance's) is ready: endpoint
+ * readiness and the protocol handshake are the caller's to check. EXT_LEDGER_CHANGED
+ * when that launch is no longer waiting. */
+EXT_LEDGER_API int ext_ledger_supervisor_ready(ext_ledger_supervisor *sup, const char *id, int64_t pid, int ready);
+/* Waits until the instance is in one of states (comma-separated, such as
+ * "running,ready"), or ctx ends, and returns its Instance JSON (out may be
+ * NULL). EXT_LEDGER_CHANGED when it has finished in another state. */
+EXT_LEDGER_API int ext_ledger_supervisor_await(ext_ledger_supervisor *sup, const ext_ledger_context *ctx, const char *id, const char *states,
+                                               char **out, size_t *out_len);
 /* Stops an instance and waits until it has stopped, or ctx ends. */
 EXT_LEDGER_API int ext_ledger_supervisor_stop(ext_ledger_supervisor *sup, const ext_ledger_context *ctx, const char *id);
-/* Checks a ready instance with its health hook; *healthy is 0 or 1. A failing
- * hook's code is returned after unhealthy is recorded. */
-EXT_LEDGER_API int ext_ledger_supervisor_health(ext_ledger_supervisor *sup, const ext_ledger_context *ctx, const char *id, int *healthy);
+/* Records the health of an instance from the caller's check (check is 1 when
+ * it passed, 0 when it failed): healthy only when it passed and the instance
+ * is ready and its process alive. *healthy is 0 or 1. */
+EXT_LEDGER_API int ext_ledger_supervisor_health(ext_ledger_supervisor *sup, const char *id, int check, int *healthy);
 EXT_LEDGER_API int ext_ledger_supervisor_instance(ext_ledger_supervisor *sup, const char *id, char **out, size_t *out_len);
 /* Every instance kept, sorted by ID, as a JSON array. */
 EXT_LEDGER_API int ext_ledger_supervisor_instances(ext_ledger_supervisor *sup, char **out, size_t *out_len);

@@ -25,8 +25,6 @@ typedef struct {
 
 struct ext_ledger_supervisor {
   ext_ledger *store;
-  ext_ledger_secret_fn resolve;
-  void *secret_arg;
   int64_t log_limit, lease_ms, retain;
   int require_checksum, terminate_orphans;
   char *runtime_id;
@@ -43,13 +41,16 @@ struct ext_ledger_supervisor {
 struct sv_managed {
   ext_ledger_supervisor *s;
   char id[33];
-  lj_value *spec; /* normalised: artifact, endpoints, connections, dependencies, environment, secret_references, args */
+  lj_value *spec;    /* normalised: artifact, endpoints, connections, dependencies, environment, args */
+  lj_value *secrets; /* NAME -> value for every launch; never projected, wiped when freed */
   char *command, *path, *dir;
   int64_t max_attempts, initial_delay, max_delay, readiness_timeout;
-  ext_ledger_supervisor_hooks hooks;
+  int await_ready;      /* readiness is the caller's to report */
+  int64_t ready_pid;    /* the launch a report is for */
+  int ready_result;     /* 0 none yet, 1 ready, 2 not ready */
   ll_mutex *mu;
   ll_cond *cv;
-  ext_ledger_context ctx; /* canceled when stopped; a deadline only while readiness is checked */
+  ext_ledger_context ctx; /* canceled when stopped */
   const char *state, *health, *last_error;
   int64_t pid, crash_count;
   char identity[65];
@@ -199,23 +200,8 @@ static int normalise(const ext_ledger_supervisor *s, const lj_value *in, lj_valu
     }
   }
   bad |= set(n, "environment", env);
-  lj_value *secrets = rec_obj();
-  if (!rc && (v = lj_get(in, "secret_references")) && v->type != LJ_NULL) {
-    if (v->type != LJ_OBJECT) rc = EXT_LEDGER_INVALID;
-    for (size_t i = 0; !rc && i < v->u.object.len; i++) {
-      const lj_member *m = &v->u.object.members[i];
-      /* secret environment entries require an opaque scoped reference */
-      if (!m->key.len || memchr(m->key.ptr, '=', m->key.len) || m->value->type != LJ_OBJECT || !nonempty(m->value, "scope") || !nonempty(m->value, "id")) {
-        rc = EXT_LEDGER_INVALID;
-        break;
-      }
-      lj_value *r = rec_obj();
-      bad |= set(r, "scope", rec_str(str_field(m->value, "scope"))) | set(r, "id", rec_str(str_field(m->value, "id"))) |
-             lj_object_set(secrets, m->key.ptr, m->key.len, r);
-    }
-    if (!rc && secrets->u.object.len && !s->resolve) rc = EXT_LEDGER_INVALID; /* secret references require a secret resolver */
-  }
-  bad |= set(n, "secret_references", secrets);
+  if (!rc && (v = lj_get(in, "secret_references")) && v->type != LJ_NULL) rc = EXT_LEDGER_INVALID; /* secrets are given to start */
+  if (!rc && (v = lj_get(in, "await_readiness")) && v->type != LJ_NULL && v->type != LJ_BOOL) rc = EXT_LEDGER_INVALID;
   /* IPC endpoints require unique IDs, addresses, and transports. */
   lj_value *endpoints = lj_new(LJ_ARRAY);
   if (!rc && (v = lj_get(in, "endpoints")) && v->type != LJ_NULL) {
@@ -324,8 +310,17 @@ static int verify_artifact(const char *path, const char *expected) {
 
 /* ---- instances ---- */
 
+static void wipe(lj_value *secrets) {
+  for (size_t i = 0; secrets && i < secrets->u.object.len; i++) {
+    lj_value *v = secrets->u.object.members[i].value;
+    memset(v->u.string.ptr, 0, v->u.string.len);
+  }
+  lj_free(secrets);
+}
+
 static void managed_free(sv_managed *m) {
   lj_free(m->spec);
+  wipe(m->secrets);
   free(m->command);
   free(m->path);
   free(m->dir);
@@ -538,6 +533,7 @@ static void prune_terminals(ext_ledger_supervisor *s);
  * and rewrites the whole namespace, so it runs after the lock is released. */
 static int project_unlock(sv_managed *m) {
   int rc = project_locked(m);
+  ll_cond_broadcast(m->cv); /* for ext_ledger_supervisor_await */
   int terminal = m->state == ST_STOPPED || m->state == ST_CRASHED;
   ll_mutex_unlock(m->mu);
   if (!rc && terminal) prune_terminals(m->s);
@@ -583,15 +579,15 @@ static int64_t backoff(const sv_managed *m, int64_t attempt) {
 }
 
 /* The environment of a launch: this process's, then the spec's, then the
- * resolved secrets; a later entry replaces an earlier one of the same name. */
+ * secrets; a later entry replaces an earlier one of the same name. */
 static int launch_environment(sv_managed *m, char ***out) {
   *out = NULL;
   size_t n = 0;
   char **env = ll_environ_copy(&n);
   if (!env) return EXT_LEDGER_IO;
-  const lj_value *extra = lj_get(m->spec, "environment"), *secrets = lj_get(m->spec, "secret_references");
-  size_t cap = n + extra->u.object.len + secrets->u.object.len + 1;
-  char **all = realloc(env, cap * sizeof *all);
+  const lj_value *extra = lj_get(m->spec, "environment");
+  size_t nsecrets = m->secrets ? m->secrets->u.object.len : 0;
+  char **all = realloc(env, (n + extra->u.object.len + nsecrets + 1) * sizeof *all);
   if (!all) {
     for (size_t i = 0; i < n; i++) free(env[i]);
     free(env);
@@ -599,39 +595,14 @@ static int launch_environment(sv_managed *m, char ***out) {
   }
   env = all;
   int rc = 0;
-  for (size_t i = 0; !rc && i < extra->u.object.len; i++) {
-    const lj_member *e = &extra->u.object.members[i];
-    char *kv = join3(e->key.ptr, "=", e->value->u.string.ptr);
-    if (!kv) rc = EXT_LEDGER_IO;
-    else env[n++] = kv;
-  }
-  for (size_t i = 0; !rc && i < secrets->u.object.len; i++) {
-    const lj_member *e = &secrets->u.object.members[i];
-    size_t cap_ = 256, len = 0;
-    char *buf = NULL;
-    for (int tries = 0; !rc && tries < 4; tries++) {
-      char *grown = realloc(buf, cap_ + 1);
-      if (!grown) {
-        rc = EXT_LEDGER_IO;
-        break;
-      }
-      buf = grown;
-      int r = m->s->resolve(m->s->secret_arg, rec_field(e->value, "scope"), rec_field(e->value, "id"), buf, cap_, &len);
-      if (r == 0 && len <= cap_) break;
-      if (r == EXT_LEDGER_TOO_LARGE && len > cap_ && tries < 3) {
-        cap_ = len;
-        continue;
-      }
-      rc = r ? r : EXT_LEDGER_IO;
-    }
-    if (!rc) {
-      buf[len] = 0;
-      char *kv = join3(e->key.ptr, "=", buf);
+  for (int pass = 0; pass < 2; pass++) {
+    const lj_value *o = pass ? m->secrets : extra;
+    for (size_t i = 0; !rc && o && i < o->u.object.len; i++) {
+      const lj_member *e = &o->u.object.members[i];
+      char *kv = join3(e->key.ptr, "=", e->value->u.string.ptr);
       if (!kv) rc = EXT_LEDGER_IO;
       else env[n++] = kv;
     }
-    if (buf) memset(buf, 0, cap_);
-    free(buf);
   }
   /* Later entries win: drop each earlier entry whose name a later one repeats. */
   size_t kept = 0;
@@ -667,25 +638,29 @@ static void free_environment(char **env) {
   free(env);
 }
 
+/* Waits for the caller's report on this launch (ext_ledger_supervisor_ready),
+ * for at most the readiness timeout; 0 when it reported the process ready. */
 static int wait_readiness(sv_managed *m) {
-  if (!m->hooks.endpoint_ready && !m->hooks.handshake) return 0;
-  int64_t timeout = m->readiness_timeout > 0 ? m->readiness_timeout : 10000;
+  if (!m->await_ready) return 0;
+  int64_t timeout = m->readiness_timeout > 0 ? m->readiness_timeout : 10000, until = ll_now_unix_ms() + timeout;
   ll_mutex_lock(m->mu);
-  m->ctx.deadline_unix_ms = ll_now_unix_ms() + timeout;
-  char *inst = NULL;
-  size_t len = 0;
   int64_t pid = m->pid;
-  int rc = write_out(instance_value(m), &inst, &len);
+  int rc = 0;
+  while (!(m->ready_pid == pid && m->ready_result)) {
+    if (canceled(m)) {
+      rc = EXT_LEDGER_CANCELED;
+      break;
+    }
+    int64_t left = until - ll_now_unix_ms();
+    if (left <= 0) {
+      rc = EXT_LEDGER_TIMEOUT;
+      break;
+    }
+    ll_cond_wait(m->cv, m->mu, left < 20 ? left : 20);
+  }
+  if (!rc && m->ready_result != 1) rc = EXT_LEDGER_UNAVAILABLE;
   ll_mutex_unlock(m->mu);
-  if (!rc && m->hooks.endpoint_ready) rc = m->hooks.endpoint_ready(m->hooks.arg, &m->ctx, inst, len);
-  if (!rc) rc = ll_ctx_check(&m->ctx);
-  if (!rc && m->hooks.handshake) rc = m->hooks.handshake(m->hooks.arg, &m->ctx, inst, len);
-  if (!rc) rc = ll_ctx_check(&m->ctx);
   if (!rc && !ll_proc_alive(pid)) rc = EXT_LEDGER_UNAVAILABLE; /* process exited before readiness */
-  free(inst);
-  ll_mutex_lock(m->mu);
-  m->ctx.deadline_unix_ms = 0;
-  ll_mutex_unlock(m->mu);
   return rc;
 }
 
@@ -725,7 +700,7 @@ static void run(void *arg) {
     }
     char **env;
     if (launch_environment(m, &env)) {
-      record_failure(m, "secret resolution failed");
+      record_failure(m, "process start failed");
       break;
     }
     const lj_value *args = lj_get(m->spec, "args");
@@ -739,7 +714,7 @@ static void run(void *arg) {
     for (size_t i = 0; i < args->u.array.len; i++) argv[i + 1] = args->u.array.items[i]->u.string.ptr;
     /* Any process given resolved secrets can print them. Discard its output
      * entirely; exact-value redaction cannot make arbitrary output safe. */
-    int secret = lj_get(m->spec, "secret_references")->u.object.len > 0;
+    int secret = m->secrets && m->secrets->u.object.len > 0;
     ll_proc_spec ps = {m->path, argv, m->dir, (const char *const *)env, secret ? NULL : sink, m};
     if (canceled(m)) {
       free(argv);
@@ -1106,8 +1081,6 @@ int ext_ledger_supervisor_open(ext_ledger *store, const ext_ledger_supervisor_op
   ext_ledger_supervisor *s = calloc(1, sizeof *s);
   if (!s) return EXT_LEDGER_IO;
   s->store = store;
-  s->resolve = o.resolve_secret;
-  s->secret_arg = o.secret_arg;
   s->log_limit = o.log_limit;
   s->lease_ms = o.lease_ms;
   s->retain = o.retain_terminal;
@@ -1127,8 +1100,29 @@ int ext_ledger_supervisor_open(ext_ledger *store, const ext_ledger_supervisor_op
   return 0;
 }
 
-int ext_ledger_supervisor_start(ext_ledger_supervisor *s, const ext_ledger_context *ctx, const char *spec, size_t len,
-                                const ext_ledger_supervisor_hooks *hooks, char **instance, size_t *instance_len) {
+/* The secrets object: names as the environment takes them, string values. */
+static int parse_secrets(const char *text, size_t len, lj_value **out) {
+  *out = NULL;
+  if (!text || !len) return 0;
+  int oom = 0;
+  lj_value *v = lj_parse(text, len, &oom);
+  if (!v) return oom ? EXT_LEDGER_IO : EXT_LEDGER_INVALID;
+  int ok = v->type == LJ_OBJECT;
+  for (size_t i = 0; ok && i < v->u.object.len; i++) {
+    const lj_member *m = &v->u.object.members[i];
+    ok = m->key.len && !memchr(m->key.ptr, '=', m->key.len) && !memchr(m->key.ptr, 0, m->key.len) && m->value->type == LJ_STRING &&
+         !memchr(m->value->u.string.ptr, 0, m->value->u.string.len);
+  }
+  if (!ok) {
+    wipe(v);
+    return EXT_LEDGER_INVALID;
+  }
+  *out = v;
+  return 0;
+}
+
+int ext_ledger_supervisor_start(ext_ledger_supervisor *s, const ext_ledger_context *ctx, const char *spec, size_t len, const char *secrets,
+                                size_t secrets_len, char **instance, size_t *instance_len) {
   if (instance) *instance = NULL;
   if (instance_len) *instance_len = 0;
   if (!s || !spec) return EXT_LEDGER_INVALID;
@@ -1138,7 +1132,10 @@ int ext_ledger_supervisor_start(ext_ledger_supervisor *s, const ext_ledger_conte
   lj_value *in = lj_parse(spec, len, &oom), *n = NULL;
   if (!in) return oom ? EXT_LEDGER_IO : EXT_LEDGER_INVALID;
   rc = normalise(s, in, &n);
+  lj_value *sec = NULL;
+  if (!rc) rc = parse_secrets(secrets, secrets_len, &sec);
   sv_managed *m = rc ? NULL : calloc(1, sizeof *m);
+  if (!m) wipe(sec);
   if (!rc && !m) rc = EXT_LEDGER_IO;
   if (!rc) {
     const lj_value *restart = lj_get(in, "restart");
@@ -1151,7 +1148,9 @@ int ext_ledger_supervisor_start(ext_ledger_supervisor *s, const ext_ledger_conte
     m->initial_delay = restart ? int_field(restart, "initial_delay_ms") : 0;
     m->max_delay = restart ? int_field(restart, "max_delay_ms") : 0;
     m->readiness_timeout = int_field(in, "readiness_timeout_ms");
-    if (hooks) m->hooks = *hooks;
+    m->secrets = sec;
+    const lj_value *await = lj_get(in, "await_readiness");
+    m->await_ready = await && await->type == LJ_BOOL && await->u.boolean;
     m->mu = ll_mutex_new();
     m->log_mu = ll_mutex_new();
     m->cv = ll_cond_new();
@@ -1238,33 +1237,70 @@ int ext_ledger_supervisor_stop(ext_ledger_supervisor *s, const ext_ledger_contex
   return rc;
 }
 
-int ext_ledger_supervisor_health(ext_ledger_supervisor *s, const ext_ledger_context *ctx, const char *id, int *healthy) {
+int ext_ledger_supervisor_health(ext_ledger_supervisor *s, const char *id, int check, int *healthy) {
   if (healthy) *healthy = 0;
   if (!s) return EXT_LEDGER_INVALID;
   sv_managed *m = lookup(s, id);
   if (!m) return EXT_LEDGER_NOT_FOUND;
   ll_mutex_lock(m->mu);
-  const char *state = m->state;
-  int64_t pid = m->pid;
-  if (state != ST_READY || pid <= 0 || !ll_proc_alive(pid)) {
-    m->health = "unhealthy";
-    m->updated = now_utc();
-    int rc = project_unlock(m);
-    unref(m);
-    return rc;
-  }
-  ll_mutex_unlock(m->mu);
-  int err = m->hooks.health ? m->hooks.health(m->hooks.arg, ctx) : 0;
-  ll_mutex_lock(m->mu);
-  m->health = !err && m->state == ST_READY && m->pid == pid && ll_proc_alive(pid) ? "healthy" : "unhealthy";
-  int ok = strcmp(m->health, "healthy") == 0;
+  int ok = check != 0 && m->state == ST_READY && m->pid > 0 && ll_proc_alive(m->pid);
+  m->health = ok ? "healthy" : "unhealthy";
   m->updated = now_utc();
   int rc = project_unlock(m);
   unref(m);
-  if (rc) return rc;
-  if (err) return err;
-  if (healthy) *healthy = ok;
+  if (!rc && healthy) *healthy = ok;
+  return rc;
+}
+
+int ext_ledger_supervisor_ready(ext_ledger_supervisor *s, const char *id, int64_t pid, int ready) {
+  if (!s) return EXT_LEDGER_INVALID;
+  sv_managed *m = lookup(s, id);
+  if (!m) return EXT_LEDGER_NOT_FOUND;
+  ll_mutex_lock(m->mu);
+  int rc = 0;
+  if (!m->await_ready) rc = EXT_LEDGER_INVALID; /* its spec does not await readiness */
+  else if (m->state != ST_RUNNING || m->pid != pid || pid <= 0) rc = EXT_LEDGER_CHANGED; /* not this launch, or not waiting */
+  else {
+    m->ready_pid = pid;
+    m->ready_result = ready ? 1 : 2;
+    ll_cond_broadcast(m->cv);
+  }
+  ll_mutex_unlock(m->mu);
+  unref(m);
+  return rc;
+}
+
+static int state_listed(const char *states, const char *state) {
+  size_t n = strlen(state);
+  for (const char *p = states; p && *p;) {
+    const char *end = strchr(p, ',');
+    size_t k = end ? (size_t)(end - p) : strlen(p);
+    if (k == n && strncmp(p, state, n) == 0) return 1;
+    p = end ? end + 1 : NULL;
+  }
   return 0;
+}
+
+int ext_ledger_supervisor_await(ext_ledger_supervisor *s, const ext_ledger_context *ctx, const char *id, const char *states, char **out,
+                                size_t *out_len) {
+  if (out) *out = NULL;
+  if (!s || !states || !*states) return EXT_LEDGER_INVALID;
+  sv_managed *m = lookup(s, id);
+  if (!m) return EXT_LEDGER_NOT_FOUND;
+  ll_mutex_lock(m->mu);
+  int rc = 0;
+  while (!state_listed(states, m->state)) {
+    if ((rc = ll_ctx_check(ctx))) break;
+    if (m->done) { /* it will change no more */
+      rc = EXT_LEDGER_CHANGED;
+      break;
+    }
+    ll_cond_wait(m->cv, m->mu, 20);
+  }
+  if (!rc && out) rc = write_out(instance_value(m), out, out_len);
+  ll_mutex_unlock(m->mu);
+  unref(m);
+  return rc;
 }
 
 int ext_ledger_supervisor_instance(ext_ledger_supervisor *s, const char *id, char **out, size_t *out_len) {

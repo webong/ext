@@ -35,8 +35,9 @@ cargo build --release --locked --manifest-path pkg/ext-rust/Cargo.toml --target 
 # The frames guest (progress events and reverse calls) as a WASI command: no threads.
 cargo build --release --locked --manifest-path pkg/ext-rust/Cargo.toml --target wasm32-wasip1 --example frames
 # The shared example is the same guest as a WebAssembly reactor: the C ABI plus
-# ext_plugin_alloc/ext_plugin_free (docs/plugin-reactor-abi.md).
-cargo build --release --locked --manifest-path pkg/ext-rust/Cargo.toml --target wasm32-wasip1 --example shared
+# ext_plugin_alloc/ext_plugin_free (docs/plugin-reactor-abi.md); reactor_reverse is a
+# reactor that calls its host through ext_plugin.reverse.
+cargo build --release --locked --manifest-path pkg/ext-rust/Cargo.toml --target wasm32-wasip1 --example shared --example reactor_reverse
 "$ZIG_BIN" build test --build-file pkg/ext-zig/build.zig --prefix "$build_dir/zig"
 "$ZIG_BIN" build --build-file pkg/ext-zig/build.zig --prefix "$build_dir/zig"
 # Optimized: a Debug module is slow enough to compile that it exhausts the harness's 3 s session timeout.
@@ -73,6 +74,7 @@ export EXT_RUST_GUEST="$CARGO_TARGET_DIR/debug/examples/guest" EXT_RUST_HOST="$C
 export EXT_RUST_SHARED="$CARGO_TARGET_DIR/debug/examples/libshared.$extension"
 export EXT_RUST_WASM="$CARGO_TARGET_DIR/wasm32-wasip1/release/examples/guest.wasm"
 export EXT_RUST_REACTOR="$CARGO_TARGET_DIR/wasm32-wasip1/release/examples/shared.wasm" EXT_REACTOR_REQUIRED=1
+export EXT_RUST_REVERSE_REACTOR="$CARGO_TARGET_DIR/wasm32-wasip1/release/examples/reactor_reverse.wasm"
 export EXT_ZIG_GUEST="$build_dir/zig/bin/ext-zig-guest" EXT_ZIG_HOST="$build_dir/zig/bin/ext-zig-host"
 export EXT_ZIG_SHARED="$build_dir/zig/lib/libext-zig-guest.$extension"
 export EXT_ZIG_WASM="$build_dir/wasi/bin/ext-zig-guest.wasm"

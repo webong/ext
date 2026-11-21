@@ -179,6 +179,39 @@ func sharedBackend(t *testing.T, path string) func(context.Context) (plugin.Back
 // guest compiled to a WebAssembly reactor, hosted by wasm.OpenReactor: the C ABI
 // plus ext_plugin_alloc/ext_plugin_free (docs/plugin-reactor-abi.md). The artifact
 // is optional unless scripts/plugin-crosslang.sh sets EXT_REACTOR_REQUIRED=1.
+// A reactor that calls its host (pkg/ext-rust/examples/reactor_reverse.rs) loads
+// on wazero, which provides ext_plugin.reverse but carries no reverse calls: the
+// guest is told reverse_unavailable (docs/plugin-reactor-abi.md).
+func TestRustReactorCallingItsHostLoadsOnWazero(t *testing.T) {
+	if os.Getenv("EXT_RUST_REVERSE_REACTOR") == "" && os.Getenv("EXT_REACTOR_REQUIRED") != "1" {
+		t.Skip("set EXT_RUST_REVERSE_REACTOR to the wasm32-wasip1 build of the Rust reactor_reverse example")
+	}
+	module, err := os.ReadFile(artifact(t, "RUST_REVERSE_REACTOR"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	b, err := wasm.OpenReactor(ctx, module, wasm.ReactorOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = b.Close() }()
+	d, err := b.Handshake(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ref := plugin.ContractRef{Name: "reactor.test", Version: "v1"}
+	response, err := b.Invoke(ctx, plugin.Request{APIVersion: plugin.APIVersion, ID: "1", Plugin: d.Identity, Contract: ref,
+		Operation: "ask", Deadline: time.Now().Add(10 * time.Second), Payload: []byte(`{"operation":"sign"}`)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(response.Payload), `"code":"reverse_unavailable"`) {
+		t.Fatalf("payload %s, want a reverse_unavailable refusal", response.Payload)
+	}
+}
+
 func TestRustReactorGuest(t *testing.T) {
 	if os.Getenv("EXT_RUST_REACTOR") == "" && os.Getenv("EXT_REACTOR_REQUIRED") != "1" {
 		t.Skip("set EXT_RUST_REACTOR to the wasm32-wasip1 build of the Rust shared example")

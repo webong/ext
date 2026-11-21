@@ -97,7 +97,27 @@ impl Server {
                 if !*hello {
                     return Err(Error::Invalid);
                 }
-                e.guest.invoke(wire::typed(v)?, e.closed.clone())?
+                let request: crate::plugin::Request = wire::typed(v)?;
+                // A reactor's guest may call its host while this invocation runs.
+                #[cfg(target_arch = "wasm32")]
+                if !e.guest.descriptor().reverse.is_empty() {
+                    let reverse = crate::plugin::serve::Reverse::reactor(
+                        Arc::new(e.guest.descriptor()),
+                        &request.id,
+                    );
+                    let frames = crate::plugin::serve::CallFrames {
+                        reporter: None,
+                        limits: None,
+                        reverse: Some(reverse),
+                        session: None,
+                    };
+                    return wire::encode(&e.guest.invoke_in(
+                        request,
+                        e.closed.clone(),
+                        Some(frames),
+                    )?);
+                }
+                e.guest.invoke(request, e.closed.clone())?
             }
             _ => return Err(Error::Unsupported),
         };
@@ -148,6 +168,50 @@ impl Server {
             Ok(Err(Error::Invalid | Error::Unsupported | Error::Mismatch)) => 1,
             _ => 3,
         }
+    }
+}
+/// Sends one reverse_request frame through the reactor's ext_plugin.reverse import
+/// and returns the reverse_response frame (docs/plugin-reactor-abi.md). A host that
+/// serves no reverse calls here answers status 2, reported as reverse_unavailable.
+#[cfg(target_arch = "wasm32")]
+pub(crate) fn reactor_reverse(frame: &[u8]) -> Result<Vec<u8>> {
+    #[link(wasm_import_module = "ext_plugin")]
+    extern "C" {
+        fn reverse(
+            request: *const u8,
+            request_len: u32,
+            response: *mut u8,
+            capacity: u32,
+            written: *mut u32,
+        ) -> u32;
+    }
+    // One response buffer of the maximum frame size, kept for the instance, which
+    // runs one call at a time.
+    static BUFFER: Mutex<Vec<u8>> = Mutex::new(Vec::new());
+    if frame.is_empty() || frame.len() > MAX_FRAME {
+        return Err(Error::Invalid);
+    }
+    let mut buffer = BUFFER.lock().map_err(|_| Error::Closed)?;
+    if buffer.len() != MAX_FRAME {
+        *buffer = vec![0; MAX_FRAME];
+    }
+    let mut written = 0u32;
+    let status = unsafe {
+        reverse(
+            frame.as_ptr(),
+            frame.len() as u32,
+            buffer.as_mut_ptr(),
+            MAX_FRAME as u32,
+            &mut written,
+        )
+    };
+    match status {
+        0 if (written as usize) <= MAX_FRAME => Ok(buffer[..written as usize].to_vec()),
+        2 => Err(crate::plugin::serve::refused(
+            crate::plugin::frames::REVERSE_UNAVAILABLE,
+        )),
+        1 => Err(Error::Invalid),
+        _ => Err(Error::Closed),
     }
 }
 /// Allocate `size` bytes for a WebAssembly host to fill. The pointer is 16-byte

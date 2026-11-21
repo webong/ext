@@ -12,8 +12,8 @@ import "C"
 
 import (
 	"fmt"
-	"github.com/webong/ext/pkg/ext-go/cgoengine/cshared/abi"
 	plugin "github.com/webong/ext/pkg/ext-go/engine"
+	"github.com/webong/ext/pkg/ext-go/runtime/cshared/abi"
 	"path/filepath"
 	"sync"
 	"unsafe"

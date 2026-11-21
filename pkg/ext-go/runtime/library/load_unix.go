@@ -1,6 +1,6 @@
-//go:build !cgo && (darwin || linux) && (amd64 || arm64)
+//go:build (darwin || linux) && (amd64 || arm64)
 
-package cshared
+package library
 
 import "github.com/ebitengine/purego"
 

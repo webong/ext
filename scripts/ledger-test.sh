@@ -10,7 +10,7 @@ build=${1:-$(mktemp -d "${TMPDIR:-/tmp}/ext-ledger.XXXXXX")}
 mkdir -p "$build"
 generator=()
 if command -v ninja >/dev/null 2>&1; then generator=(-G Ninja); fi
-options=(-DCMAKE_BUILD_TYPE=Debug -DEXT_LEDGER_SHARED=ON) # the shared library is also the ext plugin
+options=(-DCMAKE_BUILD_TYPE=Debug -DEXT_LEDGER_SHARED=ON) # the shared library too
 if [ "${EXT_LEDGER_CI_SANITIZE:-}" = 1 ]; then options+=(-DEXT_LEDGER_SANITIZE=ON); fi
 # shellcheck disable=SC2206 # extra CMake arguments, split on spaces
 options+=(${EXT_LEDGER_CMAKE_ARGS:-})

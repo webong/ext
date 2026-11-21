@@ -86,7 +86,7 @@ that supervises it, and its endpoints, connections and dependencies. It decides 
 trust or authority. A spec is JSON (see the header).
 
 The supervisor never calls back into its caller, so every language drives it the same way,
-including one that cannot take a call from a C thread (Go through purego):
+including one that cannot take a call from a C thread:
 
 - **Readiness is reported.** With `await_readiness`, each launch stays `running` until the caller,
   having checked its endpoints and protocol handshake, calls `ext_ledger_supervisor_ready` with the
@@ -117,31 +117,6 @@ including one that cannot take a call from a C thread (Go through purego):
 iOS lets no application start processes: a start there crashes as a failed start. Go's
 `ProcessPolicyFactory` (a hook for platform resource or sandbox controls) is not carried over;
 nothing used it, and sandboxing has its own contracts ([the decision](../../docs/adr-sandboxing.md)).
-
-## As an ext plugin
-
-The shared library (`EXT_LEDGER_SHARED`) also exports the C plugin ABI of `ext.plugin/v1`
-(`ext_plugin_abi_version`, `_open`, `_call`, `_close`; the contract is
-`lib/plugin/include/ext_plugin.h`, and none of `lib/plugin` is linked). So an ext host loads it on
-demand, through its C shared library backend, and calls the ledger by operation name with no binding
-of its own. Its one contract is `ext.graph` v1:
-
-| Operations | Payload |
-| --- | --- |
-| `store.open` | `{"path"}` a file store, `{"path","reader":true}` a reader, `{"sqlite"}`, or `{"memory":true}`; `"options"` the bounds. Returns `{"store":"s1"}` |
-| `store.register`, `store.apply`, `store.get-vertex`, `store.get-edge`, `store.query-vertices`, `store.query-edges`, `store.traverse`, `store.snapshot`, `store.changes`, `store.close` | `{"store", ...}` and the C call's arguments by name (`schema`, `transaction`, `namespace`, `id`, `query`, `start`, `max_depth`, `max_vertices`, `after`, `limit`) |
-| `store.canonical-transaction` | `{"transaction"}`: `{"canonical","fingerprint"}` |
-| `recorder.open` | `{"store"}` for this machine, or `{"store","environment"}`. Returns `{"recorder":"r2"}` |
-| `recorder.record`, `recorder.scan`, `recorder.vocabulary`, `recorder.close` | `{"recorder","op","input"}`, `{"recorder","what"}` |
-| `collect`, `machine-environment` | `{"what"}`, `{}` |
-| `supervisor.open` | `{"store","options"}`. Returns `{"supervisor":"p3"}` |
-| `supervisor.start`, `.stop`, `.ready`, `.await`, `.health`, `.instance`, `.instances`, `.logs`, `.orphans`, `.resolve-orphan`, `.close` | `{"supervisor", ...}`: `spec` and `secrets`, `id`, `pid` and `ready`, `states`, `check` |
-
-A handle (`s1`, `r2`, `p3`) belongs to the session that opened it and is closed with it; a store
-with a recorder or supervisor over it is closed only after them. A watch is `store.changes` polled
-after a cursor, since the ABI has no calls from the plugin to its host. A failure is the
-response's error, its code the C API's with `-` for `_` (`not-found`); the request's deadline is
-every call's deadline.
 
 ## Backends
 
@@ -185,7 +160,5 @@ every call's deadline.
 | `src/supervisor.c` | The supervisor: specs, the lifecycle, projection, leases and recovery |
 | `src/process_posix.c`, `src/process_win32.c` | Starting, waiting for and ending process trees; threads and random IDs |
 | `tests/supervisor.c` | `res/graph/supervisor`'s tests, with the test binary as its own child |
-| `src/plugin.c` | The ext plugin ABI over the API, in the shared library only |
-| `tests/plugin.c` | Drives the ABI frame by frame, as a host does |
 
 Like `lib/plugin`, the tree holds no Go code.

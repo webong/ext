@@ -38,7 +38,7 @@ void ext_ledger_free(void *p) { free(p); }
 
 int ll_ctx_check(const ext_ledger_context *ctx) {
   if (!ctx) return 0;
-  if (ctx->canceled) return EXT_LEDGER_CANCELED;
+  if (ll_flag_load(&ctx->canceled)) return EXT_LEDGER_CANCELED;
   if (ctx->deadline_unix_ms && ll_now_unix_ms() >= ctx->deadline_unix_ms) return EXT_LEDGER_TIMEOUT;
   return 0;
 }

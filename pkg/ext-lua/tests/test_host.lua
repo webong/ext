@@ -253,4 +253,160 @@ case("collected hosts are freed", function()
   collectgarbage()
 end)
 
+-- Reverse services and the guest registry, against the engine's scripted guests:
+-- EXT_REVERSE_TEST_GUEST (lib/plugin/tests/reverse.c) and EXT_REGISTRY_TEST_GUEST
+-- (lib/plugin/tests/registry.c), which scripts/host-cases.sh builds.
+local REVERSE, RELAY = os.getenv("EXT_REVERSE_TEST_GUEST") or "", os.getenv("EXT_REGISTRY_TEST_GUEST") or ""
+if REVERSE == "" or RELAY == "" then
+  if REQUIRED then
+    case("the scripted guests are available", function() error("set EXT_REVERSE_TEST_GUEST and EXT_REGISTRY_TEST_GUEST") end)
+  else
+    print("skip the reverse and registry tests: set EXT_REVERSE_TEST_GUEST and EXT_REGISTRY_TEST_GUEST")
+  end
+  return cases
+end
+
+local function output(...)
+  local args = { ... }
+  for i, a in ipairs(args) do args[i] = string.format("%q", a) end
+  local command = table.concat(args, " ")
+  if package.config:sub(1, 1) == "\\" then command = '"' .. command .. '"' end
+  local p = assert(io.popen(command))
+  local out = p:read("*a")
+  p:close()
+  return out
+end
+
+local RUN = { name = "reverse.test", version = "v1" }
+local reverse_descriptor = output(REVERSE, "--descriptor")
+local handled
+
+local function reverse_reply(mode, serve)
+  local h = engine:process(reverse_descriptor, REVERSE, { arguments = { "--guest", mode } })
+  if serve ~= false then
+    h:serve(function(call)
+      return call.remaining > 0 and call.request.operation ~= "secret"
+    end, function(call)
+      handled[#handled + 1] = call.request
+      local op = call.request.operation
+      if op == "sign" then return "signed" end
+      if op == "empty" then return nil end
+      if op == "errok" then error(host.remote_error("policy", "refused for you", 5), 0) end
+      error("a private failure")
+    end, { timeout = 0.15, max_payload_bytes = 64 })
+  end
+  h:start(5)
+  local reply = h:call(RUN, "run", json.object({}), 5).reply
+  h:destroy()
+  return reply
+end
+
+case("reverse calls are served on the calling thread", function()
+  handled = {}
+  t.eq(reverse_reply("call:sign").payload, "signed")
+  t.eq(handled[1].surface, "signing")
+  t.eq(handled[1].parent, "1")
+  t.eq(reverse_reply("call:empty").payload, json.null)
+  local e = reverse_reply("call:errok").error
+  t.eq({ e.code, e.message, e.retryAfterMilliseconds }, { "policy", "refused for you", 5 })
+  t.eq(reverse_reply("call:fail").error.code, "operation_failed")
+end)
+
+case("reverse policy and refusals", function()
+  handled = {}
+  t.eq(reverse_reply("call:secret").error.code, "denied")
+  t.eq(#handled, 0)
+  t.eq(reverse_reply("call:nothere").error.code, "reverse_undeclared")
+  t.eq(reverse_reply("call:sign", false).error.code, "reverse_unavailable")
+end)
+
+case("requests between calls wait for serve_reverse", function()
+  handled = {}
+  local h = engine:process(reverse_descriptor, REVERSE, { arguments = { "--guest", "idle" } })
+  h:serve(function() return true end, function(call)
+    handled[#handled + 1] = call.request
+    return "signed"
+  end)
+  h:start(5)
+  t.eq(h:serve_reverse(5), true)
+  t.eq(handled[1].parent, nil)
+  t.eq(h:call(RUN, "run", json.object({}), 5).reply.payload, "signed")
+  t.eq(h:serve_reverse(0.05), false)
+  h:destroy()
+end)
+
+local CASES_PATH = t.FIXTURES .. "/registry-cases.json"
+local registry_cases = t.fixture("registry-cases.json")
+
+local function relay(registry, name, deny_forward, deny_reverse)
+  local h = engine:process(output(RELAY, "--descriptor", CASES_PATH, name), RELAY,
+    { arguments = { "--guest", CASES_PATH, name }, authorize = function() return not deny_forward end })
+  h:attach(registry, function() return not deny_reverse end)
+  h:start(5)
+  return h
+end
+
+local function contract(name)
+  return { name = registry_cases.guests[name], version = "v1" }
+end
+
+local function listed(list, name)
+  if list == nil or list == json.null then return false end
+  for _, v in ipairs(list) do if v == name then return true end end
+  return false
+end
+
+case("the guest registry answers the shared cases", function()
+  for _, c in ipairs(registry_cases.cases) do
+    local registry = host.Registry(engine)
+    local hosts = {}
+    for name in pairs(registry_cases.guests) do
+      hosts[name] = relay(registry, name, listed(c.forwardDeny, name), listed(c.reverseDeny, name))
+      registry:register(contract(name), hosts[name])
+    end
+    for _, e in ipairs(registry_cases.edges) do registry:route(e.from, e.to) end
+    for i, step in ipairs(c.steps) do
+      if step.unregister then
+        registry:unregister(contract(step.unregister))
+      else
+        local got = hosts[step.call]:call(contract(step.call), step.operation, step.payload,
+          (step.timeoutMs or 5000) / 1000)
+        if step.result ~= nil then
+          t.eq(got, step.result, c.name .. " step " .. i)
+        else
+          local code = got and got.error and got.error.code
+          t.ok(listed(step.resultError, code), c.name .. " step " .. i .. ": " .. t.show(got))
+        end
+      end
+    end
+    for _, h in pairs(hosts) do h:destroy() end
+  end
+end)
+
+case("the guest registry refuses what it cannot route", function()
+  local registry = host.Registry(engine)
+  local b = relay(registry, "b")
+  expect_host_error(function() registry:register({ name = "Not A Name", version = "v1" }, b) end, "invalid")
+  expect_host_error(function() registry:register({ name = "registry.other", version = "v1" }, b) end, "unsupported")
+  registry:register(contract("b"), b)
+  expect_host_error(function() registry:register(contract("b"), b) end, "exists")
+  local from = { name = "registry.ask", version = "v1", operation = "echo-b" }
+  local to = { name = "registry.b", version = "v1", operation = "echo" }
+  registry:route(from, to)
+  expect_host_error(function() registry:route(from, to) end, "exists")
+  expect_host_error(function()
+    registry:route({ name = "registry.ask", version = "v1", operation = "other" }, { name = "registry.b", version = "v1", operation = "Bad Name" })
+  end, "invalid")
+  expect_host_error(function() registry:unregister({ name = "registry.x", version = "v1" }) end, "not_found")
+  registry:unregister(contract("b"))
+  registry:register(contract("b"), b)
+  t.raises(function() b:attach({}, function() return true end) end)
+  b:destroy()
+  -- A destroyed host has left the registry.
+  expect_host_error(function() registry:unregister(contract("b")) end, "not_found")
+  registry = nil
+  collectgarbage()
+  collectgarbage()
+end)
+
 return cases

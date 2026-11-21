@@ -7,8 +7,8 @@
  * metering and thread manager options on, or deadlines cannot interrupt a guest.
  *
  * The module is untrusted code: the host provides exactly the WASI imports the
- * ABI lists (no filesystem, network or standard input) and a module importing
- * anything else fails to load. A guest that traps, overruns its deadline, runs
+ * ABI lists (no filesystem, network or standard input) and ext_plugin.reverse,
+ * and a module importing anything else fails to load. A guest that traps, overruns its deadline, runs
  * out of memory or exits ends the whole instance. */
 #ifndef EXT_WAMR_H
 #define EXT_WAMR_H
@@ -49,6 +49,18 @@ typedef struct {
 ext_status ext_wamr_backend_create(const uint8_t *module, size_t module_len,
                                    const ext_wamr_options *options,
                                    ext_backend_extension_context *out);
+
+/* Lets the guest call its host (ext_plugin.reverse, docs/plugin-reactor-abi.md):
+ * backend_user is out->user from ext_wamr_backend_create, and host the host
+ * ext_host_create made over it. Call it once, after ext_host_create and before
+ * ext_host_start; offer the services with ext_host_set_services or
+ * ext_registry_attach as for any host. The backend is created with
+ * EXT_BACKEND_FRAMES, so a plugin whose descriptor declares reverse operations is
+ * accepted. Until it is bound, the guest's reverse calls are answered status 2
+ * (unavailable). The hooks run on the thread inside ext_host_invoke or
+ * ext_host_call, and the call's deadline keeps running while they do. EXT_INVALID
+ * for a null argument, a second bind or a backend that has started. */
+ext_status ext_wamr_backend_bind_host(void *backend_user, ext_host *host);
 
 #ifdef __cplusplus
 }

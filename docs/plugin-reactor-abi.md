@@ -85,6 +85,41 @@ importing anything outside it fails to instantiate.
 There is no filesystem, network or standard input. This is the set the Rust SDK's
 shared guest imports today; a guest that needs more is outside this ABI.
 
+## Calling the host
+
+A reactor may call operations its host offers, the ones its descriptor lists under
+`reverse`, while one of its invocations runs. It imports one function from the module
+`ext_plugin`, and every reactor host provides it:
+
+| Import | Signature (WebAssembly) | Meaning |
+|---|---|---|
+| `ext_plugin.reverse` | `(i32 request, i32 request_len, i32 response, i32 capacity, i32 written) -> i32` | Send one `reverse_request` frame and receive its `reverse_response` frame. |
+
+- `request` is a `reverse_request` frame, the same JSON a guest process writes on its
+  connection ([the frames record](adr-plugin-reverse-progress-endpoints.md)): `frame`,
+  `apiVersion`, `id`, `contract`, `operation`, `deadline`, `payload` and, for a
+  call-scoped request, `parent`, the id of the invocation it belongs to.
+- The guest owns both buffers. `capacity` must be the maximum frame size, `24 MiB`, as
+  for `ext_plugin_call`. On status `0` the host has written the `reverse_response` frame
+  into `response` and its length into the `written` cell.
+- The call is synchronous: it returns once the host's hooks have answered, or the
+  request was refused. A refusal is a frame like any answer, with the stable codes
+  (`reverse_undeclared`, `reverse_unavailable`, `denied`, `too_large`, `busy`,
+  `expired`), so it is status `0`.
+- Statuses: `0` answered; `1` the arguments are not usable (a null or out-of-range
+  buffer, or a capacity that is not the maximum); `2` the host serves no reverse calls
+  here (a guest treats it as `reverse_unavailable`); `3` the host failed. A frame that
+  breaks the rules is a protocol violation: the host traps the instance, as it does
+  for any guest that breaks the framing.
+- It may be called only from inside `ext_plugin_call` with operation `2`; anywhere else
+  it is status `2`. The instance stays single-threaded: the host runs its hooks on the
+  thread that is inside the call, and the call's deadline keeps running while they do.
+
+A host that does not carry reverse calls provides the import and answers `2`. Today
+the WAMR backend carries them (after `ext_wamr_backend_bind_host`); the wazero host
+(`res/web/host/engine/wasm`) and the page glue the web views use (`reactor.js`) answer
+`2`.
+
 ## Producing a reactor
 
 The Rust SDK's `export_guest!` macro emits the allocation exports on `wasm32`:

@@ -179,6 +179,17 @@ host.close()
 - The host enforces the request deadline, a linear-memory cap and an optional
   instruction budget; a guest that overruns, traps or exhausts either ends the instance.
 - `WamrPluginHost.descriptor(of:)` reads a module's descriptor before it is trusted.
+- A reactor may call its host (`ext_plugin.reverse`, [the reactor ABI](../../docs/plugin-reactor-abi.md#calling-the-host)).
+  `host.serve(authorize:handle:)`, before `start`, offers it the operations its descriptor
+  lists under `reverse`: the hooks get the Request JSON on the thread inside `invoke` or
+  `call(contract:version:operation:payload:)`, and `handle` returns `.payload` or
+  `.publicError`. Without services the reactor is told `reverse_unavailable`.
+- `WamrRegistry` composes reactors: `host.attach(registry, authorize:)` (in place of `serve`)
+  makes a host a source whose reactor's reverse calls are served by forward calls to the hosts
+  `registry.register(name:version:host:)` names, along the edges `route(from:...)` declares;
+  undeclared edges are `reverse_undeclared`, unregistered targets `reverse_unavailable`, and a
+  call that would re-enter a host on its call chain `denied`. A host keeps the registries it
+  uses alive and leaves them when it is released.
 - `scripts/ext-darwin-wamr-xcframework.sh` fetches WAMR at the pinned commit
   (`scripts/plugin-wamr-source.sh`) and builds the macOS, iOS and Simulator slices, or one
   platform's with `--platform ios|macos`

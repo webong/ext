@@ -59,7 +59,7 @@ plugin engine.
 
 The Go host binding import is `github.com/webong/ext/pkg/ext-go/cgoengine`; its package
 name is `cgoengine`. Go guest C exports use
-`github.com/webong/ext/pkg/ext-go/cgoengine/cshared/guest`.
+`github.com/webong/ext/pkg/ext-go/runtime/cshared/guest`.
 
 C embedding examples live in each language's `examples/` directory. HashiCorp's
 native runtime integration remains the separate `ext-go/hashicorp` module.

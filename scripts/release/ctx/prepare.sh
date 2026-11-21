@@ -20,7 +20,7 @@ mv dist/arm64 native-keychain/arm64
 
 # Test library modules
 (
-for module in src/ctx src/ctn res/system res/graph pkg/ext-go pkg/ext-go/engine pkg/ext-go/cgoengine pkg/ext-go/hashicorp pkg/ext-go/wasm pkg/ext-go/yaegi adapters/wasm adapters/evm res/web/host; do
+for module in src/ctx src/ctn res/system res/graph pkg/ext-go pkg/ext-go/engine pkg/ext-go/cgoengine pkg/ext-go/hashicorp pkg/ext-go/wasm pkg/ext-go/yaegi pkg/ext-go/runtime adapters/wasm adapters/evm res/web/host; do
   (cd "$module" && go test ./...) || exit 1
 done
 )

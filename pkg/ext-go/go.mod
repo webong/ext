@@ -7,6 +7,7 @@ require (
 	github.com/webong/ext/pkg/ext-go/cgoengine v0.4.0
 	github.com/webong/ext/pkg/ext-go/engine v0.4.0
 	github.com/webong/ext/pkg/ext-go/hashicorp v0.3.2
+	github.com/webong/ext/pkg/ext-go/runtime v0.1.0
 	github.com/webong/ext/pkg/ext-go/wasm v0.5.0
 )
 

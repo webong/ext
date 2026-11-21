@@ -14,9 +14,9 @@ import (
 	"runtime"
 	"sync"
 
-	"github.com/ebitengine/purego"
-	"github.com/webong/ext/pkg/ext-go/cgoengine/cshared/abi"
 	plugin "github.com/webong/ext/pkg/ext-go/engine"
+	"github.com/webong/ext/pkg/ext-go/runtime/cshared/abi"
+	"github.com/webong/ext/pkg/ext-go/runtime/library"
 )
 
 func Supported() bool { return true }
@@ -73,13 +73,12 @@ func openNative(path string) (nativeSession, error) {
 
 func load(path string) (*exports, error) {
 	// Native initialization has run once the image is mapped; it stays mapped.
-	library, err := loadImage(path)
+	lib, err := library.Open(path)
 	if err != nil {
 		return nil, err
 	}
-	var symbols [4]uintptr
-	for n, name := range []string{"ext_plugin_abi_version", "ext_plugin_open", "ext_plugin_call", "ext_plugin_close"} {
-		if symbols[n], err = lookup(library, name); err != nil || symbols[n] == 0 {
+	for _, name := range []string{"ext_plugin_abi_version", "ext_plugin_open", "ext_plugin_call", "ext_plugin_close"} {
+		if _, err := lib.Symbol(name); err != nil {
 			return nil, fmt.Errorf("missing required CTX C ABI exports")
 		}
 	}
@@ -87,19 +86,21 @@ func load(path string) (*exports, error) {
 		// Every Go c-shared library exports this. On darwin/amd64 each Go runtime
 		// keeps its g in the same fixed TLS slot, so a Go guest called from a Go
 		// host thread takes the host's g for its own and faults (with cgo too).
-		if symbol, err := lookup(library, "_cgo_wait_runtime_init_done"); err == nil && symbol != 0 {
+		if _, err := lib.Symbol("_cgo_wait_runtime_init_done"); err == nil {
 			return nil, errGoGuestDarwinAMD64
 		}
 	}
 	var version func() uint32
-	purego.RegisterFunc(&version, symbols[0])
+	if err := lib.Bind(&version, "ext_plugin_abi_version"); err != nil {
+		return nil, err
+	}
 	if version() != abi.Version {
 		return nil, fmt.Errorf("unsupported CTX C ABI version")
 	}
 	e := &exports{}
-	purego.RegisterFunc(&e.open, symbols[1])
-	purego.RegisterFunc(&e.call, symbols[2])
-	purego.RegisterFunc(&e.close, symbols[3])
+	if err := lib.BindAll(map[string]any{"ext_plugin_open": &e.open, "ext_plugin_call": &e.call, "ext_plugin_close": &e.close}); err != nil {
+		return nil, err
+	}
 	return e, nil
 }
 

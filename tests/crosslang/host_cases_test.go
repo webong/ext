@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/webong/ext/pkg/ext-go/cgoengine/cshared"
+	"github.com/webong/ext/pkg/ext-go/runtime/cshared"
 	plugin "github.com/webong/ext/pkg/ext-go/engine"
 )
 

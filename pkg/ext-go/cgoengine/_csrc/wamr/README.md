@@ -14,6 +14,15 @@ ext_backend_options backend = {sizeof(backend), EXT_BACKEND_EXTENSION_CONTEXT, &
 ext_host_create(&host_options, &backend, &host);   /* then ext_host_start, ext_host_invoke ... */
 ```
 
+A reactor may call its host through `ext_plugin.reverse` ([Calling the
+host](../../../docs/plugin-reactor-abi.md#calling-the-host)). Bind the backend to its host with
+`ext_wamr_backend_bind_host(ext.user, host)` after `ext_host_create`, then offer services with
+`ext_host_set_services` or `ext_registry_attach` as for any host: the backend is created with
+`EXT_BACKEND_FRAMES`, so the engine admits, refuses and answers each request, and the hooks run
+on the thread inside the call. A reverse call the guest registry routes to another reactor nests
+on that thread; the backend saves and restores WAMR's per-thread exec env around it, which WAMR
+checks when hardware bound checks are on.
+
 See [`ext_wamr.h`](ext_wamr.h) for the options. Build and test it with
 `scripts/plugin-wamr.sh`, which fetches WAMR at the pinned commit, builds the Rust SDK's
 conformance reactor, and runs the test.

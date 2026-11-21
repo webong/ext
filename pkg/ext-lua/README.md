@@ -180,6 +180,21 @@ calling `start` or `call`, so the module calls them there with `lua_pcall`. A po
 host it decides for: a call to it from inside the policy raises `HostError` `invalid`. Lua has no
 threads, so calls are sequential; the engine still serializes a host's calls itself.
 
+Reverse calls and the guest registry use the engine's caller-thread mode (`ext_host_set_reverse_mode`),
+so their hooks run there too, on the Lua thread of the engine call that waits:
+
+- `h:serve(authorize, handle, opts)`, before `start`, offers the plugin the operations its
+  descriptor lists under `reverse`. The hooks get `{ request = ..., remaining = seconds }`; `handle`
+  returns a value, or raises `host.remote_error(...)` for an error the plugin receives unchanged.
+  `opts` holds `timeout`, `max_payload_bytes` and `max_in_flight`. A request made between calls
+  waits for the next call or `h:serve_reverse(timeout)`, which returns true once it served one.
+- `host.Registry(engine)` composes guests: `h:attach(registry, authorize, opts)` (in place of
+  `serve`) makes a host a source whose plugin's reverse calls are served by forward calls to the
+  hosts `registry:register(contract, h)` names, along the edges `registry:route(from, to)` declares.
+  Undeclared edges are `reverse_undeclared`, unregistered targets `reverse_unavailable`, and a call
+  that would re-enter a host on its call chain `denied`. A registry holds its targets until they
+  leave, by `unregister` or their own `destroy`.
+
 ## Behavior
 
 Behavior matches the Go `jsonline` server: `plugin.hello` is required first and answered with the

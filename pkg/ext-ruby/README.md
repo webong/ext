@@ -135,6 +135,22 @@ call the same host; the engine serializes a host's calls itself. An interrupt (`
 `Thread#kill`, Ctrl-C) cancels the call in progress through the engine. The engine runs policies
 on the thread making the call, so the extension takes the lock back to run them.
 
+Reverse calls and the guest registry run the hooks the same way, in the engine's caller-thread mode
+(`ext_host_set_reverse_mode`): a hook runs on the thread of a call that waits on the host, with the
+lock taken back, never on an engine thread.
+
+- `host.serve(authorize:, handle:, timeout:, max_payload_bytes:, max_in_flight:)`, before `start`,
+  offers the plugin the operations its descriptor lists under `reverse`. The hooks get an
+  `ExtIO::Host::ReverseCall` (`request`, `remaining`); `handle` returns a JSON value, or raises
+  `RemoteError` for an error the plugin receives unchanged. A request made between calls waits for
+  the next call or `host.serve_reverse(timeout)`, which returns true once it served one.
+- `ExtIO::Host::Registry.new(engine)` composes guests: `host.attach(registry, authorize:)` (in place
+  of `serve`) makes a host a source whose plugin's reverse calls are served by forward calls to the
+  hosts `registry.register(contract, host)` names, along the edges `registry.route(from, to)`
+  declares. Undeclared edges are `reverse_undeclared`, unregistered targets `reverse_unavailable`,
+  and a call that would re-enter a host on its call chain `denied`. A registry keeps its targets
+  alive, and a destroyed host leaves it.
+
 ## Tests
 
 `ruby test/all.rb` here (Minitest, bundled with Ruby) runs:

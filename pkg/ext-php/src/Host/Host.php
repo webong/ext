@@ -23,6 +23,10 @@ final class Host
     private bool $inPolicy = false;
     /** @var list<\Closure> the FFI callbacks, alive as long as the host */
     private array $callbacks = [];
+    /** The registry this host is a source of, kept alive with the host. */
+    private ?Registry $sourceOf = null;
+    /** @var list<array{0: Registry, 1: string, 2: string}> the contracts this host serves in registries */
+    private array $registered = [];
 
     /** @internal Use Engine::process() or Engine::sharedLibrary(). */
     public function __construct(
@@ -204,8 +208,144 @@ final class Host
         }
         if ($this->handle !== null) {
             $this->ffi->ext_host_close($this->handle);
+            // Calls routed here end once the host is closed; unregistering waits for them.
+            foreach ($this->registered as [$registry, $name, $version]) {
+                if ($registry->handle !== null) {
+                    $this->ffi->ext_registry_unregister($registry->handle, $name, $version);
+                }
+                $registry->forgetTarget($name, $version);
+                $registry->release();
+            }
+            $this->registered = [];
             $this->ffi->ext_host_destroy($this->handle);
             $this->handle = null;
+            $this->sourceOf?->release();
+            $this->sourceOf = null;
+        }
+    }
+
+    /**
+     * Offers the plugin the operations its descriptor lists under "reverse", before start().
+     * $authorize(ReverseCall) returns truthy to allow; $handle(ReverseCall) returns a value (null
+     * is null), or throws RemoteError for an error the plugin receives as it is; anything else it
+     * throws reaches the plugin as operation_failed. They run inside the FFI call of an engine call
+     * that waits on this host (the engine's caller-thread mode), one at a time, and must not use
+     * this host. A request made between calls waits for the next call or serveReverse(). Zero
+     * bounds use the defaults (30 s, 1 MiB, 4).
+     */
+    public function serve(callable $authorize, callable $handle, float $timeout = 0.0, int $maxPayloadBytes = 0, int $maxInFlight = 0): void
+    {
+        $this->install($authorize, $handle, $timeout, $maxPayloadBytes, $maxInFlight, null);
+    }
+
+    /**
+     * Makes this host a source of $registry, in place of serve() and before start(): its plugin's
+     * reverse calls are served by forward calls to the hosts registered there, along the declared
+     * edges, after $authorize(ReverseCall) allowed them.
+     */
+    public function attach(Registry $registry, callable $authorize, float $timeout = 0.0, int $maxPayloadBytes = 0, int $maxInFlight = 0): void
+    {
+        $this->install($authorize, null, $timeout, $maxPayloadBytes, $maxInFlight, $registry);
+    }
+
+    /** Serves the reverse requests made between calls: true once it served one, false when none came within $timeout seconds. */
+    public function serveReverse(float $timeout = 3.0): bool
+    {
+        $handle = $this->live('serve_reverse');
+        $o = $this->options($timeout);
+        $status = $this->ffi->ext_host_serve_reverse($handle, \FFI::addr($o));
+        if ($status === 6) {
+            return false;
+        }
+        if ($status !== 0) {
+            throw HostError::of($status, 'serve_reverse');
+        }
+        return true;
+    }
+
+    private function install(callable $authorize, ?callable $handle, float $timeout, int $maxPayloadBytes, int $maxInFlight, ?Registry $registry): void
+    {
+        $host = $this->live($registry === null ? 'serve' : 'attach');
+        $policy = function ($user, $options, $json, $len) use ($authorize): int {
+            $this->inPolicy = true;
+            try {
+                return $authorize(new ReverseCall(Json::decode(\FFI::string($json, $len)), $options->timeout_ms / 1000.0)) ? 0 : 1;
+            } catch (\Throwable) {
+                return 1; // a policy that fails denies; never unwind into the engine
+            } finally {
+                $this->inPolicy = false;
+            }
+        };
+        $serve = $handle === null ? null : function ($user, $options, $json, $len, $emit, $sink) use ($handle): int {
+            $this->inPolicy = true;
+            try {
+                try {
+                    $value = $handle(new ReverseCall(Json::decode(\FFI::string($json, $len)), $options->timeout_ms / 1000.0));
+                    $reply = Json::encode($value);
+                    $kind = 0;
+                } catch (RemoteError $e) {
+                    $reply = Json::encode($e->toWire());
+                    $kind = 1;
+                }
+                return $emit($sink, $kind, $reply, \strlen($reply));
+            } catch (\Throwable) {
+                return 7; // the plugin sees operation_failed
+            } finally {
+                $this->inPolicy = false;
+            }
+        };
+        $services = $this->ffi->new('ext_host_services');
+        $services->struct_size = \FFI::sizeof($services);
+        $services->user = null;
+        $services->authorize = $policy;
+        if ($serve !== null) {
+            $services->handle = $serve;
+        }
+        $ms = $timeout * 1000.0;
+        $services->timeout_ms = $ms <= 0 ? 0 : ($ms >= 4294967295.0 ? 4294967295 : max(1, (int) $ms));
+        $services->max_payload_bytes = $maxPayloadBytes;
+        $services->max_in_flight = $maxInFlight;
+        $status = $this->ffi->ext_host_set_reverse_mode($host, 1);
+        if ($status === 0) {
+            $status = $registry === null
+                ? $this->ffi->ext_host_set_services($host, \FFI::addr($services))
+                : $this->ffi->ext_registry_attach($registry->handle, $host, \FFI::addr($services));
+        }
+        if ($status !== 0) {
+            throw HostError::of($status, $registry === null ? 'serve' : 'attach');
+        }
+        $this->callbacks[] = $policy;
+        if ($serve !== null) {
+            $this->callbacks[] = $serve;
+        }
+        if ($registry !== null) {
+            $registry->users++;
+            $this->sourceOf?->release();
+            $this->sourceOf = $registry;
+        }
+    }
+
+    /** @internal Registry::register() */
+    public function registerIn(Registry $registry, string $name, string $version): void
+    {
+        $status = $this->ffi->ext_registry_register($registry->handle, $name, $version, $this->live('register'));
+        if ($status !== 0) {
+            throw HostError::of($status, 'register');
+        }
+        $registry->users++;
+        $this->registered[] = [$registry, $name, $version];
+    }
+
+    /** @internal Registry::unregister() removed the contract */
+    public function forget(Registry $registry, string $name, string $version): void
+    {
+        foreach ($this->registered as $i => [$r, $n, $v]) {
+            if ($r === $registry && $n === $name && $v === $version) {
+                unset($this->registered[$i]);
+                $this->registered = array_values($this->registered);
+                $registry->release();
+                return;
+            }
         }
     }
 

@@ -39,6 +39,7 @@ static void compat_setfuncs(lua_State *L, const luaL_Reg *l) {
 
 #define ENGINE_MT "ext_io.host.Engine"
 #define HOST_MT "ext_io.host.Host"
+#define REGISTRY_MT "ext_io.host.Registry"
 #define STDERR_CAPACITY 65536u
 
 /* The engine functions a host uses, resolved from one loaded library. An engine is never
@@ -56,6 +57,15 @@ typedef struct {
   ext_status (*stderr_copy)(ext_host *, uint8_t *, size_t, size_t *);
   void (*buffer_free)(ext_buffer *);
   ext_status (*shared_library)(const ext_shared_library_options *, ext_backend_extension_context *);
+  ext_status (*set_services)(ext_host *, const ext_host_services *);
+  ext_status (*set_reverse_mode)(ext_host *, uint32_t);
+  ext_status (*serve_reverse)(ext_host *, const ext_call_options *);
+  ext_status (*registry_create)(ext_registry **);
+  ext_status (*registry_register)(ext_registry *, const char *, const char *, ext_host *);
+  ext_status (*registry_unregister)(ext_registry *, const char *, const char *);
+  ext_status (*registry_route)(ext_registry *, const ext_registry_edge *);
+  ext_status (*registry_attach)(ext_registry *, ext_host *, const ext_host_services *);
+  void (*registry_destroy)(ext_registry *);
 } engine_api;
 
 typedef struct {
@@ -64,13 +74,50 @@ typedef struct {
 
 /* A host. The policies' Lua functions are held in the registry; L is the thread of the engine
  * call in progress (NULL between calls), so a policy runs only inside one. */
+/* A guest registry, counted: its userdata, each host attached to it and each contract
+ * registered in it hold a reference, so the native registry is freed only once none of them can
+ * call into it, whatever order the collector frees them in. */
+typedef struct registration registration;
 typedef struct {
+  const engine_api *api;
+  ext_registry *handle;
+  int refs;
+  registration *entries;
+} registry_ref;
+
+typedef struct host_ud host_ud;
+struct registration {
+  registry_ref *registry;
+  host_ud *host;
+  int host_ref; /* a strong reference: a registered host lives until it leaves */
+  char *name, *version;
+  registration *next_in_registry, *next_in_host;
+};
+
+static void registry_release(registry_ref *r) {
+  if (r && --r->refs == 0) {
+    r->api->registry_destroy(r->handle);
+    free(r);
+  }
+}
+
+struct host_ud {
   const engine_api *api;
   ext_host *handle;
   lua_State *L;
   int verify, authorize; /* registry references, or LUA_NOREF to allow */
   int busy;
-} host_ud;
+  /* Reverse services: references to the hooks, or LUA_NOREF. In the engine's caller-thread mode
+   * they run on the thread of an engine call in progress. */
+  int reverse_authorize, reverse_handle;
+  int source_ref;            /* a reference to the registry userdata this host is a source of */
+  registry_ref *source_of;   /* its native registry, counted */
+  registration *registrations;
+};
+
+/* The Lua thread of the innermost engine call in progress: a registry forward call reaches
+ * another host from C, inside a call on this one, and that host's policies and hooks run here. */
+static lua_State *active_L;
 
 static const char *const status_names[] = {
     "ok",       "invalid",  "denied",   "mismatch", "unsupported", "closed",   "timeout",
@@ -173,6 +220,15 @@ static int core_open(lua_State *L) {
   RESOLVE(stderr_copy, "ext_host_process_stderr");
   RESOLVE(buffer_free, "ext_buffer_free");
   RESOLVE(shared_library, "ext_shared_library_backend_create");
+  RESOLVE(set_services, "ext_host_set_services");
+  RESOLVE(set_reverse_mode, "ext_host_set_reverse_mode");
+  RESOLVE(serve_reverse, "ext_host_serve_reverse");
+  RESOLVE(registry_create, "ext_registry_create");
+  RESOLVE(registry_register, "ext_registry_register");
+  RESOLVE(registry_unregister, "ext_registry_unregister");
+  RESOLVE(registry_route, "ext_registry_route");
+  RESOLVE(registry_attach, "ext_registry_attach");
+  RESOLVE(registry_destroy, "ext_registry_destroy");
 #undef RESOLVE
   ud = (engine_ud *)lua_newuserdata(L, sizeof *ud);
   ud->api = api; /* never freed: the library stays loaded, and so does its table */
@@ -186,7 +242,7 @@ static int core_open(lua_State *L) {
 /* Calls the policy with the borrowed JSON as a string; a true result allows. Anything else, an
  * error, or a call outside an engine call denies. Never unwinds into the engine. */
 static int32_t run_policy(host_ud *h, int ref, const uint8_t *json, size_t len) {
-  lua_State *L = h->L;
+  lua_State *L = h->L ? h->L : active_L;
   int top, allowed;
   if (ref == LUA_NOREF) return 0;
   if (!L) return 1;
@@ -227,6 +283,7 @@ static host_ud *new_host(lua_State *L, const engine_api *api, int verify_index, 
   h->api = api;
   h->verify = LUA_NOREF;
   h->authorize = LUA_NOREF;
+  h->reverse_authorize = h->reverse_handle = h->source_ref = LUA_NOREF;
   luaL_getmetatable(L, HOST_MT);
   lua_setmetatable(L, -2);
   h->verify = policy_ref(L, verify_index);
@@ -358,11 +415,14 @@ static int host_start(lua_State *L) {
   host_ud *h = enter(L, "start");
   ext_call_options o = call_options(L, 2);
   ext_status s;
+  lua_State *outer = active_L;
   h->busy = 1;
   h->L = L;
+  active_L = L;
   s = h->api->start(h->handle, &o);
   h->L = NULL;
   h->busy = 0;
+  active_L = outer;
   if (s) return raise_status(L, s, "start");
   return 0;
 }
@@ -378,11 +438,14 @@ static int exchange(lua_State *L, int use_call, const char *action) {
   exchange_fn fn = use_call ? h->api->call : h->api->invoke;
   ext_buffer out = {NULL, 0};
   ext_status s;
+  lua_State *outer = active_L;
   h->busy = 1;
   h->L = L;
+  active_L = L;
   s = fn(h->handle, (const uint8_t *)data, len, &o, &out);
   h->L = NULL;
   h->busy = 0;
+  active_L = outer;
   if (s) {
     if (out.data) h->api->buffer_free(&out);
     return raise_status(L, s, action);
@@ -404,11 +467,14 @@ static int host_drain(lua_State *L) {
   host_ud *h = enter(L, "drain");
   ext_call_options o = call_options(L, 2);
   ext_status s;
+  lua_State *outer = active_L;
   h->busy = 1;
   h->L = L;
+  active_L = L;
   s = h->api->drain(h->handle, &o);
   h->L = NULL;
   h->busy = 0;
+  active_L = outer;
   if (s) return raise_status(L, s, "drain");
   return 0;
 }
@@ -441,17 +507,277 @@ static int host_stderr(lua_State *L) {
 }
 
 /* host:destroy(): frees the host once; again is harmless. Also __gc and __close. */
+static void unref(lua_State *L, int *ref) {
+  if (*ref != LUA_NOREF) luaL_unref(L, LUA_REGISTRYINDEX, *ref);
+  *ref = LUA_NOREF;
+}
+
+static void unlink_from_registry(registration *e) {
+  registration **at = &e->registry->entries;
+  while (*at && *at != e) at = &(*at)->next_in_registry;
+  if (*at) *at = e->next_in_registry;
+}
+
+static void free_registration(lua_State *L, registration *e) {
+  unref(L, &e->host_ref);
+  registry_release(e->registry);
+  free(e->name);
+  free(e->version);
+  free(e);
+}
+
 static int host_destroy(lua_State *L) {
   host_ud *h = check_host(L);
   if (h->busy) return raise_status(L, EXT_INVALID, "destroy");
   if (h->handle) {
     h->api->close(h->handle);
+    /* Calls routed here have ended with the close; unregistering waits for them. */
+    while (h->registrations) {
+      registration *e = h->registrations;
+      h->registrations = e->next_in_host;
+      h->api->registry_unregister(e->registry->handle, e->name, e->version);
+      unlink_from_registry(e);
+      free_registration(L, e);
+    }
     h->api->destroy(h->handle);
     h->handle = NULL;
+    registry_release(h->source_of);
+    h->source_of = NULL;
   }
-  if (h->verify != LUA_NOREF) luaL_unref(L, LUA_REGISTRYINDEX, h->verify);
-  if (h->authorize != LUA_NOREF) luaL_unref(L, LUA_REGISTRYINDEX, h->authorize);
-  h->verify = h->authorize = LUA_NOREF;
+  unref(L, &h->verify);
+  unref(L, &h->authorize);
+  unref(L, &h->reverse_authorize);
+  unref(L, &h->reverse_handle);
+  unref(L, &h->source_ref);
+  return 0;
+}
+
+/* ---- reverse services ---- */
+
+/* Calls a hook with the request JSON and the milliseconds left. authorize returns true to allow;
+ * handle returns (public_error, json). Runs only inside an engine call on this Lua state. */
+static int call_hook(host_ud *h, int ref, const uint8_t *json, size_t len, uint32_t ms, int results) {
+  lua_State *L = h->L ? h->L : active_L;
+  if (ref == LUA_NOREF || !L || !lua_checkstack(L, 4)) return -1;
+  lua_rawgeti(L, LUA_REGISTRYINDEX, ref);
+  lua_pushlstring(L, (const char *)json, len);
+  lua_pushnumber(L, (lua_Number)ms);
+  return lua_pcall(L, 2, results, 0) == 0 ? lua_gettop(L) : -1;
+}
+
+static int32_t reverse_authorize_cb(void *user, const ext_call_options *o, const uint8_t *json, size_t len) {
+  host_ud *h = (host_ud *)user;
+  lua_State *L = h->L ? h->L : active_L;
+  int top = L ? lua_gettop(L) : 0, allowed = 0;
+  if (call_hook(h, h->reverse_authorize, json, len, o->timeout_ms, 1) > 0) allowed = lua_toboolean(L, -1);
+  if (L) lua_settop(L, top);
+  return allowed ? 0 : 1;
+}
+
+static ext_status reverse_handle_cb(void *user, const ext_call_options *o, const uint8_t *json, size_t len,
+                                    ext_reverse_emit emit, void *sink) {
+  host_ud *h = (host_ud *)user;
+  lua_State *L = h->L ? h->L : active_L;
+  int top = L ? lua_gettop(L) : 0;
+  ext_status s = EXT_IO; /* the plugin sees operation_failed */
+  if (call_hook(h, h->reverse_handle, json, len, o->timeout_ms, 2) > 0 && lua_type(L, -1) == LUA_TSTRING) {
+    size_t n = 0;
+    const char *body = lua_tolstring(L, -1, &n);
+    s = emit(sink, lua_toboolean(L, -2) ? EXT_HOST_REVERSE_PUBLIC_ERROR : EXT_HOST_REVERSE_PAYLOAD,
+             (const uint8_t *)body, n);
+  }
+  if (L) lua_settop(L, top);
+  return s;
+}
+
+static ext_host_services reverse_services(lua_State *L, host_ud *h, int first, int with_handle) {
+  ext_host_services services;
+  memset(&services, 0, sizeof services);
+  services.struct_size = (uint32_t)sizeof services;
+  services.user = h;
+  services.authorize = reverse_authorize_cb;
+  services.handle = with_handle ? reverse_handle_cb : NULL;
+  services.timeout_ms = (uint32_t)luaL_optinteger(L, first, 0);
+  services.max_payload_bytes = (uint32_t)luaL_optinteger(L, first + 1, 0);
+  services.max_in_flight = (uint32_t)luaL_optinteger(L, first + 2, 0);
+  return services;
+}
+
+/* host:serve(authorize, handle, timeout_ms, max_payload, max_in_flight): before start. */
+static int host_serve(lua_State *L) {
+  host_ud *h = enter(L, "serve");
+  ext_host_services services;
+  ext_status s;
+  luaL_checktype(L, 2, LUA_TFUNCTION);
+  luaL_checktype(L, 3, LUA_TFUNCTION);
+  services = reverse_services(L, h, 4, 1);
+  s = h->api->set_reverse_mode(h->handle, EXT_HOST_REVERSE_CALLER_THREAD);
+  if (!s) s = h->api->set_services(h->handle, &services);
+  if (s) return raise_status(L, s, "serve");
+  unref(L, &h->reverse_authorize);
+  unref(L, &h->reverse_handle);
+  h->reverse_authorize = policy_ref(L, 2);
+  h->reverse_handle = policy_ref(L, 3);
+  return 0;
+}
+
+/* host:serve_reverse(timeout) -> true when it served a request, false when none came in time. */
+static int host_serve_reverse(lua_State *L) {
+  host_ud *h = enter(L, "serve_reverse");
+  ext_call_options o = call_options(L, 2);
+  ext_status s;
+  lua_State *outer = active_L;
+  h->busy = 1;
+  h->L = L;
+  active_L = L;
+  s = h->api->serve_reverse(h->handle, &o);
+  h->L = NULL;
+  h->busy = 0;
+  active_L = outer;
+  if (s == EXT_TIMEOUT) {
+    lua_pushboolean(L, 0);
+    return 1;
+  }
+  if (s) return raise_status(L, s, "serve_reverse");
+  lua_pushboolean(L, 1);
+  return 1;
+}
+
+/* ---- registries ---- */
+
+typedef struct {
+  registry_ref *ref;
+} registry_ud;
+
+static registry_ref *check_registry(lua_State *L, int index) {
+  return ((registry_ud *)luaL_checkudata(L, index, REGISTRY_MT))->ref;
+}
+
+/* engine:registry() -> a new registry */
+static int engine_registry(lua_State *L) {
+  const engine_api *api = check_engine(L)->api;
+  registry_ud *ud = (registry_ud *)lua_newuserdata(L, sizeof *ud);
+  registry_ref *r;
+  ext_status s;
+  ud->ref = NULL;
+  luaL_getmetatable(L, REGISTRY_MT);
+  lua_setmetatable(L, -2);
+  r = (registry_ref *)calloc(1, sizeof *r);
+  if (!r) return luaL_error(L, "out of memory");
+  r->api = api;
+  r->refs = 1;
+  s = api->registry_create(&r->handle);
+  if (s) {
+    free(r);
+    return raise_status(L, s, "registry");
+  }
+  ud->ref = r;
+  return 1;
+}
+
+static int registry_gc(lua_State *L) {
+  registry_ud *ud = (registry_ud *)luaL_checkudata(L, 1, REGISTRY_MT);
+  registry_release(ud->ref);
+  ud->ref = NULL;
+  return 0;
+}
+
+static char *copy_string(const char *s) {
+  size_t n = strlen(s) + 1;
+  char *c = (char *)malloc(n);
+  if (c) memcpy(c, s, n);
+  return c;
+}
+
+/* registry:register(name, version, host) */
+static int registry_register(lua_State *L) {
+  registry_ref *r = check_registry(L, 1);
+  const char *name = luaL_checkstring(L, 2), *version = luaL_checkstring(L, 3);
+  host_ud *h = (host_ud *)luaL_checkudata(L, 4, HOST_MT);
+  registration *e;
+  ext_status s;
+  if (!h->handle) return raise_status(L, EXT_CLOSED, "destroyed");
+  s = r->api->registry_register(r->handle, name, version, h->handle);
+  if (s) return raise_status(L, s, "register");
+  e = (registration *)calloc(1, sizeof *e);
+  if (!e || !(e->name = copy_string(name)) || !(e->version = copy_string(version))) {
+    if (e) free(e->name);
+    free(e);
+    r->api->registry_unregister(r->handle, name, version);
+    return luaL_error(L, "out of memory");
+  }
+  e->registry = r;
+  e->host = h;
+  lua_pushvalue(L, 4);
+  e->host_ref = luaL_ref(L, LUA_REGISTRYINDEX);
+  e->next_in_registry = r->entries;
+  r->entries = e;
+  e->next_in_host = h->registrations;
+  h->registrations = e;
+  r->refs++;
+  return 0;
+}
+
+/* registry:unregister(name, version): waits for the calls routed to its host. */
+static int registry_unregister(lua_State *L) {
+  registry_ref *r = check_registry(L, 1);
+  const char *name = luaL_checkstring(L, 2), *version = luaL_checkstring(L, 3);
+  ext_status s = r->api->registry_unregister(r->handle, name, version);
+  if (s) return raise_status(L, s, "unregister");
+  for (registration **at = &r->entries; *at; at = &(*at)->next_in_registry) {
+    registration *e = *at;
+    if (!strcmp(e->name, name) && !strcmp(e->version, version)) {
+      *at = e->next_in_registry;
+      for (registration **in = &e->host->registrations; *in; in = &(*in)->next_in_host)
+        if (*in == e) {
+          *in = e->next_in_host;
+          break;
+        }
+      free_registration(L, e);
+      break;
+    }
+  }
+  return 0;
+}
+
+/* registry:route(from_name, from_version, from_operation, to_name, to_version, to_operation) */
+static int registry_route(lua_State *L) {
+  registry_ref *r = check_registry(L, 1);
+  ext_registry_edge edge;
+  ext_status s;
+  memset(&edge, 0, sizeof edge);
+  edge.struct_size = (uint32_t)sizeof edge;
+  edge.from_name = luaL_checkstring(L, 2);
+  edge.from_version = luaL_checkstring(L, 3);
+  edge.from_operation = luaL_checkstring(L, 4);
+  edge.to_name = luaL_checkstring(L, 5);
+  edge.to_version = luaL_checkstring(L, 6);
+  edge.to_operation = luaL_checkstring(L, 7);
+  s = r->api->registry_route(r->handle, &edge);
+  if (s) return raise_status(L, s, "route");
+  return 0;
+}
+
+/* host:attach(registry, authorize, timeout_ms, max_payload, max_in_flight): a source of the
+ * registry, in place of serve, before start. */
+static int host_attach(lua_State *L) {
+  host_ud *h = enter(L, "attach");
+  registry_ref *r = check_registry(L, 2);
+  ext_host_services services;
+  ext_status s;
+  luaL_checktype(L, 3, LUA_TFUNCTION);
+  services = reverse_services(L, h, 4, 0);
+  s = h->api->set_reverse_mode(h->handle, EXT_HOST_REVERSE_CALLER_THREAD);
+  if (!s) s = r->api->registry_attach(r->handle, h->handle, &services);
+  if (s) return raise_status(L, s, "attach");
+  unref(L, &h->reverse_authorize);
+  h->reverse_authorize = policy_ref(L, 3);
+  registry_release(h->source_of);
+  h->source_of = r;
+  r->refs++;
+  unref(L, &h->source_ref);
+  lua_pushvalue(L, 2);
+  h->source_ref = luaL_ref(L, LUA_REGISTRYINDEX);
   return 0;
 }
 
@@ -463,6 +789,7 @@ static int host_destroyed(lua_State *L) {
 static const luaL_Reg engine_methods[] = {
     {"process", engine_process},
     {"shared_library", engine_shared_library},
+    {"registry", engine_registry},
     {NULL, NULL},
 };
 
@@ -470,6 +797,14 @@ static const luaL_Reg host_methods[] = {
     {"start", host_start},     {"call_json", host_call_json}, {"invoke", host_invoke},
     {"drain", host_drain},     {"close", host_close},         {"state", host_state},
     {"stderr", host_stderr},   {"destroy", host_destroy},     {"destroyed", host_destroyed},
+    {"serve", host_serve},     {"serve_reverse", host_serve_reverse}, {"attach", host_attach},
+    {NULL, NULL},
+};
+
+static const luaL_Reg registry_methods[] = {
+    {"register", registry_register},
+    {"unregister", registry_unregister},
+    {"route", registry_route},
     {NULL, NULL},
 };
 
@@ -500,6 +835,11 @@ EXPORT int luaopen_ext_io_host_core(lua_State *L) {
   size_t i;
   metatable(L, ENGINE_MT, engine_methods, 0);
   metatable(L, HOST_MT, host_methods, 1);
+  metatable(L, REGISTRY_MT, registry_methods, 0);
+  luaL_getmetatable(L, REGISTRY_MT);
+  lua_pushcfunction(L, registry_gc);
+  lua_setfield(L, -2, "__gc");
+  lua_pop(L, 1);
   lua_newtable(L);
   luaL_setfuncs(L, functions, 0);
   lua_pushinteger(L, EXT_HOST_ABI_VERSION);

@@ -10,7 +10,7 @@
 
 # Test plugin library modules
 (
-for module in pkg/ext-go pkg/ext-go/engine pkg/ext-go/cgoengine pkg/ext-go/hashicorp pkg/ext-go/wasm pkg/ext-go/yaegi res/web/host; do
+for module in pkg/ext-go pkg/ext-go/engine pkg/ext-go/cgoengine pkg/ext-go/hashicorp pkg/ext-go/wasm pkg/ext-go/yaegi pkg/ext-go/runtime res/web/host; do
   (cd "$module" && go test -race ./...) || exit 1
 done
 )

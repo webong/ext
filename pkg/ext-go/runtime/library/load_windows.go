@@ -1,6 +1,6 @@
-//go:build !cgo && windows && (amd64 || arm64)
+//go:build windows && (amd64 || arm64)
 
-package cshared
+package library
 
 import (
 	"fmt"
@@ -20,7 +20,8 @@ func loadImage(path string) (uintptr, error) {
 	if err != nil {
 		return 0, fmt.Errorf("invalid UTF-8 library path")
 	}
-	// Do not search the working directory for transitive DLL dependencies.
+	// The library's own directory and the system's, never the working directory,
+	// for the DLLs it depends on.
 	h, _, errno := loadLibraryExW.Call(uintptr(unsafe.Pointer(wide)), 0, loadLibrarySearchDLLLoadDir|loadLibrarySearchDefaultDirs)
 	if h == 0 {
 		return 0, fmt.Errorf("LoadLibraryExW failed (%v)", errno)

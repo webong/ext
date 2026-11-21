@@ -192,7 +192,8 @@ The reusable libraries are:
 - `res/sandbox` for the sandbox contract shared with `github.com/webong/workload` ([the sandboxing ADR](docs/adr-sandboxing.md)): the boundary levels, the policy and lifecycle vocabulary, grants, capabilities, enforcement and reports, held to `res/sandbox/testdata`. It is data and rules only, uses only the standard library, imports nothing else in ext and requires no module, so runners outside ext can depend on it (`src/ctx/internal/arch` enforces it). It confines nothing: mechanisms that enforce a grant live in `res/system` and in workload's drivers. Consumers choose the policy.
 - `pkg/ext-go/engine` for the pure-Go engine, kept in parity with the C engine: the plugin contract, sessions, guests, packages, bridges and tooling (standard library only).
 - `pkg/ext-go/c2goengine` for the C engine's portable core translated to Go by ccgo (no cgo, no C compiler). The translation is generated per platform by its `tools` module and compared with the pure-Go engine by `engine/plugintest/enginetest`; it depends on `engine` only.
-- `pkg/ext-go/cgoengine` for the Go binding of the C engine, with a pure-Go build of the same API and the C ABI loader (cgo, or purego without cgo).
+- `pkg/ext-go/cgoengine` for the Go binding of the C engine, with a pure-Go build of the same API.
+- `pkg/ext-go/runtime` for how Go reaches a C shared library: `runtime/library` (load a library once per canonical path and bind its exports, through purego, with or without cgo) and `runtime/cshared` (the C plugin ABI: the loader backend for C shared guests, with a cgo and a purego build, `cshared/abi` and `cshared/guest`). The module has no root package, so nothing shadows the standard `runtime`; it depends on `pkg/ext-go/engine` and purego only, never on `cgoengine`.
 - `pkg/ext-go/wasm` for the engine-facing WebAssembly backend; it depends on `pkg/ext-go/engine` and the reusable runtime in `res/web/host/engine/wasm`.
 - `pkg/ext-go/hashicorp` for the HashiCorp go-plugin backend.
 - `pkg/ext-go/yaegi` for the Go source backend: a guest shipped as Go source, interpreted in-process by yaegi (`github.com/traefik/yaegi`); it depends on `pkg/ext-go/engine` and yaegi only, and the umbrella does not require it.
@@ -236,7 +237,7 @@ swapping the import never needs a code change.
 `packagekit` has no dependency on `res/graph`; joining a package plan to the host
 graph is `plugingo.PlanGraph` in the umbrella module. Runtime backends
 (`pkg/ext-go/hashicorp`, `pkg/ext-go/wasm`) and the C ABI loader in
-`pkg/ext-go/cgoengine/cshared` implement `engine.Backend` and import
+`pkg/ext-go/runtime/cshared` implement `engine.Backend` and import
 `pkg/ext-go/engine`. Hosts import `pkg/ext-go/engine/host/adapter`, which
 owns manifests, the installed store, trust and invocation; a product keeps only
 its own selection and commands.
@@ -306,14 +307,15 @@ supervision is `res/graph/supervisor`. Remote clients, service discovery, routin
 approval UI and consumer policy belong to consumers.
 Keep
 `pkg/ext-go` focused on the contract, the engine API and runtime backends. The Go-to-C guest binding belongs in
-`pkg/ext-go/cgoengine/cshared/guest`. The language-neutral C ABI header
+`pkg/ext-go/runtime/cshared/guest`. The language-neutral C ABI header
 (`lib/plugin/include/ext_plugin.h`) belongs to the engine; its constants and wire
 envelope (`cshared/abi`) and the runtime loader (`cshared`) live under
-`pkg/ext-go/cgoengine/cshared`, inside the `cgoengine` module. The loader has a
+`pkg/ext-go/runtime/cshared`, in the `pkg/ext-go/runtime` module, beside the generic loader
+`pkg/ext-go/runtime/library` that its purego build uses. The loader has a
 cgo build and, for `CGO_ENABLED=0`, a purego build (Linux, macOS and Windows on
 amd64 and arm64; elsewhere it returns `ErrUnsupported`). On darwin/amd64 both builds refuse a Go
 c-shared guest, since two Go runtimes there share the TLS slot for g. purego is a dependency
-of `cgoengine` only, never of `pkg/ext-go/engine`, and both builds run the
+of `pkg/ext-go/runtime` only, never of `pkg/ext-go/engine` or `cgoengine`, and both builds run the
 cshared tests and the shared host cases (`scripts/cshared-purego.sh`). `res/web/host/engine/wasm`
 is a package of the `res/web/host` module, not a nested module. `pkg/ext-go/wasm`
 remains a separate module because it binds that reusable runtime to the plugin

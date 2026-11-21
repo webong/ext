@@ -7,11 +7,11 @@ import (
 	"strings"
 )
 
-// tables.json is a copy of res/graph/testdata/store/v1/tables.json, the
+// tables.json is a copy of lib/ledger/testdata/store/v1/tables.json, the
 // declarative layout the contract fixes. TestLayoutMatchesContract fails when
 // the copy drifts; refresh it with `go generate`.
 //
-//go:generate cp ../../testdata/store/v1/tables.json tables.json
+//go:generate cp ../../../../lib/ledger/testdata/store/v1/tables.json tables.json
 //go:embed tables.json
 var tablesJSON []byte
 

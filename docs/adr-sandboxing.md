@@ -277,7 +277,7 @@ The article is blunt: "sandboxes without telemetry become incident-response thea
   macOS, access-denied failures on Windows);
 - how the run ended.
 
-The vocabulary lands as fixtures under `res/graph/testdata`, and the recorder is
+The vocabulary lands as fixtures under `lib/ledger/testdata`, and the recorder is
 `lib/ledger`'s, not the Go `res/graph`, which is not being extended. workload does not
 write to the ledger: it returns reports, and the consumer, or ext when it hosts workload,
 records them.

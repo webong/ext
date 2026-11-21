@@ -2,7 +2,7 @@
 // one SQLite database, in pure Go (modernc.org/sqlite, no cgo).
 //
 // The tables are created from the declarative layout of the contract
-// (res/graph/testdata/store/v1/tables.json) when the database is new. There are
+// (lib/ledger/testdata/store/v1/tables.json) when the database is new. There are
 // no migrations: a database with another layout is refused. Short-lived
 // commands and long-lived consumers share a database through SQLite's own
 // locking; watches poll the durable change cursor.

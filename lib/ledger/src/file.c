@@ -1,4 +1,4 @@
-/* The file backend: res/graph/testdata/store/v1/ledger.json. A directory holds
+/* The file backend: lib/ledger/testdata/store/v1/ledger.json. A directory holds
  * an append-only log and a checkpoint; a writer holds an advisory lock on the
  * lock file, readers never lock. Every handle keeps the whole state in memory
  * and catches up by reading what other handles appended. */

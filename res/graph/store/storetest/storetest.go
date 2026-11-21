@@ -1,5 +1,5 @@
 // Package storetest runs the shared store fixtures in
-// res/graph/testdata/store/v1 against a store.Store implementation.
+// lib/ledger/testdata/store/v1 against a store.Store implementation.
 package storetest
 
 import (
@@ -26,10 +26,10 @@ type Backend struct {
 	Durable bool
 }
 
-// Dir returns the fixture directory: $EXT_GRAPH_TESTDATA/store/v1, or
+// Dir returns the fixture directory: $EXT_LEDGER_TESTDATA/store/v1, or
 // testdata/store/v1 found by walking up from the working directory.
 func Dir() (string, error) {
-	if root := os.Getenv("EXT_GRAPH_TESTDATA"); root != "" {
+	if root := os.Getenv("EXT_LEDGER_TESTDATA"); root != "" {
 		return filepath.Join(root, "store", "v1"), nil
 	}
 	dir, err := os.Getwd()
@@ -37,13 +37,13 @@ func Dir() (string, error) {
 		return "", err
 	}
 	for {
-		candidate := filepath.Join(dir, "testdata", "store", "v1")
+		candidate := filepath.Join(dir, "lib", "ledger", "testdata", "store", "v1")
 		if _, err := os.Stat(filepath.Join(candidate, "cases.json")); err == nil {
 			return candidate, nil
 		}
 		parent := filepath.Dir(dir)
 		if parent == dir {
-			return "", errors.New("res/graph store fixtures not found; set EXT_GRAPH_TESTDATA")
+			return "", errors.New("ledger store fixtures (lib/ledger/testdata) not found; set EXT_LEDGER_TESTDATA")
 		}
 		dir = parent
 	}

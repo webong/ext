@@ -171,6 +171,79 @@ EXT_LEDGER_API int ext_ledger_machine_environment(char **out, size_t *out_len);
 /* The ext.system schema the recorder registers, as canonical JSON. */
 EXT_LEDGER_API const char *ext_ledger_recorder_vocabulary(void);
 
+/* ---- the process supervisor ----
+ * Runs local component processes and projects their observed lifecycle into
+ * the ext.runtime namespace of a store: an artifact, a process instance, the
+ * runtime that supervises it, and its endpoints, connections and dependencies.
+ * It does not decide why a process is trusted or whether a caller may start
+ * it. A process leads its own process group (POSIX) or job object (Windows),
+ * so stopping it stops what it started. A supervisor holds a lease on each
+ * active instance in the store; a later supervisor of the same runtime finds
+ * processes whose lease expired as orphans. On iOS, which lets no application
+ * start a process, every launch crashes as a failed start. */
+typedef struct ext_ledger_supervisor ext_ledger_supervisor;
+
+/* The supervisor never calls back into its caller: what a caller checks
+ * (readiness, health) it reports, and secrets it passes in. So any language,
+ * including one that cannot take a call from a C thread, drives it the same way. */
+typedef struct {
+  int64_t log_limit;         /* bytes of output kept per instance; 0: 65536 */
+  const char *runtime_id;    /* NULL or "": "local" */
+  int require_checksum;      /* refuse an artifact without a checksum */
+  const char *orphan_policy; /* "mark" (NULL) blocks starts until resolved; "terminate" ends identity-matched trees */
+  int64_t lease_ms;          /* 0: 15000; at least 3 */
+  int64_t retain_terminal;   /* stopped or crashed instances kept; 0: 256 */
+} ext_ledger_supervisor_options;
+
+/* Registers ext.runtime on store and recovers what an earlier supervisor of the
+ * runtime left: EXT_LEDGER_BUSY when one still holds a live lease. The store
+ * must outlive the supervisor. */
+EXT_LEDGER_API int ext_ledger_supervisor_open(ext_ledger *store, const ext_ledger_supervisor_options *options, ext_ledger_supervisor **out);
+/* Stops every instance, waits for them, and frees the supervisor. */
+EXT_LEDGER_API void ext_ledger_supervisor_close(ext_ledger_supervisor *sup);
+
+/* Starts a process from spec, a JSON object:
+ *   {"artifact":{"id","revision","checksum":"sha256:<hex>"},"command","args":[],
+ *    "dir","environment":{},
+ *    "endpoints":[{"id","address","transport","direction"}],
+ *    "connections":[{"id","source_endpoint","target_endpoint","metadata":{}}],
+ *    "dependencies":[],"restart":{"max_attempts","initial_delay_ms","max_delay_ms"},
+ *    "await_readiness":false,"readiness_timeout_ms"}
+ * and returns its Instance JSON. secrets (NULL for none) is a JSON object of
+ * environment names and values the caller resolved: they go into each launch's
+ * environment only, are never projected, and the output of a process given
+ * any is discarded. With await_readiness, each launch stays "running" until
+ * the caller reports it with ext_ledger_supervisor_ready, and crashes when
+ * readiness_timeout_ms (default 10000) passes first. A spec it refuses is
+ * EXT_LEDGER_INVALID, an artifact whose checksum differs EXT_LEDGER_DENIED,
+ * and an unresolved orphan EXT_LEDGER_BUSY. */
+EXT_LEDGER_API int ext_ledger_supervisor_start(ext_ledger_supervisor *sup, const ext_ledger_context *ctx, const char *spec, size_t len,
+                                               const char *secrets, size_t secrets_len, char **instance, size_t *instance_len);
+/* Reports whether the launch with this pid (the Instance's) is ready: endpoint
+ * readiness and the protocol handshake are the caller's to check. EXT_LEDGER_CHANGED
+ * when that launch is no longer waiting. */
+EXT_LEDGER_API int ext_ledger_supervisor_ready(ext_ledger_supervisor *sup, const char *id, int64_t pid, int ready);
+/* Waits until the instance is in one of states (comma-separated, such as
+ * "running,ready"), or ctx ends, and returns its Instance JSON (out may be
+ * NULL). EXT_LEDGER_CHANGED when it has finished in another state. */
+EXT_LEDGER_API int ext_ledger_supervisor_await(ext_ledger_supervisor *sup, const ext_ledger_context *ctx, const char *id, const char *states,
+                                               char **out, size_t *out_len);
+/* Stops an instance and waits until it has stopped, or ctx ends. */
+EXT_LEDGER_API int ext_ledger_supervisor_stop(ext_ledger_supervisor *sup, const ext_ledger_context *ctx, const char *id);
+/* Records the health of an instance from the caller's check (check is 1 when
+ * it passed, 0 when it failed): healthy only when it passed and the instance
+ * is ready and its process alive. *healthy is 0 or 1. */
+EXT_LEDGER_API int ext_ledger_supervisor_health(ext_ledger_supervisor *sup, const char *id, int check, int *healthy);
+EXT_LEDGER_API int ext_ledger_supervisor_instance(ext_ledger_supervisor *sup, const char *id, char **out, size_t *out_len);
+/* Every instance kept, sorted by ID, as a JSON array. */
+EXT_LEDGER_API int ext_ledger_supervisor_instances(ext_ledger_supervisor *sup, char **out, size_t *out_len);
+/* The tail of what the instance wrote (stdout and stderr), raw bytes. */
+EXT_LEDGER_API int ext_ledger_supervisor_logs(ext_ledger_supervisor *sup, const char *id, char **out, size_t *out_len);
+/* Live processes an expired lease left, as [{"id","pid","process_identity","alive"}]. */
+EXT_LEDGER_API int ext_ledger_supervisor_orphans(ext_ledger_supervisor *sup, char **out, size_t *out_len);
+/* Ends an orphan's process tree, never a reused PID, and records it stopped. */
+EXT_LEDGER_API int ext_ledger_supervisor_resolve_orphan(ext_ledger_supervisor *sup, const ext_ledger_context *ctx, const char *id);
+
 EXT_LEDGER_API void ext_ledger_free(void *p);
 
 #ifdef __cplusplus

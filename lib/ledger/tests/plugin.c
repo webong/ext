@@ -3,6 +3,7 @@
 #include "ext_ledger.h"
 #include "json.h"
 #include "ledger_internal.h"
+#include "testutil.h"
 
 #include <stdint.h>
 #include <stdio.h>
@@ -86,7 +87,7 @@ static void expect_error(uint64_t h, const char *op, const char *payload, const 
   lj_free(r);
 }
 
-int main(void) {
+int main(int argc, char **argv) {
   response = malloc(CAP);
   CHECK(ext_plugin_abi_version() == 1, "ABI version");
   uint64_t h = ext_plugin_open();
@@ -105,6 +106,19 @@ int main(void) {
     const char *name = str(ops->u.array.items[i], "name");
     for (const char *p = name; *p; p++) CHECK((*p >= 'a' && *p <= 'z') || (*p >= '0' && *p <= '9') || strchr("._/-", *p), "operation %s is not an identifier", name);
   }
+  /* The package declares what the library serves: package/descriptor.json, but for the revision a package seals. */
+  size_t tlen = 0;
+  char *template_text = argc > 1 ? read_file(argv[1], &tlen) : NULL;
+  lj_value *declared = template_text ? lj_parse(template_text, tlen, NULL) : NULL;
+  free(template_text);
+  CHECK(declared, "read %s", argc > 1 ? argv[1] : "(no descriptor path)");
+  if (declared && d) {
+    lj_value *identity = lj_get(declared, "identity"), *served = lj_get(d, "identity");
+    CHECK(identity && served && strcmp(str(served, "id"), str(identity, "id")) == 0, "identity");
+    lj_object_set(identity, "revision", 8, lj_clone(lj_get(served, "revision")));
+    CHECK(lj_equal(declared, d), "package/descriptor.json differs from the descriptor the library serves");
+  }
+  lj_free(declared);
   lj_free(d);
 
   /* The store. */

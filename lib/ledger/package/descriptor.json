@@ -1,0 +1,108 @@
+{
+  "apiVersion": "ext.plugin/v1",
+  "identity": {
+    "id": "ext/ledger",
+    "revision": ""
+  },
+  "contracts": [
+    {
+      "name": "ext.graph",
+      "version": "v1",
+      "operations": [
+        {
+          "name": "store.open"
+        },
+        {
+          "name": "store.close"
+        },
+        {
+          "name": "store.register"
+        },
+        {
+          "name": "store.apply"
+        },
+        {
+          "name": "store.get-vertex"
+        },
+        {
+          "name": "store.get-edge"
+        },
+        {
+          "name": "store.query-vertices"
+        },
+        {
+          "name": "store.query-edges"
+        },
+        {
+          "name": "store.traverse"
+        },
+        {
+          "name": "store.snapshot"
+        },
+        {
+          "name": "store.changes"
+        },
+        {
+          "name": "store.canonical-transaction"
+        },
+        {
+          "name": "recorder.open"
+        },
+        {
+          "name": "recorder.close"
+        },
+        {
+          "name": "recorder.record"
+        },
+        {
+          "name": "recorder.scan"
+        },
+        {
+          "name": "recorder.vocabulary"
+        },
+        {
+          "name": "collect"
+        },
+        {
+          "name": "machine-environment"
+        },
+        {
+          "name": "supervisor.open"
+        },
+        {
+          "name": "supervisor.close"
+        },
+        {
+          "name": "supervisor.start"
+        },
+        {
+          "name": "supervisor.stop"
+        },
+        {
+          "name": "supervisor.ready"
+        },
+        {
+          "name": "supervisor.await"
+        },
+        {
+          "name": "supervisor.health"
+        },
+        {
+          "name": "supervisor.instance"
+        },
+        {
+          "name": "supervisor.instances"
+        },
+        {
+          "name": "supervisor.logs"
+        },
+        {
+          "name": "supervisor.orphans"
+        },
+        {
+          "name": "supervisor.resolve-orphan"
+        }
+      ]
+    }
+  ]
+}

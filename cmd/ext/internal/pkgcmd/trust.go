@@ -6,9 +6,9 @@ import (
 	"os"
 	"path/filepath"
 
-	plugin "github.com/webong/ext/pkg/ext-go/engine"
-	"github.com/webong/ext/pkg/ext-go/engine/host/store"
-	hosttrust "github.com/webong/ext/pkg/ext-go/engine/host/trust"
+	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/store"
+	hosttrust "github.com/webong/ext/pkg/ext-go/engine/plugin/host/trust"
 )
 
 // TrustFile names the legacy command trust file. Existing digests are imported

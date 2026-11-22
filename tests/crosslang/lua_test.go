@@ -5,8 +5,8 @@ import (
 	"os"
 	"testing"
 
-	plugin "github.com/webong/ext/pkg/ext-go/engine"
-	"github.com/webong/ext/pkg/ext-go/engine/plugintest"
+	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/plugintest"
 )
 
 // TestLuaFramesGuest runs the frames suite (progress events and reverse calls) on the Lua

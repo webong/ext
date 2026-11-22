@@ -8,10 +8,10 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/webong/ext/pkg/ext-go/runtime/cshared"
-	plugin "github.com/webong/ext/pkg/ext-go/engine"
-	"github.com/webong/ext/pkg/ext-go/engine/host/nativego"
-	"github.com/webong/ext/pkg/ext-go/engine/plugintest"
-	"github.com/webong/ext/pkg/ext-go/engine/transport/jsonline"
+	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/nativego"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/plugintest"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/transport/jsonline"
 	"github.com/webong/ext/pkg/ext-go/wasm"
 	"io"
 	"os"
@@ -128,7 +128,7 @@ type processConn struct {
 }
 
 // Close kills the guest before it closes the pipes, as the engine's own process host does
-// (engine/host/process). On Windows a pipe is not pollable, so closing the read end waits for the
+// (engine/plugin/host/process). On Windows a pipe is not pollable, so closing the read end waits for the
 // client's pending Read to return; that Read returns only once the guest writes or exits. Closing
 // first therefore hung until the test timed out whenever a call was abandoned mid-read (the
 // late-call-fails case). Killing first ends the guest, which ends the Read.

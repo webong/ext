@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	adapter "github.com/webong/ext/pkg/ext-go/engine/host/adapter"
+	adapter "github.com/webong/ext/pkg/ext-go/engine/plugin/host/adapter"
 )
 
 // Every adapter in the repository is an ext package: a plugin.json template

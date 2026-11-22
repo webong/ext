@@ -11,7 +11,7 @@
 #endif
 
 /* The package store: install, upgrade, replace, remove and load. The rules are
- * those of the Go store (engine/host/store) and the two are held together by
+ * those of the Go store (engine/plugin/host/store) and the two are held together by
  * differential tests. A package is installed by copying it into a staging
  * directory below the root, verifying the copy, and renaming it into place; an
  * upgrade moves the old directory aside first and puts it back if the new one
@@ -1437,7 +1437,7 @@ ext_status ext_store_list_unverified(ext_store *store, ext_buffer *listing) {
 }
 
 /* Entrypoint resolution (ext_store_resolve_entrypoint). The rules are those of
- * the Go store's ResolveEntrypoint (engine/host/store/discovery.go), which the
+ * the Go store's ResolveEntrypoint (engine/plugin/host/store/discovery.go), which the
  * differential tests hold this to. The platform is named as Go names it: a
  * manifest's artifact "os" and "arch" and the ".<os>" suffix of an entrypoint
  * name use runtime.GOOS and runtime.GOARCH values. */

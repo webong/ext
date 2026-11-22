@@ -13,10 +13,10 @@ import (
 	"github.com/webong/ext/cmd/ext/internal/registry"
 	"github.com/webong/ext/ctn"
 	"github.com/webong/ext/ctx"
-	"github.com/webong/ext/pkg/ext-go/engine/host"
-	"github.com/webong/ext/pkg/ext-go/engine/host/adapter"
-	"github.com/webong/ext/pkg/ext-go/engine/host/adapter/adaptercmd"
-	"github.com/webong/ext/pkg/ext-go/engine/host/store"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/host"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/adapter"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/adapter/adaptercmd"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/store"
 )
 
 func main() {

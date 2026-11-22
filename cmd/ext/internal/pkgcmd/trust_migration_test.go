@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	hosttrust "github.com/webong/ext/pkg/ext-go/engine/host/trust"
+	hosttrust "github.com/webong/ext/pkg/ext-go/engine/plugin/host/trust"
 )
 
 func TestCommandTrustLegacyImportIsOneTime(t *testing.T) {

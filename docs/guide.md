@@ -40,8 +40,8 @@ import (
 	"fmt"
 
 	"github.com/webong/ext/pkg/ext-go"
-	"github.com/webong/ext/pkg/ext-go/engine/guest/author"
-	"github.com/webong/ext/pkg/ext-go/engine/transport/inprocess"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/guest/author"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/transport/inprocess"
 )
 
 type Greeting struct {

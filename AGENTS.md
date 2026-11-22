@@ -12,7 +12,7 @@ not owned by the interface invoking them. `ext` is the main installer and combin
 entry point; CTX and CTN consume the declared capabilities available to them,
 including in standalone mode. Current adapter management uses `ext adapter`
 or standalone `ctx adapter`, both backed by
-`pkg/ext-go/engine/host/adapter/adaptercmd`; `ctn adapter ls` is read-only. See
+`pkg/ext-go/engine/plugin/host/adapter/adaptercmd`; `ctn adapter ls` is read-only. See
 [adapter management](docs/adr-adapter-management.md).
 
 Shared libraries may
@@ -190,9 +190,9 @@ The reusable libraries are:
 - `res/graph` for the graph store (`res/graph/store`), the recorder that projects what is observed about the machine, its adapters and its shell sessions onto the `ext.system` vocabulary (the module's root package), and the process supervisor (`res/graph/supervisor`). It requires `res/system`; nothing in `res/system` depends on it. Deprecated: `lib/ledger` replaces it, so add nothing new here (only keep it working until its Go consumers move to the C library and it is removed); new graph behaviour goes to `lib/ledger` and the `res/graph/testdata` fixtures.
 - `res/int` for portable intelligence contracts and mechanisms: `model` owns verified local model bundles, tensors, and native backends; `inference` owns generation, embedding, transcription, speech, and provider contracts; `perception` owns interpretation and observation types; `realtime` owns duplex session types. Providers, models, credentials, and policy are chosen by consumers.
 - `res/sandbox` for the sandbox contract shared with `github.com/webong/workload` ([the sandboxing ADR](docs/adr-sandboxing.md)): the boundary levels, the policy and lifecycle vocabulary, grants, capabilities, enforcement and reports, held to `res/sandbox/testdata`. It is data and rules only, uses only the standard library, imports nothing else in ext and requires no module, so runners outside ext can depend on it (`src/ctx/internal/arch` enforces it). It confines nothing: mechanisms that enforce a grant live in `res/system` and in workload's drivers. Consumers choose the policy.
-- `pkg/ext-go/engine` for the pure-Go engine, kept in parity with the C engine: the plugin contract, sessions, guests, packages, bridges and tooling (standard library only).
-- `pkg/ext-go/c2goengine` for the C engine's portable core translated to Go by ccgo (no cgo, no C compiler). The translation is generated per platform by its `tools` module and compared with the pure-Go engine by `engine/plugintest/enginetest`; it depends on `engine` only.
-- `pkg/ext-go/cgoengine` for the Go binding of the C engine, with a pure-Go build of the same API.
+- `pkg/ext-go/engine` for the pure-Go engines of the libraries in `lib/` (standard library only). It is a container with no root package: `engine/plugin` is the pure-Go plugin engine, kept in parity with lib/plugin (the plugin contract, sessions, guests, packages, bridges and tooling), and each further library of `lib/` gets a sibling package of its own. `cgoengine` and `c2goengine` are laid out the same way, so a library is `<engine>/<library>` in all three.
+- `pkg/ext-go/c2goengine` for the C libraries' portable code translated to Go by ccgo (no cgo, no C compiler): `c2goengine/plugin` is lib/plugin's. The translation is generated per platform by its `tools` module and compared with the pure-Go engine by `engine/plugin/plugintest/enginetest`; it depends on `engine` only.
+- `pkg/ext-go/cgoengine` for the Go bindings of the C libraries in `lib/`: `cgoengine/plugin` binds lib/plugin, with a pure-Go build of the same API. It carries their sources as `_csrc/<library>`, a mirror of `lib/`.
 - `pkg/ext-go/runtime` for how Go reaches a C shared library: `runtime/library` (load a library once per canonical path and bind its exports, through purego, with or without cgo) and `runtime/cshared` (the C plugin ABI: the loader backend for C shared guests, with a cgo and a purego build, `cshared/abi` and `cshared/guest`). The module has no root package, so nothing shadows the standard `runtime`; it depends on `pkg/ext-go/engine` and purego only, never on `cgoengine`.
 - `pkg/ext-go/wasm` for the engine-facing WebAssembly backend; it depends on `pkg/ext-go/engine` and the reusable runtime in `res/web/host/engine/wasm`.
 - `pkg/ext-go/hashicorp` for the HashiCorp go-plugin backend.
@@ -216,34 +216,34 @@ Product adapter engines and stores that are reused across adapters
 `adapters/secret_service/store`) are their own Go modules, listed in `go.work`.
 ctx does not import them: it loads adapters as installed ext packages. Product adapter
 executables use the same plugin library. `pkg/ext-go/engine` owns the
-adapter process protocol and adapter descriptor helpers (`engine/host/adapter`), and holds the pure-Go package store and host (`engine/host`, `engine/host/store`). Adapters and other Go
-programs import `pkg/ext-go/cgoengine`, the Go entry point to the engine: it
-re-exports the `engine` data model and serves sessions, guests, digests and
+adapter process protocol and adapter descriptor helpers (`engine/plugin/host/adapter`), and holds the pure-Go package store and host (`engine/plugin/host`, `engine/plugin/host/store`). Adapters and other Go
+programs import `pkg/ext-go/cgoengine/plugin`, the Go entry point to the plugin engine: it
+re-exports the `engine/plugin` data model and serves sessions, guests, digests and
 routes on the C engine (`ext_cengine` and cgo) or in pure Go, so `CGO_ENABLED=0`
 builds keep working. There is no separate `pkg/plugin` module: its code is
-`pkg/ext-go/engine`. Everything that runs plugins on a machine is grouped under `engine/host`: `host` opens an
+`pkg/ext-go/engine/plugin`. Everything that runs plugins on a machine is grouped under `engine/plugin/host`: `host` opens an
 installed package, and its subpackages `store` (the installed package store), `process` (starting the
 child), `adapter` (the host-side adapter manager), `interop` (route resolution) and `nativego`
 (loading a Go plugin built as a shared library). What a plugin implementation uses is grouped under
-`engine/guest`: `author`, `capability`, `instance` and `stream`; the `Guest` type stays in the root
-package beside `Session`. How frames travel is grouped under `engine/transport` (`jsonline`, `inprocess`, `bridge`) and how values
-are checked under `engine/validate` (`schema`, `jsonschema`). The groups are layered: `transport` and
+`engine/plugin/guest`: `author`, `capability`, `instance` and `stream`; the `Guest` type stays in
+`engine/plugin` itself beside `Session`. How frames travel is grouped under `engine/plugin/transport` (`jsonline`, `inprocess`, `bridge`) and how values
+are checked under `engine/plugin/validate` (`schema`, `jsonschema`). The groups are layered: `transport` and
 `validate` import neither `host` nor `guest` nor each other, and `host` and `guest` never import each
 other (`src/ctx/internal/arch` enforces it). `package` (declared name `packagekit`, since `package` is a Go keyword) and `plugintest` stay at
-the top because both sides use them. `cgoengine/packages` covers manifests over the
-engine, and `cgoengine/host` and `cgoengine/host/store` are engine-routed variants of `engine/host` and
-`engine/host/store` with an identical exported API (a rule `src/ctx/internal/arch` enforces), so
+the top because both sides use them. `cgoengine/plugin/packages` covers manifests over the
+engine, and `cgoengine/plugin/host` and `cgoengine/plugin/host/store` are engine-routed variants of `engine/plugin/host` and
+`engine/plugin/host/store` with an identical exported API (a rule `src/ctx/internal/arch` enforces), so
 swapping the import never needs a code change.
 `packagekit` has no dependency on `res/graph`; joining a package plan to the host
 graph is `plugingo.PlanGraph` in the umbrella module. Runtime backends
 (`pkg/ext-go/hashicorp`, `pkg/ext-go/wasm`) and the C ABI loader in
 `pkg/ext-go/runtime/cshared` implement `engine.Backend` and import
-`pkg/ext-go/engine`. Hosts import `pkg/ext-go/engine/host/adapter`, which
+`pkg/ext-go/engine`. Hosts import `pkg/ext-go/engine/plugin/host/adapter`, which
 owns manifests, the installed store, trust and invocation; a product keeps only
 its own selection and commands.
 
 A published Go module contains only its own directory. `pkg/ext-go/cgoengine`
-therefore carries the C sources it is built from as `_csrc`, a generated copy of
+therefore carries the C sources it is built from as `_csrc`, a mirror of `lib/`: `_csrc/plugin` is a generated copy of
 `lib/plugin` made by `scripts/cgoengine-sync.sh`; `TestCSourcesMatchCanonical`
 fails when the copy drifts. `lib/plugin` stays the canonical home that the iOS,
 Android, Rust and Zig bindings build from: edit it, run the script, commit both. The Zig package

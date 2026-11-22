@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/webong/ext/pkg/ext-go/engine/host/adapter"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/adapter"
 )
 
 // TestAdapterAcrossProducts exercises real binaries against one isolated home.

@@ -8,7 +8,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"github.com/webong/ext/pkg/ext-go/cgoengine"
+	cgoengine "github.com/webong/ext/pkg/ext-go/cgoengine/plugin"
 	wasm "github.com/webong/ext/res/web/host/engine/wasm"
 	"io"
 	"os"

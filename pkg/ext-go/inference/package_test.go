@@ -6,7 +6,7 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/webong/ext/pkg/ext-go/engine/host/store"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/store"
 	ginference "github.com/webong/ext/pkg/ext-go/inference"
 )
 

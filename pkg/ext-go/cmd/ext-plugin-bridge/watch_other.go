@@ -2,6 +2,6 @@
 
 package main
 
-import plugin "github.com/webong/ext/pkg/ext-go/engine"
+import plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
 
 func watchParent(config) error { return plugin.ErrUnsupported }

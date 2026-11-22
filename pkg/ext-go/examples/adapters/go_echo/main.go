@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"github.com/webong/ext/pkg/ext-go/cgoengine"
+	cgoengine "github.com/webong/ext/pkg/ext-go/cgoengine/plugin"
 	"os"
 	"strings"
 )

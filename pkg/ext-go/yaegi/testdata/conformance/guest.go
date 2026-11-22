@@ -8,8 +8,8 @@ import (
 	"encoding/json"
 	"errors"
 
-	plugin "github.com/webong/ext/pkg/ext-go/engine"
-	"github.com/webong/ext/pkg/ext-go/engine/transport/inprocess"
+	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/transport/inprocess"
 )
 
 func descriptor() plugin.Descriptor {

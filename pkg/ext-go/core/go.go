@@ -4,9 +4,9 @@ import (
 	"context"
 	"encoding/json"
 
-	plugin "github.com/webong/ext/pkg/ext-go/engine"
-	"github.com/webong/ext/pkg/ext-go/engine/guest/instance"
-	"github.com/webong/ext/pkg/ext-go/engine/host/process"
+	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/guest/instance"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/process"
 )
 
 // goEngine is the pure-Go engine: the oracle, and the engine that exists on every platform.

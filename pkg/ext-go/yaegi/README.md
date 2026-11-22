@@ -20,8 +20,8 @@ import (
 	"context"
 	"encoding/json"
 
-	plugin "github.com/webong/ext/pkg/ext-go/engine"
-	"github.com/webong/ext/pkg/ext-go/engine/transport/inprocess"
+	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/transport/inprocess"
 )
 
 func handle(ctx context.Context, r plugin.Request) (json.RawMessage, error) { return r.Payload, nil }
@@ -109,7 +109,7 @@ evaluates that. `Open(ctx, dir, digest, options)` is the same below the session,
 
 ## Tests
 
-`TestConformance` runs `engine/plugintest` against the reference guest interpreted from source, and
+`TestConformance` runs `engine/plugin/plugintest` against the reference guest interpreted from source, and
 `TestHostCases` runs the shared host cases (`lib/plugin/testdata/v1/host-cases.json`, skipped without
 the repository). The rest cover refused imports, host-chosen packages and symbols, digests, timeouts,
 panics, output and package-variable isolation, and `OpenPackage` over an installed package.

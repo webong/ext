@@ -16,21 +16,21 @@ Their existing native protocols are not automatically compatible with CTX.
 | Package | Responsibility |
 | --- | --- |
 | `plugin` | Immutable descriptors, exact selection, verification, per-call admission, lifecycle, compatibility preflight and metadata observation |
-| `pkg/ext-go/engine/guest/author` | Typed methods, runtime validation, descriptor generation and frozen guest dispatch |
-| `pkg/ext-go/engine/validate/schema` | Bounded `ext.schema/v1` payload/configuration schemas |
-| `pkg/ext-go/engine/transport/inprocess` | Trusted endpoints with connection lifetime cancellation |
-| `pkg/ext-go/engine/transport/jsonline` | Bounded JSON-line transport on a supplied duplex connection |
+| `pkg/ext-go/engine/plugin/guest/author` | Typed methods, runtime validation, descriptor generation and frozen guest dispatch |
+| `pkg/ext-go/engine/plugin/validate/schema` | Bounded `ext.schema/v1` payload/configuration schemas |
+| `pkg/ext-go/engine/plugin/transport/inprocess` | Trusted endpoints with connection lifetime cancellation |
+| `pkg/ext-go/engine/plugin/transport/jsonline` | Bounded JSON-line transport on a supplied duplex connection |
 | `pkg/ext-go/hashicorp` | Native go-plugin startup and net/rpc or gRPC bindings |
-| `pkg/ext-go/engine/host/nativego` | Dynamic Go `.so` loading through a standard guest factory |
+| `pkg/ext-go/engine/plugin/host/nativego` | Dynamic Go `.so` loading through a standard guest factory |
 | `res/web/host/engine/wasm` | Protocol-neutral WebAssembly inspection, WASI execution, byte streams and raw reactors through wazero |
 | `pkg/ext-go/wasm` | `engine.Backend`, JSON-line and plugin reactor bindings over `res/web/host/engine/wasm` |
 | `pkg/ext-go/runtime/cshared` | Dynamic C ABI loading with separate guest handles and owned buffers |
 | `pkg/ext-go/runtime/cshared/guest` | Go guest lifecycle and cgo export bridge for C shared libraries |
-| `pkg/ext-go/engine/guest/instance` | Configuration revisions, resource leases, replacement and disposal |
-| `pkg/ext-go/engine/guest/capability` | Optional health and configuration contracts |
-| `pkg/ext-go/engine/guest/stream` | Optional, scoped, bounded pull streams |
-| `pkg/ext-go/engine/package` | Portable manifests, artifact verification, preflight and graph projection |
-| `pkg/ext-go/engine/plugintest` | Reusable backend conformance tests |
+| `pkg/ext-go/engine/plugin/guest/instance` | Configuration revisions, resource leases, replacement and disposal |
+| `pkg/ext-go/engine/plugin/guest/capability` | Optional health and configuration contracts |
+| `pkg/ext-go/engine/plugin/guest/stream` | Optional, scoped, bounded pull streams |
+| `pkg/ext-go/engine/plugin/package` | Portable manifests, artifact verification, preflight and graph projection |
+| `pkg/ext-go/engine/plugin/plugintest` | Reusable backend conformance tests |
 | `pkg/ext-go` | Go binding to the C engine; static by default, shared optional |
 | `pkg/ext-python` | Standard-library guest SDK (`ext_io.plugin`) serving JSON lines on stdin and stdout, and a host SDK (`ext_io.host`) that runs any plugin through the C engine with `ctypes` |
 | `pkg/ext-ruby` | Standard-library Ruby guest SDK (`ExtIO::Plugin`) serving JSON lines on stdin and stdout, and an opt-in host SDK (`ExtIO::Host`) that runs any plugin through the C engine with a native extension |
@@ -201,7 +201,7 @@ reads it with `Session.CallProgress`. A package author declares host operations 
 `Manifest.WithReverse` (ExecutableManifest and SourceManifest take the
 operations' `Progress` flags in the contracts); a manifest generator writes the
 descriptor's `reverse` list and each operation's `progress` flag. A loopback
-data endpoint is declared with `engine/endpoint`. See the
+data endpoint is declared with `engine/plugin/endpoint`. See the
 [design record](adr-plugin-reverse-progress-endpoints.md); the C engine and the
 other SDKs do not carry these yet. The rest of this section describes the
 separate-connection approach the other SDKs still use.
@@ -209,7 +209,7 @@ separate-connection approach the other SDKs still use.
 A host composes plugins with a guest registry: a reverse call one plugin makes is
 served by a forward call to another plugin, along an edge the host declares, so an
 edge needs no hand-written case in a `Handle`. In Go, `host.NewRegistry()` (in
-`engine/host` and `cgoengine/host`, with the same API) takes `Register(contract,
+`engine/plugin/host` and `cgoengine/plugin/host`, with the same API) takes `Register(contract,
 process)` for each process that serves a contract and `Route(fromContract,
 fromOperation, toContract, toOperation)` for each edge; a process opened with
 `Options.Registry` (and `Options.Reverse` for its `Authorize` and bounds, with no
@@ -344,7 +344,7 @@ tradeoffs. Ordinary Go builds do not depend on this C engine.
 ### Interoperability across implementations
 
 Go, C and language-native SDK hosts can coexist behind the same contract.
-`pkg/ext-go/engine/host/interop` plans explicit direct/bridged routes; `pkg/ext-go/engine/transport/bridge` exposes a
+`pkg/ext-go/engine/plugin/host/interop` plans explicit direct/bridged routes; `pkg/ext-go/engine/plugin/transport/bridge` exposes a
 verified backend as an Endpoint. `pkg/ext-go/cmd/ext-plugin-bridge` connects JSON-line hosts
 to HashiCorp gRPC/net/rpc guests, while HashiCorp servers can expose relay
 Endpoints in the reverse direction. See [interoperability](plugin-interoperability.md)

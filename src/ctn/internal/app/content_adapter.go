@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/webong/ext/ctn/internal/content"
-	"github.com/webong/ext/pkg/ext-go/engine/host/adapter"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/adapter"
 )
 
 // evaluatorBackend wraps an evaluator adapter as a content.Backend.

@@ -4,10 +4,10 @@ package echo
 
 import (
 	"context"
-	"github.com/webong/ext/pkg/ext-go/cgoengine"
-	"github.com/webong/ext/pkg/ext-go/engine/guest/author"
-	"github.com/webong/ext/pkg/ext-go/engine/transport/inprocess"
-	"github.com/webong/ext/pkg/ext-go/engine/validate/schema"
+	cgoengine "github.com/webong/ext/pkg/ext-go/cgoengine/plugin"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/guest/author"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/transport/inprocess"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/validate/schema"
 )
 
 type Message struct {

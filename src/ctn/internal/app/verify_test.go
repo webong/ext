@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/webong/ext/pkg/ext-go/engine/host/adapter"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/adapter"
 )
 
 // evaluatorStore installs a fake evaluator adapter into a temporary shared store and

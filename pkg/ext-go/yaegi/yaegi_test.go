@@ -13,8 +13,8 @@ import (
 	"time"
 
 	"github.com/traefik/yaegi/interp"
-	plugin "github.com/webong/ext/pkg/ext-go/engine"
-	"github.com/webong/ext/pkg/ext-go/engine/plugintest"
+	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/plugintest"
 	"github.com/webong/ext/pkg/ext-go/yaegi"
 )
 
@@ -67,7 +67,7 @@ func open(t *testing.T, files map[string]string, options yaegi.Options) (*yaegi.
 	return b, err
 }
 
-const header = "package main\n\nimport (\n\t\"context\"\n\tplugin \"github.com/webong/ext/pkg/ext-go/engine\"\n\t\"github.com/webong/ext/pkg/ext-go/engine/transport/inprocess\"\n%s)\n\nvar _ = inprocess.New\n\n"
+const header = "package main\n\nimport (\n\t\"context\"\n\tplugin \"github.com/webong/ext/pkg/ext-go/engine/plugin\"\n\t\"github.com/webong/ext/pkg/ext-go/engine/plugin/transport/inprocess\"\n%s)\n\nvar _ = inprocess.New\n\n"
 
 func guestWith(imports, body string) map[string]string {
 	return map[string]string{"guest.go": strings.Replace(header, "%s", imports, 1) + body}

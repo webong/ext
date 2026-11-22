@@ -53,7 +53,7 @@ isolate installations.
 
 ## Storage and compatibility
 
-The shared library is `pkg/ext-go/engine/host/adapter`. The default adapter
+The shared library is `pkg/ext-go/engine/plugin/host/adapter`. The default adapter
 store is under `$EXT_HOME/adapters`, with `EXT_ADAPTER_HOME` as an adapter-only
 override. An existing `~/.config/ctx` directory keeps being used until
 `~/.config/ext` exists. See the
@@ -75,7 +75,7 @@ suffixes are serialized names and are unchanged.
 
 ## Shared implementation
 
-`pkg/ext-go/engine/host/adapter/adaptercmd` owns the management command,
+`pkg/ext-go/engine/plugin/host/adapter/adaptercmd` owns the management command,
 catalog activation and refresh, and declared launcher installation. It is part
 of the standard-library-only engine module and imports no product code.
 `cmd/ext` registers it as the `adapter` builtin. Standalone CTX calls the same

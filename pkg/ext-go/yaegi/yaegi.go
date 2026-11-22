@@ -1,7 +1,7 @@
 // Package yaegi runs a guest shipped as Go source, interpreted in-process by
 // yaegi (github.com/traefik/yaegi). The guest is ordinary Go written against
 // the engine's guest API, the same source a compiled guest uses, and it is
-// served through engine/transport/inprocess as engine/host/nativego serves a
+// served through engine/plugin/transport/inprocess as engine/plugin/host/nativego serves a
 // loaded image.
 //
 // The guest's package sits at the root of a directory, normally the tree
@@ -47,8 +47,8 @@ import (
 
 	"github.com/traefik/yaegi/interp"
 	"github.com/traefik/yaegi/stdlib"
-	plugin "github.com/webong/ext/pkg/ext-go/engine"
-	"github.com/webong/ext/pkg/ext-go/engine/transport/inprocess"
+	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/transport/inprocess"
 	"github.com/webong/ext/pkg/ext-go/yaegi/internal/symbols"
 )
 
@@ -110,13 +110,13 @@ var DefaultPackages = []string{
 // functions (author.Register, instance.New and the like) are not exported to
 // interpreted code; a guest builds its handler with plugin.NewGuest.
 var GuestPackages = []string{
-	"github.com/webong/ext/pkg/ext-go/engine",
-	"github.com/webong/ext/pkg/ext-go/engine/guest/author",
-	"github.com/webong/ext/pkg/ext-go/engine/guest/capability",
-	"github.com/webong/ext/pkg/ext-go/engine/guest/instance",
-	"github.com/webong/ext/pkg/ext-go/engine/guest/stream",
-	"github.com/webong/ext/pkg/ext-go/engine/transport/inprocess",
-	"github.com/webong/ext/pkg/ext-go/engine/validate/schema",
+	"github.com/webong/ext/pkg/ext-go/engine/plugin",
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/guest/author",
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/guest/capability",
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/guest/instance",
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/guest/stream",
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/transport/inprocess",
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/validate/schema",
 }
 
 // genericSource are the standard library packages yaegi compiles from source

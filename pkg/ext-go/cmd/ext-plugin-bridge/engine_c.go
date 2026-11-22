@@ -4,9 +4,9 @@ package main
 
 import (
 	"context"
-	"github.com/webong/ext/pkg/ext-go/cgoengine"
-	plugin "github.com/webong/ext/pkg/ext-go/engine"
-	"github.com/webong/ext/pkg/ext-go/engine/transport/bridge"
+	cgoengine "github.com/webong/ext/pkg/ext-go/cgoengine/plugin"
+	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/transport/bridge"
 )
 
 func openRelay(ctx context.Context, d plugin.Descriptor, o plugin.Options) (*bridge.Relay, error) {

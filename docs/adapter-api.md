@@ -24,7 +24,7 @@ the detailed API reference.
 runs through `ext adapter …`; standalone `ctx adapter …` exposes the same
 commands. `ext ctn …` and standalone `ctn …` consume installed capabilities;
 `ctn adapter ls` lists adapters but does not install them. Both management
-entry points call `pkg/ext-go/engine/host/adapter/adaptercmd`.
+entry points call `pkg/ext-go/engine/plugin/host/adapter/adaptercmd`.
 
 `ext adapter doctor NAME` runs the trusted adapter's default diagnostics with
 no project selection. `ctx adapter doctor NAME` retains CTX's project selection

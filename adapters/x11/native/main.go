@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/webong/ext/adapters/x11"
-	"github.com/webong/ext/pkg/ext-go/cgoengine"
+	cgoengine "github.com/webong/ext/pkg/ext-go/cgoengine/plugin"
 	"github.com/webong/ext/res/system/capture/surface"
 )
 

@@ -2,7 +2,7 @@ package hashicorp
 
 import (
 	"context"
-	plugin "github.com/webong/ext/pkg/ext-go/engine"
+	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"

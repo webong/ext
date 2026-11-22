@@ -23,8 +23,8 @@ import (
 	"os"
 	"strings"
 
-	plugin "github.com/webong/ext/pkg/ext-go/engine"
-	"github.com/webong/ext/pkg/ext-go/engine/guest/instance"
+	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/guest/instance"
 )
 
 // Name identifies an engine.

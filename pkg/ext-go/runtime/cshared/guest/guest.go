@@ -5,7 +5,7 @@ package guest
 import (
 	"context"
 	"encoding/json"
-	plugin "github.com/webong/ext/pkg/ext-go/engine"
+	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
 	"github.com/webong/ext/pkg/ext-go/runtime/cshared/abi"
 	"sync"
 	"unsafe"

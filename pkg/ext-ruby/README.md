@@ -3,7 +3,7 @@
 > **Why `ext-io`:** the bare name `ext` is taken on RubyGems (and on crates.io, PyPI and npm), so `ext-io` is the one gem for all of ext's APIs, one namespace per area. Only `plugin` is built so far; `system`, `web` and `int` are planned.
 
 Standard-library-only guest for `ext.plugin/v1` over JSON lines (Ruby 3.1+). It needs no C and no
-native build. Hosts use the Go `pkg/ext-go/engine/host/process` backend (or any JSON-line client) to run it.
+native build. Hosts use the Go `pkg/ext-go/engine/plugin/host/process` backend (or any JSON-line client) to run it.
 A Ruby program can also host plugins itself with the opt-in [host SDK](#host-sdk-extiohost) on the C engine.
 
 ```ruby
@@ -174,7 +174,7 @@ never on an engine thread.
 `test/frames_guest.rb` is the frames conformance guest of
 [docs/plugin-guest-frames.md](https://github.com/webong/ext/blob/main/docs/plugin-guest-frames.md)
 (it answers the operations that need a reader of its own with the public error `unsupported`).
-The Go suite in `pkg/ext-go/engine/plugintest` (`TestRubyGuest`, `TestRubyUnitTests`) runs
+The Go suite in `pkg/ext-go/engine/plugin/plugintest` (`TestRubyGuest`, `TestRubyUnitTests`) runs
 `test/conformance_guest.rb` through `process.Start` against the shared conformance fixtures; set
 `EXT_RUBY` to an interpreter's absolute path to choose one. CI (the `ext-ruby` area of `.github/ci/areas.json`) runs
 all of this on Ruby 3.1 through the latest.

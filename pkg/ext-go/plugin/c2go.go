@@ -1,11 +1,11 @@
-package core
+package plugin
 
 import (
 	"context"
 	"encoding/json"
 
 	c2goengine "github.com/webong/ext/pkg/ext-go/c2goengine/plugin"
-	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
+	engine "github.com/webong/ext/pkg/ext-go/engine/plugin"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/guest/instance"
 )
 
@@ -35,7 +35,7 @@ func (e c2goEngine) Call(operation string, input json.RawMessage) (json.RawMessa
 	return c2goengine.EngineCall(operation, input)
 }
 
-func (e c2goEngine) Open(ctx context.Context, d plugin.Descriptor, options plugin.Options) (Session, error) {
+func (e c2goEngine) Open(ctx context.Context, d engine.Descriptor, options engine.Options) (Session, error) {
 	if !e.Features().Has(Sessions) {
 		return nil, errUnsupported(e, "sessions")
 	}
@@ -46,7 +46,7 @@ func (e c2goEngine) Open(ctx context.Context, d plugin.Descriptor, options plugi
 	return session{C2Go, s}, nil
 }
 
-func (e c2goEngine) OpenProcess(ctx context.Context, d plugin.Descriptor, launch Launch, options plugin.Options) (Session, error) {
+func (e c2goEngine) OpenProcess(ctx context.Context, d engine.Descriptor, launch Launch, options engine.Options) (Session, error) {
 	if !e.Features().Has(Sessions) {
 		return nil, errUnsupported(e, "sessions")
 	}

@@ -24,8 +24,8 @@ Their existing native protocols are not automatically compatible with CTX.
 | `pkg/ext-go/engine/plugin/host/nativego` | Dynamic Go `.so` loading through a standard guest factory |
 | `res/web/host/engine/wasm` | Protocol-neutral WebAssembly inspection, WASI execution, byte streams and raw reactors through wazero |
 | `pkg/ext-go/wasm` | `engine.Backend`, JSON-line and plugin reactor bindings over `res/web/host/engine/wasm` |
-| `pkg/ext-go/runtime/cshared` | Dynamic C ABI loading with separate guest handles and owned buffers |
-| `pkg/ext-go/runtime/cshared/guest` | Go guest lifecycle and cgo export bridge for C shared libraries |
+| `pkg/ext-go/cguest` | Dynamic C ABI loading with separate guest handles and owned buffers |
+| `pkg/ext-go/cguest/guest` | Go guest lifecycle and cgo export bridge for C shared libraries |
 | `pkg/ext-go/engine/plugin/guest/instance` | Configuration revisions, resource leases, replacement and disposal |
 | `pkg/ext-go/engine/plugin/guest/capability` | Optional health and configuration contracts |
 | `pkg/ext-go/engine/plugin/guest/stream` | Optional, scoped, bounded pull streams |

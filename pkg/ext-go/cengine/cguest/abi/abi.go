@@ -5,6 +5,10 @@ package abi
 import "time"
 
 const Version uint32 = 1
+
+// MaxFrameBytes is the largest frame either side of the ABI passes, and the exact capacity of the
+// response buffer the host hands the guest. It is the plugin contract's frame limit.
+const MaxFrameBytes = 24 << 20
 const (
 	Handshake uint32 = 1
 	Invoke    uint32 = 2

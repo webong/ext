@@ -14,7 +14,7 @@ import (
 // re-exports the data model that lives in pkg/ext-go/engine/plugin and runs on
 // the C engine or in pure Go. Only the plugin
 // library itself and the runtime backends that implement engine.Backend
-// (pkg/ext-go/hashicorp, pkg/ext-go/wasm, pkg/ext-go/yaegi, pkg/ext-go/runtime/cshared)
+// (pkg/ext-go/hashicorp, pkg/ext-go/wasm, pkg/ext-go/yaegi, pkg/ext-go/cengine/cguest)
 // import that root package. CTN's public provider bridges also use the engine
 // data model directly; their consumers choose the host implementation.
 func TestGoProgramsImportCgoengineNotTheEnginePackage(t *testing.T) {

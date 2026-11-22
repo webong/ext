@@ -1,4 +1,4 @@
-package cshared_test
+package cguest_test
 
 import (
 	"context"
@@ -13,9 +13,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/webong/ext/pkg/ext-go/cguest"
 	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/plugintest"
-	"github.com/webong/ext/pkg/ext-go/runtime/cshared"
 )
 
 // guest returns the Go c-shared conformance guest: EXT_CSHARED_GUEST, or one
@@ -31,7 +31,7 @@ func guest(t *testing.T) string {
 		}
 		t.Skipf(format, args...)
 	}
-	if !cshared.Supported() {
+	if !cguest.Supported() {
 		skip("this build has no C ABI loader")
 	}
 	if path := os.Getenv("EXT_CSHARED_GUEST"); path != "" {
@@ -87,7 +87,7 @@ func goGuestRefused(t *testing.T, path string) bool {
 	if runtime.GOOS != "darwin" || runtime.GOARCH != "amd64" {
 		return false
 	}
-	_, err := cshared.Open(context.Background(), path)
+	_, err := cguest.Open(context.Background(), path)
 	if !errors.Is(err, plugin.ErrUnsupported) || !strings.Contains(err.Error(), "darwin/amd64") {
 		t.Fatalf("a Go guest on darwin/amd64: got %v, want ErrUnsupported naming darwin/amd64", err)
 	}
@@ -100,7 +100,7 @@ func TestConformance(t *testing.T) {
 		return
 	}
 	plugintest.Run(t, func(ctx context.Context) (plugin.Backend, error) {
-		b, err := cshared.Open(ctx, path)
+		b, err := cguest.Open(ctx, path)
 		if err != nil {
 			return nil, err
 		}
@@ -117,7 +117,7 @@ func TestConformance(t *testing.T) {
 }
 
 func TestOpenRejectsRelativePath(t *testing.T) {
-	if _, err := cshared.Open(context.Background(), "guest.so"); !errors.Is(err, plugin.ErrInvalid) {
+	if _, err := cguest.Open(context.Background(), "guest.so"); !errors.Is(err, plugin.ErrInvalid) {
 		t.Fatalf("got %v, want ErrInvalid", err)
 	}
 }
@@ -125,7 +125,7 @@ func TestOpenRejectsRelativePath(t *testing.T) {
 func TestOpenHonoursCancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	if _, err := cshared.Open(ctx, filepath.Join(t.TempDir(), "guest.so")); !errors.Is(err, context.Canceled) {
+	if _, err := cguest.Open(ctx, filepath.Join(t.TempDir(), "guest.so")); !errors.Is(err, context.Canceled) {
 		t.Fatalf("got %v, want context.Canceled", err)
 	}
 }
@@ -135,7 +135,7 @@ func TestOpenReportsLoadFailure(t *testing.T) {
 	if err := os.WriteFile(path, []byte("not a shared library"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	_, err := cshared.Open(context.Background(), path)
+	_, err := cguest.Open(context.Background(), path)
 	if !errors.Is(err, plugin.ErrUnsupported) {
 		t.Fatalf("got %v, want ErrUnsupported", err)
 	}
@@ -149,7 +149,7 @@ func TestImageStaysResident(t *testing.T) {
 		return
 	}
 	for range 2 {
-		b, err := cshared.Open(context.Background(), path)
+		b, err := cguest.Open(context.Background(), path)
 		if err != nil {
 			t.Fatal(err)
 		}

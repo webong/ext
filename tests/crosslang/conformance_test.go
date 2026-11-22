@@ -7,7 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"github.com/webong/ext/pkg/ext-go/runtime/cshared"
+	"github.com/webong/ext/pkg/ext-go/cguest"
 	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/nativego"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/plugintest"
@@ -159,7 +159,7 @@ func process(path string) (plugin.Backend, error) {
 // with the test.
 func sharedBackend(t *testing.T, path string) func(context.Context) (plugin.Backend, error) {
 	return func(ctx context.Context) (plugin.Backend, error) {
-		b, err := cshared.Open(ctx, path)
+		b, err := cguest.Open(ctx, path)
 		if err != nil {
 			return nil, err
 		}

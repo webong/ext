@@ -1,10 +1,10 @@
-package core
+package plugin
 
 import (
 	"context"
 	"encoding/json"
 
-	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
+	engine "github.com/webong/ext/pkg/ext-go/engine/plugin"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/guest/instance"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/process"
 )
@@ -26,7 +26,7 @@ func (e goEngine) Call(string, json.RawMessage) (json.RawMessage, error) {
 // goSession is a contract session; one opened over a child process also keeps the process for its
 // stderr.
 type goSession struct {
-	*plugin.Session
+	*engine.Session
 	proc *process.Process
 }
 
@@ -37,21 +37,21 @@ func (s goSession) Stderr() string {
 	return s.proc.Stderr()
 }
 
-func (goEngine) Open(ctx context.Context, d plugin.Descriptor, options plugin.Options) (Session, error) {
-	s, err := plugin.Open(ctx, d, options)
+func (goEngine) Open(ctx context.Context, d engine.Descriptor, options engine.Options) (Session, error) {
+	s, err := engine.Open(ctx, d, options)
 	if err != nil {
 		return nil, err
 	}
 	return session{Go, goSession{Session: s}}, nil
 }
 
-func (goEngine) OpenProcess(ctx context.Context, d plugin.Descriptor, launch Launch, options plugin.Options) (Session, error) {
+func (goEngine) OpenProcess(ctx context.Context, d engine.Descriptor, launch Launch, options engine.Options) (Session, error) {
 	if launch.StderrBytes < 0 {
-		return nil, plugin.ErrInvalid
+		return nil, engine.ErrInvalid
 	}
 	var proc *process.Process
 	connect := options
-	connect.Connect = func(ctx context.Context, _ plugin.Descriptor) (plugin.Backend, error) {
+	connect.Connect = func(ctx context.Context, _ engine.Descriptor) (engine.Backend, error) {
 		p, err := process.Start(ctx, process.Command{
 			Path:        launch.Executable,
 			Args:        launch.Arguments,
@@ -65,7 +65,7 @@ func (goEngine) OpenProcess(ctx context.Context, d plugin.Descriptor, launch Lau
 		proc = p
 		return p, nil
 	}
-	s, err := plugin.Open(ctx, d, connect)
+	s, err := engine.Open(ctx, d, connect)
 	if err != nil {
 		return nil, err
 	}

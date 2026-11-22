@@ -6,7 +6,7 @@ package main
 import "C"
 import (
 	"context"
-	"github.com/webong/ext/pkg/ext-go/runtime/cshared/guest"
+	"github.com/webong/ext/pkg/ext-go/cguest/guest"
 	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/plugintest"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/transport/inprocess"

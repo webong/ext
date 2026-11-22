@@ -1,6 +1,6 @@
 //go:build !cgo && (darwin || linux || windows) && (amd64 || arm64)
 
-package cshared
+package cguest
 
 // The cgo-free loader. The C ABI (lib/plugin/include/ext_plugin.h) is four
 // exports the host calls and no function pointer the guest calls back, so
@@ -14,9 +14,8 @@ import (
 	"runtime"
 	"sync"
 
-	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
-	"github.com/webong/ext/pkg/ext-go/runtime/cshared/abi"
-	"github.com/webong/ext/pkg/ext-go/runtime/library"
+	"github.com/webong/ext/pkg/ext-go/cengine/cguest/abi"
+	"github.com/webong/ext/pkg/ext-go/cengine/library"
 )
 
 func Supported() bool { return true }
@@ -46,7 +45,7 @@ type session struct {
 
 // responses reuses the MaxFrameBytes buffers the guest writes into. A buffer
 // returns to the pool only after the native call that holds it has returned.
-var responses = sync.Pool{New: func() any { b := make([]byte, plugin.MaxFrameBytes); return &b }}
+var responses = sync.Pool{New: func() any { b := make([]byte, abi.MaxFrameBytes); return &b }}
 
 func openNative(path string) (nativeSession, error) {
 	canonical, err := filepath.EvalSymlinks(path)
@@ -58,7 +57,7 @@ func openNative(path string) (nativeSession, error) {
 	i.once.Do(func() {
 		i.exports, err = load(canonical)
 		if err != nil {
-			i.err = fmt.Errorf("%w: load C shared plugin: %v", plugin.ErrUnsupported, err)
+			i.err = fmt.Errorf("%w: load C shared plugin: %v", ErrUnsupported, err)
 		}
 	})
 	if i.err != nil {
@@ -66,7 +65,7 @@ func openNative(path string) (nativeSession, error) {
 	}
 	handle := i.exports.open()
 	if handle == 0 {
-		return nil, fmt.Errorf("%w: C shared guest refused a new handle", plugin.ErrDenied)
+		return nil, fmt.Errorf("%w: C shared guest refused a new handle", ErrDenied)
 	}
 	return &session{exports: i.exports, handle: handle}, nil
 }
@@ -117,10 +116,10 @@ func (s *session) call(op uint32, input []byte) ([]byte, error) {
 	var size uint32
 	status := s.exports.call(s.handle, op, request, uint32(len(input)), &response[0], uint32(len(response)), &size)
 	if status != abi.OK {
-		return nil, fmt.Errorf("%w: C ABI status %d", plugin.ErrInvalid, status)
+		return nil, fmt.Errorf("%w: C ABI status %d", ErrInvalid, status)
 	}
 	if size == 0 || size > uint32(len(response)) {
-		return nil, plugin.ErrInvalid
+		return nil, ErrInvalid
 	}
 	return append([]byte(nil), response[:size]...), nil
 }

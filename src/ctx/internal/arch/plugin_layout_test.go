@@ -27,10 +27,14 @@ import (
 //	wasm        the engine binding for res/web/host/engine/wasm; needs engine and res/web/host
 //	hashicorp   the gRPC backend; needs engine only, never cgoengine
 //	yaegi       the Go source interpreter backend; needs engine and yaegi only, never cgoengine
-//	runtime     how Go reaches C shared libraries: library (purego) and the cshared backend;
-//	            needs engine and purego only, never cgoengine
-//	(umbrella)  pkg/ext-go itself, the one module that may require them all; its core package
-//	            chooses between engine, cgoengine and c2goengine
+//	core        the switcher: driver picks go or a C driver for a library of lib/; standard
+//	            library only, requires nothing, knows no library by name
+//	cguest      the plugin backend for guests built as C shared libraries, over cengine/cguest;
+//	            needs engine and cengine
+//	cengine     the C side: library opens the built copy purego needs, cguest exchanges bytes
+//	            with C ABI guests, and cgo and ccgo register with it; purego only, no ext module
+//	(umbrella)  pkg/ext-go itself, the one module that may require them all; its plugin package
+//	            chooses between engine, cgoengine and c2goengine through core/driver
 //	res/web/host  portable web and WebAssembly tooling; never imports the plugin engine
 const pluginPrefix = "github.com/webong/ext/pkg/ext-go"
 
@@ -42,7 +46,9 @@ var pluginRequires = map[string][]string{
 	"pkg/ext-go/wasm":                   {"pkg/ext-go/engine", "res/web/host"},
 	"pkg/ext-go/hashicorp":              {"pkg/ext-go/engine"},
 	"pkg/ext-go/yaegi":                  {"pkg/ext-go/engine"},
-	"pkg/ext-go/runtime":                {"pkg/ext-go/engine"},
+	"pkg/ext-go/core":                   {},
+	"pkg/ext-go/cguest":                 {"pkg/ext-go/engine", "pkg/ext-go/cengine"},
+	"pkg/ext-go/cengine":                {},
 	"src/ctn/inference":                 {"pkg/ext-go/engine", "res/int"},
 	"src/ctn/model":                     {"pkg/ext-go/engine", "res/int"},
 	"src/ctn/perception":                {"pkg/ext-go/engine", "res/int"},
@@ -52,7 +58,7 @@ var pluginRequires = map[string][]string{
 	"res/web/host":                      {},
 	"res/system":                        {},
 	"pkg/ext-go/engine/ledger/recorder": {"pkg/ext-go/engine", "res/system"},
-	"pkg/ext-go":                        {"pkg/ext-go/engine", "pkg/ext-go/cgoengine", "pkg/ext-go/c2goengine", "pkg/ext-go/wasm", "pkg/ext-go/hashicorp", "pkg/ext-go/realtime", "pkg/ext-go/runtime", "pkg/ext-go/engine/ledger/recorder", "res/web/host"},
+	"pkg/ext-go":                        {"pkg/ext-go/engine", "pkg/ext-go/cgoengine", "pkg/ext-go/c2goengine", "pkg/ext-go/wasm", "pkg/ext-go/hashicorp", "pkg/ext-go/realtime", "pkg/ext-go/core", "pkg/ext-go/cengine", "pkg/ext-go/cguest", "pkg/ext-go/engine/ledger/recorder", "res/web/host"},
 }
 
 var requireLine = regexp.MustCompile(`(?m)^\s*(?:require\s+)?(github\.com/webong/ext/\S+)\s+v\S+`)
@@ -85,8 +91,8 @@ func TestPluginGoModulesRequireOnlyTheirParts(t *testing.T) {
 // nothing of the C engine. A wazero, gRPC, or CTN bridge user needs no C toolchain.
 func TestBackendsNeverImportTheCEngine(t *testing.T) {
 	root := repoRoot(t)
-	for _, dir := range []string{"pkg/ext-go/wasm", "pkg/ext-go/hashicorp", "pkg/ext-go/yaegi", "pkg/ext-go/runtime", "src/ctn/inference", "src/ctn/model", "src/ctn/perception", "pkg/ext-go/realtime"} {
-		forbidden := []string{pluginPrefix + "/cgoengine", pluginPrefix + "/c2goengine", pluginPrefix + "/core", pluginPrefix}
+	for _, dir := range []string{"pkg/ext-go/wasm", "pkg/ext-go/hashicorp", "pkg/ext-go/yaegi", "pkg/ext-go/cengine", "pkg/ext-go/cguest", "pkg/ext-go/core", "src/ctn/inference", "src/ctn/model", "src/ctn/perception", "pkg/ext-go/realtime"} {
+		forbidden := []string{pluginPrefix + "/cgoengine", pluginPrefix + "/c2goengine", pluginPrefix + "/plugin", pluginPrefix}
 		err := filepath.WalkDir(filepath.Join(root, dir), func(path string, entry fs.DirEntry, walkErr error) error {
 			if walkErr != nil || entry.IsDir() || filepath.Ext(path) != ".go" {
 				return walkErr
@@ -344,6 +350,39 @@ func TestEngineGroupsKeepTheirLayering(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+		}
+	}
+}
+
+// core/driver and all of cengine are generic: they know no library of lib/ by name, so they import
+// nothing of ext. A library's own Go package lists its drivers and uses them.
+func TestSwitcherAndCSideKnowNoLibrary(t *testing.T) {
+	root := repoRoot(t)
+	// The umbrella published a package at pkg/ext-go/core up to v0.12.0, so the core module has no
+	// root package: a program that requires both never sees an ambiguous import.
+	if matches, _ := filepath.Glob(filepath.Join(root, "pkg/ext-go/core", "*.go")); len(matches) > 0 {
+		t.Errorf("pkg/ext-go/core has Go files at its root (%v); the core module has no root package", matches)
+	}
+	for dir, own := range map[string]string{"pkg/ext-go/core/driver": pluginPrefix + "/core/driver", "pkg/ext-go/cengine": pluginPrefix + "/cengine/"} {
+		err := filepath.WalkDir(filepath.Join(root, dir), func(path string, entry fs.DirEntry, walkErr error) error {
+			if walkErr != nil || entry.IsDir() || filepath.Ext(path) != ".go" {
+				return walkErr
+			}
+			file, err := parser.ParseFile(token.NewFileSet(), path, nil, parser.ImportsOnly)
+			if err != nil {
+				return err
+			}
+			for _, imp := range file.Imports {
+				name, _ := strconv.Unquote(imp.Path.Value)
+				if strings.HasPrefix(name, "github.com/webong/ext/") && !strings.HasPrefix(name, own) {
+					rel, _ := filepath.Rel(root, path)
+					t.Errorf("%s imports %s; the switcher and the C side know no library", filepath.ToSlash(rel), name)
+				}
+			}
+			return nil
+		})
+		if err != nil {
+			t.Fatal(err)
 		}
 	}
 }

@@ -105,15 +105,16 @@ unknown runner platforms.
 ## Releases
 
 Add `release:<package>` to a pull request to rehearse packaging in the package's owning workflow.
-For example, `release:ext` runs in Core, `release:ext-plugin` and `release:ext-zig` run in Engine,
-and `release:ext-ios` runs in Runtime. Multiple labels can request multiple packages. Release cells
-run on their configured runners, including when a PR has `tool:` or `platform:` labels.
+For example, `release:ext` runs in Core, `release:ext-plugin` runs in Engine, and
+`release:ext-zig` and `release:ext-ios` run in Runtime. Multiple labels can request multiple
+packages. Release cells run on their configured runners, including when a PR has `tool:` or
+`platform:` labels.
 
 The package table in `.github/ci/releases.json` stores each tag prefix, build matrix, and publish
 settings. Core owns packages without an explicit workflow. For packages that build in
 `prepare.sh`, the rehearsal runs that script and uploads
-its output with a dry-run version. For a manual rehearsal in Engine, use
-`gh workflow run engine.yml --ref <branch> -f labels=release:ext-zig`.
+its output with a dry-run version. For a manual Zig rehearsal, use
+`gh workflow run runtime.yml --ref <branch> -f labels=release:ext-zig`.
 
 Actual publishing runs through `.github/workflows/release.yml` on version tags or manual tag
 recovery. Keeping the workflow at that path preserves the registry trusted-publisher identity.

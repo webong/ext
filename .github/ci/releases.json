@@ -319,7 +319,7 @@
       "tag_prefixes": [
         "ext-zig-v"
       ],
-      "workflow": "engine",
+      "workflow": "runtime",
       "version_default": null,
       "publishes": "Zig package (GitHub release and dist/ext-zig)",
       "build": [

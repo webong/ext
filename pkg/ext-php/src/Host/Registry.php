@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace ExtIO\Host;
 
 /**
- * A guest registry (ext_registry_* in ext_host.h): a reverse call one guest makes is served by a
+ * A guest registry (ext_registry_* in ext_plugin_host.h): a reverse call one guest makes is served by a
  * forward call to another guest, along an edge declared with route(). An undeclared edge is
  * refused with reverse_undeclared, an unregistered target with reverse_unavailable, and a call that
  * would re-enter a host already on its call chain with denied; the target's answer passes through
@@ -29,8 +29,8 @@ final class Registry
     public function __construct(Engine $engine)
     {
         $this->ffi = $engine->ffi;
-        $handle = $this->ffi->new('ext_registry *');
-        $status = $this->ffi->ext_registry_create(\FFI::addr($handle));
+        $handle = $this->ffi->new('ext_plugin_registry *');
+        $status = $this->ffi->ext_plugin_registry_create(\FFI::addr($handle));
         if ($status !== 0) {
             throw HostError::of($status, 'registry');
         }
@@ -59,7 +59,7 @@ final class Registry
         $contract = (array) $contract;
         $name = (string) $contract['name'];
         $version = (string) $contract['version'];
-        $status = $this->ffi->ext_registry_unregister($this->handle, $name, $version);
+        $status = $this->ffi->ext_plugin_registry_unregister($this->handle, $name, $version);
         if ($status !== 0) {
             throw HostError::of($status, 'unregister');
         }
@@ -79,7 +79,7 @@ final class Registry
         $from = (array) $from;
         $to = (array) $to;
         $keep = [];
-        $edge = $this->ffi->new('ext_registry_edge');
+        $edge = $this->ffi->new('ext_plugin_registry_edge');
         $edge->struct_size = \FFI::sizeof($edge);
         $fields = ['from_name' => $from['name'], 'from_version' => $from['version'], 'from_operation' => $from['operation'],
             'to_name' => $to['name'], 'to_version' => $to['version'], 'to_operation' => $to['operation']];
@@ -89,7 +89,7 @@ final class Registry
             $keep[] = $c;
             $edge->{$field} = $this->ffi->cast('char *', $c);
         }
-        $status = $this->ffi->ext_registry_route($this->handle, \FFI::addr($edge));
+        $status = $this->ffi->ext_plugin_registry_route($this->handle, \FFI::addr($edge));
         if ($status !== 0) {
             throw HostError::of($status, 'route');
         }
@@ -111,7 +111,7 @@ final class Registry
     private function freeIfUnused(): void
     {
         if ($this->dropped && $this->users === 0 && $this->handle !== null) {
-            $this->ffi->ext_registry_destroy($this->handle);
+            $this->ffi->ext_plugin_registry_destroy($this->handle);
             $this->handle = null;
         }
     }

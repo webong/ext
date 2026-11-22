@@ -15,7 +15,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 /**
  * The package store of the shared C engine: install, upgrade, replace, remove and load
  * reviewed {@code ext.package/v1} packages under a root the application supplies (see
- * {@code ext_store_*} in lib/plugin/include/ext_host.h). A package is its {@code plugin.json}
+ * {@code ext_store_*} in lib/plugin/include/ext_plugin_host.h). A package is its {@code plugin.json}
  * manifest and the artifacts it lists, in a directory named by the package id with '/' encoded
  * as "%2f". The store copies and re-verifies content; it never runs it or grants authority, and
  * it has no default location. A missing root is an empty store, made (owner-only) by the first
@@ -33,7 +33,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
  * <p>The manifest a call returns is the installed {@code plugin.json}, byte for byte. The whole-root
  * reports ({@link #list()}, {@link #verify()}, {@link #listUnverified()}) are the engine's JSON as
  * UTF-8, as {@link #load} returns the manifest, so a caller reads them with its own JSON library;
- * the shapes are those of {@code ext_store_list} in lib/plugin/include/ext_host.h.
+ * the shapes are those of {@code ext_plugin_store_list} in lib/plugin/include/ext_plugin_host.h.
  */
 public final class PackageStore implements AutoCloseable {
     /** A package, id or directory that is not valid, or an artifact over a limit. */
@@ -265,7 +265,7 @@ public final class PackageStore implements AutoCloseable {
      * #UNSUPPORTED} means the package does not serve the contract or has no entrypoint that fits.
      * Nothing is run. {@code os} and {@code arch} are Go's GOOS and GOARCH names; null is the
      * platform the engine was built for. The rules, including the score that picks between
-     * entrypoints, are in {@code ext_store_resolve_entrypoint} of lib/plugin/include/ext_host.h.
+     * entrypoints, are in {@code ext_plugin_store_resolve_entrypoint} of lib/plugin/include/ext_plugin_host.h.
      */
     public byte[] resolveEntrypoint(String id, String contract, String version, String protocol,
             String reviewedDigest, String os, String arch) throws GuestException {

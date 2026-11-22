@@ -17,7 +17,7 @@
 /* A child's working directory needs posix_spawn_file_actions_addchdir_np: macOS
  * has it, iOS and the other Apple device SDKs mark it unavailable (apps cannot
  * start processes there anyway), and glibc has it from 2.29. Without it a launch
- * that names a directory is EXT_UNSUPPORTED. */
+ * that names a directory is EXT_PLUGIN_UNSUPPORTED. */
 #if defined(__APPLE__)
 #include <TargetConditionals.h>
 #if TARGET_OS_OSX
@@ -91,23 +91,23 @@ static int keep_high(int fd) {
 
 int ext_path_is_absolute(const char *path) { return path && path[0] == '/'; }
 
-ext_status ext_channel_open(const ext_launch *launch, ext_channel **out) {
+ext_plugin_status ext_channel_open(const ext_launch *launch, ext_channel **out) {
   struct stat st;
   if (stat(launch->path, &st))
-    return EXT_IO;
+    return EXT_PLUGIN_IO;
   if (!S_ISREG(st.st_mode))
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
 #ifndef EXT_HAVE_SPAWN_CHDIR
   if (launch->directory)
-    return EXT_UNSUPPORTED;
+    return EXT_PLUGIN_UNSUPPORTED;
 #endif
   ext_channel *c = calloc(1, sizeof(*c));
   if (!c)
-    return EXT_NOMEM;
+    return EXT_PLUGIN_NOMEM;
   c->fd = c->stderr_fd = -1;
   if (pthread_mutex_init(&c->mu, NULL)) {
     free(c);
-    return EXT_IO;
+    return EXT_PLUGIN_IO;
   }
   if (launch->capture_stderr) {
     c->stderr_limit = launch->stderr_limit;
@@ -115,7 +115,7 @@ ext_status ext_channel_open(const ext_launch *launch, ext_channel **out) {
     if (!c->stderr_data) {
       pthread_mutex_destroy(&c->mu);
       free(c);
-      return EXT_NOMEM;
+      return EXT_PLUGIN_NOMEM;
     }
   }
   int fds[2], errfds[2] = {-1, -1};
@@ -199,34 +199,34 @@ ext_status ext_channel_open(const ext_launch *launch, ext_channel **out) {
     c->stderr_fd = errfds[0];
     if (pthread_create(&c->stderr_thread, NULL, stderr_reader, c)) {
       ext_channel_destroy(c);
-      return EXT_IO;
+      return EXT_PLUGIN_IO;
     }
     c->stderr_started = 1;
   }
   if (fcntl(c->fd, F_SETFL, fcntl(c->fd, F_GETFL) | O_NONBLOCK) < 0) {
     ext_channel_destroy(c);
-    return EXT_IO;
+    return EXT_PLUGIN_IO;
   }
   *out = c;
-  return EXT_OK;
+  return EXT_PLUGIN_OK;
 fail:
   free(c->stderr_data);
   pthread_mutex_destroy(&c->mu);
   free(c);
-  return EXT_IO;
+  return EXT_PLUGIN_IO;
 }
 
-ext_status ext_channel_wait(ext_channel *c, int write, int timeout_ms) {
+ext_plugin_status ext_channel_wait(ext_channel *c, int write, int timeout_ms) {
   short events = write ? POLLOUT : POLLIN;
   struct pollfd p = {c->fd, events, 0};
   int r = poll(&p, 1, timeout_ms);
   if (r < 0 && errno == EINTR)
-    return EXT_TIMEOUT;
+    return EXT_PLUGIN_TIMEOUT;
   if (r < 0)
-    return EXT_IO;
+    return EXT_PLUGIN_IO;
   if (!r)
-    return EXT_TIMEOUT;
-  return (p.revents & events) ? EXT_OK : EXT_IO;
+    return EXT_PLUGIN_TIMEOUT;
+  return (p.revents & events) ? EXT_PLUGIN_OK : EXT_PLUGIN_IO;
 }
 
 ptrdiff_t ext_channel_read(ext_channel *c, uint8_t *buffer, size_t length) {

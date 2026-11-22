@@ -40,7 +40,7 @@ for op in ['echo', 'public-error', 'wait']:
 PY
 
 echo "== native tests"
-"$build/engine/ext_guest_core_test$exe"
+"$build/engine/ext_plugin_guest_core_test$exe"
 "$build/engine/ext_resources_test$exe"
 "$build/engine/ext_limits_test$exe"
 "$build/engine/ext_tree_limits_test$exe"

@@ -7,7 +7,7 @@ import (
 )
 
 // The guest scripts/cshared-purego.sh builds: any C shared library exporting
-// ext_plugin_abi_version, which returns 1.
+// ext_plugin_guest_abi_version, which returns 1.
 func guest(t *testing.T) string {
 	path := os.Getenv("EXT_CSHARED_GUEST")
 	if path == "" {
@@ -28,17 +28,17 @@ func TestBindAndCall(t *testing.T) {
 		t.Fatal(err)
 	}
 	var version func() uint32
-	if err := lib.Bind(&version, "ext_plugin_abi_version"); err != nil {
+	if err := lib.Bind(&version, "ext_plugin_guest_abi_version"); err != nil {
 		t.Fatal(err)
 	}
 	if got := version(); got != 1 {
-		t.Fatalf("ext_plugin_abi_version() = %d", got)
+		t.Fatalf("ext_plugin_guest_abi_version() = %d", got)
 	}
 	if _, err := lib.Symbol("ext_library_test_no_such_symbol"); err == nil {
 		t.Fatal("a missing symbol was found")
 	}
 	var bad int
-	if err := lib.Bind(&bad, "ext_plugin_abi_version"); err == nil {
+	if err := lib.Bind(&bad, "ext_plugin_guest_abi_version"); err == nil {
 		t.Fatal("bound a non-function")
 	}
 }

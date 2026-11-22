@@ -129,7 +129,7 @@ static void stress_artifacts(size_t count, size_t prefix, int tree,
   int status = validate(t.p, t.n, &seconds);
   printf("  %zu %s artifacts, %zu-byte shared prefix (%zu bytes): %.3fs\n", count,
          tree ? "tree" : "file", prefix, t.n, seconds);
-  assert(status == EXT_OK);
+  assert(status == EXT_PLUGIN_OK);
   assert(seconds < limit);
   free(shared);
   free(t.p);
@@ -181,7 +181,7 @@ static void stress_other_arrays(void) {
   double seconds;
   int status = validate(t.p, t.n, &seconds);
   printf("  every array at its limit (%zu bytes): %.3fs\n", t.n, seconds);
-  assert(status == EXT_OK);
+  assert(status == EXT_PLUGIN_OK);
   assert(seconds < 15.0);
   free(t.p);
 }
@@ -211,15 +211,15 @@ static void stress_resolve(size_t manifests, size_t requires, double limit) {
   double start = cpu_seconds();
   yyjson_doc *doc = ext_parse((const uint8_t *)t.p, t.n);
   assert(doc);
-  ext_buffer out = {0};
-  ext_status status =
+  ext_plugin_buffer out = {0};
+  ext_plugin_status status =
       ext_package_service("package.resolve", yyjson_doc_get_root(doc), &out);
   double seconds = cpu_seconds() - start;
   printf("  resolve %zu manifests, up to %zu requirements each (%zu bytes): %.3fs\n",
          manifests, requires, t.n, seconds);
-  assert(status == EXT_OK);
+  assert(status == EXT_PLUGIN_OK);
   assert(seconds < limit);
-  ext_buffer_free(&out);
+  ext_plugin_buffer_free(&out);
   yyjson_doc_free(doc);
   free(t.p);
 }
@@ -233,26 +233,26 @@ static void overlap_cases(void) {
     int status;
     const char *why;
   } cases[] = {
-      {{{"a", "d", 1}, {"b", "d/f", 0}}, 2, EXT_INVALID, "file inside a tree"},
-      {{{"a", "d", 0}, {"b", "d/f", 1}}, 2, EXT_INVALID, "tree below a file"},
-      {{{"a", "d", 1}, {"b", "d-x", 0}}, 2, EXT_OK, "sibling sharing a prefix"},
+      {{{"a", "d", 1}, {"b", "d/f", 0}}, 2, EXT_PLUGIN_INVALID, "file inside a tree"},
+      {{{"a", "d", 0}, {"b", "d/f", 1}}, 2, EXT_PLUGIN_INVALID, "tree below a file"},
+      {{{"a", "d", 1}, {"b", "d-x", 0}}, 2, EXT_PLUGIN_OK, "sibling sharing a prefix"},
       {{{"a", "d", 1}, {"b", "d+x", 0}, {"c", "d.x", 0}, {"e", "d x", 0}}, 4,
-       EXT_OK, "siblings that sort between a tree and its children"},
-      {{{"a", "d", 1}, {"b", "d+x", 0}, {"c", "d/y", 0}}, 3, EXT_INVALID,
+       EXT_PLUGIN_OK, "siblings that sort between a tree and its children"},
+      {{{"a", "d", 1}, {"b", "d+x", 0}, {"c", "d/y", 0}}, 3, EXT_PLUGIN_INVALID,
        "a child after a sibling that sorts first"},
-      {{{"a", "d/b", 1}, {"b", "d/c", 1}}, 2, EXT_OK, "sibling trees"},
-      {{{"a", "D", 1}, {"b", "d/f", 0}}, 2, EXT_INVALID, "case differs"},
-      {{{"a", "d", 0}, {"b", "d/f", 0}}, 2, EXT_OK, "files may nest"},
-      {{{"a", "d", 1}, {"b", "d/b/c", 1}}, 2, EXT_INVALID, "nested trees"},
-      {{{"a", "d", 0}, {"b", "d/b", 0}, {"c", "d/b/c", 1}}, 3, EXT_INVALID,
+      {{{"a", "d/b", 1}, {"b", "d/c", 1}}, 2, EXT_PLUGIN_OK, "sibling trees"},
+      {{{"a", "D", 1}, {"b", "d/f", 0}}, 2, EXT_PLUGIN_INVALID, "case differs"},
+      {{{"a", "d", 0}, {"b", "d/f", 0}}, 2, EXT_PLUGIN_OK, "files may nest"},
+      {{{"a", "d", 1}, {"b", "d/b/c", 1}}, 2, EXT_PLUGIN_INVALID, "nested trees"},
+      {{{"a", "d", 0}, {"b", "d/b", 0}, {"c", "d/b/c", 1}}, 3, EXT_PLUGIN_INVALID,
        "a file above a tree"},
-      {{{"a", "Dir/F", 0}, {"b", "dir/f", 0}}, 2, EXT_INVALID, "path case"},
-      {{{"a", "\xc3\x84/x", 0}, {"b", "\xc3\xa4/x", 0}}, 2, EXT_INVALID,
+      {{{"a", "Dir/F", 0}, {"b", "dir/f", 0}}, 2, EXT_PLUGIN_INVALID, "path case"},
+      {{{"a", "\xc3\x84/x", 0}, {"b", "\xc3\xa4/x", 0}}, 2, EXT_PLUGIN_INVALID,
        "Unicode lower case"},
-      {{{"a", "\xc7\x85", 0}, {"b", "\xc7\x86", 0}}, 2, EXT_INVALID,
+      {{{"a", "\xc7\x85", 0}, {"b", "\xc7\x86", 0}}, 2, EXT_PLUGIN_INVALID,
        "title case maps to lower case"},
-      {{{"a", "x", 0}, {"a", "y", 0}}, 2, EXT_INVALID, "repeated name"},
-      {{{"a", "x", 0}, {"b", "y", 0}, {"c", "z", 1}}, 3, EXT_OK, "distinct"},
+      {{{"a", "x", 0}, {"a", "y", 0}}, 2, EXT_PLUGIN_INVALID, "repeated name"},
+      {{{"a", "x", 0}, {"b", "y", 0}, {"c", "z", 1}}, 3, EXT_PLUGIN_OK, "distinct"},
   };
   for (size_t i = 0; i < sizeof(cases) / sizeof(*cases); i++) {
     int status = verdict(cases[i].items, cases[i].n);
@@ -312,16 +312,16 @@ static int reference_verdict(const spec *a, size_t n) {
   for (size_t i = 0; i < n; i++)
     for (size_t j = 0; j < i; j++)
       if (!strcmp(a[i].name, a[j].name) || same_path(a[i].path, a[j].path))
-        return EXT_INVALID;
+        return EXT_PLUGIN_INVALID;
   for (size_t i = 0; i < n; i++) {
     if (!a[i].tree)
       continue;
     for (size_t j = 0; j < n; j++)
       if (j != i && (path_contains(a[i].path, a[j].path) ||
                      path_contains(a[j].path, a[i].path)))
-        return EXT_INVALID;
+        return EXT_PLUGIN_INVALID;
   }
-  return EXT_OK;
+  return EXT_PLUGIN_OK;
 }
 
 static void random_artifacts(void) {
@@ -353,7 +353,7 @@ static void random_artifacts(void) {
                 items[i].tree ? " (tree)" : "");
     }
     assert(want == got);
-    if (got == EXT_OK)
+    if (got == EXT_PLUGIN_OK)
       valid++;
     else
       invalid++;
@@ -412,10 +412,10 @@ static void random_plans(void) {
             m[i].need[r] = -1;
       }
     /* the reference: scan every requirement against every manifest */
-    int want = EXT_OK;
+    int want = EXT_PLUGIN_OK;
     int provider[6][4] = {{0}};
-    for (size_t i = 0; i < n && want == EXT_OK; i++)
-      for (int r = 0; r < 4 && want == EXT_OK; r++) {
+    for (size_t i = 0; i < n && want == EXT_PLUGIN_OK; i++)
+      for (int r = 0; r < 4 && want == EXT_PLUGIN_OK; r++) {
         if (m[i].need[r] < 0)
           continue;
         int found = 0;
@@ -426,9 +426,9 @@ static void random_plans(void) {
             provider[i][r] = (int)x;
           }
         if (found != 1)
-          want = found ? EXT_AMBIGUOUS : EXT_NOT_FOUND;
+          want = found ? EXT_PLUGIN_AMBIGUOUS : EXT_PLUGIN_NOT_FOUND;
       }
-    if (want == EXT_OK) { /* a cycle among the providers is invalid */
+    if (want == EXT_PLUGIN_OK) { /* a cycle among the providers is invalid */
       int state[6] = {0};
       int changed = 1;
       int resolved = 0;
@@ -449,7 +449,7 @@ static void random_plans(void) {
         }
       }
       if (resolved != (int)n)
-        want = EXT_INVALID;
+        want = EXT_PLUGIN_INVALID;
     }
     text t = {0};
     text_str(&t, "[");
@@ -488,14 +488,14 @@ static void random_plans(void) {
     text_str(&t, "]");
     yyjson_doc *doc = ext_parse((const uint8_t *)t.p, t.n);
     assert(doc);
-    ext_buffer out = {0};
+    ext_plugin_buffer out = {0};
     int got = (int)ext_package_service("package.resolve", yyjson_doc_get_root(doc), &out);
     if (got != want) {
       fprintf(stderr, "plan %d: reference %d, engine %d\n%s\n", round, want, got, t.p);
     }
     assert(got == want);
     outcomes[want]++;
-    if (want == EXT_OK) {
+    if (want == EXT_PLUGIN_OK) {
       yyjson_doc *result = ext_parse(out.data, out.len);
       assert(result);
       yyjson_val *bindings = yyjson_obj_get(yyjson_doc_get_root(result), "bindings");
@@ -517,16 +517,16 @@ static void random_plans(void) {
         }
       yyjson_doc_free(result);
     }
-    ext_buffer_free(&out);
+    ext_plugin_buffer_free(&out);
     yyjson_doc_free(doc);
     free(t.p);
   }
   printf("  6000 random plans agree with the reference (ok %zu, not found %zu, "
          "ambiguous %zu, cycle %zu)\n",
-         outcomes[EXT_OK], outcomes[EXT_NOT_FOUND], outcomes[EXT_AMBIGUOUS],
-         outcomes[EXT_INVALID]);
-  assert(outcomes[EXT_OK] > 50 && outcomes[EXT_NOT_FOUND] > 100 &&
-         outcomes[EXT_AMBIGUOUS] > 100 && outcomes[EXT_INVALID] > 10);
+         outcomes[EXT_PLUGIN_OK], outcomes[EXT_PLUGIN_NOT_FOUND], outcomes[EXT_PLUGIN_AMBIGUOUS],
+         outcomes[EXT_PLUGIN_INVALID]);
+  assert(outcomes[EXT_PLUGIN_OK] > 50 && outcomes[EXT_PLUGIN_NOT_FOUND] > 100 &&
+         outcomes[EXT_PLUGIN_AMBIGUOUS] > 100 && outcomes[EXT_PLUGIN_INVALID] > 10);
 }
 
 /* ---- Mutation pass with a time limit per input -------------------------- */
@@ -561,9 +561,9 @@ static double exercise(const char *data, size_t n) {
     const char *services[] = {"package.validate", "package.select",
                               "package.resolve"};
     for (size_t i = 0; i < 3; i++) {
-      ext_buffer out = {0};
+      ext_plugin_buffer out = {0};
       (void)ext_package_service(services[i], root, &out);
-      ext_buffer_free(&out);
+      ext_plugin_buffer_free(&out);
     }
     yyjson_doc_free(descriptor);
     yyjson_doc_free(doc);

@@ -1,6 +1,6 @@
 #ifndef EXT_WIRE_H
 #define EXT_WIRE_H
-#include "ext_host.h"
+#include "ext_plugin_host.h"
 #include "yyjson.h"
 yyjson_doc *ext_parse(const uint8_t *, size_t);
 int ext_descriptor(yyjson_val *);
@@ -14,8 +14,8 @@ int ext_descriptor_declares_progress(yyjson_val *);
  * whether it carries one at all. */
 void ext_request_progress(yyjson_val *request, int *declared, int64_t *events,
                           int64_t *bytes);
-ext_status ext_request(yyjson_val *, yyjson_val *, int64_t *deadline_ms);
-ext_status ext_response(yyjson_val *, const char *id);
+ext_plugin_status ext_request(yyjson_val *, yyjson_val *, int64_t *deadline_ms);
+ext_plugin_status ext_response(yyjson_val *, const char *id);
 /* A retry hint beyond one year is invalid (plugin.MaxRetryAfterMilliseconds). */
 #define EXT_MAX_RETRY_AFTER_MS ((int64_t)365 * 24 * 60 * 60 * 1000)
 /* Whether v is a RemoteError a peer would accept. */

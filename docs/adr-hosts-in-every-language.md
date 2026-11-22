@@ -13,9 +13,9 @@ can write a host, without a second engine.
 | Language | Guest | Host | Host runs on |
 | --- | --- | --- | --- |
 | Go (`pkg/ext-go`) | Yes | Yes: sessions, process, `cshared`, `nativego`, wazero (`wasm`), hashicorp, store, trust | The pure-Go engine, `cgoengine` or `c2goengine` ([selection](adr-engine-selection.md)) |
-| Rust (`pkg/ext-rust`) | Yes | `plugin/host.rs`, `plugin/native.rs` (loads C-ABI guests with `libloading`); the engine crate (`pkg/ext-rust/engine`) binds `ext_host` and the store | Its own code, or the C engine through the separate crate |
-| Zig (`pkg/ext-zig`) | Yes | `host.zig` over a backend it supplies; the engine package (`pkg/ext-zig/engine`) binds `ext_host` | Its own code, or the C engine through the separate package |
-| TypeScript (`pkg/ext-ts`) | Yes | `index.mjs` over a transport (`node.mjs`); the Node addon (`engine/addon.c`) binds `ext_host` | Its own code, or the C engine through the addon |
+| Rust (`pkg/ext-rust`) | Yes | `plugin/host.rs`, `plugin/native.rs` (loads C-ABI guests with `libloading`); the engine crate (`pkg/ext-rust/engine`) binds `ext_plugin_host` and the store | Its own code, or the C engine through the separate crate |
+| Zig (`pkg/ext-zig`) | Yes | `host.zig` over a backend it supplies; the engine package (`pkg/ext-zig/engine`) binds `ext_plugin_host` | Its own code, or the C engine through the separate package |
+| TypeScript (`pkg/ext-ts`) | Yes | `index.mjs` over a transport (`node.mjs`); the Node addon (`engine/addon.c`) binds `ext_plugin_host` | Its own code, or the C engine through the addon |
 | Swift (`pkg/ext-darwin`) | Yes | WebView and WAMR hosts, store | The C engine |
 | Java (`pkg/ext-android`) | Yes | WAMR host, store | The C engine |
 | Python (`pkg/ext-python`) | Yes, standard library only | No | |
@@ -27,15 +27,15 @@ to the C engine's host beside it. Four languages, the scripting ones, cannot hos
 
 ## What the C engine already hosts
 
-`lib/plugin/include/ext_host.h` is a complete host, not only a validator:
+`lib/plugin/include/ext_plugin_host.h` is a complete host, not only a validator:
 
 - **Backends.** JSON-line child processes (kinds 1, 4 and 5: explicit argv, a scrubbed
   environment, a working directory, bounded stderr capture), in-process guests the caller
-  supplies as callbacks (`EXT_BACKEND_EXTENSION`, `EXT_BACKEND_EXTENSION_CONTEXT`), and
+  supplies as callbacks (`EXT_PLUGIN_BACKEND_EXTENSION`, `EXT_PLUGIN_BACKEND_EXTENSION_CONTEXT`), and
   WebAssembly reactors on WAMR (`lib/plugin/wamr`, built with `EXT_WITH_WAMR`).
 - **The connection.** Admission, envelope validation, deadlines, cancellation (`ext_cancel_*`),
   draining, frames, the host half of progress and its rate limit, and reverse calls with
-  services the host offers (`ext_host_set_services`).
+  services the host offers (`ext_plugin_host_set_services`).
 - **Packages.** Manifest verification, directory and artifact digests, trust records, the
   installed store and the layered store.
 
@@ -48,7 +48,7 @@ and stream clients.
 1. **Guests: any language, by one of three routes.**
    - *JSON lines over stdio*, written in the language alone. This is how the Python, Ruby, PHP
      and Lua guests work, and it needs nothing native.
-   - *A C-ABI shared library* exporting the four symbols of `ext_plugin.h`: C, C++, Rust, Zig,
+   - *A C-ABI shared library* exporting the four symbols of `ext_plugin_guest.h`: C, C++, Rust, Zig,
      Go, Swift, or anything that can export C functions.
    - *A WebAssembly reactor* ([reactor ABI](plugin-reactor-abi.md)): anything that compiles to it.
 
@@ -68,15 +68,15 @@ and stream clients.
 
    | Language | Host part | Binds the engine through |
    | --- | --- | --- |
-   | Python | `ext_io.host` | `ctypes` and the shared `libext_host` |
-   | Lua | `ext_io.host` | a C module (`ext_io.host.core`) that loads the shared `libext_host` |
-   | Ruby | `ExtIO::Host` | a native extension (`ExtIO::Host::Native`) that loads the shared `libext_host` and releases the global VM lock around blocking calls; Fiddle is no default gem from Ruby 4.0 |
-   | PHP | `ExtIO\Host` | PHP FFI and the shared `libext_host`; policies are safe as FFI callbacks, since the engine runs them on the calling thread (a Zend extension only if that changes) |
+   | Python | `ext_io.host` | `ctypes` and the shared `libext_plugin_host` |
+   | Lua | `ext_io.host` | a C module (`ext_io.host.core`) that loads the shared `libext_plugin_host` |
+   | Ruby | `ExtIO::Host` | a native extension (`ExtIO::Host::Native`) that loads the shared `libext_plugin_host` and releases the global VM lock around blocking calls; Fiddle is no default gem from Ruby 4.0 |
+   | PHP | `ExtIO\Host` | PHP FFI and the shared `libext_plugin_host`; policies are safe as FFI callbacks, since the engine runs them on the calling thread (a Zend extension only if that changes) |
    | .NET | `ExtIO.Host` | P/Invoke through unmanaged function pointers that `NativeLibrary` resolves, so each engine binds the library it was given (`LibraryImport` names one library per assembly); a NuGet package like the `ext-dotnet` ones |
 
    Importing the guest never loads the host, so a guest-only user never needs the library.
 
-5. **No generated wrappers.** Each host is written against `ext_host.h` with the language's own
+5. **No generated wrappers.** Each host is written against `ext_plugin_host.h` with the language's own
    foreign-function mechanism, because the work is in callbacks, threads, cancellation and buffer
    ownership, which SWIG and its kind leave to the author.
 
@@ -88,13 +88,13 @@ Today the engine starts processes and runs reactors but cannot load a C-ABI gues
 (`runtime/cshared`) and Rust (`plugin/native.rs`) each load one themselves, the other hosts
 cannot load one at all, and [plugin-runtimes.md](plugin-runtimes.md) tells any other host that it "must
 implement CTX selection, validation and admission policy itself". A constructor,
-`ext_shared_library_backend_create`, closes that. It returns an `EXT_BACKEND_EXTENSION_CONTEXT`
-backend, as the WAMR backend does, so `ext_host_create` and `host.c` do not change:
+`ext_plugin_shared_library_backend_create`, closes that. It returns an `EXT_PLUGIN_BACKEND_EXTENSION_CONTEXT`
+backend, as the WAMR backend does, so `ext_plugin_host_create` and `host.c` do not change:
 
 - it takes an absolute UTF-8 path to a verified library and loads it with `dlopen` or
   `LoadLibraryExW` in connect, so only after the host's verify policy has approved it;
-- it checks `ext_plugin_abi_version`, then performs the handshake and invocations through
-  `ext_plugin_open`, `ext_plugin_call` and `ext_plugin_close`, with the 24 MiB response capacity
+- it checks `ext_plugin_guest_abi_version`, then performs the handshake and invocations through
+  `ext_plugin_guest_open`, `ext_plugin_guest_call` and `ext_plugin_guest_close`, with the 24 MiB response capacity
   and the no-replay rule of the ABI;
 - it loads each canonical path once and never unloads a library, as the Go loader does not.
 
@@ -104,7 +104,7 @@ lands, the per-language loaders go when their SDK switches.
 
 ### 2. A prebuilt engine library
 
-PHP FFI, Python `ctypes`, Ruby, Lua and .NET need a `libext_host` they can load without CMake.
+PHP FFI, Python `ctypes`, Ruby, Lua and .NET need a `libext_plugin_host` they can load without CMake.
 Each engine release attaches shared and static builds for Linux (x86-64, arm64), macOS (universal)
 and Windows (x86-64, arm64), with the headers and SHA-256 sums. No release builds it on its own yet:
 the new job reuses the CMake build that `scripts/plugin-cengine-install.sh` and the mobile release
@@ -130,7 +130,7 @@ A host is not released until it passes this suite on Linux, macOS and Windows.
 ## Order
 
 1. This record.
-2. `ext_shared_library_backend_create` in `lib/plugin`, checked against the guest the Go loader runs.
+2. `ext_plugin_shared_library_backend_create` in `lib/plugin`, checked against the guest the Go loader runs.
 3. The prebuilt engine library on each engine release.
 4. The host conformance cases and the Go runner that shows they are complete.
 5. Hosts: Python, then Lua, Ruby, PHP and .NET, each passing the suite before release.

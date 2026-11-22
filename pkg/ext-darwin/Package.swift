@@ -17,7 +17,7 @@ let package = Package(
     products: [
         // Author a plugin: Guest, Descriptor, Call, RemoteError.
         .library(name: "ExtPluginGuest", targets: ["ExtPluginGuest"]),
-        // Export the four ext_plugin_* C symbols so any ext-go/cguest host can
+        // Export the four ext_plugin_guest_* C symbols so any ext-go/cguest host can
         // load the plugin. Needs one ext_plugin_guest_factory definition.
         .library(name: "ExtPluginExports", targets: ["ExtPluginExports"]),
         // The engine's package store: install, upgrade, replace, remove and load reviewed

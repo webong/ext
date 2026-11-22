@@ -39,16 +39,16 @@ public enum Endpoint {
     }
 
     private static func call(_ operation: String, _ input: Data) throws {
-        var out = ext_buffer(data: nil, len: 0)
-        defer { ext_buffer_free(&out) }
-        let status: ext_status = input.withUnsafeBytes { raw in
-            ext_engine_call(operation, raw.bindMemory(to: UInt8.self).baseAddress, raw.count, &out)
+        var out = ext_plugin_buffer(data: nil, len: 0)
+        defer { ext_plugin_buffer_free(&out) }
+        let status: ext_plugin_status = input.withUnsafeBytes { raw in
+            ext_plugin_call(operation, raw.bindMemory(to: UInt8.self).baseAddress, raw.count, &out)
         }
         switch status {
-        case ext_status(EXT_OK): return
-        case ext_status(EXT_INVALID): throw EndpointError.invalid
-        case ext_status(EXT_DENIED): throw EndpointError.denied
-        case ext_status(EXT_EXPIRED): throw EndpointError.expired
+        case ext_plugin_status(EXT_PLUGIN_OK): return
+        case ext_plugin_status(EXT_PLUGIN_INVALID): throw EndpointError.invalid
+        case ext_plugin_status(EXT_PLUGIN_DENIED): throw EndpointError.denied
+        case ext_plugin_status(EXT_PLUGIN_EXPIRED): throw EndpointError.expired
         default: throw EndpointError.engine(status)
         }
     }

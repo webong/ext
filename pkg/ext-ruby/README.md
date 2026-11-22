@@ -94,30 +94,30 @@ so `$stdout`, `STDOUT` and child processes) is redirected to standard error.
 which does what a host must get right: admission, the handshake check against the descriptor,
 request and response validation, deadlines and the session's lifecycle. It is opt-in and separate
 from the guest, as the gem `ext-io-host` (`ext-io-host.gemspec`): one native extension,
-`ExtIO::Host::Native` (`ext/ext_io_host`), which loads the engine's shared library (`libext_host`,
+`ExtIO::Host::Native` (`ext/ext_io_host`), which loads the engine's shared library (`libext_plugin_host`,
 from an `ext-plugin-vX.Y.Z` release or a CMake build of `lib/plugin`) at run time, so it is built
-against the Ruby headers and `ext_host.h` only. Outside a checkout, install it with
-`gem install ext-io-host -- --with-ext_host-dir=<unpacked ext-plugin release>` (or set
+against the Ruby headers and `ext_plugin_host.h` only. Outside a checkout, install it with
+`gem install ext-io-host -- --with-ext_plugin_host-dir=<unpacked ext-plugin release>` (or set
 `EXT_HOST_INCLUDE`). `scripts/ext-ruby-host.sh <dir>` builds the extension into
 `<dir>/ext_io/host/native.<so|bundle>` for `-I <dir>`. Requiring `"ext_io/plugin"` loads neither.
 
 ```ruby
 require "ext_io/host"
 
-engine = ExtIO::Host::Engine.new        # EXT_HOST_LIBRARY, or libext_host on the loader path
+engine = ExtIO::Host::Engine.new        # EXT_HOST_LIBRARY, or libext_plugin_host on the loader path
 engine.process(descriptor, "/opt/plugins/echo/1.0.0/echo") do |host|   # destroyed after the block
   host.start
   host.call({ "name" => "ext.echo", "version" => "v1" }, "echo", { "value" => 7 })  # => {"value"=>7}
 end
 ```
 
-- `Engine.new(path = nil)`: the engine from `path`, `EXT_HOST_LIBRARY`, or `libext_host` on the
+- `Engine.new(path = nil)`: the engine from `path`, `EXT_HOST_LIBRARY`, or `libext_plugin_host` on the
   loader path; it must have host ABI 2 (`LoadError` otherwise). An engine is never unloaded.
 - `engine.process(descriptor, executable, arguments:, environment:, working_directory:, stderr_bytes:, verify:, authorize:)`:
   a JSON-line guest started as `executable` (an absolute path, no shell); `environment` entries are
   `NAME=value`, added to a scrubbed base of `PATH`.
 - `engine.shared_library(descriptor, path, verify:, authorize:)`: a guest library that exports the C
-  ABI of `ext_plugin.h`, loaded when the host starts, after `verify`, and never unloaded. Its
+  ABI of `ext_plugin_guest.h`, loaded when the host starts, after `verify`, and never unloaded. Its
   native code runs in this process with its full access.
 - `verify` and `authorize` are callables that receive the decoded JSON and return truthy to allow;
   absent allows, and an exception denies. A policy may not use the host it decides for: a call to
@@ -139,7 +139,7 @@ runs policies on the thread making the call, the helper, which hands each to the
 thread to run with the lock.
 
 Reverse calls and the guest registry run the hooks the same way, in the engine's caller-thread mode
-(`ext_host_set_reverse_mode`): a hook runs on the Ruby thread of a call that waits on the host,
+(`ext_plugin_host_set_reverse_mode`): a hook runs on the Ruby thread of a call that waits on the host,
 never on an engine thread.
 
 - `host.serve(authorize:, handle:, timeout:, max_payload_bytes:, max_in_flight:)`, before `start`,

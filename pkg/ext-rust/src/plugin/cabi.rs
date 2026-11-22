@@ -238,7 +238,7 @@ pub unsafe fn reactor_free(ptr: *mut u8, size: u32) {
 }
 
 /// Export the four ext C ABI symbols. The factory returns an independent Guest.
-/// For wasm32 targets it also exports `ext_plugin_alloc` and `ext_plugin_free`,
+/// For wasm32 targets it also exports `ext_plugin_guest_alloc` and `ext_plugin_guest_free`,
 /// which make the module a WebAssembly reactor; see docs/plugin-reactor-abi.md.
 #[doc(hidden)]
 #[macro_export]
@@ -246,12 +246,12 @@ macro_rules! __plugin_export_guest {
     ($factory:path) => {
         #[cfg(target_arch = "wasm32")]
         #[unsafe(no_mangle)]
-        pub extern "C" fn ext_plugin_alloc(size: u32) -> u32 {
+        pub extern "C" fn ext_plugin_guest_alloc(size: u32) -> u32 {
             $crate::plugin::cabi::reactor_alloc(size) as usize as u32
         }
         #[cfg(target_arch = "wasm32")]
         #[unsafe(no_mangle)]
-        pub unsafe extern "C" fn ext_plugin_free(ptr: u32, size: u32) {
+        pub unsafe extern "C" fn ext_plugin_guest_free(ptr: u32, size: u32) {
             unsafe { $crate::plugin::cabi::reactor_free(ptr as usize as *mut u8, size) }
         }
         fn ext_server() -> &'static $crate::plugin::cabi::Server {
@@ -260,19 +260,19 @@ macro_rules! __plugin_export_guest {
             SERVER.get_or_init(|| $crate::plugin::cabi::Server::new($factory, 64))
         }
         #[unsafe(no_mangle)]
-        pub extern "C" fn ext_plugin_abi_version() -> u32 {
+        pub extern "C" fn ext_plugin_guest_abi_version() -> u32 {
             1
         }
         #[unsafe(no_mangle)]
-        pub extern "C" fn ext_plugin_open() -> u64 {
+        pub extern "C" fn ext_plugin_guest_open() -> u64 {
             std::panic::catch_unwind(|| ext_server().open()).unwrap_or(0)
         }
         #[unsafe(no_mangle)]
-        pub extern "C" fn ext_plugin_close(id: u64) {
+        pub extern "C" fn ext_plugin_guest_close(id: u64) {
             let _ = std::panic::catch_unwind(|| ext_server().close(id));
         }
         #[unsafe(no_mangle)]
-        pub unsafe extern "C" fn ext_plugin_call(
+        pub unsafe extern "C" fn ext_plugin_guest_call(
             id: u64,
             op: u32,
             input: *const u8,

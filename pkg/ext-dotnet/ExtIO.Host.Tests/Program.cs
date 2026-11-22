@@ -177,7 +177,7 @@ string echoName = echo["name"]!.GetValue<string>(), echoVersion = echo["version"
 JsonNode Value(int n) => new JsonObject { ["value"] = n };
 
 Test("a missing library is reported", () =>
-    Throws<DllNotFoundException>(() => _ = new Engine("/does/not/exist/libext_host.so"), "engine"));
+    Throws<DllNotFoundException>(() => _ = new Engine("/does/not/exist/libext_plugin_host.so"), "engine"));
 
 Test("policies see JSON", () =>
 {

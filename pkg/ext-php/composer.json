@@ -14,7 +14,7 @@
         "ext-json": "*"
     },
     "suggest": {
-        "ext-ffi": "for the host SDK (ExtIO\\Host), which runs plugins through the ext C engine's shared library, libext_host"
+        "ext-ffi": "for the host SDK (ExtIO\\Host), which runs plugins through the ext C engine's shared library, libext_plugin_host"
     },
     "autoload": {
         "psr-4": {

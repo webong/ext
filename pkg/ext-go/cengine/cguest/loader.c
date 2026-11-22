@@ -44,10 +44,10 @@ ext_library *ext_library_load(const char *path, char *error, size_t cap) {
     image_handle h = load_image(path, error, cap);
     if (!h) return NULL;
     /* Never unload even on ABI failure: native initialization already ran. */
-    version_fn version = (version_fn)LOOKUP(h, "ext_plugin_abi_version");
-    open_fn open = (open_fn)LOOKUP(h, "ext_plugin_open");
-    call_fn call = (call_fn)LOOKUP(h, "ext_plugin_call");
-    close_fn close = (close_fn)LOOKUP(h, "ext_plugin_close");
+    version_fn version = (version_fn)LOOKUP(h, "ext_plugin_guest_abi_version");
+    open_fn open = (open_fn)LOOKUP(h, "ext_plugin_guest_open");
+    call_fn call = (call_fn)LOOKUP(h, "ext_plugin_guest_call");
+    close_fn close = (close_fn)LOOKUP(h, "ext_plugin_guest_close");
     if (!version || !open || !call || !close) {
         snprintf(error, cap, "missing required CTX C ABI exports"); return NULL;
     }

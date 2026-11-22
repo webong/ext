@@ -86,7 +86,7 @@ installed package without reading or downloading the archive, once that package 
 client follows at most `MaxDownloadRedirects` redirects, to HTTPS URLs without user information or a
 fragment only, and removes `Authorization`, `Cookie` and `Referer` from a redirected request; pass
 your own through `ArchiveOptions.Client`. The engine-routed store (`cgoengine/plugin/host/store`) runs the
-install in the C engine (`ext_store_install_archive`: the digest check, the extraction, the install
+install in the C engine (`ext_plugin_store_install_archive`: the digest check, the extraction, the install
 or upgrade and the receipt), which the other language bindings share; it downloads an HTTPS source
 in Go first, since the engine leaves fetching to its caller. `ExtractArchive` and `Download` are Go
 in both.

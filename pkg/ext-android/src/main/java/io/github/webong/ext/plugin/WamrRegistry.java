@@ -4,7 +4,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * A guest registry (ext_registry_* in ext_host.h) over WAMR hosts: a reverse call one guest makes
+ * A guest registry (ext_registry_* in ext_plugin_host.h) over WAMR hosts: a reverse call one guest makes
  * is served by a forward call to another guest, along an edge declared with {@link #route}. An
  * undeclared edge is refused with reverse_undeclared, an unregistered target with
  * reverse_unavailable, and a call that would re-enter a host already on its call chain with denied;

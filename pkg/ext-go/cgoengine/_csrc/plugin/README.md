@@ -12,9 +12,29 @@ engine itself contains no Go runtime. The guest executable may use any runtime;
 the baseline fixture happens to be Go. CTX's existing `ext.plugin/v1` guest
 protocol and existing language guest implementations remain unchanged.
 
+## Names
+
+Every public name of this library is in the `ext_plugin_` name space (macros `EXT_PLUGIN_`), and the
+side comes next, so the host and the guest never meet and no other library of `lib/` collides with it
+(`lib/ledger` is `ext_ledger_`):
+
+| Prefix | Header | What it is |
+| --- | --- | --- |
+| `ext_plugin_host_*` | [`ext_plugin_host.h`](include/ext_plugin_host.h) | the host ABI: embed the engine, admit a plugin and call it |
+| `ext_plugin_store_*` | `ext_plugin_host.h` | the installed package store |
+| `ext_plugin_guest_*` (exports) | [`ext_plugin_guest.h`](include/ext_plugin_guest.h) | the guest ABI a plugin built as a C shared library (or a `.wasm`) exports: `abi_version`, `open`, `call`, `close`, and on wasm `alloc` and `free` |
+| `ext_plugin_guest_*` (functions) | [`ext_plugin_author.h`](include/ext_plugin_author.h) | the C guest authoring API (`create`, `descriptor`, `invoke`, `emit`, ...) |
+| `ext_plugin_instance_*`, `ext_plugin_instances_*`, `ext_plugin_stream_*`, `ext_plugin_streams_*` | [`ext_plugin_instance.h`](include/ext_plugin_instance.h), [`ext_plugin_stream.h`](include/ext_plugin_stream.h) | instance leases and pull streams |
+| `ext_plugin_call`, `ext_plugin_sha256` | `ext_plugin_host.h` | the engine's pure services by name on JSON, and its digest |
+| `ext_plugin_buffer`, `ext_plugin_status`, `EXT_PLUGIN_OK` ... | `ext_plugin_host.h` | the shared buffer, status type and status codes |
+
+The libraries are `libext_plugin_host` and `libext_plugin_guest` (static: `ext_plugin_host_static`,
+`ext_plugin_guest_static`) and the CMake package is `find_package(ext_plugin)` with the targets
+`EXT::host` and `EXT::guest`.
+
 ## What is implemented
 
-- Experimental versioned [host embedding API](include/ext_host.h).
+- Experimental versioned [host embedding API](include/ext_plugin_host.h).
 - Linux/macOS JSON-line subprocess backend, owning one direct child per session.
 - Immutable descriptor selection, exact handshake matching independent of
   declaration order, request validation, response correlation, domain errors.
@@ -24,7 +44,7 @@ protocol and existing language guest implementations remain unchanged.
   escaped aliases), unknown envelope fields and exact number text preservation.
 - Serialized JSON-line execution; extensions may declare concurrent invocation.
 - Backend extension vtable with engine-owned result sinks, close and release.
-- Shared-library backend for C ABI guests ([`ext_plugin.h`](include/ext_plugin.h)).
+- Shared-library backend for C ABI guests ([`ext_plugin_guest.h`](include/ext_plugin_guest.h)).
 - Lifecycle state and bounded graceful drain; a drain timeout reopens admission.
 - Millisecond deadlines, monotonic I/O/queue waits, per-call cancellation and
   original binding context; cancellation after dispatch terminates the session.
@@ -48,20 +68,20 @@ resource wrappers remain pending.
 
 ## Ownership and threading
 
-1. `ext_host_create` copies backend configuration and the descriptor. The caller keeps
-   policy callback code and user data alive until `ext_host_destroy` returns.
-2. `ext_host_start` verifies, spawns and handshakes. Start exactly once. A failed
+1. `ext_plugin_host_create` copies backend configuration and the descriptor. The caller keeps
+   policy callback code and user data alive until `ext_plugin_host_destroy` returns.
+2. `ext_plugin_host_start` verifies, spawns and handshakes. Start exactly once. A failed
    start closes the session; there is no implicit retry.
-3. `ext_host_invoke` receives borrowed request bytes for the duration of the call
-   and returns an owned `ext_buffer`. Free it with `ext_buffer_free`, never a
+3. `ext_plugin_host_invoke` receives borrowed request bytes for the duration of the call
+   and returns an owned `ext_plugin_buffer`. Free it with `ext_plugin_buffer_free`, never a
    language allocator. Use the functions from the same engine instance that
    created the handle/buffer, including when multiple addons embed static copies.
-   Never exchange these objects across engine copies. Domain errors are valid response envelopes with EXT_OK.
+   Never exchange these objects across engine copies. Domain errors are valid response envelopes with EXT_PLUGIN_OK.
 4. Calls may come from multiple threads; the backend declares whether C serializes
    them. JSON-line is serialized. Queued
    calls count queue time toward their timeout. Admission is not FIFO.
-5. `ext_host_close` is idempotent, concurrent-safe and wakes blocked I/O. After
-   all operations return, the owner calls `ext_host_destroy` exactly once. It
+5. `ext_plugin_host_close` is idempotent, concurrent-safe and wakes blocked I/O. After
+   all operations return, the owner calls `ext_plugin_host_destroy` exactly once. It
    reaps the child and frees the handle. No calls may race with destruction.
 
 Policies run synchronously on the calling thread and must return promptly.
@@ -92,7 +112,7 @@ cmake --build /tmp/ext-cengine
 cmake --install /tmp/ext-cengine --prefix /tmp/ext-host-package
 ```
 
-The default install contains `libext_host_static.a`, `libext_guest_static.a`,
+The default install contains `libext_plugin_host_static.a`, `libext_plugin_guest_static.a`,
 four public headers, versioned CMake package metadata and the CTX, parser and
 Unicode-table licenses. Add `-DEXT_BUILD_SHARED=ON` to
 also build/install host and guest shared libraries (`.so` / `.dylib`, ABI major 2).
@@ -102,7 +122,7 @@ Windows support has not been implemented in this subprocess backend.
 CMake consumers use:
 
 ```cmake
-find_package(ext_host CONFIG REQUIRED)
+find_package(ext_plugin CONFIG REQUIRED)
 target_link_libraries(my_app PRIVATE EXT::host) # static default
 # EXT::host_static is explicit; EXT::host_shared exists when installed.
 # EXT::guest / guest_static / guest_shared omit host and resource runtimes.
@@ -110,8 +130,8 @@ target_link_libraries(my_app PRIVATE EXT::host) # static default
 
 The exported targets carry header paths, static API definitions and required
 system libraries. The static archive uses position-independent code so it can
-be embedded in a Node addon. Manual C consumers define `EXT_HOST_STATIC` and
-link `-lext_host_static -pthread -lm`, plus `-ldl` on Linux. Parser symbols are privately prefixed
+be embedded in a Node addon. Manual C consumers define `EXT_PLUGIN_HOST_STATIC` and
+link `-lext_plugin_host_static -pthread -lm`, plus `-ldl` on Linux. Parser symbols are privately prefixed
 at build time, allowing applications to link their own yyjson version; the inflate
 decoder's functions are prefixed the same way, so an application's own miniz or zlib is untouched.
 
@@ -140,7 +160,7 @@ Browsers need a WASM embedding; they cannot load a native `.node` addon.
 
 `-DEXT_BUILD_HOST=OFF` builds the guest dispatcher, strict wire parser, pure JSON
 services, hashing and cancellation without pthreads, process launch, filesystem
-access, instances or streams. Use `EXT::guest` or `-lext_guest_static`. Native
+access, instances or streams. Use `EXT::guest` or `-lext_plugin_guest_static`. Native
 builds can also select that smaller library independently of the host target.
 
 The checked-in `cmake/wasi-zig.cmake` toolchain builds WASI Preview 1 with Zig
@@ -157,11 +177,11 @@ plugins execute. Static engine linkage does not make a subprocess guest built-in
 The built-in C backend remains JSON-line subprocess; a reviewed bridge can expose
 HashiCorp behind that same contract. An engine service is deferred.
 
-Experimental embedding ABI **2** separates `ext_host_options` (descriptor and
-policy) from `ext_backend_options` (kind, configuration pointer and size).
-`EXT_BACKEND_JSONLINE_PROCESS` accepts `ext_jsonline_process_options`.
-Unknown kinds return `EXT_UNSUPPORTED`. `EXT_BACKEND_EXTENSION` accepts a
-`ext_backend_extension` vtable for application-supplied runtime mechanics.
+Experimental embedding ABI **2** separates `ext_plugin_host_options` (descriptor and
+policy) from `ext_plugin_backend_options` (kind, configuration pointer and size).
+`EXT_PLUGIN_BACKEND_JSONLINE_PROCESS` accepts `ext_plugin_jsonline_process_options`.
+Unknown kinds return `EXT_PLUGIN_UNSUPPORTED`. `EXT_PLUGIN_BACKEND_EXTENSION` accepts a
+`ext_plugin_backend_extension` vtable for application-supplied runtime mechanics.
 Rebuild all ABI 1 bindings; guest `ext.plugin/v1` is unchanged.
 
 ### Runtime extensions
@@ -174,26 +194,26 @@ with connect/invoke; it must interrupt runtime work. Release runs only after all
 host calls have joined. Failed create leaves ownership with the caller.
 
 An extension that also reads the plugin's tagged frames (progress events and
-reverse requests) is created with `EXT_BACKEND_FRAMES` and hands them to the engine
-with `ext_host_backend_progress`, `ext_host_backend_reverse_admit` and
-`ext_host_backend_reverse_run`: the engine validates, limits, admits and answers as
+reverse requests) is created with `EXT_PLUGIN_BACKEND_FRAMES` and hands them to the engine
+with `ext_plugin_host_backend_progress`, `ext_plugin_host_backend_reverse_admit` and
+`ext_plugin_host_backend_reverse_run`: the engine validates, limits, admits and answers as
 it does for a process it reads, and the backend keeps its transport and threads.
 Without the flag the engine refuses a descriptor that declares progress or reverse
 operations, since the backend could not carry them.
 
 ### Shared-library guests
 
-`ext_shared_library_backend_create` turns an absolute path to a C ABI guest (the four
-`ext_plugin_*` exports of [`ext_plugin.h`](include/ext_plugin.h), from C, C++, Rust, Zig, Go
-`-buildmode=c-shared` or Swift) into an `EXT_BACKEND_EXTENSION_CONTEXT` backend, so any
+`ext_plugin_shared_library_backend_create` turns an absolute path to a C ABI guest (the four
+`ext_plugin_guest_*` exports of [`ext_plugin_guest.h`](include/ext_plugin_guest.h), from C, C++, Rust, Zig, Go
+`-buildmode=c-shared` or Swift) into an `EXT_PLUGIN_BACKEND_EXTENSION_CONTEXT` backend, so any
 language that binds this engine can host one without a loader of its own:
 
 ```c
-ext_shared_library_options library = {sizeof(library), "/opt/plugins/echo/1.0.0/libecho.so"};
-ext_backend_extension_context ext;
-ext_shared_library_backend_create(&library, &ext);
-ext_backend_options backend = {sizeof(backend), EXT_BACKEND_EXTENSION_CONTEXT, &ext, sizeof(ext)};
-ext_host_create(&host_options, &backend, &host);   /* then ext_host_start, ext_host_invoke ... */
+ext_plugin_shared_library_options library = {sizeof(library), "/opt/plugins/echo/1.0.0/libecho.so"};
+ext_plugin_backend_extension_context ext;
+ext_plugin_shared_library_backend_create(&library, &ext);
+ext_plugin_backend_options backend = {sizeof(backend), EXT_PLUGIN_BACKEND_EXTENSION_CONTEXT, &ext, sizeof(ext)};
+ext_plugin_host_create(&host_options, &backend, &host);   /* then ext_plugin_host_start, ext_plugin_host_invoke ... */
 ```
 
 It behaves as the Go loader in `pkg/ext-go/cengine/cguest` does. Nothing is loaded until
@@ -203,7 +223,7 @@ Calls are serialized, with the ABI's 24 MiB response capacity and no retry. A no
 status, an impossible length, or a call that outlives its deadline or cancellation ends the
 session. Native code cannot be interrupted, so close only refuses further calls, and the
 handle is closed in release. The C ABI has no frames, so a descriptor that declares progress
-or reverse operations is refused, as for any extension without `EXT_BACKEND_FRAMES`.
+or reverse operations is refused, as for any extension without `EXT_PLUGIN_BACKEND_FRAMES`.
 `tests/shared_library.c` checks it against C guests and, given a path, against the Go-built
 guest that `tests/crosslang` runs through the Go loader.
 

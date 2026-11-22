@@ -20,10 +20,10 @@ import (
 )
 
 // GuestRegistry routes reverse calls between sessions through the C engine's
-// ext_registry.
+// ext_plugin_registry.
 type GuestRegistry struct {
 	mu      sync.Mutex
-	ptr     *C.ext_registry
+	ptr     *C.ext_plugin_registry
 	targets map[plugin.ContractRef]*Host
 	// live counts the C hosts attached to or registered with ptr that are not yet
 	// destroyed; the C registry may be freed only when it is zero.
@@ -33,7 +33,7 @@ type GuestRegistry struct {
 // NewGuestRegistry returns an empty registry.
 func NewGuestRegistry() *GuestRegistry {
 	r := &GuestRegistry{targets: map[plugin.ContractRef]*Host{}}
-	if C.ext_registry_create(&r.ptr) != C.EXT_OK {
+	if C.ext_plugin_registry_create(&r.ptr) != C.EXT_PLUGIN_OK {
 		panic("cgoengine: cannot allocate a registry")
 	}
 	runtime.SetFinalizer(r, (*GuestRegistry).free)
@@ -47,13 +47,13 @@ func (r *GuestRegistry) free() {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if r.live == 0 && r.ptr != nil {
-		C.ext_registry_destroy(r.ptr)
+		C.ext_plugin_registry_destroy(r.ptr)
 		r.ptr = nil
 	}
 }
 
-func registryStatus(s C.ext_status) error {
-	if s == C.EXT_EXISTS {
+func registryStatus(s C.ext_plugin_status) error {
+	if s == C.EXT_PLUGIN_EXISTS {
 		return ErrRegistryExists
 	}
 	return status(s)
@@ -92,7 +92,7 @@ func (r *GuestRegistry) Register(contract plugin.ContractRef, s *Session) error 
 		r.mu.Unlock()
 		return plugin.ErrClosed
 	}
-	err := registryStatus(C.ext_registry_register(r.ptr, names[0], names[1], h.ptr))
+	err := registryStatus(C.ext_plugin_registry_register(r.ptr, names[0], names[1], h.ptr))
 	h.mu.RUnlock()
 	if err == nil {
 		r.targets[contract] = h
@@ -118,7 +118,7 @@ func (r *GuestRegistry) remove(contract plugin.ContractRef) {
 	names, free := cstrings(contract.Name, contract.Version)
 	defer free()
 	delete(r.targets, contract)
-	C.ext_registry_unregister(r.ptr, names[0], names[1])
+	C.ext_plugin_registry_unregister(r.ptr, names[0], names[1])
 }
 
 // Unregister removes contract and waits for the forward calls routed to its
@@ -142,12 +142,12 @@ func (r *GuestRegistry) Route(from plugin.ContractRef, fromOperation string, to 
 	}
 	names, free := cstrings(from.Name, from.Version, fromOperation, to.Name, to.Version, toOperation)
 	defer free()
-	edge := C.ext_registry_edge{struct_size: C.uint32_t(unsafe.Sizeof(C.ext_registry_edge{})),
+	edge := C.ext_plugin_registry_edge{struct_size: C.uint32_t(unsafe.Sizeof(C.ext_plugin_registry_edge{})),
 		from_name: names[0], from_version: names[1], from_operation: names[2],
 		to_name: names[3], to_version: names[4], to_operation: names[5]}
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	return registryStatus(C.ext_registry_route(r.ptr, &edge))
+	return registryStatus(C.ext_plugin_registry_route(r.ptr, &edge))
 }
 
 // checkSource applies the rules for a source's reverse options: Authorize is

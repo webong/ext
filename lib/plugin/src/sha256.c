@@ -1,5 +1,5 @@
 #include "sha256.h"
-#include "ext_host.h"
+#include "ext_plugin_host.h"
 #include <string.h>
 static uint32_t rotr(uint32_t x, unsigned n) {
   return (x >> n) | (x << (32 - n));
@@ -95,13 +95,13 @@ void ext_hash_hex(const uint8_t in[32], char out[65]) {
   }
   out[64] = 0;
 }
-ext_status ext_engine_sha256(const uint8_t *input, size_t len,
+ext_plugin_status ext_plugin_sha256(const uint8_t *input, size_t len,
                              uint8_t out[32]) {
   if (!out || (!input && len))
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   ext_hash s;
   ext_hash_init(&s);
   ext_hash_update(&s, input, len);
   ext_hash_finish(&s, out);
-  return EXT_OK;
+  return EXT_PLUGIN_OK;
 }

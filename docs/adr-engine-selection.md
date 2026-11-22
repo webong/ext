@@ -21,7 +21,7 @@ them. The three are named alike, as engines:
 | engine | module | needs | role |
 | --- | --- | --- | --- |
 | the pure-Go engine | `pkg/ext-go/engine` (formerly `contract`) | nothing | the **oracle**: written separately, so a bug in the C cannot hide in it; also the portable default |
-| the C engine through cgo | `pkg/ext-go/cgoengine` (formerly `cengine`) | cgo and `libext_host_static` | the C itself at native speed |
+| the C engine through cgo | `pkg/ext-go/cgoengine` (formerly `cengine`) | cgo and `libext_plugin_host_static` | the C itself at native speed |
 | the C engine translated to Go | `pkg/ext-go/c2goengine` | nothing (Go 1.26 for the module) | the C run as Go by ccgo: about twice as slow as native, about twice as fast as the oracle on the services measured |
 
 The package that chooses between them is `pkg/ext-go/core`, in the umbrella module.

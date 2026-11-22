@@ -67,7 +67,7 @@ if(ANDROID)
 endif()
 add_library(ext_wamr STATIC ext_wamr.c)
 target_include_directories(ext_wamr PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-target_link_libraries(ext_wamr PUBLIC ext_host_static ext_wamr_vm)
+target_link_libraries(ext_wamr PUBLIC ext_plugin_host_static ext_wamr_vm)
 target_compile_options(ext_wamr PRIVATE -Wall -Wextra -Werror)
 # WAMR keeps a per-thread exec env only with hardware bound checks (every target
 # here is 64-bit); the reverse import saves and restores it so calls can nest.

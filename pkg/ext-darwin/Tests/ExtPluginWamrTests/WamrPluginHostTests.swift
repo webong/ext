@@ -74,7 +74,7 @@ final class WamrPluginHostTests: XCTestCase {
         let host = try WamrPluginHost(module: module, descriptor: Data(other.utf8))
         defer { host.close() }
         XCTAssertThrowsError(try host.start()) { error in
-            XCTAssertEqual((error as? WamrPluginHost.Failure)?.status, 3, "\(error)") // EXT_MISMATCH
+            XCTAssertEqual((error as? WamrPluginHost.Failure)?.status, 3, "\(error)") // EXT_PLUGIN_MISMATCH
         }
     }
 
@@ -86,7 +86,7 @@ final class WamrPluginHostTests: XCTestCase {
         })
         defer { host.close() }
         XCTAssertThrowsError(try host.invoke(request("echo", payload: "1"))) { error in
-            XCTAssertEqual((error as? WamrPluginHost.Failure)?.status, 2, "\(error)") // EXT_DENIED
+            XCTAssertEqual((error as? WamrPluginHost.Failure)?.status, 2, "\(error)") // EXT_PLUGIN_DENIED
         }
         XCTAssertTrue(text(try host.invoke(request("echo", payload: "2"))).contains(#""payload":2"#))
     }
@@ -103,7 +103,7 @@ final class WamrPluginHostTests: XCTestCase {
             let reply = text(try host.invoke(request("wait", deadline: Date().addingTimeInterval(0.4)), timeout: 10))
             XCTAssertTrue(reply.contains(#""error""#) && !reply.contains(#""payload""#), reply)
         } catch {
-            XCTAssertEqual((error as? WamrPluginHost.Failure)?.status, 6, "\(error)") // EXT_TIMEOUT
+            XCTAssertEqual((error as? WamrPluginHost.Failure)?.status, 6, "\(error)") // EXT_PLUGIN_TIMEOUT
             XCTAssertThrowsError(try host.invoke(request("echo", payload: "1")), "the instance ends with the guest")
         }
         let elapsed = Date().timeIntervalSince(began)
@@ -116,7 +116,7 @@ final class WamrPluginHostTests: XCTestCase {
         defer { host.close() }
         let began = Date()
         XCTAssertThrowsError(try host.invoke(request("wait", deadline: Date().addingTimeInterval(120)), timeout: 0.3)) { error in
-            XCTAssertEqual((error as? WamrPluginHost.Failure)?.status, 6, "\(error)") // EXT_TIMEOUT
+            XCTAssertEqual((error as? WamrPluginHost.Failure)?.status, 6, "\(error)") // EXT_PLUGIN_TIMEOUT
         }
         XCTAssertLessThan(Date().timeIntervalSince(began), 5, "the interpreter must be stopped at the deadline")
         XCTAssertThrowsError(try host.invoke(request("echo", payload: "1"))) { error in
@@ -136,7 +136,7 @@ final class WamrPluginHostTests: XCTestCase {
         // A valid module exporting only _start: a command.
         let command = Data([0, 97, 115, 109, 1, 0, 0, 0, 1, 4, 1, 96, 0, 0, 3, 2, 1, 0, 7, 10, 1, 6, 95, 115, 116, 97, 114, 116, 0, 0, 10, 4, 1, 2, 0, 11])
         XCTAssertThrowsError(try WamrPluginHost.descriptor(of: command)) { error in
-            XCTAssertEqual((error as? WamrPluginHost.Failure)?.status, 4, "\(error)") // EXT_UNSUPPORTED
+            XCTAssertEqual((error as? WamrPluginHost.Failure)?.status, 4, "\(error)") // EXT_PLUGIN_UNSUPPORTED
         }
         XCTAssertThrowsError(try WamrPluginHost.descriptor(of: Data("not a module".utf8)))
         XCTAssertThrowsError(try WamrPluginHost(module: Data(), descriptor: Data("{}".utf8)))
@@ -161,7 +161,7 @@ final class WamrPluginHostTests: XCTestCase {
         host.close()
         host.close()
         XCTAssertThrowsError(try host.invoke(request("echo", payload: "1"))) { error in
-            XCTAssertEqual((error as? WamrPluginHost.Failure)?.status, 5, "\(error)") // EXT_CLOSED
+            XCTAssertEqual((error as? WamrPluginHost.Failure)?.status, 5, "\(error)") // EXT_PLUGIN_CLOSED
         }
     }
 

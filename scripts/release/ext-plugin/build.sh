@@ -12,7 +12,7 @@ export REF_TYPE="${GITHUB_REF_TYPE}"
 if [[ "$REF_TYPE" == tag ]]; then
   version="${REF_NAME#ext-plugin-v}"
 else
-  version="$(sed -n 's/^project(ext_host_prototype VERSION \([0-9.]*\) .*/\1/p' lib/plugin/CMakeLists.txt)"
+  version="$(sed -n 's/^project(ext_plugin VERSION \([0-9.]*\) .*/\1/p' lib/plugin/CMakeLists.txt)"
 fi
 [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "version '$version' must look like 0.2.0" >&2; exit 1; }
 echo "VERSION=$version" >>"$GITHUB_ENV"

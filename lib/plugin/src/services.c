@@ -11,14 +11,14 @@
 #define eq yyjson_equals_str
 #define absent(v) (!(v) || yyjson_is_null(v))
 
-static ext_status output(yyjson_val *value, ext_buffer *out) {
+static ext_plugin_status output(yyjson_val *value, ext_plugin_buffer *out) {
   if (value)
     out->data = (uint8_t *)yyjson_val_write(value, 0, &out->len);
   else {
     out->data = (uint8_t *)strdup("null");
     out->len = 4;
   }
-  return out->data ? EXT_OK : EXT_NOMEM;
+  return out->data ? EXT_PLUGIN_OK : EXT_PLUGIN_NOMEM;
 }
 static int list(yyjson_val *v, size_t min, size_t max) {
   return yyjson_is_arr(v) && yyjson_arr_size(v) >= min &&
@@ -61,21 +61,21 @@ static int satisfies(yyjson_val *d, yyjson_val *r) {
           ext_same_identity(get(d, "identity"), get(r, "identity"))) &&
          ext_lookup(d, get(r, "contract"), get(r, "operation")) != NULL;
 }
-static ext_status select_descriptor(yyjson_val *ds, yyjson_val *r,
+static ext_plugin_status select_descriptor(yyjson_val *ds, yyjson_val *r,
                                     yyjson_val **chosen) {
   if (!yyjson_is_arr(ds) || !requirement(r))
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   size_t i, n, count = 0;
   yyjson_val *d;
   yyjson_arr_foreach(ds, i, n, d) {
     if (!ext_descriptor(d))
-      return EXT_INVALID;
+      return EXT_PLUGIN_INVALID;
     if (satisfies(d, r)) {
       *chosen = d;
       count++;
     }
   }
-  return count == 1 ? EXT_OK : count ? EXT_AMBIGUOUS : EXT_NOT_FOUND;
+  return count == 1 ? EXT_PLUGIN_OK : count ? EXT_PLUGIN_AMBIGUOUS : EXT_PLUGIN_NOT_FOUND;
 }
 /* Decode one raw number without strtod/locale dependence. */
 static int number(yyjson_val *v, double *out) {
@@ -310,9 +310,9 @@ static int unique_name(yyjson_val *array, size_t i, yyjson_val *p) {
   if (ext_same(get(p, "name"), get(earlier, "name"))) return 0;
   return 1;
 }
-static ext_status route_result(yyjson_val *h, yyjson_val *g, yyjson_val *bridge,
+static ext_plugin_status route_result(yyjson_val *h, yyjson_val *g, yyjson_val *bridge,
                                yyjson_val *protocol, yyjson_val *want,
-                               ext_buffer *out) {
+                               ext_plugin_buffer *out) {
   const char *flags[] = {"concurrent", "nativeStreaming", "nativeCallbacks"};
   int features[3];
   for (size_t i = 0; i < 3; i++) {
@@ -323,15 +323,15 @@ static ext_status route_result(yyjson_val *h, yyjson_val *g, yyjson_val *bridge,
                     yyjson_get_bool(get(get(bridge, "frontend"), flags[i])) &&
                     yyjson_get_bool(get(get(bridge, "backend"), flags[i]));
     if (yyjson_get_bool(get(want, flags[i])) && !features[i])
-      return EXT_UNSUPPORTED;
+      return EXT_PLUGIN_UNSUPPORTED;
   }
   /* A route that meets the transport requirements but not the boundaries is
    * skipped; the caller reports denied when every such route was. */
   if (!boundary_accepted(g, want))
-    return EXT_DENIED;
+    return EXT_PLUGIN_DENIED;
   yyjson_mut_doc *d = yyjson_mut_doc_new(NULL);
   if (!d)
-    return EXT_NOMEM;
+    return EXT_PLUGIN_NOMEM;
   yyjson_mut_val *root = yyjson_mut_obj(d);
   yyjson_mut_doc_set_root(d, root);
   int ok = root != NULL;
@@ -348,16 +348,16 @@ static ext_status route_result(yyjson_val *h, yyjson_val *g, yyjson_val *bridge,
   if (ok)
     out->data = (uint8_t *)yyjson_mut_write(d, 0, &out->len);
   yyjson_mut_doc_free(d);
-  return out->data ? EXT_OK : EXT_NOMEM;
+  return out->data ? EXT_PLUGIN_OK : EXT_PLUGIN_NOMEM;
 }
-static ext_status routes(yyjson_val *v, ext_buffer *out) {
+static ext_plugin_status routes(yyjson_val *v, ext_plugin_buffer *out) {
   if (!EXT_FIELDS(v, "hosts", "guests", "bridges", "requirements"))
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   yyjson_val *hosts = get(v, "hosts"), *guests = get(v, "guests"),
              *bridges = get(v, "bridges"), *want = get(v, "requirements");
   if (!list(hosts, 1, 64) || !list(guests, 1, 64) ||
       (!absent(bridges) && !list(bridges, 0, 64)))
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   if (!absent(want) &&
       (!EXT_FIELDS(want, "concurrent", "nativeStreaming", "nativeCallbacks",
                    "boundaries") ||
@@ -365,22 +365,22 @@ static ext_status routes(yyjson_val *v, ext_buffer *out) {
        !optional_bool(get(want, "nativeStreaming")) ||
        !optional_bool(get(want, "nativeCallbacks")) ||
        !boundary_list(get(want, "boundaries"))))
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   int denied = 0;
   size_t i, n, j, m, k, z, q, count;
   yyjson_val *h, *g, *b, *p;
   yyjson_arr_foreach(hosts, i, n,
                      h) if (!profile(h) ||
-                            !unique_name(hosts, i, h)) return EXT_INVALID;
+                            !unique_name(hosts, i, h)) return EXT_PLUGIN_INVALID;
   yyjson_arr_foreach(guests, i, n,
                      g) if (!profile(g) ||
-                            !unique_name(guests, i, g)) return EXT_INVALID;
+                            !unique_name(guests, i, g)) return EXT_PLUGIN_INVALID;
   yyjson_arr_foreach(bridges, i, n,
                      b) if (!EXT_FIELDS(b, "name", "frontend", "backend") ||
                             !ext_text(get(b, "name"), 0, 0) ||
                             !unique_name(bridges, i, b) ||
                             !profile(get(b, "frontend")) ||
-                            !profile(get(b, "backend"))) return EXT_INVALID;
+                            !profile(get(b, "backend"))) return EXT_PLUGIN_INVALID;
   yyjson_arr_foreach(hosts, i, n, h) {
     yyjson_arr_foreach(guests, j, m, g) {
       if (!ext_same(get(h, "name"), get(g, "name")))
@@ -388,10 +388,10 @@ static ext_status routes(yyjson_val *v, ext_buffer *out) {
       p = ext_negotiate(get(h, "protocols"), get(g, "protocols"));
       if (!p)
         continue;
-      ext_status s = route_result(h, g, NULL, p, want, out);
-      if (s == EXT_DENIED)
+      ext_plugin_status s = route_result(h, g, NULL, p, want, out);
+      if (s == EXT_PLUGIN_DENIED)
         denied = 1;
-      else if (s != EXT_UNSUPPORTED)
+      else if (s != EXT_PLUGIN_UNSUPPORTED)
         return s;
     }
   }
@@ -407,19 +407,19 @@ static ext_status routes(yyjson_val *v, ext_buffer *out) {
               !contains(get(front, "protocols"), p) ||
               !contains(get(back, "protocols"), p))
             continue;
-          ext_status s = route_result(h, g, b, p, want, out);
-          if (s == EXT_DENIED)
+          ext_plugin_status s = route_result(h, g, b, p, want, out);
+          if (s == EXT_PLUGIN_DENIED)
             denied = 1;
-          else if (s != EXT_UNSUPPORTED)
+          else if (s != EXT_PLUGIN_UNSUPPORTED)
             return s;
         }
       }
     }
   }
-  return denied ? EXT_DENIED : EXT_UNSUPPORTED;
+  return denied ? EXT_PLUGIN_DENIED : EXT_PLUGIN_UNSUPPORTED;
 }
 
-static ext_status dispatch(const char *op, yyjson_val *v, ext_buffer *out) {
+static ext_plugin_status dispatch(const char *op, yyjson_val *v, ext_plugin_buffer *out) {
   yyjson_val *result = NULL;
   if (!strncmp(op, "package.", 8))
     return ext_package_service(op, v, out);
@@ -427,19 +427,19 @@ static ext_status dispatch(const char *op, yyjson_val *v, ext_buffer *out) {
     return routes(v, out);
   if (!strcmp(op, "descriptor.validate")) {
     if (!ext_descriptor(v))
-      return EXT_INVALID;
+      return EXT_PLUGIN_INVALID;
     result = v;
   } else if (!strcmp(op, "descriptor.match")) {
     if (!EXT_FIELDS(v, "selected", "actual") ||
         !ext_descriptor(get(v, "selected")) ||
         !ext_descriptor(get(v, "actual")))
-      return EXT_INVALID;
+      return EXT_PLUGIN_INVALID;
     if (!ext_match(get(v, "selected"), get(v, "actual")))
-      return EXT_MISMATCH;
+      return EXT_PLUGIN_MISMATCH;
   } else if (!strcmp(op, "descriptor.select")) {
     if (!EXT_FIELDS(v, "candidates", "requirement"))
-      return EXT_INVALID;
-    ext_status s =
+      return EXT_PLUGIN_INVALID;
+    ext_plugin_status s =
         select_descriptor(get(v, "candidates"), get(v, "requirement"), &result);
     if (s)
       return s;
@@ -447,18 +447,18 @@ static ext_status dispatch(const char *op, yyjson_val *v, ext_buffer *out) {
     if (!EXT_FIELDS(v, "descriptor", "requirements") ||
         !ext_descriptor(get(v, "descriptor")) ||
         !yyjson_is_arr(get(v, "requirements")))
-      return EXT_INVALID;
+      return EXT_PLUGIN_INVALID;
     size_t i, n;
     yyjson_val *r;
     yyjson_arr_foreach(get(v, "requirements"), i, n, r) {
       if (!requirement(r))
-        return EXT_INVALID;
+        return EXT_PLUGIN_INVALID;
       if (!satisfies(get(v, "descriptor"), r))
-        return EXT_NOT_FOUND;
+        return EXT_PLUGIN_NOT_FOUND;
     }
   } else if (!strcmp(op, "endpoint.check")) {
     /* An endpoint's shape, which no policy changes (endpoint.Decode). */
-    ext_status s = ext_endpoint_check(v);
+    ext_plugin_status s = ext_endpoint_check(v);
     if (s)
       return s;
     result = v;
@@ -467,8 +467,8 @@ static ext_status dispatch(const char *op, yyjson_val *v, ext_buffer *out) {
     ext_endpoint_policy policy;
     if (!EXT_FIELDS(v, "endpoint", "policy") || !get(v, "endpoint") ||
         !ext_endpoint_policy_parse(get(v, "policy"), &policy))
-      return EXT_INVALID;
-    ext_status s = ext_endpoint_validate(get(v, "endpoint"), &policy);
+      return EXT_PLUGIN_INVALID;
+    ext_plugin_status s = ext_endpoint_validate(get(v, "endpoint"), &policy);
     if (s)
       return s;
     result = get(v, "endpoint");
@@ -476,7 +476,7 @@ static ext_status dispatch(const char *op, yyjson_val *v, ext_buffer *out) {
     /* One tagged frame as it travels between a host and a plugin. The Go
      * reference is the frame types' Decode and Validate (reverse.go). */
     yyjson_val *tag = get(v, "frame");
-    ext_status s = EXT_PROTOCOL;
+    ext_plugin_status s = EXT_PLUGIN_PROTOCOL;
     if (yyjson_equals_str(tag, "progress")) {
       ext_progress_event event;
       yyjson_val *parent;
@@ -492,16 +492,16 @@ static ext_status dispatch(const char *op, yyjson_val *v, ext_buffer *out) {
     if (!EXT_FIELDS(v, "preferred", "offered") ||
         !ext_protocols(get(v, "preferred")) ||
         !ext_protocols(get(v, "offered")))
-      return EXT_INVALID;
+      return EXT_PLUGIN_INVALID;
     result = ext_negotiate(get(v, "preferred"), get(v, "offered"));
     if (!result)
-      return EXT_UNSUPPORTED;
+      return EXT_PLUGIN_UNSUPPORTED;
   } else if (!strcmp(op, "request.validate")) {
     if (!EXT_FIELDS(v, "descriptor", "request") ||
         !ext_descriptor(get(v, "descriptor")))
-      return EXT_INVALID;
+      return EXT_PLUGIN_INVALID;
     int64_t deadline;
-    ext_status s =
+    ext_plugin_status s =
         ext_request(get(v, "descriptor"), get(v, "request"), &deadline);
     if (s)
       return s;
@@ -509,8 +509,8 @@ static ext_status dispatch(const char *op, yyjson_val *v, ext_buffer *out) {
   } else if (!strcmp(op, "response.validate")) {
     if (!EXT_FIELDS(v, "response", "requestID") ||
         !ext_text(get(v, "requestID"), 1, 0))
-      return EXT_INVALID;
-    ext_status s =
+      return EXT_PLUGIN_INVALID;
+    ext_plugin_status s =
         ext_response(get(v, "response"), yyjson_get_str(get(v, "requestID")));
     if (s)
       return s;
@@ -518,32 +518,32 @@ static ext_status dispatch(const char *op, yyjson_val *v, ext_buffer *out) {
   } else if (!strcmp(op, "schema.validate")) {
     unsigned budget = 1024;
     if (!ext_schema_valid(v, 0, &budget))
-      return EXT_INVALID;
+      return EXT_PLUGIN_INVALID;
     result = v;
   } else if (!strcmp(op, "schema.check")) {
     if (!EXT_FIELDS(v, "schema", "value") || !get(v, "value"))
-      return EXT_INVALID;
+      return EXT_PLUGIN_INVALID;
     unsigned budget = 1024;
     if (!ext_schema_valid(get(v, "schema"), 0, &budget) ||
         !ext_schema_check(get(v, "schema"), get(v, "value")))
-      return EXT_INVALID;
+      return EXT_PLUGIN_INVALID;
   } else
-    return EXT_UNSUPPORTED;
+    return EXT_PLUGIN_UNSUPPORTED;
   return output(result, out);
 }
-ext_status ext_engine_call(const char *operation, const uint8_t *input,
-                           size_t len, ext_buffer *out) {
+ext_plugin_status ext_plugin_call(const char *operation, const uint8_t *input,
+                           size_t len, ext_plugin_buffer *out) {
   if (!out)
-    return EXT_INVALID;
-  *out = (ext_buffer){0};
+    return EXT_PLUGIN_INVALID;
+  *out = (ext_plugin_buffer){0};
   if (!operation)
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   yyjson_doc *doc = ext_parse(input, len);
   if (!doc)
-    return EXT_INVALID;
-  ext_status s = dispatch(operation, yyjson_doc_get_root(doc), out);
+    return EXT_PLUGIN_INVALID;
+  ext_plugin_status s = dispatch(operation, yyjson_doc_get_root(doc), out);
   yyjson_doc_free(doc);
   if (s)
-    ext_buffer_free(out);
+    ext_plugin_buffer_free(out);
   return s;
 }

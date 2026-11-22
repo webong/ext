@@ -1,10 +1,10 @@
 package io.github.webong.ext.plugin;
 
-/** The engine refused a WAMR host operation. {@link #status()} is the ext_status value. */
+/** The engine refused a WAMR host operation. {@link #status()} is the ext_plugin_status value. */
 public final class WamrException extends Exception {
     private static final long serialVersionUID = 1L;
 
-    /** ext_status values the host reports; the rest are in ext_host.h. */
+    /** ext_plugin_status values the host reports; the rest are in ext_plugin_host.h. */
     public static final int INVALID = 1;
     public static final int DENIED = 2;
     public static final int MISMATCH = 3;
@@ -15,7 +15,7 @@ public final class WamrException extends Exception {
     private final int status;
 
     public WamrException(int status, String reason) {
-        super("ext_status " + status + " (" + reason + ")");
+        super("ext_plugin_status " + status + " (" + reason + ")");
         this.status = status;
     }
 

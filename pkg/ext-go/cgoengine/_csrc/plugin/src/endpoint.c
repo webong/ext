@@ -240,58 +240,58 @@ static int split_host_port(const char *a, size_t n, const char **host,
 
 /* validAddress: a host and a port, the host being "localhost" or a loopback IP
  * literal. */
-static ext_status address_ok(const char *a, size_t n) {
+static ext_plugin_status address_ok(const char *a, size_t n) {
   if (!n || n > EXT_ENDPOINT_MAX_ADDRESS || control_or_space(a, n))
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   const char *host, *port;
   size_t host_len, port_len;
   if (!split_host_port(a, n, &host, &host_len, &port, &port_len))
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   /* The port is plain decimal, from 1 to 65535, written the way a number is. */
   if (!port_len || port_len > 5 || port[0] == '0')
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   uint32_t number = 0;
   for (size_t i = 0; i < port_len; i++) {
     if (port[i] < '0' || port[i] > '9')
-      return EXT_INVALID;
+      return EXT_PLUGIN_INVALID;
     number = number * 10 + (uint32_t)(port[i] - '0');
   }
   if (number > 65535)
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   if (same(host, host_len, "localhost"))
-    return EXT_OK;
+    return EXT_PLUGIN_OK;
   uint8_t ip[16];
   if (!ip_parse(host, host_len, ip) || !loopback(ip))
-    return EXT_DENIED;
-  return EXT_OK;
+    return EXT_PLUGIN_DENIED;
+  return EXT_PLUGIN_OK;
 }
 
 /* Check, in Go's order: the first rule an endpoint breaks decides the status. */
-static ext_status check(const endpoint_value *e) {
+static ext_plugin_status check(const endpoint_value *e) {
   if (!known_scheme(e->scheme, e->scheme_len))
-    return EXT_INVALID;
-  ext_status s = address_ok(e->address, e->address_len);
+    return EXT_PLUGIN_INVALID;
+  ext_plugin_status s = address_ok(e->address, e->address_len);
   if (s)
     return s;
   if (e->path_len > EXT_ENDPOINT_MAX_PATH)
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   if (e->path_len &&
       (e->path[0] != '/' || memchr(e->path, '?', e->path_len) ||
        memchr(e->path, '#', e->path_len) || memchr(e->path, '\\', e->path_len) ||
        control_or_space(e->path, e->path_len)))
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   if (e->token_len > EXT_ENDPOINT_MAX_TOKEN ||
       control_or_space(e->token, e->token_len))
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   if (ext_instant_is_zero(e->expires_seconds, e->expires_nanoseconds))
-    return EXT_INVALID; /* an endpoint needs an expiry */
-  return EXT_OK;
+    return EXT_PLUGIN_INVALID; /* an endpoint needs an expiry */
+  return EXT_PLUGIN_OK;
 }
 
-ext_status ext_endpoint_check(yyjson_val *endpoint) {
+ext_plugin_status ext_endpoint_check(yyjson_val *endpoint) {
   endpoint_value e;
   if (!decode(endpoint, &e))
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   return check(&e);
 }
 
@@ -329,38 +329,38 @@ static int later(int64_t a_seconds, int32_t a_nanoseconds, int64_t b_seconds,
          (a_seconds == b_seconds && a_nanoseconds > b_nanoseconds);
 }
 
-ext_status ext_endpoint_validate(yyjson_val *endpoint,
+ext_plugin_status ext_endpoint_validate(yyjson_val *endpoint,
                                  const ext_endpoint_policy *policy) {
   endpoint_value e;
   if (!decode(endpoint, &e))
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   /* Validate: a policy that admits nothing denies, one that names a scheme there
    * is none of is invalid whatever the endpoint is, and only then does the
    * endpoint's own shape matter. */
   if (!policy->schemes || !yyjson_arr_size(policy->schemes))
-    return EXT_DENIED;
+    return EXT_PLUGIN_DENIED;
   int allowed = 0;
   size_t i, n;
   yyjson_val *scheme;
   yyjson_arr_foreach(policy->schemes, i, n, scheme) {
     if (!known_scheme(yyjson_get_str(scheme), yyjson_get_len(scheme)))
-      return EXT_INVALID;
+      return EXT_PLUGIN_INVALID;
     if (yyjson_get_len(scheme) == e.scheme_len &&
         !memcmp(yyjson_get_str(scheme), e.scheme, e.scheme_len))
       allowed = 1;
   }
-  ext_status s = check(&e);
+  ext_plugin_status s = check(&e);
   if (s)
     return s;
   if (!allowed)
-    return EXT_DENIED;
+    return EXT_PLUGIN_DENIED;
   int64_t now_seconds = policy->now_seconds;
   int32_t now_nanoseconds = policy->now_nanoseconds;
   if (!policy->has_now)
     ext_wall_clock(&now_seconds, &now_nanoseconds);
   if (!later(e.expires_seconds, e.expires_nanoseconds, now_seconds,
              now_nanoseconds))
-    return EXT_EXPIRED;
+    return EXT_PLUGIN_EXPIRED;
   int64_t lifetime = policy->lifetime_ms > 0 ? policy->lifetime_ms
                                               : EXT_ENDPOINT_DEFAULT_LIFETIME_MS;
   int64_t limit_seconds = now_seconds + lifetime / 1000;
@@ -371,6 +371,6 @@ ext_status ext_endpoint_validate(yyjson_val *endpoint,
   }
   if (later(e.expires_seconds, e.expires_nanoseconds, limit_seconds,
             limit_nanoseconds))
-    return EXT_INVALID; /* it outlives the lifetime the host admits */
-  return EXT_OK;
+    return EXT_PLUGIN_INVALID; /* it outlives the lifetime the host admits */
+  return EXT_PLUGIN_OK;
 }

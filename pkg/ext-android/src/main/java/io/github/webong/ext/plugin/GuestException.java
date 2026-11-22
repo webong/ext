@@ -1,6 +1,6 @@
 package io.github.webong.ext.plugin;
 
-/** The engine rejected an operation. {@link #status()} is the ext_status value. */
+/** The engine rejected an operation. {@link #status()} is the ext_plugin_status value. */
 public final class GuestException extends Exception {
     private static final long serialVersionUID = 1L;
 

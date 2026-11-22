@@ -92,10 +92,10 @@ public final class WamrPluginHostTests {
         try {
             call.run();
         } catch (WamrException e) {
-            require(e.status() == status, "expected ext_status " + status + ", got " + e);
+            require(e.status() == status, "expected ext_plugin_status " + status + ", got " + e);
             return;
         }
-        throw new AssertionError("expected ext_status " + status + ", but the call succeeded");
+        throw new AssertionError("expected ext_plugin_status " + status + ", but the call succeeded");
     }
 
     static void requireFails(Check call) throws Exception {

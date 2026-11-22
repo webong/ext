@@ -14,7 +14,7 @@ Line counts are the non-test source of the guest and host SDK at this commit.
 | SDK | Guest today | Host today | Uses the C engine |
 | --- | --- | --- | --- |
 | Go | `engine/plugin/guest/*`, the oracle | `engine` sessions | Yes: `pkg/ext-go/plugin` chooses between the oracle, `cgoengine` and `c2goengine` ([ADR](adr-engine-selection.md)). The switch is done; the oracle stays. |
-| Swift (`pkg/ext-darwin`) | `ExtPluginGuest`: `Guest.swift` calls `ext_guest_create`, `ext_guest_invoke` and `ext_host_validate_json`. The wire types (`Wire`), JSON lines (`JSONLine`, `Connection`), frames (`Frames`) and routing are Swift (about 1,600 lines beyond `Guest.swift`). | WebView and WAMR hosts, store through the engine | Dispatch and JSON validation only |
+| Swift (`pkg/ext-darwin`) | `ExtPluginGuest`: `Guest.swift` calls `ext_plugin_guest_create`, `ext_plugin_guest_invoke` and `ext_plugin_host_validate_json`. The wire types (`Wire`), JSON lines (`JSONLine`, `Connection`), frames (`Frames`) and routing are Swift (about 1,600 lines beyond `Guest.swift`). | WebView and WAMR hosts, store through the engine | Dispatch and JSON validation only |
 | Java (`pkg/ext-android`) | `Guest.java` calls `NativeEngine.create/invoke/descriptor/validateJson`. `JsonLine`, `Frames`, `Connection`, `Reporter` and the rest of the wire code are Java (about 1,500 lines with `Guest.java`). | WAMR host, store through the engine | Dispatch and JSON validation only |
 | Rust (`ext-io`, `pkg/ext-rust/src`) | `wire.rs` (587), `serve.rs` (555), `frames.rs` (376), `guest.rs` (320), `capability.rs` (163): about 2,000 lines of its own | `host.rs`, `native.rs`, `cabi.rs` (about 590) | No. `ext-io` does not depend on the engine crate (`pkg/ext-rust/engine`), which is a separate, additive crate |
 | Zig (`pkg/ext-zig/src`) | `wire.zig` (368), `frames.zig` (318), `author.zig` (225), `capability.zig` (172), `jsonline.zig` (126) | `host.zig`, `cabi.zig` | No. `build.zig` does not reference the engine; `pkg/ext-zig/engine` is a separate, additive package |
@@ -29,7 +29,7 @@ smaller one for Swift and Java, which already delegate the part that is easiest 
 - **Dispatch (`ext_guest_*`)**: an immutable descriptor, request validation against it,
   deadlines, owned buffers, error sanitization, and the `invalid_request` answer. Bound in Go,
   Rust, Zig, Node, Swift and Java.
-- **Services by name (`ext_engine_call`)**: `descriptor.validate/match/select/requirements`,
+- **Services by name (`ext_plugin_call`)**: `descriptor.validate/match/select/requirements`,
   `request.validate`, `response.validate`, `frame.validate`, `schema.validate/check`,
   `endpoint.check/validate`, `protocol.negotiate`, `route.resolve`. These are the rules a guest
   SDK re-implements in `wire.*` today.
@@ -140,7 +140,7 @@ The owner asked for the best call to be made. This is it, with what would change
 ## First step: Zig
 
 1. `pkg/ext-zig/build.zig` compiles the ten guest sources with `addCSourceFiles` and exposes the
-   engine services (`ext_engine_call`) to the SDK.
+   engine services (`ext_plugin_call`) to the SDK.
 2. `wire.zig` calls them for `descriptor.validate`, `descriptor.match`, `request.validate` and
    `response.validate` in place of its own copies (`validate`, `match`, `validateRequest`); the
    typed decoding it also holds stays.
@@ -172,8 +172,8 @@ Done:
 
 Second slice (dispatch on the engine's guest):
 
-- `Registry.guest` creates the engine's guest once (`ext_guest_create`, which validates the
-  descriptor), and every call goes through `ext_guest_invoke`. The engine matches the request to the
+- `Registry.guest` creates the engine's guest once (`ext_plugin_guest_create`, which validates the
+  descriptor), and every call goes through `ext_plugin_guest_invoke`. The engine matches the request to the
   descriptor, bounds the call by time and builds the response. What the SDK keeps is the handler the
   engine calls (`handle_call`): decode the typed request, set up the context and the progress
   limiter, authorize, run the operation, and emit the payload or the operation's public error.

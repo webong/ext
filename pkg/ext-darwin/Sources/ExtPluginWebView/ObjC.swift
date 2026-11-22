@@ -6,7 +6,7 @@ import Foundation
 public let EXTWebViewPluginHostErrorDomain = "EXTWebViewPluginHostErrorDomain"
 
 /// Error codes in EXTWebViewPluginHostErrorDomain. A guest status is 100 plus the
-/// ext_plugin_call status (101 invalid, 102 closed, 103 failed).
+/// ext_plugin_guest_call status (101 invalid, 102 closed, 103 failed).
 @objc(EXTWebViewPluginHostError)
 public enum ObjCWebViewPluginHostError: Int {
     case notStarted = 1

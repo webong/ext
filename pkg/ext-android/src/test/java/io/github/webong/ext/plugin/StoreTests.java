@@ -110,7 +110,7 @@ final class StoreTests {
 
     /**
      * The directory digest of a tree artifact: the SHA-256 of "./path sha256\n" for every file in
-     * path order (ext_directory_digest). The engine checks it, so a mistake here shows as MISMATCH.
+     * path order (ext_plugin_directory_digest). The engine checks it, so a mistake here shows as MISMATCH.
      */
     static String treeDigest(Path dir) throws Exception {
         List<Path> files;
@@ -215,7 +215,7 @@ final class StoreTests {
     }
 
     static void statuses() {
-        // The values are the engine's ext_status (lib/plugin/include/ext_host.h).
+        // The values are the engine's ext_plugin_status (lib/plugin/include/ext_plugin_host.h).
         same(1, PackageStore.INVALID, "INVALID");
         same(2, PackageStore.DENIED, "DENIED");
         same(3, PackageStore.MISMATCH, "MISMATCH");

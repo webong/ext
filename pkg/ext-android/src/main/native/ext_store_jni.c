@@ -9,7 +9,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "ext_host.h"
+#include "ext_plugin_host.h"
 
 #define CLASS "io/github/webong/ext/plugin/"
 
@@ -18,7 +18,7 @@ enum { REPORT_IDS, REPORT_LIST, REPORT_VERIFY, REPORT_UNVERIFIED };
 /* How a package is put into a store, as NativeEngine names them. */
 enum { PUT_INSTALL, PUT_UPGRADE, PUT_REPLACE };
 
-static void throw_status(JNIEnv *env, ext_status status) {
+static void throw_status(JNIEnv *env, ext_plugin_status status) {
   jclass cls = (*env)->FindClass(env, CLASS "GuestException");
   if (!cls) return;
   jmethodID ctor = (*env)->GetMethodID(env, cls, "<init>", "(I)V");
@@ -33,38 +33,38 @@ static char *c_string(JNIEnv *env, jbyteArray text) {
   jsize n = (*env)->GetArrayLength(env, text);
   char *copy = malloc((size_t)n + 1);
   if (!copy) {
-    throw_status(env, EXT_NOMEM);
+    throw_status(env, EXT_PLUGIN_NOMEM);
     return NULL;
   }
   if (n) (*env)->GetByteArrayRegion(env, text, 0, n, (jbyte *)copy);
   copy[n] = 0;
   if (strlen(copy) != (size_t)n) {
     free(copy);
-    throw_status(env, EXT_INVALID);
+    throw_status(env, EXT_PLUGIN_INVALID);
     return NULL;
   }
   return copy;
 }
 
 /* The engine's answer as a Java array; frees it. A failure throws and returns NULL. */
-static jbyteArray take(JNIEnv *env, ext_status status, ext_buffer *out) {
+static jbyteArray take(JNIEnv *env, ext_plugin_status status, ext_plugin_buffer *out) {
   jbyteArray result = NULL;
-  if (status != EXT_OK) {
+  if (status != EXT_PLUGIN_OK) {
     throw_status(env, status);
   } else if (out->len > INT32_MAX) {
-    throw_status(env, EXT_NOMEM);
+    throw_status(env, EXT_PLUGIN_NOMEM);
   } else {
     result = (*env)->NewByteArray(env, (jsize)out->len);
     if (result && out->len) {
       (*env)->SetByteArrayRegion(env, result, 0, (jsize)out->len, (const jbyte *)out->data);
     }
   }
-  ext_buffer_free(out);
+  ext_plugin_buffer_free(out);
   return result;
 }
 
-static ext_store_limits limits_of(jlong max_artifact_bytes, jint max_tree_files, jlong max_tree_bytes) {
-  ext_store_limits limits = {(uint64_t)max_artifact_bytes, (uint32_t)max_tree_files,
+static ext_plugin_store_limits limits_of(jlong max_artifact_bytes, jint max_tree_files, jlong max_tree_bytes) {
+  ext_plugin_store_limits limits = {(uint64_t)max_artifact_bytes, (uint32_t)max_tree_files,
                              (uint64_t)max_tree_bytes};
   return limits;
 }
@@ -75,11 +75,11 @@ JNIEXPORT jlong JNICALL Java_io_github_webong_ext_plugin_NativeEngine_storeOpen(
   (void)cls;
   char *path = c_string(env, root);
   if (!path) return 0;
-  ext_store_limits limits = limits_of(max_artifact_bytes, max_tree_files, max_tree_bytes);
-  ext_store *store = NULL;
-  ext_status status = ext_store_open(path, &limits, &store);
+  ext_plugin_store_limits limits = limits_of(max_artifact_bytes, max_tree_files, max_tree_bytes);
+  ext_plugin_store *store = NULL;
+  ext_plugin_status status = ext_plugin_store_open(path, &limits, &store);
   free(path);
-  if (status != EXT_OK) {
+  if (status != EXT_PLUGIN_OK) {
     throw_status(env, status);
     return 0;
   }
@@ -90,7 +90,7 @@ JNIEXPORT void JNICALL Java_io_github_webong_ext_plugin_NativeEngine_storeClose(
     JNIEnv *env, jclass cls, jlong handle) {
   (void)env;
   (void)cls;
-  if (handle) ext_store_close((ext_store *)(intptr_t)handle);
+  if (handle) ext_plugin_store_close((ext_plugin_store *)(intptr_t)handle);
 }
 
 JNIEXPORT jbyteArray JNICALL Java_io_github_webong_ext_plugin_NativeEngine_storePut(
@@ -98,14 +98,14 @@ JNIEXPORT jbyteArray JNICALL Java_io_github_webong_ext_plugin_NativeEngine_store
   (void)cls;
   char *path = c_string(env, source);
   if (!path) return NULL;
-  ext_store *store = (ext_store *)(intptr_t)handle;
-  ext_buffer manifest = {0};
-  ext_status status;
+  ext_plugin_store *store = (ext_plugin_store *)(intptr_t)handle;
+  ext_plugin_buffer manifest = {0};
+  ext_plugin_status status;
   switch (how) {
-    case PUT_INSTALL: status = ext_store_install(store, path, (uint32_t)flags, &manifest); break;
-    case PUT_UPGRADE: status = ext_store_upgrade(store, path, (uint32_t)flags, &manifest); break;
-    case PUT_REPLACE: status = ext_store_replace(store, path, (uint32_t)flags, &manifest); break;
-    default: status = EXT_INVALID; break;
+    case PUT_INSTALL: status = ext_plugin_store_install(store, path, (uint32_t)flags, &manifest); break;
+    case PUT_UPGRADE: status = ext_plugin_store_upgrade(store, path, (uint32_t)flags, &manifest); break;
+    case PUT_REPLACE: status = ext_plugin_store_replace(store, path, (uint32_t)flags, &manifest); break;
+    default: status = EXT_PLUGIN_INVALID; break;
   }
   free(path);
   return take(env, status, &manifest);
@@ -122,16 +122,16 @@ JNIEXPORT jbyteArray JNICALL Java_io_github_webong_ext_plugin_NativeEngine_store
   for (int i = 0; i < 3 && !failed; i++) {
     if (!args[i] && i == 2) continue;
     if (!args[i]) {
-      throw_status(env, EXT_INVALID);
+      throw_status(env, EXT_PLUGIN_INVALID);
       failed = 1;
     } else if (!(text[i] = c_string(env, args[i]))) {
       failed = 1;
     }
   }
-  ext_buffer manifest = {0};
-  ext_status status = EXT_OK;
+  ext_plugin_buffer manifest = {0};
+  ext_plugin_status status = EXT_PLUGIN_OK;
   if (!failed) {
-    status = ext_store_install_archive((ext_store *)(intptr_t)handle, text[0], text[1], text[2],
+    status = ext_plugin_store_install_archive((ext_plugin_store *)(intptr_t)handle, text[0], text[1], text[2],
                                        (uint32_t)flags, (uint64_t)max_archive_bytes, &manifest);
   }
   for (int i = 0; i < 3; i++) free(text[i]);
@@ -144,8 +144,8 @@ JNIEXPORT jbyteArray JNICALL Java_io_github_webong_ext_plugin_NativeEngine_store
   (void)cls;
   char *name = c_string(env, id);
   if (!name) return NULL;
-  ext_buffer receipt = {0};
-  ext_status status = ext_store_receipt((ext_store *)(intptr_t)handle, name, &receipt);
+  ext_plugin_buffer receipt = {0};
+  ext_plugin_status status = ext_plugin_store_receipt((ext_plugin_store *)(intptr_t)handle, name, &receipt);
   free(name);
   return take(env, status, &receipt);
 }
@@ -155,9 +155,9 @@ JNIEXPORT void JNICALL Java_io_github_webong_ext_plugin_NativeEngine_storeRemove
   (void)cls;
   char *name = c_string(env, id);
   if (!name) return;
-  ext_status status = ext_store_remove((ext_store *)(intptr_t)handle, name);
+  ext_plugin_status status = ext_plugin_store_remove((ext_plugin_store *)(intptr_t)handle, name);
   free(name);
-  if (status != EXT_OK) throw_status(env, status);
+  if (status != EXT_PLUGIN_OK) throw_status(env, status);
 }
 
 JNIEXPORT jbyteArray JNICALL Java_io_github_webong_ext_plugin_NativeEngine_storeLoad(
@@ -165,8 +165,8 @@ JNIEXPORT jbyteArray JNICALL Java_io_github_webong_ext_plugin_NativeEngine_store
   (void)cls;
   char *name = c_string(env, id);
   if (!name) return NULL;
-  ext_buffer manifest = {0};
-  ext_status status = ext_store_load((ext_store *)(intptr_t)handle, name, &manifest);
+  ext_plugin_buffer manifest = {0};
+  ext_plugin_status status = ext_plugin_store_load((ext_plugin_store *)(intptr_t)handle, name, &manifest);
   free(name);
   return take(env, status, &manifest);
 }
@@ -174,15 +174,15 @@ JNIEXPORT jbyteArray JNICALL Java_io_github_webong_ext_plugin_NativeEngine_store
 JNIEXPORT jbyteArray JNICALL Java_io_github_webong_ext_plugin_NativeEngine_storeReport(
     JNIEnv *env, jclass cls, jlong handle, jint kind) {
   (void)cls;
-  ext_store *store = (ext_store *)(intptr_t)handle;
-  ext_buffer out = {0};
-  ext_status status;
+  ext_plugin_store *store = (ext_plugin_store *)(intptr_t)handle;
+  ext_plugin_buffer out = {0};
+  ext_plugin_status status;
   switch (kind) {
-    case REPORT_IDS: status = ext_store_ids(store, &out); break;
-    case REPORT_LIST: status = ext_store_list(store, &out); break;
-    case REPORT_VERIFY: status = ext_store_verify(store, &out); break;
-    case REPORT_UNVERIFIED: status = ext_store_list_unverified(store, &out); break;
-    default: status = EXT_INVALID; break;
+    case REPORT_IDS: status = ext_plugin_store_ids(store, &out); break;
+    case REPORT_LIST: status = ext_plugin_store_list(store, &out); break;
+    case REPORT_VERIFY: status = ext_plugin_store_verify(store, &out); break;
+    case REPORT_UNVERIFIED: status = ext_plugin_store_list_unverified(store, &out); break;
+    default: status = EXT_PLUGIN_INVALID; break;
   }
   return take(env, status, &out);
 }
@@ -198,17 +198,17 @@ JNIEXPORT jbyteArray JNICALL Java_io_github_webong_ext_plugin_NativeEngine_store
   for (int i = 0; i < 7; i++) {
     if (!args[i] && i >= 5) continue;
     if (!args[i]) {
-      throw_status(env, EXT_INVALID);
+      throw_status(env, EXT_PLUGIN_INVALID);
       failed = 1;
     } else if (!(text[i] = c_string(env, args[i]))) {
       failed = 1;
     }
     if (failed) break;
   }
-  ext_buffer out = {0};
-  ext_status status = EXT_OK;
+  ext_plugin_buffer out = {0};
+  ext_plugin_status status = EXT_PLUGIN_OK;
   if (!failed) {
-    status = ext_store_resolve_entrypoint((ext_store *)(intptr_t)handle, text[0], text[1], text[2],
+    status = ext_plugin_store_resolve_entrypoint((ext_plugin_store *)(intptr_t)handle, text[0], text[1], text[2],
                                           text[3], text[4], text[5], text[6], &out);
   }
   for (int i = 0; i < 7; i++) free(text[i]);
@@ -224,31 +224,31 @@ JNIEXPORT jlong JNICALL Java_io_github_webong_ext_plugin_NativeEngine_layeredOpe
   /* At least one slot, so that a request for no roots still reaches the engine, which refuses it. */
   char **paths = calloc(count ? (size_t)count : 1, sizeof *paths);
   if (!paths) {
-    throw_status(env, EXT_NOMEM);
+    throw_status(env, EXT_PLUGIN_NOMEM);
     return 0;
   }
   jsize made = 0;
   for (; made < count; made++) {
     jbyteArray root = (jbyteArray)(*env)->GetObjectArrayElement(env, roots, made);
     if (!root) {
-      if (!(*env)->ExceptionCheck(env)) throw_status(env, EXT_INVALID);
+      if (!(*env)->ExceptionCheck(env)) throw_status(env, EXT_PLUGIN_INVALID);
       break;
     }
     paths[made] = c_string(env, root);
     (*env)->DeleteLocalRef(env, root);
     if (!paths[made]) break;
   }
-  ext_layered *layered = NULL;
-  ext_status status = EXT_OK;
+  ext_plugin_layered *layered = NULL;
+  ext_plugin_status status = EXT_PLUGIN_OK;
   int failed = made < count;
   if (!failed) {
-    ext_store_limits limits = limits_of(max_artifact_bytes, max_tree_files, max_tree_bytes);
-    status = ext_layered_open((const char *const *)paths, (size_t)count, &limits, &layered);
+    ext_plugin_store_limits limits = limits_of(max_artifact_bytes, max_tree_files, max_tree_bytes);
+    status = ext_plugin_layered_open((const char *const *)paths, (size_t)count, &limits, &layered);
   }
   for (jsize i = 0; i < made; i++) free(paths[i]);
   free(paths);
   if (failed) return 0; /* the exception is pending */
-  if (status != EXT_OK) {
+  if (status != EXT_PLUGIN_OK) {
     throw_status(env, status);
     return 0;
   }
@@ -259,7 +259,7 @@ JNIEXPORT void JNICALL Java_io_github_webong_ext_plugin_NativeEngine_layeredClos
     JNIEnv *env, jclass cls, jlong handle) {
   (void)env;
   (void)cls;
-  if (handle) ext_layered_close((ext_layered *)(intptr_t)handle);
+  if (handle) ext_plugin_layered_close((ext_plugin_layered *)(intptr_t)handle);
 }
 
 /* layer[0] receives the position of the root that served the package. */
@@ -268,11 +268,11 @@ JNIEXPORT jbyteArray JNICALL Java_io_github_webong_ext_plugin_NativeEngine_layer
   (void)cls;
   char *name = c_string(env, id);
   if (!name) return NULL;
-  ext_buffer manifest = {0};
+  ext_plugin_buffer manifest = {0};
   size_t position = 0;
-  ext_status status = ext_layered_load((ext_layered *)(intptr_t)handle, name, &manifest, &position);
+  ext_plugin_status status = ext_plugin_layered_load((ext_plugin_layered *)(intptr_t)handle, name, &manifest, &position);
   free(name);
-  if (status == EXT_OK) {
+  if (status == EXT_PLUGIN_OK) {
     jint at = position > INT32_MAX ? INT32_MAX : (jint)position;
     (*env)->SetIntArrayRegion(env, layer, 0, 1, &at);
   }
@@ -282,14 +282,14 @@ JNIEXPORT jbyteArray JNICALL Java_io_github_webong_ext_plugin_NativeEngine_layer
 JNIEXPORT jbyteArray JNICALL Java_io_github_webong_ext_plugin_NativeEngine_layeredReport(
     JNIEnv *env, jclass cls, jlong handle, jint kind) {
   (void)cls;
-  ext_layered *layered = (ext_layered *)(intptr_t)handle;
-  ext_buffer out = {0};
-  ext_status status;
+  ext_plugin_layered *layered = (ext_plugin_layered *)(intptr_t)handle;
+  ext_plugin_buffer out = {0};
+  ext_plugin_status status;
   switch (kind) {
-    case REPORT_LIST: status = ext_layered_list(layered, &out); break;
-    case REPORT_VERIFY: status = ext_layered_verify(layered, &out); break;
-    case REPORT_UNVERIFIED: status = ext_layered_list_unverified(layered, &out); break;
-    default: status = EXT_INVALID; break;
+    case REPORT_LIST: status = ext_plugin_layered_list(layered, &out); break;
+    case REPORT_VERIFY: status = ext_plugin_layered_verify(layered, &out); break;
+    case REPORT_UNVERIFIED: status = ext_plugin_layered_list_unverified(layered, &out); break;
+    default: status = EXT_PLUGIN_INVALID; break;
   }
   return take(env, status, &out);
 }

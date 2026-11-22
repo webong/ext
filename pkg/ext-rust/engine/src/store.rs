@@ -16,8 +16,8 @@
 //! The whole-root reports ([`Store::list`], [`Store::verify`],
 //! [`Store::list_unverified`]) and the read-only [`Layered`] view return the
 //! engine's JSON as it is, as `load` returns `plugin.json`, so a caller parses
-//! it with its own JSON library; the shapes are in `ext_store_list` of
-//! lib/plugin/include/ext_host.h.
+//! it with its own JSON library; the shapes are in `ext_plugin_store_list` of
+//! lib/plugin/include/ext_plugin_host.h.
 //!
 //! [`Store::resolve_entrypoint`] is the discovery of a reviewed package's entrypoint,
 //! returning the same kind of JSON.
@@ -70,7 +70,7 @@ impl Store {
             max_tree_bytes: limits.max_tree_bytes,
         };
         let mut handle = ptr::null_mut();
-        check(unsafe { ffi::ext_store_open(root.as_ptr(), &raw, &mut handle) })?;
+        check(unsafe { ffi::ext_plugin_store_open(root.as_ptr(), &raw, &mut handle) })?;
         Ok(Self {
             handle,
             max_archive_bytes: limits.max_archive_bytes,
@@ -91,16 +91,16 @@ impl Store {
     /// executable in the source stays so; entrypoints and executable files in
     /// trees always do.
     pub fn install(&self, source: &str, preserve_executable: bool) -> Result<Vec<u8>, Error> {
-        self.put(ffi::ext_store_install, source, preserve_executable)
+        self.put(ffi::ext_plugin_store_install, source, preserve_executable)
     }
     /// Replaces an installed package with a new revision of the same id and
     /// contracts. The previous installation survives any failure.
     pub fn upgrade(&self, source: &str, preserve_executable: bool) -> Result<Vec<u8>, Error> {
-        self.put(ffi::ext_store_upgrade, source, preserve_executable)
+        self.put(ffi::ext_plugin_store_upgrade, source, preserve_executable)
     }
     /// Installs or replaces the package of the source's id, whatever its contracts.
     pub fn replace(&self, source: &str, preserve_executable: bool) -> Result<Vec<u8>, Error> {
-        self.put(ffi::ext_store_replace, source, preserve_executable)
+        self.put(ffi::ext_plugin_store_replace, source, preserve_executable)
     }
     /// Installs the package in the archive file `archive`, or upgrades the
     /// installed package of the same id to it, as [`Store::upgrade`] does, and
@@ -146,7 +146,7 @@ impl Store {
             0
         };
         output(|manifest| unsafe {
-            ffi::ext_store_install_archive(
+            ffi::ext_plugin_store_install_archive(
                 self.handle,
                 archive.as_ptr(),
                 sha256.as_ptr(),
@@ -169,23 +169,25 @@ impl Store {
     /// package before relying on it. [`Store::remove`] deletes it.
     pub fn receipt(&self, id: &str) -> Result<Vec<u8>, Error> {
         let id = cstring(id)?;
-        output(|receipt| unsafe { ffi::ext_store_receipt(self.handle, id.as_ptr(), receipt) })
+        output(|receipt| unsafe {
+            ffi::ext_plugin_store_receipt(self.handle, id.as_ptr(), receipt)
+        })
     }
     /// Deletes one installed package and its receipt.
     pub fn remove(&self, id: &str) -> Result<(), Error> {
         let id = cstring(id)?;
-        check(unsafe { ffi::ext_store_remove(self.handle, id.as_ptr()) })
+        check(unsafe { ffi::ext_plugin_store_remove(self.handle, id.as_ptr()) })
     }
     /// Reads and verifies one installed package and returns its `plugin.json`.
     pub fn load(&self, id: &str) -> Result<Vec<u8>, Error> {
         let id = cstring(id)?;
-        output(|manifest| unsafe { ffi::ext_store_load(self.handle, id.as_ptr(), manifest) })
+        output(|manifest| unsafe { ffi::ext_plugin_store_load(self.handle, id.as_ptr(), manifest) })
     }
     /// Lists the installed package ids in byte order without reading or verifying
     /// any package. Staging directories are skipped; any other entry that is not a
     /// package directory is [`Error::INVALID`].
     pub fn ids(&self) -> Result<Vec<String>, Error> {
-        let json = output(|ids| unsafe { ffi::ext_store_ids(self.handle, ids) })?;
+        let json = output(|ids| unsafe { ffi::ext_plugin_store_ids(self.handle, ids) })?;
         // A JSON array of strings; ids hold only [a-z0-9._/-], so nothing is escaped.
         let text = std::str::from_utf8(&json).map_err(|_| Error::INVALID)?;
         let inner = text
@@ -210,20 +212,20 @@ impl Store {
     /// as an embedded value. It fails with the status of the first entry that is
     /// not a package directory and of the first package that does not verify.
     pub fn list(&self) -> Result<Vec<u8>, Error> {
-        output(|packages| unsafe { ffi::ext_store_list(self.handle, packages) })
+        output(|packages| unsafe { ffi::ext_plugin_store_list(self.handle, packages) })
     }
     /// Checks every entry without stopping at a bad one and returns a JSON array
     /// of `{id, directory, layer, status}`, where `status` is the engine status
     /// verifying it gave (0 for verified). It runs nothing and changes nothing.
     pub fn verify(&self) -> Result<Vec<u8>, Error> {
-        output(|checks| unsafe { ffi::ext_store_verify(self.handle, checks) })
+        output(|checks| unsafe { ffi::ext_plugin_store_verify(self.handle, checks) })
     }
     /// Reads only the manifests and checks them against their directory names;
     /// no artifact is read or hashed, so THE RESULT IS UNVERIFIED and must not be
     /// launched or trusted as it stands. Returns `{"packages": [...], "problems":
     /// [...]}` as JSON; a package that cannot be read does not hide the others.
     pub fn list_unverified(&self) -> Result<Vec<u8>, Error> {
-        output(|listing| unsafe { ffi::ext_store_list_unverified(self.handle, listing) })
+        output(|listing| unsafe { ffi::ext_plugin_store_list_unverified(self.handle, listing) })
     }
     /// Chooses the entrypoint the installed package `id` offers for `protocol` on
     /// `platform`, for a package the caller has reviewed, and returns the JSON
@@ -234,8 +236,8 @@ impl Store {
     /// when the package digest equals `reviewed_digest` (lowercase hex, as recorded at
     /// review): an empty or changed digest is [`Error::DENIED`], so an installed package is
     /// never trusted for being installed. Nothing is run. The rules, including the score
-    /// that picks between entrypoints, are in `ext_store_resolve_entrypoint` of
-    /// lib/plugin/include/ext_host.h.
+    /// that picks between entrypoints, are in `ext_plugin_store_resolve_entrypoint` of
+    /// lib/plugin/include/ext_plugin_host.h.
     pub fn resolve_entrypoint(
         &self,
         id: &str,
@@ -255,7 +257,7 @@ impl Store {
         let os = os.as_ref().map_or(ptr::null(), |name| name.as_ptr());
         let arch = arch.as_ref().map_or(ptr::null(), |name| name.as_ptr());
         output(|entrypoint| unsafe {
-            ffi::ext_store_resolve_entrypoint(
+            ffi::ext_plugin_store_resolve_entrypoint(
                 self.handle,
                 id.as_ptr(),
                 contract.as_ptr(),
@@ -271,7 +273,7 @@ impl Store {
 }
 impl Drop for Store {
     fn drop(&mut self) {
-        unsafe { ffi::ext_store_close(self.handle) }
+        unsafe { ffi::ext_plugin_store_close(self.handle) }
     }
 }
 
@@ -302,7 +304,7 @@ impl Layered {
         };
         let mut handle = ptr::null_mut();
         check(unsafe {
-            ffi::ext_layered_open(pointers.as_ptr(), pointers.len(), &raw, &mut handle)
+            ffi::ext_plugin_layered_open(pointers.as_ptr(), pointers.len(), &raw, &mut handle)
         })?;
         Ok(Self(handle))
     }
@@ -312,25 +314,26 @@ impl Layered {
     pub fn load(&self, id: &str) -> Result<(Vec<u8>, usize), Error> {
         let id = cstring(id)?;
         let mut layer = 0usize;
-        let manifest =
-            output(|m| unsafe { ffi::ext_layered_load(self.0, id.as_ptr(), m, &mut layer) })?;
+        let manifest = output(|m| unsafe {
+            ffi::ext_plugin_layered_load(self.0, id.as_ptr(), m, &mut layer)
+        })?;
         Ok((manifest, layer))
     }
     /// As [`Store::list`] over every root, one line per id from the root that serves it.
     pub fn list(&self) -> Result<Vec<u8>, Error> {
-        output(|packages| unsafe { ffi::ext_layered_list(self.0, packages) })
+        output(|packages| unsafe { ffi::ext_plugin_layered_list(self.0, packages) })
     }
     /// As [`Store::verify`] over every root.
     pub fn verify(&self) -> Result<Vec<u8>, Error> {
-        output(|checks| unsafe { ffi::ext_layered_verify(self.0, checks) })
+        output(|checks| unsafe { ffi::ext_plugin_layered_verify(self.0, checks) })
     }
     /// As [`Store::list_unverified`] over every root; the result is unverified.
     pub fn list_unverified(&self) -> Result<Vec<u8>, Error> {
-        output(|listing| unsafe { ffi::ext_layered_list_unverified(self.0, listing) })
+        output(|listing| unsafe { ffi::ext_plugin_layered_list_unverified(self.0, listing) })
     }
 }
 impl Drop for Layered {
     fn drop(&mut self) {
-        unsafe { ffi::ext_layered_close(self.0) }
+        unsafe { ffi::ext_plugin_layered_close(self.0) }
     }
 }

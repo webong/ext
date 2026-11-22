@@ -2,7 +2,7 @@
  * verify, list-unverified, and a read-only view over several roots in priority
  * order. The Go store is the baseline; the differential tests in
  * pkg/ext-go/cgoengine hold the two together. */
-#include "ext_host.h"
+#include "ext_plugin_host.h"
 #include "fs.h"
 #include <assert.h>
 #include <stdio.h>
@@ -28,24 +28,24 @@ static void hex(const uint8_t digest[32], char out[65]) {
 }
 static void put(ext_fs *fs, const char *path, const char *body) {
   assert(ext_fs_write_file(fs, path, (const uint8_t *)body, strlen(body), 0) ==
-         EXT_OK);
+         EXT_PLUGIN_OK);
 }
 /* A package directory: src/main.py holding body and a manifest for id. */
 static void make_package(const char *dir, const char *id, const char *revision,
                          const char *body) {
-  assert(ext_fs_make_root(dir) == EXT_OK);
+  assert(ext_fs_make_root(dir) == EXT_PLUGIN_OK);
   ext_fs *fs = NULL;
-  assert(ext_fs_open(dir, &fs) == EXT_OK);
+  assert(ext_fs_open(dir, &fs) == EXT_PLUGIN_OK);
   ext_fs_entry *old = NULL;
   size_t count = 0;
-  assert(ext_fs_list(fs, "", &old, &count) == EXT_OK);
+  assert(ext_fs_list(fs, "", &old, &count) == EXT_PLUGIN_OK);
   for (size_t i = 0; i < count; i++)
-    assert(ext_fs_remove_all(fs, old[i].name) == EXT_OK);
+    assert(ext_fs_remove_all(fs, old[i].name) == EXT_PLUGIN_OK);
   ext_fs_list_free(old, count);
   put(fs, "src/main.py", body);
   uint8_t raw[32];
   char sum[65];
-  assert(ext_engine_sha256((const uint8_t *)body, strlen(body), raw) == EXT_OK);
+  assert(ext_plugin_sha256((const uint8_t *)body, strlen(body), raw) == EXT_PLUGIN_OK);
   hex(raw, sum);
   char manifest[2048];
   int n = snprintf(manifest, sizeof(manifest),
@@ -61,26 +61,26 @@ static void make_package(const char *dir, const char *id, const char *revision,
   put(fs, "plugin.json", manifest);
   ext_fs_close(fs);
 }
-static void install(ext_store *store, const char *scratch, const char *id,
+static void install(ext_plugin_store *store, const char *scratch, const char *id,
                     const char *revision, const char *body) {
   char *src = join(scratch, "source");
   make_package(src, id, revision, body);
-  ext_buffer m = {0};
-  assert(ext_store_replace(store, src, 0, &m) == EXT_OK);
-  ext_buffer_free(&m);
+  ext_plugin_buffer m = {0};
+  assert(ext_plugin_store_replace(store, src, 0, &m) == EXT_PLUGIN_OK);
+  ext_plugin_buffer_free(&m);
   free(src);
 }
 static void write_in(const char *root, const char *path, const char *body) {
   ext_fs *fs = NULL;
-  assert(ext_fs_open(root, &fs) == EXT_OK);
+  assert(ext_fs_open(root, &fs) == EXT_PLUGIN_OK);
   (void)ext_fs_remove_all(fs, path);
   put(fs, path, body);
   ext_fs_close(fs);
 }
 static void mkdir_in(const char *root, const char *path) {
   ext_fs *fs = NULL;
-  assert(ext_fs_open(root, &fs) == EXT_OK);
-  assert(ext_fs_mkdirs(fs, path) == EXT_OK);
+  assert(ext_fs_open(root, &fs) == EXT_PLUGIN_OK);
+  assert(ext_fs_mkdirs(fs, path) == EXT_PLUGIN_OK);
   ext_fs_close(fs);
 }
 
@@ -92,7 +92,7 @@ typedef struct {
   char dirs[MAX_DIRS][512];
   size_t count;
 } flat;
-static void flatten(const ext_buffer *report, flat *out) {
+static void flatten(const ext_plugin_buffer *report, flat *out) {
   static const char key[] = "\"directory\":\"";
   size_t w = 0;
   out->count = 0;
@@ -121,7 +121,7 @@ static int ends_with(const char *text, const char *suffix) {
   size_t a = strlen(text), b = strlen(suffix);
   return a >= b && !strcmp(text + a - b, suffix);
 }
-static void expect_report(const ext_buffer *report, const char *shape,
+static void expect_report(const ext_plugin_buffer *report, const char *shape,
                           const char *const *names) {
   flat f;
   flatten(report, &f);
@@ -139,14 +139,14 @@ static void expect_report(const ext_buffer *report, const char *shape,
       abort();
     }
 }
-static void expect_buffer(ext_buffer *report, const char *shape,
+static void expect_buffer(ext_plugin_buffer *report, const char *shape,
                           const char *const *names) {
   expect_report(report, shape, names);
-  ext_buffer_free(report);
+  ext_plugin_buffer_free(report);
 }
 
 #define MANIFEST_A1 "{\"apiVersion\":\"ext.package/v1\""
-static int has(const ext_buffer *b, const char *text) {
+static int has(const ext_plugin_buffer *b, const char *text) {
   size_t n = strlen(text);
   for (size_t i = 0; i + n <= b->len; i++)
     if (!memcmp(b->data + i, text, n))
@@ -156,22 +156,22 @@ static int has(const ext_buffer *b, const char *text) {
 
 static void single_store(const char *scratch) {
   char *root = join(scratch, "single");
-  ext_store *store = NULL;
-  assert(ext_store_open(root, NULL, &store) == EXT_OK);
-  ext_buffer out = {0};
+  ext_plugin_store *store = NULL;
+  assert(ext_plugin_store_open(root, NULL, &store) == EXT_PLUGIN_OK);
+  ext_plugin_buffer out = {0};
 
   /* A root that is not there is an empty store. */
-  assert(ext_store_list(store, &out) == EXT_OK);
+  assert(ext_plugin_store_list(store, &out) == EXT_PLUGIN_OK);
   expect_buffer(&out, "[]", NULL);
-  assert(ext_store_verify(store, &out) == EXT_OK);
+  assert(ext_plugin_store_verify(store, &out) == EXT_PLUGIN_OK);
   expect_buffer(&out, "[]", NULL);
-  assert(ext_store_list_unverified(store, &out) == EXT_OK);
+  assert(ext_plugin_store_list_unverified(store, &out) == EXT_PLUGIN_OK);
   expect_buffer(&out, "{\"packages\":[],\"problems\":[]}", NULL);
 
   install(store, scratch, "beta", "r1", "print('b')\n");
   install(store, scratch, "alpha/a", "r1", "print('a')\n");
 
-  assert(ext_store_list(store, &out) == EXT_OK);
+  assert(ext_plugin_store_list(store, &out) == EXT_PLUGIN_OK);
   assert(has(&out, "\"id\":\"alpha/a\"") && has(&out, "\"id\":\"beta\""));
   assert(has(&out, MANIFEST_A1));
   assert(out.data[0] == '[' && out.data[out.len - 1] == ']');
@@ -184,10 +184,10 @@ static void single_store(const char *scratch) {
     /* alpha/a sorts before beta. */
     assert(strstr(f.text, "alpha/a") < strstr(f.text, "\"id\":\"beta\""));
   }
-  ext_buffer_free(&out);
+  ext_plugin_buffer_free(&out);
   {
     const char *dirs[] = {"alpha%2fa", "beta", NULL};
-    assert(ext_store_verify(store, &out) == EXT_OK);
+    assert(ext_plugin_store_verify(store, &out) == EXT_PLUGIN_OK);
     expect_buffer(&out,
                   "[{\"id\":\"alpha/a\",\"directory\":\"\",\"layer\":0,\"status\":0},"
                   "{\"id\":\"beta\",\"directory\":\"\",\"layer\":0,\"status\":0}]",
@@ -200,18 +200,18 @@ static void single_store(const char *scratch) {
   char want[512];
   {
     const char *dirs[] = {"alpha%2fa", "beta", NULL};
-    assert(ext_store_verify(store, &out) == EXT_OK);
+    assert(ext_plugin_store_verify(store, &out) == EXT_PLUGIN_OK);
     snprintf(want, sizeof(want),
              "[{\"id\":\"alpha/a\",\"directory\":\"\",\"layer\":0,\"status\":0},"
              "{\"id\":\"beta\",\"directory\":\"\",\"layer\":0,\"status\":%d}]",
-             (int)EXT_MISMATCH);
+             (int)EXT_PLUGIN_MISMATCH);
     expect_buffer(&out, want, dirs);
   }
-  assert(ext_store_list(store, &out) == EXT_MISMATCH && !out.data);
-  assert(ext_store_list_unverified(store, &out) == EXT_OK);
+  assert(ext_plugin_store_list(store, &out) == EXT_PLUGIN_MISMATCH && !out.data);
+  assert(ext_plugin_store_list_unverified(store, &out) == EXT_PLUGIN_OK);
   assert(has(&out, "\"packages\":[{") && has(&out, "\"id\":\"beta\"") &&
          has(&out, "\"problems\":[]"));
-  ext_buffer_free(&out);
+  ext_plugin_buffer_free(&out);
 
   /* Entries that are not packages are reported where they sit, and a staging
    * directory is skipped. */
@@ -224,10 +224,10 @@ static void single_store(const char *scratch) {
     make_package(src, "delta", "r1", "print('d')\n");
     char *gamma = join(root, "gamma");
     ext_fs *fs = NULL;
-    assert(ext_fs_open(src, &fs) == EXT_OK);
-    ext_buffer manifest = {0}, body = {0};
-    assert(ext_fs_read_file(fs, "plugin.json", 1 << 20, &manifest) == EXT_OK);
-    assert(ext_fs_read_file(fs, "src/main.py", 1 << 20, &body) == EXT_OK);
+    assert(ext_fs_open(src, &fs) == EXT_PLUGIN_OK);
+    ext_plugin_buffer manifest = {0}, body = {0};
+    assert(ext_fs_read_file(fs, "plugin.json", 1 << 20, &manifest) == EXT_PLUGIN_OK);
+    assert(ext_fs_read_file(fs, "src/main.py", 1 << 20, &body) == EXT_PLUGIN_OK);
     ext_fs_close(fs);
     char *m = malloc(manifest.len + 1), *b = malloc(body.len + 1);
     assert(m && b);
@@ -239,14 +239,14 @@ static void single_store(const char *scratch) {
     write_in(gamma, "src/main.py", b);
     free(m);
     free(b);
-    ext_buffer_free(&manifest);
-    ext_buffer_free(&body);
+    ext_plugin_buffer_free(&manifest);
+    ext_plugin_buffer_free(&body);
     free(gamma);
     free(src);
   }
-  assert(ext_store_ids(store, &out) == EXT_INVALID);
-  assert(ext_store_list(store, &out) == EXT_INVALID && !out.data);
-  assert(ext_store_verify(store, &out) == EXT_OK);
+  assert(ext_plugin_store_ids(store, &out) == EXT_PLUGIN_INVALID);
+  assert(ext_plugin_store_list(store, &out) == EXT_PLUGIN_INVALID && !out.data);
+  assert(ext_plugin_store_verify(store, &out) == EXT_PLUGIN_OK);
   assert(has(&out, "\"id\":\"Not A Package\"") && has(&out, "\"id\":\"stray.txt\"") &&
          has(&out, "\"id\":\"gamma\""));
   assert(!has(&out, "install-leftover"));
@@ -255,58 +255,58 @@ static void single_store(const char *scratch) {
     flatten(&out, &f);
     char pair[128];
     snprintf(pair, sizeof(pair), "\"id\":\"gamma\",\"directory\":\"\",\"layer\":0,\"status\":%d",
-             (int)EXT_MISMATCH);
+             (int)EXT_PLUGIN_MISMATCH);
     assert(strstr(f.text, pair));
     snprintf(pair, sizeof(pair), "\"id\":\"stray.txt\",\"directory\":\"\",\"layer\":0,\"status\":%d",
-             (int)EXT_INVALID);
+             (int)EXT_PLUGIN_INVALID);
     assert(strstr(f.text, pair));
   }
-  ext_buffer_free(&out);
-  assert(ext_store_list_unverified(store, &out) == EXT_OK);
+  ext_plugin_buffer_free(&out);
+  assert(ext_plugin_store_list_unverified(store, &out) == EXT_PLUGIN_OK);
   assert(has(&out, "\"problems\":[{") && has(&out, "\"id\":\"gamma\""));
   /* alpha/a and beta still read: the content is never looked at. */
   assert(has(&out, "\"id\":\"alpha/a\"") && has(&out, "\"id\":\"beta\""));
-  ext_buffer_free(&out);
+  ext_plugin_buffer_free(&out);
 
   /* A closed argument list. */
-  assert(ext_store_list(NULL, &out) == EXT_INVALID);
-  assert(ext_store_verify(store, NULL) == EXT_INVALID);
-  assert(ext_store_list_unverified(NULL, &out) == EXT_INVALID);
+  assert(ext_plugin_store_list(NULL, &out) == EXT_PLUGIN_INVALID);
+  assert(ext_plugin_store_verify(store, NULL) == EXT_PLUGIN_INVALID);
+  assert(ext_plugin_store_list_unverified(NULL, &out) == EXT_PLUGIN_INVALID);
 
   free(beta);
-  ext_store_close(store);
+  ext_plugin_store_close(store);
   free(root);
 }
 
 static void layered(const char *scratch) {
   char *user = join(scratch, "user"), *system = join(scratch, "system");
   char *absent = join(scratch, "absent");
-  ext_store *u = NULL, *s = NULL;
-  assert(ext_store_open(user, NULL, &u) == EXT_OK);
-  assert(ext_store_open(system, NULL, &s) == EXT_OK);
+  ext_plugin_store *u = NULL, *s = NULL;
+  assert(ext_plugin_store_open(user, NULL, &u) == EXT_PLUGIN_OK);
+  assert(ext_plugin_store_open(system, NULL, &s) == EXT_PLUGIN_OK);
   install(s, scratch, "a", "sys", "print('a')\n");
   install(s, scratch, "b", "sys", "print('b-system')\n");
   install(u, scratch, "b", "usr", "print('b-user')\n");
   install(u, scratch, "c", "usr", "print('c')\n");
 
   const char *roots[] = {user, system};
-  ext_layered *view = NULL;
-  assert(ext_layered_open(roots, 2, NULL, &view) == EXT_OK);
+  ext_plugin_layered *view = NULL;
+  assert(ext_plugin_layered_open(roots, 2, NULL, &view) == EXT_PLUGIN_OK);
 
-  ext_buffer m = {0};
+  ext_plugin_buffer m = {0};
   size_t layer = 99;
-  assert(ext_layered_load(view, "b", &m, &layer) == EXT_OK && layer == 0);
+  assert(ext_plugin_layered_load(view, "b", &m, &layer) == EXT_PLUGIN_OK && layer == 0);
   assert(has(&m, "\"revision\":\"usr\""));
-  ext_buffer_free(&m);
-  assert(ext_layered_load(view, "a", &m, &layer) == EXT_OK && layer == 1);
-  ext_buffer_free(&m);
-  assert(ext_layered_load(view, "a", &m, NULL) == EXT_OK);
-  ext_buffer_free(&m);
-  assert(ext_layered_load(view, "zzz", &m, &layer) == EXT_NOT_FOUND);
-  assert(ext_layered_load(view, "Not Valid", &m, &layer) == EXT_INVALID);
+  ext_plugin_buffer_free(&m);
+  assert(ext_plugin_layered_load(view, "a", &m, &layer) == EXT_PLUGIN_OK && layer == 1);
+  ext_plugin_buffer_free(&m);
+  assert(ext_plugin_layered_load(view, "a", &m, NULL) == EXT_PLUGIN_OK);
+  ext_plugin_buffer_free(&m);
+  assert(ext_plugin_layered_load(view, "zzz", &m, &layer) == EXT_PLUGIN_NOT_FOUND);
+  assert(ext_plugin_layered_load(view, "Not Valid", &m, &layer) == EXT_PLUGIN_INVALID);
 
-  ext_buffer out = {0};
-  assert(ext_layered_list(view, &out) == EXT_OK);
+  ext_plugin_buffer out = {0};
+  assert(ext_plugin_layered_list(view, &out) == EXT_PLUGIN_OK);
   {
     flat f;
     flatten(&out, &f);
@@ -318,8 +318,8 @@ static void layered(const char *scratch) {
     assert(strstr(f.text, "\"id\":\"b\",\"directory\":\"\",\"layer\":0"));
     assert(!has(&out, "b-system"));
   }
-  ext_buffer_free(&out);
-  assert(ext_layered_verify(view, &out) == EXT_OK);
+  ext_plugin_buffer_free(&out);
+  assert(ext_plugin_layered_verify(view, &out) == EXT_PLUGIN_OK);
   {
     const char *dirs[] = {"a", "b", "c", NULL};
     flat f;
@@ -329,82 +329,82 @@ static void layered(const char *scratch) {
     assert(strstr(f.text, "\"id\":\"a\",\"directory\":\"\",\"layer\":1,\"status\":0"));
     assert(strstr(f.text, "\"id\":\"b\",\"directory\":\"\",\"layer\":0,\"status\":0"));
   }
-  ext_buffer_free(&out);
+  ext_plugin_buffer_free(&out);
 
   /* The winning copy is damaged: it fails closed and is not replaced by the
    * system copy; the shadowed copy is never read. */
   char *user_b = join(user, "b");
   write_in(user_b, "src/main.py", "print('tampered')\n");
-  assert(ext_layered_load(view, "b", &m, &layer) == EXT_MISMATCH && !m.data);
-  assert(ext_layered_list(view, &out) == EXT_MISMATCH && !out.data);
-  assert(ext_layered_verify(view, &out) == EXT_OK);
+  assert(ext_plugin_layered_load(view, "b", &m, &layer) == EXT_PLUGIN_MISMATCH && !m.data);
+  assert(ext_plugin_layered_list(view, &out) == EXT_PLUGIN_MISMATCH && !out.data);
+  assert(ext_plugin_layered_verify(view, &out) == EXT_PLUGIN_OK);
   {
     flat f;
     flatten(&out, &f);
     char pair[128];
     snprintf(pair, sizeof(pair), "\"id\":\"b\",\"directory\":\"\",\"layer\":0,\"status\":%d",
-             (int)EXT_MISMATCH);
+             (int)EXT_PLUGIN_MISMATCH);
     assert(strstr(f.text, pair) && f.count == 3);
   }
-  ext_buffer_free(&out);
+  ext_plugin_buffer_free(&out);
   /* Damage the shadowed copy too: nothing changes for verify. */
   char *system_b = join(system, "b");
   write_in(system_b, "src/main.py", "print('also tampered')\n");
-  assert(ext_layered_verify(view, &out) == EXT_OK);
+  assert(ext_plugin_layered_verify(view, &out) == EXT_PLUGIN_OK);
   {
     flat f;
     flatten(&out, &f);
     assert(f.count == 3);
   }
-  ext_buffer_free(&out);
+  ext_plugin_buffer_free(&out);
   /* An unreadable manifest in the winner is a problem, not a fallback. */
   write_in(user_b, "plugin.json", "{");
-  assert(ext_layered_list_unverified(view, &out) == EXT_OK);
+  assert(ext_plugin_layered_list_unverified(view, &out) == EXT_PLUGIN_OK);
   assert(has(&out, "\"problems\":[{\"id\":\"b\"") &&
          has(&out, "\"id\":\"a\"") && has(&out, "\"id\":\"c\""));
   assert(!has(&out, "also tampered") && !has(&out, "b-system"));
-  ext_buffer_free(&out);
+  ext_plugin_buffer_free(&out);
 
   /* An entry that is not a package in a lower root fails the list there. */
   write_in(system, "junk", "x");
-  assert(ext_layered_list(view, &out) == EXT_INVALID && !out.data);
-  assert(ext_layered_verify(view, &out) == EXT_OK);
+  assert(ext_plugin_layered_list(view, &out) == EXT_PLUGIN_INVALID && !out.data);
+  assert(ext_plugin_layered_verify(view, &out) == EXT_PLUGIN_OK);
   assert(has(&out, "\"id\":\"junk\",") && has(&out, "\"layer\":1"));
-  ext_buffer_free(&out);
-  ext_layered_close(view);
+  ext_plugin_buffer_free(&out);
+  ext_plugin_layered_close(view);
 
   /* A root that is not there is empty, and a view over only such roots is
    * empty. */
   const char *with_absent[] = {absent, system};
-  assert(ext_layered_open(with_absent, 2, NULL, &view) == EXT_OK);
-  assert(ext_layered_load(view, "a", &m, &layer) == EXT_OK && layer == 1);
-  ext_buffer_free(&m);
-  ext_layered_close(view);
+  assert(ext_plugin_layered_open(with_absent, 2, NULL, &view) == EXT_PLUGIN_OK);
+  assert(ext_plugin_layered_load(view, "a", &m, &layer) == EXT_PLUGIN_OK && layer == 1);
+  ext_plugin_buffer_free(&m);
+  ext_plugin_layered_close(view);
   const char *only_absent[] = {absent};
-  assert(ext_layered_open(only_absent, 1, NULL, &view) == EXT_OK);
-  assert(ext_layered_list(view, &out) == EXT_OK);
+  assert(ext_plugin_layered_open(only_absent, 1, NULL, &view) == EXT_PLUGIN_OK);
+  assert(ext_plugin_layered_list(view, &out) == EXT_PLUGIN_OK);
   expect_buffer(&out, "[]", NULL);
-  assert(ext_layered_load(view, "a", &m, &layer) == EXT_NOT_FOUND);
-  ext_layered_close(view);
+  assert(ext_plugin_layered_load(view, "a", &m, &layer) == EXT_PLUGIN_NOT_FOUND);
+  ext_plugin_layered_close(view);
 
   /* What a view refuses to open over. */
   char *dotted = join(user, "..");
   char *same_user = join(dotted, "user");
   const char *repeated[] = {user, same_user};
   view = NULL;
-  assert(ext_layered_open(repeated, 2, NULL, &view) == EXT_INVALID && !view);
+  assert(ext_plugin_layered_open(repeated, 2, NULL, &view) == EXT_PLUGIN_INVALID && !view);
   const char *twice[] = {user, user};
-  assert(ext_layered_open(twice, 2, NULL, &view) == EXT_INVALID);
+  assert(ext_plugin_layered_open(twice, 2, NULL, &view) == EXT_PLUGIN_INVALID);
   const char *empty[] = {user, ""};
-  assert(ext_layered_open(empty, 2, NULL, &view) == EXT_INVALID);
+  assert(ext_plugin_layered_open(empty, 2, NULL, &view) == EXT_PLUGIN_INVALID);
   const char *missing[] = {user, NULL};
-  assert(ext_layered_open(missing, 2, NULL, &view) == EXT_INVALID);
-  assert(ext_layered_open(roots, 0, NULL, &view) == EXT_INVALID);
-  assert(ext_layered_open(NULL, 1, NULL, &view) == EXT_INVALID);
-  assert(ext_layered_open(roots, 2, NULL, NULL) == EXT_INVALID);
-  assert(ext_layered_list(NULL, &out) == EXT_INVALID);
-  assert(ext_layered_load(NULL, "a", &m, NULL) == EXT_INVALID);
-  ext_layered_close(NULL);
+  assert(ext_plugin_layered_open(missing, 2, NULL, &view) == EXT_PLUGIN_INVALID);
+  assert(ext_plugin_layered_open(roots, 0, NULL, &view) == EXT_PLUGIN_INVALID);
+  assert(ext_plugin_layered_open(NULL, 1, NULL, &view) == EXT_PLUGIN_INVALID);
+  assert(ext_plugin_layered_open(roots, 2, NULL, NULL) == EXT_PLUGIN_INVALID);
+  assert(ext_plugin_layered_list(NULL, &out) == EXT_PLUGIN_INVALID);
+  assert(ext_plugin_layered_load(NULL, "a", &m, NULL) == EXT_PLUGIN_INVALID);
+  ext_plugin_layered_close(NULL);
 
   free(same_user);
   free(dotted);
@@ -413,8 +413,8 @@ static void layered(const char *scratch) {
   free(absent);
   free(system);
   free(user);
-  ext_store_close(s);
-  ext_store_close(u);
+  ext_plugin_store_close(s);
+  ext_plugin_store_close(u);
 }
 
 int main(int argc, char **argv) {
@@ -423,8 +423,8 @@ int main(int argc, char **argv) {
     return 2;
   }
   char *single = join(argv[1], "one"), *many = join(argv[1], "two");
-  assert(ext_fs_make_root(single) == EXT_OK);
-  assert(ext_fs_make_root(many) == EXT_OK);
+  assert(ext_fs_make_root(single) == EXT_PLUGIN_OK);
+  assert(ext_fs_make_root(many) == EXT_PLUGIN_OK);
   single_store(single);
   layered(many);
   free(single);

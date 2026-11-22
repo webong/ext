@@ -80,13 +80,13 @@ static long find(const records *r, const char *scope, const char *id) {
       return (long)i;
   return -1;
 }
-static ext_status append(records *r, const char *scope, const char *id,
+static ext_plugin_status append(records *r, const char *scope, const char *id,
                          const char *digest) {
   if (r->count >= TRUST_MAX_RECORDS)
-    return EXT_CAPACITY;
+    return EXT_PLUGIN_CAPACITY;
   record *items = realloc(r->items, (r->count + 1) * sizeof(*items));
   if (!items)
-    return EXT_NOMEM;
+    return EXT_PLUGIN_NOMEM;
   r->items = items;
   record *item = &r->items[r->count];
   item->scope = strdup(scope);
@@ -94,29 +94,29 @@ static ext_status append(records *r, const char *scope, const char *id,
   if (!item->scope || !item->id) {
     free(item->scope);
     free(item->id);
-    return EXT_NOMEM;
+    return EXT_PLUGIN_NOMEM;
   }
   memcpy(item->digest, digest, 65);
   r->count++;
-  return EXT_OK;
+  return EXT_PLUGIN_OK;
 }
-static ext_status load(const char *path, records *out) {
+static ext_plugin_status load(const char *path, records *out) {
   FILE *f = open_trust(path, 0);
   if (!f)
-    return errno == ENOENT ? EXT_OK : EXT_IO;
+    return errno == ENOENT ? EXT_PLUGIN_OK : EXT_PLUGIN_IO;
   uint8_t *data = malloc(TRUST_MAX_BYTES + 1);
   if (!data) {
     fclose(f);
-    return EXT_NOMEM;
+    return EXT_PLUGIN_NOMEM;
   }
   size_t n = fread(data, 1, TRUST_MAX_BYTES + 1, f);
-  ext_status s = ferror(f) ? EXT_IO : n > TRUST_MAX_BYTES ? EXT_INVALID : EXT_OK;
+  ext_plugin_status s = ferror(f) ? EXT_PLUGIN_IO : n > TRUST_MAX_BYTES ? EXT_PLUGIN_INVALID : EXT_PLUGIN_OK;
   if (fclose(f) && !s)
-    s = EXT_IO;
+    s = EXT_PLUGIN_IO;
   if (!s) {
     yyjson_doc *doc = ext_parse(data, n);
     if (!doc)
-      s = EXT_INVALID;
+      s = EXT_PLUGIN_INVALID;
     else {
       yyjson_val *root = yyjson_doc_get_root(doc);
       yyjson_val *version = yyjson_obj_get(root, "apiVersion");
@@ -124,7 +124,7 @@ static ext_status load(const char *path, records *out) {
       if (!yyjson_is_obj(root) || yyjson_obj_size(root) != 2 ||
           !yyjson_equals_str(version, "ext.trust/v1") ||
           !yyjson_is_arr(list) || yyjson_arr_size(list) > TRUST_MAX_RECORDS)
-        s = EXT_INVALID;
+        s = EXT_PLUGIN_INVALID;
       else {
         size_t i, count;
         yyjson_val *entry;
@@ -137,7 +137,7 @@ static ext_status load(const char *path, records *out) {
           if (!yyjson_is_obj(entry) || yyjson_obj_size(entry) != 3 ||
               !key_valid(scope) || !key_valid(id) || !hex_valid(digest) ||
               find(out, scope, id) >= 0) {
-            s = EXT_INVALID;
+            s = EXT_PLUGIN_INVALID;
             break;
           }
           s = append(out, scope, id, digest);
@@ -158,11 +158,11 @@ static int compare(const void *a, const void *b) {
   int scope = strcmp(x->scope, y->scope);
   return scope ? scope : strcmp(x->id, y->id);
 }
-static ext_status encode(records *r, char **out, size_t *length) {
+static ext_plugin_status encode(records *r, char **out, size_t *length) {
   qsort(r->items, r->count, sizeof(*r->items), compare);
   yyjson_mut_doc *doc = yyjson_mut_doc_new(NULL);
   if (!doc)
-    return EXT_NOMEM;
+    return EXT_PLUGIN_NOMEM;
   yyjson_mut_val *root = yyjson_mut_obj(doc), *list = yyjson_mut_arr(doc);
   if (root)
     yyjson_mut_doc_set_root(doc, root);
@@ -178,7 +178,7 @@ static ext_status encode(records *r, char **out, size_t *length) {
   }
   *out = ok ? yyjson_mut_write(doc, 0, length) : NULL;
   yyjson_mut_doc_free(doc);
-  return *out ? EXT_OK : EXT_NOMEM;
+  return *out ? EXT_PLUGIN_OK : EXT_PLUGIN_NOMEM;
 }
 #ifdef _WIN32
 static wchar_t *wide(const char *s) {
@@ -211,15 +211,15 @@ static int replace(const char *source, const char *target) {
 }
 static void remove_temp(const char *path) { remove(path); }
 #endif
-static ext_status save(const char *path, records *r) {
+static ext_plugin_status save(const char *path, records *r) {
   char *data = NULL;
   size_t length = 0;
-  ext_status s = encode(r, &data, &length);
+  ext_plugin_status s = encode(r, &data, &length);
   if (s)
     return s;
   if (length > TRUST_MAX_BYTES) {
     free(data);
-    return EXT_CAPACITY;
+    return EXT_PLUGIN_CAPACITY;
   }
   uint8_t random[8];
   s = ext_random_bytes(random, sizeof(random));
@@ -238,7 +238,7 @@ static ext_status save(const char *path, records *r) {
   char *tmp = malloc(n + sizeof(suffix) + 6);
   if (!tmp) {
     free(data);
-    return EXT_NOMEM;
+    return EXT_PLUGIN_NOMEM;
   }
   snprintf(tmp, n + sizeof(suffix) + 6, "%s.tmp-%s", path, suffix);
 #ifdef _WIN32
@@ -250,55 +250,55 @@ static ext_status save(const char *path, records *r) {
     close(fd);
 #endif
   if (!f)
-    s = EXT_IO;
+    s = EXT_PLUGIN_IO;
   else {
     if (fwrite(data, 1, length, f) != length || fputc('\n', f) == EOF ||
         fflush(f))
-      s = EXT_IO;
+      s = EXT_PLUGIN_IO;
 #ifndef _WIN32
     if (!s && fsync(fileno(f)))
-      s = EXT_IO;
+      s = EXT_PLUGIN_IO;
 #else
     if (!s && _commit(_fileno(f)))
-      s = EXT_IO;
+      s = EXT_PLUGIN_IO;
 #endif
     if (fclose(f) && !s)
-      s = EXT_IO;
+      s = EXT_PLUGIN_IO;
   }
   if (!s && !replace(tmp, path))
-    s = EXT_IO;
+    s = EXT_PLUGIN_IO;
   if (s)
     remove_temp(tmp);
   free(tmp);
   free(data);
   return s;
 }
-ext_status ext_trust_state_of(const char *path, const char *scope,
+ext_plugin_status ext_plugin_trust_state_of(const char *path, const char *scope,
                               const char *id, const uint8_t current[32],
-                              ext_trust_state *out) {
+                              ext_plugin_trust_state *out) {
   if (!path || !*path || !key_valid(scope) || !key_valid(id) || !current || !out)
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   records r = {0};
-  ext_status s = load(path, &r);
+  ext_plugin_status s = load(path, &r);
   if (!s) {
     long index = find(&r, scope, id);
     if (index < 0)
-      *out = EXT_TRUST_UNTRUSTED;
+      *out = EXT_PLUGIN_TRUST_UNTRUSTED;
     else {
       char hex[65];
       ext_hash_hex(current, hex);
-      *out = !strcmp(r.items[index].digest, hex) ? EXT_TRUST_TRUSTED : EXT_TRUST_CHANGED;
+      *out = !strcmp(r.items[index].digest, hex) ? EXT_PLUGIN_TRUST_TRUSTED : EXT_PLUGIN_TRUST_CHANGED;
     }
   }
   clear(&r);
   return s;
 }
-ext_status ext_trust_record(const char *path, const char *scope,
+ext_plugin_status ext_plugin_trust_record(const char *path, const char *scope,
                             const char *id, const uint8_t reviewed[32]) {
   if (!path || !*path || !key_valid(scope) || !key_valid(id) || !reviewed)
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   records r = {0};
-  ext_status s = load(path, &r);
+  ext_plugin_status s = load(path, &r);
   if (!s) {
     char hex[65];
     ext_hash_hex(reviewed, hex);
@@ -313,12 +313,12 @@ ext_status ext_trust_record(const char *path, const char *scope,
   clear(&r);
   return s;
 }
-ext_status ext_trust_revoke(const char *path, const char *scope,
+ext_plugin_status ext_plugin_trust_revoke(const char *path, const char *scope,
                             const char *id) {
   if (!path || !*path || !key_valid(scope) || !key_valid(id))
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   records r = {0};
-  ext_status s = load(path, &r);
+  ext_plugin_status s = load(path, &r);
   if (!s) {
     long index = find(&r, scope, id);
     if (index >= 0) {

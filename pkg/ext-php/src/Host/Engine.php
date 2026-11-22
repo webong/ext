@@ -8,7 +8,7 @@ use ExtIO\Plugin\Json;
 
 /**
  * The C engine (lib/plugin), loaded through PHP FFI from a path, EXT_HOST_LIBRARY, or
- * libext_host on the loader path.
+ * libext_plugin_host on the loader path.
  *
  *     $engine = new ExtIO\Host\Engine();
  *     $host = $engine->process($descriptor, '/opt/plugins/echo/1.0.0/echo');
@@ -36,67 +36,67 @@ final class Engine
     private const BACKEND_PROCESS_LAUNCH = 5;
 
     /**
-     * The declarations of ext_host.h this class uses. FFI parses no preprocessor directives, so
+     * The declarations of ext_plugin_host.h this class uses. FFI parses no preprocessor directives, so
      * they are restated here. Byte inputs are declared const char * (the same ABI as
      * const uint8_t *) so PHP strings pass directly; a policy's JSON stays const uint8_t *, since
      * FFI would turn a const char * callback argument into a string cut at its first NUL. The ABI version check below and the shared
      * host cases hold them to the header.
      */
     private const DECLARATIONS = <<<'C'
-        typedef int32_t ext_status;
-        typedef struct ext_host ext_host;
-        typedef struct { uint8_t *data; size_t len; } ext_buffer;
-        typedef int32_t (*ext_policy)(void *user, const uint8_t *json, size_t len);
+        typedef int32_t ext_plugin_status;
+        typedef struct ext_plugin_host ext_plugin_host;
+        typedef struct { uint8_t *data; size_t len; } ext_plugin_buffer;
+        typedef int32_t (*ext_plugin_policy)(void *user, const uint8_t *json, size_t len);
         typedef struct {
           uint32_t abi_version; uint32_t struct_size; const char *descriptor; size_t descriptor_len;
-          ext_policy verify; ext_policy authorize; void *user;
-        } ext_host_options;
-        typedef struct { uint32_t struct_size; uint32_t kind; const void *config; size_t config_size; } ext_backend_options;
+          ext_plugin_policy verify; ext_plugin_policy authorize; void *user;
+        } ext_plugin_host_options;
+        typedef struct { uint32_t struct_size; uint32_t kind; const void *config; size_t config_size; } ext_plugin_backend_options;
         typedef struct {
           uint32_t struct_size; const char *executable; const char *const *arguments; size_t argument_count;
           const char *const *environment; size_t environment_count; const char *working_directory;
           uint32_t stderr_bytes;
-        } ext_jsonline_process_launch;
-        typedef struct { uint32_t struct_size; uint32_t timeout_ms; const void *cancel; void *value; } ext_call_options;
+        } ext_plugin_jsonline_process_launch;
+        typedef struct { uint32_t struct_size; uint32_t timeout_ms; const void *cancel; void *value; } ext_plugin_call_options;
         typedef struct {
           uint32_t struct_size; uint32_t flags; void *user; void *connect; void *invoke; void *close;
           void (*release)(void *);
-        } ext_backend_extension_context;
-        typedef struct { uint32_t struct_size; const char *path; } ext_shared_library_options;
-        uint32_t ext_host_abi_version(void);
-        ext_status ext_host_create(const ext_host_options *, const ext_backend_options *, ext_host **out);
-        ext_status ext_host_start_with_options(ext_host *, const ext_call_options *);
-        ext_status ext_host_call(ext_host *, const char *, size_t, const ext_call_options *, ext_buffer *);
-        ext_status ext_host_invoke_with_options(ext_host *, const char *, size_t, const ext_call_options *, ext_buffer *);
-        ext_status ext_host_drain_with_options(ext_host *, const ext_call_options *);
-        void ext_host_close(ext_host *);
-        void ext_host_destroy(ext_host *);
-        int ext_host_get_state(ext_host *);
-        ext_status ext_host_process_stderr(ext_host *, uint8_t *buffer, size_t capacity, size_t *length);
-        void ext_buffer_free(ext_buffer *);
-        ext_status ext_shared_library_backend_create(const ext_shared_library_options *, ext_backend_extension_context *);
-        typedef int32_t (*ext_context_policy)(void *user, const ext_call_options *, const uint8_t *json, size_t len);
-        typedef ext_status (*ext_reverse_emit)(void *sink, uint32_t kind, const char *data, size_t len);
-        typedef ext_status (*ext_reverse_handler)(void *user, const ext_call_options *, const uint8_t *request, size_t len,
-                                                  ext_reverse_emit emit, void *sink);
+        } ext_plugin_backend_extension_context;
+        typedef struct { uint32_t struct_size; const char *path; } ext_plugin_shared_library_options;
+        uint32_t ext_plugin_host_abi_version(void);
+        ext_plugin_status ext_plugin_host_create(const ext_plugin_host_options *, const ext_plugin_backend_options *, ext_plugin_host **out);
+        ext_plugin_status ext_plugin_host_start_with_options(ext_plugin_host *, const ext_plugin_call_options *);
+        ext_plugin_status ext_plugin_host_call(ext_plugin_host *, const char *, size_t, const ext_plugin_call_options *, ext_plugin_buffer *);
+        ext_plugin_status ext_plugin_host_invoke_with_options(ext_plugin_host *, const char *, size_t, const ext_plugin_call_options *, ext_plugin_buffer *);
+        ext_plugin_status ext_plugin_host_drain_with_options(ext_plugin_host *, const ext_plugin_call_options *);
+        void ext_plugin_host_close(ext_plugin_host *);
+        void ext_plugin_host_destroy(ext_plugin_host *);
+        int ext_plugin_host_get_state(ext_plugin_host *);
+        ext_plugin_status ext_plugin_host_process_stderr(ext_plugin_host *, uint8_t *buffer, size_t capacity, size_t *length);
+        void ext_plugin_buffer_free(ext_plugin_buffer *);
+        ext_plugin_status ext_plugin_shared_library_backend_create(const ext_plugin_shared_library_options *, ext_plugin_backend_extension_context *);
+        typedef int32_t (*ext_plugin_context_policy)(void *user, const ext_plugin_call_options *, const uint8_t *json, size_t len);
+        typedef ext_plugin_status (*ext_plugin_reverse_emit)(void *sink, uint32_t kind, const char *data, size_t len);
+        typedef ext_plugin_status (*ext_plugin_reverse_handler)(void *user, const ext_plugin_call_options *, const uint8_t *request, size_t len,
+                                                  ext_plugin_reverse_emit emit, void *sink);
         typedef struct {
-          uint32_t struct_size; void *user; ext_context_policy authorize; ext_reverse_handler handle;
+          uint32_t struct_size; void *user; ext_plugin_context_policy authorize; ext_plugin_reverse_handler handle;
           uint32_t timeout_ms; uint32_t max_payload_bytes; uint32_t max_in_flight; void *session_value;
-        } ext_host_services;
-        typedef struct ext_registry ext_registry;
+        } ext_plugin_host_services;
+        typedef struct ext_plugin_registry ext_plugin_registry;
         typedef struct {
           uint32_t struct_size; const char *from_name; const char *from_version; const char *from_operation;
           const char *to_name; const char *to_version; const char *to_operation;
-        } ext_registry_edge;
-        ext_status ext_host_set_services(ext_host *, const ext_host_services *);
-        ext_status ext_host_set_reverse_mode(ext_host *, uint32_t mode);
-        ext_status ext_host_serve_reverse(ext_host *, const ext_call_options *);
-        ext_status ext_registry_create(ext_registry **out);
-        ext_status ext_registry_register(ext_registry *, const char *name, const char *version, ext_host *host);
-        ext_status ext_registry_unregister(ext_registry *, const char *name, const char *version);
-        ext_status ext_registry_route(ext_registry *, const ext_registry_edge *);
-        ext_status ext_registry_attach(ext_registry *, ext_host *source, const ext_host_services *);
-        void ext_registry_destroy(ext_registry *);
+        } ext_plugin_registry_edge;
+        ext_plugin_status ext_plugin_host_set_services(ext_plugin_host *, const ext_plugin_host_services *);
+        ext_plugin_status ext_plugin_host_set_reverse_mode(ext_plugin_host *, uint32_t mode);
+        ext_plugin_status ext_plugin_host_serve_reverse(ext_plugin_host *, const ext_plugin_call_options *);
+        ext_plugin_status ext_plugin_registry_create(ext_plugin_registry **out);
+        ext_plugin_status ext_plugin_registry_register(ext_plugin_registry *, const char *name, const char *version, ext_plugin_host *host);
+        ext_plugin_status ext_plugin_registry_unregister(ext_plugin_registry *, const char *name, const char *version);
+        ext_plugin_status ext_plugin_registry_route(ext_plugin_registry *, const ext_plugin_registry_edge *);
+        ext_plugin_status ext_plugin_registry_attach(ext_plugin_registry *, ext_plugin_host *source, const ext_plugin_host_services *);
+        void ext_plugin_registry_destroy(ext_plugin_registry *);
         C;
 
     /** @internal */
@@ -110,9 +110,9 @@ final class Engine
         }
         $path ??= (string) getenv('EXT_HOST_LIBRARY');
         $candidates = $path !== '' ? [$path] : match (PHP_OS_FAMILY) {
-            'Windows' => ['ext_host.dll'],
-            'Darwin' => ['libext_host.dylib'],
-            default => ['libext_host.so'],
+            'Windows' => ['ext_plugin_host.dll'],
+            'Darwin' => ['libext_plugin_host.dylib'],
+            default => ['libext_plugin_host.so'],
         };
         $last = null;
         foreach ($candidates as $candidate) {
@@ -125,9 +125,9 @@ final class Engine
             }
         }
         if ($last !== null) {
-            throw new \FFI\Exception('the ext engine library was not found: set EXT_HOST_LIBRARY to libext_host, or pass its path (' . $last->getMessage() . ')', 0, $last);
+            throw new \FFI\Exception('the ext engine library was not found: set EXT_HOST_LIBRARY to libext_plugin_host, or pass its path (' . $last->getMessage() . ')', 0, $last);
         }
-        $abi = $this->ffi->ext_host_abi_version();
+        $abi = $this->ffi->ext_plugin_host_abi_version();
         if ($abi !== self::ABI_VERSION) {
             throw new \FFI\Exception("ext engine ABI $abi, this class needs " . self::ABI_VERSION);
         }
@@ -158,7 +158,7 @@ final class Engine
             throw new \InvalidArgumentException('stderrBytes is out of range');
         }
         $keep = [];
-        $launch = $this->ffi->new('ext_jsonline_process_launch');
+        $launch = $this->ffi->new('ext_plugin_jsonline_process_launch');
         $launch->struct_size = \FFI::sizeof($launch);
         $launch->executable = $this->cString($executable, $keep);
         [$launch->arguments, $launch->argument_count] = $this->cStrings($arguments, $keep);
@@ -170,7 +170,7 @@ final class Engine
     }
 
     /**
-     * A host for a guest library that exports the C ABI of ext_plugin.h. $path is an absolute
+     * A host for a guest library that exports the C ABI of ext_plugin_guest.h. $path is an absolute
      * path to a verified, revision-specific artifact; it is loaded when the host starts, after
      * $verify, and is never unloaded. Its native code runs in this process with its full access.
      *
@@ -179,11 +179,11 @@ final class Engine
     public function sharedLibrary(array|\stdClass|string $descriptor, string $path, ?callable $verify = null, ?callable $authorize = null): Host
     {
         $keep = [];
-        $options = $this->ffi->new('ext_shared_library_options');
+        $options = $this->ffi->new('ext_plugin_shared_library_options');
         $options->struct_size = \FFI::sizeof($options);
         $options->path = $this->cString($path, $keep);
-        $ext = $this->ffi->new('ext_backend_extension_context');
-        $status = $this->ffi->ext_shared_library_backend_create(\FFI::addr($options), \FFI::addr($ext));
+        $ext = $this->ffi->new('ext_plugin_backend_extension_context');
+        $status = $this->ffi->ext_plugin_shared_library_backend_create(\FFI::addr($options), \FFI::addr($ext));
         if ($status !== 0) {
             throw HostError::of($status, 'shared library');
         }
@@ -193,7 +193,7 @@ final class Engine
 
     private function backend(int $kind, \FFI\CData $config): \FFI\CData
     {
-        $backend = $this->ffi->new('ext_backend_options');
+        $backend = $this->ffi->new('ext_plugin_backend_options');
         $backend->struct_size = \FFI::sizeof($backend);
         $backend->kind = $kind;
         $backend->config = \FFI::addr($config);

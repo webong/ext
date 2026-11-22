@@ -11,7 +11,7 @@ pub fn build(b: *std.Build) void {
     module.addImport("ffi", translated.createModule());
     module.addLibraryPath(.{ .cwd_relative = lib });
     module.addRPath(.{ .cwd_relative = lib });
-    module.linkSystemLibrary(if (shared) "ext_host" else "ext_host_static", .{});
+    module.linkSystemLibrary(if (shared) "ext_plugin_host" else "ext_plugin_host_static", .{});
     module.linkSystemLibrary("pthread", .{});
     module.linkSystemLibrary("m", .{});
     // The shared-library backend loads guests with dlopen, which older glibc keeps in libdl.

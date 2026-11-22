@@ -26,7 +26,7 @@ final class NativeEngine {
 
     /**
      * Runs one of the engine's endpoint services ("endpoint.check" or
-     * "endpoint.validate") and returns its ext_status; nothing of the input is
+     * "endpoint.validate") and returns its ext_plugin_status; nothing of the input is
      * returned or thrown, because an endpoint is a credential.
      */
     static native int endpoint(String operation, byte[] input);
@@ -35,7 +35,7 @@ final class NativeEngine {
 
     // The package store (ext_store_*, ext_layered_*). Paths and ids are UTF-8 bytes, because a
     // jstring would reach the engine as modified UTF-8. Every call reports a failure as a
-    // GuestException carrying the ext_status. The handle must stay live for the whole call, and
+    // GuestException carrying the ext_plugin_status. The handle must stay live for the whole call, and
     // is closed only after the calls in it have returned. The constants are those of the enums
     // in ext_store_jni.c.
 

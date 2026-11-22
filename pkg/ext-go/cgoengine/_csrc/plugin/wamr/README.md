@@ -8,17 +8,17 @@ fallback route for mobile hosts that cannot use the platform web engine (see the
 **off by default**: nothing in the engine changes unless `EXT_WITH_WAMR` is set.
 
 ```c
-ext_backend_extension_context ext;
+ext_plugin_backend_extension_context ext;
 ext_wamr_backend_create(module_bytes, module_len, &options, &ext);
-ext_backend_options backend = {sizeof(backend), EXT_BACKEND_EXTENSION_CONTEXT, &ext, sizeof(ext)};
-ext_host_create(&host_options, &backend, &host);   /* then ext_host_start, ext_host_invoke ... */
+ext_plugin_backend_options backend = {sizeof(backend), EXT_PLUGIN_BACKEND_EXTENSION_CONTEXT, &ext, sizeof(ext)};
+ext_plugin_host_create(&host_options, &backend, &host);   /* then ext_plugin_host_start, ext_plugin_host_invoke ... */
 ```
 
 A reactor may call its host through `ext_plugin.reverse` ([Calling the
 host](../../../docs/plugin-reactor-abi.md#calling-the-host)). Bind the backend to its host with
-`ext_wamr_backend_bind_host(ext.user, host)` after `ext_host_create`, then offer services with
-`ext_host_set_services` or `ext_registry_attach` as for any host: the backend is created with
-`EXT_BACKEND_FRAMES`, so the engine admits, refuses and answers each request, and the hooks run
+`ext_wamr_backend_bind_host(ext.user, host)` after `ext_plugin_host_create`, then offer services with
+`ext_plugin_host_set_services` or `ext_plugin_registry_attach` as for any host: the backend is created with
+`EXT_PLUGIN_BACKEND_FRAMES`, so the engine admits, refuses and answers each request, and the hooks run
 on the thread inside the call. A reverse call the guest registry routes to another reactor nests
 on that thread; the backend saves and restores WAMR's per-thread exec env around it, which WAMR
 checks when hardware bound checks are on.
@@ -35,34 +35,34 @@ conformance reactor, and runs the test.
   own WASI is off, because it would hand the guest the host's standard input. WAMR links an
   unknown import lazily and only warns, so the backend checks every import after loading and
   refuses a module that imports anything it does not provide, naming it.
-- **A reactor, not a command.** A module exporting `_start`, or missing any `ext_plugin_*`
+- **A reactor, not a command.** A module exporting `_start`, or missing any `ext_plugin_guest_*`
   export, is refused.
 - **Deadlines, cancel and close interrupt a running guest**, from a watchdog that sleeps
   unless a call is running (no idle wake-ups). A guest that is stopped, traps, exits or
   runs out of memory ends the whole instance, as the ABI says; later calls return
-  `EXT_CLOSED`.
+  `EXT_PLUGIN_CLOSED`.
 - **Memory is capped** per instance (`memory_limit_pages`, default 4096 pages) and an
   optional instruction budget applies to each call into the guest (`instruction_limit`).
 
 | Outcome | Status |
 | --- | --- |
-| deadline passed | `EXT_TIMEOUT` |
-| `ext_cancel` signalled | `EXT_CANCELED` |
-| instruction budget exceeded | `EXT_TIMEOUT` |
-| guest allocation failed or memory cap hit | `EXT_NOMEM` |
-| trap, `proc_exit`, closed, or a session already ended | `EXT_CLOSED` |
-| malformed request | `EXT_INVALID`, and the session stays usable |
+| deadline passed | `EXT_PLUGIN_TIMEOUT` |
+| `ext_plugin_cancel` signalled | `EXT_PLUGIN_CANCELED` |
+| instruction budget exceeded | `EXT_PLUGIN_TIMEOUT` |
+| guest allocation failed or memory cap hit | `EXT_PLUGIN_NOMEM` |
+| trap, `proc_exit`, closed, or a session already ended | `EXT_PLUGIN_CLOSED` |
+| malformed request | `EXT_PLUGIN_INVALID`, and the session stays usable |
 
-The backend only returns statuses from `EXT_OK` through `EXT_CANCELED`, because the engine's
+The backend only returns statuses from `EXT_PLUGIN_OK` through `EXT_PLUGIN_CANCELED`, because the engine's
 host layer (`extension_call` in `src/host.c`) rewrites anything above that range, such as
-`EXT_CAPACITY` or `EXT_SEQUENCE`, to `EXT_INVALID`. An earlier version returned
-`EXT_CAPACITY` for an exhausted instruction budget, and applications saw "invalid request";
-a test now checks the status through `ext_host_invoke`.
+`EXT_PLUGIN_CAPACITY` or `EXT_PLUGIN_SEQUENCE`, to `EXT_PLUGIN_INVALID`. An earlier version returned
+`EXT_PLUGIN_CAPACITY` for an exhausted instruction budget, and applications saw "invalid request";
+a test now checks the status through `ext_plugin_host_invoke`.
 
 A guest that honours the request deadline (the conformance reactor's `wait` does) may
 answer with its own deadline error just before the host's watchdog fires, so a test of an
 overrunning call should accept either a timeout or that error response.
-| module refused (not a reactor, forbidden import, does not load) | `EXT_UNSUPPORTED`, with the reason sent to `diagnostic` |
+| module refused (not a reactor, forbidden import, does not load) | `EXT_PLUGIN_UNSUPPORTED`, with the reason sent to `diagnostic` |
 
 ## Building it
 
@@ -111,7 +111,7 @@ frame; a domain error and a malformed request; 200 repeated calls; a deadline st
 sleeping guest, after which the instance is gone; cancel; `close` from another thread
 during a call; the instruction budget; the memory cap; a command module, a module with a
 forbidden import and garbage bytes; 20 create-and-destroy cycles; and the whole path
-through `ext_host_create`, `ext_host_start` and `ext_host_invoke`.
+through `ext_plugin_host_create`, `ext_plugin_host_start` and `ext_plugin_host_invoke`.
 
 The iOS Simulator and Android rows are from before the status fix below; after it only macOS
 was re-run, since the change is to which status values are returned and not to anything

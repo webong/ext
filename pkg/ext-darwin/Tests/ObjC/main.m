@@ -1,16 +1,16 @@
 // An Objective-C program using the guest SDK and the web-view host through their
-// EXT* facades, and the ext_plugin_* C ABI an Objective-C plugin would export.
+// EXT* facades, and the ext_plugin_guest_* C ABI an Objective-C plugin would export.
 // scripts/ext-darwin-objc.sh builds and runs it.
 #import <Foundation/Foundation.h>
 #import "ExtPluginExports-Swift.h"
 #import "ExtPluginGuest-Swift.h"
 #import "ExtPluginWebView-Swift.h"
 
-uint32_t ext_plugin_abi_version(void);
-uint64_t ext_plugin_open(void);
-uint32_t ext_plugin_call(uint64_t handle, uint32_t operation, const uint8_t *request, uint32_t request_len,
+uint32_t ext_plugin_guest_abi_version(void);
+uint64_t ext_plugin_guest_open(void);
+uint32_t ext_plugin_guest_call(uint64_t handle, uint32_t operation, const uint8_t *request, uint32_t request_len,
                          uint8_t *response, uint32_t capacity, uint32_t *written);
-void ext_plugin_close(uint64_t handle);
+void ext_plugin_guest_close(uint64_t handle);
 
 static int failures = 0;
 #define CHECK(condition, ...) do { if (!(condition)) { failures++; NSLog(@"FAIL: " __VA_ARGS__); } } while (0)
@@ -66,20 +66,20 @@ static void TestGuest(void) {
 }
 
 static void TestCABI(void) {
-    CHECK(ext_plugin_abi_version() == 1, @"abi version");
-    uint64_t handle = ext_plugin_open();
+    CHECK(ext_plugin_guest_abi_version() == 1, @"abi version");
+    uint64_t handle = ext_plugin_guest_open();
     CHECK(handle != 0, @"open");
     uint32_t capacity = 24u * 1024u * 1024u, written = 0;
     uint8_t *response = malloc(capacity);
     const char *hello = "{\"deadline\":\"2099-01-01T00:00:00Z\"}";
-    CHECK(ext_plugin_call(handle, 1, (const uint8_t *)hello, (uint32_t)strlen(hello), response, capacity, &written) == 0, @"handshake");
+    CHECK(ext_plugin_guest_call(handle, 1, (const uint8_t *)hello, (uint32_t)strlen(hello), response, capacity, &written) == 0, @"handshake");
     NSString *descriptor = Text([NSData dataWithBytes:response length:written]);
     CHECK([descriptor containsString:@"objc/test"], @"descriptor over the C ABI: %@", descriptor);
     NSData *request = Request(@"echo", @"{\"v\":7}");
-    CHECK(ext_plugin_call(handle, 2, request.bytes, (uint32_t)request.length, response, capacity, &written) == 0, @"invoke");
+    CHECK(ext_plugin_guest_call(handle, 2, request.bytes, (uint32_t)request.length, response, capacity, &written) == 0, @"invoke");
     NSString *reply = Text([NSData dataWithBytes:response length:written]);
     CHECK([reply containsString:@"\"payload\":{\"v\":7}"], @"invoke over the C ABI: %@", reply);
-    ext_plugin_close(handle);
+    ext_plugin_guest_close(handle);
     free(response);
 }
 

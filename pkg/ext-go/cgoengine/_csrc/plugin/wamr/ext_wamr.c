@@ -11,7 +11,7 @@
 #include <time.h>
 #include <unistd.h>
 
-/* Constants restated from lib/plugin/include/ext_plugin.h and the reactor ABI. */
+/* Constants restated from lib/plugin/include/ext_plugin_guest.h and the reactor ABI. */
 #define ABI_VERSION 1u
 #define OP_HANDSHAKE 1u
 #define OP_INVOKE 2u
@@ -29,9 +29,9 @@
 #define WASI_NOSYS 52u
 #define SLICE_MS 5u
 
-/* The engine accepts only statuses from EXT_OK through EXT_CANCELED from an
- * extension backend and rewrites anything else (EXT_CAPACITY, EXT_SEQUENCE and so
- * on) to EXT_INVALID, so this file returns nothing outside that range. */
+/* The engine accepts only statuses from EXT_PLUGIN_OK through EXT_PLUGIN_CANCELED from an
+ * extension backend and rewrites anything else (EXT_PLUGIN_CAPACITY, EXT_PLUGIN_SEQUENCE and so
+ * on) to EXT_PLUGIN_INVALID, so this file returns nothing outside that range. */
 
 enum { NEW, CONNECTED, DEAD };
 
@@ -51,7 +51,7 @@ typedef struct backend {
   /* The call being timed, guarded by mu. */
   int armed;
   uint64_t deadline_ns;
-  const ext_cancel *cancel;
+  const ext_plugin_cancel *cancel;
   int cancelled; /* the watchdog stopped it because of cancel, not time */
 
   wasm_module_t module;
@@ -66,7 +66,7 @@ typedef struct backend {
   /* Reverse calls (ext_plugin.reverse): the host that serves them, once bound,
    * and whether an invocation is running, the only time a guest may make one.
    * Guarded by mu. */
-  ext_host *host;
+  ext_plugin_host *host;
   int invoking;
 } backend;
 
@@ -259,39 +259,39 @@ static uint32_t ext_reverse(wasm_exec_env_t env, uint32_t req, uint32_t req_len,
       !range(inst, written, 4, &cell))
     return REVERSE_INVALID;
   pthread_mutex_lock(&b->mu);
-  ext_host *host = b->invoking ? b->host : NULL;
-  const ext_cancel *cancel = b->cancel;
+  ext_plugin_host *host = b->invoking ? b->host : NULL;
+  const ext_plugin_cancel *cancel = b->cancel;
   pthread_mutex_unlock(&b->mu);
   if (!host) return REVERSE_UNAVAILABLE;
   /* No guest code runs until this returns, so its memory stays put. */
-  ext_reverse_ticket *ticket = NULL;
-  ext_buffer answer = {NULL, 0};
+  ext_plugin_reverse_ticket *ticket = NULL;
+  ext_plugin_buffer answer = {NULL, 0};
 #if EXT_WAMR_HW_BOUND_CHECK
   void *running = wasm_runtime_get_exec_env_tls();
   wasm_runtime_set_exec_env_tls(NULL);
 #endif
-  ext_status s = ext_host_backend_reverse_admit(host, in, req_len, &ticket, &answer);
-  if (!s && ticket) s = ext_host_backend_reverse_run(host, ticket, cancel, &answer);
+  ext_plugin_status s = ext_plugin_host_backend_reverse_admit(host, in, req_len, &ticket, &answer);
+  if (!s && ticket) s = ext_plugin_host_backend_reverse_run(host, ticket, cancel, &answer);
 #if EXT_WAMR_HW_BOUND_CHECK
   wasm_runtime_set_exec_env_tls(running);
 #endif
-  if (s == EXT_PROTOCOL) {
+  if (s == EXT_PLUGIN_PROTOCOL) {
     /* A frame that breaks the rules ends the instance, as on any transport. */
     wasm_runtime_set_exception(inst, "ext_plugin.reverse: malformed reverse_request frame");
     return REVERSE_INVALID;
   }
   if (s) {
-    ext_buffer_free(&answer);
+    ext_plugin_buffer_free(&answer);
     return REVERSE_FAILED;
   }
   if (!answer.data || answer.len > cap) {
-    ext_buffer_free(&answer);
+    ext_plugin_buffer_free(&answer);
     return REVERSE_FAILED;
   }
   uint32_t n = (uint32_t)answer.len;
   memcpy(out, answer.data, answer.len);
   memcpy(cell, &n, 4);
-  ext_buffer_free(&answer);
+  ext_plugin_buffer_free(&answer);
   return REVERSE_OK;
 }
 
@@ -323,7 +323,7 @@ static void start_runtime(void) {
 
 /* ---- timing: a watchdog that sleeps unless a call is being timed --------- */
 
-static void arm(backend *b, uint32_t timeout_ms, const ext_cancel *cancel) {
+static void arm(backend *b, uint32_t timeout_ms, const ext_plugin_cancel *cancel) {
   pthread_mutex_lock(&b->mu);
   b->armed = 1;
   b->cancelled = 0;
@@ -356,7 +356,7 @@ static void *watch(void *arg) {
       continue;
     }
     uint64_t now = now_ns(CLOCK_MONOTONIC);
-    if (b->cancel && ext_cancel_is_signaled(b->cancel)) {
+    if (b->cancel && ext_plugin_cancel_is_signaled(b->cancel)) {
       b->cancelled = 1;
       b->armed = 0;
       stop_guest_locked(b);
@@ -382,90 +382,90 @@ static void *watch(void *arg) {
 
 /* ---- calling the guest --------------------------------------------------- */
 
-static ext_status classify_failure(backend *b) {
+static ext_plugin_status classify_failure(backend *b) {
   /* A guest that did not return normally ends the instance. */
   pthread_mutex_lock(&b->mu);
   int cancelled = b->cancelled, tripped = b->tripped;
   b->state = DEAD;
   pthread_mutex_unlock(&b->mu);
-  if (cancelled) return EXT_CANCELED;
-  if (tripped) return EXT_TIMEOUT;
+  if (cancelled) return EXT_PLUGIN_CANCELED;
+  if (tripped) return EXT_PLUGIN_TIMEOUT;
   const char *why = b->inst ? wasm_runtime_get_exception(b->inst) : NULL;
   /* An exhausted instruction budget is compute time the call was not given, so it
    * is reported as a timeout. */
-  if (why && strstr(why, "instruction limit")) return EXT_TIMEOUT;
-  return EXT_CLOSED;
+  if (why && strstr(why, "instruction limit")) return EXT_PLUGIN_TIMEOUT;
+  return EXT_PLUGIN_CLOSED;
 }
 
-static ext_status call(backend *b, wasm_function_inst_t fn, uint32_t cells,
+static ext_plugin_status call(backend *b, wasm_function_inst_t fn, uint32_t cells,
                        uint32_t *argv) {
   if (b->opt.instruction_limit) {
     uint64_t limit = b->opt.instruction_limit;
     wasm_runtime_set_instruction_count_limit(b->env, limit > 0x7fffffffu ? 0x7fffffff : (int)limit);
   }
   if (!wasm_runtime_call_wasm(b->env, fn, cells, argv)) return classify_failure(b);
-  return EXT_OK;
+  return EXT_PLUGIN_OK;
 }
 
-static ext_status guest_alloc(backend *b, uint32_t size, uint32_t *ptr) {
+static ext_plugin_status guest_alloc(backend *b, uint32_t size, uint32_t *ptr) {
   uint32_t argv[1] = {size};
-  ext_status s = call(b, b->f_alloc, 1, argv);
-  if (s != EXT_OK) return s;
-  if (argv[0] == 0) return EXT_NOMEM;
+  ext_plugin_status s = call(b, b->f_alloc, 1, argv);
+  if (s != EXT_PLUGIN_OK) return s;
+  if (argv[0] == 0) return EXT_PLUGIN_NOMEM;
   *ptr = argv[0];
-  return EXT_OK;
+  return EXT_PLUGIN_OK;
 }
 
-/* One ext_plugin_call. On EXT_OK the response is at resp_ptr with *n bytes. */
-static ext_status round_trip(backend *b, uint32_t op, const uint8_t *req, size_t len,
+/* One ext_plugin_guest_call. On EXT_PLUGIN_OK the response is at resp_ptr with *n bytes. */
+static ext_plugin_status round_trip(backend *b, uint32_t op, const uint8_t *req, size_t len,
                              uint32_t *n) {
-  if (!len || len > MAX_FRAME) return EXT_INVALID;
+  if (!len || len > MAX_FRAME) return EXT_PLUGIN_INVALID;
   uint32_t ptr = 0;
-  ext_status s = guest_alloc(b, (uint32_t)len, &ptr);
-  if (s != EXT_OK) return s;
+  ext_plugin_status s = guest_alloc(b, (uint32_t)len, &ptr);
+  if (s != EXT_PLUGIN_OK) return s;
   void *native;
   if (!range(b->inst, ptr, (uint32_t)len, &native)) {
     pthread_mutex_lock(&b->mu);
     b->state = DEAD;
     pthread_mutex_unlock(&b->mu);
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   }
   memcpy(native, req, len);
   uint32_t argv[8] = {(uint32_t)(b->handle & 0xffffffffu), (uint32_t)(b->handle >> 32),
                       op, ptr, (uint32_t)len, b->resp_ptr, MAX_FRAME, b->len_ptr};
   s = call(b, b->f_call, 8, argv);
-  if (s != EXT_OK) return s;
+  if (s != EXT_PLUGIN_OK) return s;
   uint32_t status = argv[0];
   uint32_t release[2] = {ptr, (uint32_t)len};
   s = call(b, b->f_free, 2, release);
-  if (s != EXT_OK) return s;
+  if (s != EXT_PLUGIN_OK) return s;
   switch (status) {
   case STATUS_OK: {
     uint32_t *cell;
     if (!range(b->inst, b->len_ptr, 4, (void **)&cell)) goto invalid;
     memcpy(n, cell, 4);
     if (*n > MAX_FRAME) goto invalid;
-    return EXT_OK;
+    return EXT_PLUGIN_OK;
   }
   case STATUS_INVALID:
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   case STATUS_CLOSED:
   default:
     pthread_mutex_lock(&b->mu);
     b->state = DEAD;
     pthread_mutex_unlock(&b->mu);
-    return EXT_CLOSED;
+    return EXT_PLUGIN_CLOSED;
   }
 invalid:
   pthread_mutex_lock(&b->mu);
   b->state = DEAD;
   pthread_mutex_unlock(&b->mu);
-  return EXT_INVALID;
+  return EXT_PLUGIN_INVALID;
 }
 
-static ext_status emit_response(backend *b, uint32_t n, ext_emit emit, void *context) {
+static ext_plugin_status emit_response(backend *b, uint32_t n, ext_plugin_emit emit, void *context) {
   uint8_t *data;
-  if (!range(b->inst, b->resp_ptr, n, (void **)&data)) return EXT_INVALID;
+  if (!range(b->inst, b->resp_ptr, n, (void **)&data)) return EXT_PLUGIN_INVALID;
   return emit(context, data, n); /* emit copies before we touch the guest again */
 }
 
@@ -502,11 +502,11 @@ static void teardown(backend *b) {
   b->module = NULL;
 }
 
-static ext_status begin(backend *b) {
+static ext_plugin_status begin(backend *b) {
   pthread_mutex_lock(&b->mu);
-  ext_status s = EXT_OK;
-  if (b->state == DEAD) s = EXT_CLOSED;
-  else if (b->busy) s = EXT_INVALID; /* the engine serializes; this is a guard */
+  ext_plugin_status s = EXT_PLUGIN_OK;
+  if (b->state == DEAD) s = EXT_PLUGIN_CLOSED;
+  else if (b->busy) s = EXT_PLUGIN_INVALID; /* the engine serializes; this is a guard */
   else {
     b->busy = 1;
     b->tripped = 0;
@@ -525,14 +525,14 @@ static void report(backend *b, const char *stage, const char *why) {
   if (n > 0) b->opt.diagnostic(b->opt.diagnostic_user, (const uint8_t *)line, (size_t)(n < 256 ? n : 255));
 }
 
-static ext_status do_connect(backend *b, const ext_call_options *o, ext_emit emit,
+static ext_plugin_status do_connect(backend *b, const ext_plugin_call_options *o, ext_plugin_emit emit,
                              void *context) {
-  if (!runtime_ready) return EXT_UNSUPPORTED;
+  if (!runtime_ready) return EXT_PLUGIN_UNSUPPORTED;
   char error[128] = {0};
   b->module = wasm_runtime_load(b->bytes, (uint32_t)b->len, error, sizeof(error));
   if (!b->module) { /* malformed, or imports outside the ABI set */
     report(b, "load", error);
-    return EXT_UNSUPPORTED;
+    return EXT_PLUGIN_UNSUPPORTED;
   }
   /* WAMR links an unknown import lazily and only warns, so a module could load
    * and trap later. The ABI says it must not load, so every import is checked:
@@ -546,11 +546,11 @@ static ext_status do_connect(backend *b, const ext_call_options *o, ext_emit emi
       snprintf(why, sizeof(why), "the module imports %.64s.%.64s, which the host does not provide",
                import.module_name ? import.module_name : "?", import.name ? import.name : "?");
       report(b, "reject", why);
-      return EXT_UNSUPPORTED;
+      return EXT_PLUGIN_UNSUPPORTED;
     }
   }
   struct InstantiationArgs2 *args = NULL;
-  if (!wasm_runtime_instantiation_args_create(&args)) return EXT_NOMEM;
+  if (!wasm_runtime_instantiation_args_create(&args)) return EXT_PLUGIN_NOMEM;
   wasm_runtime_instantiation_args_set_default_stack_size(args, b->opt.stack_size);
   wasm_runtime_instantiation_args_set_host_managed_heap_size(args, 0);
   wasm_runtime_instantiation_args_set_max_memory_pages(args, b->opt.memory_limit_pages);
@@ -558,68 +558,68 @@ static ext_status do_connect(backend *b, const ext_call_options *o, ext_emit emi
   wasm_runtime_instantiation_args_destroy(args);
   if (!b->inst) {
     report(b, "instantiate", error);
-    return EXT_UNSUPPORTED;
+    return EXT_PLUGIN_UNSUPPORTED;
   }
   wasm_runtime_set_custom_data(b->inst, b);
   if (wasm_runtime_lookup_function(b->inst, "_start")) {
     report(b, "reject", "the module exports _start: a command, not a reactor");
-    return EXT_UNSUPPORTED;
+    return EXT_PLUGIN_UNSUPPORTED;
   }
-  wasm_function_inst_t version = wasm_runtime_lookup_function(b->inst, "ext_plugin_abi_version");
-  wasm_function_inst_t open_fn = wasm_runtime_lookup_function(b->inst, "ext_plugin_open");
-  b->f_call = wasm_runtime_lookup_function(b->inst, "ext_plugin_call");
-  b->f_close = wasm_runtime_lookup_function(b->inst, "ext_plugin_close");
-  b->f_alloc = wasm_runtime_lookup_function(b->inst, "ext_plugin_alloc");
-  b->f_free = wasm_runtime_lookup_function(b->inst, "ext_plugin_free");
+  wasm_function_inst_t version = wasm_runtime_lookup_function(b->inst, "ext_plugin_guest_abi_version");
+  wasm_function_inst_t open_fn = wasm_runtime_lookup_function(b->inst, "ext_plugin_guest_open");
+  b->f_call = wasm_runtime_lookup_function(b->inst, "ext_plugin_guest_call");
+  b->f_close = wasm_runtime_lookup_function(b->inst, "ext_plugin_guest_close");
+  b->f_alloc = wasm_runtime_lookup_function(b->inst, "ext_plugin_guest_alloc");
+  b->f_free = wasm_runtime_lookup_function(b->inst, "ext_plugin_guest_free");
   if (!version || !open_fn || !b->f_call || !b->f_close || !b->f_alloc || !b->f_free) {
-    report(b, "reject", "the module does not export every ext_plugin_* function");
-    return EXT_UNSUPPORTED;
+    report(b, "reject", "the module does not export every ext_plugin_guest_* function");
+    return EXT_PLUGIN_UNSUPPORTED;
   }
   b->env = wasm_runtime_create_exec_env(b->inst, b->opt.stack_size);
-  if (!b->env) return EXT_NOMEM;
+  if (!b->env) return EXT_PLUGIN_NOMEM;
 
   arm(b, o->timeout_ms, o->cancel);
-  ext_status s = EXT_OK;
+  ext_plugin_status s = EXT_PLUGIN_OK;
   wasm_function_inst_t init = wasm_runtime_lookup_function(b->inst, "_initialize");
-  if (init && (s = call(b, init, 0, NULL)) != EXT_OK) return s;
+  if (init && (s = call(b, init, 0, NULL)) != EXT_PLUGIN_OK) return s;
   uint32_t v[1];
-  if ((s = call(b, version, 0, v)) != EXT_OK) return s;
-  if (v[0] != ABI_VERSION) return EXT_MISMATCH;
+  if ((s = call(b, version, 0, v)) != EXT_PLUGIN_OK) return s;
+  if (v[0] != ABI_VERSION) return EXT_PLUGIN_MISMATCH;
   uint32_t h[2];
-  if ((s = call(b, open_fn, 0, h)) != EXT_OK) return s;
+  if ((s = call(b, open_fn, 0, h)) != EXT_PLUGIN_OK) return s;
   b->handle = (uint64_t)h[0] | ((uint64_t)h[1] << 32);
-  if (!b->handle) return EXT_CLOSED;
+  if (!b->handle) return EXT_PLUGIN_CLOSED;
   /* One response buffer of the maximum frame, reused by every call. */
-  if ((s = guest_alloc(b, MAX_FRAME, &b->resp_ptr)) != EXT_OK) return s;
-  if ((s = guest_alloc(b, 4, &b->len_ptr)) != EXT_OK) return s;
+  if ((s = guest_alloc(b, MAX_FRAME, &b->resp_ptr)) != EXT_PLUGIN_OK) return s;
+  if ((s = guest_alloc(b, 4, &b->len_ptr)) != EXT_PLUGIN_OK) return s;
 
   char deadline[DEADLINE_BYTES], request[DEADLINE_BYTES + 32];
-  if (!format_deadline(o->timeout_ms, deadline)) return EXT_IO;
+  if (!format_deadline(o->timeout_ms, deadline)) return EXT_PLUGIN_IO;
   int n = snprintf(request, sizeof(request), "{\"deadline\":\"%s\"}", deadline);
-  if (n <= 0 || (size_t)n >= sizeof(request)) return EXT_IO;
+  if (n <= 0 || (size_t)n >= sizeof(request)) return EXT_PLUGIN_IO;
   uint32_t out = 0;
-  if ((s = round_trip(b, OP_HANDSHAKE, (const uint8_t *)request, (size_t)n, &out)) != EXT_OK)
+  if ((s = round_trip(b, OP_HANDSHAKE, (const uint8_t *)request, (size_t)n, &out)) != EXT_PLUGIN_OK)
     return s;
   return emit_response(b, out, emit, context);
 }
 
-static ext_status connect_cb(void *user, const ext_call_options *o, ext_emit emit,
+static ext_plugin_status connect_cb(void *user, const ext_plugin_call_options *o, ext_plugin_emit emit,
                              void *context) {
   backend *b = user;
-  if (!o || !o->timeout_ms) return EXT_TIMEOUT;
+  if (!o || !o->timeout_ms) return EXT_PLUGIN_TIMEOUT;
   pthread_mutex_lock(&b->mu);
   int fresh = b->state == NEW;
   pthread_mutex_unlock(&b->mu);
-  if (!fresh) return EXT_INVALID; /* connect is called once */
-  ext_status s = begin(b);
-  if (s != EXT_OK) return s;
+  if (!fresh) return EXT_PLUGIN_INVALID; /* connect is called once */
+  ext_plugin_status s = begin(b);
+  if (s != EXT_PLUGIN_OK) return s;
   /* The watchdog exists for the life of the backend, asleep unless a call runs. */
   if (!b->watchdog_up) {
     if (pthread_create(&b->watchdog, NULL, watch, b)) {
       pthread_mutex_lock(&b->mu);
       b->busy = 0;
       pthread_mutex_unlock(&b->mu);
-      return EXT_NOMEM;
+      return EXT_PLUGIN_NOMEM;
     }
     b->watchdog_up = 1;
   }
@@ -627,23 +627,23 @@ static ext_status connect_cb(void *user, const ext_call_options *o, ext_emit emi
   disarm(b);
   pthread_mutex_lock(&b->mu);
   b->busy = 0;
-  b->state = s == EXT_OK ? CONNECTED : DEAD;
+  b->state = s == EXT_PLUGIN_OK ? CONNECTED : DEAD;
   pthread_mutex_unlock(&b->mu);
   return s;
 }
 
-static ext_status invoke_cb(void *user, const uint8_t *request, size_t len,
-                            const ext_call_options *o, ext_emit emit, void *context) {
+static ext_plugin_status invoke_cb(void *user, const uint8_t *request, size_t len,
+                            const ext_plugin_call_options *o, ext_plugin_emit emit, void *context) {
   backend *b = user;
-  if (!o || !o->timeout_ms) return EXT_TIMEOUT;
+  if (!o || !o->timeout_ms) return EXT_PLUGIN_TIMEOUT;
   pthread_mutex_lock(&b->mu);
   int ready = b->state == CONNECTED;
   int dead = b->state == DEAD;
   pthread_mutex_unlock(&b->mu);
-  if (dead) return EXT_CLOSED;
-  if (!ready) return EXT_INVALID; /* invoke before a successful connect */
-  ext_status s = begin(b);
-  if (s != EXT_OK) return s;
+  if (dead) return EXT_PLUGIN_CLOSED;
+  if (!ready) return EXT_PLUGIN_INVALID; /* invoke before a successful connect */
+  ext_plugin_status s = begin(b);
+  if (s != EXT_PLUGIN_OK) return s;
   arm(b, o->timeout_ms, o->cancel);
   pthread_mutex_lock(&b->mu);
   b->invoking = 1;
@@ -653,7 +653,7 @@ static ext_status invoke_cb(void *user, const uint8_t *request, size_t len,
   pthread_mutex_lock(&b->mu);
   b->invoking = 0;
   pthread_mutex_unlock(&b->mu);
-  if (s == EXT_OK) s = emit_response(b, n, emit, context);
+  if (s == EXT_PLUGIN_OK) s = emit_response(b, n, emit, context);
   disarm(b);
   pthread_mutex_lock(&b->mu);
   b->busy = 0;
@@ -689,19 +689,19 @@ static void release_cb(void *user) {
   free(b);
 }
 
-ext_status ext_wamr_backend_create(const uint8_t *module, size_t module_len,
+ext_plugin_status ext_wamr_backend_create(const uint8_t *module, size_t module_len,
                                    const ext_wamr_options *options,
-                                   ext_backend_extension_context *out) {
-  if (!module || !module_len || module_len > MAX_MODULE || !out) return EXT_INVALID;
-  if (options && options->struct_size < sizeof(ext_wamr_options)) return EXT_INVALID;
+                                   ext_plugin_backend_extension_context *out) {
+  if (!module || !module_len || module_len > MAX_MODULE || !out) return EXT_PLUGIN_INVALID;
+  if (options && options->struct_size < sizeof(ext_wamr_options)) return EXT_PLUGIN_INVALID;
   pthread_once(&runtime_once, start_runtime);
-  if (!runtime_ready) return EXT_UNSUPPORTED;
+  if (!runtime_ready) return EXT_PLUGIN_UNSUPPORTED;
   backend *b = calloc(1, sizeof(*b));
-  if (!b) return EXT_NOMEM;
+  if (!b) return EXT_PLUGIN_NOMEM;
   b->bytes = malloc(module_len);
   if (!b->bytes) {
     free(b);
-    return EXT_NOMEM;
+    return EXT_PLUGIN_NOMEM;
   }
   memcpy(b->bytes, module, module_len);
   b->len = module_len;
@@ -710,7 +710,7 @@ ext_status ext_wamr_backend_create(const uint8_t *module, size_t module_len,
   if (b->opt.memory_limit_pages > 65536u) {
     free(b->bytes);
     free(b);
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   }
   if (!b->opt.stack_size) b->opt.stack_size = DEFAULT_STACK;
   if (!b->opt.max_diagnostic_bytes) b->opt.max_diagnostic_bytes = DEFAULT_DIAGNOSTIC;
@@ -719,16 +719,16 @@ ext_status ext_wamr_backend_create(const uint8_t *module, size_t module_len,
   pthread_cond_init(&b->wake, NULL);
   atomic_init(&b->stop, 0);
   /* The backend hands the engine the reverse requests its guest makes. */
-  *out = (ext_backend_extension_context){sizeof(*out), EXT_BACKEND_FRAMES, b, connect_cb,
+  *out = (ext_plugin_backend_extension_context){sizeof(*out), EXT_PLUGIN_BACKEND_FRAMES, b, connect_cb,
                                          invoke_cb, close_cb, release_cb};
-  return EXT_OK;
+  return EXT_PLUGIN_OK;
 }
 
-ext_status ext_wamr_backend_bind_host(void *backend_user, ext_host *host) {
+ext_plugin_status ext_wamr_backend_bind_host(void *backend_user, ext_plugin_host *host) {
   backend *b = backend_user;
-  if (!b || !host) return EXT_INVALID;
+  if (!b || !host) return EXT_PLUGIN_INVALID;
   pthread_mutex_lock(&b->mu);
-  ext_status s = b->state == NEW && !b->host ? EXT_OK : EXT_INVALID;
+  ext_plugin_status s = b->state == NEW && !b->host ? EXT_PLUGIN_OK : EXT_PLUGIN_INVALID;
   if (!s) b->host = host;
   pthread_mutex_unlock(&b->mu);
   return s;

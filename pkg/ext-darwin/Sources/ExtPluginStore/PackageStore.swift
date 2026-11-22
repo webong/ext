@@ -32,15 +32,15 @@ public enum PackageStoreError: Error, Equatable {
     /// `status` of a `verify` or `listUnverified` entry.
     public init?(status: Int32) {
         switch status {
-        case ext_status(EXT_OK): return nil
-        case ext_status(EXT_INVALID): self = .invalid
-        case ext_status(EXT_DENIED): self = .denied
-        case ext_status(EXT_MISMATCH): self = .mismatch
-        case ext_status(EXT_UNSUPPORTED): self = .unsupported
-        case ext_status(EXT_NOT_FOUND): self = .notFound
-        case ext_status(EXT_EXISTS): self = .exists
-        case ext_status(EXT_MISSING): self = .missing
-        case ext_status(EXT_IO): self = .io
+        case ext_plugin_status(EXT_PLUGIN_OK): return nil
+        case ext_plugin_status(EXT_PLUGIN_INVALID): self = .invalid
+        case ext_plugin_status(EXT_PLUGIN_DENIED): self = .denied
+        case ext_plugin_status(EXT_PLUGIN_MISMATCH): self = .mismatch
+        case ext_plugin_status(EXT_PLUGIN_UNSUPPORTED): self = .unsupported
+        case ext_plugin_status(EXT_PLUGIN_NOT_FOUND): self = .notFound
+        case ext_plugin_status(EXT_PLUGIN_EXISTS): self = .exists
+        case ext_plugin_status(EXT_PLUGIN_MISSING): self = .missing
+        case ext_plugin_status(EXT_PLUGIN_IO): self = .io
         default: self = .engine(status)
         }
     }
@@ -70,8 +70,8 @@ public struct PackageStoreLimits: Equatable {
     /// The engine's bound on an archive file when `maxArchiveBytes` is zero.
     public static let defaultMaxArchiveBytes: UInt64 = 512 << 20
 
-    fileprivate var raw: ext_store_limits {
-        ext_store_limits(max_artifact_bytes: maxArtifactBytes, max_tree_files: maxTreeFiles, max_tree_bytes: maxTreeBytes)
+    fileprivate var raw: ext_plugin_store_limits {
+        ext_plugin_store_limits(max_artifact_bytes: maxArtifactBytes, max_tree_files: maxTreeFiles, max_tree_bytes: maxTreeBytes)
     }
 }
 
@@ -113,7 +113,7 @@ public struct ResolvedEntrypoint: Equatable, Decodable {
 
 /// The engine's package store: install, upgrade, replace, remove and load reviewed
 /// `ext.package/v1` packages under a root the application supplies (see `ext_store_*`
-/// in lib/plugin/include/ext_host.h). A package is its `plugin.json` manifest and the
+/// in lib/plugin/include/ext_plugin_host.h). A package is its `plugin.json` manifest and the
 /// artifacts it lists, in a directory named by the package id with `/` written `%2f`.
 /// The store copies and re-verifies content; it never runs it or grants authority, and
 /// it has no default location. A missing root is an empty store, made (owner-only) by
@@ -122,7 +122,7 @@ public struct ResolvedEntrypoint: Equatable, Decodable {
 ///
 /// Failures are `PackageStoreError`s. The whole-root reports (`list`, `verify`,
 /// `listUnverified`) return the engine's JSON as it is, as `load` returns `plugin.json`,
-/// so a caller decodes it with its own types; the shapes are in `ext_store_list`.
+/// so a caller decodes it with its own types; the shapes are in `ext_plugin_store_list`.
 public final class PackageStore: @unchecked Sendable {
     private let handle: OpaquePointer
     /// The store's limits, `maxArchiveBytes` included, as it was opened with them.
@@ -132,18 +132,18 @@ public final class PackageStore: @unchecked Sendable {
     public init(root: String, limits: PackageStoreLimits = PackageStoreLimits()) throws {
         var raw = limits.raw
         var opened: OpaquePointer?
-        try withEngineString(root) { try check(ext_store_open($0, &raw, &opened)) }
-        guard let opened else { throw PackageStoreError.engine(ext_status(EXT_NOMEM)) }
+        try withEngineString(root) { try check(ext_plugin_store_open($0, &raw, &opened)) }
+        guard let opened else { throw PackageStoreError.engine(ext_plugin_status(EXT_PLUGIN_NOMEM)) }
         handle = opened
         self.limits = limits
     }
 
-    deinit { ext_store_close(handle) }
+    deinit { ext_plugin_store_close(handle) }
 
-    private typealias Put = (OpaquePointer?, UnsafePointer<CChar>?, UInt32, UnsafeMutablePointer<ext_buffer>?) -> ext_status
+    private typealias Put = (OpaquePointer?, UnsafePointer<CChar>?, UInt32, UnsafeMutablePointer<ext_plugin_buffer>?) -> ext_plugin_status
 
     private func put(_ call: Put, _ source: String, _ preserveExecutable: Bool) throws -> Data {
-        let flags = preserveExecutable ? UInt32(EXT_STORE_PRESERVE_EXECUTABLE) : 0
+        let flags = preserveExecutable ? UInt32(EXT_PLUGIN_STORE_PRESERVE_EXECUTABLE) : 0
         return try withEngineString(source) { source in
             try output { call(handle, source, flags, $0) }
         }
@@ -155,20 +155,20 @@ public final class PackageStore: @unchecked Sendable {
     /// source stays so; entrypoints and executable files in trees always do.
     @discardableResult
     public func install(_ source: String, preserveExecutable: Bool = false) throws -> Data {
-        try put(ext_store_install, source, preserveExecutable)
+        try put(ext_plugin_store_install, source, preserveExecutable)
     }
 
     /// Replaces an installed package with a new revision of the same id and contracts.
     /// The previous installation survives any failure.
     @discardableResult
     public func upgrade(_ source: String, preserveExecutable: Bool = false) throws -> Data {
-        try put(ext_store_upgrade, source, preserveExecutable)
+        try put(ext_plugin_store_upgrade, source, preserveExecutable)
     }
 
     /// Installs or replaces the package of the source's id, whatever its contracts.
     @discardableResult
     public func replace(_ source: String, preserveExecutable: Bool = false) throws -> Data {
-        try put(ext_store_replace, source, preserveExecutable)
+        try put(ext_plugin_store_replace, source, preserveExecutable)
     }
 
     /// Installs the package in the archive file at `archive`, or upgrades the installed
@@ -195,17 +195,17 @@ public final class PackageStore: @unchecked Sendable {
     @discardableResult
     public func installArchive(_ archive: String, sha256: String, id: String? = nil,
                                preserveExecutable: Bool = false) throws -> Data {
-        let flags = preserveExecutable ? UInt32(EXT_STORE_PRESERVE_EXECUTABLE) : 0
+        let flags = preserveExecutable ? UInt32(EXT_PLUGIN_STORE_PRESERVE_EXECUTABLE) : 0
         let maxArchiveBytes = limits.maxArchiveBytes
         return try withEngineStrings([archive, sha256, id]) { s in
-            try output { ext_store_install_archive(handle, s[0], s[1], s[2], flags, maxArchiveBytes, $0) }
+            try output { ext_plugin_store_install_archive(handle, s[0], s[1], s[2], flags, maxArchiveBytes, $0) }
         }
     }
 
     /// The receipt the last archive install of `id` left. `PackageStoreError.notFound` when
     /// no archive install recorded one; `remove` deletes it.
     public func receipt(_ id: String) throws -> ArchiveReceipt {
-        let json = try withEngineString(id) { id in try output { ext_store_receipt(handle, id, $0) } }
+        let json = try withEngineString(id) { id in try output { ext_plugin_store_receipt(handle, id, $0) } }
         guard let receipt = try? JSONDecoder().decode(ArchiveReceipt.self, from: json) else {
             throw PackageStoreError.invalid
         }
@@ -214,19 +214,19 @@ public final class PackageStore: @unchecked Sendable {
 
     /// Deletes one installed package and its archive receipt.
     public func remove(_ id: String) throws {
-        try withEngineString(id) { try check(ext_store_remove(handle, $0)) }
+        try withEngineString(id) { try check(ext_plugin_store_remove(handle, $0)) }
     }
 
     /// Reads and verifies one installed package and returns its `plugin.json`.
     public func load(_ id: String) throws -> Data {
-        try withEngineString(id) { id in try output { ext_store_load(handle, id, $0) } }
+        try withEngineString(id) { id in try output { ext_plugin_store_load(handle, id, $0) } }
     }
 
     /// The installed package ids in byte order, without reading or verifying any
     /// package. Staging directories are skipped; any other entry that is not a package
     /// directory is `PackageStoreError.invalid`.
     public func ids() throws -> [String] {
-        let json = try output { ext_store_ids(handle, $0) }
+        let json = try output { ext_plugin_store_ids(handle, $0) }
         guard let ids = try? JSONDecoder().decode([String].self, from: json) else { throw PackageStoreError.invalid }
         return ids
     }
@@ -236,7 +236,7 @@ public final class PackageStore: @unchecked Sendable {
     /// as an embedded value. It fails with the status of the first entry that is not a
     /// package directory and of the first package that does not verify.
     public func list() throws -> Data {
-        try output { ext_store_list(handle, $0) }
+        try output { ext_plugin_store_list(handle, $0) }
     }
 
     /// Checks every entry without stopping at a bad one and returns a JSON array of
@@ -244,7 +244,7 @@ public final class PackageStore: @unchecked Sendable {
     /// gave (0 for verified; `PackageStoreError(status:)` names the rest). It runs
     /// nothing and changes nothing.
     public func verify() throws -> Data {
-        try output { ext_store_verify(handle, $0) }
+        try output { ext_plugin_store_verify(handle, $0) }
     }
 
     /// Reads only the manifests and checks them against their directory names; no
@@ -252,12 +252,12 @@ public final class PackageStore: @unchecked Sendable {
     /// or trusted as it stands. Returns `{"packages": [...], "problems": [...]}` as JSON;
     /// a package that cannot be read does not hide the others.
     public func listUnverified() throws -> Data {
-        try output { ext_store_list_unverified(handle, $0) }
+        try output { ext_plugin_store_list_unverified(handle, $0) }
     }
 
     /// Chooses the entrypoint the installed package `id` offers for `protocol` on a
-    /// platform, for a package the caller has reviewed (see `ext_store_resolve_entrypoint`
-    /// in lib/plugin/include/ext_host.h for the rules). The package is read and verified
+    /// platform, for a package the caller has reviewed (see `ext_plugin_store_resolve_entrypoint`
+    /// in lib/plugin/include/ext_plugin_host.h for the rules). The package is read and verified
     /// whole and must serve the exact `contract` and `version`; it is chosen only when its
     /// directory digest equals `reviewedDigest` (lowercase hex, as recorded at review), so
     /// an empty or changed digest is `PackageStoreError.denied` and an installed package is
@@ -269,7 +269,7 @@ public final class PackageStore: @unchecked Sendable {
                                   reviewedDigest: String, os: String? = nil,
                                   arch: String? = nil) throws -> ResolvedEntrypoint {
         let json = try withEngineStrings([id, contract, version, wireProtocol, reviewedDigest, os, arch]) { s in
-            try output { ext_store_resolve_entrypoint(handle, s[0], s[1], s[2], s[3], s[4], s[5], s[6], $0) }
+            try output { ext_plugin_store_resolve_entrypoint(handle, s[0], s[1], s[2], s[3], s[4], s[5], s[6], $0) }
         }
         guard let entrypoint = try? JSONDecoder().decode(ResolvedEntrypoint.self, from: json) else {
             throw PackageStoreError.invalid
@@ -309,51 +309,51 @@ public final class LayeredPackageStore: @unchecked Sendable {
         defer { owned.forEach { free($0) } }
         for root in roots {
             guard !root.utf8.contains(0) else { throw PackageStoreError.invalid }
-            guard let copy = strdup(root) else { throw PackageStoreError.engine(ext_status(EXT_NOMEM)) }
+            guard let copy = strdup(root) else { throw PackageStoreError.engine(ext_plugin_status(EXT_PLUGIN_NOMEM)) }
             owned.append(copy)
         }
         let pointers: [UnsafePointer<CChar>?] = owned.map { UnsafePointer($0) }
         var opened: OpaquePointer?
-        try check(ext_layered_open(pointers, pointers.count, &raw, &opened))
-        guard let opened else { throw PackageStoreError.engine(ext_status(EXT_NOMEM)) }
+        try check(ext_plugin_layered_open(pointers, pointers.count, &raw, &opened))
+        guard let opened else { throw PackageStoreError.engine(ext_plugin_status(EXT_PLUGIN_NOMEM)) }
         handle = opened
     }
 
-    deinit { ext_layered_close(handle) }
+    deinit { ext_plugin_layered_close(handle) }
 
     /// Reads and verifies the package from the first root that holds `id` and returns its
     /// `plugin.json` and the position of that root. `PackageStoreError.notFound` means no
     /// root holds it.
     public func load(_ id: String) throws -> ServedPackage {
         var layer = 0
-        let manifest = try withEngineString(id) { id in try output { ext_layered_load(handle, id, $0, &layer) } }
+        let manifest = try withEngineString(id) { id in try output { ext_plugin_layered_load(handle, id, $0, &layer) } }
         return ServedPackage(manifest: manifest, layer: layer)
     }
 
     /// As `PackageStore.list` over every root, one line per id from the root that serves it.
     public func list() throws -> Data {
-        try output { ext_layered_list(handle, $0) }
+        try output { ext_plugin_layered_list(handle, $0) }
     }
 
     /// As `PackageStore.verify` over every root.
     public func verify() throws -> Data {
-        try output { ext_layered_verify(handle, $0) }
+        try output { ext_plugin_layered_verify(handle, $0) }
     }
 
     /// As `PackageStore.listUnverified` over every root; the result is unverified.
     public func listUnverified() throws -> Data {
-        try output { ext_layered_list_unverified(handle, $0) }
+        try output { ext_plugin_layered_list_unverified(handle, $0) }
     }
 }
 
-private func check(_ status: ext_status) throws {
+private func check(_ status: ext_plugin_status) throws {
     if let error = PackageStoreError(status: status) { throw error }
 }
 
 /// Runs `call` with an output buffer, takes its bytes and frees the engine's copy.
-private func output(_ call: (UnsafeMutablePointer<ext_buffer>) -> ext_status) throws -> Data {
-    var out = ext_buffer(data: nil, len: 0)
-    defer { ext_buffer_free(&out) }
+private func output(_ call: (UnsafeMutablePointer<ext_plugin_buffer>) -> ext_plugin_status) throws -> Data {
+    var out = ext_plugin_buffer(data: nil, len: 0)
+    defer { ext_plugin_buffer_free(&out) }
     try check(call(&out))
     guard let bytes = out.data else { return Data() }
     return Data(bytes: bytes, count: out.len)

@@ -6,8 +6,8 @@
 
 typedef struct {
   int (*is_absolute)(const char *);
-  ext_status (*open)(const ext_launch *, ext_channel **);
-  ext_status (*wait)(ext_channel *, int, int);
+  ext_plugin_status (*open)(const ext_launch *, ext_channel **);
+  ext_plugin_status (*wait)(ext_channel *, int, int);
   ptrdiff_t (*read)(ext_channel *, uint8_t *, size_t);
   ptrdiff_t (*write)(ext_channel *, const uint8_t *, size_t);
   void (*kill)(ext_channel *);
@@ -19,10 +19,10 @@ const ext_channel_ops *ext_channel_ops_table;
 #define ops (*ext_channel_ops_table)
 
 int ext_path_is_absolute(const char *path) { return ops.is_absolute(path); }
-ext_status ext_channel_open(const ext_launch *launch, ext_channel **out) {
+ext_plugin_status ext_channel_open(const ext_launch *launch, ext_channel **out) {
   return ops.open(launch, out);
 }
-ext_status ext_channel_wait(ext_channel *c, int write, int timeout_ms) {
+ext_plugin_status ext_channel_wait(ext_channel *c, int write, int timeout_ms) {
   return ops.wait(c, write, timeout_ms);
 }
 ptrdiff_t ext_channel_read(ext_channel *c, uint8_t *buffer, size_t length) {

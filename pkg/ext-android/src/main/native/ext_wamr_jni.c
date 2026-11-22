@@ -6,7 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "ext_host.h"
+#include "ext_plugin_host.h"
 #include "ext_wamr.h"
 
 #define CLASS "io/github/webong/ext/plugin/"
@@ -22,7 +22,7 @@ typedef struct {
 } binding;
 
 typedef struct {
-  ext_host *host;
+  ext_plugin_host *host;
   binding *b;
 } session;
 
@@ -41,12 +41,12 @@ static JNIEnv *attach(JavaVM *vm, int *attached) {
   return env;
 }
 
-static void throw_status(JNIEnv *env, ext_status status) {
+static void throw_status(JNIEnv *env, ext_plugin_status status) {
   jclass cls = (*env)->FindClass(env, CLASS "WamrException");
   if (!cls) return;
   jmethodID ctor = (*env)->GetMethodID(env, cls, "<init>", "(ILjava/lang/String;)V");
   if (!ctor) return;
-  jstring reason = (*env)->NewStringUTF(env, ext_host_status_string(status));
+  jstring reason = (*env)->NewStringUTF(env, ext_plugin_host_status_string(status));
   jobject e = (*env)->NewObject(env, cls, ctor, (jint)status, reason);
   if (e) (*env)->Throw(env, (jthrowable)e);
 }
@@ -61,15 +61,15 @@ static jbyteArray to_java(JNIEnv *env, const uint8_t *data, size_t len) {
 static int32_t policy(binding *b, jmethodID method, const uint8_t *json, size_t len) {
   int attached;
   JNIEnv *env = attach(b->vm, &attached);
-  if (!env) return EXT_DENIED;
-  int32_t result = EXT_DENIED;
+  if (!env) return EXT_PLUGIN_DENIED;
+  int32_t result = EXT_PLUGIN_DENIED;
   jbyteArray in = to_java(env, json, len);
   if (in) {
     jboolean allowed = (*env)->CallBooleanMethod(env, b->owner, method, in);
     if ((*env)->ExceptionCheck(env)) {
       (*env)->ExceptionClear(env);
     } else if (allowed) {
-      result = EXT_OK;
+      result = EXT_PLUGIN_OK;
     }
     (*env)->DeleteLocalRef(env, in);
   }
@@ -106,22 +106,22 @@ typedef struct {
   size_t len;
 } collector;
 
-static ext_status collect(void *context, const uint8_t *data, size_t len) {
+static ext_plugin_status collect(void *context, const uint8_t *data, size_t len) {
   collector *c = context;
   uint8_t *grown = realloc(c->data, c->len + len + 1);
-  if (!grown) return EXT_NOMEM;
+  if (!grown) return EXT_PLUGIN_NOMEM;
   memcpy(grown + c->len, data, len);
   c->data = grown;
   c->len += len;
-  return EXT_OK;
+  return EXT_PLUGIN_OK;
 }
 
-static ext_status make_backend(JNIEnv *env, jbyteArray module, jint memory_pages, jint stack,
+static ext_plugin_status make_backend(JNIEnv *env, jbyteArray module, jint memory_pages, jint stack,
                                jlong instruction_limit, jint max_diagnostic, binding *b,
-                               ext_backend_extension_context *out) {
+                               ext_plugin_backend_extension_context *out) {
   jsize n = (*env)->GetArrayLength(env, module);
   uint8_t *bytes = malloc(n ? (size_t)n : 1);
-  if (!bytes) return EXT_NOMEM;
+  if (!bytes) return EXT_PLUGIN_NOMEM;
   (*env)->GetByteArrayRegion(env, module, 0, n, (jbyte *)bytes);
   ext_wamr_options options;
   memset(&options, 0, sizeof options);
@@ -134,7 +134,7 @@ static ext_status make_backend(JNIEnv *env, jbyteArray module, jint memory_pages
     options.diagnostic = diagnostic_sink;
     options.diagnostic_user = b;
   }
-  ext_status status = ext_wamr_backend_create(bytes, (size_t)n, &options, out);
+  ext_plugin_status status = ext_wamr_backend_create(bytes, (size_t)n, &options, out);
   free(bytes); /* the backend copies the module */
   return status;
 }
@@ -177,11 +177,11 @@ JNIEXPORT jlong JNICALL Java_io_github_webong_ext_plugin_WamrNative_create(
     return 0; /* a pending Java exception, if any, propagates */
   }
   s->b = b;
-  ext_backend_extension_context backend;
+  ext_plugin_backend_extension_context backend;
   memset(&backend, 0, sizeof backend);
-  ext_status status = make_backend(env, module, memory_pages, stack, instruction_limit,
+  ext_plugin_status status = make_backend(env, module, memory_pages, stack, instruction_limit,
                                    max_diagnostic, want_diagnostic ? b : NULL, &backend);
-  if (status != EXT_OK) {
+  if (status != EXT_PLUGIN_OK) {
     free_binding(env, b);
     free(s);
     throw_status(env, status);
@@ -193,24 +193,24 @@ JNIEXPORT jlong JNICALL Java_io_github_webong_ext_plugin_WamrNative_create(
     if (backend.release) backend.release(backend.user);
     free_binding(env, b);
     free(s);
-    throw_status(env, EXT_NOMEM);
+    throw_status(env, EXT_PLUGIN_NOMEM);
     return 0;
   }
   (*env)->GetByteArrayRegion(env, descriptor, 0, n, (jbyte *)text);
-  ext_host_options host_options;
+  ext_plugin_host_options host_options;
   memset(&host_options, 0, sizeof host_options);
-  host_options.abi_version = EXT_HOST_ABI_VERSION;
+  host_options.abi_version = EXT_PLUGIN_HOST_ABI_VERSION;
   host_options.struct_size = sizeof host_options;
   host_options.descriptor = text;
   host_options.descriptor_len = (size_t)n;
   host_options.verify = verify_policy;
   host_options.authorize = authorize_policy;
   host_options.user = b;
-  ext_backend_options selected = {sizeof selected, EXT_BACKEND_EXTENSION_CONTEXT, &backend,
+  ext_plugin_backend_options selected = {sizeof selected, EXT_PLUGIN_BACKEND_EXTENSION_CONTEXT, &backend,
                                   sizeof backend};
-  status = ext_host_create(&host_options, &selected, &s->host);
+  status = ext_plugin_host_create(&host_options, &selected, &s->host);
   free(text); /* the engine copies the descriptor */
-  if (status != EXT_OK) {
+  if (status != EXT_PLUGIN_OK) {
     if (backend.release) backend.release(backend.user);
     free_binding(env, b);
     free(s);
@@ -219,8 +219,8 @@ JNIEXPORT jlong JNICALL Java_io_github_webong_ext_plugin_WamrNative_create(
   }
   /* The guest may call its host (ext_plugin.reverse); serve or attach say how. */
   status = ext_wamr_backend_bind_host(backend.user, s->host);
-  if (status != EXT_OK) {
-    ext_host_destroy(s->host);
+  if (status != EXT_PLUGIN_OK) {
+    ext_plugin_host_destroy(s->host);
     free_binding(env, b);
     free(s);
     throw_status(env, status);
@@ -229,13 +229,13 @@ JNIEXPORT jlong JNICALL Java_io_github_webong_ext_plugin_WamrNative_create(
   return (jlong)(intptr_t)s;
 }
 
-static ext_host *host_of(jlong handle) { return ((session *)(intptr_t)handle)->host; }
+static ext_plugin_host *host_of(jlong handle) { return ((session *)(intptr_t)handle)->host; }
 
 JNIEXPORT void JNICALL Java_io_github_webong_ext_plugin_WamrNative_start(
     JNIEnv *env, jclass cls, jlong handle, jint timeout_ms) {
   (void)cls;
-  ext_status status = ext_host_start(host_of(handle), (uint32_t)timeout_ms);
-  if (status != EXT_OK) throw_status(env, status);
+  ext_plugin_status status = ext_plugin_host_start(host_of(handle), (uint32_t)timeout_ms);
+  if (status != EXT_PLUGIN_OK) throw_status(env, status);
 }
 
 JNIEXPORT jbyteArray JNICALL Java_io_github_webong_ext_plugin_WamrNative_invoke(
@@ -244,20 +244,20 @@ JNIEXPORT jbyteArray JNICALL Java_io_github_webong_ext_plugin_WamrNative_invoke(
   jsize n = (*env)->GetArrayLength(env, request);
   uint8_t *in = malloc(n ? (size_t)n : 1);
   if (!in) {
-    throw_status(env, EXT_NOMEM);
+    throw_status(env, EXT_PLUGIN_NOMEM);
     return NULL;
   }
   (*env)->GetByteArrayRegion(env, request, 0, n, (jbyte *)in);
-  ext_buffer out = {0};
-  ext_status status = ext_host_invoke(host_of(handle), in, (size_t)n, (uint32_t)timeout_ms, &out);
+  ext_plugin_buffer out = {0};
+  ext_plugin_status status = ext_plugin_host_invoke(host_of(handle), in, (size_t)n, (uint32_t)timeout_ms, &out);
   free(in);
-  if (status != EXT_OK) {
-    ext_buffer_free(&out);
+  if (status != EXT_PLUGIN_OK) {
+    ext_plugin_buffer_free(&out);
     throw_status(env, status);
     return NULL;
   }
   jbyteArray result = to_java(env, out.data, out.len);
-  ext_buffer_free(&out);
+  ext_plugin_buffer_free(&out);
   return result;
 }
 
@@ -265,7 +265,7 @@ JNIEXPORT void JNICALL Java_io_github_webong_ext_plugin_WamrNative_close(
     JNIEnv *env, jclass cls, jlong handle) {
   (void)env;
   (void)cls;
-  ext_host_close(host_of(handle));
+  ext_plugin_host_close(host_of(handle));
 }
 
 JNIEXPORT void JNICALL Java_io_github_webong_ext_plugin_WamrNative_destroy(
@@ -273,7 +273,7 @@ JNIEXPORT void JNICALL Java_io_github_webong_ext_plugin_WamrNative_destroy(
   (void)cls;
   session *s = (session *)(intptr_t)handle;
   if (!s) return;
-  ext_host_destroy(s->host);
+  ext_plugin_host_destroy(s->host);
   free_binding(env, s->b);
   free(s);
 }
@@ -282,22 +282,22 @@ JNIEXPORT jbyteArray JNICALL Java_io_github_webong_ext_plugin_WamrNative_inspect
     JNIEnv *env, jclass cls, jbyteArray module, jint memory_pages, jint stack,
     jlong instruction_limit, jint timeout_ms) {
   (void)cls;
-  ext_backend_extension_context backend;
+  ext_plugin_backend_extension_context backend;
   memset(&backend, 0, sizeof backend);
-  ext_status status = make_backend(env, module, memory_pages, stack, instruction_limit, 0, NULL, &backend);
-  if (status != EXT_OK) {
+  ext_plugin_status status = make_backend(env, module, memory_pages, stack, instruction_limit, 0, NULL, &backend);
+  if (status != EXT_PLUGIN_OK) {
     throw_status(env, status);
     return NULL;
   }
   collector c = {0};
-  ext_call_options call;
+  ext_plugin_call_options call;
   memset(&call, 0, sizeof call);
   call.struct_size = sizeof call;
   call.timeout_ms = (uint32_t)timeout_ms;
-  status = backend.connect ? backend.connect(backend.user, &call, collect, &c) : EXT_UNSUPPORTED;
+  status = backend.connect ? backend.connect(backend.user, &call, collect, &c) : EXT_PLUGIN_UNSUPPORTED;
   if (backend.close) backend.close(backend.user);
   if (backend.release) backend.release(backend.user);
-  if (status != EXT_OK) {
+  if (status != EXT_PLUGIN_OK) {
     free(c.data);
     throw_status(env, status);
     return NULL;
@@ -310,20 +310,20 @@ JNIEXPORT jbyteArray JNICALL Java_io_github_webong_ext_plugin_WamrNative_inspect
 /* ---- reverse calls and the guest registry ---- */
 
 /* The hooks run on the thread inside invoke or call, which is a Java thread. */
-static int32_t reverse_authorize_cb(void *user, const ext_call_options *o, const uint8_t *json, size_t len) {
+static int32_t reverse_authorize_cb(void *user, const ext_plugin_call_options *o, const uint8_t *json, size_t len) {
   (void)o;
   binding *b = user;
-  return policy(b, b->reverse_authorize, json, len) == EXT_OK ? 0 : 1;
+  return policy(b, b->reverse_authorize, json, len) == EXT_PLUGIN_OK ? 0 : 1;
 }
 
-static ext_status reverse_handle_cb(void *user, const ext_call_options *o, const uint8_t *json, size_t len,
-                                    ext_reverse_emit emit, void *sink) {
+static ext_plugin_status reverse_handle_cb(void *user, const ext_plugin_call_options *o, const uint8_t *json, size_t len,
+                                    ext_plugin_reverse_emit emit, void *sink) {
   (void)o;
   binding *b = user;
   int attached;
   JNIEnv *env = attach(b->vm, &attached);
-  if (!env) return EXT_IO;
-  ext_status result = EXT_IO; /* the guest sees operation_failed */
+  if (!env) return EXT_PLUGIN_IO;
+  ext_plugin_status result = EXT_PLUGIN_IO; /* the guest sees operation_failed */
   jbyteArray in = to_java(env, json, len);
   if (in) {
     jbyteArray reply = (jbyteArray)(*env)->CallObjectMethod(env, b->owner, b->reverse_handle, in);
@@ -333,7 +333,7 @@ static ext_status reverse_handle_cb(void *user, const ext_call_options *o, const
       jsize n = (*env)->GetArrayLength(env, reply);
       jbyte *bytes = n > 0 ? (*env)->GetByteArrayElements(env, reply, NULL) : NULL;
       if (bytes) {
-        uint32_t kind = bytes[0] ? EXT_HOST_REVERSE_PUBLIC_ERROR : EXT_HOST_REVERSE_PAYLOAD;
+        uint32_t kind = bytes[0] ? EXT_PLUGIN_HOST_REVERSE_PUBLIC_ERROR : EXT_PLUGIN_HOST_REVERSE_PAYLOAD;
         result = emit(sink, kind, (const uint8_t *)bytes + 1, (size_t)n - 1);
         (*env)->ReleaseByteArrayElements(env, reply, bytes, JNI_ABORT);
       }
@@ -345,8 +345,8 @@ static ext_status reverse_handle_cb(void *user, const ext_call_options *o, const
   return result;
 }
 
-static ext_host_services services_of(binding *b, jint timeout_ms, jint max_payload, jint max_in_flight, int handle) {
-  ext_host_services services;
+static ext_plugin_host_services services_of(binding *b, jint timeout_ms, jint max_payload, jint max_in_flight, int handle) {
+  ext_plugin_host_services services;
   memset(&services, 0, sizeof services);
   services.struct_size = sizeof services;
   services.user = b;
@@ -362,18 +362,18 @@ JNIEXPORT void JNICALL Java_io_github_webong_ext_plugin_WamrNative_serve(
     JNIEnv *env, jclass cls, jlong handle, jint timeout_ms, jint max_payload, jint max_in_flight) {
   (void)cls;
   session *s = (session *)(intptr_t)handle;
-  ext_host_services services = services_of(s->b, timeout_ms, max_payload, max_in_flight, 1);
-  ext_status status = ext_host_set_services(s->host, &services);
-  if (status != EXT_OK) throw_status(env, status);
+  ext_plugin_host_services services = services_of(s->b, timeout_ms, max_payload, max_in_flight, 1);
+  ext_plugin_status status = ext_plugin_host_set_services(s->host, &services);
+  if (status != EXT_PLUGIN_OK) throw_status(env, status);
 }
 
 JNIEXPORT void JNICALL Java_io_github_webong_ext_plugin_WamrNative_attach(
     JNIEnv *env, jclass cls, jlong registry, jlong handle, jint timeout_ms, jint max_payload, jint max_in_flight) {
   (void)cls;
   session *s = (session *)(intptr_t)handle;
-  ext_host_services services = services_of(s->b, timeout_ms, max_payload, max_in_flight, 0);
-  ext_status status = ext_registry_attach((ext_registry *)(intptr_t)registry, s->host, &services);
-  if (status != EXT_OK) throw_status(env, status);
+  ext_plugin_host_services services = services_of(s->b, timeout_ms, max_payload, max_in_flight, 0);
+  ext_plugin_status status = ext_plugin_registry_attach((ext_plugin_registry *)(intptr_t)registry, s->host, &services);
+  if (status != EXT_PLUGIN_OK) throw_status(env, status);
 }
 
 JNIEXPORT jbyteArray JNICALL Java_io_github_webong_ext_plugin_WamrNative_call(
@@ -382,32 +382,32 @@ JNIEXPORT jbyteArray JNICALL Java_io_github_webong_ext_plugin_WamrNative_call(
   jsize n = (*env)->GetArrayLength(env, input);
   uint8_t *in = malloc(n ? (size_t)n : 1);
   if (!in) {
-    throw_status(env, EXT_NOMEM);
+    throw_status(env, EXT_PLUGIN_NOMEM);
     return NULL;
   }
   (*env)->GetByteArrayRegion(env, input, 0, n, (jbyte *)in);
-  ext_call_options options;
+  ext_plugin_call_options options;
   memset(&options, 0, sizeof options);
   options.struct_size = sizeof options;
   options.timeout_ms = (uint32_t)timeout_ms;
-  ext_buffer out = {0};
-  ext_status status = ext_host_call(host_of(handle), in, (size_t)n, &options, &out);
+  ext_plugin_buffer out = {0};
+  ext_plugin_status status = ext_plugin_host_call(host_of(handle), in, (size_t)n, &options, &out);
   free(in);
-  if (status != EXT_OK) {
-    ext_buffer_free(&out);
+  if (status != EXT_PLUGIN_OK) {
+    ext_plugin_buffer_free(&out);
     throw_status(env, status);
     return NULL;
   }
   jbyteArray result = to_java(env, out.data, out.len);
-  ext_buffer_free(&out);
+  ext_plugin_buffer_free(&out);
   return result;
 }
 
 JNIEXPORT jlong JNICALL Java_io_github_webong_ext_plugin_WamrNative_registryCreate(JNIEnv *env, jclass cls) {
   (void)cls;
-  ext_registry *r = NULL;
-  ext_status status = ext_registry_create(&r);
-  if (status != EXT_OK) {
+  ext_plugin_registry *r = NULL;
+  ext_plugin_status status = ext_plugin_registry_create(&r);
+  if (status != EXT_PLUGIN_OK) {
     throw_status(env, status);
     return 0;
   }
@@ -417,7 +417,7 @@ JNIEXPORT jlong JNICALL Java_io_github_webong_ext_plugin_WamrNative_registryCrea
 JNIEXPORT void JNICALL Java_io_github_webong_ext_plugin_WamrNative_registryDestroy(JNIEnv *env, jclass cls, jlong registry) {
   (void)env;
   (void)cls;
-  ext_registry_destroy((ext_registry *)(intptr_t)registry);
+  ext_plugin_registry_destroy((ext_plugin_registry *)(intptr_t)registry);
 }
 
 /* A Java String as modified UTF-8 is not UTF-8 for supplementary characters, but names are
@@ -426,20 +426,20 @@ JNIEXPORT void JNICALL Java_io_github_webong_ext_plugin_WamrNative_registryRegis
     JNIEnv *env, jclass cls, jlong registry, jstring name, jstring version, jlong handle) {
   (void)cls;
   const char *n = (*env)->GetStringUTFChars(env, name, NULL), *v = (*env)->GetStringUTFChars(env, version, NULL);
-  ext_status status = n && v ? ext_registry_register((ext_registry *)(intptr_t)registry, n, v, host_of(handle)) : EXT_NOMEM;
+  ext_plugin_status status = n && v ? ext_plugin_registry_register((ext_plugin_registry *)(intptr_t)registry, n, v, host_of(handle)) : EXT_PLUGIN_NOMEM;
   if (n) (*env)->ReleaseStringUTFChars(env, name, n);
   if (v) (*env)->ReleaseStringUTFChars(env, version, v);
-  if (status != EXT_OK) throw_status(env, status);
+  if (status != EXT_PLUGIN_OK) throw_status(env, status);
 }
 
 JNIEXPORT void JNICALL Java_io_github_webong_ext_plugin_WamrNative_registryUnregister(
     JNIEnv *env, jclass cls, jlong registry, jstring name, jstring version) {
   (void)cls;
   const char *n = (*env)->GetStringUTFChars(env, name, NULL), *v = (*env)->GetStringUTFChars(env, version, NULL);
-  ext_status status = n && v ? ext_registry_unregister((ext_registry *)(intptr_t)registry, n, v) : EXT_NOMEM;
+  ext_plugin_status status = n && v ? ext_plugin_registry_unregister((ext_plugin_registry *)(intptr_t)registry, n, v) : EXT_PLUGIN_NOMEM;
   if (n) (*env)->ReleaseStringUTFChars(env, name, n);
   if (v) (*env)->ReleaseStringUTFChars(env, version, v);
-  if (status != EXT_OK) throw_status(env, status);
+  if (status != EXT_PLUGIN_OK) throw_status(env, status);
 }
 
 JNIEXPORT void JNICALL Java_io_github_webong_ext_plugin_WamrNative_registryRoute(
@@ -447,18 +447,18 @@ JNIEXPORT void JNICALL Java_io_github_webong_ext_plugin_WamrNative_registryRoute
   (void)cls;
   const char *text[6] = {0};
   jstring strings[6] = {0};
-  ext_status status = (*env)->GetArrayLength(env, names) == 6 ? EXT_OK : EXT_INVALID;
+  ext_plugin_status status = (*env)->GetArrayLength(env, names) == 6 ? EXT_PLUGIN_OK : EXT_PLUGIN_INVALID;
   for (int i = 0; i < 6 && !status; i++) {
     strings[i] = (jstring)(*env)->GetObjectArrayElement(env, names, i);
-    if (!strings[i] || !(text[i] = (*env)->GetStringUTFChars(env, strings[i], NULL))) status = EXT_INVALID;
+    if (!strings[i] || !(text[i] = (*env)->GetStringUTFChars(env, strings[i], NULL))) status = EXT_PLUGIN_INVALID;
   }
   if (!status) {
-    ext_registry_edge edge = {sizeof edge, text[0], text[1], text[2], text[3], text[4], text[5]};
-    status = ext_registry_route((ext_registry *)(intptr_t)registry, &edge);
+    ext_plugin_registry_edge edge = {sizeof edge, text[0], text[1], text[2], text[3], text[4], text[5]};
+    status = ext_plugin_registry_route((ext_plugin_registry *)(intptr_t)registry, &edge);
   }
   for (int i = 0; i < 6; i++) {
     if (text[i]) (*env)->ReleaseStringUTFChars(env, strings[i], text[i]);
     if (strings[i]) (*env)->DeleteLocalRef(env, strings[i]);
   }
-  if (status != EXT_OK) throw_status(env, status);
+  if (status != EXT_PLUGIN_OK) throw_status(env, status);
 }

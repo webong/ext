@@ -277,13 +277,13 @@ static struct {
   char request[4096];
   uint32_t timeout_ms;
   const void *value;
-  const ext_cancel *cancel;
+  const ext_plugin_cancel *cancel;
   int cancel_signaled_at_start;
   int sleep_ms;
   int gate_open;
 } seen;
 static int token, session_token;
-/* EXT_HOST_REVERSE_CALLER_THREAD tests: the mode open_host sets, and whether a
+/* EXT_PLUGIN_HOST_REVERSE_CALLER_THREAD tests: the mode open_host sets, and whether a
  * hook ran on a thread other than the test's own. */
 static uint32_t reverse_mode;
 #ifdef _MSC_VER
@@ -319,7 +319,7 @@ static int wait_until(int *counter, int want) {
   return seen_count(counter) >= want;
 }
 
-static int32_t authorize(void *user, const ext_call_options *o,
+static int32_t authorize(void *user, const ext_plugin_call_options *o,
                          const uint8_t *json, size_t len) {
   (void)user;
   pthread_mutex_lock(&seen_mu);
@@ -330,20 +330,20 @@ static int32_t authorize(void *user, const ext_call_options *o,
   seen.timeout_ms = o->timeout_ms;
   seen.value = o->value;
   seen.cancel = o->cancel;
-  seen.cancel_signaled_at_start = ext_cancel_is_signaled(o->cancel);
+  seen.cancel_signaled_at_start = ext_plugin_cancel_is_signaled(o->cancel);
   off_thread += !on_test_thread;
   int deny = strstr(seen.request, "\"operation\":\"secret\"") != NULL;
   pthread_mutex_unlock(&seen_mu);
   return deny;
 }
-static void spin_until(const ext_call_options *o, int64_t ns, const int *flag) {
+static void spin_until(const ext_plugin_call_options *o, int64_t ns, const int *flag) {
   int64_t until = ext_mono_ns() + ns;
-  while (ext_mono_ns() < until && !ext_cancel_is_signaled(o->cancel) &&
+  while (ext_mono_ns() < until && !ext_plugin_cancel_is_signaled(o->cancel) &&
          !(flag && seen_count((int *)flag)))
     ;
 }
-static ext_status handle(void *user, const ext_call_options *o,
-                         const uint8_t *json, size_t len, ext_reverse_emit emit,
+static ext_plugin_status handle(void *user, const ext_plugin_call_options *o,
+                         const uint8_t *json, size_t len, ext_plugin_reverse_emit emit,
                          void *sink) {
   (void)user;
   char text[4096];
@@ -357,19 +357,19 @@ static ext_status handle(void *user, const ext_call_options *o,
   pthread_mutex_unlock(&seen_mu);
   const char *operation = strstr(text, "\"operation\":\"") + 13;
 #define IS(name) (!strncmp(operation, name "\"", strlen(name) + 1))
-#define PAYLOAD(s) emit(sink, EXT_HOST_REVERSE_PAYLOAD, (const uint8_t *)(s), strlen(s))
-#define FAIL(s) emit(sink, EXT_HOST_REVERSE_PUBLIC_ERROR, (const uint8_t *)(s), strlen(s))
+#define PAYLOAD(s) emit(sink, EXT_PLUGIN_HOST_REVERSE_PAYLOAD, (const uint8_t *)(s), strlen(s))
+#define FAIL(s) emit(sink, EXT_PLUGIN_HOST_REVERSE_PUBLIC_ERROR, (const uint8_t *)(s), strlen(s))
   if (IS("sign")) {
     if (sleep_ms) /* the answer is late: the next call can overtake it */
       spin_until(o, (int64_t)sleep_ms * 1000000, NULL);
     return PAYLOAD("\"signed\"");
   }
   if (IS("empty"))
-    return emit(sink, EXT_HOST_REVERSE_PAYLOAD, NULL, 0);
+    return emit(sink, EXT_PLUGIN_HOST_REVERSE_PAYLOAD, NULL, 0);
   if (IS("fail"))
-    return EXT_IO;
+    return EXT_PLUGIN_IO;
   if (IS("none"))
-    return EXT_OK;
+    return EXT_PLUGIN_OK;
   if (IS("twice")) {
     (void)PAYLOAD("1");
     return PAYLOAD("2");
@@ -410,36 +410,36 @@ static ext_status handle(void *user, const ext_call_options *o,
     /* Runs until the engine says the call ended or the host closed. */
     spin_until(o, 5000000000LL, NULL);
     pthread_mutex_lock(&seen_mu);
-    seen.canceled_in_hook = ext_cancel_is_signaled(o->cancel);
+    seen.canceled_in_hook = ext_plugin_cancel_is_signaled(o->cancel);
     pthread_mutex_unlock(&seen_mu);
     return PAYLOAD("\"too late\"");
   }
-  return EXT_UNSUPPORTED;
+  return EXT_PLUGIN_UNSUPPORTED;
 }
 
-static ext_status open_host(const char *mode, int services, uint32_t timeout_ms,
-                            uint32_t max_payload, ext_host **out) {
+static ext_plugin_status open_host(const char *mode, int services, uint32_t timeout_ms,
+                            uint32_t max_payload, ext_plugin_host **out) {
   const char *args[] = {"--guest", mode};
-  ext_jsonline_process_launch launch = {sizeof(launch), self, args, 2,
+  ext_plugin_jsonline_process_launch launch = {sizeof(launch), self, args, 2,
                                         NULL,           0,    NULL, 0};
-  ext_backend_options backend = {sizeof(backend),
-                                 EXT_BACKEND_JSONLINE_PROCESS_LAUNCH, &launch,
+  ext_plugin_backend_options backend = {sizeof(backend),
+                                 EXT_PLUGIN_BACKEND_JSONLINE_PROCESS_LAUNCH, &launch,
                                  sizeof(launch)};
-  ext_host_options options = {EXT_HOST_ABI_VERSION,
+  ext_plugin_host_options options = {EXT_PLUGIN_HOST_ABI_VERSION,
                               sizeof(options),
                               (const uint8_t *)DESCRIPTOR,
                               strlen(DESCRIPTOR),
                               allow,
                               allow,
                               NULL};
-  ext_status s = ext_host_create(&options, &backend, out);
+  ext_plugin_status s = ext_plugin_host_create(&options, &backend, out);
   if (s) {
     fprintf(stderr, "create %s: %s (executable %s)\n", mode,
-            ext_host_status_string(s), self);
+            ext_plugin_host_status_string(s), self);
     return s;
   }
   if (services) {
-    ext_host_services configured = {sizeof(configured),
+    ext_plugin_host_services configured = {sizeof(configured),
                                     NULL,
                                     authorize,
                                     handle,
@@ -447,20 +447,20 @@ static ext_status open_host(const char *mode, int services, uint32_t timeout_ms,
                                     max_payload,
                                     0,
                                     &session_token};
-    s = ext_host_set_services(*out, &configured);
-    assert(s == EXT_OK);
+    s = ext_plugin_host_set_services(*out, &configured);
+    assert(s == EXT_PLUGIN_OK);
   }
-  assert(ext_host_set_reverse_mode(*out, reverse_mode) == EXT_OK);
+  assert(ext_plugin_host_set_reverse_mode(*out, reverse_mode) == EXT_PLUGIN_OK);
   reset_seen();
-  s = ext_host_start(*out, 5000);
+  s = ext_plugin_host_start(*out, 5000);
   if (s && strncmp(mode, "hello", 5)) {
     uint8_t text[512];
     size_t n = 0;
-    if (ext_host_process_stderr(*out, text, sizeof(text) - 1, &n) != EXT_OK)
+    if (ext_plugin_host_process_stderr(*out, text, sizeof(text) - 1, &n) != EXT_PLUGIN_OK)
       n = 0;
     text[n] = 0;
     fprintf(stderr, "start %s: %s (executable %s); child stderr: %s\n", mode,
-            ext_host_status_string(s), self, (const char *)text);
+            ext_plugin_host_status_string(s), self, (const char *)text);
   }
   return s;
 }
@@ -475,73 +475,73 @@ static void collect(void *user, const uint8_t *json, size_t len) {
   e->text[e->count++][len] = 0;
 }
 /* Calls "run" once and returns its status; the response body is in body. */
-static ext_status call(ext_host *h, char *body, size_t size, events *e) {
+static ext_plugin_status call(ext_plugin_host *h, char *body, size_t size, events *e) {
   const char *request =
       "{\"contract\":{\"name\":\"reverse.test\",\"version\":\"v1\"},"
       "\"operation\":\"run\",\"payload\":{}}";
-  ext_call_options options = {sizeof(options), 5000, NULL, &token};
-  ext_progress_options progress = {sizeof(progress), e ? collect : NULL, e, 0,
+  ext_plugin_call_options options = {sizeof(options), 5000, NULL, &token};
+  ext_plugin_progress_options progress = {sizeof(progress), e ? collect : NULL, e, 0,
                                    0};
-  ext_buffer out = {0};
-  ext_status s = ext_host_call_progress(
+  ext_plugin_buffer out = {0};
+  ext_plugin_status s = ext_plugin_host_call_progress(
       h, (const uint8_t *)request, strlen(request), &options, &progress, &out);
-  if (s && s != EXT_PROTOCOL && s != EXT_CLOSED && s != EXT_IO) {
+  if (s && s != EXT_PLUGIN_PROTOCOL && s != EXT_PLUGIN_CLOSED && s != EXT_PLUGIN_IO) {
     /* A failure a test does not expect says why, since a CI log is all there is. */
     uint8_t text[256];
     size_t n = 0;
-    if (ext_host_process_stderr(h, text, sizeof(text) - 1, &n) != EXT_OK)
+    if (ext_plugin_host_process_stderr(h, text, sizeof(text) - 1, &n) != EXT_PLUGIN_OK)
       n = 0;
     text[n] = 0;
     fprintf(stderr, "call failed: %s (host state %d); child stderr: %s\n",
-            ext_host_status_string(s), ext_host_get_state(h), (const char *)text);
+            ext_plugin_host_status_string(s), ext_plugin_host_get_state(h), (const char *)text);
   }
   if (!s && body) {
     assert(out.len < size);
     memcpy(body, out.data, out.len);
     body[out.len] = 0;
   }
-  ext_buffer_free(&out);
+  ext_plugin_buffer_free(&out);
   return s;
 }
 /* Runs a scripted guest and returns the call's status and response body. */
-static ext_status run(const char *mode, int services, uint32_t timeout_ms,
+static ext_plugin_status run(const char *mode, int services, uint32_t timeout_ms,
                       uint32_t max_payload, char *body, size_t size,
-                      ext_host_state *state) {
-  ext_host *h = NULL;
-  ext_status s = open_host(mode, services, timeout_ms, max_payload, &h);
-  if (s == EXT_OK)
+                      ext_plugin_host_state *state) {
+  ext_plugin_host *h = NULL;
+  ext_plugin_status s = open_host(mode, services, timeout_ms, max_payload, &h);
+  if (s == EXT_PLUGIN_OK)
     s = call(h, body, size, NULL);
   if (state)
-    *state = ext_host_get_state(h);
-  ext_host_destroy(h);
+    *state = ext_plugin_host_get_state(h);
+  ext_plugin_host_destroy(h);
   return s;
 }
 static char body[1 << 14];
 /* The reverse call is answered and the forward call completes. */
 static void answered(const char *mode, int services, const char *want) {
-  ext_host_state state;
-  ext_status s = run(mode, services, 150, 64, body, sizeof(body), &state);
-  if (s != EXT_OK || state != EXT_HOST_READY || !strstr(body, want))
+  ext_plugin_host_state state;
+  ext_plugin_status s = run(mode, services, 150, 64, body, sizeof(body), &state);
+  if (s != EXT_PLUGIN_OK || state != EXT_PLUGIN_HOST_READY || !strstr(body, want))
     fprintf(stderr, "%s: status %s, state %d, body %s (want %s)\n", mode,
-            ext_host_status_string(s), state, body, want);
-  assert(s == EXT_OK && state == EXT_HOST_READY && strstr(body, want));
+            ext_plugin_host_status_string(s), state, body, want);
+  assert(s == EXT_PLUGIN_OK && state == EXT_PLUGIN_HOST_READY && strstr(body, want));
 }
-static void violation(const char *mode, ext_status want) {
-  ext_host_state state;
-  ext_status s = run(mode, 1, 150, 64, body, sizeof(body), &state);
-  if (s != want || state != EXT_HOST_FAILED)
+static void violation(const char *mode, ext_plugin_status want) {
+  ext_plugin_host_state state;
+  ext_plugin_status s = run(mode, 1, 150, 64, body, sizeof(body), &state);
+  if (s != want || state != EXT_PLUGIN_HOST_FAILED)
     fprintf(stderr, "%s: status %s (want %s), state %d\n", mode,
-            ext_host_status_string(s), ext_host_status_string(want), state);
-  assert(s == want && state == EXT_HOST_FAILED);
+            ext_plugin_host_status_string(s), ext_plugin_host_status_string(want), state);
+  assert(s == want && state == EXT_PLUGIN_HOST_FAILED);
 }
 
 /* ---- tests ---- */
 
-static ext_status request_frame(const char *json) {
+static ext_plugin_status request_frame(const char *json) {
   yyjson_doc *doc = ext_parse((const uint8_t *)json, strlen(json));
   assert(doc);
   ext_reverse_request request;
-  ext_status s = ext_reverse_request_frame(yyjson_doc_get_root(doc), &request);
+  ext_plugin_status s = ext_reverse_request_frame(yyjson_doc_get_root(doc), &request);
   if (!s)
     assert(yyjson_is_str(request.id) && request.deadline_ms > 0);
   yyjson_doc_free(doc);
@@ -551,7 +551,7 @@ static ext_status request_frame(const char *json) {
 static void test_request_frames(void) {
   assert(request_frame(RV "\"id\":\"g1\",\"parent\":\"1\"," CONTRACT
                           ",\"operation\":\"sign\",\"deadline\":\"" FUTURE
-                          "\",\"payload\":{\"a\":[1,2]}}") == EXT_OK);
+                          "\",\"payload\":{\"a\":[1,2]}}") == EXT_PLUGIN_OK);
   /* A parent that is absent, null or empty is no parent. */
   yyjson_doc *doc = ext_parse(
       (const uint8_t *)RV "\"id\":\"g1\",\"parent\":\"\"," CONTRACT
@@ -560,15 +560,15 @@ static void test_request_frames(void) {
                 ",\"operation\":\"sign\",\"deadline\":\"" FUTURE "\"}"));
   ext_reverse_request r;
   assert(doc && ext_reverse_request_frame(yyjson_doc_get_root(doc), &r) ==
-                    EXT_OK &&
+                    EXT_PLUGIN_OK &&
          !r.parent && !r.payload);
   yyjson_doc_free(doc);
   assert(request_frame(RV "\"id\":\"g1\",\"parent\":null," CONTRACT
                           ",\"operation\":\"sign\",\"deadline\":\"" FUTURE
-                          "\",\"payload\":null}") == EXT_OK);
+                          "\",\"payload\":null}") == EXT_PLUGIN_OK);
   assert(request_frame(RV "\"id\":\"g1\"," CONTRACT
                           ",\"operation\":\"a.b/c-d_e\",\"deadline\":"
-                          "\"2099-01-01T00:00:00.123456789+01:00\"}") == EXT_OK);
+                          "\"2099-01-01T00:00:00.123456789+01:00\"}") == EXT_PLUGIN_OK);
   static const char *const bad[] = {
       "{\"frame\":\"reverse_response\",\"apiVersion\":\"ext.plugin/v1\"}",
       RV "\"id\":\"\"," CONTRACT ",\"operation\":\"o\",\"deadline\":\"" FUTURE "\"}",
@@ -589,9 +589,9 @@ static void test_request_frames(void) {
       RV "\"id\":\"g\"," CONTRACT ",\"operation\":\"o\",\"deadline\":\"" FUTURE "\",\"extra\":1}",
   };
   for (size_t i = 0; i < sizeof(bad) / sizeof(*bad); i++) {
-    if (request_frame(bad[i]) != EXT_PROTOCOL)
+    if (request_frame(bad[i]) != EXT_PLUGIN_PROTOCOL)
       fprintf(stderr, "accepted: %s\n", bad[i]);
-    assert(request_frame(bad[i]) == EXT_PROTOCOL);
+    assert(request_frame(bad[i]) == EXT_PLUGIN_PROTOCOL);
   }
 }
 
@@ -627,7 +627,7 @@ static void test_answers(void) {
   size_t len;
   char *line;
   const char *payload = "{\"a\":[1,2.50,\"x\"]}";
-  line = ext_reverse_answer("g7", 2, EXT_HOST_REVERSE_PAYLOAD,
+  line = ext_reverse_answer("g7", 2, EXT_PLUGIN_HOST_REVERSE_PAYLOAD,
                             (const uint8_t *)payload, strlen(payload), 1000,
                             &len);
   assert(line &&
@@ -636,17 +636,17 @@ static void test_answers(void) {
                        "\"x\"]}}"));
   free(line);
   /* An empty payload is null. */
-  line = ext_reverse_answer("g7", 2, EXT_HOST_REVERSE_PAYLOAD, NULL, 0, 1000,
+  line = ext_reverse_answer("g7", 2, EXT_PLUGIN_HOST_REVERSE_PAYLOAD, NULL, 0, 1000,
                             &len);
   assert(line && strstr(line, "\"payload\":null"));
   free(line);
   /* Over the bound, not a valid value, not a value at all. */
-  line = ext_reverse_answer("g7", 2, EXT_HOST_REVERSE_PAYLOAD,
+  line = ext_reverse_answer("g7", 2, EXT_PLUGIN_HOST_REVERSE_PAYLOAD,
                             (const uint8_t *)payload, strlen(payload), 5,
                             &len);
   expect_error(line, len, "too_large", "reverse call refused", 0);
   free(line);
-  line = ext_reverse_answer("g7", 2, EXT_HOST_REVERSE_PAYLOAD,
+  line = ext_reverse_answer("g7", 2, EXT_PLUGIN_HOST_REVERSE_PAYLOAD,
                             (const uint8_t *)"{\"a\":1,\"a\":2}", 13, 1000,
                             &len);
   expect_error(line, len, "operation_failed", "host service failed", 0);
@@ -657,7 +657,7 @@ static void test_answers(void) {
   /* A public error is passed on when a peer would take it. */
   const char *good = "{\"code\":\"policy\",\"message\":\"no\","
                      "\"retryAfterMilliseconds\":31536000000}";
-  line = ext_reverse_answer("g7", 2, EXT_HOST_REVERSE_PUBLIC_ERROR,
+  line = ext_reverse_answer("g7", 2, EXT_PLUGIN_HOST_REVERSE_PUBLIC_ERROR,
                             (const uint8_t *)good, strlen(good), 1000, &len);
   expect_error(line, len, "policy", "no", 31536000000LL);
   free(line);
@@ -675,7 +675,7 @@ static void test_answers(void) {
       "7",
   };
   for (size_t i = 0; i < sizeof(bad) / sizeof(*bad); i++) {
-    line = ext_reverse_answer("g7", 2, EXT_HOST_REVERSE_PUBLIC_ERROR,
+    line = ext_reverse_answer("g7", 2, EXT_PLUGIN_HOST_REVERSE_PUBLIC_ERROR,
                               (const uint8_t *)bad[i], strlen(bad[i]), 1000,
                               &len);
     expect_error(line, len, "operation_failed", "host service failed", 0);
@@ -683,7 +683,7 @@ static void test_answers(void) {
   }
   /* A missing message is empty; a zero retry hint is left out. */
   const char *bare = "{\"code\":\"policy\",\"retryAfterMilliseconds\":0}";
-  line = ext_reverse_answer("g7", 2, EXT_HOST_REVERSE_PUBLIC_ERROR,
+  line = ext_reverse_answer("g7", 2, EXT_PLUGIN_HOST_REVERSE_PUBLIC_ERROR,
                             (const uint8_t *)bare, strlen(bare), 1000, &len);
   expect_error(line, len, "policy", "", 0);
   free(line);
@@ -693,7 +693,7 @@ static void test_answers(void) {
 }
 
 static void test_calls(void) {
-  ext_host_state state;
+  ext_plugin_host_state state;
   /* An answer, with the request the hooks saw. */
   answered("call:sign", 1, "\"reply\":{\"frame\":\"reverse_response\"");
   assert(strstr(body, "\"id\":\"g1\",\"payload\":\"signed\""));
@@ -753,57 +753,57 @@ static void test_calls(void) {
   /* Several calls on one connection, and between progress events. */
   answered("twice", 1, "\"first\":{\"frame\":\"reverse_response\"");
   assert(strstr(body, "\"id\":\"g2\",\"payload\":\"signed\""));
-  ext_host *h = NULL;
+  ext_plugin_host *h = NULL;
   events e = {0};
-  assert(open_host("interleave", 1, 0, 0, &h) == EXT_OK);
-  assert(call(h, body, sizeof(body), &e) == EXT_OK && e.count == 2);
+  assert(open_host("interleave", 1, 0, 0, &h) == EXT_PLUGIN_OK);
+  assert(call(h, body, sizeof(body), &e) == EXT_PLUGIN_OK && e.count == 2);
   assert(strstr(e.text[0], "one") && strstr(e.text[1], "two"));
   assert(strstr(body, "\"payload\":\"signed\""));
   e.count = 0;
-  assert(call(h, body, sizeof(body), &e) == EXT_OK && e.count == 2);
+  assert(call(h, body, sizeof(body), &e) == EXT_PLUGIN_OK && e.count == 2);
   assert(strstr(seen.request, "\"parent\":\"2\"")); /* the next call's id */
-  ext_host_destroy(h);
+  ext_plugin_host_destroy(h);
   /* The call's cancel signal reaches the hooks. */
-  ext_cancel *cancel = NULL;
-  assert(ext_cancel_create(&cancel) == EXT_OK);
-  assert(open_host("call:sign", 1, 0, 0, &h) == EXT_OK);
+  ext_plugin_cancel *cancel = NULL;
+  assert(ext_plugin_cancel_create(&cancel) == EXT_PLUGIN_OK);
+  assert(open_host("call:sign", 1, 0, 0, &h) == EXT_PLUGIN_OK);
   const char *request =
       "{\"contract\":{\"name\":\"reverse.test\",\"version\":\"v1\"},"
       "\"operation\":\"run\"}";
-  ext_call_options options = {sizeof(options), 5000, cancel, &token};
-  ext_buffer out = {0};
-  assert(ext_host_call(h, (const uint8_t *)request, strlen(request), &options,
-                       &out) == EXT_OK);
+  ext_plugin_call_options options = {sizeof(options), 5000, cancel, &token};
+  ext_plugin_buffer out = {0};
+  assert(ext_plugin_host_call(h, (const uint8_t *)request, strlen(request), &options,
+                       &out) == EXT_PLUGIN_OK);
   assert(seen.cancel && seen.cancel != cancel); /* the engine's own signal */
-  ext_buffer_free(&out);
-  ext_host_destroy(h);
-  ext_cancel_destroy(cancel);
+  ext_plugin_buffer_free(&out);
+  ext_plugin_host_destroy(h);
+  ext_plugin_cancel_destroy(cancel);
 
   /* Breaking the framing ends the session. */
-  violation("wrongparent", EXT_PROTOCOL);
-  violation("bad-id", EXT_PROTOCOL);
-  violation("bad-noid", EXT_PROTOCOL);
-  violation("bad-deadline", EXT_PROTOCOL);
-  violation("bad-nulldeadline", EXT_PROTOCOL);
-  violation("bad-operation", EXT_PROTOCOL);
-  violation("bad-extra", EXT_PROTOCOL);
-  violation("bad-dup", EXT_PROTOCOL);
-  violation("bad-parentnumber", EXT_PROTOCOL);
-  violation("bad-version", EXT_PROTOCOL);
-  violation("bad-nocontract", EXT_PROTOCOL);
-  violation("bad-response", EXT_PROTOCOL); /* a host never receives these */
+  violation("wrongparent", EXT_PLUGIN_PROTOCOL);
+  violation("bad-id", EXT_PLUGIN_PROTOCOL);
+  violation("bad-noid", EXT_PLUGIN_PROTOCOL);
+  violation("bad-deadline", EXT_PLUGIN_PROTOCOL);
+  violation("bad-nulldeadline", EXT_PLUGIN_PROTOCOL);
+  violation("bad-operation", EXT_PLUGIN_PROTOCOL);
+  violation("bad-extra", EXT_PLUGIN_PROTOCOL);
+  violation("bad-dup", EXT_PLUGIN_PROTOCOL);
+  violation("bad-parentnumber", EXT_PLUGIN_PROTOCOL);
+  violation("bad-version", EXT_PLUGIN_PROTOCOL);
+  violation("bad-nocontract", EXT_PLUGIN_PROTOCOL);
+  violation("bad-response", EXT_PLUGIN_PROTOCOL); /* a host never receives these */
 
   /* Before the handshake there is no call in flight to name. */
-  assert(open_host("hello-parent", 1, 0, 0, &h) == EXT_PROTOCOL);
-  assert(ext_host_get_state(h) == EXT_HOST_FAILED);
-  ext_host_destroy(h);
-  assert(open_host("hello-parent", 0, 0, 0, &h) == EXT_OK); /* unavailable */
-  ext_host_destroy(h);
+  assert(open_host("hello-parent", 1, 0, 0, &h) == EXT_PLUGIN_PROTOCOL);
+  assert(ext_plugin_host_get_state(h) == EXT_PLUGIN_HOST_FAILED);
+  ext_plugin_host_destroy(h);
+  assert(open_host("hello-parent", 0, 0, 0, &h) == EXT_PLUGIN_OK); /* unavailable */
+  ext_plugin_host_destroy(h);
   /* A session-scoped request before the handshake matched is refused, and the
    * handshake goes on. */
-  assert(open_host("hello-noparent", 1, 0, 0, &h) == EXT_OK);
+  assert(open_host("hello-noparent", 1, 0, 0, &h) == EXT_PLUGIN_OK);
   assert(seen_count(&seen.handled) == 0);
-  ext_host_destroy(h);
+  ext_plugin_host_destroy(h);
   (void)state;
 }
 
@@ -826,73 +826,73 @@ static void *open_gate(void *unused) {
 /* The reader thread and the workers: what a plugin can do between calls and
  * while several of its requests run at once. */
 static void test_threads(void) {
-  ext_host *h = NULL;
+  ext_plugin_host *h = NULL;
   /* A request made when no call is in flight is served, and it is session
    * scoped: no parent, and the session's value. The hook is slow, so the next
    * call reaches the plugin before the answer to this one does: a plugin reads
    * frames by what they are, not by when they arrive. */
   seen.sleep_ms = 300;
-  assert(open_host("idle", 1, 0, 0, &h) == EXT_OK);
+  assert(open_host("idle", 1, 0, 0, &h) == EXT_PLUGIN_OK);
   assert(wait_until(&seen.handled, 1));
-  assert(call(h, body, sizeof(body), NULL) == EXT_OK);
+  assert(call(h, body, sizeof(body), NULL) == EXT_PLUGIN_OK);
   seen.sleep_ms = 0;
   assert(strstr(body, "\"reply\":{\"frame\":\"reverse_response\""));
   assert(strstr(body, "\"payload\":\"signed\""));
   assert(seen.value == &session_token && !strstr(seen.request, "\"parent\""));
-  ext_host_destroy(h);
+  ext_plugin_host_destroy(h);
 
   /* Six requests at once with the default four in flight: two are busy, four
    * are answered once their hooks are released. */
   pthread_t opener;
-  assert(open_host("burst", 1, 5000, 0, &h) == EXT_OK);
+  assert(open_host("burst", 1, 5000, 0, &h) == EXT_PLUGIN_OK);
   assert(!pthread_create(&opener, NULL, open_gate, NULL));
-  assert(call(h, body, sizeof(body), NULL) == EXT_OK);
+  assert(call(h, body, sizeof(body), NULL) == EXT_PLUGIN_OK);
   pthread_join(opener, NULL);
   if (!strstr(body, "\"busy\":2,\"gated\":4"))
     fprintf(stderr, "burst: %s (handled %d)\n", body, seen.handled);
   assert(strstr(body, "\"busy\":2,\"gated\":4"));
   assert(seen.handled == 4);
-  ext_host_destroy(h);
+  ext_plugin_host_destroy(h);
 
   /* A call that ends cancels the hooks of its requests and waits for them. */
-  assert(open_host("hang-call", 1, 5000, 0, &h) == EXT_OK);
-  assert(call(h, body, sizeof(body), NULL) == EXT_OK);
+  assert(open_host("hang-call", 1, 5000, 0, &h) == EXT_PLUGIN_OK);
+  assert(call(h, body, sizeof(body), NULL) == EXT_PLUGIN_OK);
   /* The hook saw the call end. (On a machine too slow to start it within the
    * guest's pause, the request is refused as expired and the hook never runs.) */
   assert(seen.canceled_in_hook == 1 || seen.handled == 0);
-  assert(ext_host_get_state(h) == EXT_HOST_READY);
-  ext_host_destroy(h);
+  assert(ext_plugin_host_get_state(h) == EXT_PLUGIN_HOST_READY);
+  ext_plugin_host_destroy(h);
 
   /* Closing the host cancels a session-scoped hook, and destroy waits for it. */
-  assert(open_host("hang-session", 1, 5000, 0, &h) == EXT_OK);
+  assert(open_host("hang-session", 1, 5000, 0, &h) == EXT_PLUGIN_OK);
   assert(wait_until(&seen.handled, 1));
-  ext_host_close(h);
-  ext_host_destroy(h);
+  ext_plugin_host_close(h);
+  ext_plugin_host_destroy(h);
   assert(seen.canceled_in_hook == 1);
 
   /* A violation made between calls ends the session, and the next call finds it
    * closed. */
-  assert(open_host("idle-bad", 1, 0, 0, &h) == EXT_OK);
+  assert(open_host("idle-bad", 1, 0, 0, &h) == EXT_PLUGIN_OK);
   int64_t until = ext_mono_ns() + 400000000LL;
   while (ext_mono_ns() < until)
     ;
-  assert(ext_host_get_state(h) == EXT_HOST_FAILED);
-  assert(call(h, body, sizeof(body), NULL) == EXT_CLOSED);
-  ext_host_destroy(h);
+  assert(ext_plugin_host_get_state(h) == EXT_PLUGIN_HOST_FAILED);
+  assert(call(h, body, sizeof(body), NULL) == EXT_PLUGIN_CLOSED);
+  ext_plugin_host_destroy(h);
 
   /* So does a plugin that goes away between calls. */
-  assert(open_host("idle-exit", 1, 0, 0, &h) == EXT_OK);
+  assert(open_host("idle-exit", 1, 0, 0, &h) == EXT_PLUGIN_OK);
   until = ext_mono_ns() + 400000000LL;
   while (ext_mono_ns() < until)
     ;
-  assert(ext_host_get_state(h) == EXT_HOST_FAILED);
-  assert(call(h, body, sizeof(body), NULL) == EXT_CLOSED);
-  ext_host_destroy(h);
+  assert(ext_plugin_host_get_state(h) == EXT_PLUGIN_HOST_FAILED);
+  assert(call(h, body, sizeof(body), NULL) == EXT_PLUGIN_CLOSED);
+  ext_plugin_host_destroy(h);
 
   /* Closing an idle host stops its threads. */
-  assert(open_host("call:sign", 1, 0, 0, &h) == EXT_OK);
-  ext_host_close(h);
-  ext_host_destroy(h);
+  assert(open_host("call:sign", 1, 0, 0, &h) == EXT_PLUGIN_OK);
+  ext_plugin_host_close(h);
+  ext_plugin_host_destroy(h);
 }
 
 /* On the caller's thread the hooks run one after another, so the gate opens
@@ -909,19 +909,19 @@ static void *open_gate_after_one(void *unused) {
   }
   return NULL;
 }
-/* EXT_HOST_REVERSE_CALLER_THREAD: the hooks run on the thread of the call that
- * waits, or of ext_host_serve_reverse, one at a time, with the same answers. */
+/* EXT_PLUGIN_HOST_REVERSE_CALLER_THREAD: the hooks run on the thread of the call that
+ * waits, or of ext_plugin_host_serve_reverse, one at a time, with the same answers. */
 static void test_caller_thread(void) {
-  ext_host *h = NULL;
+  ext_plugin_host *h = NULL;
   on_test_thread = 1;
-  reverse_mode = EXT_HOST_REVERSE_CALLER_THREAD;
+  reverse_mode = EXT_PLUGIN_HOST_REVERSE_CALLER_THREAD;
   off_thread = 0;
   /* A call-scoped request is served by the call that waits for its answer. */
-  assert(open_host("call:sign", 1, 0, 0, &h) == EXT_OK);
-  assert(call(h, body, sizeof(body), NULL) == EXT_OK);
+  assert(open_host("call:sign", 1, 0, 0, &h) == EXT_PLUGIN_OK);
+  assert(call(h, body, sizeof(body), NULL) == EXT_PLUGIN_OK);
   assert(strstr(body, "\"payload\":\"signed\"") && seen.handled == 1);
   assert(seen.value == &token && strstr(seen.request, "\"parent\":\"1\""));
-  ext_host_destroy(h);
+  ext_plugin_host_destroy(h);
   /* Every answer has the same shape as on engine threads. */
   answered("call:errok", 1, "\"code\":\"policy\",\"message\":\"refused for you\",\"retryAfterMilliseconds\":5");
   answered("call:secret", 1, "\"code\":\"denied\"");
@@ -929,104 +929,104 @@ static void test_caller_thread(void) {
   answered("call:nothere", 1, "\"code\":\"reverse_undeclared\"");
   answered("call:sign", 0, "\"code\":\"reverse_unavailable\"");
 
-  /* A session-scoped request made between calls waits for ext_host_serve_reverse. */
-  assert(open_host("idle", 1, 0, 0, &h) == EXT_OK);
-  ext_call_options wait = {sizeof(wait), 5000, NULL, NULL};
-  assert(ext_host_serve_reverse(h, &wait) == EXT_OK);
+  /* A session-scoped request made between calls waits for ext_plugin_host_serve_reverse. */
+  assert(open_host("idle", 1, 0, 0, &h) == EXT_PLUGIN_OK);
+  ext_plugin_call_options wait = {sizeof(wait), 5000, NULL, NULL};
+  assert(ext_plugin_host_serve_reverse(h, &wait) == EXT_PLUGIN_OK);
   assert(seen.handled == 1 && seen.value == &session_token);
-  assert(call(h, body, sizeof(body), NULL) == EXT_OK);
+  assert(call(h, body, sizeof(body), NULL) == EXT_PLUGIN_OK);
   assert(strstr(body, "\"payload\":\"signed\""));
   /* Nothing queued: it waits for the timeout. */
-  ext_call_options brief = {sizeof(brief), 50, NULL, NULL};
-  assert(ext_host_serve_reverse(h, &brief) == EXT_TIMEOUT);
-  ext_host_close(h);
-  assert(ext_host_serve_reverse(h, &brief) == EXT_CLOSED);
-  ext_host_destroy(h);
+  ext_plugin_call_options brief = {sizeof(brief), 50, NULL, NULL};
+  assert(ext_plugin_host_serve_reverse(h, &brief) == EXT_PLUGIN_TIMEOUT);
+  ext_plugin_host_close(h);
+  assert(ext_plugin_host_serve_reverse(h, &brief) == EXT_PLUGIN_CLOSED);
+  ext_plugin_host_destroy(h);
 
   /* One no thread serves before its deadline is answered expired; its hooks never run. */
-  assert(open_host("idle", 1, 150, 0, &h) == EXT_OK);
+  assert(open_host("idle", 1, 150, 0, &h) == EXT_PLUGIN_OK);
   int64_t until = ext_mono_ns() + 400000000LL;
   while (ext_mono_ns() < until)
     ;
-  assert(call(h, body, sizeof(body), NULL) == EXT_OK);
+  assert(call(h, body, sizeof(body), NULL) == EXT_PLUGIN_OK);
   assert(strstr(body, "\"code\":\"expired\"") && seen.authorized == 0);
-  ext_host_destroy(h);
+  ext_plugin_host_destroy(h);
 
   /* Six at once with four in flight: two are busy, and the four admitted run one
    * after another on the calling thread. */
   pthread_t opener;
-  assert(open_host("burst", 1, 5000, 0, &h) == EXT_OK);
+  assert(open_host("burst", 1, 5000, 0, &h) == EXT_PLUGIN_OK);
   assert(!pthread_create(&opener, NULL, open_gate_after_one, NULL));
-  assert(call(h, body, sizeof(body), NULL) == EXT_OK);
+  assert(call(h, body, sizeof(body), NULL) == EXT_PLUGIN_OK);
   pthread_join(opener, NULL);
   assert(strstr(body, "\"busy\":2,\"gated\":4") && seen.handled == 4);
-  ext_host_destroy(h);
+  ext_plugin_host_destroy(h);
 
   /* A call that ends cancels the hook of its request, even one that runs on the
    * call's own thread. */
-  assert(open_host("hang-call", 1, 5000, 0, &h) == EXT_OK);
+  assert(open_host("hang-call", 1, 5000, 0, &h) == EXT_PLUGIN_OK);
   int64_t started = ext_mono_ns();
-  assert(call(h, body, sizeof(body), NULL) == EXT_OK);
+  assert(call(h, body, sizeof(body), NULL) == EXT_PLUGIN_OK);
   assert(ext_mono_ns() - started < 3000000000LL);
   assert(seen.canceled_in_hook == 1 || seen.handled == 0);
-  assert(ext_host_get_state(h) == EXT_HOST_READY);
-  ext_host_destroy(h);
+  assert(ext_plugin_host_get_state(h) == EXT_PLUGIN_HOST_READY);
+  ext_plugin_host_destroy(h);
   assert(off_thread == 0);
 
   /* The mode is configuration: known values, before start. */
-  assert(open_host("call:sign", 1, 0, 0, &h) == EXT_OK);
-  assert(ext_host_set_reverse_mode(h, EXT_HOST_REVERSE_ENGINE_THREADS) == EXT_INVALID);
-  ext_host_destroy(h);
-  reverse_mode = EXT_HOST_REVERSE_ENGINE_THREADS;
-  assert(open_host("call:sign", 1, 0, 0, &h) == EXT_OK);
-  assert(ext_host_serve_reverse(h, &brief) == EXT_UNSUPPORTED);
-  assert(ext_host_set_reverse_mode(NULL, 0) == EXT_INVALID);
-  ext_host_destroy(h);
+  assert(open_host("call:sign", 1, 0, 0, &h) == EXT_PLUGIN_OK);
+  assert(ext_plugin_host_set_reverse_mode(h, EXT_PLUGIN_HOST_REVERSE_ENGINE_THREADS) == EXT_PLUGIN_INVALID);
+  ext_plugin_host_destroy(h);
+  reverse_mode = EXT_PLUGIN_HOST_REVERSE_ENGINE_THREADS;
+  assert(open_host("call:sign", 1, 0, 0, &h) == EXT_PLUGIN_OK);
+  assert(ext_plugin_host_serve_reverse(h, &brief) == EXT_PLUGIN_UNSUPPORTED);
+  assert(ext_plugin_host_set_reverse_mode(NULL, 0) == EXT_PLUGIN_INVALID);
+  ext_plugin_host_destroy(h);
   on_test_thread = 0;
 }
 
 static void test_configuration(void) {
-  ext_host *h = NULL;
-  ext_host_services s = {sizeof(s), NULL, authorize, handle, 0, 0, 0, NULL};
-  assert(open_host("call:sign", 0, 0, 0, &h) == EXT_OK);
+  ext_plugin_host *h = NULL;
+  ext_plugin_host_services s = {sizeof(s), NULL, authorize, handle, 0, 0, 0, NULL};
+  assert(open_host("call:sign", 0, 0, 0, &h) == EXT_PLUGIN_OK);
   /* Configuration is for before the host starts. */
-  assert(ext_host_set_services(h, &s) == EXT_INVALID);
-  ext_host_destroy(h);
+  assert(ext_plugin_host_set_services(h, &s) == EXT_PLUGIN_INVALID);
+  ext_plugin_host_destroy(h);
   const char *args[] = {"--guest", "x"};
-  ext_jsonline_process_launch launch = {sizeof(launch), self, args, 2,
+  ext_plugin_jsonline_process_launch launch = {sizeof(launch), self, args, 2,
                                         NULL,           0,    NULL, 0};
-  ext_backend_options backend = {sizeof(backend),
-                                 EXT_BACKEND_JSONLINE_PROCESS_LAUNCH, &launch,
+  ext_plugin_backend_options backend = {sizeof(backend),
+                                 EXT_PLUGIN_BACKEND_JSONLINE_PROCESS_LAUNCH, &launch,
                                  sizeof(launch)};
-  ext_host_options options = {EXT_HOST_ABI_VERSION,
+  ext_plugin_host_options options = {EXT_PLUGIN_HOST_ABI_VERSION,
                               sizeof(options),
                               (const uint8_t *)DESCRIPTOR,
                               strlen(DESCRIPTOR),
                               allow,
                               allow,
                               NULL};
-  assert(ext_host_create(&options, &backend, &h) == EXT_OK);
-  ext_host_services missing = s;
+  assert(ext_plugin_host_create(&options, &backend, &h) == EXT_PLUGIN_OK);
+  ext_plugin_host_services missing = s;
   missing.handle = NULL;
-  assert(ext_host_set_services(h, &missing) == EXT_DENIED);
+  assert(ext_plugin_host_set_services(h, &missing) == EXT_PLUGIN_DENIED);
   missing = s;
   missing.authorize = NULL;
-  assert(ext_host_set_services(h, &missing) == EXT_DENIED);
+  assert(ext_plugin_host_set_services(h, &missing) == EXT_PLUGIN_DENIED);
   missing = s;
   missing.struct_size = 1;
-  assert(ext_host_set_services(h, &missing) == EXT_INVALID);
+  assert(ext_plugin_host_set_services(h, &missing) == EXT_PLUGIN_INVALID);
   missing = s;
-  missing.max_payload_bytes = EXT_HOST_MAX_FRAME + 1;
-  assert(ext_host_set_services(h, &missing) == EXT_INVALID);
+  missing.max_payload_bytes = EXT_PLUGIN_HOST_MAX_FRAME + 1;
+  assert(ext_plugin_host_set_services(h, &missing) == EXT_PLUGIN_INVALID);
   missing = s;
   missing.max_in_flight = 1025;
-  assert(ext_host_set_services(h, &missing) == EXT_INVALID);
-  assert(ext_host_set_services(NULL, &s) == EXT_INVALID);
-  assert(ext_host_set_services(h, NULL) == EXT_INVALID);
-  s.max_payload_bytes = EXT_HOST_MAX_FRAME;
+  assert(ext_plugin_host_set_services(h, &missing) == EXT_PLUGIN_INVALID);
+  assert(ext_plugin_host_set_services(NULL, &s) == EXT_PLUGIN_INVALID);
+  assert(ext_plugin_host_set_services(h, NULL) == EXT_PLUGIN_INVALID);
+  s.max_payload_bytes = EXT_PLUGIN_HOST_MAX_FRAME;
   s.max_in_flight = 1024;
-  assert(ext_host_set_services(h, &s) == EXT_OK);
-  ext_host_destroy(h);
+  assert(ext_plugin_host_set_services(h, &s) == EXT_PLUGIN_OK);
+  ext_plugin_host_destroy(h);
 }
 
 #ifdef _WIN32
@@ -1057,7 +1057,7 @@ int main(int argc, char **argv) {
   test_calls();
   test_threads();
   test_caller_thread();
-  assert(ext_host_set_reverse_mode(NULL, 5) == EXT_INVALID);
+  assert(ext_plugin_host_set_reverse_mode(NULL, 5) == EXT_PLUGIN_INVALID);
   puts("reverse call checks passed");
   return 0;
 }

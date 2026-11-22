@@ -1,11 +1,8 @@
 # core
 
-`github.com/webong/ext/pkg/ext-go/core` is the switcher and the joint between the two sides of each
-library of `lib/` (the plugin engine, the ledger, and whatever comes next): Go, in [`engine`](../engine),
-and C, in [`cengine`](../cengine). `core/driver` decides how a program runs each library and knows none of
-them by name; `core/<library>` bridges a library's C side to its Go contract, as
-[`core/plugin/cguest`](plugin/cguest/README.md) makes a C ABI guest a plugin backend. The module requires
-`engine` and `cengine`.
+`github.com/webong/ext/pkg/ext-go/core` is the switcher: `core/driver` decides how a program runs each
+library of `lib/` (the plugin engine, the ledger, and whatever comes next). It knows no library by name,
+uses only the standard library and requires no module; each library's Go package lists its own drivers.
 See [the library opener decision record](../../../docs/adr-library-opener.md).
 
 | Driver | Where the code is |

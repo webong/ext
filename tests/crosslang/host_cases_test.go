@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/webong/ext/pkg/ext-go/core/plugin/cguest"
+	"github.com/webong/ext/pkg/ext-go/cguest"
 	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
 )
 

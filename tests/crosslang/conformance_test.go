@@ -7,7 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"github.com/webong/ext/pkg/ext-go/cengine/cguest"
+	"github.com/webong/ext/pkg/ext-go/core/plugin/cguest"
 	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/nativego"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/plugintest"

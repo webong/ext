@@ -8,10 +8,10 @@ package main
 import "C"
 import (
 	"context"
+	"github.com/webong/ext/pkg/ext-go/core/plugin/cguest/guest"
 	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/plugintest"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/transport/inprocess"
-	"github.com/webong/ext/pkg/ext-go/cengine/cguest/guest"
 	"unsafe"
 )
 

@@ -8,10 +8,9 @@ imports it. See [the library opener decision record](../../../docs/adr-library-o
 | Package | What it does |
 | --- | --- |
 | `library` | The opener purego needs. It loads a C shared library (`.so`, `.dylib`, `.dll`) once per canonical path, never unloads it, and binds its exports to Go function variables through [purego](https://github.com/ebitengine/purego), the same with and without cgo, on Linux, macOS and Windows for amd64 and arm64; on Windows it never searches the working directory for dependent DLLs. It knows no library by name. Finding, fetching and verifying the built copy (`Cite`, `Browse`, `Reserve`, `Borrow`) grows here. |
-| `cguest` | The backend for plugin guests built as C shared libraries (with `cguest/abi` and `cguest/guest`); see [its README](cguest/README.md). |
+| `cguest` | Loads C ABI guests (the `ext_plugin_*` exports, with `cguest/abi` for the ABI's constants) once per canonical path, never unloads them, and exchanges frames with them as bytes, one call at a time. It knows nothing of the plugin protocol: [`core/plugin/cguest`](../core/plugin/cguest/README.md) makes it a plugin backend. |
 
-The module requires `pkg/ext-go/engine` (for `cguest`, which speaks the plugin protocol) and purego,
-never `cgoengine`, so it needs no C toolchain.
+It knows no library by name, requires purego and no ext module, and needs no C toolchain.
 
 Calls go one way, from Go into C: purego's callbacks are limited in number and platform, so a C API
 meant for `library` takes no function pointer it would call on a Go program's behalf.

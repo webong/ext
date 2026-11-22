@@ -24,13 +24,14 @@ nothing, ext-go can fetch the release it pins. Both are supported: a program suc
 own downloader passes it in or passes the path it installed, and a program without one lets ext-go
 fetch. A program can forbid fetching altogether.
 
-**2. Two modules: the switcher and the C side.** Neither knows a library by name, and `core/driver` and
-`cengine/library` import nothing of ext (`src/ctx/internal/arch` enforces it).
+**2. Two modules: the switcher and the C side.** `cengine` knows no library and imports nothing of ext, and
+`core/driver` imports nothing of ext either (`src/ctx/internal/arch` enforces both). `core` joins the Go and C
+sides of each library, so its `core/<library>` packages know that library's contract.
 
 | Module | Role | Requires |
 | --- | --- | --- |
-| `pkg/ext-go/core` | The switcher. `core/driver` picks how a program runs each library of `lib/`: `go` (its pure-Go implementation in `engine`) or one of the C drivers, `cgo`, `c2go` and `purego`. `Choose` takes one by name, by `EXT_ENGINE` or as the best available one that fits, in the order cgo, c2go, purego, go; a name that cannot be served is an error, never another driver. | nothing |
-| `pkg/ext-go/cengine` | The C side. It serves the C drivers (purego, cgo, ccgo): `cgoengine` and `c2goengine` register with it. `cengine/library` is the opener purego needs: it finds, fetches, verifies and opens a built copy of the C library once per canonical path and binds its exports; the engine never touches files. `cengine/cguest` is the backend for plugin guests built as C shared libraries, a plugin backend like yaegi; its purego build opens guests through `cengine/library`. | `engine` (for `cguest`), purego |
+| `pkg/ext-go/core` | The switcher and the joint. `core/<library>` bridges a library's C side to its Go contract: `core/plugin/cguest` makes a C ABI guest a plugin backend. `core/driver` picks how a program runs each library of `lib/`: `go` (its pure-Go implementation in `engine`) or one of the C drivers, `cgo`, `c2go` and `purego`. `Choose` takes one by name, by `EXT_ENGINE` or as the best available one that fits, in the order cgo, c2go, purego, go; a name that cannot be served is an error, never another driver. | `engine`, `cengine` |
+| `pkg/ext-go/cengine` | The C side. It serves the C drivers (purego, cgo, ccgo): `cgoengine` and `c2goengine` register with it. `cengine/library` is the opener purego needs: it finds, fetches, verifies and opens a built copy of the C library once per canonical path and binds its exports; the engine never touches files. `cengine/cguest` loads C ABI guests and exchanges frames as bytes, knowing nothing of the plugin protocol. | purego |
 
 A library's own Go package lists its drivers and its citation; `pkg/ext-go/plugin` does that for the
 plugin engine today. `core` has no root package: the umbrella published its selection package at the
@@ -81,7 +82,8 @@ platform with its SHA-256 as release assets, and each library's citation is writ
 ## Steps
 
 1. Done: `core/driver` is the switcher; `pkg/ext-go/runtime` becomes `pkg/ext-go/cengine`, the C
-   side: the opener `cengine/library` and the C guest backend `cengine/cguest`; the plugin selection moves
+   side: the opener `cengine/library` and the raw C guest loader `cengine/cguest`, with the plugin backend
+   over it in `core/plugin/cguest`; the plugin selection moves
    to `pkg/ext-go/plugin` and chooses through `core/driver`.
 2. `cengine/library`: `Citation`, `Browse`, `Reserve` (supplied path, cache, fetch, `Fetch`, `Offline`) and
    `Borrow` with the version check, and `Shelve`.

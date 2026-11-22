@@ -4,11 +4,10 @@ package cguest
 
 import (
 	"fmt"
-	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
 	"runtime"
 )
 
 func Supported() bool { return false }
 func openNative(string) (nativeSession, error) {
-	return nil, fmt.Errorf("%w: C shared loading on %s/%s needs cgo; without cgo it is available on Linux, macOS and Windows (amd64, arm64)", plugin.ErrUnsupported, runtime.GOOS, runtime.GOARCH)
+	return nil, fmt.Errorf("%w: C shared loading on %s/%s needs cgo; without cgo it is available on Linux, macOS and Windows (amd64, arm64)", ErrUnsupported, runtime.GOOS, runtime.GOARCH)
 }

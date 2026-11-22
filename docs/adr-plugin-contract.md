@@ -8,7 +8,7 @@ wire protocols do not become compatible merely by importing this package.
 
 Ext supplies `github.com/webong/ext/pkg/ext-go`, alongside `res/web` and `res/system`.
 Its implementations include `pkg/ext-go/engine/plugin/transport/inprocess`, `pkg/ext-go/engine/plugin/transport/jsonline`,
-`pkg/ext-go/hashicorp`, `pkg/ext-go/engine/plugin/host/nativego`, `pkg/ext-go/wasm`, and `pkg/ext-go/cengine/cguest`, with
+`pkg/ext-go/hashicorp`, `pkg/ext-go/engine/plugin/host/nativego`, `pkg/ext-go/wasm`, and `pkg/ext-go/core/plugin/cguest`, with
 additional backends able to implement the same public interface. HashiCorp
 go-plugin is a dependency of the plugin library, while `pkg/ext-go/wasm` binds
 the protocol-neutral runtime in `res/web/host/engine/wasm`; neither is a product adapter.

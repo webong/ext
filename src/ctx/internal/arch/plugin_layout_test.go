@@ -27,10 +27,11 @@ import (
 //	wasm        the engine binding for res/web/host/engine/wasm; needs engine and res/web/host
 //	hashicorp   the gRPC backend; needs engine only, never cgoengine
 //	yaegi       the Go source interpreter backend; needs engine and yaegi only, never cgoengine
-//	core        the switcher: driver picks go or C for a library of lib/; standard library only
-//	cengine     the C side: library finds, verifies and opens the built copy purego needs, cgo and
-//	            ccgo register with it, and cguest is the backend for plugin guests built as C
-//	            shared libraries; needs engine and purego only, never cgoengine
+//	core        the switcher and the joint: driver picks go or a C driver, and core/<library>
+//	            bridges a library's C side to its Go contract (core/plugin/cguest); needs engine
+//	            and cengine
+//	cengine     the C side: library opens the built copy purego needs, cguest exchanges bytes
+//	            with C ABI guests, and cgo and ccgo register with it; purego only, no ext module
 //	(umbrella)  pkg/ext-go itself, the one module that may require them all; its plugin package
 //	            chooses between engine, cgoengine and c2goengine through core/driver
 //	res/web/host  portable web and WebAssembly tooling; never imports the plugin engine
@@ -44,8 +45,8 @@ var pluginRequires = map[string][]string{
 	"pkg/ext-go/wasm":                   {"pkg/ext-go/engine", "res/web/host"},
 	"pkg/ext-go/hashicorp":              {"pkg/ext-go/engine"},
 	"pkg/ext-go/yaegi":                  {"pkg/ext-go/engine"},
-	"pkg/ext-go/core":                   {},
-	"pkg/ext-go/cengine":                {"pkg/ext-go/engine"},
+	"pkg/ext-go/core":                   {"pkg/ext-go/engine", "pkg/ext-go/cengine"},
+	"pkg/ext-go/cengine":                {},
 	"src/ctn/inference":                 {"pkg/ext-go/engine", "res/int"},
 	"src/ctn/model":                     {"pkg/ext-go/engine", "res/int"},
 	"src/ctn/perception":                {"pkg/ext-go/engine", "res/int"},
@@ -351,35 +352,35 @@ func TestEngineGroupsKeepTheirLayering(t *testing.T) {
 	}
 }
 
-// core/driver and cengine/library are generic: they know no library of lib/ by name, so they import
+// core/driver and all of cengine are generic: they know no library of lib/ by name, so they import
 // nothing of ext. A library's own Go package lists its drivers and uses them.
-func TestCoreSwitcherAndOpenerKnowNoLibrary(t *testing.T) {
+func TestSwitcherAndCSideKnowNoLibrary(t *testing.T) {
 	root := repoRoot(t)
 	// The umbrella published a package at pkg/ext-go/core up to v0.12.0, so the core module has no
 	// root package: a program that requires both never sees an ambiguous import.
 	if matches, _ := filepath.Glob(filepath.Join(root, "pkg/ext-go/core", "*.go")); len(matches) > 0 {
 		t.Errorf("pkg/ext-go/core has Go files at its root (%v); the core module has no root package", matches)
 	}
-	for _, dir := range []string{"pkg/ext-go/core/driver", "pkg/ext-go/cengine/library"} {
-		entries, err := os.ReadDir(filepath.Join(root, dir))
-		if err != nil {
-			t.Fatal(err)
-		}
-		for _, entry := range entries {
-			if entry.IsDir() || filepath.Ext(entry.Name()) != ".go" {
-				continue
+	for dir, own := range map[string]string{"pkg/ext-go/core/driver": pluginPrefix + "/core/driver", "pkg/ext-go/cengine": pluginPrefix + "/cengine/"} {
+		err := filepath.WalkDir(filepath.Join(root, dir), func(path string, entry fs.DirEntry, walkErr error) error {
+			if walkErr != nil || entry.IsDir() || filepath.Ext(path) != ".go" {
+				return walkErr
 			}
-			path := filepath.Join(root, dir, entry.Name())
 			file, err := parser.ParseFile(token.NewFileSet(), path, nil, parser.ImportsOnly)
 			if err != nil {
-				t.Fatal(err)
+				return err
 			}
 			for _, imp := range file.Imports {
 				name, _ := strconv.Unquote(imp.Path.Value)
-				if strings.HasPrefix(name, "github.com/webong/ext/") && !strings.HasPrefix(name, pluginPrefix+"/core/") && !strings.HasPrefix(name, pluginPrefix+"/cengine/library") {
-					t.Errorf("%s/%s imports %s; the switcher and the opener know no library", dir, entry.Name(), name)
+				if strings.HasPrefix(name, "github.com/webong/ext/") && !strings.HasPrefix(name, own) {
+					rel, _ := filepath.Rel(root, path)
+					t.Errorf("%s imports %s; the switcher and the C side know no library", filepath.ToSlash(rel), name)
 				}
 			}
+			return nil
+		})
+		if err != nil {
+			t.Fatal(err)
 		}
 	}
 }

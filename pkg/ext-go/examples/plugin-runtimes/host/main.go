@@ -13,7 +13,7 @@ import (
 	"time"
 
 	cgoengine "github.com/webong/ext/pkg/ext-go/cgoengine/plugin"
-	"github.com/webong/ext/pkg/ext-go/cengine/cguest"
+	"github.com/webong/ext/pkg/ext-go/core/plugin/cguest"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/guest/author"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/nativego"
 	"github.com/webong/ext/pkg/ext-go/examples/plugin-runtimes/echo"

@@ -89,7 +89,7 @@ enum GeneratedAssets {
   };
 
   function allocate(size) {
-    const pointer = exports.ext_plugin_alloc(size) >>> 0;
+    const pointer = exports.ext_plugin_guest_alloc(size) >>> 0;
     if (pointer === 0) throw new Error("guest allocation of " + size + " bytes failed");
     return pointer;
   }
@@ -101,12 +101,12 @@ enum GeneratedAssets {
     const pointer = allocate(request.length);
     try {
       bytes().set(request, pointer);
-      const status = exports.ext_plugin_call(session, operation, pointer, request.length, responsePointer, MAX_FRAME, lengthPointer);
+      const status = exports.ext_plugin_guest_call(session, operation, pointer, request.length, responsePointer, MAX_FRAME, lengthPointer);
       if (status !== 0) return { status, frame: "" };
       const length = view().getUint32(lengthPointer, true);
       return { status: 0, frame: decoder.decode(bytes().slice(responsePointer, responsePointer + length)) };
     } finally {
-      exports.ext_plugin_free(pointer, request.length);
+      exports.ext_plugin_guest_free(pointer, request.length);
     }
   }
 
@@ -134,12 +134,12 @@ enum GeneratedAssets {
       const { instance } = await WebAssembly.instantiate(module, { wasi_snapshot_preview1: wasi, ext_plugin: { reverse: () => 2 } });
       exports = instance.exports;
       if (exports._start) throw new Error("the module is a command (_start), not a reactor");
-      for (const name of ["memory", "ext_plugin_abi_version", "ext_plugin_open", "ext_plugin_call", "ext_plugin_close", "ext_plugin_alloc", "ext_plugin_free"]) {
+      for (const name of ["memory", "ext_plugin_guest_abi_version", "ext_plugin_guest_open", "ext_plugin_guest_call", "ext_plugin_guest_close", "ext_plugin_guest_alloc", "ext_plugin_guest_free"]) {
         if (!exports[name]) throw new Error("the module does not export " + name);
       }
       if (exports._initialize) exports._initialize();
-      if (exports.ext_plugin_abi_version() !== 1) throw new Error("unsupported ext.plugin ABI version");
-      session = exports.ext_plugin_open();
+      if (exports.ext_plugin_guest_abi_version() !== 1) throw new Error("unsupported ext.plugin ABI version");
+      session = exports.ext_plugin_guest_open();
       if (session === 0n) throw new Error("the guest could not open a session");
       responsePointer = allocate(MAX_FRAME);
       lengthPointer = allocate(4);

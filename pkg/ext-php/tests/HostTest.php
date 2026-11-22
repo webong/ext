@@ -176,7 +176,7 @@ final class HostTest extends TestCase
         if (self::fixtures() === null) {
             return;
         }
-        self::assertThrows(\FFI\Exception::class, static fn () => new Engine('/does/not/exist/libext_host.so'));
+        self::assertThrows(\FFI\Exception::class, static fn () => new Engine('/does/not/exist/libext_plugin_host.so'));
     }
 
     public function testPoliciesSeeJson(): void

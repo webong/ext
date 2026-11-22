@@ -2,7 +2,7 @@ using System.Runtime.InteropServices;
 
 namespace ExtIO.Host;
 
-// The parts of lib/plugin/include/ext_host.h (host ABI 2) this binding uses, as blittable structs
+// The parts of lib/plugin/include/ext_plugin_host.h (host ABI 2) this binding uses, as blittable structs
 // and unmanaged function pointers resolved from one loaded engine. The ABI version check and the
 // shared host cases hold them to the header.
 
@@ -138,33 +138,33 @@ internal sealed unsafe class NativeApi
             ? address
             : throw new DllNotFoundException($"{path} is not an ext engine library: {name} is missing");
 
-        AbiVersionOf = (delegate* unmanaged<uint>)Export("ext_host_abi_version");
+        AbiVersionOf = (delegate* unmanaged<uint>)Export("ext_plugin_host_abi_version");
         var abi = AbiVersionOf();
         if (abi != AbiVersion)
         {
             throw new DllNotFoundException($"ext engine ABI {abi}, this binding needs {AbiVersion}");
         }
-        Create = (delegate* unmanaged<ExtHostOptions*, ExtBackendOptions*, nint*, int>)Export("ext_host_create");
-        Start = (delegate* unmanaged<nint, ExtCallOptions*, int>)Export("ext_host_start_with_options");
-        Call = (delegate* unmanaged<nint, byte*, nuint, ExtCallOptions*, ExtBuffer*, int>)Export("ext_host_call");
-        Invoke = (delegate* unmanaged<nint, byte*, nuint, ExtCallOptions*, ExtBuffer*, int>)Export("ext_host_invoke_with_options");
-        Drain = (delegate* unmanaged<nint, ExtCallOptions*, int>)Export("ext_host_drain_with_options");
-        Close = (delegate* unmanaged<nint, void>)Export("ext_host_close");
-        Destroy = (delegate* unmanaged<nint, void>)Export("ext_host_destroy");
-        State = (delegate* unmanaged<nint, int>)Export("ext_host_get_state");
-        Stderr = (delegate* unmanaged<nint, byte*, nuint, nuint*, int>)Export("ext_host_process_stderr");
-        BufferFree = (delegate* unmanaged<ExtBuffer*, void>)Export("ext_buffer_free");
-        SharedLibrary = (delegate* unmanaged<ExtSharedLibraryOptions*, ExtExtensionContext*, int>)Export("ext_shared_library_backend_create");
-        CancelCreate = (delegate* unmanaged<nint*, int>)Export("ext_cancel_create");
-        CancelSignal = (delegate* unmanaged<nint, void>)Export("ext_cancel_signal");
-        CancelDestroy = (delegate* unmanaged<nint, void>)Export("ext_cancel_destroy");
-        CancelIsSignaled = (delegate* unmanaged<nint, int>)Export("ext_cancel_is_signaled");
-        SetServices = (delegate* unmanaged<nint, ExtHostServices*, int>)Export("ext_host_set_services");
-        RegistryCreate = (delegate* unmanaged<nint*, int>)Export("ext_registry_create");
-        RegistryRegister = (delegate* unmanaged<nint, byte*, byte*, nint, int>)Export("ext_registry_register");
-        RegistryUnregister = (delegate* unmanaged<nint, byte*, byte*, int>)Export("ext_registry_unregister");
-        RegistryRoute = (delegate* unmanaged<nint, ExtRegistryEdge*, int>)Export("ext_registry_route");
-        RegistryAttach = (delegate* unmanaged<nint, nint, ExtHostServices*, int>)Export("ext_registry_attach");
-        RegistryDestroy = (delegate* unmanaged<nint, void>)Export("ext_registry_destroy");
+        Create = (delegate* unmanaged<ExtHostOptions*, ExtBackendOptions*, nint*, int>)Export("ext_plugin_host_create");
+        Start = (delegate* unmanaged<nint, ExtCallOptions*, int>)Export("ext_plugin_host_start_with_options");
+        Call = (delegate* unmanaged<nint, byte*, nuint, ExtCallOptions*, ExtBuffer*, int>)Export("ext_plugin_host_call");
+        Invoke = (delegate* unmanaged<nint, byte*, nuint, ExtCallOptions*, ExtBuffer*, int>)Export("ext_plugin_host_invoke_with_options");
+        Drain = (delegate* unmanaged<nint, ExtCallOptions*, int>)Export("ext_plugin_host_drain_with_options");
+        Close = (delegate* unmanaged<nint, void>)Export("ext_plugin_host_close");
+        Destroy = (delegate* unmanaged<nint, void>)Export("ext_plugin_host_destroy");
+        State = (delegate* unmanaged<nint, int>)Export("ext_plugin_host_get_state");
+        Stderr = (delegate* unmanaged<nint, byte*, nuint, nuint*, int>)Export("ext_plugin_host_process_stderr");
+        BufferFree = (delegate* unmanaged<ExtBuffer*, void>)Export("ext_plugin_buffer_free");
+        SharedLibrary = (delegate* unmanaged<ExtSharedLibraryOptions*, ExtExtensionContext*, int>)Export("ext_plugin_shared_library_backend_create");
+        CancelCreate = (delegate* unmanaged<nint*, int>)Export("ext_plugin_cancel_create");
+        CancelSignal = (delegate* unmanaged<nint, void>)Export("ext_plugin_cancel_signal");
+        CancelDestroy = (delegate* unmanaged<nint, void>)Export("ext_plugin_cancel_destroy");
+        CancelIsSignaled = (delegate* unmanaged<nint, int>)Export("ext_plugin_cancel_is_signaled");
+        SetServices = (delegate* unmanaged<nint, ExtHostServices*, int>)Export("ext_plugin_host_set_services");
+        RegistryCreate = (delegate* unmanaged<nint*, int>)Export("ext_plugin_registry_create");
+        RegistryRegister = (delegate* unmanaged<nint, byte*, byte*, nint, int>)Export("ext_plugin_registry_register");
+        RegistryUnregister = (delegate* unmanaged<nint, byte*, byte*, int>)Export("ext_plugin_registry_unregister");
+        RegistryRoute = (delegate* unmanaged<nint, ExtRegistryEdge*, int>)Export("ext_plugin_registry_route");
+        RegistryAttach = (delegate* unmanaged<nint, nint, ExtHostServices*, int>)Export("ext_plugin_registry_attach");
+        RegistryDestroy = (delegate* unmanaged<nint, void>)Export("ext_plugin_registry_destroy");
     }
 }

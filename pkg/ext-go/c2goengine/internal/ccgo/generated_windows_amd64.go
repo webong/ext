@@ -1,5 +1,5 @@
-// Code generated for windows/amd64 by 'ccgo -o engine.go --package-name ccgo -I csrc/shim -I csrc/src -I csrc/vendor -I csrc/include -DEXT_HOST_STATIC -DEXT_HOST_BUILD -Dyyjson_align(x)= -Dyyjson_inline= -Dyyjson_noinline= -U__SIZEOF_INT128__ -include csrc/shim/compat_core.h csrc/src/common.c csrc/src/wire.c csrc/src/progress.c csrc/src/reverse.c csrc/src/endpoint.c csrc/src/services.c csrc/src/guest.c csrc/src/sha256.c csrc/src/packages.c csrc/vendor/yyjson.c csrc/shim/windows.c', DO NOT EDIT.
-// c2goengine inputs sha256:6ce31a6e5337629cf189bdc31a8ff9289c3e833607bc16556c50084d5d6dcc2e
+// Code generated for windows/amd64 by 'ccgo -o engine.go --package-name ccgo -I csrc/shim -I csrc/src -I csrc/vendor -I csrc/include -DEXT_PLUGIN_HOST_STATIC -DEXT_PLUGIN_HOST_BUILD -Dyyjson_align(x)= -Dyyjson_inline= -Dyyjson_noinline= -U__SIZEOF_INT128__ -include csrc/shim/compat_core.h csrc/src/common.c csrc/src/wire.c csrc/src/progress.c csrc/src/reverse.c csrc/src/endpoint.c csrc/src/services.c csrc/src/guest.c csrc/src/sha256.c csrc/src/packages.c csrc/vendor/yyjson.c csrc/shim/windows.c', DO NOT EDIT.
+// c2goengine inputs sha256:962f47754ad520e9a122faa1fc58e6a9abc43eb97679d3d904bec01425621c9d
 
 //go:build windows && amd64
 
@@ -101,20 +101,21 @@ const EWOULDBLOCK = 140
 const EXDEV = 18
 const EXIT_FAILURE = 1
 const EXIT_SUCCESS = 0
-const EXT_BACKEND_CONCURRENT = "1u"
-const EXT_BACKEND_EXTENSION = "2u"
-const EXT_BACKEND_EXTENSION_CONTEXT = "3u"
-const EXT_BACKEND_FRAMES = "4u"
-const EXT_BACKEND_JSONLINE_PROCESS = "1u"
-const EXT_BACKEND_JSONLINE_PROCESS_CONFIG = "4u"
-const EXT_BACKEND_JSONLINE_PROCESS_LAUNCH = "5u"
-const EXT_HOST_ABI_VERSION = 2
-const EXT_HOST_BUILD = 1
-const EXT_HOST_REVERSE_CALLER_THREAD = "1u"
-const EXT_HOST_REVERSE_ENGINE_THREADS = "0u"
-const EXT_HOST_REVERSE_PAYLOAD = "0u"
-const EXT_HOST_REVERSE_PUBLIC_ERROR = "1u"
-const EXT_HOST_STATIC = 1
+const EXT_PLUGIN_BACKEND_CONCURRENT = "1u"
+const EXT_PLUGIN_BACKEND_EXTENSION = "2u"
+const EXT_PLUGIN_BACKEND_EXTENSION_CONTEXT = "3u"
+const EXT_PLUGIN_BACKEND_FRAMES = "4u"
+const EXT_PLUGIN_BACKEND_JSONLINE_PROCESS = "1u"
+const EXT_PLUGIN_BACKEND_JSONLINE_PROCESS_CONFIG = "4u"
+const EXT_PLUGIN_BACKEND_JSONLINE_PROCESS_LAUNCH = "5u"
+const EXT_PLUGIN_HOST_ABI_VERSION = 2
+const EXT_PLUGIN_HOST_BUILD = 1
+const EXT_PLUGIN_HOST_REVERSE_CALLER_THREAD = "1u"
+const EXT_PLUGIN_HOST_REVERSE_ENGINE_THREADS = "0u"
+const EXT_PLUGIN_HOST_REVERSE_PAYLOAD = "0u"
+const EXT_PLUGIN_HOST_REVERSE_PUBLIC_ERROR = "1u"
+const EXT_PLUGIN_HOST_STATIC = 1
+const EXT_PLUGIN_STORE_PRESERVE_EXECUTABLE = "1u"
 const EXT_REVERSE_BUSY = "busy"
 const EXT_REVERSE_DEFAULT_IN_FLIGHT = "4u"
 const EXT_REVERSE_DEFAULT_TIMEOUT_MS = "30000u"
@@ -124,7 +125,6 @@ const EXT_REVERSE_MAX_IN_FLIGHT = "1024u"
 const EXT_REVERSE_TOO_LARGE = "too_large"
 const EXT_REVERSE_UNAVAILABLE = "reverse_unavailable"
 const EXT_REVERSE_UNDECLARED = "reverse_undeclared"
-const EXT_STORE_PRESERVE_EXECUTABLE = "1u"
 const FILENAME_MAX = 260
 const FOPEN_MAX = 20
 const INT16_MAX = 32767
@@ -850,75 +850,75 @@ type intmax_t = int64
 
 type uintmax_t = uint64
 
-type ext_buffer = struct {
+type ext_plugin_buffer = struct {
 	Fdata uintptr
 	Flen1 size_t
 }
 
-type ext_status = int32
+type ext_plugin_status = int32
 
-const EXT_OK = 0
-const EXT_INVALID = 1
-const EXT_DENIED = 2
-const EXT_MISMATCH = 3
-const EXT_UNSUPPORTED = 4
-const EXT_CLOSED = 5
-const EXT_TIMEOUT = 6
-const EXT_IO = 7
-const EXT_NOMEM = 8
-const EXT_DRAINING = 9
-const EXT_NOT_FOUND = 10
-const EXT_AMBIGUOUS = 11
-const EXT_CANCELED = 12
-const EXT_UPDATING = 13
-const EXT_CAPACITY = 14
-const EXT_SEQUENCE = 15
-const EXT_PROTOCOL = 16
-const EXT_EXPIRED = 17
-const EXT_EXISTS = 18
-const EXT_MISSING = 19
+const EXT_PLUGIN_OK = 0
+const EXT_PLUGIN_INVALID = 1
+const EXT_PLUGIN_DENIED = 2
+const EXT_PLUGIN_MISMATCH = 3
+const EXT_PLUGIN_UNSUPPORTED = 4
+const EXT_PLUGIN_CLOSED = 5
+const EXT_PLUGIN_TIMEOUT = 6
+const EXT_PLUGIN_IO = 7
+const EXT_PLUGIN_NOMEM = 8
+const EXT_PLUGIN_DRAINING = 9
+const EXT_PLUGIN_NOT_FOUND = 10
+const EXT_PLUGIN_AMBIGUOUS = 11
+const EXT_PLUGIN_CANCELED = 12
+const EXT_PLUGIN_UPDATING = 13
+const EXT_PLUGIN_CAPACITY = 14
+const EXT_PLUGIN_SEQUENCE = 15
+const EXT_PLUGIN_PROTOCOL = 16
+const EXT_PLUGIN_EXPIRED = 17
+const EXT_PLUGIN_EXISTS = 18
+const EXT_PLUGIN_MISSING = 19
 
-type ext_cancel = struct {
+type ext_plugin_cancel = struct {
 	Fsignaled atomic_int
 	Fparent   uintptr
 }
 
-type ext_call_options = struct {
+type ext_plugin_call_options = struct {
 	Fstruct_size uint32_t
 	Ftimeout_ms  uint32_t
 	Fcancel      uintptr
 	Fvalue       uintptr
 }
 
-type ext_policy = uintptr
+type ext_plugin_policy = uintptr
 
-type ext_host_options = struct {
+type ext_plugin_host_options = struct {
 	Fabi_version    uint32_t
 	Fstruct_size    uint32_t
 	Fdescriptor     uintptr
 	Fdescriptor_len size_t
-	Fverify         ext_policy
-	Fauthorize      ext_policy
+	Fverify         ext_plugin_policy
+	Fauthorize      ext_plugin_policy
 	Fuser           uintptr
 }
 
-type ext_context_policy = uintptr
+type ext_plugin_context_policy = uintptr
 
-type ext_observer = uintptr
+type ext_plugin_observer = uintptr
 
-type ext_host_hooks = struct {
+type ext_plugin_host_hooks = struct {
 	Fstruct_size uint32_t
 	Fuser        uintptr
-	Fverify      ext_context_policy
-	Fauthorize   ext_context_policy
-	Fobserve     ext_observer
+	Fverify      ext_plugin_context_policy
+	Fauthorize   ext_plugin_context_policy
+	Fobserve     ext_plugin_observer
 }
 
-type ext_jsonline_process_options = struct {
+type ext_plugin_jsonline_process_options = struct {
 	Fexecutable uintptr
 }
 
-type ext_jsonline_process_config = struct {
+type ext_plugin_jsonline_process_config = struct {
 	Fstruct_size       uint32_t
 	Fexecutable        uintptr
 	Farguments         uintptr
@@ -927,7 +927,7 @@ type ext_jsonline_process_config = struct {
 	Fenvironment_count size_t
 }
 
-type ext_jsonline_process_launch = struct {
+type ext_plugin_jsonline_process_launch = struct {
 	Fstruct_size       uint32_t
 	Fexecutable        uintptr
 	Farguments         uintptr
@@ -938,9 +938,9 @@ type ext_jsonline_process_launch = struct {
 	Fstderr_bytes      uint32_t
 }
 
-type ext_emit = uintptr
+type ext_plugin_emit = uintptr
 
-type ext_backend_extension = struct {
+type ext_plugin_backend_extension = struct {
 	Fstruct_size uint32_t
 	Fflags       uint32_t
 	Fuser        uintptr
@@ -950,7 +950,7 @@ type ext_backend_extension = struct {
 	Frelease     uintptr
 }
 
-type ext_backend_extension_context = struct {
+type ext_plugin_backend_extension_context = struct {
 	Fstruct_size uint32_t
 	Fflags       uint32_t
 	Fuser        uintptr
@@ -960,44 +960,44 @@ type ext_backend_extension_context = struct {
 	Frelease     uintptr
 }
 
-type ext_backend_options = struct {
+type ext_plugin_backend_options = struct {
 	Fstruct_size uint32_t
 	Fkind        uint32_t
 	Fconfig      uintptr
 	Fconfig_size size_t
 }
 
-type ext_shared_library_options = struct {
+type ext_plugin_shared_library_options = struct {
 	Fstruct_size uint32_t
 	Fpath        uintptr
 }
 
-type ext_progress_fn = uintptr
+type ext_plugin_progress_fn = uintptr
 
-type ext_progress_options = struct {
+type ext_plugin_progress_options = struct {
 	Fstruct_size       uint32_t
-	Fdeliver           ext_progress_fn
+	Fdeliver           ext_plugin_progress_fn
 	Fuser              uintptr
 	Fevents_per_second uint32_t
 	Fbytes_per_second  uint32_t
 }
 
-type ext_reverse_emit = uintptr
+type ext_plugin_reverse_emit = uintptr
 
-type ext_reverse_handler = uintptr
+type ext_plugin_reverse_handler = uintptr
 
-type ext_host_services = struct {
+type ext_plugin_host_services = struct {
 	Fstruct_size       uint32_t
 	Fuser              uintptr
-	Fauthorize         ext_context_policy
-	Fhandle            ext_reverse_handler
+	Fauthorize         ext_plugin_context_policy
+	Fhandle            ext_plugin_reverse_handler
 	Ftimeout_ms        uint32_t
 	Fmax_payload_bytes uint32_t
 	Fmax_in_flight     uint32_t
 	Fsession_value     uintptr
 }
 
-type ext_registry_edge = struct {
+type ext_plugin_registry_edge = struct {
 	Fstruct_size    uint32_t
 	Ffrom_name      uintptr
 	Ffrom_version   uintptr
@@ -1007,21 +1007,21 @@ type ext_registry_edge = struct {
 	Fto_operation   uintptr
 }
 
-type ext_host_state = int32
+type ext_plugin_host_state = int32
 
-const EXT_HOST_CREATED = 0
-const EXT_HOST_READY = 1
-const EXT_HOST_DRAINING = 2
-const EXT_HOST_CLOSED = 3
-const EXT_HOST_FAILED = 4
+const EXT_PLUGIN_HOST_CREATED = 0
+const EXT_PLUGIN_HOST_READY = 1
+const EXT_PLUGIN_HOST_DRAINING = 2
+const EXT_PLUGIN_HOST_CLOSED = 3
+const EXT_PLUGIN_HOST_FAILED = 4
 
-type ext_trust_state = int32
+type ext_plugin_trust_state = int32
 
-const EXT_TRUST_UNTRUSTED = 0
-const EXT_TRUST_TRUSTED = 1
-const EXT_TRUST_CHANGED = 2
+const EXT_PLUGIN_TRUST_UNTRUSTED = 0
+const EXT_PLUGIN_TRUST_TRUSTED = 1
+const EXT_PLUGIN_TRUST_CHANGED = 2
 
-type ext_store_limits = struct {
+type ext_plugin_store_limits = struct {
 	Fmax_artifact_bytes uint64_t
 	Fmax_tree_files     uint32_t
 	Fmax_tree_bytes     uint64_t
@@ -6448,44 +6448,44 @@ type ext_reverse_request = struct {
 
 type atomic_int = int32
 
-func ext_cancel_create(tls *libc.TLS, out uintptr) (r ext_status) {
+func ext_plugin_cancel_create(tls *libc.TLS, out uintptr) (r ext_plugin_status) {
 	if !(out != 0) {
-		return int32(EXT_INVALID)
+		return int32(EXT_PLUGIN_INVALID)
 	}
 	*(*uintptr)(unsafe.Add(nil, out)) = libc.Xmalloc(tls, uint64(16))
 	if !(*(*uintptr)(unsafe.Add(nil, out)) != 0) {
-		return int32(EXT_NOMEM)
+		return int32(EXT_PLUGIN_NOMEM)
 	}
 	libc.AtomicStoreNInt32(*(*uintptr)(unsafe.Add(nil, out)), libc.Int32FromInt32(0), libc.Int32FromInt32(__ATOMIC_SEQ_CST))
-	(*ext_cancel)(unsafe.Pointer(*(*uintptr)(unsafe.Add(nil, out)))).Fparent = libc.UintptrFromInt32(0)
-	return int32(EXT_OK)
+	(*ext_plugin_cancel)(unsafe.Pointer(*(*uintptr)(unsafe.Add(nil, out)))).Fparent = libc.UintptrFromInt32(0)
+	return int32(EXT_PLUGIN_OK)
 }
 
-func ext_cancel_signal(tls *libc.TLS, c uintptr) {
+func ext_plugin_cancel_signal(tls *libc.TLS, c uintptr) {
 	if c != 0 {
 		libc.AtomicStoreNInt32(c, libc.Int32FromInt32(1), libc.Int32FromInt32(__ATOMIC_SEQ_CST))
 	}
 }
 
-func ext_cancel_is_signaled(tls *libc.TLS, c uintptr) (r int32) {
-	return libc.BoolInt32(c != 0 && (libc.AtomicLoadNInt32(c, libc.Int32FromInt32(__ATOMIC_SEQ_CST)) != 0 || ext_cancel_is_signaled(tls, (*ext_cancel)(unsafe.Pointer(c)).Fparent) != 0))
+func ext_plugin_cancel_is_signaled(tls *libc.TLS, c uintptr) (r int32) {
+	return libc.BoolInt32(c != 0 && (libc.AtomicLoadNInt32(c, libc.Int32FromInt32(__ATOMIC_SEQ_CST)) != 0 || ext_plugin_cancel_is_signaled(tls, (*ext_plugin_cancel)(unsafe.Pointer(c)).Fparent) != 0))
 }
 
 func ext_cancel_link(tls *libc.TLS, c uintptr, parent uintptr) {
 	if c != 0 {
-		(*ext_cancel)(unsafe.Pointer(c)).Fparent = parent
+		(*ext_plugin_cancel)(unsafe.Pointer(c)).Fparent = parent
 	}
 }
 
-func ext_cancel_destroy(tls *libc.TLS, c uintptr) {
+func ext_plugin_cancel_destroy(tls *libc.TLS, c uintptr) {
 	libc.Xfree(tls, c)
 }
 
-func ext_host_abi_version(tls *libc.TLS) (r uint32_t) {
+func ext_plugin_host_abi_version(tls *libc.TLS) (r uint32_t) {
 	return uint32(2)
 }
 
-func ext_host_status_string(tls *libc.TLS, s ext_status) (r uintptr) {
+func ext_plugin_host_status_string(tls *libc.TLS, s ext_plugin_status) (r uintptr) {
 	var v1 uintptr
 	_ = v1
 	if s >= 0 && uint64(s) < libc.Uint64FromInt64(160)/libc.Uint64FromInt64(8) {
@@ -6519,11 +6519,11 @@ var names = [20]uintptr{
 	19: __ccgo_ts + 383,
 }
 
-func ext_buffer_free(tls *libc.TLS, b uintptr) {
+func ext_plugin_buffer_free(tls *libc.TLS, b uintptr) {
 	if b != 0 {
-		libc.Xfree(tls, (*ext_buffer)(unsafe.Pointer(b)).Fdata)
-		(*ext_buffer)(unsafe.Pointer(b)).Fdata = libc.UintptrFromInt32(0)
-		(*ext_buffer)(unsafe.Pointer(b)).Flen1 = uint64(0)
+		libc.Xfree(tls, (*ext_plugin_buffer)(unsafe.Pointer(b)).Fdata)
+		(*ext_plugin_buffer)(unsafe.Pointer(b)).Fdata = libc.UintptrFromInt32(0)
+		(*ext_plugin_buffer)(unsafe.Pointer(b)).Flen1 = uint64(0)
 	}
 }
 
@@ -6534,7 +6534,7 @@ const CLOCK_PROCESS_CPUTIME_ID = 2
 const CLOCK_REALTIME = 0
 const CLOCK_REALTIME_COARSE = 4
 const CLOCK_THREAD_CPUTIME_ID = 3
-const EXT_HOST_ABI_VERSION1 = "2u"
+const EXT_PLUGIN_HOST_ABI_VERSION1 = "2u"
 const NSIG = 23
 const OLD_P_OVERLAY = "_OLD_P_OVERLAY"
 const PTHREAD_BARRIER_SERIAL_THREAD = 1
@@ -6559,7 +6559,9 @@ const PTHREAD_MUTEX_NORMAL = 0
 const PTHREAD_MUTEX_PRIVATE = 0
 const PTHREAD_MUTEX_RECURSIVE = 2
 const PTHREAD_MUTEX_RECURSIVE_NP = "PTHREAD_MUTEX_RECURSIVE"
+const PTHREAD_MUTEX_ROBUST = 1
 const PTHREAD_MUTEX_SHARED = 1
+const PTHREAD_MUTEX_STALLED = 0
 const PTHREAD_MUTEX_TIMED_NP = "PTHREAD_MUTEX_NORMAL"
 const PTHREAD_ONCE_INIT = 0
 const PTHREAD_PRIO_INHERIT = 8
@@ -6597,12 +6599,17 @@ const WAIT_CHILD = "_WAIT_CHILD"
 const WAIT_GRANDCHILD = "_WAIT_GRANDCHILD"
 const WINPTHREADS_INLINE = "__inline__"
 const WINPTHREADS_TIME_BITS = 64
+const WINPTHREAD_COND_DECL = "WINPTHREAD_TIME_BITS_DECL"
+const WINPTHREAD_MUTEX_DECL = "WINPTHREAD_TIME_BITS_DECL"
+const WINPTHREAD_RWLOCK_DECL = "WINPTHREAD_TIME_BITS_DECL"
+const WINPTHREAD_SEM_DECL = "WINPTHREAD_TIME_BITS_DECL"
+const WINPTHREAD_THREAD_DECL = "WINPTHREAD_TIME_BITS_DECL"
+const WINPTHREAD_TIME_DECL = "WINPTHREAD_TIME_BITS_DECL"
 const _GTHREAD_USE_MUTEX_INIT_FUNC = 1
 const _OLD_P_OVERLAY = 2
-const _POSIX_CPUTIME = 200809
+const _POSIX_CPUTIME = 0
 const _POSIX_MONOTONIC_CLOCK = 200809
-const _POSIX_THREAD_CPUTIME = 200809
-const _POSIX_TIMERS = 200809
+const _POSIX_THREAD_CPUTIME = 0
 const _P_DETACH = 4
 const _P_NOWAIT = 1
 const _P_NOWAITO = 3
@@ -12183,15 +12190,15 @@ func ext_parse(tls *libc.TLS, data uintptr, len1 size_t) (r uintptr) {
 	return d
 }
 
-func ext_host_validate_json(tls *libc.TLS, data uintptr, len1 size_t) (r ext_status) {
+func ext_plugin_host_validate_json(tls *libc.TLS, data uintptr, len1 size_t) (r ext_plugin_status) {
 	var d uintptr
 	_ = d
 	d = ext_parse(tls, data, len1)
 	if !(d != 0) {
-		return int32(EXT_INVALID)
+		return int32(EXT_PLUGIN_INVALID)
 	}
 	yyjson_doc_free1(tls, d)
-	return int32(EXT_OK)
+	return int32(EXT_PLUGIN_OK)
 }
 
 func get(tls *libc.TLS, o uintptr, k uintptr) (r uintptr) {
@@ -12989,7 +12996,7 @@ func ext_descriptor_declares_progress(tls *libc.TLS, d uintptr) (r int32) {
 	return 0
 }
 
-func ext_request(tls *libc.TLS, d uintptr, r uintptr, deadline uintptr) (r1 ext_status) {
+func ext_request(tls *libc.TLS, d uintptr, r uintptr, deadline uintptr) (r1 ext_plugin_status) {
 	bp := tls.Alloc(96)
 	defer tls.Free(96)
 	var op, parent uintptr
@@ -13016,23 +13023,23 @@ func ext_request(tls *libc.TLS, d uintptr, r uintptr, deadline uintptr) (r1 ext_
 		}
 	}
 	if v1 || !(ext_fields(tls, get(tls, r, __ccgo_ts+555), bp+80, libc.Uint64FromInt64(16)/libc.Uint64FromInt64(8)) != 0) || !(ext_ref(tls, get(tls, r, __ccgo_ts+555)) != 0) {
-		return int32(EXT_INVALID)
+		return int32(EXT_PLUGIN_INVALID)
 	}
 	*(*int64_t)(unsafe.Add(nil, deadline)) = timestamp(tls, get(tls, r, __ccgo_ts+574))
 	if *(*int64_t)(unsafe.Add(nil, deadline)) == int64(-int32(1)) {
-		return int32(EXT_INVALID)
+		return int32(EXT_PLUGIN_INVALID)
 	}
 	if !(ext_same_identity(tls, get(tls, d, __ccgo_ts+479), get(tls, r, __ccgo_ts+548)) != 0) {
-		return int32(EXT_MISMATCH)
+		return int32(EXT_PLUGIN_MISMATCH)
 	}
 	op = ext_lookup(tls, d, get(tls, r, __ccgo_ts+555), get(tls, r, __ccgo_ts+564))
 	if !(op != 0) {
-		return int32(EXT_UNSUPPORTED)
+		return int32(EXT_PLUGIN_UNSUPPORTED)
 	}
 	if ext_same(tls, get(tls, op, __ccgo_ts+447), get(tls, r, __ccgo_ts+447)) != 0 {
-		v2 = int32(EXT_OK)
+		v2 = int32(EXT_PLUGIN_OK)
 	} else {
-		v2 = int32(EXT_MISMATCH)
+		v2 = int32(EXT_PLUGIN_MISMATCH)
 	}
 	return v2
 }
@@ -13112,7 +13119,7 @@ func ext_lookup_in(tls *libc.TLS, contracts uintptr, r uintptr, name uintptr) (r
 	return libc.UintptrFromInt32(0)
 }
 
-func ext_response(tls *libc.TLS, r uintptr, id uintptr) (r1 ext_status) {
+func ext_response(tls *libc.TLS, r uintptr, id uintptr) (r1 ext_plugin_status) {
 	bp := tls.Alloc(32)
 	defer tls.Free(32)
 	var err uintptr
@@ -13125,20 +13132,20 @@ func ext_response(tls *libc.TLS, r uintptr, id uintptr) (r1 ext_status) {
 		3: __ccgo_ts + 627,
 	}
 	if !(ext_fields(tls, r, bp, libc.Uint64FromInt64(32)/libc.Uint64FromInt64(8)) != 0) {
-		return int32(EXT_INVALID)
+		return int32(EXT_PLUGIN_INVALID)
 	}
 	if !(yyjson_equals_str1(tls, get(tls, r, __ccgo_ts+468), __ccgo_ts+496) != 0) || !(yyjson_equals_str1(tls, get(tls, r, __ccgo_ts+392), id) != 0) {
-		return int32(EXT_MISMATCH)
+		return int32(EXT_PLUGIN_MISMATCH)
 	}
 	err = get(tls, r, __ccgo_ts+627)
 	has_error = libc.BoolInt32(err != 0 && !(yyjson_is_null1(tls, err) != 0))
 	if has_error == libc.BoolInt32(get(tls, r, __ccgo_ts+583) != libc.UintptrFromInt32(0)) {
-		return int32(EXT_INVALID)
+		return int32(EXT_PLUGIN_INVALID)
 	}
 	if has_error != 0 && !(ext_error_valid(tls, err) != 0) {
-		return int32(EXT_INVALID)
+		return int32(EXT_PLUGIN_INVALID)
 	}
-	return int32(EXT_OK)
+	return int32(EXT_PLUGIN_OK)
 }
 
 const EXT_PROGRESS_DEFAULT_EVENTS = 50
@@ -18347,12 +18354,12 @@ type ext_progress_event = struct {
 
 type ext_progress_sink = struct {
 	Flimiter ext_limiter
-	Ffn      ext_progress_fn
+	Ffn      ext_plugin_progress_fn
 	Fuser    uintptr
 }
 
 /*
-   Copyright (c) 2011-2016  mingw-w64 project
+   Copyright (c) 2011-2016, 2026 mingw-w64 project
 
    Permission is hereby granted, free of charge, to any person obtaining a
    copy of this software and associated documentation files (the "Software"),
@@ -18484,24 +18491,8 @@ sem_timedwait(),
 
 are present. */
 
-/* _SC_TIMERS - not supported
-The functions
-
-clock_getres(),
-clock_gettime(),
-clock_settime(),
-nanosleep(),
-timer_create(),
-timer_delete(),
-timer_gettime(),
-timer_getoverrun(),
-timer_settime()
-
-are present.  */
-/* #undef _POSIX_TIMERS */
-
 /* _SC_CLOCK_SELECTION
-   This option implies the _POSIX_TIMERS option. The functions
+   The functions
 
    pthread_condattr_getclock(),
    pthread_condattr_setclock(),
@@ -18524,8 +18515,6 @@ sem_unlink(),
 sem_wait()
 
 are present. */
-
-/* Wrap cancellation points.  */
 
 /* We deal here with a gcc issue for posix threading on Windows.
    We would need to change here gcc's gthr-posix.h header, but this
@@ -18676,7 +18665,7 @@ func uint64_field(tls *libc.TLS, v uintptr, out uintptr) (r int32) {
 	return int32(1)
 }
 
-func ext_progress_frame(tls *libc.TLS, frame uintptr, event uintptr, parent uintptr) (r ext_status) {
+func ext_progress_frame(tls *libc.TLS, frame uintptr, event uintptr, parent uintptr) (r ext_plugin_status) {
 	bp := tls.Alloc(112)
 	defer tls.Free(112)
 	var id, v1 uintptr
@@ -18704,7 +18693,7 @@ func ext_progress_frame(tls *libc.TLS, frame uintptr, event uintptr, parent uint
 		8: __ccgo_ts + 672,
 	}
 	if !(ext_fields(tls, frame, bp, libc.Uint64FromInt64(72)/libc.Uint64FromInt64(8)) != 0) || !(yyjson_equals_str2(tls, yyjson_obj_get2(tls, frame, __ccgo_ts+633), __ccgo_ts+438) != 0) || !(yyjson_equals_str2(tls, yyjson_obj_get2(tls, frame, __ccgo_ts+468), __ccgo_ts+496) != 0) || !(ext_text(tls, id, int32(1), 0) != 0) || !(string_field(tls, yyjson_obj_get2(tls, frame, __ccgo_ts+639), bp+72, bp+88) != 0) || !(string_field(tls, yyjson_obj_get2(tls, frame, __ccgo_ts+644), bp+80, bp+96) != 0) || !(string_field(tls, yyjson_obj_get2(tls, frame, __ccgo_ts+651), event+8, event+16) != 0) || !(uint64_field(tls, yyjson_obj_get2(tls, frame, __ccgo_ts+656), event+24) != 0) || !(uint64_field(tls, yyjson_obj_get2(tls, frame, __ccgo_ts+666), event+32) != 0) || !(uint64_field(tls, yyjson_obj_get2(tls, frame, __ccgo_ts+672), event+40) != 0) {
-		return int32(EXT_PROTOCOL)
+		return int32(EXT_PLUGIN_PROTOCOL)
 	}
 	is_log = libc.BoolInt32(*(*size_t)(unsafe.Add(nil, bp+88)) == uint64(3) && !(libc.Xmemcmp(tls, *(*uintptr)(unsafe.Add(nil, bp+72)), __ccgo_ts+680, uint64(3)) != 0))
 	is_progress = libc.BoolInt32(*(*size_t)(unsafe.Add(nil, bp+88)) == uint64(8) && !(libc.Xmemcmp(tls, *(*uintptr)(unsafe.Add(nil, bp+72)), __ccgo_ts+438, uint64(8)) != 0))
@@ -18726,15 +18715,15 @@ func ext_progress_frame(tls *libc.TLS, frame uintptr, event uintptr, parent uint
 	}
 	(*ext_progress_event)(unsafe.Pointer(event)).Fstream = v2
 	if !(is_log != 0) && !(is_progress != 0) || (*ext_progress_event)(unsafe.Pointer(event)).Fstream < 0 || (*ext_progress_event)(unsafe.Pointer(event)).Fstream != 0 && !(is_log != 0) || (*ext_progress_event)(unsafe.Pointer(event)).Ftext_len > uint64(2048) || (*ext_progress_event)(unsafe.Pointer(event)).Ftotal != 0 && (*ext_progress_event)(unsafe.Pointer(event)).Fcompleted > (*ext_progress_event)(unsafe.Pointer(event)).Ftotal {
-		return int32(EXT_PROTOCOL)
+		return int32(EXT_PLUGIN_PROTOCOL)
 	}
 	*(*uintptr)(unsafe.Add(nil, parent)) = id
-	return int32(EXT_OK)
+	return int32(EXT_PLUGIN_OK)
 }
 
 type __ccgo_fp__Xext_progress_sink_init_1 = func(*libc.TLS, uintptr, uintptr, uint64)
 
-func ext_progress_sink_init(tls *libc.TLS, s uintptr, __ccgo_fp_fn ext_progress_fn, user uintptr, events_per_second int64_t, bytes_per_second int64_t) {
+func ext_progress_sink_init(tls *libc.TLS, s uintptr, __ccgo_fp_fn ext_plugin_progress_fn, user uintptr, events_per_second int64_t, bytes_per_second int64_t) {
 	ext_limiter_init(tls, s, events_per_second, bytes_per_second, ext_mono_ns(tls))
 	(*ext_progress_sink)(unsafe.Pointer(s)).Ffn = __ccgo_fp_fn
 	(*ext_progress_sink)(unsafe.Pointer(s)).Fuser = user
@@ -18744,7 +18733,7 @@ func ext_progress_sink_init(tls *libc.TLS, s uintptr, __ccgo_fp_fn ext_progress_
 //
 //	/* Hands one event to fn as the JSON of plugin.Progress: zero fields are left
 //	 * out, as Go's omitempty does. */
-func emit_event(tls *libc.TLS, s uintptr, e uintptr, dropped uint64_t) (r ext_status) {
+func emit_event(tls *libc.TLS, s uintptr, e uintptr, dropped uint64_t) (r ext_plugin_status) {
 	bp := tls.Alloc(16)
 	defer tls.Free(16)
 	var doc, json, root, v1, v3 uintptr
@@ -18753,11 +18742,11 @@ func emit_event(tls *libc.TLS, s uintptr, e uintptr, dropped uint64_t) (r ext_st
 	var _ /* len at bp+0 */ size_t
 	_, _, _, _, _, _, _ = doc, json, ok, root, v1, v2, v3
 	if !((*ext_progress_sink)(unsafe.Pointer(s)).Ffn != 0) {
-		return int32(EXT_OK)
+		return int32(EXT_PLUGIN_OK)
 	}
 	doc = yyjson_mut_doc_new(tls, libc.UintptrFromInt32(0))
 	if !(doc != 0) {
-		return int32(EXT_NOMEM)
+		return int32(EXT_PLUGIN_NOMEM)
 	}
 	root = yyjson_mut_obj2(tls, doc)
 	yyjson_mut_doc_set_root2(tls, doc, root)
@@ -18798,14 +18787,14 @@ func emit_event(tls *libc.TLS, s uintptr, e uintptr, dropped uint64_t) (r ext_st
 	json = v1
 	yyjson_mut_doc_free(tls, doc)
 	if !(json != 0) {
-		return int32(EXT_NOMEM)
+		return int32(EXT_PLUGIN_NOMEM)
 	}
 	(*(*func(*libc.TLS, uintptr, uintptr, size_t))(unsafe.Pointer(&struct{ uintptr }{(*ext_progress_sink)(unsafe.Pointer(s)).Ffn})))(tls, (*ext_progress_sink)(unsafe.Pointer(s)).Fuser, json, *(*size_t)(unsafe.Add(nil, bp)))
 	libc.Xfree(tls, json)
-	return int32(EXT_OK)
+	return int32(EXT_PLUGIN_OK)
 }
 
-func ext_progress_sink_report(tls *libc.TLS, s uintptr, e uintptr, delivered uintptr) (r ext_status) {
+func ext_progress_sink_report(tls *libc.TLS, s uintptr, e uintptr, delivered uintptr) (r ext_plugin_status) {
 	bp := tls.Alloc(16)
 	defer tls.Free(16)
 	var _ /* dropped at bp+8 */ uint64_t
@@ -18818,19 +18807,19 @@ func ext_progress_sink_report(tls *libc.TLS, s uintptr, e uintptr, delivered uin
 	 * next event or the final marker, and is not itself rate-limited. */
 	if (*ext_progress_event)(unsafe.Pointer(e)).Flog != 0 && !((*ext_progress_event)(unsafe.Pointer(e)).Ftext_len != 0) && !((*ext_progress_event)(unsafe.Pointer(e)).Fstream != 0) && (*ext_progress_event)(unsafe.Pointer(e)).Fdropped != 0 {
 		ext_limiter_carry(tls, s, (*ext_progress_event)(unsafe.Pointer(e)).Fdropped)
-		return int32(EXT_OK)
+		return int32(EXT_PLUGIN_OK)
 	}
 	*(*uint64_t)(unsafe.Add(nil, bp+8)) = uint64(0)
 	if !(ext_limiter_admit(tls, s, (*ext_progress_event)(unsafe.Pointer(e)).Ftext_len, ext_mono_ns(tls), bp+8) != 0) {
 		/* The dropped event's own count must not vanish with it. */
 		ext_limiter_carry(tls, s, (*ext_progress_event)(unsafe.Pointer(e)).Fdropped)
 		*(*int32)(unsafe.Add(nil, delivered)) = 0
-		return int32(EXT_OK)
+		return int32(EXT_PLUGIN_OK)
 	}
 	return emit_event(tls, s, e, (*ext_progress_event)(unsafe.Pointer(e)).Fdropped+*(*uint64_t)(unsafe.Add(nil, bp+8)))
 }
 
-func ext_progress_sink_deliver(tls *libc.TLS, s uintptr, e uintptr) (r ext_status) {
+func ext_progress_sink_deliver(tls *libc.TLS, s uintptr, e uintptr) (r ext_plugin_status) {
 	return ext_progress_sink_report(tls, s, e, libc.UintptrFromInt32(0))
 }
 
@@ -18851,8 +18840,8 @@ func ext_progress_sink_finish(tls *libc.TLS, s uintptr) {
 	emit_event(tls, s, bp, n)
 }
 
-const EXT_HOST_REVERSE_PAYLOAD1 = 0
-const EXT_HOST_REVERSE_PUBLIC_ERROR1 = 1
+const EXT_PLUGIN_HOST_REVERSE_PAYLOAD1 = 0
+const EXT_PLUGIN_HOST_REVERSE_PUBLIC_ERROR1 = 1
 const UINT64_MAX2 = "0xffffffffffffffffU"
 
 var YYJSON_READ_NOFLAG3 = uint32(0)
@@ -24045,7 +24034,7 @@ func unsafe_yyjson_mut_get_pointer3(tls *libc.TLS, val uintptr, ptr uintptr, len
  * No warranty is given; refer to the file DISCLAIMER.PD within this package.
  */
 
-func ext_reverse_request_frame(tls *libc.TLS, frame uintptr, request uintptr) (r ext_status) {
+func ext_reverse_request_frame(tls *libc.TLS, frame uintptr, request uintptr) (r ext_plugin_status) {
 	bp := tls.Alloc(80)
 	defer tls.Free(80)
 	var contract, id, operation, parent uintptr
@@ -24064,7 +24053,7 @@ func ext_reverse_request_frame(tls *libc.TLS, frame uintptr, request uintptr) (r
 		7: __ccgo_ts + 583,
 	}
 	if !(ext_fields(tls, frame, bp, libc.Uint64FromInt64(64)/libc.Uint64FromInt64(8)) != 0) || !(yyjson_equals_str3(tls, yyjson_obj_get3(tls, frame, __ccgo_ts+633), __ccgo_ts+692) != 0) || !(yyjson_equals_str3(tls, yyjson_obj_get3(tls, frame, __ccgo_ts+468), __ccgo_ts+496) != 0) {
-		return int32(EXT_PROTOCOL)
+		return int32(EXT_PLUGIN_PROTOCOL)
 	}
 	id = yyjson_obj_get3(tls, frame, __ccgo_ts+392)
 	parent = yyjson_obj_get3(tls, frame, __ccgo_ts+541)
@@ -24076,7 +24065,7 @@ func ext_reverse_request_frame(tls *libc.TLS, frame uintptr, request uintptr) (r
 		parent = libc.UintptrFromInt32(0)
 	}
 	if parent != 0 && (!(yyjson_is_str3(tls, parent) != 0) || yyjson_get_len3(tls, parent) != 0 && !(ext_text(tls, parent, int32(1), 0) != 0)) {
-		return int32(EXT_PROTOCOL)
+		return int32(EXT_PLUGIN_PROTOCOL)
 	}
 	if parent != 0 && !(yyjson_get_len3(tls, parent) != 0) {
 		parent = libc.UintptrFromInt32(0)
@@ -24089,7 +24078,7 @@ func ext_reverse_request_frame(tls *libc.TLS, frame uintptr, request uintptr) (r
 		}
 	}
 	if v1 || !(ext_fields(tls, contract, bp+64, libc.Uint64FromInt64(16)/libc.Uint64FromInt64(8)) != 0) || !(ext_ref(tls, contract) != 0) || !(ext_text(tls, operation, 0, 0) != 0) || deadline < 0 {
-		return int32(EXT_PROTOCOL)
+		return int32(EXT_PLUGIN_PROTOCOL)
 	}
 	(*ext_reverse_request)(unsafe.Pointer(request)).Fid = id
 	(*ext_reverse_request)(unsafe.Pointer(request)).Fparent = parent
@@ -24098,7 +24087,7 @@ func ext_reverse_request_frame(tls *libc.TLS, frame uintptr, request uintptr) (r
 	(*ext_reverse_request)(unsafe.Pointer(request)).Fpayload = yyjson_obj_get3(tls, frame, __ccgo_ts+583)
 	(*ext_reverse_request)(unsafe.Pointer(request)).Fdeadline = yyjson_obj_get3(tls, frame, __ccgo_ts+574)
 	(*ext_reverse_request)(unsafe.Pointer(request)).Fdeadline_ms = deadline
-	return int32(EXT_OK)
+	return int32(EXT_PLUGIN_OK)
 }
 
 func begin(tls *libc.TLS, doc uintptr, id uintptr, id_len size_t) (r uintptr) {
@@ -24249,8 +24238,8 @@ var null_payload = [4]uint8_t{
 const EXT_ENDPOINT_MAX_ADDRESS = 255
 const EXT_ENDPOINT_MAX_PATH = 1024
 const EXT_ENDPOINT_MAX_TOKEN = 512
-const EXT_HOST_REVERSE_PAYLOAD2 = "0u"
-const EXT_HOST_REVERSE_PUBLIC_ERROR2 = "1u"
+const EXT_PLUGIN_HOST_REVERSE_PAYLOAD2 = "0u"
+const EXT_PLUGIN_HOST_REVERSE_PUBLIC_ERROR2 = "1u"
 
 var YYJSON_READ_NOFLAG4 = uint32(0)
 var YYJSON_READ_INSITU4 = uint32(libc.Int32FromInt32(1) << libc.Int32FromInt32(0))
@@ -29845,7 +29834,7 @@ func split_host_port(tls *libc.TLS, a uintptr, n size_t, host uintptr, host_len 
 //
 //	/* validAddress: a host and a port, the host being "localhost" or a loopback IP
 //	 * literal. */
-func address_ok(tls *libc.TLS, a uintptr, n size_t) (r ext_status) {
+func address_ok(tls *libc.TLS, a uintptr, n size_t) (r ext_plugin_status) {
 	bp := tls.Alloc(48)
 	defer tls.Free(48)
 	var i size_t
@@ -29857,14 +29846,14 @@ func address_ok(tls *libc.TLS, a uintptr, n size_t) (r ext_status) {
 	var _ /* port_len at bp+24 */ size_t
 	_, _ = i, number
 	if !(n != 0) || n > uint64(255) || control_or_space(tls, a, n) != 0 {
-		return int32(EXT_INVALID)
+		return int32(EXT_PLUGIN_INVALID)
 	}
 	if !(split_host_port(tls, a, n, bp, bp+16, bp+8, bp+24) != 0) {
-		return int32(EXT_INVALID)
+		return int32(EXT_PLUGIN_INVALID)
 	}
 	/* The port is plain decimal, from 1 to 65535, written the way a number is. */
 	if !(*(*size_t)(unsafe.Add(nil, bp+24)) != 0) || *(*size_t)(unsafe.Add(nil, bp+24)) > uint64(5) || int32(*(*int8)(unsafe.Add(nil, *(*uintptr)(unsafe.Add(nil, bp+8))))) == int32('0') {
-		return int32(EXT_INVALID)
+		return int32(EXT_PLUGIN_INVALID)
 	}
 	number = uint32(0)
 	i = uint64(0)
@@ -29873,7 +29862,7 @@ func address_ok(tls *libc.TLS, a uintptr, n size_t) (r ext_status) {
 			break
 		}
 		if int32(*(*int8)(unsafe.Add(nil, *(*uintptr)(unsafe.Add(nil, bp+8))+uintptr(i)))) < int32('0') || int32(*(*int8)(unsafe.Add(nil, *(*uintptr)(unsafe.Add(nil, bp+8))+uintptr(i)))) > int32('9') {
-			return int32(EXT_INVALID)
+			return int32(EXT_PLUGIN_INVALID)
 		}
 		number = number*uint32(10) + uint32(int32(*(*int8)(unsafe.Add(nil, *(*uintptr)(unsafe.Add(nil, bp+8))+uintptr(i))))-libc.Int32FromUint8('0'))
 		goto _1
@@ -29882,51 +29871,51 @@ func address_ok(tls *libc.TLS, a uintptr, n size_t) (r ext_status) {
 		i = i + 1
 	}
 	if number > uint32(65535) {
-		return int32(EXT_INVALID)
+		return int32(EXT_PLUGIN_INVALID)
 	}
 	if same(tls, *(*uintptr)(unsafe.Add(nil, bp)), *(*size_t)(unsafe.Add(nil, bp+16)), __ccgo_ts+801) != 0 {
-		return int32(EXT_OK)
+		return int32(EXT_PLUGIN_OK)
 	}
 	if !(ip_parse(tls, *(*uintptr)(unsafe.Add(nil, bp)), *(*size_t)(unsafe.Add(nil, bp+16)), bp+32) != 0) || !(loopback(tls, bp+32) != 0) {
-		return int32(EXT_DENIED)
+		return int32(EXT_PLUGIN_DENIED)
 	}
-	return int32(EXT_OK)
+	return int32(EXT_PLUGIN_OK)
 }
 
 // C documentation
 //
 //	/* Check, in Go's order: the first rule an endpoint breaks decides the status. */
-func check(tls *libc.TLS, e uintptr) (r ext_status) {
-	var s ext_status
+func check(tls *libc.TLS, e uintptr) (r ext_plugin_status) {
+	var s ext_plugin_status
 	_ = s
 	if !(known_scheme(tls, (*endpoint_value)(unsafe.Pointer(e)).Fscheme, (*endpoint_value)(unsafe.Pointer(e)).Fscheme_len) != 0) {
-		return int32(EXT_INVALID)
+		return int32(EXT_PLUGIN_INVALID)
 	}
 	s = address_ok(tls, (*endpoint_value)(unsafe.Pointer(e)).Faddress, (*endpoint_value)(unsafe.Pointer(e)).Faddress_len)
 	if s != 0 {
 		return s
 	}
 	if (*endpoint_value)(unsafe.Pointer(e)).Fpath_len > uint64(1024) {
-		return int32(EXT_INVALID)
+		return int32(EXT_PLUGIN_INVALID)
 	}
 	if (*endpoint_value)(unsafe.Pointer(e)).Fpath_len != 0 && (int32(*(*int8)(unsafe.Add(nil, (*endpoint_value)(unsafe.Pointer(e)).Fpath))) != int32('/') || libc.Xmemchr(tls, (*endpoint_value)(unsafe.Pointer(e)).Fpath, int32('?'), (*endpoint_value)(unsafe.Pointer(e)).Fpath_len) != 0 || libc.Xmemchr(tls, (*endpoint_value)(unsafe.Pointer(e)).Fpath, int32('#'), (*endpoint_value)(unsafe.Pointer(e)).Fpath_len) != 0 || libc.Xmemchr(tls, (*endpoint_value)(unsafe.Pointer(e)).Fpath, int32('\\'), (*endpoint_value)(unsafe.Pointer(e)).Fpath_len) != 0 || control_or_space(tls, (*endpoint_value)(unsafe.Pointer(e)).Fpath, (*endpoint_value)(unsafe.Pointer(e)).Fpath_len) != 0) {
-		return int32(EXT_INVALID)
+		return int32(EXT_PLUGIN_INVALID)
 	}
 	if (*endpoint_value)(unsafe.Pointer(e)).Ftoken_len > uint64(512) || control_or_space(tls, (*endpoint_value)(unsafe.Pointer(e)).Ftoken, (*endpoint_value)(unsafe.Pointer(e)).Ftoken_len) != 0 {
-		return int32(EXT_INVALID)
+		return int32(EXT_PLUGIN_INVALID)
 	}
 	if ext_instant_is_zero(tls, (*endpoint_value)(unsafe.Pointer(e)).Fexpires_seconds, (*endpoint_value)(unsafe.Pointer(e)).Fexpires_nanoseconds) != 0 {
-		return int32(EXT_INVALID)
+		return int32(EXT_PLUGIN_INVALID)
 	} /* an endpoint needs an expiry */
-	return int32(EXT_OK)
+	return int32(EXT_PLUGIN_OK)
 }
 
-func ext_endpoint_check(tls *libc.TLS, endpoint uintptr) (r ext_status) {
+func ext_endpoint_check(tls *libc.TLS, endpoint uintptr) (r ext_plugin_status) {
 	bp := tls.Alloc(80)
 	defer tls.Free(80)
 	var _ /* e at bp+0 */ endpoint_value
 	if !(decode(tls, endpoint, bp) != 0) {
-		return int32(EXT_INVALID)
+		return int32(EXT_PLUGIN_INVALID)
 	}
 	return check(tls, bp)
 }
@@ -29990,14 +29979,14 @@ func later(tls *libc.TLS, a_seconds int64_t, a_nanoseconds int32_t, b_seconds in
 	return libc.BoolInt32(a_seconds > b_seconds || a_seconds == b_seconds && a_nanoseconds > b_nanoseconds)
 }
 
-func ext_endpoint_validate(tls *libc.TLS, endpoint uintptr, policy uintptr) (r ext_status) {
+func ext_endpoint_validate(tls *libc.TLS, endpoint uintptr, policy uintptr) (r ext_plugin_status) {
 	bp := tls.Alloc(96)
 	defer tls.Free(96)
 	var allowed int32
 	var i, n size_t
 	var lifetime, limit_seconds int64_t
 	var limit_nanoseconds int32_t
-	var s ext_status
+	var s ext_plugin_status
 	var scheme uintptr
 	var v2 int64
 	var _ /* e at bp+0 */ endpoint_value
@@ -30005,13 +29994,13 @@ func ext_endpoint_validate(tls *libc.TLS, endpoint uintptr, policy uintptr) (r e
 	var _ /* now_seconds at bp+80 */ int64_t
 	_, _, _, _, _, _, _, _, _ = allowed, i, lifetime, limit_nanoseconds, limit_seconds, n, s, scheme, v2
 	if !(decode(tls, endpoint, bp) != 0) {
-		return int32(EXT_INVALID)
+		return int32(EXT_PLUGIN_INVALID)
 	}
 	/* Validate: a policy that admits nothing denies, one that names a scheme there
 	 * is none of is invalid whatever the endpoint is, and only then does the
 	 * endpoint's own shape matter. */
 	if !((*ext_endpoint_policy)(unsafe.Pointer(policy)).Fschemes != 0) || !(yyjson_arr_size4(tls, (*ext_endpoint_policy)(unsafe.Pointer(policy)).Fschemes) != 0) {
-		return int32(EXT_DENIED)
+		return int32(EXT_PLUGIN_DENIED)
 	}
 	allowed = 0
 	i = uint64(0)
@@ -30022,7 +30011,7 @@ func ext_endpoint_validate(tls *libc.TLS, endpoint uintptr, policy uintptr) (r e
 			break
 		}
 		if !(known_scheme(tls, yyjson_get_str4(tls, scheme), yyjson_get_len4(tls, scheme)) != 0) {
-			return int32(EXT_INVALID)
+			return int32(EXT_PLUGIN_INVALID)
 		}
 		if yyjson_get_len4(tls, scheme) == (*(*endpoint_value)(unsafe.Add(nil, bp))).Fscheme_len && !(libc.Xmemcmp(tls, yyjson_get_str4(tls, scheme), (*(*endpoint_value)(unsafe.Add(nil, bp))).Fscheme, (*(*endpoint_value)(unsafe.Add(nil, bp))).Fscheme_len) != 0) {
 			allowed = int32(1)
@@ -30038,7 +30027,7 @@ func ext_endpoint_validate(tls *libc.TLS, endpoint uintptr, policy uintptr) (r e
 		return s
 	}
 	if !(allowed != 0) {
-		return int32(EXT_DENIED)
+		return int32(EXT_PLUGIN_DENIED)
 	}
 	*(*int64_t)(unsafe.Add(nil, bp+80)) = (*ext_endpoint_policy)(unsafe.Pointer(policy)).Fnow_seconds
 	*(*int32_t)(unsafe.Add(nil, bp+88)) = (*ext_endpoint_policy)(unsafe.Pointer(policy)).Fnow_nanoseconds
@@ -30046,7 +30035,7 @@ func ext_endpoint_validate(tls *libc.TLS, endpoint uintptr, policy uintptr) (r e
 		ext_wall_clock(tls, bp+80, bp+88)
 	}
 	if !(later(tls, (*(*endpoint_value)(unsafe.Add(nil, bp))).Fexpires_seconds, (*(*endpoint_value)(unsafe.Add(nil, bp))).Fexpires_nanoseconds, *(*int64_t)(unsafe.Add(nil, bp+80)), *(*int32_t)(unsafe.Add(nil, bp+88))) != 0) {
-		return int32(EXT_EXPIRED)
+		return int32(EXT_PLUGIN_EXPIRED)
 	}
 	if (*ext_endpoint_policy)(unsafe.Pointer(policy)).Flifetime_ms > 0 {
 		v2 = (*ext_endpoint_policy)(unsafe.Pointer(policy)).Flifetime_ms
@@ -30061,9 +30050,9 @@ func ext_endpoint_validate(tls *libc.TLS, endpoint uintptr, policy uintptr) (r e
 		limit_nanoseconds = limit_nanoseconds - int32(1000000000)
 	}
 	if later(tls, (*(*endpoint_value)(unsafe.Add(nil, bp))).Fexpires_seconds, (*(*endpoint_value)(unsafe.Add(nil, bp))).Fexpires_nanoseconds, limit_seconds, limit_nanoseconds) != 0 {
-		return int32(EXT_INVALID)
+		return int32(EXT_PLUGIN_INVALID)
 	} /* it outlives the lifetime the host admits */
-	return int32(EXT_OK)
+	return int32(EXT_PLUGIN_OK)
 }
 
 const DOMAIN = "_DOMAIN"
@@ -35297,14 +35286,6 @@ func unsafe_yyjson_mut_get_pointer5(tls *libc.TLS, val uintptr, ptr uintptr, len
 	return unsafe_yyjson_mut_ptr_getx(tls, val, ptr, len1, libc.UintptrFromInt32(0), bp)
 }
 
-type _exception = struct {
-	Ftype1  int32
-	Fname   uintptr
-	Farg1   float64
-	Farg2   float64
-	Fretval float64
-}
-
 type __mingw_dbl_type_t = struct {
 	Fval [0]uint64
 	Flh  [0]struct {
@@ -35328,6 +35309,14 @@ type __mingw_ldbl_type_t = struct {
 	}
 	Fx           float64
 	F__ccgo_pad2 [8]byte
+}
+
+type _exception = struct {
+	Ftype1  int32
+	Fname   uintptr
+	Farg1   float64
+	Farg2   float64
+	Fretval float64
 }
 
 type _complex = struct {
@@ -35354,19 +35343,19 @@ type double_t = float64
  * No warranty is given; refer to the file DISCLAIMER.PD within this package.
  */
 
-func output(tls *libc.TLS, value uintptr, out uintptr) (r ext_status) {
+func output(tls *libc.TLS, value uintptr, out uintptr) (r ext_plugin_status) {
 	var v1 int32
 	_ = v1
 	if value != 0 {
-		(*ext_buffer)(unsafe.Pointer(out)).Fdata = yyjson_val_write5(tls, value, uint32(0), out+8)
+		(*ext_plugin_buffer)(unsafe.Pointer(out)).Fdata = yyjson_val_write5(tls, value, uint32(0), out+8)
 	} else {
-		(*ext_buffer)(unsafe.Pointer(out)).Fdata = libc.Xstrdup(tls, __ccgo_ts+4)
-		(*ext_buffer)(unsafe.Pointer(out)).Flen1 = uint64(4)
+		(*ext_plugin_buffer)(unsafe.Pointer(out)).Fdata = libc.Xstrdup(tls, __ccgo_ts+4)
+		(*ext_plugin_buffer)(unsafe.Pointer(out)).Flen1 = uint64(4)
 	}
-	if (*ext_buffer)(unsafe.Pointer(out)).Fdata != 0 {
-		v1 = int32(EXT_OK)
+	if (*ext_plugin_buffer)(unsafe.Pointer(out)).Fdata != 0 {
+		v1 = int32(EXT_PLUGIN_OK)
 	} else {
-		v1 = int32(EXT_NOMEM)
+		v1 = int32(EXT_PLUGIN_NOMEM)
 	}
 	return v1
 }
@@ -35483,13 +35472,13 @@ func satisfies(tls *libc.TLS, d uintptr, r uintptr) (r1 int32) {
 	return libc.BoolInt32((!(yyjson_obj_get5(tls, r, __ccgo_ts+479) != 0) || yyjson_is_null5(tls, yyjson_obj_get5(tls, r, __ccgo_ts+479)) != 0 || ext_same_identity(tls, yyjson_obj_get5(tls, d, __ccgo_ts+479), yyjson_obj_get5(tls, r, __ccgo_ts+479)) != 0) && ext_lookup(tls, d, yyjson_obj_get5(tls, r, __ccgo_ts+555), yyjson_obj_get5(tls, r, __ccgo_ts+564)) != libc.UintptrFromInt32(0))
 }
 
-func select_descriptor(tls *libc.TLS, ds uintptr, r uintptr, chosen uintptr) (r1 ext_status) {
+func select_descriptor(tls *libc.TLS, ds uintptr, r uintptr, chosen uintptr) (r1 ext_plugin_status) {
 	var count, i, n size_t
 	var d uintptr
 	var v2, v3 int32
 	_, _, _, _, _, _ = count, d, i, n, v2, v3
 	if !(yyjson_is_arr5(tls, ds) != 0) || !(requirement(tls, r) != 0) {
-		return int32(EXT_INVALID)
+		return int32(EXT_PLUGIN_INVALID)
 	}
 	count = uint64(0)
 	i = uint64(0)
@@ -35500,7 +35489,7 @@ func select_descriptor(tls *libc.TLS, ds uintptr, r uintptr, chosen uintptr) (r1
 			break
 		}
 		if !(ext_descriptor(tls, d) != 0) {
-			return int32(EXT_INVALID)
+			return int32(EXT_PLUGIN_INVALID)
 		}
 		if satisfies(tls, d, r) != 0 {
 			*(*uintptr)(unsafe.Add(nil, chosen)) = d
@@ -35513,12 +35502,12 @@ func select_descriptor(tls *libc.TLS, ds uintptr, r uintptr, chosen uintptr) (r1
 		d = unsafe_yyjson_get_next5(tls, d)
 	}
 	if count == uint64(1) {
-		v2 = int32(EXT_OK)
+		v2 = int32(EXT_PLUGIN_OK)
 	} else {
 		if count != 0 {
-			v3 = int32(EXT_AMBIGUOUS)
+			v3 = int32(EXT_PLUGIN_AMBIGUOUS)
 		} else {
-			v3 = int32(EXT_NOT_FOUND)
+			v3 = int32(EXT_PLUGIN_NOT_FOUND)
 		}
 		v2 = v3
 	}
@@ -36064,7 +36053,7 @@ func unique_name(tls *libc.TLS, array uintptr, i size_t, p uintptr) (r int32) {
 	return int32(1)
 }
 
-func route_result(tls *libc.TLS, h uintptr, g uintptr, bridge uintptr, protocol uintptr, want uintptr, out uintptr) (r ext_status) {
+func route_result(tls *libc.TLS, h uintptr, g uintptr, bridge uintptr, protocol uintptr, want uintptr, out uintptr) (r ext_plugin_status) {
 	var copy1, d, root, v2, v3 uintptr
 	var features [3]int32
 	var flags [3]uintptr
@@ -36087,7 +36076,7 @@ func route_result(tls *libc.TLS, h uintptr, g uintptr, bridge uintptr, protocol 
 			features[i] = libc.BoolInt32(features[i] != 0 && yyjson_get_bool5(tls, yyjson_obj_get5(tls, yyjson_obj_get5(tls, bridge, __ccgo_ts+1133), flags[i])) != 0 && yyjson_get_bool5(tls, yyjson_obj_get5(tls, yyjson_obj_get5(tls, bridge, __ccgo_ts+1142), flags[i])) != 0)
 		}
 		if yyjson_get_bool5(tls, yyjson_obj_get5(tls, want, flags[i])) != 0 && !(features[i] != 0) {
-			return int32(EXT_UNSUPPORTED)
+			return int32(EXT_PLUGIN_UNSUPPORTED)
 		}
 		goto _1
 	_1:
@@ -36097,11 +36086,11 @@ func route_result(tls *libc.TLS, h uintptr, g uintptr, bridge uintptr, protocol 
 	/* A route that meets the transport requirements but not the boundaries is
 	 * skipped; the caller reports denied when every such route was. */
 	if !(boundary_accepted(tls, g, want) != 0) {
-		return int32(EXT_DENIED)
+		return int32(EXT_PLUGIN_DENIED)
 	}
 	d = yyjson_mut_doc_new(tls, libc.UintptrFromInt32(0))
 	if !(d != 0) {
-		return int32(EXT_NOMEM)
+		return int32(EXT_PLUGIN_NOMEM)
 	}
 	root = yyjson_mut_obj5(tls, d)
 	yyjson_mut_doc_set_root5(tls, d, root)
@@ -36156,24 +36145,24 @@ func route_result(tls *libc.TLS, h uintptr, g uintptr, bridge uintptr, protocol 
 		i2 = i2 + 1
 	}
 	if ok != 0 {
-		(*ext_buffer)(unsafe.Pointer(out)).Fdata = yyjson_mut_write5(tls, d, uint32(0), out+8)
+		(*ext_plugin_buffer)(unsafe.Pointer(out)).Fdata = yyjson_mut_write5(tls, d, uint32(0), out+8)
 	}
 	yyjson_mut_doc_free(tls, d)
-	if (*ext_buffer)(unsafe.Pointer(out)).Fdata != 0 {
-		v6 = int32(EXT_OK)
+	if (*ext_plugin_buffer)(unsafe.Pointer(out)).Fdata != 0 {
+		v6 = int32(EXT_PLUGIN_OK)
 	} else {
-		v6 = int32(EXT_NOMEM)
+		v6 = int32(EXT_PLUGIN_NOMEM)
 	}
 	return v6
 }
 
-func routes(tls *libc.TLS, v uintptr, out uintptr) (r ext_status) {
+func routes(tls *libc.TLS, v uintptr, out uintptr) (r ext_plugin_status) {
 	bp := tls.Alloc(96)
 	defer tls.Free(96)
 	var b, back, bridges, front, g, guests, h, hosts, p, want uintptr
 	var count, i, j, k, m, n, q, z size_t
 	var denied, v11 int32
-	var s, s1 ext_status
+	var s, s1 ext_plugin_status
 	var v1 bool
 	_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ = b, back, bridges, count, denied, front, g, guests, h, hosts, i, j, k, m, n, p, q, s, s1, want, z, v1, v11
 	*(*[4]uintptr)(unsafe.Pointer(bp)) = [4]uintptr{
@@ -36183,14 +36172,14 @@ func routes(tls *libc.TLS, v uintptr, out uintptr) (r ext_status) {
 		3: __ccgo_ts + 1189,
 	}
 	if !(ext_fields(tls, v, bp, libc.Uint64FromInt64(32)/libc.Uint64FromInt64(8)) != 0) {
-		return int32(EXT_INVALID)
+		return int32(EXT_PLUGIN_INVALID)
 	}
 	hosts = yyjson_obj_get5(tls, v, __ccgo_ts+1168)
 	guests = yyjson_obj_get5(tls, v, __ccgo_ts+1174)
 	bridges = yyjson_obj_get5(tls, v, __ccgo_ts+1181)
 	want = yyjson_obj_get5(tls, v, __ccgo_ts+1189)
 	if !(list(tls, hosts, uint64(1), uint64(64)) != 0) || !(list(tls, guests, uint64(1), uint64(64)) != 0) || !(!(bridges != 0) || yyjson_is_null5(tls, bridges) != 0) && !(list(tls, bridges, uint64(0), uint64(64)) != 0) {
-		return int32(EXT_INVALID)
+		return int32(EXT_PLUGIN_INVALID)
 	}
 	if v1 = !(!(want != 0) || yyjson_is_null5(tls, want) != 0); v1 {
 		*(*[4]uintptr)(unsafe.Pointer(bp + 32)) = [4]uintptr{
@@ -36201,7 +36190,7 @@ func routes(tls *libc.TLS, v uintptr, out uintptr) (r ext_status) {
 		}
 	}
 	if v1 && (!(ext_fields(tls, want, bp+32, libc.Uint64FromInt64(32)/libc.Uint64FromInt64(8)) != 0) || !(optional_bool(tls, yyjson_obj_get5(tls, want, __ccgo_ts+1064)) != 0) || !(optional_bool(tls, yyjson_obj_get5(tls, want, __ccgo_ts+1101)) != 0) || !(optional_bool(tls, yyjson_obj_get5(tls, want, __ccgo_ts+1117)) != 0) || !(boundary_list(tls, yyjson_obj_get5(tls, want, __ccgo_ts+1034)) != 0)) {
-		return int32(EXT_INVALID)
+		return int32(EXT_PLUGIN_INVALID)
 	}
 	denied = 0
 	i = uint64(0)
@@ -36212,7 +36201,7 @@ func routes(tls *libc.TLS, v uintptr, out uintptr) (r ext_status) {
 			break
 		}
 		if !(profile(tls, h) != 0) || !(unique_name(tls, hosts, i, h) != 0) {
-			return int32(EXT_INVALID)
+			return int32(EXT_PLUGIN_INVALID)
 		}
 		goto _2
 	_2:
@@ -36228,7 +36217,7 @@ func routes(tls *libc.TLS, v uintptr, out uintptr) (r ext_status) {
 			break
 		}
 		if !(profile(tls, g) != 0) || !(unique_name(tls, guests, i, g) != 0) {
-			return int32(EXT_INVALID)
+			return int32(EXT_PLUGIN_INVALID)
 		}
 		goto _3
 	_3:
@@ -36249,7 +36238,7 @@ func routes(tls *libc.TLS, v uintptr, out uintptr) (r ext_status) {
 			2: __ccgo_ts + 1142,
 		}
 		if !(ext_fields(tls, b, bp+64, libc.Uint64FromInt64(24)/libc.Uint64FromInt64(8)) != 0) || !(ext_text(tls, yyjson_obj_get5(tls, b, __ccgo_ts+412), 0, 0) != 0) || !(unique_name(tls, bridges, i, b) != 0) || !(profile(tls, yyjson_obj_get5(tls, b, __ccgo_ts+1133)) != 0) || !(profile(tls, yyjson_obj_get5(tls, b, __ccgo_ts+1142)) != 0) {
-			return int32(EXT_INVALID)
+			return int32(EXT_PLUGIN_INVALID)
 		}
 		goto _4
 	_4:
@@ -36279,10 +36268,10 @@ func routes(tls *libc.TLS, v uintptr, out uintptr) (r ext_status) {
 				goto _6
 			}
 			s = route_result(tls, h, g, libc.UintptrFromInt32(0), p, want, out)
-			if s == int32(EXT_DENIED) {
+			if s == int32(EXT_PLUGIN_DENIED) {
 				denied = int32(1)
 			} else {
-				if s != int32(EXT_UNSUPPORTED) {
+				if s != int32(EXT_PLUGIN_UNSUPPORTED) {
 					return s
 				}
 			}
@@ -36335,10 +36324,10 @@ func routes(tls *libc.TLS, v uintptr, out uintptr) (r ext_status) {
 						goto _10
 					}
 					s1 = route_result(tls, h, g, b, p, want, out)
-					if s1 == int32(EXT_DENIED) {
+					if s1 == int32(EXT_PLUGIN_DENIED) {
 						denied = int32(1)
 					} else {
-						if s1 != int32(EXT_UNSUPPORTED) {
+						if s1 != int32(EXT_PLUGIN_UNSUPPORTED) {
 							return s1
 						}
 					}
@@ -36367,19 +36356,19 @@ func routes(tls *libc.TLS, v uintptr, out uintptr) (r ext_status) {
 		h = unsafe_yyjson_get_next5(tls, h)
 	}
 	if denied != 0 {
-		v11 = int32(EXT_DENIED)
+		v11 = int32(EXT_PLUGIN_DENIED)
 	} else {
-		v11 = int32(EXT_UNSUPPORTED)
+		v11 = int32(EXT_PLUGIN_UNSUPPORTED)
 	}
 	return v11
 }
 
-func dispatch(tls *libc.TLS, op uintptr, v uintptr, out uintptr) (r1 ext_status) {
+func dispatch(tls *libc.TLS, op uintptr, v uintptr, out uintptr) (r1 ext_plugin_status) {
 	bp := tls.Alloc(304)
 	defer tls.Free(304)
 	var i, n size_t
 	var r, tag uintptr
-	var s, s1, s2, s3, s4, s5 ext_status
+	var s, s1, s2, s3, s4, s5 ext_plugin_status
 	var _ /* budget at bp+296 */ uint32
 	var _ /* budget at bp+300 */ uint32
 	var _ /* deadline at bp+288 */ int64_t
@@ -36398,7 +36387,7 @@ func dispatch(tls *libc.TLS, op uintptr, v uintptr, out uintptr) (r1 ext_status)
 	}
 	if !(libc.Xstrcmp(tls, op, __ccgo_ts+1225) != 0) {
 		if !(ext_descriptor(tls, v) != 0) {
-			return int32(EXT_INVALID)
+			return int32(EXT_PLUGIN_INVALID)
 		}
 		*(*uintptr)(unsafe.Add(nil, bp+128)) = v
 	} else {
@@ -36408,10 +36397,10 @@ func dispatch(tls *libc.TLS, op uintptr, v uintptr, out uintptr) (r1 ext_status)
 				1: __ccgo_ts + 1271,
 			}
 			if !(ext_fields(tls, v, bp, libc.Uint64FromInt64(16)/libc.Uint64FromInt64(8)) != 0) || !(ext_descriptor(tls, yyjson_obj_get5(tls, v, __ccgo_ts+1262)) != 0) || !(ext_descriptor(tls, yyjson_obj_get5(tls, v, __ccgo_ts+1271)) != 0) {
-				return int32(EXT_INVALID)
+				return int32(EXT_PLUGIN_INVALID)
 			}
 			if !(ext_match(tls, yyjson_obj_get5(tls, v, __ccgo_ts+1262), yyjson_obj_get5(tls, v, __ccgo_ts+1271)) != 0) {
-				return int32(EXT_MISMATCH)
+				return int32(EXT_PLUGIN_MISMATCH)
 			}
 		} else {
 			if !(libc.Xstrcmp(tls, op, __ccgo_ts+1278) != 0) {
@@ -36420,7 +36409,7 @@ func dispatch(tls *libc.TLS, op uintptr, v uintptr, out uintptr) (r1 ext_status)
 					1: __ccgo_ts + 1307,
 				}
 				if !(ext_fields(tls, v, bp+16, libc.Uint64FromInt64(16)/libc.Uint64FromInt64(8)) != 0) {
-					return int32(EXT_INVALID)
+					return int32(EXT_PLUGIN_INVALID)
 				}
 				s = select_descriptor(tls, yyjson_obj_get5(tls, v, __ccgo_ts+1296), yyjson_obj_get5(tls, v, __ccgo_ts+1307), bp+128)
 				if s != 0 {
@@ -36433,7 +36422,7 @@ func dispatch(tls *libc.TLS, op uintptr, v uintptr, out uintptr) (r1 ext_status)
 						1: __ccgo_ts + 1189,
 					}
 					if !(ext_fields(tls, v, bp+32, libc.Uint64FromInt64(16)/libc.Uint64FromInt64(8)) != 0) || !(ext_descriptor(tls, yyjson_obj_get5(tls, v, __ccgo_ts+1343)) != 0) || !(yyjson_is_arr5(tls, yyjson_obj_get5(tls, v, __ccgo_ts+1189)) != 0) {
-						return int32(EXT_INVALID)
+						return int32(EXT_PLUGIN_INVALID)
 					}
 					i = uint64(0)
 					n = yyjson_arr_size5(tls, yyjson_obj_get5(tls, v, __ccgo_ts+1189))
@@ -36443,10 +36432,10 @@ func dispatch(tls *libc.TLS, op uintptr, v uintptr, out uintptr) (r1 ext_status)
 							break
 						}
 						if !(requirement(tls, r) != 0) {
-							return int32(EXT_INVALID)
+							return int32(EXT_PLUGIN_INVALID)
 						}
 						if !(satisfies(tls, yyjson_obj_get5(tls, v, __ccgo_ts+1343), r) != 0) {
-							return int32(EXT_NOT_FOUND)
+							return int32(EXT_PLUGIN_NOT_FOUND)
 						}
 						goto _1
 					_1:
@@ -36469,7 +36458,7 @@ func dispatch(tls *libc.TLS, op uintptr, v uintptr, out uintptr) (r1 ext_status)
 								1: __ccgo_ts + 1396,
 							}
 							if !(ext_fields(tls, v, bp+48, libc.Uint64FromInt64(16)/libc.Uint64FromInt64(8)) != 0) || !(yyjson_obj_get5(tls, v, __ccgo_ts+1387) != 0) || !(ext_endpoint_policy_parse(tls, yyjson_obj_get5(tls, v, __ccgo_ts+1396), bp+136) != 0) {
-								return int32(EXT_INVALID)
+								return int32(EXT_PLUGIN_INVALID)
 							}
 							s2 = ext_endpoint_validate(tls, yyjson_obj_get5(tls, v, __ccgo_ts+1387), bp+136)
 							if s2 != 0 {
@@ -36481,7 +36470,7 @@ func dispatch(tls *libc.TLS, op uintptr, v uintptr, out uintptr) (r1 ext_status)
 								/* One tagged frame as it travels between a host and a plugin. The Go
 								 * reference is the frame types' Decode and Validate (reverse.go). */
 								tag = yyjson_obj_get5(tls, v, __ccgo_ts+633)
-								s3 = int32(EXT_PROTOCOL)
+								s3 = int32(EXT_PLUGIN_PROTOCOL)
 								if yyjson_equals_str5(tls, tag, __ccgo_ts+438) != 0 {
 									s3 = ext_progress_frame(tls, v, bp+176, bp+224)
 								} else {
@@ -36500,11 +36489,11 @@ func dispatch(tls *libc.TLS, op uintptr, v uintptr, out uintptr) (r1 ext_status)
 										1: __ccgo_ts + 1447,
 									}
 									if !(ext_fields(tls, v, bp+64, libc.Uint64FromInt64(16)/libc.Uint64FromInt64(8)) != 0) || !(ext_protocols(tls, yyjson_obj_get5(tls, v, __ccgo_ts+1437)) != 0) || !(ext_protocols(tls, yyjson_obj_get5(tls, v, __ccgo_ts+1447)) != 0) {
-										return int32(EXT_INVALID)
+										return int32(EXT_PLUGIN_INVALID)
 									}
 									*(*uintptr)(unsafe.Add(nil, bp+128)) = ext_negotiate(tls, yyjson_obj_get5(tls, v, __ccgo_ts+1437), yyjson_obj_get5(tls, v, __ccgo_ts+1447))
 									if !(*(*uintptr)(unsafe.Add(nil, bp+128)) != 0) {
-										return int32(EXT_UNSUPPORTED)
+										return int32(EXT_PLUGIN_UNSUPPORTED)
 									}
 								} else {
 									if !(libc.Xstrcmp(tls, op, __ccgo_ts+1455) != 0) {
@@ -36513,7 +36502,7 @@ func dispatch(tls *libc.TLS, op uintptr, v uintptr, out uintptr) (r1 ext_status)
 											1: __ccgo_ts + 1472,
 										}
 										if !(ext_fields(tls, v, bp+80, libc.Uint64FromInt64(16)/libc.Uint64FromInt64(8)) != 0) || !(ext_descriptor(tls, yyjson_obj_get5(tls, v, __ccgo_ts+1343)) != 0) {
-											return int32(EXT_INVALID)
+											return int32(EXT_PLUGIN_INVALID)
 										}
 										s4 = ext_request(tls, yyjson_obj_get5(tls, v, __ccgo_ts+1343), yyjson_obj_get5(tls, v, __ccgo_ts+1472), bp+288)
 										if s4 != 0 {
@@ -36527,7 +36516,7 @@ func dispatch(tls *libc.TLS, op uintptr, v uintptr, out uintptr) (r1 ext_status)
 												1: __ccgo_ts + 1507,
 											}
 											if !(ext_fields(tls, v, bp+96, libc.Uint64FromInt64(16)/libc.Uint64FromInt64(8)) != 0) || !(ext_text(tls, yyjson_obj_get5(tls, v, __ccgo_ts+1507), int32(1), 0) != 0) {
-												return int32(EXT_INVALID)
+												return int32(EXT_PLUGIN_INVALID)
 											}
 											s5 = ext_response(tls, yyjson_obj_get5(tls, v, __ccgo_ts+1498), yyjson_get_str5(tls, yyjson_obj_get5(tls, v, __ccgo_ts+1507)))
 											if s5 != 0 {
@@ -36538,7 +36527,7 @@ func dispatch(tls *libc.TLS, op uintptr, v uintptr, out uintptr) (r1 ext_status)
 											if !(libc.Xstrcmp(tls, op, __ccgo_ts+1517) != 0) {
 												*(*uint32)(unsafe.Add(nil, bp+296)) = uint32(1024)
 												if !(ext_schema_valid(tls, v, uint32(0), bp+296) != 0) {
-													return int32(EXT_INVALID)
+													return int32(EXT_PLUGIN_INVALID)
 												}
 												*(*uintptr)(unsafe.Add(nil, bp+128)) = v
 											} else {
@@ -36548,14 +36537,14 @@ func dispatch(tls *libc.TLS, op uintptr, v uintptr, out uintptr) (r1 ext_status)
 														1: __ccgo_ts + 1553,
 													}
 													if !(ext_fields(tls, v, bp+112, libc.Uint64FromInt64(16)/libc.Uint64FromInt64(8)) != 0) || !(yyjson_obj_get5(tls, v, __ccgo_ts+1553) != 0) {
-														return int32(EXT_INVALID)
+														return int32(EXT_PLUGIN_INVALID)
 													}
 													*(*uint32)(unsafe.Add(nil, bp+300)) = uint32(1024)
 													if !(ext_schema_valid(tls, yyjson_obj_get5(tls, v, __ccgo_ts+1546), uint32(0), bp+300) != 0) || !(ext_schema_check(tls, yyjson_obj_get5(tls, v, __ccgo_ts+1546), yyjson_obj_get5(tls, v, __ccgo_ts+1553)) != 0) {
-														return int32(EXT_INVALID)
+														return int32(EXT_PLUGIN_INVALID)
 													}
 												} else {
-													return int32(EXT_UNSUPPORTED)
+													return int32(EXT_PLUGIN_UNSUPPORTED)
 												}
 											}
 										}
@@ -36571,41 +36560,41 @@ func dispatch(tls *libc.TLS, op uintptr, v uintptr, out uintptr) (r1 ext_status)
 	return output(tls, *(*uintptr)(unsafe.Add(nil, bp+128)), out)
 }
 
-func ext_engine_call(tls *libc.TLS, operation uintptr, input uintptr, len1 size_t, out uintptr) (r ext_status) {
+func ext_plugin_call(tls *libc.TLS, operation uintptr, input uintptr, len1 size_t, out uintptr) (r ext_plugin_status) {
 	var doc uintptr
-	var s ext_status
+	var s ext_plugin_status
 	_, _ = doc, s
 	if !(out != 0) {
-		return int32(EXT_INVALID)
+		return int32(EXT_PLUGIN_INVALID)
 	}
-	*(*ext_buffer)(unsafe.Add(nil, out)) = ext_buffer{}
+	*(*ext_plugin_buffer)(unsafe.Add(nil, out)) = ext_plugin_buffer{}
 	if !(operation != 0) {
-		return int32(EXT_INVALID)
+		return int32(EXT_PLUGIN_INVALID)
 	}
 	doc = ext_parse(tls, input, len1)
 	if !(doc != 0) {
-		return int32(EXT_INVALID)
+		return int32(EXT_PLUGIN_INVALID)
 	}
 	s = dispatch(tls, operation, yyjson_doc_get_root5(tls, doc), out)
 	yyjson_doc_free5(tls, doc)
 	if s != 0 {
-		ext_buffer_free(tls, out)
+		ext_plugin_buffer_free(tls, out)
 	}
 	return s
 }
 
-const EXT_GUEST_PAYLOAD = "0u"
-const EXT_GUEST_PUBLIC_ERROR = 1
-const EXT_HOST_ABI_VERSION2 = 2
+const EXT_PLUGIN_GUEST_PAYLOAD = "0u"
+const EXT_PLUGIN_GUEST_PUBLIC_ERROR = 1
+const EXT_PLUGIN_HOST_ABI_VERSION2 = 2
 
-type ext_guest = struct {
+type ext_plugin_guest = struct {
 	Fdescriptor uintptr
-	Foptions    ext_guest_options
+	Foptions    ext_plugin_guest_options
 }
 
-type ext_guest_emit = uintptr
+type ext_plugin_guest_emit = uintptr
 
-type ext_guest_options = struct {
+type ext_plugin_guest_options = struct {
 	Fabi_version    uint32_t
 	Fstruct_size    uint32_t
 	Fdescriptor     uintptr
@@ -41809,10 +41798,10 @@ type reply = struct {
 	Fdoc     uintptr
 	Fkind    uint32_t
 	Femitted int32
-	Fstatus  ext_status
+	Fstatus  ext_plugin_status
 }
 
-func emit(tls *libc.TLS, sink uintptr, kind uint32_t, data uintptr, len1 size_t) (r1 ext_status) {
+func emit(tls *libc.TLS, sink uintptr, kind uint32_t, data uintptr, len1 size_t) (r1 ext_plugin_status) {
 	var r, v2 uintptr
 	var v1 int32
 	_, _, _ = r, v1, v2
@@ -41821,111 +41810,111 @@ func emit(tls *libc.TLS, sink uintptr, kind uint32_t, data uintptr, len1 size_t)
 	v1 = *(*int32)(unsafe.Pointer(v2))
 	*(*int32)(unsafe.Pointer(v2)) = *(*int32)(unsafe.Pointer(v2)) + 1
 	if v1 != 0 || kind > uint32(1) {
-		(*reply)(unsafe.Pointer(r)).Fstatus = int32(EXT_INVALID)
+		(*reply)(unsafe.Pointer(r)).Fstatus = int32(EXT_PLUGIN_INVALID)
 		return (*reply)(unsafe.Pointer(r)).Fstatus
 	}
 	(*reply)(unsafe.Pointer(r)).Fdoc = ext_parse(tls, data, len1)
 	(*reply)(unsafe.Pointer(r)).Fkind = kind
 	if (*reply)(unsafe.Pointer(r)).Fdoc != 0 {
-		v1 = int32(EXT_OK)
+		v1 = int32(EXT_PLUGIN_OK)
 	} else {
-		v1 = int32(EXT_INVALID)
+		v1 = int32(EXT_PLUGIN_INVALID)
 	}
 	(*reply)(unsafe.Pointer(r)).Fstatus = v1
 	return (*reply)(unsafe.Pointer(r)).Fstatus
 }
 
-func ext_guest_create(tls *libc.TLS, o uintptr, out uintptr) (r ext_status) {
+func ext_plugin_guest_create(tls *libc.TLS, o uintptr, out uintptr) (r ext_plugin_status) {
 	var d, g uintptr
 	_, _ = d, g
 	if !(out != 0) {
-		return int32(EXT_INVALID)
+		return int32(EXT_PLUGIN_INVALID)
 	}
 	*(*uintptr)(unsafe.Add(nil, out)) = libc.UintptrFromInt32(0)
-	if !(o != 0) || (*ext_guest_options)(unsafe.Pointer(o)).Fabi_version != uint32(2) || uint64((*ext_guest_options)(unsafe.Pointer(o)).Fstruct_size) != uint64(48) {
-		return int32(EXT_INVALID)
+	if !(o != 0) || (*ext_plugin_guest_options)(unsafe.Pointer(o)).Fabi_version != uint32(2) || uint64((*ext_plugin_guest_options)(unsafe.Pointer(o)).Fstruct_size) != uint64(48) {
+		return int32(EXT_PLUGIN_INVALID)
 	}
-	if !((*ext_guest_options)(unsafe.Pointer(o)).Fhandle != 0) {
-		return int32(EXT_DENIED)
+	if !((*ext_plugin_guest_options)(unsafe.Pointer(o)).Fhandle != 0) {
+		return int32(EXT_PLUGIN_DENIED)
 	}
-	d = ext_parse(tls, (*ext_guest_options)(unsafe.Pointer(o)).Fdescriptor, (*ext_guest_options)(unsafe.Pointer(o)).Fdescriptor_len)
+	d = ext_parse(tls, (*ext_plugin_guest_options)(unsafe.Pointer(o)).Fdescriptor, (*ext_plugin_guest_options)(unsafe.Pointer(o)).Fdescriptor_len)
 	if !(d != 0) || !(ext_descriptor(tls, yyjson_doc_get_root6(tls, d)) != 0) {
 		yyjson_doc_free6(tls, d)
-		return int32(EXT_INVALID)
+		return int32(EXT_PLUGIN_INVALID)
 	}
 	g = libc.Xcalloc(tls, uint64(1), uint64(56))
 	if !(g != 0) {
 		yyjson_doc_free6(tls, d)
-		return int32(EXT_NOMEM)
+		return int32(EXT_PLUGIN_NOMEM)
 	}
-	(*ext_guest)(unsafe.Pointer(g)).Fdescriptor = d
-	(*ext_guest)(unsafe.Pointer(g)).Foptions = *(*ext_guest_options)(unsafe.Add(nil, o))
-	(*ext_guest)(unsafe.Pointer(g)).Foptions.Fdescriptor = libc.UintptrFromInt32(0)
-	(*ext_guest)(unsafe.Pointer(g)).Foptions.Fdescriptor_len = uint64(0)
-	if !((*ext_guest)(unsafe.Pointer(g)).Foptions.Fmax_call_ms != 0) {
-		(*ext_guest)(unsafe.Pointer(g)).Foptions.Fmax_call_ms = uint32(30000)
+	(*ext_plugin_guest)(unsafe.Pointer(g)).Fdescriptor = d
+	(*ext_plugin_guest)(unsafe.Pointer(g)).Foptions = *(*ext_plugin_guest_options)(unsafe.Add(nil, o))
+	(*ext_plugin_guest)(unsafe.Pointer(g)).Foptions.Fdescriptor = libc.UintptrFromInt32(0)
+	(*ext_plugin_guest)(unsafe.Pointer(g)).Foptions.Fdescriptor_len = uint64(0)
+	if !((*ext_plugin_guest)(unsafe.Pointer(g)).Foptions.Fmax_call_ms != 0) {
+		(*ext_plugin_guest)(unsafe.Pointer(g)).Foptions.Fmax_call_ms = uint32(30000)
 	}
 	*(*uintptr)(unsafe.Add(nil, out)) = g
-	return int32(EXT_OK)
+	return int32(EXT_PLUGIN_OK)
 }
 
-func ext_guest_descriptor(tls *libc.TLS, g uintptr, out uintptr) (r ext_status) {
+func ext_plugin_guest_descriptor(tls *libc.TLS, g uintptr, out uintptr) (r ext_plugin_status) {
 	var v1 int32
 	_ = v1
 	if !(out != 0) {
-		return int32(EXT_INVALID)
+		return int32(EXT_PLUGIN_INVALID)
 	}
-	*(*ext_buffer)(unsafe.Add(nil, out)) = ext_buffer{}
+	*(*ext_plugin_buffer)(unsafe.Add(nil, out)) = ext_plugin_buffer{}
 	if !(g != 0) {
-		return int32(EXT_INVALID)
+		return int32(EXT_PLUGIN_INVALID)
 	}
-	(*ext_buffer)(unsafe.Pointer(out)).Fdata = yyjson_write6(tls, (*ext_guest)(unsafe.Pointer(g)).Fdescriptor, uint32(0), out+8)
-	if (*ext_buffer)(unsafe.Pointer(out)).Fdata != 0 {
-		v1 = int32(EXT_OK)
+	(*ext_plugin_buffer)(unsafe.Pointer(out)).Fdata = yyjson_write6(tls, (*ext_plugin_guest)(unsafe.Pointer(g)).Fdescriptor, uint32(0), out+8)
+	if (*ext_plugin_buffer)(unsafe.Pointer(out)).Fdata != 0 {
+		v1 = int32(EXT_PLUGIN_OK)
 	} else {
-		v1 = int32(EXT_NOMEM)
+		v1 = int32(EXT_PLUGIN_NOMEM)
 	}
 	return v1
 }
 
-func ext_guest_destroy(tls *libc.TLS, g uintptr) {
+func ext_plugin_guest_destroy(tls *libc.TLS, g uintptr) {
 	if g != 0 {
-		yyjson_doc_free6(tls, (*ext_guest)(unsafe.Pointer(g)).Fdescriptor)
+		yyjson_doc_free6(tls, (*ext_plugin_guest)(unsafe.Pointer(g)).Fdescriptor)
 		libc.Xfree(tls, g)
 	}
 }
 
-func ext_guest_invoke(tls *libc.TLS, g uintptr, input uintptr, len1 size_t, timeout uint32_t, call_user uintptr, out uintptr) (r1 ext_status) {
+func ext_plugin_guest_invoke(tls *libc.TLS, g uintptr, input uintptr, len1 size_t, timeout uint32_t, call_user uintptr, out uintptr) (r1 ext_plugin_status) {
 	bp := tls.Alloc(32)
 	defer tls.Free(32)
 	var body, code, doc, error1, id, message, r, request, root, validation, v4, v5 uintptr
 	var deadline, remaining int64_t
 	var limit uint32_t
 	var ok, v3 int32
-	var s ext_status
+	var s ext_plugin_status
 	var v1, v2 uint32
 	var v6 bool
 	var _ /* result at bp+8 */ reply
 	var _ /* wall_deadline at bp+0 */ int64_t
 	_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ = body, code, deadline, doc, error1, id, limit, message, ok, r, remaining, request, root, s, validation, v1, v2, v3, v4, v5, v6
 	if !(out != 0) {
-		return int32(EXT_INVALID)
+		return int32(EXT_PLUGIN_INVALID)
 	}
-	*(*ext_buffer)(unsafe.Add(nil, out)) = ext_buffer{}
+	*(*ext_plugin_buffer)(unsafe.Add(nil, out)) = ext_plugin_buffer{}
 	if !(g != 0) || !(timeout != 0) {
-		return int32(EXT_INVALID)
+		return int32(EXT_PLUGIN_INVALID)
 	}
 	request = ext_parse(tls, input, len1)
 	if !(request != 0) {
-		return int32(EXT_INVALID)
+		return int32(EXT_PLUGIN_INVALID)
 	}
 	r = yyjson_doc_get_root6(tls, request)
 	id = yyjson_obj_get6(tls, r, __ccgo_ts+392)
 	if !(ext_text(tls, id, int32(1), 0) != 0) {
 		yyjson_doc_free6(tls, request)
-		return int32(EXT_INVALID)
+		return int32(EXT_PLUGIN_INVALID)
 	}
-	s = ext_request(tls, yyjson_doc_get_root6(tls, (*ext_guest)(unsafe.Pointer(g)).Fdescriptor), r, bp)
+	s = ext_request(tls, yyjson_doc_get_root6(tls, (*ext_plugin_guest)(unsafe.Pointer(g)).Fdescriptor), r, bp)
 	code = libc.UintptrFromInt32(0)
 	message = libc.UintptrFromInt32(0)
 	*(*reply)(unsafe.Add(nil, bp+8)) = reply{}
@@ -41933,10 +41922,10 @@ func ext_guest_invoke(tls *libc.TLS, g uintptr, input uintptr, len1 size_t, time
 		code = __ccgo_ts + 1559
 		message = __ccgo_ts + 1575
 	} else {
-		if timeout < (*ext_guest)(unsafe.Pointer(g)).Foptions.Fmax_call_ms {
+		if timeout < (*ext_plugin_guest)(unsafe.Pointer(g)).Foptions.Fmax_call_ms {
 			v1 = timeout
 		} else {
-			v1 = (*ext_guest)(unsafe.Pointer(g)).Foptions.Fmax_call_ms
+			v1 = (*ext_plugin_guest)(unsafe.Pointer(g)).Foptions.Fmax_call_ms
 		}
 		limit = v1
 		remaining = *(*int64_t)(unsafe.Add(nil, bp)) - ext_wall_ms(tls)
@@ -41950,9 +41939,9 @@ func ext_guest_invoke(tls *libc.TLS, g uintptr, input uintptr, len1 size_t, time
 		}
 		deadline = clock_ms(tls) + int64(limit)
 		if limit != 0 {
-			v3 = (*(*func(*libc.TLS, uintptr, uintptr, uintptr, size_t, uint32_t, ext_guest_emit, uintptr) ext_status)(unsafe.Pointer(&struct{ uintptr }{(*ext_guest)(unsafe.Pointer(g)).Foptions.Fhandle})))(tls, (*ext_guest)(unsafe.Pointer(g)).Foptions.Fuser, call_user, input, len1, limit, __ccgo_fp(emit), bp+8)
+			v3 = (*(*func(*libc.TLS, uintptr, uintptr, uintptr, size_t, uint32_t, ext_plugin_guest_emit, uintptr) ext_plugin_status)(unsafe.Pointer(&struct{ uintptr }{(*ext_plugin_guest)(unsafe.Pointer(g)).Foptions.Fhandle})))(tls, (*ext_plugin_guest)(unsafe.Pointer(g)).Foptions.Fuser, call_user, input, len1, limit, __ccgo_fp(emit), bp+8)
 		} else {
-			v3 = int32(EXT_TIMEOUT)
+			v3 = int32(EXT_PLUGIN_TIMEOUT)
 		}
 		s = v3
 		if s != 0 || clock_ms(tls) >= deadline {
@@ -41967,7 +41956,7 @@ func ext_guest_invoke(tls *libc.TLS, g uintptr, input uintptr, len1 size_t, time
 	}
 	doc = yyjson_mut_doc_new(tls, libc.UintptrFromInt32(0))
 	if !(doc != 0) {
-		s = int32(EXT_NOMEM)
+		s = int32(EXT_PLUGIN_NOMEM)
 		goto done
 	}
 	root = yyjson_mut_obj6(tls, doc)
@@ -41993,21 +41982,21 @@ func ext_guest_invoke(tls *libc.TLS, g uintptr, input uintptr, len1 size_t, time
 		ok = libc.BoolInt32(v6 && yyjson_mut_obj_add_val6(tls, doc, root, v5, body) != 0)
 	}
 	if ok != 0 {
-		(*ext_buffer)(unsafe.Pointer(out)).Fdata = yyjson_mut_write6(tls, doc, uint32(0), out+8)
+		(*ext_plugin_buffer)(unsafe.Pointer(out)).Fdata = yyjson_mut_write6(tls, doc, uint32(0), out+8)
 	}
 	yyjson_mut_doc_free(tls, doc)
-	if (*ext_buffer)(unsafe.Pointer(out)).Fdata != 0 {
-		v3 = int32(EXT_OK)
+	if (*ext_plugin_buffer)(unsafe.Pointer(out)).Fdata != 0 {
+		v3 = int32(EXT_PLUGIN_OK)
 	} else {
-		v3 = int32(EXT_NOMEM)
+		v3 = int32(EXT_PLUGIN_NOMEM)
 	}
 	s = v3
 	if !(s != 0) {
-		validation = ext_parse(tls, (*ext_buffer)(unsafe.Pointer(out)).Fdata, (*ext_buffer)(unsafe.Pointer(out)).Flen1)
+		validation = ext_parse(tls, (*ext_plugin_buffer)(unsafe.Pointer(out)).Fdata, (*ext_plugin_buffer)(unsafe.Pointer(out)).Flen1)
 		if validation != 0 {
 			v3 = ext_response(tls, yyjson_doc_get_root6(tls, validation), yyjson_get_str6(tls, id))
 		} else {
-			v3 = int32(EXT_INVALID)
+			v3 = int32(EXT_PLUGIN_INVALID)
 		}
 		s = v3
 		yyjson_doc_free6(tls, validation)
@@ -42018,12 +42007,12 @@ done:
 	yyjson_doc_free6(tls, (*(*reply)(unsafe.Add(nil, bp+8))).Fdoc)
 	yyjson_doc_free6(tls, request)
 	if s != 0 {
-		ext_buffer_free(tls, out)
+		ext_plugin_buffer_free(tls, out)
 	}
 	return s
 }
 
-const EXT_HOST_ABI_VERSION3 = "2u"
+const EXT_PLUGIN_HOST_ABI_VERSION3 = "2u"
 
 type ext_hash = struct {
 	Fh     [8]uint32_t
@@ -42268,17 +42257,17 @@ func ext_hash_hex(tls *libc.TLS, in uintptr, out uintptr) {
 	*(*int8)(unsafe.Add(nil, out+64)) = 0
 }
 
-func ext_engine_sha256(tls *libc.TLS, input uintptr, len1 size_t, out uintptr) (r ext_status) {
+func ext_plugin_sha256(tls *libc.TLS, input uintptr, len1 size_t, out uintptr) (r ext_plugin_status) {
 	bp := tls.Alloc(112)
 	defer tls.Free(112)
 	var _ /* s at bp+0 */ ext_hash
 	if !(out != 0) || !(input != 0) && len1 != 0 {
-		return int32(EXT_INVALID)
+		return int32(EXT_PLUGIN_INVALID)
 	}
 	ext_hash_init(tls, bp)
 	ext_hash_update(tls, bp, input, len1)
 	ext_hash_finish(tls, bp, out)
-	return int32(EXT_OK)
+	return int32(EXT_PLUGIN_OK)
 }
 
 const UINT64_MAX3 = 18446744073709551615
@@ -54204,19 +54193,19 @@ func above(tls *libc.TLS, parent uintptr, child uintptr) (r int32) {
 //	 * inside that path. Sorting makes this O(n log n) in the artifact count:
 //	 * comparing every pair of 4096 artifacts, each reached through
 //	 * yyjson_arr_get, took minutes. */
-func artifacts_distinct(tls *libc.TLS, a uintptr) (r ext_status) {
+func artifacts_distinct(tls *libc.TLS, a uintptr) (r ext_plugin_status) {
 	var count, depth, i, n, trees, v5 size_t
 	var items, names, open, order, v uintptr
-	var status ext_status
+	var status ext_plugin_status
 	_, _, _, _, _, _, _, _, _, _, _, _ = count, depth, i, items, n, names, open, order, status, trees, v, v5
 	count = yyjson_arr_size7(tls, a)
-	status = int32(EXT_OK)
+	status = int32(EXT_PLUGIN_OK)
 	items = libc.Xcalloc(tls, count, uint64(32))
 	order = libc.Xmalloc(tls, count*uint64(8))
 	open = libc.Xmalloc(tls, count*uint64(8))
 	names = libc.Xmalloc(tls, count*uint64(16))
 	if !(items != 0) || !(order != 0) || !(open != 0) || !(names != 0) {
-		status = int32(EXT_NOMEM)
+		status = int32(EXT_PLUGIN_NOMEM)
 		goto done
 	}
 	i = uint64(0)
@@ -54229,7 +54218,7 @@ func artifacts_distinct(tls *libc.TLS, a uintptr) (r ext_status) {
 		(*(*artifact)(unsafe.Add(nil, items+uintptr(i)*32))).Fv = v
 		(*(*artifact)(unsafe.Add(nil, items+uintptr(i)*32))).Ftree = tree_artifact(tls, v)
 		if !(fold_path(tls, yyjson_obj_get7(tls, v, __ccgo_ts+750), items+uintptr(i)*32) != 0) {
-			status = int32(EXT_NOMEM)
+			status = int32(EXT_PLUGIN_NOMEM)
 			goto done
 		}
 		*(*uintptr)(unsafe.Add(nil, order+uintptr(i)*8)) = items + uintptr(i)*32
@@ -54248,7 +54237,7 @@ func artifacts_distinct(tls *libc.TLS, a uintptr) (r ext_status) {
 			break
 		}
 		if !(span_order(tls, names+uintptr(i-uint64(1))*16, names+uintptr(i)*16) != 0) {
-			status = int32(EXT_INVALID)
+			status = int32(EXT_PLUGIN_INVALID)
 			goto done
 		}
 		goto _2
@@ -54263,7 +54252,7 @@ func artifacts_distinct(tls *libc.TLS, a uintptr) (r ext_status) {
 			break
 		}
 		if !(key_order(tls, order+uintptr(i-uint64(1))*8, order+uintptr(i)*8) != 0) {
-			status = int32(EXT_INVALID)
+			status = int32(EXT_PLUGIN_INVALID)
 			goto done
 		}
 		goto _3
@@ -54286,7 +54275,7 @@ func artifacts_distinct(tls *libc.TLS, a uintptr) (r ext_status) {
 			trees = trees - uint64((*artifact)(unsafe.Pointer(*(*uintptr)(unsafe.Add(nil, open+uintptr(depth)*8)))).Ftree)
 		}
 		if depth != 0 && ((*artifact)(unsafe.Pointer(*(*uintptr)(unsafe.Add(nil, order+uintptr(i)*8)))).Ftree != 0 || trees != 0) {
-			status = int32(EXT_INVALID)
+			status = int32(EXT_PLUGIN_INVALID)
 			goto done
 		}
 		v5 = depth
@@ -54321,11 +54310,11 @@ done:
 	return status
 }
 
-func ext_manifest_valid(tls *libc.TLS, m uintptr) (r1 ext_status) {
+func ext_manifest_valid(tls *libc.TLS, m uintptr) (r1 ext_plugin_status) {
 	bp := tls.Alloc(256)
 	defer tls.Free(256)
 	var a, assets, e, earlier, kind, p, r, shared, target, v, versions, w uintptr
-	var distinct ext_status
+	var distinct ext_plugin_status
 	var i, j, k, n, x, y size_t
 	var v7 bool
 	_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ = a, assets, distinct, e, earlier, i, j, k, kind, n, p, r, shared, target, v, versions, w, x, y, v7
@@ -54343,7 +54332,7 @@ func ext_manifest_valid(tls *libc.TLS, m uintptr) (r1 ext_status) {
 		10: __ccgo_ts + 1791,
 	}
 	if !(ext_fields(tls, m, bp, libc.Uint64FromInt64(88)/libc.Uint64FromInt64(8)) != 0) || !(license_valid(tls, yyjson_obj_get7(tls, m, __ccgo_ts+1703)) != 0) || !(metadata_valid(tls, yyjson_obj_get7(tls, m, __ccgo_ts+1791)) != 0) || !(yyjson_equals_str7(tls, yyjson_obj_get7(tls, m, __ccgo_ts+468), __ccgo_ts+1800) != 0) || !(ext_descriptor(tls, yyjson_obj_get7(tls, m, __ccgo_ts+1343)) != 0) {
-		return int32(EXT_INVALID)
+		return int32(EXT_PLUGIN_INVALID)
 	}
 	a = yyjson_obj_get7(tls, m, __ccgo_ts+1711)
 	e = yyjson_obj_get7(tls, m, __ccgo_ts+1721)
@@ -54352,7 +54341,7 @@ func ext_manifest_valid(tls *libc.TLS, m uintptr) (r1 ext_status) {
 	assets = yyjson_obj_get7(tls, m, __ccgo_ts+1765)
 	shared = yyjson_obj_get7(tls, m, __ccgo_ts+1772)
 	if !(yyjson_is_arr7(tls, a) != 0) || !(yyjson_arr_size7(tls, a) != 0) || !(array(tls, a, uint64(4096)) != 0) || !(array(tls, e, uint64(64)) != 0) || !(array(tls, r, uint64(256)) != 0) || !(array(tls, p, uint64(1024)) != 0) || !(array(tls, assets, uint64(1024)) != 0) || !(array(tls, shared, uint64(256)) != 0) || !(schema(tls, yyjson_obj_get7(tls, m, __ccgo_ts+1742)) != 0) {
-		return int32(EXT_INVALID)
+		return int32(EXT_PLUGIN_INVALID)
 	}
 	i = uint64(0)
 	n = yyjson_arr_size7(tls, a)
@@ -54371,7 +54360,7 @@ func ext_manifest_valid(tls *libc.TLS, m uintptr) (r1 ext_status) {
 			5: __ccgo_ts + 1825,
 		}
 		if !(ext_fields(tls, v, bp+88, libc.Uint64FromInt64(48)/libc.Uint64FromInt64(8)) != 0) || !(!(kind != 0) || yyjson_is_null7(tls, kind) != 0) && !(yyjson_is_str7(tls, kind) != 0 && (!(yyjson_get_len7(tls, kind) != 0) || yyjson_equals_str7(tls, kind, __ccgo_ts+1698) != 0)) || !(ext_text(tls, yyjson_obj_get7(tls, v, __ccgo_ts+412), 0, 0) != 0) || !(portable(tls, yyjson_obj_get7(tls, v, __ccgo_ts+750)) != 0) || !(digest(tls, yyjson_obj_get7(tls, v, __ccgo_ts+1815)) != 0) || !(ext_text(tls, yyjson_obj_get7(tls, v, __ccgo_ts+1822), 0, int32(1)) != 0) || !(ext_text(tls, yyjson_obj_get7(tls, v, __ccgo_ts+1825), 0, int32(1)) != 0) {
-			return int32(EXT_INVALID)
+			return int32(EXT_PLUGIN_INVALID)
 		}
 		goto _1
 	_1:
@@ -54400,7 +54389,7 @@ func ext_manifest_valid(tls *libc.TLS, m uintptr) (r1 ext_status) {
 			3: __ccgo_ts + 1054,
 		}
 		if !(ext_fields(tls, v, bp+136, libc.Uint64FromInt64(32)/libc.Uint64FromInt64(8)) != 0) || !(ext_text(tls, yyjson_obj_get7(tls, v, __ccgo_ts+412), 0, 0) != 0) || !(ext_text(tls, yyjson_obj_get7(tls, v, __ccgo_ts+1009), 0, 0) != 0) || !(target != 0) || tree_artifact(tls, target) != 0 && yyjson_equals_str7(tls, yyjson_obj_get7(tls, v, __ccgo_ts+1009), __ccgo_ts+992) != 0 || !(ext_protocols(tls, yyjson_obj_get7(tls, v, __ccgo_ts+1054)) != 0) {
-			return int32(EXT_INVALID)
+			return int32(EXT_PLUGIN_INVALID)
 		}
 		j = uint64(0)
 		k = yyjson_arr_size7(tls, e)
@@ -54413,7 +54402,7 @@ func ext_manifest_valid(tls *libc.TLS, m uintptr) (r1 ext_status) {
 				break
 			} else {
 				if ext_same(tls, yyjson_obj_get7(tls, v, __ccgo_ts+412), yyjson_obj_get7(tls, w, __ccgo_ts+412)) != 0 {
-					return int32(EXT_INVALID)
+					return int32(EXT_PLUGIN_INVALID)
 				}
 			}
 			goto _3
@@ -54436,7 +54425,7 @@ func ext_manifest_valid(tls *libc.TLS, m uintptr) (r1 ext_status) {
 			break
 		}
 		if !(dependency(tls, v) != 0) {
-			return int32(EXT_INVALID)
+			return int32(EXT_PLUGIN_INVALID)
 		}
 		j = uint64(0)
 		k = yyjson_arr_size7(tls, r)
@@ -54449,7 +54438,7 @@ func ext_manifest_valid(tls *libc.TLS, m uintptr) (r1 ext_status) {
 				break
 			} else {
 				if same_dependency(tls, v, w) != 0 {
-					return int32(EXT_INVALID)
+					return int32(EXT_PLUGIN_INVALID)
 				}
 			}
 			goto _5
@@ -54484,10 +54473,10 @@ func ext_manifest_valid(tls *libc.TLS, m uintptr) (r1 ext_status) {
 			}
 		}
 		if v7 || !(ext_fields(tls, yyjson_obj_get7(tls, v, __ccgo_ts+555), bp+200, libc.Uint64FromInt64(16)/libc.Uint64FromInt64(8)) != 0) || !(ext_ref(tls, yyjson_obj_get7(tls, v, __ccgo_ts+555)) != 0) || !(ext_text(tls, yyjson_obj_get7(tls, v, __ccgo_ts+564), 0, 0) != 0) || !(schema(tls, yyjson_obj_get7(tls, v, __ccgo_ts+1839)) != 0) || !(schema(tls, yyjson_obj_get7(tls, v, __ccgo_ts+1845)) != 0) {
-			return int32(EXT_INVALID)
+			return int32(EXT_PLUGIN_INVALID)
 		}
 		if !(ext_lookup(tls, yyjson_obj_get7(tls, m, __ccgo_ts+1343), yyjson_obj_get7(tls, v, __ccgo_ts+555), yyjson_obj_get7(tls, v, __ccgo_ts+564)) != 0) {
-			return int32(EXT_UNSUPPORTED)
+			return int32(EXT_PLUGIN_UNSUPPORTED)
 		}
 		j = uint64(0)
 		k = yyjson_arr_size7(tls, p)
@@ -54500,7 +54489,7 @@ func ext_manifest_valid(tls *libc.TLS, m uintptr) (r1 ext_status) {
 				break
 			} else {
 				if ext_same_ref(tls, yyjson_obj_get7(tls, v, __ccgo_ts+555), yyjson_obj_get7(tls, w, __ccgo_ts+555)) != 0 && ext_same(tls, yyjson_obj_get7(tls, v, __ccgo_ts+564), yyjson_obj_get7(tls, w, __ccgo_ts+564)) != 0 {
-					return int32(EXT_INVALID)
+					return int32(EXT_PLUGIN_INVALID)
 				}
 			}
 			goto _8
@@ -54528,7 +54517,7 @@ func ext_manifest_valid(tls *libc.TLS, m uintptr) (r1 ext_status) {
 			2: __ccgo_ts + 1852,
 		}
 		if !(ext_fields(tls, v, bp+216, libc.Uint64FromInt64(24)/libc.Uint64FromInt64(8)) != 0) || !(named(tls, a, yyjson_obj_get7(tls, v, __ccgo_ts+1830)) != 0) || !(ext_text(tls, yyjson_obj_get7(tls, v, __ccgo_ts+639), 0, 0) != 0) || !(!(yyjson_obj_get7(tls, v, __ccgo_ts+1852) != 0) || yyjson_is_null7(tls, yyjson_obj_get7(tls, v, __ccgo_ts+1852)) != 0) && !(string1(tls, yyjson_obj_get7(tls, v, __ccgo_ts+1852), uint64(0), uint64(64)) != 0) {
-			return int32(EXT_INVALID)
+			return int32(EXT_PLUGIN_INVALID)
 		}
 		goto _9
 	_9:
@@ -54549,7 +54538,7 @@ func ext_manifest_valid(tls *libc.TLS, m uintptr) (r1 ext_status) {
 			1: __ccgo_ts + 1859,
 		}
 		if !(ext_fields(tls, v, bp+240, libc.Uint64FromInt64(16)/libc.Uint64FromInt64(8)) != 0) || !(string1(tls, yyjson_obj_get7(tls, v, __ccgo_ts+412), uint64(1), uint64(256)) != 0) || !(yyjson_is_arr7(tls, versions) != 0) || !(yyjson_arr_size7(tls, versions) != 0) || !(array(tls, versions, uint64(64)) != 0) {
-			return int32(EXT_INVALID)
+			return int32(EXT_PLUGIN_INVALID)
 		}
 		j = uint64(0)
 		k = yyjson_arr_size7(tls, shared)
@@ -54562,7 +54551,7 @@ func ext_manifest_valid(tls *libc.TLS, m uintptr) (r1 ext_status) {
 				break
 			} else {
 				if ext_same(tls, yyjson_obj_get7(tls, v, __ccgo_ts+412), yyjson_obj_get7(tls, w, __ccgo_ts+412)) != 0 {
-					return int32(EXT_INVALID)
+					return int32(EXT_PLUGIN_INVALID)
 				}
 			}
 			goto _11
@@ -54579,7 +54568,7 @@ func ext_manifest_valid(tls *libc.TLS, m uintptr) (r1 ext_status) {
 				break
 			}
 			if !(string1(tls, w, uint64(1), uint64(256)) != 0) {
-				return int32(EXT_INVALID)
+				return int32(EXT_PLUGIN_INVALID)
 			}
 			x = uint64(0)
 			y = yyjson_arr_size7(tls, versions)
@@ -54592,7 +54581,7 @@ func ext_manifest_valid(tls *libc.TLS, m uintptr) (r1 ext_status) {
 					break
 				} else {
 					if ext_same(tls, w, earlier) != 0 {
-						return int32(EXT_INVALID)
+						return int32(EXT_PLUGIN_INVALID)
 					}
 				}
 				goto _13
@@ -54613,20 +54602,20 @@ func ext_manifest_valid(tls *libc.TLS, m uintptr) (r1 ext_status) {
 		i = i + 1
 		v = unsafe_yyjson_get_next7(tls, v)
 	}
-	return int32(EXT_OK)
+	return int32(EXT_PLUGIN_OK)
 }
 
-func result(tls *libc.TLS, doc uintptr, out uintptr, ok int32) (r ext_status) {
+func result(tls *libc.TLS, doc uintptr, out uintptr, ok int32) (r ext_plugin_status) {
 	var v1 int32
 	_ = v1
 	if ok != 0 {
-		(*ext_buffer)(unsafe.Pointer(out)).Fdata = yyjson_mut_write7(tls, doc, uint32(0), out+8)
+		(*ext_plugin_buffer)(unsafe.Pointer(out)).Fdata = yyjson_mut_write7(tls, doc, uint32(0), out+8)
 	}
 	yyjson_mut_doc_free(tls, doc)
-	if (*ext_buffer)(unsafe.Pointer(out)).Fdata != 0 {
-		v1 = int32(EXT_OK)
+	if (*ext_plugin_buffer)(unsafe.Pointer(out)).Fdata != 0 {
+		v1 = int32(EXT_PLUGIN_OK)
 	} else {
-		v1 = int32(EXT_NOMEM)
+		v1 = int32(EXT_PLUGIN_NOMEM)
 	}
 	return v1
 }
@@ -54638,14 +54627,14 @@ func copy1(tls *libc.TLS, d uintptr, o uintptr, key uintptr, v uintptr) (r int32
 	return libc.BoolInt32(c != 0 && yyjson_mut_obj_add_val7(tls, d, o, key, c) != 0)
 }
 
-func select_entry(tls *libc.TLS, v uintptr, out uintptr) (r ext_status) {
+func select_entry(tls *libc.TLS, v uintptr, out uintptr) (r ext_plugin_status) {
 	bp := tls.Alloc(64)
 	defer tls.Free(64)
 	var artifact, candidate, d, dep, entry, env, m, o, profile, protocol, runtime, value, version uintptr
 	var fields [2]uintptr
 	var found int32
 	var i, j, k, n size_t
-	var s ext_status
+	var s ext_plugin_status
 	var v1 bool
 	_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ = artifact, candidate, d, dep, entry, env, fields, found, i, j, k, m, n, o, profile, protocol, runtime, s, value, version, v1
 	*(*[3]uintptr)(unsafe.Pointer(bp)) = [3]uintptr{
@@ -54654,7 +54643,7 @@ func select_entry(tls *libc.TLS, v uintptr, out uintptr) (r ext_status) {
 		2: __ccgo_ts + 1877,
 	}
 	if !(ext_fields(tls, v, bp, libc.Uint64FromInt64(24)/libc.Uint64FromInt64(8)) != 0) {
-		return int32(EXT_INVALID)
+		return int32(EXT_PLUGIN_INVALID)
 	}
 	m = yyjson_obj_get7(tls, v, __ccgo_ts+1868)
 	env = yyjson_obj_get7(tls, v, __ccgo_ts+1877)
@@ -54671,7 +54660,7 @@ func select_entry(tls *libc.TLS, v uintptr, out uintptr) (r ext_status) {
 		}
 	}
 	if v1 || !(ext_fields(tls, env, bp+24, libc.Uint64FromInt64(32)/libc.Uint64FromInt64(8)) != 0) || !(!(yyjson_obj_get7(tls, env, __ccgo_ts+1889) != 0) || yyjson_is_null7(tls, yyjson_obj_get7(tls, env, __ccgo_ts+1889)) != 0) && !(yyjson_is_obj7(tls, yyjson_obj_get7(tls, env, __ccgo_ts+1889)) != 0) || !(!(yyjson_obj_get7(tls, env, __ccgo_ts+1898) != 0) || yyjson_is_null7(tls, yyjson_obj_get7(tls, env, __ccgo_ts+1898)) != 0) && !(yyjson_is_obj7(tls, yyjson_obj_get7(tls, env, __ccgo_ts+1898)) != 0) {
-		return int32(EXT_INVALID)
+		return int32(EXT_PLUGIN_INVALID)
 	}
 	i = uint64(0)
 	n = yyjson_arr_size7(tls, yyjson_obj_get7(tls, m, __ccgo_ts+1772))
@@ -54699,7 +54688,7 @@ func select_entry(tls *libc.TLS, v uintptr, out uintptr) (r ext_status) {
 			candidate = unsafe_yyjson_get_next7(tls, candidate)
 		}
 		if !(found != 0) {
-			return int32(EXT_UNSUPPORTED)
+			return int32(EXT_PLUGIN_UNSUPPORTED)
 		}
 		goto _2
 	_2:
@@ -54709,19 +54698,19 @@ func select_entry(tls *libc.TLS, v uintptr, out uintptr) (r ext_status) {
 	}
 	entry = named(tls, yyjson_obj_get7(tls, m, __ccgo_ts+1721), yyjson_obj_get7(tls, v, __ccgo_ts+412))
 	if !(entry != 0) {
-		return int32(EXT_NOT_FOUND)
+		return int32(EXT_PLUGIN_NOT_FOUND)
 	}
 	runtime = yyjson_obj_get7(tls, entry, __ccgo_ts+1009)
 	profile = yyjson_obj_getn7(tls, yyjson_obj_get7(tls, env, __ccgo_ts+1889), yyjson_get_str7(tls, runtime), yyjson_get_len7(tls, runtime))
 	if !(profile != 0) {
-		return int32(EXT_UNSUPPORTED)
+		return int32(EXT_PLUGIN_UNSUPPORTED)
 	}
 	if !(ext_protocols(tls, yyjson_obj_get7(tls, profile, __ccgo_ts+1054)) != 0) {
-		return int32(EXT_INVALID)
+		return int32(EXT_PLUGIN_INVALID)
 	}
 	protocol = ext_negotiate(tls, yyjson_obj_get7(tls, profile, __ccgo_ts+1054), yyjson_obj_get7(tls, entry, __ccgo_ts+1054))
 	if !(protocol != 0) {
-		return int32(EXT_UNSUPPORTED)
+		return int32(EXT_PLUGIN_UNSUPPORTED)
 	}
 	artifact = named(tls, yyjson_obj_get7(tls, m, __ccgo_ts+1711), yyjson_obj_get7(tls, entry, __ccgo_ts+1830))
 	fields = [2]uintptr{
@@ -54735,7 +54724,7 @@ func select_entry(tls *libc.TLS, v uintptr, out uintptr) (r ext_status) {
 		}
 		value = yyjson_obj_get7(tls, artifact, fields[i])
 		if yyjson_get_len7(tls, value) != 0 && !(ext_same(tls, value, yyjson_obj_get7(tls, env, fields[i])) != 0) {
-			return int32(EXT_UNSUPPORTED)
+			return int32(EXT_PLUGIN_UNSUPPORTED)
 		}
 		goto _4
 	_4:
@@ -54744,7 +54733,7 @@ func select_entry(tls *libc.TLS, v uintptr, out uintptr) (r ext_status) {
 	}
 	d = yyjson_mut_doc_new(tls, libc.UintptrFromInt32(0))
 	if !(d != 0) {
-		return int32(EXT_NOMEM)
+		return int32(EXT_PLUGIN_NOMEM)
 	}
 	o = yyjson_mut_obj7(tls, d)
 	yyjson_mut_doc_set_root7(tls, d, o)
@@ -54769,7 +54758,7 @@ func identity_hash(tls *libc.TLS, id uintptr, out uintptr) {
 		v1 = libc.X__builtin_snprintf(tls, bp, uint64(1024), __ccgo_ts+1967, libc.VaList(bp+1032, yyjson_get_str7(tls, yyjson_obj_get7(tls, id, __ccgo_ts+392)), yyjson_get_str7(tls, yyjson_obj_get7(tls, id, __ccgo_ts+395))))
 	}
 	n = v1
-	ext_engine_sha256(tls, bp, uint64(n), out)
+	ext_plugin_sha256(tls, bp, uint64(n), out)
 }
 
 type sorted = struct {
@@ -54788,17 +54777,17 @@ type node = struct {
 	Fstate int32
 }
 
-func visit(tls *libc.TLS, nodes uintptr, i size_t, d uintptr, order uintptr) (r ext_status) {
+func visit(tls *libc.TLS, nodes uintptr, i size_t, d uintptr, order uintptr) (r ext_plugin_status) {
 	var id, p uintptr
 	var j size_t
-	var s ext_status
+	var s ext_plugin_status
 	_, _, _, _ = id, j, p, s
 	p = nodes + uintptr(i)*32
 	if (*node)(unsafe.Pointer(p)).Fstate == int32(1) {
-		return int32(EXT_INVALID)
+		return int32(EXT_PLUGIN_INVALID)
 	}
 	if (*node)(unsafe.Pointer(p)).Fstate == int32(2) {
-		return int32(EXT_OK)
+		return int32(EXT_PLUGIN_OK)
 	}
 	(*node)(unsafe.Pointer(p)).Fstate = int32(1)
 	j = uint64(0)
@@ -54817,10 +54806,10 @@ func visit(tls *libc.TLS, nodes uintptr, i size_t, d uintptr, order uintptr) (r 
 	}
 	id = yyjson_val_mut_copy(tls, d, (*node)(unsafe.Pointer(p)).Fid)
 	if !(id != 0) || !(yyjson_mut_arr_append7(tls, order, id) != 0) {
-		return int32(EXT_NOMEM)
+		return int32(EXT_PLUGIN_NOMEM)
 	}
 	(*node)(unsafe.Pointer(p)).Fstate = int32(2)
-	return int32(EXT_OK)
+	return int32(EXT_PLUGIN_OK)
 }
 
 // C documentation
@@ -54889,7 +54878,7 @@ func offers_free(tls *libc.TLS, o uintptr) {
 	libc.Xmemset(tls, o, 0, uint64(32))
 }
 
-func offers_build(tls *libc.TLS, o uintptr, ms uintptr) (r ext_status) {
+func offers_build(tls *libc.TLS, o uintptr, ms uintptr) (r ext_plugin_status) {
 	var c, e, m, op, v8 uintptr
 	var i, j, k, n, slot, slots, total, x, y, v7 size_t
 	var v3 uint64
@@ -54925,7 +54914,7 @@ func offers_build(tls *libc.TLS, o uintptr, ms uintptr) (r ext_status) {
 	slots = uint64(16)
 	for slots/uint64(2) < total {
 		if slots > libc.Uint64FromUint64(0xffffffffffffffff)/libc.Uint64FromInt32(4) {
-			return int32(EXT_NOMEM)
+			return int32(EXT_PLUGIN_NOMEM)
 		}
 		slots = slots * uint64(2)
 	}
@@ -54938,7 +54927,7 @@ func offers_build(tls *libc.TLS, o uintptr, ms uintptr) (r ext_status) {
 	(*offers)(unsafe.Pointer(o)).Fslots = libc.Xcalloc(tls, slots, uint64(8))
 	if !((*offers)(unsafe.Pointer(o)).Foffers != 0) || !((*offers)(unsafe.Pointer(o)).Fslots != 0) {
 		offers_free(tls, o)
-		return int32(EXT_NOMEM)
+		return int32(EXT_PLUGIN_NOMEM)
 	}
 	(*offers)(unsafe.Pointer(o)).Fmask = slots - uint64(1)
 	i = uint64(0)
@@ -54993,26 +54982,26 @@ func offers_build(tls *libc.TLS, o uintptr, ms uintptr) (r ext_status) {
 		i = i + 1
 		m = unsafe_yyjson_get_next7(tls, m)
 	}
-	return int32(EXT_OK)
+	return int32(EXT_PLUGIN_OK)
 }
 
-func resolve(tls *libc.TLS, ms uintptr, out uintptr) (r1 ext_status) {
+func resolve(tls *libc.TLS, ms uintptr, out uintptr) (r1 ext_plugin_status) {
 	bp := tls.Alloc(32)
 	defer tls.Free(32)
 	var binding, bindings, d, e, m, nodes, order, r, root, sorted_nodes, want, v13, v14 uintptr
 	var count, found, i, j, k, n, provider, slot size_t
 	var hash uint64_t
-	var s, v4 ext_status
+	var s, v4 ext_plugin_status
 	var v1, v2 uint64
 	var v10 int32
 	var v15 bool
 	var _ /* index at bp+0 */ offers
 	_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ = binding, bindings, count, d, e, found, hash, i, j, k, m, n, nodes, order, provider, r, root, s, slot, sorted_nodes, want, v1, v10, v13, v14, v15, v2, v4
 	if !(yyjson_is_arr7(tls, ms) != 0) || yyjson_arr_size7(tls, ms) > uint64(1024) {
-		return int32(EXT_INVALID)
+		return int32(EXT_PLUGIN_INVALID)
 	}
 	count = yyjson_arr_size7(tls, ms)
-	s = int32(EXT_OK)
+	s = int32(EXT_PLUGIN_OK)
 	*(*offers)(unsafe.Add(nil, bp)) = offers{}
 	if count != 0 {
 		v1 = count
@@ -55028,7 +55017,7 @@ func resolve(tls *libc.TLS, ms uintptr, out uintptr) (r1 ext_status) {
 	sorted_nodes = libc.Xcalloc(tls, v2, uint64(40))
 	d = yyjson_mut_doc_new(tls, libc.UintptrFromInt32(0))
 	if !(nodes != 0) || !(sorted_nodes != 0) || !(d != 0) {
-		s = int32(EXT_NOMEM)
+		s = int32(EXT_PLUGIN_NOMEM)
 		goto done
 	}
 	root = yyjson_mut_obj7(tls, d)
@@ -55036,7 +55025,7 @@ func resolve(tls *libc.TLS, ms uintptr, out uintptr) (r1 ext_status) {
 	bindings = yyjson_mut_arr7(tls, d)
 	yyjson_mut_doc_set_root7(tls, d, root)
 	if !(root != 0) || !(order != 0) || !(bindings != 0) {
-		s = int32(EXT_NOMEM)
+		s = int32(EXT_PLUGIN_NOMEM)
 		goto done
 	}
 	i = uint64(0)
@@ -55058,7 +55047,7 @@ func resolve(tls *libc.TLS, ms uintptr, out uintptr) (r1 ext_status) {
 				break
 			}
 			if ext_same_identity(tls, (*(*node)(unsafe.Add(nil, nodes+uintptr(i)*32))).Fid, (*(*node)(unsafe.Add(nil, nodes+uintptr(j)*32))).Fid) != 0 {
-				s = int32(EXT_AMBIGUOUS)
+				s = int32(EXT_PLUGIN_AMBIGUOUS)
 				goto done
 			}
 			goto _5
@@ -55090,7 +55079,7 @@ func resolve(tls *libc.TLS, ms uintptr, out uintptr) (r1 ext_status) {
 		if (*(*node)(unsafe.Add(nil, nodes+uintptr(i)*32))).Fcount != 0 {
 			(*(*node)(unsafe.Add(nil, nodes+uintptr(i)*32))).Fdeps = libc.Xcalloc(tls, (*(*node)(unsafe.Add(nil, nodes+uintptr(i)*32))).Fcount, uint64(8))
 			if !((*(*node)(unsafe.Add(nil, nodes+uintptr(i)*32))).Fdeps != 0) {
-				s = int32(EXT_NOMEM)
+				s = int32(EXT_PLUGIN_NOMEM)
 				goto done
 			}
 		}
@@ -55122,9 +55111,9 @@ func resolve(tls *libc.TLS, ms uintptr, out uintptr) (r1 ext_status) {
 			}
 			if found != uint64(1) {
 				if found != 0 {
-					v10 = int32(EXT_AMBIGUOUS)
+					v10 = int32(EXT_PLUGIN_AMBIGUOUS)
 				} else {
-					v10 = int32(EXT_NOT_FOUND)
+					v10 = int32(EXT_PLUGIN_NOT_FOUND)
 				}
 				s = v10
 				goto done
@@ -55132,7 +55121,7 @@ func resolve(tls *libc.TLS, ms uintptr, out uintptr) (r1 ext_status) {
 			*(*size_t)(unsafe.Add(nil, (*(*node)(unsafe.Add(nil, nodes+uintptr(i)*32))).Fdeps+uintptr(j)*8)) = provider
 			binding = yyjson_mut_obj7(tls, d)
 			if !(binding != 0) || !(copy1(tls, d, binding, __ccgo_ts+1995, (*(*node)(unsafe.Add(nil, nodes+uintptr(i)*32))).Fid) != 0) || !(copy1(tls, d, binding, __ccgo_ts+1307, r) != 0) || !(copy1(tls, d, binding, __ccgo_ts+2004, (*(*node)(unsafe.Add(nil, nodes+uintptr(provider)*32))).Fid) != 0) || !(yyjson_mut_arr_append7(tls, bindings, binding) != 0) {
-				s = int32(EXT_NOMEM)
+				s = int32(EXT_PLUGIN_NOMEM)
 				goto done
 			}
 			goto _8
@@ -55177,12 +55166,12 @@ func resolve(tls *libc.TLS, ms uintptr, out uintptr) (r1 ext_status) {
 		}
 	}
 	if v15 || !(yyjson_mut_obj_add_val7(tls, d, root, __ccgo_ts+2019, v14) != 0) {
-		s = int32(EXT_NOMEM)
+		s = int32(EXT_PLUGIN_NOMEM)
 		goto done
 	}
-	(*ext_buffer)(unsafe.Pointer(out)).Fdata = yyjson_mut_write7(tls, d, uint32(0), out+8)
-	if !((*ext_buffer)(unsafe.Pointer(out)).Fdata != 0) {
-		s = int32(EXT_NOMEM)
+	(*ext_plugin_buffer)(unsafe.Pointer(out)).Fdata = yyjson_mut_write7(tls, d, uint32(0), out+8)
+	if !((*ext_plugin_buffer)(unsafe.Pointer(out)).Fdata != 0) {
+		s = int32(EXT_PLUGIN_NOMEM)
 	}
 	goto done
 done:
@@ -55207,8 +55196,8 @@ done:
 	return s
 }
 
-func ext_package_service(tls *libc.TLS, op uintptr, v uintptr, out uintptr) (r ext_status) {
-	var s ext_status
+func ext_package_service(tls *libc.TLS, op uintptr, v uintptr, out uintptr) (r ext_plugin_status) {
+	var s ext_plugin_status
 	var v1 int32
 	_, _ = s, v1
 	if !(libc.Xstrcmp(tls, op, __ccgo_ts+2028) != 0) {
@@ -55216,11 +55205,11 @@ func ext_package_service(tls *libc.TLS, op uintptr, v uintptr, out uintptr) (r e
 		if s != 0 {
 			return s
 		}
-		(*ext_buffer)(unsafe.Pointer(out)).Fdata = yyjson_val_write7(tls, v, uint32(0), out+8)
-		if (*ext_buffer)(unsafe.Pointer(out)).Fdata != 0 {
-			v1 = int32(EXT_OK)
+		(*ext_plugin_buffer)(unsafe.Pointer(out)).Fdata = yyjson_val_write7(tls, v, uint32(0), out+8)
+		if (*ext_plugin_buffer)(unsafe.Pointer(out)).Fdata != 0 {
+			v1 = int32(EXT_PLUGIN_OK)
 		} else {
-			v1 = int32(EXT_NOMEM)
+			v1 = int32(EXT_PLUGIN_NOMEM)
 		}
 		return v1
 	}
@@ -55230,7 +55219,7 @@ func ext_package_service(tls *libc.TLS, op uintptr, v uintptr, out uintptr) (r e
 	if !(libc.Xstrcmp(tls, op, __ccgo_ts+2060) != 0) {
 		return resolve(tls, v, out)
 	}
-	return int32(EXT_UNSUPPORTED)
+	return int32(EXT_PLUGIN_UNSUPPORTED)
 }
 
 const CHAR_ENC_CPY_1 = 0

@@ -153,7 +153,7 @@ class HostTest < Minitest::Test
   end
 
   def test_missing_library_is_reported
-    assert_raises(LoadError) { ExtIO::Host::Engine.new("/does/not/exist/libext_host.so") }
+    assert_raises(LoadError) { ExtIO::Host::Engine.new("/does/not/exist/libext_plugin_host.so") }
   end
 
   def test_policies_see_json

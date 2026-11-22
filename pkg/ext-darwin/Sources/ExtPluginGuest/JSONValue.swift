@@ -2,7 +2,7 @@ import Foundation
 
 /// A parsed JSON value that keeps a number as the text it was written in, so a count can be
 /// told from a fraction and a payload is never re-encoded. The engine validates frames
-/// strictly (`ext_host_validate_json`: depth, UTF-8, duplicate keys, trailing data) before
+/// strictly (`ext_plugin_host_validate_json`: depth, UTF-8, duplicate keys, trailing data) before
 /// this reads them, so the parser here is small.
 indirect enum JSONValue: Equatable {
     case null

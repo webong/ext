@@ -3,7 +3,7 @@
 package plugin
 
 /*
-#include "ext_host.h"
+#include "ext_plugin_host.h"
 #include <stdlib.h>
 */
 import "C"
@@ -25,7 +25,7 @@ import (
 // the C engine the same type is served by the pure-Go store.
 type PackageStore struct {
 	mu  sync.RWMutex
-	ptr *C.ext_store
+	ptr *C.ext_plugin_store
 	// The engine takes the bound on an archive file with each call.
 	maxArchiveBytes int64
 }
@@ -38,13 +38,13 @@ func OpenPackageStore(root string, limits PackageStoreLimits) (*PackageStore, er
 	}
 	croot := C.CString(root)
 	defer C.free(unsafe.Pointer(croot))
-	cl := C.ext_store_limits{
+	cl := C.ext_plugin_store_limits{
 		max_artifact_bytes: C.uint64_t(limits.MaxArtifactBytes),
 		max_tree_files:     C.uint32_t(limits.MaxTreeFiles),
 		max_tree_bytes:     C.uint64_t(limits.MaxTreeBytes),
 	}
-	var ptr *C.ext_store
-	if err := status(C.ext_store_open(croot, &cl, &ptr)); err != nil {
+	var ptr *C.ext_plugin_store
+	if err := status(C.ext_plugin_store_open(croot, &cl, &ptr)); err != nil {
 		return nil, err
 	}
 	return &PackageStore{ptr: ptr, maxArchiveBytes: limits.MaxArchiveBytes}, nil
@@ -55,17 +55,17 @@ func (s *PackageStore) Close() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.ptr != nil {
-		C.ext_store_close(s.ptr)
+		C.ext_plugin_store_close(s.ptr)
 		s.ptr = nil
 	}
 }
 
-func takeBuffer(b *C.ext_buffer) []byte {
+func takeBuffer(b *C.ext_plugin_buffer) []byte {
 	if b.data == nil {
 		return nil
 	}
 	out := C.GoBytes(unsafe.Pointer(b.data), C.int(b.len))
-	C.ext_buffer_free(b)
+	C.ext_plugin_buffer_free(b)
 	return out
 }
 
@@ -88,17 +88,17 @@ func (s *PackageStore) put(op int, source string, preserveExecutable bool) ([]by
 	defer C.free(unsafe.Pointer(csource))
 	var flags C.uint32_t
 	if preserveExecutable {
-		flags = C.EXT_STORE_PRESERVE_EXECUTABLE
+		flags = C.EXT_PLUGIN_STORE_PRESERVE_EXECUTABLE
 	}
-	var manifest C.ext_buffer
-	var st C.ext_status
+	var manifest C.ext_plugin_buffer
+	var st C.ext_plugin_status
 	switch op {
 	case storeInstall:
-		st = C.ext_store_install(s.ptr, csource, flags, &manifest)
+		st = C.ext_plugin_store_install(s.ptr, csource, flags, &manifest)
 	case storeUpgrade:
-		st = C.ext_store_upgrade(s.ptr, csource, flags, &manifest)
+		st = C.ext_plugin_store_upgrade(s.ptr, csource, flags, &manifest)
 	default:
-		st = C.ext_store_replace(s.ptr, csource, flags, &manifest)
+		st = C.ext_plugin_store_replace(s.ptr, csource, flags, &manifest)
 	}
 	if err := status(st); err != nil {
 		return nil, err
@@ -146,10 +146,10 @@ func (s *PackageStore) InstallArchive(archive, sha256, id string, preserveExecut
 	defer C.free(unsafe.Pointer(cid))
 	var flags C.uint32_t
 	if preserveExecutable {
-		flags = C.EXT_STORE_PRESERVE_EXECUTABLE
+		flags = C.EXT_PLUGIN_STORE_PRESERVE_EXECUTABLE
 	}
-	var manifest C.ext_buffer
-	if err := status(C.ext_store_install_archive(s.ptr, carchive, csum, cid, flags, C.uint64_t(s.maxArchiveBytes), &manifest)); err != nil {
+	var manifest C.ext_plugin_buffer
+	if err := status(C.ext_plugin_store_install_archive(s.ptr, carchive, csum, cid, flags, C.uint64_t(s.maxArchiveBytes), &manifest)); err != nil {
 		return nil, err
 	}
 	return takeBuffer(&manifest), nil
@@ -169,8 +169,8 @@ func (s *PackageStore) Receipt(id string) ([]byte, error) {
 	}
 	cid := C.CString(id)
 	defer C.free(unsafe.Pointer(cid))
-	var receipt C.ext_buffer
-	if err := status(C.ext_store_receipt(s.ptr, cid, &receipt)); err != nil {
+	var receipt C.ext_plugin_buffer
+	if err := status(C.ext_plugin_store_receipt(s.ptr, cid, &receipt)); err != nil {
 		return nil, err
 	}
 	return takeBuffer(&receipt), nil
@@ -188,7 +188,7 @@ func (s *PackageStore) Remove(id string) error {
 	}
 	cid := C.CString(id)
 	defer C.free(unsafe.Pointer(cid))
-	return status(C.ext_store_remove(s.ptr, cid))
+	return status(C.ext_plugin_store_remove(s.ptr, cid))
 }
 
 // Load reads and verifies one installed package and returns its plugin.json.
@@ -203,8 +203,8 @@ func (s *PackageStore) Load(id string) ([]byte, error) {
 	}
 	cid := C.CString(id)
 	defer C.free(unsafe.Pointer(cid))
-	var manifest C.ext_buffer
-	if err := status(C.ext_store_load(s.ptr, cid, &manifest)); err != nil {
+	var manifest C.ext_plugin_buffer
+	if err := status(C.ext_plugin_store_load(s.ptr, cid, &manifest)); err != nil {
 		return nil, err
 	}
 	return takeBuffer(&manifest), nil
@@ -229,8 +229,8 @@ func (s *PackageStore) ResolveEntrypoint(id, contract, version, protocol, review
 	if s.ptr == nil {
 		return PackageEntrypoint{}, plugin.ErrClosed
 	}
-	var out C.ext_buffer
-	if err := status(C.ext_store_resolve_entrypoint(s.ptr, cargs[0], cargs[1], cargs[2], cargs[3], cargs[4], cargs[5], cargs[6], &out)); err != nil {
+	var out C.ext_plugin_buffer
+	if err := status(C.ext_plugin_store_resolve_entrypoint(s.ptr, cargs[0], cargs[1], cargs[2], cargs[3], cargs[4], cargs[5], cargs[6], &out)); err != nil {
 		return PackageEntrypoint{}, err
 	}
 	var selected PackageEntrypoint
@@ -248,8 +248,8 @@ func (s *PackageStore) IDs() ([]string, error) {
 	if s.ptr == nil {
 		return nil, plugin.ErrClosed
 	}
-	var buf C.ext_buffer
-	if err := status(C.ext_store_ids(s.ptr, &buf)); err != nil {
+	var buf C.ext_plugin_buffer
+	if err := status(C.ext_plugin_store_ids(s.ptr, &buf)); err != nil {
 		return nil, err
 	}
 	var ids []string
@@ -277,7 +277,7 @@ func (l reportLine) record() PackageRecord {
 }
 
 func (l reportLine) check() PackageCheck {
-	return PackageCheck{ID: l.ID, Directory: l.Directory, Layer: l.Layer, Err: status(C.ext_status(l.Status))}
+	return PackageCheck{ID: l.ID, Directory: l.Directory, Layer: l.Layer, Err: status(C.ext_plugin_status(l.Status))}
 }
 
 func decodeRecords(raw []byte) ([]PackageRecord, error) {
@@ -324,13 +324,13 @@ func decodeUnverified(raw []byte) ([]PackageRecord, []PackageCheck, error) {
 }
 
 // report runs one of the store's whole-root reports and returns its JSON.
-func (s *PackageStore) report(call func(*C.ext_store, *C.ext_buffer) C.ext_status) ([]byte, error) {
+func (s *PackageStore) report(call func(*C.ext_plugin_store, *C.ext_plugin_buffer) C.ext_plugin_status) ([]byte, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	if s.ptr == nil {
 		return nil, plugin.ErrClosed
 	}
-	var buf C.ext_buffer
+	var buf C.ext_plugin_buffer
 	if err := status(call(s.ptr, &buf)); err != nil {
 		return nil, err
 	}
@@ -340,7 +340,9 @@ func (s *PackageStore) report(call func(*C.ext_store, *C.ext_buffer) C.ext_statu
 // List reads and verifies every installed package and returns them sorted by id. It fails on the
 // first entry that is not a package directory and on the first package that does not verify.
 func (s *PackageStore) List() ([]PackageRecord, error) {
-	raw, err := s.report(func(p *C.ext_store, b *C.ext_buffer) C.ext_status { return C.ext_store_list(p, b) })
+	raw, err := s.report(func(p *C.ext_plugin_store, b *C.ext_plugin_buffer) C.ext_plugin_status {
+		return C.ext_plugin_store_list(p, b)
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -350,7 +352,9 @@ func (s *PackageStore) List() ([]PackageRecord, error) {
 // Verify checks every entry below the root and reports each one, sorted by id, instead of stopping
 // at the first bad one. It runs nothing and changes nothing.
 func (s *PackageStore) Verify() ([]PackageCheck, error) {
-	raw, err := s.report(func(p *C.ext_store, b *C.ext_buffer) C.ext_status { return C.ext_store_verify(p, b) })
+	raw, err := s.report(func(p *C.ext_plugin_store, b *C.ext_plugin_buffer) C.ext_plugin_status {
+		return C.ext_plugin_store_verify(p, b)
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -361,7 +365,9 @@ func (s *PackageStore) Verify() ([]PackageCheck, error) {
 // separately the entries that could not be read. No artifact is read or hashed: THE PACKAGES ARE
 // UNVERIFIED and must not be launched or trusted until Load or a host verifies them.
 func (s *PackageStore) ListUnverified() ([]PackageRecord, []PackageCheck, error) {
-	raw, err := s.report(func(p *C.ext_store, b *C.ext_buffer) C.ext_status { return C.ext_store_list_unverified(p, b) })
+	raw, err := s.report(func(p *C.ext_plugin_store, b *C.ext_plugin_buffer) C.ext_plugin_status {
+		return C.ext_plugin_store_list_unverified(p, b)
+	})
 	if err != nil {
 		return nil, nil, err
 	}
@@ -375,7 +381,7 @@ func (s *PackageStore) ListUnverified() ([]PackageRecord, []PackageCheck, error)
 // by the pure-Go view.
 type LayeredPackageStore struct {
 	mu    sync.RWMutex
-	ptr   *C.ext_layered
+	ptr   *C.ext_plugin_layered
 	roots []string
 }
 
@@ -405,13 +411,13 @@ func OpenLayeredPackageStore(roots []string, limits PackageStoreLimits) (*Layere
 			C.free(unsafe.Pointer(c))
 		}
 	}()
-	cl := C.ext_store_limits{
+	cl := C.ext_plugin_store_limits{
 		max_artifact_bytes: C.uint64_t(limits.MaxArtifactBytes),
 		max_tree_files:     C.uint32_t(limits.MaxTreeFiles),
 		max_tree_bytes:     C.uint64_t(limits.MaxTreeBytes),
 	}
-	var ptr *C.ext_layered
-	if err := status(C.ext_layered_open((**C.char)(array), C.size_t(len(roots)), &cl, &ptr)); err != nil {
+	var ptr *C.ext_plugin_layered
+	if err := status(C.ext_plugin_layered_open((**C.char)(array), C.size_t(len(roots)), &cl, &ptr)); err != nil {
 		return nil, err
 	}
 	return &LayeredPackageStore{ptr: ptr, roots: append([]string(nil), roots...)}, nil
@@ -422,7 +428,7 @@ func (l *LayeredPackageStore) Close() {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	if l.ptr != nil {
-		C.ext_layered_close(l.ptr)
+		C.ext_plugin_layered_close(l.ptr)
 		l.ptr = nil
 	}
 }
@@ -443,9 +449,9 @@ func (l *LayeredPackageStore) Load(id string) (PackageRecord, error) {
 	}
 	cid := C.CString(id)
 	defer C.free(unsafe.Pointer(cid))
-	var manifest C.ext_buffer
+	var manifest C.ext_plugin_buffer
 	layer := C.size_t(0)
-	if err := status(C.ext_layered_load(l.ptr, cid, &manifest, &layer)); err != nil {
+	if err := status(C.ext_plugin_layered_load(l.ptr, cid, &manifest, &layer)); err != nil {
 		return PackageRecord{}, err
 	}
 	return PackageRecord{
@@ -456,13 +462,13 @@ func (l *LayeredPackageStore) Load(id string) (PackageRecord, error) {
 	}, nil
 }
 
-func (l *LayeredPackageStore) report(call func(*C.ext_layered, *C.ext_buffer) C.ext_status) ([]byte, error) {
+func (l *LayeredPackageStore) report(call func(*C.ext_plugin_layered, *C.ext_plugin_buffer) C.ext_plugin_status) ([]byte, error) {
 	l.mu.RLock()
 	defer l.mu.RUnlock()
 	if l.ptr == nil {
 		return nil, plugin.ErrClosed
 	}
-	var buf C.ext_buffer
+	var buf C.ext_plugin_buffer
 	if err := status(call(l.ptr, &buf)); err != nil {
 		return nil, err
 	}
@@ -473,7 +479,9 @@ func (l *LayeredPackageStore) report(call func(*C.ext_layered, *C.ext_buffer) C.
 // It fails on the first entry that is not a package directory in any root and on the first package
 // that does not verify.
 func (l *LayeredPackageStore) List() ([]PackageRecord, error) {
-	raw, err := l.report(func(p *C.ext_layered, b *C.ext_buffer) C.ext_status { return C.ext_layered_list(p, b) })
+	raw, err := l.report(func(p *C.ext_plugin_layered, b *C.ext_plugin_buffer) C.ext_plugin_status {
+		return C.ext_plugin_layered_list(p, b)
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -483,7 +491,9 @@ func (l *LayeredPackageStore) List() ([]PackageRecord, error) {
 // Verify checks what Load and List would serve and reports every failure. A shadowed copy is not
 // checked.
 func (l *LayeredPackageStore) Verify() ([]PackageCheck, error) {
-	raw, err := l.report(func(p *C.ext_layered, b *C.ext_buffer) C.ext_status { return C.ext_layered_verify(p, b) })
+	raw, err := l.report(func(p *C.ext_plugin_layered, b *C.ext_plugin_buffer) C.ext_plugin_status {
+		return C.ext_plugin_layered_verify(p, b)
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -493,7 +503,9 @@ func (l *LayeredPackageStore) Verify() ([]PackageCheck, error) {
 // ListUnverified returns the manifests of the packages each root serves, and the entries that could
 // not be read, without reading any artifact. THE PACKAGES ARE UNVERIFIED.
 func (l *LayeredPackageStore) ListUnverified() ([]PackageRecord, []PackageCheck, error) {
-	raw, err := l.report(func(p *C.ext_layered, b *C.ext_buffer) C.ext_status { return C.ext_layered_list_unverified(p, b) })
+	raw, err := l.report(func(p *C.ext_plugin_layered, b *C.ext_plugin_buffer) C.ext_plugin_status {
+		return C.ext_plugin_layered_list_unverified(p, b)
+	})
 	if err != nil {
 		return nil, nil, err
 	}

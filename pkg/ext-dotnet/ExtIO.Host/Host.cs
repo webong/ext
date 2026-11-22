@@ -47,7 +47,7 @@ public sealed class RemoteException(string code, string message, long? retryAfte
 public delegate bool Policy(JsonNode? json);
 
 /// <summary>
-/// The C engine (lib/plugin), loaded from a path, <c>EXT_HOST_LIBRARY</c>, or <c>libext_host</c>
+/// The C engine (lib/plugin), loaded from a path, <c>EXT_HOST_LIBRARY</c>, or <c>libext_plugin_host</c>
 /// on the loader path. The engine does the work a host must get right: admission, the handshake
 /// check against the descriptor, request and response validation, deadlines and the session's
 /// lifecycle; this binding only moves bytes and policy decisions. An engine is never unloaded.
@@ -62,9 +62,9 @@ public sealed unsafe class Engine
         path ??= System.Environment.GetEnvironmentVariable("EXT_HOST_LIBRARY");
         string[] candidates = !string.IsNullOrEmpty(path)
             ? [path]
-            : OperatingSystem.IsWindows() ? ["ext_host.dll"]
-            : OperatingSystem.IsMacOS() ? ["libext_host.dylib"]
-            : ["libext_host.so"];
+            : OperatingSystem.IsWindows() ? ["ext_plugin_host.dll"]
+            : OperatingSystem.IsMacOS() ? ["libext_plugin_host.dylib"]
+            : ["libext_plugin_host.so"];
         Exception? last = null;
         foreach (var candidate in candidates)
         {
@@ -76,7 +76,7 @@ public sealed unsafe class Engine
             last = new DllNotFoundException($"{candidate} could not be loaded");
         }
         throw new DllNotFoundException(
-            "the ext engine library was not found: set EXT_HOST_LIBRARY to libext_host, or pass its path", last);
+            "the ext engine library was not found: set EXT_HOST_LIBRARY to libext_plugin_host, or pass its path", last);
     }
 
     /// <summary>
@@ -117,7 +117,7 @@ public sealed unsafe class Engine
     }
 
     /// <summary>
-    /// A host for a guest library that exports the C ABI of ext_plugin.h. <paramref name="path"/>
+    /// A host for a guest library that exports the C ABI of ext_plugin_guest.h. <paramref name="path"/>
     /// is an absolute path to a verified, revision-specific artifact; it is loaded when the host
     /// starts, after <paramref name="verify"/>, and is never unloaded. Its native code runs in this
     /// process with its full access.

@@ -29,15 +29,15 @@ typedef struct {
  * every field optional, unknown fields refused. Zero when it is not one. */
 int ext_endpoint_policy_parse(yyjson_val *object, ext_endpoint_policy *policy);
 
-/* Decode and Check. EXT_OK for an endpoint of acceptable shape; EXT_INVALID for
+/* Decode and Check. EXT_PLUGIN_OK for an endpoint of acceptable shape; EXT_PLUGIN_INVALID for
  * one that is malformed (an unknown or duplicate field, a wrong type, an
  * unsupported scheme, an address that is not a host and a port, a path or token
- * out of bounds, no expiry); EXT_DENIED for an address that is not on a loopback
+ * out of bounds, no expiry); EXT_PLUGIN_DENIED for an address that is not on a loopback
  * host. */
-ext_status ext_endpoint_check(yyjson_val *endpoint);
-/* Check, then the policy: EXT_DENIED when no scheme is admitted or this one is
- * not, EXT_INVALID for a policy that names a scheme there is none of or an
- * expiry beyond the allowed lifetime, EXT_EXPIRED for one already past. */
-ext_status ext_endpoint_validate(yyjson_val *endpoint,
+ext_plugin_status ext_endpoint_check(yyjson_val *endpoint);
+/* Check, then the policy: EXT_PLUGIN_DENIED when no scheme is admitted or this one is
+ * not, EXT_PLUGIN_INVALID for a policy that names a scheme there is none of or an
+ * expiry beyond the allowed lifetime, EXT_PLUGIN_EXPIRED for one already past. */
+ext_plugin_status ext_endpoint_validate(yyjson_val *endpoint,
                                  const ext_endpoint_policy *policy);
 #endif

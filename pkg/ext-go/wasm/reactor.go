@@ -23,9 +23,9 @@ type ReactorOptions = webwasm.ReactorOptions
 
 var reactorABI = webwasm.ReactorABI{
 	Version: reactorABIVersion, MaxMessageBytes: plugin.MaxFrameBytes, SuccessStatus: reactorOK,
-	VersionExport: "ext_plugin_abi_version", OpenExport: "ext_plugin_open",
-	CallExport: "ext_plugin_call", CloseExport: "ext_plugin_close",
-	AllocateExport: "ext_plugin_alloc", FreeExport: "ext_plugin_free",
+	VersionExport: "ext_plugin_guest_abi_version", OpenExport: "ext_plugin_guest_open",
+	CallExport: "ext_plugin_guest_call", CloseExport: "ext_plugin_guest_close",
+	AllocateExport: "ext_plugin_guest_alloc", FreeExport: "ext_plugin_guest_free",
 	InitializeExport: "_initialize", DisallowedExport: "_start",
 	// A reactor may call its host through ext_plugin.reverse
 	// (docs/plugin-reactor-abi.md); this host carries no reverse calls yet, so it

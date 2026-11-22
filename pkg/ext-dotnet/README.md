@@ -3,7 +3,7 @@
 [`ExtIO`](ExtIO/README.md) is the ext plugin guest SDK for .NET: a plugin written in C# (or any .NET
 language) that speaks `ext.plugin/v1` as JSON lines on standard input and output, with the base class
 library only. [`ExtIO.Host`](ExtIO.Host/README.md) is the ext plugin host for .NET: it runs plugins through the
-C engine (`lib/plugin`) with P/Invoke, loading `libext_host` at run time. The Windows-native .NET
+C engine (`lib/plugin`) with P/Invoke, loading `libext_plugin_host` at run time. The Windows-native .NET
 libraries of ext (`Ext.Audio.Windows`, `Ext.Clipboard.Windows`, `Ext.Web.Windows`, `Ext.ML.Windows`)
 live beside the Go packages they bind, under `res/`.
 

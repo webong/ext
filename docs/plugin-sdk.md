@@ -36,7 +36,7 @@ Their existing native protocols are not automatically compatible with CTX.
 | `pkg/ext-ruby` | Standard-library Ruby guest SDK (`ExtIO::Plugin`) serving JSON lines on stdin and stdout, and an opt-in host SDK (`ExtIO::Host`) that runs any plugin through the C engine with a native extension |
 | `pkg/ext-php` | PHP guest SDK (`ExtIO\Plugin`) serving JSON lines on stdin and stdout, and an opt-in host SDK (`ExtIO\Host`) that runs any plugin through the C engine with PHP FFI |
 | `pkg/ext-lua` | Pure-Lua guest SDK (`ext_io.plugin`) with its own JSON module, serving JSON lines on stdin and stdout, and an opt-in host SDK (`ext_io.host`) that runs any plugin through the C engine with a small C module |
-| `pkg/ext-dotnet` | .NET guest SDK (`ExtIO`, namespace `ExtIO.Plugin`) serving JSON lines on stdin and stdout, and a host SDK (`ExtIO.Host`) that runs any plugin through the C engine with P/Invoke, loading `libext_host` at run time |
+| `pkg/ext-dotnet` | .NET guest SDK (`ExtIO`, namespace `ExtIO.Plugin`) serving JSON lines on stdin and stdout, and a host SDK (`ExtIO.Host`) that runs any plugin through the C engine with P/Invoke, loading `libext_plugin_host` at run time |
 | `pkg/ext-ts` | Portable JavaScript runtime and TypeScript declarations for hosts and guests |
 | `pkg/ext-rust` | Rust typed registry, host sessions, JSON-line/WASI guests and C ABI host/guest bindings |
 | `pkg/ext-zig` | Zig typed registry, host sessions, JSON-line/WASI guests, C ABI host/guest bindings, and the health, configuration and stream contracts with a stream client |
@@ -214,7 +214,7 @@ process)` for each process that serves a contract and `Route(fromContract,
 fromOperation, toContract, toOperation)` for each edge; a process opened with
 `Options.Registry` (and `Options.Reverse` for its `Authorize` and bounds, with no
 `Handle`) has its reverse calls served by it. In C the same is `ext_registry_*` in
-`ext_host.h`, attached to a source host with `ext_registry_attach`. The host stays
+`ext_plugin_host.h`, attached to a source host with `ext_plugin_registry_attach`. The host stays
 the authority: the source's reverse `Authorize` runs first and the target's own
 `Authorize` still applies to the forward call. Deadlines and cancellation carry
 into the forward call; payloads and errors pass through unchanged. An undeclared

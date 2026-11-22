@@ -47,7 +47,7 @@ var edits = []struct{ file, old, new string }{
 // translator plain C where yyjson would use compiler extensions: no alignment or inlining attributes
 // and no 128-bit integers (the last is also set in the source, see edits).
 var flags = []string{
-	"-DEXT_HOST_STATIC", "-DEXT_HOST_BUILD",
+	"-DEXT_PLUGIN_HOST_STATIC", "-DEXT_PLUGIN_HOST_BUILD",
 	"-Dyyjson_align(x)=", "-Dyyjson_inline=", "-Dyyjson_noinline=", "-U__SIZEOF_INT128__",
 }
 

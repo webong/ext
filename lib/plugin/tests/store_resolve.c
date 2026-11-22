@@ -1,7 +1,7 @@
-/* Entrypoint resolution in the package store (ext_store_resolve_entrypoint,
+/* Entrypoint resolution in the package store (ext_plugin_store_resolve_entrypoint,
  * store.c). The Go store's ResolveEntrypoint is the baseline; the differential
  * tests in pkg/ext-go/cgoengine hold the two together. */
-#include "ext_host.h"
+#include "ext_plugin_host.h"
 #include "fs.h"
 #include <assert.h>
 #include <stdio.h>
@@ -27,7 +27,7 @@ static void hex(const uint8_t digest[32], char out[65]) {
 }
 static void sha(const char *body, char out[65]) {
   uint8_t raw[32];
-  assert(ext_engine_sha256((const uint8_t *)body, strlen(body), raw) == EXT_OK);
+  assert(ext_plugin_sha256((const uint8_t *)body, strlen(body), raw) == EXT_PLUGIN_OK);
   hex(raw, out);
 }
 
@@ -67,15 +67,15 @@ typedef struct {
  * art, and the entrypoints. Contract example/v1 is what resolution asks for. */
 static void package(const char *dir, const char *id, const char *revision,
                     const art *arts, size_t na, const ent *ents, size_t ne) {
-  assert(ext_fs_make_root(dir) == EXT_OK);
+  assert(ext_fs_make_root(dir) == EXT_PLUGIN_OK);
   ext_fs *fs = NULL;
-  assert(ext_fs_open(dir, &fs) == EXT_OK);
+  assert(ext_fs_open(dir, &fs) == EXT_PLUGIN_OK);
   {
     ext_fs_entry *old = NULL;
     size_t count = 0;
-    assert(ext_fs_list(fs, "", &old, &count) == EXT_OK);
+    assert(ext_fs_list(fs, "", &old, &count) == EXT_PLUGIN_OK);
     for (size_t i = 0; i < count; i++)
-      assert(ext_fs_remove_all(fs, old[i].name) == EXT_OK);
+      assert(ext_fs_remove_all(fs, old[i].name) == EXT_PLUGIN_OK);
     ext_fs_list_free(old, count);
   }
   char artifacts[4096] = "", entries[4096] = "";
@@ -84,7 +84,7 @@ static void package(const char *dir, const char *id, const char *revision,
     char path[128], sum[65], extra[160] = "";
     snprintf(path, sizeof(path), "bin/%s", arts[i].name);
     assert(ext_fs_write_file(fs, path, (const uint8_t *)arts[i].name,
-                             strlen(arts[i].name), 1) == EXT_OK);
+                             strlen(arts[i].name), 1) == EXT_PLUGIN_OK);
     sha(arts[i].name, sum);
     if (arts[i].os)
       snprintf(extra + strlen(extra), sizeof(extra) - strlen(extra),
@@ -119,39 +119,39 @@ static void package(const char *dir, const char *id, const char *revision,
                    id, revision, artifacts, entries);
   assert(n > 0 && (size_t)n < sizeof(manifest));
   assert(ext_fs_write_file(fs, "plugin.json", (const uint8_t *)manifest,
-                           (size_t)n, 0) == EXT_OK);
+                           (size_t)n, 0) == EXT_PLUGIN_OK);
   ext_fs_close(fs);
 }
 
 typedef struct {
-  ext_store *store;
+  ext_plugin_store *store;
   const char *root;
   char digest[65];
 } fixture;
 
 /* Installs the package and records the digest a reviewer would. */
 static void install(fixture *f, const char *source, const char *id) {
-  ext_buffer manifest = {0};
-  assert(ext_store_install(f->store, source, 0, &manifest) == EXT_OK);
-  ext_buffer_free(&manifest);
+  ext_plugin_buffer manifest = {0};
+  assert(ext_plugin_store_install(f->store, source, 0, &manifest) == EXT_PLUGIN_OK);
+  ext_plugin_buffer_free(&manifest);
   uint8_t raw[32];
-  assert(ext_store_digest(f->root, id, raw) == EXT_OK);
+  assert(ext_plugin_store_digest(f->root, id, raw) == EXT_PLUGIN_OK);
   hex(raw, f->digest);
 }
-static ext_status resolve(const fixture *f, const char *id, const char *contract,
+static ext_plugin_status resolve(const fixture *f, const char *id, const char *contract,
                           const char *version, const char *protocol,
                           const char *digest, const char *os, const char *arch,
-                          ext_buffer *out) {
-  return ext_store_resolve_entrypoint(f->store, id, contract, version, protocol,
+                          ext_plugin_buffer *out) {
+  return ext_plugin_store_resolve_entrypoint(f->store, id, contract, version, protocol,
                                       digest, os, arch, out);
 }
 /* The selection is exactly name and artifact, with the path under the store. */
 static void expect(const fixture *f, const char *id, const char *protocol,
                    const char *os, const char *arch, const char *name,
                    const char *artifact) {
-  ext_buffer out = {0};
+  ext_plugin_buffer out = {0};
   assert(resolve(f, id, "example", "v1", protocol, f->digest, os, arch, &out) ==
-         EXT_OK);
+         EXT_PLUGIN_OK);
   char want[2048], path[2048];
   json_path(path, sizeof(path), f->root, id, artifact);
   int n = snprintf(want, sizeof(want),
@@ -164,17 +164,17 @@ static void expect(const fixture *f, const char *id, const char *protocol,
             (int)out.len, (const char *)out.data, want);
     abort();
   }
-  ext_buffer_free(&out);
+  ext_plugin_buffer_free(&out);
 }
 static void expect_status(const fixture *f, const char *id, const char *contract,
                           const char *version, const char *protocol,
                           const char *digest, const char *os, const char *arch,
-                          ext_status want) {
-  ext_buffer out = {(uint8_t *)"x", 1}; /* must be cleared on any failure */
-  ext_status got = resolve(f, id, contract, version, protocol, digest, os, arch, &out);
+                          ext_plugin_status want) {
+  ext_plugin_buffer out = {(uint8_t *)"x", 1}; /* must be cleared on any failure */
+  ext_plugin_status got = resolve(f, id, contract, version, protocol, digest, os, arch, &out);
   if (got != want) {
     fprintf(stderr, "%s: got %d (%s), want %d (%s)\n", id, got,
-            ext_host_status_string(got), want, ext_host_status_string(want));
+            ext_plugin_host_status_string(got), want, ext_plugin_host_status_string(want));
     abort();
   }
   assert(!out.data && !out.len);
@@ -203,37 +203,37 @@ static void platform_names(const char *scratch, fixture *f) {
 
   /* the trust and contract gates, before anything is selected */
   expect_status(f, "names", "example", "v1", "example/v1", NULL, "linux",
-                "amd64", EXT_DENIED);
+                "amd64", EXT_PLUGIN_DENIED);
   expect_status(f, "names", "example", "v1", "example/v1", "", "linux", "amd64",
-                EXT_DENIED);
+                EXT_PLUGIN_DENIED);
   expect_status(f, "names", "example", "v1", "example/v1", "wrong", "linux",
-                "amd64", EXT_DENIED);
+                "amd64", EXT_PLUGIN_DENIED);
   char upper[65];
   for (size_t i = 0; i < 65; i++)
     upper[i] = f->digest[i] >= 'a' && f->digest[i] <= 'f'
                    ? (char)(f->digest[i] - 32)
                    : f->digest[i];
   expect_status(f, "names", "example", "v1", "example/v1", upper, "linux",
-                "amd64", EXT_DENIED); /* the digest is compared as it was recorded */
+                "amd64", EXT_PLUGIN_DENIED); /* the digest is compared as it was recorded */
   expect_status(f, "names", "different", "v1", "example/v1", f->digest, "linux",
-                "amd64", EXT_UNSUPPORTED);
+                "amd64", EXT_PLUGIN_UNSUPPORTED);
   expect_status(f, "names", "example", "v2", "example/v1", f->digest, "linux",
-                "amd64", EXT_UNSUPPORTED);
+                "amd64", EXT_PLUGIN_UNSUPPORTED);
   expect_status(f, "names", "example", "v1", "other/v1", f->digest, "linux",
-                "amd64", EXT_UNSUPPORTED);
+                "amd64", EXT_PLUGIN_UNSUPPORTED);
   /* a missing digest is refused before the id is even read, as Go does */
   expect_status(f, "../bad", "example", "v1", "example/v1", "", "linux", "amd64",
-                EXT_DENIED);
+                EXT_PLUGIN_DENIED);
   expect_status(f, "../bad", "example", "v1", "example/v1", f->digest, "linux",
-                "amd64", EXT_INVALID);
+                "amd64", EXT_PLUGIN_INVALID);
   expect_status(f, "absent", "example", "v1", "example/v1", f->digest, "linux",
-                "amd64", EXT_NOT_FOUND);
+                "amd64", EXT_PLUGIN_NOT_FOUND);
 
   /* the build's own platform when none is named */
-  ext_buffer out = {0};
+  ext_plugin_buffer out = {0};
   assert(resolve(f, "names", "example", "v1", "example/v1", f->digest, NULL, NULL,
-                 &out) == EXT_OK);
-  ext_buffer_free(&out);
+                 &out) == EXT_PLUGIN_OK);
+  ext_plugin_buffer_free(&out);
   free(source);
 }
 
@@ -273,7 +273,7 @@ static void runtime_and_protocol(const char *scratch, fixture *f) {
   expect(f, "filter", "p/v1", "linux", "amd64", "z", "second");
   expect(f, "filter", "r/v1", "linux", "amd64", "y", "first");
   expect_status(f, "filter", "example", "v1", "none/v1", f->digest, "linux",
-                "amd64", EXT_UNSUPPORTED);
+                "amd64", EXT_PLUGIN_UNSUPPORTED);
   /* an artifact for another platform leaves nothing to run */
   char *other = join(scratch, "source-elsewhere");
   const art foreign[] = {{"only-windows", "windows", NULL}};
@@ -281,7 +281,7 @@ static void runtime_and_protocol(const char *scratch, fixture *f) {
   package(other, "elsewhere", "r1", foreign, 1, entry, 1);
   install(f, other, "elsewhere");
   expect_status(f, "elsewhere", "example", "v1", "p/v1", f->digest, "linux",
-                "amd64", EXT_UNSUPPORTED);
+                "amd64", EXT_PLUGIN_UNSUPPORTED);
   expect(f, "elsewhere", "p/v1", "windows", "amd64", "main", "only-windows");
   free(other);
   free(source);
@@ -291,36 +291,36 @@ static void runtime_and_protocol(const char *scratch, fixture *f) {
 static void damaged(fixture *f) {
   ext_fs *fs = NULL;
   char *dir = join(f->root, "names");
-  assert(ext_fs_open(dir, &fs) == EXT_OK);
-  assert(ext_fs_remove_all(fs, "bin/generic") == EXT_OK);
+  assert(ext_fs_open(dir, &fs) == EXT_PLUGIN_OK);
+  assert(ext_fs_remove_all(fs, "bin/generic") == EXT_PLUGIN_OK);
   assert(ext_fs_write_file(fs, "bin/generic", (const uint8_t *)"tampered", 8,
-                           1) == EXT_OK);
+                           1) == EXT_PLUGIN_OK);
   ext_fs_close(fs);
   /* the package no longer verifies, whatever digest the caller reviewed */
   uint8_t raw[32];
-  assert(ext_store_digest(f->root, "names", raw) == EXT_MISMATCH);
+  assert(ext_plugin_store_digest(f->root, "names", raw) == EXT_PLUGIN_MISMATCH);
   expect_status(f, "names", "example", "v1", "example/v1", f->digest, "linux",
-                "amd64", EXT_MISMATCH);
+                "amd64", EXT_PLUGIN_MISMATCH);
   free(dir);
 }
 
 static void arguments(const fixture *f) {
-  ext_buffer out = {0};
-  assert(ext_store_resolve_entrypoint(NULL, "filter", "example", "v1",
+  ext_plugin_buffer out = {0};
+  assert(ext_plugin_store_resolve_entrypoint(NULL, "filter", "example", "v1",
                                       "p/v1", f->digest, "linux", "amd64",
-                                      &out) == EXT_INVALID);
-  assert(ext_store_resolve_entrypoint(f->store, "filter", NULL, "v1", "p/v1",
+                                      &out) == EXT_PLUGIN_INVALID);
+  assert(ext_plugin_store_resolve_entrypoint(f->store, "filter", NULL, "v1", "p/v1",
                                       f->digest, "linux", "amd64", &out) ==
-         EXT_INVALID);
-  assert(ext_store_resolve_entrypoint(f->store, "filter", "example", NULL,
+         EXT_PLUGIN_INVALID);
+  assert(ext_plugin_store_resolve_entrypoint(f->store, "filter", "example", NULL,
                                       "p/v1", f->digest, "linux", "amd64",
-                                      &out) == EXT_INVALID);
-  assert(ext_store_resolve_entrypoint(f->store, "filter", "example", "v1", NULL,
+                                      &out) == EXT_PLUGIN_INVALID);
+  assert(ext_plugin_store_resolve_entrypoint(f->store, "filter", "example", "v1", NULL,
                                       f->digest, "linux", "amd64", &out) ==
-         EXT_INVALID);
-  assert(ext_store_resolve_entrypoint(f->store, "filter", "example", "v1",
+         EXT_PLUGIN_INVALID);
+  assert(ext_plugin_store_resolve_entrypoint(f->store, "filter", "example", "v1",
                                       "p/v1", f->digest, "linux", "amd64",
-                                      NULL) == EXT_INVALID);
+                                      NULL) == EXT_PLUGIN_INVALID);
 }
 
 int main(int argc, char **argv) {
@@ -330,13 +330,13 @@ int main(int argc, char **argv) {
   }
   char *root = join(argv[1], "store");
   fixture f = {NULL, root, ""};
-  assert(ext_store_open(root, NULL, &f.store) == EXT_OK);
+  assert(ext_plugin_store_open(root, NULL, &f.store) == EXT_PLUGIN_OK);
   platform_names(argv[1], &f);
   artifact_platform(argv[1], &f);
   runtime_and_protocol(argv[1], &f);
   arguments(&f);
   damaged(&f);
-  ext_store_close(f.store);
+  ext_plugin_store_close(f.store);
   free(root);
   puts("store resolve ok");
   return 0;

@@ -1,7 +1,7 @@
 # cguest
 
 `github.com/webong/ext/pkg/ext-go/cguest` runs plugin guests built as C shared libraries
-(the `ext_plugin_*` ABI of [`lib/plugin/include/ext_plugin.h`](../../../lib/plugin/include/ext_plugin.h))
+(the `ext_plugin_guest_*` ABI of [`lib/plugin/include/ext_plugin_guest.h`](../../../lib/plugin/include/ext_plugin_guest.h))
 as a plugin backend, like `yaegi`, `hashicorp` and `wasm`.
 
 | Package | What it does |

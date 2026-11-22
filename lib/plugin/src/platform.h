@@ -1,7 +1,7 @@
 #ifndef EXT_PLATFORM_H
 #define EXT_PLATFORM_H
 /* Small portability shims shared by the engine. */
-#include "ext_host.h"
+#include "ext_plugin_host.h"
 #include <stddef.h>
 #include <stdint.h>
 #include <time.h>
@@ -16,5 +16,5 @@
 #endif
 
 /* Fills out with n bytes from the operating system's random source. */
-ext_status ext_random_bytes(uint8_t *out, size_t n);
+ext_plugin_status ext_random_bytes(uint8_t *out, size_t n);
 #endif

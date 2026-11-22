@@ -48,7 +48,7 @@ for slice in "${slices[@]}"; do
   cmake -S lib/plugin -B "$work/$name" "${args[@]}" >/dev/null
   cmake --build "$work/$name" --target ext_wamr -j 4 >/dev/null
   mkdir -p "$work/$name/objs"
-  for lib in "$work/$name/libext_host_static.a" "$work/$name/wamr/libext_wamr.a" "$work/$name/wamr/libext_wamr_vm.a"; do
+  for lib in "$work/$name/libext_plugin_host_static.a" "$work/$name/wamr/libext_wamr.a" "$work/$name/wamr/libext_wamr_vm.a"; do
     [[ -f "$lib" ]] || lib="$(find "$work/$name" -name "$(basename "$lib")" | head -1)"
     sub="$work/$name/objs/$(basename "$lib" .a)"
     mkdir -p "$sub" && (cd "$sub" && ar x "$lib")

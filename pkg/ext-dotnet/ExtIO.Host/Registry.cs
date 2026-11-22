@@ -51,7 +51,7 @@ public sealed record ReverseServices(ReverseAuthorize Authorize, ReverseHandle? 
 public readonly record struct RegistryEnd(string Name, string Version, string Operation);
 
 /// <summary>
-/// A guest registry (ext_registry_* in ext_host.h): a reverse call one guest makes is served by a
+/// A guest registry (ext_registry_* in ext_plugin_host.h): a reverse call one guest makes is served by a
 /// forward call to another guest, along an edge declared with <see cref="Route"/>. An undeclared
 /// edge is refused with reverse_undeclared, an unregistered target with reverse_unavailable, and a
 /// call that would re-enter a host already on its call chain with denied; the target's answer

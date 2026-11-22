@@ -1,5 +1,5 @@
 /* The shared-library backend: runs a guest built against the C ABI in
- * ext_plugin.h inside the host process. It matches the Go loader in
+ * ext_plugin_guest.h inside the host process. It matches the Go loader in
  * pkg/ext-go/cengine/cguest: one image per canonical path, never unloaded;
  * ABI version 1; a {"deadline":...} handshake; the ABI's 24 MiB response
  * capacity with no retry; serialized calls; and a session that ends on any
@@ -7,8 +7,8 @@
 #define _GNU_SOURCE
 #define _DARWIN_C_SOURCE
 #include "channel.h"
-#include "ext_host.h"
-#include "ext_plugin.h"
+#include "ext_plugin_host.h"
+#include "ext_plugin_guest.h"
 #include "platform.h"
 #include "sync.h"
 #include "wire.h"
@@ -28,19 +28,19 @@
 
 #define MAX_PATH_BYTES 4096u
 
-typedef uint32_t(EXT_PLUGIN_CALL *version_fn)(void);
-typedef uint64_t(EXT_PLUGIN_CALL *open_fn)(void);
-typedef uint32_t(EXT_PLUGIN_CALL *call_fn)(uint64_t, uint32_t, const uint8_t *,
+typedef uint32_t(EXT_PLUGIN_GUEST_CALL *version_fn)(void);
+typedef uint64_t(EXT_PLUGIN_GUEST_CALL *open_fn)(void);
+typedef uint32_t(EXT_PLUGIN_GUEST_CALL *call_fn)(uint64_t, uint32_t, const uint8_t *,
                                            uint32_t, uint8_t *, uint32_t,
                                            uint32_t *);
-typedef void(EXT_PLUGIN_CALL *close_fn)(uint64_t);
+typedef void(EXT_PLUGIN_GUEST_CALL *close_fn)(uint64_t);
 
 /* A loaded image. Images are kept for the life of the process, so pointers to
  * them stay valid without reference counts. */
 typedef struct image {
   struct image *next;
   char *path; /* canonical */
-  ext_status status; /* EXT_OK, or why the image cannot serve */
+  ext_plugin_status status; /* EXT_PLUGIN_OK, or why the image cannot serve */
   open_fn open;
   call_fn call;
   close_fn close;
@@ -103,27 +103,27 @@ static char *canonical(const char *path) {
     return NULL;
   return strdup(path);
 }
-static ext_status load(image *i) {
+static ext_plugin_status load(image *i) {
   int count = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, i->path, -1, NULL, 0);
   if (!count)
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   wchar_t *wide = malloc((size_t)count * sizeof(wchar_t));
   if (!wide)
-    return EXT_NOMEM;
+    return EXT_PLUGIN_NOMEM;
   MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, i->path, -1, wide, count);
   /* Do not search the working directory for transitive DLL dependencies. */
   HMODULE h = LoadLibraryExW(wide, NULL,
                              LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR | LOAD_LIBRARY_SEARCH_DEFAULT_DIRS);
   free(wide);
   if (!h)
-    return EXT_UNSUPPORTED;
-  version_fn version = (version_fn)(void (*)(void))GetProcAddress(h, "ext_plugin_abi_version");
-  i->open = (open_fn)(void (*)(void))GetProcAddress(h, "ext_plugin_open");
-  i->call = (call_fn)(void (*)(void))GetProcAddress(h, "ext_plugin_call");
-  i->close = (close_fn)(void (*)(void))GetProcAddress(h, "ext_plugin_close");
+    return EXT_PLUGIN_UNSUPPORTED;
+  version_fn version = (version_fn)(void (*)(void))GetProcAddress(h, "ext_plugin_guest_abi_version");
+  i->open = (open_fn)(void (*)(void))GetProcAddress(h, "ext_plugin_guest_open");
+  i->call = (call_fn)(void (*)(void))GetProcAddress(h, "ext_plugin_guest_call");
+  i->close = (close_fn)(void (*)(void))GetProcAddress(h, "ext_plugin_guest_close");
   if (!version || !i->open || !i->call || !i->close)
-    return EXT_UNSUPPORTED;
-  return version() == EXT_PLUGIN_ABI_VERSION ? EXT_OK : EXT_UNSUPPORTED;
+    return EXT_PLUGIN_UNSUPPORTED;
+  return version() == EXT_PLUGIN_GUEST_ABI_VERSION ? EXT_PLUGIN_OK : EXT_PLUGIN_UNSUPPORTED;
 }
 #else
 static char *canonical(const char *path) {
@@ -134,32 +134,32 @@ static void *symbol(void *h, const char *name) {
   void *p = dlsym(h, name);
   return p;
 }
-static ext_status load(image *i) {
+static ext_plugin_status load(image *i) {
   void *h = dlopen(i->path, RTLD_NOW | RTLD_LOCAL);
   if (!h)
-    return EXT_UNSUPPORTED;
+    return EXT_PLUGIN_UNSUPPORTED;
   /* Never dlclose, even on ABI failure: native initialization already ran. */
   version_fn version;
-  void *p = symbol(h, "ext_plugin_abi_version");
+  void *p = symbol(h, "ext_plugin_guest_abi_version");
   memcpy(&version, &p, sizeof(p));
-  p = symbol(h, "ext_plugin_open");
+  p = symbol(h, "ext_plugin_guest_open");
   memcpy(&i->open, &p, sizeof(p));
-  p = symbol(h, "ext_plugin_call");
+  p = symbol(h, "ext_plugin_guest_call");
   memcpy(&i->call, &p, sizeof(p));
-  p = symbol(h, "ext_plugin_close");
+  p = symbol(h, "ext_plugin_guest_close");
   memcpy(&i->close, &p, sizeof(p));
   if (!version || !i->open || !i->call || !i->close)
-    return EXT_UNSUPPORTED;
-  return version() == EXT_PLUGIN_ABI_VERSION ? EXT_OK : EXT_UNSUPPORTED;
+    return EXT_PLUGIN_UNSUPPORTED;
+  return version() == EXT_PLUGIN_GUEST_ABI_VERSION ? EXT_PLUGIN_OK : EXT_PLUGIN_UNSUPPORTED;
 }
 #endif
 
 /* Finds or loads the image for path. Loading runs the library's initializers,
  * so it happens at most once per canonical path, under the lock. */
-static ext_status image_for(const char *path, image **out) {
+static ext_plugin_status image_for(const char *path, image **out) {
   char *name = canonical(path);
   if (!name)
-    return EXT_NOT_FOUND;
+    return EXT_PLUGIN_NOT_FOUND;
   pthread_mutex_lock(&images_mu);
   image *i = images;
   while (i && strcmp(i->path, name))
@@ -171,14 +171,14 @@ static ext_status image_for(const char *path, image **out) {
     if (!i) {
       pthread_mutex_unlock(&images_mu);
       free(name);
-      return EXT_NOMEM;
+      return EXT_PLUGIN_NOMEM;
     }
     i->path = name;
     i->status = load(i);
     i->next = images;
     images = i;
   }
-  ext_status s = i->status;
+  ext_plugin_status s = i->status;
   pthread_mutex_unlock(&images_mu);
   *out = i;
   return s;
@@ -186,18 +186,18 @@ static ext_status image_for(const char *path, image **out) {
 
 /* Admits one call; calls are serialized, and none starts once the backend is
  * closed or a call has failed. */
-static ext_status begin(backend *b, int want) {
+static ext_plugin_status begin(backend *b, int want) {
   pthread_mutex_lock(&b->mu);
-  ext_status s = b->state == DEAD ? EXT_CLOSED
-                 : b->state != want ? EXT_INVALID
-                 : b->busy ? EXT_INVALID
-                           : EXT_OK;
+  ext_plugin_status s = b->state == DEAD ? EXT_PLUGIN_CLOSED
+                 : b->state != want ? EXT_PLUGIN_INVALID
+                 : b->busy ? EXT_PLUGIN_INVALID
+                           : EXT_PLUGIN_OK;
   if (!s)
     b->busy = 1;
   pthread_mutex_unlock(&b->mu);
   return s;
 }
-static void end(backend *b, ext_status s, int next) {
+static void end(backend *b, ext_plugin_status s, int next) {
   pthread_mutex_lock(&b->mu);
   b->busy = 0;
   if (b->state != DEAD)
@@ -207,48 +207,48 @@ static void end(backend *b, ext_status s, int next) {
 
 /* One call into the library. The response buffer is the ABI's full capacity,
  * allocated per call as the Go loader does. */
-static ext_status round_trip(backend *b, uint32_t op, const uint8_t *request,
-                             size_t len, const ext_call_options *o, ext_emit emit,
+static ext_plugin_status round_trip(backend *b, uint32_t op, const uint8_t *request,
+                             size_t len, const ext_plugin_call_options *o, ext_plugin_emit emit,
                              void *context) {
-  if (len > EXT_PLUGIN_MAX_FRAME_BYTES)
-    return EXT_INVALID;
-  if (ext_cancel_is_signaled(o->cancel))
-    return EXT_CANCELED;
-  uint8_t *response = malloc(EXT_PLUGIN_MAX_FRAME_BYTES);
+  if (len > EXT_PLUGIN_GUEST_MAX_FRAME_BYTES)
+    return EXT_PLUGIN_INVALID;
+  if (ext_plugin_cancel_is_signaled(o->cancel))
+    return EXT_PLUGIN_CANCELED;
+  uint8_t *response = malloc(EXT_PLUGIN_GUEST_MAX_FRAME_BYTES);
   if (!response)
-    return EXT_NOMEM;
+    return EXT_PLUGIN_NOMEM;
   int64_t started = mono_ms();
   uint32_t size = 0;
   uint32_t status = b->library->call(b->handle, op, request, (uint32_t)len, response,
-                                     EXT_PLUGIN_MAX_FRAME_BYTES, &size);
-  ext_status s = EXT_OK;
+                                     EXT_PLUGIN_GUEST_MAX_FRAME_BYTES, &size);
+  ext_plugin_status s = EXT_PLUGIN_OK;
   /* Native code cannot be interrupted, so a call that outlived its deadline or
    * its cancellation is reported as such and ends the session, as in Go. */
-  if (ext_cancel_is_signaled(o->cancel))
-    s = EXT_CANCELED;
+  if (ext_plugin_cancel_is_signaled(o->cancel))
+    s = EXT_PLUGIN_CANCELED;
   else if (mono_ms() - started >= (int64_t)o->timeout_ms)
-    s = EXT_TIMEOUT;
-  else if (status != EXT_PLUGIN_OK || !size || size > EXT_PLUGIN_MAX_FRAME_BYTES)
-    s = EXT_INVALID;
+    s = EXT_PLUGIN_TIMEOUT;
+  else if (status != EXT_PLUGIN_GUEST_OK || !size || size > EXT_PLUGIN_GUEST_MAX_FRAME_BYTES)
+    s = EXT_PLUGIN_INVALID;
   if (!s)
     s = emit(context, response, size);
   free(response);
   return s;
 }
 
-static ext_status connect_cb(void *user, const ext_call_options *o, ext_emit emit,
+static ext_plugin_status connect_cb(void *user, const ext_plugin_call_options *o, ext_plugin_emit emit,
                              void *context) {
   backend *b = user;
   if (!o || !o->timeout_ms)
-    return EXT_TIMEOUT;
-  ext_status s = begin(b, NEW);
+    return EXT_PLUGIN_TIMEOUT;
+  ext_plugin_status s = begin(b, NEW);
   if (s)
     return s;
   s = image_for(b->path, &b->library);
   if (!s) {
     b->handle = b->library->open();
     if (!b->handle)
-      s = EXT_DENIED;
+      s = EXT_PLUGIN_DENIED;
   }
   if (!s) {
     char hello[64], stamp[40];
@@ -259,23 +259,23 @@ static ext_status connect_cb(void *user, const ext_call_options *o, ext_emit emi
     strftime(stamp, sizeof(stamp), "%Y-%m-%dT%H:%M:%S", &t);
     int n = snprintf(hello, sizeof(hello), "{\"deadline\":\"%s.%03lldZ\"}", stamp,
                      (long long)(wall % 1000));
-    s = round_trip(b, EXT_PLUGIN_HANDSHAKE, (const uint8_t *)hello, (size_t)n, o,
+    s = round_trip(b, EXT_PLUGIN_GUEST_HANDSHAKE, (const uint8_t *)hello, (size_t)n, o,
                    emit, context);
   }
   end(b, s, CONNECTED);
   return s;
 }
 
-static ext_status invoke_cb(void *user, const uint8_t *request, size_t len,
-                            const ext_call_options *o, ext_emit emit,
+static ext_plugin_status invoke_cb(void *user, const uint8_t *request, size_t len,
+                            const ext_plugin_call_options *o, ext_plugin_emit emit,
                             void *context) {
   backend *b = user;
   if (!o || !o->timeout_ms)
-    return EXT_TIMEOUT;
-  ext_status s = begin(b, CONNECTED);
+    return EXT_PLUGIN_TIMEOUT;
+  ext_plugin_status s = begin(b, CONNECTED);
   if (s)
     return s;
-  s = round_trip(b, EXT_PLUGIN_INVOKE, request, len, o, emit, context);
+  s = round_trip(b, EXT_PLUGIN_GUEST_INVOKE, request, len, o, emit, context);
   end(b, s, CONNECTED);
   return s;
 }
@@ -301,29 +301,29 @@ static void release_cb(void *user) {
   free(b);
 }
 
-ext_status ext_shared_library_backend_create(const ext_shared_library_options *options,
-                                             ext_backend_extension_context *out) {
+ext_plugin_status ext_plugin_shared_library_backend_create(const ext_plugin_shared_library_options *options,
+                                             ext_plugin_backend_extension_context *out) {
   if (!options || !out || options->struct_size != sizeof(*options) || !options->path)
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   size_t n = strlen(options->path);
   if (!n || n > MAX_PATH_BYTES || !ext_path_is_absolute(options->path) ||
       !valid_utf8((const unsigned char *)options->path))
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   backend *b = calloc(1, sizeof(*b));
   if (!b)
-    return EXT_NOMEM;
+    return EXT_PLUGIN_NOMEM;
   b->path = strdup(options->path);
   if (!b->path) {
     free(b);
-    return EXT_NOMEM;
+    return EXT_PLUGIN_NOMEM;
   }
   if (pthread_mutex_init(&b->mu, NULL)) {
     free(b->path);
     free(b);
-    return EXT_IO;
+    return EXT_PLUGIN_IO;
   }
-  *out = (ext_backend_extension_context){sizeof(*out), 0,        b,
+  *out = (ext_plugin_backend_extension_context){sizeof(*out), 0,        b,
                                          connect_cb,    invoke_cb, close_cb,
                                          release_cb};
-  return EXT_OK;
+  return EXT_PLUGIN_OK;
 }

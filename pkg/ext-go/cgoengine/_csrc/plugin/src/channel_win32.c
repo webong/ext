@@ -276,18 +276,18 @@ static void close_handle(HANDLE *h) {
   *h = NULL;
 }
 
-ext_status ext_channel_open(const ext_launch *launch, ext_channel **out) {
+ext_plugin_status ext_channel_open(const ext_launch *launch, ext_channel **out) {
   wchar_t *path = widen(launch->path), *directory = NULL, *command = NULL,
           *block = NULL;
   size_t command_length = 0, command_capacity = 0;
-  ext_status status = EXT_IO;
+  ext_plugin_status status = EXT_PLUGIN_IO;
   ext_channel *c = NULL;
   HANDLE in_child = NULL, out_child = NULL, err_child = NULL;
   HANDLE inherit[3];
   LPPROC_THREAD_ATTRIBUTE_LIST attributes = NULL;
   PROCESS_INFORMATION pi = {0};
   if (!path) {
-    status = EXT_INVALID;
+    status = EXT_PLUGIN_INVALID;
     goto done;
   }
   DWORD attribute = GetFileAttributesW(path);
@@ -295,7 +295,7 @@ ext_status ext_channel_open(const ext_launch *launch, ext_channel **out) {
     goto done;
   }
   if (attribute & FILE_ATTRIBUTE_DIRECTORY) {
-    status = EXT_INVALID;
+    status = EXT_PLUGIN_INVALID;
     goto done;
   }
   /* The launch path must name the exact executable, extension included. Only
@@ -303,37 +303,37 @@ ext_status ext_channel_open(const ext_launch *launch, ext_channel **out) {
    * supported. */
   const wchar_t *dot = wcsrchr(path, L'.');
   if (!dot || (_wcsicmp(dot, L".exe") && _wcsicmp(dot, L".com"))) {
-    status = EXT_INVALID;
+    status = EXT_PLUGIN_INVALID;
     goto done;
   }
   if (launch->directory && !(directory = widen(launch->directory))) {
-    status = EXT_INVALID;
+    status = EXT_PLUGIN_INVALID;
     goto done;
   }
   for (char *const *a = launch->arguments; a && *a; a++) {
     wchar_t *w = widen(*a);
     if (!w) {
-      status = EXT_INVALID;
+      status = EXT_PLUGIN_INVALID;
       goto done;
     }
     int ok = append_argument(&command, &command_length, &command_capacity, w);
     free(w);
     if (!ok) {
-      status = EXT_NOMEM;
+      status = EXT_PLUGIN_NOMEM;
       goto done;
     }
   }
   if (!command) {
-    status = EXT_INVALID;
+    status = EXT_PLUGIN_INVALID;
     goto done;
   }
   if (!(block = environment_block(launch->environment))) {
-    status = EXT_NOMEM;
+    status = EXT_PLUGIN_NOMEM;
     goto done;
   }
   c = calloc(1, sizeof(*c));
   if (!c) {
-    status = EXT_NOMEM;
+    status = EXT_PLUGIN_NOMEM;
     goto done;
   }
   if (pthread_mutex_init(&c->mu, NULL) || pthread_cond_init(&c->cv, NULL)) {
@@ -345,7 +345,7 @@ ext_status ext_channel_open(const ext_launch *launch, ext_channel **out) {
     c->stderr_limit = launch->stderr_limit;
     c->stderr_data = malloc(c->stderr_limit ? c->stderr_limit : 1);
     if (!c->stderr_data) {
-      status = EXT_NOMEM;
+      status = EXT_PLUGIN_NOMEM;
       goto fail;
     }
   }
@@ -428,7 +428,7 @@ ext_status ext_channel_open(const ext_launch *launch, ext_channel **out) {
     c->stderr_started = 1;
   }
   *out = c;
-  status = EXT_OK;
+  status = EXT_PLUGIN_OK;
   goto done;
 fail:
   if (c) {
@@ -443,7 +443,7 @@ done:
     DeleteProcThreadAttributeList(attributes);
     free(attributes);
   }
-  if (status != EXT_OK && c == NULL) {
+  if (status != EXT_PLUGIN_OK && c == NULL) {
     close_handle(&in_child);
     close_handle(&out_child);
     close_handle(&err_child);
@@ -455,10 +455,10 @@ done:
   return status;
 }
 
-ext_status ext_channel_wait(ext_channel *c, int write, int timeout_ms) {
+ext_plugin_status ext_channel_wait(ext_channel *c, int write, int timeout_ms) {
   struct timespec until;
   deadline_after(timeout_ms < 0 ? 0 : timeout_ms, &until);
-  ext_status result = EXT_OK;
+  ext_plugin_status result = EXT_PLUGIN_OK;
   pthread_mutex_lock(&c->mu);
   for (;;) {
     int ready = write ? (c->out_len < QUEUE_HIGH || c->out_error || c->closing)
@@ -466,7 +466,7 @@ ext_status ext_channel_wait(ext_channel *c, int write, int timeout_ms) {
     if (ready)
       break;
     if (pthread_cond_timedwait(&c->cv, &c->mu, &until)) {
-      result = EXT_TIMEOUT;
+      result = EXT_PLUGIN_TIMEOUT;
       break;
     }
   }

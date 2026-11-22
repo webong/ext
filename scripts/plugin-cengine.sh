@@ -16,16 +16,16 @@ test -f "$node_include/node_api.h"
 linkage="${EXT_CENGINE_LINKAGE:-static}"
 go_tags=ext_cengine
 rust_features=(--no-default-features)
-engine_link=(-lext_host_static -lpthread -lm)
+engine_link=(-lext_plugin_host_static -lpthread -lm)
 if [[ "$(uname -s)" == Linux ]]; then engine_link+=(-ldl); fi
-engine_cflags=(-DEXT_HOST_STATIC)
+engine_cflags=(-DEXT_PLUGIN_HOST_STATIC)
 case "$linkage" in
   static) ;;
   shared)
     go_tags=ext_cengine,ext_cengine_shared
     rust_features=(--features shared)
-    engine_link=(-lext_host)
-    engine_cflags=(-UEXT_HOST_STATIC)
+    engine_link=(-lext_plugin_host)
+    engine_cflags=(-UEXT_PLUGIN_HOST_STATIC)
     ;;
   *) echo "EXT_CENGINE_LINKAGE must be static or shared" >&2; exit 1 ;;
 esac
@@ -55,7 +55,7 @@ export EXT_REGISTRY_TEST_GUEST="$build_dir/release/ext_registry_test"
 export EXT_REGISTRY_CASES="$PWD/lib/plugin/testdata/v1/registry-cases.json"
 cmake -S lib/plugin -B "$build_dir/sanitize" -DCMAKE_BUILD_TYPE=Debug -DEXT_SANITIZE=ON
 cmake --build "$build_dir/sanitize" -j 4
-"$build_dir/sanitize/ext_guest_core_test"
+"$build_dir/sanitize/ext_plugin_guest_core_test"
 "$build_dir/sanitize/ext_resources_test"
 "$build_dir/sanitize/ext_limits_test"
 "$build_dir/sanitize/ext_tree_limits_test"
@@ -81,7 +81,7 @@ go build -buildmode=c-shared -o "$build_dir/go-shared.$shared_ext" ./tests/cross
 "$build_dir/sanitize/ext_trust_test" "$build_dir/sanitize/trust.json"
 cmake -S lib/plugin -B "$build_dir/thread-sanitize" -DCMAKE_BUILD_TYPE=Debug -DEXT_THREAD_SANITIZE=ON
 cmake --build "$build_dir/thread-sanitize" -j 4
-"$build_dir/thread-sanitize/ext_guest_core_test"
+"$build_dir/thread-sanitize/ext_plugin_guest_core_test"
 "$build_dir/thread-sanitize/ext_resources_test"
 "$build_dir/thread-sanitize/ext_limits_test"
 "$build_dir/thread-sanitize/ext_tree_limits_test"
@@ -116,14 +116,14 @@ RUSTFLAGS="-L native=$build_dir/release -C link-arg=-Wl,-rpath,$build_dir/releas
 "$zig_bin" build-exe pkg/ext-zig/examples/cengine/main.zig -O ReleaseSafe -L "$build_dir/release" "${engine_link[@]}" -lc -rpath "$build_dir/release" -femit-bin="$build_dir/zig-host"
 node_link=()
 if [[ "$(uname -s)" == Darwin ]]; then node_link=(-undefined dynamic_lookup); fi
-"${CC:-cc}" -std=c11 -Wall -Wextra -Werror -O2 -shared -fPIC "${node_link[@]}" -I "$node_include" -I lib/plugin/include pkg/ext-ts/examples/cengine/addon.c -L "$build_dir/release" "${engine_link[@]}" "${engine_cflags[@]}" -Wl,-rpath,"$build_dir/release" -o "$build_dir/ext_host.node"
+"${CC:-cc}" -std=c11 -Wall -Wextra -Werror -O2 -shared -fPIC "${node_link[@]}" -I "$node_include" -I lib/plugin/include pkg/ext-ts/examples/cengine/addon.c -L "$build_dir/release" "${engine_link[@]}" "${engine_cflags[@]}" -Wl,-rpath,"$build_dir/release" -o "$build_dir/ext_plugin_host.node"
 "${CC:-cc}" -std=c11 -Wall -Wextra -Werror -O2 -shared -fPIC "${node_link[@]}" -I "$node_include" -I lib/plugin/include pkg/ext-ts/engine/addon.c -L "$build_dir/release" "${engine_link[@]}" "${engine_cflags[@]}" -Wl,-rpath,"$build_dir/release" -o "$build_dir/ext_engine.node"
 EXT_ENGINE_ADDON="$build_dir/ext_engine.node" node --test pkg/ext-ts/engine/test.mjs
 go build -tags "$go_tags" -o "$build_dir/go-host" ./pkg/ext-go/cgoengine/plugin/examples/host
 "$build_dir/go-host" "$EXT_CENGINE_GUEST" "$build_dir/descriptor.json" "$build_dir/echo.json" "$build_dir/public-error.json" > "$build_dir/go.jsonl"
 "$CARGO_TARGET_DIR/debug/ext-cengine-example" "$EXT_CENGINE_GUEST" "$build_dir/descriptor.json" "$build_dir/echo.json" "$build_dir/public-error.json" > "$build_dir/rust.jsonl"
 "$build_dir/zig-host" "$EXT_CENGINE_GUEST" "$build_dir/descriptor.json" "$build_dir/echo.json" "$build_dir/public-error.json" > "$build_dir/zig.jsonl"
-node pkg/ext-ts/examples/cengine/host.cjs "$build_dir/ext_host.node" "$EXT_CENGINE_GUEST" "$build_dir/descriptor.json" "$build_dir/echo.json" "$build_dir/public-error.json" > "$build_dir/node.jsonl"
+node pkg/ext-ts/examples/cengine/host.cjs "$build_dir/ext_plugin_host.node" "$EXT_CENGINE_GUEST" "$build_dir/descriptor.json" "$build_dir/echo.json" "$build_dir/public-error.json" > "$build_dir/node.jsonl"
 python3 - "$build_dir" <<'PY'
 import json,pathlib,sys
 p=pathlib.Path(sys.argv[1])

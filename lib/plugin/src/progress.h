@@ -43,9 +43,9 @@ typedef struct {
 } ext_progress_event;
 
 /* Validates a progress frame and extracts the event, parent id included
- * (borrowed from frame). EXT_PROTOCOL for anything plugin.ProgressFrame would
+ * (borrowed from frame). EXT_PLUGIN_PROTOCOL for anything plugin.ProgressFrame would
  * not decode or validate. */
-ext_status ext_progress_frame(yyjson_val *frame, ext_progress_event *event,
+ext_plugin_status ext_progress_frame(yyjson_val *frame, ext_progress_event *event,
                               yyjson_val **parent);
 
 /* The host's side of one call: applies the limits as a backstop to what the
@@ -53,20 +53,20 @@ ext_status ext_progress_frame(yyjson_val *frame, ext_progress_event *event,
  * NULL, in which case events are still counted and limited. */
 typedef struct {
   ext_limiter limiter;
-  ext_progress_fn fn;
+  ext_plugin_progress_fn fn;
   void *user;
 } ext_progress_sink;
-void ext_progress_sink_init(ext_progress_sink *, ext_progress_fn fn, void *user,
+void ext_progress_sink_init(ext_progress_sink *, ext_plugin_progress_fn fn, void *user,
                             int64_t events_per_second,
                             int64_t bytes_per_second);
 /* Passes one event on. A marker (an empty log event that only carries a count)
  * is folded into the count the next event or the final marker reports. Events
  * over the limit are dropped and counted: that is not an error. */
-ext_status ext_progress_sink_deliver(ext_progress_sink *,
+ext_plugin_status ext_progress_sink_deliver(ext_progress_sink *,
                                      const ext_progress_event *);
 /* ext_progress_sink_deliver, saying whether the event was passed on (a marker
  * counts) or dropped by the limit; delivered may be NULL. */
-ext_status ext_progress_sink_report(ext_progress_sink *,
+ext_plugin_status ext_progress_sink_report(ext_progress_sink *,
                                     const ext_progress_event *, int *delivered);
 /* Delivers a final marker for events never reported. Call it once, when the
  * call ends, whatever its outcome. */

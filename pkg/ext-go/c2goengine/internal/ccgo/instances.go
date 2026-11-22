@@ -72,12 +72,12 @@ func NewInstances[T any](options instancepkg.Options[T]) (*Instances[T], error) 
 	core.handle = NewHandle(core)
 	tls := acquire()
 	defer release(tls)
-	o := alloc(tls, unsafe.Sizeof(ext_instance_options{}))
+	o := alloc(tls, unsafe.Sizeof(ext_plugin_instance_options{}))
 	out := alloc(tls, unsafe.Sizeof(uintptr(0)))
 	defer libc.Xfree(tls, o)
 	defer libc.Xfree(tls, out)
-	*(*ext_instance_options)(unsafe.Pointer(o)) = ext_instance_options{
-		Fstruct_size: uint32_t(unsafe.Sizeof(ext_instance_options{})),
+	*(*ext_plugin_instance_options)(unsafe.Pointer(o)) = ext_plugin_instance_options{
+		Fstruct_size: uint32_t(unsafe.Sizeof(ext_plugin_instance_options{})),
 		Fcapacity:    uint32_t(options.Capacity),
 		Fuser:        uintptr(core.handle),
 		Fvalidate:    pointer(&fInstanceValidate),
@@ -85,7 +85,7 @@ func NewInstances[T any](options instancepkg.Options[T]) (*Instances[T], error) 
 		Fdispose:     pointer(&fInstanceDispose),
 		Fobserve:     pointer(&fInstanceObserve),
 	}
-	if err := statusError(ext_instances_create(tls, o, out)); err != nil {
+	if err := statusError(ext_plugin_instances_create(tls, o, out)); err != nil {
 		core.handle.Delete()
 		cancel()
 		return nil, err
@@ -142,7 +142,7 @@ func (m *Instances[T]) Configure(ctx context.Context, key, revision string, conf
 	defer freeRevision()
 	cfg, freeConfig := copyIn(tls, config)
 	defer freeConfig()
-	s := ext_instances_configure(tls, c.ptr, k, size_t(len(key)), r, size_t(len(revision)), cfg, size_t(len(config)), scope.native.options)
+	s := ext_plugin_instances_configure(tls, c.ptr, k, size_t(len(key)), r, size_t(len(revision)), cfg, size_t(len(config)), scope.native.options)
 	if ctx.Err() != nil {
 		return ctx.Err()
 	}
@@ -166,7 +166,7 @@ func validateJSON(data []byte) error {
 	defer release(tls)
 	in, free := copyIn(tls, data)
 	defer free()
-	return statusError(ext_host_validate_json(tls, in, size_t(len(data))))
+	return statusError(ext_plugin_host_validate_json(tls, in, size_t(len(data))))
 }
 
 // InstanceLease holds an instance until Release.
@@ -197,14 +197,14 @@ func (m *Instances[T]) Acquire(key string) (*InstanceLease[T], error) {
 	defer freeKey()
 	out := alloc(tls, unsafe.Sizeof(uintptr(0)))
 	defer libc.Xfree(tls, out)
-	if err := instanceStatus(ext_instances_acquire(tls, c.ptr, k, size_t(len(key)), out)); err != nil {
+	if err := instanceStatus(ext_plugin_instances_acquire(tls, c.ptr, k, size_t(len(key)), out)); err != nil {
 		return nil, err
 	}
 	lease := *(*uintptr)(unsafe.Pointer(out))
-	v := Handle(ext_lease_value(tls, lease)).Value().(*instanceValue)
+	v := Handle(ext_plugin_lease_value(tls, lease)).Value().(*instanceValue)
 	n := alloc(tls, unsafe.Sizeof(size_t(0)))
 	defer libc.Xfree(tls, n)
-	revision := ext_lease_revision(tls, lease, n)
+	revision := ext_plugin_lease_revision(tls, lease, n)
 	var value T
 	if v.value != nil {
 		value = v.value.(T)
@@ -220,7 +220,7 @@ func (l *InstanceLease[T]) Release() error {
 		defer l.core.mu.RUnlock()
 		tls := acquire()
 		defer release(tls)
-		l.err = instanceStatus(ext_lease_release(tls, l.ptr))
+		l.err = instanceStatus(ext_plugin_lease_release(tls, l.ptr))
 		if l.err != nil {
 			if cause := l.value.disposeError(); cause != nil {
 				l.err = cause
@@ -263,7 +263,7 @@ func (m *Instances[T]) Remove(key string) error {
 	defer release(tls)
 	k, freeKey := copyIn(tls, []byte(key))
 	defer freeKey()
-	err := instanceStatus(ext_instances_remove(tls, c.ptr, k, size_t(len(key))))
+	err := instanceStatus(ext_plugin_instances_remove(tls, c.ptr, k, size_t(len(key))))
 	if err != nil {
 		if cause := c.disposeCauseSince(before); cause != nil {
 			return cause
@@ -290,7 +290,7 @@ func (m *Instances[T]) Close(ctx context.Context) error {
 		return c.cleanupErr
 	}
 	tls := acquire()
-	s := ext_instances_close(tls, c.ptr, scope.native.options)
+	s := ext_plugin_instances_close(tls, c.ptr, scope.native.options)
 	release(tls)
 	c.mu.RUnlock()
 	if s == stTimeout || s == stCanceled {
@@ -303,7 +303,7 @@ func (m *Instances[T]) Close(ctx context.Context) error {
 	defer c.mu.Unlock()
 	if c.ptr != 0 {
 		tls := acquire()
-		destroyed := instanceStatus(ext_instances_destroy(tls, c.ptr))
+		destroyed := instanceStatus(ext_plugin_instances_destroy(tls, c.ptr))
 		release(tls)
 		if destroyed != nil {
 			return destroyed
@@ -328,7 +328,7 @@ func instanceCreate(_ *libc.TLS, user, options, _ uintptr, key uintptr, kn size_
 	result = stIO
 	defer func() { _ = recover() }()
 	c := coreOf(user)
-	o := (*ext_call_options)(unsafe.Pointer(options))
+	o := (*ext_plugin_call_options)(unsafe.Pointer(options))
 	parent := Handle(o.Fvalue).Value().(context.Context)
 	ctx, cancel := context.WithTimeout(parent, time.Duration(o.Ftimeout_ms)*time.Millisecond)
 	defer cancel()

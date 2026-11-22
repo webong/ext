@@ -24,7 +24,7 @@ import (
 // code stays in Go and receives its original caller context and values.
 type Guest struct {
 	mu      sync.RWMutex
-	ptr     *C.ext_guest
+	ptr     *C.ext_plugin_guest
 	handler cgo.Handle
 }
 
@@ -45,7 +45,7 @@ func NewGuest(d plugin.Descriptor, options plugin.GuestOptions) (*Guest, error) 
 		millis = 1
 	}
 	s := C.ext_go_guest_create((*C.uint8_t)(unsafe.Pointer(&data[0])), C.size_t(len(data)), C.uint32_t(millis), C.uintptr_t(g.handler), &g.ptr)
-	if s != C.EXT_OK {
+	if s != C.EXT_PLUGIN_OK {
 		g.handler.Delete()
 		return nil, status(s)
 	}
@@ -60,9 +60,9 @@ func (g *Guest) Handshake(ctx context.Context) (plugin.Descriptor, error) {
 	if g.ptr == nil {
 		return plugin.Descriptor{}, plugin.ErrClosed
 	}
-	var out C.ext_buffer
-	s := C.ext_guest_descriptor(g.ptr, &out)
-	defer C.ext_buffer_free(&out)
+	var out C.ext_plugin_buffer
+	s := C.ext_plugin_guest_descriptor(g.ptr, &out)
+	defer C.ext_plugin_buffer_free(&out)
 	if err := status(s); err != nil {
 		return plugin.Descriptor{}, err
 	}
@@ -92,9 +92,9 @@ func (g *Guest) Invoke(ctx context.Context, r plugin.Request) (plugin.Response, 
 	}
 	call := cgo.NewHandle(ctx)
 	defer call.Delete()
-	var out C.ext_buffer
+	var out C.ext_plugin_buffer
 	s := C.ext_go_guest_invoke(g.ptr, (*C.uint8_t)(unsafe.Pointer(&data[0])), C.size_t(len(data)), C.uint32_t(math.MaxUint32), C.uintptr_t(call), &out)
-	defer C.ext_buffer_free(&out)
+	defer C.ext_plugin_buffer_free(&out)
 	if err = status(s); err != nil {
 		if errors.Is(err, plugin.ErrInvalid) {
 			return invalidRequest(r)
@@ -108,18 +108,18 @@ func (g *Guest) Destroy() {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	if g.ptr != nil {
-		C.ext_guest_destroy(g.ptr)
+		C.ext_plugin_guest_destroy(g.ptr)
 		g.ptr = nil
 		g.handler.Delete()
 	}
 }
 
 //export ctxGoGuestHandler
-func ctxGoGuestHandler(handle, call C.uintptr_t, data *C.uint8_t, n C.size_t, millis C.uint32_t, emit C.ext_guest_emit, sink unsafe.Pointer) (result C.int32_t) {
-	result = C.EXT_IO
+func ctxGoGuestHandler(handle, call C.uintptr_t, data *C.uint8_t, n C.size_t, millis C.uint32_t, emit C.ext_plugin_guest_emit, sink unsafe.Pointer) (result C.int32_t) {
+	result = C.EXT_PLUGIN_IO
 	defer func() {
 		if recover() != nil {
-			result = C.EXT_IO
+			result = C.EXT_PLUGIN_IO
 		}
 	}()
 	handler := cgo.Handle(handle).Value().(plugin.Handler)
@@ -128,7 +128,7 @@ func ctxGoGuestHandler(handle, call C.uintptr_t, data *C.uint8_t, n C.size_t, mi
 	defer cancel()
 	var request plugin.Request
 	if err := plugin.Decode(C.GoBytes(unsafe.Pointer(data), C.int(n)), &request); err != nil {
-		return C.EXT_INVALID
+		return C.EXT_PLUGIN_INVALID
 	}
 	// Go can honor the original nanosecond deadline within C's rounded budget.
 	ctx, deadlineCancel := context.WithDeadline(ctx, request.Deadline)
@@ -141,7 +141,7 @@ func ctxGoGuestHandler(handle, call C.uintptr_t, data *C.uint8_t, n C.size_t, mi
 	if err == nil {
 		err = ctx.Err()
 	}
-	var kind C.uint32_t = C.EXT_GUEST_PAYLOAD
+	var kind C.uint32_t = C.EXT_PLUGIN_GUEST_PAYLOAD
 	if err != nil {
 		var remote *plugin.RemoteError
 		if !errors.As(err, &remote) || remote == nil {
@@ -149,9 +149,9 @@ func ctxGoGuestHandler(handle, call C.uintptr_t, data *C.uint8_t, n C.size_t, mi
 		}
 		payload, err = json.Marshal(remote)
 		if err != nil {
-			return C.EXT_INVALID
+			return C.EXT_PLUGIN_INVALID
 		}
-		kind = C.EXT_GUEST_PUBLIC_ERROR
+		kind = C.EXT_PLUGIN_GUEST_PUBLIC_ERROR
 	} else if len(payload) == 0 {
 		payload = json.RawMessage("null")
 	}

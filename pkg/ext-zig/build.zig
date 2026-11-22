@@ -19,7 +19,7 @@ fn parserFlags(b: *std.Build, engine_dir: []const u8) []const []const u8 {
     const source = std.Io.Dir.cwd().readFileAlloc(b.graph.io, path, b.allocator, .limited(16 << 20)) catch |err|
         std.debug.panic("cannot read {s}: {s}", .{ path, @errorName(err) });
     var flags: std.ArrayList([]const u8) = .empty;
-    flags.appendSlice(b.allocator, &.{ "-std=c11", "-Wall", "-Wextra", "-DEXT_HOST_STATIC", "-Dyyjson_api=" }) catch @panic("OOM");
+    flags.appendSlice(b.allocator, &.{ "-std=c11", "-Wall", "-Wextra", "-DEXT_PLUGIN_HOST_STATIC", "-Dyyjson_api=" }) catch @panic("OOM");
     var lines = std.mem.splitScalar(u8, source, '\n');
     while (lines.next()) |line| {
         if (!std.mem.startsWith(u8, line, "yyjson_api ")) continue;
@@ -62,7 +62,7 @@ pub fn build(b: *std.Build) void {
     engine.addIncludePath(include);
     engine.addIncludePath(enginePath(b, engine_dir, "src"));
     engine.addIncludePath(enginePath(b, engine_dir, "vendor"));
-    const engine_lib = b.addLibrary(.{ .name = "ext_guest", .linkage = .static, .root_module = engine });
+    const engine_lib = b.addLibrary(.{ .name = "ext_plugin_guest", .linkage = .static, .root_module = engine });
 
     b.step("engine", "Compile the C engine core for the target").dependOn(&engine_lib.step);
 

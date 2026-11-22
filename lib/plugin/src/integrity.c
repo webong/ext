@@ -11,7 +11,7 @@
 /* Bounds on one directory digest, so a tree with millions of entries cannot
  * exhaust memory: the digest keeps every path until it has sorted them. The file
  * count is the Go store's default MaxTreeFiles; the path bytes allow paths of
- * about 256 bytes at that count. Beyond either the walk stops with EXT_INVALID. */
+ * about 256 bytes at that count. Beyond either the walk stops with EXT_PLUGIN_INVALID. */
 #ifndef EXT_TREE_MAX_FILES
 #define EXT_TREE_MAX_FILES 250000u
 #endif
@@ -27,30 +27,30 @@ typedef struct {
   size_t count, capacity, path_bytes;
 } listing;
 
-static ext_status collect(void *user, const char *path, const uint8_t sum[32]) {
+static ext_plugin_status collect(void *user, const char *path, const uint8_t sum[32]) {
   listing *list = user;
   size_t length = strlen(path) + 1;
   if (list->count >= EXT_TREE_MAX_FILES ||
       length > EXT_TREE_MAX_PATH_BYTES - list->path_bytes)
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   if (list->count == list->capacity) {
     size_t capacity = list->capacity ? list->capacity * 2 : 64;
     if (capacity <= list->capacity || capacity > SIZE_MAX / sizeof(file))
-      return EXT_NOMEM;
+      return EXT_PLUGIN_NOMEM;
     file *files = realloc(list->files, capacity * sizeof(file));
     if (!files)
-      return EXT_NOMEM;
+      return EXT_PLUGIN_NOMEM;
     list->files = files;
     list->capacity = capacity;
   }
   file *f = &list->files[list->count];
   f->path = strdup(path);
   if (!f->path)
-    return EXT_NOMEM;
+    return EXT_PLUGIN_NOMEM;
   memcpy(f->sum, sum, 32);
   list->path_bytes += length;
   list->count++;
-  return EXT_OK;
+  return EXT_PLUGIN_OK;
 }
 static int compare(const void *a, const void *b) {
   return strcmp(((const file *)a)->path, ((const file *)b)->path);
@@ -58,12 +58,12 @@ static int compare(const void *a, const void *b) {
 /* Digest of every regular file under the directory at path, as
  * plugin.DirectoryDigest computes it. A tree artifact must hold at least one
  * file. */
-static ext_status digest_directory(ext_fs *fs, const char *path,
+static ext_plugin_status digest_directory(ext_fs *fs, const char *path,
                                    uint8_t out[32], int need_files) {
   listing list = {0};
-  ext_status s = ext_fs_walk(fs, path, collect, &list);
+  ext_plugin_status s = ext_fs_walk(fs, path, collect, &list);
   if (!s && need_files && !list.count)
-    s = EXT_INVALID;
+    s = EXT_PLUGIN_INVALID;
   if (!s) {
     if (list.count > 1)
       qsort(list.files, list.count, sizeof(file), compare);
@@ -87,13 +87,13 @@ static ext_status digest_directory(ext_fs *fs, const char *path,
   return s;
 }
 
-ext_status ext_package_verify(const uint8_t *manifest, size_t len,
+ext_plugin_status ext_plugin_package_verify(const uint8_t *manifest, size_t len,
                               const char *root) {
   yyjson_doc *doc = ext_parse(manifest, len);
   if (!doc)
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   yyjson_val *m = yyjson_doc_get_root(doc);
-  ext_status s = ext_manifest_valid(m);
+  ext_plugin_status s = ext_manifest_valid(m);
   ext_fs *fs = NULL;
   if (!s)
     s = ext_fs_open(root, &fs);
@@ -112,7 +112,7 @@ ext_status ext_package_verify(const uint8_t *manifest, size_t len,
         break;
       ext_hash_hex(sum, hex);
       if (!yyjson_equals_str(yyjson_obj_get(a, "sha256"), hex)) {
-        s = EXT_MISMATCH;
+        s = EXT_PLUGIN_MISMATCH;
         break;
       }
     }
@@ -122,11 +122,11 @@ ext_status ext_package_verify(const uint8_t *manifest, size_t len,
   return s;
 }
 
-ext_status ext_directory_digest(const char *root, uint8_t out[32]) {
+ext_plugin_status ext_plugin_directory_digest(const char *root, uint8_t out[32]) {
   if (!out)
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   ext_fs *fs = NULL;
-  ext_status s = ext_fs_open(root, &fs);
+  ext_plugin_status s = ext_fs_open(root, &fs);
   if (!s) {
     s = digest_directory(fs, "", out, 0);
     ext_fs_close(fs);
@@ -138,12 +138,12 @@ ext_status ext_directory_digest(const char *root, uint8_t out[32]) {
  * never following symbolic links. A file artifact is its SHA-256; a tree
  * artifact is the directory digest of the tree, which must hold at least one
  * file. */
-ext_status ext_artifact_digest(const char *root, const char *path, int tree,
+ext_plugin_status ext_plugin_artifact_digest(const char *root, const char *path, int tree,
                                uint8_t out[32]) {
   if (!root || !path || !out || !ext_portable_path(path, strlen(path)))
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   ext_fs *fs = NULL;
-  ext_status s = ext_fs_open(root, &fs);
+  ext_plugin_status s = ext_fs_open(root, &fs);
   if (!s) {
     s = tree ? digest_directory(fs, path, out, 1)
              : ext_fs_hash_file(fs, path, out);

@@ -11,7 +11,7 @@ var ErrExists = cgoengine.ErrRegistryExists
 
 // Registry composes plugins through their host: a reverse call one plugin makes
 // is served by a forward call to another plugin, along an edge the host
-// declared with Route. It is the C engine's ext_registry (ext_host.h) through
+// declared with Route. It is the C engine's ext_plugin_registry (ext_plugin_host.h) through
 // cgoengine.GuestRegistry, and pkg/ext-go/engine/plugin/host's Registry documents the
 // rules, the refusal codes and how cycles are refused; both answer
 // lib/plugin/testdata/v1/registry-cases.json.

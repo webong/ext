@@ -18,14 +18,14 @@
  * private-error, public-error), given as argv[1]. */
 
 typedef struct { uint8_t *data; size_t len; } captured;
-static ext_status capture(void *context, const uint8_t *data, size_t len) {
+static ext_plugin_status capture(void *context, const uint8_t *data, size_t len) {
   captured *c = context;
   free(c->data);
   c->data = malloc(len + 1);
   memcpy(c->data, data, len);
   c->data[len] = 0;
   c->len = len;
-  return EXT_OK;
+  return EXT_PLUGIN_OK;
 }
 static uint8_t *slurp(const char *path, size_t *len) {
   FILE *f = fopen(path, "rb");
@@ -83,20 +83,20 @@ static void say(void *u, const uint8_t *d, size_t n) {
   }
 }
 
-typedef struct { ext_backend_extension_context ext; uint8_t *module; size_t len; } live;
-static live start(const uint8_t *module, size_t n, ext_wamr_options opt, ext_status *connected, captured *descriptor) {
+typedef struct { ext_plugin_backend_extension_context ext; uint8_t *module; size_t len; } live;
+static live start(const uint8_t *module, size_t n, ext_wamr_options opt, ext_plugin_status *connected, captured *descriptor) {
   live l = {0};
   l.module = (uint8_t *)module;
   l.len = n;
   opt.struct_size = sizeof(opt);
   opt.diagnostic = say;
-  assert(ext_wamr_backend_create(module, n, &opt, &l.ext) == EXT_OK);
-  ext_call_options o = {sizeof(o), 20000, NULL, NULL};
+  assert(ext_wamr_backend_create(module, n, &opt, &l.ext) == EXT_PLUGIN_OK);
+  ext_plugin_call_options o = {sizeof(o), 20000, NULL, NULL};
   *connected = l.ext.connect(l.ext.user, &o, capture, descriptor);
   return l;
 }
-static ext_status invoke(live *l, const char *req, unsigned timeout_ms, const ext_cancel *cancel, captured *out) {
-  ext_call_options o = {sizeof(o), timeout_ms, cancel, NULL};
+static ext_plugin_status invoke(live *l, const char *req, unsigned timeout_ms, const ext_plugin_cancel *cancel, captured *out) {
+  ext_plugin_call_options o = {sizeof(o), timeout_ms, cancel, NULL};
   return l->ext.invoke(l->ext.user, (const uint8_t *)req, strlen(req), &o, capture, out);
 }
 static void finish(live *l) {
@@ -112,12 +112,12 @@ static const uint8_t forbidden_import[] = {
     2, 34, 1, 22, 'w', 'a', 's', 'i', '_', 's', 'n', 'a', 'p', 's', 'h', 'o', 't', '_', 'p', 'r', 'e', 'v', 'i', 'e', 'w', '1',
     7, 'f', 'd', '_', 'r', 'e', 'a', 'd', 0, 0};
 
-typedef struct { live *l; unsigned delay_ms; const ext_cancel *cancel; int close; } stopper;
+typedef struct { live *l; unsigned delay_ms; const ext_plugin_cancel *cancel; int close; } stopper;
 static void *stop_later(void *p) {
   stopper *s = p;
   usleep(s->delay_ms * 1000);
   if (s->close) s->l->ext.close(s->l->ext.user);
-  if (s->cancel) ext_cancel_signal((ext_cancel *)s->cancel);
+  if (s->cancel) ext_plugin_cancel_signal((ext_plugin_cancel *)s->cancel);
   return NULL;
 }
 
@@ -126,14 +126,14 @@ static void *stop_later(void *p) {
 static pthread_t test_thread;
 static int hooks_off_thread, handled;
 static char last_request[2048];
-static int32_t reverse_authorize(void *u, const ext_call_options *o, const uint8_t *json, size_t len) {
+static int32_t reverse_authorize(void *u, const ext_plugin_call_options *o, const uint8_t *json, size_t len) {
   (void)u;
   (void)o;
   hooks_off_thread += !pthread_equal(pthread_self(), test_thread);
   return memmem(json, len, "\"operation\":\"secret\"", 20) != NULL;
 }
-static ext_status reverse_handle(void *u, const ext_call_options *o, const uint8_t *json, size_t len,
-                                 ext_reverse_emit emit, void *sink) {
+static ext_plugin_status reverse_handle(void *u, const ext_plugin_call_options *o, const uint8_t *json, size_t len,
+                                 ext_plugin_reverse_emit emit, void *sink) {
   (void)u;
   (void)o;
   hooks_off_thread += !pthread_equal(pthread_self(), test_thread);
@@ -142,61 +142,61 @@ static ext_status reverse_handle(void *u, const ext_call_options *o, const uint8
     memcpy(last_request, json, len);
     last_request[len] = 0;
   }
-  if (memmem(json, len, "\"operation\":\"fail\"", 18)) return EXT_IO;
+  if (memmem(json, len, "\"operation\":\"fail\"", 18)) return EXT_PLUGIN_IO;
   static const char signed_[] = "\"signed\"";
-  return emit(sink, EXT_HOST_REVERSE_PAYLOAD, (const uint8_t *)signed_, sizeof(signed_) - 1);
+  return emit(sink, EXT_PLUGIN_HOST_REVERSE_PAYLOAD, (const uint8_t *)signed_, sizeof(signed_) - 1);
 }
 /* A host over the WAMR backend for module; bound for reverse calls when bind. */
-static ext_host *wamr_host(const uint8_t *module, size_t n, int bind, ext_registry *registry, int serve) {
+static ext_plugin_host *wamr_host(const uint8_t *module, size_t n, int bind, ext_plugin_registry *registry, int serve) {
   ext_wamr_options opt = {0};
   opt.struct_size = sizeof(opt);
   live l = {0};
-  ext_status connected;
+  ext_plugin_status connected;
   captured d = {0};
   diagnostics[0] = 0;
   l = start(module, n, opt, &connected, &d);
-  if (connected) fprintf(stderr, "connect: %s; %s\n", ext_host_status_string(connected), diagnostics);
-  assert(connected == EXT_OK);
+  if (connected) fprintf(stderr, "connect: %s; %s\n", ext_plugin_host_status_string(connected), diagnostics);
+  assert(connected == EXT_PLUGIN_OK);
   finish(&l);
-  ext_backend_extension_context backend;
-  assert(ext_wamr_backend_create(module, n, &opt, &backend) == EXT_OK);
-  assert(backend.flags & EXT_BACKEND_FRAMES);
-  ext_backend_options b = {sizeof(b), EXT_BACKEND_EXTENSION_CONTEXT, &backend, sizeof(backend)};
-  ext_host_options h = {EXT_HOST_ABI_VERSION, sizeof(h), d.data, d.len, allow, allow, NULL};
-  ext_host *host = NULL;
-  assert(ext_host_create(&h, &b, &host) == EXT_OK);
+  ext_plugin_backend_extension_context backend;
+  assert(ext_wamr_backend_create(module, n, &opt, &backend) == EXT_PLUGIN_OK);
+  assert(backend.flags & EXT_PLUGIN_BACKEND_FRAMES);
+  ext_plugin_backend_options b = {sizeof(b), EXT_PLUGIN_BACKEND_EXTENSION_CONTEXT, &backend, sizeof(backend)};
+  ext_plugin_host_options h = {EXT_PLUGIN_HOST_ABI_VERSION, sizeof(h), d.data, d.len, allow, allow, NULL};
+  ext_plugin_host *host = NULL;
+  assert(ext_plugin_host_create(&h, &b, &host) == EXT_PLUGIN_OK);
   if (bind) {
-    assert(ext_wamr_backend_bind_host(backend.user, host) == EXT_OK);
-    assert(ext_wamr_backend_bind_host(backend.user, host) == EXT_INVALID); /* once */
+    assert(ext_wamr_backend_bind_host(backend.user, host) == EXT_PLUGIN_OK);
+    assert(ext_wamr_backend_bind_host(backend.user, host) == EXT_PLUGIN_INVALID); /* once */
   }
-  ext_host_services services = {sizeof(services), NULL, reverse_authorize, reverse_handle, 0, 0, 0, NULL};
+  ext_plugin_host_services services = {sizeof(services), NULL, reverse_authorize, reverse_handle, 0, 0, 0, NULL};
   if (registry) {
     services.handle = NULL;
-    assert(ext_registry_attach(registry, host, &services) == EXT_OK);
+    assert(ext_plugin_registry_attach(registry, host, &services) == EXT_PLUGIN_OK);
   } else if (serve) {
-    assert(ext_host_set_services(host, &services) == EXT_OK);
+    assert(ext_plugin_host_set_services(host, &services) == EXT_PLUGIN_OK);
   }
-  assert(ext_host_start(host, 20000) == EXT_OK);
-  if (bind) assert(ext_wamr_backend_bind_host(backend.user, host) == EXT_INVALID); /* started */
+  assert(ext_plugin_host_start(host, 20000) == EXT_PLUGIN_OK);
+  if (bind) assert(ext_wamr_backend_bind_host(backend.user, host) == EXT_PLUGIN_INVALID); /* started */
   free(d.data);
   return host;
 }
 /* Calls reactor.test ask and returns the response envelope (freed by the caller). */
-static char *ask(ext_host *host, const char *operation, const char *payload) {
+static char *ask(ext_plugin_host *host, const char *operation, const char *payload) {
   char input[512];
   snprintf(input, sizeof(input),
            "{\"contract\":{\"name\":\"reactor.test\",\"version\":\"v1\"},\"operation\":\"ask\","
            "\"payload\":{\"operation\":\"%s\",\"payload\":%s}}",
            operation, payload);
-  ext_call_options o = {sizeof(o), 10000, NULL, NULL};
-  ext_buffer out = {0};
-  ext_status s = ext_host_call(host, (const uint8_t *)input, strlen(input), &o, &out);
-  if (s) fprintf(stderr, "ask %s: %s\n", operation, ext_host_status_string(s));
-  assert(s == EXT_OK);
+  ext_plugin_call_options o = {sizeof(o), 10000, NULL, NULL};
+  ext_plugin_buffer out = {0};
+  ext_plugin_status s = ext_plugin_host_call(host, (const uint8_t *)input, strlen(input), &o, &out);
+  if (s) fprintf(stderr, "ask %s: %s\n", operation, ext_plugin_host_status_string(s));
+  assert(s == EXT_PLUGIN_OK);
   char *text = malloc(out.len + 1);
   memcpy(text, out.data, out.len);
   text[out.len] = 0;
-  ext_buffer_free(&out);
+  ext_plugin_buffer_free(&out);
   return text;
 }
 static void expect(char *response, const char *want) {
@@ -209,44 +209,44 @@ static void test_reverse(const uint8_t *conformance, size_t conformance_len, con
   uint8_t *module = slurp(path, &n);
   test_thread = pthread_self();
   /* The host's hooks answer, on the thread inside the call. */
-  ext_host *host = wamr_host(module, n, 1, NULL, 1);
+  ext_plugin_host *host = wamr_host(module, n, 1, NULL, 1);
   expect(ask(host, "sign", "{\"n\":1}"), "\"result\":\"signed\"");
   assert(handled == 1 && strstr(last_request, "\"parent\":\"") && strstr(last_request, "\"payload\":{\"n\":1}"));
   expect(ask(host, "secret", "null"), "\"code\":\"denied\"");
   expect(ask(host, "fail", "null"), "\"code\":\"operation_failed\"");
   expect(ask(host, "elsewhere", "null"), "\"code\":\"reverse_undeclared\""); /* refused by the guest */
   assert(handled == 2 && hooks_off_thread == 0);
-  ext_host_close(host);
-  ext_host_destroy(host);
+  ext_plugin_host_close(host);
+  ext_plugin_host_destroy(host);
   /* Bound without services: the engine answers unavailable. Unbound: the import does. */
   host = wamr_host(module, n, 1, NULL, 0);
   expect(ask(host, "sign", "null"), "\"code\":\"reverse_unavailable\"");
-  ext_host_close(host);
-  ext_host_destroy(host);
+  ext_plugin_host_close(host);
+  ext_plugin_host_destroy(host);
   host = wamr_host(module, n, 0, NULL, 0);
   expect(ask(host, "sign", "null"), "\"code\":\"reverse_unavailable\"");
-  ext_host_close(host);
-  ext_host_destroy(host);
+  ext_plugin_host_close(host);
+  ext_plugin_host_destroy(host);
   /* Guest to guest: the reactor's reverse call is served by another reactor's
    * forward call, through the registry. */
-  ext_registry *registry = NULL;
-  assert(ext_registry_create(&registry) == EXT_OK);
-  ext_host *target = wamr_host(conformance, conformance_len, 0, NULL, 0);
-  assert(ext_registry_register(registry, "ext.conformance", "v1", target) == EXT_OK);
-  ext_registry_edge edge = {sizeof(edge), "host.svc", "v1", "sign", "ext.conformance", "v1", "echo"};
-  assert(ext_registry_route(registry, &edge) == EXT_OK);
-  ext_host *source = wamr_host(module, n, 1, registry, 0);
+  ext_plugin_registry *registry = NULL;
+  assert(ext_plugin_registry_create(&registry) == EXT_PLUGIN_OK);
+  ext_plugin_host *target = wamr_host(conformance, conformance_len, 0, NULL, 0);
+  assert(ext_plugin_registry_register(registry, "ext.conformance", "v1", target) == EXT_PLUGIN_OK);
+  ext_plugin_registry_edge edge = {sizeof(edge), "host.svc", "v1", "sign", "ext.conformance", "v1", "echo"};
+  assert(ext_plugin_registry_route(registry, &edge) == EXT_PLUGIN_OK);
+  ext_plugin_host *source = wamr_host(module, n, 1, registry, 0);
   expect(ask(source, "sign", "{\"routed\":true}"), "\"result\":{\"routed\":true}");
-  assert(ext_host_get_state(target) == EXT_HOST_READY);
+  assert(ext_plugin_host_get_state(target) == EXT_PLUGIN_HOST_READY);
   expect(ask(source, "secret", "null"), "\"code\":\"denied\""); /* the source's authorize runs first */
   expect(ask(source, "fail", "null"), "\"code\":\"reverse_undeclared\""); /* no edge for it */
   assert(hooks_off_thread == 0);
-  ext_host_close(source);
-  ext_host_destroy(source);
-  assert(ext_registry_unregister(registry, "ext.conformance", "v1") == EXT_OK);
-  ext_host_close(target);
-  ext_host_destroy(target);
-  ext_registry_destroy(registry);
+  ext_plugin_host_close(source);
+  ext_plugin_host_destroy(source);
+  assert(ext_plugin_registry_unregister(registry, "ext.conformance", "v1") == EXT_PLUGIN_OK);
+  ext_plugin_host_close(target);
+  ext_plugin_host_destroy(target);
+  ext_plugin_registry_destroy(registry);
   free(module);
   printf("reverse calls ok\n");
 }
@@ -261,16 +261,16 @@ int main(int argc, char **argv) {
   uint8_t *module = slurp(argv[1], &n);
   ext_wamr_options defaults = {sizeof(ext_wamr_options), 0, 0, 0, 0, NULL, NULL};
   captured d = {0}, r = {0};
-  ext_status connected;
+  ext_plugin_status connected;
 
   /* The handshake returns the guest's descriptor. */
   live l = start(module, n, defaults, &connected, &d);
-  assert(connected == EXT_OK);
+  assert(connected == EXT_PLUGIN_OK);
   assert(strstr((char *)d.data, "ext.conformance") && strstr((char *)d.data, "ctx/conformance"));
 
   /* A call echoes, including non-ASCII text and an exact large number. */
   char *q = request("echo", "{\"text\":\"h\\u00e9llo \\ud83d\\ude42\",\"big\":12345678901234567890}", 10000);
-  assert(invoke(&l, q, 10000, NULL, &r) == EXT_OK);
+  assert(invoke(&l, q, 10000, NULL, &r) == EXT_PLUGIN_OK);
   assert(strstr((char *)r.data, "12345678901234567890") && strstr((char *)r.data, "\"id\":\"1\""));
   free(q);
 
@@ -281,23 +281,23 @@ int main(int argc, char **argv) {
   memset(payload + 9, 'a', big);
   memcpy(payload + 9 + big, "\"}", 3);
   q = request("echo", payload, 20000);
-  assert(invoke(&l, q, 20000, NULL, &r) == EXT_OK && r.len > big);
+  assert(invoke(&l, q, 20000, NULL, &r) == EXT_PLUGIN_OK && r.len > big);
   free(q);
   free(payload);
 
   /* A domain error is a valid response, and a bad request does not end the session. */
   q = request("public-error", "{}", 10000);
-  assert(invoke(&l, q, 10000, NULL, &r) == EXT_OK && strstr((char *)r.data, "error"));
+  assert(invoke(&l, q, 10000, NULL, &r) == EXT_PLUGIN_OK && strstr((char *)r.data, "error"));
   free(q);
-  assert(invoke(&l, "{not json", 10000, NULL, &r) == EXT_INVALID);
+  assert(invoke(&l, "{not json", 10000, NULL, &r) == EXT_PLUGIN_INVALID);
   q = request("echo", "{\"still\":\"alive\"}", 10000);
-  assert(invoke(&l, q, 10000, NULL, &r) == EXT_OK && strstr((char *)r.data, "alive"));
+  assert(invoke(&l, q, 10000, NULL, &r) == EXT_PLUGIN_OK && strstr((char *)r.data, "alive"));
   free(q);
 
   /* Many calls reuse the one response buffer. */
   for (int i = 0; i < 200; i++) {
     q = request("echo", "{\"n\":1}", 10000);
-    assert(invoke(&l, q, 10000, NULL, &r) == EXT_OK);
+    assert(invoke(&l, q, 10000, NULL, &r) == EXT_PLUGIN_OK);
     free(q);
   }
   finish(&l);
@@ -305,24 +305,24 @@ int main(int argc, char **argv) {
   /* A call that overruns its deadline is stopped, and the instance is then gone:
    * the guest sleeps until a deadline far past the host's. */
   l = start(module, n, defaults, &connected, &d);
-  assert(connected == EXT_OK);
+  assert(connected == EXT_PLUGIN_OK);
   q = request("wait", "{}", 60000);
   double t0 = seconds();
-  ext_status s = invoke(&l, q, 300, NULL, &r);
+  ext_plugin_status s = invoke(&l, q, 300, NULL, &r);
   double took = seconds() - t0;
   printf("deadline: status %d after %.0f ms\n", (int)s, took * 1000);
-  assert(s == EXT_TIMEOUT && took < 2.0);
+  assert(s == EXT_PLUGIN_TIMEOUT && took < 2.0);
   free(q);
   q = request("echo", "{}", 10000);
-  assert(invoke(&l, q, 10000, NULL, &r) == EXT_CLOSED);
+  assert(invoke(&l, q, 10000, NULL, &r) == EXT_PLUGIN_CLOSED);
   free(q);
   finish(&l);
 
   /* Cancellation stops a running call. */
   l = start(module, n, defaults, &connected, &d);
-  assert(connected == EXT_OK);
-  ext_cancel *cancel = NULL;
-  assert(ext_cancel_create(&cancel) == EXT_OK);
+  assert(connected == EXT_PLUGIN_OK);
+  ext_plugin_cancel *cancel = NULL;
+  assert(ext_plugin_cancel_create(&cancel) == EXT_PLUGIN_OK);
   stopper st = {&l, 200, cancel, 0};
   pthread_t th;
   pthread_create(&th, NULL, stop_later, &st);
@@ -332,14 +332,14 @@ int main(int argc, char **argv) {
   took = seconds() - t0;
   pthread_join(th, NULL);
   printf("cancel: status %d after %.0f ms\n", (int)s, took * 1000);
-  assert(s == EXT_CANCELED && took < 2.0);
+  assert(s == EXT_PLUGIN_CANCELED && took < 2.0);
   free(q);
-  ext_cancel_destroy(cancel);
+  ext_plugin_cancel_destroy(cancel);
   finish(&l);
 
   /* Close from another thread interrupts a call that is running. */
   l = start(module, n, defaults, &connected, &d);
-  assert(connected == EXT_OK);
+  assert(connected == EXT_PLUGIN_OK);
   stopper cl = {&l, 200, NULL, 1};
   pthread_create(&th, NULL, stop_later, &cl);
   q = request("wait", "{}", 60000);
@@ -348,7 +348,7 @@ int main(int argc, char **argv) {
   took = seconds() - t0;
   pthread_join(th, NULL);
   printf("close: status %d after %.0f ms\n", (int)s, took * 1000);
-  assert(s != EXT_OK && took < 2.0);
+  assert(s != EXT_PLUGIN_OK && took < 2.0);
   free(q);
   l.ext.release(l.ext.user);
 
@@ -357,7 +357,7 @@ int main(int argc, char **argv) {
   tight.instruction_limit = 1000;
   l = start(module, n, tight, &connected, &d);
   printf("instruction limit: connect status %d\n", (int)connected);
-  assert(connected == EXT_TIMEOUT);
+  assert(connected == EXT_PLUGIN_TIMEOUT);
   finish(&l);
 
   /* The same through the engine's host API, which rewrites statuses it does not
@@ -365,21 +365,21 @@ int main(int argc, char **argv) {
    * a timeout, not as an invalid request. 64000 instructions fit the handshake. */
   {
     l = start(module, n, defaults, &connected, &d);
-    assert(connected == EXT_OK);
+    assert(connected == EXT_PLUGIN_OK);
     captured descriptor_for_budget = {0};
     capture(&descriptor_for_budget, d.data, d.len);
     finish(&l);
     ext_wamr_options budget = {sizeof(ext_wamr_options), 0, 0, 64000, 0, NULL, NULL};
-    ext_backend_extension_context backend_budget;
-    ext_status made = ext_wamr_backend_create(module, n, &budget, &backend_budget);
-    assert(made == EXT_OK);
-    ext_backend_options bo = {sizeof(bo), EXT_BACKEND_EXTENSION_CONTEXT, &backend_budget, sizeof(backend_budget)};
-    ext_host_options ho = {EXT_HOST_ABI_VERSION, sizeof(ho), descriptor_for_budget.data, descriptor_for_budget.len, allow, allow, NULL};
-    ext_host *budget_host = NULL;
-    ext_status created = ext_host_create(&ho, &bo, &budget_host);
-    assert(created == EXT_OK);
-    ext_status started = ext_host_start(budget_host, 20000);
-    assert(started == EXT_OK);
+    ext_plugin_backend_extension_context backend_budget;
+    ext_plugin_status made = ext_wamr_backend_create(module, n, &budget, &backend_budget);
+    assert(made == EXT_PLUGIN_OK);
+    ext_plugin_backend_options bo = {sizeof(bo), EXT_PLUGIN_BACKEND_EXTENSION_CONTEXT, &backend_budget, sizeof(backend_budget)};
+    ext_plugin_host_options ho = {EXT_PLUGIN_HOST_ABI_VERSION, sizeof(ho), descriptor_for_budget.data, descriptor_for_budget.len, allow, allow, NULL};
+    ext_plugin_host *budget_host = NULL;
+    ext_plugin_status created = ext_plugin_host_create(&ho, &bo, &budget_host);
+    assert(created == EXT_PLUGIN_OK);
+    ext_plugin_status started = ext_plugin_host_start(budget_host, 20000);
+    assert(started == EXT_PLUGIN_OK);
     (void)made;
     (void)created;
     (void)started;
@@ -390,16 +390,16 @@ int main(int argc, char **argv) {
     char *payload_heavy = malloc(text + 32);
     snprintf(payload_heavy, text + 32, "{\"text\":\"%s\"}", heavy);
     q = request("echo", payload_heavy, 20000);
-    ext_buffer heavy_out = {0};
-    ext_status over = ext_host_invoke(budget_host, (const uint8_t *)q, strlen(q), 20000, &heavy_out);
-    printf("instruction limit during invoke through ext_host: status %d\n", (int)over);
-    assert(over == EXT_TIMEOUT);
-    ext_buffer_free(&heavy_out);
+    ext_plugin_buffer heavy_out = {0};
+    ext_plugin_status over = ext_plugin_host_invoke(budget_host, (const uint8_t *)q, strlen(q), 20000, &heavy_out);
+    printf("instruction limit during invoke through ext_plugin_host: status %d\n", (int)over);
+    assert(over == EXT_PLUGIN_TIMEOUT);
+    ext_plugin_buffer_free(&heavy_out);
     free(q);
     free(payload_heavy);
     free(heavy);
-    ext_host_close(budget_host);
-    ext_host_destroy(budget_host);
+    ext_plugin_host_close(budget_host);
+    ext_plugin_host_destroy(budget_host);
     free(descriptor_for_budget.data);
   }
 
@@ -408,60 +408,60 @@ int main(int argc, char **argv) {
   small.memory_limit_pages = 16;
   l = start(module, n, small, &connected, &d);
   printf("memory limit: connect status %d\n", (int)connected);
-  assert(connected != EXT_OK);
+  assert(connected != EXT_PLUGIN_OK);
   finish(&l);
 
   /* Modules that do not follow the ABI are refused, and say why. */
   diagnostics[0] = 0;
   l = start(command_module, sizeof(command_module), defaults, &connected, &d);
-  assert(connected == EXT_UNSUPPORTED && strstr(diagnostics, "_start"));
+  assert(connected == EXT_PLUGIN_UNSUPPORTED && strstr(diagnostics, "_start"));
   finish(&l);
   diagnostics[0] = 0;
   l = start(forbidden_import, sizeof(forbidden_import), defaults, &connected, &d);
   printf("forbidden import: status %d, %s", (int)connected, diagnostics);
-  assert(connected == EXT_UNSUPPORTED && strstr(diagnostics, "wasi_snapshot_preview1.fd_read"));
+  assert(connected == EXT_PLUGIN_UNSUPPORTED && strstr(diagnostics, "wasi_snapshot_preview1.fd_read"));
   finish(&l);
   diagnostics[0] = 0;
   const uint8_t garbage[] = "not a wasm module at all";
   l = start(garbage, sizeof(garbage), defaults, &connected, &d);
-  assert(connected == EXT_UNSUPPORTED && diagnostics[0]);
+  assert(connected == EXT_PLUGIN_UNSUPPORTED && diagnostics[0]);
   finish(&l);
-  ext_backend_extension_context none;
-  ext_status refused = ext_wamr_backend_create(NULL, 0, NULL, &none);
-  assert(refused == EXT_INVALID);
+  ext_plugin_backend_extension_context none;
+  ext_plugin_status refused = ext_wamr_backend_create(NULL, 0, NULL, &none);
+  assert(refused == EXT_PLUGIN_INVALID);
   (void)refused;
 
   /* Backends are created and destroyed repeatedly without leaking or crashing. */
   for (int i = 0; i < 20; i++) {
     l = start(module, n, defaults, &connected, &d);
-    assert(connected == EXT_OK);
+    assert(connected == EXT_PLUGIN_OK);
     q = request("echo", "{}", 10000);
-    assert(invoke(&l, q, 10000, NULL, &r) == EXT_OK);
+    assert(invoke(&l, q, 10000, NULL, &r) == EXT_PLUGIN_OK);
     free(q);
     finish(&l);
   }
   /* The whole path through the engine's host API, with its policies and handshake
    * matching, the way an application uses it. */
   l = start(module, n, defaults, &connected, &d);
-  assert(connected == EXT_OK);
+  assert(connected == EXT_PLUGIN_OK);
   captured descriptor = {0};
   capture(&descriptor, d.data, d.len);
   finish(&l);
-  ext_backend_extension_context backend;
-  assert(ext_wamr_backend_create(module, n, &defaults, &backend) == EXT_OK);
-  ext_backend_options backend_options = {sizeof(backend_options), EXT_BACKEND_EXTENSION_CONTEXT, &backend, sizeof(backend)};
-  ext_host_options host_options = {EXT_HOST_ABI_VERSION, sizeof(host_options), descriptor.data, descriptor.len, allow, allow, NULL};
-  ext_host *host = NULL;
-  assert(ext_host_create(&host_options, &backend_options, &host) == EXT_OK);
-  assert(ext_host_start(host, 20000) == EXT_OK);
+  ext_plugin_backend_extension_context backend;
+  assert(ext_wamr_backend_create(module, n, &defaults, &backend) == EXT_PLUGIN_OK);
+  ext_plugin_backend_options backend_options = {sizeof(backend_options), EXT_PLUGIN_BACKEND_EXTENSION_CONTEXT, &backend, sizeof(backend)};
+  ext_plugin_host_options host_options = {EXT_PLUGIN_HOST_ABI_VERSION, sizeof(host_options), descriptor.data, descriptor.len, allow, allow, NULL};
+  ext_plugin_host *host = NULL;
+  assert(ext_plugin_host_create(&host_options, &backend_options, &host) == EXT_PLUGIN_OK);
+  assert(ext_plugin_host_start(host, 20000) == EXT_PLUGIN_OK);
   q = request("echo", "{\"through\":\"the host\"}", 10000);
-  ext_buffer out = {0};
-  assert(ext_host_invoke(host, (const uint8_t *)q, strlen(q), 10000, &out) == EXT_OK);
+  ext_plugin_buffer out = {0};
+  assert(ext_plugin_host_invoke(host, (const uint8_t *)q, strlen(q), 10000, &out) == EXT_PLUGIN_OK);
   assert(out.len && memmem(out.data, out.len, "the host", 8));
-  ext_buffer_free(&out);
+  ext_plugin_buffer_free(&out);
   free(q);
-  ext_host_close(host);
-  ext_host_destroy(host);
+  ext_plugin_host_close(host);
+  ext_plugin_host_destroy(host);
   free(descriptor.data);
   if (argc > 2) test_reverse(module, n, argv[2]);
   printf("ok\n");

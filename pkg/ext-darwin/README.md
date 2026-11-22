@@ -51,7 +51,7 @@ public func ext_plugin_guest_factory() -> UnsafeMutableRawPointer? {
 
 Build it as a `.library(type: .dynamic, ...)` product that depends on
 `ExtPluginGuest` and `ExtPluginExports`. The library then exports the four
-`ext_plugin_*` symbols of [`ext_plugin.h`](../../lib/plugin/include/ext_plugin.h), so any
+`ext_plugin_guest_*` symbols of [`ext_plugin_guest.h`](../../lib/plugin/include/ext_plugin_guest.h), so any
 `pkg/ext-go/cguest` host can load it. Forgetting `ext_plugin_guest_factory` is a
 link error, not a run-time surprise.
 
@@ -276,7 +276,7 @@ is a credential.
 ## Package store
 
 `ExtPluginStore` binds the engine's package store (`ext_store_*` and `ext_layered_*` in
-[`ext_host.h`](../../lib/plugin/include/ext_host.h)), the one the Go, Rust, Node and Zig bindings use:
+[`ext_plugin_host.h`](../../lib/plugin/include/ext_plugin_host.h)), the one the Go, Rust, Node and Zig bindings use:
 install, upgrade, replace, remove and load reviewed `ext.package/v1` packages under a root the app
 supplies. A package is its `plugin.json` and the artifacts it lists, in a directory named by the package
 id with `/` written `%2f`. The store copies and re-verifies content; it never runs it or grants authority,
@@ -469,7 +469,7 @@ plugin needs no Swift code of its own:
   any other error is private. `EXTCall` is what the block receives.
 - `EXTPluginExport` is the C ABI hook. Define `ext_plugin_guest_factory` as
   `return [EXTPluginExport retainedPointerFor:MakeGuest()];` and the plugin exports the
-  four `ext_plugin_*` symbols.
+  four `ext_plugin_guest_*` symbols.
 - `EXTWebViewPluginHost` hosts a reactor in a web view, with completion blocks.
 
 `scripts/ext-darwin-objc.sh` compiles and runs an Objective-C program

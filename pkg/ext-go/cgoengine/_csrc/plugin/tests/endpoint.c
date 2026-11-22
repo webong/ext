@@ -11,21 +11,21 @@
 #include <string.h>
 #include <time.h>
 
-static ext_status call(const char *operation, const char *json) {
-  ext_buffer out = {0};
-  ext_status s = ext_engine_call(operation, (const uint8_t *)json, strlen(json), &out);
-  ext_buffer_free(&out);
+static ext_plugin_status call(const char *operation, const char *json) {
+  ext_plugin_buffer out = {0};
+  ext_plugin_status s = ext_plugin_call(operation, (const uint8_t *)json, strlen(json), &out);
+  ext_plugin_buffer_free(&out);
   return s;
 }
-static ext_status outcome(const char *name) {
+static ext_plugin_status outcome(const char *name) {
   if (!strcmp(name, "ok"))
-    return EXT_OK;
+    return EXT_PLUGIN_OK;
   if (!strcmp(name, "invalid"))
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   if (!strcmp(name, "denied"))
-    return EXT_DENIED;
+    return EXT_PLUGIN_DENIED;
   if (!strcmp(name, "expired"))
-    return EXT_EXPIRED;
+    return EXT_PLUGIN_EXPIRED;
   fprintf(stderr, "unknown outcome %s\n", name);
   abort();
 }
@@ -58,14 +58,14 @@ static void test_fixture(const char *path) {
   assert(yyjson_is_arr(cases) && yyjson_arr_size(cases) > 100);
   yyjson_arr_foreach(cases, i, n, c) {
     const char *name = yyjson_get_str(yyjson_obj_get(c, "name"));
-    ext_status check = outcome(yyjson_get_str(yyjson_obj_get(c, "check"))),
+    ext_plugin_status check = outcome(yyjson_get_str(yyjson_obj_get(c, "check"))),
                validate = outcome(yyjson_get_str(yyjson_obj_get(c, "validate")));
     yyjson_val *endpoint = yyjson_obj_get(c, "endpoint");
     /* endpoint.check takes the endpoint itself. */
     size_t endpoint_len;
     char *endpoint_json = yyjson_val_write(endpoint, 0, &endpoint_len);
     assert(endpoint_json);
-    ext_status got_check = call("endpoint.check", endpoint_json);
+    ext_plugin_status got_check = call("endpoint.check", endpoint_json);
     /* endpoint.validate takes the endpoint and the policy. */
     yyjson_mut_doc *input = yyjson_mut_doc_new(NULL);
     yyjson_mut_val *root = yyjson_mut_obj(input);
@@ -76,15 +76,15 @@ static void test_fixture(const char *path) {
                                   yyjson_val_mut_copy(input, yyjson_obj_get(c, "policy"))));
     char *input_json = yyjson_mut_write(input, 0, NULL);
     assert(input_json);
-    ext_status got_validate = call("endpoint.validate", input_json);
+    ext_plugin_status got_validate = call("endpoint.validate", input_json);
     if (got_check != check || got_validate != validate) {
       failures++;
       fprintf(stderr, "%s: check %s (want %s), validate %s (want %s)\n", name,
-              ext_host_status_string(got_check), ext_host_status_string(check),
-              ext_host_status_string(got_validate),
-              ext_host_status_string(validate));
+              ext_plugin_host_status_string(got_check), ext_plugin_host_status_string(check),
+              ext_plugin_host_status_string(got_validate),
+              ext_plugin_host_status_string(validate));
     }
-    counts[validate == EXT_OK ? 0 : validate == EXT_INVALID ? 1 : validate == EXT_DENIED ? 2 : 3]++;
+    counts[validate == EXT_PLUGIN_OK ? 0 : validate == EXT_PLUGIN_INVALID ? 1 : validate == EXT_PLUGIN_DENIED ? 2 : 3]++;
     free(endpoint_json);
     free(input_json);
     yyjson_mut_doc_free(input);
@@ -110,32 +110,32 @@ static void test_service_input(void) {
   const char *now = "\"now\":\"2030-01-01T00:00:00Z\"";
   char policy[256];
   snprintf(policy, sizeof(policy), "{\"schemes\":[\"ws\"],%s}", now);
-  assert(VALIDATE(policy) == EXT_OK);
+  assert(VALIDATE(policy) == EXT_PLUGIN_OK);
   /* The policy is a structure of the service's own: unknown fields, wrong types. */
-  assert(VALIDATE("{\"schemes\":[\"ws\"],\"extra\":1}") == EXT_INVALID);
-  assert(VALIDATE("{\"schemes\":\"ws\"}") == EXT_INVALID);
-  assert(VALIDATE("{\"schemes\":[\"ws\",7]}") == EXT_INVALID);
-  assert(VALIDATE("{\"schemes\":[\"ws\"],\"maxLifetimeMilliseconds\":1.5}") == EXT_INVALID);
-  assert(VALIDATE("{\"schemes\":[\"ws\"],\"maxLifetimeMilliseconds\":\"1\"}") == EXT_INVALID);
-  assert(VALIDATE("{\"schemes\":[\"ws\"],\"now\":\"soon\"}") == EXT_INVALID);
-  assert(VALIDATE("{\"schemes\":[\"ws\"],\"now\":7}") == EXT_INVALID);
-  assert(VALIDATE("[]") == EXT_INVALID);
-  assert(VALIDATE("null") == EXT_INVALID);
+  assert(VALIDATE("{\"schemes\":[\"ws\"],\"extra\":1}") == EXT_PLUGIN_INVALID);
+  assert(VALIDATE("{\"schemes\":\"ws\"}") == EXT_PLUGIN_INVALID);
+  assert(VALIDATE("{\"schemes\":[\"ws\",7]}") == EXT_PLUGIN_INVALID);
+  assert(VALIDATE("{\"schemes\":[\"ws\"],\"maxLifetimeMilliseconds\":1.5}") == EXT_PLUGIN_INVALID);
+  assert(VALIDATE("{\"schemes\":[\"ws\"],\"maxLifetimeMilliseconds\":\"1\"}") == EXT_PLUGIN_INVALID);
+  assert(VALIDATE("{\"schemes\":[\"ws\"],\"now\":\"soon\"}") == EXT_PLUGIN_INVALID);
+  assert(VALIDATE("{\"schemes\":[\"ws\"],\"now\":7}") == EXT_PLUGIN_INVALID);
+  assert(VALIDATE("[]") == EXT_PLUGIN_INVALID);
+  assert(VALIDATE("null") == EXT_PLUGIN_INVALID);
   /* A policy may leave everything out: nothing is then admitted. */
-  assert(VALIDATE("{}") == EXT_DENIED);
+  assert(VALIDATE("{}") == EXT_PLUGIN_DENIED);
   /* The input itself: both parts are required, nothing else is allowed. */
-  assert(call("endpoint.validate", "{\"endpoint\":{}}") == EXT_INVALID);
-  assert(call("endpoint.validate", "{\"policy\":{}}") == EXT_INVALID);
-  assert(call("endpoint.validate", "{\"endpoint\":{},\"policy\":{},\"x\":1}") == EXT_INVALID);
-  assert(call("endpoint.validate", "[]") == EXT_INVALID);
-  assert(call("endpoint.validate", "{\"endpoint\":{},\"endpoint\":{}}") == EXT_INVALID);
+  assert(call("endpoint.validate", "{\"endpoint\":{}}") == EXT_PLUGIN_INVALID);
+  assert(call("endpoint.validate", "{\"policy\":{}}") == EXT_PLUGIN_INVALID);
+  assert(call("endpoint.validate", "{\"endpoint\":{},\"policy\":{},\"x\":1}") == EXT_PLUGIN_INVALID);
+  assert(call("endpoint.validate", "[]") == EXT_PLUGIN_INVALID);
+  assert(call("endpoint.validate", "{\"endpoint\":{},\"endpoint\":{}}") == EXT_PLUGIN_INVALID);
   /* endpoint.check takes the endpoint alone, and refuses what is not one. */
-  assert(call("endpoint.check", good) == EXT_OK);
-  assert(call("endpoint.check", "[]") == EXT_INVALID);
-  assert(call("endpoint.check", "7") == EXT_INVALID);
-  assert(call("endpoint.check", "null") == EXT_INVALID);
-  assert(call("endpoint.check", "{\"scheme\":\"ws\",\"scheme\":\"ws\"}") == EXT_INVALID);
-  assert(call("endpoint.check", "") == EXT_INVALID);
+  assert(call("endpoint.check", good) == EXT_PLUGIN_OK);
+  assert(call("endpoint.check", "[]") == EXT_PLUGIN_INVALID);
+  assert(call("endpoint.check", "7") == EXT_PLUGIN_INVALID);
+  assert(call("endpoint.check", "null") == EXT_PLUGIN_INVALID);
+  assert(call("endpoint.check", "{\"scheme\":\"ws\",\"scheme\":\"ws\"}") == EXT_PLUGIN_INVALID);
+  assert(call("endpoint.check", "") == EXT_PLUGIN_INVALID);
 }
 
 /* A policy without a clock uses the wall clock. */
@@ -144,8 +144,8 @@ static void test_wall_clock(void) {
   char endpoint[256], input[512];
   struct {
     long offset;
-    ext_status want;
-  } cases[] = {{600, EXT_OK}, {3 * 3600, EXT_INVALID}, {-60, EXT_EXPIRED}};
+    ext_plugin_status want;
+  } cases[] = {{600, EXT_PLUGIN_OK}, {3 * 3600, EXT_PLUGIN_INVALID}, {-60, EXT_PLUGIN_EXPIRED}};
   for (size_t i = 0; i < sizeof(cases) / sizeof(*cases); i++) {
     time_t at = base + cases[i].offset;
     struct tm t;

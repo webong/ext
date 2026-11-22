@@ -4,7 +4,7 @@
 #
 #   require "ext_io/host"
 #
-#   engine = ExtIO::Host::Engine.new        # EXT_HOST_LIBRARY, or libext_host on the loader path
+#   engine = ExtIO::Host::Engine.new        # EXT_HOST_LIBRARY, or libext_plugin_host on the loader path
 #   engine.process(descriptor, "/opt/plugins/echo/1.0.0/echo") do |host|
 #     host.start
 #     host.call({ "name" => "ext.echo", "version" => "v1" }, "echo", { "value" => 7 })
@@ -13,11 +13,11 @@
 # The engine does the work a host must get right: admission, the handshake check against the
 # descriptor, request and response validation, deadlines and the session's lifecycle. This file
 # only moves bytes and policy decisions across a native extension, ExtIO::Host::Native, which
-# loads the engine's shared library (libext_host) at run time and releases the global VM lock
+# loads the engine's shared library (libext_plugin_host) at run time and releases the global VM lock
 # around every call that can block. Requiring "ext_io/plugin" (the guest) never loads either.
 #
 # Guests may be JSON-line child processes (Engine#process) or libraries that export the C ABI of
-# ext_plugin.h (Engine#shared_library). Native code in a shared library runs inside this process
+# ext_plugin_guest.h (Engine#shared_library). Native code in a shared library runs inside this process
 # with its full access.
 
 require "json"
@@ -46,11 +46,11 @@ module ExtIO
     STATUS_NAMES = Native::STATUS_NAMES
 
     LIBRARY_NAMES = if Gem.win_platform?
-                      ["ext_host.dll"]
+                      ["ext_plugin_host.dll"]
                     elsif RUBY_PLATFORM.include?("darwin")
-                      ["libext_host.dylib"]
+                      ["libext_plugin_host.dylib"]
                     else
-                      ["libext_host.so"]
+                      ["libext_plugin_host.so"]
                     end.freeze
 
     # A policy for the extension: +decide+ gets the decoded JSON and returns truthy to allow.
@@ -65,7 +65,7 @@ module ExtIO
       value.is_a?(String) ? value : JSON.generate(value)
     end
 
-    # The C engine, loaded from +path+, +EXT_HOST_LIBRARY+, or libext_host on the loader path.
+    # The C engine, loaded from +path+, +EXT_HOST_LIBRARY+, or libext_plugin_host on the loader path.
     # Raises LoadError when no library loads or its ABI is not this extension's. An engine is
     # never unloaded.
     class Engine
@@ -82,7 +82,7 @@ module ExtIO
         rescue LoadError => e
           error = e
         end
-        raise LoadError, "the ext engine library was not found: set EXT_HOST_LIBRARY to libext_host, or pass its path (#{error&.message})"
+        raise LoadError, "the ext engine library was not found: set EXT_HOST_LIBRARY to libext_plugin_host, or pass its path (#{error&.message})"
       end
 
       # A host for a JSON-line guest started as +executable+ (an absolute path, no shell).
@@ -99,7 +99,7 @@ module ExtIO
         Host.open(native, &block)
       end
 
-      # A host for a guest library that exports the C ABI of ext_plugin.h. +path+ is an absolute
+      # A host for a guest library that exports the C ABI of ext_plugin_guest.h. +path+ is an absolute
       # path to a verified, revision-specific artifact; it is loaded when the host starts, after
       # +verify+, and is never unloaded.
       def shared_library(descriptor, path, verify: nil, authorize: nil, &block)
@@ -140,7 +140,7 @@ module ExtIO
       [timeout.nil? ? 0 : [(timeout * 1000).to_i, 1].max, Integer(max_payload_bytes), Integer(max_in_flight)]
     end
 
-    # A guest registry (ext_registry_* in ext_host.h): a reverse call one guest makes is served by
+    # A guest registry (ext_registry_* in ext_plugin_host.h): a reverse call one guest makes is served by
     # a forward call to another guest, along an edge declared with #route. An undeclared edge is
     # refused with reverse_undeclared, an unregistered target with reverse_unavailable, and a call
     # that would re-enter a host already on its call chain with denied; the target's answer passes

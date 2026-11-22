@@ -3,7 +3,7 @@
 package plugin
 
 /*
-#include "ext_host.h"
+#include "ext_plugin_host.h"
 #include <stdlib.h>
 */
 import "C"
@@ -26,7 +26,7 @@ func SHA256(input []byte) [32]byte {
 	if len(input) > 0 {
 		p = (*C.uint8_t)(unsafe.Pointer(&input[0]))
 	}
-	C.ext_engine_sha256(p, C.size_t(len(input)), (*C.uint8_t)(unsafe.Pointer(&out[0])))
+	C.ext_plugin_sha256(p, C.size_t(len(input)), (*C.uint8_t)(unsafe.Pointer(&out[0])))
 	return out
 }
 
@@ -40,7 +40,7 @@ func StoreDigest(root, id string) (string, error) {
 	defer C.free(unsafe.Pointer(croot))
 	defer C.free(unsafe.Pointer(cid))
 	var sum [32]byte
-	if err := status(C.ext_store_digest(croot, cid, (*C.uint8_t)(unsafe.Pointer(&sum[0])))); err != nil {
+	if err := status(C.ext_plugin_store_digest(croot, cid, (*C.uint8_t)(unsafe.Pointer(&sum[0])))); err != nil {
 		return "", err
 	}
 	return hex.EncodeToString(sum[:]), nil
@@ -67,8 +67,8 @@ func TrustStateOf(path, scope, id, digest string) (hosttrust.State, error) {
 	defer C.free(unsafe.Pointer(cp))
 	defer C.free(unsafe.Pointer(cs))
 	defer C.free(unsafe.Pointer(ci))
-	var state C.ext_trust_state
-	err = status(C.ext_trust_state_of(cp, cs, ci, (*C.uint8_t)(unsafe.Pointer(&data[0])), &state))
+	var state C.ext_plugin_trust_state
+	err = status(C.ext_plugin_trust_state_of(cp, cs, ci, (*C.uint8_t)(unsafe.Pointer(&data[0])), &state))
 	return hosttrust.State(state), err
 }
 
@@ -82,7 +82,7 @@ func TrustRecord(path, scope, id, digest string) error {
 	defer C.free(unsafe.Pointer(cp))
 	defer C.free(unsafe.Pointer(cs))
 	defer C.free(unsafe.Pointer(ci))
-	return status(C.ext_trust_record(cp, cs, ci, (*C.uint8_t)(unsafe.Pointer(&data[0]))))
+	return status(C.ext_plugin_trust_record(cp, cs, ci, (*C.uint8_t)(unsafe.Pointer(&data[0]))))
 }
 
 // TrustRevoke removes one scope's grant without changing other scopes.
@@ -94,7 +94,7 @@ func TrustRevoke(path, scope, id string) error {
 	defer C.free(unsafe.Pointer(cp))
 	defer C.free(unsafe.Pointer(cs))
 	defer C.free(unsafe.Pointer(ci))
-	return status(C.ext_trust_revoke(cp, cs, ci))
+	return status(C.ext_plugin_trust_revoke(cp, cs, ci))
 }
 func engineValue(operation string, input any, output any) error {
 	data, err := json.Marshal(input)
@@ -137,7 +137,7 @@ func VerifyPackage(manifest []byte, root string) error {
 	}
 	path := C.CString(root)
 	defer C.free(unsafe.Pointer(path))
-	return status(C.ext_package_verify((*C.uint8_t)(unsafe.Pointer(&manifest[0])), C.size_t(len(manifest)), path))
+	return status(C.ext_plugin_package_verify((*C.uint8_t)(unsafe.Pointer(&manifest[0])), C.size_t(len(manifest)), path))
 }
 
 // EngineValue runs a pure engine service with a JSON-encoded input and decodes
@@ -154,7 +154,7 @@ func DirectoryDigest(root string) (string, error) {
 	path := C.CString(root)
 	defer C.free(unsafe.Pointer(path))
 	var out [32]byte
-	if err := status(C.ext_directory_digest(path, (*C.uint8_t)(unsafe.Pointer(&out[0])))); err != nil {
+	if err := status(C.ext_plugin_directory_digest(path, (*C.uint8_t)(unsafe.Pointer(&out[0])))); err != nil {
 		return "", err
 	}
 	return hex.EncodeToString(out[:]), nil
@@ -176,7 +176,7 @@ func ArtifactDigest(root, path string, tree bool) (string, error) {
 		flag = 1
 	}
 	var out [32]byte
-	if err := status(C.ext_artifact_digest(r, p, flag, (*C.uint8_t)(unsafe.Pointer(&out[0])))); err != nil {
+	if err := status(C.ext_plugin_artifact_digest(r, p, flag, (*C.uint8_t)(unsafe.Pointer(&out[0])))); err != nil {
 		return "", err
 	}
 	return hex.EncodeToString(out[:]), nil

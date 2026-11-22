@@ -1,13 +1,13 @@
 /* ExtIO::Host::Native: the native extension under the Ruby host (lib/ext_io/host.rb).
  *
- * It loads the C engine's shared library (libext_host) at run time, so it is built against the
- * Ruby headers and ext_host.h only and links to no engine. It moves bytes and policy decisions:
+ * It loads the C engine's shared library (libext_plugin_host) at run time, so it is built against the
+ * Ruby headers and ext_plugin_host.h only and links to no engine. It moves bytes and policy decisions:
  * JSON is generated and parsed in Ruby, and every rule a host must get right is the engine's.
  *
  * Every engine call that can block runs on a helper thread while the calling Ruby thread waits
  * without the global VM lock, so other Ruby threads run meanwhile and may call the same host; the
  * engine serializes a host's calls itself. A real interrupt (Thread#raise, Thread#kill, Ctrl-C)
- * signals the call's ext_cancel, so the call ends and the interrupt is raised; one Ruby only notes,
+ * signals the call's ext_plugin_cancel, so the call ends and the interrupt is raised; one Ruby only notes,
  * such as a child process ending, leaves the call alone (see blocking_status). The engine runs
  * policies and reverse hooks on the thread making the call, the helper, which hands each to the
  * waiting Ruby thread; there it calls its Ruby callable under rb_protect: an exception denies, and
@@ -19,8 +19,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define EXT_HOST_STATIC /* declarations only: every engine function is resolved at run time */
-#include "ext_host.h"
+#define EXT_PLUGIN_HOST_STATIC /* declarations only: every engine function is resolved at run time */
+#include "ext_plugin_host.h"
 
 #ifdef _WIN32
 #include <windows.h>
@@ -33,29 +33,29 @@
 
 typedef struct {
   uint32_t (*abi_version)(void);
-  ext_status (*create)(const ext_host_options *, const ext_backend_options *, ext_host **);
-  ext_status (*start)(ext_host *, const ext_call_options *);
-  ext_status (*call)(ext_host *, const uint8_t *, size_t, const ext_call_options *, ext_buffer *);
-  ext_status (*invoke)(ext_host *, const uint8_t *, size_t, const ext_call_options *, ext_buffer *);
-  ext_status (*drain)(ext_host *, const ext_call_options *);
-  void (*close)(ext_host *);
-  void (*destroy)(ext_host *);
-  ext_host_state (*state)(ext_host *);
-  ext_status (*stderr_copy)(ext_host *, uint8_t *, size_t, size_t *);
-  void (*buffer_free)(ext_buffer *);
-  ext_status (*shared_library)(const ext_shared_library_options *, ext_backend_extension_context *);
-  ext_status (*cancel_create)(ext_cancel **);
-  void (*cancel_signal)(ext_cancel *);
-  void (*cancel_destroy)(ext_cancel *);
-  ext_status (*set_services)(ext_host *, const ext_host_services *);
-  ext_status (*set_reverse_mode)(ext_host *, uint32_t);
-  ext_status (*serve_reverse)(ext_host *, const ext_call_options *);
-  ext_status (*registry_create)(ext_registry **);
-  ext_status (*registry_register)(ext_registry *, const char *, const char *, ext_host *);
-  ext_status (*registry_unregister)(ext_registry *, const char *, const char *);
-  ext_status (*registry_route)(ext_registry *, const ext_registry_edge *);
-  ext_status (*registry_attach)(ext_registry *, ext_host *, const ext_host_services *);
-  void (*registry_destroy)(ext_registry *);
+  ext_plugin_status (*create)(const ext_plugin_host_options *, const ext_plugin_backend_options *, ext_plugin_host **);
+  ext_plugin_status (*start)(ext_plugin_host *, const ext_plugin_call_options *);
+  ext_plugin_status (*call)(ext_plugin_host *, const uint8_t *, size_t, const ext_plugin_call_options *, ext_plugin_buffer *);
+  ext_plugin_status (*invoke)(ext_plugin_host *, const uint8_t *, size_t, const ext_plugin_call_options *, ext_plugin_buffer *);
+  ext_plugin_status (*drain)(ext_plugin_host *, const ext_plugin_call_options *);
+  void (*close)(ext_plugin_host *);
+  void (*destroy)(ext_plugin_host *);
+  ext_plugin_host_state (*state)(ext_plugin_host *);
+  ext_plugin_status (*stderr_copy)(ext_plugin_host *, uint8_t *, size_t, size_t *);
+  void (*buffer_free)(ext_plugin_buffer *);
+  ext_plugin_status (*shared_library)(const ext_plugin_shared_library_options *, ext_plugin_backend_extension_context *);
+  ext_plugin_status (*cancel_create)(ext_plugin_cancel **);
+  void (*cancel_signal)(ext_plugin_cancel *);
+  void (*cancel_destroy)(ext_plugin_cancel *);
+  ext_plugin_status (*set_services)(ext_plugin_host *, const ext_plugin_host_services *);
+  ext_plugin_status (*set_reverse_mode)(ext_plugin_host *, uint32_t);
+  ext_plugin_status (*serve_reverse)(ext_plugin_host *, const ext_plugin_call_options *);
+  ext_plugin_status (*registry_create)(ext_plugin_registry **);
+  ext_plugin_status (*registry_register)(ext_plugin_registry *, const char *, const char *, ext_plugin_host *);
+  ext_plugin_status (*registry_unregister)(ext_plugin_registry *, const char *, const char *);
+  ext_plugin_status (*registry_route)(ext_plugin_registry *, const ext_plugin_registry_edge *);
+  ext_plugin_status (*registry_attach)(ext_plugin_registry *, ext_plugin_host *, const ext_plugin_host_services *);
+  void (*registry_destroy)(ext_plugin_registry *);
 } engine_api;
 
 static VALUE mNative, cEngine, cHost, cRegistry, eHostError;
@@ -68,13 +68,13 @@ static const char *const status_names[] = {
 };
 static const char *const state_names[] = {"created", "ready", "draining", "closed", "failed"};
 
-static const char *status_name(ext_status s) {
+static const char *status_name(ext_plugin_status s) {
   return s >= 0 && (size_t)s < sizeof status_names / sizeof *status_names ? status_names[s] : "unknown";
 }
 
 /* Raises ExtIO::Host::HostError.new(code, status, action). */
-NORETURN(static void raise_status(ext_status s, const char *action));
-static void raise_status(ext_status s, const char *action) {
+NORETURN(static void raise_status(ext_plugin_status s, const char *action));
+static void raise_status(ext_plugin_status s, const char *action) {
   VALUE e = rb_funcall(eHostError, id_new, 3, INT2NUM(s), rb_str_new_cstr(status_name(s)),
                        rb_str_new_cstr(action));
   rb_exc_raise(e);
@@ -150,35 +150,35 @@ static VALUE engine_open(VALUE klass, VALUE rpath) {
       rb_raise(rb_eLoadError, "%s is not an ext engine library: %s is missing", path, name);   \
     }                                                                                          \
   } while (0)
-  RESOLVE(abi_version, "ext_host_abi_version");
-  if (api->abi_version() != EXT_HOST_ABI_VERSION) {
+  RESOLVE(abi_version, "ext_plugin_host_abi_version");
+  if (api->abi_version() != EXT_PLUGIN_HOST_ABI_VERSION) {
     unsigned got = api->abi_version();
     free(api);
-    rb_raise(rb_eLoadError, "ext engine ABI %u, this extension needs %u", got, (unsigned)EXT_HOST_ABI_VERSION);
+    rb_raise(rb_eLoadError, "ext engine ABI %u, this extension needs %u", got, (unsigned)EXT_PLUGIN_HOST_ABI_VERSION);
   }
-  RESOLVE(create, "ext_host_create");
-  RESOLVE(start, "ext_host_start_with_options");
-  RESOLVE(call, "ext_host_call");
-  RESOLVE(invoke, "ext_host_invoke_with_options");
-  RESOLVE(drain, "ext_host_drain_with_options");
-  RESOLVE(close, "ext_host_close");
-  RESOLVE(destroy, "ext_host_destroy");
-  RESOLVE(state, "ext_host_get_state");
-  RESOLVE(stderr_copy, "ext_host_process_stderr");
-  RESOLVE(buffer_free, "ext_buffer_free");
-  RESOLVE(shared_library, "ext_shared_library_backend_create");
-  RESOLVE(cancel_create, "ext_cancel_create");
-  RESOLVE(cancel_signal, "ext_cancel_signal");
-  RESOLVE(cancel_destroy, "ext_cancel_destroy");
-  RESOLVE(set_services, "ext_host_set_services");
-  RESOLVE(set_reverse_mode, "ext_host_set_reverse_mode");
-  RESOLVE(serve_reverse, "ext_host_serve_reverse");
-  RESOLVE(registry_create, "ext_registry_create");
-  RESOLVE(registry_register, "ext_registry_register");
-  RESOLVE(registry_unregister, "ext_registry_unregister");
-  RESOLVE(registry_route, "ext_registry_route");
-  RESOLVE(registry_attach, "ext_registry_attach");
-  RESOLVE(registry_destroy, "ext_registry_destroy");
+  RESOLVE(create, "ext_plugin_host_create");
+  RESOLVE(start, "ext_plugin_host_start_with_options");
+  RESOLVE(call, "ext_plugin_host_call");
+  RESOLVE(invoke, "ext_plugin_host_invoke_with_options");
+  RESOLVE(drain, "ext_plugin_host_drain_with_options");
+  RESOLVE(close, "ext_plugin_host_close");
+  RESOLVE(destroy, "ext_plugin_host_destroy");
+  RESOLVE(state, "ext_plugin_host_get_state");
+  RESOLVE(stderr_copy, "ext_plugin_host_process_stderr");
+  RESOLVE(buffer_free, "ext_plugin_buffer_free");
+  RESOLVE(shared_library, "ext_plugin_shared_library_backend_create");
+  RESOLVE(cancel_create, "ext_plugin_cancel_create");
+  RESOLVE(cancel_signal, "ext_plugin_cancel_signal");
+  RESOLVE(cancel_destroy, "ext_plugin_cancel_destroy");
+  RESOLVE(set_services, "ext_plugin_host_set_services");
+  RESOLVE(set_reverse_mode, "ext_plugin_host_set_reverse_mode");
+  RESOLVE(serve_reverse, "ext_plugin_host_serve_reverse");
+  RESOLVE(registry_create, "ext_plugin_registry_create");
+  RESOLVE(registry_register, "ext_plugin_registry_register");
+  RESOLVE(registry_unregister, "ext_plugin_registry_unregister");
+  RESOLVE(registry_route, "ext_plugin_registry_route");
+  RESOLVE(registry_attach, "ext_plugin_registry_attach");
+  RESOLVE(registry_destroy, "ext_plugin_registry_destroy");
 #undef RESOLVE
   obj = TypedData_Make_Struct(klass, engine_t, &engine_type, e);
   e->api = api;
@@ -193,7 +193,7 @@ static VALUE engine_open(VALUE klass, VALUE rpath) {
 typedef struct registration registration;
 typedef struct {
   const engine_api *api;
-  ext_registry *handle;
+  ext_plugin_registry *handle;
   long refs;
   registration *entries; /* the contracts registered, with their hosts */
 } registry_ref;
@@ -214,12 +214,12 @@ static void registry_release(registry_ref *r) {
 
 struct host_t {
   const engine_api *api;
-  ext_host *handle;
+  ext_plugin_host *handle;
   VALUE self;
   VALUE verify, authorize; /* callables, or Qnil to allow */
   long active;             /* engine calls in flight, counted under the lock */
   /* Reverse services: callables, or Qnil. The hooks run on the thread of a call that waits on
-   * this host (EXT_HOST_REVERSE_CALLER_THREAD), never on an engine thread. */
+   * this host (EXT_PLUGIN_HOST_REVERSE_CALLER_THREAD), never on an engine thread. */
   VALUE reverse_authorize, reverse_handle;
   VALUE source_of;          /* the Native::Registry this host is a source of, or Qnil */
   registry_ref *source_ref; /* its native registry, counted */
@@ -359,10 +359,10 @@ static VALUE new_host(const engine_api *api, VALUE verify, VALUE authorize, host
   return obj;
 }
 
-static ext_status create_host(host_t *h, VALUE descriptor, const ext_backend_options *backend) {
-  ext_host_options options;
+static ext_plugin_status create_host(host_t *h, VALUE descriptor, const ext_plugin_backend_options *backend) {
+  ext_plugin_host_options options;
   memset(&options, 0, sizeof options);
-  options.abi_version = EXT_HOST_ABI_VERSION;
+  options.abi_version = EXT_PLUGIN_HOST_ABI_VERSION;
   options.struct_size = (uint32_t)sizeof options;
   options.descriptor = (const uint8_t *)RSTRING_PTR(descriptor);
   options.descriptor_len = (size_t)RSTRING_LEN(descriptor);
@@ -397,12 +397,12 @@ static VALUE engine_process(VALUE self, VALUE descriptor, VALUE executable, VALU
                             VALUE environment, VALUE working, VALUE stderr_bytes, VALUE verify,
                             VALUE authorize) {
   engine_t *e = get_engine(self);
-  ext_jsonline_process_launch launch;
-  ext_backend_options backend;
+  ext_plugin_jsonline_process_launch launch;
+  ext_plugin_backend_options backend;
   VALUE keep_args = Qnil, keep_env = Qnil, obj;
   unsigned long bytes = NIL_P(stderr_bytes) ? 4096ul : NUM2ULONG(stderr_bytes);
   host_t *h;
-  ext_status s;
+  ext_plugin_status s;
   StringValue(descriptor);
   if (bytes > 0xFFFFFFFFul) rb_raise(rb_eArgError, "stderr_bytes is out of range");
   memset(&launch, 0, sizeof launch);
@@ -414,7 +414,7 @@ static VALUE engine_process(VALUE self, VALUE descriptor, VALUE executable, VALU
   launch.stderr_bytes = (uint32_t)bytes;
   memset(&backend, 0, sizeof backend);
   backend.struct_size = (uint32_t)sizeof backend;
-  backend.kind = EXT_BACKEND_JSONLINE_PROCESS_LAUNCH;
+  backend.kind = EXT_PLUGIN_BACKEND_JSONLINE_PROCESS_LAUNCH;
   backend.config = &launch;
   backend.config_size = sizeof launch;
   obj = new_host(e->api, verify, authorize, &h);
@@ -429,12 +429,12 @@ static VALUE engine_process(VALUE self, VALUE descriptor, VALUE executable, VALU
 /* engine.shared_library(descriptor, path, verify, authorize) -> host */
 static VALUE engine_shared_library(VALUE self, VALUE descriptor, VALUE path, VALUE verify, VALUE authorize) {
   engine_t *e = get_engine(self);
-  ext_shared_library_options options;
-  ext_backend_extension_context ext;
-  ext_backend_options backend;
+  ext_plugin_shared_library_options options;
+  ext_plugin_backend_extension_context ext;
+  ext_plugin_backend_options backend;
   host_t *h;
   VALUE obj;
-  ext_status s;
+  ext_plugin_status s;
   StringValue(descriptor);
   options.struct_size = (uint32_t)sizeof options;
   options.path = StringValueCStr(path);
@@ -444,7 +444,7 @@ static VALUE engine_shared_library(VALUE self, VALUE descriptor, VALUE path, VAL
   if (s) raise_status(s, "shared library");
   memset(&backend, 0, sizeof backend);
   backend.struct_size = (uint32_t)sizeof backend;
-  backend.kind = EXT_BACKEND_EXTENSION_CONTEXT;
+  backend.kind = EXT_PLUGIN_BACKEND_EXTENSION_CONTEXT;
   backend.config = &ext;
   backend.config_size = sizeof ext;
   s = create_host(h, descriptor, &backend);
@@ -469,8 +469,8 @@ static host_t *get_host(VALUE self) {
  * inside one of its own policies. */
 static host_t *enter(VALUE self, const char *action) {
   host_t *h = get_host(self);
-  if (!h->handle) raise_status(EXT_CLOSED, "destroyed");
-  if (rb_thread_local_aref(rb_thread_current(), id_policy_key) == self) raise_status(EXT_INVALID, action);
+  if (!h->handle) raise_status(EXT_PLUGIN_CLOSED, "destroyed");
+  if (rb_thread_local_aref(rb_thread_current(), id_policy_key) == self) raise_status(EXT_PLUGIN_INVALID, action);
   return h;
 }
 
@@ -530,9 +530,9 @@ typedef struct {
   int op;
   uint8_t *data; /* a copy: the Ruby String may move while hooks run Ruby */
   size_t len;
-  ext_call_options options;
-  ext_buffer out;
-  ext_status status;
+  ext_plugin_call_options options;
+  ext_plugin_buffer out;
+  ext_plugin_status status;
   call_lock mu;
   call_cond changed;
   int done;    /* the engine call returned */
@@ -549,7 +549,7 @@ static __thread blocking_call *helper_call;
 
 static void run_engine_call(blocking_call *c) {
   const engine_api *api = c->host->api;
-  ext_host *handle = c->host->handle;
+  ext_plugin_host *handle = c->host->handle;
   helper_call = c;
   switch (c->op) {
   case OP_START: c->status = api->start(handle, &c->options); break;
@@ -659,7 +659,7 @@ static int serve_call(blocking_call *c) {
       rb_protect(check_interrupts, Qnil, &state);
       if (state) {
         interrupted = state;
-        c->host->api->cancel_signal((ext_cancel *)c->options.cancel);
+        c->host->api->cancel_signal((ext_plugin_cancel *)c->options.cancel);
       }
     }
   }
@@ -668,17 +668,17 @@ static int serve_call(blocking_call *c) {
 /* Runs one engine call off the lock and returns its response (or Qnil), raising its failure, or
  * the interrupt that canceled it. */
 static VALUE blocking_status(VALUE self, int op, VALUE data, VALUE timeout, const char *action,
-                             ext_status *status);
+                             ext_plugin_status *status);
 static VALUE blocking(VALUE self, int op, VALUE data, VALUE timeout, const char *action) {
   return blocking_status(self, op, data, timeout, action, NULL);
 }
 /* As blocking; with status, the call's status is stored there instead of raised. */
 static VALUE blocking_status(VALUE self, int op, VALUE data, VALUE timeout, const char *action,
-                             ext_status *status) {
+                             ext_plugin_status *status) {
   host_t *h = enter(self, action);
   blocking_call c;
-  ext_cancel *cancel = NULL;
-  ext_status s;
+  ext_plugin_cancel *cancel = NULL;
+  ext_plugin_status s;
   helper_t helper;
   VALUE response = Qnil;
   memset(&c, 0, sizeof c);
@@ -707,7 +707,7 @@ static VALUE blocking_status(VALUE self, int op, VALUE data, VALUE timeout, cons
     interrupted = serve_call(&c);
     helper_join(helper);
   } else {
-    c.status = EXT_NOMEM;
+    c.status = EXT_PLUGIN_NOMEM;
   }
   h->active--;
   h->api->cancel_destroy(cancel); /* the call has joined */
@@ -732,7 +732,7 @@ static VALUE host_start(VALUE self, VALUE timeout) {
   return Qnil;
 }
 
-/* host.call_json(request, timeout, action) -> response envelope: ext_host_call, with
+/* host.call_json(request, timeout, action) -> response envelope: ext_plugin_host_call, with
  * {contract, operation, payload?} in. */
 static VALUE host_call_json(VALUE self, VALUE request, VALUE timeout, VALUE action) {
   VALUE response = blocking(self, OP_CALL, request, timeout, StringValueCStr(action));
@@ -754,14 +754,14 @@ static VALUE host_drain(VALUE self, VALUE timeout) {
 /* host.close: aborts the session; thread-safe, and harmless after destroy. */
 static VALUE host_close(VALUE self) {
   host_t *h = get_host(self);
-  if (rb_thread_local_aref(rb_thread_current(), id_policy_key) == self) raise_status(EXT_INVALID, "close");
+  if (rb_thread_local_aref(rb_thread_current(), id_policy_key) == self) raise_status(EXT_PLUGIN_INVALID, "close");
   if (h->handle) h->api->close(h->handle);
   return Qnil;
 }
 
 static VALUE host_state(VALUE self) {
   host_t *h = enter(self, "state");
-  ext_host_state s = h->api->state(h->handle);
+  ext_plugin_host_state s = h->api->state(h->handle);
   return rb_str_new_cstr((int)s >= 0 && (size_t)s < sizeof state_names / sizeof *state_names ? state_names[s] : "unknown");
 }
 
@@ -769,7 +769,7 @@ static VALUE host_stderr(VALUE self) {
   host_t *h = enter(self, "stderr");
   size_t len = 0;
   VALUE buf = rb_str_buf_new(STDERR_CAPACITY);
-  ext_status s = h->api->stderr_copy(h->handle, (uint8_t *)RSTRING_PTR(buf), STDERR_CAPACITY, &len);
+  ext_plugin_status s = h->api->stderr_copy(h->handle, (uint8_t *)RSTRING_PTR(buf), STDERR_CAPACITY, &len);
   if (s) raise_status(s, "stderr");
   rb_str_set_len(buf, (long)(len < STDERR_CAPACITY ? len : STDERR_CAPACITY));
   return buf;
@@ -778,11 +778,11 @@ static VALUE host_stderr(VALUE self) {
 /* host.destroy: frees the host once; again is harmless. Refused while calls are in flight. */
 static VALUE host_destroy(VALUE self) {
   host_t *h = get_host(self);
-  if (rb_thread_local_aref(rb_thread_current(), id_policy_key) == self) raise_status(EXT_INVALID, "destroy");
+  if (rb_thread_local_aref(rb_thread_current(), id_policy_key) == self) raise_status(EXT_PLUGIN_INVALID, "destroy");
   if (!h->handle) return Qnil;
   if (h->active > 0) {
     h->api->close(h->handle); /* the calls end; destroy again once they have returned */
-    raise_status(EXT_INVALID, "destroy with calls in flight");
+    raise_status(EXT_PLUGIN_INVALID, "destroy with calls in flight");
   }
   host_teardown(h);
   h->verify = h->authorize = h->reverse_authorize = h->reverse_handle = h->source_of = Qnil;
@@ -834,7 +834,7 @@ static void *reverse_with_gvl(void *arg) {
       if (r->data) {
         memcpy(r->data, RSTRING_PTR(body), n);
         r->data_len = n;
-        r->kind = RTEST(rb_ary_entry(result, 0)) ? EXT_HOST_REVERSE_PUBLIC_ERROR : EXT_HOST_REVERSE_PAYLOAD;
+        r->kind = RTEST(rb_ary_entry(result, 0)) ? EXT_PLUGIN_HOST_REVERSE_PUBLIC_ERROR : EXT_PLUGIN_HOST_REVERSE_PAYLOAD;
         r->answered = 1;
       }
     }
@@ -845,7 +845,7 @@ static void *reverse_with_gvl(void *arg) {
 }
 
 /* The hooks run on the thread of a call made without the lock (caller-thread mode). */
-static int32_t reverse_authorize_cb(void *user, const ext_call_options *o, const uint8_t *json, size_t len) {
+static int32_t reverse_authorize_cb(void *user, const ext_plugin_call_options *o, const uint8_t *json, size_t len) {
   host_t *h = (host_t *)user;
   reverse_call_t r;
   memset(&r, 0, sizeof r);
@@ -859,11 +859,11 @@ static int32_t reverse_authorize_cb(void *user, const ext_call_options *o, const
   return r.allowed ? 0 : 1;
 }
 
-static ext_status reverse_handle_cb(void *user, const ext_call_options *o, const uint8_t *json, size_t len,
-                                    ext_reverse_emit emit, void *sink) {
+static ext_plugin_status reverse_handle_cb(void *user, const ext_plugin_call_options *o, const uint8_t *json, size_t len,
+                                    ext_plugin_reverse_emit emit, void *sink) {
   host_t *h = (host_t *)user;
   reverse_call_t r;
-  ext_status s;
+  ext_plugin_status s;
   memset(&r, 0, sizeof r);
   r.host = h;
   r.callable = h->reverse_handle;
@@ -871,17 +871,17 @@ static ext_status reverse_handle_cb(void *user, const ext_call_options *o, const
   r.len = len;
   r.remaining_ms = o->timeout_ms;
   r.handle = 1;
-  if (NIL_P(r.callable)) return EXT_IO;
+  if (NIL_P(r.callable)) return EXT_PLUGIN_IO;
   with_ruby(reverse_with_gvl, &r);
-  if (!r.answered) return EXT_IO; /* the plugin sees operation_failed */
+  if (!r.answered) return EXT_PLUGIN_IO; /* the plugin sees operation_failed */
   s = emit(sink, r.kind, (const uint8_t *)r.data, r.data_len);
   free(r.data);
   return s;
 }
 
-static ext_host_services reverse_services(host_t *h, VALUE timeout_ms, VALUE max_payload, VALUE max_in_flight,
+static ext_plugin_host_services reverse_services(host_t *h, VALUE timeout_ms, VALUE max_payload, VALUE max_in_flight,
                                           int with_handle) {
-  ext_host_services services;
+  ext_plugin_host_services services;
   memset(&services, 0, sizeof services);
   services.struct_size = (uint32_t)sizeof services;
   services.user = h;
@@ -899,8 +899,8 @@ static ext_host_services reverse_services(host_t *h, VALUE timeout_ms, VALUE max
 static VALUE host_serve(VALUE self, VALUE authorize, VALUE handle, VALUE timeout_ms, VALUE max_payload,
                         VALUE max_in_flight) {
   host_t *h = enter(self, "serve");
-  ext_host_services services = reverse_services(h, timeout_ms, max_payload, max_in_flight, 1);
-  ext_status s = h->api->set_reverse_mode(h->handle, EXT_HOST_REVERSE_CALLER_THREAD);
+  ext_plugin_host_services services = reverse_services(h, timeout_ms, max_payload, max_in_flight, 1);
+  ext_plugin_status s = h->api->set_reverse_mode(h->handle, EXT_PLUGIN_HOST_REVERSE_CALLER_THREAD);
   if (!s) s = h->api->set_services(h->handle, &services);
   if (s) raise_status(s, "serve");
   h->reverse_authorize = authorize;
@@ -910,9 +910,9 @@ static VALUE host_serve(VALUE self, VALUE authorize, VALUE handle, VALUE timeout
 
 /* host.serve_reverse(timeout) -> true when it served a request, false when none came in time. */
 static VALUE host_serve_reverse(VALUE self, VALUE timeout) {
-  ext_status s = EXT_OK;
+  ext_plugin_status s = EXT_PLUGIN_OK;
   blocking_status(self, OP_SERVE, Qnil, timeout, "serve_reverse", &s);
-  if (s == EXT_TIMEOUT) return Qfalse;
+  if (s == EXT_PLUGIN_TIMEOUT) return Qfalse;
   if (s) raise_status(s, "serve_reverse");
   return Qtrue;
 }
@@ -944,7 +944,7 @@ static VALUE engine_registry(VALUE self) {
   const engine_api *api = get_engine(self)->api;
   registry_ref **holder;
   registry_ref *r;
-  ext_status s;
+  ext_plugin_status s;
   VALUE obj = TypedData_Make_Struct(cRegistry, registry_ref *, &registry_type, holder);
   r = ALLOC(registry_ref);
   memset(r, 0, sizeof *r);
@@ -971,7 +971,7 @@ static char *copy_cstr(VALUE v) {
 static VALUE registry_register(VALUE self, VALUE name, VALUE version, VALUE host) {
   registry_ref *r = get_registry(self);
   host_t *h = enter(host, "register");
-  ext_status s = r->api->registry_register(r->handle, StringValueCStr(name), StringValueCStr(version), h->handle);
+  ext_plugin_status s = r->api->registry_register(r->handle, StringValueCStr(name), StringValueCStr(version), h->handle);
   registration *e;
   if (s) raise_status(s, "register");
   e = ALLOC(registration);
@@ -993,7 +993,7 @@ static VALUE registry_register(VALUE self, VALUE name, VALUE version, VALUE host
 static VALUE registry_unregister(VALUE self, VALUE name, VALUE version) {
   registry_ref *r = get_registry(self);
   const char *n = StringValueCStr(name), *v = StringValueCStr(version);
-  ext_status s = r->api->registry_unregister(r->handle, n, v);
+  ext_plugin_status s = r->api->registry_unregister(r->handle, n, v);
   if (s) raise_status(s, "unregister");
   for (registration **at = &r->entries; *at; at = &(*at)->next_in_registry) {
     registration *e = *at;
@@ -1017,8 +1017,8 @@ static VALUE registry_unregister(VALUE self, VALUE name, VALUE version) {
 /* registry.route(from_name, from_version, from_operation, to_name, to_version, to_operation) */
 static VALUE registry_route(int argc, VALUE *argv, VALUE self) {
   registry_ref *r = get_registry(self);
-  ext_registry_edge edge;
-  ext_status s;
+  ext_plugin_registry_edge edge;
+  ext_plugin_status s;
   if (argc != 6) rb_raise(rb_eArgError, "route takes six names");
   memset(&edge, 0, sizeof edge);
   edge.struct_size = (uint32_t)sizeof edge;
@@ -1039,8 +1039,8 @@ static VALUE host_attach(VALUE self, VALUE registry, VALUE authorize, VALUE time
                          VALUE max_in_flight) {
   host_t *h = enter(self, "attach");
   registry_ref *r = get_registry(registry);
-  ext_host_services services = reverse_services(h, timeout_ms, max_payload, max_in_flight, 0);
-  ext_status s = h->api->set_reverse_mode(h->handle, EXT_HOST_REVERSE_CALLER_THREAD);
+  ext_plugin_host_services services = reverse_services(h, timeout_ms, max_payload, max_in_flight, 0);
+  ext_plugin_status s = h->api->set_reverse_mode(h->handle, EXT_PLUGIN_HOST_REVERSE_CALLER_THREAD);
   if (!s) s = r->api->registry_attach(r->handle, h->handle, &services);
   if (s) raise_status(s, "attach");
   h->reverse_authorize = authorize;
@@ -1062,7 +1062,7 @@ RUBY_FUNC_EXPORTED void Init_native(void) {
   eHostError = rb_const_get(mHost, rb_intern("HostError")); /* defined by lib/ext_io/host.rb */
   rb_gc_register_mark_object(eHostError);
   mNative = rb_define_module_under(mHost, "Native");
-  rb_define_const(mNative, "ABI_VERSION", INT2NUM(EXT_HOST_ABI_VERSION));
+  rb_define_const(mNative, "ABI_VERSION", INT2NUM(EXT_PLUGIN_HOST_ABI_VERSION));
   for (i = 0; i < sizeof status_names / sizeof *status_names; i++) rb_ary_push(names, rb_str_new_cstr(status_names[i]));
   rb_define_const(mNative, "STATUS_NAMES", rb_ary_freeze(names));
 

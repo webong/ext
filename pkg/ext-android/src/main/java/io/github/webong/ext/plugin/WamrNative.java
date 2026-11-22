@@ -31,15 +31,15 @@ final class WamrNative {
     /** After close, once no call is running. */
     static native void destroy(long handle);
 
-    /** Reverse services (ext_host_set_services), before start. */
+    /** Reverse services (ext_plugin_host_set_services), before start. */
     static native void serve(long handle, int timeoutMilliseconds, int maxPayloadBytes, int maxInFlight)
             throws WamrException;
 
-    /** A source of a registry (ext_registry_attach), before start. */
+    /** A source of a registry (ext_plugin_registry_attach), before start. */
     static native void attach(long registry, long handle, int timeoutMilliseconds, int maxPayloadBytes,
             int maxInFlight) throws WamrException;
 
-    /** ext_host_call: {contract, operation, payload?} in, a response envelope out. */
+    /** ext_plugin_host_call: {contract, operation, payload?} in, a response envelope out. */
     static native byte[] call(long handle, byte[] input, int timeoutMilliseconds) throws WamrException;
 
     static native long registryCreate() throws WamrException;

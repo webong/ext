@@ -53,7 +53,7 @@ class GuestImportTest(unittest.TestCase):
         from ext_io import host
 
         with self.assertRaises(OSError):
-            host.Engine("/does/not/exist/libext_host.so")
+            host.Engine("/does/not/exist/libext_plugin_host.so")
 
 
 class HostCasesTest(unittest.TestCase):

@@ -53,7 +53,7 @@ processes mutating one root are yours to serialize. `tests/store.rs` covers it.
 `store::Layered` is the read-only view over several roots in priority order (`open`,
 `load`, `list`, `verify`, `list_unverified`). They return the engine's JSON bytes as
 `load` returns `plugin.json`, so you parse them with your own JSON library (the crate has
-no dependencies without the `download` feature); the shapes are in `ext_store_list` of `lib/plugin/include/ext_host.h`.
+no dependencies without the `download` feature); the shapes are in `ext_plugin_store_list` of `lib/plugin/include/ext_plugin_host.h`.
 `list_unverified` reads no artifact: its result is unverified and must not be launched or
 trusted as it stands. A damaged winner in a layered view fails closed instead of falling
 back to a lower root.
@@ -68,7 +68,7 @@ names; `Platform::default()` is the platform the engine was built for). A packag
 does not serve the contract, or has no entrypoint that fits, is `Error::UNSUPPORTED`.
 
 `Store::install_archive` installs, or upgrades to, the package in a local archive file
-(`ext_store_install_archive`): a zip, gzip-compressed tar or plain tar, told apart by its
+(`ext_plugin_store_install_archive`): a zip, gzip-compressed tar or plain tar, told apart by its
 content, that must have the pinned SHA-256 before anything is extracted. Extraction is bounded
 by the store's `Limits` (`max_archive_bytes` bounds the file, 512 MiB by default) and writes
 only directories and regular files. A successful install leaves a receipt, which
@@ -116,7 +116,7 @@ C engine platforms.
 
 ## Guest-only and WASM builds
 
-Use `--features guest-only` to link `libext_guest_static.a`; combine with `shared`
+Use `--features guest-only` to link `libext_plugin_guest_static.a`; combine with `shared`
 for the native shared guest library. Host and resource wrappers are excluded.
 Build C with `EXT_BUILD_HOST=OFF` for WASI, then point `EXT_ENGINE_LIB_DIR` at that
 Wasm archive and use `--target wasm32-wasip1`. `examples/guest.rs` executes the same

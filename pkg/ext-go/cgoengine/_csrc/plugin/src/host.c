@@ -14,26 +14,26 @@
 #include <string.h>
 #include <time.h>
 
-static int canceled(const ext_call_options *o) {
-  return ext_cancel_is_signaled(o->cancel);
+static int canceled(const ext_plugin_call_options *o) {
+  return ext_plugin_cancel_is_signaled(o->cancel);
 }
-static int valid_call(const ext_call_options *o) {
+static int valid_call(const ext_plugin_call_options *o) {
   return o && o->struct_size == sizeof(*o) && o->timeout_ms;
 }
 typedef struct reverse_worker reverse_worker;
 typedef struct pending_call pending_call;
-struct ext_host {
+struct ext_plugin_host {
   pthread_mutex_t mu;
   pthread_cond_t changed;
   /* One frame at a time on the channel. Taken before mu and never inside it. */
   pthread_mutex_t wmu;
   int active, running, started, closed;
-  ext_host_state state;
-  ext_host_hooks hooks;
-  ext_host_services services;
+  ext_plugin_host_state state;
+  ext_plugin_host_hooks hooks;
+  ext_plugin_host_services services;
   int has_services;
-  ext_backend_extension extension;
-  ext_backend_extension_context extension_context;
+  ext_plugin_backend_extension extension;
+  ext_plugin_backend_extension_context extension_context;
   ext_channel *channel;
   uint64_t next;
   char *path;
@@ -44,7 +44,7 @@ struct ext_host {
   yyjson_doc *selection;
   uint8_t *descriptor;
   size_t descriptor_len;
-  ext_policy verify, authorize;
+  ext_plugin_policy verify, authorize;
   void *user;
   uint8_t *readbuf;
   size_t capacity;
@@ -60,11 +60,11 @@ struct ext_host {
   int reader_started;
   pending_call *calls;   /* the calls in flight, newest first */
   int frames;            /* an extension backend that hands the engine its frames */
-  ext_status reader_failure; /* why the reader stopped, when nothing closed us */
+  ext_plugin_status reader_failure; /* why the reader stopped, when nothing closed us */
   unsigned reverses; /* reverse calls admitted and not yet finished */
   reverse_worker *workers;          /* running */
   reverse_worker *finished;         /* done, waiting to be joined */
-  /* EXT_HOST_REVERSE_CALLER_THREAD: admitted requests whose hooks wait for a
+  /* EXT_PLUGIN_HOST_REVERSE_CALLER_THREAD: admitted requests whose hooks wait for a
    * thread of the application, oldest first. */
   uint32_t reverse_mode;
   reverse_worker *queue_head, *queue_tail;
@@ -81,42 +81,42 @@ static void free_strings(char **strings) {
     free(strings);
   }
 }
-static ext_status copy_strings(const char *const *input, size_t count,
+static ext_plugin_status copy_strings(const char *const *input, size_t count,
                                const char *prefix, int environment,
                                char ***out) {
   if (count > 256 || (count && !input))
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   size_t offset = prefix ? 1 : 0;
   char **copy = calloc(count + offset + 1, sizeof(*copy));
   if (!copy)
-    return EXT_NOMEM;
+    return EXT_PLUGIN_NOMEM;
   if (prefix && !(copy[0] = strdup(prefix))) {
     free(copy);
-    return EXT_NOMEM;
+    return EXT_PLUGIN_NOMEM;
   }
-  ext_status status = EXT_OK;
+  ext_plugin_status status = EXT_PLUGIN_OK;
   for (size_t i = 0; i < count; i++) {
     if (!input[i] || strlen(input[i]) > (environment ? 8192 : 4096)) {
-      status = EXT_INVALID;
+      status = EXT_PLUGIN_INVALID;
       break;
     }
     if (environment) {
       const char *equal = strchr(input[i], '=');
       if (!equal || equal == input[i]) {
-        status = EXT_INVALID;
+        status = EXT_PLUGIN_INVALID;
         break;
       }
       size_t key = (size_t)(equal - input[i]);
       for (size_t j = 0; j < i; j++)
         if (!strncmp(input[i], input[j], key) && input[j][key] == '=') {
-          status = EXT_INVALID;
+          status = EXT_PLUGIN_INVALID;
           break;
         }
       if (status)
         break;
     }
     if (!(copy[offset + i] = strdup(input[i]))) {
-      status = EXT_NOMEM;
+      status = EXT_PLUGIN_NOMEM;
       break;
     }
   }
@@ -137,7 +137,7 @@ static int names_entry(const char *entry, const char *name) {
 /* Prepends the base environment of a launched package to *environment (which
  * holds count caller entries): PATH, plus SystemRoot on Windows, each taken from
  * the host and skipped when the caller supplied that name. */
-static ext_status add_base_environment(char ***environment, size_t count) {
+static ext_plugin_status add_base_environment(char ***environment, size_t count) {
   static const char *const names[] = {"PATH",
 #ifdef _WIN32
                                       "SystemRoot",
@@ -146,7 +146,7 @@ static ext_status add_base_environment(char ***environment, size_t count) {
   const size_t known = sizeof(names) / sizeof(names[0]);
   char **grown = calloc(count + known + 1, sizeof(*grown));
   if (!grown)
-    return EXT_NOMEM;
+    return EXT_PLUGIN_NOMEM;
   size_t added = 0;
   for (size_t k = 0; k < known; k++) {
     int supplied = 0;
@@ -159,7 +159,7 @@ static ext_status add_base_environment(char ***environment, size_t count) {
     char *entry = malloc(length + 1);
     if (!entry) {
       free_strings(grown);
-      return EXT_NOMEM;
+      return EXT_PLUGIN_NOMEM;
     }
     snprintf(entry, length + 1, "%s=%s", names[k], value ? value : "");
     grown[added++] = entry;
@@ -168,98 +168,98 @@ static ext_status add_base_environment(char ***environment, size_t count) {
     grown[added + i] = (*environment)[i];
   free(*environment);
   *environment = grown;
-  return EXT_OK;
+  return EXT_PLUGIN_OK;
 }
-ext_status ext_host_create(const ext_host_options *o,
-                           const ext_backend_options *b, ext_host **out) {
+ext_plugin_status ext_plugin_host_create(const ext_plugin_host_options *o,
+                           const ext_plugin_backend_options *b, ext_plugin_host **out) {
   if (!out)
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   *out = NULL;
-  if (!o || o->abi_version != EXT_HOST_ABI_VERSION ||
+  if (!o || o->abi_version != EXT_PLUGIN_HOST_ABI_VERSION ||
       o->struct_size != sizeof(*o) || !o->verify || !o->authorize || !b ||
       b->struct_size != sizeof(*b))
-    return EXT_INVALID;
-  const ext_jsonline_process_options *process = NULL;
-  ext_jsonline_process_options compatible_process;
-  const ext_jsonline_process_config *process_config = NULL;
-  const ext_jsonline_process_launch *launch = NULL;
-  const ext_backend_extension *extension = NULL;
-  const ext_backend_extension_context *extension_context = NULL;
-  if (b->kind == EXT_BACKEND_JSONLINE_PROCESS_CONFIG) {
+    return EXT_PLUGIN_INVALID;
+  const ext_plugin_jsonline_process_options *process = NULL;
+  ext_plugin_jsonline_process_options compatible_process;
+  const ext_plugin_jsonline_process_config *process_config = NULL;
+  const ext_plugin_jsonline_process_launch *launch = NULL;
+  const ext_plugin_backend_extension *extension = NULL;
+  const ext_plugin_backend_extension_context *extension_context = NULL;
+  if (b->kind == EXT_PLUGIN_BACKEND_JSONLINE_PROCESS_CONFIG) {
     if (!b->config || b->config_size != sizeof(*process_config))
-      return EXT_INVALID;
+      return EXT_PLUGIN_INVALID;
     process_config = b->config;
     if (process_config->struct_size != sizeof(*process_config))
-      return EXT_INVALID;
+      return EXT_PLUGIN_INVALID;
     compatible_process.executable = process_config->executable;
     process = &compatible_process;
     if (!process->executable || !ext_path_is_absolute(process->executable) ||
         strlen(process->executable) > 4096)
-      return EXT_INVALID;
-  } else if (b->kind == EXT_BACKEND_JSONLINE_PROCESS_LAUNCH) {
+      return EXT_PLUGIN_INVALID;
+  } else if (b->kind == EXT_PLUGIN_BACKEND_JSONLINE_PROCESS_LAUNCH) {
     if (!b->config || b->config_size != sizeof(*launch))
-      return EXT_INVALID;
+      return EXT_PLUGIN_INVALID;
     launch = b->config;
     if (launch->struct_size != sizeof(*launch) ||
         launch->stderr_bytes > (16u << 20) ||
         (launch->working_directory &&
          (!ext_path_is_absolute(launch->working_directory) ||
           strlen(launch->working_directory) > 4096)))
-      return EXT_INVALID;
+      return EXT_PLUGIN_INVALID;
     compatible_process.executable = launch->executable;
     process = &compatible_process;
     if (!process->executable || !ext_path_is_absolute(process->executable) ||
         strlen(process->executable) > 4096)
-      return EXT_INVALID;
-  } else if (b->kind == EXT_BACKEND_JSONLINE_PROCESS) {
+      return EXT_PLUGIN_INVALID;
+  } else if (b->kind == EXT_PLUGIN_BACKEND_JSONLINE_PROCESS) {
     if (!b->config || b->config_size != sizeof(*process))
-      return EXT_INVALID;
+      return EXT_PLUGIN_INVALID;
     process = b->config;
     if (!process->executable || !ext_path_is_absolute(process->executable))
-      return EXT_INVALID;
-  } else if (b->kind == EXT_BACKEND_EXTENSION) {
+      return EXT_PLUGIN_INVALID;
+  } else if (b->kind == EXT_PLUGIN_BACKEND_EXTENSION) {
     if (!b->config || b->config_size != sizeof(*extension))
-      return EXT_INVALID;
+      return EXT_PLUGIN_INVALID;
     extension = b->config;
     if (extension->struct_size != sizeof(*extension) ||
-        (extension->flags & ~(EXT_BACKEND_CONCURRENT | EXT_BACKEND_FRAMES)) ||
+        (extension->flags & ~(EXT_PLUGIN_BACKEND_CONCURRENT | EXT_PLUGIN_BACKEND_FRAMES)) ||
         !extension->connect ||
         !extension->invoke || !extension->close || !extension->release)
-      return EXT_INVALID;
-  } else if (b->kind == EXT_BACKEND_EXTENSION_CONTEXT) {
+      return EXT_PLUGIN_INVALID;
+  } else if (b->kind == EXT_PLUGIN_BACKEND_EXTENSION_CONTEXT) {
     if (!b->config || b->config_size != sizeof(*extension_context))
-      return EXT_INVALID;
+      return EXT_PLUGIN_INVALID;
     extension_context = b->config;
     if (extension_context->struct_size != sizeof(*extension_context) ||
         (extension_context->flags &
-         ~(EXT_BACKEND_CONCURRENT | EXT_BACKEND_FRAMES)) ||
+         ~(EXT_PLUGIN_BACKEND_CONCURRENT | EXT_PLUGIN_BACKEND_FRAMES)) ||
         !extension_context->connect || !extension_context->invoke ||
         !extension_context->close || !extension_context->release)
-      return EXT_INVALID;
+      return EXT_PLUGIN_INVALID;
   } else {
-    return EXT_UNSUPPORTED;
+    return EXT_PLUGIN_UNSUPPORTED;
   }
   yyjson_doc *d = ext_parse(o->descriptor, o->descriptor_len);
   if (!d || !ext_descriptor(yyjson_doc_get_root(d))) {
     yyjson_doc_free(d);
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   }
   /* Fail closed rather than run a plugin without the frames it declared. A host
    * that owns the child's pipes carries them; an extension backend hands the
    * engine one response at a time unless it says it hands over its frames too. */
-  int frames = (extension && (extension->flags & EXT_BACKEND_FRAMES)) ||
+  int frames = (extension && (extension->flags & EXT_PLUGIN_BACKEND_FRAMES)) ||
                (extension_context &&
-                (extension_context->flags & EXT_BACKEND_FRAMES));
+                (extension_context->flags & EXT_PLUGIN_BACKEND_FRAMES));
   if ((extension || extension_context) && !frames &&
       (ext_descriptor_declares_reverse(yyjson_doc_get_root(d)) ||
        ext_descriptor_declares_progress(yyjson_doc_get_root(d)))) {
     yyjson_doc_free(d);
-    return EXT_UNSUPPORTED;
+    return EXT_PLUGIN_UNSUPPORTED;
   }
-  ext_host *h = calloc(1, sizeof(*h));
+  ext_plugin_host *h = calloc(1, sizeof(*h));
   if (!h) {
     yyjson_doc_free(d);
-    return EXT_NOMEM;
+    return EXT_PLUGIN_NOMEM;
   }
   h->path = process ? strdup(process->executable) : NULL;
   h->descriptor = malloc(o->descriptor_len);
@@ -268,14 +268,14 @@ ext_status ext_host_create(const ext_host_options *o,
     free(h->descriptor);
     free(h);
     yyjson_doc_free(d);
-    return EXT_NOMEM;
+    return EXT_PLUGIN_NOMEM;
   }
   if (pthread_mutex_init(&h->mu, NULL)) {
     free(h->path);
     free(h->descriptor);
     free(h);
     yyjson_doc_free(d);
-    return EXT_IO;
+    return EXT_PLUGIN_IO;
   }
   if (pthread_mutex_init(&h->wmu, NULL)) {
     pthread_mutex_destroy(&h->mu);
@@ -283,7 +283,7 @@ ext_status ext_host_create(const ext_host_options *o,
     free(h->descriptor);
     free(h);
     yyjson_doc_free(d);
-    return EXT_IO;
+    return EXT_PLUGIN_IO;
   }
   pthread_condattr_t attr;
   int cond_error = pthread_condattr_init(&attr);
@@ -302,7 +302,7 @@ ext_status ext_host_create(const ext_host_options *o,
     free(h->descriptor);
     free(h);
     yyjson_doc_free(d);
-    return EXT_IO;
+    return EXT_PLUGIN_IO;
   }
   memcpy(h->descriptor, o->descriptor, o->descriptor_len);
   h->descriptor_len = o->descriptor_len;
@@ -321,7 +321,7 @@ ext_status ext_host_create(const ext_host_options *o,
                             : process_config ? process_config->environment : NULL;
     size_t environment_count = launch ? launch->environment_count
                             : process_config ? process_config->environment_count : 0;
-    ext_status status =
+    ext_plugin_status status =
         copy_strings(arguments, argument_count, h->path, 0, &h->arguments);
     if (!status)
       status = copy_strings(environment, environment_count, NULL, 1,
@@ -333,14 +333,14 @@ ext_status ext_host_create(const ext_host_options *o,
                          ? strdup(launch->working_directory)
                          : NULL;
       if (launch->working_directory && !h->directory)
-        status = EXT_NOMEM;
+        status = EXT_PLUGIN_NOMEM;
       /* Scrubbed base environment taken from the host, unless the caller set
        * the same name. */
       if (!status)
         status = add_base_environment(&h->environment, environment_count);
     }
     if (status) {
-      ext_host_destroy(h);
+      ext_plugin_host_destroy(h);
       return status;
     }
   }
@@ -349,47 +349,47 @@ ext_status ext_host_create(const ext_host_options *o,
   if (extension_context)
     h->extension_context = *extension_context;
   *out = h;
-  return EXT_OK;
+  return EXT_PLUGIN_OK;
 }
-ext_status ext_host_set_hooks(ext_host *h, const ext_host_hooks *hooks) {
+ext_plugin_status ext_plugin_host_set_hooks(ext_plugin_host *h, const ext_plugin_host_hooks *hooks) {
   if (!h || !hooks || hooks->struct_size != sizeof(*hooks))
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   pthread_mutex_lock(&h->mu);
-  ext_status s = (h->state == EXT_HOST_CREATED && !h->active && !h->started)
-                     ? EXT_OK
-                     : EXT_INVALID;
+  ext_plugin_status s = (h->state == EXT_PLUGIN_HOST_CREATED && !h->active && !h->started)
+                     ? EXT_PLUGIN_OK
+                     : EXT_PLUGIN_INVALID;
   if (!s)
     h->hooks = *hooks;
   pthread_mutex_unlock(&h->mu);
   return s;
 }
-ext_status ext_host_set_reverse_mode(ext_host *h, uint32_t mode) {
-  if (!h || mode > EXT_HOST_REVERSE_CALLER_THREAD)
-    return EXT_INVALID;
+ext_plugin_status ext_plugin_host_set_reverse_mode(ext_plugin_host *h, uint32_t mode) {
+  if (!h || mode > EXT_PLUGIN_HOST_REVERSE_CALLER_THREAD)
+    return EXT_PLUGIN_INVALID;
   pthread_mutex_lock(&h->mu);
-  ext_status s = (h->state == EXT_HOST_CREATED && !h->active && !h->started)
-                     ? EXT_OK
-                     : EXT_INVALID;
+  ext_plugin_status s = (h->state == EXT_PLUGIN_HOST_CREATED && !h->active && !h->started)
+                     ? EXT_PLUGIN_OK
+                     : EXT_PLUGIN_INVALID;
   if (!s)
     h->reverse_mode = mode;
   pthread_mutex_unlock(&h->mu);
   return s;
 }
-ext_status ext_host_set_services(ext_host *h, const ext_host_services *s) {
+ext_plugin_status ext_plugin_host_set_services(ext_plugin_host *h, const ext_plugin_host_services *s) {
   if (!h || !s || s->struct_size != sizeof(*s))
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   if (!s->authorize || !s->handle)
-    return EXT_DENIED;
-  if (s->max_payload_bytes > EXT_HOST_MAX_FRAME ||
+    return EXT_PLUGIN_DENIED;
+  if (s->max_payload_bytes > EXT_PLUGIN_HOST_MAX_FRAME ||
       s->max_in_flight > EXT_REVERSE_MAX_IN_FLIGHT)
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   pthread_mutex_lock(&h->mu);
-  ext_status status =
-      (h->state == EXT_HOST_CREATED && !h->active && !h->started &&
+  ext_plugin_status status =
+      (h->state == EXT_PLUGIN_HOST_CREATED && !h->active && !h->started &&
        (h->frames ||
         (!h->extension.connect && !h->extension_context.connect)))
-          ? EXT_OK
-          : EXT_INVALID;
+          ? EXT_PLUGIN_OK
+          : EXT_PLUGIN_INVALID;
   if (!status) {
     h->services = *s;
     if (!h->services.timeout_ms)
@@ -403,9 +403,9 @@ ext_status ext_host_set_services(ext_host *h, const ext_host_services *s) {
   pthread_mutex_unlock(&h->mu);
   return status;
 }
-static void observe_event(ext_host *h, const ext_call_options *options,
+static void observe_event(ext_plugin_host *h, const ext_plugin_call_options *options,
                           const char *stage, yyjson_val *request,
-                          ext_status status, yyjson_val *response,
+                          ext_plugin_status status, yyjson_val *response,
                           int64_t start) {
   if (!h->hooks.observe)
     return;
@@ -414,7 +414,7 @@ static void observe_event(ext_host *h, const ext_call_options *options,
       "closed",    "deadline_exceeded", "failed",  "failed",   "draining",
       "not_found", "ambiguous",         "canceled"};
   const char *code =
-      status >= 0 && status <= EXT_CANCELED ? codes[status] : "failed";
+      status >= 0 && status <= EXT_PLUGIN_CANCELED ? codes[status] : "failed";
   yyjson_val *remote =
       yyjson_obj_get(yyjson_obj_get(response, "error"), "code");
   if (!status && ext_text(remote, 0, 0))
@@ -452,16 +452,16 @@ static void observe_event(ext_host *h, const ext_call_options *options,
 }
 /* Signals the cancel of the running reverse calls: those of one call, or all of
  * them when call is NULL; the caller holds h->mu. */
-static void cancel_workers(ext_host *h, const pending_call *call);
-void ext_host_close(ext_host *h) {
+static void cancel_workers(ext_plugin_host *h, const pending_call *call);
+void ext_plugin_host_close(ext_plugin_host *h) {
   if (!h)
     return;
   int notify = 0;
   pthread_mutex_lock(&h->mu);
   if (!h->closed) {
     h->closed = 1;
-    if (h->state != EXT_HOST_FAILED)
-      h->state = EXT_HOST_CLOSED;
+    if (h->state != EXT_PLUGIN_HOST_FAILED)
+      h->state = EXT_PLUGIN_HOST_CLOSED;
     notify = 1;
     if (h->channel)
       ext_channel_kill(h->channel);
@@ -474,11 +474,11 @@ void ext_host_close(ext_host *h) {
   if (notify && h->extension_context.close)
     h->extension_context.close(h->extension_context.user);
 }
-static void stop_threads(ext_host *h);
-void ext_host_destroy(ext_host *h) {
+static void stop_threads(ext_plugin_host *h);
+void ext_plugin_host_destroy(ext_plugin_host *h) {
   if (!h)
     return;
-  ext_host_close(h);
+  ext_plugin_host_close(h);
   stop_threads(h);
   ext_channel_destroy(h->channel);
   if (h->extension.release)
@@ -497,8 +497,8 @@ void ext_host_destroy(ext_host *h) {
   pthread_mutex_destroy(&h->mu);
   free(h);
 }
-static void wait_changed(ext_host *h, int64_t deadline,
-                         const ext_call_options *o) {
+static void wait_changed(ext_plugin_host *h, int64_t deadline,
+                         const ext_plugin_call_options *o) {
   int64_t remain = deadline - mono_ms();
   if (remain <= 0)
     return;
@@ -525,15 +525,15 @@ static void wait_changed(ext_host *h, int64_t deadline,
   pthread_cond_timedwait(&h->changed, &h->mu, &t);
 #endif
 }
-static ext_status enter(ext_host *h, int64_t deadline, int starting,
-                        const ext_call_options *o) {
+static ext_plugin_status enter(ext_plugin_host *h, int64_t deadline, int starting,
+                        const ext_plugin_call_options *o) {
   pthread_mutex_lock(&h->mu);
-  ext_status status = canceled(o)                                 ? EXT_CANCELED
-                      : h->closed                                 ? EXT_CLOSED
-                      : h->state == EXT_HOST_DRAINING             ? EXT_DRAINING
-                      : (!starting && h->state != EXT_HOST_READY) ? EXT_INVALID
-                      : mono_ms() >= deadline                     ? EXT_TIMEOUT
-                                                                  : EXT_OK;
+  ext_plugin_status status = canceled(o)                                 ? EXT_PLUGIN_CANCELED
+                      : h->closed                                 ? EXT_PLUGIN_CLOSED
+                      : h->state == EXT_PLUGIN_HOST_DRAINING             ? EXT_PLUGIN_DRAINING
+                      : (!starting && h->state != EXT_PLUGIN_HOST_READY) ? EXT_PLUGIN_INVALID
+                      : mono_ms() >= deadline                     ? EXT_PLUGIN_TIMEOUT
+                                                                  : EXT_PLUGIN_OK;
   if (status) {
     pthread_mutex_unlock(&h->mu);
     return status;
@@ -543,15 +543,15 @@ static ext_status enter(ext_host *h, int64_t deadline, int starting,
   h->active++;
   uint32_t flags = h->extension.flags | h->extension_context.flags;
   while (h->running && !h->closed &&
-         (starting || !(flags & EXT_BACKEND_CONCURRENT))) {
+         (starting || !(flags & EXT_PLUGIN_BACKEND_CONCURRENT))) {
     if (canceled(o) || mono_ms() >= deadline)
       break;
     wait_changed(h, deadline, o);
   }
-  status = canceled(o)             ? EXT_CANCELED
-           : h->closed             ? EXT_CLOSED
-           : mono_ms() >= deadline ? EXT_TIMEOUT
-                                   : EXT_OK;
+  status = canceled(o)             ? EXT_PLUGIN_CANCELED
+           : h->closed             ? EXT_PLUGIN_CLOSED
+           : mono_ms() >= deadline ? EXT_PLUGIN_TIMEOUT
+                                   : EXT_PLUGIN_OK;
   if (status) {
     h->active--;
     pthread_cond_broadcast(&h->changed);
@@ -560,99 +560,99 @@ static ext_status enter(ext_host *h, int64_t deadline, int starting,
   pthread_mutex_unlock(&h->mu);
   return status;
 }
-static void leave(ext_host *h) {
+static void leave(ext_plugin_host *h) {
   pthread_mutex_lock(&h->mu);
   h->active--;
   h->running--;
   pthread_cond_broadcast(&h->changed);
   pthread_mutex_unlock(&h->mu);
 }
-static void fail(ext_host *h) {
+static void fail(ext_plugin_host *h) {
   pthread_mutex_lock(&h->mu);
   if (!h->closed)
-    h->state = EXT_HOST_FAILED;
+    h->state = EXT_PLUGIN_HOST_FAILED;
   pthread_mutex_unlock(&h->mu);
-  ext_host_close(h);
+  ext_plugin_host_close(h);
 }
-ext_host_state ext_host_get_state(ext_host *h) {
+ext_plugin_host_state ext_plugin_host_get_state(ext_plugin_host *h) {
   if (!h)
-    return EXT_HOST_CLOSED;
+    return EXT_PLUGIN_HOST_CLOSED;
   pthread_mutex_lock(&h->mu);
-  ext_host_state state = h->state;
+  ext_plugin_host_state state = h->state;
   pthread_mutex_unlock(&h->mu);
   return state;
 }
-ext_status ext_host_drain_with_options(ext_host *h, const ext_call_options *o) {
+ext_plugin_status ext_plugin_host_drain_with_options(ext_plugin_host *h, const ext_plugin_call_options *o) {
   if (!h || !valid_call(o))
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   if (canceled(o))
-    return EXT_CANCELED;
+    return EXT_PLUGIN_CANCELED;
   int64_t deadline = mono_ms() + o->timeout_ms;
   pthread_mutex_lock(&h->mu);
   if (h->closed) {
     pthread_mutex_unlock(&h->mu);
-    return EXT_OK;
+    return EXT_PLUGIN_OK;
   }
-  if (h->state != EXT_HOST_READY) {
-    ext_status s = h->state == EXT_HOST_DRAINING ? EXT_DRAINING : EXT_INVALID;
+  if (h->state != EXT_PLUGIN_HOST_READY) {
+    ext_plugin_status s = h->state == EXT_PLUGIN_HOST_DRAINING ? EXT_PLUGIN_DRAINING : EXT_PLUGIN_INVALID;
     pthread_mutex_unlock(&h->mu);
     return s;
   }
-  h->state = EXT_HOST_DRAINING;
+  h->state = EXT_PLUGIN_HOST_DRAINING;
   pthread_cond_broadcast(&h->changed);
   while (h->active && !h->closed) {
     if (canceled(o) || mono_ms() >= deadline) {
-      h->state = EXT_HOST_READY;
+      h->state = EXT_PLUGIN_HOST_READY;
       pthread_cond_broadcast(&h->changed);
       pthread_mutex_unlock(&h->mu);
-      return canceled(o) ? EXT_CANCELED : EXT_TIMEOUT;
+      return canceled(o) ? EXT_PLUGIN_CANCELED : EXT_PLUGIN_TIMEOUT;
     }
     wait_changed(h, deadline, o);
   }
   if (!h->closed && canceled(o)) {
-    h->state = EXT_HOST_READY;
+    h->state = EXT_PLUGIN_HOST_READY;
     pthread_cond_broadcast(&h->changed);
     pthread_mutex_unlock(&h->mu);
-    return EXT_CANCELED;
+    return EXT_PLUGIN_CANCELED;
   }
   pthread_mutex_unlock(&h->mu);
-  ext_host_close(h);
-  return EXT_OK;
+  ext_plugin_host_close(h);
+  return EXT_PLUGIN_OK;
 }
 /* The result sink prevents foreign allocator ownership from crossing the ABI.
  */
 typedef struct {
-  ext_buffer *out;
+  ext_plugin_buffer *out;
   int emitted;
-  ext_status status;
+  ext_plugin_status status;
 } result_sink;
-static ext_status emit_result(void *context, const uint8_t *data, size_t len) {
+static ext_plugin_status emit_result(void *context, const uint8_t *data, size_t len) {
   result_sink *sink = context;
-  if (sink->emitted++ || !data || !len || len > EXT_HOST_MAX_FRAME) {
-    sink->status = EXT_INVALID;
+  if (sink->emitted++ || !data || !len || len > EXT_PLUGIN_HOST_MAX_FRAME) {
+    sink->status = EXT_PLUGIN_INVALID;
     return sink->status;
   }
   sink->out->data = malloc(len);
   if (!sink->out->data) {
-    sink->status = EXT_NOMEM;
+    sink->status = EXT_PLUGIN_NOMEM;
     return sink->status;
   }
   memcpy(sink->out->data, data, len);
   sink->out->len = len;
-  return EXT_OK;
+  return EXT_PLUGIN_OK;
 }
-static ext_status extension_call(ext_host *h, const uint8_t *data, size_t len,
-                                 int64_t deadline, const ext_call_options *o,
-                                 ext_buffer *out) {
+static ext_plugin_status extension_call(ext_plugin_host *h, const uint8_t *data, size_t len,
+                                 int64_t deadline, const ext_plugin_call_options *o,
+                                 ext_plugin_buffer *out) {
   int64_t remaining = deadline - mono_ms();
   if (remaining <= 0)
-    return EXT_TIMEOUT;
+    return EXT_PLUGIN_TIMEOUT;
   if (canceled(o))
-    return EXT_CANCELED;
-  result_sink sink = {out, 0, EXT_OK};
-  ext_status s;
+    return EXT_PLUGIN_CANCELED;
+  result_sink sink = {out, 0, EXT_PLUGIN_OK};
+  ext_plugin_status s;
   if (h->extension_context.connect) {
-    ext_call_options call = *o;
+    ext_plugin_call_options call = *o;
     call.timeout_ms = (uint32_t)remaining;
     s = data ? h->extension_context.invoke(h->extension_context.user, data, len,
                                            &call, emit_result, &sink)
@@ -666,62 +666,62 @@ static ext_status extension_call(ext_host *h, const uint8_t *data, size_t len,
   }
   /* A backend that hands over its frames reports the violation the engine found
    * in them, so the session fails with the same status. */
-  if (s < EXT_OK || (s > EXT_CANCELED && !(h->frames && s == EXT_PROTOCOL)))
-    s = EXT_INVALID;
+  if (s < EXT_PLUGIN_OK || (s > EXT_PLUGIN_CANCELED && !(h->frames && s == EXT_PLUGIN_PROTOCOL)))
+    s = EXT_PLUGIN_INVALID;
   if (!s)
-    s = sink.status ? sink.status : sink.emitted == 1 ? EXT_OK : EXT_INVALID;
+    s = sink.status ? sink.status : sink.emitted == 1 ? EXT_PLUGIN_OK : EXT_PLUGIN_INVALID;
   return s;
 }
-static int closed(ext_host *h) {
+static int closed(ext_plugin_host *h) {
   pthread_mutex_lock(&h->mu);
   int result = h->closed;
   pthread_mutex_unlock(&h->mu);
   return result;
 }
-static ext_status ready(ext_host *h, int write, int64_t deadline,
-                        const ext_call_options *o) {
+static ext_plugin_status ready(ext_plugin_host *h, int write, int64_t deadline,
+                        const ext_plugin_call_options *o) {
   for (;;) {
     if (canceled(o))
-      return EXT_CANCELED;
+      return EXT_PLUGIN_CANCELED;
     if (closed(h))
-      return EXT_CLOSED;
+      return EXT_PLUGIN_CLOSED;
     int64_t ms = deadline - mono_ms();
     if (ms <= 0)
-      return EXT_TIMEOUT;
+      return EXT_PLUGIN_TIMEOUT;
     if (o->cancel && ms > 10)
       ms = 10;
     if (ms > INT_MAX)
       ms = INT_MAX;
-    ext_status s = ext_channel_wait(h->channel, write, (int)ms);
-    if (s == EXT_TIMEOUT)
+    ext_plugin_status s = ext_channel_wait(h->channel, write, (int)ms);
+    if (s == EXT_PLUGIN_TIMEOUT)
       continue;
-    if (s == EXT_OK)
-      return EXT_OK;
-    return closed(h) ? EXT_CLOSED : EXT_IO;
+    if (s == EXT_PLUGIN_OK)
+      return EXT_PLUGIN_OK;
+    return closed(h) ? EXT_PLUGIN_CLOSED : EXT_PLUGIN_IO;
   }
 }
-static ext_status write_bytes(ext_host *h, const uint8_t *p, size_t n,
-                              int64_t deadline, const ext_call_options *o) {
+static ext_plugin_status write_bytes(ext_plugin_host *h, const uint8_t *p, size_t n,
+                              int64_t deadline, const ext_plugin_call_options *o) {
   while (n) {
-    ext_status s = ready(h, 1, deadline, o);
+    ext_plugin_status s = ready(h, 1, deadline, o);
     if (s)
       return s;
     ptrdiff_t r = ext_channel_write(h->channel, p, n);
     if (!r)
       continue;
     if (r < 0)
-      return EXT_IO;
+      return EXT_PLUGIN_IO;
     p += r;
     n -= (size_t)r;
   }
-  return EXT_OK;
+  return EXT_PLUGIN_OK;
 }
 /* The call the frames being read belong to. A progress frame is legal only
  * while a call that declared progress is in flight, and names it as its parent;
  * anything else is a protocol violation. */
 typedef struct {
-  ext_host *host;
-  const ext_call_options *options;
+  ext_plugin_host *host;
+  const ext_plugin_call_options *options;
   int64_t deadline; /* of the call, on the monotonic clock */
   const char *id;
   int declared;     /* the request carried a progress rate */
@@ -734,24 +734,24 @@ typedef struct {
  * of the framing; one that is an object with a tag is a malformed frame, also a
  * violation; and an untagged object the strict step refuses (a duplicate key, an
  * unknown field, bad UTF-8) is an invalid response. */
-static ext_status unparsable(const uint8_t *line, size_t len) {
+static ext_plugin_status unparsable(const uint8_t *line, size_t len) {
   yyjson_doc *loose = yyjson_read(
       (const char *)line, len,
       YYJSON_READ_NUMBER_AS_RAW | YYJSON_READ_ALLOW_INVALID_UNICODE);
   yyjson_val *root = loose ? yyjson_doc_get_root(loose) : NULL;
   yyjson_val *tag = yyjson_is_obj(root) ? yyjson_obj_get(root, "frame") : NULL;
-  ext_status s = !yyjson_is_obj(root)                              ? EXT_PROTOCOL
-                 : tag && yyjson_is_str(tag) && yyjson_get_len(tag) ? EXT_PROTOCOL
-                                                                    : EXT_INVALID;
+  ext_plugin_status s = !yyjson_is_obj(root)                              ? EXT_PLUGIN_PROTOCOL
+                 : tag && yyjson_is_str(tag) && yyjson_get_len(tag) ? EXT_PLUGIN_PROTOCOL
+                                                                    : EXT_PLUGIN_INVALID;
   yyjson_doc_free(loose);
   return s;
 }
 /* One frame at a time on the channel: a frame is written whole, under wmu, by
  * whichever thread has one to send (a caller, a worker, the reader). */
-static ext_status write_frame(ext_host *h, const uint8_t *p, size_t n,
-                              int64_t deadline, const ext_call_options *o) {
+static ext_plugin_status write_frame(ext_plugin_host *h, const uint8_t *p, size_t n,
+                              int64_t deadline, const ext_plugin_call_options *o) {
   pthread_mutex_lock(&h->wmu);
-  ext_status s = write_bytes(h, p, n, deadline, o);
+  ext_plugin_status s = write_bytes(h, p, n, deadline, o);
   if (!s)
     s = write_bytes(h, (const uint8_t *)"\n", 1, deadline, o);
   pthread_mutex_unlock(&h->wmu);
@@ -767,26 +767,26 @@ typedef struct {
   size_t len;
   int emitted;
 } reverse_sink;
-static ext_status emit_reverse(void *context, uint32_t kind,
+static ext_plugin_status emit_reverse(void *context, uint32_t kind,
                                const uint8_t *data, size_t len) {
   reverse_sink *sink = context;
-  if (sink->emitted++ || kind > EXT_HOST_REVERSE_PUBLIC_ERROR ||
-      (len && !data) || len > EXT_HOST_MAX_FRAME)
-    return EXT_INVALID;
+  if (sink->emitted++ || kind > EXT_PLUGIN_HOST_REVERSE_PUBLIC_ERROR ||
+      (len && !data) || len > EXT_PLUGIN_HOST_MAX_FRAME)
+    return EXT_PLUGIN_INVALID;
   if (len) {
     sink->data = malloc(len);
     if (!sink->data)
-      return EXT_NOMEM;
+      return EXT_PLUGIN_NOMEM;
     memcpy(sink->data, data, len);
   }
   sink->kind = kind;
   sink->len = len;
-  return EXT_OK;
+  return EXT_PLUGIN_OK;
 }
 /* The Request the hooks receive: the plugin's frame as the host's own record of
  * the call, with the plugin's identity, the surface the descriptor declared for
  * the operation, and the call it belongs to as parent. */
-static char *reverse_request_json(ext_host *h, const ext_reverse_request *r,
+static char *reverse_request_json(ext_plugin_host *h, const ext_reverse_request *r,
                                   yyjson_val *declared, size_t *len) {
   yyjson_mut_doc *doc = yyjson_mut_doc_new(NULL);
   if (!doc)
@@ -834,24 +834,24 @@ static size_t payload_size(const ext_reverse_request *r) {
 }
 
 /* Decides what becomes of a validated reverse request; the caller holds h->mu.
- * live is the id of the call in flight, or NULL. On EXT_OK, *refusal is the code
+ * live is the id of the call in flight, or NULL. On EXT_PLUGIN_OK, *refusal is the code
  * to answer with, or NULL when the request is admitted and counted, and
  * *declared is the descriptor's entry for the operation. The checks and their
  * order are Session.admitReverse and the JSON-line client's: with no services
  * every request is unavailable whatever it names; otherwise a parent that is not
  * the call in flight fails the session, then undeclared, unavailable (the
  * handshake has not matched), too_large, expired, busy. */
-static ext_status admit_reverse(ext_host *h, const ext_reverse_request *r,
+static ext_plugin_status admit_reverse(ext_plugin_host *h, const ext_reverse_request *r,
                                 size_t payload_len, const char *live,
                                 const char **refusal, yyjson_val **declared) {
   *refusal = NULL;
   *declared = NULL;
   if (!h->has_services) {
     *refusal = EXT_REVERSE_UNAVAILABLE;
-    return EXT_OK;
+    return EXT_PLUGIN_OK;
   }
   if (r->parent && (!live || !yyjson_equals_str(r->parent, live)))
-    return EXT_PROTOCOL;
+    return EXT_PLUGIN_PROTOCOL;
   *declared = ext_lookup_in(
       yyjson_obj_get(yyjson_doc_get_root(h->selection), "reverse"), r->contract,
       r->operation);
@@ -867,18 +867,18 @@ static ext_status admit_reverse(ext_host *h, const ext_reverse_request *r,
     *refusal = EXT_REVERSE_BUSY;
   else
     h->reverses++;
-  return EXT_OK;
+  return EXT_PLUGIN_OK;
 }
 /* Answers a request with a refusal. */
-static ext_status refuse_reverse(ext_host *h, const ext_reverse_request *r,
+static ext_plugin_status refuse_reverse(ext_plugin_host *h, const ext_reverse_request *r,
                                  const char *code, int64_t deadline,
-                                 const ext_call_options *o) {
+                                 const ext_plugin_call_options *o) {
   size_t len = 0;
   char *line = ext_reverse_refusal(yyjson_get_str(r->id), yyjson_get_len(r->id),
                                    code, &len);
   if (!line)
-    return EXT_NOMEM;
-  ext_status s = write_frame(h, (const uint8_t *)line, len, deadline, o);
+    return EXT_PLUGIN_NOMEM;
+  ext_plugin_status s = write_frame(h, (const uint8_t *)line, len, deadline, o);
   free(line);
   return s;
 }
@@ -886,9 +886,9 @@ static ext_status refuse_reverse(ext_host *h, const ext_reverse_request *r,
 /* A reverse call that has been admitted and is running its hooks. */
 struct reverse_worker {
   reverse_worker *next;
-  ext_host *host;
+  ext_plugin_host *host;
   pthread_t thread;
-  ext_cancel *cancel; /* the hooks' cancel signal */
+  ext_plugin_cancel *cancel; /* the hooks' cancel signal */
   char *id;           /* the plugin's id for the request */
   size_t id_len;
   char *json; /* the Request the hooks receive */
@@ -899,7 +899,7 @@ struct reverse_worker {
   int threaded;          /* it runs on a thread of its own; else the backend's */
   void *value;           /* the options' value for the hooks */
   int64_t call_deadline; /* monotonic; call scoped */
-  /* In EXT_HOST_REVERSE_CALLER_THREAD mode: where the hooks are, and what they
+  /* In EXT_PLUGIN_HOST_REVERSE_CALLER_THREAD mode: where the hooks are, and what they
    * produced. Guarded by h->mu. */
   enum { HOOKS_ON_WORKER, HOOKS_QUEUED, HOOKS_RUNNING, HOOKS_DONE } hooks;
   reverse_worker *queued_next;
@@ -907,14 +907,14 @@ struct reverse_worker {
   size_t line_len;
   int64_t line_until;
 };
-static void cancel_workers(ext_host *h, const pending_call *call) {
+static void cancel_workers(ext_plugin_host *h, const pending_call *call) {
   for (reverse_worker *w = h->workers; w; w = w->next)
     if (!call || w->call == call)
-      ext_cancel_signal(w->cancel);
+      ext_plugin_cancel_signal(w->cancel);
 }
 static void destroy_worker(reverse_worker *w) {
   if (w) {
-    ext_cancel_destroy(w->cancel);
+    ext_plugin_cancel_destroy(w->cancel);
     free(w->id);
     free(w->json);
     free(w->line);
@@ -922,7 +922,7 @@ static void destroy_worker(reverse_worker *w) {
   }
 }
 /* Removes w from the running list; the caller holds h->mu. */
-static void unlink_worker(ext_host *h, reverse_worker *w) {
+static void unlink_worker(ext_plugin_host *h, reverse_worker *w) {
   for (reverse_worker **at = &h->workers; *at; at = &(*at)->next)
     if (*at == w) {
       *at = w->next;
@@ -930,7 +930,7 @@ static void unlink_worker(ext_host *h, reverse_worker *w) {
     }
 }
 /* Joins the workers that have finished. */
-static void reap_workers(ext_host *h) {
+static void reap_workers(ext_plugin_host *h) {
   pthread_mutex_lock(&h->mu);
   reverse_worker *list = h->finished;
   h->finished = NULL;
@@ -946,7 +946,7 @@ static void reap_workers(ext_host *h) {
  * already counted. It is on the running list before the lock is released, so a
  * call that ends, or a host that closes, cancels it. call is the call in flight
  * for a call-scoped request. */
-static reverse_worker *new_worker(ext_host *h, const ext_reverse_request *r,
+static reverse_worker *new_worker(ext_plugin_host *h, const ext_reverse_request *r,
                                   const pending_call *call);
 
 /* The call in flight, as the reader thread sees it. Its fields are guarded by
@@ -955,7 +955,7 @@ struct pending_call {
   const char *id;
   int declared; /* the request carried a progress rate */
   ext_progress_sink *sink;
-  const ext_call_options *options;
+  const ext_plugin_call_options *options;
   int64_t deadline; /* monotonic */
   int done;
   uint8_t *response;
@@ -968,17 +968,17 @@ struct pending_call {
 };
 /* The calls in flight are on a list under h->mu: one for a process the engine
  * reads, any number on a concurrent backend. */
-static pending_call *find_call(ext_host *h, const char *id, size_t len) {
+static pending_call *find_call(ext_plugin_host *h, const char *id, size_t len) {
   for (pending_call *c = h->calls; c; c = c->next)
     if (strlen(c->id) == len && !memcmp(c->id, id, len))
       return c;
   return NULL;
 }
-static void link_call(ext_host *h, pending_call *c) {
+static void link_call(ext_plugin_host *h, pending_call *c) {
   c->next = h->calls;
   h->calls = c;
 }
-static void unlink_call(ext_host *h, pending_call *c) {
+static void unlink_call(ext_plugin_host *h, pending_call *c) {
   for (pending_call **at = &h->calls; *at; at = &(*at)->next)
     if (*at == c) {
       *at = c->next;
@@ -989,7 +989,7 @@ static void unlink_call(ext_host *h, pending_call *c) {
 /* Takes a call off the list and waits for everything that holds it: the threads
  * handing it frames, and the hooks of its reverse requests, which are told to
  * stop. The caller holds h->mu. */
-static void end_call(ext_host *h, pending_call *call) {
+static void end_call(ext_plugin_host *h, pending_call *call) {
   unlink_call(h, call);
   cancel_workers(h, call);
   while (call->users || call->reverses)
@@ -1000,9 +1000,9 @@ static void end_call(ext_host *h, pending_call *call) {
  * the monotonic clock. The line is the engine's whole contribution to the
  * answer; writing it is the caller's. */
 static char *reverse_line(reverse_worker *w, size_t *len, int64_t *until) {
-  ext_host *h = w->host;
-  const ext_host_services *services = &h->services;
-  ext_call_options options = {sizeof(options), 1, w->cancel, w->value};
+  ext_plugin_host *h = w->host;
+  const ext_plugin_host_services *services = &h->services;
+  ext_plugin_call_options options = {sizeof(options), 1, w->cancel, w->value};
   reverse_sink sink = {0};
   char *line = NULL;
   /* The reverse deadline is the earliest of the plugin's, the call's (call
@@ -1023,12 +1023,12 @@ static char *reverse_line(reverse_worker *w, size_t *len, int64_t *until) {
   } else {
     options.timeout_ms =
         (uint32_t)earliest(reverse_deadline - mono_ms(), UINT32_MAX);
-    ext_status s =
+    ext_plugin_status s =
         services->handle(services->user, &options, (const uint8_t *)w->json,
                          w->json_len, emit_reverse, &sink);
     if (s || sink.emitted != 1) {
       line = ext_reverse_failure(w->id, w->id_len, len);
-    } else if (sink.kind != EXT_HOST_REVERSE_PUBLIC_ERROR &&
+    } else if (sink.kind != EXT_PLUGIN_HOST_REVERSE_PUBLIC_ERROR &&
                (canceled(&options) || mono_ms() >= reverse_deadline)) {
       /* A result that outlived its deadline is not one the plugin may use. */
       line = ext_reverse_failure(w->id, w->id_len, len);
@@ -1044,7 +1044,7 @@ static char *reverse_line(reverse_worker *w, size_t *len, int64_t *until) {
  * it. A request on a thread of its own is left for the reader to join; one that
  * ran on the backend's thread is freed here. */
 static void finish_worker(reverse_worker *w) {
-  ext_host *h = w->host;
+  ext_plugin_host *h = w->host;
   pthread_mutex_lock(&h->mu);
   unlink_worker(h, w);
   if (w->threaded) {
@@ -1060,7 +1060,7 @@ static void finish_worker(reverse_worker *w) {
     destroy_worker(w);
 }
 /* Takes the oldest queued request off the queue; the caller holds h->mu. */
-static reverse_worker *dequeue(ext_host *h) {
+static reverse_worker *dequeue(ext_plugin_host *h) {
   reverse_worker *w = h->queue_head;
   if (w) {
     h->queue_head = w->queued_next;
@@ -1070,7 +1070,7 @@ static reverse_worker *dequeue(ext_host *h) {
   }
   return w;
 }
-static void unqueue(ext_host *h, reverse_worker *w) {
+static void unqueue(ext_plugin_host *h, reverse_worker *w) {
   reverse_worker *previous = NULL;
   for (reverse_worker *q = h->queue_head; q; previous = q, q = q->queued_next)
     if (q == w) {
@@ -1086,7 +1086,7 @@ static void unqueue(ext_host *h, reverse_worker *w) {
 }
 /* Runs the hooks of the oldest queued request on this thread. The caller holds
  * h->mu, which is released while the hooks run. Returns whether it ran one. */
-static int run_queued(ext_host *h) {
+static int run_queued(ext_plugin_host *h) {
   reverse_worker *w = dequeue(h);
   if (!w)
     return 0;
@@ -1103,19 +1103,19 @@ static int run_queued(ext_host *h) {
   pthread_cond_broadcast(&h->changed);
   return 1;
 }
-/* In EXT_HOST_REVERSE_CALLER_THREAD mode: queues the request for a thread of
+/* In EXT_PLUGIN_HOST_REVERSE_CALLER_THREAD mode: queues the request for a thread of
  * the application and waits for its hooks to have run there. A request still
  * queued when it is canceled or its deadline passes is answered expired; one
  * that is running is waited for, since its hooks use the request. */
 static char *queued_line(reverse_worker *w, size_t *len, int64_t *until) {
-  ext_host *h = w->host;
+  ext_plugin_host *h = w->host;
   int64_t now = mono_ms();
   int64_t left = earliest(w->plugin_deadline_ms - ext_wall_ms(),
                           (int64_t)h->services.timeout_ms);
   if (w->call_scoped)
     left = earliest(left, w->call_deadline - now);
   int64_t deadline = now + left;
-  ext_call_options poll = {sizeof(poll), 1, w->cancel, NULL};
+  ext_plugin_call_options poll = {sizeof(poll), 1, w->cancel, NULL};
   char *line = NULL;
   pthread_mutex_lock(&h->mu);
   w->hooks = HOOKS_QUEUED;
@@ -1148,22 +1148,22 @@ static char *queued_line(reverse_worker *w, size_t *len, int64_t *until) {
 }
 static void *worker_main(void *arg) {
   reverse_worker *w = arg;
-  ext_host *h = w->host;
+  ext_plugin_host *h = w->host;
   size_t len = 0;
   int64_t reverse_deadline;
-  char *line = h->reverse_mode == EXT_HOST_REVERSE_CALLER_THREAD
+  char *line = h->reverse_mode == EXT_PLUGIN_HOST_REVERSE_CALLER_THREAD
                    ? queued_line(w, &len, &reverse_deadline)
                    : reverse_line(w, &len, &reverse_deadline);
   if (line) {
     /* A frame is written whole or the session is ended: cancellation must not
      * cut one short, so the write ignores the signal and is bounded by the call
      * (or, for a session-scoped request, a grace past its deadline). */
-    ext_call_options write_options = {sizeof(write_options), 1, NULL, NULL};
+    ext_plugin_call_options write_options = {sizeof(write_options), 1, NULL, NULL};
     int64_t until_write =
         w->call_scoped ? w->call_deadline : reverse_deadline + 30000;
-    ext_status s = write_frame(h, (const uint8_t *)line, len, until_write,
+    ext_plugin_status s = write_frame(h, (const uint8_t *)line, len, until_write,
                                &write_options);
-    if (s && s != EXT_CLOSED)
+    if (s && s != EXT_PLUGIN_CLOSED)
       fail(h);
   }
   free(line);
@@ -1174,10 +1174,10 @@ static void *worker_main(void *arg) {
  * handshake and for a plugin that declares no reverse operations. Nothing can be
  * admitted there (an operation is never declared, or the handshake has not
  * matched), so the answer is a refusal. */
-static ext_status serve_reverse(const frame_call *call, yyjson_val *frame) {
-  ext_host *h = call->host;
+static ext_plugin_status serve_reverse(const frame_call *call, yyjson_val *frame) {
+  ext_plugin_host *h = call->host;
   ext_reverse_request request;
-  ext_status s = ext_reverse_request_frame(frame, &request);
+  ext_plugin_status s = ext_reverse_request_frame(frame, &request);
   if (s)
     return s;
   size_t payload_len = payload_size(&request);
@@ -1198,7 +1198,7 @@ static ext_status serve_reverse(const frame_call *call, yyjson_val *frame) {
   return refuse_reverse(h, &request, refusal, call->deadline, call->options);
 }
 
-static reverse_worker *new_worker(ext_host *h, const ext_reverse_request *r,
+static reverse_worker *new_worker(ext_plugin_host *h, const ext_reverse_request *r,
                                   const pending_call *call) {
   reverse_worker *w = calloc(1, sizeof(*w));
   if (!w)
@@ -1206,7 +1206,7 @@ static reverse_worker *new_worker(ext_host *h, const ext_reverse_request *r,
   w->host = h;
   w->id_len = yyjson_get_len(r->id);
   w->id = malloc(w->id_len + 1);
-  if (!w->id || ext_cancel_create(&w->cancel)) {
+  if (!w->id || ext_plugin_cancel_create(&w->cancel)) {
     destroy_worker(w);
     return NULL;
   }
@@ -1230,34 +1230,34 @@ static reverse_worker *new_worker(ext_host *h, const ext_reverse_request *r,
 /* Routes one line the plugin sent, when this thread is the one waiting for the
  * response. A line without a "frame" tag is the response; *response says so, and
  * the caller validates it. */
-static ext_status route_frame(yyjson_doc *doc, const frame_call *call,
+static ext_plugin_status route_frame(yyjson_doc *doc, const frame_call *call,
                               int *response) {
   yyjson_val *root = yyjson_doc_get_root(doc), *tag;
   *response = 0;
   /* Only an object can be a frame or a response. A JSON null decodes in Go to
    * an empty response, whose id never names the call in flight: a violation. */
   if (!yyjson_is_obj(root))
-    return EXT_PROTOCOL;
+    return EXT_PLUGIN_PROTOCOL;
   tag = yyjson_obj_get(root, "frame");
   if (!tag || yyjson_is_null(tag) || yyjson_equals_str(tag, "")) {
     *response = 1;
-    return EXT_OK;
+    return EXT_PLUGIN_OK;
   }
   if (!yyjson_is_str(tag))
-    return EXT_PROTOCOL;
+    return EXT_PLUGIN_PROTOCOL;
   if (yyjson_equals_str(tag, "progress")) {
     ext_progress_event event;
     yyjson_val *parent;
-    ext_status s = ext_progress_frame(root, &event, &parent);
+    ext_plugin_status s = ext_progress_frame(root, &event, &parent);
     if (s)
       return s;
     if (!call || !call->declared || !yyjson_equals_str(parent, call->id))
-      return EXT_PROTOCOL;
+      return EXT_PLUGIN_PROTOCOL;
     return ext_progress_sink_deliver(call->sink, &event);
   }
   if (yyjson_equals_str(tag, "reverse_request"))
     return serve_reverse(call, root);
-  return EXT_PROTOCOL;
+  return EXT_PLUGIN_PROTOCOL;
 }
 /* Writes one request line and reads lines until the response. Progress frames
  * that arrive first are validated, limited and passed on through call. The
@@ -1265,12 +1265,12 @@ static ext_status route_frame(yyjson_doc *doc, const frame_call *call,
  * handshake of a plugin with a reader thread, which takes over what follows. On
  * success *parsed is the response, parsed, and out holds its bytes. This is the
  * path of a plugin with no reader thread, and of the handshake. */
-static ext_status exchange(ext_host *h, const uint8_t *p, size_t n,
-                           int64_t deadline, const ext_call_options *o,
+static ext_plugin_status exchange(ext_plugin_host *h, const uint8_t *p, size_t n,
+                           int64_t deadline, const ext_plugin_call_options *o,
                            const frame_call *call, int keep_tail,
-                           ext_buffer *out, yyjson_doc **parsed) {
+                           ext_plugin_buffer *out, yyjson_doc **parsed) {
   *parsed = NULL;
-  ext_status s = write_frame(h, p, n, deadline, o);
+  ext_plugin_status s = write_frame(h, p, n, deadline, o);
   if (s)
     return s;
   /* Bytes [start, len) are unprocessed; those before searched hold no newline. */
@@ -1281,8 +1281,8 @@ static ext_status exchange(ext_host *h, const uint8_t *p, size_t n,
                        : NULL;
     if (newline) {
       size_t end = (size_t)(newline - h->readbuf), frame = end - start;
-      if (frame > EXT_HOST_MAX_FRAME)
-        return EXT_INVALID;
+      if (frame > EXT_PLUGIN_HOST_MAX_FRAME)
+        return EXT_PLUGIN_INVALID;
       yyjson_doc *doc = ext_parse(h->readbuf + start, frame);
       int response = 0;
       s = doc ? route_frame(doc, call, &response)
@@ -1292,20 +1292,20 @@ static ext_status exchange(ext_host *h, const uint8_t *p, size_t n,
          * client; one that is malformed or has the wrong version is left to the
          * caller's validation. */
         yyjson_val *root = yyjson_doc_get_root(doc);
-        if (ext_response(root, call->id) == EXT_MISMATCH &&
+        if (ext_response(root, call->id) == EXT_PLUGIN_MISMATCH &&
             !yyjson_equals_str(yyjson_obj_get(root, "id"), call->id))
-          s = EXT_PROTOCOL;
+          s = EXT_PLUGIN_PROTOCOL;
         else if (end + 1 != len && !keep_tail)
-          s = EXT_INVALID;
+          s = EXT_PLUGIN_INVALID;
       }
       if (!s && !response) {
         /* A plugin that floods frames must not outlast the call. */
         if (canceled(o))
-          s = EXT_CANCELED;
+          s = EXT_PLUGIN_CANCELED;
         else if (closed(h))
-          s = EXT_CLOSED;
+          s = EXT_PLUGIN_CLOSED;
         else if (mono_ms() >= deadline)
-          s = EXT_TIMEOUT;
+          s = EXT_PLUGIN_TIMEOUT;
       }
       if (s) {
         yyjson_doc_free(doc);
@@ -1315,14 +1315,14 @@ static ext_status exchange(ext_host *h, const uint8_t *p, size_t n,
         out->data = malloc(frame ? frame : 1);
         if (!out->data) {
           yyjson_doc_free(doc);
-          return EXT_NOMEM;
+          return EXT_PLUGIN_NOMEM;
         }
         memcpy(out->data, h->readbuf + start, frame);
         out->len = frame;
         *parsed = doc;
         h->rb_start = end + 1;
         h->rb_len = len;
-        return EXT_OK;
+        return EXT_PLUGIN_OK;
       }
       yyjson_doc_free(doc);
       start = end + 1;
@@ -1338,13 +1338,13 @@ static ext_status exchange(ext_host *h, const uint8_t *p, size_t n,
     }
     if (len == h->capacity) {
       size_t next = h->capacity ? h->capacity * 2 : 4096;
-      if (next > EXT_HOST_MAX_FRAME + 1)
-        next = EXT_HOST_MAX_FRAME + 1;
+      if (next > EXT_PLUGIN_HOST_MAX_FRAME + 1)
+        next = EXT_PLUGIN_HOST_MAX_FRAME + 1;
       if (next <= len)
-        return EXT_INVALID;
+        return EXT_PLUGIN_INVALID;
       uint8_t *b = realloc(h->readbuf, next);
       if (!b)
-        return EXT_NOMEM;
+        return EXT_PLUGIN_NOMEM;
       h->readbuf = b;
       h->capacity = next;
     }
@@ -1356,7 +1356,7 @@ static ext_status exchange(ext_host *h, const uint8_t *p, size_t n,
     if (!r)
       continue;
     if (r < 0)
-      return EXT_IO;
+      return EXT_PLUGIN_IO;
     len += (size_t)r;
   }
 }
@@ -1364,18 +1364,18 @@ static ext_status exchange(ext_host *h, const uint8_t *p, size_t n,
 /* ---- the reader thread ---- */
 
 /* The response to the call it names. Takes the parsed line on success. */
-static ext_status reader_response(ext_host *h, yyjson_doc *doc,
+static ext_plugin_status reader_response(ext_plugin_host *h, yyjson_doc *doc,
                                   const uint8_t *line, size_t len) {
   yyjson_val *root = yyjson_doc_get_root(doc), *id = yyjson_obj_get(root, "id");
-  ext_status s = EXT_OK;
+  ext_plugin_status s = EXT_PLUGIN_OK;
   pthread_mutex_lock(&h->mu);
   pending_call *call =
       yyjson_is_str(id) ? find_call(h, yyjson_get_str(id), yyjson_get_len(id))
                         : NULL;
   if (!call || call->done)
-    s = EXT_PROTOCOL; /* a response to no call in flight */
+    s = EXT_PLUGIN_PROTOCOL; /* a response to no call in flight */
   else if (!(call->response = malloc(len ? len : 1)))
-    s = EXT_NOMEM;
+    s = EXT_PLUGIN_NOMEM;
   else {
     memcpy(call->response, line, len);
     call->response_len = len;
@@ -1383,7 +1383,7 @@ static ext_status reader_response(ext_host *h, yyjson_doc *doc,
     call->done = 1;
     /* The call has ended. On the caller's thread a hook of one of its requests
      * may be running on the very thread that would end it, so it is told now. */
-    if (h->reverse_mode == EXT_HOST_REVERSE_CALLER_THREAD)
+    if (h->reverse_mode == EXT_PLUGIN_HOST_REVERSE_CALLER_THREAD)
       cancel_workers(h, call);
     pthread_cond_broadcast(&h->changed);
   }
@@ -1393,13 +1393,13 @@ static ext_status reader_response(ext_host *h, yyjson_doc *doc,
 /* A progress event of a call in flight, passed to its sink outside the lock. The
  * call does not end while a thread is handing it frames, and events reach the sink
  * one at a time. */
-static ext_status progress_frame(ext_host *h, yyjson_val *frame,
+static ext_plugin_status progress_frame(ext_plugin_host *h, yyjson_val *frame,
                                  int *delivered) {
   ext_progress_event event;
   yyjson_val *parent;
   if (delivered)
     *delivered = 0;
-  ext_status s = ext_progress_frame(frame, &event, &parent);
+  ext_plugin_status s = ext_progress_frame(frame, &event, &parent);
   if (s)
     return s;
   pthread_mutex_lock(&h->mu);
@@ -1407,7 +1407,7 @@ static ext_status progress_frame(ext_host *h, yyjson_val *frame,
       find_call(h, yyjson_get_str(parent), yyjson_get_len(parent));
   if (!call || !call->declared) {
     pthread_mutex_unlock(&h->mu);
-    return EXT_PROTOCOL;
+    return EXT_PLUGIN_PROTOCOL;
   }
   call->users++;
   while (call->busy)
@@ -1422,17 +1422,17 @@ static ext_status progress_frame(ext_host *h, yyjson_val *frame,
   pthread_mutex_unlock(&h->mu);
   return s;
 }
-/* Validates and admits one reverse request. On EXT_OK either *refusal is the line
+/* Validates and admits one reverse request. On EXT_PLUGIN_OK either *refusal is the line
  * that answers it, or *worker is the admitted request with the Request its hooks
- * receive built. EXT_PROTOCOL for a request that breaks the framing rules.
+ * receive built. EXT_PLUGIN_PROTOCOL for a request that breaks the framing rules.
  * write_deadline, when not NULL, is how long an answer may take to write. */
-static ext_status reverse_admit(ext_host *h, yyjson_val *frame,
+static ext_plugin_status reverse_admit(ext_plugin_host *h, yyjson_val *frame,
                                 reverse_worker **worker, char **refusal,
                                 size_t *refusal_len, int64_t *write_deadline) {
   ext_reverse_request request;
   *worker = NULL;
   *refusal = NULL;
-  ext_status s = ext_reverse_request_frame(frame, &request);
+  ext_plugin_status s = ext_reverse_request_frame(frame, &request);
   if (s)
     return s;
   size_t payload_len = payload_size(&request);
@@ -1478,18 +1478,18 @@ static ext_status reverse_admit(ext_host *h, yyjson_val *frame,
                                    yyjson_get_len(request.id), code,
                                    refusal_len);
     if (!*refusal)
-      return EXT_NOMEM;
+      return EXT_PLUGIN_NOMEM;
   }
-  return EXT_OK;
+  return EXT_PLUGIN_OK;
 }
 /* A reverse request from the reader: refused here, or handed to a thread. */
-static ext_status reader_reverse(ext_host *h, yyjson_val *frame) {
+static ext_plugin_status reader_reverse(ext_plugin_host *h, yyjson_val *frame) {
   reverse_worker *w;
   char *refusal;
   size_t len = 0;
   int64_t write_deadline;
-  ext_call_options plain = {sizeof(plain), 1, NULL, NULL};
-  ext_status s = reverse_admit(h, frame, &w, &refusal, &len, &write_deadline);
+  ext_plugin_call_options plain = {sizeof(plain), 1, NULL, NULL};
+  ext_plugin_status s = reverse_admit(h, frame, &w, &refusal, &len, &write_deadline);
   if (s)
     return s;
   if (refusal) {
@@ -1511,34 +1511,34 @@ static ext_status reader_reverse(ext_host *h, yyjson_val *frame) {
     char *line = ext_reverse_refusal(w->id, w->id_len, EXT_REVERSE_BUSY, &len);
     destroy_worker(w);
     if (!line)
-      return EXT_NOMEM;
+      return EXT_PLUGIN_NOMEM;
     s = write_frame(h, (const uint8_t *)line, len, write_deadline, &plain);
     free(line);
     return s;
   }
-  return EXT_OK;
+  return EXT_PLUGIN_OK;
 }
-static ext_status reader_line(ext_host *h, const uint8_t *line, size_t len) {
+static ext_plugin_status reader_line(ext_plugin_host *h, const uint8_t *line, size_t len) {
   yyjson_doc *doc = ext_parse(line, len);
   if (!doc)
     return unparsable(line, len);
   yyjson_val *root = yyjson_doc_get_root(doc), *tag;
-  ext_status s;
+  ext_plugin_status s;
   if (!yyjson_is_obj(root)) {
-    s = EXT_PROTOCOL;
+    s = EXT_PLUGIN_PROTOCOL;
   } else if (!(tag = yyjson_obj_get(root, "frame")) || yyjson_is_null(tag) ||
              yyjson_equals_str(tag, "")) {
     s = reader_response(h, doc, line, len);
     if (!s)
-      return EXT_OK; /* the call owns the parsed response now */
+      return EXT_PLUGIN_OK; /* the call owns the parsed response now */
   } else if (!yyjson_is_str(tag)) {
-    s = EXT_PROTOCOL;
+    s = EXT_PLUGIN_PROTOCOL;
   } else if (yyjson_equals_str(tag, "progress")) {
     s = progress_frame(h, root, NULL);
   } else if (yyjson_equals_str(tag, "reverse_request")) {
     s = reader_reverse(h, root);
   } else {
-    s = EXT_PROTOCOL;
+    s = EXT_PLUGIN_PROTOCOL;
   }
   yyjson_doc_free(doc);
   return s;
@@ -1548,9 +1548,9 @@ static ext_status reader_line(ext_host *h, const uint8_t *line, size_t len) {
  * channel's input and h->readbuf from the end of the handshake. A violation or a
  * lost connection fails the session; the call in flight reports why. */
 static void *reader_main(void *arg) {
-  ext_host *h = arg;
+  ext_plugin_host *h = arg;
   size_t start = h->rb_start, len = h->rb_len, searched = start;
-  ext_status failure = EXT_OK;
+  ext_plugin_status failure = EXT_PLUGIN_OK;
   for (;;) {
     reap_workers(h);
     uint8_t *newline =
@@ -1558,8 +1558,8 @@ static void *reader_main(void *arg) {
                        : NULL;
     if (newline) {
       size_t end = (size_t)(newline - h->readbuf), frame = end - start;
-      if (frame > EXT_HOST_MAX_FRAME) {
-        failure = EXT_INVALID;
+      if (frame > EXT_PLUGIN_HOST_MAX_FRAME) {
+        failure = EXT_PLUGIN_INVALID;
         break;
       }
       if ((failure = reader_line(h, h->readbuf + start, frame)))
@@ -1577,35 +1577,35 @@ static void *reader_main(void *arg) {
     }
     if (len == h->capacity) {
       size_t next = h->capacity ? h->capacity * 2 : 4096;
-      if (next > EXT_HOST_MAX_FRAME + 1)
-        next = EXT_HOST_MAX_FRAME + 1;
+      if (next > EXT_PLUGIN_HOST_MAX_FRAME + 1)
+        next = EXT_PLUGIN_HOST_MAX_FRAME + 1;
       if (next <= len) {
-        failure = EXT_INVALID;
+        failure = EXT_PLUGIN_INVALID;
         break;
       }
       uint8_t *grown = realloc(h->readbuf, next);
       if (!grown) {
-        failure = EXT_NOMEM;
+        failure = EXT_PLUGIN_NOMEM;
         break;
       }
       h->readbuf = grown;
       h->capacity = next;
     }
     if (closed(h)) {
-      failure = EXT_CLOSED;
+      failure = EXT_PLUGIN_CLOSED;
       break;
     }
-    ext_status waited = ext_channel_wait(h->channel, 0, 100);
-    if (waited == EXT_TIMEOUT)
+    ext_plugin_status waited = ext_channel_wait(h->channel, 0, 100);
+    if (waited == EXT_PLUGIN_TIMEOUT)
       continue;
-    ptrdiff_t r = waited == EXT_OK ? ext_channel_read(h->channel,
+    ptrdiff_t r = waited == EXT_PLUGIN_OK ? ext_channel_read(h->channel,
                                                       h->readbuf + len,
                                                       h->capacity - len)
                                    : -1;
     if (!r)
       continue;
     if (r < 0) {
-      failure = closed(h) ? EXT_CLOSED : EXT_IO;
+      failure = closed(h) ? EXT_PLUGIN_CLOSED : EXT_PLUGIN_IO;
       break;
     }
     len += (size_t)r;
@@ -1613,7 +1613,7 @@ static void *reader_main(void *arg) {
   /* Fail the session, as the Go client does when it fails its connection: the
    * call in flight, if any, reports why, and a later call finds the host closed. */
   pthread_mutex_lock(&h->mu);
-  int ended = failure != EXT_CLOSED && !h->closed;
+  int ended = failure != EXT_PLUGIN_CLOSED && !h->closed;
   if (ended && h->calls && !h->reader_failure)
     h->reader_failure = failure;
   pthread_cond_broadcast(&h->changed);
@@ -1623,7 +1623,7 @@ static void *reader_main(void *arg) {
   return NULL;
 }
 /* Joins the threads a host started; the host is closed. */
-static void stop_threads(ext_host *h) {
+static void stop_threads(ext_plugin_host *h) {
   if (h->reader_started) {
     pthread_join(h->reader, NULL);
     h->reader_started = 0;
@@ -1639,10 +1639,10 @@ static void stop_threads(ext_host *h) {
  * call does not return until the hooks of its call-scoped reverse requests have,
  * so the options they borrow stay valid; they are cancelled the moment the call
  * ends, however it ends. */
-static ext_status exchange_threaded(ext_host *h, const uint8_t *p, size_t n,
+static ext_plugin_status exchange_threaded(ext_plugin_host *h, const uint8_t *p, size_t n,
                                     int64_t deadline,
-                                    const ext_call_options *o,
-                                    const frame_call *call, ext_buffer *out,
+                                    const ext_plugin_call_options *o,
+                                    const frame_call *call, ext_plugin_buffer *out,
                                     yyjson_doc **parsed) {
   pending_call pending = {0};
   pending.id = call->id;
@@ -1652,9 +1652,9 @@ static ext_status exchange_threaded(ext_host *h, const uint8_t *p, size_t n,
   pending.deadline = deadline;
   *parsed = NULL;
   pthread_mutex_lock(&h->mu);
-  ext_status s = h->reader_failure ? h->reader_failure
-                 : h->closed       ? EXT_CLOSED
-                                   : EXT_OK;
+  ext_plugin_status s = h->reader_failure ? h->reader_failure
+                 : h->closed       ? EXT_PLUGIN_CLOSED
+                                   : EXT_PLUGIN_OK;
   if (!s)
     link_call(h, &pending);
   pthread_mutex_unlock(&h->mu);
@@ -1664,21 +1664,21 @@ static ext_status exchange_threaded(ext_host *h, const uint8_t *p, size_t n,
   pthread_mutex_lock(&h->mu);
   /* A write that fails because the reader stopped the plugin reports why the
    * reader stopped: it records the cause before it kills the channel. */
-  if (s == EXT_IO && h->reader_failure)
+  if (s == EXT_PLUGIN_IO && h->reader_failure)
     s = h->reader_failure;
   while (!s && !pending.done && !h->closed && !h->reader_failure) {
     if (canceled(o))
-      s = EXT_CANCELED;
+      s = EXT_PLUGIN_CANCELED;
     else if (mono_ms() >= deadline)
-      s = EXT_TIMEOUT;
-    else if (h->reverse_mode == EXT_HOST_REVERSE_CALLER_THREAD &&
+      s = EXT_PLUGIN_TIMEOUT;
+    else if (h->reverse_mode == EXT_PLUGIN_HOST_REVERSE_CALLER_THREAD &&
              run_queued(h))
       continue; /* the hooks of a reverse request ran on this thread */
     else
       wait_changed(h, deadline, o);
   }
   if (!s && !pending.done)
-    s = h->reader_failure ? h->reader_failure : EXT_CLOSED;
+    s = h->reader_failure ? h->reader_failure : EXT_PLUGIN_CLOSED;
   end_call(h, &pending);
   pthread_mutex_unlock(&h->mu);
   reap_workers(h);
@@ -1693,16 +1693,16 @@ static ext_status exchange_threaded(ext_host *h, const uint8_t *p, size_t n,
   return s;
 }
 
-ext_status ext_host_serve_reverse(ext_host *h, const ext_call_options *o) {
+ext_plugin_status ext_plugin_host_serve_reverse(ext_plugin_host *h, const ext_plugin_call_options *o) {
   if (!h || !valid_call(o))
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   int64_t deadline = mono_ms() + o->timeout_ms;
   int served = 0;
-  ext_status s = EXT_OK;
+  ext_plugin_status s = EXT_PLUGIN_OK;
   pthread_mutex_lock(&h->mu);
-  if (h->reverse_mode != EXT_HOST_REVERSE_CALLER_THREAD) {
+  if (h->reverse_mode != EXT_PLUGIN_HOST_REVERSE_CALLER_THREAD) {
     pthread_mutex_unlock(&h->mu);
-    return EXT_UNSUPPORTED;
+    return EXT_PLUGIN_UNSUPPORTED;
   }
   for (;;) {
     if (run_queued(h)) {
@@ -1711,16 +1711,16 @@ ext_status ext_host_serve_reverse(ext_host *h, const ext_call_options *o) {
     }
     if (served)
       break;
-    if (h->closed || h->state == EXT_HOST_FAILED || h->state == EXT_HOST_CLOSED) {
-      s = EXT_CLOSED;
+    if (h->closed || h->state == EXT_PLUGIN_HOST_FAILED || h->state == EXT_PLUGIN_HOST_CLOSED) {
+      s = EXT_PLUGIN_CLOSED;
       break;
     }
     if (canceled(o)) {
-      s = EXT_CANCELED;
+      s = EXT_PLUGIN_CANCELED;
       break;
     }
     if (mono_ms() >= deadline) {
-      s = EXT_TIMEOUT;
+      s = EXT_PLUGIN_TIMEOUT;
       break;
     }
     wait_changed(h, deadline, o);
@@ -1728,61 +1728,61 @@ ext_status ext_host_serve_reverse(ext_host *h, const ext_call_options *o) {
   pthread_mutex_unlock(&h->mu);
   return s;
 }
-ext_status ext_host_process_stderr(ext_host *h, uint8_t *buffer,
+ext_plugin_status ext_plugin_host_process_stderr(ext_plugin_host *h, uint8_t *buffer,
                                    size_t capacity, size_t *length) {
   if (!h || !length || (capacity && !buffer))
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   pthread_mutex_lock(&h->mu);
   ext_channel *channel = h->channel;
   pthread_mutex_unlock(&h->mu);
   *length = channel ? ext_channel_stderr(channel, buffer, capacity) : 0;
-  return EXT_OK;
+  return EXT_PLUGIN_OK;
 }
-static ext_status spawn_child(ext_host *h) {
+static ext_plugin_status spawn_child(ext_plugin_host *h) {
   ext_launch launch = {h->path,     h->arguments,    h->environment,
                        h->directory, h->capture,      h->stderr_limit};
   ext_channel *channel = NULL;
   pthread_mutex_lock(&h->mu);
   if (h->closed) {
     pthread_mutex_unlock(&h->mu);
-    return EXT_CLOSED;
+    return EXT_PLUGIN_CLOSED;
   }
-  ext_status s = ext_channel_open(&launch, &channel);
+  ext_plugin_status s = ext_channel_open(&launch, &channel);
   if (!s)
     h->channel = channel;
   pthread_mutex_unlock(&h->mu);
   return s;
 }
-ext_status ext_host_start_with_options(ext_host *h, const ext_call_options *o) {
+ext_plugin_status ext_plugin_host_start_with_options(ext_plugin_host *h, const ext_plugin_call_options *o) {
   if (!h || !valid_call(o))
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   uint32_t timeout = o->timeout_ms;
   int64_t deadline = mono_ms() + timeout;
-  ext_status s = enter(h, deadline, 1, o);
+  ext_plugin_status s = enter(h, deadline, 1, o);
   if (s)
     return s;
   if (h->started) {
     leave(h);
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   }
   h->started = 1;
   int64_t stage_start = mono_ms();
   if (h->hooks.verify
           ? h->hooks.verify(h->hooks.user, o, h->descriptor, h->descriptor_len)
           : h->verify(h->user, h->descriptor, h->descriptor_len))
-    s = EXT_DENIED;
+    s = EXT_PLUGIN_DENIED;
   observe_event(h, o, "verify", NULL, s, NULL, stage_start);
   stage_start = mono_ms();
   if (!s && canceled(o))
-    s = EXT_CANCELED;
+    s = EXT_PLUGIN_CANCELED;
   if (!s && mono_ms() >= deadline)
-    s = EXT_TIMEOUT;
+    s = EXT_PLUGIN_TIMEOUT;
   if (!s && closed(h))
-    s = EXT_CLOSED;
+    s = EXT_PLUGIN_CLOSED;
   int connecting = !s;
   if (!s && !(h->extension.connect || h->extension_context.connect))
     s = spawn_child(h);
-  ext_buffer response = {0};
+  ext_plugin_buffer response = {0};
   yyjson_doc *doc = NULL;
   if (!s && (h->extension.connect || h->extension_context.connect))
     s = extension_call(h, NULL, 0, deadline, o, &response);
@@ -1810,16 +1810,16 @@ ext_status ext_host_start_with_options(ext_host *h, const ext_call_options *o) {
     if (!doc)
       doc = ext_parse(response.data, response.len);
     if (!doc)
-      s = EXT_INVALID;
+      s = EXT_PLUGIN_INVALID;
     else if (h->extension.connect || h->extension_context.connect) {
       if (!ext_match(yyjson_doc_get_root(h->selection),
                      yyjson_doc_get_root(doc)))
-        s = EXT_MISMATCH;
+        s = EXT_PLUGIN_MISMATCH;
     } else {
       s = ext_response(yyjson_doc_get_root(doc), "hello");
       if (!s && !ext_match(yyjson_doc_get_root(h->selection),
                            yyjson_obj_get(yyjson_doc_get_root(doc), "payload")))
-        s = EXT_MISMATCH;
+        s = EXT_PLUGIN_MISMATCH;
     }
   }
   if (!s && handshaking) {
@@ -1829,23 +1829,23 @@ ext_status ext_host_start_with_options(ext_host *h, const ext_call_options *o) {
     pthread_mutex_unlock(&h->mu);
   }
   if (!s && canceled(o))
-    s = EXT_CANCELED;
+    s = EXT_PLUGIN_CANCELED;
   if (!s && mono_ms() >= deadline)
-    s = EXT_TIMEOUT;
+    s = EXT_PLUGIN_TIMEOUT;
   if (!s && closed(h))
-    s = EXT_CLOSED;
+    s = EXT_PLUGIN_CLOSED;
   if (handshaking)
     observe_event(h, o, "handshake", NULL, s, NULL, stage_start);
   yyjson_doc_free(doc);
-  ext_buffer_free(&response);
+  ext_plugin_buffer_free(&response);
   if (s) {
     fail(h);
   } else {
     pthread_mutex_lock(&h->mu);
     if (!h->closed)
-      h->state = EXT_HOST_READY;
+      h->state = EXT_PLUGIN_HOST_READY;
     else
-      s = EXT_CLOSED;
+      s = EXT_PLUGIN_CLOSED;
     pthread_mutex_unlock(&h->mu);
   }
   /* A plugin that declares reverse operations gets a reader thread, which takes
@@ -1855,7 +1855,7 @@ ext_status ext_host_start_with_options(ext_host *h, const ext_call_options *o) {
    * start. */
   if (!s && h->threaded) {
     if (pthread_create(&h->reader, NULL, reader_main, h)) {
-      s = EXT_IO;
+      s = EXT_PLUGIN_IO;
       fail(h);
     } else {
       h->reader_started = 1;
@@ -1864,27 +1864,27 @@ ext_status ext_host_start_with_options(ext_host *h, const ext_call_options *o) {
   leave(h);
   return s;
 }
-static ext_status invoke_impl(ext_host *h, const uint8_t *input, size_t len,
-                              const ext_call_options *o,
-                              const ext_progress_options *progress,
-                              ext_buffer *out) {
+static ext_plugin_status invoke_impl(ext_plugin_host *h, const uint8_t *input, size_t len,
+                              const ext_plugin_call_options *o,
+                              const ext_plugin_progress_options *progress,
+                              ext_plugin_buffer *out) {
   if (!out)
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   out->data = NULL;
   out->len = 0;
   if (!h || !valid_call(o))
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   int64_t stage_start = mono_ms();
   uint32_t timeout = o->timeout_ms;
   int64_t deadline = mono_ms() + timeout;
   yyjson_doc *request = ext_parse(input, len);
   if (!request) {
-    observe_event(h, o, "invoke", NULL, EXT_INVALID, NULL, stage_start);
-    return EXT_INVALID;
+    observe_event(h, o, "invoke", NULL, EXT_PLUGIN_INVALID, NULL, stage_start);
+    return EXT_PLUGIN_INVALID;
   }
   yyjson_val *r = yyjson_doc_get_root(request);
   int64_t wall_deadline;
-  ext_status s =
+  ext_plugin_status s =
       ext_request(yyjson_doc_get_root(h->selection), r, &wall_deadline);
   if (s) {
     observe_event(h, o, "invoke", r, s, NULL, stage_start);
@@ -1893,9 +1893,9 @@ static ext_status invoke_impl(ext_host *h, const uint8_t *input, size_t len,
   }
   int64_t remaining = wall_deadline - ext_wall_ms();
   if (remaining <= 0) {
-    observe_event(h, o, "invoke", r, EXT_TIMEOUT, NULL, stage_start);
+    observe_event(h, o, "invoke", r, EXT_PLUGIN_TIMEOUT, NULL, stage_start);
     yyjson_doc_free(request);
-    return EXT_TIMEOUT;
+    return EXT_PLUGIN_TIMEOUT;
   }
   if (remaining < (int64_t)timeout)
     deadline = mono_ms() + remaining;
@@ -1922,30 +1922,30 @@ static ext_status invoke_impl(ext_host *h, const uint8_t *input, size_t len,
     return s;
   }
   if (!h->started) {
-    s = EXT_INVALID;
+    s = EXT_PLUGIN_INVALID;
     goto done;
   }
   if (h->hooks.authorize ? h->hooks.authorize(h->hooks.user, o, input, len)
                          : h->authorize(h->user, input, len)) {
-    s = EXT_DENIED;
+    s = EXT_PLUGIN_DENIED;
     goto done;
   }
   if (closed(h)) {
-    s = EXT_CLOSED;
+    s = EXT_PLUGIN_CLOSED;
     goto done;
   }
   if (canceled(o)) {
-    s = EXT_CANCELED;
+    s = EXT_PLUGIN_CANCELED;
     goto done;
   }
   if (mono_ms() >= deadline) {
-    s = EXT_TIMEOUT;
+    s = EXT_PLUGIN_TIMEOUT;
     goto done;
   }
   size_t compact_len;
   char *compact = yyjson_write(request, 0, &compact_len);
   if (!compact) {
-    s = EXT_NOMEM;
+    s = EXT_PLUGIN_NOMEM;
     goto done;
   }
   yyjson_doc *response = NULL;
@@ -1982,20 +1982,20 @@ static ext_status invoke_impl(ext_host *h, const uint8_t *input, size_t len,
     if (!response)
       response = ext_parse(out->data, out->len);
     if (!response)
-      s = EXT_INVALID;
+      s = EXT_PLUGIN_INVALID;
     else
       s = ext_response(yyjson_doc_get_root(response),
                        yyjson_get_str(yyjson_obj_get(r, "id")));
   }
   yyjson_doc_free(response);
   if (!s && canceled(o))
-    s = EXT_CANCELED;
+    s = EXT_PLUGIN_CANCELED;
   if (!s && mono_ms() >= deadline)
-    s = EXT_TIMEOUT;
+    s = EXT_PLUGIN_TIMEOUT;
   if (!s && closed(h))
-    s = EXT_CLOSED;
+    s = EXT_PLUGIN_CLOSED;
   if (s) {
-    ext_buffer_free(out);
+    ext_plugin_buffer_free(out);
     fail(h);
   }
 done:
@@ -2013,49 +2013,49 @@ done:
   return s;
 }
 
-ext_status ext_host_invoke_with_options(ext_host *h, const uint8_t *input,
-                                        size_t len, const ext_call_options *o,
-                                        ext_buffer *out) {
+ext_plugin_status ext_plugin_host_invoke_with_options(ext_plugin_host *h, const uint8_t *input,
+                                        size_t len, const ext_plugin_call_options *o,
+                                        ext_plugin_buffer *out) {
   return invoke_impl(h, input, len, o, NULL, out);
 }
 
-ext_status ext_host_start(ext_host *h, uint32_t timeout) {
-  ext_call_options o = {sizeof(o), timeout, NULL, NULL};
-  return ext_host_start_with_options(h, &o);
+ext_plugin_status ext_plugin_host_start(ext_plugin_host *h, uint32_t timeout) {
+  ext_plugin_call_options o = {sizeof(o), timeout, NULL, NULL};
+  return ext_plugin_host_start_with_options(h, &o);
 }
-ext_status ext_host_invoke(ext_host *h, const uint8_t *data, size_t len,
-                           uint32_t timeout, ext_buffer *out) {
-  ext_call_options o = {sizeof(o), timeout, NULL, NULL};
-  return ext_host_invoke_with_options(h, data, len, &o, out);
+ext_plugin_status ext_plugin_host_invoke(ext_plugin_host *h, const uint8_t *data, size_t len,
+                           uint32_t timeout, ext_plugin_buffer *out) {
+  ext_plugin_call_options o = {sizeof(o), timeout, NULL, NULL};
+  return ext_plugin_host_invoke_with_options(h, data, len, &o, out);
 }
-ext_status ext_host_drain(ext_host *h, uint32_t timeout) {
-  ext_call_options o = {sizeof(o), timeout, NULL, NULL};
-  return ext_host_drain_with_options(h, &o);
+ext_plugin_status ext_plugin_host_drain(ext_plugin_host *h, uint32_t timeout) {
+  ext_plugin_call_options o = {sizeof(o), timeout, NULL, NULL};
+  return ext_plugin_host_drain_with_options(h, &o);
 }
 
 /* Builds authoritative request metadata from the immutable selection. */
-static ext_status call_impl(ext_host *h, const uint8_t *input, size_t len,
-                            const ext_call_options *options,
-                            const ext_progress_options *progress,
+static ext_plugin_status call_impl(ext_plugin_host *h, const uint8_t *input, size_t len,
+                            const ext_plugin_call_options *options,
+                            const ext_plugin_progress_options *progress,
                             ext_call_begun begun, void *begun_context,
-                            ext_buffer *out) {
+                            ext_plugin_buffer *out) {
   if (!out)
-    return EXT_INVALID;
-  *out = (ext_buffer){0};
+    return EXT_PLUGIN_INVALID;
+  *out = (ext_plugin_buffer){0};
   if (!h || !valid_call(options))
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   if (progress && (progress->struct_size != sizeof(*progress) ||
                    progress->events_per_second > (1u << 20) ||
                    progress->bytes_per_second > (1u << 30)))
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   int64_t started = mono_ms();
   yyjson_doc *doc = ext_parse(input, len);
   if (!doc)
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   yyjson_val *call = yyjson_doc_get_root(doc),
              *ref = yyjson_obj_get(call, "contract"),
              *name = yyjson_obj_get(call, "operation");
-  ext_status status = EXT_INVALID;
+  ext_plugin_status status = EXT_PLUGIN_INVALID;
   /* Only the shape is checked here. A name or version no validated descriptor
    * can hold is an unsupported operation, as in the Go session, not invalid. */
   if (!EXT_FIELDS(call, "contract", "operation", "payload") ||
@@ -2068,23 +2068,23 @@ static ext_status call_impl(ext_host *h, const uint8_t *input, size_t len,
    * already canceled, an operation the descriptor does not list, then a
    * session that is no longer ready. */
   if (canceled(options)) {
-    observe_event(h, options, "invoke", call, EXT_CANCELED, NULL, started);
-    status = EXT_CANCELED;
+    observe_event(h, options, "invoke", call, EXT_PLUGIN_CANCELED, NULL, started);
+    status = EXT_PLUGIN_CANCELED;
     goto done;
   }
   yyjson_val *operation =
       ext_lookup(yyjson_doc_get_root(h->selection), ref, name);
   if (!operation) {
-    observe_event(h, options, "invoke", call, EXT_UNSUPPORTED, NULL, started);
-    status = EXT_UNSUPPORTED;
+    observe_event(h, options, "invoke", call, EXT_PLUGIN_UNSUPPORTED, NULL, started);
+    status = EXT_PLUGIN_UNSUPPORTED;
     goto done;
   }
   pthread_mutex_lock(&h->mu);
-  ext_status gate = h->closed || h->state == EXT_HOST_FAILED ||
-                            h->state == EXT_HOST_CLOSED
-                        ? EXT_CLOSED
-                    : h->state == EXT_HOST_DRAINING ? EXT_DRAINING
-                                                    : EXT_OK;
+  ext_plugin_status gate = h->closed || h->state == EXT_PLUGIN_HOST_FAILED ||
+                            h->state == EXT_PLUGIN_HOST_CLOSED
+                        ? EXT_PLUGIN_CLOSED
+                    : h->state == EXT_PLUGIN_HOST_DRAINING ? EXT_PLUGIN_DRAINING
+                                                    : EXT_PLUGIN_OK;
   pthread_mutex_unlock(&h->mu);
   if (gate) {
     observe_event(h, options, "invoke", call, gate, NULL, started);
@@ -2108,7 +2108,7 @@ static ext_status call_impl(ext_host *h, const uint8_t *input, size_t len,
   snprintf(date, sizeof(date), "%s.%03lldZ", stamp, (long long)(wall % 1000));
   yyjson_mut_doc *request = yyjson_mut_doc_new(NULL);
   if (!request) {
-    status = EXT_NOMEM;
+    status = EXT_PLUGIN_NOMEM;
     goto done;
   }
   yyjson_mut_val *root = yyjson_mut_obj(request);
@@ -2153,7 +2153,7 @@ static ext_status call_impl(ext_host *h, const uint8_t *input, size_t len,
   }
   status = bytes ? invoke_impl(h, (const uint8_t *)bytes, count, options,
                                progress, out)
-                 : EXT_NOMEM;
+                 : EXT_PLUGIN_NOMEM;
   free(bytes);
   yyjson_mut_doc_free(request);
 done:
@@ -2161,17 +2161,17 @@ done:
   return status;
 }
 
-ext_status ext_host_call(ext_host *h, const uint8_t *input, size_t len,
-                         const ext_call_options *options, ext_buffer *out) {
+ext_plugin_status ext_plugin_host_call(ext_plugin_host *h, const uint8_t *input, size_t len,
+                         const ext_plugin_call_options *options, ext_plugin_buffer *out) {
   return call_impl(h, input, len, options, NULL, NULL, NULL, out);
 }
-ext_status ext_host_call_begun(ext_host *h, const uint8_t *input, size_t len,
-                               const ext_call_options *options,
+ext_plugin_status ext_host_call_begun(ext_plugin_host *h, const uint8_t *input, size_t len,
+                               const ext_plugin_call_options *options,
                                ext_call_begun begun, void *context,
-                               ext_buffer *out) {
+                               ext_plugin_buffer *out) {
   return call_impl(h, input, len, options, NULL, begun, context, out);
 }
-int ext_host_serves(ext_host *h, yyjson_val *ref) {
+int ext_host_serves(ext_plugin_host *h, yyjson_val *ref) {
   size_t i, n;
   yyjson_val *c;
   yyjson_arr_foreach(
@@ -2179,45 +2179,45 @@ int ext_host_serves(ext_host *h, yyjson_val *ref) {
       c) if (ext_same_ref(c, ref)) return 1;
   return 0;
 }
-ext_status ext_host_call_progress(ext_host *h, const uint8_t *input, size_t len,
-                                  const ext_call_options *options,
-                                  const ext_progress_options *progress,
-                                  ext_buffer *out) {
+ext_plugin_status ext_plugin_host_call_progress(ext_plugin_host *h, const uint8_t *input, size_t len,
+                                  const ext_plugin_call_options *options,
+                                  const ext_plugin_progress_options *progress,
+                                  ext_plugin_buffer *out) {
   return call_impl(h, input, len, options, progress, NULL, NULL, out);
 }
 
 /* ---- frames from an extension backend ---- */
 
-ext_status ext_host_backend_progress(ext_host *h, const uint8_t *frame,
+ext_plugin_status ext_plugin_host_backend_progress(ext_plugin_host *h, const uint8_t *frame,
                                      size_t len, int *delivered) {
   if (delivered)
     *delivered = 0;
   if (!h || !h->frames || !frame)
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   yyjson_doc *doc = ext_parse(frame, len);
   if (!doc)
-    return EXT_PROTOCOL;
-  ext_status s = progress_frame(h, yyjson_doc_get_root(doc), delivered);
+    return EXT_PLUGIN_PROTOCOL;
+  ext_plugin_status s = progress_frame(h, yyjson_doc_get_root(doc), delivered);
   yyjson_doc_free(doc);
   return s;
 }
-ext_status ext_host_backend_reverse_admit(ext_host *h, const uint8_t *frame,
+ext_plugin_status ext_plugin_host_backend_reverse_admit(ext_plugin_host *h, const uint8_t *frame,
                                           size_t len,
-                                          ext_reverse_ticket **ticket,
-                                          ext_buffer *answer) {
+                                          ext_plugin_reverse_ticket **ticket,
+                                          ext_plugin_buffer *answer) {
   if (!ticket || !answer)
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   *ticket = NULL;
-  *answer = (ext_buffer){0};
+  *answer = (ext_plugin_buffer){0};
   if (!h || !h->frames || !frame)
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   yyjson_doc *doc = ext_parse(frame, len);
   if (!doc)
-    return EXT_PROTOCOL;
+    return EXT_PLUGIN_PROTOCOL;
   reverse_worker *w;
   char *refusal;
   size_t refusal_len = 0;
-  ext_status s = reverse_admit(h, yyjson_doc_get_root(doc), &w, &refusal,
+  ext_plugin_status s = reverse_admit(h, yyjson_doc_get_root(doc), &w, &refusal,
                                &refusal_len, NULL);
   yyjson_doc_free(doc);
   if (s)
@@ -2226,19 +2226,19 @@ ext_status ext_host_backend_reverse_admit(ext_host *h, const uint8_t *frame,
     answer->data = (uint8_t *)refusal;
     answer->len = refusal_len;
   } else {
-    *ticket = (ext_reverse_ticket *)w;
+    *ticket = (ext_plugin_reverse_ticket *)w;
   }
-  return EXT_OK;
+  return EXT_PLUGIN_OK;
 }
-ext_status ext_host_backend_reverse_run(ext_host *h, ext_reverse_ticket *ticket,
-                                        const ext_cancel *caller,
-                                        ext_buffer *answer) {
+ext_plugin_status ext_plugin_host_backend_reverse_run(ext_plugin_host *h, ext_plugin_reverse_ticket *ticket,
+                                        const ext_plugin_cancel *caller,
+                                        ext_plugin_buffer *answer) {
   if (!answer)
-    return EXT_INVALID;
-  *answer = (ext_buffer){0};
+    return EXT_PLUGIN_INVALID;
+  *answer = (ext_plugin_buffer){0};
   reverse_worker *w = (reverse_worker *)ticket;
   if (!h || !w || w->host != h)
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   /* The caller's own signal ends the hooks early, as the engine's does. */
   ext_cancel_link(w->cancel, caller);
   size_t len = 0;
@@ -2246,8 +2246,8 @@ ext_status ext_host_backend_reverse_run(ext_host *h, ext_reverse_ticket *ticket,
   char *line = reverse_line(w, &len, &until);
   finish_worker(w);
   if (!line)
-    return EXT_NOMEM;
+    return EXT_PLUGIN_NOMEM;
   answer->data = (uint8_t *)line;
   answer->len = len;
-  return EXT_OK;
+  return EXT_PLUGIN_OK;
 }

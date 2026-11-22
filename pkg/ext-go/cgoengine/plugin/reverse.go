@@ -50,7 +50,7 @@ func (h *Host) setReverse(ctx context.Context, o *plugin.ReverseOptions) error {
 
 // serveReverse installs the services: the binding's hooks, or, with a registry,
 // the binding's Authorize and the registry as the handler.
-func (h *Host) serveReverse(ctx context.Context, o *plugin.ReverseOptions, registry *C.ext_registry) error {
+func (h *Host) serveReverse(ctx context.Context, o *plugin.ReverseOptions, registry *C.ext_plugin_registry) error {
 	timeout := uint64(0)
 	if o.Timeout > 0 {
 		timeout = uint64((o.Timeout + time.Millisecond - 1) / time.Millisecond)
@@ -60,7 +60,7 @@ func (h *Host) serveReverse(ctx context.Context, o *plugin.ReverseOptions, regis
 	}
 	binding := cgo.NewHandle(&reverseBinding{options: *o})
 	session := cgo.NewHandle(context.WithoutCancel(ctx))
-	var code C.ext_status
+	var code C.ext_plugin_status
 	if registry != nil {
 		code = C.ext_go_attach_registry(registry, h.ptr, C.uintptr_t(binding), C.uintptr_t(session), C.uint32_t(timeout), C.uint32_t(o.MaxPayloadBytes), C.uint32_t(o.MaxInFlight))
 	} else {
@@ -143,11 +143,11 @@ func ctxGoReverseAuthorize(handle C.uintptr_t, parent C.uintptr_t, signal C.uint
 }
 
 //export ctxGoReverseHandle
-func ctxGoReverseHandle(handle C.uintptr_t, parent C.uintptr_t, signal C.uintptr_t, timeout C.uint32_t, data *C.uint8_t, n C.size_t, emit C.ext_reverse_emit, sink unsafe.Pointer) (result C.int32_t) {
-	result = C.EXT_IO // a handler that fails, or panics, is a failure the plugin sees as operation_failed
+func ctxGoReverseHandle(handle C.uintptr_t, parent C.uintptr_t, signal C.uintptr_t, timeout C.uint32_t, data *C.uint8_t, n C.size_t, emit C.ext_plugin_reverse_emit, sink unsafe.Pointer) (result C.int32_t) {
+	result = C.EXT_PLUGIN_IO // a handler that fails, or panics, is a failure the plugin sees as operation_failed
 	defer func() {
 		if recover() != nil {
-			result = C.EXT_IO
+			result = C.EXT_PLUGIN_IO
 		}
 	}()
 	b := cgo.Handle(handle).Value().(*reverseBinding)
@@ -163,10 +163,10 @@ func ctxGoReverseHandle(handle C.uintptr_t, parent C.uintptr_t, signal C.uintptr
 		var remote *plugin.RemoteError
 		if errors.As(err, &remote) && remote != nil {
 			if raw, merr := json.Marshal(remote); merr == nil {
-				return C.int32_t(C.ext_go_reverse_emit(emit, sink, C.uint32_t(C.EXT_HOST_REVERSE_PUBLIC_ERROR), bytesPointer(raw), C.size_t(len(raw))))
+				return C.int32_t(C.ext_go_reverse_emit(emit, sink, C.uint32_t(C.EXT_PLUGIN_HOST_REVERSE_PUBLIC_ERROR), bytesPointer(raw), C.size_t(len(raw))))
 			}
 		}
 		return result
 	}
-	return C.int32_t(C.ext_go_reverse_emit(emit, sink, C.uint32_t(C.EXT_HOST_REVERSE_PAYLOAD), bytesPointer(payload), C.size_t(len(payload))))
+	return C.int32_t(C.ext_go_reverse_emit(emit, sink, C.uint32_t(C.EXT_PLUGIN_HOST_REVERSE_PAYLOAD), bytesPointer(payload), C.size_t(len(payload))))
 }

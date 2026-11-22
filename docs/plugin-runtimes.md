@@ -153,16 +153,16 @@ documents linear memory limits and execution cancellation.
 
 ## C ABI guests and foreign hosts
 
-The portable contract is [ext_plugin.h](../lib/plugin/include/ext_plugin.h).
+The portable contract is [ext_plugin_guest.h](../lib/plugin/include/ext_plugin_guest.h).
 ABI version `1` is independent of `ext.plugin/v1` and domain contract versions.
 Every library must export these C calling-convention symbols:
 
 | Export | Purpose |
 | --- | --- |
-| `ext_plugin_abi_version` | Return `1` |
-| `ext_plugin_open` | Create an independent nonzero opaque session handle; return zero on failure |
-| `ext_plugin_call` | Perform handshake (`1`) or invocation (`2`) with bounded JSON buffers |
-| `ext_plugin_close` | Release the handle's resources after calls finish |
+| `ext_plugin_guest_abi_version` | Return `1` |
+| `ext_plugin_guest_open` | Create an independent nonzero opaque session handle; return zero on failure |
+| `ext_plugin_guest_call` | Perform handshake (`1`) or invocation (`2`) with bounded JSON buffers |
+| `ext_plugin_guest_close` | Release the handle's resources after calls finish |
 
 The handshake request is `{"deadline":"<RFC3339 timestamp>"}`; its response is
 the CTX descriptor. Invocation uses ordinary `plugin.Request`/`Response` JSON.

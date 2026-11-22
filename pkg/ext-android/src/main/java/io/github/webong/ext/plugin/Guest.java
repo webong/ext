@@ -110,7 +110,7 @@ public final class Guest implements AutoCloseable {
 
     private long live() throws GuestException {
         if (engine == 0) {
-            throw new GuestException(5); // EXT_CLOSED
+            throw new GuestException(5); // EXT_PLUGIN_CLOSED
         }
         return engine;
     }

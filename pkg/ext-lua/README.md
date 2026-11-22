@@ -141,9 +141,9 @@ epoch seconds.
 `ext_io.host` runs plugins from Lua through the C engine (`lib/plugin`), which does what a host must
 get right: admission, the handshake check against the descriptor, request and response validation,
 deadlines and the session's lifecycle. It is opt-in and separate from the guest: one C module,
-`ext_io.host.core`, which loads the engine's shared library (`libext_host`, from an `ext-plugin-vX.Y.Z`
+`ext_io.host.core`, which loads the engine's shared library (`libext_plugin_host`, from an `ext-plugin-vX.Y.Z`
 release or a CMake build of `lib/plugin`) at run time, so it is built against the Lua headers and
-`ext_host.h` only. Requiring `ext_io.plugin` loads neither. The rock is `ext-io-host`
+`ext_plugin_host.h` only. Requiring `ext_io.plugin` loads neither. The rock is `ext-io-host`
 (`ext-io-host-0.1.0-1.rockspec`, built from a checkout); `scripts/ext-lua-host.sh <dir>` builds the
 module for one interpreter into `<dir>/ext_io/host/core.so` (`core.dll` on Windows, where it links
 against the interpreter's Lua library and is built by gcc from MSYS2 or, with `CC=cl`, by MSVC).
@@ -151,19 +151,19 @@ against the interpreter's Lua library and is built by gcc from MSYS2 or, with `C
 ```lua
 local host = require("ext_io.host")
 
-local engine = host.Engine()          -- EXT_HOST_LIBRARY, or libext_host on the loader path
+local engine = host.Engine()          -- EXT_HOST_LIBRARY, or libext_plugin_host on the loader path
 local h <close> = engine:process(descriptor, "/opt/plugins/echo/1.0.0/echo")   -- Lua 5.4+
 h:start()
 print(h:call({ name = "ext.echo", version = "v1" }, "echo", { value = 7 }).value)
 ```
 
-- `Engine(path)`: the engine from `path`, `EXT_HOST_LIBRARY`, or `libext_host` on the loader path; it
+- `Engine(path)`: the engine from `path`, `EXT_HOST_LIBRARY`, or `libext_plugin_host` on the loader path; it
   must have host ABI 2. An engine is never unloaded.
 - `engine:process(descriptor, executable, opts)`: a JSON-line guest started as `executable` (an
   absolute path, no shell). `opts` holds `arguments`, `environment` (`NAME=value` entries added to a
   scrubbed base of `PATH`), `working_directory`, `stderr_bytes` (default 4096) and the policies.
 - `engine:shared_library(descriptor, path, opts)`: a guest library that exports the C ABI of
-  `ext_plugin.h`, loaded when the host starts, after `verify`, and never unloaded. Its native code
+  `ext_plugin_guest.h`, loaded when the host starts, after `verify`, and never unloaded. Its native code
   runs in this process with its full access.
 - `opts.verify(descriptor)` and `opts.authorize(request)` receive decoded JSON and return true to
   allow; absent allows. An error denies, and so does a yield.
@@ -180,7 +180,7 @@ calling `start` or `call`, so the module calls them there with `lua_pcall`. A po
 host it decides for: a call to it from inside the policy raises `HostError` `invalid`. Lua has no
 threads, so calls are sequential; the engine still serializes a host's calls itself.
 
-Reverse calls and the guest registry use the engine's caller-thread mode (`ext_host_set_reverse_mode`),
+Reverse calls and the guest registry use the engine's caller-thread mode (`ext_plugin_host_set_reverse_mode`),
 so their hooks run there too, on the Lua thread of the engine call that waits:
 
 - `h:serve(authorize, handle, opts)`, before `start`, offers the plugin the operations its

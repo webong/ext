@@ -97,7 +97,7 @@ the rules ends the session with `Error::Protocol`.
 ext_io::plugin::export_guest!(guest);
 ```
 
-The macro supplies the four exports from the ext [C ABI](https://github.com/webong/ext/blob/main/lib/plugin/include/ext_plugin.h).
+The macro supplies the four exports from the ext [C ABI](https://github.com/webong/ext/blob/main/lib/plugin/include/ext_plugin_guest.h).
 Each `open` calls the factory for an independent guest; up to 64 handles are
 admitted. Handle removal releases the guest when outstanding references finish.
 Guest-owned closure state can use `Arc`/`Drop` for resources. Panics are caught

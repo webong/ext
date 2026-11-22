@@ -17,8 +17,8 @@ int main(void) {
   uint8_t sum[32] = {0};
   listing files = {0};
   for (unsigned i = 0; i < EXT_TREE_MAX_FILES; i++)
-    assert(collect(&files, "a", sum) == EXT_OK);
-  assert(collect(&files, "a", sum) == EXT_INVALID);
+    assert(collect(&files, "a", sum) == EXT_PLUGIN_OK);
+  assert(collect(&files, "a", sum) == EXT_PLUGIN_INVALID);
   assert(files.count == EXT_TREE_MAX_FILES);
   release(&files);
 
@@ -28,9 +28,9 @@ int main(void) {
   size_t half = EXT_TREE_MAX_PATH_BYTES / 2;
   memset(path, 'p', half - 1);
   path[half - 1] = 0;
-  assert(collect(&bytes, path, sum) == EXT_OK);
-  assert(collect(&bytes, path, sum) == EXT_OK);
-  assert(collect(&bytes, "x", sum) == EXT_INVALID);
+  assert(collect(&bytes, path, sum) == EXT_PLUGIN_OK);
+  assert(collect(&bytes, path, sum) == EXT_PLUGIN_OK);
+  assert(collect(&bytes, "x", sum) == EXT_PLUGIN_INVALID);
   assert(bytes.count == 2);
   release(&bytes);
 
@@ -39,7 +39,7 @@ int main(void) {
   char big[EXT_TREE_MAX_PATH_BYTES + 8];
   memset(big, 'p', sizeof(big) - 1);
   big[sizeof(big) - 1] = 0;
-  assert(collect(&one, big, sum) == EXT_INVALID);
+  assert(collect(&one, big, sum) == EXT_PLUGIN_INVALID);
   assert(one.count == 0);
   release(&one);
   return 0;

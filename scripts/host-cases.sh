@@ -44,13 +44,13 @@ python="${PYTHON:-python3}"
 exe="" windows=""
 generator=()
 case "$(uname -s)" in
-  Darwin) library=libext_host.dylib shared=dylib ;;
+  Darwin) library=libext_plugin_host.dylib shared=dylib ;;
   MINGW*|MSYS*|CYGWIN*)
     # Go and Python are native programs: they get C:/ paths, which bash also accepts.
     build_dir="$(winpath "$build_dir")"
     library="" shared=dll exe=.exe windows=1
     if command -v ninja >/dev/null 2>&1; then generator=(-G Ninja); fi ;;
-  *) library=libext_host.so shared=so ;;
+  *) library=libext_plugin_host.so shared=so ;;
 esac
 compiler=()
 if [[ -n "${EXT_ENGINE_CC:-}" ]]; then compiler=("-DCMAKE_C_COMPILER=$EXT_ENGINE_CC"); fi
@@ -80,14 +80,14 @@ stage_runtime() {
 
 # ${array[@]+...} so an empty array is not an unbound variable in the bash 3.2 macOS ships.
 quietly cmake -S lib/plugin -B "$build_dir/engine" ${generator[@]+"${generator[@]}"} ${compiler[@]+"${compiler[@]}"} -DCMAKE_BUILD_TYPE=Release -DEXT_BUILD_SHARED=ON
-quietly cmake --build "$build_dir/engine" --target ext_host_shared ext_reverse_test ext_registry_test -j 4
+quietly cmake --build "$build_dir/engine" --target ext_plugin_host_shared ext_reverse_test ext_registry_test -j 4
 go build -o "$build_dir/go-guest$exe" ./tests/crosslang/testdata/go-guest
 go build -buildmode=c-shared -o "$build_dir/go-shared.$shared" ./tests/crosslang/testdata/go-shared
 
 if [[ -z "$library" ]]; then
-  # CMake names the DLL libext_host.dll with MinGW and ext_host.dll with MSVC, and a multi-config
+  # CMake names the DLL libext_plugin_host.dll with MinGW and ext_plugin_host.dll with MSVC, and a multi-config
   # generator puts it under Release/.
-  for candidate in libext_host.dll ext_host.dll Release/ext_host.dll; do
+  for candidate in libext_plugin_host.dll ext_plugin_host.dll Release/ext_plugin_host.dll; do
     if [[ -f "$build_dir/engine/$candidate" ]]; then library="$candidate"; break; fi
   done
   if [[ -z "$library" ]]; then

@@ -23,7 +23,7 @@ endif()
 add_subdirectory(../../lib/plugin plugin-engine EXCLUDE_FROM_ALL)
 
 add_library(extjni SHARED src/main/native/ext_jni.c src/main/native/ext_store_jni.c)
-target_link_libraries(extjni PRIVATE ext_host_static)
+target_link_libraries(extjni PRIVATE ext_plugin_host_static)
 set_target_properties(extjni PROPERTIES C_STANDARD 11 POSITION_INDEPENDENT_CODE ON)
 if(NOT ANDROID)
   find_package(JNI REQUIRED)

@@ -1,35 +1,35 @@
-#include "ext_host.h"
+#include "ext_plugin_host.h"
 #include "reverse.h"
 #include <stdatomic.h>
 #include <stdlib.h>
-struct ext_cancel {
+struct ext_plugin_cancel {
   atomic_int signaled;
-  const ext_cancel *parent; /* also signaled when this one is; set before use */
+  const ext_plugin_cancel *parent; /* also signaled when this one is; set before use */
 };
-ext_status ext_cancel_create(ext_cancel **out) {
+ext_plugin_status ext_plugin_cancel_create(ext_plugin_cancel **out) {
   if (!out)
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   *out = malloc(sizeof(**out));
   if (!*out)
-    return EXT_NOMEM;
+    return EXT_PLUGIN_NOMEM;
   atomic_init(&(*out)->signaled, 0);
   (*out)->parent = NULL;
-  return EXT_OK;
+  return EXT_PLUGIN_OK;
 }
-void ext_cancel_signal(ext_cancel *c) {
+void ext_plugin_cancel_signal(ext_plugin_cancel *c) {
   if (c)
     atomic_store(&c->signaled, 1);
 }
-int ext_cancel_is_signaled(const ext_cancel *c) {
-  return c && (atomic_load(&c->signaled) || ext_cancel_is_signaled(c->parent));
+int ext_plugin_cancel_is_signaled(const ext_plugin_cancel *c) {
+  return c && (atomic_load(&c->signaled) || ext_plugin_cancel_is_signaled(c->parent));
 }
-void ext_cancel_link(ext_cancel *c, const ext_cancel *parent) {
+void ext_cancel_link(ext_plugin_cancel *c, const ext_plugin_cancel *parent) {
   if (c)
     c->parent = parent;
 }
-void ext_cancel_destroy(ext_cancel *c) { free(c); }
-uint32_t ext_host_abi_version(void) { return EXT_HOST_ABI_VERSION; }
-const char *ext_host_status_string(ext_status s) {
+void ext_plugin_cancel_destroy(ext_plugin_cancel *c) { free(c); }
+uint32_t ext_plugin_host_abi_version(void) { return EXT_PLUGIN_HOST_ABI_VERSION; }
+const char *ext_plugin_host_status_string(ext_plugin_status s) {
   static const char *names[] = {
       "ok",        "invalid",   "denied",   "mismatch",      "unsupported",
       "closed",    "timeout",   "io",       "out of memory", "draining",
@@ -38,7 +38,7 @@ const char *ext_host_status_string(ext_status s) {
   return s >= 0 && (size_t)s < sizeof(names) / sizeof(names[0]) ? names[s]
                                                                 : "unknown";
 }
-void ext_buffer_free(ext_buffer *b) {
+void ext_plugin_buffer_free(ext_plugin_buffer *b) {
   if (b) {
     free(b->data);
     b->data = NULL;

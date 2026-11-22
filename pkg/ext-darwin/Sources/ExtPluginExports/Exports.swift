@@ -18,11 +18,11 @@ private let registryLock = NSLock()
 private var sessions: [UInt64: Session] = [:]
 private var lastHandle: UInt64 = 0
 private let maxSessions = 64
-/// EXT_PLUGIN_MAX_FRAME_BYTES; Swift cannot import an expression macro.
+/// EXT_PLUGIN_GUEST_MAX_FRAME_BYTES; Swift cannot import an expression macro.
 public let extPluginMaxFrameBytes: UInt32 = 24 * 1024 * 1024
 private let maxFrame = extPluginMaxFrameBytes
 
-/// Builds a guest for ext_plugin_open and hands it to the exports.
+/// Builds a guest for ext_plugin_guest_open and hands it to the exports.
 /// Use it as the body of the one function a plugin defines:
 ///
 ///     @_cdecl("ext_plugin_guest_factory")
@@ -48,10 +48,10 @@ public final class ObjCPluginExport: NSObject {
     }
 }
 
-@_cdecl("ext_plugin_abi_version")
-public func extPluginABIVersion() -> UInt32 { UInt32(EXT_PLUGIN_ABI_VERSION) }
+@_cdecl("ext_plugin_guest_abi_version")
+public func extPluginABIVersion() -> UInt32 { UInt32(EXT_PLUGIN_GUEST_ABI_VERSION) }
 
-@_cdecl("ext_plugin_open")
+@_cdecl("ext_plugin_guest_open")
 public func extPluginOpen() -> UInt64 {
     registryLock.lock()
     defer { registryLock.unlock() }
@@ -62,7 +62,7 @@ public func extPluginOpen() -> UInt64 {
     return lastHandle
 }
 
-@_cdecl("ext_plugin_close")
+@_cdecl("ext_plugin_guest_close")
 public func extPluginClose(_ handle: UInt64) {
     registryLock.lock()
     let session = sessions.removeValue(forKey: handle)
@@ -72,45 +72,45 @@ public func extPluginClose(_ handle: UInt64) {
     session?.lock.unlock()
 }
 
-@_cdecl("ext_plugin_call")
+@_cdecl("ext_plugin_guest_call")
 public func extPluginCall(
     _ handle: UInt64, _ operation: UInt32,
     _ request: UnsafePointer<UInt8>?, _ requestLength: UInt32,
     _ response: UnsafeMutablePointer<UInt8>?, _ capacity: UInt32,
     _ written: UnsafeMutablePointer<UInt32>?
 ) -> UInt32 {
-    guard let written else { return UInt32(EXT_PLUGIN_INVALID) }
+    guard let written else { return UInt32(EXT_PLUGIN_GUEST_INVALID) }
     written.pointee = 0
     guard let request, let response, requestLength > 0, requestLength <= maxFrame, capacity == maxFrame else {
-        return UInt32(EXT_PLUGIN_INVALID)
+        return UInt32(EXT_PLUGIN_GUEST_INVALID)
     }
     registryLock.lock()
     let session = sessions[handle]
     registryLock.unlock()
-    guard let session else { return UInt32(EXT_PLUGIN_CLOSED) }
+    guard let session else { return UInt32(EXT_PLUGIN_GUEST_CLOSED) }
     session.lock.lock()
     defer { session.lock.unlock() }
     let input = Data(bytes: request, count: Int(requestLength))
     let output: Data
     do {
         switch operation {
-        case UInt32(EXT_PLUGIN_HANDSHAKE):
+        case UInt32(EXT_PLUGIN_GUEST_HANDSHAKE):
             try checkHandshake(input)
             session.handshaken = true
             output = try session.guest.descriptorJSON()
-        case UInt32(EXT_PLUGIN_INVOKE):
-            guard session.handshaken else { return UInt32(EXT_PLUGIN_FAILED) }
+        case UInt32(EXT_PLUGIN_GUEST_INVOKE):
+            guard session.handshaken else { return UInt32(EXT_PLUGIN_GUEST_FAILED) }
             output = try session.guest.invoke(input)
         default:
-            return UInt32(EXT_PLUGIN_FAILED)
+            return UInt32(EXT_PLUGIN_GUEST_FAILED)
         }
     } catch {
-        return UInt32(EXT_PLUGIN_FAILED)
+        return UInt32(EXT_PLUGIN_GUEST_FAILED)
     }
-    guard output.count <= Int(capacity) else { return UInt32(EXT_PLUGIN_INVALID) }
+    guard output.count <= Int(capacity) else { return UInt32(EXT_PLUGIN_GUEST_INVALID) }
     output.copyBytes(to: response, count: output.count)
     written.pointee = UInt32(output.count)
-    return UInt32(EXT_PLUGIN_OK)
+    return UInt32(EXT_PLUGIN_GUEST_OK)
 }
 
 private struct HandshakeFailure: Error {}

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Builds ExtIO::Host::Native, the native extension under the Ruby host (pkg/ext-ruby/ext), for one
 # Ruby into <out-dir>/ext_io/host/native.<so|bundle>; put <out-dir> on the load path (RUBYLIB or
-# -I) to load it. It needs the Ruby headers and ext_host.h only: the extension loads the engine's
+# -I) to load it. It needs the Ruby headers and ext_plugin_host.h only: the extension loads the engine's
 # shared library at run time.
 #
 # On Windows it builds with the toolchain the Ruby was built by: RubyInstaller's MSYS2 devkit, or

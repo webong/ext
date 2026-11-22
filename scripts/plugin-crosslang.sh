@@ -35,7 +35,7 @@ cargo build --release --locked --manifest-path pkg/ext-rust/Cargo.toml --target 
 # The frames guest (progress events and reverse calls) as a WASI command: no threads.
 cargo build --release --locked --manifest-path pkg/ext-rust/Cargo.toml --target wasm32-wasip1 --example frames
 # The shared example is the same guest as a WebAssembly reactor: the C ABI plus
-# ext_plugin_alloc/ext_plugin_free (docs/plugin-reactor-abi.md); reactor_reverse is a
+# ext_plugin_guest_alloc/ext_plugin_guest_free (docs/plugin-reactor-abi.md); reactor_reverse is a
 # reactor that calls its host through ext_plugin.reverse.
 cargo build --release --locked --manifest-path pkg/ext-rust/Cargo.toml --target wasm32-wasip1 --example shared --example reactor_reverse
 "$ZIG_BIN" build test --build-file pkg/ext-zig/build.zig --prefix "$build_dir/zig"

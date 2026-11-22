@@ -6,55 +6,55 @@ pub const ffi = @import("ffi");
 /// Downloading an HTTPS archive for `Store.installArchive`.
 pub const download = @import("download.zig");
 pub const Error = error{ Invalid, Denied, Mismatch, Unsupported, Closed, Timeout, IO, OutOfMemory, Draining, NotFound, Ambiguous, Canceled, Updating, Capacity, Sequence, Protocol, Expired, Exists, Missing, UnknownStatus };
-pub fn check(status: ffi.ext_status) Error!void {
+pub fn check(status: ffi.ext_plugin_status) Error!void {
     return switch (status) {
-        ffi.EXT_OK => {},
-        ffi.EXT_INVALID => error.Invalid,
-        ffi.EXT_DENIED => error.Denied,
-        ffi.EXT_MISMATCH => error.Mismatch,
-        ffi.EXT_UNSUPPORTED => error.Unsupported,
-        ffi.EXT_CLOSED => error.Closed,
-        ffi.EXT_TIMEOUT => error.Timeout,
-        ffi.EXT_IO => error.IO,
-        ffi.EXT_NOMEM => error.OutOfMemory,
-        ffi.EXT_DRAINING => error.Draining,
-        ffi.EXT_NOT_FOUND => error.NotFound,
-        ffi.EXT_AMBIGUOUS => error.Ambiguous,
-        ffi.EXT_CANCELED => error.Canceled,
-        ffi.EXT_UPDATING => error.Updating,
-        ffi.EXT_CAPACITY => error.Capacity,
-        ffi.EXT_SEQUENCE => error.Sequence,
-        ffi.EXT_PROTOCOL => error.Protocol,
-        ffi.EXT_EXPIRED => error.Expired,
-        ffi.EXT_EXISTS => error.Exists,
-        ffi.EXT_MISSING => error.Missing,
+        ffi.EXT_PLUGIN_OK => {},
+        ffi.EXT_PLUGIN_INVALID => error.Invalid,
+        ffi.EXT_PLUGIN_DENIED => error.Denied,
+        ffi.EXT_PLUGIN_MISMATCH => error.Mismatch,
+        ffi.EXT_PLUGIN_UNSUPPORTED => error.Unsupported,
+        ffi.EXT_PLUGIN_CLOSED => error.Closed,
+        ffi.EXT_PLUGIN_TIMEOUT => error.Timeout,
+        ffi.EXT_PLUGIN_IO => error.IO,
+        ffi.EXT_PLUGIN_NOMEM => error.OutOfMemory,
+        ffi.EXT_PLUGIN_DRAINING => error.Draining,
+        ffi.EXT_PLUGIN_NOT_FOUND => error.NotFound,
+        ffi.EXT_PLUGIN_AMBIGUOUS => error.Ambiguous,
+        ffi.EXT_PLUGIN_CANCELED => error.Canceled,
+        ffi.EXT_PLUGIN_UPDATING => error.Updating,
+        ffi.EXT_PLUGIN_CAPACITY => error.Capacity,
+        ffi.EXT_PLUGIN_SEQUENCE => error.Sequence,
+        ffi.EXT_PLUGIN_PROTOCOL => error.Protocol,
+        ffi.EXT_PLUGIN_EXPIRED => error.Expired,
+        ffi.EXT_PLUGIN_EXISTS => error.Exists,
+        ffi.EXT_PLUGIN_MISSING => error.Missing,
         else => error.UnknownStatus,
     };
 }
 pub const Buffer = struct {
-    raw: ffi.ext_buffer = .{ .data = null, .len = 0 },
+    raw: ffi.ext_plugin_buffer = .{ .data = null, .len = 0 },
     pub fn bytes(self: *const Buffer) []const u8 {
         return if (self.raw.len == 0) &.{} else self.raw.data[0..self.raw.len];
     }
     pub fn deinit(self: *Buffer) void {
-        ffi.ext_buffer_free(&self.raw);
+        ffi.ext_plugin_buffer_free(&self.raw);
     }
 };
 pub const Cancellation = struct {
-    raw: ?*ffi.ext_cancel,
+    raw: ?*ffi.ext_plugin_cancel,
     pub fn init() Error!Cancellation {
-        var c: ?*ffi.ext_cancel = null;
-        try check(ffi.ext_cancel_create(&c));
+        var c: ?*ffi.ext_plugin_cancel = null;
+        try check(ffi.ext_plugin_cancel_create(&c));
         return .{ .raw = c };
     }
     pub fn signal(self: *const Cancellation) void {
-        ffi.ext_cancel_signal(self.raw);
+        ffi.ext_plugin_cancel_signal(self.raw);
     }
     pub fn isSignaled(self: *const Cancellation) bool {
-        return ffi.ext_cancel_is_signaled(self.raw) != 0;
+        return ffi.ext_plugin_cancel_is_signaled(self.raw) != 0;
     }
     pub fn deinit(self: *Cancellation) void {
-        ffi.ext_cancel_destroy(self.raw);
+        ffi.ext_plugin_cancel_destroy(self.raw);
         self.raw = null;
     }
 };
@@ -62,12 +62,12 @@ pub const CallOptions = struct {
     timeout_ms: u32 = 30_000,
     cancel: ?*const Cancellation = null,
     value: ?*anyopaque = null,
-    fn raw(self: CallOptions) ffi.ext_call_options {
-        return .{ .struct_size = @sizeOf(ffi.ext_call_options), .timeout_ms = self.timeout_ms, .cancel = if (self.cancel) |c| c.raw else null, .value = self.value };
+    fn raw(self: CallOptions) ffi.ext_plugin_call_options {
+        return .{ .struct_size = @sizeOf(ffi.ext_plugin_call_options), .timeout_ms = self.timeout_ms, .cancel = if (self.cancel) |c| c.raw else null, .value = self.value };
     }
 };
 pub const Process = struct { executable: [:0]const u8, arguments: []const [*:0]const u8 = &.{}, environment: []const [*:0]const u8 = &.{} };
-pub const Policies = struct { verify: ffi.ext_policy, authorize: ffi.ext_policy, user: ?*anyopaque = null };
+pub const Policies = struct { verify: ffi.ext_plugin_policy, authorize: ffi.ext_plugin_policy, user: ?*anyopaque = null };
 /// Progress events of one call. A zero rate uses the default (50 events and 65536
 /// bytes of text per second, with a burst of twice that); the rate travels to the
 /// plugin in the request, so both ends apply the same one. `deliver` receives the
@@ -78,10 +78,10 @@ pub const Policies = struct { verify: ffi.ext_policy, authorize: ffi.ext_policy,
 pub const Progress = struct {
     events_per_second: u32 = 0,
     bytes_per_second: u32 = 0,
-    deliver: ffi.ext_progress_fn = null,
+    deliver: ffi.ext_plugin_progress_fn = null,
     user: ?*anyopaque = null,
-    fn raw(self: Progress) ffi.ext_progress_options {
-        return .{ .struct_size = @sizeOf(ffi.ext_progress_options), .deliver = self.deliver, .user = self.user, .events_per_second = self.events_per_second, .bytes_per_second = self.bytes_per_second };
+    fn raw(self: Progress) ffi.ext_plugin_progress_options {
+        return .{ .struct_size = @sizeOf(ffi.ext_plugin_progress_options), .deliver = self.deliver, .user = self.user, .events_per_second = self.events_per_second, .bytes_per_second = self.bytes_per_second };
     }
 };
 /// The services a host offers its plugin: the operations its descriptor lists under
@@ -89,13 +89,13 @@ pub const Progress = struct {
 /// plugin's deadline, fewer than `max_in_flight`) and refuses with a stable code;
 /// `authorize` and `handle` are the host's policy. They run on engine threads, up
 /// to `max_in_flight` at a time, and receive the request as JSON and an
-/// `ext_call_options` whose `cancel` is an engine-owned signal to poll. `handle`
+/// `ext_plugin_call_options` whose `cancel` is an engine-owned signal to poll. `handle`
 /// emits exactly one result through `emit` (a payload, or a public error) and
-/// returns `EXT_OK`. Zero bounds use the defaults (30 s, 1 MiB, 4). `user` and
+/// returns `EXT_PLUGIN_OK`. Zero bounds use the defaults (30 s, 1 MiB, 4). `user` and
 /// `session_value` must outlive the host.
 pub const Services = struct {
-    authorize: ffi.ext_context_policy,
-    handle: ffi.ext_reverse_handler,
+    authorize: ffi.ext_plugin_context_policy,
+    handle: ffi.ext_plugin_reverse_handler,
     user: ?*anyopaque = null,
     timeout_ms: u32 = 0,
     max_payload_bytes: u32 = 0,
@@ -103,47 +103,47 @@ pub const Services = struct {
     session_value: ?*anyopaque = null,
 };
 pub const Host = struct {
-    raw: ?*ffi.ext_host,
+    raw: ?*ffi.ext_plugin_host,
     /// Callbacks and their user data must outlive Host. C snapshots strings and
     /// descriptor bytes. Policies must not reenter this same host.
     pub fn init(process: Process, descriptor: []const u8, policies: Policies) Error!Host {
-        if (ffi.ext_host_abi_version() != ffi.EXT_HOST_ABI_VERSION) return error.Mismatch;
-        const p: ffi.ext_jsonline_process_config = .{ .struct_size = @sizeOf(ffi.ext_jsonline_process_config), .executable = process.executable.ptr, .arguments = @ptrCast(process.arguments.ptr), .argument_count = process.arguments.len, .environment = @ptrCast(process.environment.ptr), .environment_count = process.environment.len };
-        const b: ffi.ext_backend_options = .{ .struct_size = @sizeOf(ffi.ext_backend_options), .kind = ffi.EXT_BACKEND_JSONLINE_PROCESS_CONFIG, .config = &p, .config_size = @sizeOf(ffi.ext_jsonline_process_config) };
-        const o: ffi.ext_host_options = .{ .abi_version = ffi.EXT_HOST_ABI_VERSION, .struct_size = @sizeOf(ffi.ext_host_options), .descriptor = descriptor.ptr, .descriptor_len = descriptor.len, .verify = policies.verify, .authorize = policies.authorize, .user = policies.user };
-        var host: ?*ffi.ext_host = null;
-        try check(ffi.ext_host_create(&o, &b, &host));
+        if (ffi.ext_plugin_host_abi_version() != ffi.EXT_PLUGIN_HOST_ABI_VERSION) return error.Mismatch;
+        const p: ffi.ext_plugin_jsonline_process_config = .{ .struct_size = @sizeOf(ffi.ext_plugin_jsonline_process_config), .executable = process.executable.ptr, .arguments = @ptrCast(process.arguments.ptr), .argument_count = process.arguments.len, .environment = @ptrCast(process.environment.ptr), .environment_count = process.environment.len };
+        const b: ffi.ext_plugin_backend_options = .{ .struct_size = @sizeOf(ffi.ext_plugin_backend_options), .kind = ffi.EXT_PLUGIN_BACKEND_JSONLINE_PROCESS_CONFIG, .config = &p, .config_size = @sizeOf(ffi.ext_plugin_jsonline_process_config) };
+        const o: ffi.ext_plugin_host_options = .{ .abi_version = ffi.EXT_PLUGIN_HOST_ABI_VERSION, .struct_size = @sizeOf(ffi.ext_plugin_host_options), .descriptor = descriptor.ptr, .descriptor_len = descriptor.len, .verify = policies.verify, .authorize = policies.authorize, .user = policies.user };
+        var host: ?*ffi.ext_plugin_host = null;
+        try check(ffi.ext_plugin_host_create(&o, &b, &host));
         return .{ .raw = host };
     }
     pub fn start(self: *const Host, options: CallOptions) Error!void {
         var o = options.raw();
-        try check(ffi.ext_host_start_with_options(self.raw, &o));
+        try check(ffi.ext_plugin_host_start_with_options(self.raw, &o));
     }
     /// Install contextual policy/observer callbacks before start. The caller
     /// owns callback state until deinit; observers must be fast and nonblocking.
-    pub fn setHooks(self: *const Host, hooks: ffi.ext_host_hooks) Error!void {
+    pub fn setHooks(self: *const Host, hooks: ffi.ext_plugin_host_hooks) Error!void {
         var h = hooks;
-        h.struct_size = @sizeOf(ffi.ext_host_hooks);
-        try check(ffi.ext_host_set_hooks(self.raw, &h));
+        h.struct_size = @sizeOf(ffi.ext_plugin_host_hooks);
+        try check(ffi.ext_plugin_host_set_hooks(self.raw, &h));
     }
     pub fn invoke(self: *const Host, request: []const u8, options: CallOptions) Error!Buffer {
         var o = options.raw();
         var out: Buffer = .{};
         errdefer out.deinit();
-        try check(ffi.ext_host_invoke_with_options(self.raw, request.ptr, request.len, &o, &out.raw));
+        try check(ffi.ext_plugin_host_invoke_with_options(self.raw, request.ptr, request.len, &o, &out.raw));
         return out;
     }
     pub fn call(self: *const Host, request: []const u8, options: CallOptions) Error!Buffer {
         var o = options.raw();
         var out: Buffer = .{};
         errdefer out.deinit();
-        try check(ffi.ext_host_call(self.raw, request.ptr, request.len, &o, &out.raw));
+        try check(ffi.ext_plugin_host_call(self.raw, request.ptr, request.len, &o, &out.raw));
         return out;
     }
     /// Offer reverse-call services to the plugin. Install before start.
     pub fn setServices(self: *const Host, services: Services) Error!void {
-        const s: ffi.ext_host_services = .{ .struct_size = @sizeOf(ffi.ext_host_services), .user = services.user, .authorize = services.authorize, .handle = services.handle, .timeout_ms = services.timeout_ms, .max_payload_bytes = services.max_payload_bytes, .max_in_flight = services.max_in_flight, .session_value = services.session_value };
-        try check(ffi.ext_host_set_services(self.raw, &s));
+        const s: ffi.ext_plugin_host_services = .{ .struct_size = @sizeOf(ffi.ext_plugin_host_services), .user = services.user, .authorize = services.authorize, .handle = services.handle, .timeout_ms = services.timeout_ms, .max_payload_bytes = services.max_payload_bytes, .max_in_flight = services.max_in_flight, .session_value = services.session_value };
+        try check(ffi.ext_plugin_host_set_services(self.raw, &s));
     }
     /// `call` for an operation that declares progress: the engine validates the
     /// events, applies the rate limit and delivers what passes before this returns,
@@ -153,21 +153,21 @@ pub const Host = struct {
         var p = progress.raw();
         var out: Buffer = .{};
         errdefer out.deinit();
-        try check(ffi.ext_host_call_progress(self.raw, request.ptr, request.len, &o, &p, &out.raw));
+        try check(ffi.ext_plugin_host_call_progress(self.raw, request.ptr, request.len, &o, &p, &out.raw));
         return out;
     }
     pub fn drain(self: *const Host, options: CallOptions) Error!void {
         var o = options.raw();
-        try check(ffi.ext_host_drain_with_options(self.raw, &o));
+        try check(ffi.ext_plugin_host_drain_with_options(self.raw, &o));
     }
     pub fn close(self: *const Host) void {
-        ffi.ext_host_close(self.raw);
+        ffi.ext_plugin_host_close(self.raw);
     }
-    pub fn state(self: *const Host) ffi.ext_host_state {
-        return ffi.ext_host_get_state(self.raw);
+    pub fn state(self: *const Host) ffi.ext_plugin_host_state {
+        return ffi.ext_plugin_host_get_state(self.raw);
     }
     pub fn deinit(self: *Host) void {
-        ffi.ext_host_destroy(self.raw);
+        ffi.ext_plugin_host_destroy(self.raw);
         self.raw = null;
     }
 };
@@ -176,14 +176,14 @@ pub const RegistryEnd = struct { name: [:0]const u8, version: [:0]const u8, oper
 /// The policy and bounds of a registry source (`Registry.attach`): as `Services`,
 /// without `handle`, since the registry serves the calls.
 pub const RegistrySource = struct {
-    authorize: ffi.ext_context_policy,
+    authorize: ffi.ext_plugin_context_policy,
     user: ?*anyopaque = null,
     timeout_ms: u32 = 0,
     max_payload_bytes: u32 = 0,
     max_in_flight: u32 = 0,
     session_value: ?*anyopaque = null,
 };
-/// A guest registry (`ext_registry_*` in ext_host.h): a reverse call one guest
+/// A guest registry (`ext_registry_*` in ext_plugin_host.h): a reverse call one guest
 /// makes is served by a forward call to another guest, along an edge declared
 /// with `route`. An undeclared edge is refused with `reverse_undeclared`, an
 /// unregistered target with `reverse_unavailable`, and a call that would re-enter
@@ -193,68 +193,68 @@ pub const RegistrySource = struct {
 /// the registry only after every host attached to it. Safe to use from several
 /// threads.
 pub const Registry = struct {
-    raw: ?*ffi.ext_registry,
+    raw: ?*ffi.ext_plugin_registry,
     pub fn init() Error!Registry {
-        var raw: ?*ffi.ext_registry = null;
-        try check(ffi.ext_registry_create(&raw));
+        var raw: ?*ffi.ext_plugin_registry = null;
+        try check(ffi.ext_plugin_registry_create(&raw));
         return .{ .raw = raw };
     }
     /// Names `host`, started and listing the contract, as the host that serves
     /// `name`/`version`. `error.Unsupported` when it does not list it,
     /// `error.Exists` when the contract is already registered.
     pub fn register(self: *const Registry, name: [:0]const u8, version: [:0]const u8, host: *const Host) Error!void {
-        try check(ffi.ext_registry_register(self.raw, name.ptr, version.ptr, host.raw));
+        try check(ffi.ext_plugin_registry_register(self.raw, name.ptr, version.ptr, host.raw));
     }
     /// `error.NotFound` when the contract is not registered.
     pub fn unregister(self: *const Registry, name: [:0]const u8, version: [:0]const u8) Error!void {
-        try check(ffi.ext_registry_unregister(self.raw, name.ptr, version.ptr));
+        try check(ffi.ext_plugin_registry_unregister(self.raw, name.ptr, version.ptr));
     }
     /// A reverse call of `from` is served by a call of `to`. `error.Exists` when
     /// that reverse operation is already routed.
     pub fn route(self: *const Registry, from: RegistryEnd, to: RegistryEnd) Error!void {
-        const e: ffi.ext_registry_edge = .{ .struct_size = @sizeOf(ffi.ext_registry_edge), .from_name = from.name.ptr, .from_version = from.version.ptr, .from_operation = from.operation.ptr, .to_name = to.name.ptr, .to_version = to.version.ptr, .to_operation = to.operation.ptr };
-        try check(ffi.ext_registry_route(self.raw, &e));
+        const e: ffi.ext_plugin_registry_edge = .{ .struct_size = @sizeOf(ffi.ext_plugin_registry_edge), .from_name = from.name.ptr, .from_version = from.version.ptr, .from_operation = from.operation.ptr, .to_name = to.name.ptr, .to_version = to.version.ptr, .to_operation = to.operation.ptr };
+        try check(ffi.ext_plugin_registry_route(self.raw, &e));
     }
     /// Makes `host` a source, in place of `Host.setServices`. Install before start.
     pub fn attach(self: *const Registry, host: *const Host, source: RegistrySource) Error!void {
-        const s: ffi.ext_host_services = .{ .struct_size = @sizeOf(ffi.ext_host_services), .user = source.user, .authorize = source.authorize, .handle = null, .timeout_ms = source.timeout_ms, .max_payload_bytes = source.max_payload_bytes, .max_in_flight = source.max_in_flight, .session_value = source.session_value };
-        try check(ffi.ext_registry_attach(self.raw, host.raw, &s));
+        const s: ffi.ext_plugin_host_services = .{ .struct_size = @sizeOf(ffi.ext_plugin_host_services), .user = source.user, .authorize = source.authorize, .handle = null, .timeout_ms = source.timeout_ms, .max_payload_bytes = source.max_payload_bytes, .max_in_flight = source.max_in_flight, .session_value = source.session_value };
+        try check(ffi.ext_plugin_registry_attach(self.raw, host.raw, &s));
     }
     pub fn deinit(self: *Registry) void {
-        ffi.ext_registry_destroy(self.raw);
+        ffi.ext_plugin_registry_destroy(self.raw);
         self.raw = null;
     }
 };
 pub const Guest = struct {
-    raw: ?*ffi.ext_guest,
+    raw: ?*ffi.ext_plugin_guest,
     /// Handler receives borrowed request bytes and an engine copying result sink.
     /// It must not retain those pointers or unwind across the C ABI.
-    pub fn init(options: ffi.ext_guest_options) Error!Guest {
-        var guest: ?*ffi.ext_guest = null;
-        try check(ffi.ext_guest_create(&options, &guest));
+    pub fn init(options: ffi.ext_plugin_guest_options) Error!Guest {
+        var guest: ?*ffi.ext_plugin_guest = null;
+        try check(ffi.ext_plugin_guest_create(&options, &guest));
         return .{ .raw = guest };
     }
     pub fn descriptor(self: *const Guest) Error!Buffer {
         var out: Buffer = .{};
         errdefer out.deinit();
-        try check(ffi.ext_guest_descriptor(self.raw, &out.raw));
+        try check(ffi.ext_plugin_guest_descriptor(self.raw, &out.raw));
         return out;
     }
     pub fn invoke(self: *const Guest, request: []const u8, timeout_ms: u32, context: ?*anyopaque) Error!Buffer {
         var out: Buffer = .{};
         errdefer out.deinit();
-        try check(ffi.ext_guest_invoke(self.raw, request.ptr, request.len, timeout_ms, context, &out.raw));
+        try check(ffi.ext_plugin_guest_invoke(self.raw, request.ptr, request.len, timeout_ms, context, &out.raw));
         return out;
     }
     pub fn deinit(self: *Guest) void {
-        ffi.ext_guest_destroy(self.raw);
+        ffi.ext_plugin_guest_destroy(self.raw);
         self.raw = null;
     }
 };
 pub fn service(operation: [:0]const u8, input: []const u8) Error!Buffer {
     var out: Buffer = .{};
     errdefer out.deinit();
-    try check(ffi.ext_engine_call(operation.ptr, input.ptr, input.len, &out.raw));
+    try check(ffi.ext_plugin_call(operation.ptr, input.ptr, input.len, &out.raw));
     return out;
 }
 /// Bounds on a package store: one artifact file (a file inside a tree counts
@@ -288,27 +288,27 @@ pub const EntrypointRequest = struct {
 /// `error.NotFound` for an id that is not installed. The buffers returned are
 /// owned and freed with `deinit`.
 pub const Store = struct {
-    raw: ?*ffi.ext_store,
+    raw: ?*ffi.ext_plugin_store,
     max_archive_bytes: u64 = 0,
     pub fn init(root: [:0]const u8, limits: StoreLimits) Error!Store {
-        var raw: ?*ffi.ext_store = null;
-        const c_limits: ffi.ext_store_limits = .{ .max_artifact_bytes = limits.max_artifact_bytes, .max_tree_files = limits.max_tree_files, .max_tree_bytes = limits.max_tree_bytes };
-        try check(ffi.ext_store_open(root.ptr, &c_limits, &raw));
+        var raw: ?*ffi.ext_plugin_store = null;
+        const c_limits: ffi.ext_plugin_store_limits = .{ .max_artifact_bytes = limits.max_artifact_bytes, .max_tree_files = limits.max_tree_files, .max_tree_bytes = limits.max_tree_bytes };
+        try check(ffi.ext_plugin_store_open(root.ptr, &c_limits, &raw));
         return .{ .raw = raw, .max_archive_bytes = limits.max_archive_bytes };
     }
     pub fn deinit(self: *Store) void {
-        ffi.ext_store_close(self.raw);
+        ffi.ext_plugin_store_close(self.raw);
         self.raw = null;
     }
     fn flags(options: StoreOptions) u32 {
-        return if (options.preserve_executable) @as(u32, ffi.EXT_STORE_PRESERVE_EXECUTABLE) else 0;
+        return if (options.preserve_executable) @as(u32, ffi.EXT_PLUGIN_STORE_PRESERVE_EXECUTABLE) else 0;
     }
     /// Copies the package in the directory `source`, never over an installed id,
     /// and returns the installed `plugin.json`, byte for byte as the source had it.
     pub fn install(self: *const Store, source: [:0]const u8, options: StoreOptions) Error!Buffer {
         var out: Buffer = .{};
         errdefer out.deinit();
-        try check(ffi.ext_store_install(self.raw, source.ptr, flags(options), &out.raw));
+        try check(ffi.ext_plugin_store_install(self.raw, source.ptr, flags(options), &out.raw));
         return out;
     }
     /// Replaces an installed package with a new revision of the same id and
@@ -316,14 +316,14 @@ pub const Store = struct {
     pub fn upgrade(self: *const Store, source: [:0]const u8, options: StoreOptions) Error!Buffer {
         var out: Buffer = .{};
         errdefer out.deinit();
-        try check(ffi.ext_store_upgrade(self.raw, source.ptr, flags(options), &out.raw));
+        try check(ffi.ext_plugin_store_upgrade(self.raw, source.ptr, flags(options), &out.raw));
         return out;
     }
     /// Installs or replaces the package of the source's id, whatever its contracts.
     pub fn replace(self: *const Store, source: [:0]const u8, options: StoreOptions) Error!Buffer {
         var out: Buffer = .{};
         errdefer out.deinit();
-        try check(ffi.ext_store_replace(self.raw, source.ptr, flags(options), &out.raw));
+        try check(ffi.ext_plugin_store_replace(self.raw, source.ptr, flags(options), &out.raw));
         return out;
     }
     /// Installs or upgrades the package in the local archive file `archive` (a
@@ -348,7 +348,7 @@ pub const Store = struct {
         var out: Buffer = .{};
         errdefer out.deinit();
         const want: [*c]const u8 = if (id) |name| name.ptr else null;
-        try check(ffi.ext_store_install_archive(self.raw, archive.ptr, sha256_hex.ptr, want, flags(options), self.max_archive_bytes, &out.raw));
+        try check(ffi.ext_plugin_store_install_archive(self.raw, archive.ptr, sha256_hex.ptr, want, flags(options), self.max_archive_bytes, &out.raw));
         return out;
     }
     /// The receipt an archive install left for `id`, as the JSON `{"id",
@@ -359,18 +359,18 @@ pub const Store = struct {
     pub fn receipt(self: *const Store, id: [:0]const u8) Error!Buffer {
         var out: Buffer = .{};
         errdefer out.deinit();
-        try check(ffi.ext_store_receipt(self.raw, id.ptr, &out.raw));
+        try check(ffi.ext_plugin_store_receipt(self.raw, id.ptr, &out.raw));
         return out;
     }
     /// Deletes one installed package and its receipt.
     pub fn remove(self: *const Store, id: [:0]const u8) Error!void {
-        try check(ffi.ext_store_remove(self.raw, id.ptr));
+        try check(ffi.ext_plugin_store_remove(self.raw, id.ptr));
     }
     /// Reads and verifies one installed package and returns its `plugin.json`.
     pub fn load(self: *const Store, id: [:0]const u8) Error!Buffer {
         var out: Buffer = .{};
         errdefer out.deinit();
-        try check(ffi.ext_store_load(self.raw, id.ptr, &out.raw));
+        try check(ffi.ext_plugin_store_load(self.raw, id.ptr, &out.raw));
         return out;
     }
     /// The installed ids as a JSON array of strings in byte order, without reading
@@ -379,7 +379,7 @@ pub const Store = struct {
     pub fn ids(self: *const Store) Error!Buffer {
         var out: Buffer = .{};
         errdefer out.deinit();
-        try check(ffi.ext_store_ids(self.raw, &out.raw));
+        try check(ffi.ext_plugin_store_ids(self.raw, &out.raw));
         return out;
     }
     /// Reads and verifies every package and returns a JSON array of `{id,
@@ -389,7 +389,7 @@ pub const Store = struct {
     pub fn list(self: *const Store) Error!Buffer {
         var out: Buffer = .{};
         errdefer out.deinit();
-        try check(ffi.ext_store_list(self.raw, &out.raw));
+        try check(ffi.ext_plugin_store_list(self.raw, &out.raw));
         return out;
     }
     /// Checks every entry without stopping at a bad one and returns a JSON array of
@@ -398,7 +398,7 @@ pub const Store = struct {
     pub fn verify(self: *const Store) Error!Buffer {
         var out: Buffer = .{};
         errdefer out.deinit();
-        try check(ffi.ext_store_verify(self.raw, &out.raw));
+        try check(ffi.ext_plugin_store_verify(self.raw, &out.raw));
         return out;
     }
     /// Reads only the manifests and checks them against their directory names; no
@@ -408,7 +408,7 @@ pub const Store = struct {
     pub fn listUnverified(self: *const Store) Error!Buffer {
         var out: Buffer = .{};
         errdefer out.deinit();
-        try check(ffi.ext_store_list_unverified(self.raw, &out.raw));
+        try check(ffi.ext_plugin_store_list_unverified(self.raw, &out.raw));
         return out;
     }
     /// Chooses the entrypoint the installed package `request.id` offers for
@@ -421,13 +421,13 @@ pub const Store = struct {
     /// (lowercase hex, as recorded at review): an empty or changed digest is
     /// `error.Denied`, so an installed package is never trusted for being installed.
     /// Nothing is run. The rules, including the score that picks between entrypoints,
-    /// are in `ext_store_resolve_entrypoint` of lib/plugin/include/ext_host.h.
+    /// are in `ext_plugin_store_resolve_entrypoint` of lib/plugin/include/ext_plugin_host.h.
     pub fn resolveEntrypoint(self: *const Store, request: EntrypointRequest) Error!Buffer {
         var out: Buffer = .{};
         errdefer out.deinit();
         const os: [*c]const u8 = if (request.os) |name| name.ptr else null;
         const arch: [*c]const u8 = if (request.arch) |name| name.ptr else null;
-        try check(ffi.ext_store_resolve_entrypoint(self.raw, request.id.ptr, request.contract.ptr, request.version.ptr, request.protocol.ptr, request.reviewed_digest.ptr, os, arch, &out.raw));
+        try check(ffi.ext_plugin_store_resolve_entrypoint(self.raw, request.id.ptr, request.contract.ptr, request.version.ptr, request.protocol.ptr, request.reviewed_digest.ptr, os, arch, &out.raw));
         return out;
     }
 };
@@ -443,15 +443,15 @@ pub const Served = struct { manifest: Buffer, layer: usize };
 /// root at all is `error.Invalid`. The reports are those of `Store` over every
 /// root, one line per id from the root that serves it.
 pub const Layered = struct {
-    raw: ?*ffi.ext_layered,
+    raw: ?*ffi.ext_plugin_layered,
     pub fn init(roots: []const [*:0]const u8, limits: StoreLimits) Error!Layered {
-        var raw: ?*ffi.ext_layered = null;
-        const c_limits: ffi.ext_store_limits = .{ .max_artifact_bytes = limits.max_artifact_bytes, .max_tree_files = limits.max_tree_files, .max_tree_bytes = limits.max_tree_bytes };
-        try check(ffi.ext_layered_open(@ptrCast(roots.ptr), roots.len, &c_limits, &raw));
+        var raw: ?*ffi.ext_plugin_layered = null;
+        const c_limits: ffi.ext_plugin_store_limits = .{ .max_artifact_bytes = limits.max_artifact_bytes, .max_tree_files = limits.max_tree_files, .max_tree_bytes = limits.max_tree_bytes };
+        try check(ffi.ext_plugin_layered_open(@ptrCast(roots.ptr), roots.len, &c_limits, &raw));
         return .{ .raw = raw };
     }
     pub fn deinit(self: *Layered) void {
-        ffi.ext_layered_close(self.raw);
+        ffi.ext_plugin_layered_close(self.raw);
         self.raw = null;
     }
     /// Reads and verifies the package from the first root that holds `id`.
@@ -460,26 +460,26 @@ pub const Layered = struct {
         var out: Buffer = .{};
         errdefer out.deinit();
         var layer: usize = 0;
-        try check(ffi.ext_layered_load(self.raw, id.ptr, &out.raw, &layer));
+        try check(ffi.ext_plugin_layered_load(self.raw, id.ptr, &out.raw, &layer));
         return .{ .manifest = out, .layer = layer };
     }
     pub fn list(self: *const Layered) Error!Buffer {
         var out: Buffer = .{};
         errdefer out.deinit();
-        try check(ffi.ext_layered_list(self.raw, &out.raw));
+        try check(ffi.ext_plugin_layered_list(self.raw, &out.raw));
         return out;
     }
     pub fn verify(self: *const Layered) Error!Buffer {
         var out: Buffer = .{};
         errdefer out.deinit();
-        try check(ffi.ext_layered_verify(self.raw, &out.raw));
+        try check(ffi.ext_plugin_layered_verify(self.raw, &out.raw));
         return out;
     }
     /// As `Store.listUnverified` over every root; the result is unverified.
     pub fn listUnverified(self: *const Layered) Error!Buffer {
         var out: Buffer = .{};
         errdefer out.deinit();
-        try check(ffi.ext_layered_list_unverified(self.raw, &out.raw));
+        try check(ffi.ext_plugin_layered_list_unverified(self.raw, &out.raw));
         return out;
     }
 };
@@ -522,15 +522,15 @@ pub const endpoint = struct {
 };
 pub fn sha256(input: []const u8) [32]u8 {
     var result: [32]u8 = undefined;
-    check(ffi.ext_engine_sha256(input.ptr, input.len, &result)) catch unreachable;
+    check(ffi.ext_plugin_sha256(input.ptr, input.len, &result)) catch unreachable;
     return result;
 }
 pub fn verifyArtifacts(manifest: []const u8, root: [:0]const u8) Error!void {
-    try check(ffi.ext_package_verify(manifest.ptr, manifest.len, root.ptr));
+    try check(ffi.ext_plugin_package_verify(manifest.ptr, manifest.len, root.ptr));
 }
 pub fn directoryDigest(root: [:0]const u8) Error![32]u8 {
     var result: [32]u8 = undefined;
-    try check(ffi.ext_directory_digest(root.ptr, &result));
+    try check(ffi.ext_plugin_directory_digest(root.ptr, &result));
     return result;
 }
 test "shared services and cancellation" {
@@ -547,20 +547,20 @@ test "shared services and cancellation" {
 fn denied(_: ?*anyopaque, _: [*c]const u8, _: usize) callconv(.c) i32 {
     return 1;
 }
-fn echo(_: ?*anyopaque, _: ?*anyopaque, _: [*c]const u8, _: usize, _: u32, emit: ffi.ext_guest_emit, sink: ?*anyopaque) callconv(.c) i32 {
-    return emit.?(sink, ffi.EXT_GUEST_PAYLOAD, "7", 1);
+fn echo(_: ?*anyopaque, _: ?*anyopaque, _: [*c]const u8, _: usize, _: u32, emit: ffi.ext_plugin_guest_emit, sink: ?*anyopaque) callconv(.c) i32 {
+    return emit.?(sink, ffi.EXT_PLUGIN_GUEST_PAYLOAD, "7", 1);
 }
 const fixture = "{\"apiVersion\":\"ext.plugin/v1\",\"identity\":{\"id\":\"test\",\"revision\":\"r1\"},\"contracts\":[{\"name\":\"test\",\"version\":\"v1\",\"operations\":[{\"name\":\"echo\"}]}]}";
 test "host and guest binding ownership" {
     var host = try Host.init(.{ .executable = "/not-launched" }, fixture, .{ .verify = denied, .authorize = denied });
     defer host.deinit();
     try std.testing.expectError(error.Denied, host.start(.{}));
-    try std.testing.expectEqual(@as(ffi.ext_host_state, ffi.EXT_HOST_FAILED), host.state());
+    try std.testing.expectEqual(@as(ffi.ext_plugin_host_state, ffi.EXT_PLUGIN_HOST_FAILED), host.state());
     try std.testing.expectError(error.Invalid, host.invoke("{}", .{}));
     try std.testing.expectError(error.Invalid, host.call("{}", .{}));
     try host.drain(.{});
     host.close();
-    var guest = try Guest.init(.{ .abi_version = ffi.EXT_HOST_ABI_VERSION, .struct_size = @sizeOf(ffi.ext_guest_options), .descriptor = fixture, .descriptor_len = fixture.len, .max_call_ms = 1000, .user = null, .handle = echo });
+    var guest = try Guest.init(.{ .abi_version = ffi.EXT_PLUGIN_HOST_ABI_VERSION, .struct_size = @sizeOf(ffi.ext_plugin_guest_options), .descriptor = fixture, .descriptor_len = fixture.len, .max_call_ms = 1000, .user = null, .handle = echo });
     defer guest.deinit();
     var desc = try guest.descriptor();
     defer desc.deinit();
@@ -569,10 +569,10 @@ test "host and guest binding ownership" {
     defer response.deinit();
     try std.testing.expect(std.mem.indexOf(u8, response.bytes(), "\"payload\":7") != null);
 }
-fn counting(user: ?*anyopaque, _: ?*anyopaque, _: [*c]const u8, _: usize, _: u32, emit: ffi.ext_guest_emit, sink: ?*anyopaque) callconv(.c) i32 {
+fn counting(user: ?*anyopaque, _: ?*anyopaque, _: [*c]const u8, _: usize, _: u32, emit: ffi.ext_plugin_guest_emit, sink: ?*anyopaque) callconv(.c) i32 {
     const calls: *usize = @ptrCast(@alignCast(user.?));
     calls.* += 1;
-    return emit.?(sink, ffi.EXT_GUEST_PAYLOAD, "7", 1);
+    return emit.?(sink, ffi.EXT_PLUGIN_GUEST_PAYLOAD, "7", 1);
 }
 fn conformanceRequest(buffer: []u8, id: []const u8, version: []const u8, operation: []const u8, deadline: []const u8) ![]const u8 {
     return std.fmt.bufPrint(buffer, "{{\"apiVersion\":\"{s}\",\"id\":\"{s}\",\"plugin\":{{\"id\":\"test\",\"revision\":\"r1\"}},\"contract\":{{\"name\":\"test\",\"version\":\"v1\"}},\"operation\":\"{s}\"{s}}}", .{ version, id, operation, deadline });
@@ -582,7 +582,7 @@ fn conformanceRequest(buffer: []u8, id: []const u8, version: []const u8, operati
 // request, is a failed call (error.Invalid). The handler is never called for either.
 test "malformed requests" {
     var calls: usize = 0;
-    var guest = try Guest.init(.{ .abi_version = ffi.EXT_HOST_ABI_VERSION, .struct_size = @sizeOf(ffi.ext_guest_options), .descriptor = fixture, .descriptor_len = fixture.len, .max_call_ms = 1000, .user = &calls, .handle = counting });
+    var guest = try Guest.init(.{ .abi_version = ffi.EXT_PLUGIN_HOST_ABI_VERSION, .struct_size = @sizeOf(ffi.ext_plugin_guest_options), .descriptor = fixture, .descriptor_len = fixture.len, .max_call_ms = 1000, .user = &calls, .handle = counting });
     defer guest.deinit();
     var first: [320]u8 = undefined;
     var second: [320]u8 = undefined;
@@ -616,51 +616,51 @@ test "malformed requests" {
 /// C owns instance admission, revisions and lifecycle. User callback state must
 /// outlive the manager. Close, join calls/release leases, then deinit once.
 pub const Instances = struct {
-    raw: ?*ffi.ext_instances,
-    pub fn init(options: ffi.ext_instance_options) Error!Instances {
+    raw: ?*ffi.ext_plugin_instances,
+    pub fn init(options: ffi.ext_plugin_instance_options) Error!Instances {
         var o = options;
-        o.struct_size = @sizeOf(ffi.ext_instance_options);
-        var raw: ?*ffi.ext_instances = null;
-        try check(ffi.ext_instances_create(&o, &raw));
+        o.struct_size = @sizeOf(ffi.ext_plugin_instance_options);
+        var raw: ?*ffi.ext_plugin_instances = null;
+        try check(ffi.ext_plugin_instances_create(&o, &raw));
         return .{ .raw = raw };
     }
     pub fn configure(self: *const Instances, key: []const u8, revision: []const u8, config: []const u8, options: CallOptions) Error!void {
         var o = options.raw();
-        try check(ffi.ext_instances_configure(self.raw, key.ptr, key.len, revision.ptr, revision.len, config.ptr, config.len, &o));
+        try check(ffi.ext_plugin_instances_configure(self.raw, key.ptr, key.len, revision.ptr, revision.len, config.ptr, config.len, &o));
     }
     pub fn acquire(self: *const Instances, key: []const u8) Error!Lease {
-        var raw: ?*ffi.ext_lease = null;
-        try check(ffi.ext_instances_acquire(self.raw, key.ptr, key.len, &raw));
+        var raw: ?*ffi.ext_plugin_lease = null;
+        try check(ffi.ext_plugin_instances_acquire(self.raw, key.ptr, key.len, &raw));
         return .{ .raw = raw };
     }
     pub fn remove(self: *const Instances, key: []const u8) Error!void {
-        try check(ffi.ext_instances_remove(self.raw, key.ptr, key.len));
+        try check(ffi.ext_plugin_instances_remove(self.raw, key.ptr, key.len));
     }
     pub fn close(self: *const Instances, options: CallOptions) Error!void {
         var o = options.raw();
-        try check(ffi.ext_instances_close(self.raw, &o));
+        try check(ffi.ext_plugin_instances_close(self.raw, &o));
     }
     /// Draining leaves the handle owned by the caller; release leases and retry.
     pub fn deinit(self: *Instances) Error!void {
-        try check(ffi.ext_instances_destroy(self.raw));
+        try check(ffi.ext_plugin_instances_destroy(self.raw));
         self.raw = null;
     }
 };
 pub const Lease = struct {
-    raw: ?*ffi.ext_lease,
+    raw: ?*ffi.ext_plugin_lease,
     /// T must match the type produced by the factory. Borrowed until release.
     pub fn value(self: *const Lease, comptime T: type) ?*T {
-        return @ptrCast(@alignCast(ffi.ext_lease_value(self.raw)));
+        return @ptrCast(@alignCast(ffi.ext_plugin_lease_value(self.raw)));
     }
     pub fn revision(self: *const Lease) []const u8 {
         var n: usize = 0;
-        const p = ffi.ext_lease_revision(self.raw, &n);
+        const p = ffi.ext_plugin_lease_revision(self.raw, &n);
         return if (n == 0) &.{} else p[0..n];
     }
     /// Consumes the lease even if disposal returns an error. Do not copy leases.
     pub fn release(self: *Lease) Error!void {
         if (self.raw == null) return;
-        const status = ffi.ext_lease_release(self.raw);
+        const status = ffi.ext_plugin_lease_release(self.raw);
         self.raw = null;
         try check(status);
     }
@@ -674,19 +674,19 @@ pub const StreamID = struct {
 /// Close may run concurrently with reads; the reader callback must unblock.
 /// Release runs after close and all reads join. Callback state outlives deinit.
 pub const Streams = struct {
-    raw: ?*ffi.ext_streams,
-    pub fn init(options: ffi.ext_stream_options) Error!Streams {
+    raw: ?*ffi.ext_plugin_streams,
+    pub fn init(options: ffi.ext_plugin_stream_options) Error!Streams {
         var o = options;
-        o.struct_size = @sizeOf(ffi.ext_stream_options);
-        var raw: ?*ffi.ext_streams = null;
-        try check(ffi.ext_streams_create(&o, &raw));
+        o.struct_size = @sizeOf(ffi.ext_plugin_stream_options);
+        var raw: ?*ffi.ext_plugin_streams = null;
+        try check(ffi.ext_plugin_streams_create(&o, &raw));
         return .{ .raw = raw };
     }
     pub fn open(self: *const Streams, scope: []const u8, parameters: []const u8, options: CallOptions) Error!StreamID {
         var o = options.raw();
         var out: Buffer = .{};
         defer out.deinit();
-        try check(ffi.ext_streams_open(self.raw, scope.ptr, scope.len, parameters.ptr, parameters.len, &o, &out.raw));
+        try check(ffi.ext_plugin_streams_open(self.raw, scope.ptr, scope.len, parameters.ptr, parameters.len, &o, &out.raw));
         const bytes = out.bytes();
         if (bytes.len != 50 or bytes[0] != '"' or bytes[49] != '"') return error.Mismatch;
         var id: StreamID = undefined;
@@ -698,17 +698,17 @@ pub const Streams = struct {
         var o = options.raw();
         var out: Buffer = .{};
         errdefer out.deinit();
-        try check(ffi.ext_streams_read(self.raw, scope.ptr, scope.len, id.ptr, sequence, limit, &o, &out.raw));
+        try check(ffi.ext_plugin_streams_read(self.raw, scope.ptr, scope.len, id.ptr, sequence, limit, &o, &out.raw));
         return out;
     }
     pub fn remove(self: *const Streams, scope: []const u8, id: [:0]const u8) Error!void {
-        try check(ffi.ext_streams_remove(self.raw, scope.ptr, scope.len, id.ptr));
+        try check(ffi.ext_plugin_streams_remove(self.raw, scope.ptr, scope.len, id.ptr));
     }
     pub fn close(self: *const Streams) Error!void {
-        try check(ffi.ext_streams_close(self.raw));
+        try check(ffi.ext_plugin_streams_close(self.raw));
     }
     pub fn deinit(self: *Streams) Error!void {
-        try check(ffi.ext_streams_destroy(self.raw));
+        try check(ffi.ext_plugin_streams_destroy(self.raw));
         self.raw = null;
     }
 };
@@ -717,30 +717,30 @@ const ResourceFixture = struct {
     closed: usize = 0,
     value: u32 = 7,
     fn validate(_: ?*anyopaque, _: [*c]const u8, _: usize) callconv(.c) i32 {
-        return ffi.EXT_OK;
+        return ffi.EXT_PLUGIN_OK;
     }
-    fn create(user: ?*anyopaque, _: [*c]const ffi.ext_call_options, _: ?*const ffi.ext_cancel, _: [*c]const u8, _: usize, _: [*c]const u8, _: usize, out: [*c]?*anyopaque) callconv(.c) i32 {
+    fn create(user: ?*anyopaque, _: [*c]const ffi.ext_plugin_call_options, _: ?*const ffi.ext_plugin_cancel, _: [*c]const u8, _: usize, _: [*c]const u8, _: usize, out: [*c]?*anyopaque) callconv(.c) i32 {
         const self: *ResourceFixture = @ptrCast(@alignCast(user));
         out.* = &self.value;
-        return ffi.EXT_OK;
+        return ffi.EXT_PLUGIN_OK;
     }
     fn dispose(user: ?*anyopaque, _: ?*anyopaque) callconv(.c) i32 {
         const self: *ResourceFixture = @ptrCast(@alignCast(user));
         self.disposed += 1;
-        return ffi.EXT_OK;
+        return ffi.EXT_PLUGIN_OK;
     }
-    fn open(user: ?*anyopaque, _: [*c]const ffi.ext_call_options, _: ?*const ffi.ext_cancel, _: [*c]const u8, _: usize, out: [*c]?*anyopaque) callconv(.c) i32 {
+    fn open(user: ?*anyopaque, _: [*c]const ffi.ext_plugin_call_options, _: ?*const ffi.ext_plugin_cancel, _: [*c]const u8, _: usize, out: [*c]?*anyopaque) callconv(.c) i32 {
         out.* = user;
-        return ffi.EXT_OK;
+        return ffi.EXT_PLUGIN_OK;
     }
-    fn read(_: ?*anyopaque, _: ?*anyopaque, _: [*c]const ffi.ext_call_options, _: ?*const ffi.ext_cancel, _: u32, emit: ffi.ext_emit, sink: ?*anyopaque) callconv(.c) i32 {
+    fn read(_: ?*anyopaque, _: ?*anyopaque, _: [*c]const ffi.ext_plugin_call_options, _: ?*const ffi.ext_plugin_cancel, _: u32, emit: ffi.ext_plugin_emit, sink: ?*anyopaque) callconv(.c) i32 {
         const data = "{\"items\":[7],\"done\":false}";
         return emit.?(sink, data, data.len);
     }
     fn close(user: ?*anyopaque, _: ?*anyopaque) callconv(.c) i32 {
         const self: *ResourceFixture = @ptrCast(@alignCast(user));
         self.closed += 1;
-        return ffi.EXT_OK;
+        return ffi.EXT_PLUGIN_OK;
     }
     fn release(user: ?*anyopaque, _: ?*anyopaque) callconv(.c) void {
         const self: *ResourceFixture = @ptrCast(@alignCast(user));
@@ -813,24 +813,24 @@ const ReverseFixture = struct {
     handled: usize = 0,
     last: [512]u8 = undefined,
     last_len: usize = 0,
-    fn authorize(user: ?*anyopaque, _: [*c]const ffi.ext_call_options, p: [*c]const u8, n: usize) callconv(.c) i32 {
+    fn authorize(user: ?*anyopaque, _: [*c]const ffi.ext_plugin_call_options, p: [*c]const u8, n: usize) callconv(.c) i32 {
         const self: *ReverseFixture = @ptrCast(@alignCast(user));
         self.authorized += 1;
         return if (std.mem.indexOf(u8, p[0..n], "\"operation\":\"secret\"") != null) 1 else 0;
     }
-    fn handle(user: ?*anyopaque, _: [*c]const ffi.ext_call_options, p: [*c]const u8, n: usize, emit: ffi.ext_reverse_emit, sink: ?*anyopaque) callconv(.c) i32 {
+    fn handle(user: ?*anyopaque, _: [*c]const ffi.ext_plugin_call_options, p: [*c]const u8, n: usize, emit: ffi.ext_plugin_reverse_emit, sink: ?*anyopaque) callconv(.c) i32 {
         const self: *ReverseFixture = @ptrCast(@alignCast(user));
         self.handled += 1;
         const request = p[0..n];
         const keep = @min(request.len, self.last.len);
         @memcpy(self.last[0..keep], request[0..keep]);
         self.last_len = keep;
-        if (std.mem.indexOf(u8, request, "\"operation\":\"sign\"") != null) return emit.?(sink, ffi.EXT_HOST_REVERSE_PAYLOAD, "\"signed\"", 8);
+        if (std.mem.indexOf(u8, request, "\"operation\":\"sign\"") != null) return emit.?(sink, ffi.EXT_PLUGIN_HOST_REVERSE_PAYLOAD, "\"signed\"", 8);
         if (std.mem.indexOf(u8, request, "\"operation\":\"errok\"") != null) {
             const failure = "{\"code\":\"policy\",\"message\":\"refused for you\",\"retryAfterMilliseconds\":5}";
-            return emit.?(sink, ffi.EXT_HOST_REVERSE_PUBLIC_ERROR, failure, failure.len);
+            return emit.?(sink, ffi.EXT_PLUGIN_HOST_REVERSE_PUBLIC_ERROR, failure, failure.len);
         }
-        return ffi.EXT_IO;
+        return ffi.EXT_PLUGIN_IO;
     }
 };
 const Events = struct {
@@ -933,7 +933,7 @@ test "a plugin that breaks the framing ends the session" {
     var host = try openScripted(guest, descriptor, "wrongparent", &state);
     defer host.deinit();
     try std.testing.expectError(error.Protocol, host.call(run_request, .{}));
-    try std.testing.expectEqual(@as(ffi.ext_host_state, ffi.EXT_HOST_FAILED), host.state());
+    try std.testing.expectEqual(@as(ffi.ext_plugin_host_state, ffi.EXT_PLUGIN_HOST_FAILED), host.state());
 }
 test "services are offered before the host starts" {
     var state: ReverseFixture = .{};
@@ -1171,7 +1171,7 @@ test "the package store reports every entry" {
     // verify reports a bad entry and goes on; list fails closed; the unverified
     // listing reads no artifact, so it still has both
     try writeFile(try printZ(a, "{s}/example%2fb/src/main.py", .{root}), "tampered");
-    const damaged = try printZ(a, "\"id\":\"example/b\",\"directory\":\"{s}/example%2fb\",\"layer\":0,\"status\":{d}", .{ root, ffi.EXT_MISMATCH });
+    const damaged = try printZ(a, "\"id\":\"example/b\",\"directory\":\"{s}/example%2fb\",\"layer\":0,\"status\":{d}", .{ root, ffi.EXT_PLUGIN_MISMATCH });
     report = try store.verify();
     try std.testing.expect(std.mem.indexOf(u8, report.bytes(), damaged) != null);
     report.deinit();
@@ -1367,7 +1367,7 @@ test "a layered view serves the highest root and never writes" {
     try std.testing.expectError(error.Mismatch, view.load("example/a"));
     try std.testing.expectError(error.Mismatch, view.list());
     report = try view.verify();
-    try std.testing.expect(std.mem.indexOf(u8, report.bytes(), (try printZ(a, "\"id\":\"example/a\",\"directory\":\"{s}/example%2fa\",\"layer\":0,\"status\":{d}", .{ high, ffi.EXT_MISMATCH }))) != null);
+    try std.testing.expect(std.mem.indexOf(u8, report.bytes(), (try printZ(a, "\"id\":\"example/a\",\"directory\":\"{s}/example%2fa\",\"layer\":0,\"status\":{d}", .{ high, ffi.EXT_PLUGIN_MISMATCH }))) != null);
     report.deinit();
     report = try view.listUnverified();
     try std.testing.expect(std.mem.indexOf(u8, report.bytes(), "\"problems\":[]}") != null);
@@ -1410,7 +1410,7 @@ const Deny = struct {
     fn forward(user: ?*anyopaque, _: [*c]const u8, _: usize) callconv(.c) i32 {
         return if (@as(*const Deny, @ptrCast(@alignCast(user))).deny) 1 else 0;
     }
-    fn reverse(user: ?*anyopaque, _: [*c]const ffi.ext_call_options, _: [*c]const u8, _: usize) callconv(.c) i32 {
+    fn reverse(user: ?*anyopaque, _: [*c]const ffi.ext_plugin_call_options, _: [*c]const u8, _: usize) callconv(.c) i32 {
         return if (@as(*const Deny, @ptrCast(@alignCast(user))).deny) 1 else 0;
     }
 };
@@ -1545,7 +1545,7 @@ test "the guest registry refuses what it cannot route" {
     defer b.deinit();
     try registry.attach(&b, .{ .authorize = Deny.reverse, .user = &allowed });
     try b.start(.{});
-    // attach is ext_host_set_services: before start only.
+    // attach is ext_plugin_host_set_services: before start only.
     try std.testing.expectError(error.Invalid, registry.attach(&b, .{ .authorize = Deny.reverse, .user = &allowed }));
     try std.testing.expectError(error.Invalid, registry.register("Not A Name", "v1", &b));
     try std.testing.expectError(error.Unsupported, registry.register("registry.other", "v1", &b));

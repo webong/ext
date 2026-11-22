@@ -18,8 +18,8 @@ var ErrExists = errors.New("already registered")
 // declared with Route. The host stays the authority. Nothing changes on the
 // wire: the calling plugin gets an ordinary reverse response and the target an
 // ordinary call, and the registry routes only between processes the host
-// opened; it discovers and starts nothing. It is the C engine's ext_registry
-// (ext_host.h), and both answer the shared cases in
+// opened; it discovers and starts nothing. It is the C engine's ext_plugin_registry
+// (ext_plugin_host.h), and both answer the shared cases in
 // lib/plugin/testdata/v1/registry-cases.json.
 //
 // A process is a source when it is opened with Options.Registry: its reverse

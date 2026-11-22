@@ -1,4 +1,4 @@
-/* The process supervisor: res/graph/supervisor in C. It runs local component
+/* The process supervisor (pkg/ext-go/engine/ledger/supervisor in Go). It runs local component
  * processes and projects their observed lifecycle into the ext.runtime
  * namespace. An instance's state changes under its lock, and its graph fact is
  * applied before that lock is released, so an observer never sees a state the

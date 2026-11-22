@@ -109,9 +109,11 @@ frames finite PCM16 data.
 ## The graph
 
 The graph store, the recorder that writes what these collectors find into it, and the
-process supervisor live in the module [`res/graph`](../graph/README.md), which requires
-this module. Nothing here depends on the graph. The path `res/graph` was used briefly
-for an earlier form of this module (v0.1.x, deprecated); it now names the graph module.
+process supervisor are the ledger: [`lib/ledger`](../../lib/ledger/README.md) in C and
+[`pkg/ext-go/engine/ledger`](../../pkg/ext-go/engine/ledger/README.md) in Go, whose recorder module
+requires this module. Nothing here depends on the ledger. The path `res/graph` was used briefly
+for an earlier form of this module (v0.1.x, deprecated), and then for the Go graph module until it moved
+into `pkg/ext-go/engine/ledger`.
 See the migration table in [module versioning](../../docs/module-versioning.md).
 
 See [host discovery](../../docs/host-discovery.md) and the

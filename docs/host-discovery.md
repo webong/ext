@@ -1,7 +1,7 @@
 # Host discovery
 
 Host inventory is discovered by the collectors of `github.com/webong/ext/res/system`
-(`service/host`, `service/process`, `capture/surface`) and recorded by `github.com/webong/ext/res/graph`.
+(`service/host`, `service/process`, `capture/surface`) and recorded by `github.com/webong/ext/pkg/ext-go/engine/ledger/recorder`.
 It works through the installed CTX package without adapter packages.
 Adapter inventory describes provider capabilities and contexts separately.
 
@@ -132,7 +132,7 @@ and [Qt WebEngine](https://doc.qt.io/qt-6/qtwebengine-overview.html).
 
 Use discovery without a store, or persist the result in an existing system
 graph. The examples below import the recorder as
-`systemgraph "github.com/webong/ext/res/graph"`; its declared name is `graph`, and the
+`systemgraph "github.com/webong/ext/pkg/ext-go/engine/ledger/recorder"`; its declared name is `recorder`, and the
 alias keeps it from colliding with a variable of your own called `graph`. The collectors are
 imported from `res/system` (`host`, `process` and `surface` below):
 
@@ -153,7 +153,7 @@ that part of the existing inventory, while a non-nil empty slice removes its old
 The schema uses `shell`, `filesystem`, `webview`, `desktop`, `display`, `window`,
 `accessibility-element`, `permission`, `host-resource`, and `host-inventory`
 vertices linked to `machine/local`. The generic graph store owns persistence and transactions;
-`res/system` owns host discovery; `res/graph` owns the `ext.system` vocabulary that records it.
+`res/system` owns host discovery; the ledger recorder owns the `ext.system` vocabulary that records it.
 
 Resource discovery is a local, read-only observation of OS and architecture,
 logical CPUs, effective CPU and memory capacity, container markers, and uptime
@@ -444,14 +444,14 @@ layout. Real PID reuse is not forced, and a passing build is not a native test.
 Run ordinary contract/parser tests with:
 
 ```sh
-(cd res/system && go test ./...) && (cd res/graph && go test ./...) && (cd src/ctx && go test ./internal/app)
+(cd res/system && go test ./...) && (cd pkg/ext-go/engine/ledger/recorder && go test ./...) && (cd src/ctx && go test ./internal/app)
 ```
 
 Enable native fixtures explicitly (the shell must permit subprocess inspection
 and binding temporary loopback sockets):
 
 ```sh
-EXT_GRAPH_PROCESS_NATIVE_TESTS=1 go test -race -v ./res/system/service/process ./res/graph \
+EXT_GRAPH_PROCESS_NATIVE_TESTS=1 go test -race -v ./res/system/service/process ./pkg/ext-go/engine/ledger/recorder \
   -run '^(TestNativeProcess|TestProcess|TestLiveProcess)' -count=3 -timeout=5m
 ```
 

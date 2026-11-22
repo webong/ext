@@ -10,10 +10,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/webong/ext/src/ctx/internal/config"
+	systemgraph "github.com/webong/ext/pkg/ext-go/engine/ledger/recorder"
 	modpkg "github.com/webong/ext/pkg/ext-go/engine/plugin/host/adapter"
-	systemgraph "github.com/webong/ext/res/graph"
 	browsershare "github.com/webong/ext/res/web/host/contract"
+	"github.com/webong/ext/src/ctx/internal/config"
 )
 
 // scanMachineInventory asks installed adapters for their declared capabilities

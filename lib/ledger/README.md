@@ -1,8 +1,8 @@
 # lib/ledger
 
-The `res/graph` graph in C: one library that Linux, Darwin (macOS and iOS) and Windows
+The ledger in C: one library that Linux, Darwin (macOS and iOS) and Windows
 programs embed, from any language with a C FFI, with nothing beyond the C library and the OS.
-It replaces the Go `res/graph` as the implementation of the graph; the contract is still the data in
+It is the main implementation of the ledger, which the pure-Go [`pkg/ext-go/engine/ledger`](../../pkg/ext-go/engine/ledger/README.md) follows; the contract is the data in
 [`lib/ledger/testdata`](../../lib/ledger/testdata), and this library is held to it.
 
 | Part | State |
@@ -12,7 +12,7 @@ It replaces the Go `res/graph` as the implementation of the graph; the contract 
 | Reader | Done: `ext_ledger_open_reader`, which never locks or writes, and the `ext-ledger` command |
 | Recorder | Done for what it is given: `ext_ledger_recorder_open` and `ext_ledger_record`, shells, web origins, host inventory, processes and adapter inventory, held to `lib/ledger/testdata/recorder/v1` |
 | Collectors | Done: `ext_ledger_collect` and `ext_ledger_scan`, through each kernel's own interface, so the recorder reads the machine itself |
-| Supervisor | Done: `ext_ledger_supervisor_*`, `res/graph/supervisor` in C, held to its tests |
+| Supervisor | Done: `ext_ledger_supervisor_*`, held to the Go supervisor's tests |
 
 ## Platforms
 
@@ -130,7 +130,7 @@ nothing used it, and sandboxing has its own contracts ([the decision](../../docs
 - **sqlite** (`ext_ledger_open_sqlite`): optional, linked against the system's SQLite (no vendored
   copy); `EXT_LEDGER_UNSUPPORTED` in a build without it. One database laid out as
   [`tables.json`](../../lib/ledger/testdata/store/v1/tables.json) says, which is what the Go store
-  `res/graph/store/sqlite` writes: either opens the other's database, and
+  `pkg/ext-go/engine/ledger/recorder/sqlite` writes: either opens the other's database, and
   `scripts/ledger-sqlite-cross.sh` checks it both ways (Go writes, C reads and writes, Go reads and
   replays C's idempotency key). The handle catches up with other connections when SQLite's
   `data_version` moves; a commit, with its compaction, is one `BEGIN IMMEDIATE` transaction.
@@ -159,6 +159,6 @@ nothing used it, and sandboxing has its own contracts ([the decision](../../docs
 | `src/collect*.c` | The collectors, one file per kind and kernel |
 | `src/supervisor.c` | The supervisor: specs, the lifecycle, projection, leases and recovery |
 | `src/process_posix.c`, `src/process_win32.c` | Starting, waiting for and ending process trees; threads and random IDs |
-| `tests/supervisor.c` | `res/graph/supervisor`'s tests, with the test binary as its own child |
+| `tests/supervisor.c` | `pkg/ext-go/engine/ledger/supervisor`'s tests, with the test binary as its own child |
 
 Like `lib/plugin`, the tree holds no Go code.

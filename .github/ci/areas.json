@@ -1019,7 +1019,7 @@
       ],
       "main_paths": [
         "lib/ledger/**",
-        "res/graph/store/sqlite/**",
+        "pkg/ext-go/engine/ledger/recorder/sqlite/**",
         "lib/ledger/testdata/recorder/**",
         "lib/ledger/testdata/store/**",
         "scripts/ci/jobs/ledger/**",
@@ -1028,7 +1028,7 @@
       ],
       "pr_paths": [
         "lib/ledger/**",
-        "res/graph/store/sqlite/**",
+        "pkg/ext-go/engine/ledger/recorder/sqlite/**",
         "lib/ledger/testdata/recorder/**",
         "lib/ledger/testdata/store/**",
         "scripts/ci/jobs/ledger/**",

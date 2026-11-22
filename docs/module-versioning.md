@@ -561,9 +561,11 @@ from `_csrc` and links the engine library, which is built from `_csrc` with CMak
 | `pkg/plugin-go/c2goengine` | `pkg/ext-go/c2goengine` (`pkg/ext-go/c2goengine`, from v0.1.0) |
 | `pkg/plugin-go/hashicorp` | `pkg/ext-go/hashicorp` (`pkg/ext-go/hashicorp`) |
 | `pkg/plugin-go` umbrella and its packages, such as `core` and `cmd/ext-plugin-bridge` (up to v0.8.0) | `pkg/ext-go` and the same packages (`pkg/ext-go`, from v0.9.0) |
-| `pkg/graph` (v0.1.0) | the generic store, first `res/system/graph` in module `res/system` (v0.1.0 to v0.2.1), now `res/graph/store` in module `res/graph` (from v0.2.0; see below) |
+| `pkg/graph` (v0.1.0) | the generic store, first `res/system/graph` in module `res/system` (v0.1.0 to v0.2.1), then `res/graph/store` in module `res/graph` (v0.2.0 to v0.3.0), now `pkg/ext-go/engine/ledger` (see below) |
 | `res/graph` (v0.1.0, published for a short time) | `res/system` (module `res/system`): the discovery package that lived in `res/graph/system` (declared name `systemgraph`) became the module root, package `system`; the store, `res/graph`'s own package, became `res/system/graph`, and `res/graph/supervisor` became `res/system/supervisor`. Both have since moved back under `res/graph` (next rows) |
 | `res/system/graph`, `res/system/supervisor` and the recorder in the root package of `res/system` (`Graph`, `Open`, `New`, `Scan*`, `Observe*`, `ResolveInventory`, `ReadHost`, `ResolveHost`, `PrepareHost`) (`res/system`, up to v0.2.1) | `res/graph/store`, `res/graph/supervisor` and the root package `res/graph` (module `res/graph`, from v0.2.0) |
+| `res/graph/store` (package `store`), `res/graph/store/storetest`, `res/graph/supervisor` (module `res/graph`, v0.2.0 to v0.3.0) | `pkg/ext-go/engine/ledger` (package `ledger`), `pkg/ext-go/engine/ledger/ledgertest` (package `ledgertest`), `pkg/ext-go/engine/ledger/supervisor`, in module `pkg/ext-go/engine`: the pure-Go fallback of `lib/ledger`, standard library only |
+| the root package `res/graph` (package `graph`) and `res/graph/store/sqlite` (module `res/graph`, v0.2.0 to v0.3.0) | `pkg/ext-go/engine/ledger/recorder` (package `recorder`) and `.../recorder/sqlite`, the module `pkg/ext-go/engine/ledger/recorder` (from v0.1.0), which requires `pkg/ext-go/engine` and `res/system`. The SQLite store goes when the Go file backend replaces it |
 | the collectors in the root package of `res/system` (`DiscoverShells`, `DiscoverFilesystems`, `DiscoverWebviews`, `DiscoverResources`, `DiscoverProcesses`, `InspectProcess`, `DiscoverSurfaces`, `DiscoverDesktop`, `DiscoverAccessibility`, `DiscoverPermissions`, window capture and input, `DesktopDriver`) | `res/system/service/host`, `.../service/process`, `.../capture/surface` (`res/system`, from v0.3.0) |
 | `res/system/audio`, `res/system/clipboard`, `res/system/share`, `res/system/media` | `res/system/capture/audio`, `.../clipboard`, `.../share`, `.../media` (`res/system`, from v0.3.0) |
 | `res/system/network`, `res/system/program`, `res/system/credential/...`, `res/system/service` | `res/system/service/network`, `.../program`, `.../credential/...`, `.../user` (`res/system`, from v0.3.0) |
@@ -815,6 +817,7 @@ the `module` line, then no further tags:
 | `pkg/plugin-hashicorp` | `// Deprecated: use github.com/webong/ext/pkg/plugin-go/hashicorp.` | `pkg/plugin-go/hashicorp` |
 | `pkg/graph` | `// Deprecated: use github.com/webong/ext/res/system.` (v0.1.2; v0.1.1 named `res/graph`, which was then renamed) | `res/system` |
 | `res/graph` | `// Deprecated: use github.com/webong/ext/res/system.` (v0.1.1) | `res/system` |
+| `res/graph` (the graph module, v0.2.0 to v0.3.0) | `// Deprecated: use github.com/webong/ext/pkg/ext-go/engine/ledger.` (v0.3.1) | `pkg/ext-go/engine/ledger` and `pkg/ext-go/engine/ledger/recorder` |
 
 The old `pkg/plugin-go` v0.1.x keeps resolving for existing consumers; its replacement
 at the same path is the umbrella v0.2.0 and its engine API is `cengine`. Tell every

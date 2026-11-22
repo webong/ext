@@ -65,7 +65,7 @@ library and ships a private Ext package guest. Only `cmd/ext` ships a public bin
 never imports another product; shared code goes in `pkg/` or `res/`.
 `examples/` is not a Go module: it holds only samples that need no Go build (a shell adapter and an Android
 consumer app). Go examples live in the library they show, as an `examples/` directory inside that module:
-`pkg/ext-go/examples` for plugins (the umbrella requires every backend), `res/graph/examples` and
+`pkg/ext-go/examples` for plugins (the umbrella requires every backend), `pkg/ext-go/engine/ledger/examples` and
 `res/web/host/examples` for those libraries. The product modules export `ctx.Run`,
 `ctn.Run` and `cto.Run` for Go consumers; the private guests in each product's
 `plugin/` directory adapt those functions to `ext.command/v1`. Ext does not import
@@ -82,8 +82,8 @@ and nothing lives at that level: no Go package
 and no repository-wide policy. Keep container directories free of shared logic
 and keep repo-wide tests in `src/ctx/internal/arch`. `res/web/host` depends on wazero
 for its protocol-neutral WebAssembly runtime and never on the plugin engine;
-`res/system` depends on `golang.org/x/sys`. `res/graph` requires `res/system` for the collector types; `res/system` never requires
-`res/graph` (`src/ctx/internal/arch` enforces it).
+`res/system` depends on `golang.org/x/sys`. The ledger recorder (`pkg/ext-go/engine/ledger/recorder`) requires `res/system` for the collector types; `res/system` never requires
+it (`src/ctx/internal/arch` enforces it).
 
 `res/web` has no Go code at its top. Its Go module is `res/web/host`
 (`github.com/webong/ext/res/web/host`, tagged `res/web/host/vX.Y.Z`); the module path
@@ -127,11 +127,12 @@ the pure-Go build of `pkg/ext-go/cgoengine`) follows it to keep parity, so that 
 programs keep working; where the two disagree, the C engine and the fixtures decide. See
 `docs/plugin-engine-parity.md`. A change to the plugin contract or the package manifest lands in both
 implementations, and the conformance checks compare the two.
-`lib/ledger` is the `res/graph` graph in C, built with CMake like `lib/plugin` and, like it, not a Go
+`lib/ledger` is the ledger (the graph store, recorder and supervisor) in C, built with CMake like `lib/plugin` and, like it, not a Go
 module: the store now (memory and file backends, the optional SQLite backend on `tables.json`), the
 reader and the recorder with its per-kernel collectors next. It has no third-party code at all (its
 JSON, SHA-256 and CRC-32 are its own) and shares nothing with `lib/plugin`. It is held to the
-`lib/ledger/testdata` fixtures; the Go `res/graph` is replaced by it (see
+`lib/ledger/testdata` fixtures. It is the main ledger implementation; `pkg/ext-go/engine/ledger` is the
+pure-Go fallback that follows it, as `engine/plugin` follows `lib/plugin` (see
 [the architecture ADR](docs/adr-architecture.md#resgraph-storage-and-libledger)).
 
 Each reusable library under `pkg/` is its own Go module, not a package inside
@@ -163,7 +164,7 @@ module graph. Tests that need
 a backend belong in that backend's module, and tests or commands that need both
 a backend and the engine belong in the umbrella module, not in `engine`, so
 the core stays free of every runtime. `pkg/ext-go/engine` uses the standard
-library only. `src/ctx/internal/arch` enforces both rules.
+library only (its nested module `engine/ledger/recorder` is outside it). `src/ctx/internal/arch` enforces both rules.
 
 When adding a library module, list it in `go.work`, give it a `go.mod`, and add
 matching `require` directives to a product module only if that product imports it
@@ -186,11 +187,10 @@ The reusable libraries are:
 - `pkg/ext-web` for the JavaScript/TypeScript library that runs inside a browser extension: peer messaging, in-browser management, workspace helpers, a userscript registry, a page bridge and themes. It is built and tested with Node, is `private: true` under the npm name `ext-web`, and depends on neither the plugin engine nor any Go code.
 - `lib/plugin` for the portable C plugin engine shared by the language bindings under `pkg/` (`ext-go`, `ext-rust`, `ext-zig`, `ext-ts`) and the mobile SDKs. The JSON-line guest SDKs (`ext-python`, `ext-ruby`, `ext-php`, `ext-lua`, and the .NET `ExtIO`) do not link it; the Python and Lua hosts (`ext_io.host`), the Ruby host (`ExtIO::Host`, gem `ext-io-host`), the PHP host (`ExtIO\Host`, through FFI) and the .NET host (`ExtIO.Host`, `pkg/ext-dotnet`) load its shared library at run time.
 - `res/system` for the local operating-system substrate used to extend graphical and textual shells: host, shell, filesystem and volume mechanics, clipboard, credential integration, local interface/address/route/resolver observation, web view and process discovery, native surfaces, accessibility, permission state, bounded capture and media playback/capture, and atomic native input. It owns mechanisms, not authorization, remote control, routing services or consumer policy. The module has no root package; its packages sit in three groups, which are plain directories: `service` (what the host provides, looked up and used: `host` for shells, filesystems, web views and resource capacity, `network`, `process`, `program`, `credential` and `user` for per-user service definitions), `capture` (content and events crossing the device edge: `surface` for displays, windows, accessibility, permission, capture and input, `audio`, `clipboard`, `share` and `media`) and `device` (`volume` for snapshots and private directories, `image` for snapshot archives). Each package owns its own iOS, Android and Windows code (the .NET libraries are `capture/audio/windows` and `capture/clipboard/windows`). The Windows .NET libraries of `res/` (those two, `res/web/windows` and `res/int/model/windows`) ship as NuGet packages named like their assemblies, released together under the tag `ext-windows-vX.Y.Z`, the Windows platform package (the counterpart of `ext-ios` and `ext-android`); the .NET guest SDK `ExtIO` and plugin host `ExtIO.Host` (`pkg/ext-dotnet`), a language package, are released on their own as `ext-dotnet-vX.Y.Z`.
-- `lib/ledger` for the graph in C that replaces `res/graph`: the store over its file layout (`lib/ledger/testdata/store/v1/ledger.json`) or SQLite, held to the same fixtures.
-- `res/graph` for the graph store (`res/graph/store`), the recorder that projects what is observed about the machine, its adapters and its shell sessions onto the `ext.system` vocabulary (the module's root package), and the process supervisor (`res/graph/supervisor`). It requires `res/system`; nothing in `res/system` depends on it. Deprecated: `lib/ledger` replaces it, so add nothing new here (only keep it working until its Go consumers move to the C library and it is removed); new graph behaviour goes to `lib/ledger` and the `lib/ledger/testdata` fixtures.
+- `lib/ledger` for the ledger in C, the main implementation: the store over its file layout (`lib/ledger/testdata/store/v1/ledger.json`) or SQLite, held to the same fixtures.
 - `res/int` for portable intelligence contracts and mechanisms: `model` owns verified local model bundles, tensors, and native backends; `inference` owns generation, embedding, transcription, speech, and provider contracts; `perception` owns interpretation and observation types; `realtime` owns duplex session types. Providers, models, credentials, and policy are chosen by consumers.
 - `src/cto/sandbox` for CTO's sandbox contract shared with `github.com/webong/workload` ([the sandboxing ADR](docs/adr-sandboxing.md)): boundary levels, policy and lifecycle vocabulary, grants, capabilities, enforcement and reports, held to `src/cto/sandbox/testdata`. This nested module uses only the standard library and imports nothing else in ext, so runners outside ext can depend on it (`src/ctx/internal/arch` enforces it). CTO's local confinement mechanism lives in `src/cto/internal/confine`; workload owns its drivers. Consumers choose the policy.
-- `pkg/ext-go/engine` for the pure-Go engines of the libraries in `lib/` (standard library only). It is a container with no root package: `engine/plugin` is the pure-Go plugin engine, kept in parity with lib/plugin (the plugin contract, sessions, guests, packages, bridges and tooling), and each further library of `lib/` gets a sibling package of its own. `cgoengine` and `c2goengine` are laid out the same way, so a library is `<engine>/<library>` in all three.
+- `pkg/ext-go/engine` for the pure-Go engines of the libraries in `lib/` (standard library only). It is a container with no root package: `engine/plugin` is the pure-Go plugin engine, kept in parity with lib/plugin (the plugin contract, sessions, guests, packages, bridges and tooling), and `engine/ledger` is the pure-Go ledger, kept in parity with lib/ledger: the store and the memory backend (`engine/ledger`), the fixture runner (`ledgertest`) and the supervisor (`supervisor`). Its recorder, which projects `res/system`'s observations and holds the SQLite store until the Go file backend replaces it, is the nested module `engine/ledger/recorder`, the one part of the ledger that needs more than the standard library. Each further library of `lib/` gets a sibling package of its own. `cgoengine` and `c2goengine` are laid out the same way, so a library is `<engine>/<library>` in all three.
 - `pkg/ext-go/c2goengine` for the C libraries' portable code translated to Go by ccgo (no cgo, no C compiler): `c2goengine/plugin` is lib/plugin's. The translation is generated per platform by its `tools` module and compared with the pure-Go engine by `engine/plugin/plugintest/enginetest`; it depends on `engine` only.
 - `pkg/ext-go/cgoengine` for the Go bindings of the C libraries in `lib/`: `cgoengine/plugin` binds lib/plugin, with a pure-Go build of the same API. It carries their sources as `_csrc/<library>`, a mirror of `lib/`.
 - `pkg/ext-go/runtime` for how Go reaches a C shared library: `runtime/library` (load a library once per canonical path and bind its exports, through purego, with or without cgo) and `runtime/cshared` (the C plugin ABI: the loader backend for C shared guests, with a cgo and a purego build, `cshared/abi` and `cshared/guest`). The module has no root package, so nothing shadows the standard `runtime`; it depends on `pkg/ext-go/engine` and purego only, never on `cgoengine`.
@@ -201,7 +201,7 @@ The reusable libraries are:
 - `pkg/ext-go/model` for the `res/int/model` tensor-provider contract over the Ext plugin engine.
 - `pkg/ext-go/perception` for the `res/int/perception` host and guest contract over the Ext plugin engine.
 - `pkg/ext-go/realtime` for the `res/int/realtime` duplex session contract over the Ext plugin engine.
-- `pkg/ext-go` for the umbrella module that requires the plugin engines, `res/web/host` and `res/graph`; it holds code that needs several engines, such as `pkg/ext-go/core`, which chooses between the pure-Go `engine`, `cgoengine` and `c2goengine` (the only place that knows all three).
+- `pkg/ext-go` for the umbrella module that requires the plugin engines, `res/web/host` and the ledger recorder; it holds code that needs several engines, such as `pkg/ext-go/core`, which chooses between the pure-Go `engine`, `cgoengine` and `c2goengine` (the only place that knows all three).
 
 Plugin-specific runtime bindings, including HashiCorp go-plugin, the
 WebAssembly `engine.Backend` and the yaegi interpreter, belong inside the plugin library
@@ -234,7 +234,7 @@ the top because both sides use them. `cgoengine/plugin/packages` covers manifest
 engine, and `cgoengine/plugin/host` and `cgoengine/plugin/host/store` are engine-routed variants of `engine/plugin/host` and
 `engine/plugin/host/store` with an identical exported API (a rule `src/ctx/internal/arch` enforces), so
 swapping the import never needs a code change.
-`packagekit` has no dependency on `res/graph`; joining a package plan to the host
+`packagekit` has no dependency on the ledger; joining a package plan to the host
 graph is `plugingo.PlanGraph` in the umbrella module. Runtime backends
 (`pkg/ext-go/hashicorp`, `pkg/ext-go/wasm`) and the C ABI loader in
 `pkg/ext-go/runtime/cshared` implement `engine.Backend` and import
@@ -306,7 +306,7 @@ implement, and the shared library never selects a driver by name.
 through the installed CTO package. Each product's private `plugin/` entrypoint serves its command through the Ext guest SDK; Ext's host dispatch lives in `cmd/ext/internal/pkgcmd`. Product dispatch is not part of `pkg/ext-go`.
 `res/system` may also perform bounded local shell mechanisms such as capture,
 media playback/capture and portable media framing, native input, and volume snapshot/restore; process
-supervision is `res/graph/supervisor`. Remote clients, service discovery, routing services, authorization,
+supervision is `pkg/ext-go/engine/ledger/supervisor` (and `ext_ledger_supervisor_*` in `lib/ledger`). Remote clients, service discovery, routing services, authorization,
 approval UI and consumer policy belong to consumers.
 Keep
 `pkg/ext-go` focused on the contract, the engine API and runtime backends. The Go-to-C guest binding belongs in

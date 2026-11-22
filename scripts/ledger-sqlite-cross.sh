@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Checks that lib/ledger's SQLite backend and the Go store (res/graph/store/sqlite) open each
+# Checks that lib/ledger's SQLite backend and the Go store (pkg/ext-go/engine/ledger/recorder/sqlite) open each
 # other's databases: Go writes, C reads, checks and writes, Go reads, checks and replays.
 # Usage: scripts/ledger-sqlite-cross.sh [build-dir]   (needs SQLite headers and Go)
 set -euo pipefail
@@ -12,7 +12,7 @@ cmake --build "$build/ledger" -j 4 --target ext-ledger
 ledger=$(find "$build/ledger" -name 'ext-ledger' -o -name 'ext-ledger.exe' | head -1)
 db="$build/cross.db"
 rm -f "$db" "$db-wal" "$db-shm"
-(cd res/graph && EXT_GRAPH_CROSS_WRITE="$db" go test -count=1 -run '^TestCrossWriteForC$' ./store/sqlite)
+(cd pkg/ext-go/engine/ledger/recorder && EXT_GRAPH_CROSS_WRITE="$db" go test -count=1 -run '^TestCrossWriteForC$' ./sqlite)
 ns=cross.example
 expect() { # expect <pattern> <command...>
   local pattern=$1; shift
@@ -25,5 +25,5 @@ expect '"at":"2026-01-02T03:04:05.0000006+01:00"' get-vertex "$db" "$ns" a
 expect '"list":["x",true,null],"n":1.5' get-vertex "$db" "$ns" a
 expect '"replayed":true' apply "$db" '{"namespace":"cross.example","idempotency_key":"go-1","vertices":[{"id":"a","kind":"cross.example/node","labels":{"tier":"gold"},"attributes":{"n":1.5,"list":["x",true,null]},"provenance":{"source":"go","operation":"write","at":"2026-01-02T03:04:05.0000006+01:00"}},{"id":"b","kind":"cross.example/node"}]}'
 expect '"cursor":3' apply "$db" '{"namespace":"cross.example","idempotency_key":"c-1","vertices":[{"id":"c","kind":"cross.example/node","attributes":{"from":"c"}}]}'
-(cd res/graph && EXT_GRAPH_CROSS_READ="$db" go test -count=1 -run '^TestCrossReadFromC$' ./store/sqlite)
+(cd pkg/ext-go/engine/ledger/recorder && EXT_GRAPH_CROSS_READ="$db" go test -count=1 -run '^TestCrossReadFromC$' ./sqlite)
 echo "ok: Go and C open each other's SQLite databases"

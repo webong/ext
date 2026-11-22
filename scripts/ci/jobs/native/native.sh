@@ -11,14 +11,14 @@
 # Validate Windows system library
 if [ "$RUNNER_OS" = Windows ]; then
 (
-go test -v ./res/system/... ./res/graph/... -timeout 5m
+go test -v ./res/system/... ./pkg/ext-go/engine/ledger/... ./pkg/ext-go/engine/ledger/recorder/... -timeout 5m
 )
 ci_import_env
 fi
 
 # Test library modules
 (
-for module in cmd/ext src/ctx src/ctn src/cto src/cto/sandbox res/system res/graph res/int pkg/ext-go pkg/ext-go/engine pkg/ext-go/cgoengine pkg/ext-go/hashicorp pkg/ext-go/wasm pkg/ext-go/yaegi pkg/ext-go/runtime pkg/ext-go/inference pkg/ext-go/model pkg/ext-go/perception pkg/ext-go/realtime adapters/wasm adapters/evm adapters/systemd adapters/pulseaudio adapters/alsa adapters/x11 adapters/ffmpeg adapters/wayland adapters/pipewire adapters/openai adapters/ollama adapters/anthropic adapters/gemini res/web/host; do
+for module in cmd/ext src/ctx src/ctn src/cto src/cto/sandbox res/system res/int pkg/ext-go pkg/ext-go/engine pkg/ext-go/engine/ledger/recorder pkg/ext-go/cgoengine pkg/ext-go/hashicorp pkg/ext-go/wasm pkg/ext-go/yaegi pkg/ext-go/runtime pkg/ext-go/inference pkg/ext-go/model pkg/ext-go/perception pkg/ext-go/realtime adapters/wasm adapters/evm adapters/systemd adapters/pulseaudio adapters/alsa adapters/x11 adapters/ffmpeg adapters/wayland adapters/pipewire adapters/openai adapters/ollama adapters/anthropic adapters/gemini res/web/host; do
   (cd "$module" && go test ./...) || exit 1
 done
 )
@@ -49,7 +49,7 @@ ci_import_env
 # Validate native process projection in the graph
 (
 export EXT_GRAPH_PROCESS_NATIVE_TESTS="1"
-cd res/graph
+cd pkg/ext-go/engine/ledger/recorder
 go test -race -v . -run '^(TestLiveProcess|TestProcess)' -count=3 -timeout=5m
 )
 ci_import_env

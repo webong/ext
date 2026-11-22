@@ -17,7 +17,7 @@ require (
 	github.com/mattn/go-isatty v0.0.24 // indirect
 	github.com/ncruces/go-strftime v1.1.0 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
-	github.com/webong/ext/res/graph v0.3.0 // indirect
+	github.com/webong/ext/pkg/ext-go/engine/ledger/recorder v0.1.0 // indirect
 	github.com/webong/ext/res/system v0.5.1 // indirect
 	github.com/webong/ext/res/web/host v0.1.0 // indirect
 	golang.org/x/sys v0.49.0 // indirect
@@ -29,7 +29,7 @@ require (
 
 replace github.com/webong/ext/res/int => ../../res/int
 
-replace github.com/webong/ext/res/graph => ../../res/graph
+replace github.com/webong/ext/pkg/ext-go/engine/ledger/recorder => ../../pkg/ext-go/engine/ledger/recorder
 
 replace github.com/webong/ext/res/system => ../../res/system
 

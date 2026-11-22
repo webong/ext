@@ -14,8 +14,8 @@ package plugingo
 import (
 	"fmt"
 
+	store "github.com/webong/ext/pkg/ext-go/engine/ledger"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/package"
-	"github.com/webong/ext/res/graph/store"
 )
 
 // PlanGraph creates a graph transaction for the caller's namespace from a

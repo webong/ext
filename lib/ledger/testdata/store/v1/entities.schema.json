@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/webong/ext/lib/ledger/testdata/store/v1/entities.schema.json",
-  "title": "res/graph store entities, version 1",
+  "title": "ledger store entities, version 1",
   "description": "The wire form of what the store holds and returns. Times are RFC 3339 strings; a store writes them in UTC. A field that is empty or zero is omitted. The naming, secret and size rules are in rules.json.",
   "$defs": {
     "name": {"type": "string", "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._/-]{0,254}$"},

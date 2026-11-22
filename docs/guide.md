@@ -138,7 +138,7 @@ inspect: none imports: 0 err <nil>
 ## Discover the machine
 
 Collectors report shells, filesystems and webviews without starting anything. They are in
-`github.com/webong/ext/res/system` (here `service/host`), and `github.com/webong/ext/res/graph` adds the
+`github.com/webong/ext/res/system` (here `service/host`), and `github.com/webong/ext/pkg/ext-go/engine/ledger/recorder` adds the
 whole-host inventory and records it. The examples import the recorder as `systemgraph`, which is what the
 CTX app does.
 
@@ -150,7 +150,7 @@ import (
 	"context"
 	"fmt"
 
-	systemgraph "github.com/webong/ext/res/graph"
+	systemgraph "github.com/webong/ext/pkg/ext-go/engine/ledger/recorder"
 	"github.com/webong/ext/res/system/service/host"
 )
 

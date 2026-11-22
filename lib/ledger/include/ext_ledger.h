@@ -1,4 +1,4 @@
-/* ext ledger: the res/graph store in C.
+/* ext ledger: the ledger store in C.
  *
  * A generic, namespaced, directed graph store whose contract is the data in
  * lib/ledger/testdata/store/v1. Values cross this API as JSON in the wire form

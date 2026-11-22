@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "about": "The rules of the res/graph store that need no stored state. Every implementation applies them before it writes anything.",
+  "about": "The rules of the ledger store that need no stored state. Every implementation applies them before it writes anything.",
   "names": {
     "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._/-]{0,254}$",
     "forbidden": ["//"],

@@ -26,7 +26,7 @@ static const char usage[] =
     "\n"
     "With --sqlite, <dir> is a SQLite database (tables.json) instead of a ledger directory;\n"
     "it needs a build with EXT_LEDGER_SQLITE.\n"
-    "QUERY, SCHEMA and TRANSACTION are JSON in the wire form of the res/graph store\n"
+    "QUERY, SCHEMA and TRANSACTION are JSON in the wire form of the ledger store\n"
     "contract; - reads it from standard input. A failure prints {\"error\":\"<code>\"} on\n"
     "standard error and exits with the code's number (" "64 for a usage error).\n";
 

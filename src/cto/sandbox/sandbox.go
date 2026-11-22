@@ -5,7 +5,7 @@
 //
 // It is data and rules only. It confines nothing, starts nothing and imports nothing but the
 // standard library, so a runner that must stay on the standard library can depend on it. The
-// mechanisms that enforce a grant live elsewhere: res/system/service/confine for one local
+// mechanisms that enforce a grant live elsewhere: src/cto/internal/confine for one local
 // process, workload's drivers for containers and VMs.
 //
 // The behaviour is fixed by the fixtures under testdata/v1, which every implementation runs.

@@ -6,8 +6,8 @@ adapter needs a manifest, an executable for the target OS, and any runtime
 assets or dependencies that executable uses.
 
 Use `ext` as the main installation entry point. The commands below use
-`ext adapter`. With standalone `ctx`, use `ctx adapter` instead. CTN can consume installed adapters
-without running CTX; its `ctn adapter ls` command is read-only.
+`ext adapter`. CTX provides project-aware management through `ext ctx adapter`.
+CTN can consume installed adapters without running CTX; `ext ctn adapter ls` is read-only.
 
 Adapters belong to Ext, not to the interface that invokes them. CTX and CTN
 consume the declared capabilities they understand and permit, provided the
@@ -239,8 +239,8 @@ ext adapter install ./my-adapter/dist/my_tool-darwin-arm64.ctxadapter
 ext adapter inspect my_tool
 # Review the installed manifest, executable, and runtime files.
 ext adapter trust my_tool
-ctx ls my_tool
-ctx set my_tool local
+ext ctx ls my_tool
+ext ctx set my_tool local
 ext adapter doctor my_tool
 ```
 

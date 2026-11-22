@@ -6,7 +6,8 @@ function Get-RealPhp {
         return $env:EXT_ADAPTER_REAL_COMMAND
     }
     if ($env:EXT_EXECUTABLE -and (Test-Path -LiteralPath $env:EXT_EXECUTABLE -PathType Leaf)) {
-        $resolved = & $env:EXT_EXECUTABLE real php 2>$null
+        $prefixArgs = if ($env:EXT_PRODUCT_PREFIX) { @($env:EXT_PRODUCT_PREFIX) } else { @() }
+        $resolved = & $env:EXT_EXECUTABLE @prefixArgs real php 2>$null
         if ($LASTEXITCODE -eq 0 -and $resolved -and (Test-Path -LiteralPath $resolved -PathType Leaf)) { return $resolved }
     }
     $command = Get-Command php -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1

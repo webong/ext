@@ -11,8 +11,6 @@ import (
 	"github.com/webong/ext/cmd/ext/internal/config"
 	"github.com/webong/ext/cmd/ext/internal/pkgcmd"
 	"github.com/webong/ext/cmd/ext/internal/registry"
-	"github.com/webong/ext/ctn"
-	"github.com/webong/ext/ctx"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/host"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/adapter"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/adapter/adaptercmd"
@@ -22,14 +20,15 @@ import (
 func main() {
 	reg := registry.New()
 	for _, c := range []registry.Command{
-		{Name: "adapter", Source: registry.Builtin, Version: ctx.Version(), Run: adaptercmd.Run},
-		{Name: "ctx", Source: registry.Builtin, Version: ctx.Version(), Run: ctx.Run},
-		{Name: "ctn", Source: registry.Builtin, Version: ctn.Version(), Run: ctn.Run},
+		{Name: "adapter", Source: registry.Builtin, Version: app.Version, Run: adaptercmd.Run},
 	} {
 		if err := reg.Register(c); err != nil {
 			fmt.Fprintln(os.Stderr, "ext:", err)
 			os.Exit(1)
 		}
+	}
+	if executable, err := os.Executable(); err == nil {
+		pkgcmd.DiscoverBundled(reg, filepath.Join(filepath.Dir(executable), "ext-packages"))
 	}
 	home := adapter.ConfigHome()
 	manage := discoverPackages(reg, home)

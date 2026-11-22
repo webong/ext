@@ -2,34 +2,34 @@
 
 Host inventory is discovered by the collectors of `github.com/webong/ext/res/system`
 (`service/host`, `service/process`, `capture/surface`) and recorded by `github.com/webong/ext/res/graph`.
-It works in a standalone CTX installation without adapter packages.
+It works through the installed CTX package without adapter packages.
 Adapter inventory describes provider capabilities and contexts separately.
 
 ```sh
-ctx graph shells
-ctx graph filesystems
-ctx graph webviews
-ctx graph surfaces
-ctx graph accessibility
-ctx graph permissions
-ctx graph resources
-ctx graph scan
-ctx graph vertices shell
-ctx graph vertices filesystem
-ctx graph vertices webview
-ctx graph vertices display
-ctx graph vertices window
-ctx graph vertices accessibility-element
-ctx graph vertices permission
-ctx graph vertices host-resource
-ctx graph edges has-shell
-ctx graph edges has-filesystem
-ctx graph edges has-webview
-ctx graph edges has-display
-ctx graph edges has-window
-ctx graph edges has-accessibility-element
-ctx graph edges has-permission
-ctx graph edges has-host-resource
+ext ctx graph shells
+ext ctx graph filesystems
+ext ctx graph webviews
+ext ctx graph surfaces
+ext ctx graph accessibility
+ext ctx graph permissions
+ext ctx graph resources
+ext ctx graph scan
+ext ctx graph vertices shell
+ext ctx graph vertices filesystem
+ext ctx graph vertices webview
+ext ctx graph vertices display
+ext ctx graph vertices window
+ext ctx graph vertices accessibility-element
+ext ctx graph vertices permission
+ext ctx graph vertices host-resource
+ext ctx graph edges has-shell
+ext ctx graph edges has-filesystem
+ext ctx graph edges has-webview
+ext ctx graph edges has-display
+ext ctx graph edges has-window
+ext ctx graph edges has-accessibility-element
+ext ctx graph edges has-permission
+ext ctx graph edges has-host-resource
 ```
 
 `shells`, `filesystems`, `webviews`, `surfaces`, `accessibility`, `permissions`,
@@ -200,12 +200,12 @@ any combination of a shell, filesystem, and webview. Requirements are
 conjunctive: every requested resource must match.
 
 ```sh
-ctx graph resolve shell --name zsh
-ctx graph resolve shell --select /bin/zsh
-ctx graph resolve filesystem --path ./export.json --writable --min-free 1048576
-ctx graph resolve filesystem --type apfs --type ext4 --writable
-ctx graph resolve webview --engine webkit --api WKWebView
-ctx graph resolve webview --engine webkit --api WebKitWebView --abi 4.1
+ext ctx graph resolve shell --name zsh
+ext ctx graph resolve shell --select /bin/zsh
+ext ctx graph resolve filesystem --path ./export.json --writable --min-free 1048576
+ext ctx graph resolve filesystem --type apfs --type ext4 --writable
+ext ctx graph resolve webview --engine webkit --api WKWebView
+ext ctx graph resolve webview --engine webkit --api WebKitWebView --abi 4.1
 ```
 
 The commands emit JSON candidates with per-category observation timestamps and
@@ -302,15 +302,15 @@ without adapters and does not contain product-name dispatch or a browser list.
 These commands take one snapshot and exit:
 
 ```sh
-ctx graph processes
-ctx graph processes --limit 2048 --timeout 15s
-ctx graph process <pid> --resource-limit 512 --timeout 10s
-ctx graph vertices process
-ctx graph vertices application
-ctx graph vertices executable
-ctx graph vertices process-resource
-ctx graph edges parent-of
-ctx graph edges uses-resource
+ext ctx graph processes
+ext ctx graph processes --limit 2048 --timeout 15s
+ext ctx graph process <pid> --resource-limit 512 --timeout 10s
+ext ctx graph vertices process
+ext ctx graph vertices application
+ext ctx graph vertices executable
+ext ctx graph vertices process-resource
+ext ctx graph edges parent-of
+ext ctx graph edges uses-resource
 ```
 
 `processes` collects caller-visible process identities, parents, executable

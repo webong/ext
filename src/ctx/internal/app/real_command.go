@@ -1,6 +1,6 @@
 package app
 
-import "github.com/webong/ext/ctx/internal/launch"
+import "github.com/webong/ext/src/ctx/internal/launch"
 
 // locateRealCommand finds the native executable behind the command a user typed.
 // The typed name is tried first, then the other commands the adapter declares, so

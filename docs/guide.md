@@ -1,9 +1,9 @@
 # Using ext
 
-ext provides libraries, the main `ext` installation and command entry point, and
-standalone `ctx` and `ctn` products. They consume ext adapter capabilities
+ext provides libraries, the `ext` executable, and installed CTX, CTN and CTO
+product packages. They consume ext adapter capabilities
 available in their configured home; adapters can serve more than one product.
-See [adapter management](adr-adapter-management.md) for installation and standalone usage. This page is organised by what you want
+See [adapter management](adr-adapter-management.md) for installation and usage. This page is organised by what you want
 to do. Every Go recipe here was run from a scratch module outside this repository, with
 no workspace and no `replace`, against the published tags, and its output is shown. If a
 recipe does not work for you, that is a bug in this page.
@@ -241,8 +241,8 @@ engine's limits, including that it is not a complete sandbox, are in
 its content. It needs an evaluator adapter installed and trusted through `ctx`.
 
 ```sh
-ctn verify module.wasm
-ctn verify --timeout 5s --json contract.hex
+ext ctn verify module.wasm
+ext ctn verify --timeout 5s --json contract.hex
 ```
 
 See [ctn verify](ctn-verify.md) for the rules, verdicts and exit statuses.

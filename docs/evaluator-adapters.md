@@ -69,6 +69,9 @@ All five are required.
   - `kind`: the evaluator kind, the same name used in `supports`.
   - `version`: the version of that evaluator or installation.
   - `isolation`: `sandboxed`, `restricted` or `host` (below).
+  - `boundary`: where that isolation is enforced, one of the sandbox boundaries of
+    [the sandboxing ADR](adr-sandboxing.md): `in-process`, `process`, `confined`,
+    `runtime`, `container` or `kernel` (below).
 
   An evaluator may add more, such as `home`, `source` or `engine`.
 - **`validate`** succeeds when the selection is available.
@@ -96,6 +99,20 @@ All five are required.
 
 A tool that runs untrusted content must require `sandboxed`. `restricted` is for
 content the user chose to run and wants kept off the network, not for hostile code.
+
+`boundary` says what has to fail for the program to reach the host, so a `sandboxed`
+claim can be checked rather than trusted:
+
+| Evaluator | `isolation` | `boundary` |
+| --- | --- | --- |
+| `wasm` (wazero and the external runtimes) | `sandboxed` | `runtime`: no syscall ABI, only the imports the evaluator grants |
+| `evm` | `sandboxed` | `runtime`: bytecode interpreted in memory |
+| `jvm` | `host` | `process` |
+
+`sandboxed` holds only at `runtime`, `confined`, `container` or `kernel`. An evaluator
+that reports it at `process` or `in-process` contradicts itself. CTN refuses to run
+content in an evaluator that reports no boundary, an unknown one, or `sandboxed` at a
+boundary where it cannot hold, and prints the boundary it accepted (`boundary=runtime`).
 
 ## Flags for `run`
 

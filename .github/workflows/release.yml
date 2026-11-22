@@ -32,8 +32,6 @@ on:
       - 'ext-ts-v*'
       - 'ext-web-v*'
       - 'ext-zig-v*'
-      - 'ctx-v*'
-      - 'ctn-v*'
       - 'ext-v*'
   pull_request:
     paths:
@@ -76,7 +74,7 @@ on:
           - ext-ts
           - ext-web
           - ext-zig
-          - ctx
+          - ext
       version:
         description: Version to build (empty takes the package's default)
         type: string

@@ -86,7 +86,7 @@ func TestEndToEnd(t *testing.T) {
 	if _, out, _ := run("which", "hi"); !strings.Contains(out, "hi: package 1.0.0") {
 		t.Fatalf("which = %q", out)
 	}
-	if _, out, _ := run("commands"); !strings.Contains(out, "ctx") || !strings.Contains(out, "hi") {
+	if _, out, _ := run("commands"); !strings.Contains(out, "adapter") || !strings.Contains(out, "hi") {
 		t.Fatalf("commands = %q", out)
 	}
 	if code, _, _ := run("package", "remove", "example/hello"); code != 0 {

@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/webong/ext/ctn/internal/content"
+	"github.com/webong/ext/src/ctn/internal/content"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/adapter"
 )
 
@@ -25,6 +25,7 @@ type verdict struct {
 	Engine    string `json:"engine,omitempty"`
 	Selection string `json:"selection,omitempty"`
 	Isolation string `json:"isolation,omitempty"`
+	Boundary  string `json:"boundary,omitempty"`
 	ExitCode  int    `json:"exitCode"`
 	Millis    int64  `json:"millis"`
 	Reason    string `json:"reason,omitempty"`
@@ -111,6 +112,7 @@ func verifyCommand(args []string, stdout, stderr io.Writer) int {
 		Engine:    result.Backend,
 		Selection: *selection,
 		Isolation: result.Isolation,
+		Boundary:  result.Boundary,
 		ExitCode:  result.ExitCode,
 		Millis:    result.Millis,
 		Reason:    result.Reason,
@@ -146,6 +148,9 @@ func printVerdict(w io.Writer, v verdict, asJSON bool) {
 	}
 	if v.Isolation != "" {
 		line += fmt.Sprintf(" isolation=%s", v.Isolation)
+	}
+	if v.Boundary != "" {
+		line += fmt.Sprintf(" boundary=%s", v.Boundary)
 	}
 	if v.Millis > 0 {
 		line += fmt.Sprintf(" %dms", v.Millis)

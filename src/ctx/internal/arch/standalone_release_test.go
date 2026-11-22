@@ -29,7 +29,7 @@ func TestStandaloneReleaseGate(t *testing.T) {
 		{"published dependencies", "0", "pkg/consumer", "1", "0", "checked 1 module(s), skipped 0, failed 0", false},
 		{"build failure", "1", "", "1", "1", "FAIL pkg/consumer: go vet", true},
 		{"missing required module", "1", "pkg/missing", "1", "0", "missing go.mod", true},
-		{"product explicitly required", "1", "cmd/ext", "1", "0", "product modules cannot be checked standalone", true},
+		{"product explicitly required", "1", "cmd/ext", "1", "0", "executable-only module cannot be checked standalone", true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			root := t.TempDir()

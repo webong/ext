@@ -3,8 +3,6 @@ module github.com/webong/ext/cmd/ext
 go 1.26.0
 
 require (
-	github.com/webong/ext/ctn v0.0.0
-	github.com/webong/ext/ctx v0.0.0
 	github.com/webong/ext/pkg/ext-go/cgoengine v0.4.1
 	github.com/webong/ext/pkg/ext-go/engine v0.4.0
 	github.com/webong/ext/pkg/ext-go/inference v0.1.1
@@ -28,10 +26,6 @@ require (
 	modernc.org/memory v1.12.1 // indirect
 	modernc.org/sqlite v1.61.0 // indirect
 )
-
-replace github.com/webong/ext/ctx => ../../src/ctx
-
-replace github.com/webong/ext/ctn => ../../src/ctn
 
 replace github.com/webong/ext/res/int => ../../res/int
 

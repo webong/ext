@@ -1,7 +1,7 @@
 # ADR: Sandbox contracts for ext and workload
 
-Status: accepted on 2026-11-19, written against `main` at `33b46902`. Nothing here is
-implemented yet. The decisions taken on the open questions are listed at the end.
+Status: accepted on 2026-11-19 and revised on 2026-11-22. The sandbox contract
+and local launch work belong to CTO. Later phases remain planned.
 
 ## Context
 
@@ -64,13 +64,14 @@ Other relevant facts:
 
 ## Decision
 
-**ext defines the sandbox contract. workload, ext's own engine, and any other runner
+**CTO defines the sandbox contract. workload, Ext's plugin engine, and any other runner
 implement it. Consumers such as ctx, ctn, Xallet and Cymonkey choose the policy.**
 
 | Layer | Owns |
 | --- | --- |
-| **ext: contract** | The boundary levels, the policy and lifecycle vocabulary, the grant and enforcement rules, capability reporting, error codes and fixtures (sections 1 to 3) |
-| **ext: mechanisms** | Confining one local process on each OS, the egress proxy, boundary reporting in the plugin engine, WebAssembly policy, and the recorded evidence in `lib/ledger` (sections 4 to 7) |
+| **CTO: contract** | The boundary levels, the policy and lifecycle vocabulary, the grant and enforcement rules, capability reporting, error codes and fixtures (sections 1 to 3) |
+| **CTO: local confinement** | Confining one local process on each OS and its egress proxy (section 4) |
+| **Ext libraries** | Boundary reporting in the plugin engine, WebAssembly policy, and recorded evidence in `lib/ledger` (sections 5 to 7) |
 | **workload** | Drivers that implement the contract for long-running instances: confined local processes, containers (including gVisor and Kata through the runtime or `RuntimeClass` setting), and VMs. Also leases, restarts, taking over running processes, snapshots and confirmed stop (section 8) |
 | **Consumers** | What each package or assignment is granted, approval, placement and audit |
 
@@ -150,24 +151,24 @@ The contract defines the rules every runner applies, so they behave the same eve
 
 ### Where the contract lives
 
-The contract is a new module, **`res/sandbox`** (decision 1). It contains:
+The contract is a nested CTO module, **`src/cto/sandbox`** (decision 1). It contains:
 - the types;
 - validation;
 - the grant computation;
 - the enforcement check;
-- the fixtures under `res/sandbox/testdata/v1`;
+- the fixtures under `src/cto/sandbox/testdata/v1`;
 - its error codes, starting from the shared list in `res/system/testdata/codes.json`.
 
 It uses **only the standard library** and imports nothing else in ext. That lets
 workload, which also uses only the standard library, depend on it without taking on
 `golang.org/x/sys` or anything from the plugin engine. `src/ctx/internal/arch` enforces
-that `res/sandbox` imports nothing from ext. Other languages read the same fixtures, under
+that `src/cto/sandbox` imports nothing from ext. Other languages read the same fixtures, under
 rule 1 of the architecture ADR.
 
-### 4. Confining a local process (`res/system`)
+### 4. Confining a local process (CTO)
 
-Confinement is a platform implementation of a portable API, not an adapter. It lives in
-`res/system/service/confine`, imports `res/sandbox`, and is reported as `confined`:
+Confinement is CTO's platform implementation of its sandbox contract. It lives in
+`src/cto/internal/confine`, imports `src/cto/sandbox`, and is reported as `confined`:
 
 | OS | Filesystem and process | Network | Resources |
 | --- | --- | --- | --- |
@@ -176,7 +177,7 @@ Confinement is a platform implementation of a portable API, not an adapter. It l
 | Windows | An AppContainer token with no capabilities, plus ACL grants for the package SID on exactly the granted paths, removed afterwards | No network capabilities; loopback to the proxy through an exemption for that one SID | A job object (kill on close, process count, memory, CPU rate) |
 
 **Confinement drivers.** An OS may have more than one mechanism. Each is a driver inside
-`res/system/service/confine` with its own capabilities, and the consumer chooses one.
+`src/cto/internal/confine` with its own capabilities, and the consumer chooses one.
 The library never picks one by name, and a launch that names no driver fails with
 `invalid` when more than one is available. macOS has two (decision 3):
 
@@ -205,17 +206,23 @@ process:
 - Then it execs the guest. On Windows, where there is no exec, it creates the guest in the
   AppContainer inside the job object and waits for it.
 
-`res/` holds no commands. `res/system/service/confine` exports only the library entry
-point, `confine.Exec(grant, command)`, which does the three steps above in the calling
-process. The command around it follows adapter management: one shared command package in
-`pkg/`, outside `res/` (for example `pkg/ext-go/sandboxcmd`, in a module that may require
-`res/system`), serves both `ext sandbox …` and standalone `ctx sandbox …`. ctn reaches it
-through `ext`. The same package can later offer `ext sandbox check`, which prints the drivers
-and classes this host can enforce.
+`src/cto/internal/confine` exposes `confine.Exec` to CTO's command implementation;
+it does the three steps above in the calling process.
+`src/cto/internal/app` owns the command dispatch, and the installed CTO package
+provides `ext cto exec|check` and its `ext sandbox` alias. Other runners call the
+installed Ext command as a launch helper or implement the public CTO sandbox contract
+in their own drivers.
+
+Some classes cannot be enforced by a process that confines itself and then becomes the guest:
+a wall-time bound, and a fresh, workspace or snapshot lifecycle, need something that outlives
+the guest. The runner that starts the launch step enforces those and names them in the
+launch (`confine.Launch.Runner`); they are reported as enforced on its word. A plain
+`ext sandbox exec` from a shell has no such runner, so a person running one either accepts
+`lifecycle.fresh` unenforced (`--accept`) or is refused.
 
 A runner only needs a command line for the launch step and the report format, which is a
 fixture:
-- When ext or ctx hosts the engine, that is its own executable with `sandbox exec`.
+- When ext hosts the engine, the installed CTO package supplies `sandbox exec`.
 - Other hosts, such as the Python or Ruby hosts, configure the path to `ext`.
 - workload configures it the way it configures `workload-supervisor` today: as an absolute
   path plus arguments. So workload's library keeps using only the standard library.
@@ -245,7 +252,7 @@ with fixtures in `lib/plugin/testdata/v1`, then reach `cgoengine`, a regenerated
 
 **Egress.** None of the OS mechanisms can filter by hostname, and neither can a plain
 container network. ext provides one egress proxy as a mechanism, in
-`res/system/service/confine` (decision 4). It exists only as part of a grant and is never a
+`src/cto/internal/confine` (decision 4). It exists only as part of a grant and is never a
 general routing service:
 - an HTTP CONNECT and HTTP forward proxy on loopback;
 - it allows a list of hostnames, ports and schemes;
@@ -287,7 +294,7 @@ records them.
 This section is direction for workload, not an ext decision. Its work is tracked in that
 repository.
 
-- **Import `res/sandbox`** and describe each driver by its boundary and capabilities.
+- **Import `src/cto/sandbox`** and describe each driver by its boundary and capabilities.
 - **`local`**: becomes `confined` when given a grant, by starting the worker through
   `ext sandbox exec` under `workload-supervisor`. Windows support can come from Xallet's process
   handling.
@@ -318,19 +325,18 @@ repository.
 
 Taken by the user on 2026-11-19.
 
-1. **The contract is a new module, `res/sandbox`,** using only the standard library and
-   importing nothing in ext. A package inside `res/system` was rejected: it would have
-   given workload a dependency on `golang.org/x/sys` and all of `res/system`.
-2. **The launch step is Go and is not a command in `res/`.** `res/system/service/confine`
-   exports `confine.Exec`, and the command is `ext sandbox exec`, also served by standalone
-   `ctx sandbox exec` through one shared command package in `pkg/`, as adapter management is.
+1. **The contract is CTO's nested module, `src/cto/sandbox`,** using only the standard library and
+   importing nothing else in ext. Workload can depend on that module without taking
+   `res/system` or the plugin engine.
+2. **The launch step is CTO code.** `src/cto/internal/confine`
+   exports `confine.Exec` within CTO, and the installed CTO package serves `ext sandbox exec`.
    Linux and Windows need no cgo; macOS calls `sandbox_init` through purego or cgo. A
    separate `ext-confine` executable in `res/system` was rejected because `res/` holds no
    commands, and C in `lib/` because it would have had no Go reference.
 3. **macOS gets both mechanisms, as drivers:** `seatbelt` and `app-sandbox`, chosen by the
    consumer (section 4). workload's Apple Virtualization or libkrun driver remains the
    `kernel` option.
-4. **The egress proxy lives in `res/system/service/confine`.** It exists only as part of a
+4. **The egress proxy lives in `src/cto/internal/confine`.** It exists only as part of a
    grant and never as a general routing service, so `res/system/service/network` keeps
    exposing local state only.
 5. **WebAssembly CPU is bounded by wall time only,** stated as non-deterministic, until a
@@ -343,14 +349,14 @@ Taken by the user on 2026-11-19.
 ## Phases
 
 1. **Contract.**
-   - `res/sandbox` with its fixtures: the levels, the vocabulary, grants, capabilities and
+   - `src/cto/sandbox` with its fixtures: the levels, the vocabulary, grants, capabilities and
      reports.
    - `boundary` in `BackendProfile`, in C then Go.
    - CTN checks the boundary as well as the isolation attribute.
    - No behaviour changes, but every launch becomes honest about what it is, and workload
      can start reporting in the same words.
 2. **Confinement.**
-   - `res/system/service/confine` and `ext sandbox exec` (with `ctx sandbox exec`) on Linux,
+   - `src/cto/internal/confine` and `ext sandbox exec` on Linux,
      macOS and Windows.
    - Filesystem, process and resources first; network as `none` only.
    - The engines' process launch takes a grant.
@@ -373,8 +379,8 @@ workload's driver work runs in parallel from phase 1 on, in its own repository.
   may run, and the grant decides what it can do.
 - ext stays free of container and VM code, and workload stays limited to the standard
   library.
-- ext adds one module (`res/sandbox`), one `res/system` package, one shared command
-  package behind `ext sandbox` and `ctx sandbox`, one field in `BackendProfile`, and one in the manifest's entrypoints. The engine and
+- CTO adds its sandbox module and local confinement package; Ext owns command
+  dispatch in `cmd/ext`, one field in `BackendProfile`, and one in the manifest's entrypoints. The engine and
   manifest changes land in C first, under the rule in `AGENTS.md`.
 - The per-OS base policies have to keep working as runtimes change. They are treated as
   code: versioned fixtures, tested on each OS in CI.

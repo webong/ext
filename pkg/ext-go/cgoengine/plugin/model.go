@@ -40,6 +40,12 @@ const (
 	APIVersion                = plugin.APIVersion
 	AdapterAPIVersion         = plugin.AdapterAPIVersion
 	AdapterContractName       = plugin.AdapterContractName
+	BoundaryInProcess         = plugin.BoundaryInProcess
+	BoundaryProcess           = plugin.BoundaryProcess
+	BoundaryConfined          = plugin.BoundaryConfined
+	BoundaryRuntime           = plugin.BoundaryRuntime
+	BoundaryContainer         = plugin.BoundaryContainer
+	BoundaryKernel            = plugin.BoundaryKernel
 	DefaultTimeout            = plugin.DefaultTimeout
 	MaxFrameBytes             = plugin.MaxFrameBytes
 	MaxRetryAfterMilliseconds = plugin.MaxRetryAfterMilliseconds
@@ -65,6 +71,7 @@ var (
 // Contract helpers, re-exported from pkg/ext-go/engine.
 var (
 	AdapterDescriptor      = plugin.AdapterDescriptor
+	ValidBoundary          = plugin.ValidBoundary
 	CheckRequirements      = plugin.CheckRequirements
 	Decode                 = plugin.Decode
 	MatchHandshake         = plugin.MatchHandshake

@@ -1128,40 +1128,26 @@
         "lib/plugin/**",
         "go.work*",
         "tests/crosslang/**",
-        "scripts/lang/common.sh"
+        "scripts/lang/common.sh",
+        "scripts/ci/jobs/plugin-sdk/language-sdks.sh"
       ],
       "targets": {
-        "go": {
-          "paths": [
-            "pkg/ext-go/**",
-            "res/web/host/**",
-            "scripts/cgoengine-sync.sh"
-          ],
-          "setup": [
-            "go",
-            "go_cache",
-            "node"
-          ]
-        },
         "javascript": {
           "paths": [
             "pkg/ext-ts/**",
-            "scripts/lang/ts.sh"
+            "scripts/lang/ts.sh",
+            "pkg/ext-go/examples/plugin-typescript/**",
+            "pkg/ext-go/cgoengine/**",
+            "pkg/ext-go/engine/**"
           ],
           "setup": [
-            "node",
-            "go",
-            "go_cache"
+            "node"
           ]
         },
         "python": {
           "paths": [
             "pkg/ext-python/**",
             "scripts/lang/python.sh"
-          ],
-          "setup": [
-            "go",
-            "go_cache"
           ]
         }
       },
@@ -1302,18 +1288,17 @@
         },
         "sdk": {
           "group": "base",
-          "targeted": true,
           "tools": [
-            "go",
-            "javascript",
-            "python"
+            "go"
           ],
           "pr_paths": [
             "lib/plugin/**",
             "go.work*",
             "tests/crosslang/**",
-            "scripts/lang/common.sh",
-            "scripts/ci/jobs/plugin-sdk/sdk.sh"
+            "scripts/ci/jobs/plugin-sdk/sdk.sh",
+            "pkg/ext-go/**",
+            "res/web/host/**",
+            "scripts/cgoengine-sync.sh"
           ],
           "cells": [
             {
@@ -1325,8 +1310,7 @@
               },
               "setup": {
                 "go": "1.26.x",
-                "go_cache": "true",
-                "node": "22"
+                "go_cache": "true"
               }
             }
           ]
@@ -1371,6 +1355,29 @@
                 "go": "1.27.x",
                 "go_cache": "true",
                 "java": "17"
+              }
+            }
+          ]
+        },
+        "language-sdks": {
+          "group": "runtimes",
+          "targeted": true,
+          "tools": [
+            "javascript",
+            "python"
+          ],
+          "cells": [
+            {
+              "name": "plugin-sdk/language-sdks (ubuntu-latest)",
+              "runner": "ubuntu-latest",
+              "script": "scripts/ci/jobs/plugin-sdk/language-sdks.sh",
+              "vars": {
+                "OS": "ubuntu-latest"
+              },
+              "setup": {
+                "go": "1.26.x",
+                "go_cache": "true",
+                "node": "22"
               }
             }
           ]

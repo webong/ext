@@ -83,22 +83,6 @@ func TestPythonGuest(t *testing.T) {
 	})
 }
 
-func TestPythonUnitTests(t *testing.T) {
-	python, err := exec.LookPath("python3")
-	if err != nil {
-		t.Skip("python3 not installed")
-	}
-	dir, err := filepath.Abs("../../../../ext-python")
-	if err != nil {
-		t.Fatal(err)
-	}
-	cmd := exec.Command(python, "-I", "-m", "unittest", "discover", "-s", "tests")
-	cmd.Dir = dir
-	if out, err := cmd.CombinedOutput(); err != nil {
-		t.Fatalf("%v\n%s", err, out)
-	}
-}
-
 // warmUpPython runs the guest's imports once with a generous bound. The
 // conformance suite gives each handshake only a few seconds, and a cold first
 // start of the interpreter (for example on a Windows runner with antivirus

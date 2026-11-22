@@ -12,10 +12,11 @@ class CIPlanTests(unittest.TestCase):
         cls.areas = json.loads(Path(".github/ci/areas.json").read_text())
         cls.releases = json.loads(Path(".github/ci/releases.json").read_text())
 
-    def cells(self, paths=(), labels=(), event="pull_request"):
+    def cells(self, paths=(), labels=(), event="pull_request", workflow=None):
+        workflows = (workflow,) if workflow else self.areas["workflows"]
         return [
             cell
-            for workflow in self.areas["workflows"]
+            for workflow in workflows
             for cells in plan(self.areas, event, labels, paths, workflow)[0].values()
             for cell in cells
         ]
@@ -40,14 +41,28 @@ class CIPlanTests(unittest.TestCase):
             "pkg/ext-php/src/Host.php": ("host-cases/hosts [php]", "ext-php/php"),
             "pkg/ext-lua/ext_io/host.lua": ("host-cases/hosts [lua]", "ext-lua/lua", "ext-lua/rock"),
             "pkg/ext-dotnet/ExtIO/Plugin.cs": ("host-cases/hosts [csharp]", "ext-dotnet/guest"),
-            "pkg/ext-python/ext_io/plugin.py": ("host-cases/hosts [python]", "plugin-sdk/sdk [python]"),
-            "pkg/ext-ts/test.mjs": ("plugin-sdk/sdk [javascript]",),
+            "pkg/ext-python/ext_io/plugin.py": ("host-cases/hosts [python]", "plugin-sdk/language-sdks [python]"),
+            "pkg/ext-ts/test.mjs": ("plugin-sdk/language-sdks [javascript]",),
             "pkg/ext-web/test.mjs": ("web-js/extension-library",),
         }
         for path, expected in cases.items():
             with self.subTest(path=path):
                 jobs = {cell["name"].partition(" (")[0] for cell in self.cells([path])}
                 self.assertEqual(jobs, set(expected))
+
+    def test_language_sdk_checks_belong_to_runtime(self):
+        script = "scripts/ci/jobs/plugin-sdk/language-sdks.sh"
+        for paths, labels, target in [
+            (["pkg/ext-python/ext_io/plugin.py"], [], "python"),
+            (["pkg/ext-ts/test.mjs"], [], "javascript"),
+            ([], ["tool:python"], "python"),
+            ([], ["tool:javascript"], "javascript"),
+        ]:
+            with self.subTest(paths=paths, labels=labels):
+                runtime = self.cells(paths, labels, workflow="runtime")
+                self.assertEqual([cell["vars"]["TARGETS"] for cell in runtime if cell["script"] == script], [target])
+                core = self.cells(paths, labels, workflow="core")
+                self.assertFalse(any(cell["script"] == script for cell in core))
 
     def test_multiple_hosts_share_each_runner(self):
         cells = self.cells(["pkg/ext-ruby/lib/ext_io.rb", "pkg/ext-python/ext_io/plugin.py"])

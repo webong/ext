@@ -109,7 +109,7 @@ install(FILES include/ext_ledger.h DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
 if(EXT_LEDGER_TESTS)
   enable_testing()
-  # The fixtures are the res/graph store contract.
+  # The fixtures are the ledger store contract.
   set(EXT_LEDGER_FIXTURES "${CMAKE_CURRENT_SOURCE_DIR}/testdata/store/v1" CACHE PATH "The ledger store fixtures")
   add_executable(ledger_fixtures tests/fixtures.c)
   target_include_directories(ledger_fixtures PRIVATE src)

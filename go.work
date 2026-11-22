@@ -41,12 +41,12 @@ use (
 	./pkg/ext-go/c2goengine
 	./pkg/ext-go/cgoengine
 	./pkg/ext-go/engine
+	./pkg/ext-go/engine/ledger/recorder
 	./pkg/ext-go/hashicorp
 	./pkg/ext-go/realtime
 	./pkg/ext-go/runtime
 	./pkg/ext-go/wasm
 	./pkg/ext-go/yaegi
-	./res/graph
 	./res/int
 	./res/system
 	./res/web/host
@@ -63,6 +63,10 @@ use (
 // pkg/ext-go/runtime has no published version yet; the workspace resolves the one its modules
 // require to the tree. Remove this once pkg/ext-go/runtime/v0.1.0 is tagged.
 replace github.com/webong/ext/pkg/ext-go/runtime v0.1.0 => ./pkg/ext-go/runtime
+
+// The ledger recorder module (pkg/ext-go/engine/ledger/recorder) has no published version yet.
+// Remove this once pkg/ext-go/engine/ledger/recorder/v0.1.0 is tagged.
+replace github.com/webong/ext/pkg/ext-go/engine/ledger/recorder v0.1.0 => ./pkg/ext-go/engine/ledger/recorder
 
 // CTO's sandbox module has no published tag yet. Remove this once
 // src/cto/sandbox/v0.1.0 is published.

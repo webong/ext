@@ -20,6 +20,8 @@ import (
 // module so an application imports only what it needs:
 //
 //	engine      the pure-Go engine, the oracle and the shared data model; standard library only
+//	            (plugin and ledger); its nested module engine/ledger/recorder, which projects
+//	            res/system's observations onto the ledger, needs engine and res/system
 //	cgoengine   the C engine binding and pure-Go build of the same API; needs engine
 //	c2goengine  the C engine's portable core translated to Go; needs engine
 //	wasm        the engine binding for res/web/host/engine/wasm; needs engine and res/web/host
@@ -34,23 +36,23 @@ const pluginPrefix = "github.com/webong/ext/pkg/ext-go"
 
 // A module's allowed requirements among the repository's own modules.
 var pluginRequires = map[string][]string{
-	"pkg/ext-go/engine":     {},
-	"pkg/ext-go/cgoengine":  {"pkg/ext-go/engine"},
-	"pkg/ext-go/c2goengine": {"pkg/ext-go/engine"},
-	"pkg/ext-go/wasm":       {"pkg/ext-go/engine", "res/web/host"},
-	"pkg/ext-go/hashicorp":  {"pkg/ext-go/engine"},
-	"pkg/ext-go/yaegi":      {"pkg/ext-go/engine"},
-	"pkg/ext-go/runtime":    {"pkg/ext-go/engine"},
-	"src/ctn/inference":    {"pkg/ext-go/engine", "res/int"},
-	"src/ctn/model":        {"pkg/ext-go/engine", "res/int"},
-	"src/ctn/perception":   {"pkg/ext-go/engine", "res/int"},
-	"pkg/ext-go/realtime":   {"pkg/ext-go/engine", "res/int"},
-	"res/int":               {},
-	"src/cto/sandbox":       {},
-	"res/web/host":          {},
-	"res/system":            {},
-	"res/graph":             {"res/system"},
-	"pkg/ext-go":            {"pkg/ext-go/engine", "pkg/ext-go/cgoengine", "pkg/ext-go/c2goengine", "pkg/ext-go/wasm", "pkg/ext-go/hashicorp", "pkg/ext-go/realtime", "pkg/ext-go/runtime", "res/graph", "res/web/host"},
+	"pkg/ext-go/engine":                 {},
+	"pkg/ext-go/cgoengine":              {"pkg/ext-go/engine"},
+	"pkg/ext-go/c2goengine":             {"pkg/ext-go/engine"},
+	"pkg/ext-go/wasm":                   {"pkg/ext-go/engine", "res/web/host"},
+	"pkg/ext-go/hashicorp":              {"pkg/ext-go/engine"},
+	"pkg/ext-go/yaegi":                  {"pkg/ext-go/engine"},
+	"pkg/ext-go/runtime":                {"pkg/ext-go/engine"},
+	"src/ctn/inference":                 {"pkg/ext-go/engine", "res/int"},
+	"src/ctn/model":                     {"pkg/ext-go/engine", "res/int"},
+	"src/ctn/perception":                {"pkg/ext-go/engine", "res/int"},
+	"pkg/ext-go/realtime":               {"pkg/ext-go/engine", "res/int"},
+	"res/int":                           {},
+	"src/cto/sandbox":                   {},
+	"res/web/host":                      {},
+	"res/system":                        {},
+	"pkg/ext-go/engine/ledger/recorder": {"pkg/ext-go/engine", "res/system"},
+	"pkg/ext-go":                        {"pkg/ext-go/engine", "pkg/ext-go/cgoengine", "pkg/ext-go/c2goengine", "pkg/ext-go/wasm", "pkg/ext-go/hashicorp", "pkg/ext-go/realtime", "pkg/ext-go/runtime", "pkg/ext-go/engine/ledger/recorder", "res/web/host"},
 }
 
 var requireLine = regexp.MustCompile(`(?m)^\s*(?:require\s+)?(github\.com/webong/ext/\S+)\s+v\S+`)
@@ -144,6 +146,9 @@ func TestEngineModuleUsesOnlyTheStandardLibrary(t *testing.T) {
 		if entry.IsDir() {
 			if entry.Name() == "testdata" {
 				return filepath.SkipDir // fixtures, including guests that import backends
+			}
+			if _, err := os.Stat(filepath.Join(path, "go.mod")); err == nil && path != filepath.Join(root, "pkg/ext-go/engine") {
+				return filepath.SkipDir // a nested module, such as engine/ledger/recorder, has its own rules
 			}
 			return nil
 		}

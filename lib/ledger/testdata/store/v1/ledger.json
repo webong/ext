@@ -1,7 +1,7 @@
 {
   "version": 1,
   "layout": "ext.graph.ledger/v1",
-  "about": "The on-disk form of a durable res/graph store: a directory holding an append-only log of commits and a checkpoint of the state at the history floor. It needs nothing but files and an advisory lock, so any language reads and writes it with its standard library. README.md, Durable layout, explains how the files are written and read.",
+  "about": "The on-disk form of a durable ledger store: a directory holding an append-only log of commits and a checkpoint of the state at the history floor. It needs nothing but files and an advisory lock, so any language reads and writes it with its standard library. README.md, Durable layout, explains how the files are written and read.",
   "files": {
     "lock": "An empty file. A writer holds an exclusive advisory lock on it (flock on POSIX, LockFileEx on Windows) for the whole of a register or apply, including catching up with the log and any rewrite. Readers never lock.",
     "log": "The append-only log: a header line, then one line per schema registration, commit or history floor, in the order they happened.",

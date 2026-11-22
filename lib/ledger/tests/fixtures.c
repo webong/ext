@@ -1,5 +1,5 @@
-/* Runs the res/graph store contract (cases.json and fingerprints.json) against
- * the memory and file backends, as res/graph/store/storetest does in Go. */
+/* Runs the ledger store contract (cases.json and fingerprints.json) against
+ * the memory and file backends, as pkg/ext-go/engine/ledger/ledgertest does in Go. */
 #include "ext_ledger.h"
 #include "ledger_internal.h"
 #include "testutil.h"

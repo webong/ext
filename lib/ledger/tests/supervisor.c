@@ -1,4 +1,4 @@
-/* The supervisor, held to the behaviour res/graph/supervisor's tests ask of it.
+/* The supervisor, held to the behaviour pkg/ext-go/engine/ledger/supervisor's tests ask of it.
  * The test binary is its own child: "helper" runs as a supervised process and
  * acts on its EXT_SUPERVISOR_* variables. */
 #include "ext_ledger.h"

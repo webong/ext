@@ -1,6 +1,6 @@
 # Graph store contract, version 1
 
-What a `res/graph` store holds, the rules it applies, how it lays out a durable graph and how it
+What a ledger store holds, the rules it applies, how it lays out a durable graph and how it
 answers each operation. The store is generic: namespaces, kinds and relationship types are the
 consumer's vocabulary.
 

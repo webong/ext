@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	systemgraph "github.com/webong/ext/res/graph"
+	systemgraph "github.com/webong/ext/pkg/ext-go/engine/ledger/recorder"
 )
 
 func TestVersion(t *testing.T) {

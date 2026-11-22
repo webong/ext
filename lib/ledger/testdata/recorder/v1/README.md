@@ -3,8 +3,8 @@
 What the `ext.system` recorder writes for what it observes. The recorder projects observations
 of a machine (its shell sessions, web origins, host inventory, processes and adapter inventory)
 onto the `ext.system` vocabulary in a [store](../../store/v1/README.md), and reads them back. These
-fixtures hold that projection as data, so `lib/ledger` is held to what the Go recorder does before
-the Go `res/graph` is removed.
+fixtures hold that projection as data, so `lib/ledger` and the Go recorder are held to the same
+projection.
 
 | File | What it fixes |
 | --- | --- |
@@ -58,9 +58,9 @@ the fields it names, so the expectations leave out what the store sets (records'
 ## Changing the cases
 
 The expectations are what the Go recorder writes. `go test -run TestRecorder -update` in
-`res/graph` rewrites them from Go, `go test -run TestRecorder` checks Go against them, and
-`lib/ledger/tests/recorder.c` (run by `scripts/ledger-test.sh`) checks the C recorder. Once the
-Go recorder is gone, the cases are changed by hand and `lib/ledger` is the implementation they check.
+`pkg/ext-go/engine/ledger/recorder` rewrites them from Go, `go test -run TestRecorder` checks Go against them, and
+`lib/ledger/tests/recorder.c` (run by `scripts/ledger-test.sh`) checks the C recorder. The C library is the main
+implementation: a change lands in `lib/ledger` and these cases first, and the Go recorder follows it.
 
 ## Not covered yet
 

@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "about": "Operation cases of the res/graph store contract. Each case runs its steps in order against a new, empty store opened with the case's options; a durable case runs only on a durable store. See README.md for the step vocabulary.",
+  "about": "Operation cases of the ledger store contract. Each case runs its steps in order against a new, empty store opened with the case's options; a durable case runs only on a durable store. See README.md for the step vocabulary.",
   "cases": [
     {
       "name": "an upsert advances the revision and keeps created_at",

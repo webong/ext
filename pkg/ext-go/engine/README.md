@@ -3,6 +3,14 @@
 `github.com/webong/ext/pkg/ext-go/engine` holds the pure-Go engines of the libraries in `lib/`, one
 package each, using only the standard library. It has no root package.
 
+## ledger
+
+`github.com/webong/ext/pkg/ext-go/engine/ledger`: the pure-Go ledger store, the supervisor
+(`ledger/supervisor`) and the store fixtures runner (`ledger/ledgertest`), the fallback for
+[`lib/ledger`](../../../lib/ledger/README.md). The recorder, which projects `res/system`'s
+observations, is the nested module `ledger/recorder`, so this module stays standard library only.
+See [ledger](ledger/README.md).
+
 ## plugin
 
 `github.com/webong/ext/pkg/ext-go/engine/plugin`: the pure-Go plugin engine, the oracle that

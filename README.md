@@ -334,22 +334,23 @@ CTX and its ecosystem share public Go libraries:
   Consumers own authorization, remote control and product policy. Its Apple and
   Android bindings ship through the native SDKs, with additional Windows-native
   libraries beside `capture/audio` and `capture/clipboard`.
-- `github.com/webong/ext/res/graph` supplies graph storage, the recorder that writes
-  what the `res/system` collectors find into the graph, and local process
-  supervision.
+- `github.com/webong/ext/pkg/ext-go/engine/ledger` supplies the pure-Go ledger: graph
+  storage and local process supervision, the fallback for the C library `lib/ledger`;
+  its nested module `pkg/ext-go/engine/ledger/recorder` writes what the `res/system`
+  collectors find into the graph.
 - `github.com/webong/ext/pkg/ext-go` supplies the shared host/guest contract,
   validation, selection, admission, and session lifecycle. Its implementations
   include `pkg/ext-go/engine/plugin/transport/inprocess`, `pkg/ext-go/engine/plugin/transport/jsonline`, `pkg/ext-go/hashicorp` (net/rpc and
   gRPC), `pkg/ext-go/engine/plugin/host/nativego`, `pkg/ext-go/wasm` (WASI Preview 1), and `pkg/ext-go/runtime/cshared`
   (versioned C ABI). All use the same typed authoring and host session APIs.
-- `github.com/webong/ext/res/graph/supervisor` supplies local process supervision when
+- `github.com/webong/ext/pkg/ext-go/engine/ledger/supervisor` supplies local process supervision when
   the selected plugin backend does not already own its process lifecycle.
 - `github.com/webong/ext/res/web/host` supplies portable browser contracts,
   workflows, extension and userscript handling, WebAssembly inspection and
   execution and raw reactor hosting through wazero, plus application-hosted
   WKWebView, Android WebView and WebView2 implementations. It contains no plugin
   engine dependency; `pkg/ext-go/wasm` supplies that binding.
-`res/system` depends only on `golang.org/x/sys`, `res/graph` only on `res/system`; `pkg/ext-go/engine` remains
+`res/system` depends only on `golang.org/x/sys`, the ledger recorder only on `res/system` and the engine; `pkg/ext-go/engine` remains
 standard-library only. Consumers that do not need WebAssembly or another runtime
 backend can keep the wazero and HashiCorp stacks out of their module graph.
 

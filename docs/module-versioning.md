@@ -467,8 +467,8 @@ Before tagging, confirm each module builds and tests on its own with the
 workspace active, and that `src/ctx` resolves the intended versions:
 
 ```bash
-for module in src/ctx src/ctn src/ctn/inference src/ctn/model src/ctn/perception pkg/ext-go pkg/ext-go/engine pkg/ext-go/cgoengine \
-              pkg/ext-go/hashicorp pkg/ext-go/wasm pkg/ext-go/yaegi pkg/ext-go/core pkg/ext-go/cengine pkg/ext-go/realtime res/system res/int src/cto/sandbox \
+for module in src/ctx src/ctn src/ctn/inference src/ctn/model src/ctn/perception src/ctn/realtime pkg/ext-go pkg/ext-go/engine pkg/ext-go/cgoengine \
+              pkg/ext-go/hashicorp pkg/ext-go/wasm pkg/ext-go/yaegi pkg/ext-go/core pkg/ext-go/cengine res/system res/int src/cto/sandbox \
               adapters/wasm adapters/evm adapters/systemd adapters/pulseaudio adapters/alsa \
               adapters/x11 adapters/ffmpeg adapters/wayland adapters/pipewire adapters/openai \
               adapters/ollama adapters/anthropic adapters/gemini res/web/host; do
@@ -511,7 +511,7 @@ separate modules under its product tree:
 | `src/ctn/inference` | CTN's `inference.provider/v1` bridge and host/guest helpers | `engine`, `res/int` |
 | `src/ctn/model` | CTN's `model.tensor/v1` tensor-provider bridge | `engine`, `res/int` |
 | `src/ctn/perception` | CTN's `intelligence.perception/v1` bridge | `engine`, `res/int` |
-| `pkg/ext-go/realtime` | bridges `res/int/realtime` to the Ext plugin engine through `intelligence.realtime/v1` | `engine`, `res/int` |
+| `src/ctn/realtime` | CTN's `intelligence.realtime/v1` duplex-session bridge | `engine`, `res/int` |
 | `res/web/host` | portable web tooling, including protocol-neutral WebAssembly inspection, execution and raw reactor hosting | nothing inside ext; third-party wazero only |
 | `pkg/ext-go/wasm` | the plugin-engine binding for `res/web/host/engine/wasm` (the old `pkg/plugin-wasm`) | `engine`, `res/web/host` |
 | `pkg/ext-go/hashicorp` | the go-plugin (gRPC) backend (the old `pkg/plugin-hashicorp`) | `engine` |

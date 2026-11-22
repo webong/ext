@@ -12,10 +12,10 @@ module of its own and a program that wants less takes less:
 | [`hashicorp`](hashicorp) | the HashiCorp go-plugin (gRPC) backend |
 | [`runtime`](runtime) | how Go reaches C shared libraries: `library` (purego, with or without cgo) and the `cshared` backend for C shared guests |
 | [`wasm`](wasm) | the engine-facing WebAssembly backend, built on the reusable `res/web/host/engine/wasm` runtime |
-| [`realtime`](realtime) | Go host and guest bindings for `intelligence.realtime/v1` |
 
-CTN owns the `inference.provider/v1`, `model.tensor/v1`, and
-`intelligence.perception/v1` bridges in nested modules under `src/ctn`. The Ext Go library
+CTN owns the `inference.provider/v1`, `model.tensor/v1`,
+`intelligence.perception/v1`, and `intelligence.realtime/v1` bridges in nested
+modules under `src/ctn`. The Ext Go library
 provides the generic plugin engine they build on.
 
 The umbrella package itself, `plugingo`, holds what needs more than one part:

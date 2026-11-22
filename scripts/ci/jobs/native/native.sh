@@ -18,7 +18,7 @@ fi
 
 # Test library modules
 (
-for module in cmd/ext src/ctx src/ctn src/ctn/inference src/ctn/model src/ctn/perception src/cto src/cto/sandbox res/system res/int pkg/ext-go pkg/ext-go/engine pkg/ext-go/engine/ledger/recorder pkg/ext-go/cgoengine pkg/ext-go/hashicorp pkg/ext-go/wasm pkg/ext-go/yaegi pkg/ext-go/core pkg/ext-go/cengine pkg/ext-go/realtime adapters/wasm adapters/evm adapters/systemd adapters/pulseaudio adapters/alsa adapters/x11 adapters/ffmpeg adapters/wayland adapters/pipewire adapters/openai adapters/ollama adapters/anthropic adapters/gemini res/web/host; do
+for module in cmd/ext src/ctx src/ctn src/ctn/inference src/ctn/model src/ctn/perception src/ctn/realtime src/cto src/cto/sandbox res/system res/int pkg/ext-go pkg/ext-go/engine pkg/ext-go/engine/ledger/recorder pkg/ext-go/cgoengine pkg/ext-go/hashicorp pkg/ext-go/wasm pkg/ext-go/yaegi pkg/ext-go/core pkg/ext-go/cengine adapters/wasm adapters/evm adapters/systemd adapters/pulseaudio adapters/alsa adapters/x11 adapters/ffmpeg adapters/wayland adapters/pipewire adapters/openai adapters/ollama adapters/anthropic adapters/gemini res/web/host; do
   (cd "$module" && go test ./...) || exit 1
 done
 )
@@ -26,7 +26,7 @@ ci_import_env
 
 # Test intelligence contracts with race detector
 (
-go test -race ./res/int/inference/... ./res/int/perception/... ./src/ctn/perception/... ./pkg/ext-go/realtime/... -timeout 5m
+go test -race ./res/int/inference/... ./res/int/perception/... ./src/ctn/perception/... ./src/ctn/realtime/... -timeout 5m
 )
 ci_import_env
 

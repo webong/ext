@@ -46,7 +46,6 @@ use (
 	./pkg/ext-go/engine
 	./pkg/ext-go/engine/ledger/recorder
 	./pkg/ext-go/hashicorp
-	./pkg/ext-go/realtime
 	./pkg/ext-go/wasm
 	./pkg/ext-go/yaegi
 	./res/int
@@ -56,6 +55,7 @@ use (
 	./src/ctn/inference
 	./src/ctn/model
 	./src/ctn/perception
+	./src/ctn/realtime
 	./src/cto
 	./src/cto/sandbox
 	./src/ctx
@@ -89,5 +89,7 @@ replace github.com/webong/ext/src/ctn/inference v0.1.0 => ./src/ctn/inference
 replace github.com/webong/ext/src/ctn/model v0.1.0 => ./src/ctn/model
 
 replace github.com/webong/ext/src/ctn/perception v0.1.0 => ./src/ctn/perception
+
+replace github.com/webong/ext/src/ctn/realtime v0.1.0 => ./src/ctn/realtime
 
 replace github.com/webong/ext/adapters/openai v0.3.0 => ./adapters/openai

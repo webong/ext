@@ -17,19 +17,19 @@ import (
 type Verdict string
 
 const (
-	VerdictPass      Verdict = "PASS"
-	VerdictFail      Verdict = "FAIL"
+	VerdictPass        Verdict = "PASS"
+	VerdictFail        Verdict = "FAIL"
 	VerdictUnsupported Verdict = "UNSUPPORTED"
-	VerdictTimeout   Verdict = "TIMEOUT"
+	VerdictTimeout     Verdict = "TIMEOUT"
 )
 
 // Exit codes returned by verification.
 const (
-	ExitPass        = 0
-	ExitFail        = 1
-	ExitUsage       = 2
-	ExitUnverified  = 3
-	ExitTimeout     = 124
+	ExitPass       = 0
+	ExitFail       = 1
+	ExitUsage      = 2
+	ExitUnverified = 3
+	ExitTimeout    = 124
 )
 
 // MaxContentBytes bounds the size of content that can be verified.
@@ -43,6 +43,7 @@ type Result struct {
 	Backend   string  `json:"backend,omitempty"`
 	Selection string  `json:"selection,omitempty"`
 	Isolation string  `json:"isolation,omitempty"`
+	Boundary  string  `json:"boundary,omitempty"`
 	ExitCode  int     `json:"exitCode"`
 	Millis    int64   `json:"millis"`
 	Reason    string  `json:"reason,omitempty"`
@@ -63,9 +64,10 @@ type Backend interface {
 type Policy interface {
 	// IsTrusted reports whether the backend is trusted to run content.
 	IsTrusted(backend Backend) bool
-	// Isolation returns the isolation level for the backend/selection, a
-	// human-readable reason, and whether the level permits execution.
-	Isolation(backend Backend, selection string) (level string, reason string, ok bool)
+	// Isolation returns the isolation level and sandbox boundary
+	// (docs/adr-sandboxing.md) the backend reports for the selection, a
+	// human-readable reason, and whether they permit execution.
+	Isolation(backend Backend, selection string) (level, boundary, reason string, ok bool)
 }
 
 // Limits bound resource usage during verification.
@@ -129,10 +131,11 @@ func Verify(ctx context.Context, file string, selection string, backend Backend,
 	result.Backend = backend.Name()
 
 	// Isolation check with the caller's selection.
-	level, reason, ok := policy.Isolation(backend, selection)
+	level, boundary, reason, ok := policy.Isolation(backend, selection)
 	if !ok {
 		result.Verdict = VerdictUnsupported
 		result.Isolation = level
+		result.Boundary = boundary
 		result.Reason = reason
 		if observer != nil {
 			observer.Completed(result)
@@ -140,6 +143,7 @@ func Verify(ctx context.Context, file string, selection string, backend Backend,
 		return result, nil
 	}
 	result.Isolation = level
+	result.Boundary = boundary
 
 	// Run with an outer timeout. Pass the file and selection as arguments so
 	// the backend can construct the appropriate invocation. The file is

@@ -1,5 +1,5 @@
-// Package program finds executables by name and joins what different sources
-// report about the same file.
+// Package program checks declared software locations, finds executables by
+// name and joins what different sources report about the same file.
 //
 // It is mechanism only. It never branches on a program or installer name: the
 // caller says which names to look for, and installers report what they own.

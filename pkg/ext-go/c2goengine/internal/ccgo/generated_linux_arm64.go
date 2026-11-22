@@ -1,5 +1,5 @@
 // Code generated for linux/arm64 by 'ccgo -o engine.go --package-name ccgo -I csrc/shim -I csrc/src -I csrc/vendor -I csrc/include -DEXT_PLUGIN_HOST_STATIC -DEXT_PLUGIN_HOST_BUILD -Dyyjson_align(x)= -Dyyjson_inline= -Dyyjson_noinline= -U__SIZEOF_INT128__ -include csrc/shim/compat_core.h -include csrc/shim/compat.h csrc/src/common.c csrc/src/wire.c csrc/src/progress.c csrc/src/reverse.c csrc/src/endpoint.c csrc/src/services.c csrc/src/guest.c csrc/src/sha256.c csrc/src/packages.c csrc/vendor/yyjson.c csrc/src/host.c csrc/src/fs_posix.c csrc/src/random_posix.c csrc/src/integrity.c csrc/src/instances.c csrc/src/streams.c csrc/shim/channel_go.c csrc/shim/missing.c', DO NOT EDIT.
-// c2goengine inputs sha256:6ce31a6e5337629cf189bdc31a8ff9289c3e833607bc16556c50084d5d6dcc2e
+// c2goengine inputs sha256:962f47754ad520e9a122faa1fc58e6a9abc43eb97679d3d904bec01425621c9d
 
 //go:build linux && arm64
 
@@ -97,6 +97,7 @@ const EXT_PLUGIN_HOST_REVERSE_ENGINE_THREADS = "0u"
 const EXT_PLUGIN_HOST_REVERSE_PAYLOAD = "0u"
 const EXT_PLUGIN_HOST_REVERSE_PUBLIC_ERROR = "1u"
 const EXT_PLUGIN_HOST_STATIC = 1
+const EXT_PLUGIN_STORE_PRESERVE_EXECUTABLE = "1u"
 const EXT_REVERSE_BUSY = "busy"
 const EXT_REVERSE_DEFAULT_IN_FLIGHT = "4u"
 const EXT_REVERSE_DEFAULT_TIMEOUT_MS = "30000u"
@@ -106,7 +107,6 @@ const EXT_REVERSE_MAX_IN_FLIGHT = "1024u"
 const EXT_REVERSE_TOO_LARGE = "too_large"
 const EXT_REVERSE_UNAVAILABLE = "reverse_unavailable"
 const EXT_REVERSE_UNDECLARED = "reverse_undeclared"
-const EXT_PLUGIN_STORE_PRESERVE_EXECUTABLE = "1u"
 const FILENAME_MAX = 4096
 const FILESIZEBITS = 64
 const FLT_DECIMAL_DIG = 9
@@ -6509,7 +6509,7 @@ func ext_plugin_buffer_free(tls *libc.TLS, b uintptr) {
 	}
 }
 
-const EXT_HOST_ABI_VERSION1 = "2u"
+const EXT_PLUGIN_HOST_ABI_VERSION1 = "2u"
 const INT64_MAX1 = 9223372036854775807
 const ext_timegm = "timegm"
 
@@ -18344,8 +18344,8 @@ func ext_progress_sink_finish(tls *libc.TLS, s uintptr) {
 	emit_event(tls, s, bp, n)
 }
 
-const EXT_HOST_REVERSE_PAYLOAD1 = 0
-const EXT_HOST_REVERSE_PUBLIC_ERROR1 = 1
+const EXT_PLUGIN_HOST_REVERSE_PAYLOAD1 = 0
+const EXT_PLUGIN_HOST_REVERSE_PUBLIC_ERROR1 = 1
 const UINT64_MAX2 = "0xffffffffffffffffu"
 
 var YYJSON_READ_NOFLAG3 = uint32(0)
@@ -23731,8 +23731,8 @@ var null_payload = [4]uint8_t{
 const EXT_ENDPOINT_MAX_ADDRESS = 255
 const EXT_ENDPOINT_MAX_PATH = 1024
 const EXT_ENDPOINT_MAX_TOKEN = 512
-const EXT_HOST_REVERSE_PAYLOAD2 = "0u"
-const EXT_HOST_REVERSE_PUBLIC_ERROR2 = "1u"
+const EXT_PLUGIN_HOST_REVERSE_PAYLOAD2 = "0u"
+const EXT_PLUGIN_HOST_REVERSE_PUBLIC_ERROR2 = "1u"
 
 var YYJSON_READ_NOFLAG4 = uint32(0)
 var YYJSON_READ_INSITU4 = libc.Uint32FromInt32(libc.Int32FromInt32(1) << libc.Int32FromInt32(0))
@@ -36011,7 +36011,7 @@ func ext_plugin_call(tls *libc.TLS, operation uintptr, input uintptr, len1 size_
 
 const EXT_PLUGIN_GUEST_PAYLOAD = "0u"
 const EXT_PLUGIN_GUEST_PUBLIC_ERROR = 1
-const EXT_HOST_ABI_VERSION2 = 2
+const EXT_PLUGIN_HOST_ABI_VERSION2 = 2
 const INT64_MAX4 = 0x7fffffffffffffff
 
 type ext_plugin_guest = struct {
@@ -41436,7 +41436,7 @@ done:
 	return s
 }
 
-const EXT_HOST_ABI_VERSION3 = "2u"
+const EXT_PLUGIN_HOST_ABI_VERSION3 = "2u"
 
 type ext_hash = struct {
 	Fh     [8]uint32_t
@@ -80740,16 +80740,16 @@ const EUSERS = 87
 const EWOULDBLOCK = "EAGAIN"
 const EXDEV = 18
 const EXFULL = 54
-const EXT_BACKEND_CONCURRENT1 = 1
-const EXT_BACKEND_EXTENSION1 = 2
-const EXT_BACKEND_EXTENSION_CONTEXT1 = 3
-const EXT_BACKEND_FRAMES1 = 4
-const EXT_BACKEND_JSONLINE_PROCESS1 = 1
-const EXT_BACKEND_JSONLINE_PROCESS_CONFIG1 = 4
-const EXT_BACKEND_JSONLINE_PROCESS_LAUNCH1 = 5
-const EXT_HOST_ABI_VERSION4 = 2
-const EXT_HOST_REVERSE_CALLER_THREAD1 = 1
-const EXT_HOST_REVERSE_PUBLIC_ERROR3 = 1
+const EXT_PLUGIN_BACKEND_CONCURRENT1 = 1
+const EXT_PLUGIN_BACKEND_EXTENSION1 = 2
+const EXT_PLUGIN_BACKEND_EXTENSION_CONTEXT1 = 3
+const EXT_PLUGIN_BACKEND_FRAMES1 = 4
+const EXT_PLUGIN_BACKEND_JSONLINE_PROCESS1 = 1
+const EXT_PLUGIN_BACKEND_JSONLINE_PROCESS_CONFIG1 = 4
+const EXT_PLUGIN_BACKEND_JSONLINE_PROCESS_LAUNCH1 = 5
+const EXT_PLUGIN_HOST_ABI_VERSION4 = 2
+const EXT_PLUGIN_HOST_REVERSE_CALLER_THREAD1 = 1
+const EXT_PLUGIN_HOST_REVERSE_PUBLIC_ERROR3 = 1
 const EXT_REVERSE_DEFAULT_IN_FLIGHT1 = 4
 const EXT_REVERSE_DEFAULT_TIMEOUT_MS1 = 30000
 const EXT_REVERSE_MAX_IN_FLIGHT1 = 1024
@@ -89304,16 +89304,16 @@ const DT_REG = 8
 const DT_SOCK = 12
 const DT_UNKNOWN = 0
 const DT_WHT = 14
-const EXT_BACKEND_CONCURRENT2 = "1u"
-const EXT_BACKEND_EXTENSION2 = "2u"
-const EXT_BACKEND_EXTENSION_CONTEXT2 = "3u"
-const EXT_BACKEND_FRAMES2 = "4u"
-const EXT_BACKEND_JSONLINE_PROCESS2 = "1u"
-const EXT_BACKEND_JSONLINE_PROCESS_CONFIG2 = "4u"
-const EXT_BACKEND_JSONLINE_PROCESS_LAUNCH2 = "5u"
-const EXT_HOST_ABI_VERSION5 = "2u"
-const EXT_HOST_REVERSE_CALLER_THREAD2 = "1u"
-const EXT_HOST_REVERSE_PUBLIC_ERROR4 = "1u"
+const EXT_PLUGIN_BACKEND_CONCURRENT2 = "1u"
+const EXT_PLUGIN_BACKEND_EXTENSION2 = "2u"
+const EXT_PLUGIN_BACKEND_EXTENSION_CONTEXT2 = "3u"
+const EXT_PLUGIN_BACKEND_FRAMES2 = "4u"
+const EXT_PLUGIN_BACKEND_JSONLINE_PROCESS2 = "1u"
+const EXT_PLUGIN_BACKEND_JSONLINE_PROCESS_CONFIG2 = "4u"
+const EXT_PLUGIN_BACKEND_JSONLINE_PROCESS_LAUNCH2 = "5u"
+const EXT_PLUGIN_HOST_ABI_VERSION5 = "2u"
+const EXT_PLUGIN_HOST_REVERSE_CALLER_THREAD2 = "1u"
+const EXT_PLUGIN_HOST_REVERSE_PUBLIC_ERROR4 = "1u"
 const FALLOC_FL_KEEP_SIZE = 1
 const FALLOC_FL_PUNCH_HOLE = 2
 const FAPPEND = "O_APPEND"

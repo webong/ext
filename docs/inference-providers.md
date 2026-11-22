@@ -1,7 +1,7 @@
 # Inference provider packages
 
-`res/int/inference` defines the portable provider contract. The reusable plugin
-integration in `pkg/ext-go/inference` serves a provider guest and packages its
+`res/int/inference` defines the portable provider contract. CTN's plugin
+integration in `src/ctn/inference` serves a provider guest and packages its
 executable. The package store in `pkg/ext-go/engine/host/store` verifies sealed
 packages, matches contracts, and selects the executable for the current
 platform. The scoped trust ledger in `pkg/ext-go/engine/host/trust` pins reviewed
@@ -35,7 +35,7 @@ export EXT_ADAPTER_VALUE_api_key=<provider-key>
 ext ctn inference capabilities --provider openai
 ```
 
-`ctn inference untrust openai` revokes the stored grant. Existing deployments
+`ext ctn inference untrust openai` revokes the stored grant. Existing deployments
 can still use `EXT_INFERENCE_TRUST_<ID>` with uppercase ID and `/`, `.`, and `-`
 replaced by `_`; its value must equal the current package digest. CTN rechecks
 the package, trust record, and executable digest immediately before launching

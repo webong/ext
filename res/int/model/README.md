@@ -29,7 +29,7 @@ The shared provider contract and inference schemas live in `res/int/inference`.
 Product-specific model registries, download policy, and content adapters belong
 to each consumer. `res/int/model` owns none of them.
 
-`pkg/ext-go/model` exposes a language-neutral `model.tensor/v1` process contract
+`src/ctn/model` exposes a language-neutral `model.tensor/v1` process contract
 for a caller-selected `ml.Provider`. CTN installs and trusts those provider
 packages before `ctn model run` calls them. The Swift CoreML and .NET ONNX
 guests serve this contract from CTN. The Android SDK includes a

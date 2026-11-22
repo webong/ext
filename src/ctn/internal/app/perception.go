@@ -16,8 +16,8 @@ import (
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/process"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/store"
 	hosttrust "github.com/webong/ext/pkg/ext-go/engine/plugin/host/trust"
-	bridge "github.com/webong/ext/pkg/ext-go/perception"
 	domain "github.com/webong/ext/res/int/perception"
+	bridge "github.com/webong/ext/src/ctn/perception"
 )
 
 func perceptionCommand(args []string, stdout, stderr io.Writer) int {

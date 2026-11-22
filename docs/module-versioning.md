@@ -467,8 +467,8 @@ Before tagging, confirm each module builds and tests on its own with the
 workspace active, and that `src/ctx` resolves the intended versions:
 
 ```bash
-for module in src/ctx src/ctn pkg/ext-go pkg/ext-go/engine pkg/ext-go/cgoengine \
-              pkg/ext-go/hashicorp pkg/ext-go/wasm pkg/ext-go/yaegi pkg/ext-go/runtime pkg/ext-go/inference pkg/ext-go/model pkg/ext-go/perception pkg/ext-go/realtime res/system res/int src/cto/sandbox \
+for module in src/ctx src/ctn src/ctn/inference src/ctn/model src/ctn/perception pkg/ext-go pkg/ext-go/engine pkg/ext-go/cgoengine \
+              pkg/ext-go/hashicorp pkg/ext-go/wasm pkg/ext-go/yaegi pkg/ext-go/runtime pkg/ext-go/realtime res/system res/int src/cto/sandbox \
               adapters/wasm adapters/evm adapters/systemd adapters/pulseaudio adapters/alsa \
               adapters/x11 adapters/ffmpeg adapters/wayland adapters/pipewire adapters/openai \
               adapters/ollama adapters/anthropic adapters/gemini res/web/host; do
@@ -497,28 +497,34 @@ tags are immutable, so the correct floor ships in `pkg/plugin-hashicorp/v0.1.1`.
 in a clean module, v0.1.0 reports `go 1.23.0` and v0.1.1 reports `go 1.26.0`. Consumers on an
 older Go should require v0.1.1 or newer, and the v0.1.0 tag stays as published.
 
-## The plugin library is a tree of modules
+## The plugin library and product bridges
 
 `pkg/ext-go/` is a directory tree in which each heavy part is its own module,
-so an application imports only what it needs and stacks the rest:
+so an application imports only what it needs. CTN's provider bridges are
+separate modules under its product tree:
 
 | Module | Contents | Requires |
 | --- | --- | --- |
 | `pkg/ext-go/engine` | the pure-Go engine (the oracle): the contract, sessions, guests, packages, the package store and host, bridges and tooling (the old `pkg/plugin`); standard library only | nothing |
 | `pkg/ext-go/cgoengine` | the Go binding of the C engine, a pure-Go build of the same API, engine-routed variants of `store` and `host` with the same API as the ones in `engine`, the C ABI loader (the old `pkg/plugin-cshared`) and a generated copy of the C sources | `contract` |
 | `pkg/ext-go/c2goengine` | the C engine's portable core translated to Go by ccgo (`modernc.org/ccgo`), with no cgo and no C compiler: one generated file per platform, made on that platform (see its README) | `engine` |
-| `pkg/ext-go/inference` | bridges `res/int/inference` to the Ext plugin engine: declares `inference.provider/v1`, registers `res/int/inference.Provider` as a plugin guest, and supplies a host client for plugin sessions | `engine`, `res/int` |
-| `pkg/ext-go/model` | bridges `res/int/model` tensor providers to the Ext plugin engine through `model.tensor/v1` | `engine`, `res/int` |
-| `pkg/ext-go/perception` | bridges `res/int/perception` to the Ext plugin engine through `intelligence.perception/v1` | `engine`, `res/int` |
+| `src/ctn/inference` | CTN's `inference.provider/v1` bridge and host/guest helpers | `engine`, `res/int` |
+| `src/ctn/model` | CTN's `model.tensor/v1` tensor-provider bridge | `engine`, `res/int` |
+| `src/ctn/perception` | CTN's `intelligence.perception/v1` bridge | `engine`, `res/int` |
 | `pkg/ext-go/realtime` | bridges `res/int/realtime` to the Ext plugin engine through `intelligence.realtime/v1` | `engine`, `res/int` |
 | `res/web/host` | portable web tooling, including protocol-neutral WebAssembly inspection, execution and raw reactor hosting | nothing inside ext; third-party wazero only |
 | `pkg/ext-go/wasm` | the plugin-engine binding for `res/web/host/engine/wasm` (the old `pkg/plugin-wasm`) | `engine`, `res/web/host` |
 | `pkg/ext-go/hashicorp` | the go-plugin (gRPC) backend (the old `pkg/plugin-hashicorp`) | `engine` |
 | `pkg/ext-go/yaegi` | the Go source backend: a guest shipped as Go source (runtime `go-source`, a tree artifact) interpreted in-process by yaegi; not required by the umbrella | `engine`; third-party yaegi only |
 | `pkg/ext-go/runtime` | how Go reaches C shared libraries: `library` (purego) and the `cshared` backend for C shared guests, moved out of `cgoengine`; no root package | `engine`; third-party purego only |
-| `pkg/ext-go` | the umbrella: requires every plugin module above except `yaegi` and holds what needs several of them (`PlanGraph`, the `core` package that chooses between `engine`, `cgoengine` and `c2goengine`, the bridge command, the cross-language tests) | the plugin modules above, `res/system`, `res/web` |
+| `pkg/ext-go` | the umbrella: requires the Ext Go plugin modules above except `yaegi` and holds what needs several of them (`PlanGraph`, the `core` package that chooses between `engine`, `cgoengine` and `c2goengine`, the bridge command, the cross-language tests) | Ext Go plugin modules, `res/system`, `res/web`; no CTN modules |
 | `res/int` | portable model, inference, perception, and real-time contracts and mechanisms; standard library only | nothing |
 | `src/cto/sandbox` | the sandbox contract shared with github.com/webong/workload: boundary levels, policy, grants, capabilities and reports ([the sandboxing ADR](adr-sandboxing.md)); standard library only | nothing |
+
+CTN's `inference`, `model`, and `perception` bridges are separate nested modules
+under `src/ctn`, with independent module versions and tags. The former
+`pkg/ext-go/inference`, `pkg/ext-go/model`, and `pkg/ext-go/perception` module
+tags remain available for consumers of those historical paths.
 
 The module was called `contract` until v0.8.0 because it is the contract plus tooling that needs
 nothing beyond the standard library, not a runtime; it became `engine` once it was the oracle

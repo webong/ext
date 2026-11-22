@@ -43,6 +43,9 @@ type Options struct {
 	// CompilationCache, when set, lets Open reuse a module compiled by an earlier
 	// session. Nil compiles on every Open.
 	CompilationCache *CompilationCache
+	// StubImports are host functions a module may import that this host does not
+	// carry, each answering a fixed status, as for a reactor (ReactorABI.StubImports).
+	StubImports []StubImport
 }
 
 // Command is one persistent WASI command. Read and Write exchange raw bytes
@@ -87,6 +90,10 @@ func Open(ctx context.Context, module []byte, opts Options) (*Command, error) {
 	}
 	r := wazero.NewRuntimeWithConfig(ctx, runtimeConfig(opts.MemoryLimitPages, opts.CompilationCache))
 	if _, err := wasi_snapshot_preview1.Instantiate(ctx, r); err != nil {
+		_ = r.Close(context.Background())
+		return nil, err
+	}
+	if err := instantiateStubs(ctx, r, opts.StubImports); err != nil {
 		_ = r.Close(context.Background())
 		return nil, err
 	}

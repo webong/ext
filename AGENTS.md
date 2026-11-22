@@ -144,11 +144,10 @@ library's dependencies pointing inward so it never depends back on its consumers
 `pkg/ext-go/` is a tree of modules, not one module, so an application takes
 only the parts it needs: `engine` (standard library only), `cgoengine` (the C
 engine binding, with a pure-Go build of the same API), `wasm` (the plugin binding
-for `res/web/host/engine/wasm`), `hashicorp` (go-plugin, grpc), `inference` (the provider
-bridge), `model` (the tensor-provider bridge), `perception` (the content
-understanding bridge), and `realtime` (the duplex-session bridge), plus `pkg/ext-go` itself
-as a thin umbrella module that requires them at matching versions. Nested
-modules are excluded
+for `res/web/host/engine/wasm`), `hashicorp` (go-plugin, grpc), and `realtime`
+(the duplex-session bridge), plus `pkg/ext-go` itself as a thin umbrella module
+that requires them at matching versions. CTN owns the inference, model, and
+perception bridges as nested modules under `src/ctn`. Nested modules are excluded
 from the module that contains them, so an import path must belong to exactly one
 module and never move between modules at a version a consumer may still resolve;
 published paths are not reused by a different module.
@@ -197,11 +196,15 @@ The reusable libraries are:
 - `pkg/ext-go/wasm` for the engine-facing WebAssembly backend; it depends on `pkg/ext-go/engine` and the reusable runtime in `res/web/host/engine/wasm`.
 - `pkg/ext-go/hashicorp` for the HashiCorp go-plugin backend.
 - `pkg/ext-go/yaegi` for the Go source backend: a guest shipped as Go source, interpreted in-process by yaegi (`github.com/traefik/yaegi`); it depends on `pkg/ext-go/engine` and yaegi only, and the umbrella does not require it.
-- `pkg/ext-go/inference` for the `res/int/inference` provider contract over the Ext plugin engine.
-- `pkg/ext-go/model` for the `res/int/model` tensor-provider contract over the Ext plugin engine.
-- `pkg/ext-go/perception` for the `res/int/perception` host and guest contract over the Ext plugin engine.
 - `pkg/ext-go/realtime` for the `res/int/realtime` duplex session contract over the Ext plugin engine.
 - `pkg/ext-go` for the umbrella module that requires the plugin engines, `res/web/host` and the ledger recorder; it holds code that needs several engines, such as `pkg/ext-go/core`, which chooses between the pure-Go `engine`, `cgoengine` and `c2goengine` (the only place that knows all three).
+
+CTN owns the nested modules `src/ctn/inference`, `src/ctn/model`, and
+`src/ctn/perception` for the provider, tensor, and perception contracts over
+Ext plugin sessions. They have their own module paths and version tags, so a
+provider adapter can import the bridge it needs without requiring CTN's command
+implementation. They are not Ext Go SDK assets; Ext and other products do not
+import them.
 
 Plugin-specific runtime bindings, including HashiCorp go-plugin, the
 WebAssembly `engine.Backend` and the yaegi interpreter, belong inside the plugin library

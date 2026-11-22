@@ -6,8 +6,8 @@ import (
 	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/guest/author"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/transport/inprocess"
-	bridge "github.com/webong/ext/pkg/ext-go/inference"
 	domain "github.com/webong/ext/res/int/inference"
+	bridge "github.com/webong/ext/src/ctn/inference"
 	"testing"
 )
 

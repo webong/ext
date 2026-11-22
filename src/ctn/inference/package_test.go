@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/store"
-	ginference "github.com/webong/ext/pkg/ext-go/inference"
+	ginference "github.com/webong/ext/src/ctn/inference"
 )
 
 func TestPackageExecutableInstallsAndResolves(t *testing.T) {

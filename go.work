@@ -43,9 +43,6 @@ use (
 	./pkg/ext-go/engine
 	./pkg/ext-go/engine/ledger/recorder
 	./pkg/ext-go/hashicorp
-	./pkg/ext-go/inference
-	./pkg/ext-go/model
-	./pkg/ext-go/perception
 	./pkg/ext-go/realtime
 	./pkg/ext-go/runtime
 	./pkg/ext-go/wasm
@@ -54,6 +51,9 @@ use (
 	./res/system
 	./res/web/host
 	./src/ctn
+	./src/ctn/inference
+	./src/ctn/model
+	./src/ctn/perception
 	./src/cto
 	./src/cto/sandbox
 	./src/ctx
@@ -71,3 +71,13 @@ replace github.com/webong/ext/pkg/ext-go/engine/ledger/recorder v0.1.0 => ./pkg/
 // CTO's sandbox module has no published tag yet. Remove this once
 // src/cto/sandbox/v0.1.0 is published.
 replace github.com/webong/ext/src/cto/sandbox v0.1.0 => ./src/cto/sandbox
+
+// CTN's bridge module tags and the updated OpenAI adapter tag are not published yet.
+// The workspace resolves their new consumers to the current sources.
+replace github.com/webong/ext/src/ctn/inference v0.1.0 => ./src/ctn/inference
+
+replace github.com/webong/ext/src/ctn/model v0.1.0 => ./src/ctn/model
+
+replace github.com/webong/ext/src/ctn/perception v0.1.0 => ./src/ctn/perception
+
+replace github.com/webong/ext/adapters/openai v0.3.0 => ./adapters/openai

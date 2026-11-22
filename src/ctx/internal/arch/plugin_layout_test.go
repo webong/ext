@@ -43,16 +43,16 @@ var pluginRequires = map[string][]string{
 	"pkg/ext-go/hashicorp":              {"pkg/ext-go/engine"},
 	"pkg/ext-go/yaegi":                  {"pkg/ext-go/engine"},
 	"pkg/ext-go/runtime":                {"pkg/ext-go/engine"},
-	"pkg/ext-go/model":                  {"pkg/ext-go/engine", "res/int"},
-	"pkg/ext-go/inference":              {"pkg/ext-go/engine", "res/int"},
-	"pkg/ext-go/perception":             {"pkg/ext-go/engine", "res/int"},
+	"src/ctn/inference":                 {"pkg/ext-go/engine", "res/int"},
+	"src/ctn/model":                     {"pkg/ext-go/engine", "res/int"},
+	"src/ctn/perception":                {"pkg/ext-go/engine", "res/int"},
 	"pkg/ext-go/realtime":               {"pkg/ext-go/engine", "res/int"},
 	"res/int":                           {},
 	"src/cto/sandbox":                   {},
 	"res/web/host":                      {},
 	"res/system":                        {},
 	"pkg/ext-go/engine/ledger/recorder": {"pkg/ext-go/engine", "res/system"},
-	"pkg/ext-go":                        {"pkg/ext-go/engine", "pkg/ext-go/cgoengine", "pkg/ext-go/c2goengine", "pkg/ext-go/wasm", "pkg/ext-go/hashicorp", "pkg/ext-go/inference", "pkg/ext-go/model", "pkg/ext-go/perception", "pkg/ext-go/realtime", "pkg/ext-go/runtime", "pkg/ext-go/engine/ledger/recorder", "res/web/host"},
+	"pkg/ext-go":                        {"pkg/ext-go/engine", "pkg/ext-go/cgoengine", "pkg/ext-go/c2goengine", "pkg/ext-go/wasm", "pkg/ext-go/hashicorp", "pkg/ext-go/realtime", "pkg/ext-go/runtime", "pkg/ext-go/engine/ledger/recorder", "res/web/host"},
 }
 
 var requireLine = regexp.MustCompile(`(?m)^\s*(?:require\s+)?(github\.com/webong/ext/\S+)\s+v\S+`)
@@ -81,12 +81,11 @@ func TestPluginGoModulesRequireOnlyTheirParts(t *testing.T) {
 	}
 }
 
-// The backends reach the engine module and nothing of the C engine, in source as
-// well as in go.mod: a wazero or gRPC user must not need a C toolchain or even
-// have the engine binding in the module graph.
+// Runtime backends and CTN's provider bridges reach the engine module and
+// nothing of the C engine. A wazero, gRPC, or CTN bridge user needs no C toolchain.
 func TestBackendsNeverImportTheCEngine(t *testing.T) {
 	root := repoRoot(t)
-	for _, dir := range []string{"pkg/ext-go/wasm", "pkg/ext-go/hashicorp", "pkg/ext-go/yaegi", "pkg/ext-go/runtime", "pkg/ext-go/inference", "pkg/ext-go/model", "pkg/ext-go/perception", "pkg/ext-go/realtime"} {
+	for _, dir := range []string{"pkg/ext-go/wasm", "pkg/ext-go/hashicorp", "pkg/ext-go/yaegi", "pkg/ext-go/runtime", "src/ctn/inference", "src/ctn/model", "src/ctn/perception", "pkg/ext-go/realtime"} {
 		forbidden := []string{pluginPrefix + "/cgoengine", pluginPrefix + "/c2goengine", pluginPrefix + "/core", pluginPrefix}
 		err := filepath.WalkDir(filepath.Join(root, dir), func(path string, entry fs.DirEntry, walkErr error) error {
 			if walkErr != nil || entry.IsDir() || filepath.Ext(path) != ".go" {

@@ -20,7 +20,7 @@ import (
 	"os"
 
 	"github.com/webong/ext/adapters/openai/client"
-	ginference "github.com/webong/ext/pkg/ext-go/inference"
+	ginference "github.com/webong/ext/src/ctn/inference"
 )
 
 func main() {

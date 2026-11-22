@@ -5,8 +5,8 @@ import (
 	"os"
 
 	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
-	mlplugin "github.com/webong/ext/pkg/ext-go/model"
 	ml "github.com/webong/ext/res/int/model"
+	mlplugin "github.com/webong/ext/src/ctn/model"
 )
 
 type provider struct{}

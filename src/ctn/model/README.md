@@ -1,6 +1,6 @@
 # Tensor model plugin bridge
 
-`pkg/ext-go/model` binds `res/int/model` to the language-neutral Ext plugin contract
+`src/ctn/model` binds `res/int/model` to the language-neutral Ext plugin contract
 `model.tensor/v1`. A guest serves the `infer` operation over the Ext JSON-line
 transport. Its request contains an absolute model-store root, a
 `provider/name@version` reference, and 1 to 64 float32 tensors. The response
@@ -18,13 +18,13 @@ The guest's ID and version must match the values used when packaging it.
 CTN's flow is:
 
 ```sh
-ctn model provider package onnxruntime 1.0.0 /path/to/provider /path/to/package
-ctn model provider install /path/to/package
-ctn model provider list
-ctn model provider trust onnxruntime
-ctn model run --provider onnxruntime /absolute/model-store \
+ext ctn model provider package onnxruntime 1.0.0 /path/to/provider /path/to/package
+ext ctn model provider install /path/to/package
+ext ctn model provider list
+ext ctn model provider trust onnxruntime
+ext ctn model run --provider onnxruntime /absolute/model-store \
   onnxruntime/model@v1 /path/to/tensors.json
-ctn model provider untrust onnxruntime
+ext ctn model provider untrust onnxruntime
 ```
 
 `tensors.json` is `{"tensors":[{"shape":[1,2],"format":"float32","data":"...base64..."}]}`.

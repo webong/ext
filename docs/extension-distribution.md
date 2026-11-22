@@ -29,16 +29,16 @@ Mac's Chrome profile.
 
 ```sh
 # Obtain a reviewed source revision from the result.
-ctx browser manage extension prepare --target chrome:Default \
+ext ctx browser manage extension prepare --target chrome:Default \
   --input '{"source":"/srv/build/private/extension"}'
 
 # The initial build generates a private .pem beside this private output.
 # Subsequent releases supply keyPath pointing to that retained private key.
-ctx browser manage extension sign --target chrome:Default \
+ext ctx browser manage extension sign --target chrome:Default \
   --input '{"executable":"/path/to/chrome","source":"/srv/build/private/extension","revision":"sha256:SOURCE_REVISION","output":"/srv/build/private/extension.crx"}'
 
 # Use artifactRevision from sign, or revision from prepare on the CRX.
-ctx browser manage extension update_manifest --target chrome:Default \
+ext ctx browser manage extension update_manifest --target chrome:Default \
   --input '{"source":"/srv/build/private/extension.crx","revision":"sha256:ARTIFACT_REVISION","codebaseURL":"https://store.example/releases/extension-1.0.crx","output":"/srv/public/updates.xml"}'
 ```
 
@@ -101,10 +101,10 @@ registration mechanism automatically. The same named-store input works across
 Chrome's supported platforms:
 
 ```sh
-ctx browser manage extension store_install --target chrome:Default \
+ext ctx browser manage extension store_install --target chrome:Default \
   --input '{"id":"EXTENSION_ID","store":"chrome"}'
 
-ctx browser manage extension store_remove --target chrome:Default \
+ext ctx browser manage extension store_remove --target chrome:Default \
   --input '{"id":"EXTENSION_ID","store":"chrome"}'
 ```
 
@@ -119,7 +119,7 @@ On macOS, the default user location is
 administrator can select the all-users location explicitly:
 
 ```sh
-ctx browser manage extension store_install --target chrome:Default \
+ext ctx browser manage extension store_install --target chrome:Default \
   --input '{"id":"EXTENSION_ID","store":"chrome","externalDirectory":"/Library/Application Support/Google/Chrome/External Extensions"}'
 ```
 
@@ -163,7 +163,7 @@ and [Windows registry instructions](https://developer.chrome.com/docs/extensions
 The Chrome adapter accepts an explicit `updateURL` instead of a named store:
 
 ```sh
-ctx browser manage extension store_install --target chrome:Default \
+ext ctx browser manage extension store_install --target chrome:Default \
   --input '{"id":"EXTENSION_ID","updateURL":"https://store.example/updates.xml"}'
 ```
 
@@ -190,10 +190,10 @@ external-extension blocklist.
 A local catalog can supply a reviewed CRX artifact directly:
 
 ```sh
-ctx browser manage extension prepare --target chrome:Default \
+ext ctx browser manage extension prepare --target chrome:Default \
   --input '{"source":"/opt/my-store/extension.crx"}'
 
-ctx browser manage extension store_install --target chrome:Default \
+ext ctx browser manage extension store_install --target chrome:Default \
   --input '{"source":"/opt/my-store/extension.crx","revision":"sha256:ARTIFACT_REVISION"}'
 ```
 
@@ -209,7 +209,7 @@ To remove a request, pass its original ID, source path, and version. Removal
 works even if the CRX has already been deleted:
 
 ```sh
-ctx browser manage extension store_remove --target chrome:Default \
+ext ctx browser manage extension store_remove --target chrome:Default \
   --input '{"id":"EXTENSION_ID","source":"/opt/my-store/extension.crx","version":"1.0"}'
 ```
 

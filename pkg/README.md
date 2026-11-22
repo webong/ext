@@ -1,7 +1,8 @@
 # Public packages
 
-Reusable libraries live here so ctx, ctn and the wider ecosystem share one
-public surface. Product implementation packages stay private to each product,
+Reusable libraries live here so ctx, ctn, cto and the wider ecosystem share one
+public surface. The product modules in `src/ctx`, `src/ctn` and `src/cto` also
+export Go libraries; their implementation packages stay private to each product,
 and [`res/`](../res/README.md) is a separate container for reusable resource
 libraries. Go libraries in both containers are separate Go modules; language
 packages such as `ext-ts` and `ext-web` use their own toolchains.

@@ -23,7 +23,6 @@ it from there.
 | `service/host` | Shells, mounted filesystems, web views and host resource capacity (CPU, memory, storage, power, container state). Discovery only; nothing is launched |
 | `service/network` | Bounded, read-only local interface, assigned-address, route and resolver observation; opens no connection and supplies no remote service |
 | `service/process` | Process discovery and inspection with bounded resource detail; the lightweight `Lookup` identifies the process behind a window |
-| `service/confine` | Confines one local process to a `res/sandbox` grant and becomes the guest (`ext sandbox exec`); drivers report what they enforce, and a launch that needs more fails closed. Seatbelt on macOS; Landlock with seccomp on Linux and AppContainer on Windows are next |
 | `service/program` | Finds executables by name on `PATH` and joins them with what an installer reports about the same file, by resolved path; mechanism only, it never branches on a program or installer name |
 | `service/credential` | Portable credential-store adapter framing (`adapterkit`) and the local CTX credential client (`client`); native stores remain product adapters |
 | `service/user` | Portable per-user service definitions (launchd, systemd, Task Scheduler), non-overwriting publication, registration, start/stop and status through a caller-selected manager; no product identity, layout, port, or health protocol |

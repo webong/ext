@@ -100,7 +100,7 @@ echo %*
     # Keep duplicate application names on PATH. Adapters must choose the first
     # executable, rather than combining all discovered paths into one command.
     foreach ($command in @('aws', 'gcloud', 'kubectl', 'psql', 'mysql', 'firefox')) {
-        Copy-Item (Join-Path $bin 'ctx.exe') (Join-Path $fallbackBin "$command.exe")
+        Copy-Item (Join-Path $bin 'ext.exe') (Join-Path $fallbackBin "$command.exe")
     }
 
     $env:EXT_HOME = $config
@@ -121,7 +121,8 @@ echo %*
 
     Push-Location $project
     try {
-        $ctx = Join-Path $bin 'ctx.exe'
+        $ctx = Join-Path $bin 'ctx-test.cmd'
+        "@echo off`r`n`"$bin\ext.exe`" ctx %*`r`n" | Set-Content -Encoding ASCII $ctx
         $completion = @(& $ctx completion powershell) -join "`n"
         Assert-Success 'PowerShell completion generation'
         if ($completion -notmatch 'Register-ArgumentCompleter') { throw 'PowerShell completion output is incomplete' }

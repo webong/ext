@@ -13,7 +13,7 @@ Line counts are the non-test source of the guest and host SDK at this commit.
 
 | SDK | Guest today | Host today | Uses the C engine |
 | --- | --- | --- | --- |
-| Go | `engine/guest/*`, the oracle | `engine` sessions | Yes: `pkg/ext-go/core` chooses between the oracle, `cgoengine` and `c2goengine` ([ADR](adr-engine-selection.md)). The switch is done; the oracle stays. |
+| Go | `engine/plugin/guest/*`, the oracle | `engine` sessions | Yes: `pkg/ext-go/core` chooses between the oracle, `cgoengine` and `c2goengine` ([ADR](adr-engine-selection.md)). The switch is done; the oracle stays. |
 | Swift (`pkg/ext-darwin`) | `ExtPluginGuest`: `Guest.swift` calls `ext_guest_create`, `ext_guest_invoke` and `ext_host_validate_json`. The wire types (`Wire`), JSON lines (`JSONLine`, `Connection`), frames (`Frames`) and routing are Swift (about 1,600 lines beyond `Guest.swift`). | WebView and WAMR hosts, store through the engine | Dispatch and JSON validation only |
 | Java (`pkg/ext-android`) | `Guest.java` calls `NativeEngine.create/invoke/descriptor/validateJson`. `JsonLine`, `Frames`, `Connection`, `Reporter` and the rest of the wire code are Java (about 1,500 lines with `Guest.java`). | WAMR host, store through the engine | Dispatch and JSON validation only |
 | Rust (`ext-io`, `pkg/ext-rust/src`) | `wire.rs` (587), `serve.rs` (555), `frames.rs` (376), `guest.rs` (320), `capability.rs` (163): about 2,000 lines of its own | `host.rs`, `native.rs`, `cabi.rs` (about 590) | No. `ext-io` does not depend on the engine crate (`pkg/ext-rust/engine`), which is a separate, additive crate |

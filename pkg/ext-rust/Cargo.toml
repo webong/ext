@@ -28,3 +28,7 @@ libloading = { version = "0.8", optional = true }
 [[example]]
 name = "shared"
 crate-type = ["cdylib"]
+
+[[example]]
+name = "reactor_reverse"
+crate-type = ["cdylib"]

@@ -5,8 +5,8 @@ package perception
 import (
 	"context"
 
-	plugin "github.com/webong/ext/pkg/ext-go/engine"
-	"github.com/webong/ext/pkg/ext-go/engine/guest/author"
+	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/guest/author"
 	domain "github.com/webong/ext/res/int/perception"
 )
 

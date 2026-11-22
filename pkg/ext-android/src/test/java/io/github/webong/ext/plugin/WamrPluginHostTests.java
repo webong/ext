@@ -17,6 +17,7 @@ import java.util.function.Consumer;
 public final class WamrPluginHostTests {
     private static int failures;
     private static byte[] module;
+    private static byte[] reverseModule;
     private static Consumer<String> log;
 
     public static void main(String[] args) throws Exception {
@@ -25,12 +26,23 @@ public final class WamrPluginHostTests {
             System.out.println("skipped: pass the wasm32-wasip1 build of the Rust shared example");
             return;
         }
-        System.exit(runAll(Files.readAllBytes(Paths.get(path)), System.out::println) == 0 ? 0 : 1);
+        String reverse = args.length > 1 ? args[1] : System.getenv("EXT_RUST_REVERSE_REACTOR");
+        byte[] reverseBytes = reverse == null || reverse.isEmpty() ? null : Files.readAllBytes(Paths.get(reverse));
+        System.exit(runAll(Files.readAllBytes(Paths.get(path)), reverseBytes, System.out::println) == 0 ? 0 : 1);
+    }
+
+    public static synchronized int runAll(byte[] reactor, Consumer<String> output) {
+        return runAll(reactor, null, output);
     }
 
     /** Runs every check against the module, reporting each line to {@code log}; returns the failures. */
-    public static synchronized int runAll(byte[] reactor, Consumer<String> output) {
+    /**
+     * As {@link #runAll(byte[], Consumer)}, and with {@code reverse}, a reactor that calls its host
+     * (the Rust SDK's reactor_reverse example), the reverse-call and registry checks too.
+     */
+    public static synchronized int runAll(byte[] reactor, byte[] reverse, Consumer<String> output) {
         module = reactor;
+        reverseModule = reverse;
         log = output;
         failures = 0;
         run("inspection returns the module's own descriptor", WamrPluginHostTests::inspection);
@@ -45,6 +57,13 @@ public final class WamrPluginHostTests {
         run("a module that is not a reactor is refused", WamrPluginHostTests::notReactor);
         run("an instruction budget stops a runaway call", WamrPluginHostTests::budget);
         run("a closed host rejects calls", WamrPluginHostTests::closedHost);
+        if (reverseModule != null) {
+            run("a reactor calls its host", WamrPluginHostTests::reactorCallsItsHost);
+            run("a reactor without services is told unavailable", WamrPluginHostTests::reactorWithoutServices);
+            run("the registry routes one reactor to another", WamrPluginHostTests::registryRoutes);
+        } else {
+            log.accept("skip reverse calls: pass the wasm32-wasip1 build of the Rust reactor_reverse example");
+        }
         log.accept(failures == 0 ? "all Java WAMR host tests passed" : failures + " Java WAMR host tests FAILED");
         return failures;
     }
@@ -241,5 +260,66 @@ public final class WamrPluginHostTests {
         host.close();
         host.close();
         requireStatus(() -> host.invoke(request("echo", "1"), 30_000), WamrException.CLOSED);
+    }
+
+    static String ask(WamrPluginHost host, String operation, String payload) throws WamrException {
+        String input = "{\"operation\":\"" + operation + "\",\"payload\":" + payload + "}";
+        return text(host.call("reactor.test", "v1", "ask", input.getBytes(StandardCharsets.UTF_8), 30_000));
+    }
+
+    static WamrPluginHost reverseHost() throws WamrException {
+        return new WamrPluginHost(reverseModule, WamrPluginHost.descriptorOf(reverseModule, 30_000, null));
+    }
+
+    static void reactorCallsItsHost() throws Exception {
+        Thread caller = Thread.currentThread();
+        AtomicBoolean offThread = new AtomicBoolean();
+        try (WamrPluginHost host = reverseHost()) {
+            host.serve(request -> !text(request).contains("\"operation\":\"secret\""), request -> {
+                offThread.compareAndSet(false, Thread.currentThread() != caller);
+                if (text(request).contains("\"operation\":\"fail\"")) {
+                    throw new IllegalStateException("a private failure");
+                }
+                return WamrPluginHost.ReverseReply.payload("\"signed\"".getBytes(StandardCharsets.UTF_8));
+            }, 0, 0, 0);
+            host.start(30_000);
+            String signed = ask(host, "sign", "{\"n\":1}");
+            require(signed.contains("\"result\":\"signed\""), signed);
+            String denied = ask(host, "secret", "null");
+            require(denied.contains("\"code\":\"denied\""), denied);
+            String failed = ask(host, "fail", "null");
+            require(failed.contains("\"code\":\"operation_failed\""), failed);
+            require(!offThread.get(), "the hooks must run on the thread inside the call");
+        }
+    }
+
+    static void reactorWithoutServices() throws Exception {
+        try (WamrPluginHost host = reverseHost()) {
+            host.start(30_000);
+            String reply = ask(host, "sign", "null");
+            require(reply.contains("\"code\":\"reverse_unavailable\""), reply);
+        }
+    }
+
+    static void registryRoutes() throws Exception {
+        try (WamrRegistry registry = new WamrRegistry();
+                WamrPluginHost target = new WamrPluginHost(module, WamrPluginHost.descriptorOf(module, 30_000, null));
+                WamrPluginHost source = reverseHost()) {
+            target.start(30_000);
+            registry.register("ext.conformance", "v1", target);
+            registry.route("host.svc", "v1", "sign", "ext.conformance", "v1", "echo");
+            source.attach(registry, request -> !text(request).contains("\"operation\":\"secret\""), 0, 0, 0);
+            source.start(30_000);
+            String routed = ask(source, "sign", "{\"routed\":true}");
+            require(routed.contains("\"result\":{\"routed\":true}"), routed);
+            String denied = ask(source, "secret", "null");
+            require(denied.contains("\"code\":\"denied\""), denied);
+            String undeclared = ask(source, "fail", "null");
+            require(undeclared.contains("\"code\":\"reverse_undeclared\""), undeclared);
+            registry.unregister("ext.conformance", "v1");
+            String gone = ask(source, "sign", "null");
+            require(gone.contains("\"code\":\"reverse_unavailable\""), gone);
+            requireFails(() -> registry.unregister("ext.conformance", "v1"));
+        }
     }
 }

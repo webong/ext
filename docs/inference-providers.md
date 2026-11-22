@@ -2,9 +2,9 @@
 
 `res/int/inference` defines the portable provider contract. The reusable plugin
 integration in `pkg/ext-go/inference` serves a provider guest and packages its
-executable. The package store in `pkg/ext-go/engine/host/store` verifies sealed
+executable. The package store in `pkg/ext-go/engine/plugin/host/store` verifies sealed
 packages, matches contracts, and selects the executable for the current
-platform. The scoped trust ledger in `pkg/ext-go/engine/host/trust` pins reviewed
+platform. The scoped trust ledger in `pkg/ext-go/engine/plugin/host/trust` pins reviewed
 digests; `lib/plugin` implements the same format for other host languages.
 ext adapters, CTN inference providers, and Ext commands use separate scopes.
 
@@ -16,10 +16,9 @@ will run, then create and install a sealed package:
 
 ```sh
 go build -o /tmp/ext-openai ./adapters/openai
-go build -o /tmp/ext-ctn ./src/ctn/cmd/ctn
-/tmp/ext-ctn inference package openai 1.0.0 /tmp/ext-openai /tmp/openai-package
-/tmp/ext-ctn inference install /tmp/openai-package
-/tmp/ext-ctn inference providers
+ext ctn inference package openai 1.0.0 /tmp/ext-openai /tmp/openai-package
+ext ctn inference install /tmp/openai-package
+ext ctn inference providers
 ```
 
 `package` refuses to replace an existing output directory. `install` refuses
@@ -30,10 +29,10 @@ store is `<EXT_HOME>/commands` (or the shared Ext config home); set
 execution authority. After reviewing the package, record its exact digest:
 
 ```sh
-/tmp/ext-ctn inference trust openai
+ext ctn inference trust openai
 export EXT_ADAPTER_VALUE_endpoint=https://api.openai.com/v1
 export EXT_ADAPTER_VALUE_api_key=<provider-key>
-/tmp/ext-ctn inference capabilities --provider openai
+ext ctn inference capabilities --provider openai
 ```
 
 `ctn inference untrust openai` revokes the stored grant. Existing deployments

@@ -13,7 +13,7 @@ lang_cmd_test() {
   dotnet run --project pkg/ext-dotnet/ExtIO.Tests -c Release
   dotnet build pkg/ext-dotnet/ExtIO.Conformance -c Release -o "$LANG_TEMP/guest"
   guest="$LANG_TEMP/guest/ExtIO.Conformance.dll"
-  (cd pkg/ext-go/engine && EXT_DOTNET="$dotnet" EXT_DOTNET_GUEST="$guest" go test -count=1 -run 'TestDotnet' -v ./plugintest)
+  (cd pkg/ext-go/engine && EXT_DOTNET="$dotnet" EXT_DOTNET_GUEST="$guest" go test -count=1 -run 'TestDotnet' -v ./plugin/plugintest)
   (cd tests/crosslang && EXT_DOTNET="$dotnet" EXT_DOTNET_GUEST="$guest" EXT_FRAMES_REQUIRED=Dotnet go test -count=1 -v -run 'TestDotnetFramesGuest' .)
   dotnet pack pkg/ext-dotnet/ExtIO/ExtIO.csproj -c Release -p:Version=0.0.0-ci -o "$LANG_TEMP/nupkg"
   if unzip -l "$LANG_TEMP"/nupkg/ExtIO.0.0.0-ci.nupkg | grep -q -e Tests -e Conformance; then

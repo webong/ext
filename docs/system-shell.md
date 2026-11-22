@@ -126,13 +126,13 @@ address its opaque window identities.
 `ctx` exposes the contracts that are available to a Go program:
 
 ```sh
-ctx service render --platform linux --name example-agent --executable /usr/local/bin/agent
-ctx service status --name com.example.agent --executable /usr/local/bin/agent --dir ~/Library/LaunchAgents
-ctx desktop capture --window window:<opaque-id> --out capture.png
-ctx desktop input --window window:<opaque-id> --text "hello"
-ctx clipboard generation
-ctx clipboard read --format CF_UNICODETEXT --json
-ctx clipboard write --generation <generation> --format CF_UNICODETEXT --text "hello"
+ext ctx service render --platform linux --name example-agent --executable /usr/local/bin/agent
+ext ctx service status --name com.example.agent --executable /usr/local/bin/agent --dir ~/Library/LaunchAgents
+ext ctx desktop capture --window window:<opaque-id> --out capture.png
+ext ctx desktop input --window window:<opaque-id> --text "hello"
+ext ctx clipboard generation
+ext ctx clipboard read --format CF_UNICODETEXT --json
+ext ctx clipboard write --generation <generation> --format CF_UNICODETEXT --text "hello"
 ```
 
 `ctx service` renders every platform and runs the lifecycle on macOS and Windows,

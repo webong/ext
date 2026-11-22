@@ -6,10 +6,12 @@ import (
 	"errors"
 	"fmt"
 	"os/exec"
+	"slices"
 	"strings"
 
-	"github.com/webong/ext/ctn/internal/content"
-	"github.com/webong/ext/pkg/ext-go/engine/host/adapter"
+	cgoengine "github.com/webong/ext/pkg/ext-go/cgoengine/plugin"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/adapter"
+	"github.com/webong/ext/src/ctn/internal/content"
 )
 
 // evaluatorBackend wraps an evaluator adapter as a content.Backend.
@@ -69,10 +71,37 @@ func (p *evaluatorPolicy) IsTrusted(backend content.Backend) bool {
 	return false
 }
 
-func (p *evaluatorPolicy) Isolation(backend content.Backend, selection string) (string, string, bool) {
+// sandboxedBoundaries are the boundaries at which an evaluator's "sandboxed" claim
+// can hold (docs/adr-sandboxing.md): the program has no direct syscall access to
+// the host, or reaches it only through OS confinement.
+var sandboxedBoundaries = []string{cgoengine.BoundaryConfined, cgoengine.BoundaryRuntime, cgoengine.BoundaryContainer, cgoengine.BoundaryKernel}
+
+// checkIsolation holds one context's reported isolation and boundary to the rule:
+// a boundary must be reported, be a known level, and for "sandboxed" be one of
+// sandboxedBoundaries. Only "sandboxed" permits execution.
+func checkIsolation(isolation, boundary string) (string, bool) {
+	if isolation == "" {
+		isolation = "unreported"
+	}
+	if boundary == "" {
+		return "reports no boundary", false
+	}
+	if !cgoengine.ValidBoundary(boundary) {
+		return fmt.Sprintf("reports an unknown boundary %q", boundary), false
+	}
+	if isolation != "sandboxed" {
+		return fmt.Sprintf("has isolation %s, not sandboxed", isolation), false
+	}
+	if !slices.Contains(sandboxedBoundaries, boundary) {
+		return fmt.Sprintf("claims sandboxed at boundary %s, which cannot be", boundary), false
+	}
+	return "", true
+}
+
+func (p *evaluatorPolicy) Isolation(backend content.Backend, selection string) (string, string, string, bool) {
 	installed, err := p.store.List()
 	if err != nil {
-		return "unknown", err.Error(), false
+		return "unknown", "", err.Error(), false
 	}
 	for _, a := range installed {
 		if a.Manifest.Name != backend.Name() {
@@ -80,12 +109,12 @@ func (p *evaluatorPolicy) Isolation(backend content.Backend, selection string) (
 		}
 		command, err := a.Command(adapter.Invocation{Operation: "observe"})
 		if err != nil {
-			return "unknown", fmt.Sprintf("cannot observe: %v", err), false
+			return "unknown", "", fmt.Sprintf("cannot observe: %v", err), false
 		}
 		var out strings.Builder
 		command.Stdout = &out
 		if err := command.Run(); err != nil {
-			return "unknown", fmt.Sprintf("observe failed: %v", err), false
+			return "unknown", "", fmt.Sprintf("observe failed: %v", err), false
 		}
 		var observed struct {
 			Contexts []struct {
@@ -94,18 +123,24 @@ func (p *evaluatorPolicy) Isolation(backend content.Backend, selection string) (
 			} `json:"contexts"`
 		}
 		if err := json.Unmarshal([]byte(out.String()), &observed); err != nil || len(observed.Contexts) == 0 {
-			return "unknown", "no isolation reported", false
+			return "unknown", "", "no isolation reported", false
 		}
+		boundary := ""
 		for _, ctx := range observed.Contexts {
 			if selection != "" && ctx.Selection != selection {
 				continue
 			}
-			isolation := ctx.Attributes["isolation"]
-			if isolation == "" {
-				isolation = "unreported"
+			isolation, b := ctx.Attributes["isolation"], ctx.Attributes["boundary"]
+			if reason, ok := checkIsolation(isolation, b); !ok {
+				if isolation == "" {
+					isolation = "unreported"
+				}
+				return isolation, b, reason, false
 			}
-			if isolation != "sandboxed" {
-				return isolation, fmt.Sprintf("has isolation %s, not sandboxed", isolation), false
+			if boundary == "" {
+				boundary = b
+			} else if boundary != b {
+				boundary = "mixed"
 			}
 		}
 		if selection != "" {
@@ -117,10 +152,10 @@ func (p *evaluatorPolicy) Isolation(backend content.Backend, selection string) (
 				}
 			}
 			if !found {
-				return "unknown", fmt.Sprintf("has no selection %q", selection), false
+				return "unknown", "", fmt.Sprintf("has no selection %q", selection), false
 			}
 		}
-		return "sandboxed", "", true
+		return "sandboxed", boundary, "", true
 	}
-	return "unknown", "backend not found", false
+	return "unknown", "", "backend not found", false
 }

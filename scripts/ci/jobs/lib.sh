@@ -1,5 +1,5 @@
 # Sourced by every scripts/ci/jobs/<area>/<job>.sh. Each of those scripts is the body of one CI job:
-# core.yml or targets.yml checks out the repository, runs .github/actions/setup for the job's toolchains, exports the
+# ci.yml checks out the repository, runs .github/actions/setup for the job's toolchains, exports the
 # job's matrix cell as MATRIX_<KEY> variables, and runs the script with bash. A script is a list of
 # steps, each in a subshell, in the order the job used to run them.
 #
@@ -8,7 +8,7 @@
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/../../.."
 
-# core.yml and targets.yml pass the cell's values as one line of export statements (scripts/ci/plan.py writes it).
+# The CI workflow passes the cell's values as one line of export statements from scripts/ci/plan.py.
 eval "${CI_CELL_EXPORTS:-}"
 
 : "${RUNNER_TEMP:=$(mktemp -d "${TMPDIR:-/tmp}/ext-ci.XXXXXX")}"

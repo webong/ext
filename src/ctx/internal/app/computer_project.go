@@ -14,8 +14,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/webong/ext/ctx/internal/config"
-	modpkg "github.com/webong/ext/pkg/ext-go/engine/host/adapter"
+	"github.com/webong/ext/src/ctx/internal/config"
+	modpkg "github.com/webong/ext/pkg/ext-go/engine/plugin/host/adapter"
 )
 
 func computerCommand(args []string, stdout, stderr io.Writer) int {

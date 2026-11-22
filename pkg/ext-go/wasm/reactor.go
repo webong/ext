@@ -6,7 +6,7 @@ import (
 	"errors"
 	"time"
 
-	plugin "github.com/webong/ext/pkg/ext-go/engine"
+	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
 	webwasm "github.com/webong/ext/res/web/host/engine/wasm"
 )
 
@@ -27,6 +27,10 @@ var reactorABI = webwasm.ReactorABI{
 	CallExport: "ext_plugin_call", CloseExport: "ext_plugin_close",
 	AllocateExport: "ext_plugin_alloc", FreeExport: "ext_plugin_free",
 	InitializeExport: "_initialize", DisallowedExport: "_start",
+	// A reactor may call its host through ext_plugin.reverse
+	// (docs/plugin-reactor-abi.md); this host carries no reverse calls yet, so it
+	// answers 2, unavailable, which the guest reports as reverse_unavailable.
+	StubImports: []webwasm.StubImport{{Module: "ext_plugin", Name: "reverse", Params: 5, Result: 2}},
 }
 
 type ReactorBackend struct {

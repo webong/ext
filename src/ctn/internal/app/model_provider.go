@@ -11,11 +11,11 @@ import (
 	"os"
 	"path/filepath"
 
-	plugin "github.com/webong/ext/pkg/ext-go/cgoengine"
-	"github.com/webong/ext/pkg/ext-go/engine/host/home"
-	"github.com/webong/ext/pkg/ext-go/engine/host/process"
-	"github.com/webong/ext/pkg/ext-go/engine/host/store"
-	hosttrust "github.com/webong/ext/pkg/ext-go/engine/host/trust"
+	plugin "github.com/webong/ext/pkg/ext-go/cgoengine/plugin"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/home"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/process"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/store"
+	hosttrust "github.com/webong/ext/pkg/ext-go/engine/plugin/host/trust"
 	mlplugin "github.com/webong/ext/pkg/ext-go/model"
 	ml "github.com/webong/ext/res/int/model"
 )

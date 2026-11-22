@@ -6,8 +6,8 @@ import (
 	"context"
 	"encoding/json"
 
-	"github.com/webong/ext/pkg/ext-go/cgoengine"
-	"github.com/webong/ext/pkg/ext-go/engine/guest/instance"
+	cgoengine "github.com/webong/ext/pkg/ext-go/cgoengine/plugin"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/guest/instance"
 )
 
 // This file is the build that links the C engine; cgo_nocgo.go is every other build. The constraint is

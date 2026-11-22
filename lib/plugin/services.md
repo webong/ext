@@ -42,7 +42,7 @@ skipped; when every such route was skipped for its boundary the result is
 contract, run by `tests/fixtures.c` and by every engine binding's `RouteFixture`.
 
 Endpoints are the loopback listeners a plugin's result declares (`pkg/ext-go/
-engine/endpoint`). `endpoint.check` reads one strictly (unknown and duplicate
+engine/plugin/endpoint`). `endpoint.check` reads one strictly (unknown and duplicate
 fields and wrong types are refused) and applies the rules no policy changes: a
 scheme of `ws`, `wss`, `http`, `https` or `tcp`; an address that is a host and a
 port, the host being `localhost` or a loopback IP literal (`net.SplitHostPort` and

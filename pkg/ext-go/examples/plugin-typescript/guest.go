@@ -2,10 +2,10 @@ package main
 
 import (
 	"context"
-	"github.com/webong/ext/pkg/ext-go/cgoengine"
-	"github.com/webong/ext/pkg/ext-go/engine/guest/author"
-	"github.com/webong/ext/pkg/ext-go/engine/transport/jsonline"
-	"github.com/webong/ext/pkg/ext-go/engine/validate/schema"
+	cgoengine "github.com/webong/ext/pkg/ext-go/cgoengine/plugin"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/guest/author"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/transport/jsonline"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/validate/schema"
 	"os"
 )
 

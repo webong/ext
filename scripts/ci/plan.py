@@ -1,27 +1,27 @@
 #!/usr/bin/env python3
-"""Plans a CI run: which cells of .github/ci/areas.json run, grouped by the job that runs them.
-core.yml runs the base and conformance groups, targets.yml the engines, runtimes and platforms
-groups (the table's "workflows"); each passes --workflow so it plans only its own groups.
+"""Plans a CI run for one workflow using .github/ci/areas.json and .github/ci/releases.json.
 
 Selection, by event:
   push to main, or the label ci:full
       every tool on every platform; on a push, an area with main_paths runs only if a changed
       file matches them
   pull_request
-      tool:<name> labels choose the areas tagged with that tool; without one, the areas whose
-      pr_paths match a changed file run. platform:<name> labels choose platforms; without one,
-      only linux runs, so macOS, Windows, iOS and Android cost nothing unless a label asks
+      tool:<name> labels choose jobs by tool. Without them, area paths, job paths and suite
+      target paths select the tests. platform:<name> labels choose platforms. Linux is the
+      default, and jobs can select a native runner through pr_platform_paths
   workflow_dispatch
       as a pull request, with --labels standing in for the PR's labels
+  release:<package> label
+      add that package's dry-run builds to its owning workflow
 
 A job marked "on_request" (slow, or needing a real device session) runs only with ci:full; one
 marked "push_only" only on a push to main. A job with its own "tools" runs, when tool: labels pick,
 only if a picked tool is among them (so tool:swift runs the Swift cells, not the area's Go ones).
 
-Writes "<group>=<json list of cells>" and "<group>_run=true|false" lines to $GITHUB_OUTPUT, or to
-stdout, and a summary table to $GITHUB_STEP_SUMMARY when it is set. Standard library only.
+Writes "cells=<json list of cells>" and "run=true|false" to $GITHUB_OUTPUT or stdout, and a
+summary table to $GITHUB_STEP_SUMMARY when it is set. Standard library only.
 
-Usage: plan.py --event EVENT --workflow core|targets [--labels 'a,b'] [--changed FILE] [--areas PATH]
+Usage: plan.py --event EVENT --workflow core|engine|runtime [--labels 'a,b'] [--changed FILE]
        plan.py --check   (scripts exist, groups have one workflow, cells are runnable)
 """
 import argparse
@@ -30,6 +30,8 @@ import json
 import os
 import shlex
 import sys
+
+import release_plan
 
 
 def platform_of(job, cell):
@@ -53,6 +55,34 @@ def matches(paths, changed):
     return False
 
 
+def scope_job(area, job, tools, changed, shared):
+    targets = area.get("targets", {}) if job.get("targeted") else {}
+    job_tools = set(job.get("tools", area["tools"]))
+    if tools:
+        wanted = tools & job_tools
+        return bool(wanted), set() if wanted - targets.keys() else wanted
+    if (shared or matches(job.get("pr_paths", area["pr_paths"]), changed)
+            or matches(job.get("pr_platform_paths", []), changed)):
+        return True, set()
+    selected = {name for name, target in targets.items() if matches(target["paths"], changed)}
+    return bool(selected), selected
+
+
+def scope_cell(cell, targets, selected):
+    if not selected:
+        return cell
+    selected_setup = {key for name in selected for key in targets[name].get("setup", [])}
+    unused_setup = {key for target in targets.values() for key in target.get("setup", [])} - selected_setup
+    setup = {key: value for key, value in cell["setup"].items() if key not in unused_setup}
+    names = sorted(selected)
+    job_name = cell["name"].partition(" (")[0]
+    details = [cell["runner"], cell["vars"].get("TOOLCHAIN")]
+    details.extend(cell["vars"].get(name.upper()) for name in names)
+    label = ", ".join(filter(None, details))
+    return dict(cell, setup=setup, vars=dict(cell["vars"], TARGETS=" ".join(names)),
+                name=f"{job_name} [{', '.join(names)}] ({label})")
+
+
 def plan(table, event, labels, changed, workflow):
     tools_all = set(table["tools"])
     platforms_all = set(table["platforms"])
@@ -63,6 +93,8 @@ def plan(table, event, labels, changed, workflow):
         raise SystemExit(f"unknown labels: {sorted(unknown)} (tools {sorted(tools_all)}, platforms {sorted(platforms_all)})")
     full = event == "push" or "ci:full" in labels
     on_request = "ci:full" in labels
+    shared = matches(table["shared_paths"], changed)
+    use_default_platform = not full and not platforms
     if full:
         tools, platforms = tools_all, platforms_all
     elif not platforms:
@@ -71,26 +103,27 @@ def plan(table, event, labels, changed, workflow):
     groups = {g: [] for g in owned}
     areas = {}
     for name, area in table["areas"].items():
-        if full:
-            run = event != "push" or matches(area["main_paths"], changed)
-        elif tools:
-            run = bool(tools & set(area["tools"]))
-        else:
-            run = matches(area["pr_paths"], changed)
+        if full and event == "push" and not shared and not matches(area["main_paths"], changed):
+            areas[name] = 0
+            continue
         count = 0
         for job in area["jobs"].values():
-            wanted = run and (on_request or not job.get("on_request")) and (event == "push" or not job.get("push_only"))
-            if wanted and tools and not full and job.get("tools"):
-                wanted = bool(tools & set(job["tools"]))
-            if not wanted or job["group"] not in groups:
+            if job["group"] not in groups or (job.get("on_request") and not on_request) or (
+                job.get("push_only") and event != "push"
+            ):
                 continue
-            for cell in job["cells"]:
-                if platform_of(job, cell) in platforms:
-                    # The job's shell reads the cell's values from one variable, so no runner needs
-                    # jq or python to turn a JSON object into environment variables.
-                    exports = "; ".join(f"export MATRIX_{k}={shlex.quote(v)}" for k, v in sorted(cell["vars"].items()))
-                    groups[job["group"]].append(dict(cell, exports=exports))
-                    count += 1
+            wanted, selected = (True, set()) if full else scope_job(area, job, tools, changed, shared)
+            if not wanted:
+                continue
+            cells = [cell for cell in job["cells"] if platform_of(job, cell) in platforms]
+            if not cells and use_default_platform and not tools and matches(job.get("pr_platform_paths", []), changed):
+                cells = job["cells"]
+            for cell in cells:
+                cell = scope_cell(cell, area.get("targets", {}), selected)
+                # Export the matrix values without requiring jq or Python on the runner.
+                exports = "; ".join(f"export MATRIX_{k}={shlex.quote(v)}" for k, v in sorted(cell["vars"].items()))
+                groups[job["group"]].append(dict(cell, exports=exports))
+                count += 1
         areas[name] = count
     return groups, areas, sorted(tools), sorted(platforms), full
 
@@ -109,9 +142,14 @@ def check(table):
             problems.append(f"group {g} belongs to {owners.get(g, [])}, not exactly one workflow")
     names = set()
     for name, area in table["areas"].items():
+        for target in area.get("targets", {}):
+            if target not in area["tools"]:
+                problems.append(f"{name}: {target} is not an area tool")
         for job_name, job in area["jobs"].items():
             if job.get("group") not in groups:
                 problems.append(f"{name}/{job_name}: group {job.get('group')!r} is not one of {sorted(groups)}")
+            if job.get("targeted") and not area.get("targets"):
+                problems.append(f"{name}/{job_name}: targeted job has no targets")
             for cell in job["cells"]:
                 platform_of(job, cell)
                 if not os.path.isfile(cell["script"]):
@@ -127,29 +165,34 @@ def check(table):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--event")
-    parser.add_argument("--workflow", help="core or targets: plan only the groups that workflow runs")
+    parser.add_argument("--workflow", help="plan only the groups owned by core, engine, or runtime")
     parser.add_argument("--labels", default="")
-    parser.add_argument("--changed", help="file listing changed paths, one per line")
+    parser.add_argument("--changed", help="file listing changed paths, separated by NUL or newline")
     parser.add_argument("--areas", default=".github/ci/areas.json")
     parser.add_argument("--check", action="store_true", help="check areas.json against the scripts")
     args = parser.parse_args()
     with open(args.areas) as f:
         table = json.load(f)
+    with open(".github/ci/releases.json") as f:
+        releases = json.load(f)
     if args.check:
-        return check(table)
+        return max(check(table), release_plan.check(releases))
     if not args.event or args.workflow not in table["workflows"]:
         parser.error(f"--event and --workflow (one of {sorted(table['workflows'])}) are required")
     labels = [l.strip() for l in args.labels.split(",") if l.strip()]
     changed = []
     if args.changed:
-        with open(args.changed) as f:
-            changed = [l.strip() for l in f if l.strip()]
+        with open(args.changed, "rb") as f:
+            paths = f.read()
+        entries = paths.split(b"\0") if b"\0" in paths else paths.splitlines()
+        changed = [os.fsdecode(path) for path in entries if path]
     groups, areas, tools, platforms, full = plan(table, args.event, labels, changed, args.workflow)
-
-    lines = []
-    for group, cells in groups.items():
-        lines.append(f"{group}={json.dumps(cells, separators=(',', ':'))}")
-        lines.append(f"{group}_run={'true' if cells else 'false'}")
+    release_cells, packages = release_plan.dry_run_cells(releases, args.workflow, labels)
+    cells = [cell for jobs in groups.values() for cell in jobs] + release_cells
+    lines = [
+        f"cells={json.dumps(cells, separators=(',', ':'))}",
+        f"run={'true' if cells else 'false'}",
+    ]
     out = os.environ.get("GITHUB_OUTPUT")
     if out:
         with open(out, "a") as f:
@@ -165,7 +208,8 @@ def main():
             f.write("| Area | Cells |\n| --- | --- |\n")
             for name, count in areas.items():
                 f.write(f"| {name} | {count} |\n")
-            f.write("\nAdd `tool:<name>` or `platform:<name>` labels, or `ci:full`, to change what runs.\n")
+            f.write(f"\nRelease dry runs: {', '.join(packages) or 'none'} ({len(release_cells)} cells).\n")
+            f.write("\nUse `tool:<name>`, `platform:<name>`, `ci:full`, or `release:<package>` to change what runs.\n")
     return 0
 
 

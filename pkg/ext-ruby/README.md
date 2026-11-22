@@ -3,7 +3,7 @@
 > **Why `ext-io`:** the bare name `ext` is taken on RubyGems (and on crates.io, PyPI and npm), so `ext-io` is the one gem for all of ext's APIs, one namespace per area. Only `plugin` is built so far; `system`, `web` and `int` are planned.
 
 Standard-library-only guest for `ext.plugin/v1` over JSON lines (Ruby 3.1+). It needs no C and no
-native build. Hosts use the Go `pkg/ext-go/engine/host/process` backend (or any JSON-line client) to run it.
+native build. Hosts use the Go `pkg/ext-go/engine/plugin/host/process` backend (or any JSON-line client) to run it.
 A Ruby program can also host plugins itself with the opt-in [host SDK](#host-sdk-extiohost) on the C engine.
 
 ```ruby
@@ -130,14 +130,17 @@ end
   failure raises `ExtIO::Host::HostError`, whose `status` is the engine's status by name
   (`denied`, `closed`, `timeout` ...).
 
-Every call that can block runs without the global VM lock, so other threads keep running and may
-call the same host; the engine serializes a host's calls itself. An interrupt (`Thread#raise`,
-`Thread#kill`, Ctrl-C) cancels the call in progress through the engine. The engine runs policies
-on the thread making the call, so the extension takes the lock back to run them.
+Every call that can block runs on a native helper thread while the calling Ruby thread waits
+without the global VM lock, so other threads keep running and may call the same host; the engine
+serializes a host's calls itself. An interrupt that raises (`Thread#raise`, `Thread#kill`, Ctrl-C)
+cancels the call in progress through the engine, and is raised once the call has ended; one that
+does not, such as a signal trap or a child process ending, runs and the call goes on. The engine
+runs policies on the thread making the call, the helper, which hands each to the waiting Ruby
+thread to run with the lock.
 
 Reverse calls and the guest registry run the hooks the same way, in the engine's caller-thread mode
-(`ext_host_set_reverse_mode`): a hook runs on the thread of a call that waits on the host, with the
-lock taken back, never on an engine thread.
+(`ext_host_set_reverse_mode`): a hook runs on the Ruby thread of a call that waits on the host,
+never on an engine thread.
 
 - `host.serve(authorize:, handle:, timeout:, max_payload_bytes:, max_in_flight:)`, before `start`,
   offers the plugin the operations its descriptor lists under `reverse`. The hooks get an
@@ -171,7 +174,7 @@ lock taken back, never on an engine thread.
 `test/frames_guest.rb` is the frames conformance guest of
 [docs/plugin-guest-frames.md](https://github.com/webong/ext/blob/main/docs/plugin-guest-frames.md)
 (it answers the operations that need a reader of its own with the public error `unsupported`).
-The Go suite in `pkg/ext-go/engine/plugintest` (`TestRubyGuest`, `TestRubyUnitTests`) runs
+The Go suite in `pkg/ext-go/engine/plugin/plugintest` (`TestRubyGuest`, `TestRubyUnitTests`) runs
 `test/conformance_guest.rb` through `process.Start` against the shared conformance fixtures; set
 `EXT_RUBY` to an interpreter's absolute path to choose one. CI (the `ext-ruby` area of `.github/ci/areas.json`) runs
 all of this on Ruby 3.1 through the latest.

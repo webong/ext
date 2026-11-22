@@ -12,7 +12,7 @@ lang_cmd_test() {
   (cd pkg/ext-ruby && ruby -w test/all.rb)
   (cd pkg/ext-ruby && gem build ext-io.gemspec --output "$out/ext-io.gem" &&
     gem build ext-io-host.gemspec --output "$out/ext-io-host.gem")
-  (cd pkg/ext-go/engine && EXT_RUBY="$ruby" go test -count=1 -run 'TestRuby' -v ./plugintest)
+  (cd pkg/ext-go/engine && EXT_RUBY="$ruby" go test -count=1 -run 'TestRuby' -v ./plugin/plugintest)
   (cd tests/crosslang && EXT_RUBY="$ruby" EXT_FRAMES_REQUIRED=Ruby go test -count=1 -v -run 'TestRubyFramesGuest' .)
 }
 

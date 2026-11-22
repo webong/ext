@@ -1,5 +1,5 @@
 {
-  "about": "CI areas and cells. core.yml and targets.yml run scripts/ci/plan.py over this table and run each picked cell in the job of its group; core.yml runs base and conformance, targets.yml runs engines, runtimes and platforms (workflows): it sets up the cell's toolchains with .github/actions/setup, exports its vars as MATRIX_<KEY>, and runs its script. An area is chosen by its tools (tool: labels; a job may narrow them with its own tools) or, without labels, by main_paths on a push to main and pr_paths on a pull request (null: always). A cell runs on the platform of its runner unless its job names one. A job marked on_request runs only with ci:full; one marked push_only only on a push to main.",
+  "about": "CI areas and cells. Core, Engine, and Runtime share a matrix runner. PRs select jobs by changed paths or tool labels. Shared CI paths select all relevant jobs. Jobs can use their own paths and target parts of a suite. Main and ci:full use the full suites.",
   "platforms": [
     "linux",
     "macos",
@@ -28,6 +28,16 @@
     "runtimes",
     "platforms"
   ],
+  "shared_paths": [
+    ".github/actions/setup/**",
+    ".github/ci/areas.json",
+    ".github/workflows/ci.yml",
+    ".github/workflows/core.yml",
+    ".github/workflows/engine.yml",
+    ".github/workflows/runtime.yml",
+    "scripts/ci/jobs/lib.sh",
+    "scripts/ci/plan.py"
+  ],
   "areas": {
     "native": {
       "tools": [
@@ -37,11 +47,45 @@
         "java"
       ],
       "main_paths": null,
-      "pr_paths": null,
+      "pr_paths": [
+        "adapters/**",
+        "cmd/**",
+        "src/**",
+        "pkg/ext-go/**",
+        "res/**/*.go",
+        "res/**/go.mod",
+        "res/**/go.sum",
+        "res/**/testdata/**",
+        "res/int/model/linux/**",
+        "res/int/model/windows/**",
+        "lib/plugin/**",
+        "go.work*",
+        "install.sh",
+        "install.ps1",
+        "tests/native*_test.sh",
+        "tests/windows_native_test.ps1",
+        "scripts/build-release*.sh",
+        "scripts/cgoengine-sync.sh",
+        "scripts/ci/jobs/native/native.sh",
+        "scripts/ci/jobs/native/native-integration.sh"
+      ],
       "jobs": {
         "android-package": {
           "group": "platforms",
           "platform": "android",
+          "tools": [
+            "java"
+          ],
+          "pr_paths": [
+            "lib/plugin/**"
+          ],
+          "pr_platform_paths": [
+            "pkg/ext-android/**",
+            "res/**/android/**",
+            "scripts/ext-android-release.sh",
+            "scripts/release/ext-android/**",
+            "scripts/ci/jobs/native/android-package.sh"
+          ],
           "cells": [
             {
               "name": "native/android-package (ubuntu-latest)",
@@ -55,13 +99,19 @@
                 "android_packages": "platform-tools"
               }
             }
-          ],
-          "tools": [
-            "java"
           ]
         },
         "dist-branch": {
           "group": "base",
+          "tools": [
+            "go"
+          ],
+          "pr_paths": [
+            "scripts/dist-branch*.sh",
+            "scripts/release/*/distribute.sh",
+            "scripts/release-treehash.sh",
+            "scripts/ci/jobs/native/dist-branch.sh"
+          ],
           "cells": [
             {
               "name": "native/dist-branch (ubuntu-latest)",
@@ -72,15 +122,20 @@
               },
               "setup": {}
             }
-          ],
-          "tools": [
-            "go"
           ]
         },
         "dotnet": {
           "group": "runtimes",
           "tools": [
             "csharp"
+          ],
+          "pr_paths": [],
+          "pr_platform_paths": [
+            "res/system/**/windows/**",
+            "res/int/model/windows/**",
+            "res/web/windows/**",
+            "scripts/dotnet/**",
+            "scripts/ci/jobs/native/dotnet.sh"
           ],
           "cells": [
             {
@@ -101,6 +156,21 @@
         "ios-package": {
           "group": "platforms",
           "platform": "ios",
+          "tools": [
+            "swift"
+          ],
+          "pr_paths": [
+            "lib/plugin/**"
+          ],
+          "pr_platform_paths": [
+            "pkg/ext-darwin/**",
+            "res/**/ios/**",
+            "scripts/ext-darwin-release.sh",
+            "scripts/release/apple.sh",
+            "scripts/release/ext-ios/**",
+            "scripts/release/ext-macos/**",
+            "scripts/ci/jobs/native/ios-package.sh"
+          ],
           "cells": [
             {
               "name": "native/ios-package (macos-latest)",
@@ -111,15 +181,20 @@
               },
               "setup": {}
             }
-          ],
-          "tools": [
-            "swift"
           ]
         },
         "java": {
           "group": "runtimes",
           "tools": [
             "java"
+          ],
+          "pr_paths": [
+            "res/system/**/android/**",
+            "res/int/model/android/**",
+            "scripts/system-android.sh",
+            "scripts/network-android.sh",
+            "scripts/ml-android.sh",
+            "scripts/ci/jobs/native/java.sh"
           ],
           "cells": [
             {
@@ -151,6 +226,16 @@
         "linux-desktop": {
           "group": "platforms",
           "on_request": true,
+          "tools": [
+            "go"
+          ],
+          "pr_paths": [
+            "adapters/pipewire/**",
+            "adapters/wayland/**",
+            "res/system/capture/**",
+            "scripts/verify-linux-desktop.sh",
+            "scripts/ci/jobs/native/linux-desktop.sh"
+          ],
           "cells": [
             {
               "name": "native/linux-desktop (ubuntu-latest)",
@@ -165,13 +250,13 @@
               },
               "timeout": 15
             }
-          ],
-          "tools": [
-            "go"
           ]
         },
         "native": {
           "group": "base",
+          "tools": [
+            "go"
+          ],
           "cells": [
             {
               "name": "native/native (ubuntu-latest)",
@@ -211,13 +296,13 @@
                 "dotnet": "8.0.x"
               }
             }
-          ],
-          "tools": [
-            "go"
           ]
         },
         "native-integration": {
           "group": "base",
+          "tools": [
+            "go"
+          ],
           "cells": [
             {
               "name": "native/native-integration (ubuntu-latest)",
@@ -243,13 +328,14 @@
                 "go_cache": "true"
               }
             }
-          ],
-          "tools": [
-            "go"
           ]
         },
         "standalone-modules": {
           "group": "base",
+          "push_only": true,
+          "tools": [
+            "go"
+          ],
           "cells": [
             {
               "name": "native/standalone-modules (ubuntu-latest)",
@@ -263,16 +349,18 @@
                 "go_cache": "false"
               }
             }
-          ],
-          "push_only": true,
-          "tools": [
-            "go"
           ]
         },
         "swift": {
           "group": "runtimes",
           "tools": [
             "swift"
+          ],
+          "pr_paths": [],
+          "pr_platform_paths": [
+            "res/system/**/ios/**",
+            "res/int/model/ios/**",
+            "scripts/ci/jobs/native/swift.sh"
           ],
           "cells": [
             {
@@ -296,27 +384,15 @@
         "c"
       ],
       "main_paths": [
-        ".github/actions/setup/**",
-        ".github/ci/areas.json",
-        ".github/workflows/core.yml",
-        ".github/workflows/targets.yml",
         "lib/plugin/**",
         "pkg/ext-go/**",
-        "scripts/ci/jobs/lib.sh",
         "scripts/ci/jobs/plugin-engine/**",
-        "scripts/ci/plan.py",
         "scripts/plugin-engine-test.sh"
       ],
       "pr_paths": [
-        ".github/actions/setup/**",
-        ".github/ci/areas.json",
-        ".github/workflows/core.yml",
-        ".github/workflows/targets.yml",
         "lib/plugin/**",
         "pkg/ext-go/**",
-        "scripts/ci/jobs/lib.sh",
         "scripts/ci/jobs/plugin-engine/**",
-        "scripts/ci/plan.py",
         "scripts/plugin-engine-test.sh"
       ],
       "jobs": {
@@ -430,28 +506,16 @@
         "c"
       ],
       "main_paths": [
-        ".github/actions/setup/**",
-        ".github/ci/areas.json",
-        ".github/workflows/core.yml",
-        ".github/workflows/targets.yml",
         "lib/plugin/**",
         "pkg/ext-go/c2goengine/**",
-        "pkg/ext-go/engine/plugintest/enginetest/**",
-        "scripts/ci/jobs/c2goengine/**",
-        "scripts/ci/jobs/lib.sh",
-        "scripts/ci/plan.py"
+        "pkg/ext-go/engine/plugin/plugintest/enginetest/**",
+        "scripts/ci/jobs/c2goengine/**"
       ],
       "pr_paths": [
-        ".github/actions/setup/**",
-        ".github/ci/areas.json",
-        ".github/workflows/core.yml",
-        ".github/workflows/targets.yml",
         "lib/plugin/**",
         "pkg/ext-go/c2goengine/**",
-        "pkg/ext-go/engine/plugintest/enginetest/**",
-        "scripts/ci/jobs/c2goengine/**",
-        "scripts/ci/jobs/lib.sh",
-        "scripts/ci/plan.py"
+        "pkg/ext-go/engine/plugin/plugintest/enginetest/**",
+        "scripts/ci/jobs/c2goengine/**"
       ],
       "jobs": {
         "tools": {
@@ -638,10 +702,6 @@
         "csharp"
       ],
       "main_paths": [
-        ".github/actions/setup/**",
-        ".github/ci/areas.json",
-        ".github/workflows/core.yml",
-        ".github/workflows/targets.yml",
         "lib/plugin/**",
         "pkg/ext-dotnet/**",
         "pkg/ext-go/runtime/**",
@@ -652,8 +712,6 @@
         "pkg/ext-python/**",
         "pkg/ext-ruby/**",
         "scripts/ci/jobs/host-cases/**",
-        "scripts/ci/jobs/lib.sh",
-        "scripts/ci/plan.py",
         "scripts/cshared-purego.sh",
         "scripts/ext-lua-host.sh",
         "scripts/ext-ruby-host.sh",
@@ -661,31 +719,70 @@
         "tests/crosslang/**"
       ],
       "pr_paths": [
-        ".github/actions/setup/**",
-        ".github/ci/areas.json",
-        ".github/workflows/core.yml",
-        ".github/workflows/targets.yml",
         "lib/plugin/**",
-        "pkg/ext-dotnet/**",
         "pkg/ext-go/runtime/**",
         "pkg/ext-go/cgoengine/go.mod",
         "pkg/ext-go/engine/**",
-        "pkg/ext-lua/**",
-        "pkg/ext-php/**",
-        "pkg/ext-python/**",
-        "pkg/ext-ruby/**",
         "scripts/ci/jobs/host-cases/**",
-        "scripts/ci/jobs/lib.sh",
-        "scripts/ci/plan.py",
         "scripts/cshared-purego.sh",
-        "scripts/ext-lua-host.sh",
-        "scripts/ext-ruby-host.sh",
         "scripts/host-cases.sh",
-        "tests/crosslang/**"
+        "tests/crosslang/**",
+        "go.work*"
       ],
+      "targets": {
+        "python": {
+          "paths": [
+            "pkg/ext-python/**"
+          ],
+          "setup": [
+            "python"
+          ]
+        },
+        "ruby": {
+          "paths": [
+            "pkg/ext-ruby/**",
+            "scripts/ext-ruby-host.sh"
+          ],
+          "setup": [
+            "ruby"
+          ]
+        },
+        "php": {
+          "paths": [
+            "pkg/ext-php/**"
+          ],
+          "setup": [
+            "php",
+            "php_extensions",
+            "php_tools"
+          ]
+        },
+        "lua": {
+          "paths": [
+            "pkg/ext-lua/**",
+            "scripts/ext-lua-host.sh"
+          ],
+          "setup": [
+            "lua",
+            "lua_build_cache"
+          ]
+        },
+        "csharp": {
+          "paths": [
+            "pkg/ext-dotnet/**"
+          ],
+          "setup": [
+            "dotnet"
+          ]
+        }
+      },
       "jobs": {
         "go-purego": {
           "group": "conformance",
+          "tools": [
+            "go",
+            "c"
+          ],
           "cells": [
             {
               "name": "host-cases/go-purego (ubuntu-latest)",
@@ -767,6 +864,7 @@
         },
         "hosts": {
           "group": "conformance",
+          "targeted": true,
           "cells": [
             {
               "name": "host-cases/hosts (5.1.5, ubuntu-22.04, 8.1, 3.8, 3.1)",
@@ -868,6 +966,7 @@
         },
         "windows": {
           "group": "conformance",
+          "targeted": true,
           "cells": [
             {
               "name": "host-cases/windows (mingw)",
@@ -919,32 +1018,20 @@
         "c"
       ],
       "main_paths": [
-        ".github/actions/setup/**",
-        ".github/ci/areas.json",
-        ".github/workflows/core.yml",
-        ".github/workflows/targets.yml",
         "lib/ledger/**",
         "res/graph/store/sqlite/**",
         "lib/ledger/testdata/recorder/**",
         "lib/ledger/testdata/store/**",
         "scripts/ci/jobs/ledger/**",
-        "scripts/ci/jobs/lib.sh",
-        "scripts/ci/plan.py",
         "scripts/ledger-sqlite-cross.sh",
         "scripts/ledger-test.sh"
       ],
       "pr_paths": [
-        ".github/actions/setup/**",
-        ".github/ci/areas.json",
-        ".github/workflows/core.yml",
-        ".github/workflows/targets.yml",
         "lib/ledger/**",
         "res/graph/store/sqlite/**",
         "lib/ledger/testdata/recorder/**",
         "lib/ledger/testdata/store/**",
         "scripts/ci/jobs/ledger/**",
-        "scripts/ci/jobs/lib.sh",
-        "scripts/ci/plan.py",
         "scripts/ledger-sqlite-cross.sh",
         "scripts/ledger-test.sh"
       ],
@@ -1037,10 +1124,79 @@
         "swift"
       ],
       "main_paths": null,
-      "pr_paths": null,
+      "pr_paths": [
+        "lib/plugin/**",
+        "go.work*",
+        "tests/crosslang/**",
+        "scripts/lang/common.sh"
+      ],
+      "targets": {
+        "go": {
+          "paths": [
+            "pkg/ext-go/**",
+            "res/web/host/**",
+            "scripts/cgoengine-sync.sh"
+          ],
+          "setup": [
+            "go",
+            "go_cache",
+            "node"
+          ]
+        },
+        "javascript": {
+          "paths": [
+            "pkg/ext-ts/**",
+            "scripts/lang/ts.sh"
+          ],
+          "setup": [
+            "node",
+            "go",
+            "go_cache"
+          ]
+        },
+        "python": {
+          "paths": [
+            "pkg/ext-python/**",
+            "scripts/lang/python.sh"
+          ],
+          "setup": [
+            "go",
+            "go_cache"
+          ]
+        }
+      },
       "jobs": {
         "foreign-sdks": {
           "group": "conformance",
+          "tools": [
+            "go",
+            "c",
+            "javascript",
+            "rust",
+            "zig",
+            "java",
+            "swift"
+          ],
+          "pr_paths": [
+            "lib/plugin/**",
+            "go.work*",
+            "pkg/ext-go/**",
+            "pkg/ext-rust/**",
+            "pkg/ext-zig/**",
+            "pkg/ext-android/**",
+            "pkg/ext-darwin/**",
+            "pkg/ext-ts/engine/**",
+            "pkg/ext-ts/examples/**",
+            "pkg/ext-python/tests/frames_guest.py",
+            "tests/crosslang/**",
+            "scripts/ci/jobs/plugin-sdk/foreign-sdks.sh",
+            "scripts/plugin-crosslang.sh",
+            "scripts/plugin-cengine.sh",
+            "scripts/plugin-interop.sh",
+            "scripts/plugin-wasi-core.sh",
+            "scripts/plugin-mobile-assets.sh",
+            "scripts/ext-zig-sync.sh"
+          ],
           "cells": [
             {
               "name": "plugin-sdk/foreign-sdks (static, ubuntu-latest)",
@@ -1146,6 +1302,19 @@
         },
         "sdk": {
           "group": "base",
+          "targeted": true,
+          "tools": [
+            "go",
+            "javascript",
+            "python"
+          ],
+          "pr_paths": [
+            "lib/plugin/**",
+            "go.work*",
+            "tests/crosslang/**",
+            "scripts/lang/common.sh",
+            "scripts/ci/jobs/plugin-sdk/sdk.sh"
+          ],
           "cells": [
             {
               "name": "plugin-sdk/sdk (ubuntu-latest)",
@@ -1164,6 +1333,19 @@
         },
         "web-ports": {
           "group": "base",
+          "tools": [
+            "go",
+            "java",
+            "swift"
+          ],
+          "pr_paths": [
+            "res/web/host/**",
+            "res/web/android/**",
+            "res/web/ios/**",
+            "res/web/testdata/**",
+            "scripts/web-*.sh",
+            "scripts/ci/jobs/plugin-sdk/web-ports.sh"
+          ],
           "cells": [
             {
               "name": "plugin-sdk/web-ports (ubuntu-latest)",
@@ -1203,10 +1385,6 @@
         "rust"
       ],
       "main_paths": [
-        ".github/actions/setup/**",
-        ".github/ci/areas.json",
-        ".github/workflows/core.yml",
-        ".github/workflows/targets.yml",
         "examples/android-consumer/**",
         "lib/plugin/**",
         "pkg/ext-android/**",
@@ -1215,9 +1393,7 @@
         "pkg/ext-rust/**",
         "res/web/android/**",
         "res/web/ios/**",
-        "scripts/ci/jobs/lib.sh",
         "scripts/ci/jobs/plugin-wamr/**",
-        "scripts/ci/plan.py",
         "scripts/ext-*wamr*.sh",
         "scripts/ext-android-consumer.sh",
         "scripts/ext-android-release.sh",
@@ -1225,10 +1401,6 @@
         "scripts/plugin-*wamr*.sh"
       ],
       "pr_paths": [
-        ".github/actions/setup/**",
-        ".github/ci/areas.json",
-        ".github/workflows/core.yml",
-        ".github/workflows/targets.yml",
         "examples/android-consumer/**",
         "lib/plugin/**",
         "pkg/ext-android/**",
@@ -1237,9 +1409,7 @@
         "pkg/ext-rust/**",
         "res/web/android/**",
         "res/web/ios/**",
-        "scripts/ci/jobs/lib.sh",
         "scripts/ci/jobs/plugin-wamr/**",
-        "scripts/ci/plan.py",
         "scripts/ext-*wamr*.sh",
         "scripts/ext-android-consumer.sh",
         "scripts/ext-android-release.sh",
@@ -1251,6 +1421,17 @@
           "group": "platforms",
           "platform": "ios",
           "on_request": true,
+          "pr_paths": [
+            "lib/plugin/**",
+            "pkg/ext-rust/**",
+            "pkg/ext-go/runtime/**",
+            "scripts/plugin-*wamr*.sh",
+            "pkg/ext-darwin/**",
+            "res/web/ios/**",
+            "scripts/ext-darwin*wamr*.sh",
+            "scripts/ext-darwin-xcframework.sh",
+            "scripts/ci/jobs/plugin-wamr/apple.sh"
+          ],
           "cells": [
             {
               "name": "plugin-wamr/apple (macos-15)",
@@ -1273,6 +1454,20 @@
           "group": "platforms",
           "platform": "android",
           "on_request": true,
+          "pr_paths": [
+            "lib/plugin/**",
+            "pkg/ext-rust/**",
+            "pkg/ext-go/runtime/**",
+            "scripts/plugin-*wamr*.sh",
+            "pkg/ext-android/**",
+            "res/web/android/**",
+            "examples/android-consumer/**",
+            "scripts/ext-android*wamr*.sh",
+            "scripts/ext-android-consumer.sh",
+            "scripts/ext-android-release.sh",
+            "scripts/ci/jobs/plugin-wamr/emulator.sh",
+            "scripts/ci/jobs/plugin-wamr/emulator-device.sh"
+          ],
           "cells": [
             {
               "name": "plugin-wamr/emulator (ubuntu-latest)",
@@ -1296,6 +1491,19 @@
         },
         "jdk": {
           "group": "platforms",
+          "pr_paths": [
+            "lib/plugin/**",
+            "pkg/ext-rust/**",
+            "pkg/ext-go/runtime/**",
+            "scripts/plugin-*wamr*.sh",
+            "pkg/ext-android/**",
+            "res/web/android/**",
+            "examples/android-consumer/**",
+            "scripts/ext-android*wamr*.sh",
+            "scripts/ext-android-consumer.sh",
+            "scripts/ext-android-release.sh",
+            "scripts/ci/jobs/plugin-wamr/jdk.sh"
+          ],
           "cells": [
             {
               "name": "plugin-wamr/jdk (ubuntu-latest)",
@@ -1323,14 +1531,8 @@
       ],
       "main_paths": null,
       "pr_paths": [
-        ".github/actions/setup/**",
-        ".github/ci/areas.json",
-        ".github/workflows/core.yml",
-        ".github/workflows/targets.yml",
         "pkg/ext-web/**",
-        "scripts/ci/jobs/lib.sh",
-        "scripts/ci/jobs/web-js/**",
-        "scripts/ci/plan.py"
+        "scripts/ci/jobs/web-js/**"
       ],
       "jobs": {
         "extension-library": {
@@ -1359,18 +1561,13 @@
       ],
       "main_paths": null,
       "pr_paths": [
-        ".github/actions/setup/**",
-        ".github/ci/areas.json",
-        ".github/workflows/core.yml",
-        ".github/workflows/targets.yml",
         "lib/plugin/testdata/**",
         "pkg/ext-go/engine/**",
         "pkg/ext-php/**",
         "scripts/ci/jobs/ext-php/**",
-        "scripts/ci/jobs/lib.sh",
-        "scripts/ci/plan.py",
-        "scripts/lang/**",
-        "tests/crosslang/**"
+        "tests/crosslang/**",
+        "scripts/lang/common.sh",
+        "scripts/lang/php.sh"
       ],
       "jobs": {
         "php": {
@@ -1449,32 +1646,22 @@
         "ruby"
       ],
       "main_paths": [
-        ".github/actions/setup/**",
-        ".github/ci/areas.json",
-        ".github/workflows/core.yml",
-        ".github/workflows/targets.yml",
         "lib/plugin/testdata/**",
         "pkg/ext-go/engine/**",
         "pkg/ext-ruby/**",
         "scripts/ci/jobs/ext-ruby/**",
-        "scripts/ci/jobs/lib.sh",
-        "scripts/ci/plan.py",
         "scripts/lang/**",
         "tests/crosslang/**"
       ],
       "pr_paths": [
-        ".github/actions/setup/**",
-        ".github/ci/areas.json",
-        ".github/workflows/core.yml",
-        ".github/workflows/targets.yml",
         "lib/plugin/testdata/**",
         "pkg/ext-go/engine/**",
         "pkg/ext-ruby/**",
         "scripts/ci/jobs/ext-ruby/**",
-        "scripts/ci/jobs/lib.sh",
-        "scripts/ci/plan.py",
-        "scripts/lang/**",
-        "tests/crosslang/**"
+        "tests/crosslang/**",
+        "scripts/lang/common.sh",
+        "scripts/lang/ruby.sh",
+        "scripts/ext-ruby-host.sh"
       ],
       "jobs": {
         "ruby": {
@@ -1573,34 +1760,23 @@
         "lua"
       ],
       "main_paths": [
-        ".github/actions/setup/**",
-        ".github/ci/areas.json",
-        ".github/workflows/core.yml",
-        ".github/workflows/targets.yml",
         "lib/plugin/testdata/**",
         "pkg/ext-go/engine/**",
         "pkg/ext-lua/**",
         "scripts/ci/jobs/ext-lua/**",
-        "scripts/ci/jobs/lib.sh",
-        "scripts/ci/plan.py",
         "scripts/ext-lua.sh",
         "scripts/lang/**",
         "tests/crosslang/**"
       ],
       "pr_paths": [
-        ".github/actions/setup/**",
-        ".github/ci/areas.json",
-        ".github/workflows/core.yml",
-        ".github/workflows/targets.yml",
         "lib/plugin/testdata/**",
         "pkg/ext-go/engine/**",
         "pkg/ext-lua/**",
         "scripts/ci/jobs/ext-lua/**",
-        "scripts/ci/jobs/lib.sh",
-        "scripts/ci/plan.py",
         "scripts/ext-lua.sh",
-        "scripts/lang/**",
-        "tests/crosslang/**"
+        "tests/crosslang/**",
+        "scripts/lang/common.sh",
+        "scripts/lang/lua.sh"
       ],
       "jobs": {
         "lua": {
@@ -1753,32 +1929,21 @@
         "csharp"
       ],
       "main_paths": [
-        ".github/actions/setup/**",
-        ".github/ci/areas.json",
-        ".github/workflows/core.yml",
-        ".github/workflows/targets.yml",
         "lib/plugin/testdata/**",
         "pkg/ext-dotnet/**",
         "pkg/ext-go/engine/**",
         "scripts/ci/jobs/ext-dotnet/**",
-        "scripts/ci/jobs/lib.sh",
-        "scripts/ci/plan.py",
         "scripts/lang/**",
         "tests/crosslang/**"
       ],
       "pr_paths": [
-        ".github/actions/setup/**",
-        ".github/ci/areas.json",
-        ".github/workflows/core.yml",
-        ".github/workflows/targets.yml",
         "lib/plugin/testdata/**",
         "pkg/ext-dotnet/**",
         "pkg/ext-go/engine/**",
         "scripts/ci/jobs/ext-dotnet/**",
-        "scripts/ci/jobs/lib.sh",
-        "scripts/ci/plan.py",
-        "scripts/lang/**",
-        "tests/crosslang/**"
+        "tests/crosslang/**",
+        "scripts/lang/common.sh",
+        "scripts/lang/csharp.sh"
       ],
       "jobs": {
         "guest": {
@@ -1819,38 +1984,38 @@
         "csharp"
       ],
       "main_paths": [
-        ".github/actions/setup/**",
-        ".github/ci/areas.json",
-        ".github/workflows/core.yml",
-        ".github/workflows/targets.yml",
         "res/int/model/windows/**",
         "res/system/capture/audio/windows/**",
         "res/system/capture/clipboard/windows/**",
         "res/web/windows/**",
         "scripts/ci/jobs/dotnet-windows/**",
-        "scripts/ci/jobs/lib.sh",
-        "scripts/ci/plan.py",
         "scripts/dotnet/**",
         "scripts/lang/**"
       ],
       "pr_paths": [
-        ".github/actions/setup/**",
-        ".github/ci/areas.json",
-        ".github/workflows/core.yml",
-        ".github/workflows/targets.yml",
         "res/int/model/windows/**",
         "res/system/capture/audio/windows/**",
         "res/system/capture/clipboard/windows/**",
         "res/web/windows/**",
         "scripts/ci/jobs/dotnet-windows/**",
-        "scripts/ci/jobs/lib.sh",
-        "scripts/ci/plan.py",
         "scripts/dotnet/**",
-        "scripts/lang/**"
+        "scripts/lang/common.sh",
+        "scripts/lang/dotnet.sh"
       ],
       "jobs": {
         "tests": {
           "group": "runtimes",
+          "pr_paths": [],
+          "pr_platform_paths": [
+            "res/int/model/windows/**",
+            "res/system/capture/audio/windows/**",
+            "res/system/capture/clipboard/windows/**",
+            "res/web/windows/**",
+            "scripts/ci/jobs/dotnet-windows/**",
+            "scripts/dotnet/**",
+            "scripts/lang/common.sh",
+            "scripts/lang/dotnet.sh"
+          ],
           "cells": [
             {
               "name": "dotnet-windows/tests (windows-latest)",
@@ -1873,8 +2038,10 @@
       "base",
       "conformance"
     ],
-    "targets": [
-      "engines",
+    "engine": [
+      "engines"
+    ],
+    "runtime": [
       "runtimes",
       "platforms"
     ]

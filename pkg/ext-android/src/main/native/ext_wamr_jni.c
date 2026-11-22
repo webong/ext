@@ -17,6 +17,8 @@ typedef struct {
   jmethodID verify;  /* boolean verify(byte[]) */
   jmethodID authorize;
   jmethodID diagnostic; /* void diagnostic(byte[]) */
+  jmethodID reverse_authorize; /* boolean reverseAuthorize(byte[]) */
+  jmethodID reverse_handle;    /* byte[] reverseHandle(byte[]): a kind byte, then the JSON */
 } binding;
 
 typedef struct {
@@ -144,8 +146,10 @@ static binding *new_binding(JNIEnv *env, jobject owner) {
   b->verify = (*env)->GetMethodID(env, cls, "verify", "([B)Z");
   b->authorize = (*env)->GetMethodID(env, cls, "authorize", "([B)Z");
   b->diagnostic = (*env)->GetMethodID(env, cls, "diagnostic", "([B)V");
+  b->reverse_authorize = (*env)->GetMethodID(env, cls, "reverseAuthorize", "([B)Z");
+  b->reverse_handle = (*env)->GetMethodID(env, cls, "reverseHandle", "([B)[B");
   b->owner = (*env)->NewGlobalRef(env, owner);
-  if (!b->verify || !b->authorize || !b->diagnostic || !b->owner ||
+  if (!b->verify || !b->authorize || !b->diagnostic || !b->reverse_authorize || !b->reverse_handle || !b->owner ||
       (*env)->GetJavaVM(env, &b->vm) != JNI_OK) {
     if (b->owner) (*env)->DeleteGlobalRef(env, b->owner);
     free(b);
@@ -208,6 +212,15 @@ JNIEXPORT jlong JNICALL Java_io_github_webong_ext_plugin_WamrNative_create(
   free(text); /* the engine copies the descriptor */
   if (status != EXT_OK) {
     if (backend.release) backend.release(backend.user);
+    free_binding(env, b);
+    free(s);
+    throw_status(env, status);
+    return 0;
+  }
+  /* The guest may call its host (ext_plugin.reverse); serve or attach say how. */
+  status = ext_wamr_backend_bind_host(backend.user, s->host);
+  if (status != EXT_OK) {
+    ext_host_destroy(s->host);
     free_binding(env, b);
     free(s);
     throw_status(env, status);
@@ -292,4 +305,160 @@ JNIEXPORT jbyteArray JNICALL Java_io_github_webong_ext_plugin_WamrNative_inspect
   jbyteArray result = to_java(env, c.data, c.len);
   free(c.data);
   return result;
+}
+
+/* ---- reverse calls and the guest registry ---- */
+
+/* The hooks run on the thread inside invoke or call, which is a Java thread. */
+static int32_t reverse_authorize_cb(void *user, const ext_call_options *o, const uint8_t *json, size_t len) {
+  (void)o;
+  binding *b = user;
+  return policy(b, b->reverse_authorize, json, len) == EXT_OK ? 0 : 1;
+}
+
+static ext_status reverse_handle_cb(void *user, const ext_call_options *o, const uint8_t *json, size_t len,
+                                    ext_reverse_emit emit, void *sink) {
+  (void)o;
+  binding *b = user;
+  int attached;
+  JNIEnv *env = attach(b->vm, &attached);
+  if (!env) return EXT_IO;
+  ext_status result = EXT_IO; /* the guest sees operation_failed */
+  jbyteArray in = to_java(env, json, len);
+  if (in) {
+    jbyteArray reply = (jbyteArray)(*env)->CallObjectMethod(env, b->owner, b->reverse_handle, in);
+    if ((*env)->ExceptionCheck(env)) {
+      (*env)->ExceptionClear(env);
+    } else if (reply) {
+      jsize n = (*env)->GetArrayLength(env, reply);
+      jbyte *bytes = n > 0 ? (*env)->GetByteArrayElements(env, reply, NULL) : NULL;
+      if (bytes) {
+        uint32_t kind = bytes[0] ? EXT_HOST_REVERSE_PUBLIC_ERROR : EXT_HOST_REVERSE_PAYLOAD;
+        result = emit(sink, kind, (const uint8_t *)bytes + 1, (size_t)n - 1);
+        (*env)->ReleaseByteArrayElements(env, reply, bytes, JNI_ABORT);
+      }
+      (*env)->DeleteLocalRef(env, reply);
+    }
+    (*env)->DeleteLocalRef(env, in);
+  }
+  if (attached) (*b->vm)->DetachCurrentThread(b->vm);
+  return result;
+}
+
+static ext_host_services services_of(binding *b, jint timeout_ms, jint max_payload, jint max_in_flight, int handle) {
+  ext_host_services services;
+  memset(&services, 0, sizeof services);
+  services.struct_size = sizeof services;
+  services.user = b;
+  services.authorize = reverse_authorize_cb;
+  services.handle = handle ? reverse_handle_cb : NULL;
+  services.timeout_ms = (uint32_t)timeout_ms;
+  services.max_payload_bytes = (uint32_t)max_payload;
+  services.max_in_flight = (uint32_t)max_in_flight;
+  return services;
+}
+
+JNIEXPORT void JNICALL Java_io_github_webong_ext_plugin_WamrNative_serve(
+    JNIEnv *env, jclass cls, jlong handle, jint timeout_ms, jint max_payload, jint max_in_flight) {
+  (void)cls;
+  session *s = (session *)(intptr_t)handle;
+  ext_host_services services = services_of(s->b, timeout_ms, max_payload, max_in_flight, 1);
+  ext_status status = ext_host_set_services(s->host, &services);
+  if (status != EXT_OK) throw_status(env, status);
+}
+
+JNIEXPORT void JNICALL Java_io_github_webong_ext_plugin_WamrNative_attach(
+    JNIEnv *env, jclass cls, jlong registry, jlong handle, jint timeout_ms, jint max_payload, jint max_in_flight) {
+  (void)cls;
+  session *s = (session *)(intptr_t)handle;
+  ext_host_services services = services_of(s->b, timeout_ms, max_payload, max_in_flight, 0);
+  ext_status status = ext_registry_attach((ext_registry *)(intptr_t)registry, s->host, &services);
+  if (status != EXT_OK) throw_status(env, status);
+}
+
+JNIEXPORT jbyteArray JNICALL Java_io_github_webong_ext_plugin_WamrNative_call(
+    JNIEnv *env, jclass cls, jlong handle, jbyteArray input, jint timeout_ms) {
+  (void)cls;
+  jsize n = (*env)->GetArrayLength(env, input);
+  uint8_t *in = malloc(n ? (size_t)n : 1);
+  if (!in) {
+    throw_status(env, EXT_NOMEM);
+    return NULL;
+  }
+  (*env)->GetByteArrayRegion(env, input, 0, n, (jbyte *)in);
+  ext_call_options options;
+  memset(&options, 0, sizeof options);
+  options.struct_size = sizeof options;
+  options.timeout_ms = (uint32_t)timeout_ms;
+  ext_buffer out = {0};
+  ext_status status = ext_host_call(host_of(handle), in, (size_t)n, &options, &out);
+  free(in);
+  if (status != EXT_OK) {
+    ext_buffer_free(&out);
+    throw_status(env, status);
+    return NULL;
+  }
+  jbyteArray result = to_java(env, out.data, out.len);
+  ext_buffer_free(&out);
+  return result;
+}
+
+JNIEXPORT jlong JNICALL Java_io_github_webong_ext_plugin_WamrNative_registryCreate(JNIEnv *env, jclass cls) {
+  (void)cls;
+  ext_registry *r = NULL;
+  ext_status status = ext_registry_create(&r);
+  if (status != EXT_OK) {
+    throw_status(env, status);
+    return 0;
+  }
+  return (jlong)(intptr_t)r;
+}
+
+JNIEXPORT void JNICALL Java_io_github_webong_ext_plugin_WamrNative_registryDestroy(JNIEnv *env, jclass cls, jlong registry) {
+  (void)env;
+  (void)cls;
+  ext_registry_destroy((ext_registry *)(intptr_t)registry);
+}
+
+/* A Java String as modified UTF-8 is not UTF-8 for supplementary characters, but names are
+ * identifiers (ASCII), and anything else is refused by the engine as invalid. */
+JNIEXPORT void JNICALL Java_io_github_webong_ext_plugin_WamrNative_registryRegister(
+    JNIEnv *env, jclass cls, jlong registry, jstring name, jstring version, jlong handle) {
+  (void)cls;
+  const char *n = (*env)->GetStringUTFChars(env, name, NULL), *v = (*env)->GetStringUTFChars(env, version, NULL);
+  ext_status status = n && v ? ext_registry_register((ext_registry *)(intptr_t)registry, n, v, host_of(handle)) : EXT_NOMEM;
+  if (n) (*env)->ReleaseStringUTFChars(env, name, n);
+  if (v) (*env)->ReleaseStringUTFChars(env, version, v);
+  if (status != EXT_OK) throw_status(env, status);
+}
+
+JNIEXPORT void JNICALL Java_io_github_webong_ext_plugin_WamrNative_registryUnregister(
+    JNIEnv *env, jclass cls, jlong registry, jstring name, jstring version) {
+  (void)cls;
+  const char *n = (*env)->GetStringUTFChars(env, name, NULL), *v = (*env)->GetStringUTFChars(env, version, NULL);
+  ext_status status = n && v ? ext_registry_unregister((ext_registry *)(intptr_t)registry, n, v) : EXT_NOMEM;
+  if (n) (*env)->ReleaseStringUTFChars(env, name, n);
+  if (v) (*env)->ReleaseStringUTFChars(env, version, v);
+  if (status != EXT_OK) throw_status(env, status);
+}
+
+JNIEXPORT void JNICALL Java_io_github_webong_ext_plugin_WamrNative_registryRoute(
+    JNIEnv *env, jclass cls, jlong registry, jobjectArray names) {
+  (void)cls;
+  const char *text[6] = {0};
+  jstring strings[6] = {0};
+  ext_status status = (*env)->GetArrayLength(env, names) == 6 ? EXT_OK : EXT_INVALID;
+  for (int i = 0; i < 6 && !status; i++) {
+    strings[i] = (jstring)(*env)->GetObjectArrayElement(env, names, i);
+    if (!strings[i] || !(text[i] = (*env)->GetStringUTFChars(env, strings[i], NULL))) status = EXT_INVALID;
+  }
+  if (!status) {
+    ext_registry_edge edge = {sizeof edge, text[0], text[1], text[2], text[3], text[4], text[5]};
+    status = ext_registry_route((ext_registry *)(intptr_t)registry, &edge);
+  }
+  for (int i = 0; i < 6; i++) {
+    if (text[i]) (*env)->ReleaseStringUTFChars(env, strings[i], text[i]);
+    if (strings[i]) (*env)->DeleteLocalRef(env, strings[i]);
+  }
+  if (status != EXT_OK) throw_status(env, status);
 }

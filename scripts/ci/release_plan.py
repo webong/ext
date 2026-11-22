@@ -1,36 +1,36 @@
 #!/usr/bin/env python3
-"""Routes a release.yml run over the packages of .github/ci/releases.json.
+"""Plans tagged releases and dry-run builds from .github/ci/releases.json.
 
   push of a tag        the package whose tag prefix the tag starts with (the longest prefix wins);
                        an unknown tag fails, so a misspelt tag never passes silently
   workflow_dispatch    the package named by --package, as a dry run
-  pull_request         the packages whose pr_paths match a changed file, as dry runs
 
 Writes to $GITHUB_OUTPUT (or stdout):
-  build=<json list>   the build cells of the chosen packages, each with "exports" (its values as
+  build=<json list>   the build cells of the chosen package, each with "exports" (its values as
                       shell export statements, MATRIX_<KEY> plus the dry-run version)
   build_run           true when there is a build cell
-  package, prefix     the one package a tag push or manual run concerns (empty on pull requests)
+  package, prefix     the package a tag push or manual run concerns
   publish_setup       that package's toolchains for the publish job (JSON)
   registry            the registry job that publishes it next (crates, npm, pypi, nuget or empty)
   distribute          true when it has a dist/ branch to push
 Publishing is never decided here: every publish job also requires a push of a tag with the
 package's own prefix. Standard library only.
 
-Usage: release_plan.py --event EVENT [--ref-name NAME] [--package NAME] [--version X.Y.Z] [--changed FILE]
+Usage: release_plan.py --event EVENT [--ref-name NAME] [--package NAME] [--version X.Y.Z]
        release_plan.py --check   (every script a package names exists)
 """
 import argparse
-import fnmatch
 import json
 import os
 import shlex
 import sys
 
 REGISTRIES = {"crates", "npm", "pypi", "nuget"}
+WORKFLOWS = {"core", "engine", "runtime"}
+DEFAULT_WORKFLOW = "core"
 
 
-def choose(table, event, ref_name, package, changed):
+def choose(table, event, ref_name, package):
     packages = table["packages"]
     if event == "push":
         best = None
@@ -40,23 +40,65 @@ def choose(table, event, ref_name, package, changed):
                     best = (name, len(prefix), prefix)
         if best is None:
             raise SystemExit(f"tag {ref_name!r} matches no package in releases.json")
-        return [best[0]], best[0], best[2]
+        return best[0], best[2]
     if event == "workflow_dispatch":
         if package not in packages:
             raise SystemExit(f"unknown package {package!r}; one of {sorted(packages)}")
         if not packages[package]["build"]:
-            raise SystemExit(f"{package} builds only for a pushed {packages[package]['tag_prefixes'][0]} tag; it has no dry run")
-        return [package], package, packages[package]["tag_prefixes"][0]
-    if event == "pull_request":
-        chosen = [name for name, p in packages.items()
-                  if p["pr_paths"] and any(fnmatch.fnmatchcase(c, pat.replace("**", "*")) for c in changed for pat in p["pr_paths"])]
-        return chosen, "", ""
+            workflow = packages[package].get("workflow", DEFAULT_WORKFLOW)
+            raise SystemExit(f"for a {package} dry run, use {workflow}.yml with labels=release:{package}")
+        return package, packages[package]["tag_prefixes"][0]
     raise SystemExit(f"unexpected event {event!r}")
+
+
+def build_cells(package, version):
+    version = version or package["version_default"] or ""
+    cells = []
+    for cell in package["build"]:
+        exports = [f"export MATRIX_{k}={shlex.quote(v)}" for k, v in sorted(cell["vars"].items())]
+        exports.append(f"export INPUT_VERSION_DISPATCH={shlex.quote(version)}")
+        cells.append(dict(cell, exports="; ".join(exports)))
+    return cells
+
+
+def dry_run_cells(table, workflow, labels):
+    packages = table["packages"]
+    requested = {label.removeprefix("release:") for label in labels if label.startswith("release:")}
+    unknown = requested - packages.keys()
+    if unknown:
+        raise SystemExit(f"unknown release packages: {sorted(unknown)} (choose from {sorted(packages)})")
+    chosen = [name for name in sorted(requested) if packages[name].get("workflow", DEFAULT_WORKFLOW) == workflow]
+    cells = []
+    for name in chosen:
+        package = packages[name]
+        for cell in build_cells(package, ""):
+            artifact = {"name": cell["artifact"], "path": "release-out/", "if_no_files_found": "error"}
+            cells.append(dict(cell, artifact=artifact))
+        if not package["build"]:
+            # The tagged release already builds these packages in prepare.sh.
+            version = package["version_default"] or "0.0.0"
+            tag = package["tag_prefixes"][0] + version
+            cells.append({
+                "name": f"{name} package (dry run)",
+                "runner": "ubuntu-latest",
+                "script": f"scripts/release/{name}/prepare.sh",
+                "setup": package["publish_setup"],
+                "exports": f"export GITHUB_REF_NAME={shlex.quote(tag)}",
+                "fetch_all": True,
+                "artifact": {
+                    "name": f"release-{name}-dry-run",
+                    "path": "dist/",
+                    "if_no_files_found": "error",
+                },
+            })
+    return cells, chosen
 
 
 def check(table):
     problems = []
     for name, p in table["packages"].items():
+        if p.get("workflow", DEFAULT_WORKFLOW) not in WORKFLOWS:
+            problems.append(f"{name}: release dry runs must belong to one of {sorted(WORKFLOWS)}")
         d = f"scripts/release/{name}"
         for script in ("prepare.sh", "release.sh") + (("distribute.sh",) if p["distribute"] else ()):
             if not os.path.isfile(f"{d}/{script}"):
@@ -84,7 +126,6 @@ def main():
     parser.add_argument("--ref-name", default="")
     parser.add_argument("--package", default="")
     parser.add_argument("--version", default="", help="dry-run version from a manual run")
-    parser.add_argument("--changed")
     parser.add_argument("--table", default=".github/ci/releases.json")
     parser.add_argument("--check", action="store_true")
     args = parser.parse_args()
@@ -94,20 +135,9 @@ def main():
         return check(table)
     if not args.event:
         parser.error("--event is required")
-    changed = []
-    if args.changed:
-        with open(args.changed) as f:
-            changed = [l.strip() for l in f if l.strip()]
-    chosen, package, prefix = choose(table, args.event, args.ref_name, args.package, changed)
-    cells = []
-    for name in chosen:
-        p = table["packages"][name]
-        version = args.version or p["version_default"] or ""
-        for cell in p["build"]:
-            exports = [f"export MATRIX_{k}={shlex.quote(v)}" for k, v in sorted(cell["vars"].items())]
-            exports.append(f"export INPUT_VERSION_DISPATCH={shlex.quote(version)}")
-            cells.append(dict(cell, exports="; ".join(exports)))
-    p = table["packages"].get(package) or {}
+    package, prefix = choose(table, args.event, args.ref_name, args.package)
+    p = table["packages"][package]
+    cells = build_cells(p, args.version)
     out = {
         "build": json.dumps(cells, separators=(",", ":")),
         "build_run": "true" if cells else "false",
@@ -128,7 +158,7 @@ def main():
     if summary:
         with open(summary, "a") as f:
             mode = "publishes if the tag is the package's own" if args.event == "push" else "dry run"
-            f.write(f"### Release ({args.event}; {mode})\n\nPackages: {', '.join(chosen) or 'none'}; build cells: {len(cells)}\n")
+            f.write(f"### Release ({args.event}; {mode})\n\nPackage: {package}; build cells: {len(cells)}\n")
     return 0
 
 

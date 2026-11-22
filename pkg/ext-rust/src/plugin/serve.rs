@@ -299,7 +299,7 @@ impl Channel {
     }
 }
 
-fn refused(code: &str) -> Error {
+pub(crate) fn refused(code: &str) -> Error {
     Error::Remote(RemoteError {
         code: code.into(),
         message: "reverse call refused".into(),
@@ -313,7 +313,7 @@ fn refused(code: &str) -> Error {
 /// the connection lasts.
 #[derive(Clone)]
 pub struct Reverse {
-    channel: Arc<Channel>,
+    via: Via,
     descriptor: Arc<Descriptor>,
     parent: String, // empty for session scope
     deadline: Option<SystemTime>,
@@ -338,19 +338,90 @@ impl Reverse {
         payload: &Value,
         deadline: SystemTime,
     ) -> Result<Value> {
-        self.channel.reverse_call(
-            &self.descriptor,
-            &self.parent,
-            contract,
-            operation,
-            payload,
-            deadline,
-        )
+        match &self.via {
+            Via::Channel(channel) => channel.reverse_call(
+                &self.descriptor,
+                &self.parent,
+                contract,
+                operation,
+                payload,
+                deadline,
+            ),
+            #[cfg(target_arch = "wasm32")]
+            Via::Reactor => reactor_reverse_call(
+                &self.descriptor,
+                &self.parent,
+                contract,
+                operation,
+                payload,
+                deadline,
+            ),
+        }
     }
     /// Whether requests may be outstanding at once and made from other threads: true
     /// when a thread of its own reads the connection.
     pub fn concurrent(&self) -> bool {
-        self.channel.threaded
+        match &self.via {
+            Via::Channel(channel) => channel.threaded,
+            #[cfg(target_arch = "wasm32")]
+            Via::Reactor => false,
+        }
+    }
+    /// The caller of a WebAssembly reactor's invocation: requests go to the host
+    /// through the ext_plugin.reverse import (docs/plugin-reactor-abi.md).
+    #[cfg(target_arch = "wasm32")]
+    pub(crate) fn reactor(descriptor: Arc<Descriptor>, parent: &str) -> Self {
+        Self {
+            via: Via::Reactor,
+            descriptor,
+            parent: parent.into(),
+            deadline: None,
+        }
+    }
+}
+
+/// How a reverse request reaches the host.
+#[derive(Clone)]
+enum Via {
+    /// The connection of a guest process, as a frame on it.
+    Channel(Arc<Channel>),
+    /// A reactor's ext_plugin.reverse import, synchronously.
+    #[cfg(target_arch = "wasm32")]
+    Reactor,
+}
+
+#[cfg(target_arch = "wasm32")]
+fn reactor_reverse_call(
+    descriptor: &Descriptor,
+    parent: &str,
+    contract: &ContractRef,
+    operation: &str,
+    payload: &Value,
+    deadline: SystemTime,
+) -> Result<Value> {
+    use std::sync::atomic::AtomicU64;
+    static ISSUED: AtomicU64 = AtomicU64::new(0);
+    // Only what the descriptor declares is asked of the host, as on a connection.
+    if descriptor.lookup_reverse(contract, operation).is_err() {
+        return Err(refused(frames::REVERSE_UNDECLARED));
+    }
+    let id = format!("r{}", ISSUED.fetch_add(1, Ordering::Relaxed) + 1);
+    let frame = frames::reverse_request_frame(
+        &id,
+        parent,
+        contract,
+        operation,
+        &wire::timestamp(deadline)?,
+        payload,
+    );
+    if frames::validate_reverse_request(&frame).is_err() {
+        return Err(Error::Invalid);
+    }
+    let answer = crate::plugin::cabi::reactor_reverse(&wire::encode(&frame)?)?;
+    let response = wire::decode(&answer).map_err(|_| Error::Protocol)?;
+    match frames::validate_reverse_response(&response, &id)? {
+        Answer::Error(e) => Err(Error::Remote(e)),
+        Answer::Payload(p) => Ok(p),
     }
 }
 
@@ -438,7 +509,7 @@ impl Channel {
             })
         });
         let reverse = |parent: &str| Reverse {
-            channel: self.clone(),
+            via: Via::Channel(self.clone()),
             descriptor: descriptor.clone(),
             parent: parent.into(),
             deadline: None,

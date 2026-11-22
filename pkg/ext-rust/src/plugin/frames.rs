@@ -18,6 +18,7 @@ pub const FRAME_REVERSE_RESPONSE: &str = "reverse_response";
 /// The code of a reverse call the guest refused itself, because the descriptor does
 /// not list the operation.
 pub const REVERSE_UNDECLARED: &str = "reverse_undeclared";
+pub const REVERSE_UNAVAILABLE: &str = "reverse_unavailable";
 
 /// What came of reporting an event. A drop by the rate limit is routine: the call is
 /// fine, and the count is reported with the next event.

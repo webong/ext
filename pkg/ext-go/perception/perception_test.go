@@ -6,9 +6,9 @@ import (
 	"os"
 	"testing"
 
-	plugin "github.com/webong/ext/pkg/ext-go/engine"
-	"github.com/webong/ext/pkg/ext-go/engine/guest/author"
-	"github.com/webong/ext/pkg/ext-go/engine/transport/inprocess"
+	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/guest/author"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/transport/inprocess"
 	bridge "github.com/webong/ext/pkg/ext-go/perception"
 	domain "github.com/webong/ext/res/int/perception"
 )

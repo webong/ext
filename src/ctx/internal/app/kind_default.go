@@ -8,7 +8,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/webong/ext/ctx/internal/config"
+	"github.com/webong/ext/src/ctx/internal/config"
 	systemgraph "github.com/webong/ext/res/graph"
 )
 

@@ -61,8 +61,8 @@ Notes:
 
 - Cymonkey does not use the root `res/web` package (ctx's `browser` alias), so `manage/cookie` is not needed.
 - The progress helpers that moved from `res/web/contract` to `artifact/extension` are not used by Cymonkey.
-- If Cymonkey wants the engine-routed (C engine) behavior it swaps `engine/host` and `engine/host/store` for
-  `pkg/ext-go/cgoengine/host` and `.../host/store`, which have an identical API. Pure Go (`engine`) is the
+- If Cymonkey wants the engine-routed (C engine) behavior it swaps `engine/plugin/host` and `engine/plugin/host/store` for
+  `pkg/ext-go/cgoengine/plugin/host` and `.../host/store`, which have an identical API. Pure Go (`engine`) is the
   baseline and needs no C toolchain.
 - Ext's modules declare `go 1.26.0`; Cymonkey's `go 1.26.5` is fine.
 - `GOWORK=off` builds of ext modules now work against the tags. Cymonkey has no `go.work`; its sub-modules

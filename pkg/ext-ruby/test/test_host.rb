@@ -238,6 +238,22 @@ class HostTest < Minitest::Test
     end
   end
 
+  # Ruby wakes a waiting call for every interrupt, also for one it only notes: a child process
+  # ending (SIGCHLD) interrupts the main thread. The call goes on and ends at its own deadline.
+  def test_a_child_exiting_does_not_cancel_the_call
+    @engine.process(@descriptor, @guest) do |h|
+      h.start
+      children = Thread.new { 5.times { system("true"); sleep 0.05 } }
+      started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+      # The call ends at its deadline: the host times out, or the guest's answer at that same
+      # deadline arrives first. A child exiting must not end it sooner, or as canceled.
+      e = assert_raises(ExtIO::Host::HostError, ExtIO::Host::RemoteError) { h.call(@contract, "wait", nil, timeout: 0.6) }
+      children.join
+      assert_operator Process.clock_gettime(Process::CLOCK_MONOTONIC) - started, :>=, 0.5
+      assert_equal "timeout", e.status if e.is_a?(ExtIO::Host::HostError)
+    end
+  end
+
   def test_an_interrupt_cancels_the_call
     @engine.process(@descriptor, @guest) do |h|
       h.start

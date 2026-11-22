@@ -16,10 +16,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/webong/ext/pkg/ext-go/engine/host/home"
-	"github.com/webong/ext/pkg/ext-go/engine/host/process"
-	"github.com/webong/ext/pkg/ext-go/engine/host/store"
-	hosttrust "github.com/webong/ext/pkg/ext-go/engine/host/trust"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/home"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/process"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/store"
+	hosttrust "github.com/webong/ext/pkg/ext-go/engine/plugin/host/trust"
 	ginference "github.com/webong/ext/pkg/ext-go/inference"
 	inference "github.com/webong/ext/res/int/inference"
 )

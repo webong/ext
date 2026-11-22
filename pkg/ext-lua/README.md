@@ -4,7 +4,7 @@
 
 Pure-Lua guest for `ext.plugin/v1` over JSON lines: no C modules and no native build, on Lua 5.1 to
 5.5 and LuaJIT. It brings its own strict JSON module (`ext_io.json`). Hosts use the Go
-`pkg/ext-go/engine/host/process` backend (or any JSON-line client) to run it. A Lua program can
+`pkg/ext-go/engine/plugin/host/process` backend (or any JSON-line client) to run it. A Lua program can
 also host plugins itself with the opt-in [host SDK](#host-sdk-ext_iohost) on the C engine.
 
 ```lua
@@ -209,7 +209,7 @@ mismatch returns `invalid_request`. Frames are written byte for byte as the Pyth
 reproduce the shared fixtures (`lib/plugin/testdata/v1/{frame-cases,progress-limiter-cases,model-cases}.json`,
 computed by the Go contract) with no exceptions, and cover the router with a scripted host in a
 coroutine. `scripts/ext-lua.sh` (with `EXT_LUA` naming the interpreter) runs them, then
-`TestLuaGuest` in `pkg/ext-go/engine/plugintest`, which runs `tests/conformance_guest.lua` through
+`TestLuaGuest` in `pkg/ext-go/engine/plugin/plugintest`, which runs `tests/conformance_guest.lua` through
 `process.Start` against the shared conformance suite, and `TestLuaFramesGuest` in
 `tests/crosslang`, which runs `tests/frames_guest.lua`, the frames conformance guest of
 [docs/plugin-guest-frames.md](https://github.com/webong/ext/blob/main/docs/plugin-guest-frames.md)

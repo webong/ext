@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/webong/ext/pkg/ext-go/engine/host/adapter"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/adapter"
 )
 
 // evaluatorStore installs a fake evaluator adapter into a temporary shared store and
@@ -58,9 +58,14 @@ func evaluatorStore(t *testing.T) (string, func(name, kind, observe, run string,
 }
 
 const (
-	sandboxed = `{"version":1,"contexts":[{"selection":"embedded","attributes":{"kind":"wasm","version":"1","isolation":"sandboxed"}}]}`
-	hostOnly  = `{"version":1,"contexts":[{"selection":"21","attributes":{"kind":"wasm","version":"1","isolation":"host"}}]}`
-	mixed     = `{"version":1,"contexts":[{"selection":"embedded","attributes":{"isolation":"sandboxed"}},{"selection":"loose","attributes":{"isolation":"host"}}]}`
+	sandboxed = `{"version":1,"contexts":[{"selection":"embedded","attributes":{"kind":"wasm","version":"1","isolation":"sandboxed","boundary":"runtime"}}]}`
+	hostOnly  = `{"version":1,"contexts":[{"selection":"21","attributes":{"kind":"wasm","version":"1","isolation":"host","boundary":"process"}}]}`
+	mixed     = `{"version":1,"contexts":[{"selection":"embedded","attributes":{"isolation":"sandboxed","boundary":"runtime"}},{"selection":"loose","attributes":{"isolation":"host","boundary":"process"}}]}`
+	// An evaluator that says sandboxed must also say where: these claims cannot be held.
+	noBoundary      = `{"version":1,"contexts":[{"selection":"embedded","attributes":{"kind":"wasm","isolation":"sandboxed"}}]}`
+	unknownBoundary = `{"version":1,"contexts":[{"selection":"embedded","attributes":{"kind":"wasm","isolation":"sandboxed","boundary":"vm"}}]}`
+	sandboxedInHost = `{"version":1,"contexts":[{"selection":"embedded","attributes":{"kind":"wasm","isolation":"sandboxed","boundary":"process"}}]}`
+	sandboxedInProc = `{"version":1,"contexts":[{"selection":"embedded","attributes":{"kind":"wasm","isolation":"sandboxed","boundary":"in-process"}}]}`
 )
 
 func contentFile(t *testing.T, name, data string) string {
@@ -89,7 +94,7 @@ func TestVerifyPassesContentThatRunsCleanlyInASandbox(t *testing.T) {
 	log := install("wasm", "wasm", sandboxed, "exit 0", true)
 	file := contentFile(t, "ok.wasm", "payload")
 	code, stdout, stderr := verify(t, "--timeout", "10s", file)
-	if code != exitPass || !strings.HasPrefix(stdout, "PASS ") || !strings.Contains(stdout, "isolation=sandboxed") || !strings.Contains(stdout, "engine=wasm") {
+	if code != exitPass || !strings.HasPrefix(stdout, "PASS ") || !strings.Contains(stdout, "isolation=sandboxed") || !strings.Contains(stdout, "boundary=runtime") || !strings.Contains(stdout, "engine=wasm") {
 		t.Fatalf("%d %q %q", code, stdout, stderr)
 	}
 	// sha256("payload"), so the verdict names exactly what was checked.
@@ -128,7 +133,12 @@ func TestVerifyReportsContentThatFailsWithItsOwnExitStatus(t *testing.T) {
 }
 
 func TestVerifyNeverRunsContentInAnEvaluatorThatDoesNotConfineIt(t *testing.T) {
-	for name, observe := range map[string]string{"host": hostOnly, "mixed without a selection": mixed, "no isolation reported": `{"version":1,"contexts":[{"selection":"a","attributes":{}}]}`, "garbage": "not json"} {
+	for name, observe := range map[string]string{
+		"host": hostOnly, "mixed without a selection": mixed,
+		"no isolation reported": `{"version":1,"contexts":[{"selection":"a","attributes":{}}]}`, "garbage": "not json",
+		"no boundary": noBoundary, "unknown boundary": unknownBoundary,
+		"sandboxed in a plain process": sandboxedInHost, "sandboxed in the evaluator's process": sandboxedInProc,
+	} {
 		_, install := evaluatorStore(t)
 		log := install("wasm", "wasm", observe, "exit 0", true)
 		code, stdout, _ := verify(t, contentFile(t, "x.wasm", "x"))
@@ -188,7 +198,7 @@ func TestVerifyReportsATimeout(t *testing.T) {
 func TestVerifyChoosesTheEvaluatorByExtensionAndNamesTheFileForEvm(t *testing.T) {
 	_, install := evaluatorStore(t)
 	wasmLog := install("wasm", "wasm", sandboxed, "exit 0", true)
-	evmLog := install("evm", "evm", `{"version":1,"contexts":[{"selection":"prague","attributes":{"isolation":"sandboxed"}}]}`, "exit 0", true)
+	evmLog := install("evm", "evm", `{"version":1,"contexts":[{"selection":"prague","attributes":{"isolation":"sandboxed","boundary":"runtime"}}]}`, "exit 0", true)
 	hexFile := contentFile(t, "code.hex", "602a")
 	if code, stdout, _ := verify(t, hexFile); code != exitPass || !strings.Contains(stdout, "engine=evm") {
 		t.Fatalf("%d %q", code, stdout)

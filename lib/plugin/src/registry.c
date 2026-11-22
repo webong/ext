@@ -2,7 +2,7 @@
  * reverse call with a forward call to another guest, along an edge the host
  * declared. It is host-side composition over the public host API; the engine's
  * reverse path, the frames and the descriptor are unchanged. The reference for
- * its behavior is Registry in pkg/ext-go/engine/host (registry.go). */
+ * its behavior is Registry in pkg/ext-go/engine/plugin/host (registry.go). */
 #include "registry.h"
 #include "reverse.h"
 #include "sync.h"

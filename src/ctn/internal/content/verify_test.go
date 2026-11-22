@@ -37,17 +37,17 @@ func (b *fakeBackend) Run(ctx context.Context, arguments []string) (int, []byte,
 
 // fakePolicy is a test policy that trusts and sandboxes everything.
 type fakePolicy struct {
-	trusted  bool
+	trusted   bool
 	sandboxed bool
 }
 
 func (p *fakePolicy) IsTrusted(backend Backend) bool { return p.trusted }
 
-func (p *fakePolicy) Isolation(backend Backend, selection string) (string, string, bool) {
+func (p *fakePolicy) Isolation(backend Backend, selection string) (string, string, string, bool) {
 	if p.sandboxed {
-		return "sandboxed", "", true
+		return "sandboxed", "runtime", "", true
 	}
-	return "host", "not sandboxed", false
+	return "host", "process", "not sandboxed", false
 }
 
 func writeContent(t *testing.T, name string, data []byte) string {
@@ -145,7 +145,7 @@ func TestVerifyObserver(t *testing.T) {
 	policy := &fakePolicy{trusted: true, sandboxed: true}
 	var started, completed bool
 	observer := &testObserver{
-		onStarted: func(s string) { started = true },
+		onStarted:   func(s string) { started = true },
 		onCompleted: func(r *Result) { completed = true },
 	}
 	result, err := Verify(context.Background(), file, "", backend, policy, Limits{}, 30*time.Second, observer)

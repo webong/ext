@@ -27,7 +27,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/vm/runtime"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/holiman/uint256"
-	"github.com/webong/ext/pkg/ext-go/cgoengine"
+	cgoengine "github.com/webong/ext/pkg/ext-go/cgoengine/plugin"
 )
 
 const (
@@ -124,7 +124,7 @@ func observe(stdout io.Writer) int {
 	contexts := make([]context, 0, len(forks))
 	for _, f := range forks {
 		contexts = append(contexts, context{f.name, map[string]string{
-			"kind": "evm", "isolation": "sandboxed", "introduces": f.introduces, "engine": "go-ethereum", "version": engineVersion(),
+			"kind": "evm", "isolation": "sandboxed", "boundary": "runtime", "introduces": f.introduces, "engine": "go-ethereum", "version": engineVersion(),
 			"state": "in-memory, one invocation",
 		}})
 	}

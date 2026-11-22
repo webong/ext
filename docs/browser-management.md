@@ -19,16 +19,16 @@ with product paths, store URLs, and supported routes supplied by each adapter.
 Choose a profile explicitly or select it with `ctx set browser <adapter>:<profile>`:
 
 ~~~sh
-ctx browser manage extension targets --target firefox:Profile\ 1
-ctx browser manage extension prepare --target chrome:Default \
+ext ctx browser manage extension targets --target firefox:Profile\ 1
+ext ctx browser manage extension prepare --target chrome:Default \
   --input '{"source":"/path/to/extension.zip"}'
-ctx browser manage extension install --target firefox:Profile\ 1 \
+ext ctx browser manage extension install --target firefox:Profile\ 1 \
   --input '{"source":"/path/to/signed-extension.xpi","revision":"sha256:…"}'
-ctx browser manage extension activate --target chrome:Profile\ 1 \
+ext ctx browser manage extension activate --target chrome:Profile\ 1 \
   --input '{"source":"/path/to/extension.zip","destination":"/tmp/ctx-extension","revision":"sha256:…"}'
-ctx browser manage userscript prepare --target firefox:Profile\ 1 \
+ext ctx browser manage userscript prepare --target firefox:Profile\ 1 \
   --input '{"sourceFile":"/path/to/script.user.js","id":"example","name":"Example","matches":["https://example.com/*"]}'
-ctx browser manage bookmarklet encode --target firefox:Profile\ 1 \
+ext ctx browser manage bookmarklet encode --target firefox:Profile\ 1 \
   --input '{"sourceFile":"/path/to/bookmarklet.js"}'
 ~~~
 
@@ -64,7 +64,7 @@ boundary validated by CTX.
 ## Calling an adapter from a host
 
 A host drives an installed browser adapter through one process per request. It
-needs no adapter code: `pkg/ext-go/engine/host/adapter` provides the store, trust check and
+needs no adapter code: `pkg/ext-go/engine/plugin/host/adapter` provides the store, trust check and
 command construction, and `res/web/host/contract` provides the envelope and its
 validation.
 
@@ -224,9 +224,9 @@ selected absolute path. Discovered `targetId` selection is separate from these
 explicit path fields; it remains bound to the selected adapter and profile.
 
 ~~~sh
-ctx browser manage extension install --target 'chrome:/path/to/custom-user-data' \
+ext ctx browser manage extension install --target 'chrome:/path/to/custom-user-data' \
   --input '{"executable":"/path/to/chrome","profileDirectory":"Default","source":"/path/to/extension","destination":"/path/to/staged-extension","revision":"sha256:…"}'
-ctx browser manage extension install --target 'firefox:/path/to/custom-profile' \
+ext ctx browser manage extension install --target 'firefox:/path/to/custom-profile' \
   --input '{"executable":"/path/to/firefox","source":"/path/to/signed.xpi","revision":"sha256:…"}'
 ~~~
 
@@ -246,7 +246,7 @@ conversion tool. The adapter stages the reviewed source and checks its revision
 again after conversion. The output location must be new and outside the source.
 
 ~~~sh
-ctx browser manage extension convert --target safari:default \
+ext ctx browser manage extension convert --target safari:default \
   --input '{"source":"/path/to/webextension","output":"/path/to/new-project","revision":"sha256:…","bundleId":"com.example.extension","appName":"Example"}'
 ~~~
 
@@ -263,7 +263,7 @@ The route requires administrator rights. macOS policy deployment remains an
 administrator-managed configuration-profile operation outside this route.
 
 ~~~sh
-ctx browser manage extension policy --target chrome:Default \
+ext ctx browser manage extension policy --target chrome:Default \
   --input '{"id":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","policyAction":"force"}'
 ~~~
 
@@ -324,16 +324,16 @@ of that browser process. Rules that follow:
   progress lines never include the endpoint.
 
 ~~~sh
-ctx browser manage session endpoint --target 'chrome:Default'
+ext ctx browser manage session endpoint --target 'chrome:Default'
 ~~~
 
 ~~~sh
-ctx browser manage session targets --target 'chrome:/path/to/custom-user-data'
-ctx browser manage session targets --target firefox:personal \
+ext ctx browser manage session targets --target 'chrome:/path/to/custom-user-data'
+ext ctx browser manage session targets --target firefox:personal \
   --input '{"endpoint":"ws://127.0.0.1:9222/session"}'
-ctx browser manage session navigate --target 'chrome:/path/to/custom-user-data' \
+ext ctx browser manage session navigate --target 'chrome:/path/to/custom-user-data' \
   --input '{"target":{"id":"PAGE_ID","protocol":"cdp","endpoint":"http://127.0.0.1:9222"},"url":"https://example.com"}'
-ctx browser manage session inject --target 'chrome:/path/to/custom-user-data' \
+ext ctx browser manage session inject --target 'chrome:/path/to/custom-user-data' \
   --input '{"target":{"id":"PAGE_ID","protocol":"cdp","endpoint":"http://127.0.0.1:9222"},"source":"document.documentElement.dataset.ctx = \"attached\"","options":{"runAt":"now","world":"page"}}'
 ~~~
 
@@ -377,7 +377,7 @@ and lifetime behavior are defined in Firefox's
 and [connection implementation](https://raw.githubusercontent.com/mozilla-firefox/firefox/main/remote/webdriver-bidi/WebDriverBiDiConnection.sys.mjs).
 
 ~~~sh
-ctx browser manage session connect --target firefox:personal \
+ext ctx browser manage session connect --target firefox:personal \
   --input '{"target":{"id":"CONTEXT_ID","protocol":"bidi","endpoint":"ws://127.0.0.1:9222/session/SESSION_ID"}}'
 ~~~
 
@@ -403,7 +403,7 @@ For the temporary Chromium-family launch route, native `executable`,
 custom roots use the same absolute `--target` binding as extension operations.
 
 ~~~sh
-ctx browser manage userscript activate --target firefox:personal \
+ext ctx browser manage userscript activate --target firefox:personal \
   --input '{"sessionTarget":{"id":"CONTEXT_ID","protocol":"bidi","endpoint":"ws://127.0.0.1:9222/session"}}'
 ~~~
 

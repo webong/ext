@@ -46,7 +46,7 @@ var pluginRequires = map[string][]string{
 	"pkg/ext-go/perception": {"pkg/ext-go/engine", "res/int"},
 	"pkg/ext-go/realtime":   {"pkg/ext-go/engine", "res/int"},
 	"res/int":               {},
-	"res/sandbox":           {},
+	"src/cto/sandbox":       {},
 	"res/web/host":          {},
 	"res/system":            {},
 	"res/graph":             {"res/system"},
@@ -170,18 +170,18 @@ func TestEngineModuleUsesOnlyTheStandardLibrary(t *testing.T) {
 	}
 }
 
-// res/sandbox is the contract that runners outside ext (github.com/webong/workload) depend on
+// src/cto/sandbox is the contract that runners outside ext (github.com/webong/workload) depend on
 // while staying on the standard library, so it imports only the standard library, nothing else
 // in ext either, and its go.mod requires nothing.
 func TestSandboxContractUsesOnlyTheStandardLibrary(t *testing.T) {
 	root := repoRoot(t)
-	dir := filepath.Join(root, "res/sandbox")
+	dir := filepath.Join(root, "src/cto/sandbox")
 	data, err := os.ReadFile(filepath.Join(dir, "go.mod"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	if strings.Contains(string(data), "require") {
-		t.Error("res/sandbox/go.mod has a require; the contract module requires nothing")
+		t.Error("src/cto/sandbox/go.mod has a require; the contract module requires nothing")
 	}
 	err = filepath.WalkDir(dir, func(path string, entry fs.DirEntry, walkErr error) error {
 		if walkErr != nil || entry.IsDir() || filepath.Ext(path) != ".go" {
@@ -194,9 +194,9 @@ func TestSandboxContractUsesOnlyTheStandardLibrary(t *testing.T) {
 		for _, imp := range file.Imports {
 			name, _ := strconv.Unquote(imp.Path.Value)
 			first, _, _ := strings.Cut(name, "/")
-			if strings.Contains(first, ".") && name != "github.com/webong/ext/res/sandbox" && !strings.HasPrefix(name, "github.com/webong/ext/res/sandbox/") {
+			if strings.Contains(first, ".") && name != "github.com/webong/ext/src/cto/sandbox" && !strings.HasPrefix(name, "github.com/webong/ext/src/cto/sandbox/") {
 				rel, _ := filepath.Rel(root, path)
-				t.Errorf("%s imports %s; res/sandbox uses only the standard library", filepath.ToSlash(rel), name)
+				t.Errorf("%s imports %s; src/cto/sandbox uses only the standard library", filepath.ToSlash(rel), name)
 			}
 		}
 		return nil
@@ -206,15 +206,15 @@ func TestSandboxContractUsesOnlyTheStandardLibrary(t *testing.T) {
 	}
 }
 
-// engine/host and engine/host/store are the pure-Go implementations an
-// application takes with the engine module alone; cgoengine/host and
-// cgoengine/host/store are the same packages routed through the engine. Swapping one import for the other must never
+// engine/plugin/host and engine/plugin/host/store are the pure-Go implementations an
+// application takes with the engine module alone; cgoengine/plugin/host and
+// cgoengine/plugin/host/store are the same packages routed through the engine. Swapping one import for the other must never
 // need a code change, so their exported surfaces must be identical.
 func TestEngineVariantsKeepTheSameAPI(t *testing.T) {
 	root := repoRoot(t)
 	for _, name := range []string{"host", "host/store"} {
-		pure := exportedAPI(t, filepath.Join(root, "pkg/ext-go/engine", name))
-		engine := exportedAPI(t, filepath.Join(root, "pkg/ext-go/cgoengine", name))
+		pure := exportedAPI(t, filepath.Join(root, "pkg/ext-go/engine/plugin", name))
+		engine := exportedAPI(t, filepath.Join(root, "pkg/ext-go/cgoengine/plugin", name))
 		for line := range pure {
 			if !engine[line] {
 				t.Errorf("%s: in engine but not in cgoengine: %s", name, line)
@@ -304,7 +304,7 @@ func exportedAPI(t *testing.T, dir string) map[string]bool {
 	return out
 }
 
-// The engine module is layered. transport (how frames travel) and validate (how values are
+// The plugin engine is layered. transport (how frames travel) and validate (how values are
 // checked) are leaves: they import neither host nor guest, and not each other. host (what runs
 // plugins on a machine) and guest (what a plugin implementation uses) build on them but never
 // import each other: a plugin must not need host code, and a host must not need a plugin's
@@ -319,8 +319,8 @@ func TestEngineGroupsKeepTheirLayering(t *testing.T) {
 	}
 	for group, others := range forbidden {
 		for _, other := range others {
-			banned := pluginPrefix + "/engine/" + other
-			err := filepath.WalkDir(filepath.Join(root, "pkg/ext-go/engine", group), func(path string, entry fs.DirEntry, walkErr error) error {
+			banned := pluginPrefix + "/engine/plugin/" + other
+			err := filepath.WalkDir(filepath.Join(root, "pkg/ext-go/engine/plugin", group), func(path string, entry fs.DirEntry, walkErr error) error {
 				if walkErr != nil || entry.IsDir() || filepath.Ext(path) != ".go" {
 					return walkErr
 				}
@@ -332,7 +332,7 @@ func TestEngineGroupsKeepTheirLayering(t *testing.T) {
 					name, _ := strconv.Unquote(imp.Path.Value)
 					if name == banned || strings.HasPrefix(name, banned+"/") {
 						rel, _ := filepath.Rel(root, path)
-						t.Errorf("%s imports %s; engine/%s must not import engine/%s", filepath.ToSlash(rel), name, group, other)
+						t.Errorf("%s imports %s; engine/plugin/%s must not import engine/plugin/%s", filepath.ToSlash(rel), name, group, other)
 					}
 				}
 				return nil

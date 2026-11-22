@@ -3,4 +3,4 @@
 set -eu
 
 BIN_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-exec "$BIN_DIR/ctx" run podman "$@"
+exec "$BIN_DIR/ext" ctx run podman "$@"

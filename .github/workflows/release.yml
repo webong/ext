@@ -4,7 +4,6 @@ name: Release
 # scripts/ci/release_plan.py and picks the package a run concerns:
 #
 #   tag push        the package whose prefix the tag starts with; it is built and published
-#   pull request    the packages whose files changed: their build cells run, nothing is published
 #   manual run      gh workflow run release.yml -f package=<name> [-f version=X.Y.Z]: a dry run
 #   manual publish  gh workflow run release.yml -f package=<name> -f tag=<tag>: builds the tagged
 #                   commit and publishes it exactly as the tag's push would have. For a tag whose push
@@ -17,7 +16,8 @@ name: Release
 # nuget) and distribute (the dist/ branches) follow for the packages that name them. Every publish,
 # registry and distribute job runs only for a tag with its package's own prefix, pushed or named by a
 # manual publish; each registry job keeps its environment and its literal tag check.
-# Adding a package adds scripts and a table entry, not a workflow. See docs/ci.md.
+# PR dry runs live in Core, Engine, and Runtime. Keep this path for registry trusted publishing.
+# See docs/ci.md.
 on:
   push:
     tags:
@@ -32,33 +32,7 @@ on:
       - 'ext-ts-v*'
       - 'ext-web-v*'
       - 'ext-zig-v*'
-      - 'ctx-v*'
-      - 'ctn-v*'
       - 'ext-v*'
-  pull_request:
-    paths:
-      - '.github/ci/releases.json'
-      - '.github/workflows/release.yml'
-      - 'LICENSE'
-      - 'lib/plugin/**'
-      - 'pkg/ext-python/**'
-      - 'pkg/ext-rust/Cargo.lock'
-      - 'pkg/ext-rust/Cargo.toml'
-      - 'pkg/ext-rust/LICENSE'
-      - 'pkg/ext-rust/README.md'
-      - 'pkg/ext-rust/src/**'
-      - 'pkg/ext-ts/**'
-      - 'pkg/ext-zig/**'
-      - 'scripts/ci/release_plan.py'
-      - 'scripts/ext-plugin-release.sh'
-      - 'scripts/ext-zig-release.sh'
-      - 'scripts/ext-zig-sync.sh'
-      - 'scripts/install-zig.sh'
-      - 'scripts/release/ext-plugin/**'
-      - 'scripts/release/ext-python/**'
-      - 'scripts/release/ext-rust/**'
-      - 'scripts/release/ext-ts/**'
-      - 'scripts/release/ext-zig/**'
   workflow_dispatch:
     inputs:
       package:
@@ -76,7 +50,7 @@ on:
           - ext-ts
           - ext-web
           - ext-zig
-          - ctx
+          - ext
       version:
         description: Version to build (empty takes the package's default)
         type: string
@@ -89,9 +63,9 @@ on:
 permissions:
   contents: read
 
-# One group per pull request, tag, or manually run package: GitHub keeps one waiting run per group.
+# One group per tag or manually run package.
 concurrency:
-  group: release-${{ github.event.pull_request.number || github.ref }}-${{ inputs.package }}
+  group: release-${{ github.ref }}-${{ inputs.package }}
   cancel-in-progress: false
 
 jobs:
@@ -113,12 +87,6 @@ jobs:
           fetch-depth: 0
       - name: Check the package table against the scripts
         run: python3 -I scripts/ci/release_plan.py --check
-      - name: Changed files
-        if: github.event_name == 'pull_request'
-        env:
-          BASE: ${{ github.event.pull_request.base.sha }}
-          HEAD: ${{ github.event.pull_request.head.sha }}
-        run: git diff --name-only "$BASE...$HEAD" >changed.txt
       # The tag a run publishes: the pushed one, or the one a manual publish names. A manual publish
       # is routed as that tag's push and must name the package the tag belongs to.
       - id: tag
@@ -146,8 +114,6 @@ jobs:
           VERSION: ${{ inputs.version }}
           TAG: ${{ inputs.tag }}
         run: |
-          changed=()
-          [ -f changed.txt ] && changed=(--changed changed.txt)
           if [[ -n "$TAG" ]]; then
             # Route into a scratch file and pass the outputs on only once the package matches.
             GITHUB_OUTPUT="$RUNNER_TEMP/route.out" python3 -I scripts/ci/release_plan.py --event push --ref-name "$TAG"
@@ -156,7 +122,7 @@ jobs:
             cat "$RUNNER_TEMP/route.out" >>"$GITHUB_OUTPUT"
           else
             python3 -I scripts/ci/release_plan.py --event "$EVENT" --ref-name "$REF_NAME" \
-              --package "$PACKAGE" --version "$VERSION" "${changed[@]}"
+              --package "$PACKAGE" --version "$VERSION"
           fi
 
   # Every build cell of the chosen packages: build, test and stage what the release ships.

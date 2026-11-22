@@ -197,8 +197,8 @@ module ExtIO
     # One session with one plugin. Use Engine#process or Engine#shared_library.
     #
     # Calls may come from several threads, and run without the global VM lock; the engine
-    # serializes them for a process or a shared library. An interrupt (Thread#raise, Thread#kill)
-    # cancels the call in progress. +close+ aborts; +destroy+ frees the host once no call is
+    # serializes them for a process or a shared library. An interrupt that raises (Thread#raise,
+    # Thread#kill) cancels the call in progress; a signal trap or a child exiting does not. +close+ aborts; +destroy+ frees the host once no call is
     # running, and garbage collection frees an unreachable one.
     class Session
       def initialize(native)

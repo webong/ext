@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/webong/ext/ctx"
+	"github.com/webong/ext/src/ctx"
 )
 
 func TestRunIsTheCommand(t *testing.T) {

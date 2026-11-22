@@ -7,7 +7,7 @@ package symbols
 
 import "reflect"
 
-//go:generate go run github.com/traefik/yaegi/cmd/yaegi extract -name symbols github.com/webong/ext/pkg/ext-go/engine github.com/webong/ext/pkg/ext-go/engine/guest/author github.com/webong/ext/pkg/ext-go/engine/guest/capability github.com/webong/ext/pkg/ext-go/engine/guest/instance github.com/webong/ext/pkg/ext-go/engine/guest/stream github.com/webong/ext/pkg/ext-go/engine/transport/inprocess github.com/webong/ext/pkg/ext-go/engine/validate/schema
+//go:generate go run github.com/traefik/yaegi/cmd/yaegi extract -name symbols github.com/webong/ext/pkg/ext-go/engine/plugin github.com/webong/ext/pkg/ext-go/engine/plugin/guest/author github.com/webong/ext/pkg/ext-go/engine/plugin/guest/capability github.com/webong/ext/pkg/ext-go/engine/plugin/guest/instance github.com/webong/ext/pkg/ext-go/engine/plugin/guest/stream github.com/webong/ext/pkg/ext-go/engine/plugin/transport/inprocess github.com/webong/ext/pkg/ext-go/engine/plugin/validate/schema
 
 // Symbols maps "<import path>/<package name>" to the package's exports.
 var Symbols = map[string]map[string]reflect.Value{}

@@ -40,12 +40,12 @@ this adapter does not bypass Chromium App-Bound encryption.
 ## Commands
 
 ```sh
-ctx credential get '<adapter:item>' --to-file ./new-private-file
-ctx credential get '<adapter:item>' --stdout | consumer
-ctx credential put '<adapter:item>' --from-file ./private-input
+ext ctx credential get '<adapter:item>' --to-file ./new-private-file
+ext ctx credential get '<adapter:item>' --stdout | consumer
+ext ctx credential put '<adapter:item>' --from-file ./private-input
 producer | ctx credential put '<adapter:item>' --stdin
-ctx credential copy '<source-adapter:item>' '<target-adapter:item>'
-ctx credential copy '<source>' '<target>' --replace
+ext ctx credential copy '<source-adapter:item>' '<target-adapter:item>'
+ext ctx credential copy '<source>' '<target>' --replace
 ```
 
 `ctx share:credential` is an alias for `ctx credential`. `get --stdout` refuses
@@ -65,7 +65,7 @@ For two machines, use an authenticated transport and an adapter on each end.
 For example, from a Mac to a Linux host with SSH access:
 
 ```sh
-ctx credential get 'keychain:service=ctx&account=work' --stdout |
+ext ctx credential get 'keychain:service=ctx&account=work' --stdout |
   ssh linux-host "ctx credential put 'secret_service:service=ctx&account=work' --stdin"
 ```
 

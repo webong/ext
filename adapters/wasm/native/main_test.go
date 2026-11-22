@@ -71,7 +71,7 @@ func TestDiscoveryOperations(t *testing.T) {
 		t.Fatalf("list: %d %q", code, stdout)
 	}
 	if code, stdout, _ := invoke("observe"); code != 0 || !strings.Contains(stdout, `"selection":"embedded"`) ||
-		!strings.Contains(stdout, `"kind":"wasm"`) || !strings.Contains(stdout, `"isolation":"sandboxed"`) || !strings.Contains(stdout, `"version":"v`) {
+		!strings.Contains(stdout, `"kind":"wasm"`) || !strings.Contains(stdout, `"isolation":"sandboxed"`) || !strings.Contains(stdout, `"boundary":"runtime"`) || !strings.Contains(stdout, `"version":"v`) {
 		t.Fatalf("observe: %d %q", code, stdout)
 	}
 	if code, _, _ := invoke("validate", "embedded"); code != 0 {

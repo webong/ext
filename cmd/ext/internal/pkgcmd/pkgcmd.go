@@ -12,12 +12,13 @@ import (
 	"os"
 	"os/signal"
 	"regexp"
+	"strings"
 	"sync"
 
 	"github.com/webong/ext/cmd/ext/internal/registry"
-	plugin "github.com/webong/ext/pkg/ext-go/engine"
-	"github.com/webong/ext/pkg/ext-go/engine/host"
-	"github.com/webong/ext/pkg/ext-go/engine/host/store"
+	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/host"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/store"
 )
 
 const (
@@ -44,6 +45,10 @@ var OutputLimits = plugin.ProgressLimits{EventsPerSecond: 10000, BytesPerSecond:
 type Declared struct {
 	Name    string `json:"name"`
 	Summary string `json:"summary,omitempty"`
+	// Transport is "socket" for a command guest that needs its normal stdin,
+	// stdout and stderr. Empty uses the existing JSON-line stdio transport.
+	Transport string   `json:"transport,omitempty"`
+	FDFlags   []string `json:"fdFlags,omitempty"`
 }
 
 var namePattern = regexp.MustCompile(`^[a-z][a-z0-9_-]{0,63}$`)
@@ -69,6 +74,17 @@ func Declare(installed store.Installed) ([]Declared, error) {
 		if seen[c.Name] {
 			return nil, fmt.Errorf("%s: %s: command %q is declared twice", installed.Name(), MetadataKey, c.Name)
 		}
+		if c.Transport != "" && c.Transport != "socket" {
+			return nil, fmt.Errorf("%s: %s: invalid transport %q", installed.Name(), MetadataKey, c.Transport)
+		}
+		if len(c.FDFlags) > 0 && c.Transport != "socket" {
+			return nil, fmt.Errorf("%s: %s: descriptor flags require socket transport", installed.Name(), MetadataKey)
+		}
+		for _, flag := range c.FDFlags {
+			if !strings.HasPrefix(flag, "--") || len(flag) < 3 {
+				return nil, fmt.Errorf("%s: %s: invalid descriptor flag %q", installed.Name(), MetadataKey, flag)
+			}
+		}
 		seen[c.Name] = true
 	}
 	return doc.Commands, nil
@@ -93,6 +109,9 @@ func Command(installed store.Installed, declared Declared, options host.Options)
 		Source:  registry.Package,
 		Version: installed.Version(),
 		Run: func(args []string, stdout, stderr io.Writer) int {
+			if declared.Transport == "socket" {
+				return runSocket(installed, declared, args, stdout, stderr)
+			}
 			return run(installed, options, declared.Name, args, stdout, stderr)
 		},
 	}

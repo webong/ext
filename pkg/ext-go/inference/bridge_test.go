@@ -3,9 +3,9 @@ package inference_test
 import (
 	"context"
 	"errors"
-	plugin "github.com/webong/ext/pkg/ext-go/engine"
-	"github.com/webong/ext/pkg/ext-go/engine/guest/author"
-	"github.com/webong/ext/pkg/ext-go/engine/transport/inprocess"
+	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/guest/author"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/transport/inprocess"
 	bridge "github.com/webong/ext/pkg/ext-go/inference"
 	domain "github.com/webong/ext/res/int/inference"
 	"testing"

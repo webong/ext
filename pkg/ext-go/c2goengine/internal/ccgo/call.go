@@ -10,8 +10,8 @@ import (
 
 	"modernc.org/libc"
 
-	plugin "github.com/webong/ext/pkg/ext-go/engine"
-	"github.com/webong/ext/pkg/ext-go/engine/endpoint"
+	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/endpoint"
 )
 
 // Available is true where this package holds the translation.

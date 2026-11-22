@@ -10,8 +10,8 @@ import (
 	"sync"
 	"unicode"
 
-	"github.com/webong/ext/ctx/internal/config"
-	modpkg "github.com/webong/ext/pkg/ext-go/engine/host/adapter"
+	"github.com/webong/ext/src/ctx/internal/config"
+	modpkg "github.com/webong/ext/pkg/ext-go/engine/plugin/host/adapter"
 	"github.com/webong/ext/res/system/service/program"
 )
 
@@ -125,7 +125,10 @@ func installerPrograms(resolver *config.Resolver, installer *modpkg.Adapter, nam
 // pathWithoutShims is PATH without the directory CTX itself lives in, where
 // command shims point back at CTX and are not programs.
 func pathWithoutShims() string {
-	self, _ := os.Executable()
+	self := os.Getenv("EXT_HOST_EXECUTABLE")
+	if self == "" {
+		self, _ = os.Executable()
+	}
 	selfDir := filepath.Dir(self)
 	var kept []string
 	for _, dir := range filepath.SplitList(os.Getenv("PATH")) {

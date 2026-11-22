@@ -1,6 +1,9 @@
 package io.github.webong.ext.plugin;
 
+import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
@@ -50,6 +53,37 @@ public final class WamrPluginHost implements AutoCloseable {
         }
     }
 
+    /** What a reverse hook answers: a JSON payload (empty is null), or a public error. */
+    public static final class ReverseReply {
+        final boolean publicError;
+        final byte[] json;
+
+        private ReverseReply(boolean publicError, byte[] json) {
+            this.publicError = publicError;
+            this.json = json;
+        }
+
+        public static ReverseReply payload(byte[] json) {
+            return new ReverseReply(false, json == null ? new byte[0] : json);
+        }
+
+        /** The JSON of a RemoteError, which the guest receives as it is if a peer would accept it. */
+        public static ReverseReply publicError(byte[] json) {
+            return new ReverseReply(true, json);
+        }
+    }
+
+    /** Serves one reverse request: the Request JSON in, a reply out; throwing reaches the guest as operation_failed. */
+    @FunctionalInterface
+    public interface ReverseHandler {
+        ReverseReply handle(byte[] request) throws Exception;
+    }
+
+    private volatile Predicate<byte[]> reverseAuthorize;
+    private volatile ReverseHandler reverseHandle;
+    private WamrRegistry sourceOf;
+    private final List<String[]> registered = new ArrayList<>();
+    private final List<WamrRegistry> registeredIn = new ArrayList<>();
     private final Predicate<byte[]> verify;
     private final Predicate<byte[]> authorize;
     private final Consumer<String> diagnostic;
@@ -108,21 +142,130 @@ public final class WamrPluginHost implements AutoCloseable {
     @Override
     public void close() {
         long current;
+        List<String[]> leaving;
+        List<WamrRegistry> leavingFrom;
+        WamrRegistry source;
         synchronized (this) {
             if (closed) {
                 return;
             }
             closed = true;
             current = handle;
+            leaving = new ArrayList<>(registered);
+            leavingFrom = new ArrayList<>(registeredIn);
+            registered.clear();
+            registeredIn.clear();
+            source = sourceOf;
+            sourceOf = null;
         }
         // Interrupt first, so a call that holds the read lock returns and the write lock is free.
         WamrNative.close(current);
+        // Calls routed here have ended with the close; unregistering waits for them.
+        for (int i = 0; i < leaving.size(); i++) {
+            leavingFrom.get(i).leave(leaving.get(i)[0], leaving.get(i)[1]);
+            leavingFrom.get(i).release();
+        }
         lock.writeLock().lock();
         try {
             handle = 0;
             WamrNative.destroy(current);
         } finally {
             lock.writeLock().unlock();
+        }
+        if (source != null) {
+            source.release();
+        }
+    }
+
+    /**
+     * Offers the guest the operations its descriptor lists under {@code reverse}, before {@link
+     * #start}. The engine admits or refuses each request with a stable code; {@code authorize} and
+     * {@code handle} get the Request JSON and are the host's policy. They run on the thread inside
+     * {@link #invoke} or {@link #call}, must not use this host, and the call's deadline keeps running
+     * while they do. Zero bounds use the defaults (30 s, 1 MiB, 4).
+     */
+    public void serve(Predicate<byte[]> authorize, ReverseHandler handle, long timeoutMilliseconds, int maxPayloadBytes,
+            int maxInFlight) throws WamrException {
+        reverseAuthorize = authorize;
+        reverseHandle = handle;
+        WamrNative.serve(live(), timeoutMilliseconds <= 0 ? 0 : milliseconds(timeoutMilliseconds), maxPayloadBytes, maxInFlight);
+    }
+
+    /**
+     * Makes this host a source of {@code registry}, in place of {@link #serve} and before {@link
+     * #start}: the guest's reverse calls are served by forward calls to the hosts registered there,
+     * along the declared edges, after {@code authorize} allowed them.
+     */
+    public void attach(WamrRegistry registry, Predicate<byte[]> authorize, long timeoutMilliseconds, int maxPayloadBytes,
+            int maxInFlight) throws WamrException {
+        reverseAuthorize = authorize;
+        WamrNative.attach(registry.handle(), live(), timeoutMilliseconds <= 0 ? 0 : milliseconds(timeoutMilliseconds),
+                maxPayloadBytes, maxInFlight);
+        registry.retain();
+        WamrRegistry previous;
+        synchronized (this) {
+            previous = sourceOf;
+            sourceOf = registry;
+        }
+        if (previous != null) {
+            previous.release();
+        }
+    }
+
+    /**
+     * Calls an operation by contract and returns the complete response envelope; the engine supplies
+     * the request's identity, surface, deadline and id. {@code payload} is JSON, or null for none.
+     */
+    public byte[] call(String contractName, String contractVersion, String operation, byte[] payload,
+            long timeoutMilliseconds) throws WamrException {
+        ByteArrayOutputStream input = new ByteArrayOutputStream();
+        String head = "{\"contract\":{\"name\":\"" + contractName + "\",\"version\":\"" + contractVersion
+                + "\"},\"operation\":\"" + operation + "\"";
+        byte[] start = head.getBytes(StandardCharsets.UTF_8);
+        input.write(start, 0, start.length);
+        if (payload != null) {
+            byte[] key = ",\"payload\":".getBytes(StandardCharsets.UTF_8);
+            input.write(key, 0, key.length);
+            input.write(payload, 0, payload.length);
+        }
+        input.write('}');
+        int timeout = milliseconds(timeoutMilliseconds);
+        lock.readLock().lock();
+        try {
+            return WamrNative.call(live(), input.toByteArray(), timeout);
+        } finally {
+            lock.readLock().unlock();
+        }
+    }
+
+    void registerIn(WamrRegistry registry, String name, String version) throws WamrException {
+        lock.readLock().lock();
+        try {
+            WamrNative.registryRegister(registry.handle(), name, version, live());
+        } finally {
+            lock.readLock().unlock();
+        }
+        registry.retain();
+        synchronized (this) {
+            registered.add(new String[] {name, version});
+            registeredIn.add(registry);
+        }
+    }
+
+    void forget(WamrRegistry registry, String name, String version) {
+        boolean found = false;
+        synchronized (this) {
+            for (int i = 0; i < registered.size(); i++) {
+                if (registeredIn.get(i) == registry && registered.get(i)[0].equals(name) && registered.get(i)[1].equals(version)) {
+                    registered.remove(i);
+                    registeredIn.remove(i);
+                    found = true;
+                    break;
+                }
+            }
+        }
+        if (found) {
+            registry.release();
         }
     }
 
@@ -156,6 +299,29 @@ public final class WamrPluginHost implements AutoCloseable {
     @SuppressWarnings("unused")
     private boolean authorize(byte[] request) {
         return authorize == null || authorize.test(request);
+    }
+
+    @SuppressWarnings("unused")
+    private boolean reverseAuthorize(byte[] request) {
+        Predicate<byte[]> check = reverseAuthorize;
+        return check != null && check.test(request);
+    }
+
+    /** A kind byte (0 payload, 1 public error) and the reply's JSON; null or a throw is a failure. */
+    @SuppressWarnings("unused")
+    private byte[] reverseHandle(byte[] request) throws Exception {
+        ReverseHandler handler = reverseHandle;
+        if (handler == null) {
+            return null;
+        }
+        ReverseReply reply = handler.handle(request);
+        if (reply == null) {
+            return null;
+        }
+        byte[] out = new byte[reply.json.length + 1];
+        out[0] = (byte) (reply.publicError ? 1 : 0);
+        System.arraycopy(reply.json, 0, out, 1, reply.json.length);
+        return out;
     }
 
     @SuppressWarnings("unused")

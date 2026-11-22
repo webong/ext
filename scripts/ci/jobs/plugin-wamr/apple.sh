@@ -17,15 +17,16 @@ ci_import_env
 # iOS Simulator
 (
 set -euo pipefail
-reactor="$RUNNER_TEMP/reactor.wasm"
+reactor="$RUNNER_TEMP/reactor.wasm" reverse_reactor="$RUNNER_TEMP/reactor_reverse.wasm"
 CARGO_TARGET_DIR="$RUNNER_TEMP/cargo" cargo build --release --locked \
-  --manifest-path pkg/ext-rust/Cargo.toml --target wasm32-wasip1 --example shared
+  --manifest-path pkg/ext-rust/Cargo.toml --target wasm32-wasip1 --example shared --example reactor_reverse
 cp "$RUNNER_TEMP/cargo/wasm32-wasip1/release/examples/shared.wasm" "$reactor"
+cp "$RUNNER_TEMP/cargo/wasm32-wasip1/release/examples/reactor_reverse.wasm" "$reverse_reactor"
 # The frameworks were built by the step above. Pick an installed iPhone simulator.
 device="$(xcrun simctl list devices available | grep -m1 -E 'iPhone' | sed -E 's/^ *(.*) \(([0-9A-F-]{36})\).*/\2/')"
 [[ -n "$device" ]] || { echo 'no iPhone simulator is installed' >&2; exit 1; }
 cd pkg/ext-darwin
-TEST_RUNNER_EXT_RUST_REACTOR="$reactor" xcodebuild test -scheme Ext-Package \
+TEST_RUNNER_EXT_RUST_REACTOR="$reactor" TEST_RUNNER_EXT_RUST_REVERSE_REACTOR="$reverse_reactor" xcodebuild test -scheme Ext-Package \
   -destination "platform=iOS Simulator,id=$device" -only-testing:ExtPluginWamrTests
 )
 ci_import_env

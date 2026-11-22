@@ -23,9 +23,9 @@ import (
 
 const siblingPrefix = "github.com/webong/ext/"
 
-// productModules are built from source with the workspace; they are not go-get
-// resolvable by design, so they are not checked here.
-var productModules = map[string]bool{"src/ctx": true, "src/ctn": true}
+// Product module versions are not yet published, so this offline check skips
+// their standalone dependency checks. The release gate checks them after tags.
+var productModules = map[string]bool{"src/ctx": true, "src/ctn": true, "src/cto": true}
 
 type workspaceModule struct {
 	dir             string

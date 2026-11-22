@@ -85,6 +85,27 @@ Product-specific provider discovery belongs in the owning adapter under
 User32, GDI or WASAPI to implement a public system API is a platform
 implementation, not a product adapter.
 
+### Streaming Apple capture audio
+
+`ExtSystem.Float32WAVStream` accepts borrowed `CMSampleBuffer` and
+`AVAudioPCMBuffer` values directly from capture callbacks. Append each buffer
+while it is valid and send the returned bytes to the destination in order. For
+example, a `SystemMediaSink` can feed system audio and microphone buffers to
+separate streams and write their chunks to reader-owned pipes. Serialize
+appending and writing for each stream if callbacks arrive on different queues.
+
+The first chunk includes an IEEE Float32 WAV header with unknown lengths for
+streaming readers. Samples are little-endian and interleaved in the input
+channel order. Each append is bounded by frame count and output bytes, including
+the first header. The first successful append fixes the sample rate and channel
+layout. Open a new stream if they change. An unsuccessful append throws
+`Float32WAVStreamError` and leaves the stream usable. At capture end or
+cancellation, call `close()` and signal EOF on the destination.
+
+This covers PCM conversion and streaming framing when a consumer needs to send
+native capture audio to a reader such as FFmpeg. Go's `capture/media.WAV`
+frames finite PCM16 data.
+
 ## The graph
 
 The graph store, the recorder that writes what these collectors find into it, and the

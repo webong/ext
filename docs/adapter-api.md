@@ -20,14 +20,14 @@ the detailed API reference.
 
 ## Entry points and compatibility
 
-`ext` is the main installer and combined entry point. Adapter management
-runs through `ext adapter …`; standalone `ctx adapter …` exposes the same
-commands. `ext ctn …` and standalone `ctn …` consume installed capabilities;
-`ctn adapter ls` lists adapters but does not install them. Both management
+`ext` is the only public executable. Adapter management
+runs through `ext adapter …`; `ext ctx adapter …` exposes the same
+commands with CTX's project selection. `ext ctn …` consumes installed capabilities;
+`ext ctn adapter ls` lists adapters but does not install them. Both management
 entry points call `pkg/ext-go/engine/host/adapter/adaptercmd`.
 
 `ext adapter doctor NAME` runs the trusted adapter's default diagnostics with
-no project selection. `ctx adapter doctor NAME` retains CTX's project selection
+no project selection. `ext ctx adapter doctor NAME` retains CTX's project selection
 and invocation policy through a callback into the shared command.
 
 These are ext adapters regardless of which product invokes them. Availability
@@ -128,7 +128,7 @@ with arguments and streams (the process protocol below), not as a JSON-line
 session, and the entrypoint's protocol is `ext.adapter/2.0`. ext validates the
 document, the contracts and the artifacts; it never interprets the metadata, and
 a metadata value never grants authority. The `ctx.adapter/v1` object belongs to
-ctx and is closed: an unknown key is an error, so a typo is not ignored. Its keys:
+ext ctx and is closed: an unknown key is an error, so a typo is not ignored. Its keys:
 
 | Key | Type | Meaning |
 | --- | --- | --- |
@@ -416,7 +416,7 @@ selection. The provider remains responsible for honoring them during `run`.
 choose a manager provider without hard-coding an engine in the core;
 multiple trusted defaults are reported as an error.
 
-ctx still loads API `1` and `1.0` manifests. Their legacy `kind` is translated
+ext ctx still loads API `1` and `1.0` manifests. Their legacy `kind` is translated
 at load time: `selector` becomes the `computer` runtime on the `shell` surface,
 `browser` becomes `browser` on `web`, and `container` becomes `manager` on
 `shell`. New and updated adapters should declare `runtime = "manager"`.
@@ -490,10 +490,10 @@ first argument and preserves the vendor's JSON stdin/stdout, stderr, and exit
 status:
 
 ~~~sh
-ctx computer hooks install claude_code --handler ./scripts/ctx-policy
-ctx computer hooks install codex --events PreToolUse,PermissionRequest --handler ./scripts/ctx-policy
-ctx computer hooks print claude_code
-ctx computer hooks remove claude_code
+ext ctx computer hooks install claude_code --handler ./scripts/ctx-policy
+ext ctx computer hooks install codex --events PreToolUse,PermissionRequest --handler ./scripts/ctx-policy
+ext ctx computer hooks print claude_code
+ext ctx computer hooks remove claude_code
 ~~~
 
 Claude Code hooks are written to `.claude/settings.local.json`; Codex hooks are
@@ -505,7 +505,7 @@ defaults to `PreToolUse,PermissionRequest`, and a later install without
 delegates to the native CLI and accepts its scope flags:
 
 ~~~sh
-ctx plugin computer claude_code install <plugin>@<marketplace> --scope project
+ext ctx plugin computer claude_code install <plugin>@<marketplace> --scope project
 ~~~
 
 The plugin command is a pass-through. Claude Code's `--scope project` targets
@@ -528,11 +528,11 @@ binding below remains the adapter transport; it does not require a JSON-line
 handshake. See [the shared plugin contract](adr-plugin-contract.md) for the
 public host API and consumer integration boundary.
 
-ctx selects `executable_windows` on Windows when it is present and otherwise uses
+ext ctx selects `executable_windows` on Windows when it is present and otherwise uses
 `executable`. Windows adapters may be `.exe`, `.cmd`, `.bat`, or `.ps1`; PowerShell
 scripts are launched without loading the user's profile.
 
-ctx invokes the selected executable with one of these forms:
+ext ctx invokes the selected executable with one of these forms:
 
 ~~~text
 ctx-example list

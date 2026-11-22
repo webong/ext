@@ -49,9 +49,9 @@ func TestNativeCookieCredentialsMacOSKeychain(t *testing.T) {
 		}
 	}
 	fixture := t.TempDir()
-	ctxBinary := filepath.Join(fixture, "ctx")
-	build(ctxBinary, "./src/ctx/cmd/ctx")
-	// Stage the keychain adapter from source and let the real ctx CLI install
+	extBinary := filepath.Join(fixture, "ext")
+	build(extBinary, "./cmd/ext")
+	// Stage the keychain adapter from source and let the real ext CLI install
 	// and trust it, mirroring the documented fixture flow.
 	staging := filepath.Join(fixture, "keychain-src")
 	if err := os.MkdirAll(staging, 0o700); err != nil {
@@ -68,12 +68,12 @@ func TestNativeCookieCredentialsMacOSKeychain(t *testing.T) {
 	adapterHome := filepath.Join(fixture, "state", "adapters")
 	ctxCtl := func(args ...string) {
 		t.Helper()
-		command := exec.Command(ctxBinary, args...)
+		command := exec.Command(extBinary, args...)
 		command.Dir = root
 		command.Env = append(os.Environ(),
 			"EXT_HOME="+filepath.Join(fixture, "state"),
 			"EXT_ADAPTER_HOME="+adapterHome,
-			"EXT_EXECUTABLE="+ctxBinary,
+			"EXT_EXECUTABLE="+extBinary,
 		)
 		if output, err := command.CombinedOutput(); err != nil {
 			t.Fatalf("ctx %v: %v: %s", args, err, output)
@@ -98,7 +98,7 @@ func TestNativeCookieCredentialsMacOSKeychain(t *testing.T) {
 		"-w", "ctx-synthetic-safe-storage-password", "-T", "/usr/bin/security", "-T", executable, keychain)
 	t.Setenv("EXT_HOME", filepath.Join(fixture, "state"))
 	t.Setenv("EXT_ADAPTER_HOME", adapterHome)
-	t.Setenv("EXT_EXECUTABLE", ctxBinary)
+	t.Setenv("EXT_EXECUTABLE", extBinary)
 	t.Setenv("EXT_DEPENDENCY_CREDENTIAL", "keychain")
 	config := Config{Name: "fixture", KeychainService: "CTX Synthetic Safe Storage", KeychainAccount: "CTX Synthetic", KeychainPath: keychain}
 	t.Setenv("EXT_BROWSER_FIXTURE_SAFE_STORAGE_PASSWORD_FILE", "")

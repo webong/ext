@@ -42,10 +42,10 @@ interpretation to the selected backend. CTX's backend requires an installed,
 trusted adapter declaring `cookie.normalize`. The CLI uses the same route:
 
 ```sh
-ctx share:browser cookie normalize --from chrome:Default --store-id 0 \
+ext ctx share:browser cookie normalize --from chrome:Default --store-id 0 \
   --from-file ./native-export.json --to-file ./normalized-cookies.json
 
-ctx share:browser cookie query --inline-only \
+ext ctx share:browser cookie query --inline-only \
   --inline-file ./normalized-cookies.json --site https://example.com \
   --to-file ./selected-cookies.json
 ```
@@ -104,11 +104,11 @@ cookie jars. The same conversions are available in Go as
 `browser.CookieHeader(cookies, site)` and `browser.NetscapeCookies(cookies)`.
 
 ```sh
-ctx share:browser cookie query --from chrome:Default \
+ext ctx share:browser cookie query --from chrome:Default \
   --site https://example.com/account --strict --require-match \
   --format header --to-file ./cookie-header.txt
 
-ctx share:browser cookie query --from firefox:personal \
+ext ctx share:browser cookie query --from firefox:personal \
   --site https://example.com --strict --require-match \
   --format netscape --to-file ./cookies.txt
 
@@ -131,10 +131,10 @@ the private-file and pipe output rules.
 ## Import a selected cookie
 
 ```sh
-ctx share:browser cookie import --from-file ./site-cookies.json \
+ext ctx share:browser cookie import --from-file ./site-cookies.json \
   --site https://example.com --name session --to-profile chrome:Default
 
-ctx share:browser cookie import --from-file ./cookies.txt \
+ext ctx share:browser cookie import --from-file ./cookies.txt \
   --site https://example.com --name session --domain .example.com \
   --path /account --to-profile chromium:Default
 ```
@@ -156,7 +156,7 @@ remain unavailable. `--replace` is required to overwrite an existing cookie.
 ## Query completion and precedence
 
 ```sh
-ctx share:browser cookie query --from firefox:personal \
+ext ctx share:browser cookie query --from firefox:personal \
   --site https://example.com --name session --strict --require-match \
   --timeout 30s --to-file ./site-cookies.json
 ```

@@ -8,7 +8,10 @@ import (
 )
 
 func FindReal(name string) (string, error) {
-	self, _ := os.Executable()
+	self := os.Getenv("EXT_HOST_EXECUTABLE")
+	if self == "" {
+		self, _ = os.Executable()
+	}
 	selfDir := filepath.Dir(self)
 	for _, dir := range filepath.SplitList(os.Getenv("PATH")) {
 		if dir == "" {

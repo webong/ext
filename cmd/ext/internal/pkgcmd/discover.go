@@ -51,3 +51,39 @@ func Discover(reg *registry.Registry, s *store.Store, trust *Trust, options host
 		}
 	}
 }
+
+// DiscoverBundled registers verified packages installed beside the ext binary.
+// This directory is part of the same release and trust boundary as that binary.
+// User installed packages remain in EXT_HOME and require explicit trust.
+func DiscoverBundled(reg *registry.Registry, root string) {
+	s, err := store.New(root, store.Limits{})
+	if err != nil {
+		reg.Note(fmt.Sprintf("bundled packages: %v", err))
+		return
+	}
+	installed, checks, err := s.ListUnverified()
+	if err != nil {
+		reg.Note(fmt.Sprintf("bundled packages: %v", err))
+		return
+	}
+	for _, check := range checks {
+		if !check.OK() {
+			reg.Note(fmt.Sprintf("bundled package %s failed verification: %v", check.ID, check.Err))
+		}
+	}
+	for _, p := range installed {
+		if err := p.Verify(); err != nil {
+			continue
+		}
+		declared, err := Declare(p)
+		if err != nil {
+			reg.Note(err.Error())
+			continue
+		}
+		for _, d := range declared {
+			if err := reg.Register(Command(p, d, host.Options{})); err != nil {
+				reg.Note(fmt.Sprintf("bundled package %s: %v", p.Name(), err))
+			}
+		}
+	}
+}

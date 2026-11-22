@@ -3,13 +3,14 @@
 ext is a toolkit for building local developer tools, plus the products built on
 it. It provides portable libraries (a plugin contract with several runtimes, a
 graph store with host and process discovery, and browser and credential
-resources), the `ext` entry point, and standalone products:
+resources), the `ext` entry point, and installed product packages:
 
-| Binary | Module | Purpose |
+| Command | Module | Purpose |
 | --- | --- | --- |
-| `ext` | `cmd/ext` | Main installation and combined command entry point for Ext packages, ctx, and ctn |
-| [`ctx`](#ctx) | `src/ctx` | Project-local contexts for the tools you already use |
-| `ctn` | `src/ctn` | Content management: `ctn verify` runs content through a sandboxed engine ([docs](docs/ctn-verify.md)); `ctn adapter ls` lists installed adapters |
+| `ext` | `cmd/ext` | The only public executable; installs and invokes Ext packages |
+| [`ext ctx`](#ctx) | `src/ctx` | Project-local contexts for the tools you already use |
+| `ext ctn` | `src/ctn` | Content management and verification ([docs](docs/ctn-verify.md)) |
+| `ext cto` | `src/cto` | Local containment and sandbox inspection |
 
 New here? [Using ext](docs/guide.md) is organised by what you want to do, with recipes that run.
 The reusable local graphical/textual shell boundary is described in
@@ -17,15 +18,30 @@ The reusable local graphical/textual shell boundary is described in
 
 Reusable libraries live in [`pkg/`](pkg/README.md) and [`res/`](res/README.md);
 product-specific behavior lives in [`adapters/`](adapters/README.md). A product
-never imports another product except `cmd/ext`, which composes their root entry
-points. Adapters are **ext adapters**: CTX and CTN consume their declared
-capabilities when installed, trusted, and available to the product, including in
-standalone mode. One adapter may serve both products.
+never imports another product. CTX, CTN and CTO remain reusable Go libraries;
+their installed packages provide commands to Ext. Adapters are **ext adapters**:
+CTX and CTN consume their declared capabilities when installed, trusted, and
+available to the product. One adapter may serve both products.
+
+Go applications can import the product libraries directly and call their public
+`Run(args, stdout, stderr) int` entrypoints:
+
+```go
+import (
+    "github.com/webong/ext/src/ctx"
+    "github.com/webong/ext/src/ctn"
+    "github.com/webong/ext/src/cto"
+)
+```
+
+These module paths become available to external projects when their module tags
+and dependencies are published. Ext itself communicates with the installed
+product packages through the plugin contract.
 
 `ext` is the main installer and combined entry point. Adapter management currently
-uses `ext adapter install|build|pack|trust …`; standalone `ctx adapter …`
-provides the same commands. CTN consumes installed adapters and exposes the
-read-only `ctn adapter ls`. `ext package install` manages command packages, not
+uses `ext adapter install|build|pack|trust …`; `ext ctx adapter …`
+provides CTX's project-aware commands. CTN consumes installed adapters and exposes the
+read-only `ext ctn adapter ls`. `ext package install` manages command packages, not
 the adapter store. See [adapter management](docs/adr-adapter-management.md).
 The rest of this file describes `ctx`.
 
@@ -37,15 +53,15 @@ shell environment for one project without changing a machine-wide default.
 
 ```sh
 cd my-project
-ctx set docker orbstack
-ctx set kube development --namespace payments
-ctx set aws client-a
-ctx set 'firefox:client-a'
+ext ctx set docker orbstack
+ext ctx set kube development --namespace payments
+ext ctx set aws client-a
+ext ctx set 'firefox:client-a'
 
 docker ps                         # ctx shim uses the project's Docker context
-ctx run kubectl get pods
-ctx run aws sts get-caller-identity
-ctx open http://localhost:3000     # opens the selected browser profile
+ext ctx run kubectl get pods
+ext ctx run aws sts get-caller-identity
+ext ctx open http://localhost:3000     # opens the selected browser profile
 ```
 
 Selections live in the project's `.ctx` file. ctx stores selectors and
@@ -68,7 +84,7 @@ capabilities. See [Build an ext adapter](docs/adapter-authoring.md) to build one
 
 ## Install
 
-The default installer installs only the ctx core. Run it from a source checkout
+The default installer installs Ext and its CTX, CTN and CTO packages. Run it from a source checkout
 with Go 1.26 or newer:
 
 ```sh
@@ -78,9 +94,8 @@ cd ext
 export PATH="$HOME/.local/bin:$PATH"
 ```
 
-Choose adapters explicitly when you need them (add `--ext` to install the `ext` command
-beside `ctx`, and `-Ext` on Windows; `ext ctx` and `ext ctn` run the same code as the
-standalone commands, and `ext package` adds commands from installed packages):
+Choose adapters explicitly when you need them. `ext package` adds commands from
+other installed packages:
 
 ```sh
 ./install.sh --adapters docker,kube,aws,firefox
@@ -97,8 +112,8 @@ Set-Location ext
 ```
 
 Omit `-Adapters` for a core-only install, or use `-Interactive` or
-`-AllAdapters`. The installer places `ctx.exe` in
-`$env:LOCALAPPDATA\Programs\ctx\bin` by default; add that directory to `PATH`.
+`-AllAdapters`. The installer places `ext.exe` and its product packages in
+`$env:LOCALAPPDATA\Programs\ext\bin` by default; add that directory to `PATH`.
 
 When a release is published, the remote installers do not require Go:
 
@@ -118,24 +133,24 @@ See [cross-platform support](docs/cross-platform.md) for platform details.
 ## Everyday use
 
 ```sh
-ctx ls docker                    # discover native contexts
-ctx set docker orbstack          # write this project's selection
-ctx status                       # show active selections
-ctx explain                      # show values and where they came from
-ctx doctor                       # check selected contexts and adapters
+ext ctx ls docker                    # discover native contexts
+ext ctx set docker orbstack          # write this project's selection
+ext ctx status                       # show active selections
+ext ctx explain                      # show values and where they came from
+ext ctx doctor                       # check selected contexts and adapters
 
-ctx profile set client-a docker orbstack
-ctx profile set client-a browser firefox:client-a
-ctx profile env client-a APP_ENV development
-ctx profile use client-a
-ctx run -- npm test              # apply profile environment to one command
-ctx shell                        # or start a child shell with that environment
+ext ctx profile set client-a docker orbstack
+ext ctx profile set client-a browser firefox:client-a
+ext ctx profile env client-a APP_ENV development
+ext ctx profile use client-a
+ext ctx run -- npm test              # apply profile environment to one command
+ext ctx shell                        # or start a child shell with that environment
 ```
 
 Installed Docker, Podman, and nerdctl adapters can place small shims before
 the native commands on `PATH`, so ordinary `docker`, `podman`, and `nerdctl`
-commands honor the project selection. `ctx real docker` shows the executable
-behind a shim. For other tools, use `ctx run <tool> ...`. Explicit native CLI
+commands honor the project selection. `ext ctx real docker` shows the executable
+behind a shim. For other tools, use `ext ctx run <tool> ...`. Explicit native CLI
 flags and environment variables take precedence over ctx.
 
 ## Managers and sharing
@@ -145,22 +160,22 @@ For example, `docker` routes Docker commands while `docker_desktop` inspects
 the Docker Desktop application. Install only the ones you use:
 
 ```sh
-ctx adapter add rancher_desktop orbstack docker_desktop
-ctx manager apps
-ctx manager app rancher_desktop doctor
-ctx manager app orbstack status
+ext ctx adapter add rancher_desktop orbstack docker_desktop
+ext ctx manager apps
+ext ctx manager app rancher_desktop doctor
+ext ctx manager app orbstack status
 ```
 
 `doctor` is read-only. `start` and `stop` are separate, explicit actions.
 You can also name an engine connection for builds and transfers:
 
 ```sh
-ctx manager add orb --virtualizer orbstack --provider docker --selection orbstack
-ctx manager add desktop --virtualizer docker-desktop --provider docker --selection desktop-linux
+ext ctx manager add orb --virtualizer orbstack --provider docker --selection orbstack
+ext ctx manager add desktop --virtualizer docker-desktop --provider docker --selection desktop-linux
 
-ctx build @orb --cache-ref ghcr.io/acme/api:docker-cache -- --tag acme/api:dev .
-ctx share:manager image copy @orb @desktop acme/api:dev
-ctx share:manager volume copy @orb @desktop app-data app-data
+ext ctx build @orb --cache-ref ghcr.io/acme/api:docker-cache -- --tag acme/api:dev .
+ext ctx share:manager image copy @orb @desktop acme/api:dev
+ext ctx share:manager volume copy @orb @desktop app-data app-data
 ```
 
 Image copy uses an archive; image sync can use a registry when both adapters
@@ -172,24 +187,24 @@ describes an engine inside a VM; it does not copy VM disks or snapshots.
 
 ## Browsers
 
-The `ctx open` command launches URLs in a selected profile of Firefox,
+The `ext ctx open` command launches URLs in a selected profile of Firefox,
 Chrome, Chromium, Edge, Brave, or Safari. Other maintained browser adapters
-may support sharing without implementing `ctx open`. Discover what a particular
-installation can do with `ctx adapter inspect <name>` and
-`ctx share:browser capabilities --from <browser:profile>`.
+may support sharing without implementing `ext ctx open`. Discover what a particular
+installation can do with `ext ctx adapter inspect <name>` and
+`ext ctx share:browser capabilities --from <browser:profile>`.
 
 Cookie queries can read supported profile stores or caller-provided exports,
 select by site/name/scope, and return JSON, an HTTP Cookie header, or a
 Netscape cookie jar where that format can preserve the cookie's scope:
 
 ```sh
-ctx share:browser cookie query --from firefox:personal \
+ext ctx share:browser cookie query --from firefox:personal \
   --site https://example.com --name session --to-file ./cookies.json
 
-ctx share:browser cookie query --browser firefox --browser chrome \
+ext ctx share:browser cookie query --browser firefox --browser chrome \
   --site https://example.com --mode first --stdout | consumer
 
-ctx share:browser cookie normalize --from chrome:Default --store-id 0 \
+ext ctx share:browser cookie normalize --from chrome:Default --store-id 0 \
   --from-file ./authorized-export.json --to-file ./normalized-cookies.json
 ```
 
@@ -206,10 +221,10 @@ native routes, manage userscripts, encode bookmarklets, and attach to a page
 whose debugging endpoint is already available:
 
 ```sh
-ctx browser manage extension prepare --target chrome:Default \
+ext ctx browser manage extension prepare --target chrome:Default \
   --input '{"source":"/path/to/extension.zip"}'
 
-ctx browser manage session targets --target chrome:Default
+ext ctx browser manage session targets --target chrome:Default
 ```
 
 Preparing or registering an extension is not proof that a browser installed or
@@ -228,9 +243,9 @@ without putting its value in `.ctx` or command arguments:
 ```sh
 ./install.sh --adapters keychain   # macOS; choose secret_service on Linux
 chmod 600 ./secret.txt
-ctx credential put 'keychain:service=ctx&account=work' --from-file ./secret.txt
-ctx credential get 'keychain:service=ctx&account=work' --stdout | consumer
-ctx credential copy 'keychain:service=ctx&account=work' \
+ext ctx credential put 'keychain:service=ctx&account=work' --from-file ./secret.txt
+ext ctx credential get 'keychain:service=ctx&account=work' --stdout | consumer
+ext ctx credential copy 'keychain:service=ctx&account=work' \
   'keychain:service=ctx&account=work-copy'
 ```
 
@@ -251,23 +266,23 @@ The optional installer catalog contains maintained adapters. After obtaining
 it with `--adapters`, `--interactive`, or `--all`, you can add more locally:
 
 ```sh
-ctx adapter available
-ctx adapter add postgres mysql
-ctx adapter ls
-ctx adapter inspect postgres
-ctx graph scan
-ctx graph shells
-ctx graph filesystems
-ctx graph webviews
-ctx graph processes
-ctx graph process <pid>
-ctx graph resolve shell --name zsh
-ctx graph resolve filesystem --path ./export.json --writable --min-free 1048576
-ctx graph resolve webview --engine webkit --api WKWebView
-ctx graph resolve browser --share cookie.list
+ext ctx adapter available
+ext ctx adapter add postgres mysql
+ext ctx adapter ls
+ext ctx adapter inspect postgres
+ext ctx graph scan
+ext ctx graph shells
+ext ctx graph filesystems
+ext ctx graph webviews
+ext ctx graph processes
+ext ctx graph process <pid>
+ext ctx graph resolve shell --name zsh
+ext ctx graph resolve filesystem --path ./export.json --writable --min-free 1048576
+ext ctx graph resolve webview --engine webkit --api WKWebView
+ext ctx graph resolve browser --share cookie.list
 ```
 
-The optional Git adapter adds `ctx run git hooks` for inspecting, installing,
+The optional Git adapter adds `ext ctx run git hooks` for inspecting, installing,
 and removing project-local hooks without changing Git's hook path or installing
 a `git` shim. See [Git hooks](docs/git-hooks.md), including Husky coexistence.
 
@@ -283,8 +298,8 @@ discovery evidence. These commands emit JSON and refresh their graph records;
 one process’s files, mappings, sockets, and usage where supported. Both report
 collection coverage and work without adapters. `graph scan` refreshes host and
 process inventories alongside adapter inventory. Inspect
-stored records with `ctx graph vertices shell`, `ctx graph vertices filesystem`,
-or `ctx graph vertices webview`.
+stored records with `ext ctx graph vertices shell`, `ext ctx graph vertices filesystem`,
+or `ext ctx graph vertices webview`.
 Host resolution matches operation requirements and refreshes stale observations.
 Shell launches and protected file exports use graph preparation to validate the
 selected executable or destination before use. Explicit choices take precedence.
@@ -295,12 +310,12 @@ Third-party adapters use the same API. Installing one directly leaves it
 untrusted until you review and trust it:
 
 ```sh
-ctx adapter test ./my-adapter
-ctx adapter install ./my-adapter
-ctx adapter trust my-adapter
+ext ctx adapter test ./my-adapter
+ext ctx adapter install ./my-adapter
+ext ctx adapter trust my-adapter
 ```
 
-A bare ctx binary can install a prebuilt `.ctxadapter` archive or a
+Ext with its CTX package can install a prebuilt `.ctxadapter` archive or a
 checksum-pinned HTTPS adapter index without Go. The system graph records
 observations from installed, trusted adapters; it does not assume every tool
 is present. See [adapter packaging](docs/adapter-api.md#binary-packages-and-go-builds)

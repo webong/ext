@@ -1,4 +1,4 @@
 @echo off
 rem ctx native Windows shim for nerdctl/containerd
-"%~dp0ctx.exe" run nerdctl %*
+"%~dp0ext.exe" ctx run nerdctl %*
 exit /b %ERRORLEVEL%

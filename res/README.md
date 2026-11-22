@@ -11,7 +11,6 @@ policy. `web/host` depends only on the standard library and wazero; `system` dep
 | [`web`](web/README.md) | `github.com/webong/ext/res/web/host` | Portable web contracts and workflows: browser cookies, extensions, userscripts and sessions, the web engine, and protocol-neutral WebAssembly execution. A container: the Go module is `web/host`, beside the iOS (`web/ios`), Android (`web/android`) and WebView2 (`web/windows`) modules. The browser-extension JavaScript library is [`pkg/ext-web`](../pkg/ext-web/README.md) |
 | [`system`](system/README.md) | `github.com/webong/ext/res/system` | Local graphical and textual shell substrate: surfaces, capture, media, volumes, clipboard, credential integration, network-state observation, process supervision, and system observation. Depends only on `golang.org/x/sys` |
 | [`int`](int/README.md) | `github.com/webong/ext/res/int` | Portable model, inference, perception, and real-time intelligence contracts and mechanisms |
-| [`sandbox`](sandbox/README.md) | `github.com/webong/ext/res/sandbox` | The sandbox contract shared with workload: boundary levels, policy, grants, capabilities and reports. Data and rules only; standard library only |
 
 All resource modules are listed in the root `go.work`, so the repository still builds as one
 workspace while each module stays independently consumable.

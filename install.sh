@@ -1,223 +1,93 @@
 #!/usr/bin/env sh
+# Install the ext CLI and its first-party command packages.
 set -eu
 
-DST_BIN=${EXT_BIN_DIR:-$HOME/.local/bin}
-# One home for every ext product. EXT_HOME overrides it, and an existing
-# ~/.config/ctx installation keeps being used until ~/.config/ext exists.
-if [ -n "${EXT_HOME:-}" ]; then CONFIG_DIR=$EXT_HOME
-elif [ -d "$HOME/.config/ext" ] || [ ! -d "$HOME/.config/ctx" ]; then CONFIG_DIR=$HOME/.config/ext
-else CONFIG_DIR=$HOME/.config/ctx
-fi
-VERSION=${CTX_VERSION:-latest}
-CATALOG_ADAPTERS='docker podman nerdctl apple rancher_desktop orbstack docker_desktop firefox zen floorp waterfox librewolf chrome chromium edge brave safari vivaldi opera whale arc comet dia atlas helium kube aws gcloud postgres mysql php python node homebrew nvm xcode jvm wasm evm claude_code codex git'
-case "$(uname -s)" in
-  Darwin) CREDENTIAL_ADAPTER=keychain ;;
-  Linux) CREDENTIAL_ADAPTER=secret_service ;;
-  *) CREDENTIAL_ADAPTER= ;;
-esac
-if [ -n "$CREDENTIAL_ADAPTER" ]; then CATALOG_ADAPTERS="$CATALOG_ADAPTERS $CREDENTIAL_ADAPTER"; fi
-SETUP_MODE=minimal
-SETUP_CHOSEN=0
-INSTALL_EXT=0
-SETUP_ADAPTERS=
+BIN_DIR=${EXT_BIN_DIR:-"$HOME/.local/bin"}
+CONFIG_DIR=${EXT_HOME:-"$HOME/.config/ext"}
+VERSION=${EXT_VERSION:-}
+SETUP=
+ADAPTERS=
 while [ "$#" -gt 0 ]; do
   case "$1" in
-    --all) [ "$SETUP_CHOSEN" -eq 0 ] || { printf 'ctx: choose only one adapter selection mode\n' >&2; exit 2; }; SETUP_MODE=all; SETUP_CHOSEN=1 ;;
-    --minimal) [ "$SETUP_CHOSEN" -eq 0 ] || { printf 'ctx: choose only one adapter selection mode\n' >&2; exit 2; }; SETUP_MODE=minimal; SETUP_CHOSEN=1 ;;
-    --interactive) [ "$SETUP_CHOSEN" -eq 0 ] || { printf 'ctx: choose only one adapter selection mode\n' >&2; exit 2; }; SETUP_MODE=interactive; SETUP_CHOSEN=1 ;;
-    --adapters) [ "$SETUP_CHOSEN" -eq 0 ] && [ "$#" -ge 2 ] || { printf 'ctx: --adapters needs a comma-separated value\n' >&2; exit 2; }; SETUP_MODE=selected; SETUP_CHOSEN=1; SETUP_ADAPTERS=$2; shift ;;
-    --adapters=*) [ "$SETUP_CHOSEN" -eq 0 ] || { printf 'ctx: choose only one adapter selection mode\n' >&2; exit 2; }; SETUP_MODE=selected; SETUP_CHOSEN=1; SETUP_ADAPTERS=${1#--adapters=} ;;
-    --ext) INSTALL_EXT=1 ;;
-    *) printf 'ctx: unknown installer option: %s\n' "$1" >&2; exit 2 ;;
+    --version) VERSION=${2:?--version needs a value}; shift ;;
+    --all|--minimal|--interactive) SETUP=${1#--} ;;
+    --adapters) SETUP=adapters; ADAPTERS=${2:?--adapters needs a value}; shift ;;
+    --adapters=*) SETUP=adapters; ADAPTERS=${1#--adapters=} ;;
+    --ext) ;; # accepted by older source-install instructions
+    *) printf 'ext: unknown installer option: %s\n' "$1" >&2; exit 2 ;;
   esac
   shift
 done
-if [ "$SETUP_MODE" = interactive ] && ! ( : </dev/tty >/dev/tty ) 2>/dev/null; then
-  printf 'ctx: --interactive requires a terminal; use --adapters or --minimal\n' >&2
-  exit 2
-fi
 
-ROOT=
-if [ -z "${CTX_RELEASE_BASE:-}" ] && [ -f "$0" ]; then
-  candidate=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-  if [ -f "$candidate/src/ctx/cmd/ctx/main.go" ]; then ROOT=$candidate; fi
-fi
+ROOT=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+TMP=$(mktemp -d "${TMPDIR:-/tmp}/ext-install.XXXXXX")
+trap 'rm -rf "$TMP"' EXIT HUP INT TERM
+BUNDLE="$TMP/ext"
 
-temporary=$(mktemp -d "${TMPDIR:-/tmp}/ctx-install.XXXXXX")
-trap 'rm -rf "$temporary"' EXIT HUP INT TERM
-bundle="$temporary/ctx"
-
-if [ -n "$ROOT" ]; then
-  command -v go >/dev/null 2>&1 || { printf 'ctx: Go is required when installing from source\n' >&2; exit 1; }
-  mkdir -p "$bundle/bin"
-  (cd "$ROOT" && go build -o "$bundle/bin/ctx" ./src/ctx/cmd/ctx)
+if [ -f "$ROOT/cmd/ext/main.go" ] && [ "${EXT_INSTALL_SOURCE:-1}" = 1 ]; then
+  command -v go >/dev/null 2>&1 || { printf 'ext: Go is required for source installation\n' >&2; exit 1; }
+  OS=$(go env GOOS)
+  ARCH=$(go env GOARCH)
+  mkdir -p "$BUNDLE/bin/ext-packages"
+  (cd "$ROOT" && CGO_ENABLED=0 go build -trimpath -ldflags '-s -w' -o "$BUNDLE/bin/ext" ./cmd/ext)
+  for product in ctx ctn cto; do
+    package_dir="$BUNDLE/bin/ext-packages/ext%2f$product"
+    mkdir -p "$package_dir"
+    (cd "$ROOT" && CGO_ENABLED=0 go build -trimpath -ldflags '-s -w' -o "$package_dir/$product" "./src/$product/plugin")
+    (cd "$ROOT" && go run ./cmd/ext/tools/package-product "$product" dev "$OS" "$ARCH" "$package_dir/$product")
+  done
 else
-  command -v curl >/dev/null 2>&1 || { printf 'ctx: curl is required for remote installation\n' >&2; exit 1; }
-  os=$(uname -s)
-  case "$os" in Darwin) os=darwin;; Linux) os=linux;; *) printf 'ctx: unsupported operating system: %s\n' "$os" >&2; exit 1;; esac
-  arch=$(uname -m)
-  case "$arch" in x86_64|amd64) arch=amd64;; arm64|aarch64) arch=arm64;; *) printf 'ctx: unsupported architecture: %s\n' "$arch" >&2; exit 1;; esac
-  asset="ctx-$os-$arch.tar.gz"
-  if [ -n "${CTX_RELEASE_BASE:-}" ]; then
-    release_base=${CTX_RELEASE_BASE%/}
-  else
-    if [ "$VERSION" = latest ]; then
-      # GitHub's "latest" is repository-wide and may be another product's release.
-      tag=$(curl -fsSL "https://api.github.com/repos/webong/ext/releases?per_page=100" |
-        grep -o '"tag_name": *"ctx-v[^"]*"' | head -n 1 | sed 's/.*"\(ctx-v[^"]*\)"/\1/')
-      [ -n "$tag" ] || { printf 'ctx: no ctx release was found\n' >&2; exit 1; }
-    else
-      case "$VERSION" in ctx-v*) tag=$VERSION;; v*) tag=ctx-$VERSION;; *) tag=ctx-v$VERSION;; esac
-    fi
-    release_base="https://github.com/webong/ext/releases/download/$tag"
+  command -v curl >/dev/null 2>&1 || { printf 'ext: curl is required for remote installation\n' >&2; exit 1; }
+  OS=$(uname -s | tr '[:upper:]' '[:lower:]')
+  ARCH=$(uname -m)
+  case "$ARCH" in x86_64|amd64) ARCH=amd64;; aarch64|arm64) ARCH=arm64;; *) printf 'ext: unsupported architecture %s\n' "$ARCH" >&2; exit 1;; esac
+  case "$OS" in darwin|linux) ;; *) printf 'ext: unsupported operating system %s\n' "$OS" >&2; exit 1;; esac
+  if [ -z "$VERSION" ]; then
+    VERSION=$(curl -fsSL 'https://api.github.com/repos/webong/ext/releases?per_page=100' |
+      grep -o '"tag_name": *"ext-v[^"]*"' | head -n 1 | sed 's/.*"ext-v\([^"]*\)"/\1/')
+    [ -n "$VERSION" ] || { printf 'ext: no ext release was found\n' >&2; exit 1; }
   fi
-  archive="$temporary/$asset"
-  curl -fsSL "$release_base/$asset" -o "$archive"
-  curl -fsSL "$release_base/checksums.txt" -o "$temporary/checksums.txt"
-  expected=$(awk -v asset="$asset" '$2 == asset || $2 == "*" asset { print $1; exit }' "$temporary/checksums.txt")
-  [ -n "$expected" ] || { printf 'ctx: release checksum is missing for %s\n' "$asset" >&2; exit 1; }
-  if command -v shasum >/dev/null 2>&1; then actual=$(shasum -a 256 "$archive" | awk '{print $1}')
-  elif command -v sha256sum >/dev/null 2>&1; then actual=$(sha256sum "$archive" | awk '{print $1}')
-  else printf 'ctx: shasum or sha256sum is required to verify the release\n' >&2; exit 1
-  fi
-  [ "$actual" = "$expected" ] || { printf 'ctx: release checksum verification failed for %s\n' "$asset" >&2; exit 1; }
-  tar -xzf "$archive" -C "$temporary"
+  VERSION=${VERSION#ext-v}
+  VERSION=${VERSION#v}
+  ASSET="ext-$OS-$ARCH.tar.gz"
+  BASE=${EXT_RELEASE_BASE:-"https://github.com/webong/ext/releases/download/ext-v$VERSION"}
+  case "$BASE" in
+    file://*) cp "${BASE#file://}/$ASSET" "$TMP/$ASSET"; cp "${BASE#file://}/checksums.txt" "$TMP/checksums.txt" ;;
+    *) curl -fsSL "$BASE/$ASSET" -o "$TMP/$ASSET"; curl -fsSL "$BASE/checksums.txt" -o "$TMP/checksums.txt" ;;
+  esac
+  EXPECTED=$(awk -v asset="$ASSET" '$2 == asset {print $1}' "$TMP/checksums.txt")
+  [ -n "$EXPECTED" ] || { printf 'ext: checksum missing for %s\n' "$ASSET" >&2; exit 1; }
+  if command -v shasum >/dev/null 2>&1; then ACTUAL=$(shasum -a 256 "$TMP/$ASSET" | awk '{print $1}')
+  else ACTUAL=$(sha256sum "$TMP/$ASSET" | awk '{print $1}'); fi
+  [ "$EXPECTED" = "$ACTUAL" ] || { printf 'ext: checksum mismatch for %s\n' "$ASSET" >&2; exit 1; }
+  tar -C "$TMP" -xzf "$TMP/$ASSET"
 fi
 
-if [ "$INSTALL_EXT" = 1 ]; then
-  ext_target="$DST_BIN/ext"
-  if [ -e "$ext_target" ] || [ -L "$ext_target" ]; then
-    "$ext_target" version 2>/dev/null | grep -Eq '^ext ' || { printf 'ext: %s exists; choose another EXT_BIN_DIR\n' "$ext_target" >&2; exit 1; }
-  fi
-  if [ -n "$ROOT" ]; then
-    (cd "$ROOT" && go build -o "$temporary/ext-binary" ./cmd/ext)
-  else
-    ext_asset="ext-$os-$arch.tar.gz"
-    if [ -n "${CTX_RELEASE_BASE:-}" ]; then
-      ext_base=${CTX_RELEASE_BASE%/}
-    else
-      ext_version=${EXT_VERSION:-latest}
-      if [ "$ext_version" = latest ]; then
-        # GitHub's "latest" is repository-wide and may be another product's release.
-        ext_tag=$(curl -fsSL "https://api.github.com/repos/webong/ext/releases?per_page=100" |
-          grep -o '"tag_name": *"ext-v[^"]*"' | head -n 1 | sed 's/.*"\(ext-v[^"]*\)"/\1/')
-        [ -n "$ext_tag" ] || { printf 'ext: no ext release was found\n' >&2; exit 1; }
-      else
-        case "$ext_version" in ext-v*) ext_tag=$ext_version;; v*) ext_tag=ext-$ext_version;; *) ext_tag=ext-v$ext_version;; esac
-      fi
-      ext_base="https://github.com/webong/ext/releases/download/$ext_tag"
-    fi
-    curl -fsSL "$ext_base/$ext_asset" -o "$temporary/$ext_asset"
-    curl -fsSL "$ext_base/checksums.txt" -o "$temporary/ext-checksums.txt"
-    expected=$(awk -v asset="$ext_asset" '$2 == asset || $2 == "*" asset { print $1; exit }' "$temporary/ext-checksums.txt")
-    [ -n "$expected" ] || { printf 'ext: release checksum is missing for %s\n' "$ext_asset" >&2; exit 1; }
-    if command -v shasum >/dev/null 2>&1; then actual=$(shasum -a 256 "$temporary/$ext_asset" | awk '{print $1}')
-    elif command -v sha256sum >/dev/null 2>&1; then actual=$(sha256sum "$temporary/$ext_asset" | awk '{print $1}')
-    else printf 'ext: shasum or sha256sum is required to verify the release\n' >&2; exit 1
-    fi
-    [ "$actual" = "$expected" ] || { printf 'ext: release checksum verification failed for %s\n' "$ext_asset" >&2; exit 1; }
-    tar -xzf "$temporary/$ext_asset" -C "$temporary"
-    mv "$temporary/ext/bin/ext" "$temporary/ext-binary"
-  fi
+[ -x "$BUNDLE/bin/ext" ] && [ -d "$BUNDLE/bin/ext-packages" ] || {
+  printf 'ext: bundle is missing the CLI or product packages\n' >&2; exit 1;
+}
+mkdir -p "$BIN_DIR" "$CONFIG_DIR"
+if [ -e "$BIN_DIR/ext" ] && ! "$BIN_DIR/ext" version >/dev/null 2>&1; then
+  printf 'ext: %s exists and is not an ext executable\n' "$BIN_DIR/ext" >&2; exit 1
 fi
+cp "$BUNDLE/bin/ext" "$BIN_DIR/ext"
+chmod +x "$BIN_DIR/ext"
+rm -rf "$BIN_DIR/ext-packages"
+cp -R "$BUNDLE/bin/ext-packages" "$BIN_DIR/ext-packages"
+EXT_HOME="$CONFIG_DIR" "$BIN_DIR/ext" commands >/dev/null
 
-if [ "$SETUP_MODE" != minimal ]; then
-  if [ -n "$ROOT" ]; then
-    mkdir -p "$bundle/adapters"
-    for adapter in $CATALOG_ADAPTERS; do cp -R "$ROOT/adapters/$adapter" "$bundle/adapters/$adapter"; done
-    (cd "$ROOT" && go build -o "$bundle/adapters/git/ctx-git" ./adapters/git/native)
-    rm -rf "$bundle/adapters/git/native"
-    (cd "$ROOT" && go build -o "$bundle/adapters/wasm/ctx-wasm" ./adapters/wasm/native)
-    rm -rf "$bundle/adapters/wasm/native"
-    (cd "$ROOT" && go build -o "$bundle/adapters/evm/ctx-evm" ./adapters/evm/native)
-    rm -rf "$bundle/adapters/evm/native"
-    for adapter in firefox zen floorp waterfox librewolf chrome chromium edge brave safari vivaldi opera whale arc comet dia atlas helium; do
-      (cd "$ROOT" && go build -o "$bundle/adapters/$adapter/ctx-$adapter-share" "./adapters/$adapter/native")
-      rm -rf "$bundle/adapters/$adapter/native"
+if [ -n "$SETUP" ]; then
+  if [ -f "$ROOT/cmd/ext/main.go" ]; then
+    mkdir -p "$CONFIG_DIR/catalog/adapters"
+    for source in "$ROOT"/adapters/*; do
+      [ -d "$source" ] || continue
+      cp -R "$source" "$CONFIG_DIR/catalog/adapters/$(basename "$source")"
     done
-    if [ -n "$CREDENTIAL_ADAPTER" ]; then
-      (cd "$ROOT" && go build -o "$bundle/adapters/$CREDENTIAL_ADAPTER/ctx-$(printf '%s' "$CREDENTIAL_ADAPTER" | tr _ -)" "./adapters/$CREDENTIAL_ADAPTER/native")
-      rm -rf "$bundle/adapters/$CREDENTIAL_ADAPTER/native" "$bundle/adapters/$CREDENTIAL_ADAPTER/store"
-    fi
-    rm -rf "$bundle/adapters/chromium/engine"
-		rm -rf "$bundle/adapters/firefox/engine"
-  else
-    catalog_asset="ctx-adapters-$os-$arch.tar.gz"
-    catalog_archive="$temporary/$catalog_asset"
-    curl -fsSL "$release_base/$catalog_asset" -o "$catalog_archive"
-    expected=$(awk -v asset="$catalog_asset" '$2 == asset || $2 == "*" asset { print $1; exit }' "$temporary/checksums.txt")
-    [ -n "$expected" ] || { printf 'ctx: release checksum is missing for %s\n' "$catalog_asset" >&2; exit 1; }
-    if command -v shasum >/dev/null 2>&1; then actual=$(shasum -a 256 "$catalog_archive" | awk '{print $1}')
-    else actual=$(sha256sum "$catalog_archive" | awk '{print $1}'); fi
-    [ "$actual" = "$expected" ] || { printf 'ctx: release checksum verification failed for %s\n' "$catalog_asset" >&2; exit 1; }
-    tar -xzf "$catalog_archive" -C "$temporary"
   fi
+  case "$SETUP" in
+    all|minimal) EXT_HOME="$CONFIG_DIR" EXT_BIN_DIR="$BIN_DIR" "$BIN_DIR/ext" ctx setup "--$SETUP" ;;
+    adapters) EXT_HOME="$CONFIG_DIR" EXT_BIN_DIR="$BIN_DIR" "$BIN_DIR/ext" ctx setup --adapters "$ADAPTERS" ;;
+    interactive) EXT_HOME="$CONFIG_DIR" EXT_BIN_DIR="$BIN_DIR" "$BIN_DIR/ext" ctx setup ;;
+  esac
 fi
-
-[ -x "$bundle/bin/ctx" ] || { printf 'ctx: native bundle is missing ctx\n' >&2; exit 1; }
-target="$DST_BIN/ctx"
-if [ -e "$target" ] || [ -L "$target" ]; then
-  "$target" version 2>/dev/null | grep -Eq '^ctx ' || { printf 'ctx: %s exists; choose another EXT_BIN_DIR\n' "$target" >&2; exit 1; }
-fi
-
-MIGRATE_ADAPTERS=
-for adapter in docker podman nerdctl; do
-  shim="$DST_BIN/$adapter"
-  if { [ -e "$shim" ] || [ -L "$shim" ]; } && \
-    dd if="$shim" bs=256 count=1 2>/dev/null | grep -Eq 'ctx wrapper|dctx shim'; then
-    MIGRATE_ADAPTERS="$MIGRATE_ADAPTERS $adapter"
-  fi
-done
-
-mkdir -p "$DST_BIN" "$CONFIG_DIR/adapters"
-cp "$bundle/bin/ctx" "$DST_BIN/ctx"
-chmod +x "$DST_BIN/ctx"
-
-if [ "$INSTALL_EXT" = 1 ]; then
-  cp "$temporary/ext-binary" "$DST_BIN/ext"
-  chmod +x "$DST_BIN/ext"
-fi
-
-if [ "$SETUP_MODE" != minimal ]; then
-  mkdir -p "$CONFIG_DIR/catalog/adapters"
-  for adapter in $CATALOG_ADAPTERS; do
-    source_adapter="$bundle/adapters/$adapter"
-    target_adapter="$CONFIG_DIR/catalog/adapters/$adapter"
-    if [ -e "$target_adapter" ]; then rm -rf "$target_adapter"; fi
-    cp -R "$source_adapter" "$target_adapter"
-  done
-  EXT_HOME="$CONFIG_DIR" EXT_BIN_DIR="$DST_BIN" "$DST_BIN/ctx" adapter refresh >/dev/null
-  for adapter in $MIGRATE_ADAPTERS; do
-    rm -f "$DST_BIN/$adapter"
-    EXT_HOME="$CONFIG_DIR" EXT_BIN_DIR="$DST_BIN" "$DST_BIN/ctx" adapter add "$adapter" >/dev/null
-  done
-elif [ -n "$MIGRATE_ADAPTERS" ]; then
-  printf 'Legacy shims were preserved; rerun with --adapters to migrate them.\n'
-fi
-
-case "$SETUP_MODE" in
-  all) EXT_HOME="$CONFIG_DIR" EXT_BIN_DIR="$DST_BIN" "$DST_BIN/ctx" setup --all ;;
-  minimal) : ;;
-  selected) EXT_HOME="$CONFIG_DIR" EXT_BIN_DIR="$DST_BIN" "$DST_BIN/ctx" setup --adapters "$SETUP_ADAPTERS" ;;
-  interactive)
-    EXT_HOME="$CONFIG_DIR" EXT_BIN_DIR="$DST_BIN" "$DST_BIN/ctx" setup </dev/tty >/dev/tty
-    ;;
-esac
-
-if [ ! -f "$CONFIG_DIR/config.toml" ]; then
-  printf '%s\n' '# ctx configuration' '# docker_default = "desktop-linux"' '# podman_default = "podman-machine-default"' '# nerdctl_default = "default"' > "$CONFIG_DIR/config.toml"
-fi
-
-if [ "$SETUP_MODE" = minimal ]; then
-  printf 'Installed ctx core in %s (no adapter catalog downloaded).\n' "$DST_BIN"
-else
-  printf 'Installed ctx and the optional adapter catalog in %s\n' "$DST_BIN"
-fi
-if [ "$INSTALL_EXT" = 1 ]; then printf 'Installed ext in %s\n' "$DST_BIN"; fi
-printf 'Config: %s/config.toml\n' "$CONFIG_DIR"
-case ":$PATH:" in *":$DST_BIN:"*) ;; *) printf 'Add %s before Docker, Podman, and nerdctl on PATH.\n' "$DST_BIN";; esac
-for rc in "$HOME/.zshrc" "$HOME/.bashrc"; do
-  if [ -f "$rc" ] && grep -q 'dctx hook' "$rc"; then
-    printf 'Old dctx shell hook found in %s; remove that line so it cannot override ctx.\n' "$rc"
-  fi
-done
+printf 'Installed ext and its CTX, CTN and CTO packages in %s\n' "$BIN_DIR"

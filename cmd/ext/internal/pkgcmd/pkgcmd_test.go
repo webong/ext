@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"net"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -31,8 +33,8 @@ func descriptor() plugin.Descriptor {
 // TestMain turns the test binary into the guest when PKGCMD_CHILD is set, the same
 // way the host package's own tests do.
 func TestMain(m *testing.M) {
-	if os.Getenv("PKGCMD_CHILD") == "1" {
-		err := jsonline.ServeFunc(context.Background(), descriptor(), func(ctx context.Context, method string, payload json.RawMessage) (any, error) {
+	if os.Getenv("PKGCMD_CHILD") == "1" || os.Getenv("EXT_COMMAND_ADDR") != "" {
+		fn := func(ctx context.Context, method string, payload json.RawMessage) (any, error) {
 			var req request
 			if err := json.Unmarshal(payload, &req); err != nil {
 				return nil, err
@@ -55,9 +57,31 @@ func TestMain(m *testing.M) {
 			case "where":
 				report("out", req.Dir+"\n")
 				return response{}, nil
+			case "pipe":
+				for i := 0; i < 1000; i++ {
+					fmt.Fprintln(os.Stdout, "line")
+				}
+				return response{}, nil
 			}
 			return nil, fmt.Errorf("unknown command %q", req.Command)
-		}, jsonline.FuncOptions{})
+		}
+		var err error
+		if address := os.Getenv("EXT_COMMAND_ADDR"); address != "" {
+			var conn net.Conn
+			conn, err = net.Dial("tcp", address)
+			if err == nil {
+				_, err = io.WriteString(conn, os.Getenv("EXT_COMMAND_TOKEN")+"\n")
+			}
+			if err == nil {
+				var guest *plugin.Guest
+				guest, err = jsonline.NewFuncGuest(descriptor(), fn, jsonline.FuncOptions{})
+				if err == nil {
+					err = jsonline.ServeGuest(context.Background(), conn, guest)
+				}
+			}
+		} else {
+			err = jsonline.ServeFunc(context.Background(), descriptor(), fn, jsonline.FuncOptions{})
+		}
 		if err != nil {
 			os.Exit(1)
 		}
@@ -216,6 +240,38 @@ func TestRunStreamsOutputAndReturnsTheExitCode(t *testing.T) {
 	cwd, _ := os.Getwd()
 	if _, out, _ := runCommand(t, reg, "where"); strings.TrimSpace(out) != cwd {
 		t.Fatalf("dir = %q, want %q", out, cwd)
+	}
+}
+
+func TestSocketTransportRunsInstalledPackage(t *testing.T) {
+	home := t.TempDir()
+	installed := install(t, filepath.Join(home, "commands"), "1.0.0", `{"commands":[{"name":"echo","transport":"socket"}]}`)
+	trust, err := LoadTrust(home)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := trust.Trust(installed); err != nil {
+		t.Fatal(err)
+	}
+	code, out, errOut := runCommand(t, discover(t, home), "echo", "socket")
+	if code != 0 || out != "" || errOut != "" {
+		t.Fatalf("socket = %d %q %q", code, out, errOut)
+	}
+}
+
+func TestSocketTransportTreatsClosedPipelineAsSIGPIPE(t *testing.T) {
+	home := t.TempDir()
+	installed := install(t, filepath.Join(home, "commands"), "1.0.0", `{"commands":[{"name":"pipe","transport":"socket"}]}`)
+	reader, writer, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = reader.Close()
+	defer writer.Close()
+	var stderr bytes.Buffer
+	code := runSocket(installed, Declared{Name: "pipe", Transport: "socket"}, nil, writer, &stderr)
+	if code != 141 || stderr.Len() != 0 {
+		t.Fatalf("closed pipeline = exit %d, stderr %q", code, stderr.String())
 	}
 }
 

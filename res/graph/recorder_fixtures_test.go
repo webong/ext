@@ -24,7 +24,15 @@ import (
 // records into each step's expect.
 var updateRecorderFixtures = flag.Bool("update", false, "rewrite the expectations of testdata/recorder/v1/cases.json")
 
-const recorderFixtures = "testdata/recorder/v1"
+// recorderFixtures is lib/ledger/testdata/recorder/v1, beside the store's fixtures.
+func recorderFixtures(t *testing.T) string {
+	t.Helper()
+	store, err := storetest.Dir()
+	if err != nil {
+		t.Skip(err)
+	}
+	return filepath.Join(store, "..", "..", "recorder", "v1")
+}
 
 type fixtureEnvironment struct {
 	Now             time.Time         `json:"now"`
@@ -253,7 +261,7 @@ func asFixtureJSON(v any) (any, error) {
 }
 
 func TestRecorderFixtures(t *testing.T) {
-	path := filepath.Join(recorderFixtures, "cases.json")
+	path := filepath.Join(recorderFixtures(t), "cases.json")
 	data, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)
@@ -364,7 +372,7 @@ func writeRecorderFixtures(t *testing.T, path string, file recorderFile) {
 
 // The vocabulary fixture is Schema(), normalised.
 func TestRecorderVocabularyFixture(t *testing.T) {
-	path := filepath.Join(recorderFixtures, "vocabulary.json")
+	path := filepath.Join(recorderFixtures(t), "vocabulary.json")
 	if *updateRecorderFixtures {
 		schema := store.NormalizeSchema(Schema())
 		encoded, _ := json.MarshalIndent(map[string]any{

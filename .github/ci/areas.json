@@ -1020,8 +1020,8 @@
       "main_paths": [
         "lib/ledger/**",
         "res/graph/store/sqlite/**",
-        "res/graph/testdata/recorder/**",
-        "res/graph/testdata/store/**",
+        "lib/ledger/testdata/recorder/**",
+        "lib/ledger/testdata/store/**",
         "scripts/ci/jobs/ledger/**",
         "scripts/ledger-sqlite-cross.sh",
         "scripts/ledger-test.sh"
@@ -1029,8 +1029,8 @@
       "pr_paths": [
         "lib/ledger/**",
         "res/graph/store/sqlite/**",
-        "res/graph/testdata/recorder/**",
-        "res/graph/testdata/store/**",
+        "lib/ledger/testdata/recorder/**",
+        "lib/ledger/testdata/store/**",
         "scripts/ci/jobs/ledger/**",
         "scripts/ledger-sqlite-cross.sh",
         "scripts/ledger-test.sh"

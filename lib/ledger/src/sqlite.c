@@ -1,5 +1,5 @@
 /* The optional SQLite backend: one database laid out as
- * res/graph/testdata/store/v1/tables.json says, the layout the Go store in
+ * lib/ledger/testdata/store/v1/tables.json says, the layout the Go store in
  * res/graph/store/sqlite writes, so either opens the other's database. Like
  * every backend it keeps the state in memory; it catches up with other
  * connections when SQLite's data_version moves. Built with EXT_LEDGER_SQLITE. */

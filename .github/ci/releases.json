@@ -367,65 +367,6 @@
       "registry": null,
       "distribute": true
     },
-    "ctx": {
-      "tag_prefixes": [
-        "ctx-v"
-      ],
-      "pr_paths": null,
-      "version_default": null,
-      "publishes": "ctx binaries (GitHub release)",
-      "build": [
-        {
-          "name": "ctx build (amd64)",
-          "runner": "macos-15-intel",
-          "script": "scripts/release/ctx/build.sh",
-          "vars": {
-            "ARCH": "amd64",
-            "RUNNER": "macos-15-intel"
-          },
-          "setup": {
-            "go": "1.26.x",
-            "go_cache": "true"
-          },
-          "artifact": "release-ctx-amd64"
-        },
-        {
-          "name": "ctx build (arm64)",
-          "runner": "macos-15",
-          "script": "scripts/release/ctx/build.sh",
-          "vars": {
-            "ARCH": "arm64",
-            "RUNNER": "macos-15"
-          },
-          "setup": {
-            "go": "1.26.x",
-            "go_cache": "true"
-          },
-          "artifact": "release-ctx-arm64"
-        }
-      ],
-      "publish_setup": {
-        "go": "1.26.x",
-        "go_cache": "true"
-      },
-      "registry": null,
-      "distribute": false
-    },
-    "ctn": {
-      "tag_prefixes": [
-        "ctn-v"
-      ],
-      "pr_paths": null,
-      "version_default": null,
-      "publishes": "ctn binaries (GitHub release)",
-      "build": [],
-      "publish_setup": {
-        "go": "1.26.x",
-        "go_cache": "true"
-      },
-      "registry": null,
-      "distribute": false
-    },
     "ext": {
       "tag_prefixes": [
         "ext-v"

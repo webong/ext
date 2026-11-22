@@ -12,7 +12,11 @@ if [ -z "$docker" ] && [ -x /Applications/Docker.app/Contents/Resources/bin/dock
   docker=/Applications/Docker.app/Contents/Resources/bin/docker
 fi
 if [ -z "$docker" ] && [ -n "${EXT_EXECUTABLE:-}" ]; then
-  docker=$("$EXT_EXECUTABLE" real docker 2>/dev/null || :)
+  if [ -n "${EXT_PRODUCT_PREFIX:-}" ]; then
+    docker=$("$EXT_EXECUTABLE" "$EXT_PRODUCT_PREFIX" real docker 2>/dev/null || :)
+  else
+    docker=$("$EXT_EXECUTABLE" real docker 2>/dev/null || :)
+  fi
 fi
 if [ -z "$docker" ] && [ -z "${EXT_EXECUTABLE:-}" ]; then docker=$(command -v docker 2>/dev/null || :); fi
 desktop_available() { [ -n "$docker" ] && "$docker" desktop version >/dev/null 2>&1; }

@@ -15,7 +15,11 @@ real_python() {
   fi
   for name in python3 python; do
     if [ -n "${EXT_EXECUTABLE:-}" ] && [ -x "$EXT_EXECUTABLE" ]; then
-      resolved=$("$EXT_EXECUTABLE" real "$name" 2>/dev/null || true)
+      if [ -n "${EXT_PRODUCT_PREFIX:-}" ]; then
+        resolved=$("$EXT_EXECUTABLE" "$EXT_PRODUCT_PREFIX" real "$name" 2>/dev/null || true)
+      else
+        resolved=$("$EXT_EXECUTABLE" real "$name" 2>/dev/null || true)
+      fi
       if [ -n "$resolved" ] && [ -x "$resolved" ]; then
         printf '%s\n' "$resolved"
         return

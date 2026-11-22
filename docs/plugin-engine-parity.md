@@ -20,7 +20,7 @@ the manifest, route and schema functions, the digests, and the `store` and
 `host` packages. Engine-only APIs (`Host`, `Streams`, `Instances`, `NewProcess`)
 need the C engine build. Both builds are tested in CI.
 
-The C ABI loader (`core/cshared`, which opens a C ABI library or a Go
+The C ABI loader (`pkg/ext-go/cshared`, which opens a C ABI library or a Go
 `-buildmode=c-shared` guest as a backend) has two builds as well: cgo
 (`loader.c`) on Linux, macOS, FreeBSD and Windows, and, without cgo,
 [purego](https://github.com/ebitengine/purego) on Linux, macOS and Windows for

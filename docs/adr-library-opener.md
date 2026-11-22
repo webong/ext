@@ -24,15 +24,21 @@ nothing, ext-go can fetch the release it pins. Both are supported: a program suc
 own downloader passes it in or passes the path it installed, and a program without one lets ext-go
 fetch. A program can forbid fetching altogether.
 
-**2. `pkg/ext-go/core` owns the switcher and the opener, and knows no library.** The `core` module holds:
+**2. `pkg/ext-go/core` is the switcher, and knows no library.** For each library of `lib/` it picks how
+the program runs it: go (the pure-Go engine), purego (the engine's bindings to a built copy of the C
+library), cgo or ccgo. Only purego needs a built copy at run time, so finding, fetching, verifying and
+opening that copy is part of the switch, and the opener lives here too; the engine never touches files.
+The `core` module holds:
 
 | Package | Role |
 | --- | --- |
 | `core/driver` | The driver switcher: `cgo`, `c2go`, `purego`, `go`, preferred in that order. `Choose` takes one by name, by `EXT_ENGINE` or as the best available one that fits; a name that cannot be served is an error, never another driver. |
 | `core/library` | The opener: loads a shared library once per canonical path through purego and binds its exports, and grows the verbs below. |
-| `core/cshared` | The loader backend for plugin guests built as C shared libraries. It is a backend like yaegi, not a way of reaching a library of `lib/`. |
 
-`core/driver` and `core/library` import nothing of ext (`src/ctx/internal/arch` enforces it). A
+It requires purego and no ext module, and `core/driver` and `core/library` import nothing of ext
+(`src/ctx/internal/arch` enforces it). The loader for plugin guests built as C shared libraries is a
+plugin backend like yaegi, not a way of reaching a library of `lib/`, so it is its own module,
+`pkg/ext-go/cshared`, which opens guests through `core/library`. A
 library's own Go package lists its drivers and its citation; `pkg/ext-go/plugin` does that for the plugin
 engine today. The module has no root package: the umbrella published its selection package at the
 import path `pkg/ext-go/core` up to v0.12.0, and a root package here would give a program that requires
@@ -80,8 +86,8 @@ platform with its SHA-256 as release assets, and each library's citation is writ
 
 ## Steps
 
-1. Done: `pkg/ext-go/runtime` becomes the `core` module (`core/library`, `core/cshared`), `core/driver`
-   is the switcher, and the plugin selection moves to `pkg/ext-go/plugin` and chooses through it.
+1. Done: `pkg/ext-go/runtime` becomes the `core` module (`core/library`), `core/driver` is the
+   switcher, the guest loader becomes the module `pkg/ext-go/cshared`, and the plugin selection moves to `pkg/ext-go/plugin` and chooses through it.
 2. `core/library`: `Citation`, `Browse`, `Reserve` (supplied path, cache, fetch, `Fetch`, `Offline`) and
    `Borrow` with the version check, and `Shelve`.
 3. Releases of `lib/plugin` and `lib/ledger` publish per-platform shared libraries and digests; the

@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/webong/ext/pkg/ext-go/core/cshared"
+	"github.com/webong/ext/pkg/ext-go/cshared"
 	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
 )
 

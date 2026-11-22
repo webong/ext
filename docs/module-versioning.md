@@ -468,7 +468,7 @@ workspace active, and that `src/ctx` resolves the intended versions:
 
 ```bash
 for module in src/ctx src/ctn src/ctn/inference src/ctn/model src/ctn/perception pkg/ext-go pkg/ext-go/engine pkg/ext-go/cgoengine \
-              pkg/ext-go/hashicorp pkg/ext-go/wasm pkg/ext-go/yaegi pkg/ext-go/core pkg/ext-go/realtime res/system res/int src/cto/sandbox \
+              pkg/ext-go/hashicorp pkg/ext-go/wasm pkg/ext-go/yaegi pkg/ext-go/core pkg/ext-go/cshared pkg/ext-go/realtime res/system res/int src/cto/sandbox \
               adapters/wasm adapters/evm adapters/systemd adapters/pulseaudio adapters/alsa \
               adapters/x11 adapters/ffmpeg adapters/wayland adapters/pipewire adapters/openai \
               adapters/ollama adapters/anthropic adapters/gemini res/web/host; do
@@ -516,7 +516,8 @@ separate modules under its product tree:
 | `pkg/ext-go/wasm` | the plugin-engine binding for `res/web/host/engine/wasm` (the old `pkg/plugin-wasm`) | `engine`, `res/web/host` |
 | `pkg/ext-go/hashicorp` | the go-plugin (gRPC) backend (the old `pkg/plugin-hashicorp`) | `engine` |
 | `pkg/ext-go/yaegi` | the Go source backend: a guest shipped as Go source (runtime `go-source`, a tree artifact) interpreted in-process by yaegi; not required by the umbrella | `engine`; third-party yaegi only |
-| `pkg/ext-go/core` | how Go reaches the libraries of `lib/`: `driver` (the driver switcher), `library` (purego) and the `cshared` backend for C shared guests, moved out of `cgoengine`; no root package (see below) | `engine`; third-party purego only |
+| `pkg/ext-go/core` | the switcher: `driver` picks go, purego, cgo or ccgo for a library of `lib/`, and `library` finds, verifies and opens the built copy purego needs; no root package (see below) | third-party purego only |
+| `pkg/ext-go/cshared` | the backend for plugin guests built as C shared libraries (`cshared`, `abi`, `guest`), moved out of `cgoengine` and then `core` | `engine`, `core`; third-party purego |
 | `pkg/ext-go` | the umbrella: requires the Ext Go plugin modules above except `yaegi` and holds what needs several of them (`PlanGraph`, the `plugin` package that chooses between `engine`, `cgoengine` and `c2goengine`, the bridge command, the cross-language tests) | Ext Go plugin modules, `res/system`, `res/web`; no CTN modules |
 | `res/int` | portable model, inference, perception, and real-time contracts and mechanisms; standard library only | nothing |
 | `src/cto/sandbox` | the sandbox contract shared with github.com/webong/workload: boundary levels, policy, grants, capabilities and reports ([the sandboxing ADR](adr-sandboxing.md)); standard library only | nothing |
@@ -568,7 +569,7 @@ from `_csrc` and links the engine library, which is built from `_csrc` with CMak
 | `pkg/plugin-go/hashicorp` | `pkg/ext-go/hashicorp` (`pkg/ext-go/hashicorp`) |
 | `pkg/plugin-go` umbrella and its packages, such as `core` and `cmd/ext-plugin-bridge` (up to v0.8.0) | `pkg/ext-go` and the same packages (`pkg/ext-go`, from v0.9.0) |
 | `pkg/ext-go/core` (the engine selection package of the umbrella, up to v0.12.0) | `pkg/ext-go/plugin` (umbrella); its names (`Name`, `Choose`, `FromEnvironment`, `EXT_ENGINE`) come from `pkg/ext-go/core/driver` |
-| `pkg/ext-go/runtime/library`, `pkg/ext-go/runtime/cshared` (module `pkg/ext-go/runtime`, never tagged) | `pkg/ext-go/core/library`, `pkg/ext-go/core/cshared` (module `pkg/ext-go/core`). The module has no root package, so the import path `pkg/ext-go/core`, which the umbrella published up to v0.12.0, belongs to no other module: a program that still requires an old umbrella and the new `core` module builds without an ambiguous import |
+| `pkg/ext-go/runtime/library`, `pkg/ext-go/runtime/cshared` (module `pkg/ext-go/runtime`, never tagged) | `pkg/ext-go/core/library` (module `pkg/ext-go/core`) and `pkg/ext-go/cshared` (module `pkg/ext-go/cshared`). The module has no root package, so the import path `pkg/ext-go/core`, which the umbrella published up to v0.12.0, belongs to no other module: a program that still requires an old umbrella and the new `core` module builds without an ambiguous import |
 | `pkg/graph` (v0.1.0) | the generic store, first `res/system/graph` in module `res/system` (v0.1.0 to v0.2.1), then `res/graph/store` in module `res/graph` (v0.2.0 to v0.3.0), now `pkg/ext-go/engine/ledger` (see below) |
 | `res/graph` (v0.1.0, published for a short time) | `res/system` (module `res/system`): the discovery package that lived in `res/graph/system` (declared name `systemgraph`) became the module root, package `system`; the store, `res/graph`'s own package, became `res/system/graph`, and `res/graph/supervisor` became `res/system/supervisor`. Both have since moved back under `res/graph` (next rows) |
 | `res/system/graph`, `res/system/supervisor` and the recorder in the root package of `res/system` (`Graph`, `Open`, `New`, `Scan*`, `Observe*`, `ResolveInventory`, `ReadHost`, `ResolveHost`, `PrepareHost`) (`res/system`, up to v0.2.1) | `res/graph/store`, `res/graph/supervisor` and the root package `res/graph` (module `res/graph`, from v0.2.0) |

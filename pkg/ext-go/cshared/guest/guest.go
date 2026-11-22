@@ -6,7 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
-	"github.com/webong/ext/pkg/ext-go/core/cshared/abi"
+	"github.com/webong/ext/pkg/ext-go/cshared/abi"
 	"sync"
 	"unsafe"
 )

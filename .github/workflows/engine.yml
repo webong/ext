@@ -1,0 +1,28 @@
+name: Engine
+
+# Native engines and toolchains, including the C-to-Go translation. See docs/ci.md.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+  workflow_dispatch:
+    inputs:
+      labels:
+        description: Labels to plan with, comma-separated (tool:<name>, platform:<name>, ci:full, release:<package>)
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  group: engine-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    uses: ./.github/workflows/ci.yml
+    with:
+      workflow: engine
+      labels: ${{ inputs.labels }}

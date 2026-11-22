@@ -1,0 +1,156 @@
+name: CI checks
+
+# Shared planner and matrix runner for Core, Engine, and Runtime.
+on:
+  workflow_call:
+    inputs:
+      workflow:
+        type: string
+        required: true
+      labels:
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      cells: ${{ steps.plan.outputs.cells }}
+      run: ${{ steps.plan.outputs.run }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Changed files
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          case "$EVENT" in
+            pull_request) git diff --name-only --no-renames -z "$BASE...$HEAD" >changed.txt ;;
+            push)
+              # A new branch or a force push has no usable before: plan on every path.
+              if [ -z "$BEFORE" ] || [ "$BEFORE" = 0000000000000000000000000000000000000000 ] ||
+                ! git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
+                git ls-files -z >changed.txt
+              else
+                git diff --name-only --no-renames -z "$BEFORE" "$AFTER" >changed.txt
+              fi ;;
+            *) : >changed.txt ;;
+          esac
+      - name: Validate CI routing
+        run: |
+          python3 -BEs scripts/ci/plan.py --check
+          python3 -BEs -m unittest discover -s scripts/ci -p test_plan.py
+      - id: plan
+        name: Plan
+        env:
+          EVENT: ${{ github.event_name }}
+          PR_LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}
+          DISPATCH_LABELS: ${{ inputs.labels }}
+          WORKFLOW: ${{ inputs.workflow }}
+        run: |
+          python3 -BEs scripts/ci/plan.py --event "$EVENT" --workflow "$WORKFLOW" --labels "${PR_LABELS}${DISPATCH_LABELS}" \
+            --changed changed.txt
+
+  test:
+    needs: plan
+    if: needs.plan.outputs.run == 'true'
+    name: ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.plan.outputs.cells) }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: ${{ matrix.timeout || 360 }}
+    continue-on-error: ${{ matrix.continue_on_error == true }}
+    steps:
+      - name: Keep line endings as they are
+        if: matrix.autocrlf_off
+        run: git config --global core.autocrlf false
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: ${{ matrix.fetch_all && '0' || '1' }}
+      - uses: ./.github/actions/setup
+        with:
+          go: ${{ matrix.setup.go }}
+          go_cache: ${{ matrix.setup.go_cache }}
+          java: ${{ matrix.setup.java }}
+          node: ${{ matrix.setup.node }}
+          python: ${{ matrix.setup.python }}
+          php: ${{ matrix.setup.php }}
+          php_extensions: ${{ matrix.setup.php_extensions }}
+          php_tools: ${{ matrix.setup.php_tools }}
+          ruby: ${{ matrix.setup.ruby }}
+          lua: ${{ matrix.setup.lua }}
+          lua_build_cache: ${{ matrix.setup.lua_build_cache }}
+          luarocks: ${{ matrix.setup.luarocks }}
+          rust: ${{ matrix.setup.rust }}
+          rust_targets: ${{ matrix.setup.rust_targets }}
+          rust_components: ${{ matrix.setup.rust_components }}
+          dotnet: ${{ matrix.setup.dotnet }}
+          msys2_msystem: ${{ matrix.setup.msys2_msystem }}
+          msys2_install: ${{ matrix.setup.msys2_install }}
+          msvc: ${{ matrix.setup.msvc }}
+          msvc_arch: ${{ matrix.setup.msvc_arch }}
+          android_packages: ${{ matrix.setup.android_packages }}
+          gradle: ${{ matrix.setup.gradle }}
+          wamr_cache: ${{ matrix.wamr_cache }}
+      - name: Run
+        if: matrix.setup.msys2_msystem == null
+        shell: bash
+        env:
+          CI_CELL_EXPORTS: ${{ matrix.exports }}
+          CI_SCRIPT: ${{ matrix.script }}
+        run: bash "$CI_SCRIPT"
+      # A cell that sets up MSYS2 runs its whole script in the MSYS2 shell, as its steps did,
+      # so Git Bash's own MinGW directories never come before MSYS2's on PATH.
+      - name: Run (MSYS2)
+        if: matrix.setup.msys2_msystem != null
+        shell: msys2 {0}
+        env:
+          CI_CELL_EXPORTS: ${{ matrix.exports }}
+          CI_SCRIPT: ${{ matrix.script }}
+          CI_IN_MSYS2: '1'
+        run: bash "$CI_SCRIPT"
+      - name: Run in the Android emulator
+        if: matrix.android_emulator
+        uses: reactivecircus/android-emulator-runner@v2.33.0
+        with:
+          api-level: 34
+          arch: x86_64
+          target: default
+          disable-animations: true
+          script: bash ${{ matrix.android_emulator }}
+      - name: Keep the result
+        if: always() && matrix.artifact && (matrix.artifact.always || success())
+        uses: actions/upload-artifact@v6
+        with:
+          name: ${{ matrix.artifact.name }}
+          path: ${{ matrix.artifact.path }}
+          if-no-files-found: ${{ matrix.artifact.if_no_files_found }}
+          retention-days: ${{ matrix.artifact.retention_days }}
+
+  result:
+    name: ${{ github.workflow }} result
+    needs: [plan, test]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check the plan and matrix result
+        env:
+          PLAN_RESULT: ${{ needs.plan.result }}
+          TEST_PLANNED: ${{ needs.plan.outputs.run }}
+          TEST_RESULT: ${{ needs.test.result }}
+        run: |
+          case "$PLAN_RESULT:$TEST_PLANNED:$TEST_RESULT" in
+            success:true:success|success:false:skipped) exit 0 ;;
+            *) echo "Plan: $PLAN_RESULT; tests selected: $TEST_PLANNED; matrix: $TEST_RESULT"; exit 1 ;;
+          esac

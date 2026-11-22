@@ -20,6 +20,7 @@
 (
 if [[ "${MATRIX_LUA:-}" == luajit* ]]; then export EXT_LUA=luajit; else export EXT_LUA=lua; fi
 export PYTHON="python"
+export EXT_HOST_CASES_TARGETS="${MATRIX_TARGETS:-}"
 scripts/host-cases.sh
 )
 ci_import_env

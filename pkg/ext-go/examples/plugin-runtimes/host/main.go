@@ -13,7 +13,7 @@ import (
 	"time"
 
 	cgoengine "github.com/webong/ext/pkg/ext-go/cgoengine/plugin"
-	"github.com/webong/ext/pkg/ext-go/cshared"
+	"github.com/webong/ext/pkg/ext-go/cguest"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/guest/author"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/nativego"
 	"github.com/webong/ext/pkg/ext-go/examples/plugin-runtimes/echo"
@@ -98,7 +98,7 @@ func run(kind, path, digest string) error {
 				}
 				loaded = b
 			case "cshared":
-				b, err := cshared.Open(ctx, path)
+				b, err := cguest.Open(ctx, path)
 				if err != nil {
 					return nil, err
 				}
@@ -119,7 +119,7 @@ func run(kind, path, digest string) error {
 	if err := session.Close(ctx); err != nil {
 		return err
 	}
-	if b, ok := loaded.(*cshared.Backend); ok {
+	if b, ok := loaded.(*cguest.Backend); ok {
 		cleanup, cancel := context.WithTimeout(ctx, 5*time.Second)
 		defer cancel()
 		return b.WaitClosed(cleanup)

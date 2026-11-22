@@ -1,6 +1,6 @@
 //go:build cgo && (linux || darwin || freebsd || windows)
 
-package cshared
+package cguest
 
 /*
 #cgo linux LDFLAGS: -ldl
@@ -13,7 +13,7 @@ import "C"
 import (
 	"fmt"
 	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
-	"github.com/webong/ext/pkg/ext-go/cshared/abi"
+	"github.com/webong/ext/pkg/ext-go/cguest/abi"
 	"path/filepath"
 	"sync"
 	"unsafe"

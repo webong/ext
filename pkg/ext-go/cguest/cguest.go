@@ -5,14 +5,14 @@
 // purego on Linux, macOS and Windows for amd64 and arm64; Supported reports
 // whether this build can load at all. The C ABI has no host callbacks, so both
 // loaders implement all of it.
-package cshared
+package cguest
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
 	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
-	"github.com/webong/ext/pkg/ext-go/cshared/abi"
+	"github.com/webong/ext/pkg/ext-go/cguest/abi"
 	"path/filepath"
 	"strings"
 	"sync"

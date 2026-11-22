@@ -24,23 +24,17 @@ nothing, ext-go can fetch the release it pins. Both are supported: a program suc
 own downloader passes it in or passes the path it installed, and a program without one lets ext-go
 fetch. A program can forbid fetching altogether.
 
-**2. `pkg/ext-go/core` is the switcher, and knows no library.** For each library of `lib/` it picks how
-the program runs it: go (the pure-Go engine), purego (the engine's bindings to a built copy of the C
-library), cgo or ccgo. Only purego needs a built copy at run time, so finding, fetching, verifying and
-opening that copy is part of the switch, and the opener lives here too; the engine never touches files.
-The `core` module holds:
+**2. Three modules: the switcher, the C side, and the C guest backend.** None of the first two knows a
+library by name, and neither imports anything of ext (`src/ctx/internal/arch` enforces it).
 
-| Package | Role |
-| --- | --- |
-| `core/driver` | The driver switcher: `cgo`, `c2go`, `purego`, `go`, preferred in that order. `Choose` takes one by name, by `EXT_ENGINE` or as the best available one that fits; a name that cannot be served is an error, never another driver. |
-| `core/library` | The opener: loads a shared library once per canonical path through purego and binds its exports, and grows the verbs below. |
+| Module | Role | Requires |
+| --- | --- | --- |
+| `pkg/ext-go/core` | The switcher. `core/driver` picks how a program runs each library of `lib/`: `go` (its pure-Go implementation in `engine`) or one of the C drivers, `cgo`, `c2go` and `purego`. `Choose` takes one by name, by `EXT_ENGINE` or as the best available one that fits, in the order cgo, c2go, purego, go; a name that cannot be served is an error, never another driver. | nothing |
+| `pkg/ext-go/cshared` | The C side. It chooses between purego, cgo and ccgo, and `cshared/library` is the opener purego needs: it finds, fetches, verifies and opens a built copy of the C library once per canonical path and binds its exports. The engine never touches files. | purego |
+| `pkg/ext-go/cguest` | The backend for plugin guests built as C shared libraries (`cguest`, `abi`, `guest`): a plugin backend like yaegi, not a way of reaching a library of `lib/`. Its purego build opens guests through `cshared/library`. | `engine`, `cshared` |
 
-It requires purego and no ext module, and `core/driver` and `core/library` import nothing of ext
-(`src/ctx/internal/arch` enforces it). The loader for plugin guests built as C shared libraries is a
-plugin backend like yaegi, not a way of reaching a library of `lib/`, so it is its own module,
-`pkg/ext-go/cshared`, which opens guests through `core/library`. A
-library's own Go package lists its drivers and its citation; `pkg/ext-go/plugin` does that for the plugin
-engine today. The module has no root package: the umbrella published its selection package at the
+A library's own Go package lists its drivers and its citation; `pkg/ext-go/plugin` does that for the
+plugin engine today. `core` has no root package: the umbrella published its selection package at the
 import path `pkg/ext-go/core` up to v0.12.0, and a root package here would give a program that requires
 both an ambiguous import.
 
@@ -48,7 +42,7 @@ both an ambiguous import.
 
 | Verb | What it does |
 | --- | --- |
-| `Cite` | Builds a `Citation`, the pin, as plain data: the library's name (`ext_ledger`), its release version, the symbol that reports its version and the versions accepted, and per OS and architecture the file name, the download URL and its SHA-256. The library's Go package declares it; `core` holds none. |
+| `Cite` | Builds a `Citation`, the pin, as plain data: the library's name (`ext_ledger`), its release version, the symbol that reports its version and the versions accepted, and per OS and architecture the file name, the download URL and its SHA-256. The library's Go package declares it; `cshared` holds none. |
 | `Browse` | Lists the copies that match a citation without loading anything: the path the program supplied, then the cache, then the directories the program names. |
 | `Reserve` | Produces a verified local copy. A supplied path is checked against the citation; otherwise the pinned file is fetched into the cache and checked against its SHA-256 before anything uses it. `Fetch` replaces the downloader (ext passes its own), `Offline` refuses any fetch, and the cache defaults to `os.UserCacheDir()/ext-go/library/<name>/<version>`. |
 | `Borrow` | Loads a reserved copy through purego, calls the version symbol and refuses a version outside the citation. It returns the `Library` handle that `Symbol`, `Bind` and `BindAll` already serve. |
@@ -56,9 +50,10 @@ both an ambiguous import.
 Fetching is one HTTPS GET of one file with no archive handling; the digest is checked before the file is
 moved into the cache. A copy, once loaded, is never unloaded.
 
-**4. Build-time drivers are shelved, not linked by `core`.** cgo and ccgo are fixed when a program is
-built, so `core` cannot link an unknown library. A library's Go package registers them from files built
-only with that driver (`library.Shelve(name, driver, implementation)`), and `Borrow` returns a shelved
+**4. cgo and ccgo register with `cshared`; they are not linked by it.** cgo and ccgo are fixed when a
+program is built, so `cshared` cannot link an unknown library. `cgoengine` and `c2goengine` stay their
+own modules, so a program downloads the ccgo translation only when it imports it, and they register
+from files built only with that driver (`library.Shelve(name, driver, implementation)`), and `Borrow` returns a shelved
 implementation before it loads anything. With `Auto` the order is what the build shelved (cgo, then
 c2go), then purego, then go. A program can name one driver or forbid one, such as purego where the
 operating system refuses code fetched at run time.
@@ -86,9 +81,10 @@ platform with its SHA-256 as release assets, and each library's citation is writ
 
 ## Steps
 
-1. Done: `pkg/ext-go/runtime` becomes the `core` module (`core/library`), `core/driver` is the
-   switcher, the guest loader becomes the module `pkg/ext-go/cshared`, and the plugin selection moves to `pkg/ext-go/plugin` and chooses through it.
-2. `core/library`: `Citation`, `Browse`, `Reserve` (supplied path, cache, fetch, `Fetch`, `Offline`) and
+1. Done: `core/driver` is the switcher; `pkg/ext-go/runtime` splits into `pkg/ext-go/cshared` (the
+   opener, `cshared/library`) and `pkg/ext-go/cguest` (the C guest backend); the plugin selection moves
+   to `pkg/ext-go/plugin` and chooses through `core/driver`.
+2. `cshared/library`: `Citation`, `Browse`, `Reserve` (supplied path, cache, fetch, `Fetch`, `Offline`) and
    `Borrow` with the version check, and `Shelve`.
 3. Releases of `lib/plugin` and `lib/ledger` publish per-platform shared libraries and digests; the
    citations are written from them.

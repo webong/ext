@@ -1,6 +1,6 @@
 //go:build !cgo && (darwin || linux || windows) && (amd64 || arm64)
 
-package cshared
+package cguest
 
 // The cgo-free loader. The C ABI (lib/plugin/include/ext_plugin.h) is four
 // exports the host calls and no function pointer the guest calls back, so
@@ -15,8 +15,8 @@ import (
 	"sync"
 
 	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
-	"github.com/webong/ext/pkg/ext-go/cshared/abi"
-	"github.com/webong/ext/pkg/ext-go/core/library"
+	"github.com/webong/ext/pkg/ext-go/cguest/abi"
+	"github.com/webong/ext/pkg/ext-go/cshared/library"
 )
 
 func Supported() bool { return true }

@@ -39,6 +39,7 @@ use (
 	./cmd/ext
 	./pkg/ext-go
 	./pkg/ext-go/c2goengine
+	./pkg/ext-go/cguest
 	./pkg/ext-go/cgoengine
 	./pkg/ext-go/core
 	./pkg/ext-go/cshared
@@ -65,9 +66,13 @@ use (
 // require to the tree. Remove this once pkg/ext-go/core/v0.1.0 is tagged.
 replace github.com/webong/ext/pkg/ext-go/core v0.1.0 => ./pkg/ext-go/core
 
-// The cshared module (the C shared guest backend) has no published version yet. Remove this once
+// The cshared module (the C side: the opener of built C libraries) has no published version yet. Remove this once
 // pkg/ext-go/cshared/v0.1.0 is tagged.
 replace github.com/webong/ext/pkg/ext-go/cshared v0.1.0 => ./pkg/ext-go/cshared
+
+// The cguest module (the backend for plugin guests built as C shared libraries) has no published
+// version yet. Remove this once pkg/ext-go/cguest/v0.1.0 is tagged.
+replace github.com/webong/ext/pkg/ext-go/cguest v0.1.0 => ./pkg/ext-go/cguest
 
 // The ledger recorder module (pkg/ext-go/engine/ledger/recorder) has no published version yet.
 // Remove this once pkg/ext-go/engine/ledger/recorder/v0.1.0 is tagged.

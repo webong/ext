@@ -2,7 +2,7 @@
 # Go plugin modules and embedding examples.
 . "$(dirname "$0")/../lib.sh"
 
-for module in pkg/ext-go pkg/ext-go/engine pkg/ext-go/cgoengine pkg/ext-go/hashicorp pkg/ext-go/wasm pkg/ext-go/yaegi pkg/ext-go/core pkg/ext-go/cshared res/web/host; do
+for module in pkg/ext-go pkg/ext-go/engine pkg/ext-go/cgoengine pkg/ext-go/hashicorp pkg/ext-go/wasm pkg/ext-go/yaegi pkg/ext-go/core pkg/ext-go/cshared pkg/ext-go/cguest res/web/host; do
   (cd "$module" && go test -race ./...)
 done
 go test -race ./pkg/ext-go/hashicorp/cmd/ext-plugin

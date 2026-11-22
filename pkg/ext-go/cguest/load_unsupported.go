@@ -1,6 +1,6 @@
 //go:build !(cgo && (linux || darwin || freebsd || windows)) && !(!cgo && (darwin || linux || windows) && (amd64 || arm64))
 
-package cshared
+package cguest
 
 import (
 	"fmt"

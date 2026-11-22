@@ -9,8 +9,8 @@ package main
 import "C"
 
 import (
-	"github.com/webong/ext/pkg/ext-go/cshared/abi"
-	"github.com/webong/ext/pkg/ext-go/cshared/guest"
+	"github.com/webong/ext/pkg/ext-go/cguest/abi"
+	"github.com/webong/ext/pkg/ext-go/cguest/guest"
 	"github.com/webong/ext/pkg/ext-go/examples/plugin-runtimes/echo"
 	"unsafe"
 )

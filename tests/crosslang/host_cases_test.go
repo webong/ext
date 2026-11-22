@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/webong/ext/pkg/ext-go/cshared"
+	"github.com/webong/ext/pkg/ext-go/cguest"
 	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
 )
 
@@ -137,7 +137,7 @@ func TestHostCases(t *testing.T) {
 					t.Skip("a Go c-shared guest cannot run in a Go host on darwin/amd64")
 				}
 				path := artifact(t, "GO_SHARED")
-				connect = func(ctx context.Context) (plugin.Backend, error) { return cshared.Open(ctx, path) }
+				connect = func(ctx context.Context) (plugin.Backend, error) { return cguest.Open(ctx, path) }
 			default:
 				t.Fatalf("host-cases.json names an unknown guest %q", guest)
 			}

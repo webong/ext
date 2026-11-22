@@ -1,16 +1,16 @@
 # cshared
 
-`github.com/webong/ext/pkg/ext-go/cshared` is the plugin backend for guests built as C shared libraries:
-the `ext_plugin_*` ABI of [`lib/plugin/include/ext_plugin.h`](../../../lib/plugin/include/ext_plugin.h).
-It is a backend like `yaegi`, `hashicorp` and `wasm`, not a way of reaching a library of `lib/`.
+`github.com/webong/ext/pkg/ext-go/cshared` is the C side of every library of `lib/`: it serves the C
+drivers that [`core`](../core) picks between (purego, cgo and ccgo). It knows no library by name and
+requires purego and no ext module. See
+[the library opener decision record](../../../docs/adr-library-opener.md).
 
 | Package | What it does |
 | --- | --- |
-| `cshared` | The loader, as an `engine.Backend`, with a cgo build and a purego build that opens guests through [`core/library`](../core/README.md). |
-| `cshared/abi` | The ABI's constants and wire envelope; no cgo. |
-| `cshared/guest` | The Go guest lifecycle that exports a plugin through the ABI (`-buildmode=c-shared`). |
+| `library` | The opener purego needs. It loads a C shared library (`.so`, `.dylib`, `.dll`) once per canonical path, never unloads it, and binds its exports to Go function variables through [purego](https://github.com/ebitengine/purego), the same with and without cgo, on Linux, macOS and Windows for amd64 and arm64; on Windows it never searches the working directory for dependent DLLs. Finding, fetching and verifying the built copy (`Cite`, `Browse`, `Reserve`, `Borrow`) grows here. |
 
-The module requires `pkg/ext-go/engine`, `pkg/ext-go/core` and purego, never `cgoengine`, so loading a
-C shared guest needs neither the C engine nor a C toolchain. On darwin/amd64 both builds refuse a Go
-c-shared guest, since two Go runtimes there share the TLS slot for g. `scripts/cshared-purego.sh` runs
-the tests and the shared host cases with and without cgo.
+`cgoengine` and `c2goengine` stay their own modules and register with `cshared`, so a program downloads
+the ccgo translation only when it imports it.
+
+Calls go one way, from Go into C: purego's callbacks are limited in number and platform, so a C API
+meant for `library` takes no function pointer it would call on a Go program's behalf.

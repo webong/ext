@@ -28,7 +28,7 @@ explicit binding and authorization; loaders do not automatically inject them.
 | --- | --- | --- | --- |
 | Native Go | Export `CTXPlugin(context.Context) (plugin.Backend, error)` | `nativego.Open(ctx, absolutePath)` | Linux, macOS, FreeBSD; cgo and Go plugin build support required |
 | WASI Preview 1 command | `jsonline.ServeStdio(ctx, guest)` | `wasm.Open(ctx, verifiedBytes, options)` | wazero-supported host targets, no cgo required |
-| C shared library | Four C exports backed by `pkg/ext-go/cshared/guest.Server` or a foreign implementation | `cshared.Open(ctx, absolutePath)` | Linux, macOS, FreeBSD, Windows; cgo and a matching native C toolchain required |
+| C shared library | Four C exports backed by `pkg/ext-go/cguest/guest.Server` or a foreign implementation | `cguest.Open(ctx, absolutePath)` | Linux, macOS, FreeBSD, Windows; cgo and a matching native C toolchain required |
 | Go source (yaegi) | The same `CTXPlugin` factory as native Go, in a package of Go source shipped as a tree artifact (entrypoint runtime `go-source`) | `yaegi.Open(ctx, verifiedDir, digest, options)` or `yaegi.OpenPackage` | Every platform Go builds for, no cgo; imports limited to a host-chosen allow-list; see its [guide](../pkg/ext-go/yaegi/README.md) |
 | HashiCorp | `hashicorp.Plugin` and go-plugin serving | `hashicorp.Connect` | Existing gRPC and net/rpc bindings; see its [guide](../pkg/ext-go/hashicorp/README.md) |
 

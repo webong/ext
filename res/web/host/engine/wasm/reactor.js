@@ -124,7 +124,9 @@
       const raw = atob(MODULE_BASE64);
       const module = new Uint8Array(raw.length);
       for (let i = 0; i < raw.length; i++) module[i] = raw.charCodeAt(i);
-      const { instance } = await WebAssembly.instantiate(module, { wasi_snapshot_preview1: wasi });
+      // ext_plugin.reverse (docs/plugin-reactor-abi.md): a web view carries no reverse
+      // calls yet, so it answers 2, unavailable.
+      const { instance } = await WebAssembly.instantiate(module, { wasi_snapshot_preview1: wasi, ext_plugin: { reverse: () => 2 } });
       exports = instance.exports;
       if (exports._start) throw new Error("the module is a command (_start), not a reactor");
       for (const name of ["memory", "ext_plugin_abi_version", "ext_plugin_open", "ext_plugin_call", "ext_plugin_close", "ext_plugin_alloc", "ext_plugin_free"]) {

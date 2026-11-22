@@ -69,6 +69,13 @@ add_library(ext_wamr STATIC ext_wamr.c)
 target_include_directories(ext_wamr PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(ext_wamr PUBLIC ext_host_static ext_wamr_vm)
 target_compile_options(ext_wamr PRIVATE -Wall -Wextra -Werror)
+# WAMR keeps a per-thread exec env only with hardware bound checks (every target
+# here is 64-bit); the reverse import saves and restores it so calls can nest.
+if(NOT EXT_WAMR_DISABLE_HW_BOUND_CHECK)
+  target_compile_definitions(ext_wamr PRIVATE EXT_WAMR_HW_BOUND_CHECK=1)
+else()
+  target_compile_definitions(ext_wamr PRIVATE EXT_WAMR_HW_BOUND_CHECK=0)
+endif()
 add_library(EXT::wamr ALIAS ext_wamr)
 
 # EXT_WAMR_TEST_REACTOR names a reactor module (see docs/plugin-reactor-abi.md).
@@ -77,5 +84,7 @@ if(EXT_WAMR_TEST_REACTOR)
   target_link_libraries(ext_wamr_test PRIVATE ext_wamr Threads::Threads)
   target_compile_options(ext_wamr_test PRIVATE -Wall -Wextra -Werror -UNDEBUG)
   enable_testing()
-  add_test(NAME ext_wamr_test COMMAND ext_wamr_test "${EXT_WAMR_TEST_REACTOR}")
+  # EXT_WAMR_TEST_REVERSE_REACTOR, when given, is a reactor that calls its host
+  # (pkg/ext-rust/examples/reactor_reverse.rs).
+  add_test(NAME ext_wamr_test COMMAND ext_wamr_test "${EXT_WAMR_TEST_REACTOR}" ${EXT_WAMR_TEST_REVERSE_REACTOR})
 endif()

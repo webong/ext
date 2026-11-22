@@ -62,6 +62,12 @@ typedef struct backend {
   uint32_t resp_ptr, len_ptr;
   atomic_int stop; /* read by guest natives that sleep */
   uint32_t diag_left;
+
+  /* Reverse calls (ext_plugin.reverse): the host that serves them, once bound,
+   * and whether an invocation is running, the only time a guest may make one.
+   * Guarded by mu. */
+  ext_host *host;
+  int invoking;
 } backend;
 
 static uint64_t now_ns(clockid_t clock) {
@@ -225,6 +231,74 @@ static void wasi_proc_exit(wasm_exec_env_t env, uint32_t code) {
   wasm_runtime_set_exception(wasm_runtime_get_module_inst(env), "proc_exit");
 }
 
+/* ext_plugin.reverse: one reverse_request frame in, its reverse_response frame
+ * out (docs/plugin-reactor-abi.md, Calling the host). The engine admits or refuses
+ * the request and runs the host's hooks, here, on the thread that is inside the
+ * invocation; the call's deadline keeps running meanwhile. */
+/* With hardware bound checks WAMR keeps the running instance's exec env in a
+ * thread-local and refuses a call into another instance on the same thread. A
+ * reverse call can reach another reactor (the guest registry routes it there),
+ * so the import clears it while the engine runs and restores it after: the
+ * calls nest. These two are WAMR's own, declared in its runtime_common.h. */
+#if EXT_WAMR_HW_BOUND_CHECK
+void wasm_runtime_set_exec_env_tls(void *exec_env);
+void *wasm_runtime_get_exec_env_tls(void);
+#endif
+#define REVERSE_OK 0u
+#define REVERSE_INVALID 1u
+#define REVERSE_UNAVAILABLE 2u
+#define REVERSE_FAILED 3u
+static uint32_t ext_reverse(wasm_exec_env_t env, uint32_t req, uint32_t req_len,
+                            uint32_t resp, uint32_t cap, uint32_t written) {
+  backend *b = owner(env);
+  wasm_module_inst_t inst = wasm_runtime_get_module_inst(env);
+  void *in, *out, *cell;
+  if (!b) return REVERSE_FAILED;
+  if (!req_len || req_len > MAX_FRAME || cap != MAX_FRAME ||
+      !range(inst, req, req_len, &in) || !range(inst, resp, cap, &out) ||
+      !range(inst, written, 4, &cell))
+    return REVERSE_INVALID;
+  pthread_mutex_lock(&b->mu);
+  ext_host *host = b->invoking ? b->host : NULL;
+  const ext_cancel *cancel = b->cancel;
+  pthread_mutex_unlock(&b->mu);
+  if (!host) return REVERSE_UNAVAILABLE;
+  /* No guest code runs until this returns, so its memory stays put. */
+  ext_reverse_ticket *ticket = NULL;
+  ext_buffer answer = {NULL, 0};
+#if EXT_WAMR_HW_BOUND_CHECK
+  void *running = wasm_runtime_get_exec_env_tls();
+  wasm_runtime_set_exec_env_tls(NULL);
+#endif
+  ext_status s = ext_host_backend_reverse_admit(host, in, req_len, &ticket, &answer);
+  if (!s && ticket) s = ext_host_backend_reverse_run(host, ticket, cancel, &answer);
+#if EXT_WAMR_HW_BOUND_CHECK
+  wasm_runtime_set_exec_env_tls(running);
+#endif
+  if (s == EXT_PROTOCOL) {
+    /* A frame that breaks the rules ends the instance, as on any transport. */
+    wasm_runtime_set_exception(inst, "ext_plugin.reverse: malformed reverse_request frame");
+    return REVERSE_INVALID;
+  }
+  if (s) {
+    ext_buffer_free(&answer);
+    return REVERSE_FAILED;
+  }
+  if (!answer.data || answer.len > cap) {
+    ext_buffer_free(&answer);
+    return REVERSE_FAILED;
+  }
+  uint32_t n = (uint32_t)answer.len;
+  memcpy(out, answer.data, answer.len);
+  memcpy(cell, &n, 4);
+  ext_buffer_free(&answer);
+  return REVERSE_OK;
+}
+
+static NativeSymbol plugin_symbols[] = {
+    {"reverse", ext_reverse, "(iiiii)i", NULL},
+};
+
 static NativeSymbol wasi_symbols[] = {
     {"environ_sizes_get", wasi_environ_sizes_get, "(ii)i", NULL},
     {"environ_get", wasi_environ_get, "(ii)i", NULL},
@@ -238,7 +312,9 @@ static NativeSymbol wasi_symbols[] = {
 static void start_runtime(void) {
   if (!wasm_runtime_init()) return;
   if (!wasm_runtime_register_natives("wasi_snapshot_preview1", wasi_symbols,
-                                     sizeof(wasi_symbols) / sizeof(*wasi_symbols))) {
+                                     sizeof(wasi_symbols) / sizeof(*wasi_symbols)) ||
+      !wasm_runtime_register_natives("ext_plugin", plugin_symbols,
+                                     sizeof(plugin_symbols) / sizeof(*plugin_symbols))) {
     wasm_runtime_destroy();
     return;
   }
@@ -569,8 +645,14 @@ static ext_status invoke_cb(void *user, const uint8_t *request, size_t len,
   ext_status s = begin(b);
   if (s != EXT_OK) return s;
   arm(b, o->timeout_ms, o->cancel);
+  pthread_mutex_lock(&b->mu);
+  b->invoking = 1;
+  pthread_mutex_unlock(&b->mu);
   uint32_t n = 0;
   s = round_trip(b, OP_INVOKE, request, len, &n);
+  pthread_mutex_lock(&b->mu);
+  b->invoking = 0;
+  pthread_mutex_unlock(&b->mu);
   if (s == EXT_OK) s = emit_response(b, n, emit, context);
   disarm(b);
   pthread_mutex_lock(&b->mu);
@@ -636,7 +718,18 @@ ext_status ext_wamr_backend_create(const uint8_t *module, size_t module_len,
   pthread_mutex_init(&b->mu, NULL);
   pthread_cond_init(&b->wake, NULL);
   atomic_init(&b->stop, 0);
-  *out = (ext_backend_extension_context){sizeof(*out), 0, b, connect_cb,
+  /* The backend hands the engine the reverse requests its guest makes. */
+  *out = (ext_backend_extension_context){sizeof(*out), EXT_BACKEND_FRAMES, b, connect_cb,
                                          invoke_cb, close_cb, release_cb};
   return EXT_OK;
+}
+
+ext_status ext_wamr_backend_bind_host(void *backend_user, ext_host *host) {
+  backend *b = backend_user;
+  if (!b || !host) return EXT_INVALID;
+  pthread_mutex_lock(&b->mu);
+  ext_status s = b->state == NEW && !b->host ? EXT_OK : EXT_INVALID;
+  if (!s) b->host = host;
+  pthread_mutex_unlock(&b->mu);
+  return s;
 }

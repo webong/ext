@@ -4,12 +4,14 @@
  * Ruby headers and ext_host.h only and links to no engine. It moves bytes and policy decisions:
  * JSON is generated and parsed in Ruby, and every rule a host must get right is the engine's.
  *
- * Every engine call that can block runs without the global VM lock (rb_thread_call_without_gvl),
- * so other Ruby threads run meanwhile and may call the same host; the engine serializes a host's
- * calls itself. An interrupt (Thread#raise, Thread#kill, Ctrl-C) signals the call's ext_cancel,
- * so the call ends with "canceled". The engine runs policies on the thread making the call, so a
- * policy takes the lock back (rb_thread_call_with_gvl) and calls its Ruby callable under
- * rb_protect: an exception denies, and a policy that uses the host it decides for is refused. */
+ * Every engine call that can block runs on a helper thread while the calling Ruby thread waits
+ * without the global VM lock, so other Ruby threads run meanwhile and may call the same host; the
+ * engine serializes a host's calls itself. A real interrupt (Thread#raise, Thread#kill, Ctrl-C)
+ * signals the call's ext_cancel, so the call ends and the interrupt is raised; one Ruby only notes,
+ * such as a child process ending, leaves the call alone (see blocking_status). The engine runs
+ * policies and reverse hooks on the thread making the call, the helper, which hands each to the
+ * waiting Ruby thread; there it calls its Ruby callable under rb_protect: an exception denies, and
+ * a policy that uses the host it decides for is refused. */
 #include <ruby.h>
 #include <ruby/encoding.h>
 #include <ruby/thread.h>
@@ -24,6 +26,7 @@
 #include <windows.h>
 #else
 #include <dlfcn.h>
+#include <pthread.h>
 #endif
 
 #define STDERR_CAPACITY 65536u
@@ -292,6 +295,9 @@ static VALUE policy_invoke(VALUE arg) {
 }
 
 /* With the lock: marks this thread as inside a policy of the host, so the host refuses it. */
+/* Runs fn on the Ruby thread waiting for the engine call (see blocking_status). */
+static void with_ruby(void *(*fn)(void *), void *arg);
+
 static void *policy_with_gvl(void *arg) {
   policy_call *p = (policy_call *)arg;
   VALUE thread = rb_thread_current();
@@ -319,7 +325,7 @@ static int32_t run_policy(host_t *h, VALUE callable, const uint8_t *json, size_t
   p.len = len;
   p.allowed = 0;
   /* The engine calls policies only inside a call made without the lock (start, call, invoke). */
-  rb_thread_call_with_gvl(policy_with_gvl, &p);
+  with_ruby(policy_with_gvl, &p);
   return p.allowed ? 0 : 1;
 }
 
@@ -476,22 +482,75 @@ static uint32_t timeout_ms(VALUE seconds) {
 
 enum { OP_START, OP_CALL, OP_INVOKE, OP_DRAIN, OP_SERVE };
 
+/* An engine call runs on a helper thread while the Ruby thread that made it waits without the
+ * lock. Ruby calls the wait's unblocking function for every interrupt: Thread#raise, Thread#kill
+ * and Ctrl-C, but also a signal it only notes, such as a child process ending (SIGCHLD), which
+ * must not end an unrelated call. So an interrupt only wakes the Ruby thread, which takes the lock
+ * and lets Ruby handle it (rb_thread_check_ints). If that raises, the interrupt is real: the call
+ * is canceled, waited for, and the exception goes on. Otherwise the Ruby thread waits again.
+ *
+ * The engine runs policies, and reverse hooks in its caller-thread mode, on the thread making the
+ * call, which is the helper. A hook cannot run Ruby there, so it hands itself to the waiting Ruby
+ * thread (the call's job slot) and waits for it to have run. A registry forward call into another
+ * host made from such a hook runs on the same helper, so its hooks reach the same Ruby thread. */
+/* The helper and the waiting Ruby thread share a mutex and a condition variable of the platform:
+ * Ruby's own native condition variables are not public in every Ruby the gem supports. */
+#ifdef _WIN32
+typedef SRWLOCK call_lock;
+typedef CONDITION_VARIABLE call_cond;
+static void lock_init(call_lock *m) { InitializeSRWLock(m); }
+static void lock_destroy(call_lock *m) { (void)m; }
+static void lock_lock(call_lock *m) { AcquireSRWLockExclusive(m); }
+static void lock_unlock(call_lock *m) { ReleaseSRWLockExclusive(m); }
+static void cond_init(call_cond *c) { InitializeConditionVariable(c); }
+static void cond_destroy(call_cond *c) { (void)c; }
+static void cond_wait(call_cond *c, call_lock *m) { SleepConditionVariableSRW(c, m, INFINITE, 0); }
+static void cond_broadcast(call_cond *c) { WakeAllConditionVariable(c); }
+#else
+typedef pthread_mutex_t call_lock;
+typedef pthread_cond_t call_cond;
+static void lock_init(call_lock *m) { pthread_mutex_init(m, NULL); }
+static void lock_destroy(call_lock *m) { pthread_mutex_destroy(m); }
+static void lock_lock(call_lock *m) { pthread_mutex_lock(m); }
+static void lock_unlock(call_lock *m) { pthread_mutex_unlock(m); }
+static void cond_init(call_cond *c) { pthread_cond_init(c, NULL); }
+static void cond_destroy(call_cond *c) { pthread_cond_destroy(c); }
+static void cond_wait(call_cond *c, call_lock *m) { pthread_cond_wait(c, m); }
+static void cond_broadcast(call_cond *c) { pthread_cond_broadcast(c); }
+#endif
+
+typedef struct job {
+  void *(*fn)(void *);
+  void *arg;
+  int done;
+} job_t;
+
 typedef struct {
   host_t *host;
   int op;
-  const uint8_t *data;
+  uint8_t *data; /* a copy: the Ruby String may move while hooks run Ruby */
   size_t len;
   ext_call_options options;
   ext_buffer out;
   ext_status status;
-  int ran; /* set by blocking_run: rb_thread_call_without_gvl2 skips it when an interrupt is pending */
+  call_lock mu;
+  call_cond changed;
+  int done;    /* the engine call returned */
+  int woken;   /* Ruby asked the waiting thread to handle an interrupt */
+  int waited;  /* the wait ran: rb_thread_call_without_gvl2 skips it when an interrupt is pending */
+  job_t *job;  /* a hook waiting to run on the Ruby thread */
 } blocking_call;
 
-static void *blocking_run(void *arg) {
-  blocking_call *c = (blocking_call *)arg;
+#ifdef _MSC_VER
+static __declspec(thread) blocking_call *helper_call;
+#else
+static __thread blocking_call *helper_call;
+#endif
+
+static void run_engine_call(blocking_call *c) {
   const engine_api *api = c->host->api;
   ext_host *handle = c->host->handle;
-  c->ran = 1;
+  helper_call = c;
   switch (c->op) {
   case OP_START: c->status = api->start(handle, &c->options); break;
   case OP_CALL: c->status = api->call(handle, c->data, c->len, &c->options, &c->out); break;
@@ -499,46 +558,115 @@ static void *blocking_run(void *arg) {
   case OP_SERVE: c->status = api->serve_reverse(handle, &c->options); break;
   default: c->status = api->drain(handle, &c->options); break;
   }
+  helper_call = NULL;
+  lock_lock(&c->mu);
+  c->done = 1;
+  cond_broadcast(&c->changed);
+  lock_unlock(&c->mu);
+}
+
+#ifdef _WIN32
+static DWORD WINAPI helper_main(LPVOID arg) {
+  run_engine_call((blocking_call *)arg);
+  return 0;
+}
+typedef HANDLE helper_t;
+static int helper_start(helper_t *t, blocking_call *c) {
+  *t = CreateThread(NULL, 0, helper_main, c, 0, NULL);
+  return *t != NULL;
+}
+static void helper_join(helper_t t) {
+  WaitForSingleObject(t, INFINITE);
+  CloseHandle(t);
+}
+#else
+static void *helper_main(void *arg) {
+  run_engine_call((blocking_call *)arg);
+  return NULL;
+}
+typedef pthread_t helper_t;
+static int helper_start(helper_t *t, blocking_call *c) { return pthread_create(t, NULL, helper_main, c) == 0; }
+static void helper_join(helper_t t) { pthread_join(t, NULL); }
+#endif
+
+/* Runs fn on the Ruby thread: on a helper, it is handed to the thread waiting for the call;
+ * otherwise this thread made the call without the lock and takes it back. */
+static void with_ruby(void *(*fn)(void *), void *arg) {
+  blocking_call *c = helper_call;
+  if (!c) {
+    rb_thread_call_with_gvl(fn, arg);
+    return;
+  }
+  job_t job = {fn, arg, 0};
+  lock_lock(&c->mu);
+  while (c->job) cond_wait(&c->changed, &c->mu); /* one hook at a time */
+  c->job = &job;
+  cond_broadcast(&c->changed);
+  while (!job.done) cond_wait(&c->changed, &c->mu);
+  lock_unlock(&c->mu);
+}
+
+/* Without the lock: until the call returns, a hook needs the Ruby thread, or Ruby interrupts. */
+static void *wait_call(void *arg) {
+  blocking_call *c = (blocking_call *)arg;
+  lock_lock(&c->mu);
+  c->waited = 1;
+  while (!c->done && !c->woken && !c->job) cond_wait(&c->changed, &c->mu);
+  lock_unlock(&c->mu);
   return NULL;
 }
 
-/* Called by Ruby, from another thread, to interrupt the call: thread-safe. */
-static void blocking_interrupt(void *arg) {
+/* Called by Ruby, from another thread, for an interrupt: thread-safe, and it only wakes. */
+static void wake_call(void *arg) {
   blocking_call *c = (blocking_call *)arg;
-  c->host->api->cancel_signal((ext_cancel *)c->options.cancel);
+  lock_lock(&c->mu);
+  c->woken = 1;
+  cond_broadcast(&c->changed);
+  lock_unlock(&c->mu);
 }
 
-typedef struct {
-  blocking_call *call;
-  ext_cancel *cancel;
-} blocking_frame;
+static VALUE check_interrupts(VALUE unused) {
+  (void)unused;
+  rb_thread_check_ints(); /* runs a trap or finalizer; raises for Thread#raise, Thread#kill, Ctrl-C */
+  return Qnil;
+}
 
-static VALUE blocking_body(VALUE arg) {
-  blocking_frame *f = (blocking_frame *)arg;
-  /* without_gvl2 leaves an interrupt that arrives during the call to Ruby's next check instead of
-   * raising it here, so the response buffer is always freed. It does not run the call at all when
-   * any interrupt is already pending, and most are not cancellations: a thread's time slice, a
-   * signal trap, finalizers or postponed jobs queued by a GC, and on Windows every tick of the VM
-   * clock (USE_VM_CLOCK, 100 ms) since the last check. So Ruby handles the pending interrupt
-   * (rb_thread_check_ints runs a trap or finalizer and returns, and raises for Thread#raise,
-   * Thread#kill or Ctrl-C) and the call is tried again; it is never reported as canceled unrun. */
+/* Waits for the call with the lock held between waits, running the hooks it hands over. Returns
+ * the rb_protect state of a real interrupt, which the caller raises once the call has ended. */
+static int serve_call(blocking_call *c) {
+  int interrupted = 0;
   for (;;) {
-    rb_thread_call_without_gvl2(blocking_run, f->call, blocking_interrupt, f->call);
-    if (f->call->ran) break;
-    rb_thread_check_ints();
+    c->waited = 0;
+    /* Once interrupted the call is canceled and ends soon; it is waited for without a wake. */
+    rb_thread_call_without_gvl2(wait_call, c, interrupted ? NULL : wake_call, c);
+    lock_lock(&c->mu);
+    job_t *job = c->job;
+    int done = c->done, woken = c->woken || !c->waited;
+    c->woken = 0;
+    lock_unlock(&c->mu);
+    if (job) {
+      job->fn(job->arg); /* with the lock, on this thread; the hooks catch their own exceptions */
+      lock_lock(&c->mu);
+      job->done = 1;
+      c->job = NULL;
+      cond_broadcast(&c->changed);
+      lock_unlock(&c->mu);
+      continue;
+    }
+    if (done) return interrupted;
+    if (woken && !interrupted) {
+      int state = 0;
+      rb_protect(check_interrupts, Qnil, &state);
+      if (state) {
+        interrupted = state;
+        c->host->api->cancel_signal((ext_cancel *)c->options.cancel);
+      }
+    }
   }
-  return Qnil;
 }
 
-static VALUE blocking_done(VALUE arg) {
-  blocking_frame *f = (blocking_frame *)arg;
-  f->call->host->active--;
-  f->call->host->api->cancel_destroy(f->cancel); /* the call has joined */
-  return Qnil;
-}
-
-/* Runs one engine call without the lock and returns its response (or Qnil), raising its failure.
- * A pending interrupt is raised by Ruby after the call returns. */
+/* Runs one engine call off the lock and returns its response (or Qnil), raising its failure, or
+ * the interrupt that canceled it. */
 static VALUE blocking_status(VALUE self, int op, VALUE data, VALUE timeout, const char *action,
                              ext_status *status);
 static VALUE blocking(VALUE self, int op, VALUE data, VALUE timeout, const char *action) {
@@ -549,9 +677,9 @@ static VALUE blocking_status(VALUE self, int op, VALUE data, VALUE timeout, cons
                              ext_status *status) {
   host_t *h = enter(self, action);
   blocking_call c;
-  blocking_frame f;
   ext_cancel *cancel = NULL;
   ext_status s;
+  helper_t helper;
   VALUE response = Qnil;
   memset(&c, 0, sizeof c);
   c.host = h;
@@ -560,22 +688,37 @@ static VALUE blocking_status(VALUE self, int op, VALUE data, VALUE timeout, cons
   c.options.timeout_ms = timeout_ms(timeout);
   if (!NIL_P(data)) {
     StringValue(data);
-    data = rb_str_new_frozen(data); /* stays put while the lock is released */
-    c.data = (const uint8_t *)RSTRING_PTR(data);
     c.len = (size_t)RSTRING_LEN(data);
+    c.data = (uint8_t *)malloc(c.len ? c.len : 1);
+    if (!c.data) rb_raise(rb_eNoMemError, "out of memory");
+    memcpy(c.data, RSTRING_PTR(data), c.len);
   }
   s = h->api->cancel_create(&cancel);
-  if (s) raise_status(s, action);
+  if (s) {
+    free(c.data);
+    raise_status(s, action);
+  }
   c.options.cancel = cancel;
-  f.call = &c;
-  f.cancel = cancel;
+  lock_init(&c.mu);
+  cond_init(&c.changed);
   h->active++;
-  rb_ensure(blocking_body, (VALUE)&f, blocking_done, (VALUE)&f);
-  RB_GC_GUARD(data);
+  int interrupted = 0;
+  if (helper_start(&helper, &c)) {
+    interrupted = serve_call(&c);
+    helper_join(helper);
+  } else {
+    c.status = EXT_NOMEM;
+  }
+  h->active--;
+  h->api->cancel_destroy(cancel); /* the call has joined */
+  cond_destroy(&c.changed);
+  lock_destroy(&c.mu);
+  free(c.data);
   if (c.out.data) {
-    response = rb_str_new((const char *)c.out.data, (long)c.out.len);
+    if (!interrupted) response = rb_str_new((const char *)c.out.data, (long)c.out.len);
     h->api->buffer_free(&c.out);
   }
+  if (interrupted) rb_jump_tag(interrupted); /* the interrupt that canceled the call */
   if (status)
     *status = c.status;
   else if (c.status)
@@ -712,7 +855,7 @@ static int32_t reverse_authorize_cb(void *user, const ext_call_options *o, const
   r.len = len;
   r.remaining_ms = o->timeout_ms;
   if (NIL_P(r.callable)) return 1;
-  rb_thread_call_with_gvl(reverse_with_gvl, &r);
+  with_ruby(reverse_with_gvl, &r);
   return r.allowed ? 0 : 1;
 }
 
@@ -729,7 +872,7 @@ static ext_status reverse_handle_cb(void *user, const ext_call_options *o, const
   r.remaining_ms = o->timeout_ms;
   r.handle = 1;
   if (NIL_P(r.callable)) return EXT_IO;
-  rb_thread_call_with_gvl(reverse_with_gvl, &r);
+  with_ruby(reverse_with_gvl, &r);
   if (!r.answered) return EXT_IO; /* the plugin sees operation_failed */
   s = emit(sink, r.kind, (const uint8_t *)r.data, r.data_len);
   free(r.data);

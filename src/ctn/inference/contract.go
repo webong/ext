@@ -4,8 +4,8 @@
 // as an Ext plugin guest and invoked by a host through a plugin session.
 //
 // The package depends only on res/int/inference (the contract) and
-// pkg/ext-go/engine (the plugin mechanics). It knows nothing about CTX, CTN,
-// Cymonkey, or any concrete provider.
+// pkg/ext-go/engine (the plugin mechanics). It knows nothing about CTN command
+// dispatch or any concrete provider.
 package inference
 
 import (

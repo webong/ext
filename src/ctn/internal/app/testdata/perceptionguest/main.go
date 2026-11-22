@@ -5,7 +5,7 @@ import (
 	"os"
 
 	plugin "github.com/webong/ext/pkg/ext-go/engine"
-	bridge "github.com/webong/ext/pkg/ext-go/perception"
+	bridge "github.com/webong/ext/src/ctn/perception"
 	domain "github.com/webong/ext/res/int/perception"
 )
 

@@ -5,7 +5,7 @@ import (
 	"os"
 
 	plugin "github.com/webong/ext/pkg/ext-go/engine"
-	mlplugin "github.com/webong/ext/pkg/ext-go/model"
+	mlplugin "github.com/webong/ext/src/ctn/model"
 	ml "github.com/webong/ext/res/int/model"
 )
 

@@ -4,7 +4,7 @@ import (
 	"errors"
 	"testing"
 
-	bridge "github.com/webong/ext/pkg/ext-go/inference"
+	bridge "github.com/webong/ext/src/ctn/inference"
 	domain "github.com/webong/ext/res/int/inference"
 )
 

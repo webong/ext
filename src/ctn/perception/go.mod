@@ -1,4 +1,4 @@
-module github.com/webong/ext/pkg/ext-go/inference
+module github.com/webong/ext/src/ctn/perception
 
 go 1.25.0
 

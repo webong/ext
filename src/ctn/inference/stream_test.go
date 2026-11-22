@@ -10,7 +10,7 @@ import (
 	"github.com/webong/ext/pkg/ext-go/engine/guest/author"
 	"github.com/webong/ext/pkg/ext-go/engine/guest/stream"
 	"github.com/webong/ext/pkg/ext-go/engine/transport/inprocess"
-	bridge "github.com/webong/ext/pkg/ext-go/inference"
+	bridge "github.com/webong/ext/src/ctn/inference"
 	domain "github.com/webong/ext/res/int/inference"
 )
 

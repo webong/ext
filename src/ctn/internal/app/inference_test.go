@@ -10,7 +10,7 @@ import (
 
 	"github.com/webong/ext/pkg/ext-go/engine/host/store"
 	packagekit "github.com/webong/ext/pkg/ext-go/engine/package"
-	ginference "github.com/webong/ext/pkg/ext-go/inference"
+	ginference "github.com/webong/ext/src/ctn/inference"
 )
 
 func TestInferenceProviderRequiresTrustedPackage(t *testing.T) {

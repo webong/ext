@@ -15,7 +15,7 @@ import (
 	"strings"
 	"time"
 
-	ginference "github.com/webong/ext/pkg/ext-go/inference"
+	ginference "github.com/webong/ext/src/ctn/inference"
 	"github.com/webong/ext/res/int/inference"
 )
 

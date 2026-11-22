@@ -16,7 +16,7 @@ import (
 	"github.com/webong/ext/pkg/ext-go/engine/host/process"
 	"github.com/webong/ext/pkg/ext-go/engine/host/store"
 	hosttrust "github.com/webong/ext/pkg/ext-go/engine/host/trust"
-	mlplugin "github.com/webong/ext/pkg/ext-go/model"
+	mlplugin "github.com/webong/ext/src/ctn/model"
 	ml "github.com/webong/ext/res/int/model"
 )
 

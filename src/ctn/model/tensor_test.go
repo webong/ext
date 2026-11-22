@@ -10,7 +10,7 @@ import (
 	plugin "github.com/webong/ext/pkg/ext-go/engine"
 	"github.com/webong/ext/pkg/ext-go/engine/guest/author"
 	"github.com/webong/ext/pkg/ext-go/engine/transport/inprocess"
-	bridge "github.com/webong/ext/pkg/ext-go/model"
+	bridge "github.com/webong/ext/src/ctn/model"
 	domain "github.com/webong/ext/res/int/model"
 )
 

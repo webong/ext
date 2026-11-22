@@ -1,6 +1,6 @@
 # Perception plugin bridge
 
-`pkg/ext-go/perception` exposes the `res/int/perception` domain through the
+`src/ctn/perception` exposes the `res/int/perception` domain through the
 language-neutral `intelligence.perception/v1` Ext plugin contract. Go guests
 register a provider with `RegisterProvider` and serve it with `ServeStdio` or
 `ServeCurrentExecutable`. Go hosts call `Info`, `Observe`, and `Interpret`
@@ -19,12 +19,12 @@ install, trust, invoke, and revoke through a real subprocess.
 For a guest executable `provider`, the CTN flow is:
 
 ```sh
-ctn perception package example 1.0.0 ./provider ./example-package
-ctn perception install ./example-package
-ctn perception trust example
-ctn perception capabilities --provider example
-ctn perception observe --provider example --model model-id --input ./image-request.json
-ctn perception untrust example
+ext ctn perception package example 1.0.0 ./provider ./example-package
+ext ctn perception install ./example-package
+ext ctn perception trust example
+ext ctn perception capabilities --provider example
+ext ctn perception observe --provider example --model model-id --input ./image-request.json
+ext ctn perception untrust example
 ```
 
 The request file contains an `image` byte array encoded as base64 and a

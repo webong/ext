@@ -6,13 +6,12 @@ installation and activation, executable and profile discovery conventions,
 storage formats, signing tools, store URLs, settings paths, and diagnostics.
 
 Ext libraries own generic adapter contracts, validation, package trust, and
-invocation. CTX and CTN are products built on Ext and can run standalone; each
+invocation. CTX, CTN and CTO are products built on Ext and installed as Ext packages; each
 product owns its own selection and command dispatch. Adapters are ext adapters,
 not owned by the interface invoking them. `ext` is the main installer and combined
-entry point; CTX and CTN consume the declared capabilities available to them,
-including in standalone mode. Current adapter management uses `ext adapter`
-or standalone `ctx adapter`, both backed by
-`pkg/ext-go/engine/host/adapter/adaptercmd`; `ctn adapter ls` is read-only. See
+entry point and the only public executable; the products consume declared capabilities
+through it. Current adapter management uses `ext adapter` or `ext ctx adapter`, backed by
+`pkg/ext-go/engine/host/adapter/adaptercmd`; `ext ctn adapter ls` is read-only. See
 [adapter management](docs/adr-adapter-management.md).
 
 Shared libraries may
@@ -52,25 +51,26 @@ ecosystem consumers build on them; `internal/` stays private to its owning
 product and must not be imported by consumers.
 
 The repository root is only the workspace: it holds `go.work` and no Go module or
-package. Binary releases use product tags, `ctx-vX.Y.Z` and `ctn-vX.Y.Z`; those are not Go
-module versions. Bare `vX.Y.Z` tags are not used. The only bare tags are the `X.Y.Z` tags of one
+package. The public binary release uses `ext-vX.Y.Z`; it is not a Go
+module version. Bare `vX.Y.Z` tags are not used. The only bare tags are the `X.Y.Z` tags of one
 distribution branch, `dist/ext-ios`, for SwiftPM; the others are tagged `<name>-X.Y.Z` (`dist/ext-macos` tags
 `ext-macos-X.Y.Z`, so macOS consumers pin it by branch or revision, and `dist/ext-zig` tags `ext-zig-X.Y.Z`).
 Only the release workflow writes them and they are never merged; see [distribution branches](docs/module-versioning.md#distribution-branches).
 `tests/` is a container for test-only Go modules that belong to no single library: `tests/crosslang` runs
 every language's guests and hosts against each other, with `pkg/ext-go` as the host side. Its modules are
 listed in `go.work`, are never tagged or published, and no library imports them. `src/` is a container like `res/`; the context manager is the module
-`src/ctx` (`src/ctx/cmd/ctx`, with its private code in `src/ctx/internal`) and
-the content manager is `src/ctn`. This repository is ext: it provides libraries
-and binaries, and ctx and ctn are binaries built on those libraries. A product
+`src/ctx` (with its private code in `src/ctx/internal`), the content manager is
+`src/ctn`, and containment is `src/cto`. Each product exports a reusable Go
+library and ships a private Ext package guest. Only `cmd/ext` ships a public binary. A product
 never imports another product; shared code goes in `pkg/` or `res/`.
 `examples/` is not a Go module: it holds only samples that need no Go build (a shell adapter and an Android
 consumer app). Go examples live in the library they show, as an `examples/` directory inside that module:
 `pkg/ext-go/examples` for plugins (the umbrella requires every backend), `res/graph/examples` and
-`res/web/host/examples` for those libraries. Nothing but `cmd/ext` may import the product modules `github.com/webong/ext/ctx` or
-`github.com/webong/ext/ctn`, through their root packages (`ctx.Run`, `ctn.Run`; see [the ext command](docs/adr-ext-command.md)); their directories are `src/ctx` and `src/ctn`. The module paths deliberately omit
-`src/`, so the products are not `go get`-resolvable from the repository until their
-paths and directories match; they are built from source and released as binaries.
+`res/web/host/examples` for those libraries. The product modules export `ctx.Run`,
+`ctn.Run` and `cto.Run` for Go consumers; the private guests in each product's
+`plugin/` directory adapt those functions to `ext.command/v1`. Ext does not import
+the product modules. Their module paths include `src/`, so external Go consumers
+can import them directly once their module versions are tagged and published.
 
 The layers, the rules every `res/` module follows (fixtures as the contract, capability
 reporting, one vocabulary of error codes, bounds) and the language support tiers are in
@@ -166,8 +166,8 @@ the core stays free of every runtime. `pkg/ext-go/engine` uses the standard
 library only. `src/ctx/internal/arch` enforces both rules.
 
 When adding a library module, list it in `go.work`, give it a `go.mod`, and add
-matching `require` and `replace` directives to `src/ctx/go.mod` only if ctx imports it
-(adapters are loaded as ext packages, so `src/ctx/go.mod` never lists them). Do not add
+matching `require` directives to a product module only if that product imports it
+(adapters are loaded as ext packages, so product `go.mod` files never list them). Do not add
 `replace` directives to library modules: Go ignores them for consumers, so they
 only misrepresent what a published module resolves. `GOWORK=off go build` in a
 library module is expected to fail until its dependencies are published.
@@ -189,10 +189,11 @@ The reusable libraries are:
 - `lib/ledger` for the graph in C that replaces `res/graph`: the store over its file layout (`res/graph/testdata/store/v1/ledger.json`) or SQLite, held to the same fixtures.
 - `res/graph` for the graph store (`res/graph/store`), the recorder that projects what is observed about the machine, its adapters and its shell sessions onto the `ext.system` vocabulary (the module's root package), and the process supervisor (`res/graph/supervisor`). It requires `res/system`; nothing in `res/system` depends on it. Deprecated: `lib/ledger` replaces it, so add nothing new here (only keep it working until its Go consumers move to the C library and it is removed); new graph behaviour goes to `lib/ledger` and the `res/graph/testdata` fixtures.
 - `res/int` for portable intelligence contracts and mechanisms: `model` owns verified local model bundles, tensors, and native backends; `inference` owns generation, embedding, transcription, speech, and provider contracts; `perception` owns interpretation and observation types; `realtime` owns duplex session types. Providers, models, credentials, and policy are chosen by consumers.
-- `res/sandbox` for the sandbox contract shared with `github.com/webong/workload` ([the sandboxing ADR](docs/adr-sandboxing.md)): the boundary levels, the policy and lifecycle vocabulary, grants, capabilities, enforcement and reports, held to `res/sandbox/testdata`. It is data and rules only, uses only the standard library, imports nothing else in ext and requires no module, so runners outside ext can depend on it (`src/ctx/internal/arch` enforces it). It confines nothing: mechanisms that enforce a grant live in `res/system` and in workload's drivers. Consumers choose the policy.
+- `src/cto/sandbox` for CTO's sandbox contract shared with `github.com/webong/workload` ([the sandboxing ADR](docs/adr-sandboxing.md)): boundary levels, policy and lifecycle vocabulary, grants, capabilities, enforcement and reports, held to `src/cto/sandbox/testdata`. This nested module uses only the standard library and imports nothing else in ext, so runners outside ext can depend on it (`src/ctx/internal/arch` enforces it). CTO's local confinement mechanism lives in `src/cto/internal/confine`; workload owns its drivers. Consumers choose the policy.
 - `pkg/ext-go/engine` for the pure-Go engine, kept in parity with the C engine: the plugin contract, sessions, guests, packages, bridges and tooling (standard library only).
 - `pkg/ext-go/c2goengine` for the C engine's portable core translated to Go by ccgo (no cgo, no C compiler). The translation is generated per platform by its `tools` module and compared with the pure-Go engine by `engine/plugintest/enginetest`; it depends on `engine` only.
-- `pkg/ext-go/cgoengine` for the Go binding of the C engine, with a pure-Go build of the same API and the C ABI loader (cgo, or purego without cgo).
+- `pkg/ext-go/cgoengine` for the Go binding of the C engine, with a pure-Go build of the same API.
+- `pkg/ext-go/runtime` for how Go reaches a C shared library: `runtime/library` (load a library once per canonical path and bind its exports, through purego, with or without cgo) and `runtime/cshared` (the C plugin ABI: the loader backend for C shared guests, with a cgo and a purego build, `cshared/abi` and `cshared/guest`). The module has no root package, so nothing shadows the standard `runtime`; it depends on `pkg/ext-go/engine` and purego only, never on `cgoengine`.
 - `pkg/ext-go/wasm` for the engine-facing WebAssembly backend; it depends on `pkg/ext-go/engine` and the reusable runtime in `res/web/host/engine/wasm`.
 - `pkg/ext-go/hashicorp` for the HashiCorp go-plugin backend.
 - `pkg/ext-go/yaegi` for the Go source backend: a guest shipped as Go source, interpreted in-process by yaegi (`github.com/traefik/yaegi`); it depends on `pkg/ext-go/engine` and yaegi only, and the umbrella does not require it.
@@ -236,7 +237,7 @@ swapping the import never needs a code change.
 `packagekit` has no dependency on `res/graph`; joining a package plan to the host
 graph is `plugingo.PlanGraph` in the umbrella module. Runtime backends
 (`pkg/ext-go/hashicorp`, `pkg/ext-go/wasm`) and the C ABI loader in
-`pkg/ext-go/cgoengine/cshared` implement `engine.Backend` and import
+`pkg/ext-go/runtime/cshared` implement `engine.Backend` and import
 `pkg/ext-go/engine`. Hosts import `pkg/ext-go/engine/host/adapter`, which
 owns manifests, the installed store, trust and invocation; a product keeps only
 its own selection and commands.
@@ -300,20 +301,24 @@ implements the same contract with `pw-dump`, `pw-record`, and `pw-play`.
 PipeWire and PulseAudio are separate adapters; no library selects between them
 by name. `res/system/capture/surface.DesktopDriver` is the portable seam those adapters
 implement, and the shared library never selects a driver by name.
+`src/cto/internal/confine` confines one local process to a `src/cto/sandbox` grant and then becomes the guest; its drivers (Seatbelt on macOS now, Landlock and seccomp on Linux, AppContainer and a job object on Windows next) are CTO platform implementations, not adapters. It never chooses a policy. `res/system` has no CTO dependency.
+`src/cto/internal/app` owns `ext cto exec|check` and its `ext sandbox` alias, dispatched
+through the installed CTO package. Each product's private `plugin/` entrypoint serves its command through the Ext guest SDK; Ext's host dispatch lives in `cmd/ext/internal/pkgcmd`. Product dispatch is not part of `pkg/ext-go`.
 `res/system` may also perform bounded local shell mechanisms such as capture,
 media playback/capture and portable media framing, native input, and volume snapshot/restore; process
 supervision is `res/graph/supervisor`. Remote clients, service discovery, routing services, authorization,
 approval UI and consumer policy belong to consumers.
 Keep
 `pkg/ext-go` focused on the contract, the engine API and runtime backends. The Go-to-C guest binding belongs in
-`pkg/ext-go/cgoengine/cshared/guest`. The language-neutral C ABI header
+`pkg/ext-go/runtime/cshared/guest`. The language-neutral C ABI header
 (`lib/plugin/include/ext_plugin.h`) belongs to the engine; its constants and wire
 envelope (`cshared/abi`) and the runtime loader (`cshared`) live under
-`pkg/ext-go/cgoengine/cshared`, inside the `cgoengine` module. The loader has a
+`pkg/ext-go/runtime/cshared`, in the `pkg/ext-go/runtime` module, beside the generic loader
+`pkg/ext-go/runtime/library` that its purego build uses. The loader has a
 cgo build and, for `CGO_ENABLED=0`, a purego build (Linux, macOS and Windows on
 amd64 and arm64; elsewhere it returns `ErrUnsupported`). On darwin/amd64 both builds refuse a Go
 c-shared guest, since two Go runtimes there share the TLS slot for g. purego is a dependency
-of `cgoengine` only, never of `pkg/ext-go/engine`, and both builds run the
+of `pkg/ext-go/runtime` only, never of `pkg/ext-go/engine` or `cgoengine`, and both builds run the
 cshared tests and the shared host cases (`scripts/cshared-purego.sh`). `res/web/host/engine/wasm`
 is a package of the `res/web/host` module, not a nested module. `pkg/ext-go/wasm`
 remains a separate module because it binds that reusable runtime to the plugin

@@ -106,6 +106,80 @@ module ExtIO
         native = @engine.shared_library(Host.encode(descriptor), path.to_s, Host.policy(verify), Host.policy(authorize))
         Host.open(native, &block)
       end
+
+      # @private
+      def native_registry
+        @engine.registry
+      end
+    end
+
+    # One reverse request a plugin made, for the hook that serves it: +request+ is the Request as a
+    # Hash (apiVersion, id, plugin, contract, operation, surface, deadline, payload and, for a
+    # call-scoped request, parent), +remaining+ the seconds left to it.
+    ReverseCall = Struct.new(:request, :remaining)
+
+    def self.reverse_authorize(authorize)
+      raise ArgumentError, "authorize must respond to call" unless authorize.respond_to?(:call)
+
+      ->(json, ms) { authorize.call(ReverseCall.new(JSON.parse(json), ms / 1000.0)) ? true : false }
+    end
+
+    def self.reverse_handle(handle)
+      raise ArgumentError, "handle must respond to call" unless handle.respond_to?(:call)
+
+      lambda do |json, ms|
+        [false, JSON.generate(handle.call(ReverseCall.new(JSON.parse(json), ms / 1000.0)))]
+      rescue RemoteError => e
+        error = { "code" => e.code, "message" => e.message }
+        error["retryAfterMilliseconds"] = e.retry_after_ms if e.retry_after_ms && e.retry_after_ms != 0
+        [true, JSON.generate(error)]
+      end
+    end
+
+    def self.bounds(timeout, max_payload_bytes, max_in_flight)
+      [timeout.nil? ? 0 : [(timeout * 1000).to_i, 1].max, Integer(max_payload_bytes), Integer(max_in_flight)]
+    end
+
+    # A guest registry (ext_registry_* in ext_host.h): a reverse call one guest makes is served by
+    # a forward call to another guest, along an edge declared with #route. An undeclared edge is
+    # refused with reverse_undeclared, an unregistered target with reverse_unavailable, and a call
+    # that would re-enter a host already on its call chain with denied; the target's answer passes
+    # through unchanged. A host is a source once Session#attach names the registry, and a target
+    # once #register names a contract it serves; it leaves the registry when it is destroyed. The
+    # registry keeps its targets alive, and a source keeps its registry alive. Failures raise
+    # HostError.
+    class Registry
+      def initialize(engine)
+        @native = engine.native_registry
+      end
+
+      # @private
+      attr_reader :native
+
+      # Names +session+ (started, and listing the contract) as the one serving +contract+.
+      def register(contract, session)
+        @native.register(fetch(contract, "name").to_s, fetch(contract, "version").to_s, session.native)
+        nil
+      end
+
+      # Removes the contract and waits for the forward calls routed to its host.
+      def unregister(contract)
+        @native.unregister(fetch(contract, "name").to_s, fetch(contract, "version").to_s)
+        nil
+      end
+
+      # A reverse call of +from+ ({name, version, operation}) is served by a call of +to+.
+      def route(from, to)
+        names = [from, to].flat_map { |e| %w[name version operation].map { |k| fetch(e, k).to_s } }
+        @native.route(*names)
+        nil
+      end
+
+      private
+
+      def fetch(hash, key)
+        hash.fetch(key) { hash.fetch(key.to_sym) }
+      end
     end
 
     def self.open(native, &block)
@@ -123,12 +197,45 @@ module ExtIO
     # One session with one plugin. Use Engine#process or Engine#shared_library.
     #
     # Calls may come from several threads, and run without the global VM lock; the engine
-    # serializes them for a process or a shared library. An interrupt (Thread#raise, Thread#kill)
-    # cancels the call in progress. +close+ aborts; +destroy+ frees the host once no call is
+    # serializes them for a process or a shared library. An interrupt that raises (Thread#raise,
+    # Thread#kill) cancels the call in progress; a signal trap or a child exiting does not. +close+ aborts; +destroy+ frees the host once no call is
     # running, and garbage collection frees an unreachable one.
     class Session
       def initialize(native)
         @native = native
+      end
+
+      # @private
+      attr_reader :native
+
+      # Offers the plugin the operations its descriptor lists under "reverse", before #start.
+      # +authorize+ and +handle+ are called with a ReverseCall; +handle+ returns a JSON value (nil
+      # is null), or raises RemoteError for an error the plugin receives as it is; any other
+      # exception reaches it as operation_failed. They run on the thread of a call that waits on
+      # this host (the engine's caller-thread mode), one at a time, and must not use this host. A
+      # request made between calls waits for the next call or #serve_reverse. Zero bounds use the
+      # defaults (30 s, 1 MiB, 4).
+      def serve(authorize:, handle:, timeout: nil, max_payload_bytes: 0, max_in_flight: 0)
+        @native.serve(Host.reverse_authorize(authorize), Host.reverse_handle(handle),
+                      *Host.bounds(timeout, max_payload_bytes, max_in_flight))
+        nil
+      end
+
+      # Serves the reverse requests made between calls on this thread: true once it served one,
+      # false when none came within +timeout+ seconds.
+      def serve_reverse(timeout = 3.0)
+        @native.serve_reverse(timeout)
+      end
+
+      # Makes this host a source of +registry+, in place of #serve and before #start: its plugin's
+      # reverse calls are served by forward calls to the hosts registered there, along the declared
+      # edges, after +authorize+ allowed them.
+      def attach(registry, authorize:, timeout: nil, max_payload_bytes: 0, max_in_flight: 0)
+        raise ArgumentError, "registry must be a Registry" unless registry.is_a?(Registry)
+
+        @native.attach(registry.native, Host.reverse_authorize(authorize),
+                       *Host.bounds(timeout, max_payload_bytes, max_in_flight))
+        nil
       end
 
       # Starts the guest and checks its handshake against the descriptor. Timeouts are seconds.

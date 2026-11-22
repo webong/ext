@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/webong/ext/ctx/internal/config"
+	"github.com/webong/ext/src/ctx/internal/config"
 	systemgraph "github.com/webong/ext/res/graph"
 	systemsurface "github.com/webong/ext/res/system/capture/surface"
 	"github.com/webong/ext/res/graph/store"

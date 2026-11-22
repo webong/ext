@@ -61,23 +61,20 @@ the dependency from the proxy at the required version. Keeping them out avoids
 the false impression that a published module can redirect consumers to a local
 path, and it means each `go.mod` describes exactly what a consumer will get.
 
-The CLI modules `src/ctx` (module path `github.com/webong/ext/ctx`) and `src/ctn` keep
-`replace` directives, but only for the sibling modules they require, because they are the modules
-developers build and run. Those are what let `go build ./...` use local module code. Adapters are
-ext packages that `ctx` loads, not Go imports, so neither module lists or replaces them. The Go
+The product libraries `src/ctx`, `src/ctn` and `src/cto` use module paths that
+match their directories (`github.com/webong/ext/src/<name>`). They carry no
+`replace` directives, so other Go projects can resolve them after their module
+versions and dependencies are published. The workspace resolves local edits.
+Adapters are ext packages that CTX loads, not Go imports. The Go
 examples live in the library they show (for example `pkg/ext-go/examples`) and need no module
 of their own. The repository root is not a module: it
 holds `go.work` only, so it has no `go.mod` and Go resolves no module there.
 
-Binary releases are tagged per product, `ctx-vX.Y.Z` and `ctn-vX.Y.Z`, and are
-not Go module versions. Pushing one runs the release workflow for that product
-only: `ctx-v*` builds and publishes the ctx native bundles with
-`scripts/build-release.sh`, and `ctn-v*` builds the ctn bundles with
-`scripts/build-release-ctn.sh`. The names use a dash, not a slash, because a
-slash would read as a Go module tag for a directory that does not exist and
-makes download URLs ambiguous. GitHub's "latest" release is repository-wide, so
-`install.sh` and `install.ps1` resolve the newest `ctx-v*` release instead of
-`latest/download`, and ctn releases are published with `--latest=false`.
+The public binary release is tagged `ext-vX.Y.Z`; it is not a Go module
+version. It contains the `ext` executable and installed CTX, CTN and CTO
+packages. The old `ctx-v*` and `ctn-v*` standalone binary routes have stopped.
+`install.sh` and `install.ps1` resolve the newest `ext-v*` release rather than
+the repository-wide `latest/download` URL.
 The mobile SDKs follow the same dash form: `ext-android-vX.Y.Z` releases the Android AARs
 (`.github/workflows/release.yml` (package `ext-android`), published with `--latest=false`), `ext-ios-vX.Y.Z` releases the
 Apple SDK for iOS and the iOS Simulator (`.github/workflows/release.yml` (package `ext-ios`), same form) and
@@ -471,7 +468,7 @@ workspace active, and that `src/ctx` resolves the intended versions:
 
 ```bash
 for module in src/ctx src/ctn pkg/ext-go pkg/ext-go/engine pkg/ext-go/cgoengine \
-              pkg/ext-go/hashicorp pkg/ext-go/wasm pkg/ext-go/yaegi pkg/ext-go/inference pkg/ext-go/model pkg/ext-go/perception pkg/ext-go/realtime res/system res/int res/sandbox \
+              pkg/ext-go/hashicorp pkg/ext-go/wasm pkg/ext-go/yaegi pkg/ext-go/runtime pkg/ext-go/inference pkg/ext-go/model pkg/ext-go/perception pkg/ext-go/realtime res/system res/int src/cto/sandbox \
               adapters/wasm adapters/evm adapters/systemd adapters/pulseaudio adapters/alsa \
               adapters/x11 adapters/ffmpeg adapters/wayland adapters/pipewire adapters/openai \
               adapters/ollama adapters/anthropic adapters/gemini res/web/host; do
@@ -518,9 +515,10 @@ so an application imports only what it needs and stacks the rest:
 | `pkg/ext-go/wasm` | the plugin-engine binding for `res/web/host/engine/wasm` (the old `pkg/plugin-wasm`) | `engine`, `res/web/host` |
 | `pkg/ext-go/hashicorp` | the go-plugin (gRPC) backend (the old `pkg/plugin-hashicorp`) | `engine` |
 | `pkg/ext-go/yaegi` | the Go source backend: a guest shipped as Go source (runtime `go-source`, a tree artifact) interpreted in-process by yaegi; not required by the umbrella | `engine`; third-party yaegi only |
+| `pkg/ext-go/runtime` | how Go reaches C shared libraries: `library` (purego) and the `cshared` backend for C shared guests, moved out of `cgoengine`; no root package | `engine`; third-party purego only |
 | `pkg/ext-go` | the umbrella: requires every plugin module above except `yaegi` and holds what needs several of them (`PlanGraph`, the `core` package that chooses between `engine`, `cgoengine` and `c2goengine`, the bridge command, the cross-language tests) | the plugin modules above, `res/system`, `res/web` |
 | `res/int` | portable model, inference, perception, and real-time contracts and mechanisms; standard library only | nothing |
-| `res/sandbox` | the sandbox contract shared with github.com/webong/workload: boundary levels, policy, grants, capabilities and reports ([the sandboxing ADR](adr-sandboxing.md)); standard library only | nothing |
+| `src/cto/sandbox` | the sandbox contract shared with github.com/webong/workload: boundary levels, policy, grants, capabilities and reports ([the sandboxing ADR](adr-sandboxing.md)); standard library only | nothing |
 
 The module was called `contract` until v0.8.0 because it is the contract plus tooling that needs
 nothing beyond the standard library, not a runtime; it became `engine` once it was the oracle
@@ -761,11 +759,12 @@ repository root, for example `pkg/plugin-go/contract v0.4.0`; `#` starts a comme
    the highest listed module it requires.
 3. **Pins and checksums.** `scripts/release-pins.sh VERSIONS` bumps every requirement on a listed module to its
    release version and records the true hashes in each `go.sum`, layer by layer, by resolving the lower layers from
-   a throwaway repository with the real go toolchain. Bump the product modules that build against local `replace`
-   directives (`src/ctx`, `src/ctn`) with `go mod edit -require`. A listed module that another workspace module
-   requires at its release version has no tag yet, so the go command cannot read its `go.mod` and every
-   workspace build fails with `unknown revision`, on every platform. `src/ctx` already replaces the modules it
-   imports; for any other such module (in v0.5.0, `cengine`, required by the umbrella) add a version-pinned
+   a throwaway repository with the real go toolchain. Bump product module requirements
+   (`src/ctx`, `src/ctn`, `src/cto`) with `go mod edit -require` when they consume
+   changed libraries. A listed module that another workspace module requires at its release
+   version has no tag yet, so the go command cannot read its `go.mod` and every
+   workspace build fails with `unknown revision`, on every platform. For such a module
+   (in v0.5.0, `cengine`, required by the umbrella), add a version-pinned
    `replace <module> <version> => ./<dir>` to `go.work`. It must carry the version: Go rejects a workspace
    module replaced at all versions. Remove the line in the commit after the last layer is tagged. Update the
    docs and READMEs, commit, open a pull request, and merge it as a merge commit once its checks pass; check

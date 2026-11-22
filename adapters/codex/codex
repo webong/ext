@@ -2,4 +2,4 @@
 # ctx shim for Codex CLI
 set -eu
 BIN_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-exec "$BIN_DIR/ctx" run codex "$@"
+exec "$BIN_DIR/ext" ctx run codex "$@"

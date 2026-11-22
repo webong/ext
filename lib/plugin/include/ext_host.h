@@ -343,6 +343,36 @@ typedef struct {
 EXT_HOST_API ext_status ext_host_set_services(ext_host *,
                                               const ext_host_services *);
 
+/* Where the reverse hooks run. By default (EXT_HOST_REVERSE_ENGINE_THREADS) the
+ * engine runs authorize and handle on threads of its own, up to max_in_flight
+ * at a time. With EXT_HOST_REVERSE_CALLER_THREAD they run on a thread of the
+ * application instead, one request at a time, for a host whose language cannot
+ * run code on a thread it did not create (Ruby, Lua, PHP): the engine queues
+ * each admitted request, and a thread that is waiting in a call on this host
+ * (ext_host_call, ext_host_call_progress, ext_host_invoke) serves the queue
+ * while it waits, whichever call the request belongs to. A session-scoped
+ * request that arrives while no call is in flight waits in the queue until a
+ * call starts or ext_host_serve_reverse runs. Everything else is as on engine
+ * threads: admission, the codes, the deadline chain, cancellation (a request
+ * still queued when its call ends, the host closes or its deadline passes is
+ * answered expired without its hooks running) and the shape of every answer.
+ * Requests a frames backend hands over with ext_host_backend_reverse_run run
+ * where that call is made, in either mode.
+ *
+ * ext_host_set_reverse_mode configures it before start, like
+ * ext_host_set_services; EXT_INVALID for an unknown mode or a host that has
+ * started. ext_host_serve_reverse runs the queued requests on this thread and
+ * returns once it has served at least one and the queue is empty (EXT_OK), when
+ * timeout_ms passes with nothing to serve (EXT_TIMEOUT), when cancel is
+ * signaled (EXT_CANCELED) or when the host is closed or failed (EXT_CLOSED).
+ * It is EXT_UNSUPPORTED on a host that runs its hooks on engine threads. Neither
+ * may be called from inside a hook of the same host. */
+#define EXT_HOST_REVERSE_ENGINE_THREADS 0u
+#define EXT_HOST_REVERSE_CALLER_THREAD 1u
+EXT_HOST_API ext_status ext_host_set_reverse_mode(ext_host *, uint32_t mode);
+EXT_HOST_API ext_status ext_host_serve_reverse(ext_host *,
+                                               const ext_call_options *);
+
 /* A guest registry composes guests through their host: a reverse call one guest
  * makes is served by a forward call to another guest, along an edge the host
  * declared. The host stays the authority. Nothing changes on the wire: the

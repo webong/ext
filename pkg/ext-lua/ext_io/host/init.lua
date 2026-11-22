@@ -189,4 +189,100 @@ function Host:destroy()
   guard(self._host.destroy, self._host)
 end
 
+--- The bounds of reverse services, from opts: timeout (seconds), max_payload_bytes and
+--- max_in_flight; zero or absent uses the defaults (30 s, 1 MiB, 4).
+local function bounds(opts)
+  opts = opts or {}
+  local ms = opts.timeout and math.max(1, math.floor(opts.timeout * 1000)) or 0
+  return ms, opts.max_payload_bytes or 0, opts.max_in_flight or 0
+end
+
+--- One reverse request for a hook: call.request is the Request as a table (apiVersion, id, plugin,
+--- contract, operation, surface, deadline, payload and, for a call-scoped request, parent);
+--- call.remaining the seconds left to it.
+local function reverse_call(data, ms)
+  return { request = json.decode(data), remaining = ms / 1000 }
+end
+
+local function reverse_authorize(authorize)
+  assert(type(authorize) == "function", "authorize must be a function")
+  return function(data, ms)
+    return authorize(reverse_call(data, ms)) and true or false
+  end
+end
+
+local function reverse_handle(handle)
+  assert(type(handle) == "function", "handle must be a function")
+  return function(data, ms)
+    local ok, result = pcall(handle, reverse_call(data, ms))
+    if ok then
+      if result == nil then return false, "null" end
+      return false, json.encode(result)
+    end
+    if plugin_core.is_remote_error(result) then
+      local e = json.object({ code = result.code, message = result.message }, { "code", "message" })
+      if result.retry_after_ms and result.retry_after_ms ~= 0 then
+        e.retryAfterMilliseconds = result.retry_after_ms
+        json.object(e, { "code", "message", "retryAfterMilliseconds" })
+      end
+      return true, json.encode(e)
+    end
+    error(result, 0) -- the plugin sees operation_failed
+  end
+end
+
+--- Offers the plugin the operations its descriptor lists under "reverse", before start.
+--- authorize(call) returns true to allow; handle(call) returns a value (nil is null) or raises the
+--- guest SDK's remote_error for an error the plugin receives as it is; any other error reaches it
+--- as operation_failed. They run on the Lua thread of an engine call that waits on this host (the
+--- engine's caller-thread mode), one at a time, and must not use this host. A request made between
+--- calls waits for the next call or Host:serve_reverse. opts as for bounds.
+function Host:serve(authorize, handle, opts)
+  guard(self._host.serve, self._host, reverse_authorize(authorize), reverse_handle(handle), bounds(opts))
+end
+
+--- Serves the reverse requests made between calls: true once it served one, false when none came
+--- within timeout seconds (default 3).
+function Host:serve_reverse(timeout)
+  return guard(self._host.serve_reverse, self._host, timeout)
+end
+
+--- Makes this host a source of registry, in place of serve and before start: its plugin's
+--- reverse calls are served by forward calls to the hosts registered there, along the declared
+--- edges, after authorize(call) allowed them.
+function Host:attach(registry, authorize, opts)
+  assert(getmetatable(registry) == host.Registry_mt, "registry must be a Registry")
+  guard(self._host.attach, self._host, registry._registry, reverse_authorize(authorize), bounds(opts))
+end
+
+--- A guest registry (ext_registry_* in ext_host.h): a reverse call one guest makes is served by a
+--- forward call to another guest, along an edge declared with route. An undeclared edge is
+--- refused with reverse_undeclared, an unregistered target with reverse_unavailable, and a call
+--- that would re-enter a host already on its call chain with denied; the target's answer passes
+--- through unchanged. A host is a source once Host:attach names the registry, and a target once
+--- register names a contract it serves; it stays alive until it leaves, by unregister or its own
+--- destroy. Failures raise a HostError.
+local Registry = {}
+host.Registry_mt = { __index = Registry, __name = "ext_io.host.Registry" }
+
+function host.Registry(engine)
+  return setmetatable({ _registry = guard(engine._engine.registry, engine._engine) }, host.Registry_mt)
+end
+
+--- Names h (started, and listing the contract) as the host that serves contract.
+function Registry:register(contract, h)
+  guard(self._registry.register, self._registry, contract.name, contract.version, h._host)
+end
+
+--- Removes the contract and waits for the forward calls routed to its host.
+function Registry:unregister(contract)
+  guard(self._registry.unregister, self._registry, contract.name, contract.version)
+end
+
+--- A reverse call of from ({name, version, operation}) is served by a call of to.
+function Registry:route(from, to)
+  guard(self._registry.route, self._registry, from.name, from.version, from.operation,
+    to.name, to.version, to.operation)
+end
+
 return host

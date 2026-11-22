@@ -1,9 +1,0 @@
-{
-  "version": 1,
-  "about": "The error codes of res/sandbox, a subset of the engine's vocabulary (docs/adr-architecture.md, rule 3). A code enters this list only with a fixture that uses it.",
-  "codes": [
-    "invalid",
-    "denied",
-    "unsupported"
-  ]
-}

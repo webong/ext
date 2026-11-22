@@ -315,4 +315,188 @@ final class HostTest extends TestCase
         gc_collect_cycles();
         self::assertTrue(true);
     }
+
+    /** The engine and both scripted guests, or null when they are not set. */
+    private static function scripted(): ?array
+    {
+        $engine = self::engine('EXT_REVERSE_TEST_GUEST', 'EXT_REGISTRY_TEST_GUEST');
+        if ($engine === null) {
+            return null;
+        }
+        return [$engine, (string) getenv('EXT_REVERSE_TEST_GUEST'), (string) getenv('EXT_REGISTRY_TEST_GUEST')];
+    }
+
+    private static function output(string ...$command): string
+    {
+        $out = shell_exec(implode(' ', array_map('escapeshellarg', $command)));
+        self::assertTrue(\is_string($out) && $out !== '', implode(' ', $command));
+        return $out;
+    }
+
+    /** @return array{0: mixed, 1: list<mixed>} the reply the scripted guest got, and what the handler saw */
+    private static function reverseReply(Engine $engine, string $guest, string $mode, bool $serve = true): array
+    {
+        $handled = [];
+        $h = $engine->process(self::output($guest, '--descriptor'), $guest, ['--guest', $mode]);
+        if ($serve) {
+            $h->serve(
+                static fn (\ExtIO\Host\ReverseCall $call): bool => $call->remaining > 0 && Json::get($call->request, 'operation') !== 'secret',
+                static function (\ExtIO\Host\ReverseCall $call) use (&$handled): mixed {
+                    $handled[] = $call->request;
+                    return match (Json::get($call->request, 'operation')) {
+                        'sign' => 'signed',
+                        'empty' => null,
+                        'errok' => throw new RemoteError('policy', 'refused for you', 5),
+                        default => throw new \RuntimeException('a private failure'),
+                    };
+                },
+                timeout: 0.15,
+                maxPayloadBytes: 64,
+            );
+        }
+        $h->start(5.0);
+        $reply = Json::get($h->call(['name' => 'reverse.test', 'version' => 'v1'], 'run', new \stdClass(), 5.0), 'reply');
+        $h->destroy();
+        return [$reply, $handled];
+    }
+
+    public function testReverseCallsAreServedOnTheCallingThread(): void
+    {
+        if (($s = self::scripted()) === null) {
+            return;
+        }
+        [$engine, $guest] = $s;
+        [$reply, $handled] = self::reverseReply($engine, $guest, 'call:sign');
+        self::assertSame('signed', Json::get($reply, 'payload'));
+        self::assertSame('signing', Json::get($handled[0], 'surface'));
+        self::assertSame('1', Json::get($handled[0], 'parent'));
+        self::assertNull(Json::get(self::reverseReply($engine, $guest, 'call:empty')[0], 'payload'));
+        self::assertJson(['code' => 'policy', 'message' => 'refused for you', 'retryAfterMilliseconds' => 5],
+            Json::get(self::reverseReply($engine, $guest, 'call:errok')[0], 'error'));
+        self::assertSame('operation_failed', Json::get(Json::get(self::reverseReply($engine, $guest, 'call:fail')[0], 'error'), 'code'));
+    }
+
+    public function testReversePolicyAndRefusals(): void
+    {
+        if (($s = self::scripted()) === null) {
+            return;
+        }
+        [$engine, $guest] = $s;
+        $code = static fn (array $r): string => Json::get(Json::get($r[0], 'error'), 'code');
+        $secret = self::reverseReply($engine, $guest, 'call:secret');
+        self::assertSame('denied', $code($secret));
+        self::assertSame([], $secret[1]);
+        self::assertSame('reverse_undeclared', $code(self::reverseReply($engine, $guest, 'call:nothere')));
+        self::assertSame('reverse_unavailable', $code(self::reverseReply($engine, $guest, 'call:sign', false)));
+    }
+
+    public function testRequestsBetweenCallsWaitForServeReverse(): void
+    {
+        if (($s = self::scripted()) === null) {
+            return;
+        }
+        [$engine, $guest] = $s;
+        $handled = [];
+        $h = $engine->process(self::output($guest, '--descriptor'), $guest, ['--guest', 'idle']);
+        $h->serve(static fn (): bool => true, static function (\ExtIO\Host\ReverseCall $call) use (&$handled): string {
+            $handled[] = $call->request;
+            return 'signed';
+        });
+        $h->start(5.0);
+        self::assertTrue($h->serveReverse(5.0));
+        self::assertNull(Json::get($handled[0], 'parent'));
+        self::assertSame('signed', Json::get(Json::get($h->call(['name' => 'reverse.test', 'version' => 'v1'], 'run', new \stdClass(), 5.0), 'reply'), 'payload'));
+        self::assertFalse($h->serveReverse(0.05));
+        $h->destroy();
+    }
+
+    private static function relay(Engine $engine, string $guest, \ExtIO\Host\Registry $registry, string $name, bool $denyForward = false, bool $denyReverse = false): \ExtIO\Host\Host
+    {
+        $cases = realpath(self::FIXTURES . '/registry-cases.json');
+        $h = $engine->process(self::output($guest, '--descriptor', $cases, $name), $guest, ['--guest', $cases, $name],
+            authorize: static fn (): bool => !$denyForward);
+        $h->attach($registry, static fn (): bool => !$denyReverse);
+        $h->start(5.0);
+        return $h;
+    }
+
+    public function testRegistryAnswersTheSharedCases(): void
+    {
+        if (($s = self::scripted()) === null) {
+            return;
+        }
+        [$engine, , $guest] = $s;
+        $cases = self::fixture('registry-cases.json');
+        $guests = (array) $cases->guests;
+        $contract = static fn (string $name): array => ['name' => $guests[$name], 'version' => 'v1'];
+        foreach ($cases->cases as $c) {
+            $registry = new \ExtIO\Host\Registry($engine);
+            $hosts = [];
+            foreach (array_keys($guests) as $name) {
+                $hosts[$name] = self::relay($engine, $guest, $registry, $name,
+                    \in_array($name, $c->forwardDeny ?? [], true), \in_array($name, $c->reverseDeny ?? [], true));
+                $registry->register($contract($name), $hosts[$name]);
+            }
+            foreach ($cases->edges as $e) {
+                $registry->route($e->from, $e->to);
+            }
+            foreach ($c->steps as $i => $step) {
+                if (isset($step->unregister)) {
+                    $registry->unregister($contract($step->unregister));
+                    continue;
+                }
+                $got = $hosts[$step->call]->call($contract($step->call), $step->operation, $step->payload ?? null,
+                    ($step->timeoutMs ?? 5000) / 1000.0);
+                if (property_exists($step, 'result')) {
+                    self::assertJson($step->result, $got, "{$c->name} step $i");
+                } else {
+                    $code = Json::get(Json::get($got, 'error') ?? new \stdClass(), 'code');
+                    self::assertTrue(\in_array($code, $step->resultError, true), "{$c->name} step $i: " . Json::encode($got));
+                }
+            }
+            foreach ($hosts as $h) {
+                $h->destroy();
+            }
+        }
+    }
+
+    public function testRegistryRefusesWhatItCannotRoute(): void
+    {
+        if (($s = self::scripted()) === null) {
+            return;
+        }
+        [$engine, , $guest] = $s;
+        $registry = new \ExtIO\Host\Registry($engine);
+        $b = self::relay($engine, $guest, $registry, 'b');
+        $status = static function (callable $f): string {
+            try {
+                $f();
+            } catch (HostError $e) {
+                return $e->status;
+            }
+            return 'nothing thrown';
+        };
+        $b1 = ['name' => 'registry.b', 'version' => 'v1'];
+        self::assertSame('invalid', $status(static fn () => $registry->register(['name' => 'Not A Name', 'version' => 'v1'], $b)));
+        self::assertSame('unsupported', $status(static fn () => $registry->register(['name' => 'registry.other', 'version' => 'v1'], $b)));
+        $registry->register($b1, $b);
+        self::assertSame('exists', $status(static fn () => $registry->register($b1, $b)));
+        $from = ['name' => 'registry.ask', 'version' => 'v1', 'operation' => 'echo-b'];
+        $to = ['name' => 'registry.b', 'version' => 'v1', 'operation' => 'echo'];
+        $registry->route($from, $to);
+        self::assertSame('exists', $status(static fn () => $registry->route($from, $to)));
+        self::assertSame('invalid', $status(static fn () => $registry->route(['operation' => 'other'] + $from, ['operation' => 'Bad Name'] + $to)));
+        self::assertSame('not_found', $status(static fn () => $registry->unregister(['name' => 'registry.x', 'version' => 'v1'])));
+        $registry->unregister($b1);
+        $registry->register($b1, $b);
+        $b->destroy();
+        // A destroyed host has left the registry.
+        self::assertSame('not_found', $status(static fn () => $registry->unregister($b1)));
+        // Dropping the registry before its hosts, or the reverse, frees both safely.
+        $other = new \ExtIO\Host\Registry($engine);
+        $source = self::relay($engine, $guest, $other, 'a');
+        $other = null;
+        $source = null;
+        gc_collect_cycles();
+    }
 }

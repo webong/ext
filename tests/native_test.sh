@@ -5,6 +5,9 @@ ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 TEST_ROOT=$(mktemp -d)
 trap 'rm -rf "$TEST_ROOT"' EXIT HUP INT TERM
 
+GOMODCACHE=$(go env GOMODCACHE)
+export GOMODCACHE
+
 export HOME="$TEST_ROOT/home"
 export EXT_HOME="$HOME/.config/ctx"
 export EXT_BIN_DIR="$TEST_ROOT/bin"
@@ -32,7 +35,8 @@ export EXT_ORBSTACK_CLI="$TEST_ROOT/fake-bin/orbctl"
 export EXT_DOCKER_DESKTOP_CLI="$TEST_ROOT/fake-bin/docker-desktop-cli"
 
 GOCACHE=${GOCACHE:-/tmp/ctx-go-build-cache} GOMODCACHE=${GOMODCACHE:-/tmp/ctx-go-mod-cache} \
-  go build -o "$EXT_BIN_DIR/ctx" "$ROOT/src/ctx/cmd/ctx"
+  "$ROOT/install.sh" >/dev/null
+ctx() { "$EXT_BIN_DIR/ext" ctx "$@"; }
 
 mkdir -p "$EXT_HOME/catalog/adapters"
 for adapter in docker podman nerdctl apple rancher_desktop orbstack docker_desktop firefox chrome kube aws gcloud postgres mysql git; do

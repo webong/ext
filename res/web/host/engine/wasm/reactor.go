@@ -30,6 +30,18 @@ type ReactorABI struct {
 	// module that exposes a mutually exclusive entry point such as _start.
 	InitializeExport string
 	DisallowedExport string
+	// StubImports are host functions the ABI defines but this host does not
+	// carry. Each is provided so a module importing it still instantiates, and
+	// answers Result whatever it is given.
+	StubImports []StubImport
+}
+
+// StubImport is one host function a module may import: Params i32 parameters and
+// one i32 result, always Result.
+type StubImport struct {
+	Module, Name string
+	Params       int
+	Result       uint32
 }
 
 func (a ReactorABI) validate() error {
@@ -101,6 +113,9 @@ func OpenReactor(ctx context.Context, module []byte, abi ReactorABI, opts Reacto
 		return nil, err
 	}
 	if _, err := wasi_snapshot_preview1.Instantiate(ctx, runtime); err != nil {
+		return fail(err)
+	}
+	if err := instantiateStubs(ctx, runtime, abi.StubImports); err != nil {
 		return fail(err)
 	}
 	compiled, err := runtime.CompileModule(ctx, module)
@@ -271,4 +286,37 @@ func (r *Reactor) WaitClosed(ctx context.Context) error {
 	case <-r.done:
 		return nil
 	}
+}
+
+// instantiateStubs provides each stub import, one host module per module name.
+func instantiateStubs(ctx context.Context, runtime wazero.Runtime, stubs []StubImport) error {
+	modules := map[string]wazero.HostModuleBuilder{}
+	var order []string
+	for _, stub := range stubs {
+		if stub.Module == "" || stub.Name == "" || stub.Params < 0 || stub.Params > 16 {
+			return ErrInvalid
+		}
+		b, ok := modules[stub.Module]
+		if !ok {
+			b = runtime.NewHostModuleBuilder(stub.Module)
+			modules[stub.Module] = b
+			order = append(order, stub.Module)
+		}
+		params := make([]api.ValueType, stub.Params)
+		for i := range params {
+			params[i] = api.ValueTypeI32
+		}
+		result := uint64(stub.Result)
+		b.NewFunctionBuilder().
+			WithGoModuleFunction(api.GoModuleFunc(func(_ context.Context, _ api.Module, stack []uint64) {
+				stack[0] = result
+			}), params, []api.ValueType{api.ValueTypeI32}).
+			Export(stub.Name)
+	}
+	for _, name := range order {
+		if _, err := modules[name].Instantiate(ctx); err != nil {
+			return err
+		}
+	}
+	return nil
 }

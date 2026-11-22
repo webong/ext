@@ -3,8 +3,6 @@ module github.com/webong/ext/cmd/ext
 go 1.26.0
 
 require (
-	github.com/webong/ext/ctn v0.0.0
-	github.com/webong/ext/ctx v0.0.0
 	github.com/webong/ext/pkg/ext-go/cgoengine v0.4.1
 	github.com/webong/ext/pkg/ext-go/engine v0.4.0
 	github.com/webong/ext/pkg/ext-go/inference v0.1.1
@@ -20,7 +18,6 @@ require (
 	github.com/ncruces/go-strftime v1.1.0 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
 	github.com/webong/ext/res/graph v0.3.0 // indirect
-	github.com/webong/ext/res/sandbox v0.1.0 // indirect
 	github.com/webong/ext/res/system v0.5.1 // indirect
 	github.com/webong/ext/res/web/host v0.1.0 // indirect
 	golang.org/x/sys v0.49.0 // indirect
@@ -30,13 +27,7 @@ require (
 	modernc.org/sqlite v1.61.0 // indirect
 )
 
-replace github.com/webong/ext/ctx => ../../src/ctx
-
-replace github.com/webong/ext/ctn => ../../src/ctn
-
 replace github.com/webong/ext/res/int => ../../res/int
-
-replace github.com/webong/ext/res/sandbox => ../../res/sandbox
 
 replace github.com/webong/ext/res/graph => ../../res/graph
 

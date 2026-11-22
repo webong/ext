@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/webong/ext/ctx/internal/config"
+	"github.com/webong/ext/src/ctx/internal/config"
 )
 
 // programCommand records what the user knows about where a program came from.

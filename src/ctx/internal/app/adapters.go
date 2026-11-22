@@ -12,7 +12,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/webong/ext/ctx/internal/config"
+	"github.com/webong/ext/src/ctx/internal/config"
 	modpkg "github.com/webong/ext/pkg/ext-go/engine/host/adapter"
 	"github.com/webong/ext/pkg/ext-go/engine/host/adapter/adaptercmd"
 )
@@ -404,7 +404,10 @@ func invokeAdapterIOWithEnv(resolver *config.Resolver, candidate *modpkg.Adapter
 	if err != nil {
 		return reportError(stderr, err)
 	}
-	if executable, err := os.Executable(); err == nil {
+	if executable := os.Getenv("EXT_HOST_EXECUTABLE"); executable != "" {
+		command.Env = setEnvironment(command.Env, "EXT_EXECUTABLE", executable)
+		command.Env = setEnvironment(command.Env, "EXT_PRODUCT_PREFIX", "ctx")
+	} else if executable, err := os.Executable(); err == nil {
 		command.Env = setEnvironment(command.Env, "EXT_EXECUTABLE", executable)
 	}
 	profileValues, err := profileEnvironment(resolver)

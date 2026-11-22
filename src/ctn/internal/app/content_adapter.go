@@ -6,11 +6,12 @@ import (
 	"errors"
 	"fmt"
 	"os/exec"
+	"slices"
 	"strings"
 
-	"github.com/webong/ext/ctn/internal/content"
+	"github.com/webong/ext/pkg/ext-go/cgoengine"
 	"github.com/webong/ext/pkg/ext-go/engine/host/adapter"
-	"github.com/webong/ext/res/sandbox"
+	"github.com/webong/ext/src/ctn/internal/content"
 )
 
 // evaluatorBackend wraps an evaluator adapter as a content.Backend.
@@ -73,7 +74,7 @@ func (p *evaluatorPolicy) IsTrusted(backend content.Backend) bool {
 // sandboxedBoundaries are the boundaries at which an evaluator's "sandboxed" claim
 // can hold (docs/adr-sandboxing.md): the program has no direct syscall access to
 // the host, or reaches it only through OS confinement.
-var sandboxedBoundaries = []sandbox.Boundary{sandbox.Confined, sandbox.Runtime, sandbox.Container, sandbox.Kernel}
+var sandboxedBoundaries = []string{cgoengine.BoundaryConfined, cgoengine.BoundaryRuntime, cgoengine.BoundaryContainer, cgoengine.BoundaryKernel}
 
 // checkIsolation holds one context's reported isolation and boundary to the rule:
 // a boundary must be reported, be a known level, and for "sandboxed" be one of
@@ -85,13 +86,13 @@ func checkIsolation(isolation, boundary string) (string, bool) {
 	if boundary == "" {
 		return "reports no boundary", false
 	}
-	if !sandbox.Boundary(boundary).Valid() {
+	if !cgoengine.ValidBoundary(boundary) {
 		return fmt.Sprintf("reports an unknown boundary %q", boundary), false
 	}
 	if isolation != "sandboxed" {
 		return fmt.Sprintf("has isolation %s, not sandboxed", isolation), false
 	}
-	if sandbox.Accept(sandboxedBoundaries, sandbox.Boundary(boundary)) != nil {
+	if !slices.Contains(sandboxedBoundaries, boundary) {
 		return fmt.Sprintf("claims sandboxed at boundary %s, which cannot be", boundary), false
 	}
 	return "", true

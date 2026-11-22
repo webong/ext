@@ -1,6 +1,6 @@
 # Cross-platform support
 
-ctx uses a native Go core on macOS, Linux, and Windows. Tool-specific behavior
+ext ctx uses a native Go core on macOS, Linux, and Windows. Tool-specific behavior
 lives in adapter packages, with POSIX implementations for macOS and Linux and
 PowerShell implementations where Windows needs them.
 
@@ -18,8 +18,8 @@ PowerShell implementations where Windows needs them.
 - Adapter API v2.0 discovery, checksum trust, lifecycle commands, and process dispatch.
 - Runtime-independent `supports` declarations for resource kinds such as
   virtualizers and containers, projected into the system graph.
-- Platform-specific `.ctxadapter` archives and checksum-pinned indexes, so a bare
-  ctx binary can install compiled adapters without a Go toolchain.
+- Platform-specific `.ctxadapter` archives and checksum-pinned indexes, so Ext
+  with its CTX package can install compiled adapters without a Go toolchain.
 - Computer-runtime adapters for Kubernetes, cloud CLIs, and databases.
 - Browser-provider aggregation, validation, launching, and diagnostics.
 - Atomic, lock-protected `set`, `clear`, and profile configuration mutations.
@@ -27,7 +27,7 @@ PowerShell implementations where Windows needs them.
   Docker, Podman, nerdctl/containerd, and Apple Container endpoints.
 - Windows-native PowerShell providers for the optional browser, Kubernetes, cloud,
   PostgreSQL, and MySQL adapters.
-- Checksum-verified, core-only macOS, Linux, and Windows release bundles with
+- Checksum-verified macOS, Linux, and Windows release bundles with
   separate opt-in adapter catalog assets, GitHub build provenance attestations,
   and source installers for each platform.
 - Explicit `EXT_SHELL`/`--shell` selection and dynamic PowerShell completion for
@@ -37,18 +37,18 @@ PowerShell implementations where Windows needs them.
   on POSIX and `-Adapters`, `-AllAdapters`, or `-Interactive` on Windows fetch or
   prepare the catalog explicitly.
 
-Build ctx locally:
+Build and install Ext with its CTX package locally:
 
 ~~~sh
-go build -o ./ctx-native ./src/ctx/cmd/ctx
-./ctx-native version
+./install.sh
+ext ctx version
 ~~~
 
 On Windows, from a source checkout:
 
 ~~~powershell
 .\install.ps1
-ctx.exe version
+ext.exe ctx version
 ~~~
 
 ## Release readiness

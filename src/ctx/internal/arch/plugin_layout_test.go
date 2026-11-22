@@ -25,6 +25,8 @@ import (
 //	wasm        the engine binding for res/web/host/engine/wasm; needs engine and res/web/host
 //	hashicorp   the gRPC backend; needs engine only, never cgoengine
 //	yaegi       the Go source interpreter backend; needs engine and yaegi only, never cgoengine
+//	runtime     how Go reaches C shared libraries: library (purego) and the cshared backend;
+//	            needs engine and purego only, never cgoengine
 //	(umbrella)  pkg/ext-go itself, the one module that may require them all; its core package
 //	            chooses between engine, cgoengine and c2goengine
 //	res/web/host  portable web and WebAssembly tooling; never imports the plugin engine
@@ -38,16 +40,17 @@ var pluginRequires = map[string][]string{
 	"pkg/ext-go/wasm":       {"pkg/ext-go/engine", "res/web/host"},
 	"pkg/ext-go/hashicorp":  {"pkg/ext-go/engine"},
 	"pkg/ext-go/yaegi":      {"pkg/ext-go/engine"},
+	"pkg/ext-go/runtime":    {"pkg/ext-go/engine"},
 	"pkg/ext-go/model":      {"pkg/ext-go/engine", "res/int"},
 	"pkg/ext-go/inference":  {"pkg/ext-go/engine", "res/int"},
 	"pkg/ext-go/perception": {"pkg/ext-go/engine", "res/int"},
 	"pkg/ext-go/realtime":   {"pkg/ext-go/engine", "res/int"},
 	"res/int":               {},
-	"res/sandbox":           {},
+	"src/cto/sandbox":       {},
 	"res/web/host":          {},
 	"res/system":            {},
 	"res/graph":             {"res/system"},
-	"pkg/ext-go":            {"pkg/ext-go/engine", "pkg/ext-go/cgoengine", "pkg/ext-go/c2goengine", "pkg/ext-go/wasm", "pkg/ext-go/hashicorp", "pkg/ext-go/inference", "pkg/ext-go/model", "pkg/ext-go/perception", "pkg/ext-go/realtime", "res/graph", "res/web/host"},
+	"pkg/ext-go":            {"pkg/ext-go/engine", "pkg/ext-go/cgoengine", "pkg/ext-go/c2goengine", "pkg/ext-go/wasm", "pkg/ext-go/hashicorp", "pkg/ext-go/inference", "pkg/ext-go/model", "pkg/ext-go/perception", "pkg/ext-go/realtime", "pkg/ext-go/runtime", "res/graph", "res/web/host"},
 }
 
 var requireLine = regexp.MustCompile(`(?m)^\s*(?:require\s+)?(github\.com/webong/ext/\S+)\s+v\S+`)
@@ -81,7 +84,7 @@ func TestPluginGoModulesRequireOnlyTheirParts(t *testing.T) {
 // have the engine binding in the module graph.
 func TestBackendsNeverImportTheCEngine(t *testing.T) {
 	root := repoRoot(t)
-	for _, dir := range []string{"pkg/ext-go/wasm", "pkg/ext-go/hashicorp", "pkg/ext-go/yaegi", "pkg/ext-go/inference", "pkg/ext-go/model", "pkg/ext-go/perception", "pkg/ext-go/realtime"} {
+	for _, dir := range []string{"pkg/ext-go/wasm", "pkg/ext-go/hashicorp", "pkg/ext-go/yaegi", "pkg/ext-go/runtime", "pkg/ext-go/inference", "pkg/ext-go/model", "pkg/ext-go/perception", "pkg/ext-go/realtime"} {
 		forbidden := []string{pluginPrefix + "/cgoengine", pluginPrefix + "/c2goengine", pluginPrefix + "/core", pluginPrefix}
 		err := filepath.WalkDir(filepath.Join(root, dir), func(path string, entry fs.DirEntry, walkErr error) error {
 			if walkErr != nil || entry.IsDir() || filepath.Ext(path) != ".go" {
@@ -167,18 +170,18 @@ func TestEngineModuleUsesOnlyTheStandardLibrary(t *testing.T) {
 	}
 }
 
-// res/sandbox is the contract that runners outside ext (github.com/webong/workload) depend on
+// src/cto/sandbox is the contract that runners outside ext (github.com/webong/workload) depend on
 // while staying on the standard library, so it imports only the standard library, nothing else
 // in ext either, and its go.mod requires nothing.
 func TestSandboxContractUsesOnlyTheStandardLibrary(t *testing.T) {
 	root := repoRoot(t)
-	dir := filepath.Join(root, "res/sandbox")
+	dir := filepath.Join(root, "src/cto/sandbox")
 	data, err := os.ReadFile(filepath.Join(dir, "go.mod"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	if strings.Contains(string(data), "require") {
-		t.Error("res/sandbox/go.mod has a require; the contract module requires nothing")
+		t.Error("src/cto/sandbox/go.mod has a require; the contract module requires nothing")
 	}
 	err = filepath.WalkDir(dir, func(path string, entry fs.DirEntry, walkErr error) error {
 		if walkErr != nil || entry.IsDir() || filepath.Ext(path) != ".go" {
@@ -191,9 +194,9 @@ func TestSandboxContractUsesOnlyTheStandardLibrary(t *testing.T) {
 		for _, imp := range file.Imports {
 			name, _ := strconv.Unquote(imp.Path.Value)
 			first, _, _ := strings.Cut(name, "/")
-			if strings.Contains(first, ".") && name != "github.com/webong/ext/res/sandbox" && !strings.HasPrefix(name, "github.com/webong/ext/res/sandbox/") {
+			if strings.Contains(first, ".") && name != "github.com/webong/ext/src/cto/sandbox" && !strings.HasPrefix(name, "github.com/webong/ext/src/cto/sandbox/") {
 				rel, _ := filepath.Rel(root, path)
-				t.Errorf("%s imports %s; res/sandbox uses only the standard library", filepath.ToSlash(rel), name)
+				t.Errorf("%s imports %s; src/cto/sandbox uses only the standard library", filepath.ToSlash(rel), name)
 			}
 		}
 		return nil

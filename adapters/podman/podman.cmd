@@ -1,4 +1,4 @@
 @echo off
 rem ctx native Windows shim for Podman
-"%~dp0ctx.exe" run podman %*
+"%~dp0ext.exe" ctx run podman %*
 exit /b %ERRORLEVEL%

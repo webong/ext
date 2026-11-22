@@ -52,13 +52,30 @@ export function createScriptRegistry({ scripting, namespace, assetPrefix }) {
     if (!Array.isArray(values) || !values.length || values.some(file => typeof file !== 'string' || !file.startsWith(assetPrefix) || file.includes('..') || /[:?#\\]/.test(file))) throw new PeerError('invalid', 'Script file is outside asset prefix');
     return values;
   };
+  const registration = spec => {
+    if (!object(spec) || !Array.isArray(spec.matches) || !spec.matches.length || spec.matches.some(match => typeof match !== 'string' || !match)) throw new PeerError('invalid', 'Invalid script matches');
+    if (spec.excludeMatches !== undefined && (!Array.isArray(spec.excludeMatches) || spec.excludeMatches.some(match => typeof match !== 'string' || !match))) throw new PeerError('invalid', 'Invalid script exclusions');
+    return {
+      id: scriptId(spec.id), matches: [...spec.matches], js: files(spec.files),
+      ...(spec.excludeMatches === undefined ? {} : { excludeMatches: [...spec.excludeMatches] }),
+      runAt: spec.runAt ?? 'document_idle', allFrames: spec.allFrames === true,
+      world: spec.world ?? 'ISOLATED', persistAcrossSessions: spec.persistAcrossSessions !== false,
+    };
+  };
+  const registerMany = async specs => {
+    if (!Array.isArray(specs) || !specs.length || specs.length > 256) throw new PeerError('invalid', 'Invalid script batch');
+    const registrations = specs.map(registration);
+    const ids = registrations.map(item => item.id);
+    if (new Set(ids).size !== ids.length) throw new PeerError('invalid', 'Duplicate script ID');
+    await scripting.registerContentScripts(registrations);
+    return ids;
+  };
   return {
     id: scriptId,
     async register(spec) {
-      if (!object(spec) || !Array.isArray(spec.matches) || !spec.matches.length || spec.matches.some(match => typeof match !== 'string')) throw new PeerError('invalid', 'Invalid script matches');
-      const registration = { id: scriptId(spec.id), matches: [...spec.matches], js: files(spec.files), runAt: spec.runAt ?? 'document_idle', allFrames: spec.allFrames === true, world: spec.world ?? 'ISOLATED', persistAcrossSessions: spec.persistAcrossSessions !== false };
-      await scripting.registerContentScripts([registration]); return registration.id;
+      const [registeredId] = await registerMany([spec]); return registeredId;
     },
+    registerMany,
     async unregister(keys) {
       if (!Array.isArray(keys) || !keys.length || keys.length > 256) throw new PeerError('invalid', 'Invalid script IDs');
       await scripting.unregisterContentScripts({ ids: keys.map(scriptId) });

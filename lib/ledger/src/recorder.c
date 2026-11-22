@@ -2,6 +2,7 @@
  * share, and the dispatch of ext_ledger_record. It writes through the public
  * store API, so it records on every backend. */
 #include "recorder.h"
+#include "collect.h"
 #include "vocabulary.h"
 
 #include <stdio.h>
@@ -62,6 +63,7 @@ static int env_decode(const lj_value *v, rec_env *e) {
 const char *rec_getenv(const rec *r, const char *key) { return rec_field(r->env.variables, key); }
 
 int rec_exists(const rec *r, const char *path) {
+  if (r->env.machine) return ll_os_exists(path);
   char *clean = rec_clean(path);
   int found = clean && ll_map_get(&r->env.paths, clean, strlen(clean)) != NULL;
   free(clean);
@@ -69,7 +71,7 @@ int rec_exists(const rec *r, const char *path) {
 }
 
 void rec_now_text(const rec *r, lj_buf *b) {
-  ll_time t = ll_time_utc(r->env.now);
+  ll_time t = ll_time_utc(r->env.machine ? ll_time_now() : r->env.now);
   lj_buf q = {0};
   ll_time_write(&q, &t);
   if (q.oom || q.len < 2) b->oom = 1;
@@ -338,6 +340,16 @@ int ext_ledger_recorder_open(ext_ledger *store, const ext_ledger_context *ctx, c
   r->store = store;
   *out = r;
   return 0;
+}
+
+int ext_ledger_recorder_open_machine(ext_ledger *store, const ext_ledger_context *ctx, ext_ledger_recorder **out) {
+  if (out) *out = NULL;
+  char *env = ll_machine_environment();
+  if (!env) return EXT_LEDGER_IO;
+  int rc = ext_ledger_recorder_open(store, ctx, env, strlen(env), out);
+  free(env);
+  if (!rc) (*out)->env.machine = 1;
+  return rc;
 }
 
 void ext_ledger_recorder_close(ext_ledger_recorder *r) {

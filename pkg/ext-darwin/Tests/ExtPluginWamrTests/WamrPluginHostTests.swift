@@ -164,4 +164,67 @@ final class WamrPluginHostTests: XCTestCase {
             XCTAssertEqual((error as? WamrPluginHost.Failure)?.status, 5, "\(error)") // EXT_CLOSED
         }
     }
+
+    // MARK: - Reverse calls (ext_plugin.reverse) and the guest registry
+
+    private func reverseReactor() throws -> Data {
+        guard let path = ProcessInfo.processInfo.environment["EXT_RUST_REVERSE_REACTOR"], !path.isEmpty else {
+            throw XCTSkip("set EXT_RUST_REVERSE_REACTOR to the wasm32-wasip1 build of the Rust reactor_reverse example")
+        }
+        return try Data(contentsOf: URL(fileURLWithPath: path))
+    }
+
+    private func ask(_ host: WamrPluginHost, _ operation: String, _ payload: String = "null") throws -> String {
+        text(try host.call(contract: "reactor.test", version: "v1", operation: "ask",
+                           payload: Data(#"{"operation":"\#(operation)","payload":\#(payload)}"#.utf8)))
+    }
+
+    func testAReactorCallsItsHost() throws {
+        let module = try reverseReactor()
+        let host = try WamrPluginHost(module: module, descriptor: try WamrPluginHost.descriptor(of: module))
+        defer { host.close() }
+        let caller = Thread.current
+        var handledOn: [Bool] = []
+        try host.serve(authorize: { !String(decoding: $0, as: UTF8.self).contains(#""operation":"secret""#) },
+                       handle: { request in
+                           handledOn.append(Thread.current == caller)
+                           if String(decoding: request, as: UTF8.self).contains(#""operation":"fail""#) {
+                               throw CocoaError(.featureUnsupported) // any error: the guest sees operation_failed
+                           }
+                           return .payload(Data(#""signed""#.utf8))
+                       })
+        try host.start()
+        XCTAssertTrue(try ask(host, "sign").contains(#""result":"signed""#))
+        XCTAssertTrue(try ask(host, "secret").contains(#""code":"denied""#))
+        XCTAssertTrue(try ask(host, "fail").contains(#""code":"operation_failed""#))
+        XCTAssertEqual(handledOn, [true, true], "the hooks run on the thread inside the call")
+    }
+
+    func testAReactorWithoutServicesIsToldUnavailable() throws {
+        let module = try reverseReactor()
+        let host = try WamrPluginHost(module: module, descriptor: try WamrPluginHost.descriptor(of: module))
+        defer { host.close() }
+        try host.start()
+        XCTAssertTrue(try ask(host, "sign").contains(#""code":"reverse_unavailable""#))
+    }
+
+    func testTheRegistryRoutesOneReactorToAnother() throws {
+        let caller = try reverseReactor(), conformance = try reactor()
+        let registry = try WamrRegistry()
+        let target = try WamrPluginHost(module: conformance, descriptor: try WamrPluginHost.descriptor(of: conformance))
+        defer { target.close() }
+        try target.start()
+        try registry.register(name: "ext.conformance", version: "v1", host: target)
+        try registry.route(from: ("host.svc", "v1"), fromOperation: "sign", to: ("ext.conformance", "v1"), toOperation: "echo")
+        let source = try WamrPluginHost(module: caller, descriptor: try WamrPluginHost.descriptor(of: caller))
+        defer { source.close() }
+        try source.attach(registry, authorize: { !String(decoding: $0, as: UTF8.self).contains(#""operation":"secret""#) })
+        try source.start()
+        XCTAssertTrue(try ask(source, "sign", #"{"routed":true}"#).contains(#""result":{"routed":true}"#))
+        XCTAssertTrue(try ask(source, "secret").contains(#""code":"denied""#))
+        XCTAssertTrue(try ask(source, "fail").contains(#""code":"reverse_undeclared""#))
+        try registry.unregister(name: "ext.conformance", version: "v1")
+        XCTAssertTrue(try ask(source, "sign").contains(#""code":"reverse_unavailable""#))
+        XCTAssertThrowsError(try registry.unregister(name: "ext.conformance", version: "v1"))
+    }
 }

@@ -12,7 +12,8 @@ if (-not $docker -and $env:ProgramFiles) {
     if (Test-Path -LiteralPath $bundled -PathType Leaf) { $docker = $bundled }
 }
 if (-not $docker -and $env:EXT_EXECUTABLE) {
-    $docker = @(& $env:EXT_EXECUTABLE real docker 2>$null) | Select-Object -First 1
+    $prefixArgs = if ($env:EXT_PRODUCT_PREFIX) { @($env:EXT_PRODUCT_PREFIX) } else { @() }
+    $docker = @(& $env:EXT_EXECUTABLE @prefixArgs real docker 2>$null) | Select-Object -First 1
 }
 if (-not $docker -and -not $env:EXT_EXECUTABLE) {
     $found = Get-Command docker -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1

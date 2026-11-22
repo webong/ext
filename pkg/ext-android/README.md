@@ -102,7 +102,7 @@ scripts/web-android.sh        # javac -Xlint:all -Werror and the tests of res/we
 
 ## What a JVM guest cannot do
 
-The `ext_plugin_*` C ABI that `pkg/ext-go/cgoengine/cshared` loads would need a JVM inside
+The `ext_plugin_*` C ABI that `pkg/ext-go/runtime/cshared` loads would need a JVM inside
 the host process, so a Java library cannot be loaded that way. A JVM guest speaks
 JSON lines in its own process, or runs inside an application that provides the
 transport. Kotlin/Native, which compiles to a native library, could export that
@@ -367,6 +367,17 @@ try (WamrPluginHost host = new WamrPluginHost(module, descriptor)) {
   A denial from `authorize` throws `WamrException` with status `DENIED` and leaves the
   host usable; a timeout, trap or exhausted budget ends the instance.
 - `close()` is safe from any thread and interrupts a running call.
+- A reactor may call its host (`ext_plugin.reverse`, [the reactor ABI](../../docs/plugin-reactor-abi.md#calling-the-host)).
+  `host.serve(authorize, handle, ...)`, before `start`, offers it the operations its
+  descriptor lists under `reverse`: the hooks get the Request JSON on the thread inside
+  `invoke` or `call(contract, version, operation, payload, timeout)`, and `handle` returns
+  `ReverseReply.payload(...)` or `ReverseReply.publicError(...)`. Without services the
+  reactor is told `reverse_unavailable`.
+- `WamrRegistry` composes reactors: `host.attach(registry, authorize, ...)` (in place of
+  `serve`) makes a host a source whose reactor's reverse calls are served by forward calls to
+  the hosts `registry.register(name, version, host)` names, along the edges `route(...)`
+  declares. A host leaves its registries when it is closed, and a registry frees its native
+  object once it is closed and no host uses it.
 - The build disables WAMR's hardware bound checks (`EXT_WAMR_DISABLE_HW_BOUND_CHECK`): they
   install signal handlers and probe the native stack, which the JVM and ART own, and the JVM
   aborted with SIGILL on first use. The interpreter checks memory in software instead.

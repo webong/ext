@@ -6,9 +6,8 @@
 # A module whose go.mod requires a sibling module at a version that is not
 # published yet (a release in progress) cannot be checked until that tag
 # exists. Skips fail the release gate by default. Development checks can opt in
-# to allowing skips; explicitly selected modules are always required. Product modules
-# built with the workspace (src/ctx, src/ctn, cmd/ext) and the test-only modules under tests/ are not
-# checked.
+# to allowing skips; explicitly selected modules are always required. The
+# executable-only cmd/ext module and test-only modules under tests/ are not checked.
 #
 # Environment:
 #   STANDALONE_OS   operating systems to vet, default "linux darwin windows"
@@ -39,9 +38,9 @@ published() { # <module path without prefix> <version>
 failed=0 checked=0 skipped=0
 for dir in $modules; do
   case $dir in
-    src/ctx|src/ctn|cmd/ext)
+    cmd/ext)
       if [ -n "${STANDALONE_ONLY:-}" ]; then
-        echo "FAIL $dir: product modules cannot be checked standalone"
+        echo "FAIL $dir: executable-only module cannot be checked standalone"
         failed=$((failed + 1))
       fi
       continue ;;

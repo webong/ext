@@ -13,7 +13,7 @@ sdk=pkg/ext-android
 wamr="$(scripts/plugin-wamr-source.sh)"
 
 CARGO_TARGET_DIR="$build_dir/cargo" cargo build --release --locked \
-  --manifest-path pkg/ext-rust/Cargo.toml --target wasm32-wasip1 --example shared
+  --manifest-path pkg/ext-rust/Cargo.toml --target wasm32-wasip1 --example shared --example reactor_reverse
 cmake -S "$sdk" -B "$build_dir/native" -DCMAKE_BUILD_TYPE=Release -DEXT_WAMR_ROOT="$wamr" >/dev/null
 cmake --build "$build_dir/native" --target extwamrjni -j 4 >/dev/null
 mkdir -p "$build_dir/classes"
@@ -22,4 +22,5 @@ javac -Xlint:all -Werror -d "$build_dir/classes" \
   res/int/model/android/src/main/java/io/github/webong/ext/ml/*.java \
   "$sdk"/src/test/java/io/github/webong/ext/plugin/WamrPluginHostTests.java
 java -ea -Djava.library.path="$build_dir/native" -cp "$build_dir/classes" \
-  io.github.webong.ext.plugin.WamrPluginHostTests "$build_dir/cargo/wasm32-wasip1/release/examples/shared.wasm"
+  io.github.webong.ext.plugin.WamrPluginHostTests "$build_dir/cargo/wasm32-wasip1/release/examples/shared.wasm" \
+  "$build_dir/cargo/wasm32-wasip1/release/examples/reactor_reverse.wasm"

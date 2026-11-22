@@ -30,7 +30,13 @@ type Backend struct {
 
 // Open starts a persistent WASI command and binds its raw byte stream to the
 // ext.plugin/v1 JSON-line transport.
+// A guest SDK compiles its reactor exports into every wasm32 module, so a WASI
+// command may import ext_plugin.reverse without ever calling it: Open provides the
+// reactor ABI's stubs unless opts names its own.
 func Open(ctx context.Context, module []byte, opts Options) (*Backend, error) {
+	if opts.StubImports == nil {
+		opts.StubImports = reactorABI.StubImports
+	}
 	command, err := webwasm.Open(ctx, module, opts)
 	if err != nil {
 		return nil, engineError(err)

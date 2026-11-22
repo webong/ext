@@ -28,6 +28,7 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/holiman/uint256"
 	cgoengine "github.com/webong/ext/pkg/ext-go/cgoengine/plugin"
+	"github.com/webong/ext/src/cto/sandbox"
 )
 
 const (
@@ -51,7 +52,7 @@ var forks = []fork{
 
 func main() { os.Exit(run(os.Args[1:], os.Stdin, os.Stdout, os.Stderr)) }
 
-func run(args []string, _ io.Reader, stdout, stderr io.Writer) int {
+func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	request, err := cgoengine.ParseAdapterInvocation(args)
 	if err != nil {
 		fmt.Fprintf(stderr, "evm: %v\n", err)
@@ -68,11 +69,21 @@ func run(args []string, _ io.Reader, stdout, stderr io.Writer) int {
 		return validate(request.Selection, stderr)
 	case "doctor":
 		return doctor(request.Selection, stdout, stderr)
-	case "run":
+	case "run", sandbox.AdmissionOperation:
 		if code := validate(request.Selection, stderr); code != 0 {
 			return code
 		}
-		return execute(request.Selection, request.Arguments, stdout, stderr)
+		var admit func() error
+		if request.Operation == sandbox.AdmissionOperation {
+			admit = func() error {
+				return sandbox.AwaitAdmission(stdin, stdout, sandbox.Report{
+					Boundary: sandbox.Runtime,
+					Driver:   "go-ethereum",
+					Enforced: []string{"filesystem", "network.none", "process", "devices", "environment", "lifecycle.fresh"},
+				})
+			}
+		}
+		return execute(request.Selection, request.Arguments, stdout, stderr, admit)
 	default:
 		fmt.Fprintf(stderr, "evm: unsupported adapter operation %s\n", request.Operation)
 		return 2
@@ -171,6 +182,7 @@ type options struct {
 	number, timestamp uint64
 	chainID           uint64
 	value             *big.Int
+	admit             func() error
 }
 
 type deployment struct {
@@ -234,6 +246,13 @@ func evaluate(name string, o options, code, input []byte, deploy bool) result {
 		GetHashFn: func(n uint64) common.Hash { return common.BytesToHash([]byte(new(big.Int).SetUint64(n).String())) },
 	}
 	environment := runtime.NewEnv(config)
+	// The VM and its fresh in-memory state are ready. Gate both deployment
+	// and execution before either can evaluate caller bytecode.
+	if o.admit != nil {
+		if err := o.admit(); err != nil {
+			return failed(res, err)
+		}
+	}
 	if o.timeout > 0 {
 		timer := time.AfterFunc(o.timeout, environment.Cancel)
 		defer timer.Stop()
@@ -311,7 +330,7 @@ func bytesArgument(value string) ([]byte, error) {
 	return hex.DecodeString(value)
 }
 
-func execute(selection string, arguments []string, stdout, stderr io.Writer) int {
+func execute(selection string, arguments []string, stdout, stderr io.Writer, admit func() error) int {
 	flags := flag.NewFlagSet("evm", flag.ContinueOnError)
 	flags.SetOutput(stderr)
 	forkFlag := flags.String("fork", "", "rule set, overriding the selection (default "+defaultFork+")")
@@ -368,7 +387,7 @@ func execute(selection string, arguments []string, stdout, stderr io.Writer) int
 		}
 	}
 	res := evaluate(name, options{gas: *gas, timeout: *timeout, origin: common.HexToAddress(*origin),
-		coinbase: common.HexToAddress(*coinbase), number: *number, timestamp: *timestamp, chainID: *chainID, value: value},
+		coinbase: common.HexToAddress(*coinbase), number: *number, timestamp: *timestamp, chainID: *chainID, value: value, admit: admit},
 		code, calldata, *deploy)
 	data, err := json.Marshal(res)
 	if err != nil {

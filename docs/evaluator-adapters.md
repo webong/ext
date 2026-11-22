@@ -97,8 +97,8 @@ All five are required.
 - **`host`** (`jvm`): the program runs as a normal process with the user's full
   privileges. The evaluator selects and launches it and does not confine it.
 
-A tool that runs untrusted content must require `sandboxed`. `restricted` is for
-content the user chose to run and wants kept off the network, not for hostile code.
+A tool that runs untrusted content needs evidence from the selected runner.
+Use `restricted` for content the user chose to run and wants kept off the network.
 
 `boundary` says what has to fail for the program to reach the host, so a `sandboxed`
 claim can be checked rather than trusted:
@@ -109,10 +109,35 @@ claim can be checked rather than trusted:
 | `evm` | `sandboxed` | `runtime`: bytecode interpreted in memory |
 | `jvm` | `host` | `process` |
 
-`sandboxed` holds only at `runtime`, `confined`, `container` or `kernel`. An evaluator
-that reports it at `process` or `in-process` contradicts itself. CTN refuses to run
-content in an evaluator that reports no boundary, an unknown one, or `sandboxed` at a
-boundary where it cannot hold, and prints the boundary it accepted (`boundary=runtime`).
+### Verified execution
+
+An evaluator that can gate execution declares `run-verified` on its adapter
+contract. Its argv form is `run-verified [selection] -- ARGUMENTS`. The trusted
+adapter selects and prepares the runner for that invocation. Before it can
+execute guest code, it writes one newline-terminated JSON sandbox `Report` to
+stdout, limited to 64 KiB including the newline. The report includes an explicit
+grant and the classes the prepared runner enforces. The runner proceeds only
+after reading `run\n` on stdin. EOF or any other response denies execution.
+Stdin is reserved for the handshake. After approval, stdout and stderr carry
+the normal run output. A runner that cannot prepare the input can exit with a
+diagnostic on stderr before sending a report.
+
+CTN verifies the selected adapter's package trust before starting this
+operation. It requires an accepted boundary (`runtime`, `confined`, `container`
+or `kernel`), enforcement of every required class, and fresh state with no
+host access. The `observe` attributes describe discovery, so they have no role
+in admission. CTN shows the accepted boundary in text and the accepted report
+in the JSON verdict's `sandbox` field. Embedded WASM and EVM support this
+operation. External WASM runtimes require their own enforcement evidence to
+participate in verified execution.
+
+A Go consumer can call `sandbox.ReadAdmissionReport` with a buffered reader on
+the trusted launcher's stdout. The helper validates the report structure. The
+consumer can then apply `sandbox.Accept` with its own boundary set and inspect
+the grant and enforced classes before writing `sandbox.AdmissionApproval` to
+stdin. Use the same reader to drain stdout after approval. Consumers own the
+launch timeout and close the approval channel when they deny or cancel a run.
+[Sandbox contract](../src/cto/sandbox/admission.go)
 
 ## Flags for `run`
 

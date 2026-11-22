@@ -83,6 +83,11 @@ func TestProductsDoNotImportEachOther(t *testing.T) {
 				if err != nil {
 					return err
 				}
+				// This independent, standard-library-only module defines the
+				// contract a sandbox consumer uses, including CTN.
+				if name == "github.com/webong/ext/src/cto/sandbox" {
+					continue
+				}
 				for _, prefix := range forbidden {
 					if name == prefix || strings.HasPrefix(name, prefix+"/") {
 						rel, _ := filepath.Rel(root, path)

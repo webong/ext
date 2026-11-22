@@ -1,12 +1,16 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/webong/ext/src/cto/sandbox"
 )
 
 const guest = `package main
@@ -100,6 +104,32 @@ func TestRunNeedsNoSelectionAndGrantsNothingByDefault(t *testing.T) {
 	}
 	if code, _, stderr := invoke("run", "other", "--", module, "env"); code != 1 || !strings.Contains(stderr, "not available") {
 		t.Fatalf("unknown engine selection: %d %q", code, stderr)
+	}
+}
+
+func TestVerifiedRunGatesTheEmbeddedGuest(t *testing.T) {
+	module := buildGuest(t)
+	args := []string{sandbox.AdmissionOperation, "embedded", "--", module, "env"}
+	for _, test := range []struct {
+		name, approval, output string
+		pass                   bool
+	}{
+		{"approved", sandbox.AdmissionApproval, `home="" foo=""`, true},
+		{"unapproved", "", "", false},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			var stdout, stderr bytes.Buffer
+			code := run(args, strings.NewReader(test.approval), &stdout, &stderr)
+			reader := bufio.NewReader(&stdout)
+			report, err := sandbox.ReadAdmissionReport(reader)
+			if err != nil || !sandbox.Sandboxed(report) || report.Driver != "wazero" {
+				t.Fatalf("report = %+v, %v", report, err)
+			}
+			output, err := io.ReadAll(reader)
+			if err != nil || string(output) != test.output || (code == 0) != test.pass {
+				t.Fatalf("%d %q %q %v", code, output, stderr.String(), err)
+			}
+		})
 	}
 }
 

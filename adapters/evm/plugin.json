@@ -24,6 +24,9 @@
             "name": "run"
           },
           {
+            "name": "run-verified"
+          },
+          {
             "name": "doctor"
           }
         ]

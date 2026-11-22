@@ -9,4 +9,5 @@ require (
 	github.com/webong/ext/src/ctn/inference v0.1.0
 	github.com/webong/ext/src/ctn/model v0.1.0
 	github.com/webong/ext/src/ctn/perception v0.1.0
+	github.com/webong/ext/src/cto/sandbox v0.1.0
 )

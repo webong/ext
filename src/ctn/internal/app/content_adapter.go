@@ -1,20 +1,20 @@
 package app
 
 import (
+	"bufio"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"os/exec"
-	"slices"
+	"io"
 	"strings"
+	"time"
 
-	cgoengine "github.com/webong/ext/pkg/ext-go/cgoengine/plugin"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/adapter"
 	"github.com/webong/ext/src/ctn/internal/content"
+	"github.com/webong/ext/src/cto/sandbox"
 )
 
-// evaluatorBackend wraps an evaluator adapter as a content.Backend.
+// evaluatorBackend wraps the selected evaluator adapter as a content.Backend.
 type evaluatorBackend struct {
 	adapter *adapter.Adapter
 	prefix  string
@@ -24,138 +24,109 @@ func (b *evaluatorBackend) Name() string {
 	return b.adapter.Manifest.Name
 }
 
-func (b *evaluatorBackend) Run(ctx context.Context, arguments []string) (int, []byte, error) {
-	// Prepend the prefix (for example "@" for evm) to the file argument,
-	// which is always the first argument.
-	if len(arguments) > 0 && b.prefix != "" {
-		arguments[0] = b.prefix + arguments[0]
-	}
+func (b *evaluatorBackend) Run(ctx context.Context, file, selection string, timeout time.Duration, admit func(sandbox.Report) error) (int, []byte, error) {
 	command, err := b.adapter.CommandContext(ctx, adapter.Invocation{
-		Operation: "run",
-		Arguments: arguments,
+		Operation: sandbox.AdmissionOperation,
+		Selection: selection,
+		Arguments: []string{"--timeout", timeout.String(), "--", b.prefix + file},
 	})
 	if err != nil {
 		return 0, nil, err
 	}
-	var out, stderr strings.Builder
-	command.Stdout = &out
-	command.Stderr = &stderr
-	if err := command.Run(); err != nil {
-		var exit *exec.ExitError
-		switch {
-		case errors.As(err, &exit):
-			return exit.ExitCode(), []byte(out.String() + stderr.String()), err
-		default:
-			return 0, []byte(out.String() + stderr.String()), err
-		}
+	command.WaitDelay = time.Second
+
+	stdin, err := command.StdinPipe()
+	if err != nil {
+		return 0, nil, err
 	}
-	return 0, []byte(out.String()), nil
+	defer stdin.Close()
+	stdout, err := command.StdoutPipe()
+	if err != nil {
+		return 0, nil, err
+	}
+	defer stdout.Close()
+	var diagnostics evaluatorOutput
+	command.Stderr = &diagnostics
+	if err := command.Start(); err != nil {
+		return 0, nil, err
+	}
+
+	// A descendant could inherit stdout. Cancellation closes the parent pipes
+	// independently of how long it takes for the adapter's stdout to reach EOF.
+	stop := context.AfterFunc(ctx, func() {
+		stdin.Close()
+		stdout.Close()
+	})
+	defer stop()
+
+	reader := bufio.NewReader(stdout)
+	report, err := sandbox.ReadAdmissionReport(reader)
+	if errors.Is(err, io.EOF) {
+		err = errors.New("runner supplied no sandbox evidence")
+	}
+	if err == nil {
+		err = admit(report)
+	}
+	if err == nil {
+		err = ctx.Err()
+	}
+	if err == nil {
+		_, err = io.WriteString(stdin, sandbox.AdmissionApproval)
+	}
+	stdin.Close()
+	if err != nil {
+		stdout.Close()
+		command.Process.Kill()
+		command.Wait()
+		if detail := strings.TrimSpace(string(diagnostics)); detail != "" {
+			return 0, nil, fmt.Errorf("%w: %s", err, detail)
+		}
+		return 0, nil, err
+	}
+
+	var output evaluatorOutput
+	_, readErr := io.Copy(&output, reader)
+	if err := command.Wait(); err != nil {
+		output.Write(diagnostics)
+		return command.ProcessState.ExitCode(), output, err
+	}
+	return 0, output, readErr
 }
 
-// evaluatorPolicy wraps trust and isolation checks from the evaluator adapter store.
+// evaluatorOutput retains a bounded prefix and keeps draining the pipe.
+type evaluatorOutput []byte
+
+func (output *evaluatorOutput) Write(data []byte) (int, error) {
+	const limit = 4096
+	n := min(len(data), limit-len(*output))
+	*output = append(*output, data[:n]...)
+	return len(data), nil
+}
+
 type evaluatorPolicy struct {
 	store *adapter.Store
 }
 
 func (p *evaluatorPolicy) IsTrusted(backend content.Backend) bool {
-	installed, err := p.store.List()
-	if err != nil {
-		return false
-	}
-	for _, a := range installed {
-		if a.Manifest.Name == backend.Name() {
-			ok, _ := p.store.IsTrusted(a)
-			return ok
-		}
-	}
-	return false
+	b, ok := backend.(*evaluatorBackend)
+	return ok && p.store.AssertTrusted(b.adapter) == nil
 }
 
-// sandboxedBoundaries are the boundaries at which an evaluator's "sandboxed" claim
-// can hold (docs/adr-sandboxing.md): the program has no direct syscall access to
-// the host, or reaches it only through OS confinement.
-var sandboxedBoundaries = []string{cgoengine.BoundaryConfined, cgoengine.BoundaryRuntime, cgoengine.BoundaryContainer, cgoengine.BoundaryKernel}
-
-// checkIsolation holds one context's reported isolation and boundary to the rule:
-// a boundary must be reported, be a known level, and for "sandboxed" be one of
-// sandboxedBoundaries. Only "sandboxed" permits execution.
-func checkIsolation(isolation, boundary string) (string, bool) {
-	if isolation == "" {
-		isolation = "unreported"
+func (p *evaluatorPolicy) Admit(report sandbox.Report) error {
+	if err := report.Validate(); err != nil {
+		return fmt.Errorf("invalid sandbox evidence: %w", err)
 	}
-	if boundary == "" {
-		return "reports no boundary", false
+	if !sandbox.Sandboxed(report) {
+		return fmt.Errorf("runner boundary %s and enforcement do not meet sandbox requirements", report.Boundary)
 	}
-	if !cgoengine.ValidBoundary(boundary) {
-		return fmt.Sprintf("reports an unknown boundary %q", boundary), false
+	// Verification requests fresh execution with no access to the host.
+	// An enforced grant can still allow access CTN never requested.
+	grant := report.Grant
+	if len(grant.Filesystem) != 0 || grant.Process.Children || len(grant.Devices) != 0 ||
+		len(grant.Environment.Names)+len(grant.Environment.Entries)+len(grant.Environment.Secrets) != 0 ||
+		(grant.Network.Mode != "" && grant.Network.Mode != sandbox.NetworkNone) ||
+		(grant.Lifecycle.Mode != "" && grant.Lifecycle.Mode != sandbox.LifecycleFresh) {
+		return errors.New("runner sandbox grant exceeds verification policy")
 	}
-	if isolation != "sandboxed" {
-		return fmt.Sprintf("has isolation %s, not sandboxed", isolation), false
-	}
-	if !slices.Contains(sandboxedBoundaries, boundary) {
-		return fmt.Sprintf("claims sandboxed at boundary %s, which cannot be", boundary), false
-	}
-	return "", true
-}
-
-func (p *evaluatorPolicy) Isolation(backend content.Backend, selection string) (string, string, string, bool) {
-	installed, err := p.store.List()
-	if err != nil {
-		return "unknown", "", err.Error(), false
-	}
-	for _, a := range installed {
-		if a.Manifest.Name != backend.Name() {
-			continue
-		}
-		command, err := a.Command(adapter.Invocation{Operation: "observe"})
-		if err != nil {
-			return "unknown", "", fmt.Sprintf("cannot observe: %v", err), false
-		}
-		var out strings.Builder
-		command.Stdout = &out
-		if err := command.Run(); err != nil {
-			return "unknown", "", fmt.Sprintf("observe failed: %v", err), false
-		}
-		var observed struct {
-			Contexts []struct {
-				Selection  string            `json:"selection"`
-				Attributes map[string]string `json:"attributes"`
-			} `json:"contexts"`
-		}
-		if err := json.Unmarshal([]byte(out.String()), &observed); err != nil || len(observed.Contexts) == 0 {
-			return "unknown", "", "no isolation reported", false
-		}
-		boundary := ""
-		for _, ctx := range observed.Contexts {
-			if selection != "" && ctx.Selection != selection {
-				continue
-			}
-			isolation, b := ctx.Attributes["isolation"], ctx.Attributes["boundary"]
-			if reason, ok := checkIsolation(isolation, b); !ok {
-				if isolation == "" {
-					isolation = "unreported"
-				}
-				return isolation, b, reason, false
-			}
-			if boundary == "" {
-				boundary = b
-			} else if boundary != b {
-				boundary = "mixed"
-			}
-		}
-		if selection != "" {
-			found := false
-			for _, ctx := range observed.Contexts {
-				if ctx.Selection == selection {
-					found = true
-					break
-				}
-			}
-			if !found {
-				return "unknown", "", fmt.Sprintf("has no selection %q", selection), false
-			}
-		}
-		return "sandboxed", boundary, "", true
-	}
-	return "unknown", "", "backend not found", false
+	return nil
 }

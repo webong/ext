@@ -54,9 +54,9 @@ requirement once and have it mean the same thing on every path.
 | go-plugin (`pkg/ext-go/hashicorp`) | None beyond the OS user | As for `process`. |
 
 Other relevant facts:
-- CTN refuses an evaluator unless it reports `isolation: sandboxed`
-  ([evaluator adapters](evaluator-adapters.md#isolation)). That value is self-reported, and
-  nothing enforces it.
+- CTN requires the trusted evaluator's prepared runner to report its enforced
+  boundary and grant before it approves execution. Discovery attributes
+  describe which evaluators are available. [Verified evaluator execution](evaluator-adapters.md#verified-execution)
 - `BackendProfile` says how a backend cancels and who owns the process, but nothing about
   isolation.
 - `res/graph/supervisor` has no consumers. The Go `res/graph` is being replaced by

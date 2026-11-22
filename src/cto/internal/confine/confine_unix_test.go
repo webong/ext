@@ -14,7 +14,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/webong/ext/res/sandbox"
+	"github.com/webong/ext/src/cto/sandbox"
 )
 
 // The test binary plays three parts, chosen by EXT_CONFINE_ROLE: the test itself; the launcher,

@@ -1,20 +1,20 @@
-// Package sandboxcmd is the `sandbox` command that `ext` and standalone `ctx` share, as
-// adaptercmd is for `adapter`. It is the launch step of docs/adr-sandboxing.md: a runner (the
+// Package app is the containment product's command. It is the launch step of
+// docs/adr-sandboxing.md: a runner (the
 // plugin engine, workload's local driver, a person) starts `ext sandbox exec` with a grant, and
-// the command confines its own process with res/system/service/confine and becomes the guest.
+// the command confines its own process with src/cto/internal/confine and becomes the guest.
 //
-//	sandbox exec --grant FILE [--driver NAME] [--accept CLASS,...] [--runner CLASS,...]
-//	             [--status-fd N] [--dir DIR] -- PATH [ARG...]
-//	sandbox exec --launch-fd N [--status-fd N]
-//	sandbox check [--json]
+//	cto exec --grant FILE [--driver NAME] [--accept CLASS,...] [--runner CLASS,...]
+//	         [--status-fd N] [--dir DIR] -- PATH [ARG...]
+//	cto exec --launch-fd N [--status-fd N]
+//	cto check [--json]
 //
-// With --grant the grant is read from a JSON file (a res/sandbox Policy) and the guest's base
+// With --grant the grant is read from a JSON file (a src/cto/sandbox Policy) and the guest's base
 // environment is the caller's PATH only; a grant with secrets needs --launch-fd. With
 // --launch-fd the whole launch (confine.Launch, secrets' values included) is read from an
 // inherited file descriptor, which is how a runner passes it without putting a secret on a
 // command line. --status-fd writes the one status line (the report, or the code of a refusal)
 // to an inherited descriptor before the guest starts.
-package sandboxcmd
+package app
 
 import (
 	"encoding/json"
@@ -26,9 +26,12 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/webong/ext/res/sandbox"
-	"github.com/webong/ext/res/system/service/confine"
+	"github.com/webong/ext/src/cto/internal/confine"
+	"github.com/webong/ext/src/cto/sandbox"
 )
+
+// Version is the version of this build of cto.
+var Version = "0.1.0-dev"
 
 // The exit statuses of `sandbox exec` when it does not become the guest.
 const (
@@ -40,11 +43,11 @@ const (
 // MaxLaunchBytes bounds a launch read from a descriptor.
 const MaxLaunchBytes = 4 << 20
 
-// Run runs the sandbox command. name is the program the user typed ("ext" or "ctx"), for
-// messages.
+// Run runs the containment command. name is the command prefix used in messages,
+// either "cto" or "ext sandbox".
 func Run(name string, args []string, stdout, stderr io.Writer) int {
 	if len(args) == 0 {
-		fmt.Fprintf(stderr, "usage: %s sandbox exec|check\n", name)
+		fmt.Fprintf(stderr, "usage: %s exec|check\n", name)
 		return ExitUsage
 	}
 	switch args[0] {
@@ -53,10 +56,10 @@ func Run(name string, args []string, stdout, stderr io.Writer) int {
 	case "check":
 		return checkCommand(name, args[1:], stdout, stderr)
 	case "help", "-h", "--help":
-		fmt.Fprintf(stdout, "usage: %s sandbox exec --grant FILE [flags] -- PATH [ARG...]\n       %s sandbox exec --launch-fd N [--status-fd N]\n       %s sandbox check [--json]\n", name, name, name)
+		fmt.Fprintf(stdout, "usage: %s exec --grant FILE [flags] -- PATH [ARG...]\n       %s exec --launch-fd N [--status-fd N]\n       %s check [--json]\n", name, name, name)
 		return 0
 	}
-	fmt.Fprintf(stderr, "%s sandbox: unknown command %q\n", name, args[0])
+	fmt.Fprintf(stderr, "%s: unknown command %q\n", name, args[0])
 	return ExitUsage
 }
 
@@ -68,9 +71,9 @@ func list(value string) []string {
 }
 
 func execCommand(name string, args []string, stderr io.Writer) int {
-	flags := flag.NewFlagSet(name+" sandbox exec", flag.ContinueOnError)
+	flags := flag.NewFlagSet(name+" exec", flag.ContinueOnError)
 	flags.SetOutput(stderr)
-	grantFile := flags.String("grant", "", "a JSON file holding the grant (a res/sandbox Policy)")
+	grantFile := flags.String("grant", "", "a JSON file holding the grant (a src/cto/sandbox Policy)")
 	launchFD := flags.Int("launch-fd", -1, "an inherited descriptor holding the whole launch as JSON")
 	statusFD := flags.Int("status-fd", -1, "an inherited descriptor for the status line")
 	driver := flags.String("driver", "", "the confinement driver; empty uses the only one available")
@@ -84,7 +87,7 @@ func execCommand(name string, args []string, stderr io.Writer) int {
 	if *statusFD >= 0 {
 		status = os.NewFile(uintptr(*statusFD), "status")
 		if status == nil {
-			fmt.Fprintf(stderr, "%s sandbox exec: no descriptor %d\n", name, *statusFD)
+			fmt.Fprintf(stderr, "%s exec: no descriptor %d\n", name, *statusFD)
 			return ExitUsage
 		}
 	}
@@ -93,23 +96,23 @@ func execCommand(name string, args []string, stderr io.Writer) int {
 	case *launchFD >= 0 && *grantFile == "" && flags.NArg() == 0:
 		file := os.NewFile(uintptr(*launchFD), "launch")
 		if file == nil {
-			fmt.Fprintf(stderr, "%s sandbox exec: no descriptor %d\n", name, *launchFD)
+			fmt.Fprintf(stderr, "%s exec: no descriptor %d\n", name, *launchFD)
 			return ExitUsage
 		}
 		data, err := io.ReadAll(io.LimitReader(file, MaxLaunchBytes+1))
 		file.Close()
 		if err != nil || len(data) > MaxLaunchBytes || decode(data, &launch) != nil {
-			fmt.Fprintf(stderr, "%s sandbox exec: the launch is not valid JSON within %d bytes\n", name, MaxLaunchBytes)
+			fmt.Fprintf(stderr, "%s exec: the launch is not valid JSON within %d bytes\n", name, MaxLaunchBytes)
 			return ExitUsage
 		}
 	case *grantFile != "" && *launchFD < 0 && flags.NArg() > 0:
 		data, err := os.ReadFile(*grantFile)
 		if err != nil {
-			fmt.Fprintf(stderr, "%s sandbox exec: %v\n", name, err)
+			fmt.Fprintf(stderr, "%s exec: %v\n", name, err)
 			return ExitUsage
 		}
 		if err := decode(data, &launch.Grant); err != nil {
-			fmt.Fprintf(stderr, "%s sandbox exec: the grant is not valid JSON: %v\n", name, err)
+			fmt.Fprintf(stderr, "%s exec: the grant is not valid JSON: %v\n", name, err)
 			return ExitUsage
 		}
 		launch.Path, launch.Args = flags.Arg(0), flags.Args()[1:]
@@ -118,14 +121,14 @@ func execCommand(name string, args []string, stderr io.Writer) int {
 			launch.Env = []string{"PATH=" + path}
 		}
 	default:
-		fmt.Fprintf(stderr, "usage: %s sandbox exec --grant FILE [flags] -- PATH [ARG...] | --launch-fd N\n", name)
+		fmt.Fprintf(stderr, "usage: %s exec --grant FILE [flags] -- PATH [ARG...] | --launch-fd N\n", name)
 		return ExitUsage
 	}
 	code, err := confine.Exec(launch, status)
 	if err == nil {
 		return code // Windows: the guest ran and exited
 	}
-	fmt.Fprintf(stderr, "%s sandbox exec: %v\n", name, err)
+	fmt.Fprintf(stderr, "%s exec: %v\n", name, err)
 	if errors.Is(err, confine.ErrDriver) {
 		return ExitExec
 	}
@@ -145,7 +148,7 @@ func decode(data []byte, out any) error {
 }
 
 func checkCommand(name string, args []string, stdout, stderr io.Writer) int {
-	flags := flag.NewFlagSet(name+" sandbox check", flag.ContinueOnError)
+	flags := flag.NewFlagSet(name+" check", flag.ContinueOnError)
 	flags.SetOutput(stderr)
 	asJSON := flags.Bool("json", false, "print the capabilities as JSON")
 	if err := flags.Parse(args); err != nil {

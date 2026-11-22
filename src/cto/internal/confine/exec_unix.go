@@ -7,7 +7,7 @@ import (
 	"os"
 	"syscall"
 
-	"github.com/webong/ext/res/sandbox"
+	"github.com/webong/ext/src/cto/sandbox"
 )
 
 // applyRlimits sets the bounds a resource limit can hold exactly: open files, and CPU time in

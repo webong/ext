@@ -1,18 +1,18 @@
-# res/sandbox
+# src/cto/sandbox
 
 The sandbox contract that ext and [workload](https://github.com/webong/workload) share, from
-[the sandboxing ADR](../../docs/adr-sandboxing.md). A sandbox is three decisions: the
+[the sandboxing ADR](../../../docs/adr-sandboxing.md). A sandbox is three decisions: the
 **boundary** (where isolation is enforced), the **policy** (what code can touch) and the
 **lifecycle** (what survives between runs).
 
 This module is data and rules only. It confines nothing and starts nothing, and it uses only the
 standard library and nothing else in ext, so a runner that must stay on the standard library can
 depend on it. Mechanisms live elsewhere:
-- `res/system/service/confine` confines one local process, through `ext sandbox exec`;
+- `src/cto/internal/confine` confines one local process, through `ext sandbox exec`;
 - workload's drivers run containers and VMs.
 
 ```go
-import "github.com/webong/ext/res/sandbox"
+import "github.com/webong/ext/src/cto/sandbox"
 ```
 
 | Piece | What it is |

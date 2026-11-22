@@ -7,7 +7,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/webong/ext/res/sandbox"
+	"github.com/webong/ext/src/cto/sandbox"
 )
 
 func platformDrivers() []Driver { return []Driver{seatbelt{}} }

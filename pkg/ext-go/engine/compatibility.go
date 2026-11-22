@@ -31,7 +31,7 @@ func NegotiateProtocol(preferred, offered []string) (string, error) {
 }
 
 // The sandbox boundary levels of docs/adr-sandboxing.md: where isolation is enforced
-// for a guest. They are the same strings as res/sandbox's levels; the engine does not
+// for a guest. They are the same strings as src/cto/sandbox's levels; the engine does not
 // import that module, so it keeps its own copy.
 const (
 	// BoundaryInProcess shares the host's address space and authority.

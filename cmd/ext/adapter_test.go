@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -9,11 +10,14 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/webong/ext/cmd/ext/internal/pkgcmd"
+	plugin "github.com/webong/ext/pkg/ext-go/engine"
 	"github.com/webong/ext/pkg/ext-go/engine/host/adapter"
+	"github.com/webong/ext/pkg/ext-go/engine/host/store"
+	packagekit "github.com/webong/ext/pkg/ext-go/engine/package"
 )
 
-// TestAdapterAcrossProducts exercises real binaries against one isolated home.
-// No CTX process participates in standalone CTN's evaluator invocation.
+// TestAdapterAcrossProducts exercises the ext binary and installed product packages.
 func TestAdapterAcrossProducts(t *testing.T) {
 	for _, key := range []string{"EXT_ADAPTER_HOME", "EXT_HOME"} {
 		t.Setenv(key, "")
@@ -25,10 +29,26 @@ func TestAdapterAcrossProducts(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		suffix = ".exe"
 	}
-	ext, ctx, ctn := filepath.Join(bin, "ext"+suffix), filepath.Join(bin, "ctx"+suffix), filepath.Join(bin, "ctn"+suffix)
+	ext := filepath.Join(bin, "ext"+suffix)
 	goBuild(t, ext, ".")
-	goBuild(t, ctx, "../../src/ctx/cmd/ctx")
-	goBuild(t, ctn, "../../src/ctn/cmd/ctn")
+	for _, product := range []string{"ctx", "ctn", "cto"} {
+		packageDir := filepath.Join(bin, "ext-packages", "ext%2f"+product)
+		if err := os.MkdirAll(packageDir, 0o700); err != nil {
+			t.Fatal(err)
+		}
+		executable := filepath.Join(packageDir, product+suffix)
+		goBuild(t, executable, "../../src/"+product+"/plugin")
+		manifest, err := packagekit.ExecutableManifest("ext/"+product, "dev", []plugin.Contract{pkgcmd.RunContract}, executable)
+		if err != nil {
+			t.Fatal(err)
+		}
+		manifest.Descriptor.Identity.Revision = "command-v1"
+		data, _ := json.Marshal(map[string]any{"commands": []pkgcmd.Declared{{Name: product, Transport: "socket"}}})
+		manifest.Metadata = map[string]json.RawMessage{pkgcmd.MetadataKey: data}
+		if err := store.WriteManifest(packageDir, manifest); err != nil {
+			t.Fatal(err)
+		}
+	}
 	source := t.TempDir()
 	goBuild(t, filepath.Join(source, "evaluator"+suffix), "./testdata/evaluator")
 	manifest := `api_version = "2.0"
@@ -73,17 +93,17 @@ self_contained = "true"
 	run(ext, 0, "builtin", "which", "adapter")
 	run(ext, 2, "ext: adapter requires", "adapter")
 	run(ext, 0, "ext adapter trust wasm", "adapter", "install", source)
-	run(ctx, 0, "untrusted", "adapter", "ls")
-	run(ctn, 0, "untrusted", "adapter", "ls")
-	run(ctn, 3, "UNSUPPORTED", "verify", file)
+	run(ext, 0, "untrusted", "ctx", "adapter", "ls")
+	run(ext, 0, "untrusted", "ctn", "adapter", "ls")
+	run(ext, 3, "UNSUPPORTED", "ctn", "verify", file)
 	run(ext, 1, "not trusted", "adapter", "doctor", "wasm")
-	run(ctx, 0, "trusted adapter wasm", "adapter", "trust", "wasm")
+	run(ext, 0, "trusted adapter wasm", "ctx", "adapter", "trust", "wasm")
 	run(ext, 0, "evaluator doctor", "adapter", "doctor", "wasm")
 	t.Setenv("EXT_TEST_DOCTOR_FAIL", "1")
 	run(ext, 7, "evaluator doctor", "adapter", "doctor", "wasm")
 	t.Setenv("EXT_TEST_DOCTOR_FAIL", "")
 	run(ext, 0, "trusted", "adapter", "verify", "wasm")
-	run(ctn, 0, "PASS", "verify", file)
+	run(ext, 0, "PASS", "ctn", "verify", file)
 	run(ext, 0, "PASS", "ctn", "verify", file)
 	installed := filepath.Join(home, "adapters", "wasm", "evaluator"+suffix)
 	f, err := os.OpenFile(installed, os.O_APPEND|os.O_WRONLY, 0)
@@ -97,8 +117,8 @@ self_contained = "true"
 		t.Fatal(err)
 	}
 	run(ext, 1, "wasm", "adapter", "verify", "wasm")
-	run(ctn, 3, "UNSUPPORTED", "verify", file)
-	run(ctx, 0, "removed adapter wasm", "adapter", "remove", "wasm")
+	run(ext, 3, "UNSUPPORTED", "ctn", "verify", file)
+	run(ext, 0, "removed adapter wasm", "ctx", "adapter", "remove", "wasm")
 	if out := run(ext, 0, "", "adapter", "ls"); out != "" {
 		t.Fatalf("adapter still listed: %s", out)
 	}

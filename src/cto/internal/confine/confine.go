@@ -5,7 +5,7 @@
 // enforced, and replaces itself with the guest.
 //
 // The package owns mechanisms only. It never chooses a policy: the grant comes from the caller,
-// computed with res/sandbox from what a package requests and what the consumer allows.
+// computed with src/cto/sandbox from what a package requests and what the consumer allows.
 //
 // A driver is one OS mechanism (Seatbelt on macOS, Landlock and seccomp on Linux, AppContainer
 // and a job object on Windows). Each reports the classes it can enforce on this host
@@ -27,10 +27,10 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/webong/ext/res/sandbox"
+	"github.com/webong/ext/src/cto/sandbox"
 )
 
-// Errors beyond res/sandbox's. Code maps them to the shared codes.
+// Errors beyond src/cto/sandbox's. Code maps them to the shared codes.
 var (
 	// ErrNotExecutable reports a grant that does not let the guest's own executable run.
 	ErrNotExecutable = fmt.Errorf("%w: the grant does not allow executing the guest", sandbox.ErrDenied)
@@ -41,7 +41,7 @@ var (
 	ErrDriver = errors.New("confine: the operating system refused to confine the process")
 )
 
-// Code returns the stable code of err: res/sandbox's codes, "io" for ErrDriver or an exec
+// Code returns the stable code of err: src/cto/sandbox's codes, "io" for ErrDriver or an exec
 // failure, "" for nil.
 func Code(err error) string {
 	if err == nil {

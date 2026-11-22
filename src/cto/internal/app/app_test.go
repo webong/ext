@@ -1,4 +1,4 @@
-package sandboxcmd
+package app
 
 import (
 	"bytes"
@@ -8,13 +8,13 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/webong/ext/res/sandbox"
-	"github.com/webong/ext/res/system/service/confine"
+	"github.com/webong/ext/src/cto/internal/confine"
+	"github.com/webong/ext/src/cto/sandbox"
 )
 
 func runCommand(args ...string) (int, string, string) {
 	var stdout, stderr bytes.Buffer
-	code := Run("ext", args, &stdout, &stderr)
+	code := Run("ext sandbox", args, &stdout, &stderr)
 	return code, stdout.String(), stderr.String()
 }
 

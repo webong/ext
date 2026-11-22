@@ -1,11 +1,11 @@
 // Package ctn is the content manager as a library: Run is the whole command, so the
-// standalone ctn binary and any host that composes it (such as ext) run the same code.
+// installed CTN package and other Go hosts run the same code.
 package ctn
 
 import (
 	"io"
 
-	"github.com/webong/ext/ctn/internal/app"
+	"github.com/webong/ext/src/ctn/internal/app"
 )
 
 // Run executes the ctn command with args (without the program name), writing to

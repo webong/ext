@@ -8,7 +8,7 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/webong/ext/ctn/internal/content"
+	"github.com/webong/ext/src/ctn/internal/content"
 	"github.com/webong/ext/pkg/ext-go/engine/host/adapter"
 )
 

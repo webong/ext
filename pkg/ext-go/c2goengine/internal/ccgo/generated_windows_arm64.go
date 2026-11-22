@@ -1,5 +1,5 @@
 // Code generated for windows/arm64 by 'ccgo -o engine.go --package-name ccgo -I csrc/shim -I csrc/src -I csrc/vendor -I csrc/include -DEXT_PLUGIN_HOST_STATIC -DEXT_PLUGIN_HOST_BUILD -Dyyjson_align(x)= -Dyyjson_inline= -Dyyjson_noinline= -U__SIZEOF_INT128__ -include csrc/shim/compat_core.h csrc/src/common.c csrc/src/wire.c csrc/src/progress.c csrc/src/reverse.c csrc/src/endpoint.c csrc/src/services.c csrc/src/guest.c csrc/src/sha256.c csrc/src/packages.c csrc/vendor/yyjson.c csrc/shim/windows.c', DO NOT EDIT.
-// c2goengine inputs sha256:6ce31a6e5337629cf189bdc31a8ff9289c3e833607bc16556c50084d5d6dcc2e
+// c2goengine inputs sha256:962f47754ad520e9a122faa1fc58e6a9abc43eb97679d3d904bec01425621c9d
 
 //go:build windows && arm64
 
@@ -35,6 +35,7 @@ const EXT_PLUGIN_HOST_REVERSE_ENGINE_THREADS = "0u"
 const EXT_PLUGIN_HOST_REVERSE_PAYLOAD = "0u"
 const EXT_PLUGIN_HOST_REVERSE_PUBLIC_ERROR = "1u"
 const EXT_PLUGIN_HOST_STATIC = 1
+const EXT_PLUGIN_STORE_PRESERVE_EXECUTABLE = "1u"
 const EXT_REVERSE_BUSY = "busy"
 const EXT_REVERSE_DEFAULT_IN_FLIGHT = "4u"
 const EXT_REVERSE_DEFAULT_TIMEOUT_MS = "30000u"
@@ -44,7 +45,6 @@ const EXT_REVERSE_MAX_IN_FLIGHT = "1024u"
 const EXT_REVERSE_TOO_LARGE = "too_large"
 const EXT_REVERSE_UNAVAILABLE = "reverse_unavailable"
 const EXT_REVERSE_UNDECLARED = "reverse_undeclared"
-const EXT_PLUGIN_STORE_PRESERVE_EXECUTABLE = "1u"
 const FILENAME_MAX = 260
 const FOPEN_MAX = 20
 const INT16_MAX = 32767
@@ -524,6 +524,7 @@ const __SEH__ = 1
 const __SHRT_MAX__ = 32767
 const __SHRT_WIDTH__ = 16
 const __SIG_ATOMIC_MAX__ = 2147483647
+const __SIG_ATOMIC_TYPE__ = "int"
 const __SIG_ATOMIC_WIDTH__ = 32
 const __SIZEOF_DOUBLE__ = 8
 const __SIZEOF_FLOAT__ = 4
@@ -628,8 +629,9 @@ const __UINT_LEAST8_FMTu__ = "hhu"
 const __UINT_LEAST8_FMTx__ = "hhx"
 const __UINT_LEAST8_MAX__ = 255
 const __USE_MINGW_ANSI_STDIO = 0
-const __VERSION__ = "Clang 22.1.8 (https://github.com/msys2/MINGW-packages d34feaaa1d0aff624c870910b6f2589aa40d20de)"
+const __VERSION__ = "Clang 23.1.5 (https://github.com/msys2/MINGW-packages efc96badda99c076509ef01986c673d1cd30f725)"
 const __WCHAR_MAX__ = 65535
+const __WCHAR_MIN__ = 0
 const __WCHAR_UNSIGNED__ = 1
 const __WCHAR_WIDTH__ = 16
 const __WIN32 = 1
@@ -639,16 +641,17 @@ const __WIN64__ = 1
 const __WINNT = 1
 const __WINNT__ = 1
 const __WINT_MAX__ = 65535
+const __WINT_MIN__ = 0
 const __WINT_UNSIGNED__ = 1
 const __WINT_WIDTH__ = 16
 const __aarch64__ = 1
 const __bool_true_false_are_defined = 1
 const __clang__ = 1
 const __clang_literal_encoding__ = "UTF-8"
-const __clang_major__ = 22
+const __clang_major__ = 23
 const __clang_minor__ = 1
-const __clang_patchlevel__ = 8
-const __clang_version__ = "22.1.8 (https://github.com/msys2/MINGW-packages d34feaaa1d0aff624c870910b6f2589aa40d20de)"
+const __clang_patchlevel__ = 5
+const __clang_version__ = "23.1.5 (https://github.com/msys2/MINGW-packages efc96badda99c076509ef01986c673d1cd30f725)"
 const __clang_wide_literal_encoding__ = "UTF-16"
 const __int16 = "short"
 const __int32 = "int"
@@ -6553,7 +6556,7 @@ const ETIMEDOUT = 138
 const ETXTBSY = 139
 const EWOULDBLOCK = 140
 const EXDEV = 18
-const EXT_HOST_ABI_VERSION1 = "2u"
+const EXT_PLUGIN_HOST_ABI_VERSION1 = "2u"
 const NSIG = 23
 const OLD_P_OVERLAY = "_OLD_P_OVERLAY"
 const PTHREAD_BARRIER_SERIAL_THREAD = 1
@@ -6578,7 +6581,9 @@ const PTHREAD_MUTEX_NORMAL = 0
 const PTHREAD_MUTEX_PRIVATE = 0
 const PTHREAD_MUTEX_RECURSIVE = 2
 const PTHREAD_MUTEX_RECURSIVE_NP = "PTHREAD_MUTEX_RECURSIVE"
+const PTHREAD_MUTEX_ROBUST = 1
 const PTHREAD_MUTEX_SHARED = 1
+const PTHREAD_MUTEX_STALLED = 0
 const PTHREAD_MUTEX_TIMED_NP = "PTHREAD_MUTEX_NORMAL"
 const PTHREAD_ONCE_INIT = 0
 const PTHREAD_PRIO_INHERIT = 8
@@ -6618,12 +6623,17 @@ const WAIT_CHILD = "_WAIT_CHILD"
 const WAIT_GRANDCHILD = "_WAIT_GRANDCHILD"
 const WINPTHREADS_INLINE = "__inline__"
 const WINPTHREADS_TIME_BITS = 64
+const WINPTHREAD_COND_DECL = "WINPTHREAD_TIME_BITS_DECL"
+const WINPTHREAD_MUTEX_DECL = "WINPTHREAD_TIME_BITS_DECL"
+const WINPTHREAD_RWLOCK_DECL = "WINPTHREAD_TIME_BITS_DECL"
+const WINPTHREAD_SEM_DECL = "WINPTHREAD_TIME_BITS_DECL"
+const WINPTHREAD_THREAD_DECL = "WINPTHREAD_TIME_BITS_DECL"
+const WINPTHREAD_TIME_DECL = "WINPTHREAD_TIME_BITS_DECL"
 const _GTHREAD_USE_MUTEX_INIT_FUNC = 1
 const _OLD_P_OVERLAY = 2
-const _POSIX_CPUTIME = 200809
+const _POSIX_CPUTIME = 0
 const _POSIX_MONOTONIC_CLOCK = 200809
-const _POSIX_THREAD_CPUTIME = 200809
-const _POSIX_TIMERS = 200809
+const _POSIX_THREAD_CPUTIME = 0
 const _P_DETACH = 4
 const _P_NOWAIT = 1
 const _P_NOWAITO = 3
@@ -18355,7 +18365,7 @@ type ext_progress_sink = struct {
 }
 
 /*
-   Copyright (c) 2011-2016  mingw-w64 project
+   Copyright (c) 2011-2016, 2026 mingw-w64 project
 
    Permission is hereby granted, free of charge, to any person obtaining a
    copy of this software and associated documentation files (the "Software"),
@@ -18487,24 +18497,8 @@ sem_timedwait(),
 
 are present. */
 
-/* _SC_TIMERS - not supported
-The functions
-
-clock_getres(),
-clock_gettime(),
-clock_settime(),
-nanosleep(),
-timer_create(),
-timer_delete(),
-timer_gettime(),
-timer_getoverrun(),
-timer_settime()
-
-are present.  */
-/* #undef _POSIX_TIMERS */
-
 /* _SC_CLOCK_SELECTION
-   This option implies the _POSIX_TIMERS option. The functions
+   The functions
 
    pthread_condattr_getclock(),
    pthread_condattr_setclock(),
@@ -18527,8 +18521,6 @@ sem_unlink(),
 sem_wait()
 
 are present. */
-
-/* Wrap cancellation points.  */
 
 /* We deal here with a gcc issue for posix threading on Windows.
    We would need to change here gcc's gthr-posix.h header, but this
@@ -18854,8 +18846,8 @@ func ext_progress_sink_finish(tls *libc.TLS, s uintptr) {
 	emit_event(tls, s, bp, n)
 }
 
-const EXT_HOST_REVERSE_PAYLOAD1 = 0
-const EXT_HOST_REVERSE_PUBLIC_ERROR1 = 1
+const EXT_PLUGIN_HOST_REVERSE_PAYLOAD1 = 0
+const EXT_PLUGIN_HOST_REVERSE_PUBLIC_ERROR1 = 1
 const UINT64_MAX2 = "0xffffffffffffffffU"
 const __USE_MINGW_ANSI_STDIO2 = 0
 
@@ -24253,8 +24245,8 @@ var null_payload = [4]uint8_t{
 const EXT_ENDPOINT_MAX_ADDRESS = 255
 const EXT_ENDPOINT_MAX_PATH = 1024
 const EXT_ENDPOINT_MAX_TOKEN = 512
-const EXT_HOST_REVERSE_PAYLOAD2 = "0u"
-const EXT_HOST_REVERSE_PUBLIC_ERROR2 = "1u"
+const EXT_PLUGIN_HOST_REVERSE_PAYLOAD2 = "0u"
+const EXT_PLUGIN_HOST_REVERSE_PUBLIC_ERROR2 = "1u"
 
 var YYJSON_READ_NOFLAG4 = uint32(0)
 var YYJSON_READ_INSITU4 = uint32(libc.Int32FromInt32(1) << libc.Int32FromInt32(0))
@@ -35302,14 +35294,6 @@ func unsafe_yyjson_mut_get_pointer5(tls *libc.TLS, val uintptr, ptr uintptr, len
 	return unsafe_yyjson_mut_ptr_getx(tls, val, ptr, len1, libc.UintptrFromInt32(0), bp)
 }
 
-type _exception = struct {
-	Ftype1  int32
-	Fname   uintptr
-	Farg1   float64
-	Farg2   float64
-	Fretval float64
-}
-
 type __mingw_dbl_type_t = struct {
 	Fval [0]uint64
 	Flh  [0]struct {
@@ -35333,6 +35317,14 @@ type __mingw_ldbl_type_t = struct {
 	}
 	Fx           float64
 	F__ccgo_pad2 [8]byte
+}
+
+type _exception = struct {
+	Ftype1  int32
+	Fname   uintptr
+	Farg1   float64
+	Farg2   float64
+	Fretval float64
 }
 
 type _complex = struct {
@@ -36601,7 +36593,7 @@ func ext_plugin_call(tls *libc.TLS, operation uintptr, input uintptr, len1 size_
 
 const EXT_PLUGIN_GUEST_PAYLOAD = "0u"
 const EXT_PLUGIN_GUEST_PUBLIC_ERROR = 1
-const EXT_HOST_ABI_VERSION2 = 2
+const EXT_PLUGIN_HOST_ABI_VERSION2 = 2
 
 type ext_plugin_guest = struct {
 	Fdescriptor uintptr
@@ -42028,7 +42020,7 @@ done:
 	return s
 }
 
-const EXT_HOST_ABI_VERSION3 = "2u"
+const EXT_PLUGIN_HOST_ABI_VERSION3 = "2u"
 const __USE_MINGW_ANSI_STDIO4 = 0
 
 type ext_hash = struct {
@@ -55240,6 +55232,8 @@ func ext_package_service(tls *libc.TLS, op uintptr, v uintptr, out uintptr) (r e
 	return int32(EXT_PLUGIN_UNSUPPORTED)
 }
 
+const BIG_ENDIAN = "__ORDER_BIG_ENDIAN__"
+const BYTE_ORDER = "__BYTE_ORDER__"
 const CHAR_ENC_CPY_1 = 0
 const CHAR_ENC_CPY_2 = 4
 const CHAR_ENC_CPY_3 = 6
@@ -55279,6 +55273,7 @@ const LABEL_obj_key_begin = 3
 const LABEL_obj_key_end = 4
 const LABEL_obj_val_begin = 5
 const LABEL_obj_val_end = 6
+const LITTLE_ENDIAN = "__ORDER_LITTLE_ENDIAN__"
 const MSC_HAS_BIT_SCAN = 0
 const MSC_HAS_BIT_SCAN_64 = 0
 const MSC_HAS_UMUL128 = 0
@@ -55305,6 +55300,7 @@ const MSG_NOT_END = "unexpected end of data"
 const MSG_OBJ_END = "unexpected character, expected ',' or '}'"
 const MSG_OBJ_KEY = "unexpected character, expected a string key"
 const MSG_OBJ_SEP = "unexpected character, expected ':' after key"
+const PDP_ENDIAN = "__ORDER_PDP_ENDIAN__"
 const POW10_SIG_TABLE_MAX_EXACT_EXP = 55
 const POW10_SIG_TABLE_MAX_EXP = 324
 const POW10_SIG_TABLE_MIN_EXACT_EXP = 0
@@ -55333,6 +55329,10 @@ const YYJSON_READER_ESTIMATED_PRETTY_RATIO = 16
 const YYJSON_VERSION_HEX1 = 3072
 const YYJSON_WRITER_ESTIMATED_MINIFY_RATIO = 18
 const YYJSON_WRITER_ESTIMATED_PRETTY_RATIO = 32
+const __BIG_ENDIAN = "BIG_ENDIAN"
+const __BYTE_ORDER = "BYTE_ORDER"
+const __LITTLE_ENDIAN = "LITTLE_ENDIAN"
+const __PDP_ENDIAN = "PDP_ENDIAN"
 const __USE_MINGW_ANSI_STDIO6 = 0
 
 var YYJSON_READ_NOFLAG8 = uint32(0)
@@ -60548,6 +60548,27 @@ func yyjson_version(tls *libc.TLS) (r uint32_t) {
 }
 
 type _mode_t = uint16
+
+//===-- Definition of macros from endian.h --------------------------------===//
+//
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+//
+//===----------------------------------------------------------------------===//
+
+// If the system has an endian.h, let's use that instead.
+
+/*===---- stdint.h - Standard header for sized integer types --------------===* *
+ * Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+ * See https://llvm.org/LICENSE.txt for license information.
+ * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+ *
+\*===----------------------------------------------------------------------===*/
+
+// Implementation taken from llvm libc endian-macros.h.
+
+// Define some compatibility macros if they are not defined.
 
 /*
  This macro controls how yyjson handles unaligned memory accesses.

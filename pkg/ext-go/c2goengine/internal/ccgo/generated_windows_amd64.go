@@ -1,5 +1,5 @@
 // Code generated for windows/amd64 by 'ccgo -o engine.go --package-name ccgo -I csrc/shim -I csrc/src -I csrc/vendor -I csrc/include -DEXT_PLUGIN_HOST_STATIC -DEXT_PLUGIN_HOST_BUILD -Dyyjson_align(x)= -Dyyjson_inline= -Dyyjson_noinline= -U__SIZEOF_INT128__ -include csrc/shim/compat_core.h csrc/src/common.c csrc/src/wire.c csrc/src/progress.c csrc/src/reverse.c csrc/src/endpoint.c csrc/src/services.c csrc/src/guest.c csrc/src/sha256.c csrc/src/packages.c csrc/vendor/yyjson.c csrc/shim/windows.c', DO NOT EDIT.
-// c2goengine inputs sha256:6ce31a6e5337629cf189bdc31a8ff9289c3e833607bc16556c50084d5d6dcc2e
+// c2goengine inputs sha256:962f47754ad520e9a122faa1fc58e6a9abc43eb97679d3d904bec01425621c9d
 
 //go:build windows && amd64
 
@@ -115,6 +115,7 @@ const EXT_PLUGIN_HOST_REVERSE_ENGINE_THREADS = "0u"
 const EXT_PLUGIN_HOST_REVERSE_PAYLOAD = "0u"
 const EXT_PLUGIN_HOST_REVERSE_PUBLIC_ERROR = "1u"
 const EXT_PLUGIN_HOST_STATIC = 1
+const EXT_PLUGIN_STORE_PRESERVE_EXECUTABLE = "1u"
 const EXT_REVERSE_BUSY = "busy"
 const EXT_REVERSE_DEFAULT_IN_FLIGHT = "4u"
 const EXT_REVERSE_DEFAULT_TIMEOUT_MS = "30000u"
@@ -124,7 +125,6 @@ const EXT_REVERSE_MAX_IN_FLIGHT = "1024u"
 const EXT_REVERSE_TOO_LARGE = "too_large"
 const EXT_REVERSE_UNAVAILABLE = "reverse_unavailable"
 const EXT_REVERSE_UNDECLARED = "reverse_undeclared"
-const EXT_PLUGIN_STORE_PRESERVE_EXECUTABLE = "1u"
 const FILENAME_MAX = 260
 const FOPEN_MAX = 20
 const INT16_MAX = 32767
@@ -6534,7 +6534,7 @@ const CLOCK_PROCESS_CPUTIME_ID = 2
 const CLOCK_REALTIME = 0
 const CLOCK_REALTIME_COARSE = 4
 const CLOCK_THREAD_CPUTIME_ID = 3
-const EXT_HOST_ABI_VERSION1 = "2u"
+const EXT_PLUGIN_HOST_ABI_VERSION1 = "2u"
 const NSIG = 23
 const OLD_P_OVERLAY = "_OLD_P_OVERLAY"
 const PTHREAD_BARRIER_SERIAL_THREAD = 1
@@ -6559,7 +6559,9 @@ const PTHREAD_MUTEX_NORMAL = 0
 const PTHREAD_MUTEX_PRIVATE = 0
 const PTHREAD_MUTEX_RECURSIVE = 2
 const PTHREAD_MUTEX_RECURSIVE_NP = "PTHREAD_MUTEX_RECURSIVE"
+const PTHREAD_MUTEX_ROBUST = 1
 const PTHREAD_MUTEX_SHARED = 1
+const PTHREAD_MUTEX_STALLED = 0
 const PTHREAD_MUTEX_TIMED_NP = "PTHREAD_MUTEX_NORMAL"
 const PTHREAD_ONCE_INIT = 0
 const PTHREAD_PRIO_INHERIT = 8
@@ -6597,12 +6599,17 @@ const WAIT_CHILD = "_WAIT_CHILD"
 const WAIT_GRANDCHILD = "_WAIT_GRANDCHILD"
 const WINPTHREADS_INLINE = "__inline__"
 const WINPTHREADS_TIME_BITS = 64
+const WINPTHREAD_COND_DECL = "WINPTHREAD_TIME_BITS_DECL"
+const WINPTHREAD_MUTEX_DECL = "WINPTHREAD_TIME_BITS_DECL"
+const WINPTHREAD_RWLOCK_DECL = "WINPTHREAD_TIME_BITS_DECL"
+const WINPTHREAD_SEM_DECL = "WINPTHREAD_TIME_BITS_DECL"
+const WINPTHREAD_THREAD_DECL = "WINPTHREAD_TIME_BITS_DECL"
+const WINPTHREAD_TIME_DECL = "WINPTHREAD_TIME_BITS_DECL"
 const _GTHREAD_USE_MUTEX_INIT_FUNC = 1
 const _OLD_P_OVERLAY = 2
-const _POSIX_CPUTIME = 200809
+const _POSIX_CPUTIME = 0
 const _POSIX_MONOTONIC_CLOCK = 200809
-const _POSIX_THREAD_CPUTIME = 200809
-const _POSIX_TIMERS = 200809
+const _POSIX_THREAD_CPUTIME = 0
 const _P_DETACH = 4
 const _P_NOWAIT = 1
 const _P_NOWAITO = 3
@@ -18352,7 +18359,7 @@ type ext_progress_sink = struct {
 }
 
 /*
-   Copyright (c) 2011-2016  mingw-w64 project
+   Copyright (c) 2011-2016, 2026 mingw-w64 project
 
    Permission is hereby granted, free of charge, to any person obtaining a
    copy of this software and associated documentation files (the "Software"),
@@ -18484,24 +18491,8 @@ sem_timedwait(),
 
 are present. */
 
-/* _SC_TIMERS - not supported
-The functions
-
-clock_getres(),
-clock_gettime(),
-clock_settime(),
-nanosleep(),
-timer_create(),
-timer_delete(),
-timer_gettime(),
-timer_getoverrun(),
-timer_settime()
-
-are present.  */
-/* #undef _POSIX_TIMERS */
-
 /* _SC_CLOCK_SELECTION
-   This option implies the _POSIX_TIMERS option. The functions
+   The functions
 
    pthread_condattr_getclock(),
    pthread_condattr_setclock(),
@@ -18524,8 +18515,6 @@ sem_unlink(),
 sem_wait()
 
 are present. */
-
-/* Wrap cancellation points.  */
 
 /* We deal here with a gcc issue for posix threading on Windows.
    We would need to change here gcc's gthr-posix.h header, but this
@@ -18851,8 +18840,8 @@ func ext_progress_sink_finish(tls *libc.TLS, s uintptr) {
 	emit_event(tls, s, bp, n)
 }
 
-const EXT_HOST_REVERSE_PAYLOAD1 = 0
-const EXT_HOST_REVERSE_PUBLIC_ERROR1 = 1
+const EXT_PLUGIN_HOST_REVERSE_PAYLOAD1 = 0
+const EXT_PLUGIN_HOST_REVERSE_PUBLIC_ERROR1 = 1
 const UINT64_MAX2 = "0xffffffffffffffffU"
 
 var YYJSON_READ_NOFLAG3 = uint32(0)
@@ -24249,8 +24238,8 @@ var null_payload = [4]uint8_t{
 const EXT_ENDPOINT_MAX_ADDRESS = 255
 const EXT_ENDPOINT_MAX_PATH = 1024
 const EXT_ENDPOINT_MAX_TOKEN = 512
-const EXT_HOST_REVERSE_PAYLOAD2 = "0u"
-const EXT_HOST_REVERSE_PUBLIC_ERROR2 = "1u"
+const EXT_PLUGIN_HOST_REVERSE_PAYLOAD2 = "0u"
+const EXT_PLUGIN_HOST_REVERSE_PUBLIC_ERROR2 = "1u"
 
 var YYJSON_READ_NOFLAG4 = uint32(0)
 var YYJSON_READ_INSITU4 = uint32(libc.Int32FromInt32(1) << libc.Int32FromInt32(0))
@@ -35297,14 +35286,6 @@ func unsafe_yyjson_mut_get_pointer5(tls *libc.TLS, val uintptr, ptr uintptr, len
 	return unsafe_yyjson_mut_ptr_getx(tls, val, ptr, len1, libc.UintptrFromInt32(0), bp)
 }
 
-type _exception = struct {
-	Ftype1  int32
-	Fname   uintptr
-	Farg1   float64
-	Farg2   float64
-	Fretval float64
-}
-
 type __mingw_dbl_type_t = struct {
 	Fval [0]uint64
 	Flh  [0]struct {
@@ -35328,6 +35309,14 @@ type __mingw_ldbl_type_t = struct {
 	}
 	Fx           float64
 	F__ccgo_pad2 [8]byte
+}
+
+type _exception = struct {
+	Ftype1  int32
+	Fname   uintptr
+	Farg1   float64
+	Farg2   float64
+	Fretval float64
 }
 
 type _complex = struct {
@@ -36596,7 +36585,7 @@ func ext_plugin_call(tls *libc.TLS, operation uintptr, input uintptr, len1 size_
 
 const EXT_PLUGIN_GUEST_PAYLOAD = "0u"
 const EXT_PLUGIN_GUEST_PUBLIC_ERROR = 1
-const EXT_HOST_ABI_VERSION2 = 2
+const EXT_PLUGIN_HOST_ABI_VERSION2 = 2
 
 type ext_plugin_guest = struct {
 	Fdescriptor uintptr
@@ -42023,7 +42012,7 @@ done:
 	return s
 }
 
-const EXT_HOST_ABI_VERSION3 = "2u"
+const EXT_PLUGIN_HOST_ABI_VERSION3 = "2u"
 
 type ext_hash = struct {
 	Fh     [8]uint32_t

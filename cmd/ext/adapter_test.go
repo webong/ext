@@ -56,7 +56,7 @@ name = "wasm"
 runtime = "computer"
 surfaces = "shell"
 executable = "evaluator` + suffix + `"
-capabilities = "list,observe,validate,run,doctor"
+capabilities = "list,observe,validate,run,run-verified,doctor"
 engine = "evaluator"
 role = "virtualizer"
 supports = "wasm"
@@ -103,6 +103,9 @@ self_contained = "true"
 	run(ext, 7, "evaluator doctor", "adapter", "doctor", "wasm")
 	t.Setenv("EXT_TEST_DOCTOR_FAIL", "")
 	run(ext, 0, "trusted", "adapter", "verify", "wasm")
+	t.Setenv("EXT_TEST_NO_EVIDENCE", "1")
+	run(ext, 3, "no sandbox evidence", "ctn", "verify", file)
+	t.Setenv("EXT_TEST_NO_EVIDENCE", "")
 	run(ext, 0, "PASS", "ctn", "verify", file)
 	run(ext, 0, "PASS", "ctn", "verify", file)
 	installed := filepath.Join(home, "adapters", "wasm", "evaluator"+suffix)

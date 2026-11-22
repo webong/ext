@@ -34,6 +34,10 @@ type CommandOptions struct {
 	// CompilationCache, when set, lets RunCommand reuse a module compiled by an
 	// earlier run. Nil compiles on every run.
 	CompilationCache *CompilationCache
+	// BeforeInstantiate runs once the command is compiled and its host
+	// configuration is built, before any guest instruction runs.
+	// An error discards the prepared runtime.
+	BeforeInstantiate func() error
 }
 
 // RunCommand compiles module and runs its _start function to completion. The
@@ -88,6 +92,14 @@ func RunCommand(ctx context.Context, module []byte, opts CommandOptions) (int, e
 	}
 	if opts.Stderr != nil {
 		config = config.WithStderr(opts.Stderr)
+	}
+	if opts.BeforeInstantiate != nil {
+		if err := opts.BeforeInstantiate(); err != nil {
+			return 0, err
+		}
+		if err := ctx.Err(); err != nil {
+			return 0, err
+		}
 	}
 	instance, err := runtime.InstantiateModule(ctx, compiled, config)
 	if instance != nil {

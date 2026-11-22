@@ -8,14 +8,16 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	cgoengine "github.com/webong/ext/pkg/ext-go/cgoengine/plugin"
-	wasm "github.com/webong/ext/res/web/host/engine/wasm"
 	"io"
 	"os"
 	"path/filepath"
 	"runtime/debug"
 	"strings"
 	"time"
+
+	cgoengine "github.com/webong/ext/pkg/ext-go/cgoengine/plugin"
+	wasm "github.com/webong/ext/res/web/host/engine/wasm"
+	"github.com/webong/ext/src/cto/sandbox"
 )
 
 const engine = "embedded"
@@ -59,11 +61,11 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 			return 1
 		}
 		fmt.Fprintln(stdout, "wasm: embedded wazero engine ready (WASI Preview 1)")
-	case "run":
+	case "run", sandbox.AdmissionOperation:
 		if code := validate(request.Selection, stderr); code != 0 {
 			return code
 		}
-		return execute(request.Selection, request.Arguments, stdin, stdout, stderr)
+		return execute(request.Selection, request.Arguments, stdin, stdout, stderr, request.Operation == sandbox.AdmissionOperation)
 	default:
 		fmt.Fprintf(stderr, "wasm: unsupported adapter operation %s\n", request.Operation)
 		return 2
@@ -165,7 +167,7 @@ func (e environment) Set(value string) error {
 // execute runs `[flags] module.wasm [arguments...]`. Standard streams belong to
 // the caller's command line and are connected. The environment and filesystem
 // are not: the module sees only what a flag grants.
-func execute(selection string, arguments []string, stdin io.Reader, stdout, stderr io.Writer) int {
+func execute(selection string, arguments []string, stdin io.Reader, stdout, stderr io.Writer, verified bool) int {
 	flags := flag.NewFlagSet("wasm", flag.ContinueOnError)
 	flags.SetOutput(stderr)
 	dirs, readonly, env := mounts{}, mounts{}, environment{}
@@ -177,6 +179,10 @@ func execute(selection string, arguments []string, stdin io.Reader, stdout, stde
 	pages := flags.Uint("memory-pages", 0, "linear memory limit in 64 KiB pages (0 uses the default)")
 	if err := flags.Parse(arguments); err != nil {
 		return 2
+	}
+	if verified && (*inspect || len(dirs) != 0 || len(readonly) != 0 || len(env) != 0) {
+		fmt.Fprintln(stderr, "wasm: run-verified requires an execution with no host grants")
+		return 126
 	}
 	rest := flags.Args()
 	if len(rest) == 0 {
@@ -204,6 +210,10 @@ func execute(selection string, arguments []string, stdin io.Reader, stdout, stde
 		return 126
 	}
 	if candidate, ok := lookupExternal(chosen); ok {
+		if verified {
+			fmt.Fprintln(stderr, "wasm: external runtimes do not supply sandbox evidence")
+			return 126
+		}
 		path, found := candidate.locate()
 		if !found {
 			fmt.Fprintf(stderr, "wasm: %s is not installed (available: %s)\n", chosen, describeAvailable())
@@ -231,10 +241,23 @@ func execute(selection string, arguments []string, stdin io.Reader, stdout, stde
 		fmt.Fprintln(stderr, "wasm: --memory-pages must be at most 65536")
 		return 2
 	}
-	code, err := wasm.RunCommand(ctx, module, wasm.CommandOptions{
+	options := wasm.CommandOptions{
 		Name: rest[0], Args: rest[1:], Env: env, Dirs: dirs, ReadOnlyDirs: readonly,
 		Stdin: stdin, Stdout: stdout, Stderr: stderr, MemoryLimitPages: uint32(*pages),
-	})
+	}
+	if verified {
+		// The fresh embedded runtime has no ambient host access. Its stdin
+		// stays empty; the caller's stdin carries only the admission response.
+		options.Stdin = nil
+		options.BeforeInstantiate = func() error {
+			return sandbox.AwaitAdmission(stdin, stdout, sandbox.Report{
+				Boundary: sandbox.Runtime,
+				Driver:   "wazero",
+				Enforced: []string{"filesystem", "network.none", "process", "devices", "environment", "lifecycle.fresh"},
+			})
+		}
+	}
+	code, err := wasm.RunCommand(ctx, module, options)
 	switch {
 	case errors.Is(err, context.DeadlineExceeded):
 		fmt.Fprintf(stderr, "wasm: stopped after %s\n", *timeout)

@@ -1,13 +1,17 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/json"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/webong/ext/src/cto/sandbox"
 )
 
 const word42 = "0x000000000000000000000000000000000000000000000000000000000000002a"
@@ -88,6 +92,34 @@ func TestRunsBytecodeWithNoChain(t *testing.T) {
 	}
 	if code, stdout, _ := invoke(t, "run", "--", "@"+file); code != 0 || parse(t, stdout).ReturnData != word42 {
 		t.Fatalf("file input: %d %q", code, stdout)
+	}
+}
+
+func TestVerifiedRunGatesBytecode(t *testing.T) {
+	for _, test := range []struct {
+		name, approval string
+		pass           bool
+	}{
+		{"approved", sandbox.AdmissionApproval, true},
+		{"unapproved", "", false},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			var stdout, stderr bytes.Buffer
+			code := run([]string{sandbox.AdmissionOperation, "cancun", "--", returns42}, strings.NewReader(test.approval), &stdout, &stderr)
+			reader := bufio.NewReader(&stdout)
+			report, err := sandbox.ReadAdmissionReport(reader)
+			if err != nil || !sandbox.Sandboxed(report) || report.Driver != "go-ethereum" {
+				t.Fatalf("report = %+v, %v", report, err)
+			}
+			output, err := io.ReadAll(reader)
+			if err != nil {
+				t.Fatal(err)
+			}
+			res := parse(t, string(output))
+			if (code == 0) != test.pass || (res.ReturnData == word42) != test.pass || (res.GasUsed > 0) != test.pass || res.Fork != "cancun" {
+				t.Fatalf("%d %+v %q", code, res, stderr.String())
+			}
+		})
 	}
 }
 

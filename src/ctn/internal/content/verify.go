@@ -11,6 +11,8 @@ import (
 	"os"
 	"os/exec"
 	"time"
+
+	"github.com/webong/ext/src/cto/sandbox"
 )
 
 // Verdict is the outcome of content verification.
@@ -37,37 +39,37 @@ const MaxContentBytes = 256 << 20
 
 // Result is the structured outcome of content verification.
 type Result struct {
-	Verdict   Verdict `json:"verdict"`
-	File      string  `json:"file"`
-	SHA256    string  `json:"sha256"`
-	Backend   string  `json:"backend,omitempty"`
-	Selection string  `json:"selection,omitempty"`
-	Isolation string  `json:"isolation,omitempty"`
-	Boundary  string  `json:"boundary,omitempty"`
-	ExitCode  int     `json:"exitCode"`
-	Millis    int64   `json:"millis"`
-	Reason    string  `json:"reason,omitempty"`
+	Verdict   Verdict         `json:"verdict"`
+	File      string          `json:"file"`
+	SHA256    string          `json:"sha256"`
+	Backend   string          `json:"backend,omitempty"`
+	Selection string          `json:"selection,omitempty"`
+	Isolation string          `json:"isolation,omitempty"`
+	Boundary  string          `json:"boundary,omitempty"`
+	Sandbox   *sandbox.Report `json:"sandbox,omitempty"`
+	ExitCode  int             `json:"exitCode"`
+	Millis    int64           `json:"millis"`
+	Reason    string          `json:"reason,omitempty"`
 }
 
 // Backend is a caller-selected execution backend for running content.
 type Backend interface {
 	// Name returns the backend identity.
 	Name() string
-	// Run executes the content with the given arguments and returns the exit
-	// code, captured output, and any error. A non-nil error with a non-zero
+	// Run requests admission from the caller after preparing the runner and
+	// before executing content. An admission error prevents execution.
+	// A non-nil error with a non-zero
 	// exit code indicates the content itself failed; a non-nil error with a
 	// zero exit code indicates an infrastructure failure.
-	Run(ctx context.Context, arguments []string) (exitCode int, output []byte, err error)
+	Run(ctx context.Context, file, selection string, timeout time.Duration, admit func(sandbox.Report) error) (exitCode int, output []byte, err error)
 }
 
 // Policy decides whether content may run through a given backend.
 type Policy interface {
 	// IsTrusted reports whether the backend is trusted to run content.
 	IsTrusted(backend Backend) bool
-	// Isolation returns the isolation level and sandbox boundary
-	// (docs/adr-sandboxing.md) the backend reports for the selection, a
-	// human-readable reason, and whether they permit execution.
-	Isolation(backend Backend, selection string) (level, boundary, reason string, ok bool)
+	// Admit checks the prepared runner's report against the consumer's policy.
+	Admit(report sandbox.Report) error
 }
 
 // Limits bound resource usage during verification.
@@ -130,48 +132,41 @@ func Verify(ctx context.Context, file string, selection string, backend Backend,
 	}
 	result.Backend = backend.Name()
 
-	// Isolation check with the caller's selection.
-	level, boundary, reason, ok := policy.Isolation(backend, selection)
-	if !ok {
-		result.Verdict = VerdictUnsupported
-		result.Isolation = level
-		result.Boundary = boundary
-		result.Reason = reason
-		if observer != nil {
-			observer.Completed(result)
-		}
-		return result, nil
-	}
-	result.Isolation = level
-	result.Boundary = boundary
-
-	// Run with an outer timeout. Pass the file and selection as arguments so
-	// the backend can construct the appropriate invocation. The file is
-	// always first so backends can apply path prefixes (for example "@" for
-	// evm) to it.
+	// The timeout includes runner preparation, admission, and execution.
 	runCtx, cancel := context.WithTimeout(ctx, timeout+5*time.Second)
 	defer cancel()
 
-	if observer != nil {
-		observer.Started(backend.Name())
+	admit := func(report sandbox.Report) error {
+		if err := policy.Admit(report); err != nil {
+			return err
+		}
+		result.Isolation = "sandboxed"
+		result.Boundary = string(report.Boundary)
+		result.Sandbox = &report
+		if observer != nil {
+			observer.Started(backend.Name())
+		}
+		return nil
 	}
 
 	started := time.Now()
-	args := []string{file}
-	if selection != "" {
-		args = append(args, selection)
-	}
-	args = append(args, "--timeout", timeout.String())
-	exitCode, output, runErr := backend.Run(runCtx, args)
+	exitCode, output, runErr := backend.Run(runCtx, file, selection, timeout, admit)
 	result.Millis = time.Since(started).Milliseconds()
 	result.ExitCode = exitCode
 
-	if runErr != nil {
+	switch {
+	case errors.Is(runCtx.Err(), context.DeadlineExceeded):
+		result.Verdict = VerdictTimeout
+		result.Reason = fmt.Sprintf("did not finish within %s", timeout)
+	case result.Sandbox == nil:
+		result.Verdict = VerdictUnsupported
+		result.Reason = "runner supplied no accepted sandbox evidence"
+		if runErr != nil {
+			result.Reason = runErr.Error()
+		}
+	case runErr != nil:
 		var exit *exec.ExitError
 		switch {
-		case errors.Is(runCtx.Err(), context.DeadlineExceeded):
-			result.Verdict = VerdictTimeout
-			result.Reason = fmt.Sprintf("did not finish within %s", timeout)
 		case errors.As(runErr, &exit):
 			result.ExitCode = exit.ExitCode()
 			result.Verdict = classifyExitCode(exit.ExitCode(), string(output))
@@ -180,7 +175,7 @@ func Verify(ctx context.Context, file string, selection string, backend Backend,
 			result.Verdict = VerdictUnsupported
 			result.Reason = runErr.Error()
 		}
-	} else {
+	default:
 		result.Verdict = classifyExitCode(exitCode, string(output))
 		result.Reason = string(truncateOutput(output, 400))
 	}

@@ -1,10 +1,11 @@
 module github.com/webong/ext/adapters/evm
 
-go 1.23.0
+go 1.25.0
 
 require (
 	github.com/ethereum/go-ethereum v1.16.3
 	github.com/holiman/uint256 v1.3.2
+	github.com/webong/ext/src/cto/sandbox v0.1.0
 )
 
 require github.com/webong/ext/pkg/ext-go/engine v0.2.0 // indirect

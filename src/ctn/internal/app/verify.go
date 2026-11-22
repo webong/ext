@@ -13,22 +13,24 @@ import (
 	"strings"
 	"time"
 
-	"github.com/webong/ext/src/ctn/internal/content"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/adapter"
+	"github.com/webong/ext/src/ctn/internal/content"
+	"github.com/webong/ext/src/cto/sandbox"
 )
 
 // verdict is what verify reports.
 type verdict struct {
-	Verdict   string `json:"verdict"`
-	File      string `json:"file"`
-	SHA256    string `json:"sha256"`
-	Engine    string `json:"engine,omitempty"`
-	Selection string `json:"selection,omitempty"`
-	Isolation string `json:"isolation,omitempty"`
-	Boundary  string `json:"boundary,omitempty"`
-	ExitCode  int    `json:"exitCode"`
-	Millis    int64  `json:"millis"`
-	Reason    string `json:"reason,omitempty"`
+	Verdict   string          `json:"verdict"`
+	File      string          `json:"file"`
+	SHA256    string          `json:"sha256"`
+	Engine    string          `json:"engine,omitempty"`
+	Selection string          `json:"selection,omitempty"`
+	Isolation string          `json:"isolation,omitempty"`
+	Boundary  string          `json:"boundary,omitempty"`
+	Sandbox   *sandbox.Report `json:"sandbox,omitempty"`
+	ExitCode  int             `json:"exitCode"`
+	Millis    int64           `json:"millis"`
+	Reason    string          `json:"reason,omitempty"`
 }
 
 // Exit statuses of verify. They are separate so a script can tell content that
@@ -113,6 +115,7 @@ func verifyCommand(args []string, stdout, stderr io.Writer) int {
 		Selection: *selection,
 		Isolation: result.Isolation,
 		Boundary:  result.Boundary,
+		Sandbox:   result.Sandbox,
 		ExitCode:  result.ExitCode,
 		Millis:    result.Millis,
 		Reason:    result.Reason,

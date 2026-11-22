@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/webong/ext/src/cto/sandbox"
 )
 
 // fakeBackend is a test backend that runs content through a shell command.
@@ -17,7 +19,10 @@ type fakeBackend struct {
 
 func (b *fakeBackend) Name() string { return b.name }
 
-func (b *fakeBackend) Run(ctx context.Context, arguments []string) (int, []byte, error) {
+func (b *fakeBackend) Run(ctx context.Context, _, _ string, _ time.Duration, admit func(sandbox.Report) error) (int, []byte, error) {
+	if err := admit(sandbox.Report{Boundary: sandbox.Runtime}); err != nil {
+		return 0, nil, err
+	}
 	// Simulate running by checking the script's behavior.
 	if b.script == "exit 0" {
 		return 0, []byte("output"), nil
@@ -43,11 +48,11 @@ type fakePolicy struct {
 
 func (p *fakePolicy) IsTrusted(backend Backend) bool { return p.trusted }
 
-func (p *fakePolicy) Isolation(backend Backend, selection string) (string, string, string, bool) {
+func (p *fakePolicy) Admit(report sandbox.Report) error {
 	if p.sandboxed {
-		return "sandboxed", "runtime", "", true
+		return nil
 	}
-	return "host", "process", "not sandboxed", false
+	return errors.New("not sandboxed")
 }
 
 func writeContent(t *testing.T, name string, data []byte) string {

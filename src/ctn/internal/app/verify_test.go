@@ -14,7 +14,7 @@ import (
 
 // evaluatorStore installs a fake evaluator adapter into a temporary shared store and
 // returns the path of a log that records every operation the evaluator receives.
-func evaluatorStore(t *testing.T) (string, func(name, kind, observe, run string, trust bool) string) {
+func evaluatorStore(t *testing.T) (string, func(name, kind, observe, run string, trust bool, evidence ...string) string) {
 	t.Helper()
 	if runtime.GOOS == "windows" {
 		t.Skip("the fake evaluators are shell scripts")
@@ -24,7 +24,7 @@ func evaluatorStore(t *testing.T) (string, func(name, kind, observe, run string,
 		t.Setenv(key, "")
 	}
 	t.Setenv("EXT_HOME", home)
-	install := func(name, kind, observe, run string, trust bool) string {
+	install := func(name, kind, observe, run string, trust bool, evidence ...string) string {
 		t.Helper()
 		directory := filepath.Join(t.TempDir(), name)
 		if err := os.MkdirAll(directory, 0o755); err != nil {
@@ -32,10 +32,19 @@ func evaluatorStore(t *testing.T) (string, func(name, kind, observe, run string,
 		}
 		log := filepath.Join(home, name+".log")
 		manifest := "api_version = \"2.0\"\nname = \"" + name + "\"\nruntime = \"computer\"\nsurfaces = \"shell\"\nexecutable = \"ctx-" + name + "\"\n" +
-			"capabilities = \"list,observe,validate,run,doctor\"\nengine = \"evaluator\"\nrole = \"virtualizer\"\nsupports = \"" + kind + "\"\nselector_key = \"" + kind + "\"\n" +
+			"capabilities = \"list,observe,validate,run,run-verified,doctor\"\nengine = \"evaluator\"\nrole = \"virtualizer\"\nsupports = \"" + kind + "\"\nselector_key = \"" + kind + "\"\n" +
 			"computer_commands = \"" + name + "\"\nself_contained = \"true\"\n"
+		report := validRunEvidence
+		if len(evidence) != 0 {
+			report = evidence[0]
+		}
+		gate := "exit 0"
+		if report != "" {
+			gate = "printf '%s\\n' '" + report + "'; IFS= read -r response && [ \"$response\" = run ] || exit 126; " +
+				"echo executed >> '" + log + "'; " + run
+		}
 		script := "#!/bin/sh\necho \"$*\" >> '" + log + "'\ncase \"$1\" in\n" +
-			"observe) echo '" + observe + "'; exit 0;;\nrun) " + run + ";;\n*) exit 0;;\nesac\n"
+			"observe) echo '" + observe + "'; exit 0;;\nrun-verified) " + gate + ";;\n*) exit 0;;\nesac\n"
 		if err := adapter.WriteKeyValueManifest(directory, manifest); err != nil {
 			t.Fatal(err)
 		}
@@ -58,14 +67,9 @@ func evaluatorStore(t *testing.T) (string, func(name, kind, observe, run string,
 }
 
 const (
-	sandboxed = `{"version":1,"contexts":[{"selection":"embedded","attributes":{"kind":"wasm","version":"1","isolation":"sandboxed","boundary":"runtime"}}]}`
-	hostOnly  = `{"version":1,"contexts":[{"selection":"21","attributes":{"kind":"wasm","version":"1","isolation":"host","boundary":"process"}}]}`
-	mixed     = `{"version":1,"contexts":[{"selection":"embedded","attributes":{"isolation":"sandboxed","boundary":"runtime"}},{"selection":"loose","attributes":{"isolation":"host","boundary":"process"}}]}`
-	// An evaluator that says sandboxed must also say where: these claims cannot be held.
-	noBoundary      = `{"version":1,"contexts":[{"selection":"embedded","attributes":{"kind":"wasm","isolation":"sandboxed"}}]}`
-	unknownBoundary = `{"version":1,"contexts":[{"selection":"embedded","attributes":{"kind":"wasm","isolation":"sandboxed","boundary":"vm"}}]}`
-	sandboxedInHost = `{"version":1,"contexts":[{"selection":"embedded","attributes":{"kind":"wasm","isolation":"sandboxed","boundary":"process"}}]}`
-	sandboxedInProc = `{"version":1,"contexts":[{"selection":"embedded","attributes":{"kind":"wasm","isolation":"sandboxed","boundary":"in-process"}}]}`
+	sandboxed        = `{"version":1,"contexts":[{"selection":"embedded","attributes":{"kind":"wasm","version":"1","isolation":"sandboxed","boundary":"runtime"}}]}`
+	hostOnly         = `{"version":1,"contexts":[{"selection":"21","attributes":{"kind":"wasm","version":"1","isolation":"host","boundary":"process"}}]}`
+	validRunEvidence = `{"boundary":"runtime","driver":"fixture","grant":{},"enforced":["filesystem","network.none","process","devices","environment","lifecycle.fresh"]}`
 )
 
 func contentFile(t *testing.T, name, data string) string {
@@ -86,12 +90,12 @@ func verify(t *testing.T, args ...string) (int, string, string) {
 
 func ran(log string) bool {
 	data, err := os.ReadFile(log)
-	return err == nil && strings.Contains(string(data), "run ")
+	return err == nil && strings.Contains(string(data), "\nexecuted\n")
 }
 
 func TestVerifyPassesContentThatRunsCleanlyInASandbox(t *testing.T) {
 	_, install := evaluatorStore(t)
-	log := install("wasm", "wasm", sandboxed, "exit 0", true)
+	log := install("wasm", "wasm", hostOnly, "exit 0", true)
 	file := contentFile(t, "ok.wasm", "payload")
 	code, stdout, stderr := verify(t, "--timeout", "10s", file)
 	if code != exitPass || !strings.HasPrefix(stdout, "PASS ") || !strings.Contains(stdout, "isolation=sandboxed") || !strings.Contains(stdout, "boundary=runtime") || !strings.Contains(stdout, "engine=wasm") {
@@ -102,7 +106,7 @@ func TestVerifyPassesContentThatRunsCleanlyInASandbox(t *testing.T) {
 		t.Fatalf("the digest is missing: %q", stdout)
 	}
 	data, _ := os.ReadFile(log)
-	if !strings.Contains(string(data), "run -- "+file+" --timeout 10s") {
+	if !strings.Contains(string(data), "run-verified -- --timeout 10s -- "+file+"\nexecuted\n") || strings.Contains(string(data), "observe") {
 		t.Fatalf("the evaluator got %q", data)
 	}
 }
@@ -113,6 +117,7 @@ func TestVerifyJSONCarriesTheVerdictAndTheDigest(t *testing.T) {
 	code, stdout, _ := verify(t, "--json", contentFile(t, "a.wasm", "payload"))
 	var v verdict
 	if err := json.Unmarshal([]byte(stdout), &v); err != nil || code != 0 || v.Verdict != "PASS" || v.Isolation != "sandboxed" ||
+		v.Sandbox == nil || v.Sandbox.Driver != "fixture" ||
 		!strings.HasPrefix(v.SHA256, "239f59ed55e7") || len(v.SHA256) != 64 {
 		t.Fatalf("%d %+v %v", code, v, err)
 	}
@@ -132,39 +137,35 @@ func TestVerifyReportsContentThatFailsWithItsOwnExitStatus(t *testing.T) {
 	}
 }
 
-func TestVerifyNeverRunsContentInAnEvaluatorThatDoesNotConfineIt(t *testing.T) {
-	for name, observe := range map[string]string{
-		"host": hostOnly, "mixed without a selection": mixed,
-		"no isolation reported": `{"version":1,"contexts":[{"selection":"a","attributes":{}}]}`, "garbage": "not json",
-		"no boundary": noBoundary, "unknown boundary": unknownBoundary,
-		"sandboxed in a plain process": sandboxedInHost, "sandboxed in the evaluator's process": sandboxedInProc,
+func TestVerifyRefusesInsufficientRunnerEvidence(t *testing.T) {
+	for _, test := range []struct{ name, report, reason string }{
+		{"discovery claim without evidence", "", "no sandbox evidence"},
+		{"malformed report", "{not JSON}", "malformed admission report"},
+		{"missing grant", strings.Replace(validRunEvidence, `"grant":{},`, "", 1), "malformed admission report"},
+		{"unknown boundary", strings.Replace(validRunEvidence, `"runtime"`, `"vm"`, 1), "malformed admission report"},
+		{"plain process", strings.Replace(validRunEvidence, `"runtime"`, `"process"`, 1), "do not meet sandbox requirements"},
+		{"missing required class", strings.Replace(validRunEvidence, `"filesystem",`, "", 1), "malformed admission report"},
+		{"unenforced required class", strings.Replace(validRunEvidence, `"enforced":["filesystem",`, `"unenforced":["filesystem"],"enforced":[`, 1), "do not meet sandbox requirements"},
+		{"unrequested host access", strings.Replace(validRunEvidence, `"grant":{}`, `"grant":{"process":{"children":true}}`, 1), "exceeds verification policy"},
 	} {
-		_, install := evaluatorStore(t)
-		log := install("wasm", "wasm", observe, "exit 0", true)
-		code, stdout, _ := verify(t, contentFile(t, "x.wasm", "x"))
-		if code != exitUnverified || !strings.HasPrefix(stdout, "UNSUPPORTED ") {
-			t.Errorf("%s: %d %q", name, code, stdout)
-		}
-		if ran(log) {
-			t.Errorf("%s: the evaluator was run although it does not confine its content", name)
-		}
+		t.Run(test.name, func(t *testing.T) {
+			_, install := evaluatorStore(t)
+			log := install("wasm", "wasm", sandboxed, "exit 0", true, test.report)
+			code, stdout, _ := verify(t, contentFile(t, "x.wasm", "x"))
+			if code != exitUnverified || !strings.Contains(stdout, test.reason) || ran(log) {
+				t.Fatalf("%d %q ran=%v", code, stdout, ran(log))
+			}
+		})
 	}
 }
 
-func TestVerifyChecksTheSelectedContextOnly(t *testing.T) {
+func TestVerifyPassesSelectionToTheRunner(t *testing.T) {
 	_, install := evaluatorStore(t)
-	log := install("wasm", "wasm", mixed, "exit 0", true)
-	if code, stdout, _ := verify(t, "--selection", "embedded", contentFile(t, "x.wasm", "x")); code != exitPass {
-		t.Fatalf("a sandboxed selection of a mixed evaluator may run: %d %q", code, stdout)
-	}
-	if !ran(log) {
-		t.Fatal("the evaluator did not run")
-	}
-	if code, _, _ := verify(t, "--selection", "loose", contentFile(t, "y.wasm", "y")); code != exitUnverified {
-		t.Fatalf("the host-isolated selection must not run: %d", code)
-	}
-	if code, _, _ := verify(t, "--selection", "missing", contentFile(t, "z.wasm", "z")); code != exitUnverified {
-		t.Fatalf("an unknown selection must not run: %d", code)
+	log := install("wasm", "wasm", hostOnly, "exit 0", true)
+	code, stdout, _ := verify(t, "--selection", "embedded", contentFile(t, "x.wasm", "x"))
+	data, err := os.ReadFile(log)
+	if code != exitPass || err != nil || !strings.HasPrefix(string(data), "run-verified embedded -- ") || !ran(log) {
+		t.Fatalf("%d %q log=%q err=%v", code, stdout, data, err)
 	}
 }
 
@@ -172,8 +173,8 @@ func TestVerifyRefusesAnUntrustedEvaluator(t *testing.T) {
 	_, install := evaluatorStore(t)
 	log := install("wasm", "wasm", sandboxed, "exit 0", false)
 	code, stdout, _ := verify(t, contentFile(t, "x.wasm", "x"))
-	if code != exitUnverified || !strings.Contains(stdout, "not trusted") || ran(log) {
-		t.Fatalf("%d %q ran=%v", code, stdout, ran(log))
+	if _, err := os.Stat(log); code != exitUnverified || !strings.Contains(stdout, "not trusted") || !os.IsNotExist(err) {
+		t.Fatalf("%d %q log stat=%v", code, stdout, err)
 	}
 }
 

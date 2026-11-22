@@ -62,7 +62,8 @@ listed in `go.work`, are never tagged or published, and no library imports them.
 `src/ctx` (with its private code in `src/ctx/internal`), the content manager is
 `src/ctn`, and containment is `src/cto`. Each product exports a reusable Go
 library and ships a private Ext package guest. Only `cmd/ext` ships a public binary. A product
-never imports another product; shared code goes in `pkg/` or `res/`.
+never imports another product module. The standalone `src/cto/sandbox` contract
+is available to its consumers. Shared implementation code goes in `pkg/` or `res/`.
 `examples/` is not a Go module: it holds only samples that need no Go build (a shell adapter and an Android
 consumer app). Go examples live in the library they show, as an `examples/` directory inside that module:
 `pkg/ext-go/examples` for plugins (the umbrella requires every backend), `pkg/ext-go/engine/ledger/examples` and

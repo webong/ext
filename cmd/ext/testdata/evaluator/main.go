@@ -2,6 +2,7 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"os"
 )
@@ -16,6 +17,16 @@ func main() {
 			os.Exit(7)
 		}
 	case "run":
+		fmt.Println("evaluated")
+	case "run-verified":
+		if os.Getenv("EXT_TEST_NO_EVIDENCE") == "1" {
+			return
+		}
+		fmt.Println(`{"boundary":"runtime","driver":"fixture","grant":{},"enforced":["filesystem","network.none","process","devices","environment","lifecycle.fresh"]}`)
+		approval, err := bufio.NewReader(os.Stdin).ReadString('\n')
+		if err != nil || approval != "run\n" {
+			os.Exit(126)
+		}
 		fmt.Println("evaluated")
 	}
 }

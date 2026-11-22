@@ -32,26 +32,27 @@ WASI execution and reactor hosting, then binds those mechanisms to
 
 The engine's rules exist as the pure-Go `engine` (the oracle, on every platform), as the C
 engine through cgo (`cgoengine`, at native speed) and as the C translated to Go (`c2goengine`, no
-cgo). `engine` is the one place that knows all three:
+cgo). `pkg/ext-go/plugin` is the one place that knows all three, and it chooses with
+`core/driver`, the switcher every library of `lib/` shares:
 
 ```go
-import "github.com/webong/ext/pkg/ext-go/core"
+import "github.com/webong/ext/pkg/ext-go/plugin"
 
 // The best available engine that carries what the program needs, or the one EXT_ENGINE names
 // (cgo, c2go, go or auto).
-e, err := core.FromEnvironment(core.Sessions | core.Progress)
+e, err := plugin.FromEnvironment(plugin.Sessions | plugin.Progress)
 if err != nil { ... }
 
-session, err := e.Open(ctx, descriptor, plugin.Options{Verify: ..., Authorize: ..., Connect: ...})
+session, err := e.Open(ctx, descriptor, engine.Options{Verify: ..., Authorize: ..., Connect: ...})
 fmt.Println(session.Engine()) // which engine runs this session
 
-leases, err := core.NewInstances(e, instance.Options[T]{...})
+leases, err := plugin.NewInstances(e, instance.Options[T]{...})
 ```
 
 `Engines` lists them in the order `Choose` prefers: cgo, c2go, go. A name is never served by
 another engine: an engine that is not in this build (cgo needs cgo, the `ext_cengine` tag and the C
 library; c2go needs a platform it was translated for), or lacks a feature the program asked for, is an
-error wrapping `plugin.ErrUnsupported`. The features are `Services` (the engine's pure services by
+error wrapping `engine.ErrUnsupported` (the `engine/plugin` package). The features are `Services` (the engine's pure services by
 name; the go engine has none), `Sessions` (`Open`, `OpenProcess`, `NewInstances`; c2go has them
 except on Windows), `Progress` and `Reverse` (cgo and go; c2go does not carry them yet). The choice is
 made once, when a session or instance manager is opened.

@@ -1,6 +1,6 @@
 //go:build ext_cengine && cgo && (darwin || linux || windows)
 
-package core
+package plugin
 
 import (
 	"context"

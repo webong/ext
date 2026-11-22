@@ -1,11 +1,11 @@
-package core
+package plugin
 
 import (
 	"context"
 	"encoding/json"
 
 	cgoengine "github.com/webong/ext/pkg/ext-go/cgoengine/plugin"
-	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
+	engine "github.com/webong/ext/pkg/ext-go/engine/plugin"
 )
 
 // cgoEngine is the C engine through cgo. cgoengine serves the same API in pure Go when it is built
@@ -30,7 +30,7 @@ func (e cgoEngine) Call(operation string, input json.RawMessage) (json.RawMessag
 	return cgoEngineCall(operation, input)
 }
 
-func (e cgoEngine) Open(ctx context.Context, d plugin.Descriptor, options plugin.Options) (Session, error) {
+func (e cgoEngine) Open(ctx context.Context, d engine.Descriptor, options engine.Options) (Session, error) {
 	if !e.Available() {
 		return nil, errUnsupported(e, "sessions")
 	}
@@ -41,7 +41,7 @@ func (e cgoEngine) Open(ctx context.Context, d plugin.Descriptor, options plugin
 	return session{CGo, s}, nil
 }
 
-func (e cgoEngine) OpenProcess(ctx context.Context, d plugin.Descriptor, launch Launch, options plugin.Options) (Session, error) {
+func (e cgoEngine) OpenProcess(ctx context.Context, d engine.Descriptor, launch Launch, options engine.Options) (Session, error) {
 	if !e.Available() {
 		return nil, errUnsupported(e, "sessions")
 	}

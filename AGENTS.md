@@ -192,12 +192,12 @@ The reusable libraries are:
 - `pkg/ext-go/engine` for the pure-Go engines of the libraries in `lib/` (standard library only). It is a container with no root package: `engine/plugin` is the pure-Go plugin engine, kept in parity with lib/plugin (the plugin contract, sessions, guests, packages, bridges and tooling), and `engine/ledger` is the pure-Go ledger, kept in parity with lib/ledger: the store and the memory backend (`engine/ledger`), the fixture runner (`ledgertest`) and the supervisor (`supervisor`). Its recorder, which projects `res/system`'s observations and holds the SQLite store until the Go file backend replaces it, is the nested module `engine/ledger/recorder`, the one part of the ledger that needs more than the standard library. Each further library of `lib/` gets a sibling package of its own. `cgoengine` and `c2goengine` are laid out the same way, so a library is `<engine>/<library>` in all three.
 - `pkg/ext-go/c2goengine` for the C libraries' portable code translated to Go by ccgo (no cgo, no C compiler): `c2goengine/plugin` is lib/plugin's. The translation is generated per platform by its `tools` module and compared with the pure-Go engine by `engine/plugin/plugintest/enginetest`; it depends on `engine` only.
 - `pkg/ext-go/cgoengine` for the Go bindings of the C libraries in `lib/`: `cgoengine/plugin` binds lib/plugin, with a pure-Go build of the same API. It carries their sources as `_csrc/<library>`, a mirror of `lib/`.
-- `pkg/ext-go/runtime` for how Go reaches a C shared library: `runtime/library` (load a library once per canonical path and bind its exports, through purego, with or without cgo) and `runtime/cshared` (the C plugin ABI: the loader backend for C shared guests, with a cgo and a purego build, `cshared/abi` and `cshared/guest`). The module has no root package, so nothing shadows the standard `runtime`; it depends on `pkg/ext-go/engine` and purego only, never on `cgoengine`.
+- `pkg/ext-go/core` for how a Go program reaches the libraries of `lib/` without ext-go carrying them: `core/driver` (the driver switcher: cgo, c2go, purego or go, chosen by name, by `EXT_ENGINE` or as the best available one), `core/library` (load a C shared library once per canonical path and bind its exports, through purego, with or without cgo; the generic opener of [the library opener ADR](docs/adr-library-opener.md) grows here) and `core/cshared` (the C plugin ABI: the loader backend for C shared guests, with a cgo and a purego build, `cshared/abi` and `cshared/guest`). It knows no library by name. The module has no root package, because the umbrella published the selection package at `pkg/ext-go/core` up to v0.12.0 (it is now `pkg/ext-go/plugin`); it depends on `pkg/ext-go/engine` and purego only, never on `cgoengine`.
 - `pkg/ext-go/wasm` for the engine-facing WebAssembly backend; it depends on `pkg/ext-go/engine` and the reusable runtime in `res/web/host/engine/wasm`.
 - `pkg/ext-go/hashicorp` for the HashiCorp go-plugin backend.
 - `pkg/ext-go/yaegi` for the Go source backend: a guest shipped as Go source, interpreted in-process by yaegi (`github.com/traefik/yaegi`); it depends on `pkg/ext-go/engine` and yaegi only, and the umbrella does not require it.
 - `pkg/ext-go/realtime` for the `res/int/realtime` duplex session contract over the Ext plugin engine.
-- `pkg/ext-go` for the umbrella module that requires the plugin engines, `res/web/host` and the ledger recorder; it holds code that needs several engines, such as `pkg/ext-go/core`, which chooses between the pure-Go `engine`, `cgoengine` and `c2goengine` (the only place that knows all three).
+- `pkg/ext-go` for the umbrella module that requires the plugin engines, `res/web/host` and the ledger recorder; it holds code that needs several engines, such as `pkg/ext-go/plugin`, which chooses between the pure-Go `engine`, `cgoengine` and `c2goengine` (the only place that knows all three) through `core/driver`.
 
 CTN owns the nested modules `src/ctn/inference`, `src/ctn/model`, and
 `src/ctn/perception` for the provider, tensor, and perception contracts over
@@ -240,7 +240,7 @@ swapping the import never needs a code change.
 `packagekit` has no dependency on the ledger; joining a package plan to the host
 graph is `plugingo.PlanGraph` in the umbrella module. Runtime backends
 (`pkg/ext-go/hashicorp`, `pkg/ext-go/wasm`) and the C ABI loader in
-`pkg/ext-go/runtime/cshared` implement `engine.Backend` and import
+`pkg/ext-go/core/cshared` implement `engine.Backend` and import
 `pkg/ext-go/engine`. Hosts import `pkg/ext-go/engine/plugin/host/adapter`, which
 owns manifests, the installed store, trust and invocation; a product keeps only
 its own selection and commands.
@@ -313,15 +313,15 @@ supervision is `pkg/ext-go/engine/ledger/supervisor` (and `ext_ledger_supervisor
 approval UI and consumer policy belong to consumers.
 Keep
 `pkg/ext-go` focused on the contract, the engine API and runtime backends. The Go-to-C guest binding belongs in
-`pkg/ext-go/runtime/cshared/guest`. The language-neutral C ABI header
+`pkg/ext-go/core/cshared/guest`. The language-neutral C ABI header
 (`lib/plugin/include/ext_plugin.h`) belongs to the engine; its constants and wire
 envelope (`cshared/abi`) and the runtime loader (`cshared`) live under
-`pkg/ext-go/runtime/cshared`, in the `pkg/ext-go/runtime` module, beside the generic loader
-`pkg/ext-go/runtime/library` that its purego build uses. The loader has a
+`pkg/ext-go/core/cshared`, in the `pkg/ext-go/core` module, beside the generic loader
+`pkg/ext-go/core/library` that its purego build uses. The loader has a
 cgo build and, for `CGO_ENABLED=0`, a purego build (Linux, macOS and Windows on
 amd64 and arm64; elsewhere it returns `ErrUnsupported`). On darwin/amd64 both builds refuse a Go
 c-shared guest, since two Go runtimes there share the TLS slot for g. purego is a dependency
-of `pkg/ext-go/runtime` only, never of `pkg/ext-go/engine` or `cgoengine`, and both builds run the
+of `pkg/ext-go/core` only, never of `pkg/ext-go/engine` or `cgoengine`, and both builds run the
 cshared tests and the shared host cases (`scripts/cshared-purego.sh`). `res/web/host/engine/wasm`
 is a package of the `res/web/host` module, not a nested module. `pkg/ext-go/wasm`
 remains a separate module because it binds that reusable runtime to the plugin

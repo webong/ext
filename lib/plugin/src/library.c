@@ -1,6 +1,6 @@
 /* The shared-library backend: runs a guest built against the C ABI in
  * ext_plugin.h inside the host process. It matches the Go loader in
- * pkg/ext-go/runtime/cshared: one image per canonical path, never unloaded;
+ * pkg/ext-go/core/cshared: one image per canonical path, never unloaded;
  * ABI version 1; a {"deadline":...} handshake; the ABI's 24 MiB response
  * capacity with no retry; serialized calls; and a session that ends on any
  * transport failure. */

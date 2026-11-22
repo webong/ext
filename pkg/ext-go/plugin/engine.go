@@ -1,4 +1,4 @@
-// Package core chooses which implementation of the plugin engine runs a program's sessions.
+// Package plugin chooses which implementation of the plugin engine runs a program's sessions.
 //
 // The engine's rules exist three times, and each is its own module so an application takes only the
 // ones it needs:
@@ -8,42 +8,44 @@
 //	cgo   the C engine through cgo (pkg/ext-go/cgoengine): the C itself, at native speed
 //	c2go  the C engine translated to Go by ccgo (pkg/ext-go/c2goengine): no cgo and no C compiler
 //
-// This package is the one place that knows all three. Engines lists them in the order Choose
-// prefers them; Choose picks one by name or, without a name, the best available one that has the
+// This package is the one place that knows all three: it lists them as the plugin engine's drivers and
+// chooses with core/driver, the generic switcher every library of lib/ shares. Engines lists them in
+// the order Choose prefers them; Choose picks one by name or, without a name, the best available one that has the
 // features the caller needs; FromEnvironment reads the name from EXT_ENGINE. The choice is made once,
 // when a session or an instance manager is opened, and it is visible: Session.Engine names the engine
 // that runs the session. An engine is never replaced by another halfway through a session, and Choose
 // never falls back silently: a name that cannot be served is an error.
-package core
+package plugin
 
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
-	"os"
 	"strings"
 
-	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
+	"github.com/webong/ext/pkg/ext-go/core/driver"
+	engine "github.com/webong/ext/pkg/ext-go/engine/plugin"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/guest/instance"
 )
 
-// Name identifies an engine.
-type Name string
+// Name identifies an engine: one of core/driver's drivers.
+type Name = driver.Name
 
 const (
 	// CGo is the C engine linked through cgo (the ext_cengine build tag and a C library).
-	CGo Name = "cgo"
+	CGo = driver.CGo
 	// C2Go is the C engine translated to Go.
-	C2Go Name = "c2go"
+	C2Go = driver.C2Go
 	// Go is the pure-Go engine, the oracle.
-	Go Name = "go"
+	Go = driver.Go
 )
 
 // Auto asks Choose for the best available engine.
-const Auto Name = "auto"
+const Auto = driver.Auto
 
 // Environment is the variable FromEnvironment reads: an engine name, or auto (the default).
-const Environment = "EXT_ENGINE"
+const Environment = driver.Environment
 
 // Feature is something an engine may or may not carry. An engine that is not available has none.
 type Feature uint
@@ -57,7 +59,7 @@ const (
 	Sessions
 	// Progress is Session.CallProgress and plugins that declare progress events.
 	Progress
-	// Reverse is plugin.Options.Reverse and plugins that declare reverse operations.
+	// Reverse is engine.Options.Reverse and plugins that declare reverse operations.
 	Reverse
 )
 
@@ -107,10 +109,10 @@ type Engine interface {
 	// Services; see lib/plugin/services.md for the services.
 	Call(operation string, input json.RawMessage) (json.RawMessage, error)
 	// Open admits a plugin over the backend options.Connect supplies. It needs Sessions.
-	Open(ctx context.Context, d plugin.Descriptor, options plugin.Options) (Session, error)
+	Open(ctx context.Context, d engine.Descriptor, options engine.Options) (Session, error)
 	// OpenProcess is Open with a child process the engine itself starts; options.Connect is unused.
 	// It needs Sessions.
-	OpenProcess(ctx context.Context, d plugin.Descriptor, launch Launch, options plugin.Options) (Session, error)
+	OpenProcess(ctx context.Context, d engine.Descriptor, launch Launch, options engine.Options) (Session, error)
 
 	// sealed keeps the set closed: NewInstances is generic, which methods cannot be, so it switches on
 	// the three engines this package defines.
@@ -121,14 +123,14 @@ type Engine interface {
 type Session interface {
 	// Engine names the engine that runs this session.
 	Engine() Name
-	Descriptor() plugin.Descriptor
-	State() plugin.State
+	Descriptor() engine.Descriptor
+	State() engine.State
 	// Done is closed once the session has been closed or aborted.
 	Done() <-chan struct{}
-	Call(ctx context.Context, contract plugin.ContractRef, operation string, payload json.RawMessage) (json.RawMessage, error)
+	Call(ctx context.Context, contract engine.ContractRef, operation string, payload json.RawMessage) (json.RawMessage, error)
 	// CallProgress is Call for an operation that declares progress. It needs Progress; an engine
-	// without it reports plugin.ErrUnsupported.
-	CallProgress(ctx context.Context, contract plugin.ContractRef, operation string, payload json.RawMessage, onProgress func(plugin.Progress), options ...plugin.CallOptions) (json.RawMessage, error)
+	// without it reports engine.ErrUnsupported.
+	CallProgress(ctx context.Context, contract engine.ContractRef, operation string, payload json.RawMessage, onProgress func(engine.Progress), options ...engine.CallOptions) (json.RawMessage, error)
 	// Close drains the session and frees it; Abort stops work and then frees it.
 	Close(ctx context.Context) error
 	Abort() error
@@ -166,7 +168,7 @@ func NewInstances[T any](e Engine, options instance.Options[T]) (Instances[T], e
 	case c2goEngine:
 		return newC2GoInstances(e, options)
 	}
-	return nil, fmt.Errorf("core: %v: %w", e, plugin.ErrUnsupported)
+	return nil, fmt.Errorf("plugin: %v: %w", e, engine.ErrUnsupported)
 }
 
 // Engines lists every engine, available or not, in the order Choose prefers them: cgo, c2go, go.
@@ -180,31 +182,31 @@ func Get(name Name) (Engine, error) {
 			return e, nil
 		}
 	}
-	return nil, fmt.Errorf("core: unknown engine %q (want %s, %s, %s or %s): %w", name, CGo, C2Go, Go, Auto, plugin.ErrInvalid)
+	return nil, fmt.Errorf("plugin: unknown engine %q (want %s, %s, %s or %s): %w", name, CGo, C2Go, Go, Auto, engine.ErrInvalid)
 }
 
 // Choose returns the engine to use. With Auto (or an empty name) it is the best available engine,
 // in the order cgo, c2go, go, that carries every feature in need. With a name it is that engine,
 // and an engine that is not available, or lacks a feature, is an error that wraps
-// plugin.ErrUnsupported: asking for an engine by name never gets another one.
+// engine.ErrUnsupported: asking for an engine by name never gets another one. A name that is no
+// engine wraps engine.ErrInvalid.
 func Choose(name Name, need Feature) (Engine, error) {
-	if name == "" || name == Auto {
-		for _, e := range Engines() {
-			if e.Available() && e.Features().Has(need) {
-				return e, nil
-			}
+	if name != "" && name != Auto {
+		if _, err := Get(name); err != nil {
+			return nil, err
 		}
-		return nil, fmt.Errorf("core: no engine here carries %s: %w", need, plugin.ErrUnsupported)
 	}
-	e, err := Get(name)
+	e, err := driver.Choose(Engines(), name, func(e Engine) error {
+		if !e.Features().Has(need) {
+			return fmt.Errorf("lacks %s (it has %s)", need&^e.Features(), e.Features())
+		}
+		return nil
+	})
 	if err != nil {
-		return nil, err
-	}
-	if !e.Available() {
-		return nil, fmt.Errorf("core: %s is not available in this build: %w", name, plugin.ErrUnsupported)
-	}
-	if !e.Features().Has(need) {
-		return nil, fmt.Errorf("core: %s lacks %s (it has %s): %w", name, need&^e.Features(), e.Features(), plugin.ErrUnsupported)
+		if errors.Is(err, driver.ErrUnknown) {
+			return nil, fmt.Errorf("plugin: %w: %w", err, engine.ErrInvalid)
+		}
+		return nil, fmt.Errorf("plugin: %w (need %s): %w", err, need, engine.ErrUnsupported)
 	}
 	return e, nil
 }
@@ -212,15 +214,19 @@ func Choose(name Name, need Feature) (Engine, error) {
 // FromEnvironment is Choose with the name taken from EXT_ENGINE: cgo, c2go, go or auto. Unset or empty
 // is auto.
 func FromEnvironment(need Feature) (Engine, error) {
-	return Choose(Name(strings.TrimSpace(os.Getenv(Environment))), need)
+	name, err := driver.FromEnvironment()
+	if err != nil {
+		return nil, fmt.Errorf("plugin: %w: %w", err, engine.ErrInvalid)
+	}
+	return Choose(name, need)
 }
 
 // errUnsupported is what an engine that lacks a feature reports.
 func errUnsupported(e Engine, what string) error {
-	return fmt.Errorf("core: %s does not carry %s here: %w", e.Name(), what, plugin.ErrUnsupported)
+	return fmt.Errorf("plugin: %s does not carry %s here: %w", e.Name(), what, engine.ErrUnsupported)
 }
 
 // errUnsupportedBy is errUnsupported for a session, which knows its engine's name and not the engine.
 func errUnsupportedBy(name Name, what string) error {
-	return fmt.Errorf("core: %s does not carry %s here: %w", name, what, plugin.ErrUnsupported)
+	return fmt.Errorf("plugin: %s does not carry %s here: %w", name, what, engine.ErrUnsupported)
 }

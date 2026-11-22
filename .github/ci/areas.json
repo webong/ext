@@ -704,7 +704,7 @@
       "main_paths": [
         "lib/plugin/**",
         "pkg/ext-dotnet/**",
-        "pkg/ext-go/runtime/**",
+        "pkg/ext-go/core/**",
         "pkg/ext-go/cgoengine/go.mod",
         "pkg/ext-go/engine/**",
         "pkg/ext-lua/**",
@@ -720,7 +720,7 @@
       ],
       "pr_paths": [
         "lib/plugin/**",
-        "pkg/ext-go/runtime/**",
+        "pkg/ext-go/core/**",
         "pkg/ext-go/cgoengine/go.mod",
         "pkg/ext-go/engine/**",
         "scripts/ci/jobs/host-cases/**",
@@ -1395,7 +1395,7 @@
         "examples/android-consumer/**",
         "lib/plugin/**",
         "pkg/ext-android/**",
-        "pkg/ext-go/runtime/**",
+        "pkg/ext-go/core/**",
         "pkg/ext-darwin/**",
         "pkg/ext-rust/**",
         "res/web/android/**",
@@ -1411,7 +1411,7 @@
         "examples/android-consumer/**",
         "lib/plugin/**",
         "pkg/ext-android/**",
-        "pkg/ext-go/runtime/**",
+        "pkg/ext-go/core/**",
         "pkg/ext-darwin/**",
         "pkg/ext-rust/**",
         "res/web/android/**",
@@ -1431,7 +1431,7 @@
           "pr_paths": [
             "lib/plugin/**",
             "pkg/ext-rust/**",
-            "pkg/ext-go/runtime/**",
+            "pkg/ext-go/core/**",
             "scripts/plugin-*wamr*.sh",
             "pkg/ext-darwin/**",
             "res/web/ios/**",
@@ -1464,7 +1464,7 @@
           "pr_paths": [
             "lib/plugin/**",
             "pkg/ext-rust/**",
-            "pkg/ext-go/runtime/**",
+            "pkg/ext-go/core/**",
             "scripts/plugin-*wamr*.sh",
             "pkg/ext-android/**",
             "res/web/android/**",
@@ -1501,7 +1501,7 @@
           "pr_paths": [
             "lib/plugin/**",
             "pkg/ext-rust/**",
-            "pkg/ext-go/runtime/**",
+            "pkg/ext-go/core/**",
             "scripts/plugin-*wamr*.sh",
             "pkg/ext-android/**",
             "res/web/android/**",

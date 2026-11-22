@@ -196,7 +196,7 @@ ext_backend_options backend = {sizeof(backend), EXT_BACKEND_EXTENSION_CONTEXT, &
 ext_host_create(&host_options, &backend, &host);   /* then ext_host_start, ext_host_invoke ... */
 ```
 
-It behaves as the Go loader in `pkg/ext-go/runtime/cshared` does. Nothing is loaded until
+It behaves as the Go loader in `pkg/ext-go/core/cshared` does. Nothing is loaded until
 connect, which runs after the host's verify policy. Each canonical path is loaded once and
 never unloaded. A library whose ABI version is not 1 or that lacks an export is refused.
 Calls are serialized, with the ABI's 24 MiB response capacity and no retry. A nonzero ABI

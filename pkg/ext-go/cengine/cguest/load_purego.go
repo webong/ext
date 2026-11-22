@@ -15,8 +15,8 @@ import (
 	"sync"
 
 	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
-	"github.com/webong/ext/pkg/ext-go/cguest/abi"
-	"github.com/webong/ext/pkg/ext-go/cshared/library"
+	"github.com/webong/ext/pkg/ext-go/cengine/cguest/abi"
+	"github.com/webong/ext/pkg/ext-go/cengine/library"
 )
 
 func Supported() bool { return true }

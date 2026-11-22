@@ -1,9 +1,8 @@
-module github.com/webong/ext/pkg/ext-go/cguest
+module github.com/webong/ext/pkg/ext-go/cengine
 
 go 1.25.0
 
 require (
 	github.com/ebitengine/purego v0.11.3
-	github.com/webong/ext/pkg/ext-go/cshared v0.1.0
 	github.com/webong/ext/pkg/ext-go/engine v0.4.0
 )

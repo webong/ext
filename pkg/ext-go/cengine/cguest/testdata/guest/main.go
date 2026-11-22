@@ -11,7 +11,7 @@ import (
 	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/plugintest"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/transport/inprocess"
-	"github.com/webong/ext/pkg/ext-go/cguest/guest"
+	"github.com/webong/ext/pkg/ext-go/cengine/cguest/guest"
 	"unsafe"
 )
 

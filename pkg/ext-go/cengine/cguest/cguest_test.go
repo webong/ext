@@ -15,7 +15,7 @@ import (
 
 	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/plugintest"
-	"github.com/webong/ext/pkg/ext-go/cguest"
+	"github.com/webong/ext/pkg/ext-go/cengine/cguest"
 )
 
 // guest returns the Go c-shared conformance guest: EXT_CSHARED_GUEST, or one

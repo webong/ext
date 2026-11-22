@@ -13,7 +13,7 @@ import "C"
 import (
 	"fmt"
 	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
-	"github.com/webong/ext/pkg/ext-go/cguest/abi"
+	"github.com/webong/ext/pkg/ext-go/cengine/cguest/abi"
 	"path/filepath"
 	"sync"
 	"unsafe"

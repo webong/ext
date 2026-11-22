@@ -5,7 +5,7 @@
 //
 //	cgo     the C library linked through cgo, fixed when the program is built
 //	c2go    the C library translated to Go by ccgo, fixed when the program is built
-//	purego  the C library as a shared library loaded when the program runs (cshared/library)
+//	purego  the C library as a shared library loaded when the program runs (cengine/library)
 //	go      the library's pure-Go implementation, which exists on every platform
 //
 // Choose prefers them in that order. A program names one, or asks for the best available one with

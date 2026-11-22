@@ -8,7 +8,7 @@ See [the library opener decision record](../../../docs/adr-library-opener.md).
 | Driver | Where the code is |
 | --- | --- |
 | `go` | the library's pure-Go implementation in [`engine`](../engine) |
-| `purego` | a built copy of the C library, opened by [`cshared`](../cshared) |
+| `purego` | a built copy of the C library, opened by [`cengine`](../cengine) |
 | `cgo` | [`cgoengine`](../cgoengine), linked against the C library when the program is built |
 | `c2go` | [`c2goengine`](../c2goengine), the C library translated to Go |
 

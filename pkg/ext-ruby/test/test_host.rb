@@ -245,10 +245,12 @@ class HostTest < Minitest::Test
       h.start
       children = Thread.new { 5.times { system("true"); sleep 0.05 } }
       started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-      e = assert_raises(ExtIO::Host::HostError) { h.call(@contract, "wait", nil, timeout: 0.6) }
+      # The call ends at its deadline: the host times out, or the guest's answer at that same
+      # deadline arrives first. A child exiting must not end it sooner, or as canceled.
+      e = assert_raises(ExtIO::Host::HostError, ExtIO::Host::RemoteError) { h.call(@contract, "wait", nil, timeout: 0.6) }
       children.join
-      assert_equal "timeout", e.status
       assert_operator Process.clock_gettime(Process::CLOCK_MONOTONIC) - started, :>=, 0.5
+      assert_equal "timeout", e.status if e.is_a?(ExtIO::Host::HostError)
     end
   end
 

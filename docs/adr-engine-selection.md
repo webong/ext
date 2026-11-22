@@ -21,7 +21,7 @@ them. The three are named alike, as engines:
 
 The package that chooses between them is `pkg/ext-go/core`, in the umbrella module.
 
-`engine/plugintest/enginetest` holds an engine against the oracle with 28 checks (services,
+`engine/plugin/plugintest/enginetest` holds an engine against the oracle with 28 checks (services,
 sessions over a Go backend, engine-owned child processes, instances). The cgo engine and the
 translated engine both pass all 28 on darwin and linux (both architectures). On Windows the
 translated engine covers the services only, so the checks that need a session, a child

@@ -8,8 +8,8 @@ import (
 	"strconv"
 	"strings"
 
-	modpkg "github.com/webong/ext/pkg/ext-go/engine/host/adapter"
-	"github.com/webong/ext/pkg/ext-go/engine/host/adapter/adaptercmd"
+	modpkg "github.com/webong/ext/pkg/ext-go/engine/plugin/host/adapter"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/adapter/adaptercmd"
 )
 
 func catalogStore() *modpkg.Store            { return adaptercmd.CatalogStore() }

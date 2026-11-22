@@ -9,8 +9,8 @@ import (
 	"strings"
 
 	"github.com/webong/ext/cmd/ext/internal/pkgcmd"
-	plugin "github.com/webong/ext/pkg/ext-go/engine"
-	"github.com/webong/ext/pkg/ext-go/engine/transport/jsonline"
+	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/transport/jsonline"
 )
 
 func main() {

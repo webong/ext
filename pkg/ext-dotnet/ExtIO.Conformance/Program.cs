@@ -1,6 +1,6 @@
 // The guests the Go suites run on the .NET guest SDK (ExtIO):
 //
-//   ExtIO.Conformance conformance <descriptor.json>   pkg/ext-go/engine/plugintest, TestDotnetGuest
+//   ExtIO.Conformance conformance <descriptor.json>   pkg/ext-go/engine/plugin/plugintest, TestDotnetGuest
 //   ExtIO.Conformance frames <frames-descriptor.json> tests/crosslang, TestDotnetFramesGuest
 //
 // The frames guest (lib/plugin/testdata/v1/frames-descriptor.json, docs/plugin-guest-frames.md)

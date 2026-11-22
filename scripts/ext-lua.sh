@@ -36,5 +36,5 @@ case "${EXT_CROSSLANG_ENGINE:-go}" in
 esac
 
 export EXT_LUA="$lua" EXT_LUA_FRAMES_GUEST="$build_dir/ext-lua-frames-guest"
-(cd pkg/ext-go/engine && go test -count=1 -run 'TestLuaGuest$' -v ./plugintest)
+(cd pkg/ext-go/engine && go test -count=1 -run 'TestLuaGuest$' -v ./plugin/plugintest)
 go test "${go_tags[@]}" -count=1 -timeout=180s -run 'TestLuaFramesGuest$' -v ./tests/crosslang

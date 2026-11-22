@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/webong/ext/pkg/ext-go/runtime/cshared"
-	plugin "github.com/webong/ext/pkg/ext-go/engine"
+	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
 )
 
 // hostCases is lib/plugin/testdata/v1/host-cases.json: what any host must observe when it runs the

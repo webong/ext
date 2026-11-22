@@ -8,10 +8,10 @@ import (
 	"path/filepath"
 	"testing"
 
-	plugin "github.com/webong/ext/pkg/ext-go/engine"
-	"github.com/webong/ext/pkg/ext-go/engine/host/store"
-	packagekit "github.com/webong/ext/pkg/ext-go/engine/package"
-	"github.com/webong/ext/pkg/ext-go/engine/plugintest"
+	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/store"
+	packagekit "github.com/webong/ext/pkg/ext-go/engine/plugin/package"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/plugintest"
 	"github.com/webong/ext/pkg/ext-go/yaegi"
 )
 

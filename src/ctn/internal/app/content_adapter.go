@@ -9,8 +9,8 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/webong/ext/pkg/ext-go/cgoengine"
-	"github.com/webong/ext/pkg/ext-go/engine/host/adapter"
+	cgoengine "github.com/webong/ext/pkg/ext-go/cgoengine/plugin"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/adapter"
 	"github.com/webong/ext/src/ctn/internal/content"
 )
 

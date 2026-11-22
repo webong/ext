@@ -508,13 +508,13 @@
       "main_paths": [
         "lib/plugin/**",
         "pkg/ext-go/c2goengine/**",
-        "pkg/ext-go/engine/plugintest/enginetest/**",
+        "pkg/ext-go/engine/plugin/plugintest/enginetest/**",
         "scripts/ci/jobs/c2goengine/**"
       ],
       "pr_paths": [
         "lib/plugin/**",
         "pkg/ext-go/c2goengine/**",
-        "pkg/ext-go/engine/plugintest/enginetest/**",
+        "pkg/ext-go/engine/plugin/plugintest/enginetest/**",
         "scripts/ci/jobs/c2goengine/**"
       ],
       "jobs": {

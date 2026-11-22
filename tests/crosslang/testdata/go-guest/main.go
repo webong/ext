@@ -2,8 +2,8 @@ package main
 
 import (
 	"context"
-	"github.com/webong/ext/pkg/ext-go/engine/plugintest"
-	"github.com/webong/ext/pkg/ext-go/engine/transport/jsonline"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/plugintest"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/transport/jsonline"
 	"log"
 )
 

@@ -12,7 +12,7 @@ import (
 	"strings"
 
 	"github.com/webong/ext/src/ctx/internal/config"
-	modpkg "github.com/webong/ext/pkg/ext-go/engine/host/adapter"
+	modpkg "github.com/webong/ext/pkg/ext-go/engine/plugin/host/adapter"
 	browsershare "github.com/webong/ext/res/web/host/contract"
 	browser "github.com/webong/ext/res/web/host/manage/cookie"
 )

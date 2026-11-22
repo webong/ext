@@ -9,8 +9,8 @@ import (
 	"strings"
 	"testing"
 
-	plugin "github.com/webong/ext/pkg/ext-go/engine"
-	"github.com/webong/ext/pkg/ext-go/engine/plugintest"
+	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/plugintest"
 )
 
 // TestRubyFramesGuest runs the frames suite on the Ruby guest SDK (pkg/ext-ruby). It reads

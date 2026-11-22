@@ -7,8 +7,8 @@ wire protocols do not become compatible merely by importing this package.
 ## Ownership
 
 Ext supplies `github.com/webong/ext/pkg/ext-go`, alongside `res/web` and `res/system`.
-Its implementations include `pkg/ext-go/engine/transport/inprocess`, `pkg/ext-go/engine/transport/jsonline`,
-`pkg/ext-go/hashicorp`, `pkg/ext-go/engine/host/nativego`, `pkg/ext-go/wasm`, and `pkg/ext-go/runtime/cshared`, with
+Its implementations include `pkg/ext-go/engine/plugin/transport/inprocess`, `pkg/ext-go/engine/plugin/transport/jsonline`,
+`pkg/ext-go/hashicorp`, `pkg/ext-go/engine/plugin/host/nativego`, `pkg/ext-go/wasm`, and `pkg/ext-go/runtime/cshared`, with
 additional backends able to implement the same public interface. HashiCorp
 go-plugin is a dependency of the plugin library, while `pkg/ext-go/wasm` binds
 the protocol-neutral runtime in `res/web/host/engine/wasm`; neither is a product adapter.
@@ -20,9 +20,9 @@ browser fallback, or built-in permission vocabulary.
 
 Consumers define domain contracts, payloads, authorization, configuration,
 discovery, package distribution, trust decisions, and endpoint authentication.
-The library supplies the generic mechanics around them: `pkg/ext-go/cgoengine/host/store`
+The library supplies the generic mechanics around them: `pkg/ext-go/cgoengine/plugin/host/store`
 installs, upgrades, lists, removes and re-verifies packages, and
-`pkg/ext-go/engine/host/process` launches process plugins (see below).
+`pkg/ext-go/engine/plugin/host/process` launches process plugins (see below).
 Product and native mechanisms selected through Ext belong under `adapters/<name>/`.
 Portable integrity and plugin runtime implementations belong in the library.
 A descriptor, graph
@@ -414,7 +414,7 @@ versioned domain contracts may coexist in a descriptor.
 
 Run the end-to-end example with `go run ./pkg/ext-go/examples/plugin`. Contract, admission,
 drain, integrity, malformed-frame, cancellation, concurrency, and CTX compatibility
-tests live under `pkg/ext-go/engine/`, `pkg/ext-go/engine/transport/jsonline/`, and `pkg/ext-go/engine/host/adapter/plugin_test.go`.
+tests live under `pkg/ext-go/engine/`, `pkg/ext-go/engine/plugin/transport/jsonline/`, and `pkg/ext-go/engine/plugin/host/adapter/plugin_test.go`.
 HashiCorp tests under `pkg/ext-go/hashicorp/` launch real subprocesses over both
 RPC protocols with checksum verification and automatic TLS. They cover host
 admission, concurrent requests, structured errors, mismatch, cancellation, and

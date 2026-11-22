@@ -3,7 +3,7 @@
 > **Why `ext-io`:** the bare name `ext` is taken on crates.io, PyPI and npm, so `ext-io` is the one package for all of ext's APIs, one namespace per area. Only `plugin` is built; `system`, `web` and `int` are reserved names, added when someone needs them.
 
 Standard-library-only guest for `ext.plugin/v1` over JSON lines (Python 3.8+).
-Any ext host runs it, including the Go `pkg/ext-go/engine/host/process` backend and the Python host
+Any ext host runs it, including the Go `pkg/ext-go/engine/plugin/host/process` backend and the Python host
 below, or any JSON-line client.
 
 ```python
@@ -86,7 +86,7 @@ and deadline, and a mismatch returns `invalid_request`. Stdout carries only
 protocol frames: file descriptor 1 and `sys.stdout` are redirected to stderr.
 
 Tests: `python3 -I -m unittest discover -s tests` here (CI runs it), and the Go suite in
-`pkg/ext-go/engine/plugintest` (`TestPythonGuest`) runs this guest through
+`pkg/ext-go/engine/plugin/plugintest` (`TestPythonGuest`) runs this guest through
 `process.Start` against the shared conformance fixtures.
 
 ## Host plugins from Python

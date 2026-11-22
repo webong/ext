@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/webong/ext/pkg/ext-go/engine/validate/jsonschema"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/validate/jsonschema"
 	domain "github.com/webong/ext/res/int/inference"
 )
 

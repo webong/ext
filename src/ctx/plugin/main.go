@@ -9,8 +9,8 @@ import (
 	"net"
 	"os"
 
-	plugin "github.com/webong/ext/pkg/ext-go/cgoengine"
-	"github.com/webong/ext/pkg/ext-go/engine/transport/jsonline"
+	plugin "github.com/webong/ext/pkg/ext-go/cgoengine/plugin"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/transport/jsonline"
 	"github.com/webong/ext/src/ctx"
 )
 

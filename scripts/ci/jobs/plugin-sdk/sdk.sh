@@ -42,7 +42,7 @@ if wants_sdk python; then
   )
   ci_import_env
   if ! wants_sdk go; then
-    (cd pkg/ext-go/engine && go test -count=1 -run '^TestPythonGuest$' ./plugintest)
+    (cd pkg/ext-go/engine && go test -count=1 -run '^TestPythonGuest$' ./plugin/plugintest)
   fi
 fi
 

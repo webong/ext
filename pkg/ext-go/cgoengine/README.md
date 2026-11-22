@@ -1,7 +1,10 @@
 # Go plugin API
 
-Import `github.com/webong/ext/pkg/ext-go/cgoengine` (package `cgoengine`): the Go entry
-point to the ext plugin engine. One API, two builds:
+`github.com/webong/ext/pkg/ext-go/cgoengine` holds the Go bindings of the C libraries in `lib/`,
+one package each, and their sources as `_csrc/<library>`. It has no root package.
+
+Import `github.com/webong/ext/pkg/ext-go/cgoengine/plugin` (package `plugin`; import it as
+`cgoengine` beside `engine/plugin`): the Go entry point to the ext plugin engine. One API, two builds:
 
 - **C engine.** With the `ext_cengine` build tag and cgo (Linux, macOS, and
   Windows with MinGW-w64) the engine functions run in the shared C engine in
@@ -20,11 +23,11 @@ re-exported so a program imports this package alone. The common API is `Open`,
 
 - [`packages`](packages): validate, resolve and verify `ext.package/v1` manifests.
 - [`host`](host): open an installed package as a running plugin; the same API as
-  [`engine/host`](../engine/host), over the engine's process runtime and sessions.
+  [`engine/plugin/host`](../engine/host), over the engine's process runtime and sessions.
 - [`host/store`](host/store): the installed package store, with layered roots, `Verify` and
   `ListUnverified` (a manifest-only listing that hashes nothing; the result is unverified, see the
   [`engine` README](../engine/README.md#listing-installed-packages)); the same
-  API as [`engine/host/store`](../engine/host/store), routed through the engine's digests and validation.
+  API as [`engine/plugin/host/store`](../engine/host/store), routed through the engine's digests and validation.
 
 An application that needs only the store and host takes the `engine` module and uses its pure-Go
 `host` and `host/store`; take these when you want the engine's behavior. Swapping one import for the
@@ -67,7 +70,7 @@ fixtures are in `lib/plugin/testdata`.
 cmake -S lib/plugin -B /tmp/ext-cengine -DCMAKE_BUILD_TYPE=Release
 cmake --build /tmp/ext-cengine --target ext_host_static
 CGO_LDFLAGS='-L/tmp/ext-cengine' \
-  go build -tags ext_cengine ./pkg/ext-go/cgoengine/examples/host
+  go build -tags ext_cengine ./pkg/ext-go/cgoengine/plugin/examples/host
 ```
 
 Static linkage is the default. To use the optional shared library, enable

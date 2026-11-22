@@ -16,9 +16,9 @@ import (
 	"strings"
 	"time"
 
-	plugin "github.com/webong/ext/pkg/ext-go/engine"
-	"github.com/webong/ext/pkg/ext-go/engine/host/store"
-	"github.com/webong/ext/pkg/ext-go/engine/transport/jsonline"
+	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/store"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/transport/jsonline"
 )
 
 // A command package can use the plugin protocol over a private local connection.

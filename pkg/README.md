@@ -58,8 +58,8 @@ different package: it is for code that runs inside a browser extension, and it i
 that platform the way `ext-darwin` and `ext-android` are named for theirs. It does not use the
 plugin engine.
 
-The Go host binding import is `github.com/webong/ext/pkg/ext-go/cgoengine`; its package
-name is `cgoengine`. Go guest C exports use
+The Go host binding import is `github.com/webong/ext/pkg/ext-go/cgoengine/plugin`; its package
+name is `plugin`. Go guest C exports use
 `github.com/webong/ext/pkg/ext-go/runtime/cshared/guest`.
 
 C embedding examples live in each language's `examples/` directory. HashiCorp's

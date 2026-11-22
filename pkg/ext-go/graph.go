@@ -2,8 +2,8 @@
 // requires every part at matching versions. The parts are modules of their own,
 // so an application imports only what it needs:
 //
-//	github.com/webong/ext/pkg/ext-go/engine   contract, sessions, packages, bridges (standard library only)
-//	github.com/webong/ext/pkg/ext-go/cgoengine    the C engine binding, with a pure-Go build of the same API
+//	github.com/webong/ext/pkg/ext-go/engine     the pure-Go engines: plugin (contract, sessions, packages, bridges), standard library only
+//	github.com/webong/ext/pkg/ext-go/cgoengine  the C libraries' bindings: plugin, with a pure-Go build of the same API
 //	github.com/webong/ext/pkg/ext-go/wasm       the engine binding for res/web/host/engine/wasm
 //	github.com/webong/ext/pkg/ext-go/hashicorp  the HashiCorp go-plugin (gRPC) backend
 //
@@ -14,7 +14,7 @@ package plugingo
 import (
 	"fmt"
 
-	"github.com/webong/ext/pkg/ext-go/engine/package"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/package"
 	"github.com/webong/ext/res/graph/store"
 )
 

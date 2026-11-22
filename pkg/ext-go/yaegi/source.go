@@ -16,7 +16,7 @@ import (
 	"strings"
 	"testing/fstest"
 
-	plugin "github.com/webong/ext/pkg/ext-go/engine"
+	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
 )
 
 // source is a guest directory read into memory, with its digest.

@@ -10,10 +10,10 @@ import (
 	"testing"
 
 	"github.com/webong/ext/pkg/ext-go/core"
-	plugin "github.com/webong/ext/pkg/ext-go/engine"
-	"github.com/webong/ext/pkg/ext-go/engine/guest/capability"
-	"github.com/webong/ext/pkg/ext-go/engine/guest/instance"
-	"github.com/webong/ext/pkg/ext-go/engine/plugintest/enginetest"
+	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/guest/capability"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/guest/instance"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/plugintest/enginetest"
 )
 
 func TestMain(m *testing.M) {

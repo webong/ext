@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # host-cases/windows: drafted from .github/workflows/host-cases.yml (job windows).
 . "$(dirname "$0")/../lib.sh"
+export EXT_HOST_CASES_TARGETS="${MATRIX_TARGETS:-}"
 
 # (action actions/checkout@v5)
 

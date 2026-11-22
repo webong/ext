@@ -11,6 +11,8 @@
 # The engine itself is built with that compiler, or with another one named by EXT_ENGINE_CC (cl).
 #
 # Environment:
+#   EXT_HOST_CASES_TARGETS    space-separated hosts to run (go python ruby lua php csharp).
+#                             Empty runs every host.
 #   EXT_HOST_CASES_BUILD_DIR  where to build (default: a new temporary directory)
 #   PYTHON                    the Python to run the Python host with (default: python3)
 #   EXT_RUBY                  the Ruby to run the Ruby host with (default: ruby)
@@ -24,6 +26,14 @@
 #                             gcc builds the Go-built C ABI guest
 set -euo pipefail
 cd "$(dirname "$0")/.."
+targets=" ${EXT_HOST_CASES_TARGETS:-go python ruby lua php csharp} "
+for target in $targets; do
+  case "$target" in
+    go|python|ruby|lua|php|csharp) ;;
+    *) echo "unknown host cases target: $target" >&2; exit 2 ;;
+  esac
+done
+wants_host() { [[ "$targets" == *" $1 "* ]]; }
 winpath() { if command -v cygpath >/dev/null 2>&1; then cygpath -m "$1"; else printf '%s' "$1"; fi; }
 build_dir="${EXT_HOST_CASES_BUILD_DIR:-}"
 if [[ -z "$build_dir" ]]; then build_dir="$(mktemp -d "${TMPDIR:-/tmp}/ext-host-cases.XXXXXX")"; fi
@@ -105,23 +115,35 @@ done
 export EXT_GO_GUEST="$build_dir/go-guest$exe" EXT_GO_SHARED="$build_dir/go-shared.$shared"
 export EXT_HOST_LIBRARY="$build_dir/engine/$library" EXT_HOST_REQUIRED=1 EXT_CROSSLANG_REQUIRED=1
 
-echo "== the Go host (the oracle)"
-go test -count=1 -run 'TestHostCases$' ./tests/crosslang
-echo "== the Go host without cgo (the C ABI loader on purego)"
-CGO_ENABLED=0 go test -count=1 -run 'TestHostCases$' ./tests/crosslang
-echo "== the Python host ($("$python" --version 2>&1))"
-"$python" -I -m unittest discover -s pkg/ext-python/tests -p 'test_host.py' -v
-echo "== the Ruby host ($("${EXT_RUBY:-ruby}" -v))"
-EXT_RUBY="${EXT_RUBY:-ruby}" scripts/ext-ruby-host.sh "$build_dir/ruby"
-(cd pkg/ext-ruby && RUBYLIB="$build_dir/ruby" "${EXT_RUBY:-ruby}" -w test/test_host.rb)
-echo "== the Lua host ($("${EXT_LUA:-lua}" -v 2>&1 | head -1))"
-CC="${EXT_LUA_CC:-${CC:-}}" scripts/ext-lua-host.sh "$build_dir/lua"
-LUA_CPATH="$build_dir/lua/?.$([[ -n "$windows" ]] && echo dll || echo so)" "${EXT_LUA:-lua}" pkg/ext-lua/tests/run.lua test_host
-echo "== the PHP host ($("${EXT_PHP:-php}" -r 'echo PHP_VERSION;'))"
-# PHP loads the library with a plain LoadLibrary, which finds its dependencies on PATH and not in
-# its own directory, so the directory goes on PATH (as the shell spells it).
-php_path="$PATH"
-if [[ -n "$windows" ]]; then php_path="$(cygpath -u "$(dirname "$EXT_HOST_LIBRARY")"):$PATH"; fi
-(cd pkg/ext-php && PATH="$php_path" "${EXT_PHP:-php}" tests/run.php HostTest)
-echo "== the .NET host ($("${EXT_DOTNET:-dotnet}" --version))"
-"${EXT_DOTNET:-dotnet}" run --project pkg/ext-dotnet/ExtIO.Host.Tests -c Release -- "$(winpath "$PWD/lib/plugin/testdata/v1")"
+if wants_host go; then
+  echo "== the Go host (the oracle)"
+  go test -count=1 -run 'TestHostCases$' ./tests/crosslang
+  echo "== the Go host without cgo (the C ABI loader on purego)"
+  CGO_ENABLED=0 go test -count=1 -run 'TestHostCases$' ./tests/crosslang
+fi
+if wants_host python; then
+  echo "== the Python host ($("$python" --version 2>&1))"
+  "$python" -I -m unittest discover -s pkg/ext-python/tests -p 'test_host.py' -v
+fi
+if wants_host ruby; then
+  echo "== the Ruby host ($("${EXT_RUBY:-ruby}" -v))"
+  EXT_RUBY="${EXT_RUBY:-ruby}" scripts/ext-ruby-host.sh "$build_dir/ruby"
+  (cd pkg/ext-ruby && RUBYLIB="$build_dir/ruby" "${EXT_RUBY:-ruby}" -w test/test_host.rb)
+fi
+if wants_host lua; then
+  echo "== the Lua host ($("${EXT_LUA:-lua}" -v 2>&1 | head -1))"
+  CC="${EXT_LUA_CC:-${CC:-}}" scripts/ext-lua-host.sh "$build_dir/lua"
+  LUA_CPATH="$build_dir/lua/?.$([[ -n "$windows" ]] && echo dll || echo so)" "${EXT_LUA:-lua}" pkg/ext-lua/tests/run.lua test_host
+fi
+if wants_host php; then
+  echo "== the PHP host ($("${EXT_PHP:-php}" -r 'echo PHP_VERSION;'))"
+  # PHP loads the library with a plain LoadLibrary, which finds its dependencies on PATH and not in
+  # its own directory, so the directory goes on PATH (as the shell spells it).
+  php_path="$PATH"
+  if [[ -n "$windows" ]]; then php_path="$(cygpath -u "$(dirname "$EXT_HOST_LIBRARY")"):$PATH"; fi
+  (cd pkg/ext-php && PATH="$php_path" "${EXT_PHP:-php}" tests/run.php HostTest)
+fi
+if wants_host csharp; then
+  echo "== the .NET host ($("${EXT_DOTNET:-dotnet}" --version))"
+  "${EXT_DOTNET:-dotnet}" run --project pkg/ext-dotnet/ExtIO.Host.Tests -c Release -- "$(winpath "$PWD/lib/plugin/testdata/v1")"
+fi

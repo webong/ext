@@ -7,7 +7,7 @@
 lang_cmd_test() {
   (cd pkg/ext-php && composer validate --strict)
   (cd pkg/ext-php && EXT_PHP_TRACE=1 php tests/run.php)
-  (cd pkg/ext-go/engine && go test -count=1 -v -run 'TestPHPGuest' ./plugintest)
+  (cd pkg/ext-go/engine && go test -count=1 -v -run 'TestPHPGuest' ./plugin/plugintest)
   (cd tests/crosslang && EXT_FRAMES_REQUIRED=PHP go test -count=1 -v -run 'TestPHPFramesGuest' .)
 }
 

@@ -245,6 +245,61 @@ pool. Nothing is probed by executing it until a runtime adapter does so for its 
 program. Results are written to the graph with `observed_at`, so a stale view is
 visible.
 
+### Declared software availability
+
+Xallet's Package observer checks each candidate's ordered list of paths and command
+names. An existing application directory or receipt counts as a match, as does an
+executable found by name. The observer then projects its own Package definitions
+and relationships. [Xallet's probe](https://github.com/xallet/xallet/blob/d844bc785c33ad46a3f689f0d863d15d487d759a/pkg/backend/sdk/packageprobe/observer.go)
+
+CTX's `discoverPrograms` enumerates executable copies with `program.Scan` and
+`program.ScanRoots`, then joins installer reports with `program.Merge`.
+`scanMachineInventory` sends those observations to `Graph.ObserveInventory`.
+The installed-plugin store's `ResolveEntrypoint` resolves an executable in a
+reviewed Ext package. The missing operation was a bounded, ordered lookup
+across both literal paths and command names. [CTX program discovery](../src/ctx/internal/app/programs.go),
+[CTX machine scan](../src/ctx/internal/app/machine_inventory.go),
+[graph inventory](../res/graph/inventory.go),
+[package entrypoint resolution](../pkg/ext-go/engine/host/store/discovery.go)
+
+The C ledger recorder also receives program observations from its caller. Its
+supervisor has an internal command lookup for launching a process. Declared
+availability is a host lookup in `res/system/service/program`. [Ledger recorder](../lib/ledger/src/record_inventory.c),
+[ledger supervisor lookup](../lib/ledger/src/process.h)
+
+`program.MatchDeclared` returns the first matching location, or an empty string
+when none is available. It stats absolute paths and checks bare names in the
+supplied PATH order. It skips relative search directories, checks cancellation
+between lookups, and returns `program.ErrDiscoveryLimit` when either input exceeds
+128 entries or 64 KiB. Consumers that support relative configured paths resolve
+them against their chosen base before calling it. A result records presence only.
+
+A Package observer can use a match to decide which configured metadata to emit.
+It supplies the literal paths and command names from one candidate at a time.
+
+```go
+location, err := program.MatchDeclared(ctx, candidate.Paths, os.Getenv("PATH"))
+if err != nil {
+    return err
+}
+if location != "" {
+    emitPackage(candidate)
+}
+```
+
+A CTX-style adapter preflight can check the first available declared command
+on its selected search path.
+
+```go
+location, err := program.MatchDeclared(ctx, manifest.ComputerCommands, pathWithoutShims())
+if err != nil {
+    return err
+}
+if location != "" {
+    recordAvailableCommand(location)
+}
+```
+
 ## Non-goals
 
 - Installing, upgrading or removing programs, or running an installer's own commands

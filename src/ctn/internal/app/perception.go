@@ -11,13 +11,13 @@ import (
 	"path/filepath"
 	"time"
 
-	plugin "github.com/webong/ext/pkg/ext-go/cgoengine"
-	"github.com/webong/ext/pkg/ext-go/engine/host/home"
-	"github.com/webong/ext/pkg/ext-go/engine/host/process"
-	"github.com/webong/ext/pkg/ext-go/engine/host/store"
-	hosttrust "github.com/webong/ext/pkg/ext-go/engine/host/trust"
-	bridge "github.com/webong/ext/src/ctn/perception"
+	plugin "github.com/webong/ext/pkg/ext-go/cgoengine/plugin"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/home"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/process"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/store"
+	hosttrust "github.com/webong/ext/pkg/ext-go/engine/plugin/host/trust"
 	domain "github.com/webong/ext/res/int/perception"
+	bridge "github.com/webong/ext/src/ctn/perception"
 )
 
 func perceptionCommand(args []string, stdout, stderr io.Writer) int {

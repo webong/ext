@@ -12,8 +12,8 @@ import (
 
 	"modernc.org/libc"
 
-	plugin "github.com/webong/ext/pkg/ext-go/engine"
-	instancepkg "github.com/webong/ext/pkg/ext-go/engine/guest/instance"
+	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
+	instancepkg "github.com/webong/ext/pkg/ext-go/engine/plugin/guest/instance"
 )
 
 // Instances over the translated engine (lib/plugin/src/instances.c): the counterpart of the cgo

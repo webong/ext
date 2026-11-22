@@ -5,7 +5,7 @@ repository.
 
 Adapters can be written in any language that implements `ext.adapter/2.0`.
 Go authors can use `ParseAdapterInvocation` from
-`github.com/webong/ext/pkg/ext-go/engine`. Ship a platform-specific `.ctxadapter`
+`github.com/webong/ext/pkg/ext-go/engine/plugin`. Ship a platform-specific `.ctxadapter`
 archive with its executable and runtime assets.
 
 `ext` is the main installer: use `ext adapter install` for adapters today,
@@ -34,7 +34,7 @@ explicit adapter installation copies those launcher files into the binary
 directory under the native command names so ordinary commands can be context-aware. The provider
 implementations themselves remain installed and trusted under
 `$EXT_HOME/adapters`.
-The `pkg/ext-go/engine/host/adapter` library owns adapter manifests,
+The `pkg/ext-go/engine/plugin/host/adapter` library owns adapter manifests,
 installation, trust, and invocation. Provider behavior stays in `adapters/`.
 
 `rancher_desktop`, `orbstack`, and `docker_desktop` are manager-app adapters.

@@ -2,9 +2,9 @@ package hashicorp_test
 
 import (
 	"errors"
-	plugin "github.com/webong/ext/pkg/ext-go/engine"
-	"github.com/webong/ext/pkg/ext-go/engine/host/interop"
-	"github.com/webong/ext/pkg/ext-go/engine/transport/jsonline"
+	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/interop"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/transport/jsonline"
 	hashicorp "github.com/webong/ext/pkg/ext-go/hashicorp"
 	"testing"
 )

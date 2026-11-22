@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	plugin "github.com/webong/ext/pkg/ext-go/engine"
+	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
 )
 
 var spinModule = []byte{

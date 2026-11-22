@@ -293,7 +293,7 @@ static void run_layout(void) {
 
 int main(int argc, char **argv) {
   if (argc != 2) {
-    fprintf(stderr, "usage: ledger_fixtures <res/graph/testdata/store/v1>\n");
+    fprintf(stderr, "usage: ledger_fixtures <lib/ledger/testdata/store/v1>\n");
     return 2;
   }
   fixtures = argv[1];

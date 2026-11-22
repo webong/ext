@@ -3,14 +3,14 @@
 The `res/graph` graph in C: one library that Linux, Darwin (macOS and iOS) and Windows
 programs embed, from any language with a C FFI, with nothing beyond the C library and the OS.
 It replaces the Go `res/graph` as the implementation of the graph; the contract is still the data in
-[`res/graph/testdata`](../../res/graph/testdata), and this library is held to it.
+[`lib/ledger/testdata`](../../lib/ledger/testdata), and this library is held to it.
 
 | Part | State |
 | --- | --- |
 | Store | Done: `include/ext_ledger.h`, memory and file backends, the whole store contract |
 | SQLite backend | Done, optional (`EXT_LEDGER_SQLITE`): the `tables.json` layout, which the Go store writes too |
 | Reader | Done: `ext_ledger_open_reader`, which never locks or writes, and the `ext-ledger` command |
-| Recorder | Done for what it is given: `ext_ledger_recorder_open` and `ext_ledger_record`, shells, web origins, host inventory, processes and adapter inventory, held to `res/graph/testdata/recorder/v1` |
+| Recorder | Done for what it is given: `ext_ledger_recorder_open` and `ext_ledger_record`, shells, web origins, host inventory, processes and adapter inventory, held to `lib/ledger/testdata/recorder/v1` |
 | Collectors | Done: `ext_ledger_collect` and `ext_ledger_scan`, through each kernel's own interface, so the recorder reads the machine itself |
 | Supervisor | Done: `ext_ledger_supervisor_*`, `res/graph/supervisor` in C, held to its tests |
 
@@ -122,14 +122,14 @@ nothing used it, and sandboxing has its own contracts ([the decision](../../docs
 
 - **memory** (`ext_ledger_open_memory`): one process's state.
 - **file** (`ext_ledger_open`): a directory laid out as
-  [`ledger.json`](../../res/graph/testdata/store/v1/ledger.json) says. An append-only log of
+  [`ledger.json`](../../lib/ledger/testdata/store/v1/ledger.json) says. An append-only log of
   framed, checksummed canonical-JSON lines and a checkpoint; an advisory lock (`flock`,
   `LockFileEx`) serialises writers, and readers never lock. Every handle keeps the state in memory
   and catches up by reading what other handles appended. Handles in one process and in many
   processes share a directory.
 - **sqlite** (`ext_ledger_open_sqlite`): optional, linked against the system's SQLite (no vendored
   copy); `EXT_LEDGER_UNSUPPORTED` in a build without it. One database laid out as
-  [`tables.json`](../../res/graph/testdata/store/v1/tables.json) says, which is what the Go store
+  [`tables.json`](../../lib/ledger/testdata/store/v1/tables.json) says, which is what the Go store
   `res/graph/store/sqlite` writes: either opens the other's database, and
   `scripts/ledger-sqlite-cross.sh` checks it both ways (Go writes, C reads and writes, Go reads and
   replays C's idempotency key). The handle catches up with other connections when SQLite's

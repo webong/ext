@@ -53,8 +53,8 @@ child process is reaped.
 ## Relationship to other modules
 
 This module depends on `pkg/ext-go` only. Route resolution across backends
-lives in `pkg/ext-go/engine/host/interop`, and the relay between this backend and
-CTX JSON-line transports lives in `pkg/ext-go/engine/transport/bridge`.
+lives in `pkg/ext-go/engine/plugin/host/interop`, and the relay between this backend and
+CTX JSON-line transports lives in `pkg/ext-go/engine/plugin/transport/bridge`.
 
 See the [plugin contract decision record](../../../docs/adr-plugin-contract.md)
 and the [interoperability guide](../../../docs/plugin-interoperability.md).

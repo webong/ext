@@ -73,7 +73,7 @@ if [ "$RUNNER_OS" = macOS ]; then
 (
 swift build --product ext-coreml-guest --package-path res/int/model/ios
 EXT_COREML_GUEST_BINARY="$PWD/res/int/model/ios/.build/debug/ext-coreml-guest" go test ./src/ctn/internal/app -run '^TestModelRunThroughCoreMLGuest$' -count=1
-cmake -S pkg/ext-go/cgoengine/_csrc -B "$RUNNER_TEMP/ext-model-cengine" -DCMAKE_BUILD_TYPE=Release
+cmake -S pkg/ext-go/cgoengine/_csrc/plugin -B "$RUNNER_TEMP/ext-model-cengine" -DCMAKE_BUILD_TYPE=Release
 cmake --build "$RUNNER_TEMP/ext-model-cengine" --target ext_host_static -j 4
 EXT_COREML_GUEST_BINARY="$PWD/res/int/model/ios/.build/debug/ext-coreml-guest" CGO_LDFLAGS="-L$RUNNER_TEMP/ext-model-cengine" go test -tags ext_cengine ./src/ctn/internal/app -run '^TestModelRunThroughCoreMLGuest$' -count=1
 )

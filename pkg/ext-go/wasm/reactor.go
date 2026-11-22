@@ -6,7 +6,7 @@ import (
 	"errors"
 	"time"
 
-	plugin "github.com/webong/ext/pkg/ext-go/engine"
+	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
 	webwasm "github.com/webong/ext/res/web/host/engine/wasm"
 )
 

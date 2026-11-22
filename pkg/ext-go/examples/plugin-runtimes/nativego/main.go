@@ -3,7 +3,7 @@ package main
 
 import (
 	"context"
-	"github.com/webong/ext/pkg/ext-go/cgoengine"
+	cgoengine "github.com/webong/ext/pkg/ext-go/cgoengine/plugin"
 	"github.com/webong/ext/pkg/ext-go/examples/plugin-runtimes/echo"
 )
 

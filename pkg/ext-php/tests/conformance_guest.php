@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-// The guest the Go conformance suite runs (pkg/ext-go/engine/plugintest, TestPHPGuest).
+// The guest the Go conformance suite runs (pkg/ext-go/engine/plugin/plugintest, TestPHPGuest).
 
 require __DIR__ . '/../autoload.php';
 

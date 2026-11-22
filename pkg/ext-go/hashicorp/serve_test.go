@@ -4,7 +4,7 @@ import (
 	"errors"
 	"testing"
 
-	plugin "github.com/webong/ext/pkg/ext-go/engine"
+	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
 )
 
 // Serve's success path owns the process (go-plugin serves until the host

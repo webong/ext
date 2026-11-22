@@ -4,7 +4,7 @@
 // assigns product meaning or authority to graph records.
 //
 // The contract every implementation follows is written as data in
-// res/graph/testdata/store/v1: the entities, the naming, secret and size rules,
+// lib/ledger/testdata/store/v1: the entities, the naming, secret and size rules,
 // the error codes, the SQLite table layout and the operation cases. NewMemory is
 // the in-memory implementation; res/graph/store/sqlite is the durable one.
 package store
@@ -218,7 +218,7 @@ type Snapshot struct {
 }
 
 // Options sets the bounds of a store. Zero values take the defaults in
-// res/graph/testdata/store/v1/rules.json. The latest commit is always kept,
+// lib/ledger/testdata/store/v1/rules.json. The latest commit is always kept,
 // even when it alone exceeds MaxChangeBytes; idempotency records expire with
 // their commit.
 type Options struct {

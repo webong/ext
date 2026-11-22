@@ -4,7 +4,7 @@
 
 A guest for `ext.plugin/v1` over JSON lines that needs only `ext-json` (PHP 8.1+), with no
 Composer dependencies and no native build.
-Hosts use the Go `pkg/ext-go/engine/host/process` backend (or any JSON-line client) to run it.
+Hosts use the Go `pkg/ext-go/engine/plugin/host/process` backend (or any JSON-line client) to run it.
 A PHP program can also host plugins itself with the opt-in [host SDK](#host-sdk-extiohost) on the C engine.
 
 ```php
@@ -182,7 +182,7 @@ by the Go contract) with no exceptions, `tests/ServeFramesTest.php` covers the r
 on pipes, and `tests/frames_guest.php` is the frames conformance guest of
 [docs/plugin-guest-frames.md](https://github.com/webong/ext/blob/main/docs/plugin-guest-frames.md).
 The Go suites run this guest through `process.Start`: `TestPHPGuest` in
-`pkg/ext-go/engine/plugintest` against the shared conformance cases, and `TestPHPFramesGuest` in
+`pkg/ext-go/engine/plugin/plugintest` against the shared conformance cases, and `TestPHPFramesGuest` in
 `tests/crosslang` through the frames suite (and the C engine under
 `scripts/plugin-crosslang.sh`); both skip when `php` is not installed.
 

@@ -1,4 +1,4 @@
-"""Guest used by the Go conformance suite (pkg/ext-go/engine/plugintest)."""
+"""Guest used by the Go conformance suite (pkg/ext-go/engine/plugin/plugintest)."""
 import os
 import sys
 import time

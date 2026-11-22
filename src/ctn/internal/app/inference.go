@@ -16,12 +16,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/webong/ext/pkg/ext-go/engine/host/home"
-	"github.com/webong/ext/pkg/ext-go/engine/host/process"
-	"github.com/webong/ext/pkg/ext-go/engine/host/store"
-	hosttrust "github.com/webong/ext/pkg/ext-go/engine/host/trust"
-	ginference "github.com/webong/ext/src/ctn/inference"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/home"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/process"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/store"
+	hosttrust "github.com/webong/ext/pkg/ext-go/engine/plugin/host/trust"
 	inference "github.com/webong/ext/res/int/inference"
+	ginference "github.com/webong/ext/src/ctn/inference"
 )
 
 // inferenceCommand lists providers and runs inference operations through an

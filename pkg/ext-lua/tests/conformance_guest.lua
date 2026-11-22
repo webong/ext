@@ -1,4 +1,4 @@
--- Guest used by the Go conformance suite (pkg/ext-go/engine/plugintest, TestLuaGuest).
+-- Guest used by the Go conformance suite (pkg/ext-go/engine/plugin/plugintest, TestLuaGuest).
 local here = (debug.getinfo(1, "S").source:match("^@(.*)[/\\][^/\\]*$")) or "."
 package.path = here .. "/../?.lua;" .. here .. "/../?/init.lua;" .. package.path
 local plugin = require("ext_io.plugin")

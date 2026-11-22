@@ -4,9 +4,9 @@ import (
 	"context"
 	"encoding/json"
 
-	"github.com/webong/ext/pkg/ext-go/c2goengine"
-	plugin "github.com/webong/ext/pkg/ext-go/engine"
-	"github.com/webong/ext/pkg/ext-go/engine/guest/instance"
+	c2goengine "github.com/webong/ext/pkg/ext-go/c2goengine/plugin"
+	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/guest/instance"
 )
 
 // c2goEngine is the C engine translated to Go. It has the services wherever it was translated, and

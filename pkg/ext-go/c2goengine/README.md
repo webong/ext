@@ -1,14 +1,17 @@
 # c2goengine
 
+The C libraries of `lib/`, translated to Go, one package each; the module has no root package.
+`c2goengine/plugin` is lib/plugin's:
+
 The C engine, translated to Go by [ccgo](https://pkg.go.dev/modernc.org/ccgo/v4) and linked into your
 program: no cgo, no C compiler, the same answers as the C library.
 
 ```go
-out, err := c2goengine.EngineCall("descriptor.validate", descriptorJSON)
+out, err := plugin.EngineCall("descriptor.validate", descriptorJSON)
 
-session, err := c2goengine.Open(ctx, descriptor, plugin.Options{Verify: ..., Authorize: ..., Connect: ...})
-session, err = c2goengine.OpenProcess(ctx, descriptor, c2goengine.LaunchOptions{...}, options)
-leases, err := c2goengine.NewInstances(instance.Options[T]{...})
+session, err := plugin.Open(ctx, descriptor, plugin.Options{Verify: ..., Authorize: ..., Connect: ...})
+session, err = plugin.OpenProcess(ctx, descriptor, plugin.LaunchOptions{...}, options)
+leases, err := plugin.NewInstances(instance.Options[T]{...})
 ```
 
 - `EngineCall` runs the engine's pure services (descriptor, request, response, frame, manifest, schema
@@ -28,7 +31,7 @@ leases, err := c2goengine.NewInstances(instance.Options[T]{...})
 | `cgoengine` | cgo and the C library | the C itself, at native speed |
 | `c2goengine` | nothing | the C, translated; about twice as slow as native and about twice as fast as the Go contract on the services measured |
 
-`engine/plugintest/enginetest` holds an engine against the oracle: the same documents, requests,
+`engine/plugin/plugintest/enginetest` holds an engine against the oracle: the same documents, requests,
 schemas and endpoints, and the answers must agree. `TestEngineChecks` here runs every check of that
 harness that needs only `EngineCall`, and the module's own tests add concurrency, memory and
 platform-table checks.

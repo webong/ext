@@ -1,4 +1,4 @@
-/* The ext.system vocabulary, the canonical JSON of res/graph/testdata/recorder/v1/vocabulary.json
+/* The ext.system vocabulary, the canonical JSON of lib/ledger/testdata/recorder/v1/vocabulary.json
  * ("schema"); tests/recorder.c checks the two are the same. */
 #ifndef EXT_LEDGER_VOCABULARY_H
 #define EXT_LEDGER_VOCABULARY_H

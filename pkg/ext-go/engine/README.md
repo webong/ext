@@ -1,7 +1,12 @@
-# Go plugin engine (pure Go)
+# Pure-Go engines
 
-`github.com/webong/ext/pkg/ext-go/engine`: the pure-Go engine, the oracle that `cgoengine` and
-`c2goengine` are held against. It is the ext plugin contract and the tooling built on it, using only the
+`github.com/webong/ext/pkg/ext-go/engine` holds the pure-Go engines of the libraries in `lib/`, one
+package each, using only the standard library. It has no root package.
+
+## plugin
+
+`github.com/webong/ext/pkg/ext-go/engine/plugin`: the pure-Go plugin engine, the oracle that
+`cgoengine/plugin` and `c2goengine/plugin` are held against. It is the ext plugin contract and the tooling built on it, using only the
 standard library (Go 1.23). It holds the contract
 data model, host sessions and guests, `ext.package/v1` manifests and the installed
 package store's building blocks, JSON-line and bridge transports, process launching,
@@ -10,7 +15,7 @@ schemas and typed authoring, instances and streams, and the conformance suite.
 `host.OpenRuntime` starts a source plugin under a separately installed runtime
 package. The caller supplies the reviewed runtime digest and explicit runtime
 and script artifacts; both packages are reverified immediately before launch.
-`cgoengine/host.OpenRuntime` exposes the same API. A runtime tree can include
+`cgoengine/plugin/host.OpenRuntime` exposes the same API. A runtime tree can include
 an interpreter and its dependencies without creating another package store.
 
 Two packages sit at the top level because they belong to no single side: `package` (the package
@@ -72,7 +77,7 @@ installed package without reading or downloading the archive, once that package 
 `Download`, `NewDownloadClient` and `ExtractArchive` are the same steps on their own. The default
 client follows at most `MaxDownloadRedirects` redirects, to HTTPS URLs without user information or a
 fragment only, and removes `Authorization`, `Cookie` and `Referer` from a redirected request; pass
-your own through `ArchiveOptions.Client`. The engine-routed store (`cgoengine/host/store`) runs the
+your own through `ArchiveOptions.Client`. The engine-routed store (`cgoengine/plugin/host/store`) runs the
 install in the C engine (`ext_store_install_archive`: the digest check, the extraction, the install
 or upgrade and the receipt), which the other language bindings share; it downloads an HTTPS source
 in Go first, since the engine leaves fetching to its caller. `ExtractArchive` and `Download` are Go

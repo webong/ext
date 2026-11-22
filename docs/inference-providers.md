@@ -2,9 +2,9 @@
 
 `res/int/inference` defines the portable provider contract. CTN's plugin
 integration in `src/ctn/inference` serves a provider guest and packages its
-executable. The package store in `pkg/ext-go/engine/host/store` verifies sealed
+executable. The package store in `pkg/ext-go/engine/plugin/host/store` verifies sealed
 packages, matches contracts, and selects the executable for the current
-platform. The scoped trust ledger in `pkg/ext-go/engine/host/trust` pins reviewed
+platform. The scoped trust ledger in `pkg/ext-go/engine/plugin/host/trust` pins reviewed
 digests; `lib/plugin` implements the same format for other host languages.
 ext adapters, CTN inference providers, and Ext commands use separate scopes.
 

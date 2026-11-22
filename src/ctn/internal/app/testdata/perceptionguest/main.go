@@ -4,9 +4,9 @@ import (
 	"context"
 	"os"
 
-	plugin "github.com/webong/ext/pkg/ext-go/engine"
-	bridge "github.com/webong/ext/src/ctn/perception"
+	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
 	domain "github.com/webong/ext/res/int/perception"
+	bridge "github.com/webong/ext/src/ctn/perception"
 )
 
 type fixture struct{}

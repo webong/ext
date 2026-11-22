@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/webong/ext/pkg/ext-go/engine/host/store"
-	packagekit "github.com/webong/ext/pkg/ext-go/engine/package"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/store"
+	packagekit "github.com/webong/ext/pkg/ext-go/engine/plugin/package"
 	ginference "github.com/webong/ext/src/ctn/inference"
 )
 

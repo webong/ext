@@ -211,7 +211,7 @@ export function loadEngine(addonPath){
    close(){if(!this.#closed){this.#closed=true;native.closeHost(this.#handle);this.#handle=null;}}
  }
  // The package store of the C engine: install, upgrade, replace, remove and load reviewed
- // packages under a root, as pkg/ext-go/engine/host/store does. A call settles with the
+ // packages under a root, as pkg/ext-go/engine/plugin/host/store does. A call settles with the
  // installed plugin.json as text, or rejects with the engine's status.
  const size=(value,name)=>{
    if(value===undefined)return 0;

@@ -2,7 +2,7 @@
 
 package ccgo
 
-import plugin "github.com/webong/ext/pkg/ext-go/engine"
+import plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
 
 // Available is false where no translation has been generated for the platform.
 const Available = false

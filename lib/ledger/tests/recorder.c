@@ -1,4 +1,4 @@
-/* Runs the recorder contract (res/graph/testdata/recorder/v1) against the C
+/* Runs the recorder contract (lib/ledger/testdata/recorder/v1) against the C
  * recorder, as TestRecorderFixtures does against the Go one. A case that uses
  * an operation this build does not have yet is reported and skipped. */
 #include "ext_ledger.h"
@@ -117,7 +117,7 @@ static void run_case(const lj_value *c) {
 
 int main(int argc, char **argv) {
   if (argc != 2) {
-    fprintf(stderr, "usage: ledger_recorder <res/graph/testdata/recorder/v1>\n");
+    fprintf(stderr, "usage: ledger_recorder <lib/ledger/testdata/recorder/v1>\n");
     return 2;
   }
   check_vocabulary(argv[1]);

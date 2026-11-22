@@ -18,7 +18,7 @@ func TestCasesUseTheSharedCodes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	codesPath := filepath.Join(dir, "..", "..", "..", "..", "system", "testdata", "codes.json")
+	codesPath := filepath.Join(dir, "..", "..", "..", "..", "..", "res", "system", "testdata", "codes.json")
 	data, err := os.ReadFile(codesPath)
 	if err != nil {
 		t.Skipf("res/system codes not beside this module: %v", err)

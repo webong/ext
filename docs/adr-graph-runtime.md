@@ -24,7 +24,7 @@ facts describe observations and never imply consumer authority.
 
 ## Graph API contract
 
-The contract is written as data in `res/graph/testdata/store/v1`: the entities,
+The contract is written as data in `lib/ledger/testdata/store/v1`: the entities,
 the naming, secret and size rules, the error codes, the SQLite layout and the
 operation cases every implementation runs. This section summarises it.
 
@@ -71,7 +71,7 @@ resume point. Idempotency records expire with their commits.
 `store.NewMemory` keeps the graph in memory. `res/graph/store/sqlite` is the
 durable store: one SQLite database through `modernc.org/sqlite`, so `res/graph`
 needs no cgo. The tables are created from the declarative layout in
-`res/graph/testdata/store/v1/tables.json` and are part of the contract, so any
+`lib/ledger/testdata/store/v1/tables.json` and are part of the contract, so any
 SQLite reader can read the graph. There are no migrations; a database with
 another layout is refused (`unsupported`). Commits take SQLite's write lock
 (`BEGIN IMMEDIATE`, WAL, a 5 s busy timeout), so short-lived CTX commands and

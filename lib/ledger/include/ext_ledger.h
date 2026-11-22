@@ -1,7 +1,7 @@
 /* ext ledger: the res/graph store in C.
  *
  * A generic, namespaced, directed graph store whose contract is the data in
- * res/graph/testdata/store/v1. Values cross this API as JSON in the wire form
+ * lib/ledger/testdata/store/v1. Values cross this API as JSON in the wire form
  * of entities.schema.json; every JSON the library returns is canonical JSON.
  *
  * Backends:
@@ -127,7 +127,7 @@ EXT_LEDGER_API int ext_ledger_canonical_transaction(const char *transaction, siz
  * The recorder projects observations of a machine (shell sessions, web
  * origins, host inventory, processes, adapter inventory) onto the ext.system
  * vocabulary in a store, and reads them back. Its contract is
- * res/graph/testdata/recorder/v1. */
+ * lib/ledger/testdata/recorder/v1. */
 typedef struct ext_ledger_recorder ext_ledger_recorder;
 
 /* Registers the vocabulary on store and returns a recorder over it. environment

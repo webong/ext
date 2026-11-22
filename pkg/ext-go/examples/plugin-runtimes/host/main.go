@@ -12,10 +12,10 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/webong/ext/pkg/ext-go/cgoengine"
+	cgoengine "github.com/webong/ext/pkg/ext-go/cgoengine/plugin"
 	"github.com/webong/ext/pkg/ext-go/runtime/cshared"
-	"github.com/webong/ext/pkg/ext-go/engine/guest/author"
-	"github.com/webong/ext/pkg/ext-go/engine/host/nativego"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/guest/author"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/nativego"
 	"github.com/webong/ext/pkg/ext-go/examples/plugin-runtimes/echo"
 	"github.com/webong/ext/pkg/ext-go/wasm"
 )

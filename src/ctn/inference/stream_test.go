@@ -6,12 +6,12 @@ import (
 	"io"
 	"testing"
 
-	plugin "github.com/webong/ext/pkg/ext-go/engine"
-	"github.com/webong/ext/pkg/ext-go/engine/guest/author"
-	"github.com/webong/ext/pkg/ext-go/engine/guest/stream"
-	"github.com/webong/ext/pkg/ext-go/engine/transport/inprocess"
-	bridge "github.com/webong/ext/src/ctn/inference"
+	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/guest/author"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/guest/stream"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/transport/inprocess"
 	domain "github.com/webong/ext/res/int/inference"
+	bridge "github.com/webong/ext/src/ctn/inference"
 )
 
 // audio holds bytes that are not UTF-8, so a chunk that crossed the wire unencoded would fail.

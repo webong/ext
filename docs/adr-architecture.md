@@ -80,7 +80,7 @@ the same interface. The first two steps were done in Go; on 2026-11-19 the graph
 
 1. **The store contract** (done). Vertices, edges, provenance, commits, changes, the naming and
    attribute rules, the secret-marker check, idempotency, history compaction and the error codes are
-   fixtures under `res/graph/testdata/store/v1`. Schemas are declarative rules, so a schema can be
+   fixtures under `lib/ledger/testdata/store/v1`. Schemas are declarative rules, so a schema can be
    checked in any language and stored with the graph.
 2. **SQLite storage in Go** (done, `res/graph/store/sqlite`). It stays until the Go graph is
    replaced, and its layout (`tables.json`) is the optional SQLite form of the C store.
@@ -125,7 +125,7 @@ guarantees are narrower. A language moves up a tier when a consumer depends on i
 - Fixtures for `res/system` and tests for `Ext.Audio.Windows` and `Ext.Clipboard.Windows` are the
   first work under rules 1 and 4. Each later `res/` change brings its package in line with rules 2
   and 3.
-- The `res/graph` store contract (`res/graph/testdata/store/v1`) and the SQLite store
+- The `res/graph` store contract (`lib/ledger/testdata/store/v1`) and the SQLite store
   (`res/graph/store/sqlite`) are the first two steps above. `lib/ledger` has the store with its
   memory, file and optional SQLite backends, the reader and the `ext-ledger` command; the C and Go
   stores open each other's SQLite databases. The recorder and the Go binding follow.

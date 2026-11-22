@@ -7,11 +7,11 @@ import (
 	"runtime"
 	"testing"
 
-	plugin "github.com/webong/ext/pkg/ext-go/engine"
-	"github.com/webong/ext/pkg/ext-go/engine/guest/author"
-	"github.com/webong/ext/pkg/ext-go/engine/transport/inprocess"
-	bridge "github.com/webong/ext/src/ctn/model"
+	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/guest/author"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/transport/inprocess"
 	domain "github.com/webong/ext/res/int/model"
+	bridge "github.com/webong/ext/src/ctn/model"
 )
 
 type unavailableProvider struct{}

@@ -205,15 +205,15 @@ func TestSandboxContractUsesOnlyTheStandardLibrary(t *testing.T) {
 	}
 }
 
-// engine/host and engine/host/store are the pure-Go implementations an
-// application takes with the engine module alone; cgoengine/host and
-// cgoengine/host/store are the same packages routed through the engine. Swapping one import for the other must never
+// engine/plugin/host and engine/plugin/host/store are the pure-Go implementations an
+// application takes with the engine module alone; cgoengine/plugin/host and
+// cgoengine/plugin/host/store are the same packages routed through the engine. Swapping one import for the other must never
 // need a code change, so their exported surfaces must be identical.
 func TestEngineVariantsKeepTheSameAPI(t *testing.T) {
 	root := repoRoot(t)
 	for _, name := range []string{"host", "host/store"} {
-		pure := exportedAPI(t, filepath.Join(root, "pkg/ext-go/engine", name))
-		engine := exportedAPI(t, filepath.Join(root, "pkg/ext-go/cgoengine", name))
+		pure := exportedAPI(t, filepath.Join(root, "pkg/ext-go/engine/plugin", name))
+		engine := exportedAPI(t, filepath.Join(root, "pkg/ext-go/cgoengine/plugin", name))
 		for line := range pure {
 			if !engine[line] {
 				t.Errorf("%s: in engine but not in cgoengine: %s", name, line)
@@ -303,7 +303,7 @@ func exportedAPI(t *testing.T, dir string) map[string]bool {
 	return out
 }
 
-// The engine module is layered. transport (how frames travel) and validate (how values are
+// The plugin engine is layered. transport (how frames travel) and validate (how values are
 // checked) are leaves: they import neither host nor guest, and not each other. host (what runs
 // plugins on a machine) and guest (what a plugin implementation uses) build on them but never
 // import each other: a plugin must not need host code, and a host must not need a plugin's
@@ -318,8 +318,8 @@ func TestEngineGroupsKeepTheirLayering(t *testing.T) {
 	}
 	for group, others := range forbidden {
 		for _, other := range others {
-			banned := pluginPrefix + "/engine/" + other
-			err := filepath.WalkDir(filepath.Join(root, "pkg/ext-go/engine", group), func(path string, entry fs.DirEntry, walkErr error) error {
+			banned := pluginPrefix + "/engine/plugin/" + other
+			err := filepath.WalkDir(filepath.Join(root, "pkg/ext-go/engine/plugin", group), func(path string, entry fs.DirEntry, walkErr error) error {
 				if walkErr != nil || entry.IsDir() || filepath.Ext(path) != ".go" {
 					return walkErr
 				}
@@ -331,7 +331,7 @@ func TestEngineGroupsKeepTheirLayering(t *testing.T) {
 					name, _ := strconv.Unquote(imp.Path.Value)
 					if name == banned || strings.HasPrefix(name, banned+"/") {
 						rel, _ := filepath.Rel(root, path)
-						t.Errorf("%s imports %s; engine/%s must not import engine/%s", filepath.ToSlash(rel), name, group, other)
+						t.Errorf("%s imports %s; engine/plugin/%s must not import engine/plugin/%s", filepath.ToSlash(rel), name, group, other)
 					}
 				}
 				return nil

@@ -1,7 +1,7 @@
 # The library opener: ext-go carries no C
 
-Status: accepted on 2026-11-22. Step 1 (the `core` module, its driver switcher and the plugin selection on
-it) is built; the rest is the order in [Steps](#steps).
+Status: accepted on 2026-11-22, amended on 2026-11-23 (decisions 5 to 7: a project fetches the C
+before it builds). Steps 1 and 2 are built; the rest is the order in [Steps](#steps).
 
 ## Context
 
@@ -63,15 +63,49 @@ implementation before it loads anything. With `Auto` the order is what the build
 c2go), then purego, then go. A program can name one driver or forbid one, such as purego where the
 operating system refuses code fetched at run time.
 
-**5. cgo links what the program supplies.** A cgo build finds the library and its header through
-`pkg-config` or `CGO_CFLAGS`/`CGO_LDFLAGS`. ext-go ships declarations only: `cgoengine/_csrc`,
-`scripts/cgoengine-sync.sh`, the drift test and the prebuilt static link go.
+**5. ext-go carries no C: a project fetches it before it builds.** ext-go holds no C source, no
+translation and no built library. A Go project that uses ext-go brings the C library in itself, with
+`ext-go fetch`, a command of `cengine` the project adds as a Go tool and runs from `go generate` (Go runs
+no code of a dependency before or during a build, and the linker fetches nothing, so this is a step
+the project runs first):
 
-**6. c2go stays generated and pinned.** `c2goengine/<library>` is Go translated from one release of the
-library; it shelves itself, and moving to a new release regenerates it.
+```
+go get -tool github.com/webong/ext/pkg/ext-go/cengine/cmd/ext-go
+//go:generate go tool ext-go fetch -lib plugin -driver cgo
+go generate ./... && go build ./...
+```
 
-**7. Releases publish shared libraries.** `lib/plugin` and `lib/ledger` release one shared library per
-platform with its SHA-256 as release assets, and each library's citation is written from that release.
+fetch reads the library's citation (`library.Citation`, the format `ext.library.citation/v1`: for each
+`goos/goarch`, the archive's HTTPS URL, its SHA-256, and which of its files each driver takes),
+downloads the archive for every target, checks the digest before it uses a byte of it, and writes a Go
+package the project blank-imports:
+
+| Driver | What fetch writes | How the build uses it |
+| --- | --- | --- |
+| cgo | `include/`, `lib/<goos>_<goarch>/<static library>` and a cgo file whose `#cgo CFLAGS` and `#cgo LDFLAGS` name them through `${SRCDIR}` | the link flags of an imported package reach the final link, so no `CGO_*` variable and no system install is needed |
+| c2go | the translated Go source of each target and its binding, as published | it compiles with the project and registers its driver |
+| purego | `lib/<goos>_<goarch>/<shared library>`, embedded with `//go:embed` and registered with `library.Provide` | the binary carries the library; `library.OpenProvided` writes it once to the user cache, in a directory named for its digest, and opens it |
+
+Where it writes comes from `-dir`, then `EXT_GO_DIR`, then `ext-go.json` in the module root, then the
+default `internal/extlib/<library>`; the directory must be inside the module, because cgo and c2go
+output compiles with it. The targets default to the one `go env` reports (`-target all` takes every
+target the citation publishes), so a cross-build fetches for its target; the driver defaults to cgo when
+cgo is enabled and purego when it is not. Verified archives are cached in the user cache and reused, and
+`-offline` uses only the cache. A file fetch wrote is listed in the directory's `.fetched`, so the next
+run removes exactly those and nothing of the project's own.
+
+A project that runs no fetch still has purego through the run-time `Reserve` and pure Go.
+
+**6. The citation is the project's, published by the library.** A citation is data: each `lib/`
+library's release publishes it beside its archives, and the project commits the file it uses, so the
+pin changes only when the project changes it. `cengine` knows no library by name; `ext-go.json` maps
+the project's short names (`plugin`, `ledger`) to its citation files.
+
+**7. Releases publish what the drivers take.** The `ext-plugin-vX.Y.Z` release already publishes one
+archive per platform with the headers, the shared library and the static library, and their SHA-256
+(`scripts/ext-plugin-release.sh`): what cgo and purego take. It gains the citation file, and the ccgo
+translation of each platform with its binding (made by `c2goengine/tools` on that platform's runner), so
+the generated translations leave this repository. `lib/ledger` publishes the same way.
 
 ## Consequences
 
@@ -88,13 +122,18 @@ platform with its SHA-256 as release assets, and each library's citation is writ
 
 1. Done: `core/driver` is the switcher; `pkg/ext-go/runtime` becomes `pkg/ext-go/cengine`, the C
    side: the opener `cengine/library` and the raw C guest loader `cengine/cguest`, with the plugin backend
-   over it in the module `pkg/ext-go/cguest`; the plugin selection moves
-   to `pkg/ext-go/plugin` and chooses through `core/driver`.
-2. `cengine/library`: `Citation`, `Browse`, `Reserve` (supplied path, cache, fetch, `Fetch`, `Offline`) and
-   `Borrow` with the version check, and `Shelve`.
-3. Releases of `lib/plugin` and `lib/ledger` publish per-platform shared libraries and digests; the
-   citations are written from them.
-4. `cgoengine` links the supplied library and loses `_csrc`; the plugin engine gains a purego driver;
-   `pkg/ext-go/plugin` lists it.
-5. The ledger: its drivers (purego first, then cgo) and a `pkg/ext-go/ledger` that lists them; ctx moves
-   onto it.
+   over it in the module `pkg/ext-go/cguest`; the plugin selection moves to `pkg/ext-go/plugin` and
+   chooses through `core/driver`.
+2. Done: `library.Citation`, `library.Provide` and `OpenProvided`, `cengine/fetch` and the
+   `ext-go fetch` command, held to a scratch module that builds a C library, publishes it over HTTPS and
+   runs it with the cgo and the purego drivers.
+3. The `ext-plugin` release publishes its citation and the ccgo translations; the first release with
+   the `ext_plugin_` names (after #211) is the first a citation can name.
+4. `cgoengine` stops carrying `_csrc`: its binding compiles against declarations and links the library
+   a project fetched, and `scripts/cgoengine-sync.sh` and the drift test go. `c2goengine` keeps only its
+   generator, and the committed translations and the translate jobs go; ext's own CI fetches as a project
+   does.
+5. `cengine/library`: `Browse`, `Reserve` and `Borrow` for purego at run time, and `Shelve` for the
+   build-time drivers.
+6. The ledger: its drivers (purego first, then cgo), its release and citation, and a
+   `pkg/ext-go/ledger` that lists them; ctx moves onto it.

@@ -737,6 +737,17 @@ EXT_PLUGIN_HOST_API ext_plugin_status ext_plugin_services_call(const char *opera
  * ext_plugin_open opens an object from a JSON config and returns its handle:
  *   {"object":"store","root":"...","limits":{"max_artifact_bytes","max_tree_files","max_tree_bytes"}}
  *   {"object":"layered","roots":["...", ...],"limits":{...}}
+ *   {"object":"host","descriptor":{...},"backend":{"kind":"process","executable","arguments":[],
+ *    "environment":["NAME=value"],"working_directory","stderr_bytes"} or {"kind":"shared_library","path"},
+ *    "verify":"allow"|"event","authorize":"allow"|"event","observe":false,
+ *    "services":{"timeout_ms","max_payload_bytes","max_in_flight"},"event_timeout_ms":30000}
+ * A host's callbacks are the interface's own: each becomes an event in the host's queue,
+ * {"ticket","kind","data"}, which the binding takes with "events" and, for those that ask (ticket
+ * not 0), answers with "answer" from another thread than the one waiting in "start" or "call":
+ * verify and authorize (the policies set to "event"), reverse_authorize and reverse (with
+ * "services": reverse calls the plugin makes), progress and observe (asking nothing; dropped, and
+ * counted in a "dropped" event, when the queue is full). An event that asks and is not answered
+ * within event_timeout_ms (or the reverse call's own time) is a denial.
  * ext_plugin_call runs one operation on a handle with a JSON object in and a JSON value out (free
  * *out with ext_plugin_free); handle 0 is the library itself:
  *   0        every service of ext_plugin_services_call (services.md), with the same input;
@@ -748,6 +759,9 @@ EXT_PLUGIN_HOST_API ext_plugin_status ext_plugin_services_call(const char *opera
  *            receipt {id}, ids, list, verify, list_unverified, resolve_entrypoint {id, contract,
  *            version, protocol, reviewed_digest, os, arch}
  *   layered  load {id} ({"layer","manifest"}), list, verify, list_unverified
+ *   host     start {timeout_ms}, call {call: {contract, operation, payload}, timeout_ms, progress:
+ *            {events_per_second, bytes_per_second}}, invoke {request, timeout_ms}, drain {timeout_ms},
+ *            state, stderr, events {timeout_ms, max}, answer {ticket, allow | payload | error}
  * An operation that returns nothing returns null; an unknown one is EXT_PLUGIN_UNSUPPORTED and an
  * unknown or closed handle EXT_PLUGIN_NOT_FOUND. ext_plugin_close frees an object once no call
  * holds it. Handles are never reused. */

@@ -40,8 +40,11 @@ a binding binds these and nothing else (ext-go's purego, cgo and ccgo drivers do
 opens an object from a JSON config and returns a handle, `ext_plugin_call` runs an operation by name
 with a JSON object in and a JSON value out, and `ext_plugin_close` frees it. Handle 0 is the library
 itself: every service of `ext_plugin_services_call` ([services.md](services.md)), and the digests and
-trust records. So far the objects are the package store and the layered view; host sessions follow,
-with the policy, progress and reverse-call callbacks turned into events the binding polls and answers.
+trust records. The objects are hosts (a session with one plugin, over a child process or a shared library), the
+package store and the layered view. A host's callbacks (the verify and authorize policies, progress,
+the observer and reverse calls) become events in its queue: the binding takes them with `events` and
+answers those that ask with `answer`, from another thread than the one waiting in `start` or `call`,
+so a binding needs no way to be called from C.
 `include/ext_plugin_host.h` lists the configs and operations.
 
 ## What is implemented

@@ -146,8 +146,8 @@ there by purego or cgo. `js/wasm` and the architectures purego does not reach ge
    `ext_ledger_collect` prefixes to free those names). Next its generic Go binding in `cengine` and the
    same interface over `engine/ledger`, held to each other; then `lib/plugin`'s: done for the
    library calls, the package store and the layered view (`ext_plugin_open`, `_call`, `_close`; the
-   pure services moved to `ext_plugin_services_call` and are handle 0); its host sessions follow, their
-   callbacks (policies, progress, reverse calls) becoming events the binding polls and answers.
+   pure services moved to `ext_plugin_services_call` and are handle 0); and its host sessions, whose
+   callbacks (policies, progress, the observer, reverse calls) are events the binding polls and answers.
 4. The `ext-plugin` release publishes its citation and the ccgo translations; the first release with
    the `ext_plugin_` names (after #211) is the first a citation can name.
 5. `cgoengine` stops carrying `_csrc`: its binding compiles against declarations and links the library

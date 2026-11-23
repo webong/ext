@@ -4,13 +4,14 @@
  * library itself: the pure services of ext_plugin_services_call and the digests and trust records.
  * Handles are never reused; an object is freed once it is closed and no call holds it. */
 #include "ext_plugin_host.h"
+#include "interface_host.h"
 #include "sync.h"
 #include "wire.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-enum { K_STORE = 1, K_LAYERED };
+enum { K_STORE = 1, K_LAYERED, K_HOST };
 
 typedef struct entry {
   uint64_t id;
@@ -27,8 +28,10 @@ static uint64_t next_id = 1;
 static void destroy(entry *e) {
   if (e->kind == K_STORE)
     ext_plugin_store_close(e->ptr);
-  else
+  else if (e->kind == K_LAYERED)
     ext_plugin_layered_close(e->ptr);
+  else
+    ext_interface_host_free(e->ptr);
   free(e);
 }
 
@@ -236,7 +239,13 @@ ext_plugin_status ext_plugin_open(const char *config, size_t len, uint64_t *hand
   const char *object = str(c, "object");
   ext_plugin_status s = EXT_PLUGIN_INVALID;
   ext_plugin_store_limits limits;
-  if (object && !strcmp(object, "store")) {
+  if (object && !strcmp(object, "host")) {
+    ext_interface_host *host = NULL;
+    if (!(s = ext_interface_host_open(c, &host)) && (s = add(K_HOST, host, handle))) {
+      ext_interface_host_shutdown(host);
+      ext_interface_host_free(host);
+    }
+  } else if (object && !strcmp(object, "store")) {
     const char *root = str(c, "root");
     ext_plugin_store *store = NULL;
     if (root && !(s = limits_of(c, &limits)) && !(s = ext_plugin_store_open(root, &limits, &store)) &&
@@ -272,13 +281,20 @@ ext_plugin_status ext_plugin_close(uint64_t handle) {
     if (table[i]->id == handle && !table[i]->closing) {
       e = table[i];
       e->closing = 1;
+      e->inflight++; /* held while a host shuts down, outside the table lock */
       s = EXT_PLUGIN_OK;
-      if (!e->inflight) {
-        remove_locked(e);
-        free_it = 1;
-      }
       break;
     }
+  pthread_mutex_unlock(&table_lock);
+  if (!e)
+    return s;
+  if (e->kind == K_HOST)
+    ext_interface_host_shutdown(e->ptr);
+  pthread_mutex_lock(&table_lock);
+  if (--e->inflight == 0) {
+    remove_locked(e);
+    free_it = 1;
+  }
   pthread_mutex_unlock(&table_lock);
   if (free_it)
     destroy(e);
@@ -466,7 +482,9 @@ ext_plugin_status ext_plugin_call(uint64_t handle, const char *op, const char *i
     if (!e) {
       s = EXT_PLUGIN_NOT_FOUND;
     } else {
-      s = e->kind == K_STORE ? call_store(e->ptr, op, in, out, out_len) : call_layered(e->ptr, op, in, out, out_len);
+      s = e->kind == K_STORE     ? call_store(e->ptr, op, in, out, out_len)
+          : e->kind == K_LAYERED ? call_layered(e->ptr, op, in, out, out_len)
+                                 : ext_interface_host_call(e->ptr, op, in, out, out_len);
       release(e);
     }
   }

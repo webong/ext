@@ -7,7 +7,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 /**
  * A read-only view over several package-store roots in priority order, highest first, such as a
- * user root before a system root (see {@code ext_layered_*} in lib/plugin/include/ext_host.h). An
+ * user root before a system root (see {@code ext_layered_*} in lib/plugin/include/ext_plugin_host.h). An
  * id is served from the first root that holds it; a copy in a lower root is shadowed and never
  * read. If the winning copy does not verify, {@link #load} and the reports fail instead of falling
  * back to a lower one. The view never writes, so a system root is never created or modified

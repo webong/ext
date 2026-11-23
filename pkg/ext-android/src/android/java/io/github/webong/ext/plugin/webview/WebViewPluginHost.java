@@ -56,7 +56,7 @@ public final class WebViewPluginHost {
             return kind;
         }
 
-        /** The ext_plugin_call status when {@link #kind()} is STATUS (1 invalid, 2 closed, 3 failed). */
+        /** The ext_plugin_guest_call status when {@link #kind()} is STATUS (1 invalid, 2 closed, 3 failed). */
         public int status() {
             return status;
         }
@@ -260,7 +260,7 @@ public final class WebViewPluginHost {
             }
             int status = message.optInt("status", 3);
             if (status != 0) {
-                future.completeExceptionally(new Failure(Failure.Kind.STATUS, "ext_plugin_call status " + status, status));
+                future.completeExceptionally(new Failure(Failure.Kind.STATUS, "ext_plugin_guest_call status " + status, status));
             } else {
                 future.complete(message.optString("frame", "").getBytes(StandardCharsets.UTF_8));
             }

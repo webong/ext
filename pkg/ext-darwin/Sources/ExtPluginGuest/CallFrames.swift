@@ -1,7 +1,7 @@
 import Foundation
 
 /// Progress events and reverse calls (docs/plugin-guest-frames.md). They need a connection that
-/// carries frames, which `JSONLine` provides; on any other transport (the `ext_plugin_*` C ABI,
+/// carries frames, which `JSONLine` provides; on any other transport (the `ext_plugin_guest_*` C ABI,
 /// a reactor, `Guest.invoke`) reporting is `unsupported` and there is no reverse caller.
 extension Call {
     /// Reports a progress event to the host while the call runs. The events reach the host in the

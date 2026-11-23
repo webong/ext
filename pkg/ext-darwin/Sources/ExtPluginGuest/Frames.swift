@@ -250,8 +250,8 @@ enum Frames {
 
     /// Parses a frame the way the engine reads one: strictly, then into values.
     static func decode(_ frame: [UInt8]) throws -> JSONValue {
-        let status = frame.withUnsafeBufferPointer { ext_host_validate_json($0.baseAddress, $0.count) }
-        guard status == ext_status(EXT_OK) else { throw Violation() }
+        let status = frame.withUnsafeBufferPointer { ext_plugin_host_validate_json($0.baseAddress, $0.count) }
+        guard status == ext_plugin_status(EXT_PLUGIN_OK) else { throw Violation() }
         do { return try JSONValue.parse(frame) } catch { throw Violation() }
     }
 

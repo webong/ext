@@ -66,10 +66,10 @@ static int frame_valid(const char *section, const char *text) {
   if (!strcmp(section, "progress")) {
     ext_progress_event event;
     yyjson_val *parent;
-    ok = ext_progress_frame(root, &event, &parent) == EXT_OK;
+    ok = ext_progress_frame(root, &event, &parent) == EXT_PLUGIN_OK;
   } else {
     ext_reverse_request request;
-    ok = ext_reverse_request_frame(root, &request) == EXT_OK;
+    ok = ext_reverse_request_frame(root, &request) == EXT_PLUGIN_OK;
   }
   yyjson_doc_free(doc);
   return ok;
@@ -160,7 +160,7 @@ static void test_model(const char *dir) {
     const char *text = str(c, "request");
     yyjson_doc *r = ext_parse((const uint8_t *)text, strlen(text));
     int64_t deadline;
-    int ok = r && ext_request(yyjson_doc_get_root(selection), yyjson_doc_get_root(r), &deadline) == EXT_OK;
+    int ok = r && ext_request(yyjson_doc_get_root(selection), yyjson_doc_get_root(r), &deadline) == EXT_PLUGIN_OK;
     int want = yyjson_get_bool(yyjson_obj_get(c, "valid"));
     if (ok != want) {
       mismatch("request", c, ok ? "should be refused" : "should be accepted");
@@ -185,15 +185,15 @@ static void test_model(const char *dir) {
 
 /* route.resolve with sandbox boundaries (route-cases.json): the outcome of each
  * case, and for ok the whole route. */
-static ext_status route_outcome(const char *name) {
+static ext_plugin_status route_outcome(const char *name) {
   if (!strcmp(name, "ok"))
-    return EXT_OK;
+    return EXT_PLUGIN_OK;
   if (!strcmp(name, "invalid"))
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   if (!strcmp(name, "denied"))
-    return EXT_DENIED;
+    return EXT_PLUGIN_DENIED;
   if (!strcmp(name, "unsupported"))
-    return EXT_UNSUPPORTED;
+    return EXT_PLUGIN_UNSUPPORTED;
   fprintf(stderr, "unknown outcome %s\n", name);
   abort();
 }
@@ -203,22 +203,22 @@ static void test_routes(const char *dir) {
   size_t i, n, counts[4] = {0};
   assert(yyjson_is_arr(cases) && yyjson_arr_size(cases) >= 15);
   yyjson_arr_foreach(cases, i, n, c) {
-    ext_status want = route_outcome(str(c, "outcome"));
+    ext_plugin_status want = route_outcome(str(c, "outcome"));
     size_t input_len;
     char *input = yyjson_val_write(yyjson_obj_get(c, "input"), 0, &input_len);
     assert(input);
-    ext_buffer out = {0};
-    ext_status got = ext_engine_call("route.resolve", (const uint8_t *)input, input_len, &out);
+    ext_plugin_buffer out = {0};
+    ext_plugin_status got = ext_plugin_call("route.resolve", (const uint8_t *)input, input_len, &out);
     if (got != want) {
-      mismatch("route", c, ext_host_status_string(got));
-    } else if (got == EXT_OK) {
+      mismatch("route", c, ext_plugin_host_status_string(got));
+    } else if (got == EXT_PLUGIN_OK) {
       yyjson_doc *route = yyjson_read((const char *)out.data, out.len, 0);
       if (!route || !yyjson_equals(yyjson_doc_get_root(route), yyjson_obj_get(c, "route")))
         mismatch("route", c, "route differs");
       yyjson_doc_free(route);
     }
-    counts[want == EXT_OK ? 0 : want == EXT_INVALID ? 1 : want == EXT_DENIED ? 2 : 3]++;
-    ext_buffer_free(&out);
+    counts[want == EXT_PLUGIN_OK ? 0 : want == EXT_PLUGIN_INVALID ? 1 : want == EXT_PLUGIN_DENIED ? 2 : 3]++;
+    ext_plugin_buffer_free(&out);
     free(input);
   }
   assert(!failures);

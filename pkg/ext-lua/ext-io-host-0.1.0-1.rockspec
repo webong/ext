@@ -1,6 +1,6 @@
 -- LuaRocks package of the Lua host SDK (ext_io.host): an opt-in part beside the pure-Lua guest
--- (ext-io), with one C module that loads the C engine's shared library (libext_host) at run time.
--- It is built against the Lua headers and lib/plugin/include/ext_host.h, so it builds from a
+-- (ext-io), with one C module that loads the C engine's shared library (libext_plugin_host) at run time.
+-- It is built against the Lua headers and lib/plugin/include/ext_plugin_host.h, so it builds from a
 -- checkout of the repository. `luarocks make ext-io-host-0.1.0-1.rockspec` here installs it.
 rockspec_format = "3.0"
 package = "ext-io-host"
@@ -15,7 +15,7 @@ description = {
   detailed = [[
     Runs ext plugins (JSON-line processes and C ABI libraries) from Lua through the ext C engine,
     which does admission, handshake checks, validation, deadlines and the session lifecycle. Needs
-    the engine's shared library, libext_host, from an ext-plugin release or a CMake build.
+    the engine's shared library, libext_plugin_host, from an ext-plugin release or a CMake build.
   ]],
   homepage = "https://github.com/webong/ext/tree/main/pkg/ext-lua",
   issues_url = "https://github.com/webong/ext/issues",

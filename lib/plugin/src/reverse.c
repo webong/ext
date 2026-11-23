@@ -2,14 +2,14 @@
 #include <stdlib.h>
 #include <string.h>
 
-ext_status ext_reverse_request_frame(yyjson_val *frame,
+ext_plugin_status ext_reverse_request_frame(yyjson_val *frame,
                                      ext_reverse_request *request) {
   *request = (ext_reverse_request){0};
   if (!EXT_FIELDS(frame, "frame", "apiVersion", "id", "parent", "contract",
                   "operation", "deadline", "payload") ||
       !yyjson_equals_str(yyjson_obj_get(frame, "frame"), "reverse_request") ||
       !yyjson_equals_str(yyjson_obj_get(frame, "apiVersion"), "ext.plugin/v1"))
-    return EXT_PROTOCOL;
+    return EXT_PLUGIN_PROTOCOL;
   yyjson_val *id = yyjson_obj_get(frame, "id"),
              *parent = yyjson_obj_get(frame, "parent"),
              *contract = yyjson_obj_get(frame, "contract"),
@@ -20,13 +20,13 @@ ext_status ext_reverse_request_frame(yyjson_val *frame,
     parent = NULL;
   if (parent && (!yyjson_is_str(parent) ||
                  (yyjson_get_len(parent) && !ext_text(parent, 1, 0))))
-    return EXT_PROTOCOL;
+    return EXT_PLUGIN_PROTOCOL;
   if (parent && !yyjson_get_len(parent))
     parent = NULL;
   int64_t deadline = ext_deadline_ms(yyjson_obj_get(frame, "deadline"));
   if (!ext_text(id, 1, 0) || !EXT_FIELDS(contract, "name", "version") ||
       !ext_ref(contract) || !ext_text(operation, 0, 0) || deadline < 0)
-    return EXT_PROTOCOL;
+    return EXT_PLUGIN_PROTOCOL;
   request->id = id;
   request->parent = parent;
   request->contract = contract;
@@ -34,7 +34,7 @@ ext_status ext_reverse_request_frame(yyjson_val *frame,
   request->payload = yyjson_obj_get(frame, "payload");
   request->deadline = yyjson_obj_get(frame, "deadline");
   request->deadline_ms = deadline;
-  return EXT_OK;
+  return EXT_PLUGIN_OK;
 }
 
 static yyjson_mut_val *begin(yyjson_mut_doc *doc, const char *id,
@@ -91,7 +91,7 @@ char *ext_reverse_answer(const char *id, size_t id_len, uint32_t kind,
                          const uint8_t *data, size_t n, size_t max_payload,
                          size_t *len) {
   char *line = NULL;
-  if (kind == EXT_HOST_REVERSE_PUBLIC_ERROR) {
+  if (kind == EXT_PLUGIN_HOST_REVERSE_PUBLIC_ERROR) {
     /* A handler's own error reaches the plugin unchanged when a peer would accept
      * it; one it would reject (an invalid code, an over-long message, a retry
      * hint out of range) is a failure, so one handler bug cannot end the
@@ -119,7 +119,7 @@ char *ext_reverse_answer(const char *id, size_t id_len, uint32_t kind,
     yyjson_doc_free(doc);
     return line;
   }
-  if (kind != EXT_HOST_REVERSE_PAYLOAD)
+  if (kind != EXT_PLUGIN_HOST_REVERSE_PAYLOAD)
     return ext_reverse_failure(id, id_len, len);
   static const uint8_t null_payload[] = {'n', 'u', 'l', 'l'};
   if (!n) {
@@ -141,7 +141,7 @@ char *ext_reverse_answer(const char *id, size_t id_len, uint32_t kind,
     yyjson_mut_doc_free(doc);
   yyjson_doc_free(payload);
   /* An answer too large to send becomes a refusal, never a truncation. */
-  if (line && *len > EXT_HOST_MAX_FRAME) {
+  if (line && *len > EXT_PLUGIN_HOST_MAX_FRAME) {
     free(line);
     return ext_reverse_refusal(id, id_len, EXT_REVERSE_TOO_LARGE, len);
   }

@@ -265,14 +265,14 @@ TypeScript, Swift and Java bindings that follow it, is listed in
 [engine parity](plugin-engine-parity.md).
 
 **Progress in the C engine (c-parity, stage 2).** A host that owns the child's
-pipes (`EXT_BACKEND_JSONLINE_PROCESS*`) carries `progress` frames. Its `exchange`
+pipes (`EXT_PLUGIN_BACKEND_JSONLINE_PROCESS*`) carries `progress` frames. Its `exchange`
 reads lines until the response and validates each tagged frame with the rules of
 `plugin.ProgressFrame`; the parent must be the call in flight and the request must
 carry a `progress` rate, which is how the Go client decides that a call declared
 progress. The shared token bucket (`src/progress.c`) limits what a plugin sends,
-markers are folded into the next count, and `ext_host_call_progress` hands what
+markers are folded into the next count, and `ext_plugin_host_call_progress` hands what
 passes to the caller as the JSON of one `Progress`, ending with a marker for events
-never reported. A violation fails the session with `EXT_PROTOCOL`, which the Go
+never reported. A violation fails the session with `EXT_PLUGIN_PROTOCOL`, which the Go
 facade reports as `plugin.ErrProtocol`; an untagged line the strict parser refuses
 is classed as the Go client classes it (not JSON or not an object: a violation; a
 duplicate key or unknown field: an invalid response; a response naming another
@@ -282,12 +282,12 @@ refused a descriptor that declared progress.
 **Call-scoped reverse calls in the C engine (c-parity, stage 3).** The same read
 loop serves a `reverse_request` that names the call in flight. Admission runs in
 the order of `Session.admitReverse`: a frame that does not decode or validate, or a
-`parent` that is not the live call, fails the session (`EXT_PROTOCOL`); a host
+`parent` that is not the live call, fails the session (`EXT_PLUGIN_PROTOCOL`); a host
 with no services answers every request `reverse_unavailable`; then
 `reverse_undeclared`, `too_large` (the payload as written compactly), `expired`.
 The engine owns those checks, the deadline chain (the earliest of the plugin's
 deadline, the call's and the services' timeout) and the shape of every answer;
-the binding supplies `authorize` and `handle` through `ext_host_set_services`.
+the binding supplies `authorize` and `handle` through `ext_plugin_host_set_services`.
 Both hooks receive the parent call's options, so a binding derives the handler's
 context from the caller's: values (nested hosting finds its upstream through
 `plugin.ReverseFrom`), cancellation, and a deadline no later than the call's. A
@@ -315,7 +315,7 @@ it holds the host.
 **Endpoints in the C engine (c-parity, stage 5).** The validation rules of
 `contract/endpoint` (`Decode`, `Check` and `Validate`) are the engine services
 `endpoint.check` and `endpoint.validate`, so a non-Go host admits an endpoint by the
-same rules. An outcome is a status (`EXT_INVALID`, `EXT_DENIED`, `EXT_EXPIRED`) and
+same rules. An outcome is a status (`EXT_PLUGIN_INVALID`, `EXT_PLUGIN_DENIED`, `EXT_PLUGIN_EXPIRED`) and
 never text, which keeps the rule that no error carries a part of the endpoint; the
 grant (a lifetime tied to the session, one-time tokens, dialing) is the binding's and
 stays in Go. `testdata/v1/endpoint-cases.json` is the shared statement of the
@@ -326,16 +326,16 @@ parser also accepts a few other spellings.
 **Extension backends in the C engine (c-parity, stage 6).** A backend that owns its
 own transport (`Open` with `Connect`: the in-process, JSON-line, HashiCorp, WASI and
 native Go backends) reads its plugin's frames itself, so it hands them to the engine
-instead of the engine reading them. A host created with `EXT_BACKEND_FRAMES` takes a
-progress frame with `ext_host_backend_progress` and a reverse request in two steps:
-`ext_host_backend_reverse_admit` refuses it with the stable code, or returns a ticket
-that `ext_host_backend_reverse_run` executes on any thread (a reader is never held
+instead of the engine reading them. A host created with `EXT_PLUGIN_BACKEND_FRAMES` takes a
+progress frame with `ext_plugin_host_backend_progress` and a reverse request in two steps:
+`ext_plugin_host_backend_reverse_admit` refuses it with the stable code, or returns a ticket
+that `ext_plugin_host_backend_reverse_run` executes on any thread (a reader is never held
 while a hook runs). The decisions are the engine's, as they are for a process it
 reads: validation, the rate limit, the admission order, the deadline chain, the shape
 of every answer, and cancellation when the call ends or the host closes. A call is
 registered with the engine for as long as its invoke callback runs, so frames find it
 by id and the call waits for the hooks of its requests. A violation returns
-`EXT_PROTOCOL`, which the backend reports as it reports any failed connection. A
+`EXT_PLUGIN_PROTOCOL`, which the backend reports as it reports any failed connection. A
 backend that cannot carry frames (HashiCorp, native Go, the C ABI and the WebAssembly
 reactor) never sends one, as under the Go session; a WebAssembly command speaks JSON
 lines through the same client as a process and does carry them. The Go facade supplies what the pure-Go session supplies a backend: the

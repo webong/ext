@@ -148,7 +148,7 @@ export function loadEngine(addonPath){
  }
  const registryHandle=Symbol('registry'),hostHandle=Symbol('host');
  const end=(value,name)=>({name:text(value?.name,name+'.name'),version:text(value?.version,name+'.version'),operation:text(value?.operation,name+'.operation')});
- /** A guest registry (ext_registry_* in ext_host.h): a reverse call one guest makes is
+ /** A guest registry (ext_registry_* in ext_plugin_host.h): a reverse call one guest makes is
   * served by a forward call to another guest, along an edge declared with route. An
   * undeclared edge is refused with reverse_undeclared, an unregistered target with
   * reverse_unavailable, and a call that would re-enter a host already on its call chain
@@ -236,7 +236,7 @@ export function loadEngine(addonPath){
    upgrade(source,options){return this.#call('upgrade',source,options?.preserveExecutable?1:0);}
    replace(source,options){return this.#call('replace',source,options?.preserveExecutable?1:0);}
    // Installs or upgrades from the archive file `archive` (zip, tar.gz or plain tar), which must have the
-   // SHA-256 `sha256` (see ext_store_install_archive in ext_host.h); resolves with the installed plugin.json.
+   // SHA-256 `sha256` (see ext_plugin_store_install_archive in ext_plugin_host.h); resolves with the installed plugin.json.
    // `id`, when given, is the package the archive must hold. The store's maxArchiveBytes bounds the file.
    installArchive(archive,sha256,options){
      if(typeof sha256!=='string')return Promise.reject(new TypeError('sha256 must be a string'));
@@ -262,12 +262,12 @@ export function loadEngine(addonPath){
    async remove(id){await this.#call('remove',id);}
    load(id){return this.#call('load',id);}
    async ids(){return JSON.parse(await this.#call('ids',''));}
-   // Whole-root reports; each resolves with the engine's JSON parsed (see ext_store_list in ext_host.h).
+   // Whole-root reports; each resolves with the engine's JSON parsed (see ext_plugin_store_list in ext_plugin_host.h).
    async list(){return JSON.parse(await this.#call('list',''));}
    async verify(){return JSON.parse(await this.#call('verify',''));}
    async listUnverified(){return JSON.parse(await this.#call('listUnverified',''));}
-   // The entrypoint a reviewed package offers for a protocol on a platform (see ext_store_resolve_entrypoint in
-   // ext_host.h); resolves with {name,artifact,path,digest}. `os` and `arch` are Go's GOOS and GOARCH names and
+   // The entrypoint a reviewed package offers for a protocol on a platform (see ext_plugin_store_resolve_entrypoint in
+   // ext_plugin_host.h); resolves with {name,artifact,path,digest}. `os` and `arch` are Go's GOOS and GOARCH names and
    // default to the platform the engine was built for.
    async resolveEntrypoint(request){
      const {id,contract,version,protocol,reviewedDigest,os,arch}=request??{};

@@ -96,19 +96,19 @@ static char *narrow(const wchar_t *w) {
   }
   return s;
 }
-/* A name that is not there is EXT_MISSING, any other failure EXT_IO, as on POSIX. */
-static ext_status win_error(DWORD error) {
+/* A name that is not there is EXT_PLUGIN_MISSING, any other failure EXT_PLUGIN_IO, as on POSIX. */
+static ext_plugin_status win_error(DWORD error) {
   return error == ERROR_FILE_NOT_FOUND || error == ERROR_PATH_NOT_FOUND
-             ? EXT_MISSING
-             : EXT_IO;
+             ? EXT_PLUGIN_MISSING
+             : EXT_PLUGIN_IO;
 }
 /* Attributes of path without following a link. */
-static ext_status attributes(const wchar_t *path, DWORD *out) {
+static ext_plugin_status attributes(const wchar_t *path, DWORD *out) {
   DWORD a = GetFileAttributesW(path);
   if (a == INVALID_FILE_ATTRIBUTES)
     return win_error(GetLastError());
   *out = a;
-  return EXT_OK;
+  return EXT_PLUGIN_OK;
 }
 /* Joins root and a slash-separated relative path, with backslashes. */
 static wchar_t *join(const wchar_t *root, const char *relative) {
@@ -176,30 +176,30 @@ static nt_create_file nt_create(void) {
   return fn;
 }
 /* The status of a failed NtCreateFile as ours: a name that is not there is
- * EXT_MISSING, as on POSIX, and a name Windows will not take is EXT_INVALID. */
-static ext_status nt_error(LONG status) {
+ * EXT_PLUGIN_MISSING, as on POSIX, and a name Windows will not take is EXT_PLUGIN_INVALID. */
+static ext_plugin_status nt_error(LONG status) {
   switch ((ULONG)status) {
   case 0xC000000Fu: /* STATUS_NO_SUCH_FILE */
   case 0xC0000034u: /* STATUS_OBJECT_NAME_NOT_FOUND */
   case 0xC000003Au: /* STATUS_OBJECT_PATH_NOT_FOUND */
-    return EXT_MISSING;
+    return EXT_PLUGIN_MISSING;
   case 0xC0000033u: /* STATUS_OBJECT_NAME_INVALID */
   case 0xC0000039u: /* STATUS_OBJECT_PATH_INVALID */
   case 0xC000003Bu: /* STATUS_OBJECT_PATH_SYNTAX_BAD */
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   default:
-    return EXT_IO;
+    return EXT_PLUGIN_IO;
   }
 }
 /* Opens the one component name below dir, without following a link. The handle
  * can read the entry or, for a directory, list it. */
-static ext_status open_child(HANDLE dir, const wchar_t *name, HANDLE *out) {
+static ext_plugin_status open_child(HANDLE dir, const wchar_t *name, HANDLE *out) {
   nt_create_file create = nt_create();
   size_t n = wcslen(name);
   if (!create)
-    return EXT_IO;
+    return EXT_PLUGIN_IO;
   if (!n || n > NT_MAX_COMPONENT)
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   nt_name text = {(USHORT)(n * sizeof(wchar_t)), (USHORT)(n * sizeof(wchar_t)),
                   (PWSTR)name};
   nt_object object = {sizeof(object), dir, &text, NT_CASE_INSENSITIVE, NULL, NULL};
@@ -213,21 +213,21 @@ static ext_status open_child(HANDLE dir, const wchar_t *name, HANDLE *out) {
   if (status < 0)
     return nt_error(status);
   *out = h;
-  return EXT_OK;
+  return EXT_PLUGIN_OK;
 }
 /* Whether the open handle is a directory. A reparse point (a symbolic link, a
- * junction, a mount point) is EXT_INVALID. */
-static ext_status classify(HANDLE h, int *directory) {
+ * junction, a mount point) is EXT_PLUGIN_INVALID. */
+static ext_plugin_status classify(HANDLE h, int *directory) {
   BY_HANDLE_FILE_INFORMATION info;
   if (!GetFileInformationByHandle(h, &info))
-    return EXT_IO;
+    return EXT_PLUGIN_IO;
   if (info.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT)
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   *directory = (info.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
-  return EXT_OK;
+  return EXT_PLUGIN_OK;
 }
 /* Opens the root, which must be a plain directory. */
-static ext_status open_root(const ext_fs *fs, HANDLE *out) {
+static ext_plugin_status open_root(const ext_fs *fs, HANDLE *out) {
   HANDLE h = CreateFileW(fs->root, FILE_LIST_DIRECTORY | FILE_READ_ATTRIBUTES,
                          FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
                          NULL, OPEN_EXISTING,
@@ -236,54 +236,54 @@ static ext_status open_root(const ext_fs *fs, HANDLE *out) {
   if (h == INVALID_HANDLE_VALUE)
     return win_error(GetLastError());
   int directory = 0;
-  ext_status s = classify(h, &directory);
+  ext_plugin_status s = classify(h, &directory);
   if (!s && !directory)
-    s = EXT_INVALID;
+    s = EXT_PLUGIN_INVALID;
   if (s) {
     CloseHandle(h);
     return s;
   }
   *out = h;
-  return EXT_OK;
+  return EXT_PLUGIN_OK;
 }
 /* One component of a portable relative path, as UTF-16. A backslash or a colon
  * would name another place on Windows (a parent, a stream), and a control
  * character is not part of a name. */
-static ext_status component(const char *part, size_t n, wchar_t **out) {
+static ext_plugin_status component(const char *part, size_t n, wchar_t **out) {
   if (!n || (n == 1 && part[0] == '.') || (n == 2 && part[0] == '.' && part[1] == '.'))
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   for (size_t i = 0; i < n; i++) {
     unsigned char c = (unsigned char)part[i];
     if (c == '\\' || c == ':' || c < 0x20)
-      return EXT_INVALID;
+      return EXT_PLUGIN_INVALID;
   }
   char *copy = malloc(n + 1);
   if (!copy)
-    return EXT_NOMEM;
+    return EXT_PLUGIN_NOMEM;
   memcpy(copy, part, n);
   copy[n] = 0;
   wchar_t *wide = widen(copy);
   free(copy);
   if (!wide)
-    return EXT_INVALID; /* not UTF-8 */
+    return EXT_PLUGIN_INVALID; /* not UTF-8 */
   *out = wide;
-  return EXT_OK;
+  return EXT_PLUGIN_OK;
 }
 /* Opens the entry at the portable relative path below the root ("" is the root
  * itself) and says whether it is a directory. Every directory above it is a
  * plain one, opened from the one before; the caller closes the handle. A link
- * at any component, or a non-directory above the last, is EXT_INVALID. */
-static ext_status open_below(const ext_fs *fs, const char *relative, HANDLE *out,
+ * at any component, or a non-directory above the last, is EXT_PLUGIN_INVALID. */
+static ext_plugin_status open_below(const ext_fs *fs, const char *relative, HANDLE *out,
                              int *directory) {
   HANDLE current = INVALID_HANDLE_VALUE;
-  ext_status s = open_root(fs, &current);
+  ext_plugin_status s = open_root(fs, &current);
   *directory = 1;
   const char *part = relative;
   while (!s && *part) {
     const char *end = strchr(part, '/');
     size_t n = end ? (size_t)(end - part) : strlen(part);
     if (!*directory || (end && !end[1])) { /* a file with something below it, or a trailing slash */
-      s = EXT_INVALID;
+      s = EXT_PLUGIN_INVALID;
       break;
     }
     wchar_t *name = NULL;
@@ -306,18 +306,18 @@ static ext_status open_below(const ext_fs *fs, const char *relative, HANDLE *out
     return s;
   }
   *out = current;
-  return EXT_OK;
+  return EXT_PLUGIN_OK;
 }
 /* SHA-256 of the file behind an open handle. */
-static ext_status hash_handle(HANDLE h, uint8_t out[32]) {
+static ext_plugin_status hash_handle(HANDLE h, uint8_t out[32]) {
   ext_hash hash;
   ext_hash_init(&hash);
   uint8_t buffer[65536];
-  ext_status s = EXT_OK;
+  ext_plugin_status s = EXT_PLUGIN_OK;
   for (;;) {
     DWORD n = 0;
     if (!ReadFile(h, buffer, sizeof(buffer), &n, NULL)) {
-      s = EXT_IO;
+      s = EXT_PLUGIN_IO;
       break;
     }
     if (!n)
@@ -329,21 +329,21 @@ static ext_status hash_handle(HANDLE h, uint8_t out[32]) {
 }
 /* The names in the directory behind dir, except "." and "..", read through the
  * handle and so from the directory the handle was opened on. */
-static ext_status read_names(HANDLE dir, wchar_t ***out, size_t *count) {
+static ext_plugin_status read_names(HANDLE dir, wchar_t ***out, size_t *count) {
   enum { BUFFER = 32768 };
   *out = NULL;
   *count = 0;
   uint8_t *buffer = malloc(BUFFER);
   if (!buffer)
-    return EXT_NOMEM;
+    return EXT_PLUGIN_NOMEM;
   wchar_t **names = NULL;
   size_t used = 0, cap = 0;
-  ext_status s = EXT_OK;
+  ext_plugin_status s = EXT_PLUGIN_OK;
   FILE_INFO_BY_HANDLE_CLASS what = FileFullDirectoryRestartInfo;
   while (!s) {
     if (!GetFileInformationByHandleEx(dir, what, buffer, BUFFER)) {
       if (GetLastError() != ERROR_NO_MORE_FILES)
-        s = EXT_IO;
+        s = EXT_PLUGIN_IO;
       break;
     }
     what = FileFullDirectoryInfo;
@@ -357,7 +357,7 @@ static ext_status read_names(HANDLE dir, wchar_t ***out, size_t *count) {
           size_t next = cap ? cap * 2 : 16;
           wchar_t **grown = realloc(names, next * sizeof(*names));
           if (!grown) {
-            s = EXT_NOMEM;
+            s = EXT_PLUGIN_NOMEM;
             break;
           }
           names = grown;
@@ -365,7 +365,7 @@ static ext_status read_names(HANDLE dir, wchar_t ***out, size_t *count) {
         }
         wchar_t *name = malloc((n + 1) * sizeof(*name));
         if (!name) {
-          s = EXT_NOMEM;
+          s = EXT_PLUGIN_NOMEM;
           break;
         }
         memcpy(name, entry->FileName, n * sizeof(*name));
@@ -386,29 +386,29 @@ static ext_status read_names(HANDLE dir, wchar_t ***out, size_t *count) {
   }
   *out = names;
   *count = used;
-  return EXT_OK;
+  return EXT_PLUGIN_OK;
 }
 /* Visits every regular file below the directory behind dir. Each entry is
  * opened from dir, so what is hashed or entered is what dir held, never what a
  * path would lead to now. */
-static ext_status walk(HANDLE dir, const char *prefix, ext_fs_visit visit,
+static ext_plugin_status walk(HANDLE dir, const char *prefix, ext_fs_visit visit,
                        void *user, unsigned depth) {
   if (depth > 1024)
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   wchar_t **names = NULL;
   size_t count = 0;
-  ext_status s = read_names(dir, &names, &count);
+  ext_plugin_status s = read_names(dir, &names, &count);
   for (size_t i = 0; i < count && !s; i++) {
     char *name = narrow(names[i]);
     if (!name) {
-      s = EXT_INVALID;
+      s = EXT_PLUGIN_INVALID;
       break;
     }
     size_t base = strlen(prefix), n = strlen(name);
     char *path = malloc(base + n + 2);
     if (!path) {
       free(name);
-      s = EXT_NOMEM;
+      s = EXT_PLUGIN_NOMEM;
       break;
     }
     memcpy(path, prefix, base);
@@ -428,7 +428,7 @@ static ext_status walk(HANDLE dir, const char *prefix, ext_fs_visit visit,
         CloseHandle(child);
       } else if (strchr(path, '\r') || strchr(path, '\n')) {
         CloseHandle(child);
-        s = EXT_INVALID;
+        s = EXT_PLUGIN_INVALID;
       } else {
         uint8_t sum[32];
         s = hash_handle(child, sum);
@@ -445,18 +445,18 @@ static ext_status walk(HANDLE dir, const char *prefix, ext_fs_visit visit,
   return s;
 }
 
-ext_status ext_fs_open(const char *root, ext_fs **out) {
+ext_plugin_status ext_fs_open(const char *root, ext_fs **out) {
   if (!root || !*root)
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   wchar_t *wide = widen(root);
   if (!wide)
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   DWORD n = GetFullPathNameW(wide, 0, NULL, NULL);
   wchar_t *full = n ? malloc((n + 8) * sizeof(*full)) : NULL;
   if (!full || !GetFullPathNameW(wide, n, full, NULL)) {
     free(wide);
     free(full);
-    return EXT_IO;
+    return EXT_PLUGIN_IO;
   }
   free(wide);
   size_t length = wcslen(full);
@@ -481,11 +481,11 @@ ext_status ext_fs_open(const char *root, ext_fs **out) {
     free(full);
   }
   if (!prefixed)
-    return EXT_NOMEM;
+    return EXT_PLUGIN_NOMEM;
   DWORD a = 0;
-  ext_status s = attributes(prefixed, &a);
+  ext_plugin_status s = attributes(prefixed, &a);
   if (!s && ((a & FILE_ATTRIBUTE_REPARSE_POINT) || !(a & FILE_ATTRIBUTE_DIRECTORY)))
-    s = EXT_INVALID;
+    s = EXT_PLUGIN_INVALID;
   if (s) {
     free(prefixed);
     return s;
@@ -493,7 +493,7 @@ ext_status ext_fs_open(const char *root, ext_fs **out) {
   ext_fs *fs = malloc(sizeof(*fs));
   if (!fs) {
     free(prefixed);
-    return EXT_NOMEM;
+    return EXT_PLUGIN_NOMEM;
   }
   fs->root = prefixed;
   fs->canonical = NULL;
@@ -513,10 +513,10 @@ ext_status ext_fs_open(const char *root, ext_fs **out) {
   if (!fs->canonical) {
     free(fs->root);
     free(fs);
-    return EXT_IO;
+    return EXT_PLUGIN_IO;
   }
   *out = fs;
-  return EXT_OK;
+  return EXT_PLUGIN_OK;
 }
 void ext_fs_close(ext_fs *fs) {
   if (!fs)
@@ -525,45 +525,45 @@ void ext_fs_close(ext_fs *fs) {
   free(fs->canonical);
   free(fs);
 }
-ext_status ext_fs_hash_file(ext_fs *fs, const char *path, uint8_t out[32]) {
+ext_plugin_status ext_fs_hash_file(ext_fs *fs, const char *path, uint8_t out[32]) {
   if (!fs || !path)
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   HANDLE h = INVALID_HANDLE_VALUE;
   int directory = 0;
-  ext_status s = open_below(fs, path, &h, &directory);
+  ext_plugin_status s = open_below(fs, path, &h, &directory);
   if (s)
     return s;
-  s = directory ? EXT_INVALID : hash_handle(h, out);
+  s = directory ? EXT_PLUGIN_INVALID : hash_handle(h, out);
   CloseHandle(h);
   return s;
 }
-ext_status ext_fs_read_file(ext_fs *fs, const char *path, size_t limit,
-                            ext_buffer *out) {
+ext_plugin_status ext_fs_read_file(ext_fs *fs, const char *path, size_t limit,
+                            ext_plugin_buffer *out) {
   if (!fs || !path || !*path || !out || !limit)
-    return EXT_INVALID;
-  *out = (ext_buffer){0};
+    return EXT_PLUGIN_INVALID;
+  *out = (ext_plugin_buffer){0};
   HANDLE h = INVALID_HANDLE_VALUE;
   int directory = 0;
-  ext_status s = open_below(fs, path, &h, &directory);
+  ext_plugin_status s = open_below(fs, path, &h, &directory);
   if (s)
     return s;
   LARGE_INTEGER size;
   size.QuadPart = 0;
   if (directory || !GetFileSizeEx(h, &size) || size.QuadPart < 0 ||
       (uint64_t)size.QuadPart > limit)
-    s = EXT_INVALID;
+    s = EXT_PLUGIN_INVALID;
   uint8_t *data = NULL;
   if (!s) {
     data = malloc(size.QuadPart ? (size_t)size.QuadPart : 1);
     if (!data)
-      s = EXT_NOMEM;
+      s = EXT_PLUGIN_NOMEM;
   }
   size_t used = 0;
   while (!s && used < (size_t)size.QuadPart) {
     DWORD n = 0;
     DWORD want = (size_t)size.QuadPart - used > 65536 ? 65536 : (DWORD)((size_t)size.QuadPart - used);
     if (!ReadFile(h, data + used, want, &n, NULL) || !n)
-      s = EXT_IO;
+      s = EXT_PLUGIN_IO;
     else
       used += n;
   }
@@ -571,27 +571,27 @@ ext_status ext_fs_read_file(ext_fs *fs, const char *path, size_t limit,
     uint8_t extra;
     DWORD n = 0;
     if (!ReadFile(h, &extra, 1, &n, NULL))
-      s = EXT_IO;
+      s = EXT_PLUGIN_IO;
     else if (n)
-      s = EXT_INVALID;
+      s = EXT_PLUGIN_INVALID;
   }
   CloseHandle(h);
   if (s)
     free(data);
   else
-    *out = (ext_buffer){data, used};
+    *out = (ext_plugin_buffer){data, used};
   return s;
 }
-ext_status ext_fs_walk(ext_fs *fs, const char *path, ext_fs_visit visit,
+ext_plugin_status ext_fs_walk(ext_fs *fs, const char *path, ext_fs_visit visit,
                        void *user) {
   if (!fs || !path || !visit)
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   HANDLE h = INVALID_HANDLE_VALUE;
   int directory = 0;
-  ext_status s = open_below(fs, path, &h, &directory);
+  ext_plugin_status s = open_below(fs, path, &h, &directory);
   if (s)
     return s;
-  s = directory ? walk(h, "", visit, user, 0) : EXT_INVALID;
+  s = directory ? walk(h, "", visit, user, 0) : EXT_PLUGIN_INVALID;
   CloseHandle(h);
   return s;
 }
@@ -624,13 +624,13 @@ static int valid_rel(const char *path) {
     part = end + 1;
   }
 }
-static ext_status split_rel(const char *path, char **storage, const char **parent,
+static ext_plugin_status split_rel(const char *path, char **storage, const char **parent,
                             const char **leaf) {
   if (!valid_rel(path))
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   char *copy = strdup(path);
   if (!copy)
-    return EXT_NOMEM;
+    return EXT_PLUGIN_NOMEM;
   char *slash = strrchr(copy, '/');
   if (slash) {
     *slash = 0;
@@ -641,21 +641,21 @@ static ext_status split_rel(const char *path, char **storage, const char **paren
     *leaf = copy;
   }
   *storage = copy;
-  return EXT_OK;
+  return EXT_PLUGIN_OK;
 }
 static int is_missing(DWORD error) {
   return error == ERROR_FILE_NOT_FOUND || error == ERROR_PATH_NOT_FOUND;
 }
 /* Checks every directory of relative below root is a plain one, creating the
- * missing ones when create is set. EXT_NOT_FOUND when one is missing and create
- * is not set, EXT_INVALID for a link or a file. */
-static ext_status prefixes(const wchar_t *root, const char *relative, int create) {
+ * missing ones when create is set. EXT_PLUGIN_NOT_FOUND when one is missing and create
+ * is not set, EXT_PLUGIN_INVALID for a link or a file. */
+static ext_plugin_status prefixes(const wchar_t *root, const char *relative, int create) {
   if (!*relative)
-    return EXT_OK;
+    return EXT_PLUGIN_OK;
   char *copy = strdup(relative);
   if (!copy)
-    return EXT_NOMEM;
-  ext_status s = EXT_OK;
+    return EXT_PLUGIN_NOMEM;
+  ext_plugin_status s = EXT_PLUGIN_OK;
   char *end = copy;
   for (;;) {
     char *slash = strchr(end, '/');
@@ -665,24 +665,24 @@ static ext_status prefixes(const wchar_t *root, const char *relative, int create
     if (slash)
       *slash = '/';
     if (!path) {
-      s = EXT_NOMEM;
+      s = EXT_PLUGIN_NOMEM;
       break;
     }
     if (create && !CreateDirectoryW(path, NULL) &&
         GetLastError() != ERROR_ALREADY_EXISTS) {
       free(path);
-      s = EXT_IO;
+      s = EXT_PLUGIN_IO;
       break;
     }
     DWORD a = GetFileAttributesW(path);
     DWORD error = a == INVALID_FILE_ATTRIBUTES ? GetLastError() : 0;
     free(path);
     if (a == INVALID_FILE_ATTRIBUTES) {
-      s = is_missing(error) ? EXT_NOT_FOUND : EXT_IO;
+      s = is_missing(error) ? EXT_PLUGIN_NOT_FOUND : EXT_PLUGIN_IO;
       break;
     }
     if ((a & FILE_ATTRIBUTE_REPARSE_POINT) || !(a & FILE_ATTRIBUTE_DIRECTORY)) {
-      s = EXT_INVALID;
+      s = EXT_PLUGIN_INVALID;
       break;
     }
     if (!slash)
@@ -692,22 +692,22 @@ static ext_status prefixes(const wchar_t *root, const char *relative, int create
   free(copy);
   return s;
 }
-ext_status ext_fs_kind_of(ext_fs *fs, const char *path, ext_fs_kind *out) {
+ext_plugin_status ext_fs_kind_of(ext_fs *fs, const char *path, ext_fs_kind *out) {
   if (!fs || !out)
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   char *storage = NULL;
   const char *parent, *leaf;
-  ext_status s = split_rel(path, &storage, &parent, &leaf);
+  ext_plugin_status s = split_rel(path, &storage, &parent, &leaf);
   if (s)
     return s;
   s = prefixes(fs->root, parent, 0);
-  if (s == EXT_NOT_FOUND) {
+  if (s == EXT_PLUGIN_NOT_FOUND) {
     *out = EXT_FS_NONE;
-    s = EXT_OK;
+    s = EXT_PLUGIN_OK;
   } else if (!s) {
     wchar_t *full = join(fs->root, path);
     if (!full)
-      s = EXT_NOMEM;
+      s = EXT_PLUGIN_NOMEM;
     else {
       DWORD a = GetFileAttributesW(full);
       DWORD error = a == INVALID_FILE_ATTRIBUTES ? GetLastError() : 0;
@@ -716,7 +716,7 @@ ext_status ext_fs_kind_of(ext_fs *fs, const char *path, ext_fs_kind *out) {
         if (is_missing(error))
           *out = EXT_FS_NONE;
         else
-          s = EXT_IO;
+          s = EXT_PLUGIN_IO;
       } else if (a & FILE_ATTRIBUTE_REPARSE_POINT)
         *out = EXT_FS_OTHER;
       else if (a & FILE_ATTRIBUTE_DIRECTORY)
@@ -743,29 +743,29 @@ static wchar_t *find_pattern(const wchar_t *directory) {
   memcpy(pattern + length, L"\\*", 3 * sizeof(*pattern));
   return pattern;
 }
-ext_status ext_fs_list(ext_fs *fs, const char *path, ext_fs_entry **out,
+ext_plugin_status ext_fs_list(ext_fs *fs, const char *path, ext_fs_entry **out,
                        size_t *count) {
   if (!fs || !path || !out || !count)
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   *out = NULL;
   *count = 0;
   if (*path && !valid_rel(path))
-    return EXT_INVALID;
-  ext_status s = prefixes(fs->root, path, 0);
+    return EXT_PLUGIN_INVALID;
+  ext_plugin_status s = prefixes(fs->root, path, 0);
   if (s)
     return s;
   wchar_t *directory = join(fs->root, path);
   wchar_t *pattern = directory ? find_pattern(directory) : NULL;
   free(directory);
   if (!pattern)
-    return EXT_NOMEM;
+    return EXT_PLUGIN_NOMEM;
   WIN32_FIND_DATAW data;
   HANDLE find = FindFirstFileExW(pattern, FindExInfoBasic, &data,
                                  FindExSearchNameMatch, NULL,
                                  FIND_FIRST_EX_LARGE_FETCH);
   free(pattern);
   if (find == INVALID_HANDLE_VALUE)
-    return EXT_IO;
+    return EXT_PLUGIN_IO;
   ext_fs_entry *entries = NULL;
   size_t used = 0, cap = 0;
   do {
@@ -775,7 +775,7 @@ ext_status ext_fs_list(ext_fs *fs, const char *path, ext_fs_entry **out,
       size_t next = cap ? cap * 2 : 16;
       ext_fs_entry *grown = realloc(entries, next * sizeof(*entries));
       if (!grown) {
-        s = EXT_NOMEM;
+        s = EXT_PLUGIN_NOMEM;
         break;
       }
       entries = grown;
@@ -783,7 +783,7 @@ ext_status ext_fs_list(ext_fs *fs, const char *path, ext_fs_entry **out,
     }
     char *name = narrow(data.cFileName);
     if (!name) {
-      s = EXT_INVALID;
+      s = EXT_PLUGIN_INVALID;
       break;
     }
     entries[used].name = name;
@@ -796,7 +796,7 @@ ext_status ext_fs_list(ext_fs *fs, const char *path, ext_fs_entry **out,
     used++;
   } while (FindNextFileW(find, &data));
   if (!s && GetLastError() != ERROR_NO_MORE_FILES)
-    s = EXT_IO;
+    s = EXT_PLUGIN_IO;
   FindClose(find);
   if (s) {
     ext_fs_list_free(entries, used);
@@ -804,27 +804,27 @@ ext_status ext_fs_list(ext_fs *fs, const char *path, ext_fs_entry **out,
   }
   *out = entries;
   *count = used;
-  return EXT_OK;
+  return EXT_PLUGIN_OK;
 }
-ext_status ext_fs_mkdirs(ext_fs *fs, const char *path) {
+ext_plugin_status ext_fs_mkdirs(ext_fs *fs, const char *path) {
   if (!fs || !valid_rel(path))
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   return prefixes(fs->root, path, 1);
 }
-ext_status ext_fs_mkdtemp(ext_fs *fs, const char *parent, const char *prefix,
+ext_plugin_status ext_fs_mkdtemp(ext_fs *fs, const char *parent, const char *prefix,
                           char **name) {
   if (!fs || !parent || !prefix || !name || strpbrk(prefix, "/\\:") ||
       strlen(prefix) > 64 || (*parent && !valid_rel(parent)))
-    return EXT_INVALID;
-  ext_status s = prefixes(fs->root, parent, 1);
+    return EXT_PLUGIN_INVALID;
+  ext_plugin_status s = prefixes(fs->root, parent, 1);
   if (s)
     return s;
   size_t parent_length = strlen(parent);
   char candidate[64 + 16 + 1];
   char *relative = malloc(parent_length + 1 + sizeof(candidate));
   if (!relative)
-    return EXT_NOMEM;
-  s = EXT_IO;
+    return EXT_PLUGIN_NOMEM;
+  s = EXT_PLUGIN_IO;
   for (int attempt = 0; attempt < 100; attempt++) {
     uint8_t random[8];
     s = ext_random_bytes(random, sizeof(random));
@@ -845,7 +845,7 @@ ext_status ext_fs_mkdtemp(ext_fs *fs, const char *parent, const char *prefix,
       memcpy(relative, candidate, n + 1);
     wchar_t *full = join(fs->root, relative);
     if (!full) {
-      s = EXT_NOMEM;
+      s = EXT_PLUGIN_NOMEM;
       break;
     }
     BOOL made = CreateDirectoryW(full, NULL);
@@ -853,47 +853,47 @@ ext_status ext_fs_mkdtemp(ext_fs *fs, const char *parent, const char *prefix,
     free(full);
     if (made) {
       *name = strdup(candidate);
-      s = *name ? EXT_OK : EXT_NOMEM;
+      s = *name ? EXT_PLUGIN_OK : EXT_PLUGIN_NOMEM;
       break;
     }
-    s = EXT_IO;
+    s = EXT_PLUGIN_IO;
     if (error != ERROR_ALREADY_EXISTS)
       break;
   }
   free(relative);
   return s;
 }
-static ext_status write_all(HANDLE h, const uint8_t *data, size_t len) {
+static ext_plugin_status write_all(HANDLE h, const uint8_t *data, size_t len) {
   while (len) {
     DWORD want = len > 65536 ? 65536 : (DWORD)len, n = 0;
     if (!WriteFile(h, data, want, &n, NULL) || !n)
-      return EXT_IO;
+      return EXT_PLUGIN_IO;
     data += n;
     len -= n;
   }
-  return EXT_OK;
+  return EXT_PLUGIN_OK;
 }
 /* Creates the file at full, which must not exist. */
-static ext_status create_new(const wchar_t *full, HANDLE *out) {
+static ext_plugin_status create_new(const wchar_t *full, HANDLE *out) {
   HANDLE h = CreateFileW(full, GENERIC_WRITE, 0, NULL, CREATE_NEW,
                          FILE_ATTRIBUTE_NORMAL | FILE_FLAG_SEQUENTIAL_SCAN, NULL);
   if (h == INVALID_HANDLE_VALUE) {
     DWORD error = GetLastError();
-    return error == ERROR_FILE_EXISTS || error == ERROR_ALREADY_EXISTS ? EXT_INVALID
-                                                                       : EXT_IO;
+    return error == ERROR_FILE_EXISTS || error == ERROR_ALREADY_EXISTS ? EXT_PLUGIN_INVALID
+                                                                       : EXT_PLUGIN_IO;
   }
   *out = h;
-  return EXT_OK;
+  return EXT_PLUGIN_OK;
 }
-ext_status ext_fs_copy_file(ext_fs *src, const char *src_path, ext_fs *dst,
+ext_plugin_status ext_fs_copy_file(ext_fs *src, const char *src_path, ext_fs *dst,
                             const char *dst_path, int executable, uint64_t limit,
                             uint8_t sum[32], uint64_t *size) {
   (void)executable;
   if (!src || !dst || !sum || !size || limit > (uint64_t)INT64_MAX - 1)
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   char *from_storage = NULL, *to_storage = NULL;
   const char *from_parent, *from_leaf, *to_parent, *to_leaf;
-  ext_status s = split_rel(src_path, &from_storage, &from_parent, &from_leaf);
+  ext_plugin_status s = split_rel(src_path, &from_storage, &from_parent, &from_leaf);
   if (!s)
     s = split_rel(dst_path, &to_storage, &to_parent, &to_leaf);
   if (!s)
@@ -903,14 +903,14 @@ ext_status ext_fs_copy_file(ext_fs *src, const char *src_path, ext_fs *dst,
   if (!s) {
     from = join(src->root, src_path);
     if (!from)
-      s = EXT_NOMEM;
+      s = EXT_PLUGIN_NOMEM;
   }
   if (!s) {
     DWORD a = GetFileAttributesW(from);
     if (a == INVALID_FILE_ATTRIBUTES)
-      s = is_missing(GetLastError()) ? EXT_NOT_FOUND : EXT_IO;
+      s = is_missing(GetLastError()) ? EXT_PLUGIN_NOT_FOUND : EXT_PLUGIN_IO;
     else if (a & (FILE_ATTRIBUTE_REPARSE_POINT | FILE_ATTRIBUTE_DIRECTORY))
-      s = EXT_INVALID;
+      s = EXT_PLUGIN_INVALID;
   }
   if (!s) {
     in = CreateFileW(from, GENERIC_READ,
@@ -919,7 +919,7 @@ ext_status ext_fs_copy_file(ext_fs *src, const char *src_path, ext_fs *dst,
                      FILE_FLAG_OPEN_REPARSE_POINT | FILE_FLAG_SEQUENTIAL_SCAN,
                      NULL);
     if (in == INVALID_HANDLE_VALUE)
-      s = is_missing(GetLastError()) ? EXT_NOT_FOUND : EXT_IO;
+      s = is_missing(GetLastError()) ? EXT_PLUGIN_NOT_FOUND : EXT_PLUGIN_IO;
   }
   if (!s) {
     BY_HANDLE_FILE_INFORMATION info;
@@ -928,13 +928,13 @@ ext_status ext_fs_copy_file(ext_fs *src, const char *src_path, ext_fs *dst,
         (info.dwFileAttributes &
          (FILE_ATTRIBUTE_REPARSE_POINT | FILE_ATTRIBUTE_DIRECTORY)) ||
         !resolves_to(in, from, &w))
-      s = EXT_INVALID; /* not the file that was checked */
+      s = EXT_PLUGIN_INVALID; /* not the file that was checked */
   }
   if (!s)
     s = prefixes(dst->root, to_parent, 1);
   if (!s) {
     to = join(dst->root, dst_path);
-    s = to ? create_new(to, &out) : EXT_NOMEM;
+    s = to ? create_new(to, &out) : EXT_PLUGIN_NOMEM;
   }
   ext_hash h;
   ext_hash_init(&h);
@@ -946,21 +946,21 @@ ext_status ext_fs_copy_file(ext_fs *src, const char *src_path, ext_fs *dst,
     if (!want)
       break;
     if (!ReadFile(in, buffer, want, &n, NULL)) {
-      s = EXT_IO;
+      s = EXT_PLUGIN_IO;
       break;
     }
     if (!n)
       break;
     total += n;
     if (total > limit) {
-      s = EXT_INVALID; /* longer than the limit */
+      s = EXT_PLUGIN_INVALID; /* longer than the limit */
       break;
     }
     ext_hash_update(&h, buffer, n);
     s = write_all(out, buffer, n);
   }
   if (out != INVALID_HANDLE_VALUE && !CloseHandle(out) && !s)
-    s = EXT_IO;
+    s = EXT_PLUGIN_IO;
   if (in != INVALID_HANDLE_VALUE)
     CloseHandle(in);
   free(from);
@@ -973,14 +973,14 @@ ext_status ext_fs_copy_file(ext_fs *src, const char *src_path, ext_fs *dst,
   }
   return s;
 }
-ext_status ext_fs_write_file(ext_fs *fs, const char *path, const uint8_t *data,
+ext_plugin_status ext_fs_write_file(ext_fs *fs, const char *path, const uint8_t *data,
                              size_t len, int executable) {
   (void)executable;
   if (!fs || (!data && len))
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   char *storage = NULL;
   const char *parent, *leaf;
-  ext_status s = split_rel(path, &storage, &parent, &leaf);
+  ext_plugin_status s = split_rel(path, &storage, &parent, &leaf);
   if (s)
     return s;
   s = prefixes(fs->root, parent, 1);
@@ -988,12 +988,12 @@ ext_status ext_fs_write_file(ext_fs *fs, const char *path, const uint8_t *data,
   wchar_t *full = NULL;
   if (!s) {
     full = join(fs->root, path);
-    s = full ? create_new(full, &h) : EXT_NOMEM;
+    s = full ? create_new(full, &h) : EXT_PLUGIN_NOMEM;
   }
   if (!s)
     s = write_all(h, data, len);
   if (h != INVALID_HANDLE_VALUE && !CloseHandle(h) && !s)
-    s = EXT_IO;
+    s = EXT_PLUGIN_IO;
   free(full);
   free(storage);
   return s;
@@ -1001,15 +1001,15 @@ ext_status ext_fs_write_file(ext_fs *fs, const char *path, const uint8_t *data,
 struct ext_fs_out {
   HANDLE h;
 };
-ext_status ext_fs_create(ext_fs *fs, const char *path, int executable,
+ext_plugin_status ext_fs_create(ext_fs *fs, const char *path, int executable,
                          ext_fs_out **out) {
   (void)executable;
   if (!fs || !out)
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   *out = NULL;
   char *storage = NULL;
   const char *parent, *leaf;
-  ext_status s = split_rel(path, &storage, &parent, &leaf);
+  ext_plugin_status s = split_rel(path, &storage, &parent, &leaf);
   if (s)
     return s;
   s = prefixes(fs->root, parent, 1);
@@ -1017,7 +1017,7 @@ ext_status ext_fs_create(ext_fs *fs, const char *path, int executable,
   wchar_t *full = NULL;
   if (!s) {
     full = join(fs->root, path);
-    s = full ? create_new(full, &h) : EXT_NOMEM;
+    s = full ? create_new(full, &h) : EXT_PLUGIN_NOMEM;
   }
   free(full);
   free(storage);
@@ -1026,34 +1026,34 @@ ext_status ext_fs_create(ext_fs *fs, const char *path, int executable,
   ext_fs_out *file = malloc(sizeof(*file));
   if (!file) {
     CloseHandle(h);
-    return EXT_NOMEM;
+    return EXT_PLUGIN_NOMEM;
   }
   file->h = h;
   *out = file;
-  return EXT_OK;
+  return EXT_PLUGIN_OK;
 }
-ext_status ext_fs_out_write(ext_fs_out *out, const uint8_t *data, size_t len) {
+ext_plugin_status ext_fs_out_write(ext_fs_out *out, const uint8_t *data, size_t len) {
   if (!out || (!data && len))
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   return write_all(out->h, data, len);
 }
-ext_status ext_fs_out_close(ext_fs_out *out) {
+ext_plugin_status ext_fs_out_close(ext_fs_out *out) {
   if (!out)
-    return EXT_OK;
-  ext_status s = CloseHandle(out->h) ? EXT_OK : EXT_IO;
+    return EXT_PLUGIN_OK;
+  ext_plugin_status s = CloseHandle(out->h) ? EXT_PLUGIN_OK : EXT_PLUGIN_IO;
   free(out);
   return s;
 }
 struct ext_fs_in {
   HANDLE h;
 };
-ext_status ext_fs_in_open(const char *path, ext_fs_in **out, uint64_t *size) {
+ext_plugin_status ext_fs_in_open(const char *path, ext_fs_in **out, uint64_t *size) {
   if (!path || !*path || !out || !size)
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   *out = NULL;
   wchar_t *wide = widen(path);
   if (!wide)
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   HANDLE h = CreateFileW(wide, GENERIC_READ,
                          FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
                          NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
@@ -1063,8 +1063,8 @@ ext_status ext_fs_in_open(const char *path, ext_fs_in **out, uint64_t *size) {
     DWORD a = GetFileAttributesW(wide);
     free(wide);
     return a != INVALID_FILE_ATTRIBUTES && (a & FILE_ATTRIBUTE_DIRECTORY)
-               ? EXT_INVALID
-               : EXT_IO;
+               ? EXT_PLUGIN_INVALID
+               : EXT_PLUGIN_IO;
   }
   free(wide);
   if (h == INVALID_HANDLE_VALUE)
@@ -1073,22 +1073,22 @@ ext_status ext_fs_in_open(const char *path, ext_fs_in **out, uint64_t *size) {
   if (GetFileType(h) != FILE_TYPE_DISK || !GetFileSizeEx(h, &length) ||
       length.QuadPart < 0) {
     CloseHandle(h);
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   }
   ext_fs_in *in = malloc(sizeof(*in));
   if (!in) {
     CloseHandle(h);
-    return EXT_NOMEM;
+    return EXT_PLUGIN_NOMEM;
   }
   in->h = h;
   *out = in;
   *size = (uint64_t)length.QuadPart;
-  return EXT_OK;
+  return EXT_PLUGIN_OK;
 }
-ext_status ext_fs_in_read(ext_fs_in *in, uint64_t offset, uint8_t *data,
+ext_plugin_status ext_fs_in_read(ext_fs_in *in, uint64_t offset, uint8_t *data,
                           size_t len, size_t *got) {
   if (!in || (!data && len) || !got)
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   size_t total = 0;
   while (total < len) {
     OVERLAPPED at = {0};
@@ -1099,14 +1099,14 @@ ext_status ext_fs_in_read(ext_fs_in *in, uint64_t offset, uint8_t *data,
     if (!ReadFile(in->h, data + total, want, &n, &at)) {
       if (GetLastError() == ERROR_HANDLE_EOF)
         break;
-      return EXT_IO;
+      return EXT_PLUGIN_IO;
     }
     if (!n)
       break;
     total += n;
   }
   *got = total;
-  return EXT_OK;
+  return EXT_PLUGIN_OK;
 }
 void ext_fs_in_close(ext_fs_in *in) {
   if (!in)
@@ -1114,12 +1114,12 @@ void ext_fs_in_close(ext_fs_in *in) {
   CloseHandle(in->h);
   free(in);
 }
-ext_status ext_fs_rename(ext_fs *fs, const char *from, const char *to) {
+ext_plugin_status ext_fs_rename(ext_fs *fs, const char *from, const char *to) {
   if (!fs)
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   char *from_storage = NULL, *to_storage = NULL;
   const char *from_parent, *from_leaf, *to_parent, *to_leaf;
-  ext_status s = split_rel(from, &from_storage, &from_parent, &from_leaf);
+  ext_plugin_status s = split_rel(from, &from_storage, &from_parent, &from_leaf);
   if (!s)
     s = split_rel(to, &to_storage, &to_parent, &to_leaf);
   if (!s)
@@ -1129,9 +1129,9 @@ ext_status ext_fs_rename(ext_fs *fs, const char *from, const char *to) {
   if (!s) {
     wchar_t *a = join(fs->root, from), *b = join(fs->root, to);
     if (!a || !b)
-      s = EXT_NOMEM;
+      s = EXT_PLUGIN_NOMEM;
     else if (!MoveFileExW(a, b, 0))
-      s = EXT_IO;
+      s = EXT_PLUGIN_IO;
     free(a);
     free(b);
   }
@@ -1139,36 +1139,36 @@ ext_status ext_fs_rename(ext_fs *fs, const char *from, const char *to) {
   free(to_storage);
   return s;
 }
-static ext_status remove_path(const wchar_t *path, unsigned depth) {
+static ext_plugin_status remove_path(const wchar_t *path, unsigned depth) {
   if (depth > 1024)
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   DWORD a = GetFileAttributesW(path);
   if (a == INVALID_FILE_ATTRIBUTES)
-    return is_missing(GetLastError()) ? EXT_OK : EXT_IO;
+    return is_missing(GetLastError()) ? EXT_PLUGIN_OK : EXT_PLUGIN_IO;
   if (a & FILE_ATTRIBUTE_READONLY)
     SetFileAttributesW(path, a & ~(DWORD)FILE_ATTRIBUTE_READONLY);
   if (a & FILE_ATTRIBUTE_REPARSE_POINT) {
     /* a link: remove the link and not what it points at */
     BOOL removed = (a & FILE_ATTRIBUTE_DIRECTORY) ? RemoveDirectoryW(path)
                                                   : DeleteFileW(path);
-    return removed ? EXT_OK : EXT_IO;
+    return removed ? EXT_PLUGIN_OK : EXT_PLUGIN_IO;
   }
   if (!(a & FILE_ATTRIBUTE_DIRECTORY))
-    return DeleteFileW(path) ? EXT_OK : EXT_IO;
+    return DeleteFileW(path) ? EXT_PLUGIN_OK : EXT_PLUGIN_IO;
   wchar_t *pattern = find_pattern(path);
   if (!pattern)
-    return EXT_NOMEM;
+    return EXT_PLUGIN_NOMEM;
   WIN32_FIND_DATAW data;
   HANDLE find = FindFirstFileExW(pattern, FindExInfoBasic, &data,
                                  FindExSearchNameMatch, NULL,
                                  FIND_FIRST_EX_LARGE_FETCH);
   free(pattern);
   if (find == INVALID_HANDLE_VALUE)
-    return EXT_IO;
+    return EXT_PLUGIN_IO;
   /* Read every name first, then remove. */
   wchar_t **names = NULL;
   size_t used = 0, cap = 0;
-  ext_status s = EXT_OK;
+  ext_plugin_status s = EXT_PLUGIN_OK;
   do {
     if (!wcscmp(data.cFileName, L".") || !wcscmp(data.cFileName, L".."))
       continue;
@@ -1176,7 +1176,7 @@ static ext_status remove_path(const wchar_t *path, unsigned depth) {
       size_t next = cap ? cap * 2 : 16;
       wchar_t **grown = realloc(names, next * sizeof(*names));
       if (!grown) {
-        s = EXT_NOMEM;
+        s = EXT_PLUGIN_NOMEM;
         break;
       }
       names = grown;
@@ -1184,19 +1184,19 @@ static ext_status remove_path(const wchar_t *path, unsigned depth) {
     }
     names[used] = wcsdup(data.cFileName);
     if (!names[used]) {
-      s = EXT_NOMEM;
+      s = EXT_PLUGIN_NOMEM;
       break;
     }
     used++;
   } while (FindNextFileW(find, &data));
   if (!s && GetLastError() != ERROR_NO_MORE_FILES)
-    s = EXT_IO;
+    s = EXT_PLUGIN_IO;
   FindClose(find);
   size_t base = wcslen(path);
   for (size_t i = 0; i < used && !s; i++) {
     wchar_t *child = malloc((base + wcslen(names[i]) + 2) * sizeof(*child));
     if (!child) {
-      s = EXT_NOMEM;
+      s = EXT_PLUGIN_NOMEM;
       break;
     }
     memcpy(child, path, base * sizeof(*child));
@@ -1209,24 +1209,24 @@ static ext_status remove_path(const wchar_t *path, unsigned depth) {
     free(names[i]);
   free(names);
   if (!s && !RemoveDirectoryW(path))
-    s = EXT_IO;
+    s = EXT_PLUGIN_IO;
   return s;
 }
-ext_status ext_fs_remove_all(ext_fs *fs, const char *path) {
+ext_plugin_status ext_fs_remove_all(ext_fs *fs, const char *path) {
   if (!fs)
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   char *storage = NULL;
   const char *parent, *leaf;
-  ext_status s = split_rel(path, &storage, &parent, &leaf);
+  ext_plugin_status s = split_rel(path, &storage, &parent, &leaf);
   if (s)
     return s;
   s = prefixes(fs->root, parent, 0);
-  if (s == EXT_NOT_FOUND)
-    s = EXT_OK; /* nothing to remove below a parent that is not there */
+  if (s == EXT_PLUGIN_NOT_FOUND)
+    s = EXT_PLUGIN_OK; /* nothing to remove below a parent that is not there */
   else if (!s) {
     wchar_t *full = join(fs->root, path);
     if (!full)
-      s = EXT_NOMEM;
+      s = EXT_PLUGIN_NOMEM;
     else {
       s = remove_path(full, 0);
       free(full);
@@ -1235,18 +1235,18 @@ ext_status ext_fs_remove_all(ext_fs *fs, const char *path) {
   free(storage);
   return s;
 }
-ext_status ext_fs_make_root(const char *path) {
+ext_plugin_status ext_fs_make_root(const char *path) {
   if (!path || !*path)
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   wchar_t *wide = widen(path);
   if (!wide)
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   DWORD n = GetFullPathNameW(wide, 0, NULL, NULL);
   wchar_t *full = n ? malloc((n + 1) * sizeof(*full)) : NULL;
   if (!full || !GetFullPathNameW(wide, n, full, NULL)) {
     free(wide);
     free(full);
-    return EXT_IO;
+    return EXT_PLUGIN_IO;
   }
   free(wide);
   size_t length = wcslen(full);
@@ -1262,24 +1262,24 @@ ext_status ext_fs_make_root(const char *path) {
     CreateDirectoryW(full, NULL);
     full[i] = saved;
   }
-  ext_status s = EXT_OK;
+  ext_plugin_status s = EXT_PLUGIN_OK;
   if (!CreateDirectoryW(full, NULL) && GetLastError() != ERROR_ALREADY_EXISTS)
-    s = EXT_IO;
+    s = EXT_PLUGIN_IO;
   free(full);
   return s;
 }
-ext_status ext_fs_probe(const char *path, ext_fs_kind *out) {
+ext_plugin_status ext_fs_probe(const char *path, ext_fs_kind *out) {
   if (!path || !*path || !out)
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   wchar_t *wide = widen(path);
   if (!wide)
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   DWORD a = GetFileAttributesW(wide);
   DWORD error = a == INVALID_FILE_ATTRIBUTES ? GetLastError() : 0;
   free(wide);
   if (a == INVALID_FILE_ATTRIBUTES) {
     if (!is_missing(error))
-      return EXT_IO;
+      return EXT_PLUGIN_IO;
     *out = EXT_FS_NONE;
   } else if (a & FILE_ATTRIBUTE_REPARSE_POINT)
     *out = EXT_FS_OTHER;
@@ -1287,19 +1287,19 @@ ext_status ext_fs_probe(const char *path, ext_fs_kind *out) {
     *out = EXT_FS_DIR;
   else
     *out = EXT_FS_FILE;
-  return EXT_OK;
+  return EXT_PLUGIN_OK;
 }
-ext_status ext_fs_mode_bits(ext_fs *fs, const char *path, uint32_t *mode) {
+ext_plugin_status ext_fs_mode_bits(ext_fs *fs, const char *path, uint32_t *mode) {
   if (!fs || !mode)
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   ext_fs_kind kind;
-  ext_status s = ext_fs_kind_of(fs, path, &kind);
+  ext_plugin_status s = ext_fs_kind_of(fs, path, &kind);
   if (s)
     return s;
   if (kind == EXT_FS_NONE)
-    return EXT_NOT_FOUND;
+    return EXT_PLUGIN_NOT_FOUND;
   if (kind != EXT_FS_FILE)
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   *mode = 0;
-  return EXT_OK;
+  return EXT_PLUGIN_OK;
 }

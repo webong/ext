@@ -177,7 +177,7 @@ func sharedBackend(t *testing.T, path string) func(context.Context) (plugin.Back
 
 // TestRustReactorGuest runs the conformance suite against the Rust SDK's shared
 // guest compiled to a WebAssembly reactor, hosted by wasm.OpenReactor: the C ABI
-// plus ext_plugin_alloc/ext_plugin_free (docs/plugin-reactor-abi.md). The artifact
+// plus ext_plugin_guest_alloc/ext_plugin_guest_free (docs/plugin-reactor-abi.md). The artifact
 // is optional unless scripts/plugin-crosslang.sh sets EXT_REACTOR_REQUIRED=1.
 // A reactor that calls its host (pkg/ext-rust/examples/reactor_reverse.rs) loads
 // on wazero, which provides ext_plugin.reverse but carries no reverse calls: the

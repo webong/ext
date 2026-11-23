@@ -18,7 +18,7 @@ public final class WebViewPluginHost {
         case timeout
         /// The page could not instantiate the module, with the page's reason.
         case page(String)
-        /// The guest returned this ext_plugin_call status (1 invalid, 2 closed, 3 failed).
+        /// The guest returned this ext_plugin_guest_call status (1 invalid, 2 closed, 3 failed).
         case status(Int)
     }
 

@@ -172,17 +172,17 @@ pub const Registry = struct {
         }
         const state = try a.create(State);
         state.* = .{ .descriptor = d, .entries = entries, .authorize = authorize };
-        var handle: ?*ffi.ext_guest = null;
-        const options: ffi.ext_guest_options = .{
-            .abi_version = ffi.EXT_HOST_ABI_VERSION,
-            .struct_size = @sizeOf(ffi.ext_guest_options),
+        var handle: ?*ffi.ext_plugin_guest = null;
+        const options: ffi.ext_plugin_guest_options = .{
+            .abi_version = ffi.EXT_PLUGIN_HOST_ABI_VERSION,
+            .struct_size = @sizeOf(ffi.ext_plugin_guest_options),
             .descriptor = json.ptr,
             .descriptor_len = json.len,
             .max_call_ms = call_limit_ms,
             .user = state,
             .handle = handle_call,
         };
-        try engine.check(ffi.ext_guest_create(&options, &handle));
+        try engine.check(ffi.ext_plugin_guest_create(&options, &handle));
         return .{ .arena = arena, .descriptor = d, .handle = handle.? };
     }
 };
@@ -213,12 +213,12 @@ const State = struct {
 // The engine calls this for a request it has already matched to the descriptor, with the time the call
 // has left. It emits the payload or a public error; any other failure is a status the engine turns
 // into the sanitized operation_failed answer.
-fn handle_call(user: ?*anyopaque, call_user: ?*anyopaque, request: [*c]const u8, len: usize, remaining_ms: u32, emit: ffi.ext_guest_emit, sink: ?*anyopaque) callconv(.c) ffi.ext_status {
+fn handle_call(user: ?*anyopaque, call_user: ?*anyopaque, request: [*c]const u8, len: usize, remaining_ms: u32, emit: ffi.ext_plugin_guest_emit, sink: ?*anyopaque) callconv(.c) ffi.ext_plugin_status {
     const state: *const State = @ptrCast(@alignCast(user.?));
     const call: *const Call = @ptrCast(@alignCast(call_user.?));
-    return run(state, call, request[0..len], remaining_ms, emit.?, sink) catch ffi.EXT_IO;
+    return run(state, call, request[0..len], remaining_ms, emit.?, sink) catch ffi.EXT_PLUGIN_IO;
 }
-fn run(state: *const State, call: *const Call, bytes: []const u8, remaining_ms: u32, emit: *const fn (?*anyopaque, u32, [*c]const u8, usize) callconv(.c) ffi.ext_status, sink: ?*anyopaque) !ffi.ext_status {
+fn run(state: *const State, call: *const Call, bytes: []const u8, remaining_ms: u32, emit: *const fn (?*anyopaque, u32, [*c]const u8, usize) callconv(.c) ffi.ext_plugin_status, sink: ?*anyopaque) !ffi.ext_plugin_status {
     const a = call.allocator;
     const r = try w.requestFromValue(try w.decode(a, bytes));
     // The engine counts whole milliseconds and rounds up, so the request's own deadline, to the
@@ -244,20 +244,20 @@ fn run(state: *const State, call: *const Call, bytes: []const u8, remaining_ms: 
     const value = state.dispatch(a, &ctx, r) catch |err| {
         if (err == error.Public) if (ctx.remote) |remote| {
             const body = try w.encode(a, remote);
-            return emit(sink, ffi.EXT_GUEST_PUBLIC_ERROR, body.ptr, body.len);
+            return emit(sink, ffi.EXT_PLUGIN_GUEST_PUBLIC_ERROR, body.ptr, body.len);
         };
-        return ffi.EXT_IO;
+        return ffi.EXT_PLUGIN_IO;
     };
     const body = try w.encode(a, value);
-    return emit(sink, ffi.EXT_GUEST_PAYLOAD, body.ptr, body.len);
+    return emit(sink, ffi.EXT_PLUGIN_GUEST_PAYLOAD, body.ptr, body.len);
 }
 
 pub const Guest = struct {
     arena: *std.heap.ArenaAllocator,
     descriptor: w.Descriptor,
-    handle: *ffi.ext_guest,
+    handle: *ffi.ext_plugin_guest,
     pub fn deinit(self: *Guest) void {
-        ffi.ext_guest_destroy(self.handle);
+        ffi.ext_plugin_guest_destroy(self.handle);
         const a = self.arena.child_allocator;
         self.arena.deinit();
         a.destroy(self.arena);
@@ -270,9 +270,9 @@ pub const Guest = struct {
     // then report progress and call its host.
     pub fn invokeBytes(self: *const Guest, a: A, request: []const u8, link: ?*f.Link) ![]u8 {
         var call: Call = .{ .allocator = a, .link = link };
-        var out: ffi.ext_buffer = .{ .data = null, .len = 0 };
-        defer ffi.ext_buffer_free(&out);
-        try engine.check(ffi.ext_guest_invoke(self.handle, request.ptr, request.len, call_limit_ms, &call, &out));
+        var out: ffi.ext_plugin_buffer = .{ .data = null, .len = 0 };
+        defer ffi.ext_plugin_buffer_free(&out);
+        try engine.check(ffi.ext_plugin_guest_invoke(self.handle, request.ptr, request.len, call_limit_ms, &call, &out));
         return a.dupe(u8, if (out.len == 0) &.{} else out.data[0..out.len]);
     }
     // As invokeBytes, for a request already built and a response wanted as a tree.

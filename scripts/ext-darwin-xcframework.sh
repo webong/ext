@@ -53,29 +53,29 @@ for slice in "${slices[@]}"; do
   mkdir -p "$work/$name"
   for source in "${sources[@]}"; do
     xcrun -sdk "$sdk" clang -target "$target" -std=c11 -O2 -Wall -Wextra -Werror \
-      -DEXT_HOST_BUILD -DEXT_HOST_STATIC -fvisibility=hidden \
+      -DEXT_PLUGIN_HOST_BUILD -DEXT_PLUGIN_HOST_STATIC -fvisibility=hidden \
       -I"$engine/include" -I"$engine/src" -I"$engine/vendor" -include "$namespace" \
       -c "$engine/$source" -o "$work/$name/$(basename "${source%.c}").o"
   done
-  xcrun -sdk "$sdk" libtool -static -o "$work/$name/libext_guest.a" "$work/$name"/*.o
+  xcrun -sdk "$sdk" libtool -static -o "$work/$name/libext_plugin_guest.a" "$work/$name"/*.o
 done
 
 # One (universal) library per platform group.
 libraries=()
 for group in "${groups[@]}"; do
   mkdir -p "$work/$group"
-  lipo -create "$work/$group"-*/libext_guest.a -output "$work/$group/libext_guest.a"
-  libraries+=(-library "$work/$group/libext_guest.a" -headers "$work/Headers")
+  lipo -create "$work/$group"-*/libext_plugin_guest.a -output "$work/$group/libext_plugin_guest.a"
+  libraries+=(-library "$work/$group/libext_plugin_guest.a" -headers "$work/Headers")
 done
 
 headers="$work/Headers"
 mkdir -p "$headers"
-cp "$engine/include/ext_host.h" "$engine/include/ext_guest.h" "$engine/include/ext_plugin.h" "$engine/wamr/ext_wamr.h" "$headers/"
+cp "$engine/include/ext_plugin_host.h" "$engine/include/ext_plugin_author.h" "$engine/include/ext_plugin_guest.h" "$engine/wamr/ext_wamr.h" "$headers/"
 cat >"$headers/module.modulemap" <<'MODULE'
 module CExtEngine {
-  header "ext_host.h"
-  header "ext_guest.h"
-  header "ext_plugin.h"
+  header "ext_plugin_host.h"
+  header "ext_plugin_author.h"
+  header "ext_plugin_guest.h"
   export *
 }
 // The optional WAMR host (CExtWamr.xcframework) ships no headers of its own: two

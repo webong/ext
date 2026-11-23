@@ -367,23 +367,23 @@ static int above(const artifact *parent, const artifact *child) {
  * inside that path. Sorting makes this O(n log n) in the artifact count:
  * comparing every pair of 4096 artifacts, each reached through
  * yyjson_arr_get, took minutes. */
-static ext_status artifacts_distinct(yyjson_val *a) {
+static ext_plugin_status artifacts_distinct(yyjson_val *a) {
   size_t count = yyjson_arr_size(a), i, n;
   yyjson_val *v;
-  ext_status status = EXT_OK;
+  ext_plugin_status status = EXT_PLUGIN_OK;
   artifact *items = calloc(count, sizeof(*items));
   artifact **order = malloc(count * sizeof(*order));
   artifact **open = malloc(count * sizeof(*open));
   span *names = malloc(count * sizeof(*names));
   if (!items || !order || !open || !names) {
-    status = EXT_NOMEM;
+    status = EXT_PLUGIN_NOMEM;
     goto done;
   }
   yyjson_arr_foreach(a, i, n, v) {
     items[i].v = v;
     items[i].tree = tree_artifact(v);
     if (!fold_path(get(v, "path"), &items[i])) {
-      status = EXT_NOMEM;
+      status = EXT_PLUGIN_NOMEM;
       goto done;
     }
     order[i] = &items[i];
@@ -393,13 +393,13 @@ static ext_status artifacts_distinct(yyjson_val *a) {
   qsort(names, count, sizeof(*names), span_order);
   for (i = 1; i < count; i++)
     if (!span_order(&names[i - 1], &names[i])) {
-      status = EXT_INVALID;
+      status = EXT_PLUGIN_INVALID;
       goto done;
     }
   qsort(order, count, sizeof(*order), key_order);
   for (i = 1; i < count; i++)
     if (!key_order(&order[i - 1], &order[i])) {
-      status = EXT_INVALID;
+      status = EXT_PLUGIN_INVALID;
       goto done;
     }
   /* In this order everything below a directory follows it directly, so the
@@ -412,7 +412,7 @@ static ext_status artifacts_distinct(yyjson_val *a) {
       trees -= (size_t)open[depth]->tree;
     }
     if (depth && (order[i]->tree || trees)) {
-      status = EXT_INVALID;
+      status = EXT_PLUGIN_INVALID;
       goto done;
     }
     open[depth++] = order[i];
@@ -428,14 +428,14 @@ done:
   free(names);
   return status;
 }
-ext_status ext_manifest_valid(yyjson_val *m) {
+ext_plugin_status ext_manifest_valid(yyjson_val *m) {
   if (!EXT_FIELDS(m, "apiVersion", "descriptor", "license", "artifacts",
                   "entrypoints", "requires", "configuration", "payloads",
                   "assets", "sharedDependencies", "metadata") ||
       !license_valid(get(m, "license")) || !metadata_valid(get(m, "metadata")) ||
       !yyjson_equals_str(get(m, "apiVersion"), "ext.package/v1") ||
       !ext_descriptor(get(m, "descriptor")))
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   yyjson_val *a = get(m, "artifacts"), *e = get(m, "entrypoints"),
              *r = get(m, "requires"), *p = get(m, "payloads"),
              *assets = get(m, "assets"), *shared = get(m, "sharedDependencies");
@@ -443,7 +443,7 @@ ext_status ext_manifest_valid(yyjson_val *m) {
       !array(e, 64) || !array(r, 256) || !array(p, 1024) ||
       !array(assets, 1024) || !array(shared, 256) ||
       !schema(get(m, "configuration")))
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   size_t i, n, j, k;
   yyjson_val *v, *w;
   yyjson_arr_foreach(a, i, n, v) {
@@ -454,9 +454,9 @@ ext_status ext_manifest_valid(yyjson_val *m) {
         !ext_text(get(v, "name"), 0, 0) || !portable(get(v, "path")) ||
         !digest(get(v, "sha256")) || !ext_text(get(v, "os"), 0, 1) ||
         !ext_text(get(v, "arch"), 0, 1))
-      return EXT_INVALID;
+      return EXT_PLUGIN_INVALID;
   }
-  ext_status distinct = artifacts_distinct(a);
+  ext_plugin_status distinct = artifacts_distinct(a);
   if (distinct)
     return distinct;
   /* An entrypoint may name a tree except under the process runtime, which
@@ -468,71 +468,71 @@ ext_status ext_manifest_valid(yyjson_val *m) {
         !target ||
         (tree_artifact(target) && yyjson_equals_str(get(v, "runtime"), "process")) ||
         !ext_protocols(get(v, "protocols")))
-      return EXT_INVALID;
+      return EXT_PLUGIN_INVALID;
     EXT_ARR_BEFORE(e, i, j, k, w)
-    if (ext_same(get(v, "name"), get(w, "name"))) return EXT_INVALID;
+    if (ext_same(get(v, "name"), get(w, "name"))) return EXT_PLUGIN_INVALID;
   }
   yyjson_arr_foreach(r, i, n, v) {
     if (!dependency(v))
-      return EXT_INVALID;
+      return EXT_PLUGIN_INVALID;
     EXT_ARR_BEFORE(r, i, j, k, w)
-    if (same_dependency(v, w)) return EXT_INVALID;
+    if (same_dependency(v, w)) return EXT_PLUGIN_INVALID;
   }
   yyjson_arr_foreach(p, i, n, v) {
     if (!EXT_FIELDS(v, "contract", "operation", "input", "output") ||
         !EXT_FIELDS(get(v, "contract"), "name", "version") ||
         !ext_ref(get(v, "contract")) || !ext_text(get(v, "operation"), 0, 0) ||
         !schema(get(v, "input")) || !schema(get(v, "output")))
-      return EXT_INVALID;
+      return EXT_PLUGIN_INVALID;
     if (!ext_lookup(get(m, "descriptor"), get(v, "contract"),
                     get(v, "operation")))
-      return EXT_UNSUPPORTED;
+      return EXT_PLUGIN_UNSUPPORTED;
     EXT_ARR_BEFORE(p, i, j, k, w)
     if (ext_same_ref(get(v, "contract"), get(w, "contract")) &&
         ext_same(get(v, "operation"), get(w, "operation")))
-      return EXT_INVALID;
+      return EXT_PLUGIN_INVALID;
   }
   yyjson_arr_foreach(
       assets, i, n,
       v) if (!EXT_FIELDS(v, "artifact", "kind", "locale") ||
              !named(a, get(v, "artifact")) || !ext_text(get(v, "kind"), 0, 0) ||
              (!absent(get(v, "locale")) &&
-              !string(get(v, "locale"), 0, 64))) return EXT_INVALID;
+              !string(get(v, "locale"), 0, 64))) return EXT_PLUGIN_INVALID;
   yyjson_arr_foreach(shared, i, n, v) {
     yyjson_val *versions = get(v, "versions");
     if (!EXT_FIELDS(v, "name", "versions") || !string(get(v, "name"), 1, 256) ||
         !yyjson_is_arr(versions) || !yyjson_arr_size(versions) ||
         !array(versions, 64))
-      return EXT_INVALID;
+      return EXT_PLUGIN_INVALID;
     EXT_ARR_BEFORE(shared, i, j, k, w)
-    if (ext_same(get(v, "name"), get(w, "name"))) return EXT_INVALID;
+    if (ext_same(get(v, "name"), get(w, "name"))) return EXT_PLUGIN_INVALID;
     yyjson_arr_foreach(versions, j, k, w) {
       if (!string(w, 1, 256))
-        return EXT_INVALID;
+        return EXT_PLUGIN_INVALID;
       size_t x, y;
       yyjson_val *earlier;
       EXT_ARR_BEFORE(versions, j, x, y, earlier)
-      if (ext_same(w, earlier)) return EXT_INVALID;
+      if (ext_same(w, earlier)) return EXT_PLUGIN_INVALID;
     }
   }
-  return EXT_OK;
+  return EXT_PLUGIN_OK;
 }
-static ext_status result(yyjson_mut_doc *doc, ext_buffer *out, int ok) {
+static ext_plugin_status result(yyjson_mut_doc *doc, ext_plugin_buffer *out, int ok) {
   if (ok)
     out->data = (uint8_t *)yyjson_mut_write(doc, 0, &out->len);
   yyjson_mut_doc_free(doc);
-  return out->data ? EXT_OK : EXT_NOMEM;
+  return out->data ? EXT_PLUGIN_OK : EXT_PLUGIN_NOMEM;
 }
 static int copy(yyjson_mut_doc *d, yyjson_mut_val *o, const char *key,
                 yyjson_val *v) {
   yyjson_mut_val *c = yyjson_val_mut_copy(d, v);
   return c && yyjson_mut_obj_add_val(d, o, key, c);
 }
-static ext_status select_entry(yyjson_val *v, ext_buffer *out) {
+static ext_plugin_status select_entry(yyjson_val *v, ext_plugin_buffer *out) {
   if (!EXT_FIELDS(v, "manifest", "name", "environment"))
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   yyjson_val *m = get(v, "manifest"), *env = get(v, "environment");
-  ext_status s = ext_manifest_valid(m);
+  ext_plugin_status s = ext_manifest_valid(m);
   if (s)
     return s;
   if (!string(get(v, "name"), 0, 256) ||
@@ -540,7 +540,7 @@ static ext_status select_entry(yyjson_val *v, ext_buffer *out) {
       (!absent(get(env, "runtimes")) && !yyjson_is_obj(get(env, "runtimes"))) ||
       (!absent(get(env, "sharedVersions")) &&
        !yyjson_is_obj(get(env, "sharedVersions"))))
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   size_t i, n;
   yyjson_val *dep;
   yyjson_arr_foreach(get(m, "sharedDependencies"), i, n, dep) {
@@ -553,32 +553,32 @@ static ext_status select_entry(yyjson_val *v, ext_buffer *out) {
     yyjson_arr_foreach(get(dep, "versions"), j, k,
                        candidate) if (ext_same(version, candidate)) found = 1;
     if (!found)
-      return EXT_UNSUPPORTED;
+      return EXT_PLUGIN_UNSUPPORTED;
   }
   yyjson_val *entry = named(get(m, "entrypoints"), get(v, "name"));
   if (!entry)
-    return EXT_NOT_FOUND;
+    return EXT_PLUGIN_NOT_FOUND;
   yyjson_val *runtime = get(entry, "runtime");
   yyjson_val *profile = yyjson_obj_getn(
       get(env, "runtimes"), yyjson_get_str(runtime), yyjson_get_len(runtime));
   if (!profile)
-    return EXT_UNSUPPORTED;
+    return EXT_PLUGIN_UNSUPPORTED;
   if (!ext_protocols(get(profile, "protocols")))
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   yyjson_val *protocol =
       ext_negotiate(get(profile, "protocols"), get(entry, "protocols"));
   if (!protocol)
-    return EXT_UNSUPPORTED;
+    return EXT_PLUGIN_UNSUPPORTED;
   yyjson_val *artifact = named(get(m, "artifacts"), get(entry, "artifact"));
   const char *fields[] = {"os", "arch"};
   for (i = 0; i < 2; i++) {
     yyjson_val *value = get(artifact, fields[i]);
     if (yyjson_get_len(value) && !ext_same(value, get(env, fields[i])))
-      return EXT_UNSUPPORTED;
+      return EXT_PLUGIN_UNSUPPORTED;
   }
   yyjson_mut_doc *d = yyjson_mut_doc_new(NULL);
   if (!d)
-    return EXT_NOMEM;
+    return EXT_PLUGIN_NOMEM;
   yyjson_mut_val *o = yyjson_mut_obj(d);
   yyjson_mut_doc_set_root(d, o);
   return result(d, out,
@@ -600,7 +600,7 @@ static void identity_hash(yyjson_val *id, uint8_t out[32]) {
           : snprintf(json, sizeof(json), "{\"id\":\"%s\",\"revision\":\"%s\"}",
                      yyjson_get_str(get(id, "id")),
                      yyjson_get_str(get(id, "revision")));
-  ext_engine_sha256((const uint8_t *)json, (size_t)n, out);
+  ext_plugin_sha256((const uint8_t *)json, (size_t)n, out);
 }
 typedef struct {
   size_t index;
@@ -615,24 +615,24 @@ typedef struct {
   size_t *deps;
   int state;
 } node;
-static ext_status visit(node *nodes, size_t i, yyjson_mut_doc *d,
+static ext_plugin_status visit(node *nodes, size_t i, yyjson_mut_doc *d,
                         yyjson_mut_val *order) {
   node *p = &nodes[i];
   if (p->state == 1)
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   if (p->state == 2)
-    return EXT_OK;
+    return EXT_PLUGIN_OK;
   p->state = 1;
   for (size_t j = 0; j < p->count; j++) {
-    ext_status s = visit(nodes, p->deps[j], d, order);
+    ext_plugin_status s = visit(nodes, p->deps[j], d, order);
     if (s)
       return s;
   }
   yyjson_mut_val *id = yyjson_val_mut_copy(d, p->id);
   if (!id || !yyjson_mut_arr_append(order, id))
-    return EXT_NOMEM;
+    return EXT_PLUGIN_NOMEM;
   p->state = 2;
-  return EXT_OK;
+  return EXT_PLUGIN_OK;
 }
 /* Which manifests offer a contract operation. package.resolve used to scan
  * every manifest for every requirement and search each descriptor with
@@ -667,7 +667,7 @@ static void offers_free(offers *o) {
   free(o->slots);
   memset(o, 0, sizeof(*o));
 }
-static ext_status offers_build(offers *o, yyjson_val *ms) {
+static ext_plugin_status offers_build(offers *o, yyjson_val *ms) {
   size_t i, n, j, k, x, y, total = 0;
   yyjson_val *m, *c, *op;
   yyjson_arr_foreach(ms, i, n, m) yyjson_arr_foreach(
@@ -676,14 +676,14 @@ static ext_status offers_build(offers *o, yyjson_val *ms) {
   size_t slots = 16;
   while (slots / 2 < total) {
     if (slots > SIZE_MAX / 4)
-      return EXT_NOMEM;
+      return EXT_PLUGIN_NOMEM;
     slots *= 2;
   }
   o->offers = calloc(total ? total : 1, sizeof(*o->offers));
   o->slots = calloc(slots, sizeof(*o->slots));
   if (!o->offers || !o->slots) {
     offers_free(o);
-    return EXT_NOMEM;
+    return EXT_PLUGIN_NOMEM;
   }
   o->mask = slots - 1;
   yyjson_arr_foreach(ms, i, n, m) yyjson_arr_foreach(
@@ -699,27 +699,27 @@ static ext_status offers_build(offers *o, yyjson_val *ms) {
       slot = (slot + 1) & o->mask;
     o->slots[slot] = ++o->count;
   }
-  return EXT_OK;
+  return EXT_PLUGIN_OK;
 }
-static ext_status resolve(yyjson_val *ms, ext_buffer *out) {
+static ext_plugin_status resolve(yyjson_val *ms, ext_plugin_buffer *out) {
   if (!yyjson_is_arr(ms) || yyjson_arr_size(ms) > 1024)
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   size_t count = yyjson_arr_size(ms), i, n, j, k;
   yyjson_val *m, *r;
-  ext_status s = EXT_OK;
+  ext_plugin_status s = EXT_PLUGIN_OK;
   offers index = {0};
   node *nodes = calloc(count ? count : 1, sizeof(*nodes));
   sorted *sorted_nodes = calloc(count ? count : 1, sizeof(*sorted_nodes));
   yyjson_mut_doc *d = yyjson_mut_doc_new(NULL);
   if (!nodes || !sorted_nodes || !d) {
-    s = EXT_NOMEM;
+    s = EXT_PLUGIN_NOMEM;
     goto done;
   }
   yyjson_mut_val *root = yyjson_mut_obj(d), *order = yyjson_mut_arr(d),
                  *bindings = yyjson_mut_arr(d);
   yyjson_mut_doc_set_root(d, root);
   if (!root || !order || !bindings) {
-    s = EXT_NOMEM;
+    s = EXT_PLUGIN_NOMEM;
     goto done;
   }
   yyjson_arr_foreach(ms, i, n, m) {
@@ -728,7 +728,7 @@ static ext_status resolve(yyjson_val *ms, ext_buffer *out) {
     nodes[i].id = get(get(m, "descriptor"), "identity");
     for (j = 0; j < i; j++)
       if (ext_same_identity(nodes[i].id, nodes[j].id)) {
-        s = EXT_AMBIGUOUS;
+        s = EXT_PLUGIN_AMBIGUOUS;
         goto done;
       }
     sorted_nodes[i].index = i;
@@ -741,7 +741,7 @@ static ext_status resolve(yyjson_val *ms, ext_buffer *out) {
     if (nodes[i].count) {
       nodes[i].deps = calloc(nodes[i].count, sizeof(size_t));
       if (!nodes[i].deps) {
-        s = EXT_NOMEM;
+        s = EXT_PLUGIN_NOMEM;
         goto done;
       }
     }
@@ -762,7 +762,7 @@ static ext_status resolve(yyjson_val *ms, ext_buffer *out) {
         }
       }
       if (found != 1) {
-        s = found ? EXT_AMBIGUOUS : EXT_NOT_FOUND;
+        s = found ? EXT_PLUGIN_AMBIGUOUS : EXT_PLUGIN_NOT_FOUND;
         goto done;
       }
       nodes[i].deps[j] = provider;
@@ -771,7 +771,7 @@ static ext_status resolve(yyjson_val *ms, ext_buffer *out) {
           !copy(d, binding, "requirement", r) ||
           !copy(d, binding, "provider", nodes[provider].id) ||
           !yyjson_mut_arr_append(bindings, binding)) {
-        s = EXT_NOMEM;
+        s = EXT_PLUGIN_NOMEM;
         goto done;
       }
     }
@@ -786,12 +786,12 @@ static ext_status resolve(yyjson_val *ms, ext_buffer *out) {
       !yyjson_mut_obj_add_val(
           d, root, "bindings",
           yyjson_mut_arr_size(bindings) ? bindings : yyjson_mut_null(d))) {
-    s = EXT_NOMEM;
+    s = EXT_PLUGIN_NOMEM;
     goto done;
   }
   out->data = (uint8_t *)yyjson_mut_write(d, 0, &out->len);
   if (!out->data)
-    s = EXT_NOMEM;
+    s = EXT_PLUGIN_NOMEM;
 done:
   if (nodes) {
     for (i = 0; i < count; i++)
@@ -803,17 +803,17 @@ done:
   yyjson_mut_doc_free(d);
   return s;
 }
-ext_status ext_package_service(const char *op, yyjson_val *v, ext_buffer *out) {
+ext_plugin_status ext_package_service(const char *op, yyjson_val *v, ext_plugin_buffer *out) {
   if (!strcmp(op, "package.validate")) {
-    ext_status s = ext_manifest_valid(v);
+    ext_plugin_status s = ext_manifest_valid(v);
     if (s)
       return s;
     out->data = (uint8_t *)yyjson_val_write(v, 0, &out->len);
-    return out->data ? EXT_OK : EXT_NOMEM;
+    return out->data ? EXT_PLUGIN_OK : EXT_PLUGIN_NOMEM;
   }
   if (!strcmp(op, "package.select"))
     return select_entry(v, out);
   if (!strcmp(op, "package.resolve"))
     return resolve(v, out);
-  return EXT_UNSUPPORTED;
+  return EXT_PLUGIN_UNSUPPORTED;
 }

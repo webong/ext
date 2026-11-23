@@ -1,27 +1,27 @@
-#ifndef EXT_PLUGIN_H
-#define EXT_PLUGIN_H
+#ifndef EXT_PLUGIN_GUEST_H
+#define EXT_PLUGIN_GUEST_H
 #include <stdint.h>
 
 #ifdef _WIN32
-#define EXT_PLUGIN_EXPORT __declspec(dllexport)
-#define EXT_PLUGIN_CALL __cdecl
+#define EXT_PLUGIN_GUEST_EXPORT __declspec(dllexport)
+#define EXT_PLUGIN_GUEST_CALL __cdecl
 #else
-#define EXT_PLUGIN_EXPORT __attribute__((visibility("default")))
-#define EXT_PLUGIN_CALL
+#define EXT_PLUGIN_GUEST_EXPORT __attribute__((visibility("default")))
+#define EXT_PLUGIN_GUEST_CALL
 #endif
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#define EXT_PLUGIN_ABI_VERSION 1u
-#define EXT_PLUGIN_MAX_FRAME_BYTES (24u * 1024u * 1024u)
-#define EXT_PLUGIN_HANDSHAKE 1u
-#define EXT_PLUGIN_INVOKE 2u
-#define EXT_PLUGIN_OK 0u
-#define EXT_PLUGIN_INVALID 1u
-#define EXT_PLUGIN_CLOSED 2u
-#define EXT_PLUGIN_FAILED 3u
+#define EXT_PLUGIN_GUEST_ABI_VERSION 1u
+#define EXT_PLUGIN_GUEST_MAX_FRAME_BYTES (24u * 1024u * 1024u)
+#define EXT_PLUGIN_GUEST_HANDSHAKE 1u
+#define EXT_PLUGIN_GUEST_INVOKE 2u
+#define EXT_PLUGIN_GUEST_OK 0u
+#define EXT_PLUGIN_GUEST_INVALID 1u
+#define EXT_PLUGIN_GUEST_CLOSED 2u
+#define EXT_PLUGIN_GUEST_FAILED 3u
 
 /* open creates an independent session; zero means failure. All functions use
  * the C calling convention. No function may let an exception cross this ABI.
@@ -38,13 +38,13 @@ extern "C" {
  * close releases session resources after outstanding calls return. Loaded code
  * stays resident. Cancellation does not interrupt arbitrary native execution.
  */
-EXT_PLUGIN_EXPORT uint32_t EXT_PLUGIN_CALL ext_plugin_abi_version(void);
-EXT_PLUGIN_EXPORT uint64_t EXT_PLUGIN_CALL ext_plugin_open(void);
-EXT_PLUGIN_EXPORT uint32_t EXT_PLUGIN_CALL ext_plugin_call(
+EXT_PLUGIN_GUEST_EXPORT uint32_t EXT_PLUGIN_GUEST_CALL ext_plugin_guest_abi_version(void);
+EXT_PLUGIN_GUEST_EXPORT uint64_t EXT_PLUGIN_GUEST_CALL ext_plugin_guest_open(void);
+EXT_PLUGIN_GUEST_EXPORT uint32_t EXT_PLUGIN_GUEST_CALL ext_plugin_guest_call(
     uint64_t handle, uint32_t operation,
     const uint8_t *request, uint32_t request_len,
     uint8_t *response, uint32_t response_capacity, uint32_t *response_len);
-EXT_PLUGIN_EXPORT void EXT_PLUGIN_CALL ext_plugin_close(uint64_t handle);
+EXT_PLUGIN_GUEST_EXPORT void EXT_PLUGIN_GUEST_CALL ext_plugin_guest_close(uint64_t handle);
 
 #ifdef __cplusplus
 }

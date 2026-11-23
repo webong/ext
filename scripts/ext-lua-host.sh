@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Builds ext_io.host.core, the C module under the Lua host (pkg/ext-lua/ext_io/host), for one Lua,
 # into <out-dir>/ext_io/host/core.so (core.dll on Windows); put "<out-dir>/?.so" ("<out-dir>/?.dll")
-# on package.cpath to load it. It needs the Lua headers and ext_host.h only: the module loads the
+# on package.cpath to load it. It needs the Lua headers and ext_plugin_host.h only: the module loads the
 # engine's shared library at run time.
 #
 # On Windows a module links against the Lua library itself, so it also needs that library: the

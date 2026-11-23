@@ -2,7 +2,7 @@
 ---
 ---     local host = require("ext_io.host")
 ---
----     local engine = host.Engine()          -- EXT_HOST_LIBRARY, or libext_host on the loader path
+---     local engine = host.Engine()          -- EXT_HOST_LIBRARY, or libext_plugin_host on the loader path
 ---     local h = engine:process(descriptor, "/opt/plugins/echo/1.0.0/echo")
 ---     h:start()
 ---     h:call({ name = "ext.echo", version = "v1" }, "echo", { value = 7 })
@@ -11,11 +11,11 @@
 --- The engine does the work a host must get right: admission, the handshake check against the
 --- descriptor, request and response validation, deadlines and the session's lifecycle. This
 --- module only moves bytes and policy decisions across a small C module, ext_io.host.core, which
---- loads the engine's shared library (libext_host) at run time. Requiring ext_io.plugin (the
+--- loads the engine's shared library (libext_plugin_host) at run time. Requiring ext_io.plugin (the
 --- guest) never loads either.
 ---
 --- Guests may be JSON-line child processes (Engine:process) or libraries that export the C ABI of
---- ext_plugin.h (Engine:shared_library). Native code in a shared library runs inside this process
+--- ext_plugin_guest.h (Engine:shared_library). Native code in a shared library runs inside this process
 --- with its full access.
 local core = require("ext_io.host.core")
 local json = require("ext_io.json")
@@ -58,15 +58,15 @@ end
 
 local function library_names()
   local sep = package.config:sub(1, 1)
-  if sep == "\\" then return { "ext_host.dll" } end
+  if sep == "\\" then return { "ext_plugin_host.dll" } end
   local uname = io.popen and io.popen("uname -s 2>/dev/null")
   local system = uname and uname:read("*l") or ""
   if uname then uname:close() end
-  if system == "Darwin" then return { "libext_host.dylib" } end
-  return { "libext_host.so" }
+  if system == "Darwin" then return { "libext_plugin_host.dylib" } end
+  return { "libext_plugin_host.so" }
 end
 
---- The C engine, loaded from path, EXT_HOST_LIBRARY, or libext_host on the loader path. Raises
+--- The C engine, loaded from path, EXT_HOST_LIBRARY, or libext_plugin_host on the loader path. Raises
 --- a string error when no library loads or its ABI is not this module's.
 function host.Engine(path)
   path = path or os.getenv("EXT_HOST_LIBRARY")
@@ -79,7 +79,7 @@ function host.Engine(path)
     if ok then return setmetatable({ _engine = engine }, host.Engine_mt) end
     last = engine
   end
-  error("the ext engine library was not found: set EXT_HOST_LIBRARY to libext_host, or pass its path ("
+  error("the ext engine library was not found: set EXT_HOST_LIBRARY to libext_plugin_host, or pass its path ("
     .. tostring(last) .. ")", 2)
 end
 
@@ -121,7 +121,7 @@ function Engine:process(descriptor, executable, opts)
     policy(opts.verify), policy(opts.authorize)))
 end
 
---- A host for a guest library that exports the C ABI of ext_plugin.h. path is an absolute path to
+--- A host for a guest library that exports the C ABI of ext_plugin_guest.h. path is an absolute path to
 --- a verified, revision-specific artifact; it is loaded when the host starts, after verify, and is
 --- never unloaded. opts holds verify and authorize, as for Engine:process.
 function Engine:shared_library(descriptor, path, opts)
@@ -255,7 +255,7 @@ function Host:attach(registry, authorize, opts)
   guard(self._host.attach, self._host, registry._registry, reverse_authorize(authorize), bounds(opts))
 end
 
---- A guest registry (ext_registry_* in ext_host.h): a reverse call one guest makes is served by a
+--- A guest registry (ext_registry_* in ext_plugin_host.h): a reverse call one guest makes is served by a
 --- forward call to another guest, along an edge declared with route. An undeclared edge is
 --- refused with reverse_undeclared, an unregistered target with reverse_unavailable, and a call
 --- that would re-enter a host already on its call chain with denied; the target's answer passes

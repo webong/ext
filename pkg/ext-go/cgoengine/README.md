@@ -36,7 +36,7 @@ other never needs a code change (an architecture test enforces the identical API
 
 Manifest validation and plan resolution in the C engine are bounded by the manifest size: they sort
 instead of comparing every pair, and a directory digest stops at 250,000 files or 64 MiB of path text
-(`EXT_INVALID`). Earlier versions took minutes on a 4 MB manifest; see `lib/plugin/services.md`.
+(`EXT_PLUGIN_INVALID`). Earlier versions took minutes on a 4 MB manifest; see `lib/plugin/services.md`.
 
 The module depends on `pkg/ext-go/engine` only, which uses the standard library only. `Host`, `Streams`, `Instances`, `NewProcess`
 and `NewLaunch` are engine-only and need the C engine build.
@@ -68,7 +68,7 @@ fixtures are in `lib/plugin/testdata`.
 
 ```sh
 cmake -S lib/plugin -B /tmp/ext-cengine -DCMAKE_BUILD_TYPE=Release
-cmake --build /tmp/ext-cengine --target ext_host_static
+cmake --build /tmp/ext-cengine --target ext_plugin_host_static
 CGO_LDFLAGS='-L/tmp/ext-cengine' \
   go build -tags ext_cengine ./pkg/ext-go/cgoengine/plugin/examples/host
 ```

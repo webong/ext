@@ -39,7 +39,7 @@ final class Host
     ) {
         $this->ffi = $engine->ffi;
         $this->callbacks = [$this->policy($verify), $this->policy($authorize)];
-        $options = $this->ffi->new('ext_host_options');
+        $options = $this->ffi->new('ext_plugin_host_options');
         $options->abi_version = Engine::ABI_VERSION;
         $options->struct_size = \FFI::sizeof($options);
         $copy = $this->ffi->new('char[' . max(\strlen($descriptor), 1) . ']');
@@ -49,8 +49,8 @@ final class Host
         $options->verify = $this->callbacks[0];
         $options->authorize = $this->callbacks[1];
         $options->user = null;
-        $handle = $this->ffi->new('ext_host *');
-        $status = $this->ffi->ext_host_create(\FFI::addr($options), \FFI::addr($backend), \FFI::addr($handle));
+        $handle = $this->ffi->new('ext_plugin_host *');
+        $status = $this->ffi->ext_plugin_host_create(\FFI::addr($options), \FFI::addr($backend), \FFI::addr($handle));
         if ($status !== 0) {
             if ($extension !== null) {
                 ($extension->release)($extension->user); // ownership stays with the caller on a failed create
@@ -95,7 +95,7 @@ final class Host
         if (!($ms >= 1.0)) {
             throw new \InvalidArgumentException('timeout must be at least 1 ms');
         }
-        $o = $this->ffi->new('ext_call_options');
+        $o = $this->ffi->new('ext_plugin_call_options');
         $o->struct_size = \FFI::sizeof($o);
         $o->timeout_ms = $ms >= 4294967295.0 ? 4294967295 : (int) $ms;
         return $o;
@@ -106,7 +106,7 @@ final class Host
     {
         $handle = $this->live('start');
         $o = $this->options($timeout);
-        $status = $this->ffi->ext_host_start_with_options($handle, \FFI::addr($o));
+        $status = $this->ffi->ext_plugin_host_start_with_options($handle, \FFI::addr($o));
         if ($status !== 0) {
             throw HostError::of($status, 'start');
         }
@@ -116,7 +116,7 @@ final class Host
     {
         $handle = $this->live($action);
         $o = $this->options($timeout);
-        $out = $this->ffi->new('ext_buffer');
+        $out = $this->ffi->new('ext_plugin_buffer');
         $status = $this->ffi->{$function}($handle, $data, \strlen($data), \FFI::addr($o), \FFI::addr($out));
         try {
             if ($status !== 0) {
@@ -125,7 +125,7 @@ final class Host
             return $out->data === null ? '' : \FFI::string($out->data, $out->len);
         } finally {
             if ($out->data !== null) {
-                $this->ffi->ext_buffer_free(\FFI::addr($out));
+                $this->ffi->ext_plugin_buffer_free(\FFI::addr($out));
             }
         }
     }
@@ -144,7 +144,7 @@ final class Host
         if ($payload !== null) {
             $request['payload'] = $payload;
         }
-        $response = Json::decode($this->exchange('ext_host_call', Json::encode($request), $timeout, $operation));
+        $response = Json::decode($this->exchange('ext_plugin_host_call', Json::encode($request), $timeout, $operation));
         $error = Json::get($response, 'error');
         if ($error !== null) {
             $retry = Json::get($error, 'retryAfterMilliseconds');
@@ -156,7 +156,7 @@ final class Host
     /** Sends a complete request envelope (JSON) and returns the response envelope (JSON). */
     public function invoke(string $request, float $timeout = 3.0): string
     {
-        return $this->exchange('ext_host_invoke_with_options', $request, $timeout, 'invoke');
+        return $this->exchange('ext_plugin_host_invoke_with_options', $request, $timeout, 'invoke');
     }
 
     /** Stops admission and waits for the calls in flight; a timeout reopens admission. */
@@ -164,7 +164,7 @@ final class Host
     {
         $handle = $this->live('drain');
         $o = $this->options($timeout);
-        $status = $this->ffi->ext_host_drain_with_options($handle, \FFI::addr($o));
+        $status = $this->ffi->ext_plugin_host_drain_with_options($handle, \FFI::addr($o));
         if ($status !== 0) {
             throw HostError::of($status, 'drain');
         }
@@ -177,14 +177,14 @@ final class Host
             throw HostError::of(1, 'close');
         }
         if ($this->handle !== null) {
-            $this->ffi->ext_host_close($this->handle);
+            $this->ffi->ext_plugin_host_close($this->handle);
         }
     }
 
     /** "created", "ready", "draining", "closed" or "failed". */
     public function state(): string
     {
-        return Engine::STATES[$this->ffi->ext_host_get_state($this->live('state'))] ?? 'unknown';
+        return Engine::STATES[$this->ffi->ext_plugin_host_get_state($this->live('state'))] ?? 'unknown';
     }
 
     /** What a process guest wrote to stderr, bounded and untrusted. */
@@ -193,7 +193,7 @@ final class Host
         $handle = $this->live('stderr');
         $buffer = $this->ffi->new('uint8_t[' . self::STDERR_CAPACITY . ']');
         $length = $this->ffi->new('size_t');
-        $status = $this->ffi->ext_host_process_stderr($handle, $buffer, self::STDERR_CAPACITY, \FFI::addr($length));
+        $status = $this->ffi->ext_plugin_host_process_stderr($handle, $buffer, self::STDERR_CAPACITY, \FFI::addr($length));
         if ($status !== 0) {
             throw HostError::of($status, 'stderr');
         }
@@ -207,17 +207,17 @@ final class Host
             throw HostError::of(1, 'destroy');
         }
         if ($this->handle !== null) {
-            $this->ffi->ext_host_close($this->handle);
+            $this->ffi->ext_plugin_host_close($this->handle);
             // Calls routed here end once the host is closed; unregistering waits for them.
             foreach ($this->registered as [$registry, $name, $version]) {
                 if ($registry->handle !== null) {
-                    $this->ffi->ext_registry_unregister($registry->handle, $name, $version);
+                    $this->ffi->ext_plugin_registry_unregister($registry->handle, $name, $version);
                 }
                 $registry->forgetTarget($name, $version);
                 $registry->release();
             }
             $this->registered = [];
-            $this->ffi->ext_host_destroy($this->handle);
+            $this->ffi->ext_plugin_host_destroy($this->handle);
             $this->handle = null;
             $this->sourceOf?->release();
             $this->sourceOf = null;
@@ -253,7 +253,7 @@ final class Host
     {
         $handle = $this->live('serve_reverse');
         $o = $this->options($timeout);
-        $status = $this->ffi->ext_host_serve_reverse($handle, \FFI::addr($o));
+        $status = $this->ffi->ext_plugin_host_serve_reverse($handle, \FFI::addr($o));
         if ($status === 6) {
             return false;
         }
@@ -294,7 +294,7 @@ final class Host
                 $this->inPolicy = false;
             }
         };
-        $services = $this->ffi->new('ext_host_services');
+        $services = $this->ffi->new('ext_plugin_host_services');
         $services->struct_size = \FFI::sizeof($services);
         $services->user = null;
         $services->authorize = $policy;
@@ -305,11 +305,11 @@ final class Host
         $services->timeout_ms = $ms <= 0 ? 0 : ($ms >= 4294967295.0 ? 4294967295 : max(1, (int) $ms));
         $services->max_payload_bytes = $maxPayloadBytes;
         $services->max_in_flight = $maxInFlight;
-        $status = $this->ffi->ext_host_set_reverse_mode($host, 1);
+        $status = $this->ffi->ext_plugin_host_set_reverse_mode($host, 1);
         if ($status === 0) {
             $status = $registry === null
-                ? $this->ffi->ext_host_set_services($host, \FFI::addr($services))
-                : $this->ffi->ext_registry_attach($registry->handle, $host, \FFI::addr($services));
+                ? $this->ffi->ext_plugin_host_set_services($host, \FFI::addr($services))
+                : $this->ffi->ext_plugin_registry_attach($registry->handle, $host, \FFI::addr($services));
         }
         if ($status !== 0) {
             throw HostError::of($status, $registry === null ? 'serve' : 'attach');
@@ -328,7 +328,7 @@ final class Host
     /** @internal Registry::register() */
     public function registerIn(Registry $registry, string $name, string $version): void
     {
-        $status = $this->ffi->ext_registry_register($registry->handle, $name, $version, $this->live('register'));
+        $status = $this->ffi->ext_plugin_registry_register($registry->handle, $name, $version, $this->live('register'));
         if ($status !== 0) {
             throw HostError::of($status, 'register');
         }

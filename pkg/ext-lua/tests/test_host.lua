@@ -62,7 +62,7 @@ local function expect_host_error(f, status, what)
 end
 
 case("a missing library is reported", function()
-  t.raises(function() host.Engine("/does/not/exist/libext_host.so") end)
+  t.raises(function() host.Engine("/does/not/exist/libext_plugin_host.so") end)
 end)
 
 -- Every case of host-cases.json, on both reference guests.

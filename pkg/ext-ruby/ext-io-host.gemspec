@@ -3,9 +3,9 @@
 require_relative "lib/ext_io/plugin/version"
 
 # The host SDK (ExtIO::Host, require "ext_io/host"): an opt-in gem beside the guest (ext-io), with
-# a native extension that loads the C engine's shared library (libext_host) at run time. The
-# extension needs ext_host.h to build: a checkout of the repository has it, and otherwise pass
-# --with-ext_host-dir=<an unpacked ext-plugin release> or set EXT_HOST_INCLUDE.
+# a native extension that loads the C engine's shared library (libext_plugin_host) at run time. The
+# extension needs ext_plugin_host.h to build: a checkout of the repository has it, and otherwise pass
+# --with-ext_plugin_host-dir=<an unpacked ext-plugin release> or set EXT_HOST_INCLUDE.
 Gem::Specification.new do |spec|
   spec.name = "ext-io-host"
   spec.version = ExtIO::Plugin::VERSION
@@ -14,7 +14,7 @@ Gem::Specification.new do |spec|
   spec.description = <<~TEXT
     Runs ext plugins (JSON-line processes and C ABI libraries) from Ruby through the ext C engine,
     which does admission, handshake checks, validation, deadlines and the session lifecycle. Calls
-    run without the global VM lock. Needs the engine's shared library, libext_host, from an
+    run without the global VM lock. Needs the engine's shared library, libext_plugin_host, from an
     ext-plugin release or a CMake build.
   TEXT
   spec.homepage = "https://github.com/webong/ext/tree/main/pkg/ext-ruby"

@@ -44,7 +44,7 @@ type backendBinding struct {
 	// What a backend that carries frames needs (backend_frames.go): the engine
 	// host, set once it exists; the number of calls into it, which Close waits
 	// for; and the host's reverse services, set before the host starts.
-	host           *C.ext_host
+	host           *C.ext_plugin_host
 	inflight       int
 	idle           *sync.Cond
 	reverse        bool
@@ -73,12 +73,12 @@ func NewWithBackend(d plugin.Descriptor, opts BackendOptions, verify, authorize 
 	h := &Host{policy: cgo.NewHandle(&policies{verify: verify, authorize: authorize}), descriptor: d.Clone(), backend: binding}
 	// The backend hands the engine its frames: a plugin may report progress and
 	// call the host's reverse services, as it can through any Go Session.
-	flags := C.uint32_t(C.EXT_BACKEND_FRAMES)
+	flags := C.uint32_t(C.EXT_PLUGIN_BACKEND_FRAMES)
 	if opts.Concurrent {
-		flags |= C.EXT_BACKEND_CONCURRENT
+		flags |= C.EXT_PLUGIN_BACKEND_CONCURRENT
 	}
 	s := C.ext_go_create_backend((*C.uint8_t)(unsafe.Pointer(&data[0])), C.size_t(len(data)), C.uintptr_t(h.policy), C.uintptr_t(runtime), flags, &h.ptr)
-	if s != C.EXT_OK {
+	if s != C.EXT_PLUGIN_OK {
 		cancel()
 		runtime.Delete()
 		h.policy.Delete()
@@ -93,33 +93,33 @@ func NewWithBackend(d plugin.Descriptor, opts BackendOptions, verify, authorize 
 func backendStatus(err error) C.int32_t {
 	switch {
 	case err == nil:
-		return C.EXT_OK
+		return C.EXT_PLUGIN_OK
 	case errors.Is(err, context.DeadlineExceeded):
-		return C.EXT_TIMEOUT
+		return C.EXT_PLUGIN_TIMEOUT
 	case errors.Is(err, context.Canceled):
-		return C.EXT_CANCELED
+		return C.EXT_PLUGIN_CANCELED
 	case errors.Is(err, plugin.ErrProtocol):
-		return C.EXT_PROTOCOL
+		return C.EXT_PLUGIN_PROTOCOL
 	case errors.Is(err, plugin.ErrClosed):
-		return C.EXT_CLOSED
+		return C.EXT_PLUGIN_CLOSED
 	case errors.Is(err, plugin.ErrInvalid):
-		return C.EXT_INVALID
+		return C.EXT_PLUGIN_INVALID
 	case errors.Is(err, plugin.ErrMismatch):
-		return C.EXT_MISMATCH
+		return C.EXT_PLUGIN_MISMATCH
 	case errors.Is(err, plugin.ErrDenied):
-		return C.EXT_DENIED
+		return C.EXT_PLUGIN_DENIED
 	case errors.Is(err, plugin.ErrUnsupported):
-		return C.EXT_UNSUPPORTED
+		return C.EXT_PLUGIN_UNSUPPORTED
 	case errors.Is(err, plugin.ErrDraining):
-		return C.EXT_DRAINING
+		return C.EXT_PLUGIN_DRAINING
 	default:
-		return C.EXT_IO
+		return C.EXT_PLUGIN_IO
 	}
 }
-func emitJSON(value any, emit C.ext_emit, sink unsafe.Pointer) C.int32_t {
+func emitJSON(value any, emit C.ext_plugin_emit, sink unsafe.Pointer) C.int32_t {
 	data, err := json.Marshal(value)
 	if err != nil || len(data) == 0 || len(data) > plugin.MaxFrameBytes {
-		return C.EXT_INVALID
+		return C.EXT_PLUGIN_INVALID
 	}
 	return C.ext_go_emit(emit, sink, (*C.uint8_t)(unsafe.Pointer(&data[0])), C.size_t(len(data)))
 }
@@ -138,11 +138,11 @@ func (b *backendBinding) bound(caller C.uintptr_t, duration time.Duration) (cont
 }
 
 //export ctxGoConnect
-func ctxGoConnect(handle C.uintptr_t, timeout C.uint32_t, caller C.uintptr_t, emit C.ext_emit, sink unsafe.Pointer) (result C.int32_t) {
-	result = C.EXT_IO
+func ctxGoConnect(handle C.uintptr_t, timeout C.uint32_t, caller C.uintptr_t, emit C.ext_plugin_emit, sink unsafe.Pointer) (result C.int32_t) {
+	result = C.EXT_PLUGIN_IO
 	defer func() {
 		if recover() != nil {
-			result = C.EXT_IO
+			result = C.EXT_PLUGIN_IO
 		}
 	}()
 	b := cgo.Handle(handle).Value().(*backendBinding)
@@ -159,13 +159,13 @@ func ctxGoConnect(handle C.uintptr_t, timeout C.uint32_t, caller C.uintptr_t, em
 		return backendStatus(recordCallbackError(ctx, err))
 	}
 	if backend == nil {
-		return C.EXT_INVALID
+		return C.EXT_PLUGIN_INVALID
 	}
 	b.mu.Lock()
 	if b.closed {
 		b.mu.Unlock()
 		_ = backend.Close()
-		return C.EXT_CLOSED
+		return C.EXT_PLUGIN_CLOSED
 	}
 	b.backend = backend
 	reverse := b.reverse
@@ -186,20 +186,20 @@ func ctxGoConnect(handle C.uintptr_t, timeout C.uint32_t, caller C.uintptr_t, em
 }
 
 //export ctxGoInvoke
-func ctxGoInvoke(handle C.uintptr_t, data *C.uint8_t, n C.size_t, timeout C.uint32_t, caller C.uintptr_t, emit C.ext_emit, sink unsafe.Pointer) (result C.int32_t) {
-	result = C.EXT_IO
+func ctxGoInvoke(handle C.uintptr_t, data *C.uint8_t, n C.size_t, timeout C.uint32_t, caller C.uintptr_t, emit C.ext_plugin_emit, sink unsafe.Pointer) (result C.int32_t) {
+	result = C.EXT_PLUGIN_IO
 	defer func() {
 		if recover() != nil {
-			result = C.EXT_IO
+			result = C.EXT_PLUGIN_IO
 		}
 	}()
 	b := cgo.Handle(handle).Value().(*backendBinding)
 	var request plugin.Request
 	if n > plugin.MaxFrameBytes {
-		return C.EXT_INVALID
+		return C.EXT_PLUGIN_INVALID
 	}
 	if err := plugin.Decode(C.GoBytes(unsafe.Pointer(data), C.int(n)), &request); err != nil {
-		return C.EXT_INVALID
+		return C.EXT_PLUGIN_INVALID
 	}
 	ctx, cancel := b.bound(caller, time.Duration(timeout)*time.Millisecond)
 	defer cancel()
@@ -212,7 +212,7 @@ func ctxGoInvoke(handle C.uintptr_t, data *C.uint8_t, n C.size_t, timeout C.uint
 	backend, isClosed := b.backend, b.closed
 	b.mu.Unlock()
 	if backend == nil || isClosed {
-		return C.EXT_CLOSED
+		return C.EXT_PLUGIN_CLOSED
 	}
 	response, err := backend.Invoke(b.withFrames(ctx, request), request)
 	if err == nil {
@@ -275,7 +275,7 @@ func (h *Host) Drain(duration time.Duration) error {
 	if h.ptr == nil {
 		return plugin.ErrClosed
 	}
-	return status(C.ext_host_drain(h.ptr, C.uint32_t(duration/time.Millisecond)))
+	return status(C.ext_plugin_host_drain(h.ptr, C.uint32_t(duration/time.Millisecond)))
 }
 
 // State reports C-owned lifecycle state. Before Start it returns "created".
@@ -285,14 +285,14 @@ func (h *Host) State() plugin.State {
 	if h.ptr == nil {
 		return plugin.StateClosed
 	}
-	switch C.ext_host_get_state(h.ptr) {
-	case C.EXT_HOST_READY:
+	switch C.ext_plugin_host_get_state(h.ptr) {
+	case C.EXT_PLUGIN_HOST_READY:
 		return plugin.StateReady
-	case C.EXT_HOST_DRAINING:
+	case C.EXT_PLUGIN_HOST_DRAINING:
 		return plugin.StateDraining
-	case C.EXT_HOST_FAILED:
+	case C.EXT_PLUGIN_HOST_FAILED:
 		return plugin.StateFailed
-	case C.EXT_HOST_CREATED:
+	case C.EXT_PLUGIN_HOST_CREATED:
 		return plugin.State("created")
 	default:
 		return plugin.StateClosed
@@ -315,7 +315,7 @@ func (h *Host) DrainContext(ctx context.Context) error {
 		return err
 	}
 	defer scope.finish()
-	err = status(C.ext_host_drain_with_options(h.ptr, &scope.options))
+	err = status(C.ext_plugin_host_drain_with_options(h.ptr, &scope.options))
 	if scope.ctx.Err() != nil {
 		return scope.ctx.Err()
 	}

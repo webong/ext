@@ -1,17 +1,17 @@
 //go:build ext_cengine && cgo && (darwin || linux || windows)
 
 // Package plugin (github.com/webong/ext/pkg/ext-go/cgoengine) binds Go to the C host engine.
-// Build with -tags ext_cengine and link libext_host_static. Add the
-// ext_cengine_shared tag to link the optional libext_host shared library.
+// Build with -tags ext_cengine and link libext_plugin_host_static. Add the
+// ext_cengine_shared tag to link the optional libext_plugin_host shared library.
 package plugin
 
 /*
 #cgo CFLAGS: -I${SRCDIR}/../_csrc/plugin/include -I${SRCDIR}
-#cgo !ext_cengine_shared CFLAGS: -DEXT_HOST_STATIC
-#cgo !ext_cengine_shared LDFLAGS: -lext_host_static -lpthread -lm
+#cgo !ext_cengine_shared CFLAGS: -DEXT_PLUGIN_HOST_STATIC
+#cgo !ext_cengine_shared LDFLAGS: -lext_plugin_host_static -lpthread -lm
 #cgo windows,!ext_cengine_shared LDFLAGS: -lbcrypt
 #cgo linux,!ext_cengine_shared LDFLAGS: -ldl
-#cgo ext_cengine_shared LDFLAGS: -lext_host
+#cgo ext_cengine_shared LDFLAGS: -lext_plugin_host
 #include "ext_go_bridge.h"
 #include <stdlib.h>
 */
@@ -53,7 +53,7 @@ type policies struct {
 // releases memory. Policy callbacks must not reenter the host.
 type Host struct {
 	mu             sync.RWMutex
-	ptr            *C.ext_host
+	ptr            *C.ext_plugin_host
 	policy         cgo.Handle
 	reverse        cgo.Handle // the host's reverse services, zero when none
 	reverseSession cgo.Handle // the context of session-scoped reverse calls
@@ -101,40 +101,40 @@ func New(path string, d plugin.Descriptor, verify, authorize Policy) (*Host, err
 	}
 	return h, nil
 }
-func status(s C.ext_status) error {
+func status(s C.ext_plugin_status) error {
 	switch s {
-	case C.EXT_OK:
+	case C.EXT_PLUGIN_OK:
 		return nil
-	case C.EXT_INVALID:
+	case C.EXT_PLUGIN_INVALID:
 		return plugin.ErrInvalid
-	case C.EXT_DENIED:
+	case C.EXT_PLUGIN_DENIED:
 		return plugin.ErrDenied
-	case C.EXT_MISMATCH:
+	case C.EXT_PLUGIN_MISMATCH:
 		return plugin.ErrMismatch
-	case C.EXT_UNSUPPORTED:
+	case C.EXT_PLUGIN_UNSUPPORTED:
 		return plugin.ErrUnsupported
-	case C.EXT_NOT_FOUND:
+	case C.EXT_PLUGIN_NOT_FOUND:
 		return plugin.ErrNotFound
-	case C.EXT_AMBIGUOUS:
+	case C.EXT_PLUGIN_AMBIGUOUS:
 		return plugin.ErrAmbiguous
-	case C.EXT_DRAINING:
+	case C.EXT_PLUGIN_DRAINING:
 		return plugin.ErrDraining
-	case C.EXT_CLOSED:
+	case C.EXT_PLUGIN_CLOSED:
 		return plugin.ErrClosed
-	case C.EXT_PROTOCOL:
+	case C.EXT_PLUGIN_PROTOCOL:
 		return plugin.ErrProtocol
-	case C.EXT_EXPIRED:
+	case C.EXT_PLUGIN_EXPIRED:
 		return endpoint.ErrExpired
-	case C.EXT_EXISTS:
+	case C.EXT_PLUGIN_EXISTS:
 		return ErrPackageExists
-	case C.EXT_MISSING:
+	case C.EXT_PLUGIN_MISSING:
 		return fmt.Errorf("a file or directory is missing: %w", os.ErrNotExist)
-	case C.EXT_CANCELED:
+	case C.EXT_PLUGIN_CANCELED:
 		return context.Canceled
-	case C.EXT_TIMEOUT:
+	case C.EXT_PLUGIN_TIMEOUT:
 		return context.DeadlineExceeded
 	}
-	return fmt.Errorf("C host: %s", C.GoString(C.ext_host_status_string(s)))
+	return fmt.Errorf("C host: %s", C.GoString(C.ext_plugin_host_status_string(s)))
 }
 func timeout(ctx context.Context) C.uint32_t {
 	d := 30 * time.Second
@@ -154,8 +154,8 @@ func timeout(ctx context.Context) C.uint32_t {
 // Joining the signal callback before freeing prevents C pointer lifetime races.
 type callScope struct {
 	ctx     context.Context
-	options C.ext_call_options
-	cancel  *C.ext_cancel
+	options C.ext_plugin_call_options
+	cancel  *C.ext_plugin_cancel
 	value   cgo.Handle
 	finish  func()
 }
@@ -177,7 +177,7 @@ func (h *Host) scope(ctx context.Context) (*callScope, error) {
 	ctx, cancelContext := context.WithTimeout(ctx, duration)
 	ctx = errorContext(ctx)
 	scope := &callScope{ctx: ctx}
-	if err := status(C.ext_cancel_create(&scope.cancel)); err != nil {
+	if err := status(C.ext_plugin_cancel_create(&scope.cancel)); err != nil {
 		cancelContext()
 		h.mu.RUnlock()
 		return nil, err
@@ -185,12 +185,12 @@ func (h *Host) scope(ctx context.Context) (*callScope, error) {
 	scope.value = cgo.NewHandle(ctx)
 	C.ext_go_call_init(&scope.options, timeout(ctx), scope.cancel, C.uintptr_t(scope.value))
 	done := make(chan struct{})
-	stop := context.AfterFunc(ctx, func() { C.ext_cancel_signal(scope.cancel); close(done) })
+	stop := context.AfterFunc(ctx, func() { C.ext_plugin_cancel_signal(scope.cancel); close(done) })
 	scope.finish = func() {
 		if !stop() {
 			<-done
 		}
-		C.ext_cancel_destroy(scope.cancel)
+		C.ext_plugin_cancel_destroy(scope.cancel)
 		scope.value.Delete()
 		cancelContext()
 		h.mu.RUnlock()
@@ -203,7 +203,7 @@ func (h *Host) Start(ctx context.Context) error {
 		return err
 	}
 	defer scope.finish()
-	err = scope.result(status(C.ext_host_start_with_options(h.ptr, &scope.options)))
+	err = scope.result(status(C.ext_plugin_host_start_with_options(h.ptr, &scope.options)))
 	if scope.ctx.Err() != nil {
 		return scope.ctx.Err()
 	}
@@ -218,9 +218,9 @@ func (h *Host) CallRaw(ctx context.Context, request []byte) ([]byte, error) {
 		return nil, err
 	}
 	defer scope.finish()
-	var out C.ext_buffer
-	s := C.ext_host_invoke_with_options(h.ptr, (*C.uint8_t)(unsafe.Pointer(&request[0])), C.size_t(len(request)), &scope.options, &out)
-	defer C.ext_buffer_free(&out)
+	var out C.ext_plugin_buffer
+	s := C.ext_plugin_host_invoke_with_options(h.ptr, (*C.uint8_t)(unsafe.Pointer(&request[0])), C.size_t(len(request)), &scope.options, &out)
+	defer C.ext_plugin_buffer_free(&out)
 	if scope.ctx.Err() != nil {
 		return nil, scope.ctx.Err()
 	}
@@ -251,7 +251,7 @@ func (h *Host) Close() error {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 	if h.ptr != nil {
-		C.ext_host_close(h.ptr)
+		C.ext_plugin_host_close(h.ptr)
 	}
 	if h.backend != nil {
 		<-h.backend.closeDone
@@ -273,7 +273,7 @@ func (h *Host) Destroy() {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	if h.ptr != nil {
-		C.ext_host_destroy(h.ptr)
+		C.ext_plugin_host_destroy(h.ptr)
 		h.ptr = nil
 		h.policy.Delete()
 		if h.reverse != 0 {
@@ -287,7 +287,7 @@ func ValidateJSON(data []byte) error {
 	if len(data) == 0 {
 		return plugin.ErrInvalid
 	}
-	return status(C.ext_host_validate_json((*C.uint8_t)(unsafe.Pointer(&data[0])), C.size_t(len(data))))
+	return status(C.ext_plugin_host_validate_json((*C.uint8_t)(unsafe.Pointer(&data[0])), C.size_t(len(data))))
 }
 
 //export ctxGoPolicy
@@ -319,9 +319,9 @@ func EngineCall(operation string, input json.RawMessage) (json.RawMessage, error
 	}
 	name := C.CString(operation)
 	defer C.free(unsafe.Pointer(name))
-	var out C.ext_buffer
-	s := C.ext_engine_call(name, (*C.uint8_t)(unsafe.Pointer(&input[0])), C.size_t(len(input)), &out)
-	defer C.ext_buffer_free(&out)
+	var out C.ext_plugin_buffer
+	s := C.ext_plugin_call(name, (*C.uint8_t)(unsafe.Pointer(&input[0])), C.size_t(len(input)), &out)
+	defer C.ext_plugin_buffer_free(&out)
 	if err := status(s); err != nil {
 		return nil, err
 	}
@@ -367,11 +367,11 @@ func (h *Host) callProgress(ctx context.Context, contract plugin.ContractRef, op
 		deliver = cgo.NewHandle(onProgress)
 		defer deliver.Delete()
 	}
-	var progress C.ext_progress_options
+	var progress C.ext_plugin_progress_options
 	C.ext_go_progress_init(&progress, C.uintptr_t(deliver), C.uint32_t(limits.EventsPerSecond), C.uint32_t(limits.BytesPerSecond))
-	var out C.ext_buffer
+	var out C.ext_plugin_buffer
 	s := C.ext_go_call_progress(h.ptr, (*C.uint8_t)(unsafe.Pointer(&data[0])), C.size_t(len(data)), &scope.options, &progress, &out)
-	defer C.ext_buffer_free(&out)
+	defer C.ext_plugin_buffer_free(&out)
 	if scope.ctx.Err() != nil {
 		return nil, scope.ctx.Err()
 	}

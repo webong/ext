@@ -7,13 +7,13 @@ build_dir="$(cd "$EXT_CENGINE_BUILD_DIR" && pwd -P)"
 cmake --install "$build_dir/release" --prefix "$build_dir/install"
 # The consumer asks for exactly the version lib/plugin declares, so the installed package's
 # version file is checked without pinning a number here.
-version="$(sed -n 's/^project(ext_host_prototype VERSION \([0-9.]*\) .*/\1/p' lib/plugin/CMakeLists.txt)"
+version="$(sed -n 's/^project(ext_plugin VERSION \([0-9.]*\) .*/\1/p' lib/plugin/CMakeLists.txt)"
 [[ -n "$version" ]] || { echo "no project() VERSION in lib/plugin/CMakeLists.txt" >&2; exit 1; }
 mkdir -p "$build_dir/consumer"
 cat > "$build_dir/consumer/CMakeLists.txt" <<CMAKE
 cmake_minimum_required(VERSION 3.18)
 project(ext_installed_consumer LANGUAGES C)
-find_package(ext_host ${version} EXACT CONFIG REQUIRED)
+find_package(ext_plugin ${version} EXACT CONFIG REQUIRED)
 foreach(binding IN ITEMS guest guest_shared host host_shared)
   if(TARGET EXT::\${binding})
     add_executable(check_\${binding} "\${EXT_GUEST_CHECK}")

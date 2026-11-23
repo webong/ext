@@ -83,7 +83,7 @@ static int uint64_field(yyjson_val *v, uint64_t *out) {
   return 1;
 }
 
-ext_status ext_progress_frame(yyjson_val *frame, ext_progress_event *event,
+ext_plugin_status ext_progress_frame(yyjson_val *frame, ext_progress_event *event,
                               yyjson_val **parent) {
   const char *kind, *stream;
   size_t kind_len, stream_len;
@@ -100,7 +100,7 @@ ext_status ext_progress_frame(yyjson_val *frame, ext_progress_event *event,
       !uint64_field(yyjson_obj_get(frame, "completed"), &event->completed) ||
       !uint64_field(yyjson_obj_get(frame, "total"), &event->total) ||
       !uint64_field(yyjson_obj_get(frame, "dropped"), &event->dropped))
-    return EXT_PROTOCOL;
+    return EXT_PLUGIN_PROTOCOL;
   int is_log = kind_len == 3 && !memcmp(kind, "log", 3),
       is_progress = kind_len == 8 && !memcmp(kind, "progress", 8);
   event->log = is_log;
@@ -111,12 +111,12 @@ ext_status ext_progress_frame(yyjson_val *frame, ext_progress_event *event,
   if ((!is_log && !is_progress) || event->stream < 0 ||
       (event->stream && !is_log) || event->text_len > EXT_PROGRESS_TEXT_MAX ||
       (event->total && event->completed > event->total))
-    return EXT_PROTOCOL;
+    return EXT_PLUGIN_PROTOCOL;
   *parent = id;
-  return EXT_OK;
+  return EXT_PLUGIN_OK;
 }
 
-void ext_progress_sink_init(ext_progress_sink *s, ext_progress_fn fn,
+void ext_progress_sink_init(ext_progress_sink *s, ext_plugin_progress_fn fn,
                             void *user, int64_t events_per_second,
                             int64_t bytes_per_second) {
   ext_limiter_init(&s->limiter, events_per_second, bytes_per_second,
@@ -127,13 +127,13 @@ void ext_progress_sink_init(ext_progress_sink *s, ext_progress_fn fn,
 
 /* Hands one event to fn as the JSON of plugin.Progress: zero fields are left
  * out, as Go's omitempty does. */
-static ext_status emit_event(ext_progress_sink *s, const ext_progress_event *e,
+static ext_plugin_status emit_event(ext_progress_sink *s, const ext_progress_event *e,
                              uint64_t dropped) {
   if (!s->fn)
-    return EXT_OK;
+    return EXT_PLUGIN_OK;
   yyjson_mut_doc *doc = yyjson_mut_doc_new(NULL);
   if (!doc)
-    return EXT_NOMEM;
+    return EXT_PLUGIN_NOMEM;
   yyjson_mut_val *root = yyjson_mut_obj(doc);
   yyjson_mut_doc_set_root(doc, root);
   int ok = root && yyjson_mut_obj_add_str(doc, root, "kind",
@@ -153,13 +153,13 @@ static ext_status emit_event(ext_progress_sink *s, const ext_progress_event *e,
   char *json = ok ? yyjson_mut_write(doc, 0, &len) : NULL;
   yyjson_mut_doc_free(doc);
   if (!json)
-    return EXT_NOMEM;
+    return EXT_PLUGIN_NOMEM;
   s->fn(s->user, (const uint8_t *)json, len);
   free(json);
-  return EXT_OK;
+  return EXT_PLUGIN_OK;
 }
 
-ext_status ext_progress_sink_report(ext_progress_sink *s,
+ext_plugin_status ext_progress_sink_report(ext_progress_sink *s,
                                     const ext_progress_event *e,
                                     int *delivered) {
   int ignored;
@@ -170,18 +170,18 @@ ext_status ext_progress_sink_report(ext_progress_sink *s,
    * next event or the final marker, and is not itself rate-limited. */
   if (e->log && !e->text_len && !e->stream && e->dropped) {
     ext_limiter_carry(&s->limiter, e->dropped);
-    return EXT_OK;
+    return EXT_PLUGIN_OK;
   }
   uint64_t dropped = 0;
   if (!ext_limiter_admit(&s->limiter, e->text_len, ext_mono_ns(), &dropped)) {
     /* The dropped event's own count must not vanish with it. */
     ext_limiter_carry(&s->limiter, e->dropped);
     *delivered = 0;
-    return EXT_OK;
+    return EXT_PLUGIN_OK;
   }
   return emit_event(s, e, e->dropped + dropped);
 }
-ext_status ext_progress_sink_deliver(ext_progress_sink *s,
+ext_plugin_status ext_progress_sink_deliver(ext_progress_sink *s,
                                      const ext_progress_event *e) {
   return ext_progress_sink_report(s, e, NULL);
 }

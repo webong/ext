@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Build and run an Objective-C program against pkg/ext-darwin through its EXT*
-# facades and the ext_plugin_* C ABI. Set EXT_RUST_REACTOR to also check the web-view
+# facades and the ext_plugin_guest_* C ABI. Set EXT_RUST_REACTOR to also check the web-view
 # host (the Rust shared example built for wasm32-wasip1).
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -19,7 +19,7 @@ done
 toolchain_swift="$(dirname "$(xcrun -f swiftc)")/../lib/swift/macosx"
 clang -fobjc-arc -fmodules -Wall -Wextra -Werror -Wno-unused-parameter \
   -I "$build/ExtPluginGuest.build" -I "$build/ExtPluginExports.build" -I "$build/ExtPluginWebView.build" \
-  "$sdk/Tests/ObjC/main.m" "${objects[@]}" "$sdk/Frameworks/CExtEngine.xcframework/macos-arm64_x86_64/libext_guest.a" \
+  "$sdk/Tests/ObjC/main.m" "${objects[@]}" "$sdk/Frameworks/CExtEngine.xcframework/macos-arm64_x86_64/libext_plugin_guest.a" \
   -framework Foundation -framework WebKit -L/usr/lib/swift -L"$(xcrun --show-sdk-path)/usr/lib/swift" -L"$toolchain_swift" \
   -Wl,-rpath,/usr/lib/swift -o "$work/objc-check"
 "$work/objc-check"

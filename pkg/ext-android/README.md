@@ -102,7 +102,7 @@ scripts/web-android.sh        # javac -Xlint:all -Werror and the tests of res/we
 
 ## What a JVM guest cannot do
 
-The `ext_plugin_*` C ABI that `pkg/ext-go/cguest` loads would need a JVM inside
+The `ext_plugin_guest_*` C ABI that `pkg/ext-go/cguest` loads would need a JVM inside
 the host process, so a Java library cannot be loaded that way. A JVM guest speaks
 JSON lines in its own process, or runs inside an application that provides the
 transport. Kotlin/Native, which compiles to a native library, could export that
@@ -119,7 +119,7 @@ the endpoint, which is a credential.
 ## Package store
 
 `PackageStore` and `LayeredPackageStore` bind the engine's package store (`ext_store_*` and
-`ext_layered_*` in [`ext_host.h`](../../lib/plugin/include/ext_host.h)): the same store the Go, Rust,
+`ext_layered_*` in [`ext_plugin_host.h`](../../lib/plugin/include/ext_plugin_host.h)): the same store the Go, Rust,
 Node and Zig bindings use, held to the pure-Go store by the differential tests described in
 [the parity page](../../docs/plugin-engine-parity.md). A package is its `plugin.json` manifest and the
 artifacts it lists, in a directory named by the package id with `/` encoded as `%2f`. The store copies and
@@ -155,7 +155,7 @@ try (LayeredPackageStore view = new LayeredPackageStore(List.of(userRoot, system
   file artifact keeps its execute bit only when asked, while entrypoints and the files of a tree always do.
 - Manifests and the reports come back as the engine's bytes, not as a Java model. `load` returns `plugin.json`
   verbatim, which is what a trust record's digest covers, and `list()`, `verify()` and `listUnverified()`
-  return the JSON of `ext_store_list`, `ext_store_verify` and `ext_store_list_unverified` as UTF-8, to be read
+  return the JSON of `ext_plugin_store_list`, `ext_plugin_store_verify` and `ext_plugin_store_list_unverified` as UTF-8, to be read
   with `org.json` or any parser the app already has; the SDK has no JSON model of its own to commit to.
   Only `ids()` is parsed, into a `List<String>`. `listUnverified()` reads manifests alone, so its result must
   not be launched or trusted as it stands.

@@ -81,13 +81,13 @@ int ext_archive_digest_text(const char *text, char out[65]) {
 typedef struct stream stream;
 struct stream {
   /* Fills data unless the stream ends first. A stream that cannot be read as
-   * what it claims to be is EXT_INVALID. */
-  ext_status (*read)(stream *s, uint8_t *data, size_t len, size_t *got);
+   * what it claims to be is EXT_PLUGIN_INVALID. */
+  ext_plugin_status (*read)(stream *s, uint8_t *data, size_t len, size_t *got);
 };
-static ext_status read_full(stream *s, uint8_t *data, size_t len) {
+static ext_plugin_status read_full(stream *s, uint8_t *data, size_t len) {
   size_t got = 0;
-  ext_status status = s->read(s, data, len, &got);
-  return status ? status : got == len ? EXT_OK : EXT_INVALID;
+  ext_plugin_status status = s->read(s, data, len, &got);
+  return status ? status : got == len ? EXT_PLUGIN_OK : EXT_PLUGIN_INVALID;
 }
 
 typedef struct {
@@ -95,12 +95,12 @@ typedef struct {
   ext_fs_in *in;
   uint64_t at, end;
 } span;
-static ext_status span_read(stream *s, uint8_t *data, size_t len, size_t *got) {
+static ext_plugin_status span_read(stream *s, uint8_t *data, size_t len, size_t *got) {
   span *p = (span *)s;
   uint64_t left = p->end - p->at;
   if (len > left)
     len = (size_t)left;
-  ext_status status = ext_fs_in_read(p->in, p->at, data, len, got);
+  ext_plugin_status status = ext_fs_in_read(p->in, p->at, data, len, got);
   if (!status)
     p->at += *got;
   return status;
@@ -123,7 +123,7 @@ typedef struct {
   size_t window_at;            /* where the decoder writes next */
   size_t pending_at, pending;  /* decoded bytes not handed out yet */
 } inflater;
-static ext_status inflate_read(stream *s, uint8_t *data, size_t len,
+static ext_plugin_status inflate_read(stream *s, uint8_t *data, size_t len,
                                size_t *got) {
   inflater *z = (inflater *)s;
   size_t total = 0;
@@ -140,7 +140,7 @@ static ext_status inflate_read(stream *s, uint8_t *data, size_t len,
       break;
     if (z->input_at == z->input_len && !z->input_ended) {
       size_t n = 0;
-      ext_status status = z->source->read(z->source, z->input, sizeof(z->input), &n);
+      ext_plugin_status status = z->source->read(z->source, z->input, sizeof(z->input), &n);
       if (status)
         return status;
       z->input_at = 0;
@@ -159,15 +159,15 @@ static ext_status inflate_read(stream *s, uint8_t *data, size_t len,
     z->pending = out;
     z->window_at = (z->window_at + out) & (TINFL_LZ_DICT_SIZE - 1);
     if (status < TINFL_STATUS_DONE)
-      return EXT_INVALID;
+      return EXT_PLUGIN_INVALID;
     if (status == TINFL_STATUS_DONE)
       z->done = 1;
     else if (status == TINFL_STATUS_NEEDS_MORE_INPUT && z->input_ended && !in &&
              !out)
-      return EXT_INVALID; /* the deflate stream is cut short */
+      return EXT_PLUGIN_INVALID; /* the deflate stream is cut short */
   }
   *got = total;
-  return EXT_OK;
+  return EXT_PLUGIN_OK;
 }
 static inflater *inflate_open(stream *source) {
   inflater *z = malloc(sizeof(*z));
@@ -216,13 +216,13 @@ static seen_entry *seen_find(extraction *x, const char *key) {
   }
 }
 /* Takes ownership of key. */
-static ext_status seen_add(extraction *x, char *key, int dir) {
+static ext_plugin_status seen_add(extraction *x, char *key, int dir) {
   if ((x->seen_len + 1) * 2 > x->seen_cap) {
     size_t cap = x->seen_cap ? x->seen_cap * 2 : 64;
     seen_entry *grown = calloc(cap, sizeof(*grown));
     if (!grown) {
       free(key);
-      return EXT_NOMEM;
+      return EXT_PLUGIN_NOMEM;
     }
     for (size_t i = 0; i < x->seen_cap; i++) {
       if (!x->seen[i].key)
@@ -242,7 +242,7 @@ static ext_status seen_add(extraction *x, char *key, int dir) {
   x->seen[i].key = key;
   x->seen[i].dir = dir;
   x->seen_len++;
-  return EXT_OK;
+  return EXT_PLUGIN_OK;
 }
 static void seen_free(extraction *x) {
   for (size_t i = 0; i < x->seen_cap; i++)
@@ -305,7 +305,7 @@ static char *join2(const char *a, const char *b) {
 /* Validates and records one entry name. *target is its path below fs, or NULL
  * for an entry that needs nothing: the archive's own top directory, or a
  * directory already made. */
-static ext_status claim(extraction *x, const char *raw, int dir, char **target) {
+static ext_plugin_status claim(extraction *x, const char *raw, int dir, char **target) {
   *target = NULL;
   size_t n = strlen(raw);
   if (n && raw[n - 1] == '/')
@@ -315,21 +315,21 @@ static ext_status claim(extraction *x, const char *raw, int dir, char **target) 
     n -= 2;
   }
   if (dir && (!n || (n == 1 && raw[0] == '.')))
-    return EXT_OK;
+    return EXT_PLUGIN_OK;
   char *name = malloc(n + 1);
   if (!name)
-    return EXT_NOMEM;
+    return EXT_PLUGIN_NOMEM;
   memcpy(name, raw, n);
   name[n] = 0;
   char *key = safe_path(name) ? ext_path_fold_key(name) : NULL;
-  ext_status s = key ? EXT_OK : EXT_INVALID;
+  ext_plugin_status s = key ? EXT_PLUGIN_OK : EXT_PLUGIN_INVALID;
   if (!s && ++x->entries > x->limits.max_tree_files)
-    s = EXT_INVALID;
+    s = EXT_PLUGIN_INVALID;
   if (!s) {
     seen_entry *old = seen_find(x, key);
     if (old) {
       /* A directory may be named again; nothing else may. */
-      s = dir && old->dir ? EXT_OK : EXT_INVALID;
+      s = dir && old->dir ? EXT_PLUGIN_OK : EXT_PLUGIN_INVALID;
       free(key);
       free(name);
       return s;
@@ -345,7 +345,7 @@ static ext_status claim(extraction *x, const char *raw, int dir, char **target) 
   size_t key_len = strlen(key);
   char *parent = malloc(key_len + 1);
   if (!parent)
-    s = EXT_NOMEM;
+    s = EXT_PLUGIN_NOMEM;
   else
     memcpy(parent, key, key_len + 1);
   if (!s)
@@ -360,12 +360,12 @@ static ext_status claim(extraction *x, const char *raw, int dir, char **target) 
     seen_entry *above = seen_find(x, parent);
     if (above) {
       if (!above->dir)
-        s = EXT_INVALID;
+        s = EXT_PLUGIN_INVALID;
       continue;
     }
     char *copy = malloc(strlen(parent) + 1);
     if (!copy) {
-      s = EXT_NOMEM;
+      s = EXT_PLUGIN_NOMEM;
       break;
     }
     strcpy(copy, parent);
@@ -375,15 +375,15 @@ static ext_status claim(extraction *x, const char *raw, int dir, char **target) 
   if (!s) {
     *target = join2(x->dest, name);
     if (!*target)
-      s = EXT_NOMEM;
+      s = EXT_PLUGIN_NOMEM;
   }
   free(name);
   return s;
 }
 
-static ext_status extract_directory(extraction *x, const char *raw) {
+static ext_plugin_status extract_directory(extraction *x, const char *raw) {
   char *target;
-  ext_status s = claim(x, raw, 1, &target);
+  ext_plugin_status s = claim(x, raw, 1, &target);
   if (!s && target)
     s = ext_fs_mkdirs(x->fs, target);
   free(target);
@@ -391,10 +391,10 @@ static ext_status extract_directory(extraction *x, const char *raw) {
 }
 /* Writes one file of exactly the declared size, which must fit the bounds.
  * *crc, when given, receives the CRC-32 of what was written. */
-static ext_status extract_file(extraction *x, const char *raw, int executable,
+static ext_plugin_status extract_file(extraction *x, const char *raw, int executable,
                                uint64_t declared, stream *body, uint32_t *crc) {
   char *target;
-  ext_status s = claim(x, raw, 0, &target);
+  ext_plugin_status s = claim(x, raw, 0, &target);
   if (s)
     return s;
   uint64_t allowed = x->limits.max_tree_bytes - x->bytes;
@@ -402,7 +402,7 @@ static ext_status extract_file(extraction *x, const char *raw, int executable,
     allowed = x->limits.max_artifact_bytes;
   if (declared > allowed) {
     free(target);
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   }
   ext_fs_out *out = NULL;
   s = ext_fs_create(x->fs, target, executable, &out);
@@ -411,7 +411,7 @@ static ext_status extract_file(extraction *x, const char *raw, int executable,
     return s;
   uint8_t *buffer = malloc(65536);
   if (!buffer)
-    s = EXT_NOMEM;
+    s = EXT_PLUGIN_NOMEM;
   uint64_t written = 0;
   uint32_t sum = 0;
   while (!s && written < declared) {
@@ -419,7 +419,7 @@ static ext_status extract_file(extraction *x, const char *raw, int executable,
     size_t got = 0;
     s = body->read(body, buffer, want, &got);
     if (!s && !got)
-      s = EXT_INVALID; /* shorter than declared */
+      s = EXT_PLUGIN_INVALID; /* shorter than declared */
     if (!s) {
       sum = crc32_update(sum, buffer, got);
       s = ext_fs_out_write(out, buffer, got);
@@ -431,10 +431,10 @@ static ext_status extract_file(extraction *x, const char *raw, int executable,
     size_t got = 0;
     s = body->read(body, buffer, 1, &got);
     if (!s && got)
-      s = EXT_INVALID;
+      s = EXT_PLUGIN_INVALID;
   }
   free(buffer);
-  ext_status closed = ext_fs_out_close(out);
+  ext_plugin_status closed = ext_fs_out_close(out);
   if (!s)
     s = closed;
   if (!s) {
@@ -503,26 +503,26 @@ static char *field_text(const uint8_t *field, size_t len) {
   return out;
 }
 /* Reads the data of a header that only describes the next one. */
-static ext_status tar_special(stream *in, uint64_t size, uint8_t **out) {
+static ext_plugin_status tar_special(stream *in, uint64_t size, uint8_t **out) {
   *out = NULL;
   if (size > PAX_MAX)
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   size_t padded = (size_t)((size + BLOCK - 1) / BLOCK * BLOCK);
   uint8_t *data = malloc(padded + 1);
   if (!data)
-    return EXT_NOMEM;
-  ext_status s = read_full(in, data, padded);
+    return EXT_PLUGIN_NOMEM;
+  ext_plugin_status s = read_full(in, data, padded);
   if (s) {
     free(data);
     return s;
   }
   data[size] = 0;
   *out = data;
-  return EXT_OK;
+  return EXT_PLUGIN_OK;
 }
 /* The records of an extended header: "<length> <key>=<value>\n". Keeps the
  * path and the size; a sparse file is not supported. */
-static ext_status pax_records(const uint8_t *data, size_t size, char **path,
+static ext_plugin_status pax_records(const uint8_t *data, size_t size, char **path,
                               int *has_size, uint64_t *file_size) {
   size_t at = 0;
   while (at < size) {
@@ -532,37 +532,37 @@ static ext_status pax_records(const uint8_t *data, size_t size, char **path,
       len = len * 10 + (size_t)(data[at + digits++] - '0');
     if (!digits || at + digits >= size || data[at + digits] != ' ' ||
         len <= digits + 1 || len > size - at || data[at + len - 1] != '\n')
-      return EXT_INVALID;
+      return EXT_PLUGIN_INVALID;
     const uint8_t *record = data + at + digits + 1;
     size_t record_len = len - digits - 2;
     const uint8_t *eq = memchr(record, '=', record_len);
     if (!eq || eq == record)
-      return EXT_INVALID;
+      return EXT_PLUGIN_INVALID;
     size_t key_len = (size_t)(eq - record), value_len = record_len - key_len - 1;
     const uint8_t *value = eq + 1;
     if (key_len == 4 && !memcmp(record, "path", 4)) {
       if (!value_len || memchr(value, 0, value_len))
-        return EXT_INVALID;
+        return EXT_PLUGIN_INVALID;
       free(*path);
       *path = field_text(value, value_len);
       if (!*path)
-        return EXT_NOMEM;
+        return EXT_PLUGIN_NOMEM;
     } else if (key_len == 4 && !memcmp(record, "size", 4)) {
       uint64_t v = 0;
       if (!value_len)
-        return EXT_INVALID;
+        return EXT_PLUGIN_INVALID;
       for (size_t i = 0; i < value_len; i++) {
         if (value[i] < '0' || value[i] > '9' || v > (UINT64_MAX - 9) / 10)
-          return EXT_INVALID;
+          return EXT_PLUGIN_INVALID;
         v = v * 10 + (uint64_t)(value[i] - '0');
       }
       *has_size = 1;
       *file_size = v;
     } else if (key_len >= 11 && !memcmp(record, "GNU.sparse.", 11))
-      return EXT_INVALID;
+      return EXT_PLUGIN_INVALID;
     at += len;
   }
-  return EXT_OK;
+  return EXT_PLUGIN_OK;
 }
 /* Hands the rest of one tar body to the extraction: exactly size bytes. */
 typedef struct {
@@ -570,44 +570,44 @@ typedef struct {
   stream *source;
   uint64_t left;
 } bounded;
-static ext_status bounded_read(stream *s, uint8_t *data, size_t len,
+static ext_plugin_status bounded_read(stream *s, uint8_t *data, size_t len,
                                size_t *got) {
   bounded *b = (bounded *)s;
   if (len > b->left)
     len = (size_t)b->left;
-  ext_status status = b->source->read(b->source, data, len, got);
+  ext_plugin_status status = b->source->read(b->source, data, len, got);
   if (!status) {
     if (*got < len)
-      return EXT_INVALID; /* the archive ends inside a file */
+      return EXT_PLUGIN_INVALID; /* the archive ends inside a file */
     b->left -= *got;
   }
   return status;
 }
-static ext_status read_tar(stream *in, extraction *x) {
+static ext_plugin_status read_tar(stream *in, extraction *x) {
   uint8_t block[BLOCK];
   char *long_name = NULL, *pax_path = NULL;
   int pax_has_size = 0;
   uint64_t pax_size = 0;
-  ext_status s = EXT_OK;
+  ext_plugin_status s = EXT_PLUGIN_OK;
   while (!s) {
     size_t got = 0;
     s = in->read(in, block, BLOCK, &got);
     if (s || !got)
       break; /* an archive may end without its two empty blocks */
     if (got != BLOCK) {
-      s = EXT_INVALID;
+      s = EXT_PLUGIN_INVALID;
       break;
     }
     if (zero_block(block)) {
       s = in->read(in, block, BLOCK, &got);
       if (!s && got && (got != BLOCK || !zero_block(block)))
-        s = EXT_INVALID;
+        s = EXT_PLUGIN_INVALID;
       break;
     }
     uint64_t size = 0, mode = 0;
     if (!tar_checksum_ok(block) || memcmp(block + 257, "ustar", 5) ||
         !tar_number(block + 124, 12, &size) || !tar_number(block + 100, 8, &mode)) {
-      s = EXT_INVALID;
+      s = EXT_PLUGIN_INVALID;
       break;
     }
     uint8_t type = block[156];
@@ -627,7 +627,7 @@ static ext_status read_tar(stream *in, extraction *x) {
         free(long_name);
         long_name = field_text(data, (size_t)size);
         if (!long_name)
-          s = EXT_NOMEM;
+          s = EXT_PLUGIN_NOMEM;
       }
       free(data);
       continue;
@@ -646,11 +646,11 @@ static ext_status read_tar(stream *in, extraction *x) {
                          ? field_text(block + 345, 155)
                          : NULL;
       if (!leaf || (block[345] && !memcmp(block + 257, "ustar\0", 6) && !prefix))
-        s = EXT_NOMEM;
+        s = EXT_PLUGIN_NOMEM;
       else if (prefix) {
         name = join2(prefix, leaf);
         if (!name)
-          s = EXT_NOMEM;
+          s = EXT_PLUGIN_NOMEM;
         free(leaf);
       } else
         name = leaf;
@@ -680,7 +680,7 @@ static ext_status read_tar(stream *in, extraction *x) {
       if (!s && padding)
         s = read_full(in, block, (size_t)padding);
     } else
-      s = EXT_INVALID; /* a link, a device, a pipe, a sparse file */
+      s = EXT_PLUGIN_INVALID; /* a link, a device, a pipe, a sparse file */
     free(name);
   }
   free(long_name);
@@ -689,13 +689,13 @@ static ext_status read_tar(stream *in, extraction *x) {
 }
 
 /* The gzip member header in front of the deflate stream (RFC 1952). */
-static ext_status gzip_header(stream *in) {
+static ext_plugin_status gzip_header(stream *in) {
   uint8_t h[10], b;
-  ext_status s = read_full(in, h, sizeof(h));
+  ext_plugin_status s = read_full(in, h, sizeof(h));
   if (s)
     return s;
   if (h[0] != 0x1f || h[1] != 0x8b || h[2] != 8 || (h[3] & 0xe0))
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   if (h[3] & 4) { /* extra field */
     uint8_t n[2];
     s = read_full(in, n, 2);
@@ -713,20 +713,20 @@ static ext_status gzip_header(stream *in) {
   }
   return s;
 }
-static ext_status read_tar_gzip(ext_fs_in *in, uint64_t size, extraction *x) {
+static ext_plugin_status read_tar_gzip(ext_fs_in *in, uint64_t size, extraction *x) {
   span raw;
   span_init(&raw, in, 0, size);
-  ext_status s = gzip_header(&raw.base);
+  ext_plugin_status s = gzip_header(&raw.base);
   if (s)
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   inflater *z = inflate_open(&raw.base);
   if (!z)
-    return EXT_NOMEM;
+    return EXT_PLUGIN_NOMEM;
   s = read_tar(&z->base, x);
   free(z);
   return s;
 }
-static ext_status read_tar_plain(ext_fs_in *in, uint64_t size, extraction *x) {
+static ext_plugin_status read_tar_plain(ext_fs_in *in, uint64_t size, extraction *x) {
   span raw;
   span_init(&raw, in, 0, size);
   return read_tar(&raw.base, x);
@@ -738,19 +738,19 @@ static ext_status read_tar_plain(ext_fs_in *in, uint64_t size, extraction *x) {
 #define ZIP_CENTRAL 46u
 #define ZIP_LOCAL 30u
 
-static ext_status read_zip(ext_fs_in *in, uint64_t size, extraction *x) {
+static ext_plugin_status read_zip(ext_fs_in *in, uint64_t size, extraction *x) {
   /* The end record is the last thing in the file, before a comment of at most
    * 65535 bytes. Archives in the zip64 form are not read. */
   size_t tail_len = size < ZIP_END + 65535u ? (size_t)size : ZIP_END + 65535u;
   if (tail_len < ZIP_END)
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   uint8_t *tail = malloc(tail_len);
   if (!tail)
-    return EXT_NOMEM;
+    return EXT_PLUGIN_NOMEM;
   size_t got = 0;
-  ext_status s = ext_fs_in_read(in, size - tail_len, tail, tail_len, &got);
+  ext_plugin_status s = ext_fs_in_read(in, size - tail_len, tail, tail_len, &got);
   if (!s && got != tail_len)
-    s = EXT_INVALID;
+    s = EXT_PLUGIN_INVALID;
   size_t end = tail_len;
   if (!s) {
     for (size_t i = tail_len - ZIP_END + 1; i-- > 0;) {
@@ -761,7 +761,7 @@ static ext_status read_zip(ext_fs_in *in, uint64_t size, extraction *x) {
       }
     }
     if (end == tail_len)
-      s = EXT_INVALID;
+      s = EXT_PLUGIN_INVALID;
   }
   uint32_t count = 0, dir_size = 0, dir_offset = 0;
   if (!s) {
@@ -771,24 +771,24 @@ static ext_status read_zip(ext_fs_in *in, uint64_t size, extraction *x) {
     uint64_t end_at = size - tail_len + end;
     if (count == 0xffffu || dir_size == 0xffffffffu || dir_offset == 0xffffffffu ||
         (uint64_t)dir_offset + dir_size > end_at)
-      s = EXT_INVALID;
+      s = EXT_PLUGIN_INVALID;
   }
   free(tail);
   uint8_t *dir = NULL;
   if (!s) {
     dir = malloc(dir_size ? dir_size : 1);
     if (!dir)
-      s = EXT_NOMEM;
+      s = EXT_PLUGIN_NOMEM;
   }
   if (!s) {
     s = ext_fs_in_read(in, dir_offset, dir, dir_size, &got);
     if (!s && got != dir_size)
-      s = EXT_INVALID;
+      s = EXT_PLUGIN_INVALID;
   }
   size_t at = 0;
   for (uint32_t i = 0; !s && i < count; i++) {
     if (dir_size - at < ZIP_CENTRAL || le32(dir + at) != 0x02014b50u) {
-      s = EXT_INVALID;
+      s = EXT_PLUGIN_INVALID;
       break;
     }
     const uint8_t *h = dir + at;
@@ -799,12 +799,12 @@ static ext_status read_zip(ext_fs_in *in, uint64_t size, extraction *x) {
     uint32_t attributes = le32(h + 38), local = le32(h + 42);
     if (dir_size - at - ZIP_CENTRAL < name_len + extra_len + comment_len ||
         memchr(h + ZIP_CENTRAL, 0, name_len)) {
-      s = EXT_INVALID;
+      s = EXT_PLUGIN_INVALID;
       break;
     }
     char *name = field_text(h + ZIP_CENTRAL, name_len);
     if (!name) {
-      s = EXT_NOMEM;
+      s = EXT_PLUGIN_NOMEM;
       break;
     }
     at += ZIP_CENTRAL + name_len + extra_len + comment_len;
@@ -829,16 +829,16 @@ static ext_status read_zip(ext_fs_in *in, uint64_t size, extraction *x) {
     else if (other || (flags & 1) || packed == 0xffffffffu ||
              plain == 0xffffffffu || local == 0xffffffffu ||
              (method != 0 && method != 8))
-      s = EXT_INVALID; /* a link, an encrypted, zip64 or otherwise packed entry */
+      s = EXT_PLUGIN_INVALID; /* a link, an encrypted, zip64 or otherwise packed entry */
     else {
       uint8_t header[ZIP_LOCAL];
       s = ext_fs_in_read(in, local, header, ZIP_LOCAL, &got);
       if (!s && (got != ZIP_LOCAL || le32(header) != 0x04034b50u))
-        s = EXT_INVALID;
+        s = EXT_PLUGIN_INVALID;
       uint64_t data = (uint64_t)local + ZIP_LOCAL + le16(header + 26) +
                       le16(header + 28);
       if (!s && data + packed > size)
-        s = EXT_INVALID;
+        s = EXT_PLUGIN_INVALID;
       if (!s) {
         span raw;
         span_init(&raw, in, data, data + packed);
@@ -848,14 +848,14 @@ static ext_status read_zip(ext_fs_in *in, uint64_t size, extraction *x) {
         else {
           inflater *z = inflate_open(&raw.base);
           if (!z)
-            s = EXT_NOMEM;
+            s = EXT_PLUGIN_NOMEM;
           else {
             s = extract_file(x, name, executable, plain, &z->base, &sum);
             free(z);
           }
         }
         if (!s && sum != crc)
-          s = EXT_INVALID;
+          s = EXT_PLUGIN_INVALID;
       }
     }
     free(name);
@@ -866,7 +866,7 @@ static ext_status read_zip(ext_fs_in *in, uint64_t size, extraction *x) {
 
 /* ---- formats ---- */
 
-typedef ext_status (*format_reader)(ext_fs_in *in, uint64_t size, extraction *x);
+typedef ext_plugin_status (*format_reader)(ext_fs_in *in, uint64_t size, extraction *x);
 static format_reader detect(const uint8_t *head, size_t len) {
   if (len >= 4 && (!memcmp(head, "PK\x03\x04", 4) || !memcmp(head, "PK\x05\x06", 4)))
     return read_zip;
@@ -878,31 +878,31 @@ static format_reader detect(const uint8_t *head, size_t len) {
 }
 
 /* The package directory in what was extracted: where the manifest is. */
-static ext_status find_root(ext_fs *fs, const char *dest, char **root) {
+static ext_plugin_status find_root(ext_fs *fs, const char *dest, char **root) {
   char *path = join2(dest, MANIFEST), *inner = NULL, *only = NULL;
   ext_fs_kind kind = EXT_FS_NONE;
-  ext_status s = path ? ext_fs_kind_of(fs, path, &kind) : EXT_NOMEM;
+  ext_plugin_status s = path ? ext_fs_kind_of(fs, path, &kind) : EXT_PLUGIN_NOMEM;
   free(path);
   if (s)
     return s;
   if (kind == EXT_FS_FILE) {
     *root = join2(dest, "");
     if (!*root)
-      return EXT_NOMEM;
+      return EXT_PLUGIN_NOMEM;
     (*root)[strlen(dest)] = 0;
-    return EXT_OK;
+    return EXT_PLUGIN_OK;
   }
   ext_fs_entry *entries = NULL;
   size_t count = 0;
   s = ext_fs_list(fs, dest, &entries, &count);
   if (!s && (count != 1 || entries[0].kind != EXT_FS_DIR))
-    s = EXT_INVALID;
+    s = EXT_PLUGIN_INVALID;
   if (!s) {
     only = join2(dest, entries[0].name);
     inner = only ? join2(only, MANIFEST) : NULL;
-    s = inner ? ext_fs_kind_of(fs, inner, &kind) : EXT_NOMEM;
+    s = inner ? ext_fs_kind_of(fs, inner, &kind) : EXT_PLUGIN_NOMEM;
     if (!s && kind != EXT_FS_FILE)
-      s = EXT_INVALID;
+      s = EXT_PLUGIN_INVALID;
   }
   ext_fs_list_free(entries, count);
   free(inner);
@@ -911,27 +911,27 @@ static ext_status find_root(ext_fs *fs, const char *dest, char **root) {
     return s;
   }
   *root = only;
-  return EXT_OK;
+  return EXT_PLUGIN_OK;
 }
 
-ext_status ext_archive_extract(const char *archive, const char *digest,
+ext_plugin_status ext_archive_extract(const char *archive, const char *digest,
                                ext_fs *fs, const char *dest,
                                const ext_archive_limits *limits, char **root) {
   if (!archive || !*archive || !fs || !dest || !limits || !root)
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   *root = NULL;
   ext_fs_in *in = NULL;
   uint64_t size = 0;
-  ext_status s = ext_fs_in_open(archive, &in, &size);
+  ext_plugin_status s = ext_fs_in_open(archive, &in, &size);
   if (s)
     return s;
   if (size > limits->max_archive_bytes)
-    s = EXT_INVALID;
+    s = EXT_PLUGIN_INVALID;
   uint8_t head[BLOCK];
   size_t head_len = 0;
   uint8_t *buffer = s ? NULL : malloc(65536);
   if (!s && !buffer)
-    s = EXT_NOMEM;
+    s = EXT_PLUGIN_NOMEM;
   if (!s) {
     /* The digest is of the bytes that are about to be read, all of them. */
     ext_hash h;
@@ -940,7 +940,7 @@ ext_status ext_archive_extract(const char *archive, const char *digest,
       size_t got = 0;
       s = ext_fs_in_read(in, at, buffer, 65536, &got);
       if (!s && !got)
-        s = EXT_INVALID; /* the file shrank */
+        s = EXT_PLUGIN_INVALID; /* the file shrank */
       if (!s) {
         if (!at) {
           head_len = got < BLOCK ? got : BLOCK;
@@ -956,7 +956,7 @@ ext_status ext_archive_extract(const char *archive, const char *digest,
       ext_hash_finish(&h, sum);
       ext_hash_hex(sum, text);
       if (strcmp(text, digest))
-        s = EXT_MISMATCH;
+        s = EXT_PLUGIN_MISMATCH;
     }
   }
   free(buffer);
@@ -964,7 +964,7 @@ ext_status ext_archive_extract(const char *archive, const char *digest,
   if (!s) {
     reader = detect(head, head_len);
     if (!reader)
-      s = EXT_UNSUPPORTED;
+      s = EXT_PLUGIN_UNSUPPORTED;
   }
   if (!s) {
     extraction x = {0};
@@ -979,7 +979,7 @@ ext_status ext_archive_extract(const char *archive, const char *digest,
     s = find_root(fs, dest, root);
   /* A file that could not be read as an archive, or written where the archive
    * said, is the archive's fault, not a missing package. */
-  if (s == EXT_MISSING)
-    s = EXT_INVALID;
+  if (s == EXT_PLUGIN_MISSING)
+    s = EXT_PLUGIN_INVALID;
   return s;
 }

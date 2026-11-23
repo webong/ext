@@ -138,7 +138,7 @@ static int check_value(const lj_value *v) {
   }
 }
 
-static int check_record(const ll_record *r, const ext_ledger_options *o) {
+static int check_record(const ll_record *r, const ext_ledger_store_options *o) {
   int rc;
   if (r->attrs && (rc = check_attributes(r->attrs))) return rc;
   if (r->labels) {
@@ -172,8 +172,8 @@ static int check_record(const ll_record *r, const ext_ledger_options *o) {
   return 0;
 }
 
-ext_ledger_options ll_options_defaults(const ext_ledger_options *given) {
-  ext_ledger_options o = {0};
+ext_ledger_store_options ll_options_defaults(const ext_ledger_store_options *given) {
+  ext_ledger_store_options o = {0};
   if (given) o = *given;
   if (o.max_changes <= 0) o.max_changes = 4096;
   if (o.max_change_bytes <= 0) o.max_change_bytes = 16 << 20;
@@ -184,7 +184,7 @@ ext_ledger_options ll_options_defaults(const ext_ledger_options *given) {
   return o;
 }
 
-int ll_check_limit(int64_t limit, const ext_ledger_options *o) {
+int ll_check_limit(int64_t limit, const ext_ledger_store_options *o) {
   if (limit <= 0) return EXT_LEDGER_INVALID;
   if (limit > o->max_results) return EXT_LEDGER_TOO_LARGE;
   return 0;
@@ -192,7 +192,7 @@ int ll_check_limit(int64_t limit, const ext_ledger_options *o) {
 
 static int ref_outside(const ll_ref *ref, const ll_s *ns) { return (ref->ns.n && !ll_s_eq(&ref->ns, ns)) || ref->id.n == 0; }
 
-int ll_check_tx(const ll_tx *t, const ext_ledger_options *o) {
+int ll_check_tx(const ll_tx *t, const ext_ledger_store_options *o) {
   if (ll_check_name(LL_S(t->ns), t->ns.n)) return EXT_LEDGER_INVALID;
   if (t->key.n > 255) return EXT_LEDGER_TOO_LARGE;
   if ((int64_t)(t->nvertices + t->nedges + t->ndelete_vertices + t->ndelete_edges) > o->max_transaction_records) return EXT_LEDGER_TOO_LARGE;

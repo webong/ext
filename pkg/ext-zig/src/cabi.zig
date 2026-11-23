@@ -74,8 +74,8 @@ pub fn Exports(comptime factory: Factory) type {
 }
 pub fn exportGuest(comptime factory: Factory) void {
     const E = Exports(factory);
-    @export(&E.abiVersion, .{ .name = "ext_plugin_abi_version" });
-    @export(&E.open, .{ .name = "ext_plugin_open" });
-    @export(&E.call, .{ .name = "ext_plugin_call" });
-    @export(&E.close, .{ .name = "ext_plugin_close" });
+    @export(&E.abiVersion, .{ .name = "ext_plugin_guest_abi_version" });
+    @export(&E.open, .{ .name = "ext_plugin_guest_open" });
+    @export(&E.call, .{ .name = "ext_plugin_guest_call" });
+    @export(&E.close, .{ .name = "ext_plugin_guest_close" });
 }

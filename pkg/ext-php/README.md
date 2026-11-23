@@ -120,26 +120,26 @@ and child processes still reach standard error through descriptor 1.
 get right: admission, the handshake check against the descriptor, request and response validation,
 deadlines and the session's lifecycle. It is opt-in: it needs the FFI extension (`ext-ffi`, which
 the CLI may use with the default `ffi.enable=preload`; elsewhere set `ffi.enable=true`) and the
-engine's shared library (`libext_host`, from an `ext-plugin-vX.Y.Z` release or a CMake build of
+engine's shared library (`libext_plugin_host`, from an `ext-plugin-vX.Y.Z` release or a CMake build of
 `lib/plugin`), and no compiled extension of its own. Autoloading `ExtIO\Plugin` never loads it.
 
 ```php
 use ExtIO\Host\Engine;
 
-$engine = new Engine();                 // EXT_HOST_LIBRARY, or libext_host on the loader path
+$engine = new Engine();                 // EXT_HOST_LIBRARY, or libext_plugin_host on the loader path
 $host = $engine->process($descriptor, '/opt/plugins/echo/1.0.0/echo');
 $host->start();
 $host->call(['name' => 'ext.echo', 'version' => 'v1'], 'echo', ['value' => 7]);  // {"value":7}
 $host->destroy();
 ```
 
-- `new Engine(?string $path)`: the engine from `$path`, `EXT_HOST_LIBRARY`, or `libext_host` on the
+- `new Engine(?string $path)`: the engine from `$path`, `EXT_HOST_LIBRARY`, or `libext_plugin_host` on the
   loader path; it must have host ABI 2 (`FFI\Exception` otherwise). An engine is never unloaded.
 - `$engine->process($descriptor, $executable, $arguments, $environment, $workingDirectory, $stderrBytes, $verify, $authorize)`:
   a JSON-line guest started as `$executable` (an absolute path, no shell); `$environment` entries
   are `NAME=value`, added to a scrubbed base of `PATH`.
 - `$engine->sharedLibrary($descriptor, $path, $verify, $authorize)`: a guest library that exports
-  the C ABI of `ext_plugin.h`, loaded when the host starts, after `$verify`, and never unloaded. Its
+  the C ABI of `ext_plugin_guest.h`, loaded when the host starts, after `$verify`, and never unloaded. Its
   native code runs in this process with its full access.
 - `$verify` and `$authorize` are callables that receive the decoded JSON (as `Json::decode` gives
   it) and return a truthy value to allow; `null` allows, and a throw denies. A policy may not use
@@ -154,11 +154,11 @@ $host->destroy();
 The engine runs policies on the thread making the call, which is PHP's own, inside the FFI call to
 `start()` or `call()`, so they are ordinary FFI callbacks. The declarations FFI needs are restated
 in `Engine` (FFI reads no headers); the ABI version check and the shared host cases hold them to
-`ext_host.h`. On Windows PHP loads the library with a plain `LoadLibrary`, which finds the library's
+`ext_plugin_host.h`. On Windows PHP loads the library with a plain `LoadLibrary`, which finds the library's
 dependencies (the MinGW runtime) on `PATH` and not in its own directory, so put that directory on
 `PATH`; `scripts/host-cases.sh` does.
 
-Reverse calls and the guest registry use the engine's caller-thread mode (`ext_host_set_reverse_mode`),
+Reverse calls and the guest registry use the engine's caller-thread mode (`ext_plugin_host_set_reverse_mode`),
 so their hooks are FFI callbacks too, inside the FFI call of an engine call that waits on the host:
 
 - `$h->serve($authorize, $handle, $timeout, $maxPayloadBytes, $maxInFlight)`, before `start()`,

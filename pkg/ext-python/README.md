@@ -96,8 +96,8 @@ ext plugin, whatever language it is written in. The engine does what a host must
 admission, the handshake check against the descriptor, request and response validation,
 deadlines and the session's lifecycle. The module only moves bytes and policy decisions across
 `ctypes`, so it is still standard library only, but it needs the engine's shared library,
-`libext_host`. Take it from an `ext-plugin-vX.Y.Z` release (`lib/libext_host.so`, `lib/libext_host.dylib`
-or `bin/ext_host.dll` in the archive for your platform), or build it with
+`libext_plugin_host`. Take it from an `ext-plugin-vX.Y.Z` release (`lib/libext_plugin_host.so`, `lib/libext_plugin_host.dylib`
+or `bin/ext_plugin_host.dll` in the archive for your platform), or build it with
 `cmake -S lib/plugin -B build -DEXT_BUILD_SHARED=ON`, and point `EXT_HOST_LIBRARY` at it, or pass its path
 to `Engine`. Importing the guest (`ext_io.plugin`)
 never loads the host.
@@ -116,7 +116,7 @@ with engine.process(descriptor, "/opt/plugins/echo/1.0.0/echo",
     h.start(timeout=3.0)
     print(h.call(contract, "echo", {"value": 7}))         # {'value': 7}
 
-# A guest built as a C ABI library (ext_plugin.h): C, C++, Rust, Zig, Go c-shared or Swift.
+# A guest built as a C ABI library (ext_plugin_guest.h): C, C++, Rust, Zig, Go c-shared or Swift.
 with engine.shared_library(descriptor, "/opt/plugins/echo/1.0.0/libecho.so") as h:
     h.start()
     try:

@@ -33,13 +33,13 @@ final class PackageStoreTests: XCTestCase {
     private func sha256(_ text: String) -> String {
         var digest = [UInt8](repeating: 0, count: 32)
         let bytes = Array(text.utf8)
-        XCTAssertEqual(ext_engine_sha256(bytes, bytes.count, &digest), ext_status(EXT_OK))
+        XCTAssertEqual(ext_plugin_sha256(bytes, bytes.count, &digest), ext_plugin_status(EXT_PLUGIN_OK))
         return hex(digest)
     }
 
     private func directoryDigest(_ path: String) -> String {
         var digest = [UInt8](repeating: 0, count: 32)
-        XCTAssertEqual(ext_directory_digest(path, &digest), ext_status(EXT_OK))
+        XCTAssertEqual(ext_plugin_directory_digest(path, &digest), ext_plugin_status(EXT_PLUGIN_OK))
         return hex(digest)
     }
 
@@ -97,19 +97,19 @@ final class PackageStoreTests: XCTestCase {
     // MARK: Statuses
 
     func testEveryEngineStatusHasAnError() {
-        XCTAssertNil(PackageStoreError(status: ext_status(EXT_OK)))
-        XCTAssertEqual(PackageStoreError(status: ext_status(EXT_INVALID)), .invalid)
-        XCTAssertEqual(PackageStoreError(status: ext_status(EXT_DENIED)), .denied)
-        XCTAssertEqual(PackageStoreError(status: ext_status(EXT_MISMATCH)), .mismatch)
-        XCTAssertEqual(PackageStoreError(status: ext_status(EXT_UNSUPPORTED)), .unsupported)
-        XCTAssertEqual(PackageStoreError(status: ext_status(EXT_NOT_FOUND)), .notFound)
-        XCTAssertEqual(PackageStoreError(status: ext_status(EXT_EXISTS)), .exists)
-        XCTAssertEqual(PackageStoreError(status: ext_status(EXT_MISSING)), .missing)
-        XCTAssertEqual(PackageStoreError(status: ext_status(EXT_IO)), .io)
-        XCTAssertEqual(PackageStoreError(status: ext_status(EXT_NOMEM)), .engine(ext_status(EXT_NOMEM)))
+        XCTAssertNil(PackageStoreError(status: ext_plugin_status(EXT_PLUGIN_OK)))
+        XCTAssertEqual(PackageStoreError(status: ext_plugin_status(EXT_PLUGIN_INVALID)), .invalid)
+        XCTAssertEqual(PackageStoreError(status: ext_plugin_status(EXT_PLUGIN_DENIED)), .denied)
+        XCTAssertEqual(PackageStoreError(status: ext_plugin_status(EXT_PLUGIN_MISMATCH)), .mismatch)
+        XCTAssertEqual(PackageStoreError(status: ext_plugin_status(EXT_PLUGIN_UNSUPPORTED)), .unsupported)
+        XCTAssertEqual(PackageStoreError(status: ext_plugin_status(EXT_PLUGIN_NOT_FOUND)), .notFound)
+        XCTAssertEqual(PackageStoreError(status: ext_plugin_status(EXT_PLUGIN_EXISTS)), .exists)
+        XCTAssertEqual(PackageStoreError(status: ext_plugin_status(EXT_PLUGIN_MISSING)), .missing)
+        XCTAssertEqual(PackageStoreError(status: ext_plugin_status(EXT_PLUGIN_IO)), .io)
+        XCTAssertEqual(PackageStoreError(status: ext_plugin_status(EXT_PLUGIN_NOMEM)), .engine(ext_plugin_status(EXT_PLUGIN_NOMEM)))
         // the numbers other languages use for the statuses of a store
         XCTAssertEqual(
-            [EXT_INVALID, EXT_DENIED, EXT_MISMATCH, EXT_UNSUPPORTED, EXT_NOT_FOUND, EXT_EXISTS, EXT_MISSING].map { Int($0) },
+            [EXT_PLUGIN_INVALID, EXT_PLUGIN_DENIED, EXT_PLUGIN_MISMATCH, EXT_PLUGIN_UNSUPPORTED, EXT_PLUGIN_NOT_FOUND, EXT_PLUGIN_EXISTS, EXT_PLUGIN_MISSING].map { Int($0) },
             [1, 2, 3, 4, 10, 18, 19])
     }
 
@@ -334,7 +334,7 @@ final class PackageStoreTests: XCTestCase {
         try tamper(bDir.appendingPathComponent("src/main.py"))
         let checks = try lines(try store.verify())
         XCTAssertEqual(checks.map(entry), [expected("example/a", aDir), expected("example/b", bDir)])
-        XCTAssertEqual(checks.map(status), [0, Int32(EXT_MISMATCH)])
+        XCTAssertEqual(checks.map(status), [0, Int32(EXT_PLUGIN_MISMATCH)])
         XCTAssertEqual(PackageStoreError(status: status(checks[1])), .mismatch)
         assertFails(.mismatch, try store.list())
         // the unverified listing reads no artifact, so it still has both
@@ -350,10 +350,10 @@ final class PackageStoreTests: XCTestCase {
         unverified = try listing(try store.listUnverified())
         XCTAssertEqual(unverified.packages.map(entry), [expected("example/a", aDir), expected("example/b", bDir)])
         XCTAssertEqual(unverified.problems.map(entry), [expected("stray", root.appendingPathComponent("stray"))])
-        XCTAssertEqual(unverified.problems.map(status), [Int32(EXT_INVALID)])
+        XCTAssertEqual(unverified.problems.map(status), [Int32(EXT_PLUGIN_INVALID)])
         let strays = try lines(try store.verify())
         XCTAssertEqual(strays.map { $0["id"] as! String }, ["example/a", "example/b", "stray"])
-        XCTAssertEqual(strays.map(status), [0, Int32(EXT_MISMATCH), Int32(EXT_INVALID)])
+        XCTAssertEqual(strays.map(status), [0, Int32(EXT_PLUGIN_MISMATCH), Int32(EXT_PLUGIN_INVALID)])
         XCTAssertFalse(String(decoding: try store.verify(), as: UTF8.self).contains("install-left"))
     }
 
@@ -400,7 +400,7 @@ final class PackageStoreTests: XCTestCase {
         assertFails(.mismatch, try view.list())
         let checks = try lines(try view.verify())
         XCTAssertEqual(checks.map(entry), listed.map(entry))
-        XCTAssertEqual(checks.map(status), [Int32(EXT_MISMATCH), 0])
+        XCTAssertEqual(checks.map(status), [Int32(EXT_PLUGIN_MISMATCH), 0])
         let unverified = try listing(try view.listUnverified())
         XCTAssertEqual(unverified.packages.map(entry), listed.map(entry))
         XCTAssertEqual(unverified.problems.count, 0)

@@ -36,9 +36,9 @@ static void exercise(const uint8_t *data, size_t size) {
   const char *services[] = {"package.validate", "package.select",
                             "package.resolve"};
   for (size_t i = 0; i < sizeof(services) / sizeof(*services); i++) {
-    ext_buffer out = {0};
+    ext_plugin_buffer out = {0};
     (void)ext_package_service(services[i], root, &out);
-    ext_buffer_free(&out);
+    ext_plugin_buffer_free(&out);
   }
   yyjson_doc_free(descriptor);
   yyjson_doc_free(doc);

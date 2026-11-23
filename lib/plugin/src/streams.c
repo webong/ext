@@ -1,5 +1,5 @@
 #define _POSIX_C_SOURCE 200809L
-#include "ext_stream.h"
+#include "ext_plugin_stream.h"
 #include "platform.h"
 #include "wire.h"
 #include <errno.h>
@@ -16,38 +16,38 @@ struct stream_entry {
   size_t scope_len;
   int64_t expires;
   uint64_t sequence;
-  ext_cancel *life;
+  ext_plugin_cancel *life;
   void *value;
   unsigned users;
   int opening, live, counted, closing, closed, busy, releasing;
-  ext_status close_status;
+  ext_plugin_status close_status;
 };
-struct ext_streams {
+struct ext_plugin_streams {
   pthread_mutex_t mu;
   pthread_cond_t changed;
   pthread_t timer, workers[4];
   size_t worker_count;
   stream_entry *work_head, *work_tail;
-  ext_stream_options options;
+  ext_plugin_stream_options options;
   stream_entry *entries;
   size_t occupied;
   int closed;
-  ext_status cleanup;
+  ext_plugin_status cleanup;
 };
 static int64_t now(void) {
   struct timespec t;
   clock_gettime(CLOCK_MONOTONIC, &t);
   return (int64_t)t.tv_sec * 1000 + t.tv_nsec / 1000000;
 }
-static int valid(const ext_call_options *o) {
+static int valid(const ext_plugin_call_options *o) {
   return o && o->struct_size == sizeof(*o) && o->timeout_ms;
 }
-static ext_status stopped(const ext_call_options *o, int64_t deadline) {
-  return ext_cancel_is_signaled(o->cancel) ? EXT_CANCELED
-         : now() >= deadline               ? EXT_TIMEOUT
-                                           : EXT_OK;
+static ext_plugin_status stopped(const ext_plugin_call_options *o, int64_t deadline) {
+  return ext_plugin_cancel_is_signaled(o->cancel) ? EXT_PLUGIN_CANCELED
+         : now() >= deadline               ? EXT_PLUGIN_TIMEOUT
+                                           : EXT_PLUGIN_OK;
 }
-static void wait_slice(ext_streams *s) {
+static void wait_slice(ext_plugin_streams *s) {
   struct timespec t;
   clock_gettime(CLOCK_REALTIME, &t);
   t.tv_nsec += 10000000;
@@ -61,7 +61,7 @@ static int scope_valid(const uint8_t *p, size_t n) {
   return p && n && n <= 256;
 }
 static int id_valid(const char *id) { return id && *id && strlen(id) <= 64; }
-static stream_entry *find(ext_streams *s, const char *id) {
+static stream_entry *find(ext_plugin_streams *s, const char *id) {
   for (stream_entry *e = s->entries; e; e = e->next)
     if (e->live && !strcmp(e->id, id))
       return e;
@@ -72,7 +72,7 @@ static int scoped(stream_entry *e, const uint8_t *p, size_t n) {
 }
 /* Drop a use under lock. Release callbacks run outside the lock, with a
  * temporary entry use so destroy cannot race foreign reader destruction. */
-static void drop(ext_streams *s, stream_entry *e) {
+static void drop(ext_plugin_streams *s, stream_entry *e) {
   if (--e->users || !e->closed)
     return;
   /* Keep the entry linked until release finishes: destroy remains busy. */
@@ -86,18 +86,18 @@ static void drop(ext_streams *s, stream_entry *e) {
   while (*p != e)
     p = &(*p)->next;
   *p = e->next;
-  ext_cancel_destroy(e->life);
+  ext_plugin_cancel_destroy(e->life);
   free(e);
   pthread_cond_broadcast(&s->changed);
 }
 /* Retire immediately, independently of slow close/read callbacks. */
-static int retire(ext_streams *s, stream_entry *e) {
+static int retire(ext_plugin_streams *s, stream_entry *e) {
   e->live = 0;
   if (e->counted) {
     e->counted = 0;
     s->occupied--;
   }
-  ext_cancel_signal(e->life);
+  ext_plugin_cancel_signal(e->life);
   if (!e->opening && !e->closing && !e->closed) {
     e->closing = 1;
     e->users++;
@@ -105,9 +105,9 @@ static int retire(ext_streams *s, stream_entry *e) {
   }
   return 0;
 }
-static void close_entry(ext_streams *s, stream_entry *e) {
-  ext_status status =
-      e->value ? s->options.close(s->options.user, e->value) : EXT_OK;
+static void close_entry(ext_plugin_streams *s, stream_entry *e) {
+  ext_plugin_status status =
+      e->value ? s->options.close(s->options.user, e->value) : EXT_PLUGIN_OK;
   pthread_mutex_lock(&s->mu);
   e->close_status = status;
   e->closed = 1;
@@ -119,7 +119,7 @@ static void close_entry(ext_streams *s, stream_entry *e) {
   pthread_mutex_unlock(&s->mu);
 }
 static void *cleanup_worker(void *arg) {
-  ext_streams *s = arg;
+  ext_plugin_streams *s = arg;
   pthread_mutex_lock(&s->mu);
   for (;;) {
     while (!s->work_head && !s->closed)
@@ -138,7 +138,7 @@ static void *cleanup_worker(void *arg) {
   return NULL;
 }
 static void *expiry(void *arg) {
-  ext_streams *s = arg;
+  ext_plugin_streams *s = arg;
   pthread_mutex_lock(&s->mu);
   while (!s->closed) {
     int64_t at = now();
@@ -160,26 +160,26 @@ static void *expiry(void *arg) {
   pthread_mutex_unlock(&s->mu);
   return NULL;
 }
-ext_status ext_streams_create(const ext_stream_options *o, ext_streams **out) {
+ext_plugin_status ext_plugin_streams_create(const ext_plugin_stream_options *o, ext_plugin_streams **out) {
   if (!out)
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   *out = NULL;
   if (!o || o->struct_size != sizeof(*o) || !o->capacity ||
       o->capacity > 1024 || !o->max_age_ms || o->max_age_ms > 86400000 ||
       !o->open || !o->read || !o->close || !o->release)
-    return EXT_INVALID;
-  ext_streams *s = calloc(1, sizeof(*s));
+    return EXT_PLUGIN_INVALID;
+  ext_plugin_streams *s = calloc(1, sizeof(*s));
   if (!s)
-    return EXT_NOMEM;
+    return EXT_PLUGIN_NOMEM;
   s->options = *o;
   if (pthread_mutex_init(&s->mu, NULL)) {
     free(s);
-    return EXT_IO;
+    return EXT_PLUGIN_IO;
   }
   if (pthread_cond_init(&s->changed, NULL)) {
     pthread_mutex_destroy(&s->mu);
     free(s);
-    return EXT_IO;
+    return EXT_PLUGIN_IO;
   }
   int error = 0;
   for (size_t i = 0; i < 4; i++) {
@@ -200,14 +200,14 @@ ext_status ext_streams_create(const ext_stream_options *o, ext_streams **out) {
     pthread_cond_destroy(&s->changed);
     pthread_mutex_destroy(&s->mu);
     free(s);
-    return EXT_IO;
+    return EXT_PLUGIN_IO;
   }
   *out = s;
-  return EXT_OK;
+  return EXT_PLUGIN_OK;
 }
-static ext_status random_id(char out[49]) {
+static ext_plugin_status random_id(char out[49]) {
   uint8_t bytes[24];
-  ext_status s = ext_random_bytes(bytes, sizeof(bytes));
+  ext_plugin_status s = ext_random_bytes(bytes, sizeof(bytes));
   if (s)
     return s;
   const char *hex = "0123456789abcdef";
@@ -216,30 +216,30 @@ static ext_status random_id(char out[49]) {
     out[2 * i + 1] = hex[bytes[i] & 15];
   }
   out[48] = 0;
-  return EXT_OK;
+  return EXT_PLUGIN_OK;
 }
-ext_status ext_streams_open(ext_streams *s, const uint8_t *scope,
+ext_plugin_status ext_plugin_streams_open(ext_plugin_streams *s, const uint8_t *scope,
                             size_t scope_len, const uint8_t *params, size_t len,
-                            const ext_call_options *o, ext_buffer *out) {
+                            const ext_plugin_call_options *o, ext_plugin_buffer *out) {
   if (!out)
-    return EXT_INVALID;
-  *out = (ext_buffer){0};
+    return EXT_PLUGIN_INVALID;
+  *out = (ext_plugin_buffer){0};
   if (!s || !valid(o))
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   if (!scope_valid(scope, scope_len))
-    return EXT_DENIED;
+    return EXT_PLUGIN_DENIED;
   int64_t end = now() + o->timeout_ms;
-  ext_status status = stopped(o, end);
+  ext_plugin_status status = stopped(o, end);
   if (status)
     return status;
   yyjson_doc *doc = ext_parse(params, len);
   if (!doc)
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   yyjson_doc_free(doc);
   stream_entry *e = calloc(1, sizeof(*e));
   if (!e)
-    return EXT_NOMEM;
-  status = ext_cancel_create(&e->life);
+    return EXT_PLUGIN_NOMEM;
+  status = ext_plugin_cancel_create(&e->life);
   if (status) {
     free(e);
     return status;
@@ -252,12 +252,12 @@ ext_status ext_streams_open(ext_streams *s, const uint8_t *scope,
   memcpy(e->scope, scope, scope_len);
   pthread_mutex_lock(&s->mu);
   if (s->closed)
-    status = EXT_CLOSED;
+    status = EXT_PLUGIN_CLOSED;
   else if (s->occupied >= s->options.capacity)
-    status = EXT_CAPACITY;
+    status = EXT_PLUGIN_CAPACITY;
   if (status) {
     pthread_mutex_unlock(&s->mu);
-    ext_cancel_destroy(e->life);
+    ext_plugin_cancel_destroy(e->life);
     free(e);
     return status;
   }
@@ -268,29 +268,29 @@ ext_status ext_streams_open(ext_streams *s, const uint8_t *scope,
   status = s->options.open(s->options.user, o, e->life, params, len, &e->value);
   if (!status)
     status = stopped(o, end);
-  if (!status && ext_cancel_is_signaled(e->life))
-    status = EXT_CANCELED;
+  if (!status && ext_plugin_cancel_is_signaled(e->life))
+    status = EXT_PLUGIN_CANCELED;
   if (!status && now() >= e->expires)
-    status = EXT_TIMEOUT;
+    status = EXT_PLUGIN_TIMEOUT;
   if (!status && !e->value)
-    status = EXT_INVALID;
+    status = EXT_PLUGIN_INVALID;
   if (!status)
     status = random_id(e->id);
   pthread_mutex_lock(&s->mu);
   e->opening = 0;
   if (!status && s->closed)
-    status = EXT_CLOSED;
-  if (!status && ext_cancel_is_signaled(e->life))
-    status = EXT_CANCELED;
+    status = EXT_PLUGIN_CLOSED;
+  if (!status && ext_plugin_cancel_is_signaled(e->life))
+    status = EXT_PLUGIN_CANCELED;
   if (!status) {
     /* Defend even against a random collision: do not replace an existing
      * stream. */
     if (find(s, e->id))
-      status = EXT_AMBIGUOUS;
+      status = EXT_PLUGIN_AMBIGUOUS;
     else {
       out->data = malloc(51);
       if (!out->data)
-        status = EXT_NOMEM;
+        status = EXT_PLUGIN_NOMEM;
       else {
         out->data[0] = '"';
         memcpy(out->data + 1, e->id, 48);
@@ -311,32 +311,32 @@ ext_status ext_streams_open(ext_streams *s, const uint8_t *scope,
   return status;
 }
 typedef struct {
-  ext_buffer data;
+  ext_plugin_buffer data;
   int emitted;
 } batch_sink;
-static ext_status emit(void *arg, const uint8_t *p, size_t n) {
+static ext_plugin_status emit(void *arg, const uint8_t *p, size_t n) {
   batch_sink *b = arg;
-  if (b->emitted++ || !p || !n || n > EXT_HOST_MAX_FRAME)
-    return EXT_INVALID;
+  if (b->emitted++ || !p || !n || n > EXT_PLUGIN_HOST_MAX_FRAME)
+    return EXT_PLUGIN_INVALID;
   b->data.data = malloc(n);
   if (!b->data.data)
-    return EXT_NOMEM;
+    return EXT_PLUGIN_NOMEM;
   memcpy(b->data.data, p, n);
   b->data.len = n;
-  return EXT_OK;
+  return EXT_PLUGIN_OK;
 }
-static ext_status batch(ext_buffer *raw, uint32_t limit, int *done) {
+static ext_plugin_status batch(ext_plugin_buffer *raw, uint32_t limit, int *done) {
   yyjson_doc *d = ext_parse(raw->data, raw->len);
   if (!d)
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   yyjson_val *v = yyjson_doc_get_root(d), *items = yyjson_obj_get(v, "items"),
              *end = yyjson_obj_get(v, "done");
-  ext_status status = EXT_OK;
+  ext_plugin_status status = EXT_PLUGIN_OK;
   if (!EXT_FIELDS(v, "items", "done") ||
       (!yyjson_is_arr(items) && items && !yyjson_is_null(items)) ||
       (end && !yyjson_is_bool(end) && !yyjson_is_null(end)) ||
       yyjson_arr_size(items) > limit)
-    status = EXT_INVALID;
+    status = EXT_PLUGIN_INVALID;
   if (!status) {
     size_t i, n, total = 0;
     yyjson_val *item;
@@ -344,13 +344,13 @@ static ext_status batch(ext_buffer *raw, uint32_t limit, int *done) {
       size_t len = 0;
       char *json = yyjson_val_write(item, 0, &len);
       if (!json) {
-        status = EXT_NOMEM;
+        status = EXT_PLUGIN_NOMEM;
         break;
       }
       free(json);
       total += len;
       if (total > 1048576) {
-        status = EXT_INVALID;
+        status = EXT_PLUGIN_INVALID;
         break;
       }
     }
@@ -359,7 +359,7 @@ static ext_status batch(ext_buffer *raw, uint32_t limit, int *done) {
     *done = yyjson_get_bool(end);
     yyjson_mut_doc *out = yyjson_mut_doc_new(NULL);
     if (!out)
-      status = EXT_NOMEM;
+      status = EXT_PLUGIN_NOMEM;
     else {
       yyjson_mut_val *root = yyjson_mut_obj(out),
                      *array = yyjson_is_arr(items)
@@ -369,12 +369,12 @@ static ext_status batch(ext_buffer *raw, uint32_t limit, int *done) {
       if (!root || !array ||
           !yyjson_mut_obj_add_val(out, root, "items", array) ||
           !yyjson_mut_obj_add_bool(out, root, "done", *done))
-        status = EXT_NOMEM;
+        status = EXT_PLUGIN_NOMEM;
       else {
-        ext_buffer_free(raw);
+        ext_plugin_buffer_free(raw);
         raw->data = (uint8_t *)yyjson_mut_write(out, 0, &raw->len);
         if (!raw->data)
-          status = EXT_NOMEM;
+          status = EXT_PLUGIN_NOMEM;
       }
       yyjson_mut_doc_free(out);
     }
@@ -382,35 +382,35 @@ static ext_status batch(ext_buffer *raw, uint32_t limit, int *done) {
   yyjson_doc_free(d);
   return status;
 }
-ext_status ext_streams_read(ext_streams *s, const uint8_t *scope,
+ext_plugin_status ext_plugin_streams_read(ext_plugin_streams *s, const uint8_t *scope,
                             size_t scope_len, const char *id, uint64_t sequence,
-                            uint32_t limit, const ext_call_options *o,
-                            ext_buffer *out) {
+                            uint32_t limit, const ext_plugin_call_options *o,
+                            ext_plugin_buffer *out) {
   if (!out)
-    return EXT_INVALID;
-  *out = (ext_buffer){0};
+    return EXT_PLUGIN_INVALID;
+  *out = (ext_plugin_buffer){0};
   if (!s || !valid(o) || !id_valid(id) || !sequence || !limit || limit > 256)
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   if (!scope_valid(scope, scope_len))
-    return EXT_DENIED;
+    return EXT_PLUGIN_DENIED;
   int64_t end = now() + o->timeout_ms;
   pthread_mutex_lock(&s->mu);
   stream_entry *e = find(s, id);
   if (!scoped(e, scope, scope_len)) {
     pthread_mutex_unlock(&s->mu);
-    return EXT_DENIED;
+    return EXT_PLUGIN_DENIED;
   }
   e->users++;
-  ext_status status = EXT_OK;
-  while (e->busy && !ext_cancel_is_signaled(e->life) &&
+  ext_plugin_status status = EXT_PLUGIN_OK;
+  while (e->busy && !ext_plugin_cancel_is_signaled(e->life) &&
          !(status = stopped(o, end)))
     wait_slice(s);
   if (!status)
     status = stopped(o, end);
-  if (!status && ext_cancel_is_signaled(e->life))
-    status = EXT_CANCELED;
+  if (!status && ext_plugin_cancel_is_signaled(e->life))
+    status = EXT_PLUGIN_CANCELED;
   if (!status && (e->sequence == UINT64_MAX || sequence != e->sequence + 1))
-    status = EXT_SEQUENCE;
+    status = EXT_PLUGIN_SEQUENCE;
   if (status) {
     drop(s, e);
     pthread_mutex_unlock(&s->mu);
@@ -419,17 +419,17 @@ ext_status ext_streams_read(ext_streams *s, const uint8_t *scope,
   e->busy = 1;
   pthread_mutex_unlock(&s->mu);
   batch_sink sink = {0};
-  ext_call_options bounded = *o;
+  ext_plugin_call_options bounded = *o;
   bounded.timeout_ms = (uint32_t)(end - now());
   if (!(status = stopped(o, end)))
     status = s->options.read(s->options.user, e->value, &bounded, e->life,
                              limit, emit, &sink);
   if (!status && sink.emitted != 1)
-    status = EXT_INVALID;
+    status = EXT_PLUGIN_INVALID;
   if (!status)
     status = stopped(o, end);
-  if (!status && ext_cancel_is_signaled(e->life))
-    status = EXT_CANCELED;
+  if (!status && ext_plugin_cancel_is_signaled(e->life))
+    status = EXT_PLUGIN_CANCELED;
   int done = 0;
   if (!status)
     status = batch(&sink.data, limit, &done);
@@ -451,26 +451,26 @@ ext_status ext_streams_read(ext_streams *s, const uint8_t *scope,
   drop(s, e);
   pthread_mutex_unlock(&s->mu);
   if (status)
-    ext_buffer_free(&sink.data);
+    ext_plugin_buffer_free(&sink.data);
   else
     *out = sink.data;
   return status;
 }
-ext_status ext_streams_remove(ext_streams *s, const uint8_t *scope,
+ext_plugin_status ext_plugin_streams_remove(ext_plugin_streams *s, const uint8_t *scope,
                               size_t scope_len, const char *id) {
   if (!s || !id_valid(id))
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   if (!scope_valid(scope, scope_len))
-    return EXT_DENIED;
+    return EXT_PLUGIN_DENIED;
   pthread_mutex_lock(&s->mu);
   stream_entry *e = find(s, id);
   if (!e) {
     pthread_mutex_unlock(&s->mu);
-    return EXT_OK;
+    return EXT_PLUGIN_OK;
   }
   if (!scoped(e, scope, scope_len)) {
     pthread_mutex_unlock(&s->mu);
-    return EXT_DENIED;
+    return EXT_PLUGIN_DENIED;
   }
   e->users++;
   int close_now = retire(s, e);
@@ -480,14 +480,14 @@ ext_status ext_streams_remove(ext_streams *s, const uint8_t *scope,
   pthread_mutex_lock(&s->mu);
   while (e->closing)
     pthread_cond_wait(&s->changed, &s->mu);
-  ext_status status = e->close_status;
+  ext_plugin_status status = e->close_status;
   drop(s, e);
   pthread_mutex_unlock(&s->mu);
   return status;
 }
-ext_status ext_streams_close(ext_streams *s) {
+ext_plugin_status ext_plugin_streams_close(ext_plugin_streams *s) {
   if (!s)
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   pthread_mutex_lock(&s->mu);
   s->closed = 1;
   for (stream_entry *e = s->entries; e; e = e->next) {
@@ -496,7 +496,7 @@ ext_status ext_streams_close(ext_streams *s) {
       e->counted = 0;
       s->occupied--;
     }
-    ext_cancel_signal(e->life);
+    ext_plugin_cancel_signal(e->life);
   }
   pthread_cond_broadcast(&s->changed);
   for (;;) {
@@ -521,23 +521,23 @@ ext_status ext_streams_close(ext_streams *s) {
       break;
     pthread_cond_wait(&s->changed, &s->mu);
   }
-  ext_status status = s->cleanup;
+  ext_plugin_status status = s->cleanup;
   pthread_mutex_unlock(&s->mu);
   return status;
 }
-ext_status ext_streams_destroy(ext_streams *s) {
+ext_plugin_status ext_plugin_streams_destroy(ext_plugin_streams *s) {
   if (!s)
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   pthread_mutex_lock(&s->mu);
   int busy = !s->closed || s->entries;
   pthread_mutex_unlock(&s->mu);
   if (busy)
-    return EXT_DRAINING;
+    return EXT_PLUGIN_DRAINING;
   pthread_join(s->timer, NULL);
   for (size_t i = 0; i < s->worker_count; i++)
     pthread_join(s->workers[i], NULL);
   pthread_cond_destroy(&s->changed);
   pthread_mutex_destroy(&s->mu);
   free(s);
-  return EXT_OK;
+  return EXT_PLUGIN_OK;
 }

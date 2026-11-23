@@ -240,79 +240,79 @@ static char self[4096];
  * scrubbed environment that still holds PATH (and SystemRoot on Windows): a child
  * with no environment at all cannot find the runtime libraries it was linked
  * with on every toolchain. A failure says why, since a CI log is all there is. */
-static ext_status open_host(const char *mode, ext_host **out) {
+static ext_plugin_status open_host(const char *mode, ext_plugin_host **out) {
   const char *args[] = {"--guest", mode};
-  ext_jsonline_process_launch launch = {sizeof(launch), self, args, 2,
+  ext_plugin_jsonline_process_launch launch = {sizeof(launch), self, args, 2,
                                         NULL,           0,    NULL, 0};
-  ext_backend_options backend = {sizeof(backend),
-                                 EXT_BACKEND_JSONLINE_PROCESS_LAUNCH, &launch,
+  ext_plugin_backend_options backend = {sizeof(backend),
+                                 EXT_PLUGIN_BACKEND_JSONLINE_PROCESS_LAUNCH, &launch,
                                  sizeof(launch)};
-  ext_host_options options = {EXT_HOST_ABI_VERSION,
+  ext_plugin_host_options options = {EXT_PLUGIN_HOST_ABI_VERSION,
                               sizeof(options),
                               (const uint8_t *)DESCRIPTOR,
                               strlen(DESCRIPTOR),
                               allow,
                               allow,
                               NULL};
-  ext_status s = ext_host_create(&options, &backend, out);
+  ext_plugin_status s = ext_plugin_host_create(&options, &backend, out);
   if (s) {
     fprintf(stderr, "create %s: %s (executable %s)\n", mode,
-            ext_host_status_string(s), self);
+            ext_plugin_host_status_string(s), self);
     return s;
   }
-  s = ext_host_start(*out, 5000);
+  s = ext_plugin_host_start(*out, 5000);
   if (s && strcmp(mode, "hellofirst")) {
     uint8_t text[512];
     size_t n = 0;
-    if (ext_host_process_stderr(*out, text, sizeof(text) - 1, &n) != EXT_OK)
+    if (ext_plugin_host_process_stderr(*out, text, sizeof(text) - 1, &n) != EXT_PLUGIN_OK)
       n = 0;
     text[n] = 0;
     fprintf(stderr, "start %s: %s (executable %s); child stderr: %s\n", mode,
-            ext_host_status_string(s), self, (const char *)text);
+            ext_plugin_host_status_string(s), self, (const char *)text);
   }
   return s;
 }
-static ext_status call(ext_host *h, const char *op, events *e,
+static ext_plugin_status call(ext_plugin_host *h, const char *op, events *e,
                        uint32_t timeout_ms, uint32_t events_per_second) {
   char request[256];
   snprintf(request, sizeof(request),
            "{\"contract\":{\"name\":\"frames.test\",\"version\":\"v1\"},"
            "\"operation\":\"%s\",\"payload\":{}}",
            op);
-  ext_call_options options = {sizeof(options), timeout_ms, NULL, NULL};
-  ext_progress_options progress = {sizeof(progress), collect, e,
+  ext_plugin_call_options options = {sizeof(options), timeout_ms, NULL, NULL};
+  ext_plugin_progress_options progress = {sizeof(progress), collect, e,
                                    events_per_second, 0};
-  ext_buffer out = {0};
-  ext_status s = ext_host_call_progress(h, (const uint8_t *)request,
+  ext_plugin_buffer out = {0};
+  ext_plugin_status s = ext_plugin_host_call_progress(h, (const uint8_t *)request,
                                         strlen(request), &options, &progress,
                                         &out);
   if (!s)
     assert(strstr((const char *)out.data, "\"done\":true"));
-  ext_buffer_free(&out);
+  ext_plugin_buffer_free(&out);
   return s;
 }
 /* Opens a guest in mode, calls op once and returns the call's status. */
-static ext_status run(const char *mode, const char *op, events *e,
-                      ext_host_state *state) {
-  ext_host *h = NULL;
-  ext_status s = open_host(mode, &h);
-  assert(s == EXT_OK);
+static ext_plugin_status run(const char *mode, const char *op, events *e,
+                      ext_plugin_host_state *state) {
+  ext_plugin_host *h = NULL;
+  ext_plugin_status s = open_host(mode, &h);
+  assert(s == EXT_PLUGIN_OK);
   s = call(h, op, e, 5000, 0);
   if (state)
-    *state = ext_host_get_state(h);
-  ext_host_destroy(h);
+    *state = ext_plugin_host_get_state(h);
+  ext_plugin_host_destroy(h);
   return s;
 }
 static void expect_violation(const char *mode, const char *op,
-                             ext_status want) {
+                             ext_plugin_status want) {
   events e = {0};
-  ext_host_state state;
-  ext_status s = run(mode, op, &e, &state);
-  if (s != want || state != EXT_HOST_FAILED)
+  ext_plugin_host_state state;
+  ext_plugin_status s = run(mode, op, &e, &state);
+  if (s != want || state != EXT_PLUGIN_HOST_FAILED)
     fprintf(stderr, "%s on %s: status %s (want %s), state %d\n", mode, op,
-            ext_host_status_string(s), ext_host_status_string(want), state);
+            ext_plugin_host_status_string(s), ext_plugin_host_status_string(want), state);
   assert(s == want);
-  assert(state == EXT_HOST_FAILED); /* a violation ends the session */
+  assert(state == EXT_PLUGIN_HOST_FAILED); /* a violation ends the session */
   clear(&e);
 }
 
@@ -358,11 +358,11 @@ static void test_limiter(void) {
   assert(!ext_limiter_admit(&l, 0, 0, &dropped));
 }
 
-static ext_status frame(const char *json, ext_progress_event *e) {
+static ext_plugin_status frame(const char *json, ext_progress_event *e) {
   yyjson_doc *doc = ext_parse((const uint8_t *)json, strlen(json));
   assert(doc);
   yyjson_val *parent;
-  ext_status s = ext_progress_frame(yyjson_doc_get_root(doc), e, &parent);
+  ext_plugin_status s = ext_progress_frame(yyjson_doc_get_root(doc), e, &parent);
   if (!s)
     assert(yyjson_is_str(parent));
   yyjson_doc_free(doc);
@@ -372,22 +372,22 @@ static void test_frame_validation(void) {
   ext_progress_event e;
   assert(frame(PREFIX "\"parent\":\"1\",\"kind\":\"progress\",\"completed\":1,"
                       "\"total\":2}",
-               &e) == EXT_OK);
+               &e) == EXT_PLUGIN_OK);
   assert(!e.log && !e.stream && e.completed == 1 && e.total == 2);
   assert(frame(PREFIX "\"parent\":\"a.b\",\"kind\":\"log\",\"stream\":\"err\","
                       "\"text\":\"t\",\"dropped\":3}",
-               &e) == EXT_OK);
+               &e) == EXT_PLUGIN_OK);
   assert(e.log && e.stream == 2 && e.text_len == 1 && e.dropped == 3);
   /* null decodes to the zero value, as in Go. */
   assert(frame(PREFIX "\"parent\":\"1\",\"kind\":\"log\",\"stream\":null,"
                       "\"text\":null,\"completed\":null,\"total\":null,"
                       "\"dropped\":null}",
-               &e) == EXT_OK);
+               &e) == EXT_PLUGIN_OK);
   assert(frame(PREFIX "\"parent\":\"1\",\"kind\":\"progress\",\"completed\":5}",
-               &e) == EXT_OK); /* no total: completed is not bounded */
+               &e) == EXT_PLUGIN_OK); /* no total: completed is not bounded */
   assert(frame(PREFIX "\"parent\":\"1\",\"kind\":\"progress\",\"completed\":"
                       "18446744073709551615}",
-               &e) == EXT_OK);
+               &e) == EXT_PLUGIN_OK);
   static const char *const bad[] = {
       "{\"frame\":\"log\",\"apiVersion\":\"ext.plugin/v1\",\"parent\":\"1\","
       "\"kind\":\"log\"}",
@@ -415,9 +415,9 @@ static void test_frame_validation(void) {
       PREFIX "\"parent\":\"1\",\"kind\":\"log\",\"extra\":1}",
   };
   for (size_t i = 0; i < sizeof(bad) / sizeof(*bad); i++) {
-    if (frame(bad[i], &e) != EXT_PROTOCOL)
+    if (frame(bad[i], &e) != EXT_PLUGIN_PROTOCOL)
       fprintf(stderr, "accepted: %s\n", bad[i]);
-    assert(frame(bad[i], &e) == EXT_PROTOCOL);
+    assert(frame(bad[i], &e) == EXT_PLUGIN_PROTOCOL);
   }
   /* The text bound is in bytes of the decoded string. */
   char big[2400];
@@ -425,13 +425,13 @@ static void test_frame_validation(void) {
                    PREFIX "\"parent\":\"1\",\"kind\":\"log\",\"text\":\"");
   memset(big + n, 'x', 2048);
   strcpy(big + n + 2048, "\"}");
-  assert(frame(big, &e) == EXT_OK && e.text_len == 2048);
+  assert(frame(big, &e) == EXT_PLUGIN_OK && e.text_len == 2048);
   memset(big + n, 'x', 2049);
   strcpy(big + n + 2049, "\"}");
-  assert(frame(big, &e) == EXT_PROTOCOL);
+  assert(frame(big, &e) == EXT_PLUGIN_PROTOCOL);
   /* Two bytes of text written as one escape and one character. */
   assert(frame(PREFIX "\"parent\":\"1\",\"kind\":\"log\",\"text\":\"\\u00e9\"}",
-               &e) == EXT_OK &&
+               &e) == EXT_PLUGIN_OK &&
          e.text_len == 2);
 }
 
@@ -442,7 +442,7 @@ static void test_sink(void) {
   ext_progress_sink_init(&sink, collect, &e, 0, 0);
   /* The burst passes, the rest is dropped and counted, never an error. */
   for (int i = 0; i < 300; i++)
-    assert(ext_progress_sink_deliver(&sink, &event) == EXT_OK);
+    assert(ext_progress_sink_deliver(&sink, &event) == EXT_PLUGIN_OK);
   size_t delivered = e.count;
   assert(delivered >= 100 && delivered <= 110);
   ext_progress_sink_finish(&sink);
@@ -465,13 +465,13 @@ static void test_sink(void) {
    * event, not delivered. */
   ext_progress_sink_init(&sink, collect, &e, 0, 0);
   ext_progress_event marker = {1, 0, "", 0, 0, 0, 7};
-  assert(ext_progress_sink_deliver(&sink, &marker) == EXT_OK);
+  assert(ext_progress_sink_deliver(&sink, &marker) == EXT_PLUGIN_OK);
   assert(e.count == 0);
-  assert(ext_progress_sink_deliver(&sink, &event) == EXT_OK);
+  assert(ext_progress_sink_deliver(&sink, &event) == EXT_PLUGIN_OK);
   assert(e.count == 1 && strstr(e.items[0], "\"dropped\":7"));
   assert(strstr(e.items[0], "\"text\":\"x\""));
   /* A marker that only counts is not rate limited, and a final one reports it. */
-  assert(ext_progress_sink_deliver(&sink, &marker) == EXT_OK);
+  assert(ext_progress_sink_deliver(&sink, &marker) == EXT_PLUGIN_OK);
   ext_progress_sink_finish(&sink);
   assert(e.count == 2 && strstr(e.items[1], "\"dropped\":7"));
   clear(&e);
@@ -479,21 +479,21 @@ static void test_sink(void) {
   /* Zero fields are left out of the JSON, and a missing callback only counts. */
   ext_progress_sink_init(&sink, collect, &e, 0, 0);
   ext_progress_event full = {1, 1, "out", 3, 4, 9, 2};
-  assert(ext_progress_sink_deliver(&sink, &full) == EXT_OK);
+  assert(ext_progress_sink_deliver(&sink, &full) == EXT_PLUGIN_OK);
   assert(!strcmp(e.items[0], "{\"kind\":\"log\",\"stream\":\"out\",\"text\":"
                              "\"out\",\"completed\":4,\"total\":9,\"dropped\":"
                              "2}"));
   clear(&e);
   ext_progress_sink_init(&sink, NULL, NULL, 0, 0);
-  assert(ext_progress_sink_deliver(&sink, &event) == EXT_OK);
+  assert(ext_progress_sink_deliver(&sink, &event) == EXT_PLUGIN_OK);
   ext_progress_sink_finish(&sink);
 }
 
 static void test_calls(void) {
   events e = {0};
-  ext_host_state state;
+  ext_plugin_host_state state;
   /* Events arrive in order, validated, before the response. */
-  assert(run("ok", "stream", &e, &state) == EXT_OK && state == EXT_HOST_READY);
+  assert(run("ok", "stream", &e, &state) == EXT_PLUGIN_OK && state == EXT_PLUGIN_HOST_READY);
   assert(e.count == 3);
   assert(!strcmp(e.items[0], "{\"kind\":\"progress\",\"completed\":1,"
                              "\"total\":3}"));
@@ -503,17 +503,17 @@ static void test_calls(void) {
                              "\"oops\"}"));
   clear(&e);
   /* An operation that declared no progress sends none, and none is delivered. */
-  assert(run("ok", "plain", &e, &state) == EXT_OK && e.count == 0);
+  assert(run("ok", "plain", &e, &state) == EXT_PLUGIN_OK && e.count == 0);
   /* Several frames in one read, and one frame over many reads. */
-  assert(run("batch", "stream", &e, &state) == EXT_OK && e.count == 3);
+  assert(run("batch", "stream", &e, &state) == EXT_PLUGIN_OK && e.count == 3);
   assert(strstr(e.items[2], "\"text\":\"b2\""));
   clear(&e);
-  assert(run("split", "stream", &e, &state) == EXT_OK && e.count == 1);
+  assert(run("split", "stream", &e, &state) == EXT_PLUGIN_OK && e.count == 1);
   assert(strstr(e.items[0], "\"text\":\"slow\""));
   clear(&e);
   /* A flood is limited, and what was lost is counted and reported. */
-  assert(run("flood", "stream", &e, &state) == EXT_OK &&
-         state == EXT_HOST_READY);
+  assert(run("flood", "stream", &e, &state) == EXT_PLUGIN_OK &&
+         state == EXT_PLUGIN_HOST_READY);
   unsigned long long lost = 0;
   size_t texts = 0;
   for (size_t i = 0; i < e.count; i++) {
@@ -526,109 +526,109 @@ static void test_calls(void) {
   assert(!strstr(e.items[e.count - 1], "\"text\""));
   clear(&e);
   /* A marker the guest sent is folded into the next event. */
-  assert(run("marker", "stream", &e, &state) == EXT_OK && e.count == 2);
+  assert(run("marker", "stream", &e, &state) == EXT_PLUGIN_OK && e.count == 2);
   assert(strstr(e.items[0], "\"text\":\"a\"") && !strstr(e.items[0], "dropped"));
   assert(strstr(e.items[1], "\"text\":\"b\"") &&
          strstr(e.items[1], "\"dropped\":7"));
   clear(&e);
 
   /* The caller's rate travels in the request and the host applies it. */
-  ext_host *h = NULL;
-  assert(open_host("flood", &h) == EXT_OK);
-  assert(call(h, "stream", &e, 5000, 10) == EXT_OK); /* burst of 20 events */
+  ext_plugin_host *h = NULL;
+  assert(open_host("flood", &h) == EXT_PLUGIN_OK);
+  assert(call(h, "stream", &e, 5000, 10) == EXT_PLUGIN_OK); /* burst of 20 events */
   texts = 0;
   for (size_t i = 0; i < e.count; i++)
     texts += strstr(e.items[i], "\"text\"") != NULL;
   assert(texts >= 20 && texts <= 40);
   clear(&e);
   /* Rates beyond the bounds are refused before anything is sent. */
-  ext_call_options options = {sizeof(options), 5000, NULL, NULL};
-  ext_progress_options big = {sizeof(big), collect, &e, (1u << 20) + 1, 0};
+  ext_plugin_call_options options = {sizeof(options), 5000, NULL, NULL};
+  ext_plugin_progress_options big = {sizeof(big), collect, &e, (1u << 20) + 1, 0};
   const char *request =
       "{\"contract\":{\"name\":\"frames.test\",\"version\":\"v1\"},"
       "\"operation\":\"stream\"}";
-  ext_buffer out = {0};
-  assert(ext_host_call_progress(h, (const uint8_t *)request, strlen(request),
-                                &options, &big, &out) == EXT_INVALID);
+  ext_plugin_buffer out = {0};
+  assert(ext_plugin_host_call_progress(h, (const uint8_t *)request, strlen(request),
+                                &options, &big, &out) == EXT_PLUGIN_INVALID);
   big.events_per_second = 0;
   big.bytes_per_second = (1u << 30) + 1;
-  assert(ext_host_call_progress(h, (const uint8_t *)request, strlen(request),
-                                &options, &big, &out) == EXT_INVALID);
+  assert(ext_plugin_host_call_progress(h, (const uint8_t *)request, strlen(request),
+                                &options, &big, &out) == EXT_PLUGIN_INVALID);
   big.bytes_per_second = 0;
   big.struct_size = 1;
-  assert(ext_host_call_progress(h, (const uint8_t *)request, strlen(request),
-                                &options, &big, &out) == EXT_INVALID);
-  assert(ext_host_get_state(h) == EXT_HOST_READY);
-  /* No progress options is plain ext_host_call: events are limited, discarded. */
-  assert(ext_host_call_progress(h, (const uint8_t *)request, strlen(request),
-                                &options, NULL, &out) == EXT_OK);
-  ext_buffer_free(&out);
-  ext_host_destroy(h);
+  assert(ext_plugin_host_call_progress(h, (const uint8_t *)request, strlen(request),
+                                &options, &big, &out) == EXT_PLUGIN_INVALID);
+  assert(ext_plugin_host_get_state(h) == EXT_PLUGIN_HOST_READY);
+  /* No progress options is plain ext_plugin_host_call: events are limited, discarded. */
+  assert(ext_plugin_host_call_progress(h, (const uint8_t *)request, strlen(request),
+                                &options, NULL, &out) == EXT_PLUGIN_OK);
+  ext_plugin_buffer_free(&out);
+  ext_plugin_host_destroy(h);
 
   /* Every violation fails the session with a protocol error. */
-  expect_violation("undeclared", "plain", EXT_PROTOCOL);
-  expect_violation("wrongparent", "stream", EXT_PROTOCOL);
-  expect_violation("badkind", "stream", EXT_PROTOCOL);
-  expect_violation("streamprogress", "stream", EXT_PROTOCOL);
-  expect_violation("overtotal", "stream", EXT_PROTOCOL);
-  expect_violation("negative", "stream", EXT_PROTOCOL);
-  expect_violation("bigtext", "stream", EXT_PROTOCOL);
-  expect_violation("dupkey", "stream", EXT_PROTOCOL);
-  expect_violation("unknown", "stream", EXT_PROTOCOL);
-  expect_violation("notobject", "stream", EXT_PROTOCOL);
-  expect_violation("reverseresponse", "stream", EXT_PROTOCOL);
-  expect_violation("nullroot", "stream", EXT_PROTOCOL);
-  expect_violation("garbage", "stream", EXT_PROTOCOL);
-  expect_violation("wrongid", "stream", EXT_PROTOCOL);
+  expect_violation("undeclared", "plain", EXT_PLUGIN_PROTOCOL);
+  expect_violation("wrongparent", "stream", EXT_PLUGIN_PROTOCOL);
+  expect_violation("badkind", "stream", EXT_PLUGIN_PROTOCOL);
+  expect_violation("streamprogress", "stream", EXT_PLUGIN_PROTOCOL);
+  expect_violation("overtotal", "stream", EXT_PLUGIN_PROTOCOL);
+  expect_violation("negative", "stream", EXT_PLUGIN_PROTOCOL);
+  expect_violation("bigtext", "stream", EXT_PLUGIN_PROTOCOL);
+  expect_violation("dupkey", "stream", EXT_PLUGIN_PROTOCOL);
+  expect_violation("unknown", "stream", EXT_PLUGIN_PROTOCOL);
+  expect_violation("notobject", "stream", EXT_PLUGIN_PROTOCOL);
+  expect_violation("reverseresponse", "stream", EXT_PLUGIN_PROTOCOL);
+  expect_violation("nullroot", "stream", EXT_PLUGIN_PROTOCOL);
+  expect_violation("garbage", "stream", EXT_PLUGIN_PROTOCOL);
+  expect_violation("wrongid", "stream", EXT_PLUGIN_PROTOCOL);
   /* A response for this call that cannot be accepted keeps its own class. */
-  expect_violation("wrongversion", "stream", EXT_MISMATCH);
-  expect_violation("extrafield", "stream", EXT_INVALID);
-  expect_violation("dupresponse", "stream", EXT_INVALID);
-  expect_violation("after", "stream", EXT_INVALID);
+  expect_violation("wrongversion", "stream", EXT_PLUGIN_MISMATCH);
+  expect_violation("extrafield", "stream", EXT_PLUGIN_INVALID);
+  expect_violation("dupresponse", "stream", EXT_PLUGIN_INVALID);
+  expect_violation("after", "stream", EXT_PLUGIN_INVALID);
   /* A reverse request to a host with no services is refused as unavailable, and
    * the call goes on (tests/reverse.c covers the rest). */
-  assert(run("reverse", "stream", &e, &state) == EXT_OK &&
-         state == EXT_HOST_READY);
+  assert(run("reverse", "stream", &e, &state) == EXT_PLUGIN_OK &&
+         state == EXT_PLUGIN_HOST_READY);
 
   /* A frame before the handshake answers is a violation of the handshake. */
-  assert(open_host("hellofirst", &h) == EXT_PROTOCOL);
-  ext_host_destroy(h);
+  assert(open_host("hellofirst", &h) == EXT_PLUGIN_PROTOCOL);
+  ext_plugin_host_destroy(h);
 
   /* A guest that never answers is ended by the deadline, after its events. */
-  assert(open_host("stall", &h) == EXT_OK);
-  assert(call(h, "stream", &e, 300, 0) == EXT_TIMEOUT);
+  assert(open_host("stall", &h) == EXT_PLUGIN_OK);
+  assert(call(h, "stream", &e, 300, 0) == EXT_PLUGIN_TIMEOUT);
   assert(e.count == 1 && strstr(e.items[0], "\"text\":\"before\""));
-  assert(ext_host_get_state(h) == EXT_HOST_FAILED);
+  assert(ext_plugin_host_get_state(h) == EXT_PLUGIN_HOST_FAILED);
   clear(&e);
-  ext_host_destroy(h);
+  ext_plugin_host_destroy(h);
 }
 
-static ext_status extension_connect(void *user, uint32_t timeout_ms,
-                                    ext_emit emit, void *context) {
+static ext_plugin_status extension_connect(void *user, uint32_t timeout_ms,
+                                    ext_plugin_emit emit, void *context) {
   (void)user;
   (void)timeout_ms;
   (void)emit;
   (void)context;
-  return EXT_UNSUPPORTED;
+  return EXT_PLUGIN_UNSUPPORTED;
 }
-static ext_status extension_invoke(void *user, const uint8_t *request,
+static ext_plugin_status extension_invoke(void *user, const uint8_t *request,
                                    size_t len, uint32_t timeout_ms,
-                                   ext_emit emit, void *context) {
+                                   ext_plugin_emit emit, void *context) {
   (void)user;
   (void)request;
   (void)len;
   (void)timeout_ms;
   (void)emit;
   (void)context;
-  return EXT_UNSUPPORTED;
+  return EXT_PLUGIN_UNSUPPORTED;
 }
 static void extension_close(void *user) { (void)user; }
 static void test_descriptors(void) {
   /* Progress and reverse calls are carried by a host that owns the child's
    * pipes; an extension backend hands the engine one response at a time, so it
    * refuses the plugin rather than run it without them. */
-  ext_host *h = NULL;
-  ext_host_options options = {EXT_HOST_ABI_VERSION,
+  ext_plugin_host *h = NULL;
+  ext_plugin_host_options options = {EXT_PLUGIN_HOST_ABI_VERSION,
                               sizeof(options),
                               (const uint8_t *)DESCRIPTOR,
                               strlen(DESCRIPTOR),
@@ -636,13 +636,13 @@ static void test_descriptors(void) {
                               allow,
                               NULL};
   const char *none[] = {NULL};
-  ext_jsonline_process_config process = {sizeof(process), self, none, 0, NULL,
+  ext_plugin_jsonline_process_config process = {sizeof(process), self, none, 0, NULL,
                                          0};
-  ext_backend_options backend = {sizeof(backend),
-                                 EXT_BACKEND_JSONLINE_PROCESS_CONFIG, &process,
+  ext_plugin_backend_options backend = {sizeof(backend),
+                                 EXT_PLUGIN_BACKEND_JSONLINE_PROCESS_CONFIG, &process,
                                  sizeof(process)};
-  assert(ext_host_create(&options, &backend, &h) == EXT_OK);
-  ext_host_destroy(h);
+  assert(ext_plugin_host_create(&options, &backend, &h) == EXT_PLUGIN_OK);
+  ext_plugin_host_destroy(h);
   const char *reverse =
       "{\"apiVersion\":\"ext.plugin/v1\",\"identity\":{\"id\":\"a\","
       "\"revision\":\"r\"},\"contracts\":[{\"name\":\"c\",\"version\":\"v1\","
@@ -650,29 +650,29 @@ static void test_descriptors(void) {
       "\"version\":\"v1\",\"operations\":[{\"name\":\"s\"}]}]}";
   options.descriptor = (const uint8_t *)reverse;
   options.descriptor_len = strlen(reverse);
-  assert(ext_host_create(&options, &backend, &h) == EXT_OK);
-  ext_host_destroy(h);
+  assert(ext_plugin_host_create(&options, &backend, &h) == EXT_PLUGIN_OK);
+  ext_plugin_host_destroy(h);
   /* An extension backend carries neither: it is refused for a descriptor that
    * declares them, and runs one that does not. */
-  ext_backend_extension extension = {sizeof(extension), 0, NULL, extension_connect,
+  ext_plugin_backend_extension extension = {sizeof(extension), 0, NULL, extension_connect,
                                      extension_invoke, extension_close,
                                      extension_close};
-  ext_backend_options extended = {sizeof(extended), EXT_BACKEND_EXTENSION,
+  ext_plugin_backend_options extended = {sizeof(extended), EXT_PLUGIN_BACKEND_EXTENSION,
                                   &extension, sizeof(extension)};
   options.descriptor = (const uint8_t *)DESCRIPTOR;
   options.descriptor_len = strlen(DESCRIPTOR);
-  assert(ext_host_create(&options, &extended, &h) == EXT_UNSUPPORTED);
+  assert(ext_plugin_host_create(&options, &extended, &h) == EXT_PLUGIN_UNSUPPORTED);
   options.descriptor = (const uint8_t *)reverse;
   options.descriptor_len = strlen(reverse);
-  assert(ext_host_create(&options, &extended, &h) == EXT_UNSUPPORTED);
+  assert(ext_plugin_host_create(&options, &extended, &h) == EXT_PLUGIN_UNSUPPORTED);
   const char *plain =
       "{\"apiVersion\":\"ext.plugin/v1\",\"identity\":{\"id\":\"a\","
       "\"revision\":\"r\"},\"contracts\":[{\"name\":\"c\",\"version\":\"v1\","
       "\"operations\":[{\"name\":\"o\"}]}]}";
   options.descriptor = (const uint8_t *)plain;
   options.descriptor_len = strlen(plain);
-  assert(ext_host_create(&options, &extended, &h) == EXT_OK);
-  ext_host_destroy(h);
+  assert(ext_plugin_host_create(&options, &extended, &h) == EXT_PLUGIN_OK);
+  ext_plugin_host_destroy(h);
 }
 
 #ifdef _WIN32

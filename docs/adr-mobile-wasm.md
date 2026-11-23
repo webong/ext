@@ -111,8 +111,8 @@ pages, which is why the web engine gained an opt-in `CrossOriginIsolation` optio
 That is fragile inside an app's embedded webview, where the page is not served over
 ordinary HTTP.
 
-The plugin C ABI (`lib/plugin/include/ext_plugin.h`) is the other shape: a handful
-of synchronous functions (`ext_plugin_open`, `ext_plugin_call`, `ext_plugin_close`)
+The plugin C ABI (`lib/plugin/include/ext_plugin_guest.h`) is the other shape: a handful
+of synchronous functions (`ext_plugin_guest_open`, `ext_plugin_guest_call`, `ext_plugin_guest_close`)
 with caller-owned buffers. A guest compiled to WebAssembly that **exports** those
 functions (a reactor) needs no blocking input, no Worker and no isolation. The page,
 or any interpreter, just calls the exports. The contract, including the allocation
@@ -138,10 +138,10 @@ decided by the project owner after the evidence above.
    startup time, memory or deterministic fuel matter more than avoiding a Rust
    build. Do not pick wasm3 alone because of its maintenance notice.
 3. **One guest format for both: a WebAssembly reactor.** The guest exports the
-   existing `ext_plugin_*` functions plus an allocation export, so the same module
+   existing `ext_plugin_guest_*` functions plus an allocation export, so the same module
    runs in a webview and in an interpreter, and neither needs a blocking input
    queue, a Worker, a `SharedArrayBuffer` or cross-origin isolation. The allocation
-   convention (`ext_plugin_alloc` and `ext_plugin_free`) is defined in
+   convention (`ext_plugin_guest_alloc` and `ext_plugin_guest_free`) is defined in
    [the reactor ABI](plugin-reactor-abi.md).
 4. **Keep the command-style stdio guest** as a desktop and server format. It works in
    browsers only with the isolation machinery in the spike, so it is not the mobile

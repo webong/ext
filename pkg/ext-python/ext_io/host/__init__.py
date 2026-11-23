@@ -2,7 +2,7 @@
 
     from ext_io import host
 
-    engine = host.Engine()          # EXT_HOST_LIBRARY, or libext_host on the loader path
+    engine = host.Engine()          # EXT_HOST_LIBRARY, or libext_plugin_host on the loader path
     with engine.process(descriptor, "/opt/plugins/echo/1.0.0/echo") as h:
         h.start()
         h.call({"name": "ext.echo", "version": "v1"}, "echo", {"value": 7})
@@ -11,10 +11,10 @@ The engine does the work a host must get right: admission, the handshake check
 against the descriptor, request and response validation, deadlines, and the
 session's lifecycle. This module only moves bytes and policy decisions across
 ``ctypes``, so it is standard library only, but it needs the engine's shared
-library, ``libext_host``. Importing ``ext_io.plugin`` (the guest) never loads it.
+library, ``libext_plugin_host``. Importing ``ext_io.plugin`` (the guest) never loads it.
 
 Guests may be JSON-line child processes (``Engine.process``) or libraries that
-export the C ABI of ``ext_plugin.h`` (``Engine.shared_library``). Native code in a
+export the C ABI of ``ext_plugin_guest.h`` (``Engine.shared_library``). Native code in a
 shared library runs inside this process with its full access.
 """
 
@@ -138,7 +138,7 @@ class ReverseCall:
 
     def canceled(self):
         """True once the call it belongs to ended, the caller canceled it or the host closed."""
-        return bool(self._cancel) and bool(self._lib.ext_cancel_is_signaled(self._cancel))
+        return bool(self._cancel) and bool(self._lib.ext_plugin_cancel_is_signaled(self._cancel))
 
 
 def _library_path(path):
@@ -147,10 +147,10 @@ def _library_path(path):
     env = os.environ.get("EXT_HOST_LIBRARY")
     if env:
         return env
-    found = ctypes.util.find_library("ext_host")
+    found = ctypes.util.find_library("ext_plugin_host")
     if found:
         return found
-    raise OSError("the ext engine library was not found: set EXT_HOST_LIBRARY to libext_host, or pass its path")
+    raise OSError("the ext engine library was not found: set EXT_HOST_LIBRARY to libext_plugin_host, or pass its path")
 
 
 def _milliseconds(seconds):
@@ -191,47 +191,47 @@ class Engine:
         lib = ctypes.CDLL(_library_path(path))
         self._lib = lib
         P, S, I = ctypes.POINTER, ctypes.c_size_t, ctypes.c_int32
-        lib.ext_host_abi_version.restype = ctypes.c_uint32
-        if lib.ext_host_abi_version() != _ABI_VERSION:
-            raise OSError("ext engine ABI %d, this module needs %d" % (lib.ext_host_abi_version(), _ABI_VERSION))
-        lib.ext_host_create.argtypes = [P(_HostOptions), P(_BackendOptions), P(ctypes.c_void_p)]
-        lib.ext_host_create.restype = I
-        lib.ext_host_start_with_options.argtypes = [ctypes.c_void_p, P(_CallOptions)]
-        lib.ext_host_start_with_options.restype = I
-        lib.ext_host_call.argtypes = [ctypes.c_void_p, ctypes.c_char_p, S, P(_CallOptions), P(_Buffer)]
-        lib.ext_host_call.restype = I
-        lib.ext_host_invoke_with_options.argtypes = [ctypes.c_void_p, ctypes.c_char_p, S, P(_CallOptions), P(_Buffer)]
-        lib.ext_host_invoke_with_options.restype = I
-        lib.ext_host_drain_with_options.argtypes = [ctypes.c_void_p, P(_CallOptions)]
-        lib.ext_host_drain_with_options.restype = I
-        lib.ext_host_close.argtypes = [ctypes.c_void_p]
-        lib.ext_host_close.restype = None
-        lib.ext_host_destroy.argtypes = [ctypes.c_void_p]
-        lib.ext_host_destroy.restype = None
-        lib.ext_host_get_state.argtypes = [ctypes.c_void_p]
-        lib.ext_host_get_state.restype = ctypes.c_int
-        lib.ext_host_process_stderr.argtypes = [ctypes.c_void_p, P(ctypes.c_uint8), S, P(S)]
-        lib.ext_host_process_stderr.restype = I
-        lib.ext_buffer_free.argtypes = [P(_Buffer)]
-        lib.ext_buffer_free.restype = None
-        lib.ext_shared_library_backend_create.argtypes = [P(_SharedLibrary), P(_Extension)]
-        lib.ext_shared_library_backend_create.restype = I
-        lib.ext_host_set_services.argtypes = [ctypes.c_void_p, P(_Services)]
-        lib.ext_host_set_services.restype = I
-        lib.ext_cancel_is_signaled.argtypes = [ctypes.c_void_p]
-        lib.ext_cancel_is_signaled.restype = ctypes.c_int
-        lib.ext_registry_create.argtypes = [P(ctypes.c_void_p)]
-        lib.ext_registry_create.restype = I
-        lib.ext_registry_register.argtypes = [ctypes.c_void_p, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_void_p]
-        lib.ext_registry_register.restype = I
-        lib.ext_registry_unregister.argtypes = [ctypes.c_void_p, ctypes.c_char_p, ctypes.c_char_p]
-        lib.ext_registry_unregister.restype = I
-        lib.ext_registry_route.argtypes = [ctypes.c_void_p, P(_RegistryEdge)]
-        lib.ext_registry_route.restype = I
-        lib.ext_registry_attach.argtypes = [ctypes.c_void_p, ctypes.c_void_p, P(_Services)]
-        lib.ext_registry_attach.restype = I
-        lib.ext_registry_destroy.argtypes = [ctypes.c_void_p]
-        lib.ext_registry_destroy.restype = None
+        lib.ext_plugin_host_abi_version.restype = ctypes.c_uint32
+        if lib.ext_plugin_host_abi_version() != _ABI_VERSION:
+            raise OSError("ext engine ABI %d, this module needs %d" % (lib.ext_plugin_host_abi_version(), _ABI_VERSION))
+        lib.ext_plugin_host_create.argtypes = [P(_HostOptions), P(_BackendOptions), P(ctypes.c_void_p)]
+        lib.ext_plugin_host_create.restype = I
+        lib.ext_plugin_host_start_with_options.argtypes = [ctypes.c_void_p, P(_CallOptions)]
+        lib.ext_plugin_host_start_with_options.restype = I
+        lib.ext_plugin_host_call.argtypes = [ctypes.c_void_p, ctypes.c_char_p, S, P(_CallOptions), P(_Buffer)]
+        lib.ext_plugin_host_call.restype = I
+        lib.ext_plugin_host_invoke_with_options.argtypes = [ctypes.c_void_p, ctypes.c_char_p, S, P(_CallOptions), P(_Buffer)]
+        lib.ext_plugin_host_invoke_with_options.restype = I
+        lib.ext_plugin_host_drain_with_options.argtypes = [ctypes.c_void_p, P(_CallOptions)]
+        lib.ext_plugin_host_drain_with_options.restype = I
+        lib.ext_plugin_host_close.argtypes = [ctypes.c_void_p]
+        lib.ext_plugin_host_close.restype = None
+        lib.ext_plugin_host_destroy.argtypes = [ctypes.c_void_p]
+        lib.ext_plugin_host_destroy.restype = None
+        lib.ext_plugin_host_get_state.argtypes = [ctypes.c_void_p]
+        lib.ext_plugin_host_get_state.restype = ctypes.c_int
+        lib.ext_plugin_host_process_stderr.argtypes = [ctypes.c_void_p, P(ctypes.c_uint8), S, P(S)]
+        lib.ext_plugin_host_process_stderr.restype = I
+        lib.ext_plugin_buffer_free.argtypes = [P(_Buffer)]
+        lib.ext_plugin_buffer_free.restype = None
+        lib.ext_plugin_shared_library_backend_create.argtypes = [P(_SharedLibrary), P(_Extension)]
+        lib.ext_plugin_shared_library_backend_create.restype = I
+        lib.ext_plugin_host_set_services.argtypes = [ctypes.c_void_p, P(_Services)]
+        lib.ext_plugin_host_set_services.restype = I
+        lib.ext_plugin_cancel_is_signaled.argtypes = [ctypes.c_void_p]
+        lib.ext_plugin_cancel_is_signaled.restype = ctypes.c_int
+        lib.ext_plugin_registry_create.argtypes = [P(ctypes.c_void_p)]
+        lib.ext_plugin_registry_create.restype = I
+        lib.ext_plugin_registry_register.argtypes = [ctypes.c_void_p, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_void_p]
+        lib.ext_plugin_registry_register.restype = I
+        lib.ext_plugin_registry_unregister.argtypes = [ctypes.c_void_p, ctypes.c_char_p, ctypes.c_char_p]
+        lib.ext_plugin_registry_unregister.restype = I
+        lib.ext_plugin_registry_route.argtypes = [ctypes.c_void_p, P(_RegistryEdge)]
+        lib.ext_plugin_registry_route.restype = I
+        lib.ext_plugin_registry_attach.argtypes = [ctypes.c_void_p, ctypes.c_void_p, P(_Services)]
+        lib.ext_plugin_registry_attach.restype = I
+        lib.ext_plugin_registry_destroy.argtypes = [ctypes.c_void_p]
+        lib.ext_plugin_registry_destroy.restype = None
 
     def process(self, descriptor, executable, arguments=(), environment=(), working_directory=None,
                 stderr_bytes=4096, verify=None, authorize=None):
@@ -250,13 +250,13 @@ class Engine:
         return Host(self, descriptor, backend, verify, authorize, (launch, args, env, keep_args, keep_env))
 
     def shared_library(self, descriptor, path, verify=None, authorize=None):
-        """A host for a guest library that exports the C ABI of ``ext_plugin.h``.
+        """A host for a guest library that exports the C ABI of ``ext_plugin_guest.h``.
 
         ``path`` is an absolute path to a verified, revision-specific artifact. The library
         is loaded when the host starts, after ``verify``, and is never unloaded."""
         options = _SharedLibrary(ctypes.sizeof(_SharedLibrary), os.fsencode(path))
         ext = _Extension()
-        status = self._lib.ext_shared_library_backend_create(ctypes.byref(options), ctypes.byref(ext))
+        status = self._lib.ext_plugin_shared_library_backend_create(ctypes.byref(options), ctypes.byref(ext))
         if status:
             raise HostError(status, "shared library")
         backend = _BackendOptions(ctypes.sizeof(_BackendOptions), _BACKEND_EXTENSION_CONTEXT,
@@ -285,7 +285,7 @@ class Host:
         options = _HostOptions(_ABI_VERSION, ctypes.sizeof(_HostOptions), self._descriptor,
                                len(self._descriptor), self._verify, self._authorize, None)
         handle = ctypes.c_void_p()
-        status = self._lib.ext_host_create(ctypes.byref(options), ctypes.byref(backend), ctypes.byref(handle))
+        status = self._lib.ext_plugin_host_create(ctypes.byref(options), ctypes.byref(backend), ctypes.byref(handle))
         if status:
             raise HostError(status, "create")
         self._handle = handle
@@ -322,9 +322,9 @@ class Host:
                              0 if timeout is None else _milliseconds(timeout),
                              max_payload_bytes, max_in_flight, None)
         if registry is None:
-            status = lib.ext_host_set_services(self._live(), ctypes.byref(services))
+            status = lib.ext_plugin_host_set_services(self._live(), ctypes.byref(services))
         else:
-            status = lib.ext_registry_attach(registry._handle, self._live(), ctypes.byref(services))
+            status = lib.ext_plugin_registry_attach(registry._handle, self._live(), ctypes.byref(services))
         if status:
             raise HostError(status, "services")
         self._services = hooks
@@ -365,7 +365,7 @@ class Host:
     def start(self, timeout=3.0):
         """Starts the guest and checks its handshake against the descriptor."""
         options = self._options(timeout)
-        status = self._lib.ext_host_start_with_options(self._live(), ctypes.byref(options))
+        status = self._lib.ext_plugin_host_start_with_options(self._live(), ctypes.byref(options))
         if status:
             raise HostError(status, "start")
 
@@ -379,7 +379,7 @@ class Host:
             return ctypes.string_at(out.data, out.len)
         finally:
             if out.data:
-                self._lib.ext_buffer_free(ctypes.byref(out))
+                self._lib.ext_plugin_buffer_free(ctypes.byref(out))
 
     def call(self, contract, operation, payload=None, timeout=3.0):
         """Calls an operation and returns its payload (None when it has none).
@@ -388,7 +388,7 @@ class Host:
         request = {"contract": {"name": contract["name"], "version": contract["version"]}, "operation": operation}
         if payload is not None:
             request["payload"] = payload
-        response = json.loads(self._exchange(self._lib.ext_host_call, _encode(request), timeout, operation))
+        response = json.loads(self._exchange(self._lib.ext_plugin_host_call, _encode(request), timeout, operation))
         error = response.get("error")
         if error is not None:
             raise RemoteError(error.get("code", ""), error.get("message", ""),
@@ -397,23 +397,23 @@ class Host:
 
     def invoke(self, request, timeout=3.0):
         """Sends a complete request envelope (bytes) and returns the response envelope (bytes)."""
-        return self._exchange(self._lib.ext_host_invoke_with_options, bytes(request), timeout, "invoke")
+        return self._exchange(self._lib.ext_plugin_host_invoke_with_options, bytes(request), timeout, "invoke")
 
     def drain(self, timeout=3.0):
         """Stops admission and waits for the calls in flight; a timeout reopens admission."""
         options = self._options(timeout)
-        status = self._lib.ext_host_drain_with_options(self._live(), ctypes.byref(options))
+        status = self._lib.ext_plugin_host_drain_with_options(self._live(), ctypes.byref(options))
         if status:
             raise HostError(status, "drain")
 
     def close(self):
         """Aborts the session; calls in flight end with ``closed``."""
         if self._handle is not None:
-            self._lib.ext_host_close(self._handle)
+            self._lib.ext_plugin_host_close(self._handle)
 
     @property
     def state(self):
-        s = self._lib.ext_host_get_state(self._live())
+        s = self._lib.ext_plugin_host_get_state(self._live())
         return _STATES[s] if 0 <= s < len(_STATES) else "unknown"
 
     @property
@@ -421,7 +421,7 @@ class Host:
         """What a process guest wrote to stderr, bounded and untrusted."""
         size = ctypes.c_size_t()
         buf = (ctypes.c_uint8 * 65536)()
-        status = self._lib.ext_host_process_stderr(self._live(), buf, len(buf), ctypes.byref(size))
+        status = self._lib.ext_plugin_host_process_stderr(self._live(), buf, len(buf), ctypes.byref(size))
         if status:
             raise HostError(status, "stderr")
         return bytes(buf[: min(size.value, len(buf))])
@@ -432,12 +432,12 @@ class Host:
         if self._handle is not None:
             if self._registered:
                 # Calls routed here end once the host is closed; unregister waits for them.
-                self._lib.ext_host_close(self._handle)
+                self._lib.ext_plugin_host_close(self._handle)
                 for registry, name, version in self._registered:
-                    self._lib.ext_registry_unregister(registry._handle, name, version)
+                    self._lib.ext_plugin_registry_unregister(registry._handle, name, version)
                     registry._targets.pop((name, version), None)
                 self._registered = []
-            self._lib.ext_host_destroy(self._handle)
+            self._lib.ext_plugin_host_destroy(self._handle)
             self._handle = None
 
     def __enter__(self):
@@ -454,7 +454,7 @@ class Host:
 
 
 class Registry:
-    """A guest registry (``ext_registry_*`` in ext_host.h): a reverse call one guest makes is
+    """A guest registry (``ext_registry_*`` in ext_plugin_host.h): a reverse call one guest makes is
     served by a forward call to another guest, along an edge declared with ``route``. An
     undeclared edge is refused with ``reverse_undeclared``, an unregistered target with
     ``reverse_unavailable``, and a call that would re-enter a host already on its call chain
@@ -466,7 +466,7 @@ class Registry:
     def __init__(self, engine):
         self._lib = engine._lib
         handle = ctypes.c_void_p()
-        status = self._lib.ext_registry_create(ctypes.byref(handle))
+        status = self._lib.ext_plugin_registry_create(ctypes.byref(handle))
         if status:
             raise HostError(status, "registry")
         self._handle = handle
@@ -479,7 +479,7 @@ class Registry:
     def register(self, contract, host):
         """Names ``host`` (started, and listing the contract) as the one serving ``contract``."""
         name, version = self._names(contract["name"], contract["version"])
-        status = self._lib.ext_registry_register(self._handle, name, version, host._live())
+        status = self._lib.ext_plugin_registry_register(self._handle, name, version, host._live())
         if status:
             raise HostError(status, "register")
         host._registered.append((self, name, version))
@@ -488,7 +488,7 @@ class Registry:
     def unregister(self, contract):
         """Removes the contract and waits for the forward calls routed to its host."""
         name, version = self._names(contract["name"], contract["version"])
-        status = self._lib.ext_registry_unregister(self._handle, name, version)
+        status = self._lib.ext_plugin_registry_unregister(self._handle, name, version)
         if status:
             raise HostError(status, "unregister")
         ref = self._targets.pop((name, version), None)
@@ -502,12 +502,12 @@ class Registry:
         names = self._names(source["name"], source["version"], source["operation"],
                             target["name"], target["version"], target["operation"])
         edge = _RegistryEdge(ctypes.sizeof(_RegistryEdge), *names)
-        status = self._lib.ext_registry_route(self._handle, ctypes.byref(edge))
+        status = self._lib.ext_plugin_registry_route(self._handle, ctypes.byref(edge))
         if status:
             raise HostError(status, "route")
 
     def __del__(self):
         # Every host attached to it or registered with it holds a reference, so none is alive.
         if getattr(self, "_handle", None) is not None and not sys.is_finalizing():
-            self._lib.ext_registry_destroy(self._handle)
+            self._lib.ext_plugin_registry_destroy(self._handle)
             self._handle = None

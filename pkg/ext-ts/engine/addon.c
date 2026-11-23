@@ -1,8 +1,8 @@
 #define _POSIX_C_SOURCE 200809L
-#include "ext_guest.h"
-#include "ext_host.h"
-#include "ext_instance.h"
-#include "ext_stream.h"
+#include "ext_plugin_author.h"
+#include "ext_plugin_host.h"
+#include "ext_plugin_instance.h"
+#include "ext_plugin_stream.h"
 #include <node_api.h>
 #include <pthread.h>
 #include <stdatomic.h>
@@ -34,12 +34,12 @@ static int tagged_registry(napi_env env, napi_value value, registry_ref **out) {
   return external(env, value, &registry_tag, (void **)out);
 }
 struct registry_ref {
-  ext_registry *registry;
+  ext_plugin_registry *registry;
   atomic_int refs;
 };
 static void registry_release(registry_ref *g) {
   if (g && atomic_fetch_sub(&g->refs, 1) == 1) {
-    ext_registry_destroy(g->registry);
+    ext_plugin_registry_destroy(g->registry);
     free(g);
   }
 }
@@ -50,8 +50,8 @@ typedef struct registration {
   char *name, *version;
 } registration;
 typedef struct {
-  ext_host *host;
-  ext_guest *guest;
+  ext_plugin_host *host;
+  ext_plugin_guest *guest;
   registry_ref *source_of;     /* the registry this host is a source of */
   registration *registrations; /* unregistered before the host is freed */
   napi_threadsafe_function verify, authorize, handle, observe;
@@ -68,7 +68,7 @@ typedef struct {
   pthread_cond_t changed;
   atomic_int refs;
   int done;
-  ext_status status;
+  ext_plugin_status status;
   uint32_t kind, timeout;
   uint8_t *input, *output;
   size_t input_len, output_len;
@@ -84,7 +84,7 @@ static void release_callback(callback *r) {
 }
 static char *string(napi_env env, napi_value v, size_t *len) {
   if (napi_get_value_string_utf8(env, v, NULL, 0, len) != napi_ok ||
-      *len > EXT_HOST_MAX_FRAME)
+      *len > EXT_PLUGIN_HOST_MAX_FRAME)
     return NULL;
   char *s = malloc(*len + 1);
   if (!s)
@@ -109,7 +109,7 @@ static int64_t now(void) {
   clock_gettime(CLOCK_MONOTONIC, &t);
   return (int64_t)t.tv_sec * 1000 + t.tv_nsec / 1000000;
 }
-static void finish(callback *r, ext_status status, uint32_t kind,
+static void finish(callback *r, ext_plugin_status status, uint32_t kind,
                    uint8_t *output, size_t len) {
   pthread_mutex_lock(&r->mu);
   if (!r->done) {
@@ -136,17 +136,17 @@ static napi_value reply(napi_env env, napi_callback_info info) {
   if (napi_get_cb_info(env, info, &count, args, NULL, &data) != napi_ok)
     return NULL;
   callback *r = data;
-  int32_t status = EXT_IO;
+  int32_t status = EXT_PLUGIN_IO;
   uint32_t kind = 0;
   size_t len = 0;
   uint8_t *bytes = NULL;
   if (count != 3 || napi_get_value_int32(env, args[0], &status) != napi_ok ||
       napi_get_value_uint32(env, args[1], &kind) != napi_ok)
-    status = EXT_IO;
-  else if (status == EXT_OK) {
+    status = EXT_PLUGIN_IO;
+  else if (status == EXT_PLUGIN_OK) {
     bytes = (uint8_t *)string(env, args[2], &len);
     if (!bytes)
-      status = EXT_INVALID;
+      status = EXT_PLUGIN_INVALID;
   }
   finish(r, status, kind, bytes, len);
   return undefined(env);
@@ -156,7 +156,7 @@ static void callback_js(napi_env env, napi_value function, void *context,
   (void)context;
   callback *r = data;
   if (!env || !function) {
-    finish(r, EXT_CLOSED, 0, NULL, 0);
+    finish(r, EXT_PLUGIN_CLOSED, 0, NULL, 0);
     release_callback(r);
     return;
   }
@@ -173,7 +173,7 @@ static void callback_js(napi_env env, napi_value function, void *context,
       napi_create_uint32(env, r->timeout, &args[1]) != napi_ok ||
       napi_create_function(env, "reply", NAPI_AUTO_LENGTH, reply, r,
                            &args[2]) != napi_ok) {
-    finish(r, EXT_IO, 0, NULL, 0);
+    finish(r, EXT_PLUGIN_IO, 0, NULL, 0);
     release_callback(r);
     return;
   }
@@ -181,7 +181,7 @@ static void callback_js(napi_env env, napi_value function, void *context,
    * a timed-out native call. No stack or engine handle is retained in r. */
   if (napi_add_finalizer(env, args[2], r, reply_finalizer, NULL, NULL) !=
       napi_ok) {
-    finish(r, EXT_IO, 0, NULL, 0);
+    finish(r, EXT_PLUGIN_IO, 0, NULL, 0);
     release_callback(r);
     return;
   }
@@ -192,31 +192,31 @@ static void callback_js(napi_env env, napi_value function, void *context,
     napi_is_exception_pending(env, &pending);
     if (pending)
       napi_get_and_clear_last_exception(env, &result);
-    finish(r, EXT_IO, 0, NULL, 0);
+    finish(r, EXT_PLUGIN_IO, 0, NULL, 0);
   }
 }
-static ext_status invoke_js(napi_threadsafe_function fn, const uint8_t *input,
-                            size_t len, const ext_call_options *o,
-                            const ext_cancel *life, uint32_t *kind,
-                            ext_buffer *out) {
+static ext_plugin_status invoke_js(napi_threadsafe_function fn, const uint8_t *input,
+                            size_t len, const ext_plugin_call_options *o,
+                            const ext_plugin_cancel *life, uint32_t *kind,
+                            ext_plugin_buffer *out) {
   callback *r = calloc(1, sizeof(*r));
   if (!r)
-    return EXT_NOMEM;
+    return EXT_PLUGIN_NOMEM;
   if (pthread_mutex_init(&r->mu, NULL)) {
     free(r);
-    return EXT_IO;
+    return EXT_PLUGIN_IO;
   }
   if (pthread_cond_init(&r->changed, NULL)) {
     pthread_mutex_destroy(&r->mu);
     free(r);
-    return EXT_IO;
+    return EXT_PLUGIN_IO;
   }
   atomic_init(&r->refs, 2);
   r->input = malloc(len ? len : 1);
   if (!r->input) {
     release_callback(r);
     release_callback(r);
-    return EXT_NOMEM;
+    return EXT_PLUGIN_NOMEM;
   }
   memcpy(r->input, input, len);
   r->input_len = len;
@@ -224,18 +224,18 @@ static ext_status invoke_js(napi_threadsafe_function fn, const uint8_t *input,
   if (napi_call_threadsafe_function(fn, r, napi_tsfn_nonblocking) != napi_ok) {
     release_callback(r);
     release_callback(r);
-    return EXT_CLOSED;
+    return EXT_PLUGIN_CLOSED;
   }
   int64_t end = now() + o->timeout_ms;
   pthread_mutex_lock(&r->mu);
   while (!r->done) {
-    if (ext_cancel_is_signaled(o->cancel) || ext_cancel_is_signaled(life) ||
+    if (ext_plugin_cancel_is_signaled(o->cancel) || ext_plugin_cancel_is_signaled(life) ||
         now() >= end) {
       r->done = 1;
-      r->status = ext_cancel_is_signaled(o->cancel) ||
-                          ext_cancel_is_signaled(life)
-                      ? EXT_CANCELED
-                      : EXT_TIMEOUT;
+      r->status = ext_plugin_cancel_is_signaled(o->cancel) ||
+                          ext_plugin_cancel_is_signaled(life)
+                      ? EXT_PLUGIN_CANCELED
+                      : EXT_PLUGIN_TIMEOUT;
       break;
     }
     struct timespec t;
@@ -247,7 +247,7 @@ static ext_status invoke_js(napi_threadsafe_function fn, const uint8_t *input,
     }
     pthread_cond_timedwait(&r->changed, &r->mu, &t);
   }
-  ext_status status = r->status;
+  ext_plugin_status status = r->status;
   *kind = r->kind;
   out->data = r->output;
   out->len = r->output_len;
@@ -262,58 +262,58 @@ static int32_t allow_placeholder(void *u, const uint8_t *p, size_t n) {
   (void)n;
   return 1;
 }
-static int32_t policy(binding *b, int verify, const ext_call_options *o,
+static int32_t policy(binding *b, int verify, const ext_plugin_call_options *o,
                       const uint8_t *p, size_t n) {
-  ext_buffer out = {0};
+  ext_plugin_buffer out = {0};
   uint32_t kind;
-  ext_status s =
+  ext_plugin_status s =
       invoke_js(verify ? b->verify : b->authorize, p, n, o, NULL, &kind, &out);
-  ext_buffer_free(&out);
-  return s == EXT_OK ? 0 : 1;
+  ext_plugin_buffer_free(&out);
+  return s == EXT_PLUGIN_OK ? 0 : 1;
 }
-static int32_t verify(void *u, const ext_call_options *o, const uint8_t *p,
+static int32_t verify(void *u, const ext_plugin_call_options *o, const uint8_t *p,
                       size_t n) {
   return policy(u, 1, o, p, n);
 }
-static int32_t authorize(void *u, const ext_call_options *o, const uint8_t *p,
+static int32_t authorize(void *u, const ext_plugin_call_options *o, const uint8_t *p,
                          size_t n) {
   return policy(u, 0, o, p, n);
 }
-static ext_status handle(void *u, void *call, const uint8_t *p, size_t n,
-                         uint32_t ms, ext_guest_emit emit, void *sink) {
+static ext_plugin_status handle(void *u, void *call, const uint8_t *p, size_t n,
+                         uint32_t ms, ext_plugin_guest_emit emit, void *sink) {
   binding *b = u;
-  ext_call_options o = *(ext_call_options *)call;
+  ext_plugin_call_options o = *(ext_plugin_call_options *)call;
   o.timeout_ms = ms;
-  ext_buffer out = {0};
+  ext_plugin_buffer out = {0};
   uint32_t kind = 0;
-  ext_status s = invoke_js(b->handle, p, n, &o, NULL, &kind, &out);
+  ext_plugin_status s = invoke_js(b->handle, p, n, &o, NULL, &kind, &out);
   if (!s)
     s = emit(sink, kind, out.data, out.len);
-  ext_buffer_free(&out);
+  ext_plugin_buffer_free(&out);
   return s;
 }
 /* Reverse calls: the engine runs these on its own threads, up to max_in_flight
  * at a time, and each blocks until the JS function replies, as a policy does.
  * The options carry an engine-owned cancel signal and the time left. */
-static int32_t reverse_authorize(void *u, const ext_call_options *o,
+static int32_t reverse_authorize(void *u, const ext_plugin_call_options *o,
                                  const uint8_t *p, size_t n) {
   binding *b = u;
-  ext_buffer out = {0};
+  ext_plugin_buffer out = {0};
   uint32_t kind;
-  ext_status s = invoke_js(b->reverse_authorize, p, n, o, NULL, &kind, &out);
-  ext_buffer_free(&out);
-  return s == EXT_OK ? 0 : 1;
+  ext_plugin_status s = invoke_js(b->reverse_authorize, p, n, o, NULL, &kind, &out);
+  ext_plugin_buffer_free(&out);
+  return s == EXT_PLUGIN_OK ? 0 : 1;
 }
-static ext_status reverse_handle(void *u, const ext_call_options *o,
+static ext_plugin_status reverse_handle(void *u, const ext_plugin_call_options *o,
                                  const uint8_t *p, size_t n,
-                                 ext_reverse_emit emit, void *sink) {
+                                 ext_plugin_reverse_emit emit, void *sink) {
   binding *b = u;
-  ext_buffer out = {0};
+  ext_plugin_buffer out = {0};
   uint32_t kind = 0;
-  ext_status s = invoke_js(b->reverse_handle, p, n, o, NULL, &kind, &out);
+  ext_plugin_status s = invoke_js(b->reverse_handle, p, n, o, NULL, &kind, &out);
   if (!s)
     s = emit(sink, kind, out.data, out.len);
-  ext_buffer_free(&out);
+  ext_plugin_buffer_free(&out);
   return s;
 }
 static int tsfn(napi_env env, napi_value function,
@@ -347,7 +347,7 @@ static void observe_js(napi_env env, napi_value function, void *context,
   }
   free(json);
 }
-static void observe(void *user, const ext_call_options *call, const uint8_t *p,
+static void observe(void *user, const ext_plugin_call_options *call, const uint8_t *p,
                     size_t n) {
   (void)call;
   binding *b = user;
@@ -365,7 +365,7 @@ static void observe(void *user, const ext_call_options *call, const uint8_t *p,
 static void cleanup_binding(void *data) {
   binding *b = data;
   b->cleanup_hook = 0;
-  ext_host_close(b->host);
+  ext_plugin_host_close(b->host);
   if (b->verify) {
     napi_release_threadsafe_function(b->verify, napi_tsfn_abort);
     b->verify = NULL;
@@ -394,11 +394,11 @@ static void cleanup_binding(void *data) {
 static void dispose_contents(binding *b) {
   if (b->registrations) {
     /* Calls routed here end once the host is closed; unregister waits for them. */
-    ext_host_close(b->host);
+    ext_plugin_host_close(b->host);
     while (b->registrations) {
       registration *r = b->registrations;
       b->registrations = r->next;
-      ext_registry_unregister(r->registry->registry, r->name, r->version);
+      ext_plugin_registry_unregister(r->registry->registry, r->name, r->version);
       registry_release(r->registry);
       free(r->name);
       free(r->version);
@@ -408,9 +408,9 @@ static void dispose_contents(binding *b) {
   if (b->cleanup_hook)
     napi_remove_env_cleanup_hook(b->env, cleanup_binding, b);
   cleanup_binding(b);
-  ext_host_destroy(b->host);
+  ext_plugin_host_destroy(b->host);
   b->host = NULL;
-  ext_guest_destroy(b->guest);
+  ext_plugin_guest_destroy(b->guest);
   b->guest = NULL;
   registry_release(b->source_of);
   b->source_of = NULL;
@@ -465,7 +465,7 @@ static napi_value create_host(napi_env env, napi_callback_info info) {
   uint32_t an = 0, en = 0;
   char **argv = strings(env, args[2], &an), **envp = strings(env, args[3], &en);
   binding *b = calloc(1, sizeof(*b));
-  ext_status status = EXT_INVALID;
+  ext_plugin_status status = EXT_PLUGIN_INVALID;
   napi_valuetype authorize_type, handle_type;
   uint32_t bounds[3] = {0, 0, 0};
   int services = 0;
@@ -512,26 +512,26 @@ static napi_value create_host(napi_env env, napi_callback_info info) {
         goto done;
     services = 1;
   }
-  ext_jsonline_process_config process = {sizeof(process),           path,
+  ext_plugin_jsonline_process_config process = {sizeof(process),           path,
                                          (const char *const *)argv, an,
                                          (const char *const *)envp, en};
-  ext_backend_options backend = {sizeof(backend),
-                                 EXT_BACKEND_JSONLINE_PROCESS_CONFIG, &process,
+  ext_plugin_backend_options backend = {sizeof(backend),
+                                 EXT_PLUGIN_BACKEND_JSONLINE_PROCESS_CONFIG, &process,
                                  sizeof(process)};
-  ext_host_options options = {EXT_HOST_ABI_VERSION,
+  ext_plugin_host_options options = {EXT_PLUGIN_HOST_ABI_VERSION,
                               sizeof(options),
                               (uint8_t *)descriptor,
                               dn,
                               allow_placeholder,
                               allow_placeholder,
                               b};
-  status = ext_host_create(&options, &backend, &b->host);
+  status = ext_plugin_host_create(&options, &backend, &b->host);
   if (!status) {
-    ext_host_hooks hooks = {sizeof(hooks), b, verify, authorize, observe};
-    status = ext_host_set_hooks(b->host, &hooks);
+    ext_plugin_host_hooks hooks = {sizeof(hooks), b, verify, authorize, observe};
+    status = ext_plugin_host_set_hooks(b->host, &hooks);
   }
   if (!status && services) {
-    ext_host_services offered = {sizeof(offered),
+    ext_plugin_host_services offered = {sizeof(offered),
                                  b,
                                  reverse_authorize,
                                  source ? NULL : reverse_handle,
@@ -540,13 +540,13 @@ static napi_value create_host(napi_env env, napi_callback_info info) {
                                  bounds[2],
                                  NULL};
     if (source) {
-      status = ext_registry_attach(source->registry, b->host, &offered);
+      status = ext_plugin_registry_attach(source->registry, b->host, &offered);
       if (!status) {
         atomic_fetch_add(&source->refs, 1);
         b->source_of = source;
       }
     } else {
-      status = ext_host_set_services(b->host, &offered);
+      status = ext_plugin_host_set_services(b->host, &offered);
     }
   }
 done:
@@ -559,7 +559,7 @@ done:
           napi_ok) {
     if (b)
       destroy_binding(env, b, NULL);
-    return failure(env, ext_host_status_string(status ? status : EXT_IO));
+    return failure(env, ext_plugin_host_status_string(status ? status : EXT_PLUGIN_IO));
   }
   if (napi_type_tag_object(env, external, &binding_tag) != napi_ok)
     return failure(env, "cannot tag native handle");
@@ -575,17 +575,17 @@ static napi_value create_guest(napi_env env, napi_callback_info info) {
   char *descriptor = string(env, args[0], &n);
   uint32_t ms = 0;
   binding *b = calloc(1, sizeof(*b));
-  ext_status status = EXT_INVALID;
+  ext_plugin_status status = EXT_PLUGIN_INVALID;
   if (descriptor && b && napi_get_value_uint32(env, args[1], &ms) == napi_ok &&
       tsfn(env, args[2], &b->handle)) {
-    ext_guest_options options = {EXT_HOST_ABI_VERSION,
+    ext_plugin_guest_options options = {EXT_PLUGIN_HOST_ABI_VERSION,
                                  sizeof(options),
                                  (uint8_t *)descriptor,
                                  n,
                                  ms,
                                  b,
                                  handle};
-    status = ext_guest_create(&options, &b->guest);
+    status = ext_plugin_guest_create(&options, &b->guest);
   }
   free(descriptor);
   if (status || !register_cleanup(env, b) ||
@@ -593,7 +593,7 @@ static napi_value create_guest(napi_env env, napi_callback_info info) {
           napi_ok) {
     if (b)
       destroy_binding(env, b, NULL);
-    return failure(env, ext_host_status_string(status ? status : EXT_IO));
+    return failure(env, ext_plugin_host_status_string(status ? status : EXT_PLUGIN_IO));
   }
   if (napi_type_tag_object(env, external, &binding_tag) != napi_ok)
     return failure(env, "cannot tag native handle");
@@ -602,17 +602,17 @@ static napi_value create_guest(napi_env env, napi_callback_info info) {
 static void destroy_cancel(napi_env env, void *data, void *hint) {
   (void)env;
   (void)hint;
-  ext_cancel_destroy(data);
+  ext_plugin_cancel_destroy(data);
 }
 static napi_value new_cancel(napi_env env, napi_callback_info info) {
   (void)info;
-  ext_cancel *c = NULL;
+  ext_plugin_cancel *c = NULL;
   napi_value out;
-  ext_status s = ext_cancel_create(&c);
+  ext_plugin_status s = ext_plugin_cancel_create(&c);
   if (s)
-    return failure(env, ext_host_status_string(s));
+    return failure(env, ext_plugin_host_status_string(s));
   if (napi_create_external(env, c, destroy_cancel, NULL, &out) != napi_ok) {
-    ext_cancel_destroy(c);
+    ext_plugin_cancel_destroy(c);
     return failure(env, "allocation failed");
   }
   if (napi_type_tag_object(env, out, &cancel_tag) != napi_ok)
@@ -626,7 +626,7 @@ static napi_value signal_cancel(napi_env env, napi_callback_info info) {
   if (napi_get_cb_info(env, info, &n, &arg, NULL, NULL) != napi_ok || n != 1 ||
       !external(env, arg, &cancel_tag, &c))
     return failure(env, "invalid cancellation");
-  ext_cancel_signal(c);
+  ext_plugin_cancel_signal(c);
   return undefined(env);
 }
 static void finalize_registry(napi_env env, void *data, void *hint) {
@@ -634,12 +634,12 @@ static void finalize_registry(napi_env env, void *data, void *hint) {
   (void)hint;
   registry_release(data);
 }
-static napi_value failure_status(napi_env env, ext_status status);
+static napi_value failure_status(napi_env env, ext_plugin_status status);
 static napi_value create_registry(napi_env env, napi_callback_info info) {
   (void)info;
   registry_ref *g = calloc(1, sizeof(*g));
   napi_value out;
-  ext_status s = g ? ext_registry_create(&g->registry) : EXT_NOMEM;
+  ext_plugin_status s = g ? ext_plugin_registry_create(&g->registry) : EXT_PLUGIN_NOMEM;
   if (s) {
     free(g);
     return failure_status(env, s);
@@ -670,7 +670,7 @@ static napi_value registry_call(napi_env env, napi_callback_info info) {
   if (count != want)
     return failure(env, "invalid registry arguments");
   char *text[6] = {0};
-  ext_status s = EXT_INVALID;
+  ext_plugin_status s = EXT_PLUGIN_INVALID;
   for (size_t i = 0; i < strings_n; i++) {
     size_t n = 0;
     if (!(text[i] = string(env, args[i + 1], &n)) || strlen(text[i]) != n)
@@ -684,7 +684,7 @@ static napi_value registry_call(napi_env env, napi_callback_info info) {
       free(r);
       goto done;
     }
-    s = ext_registry_register(g->registry, text[0], text[1], b->host);
+    s = ext_plugin_registry_register(g->registry, text[0], text[1], b->host);
     if (s) {
       free(r);
       goto done;
@@ -697,11 +697,11 @@ static napi_value registry_call(napi_env env, napi_callback_info info) {
     r->next = b->registrations;
     b->registrations = r;
   } else if (which == 1) {
-    s = ext_registry_unregister(g->registry, text[0], text[1]);
+    s = ext_plugin_registry_unregister(g->registry, text[0], text[1]);
   } else {
-    ext_registry_edge edge = {sizeof(edge), text[0], text[1], text[2],
+    ext_plugin_registry_edge edge = {sizeof(edge), text[0], text[1], text[2],
                               text[3],      text[4], text[5]};
-    s = ext_registry_route(g->registry, &edge);
+    s = ext_plugin_registry_route(g->registry, &edge);
   }
 done:
   for (size_t i = 0; i < 6; i++)
@@ -718,7 +718,7 @@ static napi_value close_host(napi_env env, napi_callback_info info) {
       !external(env, arg, &binding_tag, (void **)&b))
     return failure(env, "invalid host");
   b->disposed = 1;
-  ext_host_close(b->host);
+  ext_plugin_host_close(b->host);
   if (!b->jobs)
     dispose_contents(b);
   return undefined(env);
@@ -728,13 +728,13 @@ typedef struct {
   napi_deferred deferred;
   napi_ref owner, signal;
   binding *binding;
-  ext_call_options options;
+  ext_plugin_call_options options;
   char *operation;
   char *root;
   uint8_t *input;
   size_t input_len;
-  ext_buffer output;
-  ext_status status;
+  ext_plugin_buffer output;
+  ext_plugin_status status;
   /* A call that reports progress: the JS function each event is handed to, and
    * the rate the plugin may report at (zero uses the default). */
   napi_threadsafe_function progress;
@@ -745,10 +745,10 @@ typedef struct {
  * that makes the call, or on its reader thread. */
 static void progress_deliver(void *user, const uint8_t *json, size_t len) {
   job *j = user;
-  ext_buffer out = {0};
+  ext_plugin_buffer out = {0};
   uint32_t kind = 0;
   (void)invoke_js(j->progress, json, len, &j->options, NULL, &kind, &out);
-  ext_buffer_free(&out);
+  ext_plugin_buffer_free(&out);
 }
 static void execute(napi_env env, void *data) {
   (void)env;
@@ -756,14 +756,14 @@ static void execute(napi_env env, void *data) {
   binding *b = j->binding;
   if (j->root) {
     if (!strcmp(j->operation, "verify")) {
-      j->status = ext_package_verify(j->input, j->input_len, j->root);
+      j->status = ext_plugin_package_verify(j->input, j->input_len, j->root);
     } else if (!strcmp(j->operation, "digest")) {
       uint8_t hash[32];
-      j->status = ext_directory_digest(j->root, hash);
+      j->status = ext_plugin_directory_digest(j->root, hash);
       if (!j->status) {
         j->output.data = malloc(67);
         if (!j->output.data)
-          j->status = EXT_NOMEM;
+          j->status = EXT_PLUGIN_NOMEM;
         else {
           static const char hex[] = "0123456789abcdef";
           j->output.data[0] = j->output.data[65] = '"';
@@ -776,32 +776,32 @@ static void execute(napi_env env, void *data) {
         }
       }
     } else
-      j->status = EXT_INVALID;
+      j->status = EXT_PLUGIN_INVALID;
   } else if (!strcmp(j->operation, "start") && b->host)
-    j->status = ext_host_start_with_options(b->host, &j->options);
+    j->status = ext_plugin_host_start_with_options(b->host, &j->options);
   else if (!strcmp(j->operation, "invoke") && b->host)
-    j->status = ext_host_invoke_with_options(b->host, j->input, j->input_len,
+    j->status = ext_plugin_host_invoke_with_options(b->host, j->input, j->input_len,
                                              &j->options, &j->output);
   else if (!strcmp(j->operation, "call") && b->host && j->progress) {
-    ext_progress_options progress = {sizeof(progress), progress_deliver, j,
+    ext_plugin_progress_options progress = {sizeof(progress), progress_deliver, j,
                                      j->events, j->bytes};
-    j->status = ext_host_call_progress(b->host, j->input, j->input_len,
+    j->status = ext_plugin_host_call_progress(b->host, j->input, j->input_len,
                                        &j->options, &progress, &j->output);
   } else if (!strcmp(j->operation, "call") && b->host)
     j->status =
-        ext_host_call(b->host, j->input, j->input_len, &j->options, &j->output);
+        ext_plugin_host_call(b->host, j->input, j->input_len, &j->options, &j->output);
   else if (!strcmp(j->operation, "drain") && b->host)
-    j->status = ext_host_drain_with_options(b->host, &j->options);
+    j->status = ext_plugin_host_drain_with_options(b->host, &j->options);
   else if (!strcmp(j->operation, "guest.invoke") && b->guest)
     j->status =
-        ext_guest_invoke(b->guest, j->input, j->input_len,
+        ext_plugin_guest_invoke(b->guest, j->input, j->input_len,
                          j->options.timeout_ms, &j->options, &j->output);
   else if (!strcmp(j->operation, "descriptor") && b->guest)
-    j->status = ext_guest_descriptor(b->guest, &j->output);
+    j->status = ext_plugin_guest_descriptor(b->guest, &j->output);
   else
-    j->status = EXT_INVALID;
-  if (ext_cancel_is_signaled(j->options.cancel))
-    j->status = EXT_CANCELED;
+    j->status = EXT_PLUGIN_INVALID;
+  if (ext_plugin_cancel_is_signaled(j->options.cancel))
+    j->status = EXT_PLUGIN_CANCELED;
 }
 static void free_job(napi_env env, job *j) {
   if (j->owner)
@@ -815,17 +815,17 @@ static void free_job(napi_env env, job *j) {
   free(j->operation);
   free(j->root);
   free(j->input);
-  ext_buffer_free(&j->output);
+  ext_plugin_buffer_free(&j->output);
   free(j);
 }
 static void complete(napi_env env, napi_status code, void *data) {
   job *j = data;
   napi_value value;
   if (code != napi_ok && !j->status)
-    j->status = EXT_IO;
+    j->status = EXT_PLUGIN_IO;
   if (j->status) {
     napi_value message, status;
-    napi_create_string_utf8(env, ext_host_status_string(j->status),
+    napi_create_string_utf8(env, ext_plugin_host_status_string(j->status),
                             NAPI_AUTO_LENGTH, &message);
     napi_create_error(env, NULL, message, &value);
     napi_create_int32(env, j->status, &status);
@@ -889,9 +889,9 @@ invalid:
   return failure(env, "invalid call or allocation failure");
 }
 /* An error with the engine's status as .status, as a rejected call has. */
-static napi_value failure_status(napi_env env, ext_status status) {
+static napi_value failure_status(napi_env env, ext_plugin_status status) {
   napi_value message, error, code;
-  napi_create_string_utf8(env, ext_host_status_string(status), NAPI_AUTO_LENGTH,
+  napi_create_string_utf8(env, ext_plugin_host_status_string(status), NAPI_AUTO_LENGTH,
                           &message);
   napi_create_error(env, NULL, message, &error);
   napi_create_int32(env, status, &code);
@@ -907,19 +907,19 @@ static napi_value service(napi_env env, napi_callback_info info) {
     return failure(env, "invalid service arguments");
   size_t on = 0, n = 0;
   char *op = string(env, args[0], &on), *input = string(env, args[1], &n);
-  ext_buffer out = {0};
-  ext_status status = op && strlen(op) == on && input
-                          ? ext_engine_call(op, (uint8_t *)input, n, &out)
-                          : EXT_INVALID;
+  ext_plugin_buffer out = {0};
+  ext_plugin_status status = op && strlen(op) == on && input
+                          ? ext_plugin_call(op, (uint8_t *)input, n, &out)
+                          : EXT_PLUGIN_INVALID;
   free(op);
   free(input);
   if (status) {
-    ext_buffer_free(&out);
+    ext_plugin_buffer_free(&out);
     return failure_status(env, status);
   }
   napi_status s =
       napi_create_string_utf8(env, (char *)out.data, out.len, &result);
-  ext_buffer_free(&out);
+  ext_plugin_buffer_free(&out);
   return s == napi_ok ? result : failure(env, "allocation failed");
 }
 static napi_value integrity(napi_env env, napi_callback_info info) {
@@ -959,36 +959,36 @@ static const napi_type_tag manager_tag = {0x4e3f1a8c52d70b19ULL,
 static const napi_type_tag lease_tag = {0x7a21c4d90be35f68ULL,
                                         0x2bd8f6e1479a0c53ULL};
 typedef struct {
-  ext_instances *instances;
-  ext_streams *streams;
+  ext_plugin_instances *instances;
+  ext_plugin_streams *streams;
   napi_threadsafe_function fn;
   napi_env env;
   int cleanup_hook, disposed;
   size_t jobs;
 } manager;
 typedef struct {
-  ext_lease *lease;
+  ext_plugin_lease *lease;
 } lease_box;
 typedef struct {
   const uint8_t *p;
   size_t n;
 } field;
-static ext_status manager_call(manager *m, const ext_call_options *call,
-                               const ext_cancel *life, ext_buffer *out,
+static ext_plugin_status manager_call(manager *m, const ext_plugin_call_options *call,
+                               const ext_plugin_cancel *life, ext_plugin_buffer *out,
                                const char *op, const field *fields,
                                size_t count) {
-  ext_call_options fallback = {sizeof(fallback), 30000, NULL, NULL};
+  ext_plugin_call_options fallback = {sizeof(fallback), 30000, NULL, NULL};
   if (!call)
     call = &fallback;
   size_t total = strlen(op) + 1;
   for (size_t i = 0; i < count; i++) {
     if (memchr(fields[i].p, 0, fields[i].n))
-      return EXT_INVALID;
+      return EXT_PLUGIN_INVALID;
     total += fields[i].n + (i + 1 < count ? 1 : 0);
   }
   uint8_t *frame = malloc(total ? total : 1), *at = frame;
   if (!frame)
-    return EXT_NOMEM;
+    return EXT_PLUGIN_NOMEM;
   size_t n = strlen(op);
   memcpy(at, op, n);
   at += n;
@@ -999,14 +999,14 @@ static ext_status manager_call(manager *m, const ext_call_options *call,
     at += fields[i].n;
   }
   uint32_t kind = 0;
-  ext_buffer scratch = {0};
-  ext_status s = invoke_js(m->fn, frame, (size_t)(at - frame), call, life,
+  ext_plugin_buffer scratch = {0};
+  ext_plugin_status s = invoke_js(m->fn, frame, (size_t)(at - frame), call, life,
                            &kind, out ? out : &scratch);
   free(frame);
-  ext_buffer_free(&scratch);
+  ext_plugin_buffer_free(&scratch);
   return s;
 }
-static void *handle_id(ext_buffer *out, ext_status *status) {
+static void *handle_id(ext_plugin_buffer *out, ext_plugin_status *status) {
   char *end = NULL;
   unsigned long long id = 0;
   if (*status || !out->data || !out->len)
@@ -1023,55 +1023,55 @@ static void *handle_id(ext_buffer *out, ext_status *status) {
     return (void *)(uintptr_t)id;
 bad:
   if (!*status)
-    *status = EXT_INVALID;
+    *status = EXT_PLUGIN_INVALID;
   return NULL;
 }
-static ext_status instance_validate(void *u, const uint8_t *p, size_t n) {
+static ext_plugin_status instance_validate(void *u, const uint8_t *p, size_t n) {
   field f[] = {{p, n}};
   return manager_call(u, NULL, NULL, NULL, "validate", f, 1);
 }
-static ext_status instance_create(void *u, const ext_call_options *call,
-                                  const ext_cancel *life, const uint8_t *key,
+static ext_plugin_status instance_create(void *u, const ext_plugin_call_options *call,
+                                  const ext_plugin_cancel *life, const uint8_t *key,
                                   size_t kn, const uint8_t *config, size_t cn,
                                   void **value) {
-  ext_buffer out = {0};
+  ext_plugin_buffer out = {0};
   field f[] = {{key, kn}, {config, cn}};
-  ext_status s = manager_call(u, call, life, &out, "create", f, 2);
+  ext_plugin_status s = manager_call(u, call, life, &out, "create", f, 2);
   *value = handle_id(&out, &s);
-  ext_buffer_free(&out);
+  ext_plugin_buffer_free(&out);
   return s;
 }
-static ext_status instance_dispose(void *u, void *value) {
+static ext_plugin_status instance_dispose(void *u, void *value) {
   char id[32];
   snprintf(id, sizeof(id), "%llu", (unsigned long long)(uintptr_t)value);
   field f[] = {{(uint8_t *)id, strlen(id)}};
   return manager_call(u, NULL, NULL, NULL, "dispose", f, 1);
 }
-static ext_status stream_open(void *u, const ext_call_options *call,
-                              const ext_cancel *life, const uint8_t *p,
+static ext_plugin_status stream_open(void *u, const ext_plugin_call_options *call,
+                              const ext_plugin_cancel *life, const uint8_t *p,
                               size_t n, void **value) {
-  ext_buffer out = {0};
+  ext_plugin_buffer out = {0};
   field f[] = {{p, n}};
-  ext_status s = manager_call(u, call, life, &out, "open", f, 1);
+  ext_plugin_status s = manager_call(u, call, life, &out, "open", f, 1);
   *value = handle_id(&out, &s);
-  ext_buffer_free(&out);
+  ext_plugin_buffer_free(&out);
   return s;
 }
-static ext_status stream_read(void *u, void *value, const ext_call_options *call,
-                              const ext_cancel *life, uint32_t limit,
-                              ext_emit emit, void *sink) {
+static ext_plugin_status stream_read(void *u, void *value, const ext_plugin_call_options *call,
+                              const ext_plugin_cancel *life, uint32_t limit,
+                              ext_plugin_emit emit, void *sink) {
   char id[32], count[16];
   snprintf(id, sizeof(id), "%llu", (unsigned long long)(uintptr_t)value);
   snprintf(count, sizeof(count), "%u", limit);
   field f[] = {{(uint8_t *)id, strlen(id)}, {(uint8_t *)count, strlen(count)}};
-  ext_buffer out = {0};
-  ext_status s = manager_call(u, call, life, &out, "read", f, 2);
+  ext_plugin_buffer out = {0};
+  ext_plugin_status s = manager_call(u, call, life, &out, "read", f, 2);
   if (!s)
     s = emit(sink, out.data, out.len);
-  ext_buffer_free(&out);
+  ext_plugin_buffer_free(&out);
   return s;
 }
-static ext_status stream_close(void *u, void *value) {
+static ext_plugin_status stream_close(void *u, void *value) {
   char id[32];
   snprintf(id, sizeof(id), "%llu", (unsigned long long)(uintptr_t)value);
   field f[] = {{(uint8_t *)id, strlen(id)}};
@@ -1114,7 +1114,7 @@ static void destroy_manager_external(napi_env env, void *data, void *hint) {
   if (!m->instances && !m->streams && !m->jobs)
     free(m);
 }
-static napi_value wrap_manager(napi_env env, manager *m, ext_status status) {
+static napi_value wrap_manager(napi_env env, manager *m, ext_plugin_status status) {
   napi_value out;
   m->env = env;
   if (status || napi_add_env_cleanup_hook(env, cleanup_manager, m) != napi_ok)
@@ -1128,13 +1128,13 @@ static napi_value wrap_manager(napi_env env, manager *m, ext_status status) {
 fail:
   release_manager_function(m);
   if (m->instances)
-    ext_instances_destroy(m->instances);
+    ext_plugin_instances_destroy(m->instances);
   if (m->streams)
-    ext_streams_destroy(m->streams);
+    ext_plugin_streams_destroy(m->streams);
   if (m->cleanup_hook)
     napi_remove_env_cleanup_hook(env, cleanup_manager, m);
   free(m);
-  return failure(env, ext_host_status_string(status ? status : EXT_IO));
+  return failure(env, ext_plugin_host_status_string(status ? status : EXT_PLUGIN_IO));
 }
 static napi_value create_instances(napi_env env, napi_callback_info info) {
   size_t count = 2;
@@ -1150,11 +1150,11 @@ static napi_value create_instances(napi_env env, napi_callback_info info) {
     }
     return failure(env, "invalid instance manager arguments");
   }
-  ext_instance_options options = {sizeof(options),    capacity,
+  ext_plugin_instance_options options = {sizeof(options),    capacity,
                                   m,                  instance_validate,
                                   instance_create,    instance_dispose,
                                   NULL};
-  ext_status status = ext_instances_create(&options, &m->instances);
+  ext_plugin_status status = ext_plugin_instances_create(&options, &m->instances);
   return wrap_manager(env, m, status);
 }
 static napi_value create_streams(napi_env env, napi_callback_info info) {
@@ -1172,10 +1172,10 @@ static napi_value create_streams(napi_env env, napi_callback_info info) {
     }
     return failure(env, "invalid stream manager arguments");
   }
-  ext_stream_options options = {sizeof(options), capacity,      max_age, m,
+  ext_plugin_stream_options options = {sizeof(options), capacity,      max_age, m,
                                 stream_open,     stream_read,   stream_close,
                                 stream_release};
-  ext_status status = ext_streams_create(&options, &m->streams);
+  ext_plugin_status status = ext_plugin_streams_create(&options, &m->streams);
   return wrap_manager(env, m, status);
 }
 typedef struct {
@@ -1184,13 +1184,13 @@ typedef struct {
   napi_ref owner, signal, lease_ref;
   manager *manager;
   lease_box *box;
-  ext_lease *lease;
-  ext_call_options options;
+  ext_plugin_lease *lease;
+  ext_plugin_call_options options;
   char *operation;
   char *field[3];
   size_t length[3];
-  ext_buffer output;
-  ext_status status;
+  ext_plugin_buffer output;
+  ext_plugin_status status;
 } manager_job;
 static int is_op(const manager_job *j, const char *name) {
   return !strcmp(j->operation, name);
@@ -1205,55 +1205,55 @@ static void manager_execute(napi_env env, void *data) {
   if (m->instances) {
     if (is_op(j, "configure"))
       j->status =
-          ext_instances_configure(m->instances, a, an, b, bn, c, cn, &j->options);
+          ext_plugin_instances_configure(m->instances, a, an, b, bn, c, cn, &j->options);
     else if (is_op(j, "acquire"))
-      j->status = ext_instances_acquire(m->instances, a, an, &j->lease);
+      j->status = ext_plugin_instances_acquire(m->instances, a, an, &j->lease);
     else if (is_op(j, "release"))
-      j->status = ext_lease_release(j->lease);
+      j->status = ext_plugin_lease_release(j->lease);
     else if (is_op(j, "remove"))
-      j->status = ext_instances_remove(m->instances, a, an);
+      j->status = ext_plugin_instances_remove(m->instances, a, an);
     else if (is_op(j, "close"))
-      j->status = ext_instances_close(m->instances, &j->options);
+      j->status = ext_plugin_instances_close(m->instances, &j->options);
     else if (is_op(j, "destroy")) {
       int64_t end = now() + j->options.timeout_ms;
       do {
-        j->status = ext_instances_destroy(m->instances);
-        if (j->status == EXT_DRAINING)
+        j->status = ext_plugin_instances_destroy(m->instances);
+        if (j->status == EXT_PLUGIN_DRAINING)
           nanosleep(&(struct timespec){0, 10000000}, NULL);
-      } while (j->status == EXT_DRAINING &&
-               !ext_cancel_is_signaled(j->options.cancel) && now() < end);
+      } while (j->status == EXT_PLUGIN_DRAINING &&
+               !ext_plugin_cancel_is_signaled(j->options.cancel) && now() < end);
     } else
-      j->status = EXT_INVALID;
+      j->status = EXT_PLUGIN_INVALID;
   } else if (m->streams) {
     if (is_op(j, "open"))
       j->status =
-          ext_streams_open(m->streams, a, an, b, bn, &j->options, &j->output);
+          ext_plugin_streams_open(m->streams, a, an, b, bn, &j->options, &j->output);
     else if (is_op(j, "read")) {
       char *end = NULL, *limit_end = NULL;
       unsigned long long sequence = strtoull(j->field[2], &end, 10);
       unsigned long limit = end && *end == ' ' ? strtoul(end + 1, &limit_end, 10)
                                               : 0;
       if (!limit_end || *limit_end || !limit || limit > 0xffffffffUL)
-        j->status = EXT_INVALID;
+        j->status = EXT_PLUGIN_INVALID;
       else
-        j->status = ext_streams_read(m->streams, a, an, j->field[1], sequence,
+        j->status = ext_plugin_streams_read(m->streams, a, an, j->field[1], sequence,
                                      (uint32_t)limit, &j->options, &j->output);
     } else if (is_op(j, "remove"))
-      j->status = ext_streams_remove(m->streams, a, an, j->field[1]);
+      j->status = ext_plugin_streams_remove(m->streams, a, an, j->field[1]);
     else if (is_op(j, "close"))
-      j->status = ext_streams_close(m->streams);
+      j->status = ext_plugin_streams_close(m->streams);
     else if (is_op(j, "destroy")) {
       int64_t end = now() + j->options.timeout_ms;
       do {
-        j->status = ext_streams_destroy(m->streams);
-        if (j->status == EXT_DRAINING)
+        j->status = ext_plugin_streams_destroy(m->streams);
+        if (j->status == EXT_PLUGIN_DRAINING)
           nanosleep(&(struct timespec){0, 10000000}, NULL);
-      } while (j->status == EXT_DRAINING &&
-               !ext_cancel_is_signaled(j->options.cancel) && now() < end);
+      } while (j->status == EXT_PLUGIN_DRAINING &&
+               !ext_plugin_cancel_is_signaled(j->options.cancel) && now() < end);
     } else
-      j->status = EXT_INVALID;
+      j->status = EXT_PLUGIN_INVALID;
   } else
-    j->status = EXT_CLOSED;
+    j->status = EXT_PLUGIN_CLOSED;
 }
 static void free_manager_job(napi_env env, manager_job *j) {
   if (j->owner)
@@ -1267,7 +1267,7 @@ static void free_manager_job(napi_env env, manager_job *j) {
   free(j->operation);
   for (int i = 0; i < 3; i++)
     free(j->field[i]);
-  ext_buffer_free(&j->output);
+  ext_plugin_buffer_free(&j->output);
   free(j);
 }
 static void free_lease_box(napi_env env, void *data, void *hint) {
@@ -1282,10 +1282,10 @@ static void manager_complete(napi_env env, napi_status code, void *data) {
   manager *m = j->manager;
   napi_value value;
   if (code != napi_ok && !j->status)
-    j->status = EXT_IO;
+    j->status = EXT_PLUGIN_IO;
   if (j->status) {
     napi_value message, status;
-    napi_create_string_utf8(env, ext_host_status_string(j->status),
+    napi_create_string_utf8(env, ext_plugin_host_status_string(j->status),
                             NAPI_AUTO_LENGTH, &message);
     napi_create_error(env, NULL, message, &value);
     napi_create_int32(env, j->status, &status);
@@ -1299,7 +1299,7 @@ static void manager_complete(napi_env env, napi_status code, void *data) {
       napi_resolve_deferred(env, j->deferred, value);
     } else {
       free(box);
-      ext_lease_release(j->lease);
+      ext_plugin_lease_release(j->lease);
       napi_value message;
       napi_create_string_utf8(env, "allocation failed", NAPI_AUTO_LENGTH,
                               &message);
@@ -1381,11 +1381,11 @@ static napi_value lease_info(napi_env env, napi_callback_info info) {
       !box->lease)
     return failure(env, "invalid lease");
   size_t n = 0;
-  const uint8_t *rev = ext_lease_revision(box->lease, &n);
+  const uint8_t *rev = ext_plugin_lease_revision(box->lease, &n);
   if (napi_create_object(env, &out) != napi_ok ||
       napi_create_string_utf8(env, (const char *)rev, n, &revision) !=
           napi_ok ||
-      napi_create_double(env, (double)(uintptr_t)ext_lease_value(box->lease),
+      napi_create_double(env, (double)(uintptr_t)ext_plugin_lease_value(box->lease),
                          &id) != napi_ok)
     return failure(env, "allocation failed");
   napi_set_named_property(env, out, "revision", revision);
@@ -1402,12 +1402,12 @@ static napi_value lease_info(napi_env env, napi_callback_info info) {
 static const napi_type_tag store_tag = {0x5b1d9e3a07c24f86ULL,
                                         0xa3f60d82e91b7c45ULL};
 typedef struct {
-  ext_store *store;
-  ext_layered *layered;
+  ext_plugin_store *store;
+  ext_plugin_layered *layered;
   size_t jobs;
   int closing, finalized;
 } store_box;
-/* The arguments of resolveEntrypoint, in the order of ext_store_resolve_entrypoint:
+/* The arguments of resolveEntrypoint, in the order of ext_plugin_store_resolve_entrypoint:
  * id, contract, version, protocol, reviewed digest, os and arch, the last two
  * NULL for the platform the engine was built for. installArchive uses the first
  * two for the pinned SHA-256 and the expected id, and max_bytes for the archive
@@ -1422,20 +1422,20 @@ typedef struct {
   char *fields[STORE_FIELDS];
   uint32_t flags;
   uint64_t max_bytes;
-  ext_buffer output;
+  ext_plugin_buffer output;
   size_t layer;
   int with_layer;
-  ext_status status;
+  ext_plugin_status status;
 } store_job;
 static void settle_store(store_box *box) {
   if (box->jobs)
     return;
   if (box->closing || box->finalized) {
     if (box->store)
-      ext_store_close(box->store);
+      ext_plugin_store_close(box->store);
     box->store = NULL;
     if (box->layered)
-      ext_layered_close(box->layered);
+      ext_plugin_layered_close(box->layered);
     box->layered = NULL;
   }
   if (box->finalized)
@@ -1466,9 +1466,9 @@ static napi_value open_store(napi_env env, napi_callback_info info) {
     return failure(env, "invalid store arguments");
   }
   store_box *box = calloc(1, sizeof(*box));
-  ext_store_limits limits = {(uint64_t)artifact, tree_files,
+  ext_plugin_store_limits limits = {(uint64_t)artifact, tree_files,
                              (uint64_t)tree_bytes};
-  ext_status status = box ? ext_store_open(root, &limits, &box->store) : EXT_NOMEM;
+  ext_plugin_status status = box ? ext_plugin_store_open(root, &limits, &box->store) : EXT_PLUGIN_NOMEM;
   free(root);
   if (status) {
     free(box);
@@ -1476,7 +1476,7 @@ static napi_value open_store(napi_env env, napi_callback_info info) {
   }
   if (napi_create_external(env, box, destroy_store_external, NULL, &out) !=
       napi_ok) {
-    ext_store_close(box->store);
+    ext_plugin_store_close(box->store);
     free(box);
     return failure(env, "allocation failed");
   }
@@ -1501,18 +1501,18 @@ static napi_value open_layered(napi_env env, napi_callback_info info) {
     return failure(env, "invalid layered store arguments");
   char **roots = calloc(length, sizeof(*roots));
   store_box *box = calloc(1, sizeof(*box));
-  ext_status status = roots && box ? EXT_OK : EXT_NOMEM;
+  ext_plugin_status status = roots && box ? EXT_PLUGIN_OK : EXT_PLUGIN_NOMEM;
   for (uint32_t i = 0; !status && i < length; i++) {
     napi_value item;
     size_t n = 0;
     if (napi_get_element(env, args[0], i, &item) != napi_ok ||
         !(roots[i] = string(env, item, &n)) || strlen(roots[i]) != n || !n)
-      status = EXT_INVALID;
+      status = EXT_PLUGIN_INVALID;
   }
-  ext_store_limits limits = {(uint64_t)artifact, tree_files,
+  ext_plugin_store_limits limits = {(uint64_t)artifact, tree_files,
                              (uint64_t)tree_bytes};
   if (!status)
-    status = ext_layered_open((const char *const *)roots, length, &limits,
+    status = ext_plugin_layered_open((const char *const *)roots, length, &limits,
                               &box->layered);
   for (uint32_t i = 0; roots && i < length; i++)
     free(roots[i]);
@@ -1523,7 +1523,7 @@ static napi_value open_layered(napi_env env, napi_callback_info info) {
   }
   if (napi_create_external(env, box, destroy_store_external, NULL, &out) !=
       napi_ok) {
-    ext_layered_close(box->layered);
+    ext_plugin_layered_close(box->layered);
     free(box);
     return failure(env, "allocation failed");
   }
@@ -1533,58 +1533,58 @@ static napi_value open_layered(napi_env env, napi_callback_info info) {
   return out;
 }
 static void layered_execute(store_job *j) {
-  ext_layered *l = j->box->layered;
+  ext_plugin_layered *l = j->box->layered;
   if (!strcmp(j->operation, "load")) {
     j->with_layer = 1;
-    j->status = ext_layered_load(l, j->argument, &j->output, &j->layer);
+    j->status = ext_plugin_layered_load(l, j->argument, &j->output, &j->layer);
   } else if (!strcmp(j->operation, "list"))
-    j->status = ext_layered_list(l, &j->output);
+    j->status = ext_plugin_layered_list(l, &j->output);
   else if (!strcmp(j->operation, "verify"))
-    j->status = ext_layered_verify(l, &j->output);
+    j->status = ext_plugin_layered_verify(l, &j->output);
   else if (!strcmp(j->operation, "listUnverified"))
-    j->status = ext_layered_list_unverified(l, &j->output);
+    j->status = ext_plugin_layered_list_unverified(l, &j->output);
   else
-    j->status = EXT_INVALID;
+    j->status = EXT_PLUGIN_INVALID;
 }
 static void store_execute(napi_env env, void *data) {
   (void)env;
   store_job *j = data;
-  ext_store *s = j->box->store;
+  ext_plugin_store *s = j->box->store;
   if (j->box->layered) {
     layered_execute(j);
     return;
   }
   if (!strcmp(j->operation, "install"))
-    j->status = ext_store_install(s, j->argument, j->flags, &j->output);
+    j->status = ext_plugin_store_install(s, j->argument, j->flags, &j->output);
   else if (!strcmp(j->operation, "upgrade"))
-    j->status = ext_store_upgrade(s, j->argument, j->flags, &j->output);
+    j->status = ext_plugin_store_upgrade(s, j->argument, j->flags, &j->output);
   else if (!strcmp(j->operation, "replace"))
-    j->status = ext_store_replace(s, j->argument, j->flags, &j->output);
+    j->status = ext_plugin_store_replace(s, j->argument, j->flags, &j->output);
   else if (!strcmp(j->operation, "remove"))
-    j->status = ext_store_remove(s, j->argument);
+    j->status = ext_plugin_store_remove(s, j->argument);
   else if (!strcmp(j->operation, "installArchive"))
-    j->status = ext_store_install_archive(s, j->argument,
+    j->status = ext_plugin_store_install_archive(s, j->argument,
                                           j->fields[0] ? j->fields[0] : "",
                                           j->fields[1], j->flags, j->max_bytes,
                                           &j->output);
   else if (!strcmp(j->operation, "receipt"))
-    j->status = ext_store_receipt(s, j->argument, &j->output);
+    j->status = ext_plugin_store_receipt(s, j->argument, &j->output);
   else if (!strcmp(j->operation, "load"))
-    j->status = ext_store_load(s, j->argument, &j->output);
+    j->status = ext_plugin_store_load(s, j->argument, &j->output);
   else if (!strcmp(j->operation, "ids"))
-    j->status = ext_store_ids(s, &j->output);
+    j->status = ext_plugin_store_ids(s, &j->output);
   else if (!strcmp(j->operation, "list"))
-    j->status = ext_store_list(s, &j->output);
+    j->status = ext_plugin_store_list(s, &j->output);
   else if (!strcmp(j->operation, "verify"))
-    j->status = ext_store_verify(s, &j->output);
+    j->status = ext_plugin_store_verify(s, &j->output);
   else if (!strcmp(j->operation, "listUnverified"))
-    j->status = ext_store_list_unverified(s, &j->output);
+    j->status = ext_plugin_store_list_unverified(s, &j->output);
   else if (!strcmp(j->operation, "resolveEntrypoint"))
-    j->status = ext_store_resolve_entrypoint(
+    j->status = ext_plugin_store_resolve_entrypoint(
         s, j->fields[0], j->fields[1], j->fields[2], j->fields[3], j->fields[4],
         j->fields[5], j->fields[6], &j->output);
   else
-    j->status = EXT_INVALID;
+    j->status = EXT_PLUGIN_INVALID;
 }
 static void free_store_job(napi_env env, store_job *j) {
   if (j->owner)
@@ -1595,7 +1595,7 @@ static void free_store_job(napi_env env, store_job *j) {
   free(j->argument);
   for (size_t i = 0; i < STORE_FIELDS; i++)
     free(j->fields[i]);
-  ext_buffer_free(&j->output);
+  ext_plugin_buffer_free(&j->output);
   free(j);
 }
 /* Reads the STORE_FIELDS strings of a resolveEntrypoint call; null or undefined
@@ -1626,10 +1626,10 @@ static void store_complete(napi_env env, napi_status code, void *data) {
   store_box *box = j->box;
   napi_value value;
   if (code != napi_ok && !j->status)
-    j->status = EXT_IO;
+    j->status = EXT_PLUGIN_IO;
   if (j->status) {
     napi_value message, status;
-    napi_create_string_utf8(env, ext_host_status_string(j->status),
+    napi_create_string_utf8(env, ext_plugin_host_status_string(j->status),
                             NAPI_AUTO_LENGTH, &message);
     napi_create_error(env, NULL, message, &value);
     napi_create_int32(env, j->status, &status);

@@ -55,8 +55,8 @@ static void check_vocabulary(const char *dir) {
 
 static void run_case(const lj_value *c) {
   const char *name = field(c, "name");
-  ext_ledger *store;
-  ext_ledger_open_memory(NULL, &store);
+  ext_ledger_store *store;
+  ext_ledger_store_open_memory(NULL, &store);
   size_t len;
   char *env = text_of(lj_get(c, "environment"), &len);
   ext_ledger_recorder *r;
@@ -65,7 +65,7 @@ static void run_case(const lj_value *c) {
   if (rc) {
     fprintf(stderr, "FAIL %s: open: %s\n", name, ext_ledger_code_name(rc));
     failures++;
-    ext_ledger_close(store);
+    ext_ledger_store_close(store);
     return;
   }
   const lj_value *steps = lj_get(c, "steps");
@@ -76,11 +76,11 @@ static void run_case(const lj_value *c) {
     char *out = NULL;
     size_t out_len = 0;
     if (strcmp(op, "snapshot") == 0) {
-      rc = ext_ledger_snapshot(store, NULL, "ext.system", &out, &out_len);
+      rc = ext_ledger_store_snapshot(store, NULL, "ext.system", &out, &out_len);
     } else {
       size_t in_len = 0;
       char *in = lj_get(st, "input") ? text_of(lj_get(st, "input"), &in_len) : NULL;
-      rc = ext_ledger_record(r, NULL, op, in, in_len, &out, &out_len);
+      rc = ext_ledger_recorder_record(r, NULL, op, in, in_len, &out, &out_len);
       free(in);
     }
     if (rc == EXT_LEDGER_UNSUPPORTED) {
@@ -112,7 +112,7 @@ static void run_case(const lj_value *c) {
   }
   if (ok) passed++;
   ext_ledger_recorder_close(r);
-  ext_ledger_close(store);
+  ext_ledger_store_close(store);
 }
 
 int main(int argc, char **argv) {

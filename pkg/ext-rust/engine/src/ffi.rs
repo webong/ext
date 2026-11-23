@@ -1,5 +1,5 @@
 //! Raw embedding ABI v2. Pointers, callbacks, threads and ownership follow the
-//! installed ext_host.h, ext_guest.h, ext_instance.h and ext_stream.h headers.
+//! installed ext_plugin_host.h, ext_plugin_author.h, ext_plugin_instance.h and ext_plugin_stream.h headers.
 #![allow(non_camel_case_types)]
 use std::ffi::{c_char, c_void};
 pub type Status = i32;
@@ -70,7 +70,7 @@ pub struct Extension {
     pub close: unsafe extern "C" fn(*mut c_void),
     pub release: unsafe extern "C" fn(*mut c_void),
 }
-/// Bounds on one package store (`ext_store_limits`); zero takes the default.
+/// Bounds on one package store (`ext_plugin_store_limits`); zero takes the default.
 #[repr(C)]
 pub struct StoreLimits {
     pub max_artifact_bytes: u64,
@@ -97,20 +97,20 @@ pub type ReverseHandler = unsafe extern "C" fn(
     ReverseEmit,
     *mut c_void,
 ) -> Status;
-/// The services a host offers its plugin (`ext_host_set_services`).
+/// The services a host offers its plugin (`ext_plugin_host_set_services`).
 #[repr(C)]
 pub struct Services {
     pub struct_size: u32,
     pub user: *mut c_void,
     pub authorize: ContextPolicy,
-    /// NULL only for `ext_registry_attach`, where the registry is the handler.
+    /// NULL only for `ext_plugin_registry_attach`, where the registry is the handler.
     pub handle: Option<ReverseHandler>,
     pub timeout_ms: u32,
     pub max_payload_bytes: u32,
     pub max_in_flight: u32,
     pub session_value: *mut c_void,
 }
-/// One edge of a guest registry (`ext_registry_route`).
+/// One edge of a guest registry (`ext_plugin_registry_route`).
 #[repr(C)]
 pub struct RegistryEdge {
     pub struct_size: u32,
@@ -188,29 +188,29 @@ pub struct StreamOptions {
     pub release: unsafe extern "C" fn(*mut c_void, *mut c_void),
 }
 extern "C" {
-    pub fn ext_host_abi_version() -> u32;
-    pub fn ext_host_create(
+    pub fn ext_plugin_host_abi_version() -> u32;
+    pub fn ext_plugin_host_create(
         o: *const HostOptions,
         b: *const Backend,
         out: *mut *mut c_void,
     ) -> Status;
-    pub fn ext_host_set_hooks(h: *mut c_void, o: *const Hooks) -> Status;
-    pub fn ext_host_start_with_options(h: *mut c_void, o: *const Call) -> Status;
-    pub fn ext_host_invoke_with_options(
+    pub fn ext_plugin_host_set_hooks(h: *mut c_void, o: *const Hooks) -> Status;
+    pub fn ext_plugin_host_start_with_options(h: *mut c_void, o: *const Call) -> Status;
+    pub fn ext_plugin_host_invoke_with_options(
         h: *mut c_void,
         p: *const u8,
         n: usize,
         o: *const Call,
         out: *mut Buffer,
     ) -> Status;
-    pub fn ext_host_call(
+    pub fn ext_plugin_host_call(
         h: *mut c_void,
         p: *const u8,
         n: usize,
         o: *const Call,
         out: *mut Buffer,
     ) -> Status;
-    pub fn ext_host_call_progress(
+    pub fn ext_plugin_host_call_progress(
         h: *mut c_void,
         p: *const u8,
         n: usize,
@@ -218,63 +218,64 @@ extern "C" {
         progress: *const ProgressOptions,
         out: *mut Buffer,
     ) -> Status;
-    pub fn ext_host_set_services(h: *mut c_void, s: *const Services) -> Status;
-    pub fn ext_registry_create(out: *mut *mut c_void) -> Status;
-    pub fn ext_registry_register(
+    pub fn ext_plugin_host_set_services(h: *mut c_void, s: *const Services) -> Status;
+    pub fn ext_plugin_registry_create(out: *mut *mut c_void) -> Status;
+    pub fn ext_plugin_registry_register(
         r: *mut c_void,
         name: *const c_char,
         version: *const c_char,
         h: *mut c_void,
     ) -> Status;
-    pub fn ext_registry_unregister(
+    pub fn ext_plugin_registry_unregister(
         r: *mut c_void,
         name: *const c_char,
         version: *const c_char,
     ) -> Status;
-    pub fn ext_registry_route(r: *mut c_void, e: *const RegistryEdge) -> Status;
-    pub fn ext_registry_attach(r: *mut c_void, h: *mut c_void, s: *const Services) -> Status;
-    pub fn ext_registry_destroy(r: *mut c_void);
-    pub fn ext_host_drain_with_options(h: *mut c_void, o: *const Call) -> Status;
-    pub fn ext_host_get_state(h: *mut c_void) -> i32;
-    pub fn ext_host_close(h: *mut c_void);
-    pub fn ext_host_destroy(h: *mut c_void);
-    pub fn ext_host_status_string(s: Status) -> *const c_char;
-    pub fn ext_host_validate_json(p: *const u8, n: usize) -> Status;
-    pub fn ext_buffer_free(b: *mut Buffer);
-    pub fn ext_cancel_create(out: *mut *mut c_void) -> Status;
-    pub fn ext_cancel_signal(c: *mut c_void);
-    pub fn ext_cancel_is_signaled(c: *const c_void) -> i32;
-    pub fn ext_cancel_destroy(c: *mut c_void);
-    pub fn ext_engine_call(op: *const c_char, p: *const u8, n: usize, out: *mut Buffer) -> Status;
-    pub fn ext_engine_sha256(p: *const u8, n: usize, out: *mut u8) -> Status;
-    pub fn ext_package_verify(p: *const u8, n: usize, root: *const c_char) -> Status;
-    pub fn ext_directory_digest(root: *const c_char, out: *mut u8) -> Status;
-    pub fn ext_store_open(
+    pub fn ext_plugin_registry_route(r: *mut c_void, e: *const RegistryEdge) -> Status;
+    pub fn ext_plugin_registry_attach(r: *mut c_void, h: *mut c_void, s: *const Services)
+        -> Status;
+    pub fn ext_plugin_registry_destroy(r: *mut c_void);
+    pub fn ext_plugin_host_drain_with_options(h: *mut c_void, o: *const Call) -> Status;
+    pub fn ext_plugin_host_get_state(h: *mut c_void) -> i32;
+    pub fn ext_plugin_host_close(h: *mut c_void);
+    pub fn ext_plugin_host_destroy(h: *mut c_void);
+    pub fn ext_plugin_host_status_string(s: Status) -> *const c_char;
+    pub fn ext_plugin_host_validate_json(p: *const u8, n: usize) -> Status;
+    pub fn ext_plugin_buffer_free(b: *mut Buffer);
+    pub fn ext_plugin_cancel_create(out: *mut *mut c_void) -> Status;
+    pub fn ext_plugin_cancel_signal(c: *mut c_void);
+    pub fn ext_plugin_cancel_is_signaled(c: *const c_void) -> i32;
+    pub fn ext_plugin_cancel_destroy(c: *mut c_void);
+    pub fn ext_plugin_call(op: *const c_char, p: *const u8, n: usize, out: *mut Buffer) -> Status;
+    pub fn ext_plugin_sha256(p: *const u8, n: usize, out: *mut u8) -> Status;
+    pub fn ext_plugin_package_verify(p: *const u8, n: usize, root: *const c_char) -> Status;
+    pub fn ext_plugin_directory_digest(root: *const c_char, out: *mut u8) -> Status;
+    pub fn ext_plugin_store_open(
         root: *const c_char,
         limits: *const StoreLimits,
         out: *mut *mut c_void,
     ) -> Status;
-    pub fn ext_store_close(s: *mut c_void);
-    pub fn ext_store_install(
+    pub fn ext_plugin_store_close(s: *mut c_void);
+    pub fn ext_plugin_store_install(
         s: *mut c_void,
         source: *const c_char,
         flags: u32,
         manifest: *mut Buffer,
     ) -> Status;
-    pub fn ext_store_upgrade(
+    pub fn ext_plugin_store_upgrade(
         s: *mut c_void,
         source: *const c_char,
         flags: u32,
         manifest: *mut Buffer,
     ) -> Status;
-    pub fn ext_store_replace(
+    pub fn ext_plugin_store_replace(
         s: *mut c_void,
         source: *const c_char,
         flags: u32,
         manifest: *mut Buffer,
     ) -> Status;
-    pub fn ext_store_remove(s: *mut c_void, id: *const c_char) -> Status;
-    pub fn ext_store_install_archive(
+    pub fn ext_plugin_store_remove(s: *mut c_void, id: *const c_char) -> Status;
+    pub fn ext_plugin_store_install_archive(
         s: *mut c_void,
         archive: *const c_char,
         sha256: *const c_char,
@@ -283,13 +284,21 @@ extern "C" {
         max_archive_bytes: u64,
         manifest: *mut Buffer,
     ) -> Status;
-    pub fn ext_store_receipt(s: *mut c_void, id: *const c_char, receipt: *mut Buffer) -> Status;
-    pub fn ext_store_load(s: *mut c_void, id: *const c_char, manifest: *mut Buffer) -> Status;
-    pub fn ext_store_ids(s: *mut c_void, ids: *mut Buffer) -> Status;
-    pub fn ext_store_list(s: *mut c_void, packages: *mut Buffer) -> Status;
-    pub fn ext_store_verify(s: *mut c_void, checks: *mut Buffer) -> Status;
-    pub fn ext_store_list_unverified(s: *mut c_void, listing: *mut Buffer) -> Status;
-    pub fn ext_store_resolve_entrypoint(
+    pub fn ext_plugin_store_receipt(
+        s: *mut c_void,
+        id: *const c_char,
+        receipt: *mut Buffer,
+    ) -> Status;
+    pub fn ext_plugin_store_load(
+        s: *mut c_void,
+        id: *const c_char,
+        manifest: *mut Buffer,
+    ) -> Status;
+    pub fn ext_plugin_store_ids(s: *mut c_void, ids: *mut Buffer) -> Status;
+    pub fn ext_plugin_store_list(s: *mut c_void, packages: *mut Buffer) -> Status;
+    pub fn ext_plugin_store_verify(s: *mut c_void, checks: *mut Buffer) -> Status;
+    pub fn ext_plugin_store_list_unverified(s: *mut c_void, listing: *mut Buffer) -> Status;
+    pub fn ext_plugin_store_resolve_entrypoint(
         s: *mut c_void,
         id: *const c_char,
         contract: *const c_char,
@@ -300,25 +309,25 @@ extern "C" {
         arch: *const c_char,
         entrypoint: *mut Buffer,
     ) -> Status;
-    pub fn ext_layered_open(
+    pub fn ext_plugin_layered_open(
         roots: *const *const c_char,
         count: usize,
         limits: *const StoreLimits,
         out: *mut *mut c_void,
     ) -> Status;
-    pub fn ext_layered_close(l: *mut c_void);
-    pub fn ext_layered_load(
+    pub fn ext_plugin_layered_close(l: *mut c_void);
+    pub fn ext_plugin_layered_load(
         l: *mut c_void,
         id: *const c_char,
         manifest: *mut Buffer,
         layer: *mut usize,
     ) -> Status;
-    pub fn ext_layered_list(l: *mut c_void, packages: *mut Buffer) -> Status;
-    pub fn ext_layered_verify(l: *mut c_void, checks: *mut Buffer) -> Status;
-    pub fn ext_layered_list_unverified(l: *mut c_void, listing: *mut Buffer) -> Status;
-    pub fn ext_guest_create(o: *const GuestOptions, out: *mut *mut c_void) -> Status;
-    pub fn ext_guest_descriptor(g: *mut c_void, out: *mut Buffer) -> Status;
-    pub fn ext_guest_invoke(
+    pub fn ext_plugin_layered_list(l: *mut c_void, packages: *mut Buffer) -> Status;
+    pub fn ext_plugin_layered_verify(l: *mut c_void, checks: *mut Buffer) -> Status;
+    pub fn ext_plugin_layered_list_unverified(l: *mut c_void, listing: *mut Buffer) -> Status;
+    pub fn ext_plugin_guest_create(o: *const GuestOptions, out: *mut *mut c_void) -> Status;
+    pub fn ext_plugin_guest_descriptor(g: *mut c_void, out: *mut Buffer) -> Status;
+    pub fn ext_plugin_guest_invoke(
         g: *mut c_void,
         p: *const u8,
         n: usize,
@@ -326,9 +335,9 @@ extern "C" {
         user: *mut c_void,
         out: *mut Buffer,
     ) -> Status;
-    pub fn ext_guest_destroy(g: *mut c_void);
-    pub fn ext_instances_create(o: *const InstanceOptions, out: *mut *mut c_void) -> Status;
-    pub fn ext_instances_configure(
+    pub fn ext_plugin_guest_destroy(g: *mut c_void);
+    pub fn ext_plugin_instances_create(o: *const InstanceOptions, out: *mut *mut c_void) -> Status;
+    pub fn ext_plugin_instances_configure(
         m: *mut c_void,
         key: *const u8,
         kn: usize,
@@ -338,20 +347,20 @@ extern "C" {
         cn: usize,
         o: *const Call,
     ) -> Status;
-    pub fn ext_instances_acquire(
+    pub fn ext_plugin_instances_acquire(
         m: *mut c_void,
         key: *const u8,
         n: usize,
         out: *mut *mut c_void,
     ) -> Status;
-    pub fn ext_lease_value(l: *const c_void) -> *mut c_void;
-    pub fn ext_lease_revision(l: *const c_void, n: *mut usize) -> *const u8;
-    pub fn ext_lease_release(l: *mut c_void) -> Status;
-    pub fn ext_instances_remove(m: *mut c_void, key: *const u8, n: usize) -> Status;
-    pub fn ext_instances_close(m: *mut c_void, o: *const Call) -> Status;
-    pub fn ext_instances_destroy(m: *mut c_void) -> Status;
-    pub fn ext_streams_create(o: *const StreamOptions, out: *mut *mut c_void) -> Status;
-    pub fn ext_streams_open(
+    pub fn ext_plugin_lease_value(l: *const c_void) -> *mut c_void;
+    pub fn ext_plugin_lease_revision(l: *const c_void, n: *mut usize) -> *const u8;
+    pub fn ext_plugin_lease_release(l: *mut c_void) -> Status;
+    pub fn ext_plugin_instances_remove(m: *mut c_void, key: *const u8, n: usize) -> Status;
+    pub fn ext_plugin_instances_close(m: *mut c_void, o: *const Call) -> Status;
+    pub fn ext_plugin_instances_destroy(m: *mut c_void) -> Status;
+    pub fn ext_plugin_streams_create(o: *const StreamOptions, out: *mut *mut c_void) -> Status;
+    pub fn ext_plugin_streams_open(
         s: *mut c_void,
         scope: *const u8,
         sn: usize,
@@ -360,7 +369,7 @@ extern "C" {
         o: *const Call,
         out: *mut Buffer,
     ) -> Status;
-    pub fn ext_streams_read(
+    pub fn ext_plugin_streams_read(
         s: *mut c_void,
         scope: *const u8,
         sn: usize,
@@ -370,12 +379,12 @@ extern "C" {
         o: *const Call,
         out: *mut Buffer,
     ) -> Status;
-    pub fn ext_streams_remove(
+    pub fn ext_plugin_streams_remove(
         s: *mut c_void,
         scope: *const u8,
         sn: usize,
         id: *const c_char,
     ) -> Status;
-    pub fn ext_streams_close(s: *mut c_void) -> Status;
-    pub fn ext_streams_destroy(s: *mut c_void) -> Status;
+    pub fn ext_plugin_streams_close(s: *mut c_void) -> Status;
+    pub fn ext_plugin_streams_destroy(s: *mut c_void) -> Status;
 }

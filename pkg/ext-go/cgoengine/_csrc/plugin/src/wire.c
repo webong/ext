@@ -44,7 +44,7 @@ static int unique(yyjson_val *v, unsigned depth) {
   return 1;
 }
 yyjson_doc *ext_parse(const uint8_t *data, size_t len) {
-  if (!data || !len || len > EXT_HOST_MAX_FRAME)
+  if (!data || !len || len > EXT_PLUGIN_HOST_MAX_FRAME)
     return NULL;
   /* Bound nesting before parsing/allocating. Full syntax and UTF-8 are checked
    * by yyjson. Retain number ext_text: payload precision must not depend on C
@@ -79,12 +79,12 @@ yyjson_doc *ext_parse(const uint8_t *data, size_t len) {
   }
   return d;
 }
-ext_status ext_host_validate_json(const uint8_t *data, size_t len) {
+ext_plugin_status ext_plugin_host_validate_json(const uint8_t *data, size_t len) {
   yyjson_doc *d = ext_parse(data, len);
   if (!d)
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   yyjson_doc_free(d);
-  return EXT_OK;
+  return EXT_PLUGIN_OK;
 }
 static yyjson_val *get(yyjson_val *o, const char *k) {
   return yyjson_obj_get(o, k);
@@ -449,7 +449,7 @@ int ext_descriptor_declares_progress(yyjson_val *d) {
   }
   return 0;
 }
-ext_status ext_request(yyjson_val *d, yyjson_val *r, int64_t *deadline) {
+ext_plugin_status ext_request(yyjson_val *d, yyjson_val *r, int64_t *deadline) {
   yyjson_val *parent = get(r, "parent");
   if (!FIELDS(r, "apiVersion", "id", "plugin", "contract", "operation",
               "surface", "deadline", "payload", "progress", "parent") ||
@@ -459,17 +459,17 @@ ext_status ext_request(yyjson_val *d, yyjson_val *r, int64_t *deadline) {
       !ext_text(get(r, "id"), 1, 0) || !ext_identity(get(r, "plugin")) ||
       !FIELDS(get(r, "contract"), "name", "version") ||
       !ext_ref(get(r, "contract")))
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   *deadline = timestamp(get(r, "deadline"));
   if (*deadline == -1)
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   if (!ext_same_identity(get(d, "identity"), get(r, "plugin")))
-    return EXT_MISMATCH;
+    return EXT_PLUGIN_MISMATCH;
   yyjson_val *op = ext_lookup(d, get(r, "contract"), get(r, "operation"));
   if (!op)
-    return EXT_UNSUPPORTED;
-  return ext_same(get(op, "surface"), get(r, "surface")) ? EXT_OK
-                                                         : EXT_MISMATCH;
+    return EXT_PLUGIN_UNSUPPORTED;
+  return ext_same(get(op, "surface"), get(r, "surface")) ? EXT_PLUGIN_OK
+                                                         : EXT_PLUGIN_MISMATCH;
 }
 /* A RemoteError as it travels in a response or a reverse response: a code, a
  * message of at most 4096 bytes and an optional retry hint of whole
@@ -501,17 +501,17 @@ yyjson_val *ext_lookup_in(yyjson_val *contracts, yyjson_val *r,
   }
   return NULL;
 }
-ext_status ext_response(yyjson_val *r, const char *id) {
+ext_plugin_status ext_response(yyjson_val *r, const char *id) {
   if (!FIELDS(r, "apiVersion", "id", "payload", "error"))
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   if (!yyjson_equals_str(get(r, "apiVersion"), "ext.plugin/v1") ||
       !yyjson_equals_str(get(r, "id"), id))
-    return EXT_MISMATCH;
+    return EXT_PLUGIN_MISMATCH;
   yyjson_val *err = get(r, "error");
   int has_error = err && !yyjson_is_null(err);
   if (has_error == (get(r, "payload") != NULL))
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   if (has_error && !ext_error_valid(err))
-    return EXT_INVALID;
-  return EXT_OK;
+    return EXT_PLUGIN_INVALID;
+  return EXT_PLUGIN_OK;
 }

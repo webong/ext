@@ -1,4 +1,4 @@
-/* The guest registry (ext_host.h): a reverse handler that serves a guest's
+/* The guest registry (ext_plugin_host.h): a reverse handler that serves a guest's
  * reverse call with a forward call to another guest, along an edge the host
  * declared. It is host-side composition over the public host API; the engine's
  * reverse path, the frames and the descriptor are unchanged. The reference for
@@ -12,7 +12,7 @@
 typedef struct target {
   struct target *next;
   char *name, *version;
-  ext_host *host;
+  ext_plugin_host *host;
   size_t busy; /* forward calls routed to host and not yet returned */
 } target;
 typedef struct edge {
@@ -21,26 +21,26 @@ typedef struct edge {
 } edge;
 /* One host on a call chain; the chain is the list up to its source. */
 typedef struct step {
-  ext_host *host;
+  ext_plugin_host *host;
   const struct step *up;
 } step;
 /* A forward call in flight, by the host it went to and the id that host gave
  * it, so a reverse call the target makes inside it continues its chain. */
 typedef struct forward {
   struct forward *next;
-  ext_host *host;
+  ext_plugin_host *host;
   char id[32];
   const step *chain;
   int linked;
 } forward;
 typedef struct port {
   struct port *next;
-  ext_registry *registry;
-  ext_host *source;
-  ext_context_policy authorize;
+  ext_plugin_registry *registry;
+  ext_plugin_host *source;
+  ext_plugin_context_policy authorize;
   void *user;
 } port;
-struct ext_registry {
+struct ext_plugin_registry {
   pthread_mutex_t mu;
   pthread_cond_t idle;
   target *targets;
@@ -88,7 +88,7 @@ static int valid(const char *name, const char *version,
 static int same(const char *a, yyjson_val *b) {
   return b && yyjson_is_str(b) && yyjson_equals_str(b, a);
 }
-static target *find_target(ext_registry *r, const char *name,
+static target *find_target(ext_plugin_registry *r, const char *name,
                            const char *version) {
   for (target *t = r->targets; t; t = t->next)
     if (!strcmp(t->name, name) && !strcmp(t->version, version))
@@ -98,23 +98,23 @@ static target *find_target(ext_registry *r, const char *name,
 
 /* ---- configuration ---- */
 
-ext_status ext_registry_create(ext_registry **out) {
+ext_plugin_status ext_plugin_registry_create(ext_plugin_registry **out) {
   if (!out)
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   *out = NULL;
-  ext_registry *r = calloc(1, sizeof(*r));
+  ext_plugin_registry *r = calloc(1, sizeof(*r));
   if (!r)
-    return EXT_NOMEM;
+    return EXT_PLUGIN_NOMEM;
   pthread_mutex_init(&r->mu, NULL);
   pthread_cond_init(&r->idle, NULL);
   *out = r;
-  return EXT_OK;
+  return EXT_PLUGIN_OK;
 }
 
-ext_status ext_registry_register(ext_registry *r, const char *name,
-                                 const char *version, ext_host *host) {
+ext_plugin_status ext_plugin_registry_register(ext_plugin_registry *r, const char *name,
+                                 const char *version, ext_plugin_host *host) {
   if (!r || !host || !valid(name, version, NULL))
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   /* The host must serve the contract: an edge to it could never be answered. */
   yyjson_mut_doc *m = yyjson_mut_doc_new(NULL);
   yyjson_mut_val *ref = m ? yyjson_mut_obj(m) : NULL;
@@ -126,22 +126,22 @@ ext_status ext_registry_register(ext_registry *r, const char *name,
   }
   yyjson_mut_doc_free(m);
   if (!d)
-    return EXT_NOMEM;
+    return EXT_PLUGIN_NOMEM;
   int serves = ext_host_serves(host, yyjson_doc_get_root(d));
   yyjson_doc_free(d);
   if (!serves)
-    return EXT_UNSUPPORTED;
+    return EXT_PLUGIN_UNSUPPORTED;
   target *t = calloc(1, sizeof(*t));
   if (!t || !(t->name = text_copy(name)) || !(t->version = text_copy(version))) {
     if (t) {
       free(t->name);
       free(t);
     }
-    return EXT_NOMEM;
+    return EXT_PLUGIN_NOMEM;
   }
   t->host = host;
   pthread_mutex_lock(&r->mu);
-  ext_status s = find_target(r, name, version) ? EXT_EXISTS : EXT_OK;
+  ext_plugin_status s = find_target(r, name, version) ? EXT_PLUGIN_EXISTS : EXT_PLUGIN_OK;
   if (!s) {
     t->next = r->targets;
     r->targets = t;
@@ -155,10 +155,10 @@ ext_status ext_registry_register(ext_registry *r, const char *name,
   return s;
 }
 
-ext_status ext_registry_unregister(ext_registry *r, const char *name,
+ext_plugin_status ext_plugin_registry_unregister(ext_plugin_registry *r, const char *name,
                                    const char *version) {
   if (!r || !name || !version)
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   pthread_mutex_lock(&r->mu);
   target **at = &r->targets;
   while (*at && (strcmp((*at)->name, name) || strcmp((*at)->version, version)))
@@ -172,11 +172,11 @@ ext_status ext_registry_unregister(ext_registry *r, const char *name,
   }
   pthread_mutex_unlock(&r->mu);
   if (!t)
-    return EXT_NOT_FOUND;
+    return EXT_PLUGIN_NOT_FOUND;
   free(t->name);
   free(t->version);
   free(t);
-  return EXT_OK;
+  return EXT_PLUGIN_OK;
 }
 
 static void free_edge(edge *e) {
@@ -186,28 +186,28 @@ static void free_edge(edge *e) {
   }
   free(e);
 }
-ext_status ext_registry_route(ext_registry *r, const ext_registry_edge *spec) {
+ext_plugin_status ext_plugin_registry_route(ext_plugin_registry *r, const ext_plugin_registry_edge *spec) {
   if (!r || !spec || spec->struct_size != sizeof(*spec) ||
       !valid(spec->from_name, spec->from_version, spec->from_operation) ||
       !valid(spec->to_name, spec->to_version, spec->to_operation))
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   edge *e = calloc(1, sizeof(*e));
   if (!e)
-    return EXT_NOMEM;
+    return EXT_PLUGIN_NOMEM;
   const char *from[3] = {spec->from_name, spec->from_version,
                          spec->from_operation},
              *to[3] = {spec->to_name, spec->to_version, spec->to_operation};
   for (int i = 0; i < 3; i++)
     if (!(e->from[i] = text_copy(from[i])) || !(e->to[i] = text_copy(to[i]))) {
       free_edge(e);
-      return EXT_NOMEM;
+      return EXT_PLUGIN_NOMEM;
     }
   pthread_mutex_lock(&r->mu);
-  ext_status s = EXT_OK;
+  ext_plugin_status s = EXT_PLUGIN_OK;
   for (edge *x = r->edges; x && !s; x = x->next)
     if (!strcmp(x->from[0], from[0]) && !strcmp(x->from[1], from[1]) &&
         !strcmp(x->from[2], from[2]))
-      s = EXT_EXISTS;
+      s = EXT_PLUGIN_EXISTS;
   if (!s) {
     e->next = r->edges;
     r->edges = e;
@@ -220,13 +220,13 @@ ext_status ext_registry_route(ext_registry *r, const ext_registry_edge *spec) {
 
 /* ---- serving ---- */
 
-static int32_t port_authorize(void *user, const ext_call_options *o,
+static int32_t port_authorize(void *user, const ext_plugin_call_options *o,
                               const uint8_t *json, size_t len) {
   port *p = user;
   return p->authorize(p->user, o, json, len);
 }
 
-static ext_status refuse(ext_reverse_emit emit, void *sink, const char *code) {
+static ext_plugin_status refuse(ext_plugin_reverse_emit emit, void *sink, const char *code) {
   yyjson_mut_doc *m = yyjson_mut_doc_new(NULL);
   yyjson_mut_val *e = m ? yyjson_mut_obj(m) : NULL;
   size_t n = 0;
@@ -238,14 +238,14 @@ static ext_status refuse(ext_reverse_emit emit, void *sink, const char *code) {
   }
   yyjson_mut_doc_free(m);
   if (!json)
-    return EXT_NOMEM;
-  ext_status s = emit(sink, EXT_HOST_REVERSE_PUBLIC_ERROR, (uint8_t *)json, n);
+    return EXT_PLUGIN_NOMEM;
+  ext_plugin_status s = emit(sink, EXT_PLUGIN_HOST_REVERSE_PUBLIC_ERROR, (uint8_t *)json, n);
   free(json);
   return s;
 }
 
 typedef struct {
-  ext_registry *registry;
+  ext_plugin_registry *registry;
   forward *call;
 } begun_context;
 static int begun(void *context, const char *id) {
@@ -284,41 +284,41 @@ static char *forward_input(const edge *e, yyjson_val *payload, size_t *len) {
 
 /* The target's response, as the reverse call's answer: its payload, or its
  * error unchanged. */
-static ext_status answer(const ext_buffer *out, ext_reverse_emit emit,
+static ext_plugin_status answer(const ext_plugin_buffer *out, ext_plugin_reverse_emit emit,
                          void *sink) {
   yyjson_doc *d = ext_parse(out->data, out->len);
   yyjson_val *root = d ? yyjson_doc_get_root(d) : NULL;
   if (!root || !yyjson_is_obj(root)) {
     yyjson_doc_free(d);
-    return EXT_IO;
+    return EXT_PLUGIN_IO;
   }
   yyjson_val *error = yyjson_obj_get(root, "error"),
              *payload = yyjson_obj_get(root, "payload");
-  uint32_t kind = EXT_HOST_REVERSE_PAYLOAD;
+  uint32_t kind = EXT_PLUGIN_HOST_REVERSE_PAYLOAD;
   yyjson_val *value = payload;
   if (error && !yyjson_is_null(error)) {
-    kind = EXT_HOST_REVERSE_PUBLIC_ERROR;
+    kind = EXT_PLUGIN_HOST_REVERSE_PUBLIC_ERROR;
     value = error;
   }
   size_t n = 0;
   char *json = value ? yyjson_val_write(value, 0, &n) : NULL;
-  ext_status s = value && !json ? EXT_NOMEM
+  ext_plugin_status s = value && !json ? EXT_PLUGIN_NOMEM
                                 : emit(sink, kind, (uint8_t *)json, n);
   free(json);
   yyjson_doc_free(d);
   return s;
 }
 
-static ext_status serve(void *user, const ext_call_options *o,
+static ext_plugin_status serve(void *user, const ext_plugin_call_options *o,
                         const uint8_t *request, size_t len,
-                        ext_reverse_emit emit, void *sink) {
+                        ext_plugin_reverse_emit emit, void *sink) {
   port *p = user;
-  ext_registry *r = p->registry;
+  ext_plugin_registry *r = p->registry;
   yyjson_doc *d = ext_parse(request, len);
   yyjson_val *root = d ? yyjson_doc_get_root(d) : NULL;
   if (!root) {
     yyjson_doc_free(d);
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   }
   yyjson_val *ref = yyjson_obj_get(root, "contract"),
              *operation = yyjson_obj_get(root, "operation"),
@@ -362,8 +362,8 @@ static ext_status serve(void *user, const ext_call_options *o,
   /* Edges are never removed and t is kept while busy, so both stay valid. */
   size_t n = 0;
   char *input = forward_input(e, yyjson_obj_get(root, "payload"), &n);
-  ext_status s = EXT_NOMEM;
-  ext_buffer out = {0};
+  ext_plugin_status s = EXT_PLUGIN_NOMEM;
+  ext_plugin_buffer out = {0};
   step next = {t->host, chain};
   forward call = {0};
   call.host = t->host;
@@ -371,7 +371,7 @@ static ext_status serve(void *user, const ext_call_options *o,
   if (input) {
     /* The value is the source binding's own context and means nothing to the
      * target's, which may be another binding: it is not passed on. */
-    ext_call_options options = {sizeof(options),
+    ext_plugin_call_options options = {sizeof(options),
                                 o->timeout_ms ? o->timeout_ms : 1, o->cancel,
                                 NULL};
     begun_context b = {r, &call};
@@ -391,47 +391,47 @@ static ext_status serve(void *user, const ext_call_options *o,
     pthread_cond_broadcast(&r->idle);
   pthread_mutex_unlock(&r->mu);
   switch (s) {
-  case EXT_OK:
+  case EXT_PLUGIN_OK:
     s = answer(&out, emit, sink);
     break;
-  case EXT_DENIED:
+  case EXT_PLUGIN_DENIED:
     s = refuse(emit, sink, EXT_REVERSE_DENIED);
     break;
-  case EXT_CLOSED:
-  case EXT_DRAINING:
-  case EXT_UNSUPPORTED:
+  case EXT_PLUGIN_CLOSED:
+  case EXT_PLUGIN_DRAINING:
+  case EXT_PLUGIN_UNSUPPORTED:
     s = refuse(emit, sink, EXT_REVERSE_UNAVAILABLE);
     break;
-  case EXT_TIMEOUT:
-  case EXT_EXPIRED:
+  case EXT_PLUGIN_TIMEOUT:
+  case EXT_PLUGIN_EXPIRED:
     s = refuse(emit, sink, EXT_REVERSE_EXPIRED);
     break;
   default:
     break; /* the engine answers operation_failed */
   }
-  ext_buffer_free(&out);
+  ext_plugin_buffer_free(&out);
   return s;
 }
 
-ext_status ext_registry_attach(ext_registry *r, ext_host *source,
-                               const ext_host_services *services) {
+ext_plugin_status ext_plugin_registry_attach(ext_plugin_registry *r, ext_plugin_host *source,
+                               const ext_plugin_host_services *services) {
   if (!r || !source || !services ||
       services->struct_size != sizeof(*services) || services->handle)
-    return EXT_INVALID;
+    return EXT_PLUGIN_INVALID;
   if (!services->authorize)
-    return EXT_DENIED;
+    return EXT_PLUGIN_DENIED;
   port *p = calloc(1, sizeof(*p));
   if (!p)
-    return EXT_NOMEM;
+    return EXT_PLUGIN_NOMEM;
   p->registry = r;
   p->source = source;
   p->authorize = services->authorize;
   p->user = services->user;
-  ext_host_services wrapped = *services;
+  ext_plugin_host_services wrapped = *services;
   wrapped.user = p;
   wrapped.authorize = port_authorize;
   wrapped.handle = serve;
-  ext_status s = ext_host_set_services(source, &wrapped);
+  ext_plugin_status s = ext_plugin_host_set_services(source, &wrapped);
   if (s) {
     free(p);
     return s;
@@ -440,10 +440,10 @@ ext_status ext_registry_attach(ext_registry *r, ext_host *source,
   p->next = r->ports;
   r->ports = p;
   pthread_mutex_unlock(&r->mu);
-  return EXT_OK;
+  return EXT_PLUGIN_OK;
 }
 
-void ext_registry_destroy(ext_registry *r) {
+void ext_plugin_registry_destroy(ext_plugin_registry *r) {
   if (!r)
     return;
   while (r->targets) {

@@ -26,7 +26,7 @@ impl fmt::Display for Error {
             write!(
                 f,
                 "{}",
-                CStr::from_ptr(ffi::ext_host_status_string(self.0)).to_string_lossy()
+                CStr::from_ptr(ffi::ext_plugin_host_status_string(self.0)).to_string_lossy()
             )
         }
     }
@@ -81,7 +81,7 @@ fn output(f: impl FnOnce(*mut ffi::Buffer) -> i32) -> Result<Vec<u8>, Error> {
     } else {
         Ok(unsafe { slice::from_raw_parts(b.data, b.len) }.to_vec())
     };
-    unsafe { ffi::ext_buffer_free(&mut b) };
+    unsafe { ffi::ext_plugin_buffer_free(&mut b) };
     result
 }
 pub struct Cancellation(*mut c_void);
@@ -91,19 +91,19 @@ unsafe impl Sync for Cancellation {}
 impl Cancellation {
     pub fn new() -> Result<Self, Error> {
         let mut p = ptr::null_mut();
-        check(unsafe { ffi::ext_cancel_create(&mut p) })?;
+        check(unsafe { ffi::ext_plugin_cancel_create(&mut p) })?;
         Ok(Self(p))
     }
     pub fn cancel(&self) {
-        unsafe { ffi::ext_cancel_signal(self.0) }
+        unsafe { ffi::ext_plugin_cancel_signal(self.0) }
     }
     pub fn is_canceled(&self) -> bool {
-        unsafe { ffi::ext_cancel_is_signaled(self.0) != 0 }
+        unsafe { ffi::ext_plugin_cancel_is_signaled(self.0) != 0 }
     }
 }
 impl Drop for Cancellation {
     fn drop(&mut self) {
-        unsafe { ffi::ext_cancel_destroy(self.0) }
+        unsafe { ffi::ext_plugin_cancel_destroy(self.0) }
     }
 }
 #[derive(Clone, Copy)]
@@ -209,7 +209,7 @@ impl ReverseCall<'_> {
     /// Set when the call it belongs to ends, when the caller cancels it and when
     /// the host closes. A hook polls it and stops early.
     pub fn is_canceled(&self) -> bool {
-        unsafe { ffi::ext_cancel_is_signaled(self.cancel) != 0 }
+        unsafe { ffi::ext_plugin_cancel_is_signaled(self.cancel) != 0 }
     }
 }
 /// A hook's answer to a reverse request: a payload (empty means null) or a public
@@ -326,7 +326,7 @@ impl Host {
         verify: Policy,
         authorize: Policy,
     ) -> Result<Self, Error> {
-        if unsafe { ffi::ext_host_abi_version() } != 2 {
+        if unsafe { ffi::ext_plugin_host_abi_version() } != 2 {
             return Err(Error(3));
         }
         let path = cstring(process.executable)?;
@@ -371,7 +371,7 @@ impl Host {
             user: (&mut *policies as *mut Policies).cast(),
         };
         let mut raw = ptr::null_mut();
-        check(unsafe { ffi::ext_host_create(&options, &backend, &mut raw) })?;
+        check(unsafe { ffi::ext_plugin_host_create(&options, &backend, &mut raw) })?;
         Ok(Self {
             raw,
             _policies: policies,
@@ -402,7 +402,7 @@ impl Host {
             max_in_flight: services.max_in_flight,
             session_value: ptr::null_mut(),
         };
-        check(unsafe { ffi::ext_host_set_services(self.raw, &raw) })?;
+        check(unsafe { ffi::ext_plugin_host_set_services(self.raw, &raw) })?;
         self._services = Some(hooks);
         Ok(self)
     }
@@ -434,13 +434,13 @@ impl Host {
             max_in_flight: source.max_in_flight,
             session_value: ptr::null_mut(),
         };
-        check(unsafe { ffi::ext_registry_attach(registry.inner.raw, self.raw, &raw) })?;
+        check(unsafe { ffi::ext_plugin_registry_attach(registry.inner.raw, self.raw, &raw) })?;
         self._services = Some(hooks);
         self._source_of = Some(registry.inner.clone());
         Ok(self)
     }
     pub fn start(&self, options: CallOptions<'_>) -> Result<(), Error> {
-        check(unsafe { ffi::ext_host_start_with_options(self.raw, &options.raw()?) })
+        check(unsafe { ffi::ext_plugin_host_start_with_options(self.raw, &options.raw()?) })
     }
     /// Install before start. Receives metadata-only JSON synchronously; must be
     /// fast, nonblocking, and must not reenter this host. Panics are contained.
@@ -453,20 +453,28 @@ impl Host {
             authorize: None,
             observe: Some(observe),
         };
-        check(unsafe { ffi::ext_host_set_hooks(self.raw, &hooks) })?;
+        check(unsafe { ffi::ext_plugin_host_set_hooks(self.raw, &hooks) })?;
         Ok(self)
     }
     pub fn invoke(&self, request: &[u8], options: CallOptions<'_>) -> Result<Vec<u8>, Error> {
         let o = options.raw()?;
         output(|out| unsafe {
-            ffi::ext_host_invoke_with_options(self.raw, request.as_ptr(), request.len(), &o, out)
+            ffi::ext_plugin_host_invoke_with_options(
+                self.raw,
+                request.as_ptr(),
+                request.len(),
+                &o,
+                out,
+            )
         })
     }
     /// Generate envelope identity, surface, ID and deadline from
     /// {"contract":{"name":...,"version":...},"operation":...,"payload":...}.
     pub fn call(&self, input: &[u8], options: CallOptions<'_>) -> Result<Vec<u8>, Error> {
         let o = options.raw()?;
-        output(|out| unsafe { ffi::ext_host_call(self.raw, input.as_ptr(), input.len(), &o, out) })
+        output(|out| unsafe {
+            ffi::ext_plugin_host_call(self.raw, input.as_ptr(), input.len(), &o, out)
+        })
     }
     /// [`Host::call`] for an operation that declares progress: `progress.on_event`
     /// receives the JSON of each event while the call runs. The engine validates
@@ -487,17 +495,17 @@ impl Host {
             bytes_per_second: progress.bytes_per_second,
         };
         output(|out| unsafe {
-            ffi::ext_host_call_progress(self.raw, input.as_ptr(), input.len(), &o, &raw, out)
+            ffi::ext_plugin_host_call_progress(self.raw, input.as_ptr(), input.len(), &o, &raw, out)
         })
     }
     pub fn drain(&self, options: CallOptions<'_>) -> Result<(), Error> {
-        check(unsafe { ffi::ext_host_drain_with_options(self.raw, &options.raw()?) })
+        check(unsafe { ffi::ext_plugin_host_drain_with_options(self.raw, &options.raw()?) })
     }
     pub fn close(&self) {
-        unsafe { ffi::ext_host_close(self.raw) }
+        unsafe { ffi::ext_plugin_host_close(self.raw) }
     }
     pub fn state(&self) -> i32 {
-        unsafe { ffi::ext_host_get_state(self.raw) }
+        unsafe { ffi::ext_plugin_host_get_state(self.raw) }
     }
 }
 #[cfg(not(feature = "guest-only"))]
@@ -508,12 +516,12 @@ impl Drop for Host {
         unsafe {
             if !registered.is_empty() {
                 // Calls routed here end once the host is closed; unregister waits for them.
-                ffi::ext_host_close(self.raw);
+                ffi::ext_plugin_host_close(self.raw);
             }
             for (registry, name, version) in &registered {
-                ffi::ext_registry_unregister(registry.raw, name.as_ptr(), version.as_ptr());
+                ffi::ext_plugin_registry_unregister(registry.raw, name.as_ptr(), version.as_ptr());
             }
-            ffi::ext_host_destroy(self.raw)
+            ffi::ext_plugin_host_destroy(self.raw)
         }
     }
 }
@@ -551,11 +559,11 @@ impl Drop for RegistryInner {
     fn drop(&mut self) {
         // Every host attached to it or registered with it holds a reference, so
         // none is alive here.
-        unsafe { ffi::ext_registry_destroy(self.raw) }
+        unsafe { ffi::ext_plugin_registry_destroy(self.raw) }
     }
 }
 
-/// A guest registry (`ext_registry_*` in ext_host.h): a reverse call one
+/// A guest registry (`ext_registry_*` in ext_plugin_host.h): a reverse call one
 /// guest makes is served by a forward call to another guest, along an edge the
 /// host declared. Undeclared edges are refused with `reverse_undeclared`,
 /// unregistered targets with `reverse_unavailable`, and a call that would
@@ -571,7 +579,7 @@ pub struct Registry {
 impl Registry {
     pub fn new() -> Result<Self, Error> {
         let mut raw = ptr::null_mut();
-        check(unsafe { ffi::ext_registry_create(&mut raw) })?;
+        check(unsafe { ffi::ext_plugin_registry_create(&mut raw) })?;
         Ok(Self {
             inner: Arc::new(RegistryInner { raw }),
         })
@@ -583,7 +591,12 @@ impl Registry {
         let (name, version) = (cstring(name)?, cstring(version)?);
         let mut registered = host.registered.lock().unwrap_or_else(|e| e.into_inner());
         check(unsafe {
-            ffi::ext_registry_register(self.inner.raw, name.as_ptr(), version.as_ptr(), host.raw)
+            ffi::ext_plugin_registry_register(
+                self.inner.raw,
+                name.as_ptr(),
+                version.as_ptr(),
+                host.raw,
+            )
         })?;
         registered.push((self.inner.clone(), name, version));
         Ok(())
@@ -593,7 +606,7 @@ impl Registry {
     pub fn unregister(&self, name: &str, version: &str) -> Result<(), Error> {
         let (name, version) = (cstring(name)?, cstring(version)?);
         check(unsafe {
-            ffi::ext_registry_unregister(self.inner.raw, name.as_ptr(), version.as_ptr())
+            ffi::ext_plugin_registry_unregister(self.inner.raw, name.as_ptr(), version.as_ptr())
         })
     }
     /// Declares one edge: a reverse call of `from` is served by a call of `to`.
@@ -619,7 +632,7 @@ impl Registry {
             to_version: names[4].as_ptr(),
             to_operation: names[5].as_ptr(),
         };
-        check(unsafe { ffi::ext_registry_route(self.inner.raw, &edge) })
+        check(unsafe { ffi::ext_plugin_registry_route(self.inner.raw, &edge) })
     }
 }
 pub struct GuestCall<'a> {
@@ -685,19 +698,19 @@ impl Guest {
             handle,
         };
         let mut raw = ptr::null_mut();
-        check(unsafe { ffi::ext_guest_create(&o, &mut raw) })?;
+        check(unsafe { ffi::ext_plugin_guest_create(&o, &mut raw) })?;
         Ok(Self {
             raw,
             _handler: handler,
         })
     }
     pub fn descriptor(&self) -> Result<Vec<u8>, Error> {
-        output(|out| unsafe { ffi::ext_guest_descriptor(self.raw, out) })
+        output(|out| unsafe { ffi::ext_plugin_guest_descriptor(self.raw, out) })
     }
     pub fn invoke(&self, request: &[u8], options: CallOptions<'_>) -> Result<Vec<u8>, Error> {
         let ms = milliseconds(options.timeout)?;
         output(|out| unsafe {
-            ffi::ext_guest_invoke(
+            ffi::ext_plugin_guest_invoke(
                 self.raw,
                 request.as_ptr(),
                 request.len(),
@@ -710,31 +723,33 @@ impl Guest {
 }
 impl Drop for Guest {
     fn drop(&mut self) {
-        unsafe { ffi::ext_guest_destroy(self.raw) }
+        unsafe { ffi::ext_plugin_guest_destroy(self.raw) }
     }
 }
 /// Run a pure bounded JSON engine service; see lib/plugin/services.md.
 pub fn service(operation: &str, input: &[u8]) -> Result<Vec<u8>, Error> {
     let name = cstring(operation)?;
-    output(|out| unsafe { ffi::ext_engine_call(name.as_ptr(), input.as_ptr(), input.len(), out) })
+    output(|out| unsafe { ffi::ext_plugin_call(name.as_ptr(), input.as_ptr(), input.len(), out) })
 }
 pub fn sha256(input: &[u8]) -> [u8; 32] {
     let mut out = [0; 32];
     unsafe {
-        ffi::ext_engine_sha256(input.as_ptr(), input.len(), out.as_mut_ptr());
+        ffi::ext_plugin_sha256(input.as_ptr(), input.len(), out.as_mut_ptr());
     }
     out
 }
 #[cfg(not(feature = "guest-only"))]
 pub fn verify_artifacts(manifest: &[u8], root: &str) -> Result<(), Error> {
     let root = cstring(root)?;
-    check(unsafe { ffi::ext_package_verify(manifest.as_ptr(), manifest.len(), root.as_ptr()) })
+    check(unsafe {
+        ffi::ext_plugin_package_verify(manifest.as_ptr(), manifest.len(), root.as_ptr())
+    })
 }
 #[cfg(not(feature = "guest-only"))]
 pub fn directory_digest(root: &str) -> Result<[u8; 32], Error> {
     let root = cstring(root)?;
     let mut out = [0; 32];
-    check(unsafe { ffi::ext_directory_digest(root.as_ptr(), out.as_mut_ptr()) })?;
+    check(unsafe { ffi::ext_plugin_directory_digest(root.as_ptr(), out.as_mut_ptr()) })?;
     Ok(out)
 }
 #[cfg(test)]
@@ -763,7 +778,7 @@ mod tests {
     }
     // A request that does not match the descriptor is answered by the engine, for every binding, as a
     // public invalid_request response that echoes its id; one with no usable id, or that is not a
-    // request, is a failed call (EXT_INVALID, status 1). The handler is never called for either.
+    // request, is a failed call (EXT_PLUGIN_INVALID, status 1). The handler is never called for either.
     #[test]
     fn malformed_requests() {
         use std::sync::atomic::{AtomicUsize, Ordering};

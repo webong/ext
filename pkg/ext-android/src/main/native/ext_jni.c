@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "ext_guest.h"
+#include "ext_plugin_author.h"
 
 #define CLASS "io/github/webong/ext/plugin/"
 
@@ -29,7 +29,7 @@ static JNIEnv *attach(JavaVM *vm, int *attached) {
   return env;
 }
 
-static void throw_status(JNIEnv *env, ext_status status) {
+static void throw_status(JNIEnv *env, ext_plugin_status status) {
   jclass cls = (*env)->FindClass(env, CLASS "GuestException");
   if (!cls) return;
   jmethodID ctor = (*env)->GetMethodID(env, cls, "<init>", "(I)V");
@@ -40,14 +40,14 @@ static void throw_status(JNIEnv *env, ext_status status) {
 
 /* Dispatch returns one kind byte (0 payload, 1 public error) then JSON. Any
  * exception or null result is a private failure, which the engine sanitizes. */
-static ext_status handle(void *user, void *call_user, const uint8_t *request,
-                         size_t len, uint32_t remaining_ms, ext_guest_emit emit,
+static ext_plugin_status handle(void *user, void *call_user, const uint8_t *request,
+                         size_t len, uint32_t remaining_ms, ext_plugin_guest_emit emit,
                          void *sink) {
   binding *b = user;
   int attached;
   JNIEnv *env = attach(b->vm, &attached);
-  if (!env) return EXT_IO;
-  ext_status status = EXT_IO;
+  if (!env) return EXT_PLUGIN_IO;
+  ext_plugin_status status = EXT_PLUGIN_IO;
   jbyteArray in = (*env)->NewByteArray(env, (jsize)len);
   if (in) {
     (*env)->SetByteArrayRegion(env, in, 0, (jsize)len, (const jbyte *)request);
@@ -65,7 +65,7 @@ static ext_status handle(void *user, void *call_user, const uint8_t *request,
           status = emit(sink, copy[0], copy + 1, (size_t)n - 1);
           free(copy);
         } else {
-          status = EXT_NOMEM;
+          status = EXT_PLUGIN_NOMEM;
         }
       }
       (*env)->DeleteLocalRef(env, out);
@@ -78,7 +78,7 @@ static ext_status handle(void *user, void *call_user, const uint8_t *request,
 
 /* One Java Guest: the engine guest plus the binding its handler callback uses. */
 typedef struct {
-  ext_guest *guest;
+  ext_plugin_guest *guest;
   binding b;
 } session;
 
@@ -91,7 +91,7 @@ JNIEXPORT jlong JNICALL Java_io_github_webong_ext_plugin_NativeEngine_create(
   if (!text || !s) {
     free(text);
     free(s);
-    throw_status(env, EXT_NOMEM);
+    throw_status(env, EXT_PLUGIN_NOMEM);
     return 0;
   }
   (*env)->GetByteArrayRegion(env, descriptor, 0, n, (jbyte *)text);
@@ -104,11 +104,11 @@ JNIEXPORT jlong JNICALL Java_io_github_webong_ext_plugin_NativeEngine_create(
     free(s);
     return 0; /* a pending Java exception, if any, propagates */
   }
-  ext_guest_options options = {EXT_HOST_ABI_VERSION, sizeof options, text, (size_t)n,
+  ext_plugin_guest_options options = {EXT_PLUGIN_HOST_ABI_VERSION, sizeof options, text, (size_t)n,
                                (uint32_t)max_call_ms, &s->b, handle};
-  ext_status status = ext_guest_create(&options, &s->guest);
+  ext_plugin_status status = ext_plugin_guest_create(&options, &s->guest);
   free(text); /* the engine snapshots the descriptor */
-  if (status != EXT_OK) {
+  if (status != EXT_PLUGIN_OK) {
     (*env)->DeleteGlobalRef(env, s->b.self);
     free(s);
     throw_status(env, status);
@@ -117,20 +117,20 @@ JNIEXPORT jlong JNICALL Java_io_github_webong_ext_plugin_NativeEngine_create(
   return (jlong)(intptr_t)s;
 }
 
-static ext_guest *guest_of(jlong handle) { return ((session *)(intptr_t)handle)->guest; }
+static ext_plugin_guest *guest_of(jlong handle) { return ((session *)(intptr_t)handle)->guest; }
 
 JNIEXPORT jbyteArray JNICALL Java_io_github_webong_ext_plugin_NativeEngine_descriptor(
     JNIEnv *env, jclass cls, jlong handle) {
   (void)cls;
-  ext_buffer out = {0};
-  ext_status status = ext_guest_descriptor(guest_of(handle), &out);
-  if (status != EXT_OK) {
+  ext_plugin_buffer out = {0};
+  ext_plugin_status status = ext_plugin_guest_descriptor(guest_of(handle), &out);
+  if (status != EXT_PLUGIN_OK) {
     throw_status(env, status);
     return NULL;
   }
   jbyteArray result = (*env)->NewByteArray(env, (jsize)out.len);
   if (result) (*env)->SetByteArrayRegion(env, result, 0, (jsize)out.len, (const jbyte *)out.data);
-  ext_buffer_free(&out);
+  ext_plugin_buffer_free(&out);
   return result;
 }
 
@@ -140,24 +140,24 @@ JNIEXPORT jbyteArray JNICALL Java_io_github_webong_ext_plugin_NativeEngine_invok
   jsize n = (*env)->GetArrayLength(env, request);
   uint8_t *in = malloc(n ? (size_t)n : 1);
   if (!in) {
-    throw_status(env, EXT_NOMEM);
+    throw_status(env, EXT_PLUGIN_NOMEM);
     return NULL;
   }
   (*env)->GetByteArrayRegion(env, request, 0, n, (jbyte *)in);
-  ext_buffer out = {0};
+  ext_plugin_buffer out = {0};
   /* The state outlives this call's frames on every thread the engine might run the handler on. */
   jobject call_state = state ? (*env)->NewGlobalRef(env, state) : NULL;
-  ext_status status = ext_guest_invoke(guest_of(handle), in, (size_t)n, (uint32_t)timeout_ms, call_state, &out);
+  ext_plugin_status status = ext_plugin_guest_invoke(guest_of(handle), in, (size_t)n, (uint32_t)timeout_ms, call_state, &out);
   if (call_state) (*env)->DeleteGlobalRef(env, call_state);
   free(in);
-  if (status != EXT_OK) {
-    ext_buffer_free(&out);
+  if (status != EXT_PLUGIN_OK) {
+    ext_plugin_buffer_free(&out);
     throw_status(env, status);
     return NULL;
   }
   jbyteArray result = (*env)->NewByteArray(env, (jsize)out.len);
   if (result) (*env)->SetByteArrayRegion(env, result, 0, (jsize)out.len, (const jbyte *)out.data);
-  ext_buffer_free(&out);
+  ext_plugin_buffer_free(&out);
   return result;
 }
 
@@ -166,9 +166,9 @@ JNIEXPORT jint JNICALL Java_io_github_webong_ext_plugin_NativeEngine_validateJso
   (void)cls;
   jsize n = (*env)->GetArrayLength(env, data);
   uint8_t *in = malloc(n ? (size_t)n : 1);
-  if (!in) return EXT_NOMEM;
+  if (!in) return EXT_PLUGIN_NOMEM;
   (*env)->GetByteArrayRegion(env, data, 0, n, (jbyte *)in);
-  ext_status status = ext_host_validate_json(in, (size_t)n);
+  ext_plugin_status status = ext_plugin_host_validate_json(in, (size_t)n);
   free(in);
   return status;
 }
@@ -177,17 +177,17 @@ JNIEXPORT jint JNICALL Java_io_github_webong_ext_plugin_NativeEngine_endpoint(
     JNIEnv *env, jclass cls, jstring operation, jbyteArray data) {
   (void)cls;
   const char *op = (*env)->GetStringUTFChars(env, operation, NULL);
-  if (!op) return EXT_NOMEM;
+  if (!op) return EXT_PLUGIN_NOMEM;
   jsize n = (*env)->GetArrayLength(env, data);
   uint8_t *in = malloc(n ? (size_t)n : 1);
   if (!in) {
     (*env)->ReleaseStringUTFChars(env, operation, op);
-    return EXT_NOMEM;
+    return EXT_PLUGIN_NOMEM;
   }
   (*env)->GetByteArrayRegion(env, data, 0, n, (jbyte *)in);
-  ext_buffer out = {0};
-  ext_status status = ext_engine_call(op, in, (size_t)n, &out);
-  ext_buffer_free(&out);
+  ext_plugin_buffer out = {0};
+  ext_plugin_status status = ext_plugin_call(op, in, (size_t)n, &out);
+  ext_plugin_buffer_free(&out);
   free(in);
   (*env)->ReleaseStringUTFChars(env, operation, op);
   return status;
@@ -198,7 +198,7 @@ JNIEXPORT void JNICALL Java_io_github_webong_ext_plugin_NativeEngine_destroy(
   (void)cls;
   session *s = (session *)(intptr_t)handle;
   if (!s) return;
-  ext_guest_destroy(s->guest);
+  ext_plugin_guest_destroy(s->guest);
   (*env)->DeleteGlobalRef(env, s->b.self);
   free(s);
 }

@@ -47,8 +47,8 @@ the engine, several processes mutating one root are yours to serialize.
 the read-only view over several roots in priority order (`init` with a slice of
 `[*:0]const u8` roots, then `load`, which returns a `Served` with the manifest and the
 layer, `list`, `verify` and `listUnverified`). Each report is a `Buffer` of the engine's
-JSON, freed with `deinit`; the shapes are in `ext_store_list` of
-`lib/plugin/include/ext_host.h`. `listUnverified` reads no artifact: its result is
+JSON, freed with `deinit`; the shapes are in `ext_plugin_store_list` of
+`lib/plugin/include/ext_plugin_host.h`. `listUnverified` reads no artifact: its result is
 unverified and must not be launched or trusted as it stands. A damaged winner in a layered
 view fails closed instead of falling back to a lower root.
 

@@ -3,28 +3,28 @@
 The ext plugin host for .NET: runs `ext.plugin/v1` plugins through the ext C engine (`lib/plugin`),
 which does what a host must get right: admission, the handshake check against the descriptor,
 request and response validation, deadlines and the session's lifecycle. This package only moves
-bytes and policy decisions across P/Invoke. It loads the engine's shared library (`libext_host`,
-`ext_host.dll` on Windows, from an `ext-plugin-vX.Y.Z` release or a CMake build of `lib/plugin`) at
+bytes and policy decisions across P/Invoke. It loads the engine's shared library (`libext_plugin_host`,
+`ext_plugin_host.dll` on Windows, from an `ext-plugin-vX.Y.Z` release or a CMake build of `lib/plugin`) at
 run time, so it carries no native code of its own. `net8.0`, any OS the engine is built for.
 
 ```csharp
 using System.Text.Json.Nodes;
 using ExtIO.Host;
 
-var engine = new Engine();                      // EXT_HOST_LIBRARY, or libext_host on the loader path
+var engine = new Engine();                      // EXT_HOST_LIBRARY, or libext_plugin_host on the loader path
 using var host = engine.Process(descriptor, "/opt/plugins/echo/1.0.0/echo");
 host.Start();
 var result = host.Call("ext.echo", "v1", "echo", new JsonObject { ["value"] = 7 });   // {"value":7}
 ```
 
-- `new Engine(string? path = null)`: the engine from `path`, `EXT_HOST_LIBRARY`, or `libext_host`
+- `new Engine(string? path = null)`: the engine from `path`, `EXT_HOST_LIBRARY`, or `libext_plugin_host`
   on the loader path; it must have host ABI 2 (`DllNotFoundException` otherwise). An engine is
   never unloaded.
 - `engine.Process(descriptor, executable, arguments, environment, workingDirectory, stderrBytes, verify, authorize)`:
   a JSON-line guest started as `executable` (an absolute path, no shell); `environment` entries are
   `NAME=value`, added to a scrubbed base of `PATH`.
 - `engine.SharedLibrary(descriptor, path, verify, authorize)`: a guest library that exports the C
-  ABI of `ext_plugin.h`, loaded when the host starts, after `verify`, and never unloaded. Its native
+  ABI of `ext_plugin_guest.h`, loaded when the host starts, after `verify`, and never unloaded. Its native
   code runs in this process with its full access.
 - `verify` and `authorize` are `Policy` delegates that receive the decoded JSON and return true to
   allow; null allows, and an exception denies. A policy may not use the host it decides for: a call
@@ -54,7 +54,7 @@ in flight to return, then frees the host; an unreachable host is freed by its fi
 
 The engine's functions are resolved with `NativeLibrary` as unmanaged function pointers rather than
 `LibraryImport`, so each `Engine` binds the library it was given. The structures restate
-`ext_host.h`; the ABI version check and the shared host cases
+`ext_plugin_host.h`; the ABI version check and the shared host cases
 (`lib/plugin/testdata/v1/host-cases.json`) hold them to it.
 
 ## Tests

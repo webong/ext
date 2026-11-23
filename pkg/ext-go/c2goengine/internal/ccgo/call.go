@@ -17,7 +17,7 @@ import (
 // Available is true where this package holds the translation.
 const Available = true
 
-// Status codes of lib/plugin/include/ext_host.h.
+// Status codes of lib/plugin/include/ext_plugin_host.h.
 const (
 	stOK = iota
 	stInvalid
@@ -93,7 +93,7 @@ func release(tls *libc.TLS) {
 	}
 }
 
-// Call runs one of the engine's pure services, as ext_engine_call does in C: bounded JSON in and
+// Call runs one of the engine's pure services, as ext_plugin_call does in C: bounded JSON in and
 // out, no plugin executed, no policy inferred (lib/plugin/services.md).
 func Call(operation string, input []byte) ([]byte, error) {
 	if len(input) == 0 {
@@ -117,14 +117,14 @@ func Call(operation string, input []byte) ([]byte, error) {
 	}
 	defer libc.Xfree(tls, in)
 	copy(unsafe.Slice((*byte)(unsafe.Pointer(in)), len(input)), input)
-	out := libc.Xcalloc(tls, 1, libc.Tsize_t(unsafe.Sizeof(ext_buffer{})))
+	out := libc.Xcalloc(tls, 1, libc.Tsize_t(unsafe.Sizeof(ext_plugin_buffer{})))
 	if out == 0 {
 		return nil, errors.New("c2goengine: out of memory")
 	}
 	defer libc.Xfree(tls, out)
-	s := ext_engine_call(tls, name, in, size_t(len(input)), out)
-	buffer := (*ext_buffer)(unsafe.Pointer(out))
-	defer ext_buffer_free(tls, out)
+	s := ext_plugin_call(tls, name, in, size_t(len(input)), out)
+	buffer := (*ext_plugin_buffer)(unsafe.Pointer(out))
+	defer ext_plugin_buffer_free(tls, out)
 	if err := statusError(s); err != nil {
 		return nil, err
 	}

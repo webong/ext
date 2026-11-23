@@ -2,33 +2,33 @@
 
 A plugin guest that runs inside a WebAssembly host, a phone's web engine or an
 embedded interpreter, is a **reactor**: a module that exports the `ext.plugin` C ABI
-([`ext_plugin.h`](../lib/plugin/include/ext_plugin.h)) plus two allocation functions.
+([`ext_plugin_guest.h`](../lib/plugin/include/ext_plugin_guest.h)) plus two allocation functions.
 It never reads standard input and never loops forever. The host calls its exports
 when it has a frame to deliver, so no Worker, `SharedArrayBuffer` or cross-origin
 isolation is involved. [The mobile decision record](adr-mobile-wasm.md) explains why
 this is the common guest format; this page is the contract.
 
 A reactor is the same plugin as a shared-library guest. Source written against
-`ext_plugin.h` compiles to either target, and the same conformance suite checks both.
+`ext_plugin_guest.h` compiles to either target, and the same conformance suite checks both.
 
 ## Exports
 
 | Export | Signature (WebAssembly) | Meaning |
 |---|---|---|
 | `memory` | linear memory | The memory the host reads and writes. Required. |
-| `ext_plugin_abi_version` | `() -> i32` | `1`. |
-| `ext_plugin_open` | `() -> i64` | Create an independent session. `0` is failure. |
-| `ext_plugin_call` | `(i64 handle, i32 operation, i32 request, i32 request_len, i32 response, i32 capacity, i32 written) -> i32` | One handshake or invocation; see below. |
-| `ext_plugin_close` | `(i64 handle) -> ()` | Release a session. |
-| `ext_plugin_alloc` | `(i32 size) -> i32` | Allocate `size` bytes in guest memory. Returns a 16-byte-aligned pointer, or `0` on failure or when `size` is `0`. |
-| `ext_plugin_free` | `(i32 pointer, i32 size) -> ()` | Release memory from `ext_plugin_alloc`, with the same size. |
+| `ext_plugin_guest_abi_version` | `() -> i32` | `1`. |
+| `ext_plugin_guest_open` | `() -> i64` | Create an independent session. `0` is failure. |
+| `ext_plugin_guest_call` | `(i64 handle, i32 operation, i32 request, i32 request_len, i32 response, i32 capacity, i32 written) -> i32` | One handshake or invocation; see below. |
+| `ext_plugin_guest_close` | `(i64 handle) -> ()` | Release a session. |
+| `ext_plugin_guest_alloc` | `(i32 size) -> i32` | Allocate `size` bytes in guest memory. Returns a 16-byte-aligned pointer, or `0` on failure or when `size` is `0`. |
+| `ext_plugin_guest_free` | `(i32 pointer, i32 size) -> ()` | Release memory from `ext_plugin_guest_alloc`, with the same size. |
 | `_initialize` | `() -> ()` | Optional. If present, the host calls it exactly once, first. |
 
 A module that exports `_start` is a command, not a reactor, and a host must refuse it.
-The six `ext_plugin_*` functions are required; a host refuses a module missing any.
+The six `ext_plugin_guest_*` functions are required; a host refuses a module missing any.
 
-`ext_plugin_open`, `ext_plugin_call` and `ext_plugin_close` have the semantics, status
-codes and constants of `ext_plugin.h`: operation `1` is the handshake, `2` is an
+`ext_plugin_guest_open`, `ext_plugin_guest_call` and `ext_plugin_guest_close` have the semantics, status
+codes and constants of `ext_plugin_guest.h`: operation `1` is the handshake, `2` is an
 invocation, and the statuses are `0` ok, `1` invalid, `2` closed, `3` failed. Requests
 and responses are UTF-8 JSON without a trailing NUL or newline. Read that header for
 the rules; they are not repeated here. Only the memory model below is new.
@@ -37,10 +37,10 @@ the rules; they are not repeated here. Only the memory model below is new.
 
 - A pointer is an unsigned 32-bit offset into `memory`. Values are little-endian.
   `handle` is a 64-bit integer, which a JavaScript host passes as a `BigInt`.
-- The host owns every buffer it passes. It allocates them with `ext_plugin_alloc`,
-  writes into them, and frees them with `ext_plugin_free`.
+- The host owns every buffer it passes. It allocates them with `ext_plugin_guest_alloc`,
+  writes into them, and frees them with `ext_plugin_guest_free`.
 - For each call the host allocates the request buffer, and frees it afterwards. It
-  allocates **one response buffer of `24 MiB` (`EXT_PLUGIN_MAX_FRAME_BYTES`)** and one
+  allocates **one response buffer of `24 MiB` (`EXT_PLUGIN_GUEST_MAX_FRAME_BYTES`)** and one
   4-byte cell for `written` per session, and reuses them. The capacity is always the
   maximum, because a call may have performed effects and cannot be retried with a
   larger buffer. A guest returns `1` (invalid) if the capacity is not the maximum.
@@ -64,7 +64,7 @@ the rules; they are not repeated here. Only the memory model below is new.
   reports a transport failure. Cancellation of a call that overruns its deadline is
   exactly that: the host closes the module. A web host with no way to interrupt a
   running call destroys the page.
-- A failed `ext_plugin_open`, `ext_plugin_alloc` or `ext_plugin_call` leaves nothing
+- A failed `ext_plugin_guest_open`, `ext_plugin_guest_alloc` or `ext_plugin_guest_call` leaves nothing
   for the host to free except what it allocated itself.
 
 ## WASI imports
@@ -100,7 +100,7 @@ A reactor may call operations its host offers, the ones its descriptor lists und
   `apiVersion`, `id`, `contract`, `operation`, `deadline`, `payload` and, for a
   call-scoped request, `parent`, the id of the invocation it belongs to.
 - The guest owns both buffers. `capacity` must be the maximum frame size, `24 MiB`, as
-  for `ext_plugin_call`. On status `0` the host has written the `reverse_response` frame
+  for `ext_plugin_guest_call`. On status `0` the host has written the `reverse_response` frame
   into `response` and its length into the `written` cell.
 - The call is synchronous: it returns once the host's hooks have answered, or the
   request was refused. A refusal is a frame like any answer, with the stable codes
@@ -111,7 +111,7 @@ A reactor may call operations its host offers, the ones its descriptor lists und
   here (a guest treats it as `reverse_unavailable`); `3` the host failed. A frame that
   breaks the rules is a protocol violation: the host traps the instance, as it does
   for any guest that breaks the framing.
-- It may be called only from inside `ext_plugin_call` with operation `2`; anywhere else
+- It may be called only from inside `ext_plugin_guest_call` with operation `2`; anywhere else
   it is status `2`. The instance stays single-threaded: the host runs its hooks on the
   thread that is inside the call, and the call's deadline keeps running while they do.
 
@@ -129,8 +129,8 @@ cargo build --release --target wasm32-wasip1 --example shared
 ```
 
 Any language that compiles to `wasm32` and can export these functions works. The
-module needs no `_start`. Compiling `ext_plugin.h`-style C needs a bump allocator or
-`malloc` behind `ext_plugin_alloc`.
+module needs no `_start`. Compiling `ext_plugin_guest.h`-style C needs a bump allocator or
+`malloc` behind `ext_plugin_guest_alloc`.
 
 ## Hosts and what is verified
 

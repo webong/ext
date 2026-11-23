@@ -27,7 +27,7 @@ import (
 
 // enter reserves the engine host for one call into it. Close waits for these, so
 // the host is never destroyed under a frame; false once the backend is closed.
-func (b *backendBinding) enter() (*C.ext_host, bool) {
+func (b *backendBinding) enter() (*C.ext_plugin_host, bool) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	if b.closed || b.host == nil {
@@ -82,7 +82,7 @@ func (s engineSink) Deliver(p plugin.Progress) (bool, error) {
 	}
 	defer s.b.leave()
 	var delivered C.int
-	if err := status(C.ext_host_backend_progress(host, (*C.uint8_t)(unsafe.Pointer(&frame[0])), C.size_t(len(frame)), &delivered)); err != nil {
+	if err := status(C.ext_plugin_host_backend_progress(host, (*C.uint8_t)(unsafe.Pointer(&frame[0])), C.size_t(len(frame)), &delivered)); err != nil {
 		return false, err
 	}
 	return delivered != 0, nil
@@ -114,9 +114,9 @@ func (b *backendBinding) admit(frame plugin.ReverseRequestFrame, caller context.
 	if !ok {
 		return nil, refused(plugin.ReverseUnavailable), nil
 	}
-	var ticket *C.ext_reverse_ticket
-	var answer C.ext_buffer
-	if err := status(C.ext_host_backend_reverse_admit(host, (*C.uint8_t)(unsafe.Pointer(&data[0])), C.size_t(len(data)), &ticket, &answer)); err != nil {
+	var ticket *C.ext_plugin_reverse_ticket
+	var answer C.ext_plugin_buffer
+	if err := status(C.ext_plugin_host_backend_reverse_admit(host, (*C.uint8_t)(unsafe.Pointer(&data[0])), C.size_t(len(data)), &ticket, &answer)); err != nil {
 		b.leave()
 		return nil, nil, err
 	}
@@ -126,22 +126,22 @@ func (b *backendBinding) admit(frame plugin.ReverseRequestFrame, caller context.
 	}
 	return func() plugin.ReverseResult {
 		defer b.leave()
-		var cancel *C.ext_cancel
+		var cancel *C.ext_plugin_cancel
 		var watched chan struct{}
 		stop := func() {}
-		if caller != nil && C.ext_cancel_create(&cancel) == C.EXT_OK {
+		if caller != nil && C.ext_plugin_cancel_create(&cancel) == C.EXT_PLUGIN_OK {
 			watched = make(chan struct{})
-			unwatch := context.AfterFunc(caller, func() { C.ext_cancel_signal(cancel); close(watched) })
+			unwatch := context.AfterFunc(caller, func() { C.ext_plugin_cancel_signal(cancel); close(watched) })
 			stop = func() {
 				if !unwatch() {
 					<-watched
 				}
-				C.ext_cancel_destroy(cancel)
+				C.ext_plugin_cancel_destroy(cancel)
 			}
 		}
 		defer stop()
-		var out C.ext_buffer
-		if s := C.ext_host_backend_reverse_run(host, ticket, cancel, &out); s != C.EXT_OK {
+		var out C.ext_plugin_buffer
+		if s := C.ext_plugin_host_backend_reverse_run(host, ticket, cancel, &out); s != C.EXT_PLUGIN_OK {
 			return *refused("operation_failed")
 		}
 		return *answerResult(&out)
@@ -149,8 +149,8 @@ func (b *backendBinding) admit(frame plugin.ReverseRequestFrame, caller context.
 }
 
 // answerResult reads the reverse_response frame the engine built and frees it.
-func answerResult(answer *C.ext_buffer) *plugin.ReverseResult {
-	defer C.ext_buffer_free(answer)
+func answerResult(answer *C.ext_plugin_buffer) *plugin.ReverseResult {
+	defer C.ext_plugin_buffer_free(answer)
 	var frame plugin.ReverseResponseFrame
 	if answer.data == nil || plugin.Decode(C.GoBytes(unsafe.Pointer(answer.data), C.int(answer.len)), &frame) != nil {
 		return &plugin.ReverseResult{Error: &plugin.RemoteError{Code: "operation_failed", Message: "host service failed"}}

@@ -12,7 +12,7 @@ import (
 )
 
 // GuestRegistry routes reverse calls between sessions; this build serves it in
-// Go, with the behavior of the C engine's ext_registry.
+// Go, with the behavior of the C engine's ext_plugin_registry.
 type GuestRegistry struct {
 	mu      sync.Mutex
 	idle    *sync.Cond

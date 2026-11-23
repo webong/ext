@@ -9,9 +9,9 @@ import (
 
 var testReactorABI = ReactorABI{
 	Version: 1, MaxMessageBytes: 1 << 20, SuccessStatus: 0,
-	VersionExport: "ext_plugin_abi_version", OpenExport: "ext_plugin_open",
-	CallExport: "ext_plugin_call", CloseExport: "ext_plugin_close",
-	AllocateExport: "ext_plugin_alloc", FreeExport: "ext_plugin_free",
+	VersionExport: "ext_plugin_guest_abi_version", OpenExport: "ext_plugin_guest_open",
+	CallExport: "ext_plugin_guest_call", CloseExport: "ext_plugin_guest_close",
+	AllocateExport: "ext_plugin_guest_alloc", FreeExport: "ext_plugin_guest_free",
 	InitializeExport: "_initialize", DisallowedExport: "_start",
 }
 
@@ -38,7 +38,7 @@ func TestOpenReactorRejectsWhatIsNotAReactor(t *testing.T) {
 		{"empty", nil, ErrInvalid, ""},
 		{"not wasm", []byte("not a module"), nil, "compile"},
 		{"command", exportingModule("_start"), ErrUnsupported, "_start"},
-		{"missing ABI exports", exportingModule("other"), ErrUnsupported, "ext_plugin_abi_version"},
+		{"missing ABI exports", exportingModule("other"), ErrUnsupported, "ext_plugin_guest_abi_version"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

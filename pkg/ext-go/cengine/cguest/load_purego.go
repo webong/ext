@@ -2,7 +2,7 @@
 
 package cguest
 
-// The cgo-free loader. The C ABI (lib/plugin/include/ext_plugin.h) is four
+// The cgo-free loader. The C ABI (lib/plugin/include/ext_plugin_guest.h) is four
 // exports the host calls and no function pointer the guest calls back, so
 // purego's limits on callbacks (NewCallback's fixed count, no callbacks on
 // some platforms) never apply: this loader registers no callback at all.
@@ -76,7 +76,7 @@ func load(path string) (*exports, error) {
 	if err != nil {
 		return nil, err
 	}
-	for _, name := range []string{"ext_plugin_abi_version", "ext_plugin_open", "ext_plugin_call", "ext_plugin_close"} {
+	for _, name := range []string{"ext_plugin_guest_abi_version", "ext_plugin_guest_open", "ext_plugin_guest_call", "ext_plugin_guest_close"} {
 		if _, err := lib.Symbol(name); err != nil {
 			return nil, fmt.Errorf("missing required CTX C ABI exports")
 		}
@@ -90,14 +90,14 @@ func load(path string) (*exports, error) {
 		}
 	}
 	var version func() uint32
-	if err := lib.Bind(&version, "ext_plugin_abi_version"); err != nil {
+	if err := lib.Bind(&version, "ext_plugin_guest_abi_version"); err != nil {
 		return nil, err
 	}
 	if version() != abi.Version {
 		return nil, fmt.Errorf("unsupported CTX C ABI version")
 	}
 	e := &exports{}
-	if err := lib.BindAll(map[string]any{"ext_plugin_open": &e.open, "ext_plugin_call": &e.call, "ext_plugin_close": &e.close}); err != nil {
+	if err := lib.BindAll(map[string]any{"ext_plugin_guest_open": &e.open, "ext_plugin_guest_call": &e.call, "ext_plugin_guest_close": &e.close}); err != nil {
 		return nil, err
 	}
 	return e, nil

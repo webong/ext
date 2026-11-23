@@ -210,7 +210,7 @@ pays nothing for it. The names replace the crate and PyPI package `ext-plugin`,
 the npm package `@ctx/plugin` and the Zig package `ext_plugin`; none of them was ever published, so there is
 no compatibility alias. The Zig fingerprint keeps its 32-bit id, and its checksum half follows the new name.
 
-Not renamed, because they name something else: the C ABI (the `ext_plugin_*` symbols and `ext_plugin.h`),
+Not renamed, because they name something else: the C ABI (the `ext_plugin_guest_*` symbols and `ext_plugin_guest.h`),
 the `ext.plugin/v1` protocol, the Go commands `ext-plugin` and `ext-plugin-bridge`, and the unpublished
 `ext-plugin-engine` crate.
 
@@ -696,7 +696,7 @@ endpoint validation and extension backends now run on both (see [engine parity](
 gains the `plugintest` frames conformance suite, and a call refused while the host drains is now reported to observers
 as `draining` rather than `failed`, a behavior change that takes a minor version. `cengine` carries the engine
 sources it is built from (`_csrc`), so its bytes change with every engine fix. The C ABI is additive and
-`EXT_HOST_ABI_VERSION` stays 2. The umbrella follows because it pins both. `hashicorp` differs from its `v0.3.0` tag
+`EXT_PLUGIN_HOST_ABI_VERSION` stays 2. The umbrella follows because it pins both. `hashicorp` differs from its `v0.3.0` tag
 only in a test fixture, and `wasm`, `res/*` and the adapters have the same bytes as before, so none is retagged. The
 Zig guest SDK gains capability contracts in the same round; it is not a Go module and has no tag here.
 

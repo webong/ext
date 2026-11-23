@@ -11,7 +11,7 @@ import Foundation
 /// `JSONLineError` and the call in flight is not answered. When the input ends, the call in
 /// flight is answered and the session ends.
 ///
-/// A guest exported through the `ext_plugin_*` C ABI, one run by an app's own transport and one
+/// A guest exported through the `ext_plugin_guest_*` C ABI, one run by an app's own transport and one
 /// called with `Guest.invoke` have no frame channel; on them progress is `unsupported` and a call
 /// has no reverse caller. This transport is for a guest process, so on iOS (which cannot spawn
 /// one) it is for tests and for an app that runs the session over its own pipes.

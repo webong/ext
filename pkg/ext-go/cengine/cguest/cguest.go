@@ -1,4 +1,4 @@
-// Package cguest loads trusted C ABI libraries (lib/plugin/include/ext_plugin.h), including Go
+// Package cguest loads trusted C ABI libraries (lib/plugin/include/ext_plugin_guest.h), including Go
 // -buildmode=c-shared guests, and exchanges frames with them as bytes. It knows nothing of the
 // plugin protocol: what the frames mean, and the limits and deadlines a session applies, belong to
 // the caller (pkg/ext-go/cguest makes it a plugin backend). Native code executes inside the host

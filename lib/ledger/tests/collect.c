@@ -41,7 +41,7 @@ static double number(const lj_value *o, const char *key) {
 int main(void) {
   char *out;
   size_t len;
-  int rc = ext_ledger_machine_environment(&out, &len);
+  int rc = ext_ledger_collect_environment(&out, &len);
   CHECK(rc == 0, "machine environment: %s", ext_ledger_code_name(rc));
   lj_value *env = rc ? NULL : lj_parse(out, len, NULL);
   if (!rc) ext_ledger_free(out);
@@ -109,16 +109,16 @@ int main(void) {
   lj_free(host);
 
   /* A machine recorder records the scan. */
-  ext_ledger *store;
-  ext_ledger_open_memory(NULL, &store);
+  ext_ledger_store *store;
+  ext_ledger_store_open_memory(NULL, &store);
   ext_ledger_recorder *r;
   rc = ext_ledger_recorder_open_machine(store, NULL, &r);
   CHECK(rc == 0, "open a machine recorder: %s", ext_ledger_code_name(rc));
   if (!rc) {
-    rc = ext_ledger_scan(r, NULL, "processes");
+    rc = ext_ledger_recorder_scan(r, NULL, "processes");
     CHECK(rc == 0, "scan processes: %s", ext_ledger_code_name(rc));
     const char *q = "{\"namespace\":\"ext.system\",\"kind\":\"ext.system/process\",\"limit\":65536}";
-    rc = ext_ledger_query_vertices(store, NULL, q, strlen(q), &out, &len);
+    rc = ext_ledger_store_query_vertices(store, NULL, q, strlen(q), &out, &len);
     lj_value *found = rc ? NULL : lj_parse(out, len, NULL);
     if (!rc) ext_ledger_free(out);
     int recorded = 0;
@@ -126,16 +126,16 @@ int main(void) {
       recorded |= (long)number(lj_get(found->u.array.items[i], "attributes"), "pid") == (long)getpid_();
     CHECK(recorded, "the scan recorded this process");
     lj_free(found);
-    rc = ext_ledger_scan(r, NULL, "processes");
+    rc = ext_ledger_recorder_scan(r, NULL, "processes");
     CHECK(rc == 0, "a second scan reconciles: %s", ext_ledger_code_name(rc));
-    rc = ext_ledger_scan(r, NULL, "host");
+    rc = ext_ledger_recorder_scan(r, NULL, "host");
     CHECK(rc == 0, "scan the host: %s", ext_ledger_code_name(rc));
-    rc = ext_ledger_get_vertex(store, NULL, "ext.system", "host-inventory/filesystems", &out, &len);
+    rc = ext_ledger_store_get_vertex(store, NULL, "ext.system", "host-inventory/filesystems", &out, &len);
     CHECK(rc == 0, "the scan recorded the filesystem inventory: %s", ext_ledger_code_name(rc));
     if (!rc) ext_ledger_free(out);
     ext_ledger_recorder_close(r);
   }
-  ext_ledger_close(store);
+  ext_ledger_store_close(store);
   if (failures) {
     fprintf(stderr, "%d failures\n", failures);
     return 1;

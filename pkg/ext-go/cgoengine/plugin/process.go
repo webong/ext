@@ -21,7 +21,7 @@ func cStrings(values []string) (**C.char, func(), error) {
 	}
 	ptr := C.calloc(C.size_t(len(values)), C.size_t(unsafe.Sizeof(uintptr(0))))
 	if ptr == nil {
-		return nil, nil, status(C.EXT_NOMEM)
+		return nil, nil, status(C.EXT_PLUGIN_NOMEM)
 	}
 	array := unsafe.Slice((**C.char)(ptr), len(values))
 	cleanup := func() {
@@ -38,7 +38,7 @@ func cStrings(values []string) (**C.char, func(), error) {
 		array[i] = C.CString(v)
 		if array[i] == nil {
 			cleanup()
-			return nil, nil, status(C.EXT_NOMEM)
+			return nil, nil, status(C.EXT_PLUGIN_NOMEM)
 		}
 	}
 	return (**C.char)(ptr), cleanup, nil
@@ -118,11 +118,11 @@ func (h *Host) Stderr() string {
 		return ""
 	}
 	var n C.size_t
-	if status(C.ext_host_process_stderr(h.ptr, nil, 0, &n)) != nil || n == 0 {
+	if status(C.ext_plugin_host_process_stderr(h.ptr, nil, 0, &n)) != nil || n == 0 {
 		return ""
 	}
 	buffer := make([]byte, n)
-	if status(C.ext_host_process_stderr(h.ptr, (*C.uint8_t)(unsafe.Pointer(&buffer[0])), n, &n)) != nil || int(n) > len(buffer) {
+	if status(C.ext_plugin_host_process_stderr(h.ptr, (*C.uint8_t)(unsafe.Pointer(&buffer[0])), n, &n)) != nil || int(n) > len(buffer) {
 		return ""
 	}
 	return string(buffer[:n])

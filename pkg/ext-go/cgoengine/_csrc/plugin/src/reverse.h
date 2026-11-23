@@ -20,8 +20,8 @@ typedef struct {
 } ext_reverse_request;
 
 /* Validates a reverse_request frame exactly as ReverseRequestFrame decodes and
- * validates it. EXT_PROTOCOL for anything else. */
-ext_status ext_reverse_request_frame(yyjson_val *frame,
+ * validates it. EXT_PLUGIN_PROTOCOL for anything else. */
+ext_plugin_status ext_reverse_request_frame(yyjson_val *frame,
                                      ext_reverse_request *request);
 
 /* The stable codes a reverse call is refused with. A refusal is an answer, never
@@ -33,8 +33,8 @@ ext_status ext_reverse_request_frame(yyjson_val *frame,
 #define EXT_REVERSE_BUSY "busy"
 #define EXT_REVERSE_EXPIRED "expired"
 
-/* What a reverse handler produced: kind is EXT_HOST_REVERSE_PAYLOAD or
- * EXT_HOST_REVERSE_PUBLIC_ERROR (ext_host.h) and data its JSON. The functions
+/* What a reverse handler produced: kind is EXT_PLUGIN_HOST_REVERSE_PAYLOAD or
+ * EXT_PLUGIN_HOST_REVERSE_PUBLIC_ERROR (ext_plugin_host.h) and data its JSON. The functions
  * below return the reverse_response line (without the newline) in memory the
  * caller frees, or NULL when memory ran out. id is the request's id. */
 char *ext_reverse_refusal(const char *id, size_t id_len, const char *code,
@@ -51,5 +51,5 @@ char *ext_reverse_answer(const char *id, size_t id_len, uint32_t kind,
                          size_t *len);
 /* Makes c read as signaled whenever parent is, too. Call it before anything polls
  * c; parent must outlive that use. */
-void ext_cancel_link(ext_cancel *c, const ext_cancel *parent);
+void ext_cancel_link(ext_plugin_cancel *c, const ext_plugin_cancel *parent);
 #endif

@@ -1,10 +1,10 @@
-/* The shared-library backend (ext_shared_library_backend_create) against the C
+/* The shared-library backend (ext_plugin_shared_library_backend_create) against the C
  * test guests in shared_guest.c. With arguments, it also runs a library built
  * elsewhere, such as the Go c-shared guest the Go loader runs:
  *   ext_shared_library_test <library> <descriptor.json>
  */
 #define _POSIX_C_SOURCE 200809L
-#include "ext_host.h"
+#include "ext_plugin_host.h"
 #include <assert.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -36,23 +36,23 @@ static int32_t deny(void *u, const uint8_t *p, size_t n) {
   return 1;
 }
 
-static ext_status open_host(const char *library, const uint8_t *desc, size_t desc_len,
-                            ext_policy verify, ext_host **out) {
-  ext_shared_library_options lo = {sizeof(lo), library};
-  ext_backend_extension_context ext;
-  ext_status s = ext_shared_library_backend_create(&lo, &ext);
+static ext_plugin_status open_host(const char *library, const uint8_t *desc, size_t desc_len,
+                            ext_plugin_policy verify, ext_plugin_host **out) {
+  ext_plugin_shared_library_options lo = {sizeof(lo), library};
+  ext_plugin_backend_extension_context ext;
+  ext_plugin_status s = ext_plugin_shared_library_backend_create(&lo, &ext);
   if (s)
     return s;
-  ext_host_options o = {EXT_HOST_ABI_VERSION, sizeof(o), desc, desc_len, verify, allow, NULL};
-  ext_backend_options b = {sizeof(b), EXT_BACKEND_EXTENSION_CONTEXT, &ext, sizeof(ext)};
-  s = ext_host_create(&o, &b, out);
+  ext_plugin_host_options o = {EXT_PLUGIN_HOST_ABI_VERSION, sizeof(o), desc, desc_len, verify, allow, NULL};
+  ext_plugin_backend_options b = {sizeof(b), EXT_PLUGIN_BACKEND_EXTENSION_CONTEXT, &ext, sizeof(ext)};
+  s = ext_plugin_host_create(&o, &b, out);
   if (s)
     ext.release(ext.user);
   return s;
 }
 
-static ext_status call(ext_host *h, const char *operation, const char *value,
-                       uint32_t timeout_ms, ext_buffer *out) {
+static ext_plugin_status call(ext_plugin_host *h, const char *operation, const char *value,
+                       uint32_t timeout_ms, ext_plugin_buffer *out) {
   char request[512];
   int n = snprintf(request, sizeof(request),
                    "{\"apiVersion\":\"ext.plugin/v1\",\"id\":\"1\",\"plugin\":{\"id\":"
@@ -61,10 +61,10 @@ static ext_status call(ext_host *h, const char *operation, const char *value,
                    "\"%s\",\"deadline\":\"2099-01-01T00:00:00Z\",\"payload\":{"
                    "\"value\":%s}}",
                    operation, value);
-  return ext_host_invoke(h, (const uint8_t *)request, (size_t)n, timeout_ms, out);
+  return ext_plugin_host_invoke(h, (const uint8_t *)request, (size_t)n, timeout_ms, out);
 }
 
-static int contains(const ext_buffer *b, const char *needle) {
+static int contains(const ext_plugin_buffer *b, const char *needle) {
   size_t n = strlen(needle);
   for (size_t i = 0; i + n <= b->len; i++)
     if (!memcmp(b->data + i, needle, n))
@@ -91,60 +91,60 @@ static void counts(const char *library, uint64_t *opened, uint64_t *closed) {
 }
 
 static void rejects_bad_options(void) {
-  ext_backend_extension_context ext;
-  assert(ext_shared_library_backend_create(NULL, &ext) == EXT_INVALID);
-  ext_shared_library_options lo = {sizeof(lo), "relative/libguest.so"};
-  assert(ext_shared_library_backend_create(&lo, &ext) == EXT_INVALID);
+  ext_plugin_backend_extension_context ext;
+  assert(ext_plugin_shared_library_backend_create(NULL, &ext) == EXT_PLUGIN_INVALID);
+  ext_plugin_shared_library_options lo = {sizeof(lo), "relative/libguest.so"};
+  assert(ext_plugin_shared_library_backend_create(&lo, &ext) == EXT_PLUGIN_INVALID);
   lo.path = "";
-  assert(ext_shared_library_backend_create(&lo, &ext) == EXT_INVALID);
+  assert(ext_plugin_shared_library_backend_create(&lo, &ext) == EXT_PLUGIN_INVALID);
   lo.path = NULL;
-  assert(ext_shared_library_backend_create(&lo, &ext) == EXT_INVALID);
-  ext_shared_library_options wrong = {sizeof(wrong) - 1, EXT_TEST_GUEST};
-  assert(ext_shared_library_backend_create(&wrong, &ext) == EXT_INVALID);
+  assert(ext_plugin_shared_library_backend_create(&lo, &ext) == EXT_PLUGIN_INVALID);
+  ext_plugin_shared_library_options wrong = {sizeof(wrong) - 1, EXT_TEST_GUEST};
+  assert(ext_plugin_shared_library_backend_create(&wrong, &ext) == EXT_PLUGIN_INVALID);
 #ifndef _WIN32
   lo.path = "/tmp/\xff.so";
-  assert(ext_shared_library_backend_create(&lo, &ext) == EXT_INVALID);
+  assert(ext_plugin_shared_library_backend_create(&lo, &ext) == EXT_PLUGIN_INVALID);
 #endif
   lo.path = EXT_TEST_GUEST;
-  assert(ext_shared_library_backend_create(&lo, NULL) == EXT_INVALID);
+  assert(ext_plugin_shared_library_backend_create(&lo, NULL) == EXT_PLUGIN_INVALID);
   /* Creating loads nothing, so a missing file is found only at start. */
 #ifdef _WIN32
   lo.path = "C:\\does\\not\\exist.dll";
 #else
   lo.path = "/does/not/exist.so";
 #endif
-  assert(ext_shared_library_backend_create(&lo, &ext) == EXT_OK);
+  assert(ext_plugin_shared_library_backend_create(&lo, &ext) == EXT_PLUGIN_OK);
   ext.release(ext.user);
 }
 
 static void serves_calls(void) {
   uint64_t opened0, closed0, opened, closed;
   counts(EXT_TEST_GUEST, &opened0, &closed0);
-  ext_host *h = NULL;
+  ext_plugin_host *h = NULL;
   assert(open_host(EXT_TEST_GUEST, (const uint8_t *)descriptor, sizeof(descriptor) - 1,
-                   allow, &h) == EXT_OK);
-  assert(ext_host_start(h, 3000) == EXT_OK);
-  ext_buffer out = {0};
-  assert(call(h, "echo", "7", 3000, &out) == EXT_OK);
+                   allow, &h) == EXT_PLUGIN_OK);
+  assert(ext_plugin_host_start(h, 3000) == EXT_PLUGIN_OK);
+  ext_plugin_buffer out = {0};
+  assert(call(h, "echo", "7", 3000, &out) == EXT_PLUGIN_OK);
   assert(contains(&out, "\"echoed\":true"));
-  ext_buffer_free(&out);
-  assert(call(h, "public-error", "7", 3000, &out) == EXT_OK);
+  ext_plugin_buffer_free(&out);
+  assert(call(h, "public-error", "7", 3000, &out) == EXT_PLUGIN_OK);
   assert(contains(&out, "\"code\":\"denied\""));
-  ext_buffer_free(&out);
+  ext_plugin_buffer_free(&out);
   /* A handler failure is a domain error, sanitized; the session continues. */
-  assert(call(h, "private-error", "7", 3000, &out) == EXT_OK);
+  assert(call(h, "private-error", "7", 3000, &out) == EXT_PLUGIN_OK);
   assert(contains(&out, "\"error\""));
-  assert(!contains(&out, "EXT_IO"));
-  ext_buffer_free(&out);
+  assert(!contains(&out, "EXT_PLUGIN_IO"));
+  ext_plugin_buffer_free(&out);
   counts(EXT_TEST_GUEST, &opened, &closed);
   assert(opened == opened0 + 1 && closed == closed0);
   /* A transport failure ends the session, and nothing is retried. */
-  assert(call(h, "echo", "\"abi-fail\"", 3000, &out) != EXT_OK);
-  ext_buffer_free(&out);
-  assert(call(h, "echo", "7", 3000, &out) != EXT_OK);
-  ext_buffer_free(&out);
-  ext_host_close(h);
-  ext_host_destroy(h);
+  assert(call(h, "echo", "\"abi-fail\"", 3000, &out) != EXT_PLUGIN_OK);
+  ext_plugin_buffer_free(&out);
+  assert(call(h, "echo", "7", 3000, &out) != EXT_PLUGIN_OK);
+  ext_plugin_buffer_free(&out);
+  ext_plugin_host_close(h);
+  ext_plugin_host_destroy(h);
   counts(EXT_TEST_GUEST, &opened, &closed);
   assert(opened == opened0 + 1 && closed == closed0 + 1);
 }
@@ -152,43 +152,43 @@ static void serves_calls(void) {
 static void shares_the_image(void) {
   uint64_t opened0, closed0, opened, closed;
   counts(EXT_TEST_GUEST, &opened0, &closed0);
-  ext_host *a = NULL, *b = NULL;
+  ext_plugin_host *a = NULL, *b = NULL;
   assert(open_host(EXT_TEST_GUEST, (const uint8_t *)descriptor, sizeof(descriptor) - 1,
-                   allow, &a) == EXT_OK);
+                   allow, &a) == EXT_PLUGIN_OK);
   assert(open_host(EXT_TEST_GUEST, (const uint8_t *)descriptor, sizeof(descriptor) - 1,
-                   allow, &b) == EXT_OK);
-  assert(ext_host_start(a, 3000) == EXT_OK);
-  assert(ext_host_start(b, 3000) == EXT_OK);
+                   allow, &b) == EXT_PLUGIN_OK);
+  assert(ext_plugin_host_start(a, 3000) == EXT_PLUGIN_OK);
+  assert(ext_plugin_host_start(b, 3000) == EXT_PLUGIN_OK);
   counts(EXT_TEST_GUEST, &opened, &closed);
   assert(opened == opened0 + 2);
-  ext_host_destroy(a);
-  ext_host_destroy(b);
+  ext_plugin_host_destroy(a);
+  ext_plugin_host_destroy(b);
   counts(EXT_TEST_GUEST, &opened, &closed);
   assert(closed == closed0 + 2);
 }
 
 static void checks_the_handshake(void) {
-  ext_host *h = NULL;
+  ext_plugin_host *h = NULL;
   assert(open_host(EXT_TEST_GUEST, (const uint8_t *)other, sizeof(other) - 1, allow,
-                   &h) == EXT_OK);
-  assert(ext_host_start(h, 3000) == EXT_MISMATCH);
-  ext_host_destroy(h);
+                   &h) == EXT_PLUGIN_OK);
+  assert(ext_plugin_host_start(h, 3000) == EXT_PLUGIN_MISMATCH);
+  ext_plugin_host_destroy(h);
 }
 
 static void refuses_bad_libraries(void) {
-  ext_host *h = NULL;
+  ext_plugin_host *h = NULL;
   /* The verify policy runs before the library is loaded. */
   assert(open_host(EXT_TEST_BAD_VERSION_GUEST, (const uint8_t *)descriptor,
-                   sizeof(descriptor) - 1, deny, &h) == EXT_OK);
-  assert(ext_host_start(h, 3000) == EXT_DENIED);
-  ext_host_destroy(h);
+                   sizeof(descriptor) - 1, deny, &h) == EXT_PLUGIN_OK);
+  assert(ext_plugin_host_start(h, 3000) == EXT_PLUGIN_DENIED);
+  ext_plugin_host_destroy(h);
   const char *bad[] = {EXT_TEST_BAD_VERSION_GUEST, EXT_TEST_NO_CLOSE_GUEST};
   for (size_t i = 0; i < 2; i++) {
     for (int again = 0; again < 2; again++) { /* a failed image stays failed */
       assert(open_host(bad[i], (const uint8_t *)descriptor, sizeof(descriptor) - 1,
-                       allow, &h) == EXT_OK);
-      assert(ext_host_start(h, 3000) == EXT_UNSUPPORTED);
-      ext_host_destroy(h);
+                       allow, &h) == EXT_PLUGIN_OK);
+      assert(ext_plugin_host_start(h, 3000) == EXT_PLUGIN_UNSUPPORTED);
+      ext_plugin_host_destroy(h);
     }
   }
 #ifdef _WIN32
@@ -197,32 +197,32 @@ static void refuses_bad_libraries(void) {
   const char *missing = "/does/not/exist.so";
 #endif
   assert(open_host(missing, (const uint8_t *)descriptor, sizeof(descriptor) - 1, allow,
-                   &h) == EXT_OK);
-  assert(ext_host_start(h, 3000) == EXT_NOT_FOUND);
-  ext_host_destroy(h);
+                   &h) == EXT_PLUGIN_OK);
+  assert(ext_plugin_host_start(h, 3000) == EXT_PLUGIN_NOT_FOUND);
+  ext_plugin_host_destroy(h);
 }
 
 static void ends_a_late_call(void) {
-  ext_host *h = NULL;
+  ext_plugin_host *h = NULL;
   assert(open_host(EXT_TEST_GUEST, (const uint8_t *)descriptor, sizeof(descriptor) - 1,
-                   allow, &h) == EXT_OK);
-  assert(ext_host_start(h, 3000) == EXT_OK);
-  ext_buffer out = {0};
-  assert(call(h, "echo", "\"slow\"", 100, &out) == EXT_TIMEOUT);
-  ext_buffer_free(&out);
-  assert(call(h, "echo", "7", 3000, &out) != EXT_OK);
-  ext_buffer_free(&out);
-  ext_host_destroy(h);
+                   allow, &h) == EXT_PLUGIN_OK);
+  assert(ext_plugin_host_start(h, 3000) == EXT_PLUGIN_OK);
+  ext_plugin_buffer out = {0};
+  assert(call(h, "echo", "\"slow\"", 100, &out) == EXT_PLUGIN_TIMEOUT);
+  ext_plugin_buffer_free(&out);
+  assert(call(h, "echo", "7", 3000, &out) != EXT_PLUGIN_OK);
+  ext_plugin_buffer_free(&out);
+  ext_plugin_host_destroy(h);
 }
 
-static ext_buffer read_file(const char *path) {
+static ext_plugin_buffer read_file(const char *path) {
   FILE *f = fopen(path, "rb");
   assert(f);
   assert(!fseek(f, 0, SEEK_END));
   long n = ftell(f);
   assert(n > 0);
   rewind(f);
-  ext_buffer b = {malloc((size_t)n), (size_t)n};
+  ext_plugin_buffer b = {malloc((size_t)n), (size_t)n};
   assert(b.data && fread(b.data, 1, b.len, f) == b.len);
   fclose(f);
   return b;
@@ -230,19 +230,19 @@ static ext_buffer read_file(const char *path) {
 
 /* A library built elsewhere, serving the conformance descriptor. */
 static void serves_external(const char *library, const char *descriptor_path) {
-  ext_buffer d = read_file(descriptor_path);
-  ext_host *h = NULL;
-  assert(open_host(library, d.data, d.len, allow, &h) == EXT_OK);
-  assert(ext_host_start(h, 5000) == EXT_OK);
-  ext_buffer out = {0};
-  assert(call(h, "echo", "7", 5000, &out) == EXT_OK);
+  ext_plugin_buffer d = read_file(descriptor_path);
+  ext_plugin_host *h = NULL;
+  assert(open_host(library, d.data, d.len, allow, &h) == EXT_PLUGIN_OK);
+  assert(ext_plugin_host_start(h, 5000) == EXT_PLUGIN_OK);
+  ext_plugin_buffer out = {0};
+  assert(call(h, "echo", "7", 5000, &out) == EXT_PLUGIN_OK);
   assert(contains(&out, "\"value\":7"));
-  ext_buffer_free(&out);
-  assert(call(h, "public-error", "7", 5000, &out) == EXT_OK);
+  ext_plugin_buffer_free(&out);
+  assert(call(h, "public-error", "7", 5000, &out) == EXT_PLUGIN_OK);
   assert(contains(&out, "\"error\""));
-  ext_buffer_free(&out);
-  ext_host_destroy(h);
-  ext_buffer_free(&d);
+  ext_plugin_buffer_free(&out);
+  ext_plugin_host_destroy(h);
+  ext_plugin_buffer_free(&d);
 }
 
 int main(int argc, char **argv) {

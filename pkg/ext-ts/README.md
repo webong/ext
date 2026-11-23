@@ -111,7 +111,7 @@ is the frames conformance guest of
 The portable entry point and `ext-io/plugin/node` are plain ES modules and need nothing native. The
 `ext-io/plugin/engine` subpath is different: `loadEngine(absoluteAddonPath)` loads a Node-API addon that
 **you build yourself** from `engine/addon.c` (shipped in the package) against the ext engine headers,
-the Node headers and `libext_host_static` or `libext_host`. No prebuilt addons are published for any
+the Node headers and `libext_plugin_host_static` or `libext_plugin_host`. No prebuilt addons are published for any
 platform, so installing this package does not give you a working engine binding: `loadEngine` fails
 until you supply an addon. See [engine/README.md](engine/README.md); the repository's
 `scripts/plugin-cengine.sh` builds and exercises both link choices.

@@ -1,4 +1,4 @@
-#include "ext_host.h"
+#include "ext_plugin_host.h"
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -52,7 +52,7 @@ int main(int argc, char **argv) {
   write_file(file, "one");
   uint8_t raw[32], got[32], expected[32];
   char digest[65];
-  assert(ext_engine_sha256((const uint8_t *)"one", 3, raw) == EXT_OK);
+  assert(ext_plugin_sha256((const uint8_t *)"one", 3, raw) == EXT_PLUGIN_OK);
   hex(raw, digest);
   char manifest[2048];
   int n = snprintf(manifest, sizeof(manifest),
@@ -63,15 +63,15 @@ int main(int argc, char **argv) {
     digest);
   assert(n > 0 && (size_t)n < sizeof(manifest));
   write_file(manifest_path, manifest);
-  assert(ext_store_digest(root, "example/a", got) == EXT_OK);
-  assert(ext_directory_digest(package, expected) == EXT_OK);
+  assert(ext_plugin_store_digest(root, "example/a", got) == EXT_PLUGIN_OK);
+  assert(ext_plugin_directory_digest(package, expected) == EXT_PLUGIN_OK);
   assert(!memcmp(got, expected, 32));
-  assert(ext_store_digest(root, "../bad", got) == EXT_INVALID);
+  assert(ext_plugin_store_digest(root, "../bad", got) == EXT_PLUGIN_INVALID);
   write_file(extra, "unexpected");
-  assert(ext_store_digest(root, "example/a", got) == EXT_INVALID);
+  assert(ext_plugin_store_digest(root, "example/a", got) == EXT_PLUGIN_INVALID);
   assert(!remove(extra));
   write_file(file, "two");
-  assert(ext_store_digest(root, "example/a", got) == EXT_MISMATCH);
+  assert(ext_plugin_store_digest(root, "example/a", got) == EXT_PLUGIN_MISMATCH);
   assert(!remove(file));
   assert(!remove(manifest_path));
   assert(!REMOVE_DIR(src));

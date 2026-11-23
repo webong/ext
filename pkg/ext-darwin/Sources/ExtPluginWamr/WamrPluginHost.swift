@@ -12,11 +12,11 @@ import Foundation
 /// A guest that traps, overruns its deadline, runs out of memory or exits ends the whole
 /// instance, and the host is then closed.
 public final class WamrPluginHost: @unchecked Sendable {
-    /// Why the engine refused an operation: its ext_status value and name.
+    /// Why the engine refused an operation: its ext_plugin_status value and name.
     public struct Failure: Error, Equatable, CustomStringConvertible {
         public let status: Int32
         public let reason: String
-        public var description: String { "ext_status \(status) (\(reason))" }
+        public var description: String { "ext_plugin_status \(status) (\(reason))" }
     }
 
     /// Limits and diagnostics for one instance. Zero means the engine's default.
@@ -62,25 +62,25 @@ public final class WamrPluginHost: @unchecked Sendable {
         diagnostic: ((String) -> Void)? = nil
     ) throws {
         context = Context(verify: verify, authorize: authorize, diagnostic: diagnostic)
-        var backend = ext_backend_extension_context()
+        var backend = ext_plugin_backend_extension_context()
         try Self.makeBackend(module: module, options: options, context: context, into: &backend)
         let user = Unmanaged.passUnretained(context).toOpaque()
         var created: OpaquePointer?
-        let status: ext_status = descriptor.withUnsafeBytes { raw in
-            var hostOptions = ext_host_options(
-                abi_version: UInt32(EXT_HOST_ABI_VERSION),
-                struct_size: UInt32(MemoryLayout<ext_host_options>.size),
+        let status: ext_plugin_status = descriptor.withUnsafeBytes { raw in
+            var hostOptions = ext_plugin_host_options(
+                abi_version: UInt32(EXT_PLUGIN_HOST_ABI_VERSION),
+                struct_size: UInt32(MemoryLayout<ext_plugin_host_options>.size),
                 descriptor: raw.bindMemory(to: UInt8.self).baseAddress, descriptor_len: raw.count,
                 verify: wamrVerify, authorize: wamrAuthorize, user: user)
             return withUnsafePointer(to: &backend) { pointer in
-                var selected = ext_backend_options(
-                    struct_size: UInt32(MemoryLayout<ext_backend_options>.size),
-                    kind: UInt32(EXT_BACKEND_EXTENSION_CONTEXT), config: UnsafeRawPointer(pointer),
-                    config_size: MemoryLayout<ext_backend_extension_context>.size)
-                return ext_host_create(&hostOptions, &selected, &created)
+                var selected = ext_plugin_backend_options(
+                    struct_size: UInt32(MemoryLayout<ext_plugin_backend_options>.size),
+                    kind: UInt32(EXT_PLUGIN_BACKEND_EXTENSION_CONTEXT), config: UnsafeRawPointer(pointer),
+                    config_size: MemoryLayout<ext_plugin_backend_extension_context>.size)
+                return ext_plugin_host_create(&hostOptions, &selected, &created)
             }
         }
-        guard status == ext_status(EXT_OK), let created else {
+        guard status == ext_plugin_status(EXT_PLUGIN_OK), let created else {
             // The engine did not take ownership of the backend, so release it here.
             backend.release?(backend.user)
             throw Self.failure(status)
@@ -88,8 +88,8 @@ public final class WamrPluginHost: @unchecked Sendable {
         host = created
         // The guest may call its host (ext_plugin.reverse); serve(...) or attach(...) say how.
         let bound = ext_wamr_backend_bind_host(backend.user, created)
-        if bound != ext_status(EXT_OK) {
-            ext_host_destroy(created)
+        if bound != ext_plugin_status(EXT_PLUGIN_OK) {
+            ext_plugin_host_destroy(created)
             host = nil
             throw Self.failure(bound)
         }
@@ -103,7 +103,7 @@ public final class WamrPluginHost: @unchecked Sendable {
             // Calls routed here have ended with the close; unregistering waits for them.
             for entry in registered { entry.registry.leave(name: entry.name, version: entry.version, host: self) }
             registered = []
-            ext_host_destroy(host)
+            ext_plugin_host_destroy(host)
         }
         host = nil
     }
@@ -117,8 +117,8 @@ public final class WamrPluginHost: @unchecked Sendable {
         context.reverseAuthorize = authorize
         context.reverseHandle = handle
         var services = services(timeout: timeout, maxPayloadBytes: maxPayloadBytes, maxInFlight: maxInFlight, handle: true)
-        let status = ext_host_set_services(try live(), &services)
-        if status != ext_status(EXT_OK) { throw Self.failure(status) }
+        let status = ext_plugin_host_set_services(try live(), &services)
+        if status != ext_plugin_status(EXT_PLUGIN_OK) { throw Self.failure(status) }
     }
 
     /// Makes this host a source of `registry`, in place of `serve` and before `start`: the guest's
@@ -128,8 +128,8 @@ public final class WamrPluginHost: @unchecked Sendable {
                        timeout: TimeInterval = 0, maxPayloadBytes: UInt32 = 0, maxInFlight: UInt32 = 0) throws {
         context.reverseAuthorize = authorize
         var services = services(timeout: timeout, maxPayloadBytes: maxPayloadBytes, maxInFlight: maxInFlight, handle: false)
-        let status = ext_registry_attach(registry.handle, try live(), &services)
-        if status != ext_status(EXT_OK) { throw Self.failure(status) }
+        let status = ext_plugin_registry_attach(registry.handle, try live(), &services)
+        if status != ext_plugin_status(EXT_PLUGIN_OK) { throw Self.failure(status) }
         sourceOf = registry
     }
 
@@ -140,15 +140,15 @@ public final class WamrPluginHost: @unchecked Sendable {
         var input = #"{"contract":{"name":"\#(name)","version":"\#(version)"},"operation":"\#(operation)""#
         if let payload { input += #","payload":"# + String(decoding: payload, as: UTF8.self) }
         let request = Data((input + "}").utf8)
-        var out = ext_buffer(data: nil, len: 0)
-        defer { ext_buffer_free(&out) }
+        var out = ext_plugin_buffer(data: nil, len: 0)
+        defer { ext_plugin_buffer_free(&out) }
         let handle = try live()
-        var options = ext_call_options(struct_size: UInt32(MemoryLayout<ext_call_options>.size),
+        var options = ext_plugin_call_options(struct_size: UInt32(MemoryLayout<ext_plugin_call_options>.size),
                                        timeout_ms: Self.milliseconds(timeout), cancel: nil, value: nil)
-        let status: ext_status = request.withUnsafeBytes { raw in
-            ext_host_call(handle, raw.bindMemory(to: UInt8.self).baseAddress, raw.count, &options, &out)
+        let status: ext_plugin_status = request.withUnsafeBytes { raw in
+            ext_plugin_host_call(handle, raw.bindMemory(to: UInt8.self).baseAddress, raw.count, &options, &out)
         }
-        guard status == ext_status(EXT_OK), let data = out.data else { throw Self.failure(status) }
+        guard status == ext_plugin_status(EXT_PLUGIN_OK), let data = out.data else { throw Self.failure(status) }
         return Data(bytes: data, count: out.len)
     }
 
@@ -168,9 +168,9 @@ public final class WamrPluginHost: @unchecked Sendable {
         lock.unlock()
     }
 
-    private func services(timeout: TimeInterval, maxPayloadBytes: UInt32, maxInFlight: UInt32, handle: Bool) -> ext_host_services {
-        ext_host_services(
-            struct_size: UInt32(MemoryLayout<ext_host_services>.size),
+    private func services(timeout: TimeInterval, maxPayloadBytes: UInt32, maxInFlight: UInt32, handle: Bool) -> ext_plugin_host_services {
+        ext_plugin_host_services(
+            struct_size: UInt32(MemoryLayout<ext_plugin_host_services>.size),
             user: Unmanaged.passUnretained(context).toOpaque(),
             authorize: wamrReverseAuthorize, handle: handle ? wamrReverseHandle : nil,
             timeout_ms: timeout > 0 ? Self.milliseconds(timeout) : 0,
@@ -180,20 +180,20 @@ public final class WamrPluginHost: @unchecked Sendable {
     /// Loads the module, instantiates it and checks its handshake against the expected descriptor.
     public func start(timeout: TimeInterval = 30) throws {
         let milliseconds = Self.milliseconds(timeout)
-        let status = ext_host_start(try live(), milliseconds)
-        if status != ext_status(EXT_OK) { throw Self.failure(status) }
+        let status = ext_plugin_host_start(try live(), milliseconds)
+        if status != ext_plugin_status(EXT_PLUGIN_OK) { throw Self.failure(status) }
     }
 
     /// Sends one complete ext.plugin/v1 request and returns the complete response, including
     /// public errors. A call that fails after dispatch ends the session.
     public func invoke(_ request: Data, timeout: TimeInterval = 30) throws -> Data {
-        var out = ext_buffer(data: nil, len: 0)
-        defer { ext_buffer_free(&out) }
+        var out = ext_plugin_buffer(data: nil, len: 0)
+        defer { ext_plugin_buffer_free(&out) }
         let handle = try live()
-        let status: ext_status = request.withUnsafeBytes { raw in
-            ext_host_invoke(handle, raw.bindMemory(to: UInt8.self).baseAddress, raw.count, Self.milliseconds(timeout), &out)
+        let status: ext_plugin_status = request.withUnsafeBytes { raw in
+            ext_plugin_host_invoke(handle, raw.bindMemory(to: UInt8.self).baseAddress, raw.count, Self.milliseconds(timeout), &out)
         }
-        guard status == ext_status(EXT_OK), let data = out.data else { throw Self.failure(status) }
+        guard status == ext_plugin_status(EXT_PLUGIN_OK), let data = out.data else { throw Self.failure(status) }
         return Data(bytes: data, count: out.len)
     }
 
@@ -203,23 +203,23 @@ public final class WamrPluginHost: @unchecked Sendable {
         let handle = host
         closed = true
         lock.unlock()
-        if let handle { ext_host_close(handle) }
+        if let handle { ext_plugin_host_close(handle) }
     }
 
     /// The module's own descriptor JSON, by loading and handshaking it once. This is inspection:
     /// it asserts nothing about whether the module is trusted.
     public static func descriptor(of module: Data, timeout: TimeInterval = 30, options: Options = Options()) throws -> Data {
         let context = Context(verify: nil, authorize: nil, diagnostic: nil)
-        var backend = ext_backend_extension_context()
+        var backend = ext_plugin_backend_extension_context()
         try makeBackend(module: module, options: options, context: context, into: &backend)
         defer { backend.release?(backend.user) }
         defer { backend.close?(backend.user) }
         let collector = Collector()
-        var call = ext_call_options(struct_size: UInt32(MemoryLayout<ext_call_options>.size),
+        var call = ext_plugin_call_options(struct_size: UInt32(MemoryLayout<ext_plugin_call_options>.size),
                                     timeout_ms: milliseconds(timeout), cancel: nil, value: nil)
         let status = backend.connect?(backend.user, &call, wamrEmit, Unmanaged.passUnretained(collector).toOpaque())
-            ?? ext_status(EXT_UNSUPPORTED)
-        guard status == ext_status(EXT_OK) else { throw failure(status) }
+            ?? ext_plugin_status(EXT_PLUGIN_UNSUPPORTED)
+        guard status == ext_plugin_status(EXT_PLUGIN_OK) else { throw failure(status) }
         return collector.data
     }
 
@@ -228,7 +228,7 @@ public final class WamrPluginHost: @unchecked Sendable {
     private func live() throws -> OpaquePointer {
         lock.lock()
         defer { lock.unlock() }
-        guard !closed, let host else { throw Failure(status: Int32(EXT_CLOSED), reason: "closed") }
+        guard !closed, let host else { throw Failure(status: Int32(EXT_PLUGIN_CLOSED), reason: "closed") }
         return host
     }
 
@@ -236,11 +236,11 @@ public final class WamrPluginHost: @unchecked Sendable {
         UInt32(min(max(seconds * 1000, 1), Double(UInt32.max)))
     }
 
-    private static func failure(_ status: ext_status) -> Failure {
-        Failure(status: status, reason: ext_host_status_string(status).map { String(cString: $0) } ?? "unknown")
+    private static func failure(_ status: ext_plugin_status) -> Failure {
+        Failure(status: status, reason: ext_plugin_host_status_string(status).map { String(cString: $0) } ?? "unknown")
     }
 
-    private static func makeBackend(module: Data, options: Options, context: Context, into backend: inout ext_backend_extension_context) throws {
+    private static func makeBackend(module: Data, options: Options, context: Context, into backend: inout ext_plugin_backend_extension_context) throws {
         var native = ext_wamr_options()
         native.struct_size = UInt32(MemoryLayout<ext_wamr_options>.size)
         native.memory_limit_pages = options.memoryLimitPages
@@ -251,10 +251,10 @@ public final class WamrPluginHost: @unchecked Sendable {
             native.diagnostic = wamrDiagnostic
             native.diagnostic_user = Unmanaged.passUnretained(context).toOpaque()
         }
-        let status: ext_status = module.withUnsafeBytes { raw in
+        let status: ext_plugin_status = module.withUnsafeBytes { raw in
             ext_wamr_backend_create(raw.bindMemory(to: UInt8.self).baseAddress, raw.count, &native, &backend)
         }
-        if status != ext_status(EXT_OK) { throw failure(status) }
+        if status != ext_plugin_status(EXT_PLUGIN_OK) { throw failure(status) }
     }
 
     /// The closures the C callbacks reach. Kept alive by the host.
@@ -288,7 +288,7 @@ private func policy(_ user: UnsafeMutableRawPointer?, _ json: UnsafePointer<UInt
                     _ pick: (WamrPluginHost.Context) -> ((Data) -> Bool)?) -> Int32 {
     guard let user, let check = pick(Unmanaged<WamrPluginHost.Context>.fromOpaque(user).takeUnretainedValue()) else { return 0 }
     let allowed = check(json.map { Data(bytes: $0, count: length) } ?? Data())
-    return allowed ? 0 : Int32(EXT_DENIED)
+    return allowed ? 0 : Int32(EXT_PLUGIN_DENIED)
 }
 
 private func wamrDiagnostic(_ user: UnsafeMutableRawPointer?, _ data: UnsafePointer<UInt8>?, _ length: Int) {
@@ -297,37 +297,37 @@ private func wamrDiagnostic(_ user: UnsafeMutableRawPointer?, _ data: UnsafePoin
     context.diagnostic?(String(decoding: UnsafeBufferPointer(start: data, count: length), as: UTF8.self))
 }
 
-private func wamrEmit(_ context: UnsafeMutableRawPointer?, _ data: UnsafePointer<UInt8>?, _ length: Int) -> ext_status {
-    guard let context, let data else { return ext_status(EXT_INVALID) }
+private func wamrEmit(_ context: UnsafeMutableRawPointer?, _ data: UnsafePointer<UInt8>?, _ length: Int) -> ext_plugin_status {
+    guard let context, let data else { return ext_plugin_status(EXT_PLUGIN_INVALID) }
     Unmanaged<WamrPluginHost.Collector>.fromOpaque(context).takeUnretainedValue().data.append(data, count: length)
-    return ext_status(EXT_OK)
+    return ext_plugin_status(EXT_PLUGIN_OK)
 }
 
-private func wamrReverseAuthorize(_ user: UnsafeMutableRawPointer?, _ options: UnsafePointer<ext_call_options>?,
+private func wamrReverseAuthorize(_ user: UnsafeMutableRawPointer?, _ options: UnsafePointer<ext_plugin_call_options>?,
                                   _ json: UnsafePointer<UInt8>?, _ length: Int) -> Int32 {
     guard let user, let check = Unmanaged<WamrPluginHost.Context>.fromOpaque(user).takeUnretainedValue().reverseAuthorize
     else { return 1 }
     return check(json.map { Data(bytes: $0, count: length) } ?? Data()) ? 0 : 1
 }
 
-private func wamrReverseHandle(_ user: UnsafeMutableRawPointer?, _ options: UnsafePointer<ext_call_options>?,
+private func wamrReverseHandle(_ user: UnsafeMutableRawPointer?, _ options: UnsafePointer<ext_plugin_call_options>?,
                                _ json: UnsafePointer<UInt8>?, _ length: Int,
-                               _ emit: ext_reverse_emit?, _ sink: UnsafeMutableRawPointer?) -> ext_status {
+                               _ emit: ext_plugin_reverse_emit?, _ sink: UnsafeMutableRawPointer?) -> ext_plugin_status {
     guard let user, let emit,
           let handle = Unmanaged<WamrPluginHost.Context>.fromOpaque(user).takeUnretainedValue().reverseHandle
-    else { return ext_status(EXT_IO) }
+    else { return ext_plugin_status(EXT_PLUGIN_IO) }
     guard let reply = try? handle(json.map { Data(bytes: $0, count: length) } ?? Data()) else {
-        return ext_status(EXT_IO) // the guest sees operation_failed
+        return ext_plugin_status(EXT_PLUGIN_IO) // the guest sees operation_failed
     }
     let (kind, body): (UInt32, Data)
     switch reply {
-    case .payload(let data): (kind, body) = (UInt32(EXT_HOST_REVERSE_PAYLOAD), data)
-    case .publicError(let data): (kind, body) = (UInt32(EXT_HOST_REVERSE_PUBLIC_ERROR), data)
+    case .payload(let data): (kind, body) = (UInt32(EXT_PLUGIN_HOST_REVERSE_PAYLOAD), data)
+    case .publicError(let data): (kind, body) = (UInt32(EXT_PLUGIN_HOST_REVERSE_PUBLIC_ERROR), data)
     }
     return body.withUnsafeBytes { raw in emit(sink, kind, raw.bindMemory(to: UInt8.self).baseAddress, raw.count) }
 }
 
-/// A guest registry (ext_registry_* in ext_host.h) over WAMR hosts: a reverse call one guest makes
+/// A guest registry (ext_registry_* in ext_plugin_host.h) over WAMR hosts: a reverse call one guest makes
 /// is served by a forward call to another guest, along an edge declared with `route`. An
 /// undeclared edge is refused with reverse_undeclared, an unregistered target with
 /// reverse_unavailable, and a call that would re-enter a host already on its call chain with
@@ -342,18 +342,18 @@ public final class WamrRegistry: @unchecked Sendable {
 
     public init() throws {
         var created: OpaquePointer?
-        let status = ext_registry_create(&created)
-        guard status == ext_status(EXT_OK), let created else { throw WamrRegistry.failure(status) }
+        let status = ext_plugin_registry_create(&created)
+        guard status == ext_plugin_status(EXT_PLUGIN_OK), let created else { throw WamrRegistry.failure(status) }
         handle = created
     }
 
-    deinit { ext_registry_destroy(handle) }
+    deinit { ext_plugin_registry_destroy(handle) }
 
     /// Names `host`, started and listing the contract, as the one serving `name`/`version`.
     public func register(name: String, version: String, host: WamrPluginHost) throws {
         let engineHost = try host.registeredIn(self, name: name, version: version)
-        let status = ext_registry_register(handle, name, version, engineHost)
-        if status != ext_status(EXT_OK) {
+        let status = ext_plugin_registry_register(handle, name, version, engineHost)
+        if status != ext_plugin_status(EXT_PLUGIN_OK) {
             host.forget(self, name: name, version: version)
             throw WamrRegistry.failure(status)
         }
@@ -364,8 +364,8 @@ public final class WamrRegistry: @unchecked Sendable {
 
     /// Removes the contract and waits for the forward calls routed to its host.
     public func unregister(name: String, version: String) throws {
-        let status = ext_registry_unregister(handle, name, version)
-        if status != ext_status(EXT_OK) { throw WamrRegistry.failure(status) }
+        let status = ext_plugin_registry_unregister(handle, name, version)
+        if status != ext_plugin_status(EXT_PLUGIN_OK) { throw WamrRegistry.failure(status) }
         lock.lock()
         let host = targets.removeValue(forKey: name + "\u{0}" + version)?.host
         lock.unlock()
@@ -375,26 +375,26 @@ public final class WamrRegistry: @unchecked Sendable {
     /// A reverse call of `fromOperation` in `from` is served by a call of `toOperation` in `to`.
     public func route(from: (name: String, version: String), fromOperation: String,
                       to: (name: String, version: String), toOperation: String) throws {
-        let status: ext_status = from.name.withCString { fn in from.version.withCString { fv in fromOperation.withCString { fo in
+        let status: ext_plugin_status = from.name.withCString { fn in from.version.withCString { fv in fromOperation.withCString { fo in
             to.name.withCString { tn in to.version.withCString { tv in toOperation.withCString { to_ in
-                var edge = ext_registry_edge(struct_size: UInt32(MemoryLayout<ext_registry_edge>.size),
+                var edge = ext_plugin_registry_edge(struct_size: UInt32(MemoryLayout<ext_plugin_registry_edge>.size),
                                              from_name: fn, from_version: fv, from_operation: fo,
                                              to_name: tn, to_version: tv, to_operation: to_)
-                return ext_registry_route(handle, &edge)
+                return ext_plugin_registry_route(handle, &edge)
             } } }
         } } }
-        if status != ext_status(EXT_OK) { throw WamrRegistry.failure(status) }
+        if status != ext_plugin_status(EXT_PLUGIN_OK) { throw WamrRegistry.failure(status) }
     }
 
     /// A target host is going away: leaves the contract, which waits for the calls routed to it.
     func leave(name: String, version: String, host: WamrPluginHost) {
-        _ = ext_registry_unregister(handle, name, version)
+        _ = ext_plugin_registry_unregister(handle, name, version)
         lock.lock()
         targets.removeValue(forKey: name + "\u{0}" + version)
         lock.unlock()
     }
 
-    static func failure(_ status: ext_status) -> WamrPluginHost.Failure {
-        WamrPluginHost.Failure(status: status, reason: ext_host_status_string(status).map { String(cString: $0) } ?? "unknown")
+    static func failure(_ status: ext_plugin_status) -> WamrPluginHost.Failure {
+        WamrPluginHost.Failure(status: status, reason: ext_plugin_host_status_string(status).map { String(cString: $0) } ?? "unknown")
     }
 }

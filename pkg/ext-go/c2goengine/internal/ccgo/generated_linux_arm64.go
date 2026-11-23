@@ -35986,7 +35986,7 @@ func dispatch(tls *libc.TLS, op uintptr, v uintptr, out uintptr) (r1 ext_plugin_
 	return output(tls, *(*uintptr)(unsafe.Add(nil, bp+128)), out)
 }
 
-func ext_plugin_call(tls *libc.TLS, operation uintptr, input uintptr, len1 size_t, out uintptr) (r ext_plugin_status) {
+func ext_plugin_services_call(tls *libc.TLS, operation uintptr, input uintptr, len1 size_t, out uintptr) (r ext_plugin_status) {
 	var doc uintptr
 	var s ext_plugin_status
 	_, _ = doc, s

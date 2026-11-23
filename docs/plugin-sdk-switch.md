@@ -29,7 +29,7 @@ smaller one for Swift and Java, which already delegate the part that is easiest 
 - **Dispatch (`ext_guest_*`)**: an immutable descriptor, request validation against it,
   deadlines, owned buffers, error sanitization, and the `invalid_request` answer. Bound in Go,
   Rust, Zig, Node, Swift and Java.
-- **Services by name (`ext_plugin_call`)**: `descriptor.validate/match/select/requirements`,
+- **Services by name (`ext_plugin_services_call`)**: `descriptor.validate/match/select/requirements`,
   `request.validate`, `response.validate`, `frame.validate`, `schema.validate/check`,
   `endpoint.check/validate`, `protocol.negotiate`, `route.resolve`. These are the rules a guest
   SDK re-implements in `wire.*` today.
@@ -140,7 +140,7 @@ The owner asked for the best call to be made. This is it, with what would change
 ## First step: Zig
 
 1. `pkg/ext-zig/build.zig` compiles the ten guest sources with `addCSourceFiles` and exposes the
-   engine services (`ext_plugin_call`) to the SDK.
+   engine services (`ext_plugin_services_call`) to the SDK.
 2. `wire.zig` calls them for `descriptor.validate`, `descriptor.match`, `request.validate` and
    `response.validate` in place of its own copies (`validate`, `match`, `validateRequest`); the
    typed decoding it also holds stays.

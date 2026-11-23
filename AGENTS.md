@@ -105,7 +105,7 @@ walking up (`host/internal/fixtures`) and skip when run without the repository.
 share. Nothing lives at that level. `lib/plugin` is the portable C plugin
 engine, built with CMake; all its public names are in the `ext_plugin_` name space with the side next
 (`ext_plugin_host_*` for the host ABI, `ext_plugin_guest_*` for the guest ABI and the C guest API,
-`ext_plugin_store_*`, `ext_plugin_call`; see its README): it is not a Go module, has no `go.mod` and is not
+`ext_plugin_store_*`, `ext_plugin_services_call`; see its README): it is not a Go module, has no `go.mod` and is not
 listed in `go.work`. Its only third-party code is in `lib/plugin/vendor`,
 pinned by version and SHA-256 with its licence beside it: the yyjson parser and
 the inflate decoder of miniz (`vendor/miniz`), which the package store's

@@ -25,12 +25,24 @@ side comes next, so the host and the guest never meet and no other library of `l
 | `ext_plugin_guest_*` (exports) | [`ext_plugin_guest.h`](include/ext_plugin_guest.h) | the guest ABI a plugin built as a C shared library (or a `.wasm`) exports: `abi_version`, `open`, `call`, `close`, and on wasm `alloc` and `free` |
 | `ext_plugin_guest_*` (functions) | [`ext_plugin_author.h`](include/ext_plugin_author.h) | the C guest authoring API (`create`, `descriptor`, `invoke`, `emit`, ...) |
 | `ext_plugin_instance_*`, `ext_plugin_instances_*`, `ext_plugin_stream_*`, `ext_plugin_streams_*` | [`ext_plugin_instance.h`](include/ext_plugin_instance.h), [`ext_plugin_stream.h`](include/ext_plugin_stream.h) | instance leases and pull streams |
-| `ext_plugin_call`, `ext_plugin_sha256` | `ext_plugin_host.h` | the engine's pure services by name on JSON, and its digest |
+| `ext_plugin_open`, `ext_plugin_call`, `ext_plugin_close`, `ext_plugin_abi_version`, `ext_plugin_free`, `ext_plugin_code_name` | `ext_plugin_host.h` | the library interface: the engine's objects behind four functions, as every library of `lib/` has |
+| `ext_plugin_services_call`, `ext_plugin_sha256` | `ext_plugin_host.h` | the engine's pure services by name on JSON (also handle 0 of the library interface), and its digest |
 | `ext_plugin_buffer`, `ext_plugin_status`, `EXT_PLUGIN_OK` ... | `ext_plugin_host.h` | the shared buffer, status type and status codes |
 
 The libraries are `libext_plugin_host` and `libext_plugin_guest` (static: `ext_plugin_host_static`,
 `ext_plugin_guest_static`) and the CMake package is `find_package(ext_plugin)` with the targets
 `EXT::host` and `EXT::guest`.
+
+## The library interface
+
+The engine's objects are also reachable through four functions, as every library of `lib/` has, so
+a binding binds these and nothing else (ext-go's purego, cgo and ccgo drivers do): `ext_plugin_open`
+opens an object from a JSON config and returns a handle, `ext_plugin_call` runs an operation by name
+with a JSON object in and a JSON value out, and `ext_plugin_close` frees it. Handle 0 is the library
+itself: every service of `ext_plugin_services_call` ([services.md](services.md)), and the digests and
+trust records. So far the objects are the package store and the layered view; host sessions follow,
+with the policy, progress and reverse-call callbacks turned into events the binding polls and answers.
+`include/ext_plugin_host.h` lists the configs and operations.
 
 ## What is implemented
 

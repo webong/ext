@@ -531,7 +531,7 @@ static ext_plugin_status dispatch(const char *op, yyjson_val *v, ext_plugin_buff
     return EXT_PLUGIN_UNSUPPORTED;
   return output(result, out);
 }
-ext_plugin_status ext_plugin_call(const char *operation, const uint8_t *input,
+ext_plugin_status ext_plugin_services_call(const char *operation, const uint8_t *input,
                            size_t len, ext_plugin_buffer *out) {
   if (!out)
     return EXT_PLUGIN_INVALID;

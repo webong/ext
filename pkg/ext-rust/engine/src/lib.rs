@@ -729,7 +729,9 @@ impl Drop for Guest {
 /// Run a pure bounded JSON engine service; see lib/plugin/services.md.
 pub fn service(operation: &str, input: &[u8]) -> Result<Vec<u8>, Error> {
     let name = cstring(operation)?;
-    output(|out| unsafe { ffi::ext_plugin_call(name.as_ptr(), input.as_ptr(), input.len(), out) })
+    output(|out| unsafe {
+        ffi::ext_plugin_services_call(name.as_ptr(), input.as_ptr(), input.len(), out)
+    })
 }
 pub fn sha256(input: &[u8]) -> [u8; 32] {
     let mut out = [0; 32];

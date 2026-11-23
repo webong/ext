@@ -1,4 +1,4 @@
-//! The C engine's services (`ext_plugin_call`), for the rules a guest SDK must not keep a copy of:
+//! The C engine's services (`ext_plugin_services_call`), for the rules a guest SDK must not keep a copy of:
 //! descriptor and request validation, the schema vocabulary, frames. The engine is compiled from
 //! source by build.zig, so there is no library to install.
 const std = @import("std");
@@ -23,7 +23,7 @@ pub fn check(status: ffi.ext_plugin_status) Error!void {
 pub fn service(a: std.mem.Allocator, operation: [:0]const u8, input: []const u8) Error![]u8 {
     var out: ffi.ext_plugin_buffer = .{ .data = null, .len = 0 };
     defer ffi.ext_plugin_buffer_free(&out);
-    try check(ffi.ext_plugin_call(operation.ptr, input.ptr, input.len, &out));
+    try check(ffi.ext_plugin_services_call(operation.ptr, input.ptr, input.len, &out));
     return a.dupe(u8, if (out.len == 0) &.{} else out.data[0..out.len]) catch error.OutOfMemory;
 }
 

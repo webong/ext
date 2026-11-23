@@ -909,7 +909,7 @@ static napi_value service(napi_env env, napi_callback_info info) {
   char *op = string(env, args[0], &on), *input = string(env, args[1], &n);
   ext_plugin_buffer out = {0};
   ext_plugin_status status = op && strlen(op) == on && input
-                          ? ext_plugin_call(op, (uint8_t *)input, n, &out)
+                          ? ext_plugin_services_call(op, (uint8_t *)input, n, &out)
                           : EXT_PLUGIN_INVALID;
   free(op);
   free(input);

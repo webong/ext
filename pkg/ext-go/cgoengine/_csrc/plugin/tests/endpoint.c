@@ -13,7 +13,7 @@
 
 static ext_plugin_status call(const char *operation, const char *json) {
   ext_plugin_buffer out = {0};
-  ext_plugin_status s = ext_plugin_call(operation, (const uint8_t *)json, strlen(json), &out);
+  ext_plugin_status s = ext_plugin_services_call(operation, (const uint8_t *)json, strlen(json), &out);
   ext_plugin_buffer_free(&out);
   return s;
 }

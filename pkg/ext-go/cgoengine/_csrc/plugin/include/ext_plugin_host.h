@@ -727,9 +727,39 @@ EXT_PLUGIN_HOST_API ext_plugin_status ext_plugin_layered_list_unverified(ext_plu
  * filesystem access, discovery or authorization. Returns an owned JSON value.
  * See services.md for operations and schemas. Free output with ext_plugin_buffer_free.
  */
-EXT_PLUGIN_HOST_API ext_plugin_status ext_plugin_call(const char *operation,
+EXT_PLUGIN_HOST_API ext_plugin_status ext_plugin_services_call(const char *operation,
                                         const uint8_t *input, size_t input_len,
                                         ext_plugin_buffer *out);
+/* ---- the library interface ----
+ * The engine's objects behind four functions, as every library of lib/ has, so a binding in any
+ * language binds these and nothing else; the typed functions above stay for C callers.
+ *
+ * ext_plugin_open opens an object from a JSON config and returns its handle:
+ *   {"object":"store","root":"...","limits":{"max_artifact_bytes","max_tree_files","max_tree_bytes"}}
+ *   {"object":"layered","roots":["...", ...],"limits":{...}}
+ * ext_plugin_call runs one operation on a handle with a JSON object in and a JSON value out (free
+ * *out with ext_plugin_free); handle 0 is the library itself:
+ *   0        every service of ext_plugin_services_call (services.md), with the same input;
+ *            directory_digest {root}, artifact_digest {root, path, tree}, store_digest {root, id},
+ *            package_verify {manifest, root}, trust_state and trust_record {path, scope, id, digest},
+ *            trust_revoke {path, scope, id}, code_name {code}; digests are lowercase hex strings
+ *   store    install, upgrade and replace {source, preserve_executable}, install_archive {archive,
+ *            sha256, id, preserve_executable, max_archive_bytes}, remove {id}, load {id},
+ *            receipt {id}, ids, list, verify, list_unverified, resolve_entrypoint {id, contract,
+ *            version, protocol, reviewed_digest, os, arch}
+ *   layered  load {id} ({"layer","manifest"}), list, verify, list_unverified
+ * An operation that returns nothing returns null; an unknown one is EXT_PLUGIN_UNSUPPORTED and an
+ * unknown or closed handle EXT_PLUGIN_NOT_FOUND. ext_plugin_close frees an object once no call
+ * holds it. Handles are never reused. */
+#define EXT_PLUGIN_ABI_VERSION 1u
+EXT_PLUGIN_HOST_API uint32_t ext_plugin_abi_version(void);
+EXT_PLUGIN_HOST_API ext_plugin_status ext_plugin_open(const char *config, size_t len, uint64_t *handle);
+EXT_PLUGIN_HOST_API ext_plugin_status ext_plugin_call(uint64_t handle, const char *op, const char *input,
+                                                      size_t len, char **out, size_t *out_len);
+EXT_PLUGIN_HOST_API ext_plugin_status ext_plugin_close(uint64_t handle);
+EXT_PLUGIN_HOST_API void ext_plugin_free(void *p);
+/* The name of a status ("invalid", "not found", ...). */
+EXT_PLUGIN_HOST_API const char *ext_plugin_code_name(int32_t code);
 #ifdef __cplusplus
 }
 #endif

@@ -254,7 +254,7 @@ pub const Guest = struct {
 pub fn service(operation: [:0]const u8, input: []const u8) Error!Buffer {
     var out: Buffer = .{};
     errdefer out.deinit();
-    try check(ffi.ext_plugin_call(operation.ptr, input.ptr, input.len, &out.raw));
+    try check(ffi.ext_plugin_services_call(operation.ptr, input.ptr, input.len, &out.raw));
     return out;
 }
 /// Bounds on a package store: one artifact file (a file inside a tree counts

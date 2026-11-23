@@ -1,6 +1,6 @@
 # Shared engine services
 
-`ext_plugin_call(operation, input, length, &out)` runs a pure bounded JSON service.
+`ext_plugin_services_call(operation, input, length, &out)` runs a pure bounded JSON service.
 It never discovers, launches, authorizes, or changes files. Input obeys the same
 24 MiB, UTF-8, duplicate-key and nesting rules as plugin envelopes. Unknown fields
 in service-owned structures are rejected. Unknown operations return

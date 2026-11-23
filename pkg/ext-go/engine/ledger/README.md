@@ -10,6 +10,7 @@ own namespaces in one store. `ledger.NewMemory` keeps it in memory.
 | --- | --- |
 | `ledger` | The store contract and the memory store |
 | `ledgertest` | Runs the shared store fixtures in [`lib/ledger/testdata/store/v1`](../../../../lib/ledger/testdata/store/v1/README.md) against any `ledger.Store` |
+| `lib` | The library interface of `lib/ledger` in pure Go: the same objects from the same JSON configs and the same operations by name (`Open`, `Call`, `Close`), held to the C library by `tests/crosslang` (`TestTheLedgerInterfaceAgrees`). Here it serves the memory store, its watches and the library calls; the recorder, the supervisor, the collectors and the file and SQLite stores are the C library's for now |
 | `supervisor` | Generic local component processes with recovery for unexpected exits, projecting their state into a `ledger.Store` ([the supervisor](supervisor/README.md)) |
 | `recorder` | A nested module: the recorder of `res/system`'s observations and the SQLite store ([the recorder](recorder/README.md)) |
 

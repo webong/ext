@@ -129,8 +129,9 @@ the generated translations leave this repository. `lib/ledger` publishes the sam
    runs it with the cgo and the purego drivers.
 3. The library interface, in C first: done for `lib/ledger` (`ext_ledger_open`, `_call`, `_close`,
    `_abi_version`; its typed store and collector functions took the `ext_ledger_store_` and
-   `ext_ledger_collect` prefixes to free those names). Next its generic Go binding in `cengine` and the
-   same interface over `engine/ledger`, held to each other; then `lib/plugin`'s, whose sessions'
+   `ext_ledger_collect` prefixes to free those names). Its generic Go binding is `cengine/library.BindInterface`, and
+   `engine/ledger/lib` serves the same interface in pure Go (the memory store, its watches and the library
+   calls so far), held to the C one by `tests/crosslang`; then `lib/plugin`'s, whose sessions'
    callbacks become pull operations.
 4. The `ext-plugin` release publishes its citation and the ccgo translations; the first release with
    the `ext_plugin_` names (after #211) is the first a citation can name.

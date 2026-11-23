@@ -56,7 +56,7 @@ and cannot be declared.
 | `inference.provider` | `v1` | CTN | implemented in CTN | Portable schemas and fixtures in `res/int/inference/testdata/`; Go bridge in `src/ctn/inference` |
 | `model.tensor` | `v1` | CTN | implemented in CTN | JSON request/response fixtures and Go bridge in `src/ctn/model` |
 | `intelligence.perception` | `v1` | CTN | implemented in CTN | JSON fixtures and Go bridge in `src/ctn/perception` |
-| `intelligence.realtime` | `v1` | Ext (`res/int`) | implemented in Ext | Session types in `res/int/realtime`, JSON fixtures in `pkg/ext-go/realtime/testdata/v1`, and Go bridge in `pkg/ext-go/realtime` |
+| `intelligence.realtime` | `v1` | CTN | implemented in CTN | Session types in `res/int/realtime`, JSON fixtures in `src/ctn/realtime/testdata/v1`, and Go bridge in `src/ctn/realtime` |
 
 The owner's repository is `github.com/webong/cymonkey`. Its operations, as
 declared by the owner: `content.provider` has `start`, `observe`, `interpret`,

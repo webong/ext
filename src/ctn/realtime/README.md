@@ -1,6 +1,6 @@
 # Realtime plugin bridge
 
-`pkg/ext-go/realtime` binds `res/int/realtime` to the language-neutral
+`src/ctn/realtime` binds `res/int/realtime` to the language-neutral
 `intelligence.realtime/v1` Ext plugin contract. A guest provider opens one
 explicit model session per process. The host receives a session ID and can
 send text or audio, commit a turn, request a response, interrupt, send a tool

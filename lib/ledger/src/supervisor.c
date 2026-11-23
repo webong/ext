@@ -24,7 +24,7 @@ typedef struct {
 } sv_orphan;
 
 struct ext_ledger_supervisor {
-  ext_ledger *store;
+  ext_ledger_store *store;
   int64_t log_limit, lease_ms, retain;
   int require_checksum, terminate_orphans;
   char *runtime_id;
@@ -106,22 +106,22 @@ static int write_out(lj_value *v, char **out, size_t *out_len) {
   return 0;
 }
 
-static int apply(ext_ledger *store, lj_value *tx) {
+static int apply(ext_ledger_store *store, lj_value *tx) {
   if (!tx) return EXT_LEDGER_IO;
   char *text;
   size_t len;
   int rc = write_out(tx, &text, &len);
   if (rc) return rc;
-  rc = ext_ledger_apply(store, NULL, text, len, NULL, NULL);
+  rc = ext_ledger_store_apply(store, NULL, text, len, NULL, NULL);
   free(text);
   return rc;
 }
 
-static int snapshot(ext_ledger *store, lj_value **out) {
+static int snapshot(ext_ledger_store *store, lj_value **out) {
   char *text = NULL;
   size_t len = 0;
   *out = NULL;
-  int rc = ext_ledger_snapshot(store, NULL, RT, &text, &len);
+  int rc = ext_ledger_store_snapshot(store, NULL, RT, &text, &len);
   if (rc) return rc;
   int oom = 0;
   *out = lj_parse(text, len, &oom);
@@ -1061,7 +1061,7 @@ static void supervisor_free(ext_ledger_supervisor *s) {
   free(s);
 }
 
-int ext_ledger_supervisor_open(ext_ledger *store, const ext_ledger_supervisor_options *options, ext_ledger_supervisor **out) {
+int ext_ledger_supervisor_open(ext_ledger_store *store, const ext_ledger_supervisor_options *options, ext_ledger_supervisor **out) {
   if (!out) return EXT_LEDGER_INVALID;
   *out = NULL;
   if (!store) return EXT_LEDGER_INVALID; /* graph store is required */
@@ -1076,7 +1076,7 @@ int ext_ledger_supervisor_open(ext_ledger *store, const ext_ledger_supervisor_op
   if (!o.orphan_policy || !*o.orphan_policy) o.orphan_policy = "mark";
   if (strcmp(o.orphan_policy, "mark") != 0 && strcmp(o.orphan_policy, "terminate") != 0) return EXT_LEDGER_INVALID;
   static const char schema[] = "{\"namespace\":\"" RT "\",\"version\":\"1\"}";
-  int rc = ext_ledger_register(store, NULL, schema, sizeof schema - 1);
+  int rc = ext_ledger_store_register(store, NULL, schema, sizeof schema - 1);
   if (rc) return rc;
   ext_ledger_supervisor *s = calloc(1, sizeof *s);
   if (!s) return EXT_LEDGER_IO;
@@ -1403,7 +1403,7 @@ int ext_ledger_supervisor_resolve_orphan(ext_ledger_supervisor *s, const ext_led
   char *vid = join2("process/", id), *text = NULL;
   size_t len = 0;
   if (!vid) return EXT_LEDGER_IO;
-  rc = ext_ledger_get_vertex(s->store, ctx, RT, vid, &text, &len);
+  rc = ext_ledger_store_get_vertex(s->store, ctx, RT, vid, &text, &len);
   free(vid);
   if (rc) return rc;
   int oom = 0;

@@ -9,9 +9,9 @@ It is the main implementation of the ledger, which the pure-Go [`pkg/ext-go/engi
 | --- | --- |
 | Store | Done: `include/ext_ledger.h`, memory and file backends, the whole store contract |
 | SQLite backend | Done, optional (`EXT_LEDGER_SQLITE`): the `tables.json` layout, which the Go store writes too |
-| Reader | Done: `ext_ledger_open_reader`, which never locks or writes, and the `ext-ledger` command |
-| Recorder | Done for what it is given: `ext_ledger_recorder_open` and `ext_ledger_record`, shells, web origins, host inventory, processes and adapter inventory, held to `lib/ledger/testdata/recorder/v1` |
-| Collectors | Done: `ext_ledger_collect` and `ext_ledger_scan`, through each kernel's own interface, so the recorder reads the machine itself |
+| Reader | Done: `ext_ledger_store_open_reader`, which never locks or writes, and the `ext-ledger` command |
+| Recorder | Done for what it is given: `ext_ledger_recorder_open` and `ext_ledger_recorder_record`, shells, web origins, host inventory, processes and adapter inventory, held to `lib/ledger/testdata/recorder/v1` |
+| Collectors | Done: `ext_ledger_collect` and `ext_ledger_recorder_scan`, through each kernel's own interface, so the recorder reads the machine itself |
 | Supervisor | Done: `ext_ledger_supervisor_*`, held to the Go supervisor's tests |
 
 ## Platforms
@@ -50,15 +50,15 @@ optional `ext_ledger_context` for cancellation and a deadline.
 
 ```c
 ext_ledger *store;
-ext_ledger_open(NULL, "/path/to/graph", NULL, &store);
-ext_ledger_register(store, NULL, schema, strlen(schema));
+ext_ledger_store_open(NULL, "/path/to/graph", NULL, &store);
+ext_ledger_store_register(store, NULL, schema, strlen(schema));
 char *commit; size_t len;
-ext_ledger_apply(store, NULL, transaction, strlen(transaction), &commit, &len);
+ext_ledger_store_apply(store, NULL, transaction, strlen(transaction), &commit, &len);
 ext_ledger_free(commit);
-ext_ledger_close(store);
+ext_ledger_store_close(store);
 ```
 
-A watch (`ext_ledger_watch_open`, `_next`, `_close`) has no thread of its own: `_next` waits on
+A watch (`ext_ledger_store_watch_open`, `_next`, `_close`) has no thread of its own: `_next` waits on
 the store, and on a file store it also looks for other processes' commits every 150 ms.
 
 ## From a shell
@@ -120,14 +120,14 @@ nothing used it, and sandboxing has its own contracts ([the decision](../../docs
 
 ## Backends
 
-- **memory** (`ext_ledger_open_memory`): one process's state.
-- **file** (`ext_ledger_open`): a directory laid out as
+- **memory** (`ext_ledger_store_open_memory`): one process's state.
+- **file** (`ext_ledger_store_open`): a directory laid out as
   [`ledger.json`](../../lib/ledger/testdata/store/v1/ledger.json) says. An append-only log of
   framed, checksummed canonical-JSON lines and a checkpoint; an advisory lock (`flock`,
   `LockFileEx`) serialises writers, and readers never lock. Every handle keeps the state in memory
   and catches up by reading what other handles appended. Handles in one process and in many
   processes share a directory.
-- **sqlite** (`ext_ledger_open_sqlite`): optional, linked against the system's SQLite (no vendored
+- **sqlite** (`ext_ledger_store_open_sqlite`): optional, linked against the system's SQLite (no vendored
   copy); `EXT_LEDGER_UNSUPPORTED` in a build without it. One database laid out as
   [`tables.json`](../../lib/ledger/testdata/store/v1/tables.json) says, which is what the Go store
   `pkg/ext-go/engine/ledger/recorder/sqlite` writes: either opens the other's database, and

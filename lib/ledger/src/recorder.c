@@ -1,5 +1,5 @@
 /* The ext.system recorder: its environment, the helpers its observations
- * share, and the dispatch of ext_ledger_record. It writes through the public
+ * share, and the dispatch of ext_ledger_recorder_record. It writes through the public
  * store API, so it records on every backend. */
 #include "recorder.h"
 #include "collect.h"
@@ -268,7 +268,7 @@ int rec_apply(rec *r, const ext_ledger_context *ctx, lj_value *tx) {
     lj_buf_free(&b);
     return EXT_LEDGER_IO;
   }
-  int rc = ext_ledger_apply(r->store, ctx, b.ptr, b.len, NULL, NULL);
+  int rc = ext_ledger_store_apply(r->store, ctx, b.ptr, b.len, NULL, NULL);
   lj_buf_free(&b);
   return rc;
 }
@@ -276,7 +276,7 @@ int rec_apply(rec *r, const ext_ledger_context *ctx, lj_value *tx) {
 int rec_get(rec *r, const ext_ledger_context *ctx, int edge, const char *id, lj_value **out) {
   char *text = NULL;
   size_t len = 0;
-  int rc = edge ? ext_ledger_get_edge(r->store, ctx, REC_NS, id, &text, &len) : ext_ledger_get_vertex(r->store, ctx, REC_NS, id, &text, &len);
+  int rc = edge ? ext_ledger_store_get_edge(r->store, ctx, REC_NS, id, &text, &len) : ext_ledger_store_get_vertex(r->store, ctx, REC_NS, id, &text, &len);
   return parse_out(rc, text, len, out);
 }
 
@@ -294,7 +294,7 @@ int rec_query_edges(rec *r, const ext_ledger_context *ctx, const char *type, con
   lj_free(q);
   char *text = NULL;
   size_t len = 0;
-  int rc = b.oom ? EXT_LEDGER_IO : ext_ledger_query_edges(r->store, ctx, b.ptr, b.len, &text, &len);
+  int rc = b.oom ? EXT_LEDGER_IO : ext_ledger_store_query_edges(r->store, ctx, b.ptr, b.len, &text, &len);
   lj_buf_free(&b);
   return parse_out(rc, text, len, out);
 }
@@ -302,7 +302,7 @@ int rec_query_edges(rec *r, const ext_ledger_context *ctx, const char *type, con
 int rec_snapshot(rec *r, const ext_ledger_context *ctx, lj_value **out) {
   char *text = NULL;
   size_t len = 0;
-  int rc = ext_ledger_snapshot(r->store, ctx, REC_NS, &text, &len); /* before parse_out reads text and len */
+  int rc = ext_ledger_store_snapshot(r->store, ctx, REC_NS, &text, &len); /* before parse_out reads text and len */
   return parse_out(rc, text, len, out);
 }
 
@@ -322,7 +322,7 @@ int rec_equal_attributes(const lj_value *a, const lj_value *b) {
 
 /* ---- opening and dispatch ---- */
 
-int ext_ledger_recorder_open(ext_ledger *store, const ext_ledger_context *ctx, const char *environment, size_t len, ext_ledger_recorder **out) {
+int ext_ledger_recorder_open(ext_ledger_store *store, const ext_ledger_context *ctx, const char *environment, size_t len, ext_ledger_recorder **out) {
   if (out) *out = NULL;
   if (!store || !out || !environment) return EXT_LEDGER_INVALID;
   int oom = 0;
@@ -331,7 +331,7 @@ int ext_ledger_recorder_open(ext_ledger *store, const ext_ledger_context *ctx, c
   rec *r = calloc(1, sizeof *r);
   int rc = r ? env_decode(v, &r->env) : EXT_LEDGER_IO;
   lj_free(v);
-  if (!rc) rc = ext_ledger_register(store, ctx, ll_vocabulary, strlen(ll_vocabulary));
+  if (!rc) rc = ext_ledger_store_register(store, ctx, ll_vocabulary, strlen(ll_vocabulary));
   if (rc) {
     if (r) env_free(&r->env);
     free(r);
@@ -342,7 +342,7 @@ int ext_ledger_recorder_open(ext_ledger *store, const ext_ledger_context *ctx, c
   return 0;
 }
 
-int ext_ledger_recorder_open_machine(ext_ledger *store, const ext_ledger_context *ctx, ext_ledger_recorder **out) {
+int ext_ledger_recorder_open_machine(ext_ledger_store *store, const ext_ledger_context *ctx, ext_ledger_recorder **out) {
   if (out) *out = NULL;
   char *env = ll_machine_environment();
   if (!env) return EXT_LEDGER_IO;
@@ -358,7 +358,7 @@ void ext_ledger_recorder_close(ext_ledger_recorder *r) {
   free(r);
 }
 
-int ext_ledger_record(ext_ledger_recorder *r, const ext_ledger_context *ctx, const char *op, const char *input, size_t len, char **out,
+int ext_ledger_recorder_record(ext_ledger_recorder *r, const ext_ledger_context *ctx, const char *op, const char *input, size_t len, char **out,
                       size_t *out_len) {
   if (out) *out = NULL;
   if (out_len) *out_len = 0;

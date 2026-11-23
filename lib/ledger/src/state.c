@@ -394,7 +394,7 @@ int ll_state_put_idem(ll_state *s, const ll_s *ns, const ll_s *key, const ll_ide
 size_t ll_state_retained(const ll_state *s) { return s->nchanges - s->first; }
 const ll_retained *ll_state_retained_at(const ll_state *s, size_t i) { return &s->changes[s->first + i]; }
 
-uint64_t ll_state_compaction(const ll_state *s, const ext_ledger_options *o) {
+uint64_t ll_state_compaction(const ll_state *s, const ext_ledger_store_options *o) {
   size_t count = ll_state_retained(s), bytes = s->change_bytes, i = s->first;
   uint64_t floor = s->floor;
   while (count > 1 && ((int64_t)count > o->max_changes || (int64_t)bytes > o->max_change_bytes)) {

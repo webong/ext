@@ -20,7 +20,7 @@ int ll_os_exists(const char *path);
 /* Extra identity of the host environment: on Linux "\0<mnt ns>\0<user ns>", elsewhere empty.
  * It holds NULs, so its length is returned in *len. */
 char *ll_os_namespaces(size_t *len);
-/* The recorder environment of this machine, as JSON (ext_ledger_machine_environment). */
+/* The recorder environment of this machine, as JSON (ext_ledger_collect_environment). */
 char *ll_machine_environment(void);
 
 /* The digest res/system calls the host environment (identity.HostEnvironment). */

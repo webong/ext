@@ -5,12 +5,12 @@
  * of entities.schema.json; every JSON the library returns is canonical JSON.
  *
  * Backends:
- *   memory   ext_ledger_open_memory: the state of one process.
- *   file     ext_ledger_open: a directory holding an append-only log and a
+ *   memory   ext_ledger_store_open_memory: the state of one process.
+ *   file     ext_ledger_store_open: a directory holding an append-only log and a
  *            checkpoint (ledger.json), shared by processes through an advisory
  *            lock. It needs nothing beyond the C library and the OS.
- *            ext_ledger_open_reader reads one without ever writing.
- *   sqlite   ext_ledger_open_sqlite: one SQLite database laid out as
+ *            ext_ledger_store_open_reader reads one without ever writing.
+ *   sqlite   ext_ledger_store_open_sqlite: one SQLite database laid out as
  *            tables.json says. Optional: a build without EXT_LEDGER_SQLITE
  *            answers EXT_LEDGER_UNSUPPORTED.
  *
@@ -70,7 +70,7 @@ typedef struct {
   int64_t max_record_bytes;
   int64_t max_results;
   int64_t max_snapshot_records;
-} ext_ledger_options;
+} ext_ledger_store_options;
 
 /* Cancellation and a deadline for one call; NULL means neither. Set canceled to
  * non-zero from any thread. deadline_unix_ms is milliseconds since the Unix
@@ -80,48 +80,48 @@ typedef struct {
   int64_t deadline_unix_ms;
 } ext_ledger_context;
 
-typedef struct ext_ledger ext_ledger;
-typedef struct ext_ledger_watch ext_ledger_watch;
+typedef struct ext_ledger_store ext_ledger_store;
+typedef struct ext_ledger_store_watch ext_ledger_store_watch;
 
-EXT_LEDGER_API int ext_ledger_open_memory(const ext_ledger_options *options, ext_ledger **out);
-EXT_LEDGER_API int ext_ledger_open(const ext_ledger_context *ctx, const char *dir, const ext_ledger_options *options, ext_ledger **out);
+EXT_LEDGER_API int ext_ledger_store_open_memory(const ext_ledger_store_options *options, ext_ledger_store **out);
+EXT_LEDGER_API int ext_ledger_store_open(const ext_ledger_context *ctx, const char *dir, const ext_ledger_store_options *options, ext_ledger_store **out);
 /* A reader of a file store: it never locks, creates or writes anything, so it
  * also reads a directory it may not write (a read-only mount, another app's
  * shared container). Register and apply answer EXT_LEDGER_UNSUPPORTED; a
  * directory that holds no store answers EXT_LEDGER_NOT_FOUND. */
-EXT_LEDGER_API int ext_ledger_open_reader(const ext_ledger_context *ctx, const char *dir, const ext_ledger_options *options, ext_ledger **out);
-EXT_LEDGER_API int ext_ledger_open_sqlite(const ext_ledger_context *ctx, const char *path, const ext_ledger_options *options, ext_ledger **out);
+EXT_LEDGER_API int ext_ledger_store_open_reader(const ext_ledger_context *ctx, const char *dir, const ext_ledger_store_options *options, ext_ledger_store **out);
+EXT_LEDGER_API int ext_ledger_store_open_sqlite(const ext_ledger_context *ctx, const char *path, const ext_ledger_store_options *options, ext_ledger_store **out);
 /* Ends every watch and releases the store. Safe on NULL. */
-EXT_LEDGER_API void ext_ledger_close(ext_ledger *store);
+EXT_LEDGER_API void ext_ledger_store_close(ext_ledger_store *store);
 
 /* schema: the schema entity. */
-EXT_LEDGER_API int ext_ledger_register(ext_ledger *store, const ext_ledger_context *ctx, const char *schema, size_t len);
+EXT_LEDGER_API int ext_ledger_store_register(ext_ledger_store *store, const ext_ledger_context *ctx, const char *schema, size_t len);
 /* transaction: the transaction entity; *commit receives the commit entity. */
-EXT_LEDGER_API int ext_ledger_apply(ext_ledger *store, const ext_ledger_context *ctx, const char *transaction, size_t len, char **commit, size_t *commit_len);
-EXT_LEDGER_API int ext_ledger_get_vertex(ext_ledger *store, const ext_ledger_context *ctx, const char *ns, const char *id, char **out, size_t *out_len);
-EXT_LEDGER_API int ext_ledger_get_edge(ext_ledger *store, const ext_ledger_context *ctx, const char *ns, const char *id, char **out, size_t *out_len);
+EXT_LEDGER_API int ext_ledger_store_apply(ext_ledger_store *store, const ext_ledger_context *ctx, const char *transaction, size_t len, char **commit, size_t *commit_len);
+EXT_LEDGER_API int ext_ledger_store_get_vertex(ext_ledger_store *store, const ext_ledger_context *ctx, const char *ns, const char *id, char **out, size_t *out_len);
+EXT_LEDGER_API int ext_ledger_store_get_edge(ext_ledger_store *store, const ext_ledger_context *ctx, const char *ns, const char *id, char **out, size_t *out_len);
 /* query: the vertex or edge query entity; *out receives a JSON array in ID order. */
-EXT_LEDGER_API int ext_ledger_query_vertices(ext_ledger *store, const ext_ledger_context *ctx, const char *query, size_t len, char **out, size_t *out_len);
-EXT_LEDGER_API int ext_ledger_query_edges(ext_ledger *store, const ext_ledger_context *ctx, const char *query, size_t len, char **out, size_t *out_len);
+EXT_LEDGER_API int ext_ledger_store_query_vertices(ext_ledger_store *store, const ext_ledger_context *ctx, const char *query, size_t len, char **out, size_t *out_len);
+EXT_LEDGER_API int ext_ledger_store_query_edges(ext_ledger_store *store, const ext_ledger_context *ctx, const char *query, size_t len, char **out, size_t *out_len);
 /* *out receives a JSON array of paths. */
-EXT_LEDGER_API int ext_ledger_traverse(ext_ledger *store, const ext_ledger_context *ctx, const char *ns, const char *start, int64_t max_depth, int64_t max_vertices, char **out, size_t *out_len);
-EXT_LEDGER_API int ext_ledger_snapshot(ext_ledger *store, const ext_ledger_context *ctx, const char *ns, char **out, size_t *out_len);
+EXT_LEDGER_API int ext_ledger_store_traverse(ext_ledger_store *store, const ext_ledger_context *ctx, const char *ns, const char *start, int64_t max_depth, int64_t max_vertices, char **out, size_t *out_len);
+EXT_LEDGER_API int ext_ledger_store_snapshot(ext_ledger_store *store, const ext_ledger_context *ctx, const char *ns, char **out, size_t *out_len);
 /* ns may be "" for every namespace; *out receives a JSON array of changes. */
-EXT_LEDGER_API int ext_ledger_changes(ext_ledger *store, const ext_ledger_context *ctx, const char *ns, uint64_t after, int64_t limit, char **out, size_t *out_len);
+EXT_LEDGER_API int ext_ledger_store_changes(ext_ledger_store *store, const ext_ledger_context *ctx, const char *ns, uint64_t after, int64_t limit, char **out, size_t *out_len);
 
 /* A watch replays the retained changes after the cursor and then delivers later
  * commits in cursor order. It ends when its buffer fills, the store closes or
  * its cursor falls below the history floor; the consumer resumes from the last
  * cursor it processed. */
-EXT_LEDGER_API int ext_ledger_watch_open(ext_ledger *store, const ext_ledger_context *ctx, const char *ns, uint64_t after, int64_t buffer, ext_ledger_watch **out);
+EXT_LEDGER_API int ext_ledger_store_watch_open(ext_ledger_store *store, const ext_ledger_context *ctx, const char *ns, uint64_t after, int64_t buffer, ext_ledger_store_watch **out);
 /* Waits up to timeout_ms (negative: without bound) for the next change.
  * Returns OK with the change, TIMEOUT when none came in time, and UNAVAILABLE
  * once the watch has ended and every buffered change was taken. */
-EXT_LEDGER_API int ext_ledger_watch_next(ext_ledger_watch *watch, int64_t timeout_ms, char **change, size_t *change_len);
-EXT_LEDGER_API void ext_ledger_watch_close(ext_ledger_watch *watch);
+EXT_LEDGER_API int ext_ledger_store_watch_next(ext_ledger_store_watch *watch, int64_t timeout_ms, char **change, size_t *change_len);
+EXT_LEDGER_API void ext_ledger_store_watch_close(ext_ledger_store_watch *watch);
 
 /* The canonical JSON and the fingerprint (lowercase hex SHA-256) of a transaction. */
-EXT_LEDGER_API int ext_ledger_canonical_transaction(const char *transaction, size_t len, char **canonical, size_t *canonical_len, char fingerprint[65]);
+EXT_LEDGER_API int ext_ledger_store_canonical_transaction(const char *transaction, size_t len, char **canonical, size_t *canonical_len, char fingerprint[65]);
 
 /* ---- the ext.system recorder ----
  * The recorder projects observations of a machine (shell sessions, web
@@ -135,11 +135,11 @@ typedef struct ext_ledger_recorder ext_ledger_recorder;
  * architecture, parent_pid, working_directory, variables, paths,
  * host_environment): what the recorder would otherwise read from the machine.
  * The store must outlive the recorder. */
-EXT_LEDGER_API int ext_ledger_recorder_open(ext_ledger *store, const ext_ledger_context *ctx, const char *environment, size_t len,
+EXT_LEDGER_API int ext_ledger_recorder_open(ext_ledger_store *store, const ext_ledger_context *ctx, const char *environment, size_t len,
                                             ext_ledger_recorder **out);
 /* A recorder of this machine: its environment is read from the OS, the clock
  * and the filesystem are read when each observation is made. */
-EXT_LEDGER_API int ext_ledger_recorder_open_machine(ext_ledger *store, const ext_ledger_context *ctx, ext_ledger_recorder **out);
+EXT_LEDGER_API int ext_ledger_recorder_open_machine(ext_ledger_store *store, const ext_ledger_context *ctx, ext_ledger_recorder **out);
 EXT_LEDGER_API void ext_ledger_recorder_close(ext_ledger_recorder *recorder);
 
 /* Runs one recorder operation: observe_shell, observe_web, observe_host,
@@ -148,7 +148,7 @@ EXT_LEDGER_API void ext_ledger_recorder_close(ext_ledger_recorder *recorder);
  * operation's JSON object (NULL or empty for none). An observation the recorder
  * refuses is EXT_LEDGER_INVALID; an operation this build does not have is
  * EXT_LEDGER_UNSUPPORTED. */
-EXT_LEDGER_API int ext_ledger_record(ext_ledger_recorder *recorder, const ext_ledger_context *ctx, const char *op, const char *input, size_t len,
+EXT_LEDGER_API int ext_ledger_recorder_record(ext_ledger_recorder *recorder, const ext_ledger_context *ctx, const char *op, const char *input, size_t len,
                                      char **out, size_t *out_len);
 
 /* ---- the collectors ----
@@ -164,9 +164,9 @@ EXT_LEDGER_API int ext_ledger_record(ext_ledger_recorder *recorder, const ext_le
  * takes "processes" or "host". */
 EXT_LEDGER_API int ext_ledger_collect(const ext_ledger_context *ctx, const char *what, char **out, size_t *out_len);
 /* Collects what and records it through the recorder's observation of it. */
-EXT_LEDGER_API int ext_ledger_scan(ext_ledger_recorder *recorder, const ext_ledger_context *ctx, const char *what);
+EXT_LEDGER_API int ext_ledger_recorder_scan(ext_ledger_recorder *recorder, const ext_ledger_context *ctx, const char *what);
 /* The recorder environment of this machine, the JSON ext_ledger_recorder_open takes. */
-EXT_LEDGER_API int ext_ledger_machine_environment(char **out, size_t *out_len);
+EXT_LEDGER_API int ext_ledger_collect_environment(char **out, size_t *out_len);
 
 /* The ext.system schema the recorder registers, as canonical JSON. */
 EXT_LEDGER_API const char *ext_ledger_recorder_vocabulary(void);
@@ -198,7 +198,7 @@ typedef struct {
 /* Registers ext.runtime on store and recovers what an earlier supervisor of the
  * runtime left: EXT_LEDGER_BUSY when one still holds a live lease. The store
  * must outlive the supervisor. */
-EXT_LEDGER_API int ext_ledger_supervisor_open(ext_ledger *store, const ext_ledger_supervisor_options *options, ext_ledger_supervisor **out);
+EXT_LEDGER_API int ext_ledger_supervisor_open(ext_ledger_store *store, const ext_ledger_supervisor_options *options, ext_ledger_supervisor **out);
 /* Stops every instance, waits for them, and frees the supervisor. */
 EXT_LEDGER_API void ext_ledger_supervisor_close(ext_ledger_supervisor *sup);
 

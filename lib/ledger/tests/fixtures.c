@@ -42,9 +42,9 @@ static double num_field(const lj_value *o, const char *key) {
   return v && v->type == LJ_NUMBER ? v->u.number : 0;
 }
 
-static ext_ledger_options options_of(const lj_value *c) {
+static ext_ledger_store_options options_of(const lj_value *c) {
   const lj_value *o = lj_get(c, "options");
-  ext_ledger_options opts = {0};
+  ext_ledger_store_options opts = {0};
   opts.max_changes = (int64_t)num_field(o, "max_changes");
   opts.max_change_bytes = (int64_t)num_field(o, "max_change_bytes");
   opts.max_transaction_records = (int64_t)num_field(o, "max_transaction_records");
@@ -57,69 +57,69 @@ static ext_ledger_options options_of(const lj_value *c) {
 typedef enum { B_MEMORY, B_FILE, B_SQLITE } backend;
 static const char *const backend_names[] = {"memory", "file", "sqlite"};
 
-static int open_store(backend b, const char *dir, const ext_ledger_options *o, ext_ledger **out) {
-  if (b == B_MEMORY) return ext_ledger_open_memory(o, out);
+static int open_store(backend b, const char *dir, const ext_ledger_store_options *o, ext_ledger_store **out) {
+  if (b == B_MEMORY) return ext_ledger_store_open_memory(o, out);
   if (b == B_SQLITE) {
     char path[1300];
     snprintf(path, sizeof path, "%s/graph.db", dir);
-    return ext_ledger_open_sqlite(NULL, path, o, out);
+    return ext_ledger_store_open_sqlite(NULL, path, o, out);
   }
-  return ext_ledger_open(NULL, dir, o, out);
+  return ext_ledger_store_open(NULL, dir, o, out);
 }
 
-static int run_watch(ext_ledger *s, const lj_value *st, char **out, size_t *out_len) {
+static int run_watch(ext_ledger_store *s, const lj_value *st, char **out, size_t *out_len) {
   const lj_value *expect = lj_get(st, "expect");
   size_t want = expect && expect->type == LJ_ARRAY ? expect->u.array.len : 0;
-  ext_ledger_watch *w;
-  int rc = ext_ledger_watch_open(s, NULL, str_field(st, "namespace"), (uint64_t)num_field(st, "after"), (int64_t)num_field(st, "buffer"), &w);
+  ext_ledger_store_watch *w;
+  int rc = ext_ledger_store_watch_open(s, NULL, str_field(st, "namespace"), (uint64_t)num_field(st, "after"), (int64_t)num_field(st, "buffer"), &w);
   if (rc) return rc;
   lj_buf b = {0};
   lj_buf_putc(&b, '[');
   for (size_t i = 0; i < want; i++) {
     char *change;
     size_t len;
-    if (ext_ledger_watch_next(w, 2000, &change, &len)) break;
+    if (ext_ledger_store_watch_next(w, 2000, &change, &len)) break;
     if (i) lj_buf_putc(&b, ',');
     lj_buf_put(&b, change, len);
     ext_ledger_free(change);
   }
   lj_buf_putc(&b, ']');
-  ext_ledger_watch_close(w);
+  ext_ledger_store_watch_close(w);
   *out = lj_buf_take(&b, out_len);
   return 0;
 }
 
-static int run_step(ext_ledger *s, const lj_value *st, char **out, size_t *out_len) {
+static int run_step(ext_ledger_store *s, const lj_value *st, char **out, size_t *out_len) {
   const char *op = str_field(st, "op");
   *out = NULL;
   size_t len;
   int rc;
   if (strcmp(op, "register") == 0) {
     char *text = to_text(lj_get(st, "schema"), &len);
-    rc = ext_ledger_register(s, NULL, text, len);
+    rc = ext_ledger_store_register(s, NULL, text, len);
     free(text);
     return rc;
   }
   if (strcmp(op, "apply") == 0) {
     char *text = to_text(lj_get(st, "transaction"), &len);
-    rc = ext_ledger_apply(s, NULL, text, len, out, out_len);
+    rc = ext_ledger_store_apply(s, NULL, text, len, out, out_len);
     free(text);
     return rc;
   }
-  if (strcmp(op, "get_vertex") == 0) return ext_ledger_get_vertex(s, NULL, str_field(st, "namespace"), str_field(st, "id"), out, out_len);
-  if (strcmp(op, "get_edge") == 0) return ext_ledger_get_edge(s, NULL, str_field(st, "namespace"), str_field(st, "id"), out, out_len);
+  if (strcmp(op, "get_vertex") == 0) return ext_ledger_store_get_vertex(s, NULL, str_field(st, "namespace"), str_field(st, "id"), out, out_len);
+  if (strcmp(op, "get_edge") == 0) return ext_ledger_store_get_edge(s, NULL, str_field(st, "namespace"), str_field(st, "id"), out, out_len);
   if (strcmp(op, "query_vertices") == 0 || strcmp(op, "query_edges") == 0) {
     char *text = to_text(lj_get(st, "query"), &len);
-    rc = op[6] == 'v' ? ext_ledger_query_vertices(s, NULL, text, len, out, out_len) : ext_ledger_query_edges(s, NULL, text, len, out, out_len);
+    rc = op[6] == 'v' ? ext_ledger_store_query_vertices(s, NULL, text, len, out, out_len) : ext_ledger_store_query_edges(s, NULL, text, len, out, out_len);
     free(text);
     return rc;
   }
   if (strcmp(op, "traverse") == 0)
-    return ext_ledger_traverse(s, NULL, str_field(st, "namespace"), str_field(st, "start"), (int64_t)num_field(st, "max_depth"),
+    return ext_ledger_store_traverse(s, NULL, str_field(st, "namespace"), str_field(st, "start"), (int64_t)num_field(st, "max_depth"),
                                (int64_t)num_field(st, "max_vertices"), out, out_len);
-  if (strcmp(op, "snapshot") == 0) return ext_ledger_snapshot(s, NULL, str_field(st, "namespace"), out, out_len);
+  if (strcmp(op, "snapshot") == 0) return ext_ledger_store_snapshot(s, NULL, str_field(st, "namespace"), out, out_len);
   if (strcmp(op, "changes") == 0)
-    return ext_ledger_changes(s, NULL, str_field(st, "namespace"), (uint64_t)num_field(st, "after"), (int64_t)num_field(st, "limit"), out, out_len);
+    return ext_ledger_store_changes(s, NULL, str_field(st, "namespace"), (uint64_t)num_field(st, "after"), (int64_t)num_field(st, "limit"), out, out_len);
   if (strcmp(op, "watch") == 0) return run_watch(s, st, out, out_len);
   fprintf(stderr, "unknown op %s\n", op);
   exit(2);
@@ -129,9 +129,9 @@ static void run_case(const lj_value *c, backend b) {
   const char *name = str_field(c, "name");
   const lj_value *durable = lj_get(c, "durable");
   if (b == B_MEMORY && durable && durable->type == LJ_BOOL && durable->u.boolean) return;
-  ext_ledger_options o = options_of(c);
+  ext_ledger_store_options o = options_of(c);
   char *dir = temp_path("case");
-  ext_ledger *s;
+  ext_ledger_store *s;
   int rc = open_store(b, dir, &o, &s);
   if (rc) {
     fprintf(stderr, "FAIL %s [%s]: open: %s\n", name, backend_names[b], ext_ledger_code_name(rc));
@@ -144,7 +144,7 @@ static void run_case(const lj_value *c, backend b) {
   for (size_t i = 0; i < steps->u.array.len; i++) {
     const lj_value *st = steps->u.array.items[i];
     if (strcmp(str_field(st, "op"), "reopen") == 0) {
-      ext_ledger_close(s);
+      ext_ledger_store_close(s);
       if ((rc = open_store(b, dir, &o, &s))) {
         fprintf(stderr, "FAIL %s [%s]: step %zu: reopen: %s\n", name, backend_names[b], i, ext_ledger_code_name(rc));
         failures++;
@@ -183,7 +183,7 @@ static void run_case(const lj_value *c, backend b) {
     }
     ext_ledger_free(out);
   }
-  ext_ledger_close(s);
+  ext_ledger_store_close(s);
   remove_store(dir);
   free(dir);
 }
@@ -196,7 +196,7 @@ static void run_fingerprints(void) {
     size_t len, clen;
     char *text = to_text(lj_get(c, "transaction"), &len);
     char *canonical, fp[65];
-    int rc = ext_ledger_canonical_transaction(text, len, &canonical, &clen, fp);
+    int rc = ext_ledger_store_canonical_transaction(text, len, &canonical, &clen, fp);
     free(text);
     if (rc || strcmp(canonical, str_field(c, "canonical")) != 0 || strcmp(fp, str_field(c, "sha256")) != 0) {
       fprintf(stderr, "FAIL fingerprint %s:\n  got  %s %s\n  want %s %s\n", str_field(c, "name"), rc ? ext_ledger_code_name(rc) : canonical,

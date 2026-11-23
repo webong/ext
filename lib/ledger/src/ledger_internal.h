@@ -135,9 +135,9 @@ int ll_change_decode(const lj_value *v, ll_change **out);
 /* ---- rules (rules.json) ---- */
 int ll_check_name(const char *s, size_t n);
 int ll_qualified(const ll_s *ns, const ll_s *name);
-int ll_check_tx(const ll_tx *t, const ext_ledger_options *o);
-ext_ledger_options ll_options_defaults(const ext_ledger_options *o);
-int ll_check_limit(int64_t limit, const ext_ledger_options *o);
+int ll_check_tx(const ll_tx *t, const ext_ledger_store_options *o);
+ext_ledger_store_options ll_options_defaults(const ext_ledger_store_options *o);
+int ll_check_limit(int64_t limit, const ext_ledger_store_options *o);
 
 /* ---- a string-keyed hash map ---- */
 typedef struct {
@@ -204,7 +204,7 @@ int ll_state_put(ll_state *s, ll_record *r);
 /* Loads an idempotency record of a retained commit. */
 int ll_state_put_idem(ll_state *s, const ll_s *ns, const ll_s *key, const ll_idem *idem);
 /* The floor compaction would move to under the bounds; equal to s->floor when none. */
-uint64_t ll_state_compaction(const ll_state *s, const ext_ledger_options *o);
+uint64_t ll_state_compaction(const ll_state *s, const ext_ledger_store_options *o);
 void ll_state_set_floor(ll_state *s, uint64_t floor);
 const ll_idem *ll_state_idempotent(const ll_state *s, const ll_s *ns, const ll_s *key);
 size_t ll_state_retained(const ll_state *s); /* the number of retained changes */
@@ -219,9 +219,15 @@ int ll_record_id_cmp(const void *a, const void *b); /* qsort over ll_record* by 
 #include <intrin.h>
 static __inline int ll_flag_load(const volatile int *p) { return (int)_InterlockedOr((volatile long *)p, 0); }
 static __inline void ll_flag_store(volatile int *p, int v) { _InterlockedExchange((volatile long *)p, v); }
+static __inline int ll_flag_cas(volatile int *p, int expected, int desired) {
+  return (int)_InterlockedCompareExchange((volatile long *)p, desired, expected) == expected;
+}
 #else
 static inline int ll_flag_load(const volatile int *p) { return __atomic_load_n(p, __ATOMIC_ACQUIRE); }
 static inline void ll_flag_store(volatile int *p, int v) { __atomic_store_n(p, v, __ATOMIC_RELEASE); }
+static inline int ll_flag_cas(volatile int *p, int expected, int desired) {
+  return __atomic_compare_exchange_n(p, &expected, desired, 0, __ATOMIC_ACQ_REL, __ATOMIC_ACQUIRE);
+}
 #endif
 
 /* ---- contexts ---- */

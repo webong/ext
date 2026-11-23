@@ -108,11 +108,11 @@ static lj_value *instance(ext_ledger_supervisor *s, const char *id) {
   return parse(text, len);
 }
 
-static lj_value *process_vertex(ext_ledger *store, const char *id) {
+static lj_value *process_vertex(ext_ledger_store *store, const char *id) {
   char vid[64], *text = NULL;
   size_t len = 0;
   snprintf(vid, sizeof vid, "process/%s", id);
-  if (ext_ledger_get_vertex(store, NULL, "ext.runtime", vid, &text, &len)) return NULL;
+  if (ext_ledger_store_get_vertex(store, NULL, "ext.runtime", vid, &text, &len)) return NULL;
   return parse(text, len);
 }
 
@@ -126,7 +126,7 @@ static int wait_for(pred_fn pred, void *arg) {
 
 typedef struct {
   ext_ledger_supervisor *s;
-  ext_ledger *store;
+  ext_ledger_store *store;
   const char *id, *state;
   double crashes;
 } watch;
@@ -167,16 +167,16 @@ static char *json_self(void) {
   return lj_buf_take(&b, &n);
 }
 
-static ext_ledger *memory(void) {
-  ext_ledger *store = NULL;
-  ext_ledger_open_memory(NULL, &store);
+static ext_ledger_store *memory(void) {
+  ext_ledger_store *store = NULL;
+  ext_ledger_store_open_memory(NULL, &store);
   return store;
 }
 
 /* ---- the cases ---- */
 
 static void crash_restart_and_bounded_logs(void) {
-  ext_ledger *store = memory();
+  ext_ledger_store *store = memory();
   ext_ledger_supervisor_options o = {0};
   o.log_limit = 128;
   ext_ledger_supervisor *s = NULL;
@@ -208,12 +208,12 @@ static void crash_restart_and_bounded_logs(void) {
   free(id);
   free(cmd);
   ext_ledger_supervisor_close(s);
-  ext_ledger_close(store);
+  ext_ledger_store_close(store);
 }
 
 static const char secret_value[] = "never-project-this-value";
 static void lifecycle_facts_and_secret_references(void) {
-  ext_ledger *store = memory();
+  ext_ledger_store *store = memory();
   size_t blen = 0;
   char *binary = read_file(self, &blen), sum[65];
   CHECK(binary, "read the test binary");
@@ -251,22 +251,22 @@ static void lifecycle_facts_and_secret_references(void) {
     lj_free(v);
     char *snap = NULL;
     size_t slen = 0;
-    CHECK(ext_ledger_snapshot(store, NULL, "ext.runtime", &snap, &slen) == 0 && !strstr(snap, secret_value), "secret value was projected");
+    CHECK(ext_ledger_store_snapshot(store, NULL, "ext.runtime", &snap, &slen) == 0 && !strstr(snap, secret_value), "secret value was projected");
     CHECK(snap && strstr(snap, "\"connected-to/link-1\"") && strstr(snap, "\"dependency/database\"") && strstr(snap, "\"endpoint/ipc-2\""), "IPC facts missing");
     ext_ledger_free(snap);
     char eid[80], *e = NULL;
     snprintf(eid, sizeof eid, "spawned-by/%s", id);
-    CHECK(ext_ledger_get_edge(store, NULL, "ext.runtime", eid, &e, &slen) == 0, "missing spawned-by");
+    CHECK(ext_ledger_store_get_edge(store, NULL, "ext.runtime", eid, &e, &slen) == 0, "missing spawned-by");
     ext_ledger_free(e);
   }
   free(id);
   free(cmd);
   ext_ledger_supervisor_close(s);
-  ext_ledger_close(store);
+  ext_ledger_store_close(store);
 }
 
 static void stop_and_health_projection(void) {
-  ext_ledger *store = memory();
+  ext_ledger_store *store = memory();
   ext_ledger_supervisor *s = NULL;
   CHECK(ext_ledger_supervisor_open(store, NULL, &s) == 0, "open");
   char spec[4096], *cmd = json_self();
@@ -297,12 +297,12 @@ static void stop_and_health_projection(void) {
   free(id);
   free(cmd);
   ext_ledger_supervisor_close(s);
-  ext_ledger_close(store);
+  ext_ledger_store_close(store);
 }
 
 /* What Instance reports, the graph has already recorded. */
 static void instance_never_leads_graph(void) {
-  ext_ledger *store = memory();
+  ext_ledger_store *store = memory();
   ext_ledger_supervisor *s = NULL;
   CHECK(ext_ledger_supervisor_open(store, NULL, &s) == 0, "open");
   char spec[4096], *cmd = json_self();
@@ -335,11 +335,11 @@ static void instance_never_leads_graph(void) {
   free(id);
   free(cmd);
   ext_ledger_supervisor_close(s);
-  ext_ledger_close(store);
+  ext_ledger_store_close(store);
 }
 
 static void checksum_rejected_before_start(void) {
-  ext_ledger *store = memory();
+  ext_ledger_store *store = memory();
   ext_ledger_supervisor_options o = {0};
   o.require_checksum = 1;
   ext_ledger_supervisor *s = NULL;
@@ -371,11 +371,11 @@ static void checksum_rejected_before_start(void) {
   }
   free(cmd);
   ext_ledger_supervisor_close(s);
-  ext_ledger_close(store);
+  ext_ledger_store_close(store);
 }
 
 static void invalid_specs(void) {
-  ext_ledger *store = memory();
+  ext_ledger_store *store = memory();
   ext_ledger_supervisor *s = NULL;
   CHECK(ext_ledger_supervisor_open(store, NULL, &s) == 0, "open");
   const char *bad[] = {
@@ -402,7 +402,7 @@ static void invalid_specs(void) {
   o.lease_ms = 2;
   CHECK(ext_ledger_supervisor_open(store, &o, &t) == EXT_LEDGER_INVALID, "lease under 3 ms");
   ext_ledger_supervisor_close(s);
-  ext_ledger_close(store);
+  ext_ledger_store_close(store);
 }
 
 static int64_t pid_of(const lj_value *instance) { return (int64_t)number(instance, "pid"); }
@@ -418,7 +418,7 @@ static lj_value *await_state(ext_ledger_supervisor *s, const char *id, const cha
 /* The caller checks endpoints and the handshake, then reports; until then the
  * instance is running, unready and unhealthy. */
 static void caller_reports_readiness(void) {
-  ext_ledger *store = memory();
+  ext_ledger_store *store = memory();
   ext_ledger_supervisor *s = NULL;
   CHECK(ext_ledger_supervisor_open(store, NULL, &s) == 0, "open");
   char spec[4096], *cmd = json_self();
@@ -464,11 +464,11 @@ static void caller_reports_readiness(void) {
   free(id);
   free(cmd);
   ext_ledger_supervisor_close(s);
-  ext_ledger_close(store);
+  ext_ledger_store_close(store);
 }
 
 static void failed_readiness_crashes(void) {
-  ext_ledger *store = memory();
+  ext_ledger_store *store = memory();
   ext_ledger_supervisor *s = NULL;
   CHECK(ext_ledger_supervisor_open(store, NULL, &s) == 0, "open");
   char spec[4096], *cmd = json_self();
@@ -514,11 +514,11 @@ static void failed_readiness_crashes(void) {
   }
   free(id);
   ext_ledger_supervisor_close(s);
-  ext_ledger_close(store);
+  ext_ledger_store_close(store);
 }
 
-static void seed(ext_ledger *store, const char *id, int64_t lease_offset_ms) {
-  CHECK(ext_ledger_register(store, NULL, "{\"namespace\":\"ext.runtime\",\"version\":\"1\"}", 41) == 0, "register");
+static void seed(ext_ledger_store *store, const char *id, int64_t lease_offset_ms) {
+  CHECK(ext_ledger_store_register(store, NULL, "{\"namespace\":\"ext.runtime\",\"version\":\"1\"}", 41) == 0, "register");
   ll_time t = ll_time_utc(ll_time_now());
   t.sec += lease_offset_ms / 1000;
   lj_buf at = {0};
@@ -529,11 +529,11 @@ static void seed(ext_ledger *store, const char *id, int64_t lease_offset_ms) {
                    "\"attributes\":{\"runtime_id\":\"test-runtime\",\"state\":\"running\",\"pid\":%lu,\"lease_until\":%.*s}}]}",
                    id, (unsigned long)getpid_(), (int)at.len, at.ptr);
   lj_buf_free(&at);
-  CHECK(ext_ledger_apply(store, NULL, tx, (size_t)n, NULL, NULL) == 0, "seed");
+  CHECK(ext_ledger_store_apply(store, NULL, tx, (size_t)n, NULL, NULL) == 0, "seed");
 }
 
 static void expired_lease_marks_orphan_and_blocks_start(void) {
-  ext_ledger *store = memory();
+  ext_ledger_store *store = memory();
   seed(store, "old", -60000);
   ext_ledger_supervisor_options o = {0};
   o.runtime_id = "test-runtime";
@@ -558,11 +558,11 @@ static void expired_lease_marks_orphan_and_blocks_start(void) {
   CHECK(ext_ledger_supervisor_resolve_orphan(s, NULL, "none") == EXT_LEDGER_NOT_FOUND, "resolved an unknown orphan");
   free(cmd);
   ext_ledger_supervisor_close(s);
-  ext_ledger_close(store);
+  ext_ledger_store_close(store);
 }
 
 static void active_lease_rejects_second_supervisor(void) {
-  ext_ledger *store = memory();
+  ext_ledger_store *store = memory();
   seed(store, "live", 60000);
   ext_ledger_supervisor_options o = {0};
   o.runtime_id = "test-runtime";
@@ -572,13 +572,13 @@ static void active_lease_rejects_second_supervisor(void) {
   o.runtime_id = "other";
   CHECK(ext_ledger_supervisor_open(store, &o, &s) == 0, "another runtime");
   ext_ledger_supervisor_close(s);
-  ext_ledger_close(store);
+  ext_ledger_store_close(store);
 }
 
-static int count_processes(ext_ledger *store) {
+static int count_processes(ext_ledger_store *store) {
   char *snap = NULL;
   size_t len = 0;
-  if (ext_ledger_snapshot(store, NULL, "ext.runtime", &snap, &len)) return -1;
+  if (ext_ledger_store_snapshot(store, NULL, "ext.runtime", &snap, &len)) return -1;
   int n = 0;
   for (const char *p = snap; (p = strstr(p, "\"ext.runtime/process-instance\"")); p++) n++;
   ext_ledger_free(snap);
@@ -587,7 +587,7 @@ static int count_processes(ext_ledger *store) {
 
 typedef struct {
   ext_ledger_supervisor *s;
-  ext_ledger *store;
+  ext_ledger_store *store;
 } pair;
 
 static int one_kept(void *arg) {
@@ -600,7 +600,7 @@ static int one_kept(void *arg) {
 }
 
 static void terminal_instance_retention_bounds_graph(void) {
-  ext_ledger *store = memory();
+  ext_ledger_store *store = memory();
   ext_ledger_supervisor_options o = {0};
   o.retain_terminal = 1;
   ext_ledger_supervisor *s = NULL;
@@ -621,7 +621,7 @@ static void terminal_instance_retention_bounds_graph(void) {
   CHECK(wait_for(one_kept, &p), "retention: %d process vertices", count_processes(store));
   free(cmd);
   ext_ledger_supervisor_close(s);
-  ext_ledger_close(store);
+  ext_ledger_store_close(store);
 }
 
 static int exists(void *arg) {
@@ -631,7 +631,7 @@ static int exists(void *arg) {
 }
 
 static void stop_terminates_descendants(void) {
-  ext_ledger *store = memory();
+  ext_ledger_store *store = memory();
   ext_ledger_supervisor *s = NULL;
   CHECK(ext_ledger_supervisor_open(store, NULL, &s) == 0, "open");
   char *dir = temp_path("tree"), started[1400], sentinel[1400];
@@ -666,7 +666,7 @@ static void stop_terminates_descendants(void) {
   free(spec);
   free(cmd);
   ext_ledger_supervisor_close(s);
-  ext_ledger_close(store);
+  ext_ledger_store_close(store);
 }
 
 static void (*const cases[])(void) = {
@@ -683,7 +683,7 @@ int main(int argc, char **argv) {
   setvbuf(stdout, NULL, _IONBF, 0);
 #if defined(__APPLE__) && TARGET_OS_IPHONE
   /* An iOS application cannot start processes: starting one crashes it as a failed start. */
-  ext_ledger *store = memory();
+  ext_ledger_store *store = memory();
   ext_ledger_supervisor *s = NULL;
   CHECK(ext_ledger_supervisor_open(store, NULL, &s) == 0, "open");
   int rc;
@@ -692,7 +692,7 @@ int main(int argc, char **argv) {
   CHECK(id && wait_for(instance_is, &w), "an iOS start did not fail");
   free(id);
   ext_ledger_supervisor_close(s);
-  ext_ledger_close(store);
+  ext_ledger_store_close(store);
   (void)cases;
 #else
   for (size_t i = 0; i < sizeof cases / sizeof *cases; i++) cases[i]();

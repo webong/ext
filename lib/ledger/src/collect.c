@@ -174,7 +174,7 @@ int ext_ledger_collect(const ext_ledger_context *ctx, const char *what, char **o
   return 0;
 }
 
-int ext_ledger_scan(ext_ledger_recorder *r, const ext_ledger_context *ctx, const char *what) {
+int ext_ledger_recorder_scan(ext_ledger_recorder *r, const ext_ledger_context *ctx, const char *what) {
   if (!r || !what) return EXT_LEDGER_INVALID;
   lj_value *v;
   int rc = collect(ctx, what, &v);
@@ -225,7 +225,7 @@ char *ll_machine_environment(void) {
   return out;
 }
 
-int ext_ledger_machine_environment(char **out, size_t *out_len) {
+int ext_ledger_collect_environment(char **out, size_t *out_len) {
   if (!out) return EXT_LEDGER_INVALID;
   *out = ll_machine_environment();
   if (!*out) return EXT_LEDGER_IO;

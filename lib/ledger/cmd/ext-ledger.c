@@ -144,7 +144,7 @@ int main(int argc, char **argv) {
     const char *text = json_arg(p[0], &len, &owned);
     if (!text) return fail(EXT_LEDGER_IO);
     size_t clen;
-    int rc = ext_ledger_canonical_transaction(text, len, &canonical, &clen, fp);
+    int rc = ext_ledger_store_canonical_transaction(text, len, &canonical, &clen, fp);
     free(owned);
     if (rc) return fail(rc);
     printf("{\"canonical\":");
@@ -162,24 +162,24 @@ int main(int argc, char **argv) {
   if (n < 1) return bad_usage("no store directory");
   const char *dir = p[0];
   int writes = strcmp(command, "register") == 0 || strcmp(command, "apply") == 0;
-  ext_ledger *store;
+  ext_ledger_store *store;
   int rc;
   if (sqlite) {
     FILE *exists = writes ? NULL : fopen(dir, "rb");
     if (!writes && !exists) return fail(EXT_LEDGER_NOT_FOUND); /* a read creates no database */
     if (exists) fclose(exists);
-    rc = ext_ledger_open_sqlite(&ctx, dir, NULL, &store);
+    rc = ext_ledger_store_open_sqlite(&ctx, dir, NULL, &store);
   } else {
-    rc = writes ? ext_ledger_open(&ctx, dir, NULL, &store) : ext_ledger_open_reader(&ctx, dir, NULL, &store);
+    rc = writes ? ext_ledger_store_open(&ctx, dir, NULL, &store) : ext_ledger_store_open_reader(&ctx, dir, NULL, &store);
   }
   if (rc) return fail(rc);
   char *out = NULL;
   size_t len = 0;
 
   if (strcmp(command, "snapshot") == 0 && n == 2) {
-    rc = (rc = ext_ledger_snapshot(store, &ctx, p[1], &out, &len), print(rc, out, len));
+    rc = (rc = ext_ledger_store_snapshot(store, &ctx, p[1], &out, &len), print(rc, out, len));
   } else if ((strcmp(command, "get-vertex") == 0 || strcmp(command, "get-edge") == 0) && n == 3) {
-    rc = command[4] == 'v' ? ext_ledger_get_vertex(store, &ctx, p[1], p[2], &out, &len) : ext_ledger_get_edge(store, &ctx, p[1], p[2], &out, &len);
+    rc = command[4] == 'v' ? ext_ledger_store_get_vertex(store, &ctx, p[1], p[2], &out, &len) : ext_ledger_store_get_edge(store, &ctx, p[1], p[2], &out, &len);
     rc = print(rc, out, len);
   } else if ((strcmp(command, "query-vertices") == 0 || strcmp(command, "query-edges") == 0 || writes) && n == 2) {
     size_t tlen;
@@ -187,28 +187,28 @@ int main(int argc, char **argv) {
     const char *text = json_arg(p[1], &tlen, &owned);
     if (!text) rc = fail(EXT_LEDGER_IO);
     else if (strcmp(command, "register") == 0) {
-      rc = ext_ledger_register(store, &ctx, text, tlen);
+      rc = ext_ledger_store_register(store, &ctx, text, tlen);
       rc = rc ? fail(rc) : 0;
     } else if (strcmp(command, "apply") == 0) {
-      rc = (rc = ext_ledger_apply(store, &ctx, text, tlen, &out, &len), print(rc, out, len));
+      rc = (rc = ext_ledger_store_apply(store, &ctx, text, tlen, &out, &len), print(rc, out, len));
     } else if (command[6] == 'v') {
-      rc = (rc = ext_ledger_query_vertices(store, &ctx, text, tlen, &out, &len), print(rc, out, len));
+      rc = (rc = ext_ledger_store_query_vertices(store, &ctx, text, tlen, &out, &len), print(rc, out, len));
     } else {
-      rc = (rc = ext_ledger_query_edges(store, &ctx, text, tlen, &out, &len), print(rc, out, len));
+      rc = (rc = ext_ledger_store_query_edges(store, &ctx, text, tlen, &out, &len), print(rc, out, len));
     }
     free(owned);
   } else if (strcmp(command, "traverse") == 0 && n == 3) {
-    rc = (rc = ext_ledger_traverse(store, &ctx, p[1], p[2], a.depth, a.max, &out, &len), print(rc, out, len));
+    rc = (rc = ext_ledger_store_traverse(store, &ctx, p[1], p[2], a.depth, a.max, &out, &len), print(rc, out, len));
   } else if (strcmp(command, "changes") == 0 && n <= 2) {
-    rc = (rc = ext_ledger_changes(store, &ctx, n == 2 ? p[1] : "", (uint64_t)a.after, a.limit, &out, &len), print(rc, out, len));
+    rc = (rc = ext_ledger_store_changes(store, &ctx, n == 2 ? p[1] : "", (uint64_t)a.after, a.limit, &out, &len), print(rc, out, len));
   } else if (strcmp(command, "watch") == 0 && n <= 2) {
-    ext_ledger_watch *w;
-    rc = ext_ledger_watch_open(store, &ctx, n == 2 ? p[1] : "", (uint64_t)a.after, a.buffer, &w);
+    ext_ledger_store_watch *w;
+    rc = ext_ledger_store_watch_open(store, &ctx, n == 2 ? p[1] : "", (uint64_t)a.after, a.buffer, &w);
     if (rc) {
       rc = fail(rc);
     } else {
       for (;;) {
-        rc = ext_ledger_watch_next(w, 200, &out, &len);
+        rc = ext_ledger_store_watch_next(w, 200, &out, &len);
         if (rc == EXT_LEDGER_TIMEOUT) {
           if (ctx.canceled) {
             rc = 0;
@@ -222,12 +222,12 @@ int main(int argc, char **argv) {
         }
         if ((rc = print(rc, out, len))) break;
       }
-      ext_ledger_watch_close(w);
+      ext_ledger_store_watch_close(w);
     }
   } else {
-    ext_ledger_close(store);
+    ext_ledger_store_close(store);
     return bad_usage("unknown command or wrong arguments");
   }
-  ext_ledger_close(store);
+  ext_ledger_store_close(store);
   return rc;
 }

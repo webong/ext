@@ -127,13 +127,18 @@ the generated translations leave this repository. `lib/ledger` publishes the sam
 2. Done: `library.Citation`, `library.Provide` and `OpenProvided`, `cengine/fetch` and the
    `ext-go fetch` command, held to a scratch module that builds a C library, publishes it over HTTPS and
    runs it with the cgo and the purego drivers.
-3. The `ext-plugin` release publishes its citation and the ccgo translations; the first release with
+3. The library interface, in C first: done for `lib/ledger` (`ext_ledger_open`, `_call`, `_close`,
+   `_abi_version`; its typed store and collector functions took the `ext_ledger_store_` and
+   `ext_ledger_collect` prefixes to free those names). Next its generic Go binding in `cengine` and the
+   same interface over `engine/ledger`, held to each other; then `lib/plugin`'s, whose sessions'
+   callbacks become pull operations.
+4. The `ext-plugin` release publishes its citation and the ccgo translations; the first release with
    the `ext_plugin_` names (after #211) is the first a citation can name.
-4. `cgoengine` stops carrying `_csrc`: its binding compiles against declarations and links the library
+5. `cgoengine` stops carrying `_csrc`: its binding compiles against declarations and links the library
    a project fetched, and `scripts/cgoengine-sync.sh` and the drift test go. `c2goengine` keeps only its
    generator, and the committed translations and the translate jobs go; ext's own CI fetches as a project
    does.
-5. `cengine/library`: `Browse`, `Reserve` and `Borrow` for purego at run time, and `Shelve` for the
+6. `cengine/library`: `Browse`, `Reserve` and `Borrow` for purego at run time, and `Shelve` for the
    build-time drivers.
-6. The ledger: its drivers (purego first, then cgo), its release and citation, and a
+7. The ledger: its drivers (purego first, then cgo), its release and citation, and a
    `pkg/ext-go/ledger` that lists them; ctx moves onto it.

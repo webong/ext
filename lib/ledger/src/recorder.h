@@ -17,7 +17,7 @@ typedef struct {
 } rec_env;
 
 struct ext_ledger_recorder {
-  ext_ledger *store;
+  ext_ledger_store *store;
   rec_env env;
 };
 

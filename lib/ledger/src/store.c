@@ -7,18 +7,18 @@
 
 #define POLL_MS 150 /* how often a watch on a durable store looks for other writers' commits */
 
-struct ext_ledger {
+struct ext_ledger_store {
   int refs; /* the handle, and one per open watch */
   ll_mutex *mu;
   ll_cond *cond;
-  ext_ledger_options options;
+  ext_ledger_store_options options;
   ll_state state;
   ll_backend *backend; /* NULL for the memory store */
   int closed;
 };
 
-struct ext_ledger_watch {
-  ext_ledger *store;
+struct ext_ledger_store_watch {
+  ext_ledger_store *store;
   ll_s ns;
   uint64_t after; /* the cursor of the last change queued */
   int64_t buffer;
@@ -59,8 +59,8 @@ static int parse(const char *text, size_t len, lj_value **out) {
 
 /* ---- opening and closing ---- */
 
-static int make_store(const ext_ledger_options *options, ext_ledger **out) {
-  ext_ledger *s = calloc(1, sizeof *s);
+static int make_store(const ext_ledger_store_options *options, ext_ledger_store **out) {
+  ext_ledger_store *s = calloc(1, sizeof *s);
   if (!s) return EXT_LEDGER_IO;
   s->refs = 1;
   s->mu = ll_mutex_new();
@@ -77,7 +77,7 @@ static int make_store(const ext_ledger_options *options, ext_ledger **out) {
   return 0;
 }
 
-static void release(ext_ledger *s) {
+static void release(ext_ledger_store *s) {
   /* called with s->mu held; unlocks it */
   int last = --s->refs == 0;
   ll_mutex_unlock(s->mu);
@@ -89,20 +89,20 @@ static void release(ext_ledger *s) {
   free(s);
 }
 
-int ext_ledger_open_memory(const ext_ledger_options *options, ext_ledger **out) {
+int ext_ledger_store_open_memory(const ext_ledger_store_options *options, ext_ledger_store **out) {
   if (!out) return EXT_LEDGER_INVALID;
   *out = NULL;
   return make_store(options, out);
 }
 
-static int open_durable(const ext_ledger_context *ctx, const char *path, const ext_ledger_options *options, ext_ledger **out,
+static int open_durable(const ext_ledger_context *ctx, const char *path, const ext_ledger_store_options *options, ext_ledger_store **out,
                         int (*opener)(const ext_ledger_context *, const char *, ll_state *, ll_backend **)) {
   if (!out) return EXT_LEDGER_INVALID;
   *out = NULL;
   int rc = ll_ctx_check(ctx);
   if (rc) return rc;
   if (!path || !*path) return EXT_LEDGER_INVALID;
-  ext_ledger *s;
+  ext_ledger_store *s;
   if ((rc = make_store(options, &s))) return rc;
   if ((rc = opener(ctx, path, &s->state, &s->backend))) {
     ll_mutex_lock(s->mu);
@@ -121,19 +121,19 @@ static int open_reader(const ext_ledger_context *ctx, const char *dir, ll_state 
   return ll_dir_open(ctx, dir, 1, state, out);
 }
 
-int ext_ledger_open(const ext_ledger_context *ctx, const char *dir, const ext_ledger_options *options, ext_ledger **out) {
+int ext_ledger_store_open(const ext_ledger_context *ctx, const char *dir, const ext_ledger_store_options *options, ext_ledger_store **out) {
   return open_durable(ctx, dir, options, out, open_writer);
 }
 
-int ext_ledger_open_reader(const ext_ledger_context *ctx, const char *dir, const ext_ledger_options *options, ext_ledger **out) {
+int ext_ledger_store_open_reader(const ext_ledger_context *ctx, const char *dir, const ext_ledger_store_options *options, ext_ledger_store **out) {
   return open_durable(ctx, dir, options, out, open_reader);
 }
 
-int ext_ledger_open_sqlite(const ext_ledger_context *ctx, const char *path, const ext_ledger_options *options, ext_ledger **out) {
+int ext_ledger_store_open_sqlite(const ext_ledger_context *ctx, const char *path, const ext_ledger_store_options *options, ext_ledger_store **out) {
   return open_durable(ctx, path, options, out, ll_sqlite_open);
 }
 
-void ext_ledger_close(ext_ledger *s) {
+void ext_ledger_store_close(ext_ledger_store *s) {
   if (!s) return;
   ll_mutex_lock(s->mu);
   if (s->closed) { /* closing twice is a no-op */
@@ -146,7 +146,7 @@ void ext_ledger_close(ext_ledger *s) {
 }
 
 /* Takes the mutex, refuses a closed store and catches up with other writers. */
-static int begin_read(ext_ledger *s, const ext_ledger_context *ctx) {
+static int begin_read(ext_ledger_store *s, const ext_ledger_context *ctx) {
   int rc = ll_ctx_check(ctx);
   if (rc) return rc;
   ll_mutex_lock(s->mu);
@@ -163,7 +163,7 @@ static int begin_read(ext_ledger *s, const ext_ledger_context *ctx) {
 
 /* ---- writes ---- */
 
-int ext_ledger_register(ext_ledger *s, const ext_ledger_context *ctx, const char *text, size_t len) {
+int ext_ledger_store_register(ext_ledger_store *s, const ext_ledger_context *ctx, const char *text, size_t len) {
   if (!s) return EXT_LEDGER_INVALID;
   int rc = ll_ctx_check(ctx);
   if (rc) return rc;
@@ -222,7 +222,7 @@ static int fingerprint(const ll_tx *t, char out[65]) {
   return 0;
 }
 
-static int apply_locked(ext_ledger *s, const ext_ledger_context *ctx, const ll_tx *t, const char fp[65], char **out, size_t *out_len) {
+static int apply_locked(ext_ledger_store *s, const ext_ledger_context *ctx, const ll_tx *t, const char fp[65], char **out, size_t *out_len) {
   ll_namespace *ns = ll_state_ns(&s->state, LL_S(t->ns), t->ns.n);
   if (!ns) return EXT_LEDGER_NOT_FOUND;
   if (t->key.n) {
@@ -261,7 +261,7 @@ static int apply_locked(ext_ledger *s, const ext_ledger_context *ctx, const ll_t
   return rc;
 }
 
-int ext_ledger_apply(ext_ledger *s, const ext_ledger_context *ctx, const char *text, size_t len, char **out, size_t *out_len) {
+int ext_ledger_store_apply(ext_ledger_store *s, const ext_ledger_context *ctx, const char *text, size_t len, char **out, size_t *out_len) {
   if (out) *out = NULL;
   if (!s) return EXT_LEDGER_INVALID;
   int rc = ll_ctx_check(ctx);
@@ -290,7 +290,7 @@ int ext_ledger_apply(ext_ledger *s, const ext_ledger_context *ctx, const char *t
   return rc;
 }
 
-int ext_ledger_canonical_transaction(const char *text, size_t len, char **canonical, size_t *canonical_len, char fp[65]) {
+int ext_ledger_store_canonical_transaction(const char *text, size_t len, char **canonical, size_t *canonical_len, char fp[65]) {
   lj_value *v;
   int rc = parse(text, len, &v);
   if (rc) return rc;
@@ -310,7 +310,7 @@ int ext_ledger_canonical_transaction(const char *text, size_t len, char **canoni
 
 /* ---- reads ---- */
 
-static int get_record(ext_ledger *s, const ext_ledger_context *ctx, const char *ns, const char *id, int edge, char **out, size_t *out_len) {
+static int get_record(ext_ledger_store *s, const ext_ledger_context *ctx, const char *ns, const char *id, int edge, char **out, size_t *out_len) {
   if (out) *out = NULL;
   if (!s || !ns || !id || !out) return EXT_LEDGER_INVALID;
   int rc = begin_read(s, ctx);
@@ -327,11 +327,11 @@ static int get_record(ext_ledger *s, const ext_ledger_context *ctx, const char *
   return finish(&b, out, out_len);
 }
 
-int ext_ledger_get_vertex(ext_ledger *s, const ext_ledger_context *ctx, const char *ns, const char *id, char **out, size_t *out_len) {
+int ext_ledger_store_get_vertex(ext_ledger_store *s, const ext_ledger_context *ctx, const char *ns, const char *id, char **out, size_t *out_len) {
   return get_record(s, ctx, ns, id, 0, out, out_len);
 }
 
-int ext_ledger_get_edge(ext_ledger *s, const ext_ledger_context *ctx, const char *ns, const char *id, char **out, size_t *out_len) {
+int ext_ledger_store_get_edge(ext_ledger_store *s, const ext_ledger_context *ctx, const char *ns, const char *id, char **out, size_t *out_len) {
   return get_record(s, ctx, ns, id, 1, out, out_len);
 }
 
@@ -398,7 +398,7 @@ static int keep_edge(const ll_record *r, const query *q) {
          (q->to.n == 0 || ll_s_eq(&r->to, &q->to));
 }
 
-static int query_records(ext_ledger *s, const ext_ledger_context *ctx, const char *text, size_t len, int edges, char **out, size_t *out_len) {
+static int query_records(ext_ledger_store *s, const ext_ledger_context *ctx, const char *text, size_t len, int edges, char **out, size_t *out_len) {
   if (out) *out = NULL;
   if (!s || !out) return EXT_LEDGER_INVALID;
   query q;
@@ -425,11 +425,11 @@ static int query_records(ext_ledger *s, const ext_ledger_context *ctx, const cha
   return finish(&b, out, out_len);
 }
 
-int ext_ledger_query_vertices(ext_ledger *s, const ext_ledger_context *ctx, const char *text, size_t len, char **out, size_t *out_len) {
+int ext_ledger_store_query_vertices(ext_ledger_store *s, const ext_ledger_context *ctx, const char *text, size_t len, char **out, size_t *out_len) {
   return query_records(s, ctx, text, len, 0, out, out_len);
 }
 
-int ext_ledger_query_edges(ext_ledger *s, const ext_ledger_context *ctx, const char *text, size_t len, char **out, size_t *out_len) {
+int ext_ledger_store_query_edges(ext_ledger_store *s, const ext_ledger_context *ctx, const char *text, size_t len, char **out, size_t *out_len) {
   return query_records(s, ctx, text, len, 1, out, out_len);
 }
 
@@ -440,7 +440,7 @@ typedef struct {
   size_t n; /* edges; vertices hold n + 1 */
 } step;
 
-static int traverse(ext_ledger *s, const ext_ledger_context *ctx, ll_namespace *ns, const char *start, int64_t max_depth, int64_t max_vertices,
+static int traverse(ext_ledger_store *s, const ext_ledger_context *ctx, ll_namespace *ns, const char *start, int64_t max_depth, int64_t max_vertices,
                     lj_buf *b) {
   ll_record *first = ns ? ll_map_get(&ns->vertices, start, strlen(start)) : NULL;
   if (!first) return EXT_LEDGER_NOT_FOUND;
@@ -523,7 +523,7 @@ static int traverse(ext_ledger *s, const ext_ledger_context *ctx, ll_namespace *
   return rc;
 }
 
-int ext_ledger_traverse(ext_ledger *s, const ext_ledger_context *ctx, const char *ns, const char *start, int64_t max_depth, int64_t max_vertices,
+int ext_ledger_store_traverse(ext_ledger_store *s, const ext_ledger_context *ctx, const char *ns, const char *start, int64_t max_depth, int64_t max_vertices,
                         char **out, size_t *out_len) {
   if (out) *out = NULL;
   if (!s || !ns || !start || !out) return EXT_LEDGER_INVALID;
@@ -540,7 +540,7 @@ int ext_ledger_traverse(ext_ledger *s, const ext_ledger_context *ctx, const char
   return finish(&b, out, out_len);
 }
 
-int ext_ledger_snapshot(ext_ledger *s, const ext_ledger_context *ctx, const char *ns, char **out, size_t *out_len) {
+int ext_ledger_store_snapshot(ext_ledger_store *s, const ext_ledger_context *ctx, const char *ns, char **out, size_t *out_len) {
   if (out) *out = NULL;
   if (!s || !ns || !out) return EXT_LEDGER_INVALID;
   int rc = begin_read(s, ctx);
@@ -581,7 +581,7 @@ int ext_ledger_snapshot(ext_ledger *s, const ext_ledger_context *ctx, const char
 }
 
 /* The retained changes after `after` in ns ("" for all), at most limit of them. */
-static int changes_after(ext_ledger *s, const char *ns, size_t nslen, uint64_t after, int64_t limit, ll_change ***out, size_t *n) {
+static int changes_after(ext_ledger_store *s, const char *ns, size_t nslen, uint64_t after, int64_t limit, ll_change ***out, size_t *n) {
   *out = NULL;
   *n = 0;
   if (after < s->state.floor) return EXT_LEDGER_EXPIRED;
@@ -595,7 +595,7 @@ static int changes_after(ext_ledger *s, const char *ns, size_t nslen, uint64_t a
   return 0;
 }
 
-int ext_ledger_changes(ext_ledger *s, const ext_ledger_context *ctx, const char *ns, uint64_t after, int64_t limit, char **out, size_t *out_len) {
+int ext_ledger_store_changes(ext_ledger_store *s, const ext_ledger_context *ctx, const char *ns, uint64_t after, int64_t limit, char **out, size_t *out_len) {
   if (out) *out = NULL;
   if (!s || !out) return EXT_LEDGER_INVALID;
   if (!ns) ns = "";
@@ -626,8 +626,8 @@ int ext_ledger_changes(ext_ledger *s, const ext_ledger_context *ctx, const char 
 
 /* Queues the changes committed since the watch's cursor. Ends the watch when
  * they overflow its buffer or its cursor fell below the floor. */
-static int fill(ext_ledger_watch *w) {
-  ext_ledger *s = w->store;
+static int fill(ext_ledger_store_watch *w) {
+  ext_ledger_store *s = w->store;
   if (w->ended) return 0;
   if (s->closed) {
     w->ended = 1;
@@ -655,7 +655,7 @@ static int fill(ext_ledger_watch *w) {
   return 0;
 }
 
-int ext_ledger_watch_open(ext_ledger *s, const ext_ledger_context *ctx, const char *ns, uint64_t after, int64_t buffer, ext_ledger_watch **out) {
+int ext_ledger_store_watch_open(ext_ledger_store *s, const ext_ledger_context *ctx, const char *ns, uint64_t after, int64_t buffer, ext_ledger_store_watch **out) {
   if (out) *out = NULL;
   if (!s || !out) return EXT_LEDGER_INVALID;
   if (!ns) ns = "";
@@ -667,7 +667,7 @@ int ext_ledger_watch_open(ext_ledger *s, const ext_ledger_context *ctx, const ch
   rc = changes_after(s, ns, nslen, after, buffer + 1, &backlog, &n);
   if (!rc && (int64_t)n > buffer) rc = EXT_LEDGER_TOO_LARGE;
   free(backlog);
-  ext_ledger_watch *w = NULL;
+  ext_ledger_store_watch *w = NULL;
   if (!rc) {
     w = calloc(1, sizeof *w);
     if (!w || !(w->queue = calloc((size_t)buffer, sizeof *w->queue)) || ll_s_set(&w->ns, ns, nslen)) rc = EXT_LEDGER_IO;
@@ -693,10 +693,10 @@ int ext_ledger_watch_open(ext_ledger *s, const ext_ledger_context *ctx, const ch
   return 0;
 }
 
-int ext_ledger_watch_next(ext_ledger_watch *w, int64_t timeout_ms, char **out, size_t *out_len) {
+int ext_ledger_store_watch_next(ext_ledger_store_watch *w, int64_t timeout_ms, char **out, size_t *out_len) {
   if (out) *out = NULL;
   if (!w || !out) return EXT_LEDGER_INVALID;
-  ext_ledger *s = w->store;
+  ext_ledger_store *s = w->store;
   int64_t deadline = timeout_ms < 0 ? -1 : ll_now_unix_ms() + timeout_ms;
   ll_mutex_lock(s->mu);
   int rc = 0;
@@ -734,9 +734,9 @@ int ext_ledger_watch_next(ext_ledger_watch *w, int64_t timeout_ms, char **out, s
   return rc;
 }
 
-void ext_ledger_watch_close(ext_ledger_watch *w) {
+void ext_ledger_store_watch_close(ext_ledger_store_watch *w) {
   if (!w) return;
-  ext_ledger *s = w->store;
+  ext_ledger_store *s = w->store;
   ll_mutex_lock(s->mu);
   for (size_t i = 0; i < w->len; i++) ll_change_unref(w->queue[(w->head + i) % (size_t)w->buffer]);
   free(w->queue);

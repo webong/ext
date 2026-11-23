@@ -1,5 +1,5 @@
 // Code generated for windows/amd64 by 'ccgo -o engine.go --package-name ccgo -I csrc/shim -I csrc/src -I csrc/vendor -I csrc/include -DEXT_PLUGIN_HOST_STATIC -DEXT_PLUGIN_HOST_BUILD -Dyyjson_align(x)= -Dyyjson_inline= -Dyyjson_noinline= -U__SIZEOF_INT128__ -include csrc/shim/compat_core.h csrc/src/common.c csrc/src/wire.c csrc/src/progress.c csrc/src/reverse.c csrc/src/endpoint.c csrc/src/services.c csrc/src/guest.c csrc/src/sha256.c csrc/src/packages.c csrc/vendor/yyjson.c csrc/shim/windows.c', DO NOT EDIT.
-// c2goengine inputs sha256:962f47754ad520e9a122faa1fc58e6a9abc43eb97679d3d904bec01425621c9d
+// c2goengine inputs sha256:ff0fe04309caf6c6f9431aab15db7582681f0e2fce79e1116f2558a4e85d9b6b
 
 //go:build windows && amd64
 
@@ -101,6 +101,7 @@ const EWOULDBLOCK = 140
 const EXDEV = 18
 const EXIT_FAILURE = 1
 const EXIT_SUCCESS = 0
+const EXT_PLUGIN_ABI_VERSION = "1u"
 const EXT_PLUGIN_BACKEND_CONCURRENT = "1u"
 const EXT_PLUGIN_BACKEND_EXTENSION = "2u"
 const EXT_PLUGIN_BACKEND_EXTENSION_CONTEXT = "3u"

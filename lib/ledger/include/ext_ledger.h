@@ -244,6 +244,36 @@ EXT_LEDGER_API int ext_ledger_supervisor_orphans(ext_ledger_supervisor *sup, cha
 /* Ends an orphan's process tree, never a reused PID, and records it stopped. */
 EXT_LEDGER_API int ext_ledger_supervisor_resolve_orphan(ext_ledger_supervisor *sup, const ext_ledger_context *ctx, const char *id);
 
+/* ---- the library interface ----
+ * Every object of the ledger behind four functions, so a binding in any language binds these and
+ * nothing else; the typed functions above stay for C callers.
+ *
+ * ext_ledger_open opens an object from a JSON config and returns its handle:
+ *   {"object":"store","backend":"memory"|"file"|"reader"|"sqlite","path":"...","options":{"max_changes":...}}
+ *   {"object":"watch","store":<handle>,"namespace":"","after":0,"buffer":0}
+ *   {"object":"recorder","store":<handle>,"environment":{...}} or {"object":"recorder","store":<handle>,"machine":true}
+ *   {"object":"supervisor","store":<handle>,"options":{"log_limit","runtime_id","require_checksum","orphan_policy","lease_ms","retain_terminal"}}
+ * ext_ledger_call runs one operation on a handle, with a JSON object in and a JSON value out
+ * (free *out with ext_ledger_free); handle 0 is the library itself:
+ *   0           collect {what}, collect_environment, vocabulary, canonical_transaction {transaction},
+ *               code_name {code}
+ *   store       register {schema}, apply {transaction}, get_vertex and get_edge {namespace, id},
+ *               query_vertices and query_edges {query}, traverse {namespace, start, max_depth,
+ *               max_vertices}, snapshot {namespace}, changes {namespace, after, limit}
+ *   watch       next {timeout_ms}: the next change, EXT_LEDGER_TIMEOUT when none came in time
+ *   recorder    record {operation, input}, scan {what}
+ *   supervisor  start {spec, secrets}, ready {id, pid, ready}, await {id, states: [...]}, stop {id},
+ *               health {id, check}, instance {id}, instances, logs {id}, orphans, resolve_orphan {id}
+ * An input's timeout_ms bounds the call. An operation that returns nothing returns null; an unknown
+ * one is EXT_LEDGER_UNSUPPORTED and an unknown or closed handle EXT_LEDGER_NOT_FOUND.
+ * ext_ledger_close frees an object once no call holds it; a store with a watch, recorder or
+ * supervisor open on it is EXT_LEDGER_BUSY. Handles are never reused. */
+#define EXT_LEDGER_ABI_VERSION 1u
+EXT_LEDGER_API uint32_t ext_ledger_abi_version(void);
+EXT_LEDGER_API int ext_ledger_open(const char *config, size_t len, uint64_t *handle);
+EXT_LEDGER_API int ext_ledger_call(uint64_t handle, const char *op, const char *input, size_t len, char **out, size_t *out_len);
+EXT_LEDGER_API int ext_ledger_close(uint64_t handle);
+
 EXT_LEDGER_API void ext_ledger_free(void *p);
 
 #ifdef __cplusplus

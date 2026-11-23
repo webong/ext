@@ -13,6 +13,7 @@ It is the main implementation of the ledger, which the pure-Go [`pkg/ext-go/engi
 | Recorder | Done for what it is given: `ext_ledger_recorder_open` and `ext_ledger_recorder_record`, shells, web origins, host inventory, processes and adapter inventory, held to `lib/ledger/testdata/recorder/v1` |
 | Collectors | Done: `ext_ledger_collect` and `ext_ledger_recorder_scan`, through each kernel's own interface, so the recorder reads the machine itself |
 | Supervisor | Done: `ext_ledger_supervisor_*`, held to the Go supervisor's tests |
+| Library interface | Done: `ext_ledger_open`, `ext_ledger_call`, `ext_ledger_close` and `ext_ledger_abi_version`, every object behind four functions |
 
 ## Platforms
 
@@ -60,6 +61,27 @@ ext_ledger_store_close(store);
 
 A watch (`ext_ledger_store_watch_open`, `_next`, `_close`) has no thread of its own: `_next` waits on
 the store, and on a file store it also looks for other processes' commits every 150 ms.
+
+## The library interface
+
+Every object of the ledger is also reachable through four functions, so a binding in any language
+binds these and nothing else (ext-go's purego, cgo and ccgo drivers do): `ext_ledger_open` opens a
+store, a watch, a recorder or a supervisor from a JSON config and returns a handle, `ext_ledger_call`
+runs an operation by name with a JSON object in and a JSON value out, and `ext_ledger_close` frees it.
+Handle 0 is the library itself (collect, the vocabulary, canonical transactions, code names).
+
+```c
+uint64_t store, recorder;
+ext_ledger_open("{\"object\":\"store\",\"backend\":\"file\",\"path\":\"/var/lib/app/graph\"}", ..., &store);
+ext_ledger_call(store, "register", "{\"schema\":{...}}", ..., &out, &out_len);
+ext_ledger_open("{\"object\":\"recorder\",\"store\":1,\"machine\":true}", ..., &recorder);
+ext_ledger_call(recorder, "scan", "{\"what\":\"processes\",\"timeout_ms\":5000}", ..., &out, &out_len);
+```
+
+`include/ext_ledger.h` lists the configs and operations; an input's `timeout_ms` bounds the call.
+Handles are never reused, an object is freed once no call holds it, and a store with a watch, recorder
+or supervisor open on it refuses to close (`EXT_LEDGER_BUSY`). The typed functions stay for C callers:
+`ext_ledger_store_*`, `ext_ledger_recorder_*`, `ext_ledger_supervisor_*` and `ext_ledger_collect*`.
 
 ## From a shell
 

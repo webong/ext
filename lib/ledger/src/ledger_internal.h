@@ -219,9 +219,15 @@ int ll_record_id_cmp(const void *a, const void *b); /* qsort over ll_record* by 
 #include <intrin.h>
 static __inline int ll_flag_load(const volatile int *p) { return (int)_InterlockedOr((volatile long *)p, 0); }
 static __inline void ll_flag_store(volatile int *p, int v) { _InterlockedExchange((volatile long *)p, v); }
+static __inline int ll_flag_cas(volatile int *p, int expected, int desired) {
+  return (int)_InterlockedCompareExchange((volatile long *)p, desired, expected) == expected;
+}
 #else
 static inline int ll_flag_load(const volatile int *p) { return __atomic_load_n(p, __ATOMIC_ACQUIRE); }
 static inline void ll_flag_store(volatile int *p, int v) { __atomic_store_n(p, v, __ATOMIC_RELEASE); }
+static inline int ll_flag_cas(volatile int *p, int expected, int desired) {
+  return __atomic_compare_exchange_n(p, &expected, desired, 0, __ATOMIC_ACQ_REL, __ATOMIC_ACQUIRE);
+}
 #endif
 
 /* ---- contexts ---- */

@@ -21,7 +21,7 @@ endif()
 
 set(ledger_sources src/json.c src/hash.c src/model.c src/rules.c src/state.c src/store.c src/file.c src/recorder.c src/record_shell.c src/record_host.c src/record_process.c src/record_inventory.c
     src/collect.c src/collect_host.c src/collect_host_posix.c src/collect_resources.c src/collect_webviews.c src/collect_surfaces.c src/collect_desktop.c src/collect_accessibility.c src/collect_posix.c src/collect_win32.c src/collect_process_linux.c src/collect_process_darwin.c src/collect_process_none.c
-    src/supervisor.c src/process_posix.c src/process_win32.c)
+    src/supervisor.c src/process_posix.c src/process_win32.c src/interface.c)
 if(WIN32)
   list(APPEND ledger_sources src/platform_win32.c)
 else()
@@ -137,8 +137,12 @@ if(EXT_LEDGER_TESTS)
   target_compile_options(ledger_behaviour PRIVATE ${LEDGER_WARN})
   target_link_libraries(ledger_behaviour PRIVATE ext_ledger_static Threads::Threads)
   add_test(NAME ledger_behaviour COMMAND ledger_behaviour)
+  add_executable(ledger_interface tests/interface.c)
+  target_compile_options(ledger_interface PRIVATE ${LEDGER_WARN})
+  target_link_libraries(ledger_interface PRIVATE ext_ledger_static Threads::Threads)
+  add_test(NAME ledger_interface COMMAND ledger_interface)
   if(LEDGER_APPLE_EMBEDDED) # plain executables, so a simulator runs them with simctl spawn
-    set_target_properties(ledger_fixtures ledger_recorder ledger_behaviour ledger_collect ledger_supervisor PROPERTIES MACOSX_BUNDLE FALSE)
+    set_target_properties(ledger_fixtures ledger_recorder ledger_behaviour ledger_collect ledger_supervisor ledger_interface PROPERTIES MACOSX_BUNDLE FALSE)
   endif()
   if(EXT_LEDGER_COMMAND)
     add_test(NAME ledger_command COMMAND ${CMAKE_COMMAND} -DLEDGER=$<TARGET_FILE:ext-ledger> -DWORK=${CMAKE_CURRENT_BINARY_DIR}/command-test

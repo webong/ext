@@ -1,7 +1,7 @@
 # The library opener: ext-go carries no C
 
 Status: accepted on 2026-11-22, amended on 2026-11-23 (decisions 5 to 7: a project fetches the C
-before it builds). Steps 1 and 2 are built; the rest is the order in [Steps](#steps).
+before it builds; decision 8: Go binds the C libraries, like every other language). Steps 1 and 2 are built; the rest is the order in [Steps](#steps).
 
 ## Context
 
@@ -106,6 +106,20 @@ archive per platform with the headers, the shared library and the static library
 (`scripts/ext-plugin-release.sh`): what cgo and purego take. It gains the citation file, and the ccgo
 translation of each platform with its binding (made by `c2goengine/tools` on that platform's runner), so
 the generated translations leave this repository. `lib/ledger` publishes the same way.
+
+**8. Go binds the C libraries, like every other language.** Go hosts and the Go ledger reach
+`lib/plugin` and `lib/ledger` only through their library interfaces, with the cgo, c2go and purego
+drivers; no hand-written Go copy of the host engine or the ledger is kept beside the C, and the `go`
+driver goes. ccgo is the build that needs no C toolchain and no shared library (Go source translated
+from the C, cross-compiled like any Go), and purego is the cgo-free build over a shared library
+(`fetch` embeds it in the binary). What stays pure Go is what every language writes in itself: the
+guest SDK (a plugin is JSON lines over stdio, like the Python, Ruby, PHP, Lua and .NET guests) and the
+shared data model (descriptors, requests, responses, manifests). The fixtures stay the contract; the C
+libraries are held to them, so no Go oracle or parity suite is needed. `engine/plugin/host`, the
+pure-Go build of `cgoengine` and `engine/ledger` are retired as their users (ctx, ctn, `cmd/ext`,
+the adapters) move to the drivers; the ccgo gaps (no Apple frameworks, no Win32, no `fork`: on
+Windows c2go has the services only, and the macOS screen collectors are not translated) are covered
+there by purego or cgo. `js/wasm` and the architectures purego does not reach get no host or ledger.
 
 ## Consequences
 

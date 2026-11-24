@@ -97,10 +97,14 @@ public enum Userscript {
 
     /// Reads Greasemonkey-family metadata without weakening unsupported requirements.
     public static func compatibility(of source: String) -> UserscriptCompatibilityReport {
+        compatibility(of: source, profiled: false)
+    }
+
+    static func compatibility(of source: String, profiled: Bool) -> UserscriptCompatibilityReport {
         var report = UserscriptCompatibilityReport(
             name: "", grants: [], matches: [], excludeMatches: [], includes: [], excludes: [],
             runAt: "", world: "", allFrames: true, blockers: [], notes: [])
-        var seen = Set<String>()
+        var seen = Set<String>(), settings = Set<String>()
         func block(_ code: String) {
             if seen.insert(code).inserted { report.blockers.append(code) }
         }
@@ -115,6 +119,9 @@ public enum Userscript {
             if headerBytes > maxMetadataBytes { block("metadata_too_large"); break }
             guard let directive = metadataDirective(line) else { continue }
             let name = directive.name.lowercased()
+            if profiled && ["run-at", "inject-into", "noframes"].contains(name) && !settings.insert(name).inserted {
+                block("ambiguous_metadata")
+            }
             switch name {
             case "name": report.name = directive.value
             case "grant":
@@ -122,12 +129,13 @@ public enum Userscript {
                 if directive.value != "none" { block("unsupported_grant") }
             case "match": report.matches.append(directive.value)
             case "exclude-match": report.excludeMatches.append(directive.value)
-            case "include": report.includes.append(directive.value); block("unsupported_include")
-            case "exclude": report.excludes.append(directive.value); block("unsupported_exclude")
-            case "noframes": report.allFrames = false; block("unsupported_noframes")
+            case "include": report.includes.append(directive.value); if !profiled { block("unsupported_include") }
+            case "exclude": report.excludes.append(directive.value); if !profiled { block("unsupported_exclude") }
+            case "noframes": report.allFrames = false
+                if !profiled || !directive.value.isEmpty { block("unsupported_noframes") }
             case "run-at":
                 report.runAt = directive.value
-                if directive.value != "document-start" { block("unsupported_run_at") }
+                if !profiled && directive.value != "document-start" { block("unsupported_run_at") }
             case "inject-into":
                 report.world = directive.value
                 if directive.value != "page" { block("unsupported_world") }
@@ -145,8 +153,10 @@ public enum Userscript {
 
     /// `userscript.Revision`: `sha256:` and the digest of the compact JSON object
     /// `{"target","id","name","matches","excludeMatches","source"}`, written as Go writes it.
-    public static func revision(of record: UserscriptRecord) -> String {
-        let payload =
+    public static func revision(of record: UserscriptRecord) -> String { revision(of: record, domain: "") }
+
+    static func revision(of record: UserscriptRecord, domain: String) -> String {
+        let payload = domain +
             "{\"target\":" + GoJSON.quote(record.target) + ",\"id\":" + GoJSON.quote(record.id)
             + ",\"name\":" + GoJSON.quote(record.name) + ",\"matches\":" + GoJSON.array(record.matches)
             + ",\"excludeMatches\":" + GoJSON.array(record.excludeMatches) + ",\"source\":"
@@ -158,6 +168,12 @@ public enum Userscript {
     /// `userscript.Validate`: document-start, `@grant none`, page world and explicit match
     /// patterns (`<all_urls>` is not accepted).
     public static func validate(_ record: UserscriptRecord) throws {
+        try validateIdentity(record, domain: "")
+        try validateMatchPatterns(record, allowEmpty: false)
+        try validateLegacyMetadata(record)
+    }
+
+    static func validateIdentity(_ record: UserscriptRecord, domain: String) throws {
         if GoText.isBlank(record.target) || record.target != GoText.trimSpace(record.target) || record.target.utf8.count > 512 {
             throw reject("invalid_target", "userscript target must be a non-empty stable identifier")
         }
@@ -170,12 +186,15 @@ public enum Userscript {
         if record.source.isEmpty || record.source.utf8.count > maxSourceBytes {
             throw reject("invalid_source_size", "userscript source must contain 1 byte to 1 MiB")
         }
-        if record.revision != revision(of: record) {
+        if record.revision != revision(of: record, domain: domain) {
             throw reject("revision_mismatch", "userscript revision does not match source, target, or permissions")
         }
+    }
+
+    static func validateMatchPatterns(_ record: UserscriptRecord, allowEmpty: Bool) throws {
         let matches = record.matches ?? []
         let excludes = record.excludeMatches ?? []
-        if matches.isEmpty || matches.count > 128 || excludes.count > 128 {
+        if (!allowEmpty && matches.isEmpty) || matches.count > 128 || excludes.count > 128 {
             throw reject("invalid_matches", "userscript requires 1–128 matches and at most 128 exclusions")
         }
         var seen = Set<String>()
@@ -188,6 +207,9 @@ public enum Userscript {
             }
             seen.insert(pattern)
         }
+    }
+
+    private static func validateLegacyMetadata(_ record: UserscriptRecord) throws {
         for line in GoText.split(record.source, on: 0x0A) {
             let trimmed = GoText.trimSpace(line)
             if GoText.hasPrefix(trimmed, "// @grant ") && trimmed != "// @grant none" {
@@ -267,7 +289,7 @@ public enum Userscript {
         let values =
             "[" + [GoJSON.quote(id), GoJSON.quote(revision), GoJSON.quote(source), GoJSON.array(matches), GoJSON.array(excludes)]
             .joined(separator: ",") + "]"
-        return replayPrefix + values + replaySuffix
+        return replayPrefix + values + replayMatcher + replayScope + replayBody
     }
 
     // MARK: -
@@ -376,7 +398,7 @@ public enum Userscript {
     // The registration script around the JSON values; the text of res/web/host/artifact/userscript/replay.go, which
     // the replay fixture checks.
     private static let replayPrefix = "(() => {\n const [id, revision, source, matches, excludes] = "
-    private static let replaySuffix = #"""
+    private static let replayMatcher = #"""
 ;
  const glob = value => new RegExp('^' + value.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replaceAll('*', '.*') + '$');
  const allowed = pattern => {
@@ -388,7 +410,10 @@ public enum Userscript {
   if (host !== '*' && !(host.startsWith('*.') ? url.hostname === host.slice(2) || url.hostname.endsWith(host.slice(1)) : url.hostname === host)) return false;
   return glob('/'+parts[3]).test(url.pathname+url.search);
  };
- if (!matches.some(allowed) || (excludes || []).some(allowed)) return;
+
+"""#
+    private static let replayScope = " if (!matches.some(allowed) || (excludes || []).some(allowed)) return;\n"
+    static let replayBody = #"""
  const applied = globalThis[Symbol.for('ctx.userscripts.applied')] ||= new Map();
  if (applied.get(id) === revision) return;
  applied.set(id, revision);

@@ -22,10 +22,14 @@ public final class Userscript {
 
     /** Reads Greasemonkey-family metadata without weakening unsupported requirements. */
     public static UserscriptCompatibilityReport compatibility(String source) {
+        return compatibility(source, false);
+    }
+
+    static UserscriptCompatibilityReport compatibility(String source, boolean profiled) {
         String name = "", runAt = "", world = "";
         List<String> grants = new ArrayList<>(), matches = new ArrayList<>(), excludeMatches = new ArrayList<>();
         List<String> includes = new ArrayList<>(), excludes = new ArrayList<>(), blockers = new ArrayList<>();
-        Set<String> seenBlockers = new HashSet<>();
+        Set<String> seenBlockers = new HashSet<>(), settings = new HashSet<>();
         boolean allFrames = true, inBlock = false, found = false, ended = false;
         int headerBytes = 0;
         if (source.isEmpty() || GoText.utf8Length(source) > MAX_SOURCE_BYTES) block(blockers, seenBlockers, "invalid_source_size");
@@ -36,18 +40,20 @@ public final class Userscript {
             if (!inBlock) continue;
             headerBytes += GoText.utf8Length(raw) + 1;
             if (headerBytes > MAX_METADATA_BYTES) { block(blockers, seenBlockers, "metadata_too_large"); break; }
-            String[] directive = metadataDirective(line);
+            String[] directive = metadataDirective(line, profiled);
             if (directive == null) continue;
             String directiveName = directive[0].toLowerCase(java.util.Locale.ROOT);
+            if (profiled && (directiveName.equals("run-at") || directiveName.equals("inject-into") || directiveName.equals("noframes"))
+                    && !settings.add(directiveName)) block(blockers, seenBlockers, "ambiguous_metadata");
             switch (directiveName) {
                 case "name": name = directive[1]; break;
                 case "grant": grants.add(directive[1]); if (!directive[1].equals("none")) block(blockers, seenBlockers, "unsupported_grant"); break;
                 case "match": matches.add(directive[1]); break;
                 case "exclude-match": excludeMatches.add(directive[1]); break;
-                case "include": includes.add(directive[1]); block(blockers, seenBlockers, "unsupported_include"); break;
-                case "exclude": excludes.add(directive[1]); block(blockers, seenBlockers, "unsupported_exclude"); break;
-                case "noframes": allFrames = false; block(blockers, seenBlockers, "unsupported_noframes"); break;
-                case "run-at": runAt = directive[1]; if (!runAt.equals("document-start")) block(blockers, seenBlockers, "unsupported_run_at"); break;
+                case "include": includes.add(directive[1]); if (!profiled) block(blockers, seenBlockers, "unsupported_include"); break;
+                case "exclude": excludes.add(directive[1]); if (!profiled) block(blockers, seenBlockers, "unsupported_exclude"); break;
+                case "noframes": allFrames = false; if (!profiled || !directive[1].isEmpty()) block(blockers, seenBlockers, "unsupported_noframes"); break;
+                case "run-at": runAt = directive[1]; if (!profiled && !runAt.equals("document-start")) block(blockers, seenBlockers, "unsupported_run_at"); break;
                 case "inject-into": world = directive[1]; if (!world.equals("page")) block(blockers, seenBlockers, "unsupported_world"); break;
                 case "require": block(blockers, seenBlockers, "unsupported_require"); break;
                 case "resource": block(blockers, seenBlockers, "unsupported_resource"); break;
@@ -68,7 +74,11 @@ public final class Userscript {
      * {@code {"target","id","name","matches","excludeMatches","source"}}, written as Go writes it.
      */
     public static String revision(UserscriptRecord record) {
-        StringBuilder payload = new StringBuilder("{\"target\":");
+        return revision(record, "");
+    }
+
+    static String revision(UserscriptRecord record, String domain) {
+        StringBuilder payload = new StringBuilder(domain).append("{\"target\":");
         GoText.jsonQuote(payload, record.target).append(",\"id\":");
         GoText.jsonQuote(payload, record.id).append(",\"name\":");
         GoText.jsonQuote(payload, record.name).append(",\"matches\":");
@@ -93,6 +103,12 @@ public final class Userscript {
      * match patterns ({@code <all_urls>} is not accepted).
      */
     public static void validate(UserscriptRecord record) throws UserscriptException {
+        validateIdentity(record, "");
+        validateMatchPatterns(record, false);
+        validateLegacyMetadata(record);
+    }
+
+    static void validateIdentity(UserscriptRecord record, String domain) throws UserscriptException {
         if (GoText.isBlank(record.target) || !record.target.equals(GoText.trimSpace(record.target))
                 || GoText.utf8Length(record.target) > 512) {
             throw reject("invalid_target", "userscript target must be a non-empty stable identifier");
@@ -106,12 +122,15 @@ public final class Userscript {
         if (record.source.isEmpty() || GoText.utf8Length(record.source) > MAX_SOURCE_BYTES) {
             throw reject("invalid_source_size", "userscript source must contain 1 byte to 1 MiB");
         }
-        if (!record.revision.equals(revision(record))) {
+        if (!record.revision.equals(revision(record, domain))) {
             throw reject("revision_mismatch", "userscript revision does not match source, target, or permissions");
         }
+    }
+
+    static void validateMatchPatterns(UserscriptRecord record, boolean allowEmpty) throws UserscriptException {
         List<String> matches = record.matches == null ? Collections.<String>emptyList() : record.matches;
         List<String> excludes = record.excludeMatches == null ? Collections.<String>emptyList() : record.excludeMatches;
-        if (matches.isEmpty() || matches.size() > 128 || excludes.size() > 128) {
+        if ((!allowEmpty && matches.isEmpty()) || matches.size() > 128 || excludes.size() > 128) {
             throw reject("invalid_matches", "userscript requires 1–128 matches and at most 128 exclusions");
         }
         Set<String> seen = new HashSet<>();
@@ -126,6 +145,9 @@ public final class Userscript {
             }
             seen.add(pattern);
         }
+    }
+
+    private static void validateLegacyMetadata(UserscriptRecord record) throws UserscriptException {
         for (String line : GoText.split(record.source, '\n')) {
             String trimmed = GoText.trimSpace(line);
             if (trimmed.startsWith("// @grant ") && !trimmed.equals("// @grant none")) {
@@ -219,7 +241,7 @@ public final class Userscript {
         GoText.jsonQuote(out, source).append(',');
         GoText.jsonArray(out, matches).append(',');
         GoText.jsonArray(out, excludes).append(']');
-        return out.append(REPLAY_SUFFIX).toString();
+        return out.append(REPLAY_MATCHER).append(REPLAY_SCOPE).append(REPLAY_BODY).toString();
     }
 
     // -------------------------------------------------------------------------------------------
@@ -232,14 +254,15 @@ public final class Userscript {
         if (seen.add(code)) blockers.add(code);
     }
 
-    private static String[] metadataDirective(String line) {
+    private static String[] metadataDirective(String line, boolean profiled) {
         String body = GoText.cutPrefix(line, "// @");
         if (body == null) return null;
         body = GoText.trimSpace(body);
         if (body.isEmpty()) return null;
         int space = -1;
         for (int i = 0; i < body.length(); i++) {
-            if (Character.isWhitespace(body.charAt(i))) { space = i; break; }
+            char c = body.charAt(i);
+            if (profiled ? c == ' ' || c == '\t' : Character.isWhitespace(c)) { space = i; break; }
         }
         return space < 0 ? new String[] {body, ""}
                 : new String[] {body.substring(0, space), GoText.trimSpace(body.substring(space + 1))};
@@ -322,7 +345,7 @@ public final class Userscript {
         }
     }
 
-    private static boolean sameStrings(List<String> left, List<String> right) {
+    static boolean sameStrings(List<String> left, List<String> right) {
         List<String> a = new ArrayList<>(left);
         List<String> b = right == null ? new ArrayList<String>() : new ArrayList<>(right);
         Collections.sort(a);
@@ -385,7 +408,7 @@ public final class Userscript {
             "(() => {\n"
             + " const [id, revision, source, matches, excludes] = ";
 
-    private static final String REPLAY_SUFFIX =
+    private static final String REPLAY_MATCHER =
             ";\n"
             + " const glob = value => new RegExp('^' + value.replace(/[.+?^${}()|[\\]\\\\]/g, '\\\\$&').replaceAll('*', '.*') + '$');\n"
             + " const allowed = pattern => {\n"
@@ -396,9 +419,11 @@ public final class Userscript {
             + "  const host = parts[2];\n"
             + "  if (host !== '*' && !(host.startsWith('*.') ? url.hostname === host.slice(2) || url.hostname.endsWith(host.slice(1)) : url.hostname === host)) return false;\n"
             + "  return glob('/'+parts[3]).test(url.pathname+url.search);\n"
-            + " };\n"
-            + " if (!matches.some(allowed) || (excludes || []).some(allowed)) return;\n"
-            + " const applied = globalThis[Symbol.for('ctx.userscripts.applied')] ||= new Map();\n"
+            + " };\n";
+
+    private static final String REPLAY_SCOPE = " if (!matches.some(allowed) || (excludes || []).some(allowed)) return;\n";
+    static final String REPLAY_BODY =
+            " const applied = globalThis[Symbol.for('ctx.userscripts.applied')] ||= new Map();\n"
             + " if (applied.get(id) === revision) return;\n"
             + " applied.set(id, revision);\n"
             + " (0, eval)(source);\n"

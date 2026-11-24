@@ -78,6 +78,9 @@ close. These operations affect future documents. Navigation and destruction
 remain with the host. Current-page source is limited to 1 MiB, with up to 64
 concurrent evaluations and a 30-second completion deadline.
 
+See [profiled scripts](../docs/WORKSPACE_MANAGEMENT.md#profiled-scripts-on-attached-views)
+for `userscriptProfiles()` and reviewed v1 registration.
+
 `scripts/web-workspace-android.sh` builds and runs tests on a running device
 (`ANDROID_SERIAL` selects it). Set `EXT_ANDROIDX_CLASSPATH` to colon-separated
 AndroidX WebKit and runtime dependency AARs (or JARs without minification). It fetches nothing and needs a JDK,

@@ -136,6 +136,78 @@ final class BrowserWorkspaceTests: XCTestCase {
         catch AttachedWebView.AttachmentError.closed {}
     }
 
+    private func profiledRecord(id: String, timing: String, rules: String, source: String,
+                                matches: [String]? = nil) -> UserscriptRecord {
+        var value = UserscriptRecord(target: "test", id: id, name: id, matches: matches, enabled: true,
+            source: "// ==UserScript==\n// @run-at \(timing)\n\(rules)\n// ==/UserScript==\n\(source)")
+        value.revision = WebViewUserscripts.revision(of: value)
+        return value
+    }
+
+    func testAttachedProfilesHonorTimingAndFrameScope() async throws {
+        let view = WKWebView(frame: .zero)
+        let controller = view.configuration.userContentController
+        let attachment = AttachedWebView(view, target: "test", exclusiveScriptController: controller)
+        attach(view)
+        defer { attachment.close(); detach() }
+        let rules = ["file://*/*"]
+        let start = profiledRecord(id: "start", timing: "document-start", rules: "// @match file://*/*",
+            source: "window.startBeforeInline = !window.inlineRan;", matches: rules)
+        let end = profiledRecord(id: "end", timing: "document-end", rules: "// @match file://*/*\n// @noframes",
+            source: "window.endAfterInline = window.inlineRan === true;", matches: rules)
+        try attachment.replaceProfiledUserscripts([start, end])
+        XCTAssertEqual(controller.userScripts.map(\.injectionTime), [.atDocumentStart, .atDocumentEnd])
+        XCTAssertEqual(controller.userScripts.map(\.isForMainFrameOnly), [false, true])
+
+        let idle = profiledRecord(id: "idle", timing: "document-idle", rules: "// @match file://*/*",
+            source: "window.idleRan = true;", matches: rules)
+        let registered = controller.userScripts.map(ObjectIdentifier.init)
+        XCTAssertThrowsError(try attachment.replaceProfiledUserscripts([start, idle])) {
+            XCTAssertEqual(($0 as? UserscriptError)?.code, "unsupported_profile")
+        }
+        XCTAssertEqual(controller.userScripts.map(ObjectIdentifier.init), registered)
+
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let main = folder.appendingPathComponent("main.html")
+        let mainHTML = "<script>window.inlineRan=true; addEventListener('message', e => window.childProfile=e.data);</script><iframe src='child.html'></iframe>"
+        let childHTML = "<script>window.inlineRan=true; addEventListener('load', () => parent.postMessage(window.startBeforeInline === true && typeof window.endAfterInline === 'undefined','*'));</script>"
+        try mainHTML.write(to: main, atomically: true, encoding: .utf8)
+        try childHTML.write(to: folder.appendingPathComponent("child.html"), atomically: true, encoding: .utf8)
+        view.loadFileURL(main, allowingReadAccessTo: folder)
+        // File origins are isolated from each other. The child reports only
+        // its fixture markers, read from its own page after both hooks ran.
+        for _ in 0..<100 {
+            try await Task.sleep(nanoseconds: 50_000_000)
+            if view.isLoading { continue }
+            if (try? await view.evaluateJavaScript("window.startBeforeInline === true && window.endAfterInline === true && window.childProfile === true")) as? Bool == true {
+                return
+            }
+        }
+        XCTFail("document-start and document-end scripts did not run at their native stages")
+    }
+
+    func testAttachedProfileReplaysIncludeAndExcludeGlobs() async throws {
+        let view = WKWebView(frame: .zero)
+        let controller = view.configuration.userContentController
+        let attachment = AttachedWebView(view, target: "test", exclusiveScriptController: controller)
+        attach(view)
+        defer { attachment.close(); detach() }
+        // These page-world builtins have run before the native document-end hook.
+        controller.addUserScript(WKUserScript(source: "Array.prototype.some = () => true; window.URL = () => null;",
+            injectionTime: .atDocumentStart, forMainFrameOnly: false))
+        let record = profiledRecord(id: "scope", timing: "document-end",
+            rules: "// @include https://example.com/public*\n// @exclude https://example.com/public/private*",
+            source: "window.runs = 1;")
+        try attachment.replaceProfiledUserscripts([record])
+        for (path, expected) in [("/public?id=1", 1), ("/public/private", 0), ("/other", 0)] {
+            _ = try await load(view, path: path)
+            let value = try await view.evaluateJavaScript("window.runs || 0")
+            XCTAssertEqual(value as? Int, expected, path)
+        }
+    }
+
     func testAttachmentDeniesMismatchedControllerAndReleasedView() async throws {
         let controller = WKUserContentController()
         weak var released: WKWebView?

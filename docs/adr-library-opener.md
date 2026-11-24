@@ -65,13 +65,14 @@ operating system refuses code fetched at run time.
 
 **5. ext-go carries no C: a project fetches it before it builds.** ext-go holds no C source, no
 translation and no built library. A Go project that uses ext-go brings the C library in itself, with
-`ext-go fetch`, a command of `cengine` the project adds as a Go tool and runs from `go generate` (Go runs
-no code of a dependency before or during a build, and the linker fetches nothing, so this is a step
-the project runs first):
+`ext lib fetch`, a builtin of the `ext` command the project adds as a Go tool and runs from `go generate`
+(Go runs no code of a dependency before or during a build, and the linker fetches nothing, so this is
+a step the project runs first). ext-go is a program SDK and has no command of its own: `ext lib` is
+served by the shared package `cengine/libcmd` (amended 2026-11-24; it was `cengine/cmd/ext-go`):
 
 ```
-go get -tool github.com/webong/ext/pkg/ext-go/cengine/cmd/ext-go
-//go:generate go tool ext-go fetch -lib plugin -driver cgo
+go get -tool github.com/webong/ext/cmd/ext
+//go:generate go tool ext lib fetch -lib plugin -driver cgo
 go generate ./... && go build ./...
 ```
 
@@ -139,7 +140,7 @@ there by purego or cgo. `js/wasm` and the architectures purego does not reach ge
    over it in the module `pkg/ext-go/cguest`; the plugin selection moves to `pkg/ext-go/plugin` and
    chooses through `core/driver`.
 2. Done: `library.Citation`, `library.Provide` and `OpenProvided`, `cengine/fetch` and the
-   `ext-go fetch` command, held to a scratch module that builds a C library, publishes it over HTTPS and
+   fetch command (now `ext lib fetch`), held to a scratch module that builds a C library, publishes it over HTTPS and
    runs it with the cgo and the purego drivers.
 3. The library interface, in C first: done for `lib/ledger` (`ext_ledger_open`, `_call`, `_close`,
    `_abi_version`; its typed store and collector functions took the `ext_ledger_store_` and
@@ -160,8 +161,9 @@ there by purego or cgo. `js/wasm` and the architectures purego does not reach ge
    library from it, so no library needs hand-written Go: an object is opened by kind, an operation
    called by name, and its events answered by handlers named for their kinds, in the way the
    description says (`allow`, `result`, `none`, or the call's own when tagged). Done for lib/plugin;
-   the ledger's description and typed wrappers generated from a description (`ext-go bind`) come next,
-   and `engine/plugin/host/clib` is the first binding a generator replaces.
+   the ledger's description and typed wrappers generated from a description are `cengine/bind`, run as
+   `ext lib bind` (done for lib/plugin, whose generated binding is compiled and run in its test); next,
+   the ledger's description, and `engine/plugin/host/clib` is the first binding the generator replaces.
 4. The `ext-plugin` release publishes its citation and the ccgo translations; the first release with
    the `ext_plugin_` names (after #211) is the first a citation can name.
 5. `cgoengine` stops carrying `_csrc`: its binding compiles against declarations and links the library

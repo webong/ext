@@ -36,6 +36,7 @@ if [[ -z "$version" ]]; then
 fi
 cp LICENSE "$stage/$name/LICENSE"
 mkdir -p dist
-tar -C "$stage" -czf "$root/dist/$name.tar.gz" "$name"
+# The archive is named relatively: GNU tar reads "C:/..." as a remote host.
+(cd dist && tar -C "$stage" -czf "$name.tar.gz" "$name")
 (cd dist && { sha256sum "$name.tar.gz" 2>/dev/null || shasum -a 256 "$name.tar.gz"; } >"$name.sha256")
 echo "staged dist/$name.tar.gz"

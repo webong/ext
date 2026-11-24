@@ -255,7 +255,9 @@ EXT_LEDGER_API int ext_ledger_supervisor_resolve_orphan(ext_ledger_supervisor *s
  *   {"object":"supervisor","store":<handle>,"options":{"log_limit","runtime_id","require_checksum","orphan_policy","lease_ms","retain_terminal"}}
  * ext_ledger_call runs one operation on a handle, with a JSON object in and a JSON value out
  * (free *out with ext_ledger_free); handle 0 is the library itself:
- *   0           collect {what}, collect_environment, vocabulary, canonical_transaction {transaction},
+ *   0           describe: lib/ledger/interface.json, the description of this interface (its objects,
+ *               operations and schemas) that bindings are driven by or generated from;
+ *               collect {what}, collect_environment, vocabulary, canonical_transaction {transaction},
  *               code_name {code}
  *   store       register {schema}, apply {transaction}, get_vertex and get_edge {namespace, id},
  *               query_vertices and query_edges {query}, traverse {namespace, start, max_depth,

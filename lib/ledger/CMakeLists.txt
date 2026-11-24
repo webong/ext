@@ -22,6 +22,20 @@ endif()
 set(ledger_sources src/json.c src/hash.c src/model.c src/rules.c src/state.c src/store.c src/file.c src/recorder.c src/record_shell.c src/record_host.c src/record_process.c src/record_inventory.c
     src/collect.c src/collect_host.c src/collect_host_posix.c src/collect_resources.c src/collect_webviews.c src/collect_surfaces.c src/collect_desktop.c src/collect_accessibility.c src/collect_posix.c src/collect_win32.c src/collect_process_linux.c src/collect_process_darwin.c src/collect_process_none.c
     src/supervisor.c src/process_posix.c src/process_win32.c src/interface.c)
+# interface.json is the library interface's description, which describe serves: it is compiled in as
+# bytes, so the file stays the one source of it.
+file(READ "${CMAKE_CURRENT_SOURCE_DIR}/interface.json" description_hex HEX)
+string(REGEX REPLACE "([0-9a-f][0-9a-f])" "0x\\1," description_bytes "${description_hex}")
+set(description_c "${CMAKE_CURRENT_BINARY_DIR}/generated/interface_description.c")
+set(description_text "/* Generated from interface.json by CMakeLists.txt. */\n#include <stddef.h>\nconst char ll_interface_description[] = {${description_bytes}0};\nconst size_t ll_interface_description_len = sizeof ll_interface_description - 1;\n")
+if(EXISTS "${description_c}")
+  file(READ "${description_c}" description_old)
+endif()
+if(NOT description_old STREQUAL description_text)
+  file(WRITE "${description_c}" "${description_text}")
+endif()
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS interface.json)
+list(APPEND ledger_sources "${description_c}")
 if(WIN32)
   list(APPEND ledger_sources src/platform_win32.c)
 else()
@@ -139,6 +153,7 @@ if(EXT_LEDGER_TESTS)
   add_test(NAME ledger_behaviour COMMAND ledger_behaviour)
   add_executable(ledger_interface tests/interface.c)
   target_compile_options(ledger_interface PRIVATE ${LEDGER_WARN})
+  target_compile_definitions(ledger_interface PRIVATE EXT_LEDGER_INTERFACE_JSON="${CMAKE_CURRENT_SOURCE_DIR}/interface.json")
   target_link_libraries(ledger_interface PRIVATE ext_ledger_static Threads::Threads)
   add_test(NAME ledger_interface COMMAND ledger_interface)
   if(LEDGER_APPLE_EMBEDDED) # plain executables, so a simulator runs them with simctl spawn

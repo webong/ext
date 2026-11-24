@@ -162,8 +162,9 @@ there by purego or cgo. `js/wasm` and the architectures purego does not reach ge
    called by name, and its events answered by handlers named for their kinds, in the way the
    description says (`allow`, `result`, `none`, or the call's own when tagged). Done for lib/plugin;
    the ledger's description and typed wrappers generated from a description are `cengine/bind`, run as
-   `ext lib bind` (done for lib/plugin, whose generated binding is compiled and run in its test); next,
-   the ledger's description, and `engine/plugin/host/clib` is the first binding the generator replaces.
+   `ext lib bind` (done for lib/plugin and lib/ledger, whose generated bindings are compiled and run
+   against the built libraries in its tests); `engine/plugin/host/clib` is the first binding the
+   generator replaces.
 4. The `ext-plugin` release publishes its citation and the ccgo translations; the first release with
    the `ext_plugin_` names (after #211) is the first a citation can name.
 5. `cgoengine` stops carrying `_csrc`: its binding compiles against declarations and links the library

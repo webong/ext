@@ -1,0 +1,65 @@
+{
+  "library": "ext_ledger",
+  "abi_version": 1,
+  "about": "lib/ledger's library interface: the ledger's objects behind ext_ledger_open, ext_ledger_call and ext_ledger_close. Every binding is generated from, or driven by, this description; the C ledger answers it as the describe operation of handle 0 and its tests hold the two equal. An input's timeout_ms bounds the call.",
+  "codes": ["ok", "invalid", "not_found", "changed", "exists", "denied", "too_large", "expired", "unsupported", "unavailable", "busy", "canceled", "timeout", "io"],
+  "objects": {
+    "library": {
+      "about": "Handle 0, the library itself: the collectors, the recorder's vocabulary and the canonical form of a transaction. It is never opened or closed.",
+      "operations": {
+        "describe": {"about": "This description.", "input": {"type": "object"}, "output": {"type": "object"}},
+        "code_name": {"input": {"type": "object", "required": ["code"], "properties": {"code": {"type": "integer"}}}, "output": {"type": "string"}},
+        "collect": {"about": "One collector's observation of this machine.", "input": {"type": "object", "required": ["what"], "properties": {"what": {"type": "string"}, "timeout_ms": {"type": "integer"}}}, "output": {"type": "object"}},
+        "collect_environment": {"about": "The environment a recorder records against.", "input": {"type": "object"}, "output": {"type": "object"}},
+        "vocabulary": {"about": "The recorder's vocabulary: its schemas and operations.", "input": {"type": "object"}, "output": {"type": "object"}},
+        "canonical_transaction": {"input": {"type": "object", "required": ["transaction"], "properties": {"transaction": {"type": "object"}}}, "output": {"type": "object", "properties": {"canonical": {"type": "object"}, "fingerprint": {"type": "string"}}}}
+      }
+    },
+    "store": {
+      "about": "A graph store over one backend.",
+      "config": {"type": "object", "required": ["object", "backend"], "properties": {"object": {"const": "store"}, "backend": {"enum": ["memory", "file", "reader", "sqlite"]}, "path": {"type": "string"}, "options": {"type": "object", "properties": {"max_changes": {"type": "integer"}}}}},
+      "operations": {
+        "register": {"input": {"type": "object", "required": ["schema"], "properties": {"schema": {"type": "object"}, "timeout_ms": {"type": "integer"}}}, "output": {}},
+        "apply": {"input": {"type": "object", "required": ["transaction"], "properties": {"transaction": {"type": "object"}, "timeout_ms": {"type": "integer"}}}, "output": {"type": "object"}},
+        "get_vertex": {"input": {"type": "object", "required": ["namespace", "id"], "properties": {"namespace": {"type": "string"}, "id": {"type": "string"}, "timeout_ms": {"type": "integer"}}}, "output": {"type": "object"}},
+        "get_edge": {"input": {"type": "object", "required": ["namespace", "id"], "properties": {"namespace": {"type": "string"}, "id": {"type": "string"}, "timeout_ms": {"type": "integer"}}}, "output": {"type": "object"}},
+        "query_vertices": {"input": {"type": "object", "required": ["query"], "properties": {"query": {"type": "object"}, "timeout_ms": {"type": "integer"}}}, "output": {"type": "object"}},
+        "query_edges": {"input": {"type": "object", "required": ["query"], "properties": {"query": {"type": "object"}, "timeout_ms": {"type": "integer"}}}, "output": {"type": "object"}},
+        "traverse": {"input": {"type": "object", "required": ["namespace", "start"], "properties": {"namespace": {"type": "string"}, "start": {"type": "string"}, "max_depth": {"type": "integer"}, "max_vertices": {"type": "integer"}, "timeout_ms": {"type": "integer"}}}, "output": {"type": "object"}},
+        "snapshot": {"input": {"type": "object", "required": ["namespace"], "properties": {"namespace": {"type": "string"}, "timeout_ms": {"type": "integer"}}}, "output": {"type": "object"}},
+        "changes": {"input": {"type": "object", "properties": {"namespace": {"type": "string"}, "after": {"type": "integer"}, "limit": {"type": "integer"}, "timeout_ms": {"type": "integer"}}}, "output": {"type": "object"}}
+      }
+    },
+    "watch": {
+      "about": "The changes of a store as they are applied.",
+      "config": {"type": "object", "required": ["object", "store"], "properties": {"object": {"const": "watch"}, "store": {"type": "integer"}, "namespace": {"type": "string"}, "after": {"type": "integer"}, "buffer": {"type": "integer"}}},
+      "operations": {
+        "next": {"about": "The next change; timeout when none came in time, unavailable once the watch has ended.", "input": {"type": "object", "properties": {"timeout_ms": {"type": "integer"}}}, "output": {"type": "object"}}
+      }
+    },
+    "recorder": {
+      "about": "Records this machine's observations into a store.",
+      "config": {"type": "object", "required": ["object", "store"], "properties": {"object": {"const": "recorder"}, "store": {"type": "integer"}, "environment": {"type": "object"}, "machine": {"type": "boolean"}}},
+      "operations": {
+        "record": {"input": {"type": "object", "required": ["operation"], "properties": {"operation": {"type": "string"}, "input": {"type": "object"}, "timeout_ms": {"type": "integer"}}}, "output": {"type": "object"}},
+        "scan": {"input": {"type": "object", "required": ["what"], "properties": {"what": {"type": "string"}, "timeout_ms": {"type": "integer"}}}, "output": {"type": "object"}}
+      }
+    },
+    "supervisor": {
+      "about": "Supervises processes, recording them in a store.",
+      "config": {"type": "object", "required": ["object", "store"], "properties": {"object": {"const": "supervisor"}, "store": {"type": "integer"}, "options": {"type": "object", "properties": {"log_limit": {"type": "integer"}, "runtime_id": {"type": "string"}, "require_checksum": {"type": "boolean"}, "orphan_policy": {"type": "string"}, "lease_ms": {"type": "integer"}, "retain_terminal": {"type": "integer"}}}}},
+      "operations": {
+        "start": {"input": {"type": "object", "required": ["spec"], "properties": {"spec": {"type": "object"}, "secrets": {"type": "object"}, "timeout_ms": {"type": "integer"}}}, "output": {"type": "object"}},
+        "ready": {"input": {"type": "object", "required": ["id", "pid", "ready"], "properties": {"id": {"type": "string"}, "pid": {"type": "integer"}, "ready": {"type": "boolean"}}}, "output": {}},
+        "await": {"input": {"type": "object", "required": ["id", "states"], "properties": {"id": {"type": "string"}, "states": {"type": "array", "items": {"type": "string"}}, "timeout_ms": {"type": "integer"}}}, "output": {"type": "object"}},
+        "stop": {"input": {"type": "object", "required": ["id"], "properties": {"id": {"type": "string"}, "timeout_ms": {"type": "integer"}}}, "output": {}},
+        "health": {"input": {"type": "object", "required": ["id", "check"], "properties": {"id": {"type": "string"}, "check": {"type": "object"}, "timeout_ms": {"type": "integer"}}}, "output": {"type": "object"}},
+        "instance": {"input": {"type": "object", "required": ["id"], "properties": {"id": {"type": "string"}}}, "output": {"type": "object"}},
+        "instances": {"input": {"type": "object"}, "output": {"type": "array"}},
+        "logs": {"input": {"type": "object", "required": ["id"], "properties": {"id": {"type": "string"}}}, "output": {"type": "object"}},
+        "orphans": {"input": {"type": "object"}, "output": {"type": "array"}},
+        "resolve_orphan": {"input": {"type": "object", "required": ["id"], "properties": {"id": {"type": "string"}, "timeout_ms": {"type": "integer"}}}, "output": {}}
+      }
+    }
+  }
+}

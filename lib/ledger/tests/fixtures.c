@@ -158,6 +158,7 @@ static void run_case(const lj_value *c, backend b) {
     size_t len;
     rc = run_step(s, st, &out, &len);
     const char *want_code = str_field(st, "error");
+    if (!*want_code) want_code = "ok"; /* a step without an error succeeds */
     if (strcmp(ext_ledger_code_name(rc), want_code) != 0) {
       fprintf(stderr, "FAIL %s [%s]: step %zu (%s): code \"%s\", want \"%s\"\n", name, backend_names[b], i, str_field(st, "op"),
               ext_ledger_code_name(rc), want_code);

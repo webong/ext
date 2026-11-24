@@ -341,7 +341,12 @@ int ext_ledger_close(uint64_t handle) {
 
 /* ---- calling ---- */
 
+/* interface.json, compiled in by CMakeLists.txt. */
+extern const char ll_interface_description[];
+extern const size_t ll_interface_description_len;
+
 static int call_library(const char *op, const lj_value *in, char **out, size_t *out_len) {
+  if (!strcmp(op, "describe")) return dup_out(ll_interface_description, ll_interface_description_len, out, out_len);
   ext_ledger_context c;
   const ext_ledger_context *ctx;
   int rc = context(in, &c, &ctx);

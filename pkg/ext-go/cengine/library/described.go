@@ -145,6 +145,10 @@ func (d *Described) Open(kind string, config any, handlers Handlers) (*Object, e
 // Kind is the object's kind in the description.
 func (o *Object) Kind() string { return o.kind }
 
+// Handle is the object's handle, as another object's config names it (a ledger watch names its
+// store). Handle 0 is the library.
+func (o *Object) Handle() uint64 { return o.handle }
+
 // Call runs op with in (any value that marshals to JSON; nil is {}) and unmarshals what it answers
 // into out, unless out is nil.
 func (o *Object) Call(op string, in, out any) error { return o.CallWith(op, in, out, nil) }

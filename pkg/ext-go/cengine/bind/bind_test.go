@@ -143,9 +143,95 @@ func TestTheGeneratedBindingOfLibPlugin(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	cmd := exec.Command("go", "test", "-count=1", "./"+filepath.Base(dir))
+	cmd := exec.Command("go", "test", "-v", "-count=1", "./"+filepath.Base(dir))
 	cmd.Env = append(os.Environ(), "EXT_PLUGIN_BUILD="+os.Getenv("EXT_PLUGIN_BUILD"))
 	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("the generated binding: %v\n%s", err, out)
+	}
+	t.Logf("%s", out)
+}
+
+const generatedLedgerUse = `package ledger
+
+import (
+	"encoding/json"
+	"os"
+	"strings"
+	"testing"
+
+	"github.com/webong/ext/pkg/ext-go/cengine/library"
+)
+
+func TestTheGeneratedBinding(t *testing.T) {
+	path := os.Getenv("EXT_LEDGER_LIBRARY")
+	if path == "" || !library.Supported() {
+		t.Skip("set EXT_LEDGER_LIBRARY to a built lib/ledger shared library")
+	}
+	lib, err := library.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	x, err := Bind(lib)
+	if err != nil {
+		t.Fatal(err)
+	}
+	store, err := x.OpenStore(StoreConfig{Backend: "memory"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	if err := store.Register(StoreRegisterInput{Schema: json.RawMessage(` + "`" + `{"namespace":"demo","version":"1"}` + "`" + `)}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.Apply(StoreApplyInput{Transaction: json.RawMessage(` + "`" + `{"namespace":"demo","vertices":[{"id":"a","kind":"demo/node"}]}` + "`" + `)}); err != nil {
+		t.Fatal(err)
+	}
+	if v, err := store.GetVertex(StoreGetVertexInput{Namespace: "demo", ID: "a"}); err != nil || !strings.Contains(string(v), "demo/node") {
+		t.Errorf("get_vertex: %s, %v", v, err)
+	}
+	watch, err := x.OpenWatch(WatchConfig{Store: int64(store.Handle()), Namespace: "demo", Buffer: 8})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := watch.Next(WatchNextInput{TimeoutMS: 1000}); err != nil {
+		t.Errorf("next: %v", err)
+	}
+	if err := watch.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if c, err := x.CanonicalTransaction(LibraryCanonicalTransactionInput{Transaction: json.RawMessage(` + "`" + `{"namespace":"demo"}` + "`" + `)}); err != nil || len(c.Fingerprint) != 64 {
+		t.Errorf("canonical_transaction: %+v, %v", c, err)
+	}
+}
+`
+
+// TestTheGeneratedBindingOfLibLedger is TestTheGeneratedBindingOfLibPlugin for lib/ledger, against
+// the library EXT_LEDGER_LIBRARY names.
+func TestTheGeneratedBindingOfLibLedger(t *testing.T) {
+	data, err := os.ReadFile("../../../../lib/ledger/interface.json")
+	if err != nil {
+		t.Skip("lib/ledger is not beside this module")
+	}
+	var d library.Description
+	if err := json.Unmarshal(data, &d); err != nil {
+		t.Fatal(err)
+	}
+	src, err := bind.Generate(d, bind.Options{Package: "ledger", Source: "lib/ledger/interface.json"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir, err := os.MkdirTemp(".", "generated")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { os.RemoveAll(dir) })
+	for name, body := range map[string][]byte{"ledger.go": src, "use_test.go": []byte(generatedLedgerUse)} {
+		if err := os.WriteFile(filepath.Join(dir, name), body, 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	out, err := exec.Command("go", "test", "-v", "-count=1", "./"+filepath.Base(dir)).CombinedOutput()
 	if err != nil {
 		t.Fatalf("the generated binding: %v\n%s", err, out)
 	}

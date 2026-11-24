@@ -65,6 +65,22 @@ int main(void) {
   /* The library itself, at handle 0. */
   expect(0, "vocabulary", NULL, "ext.system");
   expect(0, "code_name", "{\"code\":2}", "\"not_found\"");
+  expect(0, "code_name", "{\"code\":0}", "\"ok\"");
+  {
+    /* describe serves interface.json as it is. */
+    FILE *f = fopen(EXT_LEDGER_INTERFACE_JSON, "rb");
+    CHECK(f != NULL, "open %s", EXT_LEDGER_INTERFACE_JSON);
+    if (f) {
+      static char file[1 << 16];
+      size_t fn = fread(file, 1, sizeof file, f);
+      fclose(f);
+      char *described = NULL;
+      size_t dn = 0;
+      CHECK(ext_ledger_call(0, "describe", NULL, 0, &described, &dn) == EXT_LEDGER_OK, "describe");
+      CHECK(described && dn == fn && !memcmp(described, file, fn), "describe is not interface.json (%zu and %zu bytes)", dn, fn);
+      ext_ledger_free(described);
+    }
+  }
   expect(0, "canonical_transaction", "{\"transaction\":{\"vertices\":[],\"namespace\":\"demo\"}}", "\"fingerprint\"");
   expect(0, "collect_environment", NULL, "\"hostname\"");
 

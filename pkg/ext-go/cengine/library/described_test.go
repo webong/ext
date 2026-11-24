@@ -236,3 +236,66 @@ func TestADescribedHost(t *testing.T) {
 		t.Errorf("a handler for an event the object does not raise: %v", err)
 	}
 }
+
+// TestEveryDescribedLedgerOperationIsAnswered holds lib/ledger's description and the ledger to each
+// other, as TestEveryDescribedOperationIsAnswered does for lib/plugin.
+func TestEveryDescribedLedgerOperationIsAnswered(t *testing.T) {
+	lib, err := library.Open(ledgerLibrary(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	ifc, err := library.BindInterface(lib, "ext_ledger", 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	d, err := library.Describe(ifc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i, name := range d.Description.Codes {
+		if got, err := library.Call[string](d.Library(), "code_name", map[string]int{"code": i}); err != nil || got != name {
+			t.Errorf("code %d is %q in the description and %q (%v) in the ledger", i, name, got, err)
+		}
+	}
+	store, err := d.Open("store", map[string]any{"backend": "memory"}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Call("register", map[string]any{"schema": map[string]string{"namespace": "demo", "version": "1"}}, nil); err != nil {
+		t.Fatal(err)
+	}
+	handle := store.Handle()
+	objects := map[string]*library.Object{"library": d.Library(), "store": store}
+	for _, kind := range []string{"watch", "recorder", "supervisor"} {
+		config := map[string]any{"store": handle}
+		switch kind {
+		case "watch":
+			config["namespace"], config["buffer"] = "demo", 8
+		case "recorder":
+			config["machine"] = true
+		}
+		o, err := d.Open(kind, config, nil)
+		if err != nil {
+			t.Fatalf("open %s: %v", kind, err)
+		}
+		objects[kind] = o
+	}
+	for kind, about := range d.Description.Objects {
+		o := objects[kind]
+		if o == nil {
+			t.Fatalf("no %s to call", kind)
+		}
+		for op := range about.Operations {
+			err := o.Call(op, map[string]any{}, nil)
+			var code *library.CodeError
+			if errors.As(err, &code) && code.Name == "unsupported" {
+				t.Errorf("%s %s is described and unsupported", kind, op)
+			}
+		}
+	}
+	for _, kind := range []string{"watch", "recorder", "supervisor", "store"} {
+		if err := objects[kind].Close(); err != nil {
+			t.Errorf("close %s: %v", kind, err)
+		}
+	}
+}

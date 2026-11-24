@@ -91,6 +91,7 @@ func Generate(d library.Description, o Options) ([]byte, error) {
 		}
 		g.printf("\tif err != nil {\n\t\treturn nil, err\n\t}\n\treturn &%s{o}, nil\n}\n\n", name)
 		g.printf("// Close closes the %s.\nfunc (x *%s) Close() error { return x.o.Close() }\n\n", kind, name)
+		g.printf("// Handle is the %s's handle, as another object's config names it.\nfunc (x *%s) Handle() uint64 { return x.o.Handle() }\n\n", kind, name)
 		g.operations(name, kind, about)
 	}
 	g.body.WriteString(g.decls.String())

@@ -10,11 +10,11 @@ import (
 	"testing"
 	"time"
 
-	engine "github.com/webong/ext/pkg/ext-go/engine/plugin"
-	"github.com/webong/ext/pkg/ext-go/engine/plugin/transport/jsonline"
 	"github.com/webong/ext/pkg/ext-go/cengine/library"
+	engine "github.com/webong/ext/pkg/ext-go/engine/plugin"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/clib"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/plugintest/enginetest"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/transport/jsonline"
 )
 
 // pureGoGuestEnv makes the test binary the guest of the purego tests.

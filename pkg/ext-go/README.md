@@ -39,11 +39,11 @@ Each library describes its interface (lib/plugin's and lib/ledger's `interface.j
 - driven by the description, with `cengine/library` alone: `Describe`, then `Open` an object by kind
   with handlers named for its events, and `Call` an operation by name;
 - through a typed binding generated from it, in the program's own module:
-  `//go:generate go tool ext lib bind -lib ext_plugin` writes a type per object, a method per
+  `//go:generate go tool ext bundle bind -lib ext_plugin` writes a type per object, a method per
   operation and a struct of handlers for its events.
 
 ```go
-lib, err := library.OpenProvided("ext_plugin", "") // the copy ext lib fetch embeds; or library.Open(path)
+lib, err := library.OpenProvided("ext_plugin", "") // the copy ext bundle fetch embeds; or library.Open(path)
 plugin, err := pluginbind.Bind(lib)                // the generated binding
 host, err := plugin.OpenHost(pluginbind.HostConfig{...}, pluginbind.HostHandlers{
 	Verify: func(descriptor json.RawMessage) error { ... }, Reverse: ...})

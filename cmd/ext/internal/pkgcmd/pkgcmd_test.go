@@ -162,7 +162,7 @@ func discover(t *testing.T, home string) *registry.Registry {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s, err := store.New(filepath.Join(home, "commands"), store.Limits{})
+	s, err := store.New(filepath.Join(home, "packages"), store.Limits{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -173,7 +173,7 @@ func discover(t *testing.T, home string) *registry.Registry {
 
 func TestDiscoverNeedsTrustAndTrustFollowsTheContent(t *testing.T) {
 	home := t.TempDir()
-	installed := install(t, filepath.Join(home, "commands"), "1.0.0", declares)
+	installed := install(t, filepath.Join(home, "packages"), "1.0.0", declares)
 
 	reg := discover(t, home)
 	if _, _, err := reg.Resolve("echo", ""); err == nil {
@@ -193,7 +193,7 @@ func TestDiscoverNeedsTrustAndTrustFollowsTheContent(t *testing.T) {
 		t.Fatalf("trusted = %+v, %v", c, err)
 	}
 
-	install(t, filepath.Join(home, "commands"), "1.1.0", declares) // new content
+	install(t, filepath.Join(home, "packages"), "1.1.0", declares) // new content
 	reg = discover(t, home)
 	if _, _, err := reg.Resolve("echo", ""); err == nil {
 		t.Fatal("a changed package kept its trust")
@@ -210,7 +210,7 @@ func TestDiscoverNeedsTrustAndTrustFollowsTheContent(t *testing.T) {
 func trusted(t *testing.T) *registry.Registry {
 	t.Helper()
 	home := t.TempDir()
-	installed := install(t, filepath.Join(home, "commands"), "1.0.0", declares)
+	installed := install(t, filepath.Join(home, "packages"), "1.0.0", declares)
 	trust, _ := LoadTrust(home)
 	if err := trust.Trust(installed); err != nil {
 		t.Fatal(err)
@@ -245,7 +245,7 @@ func TestRunStreamsOutputAndReturnsTheExitCode(t *testing.T) {
 
 func TestSocketTransportRunsInstalledPackage(t *testing.T) {
 	home := t.TempDir()
-	installed := install(t, filepath.Join(home, "commands"), "1.0.0", `{"commands":[{"name":"echo","transport":"socket"}]}`)
+	installed := install(t, filepath.Join(home, "packages"), "1.0.0", `{"commands":[{"name":"echo","transport":"socket"}]}`)
 	trust, err := LoadTrust(home)
 	if err != nil {
 		t.Fatal(err)
@@ -261,7 +261,7 @@ func TestSocketTransportRunsInstalledPackage(t *testing.T) {
 
 func TestSocketTransportTreatsClosedPipelineAsSIGPIPE(t *testing.T) {
 	home := t.TempDir()
-	installed := install(t, filepath.Join(home, "commands"), "1.0.0", `{"commands":[{"name":"pipe","transport":"socket"}]}`)
+	installed := install(t, filepath.Join(home, "packages"), "1.0.0", `{"commands":[{"name":"pipe","transport":"socket"}]}`)
 	reader, writer, err := os.Pipe()
 	if err != nil {
 		t.Fatal(err)
@@ -288,7 +288,7 @@ func TestRunKeepsEveryLineOfALargeOutput(t *testing.T) {
 func manager(t *testing.T) (Manager, string) {
 	t.Helper()
 	home := t.TempDir()
-	s, err := store.New(filepath.Join(home, "commands"), store.Limits{})
+	s, err := store.New(filepath.Join(home, "packages"), store.Limits{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -357,7 +357,7 @@ func TestManageRefusesWhatCannotBeTrustedOrUsed(t *testing.T) {
 	if code, _, _ := manage(t, m, "install", source(t, "1.0.0", "")); code != 0 {
 		t.Fatal("install without commands failed")
 	}
-	if code, _, errOut := manage(t, m, "trust", "example/tools"); code != 1 || !strings.Contains(errOut, "declares no commands") {
+	if code, _, errOut := manage(t, m, "trust", "example/tools"); code != 0 {
 		t.Fatalf("trust without commands = %d %q", code, errOut)
 	}
 	if code, _, _ := manage(t, m, "trust", "no/such"); code != 1 {
@@ -367,5 +367,94 @@ func TestManageRefusesWhatCannotBeTrustedOrUsed(t *testing.T) {
 		if code, _, _ := manage(t, m, args...); code != 2 {
 			t.Fatalf("%v exit %d, want 2", args, code)
 		}
+	}
+}
+
+// A provider is installable and trustable without implementing ext.command/v1.
+// Approval remains tied to its contents and does not manufacture a CLI command.
+func TestManageProviderLifecycle(t *testing.T) {
+	m, home := manager(t)
+	src := source(t, "1.0.0", "")
+	manifestPath := filepath.Join(src, store.ManifestName)
+	data, err := os.ReadFile(manifestPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var manifest packagekit.Manifest
+	if err := json.Unmarshal(data, &manifest); err != nil {
+		t.Fatal(err)
+	}
+	manifest.Descriptor.Contracts = []plugin.Contract{{ContractRef: plugin.ContractRef{Name: "example.provider", Version: "v1"}, Operations: []plugin.Operation{{Name: "read"}}}}
+	if err := store.WriteManifest(src, manifest); err != nil {
+		t.Fatal(err)
+	}
+	for _, args := range [][]string{{"install", src}, {"trust", "example/tools"}} {
+		if code, out, stderr := manage(t, m, args...); code != 0 {
+			t.Fatalf("%v: %d %s %s", args, code, out, stderr)
+		}
+	}
+	installed, err := m.Store.Load("example/tools")
+	if err != nil {
+		t.Fatal(err)
+	}
+	reloaded, err := LoadTrust(home)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ok, err := reloaded.Trusted(installed); err != nil || !ok {
+		t.Fatalf("persisted trust: %v %v", ok, err)
+	}
+	if _, _, err := discover(t, home).Resolve("read", ""); err == nil {
+		t.Fatal("provider operation became a command")
+	}
+	if code, out, stderr := manage(t, m, "list"); code != 0 || !strings.Contains(out, "trusted") || strings.Contains(out, "untrusted") {
+		t.Fatalf("list: %d %s %s", code, out, stderr)
+	}
+	if code, _, stderr := manage(t, m, "untrust", "example/tools"); code != 0 {
+		t.Fatal(stderr)
+	}
+	if ok, err := m.Trust.Trusted(installed); err != nil || ok {
+		t.Fatalf("revoked trust: %v %v", ok, err)
+	}
+	if code, _, stderr := manage(t, m, "trust", "example/tools"); code != 0 {
+		t.Fatal(stderr)
+	}
+	artifact, err := installed.ArtifactPath(manifest.Artifacts[0].Name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(artifact, []byte("tampered"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	if code, _, _ := manage(t, m, "trust", "example/tools"); code == 0 {
+		t.Fatal("trusted tampered provider")
+	}
+	if code, _, stderr := manage(t, m, "remove", "example/tools"); code != 0 {
+		t.Fatal(stderr)
+	}
+	reloaded, err = LoadTrust(home)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(reloaded.Packages) != 0 {
+		t.Fatal("remove retained trust")
+	}
+}
+
+func TestManageInvalidCommandsDoNotBlockPackageTrust(t *testing.T) {
+	m, home := manager(t)
+	src := source(t, "1.0.0", `{"commands":[{"name":"bad name"}]}`)
+	if code, out, stderr := manage(t, m, "install", src); code != 0 || !strings.Contains(out, "commands unavailable") {
+		t.Fatalf("install: %d %s %s", code, out, stderr)
+	}
+	if code, out, stderr := manage(t, m, "trust", "example/tools"); code != 0 {
+		t.Fatalf("trust: %d %s %s", code, out, stderr)
+	}
+	reg := discover(t, home)
+	if _, _, err := reg.Resolve("bad name", ""); err == nil {
+		t.Fatal("invalid command registered")
+	}
+	if len(reg.Notes()) == 0 {
+		t.Fatal("invalid command declaration not diagnosed")
 	}
 }

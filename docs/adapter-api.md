@@ -3,7 +3,7 @@
 An external adapter is a directory containing `plugin.json` and an executable
 for the current operating system. It can be distributed as a platform-specific
 `.ctxadapter` archive or through a platform index.
-The adapter management commands install ext adapters under `$EXT_HOME/adapters`; hosts never discover or source
+The adapter management commands install ext adapters under `$EXT_HOME/packages`; hosts never discover or source
 code from the current directory or arbitrary `PATH` entries.
 
 The home is shared by every ext product. The adapter trust record is scoped
@@ -26,7 +26,7 @@ commands with CTX's project selection. `ext ctn …` consumes installed capabili
 `ext ctn adapter ls` lists adapters but does not install them. Both management
 entry points call `pkg/ext-go/engine/plugin/host/adapter/adaptercmd`.
 
-`ext adapter doctor NAME` runs the trusted adapter's default diagnostics with
+`ext package doctor NAME` runs the trusted adapter's default diagnostics with
 no project selection. `ext ctx adapter doctor NAME` retains CTX's project selection
 and invocation policy through a callback into the shared command.
 
@@ -67,7 +67,7 @@ exist. A `plugin.json` is told apart from any other file of that name by its
 
 The `plugin.json` in an adapter's source directory is a **template**: it lists
 the files the adapter needs but not their digests, which do not exist until the
-executable is built. `ext adapter install`, `build` and `pack` seal it: they add
+executable is built. `ext package install`, `build` and `pack` seal it: they add
 the digest of every file, the platform of the launcher, and a revision, then write
 the sealed `plugin.json` that an installed adapter carries and that the adapter trust
 digest covers. The shared Ext package store performs the final install,
@@ -142,7 +142,7 @@ ext ctx and is closed: an unknown key is an error, so a typo is not ignored. Its
 | `computer_commands`, `computer_capabilities`, `computer_hook_events`, `computer_hook_default_events` | list | computer endpoint integrations |
 | `computer_hook_settings_file`, `computer_hook_template` | string | computer hook setup |
 | `dependencies_darwin`, `dependencies_linux`, `dependencies_windows` | list | `space:adapter@api` strings |
-| `go_entry` | string | the Go package `ext adapter build` compiles, default `.` |
+| `go_entry` | string | the Go package `ext package build` compiles, default `.` |
 
 To stay short, the rest of this page writes a field in the compact notation
 `key = "value"`, where a list is comma separated: `capabilities = "list,run"` means
@@ -155,7 +155,7 @@ runtime, surface, or ctx command.
 
 `display_name` is optional, user-facing adapter metadata (up to 80 Unicode
 characters, without control characters). CTX falls back to `name` when it is
-absent. It appears in `ext adapter inspect` and CTX's credential-request notice
+absent. It appears in `ext package inspect` and CTX's credential-request notice
 when this trusted adapter declares the selected credential-store dependency.
 The label is not an authentication identity and does not change native OS
 permission dialogs. An adapter changing its manifest needs to be trusted again.
@@ -174,7 +174,7 @@ share space and remain trusted. Manual package installation does not silently
 add dependencies. CTX passes a declared dependency to the child process as
 `EXT_DEPENDENCY_<UPPERCASE_SPACE>`; operations that use it fail if the store is
 missing or untrusted, without blocking unrelated adapter operations.
-`ext adapter remove` refuses to remove a dependency while an installed adapter
+`ext package remove` refuses to remove a dependency while an installed adapter
 declares it; `--force` is available when intentionally breaking that feature.
 
 ### Credential stores
@@ -753,24 +753,24 @@ context when launching their underlying tool.
 ext adapter available
 ext adapter add example
 ext adapter refresh
-ext adapter test ./example
-ext adapter install ./example
-ext adapter inspect example
-ext adapter trust example
-ext adapter doctor example
-ext adapter remove example
+ext package test ./example
+ext package install ./example
+ext package inspect example
+ext package trust example
+ext package doctor example
+ext package remove example
 ~~~
 
 ### Binary packages and Go builds
 
-`ext adapter install` accepts a ready-to-run directory, a local `.ctxadapter`
+`ext package install` accepts a ready-to-run directory, a local `.ctxadapter`
 archive, or an HTTPS archive with `--sha256 <digest>`. Installation never runs
 Go or executes the adapter. The archive has the sealed
 `plugin.json`, the platform's executable, and optional runtime assets: exactly the files the
 manifest lists, with the platform recorded on the launcher. ctx rejects archives for another
 platform, unsafe paths, links, oversized contents, files that do not match their
 digests or are not listed, and checksum mismatches.
-It installs the package untrusted; review it and run `ext adapter trust <name>`
+It installs the package untrusted; review it and run `ext package trust <name>`
 before using it.
 
 Go authors can use the public `github.com/webong/ext/pkg/ext-go` package to parse
@@ -797,18 +797,18 @@ package_files = "policy.json,templates"
 ~~~
 
 ~~~sh
-ext adapter build ./example
-ext adapter build ./example --os linux --arch amd64
-ext adapter pack ./ready-package --os linux --arch amd64 --output ./example-linux-amd64.ctxadapter
-ext adapter install ./example/dist/example-darwin-arm64.ctxadapter
-ext adapter trust example
+ext package build ./example
+ext package build ./example --os linux --arch amd64
+ext package pack ./ready-package --os linux --arch amd64 --output ./example-linux-amd64.ctxadapter
+ext package install ./example/dist/example-darwin-arm64.ctxadapter
+ext package trust example
 ~~~
 
-`ext adapter build` requires Go and emits one archive per target. Cross builds
+`ext package build` requires Go and emits one archive per target. Cross builds
 default to `CGO_ENABLED=0` unless the author sets it explicitly. The example
 under `pkg/ext-go/examples/adapters/go_echo` shows the public parser and a complete Go
 adapter. An adapter written in another language can prepare a package directory
-and use `ext adapter pack` without Go. `pack` seals and includes every regular file in the
+and use `ext package pack` without Go. `pack` seals and includes every regular file in the
 given directory, so use a directory containing only runtime files.
 
 Publishers may provide a `.ctxadapter.json` index so users need one install
@@ -831,8 +831,8 @@ SHA-256 to give installers out of band.
 ~~~
 
 ~~~sh
-ext adapter install https://example.com/example.ctxadapter.json --sha256 "$INDEX_SHA256"
-ext adapter trust example
+ext package install https://example.com/example.ctxadapter.json --sha256 "$INDEX_SHA256"
+ext package trust example
 ~~~
 
 The optional installer-provided catalog lives under `$EXT_HOME/catalog/adapters`
@@ -842,15 +842,15 @@ Request adapter selection with the installer to obtain it; `ctx setup` and
 store and trust their checksums. Catalog membership is installer metadata, not
 a privilege or manifest property.
 
-Direct `ext adapter install ./directory` installation does not imply trust. Trust
+Direct `ext package install ./directory` installation does not imply trust. Trust
 records a checksum over every file in the adapter directory. Any subsequent
 change makes the adapter untrusted until the user reviews and trusts it again.
 
-`ext adapter verify [name...]` checks installed adapters without running any of
+`ext package verify [name...]` checks installed adapters without running any of
 them. It loads each one with the validation an install applies and compares its
 content with the recorded checksum. Each adapter is reported as `trusted`;
 `untrusted` (never trusted); `changed` (trusted once, modified since); or
-`invalid` (it fails to load, which `ext adapter ls` would silently omit). With no
+`invalid` (it fails to load, which `ext package list` would silently omit). With no
 names it checks every adapter directory. The exit status is 0 only when every
 checked adapter is trusted. It is read-only: it does not change trust, create the
 adapter store, or run an adapter. It is unrelated to `ctn verify`, which runs

@@ -1,37 +1,74 @@
 package pkgcmd
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
 	"io"
+	"runtime"
 	"strings"
 	"text/tabwriter"
+	"time"
 
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/adapter"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/adapter/adaptercmd"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/store"
 )
 
-// Manager installs, trusts and removes the packages that provide commands.
+// Manager installs, trusts and removes plugin packages, whether or not they provide commands.
 type Manager struct {
 	Store *store.Store
 	Trust *Trust
 }
 
-const manageUsage = `usage: ext package <install|upgrade> <dir> | trust <id> | untrust <id> | remove <id> | list`
+const manageUsage = `usage: ext package <install|upgrade> <dir-or-archive> [--sha256 digest] | trust <id> | untrust <id> | remove <id> | list | inspect <id> | verify <id> | migrate
+       ext package build|pack|index|test|doctor|available|add|refresh ...`
 
 // Run executes "ext package ..." with args (without "package") and returns the
 // exit code. Installing and upgrading never trust a package: the user trusts the
-// installed content explicitly, after seeing which commands it declares.
+// installed content explicitly. Command registration is a separate consumer.
 func (m Manager) Run(args []string, stdout, stderr io.Writer) int {
 	if len(args) == 0 {
 		fmt.Fprintln(stderr, manageUsage)
 		return 2
 	}
 	sub, rest := args[0], args[1:]
+	switch sub {
+	case "build", "pack", "index", "test", "doctor", "available", "add", "refresh":
+		return (adaptercmd.Options{Name: "ext", Command: "package", Store: m.adapterStore()}).Run(args, stdout, stderr)
+	}
+	if sub == "ls" {
+		sub = "list"
+	}
 	if sub == "list" {
 		if len(rest) != 0 {
 			fmt.Fprintln(stderr, manageUsage)
 			return 2
 		}
 		return m.list(stdout, stderr)
+	}
+	if (sub == "install" || sub == "upgrade") && len(rest) == 3 && rest[1] == "--sha256" {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+		defer cancel()
+		p, err := m.Store.InstallArchive(ctx, store.Archive{Source: rest[0], SHA256: rest[2]}, store.ArchiveOptions{Copy: store.CopyOptions{PreserveExecutableArtifacts: true}})
+		if err != nil {
+			fmt.Fprintf(stderr, "ext: package %s: %v\n", sub, err)
+			return 1
+		}
+		fmt.Fprintf(stdout, "installed %s (untrusted); review it, then run: ext package trust %s\n", p.Name(), p.Name())
+		return 0
+	}
+	if sub == "remove" && len(rest) > 0 {
+		if _, err := m.adapterStore().Load(rest[0]); err == nil {
+			code := (adaptercmd.Options{Name: "ext", Command: "package", Store: m.adapterStore()}).Run(args, stdout, stderr)
+			if code == 0 {
+				if err := m.Trust.Revoke(rest[0]); err != nil {
+					fmt.Fprintln(stderr, err)
+					return 1
+				}
+			}
+			return code
+		}
 	}
 	if len(rest) != 1 {
 		fmt.Fprintln(stderr, manageUsage)
@@ -41,6 +78,22 @@ func (m Manager) Run(args []string, stdout, stderr io.Writer) int {
 	switch sub {
 	case "install", "upgrade":
 		err = m.install(sub == "upgrade", rest[0], stdout)
+	case "inspect":
+		var p store.Installed
+		p, err = m.Store.Load(rest[0])
+		if err == nil {
+			err = json.NewEncoder(stdout).Encode(p.Manifest)
+		}
+	case "verify":
+		var p store.Installed
+		p, err = m.Store.Load(rest[0])
+		if err == nil {
+			var trusted bool
+			trusted, err = m.Trust.Trusted(p)
+			if err == nil {
+				fmt.Fprintf(stdout, "verified %s (trusted=%t)\n", p.Name(), trusted)
+			}
+		}
 	case "trust":
 		err = m.trust(rest[0], stdout)
 	case "untrust":
@@ -54,7 +107,7 @@ func (m Manager) Run(args []string, stdout, stderr io.Writer) int {
 		return 2
 	}
 	if err != nil {
-		fmt.Fprintf(stderr, "ext: package %s: %v\n", sub, err)
+		fmt.Fprintf(stderr, "ext: package %s %s: %v\n", sub, rest[0], err)
 		return 1
 	}
 	return 0
@@ -65,24 +118,30 @@ func (m Manager) install(upgrade bool, dir string, stdout io.Writer) error {
 		p   store.Installed
 		err error
 	)
-	if upgrade {
-		p, err = m.Store.Upgrade(dir)
+	if !upgrade {
+		if source, adapterErr := adapter.LoadSource(dir, runtime.GOOS); adapterErr == nil {
+			_, err = m.adapterStore().Install(dir)
+			if err != nil {
+				return err
+			}
+			p, err = m.Store.Load(source.Manifest.Name)
+		} else {
+			p, err = m.Store.Install(dir)
+		}
 	} else {
-		p, err = m.Store.Install(dir)
+		p, err = m.Store.UpgradeWithOptions(dir, store.CopyOptions{PreserveExecutableArtifacts: true})
 	}
 	if err != nil {
 		return err
 	}
-	declared, err := Declare(p)
-	if err != nil {
-		return err
-	}
+	declared, declarationErr := Declare(p)
 	fmt.Fprintf(stdout, "installed %s %s (not trusted)\n", p.Name(), p.Version())
-	if len(declared) == 0 {
-		fmt.Fprintln(stdout, "it declares no commands")
-		return nil
+	if declarationErr != nil {
+		fmt.Fprintf(stdout, "commands unavailable: %v\n", declarationErr)
+	} else if len(declared) > 0 {
+		fmt.Fprintf(stdout, "commands: %s\n", names(declared))
 	}
-	fmt.Fprintf(stdout, "commands: %s\nto allow them to run: ext package trust %s\n", names(declared), p.Name())
+	fmt.Fprintf(stdout, "to trust this package: ext package trust %s\n", p.Name())
 	return nil
 }
 
@@ -91,17 +150,16 @@ func (m Manager) trust(id string, stdout io.Writer) error {
 	if err != nil {
 		return err
 	}
-	declared, err := Declare(p)
-	if err != nil {
-		return err
-	}
-	if len(declared) == 0 {
-		return fmt.Errorf("%s declares no commands, so there is nothing to trust", id)
+	if _, err := m.adapterStore().Load(id); err == nil {
+		var diagnostic strings.Builder
+		if code := (adaptercmd.Options{Name: "ext", Command: "package", Store: m.adapterStore()}).Run([]string{"trust", id}, stdout, &diagnostic); code != 0 {
+			return fmt.Errorf("adapter activation: %s", strings.TrimSpace(diagnostic.String()))
+		}
 	}
 	if err := m.Trust.Trust(p); err != nil {
 		return err
 	}
-	fmt.Fprintf(stdout, "trusted %s %s; commands: %s\n", p.Name(), p.Version(), names(declared))
+	fmt.Fprintf(stdout, "trusted %s %s\n", p.Name(), p.Version())
 	return nil
 }
 
@@ -156,4 +214,10 @@ func names(declared []Declared) string {
 		out[i] = d.Name
 	}
 	return strings.Join(out, ", ")
+}
+
+func (m Manager) adapterStore() *adapter.Store {
+	s := adapter.NewStore(m.Store.Root())
+	s.TrustFile = m.Trust.file.Path
+	return s
 }

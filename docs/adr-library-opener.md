@@ -65,14 +65,14 @@ operating system refuses code fetched at run time.
 
 **5. ext-go carries no C: a project fetches it before it builds.** ext-go holds no C source, no
 translation and no built library. A Go project that uses ext-go brings the C library in itself, with
-`ext lib fetch`, a builtin of the `ext` command the project adds as a Go tool and runs from `go generate`
+`ext bundle fetch`, a builtin of the `ext` command the project adds as a Go tool and runs from `go generate`
 (Go runs no code of a dependency before or during a build, and the linker fetches nothing, so this is
-a step the project runs first). ext-go is a program SDK and has no command of its own: `ext lib` is
+a step the project runs first). ext-go is a program SDK and has no command of its own: `ext bundle` is
 served by the shared package `cengine/libcmd` (amended 2026-11-24; it was `cengine/cmd/ext-go`):
 
 ```
 go get -tool github.com/webong/ext/cmd/ext
-//go:generate go tool ext lib fetch -lib plugin -driver cgo
+//go:generate go tool ext bundle fetch -lib plugin -driver cgo
 go generate ./... && go build ./...
 ```
 
@@ -140,7 +140,7 @@ there by purego or cgo. `js/wasm` and the architectures purego does not reach ge
    over it in the module `pkg/ext-go/cguest`; the plugin selection moves to `pkg/ext-go/plugin` and
    chooses through `core/driver`.
 2. Done: `library.Citation`, `library.Provide` and `OpenProvided`, `cengine/fetch` and the
-   fetch command (now `ext lib fetch`), held to a scratch module that builds a C library, publishes it over HTTPS and
+   fetch command (now `ext bundle fetch`), held to a scratch module that builds a C library, publishes it over HTTPS and
    runs it with the cgo and the purego drivers.
 3. The library interface, in C first: done for `lib/ledger` (`ext_ledger_open`, `_call`, `_close`,
    `_abi_version`; its typed store and collector functions took the `ext_ledger_store_` and
@@ -161,7 +161,7 @@ there by purego or cgo. `js/wasm` and the architectures purego does not reach ge
    called by name, and its events answered by handlers named for their kinds, in the way the
    description says (`allow`, `result`, `none`, or the call's own when tagged). Done for lib/plugin;
    the ledger's description and typed wrappers generated from a description are `cengine/bind`, run as
-   `ext lib bind` (done for lib/plugin and lib/ledger, whose generated bindings are compiled and run
+   `ext bundle bind` (done for lib/plugin and lib/ledger, whose generated bindings are compiled and run
    against the built libraries in its tests). The hand-written `engine/plugin/host/clib` is gone:
    `tests/crosslang` holds lib/plugin's generated binding, held to the differential checks through
    purego by a session adapter that is test code.

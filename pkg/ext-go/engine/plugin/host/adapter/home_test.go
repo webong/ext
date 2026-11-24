@@ -20,7 +20,7 @@ func TestHomePrecedence(t *testing.T) {
 	if got := ConfigHome(); got != "/shared" {
 		t.Fatalf("EXT_HOME: %q", got)
 	}
-	if got, want := Home(), filepath.Join("/shared", "adapters"); got != want {
+	if got, want := Home(), filepath.Join("/shared", "packages"); got != want {
 		t.Fatalf("Home under EXT_HOME: %q, want %q", got, want)
 	}
 	t.Setenv("EXT_ADAPTER_HOME", "/ext-adapters")

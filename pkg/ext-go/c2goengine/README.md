@@ -55,7 +55,7 @@ A project fetches it from the ext-plugin release, which translates and tests eve
 publishes each as the c2go driver's archive:
 
 ```sh
-go tool ext lib fetch -lib ext_plugin -driver c2go   # internal/extlib/plugin: the translation and its binding
+go tool ext bundle fetch -lib ext_plugin -driver c2go   # internal/extlib/plugin: the translation and its binding
 ```
 
 The package it writes is the engine itself (`Call`, `Open`, `OpenProcess`, `NewInstances`), named for

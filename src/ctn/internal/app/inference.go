@@ -132,7 +132,7 @@ func inferencePackageRoot() string {
 const inferenceTrustScope = "inference.provider/v1"
 
 func inferenceTrustFile() (*hosttrust.File, error) {
-	return hosttrust.New(filepath.Join(home.Config(), "package-trust.json"))
+	return hosttrust.New(filepath.Join(home.Packages(), ".package-trust.json"))
 }
 
 func inferenceTrustCommand(args []string, stdout, stderr io.Writer) int {

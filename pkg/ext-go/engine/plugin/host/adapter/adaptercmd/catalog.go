@@ -34,8 +34,12 @@ func CatalogStore() *modpkg.Store {
 
 // InstalledAdapterNames returns names visible in the configured adapter store.
 func InstalledAdapterNames() map[string]bool {
+	return installedAdapterNames(adapterStore())
+}
+
+func installedAdapterNames(store *modpkg.Store) map[string]bool {
 	result := map[string]bool{}
-	installed, err := adapterStore().List()
+	installed, err := store.List()
 	if err != nil {
 		return result
 	}
@@ -47,10 +51,10 @@ func InstalledAdapterNames() map[string]bool {
 
 // AddCatalogAdapter activates and trusts a catalog adapter and its dependencies, installing its declared shims.
 func AddCatalogAdapter(name string) (*modpkg.Adapter, error) {
-	return addCatalogAdapterWithDependencies(name, map[string]bool{})
+	return addCatalogAdapterWithDependencies(adapterStore(), name, map[string]bool{})
 }
 
-func addCatalogAdapterWithDependencies(name string, active map[string]bool) (*modpkg.Adapter, error) {
+func addCatalogAdapterWithDependencies(store *modpkg.Store, name string, active map[string]bool) (*modpkg.Adapter, error) {
 	if active[name] {
 		return nil, fmt.Errorf("adapter dependency cycle includes %s", name)
 	}
@@ -58,9 +62,8 @@ func addCatalogAdapterWithDependencies(name string, active map[string]bool) (*mo
 	defer delete(active, name)
 	source, err := CatalogStore().Load(name)
 	if err != nil {
-		return nil, fmt.Errorf("adapter %s is not available in the local catalog; rerun the installer with adapter selection or use ext adapter install: %w", name, err)
+		return nil, fmt.Errorf("adapter %s is not available in the local catalog; rerun the installer with adapter selection or use ext package install: %w", name, err)
 	}
-	store := adapterStore()
 	for _, space := range sortedDependencySpaces(source.Manifest.Dependencies) {
 		dependency := source.Manifest.Dependencies[space]
 		installed, err := store.Load(dependency.Adapter)
@@ -83,11 +86,11 @@ func addCatalogAdapterWithDependencies(name string, active map[string]bool) (*mo
 		if err := modpkg.ValidateDependency(dependency, available); err != nil {
 			return nil, err
 		}
-		if _, err := addCatalogAdapterWithDependencies(dependency.Adapter, active); err != nil {
+		if _, err := addCatalogAdapterWithDependencies(store, dependency.Adapter, active); err != nil {
 			return nil, err
 		}
 	}
-	if err := checkShimConflicts(source); err != nil {
+	if err := checkShimConflicts(store, source); err != nil {
 		return nil, err
 	}
 	var installed *modpkg.Adapter
@@ -112,7 +115,11 @@ func addCatalogAdapterWithDependencies(name string, active map[string]bool) (*mo
 
 // RefreshCatalogAdapters updates active catalog adapters in dependency order.
 func RefreshCatalogAdapters(stdout io.Writer) error {
-	installed, err := os.ReadDir(adapterStore().Home)
+	return refreshCatalogAdapters(adapterStore(), stdout)
+}
+
+func refreshCatalogAdapters(store *modpkg.Store, stdout io.Writer) error {
+	installed, err := os.ReadDir(store.Home)
 	if errors.Is(err, os.ErrNotExist) {
 		return nil
 	}
@@ -149,7 +156,7 @@ func RefreshCatalogAdapters(stdout io.Writer) error {
 				}
 			}
 		}
-		if _, err := AddCatalogAdapter(name); err != nil {
+		if _, err := addCatalogAdapterWithDependencies(store, name, map[string]bool{}); err != nil {
 			return err
 		}
 		fmt.Fprintf(stdout, "refreshed adapter %s\n", name)
@@ -194,9 +201,9 @@ func adapterShimSources(candidate *modpkg.Adapter) map[string]string {
 	return result
 }
 
-func checkShimConflicts(candidate *modpkg.Adapter) error {
+func checkShimConflicts(store *modpkg.Store, candidate *modpkg.Adapter) error {
 	var previous *modpkg.Adapter
-	if installed, err := adapterStore().Load(candidate.Manifest.Name); err == nil {
+	if installed, err := store.Load(candidate.Manifest.Name); err == nil {
 		previous = installed
 	}
 	for filename, source := range adapterShimSources(candidate) {

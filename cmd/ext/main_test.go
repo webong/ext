@@ -65,6 +65,12 @@ func TestEndToEnd(t *testing.T) {
 		return code, out.String(), errOut.String()
 	}
 
+	if code, out, errOut := run("bundle", "help"); code != 0 || !strings.Contains(out, "ext bundle fetch") || !strings.Contains(out, "ext bundle bind") {
+		t.Fatalf("bundle help = %d %q %q", code, out, errOut)
+	}
+	if code, _, errOut := run("lib", "help"); code != 2 || !strings.Contains(errOut, "unknown command") {
+		t.Fatalf("removed lib command = %d %q", code, errOut)
+	}
 	if code, out, errOut := run("package", "install", pkg); code != 0 || !strings.Contains(out, "ext package trust example/hello") {
 		t.Fatalf("install = %d %q %q", code, out, errOut)
 	}
@@ -86,8 +92,24 @@ func TestEndToEnd(t *testing.T) {
 	if _, out, _ := run("which", "hi"); !strings.Contains(out, "hi: package 1.0.0") {
 		t.Fatalf("which = %q", out)
 	}
-	if _, out, _ := run("commands"); !strings.Contains(out, "adapter") || !strings.Contains(out, "hi") {
+	if _, out, _ := run("commands"); !strings.Contains(out, "bundle") || !strings.Contains(out, "hi") {
 		t.Fatalf("commands = %q", out)
+	}
+	// Recreate the legacy layout and prove the real CLI requires and performs migration.
+	if err := os.Rename(filepath.Join(home, "packages"), filepath.Join(home, "commands")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Rename(filepath.Join(home, "commands", ".package-trust.json"), filepath.Join(home, "package-trust.json")); err != nil {
+		t.Fatal(err)
+	}
+	if code, _, errOut := run("hi"); code != 1 || !strings.Contains(errOut, "ext package migrate") {
+		t.Fatalf("migration gate: %d %q", code, errOut)
+	}
+	if code, out, errOut := run("package", "migrate"); code != 0 {
+		t.Fatalf("migration: %d %q %q", code, out, errOut)
+	}
+	if code, out, errOut := run("hi", "after-migration"); code != 0 || out != "after-migration\n" {
+		t.Fatalf("migrated command: %d %q %q", code, out, errOut)
 	}
 	if code, _, _ := run("package", "remove", "example/hello"); code != 0 {
 		t.Fatal("remove failed")

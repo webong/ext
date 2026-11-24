@@ -18,6 +18,10 @@ import (
 type Options struct {
 	// Name labels diagnostics and follow-up commands (for example ext or ctx).
 	Name string
+	// Store overrides the installed package root for an embedding command.
+	Store *modpkg.Store
+	// Command labels the management command; the default is adapter.
+	Command string
 	// Doctor optionally invokes diagnostics with the consumer's selection policy.
 	// Run checks package trust before calling it.
 	Doctor func(*modpkg.Adapter, io.Writer, io.Writer) int
@@ -33,15 +37,24 @@ func (o Options) Run(args []string, stdout, stderr io.Writer) int {
 	if o.Name == "" {
 		o.Name = "ext"
 	}
+	if o.Command == "" {
+		o.Command = "adapter"
+		if o.Name == "ext" {
+			o.Command = "package"
+		}
+	}
 	if len(args) == 0 {
-		fmt.Fprintln(stderr, o.Name+": adapter requires ls, available, add, refresh, inspect, build, pack, index, install, trust, verify, test, doctor, or remove")
+		fmt.Fprintln(stderr, o.Name+": "+o.Command+" requires ls, available, add, refresh, inspect, build, pack, index, install, trust, verify, test, doctor, or remove")
 		return 2
 	}
-	store := adapterStore()
+	store := o.Store
+	if store == nil {
+		store = adapterStore()
+	}
 	switch args[0] {
 	case "ls", "list":
 		if len(args) > 2 {
-			fmt.Fprintln(stderr, o.Name+": adapter ls accepts an optional runtime or surface")
+			fmt.Fprintln(stderr, o.Name+": "+o.Command+" ls accepts an optional runtime or surface")
 			return 2
 		}
 		filter := ""
@@ -69,7 +82,7 @@ func (o Options) Run(args []string, stdout, stderr io.Writer) int {
 		return 0
 	case "inspect":
 		if len(args) != 2 {
-			fmt.Fprintln(stderr, o.Name+": adapter inspect needs a name")
+			fmt.Fprintln(stderr, o.Name+": "+o.Command+" inspect needs a name")
 			return 2
 		}
 		candidate, err := store.Load(args[1])
@@ -127,14 +140,14 @@ func (o Options) Run(args []string, stdout, stderr io.Writer) int {
 		return 0
 	case "available":
 		if len(args) != 1 {
-			fmt.Fprintln(stderr, o.Name+": adapter available takes no arguments")
+			fmt.Fprintln(stderr, o.Name+": "+o.Command+" available takes no arguments")
 			return 2
 		}
 		available, err := CatalogStore().List()
 		if err != nil {
 			return o.reportError(stderr, err)
 		}
-		installed := InstalledAdapterNames()
+		installed := installedAdapterNames(store)
 		for _, candidate := range available {
 			state := "available"
 			if installed[candidate.Manifest.Name] {
@@ -145,11 +158,11 @@ func (o Options) Run(args []string, stdout, stderr io.Writer) int {
 		return 0
 	case "add":
 		if len(args) < 2 {
-			fmt.Fprintln(stderr, o.Name+": adapter add needs one or more catalog names")
+			fmt.Fprintln(stderr, o.Name+": "+o.Command+" add needs one or more catalog names")
 			return 2
 		}
 		for _, name := range args[1:] {
-			if _, err := AddCatalogAdapter(name); err != nil {
+			if _, err := addCatalogAdapterWithDependencies(store, name, map[string]bool{}); err != nil {
 				return o.reportError(stderr, err)
 			}
 			fmt.Fprintf(stdout, "installed adapter %s\n", name)
@@ -157,16 +170,16 @@ func (o Options) Run(args []string, stdout, stderr io.Writer) int {
 		return 0
 	case "refresh":
 		if len(args) != 1 {
-			fmt.Fprintln(stderr, o.Name+": adapter refresh takes no arguments")
+			fmt.Fprintln(stderr, o.Name+": "+o.Command+" refresh takes no arguments")
 			return 2
 		}
-		if err := RefreshCatalogAdapters(stdout); err != nil {
+		if err := refreshCatalogAdapters(store, stdout); err != nil {
 			return o.reportError(stderr, err)
 		}
 		return 0
 	case "install":
 		if len(args) != 2 && (len(args) != 4 || args[2] != "--sha256") {
-			fmt.Fprintln(stderr, o.Name+": adapter install needs a directory or archive, optionally followed by --sha256 <digest>")
+			fmt.Fprintln(stderr, o.Name+": "+o.Command+" install needs a directory or archive, optionally followed by --sha256 <digest>")
 			return 2
 		}
 		digest := ""
@@ -178,18 +191,18 @@ func (o Options) Run(args []string, stdout, stderr io.Writer) int {
 			return o.reportError(stderr, err)
 		}
 		fmt.Fprintf(stdout, "installed adapter %s in %s (untrusted)\n", installed.Manifest.Name, installed.Directory)
-		fmt.Fprintf(stdout, "review it, then run: %s adapter trust %s\n", o.Name, installed.Manifest.Name)
+		fmt.Fprintf(stdout, "review it, then run: %s "+o.Command+" trust %s\n", o.Name, installed.Manifest.Name)
 		return 0
 	case "build", "pack":
 		if len(args) < 2 {
-			fmt.Fprintf(stderr, o.Name+": adapter %s needs a source directory\n", args[0])
+			fmt.Fprintf(stderr, o.Name+": "+o.Command+" %s needs a source directory\n", args[0])
 			return 2
 		}
 		output := ""
 		goos, goarch := runtime.GOOS, runtime.GOARCH
 		for index := 2; index < len(args); index += 2 {
 			if index+1 >= len(args) {
-				fmt.Fprintln(stderr, o.Name+": adapter build/pack option needs a value")
+				fmt.Fprintln(stderr, o.Name+": "+o.Command+" build/pack option needs a value")
 				return 2
 			}
 			switch args[index] {
@@ -226,7 +239,7 @@ func (o Options) Run(args []string, stdout, stderr io.Writer) int {
 		return 0
 	case "index":
 		if len(args) < 3 {
-			fmt.Fprintln(stderr, o.Name+": adapter index needs an output path and one or more archives")
+			fmt.Fprintln(stderr, o.Name+": "+o.Command+" index needs an output path and one or more archives")
 			return 2
 		}
 		if err := modpkg.WriteIndex(args[1], args[2:]); err != nil {
@@ -240,14 +253,14 @@ func (o Options) Run(args []string, stdout, stderr io.Writer) int {
 		return 0
 	case "trust":
 		if len(args) != 2 {
-			fmt.Fprintln(stderr, o.Name+": adapter trust needs a name")
+			fmt.Fprintln(stderr, o.Name+": "+o.Command+" trust needs a name")
 			return 2
 		}
 		candidate, err := store.Load(args[1])
 		if err != nil {
 			return o.reportError(stderr, err)
 		}
-		if err := checkShimConflicts(candidate); err != nil {
+		if err := checkShimConflicts(store, candidate); err != nil {
 			return o.reportError(stderr, err)
 		}
 		if err := store.Trust(candidate); err != nil {
@@ -275,7 +288,7 @@ func (o Options) Run(args []string, stdout, stderr io.Writer) int {
 				fmt.Fprintf(stdout, "%-16s %s\n", check.Name, check.State)
 			default:
 				failed = true
-				fmt.Fprintf(stdout, "%-16s %-10s run %s adapter trust %s after reviewing it\n", check.Name, check.State, o.Name, check.Name)
+				fmt.Fprintf(stdout, "%-16s %-10s run %s "+o.Command+" trust %s after reviewing it\n", check.Name, check.State, o.Name, check.Name)
 			}
 		}
 		if failed {
@@ -284,7 +297,7 @@ func (o Options) Run(args []string, stdout, stderr io.Writer) int {
 		return 0
 	case "test":
 		if len(args) != 2 {
-			fmt.Fprintln(stderr, o.Name+": adapter test needs an adapter directory")
+			fmt.Fprintln(stderr, o.Name+": "+o.Command+" test needs an adapter directory")
 			return 2
 		}
 		candidate, err := modpkg.LoadDirectory(args[1])
@@ -302,7 +315,7 @@ func (o Options) Run(args []string, stdout, stderr io.Writer) int {
 		return 0
 	case "doctor":
 		if len(args) != 2 {
-			fmt.Fprintln(stderr, o.Name+": adapter doctor needs a name")
+			fmt.Fprintln(stderr, o.Name+": "+o.Command+" doctor needs a name")
 			return 2
 		}
 		candidate, err := store.Load(args[1])
@@ -323,7 +336,7 @@ func (o Options) Run(args []string, stdout, stderr io.Writer) int {
 	case "remove":
 		force := len(args) == 3 && args[2] == "--force"
 		if len(args) != 2 && !force {
-			fmt.Fprintln(stderr, o.Name+": adapter remove needs a name, optionally followed by --force")
+			fmt.Fprintln(stderr, o.Name+": "+o.Command+" remove needs a name, optionally followed by --force")
 			return 2
 		}
 		candidate, err := store.Load(args[1])
@@ -352,7 +365,7 @@ func (o Options) Run(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stdout, "removed adapter %s\n", args[1])
 		return 0
 	default:
-		fmt.Fprintln(stderr, o.Name+": adapter requires ls, available, add, refresh, inspect, build, pack, index, install, trust, verify, test, doctor, or remove")
+		fmt.Fprintln(stderr, o.Name+": "+o.Command+" requires ls, available, add, refresh, inspect, build, pack, index, install, trust, verify, test, doctor, or remove")
 		return 2
 	}
 }

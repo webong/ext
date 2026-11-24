@@ -8,8 +8,8 @@ Go authors can use `ParseAdapterInvocation` from
 `github.com/webong/ext/pkg/ext-go/engine/plugin`. Ship a platform-specific `.ctxadapter`
 archive with its executable and runtime assets.
 
-`ext` is the main installer: use `ext adapter install` for adapters today,
-and `ext adapter build` for Go source builds. Standalone `ctx adapter`
+`ext` is the main installer: use `ext package install` for adapters today,
+and `ext package build` for Go source builds. Standalone `ctx adapter`
 provides the same management commands. CTX and CTN consume the capabilities
 available to them from the shared adapter home, including when running
 standalone; `ctn adapter ls` is read-only. An adapter can serve both products.
@@ -33,7 +33,7 @@ The Docker, Podman, and nerdctl directories also contain tiny command shims. An
 explicit adapter installation copies those launcher files into the binary
 directory under the native command names so ordinary commands can be context-aware. The provider
 implementations themselves remain installed and trusted under
-`$EXT_HOME/adapters`.
+`$EXT_HOME/packages`.
 The `pkg/ext-go/engine/plugin/host/adapter` library owns adapter manifests,
 installation, trust, and invocation. Provider behavior stays in `adapters/`.
 
@@ -72,7 +72,7 @@ adapters in place; refresh the optional catalog when updating their helpers.
 adapters. Every adapter has a `plugin.json` manifest (an ext package template) and implements the ext adapter
 API v2.0. Only explicit adapter selection downloads or prepares maintained
 packages in `$EXT_HOME/catalog/adapters`; `ctx setup` or `ctx adapter add` activates selected
-packages under `$EXT_HOME/adapters` and records their checksum trust. A package
+packages under `$EXT_HOME/packages` and records their checksum trust. A package
 can declare `executable_windows` alongside its default executable; the native
 core selects the platform implementation at runtime while keeping one manifest,
 capability set, and trust record.

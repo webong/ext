@@ -18,7 +18,7 @@ import (
 	"github.com/webong/ext/tests/crosslang/internal/pluginbind"
 )
 
-// The C engine through purego, reached through pluginbind: the binding ext lib bind generates from
+// The C engine through purego, reached through pluginbind: the binding ext bundle bind generates from
 // lib/plugin/interface.json, committed here and held to the description by
 // TestPluginBindIsCurrent. pureGoSession gives it the engine's session API (Go policies, observer
 // and reverse handler; contexts) so the differential checks the other engines pass hold it too. It

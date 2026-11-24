@@ -30,12 +30,15 @@ func Config() string {
 	return shared
 }
 
-// Adapters is the ext adapter substore. EXT_ADAPTER_HOME overrides it.
+// Packages is the shared installed package root.
+func Packages() string { return filepath.Join(Config(), "packages") }
+
+// Adapters is the shared package root unless EXT_ADAPTER_HOME overrides it.
 func Adapters() string {
 	if value := os.Getenv("EXT_ADAPTER_HOME"); value != "" {
 		return value
 	}
-	return filepath.Join(Config(), "adapters")
+	return Packages()
 }
 
 // Intelligence is the shared CTN intelligence-provider package substore.
@@ -47,7 +50,7 @@ func Intelligence() string {
 	if value := os.Getenv("EXT_INFERENCE_PACKAGE_ROOT"); value != "" {
 		return value
 	}
-	return filepath.Join(Config(), "commands")
+	return Packages()
 }
 
 // Inference is retained for callers using the original CTN name.

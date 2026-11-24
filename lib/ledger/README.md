@@ -87,7 +87,7 @@ or supervisor open on it refuses to close (`EXT_LEDGER_BUSY`). The typed functio
 operation's input and output as JSON Schema, and the code names (code 0 is `ok`, as in lib/plugin).
 CMake compiles it into the library, `describe` on handle 0 serves it as it is, and the interface test
 holds the two equal. A binding is driven by it (ext-go's `cengine/library.Describe`, whose test calls
-every operation it lists and requires an answer) or generated from it (`ext lib bind`), so adding an
+every operation it lists and requires an answer) or generated from it (`ext bundle bind`), so adding an
 operation here and in `src/interface.c` is all a new operation takes.
 
 ## From a shell

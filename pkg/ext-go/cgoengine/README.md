@@ -109,7 +109,7 @@ engine into the project from its release and point cgo at it:
 
 ```sh
 go get -tool github.com/webong/ext/cmd/ext
-go tool ext lib fetch -lib ext_plugin -driver cgo   # internal/extlib/plugin: include/ and lib/
+go tool ext bundle fetch -lib ext_plugin -driver cgo   # internal/extlib/plugin: include/ and lib/
 CGO_CFLAGS="-I$PWD/internal/extlib/plugin/include" CGO_LDFLAGS="-L$PWD/internal/extlib/plugin/lib/<goos>_<goarch>" \
   go build -tags ext_cengine ./...
 ```

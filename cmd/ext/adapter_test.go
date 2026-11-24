@@ -89,26 +89,36 @@ self_contained = "true"
 		}
 		return out.String()
 	}
-	run(ext, 0, "adapter", "commands")
-	run(ext, 0, "builtin", "which", "adapter")
-	run(ext, 2, "ext: adapter requires", "adapter")
-	run(ext, 0, "ext adapter trust wasm", "adapter", "install", source)
+	run(ext, 0, "bundle", "commands")
+	run(ext, 2, "unknown command", "adapter")
+	run(ext, 2, "usage: ext package", "package")
+	run(ext, 0, "ext package trust wasm", "package", "install", source)
 	run(ext, 0, "untrusted", "ctx", "adapter", "ls")
 	run(ext, 0, "untrusted", "ctn", "adapter", "ls")
 	run(ext, 3, "UNSUPPORTED", "ctn", "verify", file)
-	run(ext, 1, "not trusted", "adapter", "doctor", "wasm")
-	run(ext, 0, "trusted adapter wasm", "ctx", "adapter", "trust", "wasm")
-	run(ext, 0, "evaluator doctor", "adapter", "doctor", "wasm")
+	run(ext, 1, "not trusted", "package", "doctor", "wasm")
+	run(ext, 0, "trusted wasm", "package", "trust", "wasm")
+	run(ext, 0, "evaluator doctor", "package", "doctor", "wasm")
 	t.Setenv("EXT_TEST_DOCTOR_FAIL", "1")
-	run(ext, 7, "evaluator doctor", "adapter", "doctor", "wasm")
+	run(ext, 7, "evaluator doctor", "package", "doctor", "wasm")
 	t.Setenv("EXT_TEST_DOCTOR_FAIL", "")
-	run(ext, 0, "trusted", "adapter", "verify", "wasm")
+	run(ext, 0, "trusted", "package", "verify", "wasm")
 	t.Setenv("EXT_TEST_NO_EVIDENCE", "1")
 	run(ext, 3, "no sandbox evidence", "ctn", "verify", file)
 	t.Setenv("EXT_TEST_NO_EVIDENCE", "")
 	run(ext, 0, "PASS", "ctn", "verify", file)
 	run(ext, 0, "PASS", "ctn", "verify", file)
-	installed := filepath.Join(home, "adapters", "wasm", "evaluator"+suffix)
+	// Migrate a real trusted adapter, then consume it through CTN again.
+	if err := os.Rename(filepath.Join(home, "packages"), filepath.Join(home, "adapters")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Rename(filepath.Join(home, "adapters", ".package-trust.json"), filepath.Join(home, "adapters", "package-trust.json")); err != nil {
+		t.Fatal(err)
+	}
+	run(ext, 0, "package store ready", "package", "migrate")
+	run(ext, 0, "PASS", "ctn", "verify", file)
+	run(ext, 0, "trusted", "ctx", "adapter", "ls")
+	installed := filepath.Join(home, "packages", "wasm", "evaluator"+suffix)
 	f, err := os.OpenFile(installed, os.O_APPEND|os.O_WRONLY, 0)
 	if err != nil {
 		t.Fatal(err)
@@ -119,10 +129,10 @@ self_contained = "true"
 	if err = f.Close(); err != nil {
 		t.Fatal(err)
 	}
-	run(ext, 1, "wasm", "adapter", "verify", "wasm")
+	run(ext, 1, "wasm", "package", "verify", "wasm")
 	run(ext, 3, "UNSUPPORTED", "ctn", "verify", file)
-	run(ext, 0, "removed adapter wasm", "ctx", "adapter", "remove", "wasm")
-	if out := run(ext, 0, "", "adapter", "ls"); out != "" {
+	run(ext, 0, "removed adapter wasm", "package", "remove", "wasm")
+	if out := run(ext, 0, "", "ctn", "adapter", "ls"); out != "" {
 		t.Fatalf("adapter still listed: %s", out)
 	}
 }

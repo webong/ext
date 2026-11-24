@@ -1,6 +1,6 @@
 # ext adapter management and product consumption
 
-Status: implemented. `ext adapter` and `ext ctx adapter` use the same
+Status: implemented. `ext package` and `ext ctx adapter` use the same
 shared library management command.
 
 ## Ownership
@@ -22,8 +22,8 @@ exposed directly through the `adapter` builtin:
 
 | Entry point | Responsibility |
 | --- | --- |
-| `ext adapter install <source>` | Install an ext adapter |
-| `ext adapter build`, `pack`, `inspect`, `trust`, `verify`, `remove` | Build, package, review, and manage ext adapters |
+| `ext package install <source>` | Install an ext adapter |
+| `ext package build`, `pack`, `inspect`, `trust`, `verify`, `remove` | Build, package, review, and manage ext adapters |
 | `ext ctx adapter …` | CTX's project-aware adapter management |
 | `ext ctx …` | Consume capabilities for project contexts |
 | `ext ctn …` | Consume capabilities for content workflows |
@@ -33,10 +33,10 @@ exposed directly through the `adapter` builtin:
 For example, with a ready-to-run evaluator package:
 
 ```sh
-ext adapter install ./my-evaluator
-ext adapter inspect my_evaluator
+ext package install ./my-evaluator
+ext package inspect my_evaluator
 # Review the installed files before trusting the package.
-ext adapter trust my_evaluator
+ext package trust my_evaluator
 ext ctn adapter ls
 ext ctn verify --engine my_evaluator example.wasm
 ```
@@ -54,7 +54,7 @@ isolate installations.
 ## Storage and compatibility
 
 The shared library is `pkg/ext-go/engine/plugin/host/adapter`. The default adapter
-store is under `$EXT_HOME/adapters`, with `EXT_ADAPTER_HOME` as an adapter-only
+store is the shared `$EXT_HOME/packages` root, with `EXT_ADAPTER_HOME` as an adapter-only
 override. An existing `~/.config/ctx` directory keeps being used until
 `~/.config/ext` exists. See the
 [API reference](adapter-api.md) for home resolution and scoped trust.
@@ -75,22 +75,21 @@ suffixes are serialized names and are unchanged.
 `pkg/ext-go/engine/plugin/host/adapter/adaptercmd` owns the management command,
 catalog activation and refresh, and declared launcher installation. It is part
 of the standard-library-only engine module and imports no product code.
-`cmd/ext` registers it as the `adapter` builtin. The installed CTX package calls
+`cmd/ext` delegates adapter-specific package operations from `ext package` to it. The installed CTX package calls
 the same implementation with CTX diagnostics and its project-aware doctor callback.
 
-`ext adapter doctor NAME` uses the adapter's default selection. CTX supplies
+`ext package doctor NAME` uses the adapter's default selection. CTX supplies
 its own selection and invocation policy for `ext ctx adapter doctor NAME`. Both
 paths enforce trust before invoking the installed adapter. CTN continues to
 read the shared store and apply its evaluator and isolation policy.
 
-`ext adapter` follows the command registry's normal builtin precedence and
-explicit source selection rules. There is no `USED BY` column: capability
+`ext package` is the host's package-management command. There is no `USED BY` column: capability
 compatibility is not evidence of actual usage.
 
 The cross-product acceptance test in `cmd/ext/adapter_test.go` builds Ext and
-its product packages, installs through Ext, trusts through CTX, and verifies
+its product packages, installs through Ext, trusts through Ext, and verifies
 content through CTN. It also checks that untrusted and changed
-packages are refused, and that removal through ctx is visible through ext.
+packages are refused, and that removal through Ext is visible through ext.
 
 ## Related
 
@@ -98,3 +97,11 @@ packages are refused, and that removal through ctx is visible through ext.
 - [Build an ext adapter](adapter-authoring.md)
 - [The ext command](adr-ext-command.md)
 - [Ownership rules](../AGENTS.md#adapter-ownership)
+
+
+Legacy command and adapter stores move together with `ext package migrate`.
+The original directories are preserved as backups. The shared trust ledger is
+`EXT_HOME/packages/.package-trust.json`; approval scopes remain distinct. A
+custom `EXT_ADAPTER_HOME` deliberately selects an isolated adapter store and is
+not automatically migrated. The host's `ext package` always manages its shared
+package root, including when such a consumer override is set.

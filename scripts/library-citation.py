@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Writes the citation of one release of a C library of lib/: the file ext lib fetch reads (the
+"""Writes the citation of one release of a C library of lib/: the file ext bundle fetch reads (the
 format ext.library.citation/v1, cengine/library.Citation). It knows no library: a layout file names,
 for each platform archive the release builds, the GOOS/GOARCH targets it serves and the files each
 driver takes from it; this script adds the archive's URL, its SHA-256 (from checksums.txt) and its

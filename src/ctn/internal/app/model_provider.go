@@ -180,7 +180,7 @@ func modelProviderCommand(args []string, stdout, stderr io.Writer) int {
 }
 
 func modelTrustFile() (*hosttrust.File, error) {
-	return hosttrust.New(filepath.Join(home.Config(), "package-trust.json"))
+	return hosttrust.New(filepath.Join(home.Packages(), ".package-trust.json"))
 }
 
 func resolveModelProvider(id string) (store.Entrypoint, string, error) {

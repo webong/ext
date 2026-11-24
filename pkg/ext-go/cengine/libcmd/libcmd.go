@@ -1,10 +1,10 @@
 // Package libcmd is the command that brings a C library of lib/ into a Go project before it builds:
-// ext's builtin "ext lib". ext-go has no command of its own; a project adds ext as a Go tool and runs
+// ext's builtin "ext bundle". ext-go has no command of its own; a project adds ext as a Go tool and runs
 // it from go generate:
 //
 //	go get -tool github.com/webong/ext/cmd/ext
-//	//go:generate go tool ext lib fetch -lib plugin -driver cgo
-//	//go:generate go tool ext lib bind -lib plugin
+//	//go:generate go tool ext bundle fetch -lib plugin -driver cgo
+//	//go:generate go tool ext bundle bind -lib plugin
 //
 // fetch reads the library's citation (a library.Citation: where each platform's build is published
 // and its SHA-256), downloads the builds for the targets, checks them, and writes a Go package the
@@ -60,13 +60,13 @@ type libraryConfig struct {
 	Package     string   `json:"package"`
 }
 
-const usage = `usage: ext lib fetch -lib <name> [-citation file] [-driver cgo,c2go,purego] [-target goos/goarch,...] [-dir dir] [-package name] [-offline]
-       ext lib bind -lib <name> [-description file] [-dir dir] [-package name]`
+const usage = `usage: ext bundle fetch -lib <name> [-citation file] [-driver cgo,c2go,purego] [-target goos/goarch,...] [-dir dir] [-package name] [-offline]
+       ext bundle bind -lib <name> [-description file] [-dir dir] [-package name]`
 
-// Run is "ext lib": it runs fetch or bind with args and returns the exit code.
+// Run is "ext bundle": it runs fetch or bind with args and returns the exit code.
 func Run(args []string, stdout, stderr io.Writer) int {
 	if err := run(context.Background(), stdout, args); err != nil {
-		fmt.Fprintln(stderr, "ext lib:", err)
+		fmt.Fprintln(stderr, "ext bundle:", err)
 		return 1
 	}
 	return 0
@@ -171,7 +171,7 @@ func runBind(args []string, stdout io.Writer) error {
 	if err := os.WriteFile(target, src, 0o644); err != nil {
 		return err
 	}
-	fmt.Fprintf(stdout, "ext lib: %s binding (ABI %d) in %s\n", d.Library, d.ABIVersion, target)
+	fmt.Fprintf(stdout, "ext bundle: %s binding (ABI %d) in %s\n", d.Library, d.ABIVersion, target)
 	return nil
 }
 
@@ -233,7 +233,7 @@ func runFetch(ctx context.Context, args []string, stdout io.Writer) error {
 	if err := fetch.Fetch(ctx, o); err != nil {
 		return err
 	}
-	fmt.Fprintf(stdout, "ext lib: %s %s (%s) for %s in %s\n", c.Library, c.Version, strings.Join(o.Drivers, ", "), strings.Join(o.Targets, ", "), out)
+	fmt.Fprintf(stdout, "ext bundle: %s %s (%s) for %s in %s\n", c.Library, c.Version, strings.Join(o.Drivers, ", "), strings.Join(o.Targets, ", "), out)
 	return nil
 }
 

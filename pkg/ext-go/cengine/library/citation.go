@@ -16,7 +16,7 @@ const CitationSchema = "ext.library.citation/v1"
 
 // A Citation pins one release of a C library: where each platform's build is published and the
 // SHA-256 it must have. It is plain data, published by the library's own releases and read by
-// ext lib fetch; this package knows no library by name.
+// ext bundle fetch; this package knows no library by name.
 type Citation struct {
 	Schema  string  `json:"schema"`
 	Library string  `json:"library"` // the library's C prefix, such as ext_plugin or ext_ledger

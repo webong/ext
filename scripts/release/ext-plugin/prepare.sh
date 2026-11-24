@@ -19,7 +19,7 @@ sha256sum -c checksums.txt
 )
 ci_import_env
 
-# The citation ext lib fetch reads: each archive's URL, SHA-256 and the files each driver takes.
+# The citation ext bundle fetch reads: each archive's URL, SHA-256 and the files each driver takes.
 (
 set -euo pipefail
 version="${GITHUB_REF_NAME#ext-plugin-v}"

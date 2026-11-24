@@ -1,396 +1,127 @@
 # ext
 
-ext is a toolkit for building local developer tools, plus the products built on
-it. It provides portable libraries (a plugin contract with several runtimes, a
-graph store with host and process discovery, and browser and credential
-resources), the `ext` entry point, and installed product packages:
+Ext is a toolkit for building extensible software.
 
-| Command | Module | Purpose |
-| --- | --- | --- |
-| `ext` | `cmd/ext` | The only public executable; installs and invokes Ext packages |
-| [`ext ctx`](#ctx) | `src/ctx` | Project-local contexts for the tools you already use |
-| `ext ctn` | `src/ctn` | Content management and verification ([docs](docs/ctn-verify.md)) |
-| `ext cto` | `src/cto` | Local containment and sandbox inspection |
+Use it to expose APIs, load plugins, and connect capabilities across implementations
+and languages. Plugins can extend an application, use other plugins, and expose
+extension points of their own.
 
-New here? [Using ext](docs/guide.md) is organised by what you want to do, with recipes that run.
-The reusable local graphical/textual shell boundary is described in
-[the system shell library](docs/system-shell.md).
+Use the **CLI** to install and run plugins from your shell, or embed the
+**libraries** in your own software.
 
-Reusable libraries live in [`pkg/`](pkg/README.md) and [`res/`](res/README.md);
-product-specific behavior lives in [`adapters/`](adapters/README.md). A product
-never imports another product. CTX, CTN and CTO remain reusable Go libraries;
-their installed packages provide commands to Ext. Adapters are **ext adapters**:
-CTX and CTN consume their declared capabilities when installed, trusted, and
-available to the product. One adapter may serve both products.
+## Use ext from the shell
 
-Go applications can import the product libraries directly and call their public
-`Run(args, stdout, stderr) int` entrypoints:
+`ext` is the public executable and a host for dynamically discovered command
+plugins. Install packages, inspect what is available, then invoke the commands
+they provide. Plugin-specific usage belongs in each plugin's documentation.
 
-```go
-import (
-    "github.com/webong/ext/src/ctx"
-    "github.com/webong/ext/src/ctn"
-    "github.com/webong/ext/src/cto"
-)
-```
-
-These module paths become available to external projects when their module tags
-and dependencies are published. Ext itself communicates with the installed
-product packages through the plugin contract.
-
-`ext` is the main installer and combined entry point. Adapter management currently
-uses `ext adapter install|build|pack|trust …`; `ext ctx adapter …`
-provides CTX's project-aware commands. CTN consumes installed adapters and exposes the
-read-only `ext ctn adapter ls`. `ext package install` manages command packages, not
-the adapter store. See [adapter management](docs/adr-adapter-management.md).
-The rest of this file describes `ctx`.
-
-# ctx
-
-Project-local contexts for the tools you already use. Choose a Docker engine,
-Kubernetes cluster, cloud profile, browser profile, database connection, or
-shell environment for one project without changing a machine-wide default.
-
-```sh
-cd my-project
-ext ctx set docker orbstack
-ext ctx set kube development --namespace payments
-ext ctx set aws client-a
-ext ctx set 'firefox:client-a'
-
-docker ps                         # ctx shim uses the project's Docker context
-ext ctx run kubectl get pods
-ext ctx run aws sts get-caller-identity
-ext ctx open http://localhost:3000     # opens the selected browser profile
-```
-
-Selections live in the project's `.ctx` file. ctx stores selectors and
-non-secret profile values; credentials remain with the native tools.
-
-## What ctx does
-
-| Area | Available today |
+| Command | Purpose |
 | --- | --- |
-| Project contexts | Select contexts per project, group them into profiles, inspect resolution, and apply profile environment values to a command or child shell. |
-| Container engines | Route Docker, Podman, nerdctl/containerd, and Apple Container. Use named engine connections, registry-backed build caches, and point-in-time image or volume transfers. |
-| Desktop managers | Inspect and explicitly start or stop Rancher Desktop, OrbStack, and Docker Desktop through separate app adapters. Rancher diagnostics distinguish VM, k3s, and Docker-plugin issues. |
-| Computer tools | Route Kubernetes, AWS, gcloud, PostgreSQL, MySQL, and PHP. The optional Git adapter manages project hooks; Claude Code and Codex adapters add CLI shims and project hooks. |
-| Browsers | Open a selected profile; query and share supported cookies and other browser resources; prepare extensions and userscripts; and attach to supported live pages. Capabilities vary by browser and OS. |
-| Extensibility | Install trusted adapters on demand. Shared Ext libraries validate packages and enforce trust; ctx selects and dispatches capabilities for its contexts and graph. |
+| `ext commands` | List available commands |
+| `ext package` | Install, trust and manage plugin packages |
+| `ext bundle` | Fetch native library artifacts and generate bindings |
+| `ext which <command>` | Show which implementation supplies a command |
 
-The core does not ship with an active adapter or a bundled adapter catalog. An
-adapter owns its product-specific behavior; ctx only invokes its declared
-capabilities. See [Build an ext adapter](docs/adapter-authoring.md) to build one.
+### Install
 
-## Install
-
-The default installer installs Ext and its CTX, CTN and CTO packages. Run it from a source checkout
-with Go 1.26 or newer:
+On macOS or Linux:
 
 ```sh
-git clone https://github.com/webong/ext.git
-cd ext
-./install.sh
-export PATH="$HOME/.local/bin:$PATH"
+curl -fsSL https://webong.dev/ext/install.sh | sh
 ```
 
-Choose adapters explicitly when you need them. `ext package` adds commands from
-other installed packages:
+On Windows, download and run [install.ps1](https://webong.dev/ext/install.ps1)
+from PowerShell.
+
+### Discover and invoke plugins
 
 ```sh
-./install.sh --adapters docker,kube,aws,firefox
-# Or: ./install.sh --interactive
-# Or: ./install.sh --all
+ext commands
+ext which <command>
+ext <command> [args]
 ```
 
-On Windows, use PowerShell:
+`<command>` is a name supplied by an installed command plugin. The CLI resolves
+and dispatches it through the plugin contract. Installing another compatible
+command package extends the available commands without rebuilding the CLI.
 
-```powershell
-git clone https://github.com/webong/ext.git
-Set-Location ext
-.\install.ps1 -Adapters docker,kube,aws,firefox
-```
+All plugin packages share one default installed store. Existing installations
+move to it with `ext package migrate`; old stores are retained as backups.
+See [package management](docs/adr-cli-package-model.md) and
+[command dispatch](docs/adr-ext-command.md) for migration, discovery and trust rules.
 
-Omit `-Adapters` for a core-only install, or use `-Interactive` or
-`-AllAdapters`. The installer places `ext.exe` and its product packages in
-`$env:LOCALAPPDATA\Programs\ext\bin` by default; add that directory to `PATH`.
+## A network of plugins
 
-When a release is published, the remote installers do not require Go:
+Plugins can be both providers and consumers. An adapter may depend on a
+program's contracts; that program can use capabilities provided by other
+adapters. One implementation can serve several consumers.
 
-```sh
-curl -fsSL https://raw.githubusercontent.com/webong/ext/main/install.sh | sh
-curl -fsSL https://raw.githubusercontent.com/webong/ext/main/install.sh |
-  sh -s -- --adapters docker,kube,aws,firefox
-```
+A **library dependency** is code imported when software is built. A **plugin
+dependency** is a declared requirement fulfilled by another implementation at
+runtime. Collaboration through public plugin contracts does not require
+importing another program's private implementation.
 
-For Windows, download and run
-[install.ps1](https://github.com/webong/ext/blob/main/install.ps1) with the same
-`-Adapters` selection. Release downloads are checksum-verified. The adapter
-catalog is a separate, optional download; a core-only update preserves
-previously installed adapters. If no release is published, install from source.
-See [cross-platform support](docs/cross-platform.md) for platform details.
+Packages describe implementations and dependencies; hosts resolve compatible
+implementations and apply trust and authorization before use. Installation or
+contract compatibility alone does not grant permission. Hosts retain control
+of selection, routing and lifecycle, including how missing dependencies and
+failures are handled.
 
-## Everyday use
+## Use ext in software
 
-```sh
-ext ctx ls docker                    # discover native contexts
-ext ctx set docker orbstack          # write this project's selection
-ext ctx status                       # show active selections
-ext ctx explain                      # show values and where they came from
-ext ctx doctor                       # check selected contexts and adapters
+Embed the libraries you need; using them does not require running the CLI.
+Your application defines its APIs, chooses implementations and owns policy.
+Ext supplies reusable contracts, validation, package integrity, invocation and
+lifecycle mechanisms.
 
-ext ctx profile set client-a docker orbstack
-ext ctx profile set client-a browser firefox:client-a
-ext ctx profile env client-a APP_ENV development
-ext ctx profile use client-a
-ext ctx run -- npm test              # apply profile environment to one command
-ext ctx shell                        # or start a child shell with that environment
-```
+| You want to… | Start with |
+| --- | --- |
+| Expose extension points or implement a plugin | [Plugin contract](docs/adr-plugin-contract.md), [runtime authoring](docs/plugin-runtimes.md) |
+| Embed the native plugin engine | [`lib/plugin`](lib/plugin/README.md) |
+| Use Go engines and runtime backends | [`pkg/ext-go`](pkg/ext-go), [engine selection and library loading](docs/adr-library-opener.md) |
+| Use another language or a mobile platform | [SDKs and bindings](pkg/README.md#plugin-language-sdks-and-bindings) |
+| Store a graph, record observations or supervise processes | [`lib/ledger`](lib/ledger/README.md) |
+| Work with the local OS | [`res/system`](res/system/README.md) |
+| Work with web content, WebViews or WebAssembly | [`res/web`](res/web/README.md) |
+| Build code that runs inside a browser extension | [`pkg/ext-web`](pkg/ext-web/README.md) |
+| Use intelligence contracts and mechanisms | [`res/int`](res/int/README.md) |
 
-Installed Docker, Podman, and nerdctl adapters can place small shims before
-the native commands on `PATH`, so ordinary `docker`, `podman`, and `nerdctl`
-commands honor the project selection. `ext ctx real docker` shows the executable
-behind a shim. For other tools, use `ext ctx run <tool> ...`. Explicit native CLI
-flags and environment variables take precedence over ctx.
+Plugin implementations can use supported process, in-process, WebAssembly,
+HashiCorp or C ABI backends. Shared transport does not make unrelated APIs
+compatible: extensions implement the contracts their host accepts.
 
-## Managers and sharing
+Go libraries are independently versioned modules. Choose only the modules you
+need, and use their published versions; the root `go.work` joins them for
+repository development. Current source paths may precede publication. See
+[module versioning](docs/module-versioning.md) for tags and distribution.
 
-Container-engine adapters and desktop-manager adapters have different jobs.
-For example, `docker` routes Docker commands while `docker_desktop` inspects
-the Docker Desktop application. Install only the ones you use:
+Programs under `src/` also export Go libraries. Their package guests expose
+commands through the same plugin contract; the CLI does not import their
+product modules.
 
-```sh
-ext ctx adapter add rancher_desktop orbstack docker_desktop
-ext ctx manager apps
-ext ctx manager app rancher_desktop doctor
-ext ctx manager app orbstack status
-```
+The [extension-author DX ADR](docs/adr-extension-authoring-dx.md) describes the
+next layer of tooling: discovery, scaffolding, application contract tests and
+consistent diagnostics. It distinguishes that direction from implemented
+engine and archive support.
 
-`doctor` is read-only. `start` and `stop` are separate, explicit actions.
-You can also name an engine connection for builds and transfers:
+## Repository map
 
-```sh
-ext ctx manager add orb --virtualizer orbstack --provider docker --selection orbstack
-ext ctx manager add desktop --virtualizer docker-desktop --provider docker --selection desktop-linux
+| Directory | Responsibility | Main components |
+| --- | --- | --- |
+| [`lib/`](lib) | Native C libraries shared by language bindings | `plugin`: plugin engine; `ledger`: graph store, recorder and supervisor |
+| [`pkg/`](pkg) | Public language SDKs, bindings and platform packages | Go, Rust, Zig, TypeScript, Python, Ruby, PHP, Lua, .NET; Web, Darwin and Android SDKs |
+| [`res/`](res) | Reusable domain contracts and platform mechanisms | `system`: local OS; `web`: web content and runtimes; `int`: intelligence |
+| [`src/`](src) | First-class plugins built on Ext, also available as Go libraries | `ctx`: contexts; `ctn`: content; `cto`: containment |
+| [`cmd/ext/`](cmd/ext) | The public CLI | Package discovery, installation and command dispatch |
+| [`adapters/`](adapters/README.md) | Integrations with specific products, providers, browsers and native tools | Native discovery, installation, activation and capability implementations |
+| [`tests/`](tests) | Tests spanning libraries and languages | Cross-language conformance and integration checks |
+| [`docs/`](docs) | Guides, contracts and architecture decisions | [Architecture](docs/adr-architecture.md), [CI](docs/ci.md), [adapter authoring](docs/adapter-authoring.md) |
 
-ext ctx build @orb --cache-ref ghcr.io/acme/api:docker-cache -- --tag acme/api:dev .
-ext ctx share:manager image copy @orb @desktop acme/api:dev
-ext ctx share:manager volume copy @orb @desktop app-data app-data
-```
-
-Image copy uses an archive; image sync can use a registry when both adapters
-support it. A volume copy is a point-in-time transfer, **not live sync**: stop
-or quiesce a database first. ctx refuses to import over an existing target
-volume. Named connections can also pin a CLI and Compose/Buildx plugin
-directory, avoiding changes to global Docker plugin symlinks. A registration
-describes an engine inside a VM; it does not copy VM disks or snapshots.
-
-## Browsers
-
-The `ext ctx open` command launches URLs in a selected profile of Firefox,
-Chrome, Chromium, Edge, Brave, or Safari. Other maintained browser adapters
-may support sharing without implementing `ext ctx open`. Discover what a particular
-installation can do with `ext ctx adapter inspect <name>` and
-`ext ctx share:browser capabilities --from <browser:profile>`.
-
-Cookie queries can read supported profile stores or caller-provided exports,
-select by site/name/scope, and return JSON, an HTTP Cookie header, or a
-Netscape cookie jar where that format can preserve the cookie's scope:
-
-```sh
-ext ctx share:browser cookie query --from firefox:personal \
-  --site https://example.com --name session --to-file ./cookies.json
-
-ext ctx share:browser cookie query --browser firefox --browser chrome \
-  --site https://example.com --mode first --stdout | consumer
-
-ext ctx share:browser cookie normalize --from chrome:Default --store-id 0 \
-  --from-file ./authorized-export.json --to-file ./normalized-cookies.json
-```
-
-Sharing also covers supported cookie import, browser policy export, and
-exportable Firefox certificates. Browser encryption, OS permissions, and
-profile state limit what can be read or transferred. A query never bypasses
-Chrome App-Bound encryption or a browser's access controls. Cookie values are
-sensitive; file output is private, and stdout requires a pipe. See
-[browser cookies](docs/browser-cookies.md) for input formats, fallbacks,
-normalization, and security limits.
-
-Trusted browser adapters can prepare and install extensions through supported
-native routes, manage userscripts, encode bookmarklets, and attach to a page
-whose debugging endpoint is already available:
-
-```sh
-ext ctx browser manage extension prepare --target chrome:Default \
-  --input '{"source":"/path/to/extension.zip"}'
-
-ext ctx browser manage session targets --target chrome:Default
-```
-
-Preparing or registering an extension is not proof that a browser installed or
-enabled it. A page attachment does not launch or close the user's browser.
-Read [browser management](docs/browser-management.md) for operations and
-[extension distribution](docs/extension-distribution.md) for publishing and
-platform-specific installation rules.
-
-## Native credentials
-
-Install the store adapter for your OS: `keychain` on macOS, `secret_service` on
-Linux, or `credman` on Windows (`.\install.ps1 -Adapters credman`). ctx can then
-move an explicitly named secret
-without putting its value in `.ctx` or command arguments:
-
-```sh
-./install.sh --adapters keychain   # macOS; choose secret_service on Linux
-chmod 600 ./secret.txt
-ext ctx credential put 'keychain:service=ctx&account=work' --from-file ./secret.txt
-ext ctx credential get 'keychain:service=ctx&account=work' --stdout | consumer
-ext ctx credential copy 'keychain:service=ctx&account=work' \
-  'keychain:service=ctx&account=work-copy'
-```
-
-`get --stdout` requires a pipe; `get --to-file` creates a new private file.
-`put` reads from a private file or redirected stdin. An existing item requires
-`--replace`. Copy is a point-in-time transfer, not synchronization. Native
-permissions and unlock prompts still apply. Chromium-family browser adapters
-declare a runtime credential dependency on Keychain (macOS) or Secret Service
-(Linux). Selecting one from the catalog installs its store adapter too; the
-browser requests supported cookie keys through CTX's trusted adapter protocol.
-Updating a store adapter does not require rebuilding the browser adapter. CTX
-does not bypass browser-bound encryption. See [native credentials](docs/credentials.md)
-for store reference formats, cross-machine transfer, and security limits.
-
-## Adapters and the system graph
-
-The optional installer catalog contains maintained adapters. After obtaining
-it with `--adapters`, `--interactive`, or `--all`, you can add more locally:
-
-```sh
-ext ctx adapter available
-ext ctx adapter add postgres mysql
-ext ctx adapter ls
-ext ctx adapter inspect postgres
-ext ctx graph scan
-ext ctx graph shells
-ext ctx graph filesystems
-ext ctx graph webviews
-ext ctx graph processes
-ext ctx graph process <pid>
-ext ctx graph resolve shell --name zsh
-ext ctx graph resolve filesystem --path ./export.json --writable --min-free 1048576
-ext ctx graph resolve webview --engine webkit --api WKWebView
-ext ctx graph resolve browser --share cookie.list
-```
-
-The optional Git adapter adds `ext ctx run git hooks` for inspecting, installing,
-and removing project-local hooks without changing Git's hook path or installing
-a `git` shim. See [Git hooks](docs/git-hooks.md), including Husky coexistence.
-
-The graph discovers host shells, mounted filesystems, and shared webview
-runtimes directly, even with no adapters installed. `graph shells` reports
-executable paths, resolved symlink
-targets, discovery sources, and the configured default. `graph filesystems`
-reports mount points, filesystem types, sources, read-only status, and space in
-bytes where available. `graph webviews` reports detected embedding runtimes and
-their rendering engines, API/ABI generations, versions where available, and
-discovery evidence. These commands emit JSON and refresh their graph records;
-`graph processes` inventories running processes; `graph process <pid>` inspects
-one process’s files, mappings, sockets, and usage where supported. Both report
-collection coverage and work without adapters. `graph scan` refreshes host and
-process inventories alongside adapter inventory. Inspect
-stored records with `ext ctx graph vertices shell`, `ext ctx graph vertices filesystem`,
-or `ext ctx graph vertices webview`.
-Host resolution matches operation requirements and refreshes stale observations.
-Shell launches and protected file exports use graph preparation to validate the
-selected executable or destination before use. Explicit choices take precedence.
-Webview preparation requires a compatibility validator from its embedding backend.
-See [host discovery](docs/host-discovery.md) for platform coverage and the library API.
-
-Third-party adapters use the same API. Installing one directly leaves it
-untrusted until you review and trust it:
-
-```sh
-ext ctx adapter test ./my-adapter
-ext ctx adapter install ./my-adapter
-ext ctx adapter trust my-adapter
-```
-
-Ext with its CTX package can install a prebuilt `.ctxadapter` archive or a
-checksum-pinned HTTPS adapter index without Go. The system graph records
-observations from installed, trusted adapters; it does not assume every tool
-is present. See [adapter packaging](docs/adapter-api.md#binary-packages-and-go-builds)
-and [the graph design](docs/adr-graph-runtime.md).
-
-## Go libraries
-
-CTX and its ecosystem share public Go libraries:
-
-- `github.com/webong/ext/res/system` supplies the local graphical/textual shell
-  substrate, in three groups of packages: `service` (host, process and program
-  discovery, local interface/address/route/resolver observation, credential
-  integration, per-user service definitions), `capture` (surfaces,
-  accessibility, permissions, bounded capture and input, audio, clipboard, share,
-  media primitives) and `device` (volume and disk-image snapshot/restore).
-  Consumers own authorization, remote control and product policy. Its Apple and
-  Android bindings ship through the native SDKs, with additional Windows-native
-  libraries beside `capture/audio` and `capture/clipboard`.
-- `github.com/webong/ext/pkg/ext-go/engine/ledger` supplies the pure-Go ledger: graph
-  storage and local process supervision, the fallback for the C library `lib/ledger`;
-  its nested module `pkg/ext-go/engine/ledger/recorder` writes what the `res/system`
-  collectors find into the graph.
-- `github.com/webong/ext/pkg/ext-go` supplies the shared host/guest contract,
-  validation, selection, admission, and session lifecycle. Its implementations
-  include `pkg/ext-go/engine/plugin/transport/inprocess`, `pkg/ext-go/engine/plugin/transport/jsonline`, `pkg/ext-go/hashicorp` (net/rpc and
-  gRPC), `pkg/ext-go/engine/plugin/host/nativego`, `pkg/ext-go/wasm` (WASI Preview 1), and `pkg/ext-go/cguest`
-  (versioned C ABI). All use the same typed authoring and host session APIs.
-- `github.com/webong/ext/pkg/ext-go/engine/ledger/supervisor` supplies local process supervision when
-  the selected plugin backend does not already own its process lifecycle.
-- `github.com/webong/ext/res/web/host` supplies portable browser contracts,
-  workflows, extension and userscript handling, WebAssembly inspection and
-  execution and raw reactor hosting through wazero, plus application-hosted
-  WKWebView, Android WebView and WebView2 implementations. It contains no plugin
-  engine dependency; `pkg/ext-go/wasm` supplies that binding.
-`res/system` depends only on `golang.org/x/sys`, the ledger recorder only on `res/system` and the engine; `pkg/ext-go/engine` remains
-standard-library only. Consumers that do not need WebAssembly or another runtime
-backend can keep the wazero and HashiCorp stacks out of their module graph.
-
-Adapters, CTX, CTN, and other applications can build on these
-libraries. Each is published as its own Go module under a shared major version;
-see [module versioning](docs/module-versioning.md). Domain behavior and
-authorization remain with each consumer.
-See the [plugin contract](docs/adr-plugin-contract.md) and the
-[HashiCorp backend guide](pkg/ext-go/hashicorp/README.md). The
-[runtime authoring guide](docs/plugin-runtimes.md) shows one implementation built
-as a Go plugin, a WASI command, or a C shared library.
-
-## Documentation
-
-- [Browser cookies and automation input](docs/browser-cookies.md)
-- [Browser profile and page management](docs/browser-management.md)
-- [Native credentials](docs/credentials.md)
-- [Extension distribution](docs/extension-distribution.md)
-- [Build an ext adapter](docs/adapter-authoring.md)
-- [Adapter API and packaging](docs/adapter-api.md)
-- [Cross-platform support](docs/cross-platform.md)
-- [System graph design](docs/adr-graph-runtime.md)
-- [Shared plugin contract and consumer integration](docs/adr-plugin-contract.md)
+`lib`, `pkg`, `res` and `src` are containers, not one shared package. Libraries
+do not depend on product internals; products collaborate through plugin
+contracts rather than importing one another's implementation.
+Provider-specific behavior stays in adapters, while consumers choose policy.
 
 ## License
 
 [MIT](LICENSE)
-
-### Plugin SDK authoring and tooling
-
-The [plugin SDK guide](docs/plugin-sdk.md) covers typed Go methods, a TypeScript
-host/guest SDK, instance leases, optional health/configuration/stream contracts,
-package manifests, dependency graphs and conformance tests. Runtime backends
-remain inside the reusable plugin library, including HashiCorp go-plugin.
-
-```sh
-go run ./pkg/ext-go/examples/plugin-sdk --backend jsonline
-go run ./pkg/ext-go/examples/plugin-typescript
-go run ./pkg/ext-go/hashicorp/cmd/ext-plugin inspect --root pkg/ext-go/examples/plugin-package --entry main pkg/ext-go/examples/plugin-package/plugin.json
-```
-
-Inspection validates metadata and content without starting plugins. Adapters
-retain their native bindings. Adoption by other consumers is separate work.

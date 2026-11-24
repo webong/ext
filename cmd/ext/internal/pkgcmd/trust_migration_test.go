@@ -21,7 +21,7 @@ func TestCommandTrustLegacyImportIsOneTime(t *testing.T) {
 	if err != nil || first.Packages[id] != digest {
 		t.Fatalf("legacy import: %v, %v", first, err)
 	}
-	file, err := hosttrust.New(filepath.Join(home, sharedTrustFile))
+	file, err := hosttrust.New(filepath.Join(home, "packages", sharedTrustFile))
 	if err != nil {
 		t.Fatal(err)
 	}

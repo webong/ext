@@ -20,7 +20,7 @@ Product package entrypoints are private artifacts, not user-facing binaries.
 
 The first-party package directories ship beside `bin/ext` under
 `bin/ext-packages/`. They are part of the same release trust boundary as `ext`;
-external packages installed under `EXT_HOME/commands` still need explicit
+external packages installed under `EXT_HOME/packages` still need explicit
 `ext package trust` approval tied to their content digest. A package from a
 different source cannot silently replace a first-party command with the same
 name.
@@ -49,3 +49,20 @@ CTX, CTN and CTO keep their own Go module APIs and version labels inside their
 package manifests. Publish module path tags for the product libraries and their
 new dependencies before external `go get`; those tags are independent of the
 `ext-v*` binary tag. New standalone `ctx-v*` and `ctn-v*` binary releases stop.
+
+## Packages without commands
+
+`ext package` installs, upgrades, trusts, lists and removes valid plugin packages
+whether or not they expose `ext.command/v1`. Trust approves the verified package
+digest for this host; it does not create commands or grant authority in adapter
+or other consumer scopes. Invalid command metadata is reported separately and
+never registered, while the package can still be managed for its other contracts.
+The shared store is `EXT_HOME/packages`, with scoped trust in its hidden
+`.package-trust.json` ledger. `ext package migrate` verifies and combines legacy
+command and adapter stores; it retains the originals as backups. Existing scopes
+remain separate, so adapter approval does not become command approval.
+
+Native library preparation is exposed directly as `ext bundle fetch` and
+`ext bundle bind`, including through `go tool ext bundle ...`. There is no
+intermediate `lib` subcommand or compatibility alias for the old top-level name.
+See [the package command model](adr-cli-package-model.md).

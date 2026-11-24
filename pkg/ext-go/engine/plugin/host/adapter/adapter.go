@@ -125,7 +125,11 @@ type Store struct {
 }
 
 func NewStore(home string) *Store {
-	return &Store{Home: home, TrustFile: filepath.Join(home, "package-trust.json")}
+	trustFile := "package-trust.json"
+	if filepath.Clean(home) == filepath.Clean(Home()) && os.Getenv("EXT_ADAPTER_HOME") == "" {
+		trustFile = ".package-trust.json"
+	}
+	return &Store{Home: home, TrustFile: filepath.Join(home, trustFile)}
 }
 
 func LoadDirectory(directory string) (*Adapter, error) {
@@ -437,7 +441,7 @@ func (s *Store) AssertTrusted(a *Adapter) error {
 		return err
 	}
 	if !trusted {
-		return fmt.Errorf("adapter %s is not trusted or changed; run ctx adapter trust %s after reviewing it", a.Manifest.Name, a.Manifest.Name)
+		return fmt.Errorf("adapter %s is not trusted or changed; run ext package trust %s after reviewing it", a.Manifest.Name, a.Manifest.Name)
 	}
 	return s.verifySealedEntrypoint(a)
 }

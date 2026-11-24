@@ -51,7 +51,7 @@ stage="$build/stage/$name"
 rm -rf "$stage"
 cmake --install "$build/engine" --prefix "$stage"
 cp LICENSE "$stage/LICENSE"
-cp lib/plugin/interface.json "$stage/interface.json" # the description ext lib bind generates a binding from
+cp lib/plugin/interface.json "$stage/interface.json" # the description ext bundle bind generates a binding from
 cat >"$stage/README.md" <<README
 # ext engine $version ($platform)
 

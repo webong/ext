@@ -32,7 +32,7 @@ func Discover(reg *registry.Registry, s *store.Store, trust *Trust, options host
 		if len(declared) == 0 {
 			continue
 		}
-		ok, err := trust.Trusted(p)
+		ok, err := trust.trustedIn(p, scope)
 		if err != nil {
 			reg.Note(fmt.Sprintf("package %s: %v", p.Name(), err))
 			continue

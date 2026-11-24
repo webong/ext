@@ -210,10 +210,9 @@ The reusable libraries are:
 CTN owns the nested modules `src/ctn/inference`, `src/ctn/perception`, and
 `src/ctn/realtime` for provider, perception, and duplex session contracts
 over Ext plugin sessions. Each has its own module path and version tag.
-The shared `model.tensor/v1` contract uses `res/int/model/plugin`, a nested
-module that depends on `res/int` and the Go plugin engine. Peer consumers
-such as CTN and Cymonkey use this bridge directly. `src/ctn/model` preserves
-the published CTN import path for existing consumers.
+CTN owns the public `model.tensor/v1` bridge in `src/ctn/model`. Cymonkey
+and other peers can import it and open an installed provider directly through
+Ext. The portable model types and inference interfaces live in `res/int/model`.
 
 Plugin-specific runtime bindings, including HashiCorp go-plugin, the
 WebAssembly `engine.Backend` and the yaegi interpreter, belong inside the plugin library

@@ -12,7 +12,7 @@ credentials, roots, and authorization policy.
 | `realtime` | Duplex model session and event contracts |
 
 The wire contracts remain versioned independently of Go import paths. Go
-hosts and guests use the shared [`model.tensor/v1` bridge](model/plugin) for local
+hosts and guests use [CTN’s public `model.tensor/v1` bridge](../../src/ctn/model) for local
 tensor engines. Other languages can implement the same JSON contract through
 the Ext plugin engine.
 

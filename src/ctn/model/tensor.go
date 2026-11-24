@@ -1,7 +1,7 @@
-// Package modelplugin bridges res/int/model tensor providers to the Ext plugin contract.
+// Package model bridges res/int/model tensor providers to the Ext plugin contract.
 // The wire contract is language-neutral; this package supplies Go host and
 // guest helpers. A host still chooses and trusts a sealed provider package.
-package modelplugin
+package model
 
 import (
 	"context"

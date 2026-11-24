@@ -1,4 +1,4 @@
-package modelplugin
+package model
 
 import (
 	"context"

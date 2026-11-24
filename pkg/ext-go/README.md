@@ -30,29 +30,32 @@ WASI execution and reactor hosting, then binds those mechanisms to
 
 ## The C engine from Go
 
-Go binds lib/plugin like every other language (decision 8 of
-[the library opener](../../docs/adr-library-opener.md)). `engine/plugin/host/clib` is the binding: the
-Go host over lib/plugin's library interface (`ext_plugin_open`, `_call`, `_close`). It is part of the
-`engine` module and uses only the standard library, so it loads nothing itself: a driver hands it the
-four functions as a `clib.Library`. For purego that is `cengine/library`:
+Go binds the C libraries like every other language (decision 8 of
+[the library opener](../../docs/adr-library-opener.md)), and ext-go holds no binding of any one of them.
+Each library describes its interface (lib/plugin's and lib/ledger's `interface.json`, served by
+`describe`), and a program reaches it in one of two ways:
+
+- driven by the description, with `cengine/library` alone: `Describe`, then `Open` an object by kind
+  with handlers named for its events, and `Call` an operation by name;
+- through a typed binding generated from it, in the program's own module:
+  `//go:generate go tool ext lib bind -lib ext_plugin` writes a type per object, a method per
+  operation and a struct of handlers for its events.
 
 ```go
-lib, err := library.OpenProvided(clib.Prefix, "") // the copy ext lib fetch embeds; or library.Open(path)
-if err != nil { ... }
-ext, err := library.BindInterface(lib, clib.Prefix, clib.ABIVersion)
-if err != nil { ... }
-
-session, err := clib.OpenProcess(ctx, ext, descriptor, clib.Launch{Executable: ...},
-	engine.Options{Verify: ..., Authorize: ..., Reverse: ...})
-out, err := session.CallProgress(ctx, contract, "run", payload, onProgress)
+lib, err := library.OpenProvided("ext_plugin", "") // the copy ext lib fetch embeds; or library.Open(path)
+plugin, err := pluginbind.Bind(lib)                // the generated binding
+host, err := plugin.OpenHost(pluginbind.HostConfig{...}, pluginbind.HostHandlers{
+	Verify: func(descriptor json.RawMessage) error { ... }, Reverse: ...})
+out, err := host.CallWith(pluginbind.HostCallInput{...}, pluginbind.HostCallHandlers{Progress: ...})
 ```
 
-The rules stay the C engine's: the binding turns Go values into the interface's JSON and back. A
-host's callbacks are events there, served by `clib.ServeEvents`, which knows no library: the binding
-answers the policies and reverse calls with the Go functions for them, and a call with progress or an
-observer returns only once its events are delivered. Progress events do not name their call, so a
-session runs one call with progress at a time. Sessions run over a child process the engine starts;
-a Go backend (`engine.Options.Connect`) would need C to call Go, which it never does.
+The rules stay the C library's: a binding turns values into the interface's JSON and back. A host's
+callbacks are events, served by `cengine/library`'s event loop, which knows no library: handlers answer
+them as the description says, and a call returns only once the events it raised are delivered. A
+call's own events (its progress) carry its tag, so many calls with progress run at once. Sessions run
+over a child process the engine starts; a Go backend (`engine.Options.Connect`) would need C to call
+Go, which it never does. `tests/crosslang` holds lib/plugin's generated binding, with the session
+adapter that holds it to the differential checks cgo and c2go pass.
 
 `cgoengine` and `c2goengine` keep their own APIs until they reach the same interface and register
 with `cengine`; there is no package that chooses between the engines.

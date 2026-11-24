@@ -90,6 +90,7 @@ static void run_case(const lj_value *c) {
       break;
     }
     const char *want = field(st, "error");
+    if (!*want) want = "ok";
     if (strcmp(ext_ledger_code_name(rc), want) != 0) {
       fprintf(stderr, "FAIL %s: step %zu (%s): code \"%s\", want \"%s\"\n", name, i, op, ext_ledger_code_name(rc), want);
       failures++;

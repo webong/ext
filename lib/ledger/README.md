@@ -13,7 +13,7 @@ It is the main implementation of the ledger, which the pure-Go [`pkg/ext-go/engi
 | Recorder | Done for what it is given: `ext_ledger_recorder_open` and `ext_ledger_recorder_record`, shells, web origins, host inventory, processes and adapter inventory, held to `lib/ledger/testdata/recorder/v1` |
 | Collectors | Done: `ext_ledger_collect` and `ext_ledger_recorder_scan`, through each kernel's own interface, so the recorder reads the machine itself |
 | Supervisor | Done: `ext_ledger_supervisor_*`, held to the Go supervisor's tests |
-| Library interface | Done: `ext_ledger_open`, `ext_ledger_call`, `ext_ledger_close` and `ext_ledger_abi_version`, every object behind four functions |
+| Library interface | Done: `ext_ledger_open`, `ext_ledger_call`, `ext_ledger_close` and `ext_ledger_abi_version`, every object behind four functions, described by `interface.json` (`describe`) |
 
 ## Platforms
 
@@ -82,6 +82,13 @@ ext_ledger_call(recorder, "scan", "{\"what\":\"processes\",\"timeout_ms\":5000}"
 Handles are never reused, an object is freed once no call holds it, and a store with a watch, recorder
 or supervisor open on it refuses to close (`EXT_LEDGER_BUSY`). The typed functions stay for C callers:
 `ext_ledger_store_*`, `ext_ledger_recorder_*`, `ext_ledger_supervisor_*` and `ext_ledger_collect*`.
+
+[`interface.json`](interface.json) describes the interface: its objects and their configs, each
+operation's input and output as JSON Schema, and the code names (code 0 is `ok`, as in lib/plugin).
+CMake compiles it into the library, `describe` on handle 0 serves it as it is, and the interface test
+holds the two equal. A binding is driven by it (ext-go's `cengine/library.Describe`, whose test calls
+every operation it lists and requires an answer) or generated from it (`ext lib bind`), so adding an
+operation here and in `src/interface.c` is all a new operation takes.
 
 ## From a shell
 

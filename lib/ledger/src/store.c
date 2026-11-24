@@ -28,7 +28,7 @@ struct ext_ledger_store_watch {
 };
 
 const char *ext_ledger_code_name(int code) {
-  static const char *const names[] = {"",        "invalid",     "not_found",   "changed",  "exists", "denied",  "too_large",
+  static const char *const names[] = {"ok",      "invalid",     "not_found",   "changed",  "exists", "denied",  "too_large",
                                       "expired", "unsupported", "unavailable", "busy",     "canceled", "timeout", "io"};
   if (code < 0 || code > EXT_LEDGER_IO) return "io";
   return names[code];

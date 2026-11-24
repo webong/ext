@@ -32,6 +32,7 @@ esac
 cmake -S lib/plugin -B "$build_dir/release" -DCMAKE_BUILD_TYPE=Release -DEXT_BUILD_SHARED=ON
 cmake --build "$build_dir/release" -j 4
 export CGO_LDFLAGS="${CGO_LDFLAGS:-} -L$build_dir/release -Wl,-rpath,$build_dir/release"
+export CGO_CFLAGS="${CGO_CFLAGS:-} -I$PWD/lib/plugin/include" # cgoengine carries no headers: point it at the engine's
 export EXT_CENGINE_GUEST="$build_dir/go-guest" EXT_CENGINE_FAULT_GUEST="$build_dir/fault-guest"
 go build -o "$EXT_CENGINE_GUEST" ./tests/crosslang/testdata/go-guest
 go build -o "$EXT_CENGINE_FAULT_GUEST" ./pkg/ext-go/cgoengine/plugin/testdata/faultguest

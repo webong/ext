@@ -3,10 +3,12 @@
 //
 //	GOWORK=off go run . [-out file]
 //
-// The result is internal/ccgo/generated_<goos>_<goarch>.go. ccgo translates for the machine it runs
-// on, so each supported platform is generated on that platform (the c2goengine workflow does it for
-// every one and compares the result with what is checked in). Needs a C compiler on the path, to
-// preprocess, and a Go toolchain with gofmt, which ccgo runs on its output.
+// The result is internal/ccgo/generated_<goos>_<goarch>.go, which is not committed: ccgo translates
+// for the machine it runs on, so each supported platform is generated on that platform, by the
+// ext-plugin release (which publishes it with the hand-written binding beside it as the c2go
+// driver's archive) and by the c2goengine workflow, which tests it. The binding builds only with
+// -tags ext_c2go, once a translation is there. Needs a C compiler on the path, to preprocess, and a
+// Go toolchain with gofmt, which ccgo runs on its output.
 package main
 
 import (
@@ -16,7 +18,7 @@ import (
 	"encoding/hex"
 	"flag"
 	"fmt"
-	"go/build/constraint"
+	"go/build"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -74,7 +76,7 @@ var coreSources = regexp.MustCompile(`(?s)set\(core_sources\s+([^)]*)\)`)
 func main() {
 	log := func(format string, args ...any) { fmt.Fprintf(os.Stderr, "c2goengine: "+format+"\n", args...) }
 	out := flag.String("out", "", "file to write (default internal/ccgo/generated_<goos>_<goarch>.go in the module)")
-	syncOnly := flag.Bool("sync", false, "only bring the build constraints of the hand-written files in line with the generated files that exist")
+	publish := flag.String("publish", "", "also write the c2go driver's Go directory here: the translation and the binding beside it, for this platform")
 	flag.Parse()
 	root, err := repositoryRoot()
 	if err != nil {
@@ -82,15 +84,7 @@ func main() {
 		os.Exit(1)
 	}
 	pkg := filepath.Join(root, "pkg", "ext-go", "c2goengine", "internal", "ccgo")
-	if *syncOnly {
-		if err := syncTargets(pkg); err != nil {
-			log("%v", err)
-			os.Exit(1)
-		}
-		return
-	}
-	sync := *out == ""
-	if sync {
+	if *out == "" {
 		*out = filepath.Join(pkg, fmt.Sprintf("generated_%s_%s.go", runtime.GOOS, runtime.GOARCH))
 	}
 	digest, err := generate(root, *out)
@@ -99,102 +93,14 @@ func main() {
 		os.Exit(1)
 	}
 	log("wrote %s (inputs %s)", *out, digest[:12])
-	// Writing into the module also brings the build constraints of call.go and call_unsupported.go
-	// in line with the files that exist, so a platform joins by running this on it.
-	if sync {
-		if err := syncTargets(pkg); err != nil {
-			log("%v", err)
-			os.Exit(1)
-		}
-		// One digest for all platforms: each generated file names the one it was made from, and a
-		// test requires them to agree.
-		if err := os.WriteFile(filepath.Join(pkg, "inputs.sha256"), []byte(digest+"\n"), 0o644); err != nil {
-			log("%v", err)
-			os.Exit(1)
-		}
-	}
-}
-
-var generatedFile = regexp.MustCompile(`^generated_([a-z0-9]+)_([a-z0-9]+)\.go$`)
-var buildLine = regexp.MustCompile(`(?m)^//go:build .*$`)
-
-// targetsExpr is the build constraint that holds on exactly the platforms that have a generated file.
-func targetsExpr(files []string) (constraint.Expr, error) {
-	var targets []string
-	for _, f := range files {
-		if m := generatedFile.FindStringSubmatch(filepath.Base(f)); m != nil {
-			targets = append(targets, m[1]+" "+m[2])
-		}
-	}
-	if len(targets) == 0 {
-		return nil, fmt.Errorf("no generated file")
-	}
-	sort.Strings(targets)
-	var expr constraint.Expr
-	for _, t := range targets {
-		goos, goarch, _ := strings.Cut(t, " ")
-		term := &constraint.AndExpr{X: &constraint.TagExpr{Tag: goos}, Y: &constraint.TagExpr{Tag: goarch}}
-		if expr == nil {
-			expr = term
-		} else {
-			expr = &constraint.OrExpr{X: expr, Y: term}
-		}
-	}
-	return expr, nil
-}
-
-// syncTargets rewrites the //go:build lines of the hand-written files that depend on what was
-// generated: call.go and call_unsupported.go follow the platforms that have a generated file, and
-// the host files (host.go, channel.go, session.go, instances.go) and host_unsupported.go the ones
-// among them that have the host profile.
-func syncTargets(dir string) error {
-	files, err := filepath.Glob(filepath.Join(dir, "generated_*.go"))
-	if err != nil {
-		return err
-	}
-	var hosts []string
-	for _, f := range files {
-		if m := generatedFile.FindStringSubmatch(filepath.Base(f)); m != nil && hasHost(m[1]) {
-			hosts = append(hosts, f)
-		}
-	}
-	for _, set := range []struct {
-		files []string
-		yes   []string
-		no    string
-	}{
-		{files, []string{"call.go"}, "call_unsupported.go"},
-		{hosts, []string{"host.go", "channel.go", "session.go", "instances.go"}, "host_unsupported.go"},
-	} {
-		expr, err := targetsExpr(set.files)
+	if *publish != "" {
+		n, err := publishTranslation(pkg, *publish, runtime.GOOS, runtime.GOARCH)
 		if err != nil {
-			return err
+			log("%v", err)
+			os.Exit(1)
 		}
-		lines := map[string]string{set.no: "//go:build " + (&constraint.NotExpr{X: expr}).String()}
-		for _, f := range set.yes {
-			lines[f] = "//go:build " + expr.String()
-		}
-		for file, line := range lines {
-			path := filepath.Join(dir, file)
-			data, err := os.ReadFile(path)
-			if err != nil {
-				if os.IsNotExist(err) {
-					continue // the host files arrive with the host binding
-				}
-				return err
-			}
-			if !buildLine.Match(data) {
-				return fmt.Errorf("%s has no //go:build line", file)
-			}
-			updated := buildLine.ReplaceAllLiteral(data, []byte(line))
-			if !bytes.Equal(updated, data) {
-				if err := os.WriteFile(path, updated, 0o644); err != nil {
-					return err
-				}
-			}
-		}
+		log("published %d files for %s/%s in %s", n, runtime.GOOS, runtime.GOARCH, *publish)
 	}
-	return nil
 }
 
 // repositoryRoot finds the directory that holds lib/plugin, from the working directory up.
@@ -470,3 +376,52 @@ func checkRuntimeVersion(root, libc string) error {
 	}
 	return nil
 }
+
+// publishTranslation writes the c2go driver's Go directory for goos/goarch into dir: every file of
+// the package that builds there with -tags ext_c2go (the translation and the binding beside it),
+// each named for the platform (call.go becomes call_<goos>_<goarch>.go) and without its //go:build
+// line, so the name alone constrains it. A project that fetches several targets gets one file per
+// target and nothing clashes, and it needs no build tag. Test files are not published.
+func publishTranslation(pkg, dir, goos, goarch string) (int, error) {
+	ctx := build.Default
+	ctx.GOOS, ctx.GOARCH, ctx.BuildTags, ctx.CgoEnabled = goos, goarch, []string{"ext_c2go"}, false
+	entries, err := os.ReadDir(pkg)
+	if err != nil {
+		return 0, err
+	}
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return 0, err
+	}
+	suffix := "_" + goos + "_" + goarch
+	n := 0
+	for _, e := range entries {
+		name := e.Name()
+		if e.IsDir() || !strings.HasSuffix(name, ".go") || strings.HasSuffix(name, "_test.go") {
+			continue
+		}
+		if ok, err := ctx.MatchFile(pkg, name); err != nil {
+			return 0, err
+		} else if !ok {
+			continue
+		}
+		data, err := os.ReadFile(filepath.Join(pkg, name))
+		if err != nil {
+			return 0, err
+		}
+		data = goBuildLine.ReplaceAll(data, nil)
+		base := strings.TrimSuffix(name, ".go")
+		if !strings.HasSuffix(base, suffix) {
+			base += suffix
+		}
+		if err := os.WriteFile(filepath.Join(dir, base+".go"), data, 0o644); err != nil {
+			return 0, err
+		}
+		n++
+	}
+	if n == 0 {
+		return 0, fmt.Errorf("nothing of %s builds for %s/%s", pkg, goos, goarch)
+	}
+	return n, nil
+}
+
+var goBuildLine = regexp.MustCompile(`(?m)^//go:build .*\n`)

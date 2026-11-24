@@ -78,7 +78,7 @@ go build -buildmode=c-shared -o "$build/go-shared.$shared_ext" ./tests/crosslang
 
 echo "== Go suites linked against the engine (pkg/ext-go/cgoengine)"
 (cd pkg/ext-go/cgoengine
- CGO_LDFLAGS="-L$(winpath "$build/engine")" \
+ CGO_LDFLAGS="-L$(winpath "$build/engine")" CGO_CFLAGS="-I$(winpath "$root/lib/plugin/include")" \
  EXT_CENGINE_GUEST="$(winpath "$guest")" \
  EXT_CENGINE_FAULT_GUEST="$(winpath "$fault")" \
  EXT_CSHARED_GUEST="$(winpath "$build/go-shared.$shared_ext")" EXT_CSHARED_REQUIRED=1 \

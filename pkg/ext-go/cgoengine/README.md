@@ -1,7 +1,7 @@
 # Go plugin API
 
 `github.com/webong/ext/pkg/ext-go/cgoengine` holds the Go bindings of the C libraries in `lib/`,
-one package each, and their sources as `_csrc/<library>`. It has no root package.
+one package each. It carries no C and has no root package.
 
 Import `github.com/webong/ext/pkg/ext-go/cgoengine/plugin` (package `plugin`; import it as
 `cgoengine` beside `engine/plugin`): the Go entry point to the ext plugin engine. One API, two builds:
@@ -104,13 +104,14 @@ handles require destruction after their users have joined.
 
 ## Building the C engine build
 
-A published Go module contains only its own directory, so this module carries the C
-sources it is built from as `_csrc`, a generated copy of `lib/plugin` (a test fails if
-the copy drifts). The default build uses no C. For the C engine build, build the
-library from `_csrc`, then point cgo at it:
+This module carries no C, and the default build uses none. For the C engine build, bring the
+engine into the project from its release and point cgo at it:
 
 ```sh
-dir=$(go list -m -f '{{.Dir}}' github.com/webong/ext/pkg/ext-go/cgoengine)
-cmake -S "$dir/_csrc" -B build -DCMAKE_BUILD_TYPE=Release && cmake --build build
-CGO_LDFLAGS="-L$PWD/build" go build -tags ext_cengine ./...
+go get -tool github.com/webong/ext/cmd/ext
+go tool ext lib fetch -lib ext_plugin -driver cgo   # internal/extlib/plugin: include/ and lib/
+CGO_CFLAGS="-I$PWD/internal/extlib/plugin/include" CGO_LDFLAGS="-L$PWD/internal/extlib/plugin/lib/<goos>_<goarch>" \
+  go build -tags ext_cengine ./...
 ```
+
+Inside this repository, the scripts give it `lib/plugin/include` and a CMake build of `lib/plugin`.

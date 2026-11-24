@@ -70,8 +70,12 @@ type archiveFixture struct {
 }
 
 func TestInstallArchiveMatchesGo(t *testing.T) {
-	fixtures := filepath.Join("..", "_csrc", "plugin", "testdata", "v1")
+	// lib/plugin's fixtures, beside this module in the repository.
+	fixtures := filepath.Join("..", "..", "..", "..", "lib", "plugin", "testdata", "v1")
 	data, err := os.ReadFile(filepath.Join(fixtures, "archive-cases.json"))
+	if os.IsNotExist(err) {
+		t.Skip("lib/plugin is not beside this module")
+	}
 	if err != nil {
 		t.Fatal(err)
 	}

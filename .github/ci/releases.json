@@ -142,7 +142,7 @@
       ],
       "workflow": "engine",
       "version_default": null,
-      "publishes": "prebuilt C plugin engine (GitHub release)",
+      "publishes": "prebuilt C plugin engine and its ccgo translation (GitHub release)",
       "build": [
         {
           "name": "ext-plugin build (linux-x86_64)",
@@ -211,6 +211,119 @@
           },
           "artifact": "release-ext-plugin-windows-aarch64",
           "timeout": 30
+        },
+        {
+          "name": "ext-plugin c2go (linux-amd64)",
+          "runner": "ubuntu-latest",
+          "script": "scripts/release/ext-plugin/c2go.sh",
+          "vars": {
+            "GOARCH": "amd64",
+            "GOOS": "linux",
+            "OS": "ubuntu-latest",
+            "RACE": "-race"
+          },
+          "setup": {
+            "go": "1.26.x",
+            "go_cache": "true"
+          },
+          "artifact": "release-ext-plugin-c2go-linux-amd64",
+          "timeout": 60
+        },
+        {
+          "name": "ext-plugin c2go (linux-arm64)",
+          "runner": "ubuntu-24.04-arm",
+          "script": "scripts/release/ext-plugin/c2go.sh",
+          "vars": {
+            "GOARCH": "arm64",
+            "GOOS": "linux",
+            "OS": "ubuntu-24.04-arm",
+            "RACE": "-race"
+          },
+          "setup": {
+            "go": "1.26.x",
+            "go_cache": "true"
+          },
+          "artifact": "release-ext-plugin-c2go-linux-arm64",
+          "timeout": 60
+        },
+        {
+          "name": "ext-plugin c2go (darwin-arm64)",
+          "runner": "macos-latest",
+          "script": "scripts/release/ext-plugin/c2go.sh",
+          "vars": {
+            "GOARCH": "arm64",
+            "GOOS": "darwin",
+            "OS": "macos-latest",
+            "RACE": ""
+          },
+          "setup": {
+            "go": "1.26.x",
+            "go_cache": "true"
+          },
+          "artifact": "release-ext-plugin-c2go-darwin-arm64",
+          "timeout": 60
+        },
+        {
+          "name": "ext-plugin c2go (darwin-amd64)",
+          "runner": "macos-15-intel",
+          "script": "scripts/release/ext-plugin/c2go.sh",
+          "vars": {
+            "GOARCH": "amd64",
+            "GOOS": "darwin",
+            "OS": "macos-15-intel",
+            "RACE": ""
+          },
+          "setup": {
+            "go": "1.26.x",
+            "go_cache": "true"
+          },
+          "artifact": "release-ext-plugin-c2go-darwin-amd64",
+          "timeout": 60
+        },
+        {
+          "name": "ext-plugin c2go (windows-amd64)",
+          "runner": "windows-latest",
+          "script": "scripts/release/ext-plugin/c2go.sh",
+          "vars": {
+            "GOARCH": "amd64",
+            "GOOS": "windows",
+            "MSYSTEM": "MINGW64",
+            "OS": "windows-latest",
+            "PACKAGES": "mingw-w64-x86_64-gcc",
+            "RACE": ""
+          },
+          "setup": {
+            "go": "1.26.x",
+            "go_cache": "true",
+            "msys2_msystem": "MINGW64",
+            "msys2_install": "mingw-w64-x86_64-gcc"
+          },
+          "artifact": "release-ext-plugin-c2go-windows-amd64",
+          "timeout": 60,
+          "autocrlf_off": true
+        },
+        {
+          "name": "ext-plugin c2go (windows-arm64)",
+          "runner": "windows-11-arm",
+          "script": "scripts/release/ext-plugin/c2go.sh",
+          "vars": {
+            "CC": "clang",
+            "GOARCH": "arm64",
+            "GOOS": "windows",
+            "MSYSTEM": "CLANGARM64",
+            "OS": "windows-11-arm",
+            "PACKAGES": "mingw-w64-clang-aarch64-clang",
+            "RACE": ""
+          },
+          "setup": {
+            "go": "1.26.x",
+            "go_cache": "true",
+            "msys2_msystem": "CLANGARM64",
+            "msys2_install": "mingw-w64-clang-aarch64-clang"
+          },
+          "artifact": "release-ext-plugin-c2go-windows-arm64",
+          "timeout": 60,
+          "autocrlf_off": true
         }
       ],
       "publish_setup": {},

@@ -3,10 +3,12 @@
 // Package plugin (github.com/webong/ext/pkg/ext-go/cgoengine) binds Go to the C host engine.
 // Build with -tags ext_cengine and link libext_plugin_host_static. Add the
 // ext_cengine_shared tag to link the optional libext_plugin_host shared library.
+// The module carries no C: point cgo at the engine a project brought in (go tool ext lib
+// fetch -lib ext_plugin -driver cgo), CGO_CFLAGS=-I<dir>/include and CGO_LDFLAGS=-L<dir>/lib.
 package plugin
 
 /*
-#cgo CFLAGS: -I${SRCDIR}/../_csrc/plugin/include -I${SRCDIR}
+#cgo CFLAGS: -I${SRCDIR}
 #cgo !ext_cengine_shared CFLAGS: -DEXT_PLUGIN_HOST_STATIC
 #cgo !ext_cengine_shared LDFLAGS: -lext_plugin_host_static -lpthread -lm
 #cgo windows,!ext_cengine_shared LDFLAGS: -lbcrypt

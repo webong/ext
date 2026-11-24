@@ -141,6 +141,9 @@ jobs:
     outputs:
       version: ${{ steps.version.outputs.version }}
     steps:
+      - name: Keep line endings as they are
+        if: matrix.autocrlf_off
+        run: git config --global core.autocrlf false
       - uses: actions/checkout@v5
         with:
           ref: ${{ inputs.tag }}

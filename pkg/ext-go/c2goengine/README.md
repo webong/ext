@@ -41,48 +41,43 @@ platform-table checks.
 The translation is generated for a platform on that platform (ccgo reads the platform's headers),
 so there is one file per target. POSIX platforms translate the whole engine (the services and the
 host); Windows translates the services only, because the host's filesystem and random-number
-code there is Win32.
+code there is Win32. The platforms are darwin/arm64, darwin/amd64, linux/arm64, linux/amd64,
+windows/amd64 and windows/arm64.
 
-| platform | file | state |
-| --- | --- | --- |
-| darwin/arm64 | `internal/ccgo/generated_darwin_arm64.go` | checked in, tested natively |
-| darwin/amd64 | `internal/ccgo/generated_darwin_amd64.go` | checked in, tested under Rosetta |
-| linux/arm64 | `internal/ccgo/generated_linux_arm64.go` | checked in, tested natively |
-| linux/amd64 | `internal/ccgo/generated_linux_amd64.go` | checked in, generated and tested by the workflow |
-| windows/amd64 | `internal/ccgo/generated_windows_amd64.go` | checked in, generated and tested by the workflow (services only) |
-| windows/arm64 | `internal/ccgo/generated_windows_arm64.go` | checked in, generated and tested by the workflow (services only) |
+The translation is not committed. This module holds the generator (`tools`) and the hand-written
+binding beside the translation (`internal/ccgo`), which builds only with `-tags ext_c2go`, once a
+translation is there; without it `Available` and `HostAvailable` are false and the calls return
+`plugin.ErrUnsupported`.
 
-On any other platform `Available` and `HostAvailable` are false and the calls return
-`plugin.ErrUnsupported`. `internal/ccgo/targets_test.go` keeps the file list and the build
-constraints in step, and the generator rewrites the constraints when it writes a file.
+## Getting the translation
 
-## Regenerating
+A project fetches it from the ext-plugin release, which translates and tests every platform and
+publishes each as the c2go driver's archive:
+
+```sh
+go tool ext lib fetch -lib ext_plugin -driver c2go   # internal/extlib/plugin: the translation and its binding
+```
+
+The package it writes is the engine itself (`Call`, `Open`, `OpenProcess`, `NewInstances`), named for
+the project, with each file named for its platform and no build tag needed.
+
+## Generating it here
 
 ```sh
 cd pkg/ext-go/c2goengine/tools
-GOWORK=off go run .
+GOWORK=off go run .                     # internal/ccgo/generated_<goos>_<goarch>.go, not committed
+cd .. && go test -tags ext_c2go ./...    # the translation with its binding, against the oracle
 ```
 
-writes `internal/ccgo/generated_<goos>_<goarch>.go` for the machine it runs on. It needs Go 1.26 or
-newer (ccgo's floor), a C compiler on the path for the preprocessor, and `gofmt`. The tool copies
-`lib/plugin`'s `core_sources` (read from `CMakeLists.txt`) into a temporary directory, applies the
-few edits ccgo needs (listed in `tools/main.go`, each checked to match exactly once, none to the
-repository's files), and runs ccgo there with relative paths, so the output is the same bytes
-wherever it runs. It also writes `internal/ccgo/inputs.sha256`, a digest of what the translation is
-made from (the sources it is given and every header, as ccgo sees them, the flags, and the ccgo and
-libc versions), the same on every platform, and each generated file names the digest it was made from.
-The bytes of a platform's file also follow its system headers, so they are not compared; the digest is.
-The digest reads the C files without their comments, trailing whitespace and blank lines
-(`tools/digest.go`), ignores files that are not C (a README, a license) and `.c` files the translator
-is not given (`store.c` and `trust.c`, which are built into the C engine but not translated), so
-rewording a comment or a document, or adding a source the translation never reads, does not make a
-translation stale; any change to a translated source or a header does. The `c2goengine` workflow does
-this on every supported platform and fails when a checked-in translation is stale; run it, on every
-supported platform, after changing a translated source or a header under `lib/plugin/src`, `include`
-or `vendor` (the artifacts of the failed run have the files for the platforms you cannot run).
-
-`GOWORK=off go run . -sync` only brings the build constraints of the hand-written files in line with the
-generated files that exist (the workflow's artifact for a new platform has the file; commit it, then sync).
+or `scripts/c2goengine-translate.sh`, which does both (and, given a version, stages the release's
+archive: the generator's `-publish dir` writes the files of the package that build for the platform,
+each named for it). The generator needs Go 1.26 or newer (ccgo's floor), a C compiler on the path for
+the preprocessor, and `gofmt`. It copies `lib/plugin`'s `core_sources` (read from `CMakeLists.txt`)
+into a temporary directory, applies the few edits ccgo needs (listed in `tools/main.go`, each checked
+to match exactly once, none to the repository's files), and runs ccgo there with relative paths, so
+the output is the same bytes wherever it runs. Each generated file names a digest of what it was made
+from (the sources and every header without their comments, the flags, and the ccgo and libc
+versions). The `c2goengine` workflow translates and tests every supported platform on each change.
 
 `libc` is pinned in three places that must agree: `libcVersion` in `tools/main.go`, `tools/go.mod`
 and this module's `go.mod`. The generator refuses to run when they differ.

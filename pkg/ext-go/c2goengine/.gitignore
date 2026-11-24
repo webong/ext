@@ -1,0 +1,4 @@
+# The translation is made on each platform (tools) and published by the ext-plugin release; it is
+# not committed.
+/internal/ccgo/generated_*.go
+/internal/ccgo/inputs.sha256

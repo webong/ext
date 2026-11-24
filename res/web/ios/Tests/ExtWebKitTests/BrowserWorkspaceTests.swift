@@ -1,4 +1,5 @@
 import XCTest
+@preconcurrency import WebKit
 #if canImport(UIKit)
 import UIKit
 #endif
@@ -20,10 +21,14 @@ final class BrowserWorkspaceTests: XCTestCase {
     #endif
 
     private func attach(_ workspace: BrowserWorkspace) {
+        attach(workspace.webView)
+    }
+
+    private func attach(_ view: WKWebView) {
         #if canImport(UIKit)
         let window = UIWindow(frame: UIScreen.main.bounds)
         let controller = UIViewController()
-        controller.view = workspace.webView
+        controller.view = view
         window.rootViewController = controller
         window.makeKeyAndVisible()
         testWindow = window
@@ -60,17 +65,129 @@ final class BrowserWorkspaceTests: XCTestCase {
     }
 
     private func load(_ workspace: BrowserWorkspace, path: String) async throws -> Any? {
-        workspace.webView.loadHTMLString("<html><script>window.atStart = window.runs || 0; window.ready = true;</script></html>",
+        try await load(workspace.webView, path: path)
+    }
+
+    private func load(_ view: WKWebView, path: String) async throws -> Any? {
+        view.loadHTMLString("<html><script>window.atStart = window.runs || 0; window.ready = true;</script></html>",
             baseURL: URL(string: "https://example.com" + path))
         for _ in 0..<200 {
             try await Task.sleep(nanoseconds: 50_000_000)
-            if (try? await workspace.webView.evaluateJavaScript("window.ready === true")) as? Bool == true,
-                !workspace.webView.isLoading {
-                return try await workspace.webView.evaluateJavaScript("window.atStart")
+            if (try? await view.evaluateJavaScript("window.ready === true")) as? Bool == true,
+                !view.isLoading {
+                return try await view.evaluateJavaScript("window.atStart")
             }
         }
         XCTFail("page did not load")
         return nil
+    }
+
+    func testAttachingPreservesHostScriptsAndDelegates() async throws {
+        @MainActor final class HostDelegate: NSObject, WKNavigationDelegate, WKUIDelegate {
+            var attachment: AttachedWebView?
+            var starts = 0
+            func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
+                starts += 1
+                attachment?.invalidateNavigation()
+            }
+        }
+
+        let view = WKWebView(frame: .zero)
+        let other = WKWebView(frame: .zero)
+        let host = HostDelegate()
+        let controller = view.configuration.userContentController
+        let first = WKUserScript(source: "window.hostValue = 1;", injectionTime: .atDocumentStart, forMainFrameOnly: true)
+        let later = WKUserScript(source: "window.hostValue += 2;", injectionTime: .atDocumentStart, forMainFrameOnly: true)
+        controller.addUserScript(first)
+        view.navigationDelegate = host
+        view.uiDelegate = host
+        let attachment = AttachedWebView(view, target: "test", exclusiveScriptController: controller)
+        host.attachment = attachment
+        attach(view)
+        defer { attachment.close(); detach() }
+        XCTAssertTrue(attachment.scriptCapabilities.futureDocuments.supported)
+        try attachment.replaceUserscripts([record()])
+        controller.addUserScript(later)
+        let registered = try await load(view, path: "/attached")
+        XCTAssertEqual(registered as? Int, 1)
+        try await attachment.inject("window.attachedValue = 42;")
+        let value = try await view.evaluateJavaScript("window.attachedValue")
+        XCTAssertEqual(value as? Int, 42)
+
+        detach()
+        attach(other)
+        let isolated = try await load(other, path: "/other")
+        XCTAssertEqual(isolated as? Int, 0)
+        let otherValue = try await other.evaluateJavaScript("typeof window.attachedValue")
+        XCTAssertEqual(otherValue as? String, "undefined")
+
+        detach()
+        attach(view)
+        attachment.close()
+        XCTAssertEqual(controller.userScripts.map(ObjectIdentifier.init), [first, later].map(ObjectIdentifier.init))
+        XCTAssertTrue(view.navigationDelegate === host)
+        XCTAssertTrue(view.uiDelegate === host)
+        let detached = try await load(view, path: "/detached")
+        XCTAssertEqual(detached as? Int, 0)
+        let hostValue = try await view.evaluateJavaScript("window.hostValue")
+        XCTAssertEqual(hostValue as? Int, 3)
+        XCTAssertGreaterThanOrEqual(host.starts, 2)
+        do { try await attachment.inject("void 0"); XCTFail("closed attachment accepted evaluation") }
+        catch AttachedWebView.AttachmentError.closed {}
+    }
+
+    func testAttachmentDeniesMismatchedControllerAndReleasedView() async throws {
+        let controller = WKUserContentController()
+        weak var released: WKWebView?
+        let attachment = try autoreleasepool {
+            let view = WKWebView(frame: .zero)
+            released = view
+            let attachment = AttachedWebView(view, target: "test", exclusiveScriptController: controller)
+            XCTAssertFalse(attachment.scriptCapabilities.futureDocuments.supported)
+            XCTAssertThrowsError(try attachment.replaceUserscripts([record()])) {
+                guard case AttachedWebView.AttachmentError.documentStartUnavailable = $0 else {
+                    return XCTFail("unexpected error: \($0)")
+                }
+            }
+            return attachment
+        }
+        XCTAssertTrue(controller.userScripts.isEmpty)
+        for _ in 0..<20 where released != nil {
+            try await Task.sleep(nanoseconds: 50_000_000)
+        }
+        XCTAssertNil(released)
+        XCTAssertThrowsError(try attachment.replaceUserscripts([]))
+    }
+
+    func testAttachedCookiesUseTheViewDataStore() async throws {
+        let configuration = WKWebViewConfiguration()
+        configuration.websiteDataStore = .nonPersistent()
+        let view = WKWebView(frame: .zero, configuration: configuration)
+        let otherConfiguration = WKWebViewConfiguration()
+        otherConfiguration.websiteDataStore = .nonPersistent()
+        let other = WKWebView(frame: .zero, configuration: otherConfiguration)
+        let attachment = AttachedWebView(view, target: "first")
+        let otherAttachment = AttachedWebView(other, target: "second")
+        let site = "https://example.com/account"
+        let bundle = try CookieWorkflows.bundle(Cookie(name: "attached", value: "fixture", domain: "example.com",
+            path: "/account", secure: true, httpOnly: true), site: site)
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            do { try attachment.setCookie(bundle) { continuation.resume() } }
+            catch { continuation.resume(throwing: error) }
+        }
+        func read(_ attachment: AttachedWebView) async throws -> [HTTPCookie] {
+            try await withCheckedThrowingContinuation { continuation in
+                do { try attachment.cookies(for: site) { continuation.resume(returning: $0) } }
+                catch { continuation.resume(throwing: error) }
+            }
+        }
+        let selected = try await read(attachment)
+        let isolated = try await read(otherAttachment)
+        XCTAssertEqual(selected.map(\.value), ["fixture"])
+        XCTAssertTrue(isolated.isEmpty)
+        attachment.close()
+        XCTAssertThrowsError(try attachment.cookies(for: site) { _ in })
+        XCTAssertTrue(view.configuration.websiteDataStore === configuration.websiteDataStore)
     }
 
     func testDocumentStartScopeReplacementAndClose() async throws {

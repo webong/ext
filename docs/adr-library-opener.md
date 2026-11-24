@@ -38,8 +38,8 @@ plugin, so what crosses to it is the plugin protocol. That is a plugin backend, 
 | `pkg/ext-go/core` | The switcher. `core/driver` picks how a program runs each library of `lib/`: `go` (its pure-Go implementation in `engine`) or one of the C drivers, `cgo`, `c2go` and `purego`. `Choose` takes one by name, by `EXT_ENGINE` or as the best available one that fits, in the order cgo, c2go, purego, go; a name that cannot be served is an error, never another driver. | nothing |
 | `pkg/ext-go/cengine` | The C side. It serves the C drivers (purego, cgo, ccgo): `cgoengine` and `c2goengine` register with it. `cengine/library` is the opener purego needs: it finds, fetches, verifies and opens a built copy of the C library once per canonical path and binds its exports; the engine never touches files. `cengine/cguest` loads C ABI guests and exchanges frames as bytes, knowing nothing of the plugin protocol. | purego |
 
-A library's Go binding takes its interface from whichever driver reaches it; for the plugin engine
-that is `engine/plugin/host/clib`, standard library only. `core` has no root package: the umbrella published its selection package at the
+A library's Go binding takes its interface from whichever driver reaches it, and is driven by or
+generated from the library's description; ext-go holds none. `core` has no root package: the umbrella published its selection package at the
 import path `pkg/ext-go/core` up to v0.12.0, and a root package here would give a program that requires
 both an ambiguous import.
 
@@ -149,10 +149,9 @@ there by purego or cgo. `js/wasm` and the architectures purego does not reach ge
    library calls, the package store and the layered view (`ext_plugin_open`, `_call`, `_close`; the
    pure services moved to `ext_plugin_services_call` and are handle 0); and its host sessions, whose
    callbacks (policies, progress, the observer, reverse calls) are events the binding polls and answers.
-   Done for the plugin engine's Go side too: `engine/plugin/host/clib` is the binding, standard library
-   only, over any driver's `ext_plugin` (purego: `cengine/library.BindInterface`), held to the same
-   differential checks as cgo and c2go from the umbrella's tests; `pkg/ext-go/plugin`, the chooser, is
-   gone. The event loop is `clib.ServeEvents`, which knows no library, and each event
+   Done for the plugin engine's Go side too, first as a hand-written binding (`engine/plugin/host/clib`,
+   since replaced by the generated one); `pkg/ext-go/plugin`, the chooser, is gone. The event loop is
+   `cengine/library.ServeEvents`, which knows no library, and each event
    carries a sequence number, so a call returns once its events are delivered. The rules stay in C (a
    host's requirements are part of its config) and the code names are identifiers, as the ledger's
    are, so the binding goes by name and only converts Go values.
@@ -163,8 +162,9 @@ there by purego or cgo. `js/wasm` and the architectures purego does not reach ge
    description says (`allow`, `result`, `none`, or the call's own when tagged). Done for lib/plugin;
    the ledger's description and typed wrappers generated from a description are `cengine/bind`, run as
    `ext lib bind` (done for lib/plugin and lib/ledger, whose generated bindings are compiled and run
-   against the built libraries in its tests); `engine/plugin/host/clib` is the first binding the
-   generator replaces.
+   against the built libraries in its tests). The hand-written `engine/plugin/host/clib` is gone:
+   `tests/crosslang` holds lib/plugin's generated binding, held to the differential checks through
+   purego by a session adapter that is test code.
 4. The `ext-plugin` release publishes its citation and the ccgo translations; the first release with
    the `ext_plugin_` names (after #211) is the first a citation can name.
 5. `cgoengine` stops carrying `_csrc`: its binding compiles against declarations and links the library

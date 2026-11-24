@@ -91,8 +91,10 @@ echo "== the same API without cgo, served by the pure-Go implementation"
    CGO_ENABLED=0 go test -count=1 -timeout=10m ./...)
 echo "== the described library interface and the generated binding, from lib/plugin's interface.json (pkg/ext-go/cengine)"
 (cd pkg/ext-go/cengine && EXT_PLUGIN_BUILD="$(winpath "$build/engine")" go test -count=1 "${race[@]}" -timeout=10m ./library ./bind)
-echo "== the umbrella module (pkg/ext-go), with the purego engine loading the shared engine"
+echo "== the umbrella module (pkg/ext-go)"
+(cd pkg/ext-go && go test -count=1 -timeout=10m .)
+echo "== lib/plugin's generated binding through purego, held to the differential checks (tests/crosslang)"
 host_library=$(find "$build/engine" -maxdepth 1 \( -name 'libext_plugin_host.so' -o -name 'libext_plugin_host.dylib' -o -name '*ext_plugin_host*.dll' \) | head -n 1)
 [ -n "$host_library" ] || { echo "no shared host library in $build/engine" >&2; exit 1; }
-(cd pkg/ext-go && EXT_PLUGIN_LIBRARY="$(winpath "$host_library")" go test -count=1 -timeout=10m .)
+(cd tests/crosslang && EXT_PLUGIN_LIBRARY="$(winpath "$host_library")" go test -count=1 -timeout=10m -run 'PureGo|PluginBind' .)
 echo "plugin engine tests passed"

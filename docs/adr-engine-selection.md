@@ -12,7 +12,7 @@ See [engine parity](plugin-engine-parity.md).
 
 Moved on 2026-11-22: the selection package became `pkg/ext-go/plugin` (umbrella), with its names and
 order from `pkg/ext-go/core/driver`. Removed on 2026-11-24: Go binds lib/plugin through its library
-interface (`engine/plugin/host/clib`), and no package chooses between the engines. The import
+interface, driven by its description (`cengine/library`), and no package chooses between the engines. The import
 path `pkg/ext-go/core` is the `core` module, which has no root package. See
 [the library opener](adr-library-opener.md).
 

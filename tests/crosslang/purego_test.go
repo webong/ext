@@ -1,4 +1,4 @@
-package plugingo_test
+package crosslang_test
 
 import (
 	"context"
@@ -12,9 +12,9 @@ import (
 
 	"github.com/webong/ext/pkg/ext-go/cengine/library"
 	engine "github.com/webong/ext/pkg/ext-go/engine/plugin"
-	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/clib"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/plugintest/enginetest"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/transport/jsonline"
+	"github.com/webong/ext/tests/crosslang/internal/pluginbind"
 )
 
 // pureGoGuestEnv makes the test binary the guest of the purego tests.
@@ -78,7 +78,7 @@ func TestMain(m *testing.M) {
 
 // pureGo is lib/plugin's library interface through purego: EXT_PLUGIN_LIBRARY names a built
 // libext_plugin_host, which scripts/plugin-engine-test.sh sets.
-func pureGo(t *testing.T) clib.Library {
+func pureGo(t *testing.T) *pluginbind.Library {
 	t.Helper()
 	path := os.Getenv("EXT_PLUGIN_LIBRARY")
 	if path == "" || !library.Supported() {
@@ -88,11 +88,11 @@ func pureGo(t *testing.T) clib.Library {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ifc, err := library.BindInterface(lib, clib.Prefix, clib.ABIVersion)
+	x, err := pluginbind.Bind(lib)
 	if err != nil {
 		t.Fatal(err)
 	}
-	return ifc
+	return x
 }
 
 // TestPureGoAgreesWithTheOracle holds the binding, on the C engine through purego, to the
@@ -102,9 +102,9 @@ func TestPureGoAgreesWithTheOracle(t *testing.T) {
 	h := enginetest.Engine{
 		Name:     "purego",
 		Fixtures: "../../lib/plugin/testdata",
-		Call:     func(op string, in json.RawMessage) (json.RawMessage, error) { return clib.Services(lib, op, in) },
+		Call:     func(op string, in json.RawMessage) (json.RawMessage, error) { return services(lib, op, in) },
 		OpenProcess: func(ctx context.Context, d engine.Descriptor, l enginetest.Launch, o engine.Options) (enginetest.Session, error) {
-			s, err := clib.OpenProcess(ctx, lib, d, clib.Launch{Executable: l.Executable, Environment: l.Environment}, o)
+			s, err := openPureGo(ctx, lib, d, pureGoLaunch{Executable: l.Executable, Environment: l.Environment}, o)
 			if err != nil {
 				return nil, err
 			}
@@ -116,18 +116,30 @@ func TestPureGoAgreesWithTheOracle(t *testing.T) {
 	}
 }
 
-func pureGoLaunch(t *testing.T) clib.Launch {
+// services runs one of the engine's pure services by name: handle 0, through the described runtime.
+func services(lib *pluginbind.Library, op string, in json.RawMessage) (json.RawMessage, error) {
+	if len(in) == 0 {
+		in = json.RawMessage("{}")
+	}
+	var out json.RawMessage
+	if err := lib.Described().Library().Call(op, in, &out); err != nil {
+		return nil, engineError(err)
+	}
+	return out, nil
+}
+
+func pureGoGuest(t *testing.T) pureGoLaunch {
 	t.Helper()
 	exe, err := os.Executable()
 	if err != nil {
 		t.Fatal(err)
 	}
-	return clib.Launch{Executable: exe, Environment: []string{pureGoGuestEnv + "=1"}}
+	return pureGoLaunch{Executable: exe, Environment: []string{pureGoGuestEnv + "=1"}}
 }
 
 func TestPureGoRunsProgressAndReverseCalls(t *testing.T) {
 	lib := pureGo(t)
-	if out, err := clib.Services(lib, "descriptor.validate", mustJSON(t, pureGoDescriptor())); err != nil {
+	if out, err := services(lib, "descriptor.validate", mustJSON(t, pureGoDescriptor())); err != nil {
 		t.Fatalf("descriptor.validate: %s, %v", out, err)
 	}
 	var mu sync.Mutex
@@ -135,7 +147,7 @@ func TestPureGoRunsProgressAndReverseCalls(t *testing.T) {
 	var observed []string
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
-	s, err := clib.OpenProcess(ctx, lib, pureGoDescriptor(), pureGoLaunch(t), engine.Options{
+	s, err := openPureGo(ctx, lib, pureGoDescriptor(), pureGoGuest(t), engine.Options{
 		Verify: func(_ context.Context, d engine.Descriptor) error {
 			mu.Lock()
 			defer mu.Unlock()
@@ -257,7 +269,7 @@ func TestPureGoRunsProgressAndReverseCalls(t *testing.T) {
 func TestPureGoReturnsTheVerifyPolicysError(t *testing.T) {
 	lib := pureGo(t)
 	refused := errors.New("not reviewed")
-	_, err := clib.OpenProcess(context.Background(), lib, pureGoDescriptor(), pureGoLaunch(t), engine.Options{
+	_, err := openPureGo(context.Background(), lib, pureGoDescriptor(), pureGoGuest(t), engine.Options{
 		Verify:    func(context.Context, engine.Descriptor) error { return refused },
 		Authorize: func(context.Context, engine.Request) error { return nil },
 	})
@@ -268,11 +280,11 @@ func TestPureGoReturnsTheVerifyPolicysError(t *testing.T) {
 
 func TestPureGoRefusesASessionWithoutPolicies(t *testing.T) {
 	lib := pureGo(t)
-	if _, err := clib.OpenProcess(context.Background(), lib, pureGoDescriptor(), pureGoLaunch(t), engine.Options{}); !errors.Is(err, engine.ErrDenied) {
+	if _, err := openPureGo(context.Background(), lib, pureGoDescriptor(), pureGoGuest(t), engine.Options{}); !errors.Is(err, engine.ErrDenied) {
 		t.Errorf("OpenProcess without policies: %v", err)
 	}
 	refused := []engine.Requirement{{Contract: engine.ContractRef{Name: "other.contract", Version: "v1"}, Operation: "run"}}
-	_, err := clib.OpenProcess(context.Background(), lib, pureGoDescriptor(), pureGoLaunch(t), engine.Options{
+	_, err := openPureGo(context.Background(), lib, pureGoDescriptor(), pureGoGuest(t), engine.Options{
 		Verify:       func(context.Context, engine.Descriptor) error { return nil },
 		Authorize:    func(context.Context, engine.Request) error { return nil },
 		Requirements: refused,

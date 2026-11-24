@@ -40,19 +40,17 @@ public final class BrowserWorkspace: NSObject, WKNavigationDelegate, WKUIDelegat
     private var observations: [NSKeyValueObservation] = []
     private var closed = false
     private var lastError: String?
-    private struct PendingInjection {
-        let generation: UInt64
-        let continuation: CheckedContinuation<Void, Error>
-    }
     private var navigationGeneration: UInt64 = 0
-    private var injections: [UUID: PendingInjection] = [:]
+    private let attachment: AttachedWebView
 
     public init(target: String, dataStore: WKWebsiteDataStore? = nil) {
         self.target = target
         let configuration = WKWebViewConfiguration()
         configuration.websiteDataStore = dataStore ?? .nonPersistent()
         configuration.preferences.javaScriptCanOpenWindowsAutomatically = false
-        webView = WKWebView(frame: .zero, configuration: configuration)
+        let view = WKWebView(frame: .zero, configuration: configuration)
+        webView = view
+        attachment = AttachedWebView(view, target: target, exclusiveScriptController: view.configuration.userContentController)
         super.init()
         webView.navigationDelegate = self
         webView.uiDelegate = self
@@ -74,13 +72,7 @@ public final class BrowserWorkspace: NSObject, WKNavigationDelegate, WKUIDelegat
             navigationGeneration: navigationGeneration)
     }
 
-    public var scriptCapabilities: WebViewCapabilities {
-        WebViewCapabilities(
-            currentPage: ScriptExecutionCapability(supported: true, frames: ["main"], runAt: ["now"],
-                worlds: ["page"], rejectsStaleNavigation: true),
-            futureDocuments: ScriptExecutionCapability(supported: true, frames: ["all"],
-                runAt: ["document-start"], worlds: ["page"]))
-    }
+    public var scriptCapabilities: WebViewCapabilities { attachment.scriptCapabilities }
 
     public func navigate(_ address: String) throws {
         try requireOpen()
@@ -97,29 +89,20 @@ public final class BrowserWorkspace: NSObject, WKNavigationDelegate, WKUIDelegat
     /// Records expose only metadata available from WebKit; they are not portable exports.
     public func cookies(for site: String, completion: @escaping @MainActor @Sendable ([HTTPCookie]) -> Void) throws {
         try requireOpen()
-        let url = try parseSite(site)
-        webView.configuration.websiteDataStore.httpCookieStore.getAllCookies { cookies in
-            completion(cookies.filter { cookie in
-                CookieRules.domainMatches(siteHost: url.hostname, cookieDomain: cookie.domain)
-                    && CookieRules.pathMatches(requestPath: url.escapedPath, cookiePath: cookie.path)
-                    && (!cookie.isSecure || url.scheme == "https")
-                    && (cookie.expiresDate == nil || cookie.expiresDate! > Date())
-            })
-        }
+        try attachment.cookies(for: site, completion: completion)
     }
 
     /// Validates before mutation. Completion means WebKit finished the write, not that a
     /// navigation was authenticated. Accepted operations may complete after close().
     public func setCookie(_ bundle: CookieBundle, completion: @escaping @MainActor @Sendable () -> Void) throws {
         try requireOpen()
-        let cookie = try WorkspaceCookies.native(bundle)
-        webView.configuration.websiteDataStore.httpCookieStore.setCookie(cookie, completionHandler: completion)
+        try attachment.setCookie(bundle, completion: completion)
     }
 
     /// Deletes exactly a native record returned by cookies(for:completion:).
     public func deleteCookie(_ cookie: HTTPCookie, completion: @escaping @MainActor @Sendable () -> Void) throws {
         try requireOpen()
-        webView.configuration.websiteDataStore.httpCookieStore.delete(cookie, completionHandler: completion)
+        try attachment.deleteCookie(cookie, completion: completion)
     }
 
     /// Replaces registrations for FUTURE documents, in page world and all frames.
@@ -130,13 +113,7 @@ public final class BrowserWorkspace: NSObject, WKNavigationDelegate, WKUIDelegat
         stopUserscriptReconciliation()
     }
     private func applyUserscripts(_ records: [UserscriptRecord]) throws {
-        let sources = try WorkspaceScripts.prepare(records, target: target)
-        let controller = webView.configuration.userContentController
-        controller.removeAllUserScripts()
-        for source in sources {
-            controller.addUserScript(WKUserScript(source: source, injectionTime: .atDocumentStart,
-                forMainFrameOnly: false))
-        }
+        try attachment.replaceUserscripts(records)
     }
 
     /// Registers the selected enabled scripts and observes subsequent store API writes.
@@ -184,8 +161,7 @@ public final class BrowserWorkspace: NSObject, WKNavigationDelegate, WKUIDelegat
         closed = true
         stopUserscriptReconciliation()
         onUserscriptsReconciled = nil
-        let pending = Array(injections.values); injections.removeAll()
-        pending.forEach { $0.continuation.resume(throwing: WorkspaceError.closed) }
+        attachment.close()
         observations.forEach { $0.invalidate() }
         observations.removeAll()
         webView.stopLoading()
@@ -241,27 +217,14 @@ public final class BrowserWorkspace: NSObject, WKNavigationDelegate, WKUIDelegat
     /// synchronous evaluation finished; promises returned by the script are not awaited.
     public func inject(_ source: String) async throws {
         try requireOpen()
-        guard !source.isEmpty, source.utf8.count <= 1 << 20 else { throw WorkspaceError.injectionFailed }
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-            let id = UUID()
-            let generation = navigationGeneration
-            injections[id] = PendingInjection(generation: generation, continuation: continuation)
-            webView.evaluateJavaScript(source + "\n;void 0;") { [weak self] _, error in
-                guard let self, let pending = self.injections.removeValue(forKey: id) else { return }
-                if pending.generation != self.navigationGeneration {
-                    pending.continuation.resume(throwing: WorkspaceError.staleNavigation)
-                } else if error != nil {
-                    pending.continuation.resume(throwing: WorkspaceError.injectionFailed)
-                } else {
-                    pending.continuation.resume()
-                }
-            }
-        }
+        do { try await attachment.inject(source) }
+        catch AttachedWebView.AttachmentError.closed { throw WorkspaceError.closed }
+        catch AttachedWebView.AttachmentError.staleNavigation { throw WorkspaceError.staleNavigation }
+        catch { throw WorkspaceError.injectionFailed }
     }
     private func beginNavigation() {
         navigationGeneration &+= 1
-        let pending = Array(injections.values); injections.removeAll()
-        pending.forEach { $0.continuation.resume(throwing: WorkspaceError.staleNavigation) }
+        attachment.invalidateNavigation()
     }
     private func requireOpen() throws { if closed { throw WorkspaceError.closed } }
     public enum WorkspaceError: Error { case closed, invalidURL, injectionFailed, staleNavigation, invalidUserscriptSelection }

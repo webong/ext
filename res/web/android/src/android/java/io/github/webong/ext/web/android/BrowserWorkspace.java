@@ -18,9 +18,7 @@ import io.github.webong.ext.web.Site;
 import io.github.webong.ext.web.SiteException;
 import io.github.webong.ext.web.UserscriptException;
 import io.github.webong.ext.web.UserscriptRecord;
-import io.github.webong.ext.web.ScriptExecutionCapability;
 import io.github.webong.ext.web.WebViewCapabilities;
-import io.github.webong.ext.web.WorkspaceScripts;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -73,20 +71,11 @@ public final class BrowserWorkspace implements AutoCloseable {
     private LiveScripts liveScripts;
     private final WebView view;
     private final String target;
-    private final DocumentStart documentStart = new DocumentStart();
-    private List<Object> scripts = new ArrayList<>();
+    private final AttachedWebView attachment;
     private Listener listener;
     private boolean closed, loading, failed;
     private String error;
-    private long injectionID, navigationGeneration;
-    private static final class PendingInjection {
-        final long generation;
-        final android.webkit.ValueCallback<Boolean> completion;
-        PendingInjection(long generation, android.webkit.ValueCallback<Boolean> completion) {
-            this.generation = generation; this.completion = completion;
-        }
-    }
-    private final java.util.Map<Long, PendingInjection> injections = new java.util.LinkedHashMap<>();
+    private long navigationGeneration;
 
     @SuppressLint("SetJavaScriptEnabled")
     public BrowserWorkspace(Context context, String target, Listener listener) {
@@ -94,6 +83,7 @@ public final class BrowserWorkspace implements AutoCloseable {
         this.target = Objects.requireNonNull(target);
         this.listener = Objects.requireNonNull(listener);
         view = new WebView(context);
+        attachment = new AttachedWebView(view, target, android.webkit.CookieManager.getInstance());
         view.getSettings().setJavaScriptEnabled(true);
         view.getSettings().setDomStorageEnabled(true);
         view.getSettings().setAllowFileAccess(false);
@@ -115,9 +105,7 @@ public final class BrowserWorkspace implements AutoCloseable {
      * Android's app-level WebView cookie store is shared across workspaces. */
     public String cookieHeader(String site) throws SiteException {
         requireOpen();
-        Site.parse(site);
-        String header = android.webkit.CookieManager.getInstance().getCookie(site);
-        return header == null ? "" : header;
+        return attachment.cookieHeader(site);
     }
 
     /** Validates before mutation. The callback reports the native write result on the UI
@@ -125,24 +113,11 @@ public final class BrowserWorkspace implements AutoCloseable {
     public void setCookie(CookieBundle bundle, android.webkit.ValueCallback<Boolean> completion)
             throws CookieException {
         requireOpen();
-        if (completion == null) throw new IllegalArgumentException("cookie completion is required");
-        String header = WorkspaceCookies.header(bundle);
-        android.webkit.CookieManager.getInstance().setCookie(bundle.site, header, completion);
+        attachment.setCookie(bundle, completion);
     }
 
-    public boolean supportsDocumentStartScripts() { requireOpen(); return documentStart.available(); }
-    public WebViewCapabilities scriptCapabilities() {
-        requireOpen();
-        ScriptExecutionCapability current = new ScriptExecutionCapability(true,
-                java.util.Collections.singletonList("main"), java.util.Collections.singletonList("now"),
-                java.util.Collections.singletonList("page"), true);
-        ScriptExecutionCapability future = documentStart.available()
-                ? new ScriptExecutionCapability(true, java.util.Collections.singletonList("all"),
-                    java.util.Collections.singletonList("document-start"), java.util.Collections.singletonList("page"), false)
-                : new ScriptExecutionCapability(false, java.util.Collections.<String>emptyList(),
-                    java.util.Collections.<String>emptyList(), java.util.Collections.<String>emptyList(), false);
-        return new WebViewCapabilities(current, future);
-    }
+    public boolean supportsDocumentStartScripts() { requireOpen(); return attachment.supportsDocumentStartScripts(); }
+    public WebViewCapabilities scriptCapabilities() { requireOpen(); return attachment.scriptCapabilities(); }
     public void navigate(String url) throws SiteException {
         requireOpen(); Site.parse(url); beginNavigation(); view.loadUrl(url);
     }
@@ -158,19 +133,7 @@ public final class BrowserWorkspace implements AutoCloseable {
         stopUserscriptReconciliation();
     }
     private void applyUserscripts(List<UserscriptRecord> records) throws UserscriptException {
-        List<String> sources = WorkspaceScripts.prepare(records, target);
-        if (!sources.isEmpty() && !documentStart.available()) {
-            throw new UnsupportedOperationException("Document-start scripts require AndroidX WebKit and WebView support");
-        }
-        List<Object> next = new ArrayList<>();
-        try {
-            for (String source : sources) next.add(documentStart.add(view, source));
-        } catch (RuntimeException failure) {
-            for (Object handler : next) documentStart.remove(handler);
-            throw failure;
-        }
-        for (Object handler : scripts) documentStart.remove(handler);
-        scripts = next;
+        attachment.replaceUserscripts(records);
     }
 
     /** Registers and observes enabled scripts. Empty id selects all. Failure preserves
@@ -231,16 +194,15 @@ public final class BrowserWorkspace implements AutoCloseable {
         closed = true;
         stopUserscriptReconciliation();
         view.stopLoading();
-        for (Object handler : scripts) documentStart.remove(handler);
-        scripts.clear();
-        view.setWebChromeClient(null);
-        view.setWebViewClient(new WebViewClient());
-        if (view.getParent() instanceof ViewGroup) ((ViewGroup) view.getParent()).removeView(view);
-        view.destroy();
-        listener = null;
-        List<PendingInjection> pending = new ArrayList<>(injections.values());
-        injections.clear();
-        for (PendingInjection injection : pending) injection.completion.onReceiveValue(false);
+        try {
+            attachment.close();
+        } finally {
+            view.setWebChromeClient(null);
+            view.setWebViewClient(new WebViewClient());
+            if (view.getParent() instanceof ViewGroup) ((ViewGroup) view.getParent()).removeView(view);
+            view.destroy();
+            listener = null;
+        }
     }
 
     private void emit() { if (!closed) listener.onStateChange(new State(view, loading, error, navigationGeneration)); }
@@ -250,26 +212,11 @@ public final class BrowserWorkspace implements AutoCloseable {
      * evaluation success; JavaScript promises are not awaited. */
     public void inject(String source, android.webkit.ValueCallback<Boolean> completion) {
         requireOpen();
-        if (completion == null) throw new IllegalArgumentException("injection completion is required");
-        io.github.webong.ext.web.WorkspaceInput.validateSource(source);
-        String script = "(function(){try{(0,eval)(" + io.github.webong.ext.web.WorkspaceInput.quote(source)
-            + ");return true;}catch(_){return false;}})()";
-        long id = ++injectionID;
-        long generation = navigationGeneration;
-        injections.put(id, new PendingInjection(generation, completion));
-        try {
-            view.evaluateJavascript(script, value -> {
-                PendingInjection pending = injections.remove(id);
-                if (pending != null) pending.completion.onReceiveValue(!closed
-                        && pending.generation == navigationGeneration && "true".equals(value));
-            });
-        } catch (RuntimeException failure) { injections.remove(id); throw failure; }
+        attachment.inject(source, completion);
     }
     private void beginNavigation() {
         navigationGeneration++;
-        List<PendingInjection> pending = new ArrayList<>(injections.values());
-        injections.clear();
-        for (PendingInjection injection : pending) injection.completion.onReceiveValue(false);
+        attachment.invalidateNavigation();
     }
     private void requireOpen() { requireUI(); if (closed) throw new IllegalStateException("workspace is closed"); }
     private static void requireUI() {

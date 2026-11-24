@@ -50,6 +50,34 @@ Android WebView's app-level cookie/storage profile is shared: this is not an
 incognito or isolated per-workspace profile. App lifecycle, permission prompts,
 incoming intents, storage and record retention remain host choices.
 
+## Attach to an existing WebView
+
+`AttachedWebView` uses a caller-owned view on the UI thread. The caller keeps
+its existing clients, settings, and navigation. Forward main-frame navigation
+starts, including same-URL reloads, to `invalidateNavigation()`. Close the
+attachment before destroying the view or when its renderer is gone.
+Invalidation rejects pending results. JavaScript already submitted to
+WebView can still run.
+
+```java
+// supply the CookieManager for the profile the host selected for webView
+AttachedWebView attached = new AttachedWebView(webView, "checkout", profileCookies);
+if (attached.supportsDocumentStartScripts()) attached.replaceUserscripts(reviewedRecords);
+attached.inject(reviewedSource, completed -> { /* synchronous JS result */ });
+attached.close();
+```
+
+The two-argument constructor disables cookies. Pass the view's profile cookie
+manager when the native provider supports profiles, or explicitly pass
+`CookieManager.getInstance()` for a view using the app's default store.
+Views sharing a cookie manager also share its cookies. [AndroidX WebView profiles](https://developer.android.com/reference/androidx/webkit/WebViewCompat)
+
+The attachment respects the host's JavaScript setting. It uses AndroidX
+handles for its document-start scripts and removes its registrations on
+close. These operations affect future documents. Navigation and destruction
+remain with the host. Current-page source is limited to 1 MiB, with up to 64
+concurrent evaluations and a 30-second completion deadline.
+
 `scripts/web-workspace-android.sh` builds and runs tests on a running device
 (`ANDROID_SERIAL` selects it). Set `EXT_ANDROIDX_CLASSPATH` to colon-separated
 AndroidX WebKit and runtime dependency AARs (or JARs without minification). It fetches nothing and needs a JDK,

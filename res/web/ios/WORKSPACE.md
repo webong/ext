@@ -50,6 +50,38 @@ not a sandbox for untrusted applications or the hidden Wasm plugin host.
 registration. `State.navigationGeneration` changes when navigation begins. Pending current-page
 injections fail with `staleNavigation` if that generation changes before native evaluation finishes.
 
+## Attach to an existing WKWebView
+
+`AttachedWebView` runs on the main actor and holds the view weakly. The host
+keeps its existing navigation and UI delegates, configuration, and data store.
+Forward main-frame navigation starts and content-process termination to
+`invalidateNavigation()` from the host delegate. Include same-URL reloads.
+This invalidates pending results. JavaScript already submitted to WebKit can
+still run.
+
+```swift
+let attached = AttachedWebView(webView, target: "checkout",
+    exclusiveScriptController: webView.configuration.userContentController)
+try attached.replaceUserscripts(reviewedRecords)
+try await attached.inject(reviewedSource)
+attached.close()
+```
+
+Supply a controller only when it belongs exclusively to the selected view.
+Omitting it disables future-document scripts. WebKit scopes these scripts to
+the controller, so a shared controller would install them in every view using
+it. On replacement and close, Ext filters out its own scripts from the
+controller's current list and restores the other registrations in order using
+WebKit's bulk removal API. Coordinate navigation and controller updates on
+the main actor. Removal affects future documents. [WKUserContentController](https://developer.apple.com/documentation/webkit/wkusercontentcontroller)
+
+Cookies use the attached view's `WKWebsiteDataStore`. Views using the same
+store see that store's cookies. Close explicitly before releasing the
+attachment to remove its registrations. Closing leaves the view available
+to the host. Current-page source is limited to 1 MiB, with up to 64 concurrent
+evaluations and a 30-second completion deadline. Future scripts use the same
+reviewed document-start profile as `BrowserWorkspace`.
+
 `scripts/web-workspace-ios.sh` tests document-start execution, exclusions,
 rejected updates, removal, and closure in real WKWebView on macOS. Sources also
 support iOS 13+. To run the same tests on an already booted iOS simulator:

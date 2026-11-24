@@ -14,6 +14,7 @@ public final class TestActivity extends Activity {
     private BrowserWorkspace workspace;
     private BundleChecks bundles;
     private LiveUserscriptChecks liveChecks;
+    private AttachedViewChecks attachmentChecks;
     private io.github.webong.ext.web.android.WorkspaceManagement router;
     private io.github.webong.ext.web.UserscriptStore store;
     private int phase, passed, failed;
@@ -212,6 +213,11 @@ public final class TestActivity extends Activity {
             catch (Exception unexpected) { check(false, "closed workspace cookie error"); }
         }
         if (bundles == null && failed == 0) {
+            if (attachmentChecks == null) {
+                attachmentChecks = new AttachedViewChecks(this, expectDocumentStart, this::check, this::fail, this::finishTests);
+                attachmentChecks.start();
+                return;
+            }
             try {
                 java.io.File fixtures = new java.io.File(getCacheDir(), "extension-fixtures");
                 fixtures.mkdirs();
@@ -240,5 +246,5 @@ public final class TestActivity extends Activity {
         bundles.start();
     }
     private void reportDone() { done = true; Log.i("EXTWORKSPACE", "DONE passed=" + passed + " failed=" + failed); }
-    @Override public void onDestroy() { done = true; if (bundles != null) bundles.close(); if (liveChecks != null) liveChecks.close(); if (workspace != null) workspace.close(); super.onDestroy(); }
+    @Override public void onDestroy() { done = true; if (bundles != null) bundles.close(); if (liveChecks != null) liveChecks.close(); if (attachmentChecks != null) attachmentChecks.close(); if (workspace != null) workspace.close(); super.onDestroy(); }
 }

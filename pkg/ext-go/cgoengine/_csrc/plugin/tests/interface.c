@@ -68,8 +68,8 @@ static void *answer_events(void *arg) {
         break;
       continue;
     }
-    for (const char *p = events; (p = strstr(p, "{\"ticket\":")); p++) {
-      uint64_t ticket = ticket_after(p + 10);
+    for (const char *p = events; (p = strstr(p, "\"ticket\":")); p++) {
+      uint64_t ticket = ticket_after(p + 9);
       const char *kind = strstr(p, "\"kind\":\"") + 8;
       char reply[256];
       const char *body = NULL;
@@ -155,6 +155,10 @@ static void hosts(void) {
          "{\"call\":{\"contract\":{\"name\":\"reverse.test\",\"version\":\"v1\"},\"operation\":\"run\","
          "\"payload\":{}},\"progress\":{},\"timeout_ms\":5000}",
          "\"signed\":true");
+  /* The call queued two progress events and two reverse events, each with its own seq. */
+  char *seq = call(r.host, "sequence", NULL, EXT_PLUGIN_OK);
+  CHECK(seq && strtoull(seq, NULL, 10) >= 4, "sequence after the call: %s", seq ? seq : "(null)");
+  ext_plugin_free(seq);
   CHECK(ext_plugin_close(r.host) == EXT_PLUGIN_OK, "close the reverse host");
   r.stop = 1;
   pthread_join(t, NULL);

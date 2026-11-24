@@ -148,6 +148,9 @@ there by purego or cgo. `js/wasm` and the architectures purego does not reach ge
    library calls, the package store and the layered view (`ext_plugin_open`, `_call`, `_close`; the
    pure services moved to `ext_plugin_services_call` and are handle 0); and its host sessions, whose
    callbacks (policies, progress, the observer, reverse calls) are events the binding polls and answers.
+   Done for the plugin engine's Go side too: `pkg/ext-go/plugin` binds `ext_plugin` through
+   `cengine/library.BindInterface` as its purego driver, held to the same differential checks as cgo
+   and c2go; each event carries a sequence number, so a call returns once its events are delivered.
 4. The `ext-plugin` release publishes its citation and the ccgo translations; the first release with
    the `ext_plugin_` names (after #211) is the first a citation can name.
 5. `cgoengine` stops carrying `_csrc`: its binding compiles against declarations and links the library

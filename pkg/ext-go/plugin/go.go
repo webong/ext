@@ -16,7 +16,7 @@ func (goEngine) sealed()         {}
 func (goEngine) Name() Name      { return Go }
 func (goEngine) Available() bool { return true }
 func (goEngine) Features() Feature {
-	return Sessions | Progress | Reverse
+	return Sessions | Progress | Reverse | Backends
 }
 
 func (e goEngine) Call(string, json.RawMessage) (json.RawMessage, error) {

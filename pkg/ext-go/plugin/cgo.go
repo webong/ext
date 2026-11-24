@@ -20,7 +20,7 @@ func (e cgoEngine) Features() Feature {
 	if !e.Available() {
 		return 0
 	}
-	return Services | Sessions | Progress | Reverse
+	return Services | Sessions | Progress | Reverse | Backends
 }
 
 func (e cgoEngine) Call(operation string, input json.RawMessage) (json.RawMessage, error) {

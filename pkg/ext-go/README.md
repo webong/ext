@@ -31,16 +31,18 @@ WASI execution and reactor hosting, then binds those mechanisms to
 ## Choosing an engine
 
 The engine's rules exist as the pure-Go `engine` (the oracle, on every platform), as the C
-engine through cgo (`cgoengine`, at native speed) and as the C translated to Go (`c2goengine`, no
-cgo). `pkg/ext-go/plugin` is the one place that knows all three, and it chooses with
-`core/driver`, the switcher every library of `lib/` shares:
+engine through cgo (`cgoengine`, at native speed), as the C translated to Go (`c2goengine`, no
+cgo) and as the built C engine loaded at run time through purego (no cgo and no C compiler: the
+library `plugin.UseLibrary` names, or the copy `ext-go fetch` embeds). `pkg/ext-go/plugin` is the one
+place that knows all four, and it chooses with `core/driver`, the switcher every library of `lib/`
+shares:
 
 ```go
 import "github.com/webong/ext/pkg/ext-go/plugin"
 
 // The best available engine that carries what the program needs, or the one EXT_ENGINE names
-// (cgo, c2go, go or auto).
-e, err := plugin.FromEnvironment(plugin.Sessions | plugin.Progress)
+// (cgo, c2go, purego, go or auto).
+e, err := plugin.FromEnvironment(plugin.Sessions | plugin.Backends | plugin.Progress)
 if err != nil { ... }
 
 session, err := e.Open(ctx, descriptor, engine.Options{Verify: ..., Authorize: ..., Connect: ...})
@@ -49,13 +51,19 @@ fmt.Println(session.Engine()) // which engine runs this session
 leases, err := plugin.NewInstances(e, instance.Options[T]{...})
 ```
 
-`Engines` lists them in the order `Choose` prefers: cgo, c2go, go. A name is never served by
+`Engines` lists them in the order `Choose` prefers: cgo, c2go, purego, go. A name is never served by
 another engine: an engine that is not in this build (cgo needs cgo, the `ext_cengine` tag and the C
-library; c2go needs a platform it was translated for), or lacks a feature the program asked for, is an
+library; c2go needs a platform it was translated for; purego needs a library named or carried), or lacks a feature the program asked for, is an
 error wrapping `engine.ErrUnsupported` (the `engine/plugin` package). The features are `Services` (the engine's pure services by
-name; the go engine has none), `Sessions` (`Open`, `OpenProcess`, `NewInstances`; c2go has them
-except on Windows), `Progress` and `Reverse` (cgo and go; c2go does not carry them yet). The choice is
-made once, when a session or instance manager is opened.
+name; the go engine has none), `Sessions` (`OpenProcess`; c2go has them except on Windows),
+`Backends` (`Open` over a Go backend and `NewInstances`; every engine with sessions but purego, which
+never has C call Go), `Progress` and `Reverse` (cgo, purego and go; c2go does not carry them yet). The
+choice is made once, when a session or instance manager is opened.
+
+The purego engine binds only lib/plugin's library interface (`ext_plugin_open`, `_call`, `_close`). A
+host's callbacks are events there: a goroutine per session takes them and answers the policies and
+reverse calls, and a call with progress or an observer returns only once its events are delivered.
+Progress events do not name their call, so a session runs one call with progress at a time.
 
 See [module versioning](../../docs/module-versioning.md) for the migration table from the
 earlier import paths.

@@ -18,6 +18,14 @@ import (
 
 func TestMain(m *testing.M) {
 	enginetest.MaybeServeGuest()
+	if os.Getenv(pureGoGuestEnv) != "" {
+		os.Exit(servePureGoGuest())
+	}
+	// EXT_PLUGIN_LIBRARY is a built lib/plugin shared library (libext_plugin_host), which makes the
+	// purego engine available; scripts/plugin-engine-test.sh sets it.
+	if path := os.Getenv("EXT_PLUGIN_LIBRARY"); path != "" {
+		plugin.UseLibrary(path)
+	}
 	os.Exit(m.Run())
 }
 
@@ -30,7 +38,7 @@ func names(es []plugin.Engine) (out []plugin.Name) {
 
 func TestEnginesAreListedInPreferenceOrder(t *testing.T) {
 	got := names(plugin.Engines())
-	want := []plugin.Name{plugin.CGo, plugin.C2Go, plugin.Go}
+	want := []plugin.Name{plugin.CGo, plugin.C2Go, plugin.PureGo, plugin.Go}
 	if len(got) != len(want) {
 		t.Fatalf("Engines() = %v, want %v", got, want)
 	}
@@ -39,9 +47,9 @@ func TestEnginesAreListedInPreferenceOrder(t *testing.T) {
 			t.Fatalf("Engines() = %v, want %v", got, want)
 		}
 	}
-	last := plugin.Engines()[2]
-	if !last.Available() || !last.Features().Has(plugin.Sessions|plugin.Progress|plugin.Reverse) {
-		t.Fatalf("the go engine must be available with sessions, progress and reverse: %v", last.Features())
+	last := plugin.Engines()[3]
+	if !last.Available() || !last.Features().Has(plugin.Sessions|plugin.Progress|plugin.Reverse|plugin.Backends) {
+		t.Fatalf("the go engine must be available with sessions, progress, reverse and backends: %v", last.Features())
 	}
 	if last.Features().Has(plugin.Services) {
 		t.Fatalf("the go engine has no services by name: %v", last.Features())
@@ -72,7 +80,7 @@ func best(need plugin.Feature) plugin.Engine {
 
 func TestChooseWithoutANamePicksTheBestAvailable(t *testing.T) {
 	for _, name := range []plugin.Name{"", plugin.Auto} {
-		for _, need := range []plugin.Feature{0, plugin.Services, plugin.Sessions, plugin.Progress, plugin.Reverse, plugin.Services | plugin.Sessions, plugin.Sessions | plugin.Reverse, plugin.Services | plugin.Reverse} {
+		for _, need := range []plugin.Feature{0, plugin.Services, plugin.Sessions, plugin.Progress, plugin.Reverse, plugin.Services | plugin.Sessions, plugin.Sessions | plugin.Reverse, plugin.Services | plugin.Reverse, plugin.Backends, plugin.Services | plugin.Backends} {
 			want := best(need)
 			got, err := plugin.Choose(name, need)
 			if want == nil {
@@ -186,14 +194,16 @@ func TestAnEngineWithoutAFeatureRefusesItsCalls(t *testing.T) {
 			}
 		}
 		if !e.Features().Has(plugin.Sessions) {
-			if _, err := e.Open(context.Background(), engine.Descriptor{}, engine.Options{}); !errors.Is(err, engine.ErrUnsupported) {
-				t.Errorf("%s.Open without sessions = %v; want ErrUnsupported", e.Name(), err)
-			}
 			if _, err := e.OpenProcess(context.Background(), engine.Descriptor{}, plugin.Launch{}, engine.Options{}); !errors.Is(err, engine.ErrUnsupported) {
 				t.Errorf("%s.OpenProcess without sessions = %v; want ErrUnsupported", e.Name(), err)
 			}
+		}
+		if !e.Features().Has(plugin.Sessions | plugin.Backends) {
+			if _, err := e.Open(context.Background(), engine.Descriptor{}, engine.Options{}); !errors.Is(err, engine.ErrUnsupported) {
+				t.Errorf("%s.Open without backends = %v; want ErrUnsupported", e.Name(), err)
+			}
 			if _, err := plugin.NewInstances(e, instance.Options[int]{}); !errors.Is(err, engine.ErrUnsupported) {
-				t.Errorf("%s.NewInstances without sessions = %v; want ErrUnsupported", e.Name(), err)
+				t.Errorf("%s.NewInstances without backends = %v; want ErrUnsupported", e.Name(), err)
 			}
 		}
 	}
@@ -218,11 +228,14 @@ func harness(t *testing.T, e plugin.Engine) enginetest.Engine {
 		}
 		return s, nil
 	}
-	h.Open = func(ctx context.Context, d engine.Descriptor, o engine.Options) (enginetest.Session, error) {
-		return check(e.Open(ctx, d, o))
-	}
 	h.OpenProcess = func(ctx context.Context, d engine.Descriptor, l enginetest.Launch, o engine.Options) (enginetest.Session, error) {
 		return check(e.OpenProcess(ctx, d, plugin.Launch{Executable: l.Executable, Environment: l.Environment}, o))
+	}
+	if !e.Features().Has(plugin.Backends) {
+		return h
+	}
+	h.Open = func(ctx context.Context, d engine.Descriptor, o engine.Options) (enginetest.Session, error) {
+		return check(e.Open(ctx, d, o))
 	}
 	h.NewInstances = func(opts instance.Options[string]) (enginetest.Instances, error) {
 		m, err := plugin.NewInstances(e, opts)
@@ -277,7 +290,7 @@ func TestEveryAvailableEngineAgreesWithTheOracle(t *testing.T) {
 func TestInstancesLeaseAndDisposeOnEveryEngine(t *testing.T) {
 	type resource struct{ key, config string }
 	for _, e := range plugin.Engines() {
-		if !e.Features().Has(plugin.Sessions) {
+		if !e.Features().Has(plugin.Sessions | plugin.Backends) {
 			continue
 		}
 		t.Run(string(e.Name()), func(t *testing.T) {

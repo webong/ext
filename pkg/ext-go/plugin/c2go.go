@@ -23,7 +23,7 @@ func (e c2goEngine) Features() Feature {
 	}
 	f := Services
 	if c2goengine.HostAvailable {
-		f |= Sessions
+		f |= Sessions | Backends
 	}
 	return f
 }

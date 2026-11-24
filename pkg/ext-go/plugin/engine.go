@@ -1,14 +1,16 @@
 // Package plugin chooses which implementation of the plugin engine runs a program's sessions.
 //
-// The engine's rules exist three times, and each is its own module so an application takes only the
-// ones it needs:
+// The engine is reached four ways, and each is its own module (or, for purego, a library the program
+// names or carries) so an application takes only the ones it needs:
 //
-//	go    the pure-Go engine (pkg/ext-go/engine): the oracle the others are held against, and
-//	      the one that exists on every platform
-//	cgo   the C engine through cgo (pkg/ext-go/cgoengine): the C itself, at native speed
-//	c2go  the C engine translated to Go by ccgo (pkg/ext-go/c2goengine): no cgo and no C compiler
+//	cgo     the C engine through cgo (pkg/ext-go/cgoengine): the C itself, at native speed
+//	c2go    the C engine translated to Go by ccgo (pkg/ext-go/c2goengine): no cgo and no C compiler
+//	purego  the built C engine loaded at run time through its library interface (UseLibrary, or the
+//	        copy ext-go fetch embeds): no cgo and no C compiler; sessions over a child process only
+//	go      the pure-Go engine (pkg/ext-go/engine): the oracle the others are held against, and
+//	        the one that exists on every platform
 //
-// This package is the one place that knows all three: it lists them as the plugin engine's drivers and
+// This package is the one place that knows all four: it lists them as the plugin engine's drivers and
 // chooses with core/driver, the generic switcher every library of lib/ shares. Engines lists them in
 // the order Choose prefers them; Choose picks one by name or, without a name, the best available one that has the
 // features the caller needs; FromEnvironment reads the name from EXT_ENGINE. The choice is made once,
@@ -37,6 +39,8 @@ const (
 	CGo = driver.CGo
 	// C2Go is the C engine translated to Go.
 	C2Go = driver.C2Go
+	// PureGo is the built C engine loaded through purego.
+	PureGo = driver.PureGo
 	// Go is the pure-Go engine, the oracle.
 	Go = driver.Go
 )
@@ -55,12 +59,15 @@ const (
 	// schema and endpoint rules) run by name on bounded JSON. The pure-Go engine has none: its rules
 	// are the Go functions of the contract.
 	Services Feature = 1 << iota
-	// Sessions is Open, OpenProcess and NewInstances.
+	// Sessions is OpenProcess: a session over a child process the engine starts.
 	Sessions
 	// Progress is Session.CallProgress and plugins that declare progress events.
 	Progress
 	// Reverse is engine.Options.Reverse and plugins that declare reverse operations.
 	Reverse
+	// Backends is Open, a session over a Go backend (options.Connect), and NewInstances. An engine
+	// that runs only C (purego) has sessions without it: a Go backend needs C to call Go.
+	Backends
 )
 
 // Has reports whether f holds every feature of want.
@@ -71,7 +78,7 @@ func (f Feature) String() string {
 	for _, n := range []struct {
 		f    Feature
 		name string
-	}{{Services, "services"}, {Sessions, "sessions"}, {Progress, "progress"}, {Reverse, "reverse"}} {
+	}{{Services, "services"}, {Sessions, "sessions"}, {Progress, "progress"}, {Reverse, "reverse"}, {Backends, "backends"}} {
 		if f&n.f != 0 {
 			names = append(names, n.name)
 		}
@@ -108,14 +115,14 @@ type Engine interface {
 	// Call runs one of the engine's pure services on bounded JSON. No plugin is executed. It needs
 	// Services; see lib/plugin/services.md for the services.
 	Call(operation string, input json.RawMessage) (json.RawMessage, error)
-	// Open admits a plugin over the backend options.Connect supplies. It needs Sessions.
+	// Open admits a plugin over the backend options.Connect supplies. It needs Sessions and Backends.
 	Open(ctx context.Context, d engine.Descriptor, options engine.Options) (Session, error)
 	// OpenProcess is Open with a child process the engine itself starts; options.Connect is unused.
 	// It needs Sessions.
 	OpenProcess(ctx context.Context, d engine.Descriptor, launch Launch, options engine.Options) (Session, error)
 
 	// sealed keeps the set closed: NewInstances is generic, which methods cannot be, so it switches on
-	// the three engines this package defines.
+	// the engines this package defines.
 	sealed()
 }
 
@@ -158,7 +165,8 @@ type Lease[T any] struct {
 // Release returns the lease. Releasing it twice is the underlying manager's error to report.
 func (l *Lease[T]) Release() error { return l.release() }
 
-// NewInstances creates a manager of at most options.Capacity instances on e. It needs Sessions.
+// NewInstances creates a manager of at most options.Capacity instances on e. It needs Sessions and
+// Backends.
 func NewInstances[T any](e Engine, options instance.Options[T]) (Instances[T], error) {
 	switch e := e.(type) {
 	case goEngine:
@@ -167,14 +175,17 @@ func NewInstances[T any](e Engine, options instance.Options[T]) (Instances[T], e
 		return newCGoInstances(e, options)
 	case c2goEngine:
 		return newC2GoInstances(e, options)
+	case pureGoEngine:
+		return newPureGoInstances(e, options)
 	}
 	return nil, fmt.Errorf("plugin: %v: %w", e, engine.ErrUnsupported)
 }
 
-// Engines lists every engine, available or not, in the order Choose prefers them: cgo, c2go, go.
-func Engines() []Engine { return []Engine{cgoEngine{}, c2goEngine{}, goEngine{}} }
+// Engines lists every engine, available or not, in the order Choose prefers them: cgo, c2go, purego,
+// go.
+func Engines() []Engine { return []Engine{cgoEngine{}, c2goEngine{}, pureGoEngine{}, goEngine{}} }
 
-// Get returns the engine called name, which must be one of CGo, C2Go and Go. It does not check that
+// Get returns the engine called name, which must be one of CGo, C2Go, PureGo and Go. It does not check that
 // the engine is available.
 func Get(name Name) (Engine, error) {
 	for _, e := range Engines() {
@@ -182,11 +193,11 @@ func Get(name Name) (Engine, error) {
 			return e, nil
 		}
 	}
-	return nil, fmt.Errorf("plugin: unknown engine %q (want %s, %s, %s or %s): %w", name, CGo, C2Go, Go, Auto, engine.ErrInvalid)
+	return nil, fmt.Errorf("plugin: unknown engine %q (want %s, %s, %s, %s or %s): %w", name, CGo, C2Go, PureGo, Go, Auto, engine.ErrInvalid)
 }
 
 // Choose returns the engine to use. With Auto (or an empty name) it is the best available engine,
-// in the order cgo, c2go, go, that carries every feature in need. With a name it is that engine,
+// in the order cgo, c2go, purego, go, that carries every feature in need. With a name it is that engine,
 // and an engine that is not available, or lacks a feature, is an error that wraps
 // engine.ErrUnsupported: asking for an engine by name never gets another one. A name that is no
 // engine wraps engine.ErrInvalid.
@@ -211,7 +222,7 @@ func Choose(name Name, need Feature) (Engine, error) {
 	return e, nil
 }
 
-// FromEnvironment is Choose with the name taken from EXT_ENGINE: cgo, c2go, go or auto. Unset or empty
+// FromEnvironment is Choose with the name taken from EXT_ENGINE: cgo, c2go, purego, go or auto. Unset or empty
 // is auto.
 func FromEnvironment(need Feature) (Engine, error) {
 	name, err := driver.FromEnvironment()

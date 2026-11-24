@@ -205,7 +205,7 @@ The reusable libraries are:
 - `pkg/ext-go/wasm` for the engine-facing WebAssembly backend; it depends on `pkg/ext-go/engine` and the reusable runtime in `res/web/host/engine/wasm`.
 - `pkg/ext-go/hashicorp` for the HashiCorp go-plugin backend.
 - `pkg/ext-go/yaegi` for the Go source backend: a guest shipped as Go source, interpreted in-process by yaegi (`github.com/traefik/yaegi`); it depends on `pkg/ext-go/engine` and yaegi only, and the umbrella does not require it.
-- `pkg/ext-go` for the umbrella module that requires the plugin engines, `res/web/host` and the ledger recorder; it holds code that needs several engines, such as `pkg/ext-go/plugin`, which chooses between the pure-Go `engine`, `cgoengine` and `c2goengine` (the only place that knows all three) through `core/driver`.
+- `pkg/ext-go` for the umbrella module that requires the plugin engines, `res/web/host` and the ledger recorder; it holds code that needs several engines, such as `pkg/ext-go/plugin`, which chooses between the pure-Go `engine`, `cgoengine`, `c2goengine` and the built C engine loaded through purego over its library interface (the only place that knows all four) through `core/driver`.
 
 CTN owns the nested modules `src/ctn/inference`, `src/ctn/model`,
 `src/ctn/perception`, and `src/ctn/realtime` for the provider, tensor,

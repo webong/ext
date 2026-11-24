@@ -83,6 +83,10 @@ replace github.com/webong/ext/pkg/ext-go/engine/ledger/recorder v0.1.0 => ./pkg/
 // src/cto/sandbox/v0.1.0 is published.
 replace github.com/webong/ext/src/cto/sandbox v0.1.0 => ./src/cto/sandbox
 
+// The shared tensor plugin bridge has no published tag yet. Remove this once
+// res/int/model/plugin/v0.1.0 is published.
+replace github.com/webong/ext/res/int/model/plugin v0.1.0 => ./res/int/model/plugin
+
 // CTN's bridge module tags and the updated OpenAI adapter tag are not published yet.
 // The workspace resolves their new consumers to the current sources.
 replace github.com/webong/ext/src/ctn/inference v0.1.0 => ./src/ctn/inference

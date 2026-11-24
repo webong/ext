@@ -18,3 +18,13 @@ sha256sum -c checksums.txt
 )
 ci_import_env
 
+# The citation ext lib fetch reads: each archive's URL, SHA-256 and the files each driver takes.
+(
+set -euo pipefail
+version="${GITHUB_REF_NAME#ext-plugin-v}"
+[[ "$GITHUB_REF_NAME" == ext-plugin-v* ]] || version="$(sed -n 's/^project(ext_plugin VERSION \([0-9.]*\) .*/\1/p' lib/plugin/CMakeLists.txt)"
+python3 -I scripts/library-citation.py scripts/release/ext-plugin/citation.json "$version" "ext-plugin-v$version" dist
+cp lib/plugin/interface.json dist/ext_plugin.interface.json
+)
+ci_import_env
+

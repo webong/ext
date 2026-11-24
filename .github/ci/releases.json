@@ -217,6 +217,87 @@
       "registry": null,
       "distribute": false
     },
+    "ext-ledger": {
+      "tag_prefixes": [
+        "ext-ledger-v"
+      ],
+      "workflow": "engine",
+      "version_default": null,
+      "publishes": "prebuilt ledger (GitHub release)",
+      "build": [
+        {
+          "name": "ext-ledger build (linux-x86_64)",
+          "runner": "ubuntu-22.04",
+          "script": "scripts/release/ext-ledger/build.sh",
+          "vars": {
+            "OS": "ubuntu-22.04",
+            "PLATFORM": "linux-x86_64"
+          },
+          "setup": {},
+          "artifact": "release-ext-ledger-linux-x86_64",
+          "timeout": 30
+        },
+        {
+          "name": "ext-ledger build (linux-aarch64)",
+          "runner": "ubuntu-22.04-arm",
+          "script": "scripts/release/ext-ledger/build.sh",
+          "vars": {
+            "OS": "ubuntu-22.04-arm",
+            "PLATFORM": "linux-aarch64"
+          },
+          "setup": {},
+          "artifact": "release-ext-ledger-linux-aarch64",
+          "timeout": 30
+        },
+        {
+          "name": "ext-ledger build (macos-universal)",
+          "runner": "macos-15",
+          "script": "scripts/release/ext-ledger/build.sh",
+          "vars": {
+            "OS": "macos-15",
+            "PLATFORM": "macos-universal"
+          },
+          "setup": {},
+          "artifact": "release-ext-ledger-macos-universal",
+          "timeout": 30
+        },
+        {
+          "name": "ext-ledger build (windows-x86_64)",
+          "runner": "windows-latest",
+          "script": "scripts/release/ext-ledger/build.sh",
+          "vars": {
+            "MSVC": "amd64",
+            "OS": "windows-latest",
+            "PLATFORM": "windows-x86_64"
+          },
+          "setup": {
+            "msvc": "true",
+            "msvc_arch": "amd64"
+          },
+          "artifact": "release-ext-ledger-windows-x86_64",
+          "timeout": 30
+        },
+        {
+          "name": "ext-ledger build (windows-aarch64)",
+          "runner": "windows-11-arm",
+          "script": "scripts/release/ext-ledger/build.sh",
+          "vars": {
+            "MSVC": "arm64",
+            "OS": "windows-11-arm",
+            "PLATFORM": "windows-aarch64"
+          },
+          "setup": {
+            "msvc": "true",
+            "msvc_arch": "arm64"
+          },
+          "artifact": "release-ext-ledger-windows-aarch64",
+          "timeout": 30
+        }
+      ],
+      "publish_setup": {},
+      "registry": null,
+      "distribute": false
+    },
     "ext-python": {
       "tag_prefixes": [
         "ext-python-v"

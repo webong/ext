@@ -1,0 +1,20 @@
+{
+  "about": "What each ext-ledger platform archive serves, for scripts/library-citation.py. Windows archives are built with MSVC, whose static library cgo (MinGW) cannot link, so they serve purego only.",
+  "library": "ext_ledger",
+  "archive": "ext-ledger-{version}-{platform}.tar.gz",
+  "assets": [
+    {"platform": "linux-x86_64", "targets": ["linux/amd64"], "drivers": {
+      "cgo": {"include": "include", "static": "lib/libext_ledger.a", "cflags": ["-DEXT_LEDGER_STATIC"], "ldflags": ["-lpthread", "-lm", "-ldl"]},
+      "purego": {"shared": "lib/libext_ledger.so.0"}}},
+    {"platform": "linux-aarch64", "targets": ["linux/arm64"], "drivers": {
+      "cgo": {"include": "include", "static": "lib/libext_ledger.a", "cflags": ["-DEXT_LEDGER_STATIC"], "ldflags": ["-lpthread", "-lm", "-ldl"]},
+      "purego": {"shared": "lib/libext_ledger.so.0"}}},
+    {"platform": "macos-universal", "targets": ["darwin/amd64", "darwin/arm64"], "drivers": {
+      "cgo": {"include": "include", "static": "lib/libext_ledger.a", "cflags": ["-DEXT_LEDGER_STATIC"], "ldflags": ["-lpthread", "-framework CoreFoundation", "-framework ApplicationServices"]},
+      "purego": {"shared": "lib/libext_ledger.0.dylib"}}},
+    {"platform": "windows-x86_64", "targets": ["windows/amd64"], "drivers": {
+      "purego": {"shared": "bin/ext_ledger.dll"}}},
+    {"platform": "windows-aarch64", "targets": ["windows/arm64"], "drivers": {
+      "purego": {"shared": "bin/ext_ledger.dll"}}}
+  ]
+}

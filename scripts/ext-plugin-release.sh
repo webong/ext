@@ -51,10 +51,11 @@ stage="$build/stage/$name"
 rm -rf "$stage"
 cmake --install "$build/engine" --prefix "$stage"
 cp LICENSE "$stage/LICENSE"
+cp lib/plugin/interface.json "$stage/interface.json" # the description ext lib bind generates a binding from
 cat >"$stage/README.md" <<README
 # ext engine $version ($platform)
 
-The prebuilt C plugin engine of ext (lib/plugin): \`include/\` has the headers, \`$library\` the shared
+The prebuilt C plugin engine of ext (lib/plugin): \`include/\` has the headers, \`interface.json\` the description of its library interface, \`$library\` the shared
 library a host loads at run time (Python \`ext_io.host\` reads \`EXT_HOST_LIBRARY\`), and \`lib/\` the
 static library and the CMake package (\`find_package(ext_plugin CONFIG)\`, targets \`EXT::host\`,
 \`EXT::host_shared\`). Built from $(git rev-parse HEAD 2>/dev/null || echo "an unknown commit").
@@ -68,6 +69,8 @@ lib = ctypes.CDLL(sys.argv[1])
 lib.ext_plugin_host_abi_version.restype = ctypes.c_uint32
 assert lib.ext_plugin_host_abi_version() == 2, lib.ext_plugin_host_abi_version()
 assert hasattr(lib, "ext_plugin_shared_library_backend_create")
+lib.ext_plugin_abi_version.restype = ctypes.c_uint32
+assert lib.ext_plugin_abi_version() == 1, lib.ext_plugin_abi_version()
 print("loaded", sys.argv[1])
 PY
 

@@ -166,7 +166,13 @@ there by purego or cgo. `js/wasm` and the architectures purego does not reach ge
    `tests/crosslang` holds lib/plugin's generated binding, held to the differential checks through
    purego by a session adapter that is test code.
 4. The `ext-plugin` release publishes its citation and the ccgo translations; the first release with
-   the `ext_plugin_` names (after #211) is the first a citation can name.
+   the `ext_plugin_` names (after #211) is the first a citation can name. Ready for `ext-plugin-v0.4.0`
+   and the first `ext-ledger-v0.1.0`: each platform archive carries `interface.json`, and the publish
+   job writes `<library>.citation.json` (`scripts/library-citation.py` over the package's
+   `scripts/release/<package>/citation.json`: cgo and purego on Linux and macOS, purego on Windows,
+   whose MSVC static library cgo cannot link) and attaches it with `<library>.interface.json`. The
+   ccgo translations are not published yet: `c2goengine` is laid out as a module, not as the
+   translated directory fetch's c2go driver takes.
 5. `cgoengine` stops carrying `_csrc`: its binding compiles against declarations and links the library
    a project fetched, and `scripts/cgoengine-sync.sh` and the drift test go. `c2goengine` keeps only its
    generator, and the committed translations and the translate jobs go; ext's own CI fetches as a project

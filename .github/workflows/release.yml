@@ -27,6 +27,7 @@ on:
       - 'ext-ios-v*'
       - 'ext-macos-v*'
       - 'ext-plugin-v*'
+      - 'ext-ledger-v*'
       - 'ext-python-v*'
       - 'ext-rust-v*'
       - 'ext-ts-v*'
@@ -45,6 +46,7 @@ on:
           - ext-ios
           - ext-macos
           - ext-plugin
+          - ext-ledger
           - ext-python
           - ext-rust
           - ext-ts

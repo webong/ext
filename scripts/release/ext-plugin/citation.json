@@ -1,0 +1,20 @@
+{
+  "about": "What each ext-plugin platform archive serves, for scripts/library-citation.py. Windows archives are built with MSVC, whose static library cgo (MinGW) cannot link, so they serve purego only.",
+  "library": "ext_plugin",
+  "archive": "ext-plugin-{version}-{platform}.tar.gz",
+  "assets": [
+    {"platform": "linux-x86_64", "targets": ["linux/amd64"], "drivers": {
+      "cgo": {"include": "include", "static": "lib/libext_plugin_host_static.a", "cflags": ["-DEXT_PLUGIN_HOST_STATIC"], "ldflags": ["-lpthread", "-lm", "-ldl"]},
+      "purego": {"shared": "lib/libext_plugin_host.so.2"}}},
+    {"platform": "linux-aarch64", "targets": ["linux/arm64"], "drivers": {
+      "cgo": {"include": "include", "static": "lib/libext_plugin_host_static.a", "cflags": ["-DEXT_PLUGIN_HOST_STATIC"], "ldflags": ["-lpthread", "-lm", "-ldl"]},
+      "purego": {"shared": "lib/libext_plugin_host.so.2"}}},
+    {"platform": "macos-universal", "targets": ["darwin/amd64", "darwin/arm64"], "drivers": {
+      "cgo": {"include": "include", "static": "lib/libext_plugin_host_static.a", "cflags": ["-DEXT_PLUGIN_HOST_STATIC"], "ldflags": ["-lpthread", "-lm"]},
+      "purego": {"shared": "lib/libext_plugin_host.2.dylib"}}},
+    {"platform": "windows-x86_64", "targets": ["windows/amd64"], "drivers": {
+      "purego": {"shared": "bin/ext_plugin_host.dll"}}},
+    {"platform": "windows-aarch64", "targets": ["windows/arm64"], "drivers": {
+      "purego": {"shared": "bin/ext_plugin_host.dll"}}}
+  ]
+}

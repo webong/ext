@@ -208,7 +208,7 @@ static void test_routes(const char *dir) {
     char *input = yyjson_val_write(yyjson_obj_get(c, "input"), 0, &input_len);
     assert(input);
     ext_plugin_buffer out = {0};
-    ext_plugin_status got = ext_plugin_call("route.resolve", (const uint8_t *)input, input_len, &out);
+    ext_plugin_status got = ext_plugin_services_call("route.resolve", (const uint8_t *)input, input_len, &out);
     if (got != want) {
       mismatch("route", c, ext_plugin_host_status_string(got));
     } else if (got == EXT_PLUGIN_OK) {

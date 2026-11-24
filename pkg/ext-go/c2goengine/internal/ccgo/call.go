@@ -93,7 +93,7 @@ func release(tls *libc.TLS) {
 	}
 }
 
-// Call runs one of the engine's pure services, as ext_plugin_call does in C: bounded JSON in and
+// Call runs one of the engine's pure services, as ext_plugin_services_call does in C: bounded JSON in and
 // out, no plugin executed, no policy inferred (lib/plugin/services.md).
 func Call(operation string, input []byte) ([]byte, error) {
 	if len(input) == 0 {
@@ -122,7 +122,7 @@ func Call(operation string, input []byte) ([]byte, error) {
 		return nil, errors.New("c2goengine: out of memory")
 	}
 	defer libc.Xfree(tls, out)
-	s := ext_plugin_call(tls, name, in, size_t(len(input)), out)
+	s := ext_plugin_services_call(tls, name, in, size_t(len(input)), out)
 	buffer := (*ext_plugin_buffer)(unsafe.Pointer(out))
 	defer ext_plugin_buffer_free(tls, out)
 	if err := statusError(s); err != nil {

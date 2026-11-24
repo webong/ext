@@ -1,5 +1,5 @@
 // Code generated for windows/arm64 by 'ccgo -o engine.go --package-name ccgo -I csrc/shim -I csrc/src -I csrc/vendor -I csrc/include -DEXT_PLUGIN_HOST_STATIC -DEXT_PLUGIN_HOST_BUILD -Dyyjson_align(x)= -Dyyjson_inline= -Dyyjson_noinline= -U__SIZEOF_INT128__ -include csrc/shim/compat_core.h csrc/src/common.c csrc/src/wire.c csrc/src/progress.c csrc/src/reverse.c csrc/src/endpoint.c csrc/src/services.c csrc/src/guest.c csrc/src/sha256.c csrc/src/packages.c csrc/vendor/yyjson.c csrc/shim/windows.c', DO NOT EDIT.
-// c2goengine inputs sha256:962f47754ad520e9a122faa1fc58e6a9abc43eb97679d3d904bec01425621c9d
+// c2goengine inputs sha256:8fb2751eff8995a19a637afed1aab3411628a633640c2bc91b122edda523cdb6
 
 //go:build windows && arm64
 
@@ -21,6 +21,7 @@ const BUFSIZ = 512
 const CW_DEFAULT = "_CW_DEFAULT"
 const EXIT_FAILURE = 1
 const EXIT_SUCCESS = 0
+const EXT_PLUGIN_ABI_VERSION = "1u"
 const EXT_PLUGIN_BACKEND_CONCURRENT = "1u"
 const EXT_PLUGIN_BACKEND_EXTENSION = "2u"
 const EXT_PLUGIN_BACKEND_EXTENSION_CONTEXT = "3u"
@@ -36568,7 +36569,7 @@ func dispatch(tls *libc.TLS, op uintptr, v uintptr, out uintptr) (r1 ext_plugin_
 	return output(tls, *(*uintptr)(unsafe.Add(nil, bp+128)), out)
 }
 
-func ext_plugin_call(tls *libc.TLS, operation uintptr, input uintptr, len1 size_t, out uintptr) (r ext_plugin_status) {
+func ext_plugin_services_call(tls *libc.TLS, operation uintptr, input uintptr, len1 size_t, out uintptr) (r ext_plugin_status) {
 	var doc uintptr
 	var s ext_plugin_status
 	_, _ = doc, s

@@ -246,7 +246,12 @@ extern "C" {
     pub fn ext_plugin_cancel_signal(c: *mut c_void);
     pub fn ext_plugin_cancel_is_signaled(c: *const c_void) -> i32;
     pub fn ext_plugin_cancel_destroy(c: *mut c_void);
-    pub fn ext_plugin_call(op: *const c_char, p: *const u8, n: usize, out: *mut Buffer) -> Status;
+    pub fn ext_plugin_services_call(
+        op: *const c_char,
+        p: *const u8,
+        n: usize,
+        out: *mut Buffer,
+    ) -> Status;
     pub fn ext_plugin_sha256(p: *const u8, n: usize, out: *mut u8) -> Status;
     pub fn ext_plugin_package_verify(p: *const u8, n: usize, root: *const c_char) -> Status;
     pub fn ext_plugin_directory_digest(root: *const c_char, out: *mut u8) -> Status;

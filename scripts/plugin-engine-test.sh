@@ -60,6 +60,7 @@ echo "== native tests"
 "$build/engine/ext_store_resolve_test$exe" "$(winpath "$build/store-resolve")"
 "$build/engine/ext_store_archive_test$exe" "$(winpath "$root/lib/plugin/testdata/v1")" "$(winpath "$build/store-archive")"
 "$build/engine/ext_trust_test$exe" "$(winpath "$build/trust.json")"
+"$build/engine/ext_interface_test$exe" "$(winpath "$build/interface")"
 
 if [ -n "${EXT_ENGINE_C_ONLY:-}" ]; then
   echo "native engine tests passed (EXT_ENGINE_C_ONLY: Go suites skipped)"

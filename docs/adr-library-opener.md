@@ -1,7 +1,7 @@
 # The library opener: ext-go carries no C
 
 Status: accepted on 2026-11-22, amended on 2026-11-23 (decisions 5 to 7: a project fetches the C
-before it builds). Steps 1 and 2 are built; the rest is the order in [Steps](#steps).
+before it builds; decision 8: Go binds the C libraries, like every other language). Steps 1 and 2 are built; the rest is the order in [Steps](#steps).
 
 ## Context
 
@@ -107,6 +107,20 @@ archive per platform with the headers, the shared library and the static library
 translation of each platform with its binding (made by `c2goengine/tools` on that platform's runner), so
 the generated translations leave this repository. `lib/ledger` publishes the same way.
 
+**8. Go binds the C libraries, like every other language.** Go hosts and the Go ledger reach
+`lib/plugin` and `lib/ledger` only through their library interfaces, with the cgo, c2go and purego
+drivers; no hand-written Go copy of the host engine or the ledger is kept beside the C, and the `go`
+driver goes. ccgo is the build that needs no C toolchain and no shared library (Go source translated
+from the C, cross-compiled like any Go), and purego is the cgo-free build over a shared library
+(`fetch` embeds it in the binary). What stays pure Go is what every language writes in itself: the
+guest SDK (a plugin is JSON lines over stdio, like the Python, Ruby, PHP, Lua and .NET guests) and the
+shared data model (descriptors, requests, responses, manifests). The fixtures stay the contract; the C
+libraries are held to them, so no Go oracle or parity suite is needed. `engine/plugin/host`, the
+pure-Go build of `cgoengine` and `engine/ledger` are retired as their users (ctx, ctn, `cmd/ext`,
+the adapters) move to the drivers; the ccgo gaps (no Apple frameworks, no Win32, no `fork`: on
+Windows c2go has the services only, and the macOS screen collectors are not translated) are covered
+there by purego or cgo. `js/wasm` and the architectures purego does not reach get no host or ledger.
+
 ## Consequences
 
 - ext-go's module graph holds no C sources, and a library added to `lib/` needs a citation and a list of
@@ -130,8 +144,10 @@ the generated translations leave this repository. `lib/ledger` publishes the sam
 3. The library interface, in C first: done for `lib/ledger` (`ext_ledger_open`, `_call`, `_close`,
    `_abi_version`; its typed store and collector functions took the `ext_ledger_store_` and
    `ext_ledger_collect` prefixes to free those names). Next its generic Go binding in `cengine` and the
-   same interface over `engine/ledger`, held to each other; then `lib/plugin`'s, whose sessions'
-   callbacks become pull operations.
+   same interface over `engine/ledger`, held to each other; then `lib/plugin`'s: done for the
+   library calls, the package store and the layered view (`ext_plugin_open`, `_call`, `_close`; the
+   pure services moved to `ext_plugin_services_call` and are handle 0); and its host sessions, whose
+   callbacks (policies, progress, the observer, reverse calls) are events the binding polls and answers.
 4. The `ext-plugin` release publishes its citation and the ccgo translations; the first release with
    the `ext_plugin_` names (after #211) is the first a citation can name.
 5. `cgoengine` stops carrying `_csrc`: its binding compiles against declarations and links the library

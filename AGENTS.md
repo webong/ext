@@ -105,7 +105,7 @@ walking up (`host/internal/fixtures`) and skip when run without the repository.
 share. Nothing lives at that level. `lib/plugin` is the portable C plugin
 engine, built with CMake; all its public names are in the `ext_plugin_` name space with the side next
 (`ext_plugin_host_*` for the host ABI, `ext_plugin_guest_*` for the guest ABI and the C guest API,
-`ext_plugin_store_*`, `ext_plugin_call`; see its README): it is not a Go module, has no `go.mod` and is not
+`ext_plugin_store_*`, `ext_plugin_services_call`; see its README): it is not a Go module, has no `go.mod` and is not
 listed in `go.work`. Its only third-party code is in `lib/plugin/vendor`,
 pinned by version and SHA-256 with its licence beside it: the yyjson parser and
 the inflate decoder of miniz (`vendor/miniz`), which the package store's
@@ -125,9 +125,13 @@ the pure-Go host is held to as well. See [hosts in every language](docs/adr-host
 The C engine in `lib/plugin` is the main plugin engine: every binding outside Go hosts on it. A new
 engine or host feature (sessions, reverse calls, routing, the package store) is built in C first, with
 its fixtures in `lib/plugin/testdata`, and then reaches `pkg/ext-go/cgoengine`, a regenerated
-`pkg/ext-go/c2goengine` and the other bindings. The pure-Go implementation in `pkg/ext-go/engine` (and
-the pure-Go build of `pkg/ext-go/cgoengine`) follows it to keep parity, so that `CGO_ENABLED=0`
-programs keep working; where the two disagree, the C engine and the fixtures decide. See
+`pkg/ext-go/c2goengine` and the other bindings. Go binds the C libraries like every other language
+(decided 2026-11-23, [the library opener ADR](docs/adr-library-opener.md), decision 8): Go hosts and the
+Go ledger reach `lib/plugin` and `lib/ledger` through their library interfaces with the cgo, c2go and
+purego drivers, and only the Go guest SDK and the shared data model stay pure Go. Until their users move,
+the pure-Go host in `pkg/ext-go/engine` (and the pure-Go build of `pkg/ext-go/cgoengine`) keeps
+`CGO_ENABLED=0` programs working and is retired after; build nothing new on it. Where the two
+disagree, the C engine and the fixtures decide. See
 `docs/plugin-engine-parity.md`. A change to the plugin contract or the package manifest lands in both
 implementations, and the conformance checks compare the two.
 `lib/ledger` is the ledger (the graph store, recorder and supervisor) in C, built with CMake like `lib/plugin` and, like it, not a Go

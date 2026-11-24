@@ -320,7 +320,7 @@ func EngineCall(operation string, input json.RawMessage) (json.RawMessage, error
 	name := C.CString(operation)
 	defer C.free(unsafe.Pointer(name))
 	var out C.ext_plugin_buffer
-	s := C.ext_plugin_call(name, (*C.uint8_t)(unsafe.Pointer(&input[0])), C.size_t(len(input)), &out)
+	s := C.ext_plugin_services_call(name, (*C.uint8_t)(unsafe.Pointer(&input[0])), C.size_t(len(input)), &out)
 	defer C.ext_plugin_buffer_free(&out)
 	if err := status(s); err != nil {
 		return nil, err

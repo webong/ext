@@ -727,9 +727,53 @@ EXT_PLUGIN_HOST_API ext_plugin_status ext_plugin_layered_list_unverified(ext_plu
  * filesystem access, discovery or authorization. Returns an owned JSON value.
  * See services.md for operations and schemas. Free output with ext_plugin_buffer_free.
  */
-EXT_PLUGIN_HOST_API ext_plugin_status ext_plugin_call(const char *operation,
+EXT_PLUGIN_HOST_API ext_plugin_status ext_plugin_services_call(const char *operation,
                                         const uint8_t *input, size_t input_len,
                                         ext_plugin_buffer *out);
+/* ---- the library interface ----
+ * The engine's objects behind four functions, as every library of lib/ has, so a binding in any
+ * language binds these and nothing else; the typed functions above stay for C callers.
+ *
+ * ext_plugin_open opens an object from a JSON config and returns its handle:
+ *   {"object":"store","root":"...","limits":{"max_artifact_bytes","max_tree_files","max_tree_bytes"}}
+ *   {"object":"layered","roots":["...", ...],"limits":{...}}
+ *   {"object":"host","descriptor":{...},"backend":{"kind":"process","executable","arguments":[],
+ *    "environment":["NAME=value"],"working_directory","stderr_bytes"} or {"kind":"shared_library","path"},
+ *    "verify":"allow"|"event","authorize":"allow"|"event","observe":false,
+ *    "services":{"timeout_ms","max_payload_bytes","max_in_flight"},"event_timeout_ms":30000}
+ * A host's callbacks are the interface's own: each becomes an event in the host's queue,
+ * {"ticket","kind","data"}, which the binding takes with "events" and, for those that ask (ticket
+ * not 0), answers with "answer" from another thread than the one waiting in "start" or "call":
+ * verify and authorize (the policies set to "event"), reverse_authorize and reverse (with
+ * "services": reverse calls the plugin makes), progress and observe (asking nothing; dropped, and
+ * counted in a "dropped" event, when the queue is full). An event that asks and is not answered
+ * within event_timeout_ms (or the reverse call's own time) is a denial.
+ * ext_plugin_call runs one operation on a handle with a JSON object in and a JSON value out (free
+ * *out with ext_plugin_free); handle 0 is the library itself:
+ *   0        every service of ext_plugin_services_call (services.md), with the same input;
+ *            directory_digest {root}, artifact_digest {root, path, tree}, store_digest {root, id},
+ *            package_verify {manifest, root}, trust_state and trust_record {path, scope, id, digest},
+ *            trust_revoke {path, scope, id}, code_name {code}; digests are lowercase hex strings
+ *   store    install, upgrade and replace {source, preserve_executable}, install_archive {archive,
+ *            sha256, id, preserve_executable, max_archive_bytes}, remove {id}, load {id},
+ *            receipt {id}, ids, list, verify, list_unverified, resolve_entrypoint {id, contract,
+ *            version, protocol, reviewed_digest, os, arch}
+ *   layered  load {id} ({"layer","manifest"}), list, verify, list_unverified
+ *   host     start {timeout_ms}, call {call: {contract, operation, payload}, timeout_ms, progress:
+ *            {events_per_second, bytes_per_second}}, invoke {request, timeout_ms}, drain {timeout_ms},
+ *            state, stderr, events {timeout_ms, max}, answer {ticket, allow | payload | error}
+ * An operation that returns nothing returns null; an unknown one is EXT_PLUGIN_UNSUPPORTED and an
+ * unknown or closed handle EXT_PLUGIN_NOT_FOUND. ext_plugin_close frees an object once no call
+ * holds it. Handles are never reused. */
+#define EXT_PLUGIN_ABI_VERSION 1u
+EXT_PLUGIN_HOST_API uint32_t ext_plugin_abi_version(void);
+EXT_PLUGIN_HOST_API ext_plugin_status ext_plugin_open(const char *config, size_t len, uint64_t *handle);
+EXT_PLUGIN_HOST_API ext_plugin_status ext_plugin_call(uint64_t handle, const char *op, const char *input,
+                                                      size_t len, char **out, size_t *out_len);
+EXT_PLUGIN_HOST_API ext_plugin_status ext_plugin_close(uint64_t handle);
+EXT_PLUGIN_HOST_API void ext_plugin_free(void *p);
+/* The name of a status ("invalid", "not found", ...). */
+EXT_PLUGIN_HOST_API const char *ext_plugin_code_name(int32_t code);
 #ifdef __cplusplus
 }
 #endif

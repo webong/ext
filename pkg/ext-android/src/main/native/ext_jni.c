@@ -186,7 +186,7 @@ JNIEXPORT jint JNICALL Java_io_github_webong_ext_plugin_NativeEngine_endpoint(
   }
   (*env)->GetByteArrayRegion(env, data, 0, n, (jbyte *)in);
   ext_plugin_buffer out = {0};
-  ext_plugin_status status = ext_plugin_call(op, in, (size_t)n, &out);
+  ext_plugin_status status = ext_plugin_services_call(op, in, (size_t)n, &out);
   ext_plugin_buffer_free(&out);
   free(in);
   (*env)->ReleaseStringUTFChars(env, operation, op);

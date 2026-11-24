@@ -42,7 +42,7 @@ public enum Endpoint {
         var out = ext_plugin_buffer(data: nil, len: 0)
         defer { ext_plugin_buffer_free(&out) }
         let status: ext_plugin_status = input.withUnsafeBytes { raw in
-            ext_plugin_call(operation, raw.bindMemory(to: UInt8.self).baseAddress, raw.count, &out)
+            ext_plugin_services_call(operation, raw.bindMemory(to: UInt8.self).baseAddress, raw.count, &out)
         }
         switch status {
         case ext_plugin_status(EXT_PLUGIN_OK): return

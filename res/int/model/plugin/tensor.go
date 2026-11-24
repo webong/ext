@@ -1,10 +1,11 @@
-// Package ml bridges res/int/model tensor providers to the Ext plugin contract.
+// Package modelplugin bridges res/int/model tensor providers to the Ext plugin contract.
 // The wire contract is language-neutral; this package supplies Go host and
 // guest helpers. A host still chooses and trusts a sealed provider package.
-package model
+package modelplugin
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"path/filepath"
 
@@ -79,10 +80,33 @@ func inferMethod() author.Method[InferRequest, InferResponse] {
 	}
 }
 
+// ProcessCaller calls a dotted method on an already authorized Ext process.
+// The process returned by the Ext host package implements this interface.
+type ProcessCaller interface {
+	Call(context.Context, string, any, any) error
+}
+
+type processCaller struct{ process ProcessCaller }
+
+func (p processCaller) Call(ctx context.Context, contract plugin.ContractRef, operation string, data json.RawMessage) (json.RawMessage, error) {
+	var response json.RawMessage
+	err := p.process.Call(ctx, contract.Name+"."+operation, data, &response)
+	return response, err
+}
+
 // Client calls a model.tensor/v1 guest through an already authorized session.
 type Client struct{ caller author.Caller }
 
 func NewClient(caller author.Caller) *Client { return &Client{caller: caller} }
+
+// NewProcessClient wraps a running package opened by an Ext host. The caller
+// owns the process lifetime, package trust and authorization.
+func NewProcessClient(process ProcessCaller) *Client {
+	if process == nil {
+		return NewClient(nil)
+	}
+	return NewClient(processCaller{process: process})
+}
 
 func (c *Client) Infer(ctx context.Context, request InferRequest) (InferResponse, error) {
 	if err := request.Validate(); err != nil {

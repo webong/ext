@@ -15,8 +15,8 @@ import (
 // the C engine or in pure Go. Only the plugin
 // library itself and the runtime backends that implement engine.Backend
 // (pkg/ext-go/hashicorp, pkg/ext-go/wasm, pkg/ext-go/yaegi, pkg/ext-go/cengine/cguest)
-// import that root package. CTN's public provider bridges also use the engine
-// data model directly; their consumers choose the host implementation.
+// import that root package. Public provider bridges also use the engine data
+// model directly so their consumers can choose the host implementation.
 func TestGoProgramsImportCgoengineNotTheEnginePackage(t *testing.T) {
 	root := repoRoot(t)
 	const pluginRoot = "github.com/webong/ext/pkg/ext-go/engine/plugin"
@@ -33,6 +33,9 @@ func TestGoProgramsImportCgoengineNotTheEnginePackage(t *testing.T) {
 				return nil
 			}
 			if filepath.Ext(path) != ".go" {
+				return nil
+			}
+			if strings.HasPrefix(path, filepath.Join(root, "res", "int", "model", "plugin")+string(filepath.Separator)) {
 				return nil
 			}
 			if tree == "src" {

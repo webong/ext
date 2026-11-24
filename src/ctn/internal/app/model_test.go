@@ -12,7 +12,12 @@ import (
 	"strings"
 	"testing"
 
+	plugin "github.com/webong/ext/pkg/ext-go/cgoengine/plugin"
+	"github.com/webong/ext/pkg/ext-go/cgoengine/plugin/host"
+	"github.com/webong/ext/pkg/ext-go/cgoengine/plugin/host/store"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/process"
 	ml "github.com/webong/ext/res/int/model"
+	mlplugin "github.com/webong/ext/res/int/model/plugin"
 )
 
 // modelStoreTestHelper creates a temp store with one installed model.
@@ -200,6 +205,59 @@ func TestModelRunThroughTrustedProviderPackage(t *testing.T) {
 	if code := modelCommand(run, &stdout, &stderr); code == 0 {
 		t.Fatal("revoked provider was accepted")
 	}
+	testDirectModelPeer(t, filepath.Join(config, "packages"), "onnxruntime",
+		mlplugin.InferRequest{Root: modelRoot, Reference: "onnxruntime/example-model@v1.2.3",
+			Inputs: []ml.Tensor{{Shape: []int{1}, Format: "float32", Data: []byte{0, 0, 128, 63}}}},
+		result.Tensors[0].Data)
+}
+
+// testDirectModelPeer exercises the same installed package through an Ext host
+// with its own independent package review and call authorization.
+func testDirectModelPeer(t *testing.T, packageRoot, id string, request mlplugin.InferRequest, want []byte) {
+	t.Helper()
+	t.Run("peer opens the same package directly", func(t *testing.T) {
+		ctx := context.Background()
+		packages, err := store.New(packageRoot, store.Limits{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		installed, err := packages.Load(id)
+		if err != nil {
+			t.Fatal(err)
+		}
+		reviewed, err := installed.Digest()
+		if err != nil {
+			t.Fatal(err)
+		}
+		resolve := func() (store.Entrypoint, error) {
+			return packages.ResolveEntrypoint(id, mlplugin.ContractName, mlplugin.ContractVersion, mlplugin.Protocol, reviewed)
+		}
+		entry, err := resolve()
+		if err != nil {
+			t.Fatal(err)
+		}
+		p, err := host.Open(ctx, entry.Package, host.Options{
+			Launch: &process.Command{Path: entry.Path, Args: []string{"run"}, Env: os.Environ()},
+			Verify: func(context.Context) error {
+				_, err := resolve()
+				return err
+			},
+			Authorize: func(_ context.Context, request plugin.Request) error {
+				if request.Contract != mlplugin.ContractRef || request.Operation != "infer" {
+					return plugin.ErrDenied
+				}
+				return nil
+			},
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer p.Close()
+		response, err := mlplugin.NewProcessClient(p).Infer(ctx, request)
+		if err != nil || len(response.Outputs) != 1 || !bytes.Equal(response.Outputs[0].Data, want) {
+			t.Fatalf("peer output = %+v, %v; wanted %x", response, err, want)
+		}
+	})
 }
 
 // The macOS CI job supplies the Swift executable. The tiny CoreML Copy
@@ -257,6 +315,9 @@ func TestModelRunThroughCoreMLGuest(t *testing.T) {
 		!bytes.Equal(result.Tensors[0].Data, inputBytes) {
 		t.Fatalf("CoreML copy output = %q, %v", stdout.String(), err)
 	}
+	testDirectModelPeer(t, filepath.Join(config, "packages"), "coreml",
+		mlplugin.InferRequest{Root: modelRoot, Reference: "coreml/identity@v1",
+			Inputs: []ml.Tensor{{Shape: []int{1, 2}, Format: "float32", Data: inputBytes}}}, result.Tensors[0].Data)
 }
 
 // CoreML Model.proto defines NeuralNetwork at field 500, and NeuralNetwork.proto
@@ -346,6 +407,9 @@ func TestModelRunThroughONNXGuest(t *testing.T) {
 		!bytes.Equal(result.Tensors[0].Data, inputBytes) {
 		t.Fatalf("ONNX identity output = %q, %v", stdout.String(), err)
 	}
+	testDirectModelPeer(t, filepath.Join(config, "packages"), "onnxruntime",
+		mlplugin.InferRequest{Root: modelRoot, Reference: "onnxruntime/identity@v1",
+			Inputs: []ml.Tensor{{Shape: []int{1, 2}, Format: "float32", Data: inputBytes}}}, result.Tensors[0].Data)
 }
 
 func onnxIdentityModel() []byte {

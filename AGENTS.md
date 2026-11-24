@@ -207,13 +207,13 @@ The reusable libraries are:
 - `pkg/ext-go/yaegi` for the Go source backend: a guest shipped as Go source, interpreted in-process by yaegi (`github.com/traefik/yaegi`); it depends on `pkg/ext-go/engine` and yaegi only, and the umbrella does not require it.
 - `pkg/ext-go` for the umbrella module that requires the plugin engines, `res/web/host` and the ledger recorder; it holds code that needs several modules together, and the examples and benchmarks. No package chooses between the engines, and ext-go holds no binding of a library of `lib/`: `tests/crosslang` holds lib/plugin's generated binding and holds it to the differential checks through purego.
 
-CTN owns the nested modules `src/ctn/inference`, `src/ctn/model`,
-`src/ctn/perception`, and `src/ctn/realtime` for the provider, tensor,
-perception, and duplex session contracts over
-Ext plugin sessions. They have their own module paths and version tags, so a
-provider adapter can import the bridge it needs without requiring CTN's command
-implementation. They are not Ext Go SDK assets; Ext and other products do not
-import them.
+CTN owns the nested modules `src/ctn/inference`, `src/ctn/perception`, and
+`src/ctn/realtime` for provider, perception, and duplex session contracts
+over Ext plugin sessions. Each has its own module path and version tag.
+The shared `model.tensor/v1` contract uses `res/int/model/plugin`, a nested
+module that depends on `res/int` and the Go plugin engine. Peer consumers
+such as CTN and Cymonkey use this bridge directly. `src/ctn/model` preserves
+the published CTN import path for existing consumers.
 
 Plugin-specific runtime bindings, including HashiCorp go-plugin, the
 WebAssembly `engine.Backend` and the yaegi interpreter, belong inside the plugin library

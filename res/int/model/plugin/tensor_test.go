@@ -1,4 +1,4 @@
-package model_test
+package modelplugin_test
 
 import (
 	"context"
@@ -11,7 +11,7 @@ import (
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/guest/author"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/transport/inprocess"
 	domain "github.com/webong/ext/res/int/model"
-	bridge "github.com/webong/ext/src/ctn/model"
+	bridge "github.com/webong/ext/res/int/model/plugin"
 )
 
 type unavailableProvider struct{}

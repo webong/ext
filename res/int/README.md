@@ -12,8 +12,9 @@ credentials, roots, and authorization policy.
 | `realtime` | Duplex model session and event contracts |
 
 The wire contracts remain versioned independently of Go import paths. Go
-hosts and guests use bridges in `pkg/ext-go`; other languages can implement the
-same JSON contracts through the Ext plugin engine.
+hosts and guests use the shared [`model.tensor/v1` bridge](model/plugin) for local
+tensor engines. Other languages can implement the same JSON contract through
+the Ext plugin engine.
 
 The previous `res/ml` and `res/inference` Go modules are combined into this
 module. Their packages are now `res/int/model` and `res/int/inference`; the

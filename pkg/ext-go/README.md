@@ -13,10 +13,10 @@ module of its own and a program that wants less takes less:
 | [`runtime`](runtime) | how Go reaches C shared libraries: `library` (purego, with or without cgo) and the `cshared` backend for C shared guests |
 | [`wasm`](wasm) | the engine-facing WebAssembly backend, built on the reusable `res/web/host/engine/wasm` runtime |
 
-CTN owns the `inference.provider/v1`, `model.tensor/v1`,
-`intelligence.perception/v1`, and `intelligence.realtime/v1` bridges in nested
-modules under `src/ctn`. The Ext Go library
-provides the generic plugin engine they build on.
+CTN owns the `inference.provider/v1`, `intelligence.perception/v1`, and
+`intelligence.realtime/v1` bridges in nested modules under `src/ctn`.
+The shared `model.tensor/v1` bridge lives in `res/int/model/plugin`. These
+bridges build on the generic Ext Go plugin engine.
 
 The umbrella package itself, `plugingo`, holds what needs more than one part:
 `PlanGraph` joins a package plan to the host graph (`res/system`). The `core` package

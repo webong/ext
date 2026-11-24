@@ -15,8 +15,9 @@ module of its own and a program that wants less takes less:
 
 CTN owns the `inference.provider/v1`, `intelligence.perception/v1`, and
 `intelligence.realtime/v1` bridges in nested modules under `src/ctn`.
-The shared `model.tensor/v1` bridge lives in `res/int/model/plugin`. These
-bridges build on the generic Ext Go plugin engine.
+CTN also owns the public `model.tensor/v1` bridge in `src/ctn/model`,
+which peer products can use to call installed provider packages directly.
+These bridges build on the generic Ext Go plugin engine.
 
 The umbrella package itself, `plugingo`, holds what needs more than one part:
 `PlanGraph` joins a package plan to the host graph (`res/system`). The `core` package

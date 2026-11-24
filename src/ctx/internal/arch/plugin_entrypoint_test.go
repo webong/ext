@@ -35,9 +35,6 @@ func TestGoProgramsImportCgoengineNotTheEnginePackage(t *testing.T) {
 			if filepath.Ext(path) != ".go" {
 				return nil
 			}
-			if strings.HasPrefix(path, filepath.Join(root, "res", "int", "model", "plugin")+string(filepath.Separator)) {
-				return nil
-			}
 			if tree == "src" {
 				rel, _ := filepath.Rel(filepath.Join(root, "src/ctn"), path)
 				for _, bridge := range []string{"inference", "model", "perception", "realtime"} {

@@ -469,7 +469,7 @@ workspace active, and that `src/ctx` resolves the intended versions:
 
 ```bash
 for module in src/ctx src/ctn src/ctn/inference src/ctn/model src/ctn/perception src/ctn/realtime pkg/ext-go pkg/ext-go/engine pkg/ext-go/cgoengine \
-              pkg/ext-go/hashicorp pkg/ext-go/wasm pkg/ext-go/yaegi pkg/ext-go/core pkg/ext-go/cengine res/system res/int res/int/model/plugin src/cto/sandbox \
+              pkg/ext-go/hashicorp pkg/ext-go/wasm pkg/ext-go/yaegi pkg/ext-go/core pkg/ext-go/cengine res/system res/int src/cto/sandbox \
               adapters/wasm adapters/evm adapters/systemd adapters/pulseaudio adapters/alsa \
               adapters/x11 adapters/ffmpeg adapters/wayland adapters/pipewire adapters/openai \
               adapters/ollama adapters/anthropic adapters/gemini res/web/host; do
@@ -510,7 +510,7 @@ separate modules under its product tree:
 | `pkg/ext-go/cgoengine` | the Go binding of the C engine, a pure-Go build of the same API, engine-routed variants of `store` and `host` with the same API as the ones in `engine`, the C ABI loader (the old `pkg/plugin-cshared`) and a generated copy of the C sources | `contract` |
 | `pkg/ext-go/c2goengine` | the C engine's portable core translated to Go by ccgo (`modernc.org/ccgo`), with no cgo and no C compiler: one generated file per platform, made on that platform (see its README) | `engine` |
 | `src/ctn/inference` | CTN's `inference.provider/v1` bridge and host/guest helpers | `engine`, `res/int` |
-| `src/ctn/model` | CTN import compatibility for the shared tensor-provider bridge | `engine`, `res/int`, `res/int/model/plugin` |
+| `src/ctn/model` | CTN’s public `model.tensor/v1` tensor-provider bridge | `engine`, `res/int` |
 | `src/ctn/perception` | CTN's `intelligence.perception/v1` bridge | `engine`, `res/int` |
 | `src/ctn/realtime` | CTN's `intelligence.realtime/v1` duplex-session bridge | `engine`, `res/int` |
 | `res/web/host` | portable web tooling, including protocol-neutral WebAssembly inspection, execution and raw reactor hosting | nothing inside ext; third-party wazero only |
@@ -522,7 +522,6 @@ separate modules under its product tree:
 | `pkg/ext-go/cengine` | the C side: serves purego, cgo and ccgo (cgoengine and c2goengine register with it); `library` finds, verifies and opens the built copy purego needs, and `cguest` (with `abi`) loads C ABI guests and exchanges bytes with them | third-party purego only |
 | `pkg/ext-go` | the umbrella: requires the Ext Go plugin modules above except `yaegi` and holds what needs several of them (`PlanGraph`, the `plugin` package that chooses between `engine`, `cgoengine` and `c2goengine`, the bridge command, the cross-language tests) | Ext Go plugin modules, `res/system`, `res/web`; no CTN modules |
 | `res/int` | portable model, inference, perception, and real-time contracts and mechanisms; standard library only | nothing |
-| `res/int/model/plugin` | shared `model.tensor/v1` host and guest bridge | `engine`, `res/int` |
 | `src/cto/sandbox` | the sandbox contract shared with github.com/webong/workload: boundary levels, policy, grants, capabilities and reports ([the sandboxing ADR](adr-sandboxing.md)); standard library only | nothing |
 
 CTN's `inference`, `model`, and `perception` bridges are separate nested modules

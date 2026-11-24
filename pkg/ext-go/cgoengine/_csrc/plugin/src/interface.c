@@ -303,7 +303,15 @@ ext_plugin_status ext_plugin_close(uint64_t handle) {
 
 void ext_plugin_free(void *p) { free(p); }
 
-const char *ext_plugin_code_name(int32_t code) { return ext_plugin_host_status_string(code); }
+/* The interface's code names are identifiers, as every library of lib/ names its codes (lib/ledger's
+ * not_found is the same word), so a binding can go by name. */
+const char *ext_plugin_code_name(int32_t code) {
+  static const char *const names[] = {"ok",       "invalid",   "denied",   "mismatch", "unsupported",
+                                      "closed",   "timeout",   "io",       "out_of_memory", "draining",
+                                      "not_found", "ambiguous", "canceled", "updating", "capacity",
+                                      "sequence", "protocol",  "expired",  "exists",   "missing"};
+  return code >= 0 && (size_t)code < sizeof names / sizeof names[0] ? names[code] : "unknown";
+}
 
 /* ---- calling ---- */
 

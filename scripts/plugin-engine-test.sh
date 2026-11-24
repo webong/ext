@@ -19,7 +19,7 @@ python=$(command -v python3 || command -v python)
 generator=()
 if command -v ninja >/dev/null 2>&1; then generator=(-G Ninja); fi
 
-cmake -S lib/plugin -B "$build/engine" "${generator[@]}" -DCMAKE_BUILD_TYPE=Release
+cmake -S lib/plugin -B "$build/engine" "${generator[@]}" -DCMAKE_BUILD_TYPE=Release -DEXT_BUILD_SHARED=ON
 cmake --build "$build/engine" -j 4
 
 guest="$build/go-guest$exe"
@@ -89,6 +89,8 @@ echo "== the same API without cgo, served by the pure-Go implementation"
 # cshared runs on purego here, against the same C ABI guest.
 (cd pkg/ext-go/cgoengine && EXT_CSHARED_GUEST="$(winpath "$build/go-shared.$shared_ext")" EXT_CSHARED_REQUIRED=1 \
    CGO_ENABLED=0 go test -count=1 -timeout=10m ./...)
-echo "== the umbrella module (pkg/ext-go)"
-(cd pkg/ext-go && go test -count=1 -timeout=10m .)
+echo "== the umbrella module (pkg/ext-go), with the purego engine loading the shared engine"
+host_library=$(find "$build/engine" -maxdepth 1 \( -name 'libext_plugin_host.so' -o -name 'libext_plugin_host.dylib' -o -name '*ext_plugin_host*.dll' \) | head -n 1)
+[ -n "$host_library" ] || { echo "no shared host library in $build/engine" >&2; exit 1; }
+(cd pkg/ext-go && EXT_PLUGIN_LIBRARY="$(winpath "$host_library")" go test -count=1 -timeout=10m .)
 echo "plugin engine tests passed"

@@ -739,15 +739,19 @@ EXT_PLUGIN_HOST_API ext_plugin_status ext_plugin_services_call(const char *opera
  *   {"object":"layered","roots":["...", ...],"limits":{...}}
  *   {"object":"host","descriptor":{...},"backend":{"kind":"process","executable","arguments":[],
  *    "environment":["NAME=value"],"working_directory","stderr_bytes"} or {"kind":"shared_library","path"},
+ *    "requirements":[{contract, operation, identity}],
  *    "verify":"allow"|"event","authorize":"allow"|"event","observe":false,
  *    "services":{"timeout_ms","max_payload_bytes","max_in_flight"},"event_timeout_ms":30000}
+ * A host whose descriptor does not meet its requirements (descriptor.requirements) is not opened.
  * A host's callbacks are the interface's own: each becomes an event in the host's queue,
- * {"ticket","kind","data"}, which the binding takes with "events" and, for those that ask (ticket
+ * {"seq","ticket","kind","data"}, which the binding takes with "events" and, for those that ask (ticket
  * not 0), answers with "answer" from another thread than the one waiting in "start" or "call":
  * verify and authorize (the policies set to "event"), reverse_authorize and reverse (with
  * "services": reverse calls the plugin makes), progress and observe (asking nothing; dropped, and
  * counted in a "dropped" event, when the queue is full). An event that asks and is not answered
- * within event_timeout_ms (or the reverse call's own time) is a denial.
+ * within event_timeout_ms (or the reverse call's own time) is a denial. seq counts queued events
+ * from 1 and "sequence" returns the last one queued: once a call returns, every event it caused
+ * (its progress) has a seq no greater than what "sequence" then says. A "dropped" event has seq 0.
  * ext_plugin_call runs one operation on a handle with a JSON object in and a JSON value out (free
  * *out with ext_plugin_free); handle 0 is the library itself:
  *   0        every service of ext_plugin_services_call (services.md), with the same input;
@@ -761,7 +765,7 @@ EXT_PLUGIN_HOST_API ext_plugin_status ext_plugin_services_call(const char *opera
  *   layered  load {id} ({"layer","manifest"}), list, verify, list_unverified
  *   host     start {timeout_ms}, call {call: {contract, operation, payload}, timeout_ms, progress:
  *            {events_per_second, bytes_per_second}}, invoke {request, timeout_ms}, drain {timeout_ms},
- *            state, stderr, events {timeout_ms, max}, answer {ticket, allow | payload | error}
+ *            state, stderr, events {timeout_ms, max}, answer {ticket, allow | payload | error}, sequence
  * An operation that returns nothing returns null; an unknown one is EXT_PLUGIN_UNSUPPORTED and an
  * unknown or closed handle EXT_PLUGIN_NOT_FOUND. ext_plugin_close frees an object once no call
  * holds it. Handles are never reused. */
@@ -772,7 +776,8 @@ EXT_PLUGIN_HOST_API ext_plugin_status ext_plugin_call(uint64_t handle, const cha
                                                       size_t len, char **out, size_t *out_len);
 EXT_PLUGIN_HOST_API ext_plugin_status ext_plugin_close(uint64_t handle);
 EXT_PLUGIN_HOST_API void ext_plugin_free(void *p);
-/* The name of a status ("invalid", "not found", ...). */
+/* The name of a status as an identifier ("invalid", "not_found", "out_of_memory", ...), the
+ * vocabulary every library of lib/ names its codes in. */
 EXT_PLUGIN_HOST_API const char *ext_plugin_code_name(int32_t code);
 #ifdef __cplusplus
 }

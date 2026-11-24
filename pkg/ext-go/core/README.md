@@ -16,5 +16,5 @@ See [the library opener decision record](../../../docs/adr-library-opener.md).
 cgo, c2go, purego, go. A name that cannot be served is an error, never another driver.
 
 The module has no root package: the umbrella published its engine selection package at the import
-path `pkg/ext-go/core` up to v0.12.0 (it is now `pkg/ext-go/plugin`), and a root package here would give
+path `pkg/ext-go/core` up to v0.12.0 (that package is gone), and a root package here would give
 a program that requires both an ambiguous import.

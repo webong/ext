@@ -10,8 +10,9 @@ in C first, the pure-Go engine follows to keep parity, and where the engines dis
 the shared fixtures decide. The rest of this record (the three engines, the names, who chooses) stands.
 See [engine parity](plugin-engine-parity.md).
 
-Moved on 2026-11-22: the selection package is now `pkg/ext-go/plugin` (umbrella), and its names and
-its order come from `pkg/ext-go/core/driver`, the switcher every library of `lib/` shares. The import
+Moved on 2026-11-22: the selection package became `pkg/ext-go/plugin` (umbrella), with its names and
+order from `pkg/ext-go/core/driver`. Removed on 2026-11-24: Go binds lib/plugin through its library
+interface (`engine/plugin/host/clib`), and no package chooses between the engines. The import
 path `pkg/ext-go/core` is the `core` module, which has no root package. See
 [the library opener](adr-library-opener.md).
 

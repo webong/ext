@@ -31,6 +31,9 @@ type CodeError struct {
 	Name    string
 }
 
+// CodeName is the library's name for the code, empty when it exports none.
+func (e *CodeError) CodeName() string { return e.Name }
+
 func (e *CodeError) Error() string {
 	if e.Name != "" {
 		return fmt.Sprintf("%s %s: %s", e.Library, e.Op, e.Name)

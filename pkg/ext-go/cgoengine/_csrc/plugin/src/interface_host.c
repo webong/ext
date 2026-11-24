@@ -5,7 +5,8 @@
  * another thread than the one waiting in "start" or "call", so a binding needs no way to be called
  * from C (purego has none it can rely on). An event that asks and is not answered in time is a
  * denial; progress and observer events never wait, and are dropped (and counted) when the queue is
- * full. */
+ * full. Every queued event carries seq, counting from 1, and "sequence" is the seq of the last one
+ * queued, so a binding that has handled every event up to it has seen all a finished call caused. */
 #include "interface_host.h"
 #include "progress.h"
 #include "sync.h"
@@ -18,7 +19,7 @@
 
 typedef struct event {
   struct event *next;
-  char *json; /* {"ticket","kind","data"} */
+  char *json; /* {"seq","ticket","kind","data"} */
   size_t len;
 } event;
 
@@ -37,7 +38,7 @@ struct ext_interface_host {
   event *head, *tail;
   size_t queued, dropped;
   waiter *waiters;
-  uint64_t next_ticket;
+  uint64_t next_ticket, seq; /* seq: the last event queued */
   int verify_event, authorize_event, closing;
   uint32_t event_timeout_ms;
 };
@@ -80,8 +81,10 @@ static int push(ext_interface_host *h, uint64_t ticket, const char *kind, const 
     h->dropped++;
     return 0;
   }
-  int w = snprintf(json, n, "{\"ticket\":%llu,\"kind\":\"%s\",\"data\":%.*s}", (unsigned long long)ticket,
-                   kind, len ? (int)len : 4, len ? (const char *)data : "null");
+  int w = snprintf(json, n, "{\"seq\":%llu,\"ticket\":%llu,\"kind\":\"%s\",\"data\":%.*s}",
+                   (unsigned long long)(h->seq + 1), (unsigned long long)ticket, kind, len ? (int)len : 4,
+                   len ? (const char *)data : "null");
+  h->seq++;
   e->json = json, e->len = (size_t)w, e->next = NULL;
   if (h->tail)
     h->tail->next = e;
@@ -259,6 +262,27 @@ ext_plugin_status ext_interface_host_open(yyjson_val *config, ext_interface_host
     goto fail;
   if (!h->event_timeout_ms)
     h->event_timeout_ms = 30000;
+  yyjson_val *requirements = yyjson_obj_get(config, "requirements");
+  if (requirements) {
+    size_t rn = 0;
+    char *r = written(requirements, &rn);
+    char *check = r ? malloc(descriptor_len + rn + 48) : NULL;
+    if (!check) {
+      free(r);
+      s = EXT_PLUGIN_NOMEM;
+      goto fail;
+    }
+    int w = snprintf(check, descriptor_len + rn + 48, "{\"descriptor\":%.*s,\"requirements\":%.*s}",
+                     (int)descriptor_len, descriptor, (int)rn, r);
+    ext_plugin_buffer b = {0};
+    s = ext_plugin_services_call("descriptor.requirements", (const uint8_t *)check, (size_t)w, &b);
+    ext_plugin_buffer_free(&b);
+    free(check);
+    free(r);
+    if (s)
+      goto fail;
+    s = EXT_PLUGIN_INVALID;
+  }
   ext_plugin_host_options options = {EXT_PLUGIN_HOST_ABI_VERSION, sizeof options, (const uint8_t *)descriptor,
                                      descriptor_len, verify_cb, authorize_cb, h};
   if (!strcmp(kind, "process")) {
@@ -395,7 +419,7 @@ static ext_plugin_status take_events(ext_interface_host *h, yyjson_val *in, char
   size_t at = 0;
   json[at++] = '[';
   if (h->dropped) {
-    at += (size_t)snprintf(json + at, n - at, "{\"ticket\":0,\"kind\":\"dropped\",\"data\":%zu}", h->dropped);
+    at += (size_t)snprintf(json + at, n - at, "{\"seq\":0,\"ticket\":0,\"kind\":\"dropped\",\"data\":%zu}", h->dropped);
     h->dropped = 0;
   }
   for (size_t i = 0; i < taken; i++) {
@@ -467,6 +491,13 @@ ext_plugin_status ext_interface_host_call(ext_interface_host *h, const char *op,
     return take_events(h, in, out, out_len);
   if (!strcmp(op, "answer"))
     return answer(h, in, out, out_len);
+  if (!strcmp(op, "sequence")) {
+    char json[32];
+    pthread_mutex_lock(&h->m);
+    snprintf(json, sizeof json, "%llu", (unsigned long long)h->seq);
+    pthread_mutex_unlock(&h->m);
+    return literal(json, out, out_len);
+  }
   if (!strcmp(op, "start") || !strcmp(op, "drain")) {
     ext_plugin_status s = op[0] == 's' ? ext_plugin_host_start_with_options(h->host, &o)
                                        : ext_plugin_host_drain_with_options(h->host, &o);

@@ -33,8 +33,8 @@ import (
 //	            needs engine and cengine
 //	cengine     the C side: library opens the built copy purego needs, cguest exchanges bytes
 //	            with C ABI guests, and cgo and ccgo register with it; purego only, no ext module
-//	(umbrella)  pkg/ext-go itself, the one module that may require them all; its plugin package
-//	            chooses between engine, cgoengine and c2goengine through core/driver
+//	(umbrella)  pkg/ext-go itself, the one module that may require them all; its tests hold
+//	            engine/plugin/host/clib to the differential checks on the C engine through purego
 //	res/web/host  portable web and WebAssembly tooling; never imports the plugin engine
 const pluginPrefix = "github.com/webong/ext/pkg/ext-go"
 

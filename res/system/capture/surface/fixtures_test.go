@@ -18,6 +18,12 @@ type snapshotCase struct {
 }
 
 type surfaceCases struct {
+	WindowsControl struct {
+		PID            int    `json:"pid"`
+		ProcessStartID string `json:"processStartId"`
+		Handle         string `json:"handle"`
+		WindowID       string `json:"windowId"`
+	} `json:"windowsControl"`
 	Surface        []snapshotCase `json:"surface"`
 	Permission     []snapshotCase `json:"permission"`
 	Accessibility  []snapshotCase `json:"accessibility"`
@@ -69,6 +75,10 @@ func TestFixtures(t *testing.T) {
 	var cases surfaceCases
 	fixtures.Load(t, "surface", 1, &cases)
 	codes := fixtures.Codes(t)
+	windows := cases.WindowsControl
+	if got := surfaceWindowID(windows.PID, windows.ProcessStartID, windows.Handle); got != windows.WindowID {
+		t.Errorf("Windows window identity %q, want %q", got, windows.WindowID)
+	}
 	if len(cases.Surface) == 0 || len(cases.Permission) == 0 || len(cases.Accessibility) == 0 {
 		t.Fatal("no cases")
 	}

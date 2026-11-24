@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <Import Project="../../../../../scripts/dotnet/Ext.Package.props" />
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <PackageId>Ext.System.Windows</PackageId>
+    <RootNamespace>Webong.Ext.System.Windows</RootNamespace>
+    <Description>Selected-window observation, bounded PNG capture and window-scoped input for Windows.</Description>
+    <PackageTags>ext;windows;capture;surface;pointer;keyboard</PackageTags>
+  </PropertyGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Ext.System.Windows.Tests" />
+    <Compile Remove="Tests/**/*.cs" />
+  </ItemGroup>
+</Project>

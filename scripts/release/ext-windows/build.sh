@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ext-windows release, build: test and pack the Windows .NET libraries of res/ (Ext.Audio.Windows,
-# Ext.Clipboard.Windows, Ext.Web.Windows, Ext.ML.Windows), the Windows counterpart of the native
+# Ext.Clipboard.Windows, Ext.System.Windows, Ext.Web.Windows, Ext.ML.Windows), the Windows counterpart of the native
 # code ext-ios and ext-android ship. Runs on Windows.
 . "$(dirname "$0")/../../ci/jobs/lib.sh"
 
@@ -18,6 +18,7 @@ set -euo pipefail
 # The audio and clipboard tests skip, and say why, what needs a device or a clipboard.
 dotnet run --project res/system/capture/audio/windows/Tests/Ext.Audio.Windows.Tests.csproj
 dotnet run --project res/system/capture/clipboard/windows/Tests/Ext.Clipboard.Windows.Tests.csproj
+dotnet run --project res/system/capture/surface/windows/Tests/Ext.System.Windows.Tests.csproj
 dotnet run --project res/int/model/windows/Tests/Ext.ML.Windows.Tests.csproj
 dotnet run --project res/web/windows/Tests/Ext.Web.Windows.Tests.csproj
 )
@@ -31,11 +32,12 @@ mkdir -p "$out"
 for project in \
   res/system/capture/audio/windows/Ext.Audio.Windows.csproj \
   res/system/capture/clipboard/windows/Ext.Clipboard.Windows.csproj \
+  res/system/capture/surface/windows/Ext.System.Windows.csproj \
   res/web/windows/Ext.Web.Windows.csproj \
   res/int/model/windows/Ext.ML.Windows.csproj; do
   dotnet pack "$project" -c Release -p:Version="$VERSION" -o "$out"
 done
-[[ "$(ls "$out"/*.nupkg | wc -l)" -eq 4 ]] || { echo 'expected four packages' >&2; ls "$out" >&2; exit 1; }
+[[ "$(ls "$out"/*.nupkg | wc -l)" -eq 5 ]] || { echo 'expected five packages' >&2; ls "$out" >&2; exit 1; }
 )
 ci_import_env
 

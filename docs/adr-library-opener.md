@@ -171,14 +171,16 @@ there by purego or cgo. `js/wasm` and the architectures purego does not reach ge
    job writes `<library>.citation.json` (`scripts/library-citation.py` over the package's
    `scripts/release/<package>/citation.json`: cgo and purego on Linux and macOS, purego on Windows,
    whose MSVC static library cgo cannot link) and attaches it with `<library>.interface.json`. The
-   ccgo translations are not published yet: `c2goengine` is laid out as a module, not as the
-   translated directory fetch's c2go driver takes.
+   ccgo translations are published from `ext-plugin-v0.4.1`: six translate cells make and test each
+   platform's, and publish it with its binding as `ext-plugin-X.Y.Z-c2go-<goos>-<goarch>.tar.gz`, an
+   asset of its own (a citation picks an asset by target and driver).
 5. Done for cgoengine: it stops carrying `_csrc`; its binding compiles against the headers and links the
    library a project fetched, given to cgo as `CGO_CFLAGS` and `CGO_LDFLAGS` (cgo's CFLAGS do not cross
    packages, so a fetched package cannot give them itself), and `scripts/cgoengine-sync.sh` and the drift
-   test are gone. `c2goengine` keeps only its
-   generator, and the committed translations and the translate jobs go; ext's own CI fetches as a project
-   does.
+   test are gone. Done for c2goengine too: it keeps its generator and the binding beside the translation
+   (built only with `-tags ext_c2go`), the committed translations are gone, and the translate jobs
+   translate and test instead of comparing; `fetch` names a fetched translation for the project's
+   package.
 6. `cengine/library`: `Browse`, `Reserve` and `Borrow` for purego at run time, and `Shelve` for the
    build-time drivers.
 7. The ledger: its drivers (purego first, then cgo), its release and citation, and a

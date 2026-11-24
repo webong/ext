@@ -539,10 +539,10 @@ no C toolchain; `src/ctx/internal/arch` enforces this.
 
 `c2goengine` is the same C as `cgoengine`, run as Go. Its translation of `lib/plugin`'s portable core is
 generated, one file per platform (`internal/ccgo/generated_<goos>_<goarch>.go`), by the tools module
-in its `tools` directory, which pins ccgo and runs only on the platform it writes for. A published
-module contains only its own directory, and the generated files are that directory's copy of the C,
-so no C sources travel with it. The `c2goengine` workflow regenerates the file for each platform and
-fails when it differs from the one checked in. Tags follow the usual rule: `pkg/ext-go/c2goengine/vX.Y.Z`,
+in its `tools` directory, which pins ccgo and runs only on the platform it writes for. It is not
+committed, so neither the module nor a published version of it carries the translation: the ext-plugin
+release publishes it, with its binding, as the c2go driver's archive for each platform, and a project
+fetches it. The `c2goengine` workflow translates and tests each platform on every change. Tags follow the usual rule: `pkg/ext-go/c2goengine/vX.Y.Z`,
 with an `engine` release that holds the `plugintest/enginetest` checks it runs below it (`engine` v0.1.0; `contract` v0.8.0 has the service checks only, and the instance, session and process checks came after).
 
 ### The C sources

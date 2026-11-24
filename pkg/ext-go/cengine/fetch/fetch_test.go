@@ -108,7 +108,8 @@ func TestLaysOutEveryDriver(t *testing.T) {
 		entry{name: "demo/lib/libext_demo.so", body: "shared"},
 		entry{name: "demo/lib/libext_demo.so.1", body: "libext_demo.so", link: true},
 		entry{name: "demo/c2go/generated_linux_amd64.go", body: "package demo\n"},
-		entry{name: "demo/c2go/binding.go", body: "package demo\n"},
+		entry{name: "demo/c2go/binding.go", body: "//go:build linux\n\n// Package ccgo is the translation.\npackage ccgo\n"},
+		entry{name: "demo/c2go/binding_test.go", body: "package ccgo\n"},
 		entry{name: "demo/README.md", body: "ignored"},
 	)
 	base, get := serve(t, map[string][]byte{"/demo.tar.gz": data})
@@ -136,8 +137,11 @@ func TestLaysOutEveryDriver(t *testing.T) {
 			t.Errorf("purego file lacks %q:\n%s", want, pure)
 		}
 	}
-	if read(t, dir, "generated_linux_amd64.go") != "package demo\n" || read(t, dir, "binding.go") != "package demo\n" {
-		t.Error("c2go source not copied")
+	if read(t, dir, "generated_linux_amd64.go") != "package demo\n" || read(t, dir, "binding.go") != "//go:build linux\n\n// Package ccgo is the translation.\npackage demo\n" {
+		t.Error("c2go source not copied under the package's name")
+	}
+	if _, err := os.Stat(filepath.Join(dir, "binding_test.go")); err == nil {
+		t.Error("a translation's test file was copied")
 	}
 	if _, err := os.Stat(filepath.Join(dir, "README.md")); !os.IsNotExist(err) {
 		t.Error("a file no driver asked for was written")

@@ -8,6 +8,7 @@ root directory.
 Usage: library-citation.py <layout.json> <version> <tag> <dist-dir> [base-url]
   layout.json  {"library": "ext_plugin", "archive": "ext-plugin-{version}-{platform}.tar.gz",
                 "assets": [{"platform": "linux-x86_64", "targets": ["linux/amd64"], "drivers": {...}}]}
+               an asset may name its own "archive" pattern (a target's c2go translation is one)
   base-url     where the release's files are published; default the repository's GitHub release
 Writes <dist-dir>/<library>.citation.json.
 """
@@ -34,7 +35,7 @@ def main():
             sums[name.lstrip("*")] = digest
     assets = []
     for a in layout["assets"]:
-        archive = layout["archive"].format(version=version, platform=a["platform"])
+        archive = a.get("archive", layout["archive"]).format(version=version, platform=a.get("platform", ""))
         if archive not in sums:
             sys.exit(f"{archive} is not in {dist}/checksums.txt")
         assets.append({

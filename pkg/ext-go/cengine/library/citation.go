@@ -101,16 +101,25 @@ func (c Citation) Validate() error {
 	if c.Version == "" || strings.ContainsAny(c.Version, "/\\ ") {
 		return fmt.Errorf("citation: version %q", c.Version)
 	}
-	seen := map[string]bool{}
+	seen := map[string]bool{} // target and driver: one asset serves each
 	for i, a := range c.Assets {
 		if len(a.Targets) == 0 {
 			return fmt.Errorf("citation: asset %d has no targets", i)
 		}
+		drivers := a.Drivers.names()
+		if len(drivers) == 0 {
+			return fmt.Errorf("citation: asset %d serves no driver", i)
+		}
 		for _, t := range a.Targets {
-			if !targetName.MatchString(t) || seen[t] {
-				return fmt.Errorf("citation: asset %d: target %q is malformed or served twice", i, t)
+			if !targetName.MatchString(t) {
+				return fmt.Errorf("citation: asset %d: target %q is malformed", i, t)
 			}
-			seen[t] = true
+			for _, d := range drivers {
+				if seen[t+" "+d] {
+					return fmt.Errorf("citation: asset %d: %s for %s is served twice", i, d, t)
+				}
+				seen[t+" "+d] = true
+			}
 		}
 		u, err := url.Parse(a.URL)
 		if err != nil || u.Scheme != "https" || u.Host == "" || u.User != nil || u.Fragment != "" {
@@ -147,16 +156,33 @@ func (c Citation) Validate() error {
 	return nil
 }
 
-// Asset returns the asset that serves target ("goos/goarch").
-func (c Citation) Asset(target string) (Asset, error) {
+// names are the drivers d serves: cgo, purego, c2go.
+func (d Drivers) names() []string {
+	var out []string
+	if d.CGo != nil {
+		out = append(out, "cgo")
+	}
+	if d.PureGo != nil {
+		out = append(out, "purego")
+	}
+	if d.C2Go != nil {
+		out = append(out, "c2go")
+	}
+	return out
+}
+
+// Asset returns the asset that serves driver (cgo, purego or c2go) for target ("goos/goarch"). A
+// target's drivers may come from different assets: the translation ccgo makes for a target is
+// published apart from its built library.
+func (c Citation) Asset(target, driver string) (Asset, error) {
 	for _, a := range c.Assets {
 		for _, t := range a.Targets {
-			if t == target {
+			if t == target && contains(a.Drivers.names(), driver) {
 				return a, nil
 			}
 		}
 	}
-	return Asset{}, fmt.Errorf("%s %s for %s: %w", c.Library, c.Version, target, ErrNoAsset)
+	return Asset{}, fmt.Errorf("%s %s: %s for %s: %w", c.Library, c.Version, driver, target, ErrNoAsset)
 }
 
 // LocalPath reports whether p is a relative, slash-separated path that stays inside its root.

@@ -14,7 +14,8 @@ cd dist
 cat ./*.sha256 >checksums.txt
 rm ./*.sha256
 sha256sum -c checksums.txt
-[ "$(ls ./*.tar.gz | wc -l)" -eq 5 ] || { echo "expected 5 platform archives" >&2; ls; exit 1; }
+[ "$(ls ./*.tar.gz | grep -vc -- -c2go-)" -eq 5 ] || { echo "expected 5 platform archives" >&2; ls; exit 1; }
+[ "$(ls ./*-c2go-*.tar.gz | wc -l)" -eq 6 ] || { echo "expected 6 c2go translation archives" >&2; ls; exit 1; }
 )
 ci_import_env
 

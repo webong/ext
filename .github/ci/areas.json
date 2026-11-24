@@ -545,8 +545,7 @@
                 "GOARCH": "amd64",
                 "GOOS": "linux",
                 "OS": "ubuntu-latest",
-                "RACE": "-race",
-                "REQUIRED": "true"
+                "RACE": "-race"
               },
               "setup": {
                 "go": "1.26.x",
@@ -554,7 +553,7 @@
               },
               "artifact": {
                 "name": "translation-linux-amd64",
-                "path": "pkg/ext-go/c2goengine/internal/ccgo/generated_linux_amd64.go\npkg/ext-go/c2goengine/internal/ccgo/inputs.sha256\npkg/ext-go/c2goengine/internal/ccgo/call.go\npkg/ext-go/c2goengine/internal/ccgo/call_unsupported.go\npkg/ext-go/c2goengine/internal/ccgo/host.go\npkg/ext-go/c2goengine/internal/ccgo/host_unsupported.go\npkg/ext-go/c2goengine/internal/ccgo/channel.go\npkg/ext-go/c2goengine/internal/ccgo/session.go\npkg/ext-go/c2goengine/internal/ccgo/instances.go",
+                "path": "pkg/ext-go/c2goengine/internal/ccgo/generated_linux_amd64.go",
                 "always": true,
                 "if_no_files_found": "ignore",
                 "retention_days": 14
@@ -568,8 +567,7 @@
                 "GOARCH": "arm64",
                 "GOOS": "linux",
                 "OS": "ubuntu-24.04-arm",
-                "RACE": "-race",
-                "REQUIRED": "true"
+                "RACE": "-race"
               },
               "setup": {
                 "go": "1.26.x",
@@ -577,7 +575,7 @@
               },
               "artifact": {
                 "name": "translation-linux-arm64",
-                "path": "pkg/ext-go/c2goengine/internal/ccgo/generated_linux_arm64.go\npkg/ext-go/c2goengine/internal/ccgo/inputs.sha256\npkg/ext-go/c2goengine/internal/ccgo/call.go\npkg/ext-go/c2goengine/internal/ccgo/call_unsupported.go\npkg/ext-go/c2goengine/internal/ccgo/host.go\npkg/ext-go/c2goengine/internal/ccgo/host_unsupported.go\npkg/ext-go/c2goengine/internal/ccgo/channel.go\npkg/ext-go/c2goengine/internal/ccgo/session.go\npkg/ext-go/c2goengine/internal/ccgo/instances.go",
+                "path": "pkg/ext-go/c2goengine/internal/ccgo/generated_linux_arm64.go",
                 "always": true,
                 "if_no_files_found": "ignore",
                 "retention_days": 14
@@ -591,8 +589,7 @@
                 "GOARCH": "arm64",
                 "GOOS": "darwin",
                 "OS": "macos-latest",
-                "RACE": "",
-                "REQUIRED": "true"
+                "RACE": ""
               },
               "setup": {
                 "go": "1.26.x",
@@ -600,7 +597,7 @@
               },
               "artifact": {
                 "name": "translation-darwin-arm64",
-                "path": "pkg/ext-go/c2goengine/internal/ccgo/generated_darwin_arm64.go\npkg/ext-go/c2goengine/internal/ccgo/inputs.sha256\npkg/ext-go/c2goengine/internal/ccgo/call.go\npkg/ext-go/c2goengine/internal/ccgo/call_unsupported.go\npkg/ext-go/c2goengine/internal/ccgo/host.go\npkg/ext-go/c2goengine/internal/ccgo/host_unsupported.go\npkg/ext-go/c2goengine/internal/ccgo/channel.go\npkg/ext-go/c2goengine/internal/ccgo/session.go\npkg/ext-go/c2goengine/internal/ccgo/instances.go",
+                "path": "pkg/ext-go/c2goengine/internal/ccgo/generated_darwin_arm64.go",
                 "always": true,
                 "if_no_files_found": "ignore",
                 "retention_days": 14
@@ -614,8 +611,7 @@
                 "GOARCH": "amd64",
                 "GOOS": "darwin",
                 "OS": "macos-15-intel",
-                "RACE": "",
-                "REQUIRED": "true"
+                "RACE": ""
               },
               "setup": {
                 "go": "1.26.x",
@@ -623,7 +619,7 @@
               },
               "artifact": {
                 "name": "translation-darwin-amd64",
-                "path": "pkg/ext-go/c2goengine/internal/ccgo/generated_darwin_amd64.go\npkg/ext-go/c2goengine/internal/ccgo/inputs.sha256\npkg/ext-go/c2goengine/internal/ccgo/call.go\npkg/ext-go/c2goengine/internal/ccgo/call_unsupported.go\npkg/ext-go/c2goengine/internal/ccgo/host.go\npkg/ext-go/c2goengine/internal/ccgo/host_unsupported.go\npkg/ext-go/c2goengine/internal/ccgo/channel.go\npkg/ext-go/c2goengine/internal/ccgo/session.go\npkg/ext-go/c2goengine/internal/ccgo/instances.go",
+                "path": "pkg/ext-go/c2goengine/internal/ccgo/generated_darwin_amd64.go",
                 "always": true,
                 "if_no_files_found": "ignore",
                 "retention_days": 14
@@ -639,8 +635,7 @@
                 "MSYSTEM": "MINGW64",
                 "OS": "windows-latest",
                 "PACKAGES": "mingw-w64-x86_64-gcc",
-                "RACE": "",
-                "REQUIRED": "true"
+                "RACE": ""
               },
               "setup": {
                 "go": "1.26.x",
@@ -650,7 +645,7 @@
               },
               "artifact": {
                 "name": "translation-windows-amd64",
-                "path": "pkg/ext-go/c2goengine/internal/ccgo/generated_windows_amd64.go\npkg/ext-go/c2goengine/internal/ccgo/inputs.sha256\npkg/ext-go/c2goengine/internal/ccgo/call.go\npkg/ext-go/c2goengine/internal/ccgo/call_unsupported.go\npkg/ext-go/c2goengine/internal/ccgo/host.go\npkg/ext-go/c2goengine/internal/ccgo/host_unsupported.go\npkg/ext-go/c2goengine/internal/ccgo/channel.go\npkg/ext-go/c2goengine/internal/ccgo/session.go\npkg/ext-go/c2goengine/internal/ccgo/instances.go",
+                "path": "pkg/ext-go/c2goengine/internal/ccgo/generated_windows_amd64.go",
                 "always": true,
                 "if_no_files_found": "ignore",
                 "retention_days": 14
@@ -668,8 +663,7 @@
                 "MSYSTEM": "CLANGARM64",
                 "OS": "windows-11-arm",
                 "PACKAGES": "mingw-w64-clang-aarch64-clang",
-                "RACE": "",
-                "REQUIRED": "true"
+                "RACE": ""
               },
               "setup": {
                 "go": "1.26.x",
@@ -679,7 +673,7 @@
               },
               "artifact": {
                 "name": "translation-windows-arm64",
-                "path": "pkg/ext-go/c2goengine/internal/ccgo/generated_windows_arm64.go\npkg/ext-go/c2goengine/internal/ccgo/inputs.sha256\npkg/ext-go/c2goengine/internal/ccgo/call.go\npkg/ext-go/c2goengine/internal/ccgo/call_unsupported.go\npkg/ext-go/c2goengine/internal/ccgo/host.go\npkg/ext-go/c2goengine/internal/ccgo/host_unsupported.go\npkg/ext-go/c2goengine/internal/ccgo/channel.go\npkg/ext-go/c2goengine/internal/ccgo/session.go\npkg/ext-go/c2goengine/internal/ccgo/instances.go",
+                "path": "pkg/ext-go/c2goengine/internal/ccgo/generated_windows_arm64.go",
                 "always": true,
                 "if_no_files_found": "ignore",
                 "retention_days": 14

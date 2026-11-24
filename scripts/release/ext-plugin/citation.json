@@ -1,20 +1,164 @@
 {
-  "about": "What each ext-plugin platform archive serves, for scripts/library-citation.py. Windows archives are built with MSVC, whose static library cgo (MinGW) cannot link, so they serve purego only.",
+  "about": "What each ext-plugin platform archive serves, for scripts/library-citation.py. Windows archives are built with MSVC, whose static library cgo (MinGW) cannot link, so they serve purego only. Each target's ccgo translation is an archive of its own (scripts/c2goengine-translate.sh), which serves c2go.",
   "library": "ext_plugin",
   "archive": "ext-plugin-{version}-{platform}.tar.gz",
   "assets": [
-    {"platform": "linux-x86_64", "targets": ["linux/amd64"], "drivers": {
-      "cgo": {"include": "include", "static": "lib/libext_plugin_host_static.a", "cflags": ["-DEXT_PLUGIN_HOST_STATIC"], "ldflags": ["-lpthread", "-lm", "-ldl"]},
-      "purego": {"shared": "lib/libext_plugin_host.so.2"}}},
-    {"platform": "linux-aarch64", "targets": ["linux/arm64"], "drivers": {
-      "cgo": {"include": "include", "static": "lib/libext_plugin_host_static.a", "cflags": ["-DEXT_PLUGIN_HOST_STATIC"], "ldflags": ["-lpthread", "-lm", "-ldl"]},
-      "purego": {"shared": "lib/libext_plugin_host.so.2"}}},
-    {"platform": "macos-universal", "targets": ["darwin/amd64", "darwin/arm64"], "drivers": {
-      "cgo": {"include": "include", "static": "lib/libext_plugin_host_static.a", "cflags": ["-DEXT_PLUGIN_HOST_STATIC"], "ldflags": ["-lpthread", "-lm"]},
-      "purego": {"shared": "lib/libext_plugin_host.2.dylib"}}},
-    {"platform": "windows-x86_64", "targets": ["windows/amd64"], "drivers": {
-      "purego": {"shared": "bin/ext_plugin_host.dll"}}},
-    {"platform": "windows-aarch64", "targets": ["windows/arm64"], "drivers": {
-      "purego": {"shared": "bin/ext_plugin_host.dll"}}}
+    {
+      "platform": "linux-x86_64",
+      "targets": [
+        "linux/amd64"
+      ],
+      "drivers": {
+        "cgo": {
+          "include": "include",
+          "static": "lib/libext_plugin_host_static.a",
+          "cflags": [
+            "-DEXT_PLUGIN_HOST_STATIC"
+          ],
+          "ldflags": [
+            "-lpthread",
+            "-lm",
+            "-ldl"
+          ]
+        },
+        "purego": {
+          "shared": "lib/libext_plugin_host.so.2"
+        }
+      }
+    },
+    {
+      "platform": "linux-aarch64",
+      "targets": [
+        "linux/arm64"
+      ],
+      "drivers": {
+        "cgo": {
+          "include": "include",
+          "static": "lib/libext_plugin_host_static.a",
+          "cflags": [
+            "-DEXT_PLUGIN_HOST_STATIC"
+          ],
+          "ldflags": [
+            "-lpthread",
+            "-lm",
+            "-ldl"
+          ]
+        },
+        "purego": {
+          "shared": "lib/libext_plugin_host.so.2"
+        }
+      }
+    },
+    {
+      "platform": "macos-universal",
+      "targets": [
+        "darwin/amd64",
+        "darwin/arm64"
+      ],
+      "drivers": {
+        "cgo": {
+          "include": "include",
+          "static": "lib/libext_plugin_host_static.a",
+          "cflags": [
+            "-DEXT_PLUGIN_HOST_STATIC"
+          ],
+          "ldflags": [
+            "-lpthread",
+            "-lm"
+          ]
+        },
+        "purego": {
+          "shared": "lib/libext_plugin_host.2.dylib"
+        }
+      }
+    },
+    {
+      "platform": "windows-x86_64",
+      "targets": [
+        "windows/amd64"
+      ],
+      "drivers": {
+        "purego": {
+          "shared": "bin/ext_plugin_host.dll"
+        }
+      }
+    },
+    {
+      "platform": "windows-aarch64",
+      "targets": [
+        "windows/arm64"
+      ],
+      "drivers": {
+        "purego": {
+          "shared": "bin/ext_plugin_host.dll"
+        }
+      }
+    },
+    {
+      "archive": "ext-plugin-{version}-c2go-linux-amd64.tar.gz",
+      "targets": [
+        "linux/amd64"
+      ],
+      "drivers": {
+        "c2go": {
+          "go": "go"
+        }
+      }
+    },
+    {
+      "archive": "ext-plugin-{version}-c2go-linux-arm64.tar.gz",
+      "targets": [
+        "linux/arm64"
+      ],
+      "drivers": {
+        "c2go": {
+          "go": "go"
+        }
+      }
+    },
+    {
+      "archive": "ext-plugin-{version}-c2go-darwin-arm64.tar.gz",
+      "targets": [
+        "darwin/arm64"
+      ],
+      "drivers": {
+        "c2go": {
+          "go": "go"
+        }
+      }
+    },
+    {
+      "archive": "ext-plugin-{version}-c2go-darwin-amd64.tar.gz",
+      "targets": [
+        "darwin/amd64"
+      ],
+      "drivers": {
+        "c2go": {
+          "go": "go"
+        }
+      }
+    },
+    {
+      "archive": "ext-plugin-{version}-c2go-windows-amd64.tar.gz",
+      "targets": [
+        "windows/amd64"
+      ],
+      "drivers": {
+        "c2go": {
+          "go": "go"
+        }
+      }
+    },
+    {
+      "archive": "ext-plugin-{version}-c2go-windows-arm64.tar.gz",
+      "targets": [
+        "windows/arm64"
+      ],
+      "drivers": {
+        "c2go": {
+          "go": "go"
+        }
+      }
+    }
   ]
 }

@@ -75,6 +75,9 @@ var ErrOffline = errors.New("fetch: not cached and offline")
 
 var packageName = regexp.MustCompile(`^[a-z][a-z0-9_]*$`)
 
+// packageClause is a Go file's package clause, at the start of a line.
+var packageClause = regexp.MustCompile(`(?m)^(\s*)package [A-Za-z_][A-Za-z0-9_]*`)
+
 // Fetch lays the library out in o.Dir for every target and driver, replacing what fetch wrote there
 // before. It writes nothing until every archive has been downloaded and verified.
 func Fetch(ctx context.Context, o Options) error {
@@ -98,51 +101,47 @@ func Fetch(ctx context.Context, o Options) error {
 	o.Limits = o.Limits.withDefaults()
 	type plan struct {
 		target string
+		driver string
 		asset  library.Asset
 		files  map[string][]byte
 	}
 	var plans []plan
 	archives := map[string]map[string][]byte{} // by sha256, so a universal archive is read once
 	for _, target := range o.Targets {
-		asset, err := o.Citation.Asset(target)
-		if err != nil {
-			return err
-		}
 		for _, d := range o.Drivers {
-			if !hasDriver(asset, d) {
-				return fmt.Errorf("fetch: %s %s publishes no %s build for %s", o.Citation.Library, o.Citation.Version, d, target)
-			}
-		}
-		files, ok := archives[asset.SHA256]
-		if !ok {
-			data, err := download(ctx, o, asset)
+			asset, err := o.Citation.Asset(target, d)
 			if err != nil {
-				return err
+				return fmt.Errorf("fetch: %s %s publishes no %s build for %s: %w", o.Citation.Library, o.Citation.Version, d, target, err)
 			}
-			if files, err = extract(data, asset.Root, o.Limits); err != nil {
-				return fmt.Errorf("fetch: %s: %w", asset.URL, err)
+			files, ok := archives[asset.SHA256]
+			if !ok {
+				data, err := download(ctx, o, asset)
+				if err != nil {
+					return err
+				}
+				if files, err = extract(data, asset.Root, o.Limits); err != nil {
+					return fmt.Errorf("fetch: %s: %w", asset.URL, err)
+				}
+				archives[asset.SHA256] = files
 			}
-			archives[asset.SHA256] = files
+			plans = append(plans, plan{target, d, asset, files})
 		}
-		plans = append(plans, plan{target, asset, files})
 	}
 	out := map[string][]byte{}
 	for _, p := range plans {
 		dir := strings.ReplaceAll(p.target, "/", "_")
 		goos, goarch, _ := strings.Cut(p.target, "/")
-		for _, d := range o.Drivers {
-			var err error
-			switch d {
-			case CGo:
-				err = layCGo(out, o, p.asset.Drivers.CGo, p.files, dir, goos, goarch)
-			case C2Go:
-				err = layC2Go(out, p.asset.Drivers.C2Go, p.files)
-			case PureGo:
-				err = layPureGo(out, o, p.asset.Drivers.PureGo, p.files, dir, goos, goarch)
-			}
-			if err != nil {
-				return fmt.Errorf("fetch: %s %s: %w", d, p.target, err)
-			}
+		var err error
+		switch p.driver {
+		case CGo:
+			err = layCGo(out, o, p.asset.Drivers.CGo, p.files, dir, goos, goarch)
+		case C2Go:
+			err = layC2Go(out, o, p.asset.Drivers.C2Go, p.files)
+		case PureGo:
+			err = layPureGo(out, o, p.asset.Drivers.PureGo, p.files, dir, goos, goarch)
+		}
+		if err != nil {
+			return fmt.Errorf("fetch: %s %s: %w", p.driver, p.target, err)
 		}
 	}
 	out["doc.go"] = []byte(fmt.Sprintf("// Package %s is %s %s, laid out by ext lib fetch for %s. Do not edit; run ext lib fetch again.\npackage %s\n",
@@ -195,14 +194,21 @@ func layCGo(out map[string][]byte, o Options, d *library.CGoFiles, files map[str
 	return nil
 }
 
-func layC2Go(out map[string][]byte, d *library.C2GoFiles, files map[string][]byte) error {
+// layC2Go copies the translation's Go files into the package, which takes the package's name: the
+// first package clause of each file is rewritten.
+func layC2Go(out map[string][]byte, o Options, d *library.C2GoFiles, files map[string][]byte) error {
 	found := false
 	for name, data := range files {
 		rest, ok := strings.CutPrefix(name, d.Go+"/")
-		if !ok || strings.Contains(rest, "/") || !strings.HasSuffix(rest, ".go") {
+		if !ok || strings.Contains(rest, "/") || !strings.HasSuffix(rest, ".go") || strings.HasSuffix(rest, "_test.go") {
 			continue
 		}
-		out[rest] = data
+		loc := packageClause.FindSubmatchIndex(data)
+		if loc == nil {
+			return fmt.Errorf("%s has no package clause", name)
+		}
+		renamed := append(append(append([]byte{}, data[:loc[3]]...), "package "+o.Package...), data[loc[1]:]...)
+		out[rest] = renamed
 		found = true
 	}
 	if !found {

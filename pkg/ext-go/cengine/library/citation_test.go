@@ -3,6 +3,7 @@ package library_test
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -30,8 +31,24 @@ func TestCitation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if a, err := c.Asset("darwin/arm64"); err != nil || a.Drivers.PureGo == nil || a.Drivers.CGo != nil {
+	if a, err := c.Asset("darwin/arm64", "purego"); err != nil || a.Drivers.PureGo == nil || a.Drivers.CGo != nil {
 		t.Errorf("darwin/arm64: %+v, %v", a, err)
+	}
+	if _, err := c.Asset("darwin/arm64", "cgo"); !errors.Is(err, library.ErrNoAsset) {
+		t.Errorf("a driver the target's asset does not serve: %v", err)
+	}
+	// A target's translation is an asset of its own, beside its built library.
+	withC2Go := strings.TrimSuffix(citation(), `]}`) + `,
+ {"targets":["linux/amd64"],"url":"https://example.com/c.tar.gz","sha256":"` + strings.Repeat("c", 64) + `","drivers":{"c2go":{"go":"go"}}}]}`
+	c, err = library.ParseCitation([]byte(withC2Go))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if a, err := c.Asset("linux/amd64", "c2go"); err != nil || a.Drivers.C2Go == nil {
+		t.Errorf("linux/amd64 c2go: %+v, %v", a, err)
+	}
+	if a, err := c.Asset("linux/amd64", "cgo"); err != nil || a.Drivers.CGo == nil {
+		t.Errorf("linux/amd64 cgo: %+v, %v", a, err)
 	}
 	for name, bad := range map[string]string{
 		"an unknown field":   citation(`"version"`, `"extra":1,"version"`),
@@ -40,6 +57,7 @@ func TestCitation(t *testing.T) {
 		"a path that leaves": citation("lib/libext_plugin_host.so", "../libext_plugin_host.so"),
 		"an absolute path":   citation(`"include"`, `"/usr/include"`),
 		"a target twice":     citation(`"darwin/amd64"`, `"linux/amd64"`),
+		"no driver":          citation(`"drivers":{"purego":{"shared":"lib/libext_plugin_host.dylib"}}`, `"drivers":{}`),
 		"a schema":           citation("ext.library.citation/v1", "v2"),
 		"a library name":     citation(`"ext_plugin"`, `"Ext-Plugin"`),
 	} {

@@ -1,0 +1,102 @@
+{
+  "library": "ext_plugin",
+  "abi_version": 1,
+  "about": "lib/plugin's library interface: the engine's objects behind ext_plugin_open, ext_plugin_call and ext_plugin_close. Every binding is generated from, or driven by, this description; the C engine answers it as the describe operation of handle 0 and its tests hold the two equal.",
+  "codes": ["ok", "invalid", "denied", "mismatch", "unsupported", "closed", "timeout", "io", "out_of_memory", "draining", "not_found", "ambiguous", "canceled", "updating", "capacity", "sequence", "protocol", "expired", "exists", "missing"],
+  "objects": {
+    "library": {
+      "about": "Handle 0, the library itself: the pure services (services.md), the digests and the trust records. It is never opened or closed.",
+      "operations": {
+        "describe": {"about": "This description.", "input": {"type": "object"}, "output": {"type": "object"}},
+        "code_name": {"input": {"type": "object", "required": ["code"], "properties": {"code": {"type": "integer"}}}, "output": {"type": "string"}},
+        "directory_digest": {"input": {"type": "object", "required": ["root"], "properties": {"root": {"type": "string"}}}, "output": {"type": "string"}},
+        "artifact_digest": {"input": {"type": "object", "required": ["root", "path"], "properties": {"root": {"type": "string"}, "path": {"type": "string"}, "tree": {"type": "boolean"}}}, "output": {"type": "string"}},
+        "store_digest": {"input": {"type": "object", "required": ["root", "id"], "properties": {"root": {"type": "string"}, "id": {"type": "string"}}}, "output": {"type": "string"}},
+        "package_verify": {"input": {"type": "object", "required": ["manifest", "root"], "properties": {"manifest": {"type": "object"}, "root": {"type": "string"}}}, "output": {}},
+        "trust_state": {"input": {"type": "object", "required": ["path", "scope", "id", "digest"], "properties": {"path": {"type": "string"}, "scope": {"type": "string"}, "id": {"type": "string"}, "digest": {"type": "string"}}}, "output": {"type": "string"}},
+        "trust_record": {"input": {"type": "object", "required": ["path", "scope", "id", "digest"], "properties": {"path": {"type": "string"}, "scope": {"type": "string"}, "id": {"type": "string"}, "digest": {"type": "string"}}}, "output": {}},
+        "trust_revoke": {"input": {"type": "object", "required": ["path", "scope", "id"], "properties": {"path": {"type": "string"}, "scope": {"type": "string"}, "id": {"type": "string"}}}, "output": {}},
+        "descriptor.validate": {"about": "services.md", "input": {"type": "object"}, "output": {"type": "object"}},
+        "descriptor.match": {"about": "services.md", "input": {"type": "object", "required": ["selected", "actual"]}, "output": {}},
+        "descriptor.select": {"about": "services.md", "input": {"type": "object", "required": ["candidates", "requirement"]}, "output": {"type": "object"}},
+        "descriptor.requirements": {"about": "services.md", "input": {"type": "object", "required": ["descriptor", "requirements"]}, "output": {}},
+        "protocol.negotiate": {"about": "services.md", "input": {"type": "object", "required": ["preferred", "offered"]}, "output": {"type": "string"}},
+        "request.validate": {"about": "services.md", "input": {"type": "object", "required": ["descriptor", "request"]}, "output": {"type": "object"}},
+        "response.validate": {"about": "services.md", "input": {"type": "object", "required": ["response", "requestID"]}, "output": {"type": "object"}},
+        "schema.validate": {"about": "services.md", "input": {"type": "object"}, "output": {"type": "object"}},
+        "schema.check": {"about": "services.md", "input": {"type": "object", "required": ["schema", "value"]}, "output": {}},
+        "route.resolve": {"about": "services.md", "input": {"type": "object", "required": ["hosts", "guests"]}, "output": {"type": "object"}},
+        "package.validate": {"about": "services.md", "input": {"type": "object"}, "output": {"type": "object"}},
+        "package.select": {"about": "services.md", "input": {"type": "object", "required": ["manifest", "name", "environment"]}, "output": {"type": "object"}},
+        "package.resolve": {"about": "services.md", "input": {"type": "array"}, "output": {"type": "object"}},
+        "frame.validate": {"about": "services.md", "input": {"type": "object"}, "output": {"type": "object"}},
+        "endpoint.check": {"about": "services.md", "input": {"type": "object"}, "output": {"type": "object"}},
+        "endpoint.validate": {"about": "services.md", "input": {"type": "object", "required": ["endpoint", "policy"]}, "output": {"type": "object"}}
+      }
+    },
+    "store": {
+      "about": "An installed package store at one root.",
+      "config": {"type": "object", "required": ["object", "root"], "properties": {"object": {"const": "store"}, "root": {"type": "string"}, "limits": {"type": "object", "properties": {"max_artifact_bytes": {"type": "integer"}, "max_tree_files": {"type": "integer"}, "max_tree_bytes": {"type": "integer"}}}}},
+      "operations": {
+        "install": {"input": {"type": "object", "required": ["source"], "properties": {"source": {"type": "string"}, "preserve_executable": {"type": "boolean"}}}, "output": {"type": "object"}},
+        "upgrade": {"input": {"type": "object", "required": ["source"], "properties": {"source": {"type": "string"}, "preserve_executable": {"type": "boolean"}}}, "output": {"type": "object"}},
+        "replace": {"input": {"type": "object", "required": ["source"], "properties": {"source": {"type": "string"}, "preserve_executable": {"type": "boolean"}}}, "output": {"type": "object"}},
+        "install_archive": {"input": {"type": "object", "required": ["archive", "sha256"], "properties": {"archive": {"type": "string"}, "sha256": {"type": "string"}, "id": {"type": "string"}, "preserve_executable": {"type": "boolean"}, "max_archive_bytes": {"type": "integer"}}}, "output": {"type": "object"}},
+        "remove": {"input": {"type": "object", "required": ["id"], "properties": {"id": {"type": "string"}}}, "output": {}},
+        "load": {"input": {"type": "object", "required": ["id"], "properties": {"id": {"type": "string"}}}, "output": {"type": "object"}},
+        "receipt": {"input": {"type": "object", "required": ["id"], "properties": {"id": {"type": "string"}}}, "output": {"type": "object"}},
+        "ids": {"input": {"type": "object"}, "output": {"type": "array"}},
+        "list": {"input": {"type": "object"}, "output": {"type": "array"}},
+        "verify": {"input": {"type": "object"}, "output": {}},
+        "list_unverified": {"input": {"type": "object"}, "output": {"type": "array"}},
+        "resolve_entrypoint": {"input": {"type": "object", "required": ["id", "contract", "version", "protocol"], "properties": {"id": {"type": "string"}, "contract": {"type": "string"}, "version": {"type": "string"}, "protocol": {"type": "string"}, "reviewed_digest": {"type": "string"}, "os": {"type": "string"}, "arch": {"type": "string"}}}, "output": {"type": "object"}}
+      }
+    },
+    "layered": {
+      "about": "Several store roots read as one, the first holding an id winning.",
+      "config": {"type": "object", "required": ["object", "roots"], "properties": {"object": {"const": "layered"}, "roots": {"type": "array", "items": {"type": "string"}}, "limits": {"type": "object"}}},
+      "operations": {
+        "load": {"input": {"type": "object", "required": ["id"], "properties": {"id": {"type": "string"}}}, "output": {"type": "object", "properties": {"layer": {"type": "integer"}, "manifest": {"type": "object"}}}},
+        "list": {"input": {"type": "object"}, "output": {"type": "array"}},
+        "verify": {"input": {"type": "object"}, "output": {}},
+        "list_unverified": {"input": {"type": "object"}, "output": {"type": "array"}}
+      }
+    },
+    "host": {
+      "about": "A session with one plugin over a child process or a C ABI shared library. Its callbacks are events.",
+      "config": {"type": "object", "required": ["object", "descriptor", "backend", "verify", "authorize"], "properties": {
+        "object": {"const": "host"},
+        "descriptor": {"type": "object"},
+        "backend": {"type": "object", "required": ["kind"], "properties": {"kind": {"enum": ["process", "shared_library"]}, "executable": {"type": "string"}, "arguments": {"type": "array", "items": {"type": "string"}}, "environment": {"type": "array", "items": {"type": "string"}}, "working_directory": {"type": "string"}, "stderr_bytes": {"type": "integer"}, "path": {"type": "string"}}},
+        "requirements": {"type": "array"},
+        "verify": {"enum": ["allow", "event"]},
+        "authorize": {"enum": ["allow", "event"]},
+        "observe": {"type": "boolean"},
+        "services": {"type": "object", "properties": {"timeout_ms": {"type": "integer"}, "max_payload_bytes": {"type": "integer"}, "max_in_flight": {"type": "integer"}}},
+        "event_timeout_ms": {"type": "integer"}}},
+      "operations": {
+        "start": {"input": {"type": "object", "properties": {"timeout_ms": {"type": "integer"}}}, "output": {}},
+        "call": {"about": "A call the engine fills in (identity, deadline, id). With progress, its progress events carry the call's tag.", "input": {"type": "object", "required": ["call"], "properties": {"call": {"type": "object", "required": ["contract", "operation"]}, "timeout_ms": {"type": "integer"}, "tag": {"type": "string"}, "progress": {"type": "object", "properties": {"events_per_second": {"type": "integer"}, "bytes_per_second": {"type": "integer"}}}}}, "output": {"type": "object"}, "raises": ["progress"]},
+        "invoke": {"input": {"type": "object", "required": ["request"], "properties": {"request": {"type": "object"}, "timeout_ms": {"type": "integer"}}}, "output": {"type": "object"}},
+        "drain": {"input": {"type": "object", "properties": {"timeout_ms": {"type": "integer"}}}, "output": {}},
+        "state": {"input": {"type": "object"}, "output": {"enum": ["created", "ready", "draining", "closed", "failed"]}},
+        "stderr": {"input": {"type": "object"}, "output": {"type": "string"}},
+        "events": {"input": {"type": "object", "properties": {"timeout_ms": {"type": "integer"}, "max": {"type": "integer"}}}, "output": {"type": "array"}},
+        "answer": {"input": {"type": "object", "required": ["ticket"]}, "output": {}},
+        "sequence": {"input": {"type": "object"}, "output": {"type": "integer"}}
+      },
+      "events": {
+        "verify": {"about": "The verify policy, when verify is event: the descriptor the host is about to admit.", "answer": "allow", "data": {"type": "object"}},
+        "authorize": {"about": "The authorize policy, when authorize is event: every request before it is sent.", "answer": "allow", "data": {"type": "object"}},
+        "reverse_authorize": {"about": "A reverse call the plugin makes, before it is served (with services).", "answer": "allow", "data": {"type": "object"}},
+        "reverse": {"about": "A reverse call to serve: answered with a payload or a public error.", "answer": "result", "data": {"type": "object"}, "default_error": {"code": "operation_failed", "message": "the host's handler failed"}},
+        "progress": {"about": "A progress or log event of the call whose tag it carries.", "answer": "none", "call": true, "data": {"type": "object"}},
+        "observe": {"about": "An observer event (with observe).", "answer": "none", "data": {"type": "object"}},
+        "dropped": {"about": "How many events were dropped since the last delivery: the queue was full.", "answer": "none", "data": {"type": "integer"}}
+      }
+    }
+  },
+  "events": {
+    "about": "Objects with events answer events, answer and sequence. An event is {seq, ticket, kind, tag?, data}; ticket is not 0 for one that asks, and an asking event not answered in time is a denial. answer allow is {ticket, allow}; answer result is {ticket, payload} or {ticket, error}. seq counts queued events from 1; once an operation returns, every event it raised has a seq no greater than what sequence then says. events fails with closed or not_found once the object is closed."
+  }
+}

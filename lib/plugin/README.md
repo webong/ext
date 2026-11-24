@@ -25,7 +25,7 @@ side comes next, so the host and the guest never meet and no other library of `l
 | `ext_plugin_guest_*` (exports) | [`ext_plugin_guest.h`](include/ext_plugin_guest.h) | the guest ABI a plugin built as a C shared library (or a `.wasm`) exports: `abi_version`, `open`, `call`, `close`, and on wasm `alloc` and `free` |
 | `ext_plugin_guest_*` (functions) | [`ext_plugin_author.h`](include/ext_plugin_author.h) | the C guest authoring API (`create`, `descriptor`, `invoke`, `emit`, ...) |
 | `ext_plugin_instance_*`, `ext_plugin_instances_*`, `ext_plugin_stream_*`, `ext_plugin_streams_*` | [`ext_plugin_instance.h`](include/ext_plugin_instance.h), [`ext_plugin_stream.h`](include/ext_plugin_stream.h) | instance leases and pull streams |
-| `ext_plugin_open`, `ext_plugin_call`, `ext_plugin_close`, `ext_plugin_abi_version`, `ext_plugin_free`, `ext_plugin_code_name` | `ext_plugin_host.h` | the library interface: the engine's objects behind four functions, as every library of `lib/` has; code names are identifiers (`not_found`), as the ledger's are |
+| `ext_plugin_open`, `ext_plugin_call`, `ext_plugin_close`, `ext_plugin_abi_version`, `ext_plugin_free`, `ext_plugin_code_name` | `ext_plugin_host.h` | the library interface: the engine's objects behind four functions, as every library of `lib/` has; code names are identifiers (`not_found`), as the ledger's are; [`interface.json`](interface.json) describes it and `describe` serves it |
 | `ext_plugin_services_call`, `ext_plugin_sha256` | `ext_plugin_host.h` | the engine's pure services by name on JSON (also handle 0 of the library interface), and its digest |
 | `ext_plugin_buffer`, `ext_plugin_status`, `EXT_PLUGIN_OK` ... | `ext_plugin_host.h` | the shared buffer, status type and status codes |
 
@@ -44,8 +44,17 @@ trust records. The objects are hosts (a session with one plugin, over a child pr
 package store and the layered view. A host's callbacks (the verify and authorize policies, progress,
 the observer and reverse calls) become events in its queue: the binding takes them with `events` and
 answers those that ask with `answer`, from another thread than the one waiting in `start` or `call`,
-so a binding needs no way to be called from C.
-`include/ext_plugin_host.h` lists the configs and operations.
+so a binding needs no way to be called from C. A call's own events (its progress) carry the tag the
+call was given, so many calls with progress can run at once.
+
+[`interface.json`](interface.json) describes the interface: its objects and their configs, each
+operation's input and output as JSON Schema, the events each object raises and how each is answered
+(`allow`, `result` or `none`), and the code names. It is the one source of that description: CMake
+compiles it into the library, `describe` on handle 0 serves it as it is, and the interface test holds
+the two equal. A binding is driven by it (ext-go's `cengine/library.Describe`, whose test calls every
+operation it lists and requires an answer) or generated from it, so adding an operation here and in
+`src/interface.c` is all a new operation takes. `include/ext_plugin_host.h` documents the same
+configs and operations for C readers.
 
 ## What is implemented
 

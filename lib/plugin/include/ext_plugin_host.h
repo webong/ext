@@ -744,7 +744,7 @@ EXT_PLUGIN_HOST_API ext_plugin_status ext_plugin_services_call(const char *opera
  *    "services":{"timeout_ms","max_payload_bytes","max_in_flight"},"event_timeout_ms":30000}
  * A host whose descriptor does not meet its requirements (descriptor.requirements) is not opened.
  * A host's callbacks are the interface's own: each becomes an event in the host's queue,
- * {"seq","ticket","kind","data"}, which the binding takes with "events" and, for those that ask (ticket
+ * {"seq","ticket","kind","tag"?,"data"}, which the binding takes with "events" and, for those that ask (ticket
  * not 0), answers with "answer" from another thread than the one waiting in "start" or "call":
  * verify and authorize (the policies set to "event"), reverse_authorize and reverse (with
  * "services": reverse calls the plugin makes), progress and observe (asking nothing; dropped, and
@@ -754,7 +754,9 @@ EXT_PLUGIN_HOST_API ext_plugin_status ext_plugin_services_call(const char *opera
  * (its progress) has a seq no greater than what "sequence" then says. A "dropped" event has seq 0.
  * ext_plugin_call runs one operation on a handle with a JSON object in and a JSON value out (free
  * *out with ext_plugin_free); handle 0 is the library itself:
- *   0        every service of ext_plugin_services_call (services.md), with the same input;
+ *   0        describe: lib/plugin/interface.json, the description of this interface (its objects,
+ *            operations, schemas and events) that bindings are driven by or generated from;
+ *            every service of ext_plugin_services_call (services.md), with the same input;
  *            directory_digest {root}, artifact_digest {root, path, tree}, store_digest {root, id},
  *            package_verify {manifest, root}, trust_state and trust_record {path, scope, id, digest},
  *            trust_revoke {path, scope, id}, code_name {code}; digests are lowercase hex strings
@@ -763,8 +765,8 @@ EXT_PLUGIN_HOST_API ext_plugin_status ext_plugin_services_call(const char *opera
  *            receipt {id}, ids, list, verify, list_unverified, resolve_entrypoint {id, contract,
  *            version, protocol, reviewed_digest, os, arch}
  *   layered  load {id} ({"layer","manifest"}), list, verify, list_unverified
- *   host     start {timeout_ms}, call {call: {contract, operation, payload}, timeout_ms, progress:
- *            {events_per_second, bytes_per_second}}, invoke {request, timeout_ms}, drain {timeout_ms},
+ *   host     start {timeout_ms}, call {call: {contract, operation, payload}, timeout_ms, tag, progress:
+ *            {events_per_second, bytes_per_second}} (its progress events carry tag), invoke {request, timeout_ms}, drain {timeout_ms},
  *            state, stderr, events {timeout_ms, max}, answer {ticket, allow | payload | error}, sequence
  * An operation that returns nothing returns null; an unknown one is EXT_PLUGIN_UNSUPPORTED and an
  * unknown or closed handle EXT_PLUGIN_NOT_FOUND. ext_plugin_close frees an object once no call

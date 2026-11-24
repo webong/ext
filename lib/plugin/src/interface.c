@@ -315,9 +315,20 @@ const char *ext_plugin_code_name(int32_t code) {
 
 /* ---- calling ---- */
 
+/* interface.json, compiled in by CMakeLists.txt. */
+extern const char ext_interface_description[];
+extern const size_t ext_interface_description_len;
+
 static ext_plugin_status call_library(const char *op, yyjson_val *in, const char *input, size_t len,
                                       char **out, size_t *out_len) {
   uint8_t d[32];
+  if (!strcmp(op, "describe")) {
+    if (!(*out = malloc(ext_interface_description_len + 1)))
+      return EXT_PLUGIN_NOMEM;
+    memcpy(*out, ext_interface_description, ext_interface_description_len + 1);
+    *out_len = ext_interface_description_len;
+    return EXT_PLUGIN_OK;
+  }
   if (!strcmp(op, "directory_digest")) {
     const char *root = str(in, "root");
     return root ? digest_out(ext_plugin_directory_digest(root, d), d, out, out_len) : EXT_PLUGIN_INVALID;

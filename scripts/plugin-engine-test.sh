@@ -89,6 +89,8 @@ echo "== the same API without cgo, served by the pure-Go implementation"
 # cshared runs on purego here, against the same C ABI guest.
 (cd pkg/ext-go/cgoengine && EXT_CSHARED_GUEST="$(winpath "$build/go-shared.$shared_ext")" EXT_CSHARED_REQUIRED=1 \
    CGO_ENABLED=0 go test -count=1 -timeout=10m ./...)
+echo "== the described library interface, driven from lib/plugin's interface.json (pkg/ext-go/cengine)"
+(cd pkg/ext-go/cengine && EXT_PLUGIN_BUILD="$(winpath "$build/engine")" go test -count=1 "${race[@]}" -timeout=10m ./library)
 echo "== the umbrella module (pkg/ext-go), with the purego engine loading the shared engine"
 host_library=$(find "$build/engine" -maxdepth 1 \( -name 'libext_plugin_host.so' -o -name 'libext_plugin_host.dylib' -o -name '*ext_plugin_host*.dll' \) | head -n 1)
 [ -n "$host_library" ] || { echo "no shared host library in $build/engine" >&2; exit 1; }

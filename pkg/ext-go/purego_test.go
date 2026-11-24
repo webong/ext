@@ -194,6 +194,22 @@ func TestPureGoRunsProgressAndReverseCalls(t *testing.T) {
 		t.Errorf("run answered %s", out)
 	}
 
+	// Calls with progress at once: each gets its own events, which name their call.
+	var pwg sync.WaitGroup
+	for i := range 4 {
+		pwg.Add(1)
+		go func() {
+			defer pwg.Done()
+			var mine []engine.Progress
+			payload := json.RawMessage(fmt.Sprint(i))
+			out, err := s.CallProgress(ctx, pureGoContract, "run", payload, func(p engine.Progress) { mine = append(mine, p) })
+			if err != nil || string(out) != fmt.Sprintf(`{"signed":"signed:%d"}`, i) || len(mine) != 3 {
+				t.Errorf("concurrent run %d: %s, %v, %d events", i, out, err, len(mine))
+			}
+		}()
+	}
+	pwg.Wait()
+
 	if out, err := s.Call(ctx, pureGoContract, "plain", json.RawMessage(`{"a":1}`)); err != nil || string(out) != `{"a":1}` {
 		t.Errorf("plain: %s, %v", out, err)
 	}
@@ -230,7 +246,7 @@ func TestPureGoRunsProgressAndReverseCalls(t *testing.T) {
 	}
 	mu.Lock()
 	defer mu.Unlock()
-	if verified != 1 || authorized != 11 || reverseAuthorized != 1 {
+	if verified != 1 || authorized != 15 || reverseAuthorized != 5 {
 		t.Errorf("policies asked: verify %d, authorize %d, reverse authorize %d", verified, authorized, reverseAuthorized)
 	}
 	if len(observed) == 0 || observed[0] != "verify:ok" {

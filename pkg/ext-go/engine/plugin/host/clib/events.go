@@ -36,9 +36,11 @@ type Event struct {
 	// a count of events it dropped) has 0.
 	Seq uint64 `json:"seq"`
 	// Ticket is not 0 for an event that waits for an answer.
-	Ticket uint64          `json:"ticket"`
-	Kind   string          `json:"kind"`
-	Data   json.RawMessage `json:"data"`
+	Ticket uint64 `json:"ticket"`
+	Kind   string `json:"kind"`
+	// Tag names the call an event belongs to, such as a call's progress.
+	Tag  string          `json:"tag,omitempty"`
+	Data json.RawMessage `json:"data"`
 }
 
 // Asks reports whether the event waits for an answer.

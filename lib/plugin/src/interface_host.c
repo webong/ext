@@ -65,14 +65,15 @@ static void wait_for(ext_interface_host *h, int64_t ms) {
 #endif
 }
 
-/* push queues an event; ticket 0 is one that asks nothing and may be dropped. Called locked. */
-static int push(ext_interface_host *h, uint64_t ticket, const char *kind, const uint8_t *data,
+/* push queues an event; ticket 0 is one that asks nothing and may be dropped. tag, when not NULL,
+ * names the call the event belongs to (checked by tag_ok). Called locked. */
+static int push(ext_interface_host *h, uint64_t ticket, const char *kind, const char *tag, const uint8_t *data,
                 size_t len) {
   if (h->queued >= MAX_QUEUE) {
     h->dropped++;
     return 0;
   }
-  size_t n = len + strlen(kind) + 64;
+  size_t n = len + strlen(kind) + (tag ? strlen(tag) + 10 : 0) + 64;
   event *e = malloc(sizeof *e);
   char *json = malloc(n);
   if (!e || !json) {
@@ -81,9 +82,9 @@ static int push(ext_interface_host *h, uint64_t ticket, const char *kind, const 
     h->dropped++;
     return 0;
   }
-  int w = snprintf(json, n, "{\"seq\":%llu,\"ticket\":%llu,\"kind\":\"%s\",\"data\":%.*s}",
-                   (unsigned long long)(h->seq + 1), (unsigned long long)ticket, kind, len ? (int)len : 4,
-                   len ? (const char *)data : "null");
+  int w = snprintf(json, n, "{\"seq\":%llu,\"ticket\":%llu,\"kind\":\"%s\"%s%s%s,\"data\":%.*s}",
+                   (unsigned long long)(h->seq + 1), (unsigned long long)ticket, kind, tag ? ",\"tag\":\"" : "",
+                   tag ? tag : "", tag ? "\"" : "", len ? (int)len : 4, len ? (const char *)data : "null");
   h->seq++;
   e->json = json, e->len = (size_t)w, e->next = NULL;
   if (h->tail)
@@ -96,11 +97,27 @@ static int push(ext_interface_host *h, uint64_t ticket, const char *kind, const 
   return 1;
 }
 
-static void notify(ext_interface_host *h, const char *kind, const uint8_t *data, size_t len) {
+static void notify_tagged(ext_interface_host *h, const char *kind, const char *tag, const uint8_t *data,
+                          size_t len) {
   pthread_mutex_lock(&h->m);
   if (!h->closing)
-    push(h, 0, kind, data, len);
+    push(h, 0, kind, tag, data, len);
   pthread_mutex_unlock(&h->m);
+}
+static void notify(ext_interface_host *h, const char *kind, const uint8_t *data, size_t len) {
+  notify_tagged(h, kind, NULL, data, len);
+}
+
+/* A call's tag is at most 64 of [A-Za-z0-9._:-], so it goes into an event as it is. */
+static int tag_ok(const char *t) {
+  size_t n = strlen(t);
+  if (!n || n > 64)
+    return 0;
+  for (size_t i = 0; i < n; i++)
+    if (!((t[i] >= 'a' && t[i] <= 'z') || (t[i] >= 'A' && t[i] <= 'Z') || (t[i] >= '0' && t[i] <= '9') ||
+          t[i] == '.' || t[i] == '_' || t[i] == ':' || t[i] == '-'))
+      return 0;
+  return 1;
 }
 
 /* ask queues an event and waits for its answer, at most timeout_ms (0: the host's event timeout).
@@ -118,7 +135,7 @@ static int ask(ext_interface_host *h, const char *kind, const uint8_t *data, siz
     return 0;
   }
   out->ticket = ++h->next_ticket;
-  if (!push(h, out->ticket, kind, data, len)) {
+  if (!push(h, out->ticket, kind, NULL, data, len)) {
     pthread_mutex_unlock(&h->m);
     return 0;
   }
@@ -162,7 +179,15 @@ static void observe_cb(void *user, const ext_plugin_call_options *o, const uint8
   (void)o;
   notify(user, "observe", json, len);
 }
-static void progress_cb(void *user, const uint8_t *json, size_t len) { notify(user, "progress", json, len); }
+/* The progress of one call, with the call's tag. */
+typedef struct {
+  ext_interface_host *h;
+  const char *tag;
+} call_progress;
+static void progress_cb(void *user, const uint8_t *json, size_t len) {
+  call_progress *c = user;
+  notify_tagged(c->h, "progress", c->tag, json, len);
+}
 static int32_t reverse_authorize_cb(void *user, const ext_plugin_call_options *o, const uint8_t *json, size_t len) {
   waiter w;
   int answered = ask(user, "reverse_authorize", json, len, o ? o->timeout_ms : 0, &w);
@@ -537,8 +562,10 @@ ext_plugin_status ext_interface_host_call(ext_interface_host *h, const char *op,
     if (op[0] == 'i') {
       s = ext_plugin_host_invoke_with_options(h->host, (const uint8_t *)body, n, &o, &b);
     } else if (progress) {
-      ext_plugin_progress_options po = {sizeof po, progress_cb, h, 0, 0};
-      if (!uint32_of(progress, "events_per_second", &po.events_per_second) ||
+      yyjson_val *tag = yyjson_obj_get(in, "tag");
+      call_progress cp = {h, yyjson_get_str(tag)};
+      ext_plugin_progress_options po = {sizeof po, progress_cb, &cp, 0, 0};
+      if ((tag && (!cp.tag || !tag_ok(cp.tag))) || !uint32_of(progress, "events_per_second", &po.events_per_second) ||
           !uint32_of(progress, "bytes_per_second", &po.bytes_per_second))
         s = EXT_PLUGIN_INVALID;
       else

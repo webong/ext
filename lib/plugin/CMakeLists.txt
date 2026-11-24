@@ -74,7 +74,20 @@ if(EXT_BUILD_HOST)
   else()
     set(platform_sources src/channel_posix.c src/fs_posix.c src/fs_write_posix.c src/random_posix.c)
   endif()
-  set(host_sources ${core_sources} src/host.c src/registry.c src/library.c ${platform_sources} src/integrity.c src/archive.c src/store.c src/trust.c src/instances.c src/streams.c src/interface.c src/interface_host.c)
+  # interface.json is the library interface's description, which describe serves: it is compiled in as
+  # bytes, so the file stays the one source of it.
+  file(READ "${CMAKE_CURRENT_SOURCE_DIR}/interface.json" description_hex HEX)
+  string(REGEX REPLACE "([0-9a-f][0-9a-f])" "0x\\1," description_bytes "${description_hex}")
+  set(description_c "${CMAKE_CURRENT_BINARY_DIR}/generated/interface_description.c")
+  set(description_text "/* Generated from interface.json by CMakeLists.txt. */\n#include <stddef.h>\nconst char ext_interface_description[] = {${description_bytes}0};\nconst size_t ext_interface_description_len = sizeof ext_interface_description - 1;\n")
+  if(EXISTS "${description_c}")
+    file(READ "${description_c}" description_old)
+  endif()
+  if(NOT description_old STREQUAL description_text)
+    file(WRITE "${description_c}" "${description_text}")
+  endif()
+  set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS interface.json)
+  set(host_sources ${core_sources} src/host.c src/registry.c src/library.c ${platform_sources} src/integrity.c src/archive.c src/store.c src/trust.c src/instances.c src/streams.c src/interface.c src/interface_host.c "${description_c}")
   add_library(ext_plugin_host_static STATIC ${host_sources})
   set_target_properties(ext_plugin_host_static PROPERTIES EXPORT_NAME host_static)
   target_compile_definitions(ext_plugin_host_static PUBLIC EXT_PLUGIN_HOST_STATIC)
@@ -194,7 +207,8 @@ target_compile_definitions(ext_shared_library_test PRIVATE
 add_dependencies(ext_shared_library_test ext_shared_test_guest ext_shared_test_bad_version_guest ext_shared_test_no_close_guest)
 target_compile_definitions(ext_interface_test PRIVATE
   EXT_TEST_GUEST="$<TARGET_FILE:ext_shared_test_guest>"
-  EXT_REVERSE_GUEST="$<TARGET_FILE:ext_reverse_test>")
+  EXT_REVERSE_GUEST="$<TARGET_FILE:ext_reverse_test>"
+  EXT_INTERFACE_JSON="${CMAKE_CURRENT_SOURCE_DIR}/interface.json")
 target_include_directories(ext_interface_test PRIVATE src vendor)
 add_dependencies(ext_interface_test ext_shared_test_guest ext_reverse_test)
 foreach(test_target IN ITEMS ext_host_native_test ext_resources_test ext_trust_test ext_interface_test ext_store_test ext_shared_library_test)

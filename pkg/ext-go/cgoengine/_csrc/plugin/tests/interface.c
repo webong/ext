@@ -52,7 +52,7 @@ static void expect(uint64_t h, const char *op, const char *in, const char *conta
 typedef struct {
   uint64_t host;
   volatile int stop, deny_authorize;
-  int verify, authorize, progress, reverse_authorize, reverse;
+  int verify, authorize, progress, reverse_authorize, reverse, tagged;
 } answerer;
 
 static uint64_t ticket_after(const char *p) { return strtoull(p, NULL, 10); }
@@ -81,8 +81,13 @@ static void *answer_events(void *arg) {
         a->reverse_authorize++, body = "\"allow\":true";
       else if (!strncmp(kind, "reverse\"", 8))
         a->reverse++, body = "\"payload\":{\"signed\":true}";
-      else if (!strncmp(kind, "progress\"", 9))
+      else if (!strncmp(kind, "progress\"", 9)) {
         a->progress++;
+        const char *end = strstr(p + 1, "{\"seq\":");
+        const char *tag = strstr(p, "\"tag\":\"call-1\"");
+        if (tag && (!end || tag < end))
+          a->tagged++;
+      }
       if (body) {
         int w = snprintf(reply, sizeof reply, "{\"ticket\":%llu,%s}", (unsigned long long)ticket, body);
         char *out = NULL;
@@ -153,8 +158,12 @@ static void hosts(void) {
   ext_plugin_free(call(r.host, "start", "{\"timeout_ms\":5000}", EXT_PLUGIN_OK));
   expect(r.host, "call",
          "{\"call\":{\"contract\":{\"name\":\"reverse.test\",\"version\":\"v1\"},\"operation\":\"run\","
-         "\"payload\":{}},\"progress\":{},\"timeout_ms\":5000}",
+         "\"payload\":{}},\"tag\":\"call-1\",\"progress\":{},\"timeout_ms\":5000}",
          "\"signed\":true");
+  ext_plugin_free(call(r.host, "call",
+                       "{\"call\":{\"contract\":{\"name\":\"reverse.test\",\"version\":\"v1\"},\"operation\":\"run\","
+                       "\"payload\":{}},\"tag\":\"not a tag\",\"progress\":{},\"timeout_ms\":5000}",
+                       EXT_PLUGIN_INVALID));
   /* The call queued two progress events and two reverse events, each with its own seq. */
   char *seq = call(r.host, "sequence", NULL, EXT_PLUGIN_OK);
   CHECK(seq && strtoull(seq, NULL, 10) >= 4, "sequence after the call: %s", seq ? seq : "(null)");
@@ -164,7 +173,7 @@ static void hosts(void) {
   pthread_join(t, NULL);
   CHECK(r.reverse_authorize == 1 && r.reverse == 1, "reverse asked: authorize %d, handle %d", r.reverse_authorize,
         r.reverse);
-  CHECK(r.progress == 2, "progress events: %d", r.progress);
+  CHECK(r.progress == 2 && r.tagged == 2, "progress events: %d, tagged %d", r.progress, r.tagged);
   /* A descriptor that does not meet the host's requirements is refused before anything starts. */
   snprintf(config, sizeof config,
            "{\"object\":\"host\",\"descriptor\":%s,\"backend\":{\"kind\":\"shared_library\",\"path\":\"%s\"},"
@@ -206,6 +215,19 @@ int main(int argc, char **argv) {
   ext_plugin_free(call(0, "descriptor.match", "{}", EXT_PLUGIN_INVALID));
   ext_plugin_free(call(0, "no.such.service", "{}", EXT_PLUGIN_UNSUPPORTED));
   expect(0, "code_name", "{\"code\":10}", "\"not_found\"");
+  /* describe serves interface.json as it is. */
+  FILE *f = fopen(EXT_INTERFACE_JSON, "rb");
+  CHECK(f != NULL, "open %s", EXT_INTERFACE_JSON);
+  if (f) {
+    static char file[1 << 17];
+    size_t fn = fread(file, 1, sizeof file, f);
+    fclose(f);
+    char *described = NULL;
+    size_t dn = 0;
+    CHECK(ext_plugin_call(0, "describe", NULL, 0, &described, &dn) == EXT_PLUGIN_OK, "describe");
+    CHECK(described && dn == fn && !memcmp(described, file, fn), "describe is not interface.json (%zu and %zu bytes)", dn, fn);
+    ext_plugin_free(described);
+  }
   make_dir(root);
   snprintf(in, sizeof in, "{\"root\":\"%s\"}", root);
   char *digest = call(0, "directory_digest", in, EXT_PLUGIN_OK);

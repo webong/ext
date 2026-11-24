@@ -147,8 +147,7 @@ func OpenProcess(ctx context.Context, c Library, d engine.Descriptor, launch Lau
 	return s, nil
 }
 
-// Session is a session behind a host handle of the library interface. Progress events do not say
-// which call they belong to, so it runs one call with progress at a time.
+// Session is a session behind a host handle of the library interface.
 type Session struct {
 	c          Library
 	handle     uint64
@@ -157,12 +156,9 @@ type Session struct {
 	base       context.Context
 	events     *Events
 
-	// progress allows one call with progress at a time: the engine's progress events do not say
-	// which call they belong to.
-	progress sync.Mutex
-
 	mu         sync.Mutex
-	onProgress func(engine.Progress)
+	tags       uint64
+	onProgress map[string]func(engine.Progress) // the calls with progress in flight, by tag
 	verifyErr  error
 
 	closeOnce sync.Once
@@ -180,7 +176,7 @@ func (s *Session) notify(e Event) {
 			return
 		}
 		s.mu.Lock()
-		f := s.onProgress
+		f := s.onProgress[e.Tag]
 		s.mu.Unlock()
 		if f != nil {
 			f(p)
@@ -305,7 +301,7 @@ func (s *Session) CallProgress(ctx context.Context, contract engine.ContractRef,
 	return s.call(ctx, contract, operation, payload, onProgress, o.Progress)
 }
 
-// call runs one call. With onProgress, it holds the session's one progress slot. With onProgress or
+// call runs one call. With onProgress, the call is tagged and its progress events go to it. With onProgress or
 // an observer, it returns only once every event queued before the call ended has been delivered, so
 // both run before the call returns, as in every other engine. A context that ends first returns at
 // once; the engine finishes the call on its own and its result is dropped.
@@ -320,6 +316,21 @@ func (s *Session) call(ctx context.Context, contract engine.ContractRef, operati
 	input := map[string]any{"call": call, "timeout_ms": callTimeout(ctx, s.options.Timeout)}
 	if onProgress != nil {
 		input["progress"] = map[string]any{"events_per_second": limits.EventsPerSecond, "bytes_per_second": limits.BytesPerSecond}
+		s.mu.Lock()
+		s.tags++
+		tag := fmt.Sprintf("call-%d", s.tags)
+		if s.onProgress == nil {
+			s.onProgress = map[string]func(engine.Progress){}
+		}
+		s.onProgress[tag] = onProgress
+		s.mu.Unlock()
+		input["tag"] = tag
+		defer func() {
+			// The call's events are delivered before it returns; after that nothing reaches onProgress.
+			s.mu.Lock()
+			delete(s.onProgress, tag)
+			s.mu.Unlock()
+		}()
 	}
 	raw, err := json.Marshal(input)
 	if err != nil {
@@ -331,12 +342,6 @@ func (s *Session) call(ctx context.Context, contract engine.ContractRef, operati
 	}
 	finished := make(chan result, 1)
 	go func() {
-		if onProgress != nil {
-			s.progress.Lock()
-			defer s.progress.Unlock()
-			s.setProgress(onProgress)
-			defer s.setProgress(nil)
-		}
 		out, err := s.c.Call(s.handle, "call", raw)
 		if onProgress != nil || s.options.Observer != nil {
 			s.events.Fence()
@@ -360,12 +365,6 @@ func (s *Session) call(ctx context.Context, contract engine.ContractRef, operati
 		return nil, response.Error
 	}
 	return response.Payload, nil
-}
-
-func (s *Session) setProgress(f func(engine.Progress)) {
-	s.mu.Lock()
-	s.onProgress = f
-	s.mu.Unlock()
 }
 
 // Close drains the session and frees it.

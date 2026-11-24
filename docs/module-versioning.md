@@ -102,6 +102,7 @@ The .NET code ships as two packages, through `.github/workflows/release.yml`, bo
 `--latest=false`. `ext-windows-vX.Y.Z` (package `ext-windows`) is the Windows platform package, the
 counterpart of `ext-ios` and `ext-android`: the NuGet packages `Ext.Audio.Windows`
 (`res/system/capture/audio/windows`), `Ext.Clipboard.Windows` (`res/system/capture/clipboard/windows`),
+`Ext.System.Windows` (`res/system/capture/surface/windows`),
 `Ext.Web.Windows` (`res/web/windows`) and `Ext.ML.Windows` (`res/int/model/windows`), at one version, built,
 tested and packed on Windows. `ext-dotnet-vX.Y.Z` (package `ext-dotnet`) is the .NET language package, the
 counterpart of `ext-rust`, `ext-ts` and `ext-python`: the guest SDK `ExtIO` (`pkg/ext-dotnet/ExtIO`) and the

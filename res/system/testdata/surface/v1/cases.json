@@ -1,4 +1,10 @@
 {
+  "windowsControl": {
+    "pid": 101,
+    "processStartId": "1001",
+    "handle": "42",
+    "windowId": "window:78e6286a001a28598ac34a7c"
+  },
   "version": 1,
   "area": "surface",
   "about": "The observation of the local desktop in its wire form (the JSON every binding exchanges): a surface, permission or accessibility case gives one snapshot object and whether it is valid; a binding decodes it into its own model and validates it, and a snapshot that does not decode (a field of the wrong type) is invalid too. An options case builds the limits (a zero is invalid; the defaults come from the binding's default constructor) and reports invalid or accepts them. Permission states are ready, denied, not-determined, not-required, unsupported and unavailable, and the reason rules of capability/v1 apply to unsupported and unavailable. Timestamps are RFC 3339. A display or window scale of 0 is written by leaving scale out.",

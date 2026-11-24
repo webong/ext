@@ -39,17 +39,47 @@ public final class AttachedWebView {
                 runAt: future ? ["document-start"] : [], worlds: future ? ["page"] : []))
     }
 
+    /// The exact v1 profiles this controller supports for future documents.
+    public var userscriptProfiles: [WebViewUserscripts.Profile] {
+        guard scriptCapabilities.futureDocuments.supported else { return [] }
+        return [.documentStart, .documentEnd].flatMap { timing in
+            [.main, .all].map { frames in WebViewUserscripts.Profile(timing: timing, frames: frames) }
+        }
+    }
+
     /// Replaces this attachment's registrations for future documents. Host
     /// scripts and message handlers retain their identities and relative order.
     public func replaceUserscripts(_ records: [UserscriptRecord]) throws {
-        let view = try requireView()
+        _ = try requireView()
         let sources = try WorkspaceScripts.prepare(records, target: target)
-        if sources.isEmpty && scripts.isEmpty { return }
+        try replaceScripts(sources.map { WKUserScript(source: $0, injectionTime: .atDocumentStart, forMainFrameOnly: false) })
+    }
+
+    /// Replaces this attachment's future scripts with reviewed v1 records.
+    public func replaceProfiledUserscripts(_ records: [UserscriptRecord]) throws {
+        _ = try requireView()
+        let registrations = try WebViewUserscripts.prepare(records, target: target, supported: userscriptProfiles)
+        let next = try registrations.map { registration in
+            let timing: WKUserScriptInjectionTime
+            switch registration.profile.timing {
+            case .documentStart: timing = .atDocumentStart
+            case .documentEnd: timing = .atDocumentEnd
+            case .documentIdle: throw AttachmentError.documentStartUnavailable
+            }
+            return WKUserScript(source: registration.source, injectionTime: timing,
+                                forMainFrameOnly: registration.profile.frames == .main)
+        }
+        try replaceScripts(next)
+    }
+
+    private func replaceScripts(_ next: [WKUserScript]) throws {
+        let view = try requireView()
+        if next.isEmpty && scripts.isEmpty { return }
         guard let controller = scriptController, controller === view.configuration.userContentController else {
             throw AttachmentError.documentStartUnavailable
         }
         removeScripts()
-        scripts = sources.map { WKUserScript(source: $0, injectionTime: .atDocumentStart, forMainFrameOnly: false) }
+        scripts = next
         scripts.forEach(controller.addUserScript)
     }
 

@@ -82,6 +82,9 @@ to the host. Current-page source is limited to 1 MiB, with up to 64 concurrent
 evaluations and a 30-second completion deadline. Future scripts use the same
 reviewed document-start profile as `BrowserWorkspace`.
 
+See [profiled scripts](../docs/WORKSPACE_MANAGEMENT.md#profiled-scripts-on-attached-views)
+for the opt-in `userscriptProfiles` and `replaceProfiledUserscripts` API.
+
 `scripts/web-workspace-ios.sh` tests document-start execution, exclusions,
 rejected updates, removal, and closure in real WKWebView on macOS. Sources also
 support iOS 13+. To run the same tests on an already booted iOS simulator:

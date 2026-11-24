@@ -167,6 +167,44 @@ outside the store lock; cancellation can race a callback already dispatched.
 Keep callbacks short and dispatch native work to the appropriate thread. Workspace
 reconciliation reads are synchronous on the UI thread, so use small private stores.
 
+## Profiled scripts on attached views
+
+`AttachedWebView.userscriptProfiles` in Swift and `userscriptProfiles()` in
+Java report exact timing/frame pairs for the selected view. Profiles use the
+page world and provide no privileged GM APIs. Use
+`replaceProfiledUserscripts` for the opt-in `ext.webview-userscript/v1`
+contract. It checks every record and all enabled profiles before mutating
+native registrations. A missing hook returns `unsupported_profile`.
+
+| Native attachment | Supported timing and frames |
+| --- | --- |
+| WebKit with a controller dedicated to the view | Document start or document end, each in the main frame or all frames |
+| Android with JavaScript enabled and AndroidX document-start support | Document start in all frames or main-frame payload only. A guard runs before the payload in subframes. |
+
+Ext's current attachments report no document-idle profile. Android currently
+uses the AndroidX document-start API. Page-load callbacks would give different
+timing, so the attachment reports document-end as unavailable. [WebKit timing](https://developer.apple.com/documentation/webkit/wkuserscriptinjectiontime) · [AndroidX document-start API](https://developer.android.com/reference/androidx/webkit/WebViewCompat)
+
+A v1 record uses the existing `UserscriptRecord` fields and a revision from
+`WebViewUserscripts.revision`. The digest includes a v1 domain, target,
+identity, explicit match lists, and the entire source, including its header.
+The header requires one `@run-at`; `@noframes` selects the main frame.
+When present, `@inject-into` must be `page` and `@grant` must be `none`.
+Changes to scope, timing, or source require a new review revision.
+
+`@match` and `@exclude-match` must agree with the record's matching lists.
+`@include` and `@exclude` accept HTTP(S) URL globs with a literal lowercase
+host and `*` in the path or query. A match pattern or an include glob can
+admit a URL. Any matching exclusion takes priority. Globs compare the
+canonical origin, path, and query without the fragment, and scope checking
+skips URLs over 8,192 UTF-16 code units. Regular expressions, wildcard
+authorities, explicit ports, and fragments in these globs are unsupported.
+
+The host owns review, storage and view selection. The legacy
+`UserscriptStore` and `replaceUserscripts` retain the v1alpha1 format. Use the
+attachment's explicit v1 registration call with records the host has reviewed
+for that profile.
+
 ## Checks
 
 - `go test ./...` in `res/web/host` verifies the baseline record and directory layout.

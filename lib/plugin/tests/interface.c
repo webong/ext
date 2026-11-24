@@ -165,6 +165,19 @@ static void hosts(void) {
   CHECK(r.reverse_authorize == 1 && r.reverse == 1, "reverse asked: authorize %d, handle %d", r.reverse_authorize,
         r.reverse);
   CHECK(r.progress == 2, "progress events: %d", r.progress);
+  /* A descriptor that does not meet the host's requirements is refused before anything starts. */
+  snprintf(config, sizeof config,
+           "{\"object\":\"host\",\"descriptor\":%s,\"backend\":{\"kind\":\"shared_library\",\"path\":\"%s\"},"
+           "\"requirements\":[{\"contract\":{\"name\":\"other.contract\",\"version\":\"v1\"},\"operation\":\"echo\"}],"
+           "\"verify\":\"allow\",\"authorize\":\"allow\"}",
+           conformance, EXT_TEST_GUEST);
+  open_json(config, EXT_PLUGIN_NOT_FOUND);
+  snprintf(config, sizeof config,
+           "{\"object\":\"host\",\"descriptor\":%s,\"backend\":{\"kind\":\"shared_library\",\"path\":\"%s\"},"
+           "\"requirements\":[{\"contract\":{\"name\":\"ext.conformance\",\"version\":\"v1\"},\"operation\":\"echo\"}],"
+           "\"verify\":\"allow\",\"authorize\":\"allow\"}",
+           conformance, EXT_TEST_GUEST);
+  CHECK(ext_plugin_close(open_json(config, EXT_PLUGIN_OK)) == EXT_PLUGIN_OK, "close a host that meets its requirements");
   open_json("{\"object\":\"host\",\"descriptor\":{},\"backend\":{\"kind\":\"process\"},\"verify\":\"allow\","
             "\"authorize\":\"allow\"}",
             EXT_PLUGIN_INVALID);
@@ -192,7 +205,7 @@ int main(int argc, char **argv) {
   expect(0, "protocol.negotiate", "{\"preferred\":[\"a\",\"b\"],\"offered\":[\"b\"]}", "\"b\"");
   ext_plugin_free(call(0, "descriptor.match", "{}", EXT_PLUGIN_INVALID));
   ext_plugin_free(call(0, "no.such.service", "{}", EXT_PLUGIN_UNSUPPORTED));
-  expect(0, "code_name", "{\"code\":10}", "\"not found\"");
+  expect(0, "code_name", "{\"code\":10}", "\"not_found\"");
   make_dir(root);
   snprintf(in, sizeof in, "{\"root\":\"%s\"}", root);
   char *digest = call(0, "directory_digest", in, EXT_PLUGIN_OK);

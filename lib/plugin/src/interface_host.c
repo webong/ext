@@ -262,6 +262,27 @@ ext_plugin_status ext_interface_host_open(yyjson_val *config, ext_interface_host
     goto fail;
   if (!h->event_timeout_ms)
     h->event_timeout_ms = 30000;
+  yyjson_val *requirements = yyjson_obj_get(config, "requirements");
+  if (requirements) {
+    size_t rn = 0;
+    char *r = written(requirements, &rn);
+    char *check = r ? malloc(descriptor_len + rn + 48) : NULL;
+    if (!check) {
+      free(r);
+      s = EXT_PLUGIN_NOMEM;
+      goto fail;
+    }
+    int w = snprintf(check, descriptor_len + rn + 48, "{\"descriptor\":%.*s,\"requirements\":%.*s}",
+                     (int)descriptor_len, descriptor, (int)rn, r);
+    ext_plugin_buffer b = {0};
+    s = ext_plugin_services_call("descriptor.requirements", (const uint8_t *)check, (size_t)w, &b);
+    ext_plugin_buffer_free(&b);
+    free(check);
+    free(r);
+    if (s)
+      goto fail;
+    s = EXT_PLUGIN_INVALID;
+  }
   ext_plugin_host_options options = {EXT_PLUGIN_HOST_ABI_VERSION, sizeof options, (const uint8_t *)descriptor,
                                      descriptor_len, verify_cb, authorize_cb, h};
   if (!strcmp(kind, "process")) {

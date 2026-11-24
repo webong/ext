@@ -14,53 +14,40 @@ import (
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/endpoint"
 )
 
-// This file is the Go host over lib/plugin's library interface: ext_plugin_open, _call and _close
-// (lib/plugin/include/ext_plugin_host.h). It needs nothing else from the C engine, and no way for C
-// to call Go: a host's callbacks (the policies, the observer, progress and reverse calls) are events
-// a goroutine takes with "events" and answers with "answer". Whatever provides the four functions
-// (purego now) runs a session through it.
+// This file is the Go binding of lib/plugin's library interface (ext_plugin_open, _call and _close;
+// lib/plugin/include/ext_plugin_host.h). The rules are the C engine's: the binding only turns Go
+// values into the interface's JSON and back, and a Go policy, observer or reverse handler into the
+// answer to an event, through cengine/library.ServeEvents.
 
-// calls is the library interface of ext_plugin, however a driver reaches it.
+// calls is lib/plugin's library interface, however a driver reaches it.
 type calls interface {
+	library.Caller
 	Open(config []byte) (uint64, error)
-	Call(handle uint64, op string, input []byte) ([]byte, error)
 	Close(handle uint64) error
 }
 
-// The status codes of lib/plugin (ext_plugin_status), in the order of their enum.
-var statusErrors = map[int32]error{
-	1: engine.ErrInvalid, 2: engine.ErrDenied, 3: engine.ErrMismatch, 4: engine.ErrUnsupported,
-	5: engine.ErrClosed, 6: context.DeadlineExceeded, 9: engine.ErrDraining, 10: engine.ErrNotFound,
-	11: engine.ErrAmbiguous, 12: context.Canceled, 16: engine.ErrProtocol, 17: endpoint.ErrExpired,
+// codeErrors are the engine errors lib/plugin's code names stand for.
+var codeErrors = map[string]error{
+	"invalid": engine.ErrInvalid, "denied": engine.ErrDenied, "mismatch": engine.ErrMismatch,
+	"unsupported": engine.ErrUnsupported, "closed": engine.ErrClosed, "timeout": context.DeadlineExceeded,
+	"draining": engine.ErrDraining, "not_found": engine.ErrNotFound, "ambiguous": engine.ErrAmbiguous,
+	"canceled": context.Canceled, "protocol": engine.ErrProtocol, "expired": endpoint.ErrExpired,
 }
-
-const (
-	statusClosed   = 5
-	statusNotFound = 10
-)
 
 // engineError gives a code the library returned the engine error it stands for.
 func engineError(err error) error {
-	var code *library.CodeError
-	if errors.As(err, &code) {
-		if sentinel, ok := statusErrors[code.Code]; ok {
-			return fmt.Errorf("%s: %w", code.Error(), sentinel)
-		}
+	if name := codeName(err); codeErrors[name] != nil {
+		return fmt.Errorf("%w: %w", err, codeErrors[name])
 	}
 	return err
 }
 
-func hasCode(err error, codes ...int32) bool {
+func codeName(err error) string {
 	var code *library.CodeError
-	if !errors.As(err, &code) {
-		return false
+	if errors.As(err, &code) {
+		return code.Name
 	}
-	for _, c := range codes {
-		if code.Code == c {
-			return true
-		}
-	}
-	return false
+	return ""
 }
 
 // interfaceServices runs one of the engine's pure services on handle 0.
@@ -75,20 +62,8 @@ func interfaceServices(c calls, operation string, input json.RawMessage) (json.R
 	return out, nil
 }
 
-// milliseconds is d in whole milliseconds for the interface: at least 1, at most MaxUint32.
-func milliseconds(d time.Duration) uint64 {
-	ms := d.Milliseconds()
-	if ms < 1 {
-		return 1
-	}
-	if ms > math.MaxUint32 {
-		return math.MaxUint32
-	}
-	return uint64(ms)
-}
-
-// callTimeout bounds a call by the earlier of the context's deadline and the session's timeout
-// (DefaultTimeout when zero).
+// callTimeout is the earlier of the context's deadline and timeout (DefaultTimeout when zero), in
+// whole milliseconds, at least 1.
 func callTimeout(ctx context.Context, timeout time.Duration) uint64 {
 	if timeout <= 0 {
 		timeout = engine.DefaultTimeout
@@ -96,34 +71,25 @@ func callTimeout(ctx context.Context, timeout time.Duration) uint64 {
 	if until, ok := ctx.Deadline(); ok && time.Until(until) < timeout {
 		timeout = time.Until(until)
 	}
-	return milliseconds(timeout)
+	return uint64(min(max(timeout.Milliseconds(), 1), math.MaxUint32))
 }
 
-func validReverse(o *engine.ReverseOptions) error {
-	if o.Handle == nil || o.Authorize == nil {
-		return engine.ErrDenied
-	}
-	if o.Timeout < 0 || o.MaxPayloadBytes < 0 || o.MaxPayloadBytes > engine.MaxFrameBytes || o.MaxInFlight < 0 || o.MaxInFlight > 1024 {
-		return engine.ErrInvalid
-	}
-	return nil
-}
-
-// openInterfaceSession admits d over a child process the engine starts, through c.
+// openInterfaceSession admits d over a child process the engine starts, through c. A nil Go policy
+// is a denial; everything else the engine checks.
 func openInterfaceSession(ctx context.Context, name Name, c calls, d engine.Descriptor, launch Launch, options engine.Options) (Session, error) {
-	if options.Verify == nil || options.Authorize == nil {
+	if options.Verify == nil || options.Authorize == nil || (options.Reverse != nil && (options.Reverse.Handle == nil || options.Reverse.Authorize == nil)) {
 		return nil, engine.ErrDenied
 	}
-	if options.Timeout < 0 || options.Timeout/time.Millisecond > math.MaxUint32 || launch.StderrBytes < 0 {
+	if options.Timeout < 0 || (options.Reverse != nil && options.Reverse.Timeout < 0) {
 		return nil, engine.ErrInvalid
-	}
-	if options.Reverse != nil {
-		if err := validReverse(options.Reverse); err != nil {
-			return nil, err
-		}
 	}
 	if err := ctx.Err(); err != nil {
 		return nil, err
+	}
+	backend := map[string]any{"kind": "process", "executable": launch.Executable, "arguments": append([]string{}, launch.Arguments...),
+		"environment": append([]string{}, launch.Environment...), "stderr_bytes": launch.StderrBytes}
+	if launch.Directory != "" {
+		backend["working_directory"] = launch.Directory
 	}
 	requirements := make([]map[string]any, 0, len(options.Requirements))
 	for _, r := range options.Requirements {
@@ -133,41 +99,14 @@ func openInterfaceSession(ctx context.Context, name Name, c calls, d engine.Desc
 		}
 		requirements = append(requirements, value)
 	}
-	check, err := json.Marshal(map[string]any{"descriptor": d, "requirements": requirements})
-	if err != nil {
-		return nil, err
-	}
-	if _, err := interfaceServices(c, "descriptor.requirements", check); err != nil {
-		return nil, err
-	}
-
-	backend := map[string]any{"kind": "process", "executable": launch.Executable}
-	if len(launch.Arguments) > 0 {
-		backend["arguments"] = launch.Arguments
-	}
-	if len(launch.Environment) > 0 {
-		backend["environment"] = launch.Environment
-	}
-	if launch.Directory != "" {
-		backend["working_directory"] = launch.Directory
-	}
-	if launch.StderrBytes > 0 {
-		backend["stderr_bytes"] = launch.StderrBytes
-	}
 	config := map[string]any{
-		"object": "host", "descriptor": d, "backend": backend,
+		"object": "host", "descriptor": d, "backend": backend, "requirements": requirements,
 		"verify": "event", "authorize": "event", "observe": options.Observer != nil,
 	}
 	if r := options.Reverse; r != nil {
-		services := map[string]any{}
+		services := map[string]any{"max_payload_bytes": r.MaxPayloadBytes, "max_in_flight": r.MaxInFlight}
 		if r.Timeout > 0 {
-			services["timeout_ms"] = milliseconds(r.Timeout)
-		}
-		if r.MaxPayloadBytes > 0 {
-			services["max_payload_bytes"] = r.MaxPayloadBytes
-		}
-		if r.MaxInFlight > 0 {
-			services["max_in_flight"] = r.MaxInFlight
+			services["timeout_ms"] = callTimeout(context.Background(), r.Timeout)
 		}
 		config["services"] = services
 	}
@@ -179,23 +118,20 @@ func openInterfaceSession(ctx context.Context, name Name, c calls, d engine.Desc
 	if err != nil {
 		return nil, engineError(err)
 	}
-	s := &interfaceSession{
-		name: name, c: c, handle: handle, descriptor: d.Clone(), options: options,
-		base: context.WithoutCancel(ctx), done: make(chan struct{}), loopDone: make(chan struct{}),
-	}
-	s.handled.L = &s.mu
-	go s.loop()
+	s := &interfaceSession{name: name, c: c, handle: handle, descriptor: d.Clone(), options: options,
+		base: context.WithoutCancel(ctx), done: make(chan struct{})}
+	s.events = library.ServeEvents(c, handle, s.answer, s.notify)
 	start, _ := json.Marshal(map[string]any{"timeout_ms": callTimeout(ctx, options.Timeout)})
 	_, err = c.Call(handle, "start", start)
 	if options.Observer != nil {
-		s.fence()
+		s.events.Fence()
 	}
 	if err != nil {
 		s.mu.Lock()
 		verifyErr := s.verifyErr
 		s.mu.Unlock()
 		_ = s.Abort()
-		if verifyErr != nil && hasCode(err, 2) {
+		if verifyErr != nil && codeName(err) == "denied" {
 			return nil, verifyErr
 		}
 		return nil, engineError(err)
@@ -211,136 +147,60 @@ type interfaceSession struct {
 	descriptor engine.Descriptor
 	options    engine.Options
 	base       context.Context
+	events     *library.Events
 
 	// progress allows one call with progress at a time: the engine's progress events do not say
 	// which call they belong to.
 	progress sync.Mutex
 
 	mu         sync.Mutex
-	handled    sync.Cond // signalled when seen grows
-	seen       uint64    // the seq of the last event the loop has handled
 	onProgress func(engine.Progress)
 	verifyErr  error
 
 	closeOnce sync.Once
 	closeErr  error
 	done      chan struct{}
-	loopDone  chan struct{}
 }
 
-type hostEvent struct {
-	Seq    uint64          `json:"seq"`
-	Ticket uint64          `json:"ticket"`
-	Kind   string          `json:"kind"`
-	Data   json.RawMessage `json:"data"`
-}
-
-// loop takes the host's events until the host is closed. Events that ask are answered on their
-// own goroutines, so a slow policy holds up nothing else; progress and observer events are
-// delivered here, in order.
-func (s *interfaceSession) loop() {
-	defer func() {
-		s.mu.Lock()
-		s.seen = math.MaxUint64
-		s.handled.Broadcast()
-		s.mu.Unlock()
-		close(s.loopDone)
-	}()
-	for {
-		out, err := s.c.Call(s.handle, "events", []byte(`{"timeout_ms":250,"max":64}`))
-		if err != nil {
-			if hasCode(err, statusClosed, statusNotFound) {
-				return
-			}
-			time.Sleep(10 * time.Millisecond)
-			continue
-		}
-		var events []hostEvent
-		if err := json.Unmarshal(out, &events); err != nil {
-			continue
-		}
-		for _, e := range events {
-			switch e.Kind {
-			case "verify", "authorize", "reverse_authorize", "reverse":
-				go s.answer(e)
-			case "progress":
-				s.deliverProgress(e.Data)
-			case "observe":
-				s.observe(e.Data)
-			}
-			if e.Seq != 0 {
-				s.mu.Lock()
-				if e.Seq > s.seen {
-					s.seen = e.Seq
-				}
-				s.handled.Broadcast()
-				s.mu.Unlock()
-			}
-		}
-	}
-}
-
-func (s *interfaceSession) deliverProgress(data json.RawMessage) {
-	var p engine.Progress
-	if engine.Decode(data, &p) != nil {
-		return
-	}
-	s.mu.Lock()
-	f := s.onProgress
-	s.mu.Unlock()
-	if f != nil {
-		func() {
-			defer func() { _ = recover() }()
-			f(p)
-		}()
-	}
-}
-
-func (s *interfaceSession) observe(data json.RawMessage) {
-	if s.options.Observer == nil {
-		return
-	}
-	var e struct {
-		Stage     string             `json:"stage"`
-		Identity  engine.Identity    `json:"identity"`
-		Contract  engine.ContractRef `json:"contract"`
-		Operation string             `json:"operation"`
-		RequestID string             `json:"requestID"`
-		Code      string             `json:"code"`
-		Duration  int64              `json:"durationMilliseconds"`
-	}
-	if engine.Decode(data, &e) != nil {
-		return
-	}
-	defer func() { _ = recover() }()
-	s.options.Observer(s.base, engine.Event{
-		Stage: e.Stage, Identity: e.Identity, Contract: e.Contract, Operation: e.Operation,
-		RequestID: e.RequestID, Code: e.Code, Duration: time.Duration(e.Duration) * time.Millisecond,
-	})
-}
-
-// requestContext is the context a policy or a reverse handler runs in: the session's, bounded by the
-// request's deadline.
-func (s *interfaceSession) requestContext(r engine.Request) (context.Context, context.CancelFunc) {
-	if r.Deadline.IsZero() {
-		return context.WithTimeout(s.base, engine.DefaultTimeout)
-	}
-	return context.WithDeadline(s.base, r.Deadline)
-}
-
-// answer answers an event that asks. A policy that fails, or panics, denies.
-func (s *interfaceSession) answer(e hostEvent) {
-	reply := map[string]any{"ticket": e.Ticket, "allow": false}
-	defer func() {
-		_ = recover()
-		raw, err := json.Marshal(reply)
-		if err == nil {
-			// The engine may have stopped waiting (a timeout, a closed host): nothing to do then.
-			_, _ = s.c.Call(s.handle, "answer", raw)
-		}
-	}()
+// notify delivers the events that ask nothing: progress to the call in flight, observer events to
+// the observer.
+func (s *interfaceSession) notify(e library.Event) {
 	switch e.Kind {
-	case "verify":
+	case "progress":
+		var p engine.Progress
+		if engine.Decode(e.Data, &p) != nil {
+			return
+		}
+		s.mu.Lock()
+		f := s.onProgress
+		s.mu.Unlock()
+		if f != nil {
+			f(p)
+		}
+	case "observe":
+		if s.options.Observer == nil {
+			return
+		}
+		var o struct {
+			Stage     string             `json:"stage"`
+			Identity  engine.Identity    `json:"identity"`
+			Contract  engine.ContractRef `json:"contract"`
+			Operation string             `json:"operation"`
+			RequestID string             `json:"requestID"`
+			Code      string             `json:"code"`
+			Duration  int64              `json:"durationMilliseconds"`
+		}
+		if engine.Decode(e.Data, &o) != nil {
+			return
+		}
+		s.options.Observer(s.base, engine.Event{Stage: o.Stage, Identity: o.Identity, Contract: o.Contract,
+			Operation: o.Operation, RequestID: o.RequestID, Code: o.Code, Duration: time.Duration(o.Duration) * time.Millisecond})
+	}
+}
+
+// answer answers an event that asks with the Go policy or handler for it; nil is a denial.
+func (s *interfaceSession) answer(e library.Event) map[string]any {
+	if e.Kind == "verify" {
 		var d engine.Descriptor
 		err := engine.Decode(e.Data, &d)
 		if err == nil {
@@ -349,39 +209,38 @@ func (s *interfaceSession) answer(e hostEvent) {
 		s.mu.Lock()
 		s.verifyErr = err
 		s.mu.Unlock()
-		reply["allow"] = err == nil
-	case "authorize", "reverse_authorize", "reverse":
-		var r engine.Request
-		if engine.Decode(e.Data, &r) != nil {
-			return
-		}
-		ctx, cancel := s.requestContext(r)
-		defer cancel()
-		switch e.Kind {
-		case "authorize":
-			reply["allow"] = s.options.Authorize(ctx, r.Clone()) == nil
-		case "reverse_authorize":
-			reply["allow"] = s.options.Reverse != nil && s.options.Reverse.Authorize(ctx, r.Clone()) == nil
-		case "reverse":
-			delete(reply, "allow")
-			reply["error"] = &engine.RemoteError{Code: "operation_failed", Message: "the host's handler failed"}
-			if s.options.Reverse == nil {
-				return
-			}
-			payload, err := s.options.Reverse.Handle(ctx, r.Clone())
-			var remote *engine.RemoteError
-			switch {
-			case err == nil:
-				if len(payload) == 0 {
-					payload = json.RawMessage("null")
-				}
-				delete(reply, "error")
-				reply["payload"] = payload
-			case errors.As(err, &remote) && remote != nil:
-				reply["error"] = remote
-			}
-		}
+		return map[string]any{"allow": err == nil}
 	}
+	var r engine.Request
+	if engine.Decode(e.Data, &r) != nil {
+		return nil
+	}
+	// A policy or reverse handler runs in the session's context, bounded by the request's deadline.
+	ctx, cancel := context.WithDeadline(s.base, r.Deadline)
+	defer cancel()
+	switch e.Kind {
+	case "authorize":
+		return map[string]any{"allow": s.options.Authorize(ctx, r.Clone()) == nil}
+	case "reverse_authorize":
+		return map[string]any{"allow": s.options.Reverse != nil && s.options.Reverse.Authorize(ctx, r.Clone()) == nil}
+	case "reverse":
+		if s.options.Reverse == nil {
+			return nil
+		}
+		payload, err := s.options.Reverse.Handle(ctx, r.Clone())
+		var remote *engine.RemoteError
+		switch {
+		case err == nil:
+			if len(payload) == 0 {
+				payload = json.RawMessage("null")
+			}
+			return map[string]any{"payload": payload}
+		case errors.As(err, &remote) && remote != nil:
+			return map[string]any{"error": remote}
+		}
+		return map[string]any{"error": &engine.RemoteError{Code: "operation_failed", Message: "the host's handler failed"}}
+	}
+	return nil
 }
 
 func (s *interfaceSession) Engine() Name                  { return s.name }
@@ -394,9 +253,7 @@ func (s *interfaceSession) State() engine.State {
 		return engine.StateClosed
 	}
 	var state string
-	if json.Unmarshal(out, &state) != nil {
-		return engine.StateFailed
-	}
+	_ = json.Unmarshal(out, &state)
 	switch state {
 	case "created", "ready":
 		return engine.StateReady
@@ -434,29 +291,20 @@ func (s *interfaceSession) CallProgress(ctx context.Context, contract engine.Con
 }
 
 // call runs one call. With onProgress, it holds the session's one progress slot. With onProgress or
-// an observer, it returns only once the loop has delivered every event queued before the call
-// ended, so both run before the call returns, as in every other engine. A context that ends first
-// returns at once; the engine finishes the call on its own and its result is dropped.
+// an observer, it returns only once every event queued before the call ended has been delivered, so
+// both run before the call returns, as in every other engine. A context that ends first returns at
+// once; the engine finishes the call on its own and its result is dropped.
 func (s *interfaceSession) call(ctx context.Context, contract engine.ContractRef, operation string, payload json.RawMessage, onProgress func(engine.Progress), limits engine.ProgressLimits) (json.RawMessage, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	input := map[string]any{
-		"call":       map[string]any{"contract": contract, "operation": operation},
-		"timeout_ms": callTimeout(ctx, s.options.Timeout),
-	}
+	call := map[string]any{"contract": contract, "operation": operation}
 	if len(payload) > 0 {
-		input["call"].(map[string]any)["payload"] = payload
+		call["payload"] = payload
 	}
+	input := map[string]any{"call": call, "timeout_ms": callTimeout(ctx, s.options.Timeout)}
 	if onProgress != nil {
-		progress := map[string]any{}
-		if limits.EventsPerSecond > 0 {
-			progress["events_per_second"] = limits.EventsPerSecond
-		}
-		if limits.BytesPerSecond > 0 {
-			progress["bytes_per_second"] = limits.BytesPerSecond
-		}
-		input["progress"] = progress
+		input["progress"] = map[string]any{"events_per_second": limits.EventsPerSecond, "bytes_per_second": limits.BytesPerSecond}
 	}
 	raw, err := json.Marshal(input)
 	if err != nil {
@@ -471,18 +319,12 @@ func (s *interfaceSession) call(ctx context.Context, contract engine.ContractRef
 		if onProgress != nil {
 			s.progress.Lock()
 			defer s.progress.Unlock()
-			s.mu.Lock()
-			s.onProgress = onProgress
-			s.mu.Unlock()
-			defer func() {
-				s.mu.Lock()
-				s.onProgress = nil
-				s.mu.Unlock()
-			}()
+			s.setProgress(onProgress)
+			defer s.setProgress(nil)
 		}
 		out, err := s.c.Call(s.handle, "call", raw)
 		if onProgress != nil || s.options.Observer != nil {
-			s.fence()
+			s.events.Fence()
 		}
 		finished <- result{out, err}
 	}()
@@ -505,20 +347,9 @@ func (s *interfaceSession) call(ctx context.Context, contract engine.ContractRef
 	return response.Payload, nil
 }
 
-// fence waits until the loop has handled every event the host had queued when it is called.
-func (s *interfaceSession) fence() {
-	out, err := s.c.Call(s.handle, "sequence", nil)
-	if err != nil {
-		return
-	}
-	var last uint64
-	if json.Unmarshal(out, &last) != nil {
-		return
-	}
+func (s *interfaceSession) setProgress(f func(engine.Progress)) {
 	s.mu.Lock()
-	for s.seen < last {
-		s.handled.Wait()
-	}
+	s.onProgress = f
 	s.mu.Unlock()
 }
 
@@ -530,9 +361,9 @@ func (s *interfaceSession) Close(ctx context.Context) error {
 		drain, _ := json.Marshal(map[string]any{"timeout_ms": callTimeout(ctx, s.options.Timeout)})
 		_, err := s.c.Call(s.handle, "drain", drain)
 		if s.options.Observer != nil {
-			s.fence()
+			s.events.Fence()
 		}
-		if err != nil && !hasCode(err, statusClosed, statusNotFound) {
+		if name := codeName(err); err != nil && name != "closed" && name != "not_found" {
 			return engineError(err)
 		}
 	}
@@ -541,10 +372,10 @@ func (s *interfaceSession) Close(ctx context.Context) error {
 
 func (s *interfaceSession) Abort() error {
 	s.closeOnce.Do(func() {
-		if err := s.c.Close(s.handle); err != nil && !hasCode(err, statusNotFound) {
+		if err := s.c.Close(s.handle); err != nil && codeName(err) != "not_found" {
 			s.closeErr = engineError(err)
 		}
-		<-s.loopDone
+		<-s.events.Done()
 		close(s.done)
 	})
 	return s.closeErr

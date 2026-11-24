@@ -25,7 +25,7 @@ side comes next, so the host and the guest never meet and no other library of `l
 | `ext_plugin_guest_*` (exports) | [`ext_plugin_guest.h`](include/ext_plugin_guest.h) | the guest ABI a plugin built as a C shared library (or a `.wasm`) exports: `abi_version`, `open`, `call`, `close`, and on wasm `alloc` and `free` |
 | `ext_plugin_guest_*` (functions) | [`ext_plugin_author.h`](include/ext_plugin_author.h) | the C guest authoring API (`create`, `descriptor`, `invoke`, `emit`, ...) |
 | `ext_plugin_instance_*`, `ext_plugin_instances_*`, `ext_plugin_stream_*`, `ext_plugin_streams_*` | [`ext_plugin_instance.h`](include/ext_plugin_instance.h), [`ext_plugin_stream.h`](include/ext_plugin_stream.h) | instance leases and pull streams |
-| `ext_plugin_open`, `ext_plugin_call`, `ext_plugin_close`, `ext_plugin_abi_version`, `ext_plugin_free`, `ext_plugin_code_name` | `ext_plugin_host.h` | the library interface: the engine's objects behind four functions, as every library of `lib/` has |
+| `ext_plugin_open`, `ext_plugin_call`, `ext_plugin_close`, `ext_plugin_abi_version`, `ext_plugin_free`, `ext_plugin_code_name` | `ext_plugin_host.h` | the library interface: the engine's objects behind four functions, as every library of `lib/` has; code names are identifiers (`not_found`), as the ledger's are |
 | `ext_plugin_services_call`, `ext_plugin_sha256` | `ext_plugin_host.h` | the engine's pure services by name on JSON (also handle 0 of the library interface), and its digest |
 | `ext_plugin_buffer`, `ext_plugin_status`, `EXT_PLUGIN_OK` ... | `ext_plugin_host.h` | the shared buffer, status type and status codes |
 

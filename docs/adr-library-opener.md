@@ -150,7 +150,11 @@ there by purego or cgo. `js/wasm` and the architectures purego does not reach ge
    callbacks (policies, progress, the observer, reverse calls) are events the binding polls and answers.
    Done for the plugin engine's Go side too: `pkg/ext-go/plugin` binds `ext_plugin` through
    `cengine/library.BindInterface` as its purego driver, held to the same differential checks as cgo
-   and c2go; each event carries a sequence number, so a call returns once its events are delivered.
+   and c2go. The event loop is `cengine/library.ServeEvents`, which knows no library, and each event
+   carries a sequence number, so a call returns once its events are delivered. The rules stay in C (a
+   host's requirements are part of its config) and the code names are identifiers, as the ledger's
+   are, so the binding goes by name and only converts Go values. The chooser goes once cgo and c2go
+   reach the same interface and register with `cengine`.
 4. The `ext-plugin` release publishes its citation and the ccgo translations; the first release with
    the `ext_plugin_` names (after #211) is the first a citation can name.
 5. `cgoengine` stops carrying `_csrc`: its binding compiles against declarations and links the library

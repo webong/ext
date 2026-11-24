@@ -739,8 +739,10 @@ EXT_PLUGIN_HOST_API ext_plugin_status ext_plugin_services_call(const char *opera
  *   {"object":"layered","roots":["...", ...],"limits":{...}}
  *   {"object":"host","descriptor":{...},"backend":{"kind":"process","executable","arguments":[],
  *    "environment":["NAME=value"],"working_directory","stderr_bytes"} or {"kind":"shared_library","path"},
+ *    "requirements":[{contract, operation, identity}],
  *    "verify":"allow"|"event","authorize":"allow"|"event","observe":false,
  *    "services":{"timeout_ms","max_payload_bytes","max_in_flight"},"event_timeout_ms":30000}
+ * A host whose descriptor does not meet its requirements (descriptor.requirements) is not opened.
  * A host's callbacks are the interface's own: each becomes an event in the host's queue,
  * {"seq","ticket","kind","data"}, which the binding takes with "events" and, for those that ask (ticket
  * not 0), answers with "answer" from another thread than the one waiting in "start" or "call":
@@ -774,7 +776,8 @@ EXT_PLUGIN_HOST_API ext_plugin_status ext_plugin_call(uint64_t handle, const cha
                                                       size_t len, char **out, size_t *out_len);
 EXT_PLUGIN_HOST_API ext_plugin_status ext_plugin_close(uint64_t handle);
 EXT_PLUGIN_HOST_API void ext_plugin_free(void *p);
-/* The name of a status ("invalid", "not found", ...). */
+/* The name of a status as an identifier ("invalid", "not_found", "out_of_memory", ...), the
+ * vocabulary every library of lib/ names its codes in. */
 EXT_PLUGIN_HOST_API const char *ext_plugin_code_name(int32_t code);
 #ifdef __cplusplus
 }

@@ -60,10 +60,12 @@ name; the go engine has none), `Sessions` (`OpenProcess`; c2go has them except o
 never has C call Go), `Progress` and `Reverse` (cgo, purego and go; c2go does not carry them yet). The
 choice is made once, when a session or instance manager is opened.
 
-The purego engine binds only lib/plugin's library interface (`ext_plugin_open`, `_call`, `_close`). A
-host's callbacks are events there: a goroutine per session takes them and answers the policies and
-reverse calls, and a call with progress or an observer returns only once its events are delivered.
-Progress events do not name their call, so a session runs one call with progress at a time.
+The purego engine binds only lib/plugin's library interface (`ext_plugin_open`, `_call`, `_close`),
+and the rules stay the C engine's: the binding turns Go values into the interface's JSON and back.
+A host's callbacks are events there, served by `cengine/library.ServeEvents`, which knows no library:
+the binding answers the policies and reverse calls with the Go functions for them, and a call with
+progress or an observer returns only once its events are delivered. Progress events do not name
+their call, so a session runs one call with progress at a time.
 
 See [module versioning](../../docs/module-versioning.md) for the migration table from the
 earlier import paths.

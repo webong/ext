@@ -171,7 +171,7 @@ there by purego or cgo. `js/wasm` and the architectures purego does not reach ge
    job writes `<library>.citation.json` (`scripts/library-citation.py` over the package's
    `scripts/release/<package>/citation.json`: cgo and purego on Linux and macOS, purego on Windows,
    whose MSVC static library cgo cannot link) and attaches it with `<library>.interface.json`. The
-   ccgo translations are published from `ext-plugin-v0.4.1`: six translate cells make and test each
+   ccgo translations are published from `ext-plugin-v0.4.2` (v0.4.1 failed to package them on Windows): six translate cells make and test each
    platform's, and publish it with its binding as `ext-plugin-X.Y.Z-c2go-<goos>-<goarch>.tar.gz`, an
    asset of its own (a citation picks an asset by target and driver).
 5. Done for cgoengine: it stops carrying `_csrc`; its binding compiles against the headers and links the

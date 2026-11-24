@@ -14,10 +14,12 @@ import io.github.webong.ext.web.SiteException;
 import io.github.webong.ext.web.UserscriptException;
 import io.github.webong.ext.web.UserscriptRecord;
 import io.github.webong.ext.web.WebViewCapabilities;
+import io.github.webong.ext.web.WebViewUserscripts;
 import io.github.webong.ext.web.WorkspaceInput;
 import io.github.webong.ext.web.WorkspaceScripts;
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -78,6 +80,14 @@ public final class AttachedWebView implements AutoCloseable {
             capability(future, "all", "document-start", false));
     }
 
+    /** Exact v1 profiles supported by the installed native hook. */
+    public List<WebViewUserscripts.Profile> userscriptProfiles() {
+        if (!supportsDocumentStartScripts()) return Collections.emptyList();
+        return Collections.unmodifiableList(Arrays.asList(
+            new WebViewUserscripts.Profile(WebViewUserscripts.Timing.DOCUMENT_START, WebViewUserscripts.Frames.MAIN),
+            new WebViewUserscripts.Profile(WebViewUserscripts.Timing.DOCUMENT_START, WebViewUserscripts.Frames.ALL)));
+    }
+
     private static ScriptExecutionCapability capability(boolean supported, String frame, String timing, boolean stale) {
         List<String> empty = Collections.emptyList();
         return new ScriptExecutionCapability(supported,
@@ -88,11 +98,24 @@ public final class AttachedWebView implements AutoCloseable {
 
     /** Replaces this attachment's future-document scripts using native handles. */
     public void replaceUserscripts(List<UserscriptRecord> records) throws UserscriptException {
-        WebView selected = requireView();
+        requireView();
         List<String> sources = WorkspaceScripts.prepare(records, target);
         if (!sources.isEmpty() && !supportsDocumentStartScripts()) {
             throw new UnsupportedOperationException("Document-start scripts require enabled JavaScript and AndroidX WebKit support");
         }
+        replaceSources(sources);
+    }
+
+    /** Replaces this attachment's future scripts with reviewed v1 records. */
+    public void replaceProfiledUserscripts(List<UserscriptRecord> records) throws UserscriptException {
+        List<WebViewUserscripts.Registration> registrations = WebViewUserscripts.prepare(records, target, userscriptProfiles());
+        List<String> sources = new ArrayList<>();
+        for (WebViewUserscripts.Registration registration : registrations) sources.add(registration.source);
+        replaceSources(sources);
+    }
+
+    private void replaceSources(List<String> sources) {
+        WebView selected = requireView();
         List<Object> next = new ArrayList<>();
         try {
             for (String source : sources) next.add(documentStart.add(selected, source));

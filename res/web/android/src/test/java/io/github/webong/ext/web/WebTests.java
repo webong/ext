@@ -571,6 +571,38 @@ public final class WebTests {
         }
     }
 
+    private static WebViewUserscripts.Profile webViewProfile(Object value) {
+        Map<String, Object> profile = map(value);
+        return new WebViewUserscripts.Profile(
+            WebViewUserscripts.Timing.valueOf(str(profile, "timing").replace('-', '_').toUpperCase(java.util.Locale.ROOT)),
+            WebViewUserscripts.Frames.valueOf(str(profile, "frames").toUpperCase(java.util.Locale.ROOT)));
+    }
+
+    private static void webViewProfiles() throws Exception {
+        for (Map<String, Object> fixture : cases(load("userscript/webview-v1/cases.json"), "cases")) {
+            String name = str(fixture, "name");
+            Map<String, Object> raw = map(fixture.get("record"));
+            UserscriptRecord reviewed = fixtureRecord(raw);
+            eq(reviewed.revision, WebViewUserscripts.revision(reviewed), name + " revision");
+            check(!reviewed.revision.equals(Userscript.revision(reviewed)), name + " legacy revision");
+            String source = str(fixture, "changedSource");
+            UserscriptRecord record = new UserscriptRecord(reviewed.target, reviewed.id, reviewed.name,
+                reviewed.revision, reviewed.matches, reviewed.excludeMatches, true, source.isEmpty() ? reviewed.source : source);
+            List<WebViewUserscripts.Profile> supported = new ArrayList<>();
+            for (Object profile : (List<?>) fixture.get("supported")) supported.add(webViewProfile(profile));
+            String error = "";
+            try {
+                List<WebViewUserscripts.Registration> registrations =
+                    WebViewUserscripts.prepare(Collections.singletonList(record), "viewer", supported);
+                eq(1, registrations.size(), name + " registration count");
+                if (fixture.containsKey("profile") && !registrations.isEmpty()) {
+                    eq(webViewProfile(fixture.get("profile")), registrations.get(0).profile, name + " profile");
+                }
+            } catch (UserscriptException rejected) { error = rejected.code(); }
+            eq(str(fixture, "error"), error, name + " error");
+        }
+    }
+
     public static void main(String[] args) {
         test("query fixtures", WebTests::queryFixtures);
         test("extension artifacts", () -> ExtensionArtifactChecks.run(testdata().resolve("extension").toFile(), new java.io.File(System.getProperty("java.io.tmpdir")), (link, target) -> Files.createSymbolicLink(link.toPath(), target.toPath()), WebTests::check));
@@ -583,6 +615,7 @@ public final class WebTests {
             }
         });
         test("workspace scripts", WebTests::workspaceScripts);
+        test("WebView userscript profiles", WebTests::webViewProfiles);
         test("cookie fixtures", WebTests::cookieFixtures);
         test("cookie workflows", CookieWorkflowTests::run);
         test("management protocol", ManagementTests::run);

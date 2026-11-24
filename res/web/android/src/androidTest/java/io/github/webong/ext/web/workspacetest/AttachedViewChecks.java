@@ -5,14 +5,21 @@ import android.graphics.Bitmap;
 import android.os.Build;
 import android.webkit.CookieManager;
 import android.webkit.WebChromeClient;
+import android.webkit.WebResourceRequest;
+import android.webkit.WebResourceResponse;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.LinearLayout;
 import io.github.webong.ext.web.Cookie;
 import io.github.webong.ext.web.CookieBundle;
 import io.github.webong.ext.web.CookieWorkflows;
+import io.github.webong.ext.web.UserscriptException;
 import io.github.webong.ext.web.UserscriptRecord;
+import io.github.webong.ext.web.WebViewUserscripts;
 import io.github.webong.ext.web.android.AttachedWebView;
+import java.io.ByteArrayInputStream;
+import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
@@ -75,22 +82,28 @@ final class AttachedViewChecks {
             attached = new AttachedWebView(selected, "attached", store);
             hostClient.attachment = attached;
             check.accept(attached.supportsDocumentStartScripts() == documentStart, "attached document-start capability");
-            UserscriptRecord record = new UserscriptRecord("attached", "script", "Script", "",
-                Collections.singletonList("https://example.com/*"), Collections.emptyList(), true,
-                "window.extValue = 1;").signed();
+            UserscriptRecord record = profile("script", "document-start", true, 1);
             if (documentStart) {
                 // Install the host's registration independently of Ext.
                 Class.forName("androidx.webkit.WebViewCompat").getMethod("addDocumentStartJavaScript",
                     WebView.class, String.class, java.util.Set.class)
                     .invoke(null, selected, "window.hostValue = 10;", Collections.singleton("*"));
-                attached.replaceUserscripts(Collections.singletonList(record));
+                attached.replaceProfiledUserscripts(Arrays.asList(record,
+                    profile("all-frames", "document-start", false, 2)));
             } else {
                 try {
-                    attached.replaceUserscripts(Collections.singletonList(record));
+                    attached.replaceProfiledUserscripts(Collections.singletonList(record));
                     check.accept(false, "missing document-start denied");
-                } catch (UnsupportedOperationException expected) {
-                    check.accept(true, "missing document-start denied");
+                } catch (UserscriptException expected) {
+                    check.accept(expected.code().equals("unsupported_profile"), "missing document-start denied");
                 }
+            }
+            try {
+                attached.replaceProfiledUserscripts(Arrays.asList(profile("script", "document-start", true, 99),
+                    profile("late", "document-end", false, 100)));
+                check.accept(false, "unsupported document-end batch denied");
+            } catch (UserscriptException expected) {
+                check.accept(expected.code().equals("unsupported_profile"), "unsupported document-end batch denied");
             }
             String site = "https://example.com/attached";
             CookieBundle bundle = CookieWorkflows.bundle(Cookie.builder("ext_attached_test", "fixture", "example.com", "/attached")
@@ -107,10 +120,24 @@ final class AttachedViewChecks {
         }
     }
 
+    private static UserscriptRecord profile(String id, String timing, boolean mainFrame, int value) {
+        UserscriptRecord record = new UserscriptRecord("attached", id, "Script", "",
+            null, null, true, "// ==UserScript==\n// @run-at " + timing
+                + (mainFrame ? "\n// @noframes" : "")
+                + "\n// @include https://example.com/*\n// ==/UserScript==\n"
+                + (mainFrame ? "window.extMainValue" : "window.extAllValue") + " = " + value + ";");
+        return record.withRevision(WebViewUserscripts.revision(record));
+    }
+
+    private static final String START_REPORT =
+        "<script>window.atStart = (window.hostValue || 0) + (window.extMainValue || 0) + (window.extAllValue || 0);</script>";
+
     private void loadSelected() {
         load(selected, hostClient, "/attached", value -> {
-            check.accept((documentStart ? "11" : "0").equals(value),
-                documentStart ? "attached scripts ran before inline code" : "page ran without document-start scripts");
+            check.accept((documentStart ? "13" : "0").equals(value),
+                documentStart ? "approved start profiles survived rejected batch" : "page ran without document-start scripts");
+            selected.evaluateJavascript("window.frames[0].atStart", child -> check.accept(
+                (documentStart ? "12" : "0").equals(child), "child ran only the all-frame profile"));
             int[] completions = {0};
             attached.inject("window.pending = true;", accepted -> {
                 completions[0]++;
@@ -153,7 +180,7 @@ final class AttachedViewChecks {
     private static void load(WebView view, HostClient client, String path, Consumer<String> completed) {
         client.finished = () -> view.evaluateJavascript("window.atStart", completed::accept);
         view.loadDataWithBaseURL("https://example.com" + path,
-            "<script>window.atStart = (window.hostValue || 0) + (window.extValue || 0);</script>",
+            START_REPORT + "<iframe src='https://example.com/child'></iframe>",
             "text/html", "UTF-8", null);
     }
 
@@ -176,6 +203,12 @@ final class AttachedViewChecks {
     private static final class HostClient extends WebViewClient {
         AttachedWebView attachment;
         Runnable finished;
+
+        @Override public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
+            if (!"https://example.com/child".equals(request.getUrl().toString())) return null;
+            byte[] html = START_REPORT.getBytes(StandardCharsets.UTF_8);
+            return new WebResourceResponse("text/html", "UTF-8", new ByteArrayInputStream(html));
+        }
 
         @Override public void onPageStarted(WebView view, String url, Bitmap icon) {
             if (attachment != null) attachment.invalidateNavigation();

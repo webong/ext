@@ -1,0 +1,291 @@
+{
+  "cases": [
+    {
+      "name": "Android start all",
+      "record": {
+        "target": "viewer",
+        "id": "sample",
+        "name": "Sample",
+        "matches": [
+          "https://example.com/*"
+        ],
+        "excludeMatches": [],
+        "source": "// ==UserScript==\n// @run-at document-start\n// @match https://example.com/*\n// ==/UserScript==\nwindow.fixture = true;\n",
+        "revision": "sha256:4ae1fd4e8fa9a171bc03f76755cec330e458ba7c22950c3e7b75eb7b5ced7b12",
+        "enabled": true
+      },
+      "supported": [
+        {
+          "timing": "document-start",
+          "frames": "all"
+        }
+      ],
+      "profile": {
+        "timing": "document-start",
+        "frames": "all"
+      }
+    },
+    {
+      "name": "WebKit end main with URL globs",
+      "record": {
+        "target": "viewer",
+        "id": "sample",
+        "name": "Sample",
+        "matches": null,
+        "excludeMatches": [],
+        "source": "// ==UserScript==\n// @run-at document-end\n// @noframes\n// @include https://example.com/public*\n// @exclude https://example.com/public/private*\n// ==/UserScript==\nwindow.fixture = true;\n",
+        "revision": "sha256:4cedd9e4b3a5b58c3a7c20c8edcf91cc9e735777a920ab5043a44a9b525f3706",
+        "enabled": true
+      },
+      "supported": [
+        {
+          "timing": "document-start",
+          "frames": "all"
+        },
+        {
+          "timing": "document-end",
+          "frames": "main"
+        }
+      ],
+      "profile": {
+        "timing": "document-end",
+        "frames": "main"
+      }
+    },
+    {
+      "name": "exact tuple required",
+      "record": {
+        "target": "viewer",
+        "id": "sample",
+        "name": "Sample",
+        "matches": null,
+        "excludeMatches": [],
+        "source": "// ==UserScript==\n// @run-at document-start\n// @noframes\n// @include https://example.com/*\n// ==/UserScript==\nwindow.fixture = true;\n",
+        "revision": "sha256:00d47f6c3933d7f2f4c1fd61d48983b4dd544228a991e167b95553ac62ae2394",
+        "enabled": true
+      },
+      "supported": [
+        {
+          "timing": "document-start",
+          "frames": "all"
+        },
+        {
+          "timing": "document-end",
+          "frames": "main"
+        }
+      ],
+      "error": "unsupported_profile"
+    },
+    {
+      "name": "document-end hook unavailable",
+      "record": {
+        "target": "viewer",
+        "id": "sample",
+        "name": "Sample",
+        "matches": null,
+        "excludeMatches": [],
+        "source": "// ==UserScript==\n// @run-at document-end\n// @noframes\n// @include https://example.com/*\n// ==/UserScript==\nwindow.fixture = true;\n",
+        "revision": "sha256:34f8580beabb7a3c1bdc8887af2f22bfecc5e132beb5be41defa6e7d66751e15",
+        "enabled": true
+      },
+      "supported": [
+        {
+          "timing": "document-start",
+          "frames": "main"
+        }
+      ],
+      "error": "unsupported_profile"
+    },
+    {
+      "name": "document-idle hook unavailable",
+      "record": {
+        "target": "viewer",
+        "id": "sample",
+        "name": "Sample",
+        "matches": null,
+        "excludeMatches": [],
+        "source": "// ==UserScript==\n// @run-at document-idle\n// @include https://example.com/*\n// ==/UserScript==\nwindow.fixture = true;\n",
+        "revision": "sha256:d3b090b8436bf5106da19db2f131a93d6462ec9cb69c61070a5054540b6df6a4",
+        "enabled": true
+      },
+      "supported": [
+        {
+          "timing": "document-start",
+          "frames": "all"
+        },
+        {
+          "timing": "document-end",
+          "frames": "main"
+        }
+      ],
+      "error": "unsupported_profile"
+    },
+    {
+      "name": "start hook unavailable",
+      "record": {
+        "target": "viewer",
+        "id": "sample",
+        "name": "Sample",
+        "matches": null,
+        "excludeMatches": [],
+        "source": "// ==UserScript==\n// @run-at document-start\n// @include https://example.com/*\n// ==/UserScript==\nwindow.fixture = true;\n",
+        "revision": "sha256:0cc16973468b78737050e8fac01a28625d0293011ee969eb2187402798fe0d98",
+        "enabled": true
+      },
+      "supported": [],
+      "error": "unsupported_profile"
+    },
+    {
+      "name": "updated timing requires a new revision",
+      "record": {
+        "target": "viewer",
+        "id": "sample",
+        "name": "Sample",
+        "matches": null,
+        "excludeMatches": [],
+        "source": "// ==UserScript==\n// @run-at document-start\n// @include https://example.com/*\n// ==/UserScript==\nwindow.fixture = true;\n",
+        "revision": "sha256:0cc16973468b78737050e8fac01a28625d0293011ee969eb2187402798fe0d98",
+        "enabled": true
+      },
+      "supported": [
+        {
+          "timing": "document-start",
+          "frames": "all"
+        },
+        {
+          "timing": "document-end",
+          "frames": "main"
+        }
+      ],
+      "error": "revision_mismatch",
+      "changedSource": "// ==UserScript==\n// @run-at document-end\n// @include https://example.com/*\n// ==/UserScript==\nwindow.fixture = true;\n"
+    },
+    {
+      "name": "updated exclude requires a new revision",
+      "record": {
+        "target": "viewer",
+        "id": "sample",
+        "name": "Sample",
+        "matches": null,
+        "excludeMatches": [],
+        "source": "// ==UserScript==\n// @run-at document-start\n// @include https://example.com/*\n// @exclude https://example.com/private*\n// ==/UserScript==\nwindow.fixture = true;\n",
+        "revision": "sha256:b2fdd18a9ac13b93a5239b14ddd110ad550757059c6f395c6a32ad1af3f873a0",
+        "enabled": true
+      },
+      "supported": [
+        {
+          "timing": "document-start",
+          "frames": "all"
+        }
+      ],
+      "error": "revision_mismatch",
+      "changedSource": "// ==UserScript==\n// @run-at document-start\n// @include https://example.com/*\n// @exclude https://example.com/internal*\n// ==/UserScript==\nwindow.fixture = true;\n"
+    },
+    {
+      "name": "source and record match mismatch",
+      "record": {
+        "target": "viewer",
+        "id": "sample",
+        "name": "Sample",
+        "matches": [
+          "https://example.com/only*"
+        ],
+        "excludeMatches": [],
+        "source": "// ==UserScript==\n// @run-at document-start\n// @match https://example.com/*\n// ==/UserScript==\nwindow.fixture = true;\n",
+        "revision": "sha256:cfd09d88aec93108b5fd0360ffab50ddd92157ba0d3c7f8cb9276ac738d2de09",
+        "enabled": true
+      },
+      "supported": [
+        {
+          "timing": "document-start",
+          "frames": "all"
+        }
+      ],
+      "error": "match_metadata_mismatch"
+    },
+    {
+      "name": "regular expression include denied",
+      "record": {
+        "target": "viewer",
+        "id": "sample",
+        "name": "Sample",
+        "matches": null,
+        "excludeMatches": [],
+        "source": "// ==UserScript==\n// @run-at document-start\n// @include /.*example.*/\n// ==/UserScript==\nwindow.fixture = true;\n",
+        "revision": "sha256:86e9710e7d0ffb5b558151931bb769b78c52f80a999a85f72370f8cd66b25533",
+        "enabled": true
+      },
+      "supported": [
+        {
+          "timing": "document-start",
+          "frames": "all"
+        }
+      ],
+      "error": "invalid_url_glob"
+    },
+    {
+      "name": "duplicated timing denied",
+      "record": {
+        "target": "viewer",
+        "id": "sample",
+        "name": "Sample",
+        "matches": null,
+        "excludeMatches": [],
+        "source": "// ==UserScript==\n// @run-at document-start\n// @run-at document-end\n// @include https://example.com/*\n// ==/UserScript==\nwindow.fixture = true;\n",
+        "revision": "sha256:a1673f67c9142342bf1000b0ad28eaaecc072cf25eb6b11d83323b5adc5b5fef",
+        "enabled": true
+      },
+      "supported": [
+        {
+          "timing": "document-start",
+          "frames": "all"
+        },
+        {
+          "timing": "document-end",
+          "frames": "main"
+        }
+      ],
+      "error": "ambiguous_metadata"
+    },
+    {
+      "name": "privileged grant denied",
+      "record": {
+        "target": "viewer",
+        "id": "sample",
+        "name": "Sample",
+        "matches": null,
+        "excludeMatches": [],
+        "source": "// ==UserScript==\n// @run-at document-start\n// @grant GM_xmlhttpRequest\n// @include https://example.com/*\n// ==/UserScript==\nwindow.fixture = true;\n",
+        "revision": "sha256:66858ead2c7cf1f57ebc03385324f1c5dcbc6da0bbdc985f7e3e1f730a95e2ad",
+        "enabled": true
+      },
+      "supported": [
+        {
+          "timing": "document-start",
+          "frames": "all"
+        }
+      ],
+      "error": "unsupported_grant"
+    },
+    {
+      "name": "missing timing denied",
+      "record": {
+        "target": "viewer",
+        "id": "sample",
+        "name": "Sample",
+        "matches": null,
+        "excludeMatches": [],
+        "source": "// ==UserScript==\n// @include https://example.com/*\n// ==/UserScript==\nwindow.fixture = true;\n",
+        "revision": "sha256:d5f18fdccebb0174831bcccb73a81d9add2194beeb64a69732ca02c955ba9d51",
+        "enabled": true
+      },
+      "supported": [
+        {
+          "timing": "document-start",
+          "frames": "all"
+        }
+      ],
+      "error": "unsupported_run_at"
+    }
+  ]
+}

@@ -43,6 +43,37 @@ private func code(_ body: () throws -> Void) -> String {
 }
 
 final class UserscriptFixtureTests: XCTestCase {
+    func testWebViewProfiles() throws {
+        struct Profile: Decodable {
+            var timing: WebViewUserscripts.Timing
+            var frames: WebViewUserscripts.Frames
+            var value: WebViewUserscripts.Profile { .init(timing: timing, frames: frames) }
+        }
+        struct Case: Decodable {
+            var name: String
+            var record: UserscriptRecord
+            var supported: [Profile]
+            var profile: Profile?
+            var changedSource: String?
+            var error: String?
+        }
+        struct File: Decodable { var cases: [Case] }
+        let file: File = try Fixtures.load("userscript/webview-v1/cases.json")
+        XCTAssertFalse(file.cases.isEmpty)
+        for fixture in file.cases {
+            var record = fixture.record
+            XCTAssertEqual(WebViewUserscripts.revision(of: record), record.revision, fixture.name)
+            XCTAssertNotEqual(Userscript.revision(of: record), record.revision, fixture.name)
+            if let changed = fixture.changedSource { record.source = changed }
+            let actual = code {
+                let prepared = try WebViewUserscripts.prepare([record], target: "viewer",
+                    supported: fixture.supported.map(\.value))
+                XCTAssertEqual(prepared.map(\.profile), fixture.profile.map { [$0.value] } ?? [], fixture.name)
+            }
+            XCTAssertEqual(actual, fixture.error ?? "", fixture.name)
+        }
+    }
+
     func testMatchPatterns() throws {
         struct Case: Decodable { var name: String; var pattern: String; var valid: Bool; var error: String? }
         struct File: Decodable { var cases: [Case] }

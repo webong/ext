@@ -11,7 +11,7 @@ import (
 	"sync"
 )
 
-// A Copy is a built C shared library a program carries in its binary, as the package ext-go fetch
+// A Copy is a built C shared library a program carries in its binary, as the package ext lib fetch
 // writes for the purego driver embeds it: its file name, its bytes and their SHA-256.
 type Copy struct {
 	File   string
@@ -25,7 +25,7 @@ var provided sync.Map // library -> Copy
 var ErrNotProvided = errors.New("no copy of this library is provided")
 
 // Provide records the copy of library (its C prefix, such as ext_plugin) this program carries. The
-// package ext-go fetch writes calls it from init; a second, different copy of the same library is
+// package ext lib fetch writes calls it from init; a second, different copy of the same library is
 // a build mistake and panics.
 func Provide(library string, c Copy) {
 	if previous, loaded := provided.LoadOrStore(library, c); loaded && previous.(Copy).SHA256 != c.SHA256 {

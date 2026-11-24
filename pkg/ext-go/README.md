@@ -37,7 +37,7 @@ Go host over lib/plugin's library interface (`ext_plugin_open`, `_call`, `_close
 four functions as a `clib.Library`. For purego that is `cengine/library`:
 
 ```go
-lib, err := library.OpenProvided(clib.Prefix, "") // the copy ext-go fetch embeds; or library.Open(path)
+lib, err := library.OpenProvided(clib.Prefix, "") // the copy ext lib fetch embeds; or library.Open(path)
 if err != nil { ... }
 ext, err := library.BindInterface(lib, clib.Prefix, clib.ABIVersion)
 if err != nil { ... }

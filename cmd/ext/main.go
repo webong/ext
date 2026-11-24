@@ -1,4 +1,8 @@
 // Command ext runs ctx, ctn and any other registered command.
+//
+// A Go project that uses ext-go adds ext as a tool for the build-time steps (go get -tool
+// github.com/webong/ext/cmd/ext) and runs "go tool ext lib fetch" and "go tool ext lib bind" from go
+// generate; ext-go itself has no command.
 package main
 
 import (
@@ -11,6 +15,7 @@ import (
 	"github.com/webong/ext/cmd/ext/internal/config"
 	"github.com/webong/ext/cmd/ext/internal/pkgcmd"
 	"github.com/webong/ext/cmd/ext/internal/registry"
+	"github.com/webong/ext/pkg/ext-go/cengine/libcmd"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/host"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/adapter"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/adapter/adaptercmd"
@@ -21,6 +26,7 @@ func main() {
 	reg := registry.New()
 	for _, c := range []registry.Command{
 		{Name: "adapter", Source: registry.Builtin, Version: app.Version, Run: adaptercmd.Run},
+		{Name: "lib", Source: registry.Builtin, Version: app.Version, Run: libcmd.Run},
 	} {
 		if err := reg.Register(c); err != nil {
 			fmt.Fprintln(os.Stderr, "ext:", err)

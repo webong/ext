@@ -173,8 +173,10 @@ there by purego or cgo. `js/wasm` and the architectures purego does not reach ge
    whose MSVC static library cgo cannot link) and attaches it with `<library>.interface.json`. The
    ccgo translations are not published yet: `c2goengine` is laid out as a module, not as the
    translated directory fetch's c2go driver takes.
-5. `cgoengine` stops carrying `_csrc`: its binding compiles against declarations and links the library
-   a project fetched, and `scripts/cgoengine-sync.sh` and the drift test go. `c2goengine` keeps only its
+5. Done for cgoengine: it stops carrying `_csrc`; its binding compiles against the headers and links the
+   library a project fetched, given to cgo as `CGO_CFLAGS` and `CGO_LDFLAGS` (cgo's CFLAGS do not cross
+   packages, so a fetched package cannot give them itself), and `scripts/cgoengine-sync.sh` and the drift
+   test are gone. `c2goengine` keeps only its
    generator, and the committed translations and the translate jobs go; ext's own CI fetches as a project
    does.
 6. `cengine/library`: `Browse`, `Reserve` and `Borrow` for purego at run time, and `Shelve` for the

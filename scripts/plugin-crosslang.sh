@@ -22,6 +22,7 @@ case "${EXT_CROSSLANG_ENGINE:-go}" in
     go_tags=(-tags ext_cengine)
     if [[ "${EXT_CENGINE_LINKAGE:-static}" == shared ]]; then go_tags=(-tags ext_cengine,ext_cengine_shared); fi
     export CGO_LDFLAGS="${CGO_LDFLAGS:-} -L$EXT_CENGINE_BUILD_DIR/release -Wl,-rpath,$EXT_CENGINE_BUILD_DIR/release"
+    export CGO_CFLAGS="${CGO_CFLAGS:-} -I$PWD/lib/plugin/include" # cgoengine carries no headers: point it at the engine's
     ;;
   *) echo 'EXT_CROSSLANG_ENGINE must be go or c' >&2; exit 1 ;;
 esac

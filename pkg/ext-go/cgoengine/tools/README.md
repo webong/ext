@@ -8,9 +8,6 @@ Regenerate with a toolchain whose `unicode.Version` is `17.0.0`:
 go run pkg/ext-go/cgoengine/tools/unicode_lower.go > lib/plugin/src/unicode_lower.h
 ```
 
-Then run `scripts/cgoengine-sync.sh`, which refreshes the copy of the engine this
-module is built from.
-
 The generated table supports locale-independent package-path comparisons.
 Changing its Unicode version is a contract decision: older Go SDK toolchains
 may otherwise accept different case-equivalent paths. The Go distribution's

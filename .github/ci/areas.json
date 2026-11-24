@@ -65,7 +65,6 @@
         "tests/native*_test.sh",
         "tests/windows_native_test.ps1",
         "scripts/build-release*.sh",
-        "scripts/cgoengine-sync.sh",
         "scripts/ci/jobs/native/native.sh",
         "scripts/ci/jobs/native/native-integration.sh"
       ],
@@ -1299,8 +1298,7 @@
             "tests/crosslang/**",
             "scripts/ci/jobs/plugin-sdk/sdk.sh",
             "pkg/ext-go/**",
-            "res/web/host/**",
-            "scripts/cgoengine-sync.sh"
+            "res/web/host/**"
           ],
           "cells": [
             {

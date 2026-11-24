@@ -15,6 +15,7 @@ if [[ "${EXT_INTEROP_ENGINE:-go}" == c ]]; then
   go_tags=(-tags ext_cengine)
   if [[ "${EXT_CENGINE_LINKAGE:-static}" == shared ]]; then go_tags=(-tags ext_cengine,ext_cengine_shared); fi
   export CGO_LDFLAGS="${CGO_LDFLAGS:-} -L$EXT_CENGINE_BUILD_DIR/release -Wl,-rpath,$EXT_CENGINE_BUILD_DIR/release"
+  export CGO_CFLAGS="${CGO_CFLAGS:-} -I$PWD/lib/plugin/include" # cgoengine carries no headers: point it at the engine's
 fi
 export EXT_BRIDGE_REQUIRED=1
 export EXT_BRIDGE_EXECUTABLE="$build_dir/ext-plugin-bridge"

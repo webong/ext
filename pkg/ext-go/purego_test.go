@@ -1,4 +1,4 @@
-package plugin_test
+package plugingo_test
 
 import (
 	"context"
@@ -12,7 +12,9 @@ import (
 
 	engine "github.com/webong/ext/pkg/ext-go/engine/plugin"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/transport/jsonline"
-	"github.com/webong/ext/pkg/ext-go/plugin"
+	"github.com/webong/ext/pkg/ext-go/cengine/library"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/clib"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/plugintest/enginetest"
 )
 
 // pureGoGuestEnv makes the test binary the guest of the purego tests.
@@ -66,36 +68,66 @@ func servePureGoGuest() int {
 	return 0
 }
 
-func pureGoEngine(t *testing.T) plugin.Engine {
+func TestMain(m *testing.M) {
+	enginetest.MaybeServeGuest()
+	if os.Getenv(pureGoGuestEnv) != "" {
+		os.Exit(servePureGoGuest())
+	}
+	os.Exit(m.Run())
+}
+
+// pureGo is lib/plugin's library interface through purego: EXT_PLUGIN_LIBRARY names a built
+// libext_plugin_host, which scripts/plugin-engine-test.sh sets.
+func pureGo(t *testing.T) clib.Library {
 	t.Helper()
-	e, err := plugin.Get(plugin.PureGo)
+	path := os.Getenv("EXT_PLUGIN_LIBRARY")
+	if path == "" || !library.Supported() {
+		t.Skip("set EXT_PLUGIN_LIBRARY to a built lib/plugin shared library")
+	}
+	lib, err := library.Open(path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !e.Available() {
-		t.Skip("set EXT_PLUGIN_LIBRARY to a built lib/plugin shared library")
+	ifc, err := library.BindInterface(lib, clib.Prefix, clib.ABIVersion)
+	if err != nil {
+		t.Fatal(err)
 	}
-	return e
+	return ifc
 }
 
-func pureGoLaunch(t *testing.T) plugin.Launch {
+// TestPureGoAgreesWithTheOracle holds the binding, on the C engine through purego, to the
+// differential checks cgo and c2go are held to: the services and the process sessions.
+func TestPureGoAgreesWithTheOracle(t *testing.T) {
+	lib := pureGo(t)
+	h := enginetest.Engine{
+		Name:     "purego",
+		Fixtures: "../../lib/plugin/testdata",
+		Call:     func(op string, in json.RawMessage) (json.RawMessage, error) { return clib.Services(lib, op, in) },
+		OpenProcess: func(ctx context.Context, d engine.Descriptor, l enginetest.Launch, o engine.Options) (enginetest.Session, error) {
+			s, err := clib.OpenProcess(ctx, lib, d, clib.Launch{Executable: l.Executable, Environment: l.Environment}, o)
+			if err != nil {
+				return nil, err
+			}
+			return s, nil
+		},
+	}
+	for _, c := range enginetest.Checks() {
+		t.Run(c.Name, func(t *testing.T) { c.Run(t, h) })
+	}
+}
+
+func pureGoLaunch(t *testing.T) clib.Launch {
 	t.Helper()
 	exe, err := os.Executable()
 	if err != nil {
 		t.Fatal(err)
 	}
-	return plugin.Launch{Executable: exe, Environment: []string{pureGoGuestEnv + "=1"}}
+	return clib.Launch{Executable: exe, Environment: []string{pureGoGuestEnv + "=1"}}
 }
 
 func TestPureGoRunsProgressAndReverseCalls(t *testing.T) {
-	e := pureGoEngine(t)
-	if !e.Features().Has(plugin.Services | plugin.Sessions | plugin.Progress | plugin.Reverse) {
-		t.Fatalf("purego features: %s", e.Features())
-	}
-	if e.Features().Has(plugin.Backends) {
-		t.Fatalf("purego cannot run a Go backend: %s", e.Features())
-	}
-	if out, err := e.Call("descriptor.validate", mustJSON(t, pureGoDescriptor())); err != nil {
+	lib := pureGo(t)
+	if out, err := clib.Services(lib, "descriptor.validate", mustJSON(t, pureGoDescriptor())); err != nil {
 		t.Fatalf("descriptor.validate: %s, %v", out, err)
 	}
 	var mu sync.Mutex
@@ -103,7 +135,7 @@ func TestPureGoRunsProgressAndReverseCalls(t *testing.T) {
 	var observed []string
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
-	s, err := e.OpenProcess(ctx, pureGoDescriptor(), pureGoLaunch(t), engine.Options{
+	s, err := clib.OpenProcess(ctx, lib, pureGoDescriptor(), pureGoLaunch(t), engine.Options{
 		Verify: func(_ context.Context, d engine.Descriptor) error {
 			mu.Lock()
 			defer mu.Unlock()
@@ -145,8 +177,8 @@ func TestPureGoRunsProgressAndReverseCalls(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if s.Engine() != plugin.PureGo || s.State() != engine.StateReady {
-		t.Fatalf("session on %s in state %s", s.Engine(), s.State())
+	if s.State() != engine.StateReady {
+		t.Fatalf("session in state %s", s.State())
 	}
 
 	var events []engine.Progress
@@ -207,9 +239,9 @@ func TestPureGoRunsProgressAndReverseCalls(t *testing.T) {
 }
 
 func TestPureGoReturnsTheVerifyPolicysError(t *testing.T) {
-	e := pureGoEngine(t)
+	lib := pureGo(t)
 	refused := errors.New("not reviewed")
-	_, err := e.OpenProcess(context.Background(), pureGoDescriptor(), pureGoLaunch(t), engine.Options{
+	_, err := clib.OpenProcess(context.Background(), lib, pureGoDescriptor(), pureGoLaunch(t), engine.Options{
 		Verify:    func(context.Context, engine.Descriptor) error { return refused },
 		Authorize: func(context.Context, engine.Request) error { return nil },
 	})
@@ -218,16 +250,19 @@ func TestPureGoReturnsTheVerifyPolicysError(t *testing.T) {
 	}
 }
 
-func TestPureGoRefusesWhatItCannotRun(t *testing.T) {
-	e := pureGoEngine(t)
-	if _, err := e.Open(context.Background(), pureGoDescriptor(), engine.Options{}); !errors.Is(err, engine.ErrUnsupported) {
-		t.Errorf("Open over a Go backend: %v", err)
-	}
-	if _, err := e.OpenProcess(context.Background(), pureGoDescriptor(), pureGoLaunch(t), engine.Options{}); !errors.Is(err, engine.ErrDenied) {
+func TestPureGoRefusesASessionWithoutPolicies(t *testing.T) {
+	lib := pureGo(t)
+	if _, err := clib.OpenProcess(context.Background(), lib, pureGoDescriptor(), pureGoLaunch(t), engine.Options{}); !errors.Is(err, engine.ErrDenied) {
 		t.Errorf("OpenProcess without policies: %v", err)
 	}
-	if _, err := plugin.Choose(plugin.PureGo, plugin.Backends); !errors.Is(err, engine.ErrUnsupported) {
-		t.Errorf("Choose(purego, backends): %v", err)
+	refused := []engine.Requirement{{Contract: engine.ContractRef{Name: "other.contract", Version: "v1"}, Operation: "run"}}
+	_, err := clib.OpenProcess(context.Background(), lib, pureGoDescriptor(), pureGoLaunch(t), engine.Options{
+		Verify:       func(context.Context, engine.Descriptor) error { return nil },
+		Authorize:    func(context.Context, engine.Request) error { return nil },
+		Requirements: refused,
+	})
+	if !errors.Is(err, engine.ErrNotFound) {
+		t.Errorf("a descriptor that does not meet the requirements: %v", err)
 	}
 }
 

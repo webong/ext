@@ -1,4 +1,4 @@
-package plugin
+package clib
 
 import (
 	"context"
@@ -9,21 +9,36 @@ import (
 	"sync"
 	"time"
 
-	"github.com/webong/ext/pkg/ext-go/cengine/library"
 	engine "github.com/webong/ext/pkg/ext-go/engine/plugin"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/endpoint"
 )
 
-// This file is the Go binding of lib/plugin's library interface (ext_plugin_open, _call and _close;
-// lib/plugin/include/ext_plugin_host.h). The rules are the C engine's: the binding only turns Go
-// values into the interface's JSON and back, and a Go policy, observer or reverse handler into the
-// answer to an event, through cengine/library.ServeEvents.
+// Prefix and ABIVersion name the library interface this package speaks: ext_plugin at
+// EXT_PLUGIN_ABI_VERSION. A driver binds them (cengine/library.BindInterface(lib, Prefix, ABIVersion)).
+const (
+	Prefix     = "ext_plugin"
+	ABIVersion = 1
+)
 
-// calls is lib/plugin's library interface, however a driver reaches it.
-type calls interface {
-	library.Caller
+// A Library is lib/plugin's library interface, however a driver reaches it: cengine/library's
+// *Interface for purego. Its errors carry the library's code names (Coded).
+type Library interface {
+	Caller
 	Open(config []byte) (uint64, error)
 	Close(handle uint64) error
+}
+
+// Launch starts a reviewed executable as the plugin's child process, the way an installed package is
+// run. The engine checks it: Executable must be the absolute path of a regular file, and the host
+// environment is never inherited (Environment entries are added to a scrubbed base of PATH).
+type Launch struct {
+	Executable  string
+	Arguments   []string
+	Environment []string
+	// Directory is the child's working directory; empty inherits the host's.
+	Directory string
+	// StderrBytes bounds the retained stderr; zero retains 4096 bytes.
+	StderrBytes int
 }
 
 // codeErrors are the engine errors lib/plugin's code names stand for.
@@ -36,22 +51,15 @@ var codeErrors = map[string]error{
 
 // engineError gives a code the library returned the engine error it stands for.
 func engineError(err error) error {
-	if name := codeName(err); codeErrors[name] != nil {
+	if name := CodeName(err); codeErrors[name] != nil {
 		return fmt.Errorf("%w: %w", err, codeErrors[name])
 	}
 	return err
 }
 
-func codeName(err error) string {
-	var code *library.CodeError
-	if errors.As(err, &code) {
-		return code.Name
-	}
-	return ""
-}
-
-// interfaceServices runs one of the engine's pure services on handle 0.
-func interfaceServices(c calls, operation string, input json.RawMessage) (json.RawMessage, error) {
+// Services runs one of the engine's pure services (lib/plugin/services.md) on handle 0. No plugin
+// is executed.
+func Services(c Library, operation string, input json.RawMessage) (json.RawMessage, error) {
 	if len(input) == 0 {
 		input = json.RawMessage("{}")
 	}
@@ -74,9 +82,9 @@ func callTimeout(ctx context.Context, timeout time.Duration) uint64 {
 	return uint64(min(max(timeout.Milliseconds(), 1), math.MaxUint32))
 }
 
-// openInterfaceSession admits d over a child process the engine starts, through c. A nil Go policy
-// is a denial; everything else the engine checks.
-func openInterfaceSession(ctx context.Context, name Name, c calls, d engine.Descriptor, launch Launch, options engine.Options) (Session, error) {
+// OpenProcess admits d over a child process the engine starts, through c; options.Connect is unused.
+// A nil Go policy is a denial; everything else the engine checks.
+func OpenProcess(ctx context.Context, c Library, d engine.Descriptor, launch Launch, options engine.Options) (*Session, error) {
 	if options.Verify == nil || options.Authorize == nil || (options.Reverse != nil && (options.Reverse.Handle == nil || options.Reverse.Authorize == nil)) {
 		return nil, engine.ErrDenied
 	}
@@ -118,9 +126,9 @@ func openInterfaceSession(ctx context.Context, name Name, c calls, d engine.Desc
 	if err != nil {
 		return nil, engineError(err)
 	}
-	s := &interfaceSession{name: name, c: c, handle: handle, descriptor: d.Clone(), options: options,
+	s := &Session{c: c, handle: handle, descriptor: d.Clone(), options: options,
 		base: context.WithoutCancel(ctx), done: make(chan struct{})}
-	s.events = library.ServeEvents(c, handle, s.answer, s.notify)
+	s.events = ServeEvents(c, handle, s.answer, s.notify)
 	start, _ := json.Marshal(map[string]any{"timeout_ms": callTimeout(ctx, options.Timeout)})
 	_, err = c.Call(handle, "start", start)
 	if options.Observer != nil {
@@ -131,7 +139,7 @@ func openInterfaceSession(ctx context.Context, name Name, c calls, d engine.Desc
 		verifyErr := s.verifyErr
 		s.mu.Unlock()
 		_ = s.Abort()
-		if verifyErr != nil && codeName(err) == "denied" {
+		if verifyErr != nil && CodeName(err) == "denied" {
 			return nil, verifyErr
 		}
 		return nil, engineError(err)
@@ -139,15 +147,15 @@ func openInterfaceSession(ctx context.Context, name Name, c calls, d engine.Desc
 	return s, nil
 }
 
-// interfaceSession is a session behind a host handle of the library interface.
-type interfaceSession struct {
-	name       Name
-	c          calls
+// Session is a session behind a host handle of the library interface. Progress events do not say
+// which call they belong to, so it runs one call with progress at a time.
+type Session struct {
+	c          Library
 	handle     uint64
 	descriptor engine.Descriptor
 	options    engine.Options
 	base       context.Context
-	events     *library.Events
+	events     *Events
 
 	// progress allows one call with progress at a time: the engine's progress events do not say
 	// which call they belong to.
@@ -164,7 +172,7 @@ type interfaceSession struct {
 
 // notify delivers the events that ask nothing: progress to the call in flight, observer events to
 // the observer.
-func (s *interfaceSession) notify(e library.Event) {
+func (s *Session) notify(e Event) {
 	switch e.Kind {
 	case "progress":
 		var p engine.Progress
@@ -199,7 +207,7 @@ func (s *interfaceSession) notify(e library.Event) {
 }
 
 // answer answers an event that asks with the Go policy or handler for it; nil is a denial.
-func (s *interfaceSession) answer(e library.Event) map[string]any {
+func (s *Session) answer(e Event) map[string]any {
 	if e.Kind == "verify" {
 		var d engine.Descriptor
 		err := engine.Decode(e.Data, &d)
@@ -243,11 +251,14 @@ func (s *interfaceSession) answer(e library.Event) map[string]any {
 	return nil
 }
 
-func (s *interfaceSession) Engine() Name                  { return s.name }
-func (s *interfaceSession) Descriptor() engine.Descriptor { return s.descriptor.Clone() }
-func (s *interfaceSession) Done() <-chan struct{}         { return s.done }
+// Descriptor is the admitted plugin's descriptor.
+func (s *Session) Descriptor() engine.Descriptor { return s.descriptor.Clone() }
 
-func (s *interfaceSession) State() engine.State {
+// Done is closed once the session has been closed or aborted.
+func (s *Session) Done() <-chan struct{} { return s.done }
+
+// State is the session's state, as the engine reports it.
+func (s *Session) State() engine.State {
 	out, err := s.c.Call(s.handle, "state", nil)
 	if err != nil {
 		return engine.StateClosed
@@ -265,7 +276,8 @@ func (s *interfaceSession) State() engine.State {
 	return engine.StateFailed
 }
 
-func (s *interfaceSession) Stderr() string {
+// Stderr is the child's retained, bounded and possibly truncated stderr. Treat it as untrusted text.
+func (s *Session) Stderr() string {
 	out, err := s.c.Call(s.handle, "stderr", nil)
 	if err != nil {
 		return ""
@@ -275,11 +287,14 @@ func (s *interfaceSession) Stderr() string {
 	return text
 }
 
-func (s *interfaceSession) Call(ctx context.Context, contract engine.ContractRef, operation string, payload json.RawMessage) (json.RawMessage, error) {
+// Call runs operation on the plugin.
+func (s *Session) Call(ctx context.Context, contract engine.ContractRef, operation string, payload json.RawMessage) (json.RawMessage, error) {
 	return s.call(ctx, contract, operation, payload, nil, engine.ProgressLimits{})
 }
 
-func (s *interfaceSession) CallProgress(ctx context.Context, contract engine.ContractRef, operation string, payload json.RawMessage, onProgress func(engine.Progress), options ...engine.CallOptions) (json.RawMessage, error) {
+// CallProgress is Call for an operation that declares progress: onProgress receives its events,
+// validated and rate-limited by the engine, before CallProgress returns.
+func (s *Session) CallProgress(ctx context.Context, contract engine.ContractRef, operation string, payload json.RawMessage, onProgress func(engine.Progress), options ...engine.CallOptions) (json.RawMessage, error) {
 	var o engine.CallOptions
 	if len(options) > 0 {
 		o = options[0]
@@ -294,7 +309,7 @@ func (s *interfaceSession) CallProgress(ctx context.Context, contract engine.Con
 // an observer, it returns only once every event queued before the call ended has been delivered, so
 // both run before the call returns, as in every other engine. A context that ends first returns at
 // once; the engine finishes the call on its own and its result is dropped.
-func (s *interfaceSession) call(ctx context.Context, contract engine.ContractRef, operation string, payload json.RawMessage, onProgress func(engine.Progress), limits engine.ProgressLimits) (json.RawMessage, error) {
+func (s *Session) call(ctx context.Context, contract engine.ContractRef, operation string, payload json.RawMessage, onProgress func(engine.Progress), limits engine.ProgressLimits) (json.RawMessage, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
@@ -347,13 +362,14 @@ func (s *interfaceSession) call(ctx context.Context, contract engine.ContractRef
 	return response.Payload, nil
 }
 
-func (s *interfaceSession) setProgress(f func(engine.Progress)) {
+func (s *Session) setProgress(f func(engine.Progress)) {
 	s.mu.Lock()
 	s.onProgress = f
 	s.mu.Unlock()
 }
 
-func (s *interfaceSession) Close(ctx context.Context) error {
+// Close drains the session and frees it.
+func (s *Session) Close(ctx context.Context) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
@@ -363,16 +379,17 @@ func (s *interfaceSession) Close(ctx context.Context) error {
 		if s.options.Observer != nil {
 			s.events.Fence()
 		}
-		if name := codeName(err); err != nil && name != "closed" && name != "not_found" {
+		if name := CodeName(err); err != nil && name != "closed" && name != "not_found" {
 			return engineError(err)
 		}
 	}
 	return s.Abort()
 }
 
-func (s *interfaceSession) Abort() error {
+// Abort stops work and frees the session.
+func (s *Session) Abort() error {
 	s.closeOnce.Do(func() {
-		if err := s.c.Close(s.handle); err != nil && codeName(err) != "not_found" {
+		if err := s.c.Close(s.handle); err != nil && CodeName(err) != "not_found" {
 			s.closeErr = engineError(err)
 		}
 		<-s.events.Done()

@@ -1,4 +1,10 @@
-package library
+// Package clib is the Go host over lib/plugin's library interface: ext_plugin_open, _call and
+// _close (lib/plugin/include/ext_plugin_host.h), however a program reaches them. It uses only the
+// standard library and loads nothing: a driver supplies the four functions as a Library, such as
+// cengine/library.BindInterface(lib, "ext_plugin", 1) for purego. The rules are the C engine's; this
+// package turns Go values into the interface's JSON and back, and a Go policy, observer or reverse
+// handler into the answer to an event.
+package clib
 
 import (
 	"encoding/json"
@@ -19,8 +25,7 @@ import (
 // and its events fail with "closed" or "not_found" once it is closed. ServeEvents runs that loop for
 // any such object and knows nothing of what its events mean.
 
-// A Caller runs one operation of a library's interface. *Interface is one; a driver that reaches the
-// same four functions another way (cgo, a translation) supplies its own.
+// A Caller runs one operation of a library's interface, such as cengine/library's *Interface.
 type Caller interface {
 	Call(handle uint64, op string, input []byte) ([]byte, error)
 }
@@ -148,6 +153,22 @@ func (e *Events) Done() <-chan struct{} { return e.done }
 
 // closed reports whether err says the object is gone.
 func closed(err error) bool {
-	var code *CodeError
-	return errors.As(err, &code) && (code.Name == "closed" || code.Name == "not_found")
+	name := CodeName(err)
+	return name == "closed" || name == "not_found"
+}
+
+// A Coded error is a code a library returned, named as the library names it (an identifier, such as
+// not_found). cengine/library's CodeError is one.
+type Coded interface {
+	error
+	CodeName() string
+}
+
+// CodeName is the name of the code err carries, or "" when it carries none.
+func CodeName(err error) string {
+	var code Coded
+	if errors.As(err, &code) {
+		return code.CodeName()
+	}
+	return ""
 }

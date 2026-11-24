@@ -1,4 +1,4 @@
-package library_test
+package clib_test
 
 import (
 	"encoding/json"
@@ -7,14 +7,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/webong/ext/pkg/ext-go/cengine/library"
+	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/clib"
 )
 
-// queue is a library object with events, in Go: what ServeEvents expects of any library.
+// queue is a library object with events, in Go: what ServeEvents expects of any clib.
 type queue struct {
 	mu      sync.Mutex
 	cond    *sync.Cond
-	events  []library.Event
+	events  []clib.Event
 	seq     uint64
 	closed  bool
 	answers map[uint64]string
@@ -26,11 +26,17 @@ func newQueue() *queue {
 	return q
 }
 
+// codeError is a library's code, as cengine/library's CodeError carries it.
+type codeError struct{ name string }
+
+func (e codeError) Error() string    { return "test: " + e.name }
+func (e codeError) CodeName() string { return e.name }
+
 func (q *queue) push(ticket uint64, kind string) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 	q.seq++
-	q.events = append(q.events, library.Event{Seq: q.seq, Ticket: ticket, Kind: kind, Data: json.RawMessage(fmt.Sprint(q.seq))})
+	q.events = append(q.events, clib.Event{Seq: q.seq, Ticket: ticket, Kind: kind, Data: json.RawMessage(fmt.Sprint(q.seq))})
 	q.cond.Broadcast()
 }
 
@@ -46,7 +52,7 @@ func (q *queue) Call(_ uint64, op string, input []byte) ([]byte, error) {
 			q.mu.Lock()
 		}
 		if q.closed {
-			return nil, &library.CodeError{Library: "test", Op: op, Code: 5, Name: "closed"}
+			return nil, codeError{"closed"}
 		}
 		out, _ := json.Marshal(q.events)
 		q.events = nil
@@ -59,14 +65,14 @@ func (q *queue) Call(_ uint64, op string, input []byte) ([]byte, error) {
 	case "sequence":
 		return []byte(fmt.Sprint(q.seq)), nil
 	}
-	return nil, &library.CodeError{Library: "test", Op: op, Code: 4, Name: "unsupported"}
+	return nil, codeError{"unsupported"}
 }
 
 func TestServeEventsDeliversInOrderAnswersAndFences(t *testing.T) {
 	q := newQueue()
 	var mu sync.Mutex
 	var notified []string
-	events := library.ServeEvents(q, 1, func(e library.Event) map[string]any {
+	events := clib.ServeEvents(q, 1, func(e clib.Event) map[string]any {
 		switch e.Kind {
 		case "allow":
 			return map[string]any{"allow": true}
@@ -74,7 +80,7 @@ func TestServeEventsDeliversInOrderAnswersAndFences(t *testing.T) {
 			panic("a policy that panics denies")
 		}
 		return nil
-	}, func(e library.Event) {
+	}, func(e clib.Event) {
 		mu.Lock()
 		defer mu.Unlock()
 		notified = append(notified, fmt.Sprintf("%s#%d", e.Kind, e.Seq))

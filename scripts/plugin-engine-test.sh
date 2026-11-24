@@ -92,5 +92,5 @@ echo "== the same API without cgo, served by the pure-Go implementation"
 echo "== the umbrella module (pkg/ext-go), with the purego engine loading the shared engine"
 host_library=$(find "$build/engine" -maxdepth 1 \( -name 'libext_plugin_host.so' -o -name 'libext_plugin_host.dylib' -o -name '*ext_plugin_host*.dll' \) | head -n 1)
 [ -n "$host_library" ] || { echo "no shared host library in $build/engine" >&2; exit 1; }
-(cd pkg/ext-go && EXT_PLUGIN_LIBRARY="$(winpath "$host_library")" go test -count=1 -timeout=10m . ./plugin)
+(cd pkg/ext-go && EXT_PLUGIN_LIBRARY="$(winpath "$host_library")" go test -count=1 -timeout=10m .)
 echo "plugin engine tests passed"

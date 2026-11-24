@@ -54,7 +54,7 @@ and cannot be declared.
 | `device.provider` | `v1` | Cymonkey | in use | Go constants and doc comments in `lib/board/plugin/provider.go` |
 | `display.engine` | `v1` | Cymonkey | in use | Go constants and doc comments in `lib/jangolova/plugin/adapter.go` |
 | `inference.provider` | `v1` | CTN | implemented in CTN | Portable schemas and fixtures in `res/int/inference/testdata/`; Go bridge in `src/ctn/inference` |
-| `model.tensor` | `v1` | CTN | implemented in CTN | JSON request/response fixtures and Go bridge in `src/ctn/model` |
+| `model.tensor` | `v1` | Ext model library | in use | JSON request/response fixtures and Go bridge in `res/int/model/plugin` |
 | `intelligence.perception` | `v1` | CTN | implemented in CTN | JSON fixtures and Go bridge in `src/ctn/perception` |
 | `intelligence.realtime` | `v1` | CTN | implemented in CTN | Session types in `res/int/realtime`, JSON fixtures in `src/ctn/realtime/testdata/v1`, and Go bridge in `src/ctn/realtime` |
 

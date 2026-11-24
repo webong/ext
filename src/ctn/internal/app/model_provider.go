@@ -17,7 +17,7 @@ import (
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/store"
 	hosttrust "github.com/webong/ext/pkg/ext-go/engine/plugin/host/trust"
 	ml "github.com/webong/ext/res/int/model"
-	mlplugin "github.com/webong/ext/src/ctn/model"
+	mlplugin "github.com/webong/ext/res/int/model/plugin"
 )
 
 const modelTrustScope = mlplugin.Protocol

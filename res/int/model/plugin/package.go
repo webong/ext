@@ -1,4 +1,4 @@
-package model
+package modelplugin
 
 import (
 	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"

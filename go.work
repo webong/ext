@@ -49,6 +49,7 @@ use (
 	./pkg/ext-go/wasm
 	./pkg/ext-go/yaegi
 	./res/int
+	./res/int/model/plugin
 	./res/system
 	./res/web/host
 	./src/ctn

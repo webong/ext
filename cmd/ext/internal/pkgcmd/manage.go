@@ -54,7 +54,19 @@ func (m Manager) Run(args []string, stdout, stderr io.Writer) int {
 	case "available", "add", "refresh":
 		fmt.Fprintln(stderr, "ext: legacy catalog activation has moved: use ext source import-catalog <directory>, ext source list, then ext package install --source <name> and explicit ext package trust <id>; source refresh never installs or trusts")
 		return 2
-	case "build", "pack", "index", "test", "doctor":
+	case "index":
+		if len(rest) < 2 {
+			fmt.Fprintln(stderr, "usage: ext package index <output> <archive>...")
+			return 2
+		}
+		digest, err := writeIndex(rest[0], rest[1:])
+		if err != nil {
+			fmt.Fprintln(stderr, "ext: package index:", err)
+			return 1
+		}
+		fmt.Fprintf(stdout, "wrote package index %s\nsha256: %s\n", rest[0], digest)
+		return 0
+	case "build", "pack", "test", "doctor":
 		return (adaptercmd.Options{Name: "ext", Command: "package", Store: m.adapterStore()}).Run(args, stdout, stderr)
 	}
 	if sub == "ls" {

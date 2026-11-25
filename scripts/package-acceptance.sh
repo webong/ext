@@ -79,8 +79,8 @@ resource_cases=()
 if [[ "$(go env GOOS)" != windows ]]; then
   resource_cases=(TestAdapterAcrossProducts/nested-adapter-snapshots TestResourceDiscovery/cancel-list TestResourceDiscovery/cancel-call TestResourceDependencyGraph/cancel-chain)
 fi
-go test ./cmd/ext -run '^(TestEndToEnd|TestAdapterAcrossProducts|TestLegacyAdapterPlan|TestAdapterDependencyPlan|TestProviderThroughCLibrary|TestPackagePlan|TestBundleLifecycle|TestResourceDiscovery|TestResourceDependencyGraph)$' -count=1 -json -timeout=5m | python3 scripts/check-go-test-results.py \
-  TestEndToEnd TestAdapterAcrossProducts TestLegacyAdapterPlan TestAdapterDependencyPlan TestProviderThroughCLibrary \
+go test ./cmd/ext -run '^(TestEndToEnd|TestAdapterAcrossProducts|TestAdapterRegistryRelease|TestLegacyAdapterPlan|TestAdapterDependencyPlan|TestProviderThroughCLibrary|TestPackagePlan|TestBundleLifecycle|TestResourceDiscovery|TestResourceDependencyGraph)$' -count=1 -json -timeout=5m | python3 scripts/check-go-test-results.py \
+  TestEndToEnd TestAdapterAcrossProducts TestAdapterRegistryRelease TestLegacyAdapterPlan TestAdapterDependencyPlan TestProviderThroughCLibrary \
   TestPackagePlan TestBundleLifecycle TestResourceDiscovery TestResourceDependencyGraph TestResourceDependencyGraph/startup-failure ${resource_cases[@]+"${resource_cases[@]}"}
 go test ./cmd/ext/internal/resourcecmd -count=1 -json | python3 scripts/check-go-test-results.py \
   TestCanceledRequestDoesNotOpenStore TestDependencyGrants

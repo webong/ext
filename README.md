@@ -35,6 +35,9 @@ curl -fsSL https://webong.dev/ext/install.sh | sh
 On Windows, download and run [install.ps1](https://webong.dev/ext/install.ps1)
 from PowerShell.
 
+Install adapters from an Ext package source. Each adapter can use any language
+that implements its Ext contract. See [package sources](docs/source-management.md).
+
 ### Discover and invoke plugins
 
 ```sh

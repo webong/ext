@@ -14,6 +14,11 @@ through it. Current adapter management uses `ext package` or `ext ctx adapter`, 
 `pkg/ext-go/engine/plugin/host/adapter/adaptercmd`; `ext ctn adapter ls` is read-only. See
 [adapter management](docs/adr-adapter-management.md).
 
+Adapters may use any language that implements their Ext contract. Release them
+as sealed Ext packages through the package registry. Go modules under `adapters/`
+are for workspace development and carry no new Go release tags. See
+[registry releases](docs/source-management.md#publish-an-adapter-release).
+
 Shared libraries may
 implement portable workflows and utilities, but must not choose native behavior
 by adapter name or supply a browser-specific fallback. Adapters provide that
@@ -227,7 +232,7 @@ independent of backend choice so existing and future plugin implementations can 
 Product adapter engines and stores that are reused across adapters
 (`adapters/chromium` module, engine code in `adapters/chromium/engine`, `adapters/firefox/engine`, `adapters/safari/native`,
 `adapters/keychain/store`, `adapters/credman/store`, and
-`adapters/secret_service/store`) are their own Go modules, listed in `go.work`.
+`adapters/secret_service/store`) live in adapter Go modules listed in `go.work`.
 ctx does not import them: it loads adapters as installed ext packages. Product adapter
 executables use the same plugin library. `pkg/ext-go/engine` owns the
 adapter process protocol and adapter descriptor helpers (`engine/plugin/host/adapter`), and holds the pure-Go package store and host (`engine/plugin/host`, `engine/plugin/host/store`). Adapters and other Go

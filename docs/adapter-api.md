@@ -797,7 +797,7 @@ digests or are not listed, and checksum mismatches.
 It installs the package untrusted; review it and run `ext package trust <name>`
 before using it.
 
-Go authors can use the public `github.com/webong/ext/pkg/ext-go` package to parse
+Go authors can use the public `github.com/webong/ext/pkg/ext-go/engine/plugin` package to parse
 the versioned process invocation. Browser authors can also import
 `github.com/webong/ext/res/web/host/contract` for the cookie and policy bridge
 types, and `github.com/webong/ext/res/web/host/manage/guest` for serving helpers, while
@@ -835,13 +835,12 @@ adapter. An adapter written in another language can prepare a package directory
 and use `ext package pack` without Go. `pack` seals and includes every regular file in the
 given directory, so use a directory containing only runtime files.
 
-Publishers may provide a `.ctxadapter.json` index so users need one install
-reference across platforms. Each package entry includes its own SHA-256 digest;
-an HTTPS index itself also requires `--sha256` on install. Relative package URLs
-are resolved against the index URL. Place the platform archives in one directory
-and run `ext adapter index ./dist/example.ctxadapter.json ./dist/example-*.ctxadapter`
-to generate the index and its package checksums. The command prints the index
-SHA-256 to give installers out of band.
+The registry serves a package index with one SHA-256-pinned archive per target.
+Place the platform archives in one directory and run
+`ext package index ./dist/index.json ./dist/example-*.ctxadapter` to generate
+an index, or use the [release script](source-management.md#publish-an-adapter-release)
+to publish it alongside the versioned archives. Relative package URLs resolve
+against the index URL.
 
 ~~~json
 {
@@ -855,7 +854,8 @@ SHA-256 to give installers out of band.
 ~~~
 
 ~~~sh
-ext package install https://example.com/example.ctxadapter.json --sha256 "$INDEX_SHA256"
+ext source add example https://registry.example.org/example/index.json
+ext package install --source example
 ext package trust example
 ~~~
 

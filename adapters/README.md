@@ -8,12 +8,13 @@ Go authors can use `ParseAdapterInvocation` from
 `github.com/webong/ext/pkg/ext-go/engine/plugin`. Ship a platform-specific `.ctxadapter`
 archive with its executable and runtime assets.
 
-`ext` is the main installer: use `ext package install` for adapters today,
-and `ext package build` for Go source builds. Standalone `ctx adapter`
-provides the same management commands. CTX and CTN consume the capabilities
-available to them from the shared adapter home, including when running
-standalone; `ctn adapter ls` is read-only. An adapter can serve both products.
-See [adapter management](../docs/adr-adapter-management.md).
+Adapters ship through the Ext package registry. Register a package index with
+`ext source add` and install it with `ext package install --source <name>`.
+Authors can use `ext package build` for Go or `ext package pack` for a prepared
+runtime directory. Go adapter modules are for workspace development. CTX and
+CTN consume installed capabilities from the shared package store, and
+`ext ctn adapter ls` is read-only. See [registry releases](../docs/source-management.md#publish-an-adapter-release)
+and [adapter management](../docs/adr-adapter-management.md).
 
 `docker`, `podman`, `nerdctl`, and `apple` are maintained manager providers.
 Their manifests declare `runtime = "manager"` and `surfaces = "shell"`;

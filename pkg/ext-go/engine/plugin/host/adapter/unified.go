@@ -441,6 +441,10 @@ func Seal(directory string, target Target) (packagekit.Manifest, error) {
 	for _, entry := range pm.Entrypoints {
 		launchers[entry.Artifact] = true
 	}
+	roots := ""
+	if len(pm.Entrypoints) == 0 {
+		roots = metadataProgramRoots(pm)
+	}
 	declared := map[string]bool{strings.ToLower(ManifestFileName): true}
 	var trees []string
 	for i := range pm.Artifacts {
@@ -464,7 +468,7 @@ func Seal(directory string, target Target) (packagekit.Manifest, error) {
 		if err != nil {
 			return pm, fmt.Errorf("artifact %s: %w", artifact.Name, err)
 		}
-		if launchers[artifact.Name] {
+		if launchers[artifact.Name] || artifact.Path == roots {
 			artifact.OS, artifact.Arch = target.OS, target.Arch
 		}
 	}
@@ -514,8 +518,8 @@ func Seal(directory string, target Target) (packagekit.Manifest, error) {
 				revisionPath = artifact.Path
 			}
 		}
-	case metadataProgramRoots(pm) != "":
-		revisionPath = metadataProgramRoots(pm)
+	case roots != "":
+		revisionPath = roots
 	default:
 		return pm, errors.New("adapter declares no executable")
 	}

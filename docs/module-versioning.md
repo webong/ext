@@ -1,6 +1,6 @@
 # Module versioning
 
-Every module in this repository is published independently and versions on its
+Every published Go library module versions independently on its
 own `MAJOR.MINOR.PATCH`. Go's semantic import versioning means a module path is
 only retrievable at a `vN` prefix matching its major version, so the path
 `github.com/webong/ext/pkg/plugin` is served from tags named
@@ -8,7 +8,7 @@ only retrievable at a `vN` prefix matching its major version, so the path
 
 ## Shared major version
 
-All modules share one `MAJOR` version. The repository is a single product with a
+Published Go modules share one `MAJOR` version. The repository is a single product with a
 single compatibility promise, and adapters and other
 consumers depend on several modules at once.
 
@@ -31,8 +31,9 @@ function. Bump `MAJOR` for a breaking API change, which bumps every module.
 
 ## Tagging
 
-Tag each module separately at its own version. Never tag a module you did not
-change.
+Tag each published Go module separately at its own version when it changes.
+Existing `adapters/<name>/vX.Y.Z` tags are historical. New adapter releases use
+[the Ext package registry](source-management.md#publish-an-adapter-release).
 
 ```bash
 # fix in one module only
@@ -65,7 +66,9 @@ The product libraries `src/ctx`, `src/ctn` and `src/cto` use module paths that
 match their directories (`github.com/webong/ext/src/<name>`). They carry no
 `replace` directives, so other Go projects can resolve them after their module
 versions and dependencies are published. The workspace resolves local edits.
-Adapters are ext packages that CTX loads, not Go imports. The Go
+Ext products load adapters as installed Ext packages. Any language that
+implements the Ext contract can supply an adapter. Go adapter modules build
+in the workspace, including when adapters share implementation code. The Go
 teaching examples live under root `examples/` (for example `examples/plugins/go`)
 in their own unpublished modules listed in `go.work`. Conformance examples stay
 with their libraries. Example modules are never tagged or published. The repository root is not a module: it
@@ -766,7 +769,8 @@ awk, sed and Go, and run from a clean checkout on macOS and Linux. Each starts w
 checks. They take a **versions file** of `module version` lines (the module is a directory relative to the
 repository root, for example `pkg/plugin-go/contract v0.4.0`; `#` starts a comment).
 
-1. **Scope.** Tag a module only if its own bytes changed, plus a thin umbrella whose `go.mod` must pin the
+1. **Scope.** Include only published Go modules in the versions file. Adapter
+   modules ship through the Ext package registry. Tag a module only if its own bytes changed, plus a thin umbrella whose `go.mod` must pin the
    modules that did. A module whose bytes did not change keeps its tag and keeps working. Choose a minor
    version for new API or a behavioural break (this is 0.x), a patch otherwise.
 2. **Layers.** `scripts/release-layers.sh VERSIONS` prints the dependency layers: a module sits one layer above

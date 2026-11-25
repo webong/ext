@@ -26,12 +26,17 @@ release_versions() {
     { sub(/#.*/, ""); gsub(/^[ \t]+|[ \t]+$/, "") }
     $0 == "" { next }
     NF != 2 { printf "bad line in %s: %s\n", FILENAME, $0 > "/dev/stderr"; bad = 1; next }
+    $1 ~ /(^\/|\/$|\/\/|(^|\/)\.{1,2}(\/|$))/ { printf "invalid module directory: %s\n", $1 > "/dev/stderr"; bad = 1; next }
+    $1 ~ /^adapters(\/|$)/ { printf "adapter %s ships through the Ext package registry\n", $1 > "/dev/stderr"; bad = 1; next }
     $2 !~ /^v[0-9]+\.[0-9]+\.[0-9]+$/ { printf "not a release version: %s %s\n", $1, $2 > "/dev/stderr"; bad = 1; next }
     seen[$1]++ { printf "listed twice: %s\n", $1 > "/dev/stderr"; bad = 1; next }
     { gomod = root "/" $1 "/go.mod"
       if ((getline line < gomod) < 0) { printf "no go.mod for %s\n", $1 > "/dev/stderr"; bad = 1 }
-      close(gomod); print $1, $2 }
-    END { exit bad }
+      close(gomod); pairs[++count] = $1 " " $2 }
+    END {
+      if (bad) exit 1
+      for (i = 1; i <= count; i++) print pairs[i]
+    }
   ' "$1" || release_die "invalid versions file $1"
 }
 
@@ -40,7 +45,8 @@ release_versions() {
 # the highest listed module it requires. Modules in one layer do not depend on
 # each other, so they can be tagged together, and a layer is tagged and verified
 # before the next one, because the next one records its hashes.
-release_layers() {
+release_layers() (
+  set -o pipefail
   release_versions "$1" | awk -v root="$ROOT" -v prefix="$PREFIX/" '
     { name[NR] = $1; ver[NR] = $2; index_of[$1] = NR; n = NR }
     END {
@@ -68,7 +74,7 @@ release_layers() {
       for (i = 1; i <= n; i++) print level[i] + 0, name[i], ver[i]
     }
   ' | sort -k1,1n -k2,2
-}
+)
 
 # release_workdir [clone] creates a scratch directory holding a bare repository
 # that stands in for the real remote, and a git config that makes the go command

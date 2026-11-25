@@ -212,21 +212,23 @@ func PackageDirectory(directory, output, goos, goarch string) error {
 }
 
 // archiveInfo reads what an index and an installer need from a sealed package:
-// the adapter name and the platform of its launchers. Every launcher must name
-// the same operating system and architecture, because a platform archive holds
-// executables for one.
+// the adapter name and the platform of its launchers or declarative roots file.
 func archiveInfo(pm packagekit.Manifest) (artifactMetadata, error) {
 	info := artifactMetadata{Name: pm.Descriptor.Identity.ID}
 	launchers := map[string]bool{}
 	for _, entry := range pm.Entrypoints {
 		launchers[entry.Artifact] = true
 	}
+	roots := ""
+	if len(pm.Entrypoints) == 0 {
+		roots = metadataProgramRoots(pm)
+	}
 	for _, artifact := range pm.Artifacts {
-		if !launchers[artifact.Name] {
+		if !launchers[artifact.Name] && artifact.Path != roots {
 			continue
 		}
 		if artifact.OS == "" || artifact.Arch == "" {
-			return info, errors.New("adapter package is not a platform package: its executable names no operating system and architecture")
+			return info, errors.New("adapter package names no operating system and architecture")
 		}
 		if info.OS != "" && (info.OS != artifact.OS || info.Arch != artifact.Arch) {
 			return info, errors.New("adapter package mixes platforms")

@@ -4,7 +4,6 @@ import (
 	"archive/zip"
 	"bytes"
 	"crypto/sha256"
-	"encoding/json"
 	"fmt"
 	plugin "github.com/webong/ext/pkg/ext-go/engine/plugin"
 	"github.com/webong/ext/pkg/ext-go/engine/plugin/host/store"
@@ -89,12 +88,9 @@ func TestProviderThroughCLibrary(t *testing.T) {
 		t.Fatalf("failed archive published a package: %v", err)
 	}
 	indexPath := filepath.Join(filepath.Dir(archivePath), "index.json")
-	index := map[string]any{"format_version": 1, "name": "example/provider", "packages": map[string]any{runtime.GOOS + "/" + runtime.GOARCH: map[string]string{"url": "provider.zip", "sha256": pin}}}
-	indexBytes, err := json.Marshal(index)
+	run(ext, 0, "wrote package index", "package", "index", indexPath, archivePath)
+	indexBytes, err := os.ReadFile(indexPath)
 	if err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(indexPath, indexBytes, 0600); err != nil {
 		t.Fatal(err)
 	}
 	run(ext, 0, "add source example", "source", "add", "example", indexPath)

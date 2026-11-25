@@ -29,6 +29,7 @@ func TestStandaloneReleaseGate(t *testing.T) {
 		{"published dependencies", "0", "pkg/consumer", "1", "0", "checked 1 module(s), skipped 0, failed 0", false},
 		{"build failure", "1", "", "1", "1", "FAIL pkg/consumer: go vet", true},
 		{"missing required module", "1", "pkg/missing", "1", "0", "missing go.mod", true},
+		{"adapter explicitly required", "1", "adapters/provider", "1", "0", "adapters ship through the Ext package registry", true},
 		{"example explicitly required", "1", "examples/demo", "1", "0", "test and example modules are never published", true},
 		{"product explicitly required", "1", "cmd/ext", "1", "0", "executable-only module cannot be checked standalone", true},
 	} {
@@ -45,7 +46,7 @@ func TestStandaloneReleaseGate(t *testing.T) {
 				}
 			}
 			write("scripts/check-standalone-modules.sh", string(script), 0755)
-			write("go.work", "use (\n ./pkg/consumer\n ./examples/demo\n)\n", 0644)
+			write("go.work", "use (\n ./pkg/consumer\n ./examples/demo\n ./adapters/provider\n)\n", 0644)
 			write("pkg/consumer/go.mod", "module example.test/consumer\nrequire github.com/webong/ext/pkg/ext-go/engine v0.1.0\n", 0644)
 			write("bin/git", "#!/bin/sh\ncase \"$1\" in\nls-remote) [ \"$TEST_PUBLISHED\" = 1 ] ;;\ntag) exit 0 ;;\n*) exit 2 ;;\nesac\n", 0755)
 			write("bin/go", "#!/bin/sh\nif [ \"$TEST_GO_FAIL\" = 1 ]; then exit 1; fi\nif [ \"$1\" = list ]; then echo example.test/consumer; fi\n", 0755)
@@ -64,5 +65,26 @@ func TestStandaloneReleaseGate(t *testing.T) {
 				t.Fatalf("error = %v, want failure %v and output containing %q; output:\n%s", err, tc.fail, tc.want, out)
 			}
 		})
+	}
+}
+
+func TestGoReleaseRejectsAdapters(t *testing.T) {
+	bash, err := exec.LookPath("bash")
+	if err != nil {
+		t.Skip("bash is required for the Go release script")
+	}
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git is required for the Go release script")
+	}
+	root := repoRoot(t)
+	versions := filepath.Join(t.TempDir(), "versions")
+	if err := os.WriteFile(versions, []byte("res/system v0.1.0\nadapters/chrome v0.1.0\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	cmd := exec.Command(bash, "scripts/release-layers.sh", versions)
+	cmd.Dir = root
+	output, err := cmd.CombinedOutput()
+	if err == nil || !strings.Contains(string(output), "adapter adapters/chrome ships through the Ext package registry") || strings.Contains(string(output), "0 res/system") {
+		t.Fatalf("release layers: error %v, output %s", err, output)
 	}
 }

@@ -44,7 +44,8 @@ rev=$(git -C "$ROOT" rev-parse --verify "$4^{commit}")
 remote=${EXT_RELEASE_REMOTE:-origin}
 url=$(git -C "$ROOT" remote get-url "$remote" 2>/dev/null || echo "$remote")
 
-members=$(release_layers "$versions" | awk -v l="$layer" '$1 == l { print $2, $3 }')
+layers=$(release_layers "$versions")
+members=$(printf '%s\n' "$layers" | awk -v l="$layer" '$1 == l { print $2, $3 }')
 [ -n "$members" ] || release_die "layer $layer is empty"
 
 echo "layer $layer at $(git -C "$ROOT" rev-parse --short "$rev"), remote $url:"

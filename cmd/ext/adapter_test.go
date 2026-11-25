@@ -17,6 +17,78 @@ import (
 	packagekit "github.com/webong/ext/pkg/ext-go/engine/plugin/package"
 )
 
+func TestAdapterRegistryRelease(t *testing.T) {
+	native := os.Getenv("EXT_ACCEPTANCE_LIBRARY")
+	if native == "" {
+		t.Skip("run scripts/package-acceptance.sh for registry release acceptance")
+	}
+	root, err := filepath.Abs("../..")
+	if err != nil {
+		t.Fatal(err)
+	}
+	work := t.TempDir()
+	ext := filepath.Join(work, "ext")
+	if runtime.GOOS == "windows" {
+		ext += ".exe"
+	}
+	goBuild(t, ext, ".")
+	env := append(acceptanceEnv(filepath.Join(work, "home")), "EXT_PLUGIN_LIBRARY="+native)
+	run := func(want string, fail bool, binary string, args ...string) {
+		t.Helper()
+		cmd := exec.Command(binary, args...)
+		cmd.Dir, cmd.Env = work, env
+		out, err := cmd.CombinedOutput()
+		if (err != nil) != fail || !strings.Contains(string(out), want) {
+			t.Fatalf("%s %v: %v, output %q, want %q (failure %t)", binary, args, err, out, want, fail)
+		}
+	}
+	source := filepath.Join(work, "source")
+	if err := os.Mkdir(source, 0700); err != nil {
+		t.Fatal(err)
+	}
+	manifest, err := os.ReadFile(filepath.Join(root, "adapters/nvm/plugin.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(source, "plugin.json"), manifest, 0600); err != nil {
+		t.Fatal(err)
+	}
+	registry := filepath.Join(work, "registry")
+	index := filepath.Join(registry, "nvm", "index.json")
+	archive := filepath.Join(work, "nvm.ctxadapter")
+	foreign := filepath.Join(work, "nvm-foreign.ctxadapter")
+	foreignOS := "linux"
+	if runtime.GOOS == "linux" {
+		foreignOS = "windows"
+	}
+	prepare := func(roots string) {
+		t.Helper()
+		if err := os.WriteFile(filepath.Join(source, "program_roots"), []byte(roots), 0600); err != nil {
+			t.Fatal(err)
+		}
+		run("packed adapter nvm", false, ext, "package", "pack", source, "--output", archive)
+		run("packed adapter nvm", false, ext, "package", "pack", source, "--os", foreignOS, "--arch", "amd64", "--output", foreign)
+	}
+	publish := func(version, want string, fail bool) {
+		t.Helper()
+		run(want, fail, "python3", filepath.Join(root, "scripts/release-adapter.py"), "--ext", ext, registry, version, archive, foreign)
+	}
+	prepare("~/tools/v1/bin\n")
+	publish("1.0.0", index, false)
+	publish("1.0.0", index, false)
+	run("add source nvm", false, ext, "source", "add", "nvm", index)
+	prepare("~/tools/v2/bin\n")
+	publish("1.0.0", "already has different archives", true)
+	publish("2.0.0", index, false)
+	// A cached source must keep resolving its original release after publication.
+	run("installed nvm", false, ext, "package", "install", "--source", "nvm")
+	run("trusted=false", false, ext, "package", "verify", "nvm")
+	run("trusted nvm", false, ext, "package", "trust", "nvm")
+	run("refresh source nvm", false, ext, "source", "refresh", "nvm")
+	run("installed nvm", false, ext, "package", "upgrade", "--source", "nvm")
+	run("trusted=false", false, ext, "package", "verify", "nvm")
+}
+
 // TestAdapterAcrossProducts exercises the ext binary and installed product packages.
 func TestAdapterAcrossProducts(t *testing.T) {
 	native := os.Getenv("EXT_ACCEPTANCE_LIBRARY")

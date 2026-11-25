@@ -271,10 +271,9 @@ missing dependencies, and the native operations they declare.
   in the [process protocol](adapter-api.md#process-protocol).
 - **Graph discovery:** optionally implement
   [machine observation](adapter-api.md#machine-graph-observation).
-- **Distribution:** publish platform archives or generate a `.ctxadapter.json`
-  index. Remote installation requires HTTPS and a supplied SHA-256 digest; the
-  index selects the OS/architecture and pins each archive's digest. See
-  [binary packaging and indexes](adapter-api.md#binary-packages-and-go-builds).
+- **Distribution.** Publish sealed platform archives through a package source.
+  Its index selects the OS and architecture and pins each archive's digest.
+  See [registry releases](source-management.md#publish-an-adapter-release).
 
 Third-party adapters use the same contract as maintained adapters. Direct
 installation does not require adding the adapter to CTX's optional catalog.

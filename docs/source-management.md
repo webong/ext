@@ -85,3 +85,38 @@ invalid catalog or changed package identity leaves the accepted snapshot intact.
 
 The package acceptance runner exercises these rules against controlled TLS
 servers and validates refreshes through the canonical C catalog interface.
+
+## Publish an adapter release
+
+Build each supported target with the adapter's own toolchain. For the
+`ext.adapter/2.0` contract, use `ext package build` for Go or `ext package pack`
+on a prepared runtime directory. Other Ext contracts use the same sealed
+`ext.package/v1` manifest and can ship a ZIP or tar.gz. The manifest must declare
+the target OS and architecture on its platform-specific artifacts. See
+[adapter authoring](adapter-authoring.md).
+
+Run the release script with the registry directory, a release version, and the
+finished archives for one adapter. `ext package index` verifies the archives
+with the native package store and derives the package ID, targets and checksums.
+The script publishes versioned artifacts before updating the current index.
+
+```sh
+python3 scripts/release-adapter.py registry 1.2.0 ./out/my_tool-*.ctxadapter
+```
+
+Serve the registry directory over HTTPS on one origin. For `my_tool`, use
+`my_tool/index.json` to track the current release or
+`my_tool/releases/1.2.0/index.json` to select a specific release. Keep versioned
+directories available so cached source indexes continue to resolve. A namespaced
+package ID such as `example/my_tool` is served at `example~my_tool/index.json`.
+
+```sh
+ext source add my-tool https://registry.example.org/my_tool/index.json
+ext package install --source my-tool
+ext package inspect my_tool
+ext package trust my_tool
+```
+
+To update, run `ext source refresh my-tool` and `ext source inspect my-tool`,
+then `ext package upgrade --source my-tool`. Review and approve changed package
+contents before invoking the adapter.

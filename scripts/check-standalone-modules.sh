@@ -7,7 +7,8 @@
 # published yet (a release in progress) cannot be checked until that tag
 # exists. Skips fail the release gate by default. Development checks can opt in
 # to allowing skips; explicitly selected modules are always required. The
-# executable-only cmd/ext module and unpublished modules under tests/ and examples/ are not checked.
+# executable-only cmd/ext module and workspace modules under adapters/, tests/
+# and examples/ are not checked.
 #
 # Environment:
 #   STANDALONE_OS   operating systems to vet, default "linux darwin windows"
@@ -37,7 +38,13 @@ published() { # <module path without prefix> <version>
 
 failed=0 checked=0 skipped=0
 for dir in $modules; do
-  case $dir in
+  case ${dir#./} in
+    adapters/*)
+      if [ -n "${STANDALONE_ONLY:-}" ]; then
+        echo "FAIL $dir: adapters ship through the Ext package registry"
+        failed=$((failed + 1))
+      fi
+      continue ;;
     cmd/ext)
       if [ -n "${STANDALONE_ONLY:-}" ]; then
         echo "FAIL $dir: executable-only module cannot be checked standalone"
